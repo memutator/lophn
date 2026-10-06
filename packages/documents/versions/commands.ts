@@ -33,7 +33,13 @@ import {
   type RequestContext,
   type Tx,
 } from "../../contracts/platform/mod.ts";
-import { createDocumentNameReservation } from "../addressing/mod.ts";
+import {
+  createDocumentNameReservation,
+  type PlaceRef,
+  SLUG_MAX_LENGTH,
+  slugSchema,
+  suggestName,
+} from "../addressing/mod.ts";
 import { basisChanged } from "../file-tracking/mod.ts";
 import { contentUnchanged, nextVersionNumber } from "./model.ts";
 import {
@@ -253,10 +259,12 @@ function createDocument(
   // 같은 경로에 연결된 문서가 있으면 그 제출은 늦다. 새 문서를 두 번째로 만들지 않는다.
   const linked = newFileSource(tx, prepared);
   if (!linked.ok) return linked;
+  // 프로젝트 폴더에서 관측한 새 문서는 그 프로젝트에 둔다(documents Q31).
+  const placed = observedPlacement(tx, metadata, linked.value);
   const candidate: Document = {
     id: prepared.document,
-    place: metadata.place,
-    name: metadata.name,
+    place: placed.place,
+    name: placed.name,
     title: metadata.title,
     file_source: linked.value,
     latest_version: prepared.document,
@@ -271,8 +279,8 @@ function createDocument(
   const version = mintVersion(tx, ctx, prepared, 1);
   if (!version.ok) return version;
   const createdSeq = tx.emit(documentCreated, prepared.document, {
-    place: metadata.place,
-    name: metadata.name,
+    place: placed.place,
+    name: placed.name,
     title: metadata.title,
     file_source: candidate.file_source,
     version: version.value.id,
@@ -306,6 +314,49 @@ function createDocument(
     if (!joined.ok) return joined;
   }
   return ok(saveResult(document, version.value, savedSeq, prepared));
+}
+
+// 이름을 찾으려고 붙여 보는 숫자의 한도.
+const NAME_ATTEMPTS = 1000;
+
+// 프로젝트 폴더의 파일을 관측해 만든 첫 문서가 자리 없이 왔으면 그 프로젝트를 자리로 하고
+// 이름은 제목(없으면 파일 이름)에서 정한다. 같은 자리의 이름이 이미 쓰이면 `-2`부터 붙인다
+// (이름은 같은 자리에서 유일하고 옛 예약도 다른 대상이 쓸 수 없다, addressing#R2). 호출자가
+// 자리나 이름을 정해 보냈으면 그대로 둔다. 파일이 없는 저장(upload·agent)은 자리를 정하지 않는다
+// (addressing#R3). 지침 파일 문서는 프로젝트 문서가 아니라 그대로 둔다.
+function observedPlacement(
+  tx: Tx,
+  metadata: { place: PlaceRef | null; name: string | null; title: string },
+  linked: FileSource | null,
+): { place: PlaceRef | null; name: string | null } {
+  if (
+    linked === null || linked.kind !== "project_file" ||
+    metadata.place !== null || metadata.name !== null
+  ) return { place: metadata.place, name: metadata.name };
+  const place: PlaceRef = { kind: "project", id: linked.project };
+  const base = suggestName(metadata.title, linked.path);
+  const reservations = createDocumentNameReservation(tx);
+  // 이름이 쓰였는지: 예약 표와 documents 표를 모두 본다. 읽지 못하면 null이다.
+  const taken = (name: string): boolean | null => {
+    const reserved = reservations.get(place, name);
+    if (!reserved.ok) return null;
+    if (reserved.value !== null) return true;
+    return tx.sql.get(
+      "SELECT id FROM documents WHERE place_kind = ? AND place_id = ? AND name = ?",
+      [place.kind, place.id, name],
+    ) !== undefined;
+  };
+  for (let n = 1; n <= NAME_ATTEMPTS; n++) {
+    const suffix = n === 1 ? "" : `-${n}`;
+    const stem = base.slice(0, SLUG_MAX_LENGTH - suffix.length)
+      .replace(/-+$/g, "");
+    const name = slugSchema.parse(`${stem}${suffix}`);
+    const used = taken(name);
+    if (used === null) break;
+    if (!used) return { place, name };
+  }
+  // 이름을 정하지 못하면 자리 없이 둔다. 사람이 나중에 옮긴다.
+  return { place: null, name: null };
 }
 
 // 첫 문서 저장이 파일 관측이면 연결할 FileSource. 관측이 아니면 연결 없음(null)이다.

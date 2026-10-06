@@ -179,7 +179,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 
 ### T10 apps.connect와 runtime client
 
-- 상태: 진행 (#312) — 남은 것: problems collector가 apps.logs에 닿는 contract(Q18, contracts 팀), release 활성화가 `core.reconcileApp`을 부르는 연결(T18)
+- 상태: 완료 (#312)
 - 등급: 기본
 - concern: apps/runtime, apps/permissions
 - 요구: apps/runtime#R9, R32, apps/permissions#R28
@@ -195,8 +195,13 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
   - `runtime-source_test.ts`: 실제 core가 platform 감독 pipe로 실제 supervisor를 띄우고 supervisor가 실제 앱 자식을 띄워 probe·open·record_started, apps.runtime·apps.logs의 실제 source(현재 관측·log 줄 redaction·종료 중 terminating), 사람의 멈춤, core 종료 때 앱 종료, 회수된 credential의 connection이 새 nonce 재시작으로 닫힘
   - `apps/app-supervisor/assembly_test.ts`: 조립한 supervisor가 실제 앱 자식에 probe·open·정지·crash 근거 보고(그 자식의 app credential)·RSS 표본·log 진단 frame·core 끊김 종료를 한다
   - apps#T9에서 넘어온 것: core의 `apps.runtime`·`apps.logs`는 supervisor 메모리를 platform 감독 pipe의 `worker_request`(`apps.observe`·`apps.logs`)로 조회해 reader가 판정한 결과에 현재 관측·log를 덮어 준다. apps/app-supervisor/main.ts는 stdout·stderr `attach`와 `log-redact`, memory·crash observer, `requestStop`의 close·shutdown, `terminating` reason의 RuntimeObservation 변환을 조립한다
-  - problems#T17에서 넘어온 것: collector(machine) credential이 `/v1/settings/get`에는 닿고 `/v1/apps/logs`에는 닿지 못한다. apps.logs route의 actor 목록에 machine이 없다(Q18). 접근이 없으면 로그는 `unavailable` 이유로 남는다
-  - 별도 platform 회수 event는 없다. 소유 event를 구독하는 대신 발급한 connection의 credential 상태와 agent.commands grant를 1초마다 다시 읽어, 닫히거나 줄어든 것의 프로세스를 정지 확인 뒤 새 nonce로 다시 띄운다(Q5, Q19)
+  - problems#T17에서 넘어온 것: collector(machine) credential이 `/v1/settings/get`과, scope가 operation `app.logs`와 대상 앱을 함께 이름 지은 `/v1/apps/logs`에 닿는다. 앱을 이름 짓지 않은 machine 자격과 다른 앱은 없는 앱과 같은 응답이다(`runtime-source_test.ts`가 실제 core에서 collector가 log를 읽는 것을 본다, Q22)
+  - core 서명 key는 `createCoreSigner()` 하나다: AppConnection·confirm proof를 같은 key로 서명하고 앱 시작 입력과 감독 hello의 `verify_key`도 그 key다(`connect_test.ts`가 같은 core의 AppConnection과 proof가 같은 공개 key로 검증되는 것을 본다). 앱 entrypoint는 `control/shutdown`을 받으면 진행 호출이 끝나는 대로 스스로 끝나고(`entrypoint/shutdown_test.ts`) 유예가 지나면 supervisor가 강제 종료한다
+  - 별도 platform 회수 event는 없다. 소유 event를 구독하는 대신 발급한 connection의 credential 상태와 agent.commands grant를 1초마다 다시 읽어, 닫히거나 줄어든 것의 프로세스를 정지 확인 뒤 새 nonce로 다시 띄운다(Q5, Q23)
+  - apps#T9에서 넘어온 것: core의 `apps.runtime`·`apps.logs`는 지금 관측·log source 없이 등록돼(없음·none을 명시) 있으니, supervisor 메모리(관측·`LogBuffer.collect`·memory·crash)를 core가 조회하는 제어 메시지와 source 연결, apps/app-supervisor/main.ts의 조립(stdout·stderr `attach`와 `log-redact`, memory observer와 crash observer 시작, `requestStop`으로 direct 제어의 close·shutdown 호출, 관측의 `terminating` reason을 RuntimeObservation으로 변환)
+  - problems#T17에서 넘어온 것: problems collector가 `/v1/apps/logs`를 credential의 앱·invocation으로 부르고(`packages/problems/snapshots/adapters/core-logs.ts`) `/v1/settings/get`으로 진단 상세 수집 설정을 읽는다. 위 source 연결이 끝나면 collector credential이 두 route에 닿는지(authorizeApp의 collector 접근, scope operation `app.logs`·`GetSettings`)를 확인하고, 접근이 없으면 로그는 `unavailable` 이유로 남는다
+  - 별도 platform 회수 event는 없다. 소유 event(GrantRevoked, assignment 멈춤, CodingAgentConnectionRevoked, run 종료)와 core epoch 변화를 받으면 그 credential_ref로 발급한 connection을 쓰는 통로를 닫는다(Q5)
+  - apps#T12에서 넘어온 것: core 서명 key는 `packages/apps/runtime/signing.ts`의 `createCoreSigner()`가 core 시작마다 Ed25519 key 쌍을 만든다(`verifyKey`는 앱 시작 입력의 `verify_key`, `signConnection`·`signConfirmProof`가 서명). connect.ts는 이 signer를 core 안에서 하나 쥐고 AppConnection을 `signConnection`으로 서명하며, 앱 시작 때 `verifyKey`를 넣는다. 앱 entrypoint는 이미 이 key로 AppConnection과 confirm proof 서명을 검증한다(`runtime/signing_test.ts`)
 
 ### T11 invocation 기록 command와 read
 
@@ -215,6 +220,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 
 ### T12 invocation 후행 전달과 confirm 실행
 
+- 상태: 완료 (#311) — 이어보냄: broker 서버의 `/invocations/submit` 연결 → T13, signer 쥐기·AppConnection 서명 → T10, A→B confirm proof 전달 → T15, automation trigger → T20, agent 요청자 E2E → T27
 - 등급: 기본
 - concern: apps/invocations
 - 요구: apps/invocations#R1, R2, R5, R7, R8, R11, R12, R18, R19
@@ -228,6 +234,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
   - `confirm_test.ts`: approval 사용과 accepted가 한 transaction이고 저장 실패면 handler가 불리지 않음, 같은 접수 재전송은 기존 접수(R7), 같은 proof를 동시에 보내도 handler 1회, 옛 프로세스 proof·입력·release·command가 다른 proof 거절(R8), marker 4096개가 차면 기존 marker를 버리지 않고 새 접수 거절(R19)
   - `effects_test.ts`: 로컬 저장 뒤 외부 전송 실패를 저장 완료와 전송 실패로 따로 남기고 취소 요청 접수를 효과 취소로 표시하지 않음(R11), 결과 모름·기록 누락으로 업무를 다시 부르지 않음(R12)
   - 이어받음: platform#T43의 invocation 복구 command. 재시작 점검이 미완료 invocation을 실제 관측으로 확정하는 연결은 이 작업이 낸다. 기록 자체는 apps#T11이 끝났고, 미완료 전달을 재시작 때 이어 받는 쪽은 이 작업이다
+  - 구현 자리: `invocations/confirm.ts`(accept_confirm, platform#T32의 시험 전용 stand-in은 지웠다), `invocations/delivery/{queue,backoff}.ts`, `invocations/recording.ts`(기록 대상 규칙·사실 모양), `invocations/restart.ts`(재시작 점검 관측, `apps/core/core.ts`가 owner로 건다), `runtime/entrypoint/{confirm-marker,stages}.ts`, `permissions/broker/invocations.ts`(broker submit), `apps/app-supervisor/delivery.ts`(core sender·손실 진단 frame·조립)
 
 ### T13 broker의 permission 강제
 
@@ -245,6 +252,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
   - `secrets_test.ts`: grant가 있는 앱의 command를 사람 화면·agent·automation·다른 앱이 불러도 secret이 붙고 회수하면 다음 사용부터 거절(R14), 앱 코드·준비 모드·preview·argv·환경·invocation·event·blob에 원값 없음(R15), redaction 등록 실패와 다른 host redirect에서 전달 멈춤(R16), 값 교체·삭제 뒤 사용 앱을 종료 확인과 새 nonce로 재시작(R17)
   - `apply-grant_test.ts`: grant 변경은 새 호출 차단 → 기존 자식 종료 확인 → 새 범위 재시작, 종료 확인 전 새 자식 없음(R20), 종료 확인을 막으면 회수 진행 중·확인 뒤에만 revoked(R21), 전송 뒤 회수해도 그 전송은 완료 사실로 남음(R22), app.call·agent.commands 회수도 관련 연결 차단과 종료 확인 뒤 적용·옛 connection 거절(R29)
   - 진단·수리 runner가 다른 앱·플랫폼 파일을 요청하면 거절(R23)
+  - apps#T12에서 넘어온 것: `apps/app-supervisor/delivery.ts`의 `createSupervisorDelivery`가 만든 `delivery.broker.submit(child, body)`(`permissions/broker/invocations.ts`)를 broker 서버가 `/_lophn/broker/invocations/submit`에 올린다. 자식 credential에서 `BrokerChild{app, release, mode, processNonce}`를 정해 넘기고 응답은 `{accepted: true}` 또는 오류 envelope다. 지금 apps/app-supervisor/main.ts는 `delivery`를 만들어 자식 종료 hook(`childExited`)만 연결하고 broker 서버는 없다
 
 ### T14 cap-fs, cap-net, cap-store, cap-save, cap-secret
 
@@ -276,6 +284,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
   - `resolve_test.ts`: A→B 두 command 허락이면 그 둘만, B→A·A→C 거절(R1), 호출 범위 = source 선언 ∩ active app.call grant ∩ target 현재 command, 새 command는 옛 grant로 안 됨(R2)
   - `pair_test.ts`: 같은 handler·입력 검사·effect, secret grant가 있는 target의 confirm=false는 추가 approval 없이, confirm=true만 approval(R3), ledger 지연 중에도 A→B 응답(R4, apps/runtime#R30), 위조 caller·미허락 command·옛 프로세스 연결 거절(apps/runtime#R30), A의 당시 release와 부모 inv 전달·부모 없으면 없음, B→C는 B 자신의 선언·grant 없이는 거절(R5), B가 응답 중 종료돼도 A의 다른 화면과 C 호출이 동작하고 B 쓰기를 반복하지 않음(R6), A→B→A와 아홉 번째 앱 거절·독립 A→B와 B→A는 가능(R7)
   - SDK client가 실제 app·release·부모 inv 문맥을 전달하고 import만으로 연결 허락이 생기지 않음(apps/sdk#R40)
+  - apps#T12에서 넘어온 것: A→B confirm=true 호출은 approval 적용 뒤 `invocation.accept_confirm`의 proof를 `CoreSigner.signConfirmProof`로 서명해 호출자에게 주고, 호출자가 같은 입력과 함께 B의 direct 호출에 붙인다. 앱 entrypoint가 서명·nonce·release·command·input_hash·caller·기한을 검증한다(`invocations/confirm_test.ts`)
 
 ### T16 화면 context와 agent 주석
 
@@ -360,6 +369,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
   - `reads_test.ts`: 선언만·앱 꺼짐·권한 없음·입력 source 없음·성공·실패를 다른 사실로 구별하고 read 포함 호출이 invocation에 남음(R10), 기록 전달 실패와 재시작 뒤 결과 모름으로 회차를 다시 돌리지 않음(R11), 수동 확인은 직접 호출이고 preview 대상이 없으면 운영으로 대신 부르지 않음(R12)
   - apps/automations domain model에 켜기 승인 = `automation.run` grant를 같은 PR에서 적는다
   - `external_test.ts`: external automation은 켜는 승인 전에는 돌지 않고 승인 뒤 같은 command·입력·주기로 추가 확인 없이 돈다, 입력·command·주기를 바꾸거나 끈 뒤 다시 켜면 새 승인, confirm=true 연결 거절, grant가 있는 secret을 쓰는 command는 실행(R13)
+  - apps#T12에서 넘어온 것: automation 호출의 invocation trigger는 `{kind: "automation", key}`이고 읽기도 항상 남긴다(`invocations/recording.ts`의 `recordingMode`가 trigger `automation`이면 `always`). 지금 앱 entrypoint는 직접 호출 연결만 알아 trigger를 `direct`로 남기므로, automation 연결의 caller·trigger를 `start`·`deny` 사실에 실어야 한다
 
 ### T21 preview와 test mode 대역
 
@@ -476,6 +486,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
   - 앞 slice flow의 앱 단계(project-workspace의 app-panel, build-context의 앱 blueprint 조회, approve-action의 confirm·grant, view-agent-visuals의 app-card)를 함께 돌린다(Q4)
   - 각 flow의 다른 갈래 중 앱 고장·연결 끊김·거절·사람이 그만둠을 하나 이상씩 넣는다
   - 설치된 SDK catalog에 apps/sdk#R4의 이름 전부(@lophn/blueprint, tokens, ui-* 10개, cap-* 7개, format-document)가 1.0.0으로 있다
+  - apps#T12에서 넘어온 것: agent 요청자의 confirm은 agent 요청 → 허락 → `apply_approved_action` → proof 서명(`CoreSigner.signConfirmProof`) → direct 호출로 이어 E2E로 본다. agent의 asg id는 접수 입력 caller(run·tool_call)가 아니라 approval requester에 있고 Invocation actor가 된다(`invocations/confirm.ts`, 단위 시험은 `callerMatchesRequester`)
 
 ### T29 @lophn/format-document
 
@@ -565,10 +576,14 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 - **Q15 현재 release 선언 port(이어보냄, T4).** grant.create의 app.call·agent.commands·automation.run 선언 비교는 `currentDeclarations` port(`permissions/declarations.ts`)로 현재 선언을 읽는다. `get(sql, app)`이라 tx port와 reader port가 같은 구현을 쓴다. 구현은 releases(T18·T19)가 같은 key로 등록한다(T18·T19에 이어받음으로 적었다). 등록이 없는 core에서는 이 세 kind의 grant.create가 `unavailable`이다(선언을 모른 채 만들지 않는다). 시험은 `permissions/testing/mod.ts`의 시험 team이 같은 port·activation event를 낸다. activation 진행 판정은 ReleaseActivationStarted와 그 seq를 started_seq로 가리키는 Activated·Failed event로 하므로 release 표 없이 동작한다.
 - **Q16 doctor 관측 교체(이어보냄 platform#T48, T4).** platform#T47이 넘긴 "doctor 보안 진단을 관측 파일 대신 grant 위험 read와 SDK hash로 교체"는 하지 않았다. grant 위험 read의 contract가 없고, `last_used_at`의 근거(broker가 실제로 쓴 시각, check/platform#Q21)가 T13 전이라 없으며, doctor를 core에 연결하는 일은 platform#T48이다. 추천안: T13이 grant 사용 시각을 남긴 뒤 contracts에 grant 위험 read(`app·kind·file·network·broad·last_used_at`)를 더하고 doctor worker를 그 read로 바꾼다.
 
-- **Q17 AppConnectOutput에 서명이 없다(이어보냄 contracts, T10).** contracts#T34의 `appConnectOutputSchema`는 `{endpoint, connection}`뿐이라 앱 direct 요청의 Authorization(`{payload, signature}`)에 필요한 서명을 실을 자리가 없다. 서명이 없으면 앱이 connection을 받지 않으므로 core의 응답은 `{endpoint, connection, signature}`이고 Deno client(`runtime/client`)가 `appConnectOutputSchema.extend({signature})`로 읽는다. memory route의 응답은 server가 output schema로 거르지 않아 동작한다. 추천안: contracts 팀이 `appConnectOutputSchema`에 `signature`를 더하고 `createAppChannelClient.connect`가 같이 돌려준다(contracts#T34 후속).
-- **Q18 apps.logs의 machine 접근(이어보냄 contracts, T10).** problems report collector는 machine actor이고 `apps.logs`의 actor 목록은 `user·coding_agent·agent·app`이라 operation scope에 `app.logs`가 있어도 route 입구에서 403이다(`runtime-source_test.ts`가 실제 core로 확인한다). `settings.get`은 machine이 닿는다. 그래서 collector의 앱 log 수집은 지금 `unavailable` 이유로 남는다. 추천안: contracts 팀이 apps.logs의 actor에 machine을 더하고(collector는 credential의 app·invocation으로만 부른다) authorizeApp이 collector의 app 범위를 판정한다.
-- **Q19 회수 통로를 event 대신 credential 상태로(해결, T10).** Q5의 소유 event(GrantRevoked, assignment 멈춤, CodingAgentConnectionRevoked, run 종료)를 core 안 구독으로 받으려면 각 owner가 apps 구독자에게 event 공개 정책을 내야 한다. 그런데 run 종료·assignment 멈춤·connection 회수는 모두 platform registry의 credential 종료(`endBy`·`revoke`)로 끝나고, GrantRevoked는 grants를 다시 읽으면 보인다. 그래서 connector가 발급한 connection의 credential_ref를 `revalidate`하고 agent connection의 command가 아직 active agent.commands grant 안인지 grants를 다시 읽는다(기본 1초). 닫힌 것은 그 프로세스의 정지 확인 뒤 새 nonce 재시작이다. 사람 화면 connection도 같은 규칙이라 사람 credential이 닫히면 앱이 한 번 다시 뜬다. 비용: agent run이 끝날 때마다 그 run이 최근 10분 안에 연결한 앱이 정지 유예(Q21)를 거쳐 다시 뜬다. 추천안: 지금은 유지한다(Q5의 "run 종료로 통로를 닫는다"를 그대로 지킨다). 다만 run 종료마다 앱을 다시 띄우는 비용이 크면 앱 entrypoint에 특정 credential_ref의 connection만 거절하는 제어 경로(`control/revoke`, contracts#T34 후속)를 두어 재시작 없이 닫는 쪽이 낫다. owner event 구독으로 바꾸면 지연이 줄지만 owner마다 공개 정책이 필요하다.
-- **Q20 platform 조립 파일의 추가(T10).** `apps/core/core.ts`·`registration.ts`·`credentials.ts`·`test-credentials.ts`·`testing/core.ts`에 apps 조립이 들어갔다: team 등록의 `memoryRoutes`(handler는 core 조립이 붙인다), registry 상한에 apps operation 정책(`appsOperationPolicies`), `appSupervisor` 기동 옵션(제품 main만 true)과 `core.reconcileApp`, platform status의 `apps` 구성 요소, `machine:apps-control`의 고정 credential 등록, 시험 credential의 `revalidate`와 기한. 추천안: platform 팀이 위 조립을 review해 자기 파일의 모양으로 정리한다.
-- **Q21 앱 entrypoint가 shutdown에 스스로 끝나지 않는다(이어보냄 T7).** `control/shutdown`은 새 호출·clock만 닫고 프로세스를 끝내지 않아 사람의 멈춤·release 교체·회수 재시작은 항상 10초 유예를 다 기다린 뒤 강제 종료된다(`runtime-source_test.ts`의 멈춤·재시작이 각각 약 10초다). 추천안: entrypoint가 shutdown 뒤 진행 호출이 없으면 바로, 있으면 grace_ms 안에 끝나는 대로 `Deno.exit(0)`하게 한다(bundle의 플랫폼 진입 파일 변경이라 T7 후속).
-- **Q22 T3·T8·T9 조립의 실제 동작 오류(해결, T10).** 실제 프로세스로 처음 이어 보며 고쳤다. (1) `appFlags`가 socket 듣기·연결에 필요한 `--allow-net=unix:<경로>`와 가상 host `lophn.invalid` 허락을 만들지 않아 앱이 시작하지 못했다(Deno 2.9.7은 읽기·쓰기 허락만으로는 unix listen이 NotCapable이다). (2) `--deny-net`의 `::1:<port>`는 Deno가 빈 host로 읽어 프로세스가 시작하지 않는다. `[::1]:<port>`로 고쳤다. (3) supervisor가 자식에게 자신의 machine credential을 넘기고 있었다. 자식마다 `app_credential_request`로 core가 발급한 app credential을 쓴다. (4) supervisor main이 platform hello·ready·worker_request가 아닌 자체 hello를 기다려 감독 pipe가 ready에 닿지 못했고, record 호출에 `compare`가 없어 400이었으며, 응답 모양(`output` 감쌈)을 잘못 읽어 `record_stopped`가 남지 않았다. (5) 같은 앱의 두 socket 경로를 허락 목록에 넣을 방법이 없어(Deno net 허락은 정확한 경로만) socket을 고정 자리 64개로 바꿨다(architecture 2.2). (6) `apps/permissions/commands_test.ts`가 #305 이후 approval 설명 글의 I/O worker 없이 14개 모두 실패해 `io: true`로 고쳤다.
+- **Q17 confirm proof의 서명 검증(해결, T12).** `invocation.accept_confirm`은 접수와 proof payload를 낸다(`CONFIRM_PROOF_LIFETIME_MS` 120초, 같은 접수의 재전송은 접수 시각 기준이라 수명이 늘지 않는다). direct 호출의 `proof`가 서명 없는 payload라 연결을 가진 호출자가 proof를 지어낼 수 있었다. lead가 contract 변경을 승인해 `contracts/apps/direct-socket.ts`의 `proof`를 `signedConfirmProofInputSchema`(`{payload, signature}`)로 바꿨다. core는 시작마다 만든 Ed25519 key(`runtime/signing.ts`의 `createCoreSigner`)로 proof를 서명하고, 앱 entrypoint의 `verifyProof`가 서명을 가장 먼저 확인한 뒤 nonce·release·command·input_hash·caller·기한(120초)을 비교한다. 위조·다른 key·바뀐 payload는 401, 다른 입력에 옮긴 proof는 409, 만료는 401이다(`confirm_test.ts`가 실제 core와 실제 direct socket으로 본다).
+- **Q18 거절 행(해결, T12).** domain-model의 전이표는 `없음 / accepted → denied`인데 T11 구현은 absent를 conflict로 막아 접수 없이 거절된 알려진 호출(선언된 command를 인증된 연결로 불렀다가 handler 전에 거절)을 남길 길이 없었다(apps/invocations#R2는 거절된 읽기를 남기라 한다). `record_denied`가 absent에서 거절 행(`denied`, started_at·approval·입력 지문 없음)을 만들게 고치고 T11의 absent 시험(`model_test.ts`, `reads_test.ts`)을 같은 PR에서 바꿨다. `record_finished`가 absent를 거절하는 것(모르는 호출을 만들지 않음, R10)은 그대로다.
+- **Q19 접수된 confirm의 start(해결, T12).** `record_started`가 accepted 행에는 started_at 불일치로 conflict였고 running으로 옮기지 못했다. 접수가 고정한 대상·주체·호출자가 같으면 관측한 시작 시각으로 같은 행을 running으로 옮긴다(접수 시각으로 채우지 않는다, R9).
+- **Q20 재시작 뒤 접수·실행 중 행의 확정(해결, T12).** 새 route를 더하지 않고 기존 machine command `invocation.record_finished`(status `unknown`)를 쓴다. core 기동이 `machine:invocation-recovery`(token 없는 내부 자격, `FIXED_CREDENTIALS`에 더함)로 `invocations.list`의 accepted·running 행을 읽어 같은 key(`interrupted:<inv>`)로 확정하고, 요약에 `reason: core_restarted`와 재시작 점검 관측의 근거(`observeInvocations`와 같은 `interruptedEvidence`)를 남긴다. 접수만 있던 행은 started_at 없이, 실행 중이던 행은 있던 started_at 그대로 unknown이다. 이전 core의 앱 프로세스는 이미 없고 새 프로세스는 새 nonce라 옛 접수·시작은 이어지지 않는다. 시험은 `invocations/restart_test.ts`(같은 홈으로 재시작을 두 번)다.
+- **Q21 AppConnectOutput에 서명이 없다(정함, T10).** contracts#T34의 `appConnectOutputSchema`는 `{endpoint, connection}`뿐이라 앱 direct 요청의 Authorization(`{payload, signature}`)에 필요한 서명을 실을 자리가 없었다. lead가 승인해 `appConnectOutputSchema`에 `signature`(raw 64byte Ed25519의 base64url)를 더했고 `createAppChannelClient.connect`와 Deno client가 그대로 읽는다.
+- **Q22 apps.logs의 machine 접근(정함, T10).** problems report collector는 machine actor인데 `apps.logs`의 actor 목록에 machine이 없었다. lead가 좁게 승인했다: `apps.logs`의 actor에 machine을 더하고, read handler가 machine은 credential scope의 대상 app이 요청한 app과 같고 operation `app.logs`가 scope에 있을 때만 열어 준다(그 밖은 없는 앱과 같은 응답). registry 상한에 machine의 `app.logs`를 더했다.
+- **Q23 회수 통로를 event 대신 credential 상태로(해결, T10).** Q5의 소유 event(GrantRevoked, assignment 멈춤, CodingAgentConnectionRevoked, run 종료)를 core 안 구독으로 받으려면 각 owner가 apps 구독자에게 event 공개 정책을 내야 한다. 그런데 run 종료·assignment 멈춤·connection 회수는 모두 platform registry의 credential 종료(`endBy`·`revoke`)로 끝나고, GrantRevoked는 grants를 다시 읽으면 보인다. 그래서 connector가 발급한 connection의 credential_ref를 `revalidate`하고 agent connection의 command가 아직 active agent.commands grant 안인지 grants를 다시 읽는다(기본 1초). 닫힌 것은 그 프로세스의 정지 확인 뒤 새 nonce 재시작이다. 사람 화면 connection도 같은 규칙이라 사람 credential이 닫히면 앱이 한 번 다시 뜬다. 비용: agent run이 끝날 때마다 그 run이 최근 10분 안에 연결한 앱이 정지 유예(Q25; 진행 호출이 없으면 바로 끝난다)를 거쳐 다시 뜬다. 정했다: 유지한다(Q5의 "run 종료로 통로를 닫는다"를 그대로 지킨다). 다만 run 종료마다 앱을 다시 띄우는 비용이 크면 앱 entrypoint에 특정 credential_ref의 connection만 거절하는 제어 경로(`control/revoke`, contracts#T34 후속)를 두어 재시작 없이 닫는 쪽이 낫다. owner event 구독으로 바꾸면 지연이 줄지만 owner마다 공개 정책이 필요하다.
+- **Q24 platform 조립 파일의 추가(T10).** `apps/core/core.ts`·`registration.ts`·`credentials.ts`·`test-credentials.ts`·`testing/core.ts`에 apps 조립이 들어갔다: team 등록의 `memoryRoutes`(handler는 core 조립이 붙인다), registry 상한에 apps operation 정책(`appsOperationPolicies`), `appSupervisor` 기동 옵션(제품 main만 true)과 `core.reconcileApp`, platform status의 `apps` 구성 요소, `machine:apps-control`의 고정 credential 등록, 시험 credential의 `revalidate`와 기한. 추천안: platform 팀이 위 조립을 review해 자기 파일의 모양으로 정리한다.
+- **Q25 앱 entrypoint의 shutdown 종료(정함, T10).** `control/shutdown`이 새 호출·clock만 닫고 프로세스를 끝내지 않아 멈춤·release 교체·회수 재시작이 항상 10초 유예를 기다렸다. lead가 승인해 entrypoint가 shutdown을 받으면 새 호출을 닫은 채 진행 호출이 끝나는 대로(유예 `grace_ms` 안에서) `Deno.exit(0)`한다. 유예가 지나도 끝나지 않으면 supervisor의 강제 종료가 이어진다(R15). Q23의 재시작 비용은 이로써 받아들일 수 있다.
+- **Q26 T3·T8·T9 조립의 실제 동작 오류(해결, T10).** 실제 프로세스로 처음 이어 보며 고쳤다. (1) `appFlags`가 socket 듣기·연결에 필요한 `--allow-net=unix:<경로>`와 가상 host `lophn.invalid` 허락을 만들지 않아 앱이 시작하지 못했다(Deno 2.9.7은 읽기·쓰기 허락만으로는 unix listen이 NotCapable이다). (2) `--deny-net`의 `::1:<port>`는 Deno가 빈 host로 읽어 프로세스가 시작하지 않는다. `[::1]:<port>`로 고쳤다. (3) supervisor가 자식에게 자신의 machine credential을 넘기고 있었다. 자식마다 `app_credential_request`로 core가 발급한 app credential을 쓴다. (4) supervisor main이 platform hello·ready·worker_request가 아닌 자체 hello를 기다려 감독 pipe가 ready에 닿지 못했고, record 호출에 `compare`가 없어 400이었으며, 응답 모양(`output` 감쌈)을 잘못 읽어 `record_stopped`가 남지 않았다. (5) 같은 앱의 두 socket 경로를 허락 목록에 넣을 방법이 없어(Deno net 허락은 정확한 경로만) socket을 고정 자리 64개로 바꿨다(architecture 2.2). (6) `apps/permissions/commands_test.ts`가 #305 이후 approval 설명 글의 I/O worker 없이 14개 모두 실패해 `io: true`로 고쳤다.
 

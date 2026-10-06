@@ -231,24 +231,26 @@ function matchDocuments(
   const results: SearchResult[] = [];
   const query = input.query;
   for (const id of candidates) {
-    const row = deps.read.sql.get(
-      `SELECT document, version, section_key, ranges, title, body FROM search_rows WHERE document = ?`,
+    // 문서의 section 행 전부. 한 문서의 여러 section이 각각 일치할 수 있다.
+    const rows = deps.read.sql.all(
+      `SELECT document, version, section_key, ranges, title, body FROM search_rows WHERE document = ? ORDER BY rowid`,
       [id],
     );
-    if (row === undefined) continue;
-    const version = String(row["version"]);
-    const formatName = fmtName(deps.snapshot, version);
-    if (input.formats !== undefined && input.formats.length > 0) {
-      if (!input.formats.includes(formatName)) continue;
-    }
+    if (rows.length === 0) continue;
     const latest = latestOf(deps.snapshot, id);
     if (latest === null) continue;
-    // 일치 판정. title·body 둘 다 본다.
-    const title = String(row["title"]);
-    const body = String(row["body"]);
-    if (!title.includes(query) && !body.includes(query)) continue;
-    const result = buildResult(deps, id, version, row, query, latest);
-    if (result !== undefined) results.push(result);
+    for (const row of rows) {
+      const version = String(row["version"]);
+      if (input.formats !== undefined && input.formats.length > 0) {
+        if (!input.formats.includes(fmtName(deps.snapshot, version))) continue;
+      }
+      // 일치 판정. title·body 둘 다 본다.
+      const title = String(row["title"]);
+      const body = String(row["body"]);
+      if (!title.includes(query) && !body.includes(query)) continue;
+      const result = buildResult(deps, id, version, row, query, latest);
+      if (result !== undefined) results.push(result);
+    }
   }
   return results.slice(0, limit);
 }
@@ -379,7 +381,10 @@ function buildResult(
   if (format === null) return undefined;
   const title = String(row["title"]);
   const body = String(row["body"]);
-  const ranges = lineRanges(body, query);
+  const ranges = documentRanges(
+    lineRanges(body, query),
+    sectionLineNumbers(row["ranges"]),
+  );
   if (ranges.length === 0) return undefined;
   const section = row["section_key"] === null
     ? null
@@ -400,6 +405,57 @@ function buildResult(
     match_source: "original",
     cache_basis: null,
   };
+}
+
+// section 행의 body는 own 범위 줄만 이어 붙인 것이라 body의 n번째 줄이 문서의 몇 번째 줄인지
+// 다르다. own 범위(JSON)를 줄 번호 목록으로 펼친다. 범위가 없는 행(section 없는 판)은 본문
+// 전체라 body의 줄 번호가 곧 문서의 줄 번호이고, 이때는 undefined다.
+function sectionLineNumbers(value: unknown): number[] | undefined {
+  if (typeof value !== "string") return undefined;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    return undefined;
+  }
+  if (!Array.isArray(parsed) || parsed.length === 0) return undefined;
+  const lines: number[] = [];
+  for (const range of parsed as { start_line: number; end_line: number }[]) {
+    for (let line = range.start_line; line <= range.end_line; line++) {
+      lines.push(line);
+    }
+  }
+  return lines;
+}
+
+// body 줄 범위를 문서 줄 범위로 바꾼다. 문서에서 이어지지 않는 줄은 범위를 나눈다.
+function documentRanges(
+  found: LineRange[],
+  lines: number[] | undefined,
+): LineRange[] {
+  if (lines === undefined) return found;
+  const mapped: LineRange[] = [];
+  for (const range of found) {
+    let start: number | undefined;
+    let previous: number | undefined;
+    for (let line = range.start_line; line <= range.end_line; line++) {
+      const document = lines[line - 1];
+      if (document === undefined) continue;
+      if (previous !== undefined && document === previous + 1) {
+        previous = document;
+        continue;
+      }
+      if (start !== undefined && previous !== undefined) {
+        mapped.push({ start_line: start, end_line: previous });
+      }
+      start = document;
+      previous = document;
+    }
+    if (start !== undefined && previous !== undefined) {
+      mapped.push({ start_line: start, end_line: previous });
+    }
+  }
+  return mapped;
 }
 
 // 일치 줄을 1-based inclusive range로 묶는다. 검색 판 본문의 근거다(R12).
@@ -707,16 +763,17 @@ function extractedStatus(
   version: string,
 ): { status: string; failure_reason: string | null } {
   const row = deps.read.sql.get(
-    `SELECT extraction_status, failure_reason FROM derived_versions WHERE version = ?`,
+    `SELECT extraction_status, failure_reason, unverified_reason FROM derived_versions WHERE version = ?`,
     [version],
   );
   if (row === undefined) return { status: "unverified", failure_reason: null };
+  // unverified의 이유(추출 한도 같은 것)는 failure_reason 자리로 읽는 쪽에 전한다.
+  const reason = row["failure_reason"] ?? row["unverified_reason"];
   return {
     status: String(row["extraction_status"]),
-    failure_reason:
-      row["failure_reason"] === null || row["failure_reason"] === undefined
-        ? null
-        : String(row["failure_reason"]),
+    failure_reason: reason === null || reason === undefined
+      ? null
+      : String(reason),
   };
 }
 
@@ -1161,8 +1218,9 @@ function readSelectedBody(
     `SELECT id, place_kind, place_id, latest_version, status FROM documents WHERE id = ?`,
     [document],
   );
+  // 보관한 문서도 확정한 판은 읽는다(versions#R11, outline-and-search#R17). 보관은 목록·검색에서
+  // 빼는 상태일 뿐 판 읽기를 막지 않는다.
   if (row === undefined) return deny();
-  if (String(row["status"]) !== "active") return deny();
   if (
     !authorizeTarget(
       deps,
@@ -1259,7 +1317,7 @@ function readSelectedBody(
       ranges: [],
       text: null,
       redacted: false,
-      failure_reason: OMISSION_UNVERIFIED,
+      failure_reason: status.failure_reason ?? OMISSION_UNVERIFIED,
       omission_reason: null,
       complete: true,
       next_cursor: null,
@@ -1485,8 +1543,8 @@ export function createOutlineHandlers(
         `SELECT place_kind, place_id, status FROM documents WHERE id = ?`,
         [document],
       );
+      // 보관한 문서도 확정한 판의 목차는 읽는다(versions#R11).
       if (row === undefined) return deny();
-      if (String(row["status"]) !== "active") return deny();
       if (
         !authorizeTarget(
           deps,

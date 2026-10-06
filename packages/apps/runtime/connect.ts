@@ -10,11 +10,11 @@ import {
   appConnectionSchema,
   type CallOrigin,
   type ChannelMode,
-  connectionSigningBytes,
   type Grant,
 } from "../../contracts/apps/mod.ts";
 import type { AuthenticatedContext } from "../../contracts/platform/mod.ts";
 import { effectiveScope } from "../permissions/mod.ts";
+import type { CoreSigner } from "./signing.ts";
 
 type ScreenSize = "full" | "panel" | "card";
 
@@ -22,45 +22,6 @@ type ScreenSize = "full" | "panel" | "card";
 export const CONNECTION_TTL_MS = 10 * 60_000;
 // 서명해서 내보낸 connection을 기억하는 수의 상한. 기한이 지난 것은 먼저 뺀다.
 export const ISSUED_CONNECTION_LIMIT = 4096;
-
-const encoder = new TextEncoder();
-
-function base64Url(bytes: Uint8Array): string {
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_")
-    .replaceAll("=", "");
-}
-
-// 서명 key는 core 시작마다 새로 만들고 private key는 꺼낼 수 없다. 앱은 공개 key만 받는다.
-export type ConnectionSigner = {
-  // raw 32byte Ed25519 공개 key의 base64url(43자). 앱 시작 입력의 verify_key다.
-  readonly verifyKey: string;
-  // payload의 RFC 8785 canonical JSON UTF-8을 서명한 raw 64byte의 base64url(86자).
-  sign(connection: AppConnection): Promise<string>;
-};
-
-export async function createConnectionSigner(): Promise<ConnectionSigner> {
-  const pair = await crypto.subtle.generateKey("Ed25519", false, [
-    "sign",
-    "verify",
-  ]) as CryptoKeyPair;
-  const raw = new Uint8Array(
-    await crypto.subtle.exportKey("raw", pair.publicKey),
-  );
-  return {
-    verifyKey: base64Url(raw),
-    async sign(connection) {
-      const bytes = encoder.encode(connectionSigningBytes(connection));
-      const signature = await crypto.subtle.sign(
-        "Ed25519",
-        pair.privateKey,
-        bytes,
-      );
-      return base64Url(new Uint8Array(signature));
-    },
-  };
-}
 
 // supervisor가 지금 쥔 앱 프로세스 하나의 관측이다. 과거 event·ledger 주소로 만들지 않는다.
 export type ProcessObservation = {
@@ -107,7 +68,8 @@ export type ConnectFacts = {
 
 export type ConnectorDeps = {
   clock: Clock;
-  signer: ConnectionSigner;
+  // core 시작마다 하나만 쥔다. confirm proof도 같은 signer가 서명한다(runtime/signing.ts).
+  signer: CoreSigner;
   process: ProcessSource;
   facts: ConnectFacts;
   // platform 인증의 대상 판정. operation이 credential scope 안이고 대상이 맞을 때만 ok다.
@@ -414,7 +376,7 @@ export function createAppConnector(deps: ConnectorDeps): AppConnector {
         message: "connection does not match its mode, screens, or caller",
       });
     }
-    const signature = await deps.signer.sign(checked.data);
+    const signed = await deps.signer.signConnection(checked.data);
     // 제어(machine) connection은 supervisor의 짧은 요청이고 그 자격은 supervisor 수명이다.
     // 회수로 닫을 통로는 사람·agent·coding agent connection이다.
     if (kind !== "machine") {
@@ -434,7 +396,7 @@ export function createAppConnector(deps: ConnectorDeps): AppConnector {
     return ok({
       endpoint: found.endpoint,
       connection: checked.data,
-      signature,
+      signature: signed.signature,
     });
   }
 

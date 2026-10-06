@@ -97,6 +97,8 @@ export type SupervisorIo = {
   readyTimeoutMs?: number;
   stopGraceMs?: number;
   credentialWaitMs?: number;
+  // 자식 종료를 관측하면 알린다(결과를 못 받은 invocation을 미확인으로 확정하는 쪽이 쓴다).
+  childExited?: (processNonce: string) => void;
 };
 
 export type Assembly = {
@@ -455,6 +457,7 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       ? {}
       : { readyTimeoutMs: io.readyTimeoutMs }),
     ...(io.stopGraceMs === undefined ? {} : { stopGraceMs: io.stopGraceMs }),
+    ...(io.childExited ? { childExited: io.childExited } : {}),
     onEvent(event) {
       void observeEvent(event);
     },

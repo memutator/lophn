@@ -2,6 +2,12 @@
 // 매 요청 로컬 검증한다. core는 실제 core(임시 LOPHN_HOME)이고 supervisor 관측만 시험
 // 출처다(자식은 temp 폴더의 실제 프로세스). 사람 데이터 root는 열지 않는다.
 import { assert, assertEquals, assertNotEquals } from "@std/assert";
+import { sha256Hex } from "../../base/mod.ts";
+import {
+  canonicalPayload,
+  decodeVerifyKey,
+  verifySigned,
+} from "./entrypoint/signature.ts";
 import { call } from "../../../apps/core/testing/approvals-fixture.ts";
 import {
   authorizationOf,
@@ -151,8 +157,9 @@ Deno.test("apps/runtime#R9: 위조·다른 서명·옛 nonce는 앱이 거절한
     };
     assertEquals((await attempt(JSON.stringify(claimed))).status, 401);
     // 서명 key가 다른 core가 만든 서명은 받지 않는다.
-    const other = await (await import("./connect.ts")).createConnectionSigner();
-    const forged = await other.sign(signed.payload as never);
+    const other = await (await import("./signing.ts")).createCoreSigner();
+    const forged =
+      (await other.signConnection(signed.payload as never)).signature;
     assertNotEquals(forged, signed.signature);
     assertEquals(
       (await attempt(
@@ -555,5 +562,43 @@ Deno.test("apps/runtime#R9: coding agent connection은 자기 앱 범위 안에�
       connectBody("app_01arz3ndektsv4rrffq69g5faw"),
     );
     assertEquals(other.status, 404);
+  });
+});
+
+Deno.test("apps/runtime#R9: 같은 core의 AppConnection과 confirm proof는 같은 하나의 공개 key로 검증된다", async () => {
+  await withWorld(async (world) => {
+    const child = await world.start();
+    const control = world.harness.appsControl;
+    // 앱 시작 입력의 verify_key는 core가 하나 쥔 signer의 공개 key다(시험 world가 그 key로 자식을 띄웠다).
+    const key = decodeVerifyKey(control.verifyKey);
+    assert(key !== undefined);
+    const connected = await call(
+      world.harness,
+      "apps/connect",
+      world.user.token,
+      connectBody(world.app),
+    );
+    assertEquals(connected.status, 200);
+    const connection = {
+      payload: connected.body["connection"],
+      signature: String(connected.body["signature"]),
+    };
+    assert(await verifySigned(key, connection, canonicalPayload));
+    // confirm proof도 같은 signer가 서명하고 같은 key로 검증된다.
+    const proof = await control.signer.signConfirmProof({
+      invocation: "inv_01arz3ndektsv4rrffq69g5fav",
+      process_nonce: child.nonce,
+      release: child.release!,
+      command: "usage.save",
+      input_hash: await sha256Hex("{}"),
+      caller: { kind: "direct" },
+      expires_at: new Date(Date.now() + 120_000).toISOString(),
+    });
+    assert(await verifySigned(key, proof, canonicalPayload));
+    // 다른 core(다른 key)가 서명한 것은 이 key로 검증되지 않는다.
+    const other = await (await import("./signing.ts")).createCoreSigner();
+    const foreign = await other.signConnection(connection.payload as never);
+    assert(!(await verifySigned(key, foreign, canonicalPayload)));
+    assertNotEquals(other.verifyKey, control.verifyKey);
   });
 });

@@ -86,6 +86,12 @@ export function createRuntimeReads(
         const app = loadApp(snapshot.sql, input.app);
         if (!app.ok) return app;
         if (app.value === null) return notFound();
+        // machine(problems collector)은 credential scope가 이 앱을 직접 이름 지었을 때만 읽는다.
+        // 앱 대상이 없는 machine 자격은 operation이 있어도 없는 앱과 같은 응답이다.
+        if (
+          ctx.actor === "machine" &&
+          ctx.scope.targets.app !== input.app
+        ) return notFound();
         const access = authorizeApp(snapshot.port, ctx, appLogs.name, {
           kind: "app",
           app: app.value,

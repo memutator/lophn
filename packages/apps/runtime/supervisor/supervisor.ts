@@ -111,6 +111,9 @@ export type SupervisorDeps = {
   stopGraceMs?: number;
   // 실패 근거 사실을 받는다. 던져도 supervisor는 계속 돈다.
   onEvent?: (event: SupervisorEvent) => void;
+  // 자식 종료를 관측하면 알린다. 결과를 못 받은 invocation을 미확인으로 확정하는 쪽이 쓴다
+  // (apps/invocations#R10). 어떤 이유의 종료든 부른다.
+  childExited?: (processNonce: string) => void;
 };
 
 // 진행 호출 종료 요청 뒤 강제 종료까지의 유예다(R15).
@@ -371,7 +374,10 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
     };
     runtime.tracked = tracked;
     // 자식이 스스로 끝나면 재시작 정책을 적용한다. 정지 요청 뒤의 종료는 여기 오지 않는다.
-    void child.exited.then(() => onChildExit(runtime, tracked));
+    void child.exited.then(() => {
+      deps.childExited?.(nonce);
+      return onChildExit(runtime, tracked);
+    });
     const probe = await Promise.race([
       deps.probe(child, sockets.direct, desired),
       deps.wait(timeout).then(() => ({

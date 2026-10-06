@@ -41,10 +41,13 @@ import {
   type AppConnector,
   type ConnectFacts,
   createAppConnector,
-  createConnectionSigner,
   type ProcessSource,
 } from "../../packages/apps/runtime/connect.ts";
 import type { DesiredApp } from "../../packages/apps/runtime/supervisor/mod.ts";
+import {
+  type CoreSigner,
+  createCoreSigner,
+} from "../../packages/apps/runtime/signing.ts";
 import { allSlotSockets } from "../../packages/apps/runtime/processes/mod.ts";
 import {
   createSupervisorChannel,
@@ -99,6 +102,8 @@ export function appsOperationPolicies(): OperationPolicy[] {
       actors: ["machine", "agent", "coding_agent"],
       kind: "command",
     },
+    // problems report collector(machine)가 자기 credential의 앱 log를 읽는다.
+    { name: appLogs.name, actors: ["machine"], kind: "command" },
     { name: reportProblem.name, actors: ["app"], kind: "command" },
     { name: observeException.name, actors: ["app"], kind: "command" },
   ];
@@ -127,6 +132,8 @@ export type AppsControlDeps = {
 export type AppsControl = {
   // 앱 시작 입력에 싣는 공개 검증 key. 서명 key는 core 시작마다 새로 만든다.
   readonly verifyKey: string;
+  // core 안에서 하나뿐인 서명 key 쥠이다. AppConnection과 confirm proof를 같은 key로 서명한다.
+  readonly signer: CoreSigner;
   readonly memory: ReadonlyMap<string, MemoryHandler>;
   // reader pool의 apps.runtime·apps.logs를 현재 관측·log로 덮는다.
   overlayReads(reads: Map<string, ReadHandler>): void;
@@ -158,7 +165,7 @@ const GRANT_PAGES = 20;
 export async function createAppsControl(
   deps: AppsControlDeps,
 ): Promise<AppsControl> {
-  const signer = await createConnectionSigner();
+  const signer = await createCoreSigner();
   const channel = createSupervisorChannel();
   const client = createSupervisorClient(channel);
   const desired = new Map<string, DesiredApp>();
@@ -266,6 +273,7 @@ export async function createAppsControl(
 
   return {
     verifyKey: signer.verifyKey,
+    signer,
     memory: new Map([[`${appConnect.resource}/${appConnect.method}`, connect]]),
     overlayReads(reads) {
       const runtime = reads.get(`${appRuntime.resource}/${appRuntime.method}`);

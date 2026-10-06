@@ -12,6 +12,7 @@ import { procRssReader } from "../../packages/apps/runtime/observations/memory.t
 import { attachControlLink } from "../../packages/apps/runtime/supervisor/mod.ts";
 import { assembleSupervisor } from "./assembly.ts";
 import { spawnApp } from "./spawn.ts";
+import { createCoreSender, createSupervisorDelivery } from "./delivery.ts";
 
 const stdin: { read(buffer: Uint8Array): Promise<number | null> } = {
   async read(buffer) {
@@ -26,7 +27,9 @@ const stdin: { read(buffer: Uint8Array): Promise<number | null> } = {
 // stdout은 frame 전용이다. 쓰기는 호출 순서대로 이어서 frame이 섞이지 않게 한다.
 let writing: Promise<void> = Promise.resolve();
 function send(message: unknown): Promise<void> {
-  const bytes = encodeFrame({ kind: "json", channel: 0, payload: message });
+  return writeFrame(encodeFrame({ kind: "json", channel: 0, payload: message }));
+}
+function writeFrame(bytes: Uint8Array): Promise<void> {
   writing = writing.then(async () => {
     let offset = 0;
     while (offset < bytes.length) {
@@ -74,7 +77,20 @@ async function readBody(response: Response): Promise<unknown> {
   }
 }
 
+// 앱이 broker로 보낸 invocation 기록을 응답 뒤 유한한 목록으로 core에 전달한다. broker 서비스
+// (permissions/broker)가 `delivery.broker.submit`을 부른다. 진단 frame도 같은 pipe 쓰기 줄을 쓴다.
+const delivery = createSupervisorDelivery({
+  clock: systemClock,
+  send: createCoreSender({
+    baseUrl: () => `http://127.0.0.1:${port.value}`,
+    token: () => credential.value,
+  }),
+  write: (frame) => void writeFrame(frame),
+});
+const credential: { value: string } = { value: "" };
+
 const assembled = assembleSupervisor({
+  childExited: (nonce) => delivery.childExited(nonce),
   clock: systemClock,
   ids: createIdSource({
     clock: systemClock,
@@ -140,6 +156,7 @@ const link = attachControlLink(assembled.supervisor, stdin, {
   ops: assembled.ops,
   onHello(hello) {
     port.value = hello.apiPort;
+    credential.value = hello.credential;
     assembled.onHello({
       credential: hello.credential,
       apiPort: hello.apiPort,

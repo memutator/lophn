@@ -259,44 +259,110 @@ Deno.test("apps/runtime#R26: apps.logs는 supervisor가 읽은 앱 log를 invoca
   });
 });
 
-Deno.test("apps/runtime#R26: problems collector(machine)는 지금 contract로는 apps.logs에 닿지 못하고 설정 read에만 닿는다", async () => {
+Deno.test("apps/runtime#R26: problems collector(machine)는 credential scope가 이름 지은 앱의 log만 읽고 그 밖은 없는 앱과 같다", async () => {
   await withSupervisor(async (world, prepared, token) => {
     await running(world, prepared, token);
-    // collector credential 모양: machine actor, operation은 app.logs와 GetSettings다.
+    const client = createRuntimeClient({
+      core: { baseUrl: `http://127.0.0.1:${world.harness.port}`, token },
+    });
+    const session = await client.connect({
+      app: world.app,
+      mode: "live",
+      screens: ["usage"],
+      screen_sizes: { usage: ["full"] },
+      commands: ["leak"],
+    });
+    assert(session.ok);
+    const leaked = await session.value.invoke({ command: "leak" });
+    assert(leaked.ok && leaked.value.kind === "result");
+    const invocation = leaked.value.output.invocation!;
+    // collector credential 모양: machine actor, operation은 app.logs와 GetSettings이고 앱을 이름 짓는다.
     const collector = await world.login(
       "machine",
       ["app.logs", "GetSettings"],
       {
-        targets: { task: "problems" },
-        conditions: { task: "problems", process: "collector-child" },
+        targets: { task: "problems", app: world.app },
+        conditions: {
+          task: "problems",
+          process: "collector-child",
+          app: world.app,
+        },
       },
     );
-    // apps.logs의 actor 목록에 machine이 없어서 operation scope에 있어도 route 입구에서 닫힌다.
-    const logs = await call(world.harness, "apps/logs", collector.token, {
-      app: world.app,
+    const lines = await until("collector to read the log", async () => {
+      const read = await call(world.harness, "apps/logs", collector.token, {
+        app: world.app,
+        invocation,
+        limit: 50,
+      });
+      assertEquals(read.status, 200, JSON.stringify(read.body));
+      const body = read.body as { state: string; lines: string[] };
+      return body.lines.length > 0 ? body : undefined;
     });
-    assertEquals(logs.status, 403, JSON.stringify(logs.body));
-    // 설정 read는 machine이 닿는다. 진단 상세 수집 설정을 읽을 수 있다.
+    assertEquals(lines.state, "ok");
+    assert(
+      !lines.lines.join("\n").includes("ghp_abcdefghijklmnopqrstuvwxyz"),
+      "a credential-shaped string must not reach the collector",
+    );
+    // 진단 상세 수집 설정도 읽는다.
     const settings = await call(
       world.harness,
       "settings/get",
       collector.token,
-      {
-        keys: ["problems.diagnostics.detail_collection"],
-      },
+      { keys: ["problems.diagnostics.detail_collection"] },
     );
     assertEquals(settings.status, 200, JSON.stringify(settings.body));
-    // 사람은 같은 log를 읽는다.
-    const person = await call(world.harness, "apps/logs", token, {
+    // 다른 앱은 없는 앱과 같은 응답이다.
+    const other = "app_01arz3ndektsv4rrffq69g5faw";
+    const outside = await call(world.harness, "apps/logs", collector.token, {
+      app: other,
+    });
+    assertEquals(outside.status, 404);
+    // 앱을 이름 짓지 않은 machine 자격은 operation이 있어도 이 앱을 볼 수 없다.
+    const unbound = await world.login("machine", ["app.logs"], {
+      targets: { task: "problems" },
+      conditions: { task: "problems", process: "collector-child" },
+    });
+    const unnamed = await call(world.harness, "apps/logs", unbound.token, {
       app: world.app,
     });
-    assertEquals(person.status, 200);
+    assertEquals(unnamed.status, 404);
+    // operation에 app.logs가 없으면 앱을 이름 지어도 열리지 않는다.
+    const noOperation = await world.login("machine", ["GetSettings"], {
+      targets: { task: "problems", app: world.app },
+      conditions: {
+        task: "problems",
+        process: "collector-child",
+        app: world.app,
+      },
+    });
+    const denied = await call(world.harness, "apps/logs", noOperation.token, {
+      app: world.app,
+    });
+    assert(
+      denied.status === 403 || denied.status === 404,
+      String(denied.status),
+    );
   });
 });
 
 Deno.test("apps/runtime#R15: 사람이 멈추면 새 호출부터 닫히고 종료를 확인한 뒤에야 stopped다", async () => {
   await withSupervisor(async (world, prepared, token) => {
     await running(world, prepared, token);
+    // 느린 호출이 도는 동안 멈춘다. 앱은 새 호출을 닫고 이 호출이 끝나기를 기다린 뒤 스스로 끝난다.
+    const connected = await createRuntimeClient({
+      core: { baseUrl: `http://127.0.0.1:${world.harness.port}`, token },
+    }).connect({
+      app: world.app,
+      mode: "live",
+      screens: ["usage"],
+      screen_sizes: {},
+      commands: ["slow", "usage.read"],
+    });
+    assert(connected.ok, connected.ok ? "" : connected.error.message);
+    const inflight = connected.value.invoke({ command: "slow" });
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    const stoppingAt = Date.now();
     // 사람이 멈춘다: ledger의 실행 허용을 끄고, 그 결과를 supervisor에 알린다.
     const got = await call(world.harness, "apps/get", token, {
       app: world.app,
@@ -335,6 +401,10 @@ Deno.test("apps/runtime#R15: 사람이 멈추면 새 호출부터 닫히고 종�
       const read = await runtimeOf(world, token);
       return read.observation === null ? read : undefined;
     }, 40_000);
+    // 앱이 shutdown에 스스로 끝나므로 10초 유예를 다 기다리지 않는다. 진행 호출은 끝까지 갔다.
+    assert(Date.now() - stoppingAt < 8_000, "stop waited for the full grace");
+    const finished = await inflight;
+    assert(finished.ok && finished.value.kind === "result");
     // 종료 확인(record_stopped)이 AppStopped로 남는다.
     await until("AppStopped", () =>
       Promise.resolve(

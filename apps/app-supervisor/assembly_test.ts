@@ -3,7 +3,7 @@
 // 규칙을 새로 정하지 않는다: connection은 supervisor가 보고한 관측 그대로 서명한다.
 import { assert, assertEquals } from "@std/assert";
 import { createIdSource, systemClock } from "../../packages/base/mod.ts";
-import { createConnectionSigner } from "../../packages/apps/runtime/connect.ts";
+import { createCoreSigner } from "../../packages/apps/runtime/signing.ts";
 import { unixDirectTransport } from "../../packages/apps/runtime/client/mod.ts";
 import { procRssReader } from "../../packages/apps/runtime/observations/memory.ts";
 import { slotSockets } from "../../packages/apps/runtime/processes/mod.ts";
@@ -28,7 +28,7 @@ type Rig = {
   posted: Posted[];
   frames: unknown[];
   desired: DesiredApp;
-  signer: Awaited<ReturnType<typeof createConnectionSigner>>;
+  signer: Awaited<ReturnType<typeof createCoreSigner>>;
   dir: string;
   issued: string[];
   stop(): Promise<void>;
@@ -51,7 +51,7 @@ async function rig(options: { stopGraceMs?: number } = {}): Promise<Rig> {
     [],
   );
   assert(flags.ok);
-  const signer = await createConnectionSigner();
+  const signer = await createCoreSigner();
   const posted: Posted[] = [];
   const frames: unknown[] = [];
   const issued: string[] = [];
@@ -85,7 +85,7 @@ async function rig(options: { stopGraceMs?: number } = {}): Promise<Rig> {
           body: {
             endpoint: observation.endpoint,
             connection,
-            signature: await signer.sign(connection),
+            signature: (await signer.signConnection(connection)).signature,
           },
         };
       }
@@ -263,7 +263,7 @@ Deno.test("apps/runtime#R7: 자식이 받는 broker credential은 supervisor의 
       path: "/_lophn/commands/invoke",
       authorization: JSON.stringify({
         payload: connection,
-        signature: await r.signer.sign(connection),
+        signature: (await r.signer.signConnection(connection)).signature,
       }),
       body: {
         request_key: "credential-1",

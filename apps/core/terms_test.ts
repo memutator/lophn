@@ -2,48 +2,29 @@
 // 수정·보관한 뒤 read로 읽는다. 데이터 root는 harness가 만든 temp dir다. 사람 데이터
 // root는 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
+import { manualClock, seededRandom } from "../../packages/base/mod.ts";
+import { createCoreClient } from "../../packages/coding-agent/connection/client/core.ts";
+import {
+  saveFromPaths,
+  uploadPrepareBytes,
+} from "../../packages/coding-agent/connection/mod.ts";
+import { documentIdForKey } from "../../packages/coding-agent/connection/document-save.ts";
 import { type CoreHarness, createCoreHarness } from "./testing/core.ts";
+import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
+import { type Core, startCore } from "./core.ts";
 import type { TeamModule } from "./registration.ts";
 import { createLedgerRegistration } from "./documents.ts";
 
 const teams: TeamModule[] = [{ createLedgerRegistration }];
-const HASH = "ab".repeat(32);
-const DOC = "doc_01arz3ndektsv4rrffq69g5fav";
+const CAC = "cac_01arz3ndektsv4rrffq69g5fav";
+const AGENT_TOKEN = "a".repeat(43);
+const USER_TOKEN = "u".repeat(43);
+// 실제 문서의 ID는 저장 key에서 정해진다(coding agent 저장 통로).
+const SAVE_KEY = "terms-source";
+const DOC = await documentIdForKey(SAVE_KEY);
 const CONTEXT = "ctx_01arz3ndektsv4rrffq69g5fav";
 const CANDIDATE = "trm_01arz3ndektsv4rrffq69g5fav";
 const DIRECT = "trm_01arz3ndektsv4rrffq69g5faw";
-
-function prepared(key: string) {
-  return {
-    document: DOC,
-    base_version: null,
-    files_hash: HASH,
-    file_count: 1,
-    primary_path: "a.md",
-    content_hash: HASH,
-    preparation_ref: `prep-${key}`,
-    files: [{
-      path: "a.md",
-      blob_hash: HASH,
-      bytes: 10,
-      media_type: "text/markdown",
-      primary: true,
-      preparation_ref: `prep-file-${key}`,
-    }],
-    idempotency_key: key,
-    metadata: { title: "Notes", place: null, name: null },
-    format: { name: "document", module_hash: HASH, explicit: false },
-    validation: {
-      input_hash: HASH,
-      module_hash: HASH,
-      status: "passed",
-      error_count: 0,
-      warning_count: 0,
-      diagnostics: [],
-    },
-    source: null,
-  };
-}
 
 const OPERATIONS = [
   "document.save",
@@ -71,33 +52,126 @@ async function open(): Promise<{ harness: CoreHarness; token: string }> {
     conditions: {},
   });
   assert(issued.ok, issued.ok ? "" : issued.error.message);
-  const noted = await harness.notePrepared(
-    {
-      preparation: "prep-create",
-      principal: "user-1",
-      purpose: "document_files",
-      hash: HASH,
-      size_bytes: 0,
-    },
-    Date.UTC(2024, 0, 1),
-  );
-  assert(noted.ok, noted.ok ? "" : noted.error.message);
-  const notedFile = await harness.notePrepared(
-    {
-      preparation: "prep-file-create",
-      principal: "user-1",
-      purpose: "document_file",
-      hash: HASH,
-      size_bytes: 10,
-    },
-    Date.UTC(2024, 0, 1),
-  );
-  assert(notedFile.ok, notedFile.ok ? "" : notedFile.error.message);
   return { harness, token: issued.value.token };
 }
 
+// 실제 core·documents worker·I/O worker·format runner. 문서는 coding agent 저장 통로로
+// 임시 폴더의 파일을 올려 만들고 derived index가 오를 때까지 기다린다(용어 근거 확인이
+// derived store의 고정 판 본문을 읽는다).
+const REAL_OPERATIONS = [...OPERATIONS, "search.query"];
+const SOURCE_TEXT = [
+  "# 용어",
+  "",
+  "## 요약",
+  "",
+  "범위는 이번 판단의 대상이다.",
+  "",
+  "## 부록",
+  "",
+  "경계는 여기 적지 않는다.",
+  "",
+].join("\n");
+
+type Real = {
+  core: Core;
+  token: string;
+  version: string;
+  dispose(): Promise<void>;
+};
+
+async function openReal(): Promise<Real> {
+  const home = await Deno.makeTempDir({ prefix: "lophn-terms-" });
+  const work = await Deno.realPath(
+    await Deno.makeTempDir({ prefix: "lophn-terms-work-" }),
+  );
+  const started = await startCore({
+    lophnHome: home,
+    port: 0,
+    teams,
+    teamModules: [new URL("./documents.ts", import.meta.url).href],
+    clock: manualClock(Date.UTC(2024, 0, 1)),
+    random: seededRandom(41),
+    testCredentials: true,
+  });
+  assert(started.ok, started.ok ? "" : started.error.message);
+  const core = started.value;
+  for (
+    const [context, token] of [
+      [{
+        principal: "user-1",
+        actor: "user" as const,
+        credential_ref: "cred-user",
+        scope: { operations: REAL_OPERATIONS, targets: {} },
+        conditions: {},
+      }, USER_TOKEN],
+      [{
+        principal: `coding_agent:${CAC}`,
+        actor: `coding_agent:${CAC}` as const,
+        credential_ref: "cred-agent",
+        scope: {
+          operations: [
+            "document.upload",
+            "document.prepare",
+            "document.save",
+            "document.list",
+          ],
+          targets: {},
+        },
+        conditions: {},
+      }, AGENT_TOKEN],
+    ] satisfies [AuthenticatedContext, string][]
+  ) {
+    const accepted = await core.acceptTestCredential?.(context, token);
+    assert(accepted?.ok);
+    const recorded = await core.record(context);
+    assert(recorded.ok);
+  }
+  await Deno.writeTextFile(`${work}/terms.md`, SOURCE_TEXT);
+  const client = createCoreClient({
+    baseUrl: `http://127.0.0.1:${core.port}`,
+    connection: CAC,
+    provider: () =>
+      Promise.resolve({ ok: true, value: { token: AGENT_TOKEN } }),
+  });
+  const saved = await saveFromPaths(
+    {
+      client,
+      scope: { root: work, forbidden: [home] },
+      prepareBytes: uploadPrepareBytes(client),
+    },
+    { paths: ["terms.md"], title: "용어", idempotency_key: SAVE_KEY },
+  );
+  assert(saved.ok, saved.ok ? "" : JSON.stringify(saved.error));
+  assertEquals(saved.value.saved.document, DOC);
+  const deadline = Date.now() + 60_000;
+  for (;;) {
+    const found = await fetch(`http://127.0.0.1:${core.port}/v1/search/query`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${USER_TOKEN}`,
+      },
+      body: JSON.stringify({ query: "이번 판단" }),
+    });
+    const body = await found.json() as { results?: unknown[] };
+    if ((body.results ?? []).length > 0) break;
+    assert(Date.now() < deadline, "문서가 index에 오르지 않았다");
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+  return {
+    core,
+    token: USER_TOKEN,
+    version: saved.value.saved.version,
+    async dispose() {
+      await core.shutdown();
+      await Deno.remove(home, { recursive: true });
+      await Deno.remove(work, { recursive: true });
+    },
+  };
+}
+
 function post(
-  harness: CoreHarness,
+  harness: { port: number },
   path: string,
   body: unknown,
   token: string,
@@ -129,17 +203,11 @@ async function json<T>(response: Response, status = 200): Promise<T> {
 }
 
 Deno.test("documents/terms#R1 #R2 #R4 #R5: core에서 후보를 제안하고 사람이 정의·수정·보관해 glossary로 읽는다", async () => {
-  const { harness, token } = await open();
+  const real = await openReal();
+  const harness = real.core;
+  const token = real.token;
+  const saved = { version: real.version };
   try {
-    const saved = await json<{ status: string; version: string }>(
-      await post(harness, "documents/save", {
-        input: prepared("create"),
-        idempotency_key: "create",
-        compare: { base_version: null },
-        prepared: ["prep-create"],
-      }, token),
-    );
-    assertEquals(saved.status, "saved");
     await json(
       await post(harness, "contexts/create", {
         input: { id: CONTEXT, title: "판단 기준", purpose: "용어", items: [] },
@@ -149,7 +217,7 @@ Deno.test("documents/terms#R1 #R2 #R4 #R5: core에서 후보를 제안하고 사
       }, token),
     );
 
-    // 후보는 저장한 고정 판의 section 근거를 달아 제안한다.
+    // 후보는 저장한 고정 판의 section 근거를 달아 제안한다. 이름이 그 section 본문에 나와야 한다.
     const evidence = {
       document: DOC,
       version: saved.version,
@@ -172,6 +240,43 @@ Deno.test("documents/terms#R1 #R2 #R4 #R5: core에서 후보를 제안하고 사
     );
     assertEquals(candidate.definition, null);
     assertEquals(candidate.evidence[0].version, saved.version);
+
+    // route 앞단의 출현 확인(Q8): 근거 section 본문에 이름이 없으면 command를 부르지 않고
+    // 거절한다. 다른 section(부록)에만 있는 이름도 같다. 용어는 만들어지지 않는다.
+    const absent = await json<{ error: { code: string } }>(
+      await post(harness, "terms/propose", {
+        input: {
+          id: DIRECT,
+          context: CONTEXT,
+          name: "경계",
+          evidence: [evidence],
+        },
+        idempotency_key: "term-absent",
+        compare: {},
+        prepared: [],
+      }, token),
+      400,
+    );
+    assertEquals(absent.error.code, "invalid_input");
+    const noSuchSection = await json<{ error: { code: string } }>(
+      await post(harness, "terms/propose", {
+        input: {
+          id: DIRECT,
+          context: CONTEXT,
+          name: "범위",
+          evidence: [{ ...evidence, section: "없는 section" }],
+        },
+        idempotency_key: "term-no-section",
+        compare: {},
+        prepared: [],
+      }, token),
+      400,
+    );
+    assertEquals(noSuchSection.error.code, "invalid_input");
+    const none = await json<{ candidates: TermBody[] }>(
+      await post(harness, "terms/list", { context: CONTEXT }, token),
+    );
+    assertEquals(none.candidates.map((term) => term.name), ["범위"]);
 
     // 근거 없는 후보와 없는 판의 근거는 거절된다.
     const bare = await json<{ error: { code: string } }>(
@@ -255,6 +360,21 @@ Deno.test("documents/terms#R1 #R2 #R4 #R5: core에서 후보를 제안하고 사
     );
     assertEquals(clash.error.code, "conflict");
 
+    // 근거를 바꾸는 update도 같은 확인을 지난다: 이름이 나오지 않는 section으로는 바꾸지 못한다.
+    const wrongEvidence = await json<{ error: { code: string } }>(
+      await post(harness, "terms/update", {
+        input: {
+          term: CANDIDATE,
+          evidence: [{ ...evidence, section: "부록" }],
+        },
+        idempotency_key: "term-evidence-wrong",
+        compare: { base_revision: defined.revision },
+        prepared: [],
+      }, token),
+      400,
+    );
+    assertEquals(wrongEvidence.error.code, "invalid_input");
+
     // 사람이 정의를 고치고 오래된 revision은 conflict다.
     const updated = await json<TermBody>(
       await post(harness, "terms/update", {
@@ -317,7 +437,7 @@ Deno.test("documents/terms#R1 #R2 #R4 #R5: core에서 후보를 제안하고 사
     );
     assertEquals(restored.status, "active");
   } finally {
-    await harness.close();
+    await real.dispose();
   }
 });
 

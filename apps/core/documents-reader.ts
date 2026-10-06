@@ -43,6 +43,7 @@ import {
   createOutlineHandlers,
   createSearchHandlers,
 } from "../../packages/documents/outline-and-search/reads.ts";
+import type { TermEvidence } from "../../packages/contracts/documents/mod.ts";
 import type {
   ContextItemSource,
   SearchSnapshot,
@@ -82,7 +83,9 @@ import {
   OBSERVATION_BASIS_ROUTE,
   OBSERVATION_LINK_PAGE,
   PREPARE_BASE_ROUTE,
+  SEARCH_VERSION_ROUTE,
   STORED_FILE_ROUTE,
+  TERM_OCCURRENCE_ROUTE,
   WORKING_COPY_ROUTE,
 } from "./documents-served.ts";
 import { workingCopyCheck } from "../../packages/documents/file-tracking/reads.ts";
@@ -90,9 +93,19 @@ import { loadProjects } from "../../packages/documents/projects/store.ts";
 import { authorizeDocument } from "../../packages/documents/versions/authorization.ts";
 import {
   loadDocument,
+  loadFiles,
   loadLinkedDocuments,
   loadVersion,
 } from "../../packages/documents/versions/store.ts";
+import { loadTerm } from "../../packages/documents/terms/store.ts";
+import {
+  checkTermOccurrence,
+  createDerivedEvidenceSource,
+} from "../../packages/documents/terms/mod.ts";
+import {
+  termProposeInputSchema,
+  termUpdateInputSchema,
+} from "../../packages/contracts/documents/mod.ts";
 import {
   createProductRedactor,
   type DocumentRedactor,
@@ -374,6 +387,73 @@ function contextExportRead(): ReadDefinition {
   };
 }
 
+const UNREADABLE_EVIDENCE = {
+  code: "invalid_input" as const,
+  message: "evidence cannot be read in the fixed version",
+};
+
+// 후보·근거 변경 command 앞의 출현 확인. 입력이 command 계약에 맞지 않으면 여기서 판단하지
+// 않고 command가 자기 오류로 거절하게 둔다. 근거를 바꾸지 않는 update도 지나간다.
+function termOccurrence(
+  snapshot: ReadSnapshot,
+  ctx: RequestContext,
+  command: "term.propose" | "term.update",
+  body: unknown,
+): Result<unknown> {
+  let name: string | undefined;
+  let evidence: readonly TermEvidence[] | undefined;
+  if (command === "term.propose") {
+    const parsed = termProposeInputSchema.safeParse(body);
+    if (!parsed.success) return ok({ checked: false, next_cursor: null });
+    name = parsed.data.name;
+    evidence = parsed.data.evidence;
+  } else {
+    const parsed = termUpdateInputSchema.safeParse(body);
+    if (!parsed.success || parsed.data.evidence === undefined) {
+      return ok({ checked: false, next_cursor: null });
+    }
+    evidence = parsed.data.evidence;
+    name = parsed.data.name;
+    if (name === undefined) {
+      const term = loadTerm(snapshot.sql as never, parsed.data.term);
+      if (!term.ok) return term;
+      // 없는 용어는 command가 자기 오류로 거절한다.
+      if (term.value === null) return ok({ checked: false, next_cursor: null });
+      name = term.value.name;
+    }
+  }
+  for (const item of evidence) {
+    const version = loadVersion(snapshot.sql as never, item.version);
+    if (!version.ok) return version;
+    if (version.value === null || version.value.document !== item.document) {
+      return err(UNREADABLE_EVIDENCE);
+    }
+    const document = loadDocument(snapshot.sql as never, item.document);
+    if (!document.ok) return document;
+    if (document.value === null) return err(UNREADABLE_EVIDENCE);
+    const access = authorizeDocument(snapshot.port, ctx, command, {
+      kind: "document",
+      document: document.value,
+    });
+    if (!access.ok) {
+      return access.error.code === "unavailable"
+        ? access
+        : err(UNREADABLE_EVIDENCE);
+    }
+  }
+  const root = dataRootOf(snapshot);
+  if (!root.ok) return root;
+  const read = derivedRead(root.value);
+  if (!read.ok) return read;
+  const checked = checkTermOccurrence(
+    createDerivedEvidenceSource(read.value.sql),
+    name,
+    evidence,
+  );
+  if (!checked.ok) return checked;
+  return ok({ checked: true, next_cursor: null });
+}
+
 export function createReaderRegistration(): ReaderRegistration {
   const root: ReadDefinition<ReadRoute> = {
     route: outlineRoot,
@@ -575,6 +655,41 @@ export function createReaderRegistration(): ReaderRegistration {
               ? last.path
               : null,
           });
+        },
+      },
+      // search consumer가 저장 판을 추출하려고 묻는 판 정보(판 행과 파일 목록). core만 부른다.
+      {
+        route: SEARCH_VERSION_ROUTE,
+        handle(snapshot, _ctx, input) {
+          const { version } = input as { version: string };
+          const row = loadVersion(snapshot.sql as never, version);
+          if (!row.ok) return row;
+          if (row.value === null) {
+            return ok({ version: null, next_cursor: null });
+          }
+          const files = loadFiles(snapshot.sql as never, version);
+          if (!files.ok) return files;
+          return ok({
+            version: {
+              document: row.value.document,
+              content_hash: row.value.content_hash,
+              format: row.value.format,
+              files: files.value,
+            },
+            next_cursor: null,
+          });
+        },
+      },
+      // route 앞단의 용어 출현 확인(질문 Q8). 요청 자격이 읽을 수 있는 고정 판의 section 또는
+      // 줄 범위만 읽는다. 권한 밖·없는 판은 읽을 수 없는 근거와 같은 거절이다(존재를 새지 않는다).
+      {
+        route: TERM_OCCURRENCE_ROUTE,
+        handle(snapshot, ctx, input) {
+          const { command, input: body } = input as {
+            command: "term.propose" | "term.update";
+            input: unknown;
+          };
+          return termOccurrence(snapshot, ctx, command, body);
         },
       },
       // export는 derived를 읽지 않는다. ledger snapshot과 redactor만 쓴다.

@@ -7,7 +7,35 @@ import { handleScreen } from "./screens.ts";
 import { handleInvoke } from "./invoke.ts";
 import type { RuntimeState } from "./state.ts";
 
-export function startDirectServer(state: RuntimeState) {
+// shutdown 요청을 받은 프로세스는 새 호출을 닫은 채 진행 중인 호출이 끝나는 대로 스스로 끝난다.
+// 유예(grace_ms)가 지나도 끝나지 않은 호출은 기다리지 않는다. 그래도 끝나지 않으면 supervisor가
+// 유예 뒤 강제 종료한다(R15).
+function exitWhenIdle(
+  state: RuntimeState,
+  graceMs: number,
+  exit: (code: number) => void,
+): void {
+  const startedAt = Date.now();
+  const tick = () => {
+    const running = [...state.invocations.values()].some((invocation) =>
+      invocation.progress === "running"
+    );
+    if (!running || Date.now() - startedAt >= graceMs) {
+      exit(0);
+      return;
+    }
+    setTimeout(tick, 25);
+  };
+  // 종료 요청의 응답이 먼저 나가도록 한 걸음 미룬다.
+  setTimeout(tick, 50);
+}
+
+export function startDirectServer(
+  state: RuntimeState,
+  options: { exit?: (code: number) => void } = {},
+) {
+  const exit = options.exit ?? ((code: number) => Deno.exit(code));
+  let exiting = false;
   const handler: HttpHandler = async (request) => {
     const authorization = request.headers.get("authorization");
     const verified = await verifyConnection(
@@ -57,6 +85,14 @@ export function startDirectServer(state: RuntimeState) {
       );
       if ("error" in control) {
         return jsonResponse(control.status, { error: control.error });
+      }
+      if (request.path.endsWith("/shutdown") && !exiting) {
+        exiting = true;
+        exitWhenIdle(
+          state,
+          (body.value as { grace_ms: number }).grace_ms,
+          exit,
+        );
       }
       return jsonResponse(control.status, control.body);
     }

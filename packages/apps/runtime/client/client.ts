@@ -28,12 +28,6 @@ import {
   unixDirectTransport,
 } from "./unix-http.ts";
 
-// contract의 output은 서명을 싣지 않는다. 서명이 없으면 앱이 이 connection을 받지 않으므로
-// 실제 wire는 같은 모양에 signature를 더한다.
-const connectResponseSchema = appConnectOutputSchema.extend({
-  signature: z.string().regex(/^[A-Za-z0-9_-]{86}$/),
-});
-
 export type CoreCall = (
   path: string,
   body: unknown,
@@ -225,7 +219,7 @@ export function createRuntimeClient(
       if (response.status !== 200) {
         return failure(response.status, response.body);
       }
-      const parsed = connectResponseSchema.safeParse(response.body);
+      const parsed = appConnectOutputSchema.safeParse(response.body);
       if (!parsed.success) {
         return err({ code: "unavailable", message: "response did not match" });
       }

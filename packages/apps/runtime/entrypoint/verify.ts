@@ -9,6 +9,7 @@ import {
   type InvocationCaller,
   parseAppConnection,
   parseConfirmProof,
+  type SignedConfirmProof,
 } from "./wire.ts";
 
 export type ProcessIdentity = {
@@ -135,7 +136,7 @@ export async function verifyCommandCall(deps: {
   identity: ProcessIdentity;
   command: string;
   input: unknown;
-  proof: ConfirmProof | undefined;
+  proof: SignedConfirmProof | undefined;
   key: VerifyKey;
   clock: Clock;
   accepting: boolean;
@@ -183,7 +184,7 @@ export async function verifyCommandCall(deps: {
   }
   const caller = projectCaller(deps.connection);
   if (declared.confirm) {
-    const checked = verifyProof({
+    const checked = await verifyProof({
       proof: deps.proof,
       key: deps.key,
       identity: deps.identity,
@@ -220,22 +221,36 @@ export async function verifyCommandCall(deps: {
   };
 }
 
-function verifyProof(deps: {
-  proof: ConfirmProof | undefined;
+async function verifyProof(deps: {
+  proof: SignedConfirmProof | undefined;
   key: VerifyKey;
   identity: ProcessIdentity;
   command: string;
   inputHash: string;
   caller: InvocationCaller;
   clock: Clock;
-}): { ok: true; value: ConfirmProof } | { ok: false; error: Rejection } {
+}): Promise<
+  { ok: true; value: ConfirmProof } | { ok: false; error: Rejection }
+> {
   if (!deps.proof) {
     return {
       ok: false,
       error: reject("forbidden", "confirm command needs a proof"),
     };
   }
-  const parsed = parseConfirmProof(deps.proof);
+  // 서명은 core가 한 번 접수한 진술이라는 근거다. 위조·변조는 다른 검사보다 먼저 거절한다.
+  const authentic = await verifySigned(
+    deps.key,
+    deps.proof,
+    (payload) => canonicalPayload(payload),
+  );
+  if (!authentic) {
+    return {
+      ok: false,
+      error: reject("unauthorized", "proof signature mismatch"),
+    };
+  }
+  const parsed = parseConfirmProof(deps.proof.payload);
   if (!parsed) {
     return { ok: false, error: reject("unauthorized", "proof is invalid") };
   }

@@ -53,7 +53,7 @@ import {
 import { commandOf, type CoreCall, readOf } from "./core-call.ts";
 import { createCorePorts, type RunSeat } from "./core-ports.ts";
 import type { ModelBinding } from "./model-binding.ts";
-import { type BlobPort, storeValue } from "./run-blobs.ts";
+import { type BlobPort, type RedactText, storeValue } from "./run-blobs.ts";
 import type { DriveDeps, PreparedResume, PreparedRun } from "./run-driver.ts";
 
 // 선택한 run을 시작하기 전의 재료를 core 기록에서 모은다(lophn-agent/harness/run-loop). assignment와
@@ -100,7 +100,7 @@ export type PreparerDeps = {
   blobs: BlobPort;
   skills?(): Promise<readonly SkillEntry[]>;
   timezone?(): string | null;
-  redact?: (text: string) => string | null;
+  redact?: RedactText;
   approvalTtlMs?: number;
   reservedOutput?: number;
 };

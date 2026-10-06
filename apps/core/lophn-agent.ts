@@ -129,6 +129,8 @@ import {
 export function agentRuntimeLaunchSpec(input: {
   dataRoot: string;
   apiPort: number;
+  // 사람이 등록한 provider의 목적지(`host:port`). 등록되면 core가 이 목록을 바꿔 재기동한다.
+  hosts?: readonly string[];
 }): KindLaunchSpec {
   return {
     kind: "lophn-agent/runtime",
@@ -136,8 +138,8 @@ export function agentRuntimeLaunchSpec(input: {
     allow_read: [input.dataRoot],
     // derived만 쓴다. ledger·blob·원본은 쓰지 않는다.
     allow_write: [`${input.dataRoot}/derived/lophn-agent`],
-    // core loopback만. provider·MCP host와 공개 models.dev는 등록될 때 더한다.
-    allow_net: [`127.0.0.1:${input.apiPort}`],
+    // core loopback과 등록된 provider 목적지만. MCP host와 공개 models.dev는 등록될 때 더한다.
+    allow_net: [`127.0.0.1:${input.apiPort}`, ...(input.hosts ?? [])],
     allow_run: [],
     allow_sys: [],
     allow_env: ["LOPHN_HOME", "LOPHN_WORKER_KIND"],

@@ -5,7 +5,6 @@ import {
   createCatalogRefresher,
   type FilesLike,
 } from "../../packages/lophn-agent/harness/model/mod.ts";
-import { SNAPSHOT_ENTRY_PATH } from "./snapshot-path.ts";
 
 export type CatalogRefresherHandle = CatalogRefresher;
 
@@ -36,13 +35,17 @@ export function startCatalogRefresher(
   return createCatalogRefresher(work);
 }
 
-// 동봉 snapshot은 모듈 상대 자산이다(architecture §3.2).
+// 동봉 snapshot은 모듈로 묶인 자산이다. runtime은 `--allow-read`가 data root뿐이라 소스 폴더의 파일을
+// 읽지 못한다(architecture §3.2).
 async function snapshotFromBundle() {
   const { parseEntries } = await import(
     "../../packages/lophn-agent/harness/model/mod.ts"
   );
-  const bytes = await Deno.readFile(SNAPSHOT_ENTRY_PATH);
-  const entries = parseEntries(new TextDecoder().decode(bytes));
+  const bundled = await import(
+    "../../packages/lophn-agent/harness/model/snapshot.json",
+    { with: { type: "json" } }
+  );
+  const entries = parseEntries(JSON.stringify(bundled.default));
   if (entries === undefined) {
     throw new Error("동봉 snapshot을 해석하지 못했다");
   }

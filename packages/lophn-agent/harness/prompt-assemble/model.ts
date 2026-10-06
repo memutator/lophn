@@ -1,3 +1,4 @@
+import type { ContextItem } from "../../../contracts/documents/mod.ts";
 import type {
   AgentRole,
   AssignmentScope,
@@ -82,6 +83,42 @@ export type ModelLimits = {
   output_limit: number;
 };
 
+// 실제로 넣은 자료 근거와 생략(R4, R18). 본문 없이 주소·version·관점·깊이만 남긴다.
+export type MaterialReference = {
+  address: string;
+  version: string | null;
+  perspective: ContextItem["perspective"];
+  depth: "full" | "address_only";
+  sections: string[];
+};
+
+export type MaterialOmission = {
+  source: string;
+  level: "reference_summary" | "basis_outline" | "selected_material";
+  reason: "input_over_budget";
+};
+
+// 실제 포함한 화면 근거(R28). 본문은 입력 blob에 있고 여기엔 포함한 값과 수집 시각만 둔다.
+export type TurnContextBasis = {
+  collected_at: string;
+  timezone: string | null;
+  workspace_generation: number | null;
+  observed_at: string | null;
+  tabs: { key: string; kind: string; selected: boolean }[];
+  focused_key: string | null;
+  omitted_count: number;
+  app_summary: { included: boolean; bytes: number };
+  unavailable: string[];
+  text_hash: string | null;
+  bytes: number;
+};
+
+export type PromptEvidence = {
+  references: readonly MaterialReference[];
+  omissions: readonly MaterialOmission[];
+  turn_context: TurnContextBasis | null;
+};
+
 export type PromptInput = {
   product: { instructions: string } | null;
   tools: readonly PromptTool[];
@@ -92,6 +129,8 @@ export type PromptInput = {
   material: WorkMaterial;
   // 이번 judgment turn의 동적 context(포장 끝). 없으면 null.
   turn_context: string | null;
+  // material.ts·turn-context.ts가 고른 근거. 없으면 비운다.
+  evidence?: PromptEvidence;
   limits: ModelLimits;
   reserved_output: number;
 };
@@ -126,6 +165,9 @@ export type ContextBasis = {
   instructions: { layers: InstructionBasis[]; total_bytes: number };
   layer_hashes: { kind: PromptLayerKind; hash: string }[];
   cache_boundaries: CacheBoundary[];
+  references: MaterialReference[];
+  omissions: MaterialOmission[];
+  turn_context: TurnContextBasis | null;
   tool_names: string[];
   size: {
     input_budget: number;

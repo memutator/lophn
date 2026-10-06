@@ -189,8 +189,14 @@ export class CredentialRegistry {
       // app 자격은 supervisor가 고정 app·release·process·mode로 요청한다
       // (architecture/platform 5.6). 조건에 없는 target을 넓혀도 같은 조건으로 고정한다.
       if (kind === "app") {
+        // release는 live에 필수다. 준비 전 bundle의 preview·test는 release 없이 bundle hash로 고정한다.
+        const releaseless = context.conditions.release === undefined &&
+          context.conditions.mode !== undefined &&
+          context.conditions.mode !== "live" &&
+          context.conditions.bundle_hash !== undefined;
         if (
-          !context.conditions.app || !context.conditions.release ||
+          !context.conditions.app ||
+          (!context.conditions.release && !releaseless) ||
           !context.conditions.process || !context.conditions.mode
         ) return invalid();
         if (

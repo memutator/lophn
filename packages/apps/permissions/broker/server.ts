@@ -1,5 +1,5 @@
 // 앱별 broker socket의 HTTP 서버다(architecture/apps 2.1, 5.4). 자식 하나의 credential·mode·nonce에
-// 묶이고 아래 다섯 서비스만 낸다. core API의 임의 proxy가 아니며 모르는 경로는 없는 경로와 같은
+// 묶이고 아래 서비스만 낸다. core API의 임의 proxy가 아니며 모르는 경로는 없는 경로와 같은
 // not_found다. 신원은 요청 본문이 정하지 않는다. 본문의 nonce·mode가 연결과 다르면 거절한다.
 import { asInternalError, err, type Result } from "../../../base/mod.ts";
 import { ERROR_HTTP_STATUS } from "../../../contracts/platform/mod.ts";
@@ -8,6 +8,9 @@ import type { NetFetchService } from "./net-fetch.ts";
 import type { SecretUseService } from "./secrets.ts";
 import type { DocumentSaveService } from "./documents.ts";
 import type { ProblemReportService } from "./problems.ts";
+import type { AppsConnectService } from "./apps-connect.ts";
+import type { AppsConfirmService } from "./apps-confirm.ts";
+import type { AutomationBroker } from "./automations.ts";
 
 export const BROKER_ROUTES = {
   invocationsSubmit: "/_lophn/broker/invocations/submit",
@@ -15,6 +18,11 @@ export const BROKER_ROUTES = {
   secretsUse: "/_lophn/broker/secrets/use",
   documentsSave: "/_lophn/broker/documents/save",
   problemsReport: "/_lophn/broker/problems/report",
+  appsConnect: "/_lophn/broker/apps/connect",
+  appsConfirmRequest: "/_lophn/broker/apps/confirm/request",
+  appsConfirmPoll: "/_lophn/broker/apps/confirm/poll",
+  automationsTryAcquire: "/_lophn/broker/automations/try_acquire",
+  automationsRelease: "/_lophn/broker/automations/release",
 } as const;
 
 export const BROKER_BODY_MAX_BYTES = 1_048_576;
@@ -25,6 +33,9 @@ export type BrokerServices = {
   secrets?: SecretUseService;
   documents?: DocumentSaveService;
   problems?: ProblemReportService;
+  apps?: AppsConnectService;
+  appsConfirm?: AppsConfirmService;
+  automations?: AutomationBroker;
 };
 
 export type BrokerSession = {
@@ -44,7 +55,16 @@ type Handler = (child: BrokerChild, body: unknown) => Promise<Result<unknown>>;
 
 function routes(services: BrokerServices): Map<string, Handler> {
   const table = new Map<string, Handler>();
-  const { invocations, net, secrets, documents, problems } = services;
+  const {
+    invocations,
+    net,
+    secrets,
+    documents,
+    problems,
+    apps,
+    appsConfirm,
+    automations,
+  } = services;
   if (invocations) {
     table.set(
       BROKER_ROUTES.invocationsSubmit,
@@ -58,6 +78,24 @@ function routes(services: BrokerServices): Map<string, Handler> {
   }
   if (problems) {
     table.set(BROKER_ROUTES.problemsReport, (c, b) => problems.report(c, b));
+  }
+  if (apps) table.set(BROKER_ROUTES.appsConnect, (c, b) => apps.connect(c, b));
+  if (appsConfirm) {
+    table.set(
+      BROKER_ROUTES.appsConfirmRequest,
+      (c, b) => appsConfirm.request(c, b),
+    );
+    table.set(BROKER_ROUTES.appsConfirmPoll, (c, b) => appsConfirm.poll(c, b));
+  }
+  if (automations) {
+    table.set(
+      BROKER_ROUTES.automationsTryAcquire,
+      (c, b) => automations.tryAcquire(c, b),
+    );
+    table.set(
+      BROKER_ROUTES.automationsRelease,
+      (c, b) => automations.release(c, b),
+    );
   }
   return table;
 }

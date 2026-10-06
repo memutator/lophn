@@ -247,10 +247,15 @@ export const documentRename = defineCommand({
   errors: mutationErrors,
 });
 
-// 값 type은 lophn-agent/questions다. 여기서는 같은 transaction의 user actor 적용만 표시한다.
+// 다른 owner가 같은 transaction에서 `tx.call`로 부를 수 있는 command다. move·rename은 question
+// option action(lophn-agent/questions)이 사람 결정으로 적용하고, archive·restore는 run revert
+// (lophn-agent/revert)가 run이 만든 문서의 보관과 이전 판 복원으로 부른다. 어느 경우도 새
+// transaction·actor·commit을 만들지 않고 호출한 자격과 command 자신의 CAS·범위 검사를 받는다.
 export const DOCUMENT_DISPATCHABLE_COMMANDS = [
   { route: documentMove, dispatchable: true },
   { route: documentRename, dispatchable: true },
+  { route: documentArchive, dispatchable: true },
+  { route: documentRestore, dispatchable: true },
 ] as const;
 
 // agent metadata read에 현재 디스크 source를 섞지 않는다.

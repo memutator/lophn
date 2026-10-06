@@ -887,7 +887,10 @@ Deno.test("documents/terms#R6: 앱 read command를 항목으로 가진 context�
     const dump = () =>
       Object.fromEntries(
         tables()
-          .filter((name) => name !== "terms" && name !== "term_evidence")
+          // events는 이 용어 정의가 남긴 event를 담는다. 확인 대상은 다른 concern의 표다.
+          .filter((name) =>
+            name !== "terms" && name !== "term_evidence" && name !== "events"
+          )
           .map((name) => [
             name,
             JSON.stringify(

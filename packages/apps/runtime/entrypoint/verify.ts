@@ -37,10 +37,16 @@ export type Rejection = {
     | "conflict"
     | "unavailable";
   message: string;
+  // 호출한 쪽이 다음 단계를 알 수 있는 안전한 사실. confirm 필요 여부만 싣는다.
+  details?: Record<string, unknown>;
 };
 
-function reject(code: Rejection["code"], message: string): Rejection {
-  return { code, message };
+function reject(
+  code: Rejection["code"],
+  message: string,
+  details?: Rejection["details"],
+): Rejection {
+  return { code, message, ...(details ? { details } : {}) };
 }
 
 export async function verifyConnection(
@@ -235,7 +241,9 @@ async function verifyProof(deps: {
   if (!deps.proof) {
     return {
       ok: false,
-      error: reject("forbidden", "confirm command needs a proof"),
+      error: reject("forbidden", "confirm command needs a proof", {
+        confirm_required: true,
+      }),
     };
   }
   // 서명은 core가 한 번 접수한 진술이라는 근거다. 위조·변조는 다른 검사보다 먼저 거절한다.

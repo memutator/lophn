@@ -45,6 +45,35 @@ export function createBrokerClient(deps: {
     }) {
       return post(BROKER_PATHS.invocationsSubmit, body);
     },
+    // 다른 앱 connection 준비. source 신원은 broker가 이 자식 연결에서 정한다.
+    appsConnect(body: {
+      app: string;
+      commands: readonly string[];
+      parent_invocation: string | null;
+      incoming?: {
+        app: string;
+        release: string;
+        parent_invocation: string | null;
+      };
+    }) {
+      return post(BROKER_PATHS.appsConnect, body);
+    },
+    // confirm=true command의 approval 요청과 결과 수령(apps/connections#R3).
+    appsConfirmRequest(body: Record<string, unknown>) {
+      return post(BROKER_PATHS.appsConfirmRequest, body);
+    },
+    appsConfirmPoll(body: Record<string, unknown>) {
+      return post(BROKER_PATHS.appsConfirmPoll, body);
+    },
+    // automation 회차 permit. 신원은 연결이 정하고 release·key만 본문에 싣는다.
+    tryAcquireAutomation(body: { release: string; key: string }) {
+      return post(BROKER_PATHS.automationsTryAcquire, body);
+    },
+    releaseAutomation(
+      body: { release: string; key: string; invocation: string },
+    ) {
+      return post(BROKER_PATHS.automationsRelease, body);
+    },
   };
 }
 

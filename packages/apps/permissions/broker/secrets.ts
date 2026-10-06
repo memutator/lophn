@@ -79,7 +79,7 @@ export function secretAllowed(
   );
   if (!granted) return false;
   return destinationAllowed(
-    { release: "", scope, commands: [], problemCodes: [] },
+    { release: "", scope, commands: [], problemCodes: [], automations: [] },
     platformPorts,
     urlHost(url),
     urlPort(url),

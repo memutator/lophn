@@ -586,6 +586,7 @@ concerns: [shell]
 - shell#T28에서 넘어온 것: 질문 칸·things-to-confirm의 [Review]는 `lophnShell.openConfirmation({request, parentWindow})`(contracts shell confirmation)을 부른다(`apps/shell/renderer/desktop/lophn-space/things-to-confirm/core-source.ts`의 `windowConfirmation`). shell preload에 `openConfirmation`과 main의 `shell:confirmation-open` 등록·coordinator 연결이 아직 없어 지금은 "The review window can't open here yet."를 보인다. main은 renderer가 보낸 `parentWindow` 값이 아니라 IPC를 보낸 창을 부모로 쓴다
 - platform#T19 후속(#294)에서 넘어온 것: secret 입력 창의 main 쪽 길이 core에 열렸다. 값이 있는 곳은 창의 보호 입력과 main 메모리뿐이다. main은 (1) `POST /v1/secrets/input`(`content-type: application/octet-stream`, `x-lophn-input`에 `{purpose, owner, bytes}`의 base64url JSON, body는 값의 바이트, 상한 64KiB)으로 값을 보내 값 없는 준비 증거 `{preparation, sealed_ref, purpose, owner}`를 받고, (2) 그 증거가 들어간 `SetSecret` 입력(앱 secret은 `purpose: app_secret`, `owner == name`)의 binding으로 confirmation handle을 main↔core 비공개 연결에 등록하고(handle은 증거를 받은 뒤에만 만들 수 있다), (3) `SetSecret`(교체는 `compare: {sealed_ref, revision}`, 처음은 null 둘)을 보내고, (4) 결과로 창에는 안전 이름·저장 결과만 돌려준다. 제거는 `RemoveSecret`이다. 표시용 `/v1/secrets/list`(이름·설정 여부·판)도 열렸다. 실패는 keychain 잠김이면 `unavailable`(값은 어디에도 남지 않음), 크기 불일치면 `invalid_input`이다. provider credential(`RegisterProviderCredential`·`ChangeProviderCredentials`)은 같은 route에 `purpose: provider_credential`로 값을 보내 증거를 받고 소유 command를 부른다(T31). 제출·취소·창 종료 때 값을 지운다. core가 값을 쥐는 곳은 없으므로 main이 값을 로그·오류·IPC 결과에 넣지 않는 것이 이 작업의 시험이다.
 - platform Q29(#305)에서 넘어온 것: approval 결정 창은 `approvals/get`(exact 동작·대상·입력·기한·상태)과 함께 `ReadApprovalText`(`/v1/approvals/text`, 입력 `{approval}`)로 이유·변경·외부 영향·되돌림 글을 읽어 문장으로 보인다. 글은 core가 redaction한 값이고 blob 하나라도 읽지 못하면 `unavailable`이라 일부만 보이지 않는다. 거절 창은 선택 입력인 거절 이유를 `closed_reason` 글 값(없으면 `null`, 글 하나 32KiB 이하, 공백뿐인 글은 보내지 않는다)으로 `approvals/reject`에 싣는다. hash를 만들거나 blob을 준비하지 않고 core가 한다. 이유는 handle binding(approval·created_seq·binding_hash)에 들어가지 않는다. 종료된 request의 `ReadApprovalText.closed_reason`이 적은 거절·취소 이유이고 만료는 null이다(상태가 이유다).
+- lophn-agent#T34(Q44)에서 넘어온 것: revert 창의 main은 (1) `reverts/preview`로 본 묶음(`groups`)을 보이고, (2) 복원 가능한 묶음마다 문서의 이전 판을 사람 자격의 `documents/prepare`(`existing` 원문 참조와 그 판의 FormatRef)로 준비해 `buildRevertInput`(packages/lophn-agent/revert/work.ts)으로 `RevertRun` 입력의 `groups`(준비 결과는 `comparison.prepared`, `prepared_ref`는 그 hash)를 만들고 준비 참조를 요청의 `prepared`에 싣는다. (3) 확인 handle은 binding(`id, run, allow_partial, preview_hash`)으로 발급하고 결정 이름은 command 이름 `RevertRun`(= contract의 `REVERT_RUN_DECISION`)이다. (4) 이유(`reason`)는 고정 코드(`revertReasonSchema`)이므로 코드로 wording을 고른다. 결과 event는 사람이 `events/list`로 따라 볼 수 있다(payload는 run·지문·결과별 수). 준비 결과가 없으면 문서 내용 복원은 blocked(복원 준비 불충족)로 끝난다
 - 완료: 아래 확인이 통과한다
   - approval request: 결정을 문장으로 묻고 exact 대상·입력·영향·되돌릴 범위. 허락·거절·명시 취소. 승인 접수와 실제 적용을 구별해 돌려준다.
   - question option action: concern·command·대상·정확한 입력·비교 기준·영향을 고르기 전에 그대로 보인다.
@@ -695,6 +696,7 @@ concerns: [shell]
 - 내놓는 contract: 없음
 - slice: agent
 - 선행: shell#T27, shell#T33, shell#T34, contracts#T30, lophn-agent#T33
+- lophn-agent#T33에서 넘어온 것: 블록 틀의 [Save as document]는 별도 visuals 저장 contract를 부르지 않는다(그런 contract는 없다). 누르면 "이 블록을 문서로 남겨 달라"는 요청을 대화 입력(`ReceiveMessage`)으로 보내고, agent가 `visual.prepare_document`와 문서 tool로 준비·저장한다(visuals#R6, lophn-agent 질문 Q45 (6), lead 승인). 저장 뒤 고정 문서 링크는 그 답 메시지의 링크에서 온다.
 - lophn-agent#Q29에서 넘어온 것(#281, 계약이 정해졌다): (1) 보내기는 `ReceiveMessage` 입력의 `body`(hash)를 `content`(`{schema_version: 1, parts: [{kind: "text", text}]}`, 정규 직렬화 64KiB 이하)로 바꾼다. renderer·main은 hash도 blob도 만들지 않고 core가 redaction·준비·영구 참조를 한다. 같은 id·같은 idempotency key의 재전송은 이전 결과다. 본문 hash는 응답의 `message.body`에서 온다. (2) 읽기는 `ReadMessageBody`(`/v1/messages/body`, 입력 `{message}`, 출력 `{message, session, body, size_bytes, content, as_of_seq, next_cursor}`)이고 `content.parts`는 글·시각 블록이다. 사람·그 assignment의 agent·machine만 읽으며 없는 메시지와 다른 assignment의 것은 같은 `not_found`, 본문 blob을 못 읽으면 `unavailable`이다. (3) 새 데이터 root에도 lophn assignment가 있다(core 기동이 만든다, lophn-agent Q37). model이 미준비라 run은 provider를 고르기 전까지 시작하지 못한다. → (1)·(2)는 #285에서 했다: 도크가 `content`를 보내고(보내기 전에 64KiB 상한을 보고 넘으면 보내지 않고 이유를 둔다) 확정 메시지 본문을 `ReadMessageBody`로 읽는다. 블록 renderer만 이 작업에 남는다
 - shell#T27에서 넘어온 것: 메시지 본문(MessageContent) 읽기와 그 글·블록 표시. → 읽기와 글 표시는 #285에서 했다: 도크(`apps/shell/renderer/conversation/`)는 사람 말·lophn 답·machine 사실·다른 창이 보낸 말의 본문을 모두 읽어 글 part를 그리고, 읽은 본문은 창 메모리(`DraftStore`)에 둔다. 이 창이 보낸 말은 읽기 전까지 보낸 글로 자리를 채운다. 시각 블록 part는 지금 제목과 "Charts, tables, and diagrams can't be shown in the conversation yet."만 글로 보이는 자리 표시다(`message-list.tsx`의 `VisualPending`). 이 작업의 블록 renderer가 그 자리를 바꾼다. 남은 것: 블록 그리기, lophn 답의 streaming 임시 글(확정 메시지로 바꾸기, renderer로 오는 streaming 통로가 아직 없다, Q15 (3))
 - 완료: 아래 확인이 통과한다
@@ -729,6 +731,7 @@ concerns: [shell]
 
 ### T37 앱 view registry, scheme proxy, session, network 정책
 
+- 상태: 완료 (#323) — 이어보냄: preload·IPC·`shell:view-state` 연결 → shell#T39, view 연결의 command 범위 → shell#T38, 앱 entrypoint의 화면 자원(`screenBytes`) → apps#T22. 진단 payload의 앱·release는 Q21
 - 등급: 기본
 - concern: shell/app-frame, shell/desktop
 - 요구: shell/app-frame#R1(앱), R2, R3, R4, R8, R9, R11, R12, R16, R18, R19, R20, R22, shell/desktop#R13
@@ -764,6 +767,7 @@ concerns: [shell]
   - `app:view-error`: main이 view registry의 `{view_session, generation, app, release, mode, binding}`을 붙여 인증된 client로 collector에 보낸다. 페이지가 주장한 값은 버린다.
   - `app-call_test`, `external-link_test`(8,193자·다른 scheme·userinfo 거절), `view-error_test`에 위 요구 테스트.
 - 가져올 것: legacy `preload/app-preload.ts`의 contextBridge 모양, `security.ts`의 외부 URL 검사 원리. `lophnApp.action`·permit 계약은 가져오지 않는다.
+- shell#T37에서 넘어온 것: view 연결은 지금 화면만 열려고 `commands: []`로 얻는다(`main/app-frame/app-connection.ts`의 `connect`). `app:call`은 그 view의 blueprint command를 연결 범위에 넣어 얻어야 한다(core는 요청한 것 중 프로세스가 등록한 command만 넣는다). 인증 header·endpoint는 registry entry의 `binding`에 있고 view·preload에는 없다. 연결 만료·회수는 registry의 `refresh`가 다시 얻는다
 
 ### T39 native view 배치: 동시 표시, focus, bounds, 좁은 창
 
@@ -783,6 +787,7 @@ concerns: [shell]
   - 앱 view는 배정된 경계 안에서 자기 페이지 머리부터 그리고 바깥 크롬은 shell이 그린다.
   - `visibility_test`와 `e2e/shell/native-view_test.ts`(두 view 동시 표시, drag 중 view가 보임, 전환 중 겹친 frame 없음, 1024px 미만 bounds 축소)에 위 요구 테스트.
 - 가져올 것: legacy `views.ts`의 `#mount`·`setBounds`·`toDip`·latest requested bounds 처리, `renderer/src/shell/EmbeddedView.tsx`의 ResizeObserver+rAF.
+- shell#T37에서 넘어온 것: main.ts에 `appFrame`(`main/app-frame/registry.ts`의 `createAppFrame`)이 조립돼 있다. shell preload의 `openApp`·`setViewBounds`·`setViewsHidden`·`closeView`와 IPC(`shell:view-open-app` 등, sender 검사)를 registry의 `open`·`setBounds`·`hide`·`close`·`state`에 잇고 `shell:view-state` push를 더한다. 붙이기는 `electron-app-frame.ts`가 하고 붙일 때 overlay를 맨 위로 다시 둔다(`electronOverlays().raise`). `setBounds`는 실제 attach일 때만 generation을 올리고 진단을 남긴다
 
 ### T40 SDK UI: ui-control, ui-overlay, ui-layout, ui-state
 
@@ -1224,3 +1229,4 @@ shell 최상위의 요구는 8개 leaf에 177개이고 모두 위 작업의 `요
   - (2) 복원: 고른 판의 경로별 원문 blob 참조(`existing`, owner_key `<판>/<경로>`)와 정확한 FormatRef로 준비하고 `document.restore`에 최신 판·revision CAS를 싣는다. 원본 연결 문서는 먼저 고른 판의 대표 파일 바이트(`documents/file`)를 지금 디스크 hash로 CAS해 `files/write`로 쓰고, 그 쓰기 결과의 관측(`observed_hash`·`observed_at`)과 `documents/get`·`projects/get`의 revision으로 `source`·`file_basis`를 만들어 준비한다. 관측 loop가 같은 바이트로 판을 먼저 만들어 복원 명령이 conflict·unchanged가 되면, 최신 판이 고른 판과 같은 내용·형식일 때 그 판을 이 복원의 결과로 보인다(DocumentRestored event는 그때 없다). 디스크와 최신 판이 이미 고른 판이면 쓰지 않고 unchanged다. 지침 파일은 관측 loop가 판을 정하므로 파일만 쓰고 pending으로 답한다(지침 revision read가 없다). 검사 한도(1 MiB)를 넘는 명시 format 판도 원문 참조 준비라 그대로 되살아난다(documents Q30 (5)). 판 바이트는 main 메모리에 64 MiB까지 둔다.
   - (3) 제품 core에는 파생 store를 쓰는 consumer가 아직 없어(documents#T21) `documents/diff`·`section_history`·`outline/document`·`documents/read`가 모두 unavailable이다. 그래서 제품에서 비교 화면은 "Couldn't load this comparison"과 다시 시도로 답하고, 버전 탭의 절 고르기는 나오지 않는다. 이력·정보·복원은 파생 store 없이 돈다. 실제 core 테스트(`editor/versions/versions-real-core_test.ts`)는 이력·연결 문서 복원·1 MiB 넘는 명시 format 복원을 보고, 비교 화면은 documents.diff 모양의 통로로 component test(`editor/compare/compare_test.tsx`)가 본다. headless 확인은 documents의 실제 core 시험처럼 실제 format module로 두 판을 추출해 파생 store에 심은 뒤 비교·복원을 돌렸다. documents#T21이 consumer를 조립하면 심지 않고도 같은 화면이 나와야 한다. documents에 알린다.
   - (4) 정보 패널 틀(폭·머리·탭·열림 기억)은 shell#T14의 작업대 자리(`workspace/info-panel-slot`)가 그대로 두고, 탭 본문만 `editor/info-panel`이 그린다. overlay일 때 Escape·바깥 click 닫기와 CommandOrControl+Alt+B는 작업대 자리에 더했다(창 shortcut 표가 아니라 renderer keydown이라 앱 view에 focus가 있으면 오지 않는다). 비교는 정보 패널 버전 탭에서 열어 focus 칸 문서 탭 본문 자리(읽기 기둥 밖, 칸 전체 폭)에 그리고, 복원은 비교 화면의 secondary 아이콘과 확인 줄로만 한다.
+- **Q21 view 수명 진단의 앱·release(T37, contracts 팀 판단 대기).** `shell_view_lifetime` 진단 payload에는 app·release가 없다(contracts#T6). main은 view_session·generation·개수를 감독 pipe로 보내고 core가 `<데이터 root>/logs/shell-view.jsonl`에 그 field만 쓴다(`apps/core/parent.ts`). shell/app-frame#R22의 "어떤 앱·release가 표시됐는지"는 main log 줄(view_session·generation·app·release·mode, URL·token 없음)에 함께 남겼다. payload에 app·release를 더할지는 contracts 팀이 정한다.

@@ -4,7 +4,11 @@ import { routePath } from "../platform/mod.ts";
 import {
   REVERT_EVENTS,
   REVERT_ROUTES,
+  REVERT_RUN_DECISION,
+  revertApplied,
+  revertBlocked,
   revertChangeSchema,
+  revertFinished,
   revertGroupSchema,
   revertRun,
   revertRunInputSchema,
@@ -20,7 +24,7 @@ const group = {
   target: `doc_${suffix}`,
   source_seqs: ["2", "4"],
   capability: "reversible",
-  reason_blob: null,
+  reason: null,
   comparison: { revision: 3 },
   before_ref: { version: `ver_${suffix}` },
   dependencies: [],
@@ -57,14 +61,14 @@ Deno.test("lophn-agent/revert#R3: a preview shows every group with its capabilit
     !revertGroupSchema.safeParse({
       ...group,
       capability: "irreversible",
-      reason_blob: null,
+      reason: null,
     }).success,
   );
   assert(
     revertGroupSchema.safeParse({
       ...group,
       capability: "irreversible",
-      reason_blob: hash,
+      reason: "later_change",
       comparison: null,
       before_ref: null,
     }).success,
@@ -98,7 +102,7 @@ Deno.test("lophn-agent/revert#R11: a partial result keeps restored and unfinishe
     revertChangeSchema.safeParse({
       ...change,
       result: "restored",
-      reason_blob: null,
+      reason: null,
       restored_seqs: ["8"],
     }).success,
   );
@@ -106,7 +110,7 @@ Deno.test("lophn-agent/revert#R11: a partial result keeps restored and unfinishe
     revertChangeSchema.safeParse({
       ...change,
       result: "unchanged",
-      reason_blob: hash,
+      reason: "later_change",
       restored_seqs: [],
     }).success,
   );
@@ -114,7 +118,7 @@ Deno.test("lophn-agent/revert#R11: a partial result keeps restored and unfinishe
     !revertChangeSchema.safeParse({
       ...change,
       result: "failure",
-      reason_blob: null,
+      reason: null,
       restored_seqs: [],
     }).success,
   );
@@ -123,8 +127,58 @@ Deno.test("lophn-agent/revert#R11: a partial result keeps restored and unfinishe
       ...change,
       source_seqs: ["4", "2"],
       result: "restored",
-      reason_blob: null,
+      reason: null,
       restored_seqs: ["8"],
+    }).success,
+  );
+});
+
+Deno.test("lophn-agent/revert#R3: 확인 handle의 결정 이름 상수는 ledger가 검사하는 command 이름이다", () => {
+  assertEquals(REVERT_RUN_DECISION, revertRun.name);
+  assertEquals(revertRun.name, "RevertRun");
+});
+
+Deno.test("lophn-agent/revert#R3: 이유는 글이 아니라 고정 코드이고 결과 event는 변경 목록 대신 결과별 수만 싣는다", () => {
+  assert(
+    !revertGroupSchema.safeParse({
+      ...group,
+      capability: "retained",
+      reason: "not a code",
+    }).success,
+  );
+  const counts = {
+    restored: 1,
+    retained: 2,
+    irreversible: 0,
+    conflict: 0,
+    unchanged: 0,
+    failure: 0,
+    uncertain: 0,
+  };
+  assert(
+    revertBlocked.payload.safeParse({ run, results: counts }).success,
+  );
+  assert(
+    revertFinished.payload.safeParse({
+      run,
+      outcome: "partial",
+      results: counts,
+    }).success,
+  );
+  assert(
+    revertApplied.payload.safeParse({
+      run,
+      allow_partial: false,
+      partial: false,
+      results: counts,
+    }).success,
+  );
+  assert(
+    !revertApplied.payload.safeParse({
+      run,
+      allow_partial: false,
+      partial: false,
+      results: { ...counts, restored: -1 },
     }).success,
   );
 });

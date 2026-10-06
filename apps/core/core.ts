@@ -150,7 +150,13 @@ import { createStreamer, createValidatePort } from "./documents-validate.ts";
 import type { ValidatePort } from "../../packages/documents/versions/work.ts";
 import { DOCUMENT_OPS } from "../../packages/documents/file-tracking/mod.ts";
 import { projectTrackingRoots } from "../../packages/contracts/documents/mod.ts";
-import { greet, type ParentPipe, watchParent, writeParent } from "./parent.ts";
+import {
+  greet,
+  type ParentPipe,
+  shellViewLog,
+  watchParent,
+  writeParent,
+} from "./parent.ts";
 import { snapshotLogsEnvironment } from "./problems-logs.ts";
 import {
   appCredentialIssuer,
@@ -842,7 +848,11 @@ async function open(
       ),
       reads: runtime.reads,
       // 현재 보기 relay와 apps.connect(supervisor 메모리 관측을 읽는 제어 어댑터)다.
-      memory: new Map([...runtime.memory.handlers, ...appsControl.memory]),
+      memory: new Map([
+        ...runtime.memory.handlers,
+        ...runtime.deliveryMemory,
+        ...appsControl.memory,
+      ]),
       events: runtime.events,
       subscriptions: runtime.subscriptions,
       track: (session) => runtime.track(session),
@@ -1565,7 +1575,7 @@ async function open(
     ? watchParent(parent, () => core.shutdown(), {
       confirmation: (body) => runtime!.confirmation(body),
       reply: (message) => writeParent(parent, message),
-    })
+    }, shellViewLog(root.path))
     : Promise.resolve();
   const accepting = registry as CredentialRegistry & {
     acceptTestCredential?(

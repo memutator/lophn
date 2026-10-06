@@ -21,6 +21,9 @@ export type InvocationRecord = {
   recorded: boolean;
   // 취소 요청을 받았다는 사실뿐이다. 효과가 취소됐다는 뜻이 아니다(apps/invocations#R11).
   cancelRequested?: boolean;
+  // 종료 사실(timeout의 결과 모름)을 이미 보냈다. 늦은 handler 종료가 그 사실을 바꾸지 않는다.
+  settled?: boolean;
+  startedAt?: string;
 };
 
 export type ViewSession = {
@@ -47,6 +50,8 @@ export type RuntimeState = {
   byRequest: Map<string, string>;
   markers: ConfirmMarkers;
   views: Map<string, ViewSession>;
+  // live 프로세스의 automation 수명. 업무 통로가 열리면 시작하고 닫히면 멈춘다.
+  automations?: { open(): void; close(): void };
   screenBytes: (screen: string, path: string) => Uint8Array | undefined;
   contentType: (path: string) => string;
 };

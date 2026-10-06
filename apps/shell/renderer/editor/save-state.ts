@@ -386,8 +386,9 @@ export class SaveSession {
     const run = this.#run(end).finally(() => {
       if (this.#inFlight === run) this.#inFlight = null;
       if (
-        this.#pending !== null && !this.blocked() && !this.#closed &&
-        !this.#facts.retrying && this.#timer === null
+        // 쓰는 사이 온 고침만 이어 쓴다. 실패 뒤에는 정한 다시 시도나 사람의 조작만 쓴다.
+        this.#pending !== null && this.#facts.disk.state === "saved" &&
+        !this.#closed && this.#timer === null
       ) {
         this.#schedule(SAVE_QUIET_MS, false);
       } else if (this.#pending === null && this.#facts.pipeline !== "idle") {

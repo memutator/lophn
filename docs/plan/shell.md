@@ -750,7 +750,7 @@ concerns: [shell]
 
 ### T38 앱 preload: command 호출, 외부 링크, view 예외 전달
 
-- 상태: 완료 (#334) — 이어보냄: main 조립의 blueprint read(`/v1/apps/blueprint`)·confirm gate → shell#T45, view 오류의 collector view binding 통로 → problems#T16, SDK 루트 render 오류 event → shell#T40, 화면 검사 host의 view 오류 관측 → shell#T46. 자리와 판단은 Q22
+- 상태: 완료 (#334) — 이어보냄: main 조립의 blueprint read(`/v1/apps/blueprint`)·confirm gate → shell#T45, view 오류의 collector view binding 통로와 main.ts `viewErrors.send` 연결 → problems#T16, SDK 루트 render 오류 event → shell#T40, 화면 검사 host의 view 오류 관측 → shell#T46. 자리와 판단은 Q22
 - 등급: 기본
 - concern: shell/app-frame
 - 요구: shell/app-frame#R5, R6, R13, R15, problems/reporting#R5, R6(view 예외 귀속)
@@ -1237,4 +1237,4 @@ shell 최상위의 요구는 8개 leaf에 177개이고 모두 위 작업의 `요
   - (2) 선언 밖 command와 core가 연결에 넣지 않은 command는 같은 `invalid_input: command is not available`이다. 앱 handler 실패(500)는 페이지에 `unavailable: command failed`로 보인다. 페이지에서 실패는 `Error("<code>: <message>")`로 reject된다.
   - (3) shell tsc는 contracts의 `blueprint-schema.ts`를 `noUncheckedIndexedAccess`로 검사하면 실패한다. 그래서 `validateInput`·`canonicalInputHash`는 deno가 검사하는 main.ts 조립이 app-call에 넘긴다(`InputRules`). app-call 테스트는 같은 contracts 함수를 쓴다.
   - (4) context isolation 때문에 페이지의 error·unhandledrejection은 preload(isolated world) listener에 오지 않는다(e2e에서 확인). 감시 함수를 `contextBridge.executeInMainWorld`로 main world에서 돌리고 보고 함수는 인자로만 넘겨 `window`에 이름을 더하지 않는다. SDK 루트 render 오류는 `lophn:render-error` DOM event로 받는다(→ T40).
-  - (5) 아직 core 통로가 없는 것: blueprint read(apps#T19 `/v1/apps/blueprint`)와 confirm gate(→ T45), view 오류의 collector 전달 binding(→ problems#T16, contracts 판단 필요). 그 전까지 main은 각각 unavailable·unsent다. headless 확인(`LOPHN_SHELL_HEADLESS=1`)에서는 외부 링크를 OS browser로 열지 않고 log만 남긴다. 앱 view의 `<a target=_blank>`·main frame 탐색은 지금처럼 막히고 OS browser로 넘기지 않는다. 링크는 `lophnApp.openExternal`로만 연다.
+  - (5) 아직 core 통로가 없는 것: blueprint read(apps#T19 `/v1/apps/blueprint`)와 confirm gate(→ T45), view 오류의 collector 전달 binding과 main 조립 연결(→ problems#T16, contracts 판단 필요). 그 전까지 main은 각각 unavailable·unsent다. headless 확인(`LOPHN_SHELL_HEADLESS=1`)에서는 외부 링크를 OS browser로 열지 않고 log만 남긴다. 앱 view의 `<a target=_blank>`·main frame 탐색은 지금처럼 막히고 OS browser로 넘기지 않는다. 링크는 `lophnApp.openExternal`로만 연다.

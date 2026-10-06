@@ -760,6 +760,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T23 blueprint 유래 앱 read tool
 
+- 상태: 진행 (#PR) — 남은 것: `/v1/apps/blueprint` core read route와 `appBlueprint` 배선 → apps#T19, coding-agent#T36
 - 등급: 기본
 - concern: coding-agent/mcp-server
 - 요구: coding-agent/mcp-server#R4, R34, R35
@@ -785,6 +786,27 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
     conflict 응답에 고정 op `lophn_app command`로 부르는 방법을 함께 준다(R35)
   - write·external·confirm·범위 밖 앱은 discovery와 직접 요청 모두 거절(R34)
   - 동적 목록을 포함한 schema token 재측정(R4)
+  - 구현 메모(T23):
+    - `mcp-server/tools/app-commands.ts`의 `createAppCommandTools`가 목록(`list`)과 호출(`call`)을
+      맡는다. server(`createHandler`)는 `appCommands`를 받고 app toolset이 켜져 있을 때만
+      `tools/list`에 동적 항목을 붙이며(고정 tool은 core에 닿지 않고 답한다), 꺼져 있으면 동적
+      이름은 없는 tool(-32602)이다. 앱 목록(`app.list`)이 scope 판정이고 앱 읽기·목록 실패는
+      그 앱·동적 목록이 없는 것과 같다. 이름 충돌은 `tools/list`를 JSON-RPC -32603
+      `discovery 실패`로 돌려준다.
+    - 호출은 `runAppOp({op:"command"})`로 보내므로 preview 기본값·결과 불명·앱 통로 direct
+      call이 `lophn_app command`와 같고 core command(ledger 쓰기)는 없다. 정의는 호출마다 지금
+      blueprint로 다시 만들고, 마지막 목록에 낸 stamp(앱·release·blueprint hash·정의)와 다르거나
+      낸 적 있는 이름이 사라졌으면 `conflict`+`list_changed`+고정 op 안내다. 목록에 낸 적 없고
+      지금도 없는 이름(write·external·confirm command, 범위 밖 앱 포함)은 통일 not_found다.
+      목록을 낸 적 없는 프로세스는 옛 정의를 알 수 없어 지금 정의로 부른다.
+    - blueprint 읽기는 `AppBlueprintSource`(앱 → `{release, blueprint_hash, commands}` | null)
+      port다. `apps/mcp/main.ts`의 `appBlueprint` 옵션이 없으면 동적 tool은 나오지 않는다.
+      `/v1/apps/blueprint` route는 main에 없어 apps#T19가 내고(T21이 넘긴 `APP_OP_ROUTES.blueprint`
+      교체와 함께) source 배선은 T36이 한다. `listChanged` capability는 동적 tool을 켠 서버만 true다.
+    - 문서 보정: architecture 5.2의 동적 tool 이름을 Q16대로 고쳤다(contracts#T50의 `appToolName`은
+      이미 이 규칙).
+    - R4 재측정(cl100k_base): 고정 app 포함 4,303 token, 동적 read command 6개(입력 있음)가
+      +879 token이다. 목표 2,000은 여전히 고정 tool만으로 넘는다(T11 질문과 같다).
 
 ## coding-agent slice
 
@@ -1209,6 +1231,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
   실행 권한(socket 경로가 실행 때 정해지므로 argv의 `--allow-read/--allow-write` 범위를
   정해야 한다), `apps/mcp/main.ts`의 `appDirect` 옵션 채우기. (2) CLI `runApp`
   (cli/commands/app.ts)을 apps/cli 실행 entry에 잇고 `isError`를 비성공 exit로 낸다.
+- coding-agent#T23에서 넘어온 것: apps#T19의 `/v1/apps/blueprint`가 서면 그 read로 `AppBlueprintSource`(mcp-server/tools/app-commands.ts)를 만들어 `apps/mcp/main.ts`의 `appBlueprint` 옵션에 잇는다(앱 통로 `appDirect` 배선과 함께; 없으면 blueprint 유래 앱 tool이 나오지 않는다).
 - coding-agent#T15에서 넘어온 것: (1) CLI의 core 실행(dispatch) 배선. T15의 parity는
   command 표의 route와 같은 core client로 본다(`cliRead`는 시험 안의 얇은 실행이다).
   실행 entry를 이 표와 같은 route·같은 client로 잇고 `not_found`의 통일 메시지

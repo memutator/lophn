@@ -1,6 +1,10 @@
 import { assert, assertEquals } from "@std/assert";
+import { z } from "zod";
 import { err, ok, type Result } from "../../../base/mod.ts";
-import { ROUTES } from "../../../contracts/lophn-agent/mod.ts";
+import {
+  operatorApprovalBundleSchema,
+  ROUTES,
+} from "../../../contracts/lophn-agent/mod.ts";
 import { approvalsGet } from "../../../contracts/platform/mod.ts";
 import {
   AGENT_TOOLS,
@@ -42,6 +46,7 @@ function ports(
         session: null,
         role: "lophn" as const,
         original_message: facts.original_message,
+        assignment: ASG,
       })),
   };
 }
@@ -320,3 +325,105 @@ Deno.test("lophn-agent/harness/tools#R12: 소유 contract가 거절한 오류 �
   assertEquals(outcome.outcome.code, "not_found");
   assertEquals(outcome.result.summary.includes(ASG), false);
 });
+
+// 승인에 묶일 bundle 초안이다. 모델은 bundle 모양 그대로만 쓰고 id·요청자·run·기한은
+// handler가 채운다(P9, assignments#R4).
+function bundle(
+  over: Partial<z.infer<typeof operatorApprovalBundleSchema>> = {},
+): z.infer<typeof operatorApprovalBundleSchema> {
+  return operatorApprovalBundleSchema.parse({
+    draft_version: VER,
+    assignment: null,
+    expected_assignment_revision: null,
+    preset: "pst_01arz3ndektsv4rrffq69g5fav",
+    preset_revision: 1,
+    preset_definition: "a".repeat(64),
+    scope: { kind: "project", id: "prj_01arz3ndektsv4rrffq69g5fav" },
+    outputs: [{ document: DOC, content: "주간 변화" }],
+    read_apps: [],
+    read_commands: [],
+    schedule: {
+      first_at: "2026-02-01T00:00:00.000Z",
+      every_ms: 3_600_000,
+    },
+    reason: "watch 변화가 반복된다",
+    ...over,
+  });
+}
+
+Deno.test("lophn-agent/harness/tools#R4: approval.submit_assignment는 create_approval_request 하나에 정확한 action을 싣고 대리 결정·직접 apply는 없다", async () => {
+  const calls: Call[] = [];
+  const deps = {
+    listed: listedAll(),
+    handlers: createAgentToolHandlers(ports(calls)),
+    credential: credential(["create_approval_request"]),
+  };
+  const sent = await executeTool(
+    deps,
+    "approval.submit_assignment",
+    bundle(),
+  );
+  assertEquals(sent.outcome.kind, "success");
+  assertEquals(calls.length, 1);
+  assertEquals(calls[0]!.contract, "create_approval_request");
+  const created = calls[0]!.input as Record<string, unknown>;
+  // id·요청자·run·기한은 모델이 정하지 않는다(P9).
+  assert(/^apr_/.test(String(created["id"])));
+  assertEquals(created["requester"], `agent:${ASG}`);
+  assertEquals(created["run"], RUN);
+  assertEquals(created["expires_at"], null);
+  assertEquals(created["reason"], "watch 변화가 반복된다");
+  // action은 적용 command 하나에 묶인다. 생성의 대상은 preset이다(pre가 reviewer가 고른다).
+  const action = created["action"] as Record<string, unknown>;
+  assertEquals(action["concern"], "lophn-agent/assignments");
+  assertEquals(action["command"], "ApplyOperatorAssignment");
+  assertEquals(action["caller"], `agent:${ASG}`);
+  assertEquals(action["targets"], ["pst_01arz3ndektsv4rrffq69g5fav"]);
+  assert(action["binding_hash"] !== action["input_hash"]);
+  // 입력은 apply가 받는 모양 그대로다. 생성은 bundle.assignment를 호출 run의
+  // assignment로 채운다. apply의 접수 필드(approval·decision_seq·id)는 입력에 없다.
+  const applyInput = (action["input"] as { value: Record<string, unknown> })
+    ["value"]!;
+  assertEquals("approval" in applyInput, false);
+  assertEquals("decision_seq" in applyInput, false);
+  assertEquals("id" in applyInput, false);
+  // action.input.value가 apply 입력 그 자체다(bundle이 아니라 wrap 없이).
+  const applied = { ...bundle(), assignment: ASG };
+  assertEquals(applyInput as unknown, applied);
+});
+
+Deno.test("lophn-agent/harness/tools#R4: 같은 bundle 초안은 같은 binding hash를 내고 정의 밖 자유 입력은 거절된다", async () => {
+  const calls: Call[] = [];
+  const deps = {
+    listed: listedAll(),
+    handlers: createAgentToolHandlers(ports(calls)),
+    credential: credential(["create_approval_request"]),
+  };
+  const first = await executeTool(deps, "approval.submit_assignment", bundle());
+  assertEquals(first.outcome.kind, "success");
+  const hashOne = (calls[0]!.input as Record<string, unknown>)["action"] as
+    Record<string, unknown>;
+  const second = await executeTool(deps, "approval.submit_assignment", bundle());
+  assertEquals(second.outcome.kind, "success");
+  const hashTwo = (calls[1]!.input as Record<string, unknown>)["action"] as
+    Record<string, unknown>;
+  assertEquals(hashOne["binding_hash"], hashTwo["binding_hash"]);
+  assertEquals(hashOne["input_hash"], hashTwo["input_hash"]);
+  assertEquals(calls.length, 2);
+  // 정의 schema가 거절하는 자유 입력은 소유 contract에 닿기 전에 막힌다.
+  const smuggled = await executeTool(deps, "approval.submit_assignment", {
+    ...bundle(),
+    tool: "doc.write",
+  });
+  assertEquals(smuggled.outcome.code, "invalid_input");
+  // 비어 있는 이유는 bundle 모양이 거절한다. parse가 아니라 실행 입력으로 거절된다.
+  const raw = { ...bundle(), reason: " " };
+  const blank = await executeTool(
+    deps,
+    "approval.submit_assignment",
+    raw as unknown,
+  );
+  assertEquals(blank.outcome.code, "invalid_input");
+  assertEquals(calls.length, 2);
+});
+

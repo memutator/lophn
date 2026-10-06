@@ -16,6 +16,7 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
 
 ## 구현에 집중 (사람 지시, 2026-10-06)
 
+- Agent tool로 하위 agent를 띄우지 않는다. 맡은 일은 자기 worktree에서 직접 한다(하위 agent는 lead 모델로 돌아 배정한 모델을 벗어난다).
 - 목표는 완료 기준을 채우는 구현이다. 일어나지 않은 문제나 미래 유지보수 비용을 위한 일반화·방어 코드·추가 리팩터링을 하지 않는다.
 - 테스트는 완료 기준이 요구하는 것과 바꾼 동작을 확인하는 것만 쓴다. 같은 테스트를 부하 상태로 반복 돌리지 않는다. 넓은 회귀는 lead의 병합 검사가 맡는다.
 - 바꾼 자리의 targeted test를 한 번 통과시키면 PR을 연다. 한 번 실패 뒤 다시 돌려 통과한 timing 실패는 보고에 한 줄만 적고 넘어간다.

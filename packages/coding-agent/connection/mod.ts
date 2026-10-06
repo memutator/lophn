@@ -128,3 +128,4 @@ export {
   type SdkOpOutput,
   type SdkSourcePort,
 } from "./sdk-ops.ts";
+export { UNREADABLE_MESSAGE } from "./unreadable.ts";

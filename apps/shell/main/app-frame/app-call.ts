@@ -336,7 +336,8 @@ export function createAppCall(deps: AppCallDeps) {
   };
 }
 
-function outcomeOf(response: InvokeResponse): CallOutcome<unknown> {
+/** 앱 invoke 응답을 페이지에 보일 결과로 바꾼다. 화면 검사 host도 같은 판정을 쓴다. */
+export function outcomeOf(response: InvokeResponse): CallOutcome<unknown> {
   const body = record(response.body);
   if (response.status === 200) {
     if (record(body?.result) === undefined) {

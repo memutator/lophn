@@ -87,6 +87,8 @@ export const fileLocationSchema = z.strictObject({
   path: absolutePathSchema,
   // working copy의 metadata 파일. 있으면 읽기가 함께 돌려준다.
   meta: absolutePathSchema.optional(),
+  // 쓸 때의 임시 파일 폴더. 목표의 폴더를 쓸 수 없는 전역 지침 파일에만 있다.
+  temp_root: absolutePathSchema.optional(),
 });
 export type FileLocation = z.infer<typeof fileLocationSchema>;
 
@@ -100,6 +102,15 @@ export const prepWindowSchema = z.strictObject({
   channel: channelSchema,
 });
 export type PrepWindow = z.infer<typeof prepWindowSchema>;
+// 등록된 지침 파일 하나의 읽기. dataRoot의 소유자가 파일 소유자의 기준이다.
+export const prepInstructionReadSchema = z.strictObject({
+  path: absolutePathSchema,
+  data_root: absolutePathSchema,
+  // 준비 worker가 바이트를 보낼 channel. 응답 전에 byte chunk frame으로 간다.
+  channel: channelSchema,
+});
+export const INSTRUCTION_READ_MAX_BYTES = FILE_WINDOW_MAX_BYTES;
+
 export const prepWriteSchema = z.strictObject({
   location: fileLocationSchema,
   base_hash: sha256Schema.nullable(),

@@ -58,6 +58,7 @@ function harness(over: Over = {}): Harness {
         }],
       // 쓰기 폴더는 관측 root와 따로다: tracking을 꺼도 등록 폴더다.
       folders: () => [{ project: PROJECT, path: "/work/notes" }],
+      instructions: () => [],
     },
     sendBytes: (channel, bytes) => {
       sent.push({ channel, bytes });

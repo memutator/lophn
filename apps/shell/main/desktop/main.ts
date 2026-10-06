@@ -9,12 +9,13 @@ import {
   nativeImage,
   Notification,
   protocol,
+  session,
   shell,
   Tray,
   type WebContents,
   WebContentsView,
 } from "electron";
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomBytes, randomFillSync, randomUUID } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
@@ -44,6 +45,19 @@ import { registerAppIpc, removeAppIpc } from "../app-frame/app-ipc.ts";
 import { createExternalLinks } from "../app-frame/external-link.ts";
 import { createViewErrors, reportIdOf } from "../app-frame/view-error.ts";
 import { startCoreConnection } from "./core/connection.ts";
+import { createCoordinator } from "../confirmation/coordinator.ts";
+import { createKinds } from "../confirmation/kinds/mod.ts";
+import {
+  type ConfirmationIpc,
+  registerConfirmationIpc,
+  removeConfirmationIpc,
+} from "../confirmation/ipc.ts";
+import type {
+  AppContents,
+  ConfirmationBrowserWindow,
+  ConfirmationHost,
+  ParentWindow,
+} from "../confirmation/window.ts";
 import { nodeFetch, nodeSockets, nodeStreamFetch } from "./core/node-io.ts";
 import {
   CloseGuard,
@@ -313,6 +327,133 @@ registerAppIpc(appIpc, {
   viewError: (view, input) => viewErrors.observe(view, input),
 });
 
+// 보호 창(shell#T22·T29). 사람이 desktop 창에서 [Review]를 누를 때만 그 창의 child modal로
+// 연다. 종류별 정본 read·제출은 main 안 통로로 core를 부르고, handle은 비공개 pipe로 등록한다.
+// 창마다 메모리 partition이고 설치된 confirmation 페이지만 그 partition에서 연다.
+let confirmationShots = 0;
+const confirmationHost: ConfirmationHost = {
+  create(config) {
+    const parent = [...windows].find((window) =>
+      !window.isDestroyed() && windowRef(window) === config.parent.id
+    );
+    const window = new BrowserWindow(
+      {
+        ...config,
+        ...(parent === undefined ? {} : { parent }),
+      } as unknown as ConstructorParameters<typeof BrowserWindow>[0],
+    );
+    capturePaints(
+      window.webContents,
+      `confirmation-${++confirmationShots}`,
+      headless,
+      {
+        write: (path, data) => writeFileSync(path, data),
+        timer: {
+          set: (callback, ms) => setTimeout(callback, ms),
+          clear: (handle) => clearTimeout(handle as NodeJS.Timeout),
+        },
+      },
+    );
+    return window as unknown as ConfirmationBrowserWindow;
+  },
+  sessionFor(partition) {
+    const ses = session.fromPartition(partition);
+    const serve = createShellHandler({ distDir: rendererDist() });
+    // 이 partition은 confirmation 페이지만 연다. 다른 shell 화면은 없다.
+    ses.protocol.handle("lophn-shell", async (request) => {
+      if (new URL(request.url).host !== "confirmation") {
+        return new Response(null, { status: 404 });
+      }
+      const res = await serve(request);
+      return new Response(res.body ? Buffer.from(res.body) : null, {
+        status: res.status,
+        headers: res.headers,
+      });
+    });
+    return {
+      partition,
+      // 권한 요청은 모두 거절한다.
+      setPermissionRequestHandler: () =>
+        ses.setPermissionRequestHandler((_contents, _permission, callback) =>
+          callback(false)
+        ),
+      on: (_event, listener) =>
+        ses.on("will-download", (event) => listener(event)),
+      webRequest: {
+        onBeforeRequest: (filter, listener) =>
+          ses.webRequest.onBeforeRequest(
+            filter,
+            (details, callback) => listener(details, callback),
+          ),
+      },
+    };
+  },
+  appContents(parentId) {
+    const parent = [...windows].find((window) =>
+      !window.isDestroyed() && windowRef(window) === parentId
+    );
+    if (parent === undefined) return [];
+    // shell 크롬 overlay 말고 부모 창에 붙은 앱·문서 view 전부의 입력을 막는다.
+    return parent.contentView.children.flatMap((view) =>
+      view instanceof WebContentsView &&
+        !view.webContents.getURL().startsWith("lophn-shell:")
+        ? [view.webContents as unknown as AppContents]
+        : []
+    );
+  },
+};
+const confirmationKinds = createKinds({
+  core: () => core.session(),
+  clock: { now: () => Date.now() },
+  random: (bytes) => randomFillSync(bytes),
+});
+const confirmations = createCoordinator({
+  host: confirmationHost,
+  canon: confirmationKinds.canon,
+  handles: {
+    register: (request) => core.registerConfirmation(request),
+    // core pipe에는 창 하나의 handle만 버리는 메시지가 없다. 120초 기한과 일회 소비가 막는다.
+    closeWindow: () => Promise.resolve(),
+    clear: () => Promise.resolve(),
+  },
+  submit: confirmationKinds.submit,
+  deferred: confirmationKinds.deferred,
+  forget: (windowId) => confirmationKinds.closed(windowId),
+  clock: { now: () => Date.now() },
+  // build가 보호 preload를 같은 dist에 .cjs로 낸다.
+  preload: join(here, "preload-confirmation.cjs"),
+  packaged: app.isPackaged,
+  headless,
+  epoch: () => core.session()?.coreEpoch ?? "",
+  connected: () => core.state.state === "ready",
+});
+const confirmationIpc: ConfirmationIpc = {
+  handle: (channel, listener) =>
+    ipcMain.handle(
+      channel,
+      (event, input) => listener(event as { sender: { id: number } }, input),
+    ),
+  removeHandler: (channel) => ipcMain.removeHandler(channel),
+};
+registerConfirmationIpc(confirmationIpc, {
+  coordinator: confirmations,
+  // 부모는 IPC를 보낸 desktop 창 본문이다. renderer가 보낸 parentWindow 값은 쓰지 않는다.
+  parentOf(event): ParentWindow | undefined {
+    const window = [...windows].find((one) =>
+      !one.isDestroyed() && one.webContents.id === event.sender.id
+    );
+    if (window === undefined) return undefined;
+    return {
+      id: windowRef(window),
+      focus: () => window.focus(),
+      getContentSize: () => {
+        const [width = 0, height = 0] = window.getContentSize();
+        return { width, height };
+      },
+    };
+  },
+});
+
 function windowRef(window: BrowserWindow): string {
   return `window-${window.id}`;
 }
@@ -487,6 +628,7 @@ function stopAll(): void {
   ipcMain.removeHandler(FOLDER_PICK_CHANNEL);
   removeEditorIpc(editorIpc);
   removeAppIpc(appIpc);
+  removeConfirmationIpc(confirmationIpc);
   appFrame.dispose();
   terminals.stop();
   core.shutdown();

@@ -47,6 +47,14 @@ export {
   type FormatToolPorts,
 } from "./bundles/format.ts";
 export {
+  createGuideToolHandlers,
+  GUIDE_READ_CODEPOINTS,
+  GUIDE_TOOL_NAMES,
+  GUIDE_TOOL_REVISION,
+  GUIDE_TOOLS,
+  type GuideToolPorts,
+} from "./bundles/guide.ts";
+export {
   createVisualToolHandlers,
   VISUAL_TOOL_NAMES,
   VISUAL_TOOL_REVISION,

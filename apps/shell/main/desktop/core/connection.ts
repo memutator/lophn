@@ -65,7 +65,18 @@ export interface CoreConnection {
   shutdown(): void;
   /** main의 안전 진단을 감독 pipe로 보낸다. 보내지 못하면 false다. */
   diagnostic(message: unknown): boolean;
+  /**
+   * 사람 결정 handle을 비공개 pipe로 등록한다. 응답에 짝 id가 없으므로 한 번에 하나씩 보내고,
+   * core가 발급하지 않으면 답이 없으므로 기한 안에 오지 않으면 unavailable이다.
+   */
+  registerConfirmation(request: unknown): Promise<
+    | { ok: true; confirmation: string; expiresAt: string }
+    | { ok: false; error: { code: string; message: string } }
+  >;
 }
+
+/** handle 등록 응답을 기다리는 시간. 넘으면 그 등록은 없다. */
+export const CONFIRMATION_REPLY_MS = 5_000;
 
 /** main 조립이 부른다. 준비 전에 창은 이미 열려 있다. */
 export function startCoreConnection(
@@ -73,6 +84,8 @@ export function startCoreConnection(
 ): CoreConnection {
   const state: ConnectionState = { state: "starting", confirmedAt: null };
   let session: CoreSession | undefined;
+  // handle 등록은 한 번에 하나씩 보낸다.
+  let registering: Promise<unknown> = Promise.resolve();
   const core = (options.start ?? spawnCore)(options.launch);
   const push = () => {
     for (const target of options.targets?.() ?? []) {
@@ -156,5 +169,56 @@ export function startCoreConnection(
     diagnostic(message) {
       return core.diagnostic(message);
     },
+    registerConfirmation(request) {
+      const run = () => registerOnce(core, request);
+      const next = registering.then(run, run);
+      registering = next.catch(() => undefined);
+      return next;
+    },
   };
+}
+
+type Registered =
+  | { ok: true; confirmation: string; expiresAt: string }
+  | { ok: false; error: { code: string; message: string } };
+
+const NO_HANDLE: Registered = {
+  ok: false,
+  error: { code: "unavailable", message: "확인 handle을 받지 못했다" },
+};
+
+function registerOnce(
+  core: CoreProcess,
+  request: unknown,
+): Promise<Registered> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (value: Registered) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      off();
+      resolve(value);
+    };
+    const off = core.onMessage((payload) => {
+      const message = payload as {
+        type?: unknown;
+        confirmation?: unknown;
+        expires_at?: unknown;
+      };
+      if (
+        message.type === "confirmation_handle_registered" &&
+        typeof message.confirmation === "string" &&
+        typeof message.expires_at === "string"
+      ) {
+        finish({
+          ok: true,
+          confirmation: message.confirmation,
+          expiresAt: message.expires_at,
+        });
+      }
+    });
+    const timer = setTimeout(() => finish(NO_HANDLE), CONFIRMATION_REPLY_MS);
+    if (!core.confirmation(request)) finish(NO_HANDLE);
+  });
 }

@@ -31,6 +31,10 @@ import {
 } from "../../packages/coding-agent/connection/mod.ts";
 import { createAppTool } from "../../packages/coding-agent/mcp-server/tools/app.ts";
 import { createSdkTool } from "../../packages/coding-agent/mcp-server/tools/sdk.ts";
+import {
+  type AppBlueprintSource,
+  createAppCommandTools,
+} from "../../packages/coding-agent/mcp-server/tools/app-commands.ts";
 import { createContextTool } from "../../packages/coding-agent/mcp-server/tools/context.ts";
 import { createDocumentTool } from "../../packages/coding-agent/mcp-server/tools/document.ts";
 import { createIndexTool } from "../../packages/coding-agent/mcp-server/tools/index.ts";
@@ -66,6 +70,9 @@ export type McpOptions = {
   // 앱 통로(direct call)다. 실제 socket transport와 권한은 설치·loader 배선(coding-agent#T36)이
   // 끼운다. 없으면 lophn_app command는 unavailable이다.
   appDirect?: AppDirect;
+  // active release blueprint의 command 정의를 읽는다(T23). 소유 route(apps#T19)가 서면 그 read로
+  // 만든다. 없으면 blueprint 유래 앱 tool은 나오지 않는다.
+  appBlueprint?: AppBlueprintSource;
 };
 
 // tools/call의 실행이다. registry route 하나로만 routing된다(R2).
@@ -143,6 +150,21 @@ export function startMcpServer(
       direct: options.appDirect,
     })
     : undefined;
+  // blueprint 유래 앱 read tool이다(T23). app toolset과 blueprint source가 있을 때만 난다.
+  const appCommands = caller && options.appBlueprint !== undefined &&
+      toolsets.includes("app")
+    ? createAppCommandTools({
+      client: caller,
+      idempotencyKey: () => `mcp-app-${crypto.randomUUID()}`,
+      direct: options.appDirect,
+      blueprint: options.appBlueprint,
+      listChanged: () =>
+        sink.send(JSON.stringify({
+          jsonrpc: "2.0",
+          method: "notifications/tools/list_changed",
+        })),
+    })
+    : undefined;
   // 문서 저장·format·series·context tool의 실행이다(T14·T17). 같은 core client로 소유 route만 부른다.
   const submission = {
     scope: { root: options.submissionRoot ?? Deno.cwd(), forbidden: [] },
@@ -188,6 +210,7 @@ export function startMcpServer(
     : undefined;
   const handler = createHandler({
     toolsets,
+    appCommands,
     onClientInfo: (name) => {
       clientName = name;
     },
@@ -196,6 +219,9 @@ export function startMcpServer(
       // server가 route 표와 input을 검사한다. 여기는 연결 상태와 실행뿐이다.
       const params = (callArgs ?? {}) as { op?: unknown };
       const op = typeof params.op === "string" ? params.op : undefined;
+      if (appCommands?.owns(toolName)) {
+        return appCommands.call(toolName, callArgs, context);
+      }
       const resolved = resolveRoute(toolName, op);
       if (!resolved || !caller || !runner) {
         return Promise.resolve({

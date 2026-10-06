@@ -360,7 +360,7 @@ Deno.test(
       assertEquals(answer.body.state, "ready");
       assertEquals(answer.body.includes_external_data, false);
 
-      // 범�� 밖 앱과 없는 앱은 같은 답이다(존재를 새지 않는다). 존재하지 않는 앱 ID다.
+      // 범위 밖 앱과 없는 앱은 같은 답이다(존재를 새지 않는다). 존재하지 않는 앱 ID다.
       const absent = await post(core.port, "apps/export", {
         app: "app_01h455vb4pex5v6nkc6gd5fdw3",
       }, token);

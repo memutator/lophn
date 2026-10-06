@@ -1028,6 +1028,7 @@ concerns: [shell]
 
 ### T52 문제 알리기
 
+- 상태: 완료 (#PR)
 - 등급: frontend
 - concern: shell/app-frame, shell/wording
 - 요구: shell/app-frame#R31, R32, R34(버튼이 그 view에 묶임), shell/wording#R8, R9, problems/feedback#R5, R6, R10, R11, R12, R13
@@ -1043,6 +1044,7 @@ concerns: [shell]
   - 앱 view가 crash·무한 loop여도 버튼과 dialog가 동작한다. 안내에 stack·log·원문 오류가 없고 문제 문구는 problems가 정한 값 그대로.
   - contracts/problems 문구 상수 key를 wording 검사의 알려진 key로 잇는다.
   - `feedback_test`와 `e2e/shell/report-problem_test.ts`(깨진 view에서 dialog 열림, 캡처 동안 view가 보임)에 위 요구 테스트. problems#T23의 선행.
+- 정한 것: dialog는 main이 overlay에 직접 여는 feedback 표면(`overlay.openFeedback`, 창 본문 전체, overlay 페이지의 일반 결과로는 닫지 못함)이고 제출·취소·Issue 열기는 overlay preload의 `lophnFeedback`만 갖는다. 미리보기 push에 같은 PNG의 data URL·이미지가 없는 분류·화면 이름과 URL path를 더했다(contracts `feedbackPreviewSchema` additive, `shell:feedback-open-issue` 추가). headless(offscreen)에서는 `capturePage`가 실패해 그 view의 마지막 paint를 쓴다
 - shell#T42에서 넘어온 것: 앱 공간 바의 [Report a problem] 자리는 `renderer/app-frame/app-bar.tsx`의 `AppBar.report`(지금 `app-space.tsx`가 넘기지 않아 비어 있다)다. 버튼이 묶일 view_session은 `EmbeddedView`의 `onState`가 알린 값이다
 
 ### T53 app-detail Issues: 문제, 수리 결과, 사람 결정
@@ -1055,6 +1057,7 @@ concerns: [shell]
 - 내놓는 contract: 없음
 - slice: problems
 - 선행: shell#T23, shell#T43, problems#T6, problems#T21
+- shell#T52에서 넘어온 것: (1) 기존 문제에 덧붙이기. report-problem dialog는 지금 "이 보고는 기존 문제에 덧붙지 않는다"만 보이고 `SubmitFeedback.existing_problem`은 늘 null이다. Issues에서 "직접 해 봤지만 안 됩니다"로 열 때 그 문제를 고른 채 여는 길(begin 입력 또는 dialog의 같은 앱 문제 고르기)을 둔다. (2) dialog의 [View issue]는 지금 `{kind: "app-issue", app, problem}` intent로 그 앱 공간만 연다(`renderer/desktop/intents.tsx`). Issues 탭이 생기면 그 문제를 고른 상세로 연다. (3) 접수 응답에는 항목별 저장 결과가 없어 dialog가 screenshot·화면 상태의 "저장 실패"를 보이지 못한다. 접수 뒤 그 Report의 snapshot 읽기로 보인다
 - 완료: 아래 확인이 통과한다
   - Issue 목록·상세: 사람이 겪는 영향 한 문장, 보고 수, 수리 주장과 실제 테스트·사람 확인("I checked")·미확인 범위를 구별한다. report·claim·snapshot은 이름으로 보이지 않는다(Details we collected).
   - 사람 결정(fixed, not fixed, not visible, dismiss + 한 줄 이유)은 confirmation window의 owner decision이다. main이 problem·basis_seq·release·last_report에 묶인 handle로 `ApplyProblemDecision`을 보낸다.

@@ -134,6 +134,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 선행: contracts#T39
 - T3에서 넘어온 것: 통합 테스트가 credential 이름 검증에 root credential 대신 앱 접수 credential을 쓴다(#216)
 - T15에서 넘어온 것: `submit-feedback`을 제품 core가 collector로 서빙한다. (1) `apps/worker/problems/report-collector.ts`에 `SubmitFeedback` op를 붙인다: core가 worker 요청에 싣는 호출자 actor·surface를 `FeedbackCaller`로 넘기고, `assembleFeedback`(`packages/problems/feedback/work.ts`)에 제품 redactor·`coreProblemLookup`·invocation 도착 확인·`readDetailCollection`·`prepareBlob`을 꽂아 `postRecordReport`로 보낸다. `apps/core/problems.ts`의 `workerRoutes`에 `submitFeedback`을 더한다. (2) collector credential이 `/v1/problems/get`(scope operation `GetProblem`)에 닿는지: 닿지 않으면 선택한 기존 문제를 읽지 못해 `unavailable`이다. (3) 입력은 Q19대로 원자료(`SubmitFeedbackInput`)와 PNG 바이트의 request channel이다. core는 인증하고 바이트를 해석 없이 byte frame으로 중계하며, collector가 `assembleFeedback(input, pngBytes, deps)`를 부른다
+- shell#T52에서 넘어온 것: shell main은 이미 `SubmitFeedback`을 보낸다. screenshot을 고르지 않으면 JSON body의 worker 호출(`/v1/problems/submit-feedback`), 고르면 upload와 같은 모양(입력은 `UPLOAD_INPUT_HEADER`의 base64url JSON, body는 PNG octet-stream)으로 같은 경로에 보낸다(`apps/shell/main/desktop/core/client.ts`의 `workerBytes`). core가 이 경로를 서빙하기 전까지 실제 shell의 제출은 "lophn couldn't be reached"로 실패하고 글 복사만 남는다
 - 상태: 완료 (#99)
 - 완료:
   - `reportProblem`은 Report ID를 첫 전송 전에 고정하고 실제 invocation 문맥을 붙인 뒤 업무 응답을 막지 않는다; completion은 값으로 끝나 전송 실패가 새 `unhandledrejection`을 만들지 않는다(R1, R13)

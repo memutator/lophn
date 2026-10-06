@@ -651,6 +651,7 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
         ...(input.max_bytes === undefined
           ? {}
           : { max_bytes: input.max_bytes }),
+        ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
       };
       // 살아 있는 자식의 stream은 끝나지 않으므로 기다리지 않고 지금 모인 줄을 준다. 자식이 끝난
       // 직후의 조회만 마지막 flush를 최대 20ms 기다린다(R27).

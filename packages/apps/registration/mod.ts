@@ -2,6 +2,7 @@ export {
   type AppAccessTarget,
   type AppAuthorizer,
   authorizeApp,
+  authorizeAppId,
   denied as appAccessDenied,
   dependencyUnavailable,
   suggestAppName,

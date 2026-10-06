@@ -126,6 +126,14 @@ export const controlCloseInputSchema = z.strictObject({
   reason: z.string().min(1),
 });
 export const controlCloseOutputSchema = z.object({ closed: z.literal(true) });
+// 화면 view가 닫히거나 교체됐다는 사실. 앱 프로세스가 그 view_session을 버리고 다시 열지 않는다.
+export const controlViewClosedInputSchema = z.strictObject({
+  process_nonce: processNonceSchema,
+  view_session: opaqueSchema,
+});
+export const controlViewClosedOutputSchema = z.object({
+  closed: z.literal(true),
+});
 export const controlShutdownInputSchema = z.strictObject({
   process_nonce: processNonceSchema,
   grace_ms: z.literal(SHUTDOWN_GRACE_MS),

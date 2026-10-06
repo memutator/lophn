@@ -497,3 +497,27 @@ Deno.test("problems/tests#R13 R20: 실제 자식은 scratch만 쓰고 운영 경
   assert(!alivePid(hungPid));
   await Deno.remove(root, { recursive: true });
 });
+
+Deno.test("coding-agent/mcp-server#R33, problems/tests#R20: 요청 timeout은 method의 timeout보다 길어지지 않는다", () => {
+  const base = {
+    method,
+    source: "/bundle/source",
+    scratch: "/work/scratch",
+    reads: [],
+    env: {},
+    deno: "/usr/bin/deno",
+  };
+  const plain = prepareCommand(base);
+  assert(plain.ok);
+  assertEquals(plain.value.timeout_ms, method.timeout_ms);
+  const shorter = prepareCommand({ ...base, request_timeout_ms: 1_000 });
+  assert(shorter.ok);
+  assertEquals(shorter.value.timeout_ms, 1_000);
+  // method보다 긴 요청은 method의 한도로 줄어든다.
+  const longer = prepareCommand({ ...base, request_timeout_ms: 300_000 });
+  assert(longer.ok);
+  assertEquals(longer.value.timeout_ms, method.timeout_ms);
+  for (const request_timeout_ms of [0, -5, 1.5, 300_001]) {
+    assert(!prepareCommand({ ...base, request_timeout_ms }).ok);
+  }
+});

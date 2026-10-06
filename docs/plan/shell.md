@@ -413,6 +413,7 @@ concerns: [shell]
 - 내놓는 contract: 없음
 - slice: documents
 - 선행: shell#T19, shell#T23, documents#T9, documents#T19, documents#T20
+- documents#T19에서 넘어온 것: 파일로 두기와 빼기는 `files.write`·`files.delete`의 선택 의도다. 두기는 `files.write`에 `base_hash: null`, `content: { kind: "existing", reference }`(그 문서 최신 판의 유일한 파일 원본 참조), `place: { document, version }`을 싣고, 빼기는 `files.delete`에 `unlink: { document }`를 더한다(확인 handle 묶음은 request_key·target·base_hash 그대로). 결과의 `placement`(source, tracking, move)·`unlinking`(source, move) 단계를 파일 결과와 따로 보이고, 실패한 단계 뒤는 "not_attempted"다. 사람 자격에 `document.set_source`·`document.move`·`project.set_tracking` 범위가 있어야 연결 단계가 선다. 따로 이을 command는 없다.
 - 완료: 아래 확인이 통과한다
   - 프로젝트 목록·이름·목적·보관. 보관은 소속 문서 삭제가 아니다.
   - 문서 이름·자리 이동은 묻지 않고 하고 결과를 보인다. 파일에서 빼며 지우기는 confirmation window의 owner decision으로 보낸다(T23).
@@ -752,6 +753,7 @@ concerns: [shell]
 
 ### T38 앱 preload: command 호출, 외부 링크, view 예외 전달
 
+- 상태: 완료 (#334) — 이어보냄: main 조립의 blueprint read(`/v1/apps/blueprint`)·confirm gate → shell#T45, view 오류의 collector view binding 통로와 main.ts `viewErrors.send` 연결 → problems#T16, SDK 루트 render 오류 event → shell#T40, 화면 검사 host의 view 오류 관측 → shell#T46. 자리와 판단은 Q22
 - 등급: 기본
 - concern: shell/app-frame
 - 요구: shell/app-frame#R5, R6, R13, R15, problems/reporting#R5, R6(view 예외 귀속)
@@ -785,6 +787,7 @@ concerns: [shell]
   - 탭 전환은 옛 view를 먼저 숨기고 새 view가 준비되면 붙인다. T10 pointer DTO로 갱신된 T14 pane·sidebar layout과 resize를 받아 실제 앱 native view의 bounds 적용을 16ms마다 한 번으로 묶는다.
   - 좁은 창에서 대화·정보 패널·운영 패널이 본문을 덮으면 앱 view를 숨기지 않고 덮이지 않는 영역으로 bounds를 줄인다. 닫으면 원래 bounds.
   - 앱 view는 배정된 경계 안에서 자기 페이지 머리부터 그리고 바깥 크롬은 shell이 그린다.
+  - apps#T16에서 넘어온 것: view를 폐기하거나 교체할 때 옛 `view_session`이 닫혔음을 앱 runtime에 알린다. runtime 쪽은 끝났다(`POST /_lophn/control/view-closed {process_nonce, view_session}`, 플랫폼 machine 연결만 부른다). shell은 machine 연결이 없으므로 폐기 → core(apps control 어댑터가 그 앱의 현재 live nonce로 중계하는 command) → 앱 순서로 보낸다. 그 command의 contract는 contracts 팀에 먼저 요청한다. 이것이 오기 전에는 앱이 닫힌 view의 context를 내보낼 수 있다(shell#T37의 registry가 view를 닫은 뒤에도)
   - `visibility_test`와 `e2e/shell/native-view_test.ts`(두 view 동시 표시, drag 중 view가 보임, 전환 중 겹친 frame 없음, 1024px 미만 bounds 축소)에 위 요구 테스트.
 - 가져올 것: legacy `views.ts`의 `#mount`·`setBounds`·`toDip`·latest requested bounds 처리, `renderer/src/shell/EmbeddedView.tsx`의 ResizeObserver+rAF.
 - shell#T37에서 넘어온 것: main.ts에 `appFrame`(`main/app-frame/registry.ts`의 `createAppFrame`)이 조립돼 있다. shell preload의 `openApp`·`setViewBounds`·`setViewsHidden`·`closeView`와 IPC(`shell:view-open-app` 등, sender 검사)를 registry의 `open`·`setBounds`·`hide`·`close`·`state`에 잇고 `shell:view-state` push를 더한다. 붙이기는 `electron-app-frame.ts`가 하고 붙일 때 overlay를 맨 위로 다시 둔다(`electronOverlays().raise`). `setBounds`는 실제 attach일 때만 generation을 올리고 진단을 남긴다
@@ -804,6 +807,7 @@ concerns: [shell]
   - shell 화면이 같은 package를 쓴다(첫 소비자). 고정 문구는 wording key·en·ICU·Intl을 쓰고 package의 문구 검사를 기본 test에 잇는다. message key와 command·screen key를 섞지 않는다.
   - 예제와 package 옆 테스트. apps#T22·T23–T26보다 먼저 main에 들어간다.
 - 가져올 것: legacy `ui-control`, `ui-overlay`, `ui-layout`, `ui-state`(presented.ts, reportError.ts 빼고).
+- shell#T38에서 넘어온 것: 앱 preload는 main world에서 `lophn:render-error` DOM event(`detail: {name, message}`)를 `render_error`로 view 오류 통로에 보낸다(`apps/shell/preload/app-api.ts`의 `RENDER_ERROR_EVENT`·`watchMainWorldErrors`). ui-state의 AppErrorBoundary는 루트 render 오류를 잡으면 이 event를 `window`에 dispatch한다. `lophnApp`에 새 이름을 더하지 않는다(Q22)
 
 ### T41 SDK UI: ui-reading, ui-filter, ui-stat, ui-action
 
@@ -893,6 +897,7 @@ concerns: [shell]
   - confirm command: label·설명·effect·revert와 정규 입력. diff로 못 보이는 동작은 현재·바뀐 뒤 설명을 세로로, 안전 preview는 apps/preview 결과로만, 없으면 없다고.
   - automation 켜기: command·고정 입력·주기를 한 번 승인하면 apps가 grant kind `automation.run`(automation key·command·input_hash·주기)을 만든다(grant.create). 끄기는 사람의 grant.revoke이고 확인 창이 없다(T43).
   - 종류별 테스트.
+- shell#T38에서 넘어온 것: (1) main.ts의 `appCall`(`apps/shell/main/app-frame/app-call.ts`) `blueprint` source를 apps#T19의 `/v1/apps/blueprint`로 잇는다. 입력은 view의 app·release·mode·bundle_hash이고 같은 bundle은 app-call이 cache한다. 지금은 unavailable이라 실제 shell에서 `lophnApp.call`은 `unavailable: app is not available`이다. (2) confirm command의 `confirm` gate(`ConfirmGate`): app-call이 넘기는 view의 app·release·process nonce, 검사·default 적용한 정규 입력과 `input_hash`로 approval request(concern `apps/invocations`, command `invocation.accept_confirm`, requester user, caller direct)를 만들고 confirm-command 종류의 confirmation window로 사람 결정을 받은 뒤 accept_confirm의 서명 proof envelope `{payload, signature}`를 돌려준다. 거절·만료·취소는 실패로 돌려주고 app-call은 앱을 부르지 않는다. 지금 main은 unavailable이다. release 없는 preview의 confirm은 accept_confirm 입력에 release가 있어야 해서 받을 수 없다고 답한다
 
 ### T46 앱 화면 검사 host
 
@@ -911,6 +916,7 @@ concerns: [shell]
   - 상속 fd 3이 실제로 되는지 먼저 확인한다(Node 부모의 fd 3을 Deno 자식이 EBADF로 못 쓴 사례가 있다. 여기는 Deno 부모, Electron 자식이다). 안 되면 감독 통로와 같은 stdin·stdout 길이 prefix frame(contracts#T6 codec)으로 바꾸고 contracts 팀에 알린다.
   - `screen-test-host_test`와 problems#T11이 쓰는 fixture 하나로 확인한다.
 - 가져올 것: legacy `app.ts`의 offscreen option 기록(hidden window는 첫 frame 뒤 capture가 멈춘다).
+- shell#T38에서 넘어온 것: 앱 preload가 main world의 error·unhandledrejection·`lophn:render-error`를 내부 `app:view-error`로 보낸다(`apps/shell/preload/app-api.ts`). 화면 검사 host는 같은 preload를 쓰고 `registerAppIpc`(`main/app-frame/app-ipc.ts`)의 viewError를 collector 대신 관측 frame으로 바꿔 끼운다
 
 ### T47 앱 전용 창, OS 앱 바로가기, 창 열기 intent
 
@@ -1230,3 +1236,9 @@ shell 최상위의 요구는 8개 leaf에 177개이고 모두 위 작업의 `요
   - (3) 제품 core에는 파생 store를 쓰는 consumer가 아직 없어(documents#T21) `documents/diff`·`section_history`·`outline/document`·`documents/read`가 모두 unavailable이다. 그래서 제품에서 비교 화면은 "Couldn't load this comparison"과 다시 시도로 답하고, 버전 탭의 절 고르기는 나오지 않는다. 이력·정보·복원은 파생 store 없이 돈다. 실제 core 테스트(`editor/versions/versions-real-core_test.ts`)는 이력·연결 문서 복원·1 MiB 넘는 명시 format 복원을 보고, 비교 화면은 documents.diff 모양의 통로로 component test(`editor/compare/compare_test.tsx`)가 본다. headless 확인은 documents의 실제 core 시험처럼 실제 format module로 두 판을 추출해 파생 store에 심은 뒤 비교·복원을 돌렸다. documents#T21이 consumer를 조립하면 심지 않고도 같은 화면이 나와야 한다. documents에 알린다.
   - (4) 정보 패널 틀(폭·머리·탭·열림 기억)은 shell#T14의 작업대 자리(`workspace/info-panel-slot`)가 그대로 두고, 탭 본문만 `editor/info-panel`이 그린다. overlay일 때 Escape·바깥 click 닫기와 CommandOrControl+Alt+B는 작업대 자리에 더했다(창 shortcut 표가 아니라 renderer keydown이라 앱 view에 focus가 있으면 오지 않는다). 비교는 정보 패널 버전 탭에서 열어 focus 칸 문서 탭 본문 자리(읽기 기둥 밖, 칸 전체 폭)에 그리고, 복원은 비교 화면의 secondary 아이콘과 확인 줄로만 한다.
 - **Q21 view 수명 진단의 앱·release(T37, contracts 팀 판단 대기).** `shell_view_lifetime` 진단 payload에는 app·release가 없다(contracts#T6). main은 view_session·generation·개수를 감독 pipe로 보내고 core가 `<데이터 root>/logs/shell-view.jsonl`에 그 field만 쓴다(`apps/core/parent.ts`). shell/app-frame#R22의 "어떤 앱·release가 표시됐는지"는 main log 줄(view_session·generation·app·release·mode, URL·token 없음)에 함께 남겼다. payload에 app·release를 더할지는 contracts 팀이 정한다.
+- **Q22 앱 preload 통로의 자리와 아직 없는 core 통로(T38, 추천안으로 진행).**
+  - (1) `app:call`은 view의 화면 연결(`commands: []`)을 넓히지 않고 같은 view 대상(app·mode·release·screen·size)에 blueprint의 모든 command를 범위로 한 연결을 따로 얻는다(`app-connection.ts`의 `connectCommands`). 처음 부를 때 얻고 view의 프로세스·bundle·release가 바뀌거나 만료가 30초 안이면 다시 얻는다. 화면 열기가 blueprint read에 묶이지 않게 하려는 것이다. 앱이 401을 주면 handler 전 거절이라 같은 request_key로 한 번만 다시 보낸다. 보낸 뒤 끊긴 쓰기는 다시 부르지 않고 `command result is unknown`이다.
+  - (2) 선언 밖 command와 core가 연결에 넣지 않은 command는 같은 `invalid_input: command is not available`이다. 앱 handler 실패(500)는 페이지에 `unavailable: command failed`로 보인다. 페이지에서 실패는 `Error("<code>: <message>")`로 reject된다.
+  - (3) shell tsc는 contracts의 `blueprint-schema.ts`를 `noUncheckedIndexedAccess`로 검사하면 실패한다. 그래서 `validateInput`·`canonicalInputHash`는 deno가 검사하는 main.ts 조립이 app-call에 넘긴다(`InputRules`). app-call 테스트는 같은 contracts 함수를 쓴다.
+  - (4) context isolation 때문에 페이지의 error·unhandledrejection은 preload(isolated world) listener에 오지 않는다(e2e에서 확인). 감시 함수를 `contextBridge.executeInMainWorld`로 main world에서 돌리고 보고 함수는 인자로만 넘겨 `window`에 이름을 더하지 않는다. SDK 루트 render 오류는 `lophn:render-error` DOM event로 받는다(→ T40).
+  - (5) 아직 core 통로가 없는 것: blueprint read(apps#T19 `/v1/apps/blueprint`)와 confirm gate(→ T45), view 오류의 collector 전달 binding과 main 조립 연결(→ problems#T16, contracts 판단 필요). 그 전까지 main은 각각 unavailable·unsent다. headless 확인(`LOPHN_SHELL_HEADLESS=1`)에서는 외부 링크를 OS browser로 열지 않고 log만 남긴다. 앱 view의 `<a target=_blank>`·main frame 탐색은 지금처럼 막히고 OS browser로 넘기지 않는다. 링크는 `lophnApp.openExternal`로만 연다.

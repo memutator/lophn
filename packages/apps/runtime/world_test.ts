@@ -103,6 +103,13 @@ export type World = {
   start(options?: {
     mode?: "live" | "preview";
     ready?: boolean;
+    // 다른 앱 자식 entry와 그 blueprint·command·화면으로 띄운다(기본은 이 폴더의 fixture app).
+    fixture?: {
+      blueprint: Record<string, unknown>;
+      child: string;
+      commands: string[];
+      screens: ProcessObservation["screens"];
+    };
   }): Promise<FixtureApp>;
   // 사람의 실행 허락과 release 채택을 ledger에 남긴다.
   allow(): Promise<void>;
@@ -271,12 +278,19 @@ async function buildWorld(
         verifyKey: harness.appsControl.verifyKey,
         app,
         mode,
-        blueprint: fixtureBlueprint(),
+        blueprint: startOptions.fixture?.blueprint ?? fixtureBlueprint(),
+        child: startOptions.fixture?.child,
       });
       children.push(child);
       const observation = observationOf(child, {
         ready: startOptions.ready ?? true,
         accepting: startOptions.ready ?? true,
+        ...(startOptions.fixture
+          ? {
+            commands: startOptions.fixture.commands,
+            screens: startOptions.fixture.screens,
+          }
+          : {}),
       });
       if (mode === "live") state.live = observation;
       else state.preview = observation;

@@ -193,6 +193,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - slice: apps
 - 선행: problems#T7, contracts#T34, platform#T7, platform#T8, platform#T12, platform#T30, apps#T6, apps#T7
 - 상태: 완료 (#191, #203)
+- coding-agent#T21에서 넘어온 것: 접수 기록의 `request_timeout_ms`(RequestTest `timeout_ms`, payload에 저장됨)를 runner 실행 입력(`PrepareInput.request_timeout_ms`)에 잇는다. `prepareCommand`는 이미 동결 method의 timeout과 짧은 쪽을 쓰지만 접수 기록에서 `PrepareInput`을 만드는 조립은 아직 없다
 - 완료:
   - 자식은 `deno test --no-prompt --cached-only --frozen-lockfile --v8-flags=--max-old-space-size=256`, 읽기는 고정 source·의존·harness, 쓰기는 side의 scratch·fixture DB, 환경은 명시한 안전 변수만; `-A`·무제한 read/write/env/net·`--allow-run`·FFI 요청은 거절(R13, R14). deno 2.9에 `--locked`가 없어 잠긴 lockfile은 `--frozen-lockfile`이다
   - 운영 DB·backup·keychain·홈 경로 접근이 실패하고 fixture DB만 바뀐다(R13)
@@ -291,6 +292,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
   - 다른 앱 이름을 넣은 view 오류도 실제 view 앱의 진단으로만 접수, 페이지의 app·release·mode는 무시(reporting#R6)
   - view stack은 당시 release source map으로 원래 TSX 파일·줄; map이 없으면 위치를 추측하지 않고 이유(snapshots#R11)
   - 앱 자격은 확실한데 앱 frame만 없으면 Report별 key로 받고, 귀속 불명은 platform/diagnostics
+- shell#T38에서 넘어온 것: 이 작업이 view 오류 전달의 두 쪽을 다 맡는다. (1) collector에 인증된 view 출처 통로를 더한다: shell main이 보내는 `{view: {view_session, generation, app, release, mode, bundle_hash, binding}, observation}`(`apps/shell/main/app-frame/view-error.ts`)의 `binding`(core가 서명한 그 view의 AppConnection Authorization)을 검증해 앱·release·mode를 정하고, `observation`(observe-exception 본문, stack은 null·이유 `view_stack_not_collected`)의 error·unhandledrejection·render_error를 모두 `view_observer`로 받는다. observe-exception에 binding을 싣는 자리는 contracts 팀과 정한다. (2) `apps/shell/main/desktop/main.ts`의 `viewErrors.send`(지금은 false를 돌려 log에 `unsent`)를 그 통로에 잇는다. main은 페이지 주장 앱·release를 받지 않고 view마다 창당 20개까지만 보낸다(shell 계획 Q22)
 
 ### T27 문제 문구: 보고 당시 release 선언
 

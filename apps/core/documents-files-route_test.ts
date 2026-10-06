@@ -100,6 +100,14 @@ function fake(over: FakeOptions = {}): Fake {
           confirmed_hash: "cd".repeat(32),
         },
       })),
+    // 이 시험은 두기·빼기를 쓰지 않는다. 쓰면 안 되므로 부르면 던진다.
+    placement: {
+      read: () => Promise.reject(new Error("placement is not used here")),
+      command: () => Promise.reject(new Error("placement is not used here")),
+      reserve: () => {
+        throw new Error("placement is not used here");
+      },
+    },
     version: {
       prepare: (_request, payload) => {
         prepared.push(payload);

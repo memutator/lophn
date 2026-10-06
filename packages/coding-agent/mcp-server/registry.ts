@@ -28,6 +28,7 @@ import {
 } from "../../contracts/coding-agent/mod.ts";
 import { documentSave } from "../../contracts/documents/mod.ts";
 import type { Route } from "../../contracts/platform/mod.ts";
+import { APP_OP_ROUTES } from "../connection/mod.ts";
 
 type StaticTool = {
   name: string;
@@ -57,6 +58,9 @@ Object.assign(OWNER_ROUTES, MCP_SESSION_ROUTES);
 Object.assign(OWNER_ROUTES, MCP_CORE_ROUTES);
 Object.assign(OWNER_ROUTES, MCP_DECISION_ROUTES);
 Object.assign(OWNER_ROUTES, MCP_APP_ROUTES);
+// lophn_app은 op마다 소유 route가 다르다. 계약 표(MCP_APP_ROUTES)가 4개만 내므로 같은 소유
+// route 표를 connection이 공유해 CLI와 같은 route를 쓴다(T21, mcp#R19).
+OWNER_ROUTES.lophn_app = { ...APP_OP_ROUTES };
 Object.assign(OWNER_ROUTES, MCP_PROBLEM_ROUTES);
 
 export type ResolvedRoute = {

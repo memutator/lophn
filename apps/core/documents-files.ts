@@ -34,8 +34,16 @@ import {
 import type { WorkerRouteTarget } from "../../packages/platform/responsiveness/mod.ts";
 import {
   DOCUMENT_OPS,
+  placeDocumentFile,
+  removeDocumentFile,
   type WorkingCopyCheck,
 } from "../../packages/documents/file-tracking/mod.ts";
+import type {
+  PlacementRead,
+  PlacementReadInput,
+} from "../../packages/documents/file-tracking/placement-read.ts";
+import type { CommandEnvelope } from "../../packages/platform/ledger/mod.ts";
+import { createPlacementDeps } from "./documents-placement.ts";
 import type { WorkingCopyBasis } from "../../packages/documents/file-tracking/file-ipc.ts";
 import { existingFileSource } from "../../packages/documents/versions/mod.ts";
 
@@ -89,6 +97,19 @@ export type FilesRouteDeps = {
         prepared: string[];
       },
     ): Promise<Result<unknown>>;
+  };
+  // 두기·빼기의 연결 확정. 읽기와 command는 요청 credential의 현재 자격이고, reserve는 쓰기 전부터
+  // 원본 연결까지 경로를 잡는다(그 사이 같은 경로의 파일 관측 첫 저장은 conflict다).
+  placement: {
+    read(
+      request: WorkerRequest,
+      input: PlacementReadInput,
+    ): Promise<Result<PlacementRead>>;
+    command(
+      request: WorkerRequest,
+      envelope: CommandEnvelope,
+    ): Promise<Result<unknown>>;
+    reserve(path: string): () => void;
   };
   observedAt(): string;
 };
@@ -321,11 +342,39 @@ export function fileWorkers(
         confirmed_hash: checked.value.base.confirmed_hash,
       };
     }
-    return await serialized(async () => {
+    if (input.place !== undefined) {
+      return await placeThrough(request, input, source);
+    }
+    const written = await writeThrough(input, blob, copy);
+    if (!written.ok) {
+      return failed(request, workerCode(written.error.code), "failed");
+    }
+    if (
+      input.target.kind !== "working_copy" ||
+      input.version_request === undefined ||
+      written.value.outcome !== "written"
+    ) return answered(request, written.value);
+    return answered(
+      request,
+      await confirmVersion(
+        request,
+        input.target.document,
+        input.version_request,
+        source,
+        written.value,
+      ),
+    );
+  }
+
+  // 바이트를 coordinator에 보내고 쓰기 요청을 보낸다. 한 번에 하나만 보낸다.
+  function writeThrough(
+    input: FileWriteRequest,
+    blob: ContentSource,
+    copy: WorkingCopyBasis | undefined,
+  ): Promise<Result<FileOperationResult>> {
+    return serialized(async () => {
       const channel = await sendContent(blob);
-      if (!channel.ok) {
-        return failed(request, workerCode(channel.error.code), "failed");
-      }
+      if (!channel.ok) return channel;
       const done = await deps.request(
         DOCUMENT_OPS.fileWrite,
         {
@@ -339,28 +388,192 @@ export function fileWorkers(
         },
         WRITE_TIMEOUT_MS,
       );
-      if (!done.ok) {
-        return failed(request, workerCode(done.error.code), "failed");
-      }
+      if (!done.ok) return done;
       const result = fileOperationResultSchema.safeParse(done.value);
-      if (!result.success) {
-        return failed(request, "unavailable", "file result is invalid");
-      }
-      if (
-        input.target.kind !== "working_copy" ||
-        input.version_request === undefined ||
-        result.data.outcome !== "written"
-      ) return answered(request, result.data);
-      return answered(
+      return result.success
+        ? ok(result.data)
+        : err({ code: "unavailable", message: "file result is invalid" });
+    });
+  }
+
+  // 문서를 새 파일에 둔다. 판의 최신·참조·유일한 파일을 확인한 뒤 순서는 placement.ts가 한다.
+  async function placeThrough(
+    request: WorkerRequest,
+    input: FileWriteRequest,
+    source: ContentSource,
+  ): Promise<Result<WorkerResponse>> {
+    const place = input.place!;
+    const target = input.target;
+    if (target.kind !== "project_file" || input.content.kind !== "existing") {
+      return notAvailable(request);
+    }
+    const located = existingFileSource(input.content.reference);
+    if (located === undefined || located.version !== place.version) {
+      return notAvailable(request);
+    }
+    const seen = await deps.placement.read(request, {
+      document: place.document,
+      operation: filesWrite.name,
+    });
+    if (!seen.ok) return failed(request, workerCode(seen.error.code), "failed");
+    // 범위 밖·없는 문서는 같은 답이다. 참조가 그 판의 유일한 파일이 아니면 위조와 같다.
+    const latest = seen.value.latest;
+    if (seen.value.document === null || latest === null) {
+      return notAvailable(request);
+    }
+    if (latest.version !== place.version) {
+      return failed(request, "conflict", "latest version changed");
+    }
+    const only = latest.files.length === 1 ? latest.files[0]! : undefined;
+    if (
+      only === undefined || only.path !== located.path ||
+      only.blob_hash !== source.hash
+    ) {
+      return notAvailable(request);
+    }
+    const built = createPlacementDeps({
+      read: (read) => deps.placement.read(request, read),
+      command: (envelope) => deps.placement.command(request, envelope),
+      preview: (payload) =>
+        deps.request(projectPreviewTracking.name, payload, PREVIEW_TIMEOUT_MS),
+      write: () => writeThrough(input, source, undefined),
+      remove: () => Promise.resolve(notRemoving()),
+      exists: () => fileExists(target),
+      reserve: (path) => deps.placement.reserve(path),
+    }, {
+      requestKey: input.request_key,
+      document: place.document,
+      operation: filesWrite.name,
+      path: target.path,
+    });
+    const placed = await placeDocumentFile(built.deps, {
+      actor: "user",
+      requestKey: input.request_key,
+      document: place.document,
+      project: target.project,
+      path: target.path,
+    });
+    if (!placed.ok) {
+      return failed(
         request,
-        await confirmVersion(
-          request,
-          input.target.document,
-          input.version_request,
-          source,
-          result.data,
+        workerCode(placed.error.code),
+        placed.error.message,
+      );
+    }
+    const written = built.written();
+    if (written === undefined) {
+      return failed(request, "unavailable", "file result is missing");
+    }
+    return answered(request, {
+      ...written,
+      placement: {
+        source: placed.value.source,
+        tracking: placed.value.tracking,
+        move: placed.value.move,
+      },
+    });
+  }
+
+  function notRemoving(): Result<FileOperationResult> {
+    return err({ code: "internal", message: "not a delete" });
+  }
+
+  // 목표 파일의 있고 없음. 범위 밖 목표는 coordinator가 같은 invalid_input으로 답한다.
+  async function fileExists(target: FileTarget): Promise<Result<boolean>> {
+    const header = await deps.request(
+      DOCUMENT_OPS.fileRead,
+      { target },
+      READ_TIMEOUT_MS,
+    );
+    // coordinator는 있는 파일의 헤더를 돌려주고 없는 파일은 not_found로 답한다. 범위 밖 목표는
+    // 같은 invalid_input이다(없는 것과 구별하지 않는다).
+    if (header.ok) return ok(true);
+    return header.error.code === "not_found" ? ok(false) : header;
+  }
+
+  // 파일을 지우고 문서의 연결을 푼다. 확인 handle은 platform이 이미 소비했다.
+  async function forwardDelete(
+    request: WorkerRequest,
+  ): Promise<Result<WorkerResponse>> {
+    const parsed = filesDelete.input.safeParse(request.payload);
+    if (!parsed.success) {
+      return failed(request, "invalid_input", "invalid input");
+    }
+    const input = parsed.data;
+    const target = input.target;
+    if (input.unlink === undefined) {
+      return relay(
+        request,
+        await deps.request(
+          DOCUMENT_OPS.fileDelete,
+          { request: input },
+          WRITE_TIMEOUT_MS,
         ),
       );
+    }
+    if (target.kind !== "project_file") return notAvailable(request);
+    const built = createPlacementDeps({
+      read: (read) => deps.placement.read(request, read),
+      command: (envelope) => deps.placement.command(request, envelope),
+      preview: () => Promise.resolve(notRemoving()),
+      write: () => Promise.resolve(notRemoving()),
+      remove: async () => {
+        const done = await deps.request(
+          DOCUMENT_OPS.fileDelete,
+          { request: input },
+          WRITE_TIMEOUT_MS,
+        );
+        if (!done.ok) return done;
+        const result = fileOperationResultSchema.safeParse(done.value);
+        return result.success
+          ? ok(result.data)
+          : err({ code: "unavailable", message: "file result is invalid" });
+      },
+      exists: () => fileExists(target),
+      reserve: () => () => {},
+    }, {
+      requestKey: input.request_key,
+      document: input.unlink.document,
+      operation: filesDelete.name,
+      path: target.path,
+    });
+    const removed = await removeDocumentFile(built.deps, {
+      actor: "user",
+      requestKey: input.request_key,
+      document: input.unlink.document,
+      baseHash: input.base_hash,
+      target: { project: target.project, path: target.path },
+    });
+    if (!removed.ok) {
+      return failed(
+        request,
+        workerCode(removed.error.code),
+        removed.error.message,
+      );
+    }
+    // 파일이 이미 없었으면 지운 작업이 없다: 결과 불명이 아니라 지울 것이 없던 것이고 기록도 없다.
+    const base = built.removed() ?? {
+      request_key: input.request_key,
+      operation: "delete" as const,
+      target,
+      outcome: "unverified" as const,
+      before_path: target.path,
+      after_path: null,
+      before_hash: null,
+      written_hash: null,
+      observed_hash: null,
+      observed_at: null,
+      changed_again: null,
+      recording: "unverified" as const,
+      event_seq: null,
+      version_result: "not_requested" as const,
+    };
+    return answered(request, {
+      ...base,
+      unlinking: {
+        source: removed.value.source,
+        move: removed.value.move,
+      },
     });
   }
 
@@ -516,18 +729,7 @@ export function fileWorkers(
         ),
       ),
     ],
-    [
-      key(filesDelete),
-      handle(
-        "documents/files-delete",
-        passthrough(
-          filesDelete,
-          DOCUMENT_OPS.fileDelete,
-          WRITE_TIMEOUT_MS,
-          (input) => ({ request: input }),
-        ),
-      ),
-    ],
+    [key(filesDelete), handle("documents/files-delete", forwardDelete)],
     [
       key(projectPreviewTracking),
       handle(

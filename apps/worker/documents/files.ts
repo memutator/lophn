@@ -154,7 +154,15 @@ export function createFileHandlers(deps: FilesDeps): FileHandlers {
     ...statuses,
     async write(payload) {
       const parsed = coreFileWriteSchema.safeParse(payload);
-      if (!parsed.success) return notAvailable();
+      if (!parsed.success) {
+        // 요청이 어긋나도 이미 도착한 바이트는 우편함에 남기지 않는다.
+        const raw = (payload as { content?: Partial<ContentRef> } | null)
+          ?.content;
+        if (typeof raw?.channel === "number" && typeof raw.bytes === "number") {
+          deps.inbox.take(raw.channel, raw.bytes);
+        }
+        return notAvailable();
+      }
       const { request, content } = parsed.data;
       const located = await locator.locate(request.target);
       if (!located.ok) {

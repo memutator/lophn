@@ -58,7 +58,13 @@ export async function readLocation(
     location.meta !== undefined &&
     await ops.realPath(location.root) === undefined
   ) {
-    return ok({ exists: false, hash: null, size: 0, bytes_b64: null, meta: null });
+    return ok({
+      exists: false,
+      hash: null,
+      size: 0,
+      bytes_b64: null,
+      meta: null,
+    });
   }
   for (let attempt = 0; attempt < 2; attempt++) {
     const target = await resolveTarget(ops, location.root, location.path);

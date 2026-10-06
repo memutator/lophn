@@ -250,6 +250,8 @@ export function fileWorkers(
       })
     ) return notAvailable(request);
     const blob = content.blob;
+    // instruction 파일은 이 통로의 범위 밖이다(지침 파일 목표는 따로 등록한다).
+    if (input.target.kind === "instruction_file") return notAvailable(request);
     let copy: WorkingCopyBasis | undefined;
     if (input.target.kind === "working_copy") {
       const version = input.version_request;

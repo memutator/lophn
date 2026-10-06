@@ -731,33 +731,45 @@ Deno.test("documents/file-tracking#R1 documents/file-tracking#R15: 원본 없는
     assertEquals(written.body["outcome"], "written");
     assertEquals(written.body["recording"], "recorded");
     assertEquals(written.body["version_result"], "confirmed");
-    const save = written.body["save_result"] as { status: string; version: string };
+    const save = written.body["save_result"] as {
+      status: string;
+      version: string;
+    };
     assertEquals(save.status, "saved");
     assertNotEquals(save.version, first);
-    const copyFile =
-      `${home}/documents/working-copies/${DOC}/content`;
+    const copyFile = `${home}/documents/working-copies/${DOC}/content`;
     assertEquals(await Deno.readTextFile(copyFile), edit1);
     // 확정한 판은 요청한 사람 자격의 판이고 새 project·문서는 생기지 않았다.
     const rows = versions(home);
     assertEquals(rows.map((row) => row.number), [1, 2]);
     assertEquals(rows[1].saved_by, "user");
     assertEquals(
-      ledger(home, (db) =>
-        (db.prepare("SELECT COUNT(*) AS count FROM documents").get() as Json)
-          ["count"]),
+      ledger(
+        home,
+        (db) =>
+          (db.prepare("SELECT COUNT(*) AS count FROM documents").get() as Json)[
+            "count"
+          ],
+      ),
       1,
     );
     assertEquals(
-      ledger(home, (db) =>
-        (db.prepare("SELECT COUNT(*) AS count FROM projects").get() as Json)
-          ["count"]),
+      ledger(
+        home,
+        (db) =>
+          (db.prepare("SELECT COUNT(*) AS count FROM projects").get() as Json)[
+            "count"
+          ],
+      ),
       0,
     );
     // 사본을 읽고, 확정한 내용과 같으니 추적 중이다.
     const read = await readFile(opened, copyTarget());
     assertEquals(read.status, 200);
     assertEquals(new TextDecoder().decode(read.bytes), edit1);
-    const tracked = await post(opened, "files/status", { target: copyTarget() });
+    const tracked = await post(opened, "files/status", {
+      target: copyTarget(),
+    });
     const status = tracked.body["status"] as {
       state: string;
       compared_version: string;
@@ -770,7 +782,9 @@ Deno.test("documents/file-tracking#R1 documents/file-tracking#R15: 원본 없는
     // 자동 저장은 파일 쓰기만이다. 사본은 판 대기가 되고 사본 안에서 base_hash를 대조한다.
     const edit2 = "# note\n\n고침 2\n";
     const watched = (async () => {
-      const current = await post(opened, "files/watch", { target: copyTarget() });
+      const current = await post(opened, "files/watch", {
+        target: copyTarget(),
+      });
       const cursor = current.body["next_cursor"] as string;
       return await post(opened, "files/watch", {
         target: copyTarget(),
@@ -853,7 +867,9 @@ Deno.test("documents/file-tracking#R1 documents/file-tracking#R15: 원본 없는
     assertEquals(conflicted.body["version_result"], "conflict");
     assertEquals(await Deno.readTextFile(copyFile), edit3);
     assertEquals(versions(home).length, 3);
-    const pending = await post(opened, "files/status", { target: copyTarget() });
+    const pending = await post(opened, "files/status", {
+      target: copyTarget(),
+    });
     assertEquals(
       (pending.body["status"] as { state: string }).state,
       "version_pending",

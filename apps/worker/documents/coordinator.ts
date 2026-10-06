@@ -31,8 +31,8 @@ import { createBasisStore } from "./basis.ts";
 import { createByteInbox, validateFiles } from "./validation.ts";
 import { createFormatHandlers } from "../../../packages/documents/formats/reads.ts";
 import { createRootObservers } from "./observers.ts";
-import { PREPARATION_OPS } from "../../../packages/documents/file-tracking/mod.ts";
 import { createPreparationPool } from "./pool.ts";
+import { createBatchDispatch } from "./batch.ts";
 import { preparationSpec, previewSpec } from "./launch.ts";
 import { createFileHandlers, recordKeyOf } from "./files.ts";
 import { denoFileOps } from "../../../packages/documents/file-tracking/adapters/file-ops.ts";
@@ -442,24 +442,7 @@ export async function runCoordinator(root: string): Promise<void> {
     spawnPreparation: () => {
       throw new Error("preparation spawn is owned by the pool");
     },
-    dispatchBatch: async (_slot, scheduled) => {
-      const answered = await pool.request({
-        op: PREPARATION_OPS.hashBatch,
-        payload: {
-          root: scheduled.root,
-          batch: scheduled.batch.map((candidate) => ({
-            path: candidate.path,
-            observedAt: candidate.observedAt,
-          })),
-        },
-        priority: "background",
-      });
-      if (!answered.ok) return answered;
-      const results = (answered.value as { results?: unknown }).results;
-      return Array.isArray(results) && results.length === scheduled.batch.length
-        ? ok(results)
-        : err({ code: "unavailable", message: "batch result is invalid" });
-    },
+    dispatchBatch: createBatchDispatch(pool),
     submitResult: () =>
       Promise.reject(new Error("preparation results are not submitted yet")),
     deps: {

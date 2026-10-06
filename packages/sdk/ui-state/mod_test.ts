@@ -30,7 +30,9 @@ Deno.test("apps/sdk#R4: @lophn/ui-state는 정확한 1.0.0이고 의존을 정�
 
 Deno.test("apps/sdk#R41: @lophn/ui-state의 고정 문구는 wording key만 쓴다", async () => {
   for (const file of await sources(root)) {
-    if (!file.pathname.endsWith(".tsx") || file.pathname.endsWith("_test.tsx")) {
+    if (
+      !file.pathname.endsWith(".tsx") || file.pathname.endsWith("_test.tsx")
+    ) {
       continue;
     }
     const findings = checkSource(file.pathname, await Deno.readTextFile(file));

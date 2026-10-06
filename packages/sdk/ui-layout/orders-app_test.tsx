@@ -60,7 +60,10 @@ Deno.test("apps/sdk#R15: 예제는 앱 shell·sidebar·tab·grid·card와 5가�
 
 Deno.test("apps/sdk#R37: 같은 화면을 전체·320px 패널·240px 카드에 넣으면 sidebar 조작이 남고 한 줄로 옮겨진다", () => {
   for (
-    const [width, space] of [[1024, "full"], [320, "panel"], [240, "card"]] as const
+    const [width, space] of [[1024, "full"], [320, "panel"], [
+      240,
+      "card",
+    ]] as const
   ) {
     const { view } = mount(width);
     using _ = view;

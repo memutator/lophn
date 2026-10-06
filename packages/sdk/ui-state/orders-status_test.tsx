@@ -67,13 +67,18 @@ function Screen() {
 Deno.test("apps/sdk#R29: AppErrorBoundary는 root render 오류를 lophn:render-error event로 넘기고 원문 없이 다시 시도를 보인다", () => {
   const seen: unknown[] = [];
   const listen = (event: Event) => seen.push((event as CustomEvent).detail);
-  window.addEventListener(RENDER_ERROR_EVENT, listen);
+  const page = document.defaultView!;
+  page.addEventListener(RENDER_ERROR_EVENT, listen);
   // React가 잡은 오류를 console에 다시 쓴다. 이 테스트의 의도된 오류만 조용히 둔다.
   const original = console.error;
   console.error = () => {};
   try {
     broken = true;
-    using view = render(<AppRoot><Screen /></AppRoot>);
+    using view = render(
+      <AppRoot>
+        <Screen />
+      </AppRoot>,
+    );
     assertEquals(RENDER_ERROR_EVENT, "lophn:render-error");
     assertEquals(seen, [{ name: "TypeError", message: "orders is undefined" }]);
     const shown = one(view.container, "[data-state=error]");
@@ -85,6 +90,6 @@ Deno.test("apps/sdk#R29: AppErrorBoundary는 root render 오류를 lophn:render-
     assertEquals(seen.length, 1);
   } finally {
     console.error = original;
-    window.removeEventListener(RENDER_ERROR_EVENT, listen);
+    page.removeEventListener(RENDER_ERROR_EVENT, listen);
   }
 });

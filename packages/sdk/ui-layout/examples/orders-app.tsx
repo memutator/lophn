@@ -1,6 +1,12 @@
 // 앱 화면 예: 앱 shell·sidebar·tab·grid·card와 5가지 페이지 틀. 같은 화면을 전체·320px 패널·240px 카드에 넣는다.
 import { useState } from "react";
-import { BookOpen, LayoutDashboard, List, Settings, Table } from "lucide-react";
+import {
+  BookOpen,
+  LayoutDashboard,
+  List as ListIcon,
+  Settings,
+  Table,
+} from "lucide-react";
 import { Button, Field, Input, Switch } from "@lophn/ui-control";
 import { DataTable, type TableColumn } from "@lophn/ui-table";
 import {
@@ -10,7 +16,9 @@ import {
   DashboardFrame,
   FormFrame,
   Grid,
+  List,
   ListDetailFrame,
+  ListItem,
   ReadingFrame,
   Sidebar,
   Tab,
@@ -19,6 +27,7 @@ import {
   TabPanel,
   Tabs,
 } from "@lophn/ui-layout";
+import styles from "./orders-app.module.css";
 
 export type OrdersPage = "overview" | "orders" | "table" | "settings" | "guide";
 
@@ -94,7 +103,7 @@ export function OrdersApp(
           onSelect={(id) => setPage(id as OrdersPage)}
           items={[
             { id: "overview", label: TEXT.overview, icon: LayoutDashboard },
-            { id: "orders", label: TEXT.orders, icon: List },
+            { id: "orders", label: TEXT.orders, icon: ListIcon },
             { id: "table", label: TEXT.table, icon: Table },
             { id: "settings", label: TEXT.settings, icon: Settings },
             { id: "guide", label: TEXT.guide, icon: BookOpen },
@@ -137,19 +146,30 @@ export function OrdersApp(
         <ListDetailFrame
           active={order ? "detail" : "list"}
           onBack={() => setOrder(undefined)}
-          list={ORDERS.map((item) => (
-            <Button key={item.id} variant="ghost" onClick={() => setOrder(item)}>
-              {item.customer}
-            </Button>
-          ))}
-          detail={order
-            ? (
-              <Card>
-                <p>{order.customer}</p>
-                <p>{order.id}</p>
-              </Card>
-            )
-            : <p>{TEXT.pick}</p>}
+          list={
+            <List>
+              {ORDERS.map((item) => (
+                <ListItem
+                  key={item.id}
+                  title={item.customer}
+                  selected={item.id === order?.id}
+                  onSelect={() => setOrder(item)}
+                />
+              ))}
+            </List>
+          }
+          detail={
+            <div className={styles.detail}>
+              {order
+                ? (
+                  <Card>
+                    <p>{order.customer}</p>
+                    <p>{order.id}</p>
+                  </Card>
+                )
+                : <p>{TEXT.pick}</p>}
+            </div>
+          }
         />
       )}
       {page === "table" && (
@@ -169,11 +189,15 @@ export function OrdersApp(
       )}
       {page === "settings" && (
         <FormFrame header={<h2>{TEXT.settings}</h2>}>
-          <Field label={TEXT.shopName}>
-            <Input />
-          </Field>
-          <Switch label={TEXT.sync} />
-          <Button variant="primary">{TEXT.save}</Button>
+          <div className={styles.form}>
+            <Field label={TEXT.shopName}>
+              <Input />
+            </Field>
+            <Switch label={TEXT.sync} />
+            <div className={styles.actions}>
+              <Button variant="primary">{TEXT.save}</Button>
+            </div>
+          </div>
         </FormFrame>
       )}
       {page === "guide" && (

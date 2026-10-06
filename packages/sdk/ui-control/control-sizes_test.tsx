@@ -20,7 +20,9 @@ Deno.test("apps/sdk#R14: 예제는 버튼·입력·선택·체크박스·스위�
   const heights = { sm: "28px", md: "32px", lg: "36px" } as const;
   for (const [size, height] of Object.entries(heights)) {
     const row = one(view.container, `[data-row=${size}]`);
-    for (const selector of ["button[data-variant]", "input", "[role=combobox]"]) {
+    for (
+      const selector of ["button[data-variant]", "input", "[role=combobox]"]
+    ) {
       const control = one(row, selector);
       assertEquals(control.dataset.size, size, selector);
       assertEquals(style(control).height, height, selector);

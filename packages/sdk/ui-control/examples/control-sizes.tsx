@@ -11,6 +11,7 @@ import {
   Select,
   Switch,
 } from "@lophn/ui-control";
+import styles from "./control-sizes.module.css";
 
 const SIZES: readonly ControlSize[] = ["sm", "md", "lg"];
 
@@ -28,9 +29,9 @@ const TEXT = {
 
 export function ControlSizes() {
   return (
-    <div>
+    <div className={styles.rows}>
       {SIZES.map((size) => (
-        <div key={size} data-row={size}>
+        <div key={size} data-row={size} className={styles.row}>
           <Button variant="primary" size={size}>{TEXT.save}</Button>
           <IconButton icon={Search} label={TEXT.search} size={size} />
           <Field label={TEXT.name}>

@@ -3,8 +3,8 @@
 ## 목적
 
 읽기 결과의 loading·empty·error·freshness 상태(apps/sdk#R18)와 앱 화면 root의
-`AppErrorBoundary`(apps/sdk#R29)다. 상태 표시는 lophn 화면과 같은
-component이고 시각 값의 정본은 shell/design-system이다(apps/sdk#R20, R21).
+`AppErrorBoundary`(apps/sdk#R29)다. 상태 표시는 lophn 화면과 같은 component이고
+시각 값의 정본은 shell/design-system이다(apps/sdk#R20, R21).
 
 ## 공개 API와 type
 
@@ -12,21 +12,20 @@ component이고 시각 값의 정본은 shell/design-system이다(apps/sdk#R20, 
 import { AppErrorBoundary, ReadState } from "@lophn/ui-state";
 ```
 
-- `AppErrorBoundary({children})` — 앱 화면 root의 오류 경계다. 앱 진입에서
-  root를 감싼다. 아래에서 render 오류가 나면 `window`에
-  `lophn:render-error`(`RENDER_ERROR_EVENT`) DOM event를 `detail: {name,
-  message}`로 보내고, lophn의 앱 preload가 그것을 플랫폼 오류 수집으로 넘긴다.
-  앱이 따로 보고하지 않아도 된다. 화면에는 원문 오류 없이 "Couldn't show this
-  screen."과 [Try again]만 보인다. 보고 처리 규칙은 problems/reporting을
-  따른다.
-- `ReadState({loading, failed, onRetry, isEmpty, empty, freshness,
-  placeholder})` — 읽기 결과의 상태 하나만 그린다. loading은 300ms 전에는 아무것도
-  그리지 않고 그 뒤 skeleton을, `failed`(대상의 사람 말 이름)는 "Couldn't load
-  …"와 [Reload]를, 비었으면 한 문장과 행동 하나를, 내용이 `freshness.staleAfterMs`
-  보다 오래됐으면 "Last updated …"를 내용 위에 붙인다.
+- `AppErrorBoundary({children})` — 앱 화면 root의 오류 경계다. 앱 진입에서 root를
+  감싼다. 아래에서 render 오류가 나면 `window`에 `RENDER_ERROR_EVENT`
+  (`lophn:render-error`) DOM event를 보낸다. `detail`은 오류의 `name`과
+  `message`다. lophn의 앱 preload가 그것을 플랫폼 오류 수집으로 넘기므로 앱이 따로
+  보고하지 않아도 된다. 화면에는 원문 오류 없이 "Couldn't show this screen."과
+  [Try again]만 보인다. 보고 처리 규칙은 problems/reporting을 따른다.
+- `ReadState(props)` — 읽기 결과의 상태 하나만 그린다. props는 `loading`,
+  `failed`, `onRetry`, `isEmpty`, `empty`, `freshness`, `placeholder`다. loading은
+  300ms 전에는 아무것도 그리지 않고 그 뒤 skeleton을, `failed`(대상의 사람 말
+  이름)는 "Couldn't load …"와 [Reload]를, 비었으면 한 문장과 행동 하나를, 내용이
+  `freshness.staleAfterMs`보다 오래됐으면 "Last updated …"를 내용 위에 붙인다.
 - `isStale(freshness)` — 마지막 갱신이 기준보다 오래됐는지다.
-- `Loading`, `Skeleton`, `EmptyState`, `ErrorState`, `StaleNote` — 상태를
-  직접 조립할 때 쓴다.
+- `Loading`, `Skeleton`, `EmptyState`, `ErrorState`, `StaleNote` — 상태를 직접
+  조립할 때 쓴다.
 - `systemTimer`, type `Timer` — loading 지연을 재는 timer다. 테스트가 바꿔
   끼운다.
 - type: `AppErrorBoundaryProps`, `ReadStateProps`, `Freshness`, `EmptyAction`,

@@ -1,10 +1,6 @@
 import { createContext, type ReactNode, useContext, useRef } from "react";
 import type { LucideIcon } from "lucide-react";
-import {
-  Icon,
-  iconPixels,
-  useObservedSize,
-} from "@lophn/design/components";
+import { Icon, iconPixels, useObservedSize } from "@lophn/design/components";
 import { type ContainerSpace, containerSpace } from "./space.ts";
 import styles from "./layout.module.css";
 
@@ -74,9 +70,7 @@ export function Sidebar({ items, current, onSelect }: SidebarProps) {
             aria-current={item.id === current ? "page" : undefined}
             onClick={() => onSelect(item.id)}
           >
-            {item.icon && (
-              <Icon icon={item.icon} pixels={iconPixels("base")} />
-            )}
+            {item.icon && <Icon icon={item.icon} pixels={iconPixels("base")} />}
             <span className={styles.label}>{item.label}</span>
           </button>
         </li>

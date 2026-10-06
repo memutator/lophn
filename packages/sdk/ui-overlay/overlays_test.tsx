@@ -36,7 +36,9 @@ Deno.test("apps/sdk#R15: 예제에서 tooltip·popover·메뉴·dialog·palette�
 
     click(button(view.container, "Filter"));
     await settle();
-    const rows = document.querySelectorAll("[data-radix-popper-content-wrapper] button");
+    const rows = document.querySelectorAll(
+      "[data-radix-popper-content-wrapper] button",
+    );
     assertEquals([...rows].map((row) => row.textContent), [
       "Open orders",
       "Closed orders",

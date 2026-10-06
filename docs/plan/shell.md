@@ -806,6 +806,7 @@ concerns: [shell]
   - 예제와 package 옆 테스트. apps#T22·T23–T26보다 먼저 main에 들어간다.
 - 가져올 것: legacy `ui-control`, `ui-overlay`, `ui-layout`, `ui-state`(presented.ts, reportError.ts 빼고).
 - shell#T38에서 넘어온 것: 앱 preload는 main world에서 `lophn:render-error` DOM event(`detail: {name, message}`)를 `render_error`로 view 오류 통로에 보낸다(`apps/shell/preload/app-api.ts`의 `RENDER_ERROR_EVENT`·`watchMainWorldErrors`). ui-state의 AppErrorBoundary는 루트 render 오류를 잡으면 이 event를 `window`에 dispatch한다. `lophnApp`에 새 이름을 더하지 않는다(Q22)
+- 정한 것: 네 package는 lophn 화면과 같은 packages/design component를 다시 내보내고(R21) 새로 짠 것은 ui-layout의 `AppShell`·`Sidebar`·`Grid`·`containerSpace`, ui-overlay의 `ToastProvider`·`useToast`, ui-state의 `ReadState`·`AppErrorBoundary`다. 패널·카드 최소 폭은 token `layout.container`(320·240px)로 두고, 칸 640px 미만에서 design의 `ListDetailFrame`은 `active` 한 쪽과 [Back](`onBack`), `DashboardFrame`은 한 줄 한 칸, 탭 줄은 가로 scroll, toast 쌓임은 view 폭 안으로 바꿨다. `Checkbox`·`Switch`에 `size`(28·32·36px)를 더했다. AppErrorBoundary는 `document.defaultView`에 event를 보내고 화면에는 `common.error.show-failed`와 [Try again]만 둔다. shell 첫 소비자는 overlay surface(ui-overlay·ui-control), 연결 상태(ui-control·ui-state), 시리즈 등록 폼(ui-layout·ui-control)이다
 
 ### T41 SDK UI: ui-reading, ui-filter, ui-stat, ui-action
 

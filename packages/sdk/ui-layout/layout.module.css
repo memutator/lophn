@@ -127,6 +127,7 @@
 }
 
 .shell:not([data-space="full"]) .nav {
+  scrollbar-width: thin;
   border-inline-end: none;
   border-bottom: var(--border-width) solid var(--color-border-subtle);
 }

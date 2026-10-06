@@ -14,6 +14,7 @@ import {
   Tooltip,
   useToast,
 } from "@lophn/ui-overlay";
+import styles from "./overlays.module.css";
 
 // 앱이 자기 catalog에서 가져오는 문구 자리다.
 const TEXT = {
@@ -54,7 +55,7 @@ function Overlays({ timer }: { timer?: Timer }) {
   const [renaming, setRenaming] = useState(false);
   const [palette, setPalette] = useState(false);
   return (
-    <div>
+    <div className={styles.bar}>
       <Tooltip content={TEXT.aboutBody} timer={timer}>
         <IconButton icon={Info} label={TEXT.about} />
       </Tooltip>

@@ -15,6 +15,9 @@
       "ES2023",
       "DOM",
       "deno.ns"
+    ],
+    "types": [
+      "./css-modules.d.ts"
     ]
   }
 }

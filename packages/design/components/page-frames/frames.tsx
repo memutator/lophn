@@ -119,7 +119,12 @@ export function ListDetailFrame(
         <div className={styles.detail}>
           {narrow && onBack && (
             <div className={styles.back}>
-              <Button variant="ghost" size="sm" icon={ArrowLeft} onClick={onBack}>
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={ArrowLeft}
+                onClick={onBack}
+              >
                 {t("common.button.back")}
               </Button>
             </div>

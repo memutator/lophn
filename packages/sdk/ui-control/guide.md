@@ -35,9 +35,9 @@ import {
 - `CopyButton({text, label, clipboard})`, `systemClipboard` — 값 복사다.
 - `Icon` — Lucide 아이콘을 token 크기로 그린다.
 - type: `ControlSize`(`"sm" | "md" | "lg"`), `ButtonProps`, `ButtonVariant`,
-  `IconButtonProps`, `FieldProps`, `InputProps`, `TextareaProps`,
-  `SelectProps`, `SelectOption`, `CheckboxProps`, `SwitchProps`, `KbdProps`,
-  `CopyButtonProps`, `Clipboard`, `IconProps`
+  `IconButtonProps`, `FieldProps`, `InputProps`, `TextareaProps`, `SelectProps`,
+  `SelectOption`, `CheckboxProps`, `SwitchProps`, `KbdProps`, `CopyButtonProps`,
+  `Clipboard`, `IconProps`
 
 같은 줄의 조작은 같은 `size`를 준다. 높이와 기준선이 맞는다.
 
@@ -49,11 +49,11 @@ import {
 
 정확한 peer다. 범위가 아니라 정확한 판을 쓴다.
 
-| peer             | version |
-| ---------------- | ------- |
-| `react`          | 19.3.0  |
-| `lucide-react`   | 1.51.0  |
-| `@lophn/tokens`  | 1.0.0   |
+| peer            | version |
+| --------------- | ------- |
+| `react`         | 19.3.0  |
+| `lucide-react`  | 1.51.0  |
+| `@lophn/tokens` | 1.0.0   |
 
 ## 예제
 

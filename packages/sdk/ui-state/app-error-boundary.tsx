@@ -16,7 +16,9 @@ interface State {
 }
 
 function described(error: unknown): { name: string; message: string } {
-  if (error instanceof Error) return { name: error.name, message: error.message };
+  if (error instanceof Error) {
+    return { name: error.name, message: error.message };
+  }
   return { name: "Error", message: String(error) };
 }
 
@@ -29,8 +31,9 @@ export class AppErrorBoundary extends Component<AppErrorBoundaryProps, State> {
     return { failed: true };
   }
 
+  // 앱 화면의 window(main world)에 보낸다. 페이지 문서의 defaultView가 그 window다.
   override componentDidCatch(error: unknown): void {
-    window.dispatchEvent(
+    document.defaultView?.dispatchEvent(
       new CustomEvent(RENDER_ERROR_EVENT, { detail: described(error) }),
     );
   }

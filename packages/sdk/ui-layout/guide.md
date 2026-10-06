@@ -3,10 +3,10 @@
 ## 목적
 
 앱 shell·tab·sidebar·grid·card와 5가지 페이지 틀(읽기·dashboard·목록과
-상세·표·폼)이다(apps/sdk#R15). 모두 창이 아니라 넣은 영역의 폭에 반응하고
-패널 320px·카드 240px부터 페이지 가로 scroll 없이 읽기와 조작을 준다
-(apps/sdk#R37). 탭·카드·페이지 틀은 lophn 화면과 같은 component이고 시각 값의
-정본은 shell/design-system이다(apps/sdk#R20, R21).
+상세·표·폼)이다(apps/sdk#R15). 모두 창이 아니라 넣은 영역의 폭에 반응하고 패널
+320px·카드 240px부터 페이지 가로 scroll 없이 읽기와 조작을 준다 (apps/sdk#R37).
+탭·카드·페이지 틀은 lophn 화면과 같은 component이고 시각 값의 정본은
+shell/design-system이다(apps/sdk#R20, R21).
 
 ## 공개 API와 type
 
@@ -39,20 +39,22 @@ import {
   `"card"`(240~319px)·`"panel"`(320~639px)·`"full"`(640px~) 중 무엇인지다.
 - `Grid` — 240px 이상의 칸을 영역 폭에 맞게 채운다. 좁으면 한 줄 한 칸이다.
 - `Card` — 독립 객체 하나를 묶는다. 카드 안 카드는 만들지 않는다.
+- `List`, `ListItem({title, meta, selected, onSelect})` — 목록과 상세의
+  목록이다.
 - `Tabs`, `TabList`, `Tab({value, size})`, `TabPanel` — 일반 탭이다. 탭이 칸보다
   많으면 탭 줄이 가로로 scroll한다.
 - 페이지 틀 5가지. 칸 640px 미만은 양쪽 16px, 이상은 32px 여백이다.
-  - `ReadingFrame({width, header, toc})` — 본문 600·680·800px과 목차 220px.
-    폭이 모자라면 목차가 머리로 간다.
+  - `ReadingFrame({width, header, toc})` — 본문 600·680·800px과 목차 220px. 폭이
+    모자라면 목차가 머리로 간다.
   - `DashboardFrame`, `DashboardCell({span})` — 최대 1440px·12열·간격 16px.
     640px 미만은 한 줄 한 칸이다.
-  - `ListDetailFrame({list, detail, active, onBack})` — 목록 360px과 상세.
-    640px 미만은 `active` 한 쪽만 보이고 상세에 [Back]이 있다.
+  - `ListDetailFrame({list, detail, active, onBack})` — 목록 360px과 상세. 640px
+    미만은 `active` 한 쪽만 보이고 상세에 [Back]이 있다.
   - `TableFrame({header})` — 전체 폭 표. 표 안쪽이 scroll한다.
   - `FormFrame({header})` — 폭 640px 폼.
 - type: `AppShellProps`, `SidebarProps`, `SidebarItem`, `GridProps`,
   `ContainerSpace`, `CardProps`, `TabsProps`, `TabProps`, `DashboardSpan`,
-  `ListDetailFrameProps`, `ReadingFrameProps`, `ReadingWidth`;
+  `ListItemProps`, `ListDetailFrameProps`, `ReadingFrameProps`, `ReadingWidth`;
   값 `READING_WIDTHS`
 
 ## 요구 permission

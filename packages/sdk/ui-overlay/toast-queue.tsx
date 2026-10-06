@@ -8,10 +8,10 @@ import {
 } from "react";
 import {
   type Clock,
+  type Timer,
   Toast,
   type ToastProps,
   ToastStack,
-  type Timer,
 } from "@lophn/design/components";
 
 export type ToastOptions = Omit<ToastProps, "onClose" | "timer" | "clock"> & {

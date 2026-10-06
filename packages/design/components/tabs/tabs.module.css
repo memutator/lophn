@@ -10,6 +10,7 @@
   gap: var(--space-5);
   min-width: var(--space-0);
   overflow-x: auto;
+  scrollbar-width: thin;
   border-bottom: var(--border-width) solid var(--color-border-subtle);
 }
 

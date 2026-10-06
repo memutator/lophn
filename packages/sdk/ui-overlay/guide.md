@@ -2,10 +2,10 @@
 
 ## 목적
 
-tooltip·popover·메뉴·dialog·toast·command palette다(apps/sdk#R15). lophn
-화면과 같은 component이고 시각 값의 정본은 shell/design-system이다
-(apps/sdk#R20, R21). 앱 안에서는 모두 앱 view의 문서 안에 그린다. lophn
-화면의 overlay 층을 빌리는 통로는 없다.
+tooltip·popover·메뉴·dialog·toast·command palette다(apps/sdk#R15). lophn 화면과
+같은 component이고 시각 값의 정본은 shell/design-system이다(apps/sdk#R20, R21).
+앱 안에서는 모두 앱 view의 문서 안에 그린다. lophn 화면의 overlay 층을 빌리는
+통로는 없다.
 
 ## 공개 API와 type
 
@@ -26,14 +26,15 @@ import {
 - `Popover({trigger, children})`, `PopoverRow({onSelect})` — modal이 아닌 떠
   있는 표면과 그 안의 32px 행이다. 바깥 click·focus 이동·Escape에 닫힌다.
 - `Menu({trigger, items, onSelect})` — 행 32px 메뉴다.
-- `Dialog({open, onOpenChange, title, actions, width})` — 폭 480·640px modal이다.
-  주 행동은 `actions`의 오른쪽 끝에 둔다. 닫히면 연 자리로 focus가 돌아간다.
+- `Dialog({open, onOpenChange, title, actions, width})` — 폭 480·640px
+  modal이다. 주 행동은 `actions`의 오른쪽 끝에 둔다. 닫히면 연 자리로 focus가
+  돌아간다.
 - `Palette({open, onOpenChange, title, items, onSelect})` — 폭 640px·위 20%의
   command palette다. 검색어로 이름을 거른다. 여는 키는 앱이 정한다.
-- `ToastProvider`, `useToast()` — `show({title, body, tone, actions,
-  duration})`는 id를 돌려주고 `dismiss(id)`로 닫는다. 폭 360px, 5초(짧은 조작은
-  `duration: "brief"` 2초), hover·focus에 멈추고 행동은 최대 2개, error는
-  시간으로 닫지 않는다.
+- `ToastProvider`, `useToast()` — `show(options)`는 id를 돌려주고 `dismiss(id)`로
+  닫는다. options는 `title`, `body`, `tone`, `actions`, `duration`이다. 폭 360px,
+  5초(짧은 조작은 `duration: "brief"` 2초), hover·focus에 멈추고 행동은 최대 2개,
+  error는 시간으로 닫지 않는다.
 - `Toast`, `ToastStack` — queue 없이 직접 그릴 때 쓴다.
 - type: `TooltipProps`, `PopoverProps`, `PopoverRowProps`, `MenuProps`,
   `MenuItem`, `DialogProps`, `DialogWidth`, `PaletteProps`, `PaletteItem`,

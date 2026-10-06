@@ -280,7 +280,7 @@ function pendingOmissions(
   document: string,
 ): SearchCoverage["omissions"] {
   const rows = sql.all(
-    `SELECT version, extraction_status, failure_reason
+    `SELECT version, extraction_status, failure_reason, unverified_reason
      FROM derived_versions WHERE document = ? AND extraction_status <> 'ready'
      ORDER BY version`,
     [document],
@@ -301,7 +301,9 @@ export function omissionRow(
     ? String(row.failure_reason ?? OMISSION_FAILED)
     : status === "unsupported"
     ? OMISSION_UNSUPPORTED
-    : OMISSION_UNVERIFIED;
+    : row.unverified_reason === null || row.unverified_reason === undefined
+    ? OMISSION_UNVERIFIED
+    : String(row.unverified_reason);
   return {
     document,
     version: String(row.version),
@@ -316,7 +318,7 @@ export function allOmissions(
   allowed?: ReadonlySet<string>,
 ): SearchCoverage["omissions"] {
   const rows = sql.all(
-    `SELECT document, version, extraction_status, failure_reason
+    `SELECT document, version, extraction_status, failure_reason, unverified_reason
      FROM derived_versions WHERE extraction_status <> 'ready' ORDER BY document, version`,
     [],
   );

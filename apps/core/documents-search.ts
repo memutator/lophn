@@ -6,6 +6,11 @@
 // 한 derived transaction에 쓴다. 구독 event는 깨우는 신호이고 읽기는 늘 cursor부터라서
 // 구독이 끊긴 동안의 변화도 다음 확인이 따라잡는다(at-least-once, 같은 seq는 건너뛴다).
 import type { Result } from "../../packages/base/mod.ts";
+import {
+  FORMAT_CHECK_CONTENT_MAX_BYTES,
+  formatCheckLimitMessage,
+  formatChecksContent,
+} from "../../packages/contracts/documents/mod.ts";
 import type { RequestContext } from "../../packages/contracts/platform/mod.ts";
 import {
   extractionTargetOf,
@@ -119,6 +124,11 @@ export function watchSearchIndex(deps: SearchSyncDeps): SearchSync {
       );
     }
     const info = version.value;
+    // 추출도 format 검사처럼 바이트를 읽는 format의 대표 파일 하나만 guest에 넘기고, 그 파일이
+    // 한도를 넘으면 runner를 부르지 않고 이유를 밝힌 미확인으로 남긴다(세 번 실패하지 않는다).
+    const reads = (file: { primary: boolean }) =>
+      formatChecksContent(info.format.name) && file.primary;
+    const primary = info.files.find((file) => file.primary);
     const base = {
       document: target.document,
       version: target.version,
@@ -128,8 +138,25 @@ export function watchSearchIndex(deps: SearchSyncDeps): SearchSync {
         module_hash: info.format.module_hash,
       },
     };
+    if (
+      primary !== undefined && reads(primary) &&
+      primary.bytes > FORMAT_CHECK_CONTENT_MAX_BYTES
+    ) {
+      return await deps.request(
+        SEARCH_OPS.apply,
+        {
+          event: message,
+          extraction: {
+            ...base,
+            files: [],
+            unverified: formatCheckLimitMessage(primary.bytes),
+          },
+        },
+        APPLY_TIMEOUT_MS,
+      );
+    }
     const sent = await deps.streamer.exclusive(async () => {
-      const streamed = await deps.streamer.stream(info.files);
+      const streamed = await deps.streamer.stream(info.files, reads);
       if (!streamed.ok) return streamed;
       const extraction: SearchExtractionRequest = {
         ...base,
@@ -157,7 +184,11 @@ export function watchSearchIndex(deps: SearchSyncDeps): SearchSync {
         SEARCH_OPS.apply,
         {
           event: message,
-          extraction: { ...base, files: [], unreadable: true },
+          extraction: {
+            ...base,
+            files: [],
+            unverified: "the original bytes could not be read",
+          },
         },
         APPLY_TIMEOUT_MS,
       );

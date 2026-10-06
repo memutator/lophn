@@ -1,6 +1,7 @@
 // 준비 worker로 가는 요청 배분. codec은 contracts/platform supervision 하나고,
 // 여기는 그 위에 request envelope(architecture 2.1: request_id, operation, input_ref,
 // basis)과 1MiB 이하 byte chunk를 싣는 일만 한다. 새 codec을 만들지 않는다.
+import { FORMAT_CHECK_CONTENT_MAX_BYTES } from "../../contracts/documents/mod.ts";
 import {
   type Frame,
   STREAM_CHUNK_MAX_BYTES,
@@ -124,21 +125,26 @@ export const PREPARATION_OPS = {
   hashBatch: "documents.hash_batch",
 } as const;
 
-// `documents.validate_files` 요청 본문. 파일마다 앞서 보낸 byte channel과 그 길이다.
+// `documents.validate_files` 요청 본문. 파일마다 앞서 보낸 byte channel과 그 길이다. 검사가
+// 바이트를 읽는 파일(대표 파일)만 channel이 있고, 나머지는 channel이 null이며 바이트를
+// 보내지 않는다(bytes는 파일 크기다).
 export type ValidateFilesRequest = {
   files: {
     path: string;
     media_type: string;
     primary: boolean;
     bytes: number;
-    channel: number;
+    // 파일 바이트의 sha256. 바이트를 보내지 않은 대표 파일의 input_hash가 이 값이다.
+    blob_hash: string;
+    channel: number | null;
   }[];
   format: { name: string; module_hash: string; explicit: boolean };
 };
 
-// 입력 상한(guest 입력 16 MiB)을 넘는 검사는 요청하지 않는다. 넘으면 미지원처럼
-// 꾸미지 않고 unavailable이다(architecture/documents 2).
-export const VALIDATE_INPUT_MAX_BYTES = 16 * 1024 * 1024;
+// 검사로 보내는 바이트의 상한은 contracts의 FORMAT_CHECK_CONTENT_MAX_BYTES(대표 파일
+// 1 MiB)다. 넘는 검사는 요청하지 않는다. 미지원처럼 꾸미지 않고 한도를 밝힌
+// invalid_input이다(architecture/documents 2.2).
+export const VALIDATE_INPUT_MAX_BYTES = FORMAT_CHECK_CONTENT_MAX_BYTES;
 
 export function parseValidateFilesRequest(
   value: unknown,
@@ -161,17 +167,22 @@ export function parseValidateFilesRequest(
     if (
       typeof entry.path !== "string" || entry.path.length === 0 ||
       typeof entry.media_type !== "string" ||
+      typeof entry.blob_hash !== "string" ||
+      !/^[0-9a-f]{64}$/.test(entry.blob_hash) ||
       typeof entry.primary !== "boolean" ||
       !Number.isSafeInteger(entry.bytes) || (entry.bytes as number) < 0 ||
-      !Number.isSafeInteger(entry.channel) || (entry.channel as number) < 1
+      !(entry.channel === null ||
+        (Number.isSafeInteger(entry.channel) && (entry.channel as number) >= 1))
     ) return undefined;
-    total += entry.bytes as number;
+    // 바이트를 보낸 파일만 입력 상한에 든다.
+    if (entry.channel !== null) total += entry.bytes as number;
     files.push({
       path: entry.path,
       media_type: entry.media_type,
       primary: entry.primary,
       bytes: entry.bytes as number,
-      channel: entry.channel as number,
+      blob_hash: entry.blob_hash,
+      channel: entry.channel as number | null,
     });
   }
   if (total > VALIDATE_INPUT_MAX_BYTES) return undefined;

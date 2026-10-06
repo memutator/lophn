@@ -9,7 +9,13 @@ import type {
   AuthenticatedContext,
   SqlRow,
 } from "../../contracts/platform/mod.ts";
-import { approvalBinding } from "../../contracts/platform/mod.ts";
+import {
+  approvalBinding,
+  type ApprovalRequest,
+  grantApprovalRequest,
+  rejectApprovalRequest,
+} from "../../contracts/platform/mod.ts";
+import { confirmationBinding } from "../identity/mod.ts";
 
 export type CommandEnvelope = {
   command: string;
@@ -51,6 +57,7 @@ const OPERATIONS = [
   "expire_approval_request",
   "cancel_approval_request",
   "seed_approval_request",
+  "probe_use_approval",
   "grant_approval_request",
   "reject_approval_request",
   "GetApproval",
@@ -166,4 +173,95 @@ export async function create(
     prepared: [],
     ...(options.run ? { run: options.run } : {}),
   });
+}
+
+export type Decision = "grant" | "reject";
+
+export async function decisionInput(
+  harness: LedgerHarness,
+  id: string,
+  reason?: string | null,
+): Promise<Record<string, unknown>> {
+  const read = value(
+    await harness.read({ resource: "approvals", method: "get" }, user, {
+      approval: id,
+    }),
+  ) as { request: ApprovalRequest };
+  return {
+    approval: id,
+    created_seq: read.request.created_seq,
+    binding_hash: read.request.action.binding_hash,
+    ...(reason === undefined ? {} : { closed_reason_blob: reason }),
+  };
+}
+
+// 사람이 confirmation window에서 본 내용으로 handle을 발급한다.
+export async function issue(
+  harness: LedgerHarness,
+  decision: Decision,
+  input: Record<string, unknown>,
+): Promise<string> {
+  const route = decision === "grant"
+    ? grantApprovalRequest
+    : rejectApprovalRequest;
+  const binding = await confirmationBinding(route, input);
+  assert(binding);
+  const issued = value(
+    await harness.confirmation({
+      action: "issue",
+      request: {
+        type: "confirmation_handle_register",
+        window_id: `win-${decision}`,
+        target_ref: binding.target,
+        content_hash: binding.content,
+        allowed_decisions: [route.name],
+        expires_at: new Date(NOW + 120_000).toISOString(),
+      },
+    }),
+  ) as { confirmation: string };
+  return issued.confirmation;
+}
+
+// 거절 입력은 이유 칸이 항상 있고(없으면 null) 허락 입력에는 이유 칸이 없다.
+export function shaped(
+  decision: Decision,
+  input: Record<string, unknown>,
+): Record<string, unknown> {
+  const { closed_reason_blob: reason, ...rest } = input;
+  return decision === "reject"
+    ? { ...rest, closed_reason_blob: reason ?? null }
+    : rest;
+}
+
+export function decide(
+  harness: LedgerHarness,
+  ctx: AuthenticatedContext,
+  decision: Decision,
+  input: Record<string, unknown>,
+  key: string,
+  confirmation?: string,
+) {
+  return harness.command(ctx, {
+    command: decision === "grant"
+      ? "grant_approval_request"
+      : "reject_approval_request",
+    input: shaped(decision, input),
+    idempotency_key: key,
+    compare: { created_seq: input["created_seq"] },
+    prepared: [],
+    ...(confirmation === undefined ? {} : { confirmation }),
+  });
+}
+
+export async function statusOf(
+  harness: LedgerHarness,
+  id: string,
+): Promise<string> {
+  const rows = value(
+    await harness.inspect(
+      "select status from approval_requests where id = ?",
+      [id],
+    ),
+  );
+  return String(rows[0]?.["status"]);
 }

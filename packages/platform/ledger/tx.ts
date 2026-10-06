@@ -24,6 +24,7 @@ import {
   type SubscriberGate,
 } from "./subscriber-registration.ts";
 import { targetAuthorizationPort } from "./target-authorization.ts";
+import { useApproval as useApprovalRecord } from "./approval-use.ts";
 import type { CommandDispatch } from "./dispatch.ts";
 import {
   createTxPortLookup,
@@ -308,13 +309,10 @@ function createTx(sql: Sql, ctx: TxContext, deps: TxDeps): BuiltTx {
         ));
       return ok(undefined);
     },
-    // 실제 접수와 approval 사용을 묶는 platform#T23 전에는 성공으로 기록하지 않는다.
-    useApproval() {
+    // 정확한 action 일치 확인과 approval_uses 기록은 소유 변경과 같은 transaction이다(platform#T23).
+    useApproval(approval, action, use) {
       live();
-      return err({
-        code: "unavailable",
-        message: "approval 적용을 아직 사용할 수 없다",
-      });
+      return useApprovalRecord(tx, approval, action, use);
     },
     call<R extends CommandRoute>(route: R, input: unknown, compare: unknown) {
       live();

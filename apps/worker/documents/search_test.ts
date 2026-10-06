@@ -64,6 +64,7 @@ function extraction(
       media_type: "text/markdown",
       primary: true,
       bytes,
+      blob_hash: HASH,
       channel,
     }],
   };
@@ -141,7 +142,8 @@ Deno.test("documents/outline-and-search#R14: 우리가 실행하지 못하는 fo
         ...extraction(2, 0),
         version: "ver_01arz3ndektsv4rrffq69g5fb0",
         files: [],
-        unreadable: true,
+        unverified:
+          "format check input is 2097152 bytes, over the 1048576 byte limit",
       },
     }));
     assertEquals(unreadable?.ok, true);
@@ -150,6 +152,15 @@ Deno.test("documents/outline-and-search#R14: 우리가 실행하지 못하는 fo
       [],
     ).map((row) => `${row["extraction_status"]}`);
     assertEquals(status, ["unsupported", "unverified"]);
+    // 이유를 밝힌 미확인이다. 누락 목록에도 그 이유가 보인다.
+    const reason = store.value.read.sql.get(
+      `SELECT unverified_reason FROM derived_versions WHERE version = ?`,
+      ["ver_01arz3ndektsv4rrffq69g5fb0"],
+    );
+    assertEquals(
+      reason?.["unverified_reason"],
+      "format check input is 2097152 bytes, over the 1048576 byte limit",
+    );
     // 읽을 수 없는 판도 cursor는 진행하고 search 행은 없다.
     assertEquals(searchCursorOf(store.value.read), "3");
     assertEquals(

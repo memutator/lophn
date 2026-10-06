@@ -346,3 +346,48 @@ Deno.test("documents/outline-and-search#R10: core를 다시 띄워도 derived in
     await (reopened ?? opened).dispose();
   }
 });
+
+Deno.test("documents/outline-and-search#R14 documents/formats#R20: 대표 파일이 검사 한도(1 MiB)를 넘는 판은 runner를 부르지 않고 이유를 밝힌 미확인으로 남으며 뒤의 문서를 막지 않는다", async () => {
+  const opened = await open();
+  try {
+    await createProject(opened.core);
+    const save = saver(opened);
+    // 1 MiB를 넘는 Markdown. 새 문서는 format을 지정하지 않아 저장은 되고 추출만 못 한다.
+    const big = `# 큰 문서\n\n${"한 줄 본문이다. ".repeat(80_000)}\n`;
+    await Deno.writeTextFile(`${opened.work}/big.md`, big);
+    const first = await save("big.md", "big");
+    await Deno.writeTextFile(`${opened.work}/plan.md`, PLAN);
+    const second = await save("plan.md", "plan");
+    // 큰 문서 뒤의 문서도 index에 오른다(큰 문서가 cursor를 막지 않는다).
+    await until(
+      () => search(opened.core, "배포 승인"),
+      (hits) => hits.some((hit) => hit.document === second.document),
+      "큰 문서 뒤의 문서가 index에 오르지 않았다",
+    );
+    const page = await post(opened.core, "search/query", {
+      query: "배포 승인",
+    });
+    const omissions = (page.body["coverage"] as {
+      omissions: { document: string; version: string; reason: string }[];
+    }).omissions;
+    const skipped = omissions.find((item) => item.document === first.document);
+    assert(skipped !== undefined, JSON.stringify(omissions));
+    assertEquals(skipped.version, first.version);
+    assertEquals(skipped.reason.includes("over the 1048576 byte limit"), true);
+    // 원문을 읽는 쪽은 구조를 읽지 못했다는 같은 이유를 받는다(원문 부재로 꾸미지 않는다).
+    const read = await post(opened.core, "documents/read", {
+      reference: {
+        document: first.document,
+        version: first.version,
+        section: null,
+      },
+    });
+    assertEquals(read.body["section_status"], "unverified");
+    assertEquals(
+      String(read.body["failure_reason"]).includes("byte limit"),
+      true,
+    );
+  } finally {
+    await opened.dispose();
+  }
+});

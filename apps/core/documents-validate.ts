@@ -2,14 +2,21 @@
 // worker가 설치한 원문 blob을 창 단위로 읽어 감독 pipe의 byte chunk frame으로 documents
 // coordinator에 넘기고, 같은 channel을 가리키는 `documents.validate_files` 요청을 보낸다.
 // coordinator가 권한 없는 format runner로 검사하고 그 결과를 돌려준다. 바이트는 core
-// 메모리에 창 하나보다 오래 머물지 않는다.
+// 메모리에 창 하나보다 오래 머물지 않는다. 바이트는 검사가 읽는 format의 대표 파일만
+// 보낸다(첨부와 pdf·image·data는 보내지 않는다). 그 대표 파일이 한도(1 MiB)를 넘으면
+// 보내지 않고 검사를 하지 못한 결과(명시 format은 error, 미지정은 warning, 한도를 밝힌
+// 진단)를 돌려준다. unavailable로 숨기지 않고 통과로 꾸미지도 않는다.
 import { err, ok, type Result } from "../../packages/base/mod.ts";
-import { formatValidationResultSchema } from "../../packages/contracts/documents/mod.ts";
+import {
+  formatChecksContent,
+  formatValidationResultSchema,
+} from "../../packages/contracts/documents/mod.ts";
 import { BLOB_READ_MAX_BYTES } from "../../packages/contracts/platform/mod.ts";
 import {
   DOCUMENT_OPS,
   VALIDATE_INPUT_MAX_BYTES,
 } from "../../packages/documents/file-tracking/mod.ts";
+import { overLimitOutcome } from "../../packages/documents/formats/mod.ts";
 import type { ValidatePort } from "../../packages/documents/versions/work.ts";
 
 export type ValidateDeps = {
@@ -42,25 +49,32 @@ export type StreamedFile = {
   media_type: string;
   primary: boolean;
   bytes: number;
-  channel: number;
+  // 파일 바이트의 sha256. 바이트를 보내지 않은 파일도 이 값으로 가리킨다.
+  blob_hash: string;
+  // 바이트를 보낸 파일만 channel이 있다.
+  channel: number | null;
 };
 
 // coordinator pipe로 원문 바이트를 보내는 통로. 검사(validate)와 search 추출이 같은 pipe와
 // 같은 channel 번호 공간을 쓰므로 한 인스턴스를 나눠 쓴다. 한 번에 하나만 보낸다:
 // coordinator는 요청을 순서대로 처리하므로 앞 일의 바이트가 그 요청 뒤에 줄을 서서 pipe의
 // read-ahead 한도를 넘지 않게 한다.
+export type StreamInput = {
+  path: string;
+  blob_hash: string;
+  bytes: number;
+  media_type: string;
+  primary: boolean;
+};
+
 export type Streamer = {
   // 바이트를 보내는 일부터 그 바이트를 쓰는 요청이 끝날 때까지를 한 묶음으로 직렬화한다.
   exclusive<T>(run: () => Promise<T>): Promise<T>;
-  // blob을 읽어 channel로 보내고 파일 설명을 돌려준다. exclusive 안에서 부른다.
+  // `reads`가 참인 파일만 blob을 읽어 channel로 보내고, 나머지는 바이트 없이 설명만 낸다
+  // (guest는 대표 파일 밖의 바이트를 읽지 않는다). exclusive 안에서 부른다.
   stream(
-    files: readonly {
-      path: string;
-      blob_hash: string;
-      bytes: number;
-      media_type: string;
-      primary: boolean;
-    }[],
+    files: readonly StreamInput[],
+    reads: (file: StreamInput) => boolean,
   ): Promise<Result<StreamedFile[]>>;
 };
 
@@ -75,14 +89,28 @@ export function createStreamer(
       tail = next.catch(() => undefined);
       return next;
     },
-    async stream(files) {
-      const total = files.reduce((sum, file) => sum + file.bytes, 0);
+    async stream(files, reads) {
+      const total = files.reduce(
+        (sum, file) => sum + (reads(file) ? file.bytes : 0),
+        0,
+      );
       if (total > VALIDATE_INPUT_MAX_BYTES) {
         // 입력 한도를 넘는 일은 통과로 꾸미지 않는다.
         return unavailable("validation input exceeds the limit");
       }
       const described: StreamedFile[] = [];
       for (const file of files) {
+        if (!reads(file)) {
+          described.push({
+            path: file.path,
+            media_type: file.media_type,
+            primary: file.primary,
+            bytes: file.bytes,
+            blob_hash: file.blob_hash,
+            channel: null,
+          });
+          continue;
+        }
         channelCounter = channelCounter % 0xffffffff + 1;
         const channel = channelCounter;
         let offset = 0;
@@ -106,6 +134,7 @@ export function createStreamer(
           media_type: file.media_type,
           primary: file.primary,
           bytes: file.bytes,
+          blob_hash: file.blob_hash,
           channel,
         });
       }
@@ -122,10 +151,17 @@ export function createValidatePort(
     files: Parameters<ValidatePort>[0],
     format: Parameters<ValidatePort>[1],
   ): ReturnType<ValidatePort> {
-    const described = await streamer.stream(files);
-    if (!described.ok) {
-      return unavailable(described.error.message);
+    // 검사가 읽는 바이트: 바이트를 읽는 format의 대표 파일뿐이다.
+    const reads = (file: (typeof files)[number]) =>
+      formatChecksContent(format.name) && file.primary;
+    const primary = files.find((file) => file.primary);
+    if (primary !== undefined) {
+      // 입력 한도를 넘는 검사는 통과로 꾸미지 않고 한도를 밝힌 결과를 낸다.
+      const skipped = overLimitOutcome(primary, format);
+      if (skipped !== null) return ok(skipped);
     }
+    const described = await streamer.stream(files, reads);
+    if (!described.ok) return unavailable(described.error.message);
     const answered = await deps.request(
       DOCUMENT_OPS.validateFiles,
       { files: described.value, format },
@@ -133,8 +169,9 @@ export function createValidatePort(
     );
     if (!answered.ok) {
       return err({
-        code: answered.error.code === "not_found"
-          ? "not_found" as const
+        code: answered.error.code === "not_found" ||
+            answered.error.code === "invalid_input"
+          ? answered.error.code
           : "unavailable" as const,
         message: "format validation did not complete",
       });

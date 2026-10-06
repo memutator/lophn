@@ -763,16 +763,17 @@ function extractedStatus(
   version: string,
 ): { status: string; failure_reason: string | null } {
   const row = deps.read.sql.get(
-    `SELECT extraction_status, failure_reason FROM derived_versions WHERE version = ?`,
+    `SELECT extraction_status, failure_reason, unverified_reason FROM derived_versions WHERE version = ?`,
     [version],
   );
   if (row === undefined) return { status: "unverified", failure_reason: null };
+  // unverified의 이유(추출 한도 같은 것)는 failure_reason 자리로 읽는 쪽에 전한다.
+  const reason = row["failure_reason"] ?? row["unverified_reason"];
   return {
     status: String(row["extraction_status"]),
-    failure_reason:
-      row["failure_reason"] === null || row["failure_reason"] === undefined
-        ? null
-        : String(row["failure_reason"]),
+    failure_reason: reason === null || reason === undefined
+      ? null
+      : String(reason),
   };
 }
 
@@ -1316,7 +1317,7 @@ function readSelectedBody(
       ranges: [],
       text: null,
       redacted: false,
-      failure_reason: OMISSION_UNVERIFIED,
+      failure_reason: status.failure_reason ?? OMISSION_UNVERIFIED,
       omission_reason: null,
       complete: true,
       next_cursor: null,

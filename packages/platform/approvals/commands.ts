@@ -1,11 +1,11 @@
 // approval request 생성·만료·취소·허락·거절 command(platform/approvals#R1, R2, R3, R4,
-// R5, R6, R12, R13, R14, R15). 적용은 T23이 맡는다. handler는 동기이고 transaction 하나다.
+// R5, R6, R12, R13, R14, R15, R16). 적용은 apply.ts가 맡는다. handler는 동기이고 transaction 하나다.
 // 허락·거절의 사람 확인(confirmation handle)은 route의 `confirmation: "required"`와 binding으로
 // 선언하고, writer 실행기가 transaction 안에서 현재 handle을 예약·소비한다.
 // 설명 본문의 공백·secret 검사는 command 밖(work)에서 한다. 입력은 hash만 온다.
 // contract 입력에 준비 blob 참조가 없으므로 command는 hash를 저장하고 본문을 다시 hash하지 않는다.
 
-import { err, ok, type Result } from "../../base/mod.ts";
+import { canonicalize, err, ok, type Result } from "../../base/mod.ts";
 import {
   type Actor,
   type ApprovalEffect,
@@ -24,6 +24,7 @@ import {
   rejectApprovalRequest,
   type Tx,
 } from "../../contracts/platform/mod.ts";
+import { approvalRunLineage } from "./lineage.ts";
 import {
   cancelActorAllowed,
   closeAllowed,
@@ -223,6 +224,16 @@ function createRequest(
   if (existing.value !== undefined) {
     return err({ code: "conflict", message: "같은 approval id가 이미 있다" });
   }
+  // 같은 run·같은 사람 요청의 handoff 계보에서 사람이 거절한 같은 동작은 다시 묻지 않는다(R16).
+  const rejected = rejectedInLineage(tx, input);
+  if (!rejected.ok) return rejected;
+  if (rejected.value !== undefined) {
+    return err({
+      code: "conflict",
+      message: "같은 계보에서 사람이 거절한 같은 동작은 다시 묻지 않는다",
+      details: { rejected_approval: rejected.value },
+    });
+  }
   const created = tx.emit(approvalRequestCreated, input.id, {
     binding_hash: input.action.binding_hash,
   });
@@ -244,6 +255,48 @@ function createRequest(
     ],
   );
   return storedRequest(tx, input.id);
+}
+
+// 거절된 같은 동작·대상·입력이 같은 계보에 있으면 그 approval id를 돌려준다(R16).
+// 같음은 concern·command·정확한 대상·정규 입력 지문이다. 설명(reason)·호출자·비교 기준은 보지 않는다:
+// 설명만 바꿔 다시 묻는 것을 막는 것이고, handoff를 받은 다른 역할이 같은 동작을 묻는 것도 같은 요청이다.
+// 계보는 같은 run이거나 lophn-agent가 판정한 원래 사람 요청이 같은 run이다. 새 사람 요청은 별개다.
+function rejectedInLineage(
+  tx: Tx,
+  input: CreateInput,
+): Result<string | undefined> {
+  if (input.run === null) return ok(undefined);
+  const rows = tx.sql.all(
+    `select id, run, action from approval_requests
+      where status = 'rejected' and run is not null
+        and json_extract(action, '$.concern') = ?
+        and json_extract(action, '$.command') = ?
+        and json_extract(action, '$.input_hash') = ?
+      order by created_seq`,
+    [input.action.concern, input.action.command, input.action.input_hash],
+  );
+  const targets = canonicalize(input.action.targets);
+  const lookup = tx as Tx & { portLookup?: { present(key: object): boolean } };
+  // 계보 판정이 없는 등록(run이 없는 core)에서는 같은 run만 같은 계보다.
+  const lineage = lookup.portLookup?.present(approvalRunLineage) === true
+    ? tx.port(approvalRunLineage)
+    : undefined;
+  const origin = lineage?.origin(input.run) ?? null;
+  for (const row of rows) {
+    let action: { targets?: unknown };
+    try {
+      action = JSON.parse(String(row["action"]));
+    } catch {
+      return err({ code: "internal", message: "approval 기록을 읽지 못했다" });
+    }
+    if (canonicalize(action.targets) !== targets) continue;
+    const run = String(row["run"]);
+    if (run === input.run) return ok(String(row["id"]));
+    if (origin !== null && lineage?.origin(run) === origin) {
+      return ok(String(row["id"]));
+    }
+  }
+  return ok(undefined);
 }
 
 function expireRequest(

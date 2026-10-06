@@ -94,8 +94,11 @@ async function extract(
   request: SearchExtractionRequest,
   deps: SearchDeps,
 ): Promise<Result<ExtractionRecord["extraction"]>> {
-  // core가 원문을 읽어 보내지 못한 판은 확인할 수 없는 판이다. 있는 척하지 않는다.
-  if (request.unreadable === true) return ok({ status: "unverified" });
+  // core가 확인하지 못한다고 정한 판(추출 한도 초과, 원문을 읽지 못함)은 그 이유로 미확인이다.
+  // runner를 부르지 않는다. 있는 척하지 않는다.
+  if (request.unverified !== undefined) {
+    return ok({ status: "unverified", reason: request.unverified });
+  }
   const files: {
     path: string;
     media_type: string;
@@ -103,7 +106,19 @@ async function extract(
     content: readonly number[];
   }[] = [];
   let primary: Uint8Array | undefined;
+  let primaryBlobHash: string | undefined;
   for (const file of request.files) {
+    if (file.primary) primaryBlobHash = file.blob_hash;
+    // 바이트를 보내지 않은 파일은 guest가 읽지 않는다: 경로·MIME·대표 여부만 넘긴다.
+    if (file.channel === null) {
+      files.push({
+        path: file.path,
+        media_type: file.media_type,
+        primary: file.primary,
+        content: [],
+      });
+      continue;
+    }
     const taken = deps.inbox.take(file.channel, file.bytes);
     if (!taken.ok) return taken;
     if (file.primary) primary = taken.value;
@@ -121,7 +136,9 @@ async function extract(
     name: request.format.name,
     module_hash: request.format.module_hash,
     input: {
-      input_hash: await sha256Hex(primary ?? new Uint8Array()),
+      input_hash: primary !== undefined
+        ? await sha256Hex(primary)
+        : primaryBlobHash ?? await sha256Hex(new Uint8Array()),
       module_hash: request.format.module_hash,
       files,
     },

@@ -4,6 +4,8 @@
 // 통로). coordinator가 유일한 derived writer라서 결과·FTS·cursor는 coordinator가 쓴다.
 // consumer가 받는 event 한 건. 이 파일이 정의한다(core graph가 이 파일을 import하므로 derived
 // store 어댑터에 닿는 파일을 import하지 않는다).
+import { FORMAT_CHECK_CONTENT_MAX_BYTES } from "../../contracts/documents/mod.ts";
+
 export type ConsumerEvent = {
   seq: string;
   type: string;
@@ -51,8 +53,9 @@ export function extractionTargetOf(
   return { document: event.subject, version };
 }
 
-// 한 판의 추출 입력 상한(guest 입력 16 MiB)은 file-tracking의 검사와 같다.
-export const SEARCH_INPUT_MAX_BYTES = 16 * 1024 * 1024;
+// 추출이 guest에 넘기는 바이트의 상한은 format 검사와 같다(대표 파일 하나, contracts의
+// FORMAT_CHECK_CONTENT_MAX_BYTES). 넘는 판은 runner를 부르지 않고 unverified로 남긴다.
+export const SEARCH_INPUT_MAX_BYTES = FORMAT_CHECK_CONTENT_MAX_BYTES;
 
 export type SearchExtractionRequest = {
   document: string;
@@ -64,10 +67,14 @@ export type SearchExtractionRequest = {
     media_type: string;
     primary: boolean;
     bytes: number;
-    channel: number;
+    // 파일 바이트의 sha256. 바이트를 보내지 않은 대표 파일의 input_hash가 이 값이다.
+    blob_hash: string;
+    // 바이트를 보낸 파일(바이트를 읽는 format의 대표 파일)만 channel이 있다.
+    channel: number | null;
   }[];
-  // core가 원문을 읽어 보내지 못한 판. 파일은 없고 coordinator는 확인할 수 없는 판으로 남긴다.
-  unreadable?: boolean;
+  // core가 이 판의 section을 확인하지 못한다고 정한 이유(대표 파일이 추출 한도를 넘음, 원문을
+  // 읽지 못함). 있으면 바이트도 runner 호출도 없이 coordinator가 그 이유로 unverified를 남긴다.
+  unverified?: string;
 };
 
 export type SearchApplyRequest = {
@@ -118,28 +125,36 @@ function parseExtraction(value: unknown): SearchExtractionRequest | undefined {
       !text(entry.path) || typeof entry.media_type !== "string" ||
       typeof entry.primary !== "boolean" ||
       !Number.isSafeInteger(entry.bytes) || (entry.bytes as number) < 0 ||
-      !Number.isSafeInteger(entry.channel) || (entry.channel as number) < 1
+      typeof entry.blob_hash !== "string" ||
+      !/^[0-9a-f]{64}$/.test(entry.blob_hash) ||
+      !(entry.channel === null ||
+        (Number.isSafeInteger(entry.channel) && (entry.channel as number) >= 1))
     ) return undefined;
-    total += entry.bytes as number;
+    // 바이트를 보낸 파일만 입력 상한에 든다.
+    if (entry.channel !== null) total += entry.bytes as number;
     files.push({
       path: entry.path,
       media_type: entry.media_type,
       primary: entry.primary,
       bytes: entry.bytes as number,
-      channel: entry.channel as number,
+      blob_hash: entry.blob_hash,
+      channel: entry.channel as number | null,
     });
   }
   if (total > SEARCH_INPUT_MAX_BYTES) return undefined;
-  if (body.unreadable !== undefined && typeof body.unreadable !== "boolean") {
-    return undefined;
-  }
+  if (
+    body.unverified !== undefined &&
+    (typeof body.unverified !== "string" || body.unverified.length === 0)
+  ) return undefined;
   return {
     document: body.document,
     version: body.version,
     content_hash: body.content_hash,
     format: { name: format.name, module_hash: format.module_hash },
     files,
-    ...(body.unreadable === true ? { unreadable: true } : {}),
+    ...(typeof body.unverified === "string"
+      ? { unverified: body.unverified }
+      : {}),
   };
 }
 

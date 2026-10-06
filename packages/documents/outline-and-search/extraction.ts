@@ -24,6 +24,8 @@ export type ExtractionRecord = {
     text?: string;
     text_hash?: string;
     failure_reason?: string;
+    // unverified일 때 이유. 없으면 이유를 모르는 미확인이다.
+    reason?: string;
     sections?: {
       key: string;
       title: string;
@@ -63,8 +65,8 @@ export function writeExtraction(
   tx.sql.run(
     `INSERT OR REPLACE INTO derived_versions
        (version, document, content_hash, module_hash, extraction_status,
-        text_hash, line_count, section_count, failure_reason)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        text_hash, line_count, section_count, failure_reason, unverified_reason)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       record.version,
       record.document,
@@ -79,6 +81,7 @@ export function writeExtraction(
       extraction.status === "failed"
         ? extraction.failure_reason ?? OMISSION_FAILED
         : null,
+      extraction.status === "unverified" ? extraction.reason ?? null : null,
     ],
   );
   if (extraction.status === "ready" && extraction.text !== undefined) {

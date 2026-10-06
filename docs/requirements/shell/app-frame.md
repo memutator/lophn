@@ -40,9 +40,9 @@ concerns: [shell/app-frame]
 - 확인: OAuth URL을 열어도 query와 state가 기록에서 발견되지 않는다.
 - 의도: shell#I5
 
-**[R7]** shell 크롬의 외부 URL 열기는 앱 링크와 구별하여 confirmation을 받은 뒤 OS browser로 연다.
-- 이유: 신뢰하는 shell 링크와 앱 콘텐츠 링크의 경계를 구별한다.
-- 확인: shell과 앱의 링크 열기 경로가 서로의 확인 규칙을 대신하지 않는다.
+**[R7]** shell 크롬의 외부 URL(provider 공식 로그인 버튼 포함)은 앱 링크와 caller·채널을 구별하여 확인 창 없이 OS browser로 열되 HTTP·HTTPS이고 userinfo가 없고 8,192자 이하인 URL만 열고 열기 기록에는 origin·경로만 남긴다.
+- 이유: 사람이 직접 누른 shell 링크는 그 누름이 허락이라 다시 묻지 않고(D21), 신뢰하는 shell 링크와 앱 콘텐츠 링크의 경계를 구별한다.
+- 확인: shell 링크는 desktop 창 본문만 열 수 있고 다른 scheme·userinfo·8,193자 URL은 아무것도 열지 않으며 OAuth URL의 query·state가 기록에 없고 shell과 앱의 링크 열기 경로가 서로의 caller 검사를 대신하지 않는다.
 - 의도: platform#I3
 
 **[R8]** shell·앱·문서 고정 판의 session은 쿠키·localStorage·IndexedDB·cache를 각각 분리한다.

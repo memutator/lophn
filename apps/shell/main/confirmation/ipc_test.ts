@@ -80,6 +80,52 @@ test("shell/confirmation-window#R1, shell/confirmation-window#R6: 창 열기는 
   assert.equal(JSON.stringify([opened, shown, decided]).includes(REF), false);
 });
 
+test("lophn-agent/harness/provider#R6, shell/confirmation-window#R6: 계정 교체·삭제 열기는 계정 key와 행동만 받고 등록 정보나 값을 함께 받지 않는다", async () => {
+  const { env, call } = wire();
+  const owner = "pvd_01h455vb4pex5v6nkc6gd5fd01";
+  const open = (request: Record<string, unknown>) =>
+    call("shell:confirmation-open", 100, {
+      request: { kind: "secret_input", owner, ...request },
+      parentWindow: "window-1",
+    }) as Promise<{ code?: string }>;
+  const purpose = "provider_credential";
+  for (
+    const bad of [
+      { purpose, change: { key: "main", action: "delete" } },
+      { purpose, change: { key: "main", action: "revoke", value: "x" } },
+      { purpose: "app_secret", change: { key: "main", action: "revoke" } },
+      {
+        purpose,
+        change: { key: "main", action: "revoke" },
+        credential: {
+          key: "main",
+          kind: "api_key",
+          label: "Main",
+          account: null,
+          organization: null,
+          plan: null,
+        },
+      },
+    ]
+  ) {
+    assert.equal((await open(bad)).code, "invalid_input");
+  }
+  assert.equal(env.windows.length, 0);
+  // 등록 정보의 지문은 선택이다. 값에서 main이 만든다.
+  const registering = await open({
+    purpose,
+    credential: {
+      key: "key-1",
+      kind: "api_key",
+      label: "Main",
+      account: null,
+      organization: null,
+      plan: null,
+    },
+  });
+  assert.notEqual(registering.code, "invalid_input");
+});
+
 test("shell/confirmation-window#R4: 닫기는 결정이 아니고 창을 닫는다", async () => {
   const { env, call } = wire();
   await call("shell:confirmation-open", 100, {

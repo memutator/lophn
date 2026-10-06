@@ -169,5 +169,5 @@ test("shell#T57: URL scheme registration test would run with packaged app", asyn
     return;
   }
 
-  t.pass("Packaged app exists at " + appPath);
+  assert.ok(fs.existsSync(appPath), "Packaged app exists at " + appPath);
 });

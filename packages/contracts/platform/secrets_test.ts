@@ -11,12 +11,14 @@ import {
   removeSecretInputSchema,
   SECRET_EVENTS,
   SECRET_EXCHANGE_FORMAT,
+  SECRET_INPUT_MAX_BYTES,
   SECRET_PURPOSES,
   SECRET_ROUTES,
   secretAdapterContextSchema,
   secretCleanupInputSchema,
   secretCleanupResultSchema,
   secretDestinationSchema,
+  secretInput,
   secretPreparationSchema,
   secretPrepareInputSchema,
   secretSendInputSchema,
@@ -64,6 +66,7 @@ Deno.test("platform/secrets#R4, platform/secrets#R6, platform/secrets#R7: route�
     ["command", "/v1/secrets/set"],
     ["command", "/v1/secrets/remove"],
     ["read", "/v1/secrets/cleanup"],
+    ["upload", "/v1/secrets/input"],
   ]);
   assertEquals([setSecret.name, removeSecret.name], [
     "SetSecret",
@@ -377,4 +380,34 @@ Deno.test("platform/secrets#R9: 머신 이전 암호 format과 parameter는 고�
     cipher: "AES-256-GCM",
     nonce_bytes: 12,
   });
+});
+
+Deno.test("platform/secrets#R2: 보호 입력 route는 사람만 쓰는 upload이고 입력에 값이 없다", () => {
+  assertEquals([secretInput.kind, routePath(secretInput)], [
+    "upload",
+    "/v1/secrets/input",
+  ]);
+  assertEquals(secretInput.actors, ["user"]);
+  assertEquals(secretInput.max_bytes, SECRET_INPUT_MAX_BYTES);
+  const input = { purpose: "app_secret", owner: "service.key", bytes: 12 };
+  assert(secretInput.input.safeParse(input).success);
+  // 값·길이 밖의 field와 상한을 넘는 크기, 빈 값은 받지 않는다.
+  assert(!secretInput.input.safeParse({ ...input, value: "x" }).success);
+  assert(!secretInput.input.safeParse({ ...input, bytes: 0 }).success);
+  assert(
+    !secretInput.input.safeParse({
+      ...input,
+      bytes: SECRET_INPUT_MAX_BYTES + 1,
+    }).success,
+  );
+  assert(!secretInput.input.safeParse({ ...input, purpose: "other" }).success);
+  // 출력은 값 없는 준비 증거다.
+  assert(
+    secretInput.output.safeParse({
+      preparation: "prep-1",
+      sealed_ref: "sealed-1",
+      purpose: "app_secret",
+      owner: "service.key",
+    }).success,
+  );
 });

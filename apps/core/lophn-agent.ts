@@ -20,6 +20,7 @@ import {
 import {
   createProviderCommands,
   createProviderReads,
+  createProviderSecretRefSource,
   providerSchemaSteps,
 } from "../../packages/lophn-agent/harness/provider/mod.ts";
 import {
@@ -449,6 +450,9 @@ export function createLedgerRegistration(
       messageBodyRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
       questionTextRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
     ],
+    // provider credential의 secret 값도 core의 알려진 값 registry에 등록·회수된다
+    // (platform/secrets#R1). 외부 MCP credential은 extensions의 참조가 생기면 더한다.
+    secretRefs: [createProviderSecretRefSource()],
   };
 }
 

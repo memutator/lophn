@@ -29,7 +29,11 @@ import {
   type Writer,
 } from "../../packages/platform/ledger/mod.ts";
 import type { MessageBodyEnvironment } from "../../packages/lophn-agent/conversation/mod.ts";
-import { createProductRedactor } from "./documents-redactor.ts";
+import type { KnownSecretMatch } from "../../packages/platform/ledger/mod.ts";
+import {
+  createProductRedactor,
+  type DocumentRedactor,
+} from "./documents-redactor.ts";
 import type { PreparedRelayResult } from "./blob-prepare.ts";
 
 export type BodyPrepare = {
@@ -43,7 +47,6 @@ export type BodyPrepare = {
   }): Promise<Result<PreparedRelayResult>>;
 };
 
-const redactText = createProductRedactor();
 const SOURCE = {
   concern: "lophn-agent/conversation",
   revision: "1",
@@ -51,7 +54,10 @@ const SOURCE = {
 };
 
 // 문자열 값만 redaction한다(키·구조는 그대로). 안전화를 끝내지 못하면 null이다.
-function redactValue(value: unknown): { value: unknown } | null {
+function redactValue(
+  redactText: DocumentRedactor,
+  value: unknown,
+): { value: unknown } | null {
   if (typeof value === "string") {
     const redacted = redactText(SOURCE, "text/plain", value);
     return redacted === null ? null : { value: redacted };
@@ -59,7 +65,7 @@ function redactValue(value: unknown): { value: unknown } | null {
   if (Array.isArray(value)) {
     const items: unknown[] = [];
     for (const item of value) {
-      const one = redactValue(item);
+      const one = redactValue(redactText, item);
       if (one === null) return null;
       items.push(one.value);
     }
@@ -68,7 +74,7 @@ function redactValue(value: unknown): { value: unknown } | null {
   if (value !== null && typeof value === "object") {
     const entries: [string, unknown][] = [];
     for (const [key, item] of Object.entries(value)) {
-      const one = redactValue(item);
+      const one = redactValue(redactText, item);
       if (one === null) return null;
       entries.push([key, one.value]);
     }
@@ -125,6 +131,10 @@ export async function prepareBytes(
 export function createMessageBodyPreparer(deps: {
   // 준비 통로. I/O worker가 뜨기 전에는 없다(unavailable).
   relay(): BodyPrepare | undefined;
+  // 알려진 secret 값의 matcher(core 프로세스의 secret store). pattern 규칙에 더해 그 값도
+  // 가린다. 값을 아직 다 모르는 동안(matcher가 ready가 아님)은 안전화를 끝낼 수 없어 막는다.
+  // 없으면 pattern 규칙만 쓴다.
+  known?(): KnownSecretMatch | undefined;
 }): (
   ctx: AuthenticatedContext,
   envelope: CommandEnvelope,
@@ -143,7 +153,10 @@ export function createMessageBodyPreparer(deps: {
     const max = kind === "agent"
       ? MESSAGE_CONTENT_MAX_BYTES
       : MESSAGE_TEXT_CONTENT_MAX_BYTES;
-    const redacted = redactValue(record.content);
+    const redacted = redactValue(
+      createProductRedactor(deps.known?.()),
+      record.content,
+    );
     if (redacted === null) {
       return rejected("unavailable", "message redaction did not finish");
     }

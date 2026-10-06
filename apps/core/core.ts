@@ -36,13 +36,24 @@ import {
   writeRunMetadata,
 } from "../../packages/platform/install-and-update/mod.ts";
 import { LEDGER_SCHEMA_STEPS } from "../../packages/platform/ledger/mod.ts";
-import { createSupervisor } from "../../packages/platform/responsiveness/mod.ts";
+import {
+  createSupervisor,
+  type Spawned,
+  type SpawnRequest,
+} from "../../packages/platform/responsiveness/mod.ts";
 import { SETTINGS_SCHEMA_STEPS } from "../../packages/platform/settings/mod.ts";
 import {
   type KeychainAdapter,
   SECRET_SCHEMA_STEPS,
+  SECRET_TOOL_PATHS,
 } from "../../packages/platform/secrets/mod.ts";
 import { productKeychain } from "./secret-store.ts";
+import {
+  createSecretInputRelay,
+  secretInputHandler,
+  type SecretInputRelay,
+} from "./secret-input.ts";
+import { secretInput } from "../../packages/contracts/platform/mod.ts";
 import {
   type BlobPrepareRelay,
   type BufferGauge,
@@ -156,6 +167,9 @@ export type CoreOptions = {
   // secret store가 값을 읽는 keychain adapter. 없으면 제품 adapter(Linux Secret Service)다.
   // 테스트는 fake를 주어 사람의 실제 keychain에 닿지 않게 한다.
   secretKeychain?: KeychainAdapter;
+  // 테스트가 감독 child를 실제 process 대신 같은 process 안의 것으로 바꿔 끼운다(예: fake keychain을
+  // 쥔 I/O worker). 제품 기동에는 없다.
+  spawn?: (request: SpawnRequest) => Spawned;
   // 테스트가 worker route serving을 붙이는 입구(T8·T13 통합). 제품 기동에는 없다.
   workers?: ReadonlyMap<string, WorkerRouteTarget>;
   // 테스트가 documents worker에 준 hello(machine credential과 api port)를 본다. 시작과
@@ -340,12 +354,15 @@ async function open(
   const io = options.superviseIo === false ? undefined : createSupervisor({
     clock,
     denoCommand: Deno.execPath(),
+    ...(options.spawn ? { spawn: options.spawn } : {}),
     env: (kind) => ({
       LOPHN_WORKER_KIND: kind,
       LOPHN_HOME: root.path,
       // deno는 이 둘 없이 캐시와 실행 파일을 못 찾는다. 그 밖 환경은 복사하지 않는다.
       ...(Deno.env.get("HOME") ? { HOME: Deno.env.get("HOME")! } : {}),
       ...(Deno.env.get("PATH") ? { PATH: Deno.env.get("PATH")! } : {}),
+      // I/O worker의 secret-tool이 session bus를 찾는 데 필요한 주소만이다. secret 값이 아니다.
+      ...(kind === "platform/io" ? sessionBusEnv() : {}),
     }),
   });
   let ready = false;
@@ -480,6 +497,8 @@ async function open(
   // I/O worker와 coordinator가 뜬 뒤에 채워지고, 그 전에는 unavailable이다.
   // 메시지 본문 준비 통로도 I/O worker가 뜬 뒤에 채워진다. 그 전에는 unavailable이다.
   const bodyPrepare: { current?: BodyPrepare } = {};
+  // 보호 입력 중계도 I/O worker가 뜬 뒤에 채워진다. 그 전에는 secrets/input이 unavailable이다.
+  const secretInputRelay: { current?: SecretInputRelay } = {};
   const validateWiring: {
     readBlob?: ReturnType<typeof blobRelayFor>["readBytes"];
     sendBytes?: (channel: number, chunk: Uint8Array) => Promise<boolean>;
@@ -514,7 +533,11 @@ async function open(
       writer: withQuestionText(
         withMessageBody(
           runtime.writer,
-          createMessageBodyPreparer({ relay: () => bodyPrepare.current }),
+          createMessageBodyPreparer({
+            relay: () => bodyPrepare.current,
+            // 알려진 secret 값도 pattern과 함께 가린다. 값을 다 모르는 동안은 막는다.
+            known: () => runtime?.knownSecrets,
+          }),
         ),
         createQuestionTextPreparer({ relay: () => bodyPrepare.current }),
       ),
@@ -533,6 +556,10 @@ async function open(
       uploads: new Map([[
         `${documentUpload.resource}/${documentUpload.method}`,
         documentUploadHandler(prepareRelay),
+      ], [
+        // 사람의 보호 입력 값: core는 해석·보관 없이 I/O worker의 keychain adapter로 흘린다.
+        `${secretInput.resource}/${secretInput.method}`,
+        secretInputHandler(secretInputRelay),
       ]]),
       // 큰 파일을 core 메모리에 모으지 않고 창 단위로 흘리는 file route.
       fileStreams: storedFileStreams({
@@ -639,13 +666,39 @@ async function open(
     clearInterval(claimSweep);
     rootsWatch?.stop();
   };
+  // 보호 입력의 값은 I/O worker로만 간다. 준비 증거(값 없음)는 writer가 ledger에 남긴다.
+  const secretRelay = io
+    ? createSecretInputRelay({
+      send: async (payload) => {
+        const sent = await io.send("platform/io", payload);
+        if (!sent.ok) throw new Error("보호 입력을 넘기지 못했다");
+      },
+      sendBytes: async (channel, chunk) => {
+        const sent = await io.sendBytes("platform/io", channel, chunk);
+        if (!sent.ok) throw new Error("보호 입력을 넘기지 못했다");
+      },
+      sendAbort: async (channel) => {
+        await io.sendAbort("platform/io", channel);
+      },
+      record: (preparation) => runtime!.recordSecretPreparation(preparation),
+    })
+    : undefined;
+  secretInputRelay.current = secretRelay;
   const startedIo = io
     ? await startPlatformIo(
       io,
       root.path,
       epoch,
       server.port,
-      blobRelay?.callbacks,
+      {
+        onMessage(message) {
+          blobRelay?.callbacks.onMessage(message);
+          secretRelay?.accept(message);
+        },
+        onFrame(frame) {
+          blobRelay?.callbacks.onFrame(frame);
+        },
+      },
     )
     : undefined;
   if (startedIo && !startedIo.ok) {
@@ -1131,6 +1184,16 @@ const trackingReader: RequestContext = {
   credential_ref: "machine:documents-roots",
 };
 
+// I/O worker의 secret-tool이 쓰는 session bus 위치. secret 값이 아니다.
+function sessionBusEnv(): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const name of ["DBUS_SESSION_BUS_ADDRESS", "XDG_RUNTIME_DIR"]) {
+    const value = Deno.env.get(name);
+    if (value !== undefined) env[name] = value;
+  }
+  return env;
+}
+
 function repoRoot(): string {
   return new URL("../..", import.meta.url).pathname.replace(/\/$/, "");
 }
@@ -1151,9 +1214,18 @@ function platformIoSpec(dataRoot: string): KindLaunchSpec {
     allow_read: [dataRoot, repoRoot(), denoDir()],
     allow_write: [dataRoot],
     allow_net: [],
-    allow_run: [],
+    // 보호 입력의 값을 OS keychain에 두는 secret-tool만 실행한다(값은 stdin으로만 간다).
+    allow_run: [...SECRET_TOOL_PATHS],
     allow_sys: ["statfs"],
-    allow_env: ["LOPHN_HOME", "LOPHN_WORKER_KIND", "HOME", "PATH"],
+    allow_env: [
+      "LOPHN_HOME",
+      "LOPHN_WORKER_KIND",
+      "HOME",
+      "PATH",
+      // secret-tool이 사람의 session bus를 찾는 데만 읽는다.
+      "DBUS_SESSION_BUS_ADDRESS",
+      "XDG_RUNTIME_DIR",
+    ],
     policy: "always",
     memory_limit_bytes: 256 * 1024 * 1024,
   };

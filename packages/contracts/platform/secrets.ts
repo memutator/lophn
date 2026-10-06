@@ -3,7 +3,13 @@ import { ERROR_CODES, type Result } from "../../base/mod.ts";
 import { withReadCommon } from "./envelope.ts";
 import { defineEvent } from "./events.ts";
 import { authenticatedContextSchema } from "./identity.ts";
-import { defineCommand, defineRead, defineWorker } from "./route.ts";
+import type { Sql } from "./registration.ts";
+import {
+  defineCommand,
+  defineRead,
+  defineUpload,
+  defineWorker,
+} from "./route.ts";
 
 export const SECRET_PURPOSES = [
   "app_secret",
@@ -320,6 +326,39 @@ export const secretStoreRefresh = defineWorker({
   errors: secretPipeErrors,
 });
 
+// 사람이 보호 입력창에 넣은 값이 core를 지나 I/O worker의 keychain adapter로 가는 유일한 HTTP
+// 입구다(platform/secrets#R2). body는 값의 바이트이고 core는 해석·보관 없이 `secret.prepare`
+// pipe로 흘려 보낸다. 입력 JSON에는 용도·owner·길이만 있고 값은 없다. 출력은 값 없는
+// SecretPreparation이라 이어지는 SetSecret(또는 소유 concern command)이 그대로 쓴다.
+export const SECRET_INPUT_MAX_BYTES = 64 * 1024;
+export const secretInput = defineUpload({
+  resource: "secrets",
+  method: "input",
+  name: "secret.input",
+  input: z.strictObject({
+    purpose: secretPurposeSchema,
+    owner: z.string().min(1),
+    bytes: z.number().int().min(1).max(SECRET_INPUT_MAX_BYTES),
+  }),
+  output: secretPreparationSchema,
+  actors: ["user"],
+  errors: ["invalid_input", "unauthorized", "forbidden", "unavailable"],
+  max_bytes: SECRET_INPUT_MAX_BYTES,
+});
+
+// 다른 concern이 자기 ledger 표에 둔 secret 참조(provider credential 등)를 core의 알려진 값
+// registry에 등록하는 통로(platform/secrets#R1, platform/redaction#R1). 그 표는 소유 concern만
+// 읽으므로 읽는 함수도 소유 concern이 낸다. 값은 이 모양 어디에도 없다.
+export type SecretRefSource = {
+  // 소유 concern. 이름 충돌을 막는 접두사다.
+  owner: string;
+  // 이 command가 확정되면 참조가 바뀌었을 수 있다. core가 응답 전에 알려진 값을 다시 맞춘다.
+  commands: readonly string[];
+  read(
+    sql: Pick<Sql, "all">,
+  ): Result<{ name: string; sealedRef: string }[]>;
+};
+
 export const SECRET_EXCHANGE_FORMAT = {
   format: 1,
   kdf: "Argon2id",
@@ -336,5 +375,6 @@ export const SECRET_ROUTES = [
   setSecret,
   removeSecret,
   secretCleanup,
+  secretInput,
 ] as const;
 export const SECRET_EVENTS = [secretSet, secretRemoved] as const;

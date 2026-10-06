@@ -26,6 +26,7 @@ import {
   notificationsGetRead,
   notificationsListRead,
 } from "../../packages/platform/notifications/mod.ts";
+import { secretsListRead } from "../../packages/platform/secrets/mod.ts";
 import type {
   EventRegistration,
   ReaderRegistration,
@@ -75,6 +76,8 @@ export const platformDefinitions = {
     approvalsListRead(),
     notificationsGetRead(),
     notificationsListRead(),
+    // SetSecret·RemoveSecret의 display_read다. 이름·설정 여부·판만 보인다.
+    secretsListRead(),
   ],
   blobFields: APPROVAL_BLOB_FIELDS,
 };

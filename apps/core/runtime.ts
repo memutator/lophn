@@ -29,6 +29,7 @@ import {
   createReaderPool,
   createSubscriptionStore,
   type EventSession,
+  type KnownSecretMatch,
   openConnection,
   type ReaderPool,
   type SubscriptionStore,
@@ -42,6 +43,7 @@ import type {
   BlobFieldDefinition,
   BlobReadInput,
   PreparedBlob,
+  SecretPreparation,
 } from "../../packages/contracts/platform/mod.ts";
 import {
   finishBlobRead,
@@ -64,6 +66,13 @@ export type CoreRuntime = {
     windowId?: string;
   }): Promise<Result<unknown>>;
   record(context: AuthenticatedContext): Promise<Result<void>>;
+  // 값 없는 secret 준비 증거를 writer가 ledger에 남긴다(platform/secrets#R1).
+  recordSecretPreparation(
+    preparation: SecretPreparation,
+  ): Promise<Result<void>>;
+  // 알려진 secret 값과 일치하는 부분을 찾는 얼굴. 값 목록은 내보내지 않는다. core 프로세스 안의
+  // 안전화(메시지 본문)가 쓴다.
+  knownSecrets: KnownSecretMatch;
   notePrepared(prepared: PreparedBlob, nowMs: number): Promise<Result<void>>;
   prunePrepared(nowMs: number): Promise<Result<void>>;
   // 만료·회수된 ticket claim을 정리한다. 60초 timer와 재시작이 부른다(R13).
@@ -162,9 +171,14 @@ export async function openRuntime(input: {
     ledgerPath: input.ledgerPath,
     channel: readers.value.known,
     keychain: input.keychain,
+    sources: input.assembled.secretRefs,
   });
   await secretStore.sync();
-  const writer = withSecretSync(openedWriter.writer, secretStore.sync);
+  const writer = withSecretSync(
+    openedWriter.writer,
+    secretStore.sync,
+    input.assembled.secretRefs,
+  );
   const root = input.ledgerPath.slice(0, input.ledgerPath.lastIndexOf("/"));
   const directory = `${root}/derived/api-subscriptions`;
   await Deno.mkdir(directory, { recursive: true });
@@ -293,6 +307,8 @@ export async function openRuntime(input: {
     writer,
     confirmation: openedWriter.confirmation,
     record: openedWriter.record,
+    recordSecretPreparation: openedWriter.recordSecretPreparation,
+    knownSecrets: secretStore.known,
     notePrepared: openedWriter.notePrepared,
     prunePrepared: openedWriter.prunePrepared,
     readers: readers.value,
@@ -385,6 +401,9 @@ function openProductWriter(
     windowId?: string;
   }): Promise<Result<unknown>>;
   record(context: AuthenticatedContext): Promise<Result<void>>;
+  recordSecretPreparation(
+    preparation: SecretPreparation,
+  ): Promise<Result<void>>;
   noteTime(nowMs: number): Promise<Result<void>>;
   notePrepared(prepared: PreparedBlob, nowMs: number): Promise<Result<void>>;
   prunePrepared(nowMs: number): Promise<Result<void>>;
@@ -514,6 +533,21 @@ function openProductWriter(
         op: "blob-prune",
         nowMs,
       } as unknown as WriterRequest).then(blobNoted);
+    },
+
+    recordSecretPreparation(preparation) {
+      return send({
+        id: nextId++,
+        op: "record-secret-preparation",
+        preparation,
+      } as unknown as WriterRequest).then((message) => {
+        if ((message.op as string) === "recorded") return ok(undefined);
+        if (message.op === "failed") return err(message.body);
+        return err({
+          code: "unavailable",
+          message: "준비 증거를 남기지 못했다",
+        });
+      });
     },
 
     record(context) {

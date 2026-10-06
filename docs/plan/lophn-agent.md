@@ -355,6 +355,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 
 ### T18 사람 지침(LOPHN.md) 층
 
+- 상태: 완료 (#364)
 - 등급: 기본
 - concern: lophn-agent/instructions
 - 요구: lophn-agent/instructions#R1, R2, R3, R4, R5, R6, R7, R8
@@ -366,6 +367,10 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - 선행: T7, T11, documents#T28
 - 완료:
   - instructions_test.ts에 R1–R8 테스트: 전역·project·app 층 구분, 없는 파일은 부재 기록(사람의 최초 저장은 documents·shell), agent는 파일 생성·저장·연결 변경 없이 question으로 제안, 전역→project→app→preset 첨부 순서와 같은 층 연결 순서, 작업 자리로 층 선택(AE·Operator 고정, lophn·CE는 명시 변경만, 탭 이동은 무관), 지침이 권한·상한을 넓히지 못하고 자료 속 LOPHN 파일 승격 없음, 파일 32 KiB·합계 128 KiB 초과·인코딩 오류·읽기 실패면 call 멈춤(자동 생략·잘라 읽기 없음), call마다 확정 version 재확인과 자리·층·원본·전송 hash·부재 기록, 편집은 다음 call부터, 정해진 세 자리 밖 조상 walk·다른 파일 이름(AGENTS.md·CLAUDE.md) 겸용 없음, 지침에 로컬 경로를 넣지 않음, 부재만 생략하고 lossy 디코드·잘라 쓰기·건너뛰기 없음
+  - 구현: `instructions/model.ts`(작업 자리·층 자리·첨부 순서·상한 판정, 순수)와 `work.ts`(`resolveInstructions`: call 직전 전역 → project → app → preset 첨부를 다시 읽어 층별 상태·확정 판·원본·전송 hash를 남기고, 부재 외 비정상이나 합계 초과면 본문 없이 `blocked`). 읽기 통로 `InstructionFiles`는 읽기만 있다. core는 `apps/core/instruction-files.ts`로 documents의 확정 판(`latest_version`)과 blob 바이트를 읽어 `core.instructionFiles`로 내놓는다
+  - 정한 것: 전역 층 자리는 `{layer: global, place: "global"}`, project·app은 그 id다. 지침 문서가 보관돼도 최신 확정 판을 읽는다. 상한을 넘는 파일은 끝까지 읽지 않고 크기만 본다. 읽기 실패 이유에는 로컬 경로가 없다
+  - documents#T28에서 넘어온 것: app 층(`<앱 자리>/LOPHN.md`)은 documents에 등록 파일이 없어 core 통로가 늘 부재로 답한다. 앱이 속한 project도 어느 contract가 내놓지 않아 `projectOf`가 null이라 앱 작업 자리의 project 층은 없다. 등록(`instructionRegistrations`에 앱 더하기)과 앱↔project 관계가 생기면 `instruction-files.ts`의 `registered`(app)·`projectOf`만 채운다
+  - 모델 context 한계가 지침보다 작으면 보호 지침을 자르지 않고 호출을 막는 것은 입력 예산을 계산하는 T19의 몫이다. 이 작업은 자르지 않은 본문과 크기를 준다
 
 ### T19 prompt 층, 직렬화, cache 경계, 입력 예산
 
@@ -378,6 +383,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - slice: agent
 - 조사: docs/research/prompt-assembly-and-compaction.md
 - 선행: T5, T8, T17, T18
+- T18에서 넘어온 것: model call 직전마다 `resolveInstructions`를 불러 `status: ready`일 때만 `layers[].text`를 `user_instructions` 층에 넣고, ContextBasis에는 본문 없이 `layers`의 place·document·version·source_hash·transmitted_hash·status·bytes를 남긴다. `blocked`면 호출하지 않는다. 작업 자리는 `instructionPlace({role, session, scope})`로 고르고 runtime은 `core.instructionFiles`를 읽기 통로로 쓴다
 - 완료:
   - assemble_test.ts에 R1–R3, R7–R9, R24, R30 테스트: 다섯 층 순서와 필수 제품·역할·지침 누락 시 호출 없음, 작업 재료 순서(목적·run 사실 → 이어가기 summary → 자료 → 압축 summary → 이력, 현재 요청·미반영 steering 전부), 같은 판·재료면 byte-identical, ContextBasis에 층별 hash·출처·version·크기·cache 경계, tool schema는 이번 call 목록만(다른 역할 tool을 cache용으로 보태지 않음), cache 경계 최대 3곳(제품+tool 끝, 역할+preset 끝, 사람 지침 끝)을 구조로 정하고 Anthropic wire marker도 3개 이하(tools를 포함하는 system 경계로 매핑, 문자열로 경계를 찾지 않음, 질문 Q11), 입력 예산 `min(input_limit, context_limit - reserved_output)`과 tool schema·provider 포장·opaque 상태까지 전체 wire bytes로 계산(chars/4·bytes/4 하한 추정 없음)·필수만으로 초과면 호출 없음, 추론 본문 제외, 지침 편집은 다음 call의 새 prefix
 

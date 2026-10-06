@@ -2,6 +2,9 @@
 // import하지 않아서 두 쪽이 같은 symbol과 모양으로 맞춘다(packages/sdk/cap-net/host.ts). 자식 credential과
 // process nonce는 이 port 안에만 있고 앱 코드와 SDK는 보지 못한다. 이 port가 없으면 capability는
 // unavailable이다(apps/sdk#R22–R32).
+import { createHash } from "node:crypto";
+import { canonicalJson } from "../../blueprint/mod.ts";
+import type { JsonValue } from "../../blueprint/mod.ts";
 import type { InvocationContext } from "../../invocations/mod.ts";
 import type { BrokerResponse } from "./broker-client.ts";
 
@@ -24,6 +27,14 @@ export type CapHostPort = {
     invocation: string | null;
   } | null;
 };
+
+// 정규 입력의 sha256이다. 호출 경계는 이미 입력을 검증하고 default를 채웠고, 입력이 없으면 정규 JSON
+// null이다. blueprint의 `canonicalInputHash`와 같은 값이다.
+export function inputHashOf(input: unknown): string {
+  return createHash("sha256").update(
+    canonicalJson(input === undefined ? null : input as JsonValue),
+  ).digest("hex");
+}
 
 function aborted(signal: AbortSignal): Error {
   return signal.reason instanceof Error

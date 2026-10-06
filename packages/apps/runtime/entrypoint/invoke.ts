@@ -1,8 +1,6 @@
 // command 경계 하나에 invocation 하나. 응답은 ledger 전달을 기다리지 않는다.
-import {
-  canonicalInputHash,
-  type CommandDeclaration,
-} from "../../blueprint/mod.ts";
+import type { CommandDeclaration } from "../../blueprint/mod.ts";
+import { inputHashOf } from "./cap-host.ts";
 import { COMMAND_BODY_MAX_BYTES } from "./limits.ts";
 import { parseCommandReference, parseInvokeBody } from "./command-body.ts";
 import { projectCaller, verifyCommandCall } from "./verify.ts";
@@ -267,9 +265,6 @@ function launch(
   const outcome = (async () => {
     let result: unknown;
     try {
-      // 검증·default 적용한 실제 입력의 정규 hash다. 앱 코드의 capability 호출이 같은 호출에
-      // 묶였음을 broker가 확인하는 근거다(cap-host의 호출 문맥).
-      const hashed = await canonicalInputHash(command.input, call.input);
       result = await call.port.run(
         {
           app: state.identity.app,
@@ -277,7 +272,10 @@ function launch(
           mode: state.identity.mode,
           invocation: id,
           command: command.key,
-          inputHash: hashed.ok ? hashed.value : null,
+          // 검증·default 적용한 실제 입력의 정규 hash다. 앱 코드의 capability 호출이 같은 호출에
+          // 묶였음을 broker가 확인하는 근거다(cap-host의 호출 문맥). handler 시작을 미루지 않도록
+          // 동기로 계산한다.
+          inputHash: inputHashOf(call.input),
           // 다른 앱에게서 받은 호출이면 그 출처의 식별이다(apps/connections#R7).
           caller: call.caller.kind === "app"
             ? {

@@ -294,6 +294,43 @@ export const adopt = defineCommand({
   errors: [],
 });
 
+// 사람이 허락한 grant의 대역이다(approval 흐름은 apps/permissions가 시험한다). 내용 열은 grants 표 그대로다.
+export const addGrant = defineCommand({
+  resource: "releases_tests",
+  method: "add_grant",
+  name: "releases.tests.add_grant",
+  input: z.strictObject({
+    id: z.string(),
+    app: z.string(),
+    kind: z.string(),
+    scope: z.record(z.string(), z.unknown()),
+    approval: z.string(),
+  }),
+  output: z.object({ stored: z.boolean() }),
+  actors: ["machine"],
+  errors: [],
+});
+
+const addGrantCommand: CommandDefinition<typeof addGrant> = {
+  route: addGrant,
+  handle(tx, _ctx, input) {
+    tx.sql.run(
+      `INSERT INTO grants (id, app, kind, scope, approval, status, created_by,
+         created_at, revoked_by, revoked_at)
+       VALUES (?, ?, ?, ?, ?, 'active', 'user', ?, NULL, NULL)`,
+      [
+        input.id,
+        input.app,
+        input.kind,
+        JSON.stringify({ kind: input.kind, ...input.scope }),
+        input.approval,
+        tx.now(),
+      ],
+    );
+    return ok({ stored: true });
+  },
+};
+
 const addVerificationCommand: CommandDefinition<typeof addVerification> = {
   route: addVerification,
   handle(tx, _ctx, input) {
@@ -321,10 +358,14 @@ const adoptCommand: CommandDefinition<typeof adopt> = {
     tx.sql.run("UPDATE releases SET status = 'active' WHERE id = ?", [
       input.release,
     ]);
-    tx.sql.run("UPDATE apps SET active_release = ? WHERE id = ?", [
-      input.release,
-      app,
-    ]);
+    // 첫 성공 activation은 run_enabled도 true로 한다(apps/releases#R14).
+    tx.sql.run(
+      "UPDATE apps SET active_release = ?, run_enabled = 1 WHERE id = ?",
+      [
+        input.release,
+        app,
+      ],
+    );
     return ok({ adopted: true });
   },
 };
@@ -332,7 +373,7 @@ const adoptCommand: CommandDefinition<typeof adopt> = {
 export function createLedgerRegistration() {
   return {
     schemaSteps,
-    commands: [addVerificationCommand, adoptCommand],
+    commands: [addVerificationCommand, adoptCommand, addGrantCommand],
     ports: [],
   };
 }

@@ -789,3 +789,221 @@ Deno.test("apps/permissions#R13: 아직 이어지지 않은 외부 통로는 서
     await r.stop();
   }
 });
+
+// ---- 앱 쌍 연결 준비·confirm: 신원은 자식 연결이 정하고 core가 서명한다 ----
+
+const PEER = "app_01h455vb4pex5v6nkc6gd5fdw8";
+
+function pairConnection(source: { release: string }) {
+  return {
+    app: PEER,
+    release: "rel_01h455vb4pex5v6nkc6gd5fdw8",
+    bundle_hash: "ab".repeat(32),
+    mode: "live",
+    process_nonce: "peer-nonce",
+    actor: `app:${FIXTURE_APP}`,
+    credential_ref: "app-call:source",
+    screens: [],
+    screen_sizes: {},
+    caller: {
+      kind: "app",
+      app: FIXTURE_APP,
+      release: source.release,
+      process_nonce: "source-nonce",
+      grant: "grt_01h455vb4pex5v6nkc6gd5fd01",
+      parent_invocation: null,
+      path: [FIXTURE_APP],
+    },
+    commands: ["usage.read"],
+    expires_at: "2026-10-06T00:10:00.000Z",
+  };
+}
+
+Deno.test("apps/connections#R1, apps/connections#R4: 다른 앱 연결 준비는 자식 연결의 신원을 붙여 machine credential로 core에 보내고 core의 서명을 그대로 돌려준다", async () => {
+  const world = coreWorld();
+  const sent: { path: string; bearer: string; body: unknown }[] = [];
+  const r = await rig({
+    answer: (path, bearer, body) => {
+      if (path === "apps/pair_prepare") {
+        sent.push({ path, bearer, body });
+        return {
+          status: 200,
+          body: {
+            endpoint: "/tmp/peer.sock",
+            connection: pairConnection({ release: FIXTURE_RELEASE }),
+            signature: "A".repeat(86),
+          },
+        };
+      }
+      return world.answer(path, bearer, body);
+    },
+  });
+  try {
+    await r.assembled.supervisor.reconcile(r.desired);
+    const observation = await until("ready", () => readyOf(r));
+    const reply = await onBroker(r, "/_lophn/broker/apps/connect", {
+      app: PEER,
+      commands: ["usage.read"],
+      parent_invocation: null,
+    });
+    assertEquals(reply.status, 200, JSON.stringify(reply.body));
+    assertEquals(
+      (reply.body as { connection: { app: string } }).connection.app,
+      PEER,
+    );
+    assertEquals(sent.length, 1);
+    assertEquals(sent[0].bearer, MACHINE);
+    // 요청한 앱·release·mode·nonce는 본문이 아니라 이 자식 연결이 정했다.
+    assertEquals((sent[0].body as { source: unknown }).source, {
+      app: FIXTURE_APP,
+      release: FIXTURE_RELEASE,
+      mode: "live",
+      process_nonce: observation.processNonce,
+    });
+    // 본문이 다른 앱·nonce를 말하면 core에 닿지 않고 거절한다.
+    const forged = await onBroker(r, "/_lophn/broker/apps/connect", {
+      app: PEER,
+      commands: ["usage.read"],
+      parent_invocation: null,
+      process_nonce: "forged",
+    });
+    assertEquals(forged.status, 401);
+    assertEquals(sent.length, 1);
+  } finally {
+    await r.stop();
+  }
+});
+
+Deno.test("apps/connections#R3: core가 거절한 준비는 그 오류 code 그대로 앱에 돌아가고 성공을 꾸미지 않는다", async () => {
+  const world = coreWorld();
+  const r = await rig({
+    answer: (path, bearer, body) =>
+      path === "apps/pair_prepare"
+        ? { status: 404, body: { error: { code: "not_found", message: "x" } } }
+        : path === "apps/pair_confirm_request"
+        ? { status: 503, body: { error: { code: "unavailable" } } }
+        : world.answer(path, bearer, body),
+  });
+  try {
+    await r.assembled.supervisor.reconcile(r.desired);
+    await until("ready", () => readyOf(r));
+    const connect = await onBroker(r, "/_lophn/broker/apps/connect", {
+      app: PEER,
+      commands: ["usage.read"],
+      parent_invocation: null,
+    });
+    assertEquals(connect.status, 404);
+    const confirm = await onBroker(
+      r,
+      "/_lophn/broker/apps/confirm/request",
+      {
+        app: PEER,
+        command: "usage.admin",
+        target_release: "rel_01h455vb4pex5v6nkc6gd5fdw8",
+        target_process_nonce: "peer-nonce",
+        parent_invocation: null,
+      },
+    );
+    assertEquals(confirm.status, 503);
+  } finally {
+    await r.stop();
+  }
+});
+
+Deno.test("apps/connections#R7: 호출의 start 사실은 core의 경로 장부에 알려지고 자식 종료는 그 자식의 기억을 비운다", async () => {
+  const world = coreWorld();
+  const observed: unknown[] = [];
+  const r = await rig({
+    answer: (path, bearer, body) => {
+      if (path === "apps/pair_observe") {
+        observed.push(body);
+        return { status: 200, body: { accepted: true } };
+      }
+      return world.answer(path, bearer, body);
+    },
+    invocations: {
+      submit: () => ({ ok: true as const, value: { accepted: true as const } }),
+    },
+  });
+  try {
+    await r.assembled.supervisor.reconcile(r.desired);
+    const observation = await until("ready", () => readyOf(r));
+    const caller = {
+      kind: "app",
+      app: PEER,
+      release: "rel_01h455vb4pex5v6nkc6gd5fdw8",
+      parent_invocation: null,
+    };
+    const reply = await onBroker(r, "/_lophn/broker/invocations/submit", {
+      invocation: "inv_01h455vb4pex5v6nkc6gd5fdw1",
+      fact: "start",
+      summary: { caller },
+    });
+    assertEquals(reply.status, 200, JSON.stringify(reply.body));
+    await until(
+      "the start to be told",
+      () => observed.length >= 1 ? true : undefined,
+    );
+    assertEquals(observed[0], {
+      event: "start",
+      process_nonce: observation.processNonce,
+      invocation: "inv_01h455vb4pex5v6nkc6gd5fdw1",
+      caller,
+    });
+    await r.assembled.supervisor.stop();
+    await until(
+      "the exit to be told",
+      () =>
+        observed.some((entry) => (entry as { event: string }).event === "exit")
+          ? true
+          : undefined,
+    );
+  } finally {
+    await r.stop();
+  }
+});
+
+Deno.test("apps/permissions#R20: block 요청은 그 앱의 broker 연결을 새 요청부터 막고 이미 열린 자식은 건드리지 않는다", async () => {
+  const world = coreWorld();
+  world.declarations.automations = [{
+    key: "nightly",
+    command: "usage.read",
+    external: false,
+    input_hash: "ab".repeat(32),
+    when: { kind: "interval", interval_ms: 60_000 },
+  }];
+  const r = await rig({ answer: (p, b, body) => world.answer(p, b, body) });
+  try {
+    await r.assembled.supervisor.reconcile(r.desired);
+    await until("ready", () => readyOf(r));
+    const acquire = {
+      release: FIXTURE_RELEASE,
+      key: "nightly",
+    };
+    const first = await onBroker(
+      r,
+      "/_lophn/broker/automations/try_acquire",
+      acquire,
+    );
+    assertEquals(first.status, 200, JSON.stringify(first.body));
+    const blocked = await r.assembled.ops["apps.block"]({ app: FIXTURE_APP });
+    assertEquals(blocked, { blocked: 1 });
+    // 새 요청부터 거절이다. 자식 프로세스는 그대로 살아 있다(종료 확인은 따로다).
+    const after = await onBroker(
+      r,
+      "/_lophn/broker/automations/release",
+      { ...acquire, invocation: "inv_01h455vb4pex5v6nkc6gd5fdw1" },
+    );
+    assertEquals(after.status, 503);
+    assert(r.assembled.supervisor.observation(FIXTURE_APP)!.ready);
+    // 다른 앱은 막히지 않는다. 모르는 앱은 막은 연결이 0이다.
+    assertEquals(
+      await r.assembled.ops["apps.block"]({
+        app: "app_01h455vb4pex5v6nkc6gd5fdw9",
+      }),
+      { blocked: 0 },
+    );
+  } finally {
+    await r.stop();
+  }
+});

@@ -1,13 +1,24 @@
 // core 안 apps 제어 조립. `POST /v1/apps/connect`(메모리 route)와 runtime·logs read의
 // 메인 스레드 덮기, supervisor 감독 pipe의 질의 통로, app credential 발급을 한곳에서 잇는다.
 // 업무 규칙은 packages/apps/runtime에 있고 여기는 core의 읽기·인증·감독 통로를 끼운다.
-import { type Clock, err, ok, type Result } from "../../packages/base/mod.ts";
+import {
+  type Clock,
+  createIdSource,
+  err,
+  type IdSource,
+  ok,
+  type Result,
+} from "../../packages/base/mod.ts";
 import {
   appAutomations,
   appBlueprint,
   appConnect,
   type AppConnectInput,
   appLogs,
+  appPairConfirmPoll,
+  appPairConfirmRequest,
+  appPairObserve,
+  appPairPrepare,
   appRecordStarted,
   appRecordStopped,
   appRecordUnavailable,
@@ -39,6 +50,23 @@ import {
   openConnection,
 } from "../../packages/platform/ledger/mod.ts";
 import { loadApp } from "../../packages/apps/registration/mod.ts";
+import {
+  loadStoredBlueprint,
+  releaseDeclarations,
+} from "../../packages/apps/releases/store.ts";
+import { canonicalInputHash } from "../../packages/apps/blueprint/mod.ts";
+import {
+  createPairPreparer,
+  type PairFacts,
+  type PairPreparer,
+} from "../../packages/apps/connections/prepare.ts";
+import {
+  type ConfirmApprovals,
+  type ConfirmTargets,
+  createPairConfirmer,
+  type PairConfirmer,
+} from "../../packages/apps/connections/confirm-request.ts";
+import type { ConfirmAcceptances } from "../../packages/apps/connections/confirm.ts";
 import { withAutomationObservation } from "../../packages/apps/automations/reads.ts";
 import {
   type AppConnector,
@@ -85,6 +113,11 @@ const SUPERVISOR_OPERATIONS = [
   appRecordStopped.name,
   appRecordUnavailable.name,
   appConnect.name,
+  // 앱 쌍 연결 준비와 confirm은 core만 쥔 서명 key로 한다. 앱 자식의 요청을 supervisor가 신원과 함께 보낸다.
+  appPairPrepare.name,
+  appPairConfirmRequest.name,
+  appPairConfirmPoll.name,
+  appPairObserve.name,
   // broker가 요청마다 현재 release 선언과 active grant를 다시 읽는다(apps/permissions#R2, R14).
   appBlueprint.name,
   grantsList.name,
@@ -112,6 +145,18 @@ export function appsOperationPolicies(): OperationPolicy[] {
     { name: appLogs.name, actors: ["machine"], kind: "command" },
     // supervisor(machine)의 broker가 실행 범위(선언 ∩ grant)를 읽는다. machine 자격은 command 종류만 받는다.
     { name: appBlueprint.name, actors: ["machine"], kind: "command" },
+    ...[
+      appPairPrepare,
+      appPairConfirmRequest,
+      appPairConfirmPoll,
+      appPairObserve,
+    ].map((
+      route,
+    ): OperationPolicy => ({
+      name: route.name,
+      actors: ["machine"],
+      kind: "command",
+    })),
     { name: grantsList.name, actors: ["machine"], kind: "command" },
     { name: reportProblem.name, actors: ["app"], kind: "command" },
     { name: observeException.name, actors: ["app"], kind: "command" },
@@ -136,6 +181,14 @@ export type AppsControlDeps = {
   process?: ProcessSource;
   // 발급한 connection의 회수 검사 간격(ms). 기본 1000.
   sweepMs?: number;
+  // A→B confirm의 approval·접수 어댑터. 없으면 confirm 준비는 unavailable이다. 대상의 고정 blueprint
+  // 검사(`ConfirmTargets`)는 core가 ledger에서 읽어 제품 조립이 항상 채운다.
+  confirm?: {
+    approvals: ConfirmApprovals;
+    accepted: ConfirmAcceptances;
+    targets?: ConfirmTargets;
+  };
+  ids?: IdSource;
 };
 
 export type AppsControl = {
@@ -149,6 +202,10 @@ export type AppsControl = {
   readonly channel: SupervisorChannel;
   readonly client: SupervisorClient;
   readonly connector: AppConnector;
+  // 앱 쌍 연결 준비. 그 앱이 source이거나 target인 발급 연결을 막는 `close`도 이 서비스가 쥔다.
+  readonly preparer: PairPreparer;
+  // A→B confirm. approval·접수 어댑터가 없으면 null이다.
+  readonly confirmer: PairConfirmer | null;
   // connect·runtime이 읽는 현재 ledger 사실(App 한 행과 active grant). 시험이 같은 읽기를 쓴다.
   readonly facts: ConnectFacts;
   // 원하는 앱 상태를 supervisor에 알린다. 마지막 상태를 기억해 supervisor가 다시 떠도
@@ -170,6 +227,47 @@ function internalError(): Result<never> {
 }
 
 const GRANT_PAGES = 20;
+
+// confirm=true command의 입력 지문이다. 대상 release의 고정 blueprint로 계산하고 confirm 선언이 없는
+// command나 선언 schema에 맞지 않는 입력은 invalid_input이다(apps/connections#R3).
+export function ledgerConfirmTargets(ledgerPath: string): ConfirmTargets {
+  return {
+    async prepare(request) {
+      const opened = openConnection(ledgerPath);
+      if (!opened.ok) return internalError();
+      let stored;
+      try {
+        stored = loadStoredBlueprint(opened.value.sql, request.release);
+      } catch {
+        return internalError();
+      } finally {
+        opened.value.close();
+      }
+      if (!stored.ok) return internalError();
+      // 다른 앱의 release나 없는 release는 없는 대상과 같다.
+      if (stored.value === null || stored.value.release.app !== request.app) {
+        return err({ code: "not_found", message: "app not found" });
+      }
+      const declared = stored.value.blueprint.commands.find((entry) =>
+        entry.key === request.command
+      );
+      if (declared === undefined || !declared.confirm) {
+        return err({
+          code: "invalid_input",
+          message: "the command is not a confirm command",
+        });
+      }
+      const hashed = await canonicalInputHash(declared.input, request.input);
+      if (!hashed.ok) {
+        return err({
+          code: "invalid_input",
+          message: "the input does not match the command schema",
+        });
+      }
+      return ok({ input_hash: hashed.value });
+    },
+  };
+}
 
 export async function createAppsControl(
   deps: AppsControlDeps,
@@ -266,6 +364,147 @@ export async function createAppsControl(
     return connected;
   };
 
+  // 앱 쌍 연결·confirm이 읽는 사실이다. connect와 같은 App 행·grant에 현재 release의 선언을 더한다.
+  const pairFacts: PairFacts = {
+    ...facts,
+    declarations(app) {
+      const opened = openConnection(deps.ledgerPath);
+      if (!opened.ok) return Promise.resolve(internalError());
+      try {
+        const found = releaseDeclarations.get(opened.value.sql, app);
+        if (!found.ok) return Promise.resolve(internalError());
+        return Promise.resolve(ok(
+          found.value === null ? null : {
+            release: found.value.release,
+            app_connections: found.value.app_connections,
+          },
+        ));
+      } catch {
+        return Promise.resolve(internalError());
+      } finally {
+        opened.value.close();
+      }
+    },
+  };
+  const process = deps.process ?? processSourceOf(client);
+  const preparer = createPairPreparer({
+    clock: deps.clock,
+    signer,
+    process,
+    facts: pairFacts,
+  });
+  const confirmer = deps.confirm === undefined ? null : createPairConfirmer({
+    process,
+    facts: pairFacts,
+    signer,
+    paths: preparer.paths,
+    ids: deps.ids ?? createIdSource({
+      clock: deps.clock,
+      random: { fill: (bytes: Uint8Array) => crypto.getRandomValues(bytes) },
+    }),
+    targets: deps.confirm.targets ?? ledgerConfirmTargets(deps.ledgerPath),
+    approvals: deps.confirm.approvals,
+    accepted: deps.confirm.accepted,
+  });
+
+  // supervisor(machine)가 앱 자식의 요청을 그 자식 연결의 신원과 함께 보낸다. 신원 주장은 서비스가
+  // 현재 supervisor 관측과 맞춰 본다(옛 프로세스·교체된 release의 요청은 거절).
+  const sourceOf = (value: {
+    app: string;
+    release: string | null;
+    mode: "live" | "preview" | "test";
+    process_nonce: string;
+  }) => ({
+    app: value.app,
+    release: value.release,
+    mode: value.mode,
+    processNonce: value.process_nonce,
+  });
+  const pairUnavailable = (): Result<never> =>
+    err({ code: "unavailable", message: "app confirm is not available" });
+  const pairPrepare: MemoryHandler = (_ctx, input) => {
+    const body = input as {
+      source: Parameters<typeof sourceOf>[0];
+      app: string;
+      commands: string[];
+      parent_invocation: string | null;
+      incoming?: {
+        app: string;
+        release: string;
+        parent_invocation: string | null;
+      };
+    };
+    return preparer.prepare({
+      source: sourceOf(body.source),
+      app: body.app,
+      commands: body.commands,
+      parent_invocation: body.parent_invocation,
+      ...(body.incoming === undefined ? {} : { incoming: body.incoming }),
+    });
+  };
+  const pairConfirmRequest: MemoryHandler = (_ctx, input) => {
+    if (confirmer === null) return Promise.resolve(pairUnavailable());
+    const body = input as {
+      source: Parameters<typeof sourceOf>[0];
+      app: string;
+      command: string;
+      input?: unknown;
+      target_release: string;
+      target_process_nonce: string;
+      parent_invocation: string | null;
+    };
+    return confirmer.request({
+      source: sourceOf(body.source),
+      app: body.app,
+      command: body.command,
+      ...(body.input === undefined ? {} : { input: body.input }),
+      target_release: body.target_release,
+      target_process_nonce: body.target_process_nonce,
+      parent_invocation: body.parent_invocation,
+    });
+  };
+  const pairObserve: MemoryHandler = (_ctx, input) => {
+    const body = input as
+      | {
+        event: "start";
+        process_nonce: string;
+        invocation: string;
+        caller: { kind: string };
+      }
+      | { event: "exit"; process_nonce: string };
+    if (body.event === "start") {
+      const caller = body.caller as Record<string, unknown>;
+      preparer.paths.started(
+        { processNonce: body.process_nonce },
+        body.invocation,
+        {
+          kind: body.caller.kind,
+          app: typeof caller.app === "string" ? caller.app : undefined,
+          release: typeof caller.release === "string"
+            ? caller.release
+            : undefined,
+          parent: caller.parent_invocation,
+        },
+      );
+    } else {
+      preparer.paths.forget(body.process_nonce);
+    }
+    return Promise.resolve(ok({ accepted: true as const }));
+  };
+  const pairConfirmPoll: MemoryHandler = (_ctx, input) => {
+    if (confirmer === null) return Promise.resolve(pairUnavailable());
+    const body = input as {
+      source: Parameters<typeof sourceOf>[0];
+      approval: string;
+      wait_ms?: number;
+    };
+    return confirmer.poll({
+      source: sourceOf(body.source),
+      approval: body.approval,
+      wait_ms: body.wait_ms ?? 0,
+    });
+  };
+
   async function sweep(): Promise<void> {
     await connector.sweep().catch(() => 0);
     // supervisor가 다시 떠서 상태를 잃었으면 마지막으로 알린 상태로 맞춘다.
@@ -283,7 +522,19 @@ export async function createAppsControl(
   return {
     verifyKey: signer.verifyKey,
     signer,
-    memory: new Map([[`${appConnect.resource}/${appConnect.method}`, connect]]),
+    memory: new Map<string, MemoryHandler>([
+      [`${appConnect.resource}/${appConnect.method}`, connect],
+      [`${appPairPrepare.resource}/${appPairPrepare.method}`, pairPrepare],
+      [
+        `${appPairConfirmRequest.resource}/${appPairConfirmRequest.method}`,
+        pairConfirmRequest,
+      ],
+      [
+        `${appPairConfirmPoll.resource}/${appPairConfirmPoll.method}`,
+        pairConfirmPoll,
+      ],
+      [`${appPairObserve.resource}/${appPairObserve.method}`, pairObserve],
+    ]),
     overlayReads(reads) {
       const runtime = reads.get(`${appRuntime.resource}/${appRuntime.method}`);
       if (runtime) {
@@ -312,6 +563,8 @@ export async function createAppsControl(
     channel,
     client,
     connector,
+    preparer,
+    confirmer,
     facts,
     async reconcile(next) {
       desired.set(next.app, next);

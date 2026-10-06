@@ -20,6 +20,7 @@ import {
 } from "../../packages/apps/runtime/supervisor/mod.ts";
 import type { CoreLink } from "../../packages/apps/runtime/core-link.ts";
 import {
+  blockInputSchema,
   desiredAppSchema,
   logsInputSchema,
   type ObservationWire,
@@ -60,6 +61,7 @@ import {
 } from "../../packages/apps/automations/permits.ts";
 import { reportAcceptanceSchema } from "../../packages/contracts/problems/mod.ts";
 import { createCoreBrokerAccess } from "./access.ts";
+import { createCorePairs, forgetAtCore, observeStartsAtCore } from "./pairs.ts";
 import {
   type BrokerAdapters,
   createSupervisorBroker,
@@ -290,14 +292,17 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     };
   }
 
+  const toCore = { post: io.post, bearer: () => hello.credential };
   const broker = createSupervisorBroker({
     adapters: {
-      access: createCoreBrokerAccess({
-        post: io.post,
-        bearer: () => hello.credential,
-      }),
-      invocations: io.invocations ?? closedInvocations,
+      access: createCoreBrokerAccess(toCore),
+      // 호출의 start 사실은 core의 앱 쌍 경로 장부에도 알린다(apps/connections#R7).
+      invocations: observeStartsAtCore(
+        io.invocations ?? closedInvocations,
+        toCore,
+      ),
       permits,
+      pairs: createCorePairs(toCore),
       platformPorts: () => hello.apiPort === 0 ? [] : [hello.apiPort],
       problems: problemsFor,
       ...(io.brokerAdapters ?? {}),
@@ -622,6 +627,7 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     // 자식 종료를 확인하면 socket을 닫고 그 자식의 점유·열린 기록을 거둔다.
     childExited(processNonce) {
       void broker.closed(processNonce);
+      forgetAtCore(toCore, processNonce);
       io.childExited?.(processNonce);
     },
     onEvent(event) {
@@ -716,6 +722,10 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       const alive = (supervisor.observation(input.app)?.processNonce ?? "") !==
         "";
       return alive ? buffer.read(query) : await buffer.collect(query);
+    },
+    [SUPERVISOR_OPS.block]: (payload) => {
+      const input = parse(blockInputSchema, payload);
+      return Promise.resolve({ blocked: broker.blockApp(input.app) });
     },
     [SUPERVISOR_OPS.restart]: async (payload) => {
       const input = parse(restartInputSchema, payload);

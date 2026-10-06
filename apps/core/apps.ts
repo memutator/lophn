@@ -6,6 +6,10 @@ import {
 } from "../../packages/apps/registration/mod.ts";
 import {
   appConnect,
+  appPairConfirmPoll,
+  appPairConfirmRequest,
+  appPairObserve,
+  appPairPrepare,
   appRegistrationLookup,
 } from "../../packages/contracts/apps/mod.ts";
 import { createInvocationsCommands } from "../../packages/apps/invocations/commands.ts";
@@ -145,7 +149,14 @@ export function createLedgerRegistration(
     ],
     // apps.connect는 supervisor의 메모리 관측과 인증 연결을 읽는 제어 어댑터라 ledger queue를
     // 거치지 않는다(apps/runtime#R9, architecture/apps 5.1).
-    memoryRoutes: [appConnect],
+    // 앱 쌍 연결 준비·confirm·경로 장부 통보도 supervisor(machine)의 같은 제어 어댑터다.
+    memoryRoutes: [
+      appConnect,
+      appPairPrepare,
+      appPairConfirmRequest,
+      appPairConfirmPoll,
+      appPairObserve,
+    ],
     // coding-agent connection의 app scope 검사와 documents의 자리 해석은 같은 Tx의
     // 존재 조회를 쓴다. TargetAuthorization은 tx.ts가 주입하므로 여기 등록하지 않는다.
     ports: [

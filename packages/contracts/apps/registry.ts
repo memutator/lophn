@@ -12,6 +12,7 @@ import {
 } from "./apps.ts";
 import { appConnect } from "./channel.ts";
 import { appBlueprint } from "./blueprint-read.ts";
+import { PAIR_ROUTES } from "./pair-routes.ts";
 import {
   appAutomations,
   appDisableExecution,
@@ -68,6 +69,7 @@ export const ROUTES = [
   appLogs,
   appAutomations,
   appExport,
+  ...PAIR_ROUTES,
   ...INVOCATION_ROUTES,
   ...GRANT_ROUTES,
   ...PACKAGE_ROUTES,

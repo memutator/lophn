@@ -13,6 +13,7 @@ import type {
   ProcessSource,
 } from "./connect.ts";
 import {
+  blockOutputSchema,
   logsOutputSchema,
   type LogsWire,
   type ObservationWire,
@@ -165,6 +166,8 @@ export type SupervisorClient = {
     },
   ): Promise<Result<LogsWire>>;
   restart(app: string, processNonce: string): Promise<Result<boolean>>;
+  // 그 앱의 broker 연결을 새 요청부터 막고 막은 연결 수를 돌려준다.
+  block(app: string): Promise<Result<number>>;
 };
 
 export function createSupervisorClient(
@@ -201,6 +204,13 @@ export function createSupervisorClient(
         ),
       );
       return answer.ok ? ok(answer.value.restarted) : answer;
+    },
+    async block(app) {
+      const answer = shaped(
+        blockOutputSchema,
+        await channel.request(SUPERVISOR_OPS.block, { app }),
+      );
+      return answer.ok ? ok(answer.value.blocked) : answer;
     },
   };
 }

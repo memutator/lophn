@@ -14,6 +14,8 @@ export const SUPERVISOR_OPS = {
   logs: "apps.logs",
   // 그 nonce의 프로세스를 새 nonce로 다시 띄운다.
   restart: "apps.restart",
+  // 그 앱의 broker 연결을 새 요청부터 막는다. 이미 한 전송은 취소하지 않는다(apps/permissions#R20).
+  block: "apps.block",
 } as const;
 
 export type SupervisorOp = (typeof SUPERVISOR_OPS)[keyof typeof SUPERVISOR_OPS];
@@ -91,3 +93,8 @@ export const restartInputSchema = z.strictObject({
   process_nonce: z.string().min(1),
 });
 export const restartOutputSchema = z.strictObject({ restarted: z.boolean() });
+
+export const blockInputSchema = z.strictObject({ app: appId });
+export const blockOutputSchema = z.strictObject({
+  blocked: z.number().int().min(0),
+});

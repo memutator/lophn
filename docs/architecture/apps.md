@@ -117,6 +117,8 @@ automation clock은 앱 프로세스 안 `automations/clock`이 소유한다. �
 
 blueprint·agent-context·connections·automation·runtime·data·preview에는 별도 ledger entity나 표가 없다. 화면 context 선언과 앱 연결 선언은 blueprint blob, AppScreenContext는 앱의 현재 상태를 읽는 일시 값이다. RuntimeObservation과 endpoint·nonce, AutomationClock, permit, invocation 재전송 목록은 메모리다. activation 복구 정본은 Release.activation, 관련 event, 보호 backup 참조와 실제 앱 DB다. 파일 phase journal이나 별도 outbox를 만들지 않는다. command 결과와 재전송 key는 `command` contract의 공통 저장을 쓴다.
 
+core의 command·read는 동기이고 파일을 읽지 않으므로 `releases` 행은 준비 때 정규 blueprint JSON 사본(`blueprint`, blob·bundle 사본과 같은 byte이며 `blueprint_hash`로 대조)과 그 선언 사실(`declarations`: permission 요구·app_connections·command key·automation의 external과 고정 입력 hash·problem code·문서 선언)을 함께 둔다. `release.prepare`는 정규 blueprint JSON을 입력으로 받아 검증기·hash·manifest와 대조해 고정하고, `apps.blueprint`·`releases.compare`·현재 선언 port(`currentDeclarations`)는 이 행만 읽는다. 앱이 채택한 release는 앱마다 하나인 `status = active` 행이다.
+
 ### 3.2 파일과 blob
 
 경로 기준은 platform의 데이터 root이며 아래 `~/.lophn`은 기본 예다. app slug 대신 불변 app ID로 디스크 위치를 정한다.
@@ -258,7 +260,7 @@ write/external·confirm·automation의 read 포함 전체 호출·실패/거절 
 | `POST /v1/releases/prepare_bundle` | app, 완전한 commit ID, request_key, ticket_source? | 준비 접수와 진행 key; 완료 시 고정 bundle_hash·blueprint_hash·manifest |
 | `POST /v1/releases/preparation` | app,request_key | 현재 진행/완료/취소/실패; 작업 메모리 유실이면 unknown |
 | `POST /v1/releases/cancel_preparation` | app,request_key | 취소 요청. worker 종료 확인 뒤 정리 |
-| `POST /v1/releases/prepare` | 신뢰된 준비 결과, tests, ticket_source?, key | 불변 prepared Release |
+| `POST /v1/releases/prepare` | 신뢰된 준비 결과(정규 blueprint JSON 포함), tests, ticket_source?, key | 불변 prepared Release |
 | `POST /v1/releases/start_activation` | release,approval,expected previous release,grants seq,실제 schema,key | activating, started_seq |
 | `POST /v1/releases/record_backup` | release,activation_seq,보호 hash,실제 schema | 복구 참조 확정 |
 | `POST /v1/releases/record_data_change` | DataResult | 실제 schema·무결성 결과 확정 |
@@ -293,7 +295,7 @@ write/external·confirm·automation의 read 포함 전체 호출·실패/거절 
 | `apps` | `record_started`, `record_stopped`, `record_unavailable` | 실제 관측; `AppStarted`, `AppStopped`, `AppUnavailable` |
 | `grants` | `create`, `revoke` | exact Grant와 종료 확인; `GrantCreated`, `GrantRevoked` |
 | `packages` | `register_version` | 설치 machine만 불변 코드·guide 등록; `PackageVersionRegistered` |
-| `apps` | `list`, `get`, `blueprint` | App 목록·고정 release 선언. runtime 상태와 생존은 현재 supervisor 관측 별도 |
+| `apps` | `list`, `get`, `blueprint` | App 목록·고정 release 선언. `blueprint`는 active release의 command·화면·automation과 선언 사실, 설명·구조 검증·test 통과의 구별(`evidence`)을 낸다(범위 밖·없는 앱·active release 없음은 같은 not_found). runtime 상태와 생존은 현재 supervisor 관측 별도 |
 | `apps` | `runtime`, `logs`, `automations` | 현재 RuntimeState·관측, 최대 200줄 log, 선언/실행 가능 여부/실제 관측. 관측 없음 명시 |
 | `releases` | `list`, `get`, `compare` | 불변 Release와 당시 test·claim 출처·activation 비교 |
 | `grants` | `list` | 현재 app의 grant와 선언 교집합 |

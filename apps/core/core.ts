@@ -1777,6 +1777,7 @@ async function open(
         })),
       read: (route, context, input) =>
         runtime!.readers.read(route, context, input),
+      known: () => runtime?.knownSecrets,
       readProviders: async (context) => {
         const hosts = new Set<string>();
         let cursor: string | undefined;

@@ -4,7 +4,16 @@
 // 좁힌 권한으로만 뜬다. provider는 fake provider이고 실제 provider·사람 데이터 root·OS keychain은 열지
 // 않는다.
 import { assert, assertEquals } from "@std/assert";
-import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
+import { DatabaseSync } from "node:sqlite";
+import {
+  type AuthenticatedContext,
+  setSecret,
+} from "../../packages/contracts/platform/mod.ts";
+import { confirmationBinding } from "../../packages/platform/identity/mod.ts";
+import {
+  createFakeKeychain,
+  type FakeKeychain,
+} from "../../packages/platform/secrets/mod.ts";
 import {
   type Spawned,
   spawnProcess,
@@ -14,6 +23,7 @@ import { startFakeProvider } from "../../tools/fake-provider/mod.ts";
 import { RUNTIME_MACHINE_OPERATIONS } from "../agent-runtime/core-http.ts";
 import { AGENT_RUNTIME_KIND } from "./agent-runtime.ts";
 import { type Core, startCore } from "./core.ts";
+import { createLedgerRegistration as documentsRegistration } from "./documents.ts";
 import {
   createLedgerRegistration,
   lophnAgentDefinitions,
@@ -38,6 +48,9 @@ const USER_OPERATIONS = [
   "ChangeModelDefaults",
   "ReadModelDefaults",
   "ReadRun",
+  "SetSecret",
+  "project.create",
+  "project.list",
 ];
 const MODEL = "claude-sonnet-4-5";
 
@@ -66,6 +79,7 @@ async function openWorld(options: {
   home?: string;
   provider?: ReturnType<typeof startFakeProvider>;
   script?: string[];
+  keychain?: FakeKeychain;
 }): Promise<World> {
   const home = options.home ??
     await Deno.makeTempDir({ prefix: "lophn-agent-child-" });
@@ -80,9 +94,18 @@ async function openWorld(options: {
     lophnHome: home,
     port: 0,
     writerClock: "system",
-    teams: [{ lophnAgentDefinitions, createLedgerRegistration }],
-    teamModules: [new URL("./lophn-agent.ts", import.meta.url).href],
+    teams: [
+      { lophnAgentDefinitions, createLedgerRegistration },
+      { createLedgerRegistration: documentsRegistration },
+    ],
+    teamModules: [
+      new URL("./lophn-agent.ts", import.meta.url).href,
+      new URL("./documents.ts", import.meta.url).href,
+    ],
     testCredentials: true,
+    ...(options.keychain === undefined
+      ? {}
+      : { secretKeychain: options.keychain }),
     agentRuntime: { pollMs: 150 },
     spawn(request) {
       if (request.env["LOPHN_WORKER_KIND"] !== AGENT_RUNTIME_KIND) {
@@ -449,5 +472,231 @@ Deno.test("lophn-agent/harness/run-loop#R8: core를 멈추면 runtime child도 �
     await first.close();
     await provider.close();
     await Deno.remove(home, { recursive: true });
+  }
+});
+
+const SECRET = "violet-harbor-lantern-4821";
+const PROJECT = "prj_01kq12a1pha000000000000000";
+
+function listing(id: string) {
+  return {
+    id: `list-${id}`,
+    protocol: "messages" as const,
+    reply: {
+      text: "I will look at the projects.",
+      toolCalls: [{ id: `toolu_${id}`, name: "project.list", arguments: "{}" }],
+      usage: { input: 20, output: 8 },
+      stop: "tool_calls" as const,
+    },
+  };
+}
+
+// 알려진 secret 값을 core에 등록한다: 제품의 보호 입력이 끝난 상태(keychain에 값, ledger에 준비 증거)를
+// 만들고 사람이 SetSecret을 확정한다. 응답 전에 core의 알려진 값 registry가 맞춰진다.
+async function prepareSecret(
+  world: World,
+  keychain: FakeKeychain,
+  name: string,
+  value: string,
+) {
+  const stored = await keychain.store({
+    name,
+    purpose: "app_secret",
+    owner: name,
+    value: new TextEncoder().encode(value),
+  });
+  assert(stored.ok);
+  const preparation = `prep-${crypto.randomUUID()}`;
+  const db = new DatabaseSync(`${world.home}/lophn.db`);
+  try {
+    db.exec("PRAGMA busy_timeout = 5000");
+    db.prepare(
+      "INSERT INTO secret_preparations (preparation, sealed_ref, purpose, owner) VALUES (?, ?, 'app_secret', ?)",
+    ).run(preparation, stored.value, name);
+  } finally {
+    db.close();
+  }
+  return {
+    name,
+    preparation: {
+      preparation,
+      sealed_ref: stored.value,
+      purpose: "app_secret",
+      owner: name,
+    },
+  };
+}
+
+async function confirmSecret(
+  world: World,
+  input: Awaited<ReturnType<typeof prepareSecret>>,
+) {
+  const binding = await confirmationBinding(setSecret, input);
+  assert(binding);
+  const issued = await world.core.confirmation?.({
+    action: "issue",
+    request: {
+      type: "confirmation_handle_register",
+      window_id: `win-${crypto.randomUUID()}`,
+      target_ref: binding.target,
+      content_hash: binding.content,
+      allowed_decisions: [setSecret.name],
+      expires_at: new Date(Date.now() + 600_000).toISOString(),
+    },
+  });
+  assert(issued?.ok, JSON.stringify(issued));
+  const confirmation = (issued.value as { confirmation: string }).confirmation;
+  return await call(world.server, "secrets/set", USER_TOKEN, {
+    input,
+    idempotency_key: `set-${crypto.randomUUID()}`,
+    compare: { sealed_ref: null, revision: null },
+    prepared: [],
+    confirmation,
+  });
+}
+
+async function createProject(world: World, folder: string) {
+  const created = await call(
+    world.server,
+    "projects/create",
+    USER_TOKEN,
+    command({
+      id: PROJECT,
+      name: "alpha",
+      title: `Notes about ${SECRET}`,
+      purpose: `The passphrase is ${SECRET}.`,
+      folders: [{ path: folder, description: `kept under ${SECRET}` }],
+      tracking: { enabled: false, patterns: [], use_gitignore: false },
+    }),
+  );
+  assertEquals(created.status, 200, JSON.stringify(created.body));
+}
+
+async function blobText(world: World, hash: string): Promise<string> {
+  const bytes = await Deno.readFile(
+    `${world.core.dataRoot}/blobs/sha256/${hash.slice(0, 2)}/${hash.slice(2)}`,
+  );
+  return new TextDecoder().decode(bytes);
+}
+
+Deno.test("lophn-agent/harness/run-loop#R8: core의 알려진 secret 값은 tool 결과에 있어도 model provider로 가지 않고 저장한 model call 입력 blob에도 없다", async () => {
+  const keychain = createFakeKeychain();
+  const folder = await Deno.realPath(
+    await Deno.makeTempDir({ prefix: "lophn-agent-child-folder-" }),
+  );
+  const provider = startFakeProvider({
+    script: {
+      steps: [
+        listing("1"),
+        answers("first done"),
+        listing("2"),
+        answers("second done"),
+      ],
+    },
+    nowMs: () => Date.now(),
+    instant: true,
+  });
+  const world = await openWorld({ provider, keychain });
+  try {
+    await chooseModel(world);
+    await until("restart", () => world.children.length >= 2);
+    await createProject(world, folder);
+
+    // 대조: core가 아직 모르는 값은 pattern에 걸리지 않아 runtime이 읽은 tool 결과에 그대로 있다.
+    const before = await ask(world, "list", "msg_01arz3ndektsv4rrffq69g5fav");
+    await until("first run finished", () => finished(world, before));
+    assert(
+      JSON.stringify(provider.requests()[1]!.body).includes(SECRET),
+      "the control run should carry the raw value",
+    );
+
+    // 사람이 이 값을 secret으로 등록하면 core가 알려진 값으로 안다.
+    const set = await confirmSecret(
+      world,
+      await prepareSecret(world, keychain, "passphrase", SECRET),
+    );
+    assertEquals(set.status, 200, JSON.stringify(set.body));
+    // core가 project 읽기에서 지우지 않으므로 runtime이 받는 tool 결과에는 값이 있다.
+    const read = await call(world.server, "projects/list", USER_TOKEN, {});
+    assert(JSON.stringify(read.body).includes(SECRET));
+
+    const after = await ask(
+      world,
+      "list again",
+      "msg_01arz3ndektsv4rrffq69g5faw",
+    );
+    await until("second run finished", () => finished(world, after));
+    assertEquals(runRow(world, after)!["outcome_kind"], "completed");
+    const requests = provider.requests();
+    assertEquals(requests.length, 4);
+    // 두 번째 run의 요청(tool 결과를 실은 것)에 값이 없다.
+    const sent = JSON.stringify(requests[3]!.body);
+    assert(sent.includes("tool_result"));
+    assert(!sent.includes(SECRET), "the known value was sent to the provider");
+    assert(!JSON.stringify(requests[2]!.body).includes(SECRET));
+    // 저장한 model call 입력 blob도 같은 안전화한 값이다.
+    const stored = inspect(
+      world.server,
+      "select input from model_calls where run = ? order by attempt_order",
+      [after],
+    );
+    assertEquals(stored.length, 2);
+    for (const row of stored) {
+      assert(!(await blobText(world, String(row["input"]))).includes(SECRET));
+    }
+    // 이 run의 모든 기록 blob에 값이 없다(근거·결과·model call·tool call).
+    const refs = inspect(
+      world.server,
+      "select hash from blob_refs where owner_kind in ('run', 'model_call', 'tool_call') and owner_key in (select id from model_calls where run = ? union select id from tool_calls where run = ? union select ?)",
+      [after, after, after],
+    );
+    assert(refs.length >= 5);
+    for (const row of refs) {
+      assert(!(await blobText(world, String(row["hash"]))).includes(SECRET));
+    }
+  } finally {
+    await world.close();
+    await provider.close();
+    await Deno.remove(world.home, { recursive: true });
+    await Deno.remove(folder, { recursive: true });
+  }
+});
+
+Deno.test("lophn-agent/harness/run-loop#R8: core가 안전화를 끝낼 수 없으면 runtime은 그 글을 보내지 않는다", async () => {
+  const keychain = createFakeKeychain();
+  const provider = startFakeProvider({
+    script: { steps: [answers("never sent")] },
+    nowMs: () => Date.now(),
+    instant: true,
+  });
+  const world = await openWorld({ provider, keychain });
+  try {
+    await chooseModel(world);
+    await until("restart", () => world.children.length >= 2);
+    // child를 끝내 감독이 다시 띄우는 동안(1초 뒤) 요청을 받고, core가 알려진 값을 다 알지 못하는
+    // 상태로 만든다: 값을 keychain에서 읽을 수 없으면 registry가 준비되지 않음이다.
+    assert(await world.children.at(-1)!.spawned.terminate());
+    const run = await ask(world, "hello", "msg_01arz3ndektsv4rrffq69g5fav");
+    const input = await prepareSecret(world, keychain, "passphrase", SECRET);
+    keychain.setStatus("unavailable");
+    const set = await confirmSecret(world, input);
+    assertEquals(set.status, 200, JSON.stringify(set.body));
+
+    // 감독이 다시 띄운 child는 run을 시작하려 하지만 core가 안전화를 끝내지 못해 기록 본문조차 만들지
+    // 못한다. 글은 model provider로 나가지 않고 run은 시작되지 않은 채 남는다.
+    await until("child restarted", () => world.children.length >= 3);
+    await new Promise((resolve) => setTimeout(resolve, 4_000));
+    assertEquals(provider.requests().length, 0);
+    assertEquals(runRow(world, run)!["state"], "accepted");
+
+    // core가 알려진 값을 다시 다 알게 되면(keychain이 돌아옴) 같은 run이 안전화를 지나 끝난다.
+    keychain.setStatus("available");
+    await until("run finished", () => finished(world, run));
+    assertEquals(runRow(world, run)!["outcome_kind"], "completed");
+    assertEquals(provider.requests().length, 1);
+  } finally {
+    await world.close();
+    await provider.close();
+    await Deno.remove(world.home, { recursive: true });
   }
 });

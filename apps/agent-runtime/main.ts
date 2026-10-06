@@ -35,6 +35,7 @@ import type { CoreCall } from "./core-call.ts";
 import { readOf } from "./core-call.ts";
 import type { BlobPort } from "./run-blobs.ts";
 import { createCredentialLink } from "./credential-link.ts";
+import { createRedactLink, type Redactor } from "./redact-link.ts";
 import { redact } from "./redact.ts";
 import { roleOperations } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
 export { redact };
@@ -54,6 +55,8 @@ export type CoreCalls = {
   agentCall(token: string): CoreCall;
   // 기록이 hash로 가리키는 본문을 감독 pipe로 core에 준비한다.
   blobs: BlobPort;
+  // model로 보낼 글의 안전화. core의 알려진 secret 값과 검출 규칙으로 지우고 끝내지 못하면 null이다.
+  redact: Redactor["redact"];
   // 마지막 정상 catalog와 동봉 snapshot. data root가 없으면 없다.
   catalog: CatalogRefresherHandle | undefined;
 };
@@ -118,6 +121,9 @@ export async function startAgentRuntime(input: {
   });
   let stopped = false;
   const link = createCredentialLink({ send: (message) => child.send(message) });
+  const redactLink = createRedactLink({
+    send: (message) => child.send(message),
+  });
   const credentials = createRunCredentials({
     issuer: link.issuer,
     // run의 역할 상한 안에서만 청한다. core가 같은 상한으로 대조한다.
@@ -173,6 +179,7 @@ export async function startAgentRuntime(input: {
             });
           calls = {
             catalog: refresher,
+            redact: redactLink.redact,
             machine: input.read ?? machineCall({
               port: hello.api_port,
               credential: () =>
@@ -216,6 +223,7 @@ export async function startAgentRuntime(input: {
         resolveReady(started);
       },
       onParent(message) {
+        if (redactLink.onParent(message)) return;
         link.onParent(message);
       },
       onStop() {

@@ -10,7 +10,6 @@ import { abortableWait } from "../../packages/lophn-agent/harness/run-loop/mod.t
 import type { CoreCalls } from "./main.ts";
 import { createRunPreparer } from "./prepare.ts";
 import { createModelResolver } from "./resolve-model.ts";
-import { redact } from "./redact.ts";
 import { PRODUCT_INSTRUCTIONS, rolePrompt } from "./role-prompts.ts";
 import type { RunDriver } from "./run-driver.ts";
 import type { DriveDeps } from "./run-driver.ts";
@@ -64,9 +63,9 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
             ),
           projectOf: () => Promise.resolve(ok(null)),
         },
-        redact: (text) => redact(text),
+        redact: calls.redact,
       },
-      redact: (text) => redact(text),
+      redact: calls.redact,
     });
   };
 }

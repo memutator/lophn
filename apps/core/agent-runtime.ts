@@ -31,6 +31,7 @@ import type {
   OperationPolicy,
 } from "../../packages/platform/identity/mod.ts";
 import type { Supervisor } from "../../packages/platform/responsiveness/mod.ts";
+import { answerRedactRequest } from "./agent-runtime-redaction.ts";
 import { createAgentCredentialLink } from "./agent-credentials.ts";
 import {
   type ChildBlobPrepare,
@@ -38,6 +39,7 @@ import {
 } from "./child-blob-prepare.ts";
 import type { BlobPrepareCall } from "./core.ts";
 import type { BufferGauge, PreparedRelayResult } from "./blob-prepare.ts";
+import type { KnownSecretMatch } from "../../packages/platform/ledger/mod.ts";
 import { agentRuntimeLaunchSpec } from "./lophn-agent.ts";
 
 // 제품 core가 agent runtime child를 띄우고 감독하는 자리(lophn-agent/harness/run-loop). child는
@@ -160,6 +162,8 @@ export type AgentRuntimeDeps = {
     context: RequestContext,
     input: unknown,
   ): Promise<Result<unknown>>;
+  // 알려진 secret 값의 matcher. child가 보낼 글의 안전화(`redact_request`)가 쓴다.
+  known(): KnownSecretMatch | undefined;
   // 목적지 점검 주기. 시험이 줄인다.
   pollMs?: number;
 };
@@ -225,6 +229,13 @@ export async function startAgentRuntimeChild(
     return {
       onMessage(message: ChildMessage) {
         if (handler.onMessage(message)) return;
+        if (message.type === "redact_request") {
+          const response = answerRedactRequest(message, deps.known());
+          if (response !== undefined) {
+            void deps.io.send(AGENT_RUNTIME_KIND, response).catch(() => {});
+          }
+          return;
+        }
         void link.onMessage(message).then((response) => {
           if (response !== undefined) {
             return deps.io.send(AGENT_RUNTIME_KIND, response);

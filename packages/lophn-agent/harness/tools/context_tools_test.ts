@@ -171,9 +171,7 @@ function ledgerWorld() {
       const option = over.option ?? { key: "apply", action: null };
       const question = {
         status: over.status ?? "answered",
-        closed_seq: (over.status ?? "answered") === "answered"
-          ? next()
-          : null,
+        closed_seq: (over.status ?? "answered") === "answered" ? next() : null,
         answer: over.answer === undefined
           ? { kind: "option", option_key: option.key }
           : over.answer,
@@ -752,11 +750,9 @@ Deno.test("lophn-agent/roles/context-engineer#R4: Context Engineer의 읽기 선
       name,
     );
   }
-  // 정의가 아직 없는 선택은 소유 contract가 서는 작업이 채운다. 이 목록 밖에는 정의 없는 선택이 없다.
+  // 역할 상한의 모든 선택은 이 branch에서 정의를 가진다. 정의가 없는 선택은 남지 않는다.
   const undefinedYet = caps.filter((name) => !defined.has(name)).sort();
-  assertEquals(undefinedYet, [
-    "term.submit_definition_answer",
-  ]);
+  assertEquals(undefinedYet, []);
 });
 
 Deno.test("lophn-agent/roles/context-engineer#R4: 목록은 20개씩 이어 읽고 조건이 다른 cursor는 거절하며 읽기 묶음은 역할 상한 안이다", async () => {
@@ -960,14 +956,13 @@ Deno.test("lophn-agent/roles/context-engineer#R5: Context Engineer의 쓰기 선
   );
   assertEquals(defined.get("question.submit")!.contract, "CreateQuestion");
   assertEquals(defined.get("handoff.submit")!.contract, "SubmitHandoff");
-  // 아직 정의가 없는 쓰기 선택은 정의 답 전달(questions의 option action 경로)이다.
-  // Operator 초안 제출은 T52가 정의를 두므로 이제 정의된 쓰기다. 실제 assignment 적용·
-  // 권한 예외·사람 대신 승인 tool은 선택에도 정의에도 없다.
+  // 역할 상한의 쓰기 선택은 모두 정의를 가진다. 정의가 없는 submit·apply·approve 선택은 남지 않는다.
+  // 실제 assignment 적용·권한 예외·사람 대신 승인 tool은 선택에도 정의에도 없다.
   assertEquals(
     caps.filter((name) => !defined.has(name)).filter((name) =>
       /submit|apply|approve/.test(name)
     ).sort(),
-    ["term.submit_definition_answer"],
+    [],
   );
   // 초안 제출은 platform/approvals의 소유 contract로 person 결정을 연다(P9).
   assertEquals(
@@ -1353,7 +1348,11 @@ Deno.test("lophn-agent/roles/context-engineer#R5: 정의 답 전달 tool은 Cont
   const answered = await run("term.submit_definition_answer", {
     question: id("qst", 10),
   }, id("tcl", 40));
-  assertEquals(answered.outcome.kind, "success", JSON.stringify(answered.result));
+  assertEquals(
+    answered.outcome.kind,
+    "success",
+    JSON.stringify(answered.result),
+  );
   const read = world.calls.find((call) => call.contract === "ReadQuestion");
   assert(read !== undefined);
   assertEquals(read.input, { question: id("qst", 10) });

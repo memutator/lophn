@@ -282,23 +282,15 @@ Deno.test({
           await flow.click("[data-save-action='retry']");
           // 풀린 뒤 다시 시도하면 사람의 글이 파일에 쓰인다.
           await untilFile(file, `${first}Second line. Mine. Lost.`);
-          // 쓴 뒤 편집기가 바깥 변경으로 읽으면 충돌 해결 길로 끝낸다(해결 뒤에는 저장됨이다).
+          // 다시 시도가 쓴 글은 바깥 변경이 아니라 저장으로 끝난다. 그 뒤 documents의 유휴 종료가 판을
+          // 만들면 판 확정으로 넘어갈 수 있으나 충돌은 아니다.
           await flow.until(
-            `/^(saved|conflict)$/.test(document.querySelector("[data-save-status]")?.getAttribute("data-save-status") ?? "")`,
-            "다시 시도한 뒤 결과가 오지 않았다",
+            `/^(saved|version-saved)$/.test(document.querySelector("[data-save-status]")?.getAttribute("data-save-status") ?? "")`,
+            "다시 시도한 뒤 저장됨 상태가 오지 않았다",
           );
-          if (await flow.count(`[data-save-status="conflict"]`) > 0) {
-            await flow.click(`[data-save-action="compare"]`);
-            await flow.until(
-              `document.querySelector("[data-conflict-view]") !== null`,
-              "충돌 해결 화면이 열리지 않았다",
-            );
-            await flow.click("[data-conflict-mine]");
-          }
-          await flow.until(
-            `document.querySelector("[data-save-status]")?.getAttribute("data-save-status") === "saved"`,
-            "저장됨 상태가 오지 않았다",
-          );
+          // 겹친 쓰기의 늦은 충돌 응답까지 기다려도 충돌로 바뀌지 않는다.
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+          assertEquals(await flow.count(`[data-save-status="conflict"]`), 0);
           assertEquals(
             await Deno.readTextFile(file),
             `${first}Second line. Mine. Lost.`,

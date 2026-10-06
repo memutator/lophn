@@ -54,6 +54,8 @@ export type CoreHarness = {
   clock: ManualClock;
   // 만료·회수 claim을 한 번 정리한다. 60초 timer와 같은 함수다.
   sweepTicketClaims(): Promise<void>;
+  // 기한에 도달한 대기 approval request를 한 번 만료로 확정한다. 60초 timer와 같은 함수다.
+  sweepApprovalExpiry(): Promise<void>;
   // 확인 창 handle을 writer registry에 발급한다. confirmation route 시험에 쓴다.
   confirmation(body: {
     action: "issue" | "close-window" | "clear";
@@ -125,6 +127,7 @@ export async function createCoreHarness(
     },
     clock,
     sweepTicketClaims: () => core.sweepTicketClaims(),
+    sweepApprovalExpiry: () => core.sweepApprovalExpiry(),
     async confirmation(body) {
       if (!core.confirmation) {
         return err({ code: "unavailable", message: "확인 발급 입구가 없다" });

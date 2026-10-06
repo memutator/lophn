@@ -2,6 +2,7 @@ import { err, ok, type Result } from "../../packages/base/mod.ts";
 import type { DocumentRef } from "../../packages/contracts/documents/mod.ts";
 import {
   contextExport,
+  DOCUMENT_DISPATCHABLE_COMMANDS,
   documentPrepare,
   filesDelete,
   filesRead,
@@ -16,6 +17,8 @@ import {
 } from "../../packages/contracts/documents/mod.ts";
 import type {
   ApiReadDefinition,
+  CommandDefinition,
+  CommandRoute,
   FileRoute,
   ReadDefinition,
   UploadRoute,
@@ -331,6 +334,16 @@ export async function connectDocumentsRelaunch(
   return decision;
 }
 
+// contract가 dispatchable로 선언한 command만 dispatchable로 표시한다. handler는 그대로다.
+function dispatchableByContract<R extends CommandRoute>(
+  definition: CommandDefinition<R>,
+): CommandDefinition<R> {
+  const declared = DOCUMENT_DISPATCHABLE_COMMANDS.some((item) =>
+    item.route === (definition.route as CommandRoute)
+  );
+  return declared ? { ...definition, dispatchable: true } : definition;
+}
+
 export function createLedgerRegistration(
   environment?: DocumentsEnvironment,
 ): LedgerRegistration {
@@ -378,8 +391,10 @@ export function createLedgerRegistration(
       versions.archive,
       versions.unarchive,
       fileCommands.recordResult,
-      addressing.move,
-      addressing.rename,
+      // 사람이 허락한 approval 적용(apply_approved_action)이 같은 transaction에서 부를 수 있다.
+      // 어느 command가 그런지는 contract가 정한다(DOCUMENT_DISPATCHABLE_COMMANDS).
+      dispatchableByContract(addressing.move),
+      dispatchableByContract(addressing.rename),
       contexts.create,
       contexts.update,
       contexts.setItem,

@@ -810,6 +810,7 @@ concerns: [shell]
 
 ### T41 SDK UI: ui-reading, ui-filter, ui-stat, ui-action
 
+- 상태: 완료 (#348) — 이어보냄: 템플릿 build·설치가 `@lophn/design/reading`·`@lophn/blueprint`를 푸는 일 → apps#T22, confirm 거절·만료 code → shell#T45
 - 등급: frontend
 - concern: shell/design-system
 - 요구: apps/sdk#R4(ui-reading·ui-filter·ui-stat·ui-action 1.0.0), R16(ui-reading), R18(ui-filter·ui-stat), R19, R41(공용 UI SDK)

@@ -408,7 +408,6 @@ async function readWhole(
   throw new Error(`no text: ${JSON.stringify(last.result)}`);
 }
 
-
 async function readRun(world: World, run: string) {
   const reply = await call(world.server, "runs/read", MACHINE_TOKEN, { run });
   assertEquals(reply.status, 200, JSON.stringify(reply.body));

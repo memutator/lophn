@@ -130,3 +130,11 @@ export {
   shaKey,
   startLine,
 } from "../entrypoint/testing.ts";
+
+// preview·test 시험이 실제 앱 자식과 같은 bundle을 만드는 입구다.
+export {
+  FIXTURE_APP,
+  FIXTURE_RELEASE,
+  fixtureBlueprint,
+  writeFixtureBundle,
+} from "./app-process.ts";

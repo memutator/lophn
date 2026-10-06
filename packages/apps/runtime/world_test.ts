@@ -21,6 +21,7 @@ import type { ApprovalRequest } from "../../contracts/platform/mod.ts";
 import type { GrantPermissionScope } from "../../contracts/apps/mod.ts";
 import {
   type CoreHarness,
+  type CoreHarnessOptions,
   createCoreHarness,
 } from "../../../apps/core/testing/core.ts";
 import type {
@@ -134,6 +135,8 @@ export async function openWorld(
     approvals?: boolean;
     // 실제 apps supervisor를 감독 pipe로 띄운다. 켜면 프로세스 관측 시험 출처를 쓰지 않는다.
     supervisor?: boolean;
+    // preview가 bundle·release를 여는 자리(apps/preview 시험).
+    previews?: NonNullable<CoreHarnessOptions["apps"]>["previews"];
   } = {},
 ): Promise<World> {
   const documents = await import("../../../apps/core/documents.ts");
@@ -167,8 +170,16 @@ export async function openWorld(
       new URL("../permissions/testing/mod.ts", import.meta.url).href,
     ],
     apps: options.supervisor
-      ? { supervisor: { runtimeDir }, sweepMs: options.sweepMs }
-      : { process: processSource(state), sweepMs: options.sweepMs },
+      ? {
+        supervisor: { runtimeDir },
+        sweepMs: options.sweepMs,
+        previews: options.previews,
+      }
+      : {
+        process: processSource(state),
+        sweepMs: options.sweepMs,
+        previews: options.previews,
+      },
   });
   assert(opened.ok, opened.ok ? "" : opened.error.message);
   const harness = opened.value;

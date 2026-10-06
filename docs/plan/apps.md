@@ -375,6 +375,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 
 ### T21 preview와 test mode 대역
 
+- 상태: 진행 (#PR) — 남은 것은 아래 "이어받음"(T18·T19·T20·T27, contracts, platform)
 - 등급: 기본
 - concern: apps/preview
 - 요구: apps/preview#R1–R10
@@ -385,6 +386,12 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 - 선행: apps#T6, apps#T8, apps#T10, apps#T13, contracts#T37
 - 완료:
   - release 없는 bundle도 preview로 열리고 active release·운영 통로 불변(R1), fixture에서 만든 disposable DB·파일에만 쓰고 운영 DB·backup을 복사하지 않음, 종료 뒤 폐기(R2), preview 종료 뒤 호출은 unavailable이고 운영 앱이 불리지 않음(R3), secret·외부 쓰기·문서 저장·다른 앱 조회·loopback 듣기는 대역만(R4), confirm command의 실제 handler와 approval 소비 없음·대역 성공을 실행 성공이라 하지 않음(R5), clock이 꺼져 있고 수동 호출만(R6), 운영과 preview의 view_session 분리와 응답·invocation·보고의 mode 구별(R7), preview 보고가 운영 problem을 열거나 닫지 않음(R8), release 없는 preview에는 가짜 release·invocation이 없음(R9), preview 성공이 grant·activation·run_enabled·운영 데이터를 바꾸지 않음(R10)
+  - 시험(요구 번호로 시작): `launcher_test.ts`(R1·R2·R3·R4·R7·R9 fake 자식), `service_test.ts`(R1·R2·R3·R7·R9·R10 service·영역), `adapters_test.ts`(R4·R8·R9 broker 대역), `real_test.ts`(실제 앱 자식 프로세스: R1·R2·R3·R4·R5·R6·R7·R9·R10), `apps/core/previews_test.ts`(실제 core·supervisor·앱 자식으로 R1·R2·R3·R7·R10)
+  - 이어받음: 준비된 bundle을 preview 시작 입력으로 여는 실제 `PreviewBundles`(봉인 bundle 사본의 entry·import map·`appFlags(…, data=disposable 영역)`·command·화면·data schema, fixture는 manifest 파일 중 hash가 맞는 byte)는 운영 앱의 DesiredApp 조립과 같은 일이라 apps#T18이 같은 조립으로 낸다(`core.ts`의 `appPreviews.bundles`, 시험은 fixture bundle로 끼운다). release→bundle 대응 `PreviewReleases`는 releases 읽기를 가진 apps#T19가 낸다(`appPreviews.releases`). 둘이 없으면 `/v1/previews/start`는 unavailable이고 get·stop은 그대로 된다
+  - 이어받음: preview 자식의 broker 서비스는 T19의 supervisor 조립이 자식마다 broker socket을 열 때 `createPreviewBrokerServices({scope: previewScopeOf(blueprint), invocations, problems})`(preview/adapters)를 `BrokerServices`로 쓰고, 앱 쌍 연결 서비스 자리(T15)에는 그 묶음의 `apps` 대역을 올린다. launcher의 `attachBroker`가 그 자리다. 지금 broker가 어디서도 돌지 않으므로 preview 자식의 broker 호출은 닿을 곳이 없다(앱 쪽 SDK는 live가 아닌 mode에서 대역을 쓴다)
+  - 이어받음: preview에서 automation clock이 켜지지 않는 것(R6)은 T20의 clock이 `mode !== "live"`에서 시작하지 않도록 만들 때 `real_test.ts`의 R6 시험(시작 계기가 있는 blueprint가 preview에서 스스로 돌지 않음)이 지킨다. clock이 아직 없어 지금 시험은 "돌지 않음"만 본다
+  - 이어받음(contracts): release 없는 preview를 위해 `contracts/apps/direct-socket.ts`의 `controlOpenInputSchema.release`와 `contracts/platform/supervision.ts`의 `app_credential_request.release`가 null을 받아야 한다. 이 PR은 앱 entrypoint의 `control/open` 파서만 null을 받게 했고(live는 null이면 release 불일치로 거절) preview 자식의 broker credential은 supervisor가 만든 일회용 값으로 두었다(core 발급 app credential을 쓰면 같은 앱 운영 자식의 credential이 끝난다)
+  - 이어받음(shell): confirm command를 preview에서 부르면 앱이 forbidden(`confirm commands are not run in preview`)으로 답한다. preview partition·view_session 분리와 `mode` 구별 표시(R7)는 shell#T37, preview를 사람에게 "대역 확인"으로 보이는 표시는 shell#T45가 맡는다
 
 ### T22 앱 템플릿
 

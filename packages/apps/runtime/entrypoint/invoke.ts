@@ -181,16 +181,22 @@ function known(state: RuntimeState, invocation: string): InvokeResult {
     status: 200,
     body: {
       result: { result: found.result ?? null },
-      ...(recordedInvocation(found) ? { invocation: found.id } : {}),
+      ...(recordedInvocation(found, state.identity.release)
+        ? { invocation: found.id }
+        : {}),
       mode: state.identity.mode,
     },
   };
 }
 
+// 호출 ID는 ledger에 남는 호출만 가리킨다. release가 없는 프로세스(준비 전 bundle의 preview·test)는
+// 기록 대상이 없으므로 invocation을 꾸며 돌려주지 않는다(apps/preview#R9).
 function recordedInvocation(
   found: { effect: string; progress: string },
+  release: string | null,
 ): boolean {
-  return found.effect !== "read" || found.progress === "failed";
+  return release !== null &&
+    (found.effect !== "read" || found.progress === "failed");
 }
 
 async function runHandler(
@@ -284,7 +290,9 @@ async function runHandler(
     status: 200,
     body: {
       result: { result: result ?? null },
-      ...(recordedInvocation(record) ? { invocation: id } : {}),
+      ...(recordedInvocation(record, state.identity.release)
+        ? { invocation: id }
+        : {}),
       mode: state.identity.mode,
     },
   };

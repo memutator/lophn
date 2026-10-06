@@ -1006,6 +1006,7 @@ Deno.test("lophn-agent/harness/tools#R6: 묶음 이름은 개별 동작으로 �
     "document-read",
     "document-write",
     "format",
+    "lophn-guide",
   ]);
   assertEquals(TOOL_BUNDLES.get("document-read"), DOCUMENT_READ_TOOL_NAMES);
   assertEquals(TOOL_BUNDLES.get("document-write"), DOCUMENT_WRITE_TOOL_NAMES);

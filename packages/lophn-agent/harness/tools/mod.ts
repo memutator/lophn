@@ -30,6 +30,14 @@ export {
   FORMAT_TOOLS,
   type FormatToolPorts,
 } from "./bundles/format.ts";
+export {
+  createGuideToolHandlers,
+  GUIDE_READ_CODEPOINTS,
+  GUIDE_TOOL_NAMES,
+  GUIDE_TOOL_REVISION,
+  GUIDE_TOOLS,
+  type GuideToolPorts,
+} from "./bundles/guide.ts";
 export { createBuiltinToolHandlers } from "./bundles/handlers.ts";
 export {
   AGENT_TOOL_REVISION,

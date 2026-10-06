@@ -36,6 +36,7 @@ import {
   createLedgerRegistration,
   lophnAgentDefinitions,
 } from "../lophn-agent.ts";
+import { createLedgerRegistration as createDocumentsRegistration } from "../documents.ts";
 import * as approvalOwner from "./approval-owner.ts";
 import {
   call,
@@ -90,6 +91,14 @@ const MACHINE_OPERATIONS = [
   "cancel_approval_request",
   "record_owned_note",
   "PauseAssignment",
+  // 사람이 고른 선택지의 고정 action 적용(questions#R13). 적용 자격은 소유 command의 operation도
+  // 가진다: 소유 command의 대상 권한은 바깥 요청 자격의 scope로 본다.
+  "ApplyQuestionOption",
+  "ApplySettings",
+  "GetSettings",
+  "SettingsDefinitions",
+  "document.move",
+  "document.rename",
 ];
 
 const USER_OPERATIONS = [
@@ -111,6 +120,13 @@ const USER_OPERATIONS = [
   "GetApproval",
   "ListApprovals",
   "ReadApprovalText",
+  "GetSettings",
+  "ApplySettings",
+  "project.create",
+  "document.get",
+  "document.list",
+  "document.move",
+  "document.rename",
 ];
 
 export type Assignment = {
@@ -148,7 +164,7 @@ export type WaitingWorld = {
   dispose(): Promise<void>;
 };
 
-function context(
+export function context(
   actor: string,
   operations: string[],
   targets: Record<string, string> = {},
@@ -163,7 +179,7 @@ function context(
   } as AuthenticatedContext;
 }
 
-async function accept(
+export async function acceptCredential(
   core: Core,
   credential: AuthenticatedContext,
   token: string,
@@ -176,7 +192,12 @@ async function accept(
 
 let tokens = 0;
 
-export async function openWaitingWorld(): Promise<WaitingWorld> {
+// documents를 함께 띄우면 문서 자리 이동 같은 소유 command의 option action을 실제 문서로 본다.
+export type WaitingWorldOptions = { documents?: boolean };
+
+export async function openWaitingWorld(
+  options: WaitingWorldOptions = {},
+): Promise<WaitingWorld> {
   const home = await Deno.makeTempDir({ prefix: "lophn-waiting-" });
   const clock = manualClock(Date.UTC(2024, 0, 1));
   const started = await startCore({
@@ -185,10 +206,16 @@ export async function openWaitingWorld(): Promise<WaitingWorld> {
     teams: [
       { lophnAgentDefinitions, createLedgerRegistration },
       approvalOwner,
+      ...(options.documents
+        ? [{ createLedgerRegistration: createDocumentsRegistration }]
+        : []),
     ],
     teamModules: [
       new URL("../lophn-agent.ts", import.meta.url).href,
       new URL("./approval-owner.ts", import.meta.url).href,
+      ...(options.documents
+        ? [new URL("../documents.ts", import.meta.url).href]
+        : []),
     ],
     clock,
     random: seededRandom(51),
@@ -204,8 +231,8 @@ export async function openWaitingWorld(): Promise<WaitingWorld> {
       core.confirmation?.(body) ??
         Promise.resolve({ ok: false as const, error: { message: "없다" } }),
   };
-  await accept(core, context("machine", MACHINE_OPERATIONS), MACHINE_TOKEN);
-  await accept(core, context("user", USER_OPERATIONS), USER_TOKEN);
+  await acceptCredential(core, context("machine", MACHINE_OPERATIONS), MACHINE_TOKEN);
+  await acceptCredential(core, context("user", USER_OPERATIONS), USER_TOKEN);
   const post = (
     path: string,
     token: string,
@@ -279,7 +306,7 @@ export async function openWaitingWorld(): Promise<WaitingWorld> {
     assertEquals(startedRun.status, 200, JSON.stringify(startedRun.body));
     tokens += 1;
     const agentToken = `x${role[0]}${tokens}`.padEnd(43, "q");
-    await accept(
+    await acceptCredential(
       core,
       context(
         `agent:${assignment.id}`,

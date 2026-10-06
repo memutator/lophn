@@ -7,6 +7,7 @@ import {
   DOCUMENT_WRITE_TOOL_NAMES,
 } from "./bundles/document.ts";
 import { FORMAT_TOOL_NAMES, FORMAT_TOOLS } from "./bundles/format.ts";
+import { GUIDE_TOOL_NAMES, GUIDE_TOOLS } from "./bundles/guide.ts";
 
 // tool 하나는 정의 하나다. 목록과 실행이 같은 schema·효과·실패 종류를 쓴다(R2).
 // 내장 이름은 `<영역>.<동작>` 점 표기다(domain model ToolDefinition).
@@ -40,6 +41,7 @@ export const BUILTIN_TOOLS: readonly ToolDefinition[] = [
   ...DOCUMENT_TOOLS,
   ...FORMAT_TOOLS,
   ...AGENT_TOOLS,
+  ...GUIDE_TOOLS,
 ];
 
 // preset이 이름으로 고르는 tool 묶음이다(presets#R7). 저장 때 개별 동작으로 펼쳐 고정하므로 묶음에
@@ -49,6 +51,7 @@ export const TOOL_BUNDLES: ReadonlyMap<string, readonly string[]> = new Map([
   ["document-read", DOCUMENT_READ_TOOL_NAMES],
   ["document-write", DOCUMENT_WRITE_TOOL_NAMES],
   ["format", FORMAT_TOOL_NAMES],
+  ["lophn-guide", GUIDE_TOOL_NAMES],
 ]);
 
 // 금지 통로 이름. 내장·앱·외부 어디에도 이 이름이 있으면 목록에서 뺀다(R1).
@@ -113,6 +116,9 @@ export function listTools(
 // 저장 범위와 기준 판 비교를 그대로 적용하려고 요청한 agent의 자격으로 부른다).
 const SUPPORTING_OPERATIONS: ReadonlyMap<string, readonly string[]> = new Map([
   ["SaveToolDocument", ["document.prepare", "document.save"]],
+  // 제품 안내 읽기는 안내 목록과 설정 정의를 같은 읽기 자격으로 함께 읽는다.
+  ["guide.read", ["guide.list"]],
+  ["GetSettings", ["SettingsDefinitions"]],
 ]);
 
 // run의 agent 자격이 가져야 하는 operation 목록이다. 제공 목록의 소유 contract와 그 보조 operation의

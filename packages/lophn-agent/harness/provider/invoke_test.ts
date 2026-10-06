@@ -365,3 +365,104 @@ Deno.test("lophn-agent/harness/provider#R25: state-free 계속 검증을 통과�
     await provider.close();
   }
 });
+
+const TOOL_ARGS = '{"note":"hello","n":2}';
+
+function sse(frames: string[]): Step {
+  return {
+    id: "sse",
+    protocol: "messages",
+    response: {
+      status: 200,
+      headers: { "content-type": "text/event-stream" },
+      chunks: frames.map((bytes) => ({ bytes })),
+    },
+  };
+}
+
+Deno.test("lophn-agent/harness/provider#R25: 설명 text 뒤의 tool_use 고정 응답(JSON)이 완성된 tool call 하나다", async () => {
+  const { output } = await call("anthropic-messages", [{
+    id: "reply",
+    protocol: "messages",
+    reply: {
+      text: "I will record a note.",
+      toolCalls: [{ id: "toolu_1", name: "record_note", arguments: TOOL_ARGS }],
+      usage: { input: 5, output: 4 },
+      stop: "tool_calls",
+    },
+  }]);
+  assertEquals(output.outcome.kind, "complete");
+  assertEquals(output.outcome.finish_reason, "tool_use");
+  assertEquals(output.text, "I will record a note.");
+  assertEquals(output.toolCalls, [
+    { id: "toolu_1", name: "record_note", args: TOOL_ARGS },
+  ]);
+});
+
+Deno.test("lophn-agent/harness/provider#R25: text 없는 tool_use 고정 응답도 완성된 tool call이다", async () => {
+  const { output } = await call("anthropic-messages", [{
+    id: "reply",
+    protocol: "messages",
+    reply: {
+      toolCalls: [{ id: "toolu_1", name: "record_note", arguments: TOOL_ARGS }],
+      stop: "tool_calls",
+    },
+  }]);
+  assertEquals(output.outcome.kind, "complete");
+  assertEquals(output.toolCalls.length, 1);
+  assertEquals(output.toolCalls[0].args, TOOL_ARGS);
+});
+
+Deno.test("lophn-agent/harness/provider#R25: text block 뒤 tool_use의 SSE stream은 input_json_delta를 모아 content_block_stop에서 완성된다", async () => {
+  const { output } = await call("anthropic-messages", [sse([
+    'event: message_start\ndata: {"type":"message_start","message":{"usage":{"input_tokens":4}}}\n\n',
+    'event: content_block_start\ndata: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}\n\n',
+    'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Recording."}}\n\n',
+    'event: content_block_stop\ndata: {"type":"content_block_stop","index":0}\n\n',
+    'event: content_block_start\ndata: {"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"toolu_1","name":"record_note","input":{}}}\n\n',
+    'event: content_block_delta\ndata: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":""}}\n\n',
+    'event: content_block_delta\ndata: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"{\\"note\\":\\"hel"}}\n\n',
+    'event: content_block_delta\ndata: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"lo\\",\\"n\\":2}"}}\n\n',
+    'event: content_block_stop\ndata: {"type":"content_block_stop","index":1}\n\n',
+    'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"tool_use"},"usage":{"output_tokens":9}}\n\n',
+    'event: message_stop\ndata: {"type":"message_stop"}\n\n',
+  ])]);
+  assertEquals(output.outcome.kind, "complete");
+  assertEquals(output.text, "Recording.");
+  assertEquals(output.toolCalls, [
+    { id: "toolu_1", name: "record_note", args: TOOL_ARGS },
+  ]);
+});
+
+Deno.test("lophn-agent/harness/provider#R25: thinking block 뒤 두 tool_use의 SSE stream은 둘 다 완성이다", async () => {
+  const { output } = await call("anthropic-messages", [sse([
+    'event: message_start\ndata: {"type":"message_start","message":{"usage":{"input_tokens":4}}}\n\n',
+    'event: content_block_start\ndata: {"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":""}}\n\n',
+    'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"signature_delta","signature":"sig"}}\n\n',
+    'event: content_block_stop\ndata: {"type":"content_block_stop","index":0}\n\n',
+    'event: content_block_start\ndata: {"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"toolu_a","name":"one","input":{}}}\n\n',
+    'event: content_block_delta\ndata: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"{\\"v\\":1}"}}\n\n',
+    'event: content_block_stop\ndata: {"type":"content_block_stop","index":1}\n\n',
+    'event: content_block_start\ndata: {"type":"content_block_start","index":2,"content_block":{"type":"tool_use","id":"toolu_b","name":"two","input":{}}}\n\n',
+    'event: content_block_delta\ndata: {"type":"content_block_delta","index":2,"delta":{"type":"input_json_delta","partial_json":"{\\"w\\":2}"}}\n\n',
+    'event: content_block_stop\ndata: {"type":"content_block_stop","index":2}\n\n',
+    'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"tool_use"}}\n\n',
+    'event: message_stop\ndata: {"type":"message_stop"}\n\n',
+  ])]);
+  assertEquals(output.outcome.kind, "complete");
+  assertEquals(output.toolCalls.map((call) => call.id), ["toolu_a", "toolu_b"]);
+});
+
+Deno.test("lophn-agent/harness/provider#R25: content_block_stop 없이 끊긴 tool_use SSE는 partial이고 tool call을 내지 않는다", async () => {
+  const { output } = await call("anthropic-messages", [sse([
+    'event: message_start\ndata: {"type":"message_start","message":{"usage":{"input_tokens":4}}}\n\n',
+    'event: content_block_start\ndata: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}\n\n',
+    'event: content_block_stop\ndata: {"type":"content_block_stop","index":0}\n\n',
+    'event: content_block_start\ndata: {"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"toolu_1","name":"record_note","input":{}}}\n\n',
+    'event: content_block_delta\ndata: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"{\\"note\\":"}}\n\n',
+    'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"tool_use"}}\n\n',
+    'event: message_stop\ndata: {"type":"message_stop"}\n\n',
+  ])]);
+  assertEquals(output.outcome.kind, "partial");
+  assertEquals(output.toolCalls, []);
+});

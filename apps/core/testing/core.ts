@@ -39,6 +39,8 @@ export type CoreHarnessOptions = {
   teamModules?: readonly string[];
   nowMs?: number;
   seed?: number;
+  // I/O worker를 띄운다. 글·본문을 blob으로 준비하는 command(approval 설명 글 등)를 시험할 때 켠다.
+  io?: boolean;
 };
 
 export type CoreHarness = {
@@ -89,7 +91,7 @@ export async function createCoreHarness(
     clock,
     random: seededRandom(seed),
     testCredentials: true,
-    superviseIo: false,
+    superviseIo: options.io === true,
   });
   if (!started.ok) {
     await Deno.remove(directory, { recursive: true });

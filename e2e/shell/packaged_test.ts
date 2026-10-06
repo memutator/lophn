@@ -8,9 +8,12 @@
 import { strict as assert } from "node:assert";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
-const mainRoot = path.resolve(__dirname, "..", "..", "apps", "shell", "main");
+// ESM이라 __dirname이 없다. 이 파일 자리에서 shell main을 찾는다.
+const here = path.dirname(fileURLToPath(import.meta.url));
+const mainRoot = path.resolve(here, "..", "..", "apps", "shell", "main");
 const stageDir = path.join(mainRoot, "build", "stage");
 const releaseDir = path.join(mainRoot, "release");
 

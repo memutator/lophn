@@ -19,6 +19,8 @@ export type ConfirmationIntent =
     decision: string;
     /** 결정 대상의 고정 ID(예: 되돌릴 run). */
     targets?: string[];
+    automation?: string;
+    requirement?: number;
   }
   | {
     kind: "secret_input";

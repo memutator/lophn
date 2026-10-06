@@ -154,6 +154,7 @@ export function createLedgerRegistration(
       commands.rename,
       grants.create,
       grants.revoke,
+      grants.revokeAutomation,
       confirm.acceptConfirm,
       invocations.recordStarted,
       invocations.recordFinished,

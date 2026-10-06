@@ -12,6 +12,12 @@ import {
   testEvidencePort,
   verificationRecordedVisibility,
 } from "../../packages/problems/tests/mod.ts";
+import {
+  FIX_BLOB_FIELDS,
+  FIX_BLOB_PURPOSES,
+  listProblemFixesRead,
+  recordProblemFixCommand,
+} from "../../packages/problems/repairs/mod.ts";
 import type {
   EventRegistration,
   ReaderRegistration,
@@ -46,6 +52,7 @@ import {
   observeException,
   observeViewError,
   problemClosed,
+  problemFixRecorded,
   problemOpened,
   problemReopened,
   reportProblem,
@@ -119,20 +126,27 @@ const REPORT_BLOB_FIELD_FIELDS = [
 
 export const problemsReportDefinitions = {
   schema: [...REPORTS_SCHEMA_STEPS, ...SNAPSHOTS_SCHEMA_STEPS],
-  blobFields: REPORT_BLOB_FIELD_FIELDS.map(reportBlobField),
-  blobPurposes: REPORT_BLOB_PURPOSES.map((purpose) =>
-    defineBlobPurpose({
-      purpose,
-      max_size_bytes: REPORT_SIZE[purpose],
-    })
-  ),
-  commands: [recordReportCommand],
+  blobFields: [
+    ...REPORT_BLOB_FIELD_FIELDS.map(reportBlobField),
+    ...FIX_BLOB_FIELDS,
+  ],
+  blobPurposes: [
+    ...REPORT_BLOB_PURPOSES.map((purpose) =>
+      defineBlobPurpose({
+        purpose,
+        max_size_bytes: REPORT_SIZE[purpose],
+      })
+    ),
+    ...FIX_BLOB_PURPOSES,
+  ],
+  commands: [recordReportCommand, recordProblemFixCommand],
   reads: [
     listProblemsRead,
     getProblemRead,
     listReportsRead,
     getReportRead,
     getSnapshotRead,
+    listProblemFixesRead,
   ],
   ports: {} as Record<string, TxPortRegistration>,
   workers: reportCollectorWorkers(),
@@ -200,7 +214,7 @@ export function createLedgerRegistration(
 // 만든다(platform/ledger#R15). 정책이 없는 problems event는 숨김이다.
 export function createEventRegistration(): EventRegistration {
   return {
-    events: [verificationRecorded],
+    events: [verificationRecorded, problemFixRecorded],
     visibility: [
       ...problemsTestDefinitions.visibility,
       // notifications 계기(platform/notifications#R1)다. notifications 구독자에게만 연다.
@@ -221,6 +235,7 @@ export function createReaderRegistration(): ReaderRegistration {
       listReportsRead,
       getReportRead,
       getSnapshotRead,
+      listProblemFixesRead,
     ],
     ports: new Map(),
   };

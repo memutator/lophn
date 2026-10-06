@@ -962,6 +962,14 @@ export type PlaceholderKinds = {
   "document.status.version-saved": Record<never, never>;
   "document.title.global-instructions": Record<never, never>;
   "document.title.project-instructions": Record<never, never>;
+  "document.title.app-instructions": Record<never, never>;
+  "confirmation-window.title.revoke-access": {
+    app: "string";
+  };
+  "confirmation-window.revoke.subject": {
+    app: "string";
+  };
+  "confirmation-window.revoke.effect": Record<never, never>;
   "document.title.compare-disk": Record<never, never>;
   "document.title.compare-newest": Record<never, never>;
   "document.title.unsaved": Record<never, never>;

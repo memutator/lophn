@@ -127,10 +127,10 @@ async function runBackup(
 }
 
 // 실제 schema와 무결성만 확인한다. 데이터는 바꾸지 않는다.
-async function runInspect(
+function runInspect(
   ctx: DataJobContext,
   input: DataJobInput,
-): Promise<Result<JobOutcome, DataJobFailure>> {
+): Result<JobOutcome, DataJobFailure> {
   const opened = openAppDatabase(ctx.databasePath);
   if (!opened.ok) {
     return err({
@@ -255,7 +255,7 @@ export async function runDataJob(
   try {
     const resolved: DataJobContext = { ...ctx, databasePath: database.value };
     const outcome = input.kind === "inspect"
-      ? await runInspect(resolved, input)
+      ? runInspect(resolved, input)
       : input.kind === "backup"
       ? await runBackup(resolved, input)
       : input.kind === "migrate"

@@ -419,6 +419,8 @@ confirm command의 흐름이다. confirm=false command는 approval 단계 없이
 
 첫 성공은 run_enabled=true도 함께 확정한다. migration이 없으면 backup/변경 단계는 생략한다. 새 업무 open 전 실패는 새 자식부터 종료 확인한다. 변경이 있었으면 단독 data worker가 첫 변경 전 backup을 restore하고 무결성·schema를 확인하여 `release.record_data_restore` command로 보고한다. `release.fail_activation`은 이전 active 참조와 실패 근거를 유지한다. 복원 성공 뒤만 이전 앱을 다시 준비한다. 복원이 실패하거나 모르면 unavailable이다.
 
+진행의 주체는 core 조립(`apps/core/apps-activation.ts`)이다. approval 적용으로 시작한 시도를 sweep이 이어받아 `runActivation`을 돌리고, core가 다시 떴거나 단계가 끊겨 끝내지 못한 시도는 `recoverActivation`이 ledger와 실제 관측에서 이어받는다. supervisor는 단계의 실제 일만 한다: 앱을 붙들고 이전 자식의 종료를 확인(`apps.activation_pause`), 후보를 준비 모드로 시작해 검사만 확인(`prepare`), commit 뒤 통로를 열고 시작을 알림(`open`), 붙들기 해제(`resume`), 앱 전용 data worker 작업(`apps.data_job`: inspect·backup·migrate·restore). ledger 확정은 core 내부 machine 자격의 command다. backup byte는 core가 blob 준비 통로로 흘려 보호 blob이 되고 core는 앱 DB를 열지 않는다. 운영 DesiredApp은 같은 sweep이 활성 release의 봉인 사본과 선언 ∩ active grant에서 푼 permission(`bundleFlags`)으로 만들어 알린다.
+
 ### 7.5 automation 회차
 
 ```text

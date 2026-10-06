@@ -18,7 +18,12 @@ import type {
   FormatRef,
   PreparedVersion,
 } from "../../contracts/documents/mod.ts";
-import { BUILTIN_MODULE_HASH, formatForMediaType } from "../formats/mod.ts";
+import {
+  BUILTIN_MODULE_HASH,
+  CHECK_SKIPPED_CODE,
+  formatForMediaType,
+} from "../formats/mod.ts";
+import { existingFileSource } from "./commands.ts";
 import type { VersionRow } from "./store.ts";
 
 // prepare worker가 파일 목록 검사를 부르는 정본(file-tracking의 T8 몫).
@@ -142,6 +147,33 @@ function invalidIssues(issues: readonly FileListIssue[]): PrepareError {
   };
 }
 
+// 이 준비가 이미 받아들인 판의 restore인지. 모든 파일이 같은 판의 원문 blob 참조(`existing`)
+// 이고 그 판의 파일 목록 hash·정확한 FormatRef와 같으면, 그 내용은 이 FormatRef 아래 이미
+// 저장돼 있다. 판을 읽지 못하거나(권한 밖 포함) 하나라도 다르면 restore가 아니다.
+async function restoresAcceptedVersion(
+  request: PrepareRequest,
+  format: FormatRef,
+  filesHash: string,
+  deps: PrepareDeps,
+): Promise<boolean> {
+  let version: string | undefined;
+  for (const file of request.files) {
+    if (file.content.kind !== "existing") return false;
+    const source = existingFileSource(file.content.reference);
+    if (source === undefined || source.path !== file.path) return false;
+    if (version !== undefined && version !== source.version) return false;
+    version = source.version;
+  }
+  if (version === undefined) return false;
+  const base = await deps.loadBaseVersion(version);
+  if (!base.ok || base.value === null) return false;
+  const row = base.value;
+  return row.files_hash === filesHash &&
+    row.format.name === format.name &&
+    row.format.module_hash === format.module_hash &&
+    row.format.explicit === format.explicit;
+}
+
 export function createPrepareAssembly(deps: PrepareDeps) {
   return async function prepare(
     request: PrepareRequest,
@@ -187,8 +219,15 @@ export function createPrepareAssembly(deps: PrepareDeps) {
     const outcome = validated.value;
 
     // 구조 진단은 미지정 계약에서 warning으로 내려간다. 나머지는 그대로 남는다.
+    // 검사 한도를 넘어 검사를 하지 못한 것(check_skipped)은, 이미 이 FormatRef로 저장된 판을
+    // 되돌리는 restore에서만 warning이다(새 바이트의 명시 format 저장은 거절 그대로다).
+    const restoring = format.explicit &&
+      outcome.diagnostics.some((d) => d.code === CHECK_SKIPPED_CODE) &&
+      await restoresAcceptedVersion(request, format, filesHash, deps);
     const diagnostics = outcome.diagnostics.map((diagnostic) =>
-      recastDiagnostic(diagnostic, implicit)
+      restoring && diagnostic.code === CHECK_SKIPPED_CODE
+        ? { ...diagnostic, severity: "warning" as const }
+        : recastDiagnostic(diagnostic, implicit)
     );
     const errorCount = diagnostics.filter((d) => d.severity === "error").length;
     const warningCount =

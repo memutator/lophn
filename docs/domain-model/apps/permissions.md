@@ -54,14 +54,19 @@ kind별 아래 구조 중 하나만 허용한다. unknown field는 거절한다.
 | `key` | 문자열 | 아니오(document.save) | 같은 고정 blueprint의 documents.key | 자기 앱 place 문서 |
 | `app` | `app` ID | 아니오(app.call) | → apps/registration; Grant.app과 다름 | 호출 대상 앱 |
 | `commands` | 문자열[] | 아니오(app.call/agent.commands) | 비어 있지 않음; 정렬·중복/wildcard 금지; 정확한 command key | 허락 command 목록 |
+| `automation` | 문자열 | 아니오(automation.run) | 현재 blueprint automatic_tasks의 key | 켜는 automation |
+| `command` | 문자열 | 아니오(automation.run) | 그 automation이 부르는 command key | 고정 command |
+| `input_hash` | sha256 | 아니오(automation.run) | default를 채운 정규 입력의 sha256 | 고정 입력 |
+| `when` | `{kind:"on_start"}` / `{kind:"interval",interval_ms}` | 아니오(automation.run) | 현재 선언과 같음; interval_ms 60000 이상 | 켠 주기 |
 
-Permission kind는 `fs.read`, `fs.write`, `net.fetch`, `net.listen`, `secret.use`, `document.save`, `app.call`, `agent.commands`다. fs.write는 fs.read를 암묵적으로 포함하지 않는다. 하위 범위 판정은 실제 경로와 descendant 관계이며 문자열 prefix 판정은 금지다.
+Permission kind는 `fs.read`, `fs.write`, `net.fetch`, `net.listen`, `secret.use`, `document.save`, `app.call`, `agent.commands`, `automation.run`이다. fs.write는 fs.read를 암묵적으로 포함하지 않는다. 하위 범위 판정은 실제 경로와 descendant 관계이며 문자열 prefix 판정은 금지다.
 
 ## Command grant 범위 (값)
 
 - `kind=app.call`: Grant.app은 caller, scope는 `{app:target,commands:[key...]}`다. 현재 caller blueprint.app_connections와 교집합이며 target의 현재 command 목록 안에서만 호출한다. 반대 방향과 재위임은 없다(→ apps/connections).
 - `kind=agent.commands`: Grant.app은 target, scope는 `{commands:[key...]}`다. caller는 lophn agent이며 coding_agent는 포함하지 않는다. 역할별 허락을 새 grant에 복제하지 않고 역할·assignment 범위와 교집합으로 계산한다(→ lophn-agent/harness/tools).
 - lophn 역할의 사람이 연 앱 command, 담당 App Engineer의 read/지원 write, Operator의 승인 read 등 역할 노출은 → lophn-agent/roles다. 앱별 허락이 그 범위를 확장하지 않는다.
+- `kind=automation.run`: Grant.app은 automation을 가진 앱, scope는 `{automation,command,input_hash,when}`다. 현재 blueprint의 external automation 선언과 네 값이 정확히 같을 때만 grant.create가 받고, 선언이 바뀌면 옛 grant는 교집합에서 빠진다. 켜기는 approval로 grant.create, 끄기는 사람의 grant.revoke다. 앱 clock은 회차마다 broker에서 active grant를 확인하므로 끄는 데 프로세스 종료·재시작이 필요 없고 다음 회차부터 막힌다(→ apps/automations#R13). external이 아닌 automation은 grant 없이 앱 실행 허용을 따른다.
 - 새 command key는 옛 grant에 자동 포함하지 않는다. 기존 key의 input/effect/confirm/revert 변화는 현재 blueprint와 현재 판정을 따르며 호출별 승인 대상을 바꿀 수 없다.
 
 ## SecretUseContext (값)
@@ -95,8 +100,10 @@ Permission kind는 `fs.read`, `fs.write`, `net.fetch`, `net.listen`, `secret.use
 
 | command | actor | 입력 | 비교 기준 | event | 거절(error code) |
 |---|---|---|---|---|---|
-| `grant.create` | machine | app,kind,scope,approval | 정확한 approval·현재 요구(app.call은 app_connections, agent.commands는 commands)·grant 집합 seq; activation 없음 | `GrantCreated` | `forbidden`, `invalid_input`, `conflict` |
-| `grant.revoke` | user | grant,종료 확인 근거 | Grant 최신 seq·현재 프로세스 종료·activation 없음 | `GrantRevoked` | `conflict`, `unavailable` |
+| `grant.create` | machine | app,kind,scope,approval | 정확한 approval·현재 요구(app.call은 app_connections, agent.commands는 commands, automation.run은 external automation 선언)·앱의 grant 집합 seq; activation 없음 | `GrantCreated` | `forbidden`, `invalid_input`, `conflict` |
+| `grant.revoke` | user | grant,종료 확인 근거 | 앱의 grant 집합 seq·현재 프로세스 종료(automation.run은 제외)·activation 없음 | `GrantRevoked` | `conflict`, `unavailable` |
+
+grant 집합 seq는 그 앱의 grant에 마지막으로 남은 GrantCreated·GrantRevoked event의 seq(없으면 0)다. grant.create와 revoke가 같은 값으로 비교하고 activation도 시작 때 이 값을 고정한다. 종료 확인 근거는 그 앱의 마지막 프로세스 사실(AppStarted·AppStopped)로 판정한다: 한 번도 시작하지 않았거나 마지막이 AppStopped면 이미 멈춘 것이고, 마지막이 AppStarted면 입력의 process_nonce가 그 nonce와 같고 termination_confirmed가 true일 때만 revoked로 확정한다. 나머지는 unavailable이고 grant는 active로 남는다. 범위 밖 앱·없는 grant·이미 회수한 grant는 같은 `conflict`로 답한다.
 
 secret 사용은 ledger 변경 command가 아니다. 플랫폼 전달기가 현재 선언·grant·mode를 검사하고 → platform/secrets의 전달 경계를 사용한다.
 
@@ -117,6 +124,7 @@ secret 사용은 ledger 변경 command가 아니다. 플랫폼 전달기가 현�
 - **전달.** argv·환경 변수·화면·agent 응답·invocation·event·공통 blob에 secret 값을 넣지 않는다. redaction 등록 실패면 전달하지 않는다. destination 변경 redirect는 재검사한다.
 - **회수.** secret 교체·삭제는 사용 앱을 재시작한다. 이미 일어난 업무 쓰기·외부 요청의 취소를 뜻하지 않는다.
 - **조합 검사.** fs.read와 net.fetch 동시 요구는 외부 전송 조합 경고 대상이며 grant 자체를 자동 허락하지 않는다.
+- **grant 표시 자료.** `grants.list`는 앱을 지정하면 현재 release 선언을 아는 경우에 한해 `display`를 함께 낸다: 요구별 kind·정규 scope·reason·granted(같은 정규 scope의 active grant 유무)·경고 key, 조합 경고, Deno 한계 문구 key(`permissions.limit.*`). 선언을 모르면 null이다. read는 파일 I/O를 하지 않으므로 폴더 밖 link 검사는 부여 준비가 한다.
 
 - **command 허락.** app.call·agent.commands는 기본 0이다. Deno flag가 아니라 서명된 AppConnection의 명령 범위로 강제한다. app.call은 필요한 target direct socket만 source에 추가한다. 연결 준비 뒤 요청/응답은 직접 전송한다.
 - **관련 프로세스.** app.call 변경/회수는 source 자식 종료 확인 뒤 적용한다. target의 release/command/permission 경계 교체도 관련 source 연결을 닫고 source 자식을 새 연결 범위로 재시작한다. agent.commands 변경/회수는 target 자식 종료 확인 뒤 새 nonce로 적용한다. 다른 app.call/agent 연결도 옛 nonce를 쓸 수 없다. 종료 미확인은 회수 진행 중이다.

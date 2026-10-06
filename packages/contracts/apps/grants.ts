@@ -8,12 +8,17 @@ import {
   seqSchema,
   withReadCommon,
 } from "../platform/mod.ts";
+import { releaseIdSchema } from "./apps.ts";
 import {
   appIdSchema,
   approvalIdSchema,
   grantIdSchema,
 } from "./channel-values.ts";
-import { permissionKindSchema, permissionScopeSchema } from "./permissions.ts";
+import {
+  permissionKindSchema,
+  permissionRequirementSchema,
+  permissionScopeSchema,
+} from "./permissions.ts";
 
 export const GRANT_STATES = ["active", "revoked"] as const;
 export const grantStateSchema = z.enum(GRANT_STATES);
@@ -126,8 +131,63 @@ export const grantsListInputSchema = z.strictObject({
   cursor: z.string().min(1).optional(),
   limit: z.number().int().min(1).max(GRANT_LIST_MAX_COUNT).optional(),
 });
+
+// confirmation window가 grant 결정 앞에서 보여 주는 자료의 경고 key(apps/permissions#R6, R24).
+// 문구 본문은 design wording catalog의 몫이다.
+export const GRANT_WARNING_KEYS = [
+  "permissions.warning.file-read-and-network",
+  "permissions.warning.outside-link",
+] as const;
+export const grantWarningKeySchema = z.enum(GRANT_WARNING_KEYS);
+export type GrantWarningKey = z.infer<typeof grantWarningKeySchema>;
+
+const displayKindSchema = z.enum([
+  "fs.read",
+  "fs.write",
+  "net.fetch",
+  "net.listen",
+  "secret.use",
+  "document.save",
+]);
+
+// 현재 release가 선언한 요구 하나와 같은 정규 scope의 active grant가 있는지.
+// outside_links는 파일 검사(부여 준비)가 채운다. read는 파일 I/O를 하지 않아 빈 목록이다.
+export const grantRequirementDisplaySchema = z.object({
+  kind: displayKindSchema,
+  scope: permissionRequirementSchema.shape.scope,
+  reason: z.string().min(1),
+  granted: z.boolean(),
+  warnings: z.array(grantWarningKeySchema),
+  outside_links: z.array(z.string().min(1)),
+});
+export type GrantRequirementDisplay = z.infer<
+  typeof grantRequirementDisplaySchema
+>;
+
+export const grantCombinationWarningSchema = z.object({
+  key: grantWarningKeySchema,
+  kinds: z.array(displayKindSchema).min(1),
+});
+export type GrantCombinationWarning = z.infer<
+  typeof grantCombinationWarningSchema
+>;
+
+// grant 결정의 표시 자료(apps/permissions#R24, R25). 요구·reason·정규 scope·조합 경고·
+// Deno 한계 문구 key만 담고 grant를 자동으로 만들지 않는다.
+export const grantDisplaySchema = z.object({
+  app: appIdSchema,
+  release: releaseIdSchema,
+  requirements: z.array(grantRequirementDisplaySchema),
+  combination_warnings: z.array(grantCombinationWarningSchema),
+  limit_keys: z.array(z.string().min(1)),
+});
+export type GrantDisplay = z.infer<typeof grantDisplaySchema>;
+
+// display는 app을 지정했고 그 앱의 현재 release 선언을 알 때만 있다. 그 밖에는 null이다.
+// 필드를 모르는 옛 소비자는 무시하므로 additive다.
 export const grantsListOutputSchema = withReadCommon(z.object({
   grants: z.array(grantSchema),
+  display: grantDisplaySchema.nullable().optional(),
 }));
 export const grantsList = defineRead({
   resource: "grants",

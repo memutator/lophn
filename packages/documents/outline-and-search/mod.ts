@@ -57,3 +57,14 @@ export type {
 } from "./types.ts";
 export { allowCandidate, candidateDocuments } from "./candidates.ts";
 export { createSeriesOutlineRead } from "./series-outline.ts";
+export {
+  type ComparedVersion,
+  compareSectionKey,
+  compareSections,
+  type SectionChange,
+  type SectionChangeStatus,
+  type SectionComparison,
+  sectionHistory,
+  type SectionSide,
+  type SectionSnapshot,
+} from "./model.ts";

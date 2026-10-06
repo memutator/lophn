@@ -342,6 +342,7 @@ function rig(options: { names?: readonly string[] } = {}) {
         session: null,
         role: "lophn" as const,
         original_message: id("msg", 1),
+        assignment: "asg_01arz3ndektsv4rrffq69g5fav",
       })),
   };
   const handlers = createBuiltinToolHandlers(ports);

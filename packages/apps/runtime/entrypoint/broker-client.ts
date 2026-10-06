@@ -45,6 +45,15 @@ export function createBrokerClient(deps: {
     }) {
       return post(BROKER_PATHS.invocationsSubmit, body);
     },
+    // automation 회차 permit. 신원은 연결이 정하고 release·key만 본문에 싣는다.
+    tryAcquireAutomation(body: { release: string; key: string }) {
+      return post(BROKER_PATHS.automationsTryAcquire, body);
+    },
+    releaseAutomation(
+      body: { release: string; key: string; invocation: string },
+    ) {
+      return post(BROKER_PATHS.automationsRelease, body);
+    },
   };
 }
 

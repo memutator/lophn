@@ -13,6 +13,7 @@ import {
   type WebContents,
   WebContentsView,
 } from "electron";
+import { randomBytes, randomUUID } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
@@ -27,6 +28,11 @@ import {
 } from "../../ipc/shortcuts.ts";
 
 import { electronOverlays } from "../app-frame/electron-overlay.ts";
+import { electronAppViews } from "../app-frame/electron-app-frame.ts";
+import { createAppConnector } from "../app-frame/app-connection.ts";
+import { nodeUpstream } from "../app-frame/app-protocol.ts";
+import { createViewDiagnostics } from "../app-frame/diagnostics.ts";
+import { createAppFrame } from "../app-frame/registry.ts";
 import { startCoreConnection } from "./core/connection.ts";
 import { nodeFetch, nodeSockets, nodeStreamFetch } from "./core/node-io.ts";
 import {
@@ -80,7 +86,7 @@ import {
   OS_NOTIFICATIONS_KEY,
   type OsNotifier,
 } from "./os-notification.ts";
-import { registerShellScheme } from "./security.ts";
+import { registerViewSchemes } from "./security.ts";
 import { listenShortcuts } from "./shortcuts.ts";
 import { startSingleInstance } from "./single-instance.ts";
 import { createShellHandler, DESKTOP_URL } from "./shell-protocol.ts";
@@ -176,8 +182,73 @@ const core = startCoreConnection({
       send: (channel, payload) => window.webContents.send(channel, payload),
       isDestroyed: () => window.isDestroyed(),
     })),
-  arrived: (events) => void osNotifications.arrived(events),
+  arrived: (events) => {
+    void osNotifications.arrived(events);
+    refreshAppViews(events);
+  },
 });
+
+// 앱 view registry(shell#T37). 연결은 core 앱 통로로 main이 얻고, view는 앱 preload만 갖는다.
+// 붙이기·숨기기 IPC와 renderer 연결은 shell#T39가 이 registry에 잇는다.
+const appViews = electronAppViews({
+  windowOf: (ref) =>
+    [...windows].find((window) =>
+      !window.isDestroyed() && windowRef(window) === ref
+    ),
+  // build가 앱 preload를 같은 dist에 .cjs로 낸다.
+  preload: join(here, "preload-app.cjs"),
+  packaged: app.isPackaged,
+  headless,
+  raise: (window) => overlays.raise(window),
+});
+const appFrame = createAppFrame({
+  connector: createAppConnector((kind, resource, method, body) => {
+    const session = core.session();
+    return session
+      ? session.internal(kind, resource, method, body)
+      : Promise.resolve({
+        ok: false,
+        error: { code: "unavailable", message: "core is not ready" },
+      });
+  }),
+  views: appViews.views,
+  sessionHandle: appViews.sessionHandle,
+  upstream: nodeUpstream,
+  // 앱 view가 loopback으로 core API에 닿지 못하게 한다. 부여된 host여도 막는다.
+  platformPorts: () => {
+    const session = core.session();
+    return session ? [session.apiPort] : [];
+  },
+  diagnostics: createViewDiagnostics({
+    send: (message) => core.diagnostic(message),
+    log,
+    clock: { nowIso: () => new Date().toISOString() },
+  }),
+  ids: {
+    viewSession: () => `view-${randomUUID()}`,
+    token: () => randomBytes(32).toString("base64url"),
+  },
+  clock: { nowMs: () => Date.now() },
+});
+
+function windowRef(window: BrowserWindow): string {
+  return `window-${window.id}`;
+}
+
+// 권한·release가 바뀌면 옛 view와 연결을 버리고 다시 연다. release event는 앱을 싣지 않아
+// 모든 view의 연결을 다시 본다.
+function refreshAppViews(
+  events: readonly { type: string; payload: unknown }[],
+): void {
+  for (const event of events) {
+    if (event.type === "GrantCreated" || event.type === "GrantRevoked") {
+      const app = (event.payload as { app?: unknown }).app;
+      if (typeof app === "string") void appFrame.refresh(app);
+    } else if (event.type === "ReleaseActivated") {
+      void appFrame.refresh();
+    }
+  }
+}
 const terminals = createSupervisor({
   // build가 host를 main과 같은 dist에 묶는다. 생성만 하고 첫 요청 때 띄운다.
   entry: join(here, "terminal-host.cjs"),
@@ -278,6 +349,7 @@ function stopAll(): void {
   );
   ipcMain.removeHandler(FOLDER_PICK_CHANNEL);
   removeEditorIpc(editorIpc);
+  appFrame.dispose();
   terminals.stop();
   core.shutdown();
   overlays.dispose();
@@ -333,7 +405,7 @@ const autostartOs: AutostartOs = {
 
 // session이 생기기 전에 userData를 잡아야 Chromium 저장이 데이터 root 안에 있다.
 app.setPath("userData", browserDataPath(dataRoot));
-registerShellScheme(protocol);
+registerViewSchemes(protocol);
 
 const instance = startSingleInstance({
   app,
@@ -598,9 +670,11 @@ function openDesktopWindow(): BrowserWindow | undefined {
             },
           },
         );
+        const ref = windowRef(window);
         window.on("closed", () => {
           closeGuards.remove(contentsId);
           fileAdapter.dropOwner(contentsId);
+          appFrame.closeWindow(ref);
         });
         window.on("focus", () => {
           windows.delete(window);

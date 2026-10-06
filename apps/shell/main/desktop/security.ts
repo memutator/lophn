@@ -12,14 +12,21 @@ export interface SchemeRegistry {
   registerSchemesAsPrivileged(schemes: SchemePrivilege[]): void;
 }
 
-/** session을 만들기 전에 한 번. shell scheme만 등록한다. */
-export function registerShellScheme(protocol: SchemeRegistry): void {
-  protocol.registerSchemesAsPrivileged([
-    {
-      scheme: SHELL_SCHEME,
+// shell 설치 파일, 앱 화면, 격리 문서. service worker·CORS 우회·CSP 우회 권한은 주지 않는다
+// (앱 service worker가 옛 release의 byte를 대신 내주지 못하게 한다).
+export const VIEW_SCHEMES = [SHELL_SCHEME, "lophn-app", "lophn-document"];
+
+/**
+ * session을 만들기 전에 한 번. Electron은 이 호출을 한 번만 받으므로 세 scheme을 함께
+ * secure·standard·fetch 지원으로 등록한다(architecture/shell 5.2).
+ */
+export function registerViewSchemes(protocol: SchemeRegistry): void {
+  protocol.registerSchemesAsPrivileged(
+    VIEW_SCHEMES.map((scheme) => ({
+      scheme,
       privileges: { standard: true, secure: true, supportFetchAPI: true },
-    },
-  ]);
+    })),
+  );
 }
 
 /** 격리 기본값. 창과 view가 같은 값을 쓰도록 여기 하나만 둔다. */

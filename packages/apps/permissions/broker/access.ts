@@ -3,6 +3,7 @@
 // 요청마다 다시 받으므로 회수는 다음 사용부터 거절된다(R14). 여기서 IO는 하지 않는다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { hostOf } from "../../../contracts/apps/blueprint-scope.ts";
+import type { AutomationDeclarationFact } from "../declarations.ts";
 import type { EffectiveScope } from "../effective.ts";
 import type { BrokerChild } from "./invocations.ts";
 
@@ -13,6 +14,8 @@ export type AccessState = {
   commands: readonly string[];
   // 현재 release가 선언한 problem code.
   problemCodes: readonly string[];
+  // 현재 release가 선언한 automation. external 여부와 고정 입력 hash를 포함한다.
+  automations: readonly AutomationDeclarationFact[];
 };
 
 export interface BrokerAccess {
@@ -23,7 +26,8 @@ export interface BrokerAccess {
 export type Permission =
   | "net.fetch"
   | "secret.use"
-  | "document.save";
+  | "document.save"
+  | "automation.run";
 
 // 거절은 필요한 permission 이름과 scope를 알린다(apps/sdk#R23). 선언 밖이든 grant 밖이든
 // 같은 모양이라 어느 쪽이 빠졌는지를 앱 코드가 추측할 수 없다.

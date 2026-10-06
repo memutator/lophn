@@ -758,6 +758,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
     반영(변경·무변경·충돌), 범위 version·미설치 version·조용한 upgrade 거절, 두
     번 추가해도 중복 없음(mcp#R23, cli#R30)
   - 개인 SDK는 지원 범위 밖으로 구별해 표시
+- apps#T22에서 넘어온 것: `add`가 앱 deno.json의 import map을 고칠 때 `buildImportMap`(`packages/apps/sdk`)이 같은 결과를 내야 한다(설치 사본의 `@lophn/*`·npm import를 따라간 정확한 pin). 바꾼 뒤 개발용 map(`.lophn/import-map.json`, `devImportMap`)과 deno.lock도 다시 만든다
   - 구현 메모(T22):
     - 흐름은 `connection/sdk-ops.ts` 하나를 MCP `lophn_sdk`와 CLI `sdk …`가 같이 지난다.
       통로 입력에 catalog `query`, show `version`, add `apply`·`app`을 더했다
@@ -775,7 +776,6 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
       source용 함수를 내면 `planImportMap`을 그것으로 바꾼다.
     - 이어보냄: CLI `runSdk`의 dispatch 배선과 실제 source port(파일 쓰기·`deno install`로
       lock 재생성) → T36. 안내 원문(API·type·permission·peer·예제) 읽기 → Q33.
-- apps#T22에서 넘어온 것: `add`가 앱 deno.json의 import map을 고칠 때 `buildImportMap`(`packages/apps/sdk`)이 같은 결과를 내야 한다(설치 사본의 `@lophn/*`·npm import를 따라간 정확한 pin). 바꾼 뒤 개발용 map(`.lophn/import-map.json`, `devImportMap`)과 deno.lock도 다시 만든다
 
 ### T23 blueprint 유래 앱 read tool
 

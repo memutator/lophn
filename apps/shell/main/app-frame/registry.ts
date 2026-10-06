@@ -2,7 +2,8 @@
 // 앱 통로로 main이 얻고 view에 묶으며, 페이지가 주장한 앱·release·actor는 받을 자리가 없다
 // (shell/app-frame#R12, R19). 실제 붙이기·숨기기·폐기는 이 모듈만 하고 같은 view_session과
 // generation으로 진단을 남긴다(R22). view가 있다는 것만으로 권한이 생기지 않는다(R20): view는
-// main이 얻은 연결의 screen·size 안에서만 화면을 받고 command 범위는 없다.
+// main이 얻은 연결의 screen·size 안에서만 화면을 받고 command 범위는 없다. command는
+// `app:call`(app-call.ts)이 이 view의 신원으로 따로 얻은 연결로만 부른다.
 import {
   appEntryUrl,
   type ProtocolView,
@@ -48,6 +49,14 @@ export type ConnectionState =
   | "stopped"
   | "running"
   | "unavailable";
+
+/** IPC를 보낸 view. main이 정한 신원과 연결만 싣고 페이지 주장은 없다(R12). */
+export interface BoundView {
+  view_session: string;
+  generation: number;
+  target: ConnectTarget;
+  binding: AppBinding;
+}
 
 export interface AppFrameViewState {
   view_session: string;
@@ -477,6 +486,20 @@ export function createAppFrame(deps: AppFrameDeps) {
           .filter((entry) => app === undefined || entry.target.app === app)
           .map(refreshEntry),
       );
+    },
+
+    /** webContents id로 지금 살아 있는 view를 찾는다. 폐기·교체된 contents는 없다. */
+    senderView(contentsId: number): BoundView | undefined {
+      const entry = byContents.get(contentsId);
+      if (entry === undefined || entries.get(entry.view_session) !== entry) {
+        return undefined;
+      }
+      return {
+        view_session: entry.view_session,
+        generation: entry.generation,
+        target: { ...entry.target },
+        binding: entry.binding,
+      };
     },
 
     state(view_session: string): AppFrameViewState | undefined {

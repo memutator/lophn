@@ -1,3 +1,8 @@
+import {
+  type UpdateNotice,
+  updateNotice,
+  type UpdatePackage,
+} from "../../packages/platform/install-and-update/mod.ts";
 import { systemClock } from "../../packages/base/clock.ts";
 import { cryptoRandom } from "../../packages/base/random.ts";
 import type { Clock, RandomSource, Result } from "../../packages/base/mod.ts";
@@ -324,6 +329,12 @@ export type Core = {
   done: Promise<void>;
   // 새 command 입장을 닫고 연 것을 정리한 뒤 lock을 푼다(ledger R21).
   shutdown(): Promise<void>;
+  // 신뢰 main용 안내·정지 입구다. HTTP command나 자동 update 경로가 아니다.
+  updateNotice(
+    installedVersion: string,
+    candidate: UpdatePackage,
+  ): Result<UpdateNotice>;
+  stopForUpdate(): Promise<Result<void>>;
   record(context: AuthenticatedContext): Promise<Result<void>>;
   // 신뢰 프로세스의 blob.prepare 호출. HTTP route가 아니다(Q6).
   // I/O worker가 설치하고 writer 메모리에 준비 참조를 남긴 뒤에 끝난다.
@@ -1738,6 +1749,8 @@ async function open(
     )
     : Promise.resolve(ok(undefined));
   let stopped = false;
+  let normallyStopped = false;
+  let shutdownRun: Promise<void> | undefined;
   // restore가 정지 단계에서 할 일과 그 결과. 한 번에 하나만 받는다.
   let restoring = false;
   let pendingRestore:
@@ -1848,89 +1861,118 @@ async function open(
         message: "복원을 시작하지 못했다",
       });
     },
-    async shutdown() {
-      if (stopped) return;
-      stopped = true;
-      // 종료 순서(architecture 7.5): 새 command·prepare 입장 닫기 → 입장한
-      // 짧은 command 확정 또는 실패 → child 정상 정지 → writer 닫기.
-      // 정지 유지보수(T44)는 이 세 조건이 실제로 끝난 뒤에만 돈다. 앞 단계가
-      // 예외를 던져도 metadata 정리와 lock 해제는 그대로 실행한다.
-      const stoppedAt: {
-        preparationsBlocked: boolean;
-        commandsBlocked: boolean;
-        writerStopped: boolean;
-      } = {
-        preparationsBlocked: false,
-        commandsBlocked: false,
-        writerStopped: false,
-      };
+    updateNotice(installedVersion, candidate) {
+      return updateNotice({
+        installedVersion,
+        installedSchema: schemaSteps.length,
+        os: Deno.build.os,
+        candidate,
+      });
+    },
+    async stopForUpdate() {
       try {
-        // 새 입장을 먼저 닫는다. 이미 입장한 command는 writer가 확정 또는 실패로 마친다.
-        ready = false;
-        documentsFeed.stop();
-        // 진행 중인 notification 생성은 writer가 닫히기 전에 끝난다.
-        await notifications.stop();
-        rootsWatch?.stop();
-        respawnStop?.();
-        basisSync?.stop();
-        searchSync?.stop();
-        watchSync?.stop();
-        closeChildBlob?.();
-        closeCollectorBlob?.();
-        // main 연결이 끊기면 그 main의 relay 값을 모두 disconnected로 바꾼다(T57).
-        runtime?.memory.disconnect();
-        // server.stop은 받은 요청이 끝나기를 기다린 뒤 listen을 닫는다. 그 뒤에야
-        // 새 command 입장이 실제로 닫힌 것이다.
-        await server.stop();
-        if (options.failShutdown) await options.failShutdown();
-        stoppedAt.commandsBlocked = ready === false;
-        // 앱 supervisor가 먼저 앱 자식을 정지한다. 그 뒤 질의 통로를 닫는다.
-        appsControl.stop();
-        if (appsSupervision) await appsSupervision.stopAll();
-        // child 정상 정지. stopAll이 돌아온 뒤에야 새 blob 준비 접수가 없다.
-        if (io) await io.stopAll();
-        stoppedAt.preparationsBlocked = true;
-        stopPrune.run?.();
-        await stopPrune.bootstrap?.();
-        // writer Worker와 reader 연결을 닫는다. close가 돌아온 뒤에야 writer가 멈춘 것이다.
-        await runtime?.close();
-        stoppedAt.writerStopped = true;
-        // 세 조건이 모두 관측될 때만 유지보수를 부른다. 파일 작업과 blob_refs
-        // 읽기는 core graph 밖 프로세스의 몫이다(responsiveness#R1). 관측을
-        // 못 하면 건너뛰고(fail-closed), 시간 제한을 넘기면 그 프로세스만
-        // 끝내고 종료를 계속한다. 실패는 diagnostics 로그만 남긴다.
-        if (pendingRestore !== undefined) {
-          // restore는 같은 정지 조건 위에서만 돈다. 이번 종료에는 blob GC를 하지 않는다.
-          restoreResult = await runStoppedRestore({
-            dataRoot: root.path,
-            ledgerPath,
-            request: pendingRestore,
-            conditions: stoppedAt,
-            supportedSchema: schemaSteps.length,
-            nowIso: clock.now(),
-            timeoutMs: options.restoreTimeoutMs,
-          });
-        } else if (
-          stoppedAt.preparationsBlocked && stoppedAt.commandsBlocked &&
-          stoppedAt.writerStopped
-        ) {
-          await runStoppedMaintenance({
-            dataRoot: root.path,
-            ledgerPath,
-            conditions: stoppedAt,
-            fields: retentionRules(assembled.value.blobFields),
-            nowMs: clock.nowMs(),
-            timeoutMs: options.maintenanceTimeoutMs,
-            run: options.maintenance,
-          });
-        }
-      } finally {
-        try {
-          await removeRunMetadata(root.run);
-        } finally {
-          await lock.release();
-        }
+        await core.shutdown();
+      } catch {
+        return err({
+          code: "unavailable",
+          message: "정상 정지를 확인하지 못해 설치 파일 교체로 넘어갈 수 없다",
+        });
       }
+      return normallyStopped
+        ? ok(undefined)
+        : err({ code: "unavailable", message: "정상 정지가 미확인이다" });
+    },
+    shutdown() {
+      // 같은 시각의 두 종료 요청도 실제 종료가 끝날 때까지 같은 barrier를 기다린다.
+      return shutdownRun ??= (async () => {
+        if (stopped) return;
+        stopped = true;
+        // 종료 순서(architecture 7.5): 새 command·prepare 입장 닫기 → 입장한
+        // 짧은 command 확정 또는 실패 → child 정상 정지 → writer 닫기.
+        // 정지 유지보수(T44)는 이 세 조건이 실제로 끝난 뒤에만 돈다. 앞 단계가
+        // 예외를 던져도 metadata 정리와 lock 해제는 그대로 실행한다.
+        const stoppedAt: {
+          preparationsBlocked: boolean;
+          commandsBlocked: boolean;
+          writerStopped: boolean;
+        } = {
+          preparationsBlocked: false,
+          commandsBlocked: false,
+          writerStopped: false,
+        };
+        try {
+          // 새 입장을 먼저 닫는다. 이미 입장한 command는 writer가 확정 또는 실패로 마친다.
+          ready = false;
+          documentsFeed.stop();
+          // 진행 중인 notification 생성은 writer가 닫히기 전에 끝난다.
+          await notifications.stop();
+          rootsWatch?.stop();
+          respawnStop?.();
+          basisSync?.stop();
+          searchSync?.stop();
+          watchSync?.stop();
+          closeChildBlob?.();
+          closeCollectorBlob?.();
+          // main 연결이 끊기면 그 main의 relay 값을 모두 disconnected로 바꾼다(T57).
+          runtime?.memory.disconnect();
+          // server.stop은 받은 요청이 끝나기를 기다린 뒤 listen을 닫는다. 그 뒤에야
+          // 새 command 입장이 실제로 닫힌 것이다.
+          await server.stop();
+          if (options.failShutdown) await options.failShutdown();
+          stoppedAt.commandsBlocked = ready === false;
+          // 앱 supervisor가 먼저 앱 자식을 정지한다. 그 뒤 질의 통로를 닫는다.
+          appsControl.stop();
+          const appsStopped = appsSupervision
+            ? await appsSupervision.stopAll()
+            : true;
+          // stop 요청과 실제 정지 확인은 다르다. unconfirmed이면 update barrier와
+          // 정지 유지보수는 fail-closed로 남긴다(P11).
+          const ioStopped = io ? await io.stopAll() : true;
+          stoppedAt.preparationsBlocked = appsStopped && ioStopped;
+          stopPrune.run?.();
+          await stopPrune.bootstrap?.();
+          // writer Worker와 reader 연결을 닫는다. close가 돌아온 뒤에야 writer가 멈춘 것이다.
+          await runtime?.close();
+          stoppedAt.writerStopped = true;
+          // 세 조건이 모두 관측될 때만 유지보수를 부른다. 파일 작업과 blob_refs
+          // 읽기는 core graph 밖 프로세스의 몫이다(responsiveness#R1). 관측을
+          // 못 하면 건너뛰고(fail-closed), 시간 제한을 넘기면 그 프로세스만
+          // 끝내고 종료를 계속한다. 실패는 diagnostics 로그만 남긴다.
+          if (pendingRestore !== undefined) {
+            // restore는 같은 정지 조건 위에서만 돈다. 이번 종료에는 blob GC를 하지 않는다.
+            restoreResult = await runStoppedRestore({
+              dataRoot: root.path,
+              ledgerPath,
+              request: pendingRestore,
+              conditions: stoppedAt,
+              supportedSchema: schemaSteps.length,
+              nowIso: clock.now(),
+              timeoutMs: options.restoreTimeoutMs,
+            });
+          } else if (
+            stoppedAt.preparationsBlocked && stoppedAt.commandsBlocked &&
+            stoppedAt.writerStopped
+          ) {
+            await runStoppedMaintenance({
+              dataRoot: root.path,
+              ledgerPath,
+              conditions: stoppedAt,
+              fields: retentionRules(assembled.value.blobFields),
+              nowMs: clock.nowMs(),
+              timeoutMs: options.maintenanceTimeoutMs,
+              run: options.maintenance,
+            });
+          }
+        } finally {
+          try {
+            await removeRunMetadata(root.run);
+          } finally {
+            await lock.release();
+          }
+        }
+        normallyStopped = stoppedAt.preparationsBlocked &&
+          stoppedAt.commandsBlocked && stoppedAt.writerStopped;
+      })();
     },
   };
   const greeted = await hello;

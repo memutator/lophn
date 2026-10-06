@@ -1,11 +1,13 @@
 // 현재 RuntimeState와 최대 200줄 log의 read. ledger write queue를 거치지 않는다.
 // 관측·log source는 조립이 주입하고, 없으면 null·none으로 명시한다(R13, R14).
 import { err, ok, type Result } from "../../base/mod.ts";
+import type { AuthenticatedContext } from "../../contracts/platform/mod.ts";
 import {
   appLogs,
   type AppLogState,
   appRuntime,
   LOG_LINE_MAX_COUNT,
+  LOG_LINE_MAX_LENGTH,
   type RuntimeObservation,
   type RuntimeState,
 } from "../../contracts/apps/mod.ts";
@@ -114,4 +116,120 @@ export function createRuntimeReads(
 function denied(result: Result<unknown>): boolean {
   return !result.ok &&
     (result.error.code === "forbidden" || result.error.code === "not_found");
+}
+
+// core 메인 스레드의 read handler 모양. reader pool의 read가 이 모양으로 이어진다.
+export type MainRead = (
+  ctx: AuthenticatedContext,
+  input: unknown,
+) => Result<unknown> | Promise<Result<unknown>>;
+
+// 메인 스레드에서만 닿는 supervisor 메모리. reader Worker는 이 값을 볼 수 없어서 reader가 먼저
+// 접근 판정과 ledger 기준 값을 만들고, 메인이 현재 관측·log로 덮는다(R13, R14).
+export type RuntimeSources = {
+  // 질의가 실패하면 그 관측은 없는 것이다. 과거 event로 생존을 추정하지 않는다.
+  observation(app: string): Promise<Result<RuntimeObservation | null>>;
+  logs(
+    app: string,
+    query: { invocation?: string; limit: number; max_bytes?: number },
+  ): Promise<
+    Result<{
+      state: AppLogState;
+      lines: string[];
+      collected_at: string | null;
+      truncated: boolean;
+    }>
+  >;
+  // 지금 ledger의 App. 상태 계산에 쓴다.
+  app(
+    app: string,
+  ): Promise<
+    Result<
+      | Pick<RuntimeStateApp, "active_release" | "status" | "run_enabled">
+      | null
+    >
+  >;
+  // 알려진 secret까지 지운 줄. 안전화를 끝내지 못하면 null이다(fail-closed).
+  redact(line: string): string | null;
+  now(): string;
+};
+type RuntimeStateApp = {
+  active_release: string | null;
+  status: "active" | "archived";
+  run_enabled: boolean;
+};
+
+// apps.runtime: reader가 접근을 판정한 결과에 현재 관측과 그 관측으로 계산한 상태를 얹는다.
+export function withRuntimeObservation(
+  base: MainRead,
+  sources: RuntimeSources,
+): MainRead {
+  return async (ctx, input) => {
+    const pooled = await base(ctx, input);
+    if (!pooled.ok) return pooled;
+    const value = pooled.value as {
+      app: string;
+      as_of_seq: string;
+      next_cursor: string | null;
+    };
+    const app = await sources.app(value.app);
+    // App을 못 읽으면 reader가 낸 값(관측 없음)을 그대로 둔다.
+    if (!app.ok || app.value === null) return pooled;
+    const observed = await sources.observation(value.app);
+    const observation = observed.ok ? observed.value : null;
+    const state: RuntimeState = projection(app.value, observation);
+    return ok({
+      ...value,
+      state,
+      observation,
+      observed_at: observation === null ? null : sources.now(),
+    });
+  };
+}
+
+// apps.logs: 접근을 통과한 앱의 supervisor log buffer를 받아 redaction한 줄로 돌려준다.
+export function withRuntimeLogs(
+  base: MainRead,
+  sources: RuntimeSources,
+): MainRead {
+  return async (ctx, input) => {
+    const pooled = await base(ctx, input);
+    if (!pooled.ok) return pooled;
+    const query = input as {
+      app: string;
+      invocation?: string;
+      limit?: number;
+      max_bytes?: number;
+    };
+    const feed = await sources.logs(query.app, {
+      ...(query.invocation === undefined
+        ? {}
+        : { invocation: query.invocation }),
+      limit: query.limit ?? DEFAULT_LOG_LIMIT,
+      ...(query.max_bytes === undefined ? {} : { max_bytes: query.max_bytes }),
+    });
+    // supervisor에 닿지 못하면 source가 없는 것이다. 없는 log를 만들지 않는다(R14).
+    if (!feed.ok) return pooled;
+    const lines: string[] = [];
+    for (const line of feed.value.lines) {
+      const safe = sources.redact(line);
+      if (safe === null) {
+        return ok({
+          ...(pooled.value as object),
+          state: "none" as AppLogState,
+          lines: [],
+          collected_at: null,
+          truncated: false,
+        });
+      }
+      lines.push(safe.slice(0, LOG_LINE_MAX_LENGTH));
+    }
+    return ok({
+      ...(pooled.value as object),
+      state: feed.value.state,
+      lines,
+      collected_at: feed.value.collected_at,
+      truncated: feed.value.truncated,
+    });
+  };
 }

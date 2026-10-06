@@ -40,12 +40,34 @@ export type DesiredApp = {
   runEnabled: boolean;
   archived: boolean;
   commands: string[];
+  // 현재 blueprint가 선언한 화면과 크기. connection은 이 선언과의 교집합만 받는다.
+  screens?: Record<string, ("full" | "panel" | "card")[]>;
   dataSchema: number;
   flags: FlagSet;
   entry: string;
   importMap: string;
   dataPath: string;
 };
+
+// 프로세스 실패의 근거가 되는 사실. 조립이 problems 관측(crash)으로 바꾼다(R28).
+export type SupervisorEvent =
+  | {
+    kind: "exit";
+    app: string;
+    desired: DesiredApp;
+    processNonce: string;
+    // 정지 요청 전에 의도된 종료로 표시한 종료다(R18).
+    intended: boolean;
+    exitCode: number | null;
+  }
+  | {
+    kind: "start_failed";
+    app: string;
+    desired: DesiredApp;
+    processNonce?: string;
+    reason: { code: string; summary: string };
+  }
+  | { kind: "crash_loop"; app: string; desired: DesiredApp; exits: number };
 
 export type SupervisorDeps = {
   clock: Clock;
@@ -54,27 +76,48 @@ export type SupervisorDeps = {
   environment: AppEnvironment;
   socketPaths: () => { broker: string; direct: string };
   nonce: () => string;
-  credential: () => string;
+  // 자식마다 받는 broker credential이다. supervisor 자신의 machine credential을 자식에게
+  // 주지 않는다. 발급이 거절되면 그 시작은 실패한다.
+  credential: (request: {
+    desired: DesiredApp;
+    nonce: string;
+  }) => Promise<string> | string;
   // hello 뒤에 채워지므로 기동 시점에 읽는다.
   verifyKey: () => string;
   spawn: (request: SpawnRequest) => Promise<AppChild>;
   probe: (
     child: AppChild,
     direct: string,
+    desired: DesiredApp,
   ) => Promise<ProbeResult> | ProbeResult;
   // 테스트가 시간을 건너뛰게 한다. 운영에서는 실제 대기.
   wait: (ms: number) => Promise<void>;
   readyTimeoutMs?: number;
+  // probe가 통과한 프로세스에 통로를 연다(control/open). 연결하지 않으면 probe 통과가
+  // 곧 연 것이다. false를 돌려주면 시작 실패다.
+  open?: (
+    child: AppChild,
+    direct: string,
+    desired: DesiredApp,
+  ) => Promise<boolean>;
   // 사람의 멈춤·release 교체에서 새 command·clock을 닫고 진행 호출 종료를 요청한다(R15).
   // 연결하지 않으면 요청할 통로가 없으므로 유예 없이 바로 강제 종료한다.
-  requestStop?: (child: AppChild, direct: string) => Promise<void>;
+  requestStop?: (
+    child: AppChild,
+    direct: string,
+    desired: DesiredApp,
+  ) => Promise<void>;
   stopGraceMs?: number;
+  // 실패 근거 사실을 받는다. 던져도 supervisor는 계속 돈다.
+  onEvent?: (event: SupervisorEvent) => void;
 };
 
 // 진행 호출 종료 요청 뒤 강제 종료까지의 유예다(R15).
 export const STOP_GRACE_MS = 10_000;
 
 export type SpawnRequest = {
+  app: string;
+  release: string;
   deno: string;
   entry: string;
   flags: FlagSet;
@@ -91,6 +134,12 @@ type Tracked = {
   intended: StopReason | undefined;
   // record_started가 core에 닿았을 때만 종료 확인을 record_stopped로 남긴다.
   started: boolean;
+  // hash·handler·schema·실제 연결 검사를 통과했다(ReadyAttestation). 그 전에는 ready가 아니다.
+  probed: boolean;
+  // control/open까지 끝나 새 호출을 받는다.
+  opened: boolean;
+  // probe가 확인한 실제 등록 command. probe 전에는 선언한 목록이다.
+  commands: string[];
 };
 
 // 진행 호출이 끝날 시간을 주는 정지. daemon 종료·core 단절은 바로 끝낸다.
@@ -107,6 +156,9 @@ const CRASH_LOOP = {
 export type Supervisor = {
   // 원하는 상태를 반영한다. 겹쳐 불러도 같은 앱의 자식은 하나다.
   reconcile(desired: DesiredApp): Promise<void>;
+  // 그 nonce의 자식을 정지 확인 뒤 새 nonce로 다시 띄운다. 이미 다른 자식이면 하지 않는다.
+  // 회수된 credential·줄어든 agent 허락의 이전 통로를 닫는 길이다(apps Q5).
+  restart(app: string, nonce: string): Promise<boolean>;
   // core 제어 연결이 끊겼다. 새 호출을 닫고 자식을 모두 끝낸다.
   coreClosed(): Promise<void>;
   // 관측. 테스트와 runtime read가 본다.
@@ -117,7 +169,13 @@ export type Supervisor = {
 export type AppObservation = {
   app: string;
   release: string;
+  mode: "live";
+  bundleHash: string;
   processNonce: string;
+  // 현재 자식의 direct socket. 자식이 없으면 빈 문자열이다.
+  endpoint: string;
+  commands: string[];
+  screens: Record<string, ("full" | "panel" | "card")[]>;
   ready: boolean;
   accepting: boolean;
   reason?: { code: string; summary: string };
@@ -183,6 +241,12 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
     }
   }
 
+  function emit(event: SupervisorEvent): void {
+    try {
+      deps.onEvent?.(event);
+    } catch { /* 관측 전달 실패가 supervisor를 멈추지 않는다 */ }
+  }
+
   function runtimeOf(app: string): AppRuntime {
     const found = apps.get(app);
     if (found) return found;
@@ -207,7 +271,11 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
     tracked.intended = reason;
     if (graceful(reason) && deps.requestStop) {
       try {
-        await deps.requestStop(tracked.child, tracked.direct);
+        await deps.requestStop(
+          tracked.child,
+          tracked.direct,
+          tracked.desired,
+        );
       } catch {
         // 요청이 닿지 않아도 유예 뒤 강제 종료가 이어진다(R15).
       }
@@ -223,6 +291,14 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
     if (unexpected({ intended: tracked.intended, exitCode: code })) {
       runtime.exits.push({ atMs: deps.clock.nowMs() });
     }
+    emit({
+      kind: "exit",
+      app: tracked.desired.app,
+      desired: tracked.desired,
+      processNonce: tracked.child.identity.processNonce,
+      intended: tracked.intended !== undefined,
+      exitCode: code,
+    });
     runtime.tracked = undefined;
     if (tracked.started && reason !== "core_eof") {
       await record(runtime, {
@@ -244,7 +320,24 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
       startedAtMs: deps.clock.nowMs(),
       processNonce: nonce,
     };
+    let credential: string;
+    try {
+      credential = await deps.credential({ desired, nonce });
+    } catch {
+      await record(runtime, {
+        method: "record_unavailable",
+        app: desired.app,
+        release: desired.release,
+        reason: {
+          code: "start_failed",
+          summary: "app credential is unavailable",
+        },
+      });
+      return;
+    }
     const child = await deps.spawn({
+      app: desired.app,
+      release: desired.release,
       deno: deps.deno(),
       entry: desired.entry,
       flags: desired.flags,
@@ -255,7 +348,7 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
         nonce,
         broker: sockets.broker,
         direct: sockets.direct,
-        credential: deps.credential(),
+        credential,
         verifyKey: deps.verifyKey(),
       }),
       identity,
@@ -268,12 +361,15 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
       direct: sockets.direct,
       intended: undefined,
       started: false,
+      probed: false,
+      opened: false,
+      commands: [...desired.commands],
     };
     runtime.tracked = tracked;
     // 자식이 스스로 끝나면 재시작 정책을 적용한다. 정지 요청 뒤의 종료는 여기 오지 않는다.
     void child.exited.then(() => onChildExit(runtime, tracked));
     const probe = await Promise.race([
-      deps.probe(child, sockets.direct),
+      deps.probe(child, sockets.direct, desired),
       deps.wait(timeout).then(() => ({
         ok: false as const,
         reason: "ready timeout",
@@ -298,6 +394,26 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
       });
       return;
     }
+    tracked.probed = true;
+    tracked.commands = [...probe.commands];
+    // open 연결이 없으면 probe 통과가 곧 연 것이다. 연결했는데 열지 못하면 시작 실패다.
+    if (deps.open) {
+      let opened = false;
+      try {
+        opened = await deps.open(child, sockets.direct, desired);
+      } catch {
+        opened = false;
+      }
+      if (!sameChild(identity, child.identity)) return;
+      if (!opened) {
+        await failStart(runtime, tracked, {
+          code: "start_failed",
+          summary: "open failed",
+        });
+        return;
+      }
+    }
+    tracked.opened = true;
     tracked.started = await record(runtime, {
       method: "record_started",
       app: desired.app,
@@ -324,6 +440,13 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
     const confirmed = await tracked.child.terminate();
     if (!confirmed) return;
     runtime.tracked = undefined;
+    emit({
+      kind: "start_failed",
+      app: tracked.desired.app,
+      desired: tracked.desired,
+      processNonce: tracked.child.identity.processNonce,
+      reason,
+    });
     await record(runtime, {
       method: "record_unavailable",
       app: tracked.desired.app,
@@ -343,6 +466,12 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
     runtime.exits = recentExits(runtime.exits, deps.clock.nowMs());
     if (crashLoop(runtime.exits, deps.clock.nowMs())) {
       runtime.held = CRASH_LOOP;
+      emit({
+        kind: "crash_loop",
+        app: desired.app,
+        desired,
+        exits: runtime.exits.length,
+      });
       await record(runtime, {
         method: "record_unavailable",
         app: desired.app,
@@ -377,6 +506,14 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
       const confirmed = await tracked.child.terminate();
       if (!confirmed) return;
       runtime.tracked = undefined;
+      emit({
+        kind: "exit",
+        app: tracked.desired.app,
+        desired: tracked.desired,
+        processNonce: tracked.child.identity.processNonce,
+        intended: false,
+        exitCode: code,
+      });
       if (!unexpected({ intended: tracked.intended, exitCode: code })) return;
       const now = deps.clock.nowMs();
       runtime.exits = [...recentExits(runtime.exits, now), { atMs: now }];
@@ -384,6 +521,12 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
       if (!desired || !desired.runEnabled || desired.archived || closed) return;
       if (crashLoop(runtime.exits, now)) {
         runtime.held = CRASH_LOOP;
+        emit({
+          kind: "crash_loop",
+          app: desired.app,
+          desired,
+          exits: runtime.exits.length,
+        });
         await record(runtime, {
           method: "record_unavailable",
           app: desired.app,
@@ -426,21 +569,43 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
       );
       await Promise.all(stops);
     },
+    async restart(app, nonce) {
+      const runtime = apps.get(app);
+      if (!runtime) return false;
+      let restarted = false;
+      await enqueue(runtime, async () => {
+        const current = runtime.tracked;
+        // 그 사이 이미 다른 자식이 됐으면 새 통로를 닫지 않는다.
+        if (!current || current.child.identity.processNonce !== nonce) return;
+        const confirmed = await stopTracked(runtime, "restart");
+        if (!confirmed) return;
+        restarted = true;
+        await apply(runtime);
+      });
+      return restarted;
+    },
     observation(app) {
       const runtime = apps.get(app);
       if (!runtime) return undefined;
       const tracked = runtime.tracked;
+      const desired = tracked?.desired ?? runtime.desired;
+      const live = tracked !== undefined && tracked.intended === undefined;
       return {
         app,
-        release: tracked?.desired.release ?? runtime.desired?.release ?? "",
+        release: desired?.release ?? "",
+        mode: "live",
+        bundleHash: desired?.bundleHash ?? "",
         processNonce: tracked?.child.identity.processNonce ?? "",
-        ready: tracked !== undefined && tracked.intended === undefined,
-        accepting: tracked !== undefined && tracked.intended === undefined &&
-          !runtime.held,
+        endpoint: tracked?.direct ?? "",
+        commands: [...(tracked?.commands ?? desired?.commands ?? [])],
+        screens: { ...(desired?.screens ?? {}) },
+        // 검사를 통과한 자식만 ready다. 띄운 직후나 probe 중에는 아니다.
+        ready: live && tracked.probed,
+        accepting: live && tracked.probed && tracked.opened && !runtime.held,
         // 정지를 요청했지만 OS 종료를 아직 확인하지 못한 자식이다(R15).
         ...(tracked !== undefined && tracked.intended !== undefined
           ? { reason: TERMINATING }
-          : runtime.held
+          : runtime.held && desired?.runEnabled
           ? { reason: runtime.held }
           : {}),
         ...(runtime.recordFailed ? { recordFailed: runtime.recordFailed } : {}),

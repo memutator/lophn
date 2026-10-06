@@ -9,6 +9,7 @@ import {
   createLedgerRegistration,
   lophnAgentDefinitions,
 } from "./lophn-agent.ts";
+import { closeUnlessKept } from "./testing/close-on-throw.ts";
 
 const NOW = Date.UTC(2024, 0, 1);
 const TOKEN = "b".repeat(43);
@@ -44,12 +45,16 @@ async function start(
     ...options,
   });
   assert(started.ok, started.ok ? "" : JSON.stringify(started.error));
+  await using guard = closeUnlessKept(async () => {
+    await started.value.shutdown();
+  });
   const core = started.value;
   assert(core.acceptTestCredential);
   // 재시작한 core는 다른 자격으로 읽는다. credential 기록은 core마다 새로 만든다.
   const context = user(++credentials);
   assert((await core.acceptTestCredential(context, TOKEN)).ok);
   assert((await core.record(context)).ok);
+  guard.keep();
   return core;
 }
 

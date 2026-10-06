@@ -10,11 +10,17 @@ import { valueWithin } from "./deadline.ts";
 export type WorkerRouteLimits = {
   timeoutMs?: number;
   responseMaxBytes?: number;
+  // 요청이 바이트 body를 함께 보낼 수 있는 route의 상한. 없으면 이 route는 JSON body만 받는다.
+  requestBytesMax?: number;
 };
 
 export type WorkerRouteHandle = {
   observation(): HealthObservation;
-  forward(request: WorkerRequest): Promise<Result<WorkerResponse, LophnError>>;
+  // bytes는 요청의 바이트 body다. core는 해석하지 않고 worker로 중계만 한다.
+  forward(
+    request: WorkerRequest,
+    bytes?: Uint8Array,
+  ): Promise<Result<WorkerResponse, LophnError>>;
 };
 
 export type WorkerRouteTarget = {
@@ -27,6 +33,7 @@ export type WorkerRouteTarget = {
 export async function forwardToWorker(
   target: WorkerRouteTarget,
   request: WorkerRequest,
+  bytes?: Uint8Array,
 ): Promise<Result<WorkerResponse, LophnError>> {
   const observed = target.handle.observation();
   if (!observed.available) {
@@ -41,9 +48,9 @@ export async function forwardToWorker(
     message: "worker response timed out",
   });
   const answer = timeoutMs === undefined
-    ? await target.handle.forward(request)
+    ? await target.handle.forward(request, bytes)
     : await valueWithin(
-      () => target.handle.forward(request),
+      () => target.handle.forward(request, bytes),
       timeoutMs,
       timeout,
     );

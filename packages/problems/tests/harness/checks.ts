@@ -9,15 +9,20 @@ import type {
   AppDriver,
   HarnessPlan,
   HarnessPlanCheck,
+  MigrationScenario,
   ReceivedReport,
 } from "./driver.ts";
 import type { Emitter } from "./emit.ts";
 import { scanCodeUsage, type SourceFile } from "./source-scan.ts";
 
+// 고정 기준과 따로 관측한 인접 불변식(problems/tests#R12).
+export type AdjacentInvariant = { name: string; held: boolean };
+
 type Verdict = {
   met: boolean;
   reason: string;
   evidence: Record<string, unknown>;
+  adjacent?: AdjacentInvariant[];
 };
 
 const RESERVED = "_exception";
@@ -184,6 +189,307 @@ async function viewCheck(
   };
 }
 
+async function migration(
+  driver: AppDriver,
+  plan: HarnessPlan,
+  scenario: MigrationScenario,
+): Promise<Verdict> {
+  const run = await driver.migrate(scenario);
+  const from = scenario === "empty" ? 0 : plan.data.previous_schema;
+  const met = run.ok && run.data_schema === plan.data.schema &&
+    run.integrity_ok && !run.restored && run.from_schema === from;
+  const label = scenario === "empty"
+    ? "빈 test DB 전체 migration"
+    : "이전 release schema에서 새 schema로의 migration";
+  return {
+    met,
+    reason: met
+      ? `${label}이 새 schema까지 적용되고 무결성이 확인됐다`
+      : run.restored
+      ? `${label}이 중간에 실패해 첫 변경 전 상태로 되돌려졌다`
+      : `${label}이 통과하지 못했다`,
+    evidence: {
+      scenario,
+      from_schema: run.from_schema,
+      expected_from_schema: from,
+      data_schema: run.data_schema,
+      target_schema: plan.data.schema,
+      integrity_ok: run.integrity_ok,
+      restored: run.restored,
+    },
+  };
+}
+
+async function readContract(
+  driver: AppDriver,
+  plan: HarnessPlan,
+): Promise<Verdict> {
+  const rows = [];
+  for (const command of plan.command_details) {
+    if (command.effect !== "read") continue;
+    const probe = await driver.probeRead(command.key);
+    rows.push({
+      command: command.key,
+      invalid_input_rejected: probe.invalid_input_rejected,
+      business_unchanged: probe.business_before === probe.business_after,
+      external_effects: probe.external_effects,
+    });
+  }
+  const met = rows.length > 0 &&
+    rows.every((row) => row.invalid_input_rejected && row.business_unchanged);
+  const external = rows.every((row) => row.external_effects === 0);
+  return {
+    met: met && external,
+    reason: !rows.every((row) => row.invalid_input_rejected)
+      ? "입력 계약을 어긴 입력이 거절되지 않는 read command가 있다"
+      : !rows.every((row) => row.business_unchanged)
+      ? "read command가 업무 데이터를 바꾼다"
+      : !external
+      ? "read command가 외부 상태를 바꾼다"
+      : "read command는 잘못된 입력을 거절하고 업무·외부 상태를 바꾸지 않는다",
+    evidence: { commands: rows },
+    adjacent: [{ name: "external_state_unchanged", held: external }],
+  };
+}
+
+async function automationScope(
+  driver: AppDriver,
+  plan: HarnessPlan,
+): Promise<Verdict> {
+  const details = new Map(plan.command_details.map((c) => [c.key, c]));
+  const automations = [];
+  for (const automation of plan.automations) {
+    const command = details.get(automation.command);
+    if (!command || command.confirm) {
+      automations.push({
+        key: automation.key,
+        command: automation.command,
+        ok: false,
+        why: !command ? "undeclared_command" : "confirm_command",
+      });
+      continue;
+    }
+    const without = await driver.runAutomation(automation.key, "none");
+    if (command.effect === "external") {
+      const once = await driver.runAutomation(automation.key, "once");
+      automations.push({
+        key: automation.key,
+        command: automation.command,
+        ok: !without.ran && once.ran && once.approvals_used === 1,
+        why: without.ran
+          ? "ran_without_approval"
+          : !once.ran
+          ? "blocked_after_approval"
+          : once.approvals_used !== 1
+          ? "approval_not_once"
+          : "approved_once",
+      });
+    } else {
+      automations.push({
+        key: automation.key,
+        command: automation.command,
+        ok: without.ran && without.approvals_used === 0,
+        why: without.ran ? "ran" : "blocked",
+      });
+    }
+  }
+  const confirms = [];
+  for (const command of plan.command_details) {
+    if (!command.confirm) continue;
+    const attempt = await driver.attemptConfirmAutomation(command.key);
+    confirms.push({ command: command.key, refused: attempt.refused });
+  }
+  const met = automations.every((item) => item.ok) &&
+    confirms.every((item) => item.refused);
+  return {
+    met,
+    reason: automations.some((item) => item.why === "confirm_command")
+      ? "confirm command를 automation으로 선언했다"
+      : confirms.some((item) => !item.refused)
+      ? "confirm command가 automation으로 실행된다"
+      : !met
+      ? "automation이 선언한 범위와 승인 규칙을 따르지 않는다"
+      : "automation은 선언한 command를 고정 입력으로 실행하고 external은 한 번 승인한 것만 실행한다",
+    evidence: { automations, confirm_commands: confirms },
+  };
+}
+
+const SECRET_OPERATIONS = ["import", "write", "sync"] as const;
+
+async function secretGrant(
+  driver: AppDriver,
+  plan: HarnessPlan,
+): Promise<Verdict> {
+  const rows = [];
+  for (const name of plan.secrets) {
+    for (const operation of SECRET_OPERATIONS) {
+      for (const caller of ["command", "automation"] as const) {
+        const used = await driver.useSecret({ name, operation, caller });
+        rows.push({
+          operation,
+          caller,
+          allowed: used.allowed,
+          approvals_requested: used.approvals_requested,
+        });
+      }
+    }
+  }
+  const blocked = rows.filter((row) => !row.allowed);
+  const asked = rows.filter((row) => row.approvals_requested > 0);
+  const met = rows.length > 0 && blocked.length === 0 && asked.length === 0;
+  return {
+    met,
+    reason: blocked.some((row) => row.caller === "automation")
+      ? "grant된 secret을 automation이라는 이유로 막는다"
+      : blocked.length > 0
+      ? "grant된 secret의 사용이 허용되지 않는다"
+      : asked.length > 0
+      ? "grant된 secret의 호출마다 approval을 요구한다"
+      : "grant된 secret의 가져오기·쓰기·동기화가 대역에서 허용된다",
+    evidence: {
+      secrets: plan.secrets.length,
+      attempts: rows.length,
+      blocked: blocked.length,
+      approvals_requested: asked.length,
+    },
+  };
+}
+
+async function adapterIsolation(
+  driver: AppDriver,
+  plan: HarnessPlan,
+): Promise<Verdict> {
+  const effects = await driver.exerciseAdapters();
+  const real = effects.real_connections;
+  const netOk = effects.net.every((request) =>
+    plan.net.some((entry) =>
+      entry.host === request.host && entry.port === request.port
+    )
+  );
+  const secretOk = effects.secret_uses.every((use) =>
+    plan.secrets.includes(use.name)
+  );
+  const documentOk = effects.document_writes.every((write) =>
+    plan.documents.includes(write.key)
+  );
+  const met = real.length === 0;
+  const declared = netOk && secretOk && documentOk;
+  return {
+    met: met && declared,
+    reason: !met
+      ? "대역 밖의 실제 외부 host에 접속했다"
+      : !declared
+      ? "대역이 선언하지 않은 목적지의 요청을 받았다"
+      : "net·secret·문서 쓰기가 고정 대역에만 닿고 실제 외부 접속이 없다",
+    evidence: {
+      net_requests: effects.net.length,
+      secret_uses: effects.secret_uses.length,
+      document_writes: effects.document_writes.length,
+      real_connections: real.length,
+    },
+    adjacent: [{
+      name: "doubles_received_declared_targets_only",
+      held: declared,
+    }],
+  };
+}
+
+function revertCommands(plan: HarnessPlan): string[] {
+  return plan.command_details.filter((command) =>
+    command.effect === "write" && command.revert.supported
+  ).map((command) => command.key);
+}
+
+async function revertCheck(
+  driver: AppDriver,
+  plan: HarnessPlan,
+  kind: "restore" | "conflict" | "duplicate",
+): Promise<Verdict> {
+  const rows = [];
+  for (const command of revertCommands(plan)) {
+    let ok = false;
+    let why = "";
+    if (kind === "restore") {
+      const before = await driver.businessState();
+      const change = await driver.change(command);
+      const reverted = change.revert === null
+        ? null
+        : await driver.revert(change.revert);
+      const after = await driver.businessState();
+      ok = change.ok && change.revert !== null &&
+        change.state_after !== before && reverted?.ok === true &&
+        after === before;
+      why = !change.ok || change.revert === null
+        ? "no_revert_material"
+        : change.state_after === before
+        ? "change_had_no_effect"
+        : reverted?.ok !== true
+        ? "revert_refused"
+        : after !== before
+        ? "state_not_restored"
+        : "restored";
+    } else if (kind === "conflict") {
+      const first = await driver.change(command);
+      await driver.change(command);
+      const before = await driver.businessState();
+      const reverted = first.revert === null
+        ? null
+        : await driver.revert(first.revert);
+      const after = await driver.businessState();
+      ok = first.revert !== null && reverted?.ok === false &&
+        reverted.code === "conflict" && after === before;
+      why = first.revert === null
+        ? "no_revert_material"
+        : reverted?.ok === true
+        ? "reverted_over_later_change"
+        : reverted?.code !== "conflict"
+        ? "not_a_conflict"
+        : after !== before
+        ? "state_changed"
+        : "conflict";
+    } else {
+      const change = await driver.change(command);
+      const first = change.revert === null
+        ? null
+        : await driver.revert(change.revert);
+      const before = await driver.businessState();
+      const second = change.revert === null
+        ? null
+        : await driver.revert(change.revert);
+      const after = await driver.businessState();
+      ok = first?.ok === true && second?.ok === false && after === before;
+      why = first?.ok !== true
+        ? "first_revert_failed"
+        : second?.ok === true
+        ? "duplicate_accepted"
+        : after !== before
+        ? "state_changed"
+        : "refused";
+    }
+    rows.push({ command, ok, why });
+  }
+  const met = rows.length > 0 && rows.every((row) => row.ok);
+  const reasons = {
+    restore: [
+      "변경을 되돌리면 원래 업무 상태로 돌아온다",
+      "되돌려도 원래 업무 상태로 돌아오지 않는 command가 있다",
+    ],
+    conflict: [
+      "후속 변경 뒤의 되돌림이 conflict로 거절된다",
+      "후속 변경 뒤의 되돌림이 conflict로 거절되지 않는 command가 있다",
+    ],
+    duplicate: [
+      "중복 되돌림이 거절된다",
+      "중복 되돌림이 거절되지 않는 command가 있다",
+    ],
+  }[kind];
+  return {
+    met,
+    reason: met ? reasons[0] : reasons[1],
+    evidence: { commands: rows },
+  };
+}
+
 export type ChecksInput = {
   driver: AppDriver;
   plan: HarnessPlan;
@@ -194,7 +500,11 @@ export type ChecksInput = {
 function frame(check: HarnessPlanCheck, verdict: Verdict, emitter: Emitter) {
   return emitter.emit({
     name: check.name,
-    actual: { check_digest: check.digest, ...verdict.evidence },
+    actual: {
+      check_digest: check.digest,
+      ...verdict.evidence,
+      ...(verdict.adjacent ? { adjacent: verdict.adjacent } : {}),
+    },
     expectation_met: verdict.met,
     reason: verdict.reason,
   });
@@ -250,6 +560,24 @@ function run(name: string, input: ChecksInput): Promise<Verdict> {
       return viewCheck(driver, "exception");
     case "feedback":
       return viewCheck(driver, "feedback");
+    case "migration_empty":
+      return migration(driver, plan, "empty");
+    case "migration_upgrade":
+      return migration(driver, plan, "upgrade");
+    case "read_contract":
+      return readContract(driver, plan);
+    case "automation_scope":
+      return automationScope(driver, plan);
+    case "secret_grant":
+      return secretGrant(driver, plan);
+    case "adapter_isolation":
+      return adapterIsolation(driver, plan);
+    case "revert_restore":
+      return revertCheck(driver, plan, "restore");
+    case "revert_conflict":
+      return revertCheck(driver, plan, "conflict");
+    case "revert_duplicate":
+      return revertCheck(driver, plan, "duplicate");
     default:
       return Promise.reject(new Error("unknown check"));
   }

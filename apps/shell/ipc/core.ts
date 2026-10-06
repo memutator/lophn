@@ -13,7 +13,15 @@ export type CoreCall = z.infer<typeof coreCallSchema>;
 
 /** main이 renderer로 미는 연결 상태. 화면은 이 값만 본다. */
 export const connectionStateSchema = z.object({
-  state: z.enum(["starting", "ready", "stale", "failed"]),
+  state: z.enum([
+    "starting",
+    "ready",
+    "stale",
+    "failed",
+    "failed-start",
+    "failed-sandbox",
+    "failed-schema",
+  ]),
   confirmedAt: z.number().nullable(),
 }).strict();
 

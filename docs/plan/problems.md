@@ -254,6 +254,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - slice: apps
 - 선행: problems#T9, contracts#T38, shell#T46
 - T9에서 넘어온 것: view_exception·feedback 검사는 생성·판정되지만 화면 host가 없어 fail로 남는다(#247)
+- shell#T46에서 넘어온 것: host는 `--app-screen-test`를 같은 실행 파일(dev는 `apps/shell/main/dist/main.cjs`를 Electron으로)로 받고 fd 3에 입력 한 줄을 쓰면 관측 한 줄을 쓴 뒤 code 0으로 끝난다. 입력이 틀리면 2, 기한+6.5초를 넘기면 3, 관측이 schema·65,536 bytes를 못 맞추면 4로 관측 없이 끝난다. `lophnApp.call`은 `app_socket_path`의 `/_lophn/commands/invoke`에 Authorization 빈 값으로 `{request_key, command, input}`을 보내므로 runner가 띄우는 test 앱 socket은 연결 proof 없이 받아야 한다. 공용 fixture는 `fixtures/app-screens/`(main: 오류 세 갈래·막힌 fetch·`fixture.ping`, hang: 멈춤)
 - 완료:
   - 화면 있는 bundle은 test view에서 view `error`·`unhandledrejection`·루트 render 오류가 test 진단 scope로 접수되는지와 깨진 view의 feedback 경로를 검사한다(tests#R7, problem-codes#R8, reporting#R5 view 쪽)
   - 화면 검사를 띄울 수 없으면 화면 있는 app test는 `pass`가 아니다; 화면 없는 bundle만 이유 있는 `not_applicable`

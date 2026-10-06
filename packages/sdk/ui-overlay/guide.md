@@ -31,10 +31,10 @@ import {
   돌아간다.
 - `Palette({open, onOpenChange, title, items, onSelect})` — 폭 640px·위 20%의
   command palette다. 검색어로 이름을 거른다. 여는 키는 앱이 정한다.
-- `ToastProvider`, `useToast()` — `show(options)`는 id를 돌려주고 `dismiss(id)`로
-  닫는다. options는 `title`, `body`, `tone`, `actions`, `duration`이다. 폭 360px,
-  5초(짧은 조작은 `duration: "brief"` 2초), hover·focus에 멈추고 행동은 최대 2개,
-  error는 시간으로 닫지 않는다.
+- `ToastProvider`, `useToast()` — `show(options)`는 id를 돌려주고
+  `dismiss(id)`로 닫는다. options는 `title`, `body`, `tone`, `actions`,
+  `duration`이다. 폭 360px, 5초(짧은 조작은 `duration: "brief"` 2초),
+  hover·focus에 멈추고 행동은 최대 2개, error는 시간으로 닫지 않는다.
 - `Toast`, `ToastStack` — queue 없이 직접 그릴 때 쓴다.
 - type: `TooltipProps`, `PopoverProps`, `PopoverRowProps`, `MenuProps`,
   `MenuItem`, `DialogProps`, `DialogWidth`, `PaletteProps`, `PaletteItem`,

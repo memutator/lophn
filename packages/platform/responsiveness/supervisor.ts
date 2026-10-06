@@ -21,17 +21,20 @@ import {
   READY_MS,
   RESTART_DELAYS_MS,
   RESTART_LIMIT,
+  safeCall,
   settle,
   type Slot,
   STOP_MS,
   TEARDOWN_MS,
+  WRITE_MS,
 } from "./slot.ts";
 
 export type { ChildCallbacks } from "./slot.ts";
 
 export type StartResult =
   | { ok: true }
-  | { ok: false; code: "invalid_input" | "unavailable" };
+  // reason은 사람이 읽는 짧은 까닭이다(쓰기 기한 초과 같은 것). 판단에는 code만 쓴다.
+  | { ok: false; code: "invalid_input" | "unavailable"; reason?: string };
 
 export type SupervisorOptions = {
   clock: Clock;
@@ -45,6 +48,8 @@ export type SupervisorOptions = {
   readyMs?: number;
   stopMs?: number;
   teardownMs?: number;
+  // child stdin에 frame 하나를 쓰는 기한. 넘으면 그 child를 끝내고 재기동한다.
+  writeMs?: number;
   // 테스트가 실제 /usr/bin/kill 없이 adapter 가용성을 바꿔 끼울 때만 쓴다.
   checkGroupKillAdapter?: () => Promise<boolean>;
 };
@@ -97,6 +102,7 @@ export function createSupervisor(options: SupervisorOptions): Supervisor {
     readyMs: options.readyMs ?? READY_MS,
     stopMs: options.stopMs ?? STOP_MS,
     teardownMs: options.teardownMs ?? TEARDOWN_MS,
+    writeMs: options.writeMs ?? WRITE_MS,
     sleep: options.sleep ??
       ((ms: number) => new Promise((resolve) => setTimeout(resolve, ms))),
     spawn: options.spawn ?? spawnProcess,
@@ -140,11 +146,19 @@ export function createSupervisor(options: SupervisorOptions): Supervisor {
     const first = new Promise<boolean>((resolve) => {
       slot.settle = resolve;
     });
+    const generation = slot.generation;
     void supervise(slot, deps).catch(() => {
       // 우리 결함이나 바꿔 끼운 sleep의 throw도 조용히 넘기지 않는다. 그 kind를 막고 결과를 알린다.
       slot.phase = "unavailable";
       slot.reason = "supervision failed";
       settle(slot, false);
+    }).then(() => {
+      // 정지·교체(generation이 바뀐 것)로 끝난 것은 포기가 아니다. 호출자가 그 결과를 이미 안다.
+      if (
+        slots.get(spec.kind) !== slot || slot.generation !== generation ||
+        slot.phase !== "unavailable"
+      ) return;
+      safeCall(() => slot.callbacks.onGiveUp?.(slot.reason ?? "unavailable"));
     });
     return first;
   }
@@ -201,7 +215,14 @@ export function createSupervisor(options: SupervisorOptions): Supervisor {
     const slot = slots.get(kind);
     const writer = slot?.phase === "ready" ? slot.attempt?.writer : undefined;
     if (!writer) return Promise.resolve(UNAVAILABLE);
-    return write(writer).then(() => ({ ok: true as const }), () => UNAVAILABLE);
+    return write(writer).then(
+      () => ({ ok: true as const }),
+      (error): StartResult => ({
+        ok: false,
+        code: "unavailable",
+        reason: error instanceof Error ? error.message : "write failed",
+      }),
+    );
   }
 
   return {

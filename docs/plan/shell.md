@@ -798,6 +798,8 @@ concerns: [shell]
   - `visibility_test`와 `e2e/shell/native-view_test.ts`(두 view 동시 표시, drag 중 view가 보임, 전환 중 겹친 frame 없음, 1024px 미만 bounds 축소)에 위 요구 테스트.
 - 가져올 것: legacy `views.ts`의 `#mount`·`setBounds`·`toDip`·latest requested bounds 처리, `renderer/src/shell/EmbeddedView.tsx`의 ResizeObserver+rAF.
 - shell#T37에서 넘어온 것: main.ts에 `appFrame`(`main/app-frame/registry.ts`의 `createAppFrame`)이 조립돼 있다. shell preload의 `openApp`·`setViewBounds`·`setViewsHidden`·`closeView`와 IPC(`shell:view-open-app` 등, sender 검사)를 registry의 `open`·`setBounds`·`hide`·`close`·`state`에 잇고 `shell:view-state` push를 더한다. 붙이기는 `electron-app-frame.ts`가 하고 붙일 때 overlay를 맨 위로 다시 둔다(`electronOverlays().raise`). `setBounds`는 실제 attach일 때만 generation을 올리고 진단을 남긴다
+- 정한 것: (1) renderer(`renderer/app-frame/bounds.ts`)가 칸·카드 목록 경계(overflow가 visible이 아닌 조상)로 자르고 `useViewCover`로 등록한 좁은 창 덮개를 빼 남은 가장 넓은 사각형을 보낸다. 넓이가 없으면 숨김이다. main(`main/app-frame/visibility.ts`)은 CSS pixel을 page zoom으로 창 DIP로 바꿔 창 본문(상단 바 아래)과 다시 교차한다. 붙이기·떼기는 registry와 `placement.ts`만 한다. (2) bounds 적용은 모든 view를 함께 16ms마다 한 번(마지막 값), 숨김·폐기는 바로 하고 그 view의 기다리던 bounds를 버린다. `openApp`은 bounds 없이 열고 registry는 bounds가 왔고 첫 load가 끝났을 때만 붙인다. 숨기거나 폐기한 view의 키보드 focus는 그 창 shell renderer로 돌린다. (3) `lophnShell`의 view API(`openApp`·`setViewBounds`·`setViewsHidden`·`closeView`·`subscribeViewState`)는 desktop 창에만 있고 실패는 code만 message로 싣는다. `openDocumentView`는 범위 밖이다. (4) 닫힌 view 중계(apps#T16): registry가 view를 폐기하거나 다른 앱으로 교체하면 main이 새 memory route `POST /v1/apps/view_closed {app, view_session}`(contracts `appViewClosed`, actor user)를 부르고 core apps 제어 어댑터가 supervisor `apps.view_closed`로 그 앱의 지금 live 자식 nonce를 붙여 `/_lophn/control/view-closed`를 보낸다. 자식이 없으면 `{relayed:false}`, 범위 밖 앱은 not_found다. 같은 앱 안의 교체는 같은 view_session이 이어지므로 보내지 않는다. preview 프로세스는 live supervisor 밖이라 보내지 않는다
+- 상태: 완료 (#342) — 이어보냄: 앱 공간 본문의 `EmbeddedView`·좁은 창 덮개 → shell#T42, 프로젝트 앱 패널 탭·세션 카드의 `EmbeddedView` → shell#T44
 
 ### T40 SDK UI: ui-control, ui-overlay, ui-layout, ui-state
 
@@ -849,11 +851,13 @@ concerns: [shell]
 - shell#T21에서 넘어온 것: lophn 공간 팔레트의 앱 행은 지금 apps 형제 화면으로만 간다(`apps/shell/renderer/desktop/palette/lophn-scope.ts`의 app target). 앱 공간이 생기면 그 앱 공간으로 간다.
 - shell#T47에서 넘어온 것: 앱 공간 바(또는 운영 패널)에 [Open in new window]와 OS 바로가기 추가·제거를 둔다. 새 창은 main의 `appWindows.open(app)`(`main/desktop/app-window.ts`)을, 바로가기는 `installOsEntry`·`removeOsEntry`(`main/desktop/os-entry/entry.ts`)를 sender 검사한 IPC로 부른다. renderer는 앱 ID만 보내고 이름은 main이 `apps/get`으로 읽는다. 실제 writer(`EntryFiles`의 원자 쓰기·mode, macOS 폴더 제거, Windows `shell.writeShortcutLink`)와 `OsEntryEnv`(XDG_DATA_HOME, APPDATA, home) 조립은 main.ts에 아직 없다. headless와 개발 실행은 쓰지 않는다
 - shell#T27에서 넘어온 것: 앱 공간 바의 대화 도크 토글(`DockToggle`)과 본문 오른쪽 `DockSlot`(새 세션 작업 자리 `{kind: "app"}`). 도크가 앱 view를 덮거나 밀 때의 native bounds는 T39를 따른다
+- shell#T39에서 넘어온 것: 앱 공간 본문에 `renderer/app-frame/embedded-view.tsx`의 `EmbeddedView`(views는 `globalThis.lophnShell`의 view 통로)를 두고, 창마다 `createViewCovers()`를 `ViewCoversProvider`로 준다. 1,024px 미만에서 overlay로 본문을 덮는 운영 패널과 대화 도크(`conversation/dock.tsx`의 overlay 배치)는 `useViewCover(ref, covering)`를 불러야 앱 view가 덮이지 않은 폭으로 준다(R26, R36). 덮개 등록이 없으면 앱 view가 패널 아래로 그대로 남는다
 - 완료: 아래 확인이 통과한다
   - 앱 공간은 얇은 바와 앱 view 전체 본문. 바에 런처 복귀, 앱 이름·연결 상태, [Report a problem] 자리(T52), 운영 패널 진입, 문서 작업대 전환. 운영 패널 720px, 1024px 미만이면 overlay이되 앱 view는 남은 영역으로 줄어든다.
   - 프로젝트·앱 공간의 lophn 크롬은 그 앱의 결정 대기와 daemon 장애 안내만.
   - lophn 공간 apps 화면: 사람이 지은 이름, 상태, 보관, 이름 바꾸기. 원시 enum·ID 없음.
   - 화면 테스트.
+- 후속: 앱 이름 변경 command app.rename(#354). apps 화면의 행 동작은 이 command를 부른다.
 - 가져올 것: legacy `spaces/AppSpace.tsx`의 얇은 chrome 배치, `screens/Apps.tsx`.
 
 ### T43 app-detail: Version, Access, Automations, Connections, Activity, Data
@@ -884,6 +888,7 @@ concerns: [shell]
 - 내놓는 contract: 없음
 - slice: apps
 - 선행: shell#T35, shell#T37, shell#T39
+- shell#T39에서 넘어온 것: 앱 패널 탭과 세션 카드 본문에 `EmbeddedView`를 둔다. 탭이 안 보이면 `shown={false}`(view는 남고 바로 숨는다), 탭을 닫으면 unmount(폐기, 앱 runtime에 view-closed 중계)다. 카드 목록·칸의 스크롤 경계는 `overflow`가 visible이 아닌 조상으로 잡으니 목록 scroll 영역에 overflow를 둔다. 좁은 창의 정보 패널 overlay(`workspace/info-panel-slot`)는 `useViewCover`를 불러 앱 view를 덮지 않은 폭으로 줄인다(R36)
 - shell#T35에서 넘어온 것: 세션 앱 카드 갈래. 블록 틀(`workspace/visuals/block-frame.tsx`)은 `app_card` 블록을 검사한 뒤 지금 설명·출처와 "App cards can't be shown in the conversation yet."만 둔다(`data-visual-app-card`). `app-card-block.tsx`가 그 자리를 앱 frame 카드로 바꾼다. registry(`registry.ts`의 `AppCardContent`)는 app·release·view만 옮기고 카드 입력(`input`)은 버린다. 카드가 입력을 쓰면 registry가 그 값을 옮기게 고친다(그리지 않고 앱 view 계약에 넘길 값이다). 저장된 release가 지금과 다르면 `contract_changed`, 사라지면 `unavailable`이고 다른 release로 바꾸지 않는다(lophn-agent/visuals domain model). 카드 블록도 [Save as document]가 있다(agent 준비에서 snapshot은 지금 unavailable, lophn-agent#T47).
 - 완료: 아래 확인이 통과한다
   - blueprint가 panel 크기를 선언한 screen만 프로젝트 탭에 연다. 아니면 앱 공간으로 열기를 안내하고 조용히 줄이지 않는다. 카드도 card 크기 선언만.
@@ -1111,6 +1116,7 @@ concerns: [shell]
 
 ### T57 Electron 패키징과 설치 실패 안내
 
+- 상태: 완료 (#363)
 - 등급: 기본
 - concern: shell/desktop
 - 요구: shell/desktop#R11(패키징), R12, R20(bundle된 Deno)
@@ -1144,6 +1150,7 @@ concerns: [shell]
   - 진단: 보안 상태 점검과 doctor 결과는 영향 한 문장과 다음 행동, 원문은 개발자 diagnostics 펼침에만.
   - OS notification opt-in.
   - flow backup-and-restore, update-lophn 화면. 화면 테스트.
+- platform#T42에서 넘어온 것: 복원 확인 창과 main 연결. main↔core 감독 pipe(`apps/shell/main/desktop/core/supervise.ts`)로 `restore_plan_request`(묶음 `created_at`)를 보내 `restore_plan`(`lost` 잃을 범위, `target`·`content_hash`)을 읽어 창에 보이고, 사람이 확인하면 그 `target`·`content_hash`로 결정 `restore_backup`의 handle을 `confirmation_handle_register`로 발급해 `restore_request`를 보낸다(contract `packages/contracts/platform/restore-pipe.ts`). 결과는 `restore_result` 또는 `restore_failed`(`code`, `restarted`)다. 복원 뒤 core가 같은 pipe로 새 hello(새 epoch·token·port)를 보내므로 `supervise.ts`는 첫 hello 이후의 hello도 받아 session·구독을 새 값으로 다시 열어야 한다(지금은 hello 이후 frame을 listener에 넘기기만 한다)
 
 ### T59 offline: provider 끊김과 core 끊김
 

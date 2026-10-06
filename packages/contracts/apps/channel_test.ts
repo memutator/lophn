@@ -9,6 +9,9 @@ import {
   appConnectionSchema,
   appConnectOutputSchema,
   appScreenRequestSchema,
+  appViewClosed,
+  appViewClosedInputSchema,
+  appViewClosedOutputSchema,
   confirmExecutionProofSchema,
   confirmProofSigningBytes,
   connectionSigningBytes,
@@ -187,6 +190,28 @@ Deno.test("apps/runtime#R11: connect는 ledger command가 아닌 memory route다
   assertEquals(appConnect.kind, "memory");
   assertEquals(routePath(appConnect), "/v1/apps/connect");
   assertEquals(appConnect.name, "app.connect");
+});
+
+Deno.test("apps/agent-context#R2, apps/agent-context#R5: POST /v1/apps/view_closed는 사람의 shell만 부르는 memory route이고 앱과 view_session만 받는다", () => {
+  assertEquals(appViewClosed.kind, "memory");
+  assertEquals(routePath(appViewClosed), "/v1/apps/view_closed");
+  assertEquals(appViewClosed.name, "app.view_closed");
+  assertEquals(appViewClosed.actors, ["user"]);
+  const input = { app: APP, view_session: "view-1" };
+  assert(appViewClosedInputSchema.safeParse(input).success);
+  for (
+    const bad of [
+      { ...input, process_nonce: "nonce-1" },
+      { ...input, view_session: "" },
+      { ...input, view_session: "view\u0000" },
+      { ...input, app: REL },
+      { view_session: "view-1" },
+    ]
+  ) {
+    assert(!appViewClosedInputSchema.safeParse(bad).success);
+  }
+  assert(appViewClosedOutputSchema.safeParse({ relayed: false }).success);
+  assert(!appViewClosedOutputSchema.safeParse({}).success);
 });
 
 Deno.test("apps/runtime#R11, apps/connections#R5: 모르는 field와 틀린 ID 접두사를 거절한다", () => {

@@ -266,11 +266,12 @@ Deno.test("lophn-agent/questions#R13: 선택 전에는 문서가 그대로이고
     });
     assertEquals(count(world.server, MOVED), 1);
     assertEquals(count(world.server, EVIDENCE), 1);
-    // machine이 적용한 변경은 run에 묶이지 않는다(agent run revert 목록 밖).
+    // 근거를 검증한 적용은 사람 결정이라 actor=user, run=null로 남는다(identity R14).
     const moved = inspect(
       world.server,
-      "select run from events where type = 'DocumentMoved'",
+      "select actor, run from events where type = 'DocumentMoved'",
     );
+    assertEquals(moved[0]!["actor"], "user");
     assertEquals(moved[0]!["run"], null);
     const read = await world.read("questions/read", MACHINE_TOKEN, {
       question,

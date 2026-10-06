@@ -23,6 +23,7 @@ import {
   reconcileOutputSchema,
   restartOutputSchema,
   SUPERVISOR_OPS,
+  viewClosedOutputSchema,
 } from "./control-protocol.ts";
 import type { DesiredApp } from "./supervisor/supervisor.ts";
 
@@ -55,6 +56,9 @@ export type SupervisorChannel = {
   bind(send: (payload: unknown) => Promise<boolean>): void;
   // supervisor가 멈췄다. 기다리던 요청은 unavailable로 끝난다.
   unbind(): void;
+  // supervisor child가 끝났다(crash·재기동). 보낸 요청은 답이 오지 않으므로 기한(5초·재시작 30초)까지
+  // 기다리지 않고 바로 unavailable로 끝낸다. 연결(bind)은 그대로다: 감독이 새 child를 띄운다.
+  failPending(message: string): void;
   readonly bound: boolean;
 };
 
@@ -62,6 +66,12 @@ export function createSupervisorChannel(): SupervisorChannel {
   let send: ((payload: unknown) => Promise<boolean>) | null = null;
   let counter = 0;
   const pending = new Map<string, (answer: Result<unknown>) => void>();
+  function failPending(message: string) {
+    for (const [id, settle] of [...pending]) {
+      pending.delete(id);
+      settle(err({ code: "unavailable", message }));
+    }
+  }
   return {
     request(op, payload, timeoutMs = REQUEST_TIMEOUT_MS) {
       const sender = send;
@@ -126,15 +136,10 @@ export function createSupervisorChannel(): SupervisorChannel {
     bind(next) {
       send = next;
     },
+    failPending,
     unbind() {
       send = null;
-      for (const [id, settle] of [...pending]) {
-        pending.delete(id);
-        settle(err({
-          code: "unavailable",
-          message: "app supervisor stopped",
-        }));
-      }
+      failPending("app supervisor stopped");
     },
     get bound() {
       return send !== null;
@@ -170,6 +175,8 @@ export type SupervisorClient = {
     },
   ): Promise<Result<LogsWire>>;
   restart(app: string, processNonce: string): Promise<Result<boolean>>;
+  // 닫힌 화면 view를 그 앱의 지금 live 자식에 알린다. 자식이 없으면 false다.
+  viewClosed(app: string, viewSession: string): Promise<Result<boolean>>;
   // preview 프로세스. 운영 자식과 다른 통로이고 운영 관측을 바꾸지 않는다(apps/preview).
   previewStart(launch: PreviewLaunch): Promise<Result<void>>;
   previewObserve(
@@ -213,6 +220,16 @@ export function createSupervisorClient(
         ),
       );
       return answer.ok ? ok(answer.value.restarted) : answer;
+    },
+    async viewClosed(app, viewSession) {
+      const answer = shaped(
+        viewClosedOutputSchema,
+        await channel.request(SUPERVISOR_OPS.viewClosed, {
+          app,
+          view_session: viewSession,
+        }),
+      );
+      return answer.ok ? ok(answer.value.relayed) : answer;
     },
     async previewStart(launch) {
       const answer = shaped(

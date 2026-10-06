@@ -89,6 +89,17 @@ export function electronAppViews(input: ElectronAppViewsInput): {
       if (window === undefined || view === undefined) return;
       window.contentView.removeChildView(view);
     },
+    focused(adapter) {
+      const view = native.get(adapter);
+      return view !== undefined && !view.webContents.isDestroyed() &&
+        view.webContents.isFocused();
+    },
+    focusShell(ref) {
+      const window = live(ref);
+      if (window !== undefined && !window.webContents.isDestroyed()) {
+        window.webContents.focus();
+      }
+    },
   };
 
   function sessionHandle(partition: string): AppSessionHandle {

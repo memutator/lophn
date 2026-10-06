@@ -13,6 +13,7 @@ import { resolveRoute } from "../../packages/coding-agent/mcp-server/registry.ts
 import { sha256Text } from "../../packages/lophn-agent/questions/testing/mod.ts";
 import { type Core, startCore } from "./core.ts";
 import { lophnAgentDefinitions } from "./lophn-agent.ts";
+import { closeUnlessKept } from "./testing/close-on-throw.ts";
 
 const teams = [
   { lophnAgentDefinitions },
@@ -76,6 +77,10 @@ async function open(): Promise<Opened> {
     testCredentials: true,
   });
   assert(started.ok, started.ok ? "" : started.error.message);
+  await using guard = closeUnlessKept(async () => {
+    await started.value.shutdown();
+    await Deno.remove(home, { recursive: true });
+  });
   const core = started.value;
   const accept = async (
     [credential, token]: [AuthenticatedContext, string],
@@ -130,6 +135,7 @@ async function open(): Promise<Opened> {
       run: RUN,
     }),
   );
+  guard.keep();
   return {
     core,
     home,

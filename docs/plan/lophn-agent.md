@@ -580,6 +580,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
   - lophn_guide_test.ts에 roles/lophn#R14, R15, R17, R20–R22, tools#R20 테스트: 자리 추천 run당 최대 5개와 이유 한 줄·후보 없으면 이동 선택지 없음, 보조 근거 두 조건·자동 주기 run 없음, 사용 안내는 기존 안내로 답하고 바뀐 경우에만 새 version 요청, 동봉 안내·공개 설정 정의·적용값·출처만 읽음·secret과 credential은 읽거나 묻지 않음, 설정 변경은 현재·새 값·영향·적용 시점이 고정된 선택지와 추천, 권한 확대·secret·외부 효과는 owner 보호 화면 안내, 설정 변경 command를 agent tool로 제공하지 않음
   - flow ask-lophn-help, organize-documents 2·3단계의 agent 갈래
   - 실제 시험 자리: questions/option_actions_test.ts(고정 action 검사·지문·보호 설정·채택 판정, 순수), apps/core/question-option-actions_test.ts(실제 core·documents: 이동 한 번·두 번째 conflict·낡은 revision·고르지 않은 선택지·범위 밖과 없는 문서의 같은 not_found·채택 version 검사), apps/core/waiting-and-recovery_test.ts(설정 변경의 답 저장→적용→ResolveRunWait 중단 지점, 기준 불일치, 자유 답·바뀐 action·사람 자격 거절), roles/lophn/lophn_guide_test.ts(자리 추천·보조 근거·사용 안내·설정 제안·보호 화면 안내), harness/tools/guide_tools_test.ts(tools#R20)
+  - 후속 (#412): term.define option action adapter(apps/core/term-option-actions_test.ts: 용어 정의 선택지의 적용 한 번·actor=user 기록·두 번째 conflict·다른 선택지·고정 입력이 다른 적용 거절·이미 정의된 이름의 전제 변경)과 `term.submit_definition_answer` tool(context 묶음, ROLE_CAPS context_engineer)
 
 ### T30 동봉 제품 안내 글
 

@@ -784,6 +784,21 @@ async function open(
         line,
       ),
     // 봉인 bundle 사본을 여는 실제 자리다. 시험이 `appPreviews.bundles`로 바꿔 끼울 수 있다.
+    activation: {
+      dataRoot: root.path,
+      command: (ctx, envelope) =>
+        confirmWriter.command(ctx as never, envelope as never),
+      machine: () => {
+        const current = runtime?.current(APPS_CONTROL_PRINCIPAL);
+        return current?.ok ? current.value : undefined;
+      },
+      prepareBlob: (call) =>
+        blobRelay ? blobRelay.prepare(call) : Promise.resolve(err({
+          code: "unavailable",
+          message: "blob 준비 통로가 없다",
+        })),
+      platformPorts: () => apiPort === 0 ? [] : [apiPort],
+    },
     previews: {
       dataRoot: root.path,
       bundles: createCopyPreviewBundles({

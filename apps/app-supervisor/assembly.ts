@@ -20,7 +20,9 @@ import {
 } from "../../packages/apps/runtime/supervisor/mod.ts";
 import type { CoreLink } from "../../packages/apps/runtime/core-link.ts";
 import {
+  activationAppInputSchema,
   blockInputSchema,
+  dataJobInputSchema,
   desiredAppSchema,
   logsInputSchema,
   type ObservationWire,
@@ -34,6 +36,7 @@ import {
   SUPERVISOR_OPS,
 } from "../../packages/apps/runtime/control-protocol.ts";
 import type { PreparationService } from "../../packages/apps/releases/preparation.ts";
+import type { DataJobRunner } from "./data-runner.ts";
 import {
   createLogBuffer,
   type LogBuffer,
@@ -144,6 +147,8 @@ export type SupervisorIo = {
   }) => Promise<PreviewScope>;
   // release 준비 요청의 진행(메모리)이다. 없으면 준비 요청은 unavailable이다.
   preparation?: PreparationService;
+  // 앱 전용 data worker다. 없으면 데이터 작업(activation의 backup·migration·restore)은 unavailable이다.
+  data?: DataJobRunner;
   // 앱이 broker로 보낸 invocation 후행 기록을 core에 전달하는 쪽이다. 없으면 기록 통로는 unavailable이다.
   invocations?: Pick<InvocationBroker, "submit">;
   // broker 서비스에 더하는 어댑터와 시험 대역(외부 전송 등). 기본은 core read·route를 지나는 어댑터다.
@@ -982,6 +987,51 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
         throw new OpError(cancelled.error.code, cancelled.error.message);
       }
       return { accepted: true };
+    },
+    // activation(apps/releases): 앱을 붙들고 이전 자식의 종료를 확인한다. 새 호출은 먼저 닫힌다.
+    [SUPERVISOR_OPS.activationPause]: async (payload) => {
+      const input = parse(activationAppInputSchema, payload);
+      return { confirmed: await guarded.pause(input.app) };
+    },
+    // 후보를 준비 모드로 띄운다. 검사를 통과해도 업무 통로는 닫혀 있다.
+    [SUPERVISOR_OPS.activationPrepare]: async (payload) => {
+      const desired = parse(desiredAppSchema, payload) as DesiredApp;
+      if (verifyKey === "" || hello.credential === "") {
+        throw new OpError("unavailable", "supervisor is not configured");
+      }
+      const started = await guarded.prepare(desired);
+      return started.ok
+        ? {
+          ok: true,
+          process_nonce: started.processNonce,
+          attestation: {
+            release: started.attestation.release,
+            bundle_hash: started.attestation.bundleHash,
+            commands: started.attestation.commands,
+            data_schema: started.attestation.dataSchema,
+          },
+        }
+        : { ok: false, reason: started.reason };
+    },
+    [SUPERVISOR_OPS.activationOpen]: async (payload) => {
+      const input = parse(activationAppInputSchema, payload);
+      return { opened: await guarded.open(input.app) };
+    },
+    [SUPERVISOR_OPS.activationResume]: async (payload) => {
+      const input = parse(activationAppInputSchema, payload);
+      await guarded.resume(input.app);
+      return { accepted: true };
+    },
+    [SUPERVISOR_OPS.dataJob]: async (payload) => {
+      const input = parse(
+        dataJobInputSchema.extend({ app: activationAppInputSchema.shape.app }),
+        payload,
+      );
+      if (io.data === undefined) {
+        throw new OpError("unavailable", "data jobs are not attached");
+      }
+      const ran = await io.data.run(input.app, input.line);
+      return { ok: ran.ok, line: ran.ok ? ran.value : null };
     },
     [SUPERVISOR_OPS.previewStop]: async (payload) => {
       const input = parse(previewStopInputSchema, payload);

@@ -126,6 +126,35 @@ async function runBackup(
   });
 }
 
+// 실제 schema와 무결성만 확인한다. 데이터는 바꾸지 않는다.
+async function runInspect(
+  ctx: DataJobContext,
+  input: DataJobInput,
+): Promise<Result<JobOutcome, DataJobFailure>> {
+  const opened = openAppDatabase(ctx.databasePath);
+  if (!opened.ok) {
+    return err({
+      code: "unavailable",
+      message: "app database cannot be opened",
+    });
+  }
+  const db = opened.value;
+  try {
+    const integrity = db.integrityOk();
+    return ok({
+      result: {
+        release: input.release,
+        activation_seq: input.activation_seq,
+        invocation: null,
+        data_schema: db.schemaState().dataSchema,
+        integrity_ok: integrity,
+      },
+    });
+  } finally {
+    db.close();
+  }
+}
+
 async function runMigrate(
   ctx: DataJobContext,
   input: DataJobInput,
@@ -225,7 +254,9 @@ export async function runDataJob(
   }
   try {
     const resolved: DataJobContext = { ...ctx, databasePath: database.value };
-    const outcome = input.kind === "backup"
+    const outcome = input.kind === "inspect"
+      ? await runInspect(resolved, input)
+      : input.kind === "backup"
       ? await runBackup(resolved, input)
       : input.kind === "migrate"
       ? await runMigrate(resolved, input)

@@ -789,7 +789,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
 
 ### T18 activation
 
-- 상태: 완료 (#381) — 이어보냄: activation 실제 조립(`ActivationPorts` 구현·ReleaseActivationStarted 구독 뒤 `runActivation`·supervisor 연결 때 `recoverActivation`·grant에서 푼 운영 flag) → apps#T27
+- 상태: 완료 (#381, 조립 #382) — 이어보냄: 템플릿 앱의 실제 기동 entry·problems 보고 → apps#T27
 - 등급: 최상위
 - concern: apps/releases, apps/data
 - 요구: apps/releases#R8, R12, R13, R14, R15, R16, apps/data#R4, R9, R11, R12
@@ -1419,7 +1419,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
     전송 callback 메모리에만 있다. (3) `GrantApplier`(`permissions/broker/apply-grant.ts`)의 supervisor 쪽
     `AppProcesses`(stop·start)와 core `GrantRevoker` 조립: grant 확정·회수가 broker 연결을 막고 자식 종료를 확인한
     뒤 새 범위로 재시작하는 흐름(manage-app-permissions flow)
-  - apps#T18에서 넘어온 것: (1) activation은 core command(`start_activation`은 approval 적용 전용, `complete_activation`·`fail_activation`·`record_*`는 machine)와 순서·복원·이어받기 모듈(`releases/activation/`의 `runActivation`·`recoverActivation`)까지다. 실제 `ActivationPorts` 조립이 없다: supervisor가 `ReleaseActivationStarted`를 구독해(또는 `releases.list` status=activating을 읽어) `runActivation`을 부르고, supervisor 연결 때 진행 중인 시도마다 `recoverActivation`을 부르며, port를 실제 supervisor(`stopCurrent`·`startCandidate`(준비 모드, commit 전 open 금지)·`openCandidate`·`run`)·data worker(`inspect`·`backup`(보호 backup hash)·`migrate`·`restore`)·core machine command·problems 보고에 잇는다. 시작은 `/v1/approvals/apply`로 한다(approval 대상은 정확한 release, concern `apps/releases`, command `release.start_activation`, 입력 inline). (2) 운영 DesiredApp 조립: `desiredFromBundle`(`releases/activation/desired.ts`)이 사본 부분을 만들고 grant에서 푼 요구 permission으로 `bundleFlags`를 부르는 core 쪽 호출(`core.reconcileApp`)이 없다. (3) 보호 backup: data worker의 backup 작업 출력의 `backup_hash` byte(`backups/backup-<seq>`)를 supervisor가 감독 pipe로 `blob_prepare_request`(purpose `app_backup`, core 정책은 kind `apps/supervisor`·principal `machine:apps-supervisor`)로 보낸 뒤 그 준비 결과를 `release.record_backup`의 `blob`에 싣는다. core의 supervisor pipe 중계(`apps/core/core.ts`)는 있고 supervisor 쪽 송신(`apps/app-supervisor`)이 없다. migrate 작업 입력은 `bundle_path`(그 앱의 `bundles/<hash>`)·`data_changes`(`dataChangesOf` 결과 또는 release.data_changes)·`invocation`이다.
+  - apps#T18에서 넘어온 것: (1) activation 실행은 core(`apps/core/apps-activation.ts`)가 `runActivation`·`recoverActivation`을 돌리고 단계는 supervisor op(`apps.activation_pause`·`prepare`·`open`·`resume`, `apps.data_job`)와 core 내부 machine command로 간다. 앱 자식의 실제 기동 entry는 아직 시험 자식(`runtime/testing/app-child.ts`)뿐이다: 템플릿 앱의 `main.ts`는 runtime entrypoint(`entrypoint/main.ts`)가 `@lophn/app`으로 불러 오는 모듈이고 사본의 import map·진입 파일이 그 entrypoint를 띄우도록 준비(release 준비)가 만들지 않는다. 실제 템플릿 앱이 운영 자식으로 뜨는 흐름(entry·`@lophn/base` 해석·read 허락)은 T27 new-app flow가 닫는다. (2) problems 보고: activation의 복원 실패·종료 미확인은 `app.record_unavailable`로 이유를 runtime 상태에 남기지만 problems의 보고(report)로는 가지 않는다(플랫폼이 낸 보고를 받는 경로가 없다). (3) grant 변경(create·revoke)이 새 flag로 자식을 다시 띄우는 흐름은 위 apps#T19의 (3)이다. 운영 DesiredApp은 App 행·active release·grant가 바뀌면 다시 알리지만 supervisor는 같은 release·bundle이면 기존 자식을 그대로 둔다.
 
 ### T29 @lophn/format-document
 

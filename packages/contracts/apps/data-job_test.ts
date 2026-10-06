@@ -35,7 +35,13 @@ const result = {
 };
 
 Deno.test("apps/data#R3: data worker job 입력은 실제 schema 번호를 받는다", () => {
-  assertEquals(DATA_JOB_KINDS, ["backup", "migrate", "restore", "test"]);
+  assertEquals(DATA_JOB_KINDS, [
+    "inspect",
+    "backup",
+    "migrate",
+    "restore",
+    "test",
+  ]);
   const parsed = dataJobInputSchema.parse(job);
   assertEquals(parsed.kind, "migrate");
   assertEquals(parsed.data_schema, 2);

@@ -46,6 +46,10 @@ import type { IpcEvent } from "./ipc-guard.ts";
 import { createViewVisibility } from "../app-frame/visibility.ts";
 import { VIEW_STATE_CHANNEL } from "../../ipc/app-frame.ts";
 import { createAppCall } from "../app-frame/app-call.ts";
+import {
+  createBlueprintSource,
+  createEntryScreen,
+} from "../app-frame/blueprint-source.ts";
 import { nodeInvoke } from "../app-frame/app-invoke.ts";
 import {
   canonicalInputHash,
@@ -390,16 +394,21 @@ registerViewIpc(
     visibility: viewVisibility,
   }),
 );
-// 앱 preload 통로(shell#T38). 신원은 IPC sender view에서만 정한다. 고정 blueprint read
-// (`/v1/apps/blueprint`, apps#T19)와 confirm command의 approval·proof(shell#T45), view 오류의
-// collector 전달 binding(problems#T16)은 아직 core 통로가 없어 unavailable·unsent다.
+// 앱 preload 통로(shell#T38). 신원은 IPC sender view에서만 정한다. 고정 blueprint는 core의
+// `/v1/apps/blueprint`(apps#T19)를 읽는다. confirm command의 approval·proof(shell#T45 이어보냄)와
+// view 오류의 collector 전달 binding(problems#T16)은 아직 core 통로가 없어 unavailable·unsent다.
+const readBlueprint = (app: string) => {
+  const session = core.session();
+  return session
+    ? session.internal("read", "apps", "blueprint", { app })
+    : Promise.resolve({
+      ok: false as const,
+      error: { code: "unavailable", message: "core is not ready" },
+    });
+};
 const appCall = createAppCall({
   connector: appConnector,
-  blueprint: () =>
-    Promise.resolve({
-      ok: false,
-      error: { code: "unavailable", message: "blueprint read is not ready" },
-    }),
+  blueprint: createBlueprintSource(readBlueprint),
   rules: { validate: validateInput, hash: canonicalInputHash },
   confirm: () =>
     Promise.resolve({
@@ -706,11 +715,7 @@ const appWindows = createAppWindows({
         error: { code: "unavailable", message: "core is not ready" },
       });
   },
-  entryScreen: () =>
-    Promise.resolve({
-      ok: false,
-      error: { code: "unavailable", message: "blueprint read is not ready" },
-    }),
+  entryScreen: createEntryScreen(readBlueprint),
   create: (config: AppWindowConfig) => {
     const window = new BrowserWindow(surfaceOptions(config, headless));
     // 창 자신은 page가 없다. 새 창 요청도 받지 않는다.

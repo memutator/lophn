@@ -65,7 +65,7 @@ export function createAppCredentialIssuer(options: {
         operations: [...options.operations],
         targets: {
           app: request.app,
-          release: request.release,
+          ...(request.release === null ? {} : { release: request.release }),
           process: request.process,
           mode: request.mode,
           // 발급 때 고정한 보고 위치 근거. collector가 보고할 때 대상으로 쓴다.
@@ -79,7 +79,7 @@ export function createAppCredentialIssuer(options: {
       },
       conditions: {
         app: request.app,
-        release: request.release,
+        ...(request.release === null ? {} : { release: request.release }),
         process: request.process,
         mode: request.mode,
         ...(request.bundle_hash === undefined

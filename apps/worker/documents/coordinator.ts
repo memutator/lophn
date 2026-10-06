@@ -22,10 +22,15 @@ import { createRequestHandler } from "./requests.ts";
 import {
   basisFromStore,
   childBlobPort,
+  createInstructionSubmit,
   createObservationSubmit,
+  instructionBasisFromStore,
   linkFromStore,
+  poolInstructionRead,
+  reportInstructionMissing,
   retryOnNewBasis,
   sharePreparedBlob,
+  skipInstructionFiles,
 } from "./observation.ts";
 import { createBasisStore } from "./basis.ts";
 import { createByteInbox, validateFiles } from "./validation.ts";
@@ -68,6 +73,7 @@ import {
   dispatchBatch,
   emptyQueue,
   enqueueCandidate,
+  observeInstructionFile,
   observeRoot,
   pickSlot,
   PREPARATION_SLOTS,
@@ -397,9 +403,12 @@ export async function runCoordinator(root: string): Promise<void> {
       },
     })
     : undefined;
+  // 쓴 지침 파일을 바로 다시 관측하게 하는 길. 관측 loop는 core와 닿은 뒤(onHello)에 생긴다.
+  const nudger: { current?: (path: string) => void } = {};
   const files = createFileHandlers({
     dataRoot: root,
     basis,
+    nudge: (path) => nudger.current?.(path),
     pool,
     inbox,
     status,
@@ -441,15 +450,36 @@ export async function runCoordinator(root: string): Promise<void> {
         fetch: productFetch(),
       });
       core.client = client;
+      const nowIso = () =>
+        new Date().toISOString().replace(/\.\d{3}Z$/, ".000Z");
+      const prepareBlob = sharePreparedBlob(childBlobPort(current));
       const submit = retryOnNewBasis(
-        createObservationSubmit({
-          client,
-          prepareBlob: sharePreparedBlob(childBlobPort(current)),
-          link: linkFromStore(basis, () => ids.newId("doc")),
-          status,
-          nowIso: () => new Date().toISOString().replace(/\.\d{3}Z$/, ".000Z"),
-          newKey: () => crypto.randomUUID(),
-        }),
+        skipInstructionFiles(
+          createObservationSubmit({
+            client,
+            prepareBlob,
+            link: linkFromStore(basis, () => ids.newId("doc")),
+            status,
+            nowIso,
+            newKey: () => crypto.randomUUID(),
+          }),
+          basis,
+        ),
+        basis,
+        BASIS_RETRY_WAIT_MS,
+      );
+      // 등록된 지침 파일은 일반 root 규칙과 따로, exact 경로만 관측한다(file-tracking#R19).
+      const instructionPorts = {
+        client,
+        prepareBlob,
+        store: basis,
+        status,
+        nowIso,
+        newKey: () => crypto.randomUUID(),
+        newDocumentId: () => ids.newId("doc"),
+      };
+      const instructionSubmit = retryOnNewBasis(
+        createInstructionSubmit(instructionPorts),
         basis,
         BASIS_RETRY_WAIT_MS,
       );
@@ -466,7 +496,19 @@ export async function runCoordinator(root: string): Promise<void> {
           submit,
           basisFor: basisFromStore(basis),
         },
+        instruction: {
+          observe: observeInstructionFile,
+          deps: {
+            read: poolInstructionRead(pool, root),
+            nowMs: () => Date.now(),
+            submit: instructionSubmit,
+            basisFor: instructionBasisFromStore(basis),
+            missing: (candidate) =>
+              reportInstructionMissing(instructionPorts, candidate),
+          },
+        },
       });
+      nudger.current = (path) => observers.nudge(path);
       basis.onCommit(() => observers.sync());
       coordinator.current?.onStop(() => observers.stopAll());
     },

@@ -45,6 +45,10 @@ async function importMap(
     wording,
     ...[
       "tokens/",
+      "ui-reading/",
+      "ui-filter/",
+      "ui-stat/",
+      "ui-action/",
       "ui-control/",
       "ui-overlay/",
       "ui-layout/",

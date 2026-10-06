@@ -4,6 +4,10 @@
 // 바뀌면 같은 통로로 다시 보낸다. 새 HTTP route나 credential 정책은 없다.
 import { err, ok, type Result } from "../../base/mod.ts";
 import type { TrackingPattern } from "../../contracts/documents/mod.ts";
+import {
+  type ObservationInstructionBasis,
+  parseInstructionBasis,
+} from "./instruction.ts";
 
 // 관측할 root 하나와 그 root에 적용되는 규칙.
 export type ObservationRootBasis = {
@@ -43,6 +47,9 @@ export type ObservationBasisPayload = {
   // 활성 project의 모든 등록 폴더. 파일 쓰기의 root 권한 집합이다.
   folders: ObservationFolderBasis[];
   links: ObservationLinkBasis[];
+  // 정확히 등록된 지침 파일. 일반 root 규칙과 따로 있고 tracking을 껐어도 들어간다(R19).
+  // 없으면 빈 목록이다.
+  instructions?: ObservationInstructionBasis[];
 };
 
 function invalid(): Result<never> {
@@ -151,7 +158,11 @@ export function parseObservationBasis(
     if (link === undefined) return invalid();
     links.push(link);
   }
-  return ok({ roots, folders, links });
+  const instructions = value.instructions === undefined
+    ? ok<ObservationInstructionBasis[]>([])
+    : parseInstructionBasis(value.instructions);
+  if (!instructions.ok) return instructions;
+  return ok({ roots, folders, links, instructions: instructions.value });
 }
 
 // 한 번에 보내는 조각. 감독 pipe의 제어 frame은 256 KiB가 상한이라 근거 전체를 한
@@ -166,6 +177,8 @@ export type ObservationBasisChunk = {
   roots: ObservationRootBasis[] | null;
   // begin 조각에서만 온다(그 push의 쓰기 폴더 전부). roots와 같이 null이거나 아니다.
   folders: ObservationFolderBasis[] | null;
+  // begin 조각에서만 온다(그 push의 지침 파일 등록 전부). 없으면 빈 목록이다.
+  instructions?: ObservationInstructionBasis[] | null;
   upsert: ObservationLinkBasis[];
   // 연결이 없어진 경로.
   remove: string[];
@@ -200,6 +213,14 @@ export function parseObservationChunk(
     folders = parsed;
   }
   if ((folders === null) === value.begin) return invalid();
+  let instructions: ObservationInstructionBasis[] | null = null;
+  if (value.instructions !== undefined && value.instructions !== null) {
+    const parsed = parseInstructionBasis(value.instructions);
+    if (!parsed.ok) return parsed;
+    instructions = parsed.value;
+  }
+  if (instructions !== null && !value.begin) return invalid();
+  if (value.begin) instructions ??= [];
   const upsert: ObservationLinkBasis[] = [];
   for (const entry of value.upsert) {
     const link = linkOf(entry);
@@ -217,6 +238,7 @@ export function parseObservationChunk(
     full: value.full,
     roots,
     folders,
+    instructions,
     upsert,
     remove,
     more: value.more,
@@ -252,7 +274,9 @@ export function chunkObservationBasis(
     : [...before.keys()].filter((path) => !present.has(path));
   const rootsChanged = prev === undefined ||
     JSON.stringify(prev.roots) !== JSON.stringify(next.roots) ||
-    JSON.stringify(prev.folders) !== JSON.stringify(next.folders);
+    JSON.stringify(prev.folders) !== JSON.stringify(next.folders) ||
+    JSON.stringify(prev.instructions ?? []) !==
+      JSON.stringify(next.instructions ?? []);
   if (!rootsChanged && upsert.length === 0 && remove.length === 0) return [];
   const chunks: ObservationBasisChunk[] = [];
   let current: ObservationBasisChunk = {
@@ -260,11 +284,14 @@ export function chunkObservationBasis(
     full,
     roots: next.roots,
     folders: next.folders,
+    instructions: next.instructions ?? [],
     upsert: [],
     remove: [],
     more: false,
   };
-  let bytes = encoder.encode(JSON.stringify([next.roots, next.folders])).length;
+  let bytes = encoder.encode(
+    JSON.stringify([next.roots, next.folders, next.instructions ?? []]),
+  ).length;
   const flush = () => {
     current.more = true;
     chunks.push(current);
@@ -273,6 +300,7 @@ export function chunkObservationBasis(
       full,
       roots: null,
       folders: null,
+      instructions: null,
       upsert: [],
       remove: [],
       more: false,

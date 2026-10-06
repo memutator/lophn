@@ -10,6 +10,7 @@ import {
   type Result,
 } from "../../packages/base/mod.ts";
 import {
+  type ConnectionId,
   connectionShow,
   HUMAN_ONLY_NAMES,
   type IntegrationTarget,
@@ -27,6 +28,7 @@ import {
 } from "../../packages/coding-agent/harnesses/system-ports.ts";
 import {
   type CommandOutput,
+  connectionRevokeGuide,
   humanDecisionGuide,
   runConnectionInstall,
 } from "../../packages/coding-agent/cli/commands/connection.ts";
@@ -312,8 +314,11 @@ export async function runCliCommand(
       message: `지원하지 않는 command다: ${name}`,
     });
   }
-  if (name === "connection create" || name === "connection revoke") {
-    return ok(humanDecisionGuide(name));
+  if (name === "connection create") return ok(humanDecisionGuide(name));
+  if (name === "connection revoke") {
+    return ok(connectionRevokeGuide(
+      input as { connection: ConnectionId; base_revision: string },
+    ));
   }
   if (name.startsWith("ticket ") && entry.monoRoute === undefined) {
     // claim·renew·release·report는 MCP의 `lophn_ticket`에만 둔다. CLI는 안내만 한다(mcp#R27).

@@ -17,6 +17,7 @@ import {
   connectionList,
   type ConnectionScope,
   connectionShow,
+  decisionLink,
   type IntegrationTarget,
 } from "../../../contracts/coding-agent/mod.ts";
 import type { InstallOutcome } from "../../harnesses/mod.ts";
@@ -39,18 +40,45 @@ export const CONNECTION_COMMANDS: readonly CommandEntry[] = [
   { name: "connection install", input: cliConnectionInstallSchema },
 ];
 
-// 사람의 결정만 받는 command다. CLI는 사람 credential을 읽지 않으므로 실행하지 않고 어디서 하는지만
-// 안내한다(cli#R7). 연결 생성은 확인 창이 없고 회수만 confirmation window다.
+// 연결 생성은 lophn 연결 화면에서 사람이 고른다. CLI는 사람 credential을 읽지 않으므로 실행하지 않고
+// 어디서 하는지만 안내한다(cli#R7). 연결 생성은 확인 창이 없다.
 export function humanDecisionGuide(
-  name: "connection create" | "connection revoke",
+  name: "connection create",
 ): { summary: string; data: unknown; next: string[]; isError: true } {
   return {
-    summary: name === "connection create"
-      ? "연결 생성은 lophn 연결 화면에서 사람이 고른다"
-      : "연결 회수는 lophn 연결 화면의 확인 창에서 사람이 결정한다",
+    summary: "연결 생성은 lophn 연결 화면에서 사람이 고른다",
     data: { command: name, human_only: true },
     next: [
       "lophn 창의 Connection 화면에서 진행한다. CLI는 token도 사람 credential도 받지 않는다",
+    ],
+    isError: true,
+  };
+}
+
+// 연결 회수는 confirmation window에서 사람이 결정한다(connection#R2, cli#R7). CLI는 창을 열지도
+// 연결을 읽지도 않고 결정 화면 링크와 기다린다는 사실만 낸다. 대상 연결이 있든 없든, 범위 안이든
+// 밖이든 같은 답이라 존재를 드러내지 않는다. 회수가 일어났다고도, 외부 프로세스·OS 파일 편집을
+// 멈춘다고도 말하지 않는다(connection#R18).
+export function connectionRevokeGuide(
+  input: { connection: ConnectionId; base_revision: string },
+): { summary: string; data: unknown; next: string[]; isError: true } {
+  const link = decisionLink(input.connection);
+  return {
+    summary:
+      "연결 회수는 사람이 lophn 확인 창에서 결정한다. 사람의 결정을 기다리는 중이고 아무것도 회수하지 않았다",
+    data: {
+      command: "connection revoke",
+      human_only: true,
+      connection: input.connection,
+      base_revision: input.base_revision,
+      decision_link: link,
+      waiting: true,
+      window_opened: false,
+      revoked: false,
+    },
+    next: [
+      `사람이 ${link}에서 연결과 판을 보고 결정한다. 창을 닫거나 결정이 없으면 연결은 그대로다`,
+      "회수는 그 연결의 새 요청 인증을 거절한다. 이미 떠 있는 외부 프로세스나 OS 파일 편집을 멈추지는 않는다",
     ],
     isError: true,
   };

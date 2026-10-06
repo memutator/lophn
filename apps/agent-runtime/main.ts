@@ -27,15 +27,18 @@ import {
   type Startup,
 } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
 import {
-  BUILTIN_TOOLS,
-  runOperations,
-} from "../../packages/lophn-agent/harness/tools/mod.ts";
-import { startCatalogRefresher } from "./catalog.ts";
+  type CatalogRefresherHandle,
+  startCatalogRefresher,
+} from "./catalog.ts";
 import { agentCall, machineCall } from "./core-http.ts";
 import type { CoreCall } from "./core-call.ts";
 import { readOf } from "./core-call.ts";
 import type { BlobPort } from "./run-blobs.ts";
 import { createCredentialLink } from "./credential-link.ts";
+import { redact } from "./redact.ts";
+import { roleOperations } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
+export { redact };
+import { productDriver, startRunPump } from "./product-driver.ts";
 import {
   createRunDriver,
   type DriveDeps,
@@ -51,6 +54,8 @@ export type CoreCalls = {
   agentCall(token: string): CoreCall;
   // 기록이 hash로 가리키는 본문을 감독 pipe로 core에 준비한다.
   blobs: BlobPort;
+  // 마지막 정상 catalog와 동봉 snapshot. data root가 없으면 없다.
+  catalog: CatalogRefresherHandle | undefined;
 };
 
 export type Runtime = {
@@ -83,6 +88,8 @@ export async function startAgentRuntime(input: {
   fetch?: typeof fetch;
   // derived 위치의 root. 없으면 LOPHN_HOME에서 결정한다(T3와 같은 근원).
   dataRoot?: string;
+  // 접수된 run을 계속 시작하는 pump를 돌릴지. 제품 기동만 켠다.
+  pump?: boolean;
   // 주기 회차 시계를 돌릴지. 기본은 실제 core loopback에 붙었을 때만 돈다.
   occurrences?: boolean;
   // run 시작 재료(basis 준비, StartRun, loop의 port)를 만드는 쪽이다. core 연결(machine 자격과 run의
@@ -113,11 +120,13 @@ export async function startAgentRuntime(input: {
   const link = createCredentialLink({ send: (message) => child.send(message) });
   const credentials = createRunCredentials({
     issuer: link.issuer,
-    operations: runOperations(BUILTIN_TOOLS),
+    // run의 역할 상한 안에서만 청한다. core가 같은 상한으로 대조한다.
+    operations: (scope) => roleOperations(scope.role),
     process: "agent-runtime",
   });
   let driver: RunDriver | undefined;
   const occurrenceStop = new AbortController();
+  const pumpStop = new AbortController();
   function startOccurrences(machine: CoreCall, read: CoreRead): void {
     const clock = createOccurrenceClock({
       clock: systemClock,
@@ -153,7 +162,17 @@ export async function startAgentRuntime(input: {
         if (started.ok) {
           startup = started.value;
           selectorRead = read;
+          // catalog 자동 갱신은 기동을 막지 않는 single-flight다(R4). 끈 날에는 내부에서 자동 요청이
+          // 나가지 않는다(R6).
+          const root = runtimeDataRoot(input.dataRoot);
+          const refresher = root === undefined
+            ? undefined
+            : startCatalogRefresher({
+              dataRoot: root,
+              ...(input.fetch === undefined ? {} : { fetch: input.fetch }),
+            });
           calls = {
+            catalog: refresher,
             machine: input.read ?? machineCall({
               port: hello.api_port,
               credential: () =>
@@ -189,16 +208,7 @@ export async function startAgentRuntime(input: {
           }
           // ready는 감독이 읽기 전에 나간다. 전송 완료를 기다리면 역압이 기동을 막는다.
           void send(child, { type: "ready" });
-          // catalog 자동 갱신은 기동을 막지 않는 single-flight다(R4). 끈 날에는
-          // 내부에서 자동 요청이 나가지 않는다(R6).
-          const root = runtimeDataRoot(input.dataRoot);
-          if (root !== undefined) {
-            const refresher = startCatalogRefresher({
-              dataRoot: root,
-              ...(input.fetch === undefined ? {} : { fetch: input.fetch }),
-            });
-            refresher.kickAutoUpdate();
-          }
+          refresher?.kickAutoUpdate();
         } else {
           // 진단 쓰기가 막혀도 기동 실패는 바로 돌려준다.
           void diagnostics.write(started.error.message);
@@ -213,6 +223,7 @@ export async function startAgentRuntime(input: {
         // stopped ack는 cleanup 안에서만 통과한다. 그 전에 보내면 거절된다.
         stopped = true;
         occurrenceStop.abort();
+        pumpStop.abort();
         // 감독 상실: 진행 loop의 새 진입을 막고 들고 있는 credential을 모두 끝낸다.
         if (driver !== undefined) driver.endAll();
         else credentials.endAll();
@@ -244,14 +255,22 @@ export async function startAgentRuntime(input: {
   // 기동 순서: 새 run을 고르기 전에 끊겼던 run(진행 중·사람 기다림)을 먼저 잇는다. 사람이 멈춘 run은
   // 이미 끝나 있어 대상이 아니다. 복구를 못 해도 기동은 막지 않고 그 run은 이어지지 않은 채 남는다.
   let recovered: RecoverReport[] = [];
+  let pumping: Promise<void> = Promise.resolve();
   if (input.driver !== undefined) {
-    driver = createRunDriver({
-      selector,
-      credentials,
-      ...input.driver(calls!),
-    });
+    const driverDeps = input.driver(calls!);
+    driver = createRunDriver({ selector, credentials, ...driverDeps });
     const report = await driver.recover();
     if (report.ok) recovered = report.value;
+    // 복구가 끝난 뒤에야 새 run을 고른다.
+    if (input.pump === true) {
+      pumping = startRunPump({
+        driver,
+        ...(driverDeps.liveRuns === undefined
+          ? {}
+          : { liveRuns: driverDeps.liveRuns }),
+        signal: pumpStop.signal,
+      });
+    }
   }
   const runtime: Runtime = {
     startup: startup!,
@@ -266,7 +285,9 @@ export async function startAgentRuntime(input: {
     async shutdown() {
       stopped = true;
       occurrenceStop.abort();
+      pumpStop.abort();
       await running;
+      await pumping;
     },
   };
   return ok(runtime);
@@ -348,28 +369,6 @@ function createDiagnosticWriter(stderr: WritableStream<Uint8Array>) {
   };
 }
 
-const SECRET_PATTERNS = [
-  /sk-ant-[A-Za-z0-9_-]{8,}/g,
-  /sk-[A-Za-z0-9]{8,}/g,
-  /gh[pousr]_[A-Za-z0-9]{8,}/g,
-  /AKIA[0-9A-Z]{16}/g,
-  /xox[baprs]-[A-Za-z0-9-]{8,}/g,
-  /eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g,
-  /-----BEGIN [A-Z ]+-----[\s\S]*?-----END [A-Z ]+-----/g,
-  // 헤더 한 줄 전체를 가린다. 값 하나만 지우면 뒤 토큰이 남는다.
-  /authorization\s*[:=][^\n]*/gi,
-  /:\/\/[^/\s]+@/g,
-];
-
-export function redact(text: string): string {
-  let next = text;
-  for (const pattern of SECRET_PATTERNS) {
-    pattern.lastIndex = 0;
-    next = next.replace(pattern, "[redacted]");
-  }
-  return next;
-}
-
 function streamReader(
   stream: ReadableStream<Uint8Array>,
 ): (buffer: Uint8Array) => Promise<number | null> {
@@ -401,7 +400,10 @@ function streamWriter(stream: WritableStream<Uint8Array>) {
 }
 
 if (import.meta.main) {
-  const started = await startAgentRuntime({});
+  const started = await startAgentRuntime({
+    driver: productDriver(),
+    pump: true,
+  });
   if (!started.ok) {
     console.error(`agent runtime: ${redact(started.error.message)}`);
     Deno.exit(1);

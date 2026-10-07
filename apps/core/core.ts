@@ -88,6 +88,7 @@ import {
   connectionRegisterChild,
   ticketUploadSummary,
 } from "../../packages/contracts/coding-agent/mod.ts";
+import { problemsUploadFixSummary } from "../../packages/contracts/problems/mod.ts";
 import { CONNECTION_SECRET_OWNER } from "../../packages/coding-agent/mod.ts";
 import {
   type CodingCredentials,
@@ -130,6 +131,7 @@ import {
 } from "./documents-prepare.ts";
 import { documentUploadHandler } from "./documents-upload.ts";
 import { ticketSummaryUploadHandler } from "./ticket-summary-upload.ts";
+import { fixSummaryUploadHandler } from "./problems-fix-summary-upload.ts";
 import {
   type FilesRouteDeps,
   fileWorkers,
@@ -1194,6 +1196,10 @@ async function open(
         // ticket 완료 보고 summary: purpose는 ticket 등록값(ticket_summary)으로 고정이다.
         `${ticketUploadSummary.resource}/${ticketUploadSummary.method}`,
         ticketSummaryUploadHandler(prepareRelay),
+      ], [
+        // 고친 기록 summary: purpose는 problems/repairs 등록값(fix_summary)으로 고정이다.
+        `${problemsUploadFixSummary.resource}/${problemsUploadFixSummary.method}`,
+        fixSummaryUploadHandler(prepareRelay),
       ], [
         // 사람의 보호 입력 값: core는 해석·보관 없이 I/O worker의 keychain adapter로 흘린다.
         `${secretInput.resource}/${secretInput.method}`,

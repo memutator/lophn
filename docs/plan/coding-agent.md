@@ -1565,6 +1565,8 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T44 MCP·CLI 문제 tool과 사람의 문제 command
 
+- 상태: 완료 (#452) — 남은 것: 이미지 내용 전달(`attachment open`은 참조·종류·크기만, platform redaction image/png 필요, T43과 같다). reproduction test의 core 요청 접수는 runner 연결(follow-up 40) 전이라 거절로 읽히고, core `RequestTest`의 claim 검사는 problems가 정한다(problems#T18 이어보냄)
+- 정한 것(T44): `record_fix` tool·CLI 입력은 owner command 입력이 아니라 `{problem, problem_seq, fix{before, after, verification, ticket, claim_seq}, summary 본문}`이다. 통로가 summary를 `problems/upload_fix_summary`(additive upload route, purpose `fix_summary`)로 저장해 받은 준비 증거와 그 hash만 `RecordProblemFix`에 싣고, 올린 바이트와 다른 hash의 준비 증거는 보내지 않는다. `test`는 reproduction만이고 `ticket_source{ticket, claim_seq}`를 필수로 받아 지정 repair ticket의 현재 claim(claimed·같은 앱·문제 포함·claim_seq 일치·기한 안·이 연결의 claim)을 읽어 확인한 뒤 `app test`와 같은 흐름으로 요청한다. 처리 대상(`handler` user/coding_agent)은 문제 요약의 next_action으로 통로가 가른다(owner list에 filter가 없다). `problem attachment open`은 보고·snapshot 소속과 허용 첨부(snapshot log·화면 이미지)를 읽어 `{kind, media_type, size_bytes, open{report_attachment, problem, report, field}}` 참조만 내고 hash·운영 경로·내용은 내지 않는다
 - 등급: 기본
 - concern: coding-agent/mcp-server, coding-agent/cli
 - 요구: coding-agent/mcp-server#R24, R25; coding-agent/cli#R7, R26, R33, R34,

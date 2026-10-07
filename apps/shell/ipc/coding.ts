@@ -104,6 +104,8 @@ export interface ConnectView {
 
 export interface FolderChoiceView {
   readonly project: string;
+  /** 사람이 지은 project 이름. */
+  readonly project_name: string;
   readonly folder_ref: string;
   readonly path: string;
 }

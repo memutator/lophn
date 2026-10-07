@@ -9,7 +9,8 @@ import {
   type SessionView,
   type StartView,
 } from "../../ipc/coding.ts";
-import type { CodingStart } from "../terminal/coding-start.ts";
+import type { TerminalRuntime } from "../../ipc/terminal.ts";
+import type { CodingStart, ObservationStore } from "../terminal/coding-start.ts";
 import type { CodingConnection } from "./coding-connection.ts";
 import {
   checkCaller,
@@ -101,4 +102,83 @@ export function registerCodingIpc(
 
 export function removeCodingIpc(main: Pick<CodingIpcMain, "removeHandler">) {
   main.removeHandler(CODING_CHANNEL);
+}
+
+/**
+ * lophn이 [Start]로 연 coding TUI와 그 지금 상태. TUI 상태는 host가 관측한 값(`observationAt`)이고 Task 상태가
+ * 아니다. 관측이 없거나 낡았거나 host가 끝났으면 unknown이다. 일반 shell runtime은 싣지 않는다.
+ */
+export function codingSessions(
+  runtimes: readonly TerminalRuntime[],
+  store: Pick<ObservationStore, "current">,
+): SessionView[] {
+  return runtimes.flatMap((runtime) =>
+    runtime.coding === undefined ? [] : [{
+      runtime_ref: runtime.terminal_ref,
+      ticket: runtime.coding.ticket,
+      connection: runtime.coding.connection,
+      tui: store.current(runtime.terminal_ref).state,
+      prompt_delivery: runtime.coding.prompt_delivery,
+    }]
+  );
+}
+
+type ProjectsReader = {
+  call(
+    kind: string,
+    resource: string,
+    method: string,
+    body: unknown,
+  ): Promise<{ ok: boolean; value?: unknown }>;
+};
+
+/**
+ * 등록된 project 폴더 전부. folder_ref는 terminal·[Start]가 다시 해석하는 규칙(`<project>_<순번>`)과 같다.
+ * 읽지 못하면 빈 목록이다(폴더를 지어내지 않는다).
+ */
+export async function registeredFolders(
+  session: ProjectsReader | null,
+): Promise<FolderChoiceView[]> {
+  if (session === null) return [];
+  const reply = await session.call("read", "projects", "list", {
+    status: "active",
+  });
+  if (!reply.ok) return [];
+  const projects = (reply.value as {
+    projects?: {
+      id?: string;
+      title?: string;
+      folders?: { path: string }[];
+    }[];
+  } | undefined)?.projects ?? [];
+  return projects.flatMap((project) =>
+    typeof project.id !== "string"
+      ? []
+      : (project.folders ?? []).map((folder, index) => ({
+        project: project.id as string,
+        project_name: project.title ?? "",
+        folder_ref: `${project.id}_${index}`,
+        path: folder.path,
+      }))
+  );
+}
+
+/**
+ * supervisor가 host에서 받은 줄과 host 끝남을 child 등록(coding-children)과 TUI 관측 표(ObservationStore)에
+ * 같이 보낸다. 둘 다 같은 줄을 본다: child 줄은 등록기가, observation 줄은 관측 표가 받고 나머지는 무시한다.
+ */
+export function hostEventSinks(
+  registrar: { onEvent(event: unknown): void; hostLost(): void },
+  store: Pick<ObservationStore, "onEvent" | "hostLost">,
+): { onEvent(event: unknown): void; onHostLost(): void } {
+  return {
+    onEvent(event) {
+      registrar.onEvent(event);
+      store.onEvent(event);
+    },
+    onHostLost() {
+      registrar.hostLost();
+      store.hostLost();
+    },
+  };
 }

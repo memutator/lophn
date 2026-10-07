@@ -22,8 +22,9 @@ import {
   CHECK_WORK_PAGE,
   type CheckWork,
   judgeTicket,
-  outcomeOf,
+  type ProblemFact,
   ticketCheckWork,
+  ticketOutcome,
   type VerificationFact,
 } from "./checker/mod.ts";
 
@@ -67,6 +68,44 @@ function failureSummary(value: unknown): string | null {
   }
 }
 
+// problems.closure(JSON)의 닫힘 근거만 읽는다. 읽을 수 없는 값은 닫힘 없음으로 둔다.
+function problemFact(row: Record<string, unknown>): ProblemFact {
+  let closure: ProblemFact["closure"] = null;
+  if (row["closure"] !== null && row["closure"] !== undefined) {
+    try {
+      const parsed = JSON.parse(String(row["closure"])) as Record<
+        string,
+        unknown
+      >;
+      closure = {
+        reason: parsed["reason"] as NonNullable<ProblemFact["closure"]>[
+          "reason"
+        ],
+        release: parsed["release"] === null || parsed["release"] === undefined
+          ? null
+          : String(parsed["release"]),
+        verification: parsed["verification"] === null ||
+            parsed["verification"] === undefined
+          ? null
+          : String(parsed["verification"]),
+        confirmation: parsed["confirmation"] === null ||
+            parsed["confirmation"] === undefined
+          ? null
+          : String(parsed["confirmation"]),
+        basis_seq: String(parsed["basis_seq"]),
+      };
+    } catch {
+      closure = null;
+    }
+  }
+  return {
+    id: String(row["id"]),
+    app: String(row["app"]),
+    status: String(row["status"]) as ProblemFact["status"],
+    closure,
+  };
+}
+
 function verificationFact(row: Record<string, unknown>): VerificationFact {
   return {
     id: String(row["id"]),
@@ -75,6 +114,16 @@ function verificationFact(row: Record<string, unknown>): VerificationFact {
     result: String(row["result"]) as VerificationFact["result"],
     reason: String(row["reason"]),
     bundle_hash: String(row["target_bundle_hash"]),
+    problem: row["problem"] === null || row["problem"] === undefined
+      ? null
+      : String(row["problem"]),
+    test: row["test"] === null || row["test"] === undefined
+      ? null
+      : String(row["test"]),
+    after_release: row["after_release"] === null ||
+        row["after_release"] === undefined
+      ? null
+      : String(row["after_release"]),
     ticket: row["ticket"] === null || row["ticket"] === undefined ? null : {
       ticket: String(row["ticket"]),
       check_index: Number(row["ticket_check_index"]),
@@ -89,7 +138,7 @@ function verificationFact(row: Record<string, unknown>): VerificationFact {
 // 않는다(release 상태·active release·Verification 결과 그대로).
 export function loadCheckWork(sql: ReadSql, ticket: string): CheckWork | null {
   const row = sql.get(
-    `SELECT app, state, revision, completion_seq FROM tickets WHERE id = ?`,
+    `SELECT app, state, revision, completion_seq, problems FROM tickets WHERE id = ?`,
     [ticket],
   );
   if (
@@ -148,17 +197,30 @@ export function loadCheckWork(sql: ReadSql, ticket: string): CheckWork | null {
     () =>
       sql.all(
         `SELECT id, kind, app, result, reason, target_bundle_hash, ticket,
-           ticket_check_index, ticket_check_hash, ticket_completion_seq
+           ticket_check_index, ticket_check_hash, ticket_completion_seq,
+           problem, test, after_release
          FROM verifications
          WHERE app = ?
            AND ((kind = 'app_test' AND target_bundle_hash = ?)
-             OR (kind = 'test_command' AND ticket = ? AND ticket_completion_seq = ?))
+             OR (kind = 'test_command' AND ticket = ? AND ticket_completion_seq = ?)
+             OR (kind = 'reproduction' AND after_release = ?))
          ORDER BY cast(recorded_seq AS integer)
          LIMIT 500`,
-        [app, release.bundle_hash, ticket, seq],
+        [app, release.bundle_hash, ticket, seq, releaseId],
       ).map(verificationFact),
     [] as VerificationFact[],
   );
+  const problems = parseList(row["problems"]);
+  const problemFacts = problems.flatMap((id) => {
+    const found = readIfPresent(
+      () =>
+        sql.get("SELECT id, app, status, closure FROM problems WHERE id = ?", [
+          id,
+        ]),
+      undefined,
+    );
+    return found === undefined ? [] : [problemFact(found)];
+  });
   return {
     ticket,
     app,
@@ -178,6 +240,8 @@ export function loadCheckWork(sql: ReadSql, ticket: string): CheckWork | null {
         : String(appRow["active_release"]),
     },
     verifications,
+    problems,
+    problem_facts: problemFacts,
   } as CheckWork;
 }
 
@@ -316,7 +380,7 @@ export function createTicketCheckCommands(): {
         const results = work.conditions.map((condition) =>
           merged.get(condition.position) ?? "inconclusive"
         );
-        const outcome = outcomeOf(results);
+        const outcome = ticketOutcome(work, results);
         const state = outcome === "confirmed"
           ? "confirmed"
           : outcome === "check_failed"

@@ -4,6 +4,7 @@ export {
   type ConditionDecision,
   judgeTicket,
   outcomeOf,
+  ticketOutcome,
   type TicketOutcome,
 } from "./judge.ts";
 export {
@@ -18,5 +19,6 @@ export {
   type CheckWork,
   checkWorkSchema,
   ticketCheckWork,
+  type ProblemFact,
   type VerificationFact,
 } from "./work.ts";

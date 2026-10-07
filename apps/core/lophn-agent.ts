@@ -39,6 +39,7 @@ import {
 } from "../../packages/lophn-agent/harness/model/mod.ts";
 import {
   createProviderCommands,
+  createProviderDefinitionsRead,
   createProviderReads,
   createProviderSecretRefSource,
   providerSchemaSteps,
@@ -544,6 +545,7 @@ export const lophnAgentDefinitions = {
     commands.refreshCredential,
     commands.recordAvailability,
     commands.recordCheck,
+    commands.test,
     modelCommands.change,
     usage.start,
     usage.finish,
@@ -670,6 +672,9 @@ export function createLedgerRegistration(
       questionTextRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
       // 복구가 저장된 run basis·model 응답·tool 결과를 다시 읽는 같은 길이다(machine만).
       runBodyRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
+      // 연결 가능 provider의 내장 정의(provider#R1)는 ledger row가 아니라 동봉
+      // product catalog다. snapshot이 없어도 답하므로 api read 길이다.
+      createProviderDefinitionsRead(),
     ],
     // provider credential과 외부 MCP credential의 secret 값도 core의 알려진 값
     // registry에 등록·회수된다(platform/secrets#R1). MCP 참조는 extensions

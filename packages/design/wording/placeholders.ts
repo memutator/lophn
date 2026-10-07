@@ -1679,7 +1679,9 @@ export type PlaceholderKinds = {
   "settings.notice.window-opened": Record<never, never>;
   "settings.providers.account-name-help": Record<never, never>;
   "settings.providers.empty": Record<never, never>;
+  "settings.providers.local-not-set-up": Record<never, never>;
   "settings.providers.never-tested": Record<never, never>;
+  "settings.providers.not-connected": Record<never, never>;
   "settings.providers.sign-in-unverified": Record<never, never>;
   "settings.providers.tested-failed": {
     time: "string";

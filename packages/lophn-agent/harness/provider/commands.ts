@@ -11,6 +11,7 @@ import {
 import {
   changeProvider,
   changeProviderCredentials,
+  connectionTest,
   recordProviderAvailability,
   recordProviderCheck,
   refreshProviderCredential,
@@ -198,8 +199,20 @@ export function createProviderCommands(): {
   refreshCredential: CommandDefinition<typeof refreshProviderCredential>;
   recordAvailability: CommandDefinition<typeof recordProviderAvailability>;
   recordCheck: CommandDefinition<typeof recordProviderCheck>;
+  test: CommandDefinition<typeof connectionTest>;
 } {
   return {
+    // 실제 실행은 ledger transaction 밖의 writer 처리기가 한다(apps/core,
+    // withConnectionTest). 이 등록은 경로를 route registry에 열어 두는 자리다.
+    test: {
+      route: connectionTest,
+      handle() {
+        return err({
+          code: "unavailable",
+          message: "connection test runs outside the ledger writer",
+        });
+      },
+    },
     register: {
       route: registerProvider,
       handle(tx, _ctx, input) {

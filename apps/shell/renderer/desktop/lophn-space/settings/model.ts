@@ -16,11 +16,12 @@ import type {
   UsageRow,
 } from "./source.ts";
 
-/** 연결은 이름 순서, 같은 이름은 정의 순서를 따라 안정하게 둔다. */
+/** 등록한 연결이 먼저, 그 안에서 이름 순서, 같은 이름은 정의 순서를 따라 안정하게 둔다. */
 export function sortProviders(
   rows: readonly ProviderRow[],
 ): ProviderRow[] {
   return [...rows].sort((a, b) =>
+    Number(b.registered) - Number(a.registered) ||
     Number(b.enabled) - Number(a.enabled) ||
     a.name.localeCompare(b.name, "en") || a.id.localeCompare(b.id)
   );

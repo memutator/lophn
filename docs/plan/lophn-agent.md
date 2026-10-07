@@ -319,6 +319,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
   - failures_test.ts에 R19–R24 테스트: 일시 실패(연결·단절·500·502·503·529·retry 시각 30초 이내 429), retry-after-ms → retry-after(숫자·HTTP-date) → reset header 순서 해석, credential 사용 불가(인증 거절·잔액·지출 한도·30초 초과 또는 미상 429)와 SuperGrok 요금제 403을 인증 폐기와 구별, model 사용 불가는 그 credential+model만, 문맥 초과·사람 취소·응답 거절 구별, 문맥 초과를 알리지 않는 provider는 원인 불명(질문 Q5), 원인 불명을 인증 실패로 추측하지 않음, 오류 본문 보존 없음, usage_wait는 reset까지 또는 1시간이고 그동안 test 없음
   - credentials_test.ts에 R10, R27 테스트: 첫 usable credential affinity, 고정 목록 뒤 계정만, 하나면 이동 없음, 앞 계정으로 돌아가지 않음, 다른 provider·model 자동 이동 없음, API key는 API 과금·ChatGPT와 SuperGrok OAuth는 구독으로 구별하고 청구 미확정은 모름
   - connection_test_test.ts에 R29, R30 테스트: 명시 요청만, 설정 조회로 test 없음, 고정 test 재료(text·tool call), 30초 상한, 사용량 기록, 세션·문서를 재료로 보내지 않음
+  - 후속 (#419): 기본 provider 목록과 연결 test route
 
 ### T16 구독 OAuth 로그인과 token 갱신
 
@@ -331,6 +332,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - slice: agent
 - 조사: docs/research/provider-auth.md
 - 선행: T3, T15, platform#T20, shell#T29(code·최종 URL secret 입력), shell#T31(공식 로그인 버튼은 확인 없이 OS 브라우저로 연다)
+- lophn-agent#T15 후속(#419)에서 넘어온 것: 내장 provider 정의(`packages/lophn-agent/harness/provider/definitions.json`)의 openai·xai `oauth` 값(authorize·token endpoint, allowed_call_origins, scopes)은 확인 없이 넣은 값이라 `verified_for_lophn: false`다. docs/research/provider-auth.md와 provider#R12·R13(공개 `api.openai.com`, backend-api 없음, xAI discovery·device code) 기준으로 바로잡고 확인되면 true로 둔다.
 - shell#T29에서 넘어온 것: OAuth code·최종 주소 붙여넣기는 보호 창의 secret 입력(`credential.kind: "oauth"`, 화면은 "Code or final address")이 받는다. 지금은 값을 `/v1/secrets/input`(`provider_credential`)으로 보내 `RegisterProviderCredential`을 부른다. login-complete 교환이 필요하면 그 sink를 `apps/shell/main/confirmation/kinds/secret-input.ts`의 command 고르기에 더한다
 - shell#T31에서 넘어온 것: settings 화면이 [Sign in with <제품>]에서 `/v1/providers/login-begin`을 부르고 `sign_in.url`을 shell 크롬 링크(OS browser, 확인 창 없음)로 연다. 그래서 `loginBeginOutputSchema`에 additive 선택 field `sign_in: {url, user_code: string | null}`을 더했다(공식 로그인 주소와 device code, 값 없는 안내). 이 작업이 begin 응답에 그 값을 채운다(없으면 화면은 열 곳이 없다고 말한다). 최종 주소 붙여넣기 방식(`device_code_then_pkce_paste_url`)은 화면이 `openConfirmation({kind: "secret_input", owner: <provider id>, purpose: "provider_credential", credential: {kind: "oauth", ...}})`를 열고(지금 창은 `RegisterProviderCredential`로 보낸다), login-complete 교환은 `apps/shell/main/confirmation/kinds/secret-input.ts`의 command 고르기에 이 작업이 sink를 더한다. 로그인 취소는 `/v1/providers/login-cancel`을 부른다. 이 통로(login-begin·complete·cancel)가 core에 없는 동안 화면은 "Signing in with <제품> isn't available in this version yet."를 보인다.
 - 완료:

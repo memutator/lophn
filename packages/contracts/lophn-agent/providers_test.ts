@@ -78,6 +78,7 @@ Deno.test("lophn-agent/harness/provider#R2: provider routes and the three provid
     "/v1/providers/record-check",
     "/v1/providers/read",
     "/v1/providers/list",
+    "/v1/providers/definitions",
     "/v1/providers/login-begin",
     "/v1/providers/login-complete",
     "/v1/providers/login-cancel",

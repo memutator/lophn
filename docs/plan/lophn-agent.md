@@ -850,9 +850,10 @@ E2E는 apps#T27(use-app-command, ask-app-hint, connect-apps, view-agent-visuals 
 ### T45 App Engineer assignment와 tool 범위
 
 - 등급: 기본
+- 상태: 완료 (#433)
 - concern: lophn-agent/assignments, lophn-agent/roles/app-engineer
 - 요구: lophn-agent/assignments#R1, lophn-agent/roles/app-engineer#R5, R6, R21
-- 자리: packages/lophn-agent/assignments/ (AppCreated 반응: CreateAppEngineerAssignment), packages/lophn-agent/roles/app-engineer/ (역할 tool 선택), apps/core/lophn-agent.ts
+- 자리: packages/lophn-agent/assignments/ (AppCreated 반응: CreateAppEngineerAssignment), packages/lophn-agent/roles/app-engineer/ (역할 tool 선택), apps/core/ (assignment-reactions.ts, lophn-agent-bootstrap.ts)
 - 쓰는 contract: AppCreated·AppArchived event(apps#T1), event 구독 cursor(contracts#T7)
 - 내놓는 contract: CreateAppEngineerAssignment (contracts#T27)
 - slice: apps

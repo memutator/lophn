@@ -1,6 +1,7 @@
 import { err, ok, type Result } from "../../packages/base/mod.ts";
 import {
   type CallModel,
+  CONNECTION_TEST_TIMEOUT_MS,
   connectionTest,
   connectionTestInputSchema,
   type ModelCallRecord,
@@ -106,7 +107,10 @@ export function withConnectionTest(
       );
       if (!handled.ok) return handled;
       return ok({
-        result: { check: handled.value.check, timeout_ms: 30_000 },
+        result: {
+          check: handled.value.check,
+          timeout_ms: CONNECTION_TEST_TIMEOUT_MS,
+        },
         replayed: false,
         first_seq: null,
         last_seq: null,

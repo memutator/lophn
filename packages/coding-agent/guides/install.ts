@@ -99,7 +99,9 @@ export async function installSkills(
       components: ["skill"],
     }, { files, store: ports.store });
     if (!installed.ok) return installed;
-    notices.push(...installed.value.notices.filter((n) => SKILL_NOTICE.test(n)));
+    notices.push(
+      ...installed.value.notices.filter((n) => SKILL_NOTICE.test(n)),
+    );
     const resource = installed.value.resources.find((item) =>
       item.resource_identity.startsWith("skill:")
     );

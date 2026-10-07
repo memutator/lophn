@@ -15,8 +15,8 @@ export {
   checkManifest,
   type ManifestIssue,
   SKILL_RELEASES,
-  type SkillRelease,
   skillContentHash,
+  type SkillRelease,
 } from "./manifest.ts";
 export {
   DISTRIBUTED_SKILLS_DIR,

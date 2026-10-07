@@ -16,22 +16,22 @@ export const SKILL_RELEASES: readonly SkillRelease[] = [
   {
     name: "lophn-build-app",
     version: "1.0.0",
-    hash: "e4c5a443fc0925baa3cdcd970847910915bad9077e0686360ea080105e7ed9d1",
+    hash: "f893e85f08ab332f2607c35a7741efb3c26e643839d7488ceceda92a3f33900c",
   },
   {
     name: "lophn-navigate",
     version: "1.0.0",
-    hash: "dd605deb35c4ed8ca706c18bd54031644d099702dc2e490b4800fb6a4145ce05",
+    hash: "efc77a0c8b50d1c2e4557f3f3462e892a178cd8f988b77354e151074f72b545a",
   },
   {
     name: "lophn-repair",
     version: "1.0.0",
-    hash: "462c681ef2dab41c17af9e20914000511204fc8a2e9e1319a2cd49b034f3a7e3",
+    hash: "48dc8ea3d2dda91ce01159529d2b5a0d672c88f77055a4ac9e82c0d3827883c2",
   },
   {
     name: "lophn-save",
     version: "1.0.0",
-    hash: "d02950e73fc51c879b1e7d7b0339fb62e4b558b024ead3480cfc3fb5d756648f",
+    hash: "79616e372b2eb61fbbd7eb73e935d4ca0ac9b638c95f84b149da24cb185e381b",
   },
 ];
 
@@ -56,7 +56,10 @@ export type ManifestIssue = {
 // 읽은 skill 내용이 manifest 기록과 맞는지 본다. 기록에 없는 skill, 내용 없는 기록, 같은 version의
 // 내용 변경, version 형식 오류를 모두 낸다.
 export async function checkManifest(
-  skills: readonly { name: string; files: readonly { path: string; content: string }[] }[],
+  skills: readonly {
+    name: string;
+    files: readonly { path: string; content: string }[];
+  }[],
   manifest: readonly SkillRelease[] = SKILL_RELEASES,
 ): Promise<ManifestIssue[]> {
   const issues: ManifestIssue[] = [];
@@ -73,7 +76,10 @@ export async function checkManifest(
       });
     }
     if (!/^[0-9a-f]{64}$/.test(release.hash)) {
-      issues.push({ name: release.name, message: "hash가 sha256 hex가 아니다" });
+      issues.push({
+        name: release.name,
+        message: "hash가 sha256 hex가 아니다",
+      });
     }
   }
   for (const skill of skills) {
@@ -93,7 +99,10 @@ export async function checkManifest(
   }
   for (const release of manifest) {
     if (!skills.some((skill) => skill.name === release.name)) {
-      issues.push({ name: release.name, message: "manifest의 skill 내용이 없다" });
+      issues.push({
+        name: release.name,
+        message: "manifest의 skill 내용이 없다",
+      });
     }
   }
   return issues;

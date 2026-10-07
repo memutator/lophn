@@ -122,7 +122,10 @@ function parseFrontmatter(lines: readonly string[]): Frontmatter {
       continue;
     }
     if (/^\s/.test(line)) {
-      return { ok: false, message: `들여쓴 줄이 key 아래에 있지 않다: ${line}` };
+      return {
+        ok: false,
+        message: `들여쓴 줄이 key 아래에 있지 않다: ${line}`,
+      };
     }
     const match = line.match(/^([A-Za-z0-9_-]+):(?:\s+(.*)|\s*)$/);
     if (match === null) {
@@ -152,7 +155,8 @@ function parseFrontmatter(lines: readonly string[]): Frontmatter {
     // 값이 없는 key는 아래 들여쓴 줄이 값이다.
     const block: string[] = [];
     while (
-      index < lines.length && (skippable(lines[index]) || /^\s/.test(lines[index]))
+      index < lines.length &&
+      (skippable(lines[index]) || /^\s/.test(lines[index]))
     ) {
       if (!skippable(lines[index])) block.push(lines[index]);
       index += 1;
@@ -372,7 +376,11 @@ export function checkSkill(
     } else {
       for (const [key, value] of rawMetadata.values) {
         if (value.kind !== "string") {
-          issue("metadata", SKILL_ENTRY, `metadata 값이 문자열이 아니다: ${key}`);
+          issue(
+            "metadata",
+            SKILL_ENTRY,
+            `metadata 값이 문자열이 아니다: ${key}`,
+          );
         } else metadata[key] = value.value;
       }
     }

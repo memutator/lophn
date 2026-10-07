@@ -2,12 +2,16 @@
 // 원본은 `<dir>/<name>/SKILL.md`와 그 보조 자료다. 형식 검사(`checkSkill`)와 manifest(version·hash)를 모두
 // 통과한 skill만 설치할 수 있고 통과하지 못한 것은 이유와 함께 목록에만 남는다. symlink는 따라가지 않는다.
 import { err, ok, type Result } from "../../base/mod.ts";
-import { type SkillFileInput, type SkillIssue, checkSkill } from "./skill-check.ts";
+import {
+  checkSkill,
+  type SkillFileInput,
+  type SkillIssue,
+} from "./skill-check.ts";
 import {
   checkManifest,
   SKILL_RELEASES,
-  type SkillRelease,
   skillContentHash,
+  type SkillRelease,
 } from "./manifest.ts";
 
 // 개발 저장소와 설치 묶음 모두 이 module 옆의 `skills/`다(설치 묶음은 같은 내용을 `<설치>/skills/`에도 둔다).

@@ -8,10 +8,7 @@ import {
   cliSkillsListSchema,
   type IntegrationTarget,
 } from "../../../contracts/coding-agent/mod.ts";
-import type {
-  Distribution,
-  SkillsInstallOutcome,
-} from "../../guides/mod.ts";
+import type { Distribution, SkillsInstallOutcome } from "../../guides/mod.ts";
 import type { CommandOutput } from "./connection.ts";
 import type { CommandEntry } from "./types.ts";
 
@@ -74,7 +71,9 @@ export async function runSkillsInstall(
   const { skills, notices, status } = installed.value;
   const data = { install: status, skills, notices };
   if (status === "complete") {
-    const changed = skills.filter((skill) => skill.outcome === "changed").length;
+    const changed = skills.filter((skill) =>
+      skill.outcome === "changed"
+    ).length;
     return ok({
       summary: `skill ${skills.length}개 중 ${changed}개를 새로 썼다`,
       data,

@@ -11,6 +11,7 @@ import {
   connectAndInstall,
   type ConnectFlowPorts,
   CONNECTION_COMMANDS,
+  connectionRevokeGuide,
   humanDecisionGuide,
   runConnectionInstall,
 } from "./connection.ts";
@@ -265,4 +266,32 @@ Deno.test("coding-agent/connection#R2: 연결 범위의 앱과 설치 target의 
   assertFalse(result.ok);
   assertEquals(result.error.code, "invalid_input");
   assertEquals(calls, []);
+});
+
+Deno.test("coding-agent/cli#R7 coding-agent/connection#R2: connection revoke는 결정 화면 링크와 기다린다는 사실만 낸다", () => {
+  const guide = connectionRevokeGuide({ connection: CAC, base_revision: "7" });
+  assert(guide.isError);
+  assertEquals(guide.data, {
+    command: "connection revoke",
+    human_only: true,
+    connection: CAC,
+    base_revision: "7",
+    decision_link: `lophn://things-to-confirm/${CAC}`,
+    waiting: true,
+    window_opened: false,
+    revoked: false,
+  });
+  assert(guide.summary.includes("기다리는 중"));
+  assert(guide.summary.includes("아무것도 회수하지 않았다"));
+  assert(guide.next[0].includes(`lophn://things-to-confirm/${CAC}`));
+});
+
+Deno.test("coding-agent/connection#R18: 회수 안내는 외부 프로세스·OS 파일 편집을 멈췄거나 멈춘다고 말하지 않는다", () => {
+  const text = JSON.stringify(
+    connectionRevokeGuide({ connection: CAC, base_revision: "7" }),
+  );
+  assert(text.includes("멈추지는 않는다"));
+  for (const claim of ["종료했", "중단했", "멈췄", "강제로 멈춘다"]) {
+    assertFalse(text.includes(claim), claim);
+  }
 });

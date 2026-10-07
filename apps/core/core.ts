@@ -80,6 +80,7 @@ import {
   type CodingCredentials,
   connectHandler,
   createCodingCredentials,
+  withRevocationSweep,
 } from "./coding-credential.ts";
 import { productKeychain } from "./secret-store.ts";
 import {
@@ -832,8 +833,10 @@ async function open(
         });
       },
     }),
+    // coding credential은 ledger의 connection 상태가 현재 자격이다(회수는 다음 요청부터가 아니라 바로).
     revalidate: (credentialRef) =>
-      registry.revalidate({ credential_ref: credentialRef }),
+      coding?.current(credentialRef) ??
+        registry.revalidate({ credential_ref: credentialRef }),
     redact: (line) =>
       redactLine(
         { concern: "apps/runtime", revision: "1", scope: "app-log" },
@@ -1007,44 +1010,47 @@ async function open(
       // approval 설명 글(이유·변경·외부 영향·되돌림)도 같은 길이다.
       // handoff 내용(무엇·왜·제외·기대 결과)도 같은 길이다. 용어 후보·근거 변경은 writer에
       // 닿기 전에 고정 판 본문의 출현을 확인한다(documents Q8).
-      writer: withReleasePreparation(
-        withPlacementReservation(
-          withTermOccurrence(
-            withApprovalText(
-              withQuestionText(
-                withHandoffBody(
-                  withMessageBody(
-                    runtime.writer,
-                    createMessageBodyPreparer({
+      writer: withRevocationSweep(
+        withReleasePreparation(
+          withPlacementReservation(
+            withTermOccurrence(
+              withApprovalText(
+                withQuestionText(
+                  withHandoffBody(
+                    withMessageBody(
+                      runtime.writer,
+                      createMessageBodyPreparer({
+                        relay: () => bodyPrepare.current,
+                        // 알려진 secret 값도 pattern과 함께 가린다. 값을 다 모르는 동안은 막는다.
+                        known: () => runtime?.knownSecrets,
+                      }),
+                    ),
+                    createHandoffBodyPreparer({
                       relay: () => bodyPrepare.current,
-                      // 알려진 secret 값도 pattern과 함께 가린다. 값을 다 모르는 동안은 막는다.
                       known: () => runtime?.knownSecrets,
                     }),
                   ),
-                  createHandoffBodyPreparer({
+                  createQuestionTextPreparer({
                     relay: () => bodyPrepare.current,
-                    known: () => runtime?.knownSecrets,
                   }),
                 ),
-                createQuestionTextPreparer({
+                createApprovalTextPreparer({
                   relay: () => bodyPrepare.current,
+                  known: () => runtime?.knownSecrets,
                 }),
               ),
-              createApprovalTextPreparer({
-                relay: () => bodyPrepare.current,
-                known: () => runtime?.knownSecrets,
-              }),
+              (ctx, command, input) =>
+                runtime!.readers.read(TERM_OCCURRENCE_ROUTE, ctx, {
+                  command,
+                  input,
+                }),
             ),
-            (ctx, command, input) =>
-              runtime!.readers.read(TERM_OCCURRENCE_ROUTE, ctx, {
-                command,
-                input,
-              }),
+            placementReservations,
           ),
-          placementReservations,
+          appsControl.commands,
+          appsControl.grantChange,
         ),
-        appsControl.commands,
-        appsControl.grantChange,
+        () => appsControl.connector.sweep(),
       ),
       reads: runtime.reads,
       // 현재 보기 relay와 apps.connect(supervisor 메모리 관측을 읽는 제어 어댑터)다.

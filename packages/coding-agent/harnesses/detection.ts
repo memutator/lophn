@@ -61,7 +61,7 @@ export type DetectionKey = {
 };
 
 // catalog fallback이 가리키는 home 기준 bin다(R2). shell RC 평가가 없다.
-const FALLBACK_DIRS = [
+export const FALLBACK_DIRS = [
   ".local/bin",
   ".bun/bin",
   // npm·pnpm·Yarn의 정한 bin이다(domain-model DetectionSpec).

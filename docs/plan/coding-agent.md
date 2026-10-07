@@ -1236,7 +1236,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T36 keychain loader·연결 생성·설치 흐름과 기본 harness
 
-- 상태: 진행 (#405) — 끝낸 것: #393의 완료 기준 전부와 넘어온 것 일부(위 #393 줄)에 더해 #405가 CLI `harness list|detect|refresh|inspect|plan|install|update|remove`·`mcp config`·`daemon start|stop|status|logs` 실행 배선과 doctor daemon 상태 port, 앱 하나 범위 connection의 발급·문서 authorization 모양 일치(조건으로 앱을 채우지 않고 문서 owner가 자리의 앱을 target에 준다), MCP 앱 direct socket transport와 정확한 경로 권한·CLI `SdkSourcePort`(open-issues coding-agent/mcp-server#Q9), SDK 안내 blob field(`package_version/guide`, general_read) 등록과 `sdk show` 원문 read, `document history --section`, CLI 6단계 통합 시험(찾은 `search` route 누락도 고침)을 끝냈다. 남은 것: (1) CLI `skills list|install`(T33 원본 필요)·`session summary`(T35 core handler 필요)·`session plan`(T38 필요)은 unavailable로 두었다 — 각 작업 블록에 넘겼다 (2) platform launcher(`cliLauncher`)가 CLI installer mode의 정확한 경로 권한(제품 설정·receipt·`deno.json`·`deno.lock`·instance lock 쓰기, 설치 Deno·`lophn-desktop` 실행, PATH·`XDG_RUNTIME_DIR` 등 env)을 argv로 주는 일 — platform#T48은 이미 완료라 lead가 새 작업으로 정한다. 그 전까지 설치·감지·`daemon`·`sdk add --apply`는 권한 오류가 unavailable로 나온다 (3) `sdk show` 원문이 실제 coding connection에 읽히려면 coding_agent의 `blobs/read` operation 상한을 platform이 정해야 한다(general_read blob 전부에 열리므로 사람 결정 필요) — 지금은 body null과 이유를 낸다 (4) `tools/verify-linux-install.ts`의 양성 단계 → platform#T48(실제 Secret Service 필요)
+- 상태: 진행 (#405, #408) — 끝낸 것: #393의 완료 기준 전부와 넘어온 것 일부(위 #393 줄)에 더해 #405가 CLI `harness list|detect|refresh|inspect|plan|install|update|remove`·`mcp config`·`daemon start|stop|status|logs` 실행 배선과 doctor daemon 상태 port, 앱 하나 범위 connection의 발급·문서 authorization 모양 일치(조건으로 앱을 채우지 않고 문서 owner가 자리의 앱을 target에 준다), MCP 앱 direct socket transport와 정확한 경로 권한·CLI `SdkSourcePort`(open-issues coding-agent/mcp-server#Q9), SDK 안내 blob field(`package_version/guide`, general_read) 등록과 `sdk show` 원문 read, `document history --section`, CLI 6단계 통합 시험(찾은 `search` route 누락도 고침)을 끝냈다. #408이 CLI launcher(`cliLauncher`)의 정확한 경로 권한(open-issues coding-agent/mcp-server#Q9: `<H>/integrations`·instance lock 쓰기, helper·설치 Deno·`lophn-desktop` 실행, PATH·감지 bin 폴더 읽기, env, 선택한 제품 설정 파일·`sdk add --apply` 앱 source의 `deno.json`·`deno.lock`은 권한 계획 process가 정확한 경로로 더함)와 `sdk show` 안내 원문의 좁은 read `packages.guide_body`(일반 `blobs/read`를 열지 않음)를 끝냈다. 남은 것: (1) CLI `skills list|install`(T33 원본 필요)·`session summary`(T35 core handler 필요)·`session plan`(T38 필요)은 unavailable로 두었다 — 각 작업 블록에 넘겼다 (2) `tools/verify-linux-install.ts`의 양성 단계 → platform#T48(실제 Secret Service 필요) (3) `harness refresh`의 제품 version·auth probe는 제품 실행 파일의 run 권한이 Q9 목록에 없어 실행되지 않고 unknown으로 남는다. 제품 coding_agent operation 상한이 문서·SDK catalog 읽기를 아직 싣지 않는다(#408은 `packages.guide_body`만 더했다).
 - 등급: 기본
 - concern: coding-agent/connection, coding-agent/harnesses, coding-agent/cli,
   coding-agent/mcp-server
@@ -1422,6 +1422,8 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T40 연결 회수
 
+- 상태: 완료 (#411) — 이어보냄: 아래
+- 이어보냄: shell#T50(회수 결정 화면) — CLI가 내는 링크는 `lophn://things-to-confirm/<cac_...>`이고(`decisionLink(connection)`) shell `open-intent`는 지금 `apr`·`qst`만 받는다. shell이 `cac` 링크를 받아 그 연결의 현재 판을 `ShowCodingAgentConnection`으로 읽고 `RevokeCodingAgentConnection` confirmation window(결정 `coding_agent_connection_revoke`, binding connection·base_revision)를 여는 일은 shell#T50에서 한다. 화면 E2E는 shell#T50 뒤 T41에서 돈다.
 - 등급: 기본
 - concern: coding-agent/connection, coding-agent/cli, coding-agent/tickets
 - 요구: coding-agent/connection#R2, R8, R18; coding-agent/cli#R7;
@@ -1462,6 +1464,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
   docs/research/coding-agent-harness-integration.md
 - 선행: T25, T26, T27, T32, T34, T35, T37, T39, T40, lophn-agent#T49, shell#T25,
   shell#T47, shell#T49, shell#T50, shell#T51
+- coding-agent#T40에서 넘어온 것: 제품 core의 coding credential operation 상한(`apps/core/core.ts`의 registry operations)에는 아직 ticket claim·문서 저장 같은 command가 없어 실제 coding token이 `ClaimTicket` 등을 부르면 403이다(읽기 route와 `app.connect`는 닿는다). claim→작업→보고 E2E는 이 상한을 platform이 정한 뒤에 실제 token으로 돈다(사람 결정 필요, T36 남은 것 (3)과 같은 문제)
 - problems#T13에서 넘어온 것: manage-tickets 6단계 acceptance check가 problems Verification(TicketTestLink)을 쓰는 통합 확인(#222)
 - 완료:
   - fake harness: PATH fixture로 감지되고 테스트 catalog의 ExecutionSpec(argv

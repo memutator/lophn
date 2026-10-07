@@ -163,7 +163,7 @@ Deno.test("coding-agent/cli#R40 coding-agent/harnesses#R2: harness list는 catal
   const fx = await fixture();
   try {
     const list = await run(["harness", "list", "--json"], {
-      env: ENV(),
+      env: ENV({ LOPHN_HOME: `${fx.home}/.lophn` }),
       home: fx.home,
       ports: fx.ports,
     });
@@ -175,7 +175,7 @@ Deno.test("coding-agent/cli#R40 coding-agent/harnesses#R2: harness list는 catal
     assertEquals(fx.listed.length, 0);
 
     const first = await run(["harness", "detect", "--json"], {
-      env: ENV(),
+      env: ENV({ LOPHN_HOME: `${fx.home}/.lophn` }),
       home: fx.home,
       ports: fx.ports,
     });
@@ -197,7 +197,7 @@ Deno.test("coding-agent/cli#R40 coding-agent/harnesses#R2: harness list는 catal
 
     const reads = fx.listed.length;
     const again = await run(["harness", "detect", "--json"], {
-      env: ENV(),
+      env: ENV({ LOPHN_HOME: `${fx.home}/.lophn` }),
       home: fx.home,
       ports: fx.ports,
     });
@@ -206,7 +206,7 @@ Deno.test("coding-agent/cli#R40 coding-agent/harnesses#R2: harness list는 catal
     assertEquals(fx.listed.length, reads);
 
     const refreshed = await run(["harness", "refresh", "--json"], {
-      env: ENV(),
+      env: ENV({ LOPHN_HOME: `${fx.home}/.lophn` }),
       home: fx.home,
       ports: fx.ports,
     });
@@ -233,7 +233,8 @@ Deno.test("coding-agent/cli#R40 coding-agent/harnesses#R6 coding-agent/harnesses
     generation: () => "1",
   });
   const options = {
-    env: ENV(),
+    // receipt·journal은 data root `H`의 integrations에 쓴다(launcher가 그 폴더만 쓰기로 연다).
+    env: ENV({ LOPHN_HOME: `${fx.home}/.lophn` }),
     home: fx.home,
     ports: fx.ports,
     provider,

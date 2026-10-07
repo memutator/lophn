@@ -10,6 +10,7 @@ import {
   type Result,
 } from "../../packages/base/mod.ts";
 import {
+  type ConnectionId,
   connectionShow,
   HUMAN_ONLY_NAMES,
   type IntegrationTarget,
@@ -27,6 +28,7 @@ import {
 } from "../../packages/coding-agent/harnesses/system-ports.ts";
 import {
   type CommandOutput,
+  connectionRevokeGuide,
   humanDecisionGuide,
   runConnectionInstall,
 } from "../../packages/coding-agent/cli/commands/connection.ts";
@@ -63,13 +65,13 @@ import {
   inspectIntegration,
   type Inspection,
   installSelected,
+  integrationsStore,
   launchOf,
   LOPHN_SKILL_NAMES,
   NATIVE_ENVIRONMENT,
   planSelected,
   removeSelected,
   stdioMcpProbe,
-  storeOf,
   updateSelected,
 } from "../../packages/coding-agent/harnesses/mod.ts";
 import {
@@ -261,6 +263,16 @@ function connectionRequired(): Result<never, LophnError> {
   });
 }
 
+// receipt·journal 폴더다. data root `H`의 `integrations`이고 launcher가 이 폴더 하나만 쓰기로 연다.
+function integrationsDirOf(runtime: CliRuntime): string {
+  const root = runtime.dataRoot ?? `${runtime.home ?? ""}/.lophn`;
+  return `${root.replace(/\/$/, "")}/integrations`;
+}
+
+function storeOf(runtime: CliRuntime) {
+  return integrationsStore(integrationsDirOf(runtime));
+}
+
 // `lophn doctor`와 설치가 쓰는 launch 입력이다. 모두 설치 묶음 기준 절대 경로다.
 function launchInputs(runtime: CliRuntime, target: IntegrationTarget) {
   return launchBase(
@@ -302,8 +314,11 @@ export async function runCliCommand(
       message: `지원하지 않는 command다: ${name}`,
     });
   }
-  if (name === "connection create" || name === "connection revoke") {
-    return ok(humanDecisionGuide(name));
+  if (name === "connection create") return ok(humanDecisionGuide(name));
+  if (name === "connection revoke") {
+    return ok(connectionRevokeGuide(
+      input as { connection: ConnectionId; base_revision: string },
+    ));
   }
   if (name.startsWith("ticket ") && entry.monoRoute === undefined) {
     // claim·renew·release·report는 MCP의 `lophn_ticket`에만 둔다. CLI는 안내만 한다(mcp#R27).
@@ -367,7 +382,7 @@ export async function runCliCommand(
             now: runtime.now(),
           }, {
             files: filePort(),
-            store: storeOf(runtime.home ?? ""),
+            store: storeOf(runtime),
           }),
       },
     );
@@ -490,7 +505,7 @@ async function runDoctor(
   }, {
     files: filePort(),
     mcp: stdioMcpProbe({ ambient: (key) => runtime.env.get(key) }),
-    store: storeOf(home),
+    store: storeOf(runtime),
     daemon: { status: () => portsOf(runtime).daemon.status() },
     connections: {
       async read(id) {
@@ -586,7 +601,7 @@ async function runHarness(
   const ports = portsOf(runtime);
   const home = runtime.home ?? "";
   const files = filePort();
-  const store = storeOf(home);
+  const store = storeOf(runtime);
   const client = runtime.client;
   const connections = connectionReader(client);
   const deps = {
@@ -596,7 +611,7 @@ async function runHarness(
       detectHarnesses(
         mode,
         ports.detect,
-        detectionCacheOf(home, files),
+        detectionCacheOf(home, files, integrationsDirOf(runtime)),
         runtime.now(),
       ),
     async inspect(

@@ -6,12 +6,13 @@ import {
   ok,
   type Result,
 } from "../../base/mod.ts";
+import { appCreate } from "../../contracts/apps/mod.ts";
 import {
   documentMove,
   documentRename,
   type PlaceRef,
+  termDefine,
 } from "../../contracts/documents/mod.ts";
-import { appCreate } from "../../contracts/apps/mod.ts";
 import {
   applyQuestionOption,
   type OptionAction,
@@ -153,6 +154,32 @@ const appCreateOwner: OptionActionOwner = {
   },
 };
 
+// 용어 정의는 이미 있는 후보를 정의하는 모양(term)과 새로 등록하는 모양(id·context) 중
+// 하나만 받는다(refine). 이미 있는 용어의 정의는 소유 command가 base_revision CAS를
+// 요구하고, 새 등록에는 CAS가 없어 비교 기준을 비우고 보낸다. 이미 정의된 용어·이름
+// 변경·근거 변경은 소유 command가 conflict·invalid_input으로 막는다(documents/terms#R2).
+const termDefineOwner: OptionActionOwner = {
+  concern: "documents/terms",
+  command: termDefine.name,
+  route: termDefine,
+  prepare(_question, action) {
+    const value = inlineValue(action);
+    if (!value.ok) return value;
+    const input = termDefine.input.safeParse(value.value);
+    const compare = termDefine.compare?.safeParse(action.comparison);
+    if (!input.success || compare === undefined || !compare.success) {
+      return invalid("the action does not match the owner command");
+    }
+    const term = (input.data as { term?: string }).term;
+    const id = (input.data as { id?: string }).id;
+    // 새 등록은 새로 만드는 용어 ID가 대상이고(app ID와 같다), 이미 있는 후보의
+    // 정의는 그 용어가 대상이다.
+    const target = onlyTarget(action, term ?? id ?? "");
+    if (!target.ok) return target;
+    return ok({ input: input.data, compare: compare.data });
+  },
+};
+
 // 선택지로 열 수 있는 owner 동작. 안쪽에서 되돌릴 수 있는 동작만이다. 권한 부여·외부 효과·
 // 복원 불가 동작은 이 목록에 없으므로 질문을 만들 때 막힌다(R12). 새 owner 동작은 이 목록에
 // 더하고 그 owner의 handler를 core 조립이 묶는다(apps/core/lophn-agent.ts).
@@ -161,6 +188,7 @@ export const OPTION_ACTION_OWNERS: readonly OptionActionOwner[] = [
   documentOwner(documentRename),
   settingsOwner,
   appCreateOwner,
+  termDefineOwner,
 ];
 
 export function findOptionOwner(
@@ -280,6 +308,39 @@ export function settingsOptionAction(fixed: {
       defaults_revision: fixed.defaults_revision,
     },
   });
+}
+
+// 용어 정의 선택지. 이미 있는 후보는 용어·이름·뜻과 기준 revision이 고정되고, 새 등록은
+// context·이름·뜻이 고정된다. 사람이 고른 정확한 이름·뜻만 적용한다(documents/terms#R2).
+export function defineTermOptionAction(
+  fixed:
+    | { term: string; name: string; definition: string; base_revision: string }
+    | { context: string; id: string; name: string; definition: string },
+): OptionAction {
+  return "term" in fixed
+    ? buildOptionAction({
+      concern: "documents/terms",
+      command: termDefine.name,
+      targets: [fixed.term],
+      input: {
+        term: fixed.term,
+        name: fixed.name,
+        definition: fixed.definition,
+      },
+      comparison: { base_revision: fixed.base_revision },
+    })
+    : buildOptionAction({
+      concern: "documents/terms",
+      command: termDefine.name,
+      targets: [fixed.id],
+      input: {
+        id: fixed.id,
+        context: fixed.context,
+        name: fixed.name,
+        definition: fixed.definition,
+      },
+      comparison: {},
+    });
 }
 
 // 질문을 만들 때 고정 action을 검사한다. 등록 owner 밖 동작은 forbidden, 모양·지문이 틀리면

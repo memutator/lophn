@@ -528,12 +528,15 @@ export function DocumentView(
   };
 
   // 복원 전에 이 탭의 마지막 고침을 보내 편집을 끝낸다. 저장이 끝나지 않으면 복원하지 않는다.
-  const restoreVersion = async (version: string): Promise<RestoreAnswer> => {
+  const restoreVersion = async (
+    version: string,
+    base: string,
+  ): Promise<RestoreAnswer> => {
     if (!versions) return { kind: "failed", code: "unavailable" };
     if (opened && !(await opened.session.flush(true))) {
       return { kind: "unsaved" };
     }
-    const result = await versions.restore(documentId, version);
+    const result = await versions.restore(documentId, version, base);
     return result.ok
       ? { kind: "report", report: result.value }
       : { kind: "failed", code: result.code };

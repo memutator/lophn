@@ -215,13 +215,31 @@ export class SaveSession {
     return !this.unsettled();
   }
 
-  /** 실패 뒤 사람이 고른 다시 시도. */
+  /**
+   * 실패 뒤 사람이 고른 다시 시도. 정한 간격의 다시 시도가 이미 쓰는 중이면 그 쓰기가 끝난 뒤에
+   * 이어 쓴다. 같은 기준 hash로 두 쓰기를 겹쳐 보내면 먼저 쓴 쪽 때문에 나중 쪽이 바깥 변경으로
+   * 충돌한다.
+   */
   retry(): void {
     if (this.#closed || this.blocked()) return;
     this.#failures = 0;
     this.#cancel();
     this.#set({ retrying: false });
-    void this.#start(this.#endWanted);
+    const running = this.#inFlight;
+    if (running === null) {
+      void this.#start(this.#endWanted);
+      return;
+    }
+    void running.then(() => {
+      // 그 쓰기가 저장했으면 쓸 것이 없다. 또 실패했으면 사람이 고른 다시 시도를 지금 한다.
+      if (this.#closed || this.blocked() || this.#pending === null) return;
+      if (this.#inFlight !== null) return;
+      const state = this.#facts.disk.state;
+      if (state !== "failed" && state !== "offline") return;
+      this.#cancel();
+      this.#set({ retrying: false });
+      void this.#start(this.#endWanted);
+    });
   }
 
   /** 결과를 모르는 쓰기를 documents 상태로 다시 본다. 다시 쓰지 않는다. */

@@ -332,6 +332,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - 조사: docs/research/provider-auth.md
 - 선행: T3, T15, platform#T20, shell#T29(code·최종 URL secret 입력), shell#T31(공식 로그인 버튼은 확인 없이 OS 브라우저로 연다)
 - shell#T29에서 넘어온 것: OAuth code·최종 주소 붙여넣기는 보호 창의 secret 입력(`credential.kind: "oauth"`, 화면은 "Code or final address")이 받는다. 지금은 값을 `/v1/secrets/input`(`provider_credential`)으로 보내 `RegisterProviderCredential`을 부른다. login-complete 교환이 필요하면 그 sink를 `apps/shell/main/confirmation/kinds/secret-input.ts`의 command 고르기에 더한다
+- shell#T31에서 넘어온 것: settings 화면이 [Sign in with <제품>]에서 `/v1/providers/login-begin`을 부르고 `sign_in.url`을 shell 크롬 링크(OS browser, 확인 창 없음)로 연다. 그래서 `loginBeginOutputSchema`에 additive 선택 field `sign_in: {url, user_code: string | null}`을 더했다(공식 로그인 주소와 device code, 값 없는 안내). 이 작업이 begin 응답에 그 값을 채운다(없으면 화면은 열 곳이 없다고 말한다). 최종 주소 붙여넣기 방식(`device_code_then_pkce_paste_url`)은 화면이 `openConfirmation({kind: "secret_input", owner: <provider id>, purpose: "provider_credential", credential: {kind: "oauth", ...}})`를 열고(지금 창은 `RegisterProviderCredential`로 보낸다), login-complete 교환은 `apps/shell/main/confirmation/kinds/secret-input.ts`의 command 고르기에 이 작업이 sink를 더한다. 로그인 취소는 `/v1/providers/login-cancel`을 부른다. 이 통로(login-begin·complete·cancel)가 core에 없는 동안 화면은 "Signing in with <제품> isn't available in this version yet."를 보인다.
 - 완료:
   - D31(질문 Q1): Claude OAuth는 없다. ChatGPT는 공식 Sign in with ChatGPT, xAI는 SuperGrok device code다. 두 경로 모두 lophn 이름의 실제 login·text·tool 성공을 `LOPHN_LIVE_PROVIDER=1`로 확인하기 전까지 활성 gate는 false다(fake 성공으로 열지 않는다)
   - oauth_test.ts에 R1, R12–R16 테스트(fake provider): Sign in with ChatGPT는 실제 앱 이름의 dynamic client 등록·발급 client_id 재사용·127.0.0.1 loopback callback·state·nonce·S256·id_token 검증, 공개 Responses만(backend-api 없음)·store=false·stream=true·system item 대신 instructions·previous_response_id 없음, access 3600초·refresh 30일과 earliest_refresh_at 존중. SuperGrok은 `https://auth.x.ai/.well-known/openid-configuration` discovery와 HTTPS `x.ai`·하위 도메인 재검사, device code만·여섯 scope만, 간격 없으면 5초·slow_down마다 +5초·만료 없으면 최대 5분. 거절·만료·취소·기한 뒤 늦은 성공은 등록 없음, lophn 제품 이름 식별(Claude Code·Codex·Grok CLI 위장·tool 이름 치환 없음), token 목적지 고정과 다른 host redirect에 token 없음
@@ -580,6 +581,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
   - lophn_guide_test.ts에 roles/lophn#R14, R15, R17, R20–R22, tools#R20 테스트: 자리 추천 run당 최대 5개와 이유 한 줄·후보 없으면 이동 선택지 없음, 보조 근거 두 조건·자동 주기 run 없음, 사용 안내는 기존 안내로 답하고 바뀐 경우에만 새 version 요청, 동봉 안내·공개 설정 정의·적용값·출처만 읽음·secret과 credential은 읽거나 묻지 않음, 설정 변경은 현재·새 값·영향·적용 시점이 고정된 선택지와 추천, 권한 확대·secret·외부 효과는 owner 보호 화면 안내, 설정 변경 command를 agent tool로 제공하지 않음
   - flow ask-lophn-help, organize-documents 2·3단계의 agent 갈래
   - 실제 시험 자리: questions/option_actions_test.ts(고정 action 검사·지문·보호 설정·채택 판정, 순수), apps/core/question-option-actions_test.ts(실제 core·documents: 이동 한 번·두 번째 conflict·낡은 revision·고르지 않은 선택지·범위 밖과 없는 문서의 같은 not_found·채택 version 검사), apps/core/waiting-and-recovery_test.ts(설정 변경의 답 저장→적용→ResolveRunWait 중단 지점, 기준 불일치, 자유 답·바뀐 action·사람 자격 거절), roles/lophn/lophn_guide_test.ts(자리 추천·보조 근거·사용 안내·설정 제안·보호 화면 안내), harness/tools/guide_tools_test.ts(tools#R20)
+  - 후속 (#412): term.define option action adapter(apps/core/term-option-actions_test.ts: 용어 정의 선택지의 적용 한 번·actor=user 기록·두 번째 conflict·다른 선택지·고정 입력이 다른 적용 거절·이미 정의된 이름의 전제 변경)과 `term.submit_definition_answer` tool(context 묶음, ROLE_CAPS context_engineer)
 
 ### T30 동봉 제품 안내 글
 
@@ -730,6 +732,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - slice: agent
 - 조사: docs/research/mcp-client.md
 - 선행: T36, platform#T19, platform#T20
+- shell#T31에서 넘어온 것: settings 화면의 도구 server 추가는 인증 방식 `none`·`bearer`·`api_key`만 고르게 한다. `bearer`·`api_key`의 credential은 보호 창의 `app_secret` 입력(`SetSecret`, 이름 `mcp-<server 이름>`)이 받고 설정은 `sec:mcp-<server 이름>`을 가리킨다(`external_mcp_credential` 목적에는 받는 command가 없다). `oauth2`는 시작·완료 runtime 제어 route가 없어 고르지 못하게 두고 "Signing in to a tool server isn't available yet."를 보인다. 이 작업이 시작·완료 route와 보호 창 sink를 잇는다. 설정 화면이 읽는 것은 `secrets/list`의 저장 여부(이름만)뿐이다
 - 완료:
   - mcp_auth_test.ts에 R16, R17 테스트: 없음·Bearer·API key header·OAuth 2.1 Authorization Code+S256 PKCE와 사람이 시작한 browser·loopback callback, dynamic registration 미지원 서버는 사람 등록 client, secret을 server URL·issuer에 묶고 URL·issuer·계정이 바뀌면 재사용 없음, 같은 연결의 refresh는 하나, 실패는 재인증 필요
 

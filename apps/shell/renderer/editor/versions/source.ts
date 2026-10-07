@@ -122,9 +122,13 @@ export interface VersionSource {
     section: string,
   ): Promise<SourceResult<SectionHistory>>;
   contexts(document: string): Promise<SourceResult<readonly DocumentContext[]>>;
-  /** 고른 판을 새 최신 판으로 되살린다. 결과를 그대로 돌려준다. */
+  /**
+   * 고른 판을 새 최신 판으로 되살린다. base는 사람이 비교로 본 최신 판이다. 그 사이 최신 판이나
+   * 원본 파일이 바뀌었으면 쓰지 않고 충돌을 돌려준다. 결과를 그대로 돌려준다.
+   */
   restore(
     document: string,
     version: string,
+    base: string,
   ): Promise<SourceResult<RestoreReport>>;
 }

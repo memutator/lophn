@@ -6,6 +6,7 @@ import { APPS_CONTROL_PRINCIPAL } from "./apps-control.ts";
 import { INVOCATION_RECOVERY_PRINCIPAL } from "../../packages/apps/invocations/restart.ts";
 import { DOCUMENTS_FEED_PRINCIPAL } from "./documents-events.ts";
 import {
+  ASSIGNMENT_REACTIONS_PRINCIPAL,
   APPROVAL_EXPIRY_PRINCIPAL,
   NOTIFICATIONS_PRINCIPAL,
 } from "./platform.ts";
@@ -88,6 +89,7 @@ const FIXED_CREDENTIALS = new Set([
   INVOCATION_RECOVERY_PRINCIPAL,
   DOCUMENTS_FEED_PRINCIPAL,
   NOTIFICATIONS_PRINCIPAL,
+  ASSIGNMENT_REACTIONS_PRINCIPAL,
 ]);
 
 // coding agent connection의 인증 context는 connection마다 고정 ref(`coding:<cac>`)이고 시작마다

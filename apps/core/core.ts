@@ -21,7 +21,7 @@ import {
   createApprovalRequest,
   ROUTES,
 } from "../../packages/contracts/platform/mod.ts";
-import { providerList } from "../../packages/contracts/lophn-agent/mod.ts";
+import { providerList, presetList } from "../../packages/contracts/lophn-agent/mod.ts";
 import {
   type ApiServer,
   RouteRegistry,
@@ -166,6 +166,10 @@ import {
 } from "./documents-watch.ts";
 import { startNotifications } from "./notifications.ts";
 import {
+  startAssignments,
+} from "./lophn-agent.ts";
+import {
+  ASSIGNMENT_REACTIONS_CONTEXT,
   APPROVAL_EXPIRY_CONTEXT,
   NOTIFICATIONS_CONTEXT,
   withPlatform,
@@ -759,6 +763,15 @@ async function open(
   if (!notificationsCredential.ok) {
     await runtime.close();
     return notificationsCredential;
+  }
+  // AppCreated 반응 구독자(machine:lophn-agent-assignments)의 자격 기록. token이 없는 core 내부
+  // 자격이라 HTTP로는 이 principal이 될 수 없다. reader·writer는 이 ledger 기록으로 자격을 본다.
+  const assignmentsCredential = await runtime.record(
+    ASSIGNMENT_REACTIONS_CONTEXT,
+  );
+  if (!assignmentsCredential.ok) {
+    await runtime.close();
+    return assignmentsCredential;
   }
   // apps 제어(connect 어댑터·runtime·logs 덮기)가 ledger 사실을 읽는 core 내부 자격 기록.
   const appsControlCredential = await runtime.record(APPS_CONTROL_CONTEXT);
@@ -1655,6 +1668,28 @@ async function open(
     runtime,
     ledgerPath,
   });
+  // core 안 AppCreated 반응 구독자. AppCreated 계기마다 거두지 않은 AE의 assignment를 만들고
+  // cursor를 올린다(assignments#R1). AE preset은 등록된 product preset을 ledger read로 본다.
+  // I/O 감독이 없는 기동은 blob 준비를 못 하므로 bootstrap이 product preset을 등록하기 전이라
+  // 등록된 preset이 없는 상태로 시작한다: 등록 전까지 반응 engine은 반응 없이 기다리고, 다음
+  // 기동에서 다시 읽는다(T45).
+  const presetListed = await runtime.readers.read(
+    presetList,
+    ASSIGNMENT_REACTIONS_CONTEXT,
+    { kind: "app_engineer", origin: "product" },
+  );
+  const aePreset = presetListed.ok
+    ? (presetListed.value as {
+      presets?: { id: string; revision: number }[];
+    }).presets?.[0]
+    : undefined;
+  const assignments = startAssignments({
+    runtime,
+    ledgerPath,
+    preset: aePreset === undefined
+      ? null
+      : { preset: aePreset.id, preset_revision: aePreset.revision },
+  });
   // core 안 documents 구독자. documents event가 오면 root 집합과 관측 근거를 맞춘다. documents
   // worker가 없는 core에서도 구독은 열려 있고, 맞출 대상이 없으면 아무것도 하지 않는다.
   const documentsFeed = startDocumentsFeed({
@@ -2017,6 +2052,8 @@ async function open(
           documentsFeed.stop();
           // 진행 중인 notification 생성은 writer가 닫히기 전에 끝난다.
           await notifications.stop();
+          // 진행 중인 assignment 반응도 writer가 닫히기 전에 끝난다.
+          await assignments.stop();
           rootsWatch?.stop();
           respawnStop?.();
           agentRuntime?.stop();

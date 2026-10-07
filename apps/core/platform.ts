@@ -7,6 +7,7 @@
 // 사람 결정(허락·거절)의 confirmation handle은 route 선언(`confirmation: "required"`)과 writer
 // 실행기가 강제한다. 여기서는 그 command를 등록할 뿐 handle 검사를 우회하지 않는다.
 import { err, ok, type Result } from "../../packages/base/mod.ts";
+import { ASSIGNMENT_SUBSCRIBER } from "../../packages/contracts/lophn-agent/mod.ts";
 import {
   approvalRequestCreated,
   type CommandRoute,
@@ -61,6 +62,27 @@ export const NOTIFICATIONS_CONTEXT: RequestContext = {
   credential_ref: NOTIFICATIONS_PRINCIPAL,
 };
 
+// AppCreated 반응 구독자의 core 내부 machine 자격이다. token이 없어 HTTP로는 이 principal이 될 수
+// 없고, ledger credential 기록으로만 reader·writer가 현재 자격을 다시 본다. 구독자 이름은
+// contracts의 ASSIGNMENT_SUBSCRIBER("lophn-agent-assignments")다.
+export const ASSIGNMENT_REACTIONS_PRINCIPAL = "machine:lophn-agent-assignments";
+
+// 읽기(ListEvents)와 생성·cursor 전진 operation만 둔다. assignment 본문 조립은 하지 않는다.
+export const ASSIGNMENT_REACTIONS_CONTEXT: RequestContext = {
+  principal: ASSIGNMENT_REACTIONS_PRINCIPAL,
+  actor: "machine",
+  scope: {
+    operations: [
+      "ListEvents",
+      "CreateAppEngineerAssignment",
+      "AdvanceSubscriberCursor",
+    ],
+    targets: {},
+  },
+  conditions: {},
+  credential_ref: ASSIGNMENT_REACTIONS_PRINCIPAL,
+};
+
 // approval 만료 정리의 core 내부 machine 자격이다. token이 없어 HTTP로는 이 principal이 될 수 없다.
 // 기한에 도달한 대기를 읽고 `expire_approval_request`만 낸다. 허락·거절·취소·사용은 하지 못한다.
 export const APPROVAL_EXPIRY_PRINCIPAL = "machine:approval-expiry";
@@ -79,6 +101,12 @@ export const APPROVAL_EXPIRY_CONTEXT: RequestContext = {
 export function isNotifications(ctx: RequestContext): boolean {
   return ctx.actor === "machine" && ctx.principal === NOTIFICATIONS_PRINCIPAL &&
     ctx.credential_ref === NOTIFICATIONS_PRINCIPAL;
+}
+
+export function isAssignmentReactions(ctx: RequestContext): boolean {
+  return ctx.actor === "machine" &&
+    ctx.principal === ASSIGNMENT_REACTIONS_PRINCIPAL &&
+    ctx.credential_ref === ASSIGNMENT_REACTIONS_PRINCIPAL;
 }
 
 // 계기 event의 소유 concern이 자기 등록 파일에서 쓰는 공개 정책이다. notifications 구독자만
@@ -138,10 +166,17 @@ export function createCoreRegistration() {
 }
 
 export function platformSubscribers(): SubscriberBinding[] {
-  return [{
-    name: NOTIFICATION_SUBSCRIBER,
-    authorize: (ctx) => ok(isNotifications(ctx)),
-  }];
+  return [
+    {
+      name: NOTIFICATION_SUBSCRIBER,
+      authorize: (ctx) => ok(isNotifications(ctx)),
+    },
+    // AppCreated 반응 구독자만 자기 cursor를 올린다(assignments#R1).
+    {
+      name: ASSIGNMENT_SUBSCRIBER,
+      authorize: (ctx) => ok(isAssignmentReactions(ctx)),
+    },
+  ];
 }
 
 // reader Worker가 이 모듈에서 approvals·notifications read를 다시 조립한다.

@@ -1,4 +1,4 @@
-import { err } from "../../packages/base/mod.ts";
+import { err, ok } from "../../packages/base/mod.ts";
 import {
   appsSchemaSteps,
   createAppCommands,
@@ -68,16 +68,21 @@ import {
 } from "../../packages/contracts/documents/mod.ts";
 import { createPlaceNameReservation } from "../../packages/documents/addressing/mod.ts";
 import {
+  appCreated,
   packagesGuideBody,
   releaseActivationFailed,
 } from "../../packages/contracts/apps/mod.ts";
 import { SecretAllowance } from "../../packages/contracts/platform/mod.ts";
+import type { EventVisibilityDefinition } from "../../packages/contracts/platform/mod.ts";
 import type {
   EventRegistration,
   ReaderRegistration,
   TxPortRegistration,
 } from "../../packages/platform/ledger/mod.ts";
-import { notificationsOnlyVisibility } from "./platform.ts";
+import {
+  isAssignmentReactions,
+  notificationsOnlyVisibility,
+} from "./platform.ts";
 
 type LedgerRegistration = {
   blobFields?: readonly unknown[];
@@ -250,10 +255,23 @@ export function createLedgerRegistration(
 }
 
 // release 계기 event의 공개 정책(platform/notifications#R1). notifications 구독자에게만 열고,
-// 다른 apps event는 정책이 없어 계속 숨김이다.
+// 다른 apps event는 정책이 없어 계속 숨김이다. AppCreated는 assignments 반응 구독자가 읽는
+// 계기 event다(assignments#R1). 사람은 앱 목록 read로 보고, 나머지 자격은 숨김이다.
 export function createEventRegistration(): EventRegistration {
-  return { visibility: [notificationsOnlyVisibility(releaseActivationFailed)] };
+  return {
+    visibility: [
+      notificationsOnlyVisibility(releaseActivationFailed),
+      appCreatedVisibility,
+    ],
+  };
 }
+
+const appCreatedVisibility: EventVisibilityDefinition<typeof appCreated> = {
+  event: appCreated,
+  handle(_snapshot, ctx) {
+    return ok(ctx.actor === "user" || isAssignmentReactions(ctx));
+  },
+};
 
 // reader Worker가 이 모듈을 import해 read를 reader 풀에 붙인다. 실행 port는 없다.
 export function createReaderRegistration(): ReaderRegistration {

@@ -169,7 +169,7 @@ SDK는 `completion` 실패를 값으로 제공해 SDK 내부 전송 실패가 �
 
 | RPC | command/read 이름 | 입력·출력 | 오류·권한·비교 |
 |---|---|---|---|
-| `/v1/problems/reconcile-work` | `ReconcileProblemWork` | problem·ticket·원 ticket event seq → 현재 status/work·변경 event | machine만; 문제 seq/work·현재 ticket/claim 비교; `not_found/conflict/forbidden` |
+| `/v1/problems/reconcile-work` | `ReconcileProblemWork` | problem·ticket·원 ticket event seq → 현재 status/work·변경 event | machine만; 문제 seq/work·현재 ticket/claim 비교; `not_found/conflict/forbidden/invalid_input`(열린 ticket을 이미 가진 문제) |
 | `/v1/problems/link-interpretation` | `LinkProblemInterpretation` | problem·고정 version/section 또는 null → 현재 참조 | 담당 App Engineer; scope·판 읽기 권한·문제 seq/기존 참조; `invalid_input/not_found/forbidden/conflict` |
 | `/v1/problems/record-fix` | `RecordProblemFix` | problem·FixRecord·key → `ProblemFixRecorded` seq | coding_agent만; 문제 seq·before/after·결과 연결·있으면 현재 claim; `invalid_input/not_found/forbidden/conflict` |
 | `/v1/problems/close-verified` | `CloseProblemVerified` | problem·verification·예상 문제 seq/활성 release → Closure·event | machine 판정기만; 7.6 조건; `not_found/forbidden/conflict/invalid_input` |
@@ -216,7 +216,7 @@ SDK는 `completion` 실패를 값으로 제공해 SDK 내부 전송 실패가 �
 | `SnapshotRecorded` | snapshot; report·captured_at·evidence hash·누락 이유 | 증거 확정 |
 | `ProblemOpened` | problem; app·group_key·첫 report | 첫 운영 발생 |
 | `ProblemObserved` | problem; report·관측 release·접수 당시 활성 release·이전 status | 추가 발생; 이전 release의 늦은 보고 포함 |
-| `ProblemWorkStarted` / `ProblemWorkEnded` | problem; ticket·claim seq 또는 종료 이유·근거 event seq | 현재 유효 claim 기반 상태 변화 |
+| `ProblemWorkStarted` / `ProblemWorkEnded` | problem; ticket·claim seq(ticket만 이으면 null) 또는 종료 이유(released·expired·completion_reported·cancelled·confirmed)·근거 event seq | ticket 연결과 현재 유효 claim 기반 상태 변화 |
 | `ProblemInterpretationLinked` | problem; previous/current 고정 참조 | 해석 연결 변경 |
 | `ProblemFixRecorded` | problem; FixRecord | 고쳤다는 coding agent의 주장 |
 | `VerificationRecorded` | verification; kind·app·target·problem?·basis_seq?·ticket?·result·test·execution | 실제 test result |
@@ -354,12 +354,12 @@ core는 지문을 계산하지 않는다. 신뢰 collector의 준비 참조·key
   → ProblemClosed / ProblemReopened / ProblemConfirmationRecorded
 ```
 
-1. runner의 `work-reaction.ts`는 `TicketClaimed`, `TicketClaimReleased`, `TicketCompletionReported`, `TicketCheckFailed`, `TicketCancelled`, `TicketConfirmed`와 claim 만료 시점을 받아 현재 사실을 다시 읽는다. `TicketCheckFailed`를 새 claim으로 보지 않는다. 닫힌 문제를 ticket event로 열지 않는다.
+1. runner의 `work-reaction.ts`는 `TicketCreated`(연결 문제 포함, readiness 무관: `work`를 잇고 status는 open), `TicketClaimed`, `TicketClaimReleased`, `TicketCompletionReported`, `TicketCheckFailed`, `TicketCancelled`, `TicketConfirmed`와 claim 만료 시점을 받아 현재 사실을 다시 읽는다. `TicketCheckFailed`를 새 claim으로 보지 않는다. 닫힌 문제를 ticket event로 열지 않는다.
 2. `closing-reaction.ts`는 reproduction pass만 후보로 읽는다. before 원증상 재현·after 같은 업무 기대·약화 없음, after가 현재 활성 release, `Verification.basis_seq` 뒤 같은 문제의 **모든 새 live Report가 0개**인지 확인한다. 늦은 이전 release 보고도 이 0개 조건에 포함된다.
 3. 반응기는 현재 문제 최신 seq·활성 release를 compare에 넣어 `CloseProblemVerified`를 낸다. core는 참조된 신뢰 runner 결과의 kind/대상/판정과 현재 조건을 transaction 안에서 다시 검사한다. 자료 해석·테스트는 하지 않는다. 동시 보고/activation/ticket 변화로 seq가 달라지면 `conflict`이며 다시 읽는다. 추가 quiet 대기는 0ms, 날짜 기반 결과 만료는 없다.
 4. `fixed`는 user_confirmed, `not_visible`는 recovered, 한 줄 이유 있는 `dismiss`는 dismissed다. `not_fixed`는 closed면 reopen하고 열린 문제면 부정 확인 event만 쓴다. 사람이 본 현재 release·문제 seq·필요한 last Report와 일회 handle을 검증한다. Verification을 만들어 대신하지 않는다.
 5. 같은 release·같은 근거에서 부정 확인한 뒤 고쳐짐 확인을 반복 요청하지 않는다. 기존 `ProblemConfirmationRecorded`/`ProblemReopened`를 읽어 새 release나 새 근거가 있을 때만 다시 제안한다. 자동 recovered/quiet close·앱 clear·agent close는 없다.
-6. event 반응 key는 공통 `(subscriber, cause_seq, reaction)`이다. 반응 command 확정/조건 불충족 확인 뒤 cursor를 올린다. 대표 subscriber는 `problems.work`, `problems.closing`이며 재시작 때 seq로 따라잡는다.
+6. event 반응 key는 공통 `(subscriber, cause_seq, reaction)`이다. 반응 command 확정/조건 불충족 확인 뒤 cursor를 올린다. 대표 subscriber는 `problems.work`, `problems.closing`이며 재시작 때 seq로 따라잡는다. `problems.work`는 core의 구독자가 ticket event마다 test-runner worker를 깨우며 ledger의 처리 위치를 싣고, worker가 그 뒤 event를 읽어 반응한 다음 `AdvanceSubscriberCursor`로 올린다. 낡은 기준으로 다시 읽을 때 같은 key로 다른 compare를 내지 않도록 reaction에 읽은 문제 seq를 넣는다.
 
 ## 8. 실패와 재시작
 

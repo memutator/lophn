@@ -1352,6 +1352,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
 
 ### T26 fixture: 일부러 깨지는 앱
 
+- 상태: 완료 (#425)
 - 등급: 기본
 - concern: apps/runtime, apps/data
 - 요구: apps/runtime#R2, R19, R22, R28, apps/data#R7, R11

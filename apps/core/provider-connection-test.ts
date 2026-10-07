@@ -7,7 +7,6 @@ import {
 } from "../../packages/contracts/lophn-agent/mod.ts";
 import type {
   AuthenticatedContext,
-  SecretSendInput,
   SecretUse,
 } from "../../packages/contracts/platform/mod.ts";
 import {
@@ -26,8 +25,8 @@ import {
 } from "../../packages/lophn-agent/harness/provider/mod.ts";
 import { snapshotCatalogEntry } from "../../packages/lophn-agent/harness/model/mod.ts";
 import {
-  openConnection,
   type KnownSecretMatch,
+  openConnection,
   type Writer,
 } from "../../packages/platform/ledger/mod.ts";
 import {
@@ -78,6 +77,7 @@ export type ConnectionTestWriterDeps = {
   ledgerPath: string;
   keychain: () => KeychainAdapter;
   known: () => KnownSecretMatch | undefined;
+  newCallId: () => string;
 };
 
 // writer queue 앞의 처리기. 이 command만 가로채고 나머지 command와 Writer 동작은
@@ -106,7 +106,7 @@ export function withConnectionTest(
       );
       if (!handled.ok) return handled;
       return ok({
-        result: { check: handled.value.check },
+        result: { check: handled.value.check, timeout_ms: 30_000 },
         replayed: false,
         first_seq: null,
         last_seq: null,
@@ -125,7 +125,7 @@ function connectionTestDeps(
     port: connectionTestPort(writer, deps, machine),
     invoke: connectionTestInvoke(deps, machine),
     nowMs: () => Date.now(),
-    newCallId: () => crypto.randomUUID(),
+    newCallId: deps.newCallId,
     at: (ms) => new Date(ms).toISOString(),
   };
 }
@@ -138,7 +138,7 @@ function connectionTestPort(
   const send = async (
     name: string,
     input: unknown,
-    compare: Record<string, string>,
+    compare: Record<string, string | number>,
     suffix: string,
   ): Promise<Result<unknown>> => {
     const sent = await writer.command(machine, {
@@ -152,16 +152,19 @@ function connectionTestPort(
     return ok(sent.value);
   };
   return {
-    async readProvider(id) {
+    readProvider(id) {
       const opened = openConnection(deps.ledgerPath);
-      if (!opened.ok) return opened;
+      if (!opened.ok) return Promise.resolve(opened);
       try {
         const loaded = loadProvider(opened.value.sql, id);
-        if (!loaded.ok) return loaded;
+        if (!loaded.ok) return Promise.resolve(loaded);
         if (loaded.value === null) {
-          return err({ code: "not_found", message: "provider not found" });
+          return Promise.resolve(err({
+            code: "not_found",
+            message: "provider not found",
+          }));
         }
-        return ok(loaded.value);
+        return Promise.resolve(ok(loaded.value));
       } finally {
         opened.value.close();
       }
@@ -186,27 +189,30 @@ function connectionTestPort(
           message: "catalog에 완전한 한계가 없는 model이다",
         }));
       }
-      return Promise.resolve(ok({
-        provider: provider.id,
-        name: modelName,
-        protocol: provider.protocol,
-        credential_key: credential.key,
-        credential_revision: credential.revision,
-        options: {},
-        requested_reasoning: null,
-        applied_reasoning: null,
-        limits: {
-          context_limit: entry.context_limit,
-          input_limit: entry.input_limit,
-          output_limit: entry.output_limit,
-          supports_tools: entry.supports_tools,
-        },
-        catalog_basis: { source: entry.source },
-        price_basis: entry.price_basis,
-        billing_route: billingRouteOf(credential),
-      } satisfies CallModel));
+      return Promise.resolve(ok(
+        {
+          provider: provider.id,
+          name: modelName,
+          protocol: provider.protocol,
+          credential_key: credential.key,
+          credential_revision: credential.revision,
+          options: {},
+          requested_reasoning: null,
+          applied_reasoning: null,
+          limits: {
+            context_limit: entry.context_limit,
+            input_limit: entry.input_limit,
+            output_limit: entry.output_limit,
+            supports_tools: entry.supports_tools,
+          },
+          catalog_basis: { source: entry.source },
+          price_basis: entry.price_basis,
+          billing_route: billingRouteOf(credential),
+        } satisfies CallModel,
+      ));
     },
     startCall: async (call: ModelCallRecord) => {
+      // test call은 machine 자격으로 StartModelCall로 기록된다(R24).
       const done = await send(
         "StartModelCall",
         {
@@ -257,7 +263,7 @@ function connectionTestPort(
 function readRevision(
   ledgerPath: string,
   providerId: string,
-): Promise<Result<string>> {
+): Promise<Result<number>> {
   const opened = openConnection(ledgerPath);
   if (!opened.ok) return Promise.resolve(opened);
   try {
@@ -271,7 +277,8 @@ function readRevision(
         message: "provider not found",
       }));
     }
-    return Promise.resolve(ok(String(row["revision"])));
+    // compare 기준은 providerRevisionCompareSchema의 양의 정수다.
+    return Promise.resolve(ok(Number(row["revision"])));
   } finally {
     opened.value.close();
   }
@@ -299,18 +306,31 @@ function connectionTestInvoke(
     // provider credential은 apps의 grant가 아니라 provider 참조의 현재 상태로
     // 허용한다(agent-runtime-secret.ts와 같은 판정).
     allowance: (allowed) =>
-      allowed.purpose === "provider_credential"
-        ? ok(undefined)
-        : err({
-          code: "forbidden",
-          message: "secret 전송을 허용하지 않는다",
-        }),
+      allowed.purpose === "provider_credential" ? ok(undefined) : err({
+        code: "forbidden",
+        message: "secret 전송을 허용하지 않는다",
+      }),
     processes: () => true,
   });
   return (input, signal) => {
+    // attach의 대조는 secret_sealed_ref다(resolve-model.ts와 같은 판정). credential
+    // key가 아니라 credential의 secret_ref를 쓴다.
+    const sealed = input.model.credential_key === null
+      ? null
+      : providerCredentialSealed(
+        input.model.provider,
+        input.model.credential_key,
+        deps.ledgerPath,
+      );
+    if (sealed === null) {
+      return Promise.resolve(err({
+        code: "not_found",
+        message: "credential 참조가 없다",
+      }));
+    }
     const use: SecretUse = {
-      sealed_ref: input.model.credential_key ?? "",
-      revision: input.model.credential_revision ?? 0,
+      sealed_ref: sealed.sealed_ref,
+      revision: sealed.revision,
       purpose: "provider_credential",
       destination: providerSecretDestination(input.endpoint) ?? {
         kind: "https",
@@ -326,7 +346,9 @@ function connectionTestInvoke(
       headerName: input.model.protocol === "anthropic-messages"
         ? "x-api-key"
         : "authorization",
-      kind: input.model.protocol === "anthropic-messages" ? "api_key" : "bearer",
+      kind: input.model.protocol === "anthropic-messages"
+        ? "api_key"
+        : "bearer",
     });
     return createInvokeModelCall({
       transport,
@@ -334,4 +356,32 @@ function connectionTestInvoke(
       at: (ms) => new Date(ms).toISOString(),
     })(input, signal);
   };
+}
+
+// 연결 test가 보내는 credential 참조. ledger에서 직접 읽는다(readProvider와 같은 길).
+function providerCredentialSealed(
+  providerId: string,
+  credentialKey: string,
+  ledgerPath: string,
+): { sealed_ref: string; revision: number } | null {
+  const opened = openConnection(ledgerPath);
+  if (!opened.ok) return null;
+  try {
+    const row = opened.value.sql.get(
+      "select secret_sealed_ref, secret_revision from provider_credentials where provider = ? and key = ?",
+      [providerId, credentialKey],
+    );
+    if (
+      row === undefined || row["secret_sealed_ref"] === null ||
+      row["secret_revision"] === null
+    ) {
+      return null;
+    }
+    return {
+      sealed_ref: String(row["secret_sealed_ref"]),
+      revision: Number(row["secret_revision"]),
+    };
+  } finally {
+    opened.value.close();
+  }
 }

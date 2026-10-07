@@ -779,11 +779,14 @@ async function open(
     await runtime.close();
     return connectionTestCredential;
   }
+  // call 기록의 id는 core의 ULID source로 낸다(idSchema("mcl")).
+  const connectionTestIds = createIdSource({ clock, random });
   const connectionTestSecrets = {
     ledgerPath,
     keychain: () =>
       options.secretKeychain ?? options.codingKeychain ?? productKeychain(),
     known: () => runtime?.knownSecrets,
+    newCallId: () => connectionTestIds.newId("mcl"),
   };
   const knownSecrets = runtime.knownSecrets;
   const redactLine = createProductRedactor(knownSecrets);
@@ -1033,44 +1036,44 @@ async function open(
       writer: withRevocationSweep(
         withConnectionTest(
           withReleasePreparation(
-          withPlacementReservation(
-            withTermOccurrence(
-              withApprovalText(
-                withQuestionText(
-                  withHandoffBody(
-                    withMessageBody(
-                      runtime.writer,
-                      createMessageBodyPreparer({
+            withPlacementReservation(
+              withTermOccurrence(
+                withApprovalText(
+                  withQuestionText(
+                    withHandoffBody(
+                      withMessageBody(
+                        runtime.writer,
+                        createMessageBodyPreparer({
+                          relay: () => bodyPrepare.current,
+                          // 알려진 secret 값도 pattern과 함께 가린다. 값을 다 모르는 동안은 막는다.
+                          known: () => runtime?.knownSecrets,
+                        }),
+                      ),
+                      createHandoffBodyPreparer({
                         relay: () => bodyPrepare.current,
-                        // 알려진 secret 값도 pattern과 함께 가린다. 값을 다 모르는 동안은 막는다.
                         known: () => runtime?.knownSecrets,
                       }),
                     ),
-                    createHandoffBodyPreparer({
+                    createQuestionTextPreparer({
                       relay: () => bodyPrepare.current,
-                      known: () => runtime?.knownSecrets,
                     }),
                   ),
-                  createQuestionTextPreparer({
+                  createApprovalTextPreparer({
                     relay: () => bodyPrepare.current,
+                    known: () => runtime?.knownSecrets,
                   }),
                 ),
-                createApprovalTextPreparer({
-                  relay: () => bodyPrepare.current,
-                  known: () => runtime?.knownSecrets,
-                }),
+                (ctx, command, input) =>
+                  runtime!.readers.read(TERM_OCCURRENCE_ROUTE, ctx, {
+                    command,
+                    input,
+                  }),
               ),
-              (ctx, command, input) =>
-                runtime!.readers.read(TERM_OCCURRENCE_ROUTE, ctx, {
-                  command,
-                  input,
-                }),
+              placementReservations,
             ),
-            placementReservations,
+            appsControl.commands,
+            appsControl.grantChange,
           ),
-          appsControl.commands,
-          appsControl.grantChange,
-        ),
           connectionTestSecrets,
         ),
         () => appsControl.connector.sweep(),

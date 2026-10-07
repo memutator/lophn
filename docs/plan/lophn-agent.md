@@ -876,6 +876,7 @@ E2E는 apps#T27(use-app-command, ask-app-hint, connect-apps, view-agent-visuals 
 - 조사: docs/research/presets-and-agent-config.md, docs/research/questions-and-hitl.md
 - 선행: T29, T32, T45
 - 상태: 완료 (#437)
+- 후속 (#441): AE 읽기 범위 전체와 handoff 고정 근거
 - 완료:
   - app_engineer_test.ts에 R1–R4, R7–R12, R20 테스트: 사람 요청·handoff로만, 읽기 범위 한정(담당 앱 자료·그 앱 read를 가진 context·SDK 계약·handoff 고정 근거), 맡지 않는 일 tool 없음, 앱 목적·SDK는 lophn 기획에서 시작, 인터뷰 질문 최대 12개·선택지 2~3개와 근거 있는 추천 하나, 가정 최대 3개·범위·동작·acceptance check 답이 없으면 ticket 보류, 8종 Markdown 문서와 순서·앞 결과의 읽은 고정 version 근거, 명세 흐름 최대 8단계·빈 결과·실패 별도·시각 배치·라이브러리 결정 없음, blueprint 원본 수정·문서 사본 없음, judgment·organizing 용도
   - E2E는 coding-agent slice의 new-app·change-app

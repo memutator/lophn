@@ -898,6 +898,7 @@ E2E는 apps#T27(use-app-command, ask-app-hint, connect-apps, view-agent-visuals 
 
 ### T48 앱 revert
 
+- 상태: 완료 (#436) — 이어보냄: 앱 통로로 `runAppSteps` port를 채우는 조립과 새 reason 코드 문구 → shell#T29
 - 등급: 기본
 - concern: lophn-agent/revert
 - 요구: lophn-agent/revert#R10, R11

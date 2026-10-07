@@ -274,6 +274,13 @@ Deno.test(
         fix_records: [],
         verifications: [VRF],
       },
+      summary_blob: {
+        preparation: "worker-preparation-1",
+        principal: CAC,
+        purpose: "ticket_summary",
+        hash: HASH,
+        size_bytes: 64,
+      },
       json: true,
     });
   },

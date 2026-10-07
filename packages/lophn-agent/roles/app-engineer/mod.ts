@@ -8,6 +8,7 @@ export {
   canStartStep,
   checkContractRequest,
   checkSpec,
+  checkStepBasis,
   type ContractRequest,
   DESIGN_DOCUMENT_KINDS,
   DESIGN_DOCUMENT_TITLES,
@@ -26,7 +27,6 @@ export {
   type SpecFlow,
   splitFlow,
   type StepResult,
-  checkStepBasis,
 } from "./design.ts";
 export {
   ASSUMPTION_MAX,
@@ -36,8 +36,8 @@ export {
   type DecisionOwner,
   decisionOwner,
   INTERVIEW_QUESTION_MAX,
-  interviewBasis,
   type InterviewBasis,
+  interviewBasis,
   type InterviewStep,
   nextInterviewStep,
   OPTION_MAX,

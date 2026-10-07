@@ -78,10 +78,11 @@ export function readDecision(
         return { allowed: true, via: "own_app" };
       }
       // 고정 판 주소만 열린다. 최신 판·연결 자료·다른 run의 근거는 주소만으로 열지 못한다.
-      const pinned = request.version !== null && scope.handoff.some((entry) =>
-        entry.run === scope.run && entry.document === request.document &&
-        entry.version === request.version
-      );
+      const pinned = request.version !== null &&
+        scope.handoff.some((entry) =>
+          entry.run === scope.run && entry.document === request.document &&
+          entry.version === request.version
+        );
       return pinned ? { allowed: true, via: "handoff_evidence" } : DENIED;
     }
   }

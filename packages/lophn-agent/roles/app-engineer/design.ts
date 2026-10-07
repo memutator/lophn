@@ -89,7 +89,11 @@ export function canStartStep(
 }
 
 // 한 단계가 낸 결과 문서의 고정 version이다.
-export type StepResult = { step: DesignStep; document: string; version: string };
+export type StepResult = {
+  step: DesignStep;
+  document: string;
+  version: string;
+};
 export type BasisReference = { document: string; version: string };
 
 function key(reference: BasisReference): string {

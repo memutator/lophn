@@ -14,7 +14,7 @@ import {
   yieldChunk,
 } from "./pty.ts";
 import { type ProcessGroup } from "./child-group.ts";
-import type { CodingAttachment, CodingHost } from "./launch-plan.ts";
+import type { CodingAttachment, CodingHost } from "./coding-types.ts";
 import { RingBuffer } from "./ring-buffer.ts";
 
 export type FolderRecord = { folder_ref: string; path: string };

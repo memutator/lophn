@@ -1,9 +1,9 @@
 // coding TUI의 첫 prompt 전달(shell/terminal#R12, coding-agent/sessions#R5, R10).
 // argv 방식은 harness가 스스로 submit하므로 PTY에 입력을 쓰지 않는다. stdin_after_ready는 plan의
 // readiness 신호를 spawn부터 deadline_ms 안에 보면 정확히 한 번만 쓴다. 쓰기를 시도한 뒤에는 결과를
-// 확인하지 못하므로 재전송·재spawn·resume이 없다. 이 module은 contracts의 값을 type으로만 쓴다.
+// 확인하지 못하므로 재전송·재spawn·resume이 없다. 이 module은 contracts를 import하지 않는다.
 
-import type { PromptDelivery } from "../../../packages/contracts/coding-agent/mod.ts";
+import type { PromptDeliveryInput } from "./coding-types.ts";
 import type { PromptOutcome } from "../ipc/terminal.ts";
 
 /** ms 뒤에 fire를 한 번 부른다. 돌려준 함수가 취소다. 테스트가 끼운다. */
@@ -32,7 +32,7 @@ const PASTE_START = "\u001b[200~";
 const PASTE_END = "\u001b[201~";
 
 export function createPromptDelivery(options: {
-  delivery: PromptDelivery;
+  delivery: PromptDeliveryInput;
   prompt: string;
   write(text: string): void;
   timer: PromptTimer;

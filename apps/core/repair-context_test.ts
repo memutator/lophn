@@ -259,7 +259,7 @@ Deno.test("coding-agent/repair-context#R1 R2 R18 R19 R20: 실제 coding connecti
           world,
           "coding_agent_connections/create",
           user,
-          submission,
+          envelope(submission),
         );
         return sent.status === 200
           ? ok(sent.body)
@@ -366,13 +366,13 @@ Deno.test("coding-agent/repair-context#R1 R2 R18 R19 R20: 실제 coding connecti
     // 읽기는 ticket·문제 상태를 바꾸지 않는다.
     const after = await post(world, "tickets/show", token, { ticket });
     assertEquals(after.body["ticket"], before.body["ticket"]);
-    // 다른 두 번의 조립은 같은 사실이다(조립 시각만 다르다).
+    // 다른 두 번의 조립은 같은 사실이다(머리의 조립 시각만 다르다).
     const second = await ask(REPAIR_CONTEXT_OPS.bundle, {
       selector: { ticket },
     }) as { context: typeof context };
     assertEquals(
-      second.context.sections.map((section) => section.content),
-      context.sections.map((section) => section.content),
+      second.context.sections.slice(1).map((section) => section.content),
+      context.sections.slice(1).map((section) => section.content),
     );
   } finally {
     await world.close();

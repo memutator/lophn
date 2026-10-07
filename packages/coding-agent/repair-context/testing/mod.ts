@@ -102,7 +102,6 @@ export function fakePort(world: FakeWorld): RepairReadPort {
     world.calls.push(name);
     return Promise.resolve(ok(value));
   };
-  const reportsOf = (problem: string) => world.problems.get(problem)!.reports;
   return {
     now: () => NOW,
     redact: (text) => world.redact(text),

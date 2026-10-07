@@ -1552,6 +1552,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
     GitHub·Sentry cursor는 서명이 없어 버림, 조사 T8)
   - 잘림 marker·누락 표시·more 안내·fence도 24,576 bytes·300줄 안에
     센다(Codex·OpenCode는 marker를 cap 밖에 둠, 조사 T8)(R11, R12)
+- coding-agent#T42에서 넘어온 것: 조립(`repair-context/assemble.ts`의 `assembleRepairContext`)은 요약 상한(문제당 2줄·전체 10줄·1,200자)을 간이로만 지키고 전체 24,576 bytes·300줄을 넘기면 bundle 대신 `over_budget`을 낸다. 축소(log → 대표 excerpt → 첨부)·최종 redaction 확인·`more`·cursor·이미지는 이 task가 얹는다. worker(`apps/worker/coding-agent/repair-context.ts`, kind `coding-agent/worker`)는 요청 payload `{credential, input}`을 받는다. core가 요청자 connection credential을 싣고, `redact_request`에 알려진 값으로 답하고, 응답에 read 공통 필드(`as_of_seq`)를 붙이고, `repair_context/*` route 등록과 worker launch spec을 더해야 한다. 사람 원문·log 본문은 일반 `blobs/read`로 읽는데 core는 이 route를 서빙하지 않아 지금은 "읽을 수 없음" 이유로 표시된다(problems의 `report_text` field는 일반 읽기도 닫혀 있다). `ListVerifications`·`GetTestRequest`·`GetVerification`도 reader 등록에 없어 제품 core에서 not_found다(problems 소유; 수리 자료는 이를 "읽을 수 없음"으로 표시한다)
 
 ### T44 MCP·CLI 문제 tool과 사람의 문제 command
 

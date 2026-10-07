@@ -205,11 +205,10 @@ export async function runCodingAgentWorker(_root: string): Promise<void> {
   console.log = console.info = console.debug = (...args: unknown[]) =>
     console.error(...args);
   let apiPort = 0;
-  let session: ChildSession | undefined;
   const link = createRedactLink({
-    send: (message) => session!.send(message),
+    send: (message) => session.send(message),
   });
-  session = createCodingAgentWorker({
+  const session: ChildSession = createCodingAgentWorker({
     streams: { stdin: Deno.stdin, stdout: Deno.stdout, stderr: Deno.stderr },
     onHello: (hello) => {
       apiPort = hello.api_port;

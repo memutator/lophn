@@ -229,6 +229,124 @@ export const en = {
     "A permission points outside the folder you chose.",
   "app-detail.note.warning-read-network":
     "This app can read files and use the network, so it could send what it reads elsewhere.",
+  "app-detail.button.cancel-create": "Never mind",
+  "app-detail.button.cancel-task": "Cancel task",
+  "app-detail.button.copy-request": "Copy request",
+  "app-detail.button.create-task": "Create task",
+  "app-detail.button.keep-task": "Keep task",
+  "app-detail.button.new-task": "New task",
+  "app-detail.button.start": "Start",
+  "app-detail.button.task-back": "Back to tasks",
+  "app-detail.error.cancel-changed":
+    "This task changed after you opened it. Open it again before cancelling.",
+  "app-detail.error.cancel-failed":
+    "Couldn't cancel this task. It's still open. Try again.",
+  "app-detail.error.copy-failed":
+    "Couldn't copy the request. Select the text and copy it instead.",
+  "app-detail.error.create-failed":
+    "Couldn't create the task. Nothing was added. Try again.",
+  "app-detail.error.start-connection-unavailable":
+    "The connection can't be used right now. Check it in Settings, then try again.",
+  "app-detail.error.start-failed":
+    "Couldn't start the coding agent. Nothing was opened. Try again.",
+  "app-detail.error.start-folder-changed":
+    "That folder isn't registered anymore. Pick a folder again.",
+  "app-detail.error.start-host-refused":
+    "The terminal didn't open. Press Start to try again.",
+  "app-detail.error.start-own-terminal":
+    "lophn can't open this one for you. Use your own terminal instead.",
+  "app-detail.error.start-refused":
+    "The coding agent wasn't started because this task isn't ready for it. Check the task, then try again.",
+  "app-detail.error.start-task-changed":
+    "This task changed after you opened it. Look at it again, then press Start.",
+  "app-detail.error.start-task-unavailable":
+    "Couldn't read this task. Open it again and try again.",
+  "app-detail.heading.task-checks": "What was checked",
+  "app-detail.heading.task-needs": "Still to decide",
+  "app-detail.heading.task-start": "Hand this to a coding agent",
+  "app-detail.heading.task-terminal": "Terminal",
+  "app-detail.label.cancel-reason": "Reason",
+  "app-detail.label.check-fail": "Failed",
+  "app-detail.label.check-inconclusive": "Not confirmed",
+  "app-detail.label.check-line": "{condition}: {result}",
+  "app-detail.label.check-pass": "Passed",
+  "app-detail.label.condition-app-test": "The app's own tests pass",
+  "app-detail.label.condition-human": "You confirm it",
+  "app-detail.label.condition-issues-closed": "The related issues are closed",
+  "app-detail.label.condition-number": "Check {number}",
+  "app-detail.label.condition-reproduction": "The reproduction test passes",
+  "app-detail.label.condition-test-command": "A test command passes",
+  "app-detail.label.condition-version-in-use": "The new version is in use",
+  "app-detail.label.create-title": "Title",
+  "app-detail.label.create-what": "What do you want?",
+  "app-detail.label.create-why": "Why?",
+  "app-detail.label.own-terminal": "Use your own terminal",
+  "app-detail.label.start-connection": "Connection",
+  "app-detail.label.start-folder": "Folder",
+  "app-detail.label.start-folder-option": "{project}: {path}",
+  "app-detail.label.start-harness": "Coding agent",
+  "app-detail.label.start-not-chosen": "not chosen yet",
+  "app-detail.label.task-checked": "lophn checked",
+  "app-detail.label.task-claim": "The coding agent says",
+  "app-detail.label.task-conditions": "Checks for this task",
+  "app-detail.label.task-details": "Details",
+  "app-detail.label.task-held-until": "Held until",
+  "app-detail.label.task-next-check-result": "Look at the result",
+  "app-detail.label.task-next-needs-confirmation": "Needs your decisions",
+  "app-detail.label.task-next-start": "Ready to start",
+  "app-detail.label.task-next-waiting-for-approval": "Waiting for approval",
+  "app-detail.label.task-remaining": "Still to confirm",
+  "app-detail.label.task-state-cancelled": "Cancelled",
+  "app-detail.label.task-state-check-failed": "Check failed",
+  "app-detail.label.task-state-confirmed": "Confirmed",
+  "app-detail.label.task-state-in-progress": "In progress",
+  "app-detail.label.task-state-needs-confirmation": "Getting ready",
+  "app-detail.label.task-state-ready": "Ready",
+  "app-detail.label.task-state-reported": "Reported",
+  "app-detail.label.tasks-target": "your tasks",
+  "app-detail.label.tui-ended": "Ended",
+  "app-detail.label.tui-ready": "Ready for input",
+  "app-detail.label.tui-starting": "Starting",
+  "app-detail.label.tui-unknown": "Status unknown",
+  "app-detail.label.tui-waiting-input": "Waiting for you",
+  "app-detail.label.tui-working": "Working",
+  "app-detail.note.cancel-reason": "One line. The work already done is kept.",
+  "app-detail.note.create":
+    "lophn works out what to adopt and how to check the result before this can start.",
+  "app-detail.note.own-terminal":
+    "Paste this into your own coding agent. lophn doesn't open it or keep track of it.",
+  "app-detail.note.prompt-delivered":
+    "The first message reached the coding agent.",
+  "app-detail.note.prompt-not-delivered":
+    "The first message didn't reach the coding agent. Start again to send it.",
+  "app-detail.note.prompt-pending":
+    "Sending the first message to the coding agent.",
+  "app-detail.note.prompt-unknown":
+    "lophn couldn't confirm the first message arrived. It won't send it again.",
+  "app-detail.note.request-copied": "Copied.",
+  "app-detail.note.start-no-connection":
+    "No connection can work on this app yet. Connect a coding agent in Settings first.",
+  "app-detail.note.start-no-folder":
+    "Add a project folder first. The coding agent opens in one of your registered folders.",
+  "app-detail.note.start-no-harness":
+    "No coding agent was found on this computer. Check Settings first.",
+  "app-detail.note.start-opened":
+    "Opened in a terminal on this computer. Its status shows below.",
+  "app-detail.note.start-with": "Opens {harness} in {folder}.",
+  "app-detail.note.task-not-checked": "Nothing checked yet.",
+  "app-detail.note.task-not-reported": "It hasn't said it's done yet.",
+  "app-detail.note.task-nothing-remaining": "Nothing left to confirm.",
+  "app-detail.note.task-reported":
+    "It says the work is done. That isn't the same as checked.",
+  "app-detail.note.task-start-again":
+    "The earlier terminal stopped. Start again to hand this task over once more.",
+  "app-detail.note.tasks-empty": "No tasks for this app yet.",
+  "app-detail.note.tui-separate":
+    "The terminal's status is separate from the task's status.",
+  "app-detail.text.task-create-needs":
+    "Choose what to adopt and how to check the result before this can start.",
+  "app-detail.text.task-request-sentence":
+    "Please work on lophn task {task}: {request} Read the task with your lophn tools, take it on, do the work, and report back when you're done.",
   "app-space.button.add-shortcut": "Add to app menu",
   "app-space.button.app-details": "App details",
   "app-space.button.documents": "Documents",
@@ -1034,6 +1152,19 @@ export const en = {
   "confirmation-window.revoke.subject": "{app} has this access now.",
   "confirmation-window.revoke.effect":
     "This app will no longer have this access. Any running app process must stop before removal completes.",
+  "confirmation-window.button.connection-revoke": "Revoke",
+  "confirmation-window.connection.already-revoked":
+    "This connection is already revoked.",
+  "confirmation-window.connection.effect-revoke":
+    "lophn stops accepting requests from this connection right away.",
+  "confirmation-window.connection.note-revoke":
+    "A revoked connection can't be turned back on. Connect again to make a new one. Anything already running in your coding agent keeps running.",
+  "confirmation-window.label.connection-all": "All apps",
+  "confirmation-window.label.connection-app": "Only {name}",
+  "confirmation-window.label.connection-scope": "Reaches",
+  "confirmation-window.result.connection-revoked":
+    "Revoked. lophn no longer accepts this connection.",
+  "confirmation-window.title.connection-revoke": "Revoke this connection?",
   "document.title.compare-disk": "Your changes and the file on disk",
   "document.title.compare-newest": "Your changes and the newest version",
   "document.title.unsaved": "Changes aren't saved yet",
@@ -1733,6 +1864,93 @@ export const en = {
   "settings.models.for-decisions": "For decisions",
   "settings.models.for-summaries": "For summaries",
   "settings.title.screen": "Settings",
+  "settings.button.cancel": "Cancel",
+  "settings.button.connect": "Connect",
+  "settings.button.connect-with": "Connect {name}",
+  "settings.button.detect-again": "Detect again",
+  "settings.button.revoke": "Revoke",
+  "settings.error.coding-conflict":
+    "A connection like this already exists, so nothing was connected.",
+  "settings.error.coding-detect":
+    "Couldn't check again. The earlier results are still shown.",
+  "settings.error.coding-not-detected":
+    "That product wasn't found on this computer, so nothing was connected.",
+  "settings.error.coding-refused":
+    "lophn didn't accept that choice. Nothing was connected.",
+  "settings.error.coding-revoke-window":
+    "The confirmation window didn't open. Try again.",
+  "settings.error.coding-unavailable": "Couldn't connect right now. Try again.",
+  "settings.heading.coding-access": "Connections to lophn",
+  "settings.heading.coding-agents": "Coding agents",
+  "settings.label.coding-check-failed": "Couldn't check",
+  "settings.label.coding-check-failed-stage": "Doesn't work",
+  "settings.label.coding-check-line": "{stage}: {result}",
+  "settings.label.coding-check-ok": "Works",
+  "settings.label.coding-check-unknown": "Not confirmed",
+  "settings.label.coding-connections-target": "your coding agent connections",
+  "settings.label.coding-default-name": "{name} on this computer",
+  "settings.label.coding-detail-candidate": "{path} (from {source})",
+  "settings.label.coding-detail-executable": "Found at {path}",
+  "settings.label.coding-detail-probe": "{probe}: {outcome}",
+  "settings.label.coding-detail-resource": "{place}: {outcome}",
+  "settings.label.coding-details": "Details",
+  "settings.label.coding-found": "Found",
+  "settings.label.coding-install-complete": "Set up",
+  "settings.label.coding-install-details": "Where it was set up",
+  "settings.label.coding-install-error": "Setup didn't finish",
+  "settings.label.coding-install-failed": "Not set up",
+  "settings.label.coding-install-partial": "Partly set up",
+  "settings.label.coding-not-checked": "Not checked",
+  "settings.label.coding-not-found": "Not found",
+  "settings.label.coding-scope-all": "All apps",
+  "settings.label.coding-scope-one-app": "Only {name}",
+  "settings.label.coding-scope-one-app-unknown": "One app",
+  "settings.label.coding-scope-pick-app": "One app",
+  "settings.label.coding-sign-in-not-found": "No sign-in found",
+  "settings.label.coding-sign-in-unknown": "Sign-in not checked",
+  "settings.label.coding-signed-in": "Signed in",
+  "settings.label.coding-stage-connect": "Connects to lophn",
+  "settings.label.coding-stage-guide": "Reads the app guide",
+  "settings.label.coding-stage-other": "Another check",
+  "settings.label.coding-stage-skills": "Finds the lophn skills",
+  "settings.label.coding-stage-tools": "Finds the lophn tools",
+  "settings.label.coding-state-active": "Active",
+  "settings.label.coding-state-revoked": "Revoked",
+  "settings.label.coding-target": "your coding agents",
+  "settings.label.coding-version": "Version {version}",
+  "settings.label.coding-version-unknown": "Version unknown",
+  "settings.label.connection-name": "Connection name",
+  "settings.label.connection-scope": "What it can reach",
+  "settings.label.harness-claude": "Claude Code",
+  "settings.label.harness-codex": "Codex",
+  "settings.label.harness-gemini": "Gemini CLI",
+  "settings.label.harness-hermes": "Hermes",
+  "settings.label.harness-openclaw": "OpenClaw",
+  "settings.label.harness-opencode": "OpenCode",
+  "settings.label.harness-pi": "pi",
+  "settings.label.tab-coding": "Coding agents",
+  "settings.note.coding-checked-again": "Checked again just now.",
+  "settings.note.coding-checks-unavailable":
+    "lophn couldn't check yet whether it loads.",
+  "settings.note.coding-connect-note":
+    "Pressing Connect is your permission. There's no token to create or paste.",
+  "settings.note.coding-connected": "{name} is connected.",
+  "settings.note.coding-detect-note":
+    "These are the results from the last check. lophn only checks again when you ask.",
+  "settings.note.coding-intro":
+    "Connect the coding agent you already use. lophn only sets up the product you pick.",
+  "settings.note.coding-name-help":
+    "A name you'll recognize. It tells connections apart.",
+  "settings.note.coding-no-connections": "No coding agent is connected yet.",
+  "settings.note.coding-revoke-waiting":
+    "Waiting for your decision in the confirmation window.",
+  "settings.note.coding-revoked-note":
+    "lophn no longer accepts this connection. Anything already running in your coding agent keeps running.",
+  "settings.note.coding-scope-all-note": "It can work on any of your apps.",
+  "settings.note.coding-scope-app-note":
+    "It can only work on the app you pick.",
+  "settings.note.coding-start-note":
+    "Setting up isn't the same as starting. Start a task from its Tasks tab, or from your own terminal.",
   "terminal.button.close-terminal": "Close terminal",
   "terminal.button.hide-notice": "Hide note",
   "terminal.button.keep-open": "Keep open",

@@ -298,4 +298,4 @@ export const REVERT_EVENTS = [
 
 export type AppRevertBinding = z.infer<typeof appRevertBindingSchema>;
 
-export { revertChangeSchema, revertGroupSchema };
+export { appRevertBindingSchema, revertChangeSchema, revertGroupSchema };

@@ -45,7 +45,7 @@ create table revert_changes (
   target text,
   capability text not null check (capability in ('reversible', 'retained', 'irreversible', 'conflict')),
   result text not null check (result in ('restored', 'retained', 'irreversible', 'conflict', 'unchanged', 'failure', 'uncertain')),
-  reason text check (reason is null or reason in ('audit_fact', 'external_effect', 'later_change', 'linked_document', 'not_agent_output', 'title_change', 'no_previous_version', 'unclassified_document_event', 'unclassified_event', 'blocked_conflict', 'blocked_irreversible', 'blocked_dependency', 'blocked_not_prepared', 'stale_preview')),
+  reason text check (reason is null or reason in ('audit_fact', 'external_effect', 'later_change', 'linked_document', 'not_agent_output', 'title_change', 'no_previous_version', 'unclassified_document_event', 'unclassified_event', 'blocked_conflict', 'blocked_irreversible', 'blocked_dependency', 'blocked_not_prepared', 'stale_preview', 'app_failed', 'app_uncertain')),
   app_revert text check (app_revert is null or json_valid(app_revert)),
   primary key (revert, ordinal),
   check (result = 'restored' or reason is not null),
@@ -58,6 +58,7 @@ create index revert_changes_owner_target on revert_changes (owner, target);
 create trigger revert_changes_final_rows
 before update on revert_changes
 when (select outcome from reverts where id = old.revert) != 'applying'
+  or old.result != 'unchanged'
 begin
   select raise(abort, 'a revert result is final');
 end;

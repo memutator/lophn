@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
 import { canonicalize, err, ok, type Result } from "../../base/mod.ts";
-import type { RevertReason } from "../../contracts/lophn-agent/mod.ts";
+import type {
+  AppRevertBinding,
+  RevertReason,
+} from "../../contracts/lophn-agent/mod.ts";
 import type {
   JsonObject,
   Sql,
@@ -11,8 +14,9 @@ import type {
 
 // lophn-agent/revert의 순수 규칙. 종료한 run의 event 전체를 owner별 묶음으로 나누고, 묶음마다
 // 복원 가능·유지·불가·충돌을 분류하며, 사람이 본 preview에 고정할 지문(binding_hash)을 만든다.
-// 이 leaf는 다른 concern의 표를 읽지 않는다: run의 변경은 ledger의 event에서, 복원은 소유
-// concern의 dispatchable command로만 한다(R5, R9). 분류와 복원 호출은 owner adapter가 맡는다.
+// 이 leaf는 run의 변경을 ledger의 event에서 읽고, 복원은 소유 concern의 dispatchable command로만
+// 한다(R5, R9). 앱 되돌림 근거(apps/invocations tool call의 기록)는 앱 owner 하나만
+// tool_calls를 읽는다(lophn-agent#T48): 분류와 복원 호출은 owner adapter가 맡는다.
 
 export type Capability =
   | "reversible"
@@ -114,7 +118,8 @@ export function targetOf(subject: string | null): string | null {
   return subject !== null && TARGET.test(subject) ? subject : null;
 }
 
-// owner가 판정한 묶음. 정렬·번호·이유 hash는 engine이 붙인다.
+// owner가 ��정한 묶음. 정렬·번호·이유 hash는 engine이 붙인다. app_revert는 앱의 되돌림 단계가
+// 있는 묶음의 근거다(lophn-agent#T48).
 export type GroupDraft = {
   owner: string;
   target: string | null;
@@ -124,6 +129,8 @@ export type GroupDraft = {
   comparison: JsonObject | null;
   before_ref: JsonObject | null;
   dependencies: { owner: string; target: string; comparison: JsonObject }[];
+  // owner가 앱 되돌림 단계를 판정하지 않으면 더하지 않는다(engine이 null로 채운다).
+  app_revert?: AppRevertBinding | null;
 };
 
 export type RevertGroup = {
@@ -136,7 +143,7 @@ export type RevertGroup = {
   comparison: JsonObject | null;
   before_ref: JsonObject | null;
   dependencies: { owner: string; target: string; comparison: JsonObject }[];
-  app_revert: null;
+  app_revert: AppRevertBinding | null;
 };
 
 // 사람이 적용할 때 owner에게 주는 입력 한 묶음(contracts RevertRun의 groups 항목).
@@ -150,6 +157,8 @@ export type OwnerContext = {
   run: string;
   events: readonly RunEvent[];
   lookup: Lookup;
+  // 되돌림의 revert id. step_key의 앞부분이다. preview는 저장한 revert가 없어 빈 문자열이다.
+  revert: string;
 };
 
 // 소유 concern마다 하나. claims는 이 owner가 판정하는 event type이고, classify는 그 event들을
@@ -196,6 +205,7 @@ export function buildGroups(
   lookup: Lookup,
   run: string,
   owners: readonly RevertOwner[],
+  revert = "",
 ): RevertGroup[] {
   const events = loadRunEvents(lookup, run);
   const buckets = new Map<RevertOwner, RunEvent[]>();
@@ -212,7 +222,7 @@ export function buildGroups(
   }
   const drafts: GroupDraft[] = [];
   for (const [owner, own] of buckets) {
-    drafts.push(...owner.classify({ run, events: own, lookup }));
+    drafts.push(...owner.classify({ run, events: own, lookup, revert }));
   }
   drafts.push(...unclassifiedDrafts(orphans));
   // 어느 묶음에도 없는 event는 owner가 빠뜨린 것이다. 남기지 않고 복원 불가로 설명한다.
@@ -239,7 +249,7 @@ export function buildGroups(
     comparison: draft.comparison,
     before_ref: draft.before_ref,
     dependencies: draft.dependencies,
-    app_revert: null,
+    app_revert: draft.app_revert ?? null,
   }));
 }
 
@@ -368,7 +378,7 @@ export type ChangeResult = {
   result: ChangeOutcome;
   reason: ReasonCode | null;
   restored_seqs: string[];
-  app_revert: null;
+  app_revert: AppRevertBinding | null;
 };
 
 // 적용한 결과. 복원한 묶음은 restored이고 나머지는 분류 그대로다. 복원할 수 있었지만 전체가
@@ -385,7 +395,7 @@ export function resultsOf(
       target: group.target,
       source_seqs: group.source_seqs,
       capability: group.capability,
-      app_revert: null,
+      app_revert: group.app_revert,
     };
     if (group.capability === "reversible") {
       const seqs = restored.get(group.ordinal);

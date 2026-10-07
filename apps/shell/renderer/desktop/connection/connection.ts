@@ -10,6 +10,11 @@ export type { ConnectionState };
 
 export interface CoreSource {
   subscribe(listener: (state: ConnectionState) => void): () => void;
+  /**
+   * 이 창이 지금까지 받은 마지막 상태. 앱 공간에서 런처로 돌아와 새로 마운트한 화면이
+   * starting에서 시작하지 않게 한다. 아직 받은 것이 없으면 undefined다.
+   */
+  current?(): ConnectionState | undefined;
   call(input: CoreCall): Promise<CoreReply>;
 }
 
@@ -34,6 +39,13 @@ export function windowCoreSource(): CoreSource {
         }),
     };
   }
+  // 창이 사는 동안 하나만 듣고 마지막 상태를 기억한다. main이 이미 지나간 상태를 다시 밀지
+  // 않아도 새 화면이 지금 상태를 바로 읽는다.
+  let last: ConnectionState | undefined;
+  bridge.subscribe((payload) => {
+    const parsed = connectionStateSchema.safeParse(payload);
+    if (parsed.success) last = parsed.data;
+  });
   return {
     subscribe(listener) {
       return bridge.subscribe((payload) => {
@@ -41,6 +53,7 @@ export function windowCoreSource(): CoreSource {
         if (parsed.success) listener(parsed.data);
       });
     },
+    current: () => last,
     call: (input) => bridge.call(input),
   };
 }

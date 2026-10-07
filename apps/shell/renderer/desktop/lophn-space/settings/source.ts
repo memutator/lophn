@@ -49,7 +49,10 @@ export interface ConnectionCheck {
 
 /** 연결 하나(Claude, ChatGPT 같은 제품 또는 로컬 model). */
 export interface ProviderRow {
+  /** 등록된 연결은 provider id이고 아직 등록하지 않은 내장 정의는 정의에서 만든 임시 id다. */
   readonly id: string;
+  /** false면 내장 정의만 있고 이 컴퓨터에 등록된 연결이 아직 없다(계정·확인 기록 없음). */
+  readonly registered: boolean;
   readonly name: string;
   readonly enabled: boolean;
   /** 정의 key. model 목록을 찾는 기준이다. */

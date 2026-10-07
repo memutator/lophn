@@ -10,6 +10,7 @@ import {
 } from "../platform/mod.ts";
 import { groupKeySchema } from "./reports.ts";
 import { closureSchema } from "./closing.ts";
+import { problemDetailSchema } from "./problem-detail.ts";
 
 // grouping#R2, R3: 지문은 오류 이름과 상위 최대 3개 앱 frame의 상대 위치·함수다.
 // 줄·열·절대 경로·message는 넣지 않는다. hash는 collector가 canonical JSON으로 낸다.
@@ -154,7 +155,10 @@ export const getProblemInputSchema = z.strictObject({
   problem: idSchema("prb"),
 });
 export const getProblemOutputSchema = withReadCommon(z.object({
+  // 내부 contract(ticket·version ID 포함)다. 사람에게 보이는 상세는 `detail`이다.
   problem: problemSchema,
+  // 사용자용 상세(grouping#R12, closing#R13, tests#R5). 식별자·claim·기한이 없다.
+  detail: problemDetailSchema.optional(),
   text: z.string().nullable(),
   report_count: z.number().int().nonnegative(),
   first_observed_at: z.string().nullable(),

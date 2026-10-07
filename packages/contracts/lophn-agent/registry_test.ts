@@ -73,6 +73,7 @@ Deno.test("lophn-agent/harness/run-loop#R2: public entry registers the exact run
     "/v1/providers/record-check",
     "/v1/providers/read",
     "/v1/providers/list",
+    "/v1/providers/definitions",
     "/v1/providers/login-begin",
     "/v1/providers/login-complete",
     "/v1/providers/login-cancel",

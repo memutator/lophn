@@ -160,6 +160,8 @@ const SUPPORTING_OPERATIONS: ReadonlyMap<string, readonly string[]> = new Map([
   ["term.archive", ["term.get"]],
   // 시각 출처 검증은 이 run이 실행해 끝낸 앱 command의 ToolCall을 읽는다.
   ["RecordMessage", ["ReadToolCall"]],
+  // 사람의 정의 답은 질문 정본(답·고정 action)을 읽은 뒤에만 전달한다(questions#R13).
+  ["ApplyQuestionOption", ["ReadQuestion"]],
 ]);
 
 // run의 agent 자격이 가져야 하는 operation 목록이다. 제공 목록의 소유 contract와 그 보조 operation의

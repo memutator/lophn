@@ -248,7 +248,7 @@ Deno.test("coding-agent/tickets#R11: one connection claims two tickets and a lis
   }
 });
 
-Deno.test("coding-agent/tickets#R11: a connection outside the ticket app is forbidden", () => {
+Deno.test("coding-agent/tickets#R11: a connection outside the ticket app gets the same answer as an absent ticket", () => {
   const ledger = readyLedger(
     new Map([[
       `coding_agent:${CAC}`,
@@ -265,7 +265,16 @@ Deno.test("coding-agent/tickets#R11: a connection outside the ticket app is forb
         { base_revision: ready.revision },
       )
     );
-    code(denied, "forbidden");
+    const absent = ledger.transaction((tx) =>
+      claims.claim.handle(
+        tx,
+        agent(CAC),
+        { ticket: "tkt_01arz3ndektsv4rrffq69g5fb9", base_revision: "1" },
+        { base_revision: "1" },
+      )
+    );
+    code(denied, "not_found");
+    assertEquals(denied, absent);
   } finally {
     ledger.close();
   }

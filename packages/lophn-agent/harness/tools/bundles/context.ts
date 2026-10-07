@@ -25,6 +25,7 @@ import {
   termPropose,
   termUpdate,
 } from "../../../../contracts/documents/mod.ts";
+import { idSchema } from "../../../../contracts/platform/mod.ts";
 import type { ToolResult } from "../../../../contracts/lophn-agent/mod.ts";
 import { fitJson, PAGE_SIZE } from "../result.ts";
 import type { ToolDefinition } from "../registry.ts";
@@ -160,6 +161,11 @@ const updateCandidateInput = z.strictObject({
 );
 const removeCandidateInput = z.strictObject({ term: termIdSchema, ...base });
 
+// 사람의 정의 답 전달(roles/context-engineer#R8, T29 받은 것). 입력은 질문 참조 하나다. 답변
+// 내용(이름·뜻·고정 action)은 모델이 정하지 않는다: 사람이 고른 선택지의 고정 action을 질문
+// 정본에서 읽어 그대로 ApplyQuestionOption에 전한다. questions#R13의 적용은 machine이 한다.
+const questionRefInput = z.strictObject({ question: idSchema("qst") });
+
 export const contextListTool = define(
   "context.list",
   "List contexts: id, title, purpose, status, and revision. This changes nothing.",
@@ -273,6 +279,13 @@ export const termRemoveCandidateTool = define(
   termArchive.name,
   WRITE,
 );
+export const termSubmitDefinitionAnswerTool = define(
+  "term.submit_definition_answer",
+  "Deliver the person's answer on a term-definition question to be applied: reads the chosen option's fixed context, name, and definition and forwards exactly that. The person's choice is the only source; nothing is invented here.",
+  questionRefInput,
+  "ApplyQuestionOption",
+  WRITE,
+);
 
 export const CONTEXT_READ_TOOL_NAMES: readonly string[] = [
   contextListTool.name,
@@ -294,6 +307,7 @@ export const CONTEXT_WRITE_TOOL_NAMES: readonly string[] = [
   termProposeCandidateTool.name,
   termUpdateCandidateTool.name,
   termRemoveCandidateTool.name,
+  termSubmitDefinitionAnswerTool.name,
 ];
 
 export const CONTEXT_TOOLS: readonly ToolDefinition[] = [
@@ -313,6 +327,7 @@ export const CONTEXT_TOOLS: readonly ToolDefinition[] = [
   termProposeCandidateTool,
   termUpdateCandidateTool,
   termRemoveCandidateTool,
+  termSubmitDefinitionAnswerTool,
 ];
 
 export type ContextToolPorts = ContractCall;
@@ -866,6 +881,89 @@ export function createContextToolHandlers(
         body: { term: value.term },
         creates: false,
       }, credential);
+    },
+  );
+
+  // 사람의 정의 답 전달. 입력은 질문 참조 하나이고 답변 내용은 모델이 정하지 않는다: 질문
+  // 정본(ReadQuestion)에서 사람이 고른 option의 고정 action을 읽어 그대로 전한다. 답이
+  // 없거나(미답·미루기·만료) action이 없는 선택지를 골랐으면 사람의 정의 답이 아니다(questions#R8,
+  // R15). 이미 적용된 답(spec 상 apply 한 번)은 ApplyQuestionOption이 conflict로 막는다.
+  handlers.set(
+    termSubmitDefinitionAnswerTool.name,
+    async (input, credential) => {
+      const value = input as z.infer<typeof questionRefInput>;
+      const read = await ports.call(
+        "ReadQuestion",
+        { question: value.question },
+        credential.run,
+      );
+      if (!read.ok) return read;
+      const question = bodyOf(read.value)["question"] as {
+        status: string;
+        closed_seq: string | null;
+        answer: { kind: string; option_key: string | null } | null;
+        options: {
+          key: string;
+          action: {
+            concern: string;
+            command: string;
+            targets: string[];
+            input: { kind: string; value?: Record<string, unknown> };
+            comparison?: unknown;
+            binding_hash: string;
+          } | null;
+        }[];
+      };
+      // 답이 없으면(미답·미루기·만료·취소) 사람의 정의 답이 아니다. 추천·일반 메시지를
+      // 답으로 읽지 않는다(questions#R6, R8).
+      if (
+        question.status !== "answered" || question.answer === null ||
+        question.answer.kind !== "option" || question.answer.option_key === null
+      ) {
+        return err({
+          code: "invalid_input",
+          message: "the person has not chosen an option",
+        });
+      }
+      const option = question.options.find((entry) =>
+        entry.key === question.answer!.option_key
+      );
+      // action이 없는 선택지(자유 답·설명 요청)의 답은 정의로 해석하지 않는다(questions#R15).
+      if (option === undefined || option.action === null) {
+        return err({
+          code: "invalid_input",
+          message: "the chosen option carries no fixed action",
+        });
+      }
+      const sent = await ports.call(
+        "ApplyQuestionOption",
+        {
+          question: value.question,
+          answered_seq: question.closed_seq,
+          option_key: question.answer!.option_key,
+          action: option.action,
+          evidence: {
+            question: value.question,
+            option: question.answer.option_key,
+          },
+        },
+        credential.run,
+      );
+      if (!sent.ok) return sent;
+      const applied = sent.value as {
+        question: string;
+        option_key: string;
+        applied: boolean;
+        receipt_seq: string | null;
+      };
+      return ok(fitted("term definition answer delivered", {
+        accepted: applied.applied === true,
+        confirmed: applied.applied === true,
+        applied: applied.applied,
+        question: applied.question,
+        option_key: applied.option_key,
+        receipt_seq: applied.receipt_seq,
+      }, []));
     },
   );
   return handlers;

@@ -30,6 +30,8 @@ export interface AppDetailProps {
   /** Issues(T53)·Tasks(T50) 탭 내용. 없으면 아직 없다고 보인다. */
   issues?: ReactNode;
   tasks?: ReactNode;
+  /** 처음 열 탭. 접수된 문제로 올 때는 issues다. */
+  initialTab?: "issues";
   now?: () => Date;
 }
 
@@ -45,6 +47,7 @@ export function AppDetail(
     onInstructions,
     issues,
     tasks,
+    initialTab,
     now = systemNow,
   }: AppDetailProps,
 ) {
@@ -54,7 +57,7 @@ export function AppDetail(
         <h3 className={styles.name} data-app-detail-name="">{name}</h3>
         {onInstructions ? <InstructionsButton onOpen={onInstructions} /> : null}
       </div>
-      <Tabs defaultValue="version">
+      <Tabs defaultValue={initialTab ?? "version"}>
         <TabList>
           <Tab value="version" size="sm">
             {t("app-detail.label.tab-version")}

@@ -37,6 +37,10 @@ import {
   startAgentRuntimeChild,
 } from "./agent-runtime.ts";
 import { createAgentRuntimeSecrets } from "./agent-runtime-secret.ts";
+import {
+  CONNECTION_TEST_CONTEXT,
+  withConnectionTest,
+} from "./provider-connection-test.ts";
 import { withViewBinding } from "./view-binding.ts";
 import {
   applyMigrations,
@@ -74,7 +78,10 @@ import {
   SECRET_SCHEMA_STEPS,
   SECRET_TOOL_PATHS,
 } from "../../packages/platform/secrets/mod.ts";
-import { connectionConnect } from "../../packages/contracts/coding-agent/mod.ts";
+import {
+  connectionConnect,
+  ticketUploadSummary,
+} from "../../packages/contracts/coding-agent/mod.ts";
 import { CONNECTION_SECRET_OWNER } from "../../packages/coding-agent/mod.ts";
 import {
   type CodingCredentials,
@@ -82,6 +89,7 @@ import {
   createCodingCredentials,
   withRevocationSweep,
 } from "./coding-credential.ts";
+import { codingAgentOperationPolicies } from "./coding-operations.ts";
 import { productKeychain } from "./secret-store.ts";
 import {
   createSecretInputRelay,
@@ -112,6 +120,7 @@ import {
   relaySink,
 } from "./documents-prepare.ts";
 import { documentUploadHandler } from "./documents-upload.ts";
+import { ticketSummaryUploadHandler } from "./ticket-summary-upload.ts";
 import {
   type FilesRouteDeps,
   fileWorkers,
@@ -538,52 +547,57 @@ async function open(
       loaders: options.codingLoaders ?? [],
     })
     : undefined;
+  const baseOperations: OperationPolicy[] = [
+    {
+      name: "platform/status",
+      actors: ["user", "machine", "app", "agent", "coding_agent"],
+      kind: "read",
+    },
+    {
+      name: "platform/health",
+      actors: ["user", "machine", "app", "agent", "coding_agent"],
+      kind: "read",
+    },
+    { name: "document.save", actors: ["machine"], kind: "command" },
+    { name: "document.prepare", actors: ["machine"], kind: "command" },
+    // 파일 작업 결과 기록(documents#T12). 사람 요청에 결합해 받은 worker만 쓴다.
+    { name: "file.record_result", actors: ["machine"], kind: "command" },
+    // 확인된 문서 watch 변화 기록(documents#T24). coordinator의 watch consumer만 쓴다.
+    {
+      name: "context.record_watch_change",
+      actors: ["machine"],
+      kind: "command",
+    },
+    // apps 관측 기록·제어 connection·자식 앱 credential이 닿는 operation(apps#T10).
+    ...appsOperationPolicies(),
+    // problems report collector(machine)가 보고를 제출한다.
+    ...collectorOperationPolicies(),
+    // agent runtime(machine)과 run의 agent 자격이 닿는 operation(lophn-agent/harness/run-loop).
+    ...(options.agentRuntime ? agentRuntimePolicies(allRoutes) : []),
+    // 팀이 공개 정책을 내놓은 event 이름. 사람 token의 operation에 들어가 owner 정책이 판단한다.
+    ...eventNames.map((name): OperationPolicy => ({
+      name,
+      actors: ["user"],
+      kind: "read",
+    })),
+    // 사람 token 상한. user를 허용하는 route만 올라가고 다른 actor의 상한은 그대로다.
+    ...allRoutes.filter((route) => route.actors.includes("user")).map((
+      route,
+    ): OperationPolicy => ({
+      name: route.name,
+      actors: ["user"],
+      kind: route.kind === "command" ? "command" : "read",
+    })),
+  ];
   const productRegistry = new CredentialRegistry({
     epoch,
     clock,
     random,
     ...(coding ? { external: coding.authority } : {}),
+    // coding_agent 상한은 route가 선언한 actors를 따른다(blobs 제외).
     operations: [
-      {
-        name: "platform/status",
-        actors: ["user", "machine", "app", "agent", "coding_agent"],
-        kind: "read",
-      },
-      {
-        name: "platform/health",
-        actors: ["user", "machine", "app", "agent", "coding_agent"],
-        kind: "read",
-      },
-      { name: "document.save", actors: ["machine"], kind: "command" },
-      { name: "document.prepare", actors: ["machine"], kind: "command" },
-      // 파일 작업 결과 기록(documents#T12). 사람 요청에 결합해 받은 worker만 쓴다.
-      { name: "file.record_result", actors: ["machine"], kind: "command" },
-      // 확인된 문서 watch 변화 기록(documents#T24). coordinator의 watch consumer만 쓴다.
-      {
-        name: "context.record_watch_change",
-        actors: ["machine"],
-        kind: "command",
-      },
-      // apps 관측 기록·제어 connection·자식 앱 credential이 닿는 operation(apps#T10).
-      ...appsOperationPolicies(),
-      // problems report collector(machine)가 보고를 제출한다.
-      ...collectorOperationPolicies(),
-      // agent runtime(machine)과 run의 agent 자격이 닿는 operation(lophn-agent/harness/run-loop).
-      ...(options.agentRuntime ? agentRuntimePolicies(allRoutes) : []),
-      // 팀이 공개 정책을 내놓은 event 이름. 사람 token의 operation에 들어가 owner 정책이 판단한다.
-      ...eventNames.map((name): OperationPolicy => ({
-        name,
-        actors: ["user"],
-        kind: "read",
-      })),
-      // 사람 token 상한. user를 허용하는 route만 올라가고 다른 actor의 상한은 그대로다.
-      ...allRoutes.filter((route) => route.actors.includes("user")).map((
-        route,
-      ): OperationPolicy => ({
-        name: route.name,
-        actors: ["user"],
-        kind: route.kind === "command" ? "command" : "read",
-      })),
+      ...baseOperations,
+      ...codingAgentOperationPolicies(allRoutes, baseOperations),
     ],
   });
   const registry = options.testCredentials
@@ -766,6 +780,24 @@ async function open(
     await runtime.close();
     return appsControlCredential;
   }
+  // 명시 연결 test(provider#R30)가 model call 기록·provider 상태를 쓰는 core 내부
+  // machine 자격 기록. 기록이 없으면 StartModelCall이 거절해 test가 실패한다.
+  const connectionTestCredential = await runtime.record(
+    CONNECTION_TEST_CONTEXT,
+  );
+  if (!connectionTestCredential.ok) {
+    await runtime.close();
+    return connectionTestCredential;
+  }
+  // call 기록의 id는 core의 ULID source로 낸다(idSchema("mcl")).
+  const connectionTestIds = createIdSource({ clock, random });
+  const connectionTestSecrets = {
+    ledgerPath,
+    keychain: () =>
+      options.secretKeychain ?? options.codingKeychain ?? productKeychain(),
+    known: () => runtime?.knownSecrets,
+    newCallId: () => connectionTestIds.newId("mcl"),
+  };
   const knownSecrets = runtime.knownSecrets;
   const redactLine = createProductRedactor(knownSecrets);
   // 앱 쌍 confirm의 approval 요청은 approval 글 준비를 지나는 writer로 낸다(사람이 보는 글은 blob이다).
@@ -1010,45 +1042,49 @@ async function open(
       // approval 설명 글(이유·변경·외부 영향·되돌림)도 같은 길이다.
       // handoff 내용(무엇·왜·제외·기대 결과)도 같은 길이다. 용어 후보·근거 변경은 writer에
       // 닿기 전에 고정 판 본문의 출현을 확인한다(documents Q8).
+      // 명시 연결 test(provider#R29, R30)는 writer queue 앞에서 네트워크를 기다린다.
       writer: withRevocationSweep(
-        withReleasePreparation(
-          withPlacementReservation(
-            withTermOccurrence(
-              withApprovalText(
-                withQuestionText(
-                  withHandoffBody(
-                    withMessageBody(
-                      runtime.writer,
-                      createMessageBodyPreparer({
+        withConnectionTest(
+          withReleasePreparation(
+            withPlacementReservation(
+              withTermOccurrence(
+                withApprovalText(
+                  withQuestionText(
+                    withHandoffBody(
+                      withMessageBody(
+                        runtime.writer,
+                        createMessageBodyPreparer({
+                          relay: () => bodyPrepare.current,
+                          // 알려진 secret 값도 pattern과 함께 가린다. 값을 다 모르는 동안은 막는다.
+                          known: () => runtime?.knownSecrets,
+                        }),
+                      ),
+                      createHandoffBodyPreparer({
                         relay: () => bodyPrepare.current,
-                        // 알려진 secret 값도 pattern과 함께 가린다. 값을 다 모르는 동안은 막는다.
                         known: () => runtime?.knownSecrets,
                       }),
                     ),
-                    createHandoffBodyPreparer({
+                    createQuestionTextPreparer({
                       relay: () => bodyPrepare.current,
-                      known: () => runtime?.knownSecrets,
                     }),
                   ),
-                  createQuestionTextPreparer({
+                  createApprovalTextPreparer({
                     relay: () => bodyPrepare.current,
+                    known: () => runtime?.knownSecrets,
                   }),
                 ),
-                createApprovalTextPreparer({
-                  relay: () => bodyPrepare.current,
-                  known: () => runtime?.knownSecrets,
-                }),
+                (ctx, command, input) =>
+                  runtime!.readers.read(TERM_OCCURRENCE_ROUTE, ctx, {
+                    command,
+                    input,
+                  }),
               ),
-              (ctx, command, input) =>
-                runtime!.readers.read(TERM_OCCURRENCE_ROUTE, ctx, {
-                  command,
-                  input,
-                }),
+              placementReservations,
             ),
-            placementReservations,
+            appsControl.commands,
+            appsControl.grantChange,
           ),
-          appsControl.commands,
-          appsControl.grantChange,
+          connectionTestSecrets,
         ),
         () => appsControl.connector.sweep(),
       ),
@@ -1092,6 +1128,10 @@ async function open(
       uploads: new Map([[
         `${documentUpload.resource}/${documentUpload.method}`,
         documentUploadHandler(prepareRelay),
+      ], [
+        // ticket 완료 보고 summary: purpose는 ticket 등록값(ticket_summary)으로 고정이다.
+        `${ticketUploadSummary.resource}/${ticketUploadSummary.method}`,
+        ticketSummaryUploadHandler(prepareRelay),
       ], [
         // 사람의 보호 입력 값: core는 해석·보관 없이 I/O worker의 keychain adapter로 흘린다.
         `${secretInput.resource}/${secretInput.method}`,

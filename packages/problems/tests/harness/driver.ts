@@ -32,6 +32,8 @@ export type InvokeResult = {
   outcome: "ok" | "error";
   // 이 호출 안에서 접수된 보고.
   reports: ReceivedReport[];
+  // 실제 앱의 응답(상태와 본문)이다. fixture 앱이 남기는 업무 관측(기간·blob·효과 불확실성)을 읽는 데 쓴다.
+  response?: { status: number; body: unknown };
 };
 
 // 화면 검사 host가 판정할 수 없게 끝났다(exit 2–4·기한·잘못된 관측). 화면 검사는

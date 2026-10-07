@@ -866,6 +866,7 @@ export async function createRealAppDriver(
           "inv_not_recorded",
         outcome: done.response.status === 200 ? "ok" : "error",
         reports: done.reports,
+        response: done.response,
       };
     },
     reportDirect: (code) => reportThrough(code),

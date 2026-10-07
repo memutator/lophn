@@ -14,7 +14,11 @@ import {
   removeTree,
 } from "../../../packages/apps/sdk/testing/mod.ts";
 import { launchArgv } from "../../../packages/platform/security/mod.ts";
-import type { HarnessFailurePath } from "../../../packages/problems/tests/mod.ts";
+import {
+  type HarnessFailurePath,
+  sdkDependenciesHash,
+} from "../../../packages/problems/tests/mod.ts";
+import type { FrozenTest } from "../../../packages/contracts/problems/mod.ts";
 import { canonicalHash } from "../../../packages/problems/tests/canonical.ts";
 import { runnerSockets, testRunnerSpec } from "../problems-runner.ts";
 import type {
@@ -23,6 +27,8 @@ import type {
 } from "../../worker/problems/app-test-run.ts";
 
 const APP = "app_01arz3ndektsv4rrffq69g5fav";
+
+export type FrozenTestValue = FrozenTest;
 const FIXTURES = new URL("../../../fixtures/apps/", import.meta.url).pathname;
 
 export type FixtureName =
@@ -136,6 +142,9 @@ export type AppTestFile = {
   inputs?: Record<string, unknown>;
   prepare?: AppTestJob["prepare"];
   journal_tables?: string[];
+  domain?: AppTestJob["domain"];
+  // 돌린 뒤 읽을 fixture 파일이다(앱이 선언한 바깥 자리에 쓴 결과 blob).
+  collect_files?: string[];
   // blueprint가 선언한 바깥 자리에 둘 fixture 파일이다. 읽거나 쓸 수 없는 상태(폴더가 파일 자리에 있다)를
   // 만들어 선언 code의 실패를 실제로 낸다. 요청한 쪽이 만들고 돌린 뒤 지운다(runner 작업 root 밖이다).
   fixture_files?: { path: string; kind: "dir" | "file"; text?: string }[];
@@ -159,8 +168,13 @@ export type RunOptions = {
 };
 
 export type RunOutcome = {
+  // 이 실행의 고정 시험(FrozenTest)과 hash다. RecordVerification의 test와 같다.
+  frozen: FrozenTestValue;
+  test_hash: string;
   result: AppTestJobResult;
   stderr: string;
+  // `collect_files`의 내용이다. 읽을 수 없으면 null이다.
+  files: Record<string, string | null>;
 };
 
 // runner를 core launch spec이 정한 권한 그대로 띄워 app test 한 건을 돌린다.
@@ -181,6 +195,31 @@ export async function runAppTest(
     recursive: true,
   });
   const work = `${made.home}/work/problems/tests/${options.key}`;
+  const blueprint = JSON.parse(
+    await Deno.readTextFile(`${bundle.path}/blueprint.json`),
+  ) as { sdk_dependencies: { name: string; version: string }[] };
+  const frozenPaths = options.frozen_failure_paths ??
+    scenarios.map((path) => ({
+      code: path.code,
+      test_hash: canonicalHash(path),
+    }));
+  const frozen: FrozenTestValue = {
+    code: bundle.bundleHash,
+    input: await sha256Hex(JSON.stringify(file.inputs ?? {})),
+    expected: await sha256Hex("every required check passes"),
+    method: {
+      argv: ["test", "child_test.ts"],
+      cwd: ".",
+      timeout_ms: options.timeout_ms ?? 240_000,
+      expected_exit_code: 0,
+      environment: await sha256Hex("problems/tests runner environment"),
+    },
+    blueprint: bundle.blueprintHash,
+    sdk_dependencies: sdkDependenciesHash(blueprint.sdk_dependencies),
+    failure_paths: frozenPaths,
+    symptom: null,
+  };
+  const testHash = canonicalHash(frozen);
   const job: AppTestJob = {
     request_key: options.key,
     slot: 0,
@@ -190,14 +229,12 @@ export async function runAppTest(
     bundle_hash: bundle.bundleHash,
     blueprint_hash: bundle.blueprintHash,
     scenarios,
-    frozen_failure_paths: options.frozen_failure_paths ??
-      scenarios.map((path) => ({
-        code: path.code,
-        test_hash: canonicalHash(path),
-      })),
+    frozen_failure_paths: frozenPaths,
+    test_hash: testHash,
     inputs: file.inputs ?? {},
     prepare: file.prepare,
     journal_tables: file.journal_tables,
+    domain: file.domain,
     previous_schema: options.previous_schema === undefined
       ? 1
       : options.previous_schema,
@@ -245,7 +282,11 @@ export async function runAppTest(
     placed.push(item.path);
   }
   try {
-    return await spawnRunner();
+    const outcome = await spawnRunner();
+    for (const path of file.collect_files ?? []) {
+      outcome.files[path] = await Deno.readTextFile(path).catch(() => null);
+    }
+    return outcome;
   } finally {
     for (const path of placed) {
       await Deno.remove(path, { recursive: true }).catch(() => undefined);
@@ -276,10 +317,93 @@ export async function runAppTest(
       | { ok: true; value: AppTestJobResult }
       | { ok: false; error: { code: string; message: string } };
     assert(parsed.ok, parsed.ok ? "" : JSON.stringify(parsed.error) + stderr);
-    return { result: parsed.value, stderr };
+    return {
+      frozen,
+      test_hash: testHash,
+      result: parsed.value,
+      stderr,
+      files: {},
+    };
   }
 }
 
 export function hashOf(text: string): Promise<string> {
   return sha256Hex(text);
+}
+
+// testdata 변형(packages/problems/tests/testdata/bundle-variants.json)이 봉인 bundle 사본에 거는 고침이다.
+export type BundleVariant = {
+  name: string;
+  requirement: string;
+  base: FixtureName;
+  failure_paths?: "none" | "direct";
+  patch?: { file: string; from: string; to: string }[];
+  blueprint_add_automation?: Record<string, unknown>;
+  rename?: Record<string, string>;
+  expect_fail: string[];
+  expect_pass?: string[];
+};
+
+async function copyTree(from: string, to: string): Promise<void> {
+  await Deno.mkdir(to, { recursive: true });
+  for await (const entry of Deno.readDir(from)) {
+    const source = `${from}/${entry.name}`;
+    const target = `${to}/${entry.name}`;
+    if (entry.isDirectory) await copyTree(source, target);
+    else if (entry.isFile) {
+      await Deno.writeFile(target, await Deno.readFile(source));
+    }
+  }
+}
+
+async function digestOfTree(root: string): Promise<string> {
+  const lines: string[] = [];
+  async function visit(directory: string, relative: string): Promise<void> {
+    for await (const entry of Deno.readDir(directory)) {
+      const path = relative ? `${relative}/${entry.name}` : entry.name;
+      if (entry.isDirectory) await visit(`${directory}/${entry.name}`, path);
+      else if (entry.isFile) {
+        const text = await Deno.readTextFile(`${directory}/${entry.name}`);
+        lines.push(`${path} ${await sha256Hex(text)}`);
+      }
+    }
+  }
+  await visit(root, "");
+  return await sha256Hex(lines.sort().join("\n"));
+}
+
+// 봉인 bundle 사본을 새 폴더로 복사해 변형을 건다. 변형한 폴더의 hash는 실제 쓴 파일 내용으로 다시 구한다.
+export async function variantBundle(
+  made: MadeFixture,
+  base: SealedBundle,
+  variant: BundleVariant,
+): Promise<SealedBundle> {
+  const path = `${made.home}/variants/${variant.name}`;
+  await copyTree(base.path, path);
+  for (const edit of variant.patch ?? []) {
+    const file = `${path}/${edit.file}`;
+    const text = await Deno.readTextFile(file);
+    assert(
+      text.includes(edit.from),
+      `${edit.file} does not contain the text to change`,
+    );
+    await Deno.writeTextFile(file, text.replace(edit.from, edit.to));
+  }
+  if (variant.blueprint_add_automation) {
+    const file = `${path}/blueprint.json`;
+    const blueprint = JSON.parse(await Deno.readTextFile(file)) as {
+      automatic_tasks: unknown[];
+    };
+    blueprint.automatic_tasks.push(variant.blueprint_add_automation);
+    await Deno.writeTextFile(file, JSON.stringify(blueprint));
+  }
+  for (const [from, to] of Object.entries(variant.rename ?? {})) {
+    await Deno.rename(`${path}/${from}`, `${path}/${to}`);
+  }
+  const blueprintText = await Deno.readTextFile(`${path}/blueprint.json`);
+  return {
+    path,
+    bundleHash: await digestOfTree(path),
+    blueprintHash: await sha256Hex(blueprintText),
+  };
 }

@@ -46,9 +46,19 @@ export type AppTestJob = {
   // 고정 시험. 실패 경로 test 목록이고 hash는 FrozenTest.failure_paths에 고정된다.
   scenarios: HarnessFailurePath[];
   frozen_failure_paths: { code: string; test_hash: string }[];
+  // 고정 시험(FrozenTest)의 hash다. 관측 frame은 이 hash를 달고 와야 한다.
+  test_hash: string;
   inputs: Record<string, unknown>;
   prepare?: RealDriverInput["prepare"];
   journal_tables?: string[];
+  // 앱의 업무 관측이다. 앱의 고유한 동작(기간·시간대·coverage, blob·충돌, 효과 불확실성)을 실제 command로
+  // 한 번씩 불러 응답을 결과에 싣는다. 판정에는 쓰지 않는다.
+  domain?: {
+    name: string;
+    command: string;
+    input?: unknown;
+    fault?: "store" | "net" | "none";
+  }[];
   // 이전 release의 data schema와 선언(없으면 null).
   previous_schema: number | null;
   previous_declarations: ProblemCodeDeclaration[] | null;
@@ -73,6 +83,14 @@ export type AppTestJobResult = {
     // 자식이 쓴 안전 출력의 끝부분이다. 판정에는 쓰지 않고 실패를 설명하는 데만 쓴다.
     output_tail: string;
   };
+  domain: {
+    name: string;
+    command: string;
+    outcome: "ok" | "error";
+    status: number | null;
+    body: unknown;
+    reports: string[];
+  }[];
   // collector에 mode=test와 scope로 넘긴 보고(코드와 종류)다.
   forwarded: { kind: string; code: string; scope: string }[];
 };
@@ -102,9 +120,7 @@ export async function runAppTestJob(
     await Deno.readTextFile(`${job.bundle}/blueprint.json`),
   ) as Blueprint;
   const dataSchema = await migrationSchema(job.bundle);
-  const testHash = await sha256Hex(
-    JSON.stringify({ request: job.request_key, scenarios: job.scenarios }),
-  );
+  const testHash = job.test_hash;
   const input: AppTestInput = {
     bundle_hash: job.bundle_hash,
     test_hash: testHash,
@@ -302,6 +318,21 @@ export async function runAppTestJob(
     );
     if (!finished.ok) return finished as Result<never>;
     const { execution, judgment } = finished.value;
+    const domain: AppTestJobResult["domain"] = [];
+    for (const probe of job.domain ?? []) {
+      const seen = await driver.invoke(probe.command, probe.input ?? null, {
+        inject_failure: probe.fault !== undefined && probe.fault !== "none",
+        fault: probe.fault,
+      });
+      domain.push({
+        name: probe.name,
+        command: probe.command,
+        outcome: seen.outcome,
+        status: seen.response?.status ?? null,
+        body: seen.response?.body ?? null,
+        reports: seen.reports.map((report) => report.code),
+      });
+    }
     return ok({
       judgment,
       execution: {
@@ -315,6 +346,7 @@ export async function runAppTestJob(
         output_tail: new TextDecoder().decode(execution.outcome?.output)
           .slice(-4000),
       },
+      domain,
       forwarded,
     });
   } finally {

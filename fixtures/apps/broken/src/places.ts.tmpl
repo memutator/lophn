@@ -1,0 +1,8 @@
+// blueprint가 선언하는 바깥 자리다. blueprint.ts가 이 파일을 불러 오므로 값만 두고 다른 module을 불러 오지 않는다.
+
+// fs.write 선언의 경로다(apps/permissions와 같은 값이고, 깨진 앱 fixture라 실제 쓰기 launch 값과 같다).
+export const DATA_DIR = "/tmp/lophn-broken/data";
+
+// app pool에서 이 앱을 가리키는 자리이고(app pool fixture), 실제 설치에서는 사람이 등록한 앱 ID다.
+export const HELPER_APP = "app_01arz3ndektsv4rrffq69g5fav";
+export const ECHO = "echo";

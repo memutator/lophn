@@ -12,7 +12,11 @@ import {
   releaseActivated,
   releaseSuperseded,
 } from "../../packages/contracts/apps/mod.ts";
-import { verificationRecorded } from "../../packages/contracts/problems/mod.ts";
+import {
+  problemClosed,
+  problemReopened,
+  verificationRecorded,
+} from "../../packages/contracts/problems/mod.ts";
 import type {
   EventDefinition,
   EventVisibilityDefinition,
@@ -95,6 +99,8 @@ export function isTicketCheckFeed(ctx: RequestContext): boolean {
 const WAKE_EVENTS: readonly EventDefinition[] = [
   ticketCompletionReported,
   verificationRecorded,
+  problemClosed,
+  problemReopened,
   releaseActivated,
   releaseSuperseded,
 ];

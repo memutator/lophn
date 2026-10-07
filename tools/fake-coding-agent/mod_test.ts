@@ -32,7 +32,15 @@ function fakeMcpScript(): string {
       if (request.method === "tools/call") {
         const op = request.params?.arguments?.op ?? "";
         const claims = { claim: { ticket: request.params.arguments.ticket, connection: "cac", claim_seq: "12", expires_at: "e" } };
-        const content = op === "claim" ? claims.claim : { ticket: request.params.arguments.ticket, state: "open" };
+        const reported = {
+          ticket: request.params.arguments.ticket,
+          completion_claim: { claimed: true, completion_seq: "21", summary: request.params.arguments.summary },
+          report: { accepted: true, state: "reported" },
+          check: { state: "pending" },
+        };
+        const flat = op === "claim" ? claims.claim : { ticket: request.params.arguments.ticket, state: "open" };
+        // 실제 lophn-mcp는 {summary, data, next}를 structuredContent로 낸다. report는 그 모양이다.
+        const content = op === "report" ? { summary: "report", data: reported, next: [] } : flat;
         await Deno.stdout.write(
           encoder.encode(JSON.stringify({
             jsonrpc: "2.0",
@@ -79,6 +87,51 @@ Deno.test(
         result?: { structuredContent?: { claim_seq?: string } };
       };
       assertEquals(claimResponse.result?.structuredContent?.claim_seq, "12");
+    } finally {
+      await Deno.remove(dir, { recursive: true });
+    }
+  },
+);
+
+Deno.test(
+  "coding-agent#T25: fake coding agent는 report step으로 summary·release를 보내고 완료 주장·접수·확인 상태를 따로 남긴다",
+  async () => {
+    const dir = await Deno.makeTempDir();
+    try {
+      const script = `${dir}/fake-mcp.ts`;
+      await Deno.writeTextFile(script, fakeMcpScript());
+      const result = await startFakeCodingAgent({
+        command: Deno.execPath(),
+        args: ["run", "--allow-all", script],
+        steps: [
+          { kind: "claim", ticket: "tkt_x", base_revision: "11" },
+          {
+            kind: "report",
+            ticket: "tkt_x",
+            claim_seq: "12",
+            base_revision: "12",
+            release: "rel_x",
+            summary: "변경 요약",
+            verifications: ["vrf_x"],
+          },
+        ],
+      });
+      assertEquals(result.claim_seq, "12");
+      assertEquals(result.report_state, "reported");
+      assertEquals(result.completion_seq, "21");
+      assertEquals(result.check_state, "pending");
+      // 보낸 인자에는 completion seq가 없고 summary·release가 있다.
+      const response = result.steps[1].response as {
+        result?: {
+          structuredContent?: {
+            data?: { completion_claim?: { summary?: string } };
+          };
+        };
+      };
+      assertEquals(
+        response.result?.structuredContent?.data?.completion_claim?.summary,
+        "변경 요약",
+      );
     } finally {
       await Deno.remove(dir, { recursive: true });
     }

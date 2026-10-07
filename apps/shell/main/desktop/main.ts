@@ -178,7 +178,7 @@ import {
   TerminalFocusTable,
 } from "../terminal/controller.ts";
 import { createTerminalIpc } from "../terminal/ipc.ts";
-import { createChildRegistrar } from "../terminal/coding-children.ts";
+import { createChildRegistrar } from "../terminal/coding/coding-children.ts";
 import {
   childPlanRunner,
   createCodingStart,

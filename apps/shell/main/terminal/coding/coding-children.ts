@@ -10,7 +10,7 @@
 
 import { z } from "zod";
 
-import { connectionIdSchema } from "../../../../packages/contracts/coding-agent/mod.ts";
+import { connectionIdSchema } from "../../../../../packages/contracts/coding-agent/mod.ts";
 
 type CoreCall = (
   kind: string,

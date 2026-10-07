@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { createChildRegistrar } from "../coding-children.ts";
+import { createChildRegistrar } from "./coding-children.ts";
 import { CAC } from "./fixtures.ts";
 
 const OTHER = "cac_01h455vb4pex5v6nkc6gd5fdw2";

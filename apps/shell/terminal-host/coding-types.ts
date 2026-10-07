@@ -48,7 +48,7 @@ export type PrepareResult =
 export type CodingAttachment = {
   /** socket을 열고 starting 관측을 낸다. 환경에 더할 observe 경로를 돌려준다. */
   begin(): Promise<{ ok: true; env: Record<string, string> } | { ok: false }>;
-  /** PTY가 열렸다. 첫 hook 전까지 지금 상태는 unknown이고 prompt 기한이 시작한다. pid는 TUI의 것이다. */
+  /** PTY가 열렸다. 첫 hook 전까지 지금 상태는 unknown이고 prompt 기한이 시작한다. */
   spawned(write: (text: string) => void, pid?: number): void;
   output(chunk: string): void;
   /** 연결된 process exit. ended는 ticket 완료나 claim 해제가 아니다. */

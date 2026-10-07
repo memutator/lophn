@@ -211,12 +211,37 @@ Deno.test("lophn-agent/observability#R18: trace read rejects an unknown field an
     agentTraceReadOutputSchema.safeParse({
       trace: {
         run,
+        session: "ses_01arz3ndektsv4rrffq69g5fav",
+        assignment: "asg_01arz3ndektsv4rrffq69g5fav",
+        state: "finished",
+        started_at: from,
+        finished_at: through,
         basis: hash,
         events: ["1", "2"],
         messages: [],
         model_calls: [],
         tool_calls: [],
         handoff_links: [],
+        activity: {
+          model: {
+            attempts: 0,
+            failed: [],
+            partial: [],
+            cancelled: [],
+            uncertain: [],
+            unfinished: [],
+          },
+          tools: {
+            steps: 0,
+            succeeded: 0,
+            failed: [],
+            denied: [],
+            not_executed: [],
+            uncertain: [],
+            unfinished: [],
+            external: [],
+          },
+        },
         times: {
           wall_ms: 1,
           active_ms: 1,

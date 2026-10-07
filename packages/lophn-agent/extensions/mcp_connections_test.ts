@@ -38,8 +38,10 @@ const clock = manualClock(0);
 // deno-fmt-ignore
 const CHILD_SCRIPT = `\
 const mode = Deno.args[0] ?? "normal";
+const notifyMode = mode === "notify";
 const dec = new TextDecoder();
 let buf = "";
+let failingList = false;
 const envNames = Deno.env.toObject();
 if (mode === "dump-env") {
   await Deno.stdout.write(new TextEncoder().encode(JSON.stringify({ env: envNames }) + "\\n"));
@@ -48,6 +50,12 @@ if (mode === "dump-env") {
 if (mode === "hang") {
   // initialize에 답하지 않는다(기한 시험).
   await new Promise(() => {});
+}
+if (notifyMode) {
+  // Q16 시험이다. initialize 응답 뒤 서버 알림을 먼저 쓴다. 알림은 id가 없다.
+  await Deno.stdout.write(new TextEncoder().encode(JSON.stringify({
+    jsonrpc: "2.0", method: "notifications/tools/list_changed",
+  }) + "\\n"));
 }
 for (;;) {
   const chunk = new Uint8Array(4096);
@@ -70,6 +78,12 @@ for (;;) {
       continue;
     }
     if (message.method === "tools/list") {
+      if (failingList) {
+        await Deno.stdout.write(new TextEncoder().encode(JSON.stringify({
+          jsonrpc: "2.0", id: message.id, error: { code: -32000, message: "no" },
+        }) + "\\n"));
+        continue;
+      }
       await Deno.stdout.write(new TextEncoder().encode(JSON.stringify(loginPages(mode, message.id, message.params)) + "\\n"));
       continue;
     }
@@ -842,4 +856,36 @@ Deno.test("lophn-agent/extensions#R25: 서버의 reverse 요청에 -32601로 답
     id: 7,
     error: { code: -32601, message: "method not found" },
   });
+});
+
+Deno.test("lophn-agent/extensions#Q16: server 알림의 list_changed가 server 이름으로 전달된다", async () => {
+  childPath = childPath ?? await writeChild();
+  const seen: string[] = [];
+  const conns = createMcpConnections({
+    ...connectionsDeps(childPath),
+    onListChanged: (server) => seen.push(server),
+  });
+  const notifies = stdioServer();
+  // initialize 응답 뒤 곧 notifications/tools/list_changed를 쓰는 child다(Q16).
+  notifies.stdio.args = [
+    "-c",
+    `deno run --allow-read --allow-env ${childPath} notify`,
+  ];
+  try {
+    const acquired = await conns.acquire(
+      "assignment-1",
+      notifies,
+      new AbortController().signal,
+    );
+    assert(
+      acquired.ok,
+      `acquire 실패: ${acquired.ok ? "" : acquired.error.message}`,
+    );
+    // 알림은 transport read loop가 버리고 deps.onListChanged만 server 이름으로
+    // 부른다(Q16). 그 server의 호출 막기·재조회는 조립(mcp-toolkit)이 한다.
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    assertEquals(seen, ["notes"]);
+  } finally {
+    await conns.endAll();
+  }
 });

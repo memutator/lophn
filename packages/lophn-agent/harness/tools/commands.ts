@@ -115,9 +115,7 @@ function insertCall(
     input.definition_revision,
     input.effect,
     // 앱 command 원래 호출의 계약이다(app command tool만 싣는다, lophn-agent#T48).
-    input.app_command === undefined
-      ? null
-      : JSON.stringify(input.app_command),
+    input.app_command === undefined ? null : JSON.stringify(input.app_command),
     input.confirm ? 1 : 0,
     input.extension === null ? null : JSON.stringify(input.extension),
     input.input,

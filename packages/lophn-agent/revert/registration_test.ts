@@ -23,8 +23,7 @@ import {
   runSchemaSteps,
 } from "../harness/run-loop/mod.ts";
 import { presetValidateDeps } from "../harness/run-loop/testing/mod.ts";
-import { toolsSchemaSteps } from "../harness/tools/mod.ts";
-import { createToolCommands } from "../harness/tools/commands.ts";
+import { createToolCommands, toolsSchemaSteps } from "../harness/tools/mod.ts";
 import { createAuditOwners } from "./audit-owners.ts";
 import { createAppRevertOwner } from "./app-revert.ts";
 import {

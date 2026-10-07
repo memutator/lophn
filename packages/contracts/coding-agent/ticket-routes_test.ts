@@ -24,6 +24,7 @@ Deno.test("coding-agent/tickets#R1: route와 event 이름은 architecture 5.3과
     "/v1/tickets/expire_claim",
     "/v1/tickets/record_checks",
     "/v1/tickets/cancel",
+    "/v1/tickets/upload_summary",
   ]);
   assertEquals(
     [...TICKET_OPEN_EVENTS, ...TICKET_CLAIM_EVENTS].map((event) => event.type),

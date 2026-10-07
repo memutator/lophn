@@ -317,6 +317,7 @@ export const TICKET_CLAIM_ROUTES = [
   ticketExpireClaim,
   ticketRecordChecks,
   ticketCancel,
+  ticketUploadSummary,
 ] as const;
 
 export const TICKET_CLAIM_EVENTS = [

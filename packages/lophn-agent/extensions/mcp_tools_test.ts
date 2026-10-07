@@ -16,6 +16,7 @@ import {
   EXTERNAL_TOOL_CONTRACT,
   EXTERNAL_TOOL_PREFIX,
   type ExternalTool,
+  externalToolTargetId,
   type McpSelection,
   mcpToolDefinitionHash,
   type McpToolEntry,
@@ -599,4 +600,13 @@ Deno.test("lophn-agent/extensions#R11: 같은 서버를 역할 하나에만 붙�
     selection(),
   );
   assertEquals(injected.map((tool) => tool.original), ["search"]);
+});
+
+Deno.test("lophn-agent/extensions#R31: 정확한 쌍마다 approval이 가리킬 수 있는 고정 ID 모양의 대상이 하나 정해지고 쌍이 다르면 달라진다", async () => {
+  const shape = /^[a-z]{3}_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
+  const first = await externalToolTargetId("notes", "search");
+  assert(shape.test(first), first);
+  assertEquals(await externalToolTargetId("notes", "search"), first);
+  assert((await externalToolTargetId("notes", "searc")) !== first);
+  assert((await externalToolTargetId("mail", "search")) !== first);
 });

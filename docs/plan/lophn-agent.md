@@ -710,7 +710,6 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 
 ### T37 MCP tool 이름, 분류, preset 선택
 
-- 상태: 완료 (#417)
 - 등급: 기본
 - concern: lophn-agent/extensions
 - 요구: lophn-agent/extensions#R11, R23, R24, R26, R27, R28, R29, R31
@@ -722,7 +721,10 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - 선행: T22, T36
 - 완료:
   - mcp_tools_test.ts에 R11, R23, R24, R26–R29, R31 테스트: `ext_<server>_<tool>` 64자·충돌은 원래 쌍(UTF-8 `JSON.stringify([server, tool])`)의 SHA-256 앞 8자를 충돌 묶음 전체에 붙여 순서와 무관·그래도 충돌이면 거절(질문 Q15), list_changed·재연결이면 전체 재조회와 그동안 그 server tool 호출 차단(질문 Q16), name·description·inputSchema·hints로 만든 정의 hash가 바뀐 tool의 분류·safe 표시 무효(분류는 원본 정의에 묶음)·삭제 tool 즉시 차단·새 tool 자동 선택 없음, read·write·external 정의와 사람 분류·여러 행동은 가장 넓은 분류, 되돌림 모르는 external은 ask·safe 표시 tool만 묻지 않음·hints는 참고만·역할 상한 확대 없음, 호출마다 판정 입력·연결·로그인·이전 성공은 허락 아님, 문서·skill·server 응답에서 설정 자동 수입 없음, 서버+현재 tool 정확한 쌍만 선택(서버 전체·미래 tool 거절)
-  - flow add-agent-extension의 agent 갈래
+  - 제품 연결: `apps/agent-runtime/prepare.ts`의 Toolkit `mcp` 자리에 `buildMcpTools`·`createMcpToolHandlers`를 잇고(`mcp-toolkit.ts`가 등록 설정 읽기·연결·재조회 소유) #399 제품 모드(`product-driver.ts`)에서 켠다. `core-ports.ts` `record()`가 외부 호출의 원래 server·tool 쌍·canonical 이름·서버 설정 판을 ToolCall의 `extension`으로 적는다. 외부 tool의 판정 연결(`externalBinding`)은 고른 쌍 하나를 approval이 가리킬 수 있는 고정 ID 대상(`externalToolTargetId`, 쌍의 SHA-256 앞 128 bit)으로 두어 미분류·쓰기·external 호출이 target_unknown deny가 아니라 ask가 된다. run 자격과 발급 상한(`EXTERNAL_TOOL_OPERATIONS`)에 `external_mcp_call`과 approval request 생성을 더한다. `apps/core/lophn-agent.ts` preset 검증은 `mcp_servers` 설정을 배열로 읽는다
+  - Q16: `mcp-connections`가 list_changed 알림을 server 이름으로 알리고 `mcp-toolkit`이 그 server tool 전체를 다시 읽는다. 끝날 때까지(실패면 계속) 그 server 호출을 거절하고 판정의 연결 판도 없다. `mcp-toolkit_test.ts`(R24·R22, Q16)가 실제 stdio child로 list_changed → 호출 거절 → 전체 재조회(새 tool 포함) → 호출 재개, 재조회 실패 → 계속 거절을 본다
+  - flow add-agent-extension의 agent 갈래: `apps/core/mcp-extension-flow_test.ts`가 실제 core·runtime 조립·fake stdio MCP child·`tools/fake-provider`로 사람이 server와 preset 선택을 정하는 길부터 run 끝까지 본다. 고른 쌍만 `ext_` 이름으로 model에 보이고 고르지 않은 tool은 어느 요청에도 없으며, 분류·safe 쌍은 묻지 않고 원래 server·tool 이름·입력 그대로 닿고 extension 쌍으로 기록된다. 미분류 tool은 approval request를 만들고 run은 기다리며 허락 전에는 server에 닿지 않는다
+  - 남은 것: 사람의 허락 뒤 외부 MCP 호출을 이어 실행하는 경로(approval 해소 → 같은 run 재개 → handler)와 runtime 종료 때 `mcpKit.endAll()` 호출은 시험하지 않았다
 
 ### T38 MCP HTTP 인증
 

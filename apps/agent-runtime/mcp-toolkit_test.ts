@@ -6,14 +6,14 @@ import { manualClock } from "../../packages/base/mod.ts";
 import { mcpServersSetting } from "../../packages/contracts/lophn-agent/mod.ts";
 import {
   checkMcpConfig,
-  createMcpConnections,
   type McpConnectionsDeps,
 } from "../../packages/lophn-agent/extensions/mod.ts";
 import { spawnStdioMcp } from "../../packages/lophn-agent/extensions/mod.ts";
 import type { StdioSpawnInput } from "../../packages/lophn-agent/extensions/mod.ts";
-import { err, ok, type Result } from "../../packages/base/mod.ts";
+import { ok, type Result } from "../../packages/base/mod.ts";
 import { createMcpToolkit } from "./mcp-toolkit.ts";
 import type { CoreCall } from "./core-call.ts";
+import type { ToolDefinition } from "../../packages/lophn-agent/harness/tools/mod.ts";
 
 const clock = manualClock(0);
 
@@ -22,6 +22,8 @@ const CHILD_SCRIPT = `\
 const dec = new TextDecoder();
 let buf = "";
 let failingList = false;
+let slowList = false;
+const names = ["a", "b"];
 for (;;) {
   const chunk = new Uint8Array(4096);
   const n = await Deno.stdin.read(chunk);
@@ -49,13 +51,25 @@ for (;;) {
         }) + "\\n"));
         continue;
       }
+      if (slowList) {
+        slowList = false;
+        await new Promise((resolve) => setTimeout(resolve, 600));
+        names.push("c");
+      }
       const tool = (name) => ({ name, description: name + " desc", inputSchema: { type: "object", properties: {} } });
       await Deno.stdout.write(new TextEncoder().encode(JSON.stringify({
-        jsonrpc: "2.0", id: message.id, result: { tools: [tool("a"), tool("b")] },
+        jsonrpc: "2.0", id: message.id, result: { tools: names.map(tool) },
       }) + "\\n"));
       continue;
     }
     if (message.method === "tools/call") {
+      const name = message.params && message.params.name;
+      if (name === "bump" || name === "break") {
+        if (name === "bump") slowList = true; else failingList = true;
+        await Deno.stdout.write(new TextEncoder().encode(JSON.stringify({
+          jsonrpc: "2.0", method: "notifications/tools/list_changed",
+        }) + "\\n"));
+      }
       await Deno.stdout.write(new TextEncoder().encode(JSON.stringify({
         jsonrpc: "2.0", id: message.id, result: { content: [{ type: "text", text: "ok" }] },
       }) + "\\n"));
@@ -140,61 +154,85 @@ function connectionsDeps(): McpConnectionsDeps {
   };
 }
 
-Deno.test("agent-runtime#Q16: 재조회가 끝날 때까지 그 server tool 호출을 막고 재조회 실패면 옛 정의를 호출 가능으로 두지 않는다", async () => {
-  childPath = await writeChild();
-  try {
-    const server = stdioServer();
-    // 연결 관리를 직접 만든다. list_changed 알림은 재조회 전에 온다.
-    const deps = connectionsDeps();
-    const conns = createMcpConnections(deps);
-    const kit = createMcpToolkit({
-      machine: settingsGetBody([server]),
-      connections: deps,
-      create: () => conns,
-    });
-    const toolkit = kit.toolkit("assignment-1");
+const waitUntil = async (predicate: () => Promise<boolean>) => {
+  for (let tries = 0; tries < 100; tries += 1) {
+    if (await predicate()) return true;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  return false;
+};
 
-    // source는 등록 서버 설정과 검증을 지난 목록을 준다.
+Deno.test("lophn-agent/extensions#R24 #R22 (Q16): list_changed면 그 server tool 목록 전체를 다시 읽고 끝날 때까지 호출을 막으며 재조회가 실패하면 옛 정의를 호출 가능으로 두지 않는다", async () => {
+  childPath = await writeChild();
+  const deps = connectionsDeps();
+  const kit = createMcpToolkit({
+    machine: settingsGetBody([stdioServer()]),
+    connections: deps,
+  });
+  try {
+    const toolkit = kit.toolkit("assignment-1");
+    const invoke = (original: string, key: string) =>
+      toolkit.call("assignment-1")({
+        server: "notes",
+        original,
+        input: { x: 1 },
+        requestKey: key,
+      });
+    const aDefinition = {
+      description: "MCP tool a of server notes: a desc (reads only)",
+    } as ToolDefinition;
+
+    // 처음 목록은 a·b다. 재조회가 끝나 있어 호출이 통과하고 설정 판을 건넨다.
     const source = await toolkit.source("assignment-1");
     assert(source.ok, `source 실패: ${source.ok ? "" : source.error.message}`);
-    assertEquals([...source.value.servers.keys()], ["notes"]);
+    assertEquals(source.value.tools.map((tool) => tool.original), ["a", "b"]);
     assertEquals(
-      source.value.tools.map((tool) => tool.original),
-      ["a", "b"],
+      toolkit.connectionRevision(aDefinition, "assignment-1"),
+      { revision: 1 },
+    );
+    assert((await invoke("a", "tcl_1")).ok);
+
+    // 서버가 list_changed를 알리면 전체 재조회가 끝날 때까지(600ms) 그 server의 호출은
+    // 거절이고 판정 근거의 연결도 없다(Q16).
+    assert((await invoke("bump", "tcl_2")).ok);
+    const blocked = await invoke("a", "tcl_3");
+    assert(!blocked.ok, "재조회 중 호출이 통과했다");
+    assertEquals(blocked.error.code, "unavailable");
+    assertEquals(
+      toolkit.connectionRevision(aDefinition, "assignment-1"),
+      undefined,
     );
 
-    // 연결이 살아 있고 재조회가 끝났으면 호출이 통과한다. 서버·원래 이름·입력은
-    // 그대로 돌아간다(R23: 원래 쌍으로 routing).
-    const sent = await toolkit.call("assignment-1")({
-      server: "notes",
-      original: "a",
-      input: { x: 1 },
-      requestKey: "tcl_1",
-    });
-    assert(sent.ok, `call 실패: ${sent.ok ? "" : sent.error.message}`);
+    // 재조회가 끝나면 호출이 다시 통과하고 새 목록 전체(a·b·c)가 보인다.
+    assert(await waitUntil(async () => (await invoke("a", "tcl_4")).ok));
+    assertEquals(
+      toolkit.connectionRevision(aDefinition, "assignment-1"),
+      { revision: 1 },
+    );
+    const relisted = await toolkit.source("assignment-1");
+    assert(relisted.ok);
+    assertEquals(
+      relisted.value.tools.map((tool) => tool.original),
+      ["a", "b", "c"],
+    );
 
-    // 재조회가 실패하면 그 server의 호출은 거절이다(Q16: 옛 정의를 두지 않는다).
-    conns.detach("assignment-1", "notes");
-    const reconnected = conns; // 이후 시험을 위해 살려 둔다.
-    void reconnected;
-    const tool = stdioServer(2);
-    // disconnect 상태의 서버는 reconnect를 부르며 실패하면 failed다.
-    const refused = await kit.toolkit("assignment-1").call("assignment-1")({
-      server: "notes",
-      original: "a",
-      input: { x: 1 },
-      requestKey: "tcl_2",
-    });
-    assert(!refused.ok, "연결이 없는 호출이 통과됐다");
-    assertEquals(refused.error.code, "unavailable");
-    void tool;
+    // 재조회가 실패하면 옛 정의를 호출 가능으로 두지 않는다. 기다려도 계속 거절이다.
+    assert((await invoke("break", "tcl_5")).ok);
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    const failed = await invoke("a", "tcl_6");
+    assert(!failed.ok, "재조회 실패 뒤 옛 정의 호출이 통과했다");
+    assertEquals(
+      toolkit.connectionRevision(aDefinition, "assignment-1"),
+      undefined,
+    );
   } finally {
+    await kit.endAll();
     await Deno.remove(childPath!, { recursive: true }).catch(() => {});
   }
 });
 
 // checkMcpConfig가 문제 서버를 골라내는지 본다(mcp-config R12).
-Deno.test("agent-runtime#T37: 문제·비활성 서버는 source 목록에 없다", () => {
+Deno.test("lophn-agent/extensions#R12: 문제·비활성 서버는 source 목록에 없다", () => {
   const checked = checkMcpConfig([stdioServer()]);
   assert(checked.ok);
   assertEquals(checked.value.valid.length, 1);
@@ -202,6 +240,4 @@ Deno.test("agent-runtime#T37: 문제·비활성 서버는 source 목록에 없�
   const invalid = checkMcpConfig([bad as never]);
   assert(invalid.ok);
   assertEquals(invalid.value.valid.length, 0);
-  assertEquals(err({ code: "unavailable", message: "x" }).ok, false);
-  assertEquals(ok(1).ok, true);
 });

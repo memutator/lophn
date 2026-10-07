@@ -12,9 +12,13 @@ import {
   ticketSchemaSteps,
 } from "../../packages/coding-agent/mod.ts";
 import {
+  ticketCancelled,
   ticketCheckFailed,
+  ticketClaimed,
+  ticketClaimReleased,
   ticketCompletionReported,
   ticketConfirmed,
+  ticketCreated,
   ticketUploadSummary,
 } from "../../packages/contracts/coding-agent/mod.ts";
 import type {
@@ -23,6 +27,10 @@ import type {
 } from "../../packages/platform/ledger/mod.ts";
 import { notificationsOnlyVisibility } from "./platform.ts";
 import { ticketCheckFeedVisibility } from "./ticket-checker.ts";
+import {
+  problemsWorkVisibility,
+  visibleToProblemsWork,
+} from "./problems-work.ts";
 
 // owner definitions만 내보낸다. 문제 read·question read 대체 port 구현은
 // 소유 구현(문제#T6, lophn-agent#T24)이 오면 그 port로 바꾼다. 지금은 소유
@@ -62,10 +70,18 @@ export function createReaderRegistration(): ReaderRegistration {
 export function createEventRegistration(): EventRegistration {
   return {
     visibility: [
-      notificationsOnlyVisibility(ticketConfirmed),
-      notificationsOnlyVisibility(ticketCheckFailed),
-      // checker를 깨우는 event. checker 구독자(machine:ticket-check-feed)에게만 열린다.
-      ticketCheckFeedVisibility(ticketCompletionReported),
+      // `problems.work` 반응기(문제 work 연결, problems#T19)도 읽는 ticket event다.
+      visibleToProblemsWork(notificationsOnlyVisibility(ticketConfirmed)),
+      visibleToProblemsWork(notificationsOnlyVisibility(ticketCheckFailed)),
+      // checker를 깨우는 event. checker 구독자(machine:ticket-check-feed)와 문제 work 반응기에게 열린다.
+      visibleToProblemsWork(
+        ticketCheckFeedVisibility(ticketCompletionReported),
+      ),
+      // 문제 work 반응기에게만 열린다. 정책이 없던 event다.
+      problemsWorkVisibility(ticketCreated),
+      problemsWorkVisibility(ticketClaimed),
+      problemsWorkVisibility(ticketClaimReleased),
+      problemsWorkVisibility(ticketCancelled),
     ],
   };
 }

@@ -25,7 +25,8 @@ export function testRunnerSpec(input: {
     entry,
     allow_read: [input.dataRoot, entry],
     allow_write: [work],
-    allow_net: [],
+    // `problems.work` 반응기가 core loopback으로 event를 읽고 command를 낸다(problems#T19).
+    allow_net: ["127.0.0.1"],
     allow_run: [input.deno],
     allow_sys: [],
     allow_env: ["LOPHN_HOME", "LOPHN_WORKER_KIND"],

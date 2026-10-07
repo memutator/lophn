@@ -217,7 +217,21 @@ import {
   collectorOperationPolicies,
   collectorWorkers,
 } from "./problems-collector.ts";
-import { COLLECTOR_KIND, reportCollectorSpec } from "./problems-runner.ts";
+import {
+  COLLECTOR_KIND,
+  reportCollectorSpec,
+  TEST_RUNNER_KIND,
+  testRunnerSpec,
+} from "./problems-runner.ts";
+import {
+  PROBLEMS_WORK_FEED_CONTEXT,
+  PROBLEMS_WORK_OP,
+  PROBLEMS_WORK_OPERATIONS,
+  PROBLEMS_WORK_PRINCIPAL,
+  problemsWorkCursor,
+  problemsWorkPolicies,
+  startProblemsWorkFeed,
+} from "./problems-work.ts";
 import {
   startTicketCheckFeed,
   TICKET_CHECK_FEED_CONTEXT,
@@ -419,6 +433,9 @@ export type Core = {
   // 보고된 ticket의 조건을 checker worker가 정본으로 다시 비교하게 한다. 감독 worker가 없으면
   // unavailable이다. event 구독자와 시험이 같은 함수를 부른다(coding-agent#T26).
   sweepTicketChecks(): Promise<Result<unknown>>;
+  // `problems.work` 반응기가 저장된 cursor 뒤 ticket event를 따라잡게 한다. test-runner worker가 없으면
+  // unavailable이다. event 구독자와 시험이 같은 함수를 부른다(problems#T19).
+  sweepProblemsWork(): Promise<Result<unknown>>;
   // 사람이 잃을 범위를 확인한 backup 복원(platform/backup-and-migration#R13, R14). handle은
   // `restoreBinding(plan)`의 target·content에 묶인 `restore_backup` 결정이어야 한다. 확인이
   // 맞으면 새 command 입장을 닫고 모든 worker·writer를 멈춘 뒤 현재 자료를 보존하고 검증한
@@ -490,6 +507,8 @@ async function open(
   const collectorChannel = createDocumentsChannel();
   // ticket checker worker 요청 통로. 같은 통로 모양을 쓴다(coding-agent#T26).
   const checkerChannel = createDocumentsChannel();
+  // problems test-runner(`problems.work` 반응기) 요청 통로. 같은 통로 모양을 쓴다(problems#T19).
+  const runnerChannel = createDocumentsChannel();
   // coding-agent 수리 자료 worker 요청 통로. 같은 통로 모양을 쓴다(coding-agent#T43).
   const repairChannel = createDocumentsChannel();
   // coordinator가 파일 읽기의 창으로 보내는 byte frame의 우편함(`files.read` stream).
@@ -603,6 +622,8 @@ async function open(
     ...collectorOperationPolicies(),
     // ticket checker(machine)가 판정 사실을 읽고 결과를 기록한다(coding-agent#T26).
     ...ticketCheckerPolicies(),
+    // test-runner kind의 `problems.work` 반응기(machine)가 event를 읽고 문제 work를 맞춘다(problems#T19).
+    ...problemsWorkPolicies(),
     // agent runtime(machine)과 run의 agent 자격이 닿는 operation(lophn-agent/harness/run-loop).
     ...(options.agentRuntime ? agentRuntimePolicies(allRoutes) : []),
     // 팀이 공개 정책을 내놓은 event 이름. 사람 token의 operation에 들어가 owner 정책이 판단한다.
@@ -1795,6 +1816,67 @@ async function open(
       }
     }
   }
+  // problems/test-runner. `problems.work` 반응기가 도는 상시 worker다(problems#T19). ticket event를
+  // 읽어 문제 work·status를 ReconcileProblemWork로 맞춘다. 감독이 없는 harness와 그 command를 등록하지
+  // 않은 조립은 띄우지 않는다. 띄우지 못해도 core는 계속 선다: 문제 진행 표시가 갱신되지 않을 뿐
+  // ticket 정본은 그대로다(없는 반응을 성공으로 꾸미지 않는다).
+  const runnerSpec = testRunnerSpec({
+    dataRoot: root.path,
+    deno: Deno.execPath(),
+  });
+  let problemsWorkFeed: InternalSubscription | undefined;
+  if (
+    io && runnerSpec &&
+    allRoutes.some((route) => route.name === PROBLEMS_WORK_OPERATIONS[2])
+  ) {
+    const issued = await productRegistry.issue({
+      actor: "machine",
+      principal: PROBLEMS_WORK_PRINCIPAL,
+      scope: {
+        operations: [...PROBLEMS_WORK_OPERATIONS],
+        targets: { task: "problems" },
+      },
+      conditions: { task: "problems", process: TEST_RUNNER_KIND },
+    });
+    const current = issued.ok
+      ? productRegistry.revalidate({
+        credential_ref: issued.value.credential_ref,
+      })
+      : issued;
+    const recorded = issued.ok && current.ok
+      ? await runtime.record(current.value)
+      : current;
+    const feedRecorded = await runtime.record(PROBLEMS_WORK_FEED_CONTEXT);
+    if (issued.ok && recorded.ok && feedRecorded.ok) {
+      const started = await io.start(
+        runnerSpec,
+        {
+          type: "hello",
+          core_epoch: epoch,
+          process_identity: epoch,
+          kind: TEST_RUNNER_KIND,
+          task: "problems",
+          scope: { operations: [], targets: {} },
+          credential: issued.value.token,
+          api_port: server.port,
+        },
+        { onMessage: (message) => runnerChannel.onMessage(message) },
+      );
+      if (started.ok) {
+        runnerChannel.bind((payload) =>
+          io.send(TEST_RUNNER_KIND, payload).then((sent) => sent.ok)
+        );
+        // ticket event가 오면 worker가 cursor 뒤를 따라잡는다. 구독이 열릴 때와 주기마다도 깨워
+        // 재시작·worker 교체 동안의 변화를 따라잡는다.
+        problemsWorkFeed = startProblemsWorkFeed({
+          runtime,
+          ledgerPath,
+          wake: (cursor) =>
+            runnerChannel.request(PROBLEMS_WORK_OP, { cursor }, 30_000),
+        });
+      }
+    }
+  }
   // coding-agent/worker. 수리 자료(`/v1/repair_context/*`)를 요청자 credential로 조립하는 상시 worker다.
   // 자기 credential이 없고(hello의 credential은 자리만 채운다) 요청마다 core가 요청자의 것을 싣는다.
   // 알려진 값 pipe의 `redact_request`는 여기서 답한다. 띄우지 못해도 core는 계속 서고 그 route만
@@ -2073,6 +2155,16 @@ async function open(
     sweepTicketClaims: () => runtime!.sweepTicketClaims(),
     sweepTicketChecks: () =>
       checkerChannel.request(TICKET_CHECK_OP, {}, 30_000),
+    sweepProblemsWork: () => {
+      const cursor = problemsWorkCursor(ledgerPath);
+      return cursor.ok
+        ? runnerChannel.request(
+          PROBLEMS_WORK_OP,
+          { cursor: cursor.value },
+          30_000,
+        )
+        : Promise.resolve(cursor);
+    },
     sweepApprovalExpiry: () => runtime!.sweepApprovalExpiry(),
     reconcileApp: (desired) => appsControl.reconcile(desired),
     sweepInterruptedInvocations: () => runtime!.sweepInterruptedInvocations(),
@@ -2207,6 +2299,7 @@ async function open(
           ready = false;
           documentsFeed.stop();
           ticketCheckFeed?.stop();
+          problemsWorkFeed?.stop();
           // 진행 중인 notification 생성은 writer가 닫히기 전에 끝난다.
           await notifications.stop();
           // 진행 중인 assignment 반응도 writer가 닫히기 전에 끝난다.

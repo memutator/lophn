@@ -18,6 +18,7 @@ import {
 } from "./kinds/approval/approval.tsx";
 import { AutomationKind } from "./kinds/automation/automation.tsx";
 import { ConfirmCommandKind } from "./kinds/confirm-command/confirm-command.tsx";
+import { ConnectionRevokeKind } from "./kinds/connection-revoke/connection-revoke.tsx";
 import { GrantKind } from "./kinds/grant/grant.tsx";
 import { OptionActionKind } from "./kinds/option-action/option-action.tsx";
 import { ReleaseActivationKind } from "./kinds/release-activation/release-activation.tsx";
@@ -74,6 +75,9 @@ export function outcomeText(
       default:
         return t("confirmation-window.result.undoing");
     }
+  }
+  if (kind === "connection_revoke") {
+    return t("confirmation-window.result.connection-revoked");
   }
   if (kind === "option_action") return t("confirmation-window.result.answered");
   if (kind === "problem_decision") {
@@ -289,6 +293,8 @@ export function ConfirmationScreen({ api, theme }: ScreenProps) {
     ? <OptionActionKind {...props} />
     : kind === "revert"
     ? <RevertKind {...props} />
+    : kind === "connection_revoke"
+    ? <ConnectionRevokeKind {...props} />
     : kind === "problem_decision"
     ? <ProblemDecisionKind {...props} />
     : kind === "secret"

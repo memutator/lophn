@@ -14,6 +14,7 @@ import {
   type ToolHandler,
 } from "../../packages/lophn-agent/harness/tools/mod.ts";
 import { type CoreCall, readOf } from "./core-call.ts";
+import { builtinBinding } from "./builtin-binding.ts";
 import type { Toolkit } from "./prepare.ts";
 import type { RunSeat } from "./core-ports.ts";
 
@@ -57,8 +58,9 @@ export function createContractCall(
   };
 }
 
-// 내장 tool 묶음 하나. 읽기 tool은 기본 연결을 쓰고 handler는 run마다 새로 만든다(한 run 동안 읽은
-// 판 기록을 handler 묶음이 쥔다).
+// 내장 tool 묶음 하나. 읽기 tool은 기본 연결을 쓰고 쓰기 tool은 입력에서 정확한 대상을 읽는 제품
+// 연결(`builtinBinding`)을 쓴다. handler는 run마다 새로 만든다(한 run 동안 읽은 판 기록을 handler
+// 묶음이 쥔다).
 export function createBuiltinToolkit(options: {
   routes: readonly NamedRoute[];
   machine: CoreCall;
@@ -66,7 +68,19 @@ export function createBuiltinToolkit(options: {
   binding?: Toolkit["binding"];
 }): Toolkit {
   return {
-    binding: options.binding ?? (() => undefined),
+    binding: options.binding ??
+      ((definition, run) =>
+        run === undefined ? undefined : builtinBinding(definition, {
+          call: (contract, input) =>
+            createContractCall(options.routes, run.agent).call(
+              contract,
+              input,
+              run.seat.run,
+            ),
+          reach: run.reach,
+          run: run.seat.run,
+          assignment: run.seat.assignment,
+        })),
     handlers(seat: RunSeat, agent: CoreCall): ReadonlyMap<string, ToolHandler> {
       return createBuiltinToolHandlers({
         ...createContractCall(options.routes, agent),

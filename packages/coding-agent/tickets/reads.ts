@@ -173,14 +173,19 @@ function visible(ctx: RequestContext): Result<void> {
 }
 
 // coding agent는 연결 범위의 앱 ticket만 본다. 범위는 owner(여기)가 ticket의 앱을 target에 줘서
-// 맞춘다. 범위 밖 ticket은 없는 ticket과 같은 답이다(connection#R5).
+// 맞춘다. 범위 밖 ticket은 없는 ticket과 같은 답이다(connection#R5). 앱 하나에 묶인 agent
+// (App Engineer의 `conditions.app`)도 같은 방식으로 담당 앱의 ticket만 본다(lophn-agent/roles/app-engineer#R2).
 function inCodingScope(
   snapshot: ReadSnapshot,
   ctx: RequestContext,
   operation: string,
   app: string,
 ): boolean {
-  if (parseActor(ctx.actor)?.kind !== "coding_agent") return true;
+  const kind = parseActor(ctx.actor)?.kind;
+  if (
+    kind !== "coding_agent" &&
+    !(kind === "agent" && ctx.conditions.app !== undefined)
+  ) return true;
   return snapshot.port(TargetAuthorization)(ctx, operation, { app }).ok;
 }
 

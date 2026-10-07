@@ -1,0 +1,67 @@
+{
+  "failure_paths": [
+    {
+      "code": "store_unavailable",
+      "command": "list_todos",
+      "fault": "store"
+    },
+    {
+      "code": "file_unavailable",
+      "command": "export_markdown",
+      "input": {
+        "file": "todos.md"
+      },
+      "fault": "none"
+    }
+  ],
+  "journal_tables": [
+    "change"
+  ],
+  "inputs": {
+    "add_todo": {
+      "title": "Prepared todo"
+    },
+    "export_markdown": {
+      "file": "todos.md"
+    },
+    "import_markdown": {
+      "file": "todos.md"
+    }
+  },
+  "prepare": {
+    "complete_todo": {
+      "command": "add_todo",
+      "input": {
+        "title": "Todo to complete"
+      },
+      "bind": {
+        "id": "id"
+      }
+    }
+  },
+  "fixture_files": [
+    {
+      "path": "/tmp/lophn-todo/export/todos.md",
+      "kind": "dir"
+    }
+  ],
+  "domain": [
+    {
+      "name": "add_before_export",
+      "command": "add_todo",
+      "input": {
+        "title": "Exported todo"
+      }
+    },
+    {
+      "name": "export_blob",
+      "command": "export_markdown",
+      "input": {
+        "file": "domain-export.md"
+      }
+    }
+  ],
+  "collect_files": [
+    "/tmp/lophn-todo/export/domain-export.md"
+  ]
+}

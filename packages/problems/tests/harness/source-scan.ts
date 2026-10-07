@@ -40,14 +40,18 @@ export function scanCodeUsage(files: readonly SourceFile[]): CodeUsage {
 
 const SOURCE_EXT = /\.(?:ts|tsx|js|jsx|mjs)$/;
 
-// 고정 source 폴더의 앱 source만 읽는다. test code와 의존 폴더는 뺀다.
+// 고정 source 폴더의 앱 source만 읽는다. test code와 의존 폴더(봉인 bundle의 sdk 사본, 화면 build)는 뺀다.
 export async function loadSources(root: string): Promise<SourceFile[]> {
   const files: SourceFile[] = [];
   async function visit(directory: string, relative: string): Promise<void> {
     for await (const entry of Deno.readDir(directory)) {
       const path = relative ? `${relative}/${entry.name}` : entry.name;
       if (entry.isDirectory) {
-        if (entry.name === "node_modules" || entry.name === "tests") continue;
+        if (
+          entry.name === "node_modules" || entry.name === "tests" ||
+          (relative === "" &&
+            (entry.name === "sdk" || entry.name === "screens"))
+        ) continue;
         await visit(`${directory}/${entry.name}`, path);
       } else if (
         entry.isFile && SOURCE_EXT.test(entry.name) &&

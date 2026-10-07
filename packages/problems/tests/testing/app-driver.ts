@@ -236,6 +236,9 @@ export function fixtureDriver(options: FixtureDriverOptions): AppDriver {
     businessState() {
       return Promise.resolve(state());
     },
+    prepareChange() {
+      return Promise.resolve();
+    },
     change(command) {
       const id = `chg_${++counter}`;
       changes.push({ id, command });

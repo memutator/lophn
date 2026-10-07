@@ -3,7 +3,7 @@ import { ERROR_CODES } from "../../base/mod.ts";
 import { defineEvent } from "../platform/events.ts";
 import { preparedBlobSchema } from "../platform/mod.ts";
 import { idSchema } from "../platform/ids.ts";
-import { defineCommand } from "../platform/route.ts";
+import { defineCommand, defineUpload } from "../platform/route.ts";
 import { atSchema, seqSchema, sha256Schema } from "../platform/values.ts";
 import { checkResultSchema, ticketIdSchema } from "./ticket-values.ts";
 
@@ -96,6 +96,25 @@ export const ticketSummaryBlobSchema = z.strictObject(preparedBlobSchema.shape)
     (value) => value.purpose === "ticket_summary",
     { message: "summary blob purpose must be ticket_summary" },
   );
+
+// summary blob 한 개의 상한이다. `ticket_summary` purpose의 max_size_bytes와 같은 값이다.
+export const TICKET_SUMMARY_MAX_BYTES = 262_144;
+// 보고할 summary 바이트를 core의 blob 준비로 보낸다(주체는 요청 credential, purpose는
+// `ticket_summary` 고정). 준비된 참조가 이어지는 report_completion의 summary_blob이다.
+export const ticketUploadSummary = defineUpload({
+  resource: "tickets",
+  method: "upload_summary",
+  name: "UploadTicketSummary",
+  input: z.strictObject({
+    blob_hash: sha256Schema,
+    bytes: z.number().int().min(1).max(TICKET_SUMMARY_MAX_BYTES),
+  }),
+  output: ticketSummaryBlobSchema,
+  actors: ["coding_agent"],
+  errors: ["invalid_input", "unauthorized", "forbidden", "unavailable"],
+  max_bytes: TICKET_SUMMARY_MAX_BYTES,
+});
+
 export const ticketReportCompletionInputSchema = z.strictObject({
   ...claimed,
   completion: ticketCompletionInputSchema,
@@ -298,6 +317,7 @@ export const TICKET_CLAIM_ROUTES = [
   ticketExpireClaim,
   ticketRecordChecks,
   ticketCancel,
+  ticketUploadSummary,
 ] as const;
 
 export const TICKET_CLAIM_EVENTS = [

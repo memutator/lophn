@@ -74,7 +74,10 @@ import {
   SECRET_SCHEMA_STEPS,
   SECRET_TOOL_PATHS,
 } from "../../packages/platform/secrets/mod.ts";
-import { connectionConnect } from "../../packages/contracts/coding-agent/mod.ts";
+import {
+  connectionConnect,
+  ticketUploadSummary,
+} from "../../packages/contracts/coding-agent/mod.ts";
 import { CONNECTION_SECRET_OWNER } from "../../packages/coding-agent/mod.ts";
 import {
   type CodingCredentials,
@@ -82,6 +85,7 @@ import {
   createCodingCredentials,
   withRevocationSweep,
 } from "./coding-credential.ts";
+import { codingAgentOperationPolicies } from "./coding-operations.ts";
 import { productKeychain } from "./secret-store.ts";
 import {
   createSecretInputRelay,
@@ -112,6 +116,7 @@ import {
   relaySink,
 } from "./documents-prepare.ts";
 import { documentUploadHandler } from "./documents-upload.ts";
+import { ticketSummaryUploadHandler } from "./ticket-summary-upload.ts";
 import {
   type FilesRouteDeps,
   fileWorkers,
@@ -538,52 +543,57 @@ async function open(
       loaders: options.codingLoaders ?? [],
     })
     : undefined;
+  const baseOperations: OperationPolicy[] = [
+    {
+      name: "platform/status",
+      actors: ["user", "machine", "app", "agent", "coding_agent"],
+      kind: "read",
+    },
+    {
+      name: "platform/health",
+      actors: ["user", "machine", "app", "agent", "coding_agent"],
+      kind: "read",
+    },
+    { name: "document.save", actors: ["machine"], kind: "command" },
+    { name: "document.prepare", actors: ["machine"], kind: "command" },
+    // 파일 작업 결과 기록(documents#T12). 사람 요청에 결합해 받은 worker만 쓴다.
+    { name: "file.record_result", actors: ["machine"], kind: "command" },
+    // 확인된 문서 watch 변화 기록(documents#T24). coordinator의 watch consumer만 쓴다.
+    {
+      name: "context.record_watch_change",
+      actors: ["machine"],
+      kind: "command",
+    },
+    // apps 관측 기록·제어 connection·자식 앱 credential이 닿는 operation(apps#T10).
+    ...appsOperationPolicies(),
+    // problems report collector(machine)가 보고를 제출한다.
+    ...collectorOperationPolicies(),
+    // agent runtime(machine)과 run의 agent 자격이 닿는 operation(lophn-agent/harness/run-loop).
+    ...(options.agentRuntime ? agentRuntimePolicies(allRoutes) : []),
+    // 팀이 공개 정책을 내놓은 event 이름. 사람 token의 operation에 들어가 owner 정책이 판단한다.
+    ...eventNames.map((name): OperationPolicy => ({
+      name,
+      actors: ["user"],
+      kind: "read",
+    })),
+    // 사람 token 상한. user를 허용하는 route만 올라가고 다른 actor의 상한은 그대로다.
+    ...allRoutes.filter((route) => route.actors.includes("user")).map((
+      route,
+    ): OperationPolicy => ({
+      name: route.name,
+      actors: ["user"],
+      kind: route.kind === "command" ? "command" : "read",
+    })),
+  ];
   const productRegistry = new CredentialRegistry({
     epoch,
     clock,
     random,
     ...(coding ? { external: coding.authority } : {}),
+    // coding_agent 상한은 route가 선언한 actors를 따른다(blobs 제외).
     operations: [
-      {
-        name: "platform/status",
-        actors: ["user", "machine", "app", "agent", "coding_agent"],
-        kind: "read",
-      },
-      {
-        name: "platform/health",
-        actors: ["user", "machine", "app", "agent", "coding_agent"],
-        kind: "read",
-      },
-      { name: "document.save", actors: ["machine"], kind: "command" },
-      { name: "document.prepare", actors: ["machine"], kind: "command" },
-      // 파일 작업 결과 기록(documents#T12). 사람 요청에 결합해 받은 worker만 쓴다.
-      { name: "file.record_result", actors: ["machine"], kind: "command" },
-      // 확인된 문서 watch 변화 기록(documents#T24). coordinator의 watch consumer만 쓴다.
-      {
-        name: "context.record_watch_change",
-        actors: ["machine"],
-        kind: "command",
-      },
-      // apps 관측 기록·제어 connection·자식 앱 credential이 닿는 operation(apps#T10).
-      ...appsOperationPolicies(),
-      // problems report collector(machine)가 보고를 제출한다.
-      ...collectorOperationPolicies(),
-      // agent runtime(machine)과 run의 agent 자격이 닿는 operation(lophn-agent/harness/run-loop).
-      ...(options.agentRuntime ? agentRuntimePolicies(allRoutes) : []),
-      // 팀이 공개 정책을 내놓은 event 이름. 사람 token의 operation에 들어가 owner 정책이 판단한다.
-      ...eventNames.map((name): OperationPolicy => ({
-        name,
-        actors: ["user"],
-        kind: "read",
-      })),
-      // 사람 token 상한. user를 허용하는 route만 올라가고 다른 actor의 상한은 그대로다.
-      ...allRoutes.filter((route) => route.actors.includes("user")).map((
-        route,
-      ): OperationPolicy => ({
-        name: route.name,
-        actors: ["user"],
-        kind: route.kind === "command" ? "command" : "read",
-      })),
+      ...baseOperations,
+      ...codingAgentOperationPolicies(allRoutes, baseOperations),
     ],
   });
   const registry = options.testCredentials
@@ -1092,6 +1102,10 @@ async function open(
       uploads: new Map([[
         `${documentUpload.resource}/${documentUpload.method}`,
         documentUploadHandler(prepareRelay),
+      ], [
+        // ticket 완료 보고 summary: purpose는 ticket 등록값(ticket_summary)으로 고정이다.
+        `${ticketUploadSummary.resource}/${ticketUploadSummary.method}`,
+        ticketSummaryUploadHandler(prepareRelay),
       ], [
         // 사람의 보호 입력 값: core는 해석·보관 없이 I/O worker의 keychain adapter로 흘린다.
         `${secretInput.resource}/${secretInput.method}`,

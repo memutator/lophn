@@ -198,6 +198,7 @@ secret 사용은 호출자 종류가 아니라 현재 앱 grant와 network host�
 | `/v1/tickets/make_ready` | ticket,base_revision,근거·채택 답·조건,key → ready ticket | lophn·담당 App Engineer만. needs_confirmation에서만; 근거·채택 답·조건을 한 번만 채움. invalid_input/forbidden/not_found/conflict |
 | `/v1/tickets/claim` | ticket,base_revision,key → claimed ticket·connection·claim_seq·expires_at | coding_agent; open/check_failed·active connection·scope·revision |
 | `/v1/tickets/renew_claim`, `/release_claim` | ticket,claim_seq,base_revision,key → 현재 claim 또는 open | 현재 coding_agent만; seq·connection·기한. unauthorized/forbidden/conflict |
+| `/v1/tickets/upload_summary` (upload) | `x-lophn-input` {blob_hash, bytes ≤256KiB}, body summary bytes → ticket_summary 준비 참조 | coding_agent; purpose·상한은 ticket 등록값 고정, 주체는 요청 credential, 바이트는 해석 없이 blob 준비로 흘린다. 이어지는 report_completion이 같은 transaction에서 영구 참조를 등록한다. invalid_input/unauthorized/unavailable |
 | `/v1/tickets/report_completion` | ticket,claim_seq,base_revision,completion,key → reported ticket·completion_seq | 유효 claim·같은 app/ticket/claim release·모든 참조 검사. invalid_input/unauthorized/forbidden/not_found/conflict |
 | `/v1/tickets/expire_claim` | ticket,claim_seq,key → open 또는 충돌 | 배정 machine만; 만료/회수와 현재 seq 재검사 |
 | `/v1/tickets/record_checks` | ticket,completion_seq,base_revision,checks,대상 revision,key → reported/confirmed/check_failed | checker machine만; 최신 보고·현재 대상·Verification hash 재검사. invalid_input/forbidden/conflict |

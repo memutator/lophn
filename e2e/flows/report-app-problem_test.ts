@@ -6,6 +6,20 @@
 // 하는 조작은 화면(renderer·overlay DOM의 click·입력)으로 하고, 사람이 확인하는 결과(접수한 Report·
 // snapshot·문제)는 사람 token의 같은 core 읽기 통로(`window.lophnCore`)로 읽는다. 사람 데이터 root
 // (~/.lophn)는 열지 않는다. HOME·LOPHN_HOME은 임시 폴더이고 띄운 Electron·core 트리는 정확한 pid로만 끝낸다.
+//
+// 앱 자식은 운영 앱의 실제 기동 entry가 아직 없어서(apps#T18 이어보냄, apps#T27이 닫는다) 준비된 bundle에
+// 실제 runtime entrypoint의 `main()`을 부르는 진입 파일을 더해 다시 봉인한 것이다(`withRuntimeEntry`).
+// 여기서 보는 것: flow 1~6, 갈래(화면 없음 = view 가려짐·보호 창·lophn dialog, 시작 전 실패, 취소, 접수 실패,
+// 직접 시도 실패)와 problems/feedback#R5·R6·R11·R12·R13.
+// 이 flow가 구동하지 못하는 것(T23 상태 줄에 적었다):
+// - R13 기존 문제 선택: dialog에 기존 문제를 고르는 자리가 없다(`existing_problem`이 늘 null, shell#T53 (1)).
+//   선택하지 않은 제출과 [View issue]가 보내는 intent의 문제 ID까지만 본다(Issues 상세로 가는 것은 shell#T53).
+// - R4 시작 전 실패 표시: dialog가 `command_start`를 늘 "unknown"으로 보낸다. 입력 검사로 막힌 호출 뒤 글을
+//   보내도 invocation이 생기지 않는 것까지만 본다.
+// - R5 다른 창: 두 번째 창 없이 없는 view에 대한 거절만 본다. 수집 꺼짐·수집 실패의 이유 표시는
+//   e2e/shell/report-problem_test.ts(crash한 view)가 본다.
+// - 응답 단절로 접수가 확인되지 않은 뒤의 최신 상태 확인·재전송(problems/feedback#R11 갈래)은 core가 사라진
+//   뒤라 이어 보내 볼 수 없다.
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 
@@ -1103,32 +1117,30 @@ Deno.test({
       await t.step(
         "flow 6: 다른 화면으로 갔다가 같은 앱 공간으로 돌아와 다시 쓸 수 있다",
         async () => {
-          await flow.click("[data-launcher-back]");
+          // 앱 공간 바의 [Documents]로 다른 shell 화면(lophn 공간)을 연다. 앱 view는 닫힌다.
+          await flow.click('[data-app-bar="documents"]');
           await flow.until(
-            `document.querySelector("[data-space]")?.getAttribute("data-space") !== "app"`,
-            "런처로 가지 못했다",
+            `document.querySelector("[data-space]")?.getAttribute("data-space") === "lophn"`,
+            "lophn 공간으로 가지 못했다",
           );
           assertEquals((await viewBounds(flow)).view, null);
-          await flow.evaluate(
-            `(() => { location.hash = ${
-              JSON.stringify(`#app=${APP}`)
-            }; location.reload(); return true; })()`,
-          );
-          await delay(500);
+          // lophn 공간은 앱이 깨진 채여도 그대로 쓸 수 있다(문서 검색 입력이 선다).
           await flow.until(
-            `document.querySelector('[data-space="app"]') !== null`,
+            `document.querySelector("[data-search-input]") !== null`,
+            "문서 화면이 서지 않았다",
+          );
+          // 앱 목록에서 같은 앱 공간을 다시 연다. 앱 view가 다시 붙고 버튼이 켜진다.
+          await flow.click('[data-screen="apps"]');
+          await flow.until(
+            `document.querySelector("[data-app-row] [data-action='open']") !== null`,
+            "앱 목록이 서지 않았다",
+          );
+          await flow.click("[data-app-row] [data-action='open']");
+          await flow.until(
+            `document.querySelector('[data-space="app"]') !== null && document.querySelector('[data-report-problem]:not([disabled])') !== null`,
             "앱 공간으로 돌아오지 못했다",
           );
-          await flow.until(
-            `document.querySelector('[data-report-problem]:not([disabled])') !== null`,
-            "[Report a problem]이 켜지지 않았다",
-          );
-          // 새로 읽은 desktop 창에서 intent 구독을 다시 건다.
-          await flow.evaluate(`(() => {
-            window.__intents = [];
-            window.lophnIntents.subscribe((intent) => window.__intents.push(intent));
-            return true;
-          })()`);
+          assert((await viewBounds(flow)).view !== null);
         },
       );
 

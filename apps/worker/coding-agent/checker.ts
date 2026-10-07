@@ -4,7 +4,13 @@
 // ReleaseSuperseded·TicketCompletionReported 뒤) 보고된 ticket을 정본 사실로 다시 비교한다.
 // 이 worker는 ledger를 직접 열지 않는다: core API의 read와 record_checks command뿐이다.
 // model 호출도 없다.
-import { err, ERROR_CODES, ok, type Result, sha256Hex } from "../../../packages/base/mod.ts";
+import {
+  err,
+  ERROR_CODES,
+  ok,
+  type Result,
+  sha256Hex,
+} from "../../../packages/base/mod.ts";
 import type { LophnError } from "../../../packages/base/mod.ts";
 import type {
   ParentMessage,
@@ -103,9 +109,10 @@ export function createCheckerClient(options: {
       );
       const written = await call("tickets/record_checks", {
         input,
-        idempotency_key: `check:${input.completion_seq}:${input.base_revision}:${
-          digest.slice(0, 32)
-        }`,
+        idempotency_key:
+          `check:${input.completion_seq}:${input.base_revision}:${
+            digest.slice(0, 32)
+          }`,
         compare: { base_revision: input.base_revision },
         prepared: [],
       });

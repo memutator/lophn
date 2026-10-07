@@ -5,9 +5,9 @@
 // 없으면 받지 않는다. check_work는 checker가 판정에 쓰는 사실을 정본 표에서 모아 준다.
 import { err, ok, type Result } from "../../base/mod.ts";
 import {
-  type TicketCondition,
   ticketCheckFailed,
   ticketChecksRecorded,
+  type TicketCondition,
   ticketConfirmed,
   ticketRecordChecks,
 } from "../../contracts/coding-agent/mod.ts";

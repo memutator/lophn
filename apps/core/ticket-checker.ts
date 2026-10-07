@@ -8,7 +8,10 @@ import {
   ticketCompletionReported,
   ticketRecordChecks,
 } from "../../packages/contracts/coding-agent/mod.ts";
-import { releaseActivated, releaseSuperseded } from "../../packages/contracts/apps/mod.ts";
+import {
+  releaseActivated,
+  releaseSuperseded,
+} from "../../packages/contracts/apps/mod.ts";
 import { verificationRecorded } from "../../packages/contracts/problems/mod.ts";
 import type {
   EventDefinition,

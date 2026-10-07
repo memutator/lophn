@@ -198,8 +198,7 @@ function resultsOf(home: string, ticket: string): string[] {
   return withDb(home, (db) =>
     (db.prepare(
       "select result from ticket_check_results where ticket = ? order by condition",
-    ).all(ticket) as { result: string }[]).map((row) => row.result)
-  );
+    ).all(ticket) as { result: string }[]).map((row) => row.result));
 }
 
 async function waitFor(check: () => boolean, label: string): Promise<void> {
@@ -326,7 +325,8 @@ Deno.test("coding-agent/tickets#R18 R19 R20: 제품 core의 checker worker가 �
       );
       assert(
         !events.some((event) =>
-          event.subject === WAITING.ticket && event.type !== "TicketChecksRecorded"
+          event.subject === WAITING.ticket &&
+          event.type !== "TicketChecksRecorded"
         ),
       );
       assert(events.every((event) => event.actor.startsWith("machine")));

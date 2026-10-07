@@ -85,10 +85,13 @@ function seed(
         : JSON.stringify({ code: "x", summary: release.failure }),
     ],
   );
-  sql.run("INSERT INTO apps (id, revision, active_release) VALUES (?, '5', ?)", [
-    APP,
-    options.active ?? null,
-  ]);
+  sql.run(
+    "INSERT INTO apps (id, revision, active_release) VALUES (?, '5', ?)",
+    [
+      APP,
+      options.active ?? null,
+    ],
+  );
   for (const item of options.verifications ?? []) verify(ledger, item);
 }
 
@@ -151,7 +154,9 @@ function runChecker(ledger: Ledger) {
 
 function state(ledger: Ledger): string {
   return String(
-    ledger.sql.get("SELECT state FROM tickets WHERE id = ?", [TICKET])!["state"],
+    ledger.sql.get("SELECT state FROM tickets WHERE id = ?", [
+      TICKET,
+    ])!["state"],
   );
 }
 
@@ -220,7 +225,11 @@ Deno.test("coding-agent/tickets#R18: a test command counts only when its TicketT
   const ledger = ticketFixture();
   seed(ledger, {
     verifications: [
-      { id: VRF_APP, kind: "test_command", link: link({ completion_seq: "9" }) },
+      {
+        id: VRF_APP,
+        kind: "test_command",
+        link: link({ completion_seq: "9" }),
+      },
       {
         id: "vrf_01arz3ndektsv4rrffq69g5fax",
         kind: "test_command",
@@ -421,10 +430,13 @@ Deno.test("coding-agent/tickets#R20: a late result for an old completion, an old
   assert(!stale.ok);
   assertEquals(stale.error.code, "conflict");
   // 읽은 뒤 앱의 active release 정본이 바뀌었다: 읽은 대상 revision이 낡았다.
-  ledger.sql.run("UPDATE apps SET revision = '6', active_release = ? WHERE id = ?", [
-    REL_NEXT,
-    APP,
-  ]);
+  ledger.sql.run(
+    "UPDATE apps SET revision = '6', active_release = ? WHERE id = ?",
+    [
+      REL_NEXT,
+      APP,
+    ],
+  );
   const late = submit({});
   assert(!late.ok);
   assertEquals(late.error.code, "conflict");

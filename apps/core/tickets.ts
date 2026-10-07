@@ -11,7 +11,10 @@ import {
   TICKET_BLOB_PURPOSES,
   ticketSchemaSteps,
 } from "../../packages/coding-agent/mod.ts";
-import { releaseActivated, releaseSuperseded } from "../../packages/contracts/apps/mod.ts";
+import {
+  releaseActivated,
+  releaseSuperseded,
+} from "../../packages/contracts/apps/mod.ts";
 import {
   ticketCheckFailed,
   ticketCompletionReported,

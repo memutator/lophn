@@ -2,11 +2,7 @@
 // 근거는 core가 읽어 준 사실뿐이다: 같은 app·bundle hash의 Verification, 앱 정본의 active
 // release. shell 성공 문장·완료 summary·agent의 주장은 근거가 아니다(R18).
 // 없는 근거는 inconclusive다(P11). 실제로 일어난 실패만 fail이다(P10).
-import type {
-  CheckWork,
-  ReleaseFact,
-  VerificationFact,
-} from "./work.ts";
+import type { CheckWork, ReleaseFact, VerificationFact } from "./work.ts";
 
 export type CheckResult = "pass" | "fail" | "inconclusive";
 

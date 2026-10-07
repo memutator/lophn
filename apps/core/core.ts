@@ -1994,7 +1994,8 @@ async function open(
       read: (hash, offset, length) => blobRead.deps.read(hash, offset, length),
     }),
     sweepTicketClaims: () => runtime!.sweepTicketClaims(),
-    sweepTicketChecks: () => checkerChannel.request(TICKET_CHECK_OP, {}, 30_000),
+    sweepTicketChecks: () =>
+      checkerChannel.request(TICKET_CHECK_OP, {}, 30_000),
     sweepApprovalExpiry: () => runtime!.sweepApprovalExpiry(),
     reconcileApp: (desired) => appsControl.reconcile(desired),
     sweepInterruptedInvocations: () => runtime!.sweepInterruptedInvocations(),

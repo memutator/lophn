@@ -17,12 +17,19 @@ import {
   unknownObservation,
 } from "../../../packages/contracts/coding-agent/mod.ts";
 import type { PromptOutcome, TerminalFailure } from "../ipc/terminal.ts";
+import {
+  type ChildEvent,
+  createChildWatch,
+  type ProcessTree,
+} from "./child-watch.ts";
 import { stripPlatformEnv } from "./env.ts";
 import { createObserveSocket } from "./observe-socket.ts";
 import { createPromptDelivery, type PromptTimer } from "./prompt-delivery.ts";
 
 /** host가 main으로 먼저 보내는 줄. 요청의 답이 아니라 id가 없다. */
-export type HostEvent = { event: "observation"; envelope: ObserveEnvelope };
+export type HostEvent =
+  | { event: "observation"; envelope: ObserveEnvelope }
+  | ChildEvent;
 
 export type CodingLaunch = {
   plan: CodingAgentLaunchPlan;
@@ -32,10 +39,14 @@ export type CodingLaunch = {
   cwd: string;
   /** observe 경로를 더하기 전의 환경이다. */
   baseEnv: Record<string, string>;
+  /** 설치된 helper 절대 경로(loader identity). 있으면 TUI 아래 MCP·CLI process를 관측한다. */
+  credential_helper?: string;
 };
 
 export type PrepareContext = {
   env: Readonly<Record<string, string | undefined>>;
+  /** main이 준 설치 helper 절대 경로. 절대 경로가 아니면 관측하지 않는다. */
+  credential_helper?: string;
   checkFolder: (
     path: string,
   ) => { ok: true; path: string } | {
@@ -51,8 +62,8 @@ export type PrepareResult =
 export type CodingAttachment = {
   /** socket을 열고 starting 관측을 낸다. 환경에 더할 observe 경로를 돌려준다. */
   begin(): Promise<{ ok: true; env: Record<string, string> } | { ok: false }>;
-  /** PTY가 열렸다. 첫 hook 전까지 지금 상태는 unknown이고 prompt 기한이 시작한다. */
-  spawned(write: (text: string) => void): void;
+  /** PTY가 열렸다. 첫 hook 전까지 지금 상태는 unknown이고 prompt 기한이 시작한다. pid는 TUI의 것이다. */
+  spawned(write: (text: string) => void, pid?: number): void;
   output(chunk: string): void;
   /** 연결된 process exit. ended는 ticket 완료나 claim 해제가 아니다. */
   exited(): void;
@@ -76,6 +87,13 @@ export type CodingHostDeps = {
   now(): string;
   timer: PromptTimer;
   emit(event: HostEvent): void;
+  /** TUI 아래 MCP·CLI process 관측. 없으면 관측하지 않는다(그 child는 token을 받지 못한다). */
+  watch?: {
+    tree: ProcessTree;
+    /** 주기 호출. 취소 함수를 돌려준다. */
+    every(ms: number, fire: () => void): () => void;
+    interval_ms?: number;
+  };
   /** socket 폴더를 만들 곳과 이름. 테스트가 끼운다. */
   socketRoot?: string;
   random?: () => string;
@@ -160,6 +178,9 @@ export function createCodingHost(deps: CodingHostDeps): CodingHost {
           args: plan.argv.slice(1),
           cwd: checked.path,
           baseEnv: planEnv(context.env, plan),
+          ...(context.credential_helper?.startsWith("/")
+            ? { credential_helper: context.credential_helper }
+            : {}),
         },
       };
     },
@@ -222,6 +243,11 @@ export function createCodingHost(deps: CodingHostDeps): CodingHost {
       });
 
       let prompt: ReturnType<typeof createPromptDelivery> | undefined;
+      let stopWatch: (() => void) | undefined;
+      const endWatch = () => {
+        stopWatch?.();
+        stopWatch = undefined;
+      };
 
       return {
         async begin() {
@@ -246,7 +272,29 @@ export function createCodingHost(deps: CodingHostDeps): CodingHost {
             env: { ...launch.baseEnv, [LOPHN_TERMINAL_OBSERVE]: socket.path },
           };
         },
-        spawned(write) {
+        spawned(write, pid) {
+          const loader = launch.credential_helper;
+          if (
+            deps.watch !== undefined && loader !== undefined &&
+            pid !== undefined
+          ) {
+            const watch = createChildWatch({
+              tree: deps.watch.tree,
+              root: pid,
+              runtime_ref: ref.runtime_ref,
+              connection: plan.connection,
+              loader,
+              emit: deps.emit,
+            });
+            const cancel = deps.watch.every(
+              deps.watch.interval_ms ?? 100,
+              () => watch.poll(),
+            );
+            stopWatch = () => {
+              cancel();
+              watch.stop();
+            };
+          }
           prompt = createPromptDelivery({
             delivery: plan.prompt_delivery,
             prompt: plan.first_prompt,
@@ -262,6 +310,7 @@ export function createCodingHost(deps: CodingHostDeps): CodingHost {
           prompt?.output(chunk);
         },
         exited() {
+          endWatch();
           if (current !== null) {
             publish(endedByProcessExit(current, deps.now()));
           }
@@ -269,11 +318,13 @@ export function createCodingHost(deps: CodingHostDeps): CodingHost {
           socket.close();
         },
         lost(reason) {
+          endWatch();
           unknown(reason);
           prompt?.exited();
           socket.close();
         },
         abandon() {
+          endWatch();
           socket.close();
         },
       };

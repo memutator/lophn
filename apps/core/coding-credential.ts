@@ -295,6 +295,8 @@ export function connectHandler(
 export function withRevocationSweep(
   writer: Writer,
   sweep: () => Promise<unknown>,
+  // 회수된 connection 참조를 받아 그 connection 아래 등록된 child를 닫는다.
+  revoked?: (connection: string) => void,
 ): Writer {
   return {
     ...writer,
@@ -302,6 +304,9 @@ export function withRevocationSweep(
       const done = await writer.command(ctx, envelope);
       if (done.ok && envelope.command === connectionRevoke.name) {
         await sweep().catch(() => undefined);
+        const connection = (envelope.input as { connection?: unknown })
+          ?.connection;
+        if (typeof connection === "string") revoked?.(connection);
       }
       return done;
     },

@@ -101,6 +101,11 @@ export type CodingStartDeps = {
   };
   plan: PlanRunner;
   host: { request(message: unknown): Promise<TerminalReply> };
+  /**
+   * 설치된 helper `lophn-credential`의 절대 경로(loader identity). 주면 host가 TUI 아래 MCP·CLI process를
+   * 관측해 main이 core에 등록한다(coding-children.ts). 없으면 그 child는 token을 받지 못한다.
+   */
+  credential_helper?: string;
   random?: () => string;
   now?: () => number;
   /** 발급한 handle이 쓰이지 않고 남는 시간. */
@@ -261,6 +266,9 @@ export function createCodingStart(deps: CodingStartDeps): CodingStart {
     const reply = await deps.host.request({
       type: "open-coding",
       plan: parsed.data,
+      ...(deps.credential_helper === undefined
+        ? {}
+        : { credential_helper: deps.credential_helper }),
       columns: 80,
       rows: 24,
     });

@@ -1111,6 +1111,8 @@ async function open(
           connectionTestSecrets,
         ),
         () => appsControl.connector.sweep(),
+        // 회수된 connection 아래 등록된 MCP·CLI child도 바로 닫는다(platform/identity#R15).
+        (connection) => coding?.authority.endConnection(connection),
       ),
       reads: runtime.reads,
       // 현재 보기 relay와 apps.connect(supervisor 메모리 관측을 읽는 제어 어댑터)다.

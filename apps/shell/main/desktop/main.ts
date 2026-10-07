@@ -178,6 +178,7 @@ import {
   TerminalFocusTable,
 } from "../terminal/controller.ts";
 import { createTerminalIpc } from "../terminal/ipc.ts";
+import { createChildRegistrar } from "../terminal/coding-children.ts";
 import { createSupervisor, spawnNodeHost } from "../terminal/supervisor.ts";
 
 // shell tsc는 base를 보지 않으므로 Result 모양만 여기서 맞춘다.
@@ -832,10 +833,15 @@ function refreshAppViews(
     }
   }
 }
+// lophn이 띄운 coding TUI 아래 MCP·CLI process를 host가 관측해 알리면 main이 자기 사람 credential로 core에
+// 등록·해제한다(platform/identity#R15). 관측 표(ObservationStore) 연결은 shell#T50 조립이 이 onEvent에 더한다.
+const codingChildren = createChildRegistrar({ core: () => core.session() });
 const terminals = createSupervisor({
   // build가 host를 main과 같은 dist에 묶는다. 생성만 하고 첫 요청 때 띄운다.
   entry: join(here, "terminal-host.cjs"),
   spawnHost: spawnNodeHost,
+  onEvent: (event) => codingChildren.onEvent(event),
+  onHostLost: () => codingChildren.hostLost(),
 });
 
 // terminal IPC. sender·frame 검사는 registry로, focus·generation은 ipc.ts가 본다.

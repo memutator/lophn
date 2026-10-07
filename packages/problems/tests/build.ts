@@ -48,11 +48,18 @@ const encode = (text: string) => new TextEncoder().encode(text);
 
 const CROCKFORD = "0123456789abcdefghjkmnpqrstvwxyz";
 
-// 한 요청의 Verification은 하나뿐이다. 요청 hash에서 정한 ID를 쓰면 결과를 남기다 끊겨 다시 이어받아도 같은
-// 결과(같은 canonical)라 근거를 새로 만들지 않는다(R3).
-export function verificationIdFor(requestHash: string): string {
-  const digest = createHash("sha256").update(`vrf:${requestHash}`, "utf8")
-    .digest();
+// 한 요청의 Verification은 하나뿐이다. 요청(주체·key·hash)에서 정한 ID를 쓰면 결과를 남기다 끊겨 다시 이어받아도
+// 같은 결과(같은 canonical)라 근거를 새로 만들지 않는다(R3). 요청 hash는 key를 싣지 않으므로 같은 내용의 요청이
+// 여럿이어도 key가 ID를 가른다.
+export function verificationIdFor(
+  requestPrincipal: string,
+  requestKey: string,
+  requestHash: string,
+): string {
+  const digest = createHash("sha256").update(
+    `vrf:${requestPrincipal}\u0000${requestKey}\u0000${requestHash}`,
+    "utf8",
+  ).digest();
   let body = "0";
   for (let index = 0; index < 25; index++) {
     body += CROCKFORD[digest[index] % 32];

@@ -233,7 +233,11 @@ async function recordResult(input: {
 }): Promise<Result<{ verification: string }>> {
   const { job } = input;
   const built = buildRecord({
-    id: verificationIdFor(job.request_hash),
+    id: verificationIdFor(
+      job.request_principal,
+      job.request_key,
+      job.request_hash,
+    ),
     request_principal: job.request_principal,
     request_key: job.request_key,
     request_hash: job.request_hash,
@@ -509,7 +513,8 @@ export async function runRequest(
   if (!recorded.ok) {
     return {
       state: "started_unrecorded",
-      reason: `결과를 기록하지 못했다: ${recorded.error.code} ${recorded.error.message}`,
+      reason:
+        `결과를 기록하지 못했다: ${recorded.error.code} ${recorded.error.message}`,
     };
   }
   return {

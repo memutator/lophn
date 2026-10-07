@@ -1818,11 +1818,7 @@ async function open(
           if (!handler.onMessage(message)) runnerChannel.onMessage(message);
         },
         onFrame: (frame) => handler.onFrame(frame),
-        onEnd: () => {
-          console.error("DEBUG runner ended");
-          testControl?.runnerEnded();
-        },
-        onStderr: (line) => console.error(`DEBUG runner: ${line}`),
+        onEnd: () => testControl?.runnerEnded(),
       },
     );
     if (started.ok) {

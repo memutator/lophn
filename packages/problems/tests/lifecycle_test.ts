@@ -287,7 +287,7 @@ Deno.test("problems/tests#R2 R4: 결과 근거는 만든 canonical의 hash만 �
   const frozen = fixtureEvidence().frozen;
   const executions = [executed];
   const built = buildRecord({
-    id: verificationIdFor(REQUEST_HASH),
+    id: verificationIdFor("user-1", "key-1", REQUEST_HASH),
     request_principal: "user-1",
     request_key: "key-1",
     request_hash: REQUEST_HASH,
@@ -308,15 +308,22 @@ Deno.test("problems/tests#R2 R4: 결과 근거는 만든 canonical의 hash만 �
     assertEquals(sha256Bytes(bytes), hash);
   }
   assertEquals(
-    verificationIdFor(REQUEST_HASH),
-    verificationIdFor(REQUEST_HASH),
+    verificationIdFor("user-1", "key-1", REQUEST_HASH),
+    verificationIdFor("user-1", "key-1", REQUEST_HASH),
+  );
+  // 요청 hash는 key를 싣지 않으므로 같은 내용의 다른 요청은 key가 ID를 가른다.
+  assert(
+    verificationIdFor("user-1", "key-1", REQUEST_HASH) !==
+      verificationIdFor("user-1", "key-2", REQUEST_HASH),
   );
   assert(
-    /^vrf_[0-7][0-9a-hjkmnp-tv-z]{25}$/.test(verificationIdFor(REQUEST_HASH)),
+    /^vrf_[0-7][0-9a-hjkmnp-tv-z]{25}$/.test(
+      verificationIdFor("user-1", "key-1", REQUEST_HASH),
+    ),
   );
   // 실제 시작이 없는 근거는 기록할 수 없고, runner_lost 같은 끝은 inconclusive만 받는다.
   const lost = buildRecord({
-    id: verificationIdFor(REQUEST_HASH),
+    id: verificationIdFor("user-1", "key-1", REQUEST_HASH),
     request_principal: "user-1",
     request_key: "key-1",
     request_hash: REQUEST_HASH,
@@ -348,7 +355,7 @@ Deno.test("problems/tests#R2 R4: 결과 근거는 만든 canonical의 hash만 �
   assertFalse(judged.ok);
   // 같은 근거로 inconclusive를 적으면 기록할 수 있다(runner_lost).
   const inconclusive = buildRecord({
-    id: verificationIdFor(REQUEST_HASH),
+    id: verificationIdFor("user-1", "key-1", REQUEST_HASH),
     request_principal: "user-1",
     request_key: "key-1",
     request_hash: REQUEST_HASH,

@@ -145,7 +145,7 @@ function reportContext(
 export function startTestControl(deps: TestControlDeps): TestControl {
   const pollMs = deps.pollMs ?? 500;
   const now = deps.nowMs ?? Date.now;
-  const log = deps.log ?? ((line: string) => console.error(`DEBUG ${line}`));
+  const log = deps.log ?? (() => undefined);
   const running = new Map<string, "run" | "recover">();
   // 동시에 도는 요청이 나눠 쓰는 runner socket 자리다.
   const slotOf = new Map<string, 0 | 1>();
@@ -178,7 +178,6 @@ export function startTestControl(deps: TestControlDeps): TestControl {
 
   async function send(
     op: string,
-    request: OpenTestRequest,
     contexts: { runner: CredentialIssue; report?: CredentialIssue },
     body: (token: string, report: string | undefined) => unknown,
   ): Promise<Result<Outcome>> {
@@ -212,7 +211,6 @@ export function startTestControl(deps: TestControlDeps): TestControl {
     const scope = `app-test-${request.request_key}`;
     void send(
       TEST_RUN_OP,
-      request,
       {
         runner: runnerContext(TEST_RUNNER_PRINCIPAL, request),
         report: reportContext(request, scope),
@@ -237,11 +235,16 @@ export function startTestControl(deps: TestControlDeps): TestControl {
         log(`test request ${request.request_key}: ${done.value.reason}`);
         retryAt.set(key, now() + RETRY_MS);
       } else if (done.value.state !== "recorded") {
-        log(`test request ${request.request_key}: ${done.value.state} ${done.value.reason}`);
+        log(
+          `test request ${request.request_key}: ${done.value.state} ${done.value.reason}`,
+        );
       }
     }, () => retryAt.set(key, now() + RETRY_MS)).finally(() => {
-      running.delete(key);
-      slotOf.delete(key);
+      // 끝난 runner에 보냈던 요청의 늦은 정리가 새 runner의 일을 지우지 않는다.
+      if (born === generation) {
+        running.delete(key);
+        slotOf.delete(key);
+      }
       wake();
     });
   }
@@ -252,7 +255,6 @@ export function startTestControl(deps: TestControlDeps): TestControl {
     try {
       const done = await send(
         TEST_RECOVER_OP,
-        request,
         { runner: runnerContext(TEST_RECOVERY_PRINCIPAL, request) },
         (token) => ({
           request_principal: request.request_principal,

@@ -863,6 +863,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T25 MCP·CLI ticket tool: 완료 보고·사람의 생성과 취소
 
+- 상태: 완료 (#429) — 정한 것: report 입력은 summary 본문(통로가 upload_summary로 올림)이고 `ticketReportToolInputSchema`로 MCP·CLI가 같다. CLI `ticket create|cancel`은 core에 쓰지 않고 결정 화면 링크(`applied:false`)로 넘기며(Q1) 연결 참조로 시작하면 forbidden이다. 이어보냄: 결정 화면의 취소·생성 열기 → shell#T50, fake coding agent를 new-app·change-app E2E에서 쓰기 → apps#T27
 - 등급: 좁은
 - concern: coding-agent/mcp-server, coding-agent/cli
 - 요구: coding-agent/mcp-server#R27, R28; coding-agent/cli#R36, R37
@@ -919,6 +920,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T27 사람 화면용 ticket read
 
+- 상태: 완료 (#430)
 - 등급: 좁은
 - concern: coding-agent/tickets
 - 요구: coding-agent/tickets#R27

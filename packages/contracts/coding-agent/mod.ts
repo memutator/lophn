@@ -303,6 +303,7 @@ export {
 export {
   appHumanOnlyNames,
   CLI_APP_NAMES,
+  CLI_TICKET_HUMAN_NAMES,
   cliAppAutomationRunSchema,
   cliAppBlueprintSchema,
   cliAppCommandSchema,
@@ -329,8 +330,11 @@ export {
   cliSdkAddSchema,
   cliSdkCatalogSchema,
   cliSdkShowSchema,
+  cliTicketCancelSchema,
   cliTicketChecksSchema,
   cliTicketClaimSchema,
+  cliTicketCreateSchema,
+  type CliTicketHumanName,
   cliTicketListSchema,
   cliTicketReleaseSchema,
   cliTicketRenewSchema,
@@ -493,13 +497,36 @@ export {
   ticketRenewClaim,
   ticketReportCompletion,
   ticketReportCompletionInputSchema,
+  ticketReportSummarySchema,
+  ticketReportToolInputSchema,
   ticketSummaryBlobSchema,
   ticketUploadSummary,
 } from "./ticket-claims.ts";
 export type {
   TicketCancelInput,
   TicketReportCompletionInput,
+  TicketReportToolInput,
 } from "./ticket-claims.ts";
+export {
+  TICKET_NEXT_ACTIONS,
+  TICKET_SCREEN_ROUTES,
+  TICKET_SCREEN_STATES,
+  ticketNextActionSchema,
+  ticketScreenDetail,
+  ticketScreenDetailInputSchema,
+  ticketScreenDetailOutputSchema,
+  ticketScreenDetailSchema,
+  ticketScreenList,
+  ticketScreenListInputSchema,
+  ticketScreenListOutputSchema,
+  ticketScreenStateSchema,
+  ticketScreenSummarySchema,
+} from "./ticket-screen.ts";
+export type {
+  TicketNextAction,
+  TicketScreenState,
+  TicketScreenSummary,
+} from "./ticket-screen.ts";
 export {
   TICKET_CLAIM_REJECTS,
   TicketClaimCheck,

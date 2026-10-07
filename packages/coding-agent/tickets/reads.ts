@@ -28,6 +28,7 @@ import {
 } from "../../contracts/platform/mod.ts";
 import { nextCursor, pageAfter } from "./cursor.ts";
 import { checkTicketClaim, expiredClaims } from "./claims.ts";
+import { outsideAppCondition } from "./model.ts";
 
 function notFound(): Result<never> {
   return err({ code: "not_found", message: "ticket not found" });
@@ -172,6 +173,7 @@ function visible(ctx: RequestContext): Result<void> {
   return ok(undefined);
 }
 
+// agent 자격이 앱 하나에 묶여 있으면 그 앱의 ticket만 본다(outsideAppCondition).
 // coding agent는 연결 범위의 앱 ticket만 본다. 범위는 owner(여기)가 ticket의 앱을 target에 줘서
 // 맞춘다. 범위 밖 ticket은 없는 ticket과 같은 답이다(connection#R5).
 function inCodingScope(
@@ -180,6 +182,7 @@ function inCodingScope(
   operation: string,
   app: string,
 ): boolean {
+  if (outsideAppCondition(ctx, app)) return false;
   if (parseActor(ctx.actor)?.kind !== "coding_agent") return true;
   return snapshot.port(TargetAuthorization)(ctx, operation, { app }).ok;
 }

@@ -5,7 +5,10 @@ import {
   type TicketKind,
   type TicketReadiness,
 } from "../../contracts/coding-agent/mod.ts";
-import { parseActor } from "../../contracts/platform/mod.ts";
+import {
+  parseActor,
+  type RequestContext,
+} from "../../contracts/platform/mod.ts";
 
 // ticket.create actor는 user·lophn·담당 App Engineer agent다. coding_agent·
 // app·machine은 생성하지 않는다(R5).
@@ -13,6 +16,16 @@ export function createActorAllowed(actor: string): boolean {
   const parts = parseActor(actor);
   if (!parts) return false;
   return parts.kind === "user" || parts.kind === "agent";
+}
+
+// 자격이 앱 하나에 묶여 있으면(담당 App Engineer agent) 그 앱 밖 ticket은 없는 ticket과
+// 같은 답이다. 고정 조건은 owner가 판정한다(platform/identity).
+export function outsideAppCondition(
+  ctx: RequestContext,
+  app: string,
+): boolean {
+  const bound = ctx.conditions.app;
+  return bound !== undefined && bound !== app;
 }
 
 // readiness는 needs의 유무와 짝이다. needs_confirmation은 필요한 확인 1개 이상,

@@ -1,4 +1,4 @@
-import { err, ok, type Result } from "../../base/mod.ts";
+import { canonicalize, err, ok, type Result } from "../../base/mod.ts";
 import {
   checkpointRevert,
   finishRevert,
@@ -37,6 +37,8 @@ import {
   type RevertOwner,
   type RevertRecordRow,
   seqsBetween,
+  sourceKey,
+  stripPrepared,
 } from "./model.ts";
 
 // RevertRun은 종료한 run의 확정 변경 전체를 소유 concern의 새 변경으로 되돌리는 사람의 결정이다.
@@ -45,7 +47,7 @@ import {
 // 현재 판정의 blocked 결과를 저장한다. 복원은 과거 사실을 지우지 않고 owner의 새 변경으로
 // 남으며(R5) 같은 요청을 반복해도 한 번만 적용된다(R8). 앱 되돌림 단계가 있는 revert(R10)는
 // ledger 적용 없이 applying 헤더와 미확정 행만 저장하고 끝난다: 실제 앱 호출은 이 command를
-// 부른 쪽(productId runtime)이 앱의 선언된 revert command를 직접 부르고, 단계 하나마다
+// 부른 쪽(machine runtime, runAppSteps)이 앱의 선언된 revert command를 직접 부르고, 단계 하나마다
 // CheckpointRevert를, 전체가 끝났으면 FinishRevert를 다시 부른다. 단계 기록은 step_key로
 // 같은 시도를 한 번만 받고(R8), 시작 전 실패는 blocked, 시작 뒤 실패·충돌·응답 유실은
 // 실제 복원·미시작·불명확을 행마다 보존한다(R11). 네트워크와 ledger를 한 transaction으로
@@ -290,7 +292,8 @@ export function createRevertCommands(deps: RevertDeps): {
         if (steps.length > 0) {
           // 앱 단계가 있다: ledger 적용 없이 applying 헤더·미확정 행만 저장한다(R10).
           // ledger 복원은 FinishRevert가 앱 단계가 모두 끝난 뒤 한다(R11).
-          const changes = resultsOf(groups, new Map(), null);
+          // 아직 아무것도 시작하지 않았다: 복원 가능 묶음은 app_not_started인 unchanged로 둔다.
+          const changes = resultsOf(groups, new Map(), "app_not_started");
           const seq = tx.emit(revertStarted, input.id, {
             run: input.run,
             preview_hash: input.preview_hash,
@@ -346,7 +349,7 @@ export function createRevertCommands(deps: RevertDeps): {
     checkpoint: {
       route: checkpointRevert,
       handle(tx, ctx, input: Input<typeof checkpointRevert>) {
-        // 호출은 이 command를 부르는 productId runtime이 하고, 단계 기록만 machine이 한다.
+        // 호출은 이 command를 부르는 machine runtime(runAppSteps)이 하고, 단계 기록만 machine이 한다.
         if (parseActor(ctx.actor)?.kind !== "machine") {
           return reject("forbidden", "only the runtime records a step");
         }
@@ -486,24 +489,11 @@ export function createRevertCommands(deps: RevertDeps): {
             "the step keys are not the steps of this revert",
           );
         }
-        // machine이 건넨 groups은 저장된 reversible 묶음의 준비 결과다(R11). source_seqs로
-        // 묶음에 맞춘다. 어긋난 묶음은 invalid_input이다.
-        const prepared = new Map<number, RevertRunGroup>();
-        if (input.groups !== undefined) {
-          const bySource = new Map(changes.map((change) => [
-            change.sources.join(","),
-            change,
-          ]));
-          for (const given of input.groups) {
-            const change = bySource.get(given.source_seqs.join(","));
-            if (change === undefined || change.app_revert !== null) {
-              return reject(
-                "invalid_input",
-                "a group is not a stored group of this revert",
-              );
-            }
-            prepared.set(change.ordinal, given);
-          }
+        // machine이 건넨 groups는 RevertRun이 받은 입력의 묶음(준비 결과 포함)이다(R11).
+        // source_seqs로 저장한 묶음에 맞춘다.
+        const given = new Map<string, RevertRunGroup>();
+        for (const item of input.groups ?? []) {
+          given.set(sourceKey(item.source_seqs), item);
         }
         // 기록이 없는 단계는 시작하지 않은 것이다(앞 단계가 실패해 부르는 쪽이 멈췄다). 시작 뒤
         // 결과를 모르는 단계는 uncertain으로 기록되어 온다. 둘을 구별해 남긴다(R11).
@@ -513,39 +503,67 @@ export function createRevertCommands(deps: RevertDeps): {
         const failed = app.filter((change) => change.result === "failure");
         const uncertain = app.filter((change) => change.result === "uncertain");
         const stopped = failed.length + uncertain.length + unrecorded.length;
+        const ledger = changes.filter((change) =>
+          change.capability === "reversible" && change.app_revert === null
+        );
         const restored = new Map<number, string[]>();
-        if (stopped === 0) {
-          // 앱 단계가 전부 복원됐을 때만 ledger reversible 묶음을 뒤에서부터 복원한다.
-          // 저장된 행은 아직 미확정 placeholder다. 준비가 없으면 그대로 unchanged다.
-          const order = [...changes].sort((a, b) => b.ordinal - a.ordinal);
-          for (const change of order) {
-            if (
-              change.capability !== "reversible" || change.app_revert !== null
-            ) {
-              continue;
+        // 복원하지 못한 ledger 묶음의 새 이유다. 없으면 저장한 이유(app_not_started)가 그대로다.
+        const moved = new Map<number, ReasonCode>();
+        // groups가 없으면 ledger 묶음을 복원하지 않고 끝낸다. 부르는 쪽이 owner의 새 conflict로
+        // 앞선 끝내기가 거절된 뒤 앱 결과만 확정할 때 쓴다(이미 성공한 앱 복원은 partial로 남는다).
+        if (stopped === 0 && ledger.length > 0 && given.size > 0) {
+          // 앱 단계가 전부 복원됐을 때만, 지금 판정으로 owner CAS를 다시 검사한다. 하나라도 그 사이
+          // 새 변경(conflict)이나 준비 불충족이 생겼으면 ledger는 하나도 복원하지 않는다. owner가
+          // 복원 중 거절하면 이 끝내기 전체가 취소된다.
+          const current = new Map(
+            buildGroups(tx, revert.run, deps.owners, input.revert).map((
+              group,
+            ) => [sourceKey(group.source_seqs), group]),
+          );
+          const ready: {
+            ordinal: number;
+            owner: RevertOwner;
+            group: RevertGroup;
+            item: RevertRunGroup;
+          }[] = [];
+          for (const change of ledger) {
+            const key = sourceKey(change.sources);
+            const item = given.get(key);
+            const group = current.get(key);
+            if (item === undefined) {
+              return reject(
+                "invalid_input",
+                "a restorable ledger group has no input",
+              );
             }
-            const given = prepared.get(change.ordinal);
-            if (given === undefined) continue;
             const owner = ownerOf(change.owner);
             if (owner === undefined) {
               return reject("unavailable", "no owner can restore this group");
             }
-            const group: RevertGroup = {
-              ordinal: change.ordinal,
-              owner: change.owner,
-              target: change.target,
-              source_seqs: change.sources,
-              capability: "reversible",
-              reason: null,
-              comparison: given.comparison,
-              before_ref: null,
-              dependencies: [],
-              app_revert: null,
-            };
-            const before = headSeq(tx.sql);
-            const done = owner.restore(tx, group, given);
-            if (!done.ok) return done;
-            restored.set(change.ordinal, seqsBetween(tx.sql, before));
+            if (
+              group === undefined || group.capability !== "reversible" ||
+              canonicalize(stripPrepared(item.comparison)) !==
+                canonicalize(group.comparison ?? {})
+            ) {
+              moved.set(change.ordinal, "later_change");
+              continue;
+            }
+            const readiness = owner.ready?.(group, item) ?? ok(null);
+            if (!readiness.ok) return readiness;
+            if (readiness.value !== null) {
+              moved.set(change.ordinal, readiness.value);
+              continue;
+            }
+            ready.push({ ordinal: change.ordinal, owner, group, item });
+          }
+          if (moved.size === 0) {
+            // 나중 변경부터 소유 concern의 새 변경으로 되돌린다.
+            for (const one of ready.sort((a, b) => b.ordinal - a.ordinal)) {
+              const before = headSeq(tx.sql);
+              const done = one.owner.restore(tx, one.group, one.item);
+              if (!done.ok) return done;
+              restored.set(one.ordinal, seqsBetween(tx.sql, before));
+            }
           }
         }
         const finalChanges: ChangeResult[] = changes.map((change) => {
@@ -560,9 +578,7 @@ export function createRevertCommands(deps: RevertDeps): {
               source_seqs: change.sources,
               capability: "reversible",
               result: change.result as ChangeOutcome,
-              reason: change.result === "unchanged"
-                ? "app_not_started"
-                : (change.reason as ReasonCode | null),
+              reason: change.reason as ReasonCode | null,
               restored_seqs: [],
               app_revert: null,
             };
@@ -579,9 +595,8 @@ export function createRevertCommands(deps: RevertDeps): {
               result: seqs.length > 0
                 ? "restored" as const
                 : "unchanged" as const,
-              reason: seqs.length > 0
-                ? null
-                : (change.reason as ReasonCode | null),
+              reason: seqs.length > 0 ? null : (moved.get(change.ordinal) ??
+                (change.reason as ReasonCode | null)),
               restored_seqs: seqs,
               app_revert: null,
             };
@@ -637,11 +652,11 @@ export function createRevertCommands(deps: RevertDeps): {
                 [input.revert, change.ordinal, BigInt(restoredSeq)],
               );
             }
-          } else if (change.reason === "app_not_started") {
+          } else if (moved.has(change.ordinal)) {
             tx.sql.run(
               `update revert_changes set reason = ?
                where revert = ? and ordinal = ?`,
-              [change.reason, input.revert, change.ordinal],
+              [moved.get(change.ordinal)!, input.revert, change.ordinal],
             );
           }
         }

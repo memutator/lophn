@@ -90,7 +90,8 @@ export const REVERT_REASON_CODES = [
   "blocked_dependency",
   "blocked_not_prepared",
   "stale_preview",
-  // 앱 revert 단계의 결과(lophn-agent#T48). checkpoint가 단계 실패·응답 유실을 기록하고, 앞 단계가 멈춰 시작하지 않은 단계는 finish가 남긴다.
+  // 앱 revert의 결과(lophn-agent#T48). checkpoint가 단계 실패·응답 유실을 기록하고, 앞 단계가
+  // 끝나지 않아 시작하지 않은 단계와 적용하지 못한 ledger 묶음은 app_not_started로 남는다.
   "app_failed",
   "app_uncertain",
   "app_not_started",

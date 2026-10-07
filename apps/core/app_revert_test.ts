@@ -197,7 +197,7 @@ async function titlesOf(fixture: Fixture): Promise<string[]> {
   assert(read.ok);
   return (read.result as { rows: { title: string }[] }).rows.map((row) =>
     row.title
-  );
+  ).sort();
 }
 
 type World = {
@@ -277,8 +277,18 @@ async function open(): Promise<World> {
   };
 }
 
-function machine(world: World, path: string, input: unknown, compare: unknown) {
-  return call(world.server, path, MACHINE_TOKEN, command(input, { compare }));
+// run에 묶인 command는 요청 봉투에 그 run을 싣는다(ledger event가 run에 묶인다).
+function machine(
+  world: World,
+  path: string,
+  input: unknown,
+  compare: unknown,
+  run?: string,
+) {
+  return call(world.server, path, MACHINE_TOKEN, {
+    ...command(input, { compare }),
+    ...(run === undefined ? {} : { run }),
+  });
 }
 
 async function okOf(reply: Promise<Reply>): Promise<Record<string, unknown>> {
@@ -337,58 +347,69 @@ async function appWrite(
 ): Promise<Write> {
   const toolCall = id("tcl", n);
   const invocation = id("inv", n);
-  await okOf(machine(world, "tool-calls/request", {
-    id: toolCall,
+  await okOf(machine(
+    world,
+    "tool-calls/request",
+    {
+      id: toolCall,
+      run,
+      model_call: id("mcl", n),
+      response_key: `call-${n}`,
+      response_order: 0,
+      tool: "add_todo",
+      definition_revision: "1",
+      effect: "write",
+      confirm: false,
+      extension: null,
+      input: INPUT,
+      retry_of: null,
+      attempt: 0,
+      app_command: {
+        app: APP,
+        release: REL,
+        command: "add_todo",
+        blueprint_hash: INPUT,
+        definition_hash: OUTPUT,
+        permission_basis: {
+          grant: id("grt", 1),
+          scope: "todos",
+          basis_seq: "0",
+        },
+        context_binding: null,
+        revert_command: "revert_todo",
+      },
+    },
+    { run_state_seq: "0", model_call_finished_seq: "0" },
     run,
-    model_call: id("mcl", n),
-    response_key: `call-${n}`,
-    response_order: 0,
-    tool: "add_todo",
-    definition_revision: "1",
-    effect: "write",
-    confirm: false,
-    extension: null,
-    input: INPUT,
-    retry_of: null,
-    attempt: 0,
-    app_command: {
-      app: APP,
-      release: REL,
-      command: "add_todo",
-      blueprint_hash: INPUT,
-      definition_hash: OUTPUT,
-      permission_basis: { grant: id("grt", 1), scope: "todos", basis_seq: "0" },
-      context_binding: null,
-      revert_command: "revert_todo",
+  ));
+  await okOf(machine(
+    world,
+    "tool-calls/decide",
+    {
+      tool_call: toolCall,
+      decision: {
+        decision: "allow",
+        reason: "scope allows it",
+        effect: "reversible_write",
+        assignment_revision: world.lophn.revision,
+        preset_revision: 1,
+        contract_revision: "1",
+        comparison_basis: null,
+        approval: null,
+      },
     },
-  }, { run_state_seq: "0", model_call_finished_seq: "0" }));
-  await okOf(machine(world, "tool-calls/decide", {
-    tool_call: toolCall,
-    decision: {
-      decision: "allow",
-      reason: "scope allows it",
-      effect: "reversible_write",
-      assignment_revision: world.lophn.revision,
-      preset_revision: 1,
-      contract_revision: "1",
-      comparison_basis: null,
-      approval: null,
-    },
-  }, { state_seq: "0" }));
+    { state_seq: "0" },
+    run,
+  ));
   await okOf(machine(world, "tool-calls/start", {
     tool_call: toolCall,
     started_at: NOW,
     approval: null,
   }, {
-    state_seq: await stateSeq(
-      world,
-      "tool-calls/read",
-      { tool_call: toolCall },
-      "tool_call",
-    ),
+    state_seq: "1",
     run_state_seq: await stateSeq(world, "runs/read", { run }, "run"),
     assignment_revision: world.lophn.revision,
-  }));
+  }, run));
   const written = await callApp(world.fixture, "add_todo", invocation, {
     title,
   });
@@ -409,13 +430,8 @@ async function appWrite(
     finished_at: NOW,
     duration_ms: 1,
   }, {
-    state_seq: await stateSeq(
-      world,
-      "tool-calls/read",
-      { tool_call: toolCall },
-      "tool_call",
-    ),
-  }));
+    state_seq: "2",
+  }, run));
   return { toolCall, invocation, receipt: written.revert["receipt"]! };
 }
 
@@ -478,6 +494,7 @@ async function apply(
 }
 
 type Stored = {
+  id: string;
   outcome: string;
   result_seq: string | null;
   changes: {
@@ -489,11 +506,17 @@ type Stored = {
   }[];
 };
 
-async function stored(world: World, run: string): Promise<Stored> {
+async function stored(
+  world: World,
+  run: string,
+  revert?: string,
+): Promise<Stored> {
   const reply = await okOf(
     call(world.server, "reverts/list", USER_TOKEN, { run }),
   );
-  const found = (reply["reverts"] as Stored[])[0];
+  const found = (reply["reverts"] as Stored[]).find((entry) =>
+    revert === undefined || entry.id === revert
+  );
   assert(found !== undefined);
   return found;
 }
@@ -516,8 +539,8 @@ function portsOf(
   },
 ): AppStepPorts {
   return {
-    stored: async () => {
-      const found = await stored(world, run);
+    stored: async (revert) => {
+      const found = await stored(world, run, revert);
       return ok({
         outcome: found.outcome,
         steps: found.changes.filter((change) => change.app_revert !== null)
@@ -557,6 +580,7 @@ const RUN_1 = id("run", 1);
 const RUN_2 = id("run", 2);
 const RUN_3 = id("run", 3);
 const RUN_4 = id("run", 4);
+const RUN_5 = id("run", 5);
 const RVT = (n: number) => id("rvt", n);
 
 function appRows(found: Stored) {
@@ -641,6 +665,53 @@ Deno.test("lophn-agent/revert#R10: 저장한 invocation·receipt·현재 revisio
       ),
       1,
     );
+  } finally {
+    await world.dispose();
+  }
+});
+
+Deno.test("lophn-agent/revert#R10: 중단 뒤 이어 받으면 step_key로 이미 기록한 단계는 다시 부르지 않고 같은 단계의 반복 기록은 한 번만 받는다", async () => {
+  const world = await open();
+  try {
+    await startRun(world, RUN_5, 5);
+    const first = await appWrite(world, RUN_5, 41, "A");
+    const second = await appWrite(world, RUN_5, 42, "B");
+    await finishRun(world, RUN_5);
+    await okOf(apply(world, RUN_5, RVT(6), await preview(world, RUN_5)));
+    // 첫 호출(마지막 write)만 하고 기록까지 남긴 채 runtime이 죽었다.
+    const early: string[] = [];
+    const ports = portsOf(world, RUN_5, { called: early });
+    const read = await ports.stored(RVT(6));
+    assert(read.ok);
+    const last = read.value.steps[1]!.binding;
+    assertEquals(last.invocation, second.invocation);
+    assertEquals(await ports.call(last), "restored");
+    const noted = {
+      revert: RVT(6),
+      step_key: last.step_key,
+      invocation: last.invocation,
+      result: "restored" as const,
+    };
+    const checkpoint = await ports.checkpoint(noted);
+    assert(
+      checkpoint.ok && (checkpoint.value as { recorded: boolean }).recorded,
+    );
+    // 같은 단계의 같은 기록은 받아 두지만 새로 남기지 않는다(R8).
+    const repeated = await ports.checkpoint(noted);
+    assert(
+      repeated.ok && !(repeated.value as { recorded: boolean }).recorded,
+    );
+    assertEquals(await titlesOf(world.fixture), ["A"]);
+    // 이어 받은 runtime은 남은 단계만 부른다.
+    const resumed: string[] = [];
+    const ran = await runAppSteps(
+      portsOf(world, RUN_5, { called: resumed }),
+      RVT(6),
+    );
+    assert(ran.ok, ran.ok ? "" : JSON.stringify(ran.error));
+    assertEquals(resumed, [first.invocation]);
+    assertEquals(await titlesOf(world.fixture), []);
+    assertEquals((await stored(world, RUN_5, RVT(6))).outcome, "applied");
   } finally {
     await world.dispose();
   }
@@ -774,13 +845,8 @@ Deno.test("lophn-agent/revert#R11: 앱이 시작 뒤 later change로 거절하�
     assert(ran.ok, ran.ok ? "" : JSON.stringify(ran.error));
     assertEquals(called, [second.invocation]);
     assertEquals(await titlesOf(world.fixture), ["A", "B", "C"]);
-    const done = (await okOf(
-      call(world.server, "reverts/list", USER_TOKEN, { run: RUN_4 }),
-    ))[
-      "reverts"
-    ] as Stored[];
-    const latest = done.find((entry) => entry.outcome === "partial");
-    assert(latest !== undefined);
+    const latest = await stored(world, RUN_4, RVT(5));
+    assertEquals(latest.outcome, "partial");
     assertEquals(
       appRows(latest).map((
         row,

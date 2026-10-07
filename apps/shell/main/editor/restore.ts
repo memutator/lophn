@@ -93,6 +93,8 @@ export interface Restorer {
   restore(input: {
     document: string;
     version: string;
+    /** 사람이 비교로 본 최신 판. 파일 hash 기준도 이 판의 원문에서 나온다. */
+    base_version: string;
     request_key: string;
   }): Promise<EditorReply<RestoreReport>>;
 }
@@ -176,12 +178,19 @@ export function createRestorer(options: RestorerOptions): Restorer {
     key: string,
     observed: Observation | null,
     file: RestoreFile | null,
+    shownBase: string,
   ): Promise<RestoreReport> {
     for (let attempt = 0; attempt < CONFIRM_ATTEMPTS; attempt += 1) {
       const latest = await port.fixed(selected.document.id);
       if (!latest.ok) return failedWith(latest.error, file);
       const document = latest.value.document;
       if (document.status !== "active") return report("conflict", { file });
+      // 원본이 없는 문서는 사람이 비교로 본 판 위에서만 확정한다. 그 사이 판이 생기면 새 기준으로
+      // 조용히 다시 묻지 않고 멈춰 다시 비교하게 한다. 원본 연결 문서는 쓰기 전에 같은 검사를 했고
+      // 쓴 뒤의 새 판은 이 복원의 관측일 수 있어 관측 근거로 확정한다.
+      if (observed === null && document.latest_version !== shownBase) {
+        return report("conflict", { file });
+      }
       const source = document.file_source;
       let basis: Record<string, unknown> | null = null;
       if (observed !== null && source !== null) {
@@ -221,7 +230,7 @@ export function createRestorer(options: RestorerOptions): Restorer {
         idempotency_key: idempotency,
       });
       if (!prepared.ok) {
-        if (prepared.error.code === "conflict") continue;
+        if (prepared.error.code === "conflict" && observed !== null) continue;
         return failedWith(prepared.error, file);
       }
       const restored = await port.restore({
@@ -267,25 +276,31 @@ export function createRestorer(options: RestorerOptions): Restorer {
     return report("conflict", { file });
   }
 
-  // 원본 연결 문서: 고른 판의 대표 파일 바이트를 지금 디스크 위에 쓴다. 디스크가 이미 그
-  // 바이트면 쓰지 않는다. 쓴 뒤의 관측이 확정 근거다.
+  // 원본 연결 문서: 고른 판의 대표 파일 바이트를 원본 파일 위에 쓴다. 쓰기 기준 hash는 지금 디스크가
+  // 아니라 사람이 비교로 본 최신 판의 원문 hash(expected)다. 디스크가 그 hash가 아니면 바깥 편집이
+  // 아직 판이 되지 않았어도 쓰지 않고 충돌로 멈춘다(file-tracking#R11). 쓰기는 같은 hash로 시작 때와
+  // 교체 직전에 다시 대조된다. 디스크가 이미 고른 바이트면 쓰지 않거나 같은 바이트를 다시 쓴다.
   async function writeOriginal(
     port: RestorePort,
     selected: FixedRead,
     source: FileSource,
     primary: StoredFile,
     key: string,
+    expected: string,
   ): Promise<
     | { ok: true; file: "written"; observed: Observation }
     | { ok: false; report: RestoreReport }
   > {
     const target = targetOf(source);
     const current = await port.read(target, RESTORE_MAX_BYTES);
-    let base: string | null;
-    if (current.ok) base = hash(current.value);
-    else if (current.error.code === "not_found") base = null;
+    let disk: string | null;
+    if (current.ok) disk = hash(current.value);
+    else if (current.error.code === "not_found") disk = null;
     else return { ok: false, report: failedWith(current.error) };
-    if (base === primary.blob_hash) {
+    if (disk !== expected && disk !== primary.blob_hash) {
+      return { ok: false, report: report("conflict", { file: "conflict" }) };
+    }
+    if (disk === primary.blob_hash) {
       // 디스크가 이미 그 바이트이고 최신 판도 같은 내용이면 할 일이 없다(새 판을 만들지 않는다).
       const latest = await port.fixed(selected.document.id);
       if (!latest.ok) return { ok: false, report: failedWith(latest.error) };
@@ -317,7 +332,7 @@ export function createRestorer(options: RestorerOptions): Restorer {
     const written = await port.write({
       request_key: `${key}-w`,
       target,
-      base_hash: base,
+      base_hash: disk,
       content: { kind: "prepared", blob: blob.value },
     });
     if (!written.ok) {
@@ -377,6 +392,10 @@ export function createRestorer(options: RestorerOptions): Restorer {
       // 경로별 원문 행이 없는 옛 판은 원문 참조로 준비할 수 없다.
       if (!Array.isArray(files)) return { ok: false, code: "unsupported" };
       const source = selected.value.document.file_source;
+      // 비교로 본 최신 판이 아니면 낡은 기준이다. 쓰기 전에 멈춘다(flow restore-document 5).
+      if (selected.value.document.latest_version !== input.base_version) {
+        return { ok: true, value: report("conflict") };
+      }
       try {
         if (source === null) {
           return {
@@ -388,6 +407,7 @@ export function createRestorer(options: RestorerOptions): Restorer {
               input.request_key,
               null,
               null,
+              input.base_version,
             ),
           };
         }
@@ -396,12 +416,25 @@ export function createRestorer(options: RestorerOptions): Restorer {
         if (primary === undefined || files.length !== 1) {
           return { ok: false, code: "unsupported" };
         }
+        // 파일 hash 기준은 비교로 본 최신 판의 원문이다.
+        const shown = input.base_version === input.version
+          ? selected
+          : await port.fixed(input.document, input.base_version);
+        if (!shown.ok) return { ok: true, value: failedWith(shown.error) };
+        const shownFiles = shown.value.version.files;
+        const shownPrimary = Array.isArray(shownFiles)
+          ? shownFiles.find((file) => file.primary)
+          : undefined;
+        if (shownPrimary === undefined) {
+          return { ok: false, code: "unsupported" };
+        }
         const written = await writeOriginal(
           port,
           selected.value,
           source,
           primary,
           input.request_key,
+          shownPrimary.blob_hash,
         );
         if (!written.ok) return { ok: true, value: written.report };
         return {
@@ -413,6 +446,7 @@ export function createRestorer(options: RestorerOptions): Restorer {
             input.request_key,
             written.observed,
             written.file,
+            input.base_version,
           ),
         };
       } catch (error) {

@@ -18,6 +18,8 @@ import {
 import {
   connectionConnectInputSchema,
   connectionCreate,
+  connectionIdSchema,
+  connectionRevoke,
 } from "../../packages/contracts/coding-agent/mod.ts";
 import type {
   AuthenticatedContext,
@@ -26,6 +28,7 @@ import type { MemoryHandler } from "../../packages/platform/api/mod.ts";
 import type { Writer } from "../../packages/platform/ledger/mod.ts";
 import {
   type CodingCredentialAuthority,
+  codingExternalCredential,
   createCodingCredentialAuthority,
   type CredentialRegistry,
 } from "../../packages/platform/identity/mod.ts";
@@ -35,12 +38,19 @@ import {
   type KeychainAdapter,
 } from "../../packages/platform/secrets/mod.ts";
 
+const CODING_REF_PREFIX = "coding:";
+
 export type CodingCredentials = {
   readonly authority: CodingCredentialAuthority;
   // 사람의 연결 결정을 받는 입구가 부른다(입구의 contract는 coding-agent 소유). submit은 그 입구가
   // 사람 credential로 connection create command를 보내는 함수다. 성공하면 인증된 context를 ledger
   // credential 기록에 남긴다.
   connect: CodingCredentialAuthority["connect"];
+  // `coding:<connection>` credential_ref의 지금 상태다. ledger의 connection 상태를 읽으므로 회수된
+  // connection은 바로 거절이고 coding credential이 아닌 ref는 undefined다.
+  current(
+    credentialRef: string,
+  ): Result<AuthenticatedContext> | undefined;
   // registry·기록 함수가 준비된 뒤 한 번 부른다. 고아 정리와 색인 복원을 하고 실패는 기동을 막지
   // 않는다(진단 log만 남긴다). 끝나면 resolve한다.
   start(
@@ -115,6 +125,35 @@ export function createCodingCredentials(options: {
 
   return {
     authority,
+    current(credentialRef) {
+      if (!credentialRef.startsWith(CODING_REF_PREFIX)) return undefined;
+      const connection = connectionIdSchema.safeParse(
+        credentialRef.slice(CODING_REF_PREFIX.length),
+      );
+      if (!connection.success) return undefined;
+      const denied = err(
+        {
+          code: "unauthorized",
+          message: "현재 credential이 없다",
+        } as const,
+      );
+      if (bound === undefined) return denied;
+      const opened = openConnection(options.ledgerPath);
+      if (!opened.ok) return denied;
+      try {
+        const found = lookupConnectionAuth(
+          opened.value.sql,
+          `coding_agent:${connection.data}`,
+        );
+        if (found === undefined || found.state !== "active") return denied;
+        const context = bound.registry.externalContext(
+          codingExternalCredential(connection.data, found.scope),
+        );
+        return context.ok ? context : denied;
+      } finally {
+        opened.value.close();
+      }
+    },
     async connect(input, submit, signal) {
       const connected = await authority.connect(input, submit, signal);
       if (!connected.ok) return connected;
@@ -215,5 +254,24 @@ export function connectHandler(
     return connected.ok
       ? ok({ connection: connected.value.connection })
       : connected;
+  };
+}
+
+// 연결 회수가 commit되면 응답 전에 그 credential로 연 앱 통로를 바로 닫는다(connection#R8). 닫는 일은
+// 앱 connector의 검사(회수된 credential의 connection이 연 프로세스 통로를 닫는다)이고, 1초 timer를
+// 기다리지 않는다. 회수 결과는 닫는 일의 성패와 상관없이 그대로다.
+export function withRevocationSweep(
+  writer: Writer,
+  sweep: () => Promise<unknown>,
+): Writer {
+  return {
+    ...writer,
+    async command(ctx, envelope) {
+      const done = await writer.command(ctx, envelope);
+      if (done.ok && envelope.command === connectionRevoke.name) {
+        await sweep().catch(() => undefined);
+      }
+      return done;
+    },
   };
 }

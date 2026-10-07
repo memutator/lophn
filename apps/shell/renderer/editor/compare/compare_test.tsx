@@ -95,6 +95,7 @@ function sourceOf(options: {
   restore?: (version: string) => RestoreReport;
 }) {
   const restored: string[] = [];
+  const bases: string[] = [];
   const source: VersionSource = {
     facts: () => Promise.resolve({ ok: false, code: "unavailable" }),
     history: () => Promise.resolve({ ok: true, value: ROWS }),
@@ -118,8 +119,9 @@ function sourceOf(options: {
       ),
     sectionHistory: () => Promise.resolve({ ok: false, code: "unavailable" }),
     contexts: () => Promise.resolve({ ok: true, value: [] }),
-    restore: (_document, version) => {
+    restore: (_document, version, base) => {
       restored.push(version);
+      bases.push(base);
       return Promise.resolve({
         ok: true,
         value: options.restore?.(version) ??
@@ -127,7 +129,7 @@ function sourceOf(options: {
       });
     },
   };
-  return { source, restored };
+  return { source, restored, bases };
 }
 
 async function flush(): Promise<void> {
@@ -139,7 +141,7 @@ function view(
   source: VersionSource,
   options: {
     width?: number;
-    onRestore?: (version: string) => Promise<RestoreAnswer>;
+    onRestore?: (version: string, base: string) => Promise<RestoreAnswer>;
     onChange?: (before: string, after: string) => void;
   } = {},
 ) {
@@ -154,8 +156,8 @@ function view(
         onChange={options.onChange ?? (() => {})}
         onClose={() => {}}
         onRestore={options.onRestore ??
-          (async (version) => {
-            const result = await source.restore("doc_plan", version);
+          (async (version, base) => {
+            const result = await source.restore("doc_plan", version, base);
             return result.ok
               ? { kind: "report", report: result.value }
               : { kind: "failed", code: result.code };
@@ -437,7 +439,7 @@ Deno.test("shell/editor#R14: 복원은 secondary 행동이고 primary 버튼이 
     { outcome: "unchanged", version: V3, file: null, failure: null },
     { outcome: "conflict", version: null, file: null, failure: null },
   ];
-  const { source, restored } = sourceOf({
+  const { source, restored, bases } = sourceOf({
     before,
     after,
     diff,
@@ -470,6 +472,8 @@ Deno.test("shell/editor#R14: 복원은 secondary 행동이고 primary 버튼이 
     );
   }
   assertEquals(restored, [V1, V1, V1]);
+  // 비교 화면이 지금 판으로 보여 준 최신 판을 기준으로 함께 보낸다.
+  assertEquals(bases, [V3, V3, V3]);
   assertEquals(
     one(container, "[data-restore-notice]").textContent,
     "The document changed while restoring. Compare again before restoring.",

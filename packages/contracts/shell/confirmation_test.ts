@@ -274,6 +274,51 @@ Deno.test(
 );
 
 Deno.test(
+  "shell/confirmation-window#R6, lophn-agent/harness/provider#R6: 등록한 계정의 교체·삭제 열기는 계정 key와 행동만 싣고 등록 정보나 다른 목적과 함께 오지 않는다",
+  () => {
+    const owner = "pvd_01arz3ndektsv4rrffq69g5fav";
+    const open = (request: Record<string, unknown>) =>
+      confirmationOpenIntentSchema.safeParse({
+        request: { kind: "secret_input", owner, ...request },
+        parentWindow: "win-1",
+      }).success;
+    const purpose = "provider_credential";
+    assert(open({ purpose, change: { key: "main", action: "replace" } }));
+    assert(open({ purpose, change: { key: "main", action: "revoke" } }));
+    assert(!open({ purpose, change: { key: "main", action: "delete" } }));
+    assert(!open({ purpose, change: { key: "main", action: "revoke", v: 1 } }));
+    assert(
+      !open({
+        purpose: "app_secret",
+        change: { key: "main", action: "revoke" },
+      }),
+    );
+    assert(
+      !open({
+        purpose,
+        change: { key: "main", action: "revoke" },
+        credential: {
+          key: "main",
+          kind: "api_key",
+          label: "Main key",
+          account: null,
+          organization: null,
+          plan: null,
+          dedup_fingerprint: HASH,
+        },
+      }),
+    );
+    assert(
+      confirmationOutcomeSchema.safeParse({
+        outcome: "decided",
+        secret_ref: "Main key",
+        stored: "revoked",
+      }).success,
+    );
+  },
+);
+
+Deno.test(
   "shell/confirmation-window#R5, platform/approvals#R9: 표시는 종류별 view·상태·결정을, 결과는 접수와 실제 적용을 구별한다",
   () => {
     const display = confirmationDisplaySchema.parse({

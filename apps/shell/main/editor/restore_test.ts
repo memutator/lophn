@@ -161,6 +161,7 @@ test("shell/editor#R14: 원본이 없는 문서는 고른 판의 원문 blob 참
   const reply = await restorer.restore({
     document: DOC,
     version: V1,
+    base_version: V2,
     request_key: KEY,
   });
   assert.deepEqual(reply, {
@@ -197,6 +198,7 @@ test("shell/editor#R14: 최신 판과 같은 내용이면 unchanged를, 그 사�
   const unchanged = await restorer.restore({
     document: DOC,
     version: V1,
+    base_version: V2,
     request_key: KEY,
   });
   assert.deepEqual(unchanged, {
@@ -213,7 +215,12 @@ test("shell/editor#R14: 최신 판과 같은 내용이면 unchanged를, 그 사�
     port: () => moved.port,
     log: () => {},
   })
-    .restore({ document: DOC, version: V1, request_key: KEY });
+    .restore({
+      document: DOC,
+      version: V1,
+      base_version: V2,
+      request_key: KEY,
+    });
   assert.deepEqual(conflict, {
     ok: true,
     value: { outcome: "conflict", version: null, file: null, failure: null },
@@ -228,6 +235,7 @@ test("shell/editor#R14: 원본 연결 문서는 고른 판 바이트를 지금 �
   const reply = await restorer.restore({
     document: DOC,
     version: V1,
+    base_version: V2,
     request_key: KEY,
   });
   assert.deepEqual(reply, {
@@ -270,7 +278,12 @@ test("shell/editor#R14: 바깥에서 파일이 바뀌어 쓰기가 막히면 파
     write: { code: "conflict", message: "changed" },
   });
   const reply = await createRestorer({ port: () => state.port, log: () => {} })
-    .restore({ document: DOC, version: V1, request_key: KEY });
+    .restore({
+      document: DOC,
+      version: V1,
+      base_version: V2,
+      request_key: KEY,
+    });
   assert.deepEqual(reply, {
     ok: true,
     value: {
@@ -284,7 +297,12 @@ test("shell/editor#R14: 바깥에서 파일이 바뀌어 쓰기가 막히면 파
   // 쓴 뒤 그 사이 또 바뀌었으면 낡은 관측으로 확정하지 않는다.
   const again = fake({ linked: true, write: { changed_again: true } });
   const moved = await createRestorer({ port: () => again.port, log: () => {} })
-    .restore({ document: DOC, version: V1, request_key: KEY });
+    .restore({
+      document: DOC,
+      version: V1,
+      base_version: V2,
+      request_key: KEY,
+    });
   assert.deepEqual(moved, {
     ok: true,
     value: {
@@ -308,7 +326,12 @@ test("shell/editor#R14: 관측이 같은 바이트로 판을 먼저 만들었으
     latestAfterConflict: observed,
   });
   const reply = await createRestorer({ port: () => raced.port, log: () => {} })
-    .restore({ document: DOC, version: V1, request_key: KEY });
+    .restore({
+      document: DOC,
+      version: V1,
+      base_version: V2,
+      request_key: KEY,
+    });
   assert.deepEqual(reply, {
     ok: true,
     value: { outcome: "saved", version: V3, file: "written", failure: null },
@@ -322,7 +345,12 @@ test("shell/editor#R14: 관측이 같은 바이트로 판을 먼저 만들었으
       value: version === V1 ? fixed(V1, OLD, V3, true) : latest,
     });
   const same = await createRestorer({ port: () => done.port, log: () => {} })
-    .restore({ document: DOC, version: V1, request_key: KEY });
+    .restore({
+      document: DOC,
+      version: V1,
+      base_version: V3,
+      request_key: KEY,
+    });
   assert.deepEqual(same, {
     ok: true,
     value: { outcome: "unchanged", version: V3, file: "same", failure: null },
@@ -345,12 +373,123 @@ test("shell/editor#R14: 경로별 원문 행이 없는 옛 판과 연결이 없�
     });
   const restorer = createRestorer({ port: () => state.port, log: () => {} });
   assert.deepEqual(
-    await restorer.restore({ document: DOC, version: V1, request_key: KEY }),
+    await restorer.restore({
+      document: DOC,
+      version: V1,
+      base_version: V2,
+      request_key: KEY,
+    }),
     { ok: false, code: "unsupported" },
   );
   const offline = createRestorer({ port: () => null, log: () => {} });
   assert.deepEqual(
-    await offline.restore({ document: DOC, version: V1, request_key: KEY }),
+    await offline.restore({
+      document: DOC,
+      version: V1,
+      base_version: V2,
+      request_key: KEY,
+    }),
     { ok: false, code: "offline" },
   );
+});
+
+test("shell/editor#R15 documents/file-tracking#R11: 비교로 본 판 뒤에 바깥이 파일을 고쳤고 관측이 아직 판을 만들지 않았으면 쓰지 않고 파일 충돌로 멈춘다", async () => {
+  const outside = encoder.encode("# Plan\noutside edit\n");
+  const state = fake({ linked: true, disk: outside });
+  const reply = await createRestorer({ port: () => state.port, log: () => {} })
+    .restore({
+      document: DOC,
+      version: V1,
+      base_version: V2,
+      request_key: KEY,
+    });
+  assert.deepEqual(reply, {
+    ok: true,
+    value: {
+      outcome: "conflict",
+      version: null,
+      file: "conflict",
+      failure: null,
+    },
+  });
+  // 바깥 내용은 덮이지 않았다: 쓰기도 준비도 복원 명령도 나가지 않았다.
+  assert.equal(state.writes.length, 0);
+  assert.equal(state.prepared.length, 0);
+  assert.equal(state.restores.length, 0);
+  // 바깥이 파일을 지웠어도 같다. 없는 파일을 되살린 판으로 새로 만들지 않는다.
+  const gone = fake({ linked: true });
+  gone.port.read = () =>
+    Promise.resolve({
+      ok: false,
+      error: { code: "not_found", message: "missing" },
+    });
+  const deleted = await createRestorer({ port: () => gone.port, log: () => {} })
+    .restore({
+      document: DOC,
+      version: V1,
+      base_version: V2,
+      request_key: KEY,
+    });
+  assert.deepEqual(deleted, {
+    ok: true,
+    value: {
+      outcome: "conflict",
+      version: null,
+      file: "conflict",
+      failure: null,
+    },
+  });
+  assert.equal(gone.writes.length, 0);
+});
+
+test("shell/editor#R15 documents/file-tracking#R11: 비교로 본 최신 판이 그 사이 바뀌었으면(관측이 바깥 변경을 판으로 만들었으면) 새 판 위에 쓰지 않고 충돌로 멈춘다", async () => {
+  // 지금 최신 판은 V2인데 사람이 본 최신 판은 V1이라 낡은 기준이다.
+  const linked = fake({ linked: true });
+  const stale = await createRestorer({
+    port: () => linked.port,
+    log: () => {},
+  })
+    .restore({
+      document: DOC,
+      version: V3,
+      base_version: V1,
+      request_key: KEY,
+    });
+  assert.deepEqual(stale, {
+    ok: true,
+    value: { outcome: "conflict", version: null, file: null, failure: null },
+  });
+  assert.equal(linked.writes.length, 0);
+  assert.equal(linked.prepared.length, 0);
+  const plain = fake();
+  const unlinked = await createRestorer({
+    port: () => plain.port,
+    log: () => {},
+  })
+    .restore({
+      document: DOC,
+      version: V1,
+      base_version: V3,
+      request_key: KEY,
+    });
+  assert.deepEqual(unlinked, {
+    ok: true,
+    value: { outcome: "conflict", version: null, file: null, failure: null },
+  });
+  assert.equal(plain.prepared.length, 0);
+  assert.equal(plain.restores.length, 0);
+});
+
+test("shell/editor#R15 documents/file-tracking#R11: 쓰기 기준 hash는 비교로 본 판의 원문 hash이고 디스크가 이미 고른 바이트면 그 디스크 hash로 같은 바이트를 다시 쓴다", async () => {
+  // 판 확정만 못 끝낸 앞 복원이 파일에 쓴 바이트가 남은 경우다. 덮을 바깥 내용이 없다.
+  const state = fake({ linked: true, disk: OLD });
+  const reply = await createRestorer({ port: () => state.port, log: () => {} })
+    .restore({
+      document: DOC,
+      version: V1,
+      base_version: V2,
+      request_key: KEY,
+    });
+  assert.equal(reply.ok && reply.value.outcome, "saved");
+  assert.equal(state.writes[0]!.base_hash, sha256(OLD));
 });

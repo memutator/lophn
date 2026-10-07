@@ -10,6 +10,10 @@ import {
 } from "../ipc/core.ts";
 import type { CoreApi, CoreReply } from "../ipc/core-api.ts";
 import {
+  OPEN_EXTERNAL_CHANNEL,
+  type OpenExternalReply,
+} from "../ipc/open-external.ts";
+import {
   FOLDER_PICK_CHANNEL,
   type FolderPickerApi,
   type FolderPickReply,
@@ -35,6 +39,17 @@ contextBridge.exposeInMainWorld(
     ? Object.freeze({
       ...createShellApi(ipcRenderer, role),
       openConfirmation: createConfirmationOpener(ipcRenderer),
+      // shell 크롬의 외부 링크는 확인 없이 OS browser로 연다. URL 검사는 main이 한다(R7).
+      async openExternal(url: string): Promise<OpenExternalReply> {
+        try {
+          return await ipcRenderer.invoke(
+            OPEN_EXTERNAL_CHANNEL,
+            { url },
+          ) as OpenExternalReply;
+        } catch {
+          return { ok: false, code: "unavailable" };
+        }
+      },
       ...createViewsApi(ipcRenderer),
       ...createFeedbackBegin(ipcRenderer),
     })

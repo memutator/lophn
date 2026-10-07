@@ -3,6 +3,8 @@
 // (2) 그 증거가 들어간 소유 command 입력의 binding으로 이 창의 handle을 만들고(증거를 받은
 // 뒤에만 만들 수 있다), (3) 소유 command를 보내고, (4) 창에는 안전 이름과 저장 결과만 돌려준다.
 // 값은 log·오류·IPC 결과 어디에도 넣지 않는다.
+import { createHash } from "node:crypto";
+
 import type { Canonical, DeferredPort } from "../coordinator.ts";
 import type { ProviderCredentialFields } from "../types.ts";
 import {
@@ -17,6 +19,7 @@ import {
 
 export const SET_SECRET = "SetSecret";
 export const REGISTER_PROVIDER_CREDENTIAL = "RegisterProviderCredential";
+export const CHANGE_PROVIDER_CREDENTIALS = "ChangeProviderCredentials";
 
 /** contracts SECRET_INPUT_MAX_BYTES. */
 export const SECRET_INPUT_MAX_BYTES = 64 * 1024;
@@ -106,19 +109,92 @@ async function readProviderCredential(
   };
 }
 
+/**
+ * 등록한 계정 하나의 교체·삭제(contracts ChangeProviderCredentials). 표시 정본은
+ * `/v1/provider-credentials/list`의 그 계정이고 비교 기준은 `providers/read`의 판이다. 교체는
+ * 새 값을 보호 입력으로 받고, 삭제는 그 계정을 새 일에서 막을 뿐 값을 받지 않는다.
+ */
+async function readProviderCredentialChange(
+  core: KindCore,
+  provider: string,
+  change: { key: string; action: "replace" | "revoke" },
+): Promise<Read> {
+  const got = await core.internal("read", "providers", "read", { provider });
+  if (!got.ok) return readFailure(got);
+  const found = record(record(got.value).provider);
+  const revision = found.revision;
+  if (typeof revision !== "number") {
+    return failed("not_found", "연결을 찾지 못했다");
+  }
+  const listed = await core.internal("read", "provider-credentials", "list", {
+    provider,
+  });
+  if (!listed.ok) return readFailure(listed);
+  const credentials = record(listed.value).credentials;
+  const current = record(
+    (Array.isArray(credentials) ? credentials : []).map(record).find((item) =>
+      item.key === change.key
+    ),
+  );
+  if (
+    typeof current.revision !== "number" || typeof current.order !== "number" ||
+    typeof current.label !== "string"
+  ) {
+    return failed("not_found", "계정을 찾지 못했다");
+  }
+  return {
+    ok: true,
+    value: {
+      targetRef: provider,
+      content: {
+        purpose: "provider_credential",
+        owner: provider,
+        revision,
+        change: {
+          key: change.key,
+          action: change.action,
+          revision: current.revision,
+          order: current.order,
+          label: current.label,
+        },
+      },
+      allowed: [CHANGE_PROVIDER_CREDENTIALS],
+      expiresAt: null,
+      secondConfirm: false,
+      handle: "deferred",
+      request: {
+        kind: "secret_input",
+        owner: provider,
+        purpose: "provider_credential",
+      },
+      view: {
+        kind: "secret",
+        purpose: "provider_credential",
+        name: current.label,
+        provider: typeof found.name === "string" ? found.name : null,
+        configured: false,
+        entry: change.action === "replace" ? "replace" : "revoke",
+      },
+    },
+  };
+}
+
 export function readSecretInput(
   core: KindCore,
   intent: {
     owner: string;
     purpose: string;
     credential?: ProviderCredentialFields;
+    change?: { key: string; action: "replace" | "revoke" };
   },
 ): Promise<Read> {
   if (intent.purpose === "app_secret") {
     return readAppSecret(core, intent.owner);
   }
   if (intent.purpose === "provider_credential") {
-    return readProviderCredential(core, intent.owner, intent.credential);
+    return intent.change === undefined
+      ? readProviderCredential(core, intent.owner, intent.credential)
+      : readProviderCredentialChange(core, intent.owner, intent.change);
   }
   return Promise.resolve(failed("not_found", "이 입력을 받을 곳이 없다"));
 }
@@ -158,41 +234,47 @@ export function createSecretSubmitter(
       if (!canonical.allowed.includes(decision)) {
         return { ok: false, error: safeError("forbidden") };
       }
-      const raw = record(commandInput).value;
-      if (typeof raw !== "string" || raw.length === 0) {
-        return { ok: false, error: safeError("invalid_input") };
-      }
-      const bytes = new TextEncoder().encode(raw);
-      let evidence: Record<string, string> | null;
-      try {
-        if (bytes.length > SECRET_INPUT_MAX_BYTES) {
+      // 삭제는 받을 값이 없다. 증거 없이 계정 상태만 바꾼다.
+      let evidence: Record<string, string> | null = null;
+      let fingerprint: string | null = null;
+      if (!isRevoke(content)) {
+        const raw = record(commandInput).value;
+        if (typeof raw !== "string" || raw.length === 0) {
           return { ok: false, error: safeError("invalid_input") };
         }
-        let uploaded;
+        const bytes = new TextEncoder().encode(raw);
+        // 같은 key를 두 번 등록하지 않게 하는 지문은 값에서만 만들 수 있다. 값은 남지 않는다.
+        fingerprint = createHash("sha256").update(bytes).digest("hex");
         try {
-          uploaded = await core.upload(
-            "secrets",
-            "input",
-            { purpose, owner, bytes: bytes.length },
-            bytes,
-          );
-        } catch {
-          return { ok: false, error: safeError("unavailable") };
+          if (bytes.length > SECRET_INPUT_MAX_BYTES) {
+            return { ok: false, error: safeError("invalid_input") };
+          }
+          let uploaded;
+          try {
+            uploaded = await core.upload(
+              "secrets",
+              "input",
+              { purpose, owner, bytes: bytes.length },
+              bytes,
+            );
+          } catch {
+            return { ok: false, error: safeError("unavailable") };
+          }
+          if (!uploaded.ok) {
+            return { ok: false, error: safeError(uploaded.error.code) };
+          }
+          evidence = evidenceOf(uploaded.value);
+        } finally {
+          bytes.fill(0);
         }
-        if (!uploaded.ok) {
-          return { ok: false, error: safeError(uploaded.error.code) };
+        if (
+          evidence === null || evidence.purpose !== purpose ||
+          evidence.owner !== owner
+        ) {
+          return { ok: false, error: safeError("internal") };
         }
-        evidence = evidenceOf(uploaded.value);
-      } finally {
-        bytes.fill(0);
       }
-      if (
-        evidence === null || evidence.purpose !== purpose ||
-        evidence.owner !== owner
-      ) {
-        return { ok: false, error: safeError("internal") };
-      }
-      const built = commandOf(canonical, evidence);
+      const built = commandOf(canonical, evidence, fingerprint);
       const bound = bindingOf(built.binding, built.input);
       const handle = await register({
         target_ref: bound.target,
@@ -216,15 +298,21 @@ export function createSecretSubmitter(
       }
       return {
         ok: true,
-        value: { secret_ref: built.safeName, stored: "stored" },
+        value: { secret_ref: built.safeName, stored: built.stored },
       };
     },
   };
 }
 
+/** 계정 삭제인지. 삭제는 값도 증거도 없다. */
+function isRevoke(content: Record<string, unknown>): boolean {
+  return record(content.change).action === "revoke";
+}
+
 function commandOf(
   canonical: Canonical,
-  evidence: Record<string, string>,
+  evidence: Record<string, string> | null,
+  fingerprint: string | null,
 ): {
   decision: string;
   resource: string;
@@ -233,8 +321,33 @@ function commandOf(
   input: Record<string, unknown>;
   compare: Record<string, unknown>;
   safeName: string;
+  stored: "stored" | "revoked";
 } {
   const content = record(canonical.content);
+  if (content.purpose === "provider_credential" && content.change) {
+    // 교체는 그 계정에 새 값의 증거를 넣고, 삭제는 그 계정을 새 일에서 막는다. 순서·사용 여부는
+    // 그대로다. 비교 기준은 연결의 판이고 계정의 판은 입력이 싣는다.
+    const change = record(content.change);
+    return {
+      decision: CHANGE_PROVIDER_CREDENTIALS,
+      resource: "provider-credentials",
+      method: "change",
+      binding: ["provider", "credentials"],
+      input: {
+        provider: content.owner,
+        credentials: [{
+          key: change.key,
+          revision: change.revision,
+          replacement: change.action === "replace" ? evidence : null,
+          order: change.order,
+          revoke: change.action === "revoke",
+        }],
+      },
+      compare: { revision: content.revision },
+      safeName: String(change.label),
+      stored: change.action === "revoke" ? "revoked" : "stored",
+    };
+  }
   if (content.purpose === "provider_credential") {
     const credential = record(content.credential);
     return {
@@ -251,10 +364,11 @@ function commandOf(
         account: credential.account ?? null,
         organization: credential.organization ?? null,
         plan: credential.plan ?? null,
-        dedup_fingerprint: credential.dedup_fingerprint,
+        dedup_fingerprint: credential.dedup_fingerprint ?? fingerprint,
       },
       compare: { revision: content.revision },
       safeName: String(credential.label),
+      stored: "stored",
     };
   }
   return {
@@ -265,5 +379,6 @@ function commandOf(
     input: { name: content.owner, preparation: evidence },
     compare: { sealed_ref: null, revision: null },
     safeName: String(content.owner),
+    stored: "stored",
   };
 }

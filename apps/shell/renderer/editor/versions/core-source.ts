@@ -326,11 +326,12 @@ export function coreVersionSource(
       return read.ok ? { ok: true, value: found } : read;
     },
 
-    async restore(document, version) {
+    async restore(document, version, base) {
       if (!files) return { ok: false, code: "unavailable" };
       const reply = await files.restore({
         document,
         version,
+        base_version: base,
         request_key: `restore-${crypto.randomUUID()}`,
       });
       return reply.ok ? reply : { ok: false, code: reply.code };

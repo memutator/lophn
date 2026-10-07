@@ -338,3 +338,58 @@ async function runSelected(
     recovery_pending: recoveryPending,
   });
 }
+
+// 고른 target 하나의 설치·갱신·제거가 쓸 수 있는 파일의 정확한 절대 경로다(CLI launcher의 쓰기 권한 계산,
+// open-issues coding-agent/mcp-server#Q9). 설정 파일 하나와, 앱 범위의 관리 구간 지침 파일이다. CLI는
+// 제품 version을 모르고 hook argv를 주지 않아 hook 파일은 쓰지 않으며 skill은 아직 설치하지 않는다.
+// 폴더·와일드카드·다른 제품·다른 앱의 경로는 나오지 않는다. 절대 경로로 풀리지 않으면 err다.
+export function selectedWriteFiles(
+  target: IntegrationTarget,
+  roots: RootInputs,
+): Result<string[]> {
+  const definition = catalogOf(target.harness_id);
+  if (definition === undefined) {
+    return err({ code: "invalid_input", message: "알 수 없는 제품이다" });
+  }
+  if (target.environment.kind !== "host") {
+    return err({
+      code: "invalid_input",
+      message: "지금은 native host만 설치한다",
+    });
+  }
+  const scoped: RootInputs = target.scope_kind === "app"
+    ? { ...roots, cwd: target.app_realpath }
+    : roots;
+  const files: string[] = [];
+  const add = (resolver: string, path: string): Result<void> => {
+    const root = rootOf(resolver, scoped);
+    if (!root.ok) return root;
+    const full = `${root.value}/${path}`;
+    if (
+      !full.startsWith("/") || full.split("/").includes("..") ||
+      /[\0\n,]/.test(full)
+    ) {
+      return err({
+        code: "invalid_input",
+        message: "쓸 경로가 정확한 절대 경로가 아니다",
+      });
+    }
+    if (!files.includes(full)) files.push(full);
+    return ok(undefined);
+  };
+  const config = definition.config_targets.find((entry) =>
+    entry.scope_kind === target.scope_kind
+  );
+  if (config !== undefined) {
+    const added = add(config.root_resolver, config.path);
+    if (!added.ok) return added;
+  }
+  if (target.scope_kind === "app") {
+    for (const instruction of definition.instructions) {
+      if (instruction.mode !== "region") continue;
+      const added = add("project", instruction.file);
+      if (!added.ok) return added;
+    }
+  }
+  return ok(files);
+}

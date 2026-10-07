@@ -144,6 +144,12 @@ export async function openWorld(
     supervisor?: boolean;
     // preview가 bundle·release를 여는 자리(apps/preview 시험).
     previews?: NonNullable<CoreHarnessOptions["apps"]>["previews"];
+    // 다른 concern의 통합 시험이 같은 world에 팀과 실제 coding credential을 더한다.
+    extend?: {
+      teams: NonNullable<CoreHarnessOptions["teams"]>;
+      teamModules: readonly string[];
+      coding?: CoreHarnessOptions["coding"];
+    };
   } = {},
 ): Promise<World> {
   const documents = await import("../../../apps/core/documents.ts");
@@ -169,12 +175,15 @@ export async function openWorld(
       { createLedgerRegistration: apps.createLedgerRegistration },
       { createLedgerRegistration: fixtures.createLedgerRegistration },
       { createLedgerRegistration: permissions.createLedgerRegistration },
+      ...(options.extend?.teams ?? []),
     ],
+    ...(options.extend?.coding ? { coding: options.extend.coding } : {}),
     teamModules: [
       new URL("../../../apps/core/documents.ts", import.meta.url).href,
       new URL("../../../apps/core/apps.ts", import.meta.url).href,
       new URL("./testing/mod.ts", import.meta.url).href,
       new URL("../permissions/testing/mod.ts", import.meta.url).href,
+      ...(options.extend?.teamModules ?? []),
     ],
     apps: options.supervisor
       ? {

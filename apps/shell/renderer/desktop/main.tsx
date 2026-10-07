@@ -32,6 +32,7 @@ import { DesktopIntents } from "./intents.tsx";
 import type { LophnTarget } from "./palette/lophn-scope.ts";
 import { AppSpace } from "../app-frame/app-space.tsx";
 import type { AppsSource } from "./lophn-space/apps/source.ts";
+import type { SettingsSource } from "./lophn-space/settings/source.ts";
 import type { AppDetailSource } from "../app-frame/app-detail/source.ts";
 import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
 import type { LophnAppWindowsApi } from "../../ipc/app-window.ts";
@@ -68,6 +69,8 @@ export interface DesktopProps {
   instructions?: InstructionsSource;
   /** apps 화면과 앱 공간의 통로. 없으면 앱 행은 apps 형제 화면으로만 간다. */
   apps?: AppsSource;
+  /** settings 화면 통로. 없으면 settings는 준비 전 안내다. */
+  settings?: SettingsSource;
   /** 앱 공간 운영 패널의 app-detail 통로. 없으면 app-detail 탭을 두지 않는다. */
   appDetail?: AppDetailSource;
   /** shell preload의 앱 view 통로. 앱 공간 본문이 쓴다. */
@@ -97,6 +100,7 @@ export function Desktop(
     intents,
     instructions,
     apps,
+    settings,
     appDetail,
     views,
     appWindows,
@@ -174,7 +178,10 @@ export function Desktop(
         place={route.instructions}
         source={instructions}
         editor={editor}
-        onBack={launcher}
+        // 전역 지침은 settings에서 왔으니 settings로 돌아간다.
+        onBack={route.instructions.layer === "global"
+          ? () => visit(openLophn("settings"))
+          : launcher}
       />
     );
   } else if (route.space === "app" && route.app && apps && live) {
@@ -221,6 +228,10 @@ export function Desktop(
         onProject={(project) => setRoute(openProject(project))}
         apps={apps}
         onApp={appSpace}
+        settings={settings}
+        onInstructions={instructions
+          ? () => setRoute(openInstructions({ layer: "global" }))
+          : undefined}
       />
     );
   } else {

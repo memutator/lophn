@@ -326,6 +326,7 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
         mcpConnection: toolkit.mcpConnection ?? (() => undefined),
         ...(toolkit.server === undefined ? {} : { server: toolkit.server }),
         // 앱 command tool의 원래 호출 계약이다. 기록이 tool_calls.app_command로 묶는다(R10).
+        // revert_command가 있으면 기록이 앱의 선언된 revert command를 revert에 싣는다.
         appCommand: (definition) => {
           const app = appByName.get(definition.name);
           if (app === undefined) return undefined;
@@ -337,6 +338,9 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
             definition_hash: app.definitionHash,
             permission_basis: app.permissionBasis,
             context_binding: null,
+            ...(app.revertCommand === null
+              ? {}
+              : { revert_command: app.revertCommand }),
           };
         },
         approvalTtlMs: deps.approvalTtlMs ?? 600_000,

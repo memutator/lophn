@@ -61,7 +61,11 @@ export type AppTool = {
   command: string;
   effect: AppBlueprintCommand["effect"];
   confirm: boolean;
-  // blueprint가 되돌리기 지원을 선언하고 대응 write command가 같은 blueprint에 있다.
+  // blueprint가 되돌리기 지원을 선언하고 대응 command가 이 blueprint에 있다. 이 이름의 command가
+  // revert의 되돌림 단계다(lophn-agent#T48).
+  revertCommand: string | null;
+  // 위 값이 null이 아닐 때만 되돌리기 지원으로 본다(tool-judgment R11). 선언 `supported`만으로
+  // 낮추지 않는다.
   reversible: boolean;
   // 이 정의가 만들어진 선언의 지문. release·입력·effect·confirm·되돌리기 중 하나라도 바뀌면 달라진다.
   definitionHash: string;
@@ -193,7 +197,8 @@ export async function buildAppTools(
       if (command === undefined || allowed === undefined) continue;
       if (!entry.effects.includes(command.effect)) continue;
       if (command.confirm && !entry.confirm_allowed) continue;
-      const reversible = revertCounterpart(view.commands, command) !== null;
+      const revertCommand = revertCounterpart(view.commands, command);
+      const reversible = revertCommand !== null;
       if (
         command.effect === "write" && entry.revert_required && !reversible
       ) continue;
@@ -242,6 +247,7 @@ export async function buildAppTools(
         command: key,
         effect: command.effect,
         confirm: command.confirm,
+        revertCommand,
         reversible,
         definitionHash,
         schema,

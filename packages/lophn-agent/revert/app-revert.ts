@@ -46,6 +46,8 @@ function bindingOf(
   }
   if (typeof content !== "object" || content === null) return null;
   const receipt = content as Record<string, unknown>;
+  // step_key는 아직 prefix(저장한 revert나 run)를 모른다. 자리 표시로 파싱하고,
+  // classify가 prefix를 붙여 다시 파싱한다.
   const parsed = appRevertBindingSchema.safeParse({
     app: command.app,
     release: command.release,
@@ -55,7 +57,8 @@ function bindingOf(
     receipt: receipt.receipt,
     expected_revision: receipt.expected_revision,
     revert_command: command.revert_command,
-    step_key: "",
+    step_key: "-",
+    revert_invocation: receipt.revert_invocation ?? null,
   });
   return parsed.success ? parsed.data : null;
 }

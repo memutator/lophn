@@ -121,6 +121,24 @@ Deno.test("platform/identity#R14 platform/ledger#R11: agent credential은 유효
   }
 });
 
+Deno.test("platform/identity#R14: 앱 하나에 묶인 agent는 앱 조건과 handoff 고정 근거를 싣고 발급받으며 대상은 앱으로 고정되지 않는다", async () => {
+  const evidence = [{
+    document: "doc_01arz3ndektsv4rrffq69g5fav",
+    version: "ver_01arz3ndektsv4rrffq69g5fav",
+  }];
+  const issue = agentIssue({ ...agentScope, role: "app_engineer" });
+  const bound: CredentialIssue = {
+    ...issue,
+    conditions: { ...issue.conditions, app: APP, evidence },
+  };
+  const { registry } = registryWith(bound.scope);
+  const issued = value(await registry.issue(bound));
+  const ctx = value(await registry.authenticate(issued.token));
+  assertEquals(ctx.conditions.app, APP);
+  assertEquals(ctx.conditions.evidence, evidence);
+  assertEquals(ctx.scope.targets, { assignment: ASG, run: RUN });
+});
+
 Deno.test("platform/ledger#R11: run 종료·assignment 멈춤·감독 상실은 agent credential을 끝낸다", async () => {
   const { registry } = registryWith(agentIssue().scope);
   const issued = value(await registry.issue(agentIssue()));

@@ -33,7 +33,6 @@ import {
   loadReleases,
   readBundleCopy,
 } from "../releases/mod.ts";
-import { prepareAppExport } from "./worker/export.ts";
 import type { WorkerRouteTarget } from "./target.ts";
 import type { z } from "zod";
 
@@ -42,13 +41,29 @@ import type { z } from "zod";
 type ExportInput = z.output<typeof appExport.input>;
 type ExportOutput = z.output<typeof appExport.output>;
 
+export type ExportSnapshot = ReadSnapshot & { close?(): void };
+
+// 준비 한 번에 넘기는 입력. blueprint 원문과 release 이력은 ledger에서 읽은 것이고,
+// 준비 본체(worker/export.ts)는 앱 DB를 여는 data worker 쪽에서 돈다. 이 모듈은 core
+// graph에 있어 그 본체를 import하지 않으므로(node:sqlite는 ledger만) 입력 모양만 둔다.
+export type ExportJob = {
+  app: string;
+  blueprintJson?: string;
+  releases: readonly Release[];
+  bundles: readonly { bundle_hash: string; manifest: BundleManifest }[];
+  sdkRoot: string;
+};
+
 export type ExportDeps = {
   // 요청 자격의 현재 context. 폐기·만료·없는 자격은 err다(core 조립이 runtime.current를 쥔다).
   current(credentialRef: string): Result<RequestContext>;
-  // ledger 읽기 snapshot. worker는 읽기만 하고 쓰지 않는다.
-  snapshot(): Result<ReadSnapshot>;
+  // ledger 읽기 snapshot. worker는 읽기만 하고 쓰지 않는다. 요청마다 열고 ledger를 읽고
+  // 난 바로 close한다(느린 파일 작업 동안 열어 두지 않는다). 요청 자격으로 앱 접근 port를 만든다.
+  snapshot(ctx: RequestContext): Result<ExportSnapshot>;
   // 데이터 root(`<dataRoot>/apps/<app>/{data,bundles}`, `<dataRoot>/sdk`).
   dataRoot: string;
+  // export 준비. 앱 DB를 여는 일이라 data worker(별도 프로세스)가 하고, 실패는 message로 돌려준다.
+  prepare(job: ExportJob): Promise<Result<unknown>>;
   // 지금 시각. observation에 남긴다.
   observedAt(): string;
 };
@@ -94,26 +109,26 @@ function answered(
 
 // active release의 고정 blueprint 원문(canonical JSON)이다. release에 고정한
 // blueprint_hash의 정규 byte와 같다(준비 worker가 같은 규칙으로 고정했다).
-function blueprintCanonicalBytes(stored: { blueprint: unknown }): Uint8Array {
-  return new TextEncoder().encode(canonicalJson(stored.blueprint as never));
+function blueprintCanonicalText(stored: { blueprint: unknown }): string {
+  return canonicalJson(stored.blueprint as never);
 }
 
-// export 준비. 실패는 worker 오류 envelope가 아니라 contract의 state: "failed"다
-// (준비 중·완성·실패는 route output으로 구별한다).
-async function prepareExport(
+// ledger에서 앱 접근 판정과 export에 쓸 release 이력·고정 blueprint를 읽는다.
+function readLedger(
   input: ExportInput,
   ctx: RequestContext,
-  deps: ExportDeps,
-): Promise<Result<ExportOutput>> {
-  const snapshot = deps.snapshot();
-  if (!snapshot.ok) return err(snapshot.error);
-  const found = loadApp(snapshot.value.sql, input.app);
+  snapshot: ReadSnapshot,
+): Result<{
+  history: readonly Release[];
+  active: { blueprint: unknown } | null;
+}> {
+  const found = loadApp(snapshot.sql, input.app);
   if (!found.ok) return err(found.error);
   if (found.value === null) {
     return err({ code: "not_found", message: NOT_FOUND });
   }
   const access = authorizeApp(
-    snapshot.value.port,
+    snapshot.port,
     ctx,
     appExport.name,
     { kind: "app", app: found.value },
@@ -125,11 +140,34 @@ async function prepareExport(
     }
     return access;
   }
-  const app = input.app;
-  const history = loadReleases(snapshot.value.sql, { app });
+  const history = loadReleases(snapshot.sql, { app: input.app });
   if (!history.ok) return err(history.error);
-  const active = loadActiveBlueprint(snapshot.value.sql, app);
+  const active = loadActiveBlueprint(snapshot.sql, input.app);
   if (!active.ok) return err(active.error);
+  return ok({ history: history.value, active: active.value });
+}
+
+// export 준비. 실패는 worker 오류 envelope가 아니라 contract의 state: "failed"다
+// (준비 중·완성·실패는 route output으로 구별한다).
+async function prepareExport(
+  input: ExportInput,
+  ctx: RequestContext,
+  deps: ExportDeps,
+): Promise<Result<ExportOutput>> {
+  const snapshot = deps.snapshot(ctx);
+  if (!snapshot.ok) return err(snapshot.error);
+  // ledger 읽기는 동기다. 끝나면 snapshot을 닫고 파일 작업으로 간다.
+  let source: Result<
+    { history: readonly Release[]; active: { blueprint: unknown } | null }
+  >;
+  try {
+    source = readLedger(input, ctx, snapshot.value);
+  } finally {
+    snapshot.value.close?.();
+  }
+  if (!source.ok) return err(source.error);
+  const app = input.app;
+  const { history, active } = source.value;
   const manifestOf = async (
     release: Release,
   ): Promise<Result<{ bundle_hash: string; manifest: BundleManifest }>> => {
@@ -147,24 +185,20 @@ async function prepareExport(
     });
   };
   const bundles: { bundle_hash: string; manifest: BundleManifest }[] = [];
-  for (const release of history.value) {
+  for (const release of history) {
     const manifest = await manifestOf(release);
     if (!manifest.ok) return err(manifest.error);
     bundles.push(manifest.value);
   }
-  const prepared = await prepareAppExport(
-    deps.dataRoot,
-    `${deps.dataRoot}/apps/${app}/data/app.sqlite`,
-    {
-      app,
-      ...(active.value === null
-        ? {}
-        : { blueprintJson: blueprintCanonicalBytes(active.value) }),
-      releases: history.value,
-      bundles,
-      sdkRoot: `${deps.dataRoot}/sdk`,
-    },
-  );
+  const prepared = await deps.prepare({
+    app,
+    ...(active === null
+      ? {}
+      : { blueprintJson: blueprintCanonicalText(active) }),
+    releases: history,
+    bundles,
+    sdkRoot: `${deps.dataRoot}/sdk`,
+  });
   if (!prepared.ok) {
     return ok({
       app,

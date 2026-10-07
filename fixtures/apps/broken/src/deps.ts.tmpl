@@ -2,7 +2,7 @@
 // 깨진 앱 fixture라 저장소를 열지 않는다(apps#T26). 깨진 값은 board.ts가 고른다.
 import { reportProblem } from "@lophn/cap-problem";
 import { CommandRejection } from "@lophn/cap-schedule";
-import { MODE, type BoardMode } from "./board.ts";
+import { type BoardMode, MODE } from "./board.ts";
 
 export type Deps = {
   now: () => string;

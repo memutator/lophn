@@ -80,7 +80,10 @@ Deno.test("failure_path:fixture_broken chatter_then_fail fails after writing log
     CommandRejection,
   );
   assertEquals(lines.length > 30, true);
-  assertEquals((await late as Error).message, "late failure after the chatter_then_fail response");
+  assertEquals(
+    (await late as Error).message,
+    "late failure after the chatter_then_fail response",
+  );
 });
 
 Deno.test("failure_path:fixture_broken list_broken answers a wrong aggregate as a normal response", () => {

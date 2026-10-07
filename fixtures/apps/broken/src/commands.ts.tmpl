@@ -34,7 +34,10 @@ function readPanel(position: "head" | "tail"): never {
 // exception 지문이 만들어지지 않는다(report_id 대신).
 function readDependency(): string[] {
   return continueRead(
-    { query: { filter: { gone: true }, order: ["asc"], basis: "nothing" }, cursor: "0" },
+    {
+      query: { filter: { gone: true }, order: ["asc"], basis: "nothing" },
+      cursor: "0",
+    },
     { filter: { gone: true }, order: ["asc"], basis: "nothing" },
     [],
     { coverage: "complete", freshness: "fresh" },
@@ -95,7 +98,11 @@ export function reportWrongCodeHandler(deps: Deps = defaults) {
       throw new CommandRejection("invalid_input", "the kind is empty");
     }
     // board.ts에서 고른 call 자은 string literal이 아니므로 정적 code 검사가 이 자을 가려내지 못한다.
-    const WRONG_CODE = ["fixture_missing", "fixture_misconfigured", "_invalid_report"];
+    const WRONG_CODE = [
+      "fixture_missing",
+      "fixture_misconfigured",
+      "_invalid_report",
+    ];
     reportProblem(WRONG_CODE[2], { command: "report_wrong_code" });
     deps.log("report_wrong_code sent an undeclared code");
     return { sent: true };

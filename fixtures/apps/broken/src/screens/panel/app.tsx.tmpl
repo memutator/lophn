@@ -86,8 +86,12 @@ export function App() {
           <Button type="submit" variant="primary">
             {t("panel.button.report")}
           </Button>
-          <Button onClick={() => void run()}>{t("panel.label.run-broken")}</Button>
-          <Button onClick={() => void mark()}>{t("panel.label.mark-kind")}</Button>
+          <Button onClick={() => void run()}>
+            {t("panel.label.run-broken")}
+          </Button>
+          <Button onClick={() => void mark()}>
+            {t("panel.label.mark-kind")}
+          </Button>
         </div>
       </form>
       {reported && (

@@ -5,6 +5,7 @@ export {
   judgeTicket,
   outcomeOf,
   type TicketOutcome,
+  ticketOutcome,
 } from "./judge.ts";
 export {
   type CheckerClient,
@@ -17,6 +18,7 @@ export {
   CHECK_WORK_PAGE,
   type CheckWork,
   checkWorkSchema,
+  type ProblemFact,
   ticketCheckWork,
   type VerificationFact,
 } from "./work.ts";

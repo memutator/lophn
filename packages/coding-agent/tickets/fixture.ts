@@ -98,7 +98,17 @@ export function ticketFixture(deps: FixtureDeps = {}) {
       ticket_check_index INTEGER,
       ticket_check_hash TEXT,
       ticket_completion_seq TEXT,
-      recorded_seq TEXT NOT NULL DEFAULT '1'
+      recorded_seq TEXT NOT NULL DEFAULT '1',
+      problem TEXT,
+      test TEXT,
+      after_release TEXT
+    ) STRICT;
+    -- problems/grouping이 소유한 표의 checker가 읽는 열. closure는 problems/closing이 쓴 JSON.
+    CREATE TABLE problems (
+      id TEXT PRIMARY KEY,
+      app TEXT NOT NULL,
+      status TEXT NOT NULL,
+      closure TEXT
     ) STRICT;
     CREATE TABLE blob_refs (
       owner_kind TEXT NOT NULL,

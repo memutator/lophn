@@ -25,6 +25,10 @@ export const verificationFactSchema = z.object({
   reason: z.string(),
   bundle_hash: z.string(),
   ticket: link.nullable(),
+  // reproduction만 갖는다: 대상 문제, 고정 test hash, after release(R9).
+  problem: idSchema("prb").nullable().default(null),
+  test: z.string().nullable().default(null),
+  after_release: idSchema("rel").nullable().default(null),
 });
 export type VerificationFact = z.infer<typeof verificationFactSchema>;
 
@@ -36,6 +40,22 @@ export const releaseFactSchema = z.object({
   failure: z.string().nullable(),
 });
 export type ReleaseFact = z.infer<typeof releaseFactSchema>;
+
+// problems/closing이 이미 판정한 문제 닫힘의 읽기 값이다. 이 checker는 읽기만 한다(R21).
+// user_confirmed 닫힘의 confirmation은 사람 결정이 platform confirmation을 쓴 결과다.
+export const problemFactSchema = z.object({
+  id: idSchema("prb"),
+  app: idSchema("app"),
+  status: z.enum(["open", "fixing", "closed"]),
+  closure: z.object({
+    reason: z.enum(["verified", "user_confirmed", "recovered", "dismissed"]),
+    release: idSchema("rel").nullable(),
+    verification: idSchema("vrf").nullable(),
+    confirmation: z.string().nullable(),
+    basis_seq: z.string(),
+  }).nullable(),
+});
+export type ProblemFact = z.infer<typeof problemFactSchema>;
 
 export const checkWorkSchema = z.object({
   ticket: ticketIdSchema,
@@ -60,6 +80,9 @@ export const checkWorkSchema = z.object({
     active_release: idSchema("rel").nullable(),
   }).nullable(),
   verifications: z.array(verificationFactSchema),
+  // 이 ticket이 고치는 문제(Ticket.problems)와 그 문제의 닫힘 사실(R9, R21).
+  problems: z.array(idSchema("prb")).default([]),
+  problem_facts: z.array(problemFactSchema).default([]),
 });
 export type CheckWork = z.infer<typeof checkWorkSchema>;
 

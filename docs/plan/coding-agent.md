@@ -1484,6 +1484,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T42 repair context 조립과 대표 근거
 
+- 상태: 완료 (#427)
 - 등급: 기본
 - concern: coding-agent/repair-context
 - 요구: coding-agent/repair-context#R1, R2, R3, R4, R5, R6, R7, R8, R9, R10,
@@ -1555,6 +1556,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
     GitHub·Sentry cursor는 서명이 없어 버림, 조사 T8)
   - 잘림 marker·누락 표시·more 안내·fence도 24,576 bytes·300줄 안에
     센다(Codex·OpenCode는 marker를 cap 밖에 둠, 조사 T8)(R11, R12)
+- coding-agent#T42에서 넘어온 것: 조립(`repair-context/assemble.ts`의 `assembleRepairContext`)은 요약 상한(문제당 2줄·전체 10줄·1,200자)을 간이로만 지키고 전체 24,576 bytes·300줄을 넘기면 bundle 대신 `over_budget`을 낸다. 축소(log → 대표 excerpt → 첨부)·최종 redaction 확인·`more`·cursor·이미지는 이 task가 얹는다. worker(`apps/worker/coding-agent/repair-context.ts`, kind `coding-agent/worker`)는 요청 payload `{credential, input}`을 받는다. core가 요청자 connection credential을 싣고, `redact_request`에 알려진 값으로 답하고, 응답에 read 공통 필드(`as_of_seq`)를 붙이고, `repair_context/*` route 등록과 worker launch spec을 더해야 한다. 사람 원문·log 본문은 일반 `blobs/read`로 읽는데 core는 이 route를 서빙하지 않아 지금은 "읽을 수 없음" 이유로 표시된다(problems의 `report_text` field는 일반 읽기도 닫혀 있다). `ListVerifications`·`GetTestRequest`·`GetVerification`도 reader 등록에 없어 제품 core에서 not_found다(problems 소유; 수리 자료는 이를 "읽을 수 없음"으로 표시한다)
 
 ### T44 MCP·CLI 문제 tool과 사람의 문제 command
 
@@ -1596,6 +1598,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T45 repair ticket 검사: reproduction·problems_closed·human_confirmation
 
+- 상태: 진행 (#428) — 선행 풀기: problems#T18·T20·T21 merge 뒤 실제 data에 잇는 PR이 남음
 - 등급: 기본
 - concern: coding-agent/tickets
 - 요구: coding-agent/tickets#R9, R20, R21
@@ -1608,6 +1611,10 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 - 조사: docs/research/coding-agent-ticket-claim.md
 - 선행: T26, problems#T18, problems#T20, problems#T21
 - 선행 풀기(사람 결정 2026-10-07): 선행이 끝나기 전에 이미 있는 contract와 fake로 먼저 만든다. 선행이 merge되면 실제 구현에 잇는 작은 PR을 따로 내고, 그때 완료로 둔다.
+- 선행 풀기 뒤 잇는 PR이 할 일:
+  - problems#T18: 실제 reproduction Verification 행(`verifications`의 problem·test·after_release)이 checker fixture의 모양과 같은지 ledger 테스트로 확인한다
+  - problems#T20·T21: `problems.closure` JSON(reason·release·confirmation·basis_seq)과 사람 확인(`user_confirmed`) 닫힘을 실제 `ProblemClosed`·`ProblemReopened`로 만든 뒤 fixture 행을 그 command로 바꾼다. 사람의 not_fixed 결정(문제는 open 유지)을 human_confirmation fail로 읽을지 정한다(지금은 inconclusive 대기)
+  - `apps/core/ticket-checker_test.ts`에 실제 닫힘·재발 뒤 checker worker가 깨어 남은 조건을 다시 비교하는 통합 시험을 더한다
 - coding-agent#T26에서 넘어온 것: T26 checker는 reproduction_test·problems_closed·human_confirmation을 이유와 함께 `inconclusive`로만 남기고 `record_checks` handler도 이 세 kind의 pass·fail을 받지 않는다(`packages/coding-agent/tickets/checker/judge.ts`, `checks.ts`). 이 작업이 판정과 handler 허용을 함께 넓히고, `ProblemClosed`·`ProblemReopened`를 checker 깨움(`apps/core/ticket-checker.ts`의 WAKE_EVENTS와 event 공개 정책)에 더한다
 - 완료:
   - reproduction_test는 해당 문제·고정 test_hash·보고 after release의

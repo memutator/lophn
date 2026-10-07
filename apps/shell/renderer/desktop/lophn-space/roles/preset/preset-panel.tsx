@@ -14,6 +14,8 @@ import type {
   RolesSource,
 } from "../source.ts";
 import { Disclose } from "../review/disclose.tsx";
+import { ApprovalWait, type Finished } from "../operator/approval-wait.tsx";
+import { isOperatorScope, type Proposed } from "../operator/source.ts";
 import { PresetEditor } from "./preset-editor.tsx";
 import styles from "../roles.module.css";
 
@@ -34,6 +36,10 @@ type Notice =
   | { readonly kind: "saved"; readonly version: number }
   | { readonly kind: "applied" }
   | { readonly kind: "apply-failed" }
+  | { readonly kind: "changed" }
+  | { readonly kind: "declined" }
+  | { readonly kind: "open-failed" }
+  | { readonly kind: "not-applied" }
   | null;
 
 // Preset. 역할마다 기본 Preset과 사람이 고친 판이 있고, 저장은 새 판이며 쓰는 것은 명시 적용한 판뿐이다
@@ -46,6 +52,7 @@ export function PresetPanel(
   const [editing, setEditing] = useState<PresetEntry | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
   const [attempt, setAttempt] = useState(0);
+  const [waiting, setWaiting] = useState<Proposed | null>(null);
 
   useEffect(() => {
     let live = true;
@@ -71,7 +78,64 @@ export function PresetPanel(
     setEditing(entry);
   };
 
+  // Operator의 Preset은 붙은 곳·보고할 문서·읽는 앱·주기와 같이 승인에 묶여 보호 확인 창에서만 바뀐다.
+  const applyOperator = async (entry: PresetEntry) => {
+    const facts = role.operator ?? null;
+    if (
+      facts === null || facts.schedule === null || !isOperatorScope(role.scope)
+    ) {
+      setNotice({ kind: "apply-failed" });
+      return;
+    }
+    const outputs: {
+      document: string;
+      content: string;
+      version: string;
+    }[] = [];
+    for (const output of facts.outputs) {
+      const version = await source.operator.versionOf(output.document);
+      if (!version.ok) {
+        setNotice({ kind: "apply-failed" });
+        return;
+      }
+      outputs.push({ ...output, version: version.value });
+    }
+    const proposed = await source.operator.propose({
+      change: role,
+      scope: role.scope,
+      preset: entry,
+      outputs,
+      reads: facts.readCommands,
+      period: facts.schedule,
+    });
+    if (!proposed.ok) {
+      setNotice({ kind: "open-failed" });
+      return;
+    }
+    setNotice(null);
+    setWaiting(proposed.value);
+  };
+
+  const operatorDone = (outcome: Finished) => {
+    setWaiting(null);
+    setNotice({
+      kind: outcome === "attached"
+        ? "changed"
+        : outcome === "declined"
+        ? "declined"
+        : "not-applied",
+    });
+    if (outcome === "attached") {
+      setAttempt((value) => value + 1);
+      onChanged();
+    }
+  };
+
   const apply = async (entry: PresetEntry, revision: number) => {
+    if (role.role === "operator") {
+      await applyOperator(entry);
+      return;
+    }
     const applied = await source.applyPreset(role, entry.id, revision);
     setNotice(applied.ok ? { kind: "applied" } : { kind: "apply-failed" });
     if (applied.ok) onChanged();
@@ -96,8 +160,9 @@ export function PresetPanel(
 
   const inUse = (entry: PresetEntry, revision: number) =>
     role.preset.id === entry.id && role.preset.revision === revision;
-  // Operator에 붙이는 변경은 project나 app·출력·주기를 포함한 보호된 승인이라 이 화면이 적용하지 않는다.
-  const canApply = role.role !== "operator" && role.state !== "withdrawn";
+  const canApply = role.state !== "withdrawn";
+  // 승인은 판 전체의 hash에 묶이는데 그 hash는 가장 새 판만 안다. Operator는 가장 새 판으로만 바꾼다.
+  const canApplyEarlier = canApply && role.role !== "operator";
 
   return (
     <div className={styles.panel} data-preset-panel="">
@@ -123,9 +188,44 @@ export function PresetPanel(
           </p>
         )
         : null}
-      {!canApply && role.role === "operator"
+      {canApply && role.role === "operator"
         ? <p className={styles.muted}>{t("roles.preset.operator-note")}</p>
         : null}
+      {notice?.kind === "changed"
+        ? (
+          <p className={styles.notice} data-preset-notice="changed">
+            {t("roles.attach.changed")}
+          </p>
+        )
+        : null}
+      {notice?.kind === "declined"
+        ? (
+          <p className={styles.notice} data-preset-notice="declined">
+            {t("roles.attach.declined")}
+          </p>
+        )
+        : null}
+      {notice?.kind === "not-applied"
+        ? (
+          <p className={styles.problem} data-preset-notice="not-applied">
+            {t("roles.attach.failed")}
+          </p>
+        )
+        : null}
+      {notice?.kind === "open-failed"
+        ? (
+          <p className={styles.problem} data-preset-notice="open-failed">
+            {t("roles.attach.open-failed")}
+          </p>
+        )
+        : null}
+      {waiting === null ? null : (
+        <ApprovalWait
+          source={source.operator}
+          proposed={waiting}
+          onFinished={operatorDone}
+        />
+      )}
       {loaded.kind === "failed"
         ? (
           <ErrorState
@@ -240,7 +340,7 @@ export function PresetPanel(
                                     {t("roles.label.preset-in-use")}
                                   </span>
                                 )
-                                : canApply
+                                : canApplyEarlier
                                 ? (
                                   <Button
                                     size="sm"

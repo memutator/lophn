@@ -1325,6 +1325,7 @@ export type PlaceholderKinds = {
   "launcher.label.wordmark": Record<never, never>;
   "launcher.title.register": Record<never, never>;
   "project-workspace.button.add-rule": Record<never, never>;
+  "project-workspace.button.attach-operator": Record<never, never>;
   "project-workspace.button.close-tab": Record<never, never>;
   "project-workspace.button.collapse-sidebar": Record<never, never>;
   "project-workspace.button.edit-rules": Record<never, never>;
@@ -1534,8 +1535,30 @@ export type PlaceholderKinds = {
   "report-problem.status.received": Record<never, never>;
   "report-problem.status.sending": Record<never, never>;
   "report-problem.title.report": Record<never, never>;
+  "roles.attach.attached": Record<never, never>;
+  "roles.attach.changed": Record<never, never>;
+  "roles.attach.declined": Record<never, never>;
+  "roles.attach.failed": Record<never, never>;
+  "roles.attach.intro": Record<never, never>;
+  "roles.attach.no-outputs": Record<never, never>;
+  "roles.attach.no-preset": Record<never, never>;
+  "roles.attach.no-reads": Record<never, never>;
+  "roles.attach.open-failed": Record<never, never>;
+  "roles.attach.output-help": Record<never, never>;
+  "roles.attach.past-start": Record<never, never>;
+  "roles.attach.waiting": Record<never, never>;
   "roles.button.answer": Record<never, never>;
   "roles.button.ask-again": Record<never, never>;
+  "roles.button.attach": Record<never, never>;
+  "roles.button.attach-cancel": Record<never, never>;
+  "roles.button.attach-check": Record<never, never>;
+  "roles.button.attach-review": Record<never, never>;
+  "roles.button.output-add": Record<never, never>;
+  "roles.button.output-remove": Record<never, never>;
+  "roles.button.pause": Record<never, never>;
+  "roles.button.withdraw": Record<never, never>;
+  "roles.button.withdraw-confirm": Record<never, never>;
+  "roles.button.withdraw-keep": Record<never, never>;
   "roles.button.back-to-work": Record<never, never>;
   "roles.button.export": Record<never, never>;
   "roles.button.preset-add": Record<never, never>;
@@ -1564,11 +1587,13 @@ export type PlaceholderKinds = {
   "roles.empty.pick-role": Record<never, never>;
   "roles.error.apply": Record<never, never>;
   "roles.error.ask-again": Record<never, never>;
+  "roles.error.pause": Record<never, never>;
   "roles.error.preset-changed": Record<never, never>;
   "roles.error.preset-save": Record<never, never>;
   "roles.error.restart": Record<never, never>;
   "roles.error.resume": Record<never, never>;
   "roles.error.stop": Record<never, never>;
+  "roles.error.withdraw": Record<never, never>;
   "roles.label.action-external": Record<never, never>;
   "roles.label.action-read": Record<never, never>;
   "roles.label.action-write": Record<never, never>;
@@ -1582,6 +1607,53 @@ export type PlaceholderKinds = {
   "roles.label.origin-handoff": Record<never, never>;
   "roles.label.origin-message": Record<never, never>;
   "roles.label.origin-schedule": Record<never, never>;
+  "roles.label.attach-apps": Record<never, never>;
+  "roles.label.attach-apps-add": Record<never, never>;
+  "roles.label.attach-every": Record<never, never>;
+  "roles.label.attach-first": Record<never, never>;
+  "roles.label.attach-group-apps": Record<never, never>;
+  "roles.label.attach-group-projects": Record<never, never>;
+  "roles.label.attach-output-content": Record<never, never>;
+  "roles.label.attach-output-doc": Record<never, never>;
+  "roles.label.attach-outputs": Record<never, never>;
+  "roles.label.attach-period": Record<never, never>;
+  "roles.label.attach-preset": Record<never, never>;
+  "roles.label.attach-preset-line": {
+    name: "string";
+    version: "number";
+  };
+  "roles.label.attach-reads": Record<never, never>;
+  "roles.label.attach-reads-preset": Record<never, never>;
+  "roles.label.attach-title": Record<never, never>;
+  "roles.label.attach-where": Record<never, never>;
+  "roles.label.attach-where-pick": Record<never, never>;
+  "roles.label.every-day": Record<never, never>;
+  "roles.label.every-hour": Record<never, never>;
+  "roles.label.every-six-hours": Record<never, never>;
+  "roles.label.every-week": Record<never, never>;
+  "roles.label.operator-every": {
+    every: "string";
+  };
+  "roles.label.operator-every-custom": {
+    hours: "plural";
+  };
+  "roles.label.operator-first": {
+    when: "string";
+  };
+  "roles.label.operator-last-due": {
+    when: "string";
+  };
+  "roles.label.operator-reads": {
+    count: "plural";
+  };
+  "roles.label.operator-reports": Record<never, never>;
+  "roles.label.operator-skipped": Record<never, never>;
+  "roles.label.operator-skipped-busy": {
+    when: "string";
+  };
+  "roles.label.operator-skipped-waiting": {
+    when: "string";
+  };
   "roles.label.preset-account-down": {
     name: "string";
   };
@@ -1773,6 +1845,11 @@ export type PlaceholderKinds = {
   "roles.label.target-skill": Record<never, never>;
   "roles.label.target-tool": Record<never, never>;
   "roles.label.target-work": Record<never, never>;
+  "roles.notice.operator-paused-failures": Record<never, never>;
+  "roles.notice.operator-paused-output": Record<never, never>;
+  "roles.notice.operator-paused-scope": Record<never, never>;
+  "roles.notice.operator-paused-user": Record<never, never>;
+  "roles.notice.withdraw-ask": Record<never, never>;
   "roles.notice.paused": Record<never, never>;
   "roles.notice.withdrawn": Record<never, never>;
   "roles.preset.applied": Record<never, never>;

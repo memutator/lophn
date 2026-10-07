@@ -5,6 +5,15 @@ import {
   sessionId,
 } from "../../../../conversation/testdata/fake-source.ts";
 import type {
+  OperatorDraft,
+  OperatorScope,
+  OutputChoice,
+  Proposed,
+  ReadChoice,
+  Settled,
+  SkippedPeriod,
+} from "../operator/source.ts";
+import type {
   BodyKind,
   ContentKind,
   ExportResult,
@@ -183,7 +192,30 @@ export const CHOICES: PresetChoices = {
   }],
 };
 
+export const PRJ = "prj_01h455vb4pex5v6nkc6gd5fd01";
+export const DOC_REPORT = "doc_01h455vb4pex5v6nkc6gd5fd01";
+export const DOC_NOTES = "doc_01h455vb4pex5v6nkc6gd5fd02";
+export const VER_REPORT = "ver_01h455vb4pex5v6nkc6gd5fd01";
+export const VER_NOTES = "ver_01h455vb4pex5v6nkc6gd5fd02";
+export const APR = "apr_01h455vb4pex5v6nkc6gd5fd01";
+export const ASG_NEW = "asg_01h455vb4pex5v6nkc6gd5fd09";
+
+export interface FakeOperatorData {
+  presets?: readonly PresetEntry[];
+  outputs?: Record<string, readonly OutputChoice[]>;
+  reads?: Record<string, readonly ReadChoice[]>;
+  versions?: Record<string, string>;
+  /** `settle`이 차례로 돌려주는 상태. 끝나면 마지막 값이 계속된다. */
+  settled?: readonly Settled[];
+  settleFails?: string;
+  proposeFails?: string;
+  pauseFails?: boolean;
+  withdrawFails?: boolean;
+  skipped?: Record<string, readonly SkippedPeriod[]>;
+}
+
 export interface FakeRolesData {
+  operator?: FakeOperatorData;
   roles?: readonly RoleRow[];
   works?: Record<string, readonly WorkRow[]>;
   made?: Record<string, readonly MadeLink[]>;
@@ -217,7 +249,61 @@ export function fakeRoles(data: FakeRolesData = {}) {
     data.readsFail ? gone<T>() : Promise.resolve({ ok: true, value: value() });
   const listeners = new Set<(state: { state: string }) => void>();
 
+  const operatorData = data.operator ?? {};
+  let settles = 0;
+  const operator: RolesSource["operator"] = {
+    presets: () => read(() => operatorData.presets ?? []),
+    outputChoices: (scope: OperatorScope) =>
+      read(() => operatorData.outputs?.[`${scope.kind}:${scope.id}`] ?? []),
+    versionOf: (document) =>
+      Promise.resolve(
+        operatorData.versions?.[document] === undefined
+          ? { ok: false, code: "not_found" }
+          : { ok: true, value: operatorData.versions[document]! },
+      ),
+    readChoices: (app) => read(() => operatorData.reads?.[app] ?? []),
+    propose(draft: OperatorDraft) {
+      calls.push(["propose", draft]);
+      if (operatorData.proposeFails !== undefined) {
+        return Promise.resolve({ ok: false, code: operatorData.proposeFails });
+      }
+      const proposed: Proposed = {
+        approval: APR,
+        assignment: draft.change?.id ?? ASG_NEW,
+      };
+      return Promise.resolve({ ok: true, value: proposed });
+    },
+    settle(proposed) {
+      calls.push(["settle", proposed.approval]);
+      if (operatorData.settleFails !== undefined) {
+        return Promise.resolve({ ok: false, code: operatorData.settleFails });
+      }
+      const list = operatorData.settled ?? ["waiting"];
+      const value = list[Math.min(settles, list.length - 1)]!;
+      settles += 1;
+      return Promise.resolve({ ok: true, value });
+    },
+    pause(item) {
+      calls.push(["pause", item.id]);
+      return Promise.resolve(
+        operatorData.pauseFails
+          ? { ok: false, code: "conflict" }
+          : { ok: true, value: null },
+      );
+    },
+    withdraw(item) {
+      calls.push(["withdraw", item.id]);
+      return Promise.resolve(
+        operatorData.withdrawFails
+          ? { ok: false, code: "conflict" }
+          : { ok: true, value: null },
+      );
+    },
+    skipped: (item) => read(() => operatorData.skipped?.[item.id] ?? []),
+  };
+
   const source: RolesSource = {
+    operator,
     watch(listener) {
       listeners.add(listener);
       listener({ state: "ready" });

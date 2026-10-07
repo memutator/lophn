@@ -6,6 +6,7 @@ import { useConversation } from "../../../../conversation/dock-slot.tsx";
 import { roleTitle, STATE_LABEL } from "../labels.ts";
 import { MadePanel } from "../made/made-panel.tsx";
 import { PresetPanel } from "../preset/preset-panel.tsx";
+import { OperatorPanel } from "../operator/operator-panel.tsx";
 import type { RoleRow, RolesSource, WorkRow } from "../source.ts";
 import { WorkPanel } from "../work/work-panel.tsx";
 import { ConversationTab } from "./conversation-tab.tsx";
@@ -81,7 +82,8 @@ export function RoleDetail(
             )
             : null}
         </div>
-        {role.state === "paused"
+        {role.state === "paused" &&
+            !(role.role === "operator" && role.operator?.pause != null)
           ? <p className={styles.text}>{t("roles.notice.paused")}</p>
           : null}
         {role.state === "withdrawn"
@@ -97,6 +99,17 @@ export function RoleDetail(
             </p>
           )}
       </div>
+      {role.role === "operator"
+        ? (
+          <OperatorPanel
+            source={source}
+            role={role}
+            connected={connected}
+            onConfirm={onConfirm}
+            onChanged={onChanged}
+          />
+        )
+        : null}
       <Tabs value={tab} onValueChange={(value) => setTab(value as TabName)}>
         <TabList>
           <Tab value="work">{t("roles.label.tab-work")}</Tab>

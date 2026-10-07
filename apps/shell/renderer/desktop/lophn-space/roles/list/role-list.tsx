@@ -1,4 +1,5 @@
 import {
+  Button,
   EmptyState,
   ErrorState,
   Icon,
@@ -20,15 +21,27 @@ export interface RoleListProps {
   current: string | null;
   onOpen: (id: string) => void;
   onRetry: () => void;
+  /** Operator를 붙이는 화면을 연다. */
+  onAttach?: () => void;
 }
 
 // 역할 목록. 다른 목록 화면과 같은 열 배치다(shell/desktop#R4). 역할 이름과 붙은 곳, 상태, Preset 이름만
 // 보이고 안쪽 구성은 없다.
 export function RoleList(
-  { loaded, names, current, onOpen, onRetry }: RoleListProps,
+  { loaded, names, current, onOpen, onRetry, onAttach }: RoleListProps,
 ) {
   return (
     <div className={styles.section} data-role-list="">
+      {onAttach === undefined ? null : (
+        <Button
+          size="sm"
+          variant="secondary"
+          data-action="attach"
+          onClick={onAttach}
+        >
+          {t("roles.button.attach")}
+        </Button>
+      )}
       {loaded.kind === "failed"
         ? <ErrorState target={t("roles.label.target-list")} onRetry={onRetry} />
         : null}

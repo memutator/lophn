@@ -37,7 +37,7 @@ const SIMPLE_CONTEXT: readonly {
   { kind: "assignment_scope", label: "roles.label.preset-context-scope" },
 ];
 
-const CONTEXT_LABEL = {
+export const CONTEXT_LABEL = {
   all: "roles.label.preset-context-all",
   work_place: "roles.label.preset-context-work-place",
   assignment_scope: "roles.label.preset-context-scope",

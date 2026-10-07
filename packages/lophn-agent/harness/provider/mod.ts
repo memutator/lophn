@@ -2,6 +2,11 @@ export { providerSchemaSteps } from "./schema.ts";
 export { createProviderCommands } from "./commands.ts";
 export { createProviderReads } from "./reads.ts";
 export {
+  builtinProviderDefinition,
+  builtinProviderDefinitions,
+  createProviderDefinitionsRead,
+} from "./definitions.ts";
+export {
   createProviderSecretRefSource,
   lookupProviderSecretUse,
   PROVIDER_SECRET_OWNER,
@@ -15,4 +20,11 @@ export {
   type SecretAttachLike,
 } from "./adapters/auth-transport.ts";
 export { createFetchTransport } from "./adapters/transport.ts";
-export { credentialUsable } from "./credentials.ts";
+export { billingRouteOf, credentialUsable } from "./credentials.ts";
+export { loadProvider, listProviders } from "./store.ts";
+export {
+  type ConnectionTestDeps,
+  type ConnectionTestPort,
+  runConnectionTest,
+  type InvokeModelCall,
+} from "./work.ts";

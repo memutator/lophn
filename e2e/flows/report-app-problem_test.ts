@@ -26,8 +26,14 @@ import {
   installedHome,
   removeTree,
 } from "../../packages/apps/sdk/testing/mod.ts";
-import { descendantPids, e2eEnabled, signalPids } from "../harness.ts";
 import {
+  descendantPids,
+  e2eEnabled,
+  processAlive,
+  signalPids,
+} from "../harness.ts";
+import {
+  commandBody,
   delay,
   type FlowShell,
   mustCall,
@@ -370,6 +376,8 @@ type ReadReport = {
       screenshot_missing_reason: unknown;
     } | null;
     screen_missing_reason: unknown;
+    invocation: unknown;
+    invocation_missing_reason: unknown;
   } | null;
 };
 
@@ -460,7 +468,7 @@ Deno.test({
       const shotCheckbox = `[data-feedback="screenshot"] [role="checkbox"]`;
       const screenCheckbox = `[data-feedback="screen"] [role="checkbox"]`;
       // 사람이 shell의 [Report a problem]을 누르고 dialog가 설 때까지.
-      async function pressReport(): Promise<void> {
+      const pressReport = async (): Promise<void> => {
         await flow.click("[data-report-problem]");
         overlay ??= await flow.shell.connect(
           "lophn-shell://overlay/index.html",
@@ -470,15 +478,15 @@ Deno.test({
           `document.querySelector('[data-feedback="text"]') !== null`,
           "dialog가 열리지 않았다",
         );
-      }
+      };
       // 이미지 미리보기나 이유가 보일 때까지(캡처는 1.5초까지).
-      async function untilShotSettled(): Promise<void> {
+      const untilShotSettled = async (): Promise<void> => {
         await untilPage(
           overlay!,
           `document.querySelector('[data-feedback="screenshot-preview"]') !== null || document.querySelector('[data-feedback="screenshot-reason"]:not([data-reason="pending"])') !== null`,
           "screenshot 상태가 정해지지 않았다",
         );
-      }
+      };
       const checked = (selector: string) =>
         overlay!.evaluate(
           `document.querySelector(${
@@ -694,12 +702,513 @@ Deno.test({
           assertEquals(again.report.content_hash, read.report.content_hash);
         },
       );
+
+      // 사람이 [View issue]를 누르면 main이 desktop 창에 보내는 intent를 받아 적는다.
+      await flow.evaluate(`(() => {
+        window.__intents = [];
+        window.lophnIntents.subscribe((intent) => window.__intents.push(intent));
+        return true;
+      })()`);
+      const intents = async () =>
+        JSON.parse(
+          String(await flow.evaluate(`JSON.stringify(window.__intents)`)),
+        ) as { kind: string; app: string; problem: string }[];
+      const snapshotBlobs = async (snapshot: string) =>
+        (await mustCall(flow, {
+          kind: "read",
+          resource: "problems",
+          method: "get-snapshot",
+          body: { snapshot, item: "screen" },
+        })).blobs as { purpose: string; hash: string }[];
+
+      let second_problem = "";
+      await t.step(
+        "R6·R13: screenshot은 미리보기를 보고 골라야 저장되고 저장된 이미지는 미리본 그대로이며 접수 뒤 그 문제로 갈 수 있다",
+        async () => {
+          const before = await counts(flow);
+          await pressReport();
+          await untilShotSettled();
+          const png = await previewPng();
+          const hash = await shotOf(png);
+          assertEquals(await checked(shotCheckbox), "false");
+          // 미리보기가 있어야 고를 수 있다.
+          assertEquals(
+            await overlay!.evaluate(
+              `document.querySelector(${
+                JSON.stringify(shotCheckbox)
+              }).disabled`,
+            ),
+            false,
+          );
+          await pageClick(overlay!, shotCheckbox);
+          assertEquals(await checked(shotCheckbox), "true");
+          await sendReport(
+            "The Orders screen shows an error instead of a table",
+          );
+          await untilPage(
+            overlay!,
+            `document.querySelector('[data-feedback-phase="received"]') !== null`,
+            "접수 완료가 보이지 않는다",
+          );
+          const after = await counts(flow);
+          second_problem = newProblem(before, after);
+          assert(second_problem !== first_problem, "문제가 겹쳤다");
+          const read = await feedbackReport(flow, second_problem);
+          // 사람이 본 그대로(가리지 않고) 저장됐다: 저장한 hash가 미리본 PNG의 hash다.
+          assertEquals(read.snapshot?.screen?.screenshot, hash);
+          assertEquals(read.snapshot?.screen?.screenshot_missing_reason, null);
+          assert(
+            (await snapshotBlobs(read.snapshot!.id)).some((blob) =>
+              blob.hash === hash
+            ),
+            "저장한 screenshot blob이 없다",
+          );
+          const firstRead = await feedbackReport(flow, first_problem);
+          assert(
+            (await snapshotBlobs(firstRead.snapshot!.id)).every((blob) =>
+              blob.hash !== hash
+            ),
+            "고르지 않은 제출에 screenshot이 저장됐다",
+          );
+          // 접수 뒤 [View issue]로 이 Report가 묶인 문제로 간다.
+          await pageClick(overlay!, '[data-feedback="view-issue"]');
+          await untilClosed();
+          await flow.until(
+            `window.__intents.length > 0`,
+            "[View issue]가 desktop 창에 닿지 않았다",
+          );
+          assertEquals(await intents(), [{
+            kind: "app-issue",
+            app: APP,
+            problem: second_problem,
+          }]);
+          assertEquals(
+            await flow.evaluate(
+              `document.querySelector("[data-space]").getAttribute("data-space")`,
+            ),
+            "app",
+          );
+        },
+      );
+
+      await t.step(
+        "flow 5: 새 운영 문제가 열리면 정해진 notification만 생기고 읽어도 문제는 닫히지 않는다",
+        async () => {
+          const now = await counts(flow);
+          const deadline = Date.now() + 30_000;
+          type Listed = {
+            notification: { id: string; read_at: string | null };
+            source_event: string;
+          };
+          let listed: Listed[] = [];
+          for (;;) {
+            listed = (await mustCall(flow, {
+              kind: "read",
+              resource: "notifications",
+              method: "list",
+              body: {},
+            })).notifications as Listed[];
+            if (listed.length >= now.problems.size) break;
+            assert(Date.now() < deadline, "notification이 생기지 않았다");
+            await delay(500);
+          }
+          // 문제가 열릴 때마다 ProblemOpened notification 하나뿐이다.
+          assertEquals(listed.length, now.problems.size);
+          assert(listed.every((item) => item.source_event === "ProblemOpened"));
+          // 읽음 표시는 문제를 닫지 않는다.
+          const read = await mustCall(flow, {
+            kind: "command",
+            resource: "notifications",
+            method: "read",
+            body: commandBody({ notification: listed[0]!.notification.id }),
+          });
+          assertEquals(read.changed, true);
+          const listedProblems = await mustCall(flow, {
+            kind: "read",
+            resource: "problems",
+            method: "list",
+            body: { app: APP },
+          });
+          for (
+            const row of listedProblems.problems as {
+              status: string;
+              next_action: string | null;
+            }[]
+          ) {
+            assertEquals(row.status, "open");
+          }
+        },
+      );
+
+      // 앱 공간에서 view가 가려졌거나 보호 창이 떠 있으면 캡처하지 않고 이유만 보이며 글은 보낼 수 있다.
+      const reasonOf = () =>
+        overlay!.evaluate(
+          `document.querySelector('[data-feedback="screenshot-reason"]')?.getAttribute("data-reason") ?? null`,
+        );
+      const noImage = async () => {
+        assertEquals(
+          await overlay!.evaluate(
+            `document.querySelector('[data-feedback="screenshot-preview"]')`,
+          ),
+          null,
+        );
+        assertEquals(
+          await overlay!.evaluate(
+            `document.querySelector(${JSON.stringify(shotCheckbox)}).disabled`,
+          ),
+          true,
+        );
+      };
+      const sendTextOnly = async (text: string, before: Counts) => {
+        await sendReport(text);
+        await untilPage(
+          overlay!,
+          `document.querySelector('[data-feedback-phase="received"]') !== null`,
+          "접수 완료가 보이지 않는다",
+        );
+        const problem = newProblem(before, await counts(flow));
+        const read = await feedbackReport(flow, problem);
+        assertEquals(read.report.text, await sha256Hex(text));
+        // 이미지가 없으면 저장된 screenshot도 없고 이유가 남는다.
+        assertEquals(read.snapshot?.screen?.screenshot, null);
+        assert(read.snapshot?.screen?.screenshot_missing_reason !== null);
+        return { problem, read };
+      };
+
+      await t.step(
+        "R5·R10: 앱 view가 가려진 동안에는 캡처하지 않고 이유를 보이며 글만 보낼 수 있다",
+        async () => {
+          // 좁은 창에서 운영 패널(720px)이 본문을 모두 덮으면 앱 view는 숨는다.
+          await main(
+            flow,
+            `(() => { const w = electron.BrowserWindow.getAllWindows().find((x) => x.webContents.getURL().includes("desktop")); w.setMinimumSize(300, 300); w.setSize(640, 600); return true; })()`,
+          );
+          await flow.until(
+            `window.innerWidth <= 700`,
+            "창이 좁아지지 않았다",
+          );
+          await flow.click('[data-app-bar="app-details"]');
+          await flow.until(
+            `document.querySelector("[data-ops-panel]") !== null`,
+            "운영 패널이 열리지 않았다",
+          );
+          const deadline = Date.now() + 15_000;
+          for (;;) {
+            const { view } = await viewBounds(flow);
+            if (view === null || view.width <= 0) break;
+            assert(
+              Date.now() < deadline,
+              `앱 view가 숨지 않았다 ${view.width}`,
+            );
+            await delay(200);
+          }
+          const before = await counts(flow);
+          await pressReport();
+          await untilShotSettled();
+          assertEquals(await reasonOf(), "hidden");
+          assertEquals(
+            await overlay!.evaluate(
+              `document.querySelector('[data-feedback="screenshot-reason"]').textContent`,
+            ),
+            "No screenshot because this app wasn't showing.",
+          );
+          await noImage();
+          await sendTextOnly(
+            "The Orders screen is covered but still wrong",
+            before,
+          );
+          await closeDialog("close");
+          // 원래 크기로 돌아오면 앱 view도 다시 보인다.
+          await flow.click("[data-ops-panel-close]");
+          await main(
+            flow,
+            `(() => { const w = electron.BrowserWindow.getAllWindows().find((x) => x.webContents.getURL().includes("desktop")); w.setSize(960, 600); w.setMinimumSize(960, 600); return true; })()`,
+          );
+          const back = Date.now() + 15_000;
+          for (;;) {
+            const { view } = await viewBounds(flow);
+            if (view !== null && view.width > 0) break;
+            assert(Date.now() < back, "앱 view가 돌아오지 않았다");
+            await delay(200);
+          }
+        },
+      );
+
+      await t.step(
+        "R5: lophn dialog나 보호 창이 떠 있으면 캡처하지 않고 이유를 보이며 다른 창·없는 view는 열리지 않는다",
+        async () => {
+          // lophn dialog가 떠 있는 동안.
+          const opened = JSON.parse(
+            String(
+              await flow.evaluate(
+                `window.lophnShell.open({ requestId: "flow-dialog", kind: "dialog", anchorRect: { x: 100, y: 80, width: 600, height: 300 }, model: { label: "Flow dialog", choices: [{ id: "ok", label: "OK" }] } }).then((reply) => JSON.stringify(reply))`,
+              ),
+            ),
+          ) as {
+            ok: boolean;
+            value?: { surfaceId: string; generation: number };
+          };
+          assert(opened.ok && opened.value, JSON.stringify(opened));
+          let before = await counts(flow);
+          await pressReport();
+          await untilShotSettled();
+          assertEquals(await reasonOf(), "protected_window");
+          await noImage();
+          await sendTextOnly(
+            "Sent while another lophn dialog was open",
+            before,
+          );
+          await closeDialog("close");
+          await flow.evaluate(
+            `window.lophnShell.close(${
+              JSON.stringify(opened.value)
+            }).then(() => true)`,
+          );
+
+          // child modal 보호 창(confirmation window)이 떠 있는 동안.
+          const confirmation = JSON.parse(
+            String(
+              await flow.evaluate(
+                `window.lophnShell.openConfirmation({ request: { kind: "secret_input", owner: "flow-provider", purpose: "provider_credential", credential: { key: "key-flow", kind: "api_key", label: "Flow key", account: null, organization: null, plan: null } }, parentWindow: "requesting-window" }).then((reply) => JSON.stringify(reply))`,
+              ),
+            ),
+          ) as { windowId?: string; code?: string };
+          assert(
+            confirmation.windowId !== undefined,
+            `보호 창이 열리지 않았다: ${JSON.stringify(confirmation)}`,
+          );
+          assertEquals(
+            await main(
+              flow,
+              `electron.BrowserWindow.getAllWindows().find((x) => x.webContents.getURL().includes("desktop")).getChildWindows().length`,
+            ),
+            1,
+          );
+          before = await counts(flow);
+          await pressReport();
+          await untilShotSettled();
+          assertEquals(await reasonOf(), "protected_window");
+          assertEquals(
+            await overlay!.evaluate(
+              `document.querySelector('[data-feedback="screenshot-reason"]').textContent`,
+            ),
+            "No screenshot because another lophn window was open over this app.",
+          );
+          await noImage();
+          // 보호 창을 위해 앱 view를 숨기지 않는다.
+          assert((await viewBounds(flow)).view !== null);
+          await sendTextOnly(
+            "Sent while a confirmation window was open",
+            before,
+          );
+          await closeDialog("close");
+          await main(
+            flow,
+            `electron.BrowserWindow.getAllWindows().find((x) => x.webContents.getURL().includes("desktop")).getChildWindows().forEach((child) => child.close())`,
+          );
+
+          // 다른 창의 view나 없는 view에는 dialog도 캡처도 없다.
+          assertEquals(
+            await flow.evaluate(
+              `window.lophnShell.beginFeedback("view_does_not_exist").then(() => "opened", (error) => error.message)`,
+            ),
+            "invalid_input",
+          );
+          assertEquals(
+            await overlay!.evaluate(
+              `document.querySelector("[data-feedback-phase]") === null`,
+            ),
+            true,
+          );
+        },
+      );
+
+      await t.step(
+        "다른 갈래: 입력 검사로 command가 시작되지 못한 이상도 글로 알리고 없는 invocation은 만들지 않는다",
+        async () => {
+          const invocations = async () =>
+            ((await mustCall(flow, {
+              kind: "read",
+              resource: "invocations",
+              method: "list",
+              body: { app: APP },
+            })).invocations as unknown[]).length;
+          const startedBefore = await invocations();
+          // 필수 입력이 없는 호출은 앱에 닿기 전에 막힌다.
+          const blocked = await inApp(
+            `lophnApp.call("run_broken", {}).then(() => "started", (error) => "blocked:" + String(error && error.message))`,
+          );
+          assert(String(blocked).startsWith("blocked"), String(blocked));
+          assertEquals(await invocations(), startedBefore);
+          const before = await counts(flow);
+          await pressReport();
+          await untilShotSettled();
+          await sendReport("The Run button did nothing when I pressed it");
+          await untilPage(
+            overlay!,
+            `document.querySelector('[data-feedback-phase="received"]') !== null`,
+            "접수 완료가 보이지 않는다",
+          );
+          const problem = newProblem(before, await counts(flow));
+          const read = await feedbackReport(flow, problem);
+          // 실행하지 않은 일을 실행 기록으로 남기지 않는다.
+          assertEquals(read.snapshot?.invocation ?? null, null);
+          assert(read.snapshot !== null);
+          assertEquals(await invocations(), startedBefore);
+          await closeDialog("close");
+        },
+      );
+
+      await t.step(
+        "R14: 직접 해 봤지만 안 된다는 글은 새 Report이고 어떤 문제도 닫거나 무시하지 않는다",
+        async () => {
+          const before = await counts(flow);
+          await pressReport();
+          await untilShotSettled();
+          await sendReport("I tried it myself and it still fails");
+          await untilPage(
+            overlay!,
+            `document.querySelector('[data-feedback-phase="received"]') !== null`,
+            "접수 완료가 보이지 않는다",
+          );
+          const after = await counts(flow);
+          const problem = newProblem(before, after);
+          assertEquals(after.reports, before.reports + 1);
+          const read = await feedbackReport(flow, problem);
+          assertEquals(read.report.source, "feedback");
+          assertEquals(
+            read.report.text,
+            await sha256Hex("I tried it myself and it still fails"),
+          );
+          // 이전 문제들은 그대로 열려 있고 닫힘·무시 기록이 없다.
+          for (const id of before.problems.keys()) {
+            const got = await mustCall(flow, {
+              kind: "read",
+              resource: "problems",
+              method: "get",
+              body: { problem: id },
+            });
+            const row = got.problem as {
+              status: string;
+              closure: unknown;
+            };
+            assertEquals(row.status, "open");
+            assertEquals(row.closure, null);
+            assertEquals(after.problems.get(id), before.problems.get(id));
+          }
+          await closeDialog("close");
+        },
+      );
+
+      await t.step(
+        "flow 6: 다른 화면으로 갔다가 같은 앱 공간으로 돌아와 다시 쓸 수 있다",
+        async () => {
+          await flow.click("[data-launcher-back]");
+          await flow.until(
+            `document.querySelector("[data-space]")?.getAttribute("data-space") !== "app"`,
+            "런처로 가지 못했다",
+          );
+          assertEquals((await viewBounds(flow)).view, null);
+          await flow.evaluate(
+            `(() => { location.hash = ${
+              JSON.stringify(`#app=${APP}`)
+            }; location.reload(); return true; })()`,
+          );
+          await delay(500);
+          await flow.until(
+            `document.querySelector('[data-space="app"]') !== null`,
+            "앱 공간으로 돌아오지 못했다",
+          );
+          await flow.until(
+            `document.querySelector('[data-report-problem]:not([disabled])') !== null`,
+            "[Report a problem]이 켜지지 않았다",
+          );
+          // 새로 읽은 desktop 창에서 intent 구독을 다시 건다.
+          await flow.evaluate(`(() => {
+            window.__intents = [];
+            window.lophnIntents.subscribe((intent) => window.__intents.push(intent));
+            return true;
+          })()`);
+        },
+      );
+
+      await t.step(
+        "R11: 접수가 막히면 완료 표시 없이 글을 복사할 수 있고 초안 복구를 약속하지 않는다",
+        async () => {
+          await pressReport();
+          await untilShotSettled();
+          const lost = "Core went away while I was writing this report";
+          await pageType(overlay!, '[data-feedback="text"]', lost);
+          // 사람이 쓰는 도중 core가 사라진다(이 실행의 core 프로세스 하나만 끝낸다).
+          const pid = await corePid(flow);
+          signalPids([pid], "SIGKILL");
+          const gone = Date.now() + 15_000;
+          while (processAlive(pid)) {
+            assert(Date.now() < gone, "core가 끝나지 않았다");
+            await delay(100);
+          }
+          await untilPage(
+            overlay!,
+            `!document.querySelector('[data-feedback="send"]').disabled`,
+            "[Send report]가 꺼져 있다",
+          );
+          await pageClick(overlay!, '[data-feedback="send"]');
+          await untilPage(
+            overlay!,
+            `document.querySelector('[data-feedback="failed"]') !== null`,
+            "접수 실패가 보이지 않는다",
+          );
+          // 접수 완료로 보이지 않는다.
+          assertEquals(
+            await overlay!.evaluate(
+              `document.querySelector('[data-feedback="received"]') === null && document.querySelector('[data-feedback-phase]').getAttribute("data-feedback-phase")`,
+            ),
+            "failed",
+          );
+          assertEquals(
+            await overlay!.evaluate(
+              `document.querySelector('[data-feedback="failed"] p').textContent`,
+            ),
+            "Your report wasn't sent because lophn couldn't be reached.",
+          );
+          // 글은 그대로 남아 있고 복사할 수 있다. 복사 길은 clipboard에 쓰는 글을 받아 적는다.
+          assertEquals(
+            await overlay!.evaluate(
+              `document.querySelector('[data-feedback="text"]').value`,
+            ),
+            lost,
+          );
+          await overlay!.evaluate(`(() => {
+            window.__copied = null;
+            Object.defineProperty(navigator.clipboard, "writeText", {
+              configurable: true,
+              value: (text) => { window.__copied = text; return Promise.resolve(); },
+            });
+            return true;
+          })()`);
+          await overlay!.evaluate(
+            `document.querySelector('[data-feedback="failed"] button[aria-label="Copy your text"]').click()`,
+          );
+          await untilPage(
+            overlay!,
+            `window.__copied !== null`,
+            "글이 복사되지 않았다",
+          );
+          assertEquals(await overlay!.evaluate(`window.__copied`), lost);
+          // 초안은 이 창 메모리에만 있다고 알리고 shell을 닫은 뒤 복구를 약속하지 않는다.
+          assertEquals(
+            await overlay!.evaluate(
+              `document.querySelector('[data-feedback="text"]').closest(".field_field").querySelector(".field_message").textContent`,
+            ),
+            DRAFT_HINT,
+          );
+          await closeDialog("cancel");
+          assertEquals(await foundOnDisk(home, lost), []);
+        },
+      );
     } finally {
       await flow.close();
       await removeTree(home);
     }
   },
 });
-
-void signalPids;
-void corePid;

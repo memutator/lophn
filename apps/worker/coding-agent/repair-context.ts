@@ -139,7 +139,7 @@ export async function acceptRepairContext(
       assembled.error.message,
     );
   }
-  if (summary) return { summary: assembled.value.summary };
+  if (summary) return { summary: assembled.value.summary, as_of_seq: assembled.value.as_of_seq, next_cursor: null };
   if (assembled.value.context === null) {
     // 전체 상한 안에 줄이는 일은 T43이 맡는다. 줄이지 못한 묶음은 만들지 않는다.
     throw new RepairContextRejection(
@@ -147,7 +147,7 @@ export async function acceptRepairContext(
       "repair context exceeds the total budget",
     );
   }
-  return { context: assembled.value.context };
+  return { context: assembled.value.context, as_of_seq: assembled.value.as_of_seq, next_cursor: null };
 }
 
 export type CodingAgentWorkerOptions = {
@@ -175,9 +175,11 @@ export function createCodingAgentWorker(
       options.cancelled?.();
       return session.send({ type: "stopped" });
     },
-    async onParent(message) {
+    onParent(message) {
       if (options.onMessage?.(message) === true) return;
       if (message.type !== "worker_request") return;
+      // redact_response도 같은 pipe로 오므로 요청 완료를 pump에서 기다리지 않는다.
+      void (async () => {
       try {
         const payload = await options.accept(message as WorkerRequest);
         await session.send({
@@ -198,6 +200,7 @@ export function createCodingAgentWorker(
             : { code: "unavailable", message: "repair context failed" },
         });
       }
+      })().catch(() => undefined);
     },
   });
   return session;

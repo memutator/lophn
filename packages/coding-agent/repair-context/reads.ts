@@ -59,12 +59,6 @@ async function parsed<R extends ReadRoute>(
   return ok(output.data as ReturnType<R["output"]["parse"]>);
 }
 
-function decode(base64: string): string {
-  const raw = atob(base64);
-  const bytes = Uint8Array.from(raw, (char) => char.charCodeAt(0));
-  return new TextDecoder().decode(bytes);
-}
-
 async function defaultBlob(
   client: RepairReadClient,
   ref: { owner_kind: string; owner_key: string; field: string },
@@ -93,7 +87,7 @@ async function defaultBlob(
   }
   return {
     kind: "text",
-    text: decode(result.bytes),
+    text: result.text,
     truncated: result.truncated,
   };
 }

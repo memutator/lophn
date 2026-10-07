@@ -198,6 +198,10 @@ export const getReportRead = {
     );
     return ok({
       report: fullReportOf(row),
+      attachments: snapshot.sql.all(
+        "select field, hash, size_bytes from blob_refs where owner_kind = ? and owner_key = ?",
+        ["report", input.report],
+      ).map((ref) => ({ field: String(ref.field), hash: String(ref.hash), size_bytes: Number(ref.size_bytes) })),
       as_of_seq: snapshot.as_of_seq,
       next_cursor: null,
       snapshot: snapshotRow === undefined ? null : snapshotOf(snapshotRow),

@@ -800,7 +800,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
 ### T18 activation
 
 - 상태: 완료 (#381, 조립 #386) — 이어보냄: 템플릿 앱의 실제 기동 entry·problems 보고 → apps#T27
-- 후속 (#<PR>): 운영 앱 runtime entry
+- 후속 (#449): 운영 앱 runtime entry
 - 등급: 최상위
 - concern: apps/releases, apps/data
 - 요구: apps/releases#R8, R12, R13, R14, R15, R16, apps/data#R4, R9, R11, R12

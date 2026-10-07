@@ -18,8 +18,9 @@ export function createActorAllowed(actor: string): boolean {
   return parts.kind === "user" || parts.kind === "agent";
 }
 
-// 자격이 앱 하나에 묶여 있으면(담당 App Engineer agent) 그 앱 밖 ticket은 없는 ticket과
-// 같은 답이다. 고정 조건은 owner가 판정한다(platform/identity).
+// command의 앱 조건 검사다. 자격이 앱 하나에 묶여 있으면(담당 App Engineer agent) 그 앱 밖
+// ticket은 없는 ticket과 같은 답이다. read는 같은 조건을 platform의 TargetAuthorization
+// (reads.ts의 inCodingScope)로 판정하고, command에는 그 port가 없어 이 검사를 쓴다.
 export function outsideAppCondition(
   ctx: RequestContext,
   app: string,

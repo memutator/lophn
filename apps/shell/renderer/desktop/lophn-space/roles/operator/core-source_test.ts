@@ -3,7 +3,6 @@
 // core 위에서 본다.
 import { assert, assertEquals } from "@std/assert";
 
-import { fingerprint } from "../../../../../../../packages/base/mod.ts";
 import { ALL_ROUTES } from "../../../../../../../packages/contracts/mod.ts";
 import { approvalBindingHash } from "../../../../../../../packages/contracts/platform/approvals.ts";
 import { confirmationOpenIntentSchema } from "../../../../../../../packages/contracts/shell/confirmation.ts";
@@ -13,6 +12,13 @@ import type { CoreSource } from "../../../connection/connection.ts";
 import { coreRolesSource, factsOf, presetOf } from "../core-source.ts";
 import type { PresetEntry, RoleRow } from "../source.ts";
 import type { OperatorDraft } from "./source.ts";
+
+// 승인 요청의 지문은 platform의 canonical JSON 규칙이다. shell은 packages/base를 import하지 않으므로
+// 그 규칙의 정본을 시험에서만 경로로 불러 비교한다.
+const base = await import(
+  new URL("../../../../../../../packages/base/mod.ts", import.meta.url).href
+) as { fingerprint(value: unknown): Promise<string> };
+const fingerprint = base.fingerprint;
 
 const ASG = "asg_01h455vb4pex5v6nkc6gd5fd04";
 const PST = "pst_01h455vb4pex5v6nkc6gd5fd03";

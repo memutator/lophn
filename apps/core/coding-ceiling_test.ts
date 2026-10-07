@@ -3,7 +3,12 @@
 // 연결의 앱 범위가 그 안에서 더 좁히는지, ticket 완료 보고의 summary blob이 같은 transaction에서
 // 저장·참조되는지 본다. 사람의 실제 keychain·데이터 root는 열지 않는다.
 import { DatabaseSync } from "node:sqlite";
-import { assert, assertEquals, assertNotEquals } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertFalse,
+  assertNotEquals,
+} from "@std/assert";
 import { err, ok, type Result, sha256Hex } from "../../packages/base/mod.ts";
 import {
   connectionRevoke,
@@ -21,6 +26,9 @@ import {
   type World,
 } from "../../packages/apps/runtime/world_test.ts";
 import { codingAgentConnectionDefinitions } from "./coding-agent.ts";
+import { ALL_ROUTES } from "../../packages/contracts/mod.ts";
+import { appsOperationPolicies } from "./apps-control.ts";
+import { codingAgentOperationPolicies } from "./coding-operations.ts";
 import { ticketDefinitions } from "./tickets.ts";
 
 const VER = "ver_01arz3ndektsv4rrffq69g5fav";
@@ -398,6 +406,47 @@ Deno.test("coding-agent/connection#R5 coding-agent/connection#R4: coding token�
       const sent = await post(world, path, scoped.token, input);
       assertEquals(sent.status, 403, `${path} ${JSON.stringify(sent.body)}`);
     }
+    // approval 결정·소비·요청과 grant 변경은 route가 coding_agent를 선언해도 상한 밖이다.
+    // approval 읽기만 닿는다(coding-agent architecture §1, §4). body는 맞는 모양이라 거절 이유는
+    // 상한이다. 두 범위 모두 같다.
+    for (const token of [scoped.token, all.token]) {
+      const revoked = await post(world, "grants/revoke_automation", token, {
+        app: world.app,
+        grant: "grt_01arz3ndektsv4rrffq69g5fb9",
+        automation: "x",
+      }, { grants_seq: "1" });
+      assertEquals(revoked.status, 403, JSON.stringify(revoked.body));
+      // 현재 credential의 상한에 approval 결정·소비·요청·취소와 grant 변경이 없고 읽기만 있다.
+    }
+    // 상한 함수 자체: 같은 route 정의 전체에서 approval 결정·소비·요청·취소와 grant 변경·blob 읽기는
+    // 빠지고 approval 읽기만 남는다. 자원과 종류로 막으므로 이름 목록에 없는 새 route도 같다.
+    const ceiling = new Set(
+      codingAgentOperationPolicies(ALL_ROUTES, appsOperationPolicies()).map((
+        policy,
+      ) => policy.name),
+    );
+    for (
+      const name of [
+        "apply_approved_action",
+        "create_approval_request",
+        "cancel_approval_request",
+        "grant.revoke_automation",
+        "blob.read",
+      ]
+    ) {
+      assertFalse(ceiling.has(name), name);
+    }
+    assert(ceiling.has("ListApprovals") && ceiling.has("GetApproval"));
+    assertEquals(
+      (await read(world, "approvals/list", all.token, {})).status,
+      200,
+    );
+    assertNotEquals(
+      (await read(world, "approvals/get", all.token, {
+        approval: "apr_01arz3ndektsv4rrffq69g5fb9",
+      })).status,
+      403,
+    );
     // 일반 blob 읽기는 선언에 coding_agent가 있어도 열지 않는다.
     const blob = await read(world, "blobs/read", all.token, {
       owner_kind: "ticket",

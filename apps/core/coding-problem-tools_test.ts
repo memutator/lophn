@@ -465,7 +465,19 @@ async function claimedRepair(
         section: null,
       }],
       adoption_questions: [QUESTION],
-      conditions: [{ kind: "app_test" }],
+      conditions: [
+        { kind: "app_test" },
+        {
+          kind: "test_command",
+          executable: "deno",
+          argv: ["task", "test"],
+          cwd: ".",
+          timeout_ms: 60_000,
+          expected_exit_code: 0,
+        },
+        { kind: "reproduction_test", problem, test_hash: "9".repeat(64) },
+        { kind: "problems_closed" },
+      ],
       inspect: ["src/leaf.ts"],
       preserve: ["docs/leaf.md"],
     }, { base_revision: revision }),
@@ -682,8 +694,12 @@ Deno.test("coding-agent/mcp-server#R25 coding-agent/cli#R34: record_fix는 summa
     // 기록은 문제를 닫지 않는다.
     const shown = await call({ op: "show", problem });
     assertEquals(
+      (shown.data["problem"] as { closure: unknown }).closure,
+      null,
+    );
+    assertNotEquals(
       (shown.data["problem"] as { status: string }).status,
-      "fixing",
+      "closed",
     );
 
     // CLI도 같은 흐름이다: 새 문제 seq로 같은 claim 아래 한 번 더 기록한다.
@@ -767,8 +783,8 @@ Deno.test("coding-agent/mcp-server#R25 coding-agent/cli#R26 coding-agent/cli#R34
     assertEquals(wrongKind.isError, true);
     assertEquals(wrongKind.data["code"], "invalid_input");
 
-    // 현재 claim 아래 요청이다. runner가 아직 이어지지 않았으므로 실제 pass가 될 수 없고, 성공 pass로
-    // 읽히지 않는다(미실행·접수 대기·판정 불가·거절 중 하나).
+    // 현재 claim 아래 요청이다. runner 연결(problems#T18 후속)이 아직 core에 없어 접수가 거절된다. 실제
+    // pass가 될 수 없고 성공 pass로 읽히지 않는다(거절·접수 대기·실행 중·판정 불가 중 하나).
     const sent = await call(request("repro-1", claimed.claimSeq));
     const state = (sent.data as { state?: string }).state;
     assert(

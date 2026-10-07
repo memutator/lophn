@@ -62,7 +62,7 @@ Deno.test("wording: a fixed text in a screen and a key missing from the catalog 
   ]);
   const missing = checkSource(
     "b.tsx",
-    'const x = t("broken.title.missing");',
+    'const x = t("panel.title.missing");',
     en,
     { screens },
   );
@@ -71,14 +71,14 @@ Deno.test("wording: a fixed text in a screen and a key missing from the catalog 
   ]);
   const mismatch = checkSource(
     "c.tsx",
-    'const x = t("broken.label.count", { total: 1 });',
+    'const x = t("panel.label.count", { total: 1 });',
     en,
     { screens },
   );
   assertEquals(errorsOf(mismatch).map((finding) => finding.rule), [
     "placeholder-mismatch",
   ]);
-  const noEnglish = { ...en, "broken.title.screen": "" };
+  const noEnglish = { ...en, "panel.title.screen": "" };
   assertEquals(
     errorsOf(
       checkSource("en.ts", JSON.stringify(noEnglish), noEnglish, { screens }),
@@ -93,7 +93,7 @@ Deno.test("wording: placeholders.ts is generated from the catalog and t formats 
     new URL("src/wording/placeholders.ts", root),
   );
   assertEquals(current, render(en, "deno task wording"));
-  assertEquals(t("broken.title.screen"), "Broken");
+  assertEquals(t("panel.title.screen"), "Broken");
 });
 
 Deno.test("wording: changing catalog text never changes a command or screen key", () => {

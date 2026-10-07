@@ -2,39 +2,44 @@
 import type { MessageKey } from "./en.ts";
 
 export type PlaceholderKinds = {
-  "broken.button.reload": Record<never, never>;
-  "broken.button.report": Record<never, never>;
-  "broken.empty.none": Record<never, never>;
-  "broken.error.load-failed": Record<never, never>;
-  "broken.label.count": {
-    count: "plural";
-  };
-  "broken.label.hint": Record<never, never>;
-  "broken.label.kind": Record<never, never>;
-  "broken.label.list-broken": Record<never, never>;
-  "broken.label.panel-context": Record<never, never>;
-  "broken.label.run-broken": Record<never, never>;
-  "broken.label.view-session": Record<never, never>;
-  "broken.reason.data-folder": Record<never, never>;
-  "broken.reason.helper": Record<never, never>;
-  "broken.status.reported": Record<never, never>;
-  "broken.summary.chatter-then-fail": Record<never, never>;
-  "broken.summary.drop-promise": Record<never, never>;
-  "broken.summary.flood-reports": Record<never, never>;
-  "broken.summary.kind": Record<never, never>;
-  "broken.summary.label": Record<never, never>;
-  "broken.summary.list-broken": Record<never, never>;
-  "broken.summary.mark-kind": Record<never, never>;
-  "broken.summary.panel-context": Record<never, never>;
-  "broken.summary.report-wrong-code": Record<never, never>;
-  "broken.summary.run-broken": Record<never, never>;
-  "broken.summary.screen": Record<never, never>;
-  "broken.summary.variant": Record<never, never>;
-  "broken.summary.view-session": Record<never, never>;
-  "broken.title.screen": Record<never, never>;
   "common.problem.fixture-broken": Record<never, never>;
   "common.problem.fixture-misconfigured": Record<never, never>;
   "common.summary.app": Record<never, never>;
+  "panel.button.report": Record<never, never>;
+  "panel.button.reload": Record<never, never>;
+  "panel.empty.none": Record<never, never>;
+  "panel.error.load-failed": Record<never, never>;
+  "panel.label.chatter-then-fail": Record<never, never>;
+  "panel.label.count": {
+    count: "plural";
+  };
+  "panel.label.drop-promise": Record<never, never>;
+  "panel.label.flood-reports": Record<never, never>;
+  "panel.label.hint": Record<never, never>;
+  "panel.label.kind": Record<never, never>;
+  "panel.label.list-broken": Record<never, never>;
+  "panel.label.mark-kind": Record<never, never>;
+  "panel.label.panel-context": Record<never, never>;
+  "panel.label.report-wrong-code": Record<never, never>;
+  "panel.label.run-broken": Record<never, never>;
+  "panel.label.view-session": Record<never, never>;
+  "panel.reason.data-folder": Record<never, never>;
+  "panel.reason.helper": Record<never, never>;
+  "panel.status.reported": Record<never, never>;
+  "panel.summary.kind": Record<never, never>;
+  "panel.summary.label": Record<never, never>;
+  "panel.summary.list-broken": Record<never, never>;
+  "panel.summary.mark-kind": Record<never, never>;
+  "panel.summary.panel-context": Record<never, never>;
+  "panel.summary.report-wrong-code": Record<never, never>;
+  "panel.summary.run-broken": Record<never, never>;
+  "panel.summary.screen": Record<never, never>;
+  "panel.summary.variant": Record<never, never>;
+  "panel.summary.view-session": Record<never, never>;
+  "panel.summary.flood-reports": Record<never, never>;
+  "panel.summary.drop-promise": Record<never, never>;
+  "panel.summary.chatter-then-fail": Record<never, never>;
+  "panel.title.screen": Record<never, never>;
 };
 
 type ValueFor<T> = T extends "plural" | "number" ? number

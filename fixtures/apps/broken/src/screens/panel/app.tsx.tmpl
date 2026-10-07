@@ -66,16 +66,16 @@ export function App() {
   }, [rows]);
 
   return (
-    <AppShell title={t("broken.title.screen")}>
+    <AppShell title={t("panel.title.screen")}>
       <form className={styles.form} onSubmit={report}>
-        <Field label={t("broken.label.kind")}>
+        <Field label={t("panel.label.kind")}>
           <Input
             value={kind}
             maxLength={40}
             onChange={(event) => setKind(event.target.value)}
           />
         </Field>
-        <Field label={t("broken.label.hint")}>
+        <Field label={t("panel.label.hint")}>
           <Textarea
             value={note}
             maxLength={500}
@@ -84,33 +84,33 @@ export function App() {
         </Field>
         <div className={styles.actions}>
           <Button type="submit" variant="primary">
-            {t("broken.button.report")}
+            {t("panel.button.report")}
           </Button>
-          <Button onClick={() => void run()}>{t("broken.label.run-broken")}</Button>
-          <Button onClick={() => void mark()}>{t("broken.label.mark-kind")}</Button>
+          <Button onClick={() => void run()}>{t("panel.label.run-broken")}</Button>
+          <Button onClick={() => void mark()}>{t("panel.label.mark-kind")}</Button>
         </div>
       </form>
       {reported && (
         <p className={styles.notice} role="status">
-          {t("broken.status.reported")}
+          {t("panel.status.reported")}
         </p>
       )}
       <ReadState
         loading={loading}
-        failed={failed ? t("broken.title.screen") : undefined}
+        failed={failed ? t("panel.title.screen") : undefined}
         onRetry={() => void load()}
         isEmpty={rows.length === 0}
         empty={{
           icon: CircleX,
-          message: t("broken.empty.none"),
+          message: t("panel.empty.none"),
           action: {
-            label: t("broken.button.reload"),
+            label: t("panel.button.reload"),
             onSelect: () => void load(),
           },
         }}
       >
         <p className={styles.count}>
-          {t("broken.label.count", { count: rows.length })}
+          {t("panel.label.count", { count: rows.length })}
         </p>
       </ReadState>
     </AppShell>

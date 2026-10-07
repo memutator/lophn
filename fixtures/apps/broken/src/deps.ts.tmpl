@@ -30,7 +30,7 @@ export function isFailureKind(value: string): value is FailureKind {
 }
 
 // run_broken의 깨진 경로다. board B는 그대로 두고 board C는 보고를 지운다(약화).
-function reportBroken(kind: FailureKind, details: Record<string, unknown>) {
+function reportBroken(details: Record<string, string | number | boolean>) {
   if (MODE === "C") return; // 약화 판: 보고 경로를 삭제한다. 깨진 값은 그대로 남는다.
   reportProblem("fixture_broken", details);
 }
@@ -39,5 +39,8 @@ export { reportBroken };
 
 // board E는 실패 code를 UNAVAILABLE로 바꾼다(다른 실패, 다른 문장의 다른 지문).
 export function codedFailure(kind: BoardMode, message: string): never {
-  throw new CommandRejection(kind === "E" ? "unavailable" : "failed", message);
+  throw new CommandRejection(
+    kind === "E" ? "unavailable" : "invalid_input",
+    message,
+  );
 }

@@ -2,9 +2,16 @@
 // 깨진 앱 fixture다(apps#T26). 각 command는 계획의 시나리오 번호에 맞춰 실제로 깨진다.
 // 깨진 위치는 board.ts의 MODE가 고른다(환경 값이 아니다).
 import { reportProblem } from "@lophn/cap-problem";
-import { continueRead, command, type ReadQuery, readResult } from "@lophn/cap-schedule";
+import { CommandRejection } from "@lophn/cap-schedule";
+import { command, continueRead, readResult } from "@lophn/cap-schedule";
 import { MODE } from "./board.ts";
-import { defaults, type Deps, FAILURE_KINDS, isFailureKind, reportBroken } from "./deps.ts";
+import {
+  defaults,
+  type Deps,
+  FAILURE_KINDS,
+  isFailureKind,
+  reportBroken,
+} from "./deps.ts";
 
 // run_broken의 TypeError 변형이다(apps#T26 완료 2번). 같은 함수에서 stack frame의 path·function은 같고,
 // 줄과 message만 다른 두 변형을 같은 call에서 고른다 → 하나의 지문(fingerprint)으로 묶인다.
@@ -28,7 +35,7 @@ function readPanel(position: "head" | "tail"): never {
 function readDependency(): string[] {
   return continueRead(
     { query: { filter: { gone: true }, order: ["asc"], basis: "nothing" }, cursor: "0" },
-    { filter: { gone: false }, order: ["asc"], basis: "nothing" },
+    { filter: { gone: true }, order: ["asc"], basis: "nothing" },
     [],
     { coverage: "complete", freshness: "fresh" },
   ).rows;
@@ -55,7 +62,7 @@ export function runBrokenHandler(deps: Deps = defaults) {
         "the failure kind is unknown",
       );
     }
-    reportBroken("fixture_broken", { command: "run_broken", kind });
+    reportBroken({ command: "run_broken", kind });
     deps.log(`run_broken ${kind} at ${deps.now()}`);
     if (kind === "type_error") {
       const deep = (body.variant ?? "") === "deep";
@@ -116,7 +123,10 @@ export function chatterThenFailHandler(deps: Deps = defaults) {
     void Promise.reject(
       new Error("late failure after the chatter_then_fail response"),
     );
-    throw new CommandRejection("failed", "the command failed after chattering");
+    throw new CommandRejection(
+      "invalid_input",
+      "the command failed after chattering",
+    );
   };
 }
 

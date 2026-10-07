@@ -68,11 +68,19 @@ Deno.test("failure_path:fixture_broken chatter_then_fail fails after writing log
     now: () => NOW,
     log: (line) => lines.push(line),
   });
+  // 응답 뒤 비동기로도 실패한다(둘째 절반). reject가 test를 끝내지 않게 이 test에서 받는다.
+  const late = new Promise<unknown>((resolve) => {
+    globalThis.addEventListener("unhandledrejection", (event) => {
+      event.preventDefault();
+      resolve((event as PromiseRejectionEvent).reason);
+    }, { once: true });
+  });
   await assertRejects(
     async () => await handler(),
     CommandRejection,
   );
   assertEquals(lines.length > 30, true);
+  assertEquals((await late as Error).message, "late failure after the chatter_then_fail response");
 });
 
 Deno.test("failure_path:fixture_broken list_broken answers a wrong aggregate as a normal response", () => {

@@ -24,24 +24,53 @@ import type { AgentCredentialIssuer } from "../../packages/lophn-agent/harness/r
 // core 자신의 ledger 기록으로 확인한다. 어느 하나라도 어긋나면 없는 run과 똑같이 답하지 않는다.
 
 // agent credential의 고정 조건이다(lophn-agent/roles/app-engineer#R2). App Engineer는 담당 앱 하나에
-// 묶이므로 그 앱을 `app` 조건으로 고정한다: 다른 앱·project·자리 없음 문서는 요청 범위 밖이라 없는
-// 문서와 같은 답이다(platform/ledger의 target 판정). 다른 역할은 앱 조건이 없다.
+// 묶이므로 그 앱을 `app` 조건으로 고정한다: 다른 앱·project·자리 없음 문서와 담당 앱이 아닌 context·
+// 문제·ticket 같은 자료는 요청 범위 밖이라 없는 자료와 같은 답이다(platform/ledger의 target 판정).
+// 이번 run이 handoff로 시작했으면 그 handoff의 고정 근거(문서, 판)를 `evidence`로 함께 고정해 그 판 주소
+// 읽기만 담당 앱 밖에서도 연다. 근거는 core 자신의 run 기록의 출처에서 정하고 child 요청 값이 아니다.
+// 다른 역할은 앱 조건이 없다.
 export function agentConditions(input: {
   assignment: string;
   run: string;
   process: string;
   role: string;
   scope: { kind: string; id?: string | null };
-}): { assignment: string; run: string; process: string; app?: string } {
+  source?: {
+    kind: string;
+    references?: readonly { document: string; version: string }[];
+  };
+}): {
+  assignment: string;
+  run: string;
+  process: string;
+  app?: string;
+  evidence?: { document: string; version: string }[];
+} {
   const base = {
     assignment: input.assignment,
     run: input.run,
     process: input.process,
   };
-  return input.role === "app_engineer" && input.scope.kind === "app" &&
-      typeof input.scope.id === "string"
-    ? { ...base, app: input.scope.id }
-    : base;
+  if (
+    input.role !== "app_engineer" || input.scope.kind !== "app" ||
+    typeof input.scope.id !== "string"
+  ) return base;
+  const references = input.source?.kind === "handoff"
+    ? input.source.references ?? []
+    : [];
+  const evidence = [
+    ...new Map(
+      references.map((reference) => [
+        `${reference.document}\u0000${reference.version}`,
+        { document: reference.document, version: reference.version },
+      ]),
+    ).values(),
+  ];
+  return {
+    ...base,
+    app: input.scope.id,
+    ...(evidence.length === 0 ? {} : { evidence }),
+  };
 }
 
 export type CoreCall = (
@@ -140,6 +169,7 @@ export function createAgentCredentialLink(options: {
         process: options.process,
         role: assigned.assignment.role,
         scope: assigned.assignment.scope,
+        source: run.run.source,
       }),
     });
     if (!issued.ok) return undefined;

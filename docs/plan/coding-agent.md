@@ -888,6 +888,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T26 ticket checker: app_test·test_command·release_active
 
+- 상태: 완료 (#426)
 - 등급: 기본
 - concern: coding-agent/tickets
 - 요구: coding-agent/tickets#R7, R8, R18, R19, R20
@@ -1465,6 +1466,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
   shell#T47, shell#T49, shell#T50, shell#T51
 - coding-agent#T40에서 넘어온 것: 제품 core의 coding credential operation 상한(`apps/core/core.ts`의 registry operations)에는 아직 ticket claim·문서 저장 같은 command가 없어 실제 coding token이 `ClaimTicket` 등을 부르면 403이다(읽기 route와 `app.connect`는 닿는다). claim→작업→보고 E2E는 이 상한을 platform이 정한 뒤에 실제 token으로 돈다(사람 결정 필요, T36 남은 것 (3)과 같은 문제)
 - problems#T13에서 넘어온 것: manage-tickets 6단계 acceptance check가 problems Verification(TicketTestLink)을 쓰는 통합 확인(#222)
+- coding-agent#T26에서 넘어온 것: checker는 Verification을 읽기만 하고 test_command 실행을 요청하지 않는다. 보고 뒤의 completion_seq로 TicketTestLink를 붙여 test_command를 요청하는 주체·경로(고정 test blob 준비 포함)가 정해지지 않았다. 그 요청이 없으면 test_command 조건은 `inconclusive`(실행 안 함)로 reported에 남는다
 - 완료:
   - fake harness: PATH fixture로 감지되고 테스트 catalog의 ExecutionSpec(argv
     prompt, stdin_after_ready 둘 다)을 따르는 TUI 흉내. 받은 prompt로 MCP
@@ -1607,6 +1609,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 - 조사: docs/research/coding-agent-ticket-claim.md
 - 선행: T26, problems#T18, problems#T20, problems#T21
 - 선행 풀기(사람 결정 2026-10-07): 선행이 끝나기 전에 이미 있는 contract와 fake로 먼저 만든다. 선행이 merge되면 실제 구현에 잇는 작은 PR을 따로 내고, 그때 완료로 둔다.
+- coding-agent#T26에서 넘어온 것: T26 checker는 reproduction_test·problems_closed·human_confirmation을 이유와 함께 `inconclusive`로만 남기고 `record_checks` handler도 이 세 kind의 pass·fail을 받지 않는다(`packages/coding-agent/tickets/checker/judge.ts`, `checks.ts`). 이 작업이 판정과 handler 허용을 함께 넓히고, `ProblemClosed`·`ProblemReopened`를 checker 깨움(`apps/core/ticket-checker.ts`의 WAKE_EVENTS와 event 공개 정책)에 더한다
 - 완료:
   - reproduction_test는 해당 문제·고정 test_hash·보고 after release의
     Verification만, human_confirmation pass는 "내가 확인함"이고 Verification이

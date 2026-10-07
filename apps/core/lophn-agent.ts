@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { err, ok, type Result } from "../../packages/base/mod.ts";
+import { err, ok } from "../../packages/base/mod.ts";
 import {
   defineSetting,
   type KindLaunchSpec,
@@ -26,16 +26,6 @@ import type {
   EventVisibilityDefinition,
   Tx,
 } from "../../packages/contracts/platform/mod.ts";
-import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
-import { assignmentEngine } from "../../packages/lophn-agent/assignments/reaction.ts";
-import { ASSIGNMENT_SUBSCRIBER } from "../../packages/contracts/lophn-agent/mod.ts";
-import {
-  type InternalSubscription,
-  openInternalSubscription,
-} from "./internal-subscription.ts";
-import { openConnection } from "../../packages/platform/ledger/mod.ts";
-import { ASSIGNMENT_REACTIONS_CONTEXT } from "./platform.ts";
-import type { CoreRuntime } from "./runtime.ts";
 import {
   approvalRunLineage,
   createApprovalCommands,
@@ -715,153 +705,6 @@ function machineOnlyVisibility<D extends EventDefinition>(
   event: D,
 ): EventVisibilityDefinition<D> {
   return { event, handle: (_snapshot, ctx) => ok(ctx.actor === "machine") };
-}
-
-// `lophn-agent-assignments` 구독자의 현재 cursor. 기록이 없으면 처음부터다(0).
-// notifications의 cursor helper와 같은 모양(ledger의 subscriber_cursors 표)이다.
-export function assignmentReactionsCursor(
-  ledgerPath: string,
-): Result<string> {
-  const opened = openConnection(ledgerPath);
-  if (!opened.ok) return opened;
-  try {
-    const row = opened.value.sql.get(
-      "select cast(processed_through_seq as text) as seq from subscriber_cursors where subscriber = ?",
-      [ASSIGNMENT_SUBSCRIBER],
-    );
-    return {
-      ok: true,
-      value: row === undefined ? "0" : String(row["seq"]),
-    };
-  } catch {
-    return {
-      ok: false,
-      error: { code: "unavailable", message: "cursor를 읽지 못했다" },
-    };
-  } finally {
-    opened.value.close();
-  }
-}
-
-// core 안의 AppCreated 반응 구독자(machine:lophn-agent-assignments). 독립 비동기 루프가
-// assignments cursor 뒤 event batch를 읽고, AppCreated 계기마다 CreateAppEngineerAssignment을
-// 낸다(assignments#R1). 나머지 event는 cursor만 올린다. 본문 조립·model 호출은 하지 않는다.
-// 실패하면 그 위치에서 멈춘 채 대기 뒤 같은 cursor부터 다시 읽는다(전달 실패로 버리지 않는다).
-// AE preset은 등록된 product preset을 ledger read로 읽는다(roles/ module import는 interaction
-///responsiveness core graph 규칙이 막는다). 없으면 이 위치에서 멈춘다(T45: prompt 자산이 아직
-// 없어 bootstrap은 product preset을 만들지 않으므로, 등록 전까지 반응은 진행하지 않는다).
-export type AssignmentsLoopDeps = {
-  runtime: Pick<CoreRuntime, "events" | "track" | "writer" | "readers">;
-  ledgerPath: string;
-  // AppCreated 계기가 만들 assignment의 AE preset. 기동이 ledger에서 읽어 넣는다. 아직 없으면
-  // null이고 loop는 preset 확정 전까지 반응을 진행하지 않는다.
-  preset: { preset: string; preset_revision: number } | null;
-  // 한 번 실패한 뒤 다시 시도하는 대기. 기본 1초다.
-  retryMs?: number;
-};
-
-export type AssignmentsLoop = {
-  // 지금 cursor부터 head까지 따라잡는다. 이미 도는 중이면 그 끝까지 기다린 뒤 한 번 더 본다.
-  drain(): Promise<void>;
-  // 구독과 retry를 멈추고 진행 중인 한 번을 기다린다.
-  stop(): Promise<void>;
-  readonly subscription: InternalSubscription;
-};
-
-export function startAssignments(deps: AssignmentsLoopDeps): AssignmentsLoop {
-  const retryMs = deps.retryMs ?? 1_000;
-  let stopped = false;
-  let running: Promise<void> | undefined;
-  let again = false;
-  let retry: ReturnType<typeof setTimeout> | undefined;
-  const machine = ASSIGNMENT_REACTIONS_CONTEXT as AuthenticatedContext;
-  const engine = assignmentEngine({
-    backend: deps.runtime.events,
-    machine,
-    command: (ctx, envelope) =>
-      deps.runtime.writer.command(ctx as never, envelope as never),
-    cursor: () => {
-      const cursor = assignmentReactionsCursor(deps.ledgerPath);
-      return cursor.ok
-        ? Promise.resolve(cursor.value)
-        : Promise.reject(new Error(cursor.error.message));
-    },
-    // 등록된 product preset이 없으면 step이 진행하지 않는다. 다음 대기 뒤 다시 본다.
-    preset: deps.preset ?? { preset: "", preset_revision: 0 },
-  });
-
-  async function stepOnce(): Promise<string | undefined> {
-    // preset이 비어 있으면(등록된 AE product preset이 아직 없다) 반응 없이 기다린다.
-    if (deps.preset === null) return undefined;
-    const stepped = await engine.step().catch(() => undefined);
-    if (stepped === undefined || !stepped.ok) return undefined;
-    return stepped.value;
-  }
-
-  // cursor가 head에 닿을 때까지 한 batch씩 읽는다. 움직임이 없으면 따라잡은 것이다.
-  async function catchUp(): Promise<void> {
-    for (;;) {
-      if (stopped) return;
-      const before = assignmentReactionsCursor(deps.ledgerPath);
-      if (!before.ok) return schedule();
-      const stepped = await stepOnce();
-      if (stepped === undefined) return schedule();
-      // 저장된 cursor가 움직이지 않았으면 따라잡은 것이다(step 결과가 아니라 기록으로 본다).
-      const after = assignmentReactionsCursor(deps.ledgerPath);
-      if (!after.ok) return schedule();
-      if (after.value === before.value) return;
-    }
-  }
-
-  function schedule(): void {
-    if (stopped || retry !== undefined) return;
-    retry = setTimeout(() => {
-      retry = undefined;
-      void drain();
-    }, retryMs);
-  }
-
-  function drain(): Promise<void> {
-    if (stopped) return Promise.resolve();
-    // 도는 중에 온 신호는 끝난 뒤 한 번 더 본다. 동시에 두 step이 같은 cursor를 쓰지 않는다.
-    if (running !== undefined) {
-      again = true;
-      return running;
-    }
-    running = (async () => {
-      try {
-        do {
-          again = false;
-          await catchUp();
-        } while (again && !stopped);
-      } finally {
-        running = undefined;
-      }
-    })();
-    return running;
-  }
-
-  const subscription = openInternalSubscription({
-    context: ASSIGNMENT_REACTIONS_CONTEXT,
-    backend: deps.runtime.events,
-    track: (session) => deps.runtime.track(session),
-    retryMs: deps.retryMs,
-    onSubscribed: drain,
-    onEvents: () => void drain(),
-  });
-  void drain();
-  return {
-    drain,
-    subscription,
-    async stop() {
-      stopped = true;
-      clearTimeout(retry);
-      retry = undefined;
-      subscription.stop();
-      engine.close();
-      await running;
-    },
-  };
 }
 
 // reader Worker가 이 등록 파일에서 팀 read를 다시 조립한다. provider·model read는

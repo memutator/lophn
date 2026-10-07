@@ -8,6 +8,7 @@
 // 실행기가 강제한다. 여기서는 그 command를 등록할 뿐 handle 검사를 우회하지 않는다.
 import { err, ok, type Result } from "../../packages/base/mod.ts";
 import { ASSIGNMENT_SUBSCRIBER } from "../../packages/contracts/lophn-agent/mod.ts";
+import { ASSIGNMENT_REACTION_OPERATIONS } from "../../packages/lophn-agent/assignments/reaction.ts";
 import {
   approvalRequestCreated,
   type CommandRoute,
@@ -67,16 +68,13 @@ export const NOTIFICATIONS_CONTEXT: RequestContext = {
 // contracts의 ASSIGNMENT_SUBSCRIBER("lophn-agent-assignments")다.
 export const ASSIGNMENT_REACTIONS_PRINCIPAL = "machine:lophn-agent-assignments";
 
-// 읽기(ListEvents)와 생성·cursor 전진 operation만 둔다. assignment 본문 조립은 하지 않는다.
+// 읽기(event·assignment·preset)와 생성·멈춤·cursor 전진 operation만 둔다. assignment 본문 조립은
+// 하지 않는다.
 export const ASSIGNMENT_REACTIONS_CONTEXT: RequestContext = {
   principal: ASSIGNMENT_REACTIONS_PRINCIPAL,
   actor: "machine",
   scope: {
-    operations: [
-      "ListEvents",
-      "CreateAppEngineerAssignment",
-      "AdvanceSubscriberCursor",
-    ],
+    operations: [...ASSIGNMENT_REACTION_OPERATIONS],
     targets: {},
   },
   conditions: {},
@@ -117,6 +115,14 @@ export function notificationsOnlyVisibility<D extends EventDefinition>(
   event: D,
 ): EventVisibilityDefinition<D> {
   return { event, handle: (_snapshot, ctx) => ok(isNotifications(ctx)) };
+}
+
+// AppCreated·AppArchived처럼 assignments 반응 구독자만 읽는 계기 event의 공개 정책이다.
+// 다른 자격은 정책이 없을 때와 똑같이 못 본다.
+export function assignmentReactionsOnlyVisibility<D extends EventDefinition>(
+  event: D,
+): EventVisibilityDefinition<D> {
+  return { event, handle: (_snapshot, ctx) => ok(isAssignmentReactions(ctx)) };
 }
 
 const approvalCommands = createApprovalCommands();

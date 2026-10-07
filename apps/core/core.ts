@@ -21,7 +21,10 @@ import {
   createApprovalRequest,
   ROUTES,
 } from "../../packages/contracts/platform/mod.ts";
-import { providerList, presetList } from "../../packages/contracts/lophn-agent/mod.ts";
+import {
+  createAppEngineerAssignment,
+  providerList,
+} from "../../packages/contracts/lophn-agent/mod.ts";
 import {
   type ApiServer,
   RouteRegistry,
@@ -174,12 +177,10 @@ import {
   type WatchSync,
 } from "./documents-watch.ts";
 import { startNotifications } from "./notifications.ts";
+import { startAssignmentReactions } from "./assignment-reactions.ts";
 import {
-  startAssignments,
-} from "./lophn-agent.ts";
-import {
-  ASSIGNMENT_REACTIONS_CONTEXT,
   APPROVAL_EXPIRY_CONTEXT,
+  ASSIGNMENT_REACTIONS_CONTEXT,
   NOTIFICATIONS_CONTEXT,
   withPlatform,
 } from "./platform.ts";
@@ -247,7 +248,7 @@ import {
   noteBootstrapFailure,
   readRoleAsset,
 } from "./lophn-agent-bootstrap.ts";
-import type { BuiltinRole } from "../../packages/lophn-agent/presets/mod.ts";
+import type { ProductRole } from "../../packages/lophn-agent/presets/mod.ts";
 import {
   createApprovalTextPreparer,
   withApprovalText,
@@ -312,7 +313,7 @@ export type CoreOptions = {
   restoreTimeoutMs?: number;
   // 내장 assignment 준비의 역할 prompt 자산과 재시도 대기(ms). 제품 기동은 소스 배치의
   // prompt 자산을 읽고 60초 뒤 한 번 다시 시도한다. 테스트가 대신한다.
-  roleAsset?: (role: BuiltinRole) => Promise<Result<Uint8Array>>;
+  roleAsset?: (role: ProductRole) => Promise<Result<Uint8Array>>;
   bootstrapRetryMs?: number;
   // secret store가 값을 읽는 keychain adapter. 없으면 제품 adapter(Linux Secret Service)다.
   // 테스트는 fake를 주어 사람의 실제 keychain에 닿지 않게 한다.
@@ -1790,28 +1791,14 @@ async function open(
     runtime,
     ledgerPath,
   });
-  // core 안 AppCreated 반응 구독자. AppCreated 계기마다 거두지 않은 AE의 assignment를 만들고
-  // cursor를 올린다(assignments#R1). AE preset은 등록된 product preset을 ledger read로 본다.
-  // I/O 감독이 없는 기동은 blob 준비를 못 하므로 bootstrap이 product preset을 등록하기 전이라
-  // 등록된 preset이 없는 상태로 시작한다: 등록 전까지 반응 engine은 반응 없이 기다리고, 다음
-  // 기동에서 다시 읽는다(T45).
-  const presetListed = await runtime.readers.read(
-    presetList,
-    ASSIGNMENT_REACTIONS_CONTEXT,
-    { kind: "app_engineer", origin: "product" },
-  );
-  const aePreset = presetListed.ok
-    ? (presetListed.value as {
-      presets?: { id: string; revision: number }[];
-    }).presets?.[0]
+  // core 안 assignments 반응 구독자. AppCreated마다 거두지 않은 AE assignment를 만들고 AppArchived면
+  // 멈추며 cursor를 올린다(lophn-agent/assignments#R1). lophn-agent 팀이 조립에 없으면 반응할
+  // command가 없으므로 열지 않는다.
+  const assignmentReactions = assembled.value.commands.some((c) =>
+      c.route.name === createAppEngineerAssignment.name
+    )
+    ? startAssignmentReactions({ runtime, ledgerPath })
     : undefined;
-  const assignments = startAssignments({
-    runtime,
-    ledgerPath,
-    preset: aePreset === undefined
-      ? null
-      : { preset: aePreset.id, preset_revision: aePreset.revision },
-  });
   // core 안 documents 구독자. documents event가 오면 root 집합과 관측 근거를 맞춘다. documents
   // worker가 없는 core에서도 구독은 열려 있고, 맞출 대상이 없으면 아무것도 하지 않는다.
   const documentsFeed = startDocumentsFeed({
@@ -2178,7 +2165,7 @@ async function open(
           // 진행 중인 notification 생성은 writer가 닫히기 전에 끝난다.
           await notifications.stop();
           // 진행 중인 assignment 반응도 writer가 닫히기 전에 끝난다.
-          await assignments.stop();
+          await assignmentReactions?.stop();
           rootsWatch?.stop();
           respawnStop?.();
           agentRuntime?.stop();

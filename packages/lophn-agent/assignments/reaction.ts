@@ -1,7 +1,9 @@
 // core의 독립 비동기 루프가 assignments cursor부터 event batch를 읽고, AppCreated
-// 계기마다 CreateAppEngineerAssignment을 낸다(R1). AppArchived와 나머지 event는
-// 계기가 아니라 cursor만 올린다(R1: 보관이면 멈추고 자동 해제·재개는 하지 않는다).
-// 본문 조립·model 호출은 하지 않는다. 전달 실패로 버리지 않고 그 위치에서 멈춘다.
+// 계기마다 CreateAppEngineerAssignment을, AppArchived 계기마다 그 앱의 enabled AE
+// assignment 멈춤(PauseAssignment, scope_archived)을 낸다(R1). 반응과 cursor 전진은
+// 같은 transaction이다. AppUnarchived와 나머지 event는 cursor만 올린다(자동 해제·재개는
+// 없다. 재개는 사람의 ResumeAssignment뿐이다). 본문 조립·model 호출은 하지 않는다. 전달
+// 실패로 버리지 않고 그 위치에서 멈춘다.
 //
 // platform은 다른 최상위 package라 직접 부르지 않는다(check-deps). backend와
 // 반응 key는 모양만 본다: backend는 event batch 읽기(ListEvents와 같은 값),
@@ -62,9 +64,17 @@ export type AssignmentEngineOptions = {
   machine: AuthenticatedContext;
   // 없으면 cursor 어디서부터인지 몰라 "0"부터 본다.
   cursor?: () => Promise<string>;
-  // AppCreated 계기가 만들 assignment가 쓰는 AE preset이다. id, revision은
-  // core 기동이 읽어 넣는다(등록된 product preset).
-  preset: { preset: string; preset_revision: number };
+  // AppCreated 계기가 만들 assignment가 쓰는 AE preset이다. core가 등록된 product preset을
+  // ledger read로 읽어 준다. 아직 없으면 null이고 그 AppCreated에서 멈춘 채 다시 읽는다.
+  preset: () => Promise<
+    Result<{ preset: string; preset_revision: number } | null>
+  >;
+  // 앱의 거두지 않은 AE assignment다(없으면 null). AppArchived 반응이 멈출 대상을 본다.
+  findAppEngineer: (
+    app: string,
+  ) => Promise<
+    Result<{ id: string; revision: number; state: string } | null>
+  >;
   // batch 한 페이지의 event 수. 기본은 contract 한도다.
   batch?: number;
 };
@@ -76,24 +86,16 @@ export type AssignmentEngine = {
   close(): void;
 };
 
-// machine ctx는 생성과 cursor 전진 두 operation을 scope에 둔다.
-export function assignmentMachineContext(
-  base: AuthenticatedContext,
-): AuthenticatedContext {
-  return {
-    ...base,
-    scope: {
-      ...base.scope,
-      operations: [
-        ...new Set([
-          ...base.scope.operations,
-          "CreateAppEngineerAssignment",
-          "AdvanceSubscriberCursor",
-        ]),
-      ],
-    },
-  };
-}
+// machine ctx가 scope에 두는 operation이다. 읽기(ListEvents, ListAssignments, ListPresets)와
+// 반응(생성·멈춤)과 cursor 전진뿐이다.
+export const ASSIGNMENT_REACTION_OPERATIONS = [
+  "ListEvents",
+  "ListAssignments",
+  "ListPresets",
+  "CreateAppEngineerAssignment",
+  "PauseAssignment",
+  "AdvanceSubscriberCursor",
+] as const;
 
 // 반응 key(reactionKeySchema, platform/ledger reactionIdempotencyKey와 같은
 // canonicalize + sha256Hex다).
@@ -119,10 +121,21 @@ export function assignmentEngine(
   options: AssignmentEngineOptions,
 ): AssignmentEngine {
   const { backend, command, machine } = options;
-  const preset = options.preset;
   const batch = options.batch ?? EVENT_BATCH_LIMITS.count;
   let closed = false;
   let position = "0";
+  // 계기가 아닌 구간은 cursor만 올린다.
+  const advance = (through: string, scanned: string) =>
+    command(machine, {
+      command: "AdvanceSubscriberCursor",
+      input: {
+        subscriber: ASSIGNMENT_SUBSCRIBER,
+        scanned_through_seq: through,
+      },
+      idempotency_key: `cursor:${ASSIGNMENT_SUBSCRIBER}:${through}`,
+      compare: { processed_through_seq: scanned },
+      prepared: [],
+    });
   return {
     async step() {
       if (closed) {
@@ -144,9 +157,18 @@ export function assignmentEngine(
       for (const event of read.value.events) {
         if (closed) break;
         const through = event.seq;
-        // 계기는 AppCreated 하나다. AppArchived는 멈춤만 남기는 state 전이라 여기서
-        // 아무것도 내지 않는다(R1: 자동 해제·재개 없음).
+        // 계기는 AppCreated(생성)와 AppArchived(멈춤)다. AppUnarchived는 계기가 아니다:
+        // 멈춘 책임은 사람이 다시 켠다(R1).
         if (event.type === "AppCreated") {
+          const preset = await options.preset();
+          if (!preset.ok) return preset;
+          // AE preset이 아직 없다. 이 event에서 멈추고(cursor를 올리지 않는다) 다시 읽는다.
+          if (preset.value === null) {
+            return err({
+              code: "unavailable",
+              message: "App Engineer preset이 아직 없다",
+            });
+          }
           const key = await reactionKey({
             subscriber: ASSIGNMENT_SUBSCRIBER,
             cause_seq: through,
@@ -159,8 +181,8 @@ export function assignmentEngine(
               id: assignmentId(BigInt(through)),
               app_created_seq: through,
               app: event.subject ?? "",
-              preset: preset.preset,
-              preset_revision: preset.preset_revision,
+              preset: preset.value.preset,
+              preset_revision: preset.value.preset_revision,
               processed_through_seq: through,
               subscriber: ASSIGNMENT_SUBSCRIBER,
             },
@@ -169,17 +191,45 @@ export function assignmentEngine(
             prepared: [],
           });
           if (!created.ok) return created;
-        } else {
-          const advanced = await command(machine, {
-            command: "AdvanceSubscriberCursor",
-            input: {
+        } else if (event.type === "AppArchived") {
+          const found = await options.findAppEngineer(event.subject ?? "");
+          if (!found.ok) return found;
+          if (found.value !== null && found.value.state === "enabled") {
+            const key = await reactionKey({
               subscriber: ASSIGNMENT_SUBSCRIBER,
-              scanned_through_seq: through,
-            },
-            idempotency_key: `cursor:${ASSIGNMENT_SUBSCRIBER}:${through}`,
-            compare: { processed_through_seq: scanned },
-            prepared: [],
-          });
+              cause_seq: through,
+              reaction: "pause",
+            });
+            if (!key.ok) return key;
+            const paused = await command(machine, {
+              command: "PauseAssignment",
+              input: {
+                assignment: found.value.id,
+                reason: {
+                  kind: "scope_archived",
+                  detail: "The app was archived.",
+                  runs: [],
+                  target: event.subject ?? "",
+                },
+                processed_through_seq: through,
+                subscriber: ASSIGNMENT_SUBSCRIBER,
+              },
+              idempotency_key: key.value,
+              compare: {
+                revision: found.value.revision,
+                state: "enabled",
+                processed_through_seq: scanned,
+              },
+              prepared: [],
+            });
+            if (!paused.ok) return paused;
+          } else {
+            // 이미 멈췄거나 거둔 책임이다. 다시 멈추지 않고 cursor만 올린다.
+            const advanced = await advance(through, scanned);
+            if (!advanced.ok) return advanced;
+          }
+        } else {
+          const advanced = await advance(through, scanned);
           if (!advanced.ok) return advanced;
         }
         // cursor는 command마다 하나씩 움직인다. compare는 기록된 cursor다(architecture 5.10).
@@ -190,16 +240,7 @@ export function assignmentEngine(
       // 같은 batch를 계속 다시 읽는다(R2와 같은 이유다).
       const through = read.value.scanned_through_seq;
       if (!closed && BigInt(through) > BigInt(scanned)) {
-        const advanced = await command(machine, {
-          command: "AdvanceSubscriberCursor",
-          input: {
-            subscriber: ASSIGNMENT_SUBSCRIBER,
-            scanned_through_seq: through,
-          },
-          idempotency_key: `cursor:${ASSIGNMENT_SUBSCRIBER}:${through}`,
-          compare: { processed_through_seq: scanned },
-          prepared: [],
-        });
+        const advanced = await advance(through, scanned);
         if (!advanced.ok) return advanced;
         scanned = through;
       }

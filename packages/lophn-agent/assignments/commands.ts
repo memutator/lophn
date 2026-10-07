@@ -760,6 +760,14 @@ export function createAssignmentCommands(): {
             tx.now(),
           ],
         );
+        // AppArchived 반응이면 멈춤·event·cursor를 같은 transaction에 확정한다(R1).
+        if (input.processed_through_seq !== undefined) {
+          const advanced = tx.advanceSubscriberCursor(
+            ASSIGNMENT_SUBSCRIBER,
+            input.processed_through_seq,
+          );
+          if (!advanced.ok) return advanced;
+        }
         return {
           ok: true,
           value: {

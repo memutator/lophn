@@ -92,11 +92,16 @@ export const changeAssignmentPresetCompareSchema = z.strictObject({
 export const pauseAssignmentInputSchema = z.strictObject({
   assignment: idSchema("asg"),
   reason: pauseReasonSchema,
+  // AppArchived 반응의 멈춤과 cursor 전진을 같은 transaction에 확정한다(R1).
+  // 반응 없이 내는 멈춤은 이 둘을 비워 둔다.
+  processed_through_seq: seqSchema.optional(),
+  subscriber: z.literal(ASSIGNMENT_SUBSCRIBER).optional(),
 });
 
 export const pauseAssignmentCompareSchema = z.strictObject({
   revision: positiveRevisionSchema,
   state: z.literal("enabled"),
+  processed_through_seq: seqSchema.optional(),
 });
 
 export const resumeAssignmentInputSchema = z.strictObject({

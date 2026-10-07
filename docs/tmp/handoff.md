@@ -39,7 +39,7 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
 - 바뀐 것이 없는 worktree는 agent가 끝나면 지워진다. 같은 worker를 다시 부를 때 worktree가 없으면 새 worker를 띄운다.
 - 끝난 worker가 "background work still running"으로 다시 깨어나 같은 보고를 되풀이하면 TaskStop으로 멈춘다(한도만 쓴다).
 - 선행 풀기(사람 결정): shell#T53, problems#T22, coding-agent#T45는 contract와 fake로 먼저 만들었고, 선행(problems#T20·T21)이 merge되면 실제로 잇는 작은 PR을 따로 낸다. 그 PR이 들어가야 상태를 완료로 바꾼다.
-- 미룸(사람 결정): platform#T49(macOS·Windows), coding-agent#T48(오프라인 MCP). plan-count와 ready.js가 빼고 센다.
+- 미룸(사람 결정): platform#T49(macOS·Windows), coding-agent#T48(오프라인 MCP), lophn-agent#T54·T55·T56(실제 model eval과 eval 환경 구축 전부. 다시 넣으라는 말이 없으면 eval 관련 코드·fixture·`deno task eval`을 만들지 않는다). plan-count와 ready.js가 빼고 센다.
 
 ## 3. 반드시 지키는 안전 규칙
 
@@ -88,7 +88,7 @@ lead가 쓰는 사본은 `.dev-data/lead-tools/`(git 무시, 이 기계에 남�
 
 ## 6. 현재 상태 (2026-10-07 20:00)
 
-- 완료 324/362(89%, 미룸 2개 제외). 오늘 기록: 18:20 316 → 19:45 324.
+- 완료 324/359(90%, 미룸 5개 제외). 오늘 기록: 18:20 316 → 19:45 324. eval 세 task를 미룬 뒤 전체가 362에서 359로 줄었다.
 - 돌고 있는 worker·검사·cron 없음. `lead/merge-batch`는 지난 batch 그대로라 다음 batch 전에 reset한다.
 
 ### 열린 PR
@@ -108,12 +108,12 @@ lead가 쓰는 사본은 `.dev-data/lead-tools/`(git 무시, 이 기계에 남�
 - coding-agent#T35: branch `worktree-agent-a02c45df5defe12c1`(`b7b9d321`). core summary handler·CLI·MCP를 고치던 중. 멈출 때 하던 일: "selectedWriteFiles 주석, dispatch의 hookArgv·version 연결".
 - 이어갈 때는 sonnet-high에게 branch에서 시작하라고 하고 `git log origin/main..`과 task 블록을 대조하게 한다.
 
-### 남은 task (2026-10-07 20:00, 미완 38)
+### 남은 task (2026-10-07 20:00, 미완 35)
 
 - 진행(선행 풀기·연결 PR·남은 단계는 각 상태 줄): coding-agent#T36·T45, problems#T22·T23, shell#T53, documents#T21·T27
 - PR 있음: lophn-agent#T48(#436), shell#T30(#445), problems#T19(#453), coding-agent#T33(#454), shell#T54(#455)
 - WIP: lophn-agent#T47, coding-agent#T35
-- 아직 시작 안 함: apps#T27, coding-agent#T34·T41·T46·T47, lophn-agent#T16·T38·T40·T41·T50·T53·T54·T55·T56·T57, platform#T54, problems#T20·T21·T24·T25·T26, shell#T48·T58·T59
+- 아직 시작 안 함: apps#T27, coding-agent#T34·T41·T46·T47, lophn-agent#T16·T38·T40·T41·T50·T53·T57, platform#T54, problems#T20·T21·T24·T25·T26, shell#T48·T58·T59
 - 핵심 경로: problems#T19(#453) → T20 → T21이 들어가야 선행 풀기 세 task의 연결 PR과 problems E2E(T24·T25)가 열린다. lophn-agent#T53(Operator)은 #455의 넘어온 것을 받는다.
 
 ### 다음에 할 일 (다시 시작할 때 순서)

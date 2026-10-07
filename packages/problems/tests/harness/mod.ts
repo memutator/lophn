@@ -46,5 +46,13 @@ export { createEmitter } from "./emit.ts";
 export type { Emitter, FrameInput } from "./emit.ts";
 export { loadSources, scanCodeUsage } from "./source-scan.ts";
 export type { CodeUsage, SourceFile } from "./source-scan.ts";
-export { observeFailurePath, runPlatformChecks } from "./checks.ts";
+export {
+  observeDirectFailurePath,
+  observeFailurePath,
+  runPlatformChecks,
+} from "./checks.ts";
+export { RPC_DIR, rpcDriver, serveRpc } from "./rpc.ts";
+export type { RunnerDriver } from "./rpc.ts";
+export { runHarnessChild } from "./child.ts";
+export type { HarnessChildInput, HarnessFailurePath } from "./child.ts";
 export type { ChecksInput } from "./checks.ts";

@@ -1,5 +1,6 @@
 // 앱의 업무 규칙. DB 구조와 질의는 이 앱에 남고 SDK로 올리지 않는다(apps/sdk#R36).
 import type { Migration, Store } from "@lophn/cap-store";
+import { CommandRejection, currentContext, type RevertEvidence } from "@lophn/cap-schedule";
 import type { ExternalEvent } from "./external.ts";
 
 export type CalendarEvent = {
@@ -9,18 +10,15 @@ export type CalendarEvent = {
   source: "local" | "external";
 };
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 export const LIST_LIMIT = 500;
 
 // DB schema 단계다. SQL은 migrations/에 있고 공개한 단계는 고치지 않고 새 단계를 더한다.
 export function migrations(): Migration[] {
-  return [{
-    from: 0,
-    to: SCHEMA_VERSION,
-    sql: Deno.readTextFileSync(
-      new URL("../migrations/0-1.sql", import.meta.url),
-    ),
-  }];
+  return [
+    { from: 0, to: 1, sql: Deno.readTextFileSync(new URL("../migrations/0-1.sql", import.meta.url)) },
+    { from: 1, to: 2, sql: Deno.readTextFileSync(new URL("../migrations/1-2.sql", import.meta.url)) },
+  ];
 }
 
 // preview·test는 여기서 schema를 맞춘다. 운영(live)은 activation 때 data worker가 이미 맞췄다.
@@ -49,6 +47,34 @@ export function addEvent(
     )
     .get(title, startsAt, createdAt) as { id: number };
   return { id: row.id, title, starts_at: startsAt, source: "local" };
+}
+
+export function eventChange(store: Store, event: number): RevertEvidence {
+  const row = store.db.prepare("select max(id) as id from change").get() as { id: number };
+  store.db.prepare("update change set invocation = ? where id = ? and event = ?")
+    .run(currentContext()?.invocation ?? null, row.id, event);
+  return { receipt: `change:${row.id}`, revision: String(row.id) };
+}
+
+export type RevertInput = { invocation: string; receipt: string; expected_revision: string };
+
+export function revertEvent(store: Store, input: RevertInput): { removed: number } {
+  const match = /^change:(\d+)$/.exec(input.receipt);
+  if (!match) throw new CommandRejection("invalid_input", "the receipt is not known");
+  return store.transaction(() => {
+    const row = store.db.prepare("select * from change where id = ?").get(Number(match[1])) as
+      { event: number; invocation: string | null; reverted: number } | undefined;
+    if (!row || row.invocation !== input.invocation) {
+      throw new CommandRejection("invalid_input", "the receipt is not known");
+    }
+    const revision = store.db.prepare("select max(id) as id from change").get() as { id: number };
+    if (row.reverted || String(revision.id) !== input.expected_revision) {
+      throw new CommandRejection("conflict", "the events changed after this change");
+    }
+    const removed = removeEvent(store, row.event);
+    store.db.prepare("update change set reverted = 1 where id = ?").run(Number(match[1]));
+    return { removed };
+  });
 }
 
 export function listEvents(store: Store): CalendarEvent[] {

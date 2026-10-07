@@ -1,6 +1,4 @@
 import { ok } from "../../base/mod.ts";
-import { ACTOR_KINDS, defineCommand } from "../../contracts/platform/mod.ts";
-import { z } from "zod";
 import type { LedgerTestRegistration } from "../../../apps/core/testing/ledger.ts";
 import type { McpServerConfig } from "../../contracts/lophn-agent/mod.ts";
 import {
@@ -24,24 +22,6 @@ import { schedulingSchemaSteps } from "../scheduling/mod.ts";
 // 붙인다. preset 검증 deps는 leaf 경계로 catalog 대체다(presets/registration_test.ts와
 // 같은 모양, cs#T10 catalog 대체는 reader worker 등록 경로다). 실제 provider를
 // 부르지 않는다.
-
-// events 표는 platform/ledger 소유다. R1 테스트가 CreateAppEngineerAssignment이
-// 검사하는 AppCreated source event를 심는 fixture command다(apps 등록 command는
-// core 경계라 여기서 부르지 않는다).
-export const seedAppEventRoute = defineCommand({
-  resource: "app-event-fixture",
-  method: "seed",
-  name: "SeedAppEventFixture",
-  input: z.strictObject({
-    type: z.string(),
-    subject: z.string(),
-    payload: z.record(z.string(), z.unknown()),
-  }),
-  output: z.strictObject({ seq: z.string() }),
-  compare: z.strictObject({}),
-  actors: ACTOR_KINDS,
-  errors: ["invalid_input"],
-});
 
 export function presetValidateDeps(
   overrides?: Partial<ValidateDeps>,
@@ -168,40 +148,17 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
       assignmentCommands.resume,
       assignmentCommands.withdraw,
     ],
-    testCommands: [
-      {
-        route: seedApprovalRoute,
-        handle(tx, _ctx, input) {
-          const seeded = input as { id: string; status: string };
-          tx.sql.run(
-            "insert into approval_requests (id, status) values (?, ?) on conflict (id) do update set status = excluded.status",
-            [seeded.id, seeded.status],
-          );
-          return ok({ id: seeded.id });
-        },
+    testCommands: [{
+      route: seedApprovalRoute,
+      handle(tx, _ctx, input) {
+        const seeded = input as { id: string; status: string };
+        tx.sql.run(
+          "insert into approval_requests (id, status) values (?, ?) on conflict (id) do update set status = excluded.status",
+          [seeded.id, seeded.status],
+        );
+        return ok({ id: seeded.id });
       },
-      {
-        route: seedAppEventRoute,
-        handle(tx, _ctx, input) {
-          const seeded = input as {
-            type: string;
-            subject: string;
-            payload: Record<string, unknown>;
-          };
-          // event 인수의 payload 자리는 schema다( Tx.emit 계약). 임의 payload를
-          // 통과시키는 record schema로 심는다.
-          const seq = tx.emit(
-            {
-              type: seeded.type,
-              payload: z.record(z.string(), z.unknown()) as never,
-            },
-            seeded.subject,
-            seeded.payload as never,
-          );
-          return ok({ seq });
-        },
-      },
-    ],
+    }],
     reads: [
       presetReads.read,
       presetReads.list,

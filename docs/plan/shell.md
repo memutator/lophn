@@ -1087,6 +1087,14 @@ concerns: [shell]
 - slice: problems
 - 선행: shell#T23, shell#T43, problems#T6, problems#T21
 - 선행 풀기(사람 결정 2026-10-07): 선행이 끝나기 전에 이미 있는 contract와 fake로 먼저 만든다. 선행이 merge되면 실제 구현에 잇는 작은 PR을 따로 내고, 그때 완료로 둔다.
+- 상태: 진행 (#423) — 선행 풀기: problems#T21 merge 뒤 실제 ApplyProblemDecision에 잇는 PR이 남음
+- 선행 풀기 뒤 잇는 PR이 할 일:
+  - 읽기: `app-detail/issues/core-source.ts`를 새로 만들어 `IssuesSource`를 `ListProblems`·`GetProblem`(`detail`만, `problem.work`·`problem.interpretation` 안 읽음)·`ListReports`(마지막 보고로 `basis.observationKnown`)에서 채우고 `desktop/entry.tsx`→`Desktop`→`AppSpace.issues`에 잇는다. 지금은 fake만 있다
+  - 결정 창 열기: `ConfirmationIntent`의 owner_decision에는 `choice`·`note` 자리가 없다. additive로 더하고(contracts·`apps/shell/ipc/confirmation.ts`), 창을 여는 port로 `IssuesSource.decide`를 채운다. concern `problems/closing`, decision `problem_decision`, target은 그 문제
+  - main kind `confirmation/kinds/problem-decision.ts`(T21 command가 있어야 한다): 문제를 독립 read해 problem·basis_seq·release·last_report·note에 묶은 handle을 만들고, 창에 보일 view `{kind: "problem_decision", choice, symptom, seen, version, note}`(renderer `problem-decision.tsx`가 읽는 모양)를 정본에서 만들며, 결정은 `ApplyProblemDecision`으로 보낸다. 닫은 문제는 not_fixed(다시 열기)만 허용한다
+  - `IssuesSource.reportAgain`: report-problem dialog를 그 문제를 고른 채 여는 begin 입력(`main/app-frame/feedback.ts`의 `existing_problem`이 지금 늘 null)과 dialog 쪽 표시를 더한다(shell#T52 (1))
+  - `app-issue` intent(`desktop/intents.tsx`)가 그 앱 공간을 연 뒤 `AppSpace.issueProblem`으로 그 문제 상세를 연다(shell#T52 (2), 화면 쪽 prop은 이미 있음)
+  - fake 대신 실제 command로 다시 확인하고 `e2e/shell`에 flow app-broken·verify-app-repair 화면 test를 더한다. 끝나면 이 상태를 `완료 (#<PR>)`로 바꾼다
 - shell#T52에서 넘어온 것: (1) 기존 문제에 덧붙이기. report-problem dialog는 지금 "이 보고는 기존 문제에 덧붙지 않는다"만 보이고 `SubmitFeedback.existing_problem`은 늘 null이다. Issues에서 "직접 해 봤지만 안 됩니다"로 열 때 그 문제를 고른 채 여는 길(begin 입력 또는 dialog의 같은 앱 문제 고르기)을 둔다. (2) dialog의 [View issue]는 지금 `{kind: "app-issue", app, problem}` intent로 그 앱 공간만 연다(`renderer/desktop/intents.tsx`). Issues 탭이 생기면 그 문제를 고른 상세로 연다. (3) 접수 응답에는 항목별 저장 결과가 없어 dialog가 screenshot·화면 상태의 "저장 실패"를 보이지 못한다. 접수 뒤 그 Report의 snapshot 읽기로 보인다
 - 완료: 아래 확인이 통과한다
   - Issue 목록·상세: 사람이 겪는 영향 한 문장, 보고 수, 수리 주장과 실제 테스트·사람 확인("I checked")·미확인 범위를 구별한다. report·claim·snapshot은 이름으로 보이지 않는다(Details we collected).

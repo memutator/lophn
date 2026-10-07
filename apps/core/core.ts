@@ -254,6 +254,7 @@ import {
 } from "./question-text.ts";
 import { assemble, type TeamModule } from "./registration.ts";
 import { type CoreRuntime, openRuntime } from "./runtime.ts";
+import { appExportWorkers } from "./apps-export.ts";
 import { ticketClaimSweepIntervalMs } from "./tickets.ts";
 import { testCredentialFront } from "./test-credentials.ts";
 
@@ -1255,7 +1256,16 @@ async function open(
               observedAt: () => new Date().toISOString(),
             }),
             mergedWorkers(
-              prepareWorkers,
+              mergedWorkers(
+                prepareWorkers,
+                // 앱 export serving(apps/data#R13). 준비는 core graph 밖 프로세스가 한다.
+                appExportWorkers({
+                  dataRoot: root.path,
+                  ledgerPath,
+                  current: (ref) => runtime!.current(ref),
+                  observedAt: () => new Date().toISOString(),
+                }),
+              ),
               mergedWorkers(
                 servedWorkers({
                   readers: runtime.readers,

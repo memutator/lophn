@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { err, fingerprint, ok, type Result } from "../../../base/mod.ts";
 import {
+  type AppBlueprintAgentContext,
   type AppBlueprintCommand,
   appConnect,
   type InputSchema,
@@ -33,6 +34,9 @@ export type AppBlueprintView = {
   release: string;
   blueprint_hash: string;
   commands: readonly AppBlueprintCommand[];
+  // 화면 선언(크기)과 화면 context 선언이다. 읽지 않은 호출자는 생략하고 그러면 context·카드는 없다.
+  screens?: readonly { key: string; sizes: readonly string[] }[];
+  agent_context?: readonly AppBlueprintAgentContext[];
 };
 
 // 현재 허락(agent.commands grant)이 연 command다. grant ID는 판정 근거에 남는다.

@@ -63,17 +63,20 @@ export function textPage(
   let bytes = utf8Bytes(dataFence(""));
   while (end < points.length) {
     const point = points[end];
+    if (point === "\n" && lines >= limit) break;
     const cost = utf8Bytes(
       point === "\n" ? "\n| " : point === "<" ? "\\<" : point,
     );
-    if (bytes + cost > PAGE_BYTES || (point === "\n" && lines >= limit)) break;
+    if (bytes + cost > PAGE_BYTES) break;
     bytes += cost;
     if (point === "\n") lines += 1;
     end += 1;
   }
+  // 줄바꿈에서 멈췄으면 그 줄바꿈은 줄 경계이므로 다음 페이지가 빈 줄로 시작하지 않게 건너뛴다.
+  const next = points[end] === "\n" ? end + 1 : end;
   return {
     text: dataFence(points.slice(offset, end).join("")),
-    next: end < points.length ? end : null,
+    next: next < points.length ? next : null,
   };
 }
 

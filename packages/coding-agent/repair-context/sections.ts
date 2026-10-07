@@ -702,10 +702,15 @@ async function logsSection(
   if (!readable(problem)) return null;
   const draft = new Draft("logs", problem.id, lines);
   draft.source(src("problems", problem.id));
+  // log가 있는 가장 최근 대표 발생을 쓴다. 없으면 snapshot이 있는 가장 최근 발생이다(없는 이유를 낸다).
+  const recent = [...problem.representatives].reverse();
   const item =
-    [...problem.representatives].reverse().find((rep) =>
-      rep.detail.ok && rep.detail.value.snapshot !== null
-    ) ?? problem.representatives[0];
+    recent.find((rep) =>
+      rep.detail.ok && rep.detail.value.snapshot?.logs != null
+    ) ??
+      recent.find((rep) =>
+        rep.detail.ok && rep.detail.value.snapshot !== null
+      ) ?? problem.representatives[0];
   if (item === undefined) {
     draft.missing("log를 읽을 발생이 없다");
     return draft.finish(fallback(problem.id, "occurrences"));

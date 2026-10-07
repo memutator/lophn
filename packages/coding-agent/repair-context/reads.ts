@@ -61,12 +61,7 @@ async function defaultBlob(
   ref: { owner_kind: string; owner_key: string; field: string },
   maxBytes: number,
 ): Promise<BlobText> {
-  const detail = await parsed(client, getReport, { report: ref.owner_key });
-  if (!detail.ok || detail.value.report.problem === null) {
-    return { kind: "unavailable", reason: "현재 연결로 읽을 수 없다" };
-  }
   const read = await parsed(client, reportBody, {
-    problem: detail.value.report.problem,
     report: ref.owner_key,
     field: ref.field,
     offset_bytes: 0,

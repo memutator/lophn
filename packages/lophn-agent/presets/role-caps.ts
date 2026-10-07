@@ -125,6 +125,7 @@ export const ROLE_CAPS: ReadonlyMap<string, RoleCap> = new Map<string, RoleCap>(
         "ticket.list",
         "ticket.read",
         "ticket.create",
+        "ticket.make_ready",
         "problem.set_interpretation",
         "document.create",
         "document.save_version",

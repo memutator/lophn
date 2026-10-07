@@ -2,6 +2,7 @@ import {
   createIdSource,
   cryptoRandom,
   err,
+  type IdSource,
   ok,
   systemClock,
 } from "../../packages/base/mod.ts";
@@ -11,7 +12,8 @@ import { spawnStdioMcp } from "../../packages/lophn-agent/extensions/mod.ts";
 import type { McpConnectionsDeps } from "../../packages/lophn-agent/extensions/mod.ts";
 import type { CoreCalls } from "./main.ts";
 import { createMcpToolkit } from "./mcp-toolkit.ts";
-import { createRunPreparer } from "./prepare.ts";
+import { createRunPreparer, type Toolkit } from "./prepare.ts";
+import type { CoreCall } from "./core-call.ts";
 import { createModelResolver } from "./resolve-model.ts";
 import { PRODUCT_INSTRUCTIONS, rolePrompt } from "./role-prompts.ts";
 import type { RunDriver } from "./run-driver.ts";
@@ -19,9 +21,26 @@ import type { DriveDeps } from "./run-driver.ts";
 import { createAppToolkit } from "./app-toolkit.ts";
 import { createBuiltinToolkit } from "./toolkit.ts";
 
+// 제품 runtime의 tool 묶음이다. 내장 tool의 정의·handler·소유 계약 연결(쓰기는 입력에서 정확한 대상을
+// 읽는 `builtinBinding`)과 외부 MCP 등록 통로를 한 곳에서 낸다. 시험도 같은 묶음을 쓴다.
+export function productToolkit(options: {
+  machine: CoreCall;
+  ids: IdSource;
+  mcp?: Toolkit["mcp"];
+}): Toolkit {
+  return {
+    ...createBuiltinToolkit({
+      routes: ALL_ROUTES,
+      machine: options.machine,
+      ids: options.ids,
+    }),
+    ...(options.mcp === undefined ? {} : { mcp: options.mcp }),
+  };
+}
+
 // 제품 runtime의 driver 재료(lophn-agent/harness/run-loop). core 연결을 받아 run 시작 재료, 복구 재료,
 // 기본 harness 묶음(내장 tool, 역할 prompt, model 선택 검증)을 만든다. 아래는 소유 작업이 채울 자리라
-// 비어 있다: 쓰기·external tool의 소유 계약 연결(`binding`)과 결과 조회(`lookups`),
+// 비어 있다: 쓰기·external tool의 결과 조회(`lookups`),
 // skill·material source, 사람 지침 파일 읽기(`InstructionFiles`).
 export function productDriver(options: { fetch?: typeof fetch } = {}) {
   return (
@@ -58,15 +77,12 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
         },
         ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
       }),
-      toolkit: {
-        ...createBuiltinToolkit({
-          routes: ALL_ROUTES,
-          machine: calls.machine,
-          ids,
-        }),
+      toolkit: productToolkit({
+        machine: calls.machine,
+        ids,
         // 외부 MCP tool 등록 통로다(Q16, T37). 등록·재조회는 mcp-toolkit이 소유한다.
         mcp: (assignment: string) => mcpKit.toolkit(assignment),
-      },
+      }),
       // 앱 command 선언·허락 읽기와 앱 통로 호출, 결과 조회(lophn-agent/harness/tools R16).
       apps: createAppToolkit({ machine: calls.machine }),
       product: PRODUCT_INSTRUCTIONS,

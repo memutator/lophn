@@ -19,6 +19,7 @@ import {
   type FolderPickReply,
 } from "../ipc/folder-picker.ts";
 import { createAppWindowsApi } from "./app-window-api.ts";
+import { createCodingApi } from "./coding-api.ts";
 import { createConfirmationOpener } from "./confirmation-open.ts";
 import { createEditorApi } from "./editor-api.ts";
 import { createInstructionsApi } from "./instructions-api.ts";
@@ -91,6 +92,8 @@ if (role === "shell") {
     ),
   );
   contextBridge.exposeInMainWorld("lophnIntents", createIntentApi(ipcRenderer));
+  // coding agent 연결과 [Start]. 고정 intent와 사람이 고른 값만 보내고 main이 다시 검사한다.
+  contextBridge.exposeInMainWorld("lophnCoding", createCodingApi(ipcRenderer));
   // 앱 공간의 [Open in new window]와 OS 앱 바로가기. 앱 ID만 보낸다.
   contextBridge.exposeInMainWorld(
     "lophnAppWindows",

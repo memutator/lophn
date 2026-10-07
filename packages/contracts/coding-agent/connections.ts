@@ -147,6 +147,65 @@ export const connectionConnect = defineMemory({
   errors: ["invalid_input", "forbidden", "conflict", "unavailable"],
 });
 
+// 신뢰 감독(shell main)이 lophn이 띄운 coding TUI 아래의 MCP·CLI child process generation을 core의
+// 보호 전달 인증 경계에 등록·해제하는 입구다(platform/identity#R15, coding-agent/connection#R17). 사람
+// credential(shell main이 가진 user token)만 부른다. coding agent·app·agent는 호출할 수 없다. scope는 본문으로
+// 받지 않고 core가 ledger의 connection 현재 상태에서 읽는다. 회수·없는 connection은 등록하지 않는다.
+// process_generation은 `<pid>.<시작 tick>`, loader_identity는 설치된 helper의 절대 경로다.
+export const connectionRegisterChildInputSchema = z.strictObject({
+  connection: connectionIdSchema,
+  process_generation: z.string().min(1).max(128),
+  loader_identity: z.string().min(1).max(1024),
+});
+
+export const connectionRegisterChildOutputSchema = z.strictObject({
+  registered: z.literal(true),
+});
+
+export const connectionRegisterChild = defineMemory({
+  resource: "coding_agent_connections",
+  method: "register_child",
+  name: "RegisterCodingAgentChild",
+  input: connectionRegisterChildInputSchema,
+  output: connectionRegisterChildOutputSchema,
+  actors: ["user"],
+  errors: ["invalid_input", "forbidden", "unavailable"],
+});
+
+export const connectionEndChildInputSchema = z.strictObject({
+  process_generation: z.string().min(1).max(128),
+});
+
+export const connectionEndChildOutputSchema = z.strictObject({});
+
+export const connectionEndChild = defineMemory({
+  resource: "coding_agent_connections",
+  method: "end_child",
+  name: "EndCodingAgentChild",
+  input: connectionEndChildInputSchema,
+  output: connectionEndChildOutputSchema,
+  actors: ["user"],
+  errors: ["invalid_input", "forbidden", "unavailable"],
+});
+
+export const connectionEndConnectionInputSchema = z.strictObject({
+  connection: connectionIdSchema,
+});
+
+export const connectionEndConnectionOutputSchema = z.strictObject({
+  ended: z.number().int().min(0),
+});
+
+export const connectionEndConnection = defineMemory({
+  resource: "coding_agent_connections",
+  method: "end_connection",
+  name: "EndCodingAgentConnectionChildren",
+  input: connectionEndConnectionInputSchema,
+  output: connectionEndConnectionOutputSchema,
+  actors: ["user"],
+  errors: ["invalid_input", "forbidden", "unavailable"],
+});
+
 // 회수만 사람 결정이다. 표시와 제출이 같은 대상·판을 묶는다.
 export const CODING_AGENT_CONNECTION_REVOKE = defineDecision(
   "coding_agent_connection_revoke",
@@ -206,6 +265,9 @@ export const CONNECTION_ROUTES = [
   connectionShow,
   connectionCreate,
   connectionConnect,
+  connectionRegisterChild,
+  connectionEndChild,
+  connectionEndConnection,
   connectionRevoke,
 ] as const;
 

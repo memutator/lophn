@@ -91,8 +91,6 @@ export interface SessionInput {
   fetch: RpcFetch;
   /** 바이트 route 통로. 없으면 그 호출은 unavailable이다. */
   stream?: StreamFetch;
-  /** 지금 호출이 연결 화면의 고정 intent인지. 그 화면만 true를 준다. */
-  connectionIntent?: () => boolean;
 }
 
 function forbidden(): CallResult<never> {
@@ -189,12 +187,7 @@ export function openSession(input: SessionInput): CoreSession {
     async call(kind, resource, method, body) {
       const name = lookupCall(kind, resource, method);
       const route = name === undefined ? undefined : routeByName(name);
-      if (
-        route === undefined ||
-        !isAllowed(kind, resource, method) ||
-        (kind === "command" && resource === "coding_agent_connections" &&
-          method === "create" && input.connectionIntent?.() !== true)
-      ) {
+      if (route === undefined || !isAllowed(kind, resource, method)) {
         return forbidden();
       }
       return await rpc.call(route as Route, body as never);

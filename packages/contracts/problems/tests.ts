@@ -331,6 +331,90 @@ export const recordVerification = defineCommand({
   actors: ["machine"],
   errors: ["invalid_input", "forbidden", "not_found", "conflict"],
 });
+// runner가 요청 기록을 이어 붙이는 command다. 사람·agent·앱에는 열리지 않고 요청별 좁은 machine
+// credential만 부른다(architecture/problems 2.2). 판정 근거는 owner(problems/tests)가 같은 transaction에서 다시 본다.
+const lifecycleProofSchema = z.strictObject({
+  machine_principal: nonempty,
+  phase: z.enum([
+    "preparation_failed",
+    "start_attempt",
+    "start_unknown",
+    "recovery",
+  ]),
+  request_principal: nonempty,
+  request_key: idempotencyKeySchema,
+  request_hash: sha256Schema,
+  app: idSchema("app"),
+  current_runner: z.string(),
+  next_runner: nonempty.nullable(),
+  operation: z.enum(["observe_test_request", "recover_test_request"]),
+});
+export const observeTestRequestInputSchema = z.strictObject({
+  observation: z.strictObject({
+    phase: z.enum([
+      "preparation_failed",
+      "start_attempt",
+      "start_unknown",
+      "recovery",
+    ]),
+    request_principal: nonempty,
+    request_key: idempotencyKeySchema,
+    request_hash: sha256Schema,
+    at: atSchema.nullable(),
+    previous_runner: nonempty.nullable(),
+    runner_principal: nonempty.nullable(),
+    reason: nonempty,
+  }),
+  proof: lifecycleProofSchema,
+});
+export const startTestSideInputSchema = z.strictObject({
+  start: z.strictObject({
+    request_principal: nonempty,
+    request_key: idempotencyKeySchema,
+    request_hash: sha256Schema,
+    side: testSideSchema,
+    started_at: atSchema,
+    test_hash: sha256Schema,
+    bundle_hash: sha256Schema,
+  }),
+  proof: lifecycleProofSchema,
+});
+export const lifecycleOutputSchema = z.object({ seq: positiveSeq });
+export const observeTestRequest = defineCommand({
+  resource: "problems",
+  method: "observe-test-request",
+  name: "ObserveTestRequest",
+  input: observeTestRequestInputSchema,
+  output: lifecycleOutputSchema,
+  actors: ["machine"],
+  errors: ["invalid_input", "forbidden", "not_found", "conflict"],
+});
+export const startTestSide = defineCommand({
+  resource: "problems",
+  method: "start-test-side",
+  name: "StartTestSide",
+  input: startTestSideInputSchema,
+  output: lifecycleOutputSchema,
+  actors: ["machine"],
+  errors: ["invalid_input", "forbidden", "not_found", "conflict"],
+});
+// runner가 결과 근거(고정 시험·실행 증거·관측 JSON)를 RecordVerification 앞에 남긴다. 한 요청에 한 번이고
+// 같은 내용만 다시 받는다. RecordVerification이 같은 transaction에서 이 기록과 Verification의 hash를 맞춰 본다.
+export const stageTestEvidenceInputSchema = z.strictObject({
+  request_principal: nonempty,
+  request_key: idempotencyKeySchema,
+  request_hash: sha256Schema,
+  evidence: z.json(),
+});
+export const stageTestEvidence = defineCommand({
+  resource: "problems",
+  method: "stage-test-evidence",
+  name: "StageTestEvidence",
+  input: stageTestEvidenceInputSchema,
+  output: z.object({ staged: z.boolean() }),
+  actors: ["machine"],
+  errors: ["invalid_input", "forbidden", "not_found", "conflict"],
+});
 export const getTestRequest = defineRead({
   resource: "problems",
   method: "get-test-request",

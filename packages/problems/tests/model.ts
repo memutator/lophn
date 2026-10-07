@@ -23,6 +23,14 @@ export const READ_VERIFICATION = "GetVerification";
 export const LIST_VERIFICATIONS = "ListVerifications";
 export const READ_BLOB_DETAIL = "blob.read";
 
+// 상시 test runner가 요청에 묶이는 machine 주체다. 접수 때 요청 기록에 runner로 적힌다. runner 프로세스가
+// 바뀌어 이미 시작한 요청을 이어받을 때(recovery)는 다른 주체가 필요하므로 복구 runner의 주체를 따로 둔다.
+export const TEST_RUNNER_PRINCIPAL = "problems-test-runner";
+export const TEST_RECOVERY_PRINCIPAL = "problems-test-recovery";
+// runner의 요청별 machine credential이 갖는 operation. owner-local lifecycle과 결과 쓰기는 서로 독립이다.
+export const OBSERVE_TEST_REQUEST = "observe_test_request";
+export const RECOVER_TEST_REQUEST = "recover_test_request";
+
 // 한 페이지. 계약 input에 limit가 없으므로 조용히 field를 만들지 않는다.
 export const VERIFICATION_PAGE_CAP = 50;
 
@@ -236,13 +244,17 @@ export function checkTestAuthority(
   if (!hasOperation(ctx.scope, operation)) {
     return err({ code: "forbidden", message: FORBIDDEN });
   }
+  // machine credential은 발급 때 task 조건과 같은 `task` target을 반드시 갖는다(platform/identity).
+  // 그 target은 고정 조건이라 owner 판정을 넓히지 않는다. 그 밖의 key는 domain 4개뿐이다.
+  const task = ctx.scope.targets.task;
   if (
     DOMAIN_TARGET_KEYS.some((key) =>
       !targetMatches(ctx.scope, key, admission[key])
     ) ||
     Object.keys(ctx.scope.targets).some((key) =>
-      !DOMAIN_TARGET_KEYS.includes(key as never)
-    )
+      key !== "task" && !DOMAIN_TARGET_KEYS.includes(key as never)
+    ) ||
+    (task !== undefined && task !== ctx.conditions.task)
   ) {
     return err({ code: "forbidden", message: FORBIDDEN });
   }

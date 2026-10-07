@@ -8,9 +8,10 @@ import { MODE } from "./board.ts";
 import {
   defaults,
   type Deps,
-  FAILURE_KINDS,
+  FIXTURE_SETTINGS,
   isFailureKind,
   reportBroken,
+  reportMisconfigured,
 } from "./deps.ts";
 
 // run_broken의 TypeError 변형이다(apps#T26 완료 2번). 같은 함수에서 stack frame의 path·function은 같고,
@@ -23,6 +24,7 @@ function listBroken(position: "head" | "tail"): never {
   throw new TypeError("cannot read properties of undefined (reading 'label')");
 }
 
+// depth 3(← readPanel ← listBroken)이다.
 function readPanel(position: "head" | "tail"): never {
   if (position === "head") {
     throw new TypeError("cannot read properties of null (reading 'rows')");
@@ -48,6 +50,7 @@ export function listBrokenHandler(deps: Deps = defaults) {
   return () => {
     // 틀린 집계를 정상 응답으로 돌려준다(apps#T26 완료 마지막 줄).
     const counted = Number(MODE === "A" || MODE === "C" || MODE === "D");
+    deps.log(`list_broken counted ${counted}`);
     return readResult(
       [{ screen: "panel", broken: counted > 0 }],
       { coverage: counted > 0 ? "partial" : "complete", freshness: "fresh" },
@@ -68,10 +71,9 @@ export function runBrokenHandler(deps: Deps = defaults) {
     reportBroken({ command: "run_broken", kind });
     deps.log(`run_broken ${kind} at ${deps.now()}`);
     if (kind === "type_error") {
-      const deep = (body.variant ?? "") === "deep";
       const position = (body.variant ?? "") === "tail" ? "tail" : "head";
-      if (deep) {
-        listBroken(position);
+      if ((body.variant ?? "") === "deep") {
+        readPanel(position);
       } else {
         listBroken(position);
       }
@@ -156,6 +158,28 @@ export function panelContextHandler(deps: Deps = defaults) {
   };
 }
 
+// 사용자가 고쳐야 하는 설정 깨짐을 읽는다(apps#T26 완료 1번). board.ts의 설정 레코드를 읽고,
+// 값이 모자라거나 틀리면 fixture_misconfigured로 보고한다. 깨진 값은 fixture 설정이 고른다.
+export function readSettingsHandler(deps: Deps = defaults) {
+  return () => {
+    const settings: { label_max?: unknown; board_mode?: unknown } =
+      FIXTURE_SETTINGS;
+    const problems: string[] = [];
+    if (typeof settings.label_max !== "number" || settings.label_max < 1) {
+      problems.push("label_max");
+    }
+    if (settings.board_mode !== "A") problems.push("board_mode");
+    if (MODE !== "C" && problems.length > 0) {
+      reportMisconfigured({
+        command: "read_settings",
+        settings: problems.join(","),
+      });
+    }
+    deps.log(`read_settings checked ${problems.length} settings`);
+    return { settings, problems };
+  };
+}
+
 export function registerCommands(deps: Deps = defaults): void {
   command("list_broken", listBrokenHandler(deps));
   command("run_broken", runBrokenHandler(deps));
@@ -165,4 +189,5 @@ export function registerCommands(deps: Deps = defaults): void {
   command("chatter_then_fail", chatterThenFailHandler(deps));
   command("mark_kind", markKindHandler(deps));
   command("panel_context", panelContextHandler(deps));
+  command("read_settings", readSettingsHandler(deps));
 }

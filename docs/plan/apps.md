@@ -1373,7 +1373,8 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
        깊이)와, 같은 함수에서 줄·message만 다른 변형(같은 지문)
     3. 처리되지 않은 Promise rejection(process)
     4. view의 root render 오류(TSX, source map 포함), event handler error,
-       view의 unhandledrejection. 깨진 view에서도 [문제 알리기]가 동작
+       view의 unhandledrejection. 깨진 view에서도 [문제 알리기]가 동작(버튼과
+       보고 자리는 fixture가 심고, 누르는 것은 shell E2E 몫이다)
     5. 미선언 code를 reportProblem에 넘기는 command(_invalid_report)
     6. 앱 frame 없는 exception(의존 package 안에서 throw)
     7. 짧은 시간에 보고 25개를 내는 command(앱당 60초 20개 한도)

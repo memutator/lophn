@@ -46,3 +46,9 @@ export async function panelContext(): Promise<void> {
 export async function markKind(kind: string): Promise<void> {
   await call("mark_kind", { kind });
 }
+
+// 화면이 fixture 설정을 읽는다(apps#T26 완료 1번). read_settings의 결과는 problems 목록이다.
+export async function readSettings(): Promise<{ problems: string[] }> {
+  const result = await call<{ problems?: string[] }>("read_settings", null);
+  return { problems: result?.problems ?? [] };
+}

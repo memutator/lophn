@@ -191,7 +191,8 @@ Deno.test(
           "failure_path:fixture_broken flood_reports sends more",
           "failure_path:fixture_broken chatter_then_fail fails",
           "failure_path:fixture_broken list_broken answers a wrong aggregate",
-          "fixture_misconfigured is not reported by any command",
+          "failure_path:fixture_misconfigured read_settings reports the declared code",
+          "report_wrong_code sends an undeclared code; fixture_misconfigured comes only from read_settings",
           "wording: placeholders.ts is generated",
         ]
       ) assert(tests.stdout.includes(name), `${name} did not run`);
@@ -310,10 +311,10 @@ Deno.test(
       assertEquals(status["adapter_isolation"], "required");
       assert(plan.harness.has_view);
       const usage = scanCodeUsage(await loadSources(made.dir));
-      // fixture_misconfigured는 선언만 있고 보고하는 command는 없다(apps#T26 완료 5번).
+      // read_settings가 fixture 설정 실패로 fixture_misconfigured를 literal로 보고한다(apps#T26 완료 1번).
       assertEquals(
         [...new Set(usage.literals.map((use) => use.code))].sort(),
-        ["fixture_broken"],
+        ["fixture_broken", "fixture_misconfigured"],
       );
       // report_wrong_code의 reportProblem 호출은 literal이 아니므로 동적 사용이 하나 남는다.
       assertEquals(usage.dynamic.length, 1);

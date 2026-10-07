@@ -3,13 +3,29 @@ import { CircleX } from "lucide-react";
 import { Button, Field, Input, Textarea } from "@lophn/ui-control";
 import { AppShell } from "@lophn/ui-layout";
 import { ReadState } from "@lophn/ui-state";
+import { VIEW_BREAK } from "../../board.ts";
 import { t } from "../../wording/t.ts";
-import { listBroken, markKind, panelContext, runBroken } from "./bridge.ts";
+import {
+  listBroken,
+  markKind,
+  panelContext,
+  readSettings,
+  runBroken,
+} from "./bridge.ts";
 import styles from "./app.module.css";
+
+// view의 root render 오류다(apps#T26 완료 4번). 깨진 값은 fixture 설정(src/board.ts의
+// VIEW_BREAK)이 고른다. board A·D에서 처음 렌더링에서 터지고 AppErrorBoundary가 받는다.
+function renderBreaker(): void {
+  if (VIEW_BREAK === "render") {
+    throw new TypeError("view render failed in the broken fixture");
+  }
+}
 
 // panel 화면. 깨진 앱의 상태를 보고 실패를 고르는 화면 하나다. 문구는 모두 en catalog의 key고,
 // 같은 화면이 full과 panel(320px)에서 쓰인다. 깨진 상태는 apps#T26 완료 4번이다.
 export function App() {
+  renderBreaker();
   const [rows, setRows] = useState<{ screen: string; broken: boolean }[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
@@ -32,6 +48,7 @@ export function App() {
   useEffect(() => {
     void load();
     void panelContext();
+    void readSettings();
   }, [load]);
 
   // 깨진 보고 버튼이다. 깨진 view에서도 동작한다(apps#T26 완료 4번).
@@ -49,8 +66,12 @@ export function App() {
     }
   }
 
-  // view의 event handler error다. 깨진 값이므로 지우지 않는다.
+  // view의 event handler error다(apps#T26 완료 4번). 깨진 종류에서 실제로 터진다. AppErrorBoundary가
+  // 받거나 window.onerror로 전달된다. 지우지 않는다.
   async function mark() {
+    if (kind === "type_error") {
+      throw new TypeError("mark_kind handler threw in the broken fixture");
+    }
     const before = rows.length;
     void await markKind(kind);
     if (before < 0) {

@@ -37,6 +37,16 @@ function reportBroken(details: Record<string, string | number | boolean>) {
 
 export { reportBroken };
 
+// 사용자가 고쳐야 하는 설정 깨짐이다(apps#T26 완료 1번). board B는 그대로 두고 board C는 보고를 지운다.
+function reportMisconfigured(
+  details: Record<string, string | number | boolean>,
+) {
+  if (MODE === "C") return; // 약화 판: 보고 경로를 삭제한다. 깨진 값은 그대로 남는다.
+  reportProblem("fixture_misconfigured", details);
+}
+
+export { reportMisconfigured };
+
 // board E는 실패 code를 UNAVAILABLE로 바꾼다(다른 실패, 다른 문장의 다른 지문).
 export function codedFailure(kind: BoardMode, message: string): never {
   throw new CommandRejection(
@@ -44,3 +54,11 @@ export function codedFailure(kind: BoardMode, message: string): never {
     message,
   );
 }
+
+// read_settings가 읽는 fixture 설정 레코드다(apps#T26 완료 1번). board A는 label_max가 모자라고
+// board B–E는 정상이다. test는 이 값을 바꿔 read_settings의 보고를 고른다.
+export const FIXTURE_SETTINGS: { label_max?: unknown; board_mode?: unknown } =
+  MODE === "A" ? { label_max: 0, board_mode: "A" } : {
+    label_max: 80,
+    board_mode: "A",
+  };

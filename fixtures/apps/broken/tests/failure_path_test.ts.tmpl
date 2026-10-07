@@ -7,6 +7,7 @@ import {
   chatterThenFailHandler,
   floodReportsHandler,
   listBrokenHandler,
+  readSettingsHandler,
   reportWrongCodeHandler,
   runBrokenHandler,
 } from "../src/commands.ts";
@@ -86,6 +87,18 @@ Deno.test("failure_path:fixture_broken chatter_then_fail fails after writing log
   );
 });
 
+Deno.test("failure_path:fixture_misconfigured read_settings reports the declared code when a fixture setting is wrong", () => {
+  reports.length = 0;
+  const handler = readSettingsHandler({ ...defaults, now: () => NOW });
+  const result = handler();
+  // board A의 설정 레코드다. label_max가 모자라 fixture_misconfigured로 보고한다(fixer user).
+  assertEquals(result.problems, ["label_max"]);
+  assertEquals(reports, [{
+    code: "fixture_misconfigured",
+    details: { command: "read_settings", settings: "label_max" },
+  }]);
+});
+
 Deno.test("failure_path:fixture_broken list_broken answers a wrong aggregate as a normal response", () => {
   reports.length = 0;
   const handler = listBrokenHandler({ ...defaults, now: () => NOW });
@@ -95,7 +108,7 @@ Deno.test("failure_path:fixture_broken list_broken answers a wrong aggregate as 
   assertEquals(reports, []);
 });
 
-Deno.test("fixture_misconfigured is not reported by any command; report_wrong_code sends an undeclared code", async () => {
+Deno.test("report_wrong_code sends an undeclared code; fixture_misconfigured comes only from read_settings", () => {
   reports.length = 0;
   const handler = reportWrongCodeHandler({ ...defaults, now: () => NOW });
   const result = handler({ kind: "anything" });

@@ -1,0 +1,110 @@
+[
+  {
+    "key": "anthropic",
+    "display_name": "Anthropic",
+    "protocols": ["anthropic-messages"],
+    "auth_kinds": ["api_key"],
+    "models_endpoint": "https://api.anthropic.com/v1/models",
+    "oauth": null,
+    "revision": "2026-10"
+  },
+  {
+    "key": "openai",
+    "display_name": "OpenAI",
+    "protocols": ["openai-responses", "openai-chat-completions"],
+    "auth_kinds": ["api_key", "oauth"],
+    "models_endpoint": "https://api.openai.com/v1/models",
+    "oauth": {
+      "product": "chatgpt",
+      "flow": "device_code_then_pkce_paste_url",
+      "issuer": "https://auth.openai.com",
+      "authorization_endpoint": "https://auth.openai.com/authorize",
+      "token_endpoint": "https://auth.openai.com/token",
+      "allowed_call_origins": ["https://chatgpt.com"],
+      "scopes": ["openid"],
+      "verified_for_lophn": false
+    },
+    "revision": "2026-10"
+  },
+  {
+    "key": "xai",
+    "display_name": "xAI",
+    "protocols": ["openai-chat-completions"],
+    "auth_kinds": ["api_key", "oauth"],
+    "models_endpoint": "https://api.x.ai/v1/models",
+    "oauth": {
+      "product": "supergrok",
+      "flow": "device_code",
+      "issuer": "https://auth.x.ai",
+      "authorization_endpoint": "https://auth.x.ai/authorize",
+      "token_endpoint": "https://auth.x.ai/token",
+      "allowed_call_origins": ["https://api.x.ai"],
+      "scopes": ["openid", "profile", "email", "offline_access"],
+      "verified_for_lophn": false
+    },
+    "revision": "2026-10"
+  },
+  {
+    "key": "openrouter",
+    "display_name": "OpenRouter",
+    "protocols": ["openai-chat-completions"],
+    "auth_kinds": ["api_key"],
+    "models_endpoint": "https://openrouter.ai/api/v1/models",
+    "oauth": null,
+    "revision": "2026-10"
+  },
+  {
+    "key": "groq",
+    "display_name": "Groq",
+    "protocols": ["openai-chat-completions"],
+    "auth_kinds": ["api_key"],
+    "models_endpoint": "https://api.groq.com/openai/v1/models",
+    "oauth": null,
+    "revision": "2026-10"
+  },
+  {
+    "key": "deepseek",
+    "display_name": "DeepSeek",
+    "protocols": ["openai-chat-completions"],
+    "auth_kinds": ["api_key"],
+    "models_endpoint": "https://api.deepseek.com/models",
+    "oauth": null,
+    "revision": "2026-10"
+  },
+  {
+    "key": "google-gemini",
+    "display_name": "Google Gemini",
+    "protocols": ["openai-chat-completions"],
+    "auth_kinds": ["api_key"],
+    "models_endpoint": "https://generativelanguage.googleapis.com/v1beta/openai/models",
+    "oauth": null,
+    "revision": "2026-10"
+  },
+  {
+    "key": "ollama",
+    "display_name": "Ollama",
+    "protocols": ["openai-chat-completions"],
+    "auth_kinds": ["none"],
+    "models_endpoint": null,
+    "oauth": null,
+    "revision": "2026-10"
+  },
+  {
+    "key": "lm-studio",
+    "display_name": "LM Studio",
+    "protocols": ["openai-chat-completions"],
+    "auth_kinds": ["none"],
+    "models_endpoint": null,
+    "oauth": null,
+    "revision": "2026-10"
+  },
+  {
+    "key": "llama-cpp",
+    "display_name": "llama.cpp",
+    "protocols": ["openai-chat-completions"],
+    "auth_kinds": ["none"],
+    "models_endpoint": null,
+    "oauth": null,
+    "revision": "2026-10"
+  }
+]

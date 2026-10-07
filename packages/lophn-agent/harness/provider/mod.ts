@@ -2,6 +2,11 @@ export { providerSchemaSteps } from "./schema.ts";
 export { createProviderCommands } from "./commands.ts";
 export { createProviderReads } from "./reads.ts";
 export {
+  builtinProviderDefinition,
+  builtinProviderDefinitions,
+  createProviderDefinitionsRead,
+} from "./definitions.ts";
+export {
   createProviderSecretRefSource,
   lookupProviderSecretUse,
   PROVIDER_SECRET_OWNER,

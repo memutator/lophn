@@ -90,9 +90,10 @@ export const REVERT_REASON_CODES = [
   "blocked_dependency",
   "blocked_not_prepared",
   "stale_preview",
-  // 앱 revert 단계의 결과(lophn-agent#T48). checkpoint가 단계 실패·응답 유실을 기록한다.
+  // 앱 revert 단계의 결과(lophn-agent#T48). checkpoint가 단계 실패·응답 유실을 기록하고, 앞 단계가 멈춰 시작하지 않은 단계는 finish가 남긴다.
   "app_failed",
   "app_uncertain",
+  "app_not_started",
 ] as const;
 export const revertReasonSchema = z.enum(REVERT_REASON_CODES);
 export type RevertReason = z.infer<typeof revertReasonSchema>;

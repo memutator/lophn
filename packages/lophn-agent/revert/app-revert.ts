@@ -5,7 +5,6 @@ import {
   TOOL_CALL_EVENTS,
   toolCallFinished,
 } from "../../contracts/lophn-agent/mod.ts";
-import type { JsonObject } from "../../contracts/platform/mod.ts";
 import {
   type GroupDraft,
   type RevertOwner,
@@ -29,6 +28,7 @@ const FINISHED = toolCallFinished.type;
 // 기록의 app_command(JSON 열 값)를 되돌림 근거로 좁힌다. revert_command가 없으면 되돌리기를
 // 선언하지 않은 호출이다.
 function bindingOf(
+  toolCall: string,
   appCommand: unknown,
   result: unknown,
 ): AppRevertBinding | null {
@@ -52,7 +52,7 @@ function bindingOf(
     app: command.app,
     release: command.release,
     command: command.command,
-    tool_call: command.id,
+    tool_call: toolCall,
     invocation: receipt.invocation,
     receipt: receipt.receipt,
     expected_revision: receipt.expected_revision,
@@ -127,6 +127,7 @@ export function createAppRevertOwner(): RevertOwner {
           event.type === FINISHED && seqs.includes(event.seq)
         );
         const binding = finished === undefined ? null : bindingOf(
+          toolCall,
           calls.get(toolCall)?.app_command ?? null,
           calls.get(toolCall)?.result ?? null,
         );
@@ -148,9 +149,12 @@ export function createAppRevertOwner(): RevertOwner {
               command: binding.command,
               expected_revision: binding.expected_revision,
             },
-            before_ref: prepared.success
-              ? (prepared.data as unknown as JsonObject)
-              : null,
+            // step_key는 revert id를 앞에 두므로 preview와 적용이 달라 지문에 넣지 않는다.
+            before_ref: {
+              kind: "app",
+              tool_call: binding.tool_call,
+              invocation: binding.invocation,
+            },
             dependencies: [],
             app_revert: prepared.success ? prepared.data : null,
           });

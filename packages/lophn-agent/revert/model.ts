@@ -118,7 +118,7 @@ export function targetOf(subject: string | null): string | null {
   return subject !== null && TARGET.test(subject) ? subject : null;
 }
 
-// owner가 ��정한 묶음. 정렬·번호·이유 hash는 engine이 붙인다. app_revert는 앱의 되돌림 단계가
+// owner가 판정한 묶음. 정렬·번호·이유 hash는 engine이 붙인다. app_revert는 앱의 되돌림 단계가
 // 있는 묶음의 근거다(lophn-agent#T48).
 export type GroupDraft = {
   owner: string;

@@ -11,6 +11,14 @@ export {
   DOCUMENTS_REVERT_OWNER,
 } from "./documents-owner.ts";
 export { APP_REVERT_OWNER, createAppRevertOwner } from "./app-revert.ts";
+export {
+  type AppStepCall,
+  type AppStepPorts,
+  type AppStepsRun,
+  runAppSteps,
+  type StoredRevert,
+  type StoredStep,
+} from "./app-steps.ts";
 export { buildRevertInput, type PrepareGroup } from "./work.ts";
 export {
   bindingHash,

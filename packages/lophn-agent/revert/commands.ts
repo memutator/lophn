@@ -197,6 +197,17 @@ function blocked(
   });
 }
 
+// CheckpointRevert가 받는 호출 결과와 저장하는 행이다. 시작 전·시작 뒤 실패·충돌·응답 유실이
+// 서로 다른 행으로 남는다(R11).
+const APP_STEP_RESULTS: Partial<
+  Record<string, { result: ChangeOutcome; reason: ReasonCode | null }>
+> = {
+  restored: { result: "restored", reason: null },
+  failure: { result: "failure", reason: "app_failed" },
+  conflict: { result: "failure", reason: "later_change" },
+  uncertain: { result: "uncertain", reason: "app_uncertain" },
+};
+
 // 앱 단계가 있는 묶음만 골라 원래 호출 역순(ordinal 내림)으로 정렬한다.
 function appGroups(groups: readonly RevertGroup[]): RevertGroup[] {
   return groups.filter((group) => group.app_revert !== null)
@@ -347,6 +358,12 @@ export function createRevertCommands(deps: RevertDeps): {
           return reject("conflict", "the revert is not applying");
         }
         // step_key 조회로 같은 단계의 반복 기록을 한 번만 받는다(R8).
+        // 앱이 돌려준 결과는 저장하는 모양으로 옮긴다. 복원 가능 묶음의 충돌은 실패와 같은 행이고
+        // 이유가 later_change다(revert_changes check).
+        const stored = APP_STEP_RESULTS[input.result];
+        if (stored === undefined) {
+          return reject("invalid_input", "a step result is a call outcome");
+        }
         const row = tx.sql.get(
           `select ordinal, result, app_revert from revert_changes
            where revert = ? and app_revert is not null
@@ -358,7 +375,7 @@ export function createRevertCommands(deps: RevertDeps): {
         }
         if (String(row["result"]) !== "unchanged") {
           // 이미 결과가 확정한 단계다. 같은 기록은 다시 바꾸지 않는다(R8).
-          if (String(row["result"]) === input.result) {
+          if (String(row["result"]) === stored.result) {
             return ok({
               revert: input.revert,
               step_key: input.step_key,
@@ -379,13 +396,13 @@ export function createRevertCommands(deps: RevertDeps): {
             "the invocation is not the one this step drove",
           );
         }
-        // 아직 미확정 unchanged 행만 실제 결과로 바꾼다. 복원된 것은 아니다.
+        // 아직 미확정 unchanged 행만 실제 결과로 한 번 바꾼다.
         tx.sql.run(
           `update revert_changes set result = ?, reason = ?
            where revert = ? and ordinal = ?`,
           [
-            input.result,
-            input.result === "failure" ? "app_failed" : "app_uncertain",
+            stored.result,
+            stored.reason,
             input.revert,
             Number(row["ordinal"]),
           ],
@@ -488,26 +505,16 @@ export function createRevertCommands(deps: RevertDeps): {
             prepared.set(change.ordinal, given);
           }
         }
-        // 미확정 단계 하나라도 있으면 결과가 남는다: 기록된 실패는 partial, 기록된 응답
-        // 유실과 기록이 없는 단계는 uncertain, 나머지는 전체 적용이다(R11).
+        // 기록이 없는 단계는 시작하지 않은 것이다(앞 단계가 실패해 부르는 쪽이 멈췄다). 시작 뒤
+        // 결과를 모르는 단계는 uncertain으로 기록되어 온다. 둘을 구별해 남긴다(R11).
         const unrecorded = app.filter((change) =>
           change.result === "unchanged"
         );
         const failed = app.filter((change) => change.result === "failure");
         const uncertain = app.filter((change) => change.result === "uncertain");
-        let outcome: Outcome;
-        if (uncertain.length + unrecorded.length > 0) {
-          outcome = "uncertain";
-        } else if (failed.length > 0) {
-          outcome = "partial";
-        } else {
-          outcome = "applied";
-        }
+        const stopped = failed.length + uncertain.length + unrecorded.length;
         const restored = new Map<number, string[]>();
-        if (
-          failed.length === 0 && uncertain.length === 0 &&
-          unrecorded.length === 0
-        ) {
+        if (stopped === 0) {
           // 앱 단계가 전부 복원됐을 때만 ledger reversible 묶음을 뒤에서부터 복원한다.
           // 저장된 행은 아직 미확정 placeholder다. 준비가 없으면 그대로 unchanged다.
           const order = [...changes].sort((a, b) => b.ordinal - a.ordinal);
@@ -544,19 +551,17 @@ export function createRevertCommands(deps: RevertDeps): {
         const finalChanges: ChangeResult[] = changes.map((change) => {
           const seqs = restored.get(change.ordinal) ?? [];
           if (change.app_revert !== null) {
-            // 앱 단계: machine이 기록한 결과를 그대로 확정한다. 기록이 없는 단계는
-            // 시작했으나 결과를 모르는 것이므로 불명확이다(R11).
+            // 앱 단계: machine이 기록한 결과를 그대로 확정한다. 기록이 없는 단계는 시작하지
+            // 않은 것이다(R11).
             return {
               ordinal: change.ordinal,
               owner: change.owner,
               target: change.target,
               source_seqs: change.sources,
               capability: "reversible",
-              result: change.result === "unchanged"
-                ? ("uncertain" as ChangeOutcome)
-                : (change.result as ChangeOutcome),
+              result: change.result as ChangeOutcome,
               reason: change.result === "unchanged"
-                ? "app_uncertain"
+                ? "app_not_started"
                 : (change.reason as ReasonCode | null),
               restored_seqs: [],
               app_revert: null,
@@ -593,6 +598,15 @@ export function createRevertCommands(deps: RevertDeps): {
             app_revert: null,
           };
         });
+        // 응답 유실이 있으면 uncertain이다. 그 밖에 복원하지 못한 복원 가능 묶음(앱 단계의 실패·
+        // 미시작, 적용하지 못한 ledger 묶음)이 있으면 partial이고, 전부 복원했을 때만 applied다.
+        const outcome: Outcome = uncertain.length > 0
+          ? "uncertain"
+          : finalChanges.some((change) =>
+              change.capability === "reversible" && change.result !== "restored"
+            )
+          ? "partial"
+          : "applied";
         const partial = finalChanges.some((change) =>
           change.capability === "irreversible"
         );
@@ -608,12 +622,11 @@ export function createRevertCommands(deps: RevertDeps): {
             outcome,
             results: resultCounts(finalChanges),
           });
-        // 최종 행은 이 transaction에서 한 번 확정한다. 나머지 열은 그대로다.
+        // 최종 행은 이 transaction에서 한 번 확정한다. 기록된 앱 단계의 행은 이미 확정이다.
         for (const change of finalChanges) {
           if (restored.has(change.ordinal)) {
             tx.sql.run(
-              `update revert_changes
-               set result = ?, reason = ?, app_revert = null
+              `update revert_changes set result = ?, reason = ?
                where revert = ? and ordinal = ?`,
               [change.result, change.reason, input.revert, change.ordinal],
             );
@@ -624,11 +637,11 @@ export function createRevertCommands(deps: RevertDeps): {
                 [input.revert, change.ordinal, BigInt(restoredSeq)],
               );
             }
-          } else if (change.result !== "unchanged") {
+          } else if (change.reason === "app_not_started") {
             tx.sql.run(
-              `update revert_changes set app_revert = null
+              `update revert_changes set reason = ?
                where revert = ? and ordinal = ?`,
-              [input.revert, change.ordinal],
+              [change.reason, input.revert, change.ordinal],
             );
           }
         }

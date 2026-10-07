@@ -9,6 +9,7 @@ import {
   GLOSSARY_FIRST_PAGE_LIMIT,
 } from "../../contracts/documents/mod.ts";
 import {
+  type AuthorizationTarget,
   REDACTION_REPLACEMENT,
   type RequestContext,
 } from "../../contracts/platform/mod.ts";
@@ -197,6 +198,20 @@ function visibleItems(
   return visible;
 }
 
+// context 대상 판정에 주는 target이다. 앱 하나에 묶인 agent는 그 앱의 읽기를 항목으로 가진 context만 본다.
+function contextTarget(record: ContextOutlineRecord): AuthorizationTarget {
+  return {
+    context: record.id,
+    context_apps: [
+      ...new Set(
+        record.items.flatMap((item) =>
+          item.target.kind === "app_command" ? [item.target.app] : []
+        ),
+      ),
+    ],
+  };
+}
+
 // root의 context 요약. 문제·질문·approval 대기는 소유 concern의 읽기를 가리키므로
 // 여기서 세지 않는다. 권한 밖 context는 없는 것과 같다.
 export function contextRootSummaries(
@@ -209,9 +224,9 @@ export function contextRootSummaries(
   if (!active.ok) return [];
   const summaries: ContextRootSummary[] = [];
   for (const record of active.value) {
-    if (!authorize(deps.ports, ctx, "outline.root", { context: record.id })) {
-      continue;
-    }
+    if (
+      !authorize(deps.ports, ctx, "outline.root", contextTarget(record))
+    ) continue;
     const visible = visibleItems(deps, ctx, "outline.root", record);
     const apps = new Set<string>();
     let basis = 0;
@@ -416,7 +431,7 @@ export function buildContextOutline(
   // 없는 context와 권한 밖 context는 같은 응답이다(존재를 새지 않는다).
   if (record === null) return deny();
   if (
-    !authorize(deps.ports, ctx, "outline.context", { context: record.id })
+    !authorize(deps.ports, ctx, "outline.context", contextTarget(record))
   ) return deny();
   const budget = input.estimated_token_budget ??
     CONTEXT_ESTIMATED_TOKEN_BUDGET;

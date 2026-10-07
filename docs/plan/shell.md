@@ -1005,10 +1005,11 @@ concerns: [shell]
 
 ### T49 ticket [Start]: coding TUI 시작과 관측
 
+- 상태: 완료 (#438) — 이어보냄: 클릭 IPC·[Start] 화면·관측 표 연결 → shell#T50, platform#T34 child 등록(`registerChild`·`endChild`·`endConnection`)은 core 쪽 등록 route와 TUI 아래 process 관측이 없어 맡을 작업이 필요하다
 - 등급: 기본
 - concern: shell/terminal
 - 요구: shell/terminal#R4(coding TUI), R5(coding TUI credential), R12, R13
-- 자리: apps/shell/main/terminal/coding-start.ts, apps/shell/terminal-host/(launch-plan.ts, prompt-delivery.ts, observe-socket.ts)
+- 자리: apps/shell/main/terminal/coding/coding-start.ts, apps/shell/terminal-host/(launch-plan.ts, prompt-delivery.ts, observe-socket.ts)
 - 쓰는 contract: contracts#T42(CodingAgentLaunchPlan, human_start_handle, operation_id, HarnessSessionObservation), coding-agent#T38(`lophn session plan --json`), coding-agent#T39(관측), platform#T34(coding credential loader)
 - 내놓는 contract: 없음
 - slice: coding-agent
@@ -1021,9 +1022,11 @@ concerns: [shell]
   - prompt_delivery: argv면 할 일 없음, stdin_after_ready면 readiness를 최대 10,000ms 기다려 정확히 한 번 쓰고 delivered·not_delivered·unknown. 재전송·재spawn·resume 없음. 같은 operation_id는 같은 runtime_ref.
   - 관측 socket: lophn이 연 TUI마다 host가 0700 폴더의 무작위 Unix socket(Windows named pipe)을 만들고 `LOPHN_TERMINAL_OBSERVE`로 그 경로만 준다. host가 자기 runtime_ref·generation을 붙이고 payload의 주장은 쓰지 않는다. 끝나면 지운다. Electron 재시작 뒤는 unknown이고 자동 spawn·resume이 없다.
   - `coding-start_test`, `prompt-delivery_test`, `observe-socket_test`에 위 요구 테스트.
+- 후속 (#440): TUI 아래 MCP·CLI child 등록 — core memory route `register_child`·`end_child`·`end_connection`(user 전용), host `child-watch.ts`(TUI 자손 중 설치 launcher 모양 process만 `child_started`·`child_ended`·`tui_ended`), main `coding-children.ts`(`createChildRegistrar`)가 사람 credential로 등록·해제한다. `CodingStartDeps.credential_helper`(설치 `lophn-credential` 절대 경로)를 주어야 host가 관측한다. 조립(T50)은 `desktop/main.ts` supervisor의 `onEvent`가 이미 registrar를 부르므로 ObservationStore를 같은 `onEvent`에 더하고(둘 다 부른다) `credential_helper`를 넘긴다. 남은 한계: 관측은 polling이라 시작 직후 짧은 틈은 helper provider가 not_found만 100ms 간격 3초까지 다시 물어 메운다(그 밖의 답은 바로 실패; open-issues coding-agent/connection#Q4).
 
 ### T50 Connection 화면과 Tasks
 
+- 상태: 완료 (#450) — 이어보냄: project 터미널 탭이 [Start]로 연 coding runtime을 붙여 보이는 일, `lophn harness install` 단독 입구와 packaged 밖(Windows·macOS) `lophn` 실행 경로 → coding-agent#T41·platform#T49
 - 등급: frontend
 - concern: shell/desktop
 - 요구: shell/desktop#R19(고정 연결 intent 검증)
@@ -1032,6 +1035,7 @@ concerns: [shell]
 - 내놓는 contract: 없음
 - slice: coding-agent
 - 선행: shell#T29, shell#T43, shell#T49, coding-agent#T27, coding-agent#T36, coding-agent#T40
+- shell#T49에서 넘어온 것: [Start] 입구는 main `createCodingStart`(apps/shell/main/terminal/coding/coding-start.ts)의 `issue(click)`→`start(handle)`이고 renderer IPC가 아직 없다. 클릭 입력은 `codingStartClickSchema`(ticket·ticket_revision·connection·harness_id·profile_id·project·folder_ref)이고 결과는 `{ok, runtime}` 또는 `{ok:false, reason, message, next, guide?}`다(`next`·`guide`는 plan child의 `details`). 조립이 할 일: `CoreSession.internal`을 `core`로, 등록 폴더 표를 `folders`로, `childPlanRunner({command: <lophn 절대 경로>, env})`를 `plan`으로, terminal supervisor를 `host`로 주고, supervisor의 `onEvent`를 `ObservationStore.onEvent`에, `onHostLost`를 `ObservationStore.hostLost`에 잇는다. TUI 상태(starting/ready/working/waiting_input/ended/unknown)는 `store.current(runtime_ref)`(`observationAt`)이고 첫 prompt 전달 결과는 runtime의 `coding.prompt_delivery`(none·pending·delivered·not_delivered·unknown)다. coding runtime의 다시 시작은 거절되고 새 [Start]만 있다.
 - coding-agent#T36에서 넘어온 것: 연결 생성 입구는 core의 `POST /v1/coding_agent_connections/connect`(memory route, user만; 입력 `{label, scope}`, 출력 `{connection}`)다. renderer allowlist는 read·command만이라 main이 사람 credential로 부른다(`CONNECTION_INTENT`의 route 이름도 이 route로 바꾼다). 이어서 `lophn connection install --connection <id> --input '{"target":...}' --json`으로 선택 target을 설치하고 `lophn doctor --json`을 부른다. 순서와 결과 모양은 `connectAndInstall`(packages/coding-agent/cli/commands/connection.ts)이다. `harness detect|refresh --json`의 CLI 실행은 coding-agent#T36 남은 것이다.
 - coding-agent#T40에서 넘어온 것: 회수 결정 화면. CLI `connection revoke`는 창을 열지 않고 `lophn://things-to-confirm/<cac_...>` 링크와 대기 사실만 낸다(`decisionLink(connection)`). main의 `open-intent`는 지금 `apr`·`qst` 링크만 받으므로 `cac` 링크를 받아 연결의 현재 판(`ShowCodingAgentConnection`의 revision)을 읽고 `RevokeCodingAgentConnection`(결정 `coding_agent_connection_revoke`, binding `connection`·`base_revision`)의 confirmation window를 여는 종류를 `apps/shell/main/confirmation/kinds/`에 더한다. core는 정확한 binding의 handle만 받는다(다른 연결·낡은 판·닫힌 창의 handle은 거절, 회수 응답 직후 그 credential의 모든 새 요청이 거절된다. `apps/core/connection-revoke_test.ts`).
 - coding-agent#T25에서 넘어온 것: 사람의 ticket 취소·생성 화면. CLI `ticket cancel`·`ticket create`는 core에 쓰지 않고 `lophn://things-to-confirm/<tkt_...>`(취소) 또는 `<app_...>`(생성) 링크와 `applied:false`만 낸다(coding credential이 연결 참조로 시작하면 실행 전 forbidden). main의 `open-intent`가 그 링크를 받아 Tasks 화면의 한 줄 사유 취소와 ticket 생성으로 열고, 사람이 누르면 확인 창 없이 user credential로 `CancelTicket`(base_revision 비교·사유 1~200자 한 줄)·`CreateTicket`을 부른다.

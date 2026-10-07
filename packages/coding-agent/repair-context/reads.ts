@@ -2,10 +2,7 @@
 // credential로 부르는 client라 범위 밖 대상은 core가 없는 대상과 같은 답으로 거절한다. 이 port는
 // ledger·앱 DB·원본 파일을 직접 열지 않는다.
 import { err, ok, type Result } from "../../base/mod.ts";
-import {
-  type ReadRoute,
-  type Route,
-} from "../../contracts/platform/mod.ts";
+import { type ReadRoute, type Route } from "../../contracts/platform/mod.ts";
 import {
   getProblem,
   getReport,
@@ -65,7 +62,9 @@ async function defaultBlob(
   maxBytes: number,
 ): Promise<BlobText> {
   const detail = await parsed(client, getReport, { report: ref.owner_key });
-  if (!detail.ok || detail.value.report.problem === null) return { kind: "unavailable", reason: "현재 연결로 읽을 수 없다" };
+  if (!detail.ok || detail.value.report.problem === null) {
+    return { kind: "unavailable", reason: "현재 연결로 읽을 수 없다" };
+  }
   const read = await parsed(client, reportBody, {
     problem: detail.value.report.problem,
     report: ref.owner_key,

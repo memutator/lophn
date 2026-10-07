@@ -9,16 +9,15 @@ import {
   createConnectionReads,
   createConnectionSecretRefSource,
 } from "../../packages/coding-agent/mod.ts";
+import { err } from "../../packages/base/mod.ts";
 import {
   connectionConnect,
   defaultHarnessSetting,
   harnessEnabledSetting,
   harnessProfileSetting,
+  REPAIR_CONTEXT_ROUTES,
 } from "../../packages/contracts/coding-agent/mod.ts";
 import type { ReaderRegistration } from "../../packages/platform/ledger/mod.ts";
-import { REPAIR_CONTEXT_ROUTES } from "../../packages/contracts/coding-agent/mod.ts";
-import { reportBody } from "../../packages/contracts/problems/mod.ts";
-import { err } from "../../packages/base/mod.ts";
 
 // owner definitions만 내보낸다. App 존재 lookup(apps)과 확인 창 소비는 core 조립이 준다.
 // 인증은 매 요청 auth port로 principal의 state·scope·digest를 읽는다.
@@ -49,9 +48,14 @@ export const codingAgentConnectionDefinitions = {
   settings: harnessSettings,
   commands: [commands.create, commands.revoke],
   reads: [reads.list, reads.show],
-  apiReads: [...REPAIR_CONTEXT_ROUTES, reportBody].map((route) => ({
+  // 수리 자료 route다. route만 선언하고 handler는 worker 통로를 가진 core 조립(repair-context)이 붙인다.
+  apiReads: REPAIR_CONTEXT_ROUTES.map((route) => ({
     route,
-    handle: () => err({ code: "unavailable" as const, message: "읽기 통로가 붙어 있지 않다" }),
+    handle: () =>
+      err({
+        code: "unavailable" as const,
+        message: "수리 자료 읽기가 붙어 있지 않다",
+      }),
   })),
   // 사람의 연결 결정 입구다. handler는 core 조립(core.ts)이 route 이름으로 붙인다.
   memoryRoutes: [connectionConnect],

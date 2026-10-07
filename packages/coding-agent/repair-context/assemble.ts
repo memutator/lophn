@@ -23,7 +23,7 @@ import {
   UNREADABLE_MESSAGE,
 } from "./model.ts";
 import { buildSections } from "./sections.ts";
-import { reduceSections } from "./budget.ts";
+import { reduceSections, renderSections } from "./budget.ts";
 import {
   type Fingerprint,
   type OccurrenceCandidate,
@@ -50,8 +50,8 @@ export type RepairSummary = {
 export type AssembledRepair = {
   as_of_seq: string;
   summary: RepairSummary;
-  // 전체 상한(24,576 bytes·300줄) 안에서 만든 bundle이다. 상한을 넘으면 null이고
-  // over_budget에 센 값이 있다. 상한 축소(log → 대표 excerpt → 첨부)는 T43이 맡는다.
+  // 전체 상한(24,576 bytes·300줄) 안에서 만든 bundle이다. 절을 줄이고도(budget.ts) 상한을 넘으면
+  // null이고 over_budget에 센 값이 있다.
   context: RepairContext | null;
   over_budget: { bytes: number; lines: number } | null;
 };
@@ -259,17 +259,7 @@ function basisOf(facts: TargetFacts): RepairEvidenceSource[] {
 export function renderBundleText(
   context: Pick<RepairContext, "observed_at" | "sections">,
 ): string {
-  const parts: string[] = [];
-  for (const section of context.sections) {
-    const header = `## ${section.kind}${
-      section.problem === null ? "" : ` ${section.problem}`
-    }`;
-    const state = section.availability === "available"
-      ? []
-      : [`[${section.availability}] ${section.reason}`];
-    parts.push([header, section.content, ...state].join("\n"));
-  }
-  return parts.join("\n");
+  return renderSections(context.sections);
 }
 
 function limitsOf(sections: RepairContextSection[], problem: string): string {
@@ -287,7 +277,8 @@ async function summarize(
 ): Promise<RepairSummary> {
   const readable = facts.problems.filter((item) => item.problem.ok);
   const shown = readable.slice(0, SUMMARY_MAX_PROBLEMS);
-  const share = Math.floor(REPAIR_CONTEXT_SUMMARY_MAX_CHARS / shown.length) - 180;
+  const share = Math.floor(REPAIR_CONTEXT_SUMMARY_MAX_CHARS / shown.length) -
+    180;
   const problems: ProblemSummary[] = [];
   for (const item of shown) {
     const read = (item.problem as { ok: true; value: ProblemOut }).value;
@@ -304,7 +295,10 @@ async function summarize(
       id: item.id,
       app: read.problem.app,
       status: read.problem.status,
-      symptom: `${symptom}${evidence}${limitsOf(sections, item.id)}`.replace(/[\r\n]+/g, " "),
+      symptom: `${symptom}${evidence}${limitsOf(sections, item.id)}`.replace(
+        /[\r\n]+/g,
+        " ",
+      ),
       next_action: "read: repair_context bundle " +
         (facts.problems.length > shown.length ||
             readable.length < facts.problems.length
@@ -315,12 +309,21 @@ async function summarize(
   }
   // 식별·상태·이어 읽기도 summary 두 줄의 문자 예산에 포함한다. fence는 통째로 유지한다.
   for (const item of problems) {
-    const limit = Math.floor(REPAIR_CONTEXT_SUMMARY_MAX_CHARS / problems.length);
-    const fixed = Array.from(`${item.id} ${item.status}\n${item.next_action}`).length;
+    const limit = Math.floor(
+      REPAIR_CONTEXT_SUMMARY_MAX_CHARS / problems.length,
+    );
+    const fixed =
+      Array.from(`${item.id} ${item.status}\n${item.next_action}`).length;
     if (Array.from(item.symptom).length + fixed > limit) {
       item.next_action = `read repair_context bundle ${item.id}`;
-      const room = limit - Array.from(`${item.id} ${item.status}\n${item.next_action}`).length - Array.from(inlineFence("symptom", "")).length;
-      item.symptom = inlineFence("symptom", clipCodePoints("summary truncated; limits present", Math.max(0, room)).text);
+      const room = limit -
+        Array.from(`${item.id} ${item.status}\n${item.next_action}`).length -
+        Array.from(inlineFence("symptom", "")).length;
+      item.symptom = inlineFence(
+        "symptom",
+        clipCodePoints("summary truncated; limits present", Math.max(0, room))
+          .text,
+      );
       truncated = true;
     }
   }
@@ -366,7 +369,13 @@ export async function assembleRepairContext(
     );
   }
   if (!problems.some((item) => item.problem.ok)) return unreadable();
-  const as_of_seq = problems.reduce((seq, item) => item.problem.ok && BigInt(item.problem.value.as_of_seq) > BigInt(seq) ? item.problem.value.as_of_seq : seq, "0");
+  const as_of_seq = problems.reduce(
+    (seq, item) =>
+      item.problem.ok && BigInt(item.problem.value.as_of_seq) > BigInt(seq)
+        ? item.problem.value.as_of_seq
+        : seq,
+    "0",
+  );
   const [same_app, releases] = await Promise.all([
     port.problems(app),
     port.releases(app),
@@ -403,7 +412,12 @@ export async function assembleRepairContext(
   });
   if (!parsed.success) {
     if (bytes > REPAIR_CONTEXT_BYTES || lines > REPAIR_CONTEXT_LINES) {
-      return ok({ as_of_seq, summary, context: null, over_budget: { bytes, lines } });
+      return ok({
+        as_of_seq,
+        summary,
+        context: null,
+        over_budget: { bytes, lines },
+      });
     }
     return err({
       code: "internal",

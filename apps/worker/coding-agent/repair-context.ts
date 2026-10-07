@@ -1,7 +1,7 @@
-// coding-agent worker kind의 수리 자료 조립(coding-agent#T42; repair-context#R1, R18-R20). 요청마다
-// 요청자 connection credential로 현재 정본을 core RPC read로 읽어 summary·bundle을 만든다. ledger·앱 DB·
-// 원본 파일은 열지 않고 완성 묶음을 저장하지 않는다. 글은 core 알려진 값 pipe(`redact_request`)를
-// 지난 것만 쓴다. 이 worker를 요청에 연결하는 core route 등록(budget·more·cursor·이미지 포함)은 T43이다.
+// coding-agent worker kind의 수리 자료 조립(coding-agent#T42, T43; repair-context#R1, R11, R12, R15, R18-R20).
+// 요청마다 요청자 connection credential로 현재 정본을 core RPC read로 읽어 summary·bundle·more를 만든다.
+// ledger·앱 DB·원본 파일은 열지 않고 완성 묶음을 저장하지 않는다. 글은 core 알려진 값 pipe
+// (`redact_request`)를 지난 것만 쓴다. core의 `/v1/repair_context/*` route가 요청을 이 worker로 넘긴다.
 import {
   err,
   type ErrorCode,
@@ -22,9 +22,9 @@ import {
 import {
   assembleRepairContext,
   createRepairCursor,
+  createRepairReadPort,
   type RepairCursor,
   repairMore,
-  createRepairReadPort,
   type RepairReadClient,
   type RepairTarget,
 } from "../../../packages/coding-agent/repair-context/mod.ts";
@@ -44,7 +44,12 @@ export const REPAIR_CONTEXT_OPS = {
 
 // worker 요청 payload. credential은 요청자 connection의 것이고 core가 요청마다 싣는다.
 // worker는 machine credential로 범위 밖 근거를 대신 읽지 않는다.
-export type RepairContextPayload = { credential: string; principal?: string; input: unknown };
+// principal은 cursor를 묶는 요청자 식별이다(core가 싣는다).
+export type RepairContextPayload = {
+  credential: string;
+  principal?: string;
+  input: unknown;
+};
 
 export class RepairContextRejection extends Error {
   readonly code: ErrorCode;
@@ -117,7 +122,10 @@ export async function acceptRepairContext(
   deps: RepairContextDeps,
 ): Promise<unknown> {
   const summary = request.op === REPAIR_CONTEXT_OPS.summary;
-  if (!summary && request.op !== REPAIR_CONTEXT_OPS.bundle && request.op !== REPAIR_CONTEXT_OPS.more) {
+  if (
+    !summary && request.op !== REPAIR_CONTEXT_OPS.bundle &&
+    request.op !== REPAIR_CONTEXT_OPS.more
+  ) {
     throw new RepairContextRejection("invalid_input", "unknown op");
   }
   const payload = payloadOf(request);
@@ -127,8 +135,18 @@ export async function acceptRepairContext(
     redact: deps.redact,
   });
   if (request.op === REPAIR_CONTEXT_OPS.more) {
-    const result = await repairMore(port, payload.input, payload.principal ?? payload.credential, deps.cursor ?? await createRepairCursor());
-    if (!result.ok) throw new RepairContextRejection(result.error.code, result.error.message);
+    if (typeof payload.principal !== "string" || payload.principal === "") {
+      throw new RepairContextRejection("invalid_input", "invalid request body");
+    }
+    const result = await repairMore(
+      port,
+      payload.input,
+      payload.principal,
+      deps.cursor ?? await createRepairCursor(),
+    );
+    if (!result.ok) {
+      throw new RepairContextRejection(result.error.code, result.error.message);
+    }
     return result.value;
   }
   const target = targetOf(payload.input, summary);
@@ -139,15 +157,25 @@ export async function acceptRepairContext(
       assembled.error.message,
     );
   }
-  if (summary) return { summary: assembled.value.summary, as_of_seq: assembled.value.as_of_seq, next_cursor: null };
+  if (summary) {
+    return {
+      summary: assembled.value.summary,
+      as_of_seq: assembled.value.as_of_seq,
+      next_cursor: null,
+    };
+  }
   if (assembled.value.context === null) {
-    // 전체 상한 안에 줄이는 일은 T43이 맡는다. 줄이지 못한 묶음은 만들지 않는다.
+    // 줄이고도 상한을 넘는 묶음은 만들지 않는다.
     throw new RepairContextRejection(
       "unavailable",
       "repair context exceeds the total budget",
     );
   }
-  return { context: assembled.value.context, as_of_seq: assembled.value.as_of_seq, next_cursor: null };
+  return {
+    context: assembled.value.context,
+    as_of_seq: assembled.value.as_of_seq,
+    next_cursor: null,
+  };
 }
 
 export type CodingAgentWorkerOptions = {
@@ -180,26 +208,26 @@ export function createCodingAgentWorker(
       if (message.type !== "worker_request") return;
       // redact_response도 같은 pipe로 오므로 요청 완료를 pump에서 기다리지 않는다.
       void (async () => {
-      try {
-        const payload = await options.accept(message as WorkerRequest);
-        await session.send({
-          type: "worker_response",
-          request_id: message.request_id,
-          ok: true,
-          payload,
-        });
-      } catch (thrown) {
-        // 내부 실패는 unavailable이다. 본문·경로·credential을 응답에 넣지 않는다.
-        const rejected = thrown instanceof RepairContextRejection;
-        await session.send({
-          type: "worker_response",
-          request_id: message.request_id,
-          ok: false,
-          error: rejected
-            ? { code: thrown.code, message: thrown.message }
-            : { code: "unavailable", message: "repair context failed" },
-        });
-      }
+        try {
+          const payload = await options.accept(message as WorkerRequest);
+          await session.send({
+            type: "worker_response",
+            request_id: message.request_id,
+            ok: true,
+            payload,
+          });
+        } catch (thrown) {
+          // 내부 실패는 unavailable이다. 본문·경로·credential을 응답에 넣지 않는다.
+          const rejected = thrown instanceof RepairContextRejection;
+          await session.send({
+            type: "worker_response",
+            request_id: message.request_id,
+            ok: false,
+            error: rejected
+              ? { code: thrown.code, message: thrown.message }
+              : { code: "unavailable", message: "repair context failed" },
+          });
+        }
       })().catch(() => undefined);
     },
   });

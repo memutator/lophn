@@ -265,7 +265,15 @@ export async function dispatchHttp(
     if (isCommandRoute(route)) {
       return await command(route, parsed.value, ctx, deps);
     }
-    if (isReadRoute(route)) return await read(route, parsed.value, ctx, deps, request.headers.get("authorization")?.replace(/^Bearer /, ""));
+    if (isReadRoute(route)) {
+      return await read(
+        route,
+        parsed.value,
+        ctx,
+        deps,
+        request.headers.get("authorization")?.replace(/^Bearer /, ""),
+      );
+    }
     if (isMemoryRoute(route)) {
       return await memory(route, parsed.value, ctx, deps);
     }

@@ -8,6 +8,7 @@ import {
 import type {
   AuthenticatedContext,
   RequestContext,
+  Route,
 } from "../../packages/contracts/platform/mod.ts";
 import { authenticatedContextSchema } from "../../packages/contracts/platform/mod.ts";
 import type {
@@ -61,7 +62,10 @@ import {
   CONDITION_TARGET_KEYS,
 } from "../../packages/platform/identity/mod.ts";
 import { packagesGuideBody } from "../../packages/contracts/apps/mod.ts";
-import { getReport, reportBody } from "../../packages/contracts/problems/mod.ts";
+import {
+  getReport,
+  reportBody,
+} from "../../packages/contracts/problems/mod.ts";
 import {
   PACKAGE_GUIDE_BLOB_FIELD_NAME,
   PACKAGE_GUIDE_BLOB_OWNER_KIND,
@@ -309,33 +313,22 @@ export async function openRuntime(input: {
     (ctx, body) =>
       packageGuideBodyHandler(input.ledgerPath, input.blob, ctx, body),
   );
-  reads.set("problems/report_body", async (ctx, body) => {
-    const parsed = reportBody.input.safeParse(body);
-    if (!parsed.success) return err({ code: "invalid_input", message: "invalid input" });
-    const target = { app: ctx.conditions.app };
-    if (!ctx.scope.operations.includes(reportBody.name)) return err({ code: "forbidden", message: "operation forbidden" });
-    const judged = await readers.value.read(getReport, ctx, { report: parsed.data.report });
-    if (!judged.ok) return judged;
-    const report = (judged.value as { report: { problem: string | null; app: string } }).report;
-    if (report.problem !== parsed.data.problem) return err({ code: "not_found", message: "대상을 찾을 수 없다" });
-    const result = await blobReadHandler(input.ledgerPath, input.blob === undefined ? undefined : {
-      ...input.blob,
-      fields: input.blob.fields.map((field) => field.owner_kind === "report" && field.field === parsed.data.field ? { ...field, general_read: true } : field),
-    }, ctx, {
-      owner_kind: "report", owner_key: parsed.data.report, field: parsed.data.field,
-      offset_bytes: parsed.data.offset_bytes, length_bytes: parsed.data.length_bytes,
-    }, (current) => {
-      const live = currentCredential(input.ledgerPath, current.credential_ref);
-      return live.ok ? authorize(live.value, reportBody.name, { ...target, app: report.app, problem: report.problem }) : live;
-    });
-    if (!result.ok) return result;
-    const value = result.value as { status: string; bytes?: string };
-    if (value.status !== "available" || value.bytes === undefined) return result;
-    const raw = new TextDecoder().decode(Uint8Array.from(atob(value.bytes), (c) => c.charCodeAt(0)));
-    const safe = createProductRedactor(secretStore.known)({ concern: "coding-agent/repair-context", revision: "1", scope: "report-body" }, "text/plain", raw);
-    if (safe === null) return err({ code: "unavailable", message: "redaction을 완료하지 못했다" });
-    return ok({ status: "available", text: safe, truncated: (value as { truncated?: boolean }).truncated === true });
-  });
+  // 보고의 사람 글·log·화면 상태만 읽는 좁은 route. 일반 `blobs/read`는 coding 연결에 열지 않는다.
+  reads.set(
+    `${reportBody.resource}/${reportBody.method}`,
+    (ctx, body) =>
+      reportBodyHandler(
+        {
+          ledgerPath: input.ledgerPath,
+          blob: input.blob,
+          known: secretStore.known,
+          read: (route, context, value) =>
+            readers.value.read(route, context, value),
+        },
+        ctx,
+        body,
+      ),
+  );
   // OS 표시 전달 상태(R9, R10). get·list·display 응답을 꾸미고 shell의 실패 보고를 받는다.
   const delivery = createNotificationDelivery({
     clock: input.clock,
@@ -851,6 +844,106 @@ function packageGuideBodyHandler(
     return authorize(current, packagesGuideBody.name, target, {
       domain: "skip",
     });
+  });
+}
+
+// /v1/problems/report_body. owner_kind가 `report`로 고정이고 field는 사람 글·log·화면 상태뿐이다.
+// 보고는 이 자격으로 GetReport가 읽을 수 있어야 하고(없는 대상과 범위 밖은 같은 not_found), 바이트를
+// 읽기 시작할 때와 반환 직전에 보고의 앱·문제 target을 현재 credential로 다시 검사한다. 글은 core
+// 알려진 값 pipe를 지난 것만 내보낸다(끝내지 못하면 unavailable).
+async function reportBodyHandler(
+  environment: {
+    ledgerPath: string;
+    blob: BlobReadSource | undefined;
+    known: KnownSecretMatch;
+    read(
+      route: Route,
+      ctx: RequestContext,
+      body: unknown,
+    ): Promise<Result<unknown>>;
+  },
+  ctx: RequestContext,
+  body: unknown,
+): Promise<Result<unknown>> {
+  const parsed = reportBody.input.safeParse(body);
+  if (!parsed.success) {
+    return err({
+      code: "invalid_input",
+      message: "본문 읽기 입력이 올바르지 않다",
+    });
+  }
+  const notFound: Result<never> = err({
+    code: "not_found",
+    message: "대상을 찾을 수 없다",
+  });
+  const found = await environment.read(getReport, ctx, {
+    report: parsed.data.report,
+  });
+  if (!found.ok) {
+    return found.error.code === "unavailable" ? found : notFound;
+  }
+  const report =
+    (found.value as { report: { app: string; problem: string | null } })
+      .report;
+  if (report.problem === null) return notFound;
+  const target = { app: report.app, problem: report.problem };
+  const source = environment.blob === undefined ? undefined : {
+    ...environment.blob,
+    // 이 route만 이 field들을 읽는다. 일반 읽기의 field 정의는 그대로다.
+    fields: environment.blob.fields.map((field) =>
+      field.owner_kind === "report" && field.field === parsed.data.field
+        ? { ...field, general_read: true }
+        : field
+    ),
+  };
+  const read = await blobReadHandler(
+    environment.ledgerPath,
+    source,
+    ctx,
+    {
+      owner_kind: "report",
+      owner_key: parsed.data.report,
+      field: parsed.data.field,
+      offset_bytes: parsed.data.offset_bytes,
+      length_bytes: parsed.data.length_bytes,
+    },
+    (current) => {
+      const live = currentCredential(
+        environment.ledgerPath,
+        current.credential_ref,
+      );
+      return live.ok ? authorize(live.value, reportBody.name, target) : live;
+    },
+  );
+  if (!read.ok) return read.error.code === "unavailable" ? read : notFound;
+  const value = read.value as {
+    status: string;
+    reason?: string;
+    bytes?: string;
+    truncated?: boolean;
+  };
+  if (value.status !== "available" || value.bytes === undefined) {
+    return ok({ status: "unavailable", reason: value.reason ?? value.status });
+  }
+  const raw = new TextDecoder().decode(
+    Uint8Array.from(atob(value.bytes), (char) => char.charCodeAt(0)),
+  );
+  const safe = createProductRedactor(environment.known)(
+    {
+      concern: "coding-agent/repair-context",
+      revision: "1",
+      scope: "report-body",
+    },
+    "text/plain",
+    raw,
+  );
+  if (safe === null) {
+    return err({ code: "unavailable", message: "redaction을 끝내지 못했다" });
+  }
+  return ok({
+    status: "available",
+    text: safe,
+    truncated: value.truncated === true,
   });
 }
 

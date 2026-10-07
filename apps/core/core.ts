@@ -200,7 +200,11 @@ import {
   writeParent,
 } from "./parent.ts";
 import { snapshotLogsEnvironment } from "./problems-logs.ts";
-import { REPAIR_WORKER_KIND, registerRepairReads, repairWorkerSpec } from "./repair-context.ts";
+import {
+  registerRepairReads,
+  REPAIR_WORKER_KIND,
+  repairWorkerSpec,
+} from "./repair-context.ts";
 import { answerRedactRequest } from "./agent-runtime-redaction.ts";
 import {
   COLLECTOR_CREDENTIAL_OPERATIONS,
@@ -481,6 +485,7 @@ async function open(
   const collectorChannel = createDocumentsChannel();
   // ticket checker worker 요청 통로. 같은 통로 모양을 쓴다(coding-agent#T26).
   const checkerChannel = createDocumentsChannel();
+  // coding-agent 수리 자료 worker 요청 통로. 같은 통로 모양을 쓴다(coding-agent#T43).
   const repairChannel = createDocumentsChannel();
   // coordinator가 파일 읽기의 창으로 보내는 byte frame의 우편함(`files.read` stream).
   const fileWindows = createFileWindows();
@@ -1776,19 +1781,40 @@ async function open(
       }
     }
   }
+  // coding-agent/worker. 수리 자료(`/v1/repair_context/*`)를 요청자 credential로 조립하는 상시 worker다.
+  // 자기 credential이 없고(hello의 credential은 자리만 채운다) 요청마다 core가 요청자의 것을 싣는다.
+  // 알려진 값 pipe의 `redact_request`는 여기서 답한다. 띄우지 못해도 core는 계속 서고 그 route만
+  // unavailable이다.
   const repairSpec = repairWorkerSpec();
-  if (io && repairSpec && allRoutes.some((route) => route.resource === "repair_context")) {
-    const started = await io.start(repairSpec, {
-      type: "hello", core_epoch: epoch, process_identity: epoch, kind: REPAIR_WORKER_KIND,
-      task: "repair-context", scope: { operations: [], targets: {} }, credential: "", api_port: server.port,
-    }, {
-      onMessage: (message) => {
-        const answer = answerRedactRequest(message, runtime!.knownSecrets);
-        if (answer) void io!.send(REPAIR_WORKER_KIND, answer);
-        else repairChannel.onMessage(message);
+  if (
+    io && repairSpec &&
+    allRoutes.some((route) => route.resource === "repair_context")
+  ) {
+    const started = await io.start(
+      repairSpec,
+      {
+        type: "hello",
+        core_epoch: epoch,
+        process_identity: epoch,
+        kind: REPAIR_WORKER_KIND,
+        task: "repair-context",
+        scope: { operations: [], targets: {} },
+        credential: "none",
+        api_port: server.port,
       },
-    });
-    if (started.ok) repairChannel.bind((message) => io!.send(REPAIR_WORKER_KIND, message).then((sent) => sent.ok));
+      {
+        onMessage: (message) => {
+          const answer = answerRedactRequest(message, runtime!.knownSecrets);
+          if (answer) void io.send(REPAIR_WORKER_KIND, answer);
+          else repairChannel.onMessage(message);
+        },
+      },
+    );
+    if (started.ok) {
+      repairChannel.bind((payload) =>
+        io.send(REPAIR_WORKER_KIND, payload).then((sent) => sent.ok)
+      );
+    }
   }
   // core 안 notifications 구독자. 계기 event를 notification으로 바꾸고 cursor를 올린다.
   const notifications = startNotifications({

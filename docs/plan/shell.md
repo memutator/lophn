@@ -1086,6 +1086,7 @@ concerns: [shell]
 - 내놓는 contract: 없음
 - slice: problems
 - 선행: shell#T23, shell#T43, problems#T6, problems#T21
+- 선행 풀기(사람 결정 2026-10-07): 선행이 끝나기 전에 이미 있는 contract와 fake로 먼저 만든다. 선행이 merge되면 실제 구현에 잇는 작은 PR을 따로 내고, 그때 완료로 둔다.
 - shell#T52에서 넘어온 것: (1) 기존 문제에 덧붙이기. report-problem dialog는 지금 "이 보고는 기존 문제에 덧붙지 않는다"만 보이고 `SubmitFeedback.existing_problem`은 늘 null이다. Issues에서 "직접 해 봤지만 안 됩니다"로 열 때 그 문제를 고른 채 여는 길(begin 입력 또는 dialog의 같은 앱 문제 고르기)을 둔다. (2) dialog의 [View issue]는 지금 `{kind: "app-issue", app, problem}` intent로 그 앱 공간만 연다(`renderer/desktop/intents.tsx`). Issues 탭이 생기면 그 문제를 고른 상세로 연다. (3) 접수 응답에는 항목별 저장 결과가 없어 dialog가 screenshot·화면 상태의 "저장 실패"를 보이지 못한다. 접수 뒤 그 Report의 snapshot 읽기로 보인다
 - 완료: 아래 확인이 통과한다
   - Issue 목록·상세: 사람이 겪는 영향 한 문장, 보고 수, 수리 주장과 실제 테스트·사람 확인("I checked")·미확인 범위를 구별한다. report·claim·snapshot은 이름으로 보이지 않는다(Details we collected).

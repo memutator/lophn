@@ -1604,6 +1604,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 - slice: problems
 - 조사: docs/research/coding-agent-ticket-claim.md
 - 선행: T26, problems#T18, problems#T20, problems#T21
+- 선행 풀기(사람 결정 2026-10-07): 선행이 끝나기 전에 이미 있는 contract와 fake로 먼저 만든다. 선행이 merge되면 실제 구현에 잇는 작은 PR을 따로 내고, 그때 완료로 둔다.
 - 완료:
   - reproduction_test는 해당 문제·고정 test_hash·보고 after release의
     Verification만, human_confirmation pass는 "내가 확인함"이고 Verification이

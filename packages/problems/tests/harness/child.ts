@@ -17,7 +17,7 @@ export type HarnessFailurePath = {
   code: string;
   command?: string;
   input?: unknown;
-  fault?: "store" | "none";
+  fault?: "store" | "net" | "none";
   direct?: boolean;
 };
 

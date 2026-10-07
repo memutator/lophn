@@ -22,9 +22,12 @@ import {
   appFlags,
   type BrokerChild,
   createBrokerEndpoint,
+  isLoopbackHost,
 } from "../../../packages/apps/permissions/mod.ts";
 import {
   createPreviewBrokerServices,
+  createPreviewExternalService,
+  createPreviewSecretService,
   previewScopeOf,
 } from "../../../packages/apps/preview/mod.ts";
 import {
@@ -53,6 +56,7 @@ import {
 } from "../../../packages/platform/redaction/mod.ts";
 
 const APP_ID = "app_01arz3ndektsv4rrffq69g5fav";
+const STAND_IN_HOST = "loopback.stand-in.test";
 const NONCE = "test-nonce-0001";
 const CREDENTIAL = "runner-broker-credential";
 const PROBE_PREFIX = "LOPHN_PROBE ";
@@ -291,8 +295,42 @@ export async function createRealAppDriver(
       : Response.json({ ok: false, error: sent.error }, { status: 503 });
   }
 
-  // net·secret·문서 쓰기 대역과 invocation은 apps/preview의 고정 대역이 받는다.
-  const stand = createPreviewBrokerServices({ scope });
+  // net·secret·문서 쓰기 대역은 apps/preview의 고정 대역이 받는다. 대역은 loopback 목적지를 받지 않으므로
+  // 앱이 선언한 loopback 목적지는 대역 쪽의 고정 이름으로 바꿔 받고, 효과를 돌려줄 때 선언한 이름으로
+  // 되돌린다.
+  const mapHost = (host: string) =>
+    isLoopbackHost(host.toLowerCase()) ? STAND_IN_HOST : host;
+  const unmapHost = (host: string) =>
+    host === STAND_IN_HOST ? declaredLoopback : host;
+  const declaredLoopback = scope.net.find((entry) => isLoopbackHost(entry.host))
+    ?.host ?? "127.0.0.1";
+  const standScope = {
+    ...scope,
+    net: scope.net.map((entry) => ({ ...entry, host: mapHost(entry.host) })),
+  };
+  const rewrite = (body: unknown): unknown => {
+    if (body === null || typeof body !== "object") return body;
+    const copy = { ...(body as Record<string, unknown>) };
+    if (typeof copy["host"] === "string") copy["host"] = mapHost(copy["host"]);
+    const destination = copy["destination"] as { host?: unknown } | undefined;
+    if (destination && typeof destination.host === "string") {
+      copy["destination"] = { ...destination, host: mapHost(destination.host) };
+    }
+    return copy;
+  };
+  // 호출이 끝날 때까지 외부 요청에 일시 장애(503)로 답한다(fault=net의 주입). SDK는 읽기 요청을 다시
+  // 부르므로 한 번만 실패시키면 앱이 장애를 보지 못한다.
+  let failNet = false;
+  const external = createPreviewExternalService(
+    standScope,
+    () => ok({ status: failNet ? 503 : 200, body: null }),
+  );
+  const secretStand = createPreviewSecretService(standScope);
+  const stand = {
+    ...createPreviewBrokerServices({ scope: standScope }),
+    external,
+    secrets: secretStand,
+  };
   const child: BrokerChild = {
     app: APP_ID,
     release: null,
@@ -301,7 +339,11 @@ export async function createRealAppDriver(
   };
   const endpoint = createBrokerEndpoint({
     session: { child, credential: CREDENTIAL },
-    services: stand.services,
+    services: {
+      ...stand.services,
+      net: { request: (c, b) => external.request(c, rewrite(b)) },
+      secrets: { use: (c, b) => secretStand.use(c, rewrite(b)) },
+    },
   });
   await Deno.mkdir(input.sockets.broker.replace(/\/[^/]*$/, ""), {
     recursive: true,
@@ -810,9 +852,13 @@ export async function createRealAppDriver(
     probe: probeAttestation,
     async invoke(command, body, options) {
       const run = () => call(command, body);
-      const done = options?.inject_failure && options.fault !== "none"
+      const inject = options?.inject_failure === true;
+      if (inject && options?.fault === "net") failNet = true;
+      const done = inject && options?.fault !== "none" &&
+          options?.fault !== "net"
         ? await withStoreFault(run)
         : await run();
+      failNet = false;
       const noted = done.reports.find((report) => report.invocation_id);
       const response = done.response.body as { invocation?: string } | null;
       return {
@@ -985,14 +1031,23 @@ export async function createRealAppDriver(
       };
     },
     async useSecret(use) {
-      const destination = plan.net[0] ?? { host: "none.invalid", port: 1 };
-      const done = await stand.secrets.use(child, {
-        process_nonce: NONCE,
-        mode: "test",
-        name: use.name,
-        destination,
-        command: use.operation,
-      });
+      const target = plan.net[0] ?? { host: "none.invalid", port: 1 };
+      const command =
+        plan.command_details.find((item) => item.effect === "external") ??
+          plan.command_details[0];
+      const done = await secretStand.use(
+        child,
+        rewrite({
+          process_nonce: NONCE,
+          mode: "test",
+          release: "rel_01arz3ndektsv4rrffq69g5fav",
+          invocation: null,
+          command: command?.key ?? use.operation,
+          input_hash: "0".repeat(64),
+          name: use.name,
+          destination: { scheme: "https", ...target },
+        }),
+      );
       return { allowed: done.ok, approvals_requested: 0 };
     },
     async exerciseAdapters() {
@@ -1002,7 +1057,7 @@ export async function createRealAppDriver(
       }
       return {
         net: stand.external.requests.map((request) => ({
-          host: request.host,
+          host: unmapHost(request.host),
           port: request.port,
         })),
         secret_uses: stand.secrets.uses.map((use) => ({ name: use.name })),

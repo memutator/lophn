@@ -605,7 +605,7 @@ export async function observeFailurePath(input: {
   command: string;
   command_input: unknown;
   // 실패를 어디에 주입하는지. 기본은 환경(저장소)이고 `none`은 입력만으로 실패가 난다.
-  fault?: "store" | "none";
+  fault?: "store" | "net" | "none";
 }): Promise<Result<boolean>> {
   const name = failurePathName(input.code);
   const check = input.plan.checks.find((item) => item.name === name);

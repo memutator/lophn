@@ -415,6 +415,8 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: 없음(C-test실행의 reproduction kind)
 - slice: problems
 - 선행: problems#T9, problems#T10, problems#T12
+- 상태: 완료 (#446) — 이어보냄: RequestTest 접수가 runner를 깨워 `--reproduction-job`(`apps/worker/problems/reproduction-run.ts`)을 부르고 결과를 core RecordVerification으로 보내는 상시 service 연결, 접수 때 problem의 원래 Report에서 `ReproductionScenario`(증상·기대·인접 불변식)를 만드는 준비 단계 → T8·T14 후속, 코딩 agent 통로(coding-agent#T21)
+- 정한 것(T18): 고정 증상 정의는 `ReproductionScenario`(원래 problem code·probe command·증상·기대·인접 불변식 matcher)이고 hash가 FrozenTest의 `input`·`expected`·`symptom`에 묶인다(`packages/problems/tests/reproduction/`). harness 자식은 side별 `symptom`·`adjacent:<name>` frame을 내고 runner가 같은 정의로 재판정한다. 약화 검사는 problem code 선언 삭제, source의 보고 호출 삭제, 업무 증상은 남았는데 보고만 사라진 보고 경로 삭제, 관측 기대 hash 불일치(기대 낮춤)다. 깨지는 앱 fixture의 판 B·E를 `run_broken`에 연결했다(판 A 동작은 그대로).
 - 완료:
   - before·after마다 source read-only·새 fixture DB·같은 FrozenTest·input·expected·environment; 운영 DB 복사와 실계정 재전송 없이 replay·stub(R15)
   - before 원증상 재현 + after 같은 기대 충족 + 약화 없음만 `pass`; before 재현 + after 같은 증상은 `fail`; before도 pass·다른 실패·같은 오류 이름만·timeout은 `inconclusive`(R10)

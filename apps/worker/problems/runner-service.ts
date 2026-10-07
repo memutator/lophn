@@ -34,6 +34,7 @@ import {
   verificationIdFor,
 } from "../../../packages/problems/tests/mod.ts";
 import { sha256Hex } from "../../../packages/base/mod.ts";
+import { canonicalHash } from "../../../packages/problems/tests/canonical.ts";
 import { TEST_RUNNER_KIND } from "./runner-core.ts";
 import {
   type AppTestHooks,
@@ -252,7 +253,12 @@ async function recordResult(input: {
     request_hash: job.request_hash,
     evidence: built.value.evidence,
   }, "stage");
-  if (!staged.ok) return staged;
+  if (!staged.ok) {
+    return err({
+      code: staged.error.code,
+      message: `근거 기록: ${staged.error.message}`,
+    });
+  }
   const contents = new Map([
     ...input.derived.blobs,
     ...built.value.contents,
@@ -290,7 +296,12 @@ async function recordResult(input: {
     verification: built.value.verification,
     blobs,
   }, "record");
-  if (!recorded.ok) return recorded;
+  if (!recorded.ok) {
+    return err({
+      code: recorded.error.code,
+      message: `결과 기록: ${recorded.error.message}`,
+    });
+  }
   return ok({ verification: String(recorded.value["verification"]) });
 }
 
@@ -412,10 +423,12 @@ export async function runRequest(
     },
   };
   let sideStartFailure: string | null = null;
+  let sideStarted = false;
   const hooks: AppTestHooks = {
     collector: collectorFor(fetcher, job.api_port, job.report_credential),
     // 자식이 실제로 시작한 직후 시작 사실을 ledger에 남긴다. 남기지 못하면 결과를 쓰지 않는다.
     async started(child) {
+      sideStarted = true;
       const side = await client.command("start-test-side", {
         start: {
           request_principal: job.request_principal,
@@ -433,10 +446,14 @@ export async function runRequest(
   };
   const ran = await runAppTestJob(jobSpec, hooks);
   if (!ran.ok) {
-    return {
-      state: "not_started",
-      reason: `실행하지 못했다: ${ran.error.message}`,
-    };
+    // 자식을 띄우기 전에 실패했다면(메모리 경계를 걸 수 없음 등) 실행하지 않은 이유를 요청 기록에 남긴다.
+    // 이미 실제로 시작했다면 결과를 쓰지 않고 남긴다: 이어받는 쪽이 runner_lost로 닫는다.
+    return sideStarted
+      ? {
+        state: "started_unrecorded",
+        reason: `실행 중 실패했다: ${ran.error.message}`,
+      }
+      : await unrunnable(`시작하지 못했다: ${ran.error.message}`);
   }
   const { judgment, execution } = ran.value;
   if (sideStartFailure !== null) {
@@ -481,15 +498,18 @@ export async function runRequest(
         : judgment.reason,
       sufficient: execution.result !== "inconclusive",
     });
-  let recorded = await attempt(detailed);
-  if (!recorded.ok && recorded.error.code === "invalid_input") {
-    // 부가 관측이 한도를 넘으면 판정 관측만으로 다시 만든다.
-    recorded = await attempt(observations);
+  // 부가 관측이 한도를 넘으면 판정 관측만 싣는다. 한 번 보낸 근거는 바뀌지 않으므로 보내기 전에 정한다.
+  let fits = true;
+  try {
+    canonicalHash(detailed);
+  } catch {
+    fits = false;
   }
+  const recorded = await attempt(fits ? detailed : observations);
   if (!recorded.ok) {
     return {
       state: "started_unrecorded",
-      reason: `결과를 기록하지 못했다: ${recorded.error.message}`,
+      reason: `결과를 기록하지 못했다: ${recorded.error.code} ${recorded.error.message}`,
     };
   }
   return {

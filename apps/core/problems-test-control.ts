@@ -112,7 +112,12 @@ function runnerContext(
         request_hash: request.request_hash,
       },
     },
-    conditions: { task: TEST_TASK, process: TEST_RUNNER_KIND },
+    // app 조건은 앱 target을 고정 조건으로도 묶는다(ledger 입구가 조건에서 target을 채운다).
+    conditions: {
+      task: TEST_TASK,
+      process: TEST_RUNNER_KIND,
+      app: request.app,
+    },
   };
 }
 
@@ -140,7 +145,7 @@ function reportContext(
 export function startTestControl(deps: TestControlDeps): TestControl {
   const pollMs = deps.pollMs ?? 500;
   const now = deps.nowMs ?? Date.now;
-  const log = deps.log ?? (() => undefined);
+  const log = deps.log ?? ((line: string) => console.error(`DEBUG ${line}`));
   const running = new Map<string, "run" | "recover">();
   // 동시에 도는 요청이 나눠 쓰는 runner socket 자리다.
   const slotOf = new Map<string, 0 | 1>();
@@ -231,6 +236,8 @@ export function startTestControl(deps: TestControlDeps): TestControl {
       } else if (done.value.state === "not_started") {
         log(`test request ${request.request_key}: ${done.value.reason}`);
         retryAt.set(key, now() + RETRY_MS);
+      } else if (done.value.state !== "recorded") {
+        log(`test request ${request.request_key}: ${done.value.state} ${done.value.reason}`);
       }
     }, () => retryAt.set(key, now() + RETRY_MS)).finally(() => {
       running.delete(key);

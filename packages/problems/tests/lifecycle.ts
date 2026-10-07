@@ -160,9 +160,11 @@ export function handleStageTestEvidence(
       message: "테스트 요청이 올바르지 않다",
     });
   }
+  // 근거는 그것을 남긴 runner마다 하나다. 끊긴 runner가 남긴 근거와 이어받은 runner의 근거가 서로 막지 않는다.
   const prior = tx.sql.get(
-    `select evidence from test_evidence where request_principal = ? and request_key = ?`,
-    [input.request_principal, input.request_key],
+    `select evidence from test_evidence
+     where request_principal = ? and request_key = ? and runner_principal = ?`,
+    [input.request_principal, input.request_key, ctx.principal],
   );
   if (prior) {
     return prior.evidence === canonical
@@ -170,9 +172,16 @@ export function handleStageTestEvidence(
       : err({ code: "conflict", message: CONFLICT });
   }
   tx.sql.run(
-    `insert into test_evidence (request_principal, request_key, request_hash, evidence)
-     values (?, ?, ?, ?)`,
-    [input.request_principal, input.request_key, input.request_hash, canonical],
+    `insert into test_evidence (
+       request_principal, request_key, request_hash, runner_principal, evidence
+     ) values (?, ?, ?, ?, ?)`,
+    [
+      input.request_principal,
+      input.request_key,
+      input.request_hash,
+      ctx.principal,
+      canonical,
+    ],
   );
   return ok({ staged: true });
 }
@@ -184,22 +193,33 @@ export const stageTestEvidenceCommand: CommandDefinition<
   handle: handleStageTestEvidence,
 };
 
-// RecordVerification이 같은 transaction에서 읽는 결과 근거다. 남기지 않은 요청은 null이라 기록되지 않는다.
+// RecordVerification이 같은 transaction에서 읽는 결과 근거다. 이 Verification의 canonical을 근거로 남긴 것을 고른다.
+// 남기지 않은 요청은 null이라 기록되지 않는다.
 export function stagedEvidence(
-  sql: Pick<Sql, "get">,
+  sql: Pick<Sql, "all">,
+  verification: Parameters<typeof canonicalJson>[0],
   principal: string,
   key: string,
 ): PreparedResultEvidence | null {
-  const row = sql.get(
-    `select evidence from test_evidence where request_principal = ? and request_key = ?`,
-    [principal, key],
-  );
-  if (!row) return null;
+  let canonical: string;
   try {
-    return evidenceOf(JSON.parse(String(row.evidence)));
+    canonical = canonicalJson(verification);
   } catch {
     return null;
   }
+  const rows = sql.all(
+    `select evidence from test_evidence where request_principal = ? and request_key = ?`,
+    [principal, key],
+  );
+  for (const row of rows) {
+    try {
+      const found = evidenceOf(JSON.parse(String(row.evidence)));
+      if (found !== null && found.verification_canonical === canonical) {
+        return found;
+      }
+    } catch { /* 읽을 수 없는 근거는 근거가 아니다 */ }
+  }
+  return null;
 }
 
 // 제품 접수의 준비 값이다. app test와 reproduction만 접수하고 test_command는 준비할 수 없다(unavailable).

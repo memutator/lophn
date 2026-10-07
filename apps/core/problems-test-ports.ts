@@ -101,6 +101,7 @@ export function testTxPorts(): TxPortRegistration[] {
       (tx) => (input) =>
         stagedEvidence(
           tx.sql,
+          input.verification,
           input.verification.request_principal,
           input.verification.request_key,
         ),

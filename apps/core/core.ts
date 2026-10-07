@@ -665,6 +665,15 @@ async function open(
         : {}),
       // I/O worker의 secret-tool이 session bus를 찾는 데 필요한 주소만이다. secret 값이 아니다.
       ...(kind === "platform/io" ? sessionBusEnv() : {}),
+      // test runner는 자식에 메모리 경계(systemd-run)를 걸 때 같은 session bus를 찾고, 화면 검사 host의 위치를 안다.
+      ...(kind === TEST_RUNNER_KIND
+        ? {
+          ...sessionBusEnv(),
+          ...(Deno.env.get("SCREEN_TEST_HOST")
+            ? { SCREEN_TEST_HOST: Deno.env.get("SCREEN_TEST_HOST")! }
+            : {}),
+        }
+        : {}),
     }),
   });
   // 앱 supervisor는 platform/io와 따로 감독한다. I/O worker 없이도 앱 감독을 띄울 수 있다.
@@ -1809,7 +1818,11 @@ async function open(
           if (!handler.onMessage(message)) runnerChannel.onMessage(message);
         },
         onFrame: (frame) => handler.onFrame(frame),
-        onEnd: () => testControl?.runnerEnded(),
+        onEnd: () => {
+          console.error("DEBUG runner ended");
+          testControl?.runnerEnded();
+        },
+        onStderr: (line) => console.error(`DEBUG runner: ${line}`),
       },
     );
     if (started.ok) {

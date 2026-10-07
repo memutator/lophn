@@ -303,7 +303,7 @@ Deno.test("apps/releases#R1, apps/runtime#R2, R10: 제품 길로 준비한 todo 
     // 선언한 permission만 가진 자식이다: 사본 root·앱 data·socket만 읽고, env·run·ffi·sys·all은 없다.
     const argv = await childArgv(copy.value);
     assert(argv !== undefined, "the app child is not running");
-    assertEquals(argv.at(-1), read.value.entry);
+    assertEquals(argv.filter((arg) => arg !== "").at(-1), read.value.entry);
     const readFlag = argv.find((arg) => arg.startsWith("--allow-read="))!;
     assert(readFlag.includes(copy.value));
     const writeFlag = argv.find((arg) => arg.startsWith("--allow-write="))!;

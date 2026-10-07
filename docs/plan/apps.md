@@ -800,6 +800,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
 ### T18 activation
 
 - 상태: 완료 (#381, 조립 #386) — 이어보냄: 템플릿 앱의 실제 기동 entry·problems 보고 → apps#T27
+- 후속 (#<PR>): 운영 앱 runtime entry
 - 등급: 최상위
 - concern: apps/releases, apps/data
 - 요구: apps/releases#R8, R12, R13, R14, R15, R16, apps/data#R4, R9, R11, R12
@@ -1405,7 +1406,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
   revert), coding-agent#T18, coding-agent#T19, coding-agent#T20,
   coding-agent#T21
 - lophn-agent#T44에서 넘어온 것: agent가 confirm=true 앱 command를 부르는 흐름의 마지막 구간. 판정은 approval 하나(동작이 `invocation.accept_confirm`, 접수 입력에 인증된 run·ToolCall caller와 live process nonce)를 만들고 사람이 허락한 뒤 진입까지 닫혔다. 허락된 approval을 `apply_approved_action`으로 접수하고 core가 서명한 proof를 agent caller에게 주는 길은 없다(proof 서명은 앱 쌍 `createPairConfirmer`에만 있다). 지금 handler는 proof 없이 direct call을 보내 앱이 거절하므로 사람 허락 없이 실행되는 일은 없지만 confirm command는 agent에서 끝까지 돌지 못한다. agent caller용 proof 발급 길과 handler의 proof 첨부를 닫고 flow use-app-command의 agent 단계로 확인한다.
-- problems#T23에서 넘어온 것: report-app-problem flow는 운영 앱 자식의 실제 기동 entry(위 apps#T18 이어보냄)가 아직 없어서, 준비한 fixture bundle에 실제 runtime entrypoint의 `main()`을 부르는 진입 파일(`entry.ts`)과 `@lophn/base` import map을 더해 다시 봉인한 bundle을 ledger에 심어 돌렸다(`e2e/flows/report-app-problem_test.ts`의 `withRuntimeEntry`). release 준비가 이 진입 파일을 만들게 되면 그 우회를 지운다
+- problems#T23에서 넘어온 것: report-app-problem flow는 운영 앱 자식의 실제 기동 entry(위 apps#T18 이어보냄)가 없어서, 준비한 fixture bundle에 실제 runtime entrypoint의 `main()`을 부르는 진입 파일(`entry.ts`)과 `@lophn/base` import map을 더해 다시 봉인한 bundle을 ledger에 심어 돌렸다(`withRuntimeEntry`). 그 우회는 지웠다. release 준비가 `lophn-entry.ts`를 만들어 manifest의 entrypoint로 삼는다(apps#T18 후속)
 - 완료:
   - 위 8개 flow가 E2E로 돈다. new-app은 실제 coding agent 대신
     coding-agent#T20의 fake coding agent가 ticket을 claim하고, fixture 앱을

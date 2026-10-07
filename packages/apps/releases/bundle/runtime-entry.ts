@@ -17,7 +17,8 @@ export function runtimeEntry(packagesUrl: string): RuntimeEntry {
   const module = JSON.stringify(
     `${packagesUrl}apps/runtime/entrypoint/main.ts`,
   );
-  const source = `// lophn이 만든 진입 파일이다. 앱 code는 \`@lophn/app\`(main.ts)이다.
+  const source =
+    `// lophn이 만든 진입 파일이다. 앱 code는 \`@lophn/app\`(main.ts)이다.
 import { run } from ${module};
 
 await run();

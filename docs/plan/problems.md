@@ -430,7 +430,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: C-문제command의 `reconcile-work`, `link-interpretation`, event `ProblemWorkStarted`, `ProblemWorkEnded`, `ProblemInterpretationLinked`
 - slice: problems
 - 선행: problems#T2, platform#T18, contracts#T40, contracts#T41, contracts#T18, coding-agent#T18, coding-agent#T19, coding-agent#T24, coding-agent#T26, documents#T6, documents#T14
-- 상태: 진행 (#PR) — 남은 것: lophn-agent#T50의 ToolCall이 command 전에 `checkInterpretationLink`로 version·절을 읽는 연결, 검사 실패·확인(TicketCheckFailed·TicketConfirmed)을 제품 경로로 내는 repair checker 수정(coding-agent#T45)
+- 상태: 완료 (#453) — 이어보냄: lophn-agent#T50의 ToolCall이 command 전에 `checkInterpretationLink`로 version·절을 읽는 연결, 검사 실패·확인(TicketCheckFailed·TicketConfirmed)을 제품 경로로 내는 repair checker 수정(coding-agent#T45)
 - 정한 것: `problemSchema`는 fixing만 `work`를 요구하고 open도 `work`를 가질 수 있다(Q3); `ProblemWorkStarted.claim_seq`는 ticket만 이으면 null, `ProblemWorkEnded` 사유에 `confirmed`를 더하고 `ReconcileProblemWork`의 오류에 `invalid_input`(열린 ticket을 이미 가진 문제)을 더했다; 반응 key의 reaction은 `reconcile:<problem>:<읽은 문제 seq>`이다
 - 완료:
   - 상태는 open·fixing·closed뿐, 문제당 열린 repair ticket 1개를 넘는 연결은 거절(R8)

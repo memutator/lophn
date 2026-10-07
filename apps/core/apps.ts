@@ -70,7 +70,9 @@ import {
 import { createPlaceNameReservation } from "../../packages/documents/addressing/mod.ts";
 import {
   packagesGuideBody,
+  releaseActivated,
   releaseActivationFailed,
+  releaseSuperseded,
 } from "../../packages/contracts/apps/mod.ts";
 import { SecretAllowance } from "../../packages/contracts/platform/mod.ts";
 import type {
@@ -80,6 +82,7 @@ import type {
 } from "../../packages/platform/ledger/mod.ts";
 import type { WorkerRoute } from "../../packages/contracts/platform/mod.ts";
 import { notificationsOnlyVisibility } from "./platform.ts";
+import { ticketCheckFeedVisibility } from "./ticket-checker.ts";
 
 type LedgerRegistration = {
   blobFields?: readonly unknown[];
@@ -260,7 +263,15 @@ export function createLedgerRegistration(
 // release 계기 event의 공개 정책(platform/notifications#R1). notifications 구독자에게만 열고,
 // 다른 apps event는 정책이 없어 계속 숨김이다.
 export function createEventRegistration(): EventRegistration {
-  return { visibility: [notificationsOnlyVisibility(releaseActivationFailed)] };
+  return {
+    visibility: [
+      notificationsOnlyVisibility(releaseActivationFailed),
+      // active release가 바뀐 event는 ticket checker 구독자(machine:ticket-check-feed)의 깨움
+      // 신호로만 열린다(coding-agent#T26). 다른 자격이 보는 것은 그대로 숨김이다.
+      ticketCheckFeedVisibility(releaseActivated),
+      ticketCheckFeedVisibility(releaseSuperseded),
+    ],
+  };
 }
 
 // reader Worker가 이 모듈을 import해 read를 reader 풀에 붙인다. 실행 port는 없다.

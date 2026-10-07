@@ -26,6 +26,30 @@ import type {
 // 소유 contract 이름 하나다. 외부 tool 호출은 MCP 통로 하나뿐이다. 판정·실행이 이 이름 하나를 본다.
 export const EXTERNAL_TOOL_CONTRACT = "external_mcp_call";
 
+// approval이 가리키는 소유 concern이다(platform/approvals의 concern id 모양).
+export const EXTERNAL_TOOL_CONCERN = "lophn-agent/extensions";
+
+// 서버+tool 쌍 하나의 대상 ID다. approval의 대상은 고정 ID 모양(`xxx_` + 26자)이어야 해서 정확한 쌍
+// UTF-8 `JSON.stringify([server, tool])`의 SHA-256 앞 128 bit를 ULID 문자로 적는다. 같은 쌍은 늘
+// 같은 ID이고 이름 충돌 처리와 무관하다(R23, R31).
+const CROCKFORD = "0123456789abcdefghjkmnpqrstvwxyz";
+export async function externalToolTargetId(
+  server: string,
+  original: string,
+): Promise<string> {
+  const hex = (await sha256Hex(JSON.stringify([server, original]))).slice(
+    0,
+    32,
+  );
+  let value = BigInt("0x" + hex);
+  let text = "";
+  for (let index = 0; index < 26; index += 1) {
+    text = CROCKFORD[Number(value & 31n)] + text;
+    value >>= 5n;
+  }
+  return "mcp_" + text;
+}
+
 // 내장 묶음과 같은 실패 종류다. 목록·실행이 같은 종류를 쓴다(R2, tools).
 const EXTERNAL_TOOL_ERRORS: readonly string[] = [
   "invalid_input",
@@ -203,6 +227,8 @@ export type ExternalTool = {
   reversible: boolean;
   classified: boolean;
   definitionHash: string;
+  // 이 쌍의 approval·범위 대상 ID다.
+  target: string;
 };
 
 // 검증을 지난 목록과 사람 분류·preset 선택을 ToolDefinition으로 만든다(R23, R26, R31). 사람의
@@ -292,6 +318,7 @@ export async function buildMcpTools(
       reversible,
       classified: classification.classified,
       definitionHash,
+      target: await externalToolTargetId(entry.server, entry.original),
     });
   }
   return ok(tools);

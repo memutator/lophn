@@ -52,6 +52,7 @@ import {
   approvalsList,
   approvalsText,
   cancelApprovalRequest,
+  createApprovalRequest,
   eventsList,
   settingsGet,
 } from "../../../contracts/platform/mod.ts";
@@ -117,6 +118,13 @@ export const RUNTIME_MACHINE_OPERATIONS: readonly string[] = [
   ]),
 ];
 
+// 외부 MCP tool이 쓰는 operation이다(T37). 소유 contract와, 미분류·쓰기·external 호출이 사람에게
+// 묻는 approval request 생성이다(R28). 요청자는 이 run의 agent 자격과 같아야 한다.
+export const EXTERNAL_TOOL_OPERATIONS: readonly string[] = [
+  EXTERNAL_TOOL_CONTRACT,
+  createApprovalRequest.name,
+];
+
 // 역할이 닿을 수 있는 operation의 상한. 역할 tool 상한(ROLE_CAPS)의 소유 contract와 보조 operation이다.
 // runtime은 run마다 이 안에서 agent credential을 청하고, core는 같은 상한으로 요청을 대조한다.
 export function roleOperations(role: string): readonly string[] {
@@ -131,6 +139,6 @@ export function roleOperations(role: string): readonly string[] {
   // run이 실제로 제공하는 external 정의는 runOperations(listed)가 더한다.
   // 앱 command를 실행하는 역할은 앱 통로(`app.connect`)를 더한다. 범위는 StartRun이 고정한 AgentAppScope가 정한다.
   return APP_COMMAND_EXPOSURE.get(role)?.execution === "none"
-    ? [...own, EXTERNAL_TOOL_CONTRACT]
-    : [...own, APP_TOOL_CONTRACT, EXTERNAL_TOOL_CONTRACT];
+    ? [...own, ...EXTERNAL_TOOL_OPERATIONS]
+    : [...own, APP_TOOL_CONTRACT, ...EXTERNAL_TOOL_OPERATIONS];
 }

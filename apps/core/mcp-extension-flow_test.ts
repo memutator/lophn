@@ -72,6 +72,7 @@ const MSG = "msg_01arz3ndektsv4rrffq69g5fav";
 // run이 끝나는 길이라(supporting operation) 같이 준다.
 const AGENT_OPERATIONS = [
   "external_mcp_call",
+  "create_approval_request",
   "ReadToolCall",
   "RecordMessage",
 ];
@@ -110,7 +111,9 @@ function context(
 }
 
 // ---- 가짜 MCP stdio child ----
-// tools a·b를 알려준다. a는 분류(read·safe)가 있고 b는 미분류다.
+// tools read_note·write_note·scan_note를 알려준다. read_note는 분류(read·safe)가 있고
+// write_note는 분류(external)가 있으며 scan_note는 미분류다. 호출은 받은 입력을 그대로 되돌려
+// 서버에 원래 이름과 입력이 닿았는지 본다.
 const MCP_CHILD = `\
 const dec = new TextDecoder();
 let buf = "";
@@ -135,21 +138,26 @@ for (;;) {
       continue;
     }
     if (message.method === "tools/list") {
-      const tool = (name) => ({ name, description: name + " desc", inputSchema: { type: "object", properties: {} } });
+      const tool = (name) => ({ name, description: name + " desc", inputSchema: { type: "object", properties: { id: { type: "string" } } } });
       await Deno.stdout.write(new TextEncoder().encode(JSON.stringify({
-        jsonrpc: "2.0", id: message.id, result: { tools: [tool("read_note"), tool("write_note")] },
+        jsonrpc: "2.0", id: message.id, result: { tools: [tool("read_note"), tool("write_note"), tool("scan_note")] },
       }) + "\\n"));
       continue;
     }
     if (message.method === "tools/call") {
       await Deno.stdout.write(new TextEncoder().encode(JSON.stringify({
-        jsonrpc: "2.0", id: message.id, result: { content: [{ type: "text", text: "mcp-ok:" + (message.params && message.params.name) }] },
+        jsonrpc: "2.0", id: message.id, result: { content: [{ type: "text", text: "mcp-ok:" + message.params.name + ":" + JSON.stringify(message.params.arguments) }] },
       }) + "\\n"));
       continue;
     }
   }
 }
 `;
+
+const NOTE_SCHEMA = {
+  type: "object",
+  properties: { id: { type: "string" } },
+};
 
 let childPath: string | undefined;
 
@@ -161,10 +169,14 @@ async function writeChild(): Promise<string> {
 }
 
 // ---- preset 판 fixture ----
-// 제품 기본 preset에 MCP 선택을 얹은 user 판이다. read_note만 선택한다(R31: 서버 전체
-// 선택은 없다). read_note는 분류(read·reversible)와 safe 표시가 있고 write_note는
-// 선택 밖·미분류라 정의도 호출도 없다.
-function userPresetDefinition(prompt: string) {
+// 제품 기본 preset에 MCP 선택을 얹은 user 판이다. 고른 정확한 쌍만 선택한다(R31: 서버 전체
+// 선택은 없다). read_note는 분류(read·reversible)와 safe 표시가 있고 scan_note는 미분류이며
+// write_note는 어느 시나리오에서도 선택 밖이라 정의도 호출도 없다.
+function userPresetDefinition(
+  prompt: string,
+  selected: readonly string[],
+  safe: readonly string[],
+) {
   return {
     kind: "lophn",
     name: "MCP review",
@@ -174,11 +186,15 @@ function userPresetDefinition(prompt: string) {
     context: [{ kind: "all", target: null, section: null }],
     mcp: {
       servers: ["notes"],
-      tools: [
-        { server_name: "notes", original_tool: "read_note" },
-      ],
+      tools: selected.map((original_tool) => ({
+        server_name: "notes",
+        original_tool,
+      })),
     },
-    safe_tools: [{ server_name: "notes", original_tool: "read_note" }],
+    safe_tools: safe.map((original_tool) => ({
+      server_name: "notes",
+      original_tool,
+    })),
     skills: [],
     // model 선택은 없다. provider ledger 검사(providers 표·credential 확인)를
     // 건너뛴다(presets/capability validateModelSelection). run이 쓸 model은 이
@@ -189,7 +205,24 @@ function userPresetDefinition(prompt: string) {
   };
 }
 
-Deno.test("lophn-agent#T37: flow add-agent-extension agent 갈래 — 사람이 server와 preset을 정하면 run이 external MCP tool을 부른다", async () => {
+type ScenarioEnd = {
+  run: string;
+  end: unknown;
+  server: Server;
+  provider: ReturnType<typeof startFakeProvider>;
+};
+
+type Scenario = {
+  // 첫 model 응답이 부르는 tool(호출 이름과 입력)이다.
+  call: { name: string; arguments: string };
+  selected: readonly string[];
+  safe: readonly string[];
+  // 호출 뒤 model이 낼 답이 있으면 둘째 단계를 둔다.
+  answer: boolean;
+  verify(result: ScenarioEnd): void | Promise<void>;
+};
+
+async function runScenario(scenario: Scenario): Promise<void> {
   const home = await Deno.makeTempDir({ prefix: "lophn-mcp-ext-flow-" });
   const clock = manualClock(Date.UTC(2024, 0, 1));
   childPath = await writeChild();
@@ -200,25 +233,27 @@ Deno.test("lophn-agent#T37: flow add-agent-extension agent 갈래 — 사람이 
           id: "ask",
           protocol: "messages",
           reply: {
-            text: "I will read the note.",
+            text: "I will use the tool.",
             toolCalls: [{
               id: "toolu_1",
-              name: "ext_notes_read_note",
-              arguments: "{}",
+              name: scenario.call.name,
+              arguments: scenario.call.arguments,
             }],
             usage: { input: 20, output: 8 },
             stop: "tool_calls",
           },
         },
-        {
-          id: "answer",
-          protocol: "messages",
-          reply: {
-            text: "The note is read.",
-            usage: { input: 40, output: 9 },
-            stop: "end",
-          },
-        },
+        ...(scenario.answer
+          ? [{
+            id: "answer",
+            protocol: "messages" as const,
+            reply: {
+              text: "The note is read.",
+              usage: { input: 40, output: 9 },
+              stop: "end" as const,
+            },
+          }]
+          : []),
       ],
     },
     nowMs: () => clock.nowMs(),
@@ -288,7 +323,7 @@ Deno.test("lophn-agent#T37: flow add-agent-extension agent 갈래 — 사람이 
                       server: "notes",
                       original: "read_note",
                       description: "read_note desc",
-                      schema: { type: "object", properties: {} },
+                      schema: NOTE_SCHEMA,
                     } satisfies McpToolEntry,
                   ),
                 },
@@ -300,9 +335,15 @@ Deno.test("lophn-agent#T37: flow add-agent-extension agent 갈래 — 사람이 
                       server: "notes",
                       original: "write_note",
                       description: "write_note desc",
-                      schema: { type: "object", properties: {} },
+                      schema: NOTE_SCHEMA,
                     } satisfies McpToolEntry,
                   ),
+                },
+                // 정의 hash가 맞지 않는 옛 분류다. 현재 정의에는 분류가 없는 것과 같다(R24, R28).
+                scan_note: {
+                  effect: "read",
+                  reversible: true,
+                  schema_hash: "0".repeat(64),
                 },
               },
               stdio: {
@@ -360,7 +401,11 @@ Deno.test("lophn-agent#T37: flow add-agent-extension agent 갈래 — 사람이 
     const prompt = createHash("sha256").update("user prompt", "utf8").digest(
       "hex",
     );
-    const definition = userPresetDefinition(prompt);
+    const definition = userPresetDefinition(
+      prompt,
+      scenario.selected,
+      scenario.safe,
+    );
     const created = await call(
       server,
       "presets/create",
@@ -609,49 +654,98 @@ Deno.test("lophn-agent#T37: flow add-agent-extension agent 갈래 — 사람이 
     assert(result.kind === "started", JSON.stringify(result));
     assertEquals(result.run, run);
     const end = await result.done;
-    assertEquals(end, {
-      kind: "finished",
-      outcome: { kind: "completed", reason: "answer_completed" },
-    });
-
-    // ledger: run은 완료, tool call 하나(external MCP read·분류 read라 allow,
-    // 성공), 답 메시지 하나다.
-    const row = inspect(
-      server,
-      "select state, outcome_kind, outcome_reason from runs where id = ?",
-      [run],
-    )[0]!;
-    assertEquals(row["state"], "finished");
-    assertEquals(row["outcome_kind"], "completed");
-    // external MCP tool의 기록 확장이다(T37): 원래 서버·tool 쌍과 canonical 이름,
-    // 그때의 서버 설정 판 revision이다(R23, R24).
-    const tools = inspect(
-      server,
-      "select tool, state, effect, json_extract(extension, '$.server_name') as server_name, json_extract(extension, '$.configuration_revision') as configuration_revision, json_extract(extension, '$.original_tool') as original_tool, json_extract(extension, '$.canonical_name') as canonical_name from tool_calls where run = ?",
-      [run],
-    );
-    assertEquals(tools.length, 1);
-    assertEquals(tools[0]!["tool"], "ext_notes_read_note");
-    assertEquals(tools[0]!["state"], "finished");
-    assertEquals(tools[0]!["server_name"], "notes");
-    assertEquals(tools[0]!["original_tool"], "read_note");
-    assertEquals(tools[0]!["canonical_name"], "ext_notes_read_note");
-    assertEquals(tools[0]!["configuration_revision"], 1);
-    // 미분류 tool(write_note)은 이 run의 model 응답에 나오지 않았다(R31: 선택 밖
-    // tool은 정의도 호출도 없다). provider 요청 둘에 write_note는 없다.
-    const requests = provider.requests();
-    assertEquals(requests.length, 2);
-    for (const request of requests) {
-      assert(
-        !JSON.stringify(request.body).includes("write_note"),
-        `선택 밖 tool이 요청에 나왔다: ${
-          JSON.stringify(request.body).slice(0, 400)
-        }`,
-      );
-    }
+    await scenario.verify({ run, end, server, provider });
   } finally {
     await provider.close();
     await core.shutdown();
     await Deno.remove(home, { recursive: true });
   }
+}
+
+const TOOL_CALL_ROWS =
+  "select tool, state, effect, json_extract(extension, '$.server_name') as server_name, json_extract(extension, '$.configuration_revision') as configuration_revision, json_extract(extension, '$.original_tool') as original_tool, json_extract(extension, '$.canonical_name') as canonical_name from tool_calls where run = ?";
+
+// 모든 model 요청이 고른 쌍만 `ext_` 이름으로 보여 주고 고르지 않은 tool은 어디에도 없다.
+function assertOffered(
+  provider: ReturnType<typeof startFakeProvider>,
+  offered: string,
+) {
+  const requests = provider.requests();
+  assert(requests.length >= 1);
+  for (const request of requests) {
+    const body = JSON.stringify(request.body);
+    assert(body.includes(`"name":"${offered}"`), `${offered}가 요청에 없다`);
+    assert(!body.includes("write_note"), "선택 밖 tool이 요청에 나왔다");
+    assert(!body.includes("scan_note") || offered.includes("scan_note"));
+    assert(!body.includes("read_note") || offered.includes("read_note"));
+  }
+}
+
+Deno.test("lophn-agent/extensions#R11 #R23 #R29 #R31: flow add-agent-extension agent 갈래 — 사람이 고른 분류·safe 쌍은 확인 없이 원래 server·입력으로 가고 extension 쌍으로 기록된다", async () => {
+  await runScenario({
+    call: { name: "ext_notes_read_note", arguments: '{"id":"n1"}' },
+    selected: ["read_note"],
+    safe: ["read_note"],
+    answer: true,
+    verify({ run, end, server, provider }) {
+      assertEquals(end, {
+        kind: "finished",
+        outcome: { kind: "completed", reason: "answer_completed" },
+      });
+      const row = inspect(
+        server,
+        "select state, outcome_kind from runs where id = ?",
+        [run],
+      )[0]!;
+      assertEquals(row["state"], "finished");
+      assertEquals(row["outcome_kind"], "completed");
+      // 기록 확장이다(R23, R24): 원래 서버·tool 쌍, canonical 이름, 서버 설정 판.
+      const tools = inspect(server, TOOL_CALL_ROWS, [run]);
+      assertEquals(tools.length, 1);
+      assertEquals(tools[0]!["tool"], "ext_notes_read_note");
+      assertEquals(tools[0]!["state"], "finished");
+      assertEquals(tools[0]!["server_name"], "notes");
+      assertEquals(tools[0]!["original_tool"], "read_note");
+      assertEquals(tools[0]!["canonical_name"], "ext_notes_read_note");
+      assertEquals(tools[0]!["configuration_revision"], 1);
+      assertEquals(provider.requests().length, 2);
+      assertOffered(provider, "ext_notes_read_note");
+      // 호출은 server에 원래 tool 이름과 입력 그대로 닿았다(R29): child가 되돌린 결과가
+      // 두 번째 model 요청에 실려 있다.
+      // 결과는 tool_result 안의 JSON 글이라 따옴표가 두 번 이스케이프된다.
+      const text = 'mcp-ok:read_note:{"id":"n1"}';
+      const inner = JSON.stringify(text).slice(1, -1);
+      const echoed = JSON.stringify(inner).slice(1, -1);
+      assert(
+        JSON.stringify(provider.requests()[1]!.body).includes(echoed),
+        "server가 받은 이름·입력이 결과에 없다",
+      );
+    },
+  });
+});
+
+Deno.test("lophn-agent/extensions#R28 #R31: flow add-agent-extension agent 갈래 — 미분류 tool은 확인을 묻고 허락 전에는 server에 닿지 않는다", async () => {
+  await runScenario({
+    call: { name: "ext_notes_scan_note", arguments: '{"id":"n1"}' },
+    selected: ["scan_note"],
+    safe: [],
+    answer: false,
+    verify({ run, end, server, provider }) {
+      assertEquals((end as { kind: string }).kind, "waiting");
+      // 호출은 시작되지 않고 approval request가 하나 생겼다(R28). child는 불리지 않았다.
+      const approvals = inspect(
+        server,
+        "select count(*) as n from approval_requests",
+        [],
+      );
+      assertEquals(approvals[0]!["n"], 1);
+      const tools = inspect(server, TOOL_CALL_ROWS, [run]);
+      assertEquals(tools.length, 1);
+      assertEquals(tools[0]!["tool"], "ext_notes_scan_note");
+      assertEquals(tools[0]!["effect"], "external");
+      assertEquals(tools[0]!["original_tool"], "scan_note");
+      assertEquals(tools[0]!["state"], "requested");
+      assertOffered(provider, "ext_notes_scan_note");
+    },
+  });
 });

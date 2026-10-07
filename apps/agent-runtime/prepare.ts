@@ -20,7 +20,10 @@ import {
   startRun,
   type WorkPlace,
 } from "../../packages/contracts/lophn-agent/mod.ts";
-import { settingsGet } from "../../packages/contracts/platform/mod.ts";
+import {
+  createApprovalRequest,
+  settingsGet,
+} from "../../packages/contracts/platform/mod.ts";
 import type { InstructionDeps } from "../../packages/lophn-agent/instructions/mod.ts";
 import type { SkillEntry } from "../../packages/lophn-agent/extensions/mod.ts";
 import { ROLE_CAPS } from "../../packages/lophn-agent/presets/mod.ts";
@@ -60,6 +63,7 @@ import type { DriveDeps, PreparedResume, PreparedRun } from "./run-driver.ts";
 import {
   buildMcpTools,
   createMcpToolHandlers,
+  EXTERNAL_TOOL_CONCERN,
   type ExternalTool,
   type McpSelection,
   type McpToolCall,
@@ -146,6 +150,31 @@ export function readBinding(definition: ToolDefinition): ToolBinding {
         changes: "reads only",
         external: null,
         reversibility: "nothing changes",
+      }),
+  };
+}
+
+// 외부 MCP tool의 연결이다. 대상은 고른 쌍 하나이고 판정이 그 쌍으로 범위와 되돌림을 본다.
+// 분류가 안 됐거나 쓰기·external이면 판정표가 묻는다(R26, R28). 입력 비교 기준은 없다.
+function externalBinding(tool: ExternalTool): ToolBinding {
+  return {
+    resolve: () =>
+      ok({
+        concern: EXTERNAL_TOOL_CONCERN,
+        operation: tool.definition.contract,
+        contractRevision: tool.definition.revision,
+        targets: [{
+          id: tool.target,
+          reversibility: tool.reversible
+            ? "reversible" as const
+            : "unknown" as const,
+        }],
+        comparison: {},
+        changes: tool.effect === "read"
+          ? "reads only"
+          : `calls tool ${tool.original} of server ${tool.server}`,
+        external: tool.effect === "read" ? null : `MCP server ${tool.server}`,
+        reversibility: tool.reversible ? "reversible" : "not guaranteed",
       }),
   };
 }
@@ -325,7 +354,7 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
     }
     // 외부 MCP tool의 소유 계약 연결이다. 스코프 검사는 builder가 이미 정확한 쌍만 골랐다.
     for (const tool of external) {
-      bindings.set(tool.definition.name, readBinding(tool.definition));
+      bindings.set(tool.definition.name, externalBinding(tool));
     }
     const context = async (): Promise<Result<RunContext>> => {
       const role = await deps.rolePrompt(assignment.role);
@@ -387,8 +416,13 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
           targets: new Set([
             ...(toolkit.targets?.(assignment) ?? []),
             ...m.scope.apps.map((entry) => entry.app),
+            ...external.map((tool) => tool.target),
           ]),
-          operations: new Set(runOperations(listed)),
+          operations: new Set([
+            ...runOperations(listed),
+            // 외부 MCP tool의 ask는 이 run의 자격으로 approval request를 만든다(R28).
+            ...(external.length === 0 ? [] : [createApprovalRequest.name]),
+          ]),
         },
         mcpConnection: (toolDefinition) =>
           m.mcpKit?.connectionRevision(toolDefinition, assignment.id),

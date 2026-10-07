@@ -289,3 +289,30 @@ Deno.test("problems/tests#R10: 같은 FrozenTest의 증상·기대 정의는 입
         .expected,
   );
 });
+
+Deno.test("problems/tests#R15: 새 fixture DB나 읽기 전용 source를 확인하지 못한 side가 있으면 inconclusive다", () => {
+  const sides = (
+    patch: { fresh_fixture?: boolean; source_read_only?: boolean },
+  ) => [
+    { side: "before" as const, fresh_fixture: true, source_read_only: true },
+    {
+      side: "after" as const,
+      fresh_fixture: true,
+      source_read_only: true,
+      ...patch,
+    },
+  ];
+  const ok = judge(run("before", probe()), run("after", fixed()), {
+    isolation: sides({}),
+  });
+  assertEquals(ok.result, "pass");
+  assertEquals(ok.observations.isolation.operating_db_copied, false);
+  assertEquals(ok.observations.isolation.real_account_resend, false);
+  for (const patch of [{ fresh_fixture: false }, { source_read_only: false }]) {
+    const done = judge(run("before", probe()), run("after", fixed()), {
+      isolation: sides(patch),
+    });
+    assertEquals(done.result, "inconclusive", JSON.stringify(patch));
+    assert(done.reason.includes("격리"));
+  }
+});

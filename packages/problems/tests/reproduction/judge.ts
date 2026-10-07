@@ -16,6 +16,8 @@ import {
 
 export const SYMPTOM_FRAME = "symptom";
 export const ADJACENT_FRAME = "adjacent:";
+// app driver가 기록 대상이 없는 호출에 돌려주는 자리 표시자다.
+const NOT_RECORDED = "inv_not_recorded";
 
 export type ReproductionSide = "before" | "after";
 
@@ -73,6 +75,17 @@ export type ReproductionObservations = {
   // 외부 효과 사실은 apps/invocations가 가진다. 여기에는 호출 참조만 둔다.
   external_effects: {
     invocations: { side: ReproductionSide; invocation: string }[];
+  };
+  // 격리 사실(problems/tests#R13, R15). runner가 직접 확인한 값이다. 운영 DB 복사와 실계정 재전송은 없다.
+  isolation: {
+    sides: {
+      side: ReproductionSide;
+      fresh_fixture: boolean;
+      source_read_only: boolean;
+    }[];
+    operating_db_copied: false;
+    real_account_resend: false;
+    effects: string;
   };
   execution_not_started?: { side: ReproductionSide; reason: string };
   scope: string;
@@ -233,6 +246,12 @@ export function judgeReproduction(input: {
   test_hash: string;
   before: SideRun | null;
   after: SideRun | null;
+  // runner가 side마다 직접 확인한 격리 사실이다.
+  isolation?: {
+    side: ReproductionSide;
+    fresh_fixture: boolean;
+    source_read_only: boolean;
+  }[];
   // 시작하지 않은 side와 그 이유. 한쪽만 시작했을 때만 있다.
   not_started?: { side: ReproductionSide; reason: string };
 }): ReproductionJudgment {
@@ -248,6 +267,13 @@ export function judgeReproduction(input: {
     adjacent_invariants: [],
     weakening: { checks: [], found: [] },
     external_effects: { invocations: [] },
+    isolation: {
+      sides: input.isolation ?? [],
+      operating_db_copied: false,
+      real_account_resend: false,
+      effects:
+        "replay·고정 대역(apps/preview)만 쓰고 실제 서비스에 접속하지 않았다",
+    },
     scope: SCOPE,
   };
   const actuals: Record<string, unknown> = {};
@@ -307,10 +333,13 @@ export function judgeReproduction(input: {
       expectation_hash: symptom.expectation_hash,
     };
     actuals[`${run.side}:${SYMPTOM_FRAME}`] = symptom.actual;
-    observations.external_effects.invocations.push({
-      side: run.side,
-      invocation: symptom.seen.invocation_id,
-    });
+    // 기록된 호출만 참조한다. 준비 전 test 프로세스의 읽기는 기록 대상이 없어 자리 표시자가 온다.
+    if (symptom.seen.invocation_id !== NOT_RECORDED) {
+      observations.external_effects.invocations.push({
+        side: run.side,
+        invocation: symptom.seen.invocation_id,
+      });
+    }
     for (const item of adjacent) {
       observations.adjacent_invariants.push({
         side: run.side,
@@ -335,6 +364,16 @@ export function judgeReproduction(input: {
     );
   }
   if (problems.length > 0) return inconclusive(problems.join("; "));
+  const unisolated = observations.isolation.sides.filter((item) =>
+    !item.fresh_fixture || !item.source_read_only
+  );
+  if (unisolated.length > 0) {
+    return inconclusive(
+      `격리를 확인하지 못했다(새 fixture DB·읽기 전용 source): ${
+        unisolated.map((item) => item.side).join(", ")
+      }`,
+    );
+  }
 
   const before = input.before!;
   const after = input.after!;
@@ -343,11 +382,16 @@ export function judgeReproduction(input: {
   if (!b.ok || !a.ok) return inconclusive("관측을 읽을 수 없다");
 
   // 약화 검사(problems/tests#R11, problems/problem-codes#R10): 고정된 이전·이후 근거만 쓴다.
-  const check = (name: string, weakened: boolean, reason: string) => {
+  const check = (
+    name: string,
+    weakened: boolean,
+    reason: string,
+    kept: string,
+  ) => {
     observations.weakening.checks.push({
       name,
       status: weakened ? "weakened" : "ok",
-      reason,
+      reason: weakened ? reason : kept,
     });
     if (weakened) observations.weakening.found.push(reason);
   };
@@ -357,18 +401,21 @@ export function judgeReproduction(input: {
     before.evidence.declared_codes.includes(code) &&
       !after.evidence.declared_codes.includes(code),
     `원래 problem code ${code}의 선언이 고친 묶음에서 삭제됐다`,
+    `원래 problem code ${code}의 선언이 고친 묶음에도 있다`,
   );
   check(
     "report_call_kept",
     before.evidence.report_literals.includes(code) &&
       !after.evidence.report_literals.includes(code),
     `원래 problem code ${code}의 보고 호출이 고친 source에서 삭제됐다`,
+    `원래 problem code ${code}의 보고 호출이 고친 source에도 있다`,
   );
   check(
     "report_path_alive",
     b.symptom.parts.report_seen && a.symptom.parts.failure_present &&
       !a.symptom.parts.report_seen,
     `업무 증상은 그대로인데 원래 problem code ${code}의 보고가 접수되지 않는다(보고 경로 삭제)`,
+    "보고 경로가 삭제된 흔적이 없다",
   );
   check(
     "expectation_kept",
@@ -376,6 +423,7 @@ export function judgeReproduction(input: {
       hash !== frozenExpectation
     ),
     "관측에 쓴 기대가 고정한 기대와 다르다(기대 약화)",
+    "양쪽 관측이 고정한 기대로 판정됐다",
   );
   const weakened = observations.weakening.found;
 

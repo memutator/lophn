@@ -354,6 +354,11 @@ export async function runReproductionJob(
     test_hash: job.test_hash,
     before: before.value.run,
     after: after?.run ?? null,
+    isolation: executions.map((item) => ({
+      side: item.side,
+      fresh_fixture: item.isolation.fresh_fixture,
+      source_read_only: item.isolation.source_read_only,
+    })),
     ...(notStarted ? { not_started: notStarted } : {}),
   });
   return ok({ judgment, executions, not_started: notStarted });

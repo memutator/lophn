@@ -50,7 +50,7 @@ export const BROKEN_SCENARIO: ReproductionScenario = {
   adjacent: [{
     name: "mark_kind",
     command: "mark_kind",
-    input: { kind: "adjacent" },
+    input: { kind: "adjacent", view_session: "reproduction-view" },
     holds: {
       status: 200,
       body: [{ path: ["result", "result", "marked"], equals: "adjacent" }],

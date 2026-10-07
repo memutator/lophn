@@ -51,6 +51,7 @@ import { closeTerminalTab, type TerminalDeps } from "../terminal/deps.ts";
 import { TerminalTab } from "../terminal/terminal-tab.tsx";
 import { TrackingStrip } from "./tracking/tracking.tsx";
 import type { TrackingSource } from "./tracking/source.ts";
+import { OperatorEntry, type OperatorEntrySource } from "./operator-entry.tsx";
 import {
   DockSlot,
   DockToggle,
@@ -90,6 +91,12 @@ export interface WorkspaceProps {
   terminal?: TerminalDeps;
   /** 파일 추적 켜기 통로. 없으면 추적 안내 줄을 두지 않는다. */
   tracking?: TrackingSource;
+  /** 이 프로젝트에 붙은 Operator를 읽는 통로. 없으면 Operator 안내 줄을 두지 않는다. */
+  operators?: OperatorEntrySource;
+  /** roles 화면에서 이 프로젝트에 Operator를 붙이는 화면을 연다. */
+  onAttachOperator?: (project: string) => void;
+  /** roles 화면에서 붙은 Operator 하나를 연다. */
+  onOpenOperator?: (operator: string) => void;
   /** 앱 공간으로 연다. 없으면 패널을 못 여는 앱에는 안내 글만 둔다. */
   onOpenApp?: (app: string) => void;
 }
@@ -182,6 +189,9 @@ export function Workspace(
     terminal,
     editor,
     tracking,
+    operators,
+    onAttachOperator,
+    onOpenOperator,
     onOpenApp,
   }: WorkspaceProps,
 ) {
@@ -680,6 +690,16 @@ export function Workspace(
                 project={projectId}
                 source={tracking}
                 onTracking={() => void refreshDocuments()}
+              />
+            )
+            : null}
+          {operators && onAttachOperator && onOpenOperator
+            ? (
+              <OperatorEntry
+                project={projectId}
+                source={operators}
+                onAttach={onAttachOperator}
+                onOpen={onOpenOperator}
               />
             )
             : null}

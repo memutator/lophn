@@ -1307,6 +1307,7 @@ export const en = {
   "launcher.title.register": "Register project",
   "project-workspace.button.add-rule": "Add rule",
   "project-workspace.button.attach-operator": "Attach an Operator",
+  "project-workspace.button.see-operators": "See Operators",
   "project-workspace.button.close-tab": "Close tab",
   "project-workspace.button.collapse-sidebar": "Collapse sidebar",
   "project-workspace.button.edit-rules": "Edit rules",
@@ -1330,6 +1331,10 @@ export const en = {
   "project-workspace.heading.left-out": "Left out",
   "project-workspace.heading.tracked": "Will be tracked",
   "project-workspace.info.empty": "Nothing to show yet.",
+  "project-workspace.label.operators":
+    "{count, plural, one {# Operator repeats a check here} other {# Operators repeat checks here}}",
+  "project-workspace.label.operators-none":
+    "No Operator repeats a check here yet.",
   "project-workspace.label.choose-app": "Choose an app",
   "project-workspace.label.drop-here": "Move here",
   "project-workspace.label.drop-side": "Open in side pane",

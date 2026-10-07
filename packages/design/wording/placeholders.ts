@@ -1326,6 +1326,7 @@ export type PlaceholderKinds = {
   "launcher.title.register": Record<never, never>;
   "project-workspace.button.add-rule": Record<never, never>;
   "project-workspace.button.attach-operator": Record<never, never>;
+  "project-workspace.button.see-operators": Record<never, never>;
   "project-workspace.button.close-tab": Record<never, never>;
   "project-workspace.button.collapse-sidebar": Record<never, never>;
   "project-workspace.button.edit-rules": Record<never, never>;
@@ -1349,6 +1350,10 @@ export type PlaceholderKinds = {
   "project-workspace.heading.left-out": Record<never, never>;
   "project-workspace.heading.tracked": Record<never, never>;
   "project-workspace.info.empty": Record<never, never>;
+  "project-workspace.label.operators": {
+    count: "plural";
+  };
+  "project-workspace.label.operators-none": Record<never, never>;
   "project-workspace.label.choose-app": Record<never, never>;
   "project-workspace.label.drop-here": Record<never, never>;
   "project-workspace.label.drop-side": Record<never, never>;

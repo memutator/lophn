@@ -344,7 +344,7 @@ export function windowDecisionOpener(): OpenDecision | undefined {
 }
 
 // 보호 창의 부모. main은 이 값이 아니라 IPC를 보낸 창을 부모로 쓴다(contracts#T13).
-export const PARENT_WINDOW = "requesting-window";
+const PARENT_WINDOW = "requesting-window";
 
 export function coreRolesSource(
   core: CoreSource,
@@ -368,7 +368,12 @@ export function coreRolesSource(
   }
 
   return {
-    operator: coreOperatorSource(core, { openDecision, now, random }),
+    operator: coreOperatorSource(core, {
+      openDecision,
+      now,
+      random,
+      presetOf,
+    }),
     watch: (listener) => core.subscribe(listener),
 
     async roles() {

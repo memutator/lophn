@@ -1,24 +1,16 @@
 // /v1/apps/export의 실제 core 경로 테스트(apps/data#R13, architecture/apps 5.4).
-// 등록은 apps.ts workerRoutes가 하고, serving은 core의 workers seam(core.ts T8·T13 통합)에
-// createExportTarget을 넣어 연결한다. 앱·release 행은 등록 transaction이 남기는 모양으로
-// 심는다(blob_test.ts seedRef와 같은 길이다). 사람 데이터 root는 열지 않는다.
+// 등록은 apps.ts workerRoutes가 하고, serving은 core가 제품 기동에서 직접 붙인다(apps-export.ts).
+// 이 테스트는 workers seam 없이 core를 제품 방식으로 띄운다. 앱·release 행은 등록 transaction이
+// 남기는 모양으로 심는다(blob_test.ts seedRef와 같은 길이다). 사람 데이터 root는 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { createHash } from "node:crypto";
 import {
-  err,
   manualClock,
-  ok,
   seededRandom,
   sha256Hex,
 } from "../../packages/base/mod.ts";
-import type { Result } from "../../packages/base/mod.ts";
-import type {
-  AuthenticatedContext,
-  RequestContext,
-} from "../../packages/contracts/platform/mod.ts";
-import { TargetAuthorization } from "../../packages/contracts/platform/mod.ts";
-import { createTargetAuthorizer } from "../../packages/platform/ledger/mod.ts";
+import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
 import type { Blueprint } from "../../packages/apps/blueprint/mod.ts";
 import { canonicalJson } from "../../packages/apps/blueprint/mod.ts";
 import { APP } from "../../packages/apps/releases/testing/mod.ts";
@@ -28,8 +20,6 @@ import {
 } from "../../packages/apps/releases/mod.ts";
 import { installPackage } from "../../packages/apps/sdk/mod.ts";
 import { removeTree } from "../../packages/apps/sdk/testing/mod.ts";
-import { createExportTarget } from "../../packages/apps/data/reads.ts";
-import type { WorkerRouteTarget } from "../../packages/platform/responsiveness/mod.ts";
 import { openAppDatabase } from "../../packages/apps/data/worker/db.ts";
 import { startCore } from "./core.ts";
 import type { TeamModule } from "./registration.ts";
@@ -60,87 +50,15 @@ function seedHash(text: string): string {
 function userContext(
   operations: string[],
   ref: string,
+  conditions: Record<string, string> = {},
 ): AuthenticatedContext {
   return {
     principal: "user-1",
     actor: "user",
     scope: { operations, targets: {} },
-    conditions: {},
+    conditions,
     credential_ref: ref,
   } as AuthenticatedContext;
-}
-
-// export worker가 요청의 credential_ref로 푼 현재 context를 slot에서 읽는다.
-const slot: {
-  context?: AuthenticatedContext;
-  ledger?: DatabaseSync;
-} = {};
-
-// ledger read snapshot(documents-search_test.ts와 같다). ledger 연결은 core 기동 뒤
-// 채우는 slot으로늦게 묶는다(startCore 때 lophn.db가 아직 없다). TargetAuthorization
-// port는 slot에 채운 현재 context로 만든다.
-function ledgerSnapshot() {
-  return {
-    snapshot: () =>
-      ok({
-        as_of_seq: "0",
-        sql: {
-          get: (query: string, params: readonly unknown[]) =>
-            slot.ledger === undefined
-              ? undefined
-              : slot.ledger.prepare(query).get(...params as never[]) as
-                | Record<string, unknown>
-                | undefined,
-          all: (query: string, params: readonly unknown[]) =>
-            slot.ledger === undefined
-              ? []
-              : slot.ledger.prepare(query).all(...params as never[]) as Record<
-                string,
-                unknown
-              >[],
-        },
-        port<T>(key: unknown): T {
-          if (!Object.is(key, TargetAuthorization)) {
-            throw new Error("unregistered port");
-          }
-          assert(slot.context !== undefined, "context slot is not filled");
-          return createTargetAuthorizer(slot.context) as unknown as T;
-        },
-      } as never),
-  };
-}
-
-// export target deps. current는 credential_ref로 context를 푼다.
-function exportDeps(dataRoot: string) {
-  const contexts = new Map<string, AuthenticatedContext>();
-  const snapshot = ledgerSnapshot();
-  return {
-    deps: {
-      current: (ref: string): Result<RequestContext> => {
-        const found = contexts.get(ref);
-        return found === undefined
-          ? err({ code: "unauthorized", message: "credential이 없다" })
-          : ok(found as unknown as RequestContext);
-      },
-      snapshot: snapshot.snapshot,
-      dataRoot,
-      observedAt: () => AT,
-    },
-    contexts,
-    fillLedger(db: DatabaseSync): void {
-      slot.ledger = db;
-    },
-    loadLedger(): DatabaseSync {
-      // readOnly 연결. 열림은 테스트 끝에 닫는다.
-      return new DatabaseSync(`${dataRoot}/lophn.db`, { readOnly: true });
-    },
-    close(): void {
-      if (slot.ledger !== undefined) {
-        slot.ledger.close();
-        slot.ledger = undefined;
-      }
-    },
-  };
 }
 
 async function post(
@@ -192,6 +110,11 @@ function seedLedger(
         automations: [],
       }),
     );
+    // 다른 앱. credential이 APP 조건에 묶이면 이 앱은 범위 밖이다.
+    db.prepare(
+      `INSERT INTO apps (id, slug, name, description, planning_version, source_path, active_release, run_enabled, revision, status)
+       VALUES (?, 'other', 'Other', 'Another app', NULL, NULL, NULL, 1, '1', 'active')`,
+    ).run(OTHER_APP);
     // release row는 유효한 app test 참조를 요구한다(releases#R5). 같은 표 row를 채운다.
     db.prepare(
       "INSERT INTO release_tests (release, verification) VALUES (?, ?)",
@@ -307,10 +230,9 @@ async function seedBundleAndSdk(
 }
 
 Deno.test(
-  "apps/data#R13: /v1/apps/export는 등록된 route로 앱 export를 준비하고 범위 밖 앱과 없는 앱을 같이 거절한다",
+  "apps/data#R13: workers seam 없이 띄운 core의 /v1/apps/export는 내 앱을 ready로 답하고 없는 앱과 범위 밖 앱을 같은 not_found로 닫는다",
   async () => {
     const home = await Deno.makeTempDir({ prefix: "lophn-app-export-core-" });
-    const made = exportDeps(home);
     const started = await startCore({
       lophnHome: home,
       port: 0,
@@ -320,13 +242,6 @@ Deno.test(
       random: seededRandom(11),
       testCredentials: true,
       superviseIo: false,
-      // export serving(T8·T13 통합 seam). 제품 기동에는 workers map이 없다.
-      workers: new Map<string, WorkerRouteTarget>([
-        [
-          "apps/export",
-          createExportTarget(made.deps) as unknown as WorkerRouteTarget,
-        ],
-      ]),
     });
     assert(started.ok, started.ok ? "" : started.error.message);
     await using guard = closeUnlessKept(async () => {
@@ -336,16 +251,20 @@ Deno.test(
     });
     const core = started.value;
     // scope.operations는 route name "app.export"를 넣는다(credential operation scope).
-    const contextValue = userContext(["app.export"], "cred-export");
+    const owner = userContext(["app.export"], "cred-export");
     const token = "b".repeat(43);
-    const accepted = await core.acceptTestCredential?.(contextValue, token);
-    assert(accepted?.ok, "test credential seed failed");
-    const recorded = await core.record(contextValue);
-    assert(recorded.ok, recorded.ok ? "" : recorded.error?.message ?? "");
+    const scoped = userContext(["app.export"], "cred-scoped", { app: APP });
+    const scopedToken = "c".repeat(43);
+    for (const [context, secret] of [[owner, token], [scoped, scopedToken]]) {
+      const accepted = await core.acceptTestCredential?.(
+        context as AuthenticatedContext,
+        secret as string,
+      );
+      assert(accepted?.ok, "test credential seed failed");
+      const recorded = await core.record(context as AuthenticatedContext);
+      assert(recorded.ok, recorded.ok ? "" : recorded.error?.message ?? "");
+    }
     guard.keep();
-    made.contexts.set("cred-export", contextValue);
-    slot.context = contextValue;
-    made.fillLedger(made.loadLedger());
     try {
       const fixtures = await seedBundleAndSdk(home);
       const dataArea = `${home}/apps/${APP}/data`;
@@ -360,7 +279,7 @@ Deno.test(
       assertEquals(answer.body.state, "ready");
       assertEquals(answer.body.includes_external_data, false);
 
-      // 범위 밖 앱과 없는 앱은 같은 답이다(존재를 새지 않는다). 존재하지 않는 앱 ID다.
+      // 없는 앱과 범위 밖 앱은 같은 답이다(존재를 새지 않는다). 둘 다 503이 아니다.
       const absent = await post(core.port, "apps/export", {
         app: "app_01h455vb4pex5v6nkc6gd5fdw3",
       }, token);
@@ -369,13 +288,12 @@ Deno.test(
         core.port,
         "apps/export",
         { app: OTHER_APP },
-        token,
+        scopedToken,
       );
-      assertEquals(other.status, 404);
+      assertEquals(other.status, 404, JSON.stringify(other.body));
       assertEquals(other.body.error?.code, absent.body.error?.code);
       assertEquals(other.body.error?.message, absent.body.error?.message);
     } finally {
-      made.close();
       await core.shutdown();
       // 봉인 디렉터리(export 안 bundle·SDK 사본)를 풀고 지운다(sdk testing removeTree).
       await removeTree(home);

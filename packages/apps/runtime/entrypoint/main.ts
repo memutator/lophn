@@ -7,6 +7,7 @@ import { bundleScreenFiles } from "./screen-files.ts";
 import { ensureSchedulePort } from "./schedule.ts";
 import { startRuntime } from "./startup.ts";
 import { startDirectServer } from "./direct-server.ts";
+import { parseAppStart } from "./start-input.ts";
 import { type AutomationTimers, installAutomations } from "./automation.ts";
 import type { Blueprint } from "../../blueprint/mod.ts";
 import type { BrokerTransport } from "./broker-client.ts";
@@ -127,32 +128,53 @@ if (import.meta.main) {
   }
 }
 
-// supervisor(T8)와 test runner가 시작 입력·blueprint·broker를 준다.
-// 하나라도 없으면 stub으로 뜨지 않고 실패로 끝난다.
+// supervisor(T8)와 test runner가 시작 입력을 stdin 한 줄로 준다. broker socket과 credential은 그
+// 줄에서, blueprint와 화면 자원은 `@lophn/app`이 가리키는 bundle 폴더에서 읽는다(앱 자식에는 env
+// 권한이 없다). 하나라도 없으면 stub으로 뜨지 않고 실패로 끝난다.
 async function boot(): Promise<void> {
   const line = await readStdinLine();
   if (!line) throw new Error("app start input missing");
-  const blueprint = await readBlueprint();
+  const start = parseAppStart(line);
+  if (!start) throw new Error("app start input is invalid");
+  const bundleDir = bundleDirectory();
+  const blueprint = await readBlueprint(bundleDir);
   if (!blueprint) throw new Error("app blueprint is missing");
   // 화면 자원은 blueprint와 같은 bundle 사본의 screens/ 아래다.
-  const bundleDir = Deno.env.get("LOPHN_APP_BLUEPRINT")!.replace(
-    /\/[^/]*$/,
-    "",
-  );
   const screens = bundleScreenFiles(bundleDir);
-  const broker = Deno.env.get("LOPHN_APP_BROKER");
-  if (!broker) throw new Error("app broker is missing");
+  const broker = start.broker_socket;
+  const credential = start.broker_credential;
   await main({
     readLine: () => Promise.resolve(line),
     importModule: (specifier) => import(specifier),
     blueprint,
     broker: unixBroker(broker),
-    dataSchema: Number(Deno.env.get("LOPHN_APP_DATA_SCHEMA") ?? "0"),
-    reportTransport: (input) => reportException(broker, input),
-    problemTransport: (input) => reportProblemToBroker(broker, input),
+    dataSchema: await bundleDataSchema(bundleDir),
+    reportTransport: (input) => reportException(broker, credential, input),
+    problemTransport: (input) =>
+      reportProblemToBroker(broker, credential, input),
     screenBytes: screens.screenBytes,
     contentType: screens.contentType,
   });
+}
+
+// `@lophn/app`이 가리키는 main.ts의 폴더다. 봉인 bundle 사본이면 blueprint.json·migrations·screens가
+// 이 폴더에 있다.
+function bundleDirectory(): string {
+  const url = new URL(import.meta.resolve("@lophn/app"));
+  return url.pathname.replace(/\/[^/]*$/, "");
+}
+
+// bundle의 data schema는 `migrations/<from>-<to>.sql` 중 가장 큰 `to`다. migration이 없으면 DB를 쓰지
+// 않는 앱(0)이다.
+async function bundleDataSchema(bundleDir: string): Promise<number> {
+  let schema = 0;
+  try {
+    for await (const entry of Deno.readDir(`${bundleDir}/migrations`)) {
+      const match = /^(\d+)-(\d+)\.sql$/.exec(entry.name);
+      if (match) schema = Math.max(schema, Number(match[2]));
+    }
+  } catch { /* migrations 폴더가 없다 */ }
+  return schema;
 }
 
 function unixBroker(socketPath: string): BrokerTransport {
@@ -162,9 +184,9 @@ function unixBroker(socketPath: string): BrokerTransport {
 
 async function reportException(
   socketPath: string,
+  credential: string,
   input: unknown,
 ): Promise<unknown> {
-  const credential = Deno.env.get("LOPHN_APP_BROKER_CREDENTIAL") ?? "";
   const response = await postUnix(
     socketPath,
     "/v1/problems/observe-exception",
@@ -177,9 +199,9 @@ async function reportException(
 // 앱 code의 선언 code 보고. broker의 problems/report 통로로 보내고 응답 본문을 그대로 돌려준다.
 async function reportProblemToBroker(
   socketPath: string,
+  credential: string,
   input: unknown,
 ): Promise<unknown> {
-  const credential = Deno.env.get("LOPHN_APP_BROKER_CREDENTIAL") ?? "";
   const response = await postUnix(
     socketPath,
     BROKER_PATHS.problemsReport,
@@ -242,11 +264,13 @@ async function readStdinLine(): Promise<string | null> {
   return result.value ? new TextDecoder().decode(result.value) : null;
 }
 
-async function readBlueprint(): Promise<Blueprint | undefined> {
-  const path = Deno.env.get("LOPHN_APP_BLUEPRINT");
-  if (!path) return;
+async function readBlueprint(
+  bundleDir: string,
+): Promise<Blueprint | undefined> {
   try {
-    return JSON.parse(await Deno.readTextFile(path)) as Blueprint;
+    return JSON.parse(
+      await Deno.readTextFile(`${bundleDir}/blueprint.json`),
+    ) as Blueprint;
   } catch {
     return;
   }

@@ -1,0 +1,72 @@
+[
+  {
+    "name": "no-failure-path",
+    "requirement": "problems/problem-codes#R9",
+    "base": "broken",
+    "failure_paths": "none",
+    "expect_fail": [
+      "failure_path_coverage",
+      "failure_path:fixture_broken",
+      "failure_path:fixture_misconfigured"
+    ]
+  },
+  {
+    "name": "sdk-direct-only",
+    "requirement": "problems/problem-codes#R9",
+    "base": "broken",
+    "failure_paths": "direct",
+    "expect_fail": [
+      "failure_path:fixture_broken",
+      "failure_path:fixture_misconfigured"
+    ]
+  },
+  {
+    "name": "no-root-boundary",
+    "requirement": "problems/problem-codes#R8",
+    "base": "broken",
+    "patch": [
+      {
+        "file": "screens/panel/main.js",
+        "from": "lophn:render-error",
+        "to": "lophn:render-erro_"
+      }
+    ],
+    "expect_fail": ["view_exception"]
+  },
+  {
+    "name": "read-business-write",
+    "requirement": "problems/tests#R9",
+    "base": "todo",
+    "patch": [
+      {
+        "file": "src/commands.ts",
+        "from": "readResult(listTodos(store), {",
+        "to": "readResult((store.db.prepare(\"insert into todo (title, created_at) values ('written by a read', '2026-10-07T00:00:00.000Z')\").run(), listTodos(store)), {"
+      }
+    ],
+    "expect_fail": ["read_contract"]
+  },
+  {
+    "name": "confirm-automation",
+    "requirement": "problems/tests#R9",
+    "base": "calendar",
+    "blueprint_add_automation": {
+      "key": "purge_on_start",
+      "label": "Purge on start",
+      "when": { "kind": "on_start" },
+      "command": "delete_all_events"
+    },
+    "expect_fail": ["automation_scope"]
+  },
+  {
+    "name": "upgrade-failure",
+    "requirement": "problems/tests#R8",
+    "base": "broken",
+    "rename": {
+      "migrations/0-1.sql": "migrations/0-2.sql",
+      "migrations/1-3.sql": "migrations/2-3.sql"
+    },
+    "expect_fail": ["migration_upgrade"],
+    "expect_pass": ["migration_empty"]
+  }
+]

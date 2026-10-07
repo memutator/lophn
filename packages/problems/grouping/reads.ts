@@ -6,8 +6,12 @@ import type {
   RequestContext,
 } from "../../contracts/platform/mod.ts";
 import {
+  type ProblemTestFact,
+  ProblemTestPort,
   type ProblemWordingFact,
   ProblemWordingPort,
+  ProblemWorkPort,
+  type RepairTicketFact,
 } from "../../contracts/problems/mod.ts";
 import {
   closureSchema,
@@ -19,6 +23,7 @@ import {
   problemSchema,
   type ProblemSummary,
 } from "../../contracts/problems/mod.ts";
+import { projectProblemDetail } from "./detail.ts";
 import { reservedProblemCodes } from "../problem-codes/mod.ts";
 import {
   invalidCursor,
@@ -243,8 +248,36 @@ function closureOf(row: Record<string, unknown>): Result<unknown> {
   return err({ code: "internal", message: BROKEN });
 }
 
+// port가 등록되지 않았거나 읽지 못한 사실은 undefined(모름)다. 성공이나 없음으로 채우지 않는다.
+function readFact<T>(read: () => Result<T>): T | undefined {
+  try {
+    const found = read();
+    return found.ok ? found.value : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function ticketFact(
+  snapshot: ReadSnapshot,
+  problem: string,
+  work: string | null,
+): RepairTicketFact | null | undefined {
+  return readFact(() =>
+    snapshot.port(ProblemWorkPort)(snapshot.sql, problem, work)
+  );
+}
+
+function testFacts(
+  snapshot: ReadSnapshot,
+  problem: string,
+): ProblemTestFact[] | undefined {
+  return readFact(() => snapshot.port(ProblemTestPort)(snapshot.sql, problem));
+}
+
 // 진행은 상태 하나로 먼저 오고, 수·처음/최근 시각은 Report에서 센다. 실제 담당과 수리
-// 작업 상태는 ticket을 읽는 problems#T22가 더하고, 지금은 가짜 담당을 만들지 않는다.
+// 작업 상태는 `detail`(사용자용 상세)에 있고, ticket을 읽지 못하면 가짜 담당 없이 모름이다.
+// `problem`은 내부 contract(ticket·version ID)라 화면은 `detail`만 쓴다(problems#T22).
 export const getProblemRead = {
   route: getProblem,
   handle(
@@ -321,8 +354,21 @@ export const getProblemRead = {
       seq: String(latest["seq"]),
     });
     if (!problem.success) return err({ code: "internal", message: BROKEN });
+    const fixRecorded = snapshot.sql.get(
+      `select 1 as found from events where type = ? and subject = ? limit 1`,
+      ["ProblemFixRecorded", input.problem],
+    ) !== undefined;
+    const detail = projectProblemDetail({
+      status: problem.data.status,
+      closure: problem.data.closure,
+      ticket: ticketFact(snapshot, input.problem, problem.data.work),
+      fixRecorded,
+      tests: testFacts(snapshot, input.problem),
+      nextAction: wording.value.next_action,
+    });
     return ok({
       problem: problem.data,
+      detail,
       text: wording.value.symptom,
       report_count: Number(observed["total"]),
       first_observed_at: observed["first_at"] === null

@@ -1,6 +1,6 @@
 import { assertEquals } from "@std/assert";
 import { sha256Hex } from "../../base/mod.ts";
-import { APP, HASH, REL, TKT } from "./ticket-fixtures.ts";
+import { APP, CAC, HASH, REL, TKT } from "./ticket-fixtures.ts";
 import {
   APP_TOOL_NAME_LENGTH,
   APP_TOOL_NAME_PREFIX,
@@ -368,6 +368,13 @@ Deno.test(
         outputs: [],
         fix_records: [],
         verifications: [],
+      },
+      summary_blob: {
+        preparation: "worker-preparation-1",
+        principal: CAC,
+        purpose: "ticket_summary",
+        hash: HASH,
+        size_bytes: 64,
       },
     });
     // ticket 준비에 ticket 없는 test를 요청하지 않으므로 mcp#R37의 create·cancel·

@@ -37,6 +37,10 @@ import {
   startAgentRuntimeChild,
 } from "./agent-runtime.ts";
 import { createAgentRuntimeSecrets } from "./agent-runtime-secret.ts";
+import {
+  CONNECTION_TEST_CONTEXT,
+  withConnectionTest,
+} from "./provider-connection-test.ts";
 import { withViewBinding } from "./view-binding.ts";
 import {
   applyMigrations,
@@ -766,6 +770,21 @@ async function open(
     await runtime.close();
     return appsControlCredential;
   }
+  // 명시 연결 test(provider#R30)가 model call 기록·provider 상태를 쓰는 core 내부
+  // machine 자격 기록. 기록이 없으면 StartModelCall이 거절해 test가 실패한다.
+  const connectionTestCredential = await runtime.record(
+    CONNECTION_TEST_CONTEXT,
+  );
+  if (!connectionTestCredential.ok) {
+    await runtime.close();
+    return connectionTestCredential;
+  }
+  const connectionTestSecrets = {
+    ledgerPath,
+    keychain: () =>
+      options.secretKeychain ?? options.codingKeychain ?? productKeychain(),
+    known: () => runtime?.knownSecrets,
+  };
   const knownSecrets = runtime.knownSecrets;
   const redactLine = createProductRedactor(knownSecrets);
   // 앱 쌍 confirm의 approval 요청은 approval 글 준비를 지나는 writer로 낸다(사람이 보는 글은 blob이다).
@@ -1010,8 +1029,10 @@ async function open(
       // approval 설명 글(이유·변경·외부 영향·되돌림)도 같은 길이다.
       // handoff 내용(무엇·왜·제외·기대 결과)도 같은 길이다. 용어 후보·근거 변경은 writer에
       // 닿기 전에 고정 판 본문의 출현을 확인한다(documents Q8).
+      // 명시 연결 test(provider#R29, R30)는 writer queue 앞에서 네트워크를 기다린다.
       writer: withRevocationSweep(
-        withReleasePreparation(
+        withConnectionTest(
+          withReleasePreparation(
           withPlacementReservation(
             withTermOccurrence(
               withApprovalText(
@@ -1049,6 +1070,8 @@ async function open(
           ),
           appsControl.commands,
           appsControl.grantChange,
+        ),
+          connectionTestSecrets,
         ),
         () => appsControl.connector.sweep(),
       ),

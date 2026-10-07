@@ -20,4 +20,11 @@ export {
   type SecretAttachLike,
 } from "./adapters/auth-transport.ts";
 export { createFetchTransport } from "./adapters/transport.ts";
-export { credentialUsable } from "./credentials.ts";
+export { billingRouteOf, credentialUsable } from "./credentials.ts";
+export { loadProvider, listProviders } from "./store.ts";
+export {
+  type ConnectionTestDeps,
+  type ConnectionTestPort,
+  runConnectionTest,
+  type InvokeModelCall,
+} from "./work.ts";

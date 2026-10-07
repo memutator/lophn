@@ -545,6 +545,7 @@ export const lophnAgentDefinitions = {
     commands.refreshCredential,
     commands.recordAvailability,
     commands.recordCheck,
+    commands.test,
     modelCommands.change,
     usage.start,
     usage.finish,

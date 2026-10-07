@@ -186,7 +186,10 @@ export function createAppCall(deps: AppCallDeps) {
   // 막혔다고 말하지 않는다. view가 많아도 자라지 않게 같은 한도로 자른다.
   const starts = new Map<string, "blocked_before_start" | "started">();
 
-  function blocked<T>(view: BoundView, outcome: CallOutcome<T>): CallOutcome<T> {
+  function blocked<T>(
+    view: BoundView,
+    outcome: CallOutcome<T>,
+  ): CallOutcome<T> {
     remember(starts, view.view_session, "blocked_before_start");
     return outcome;
   }

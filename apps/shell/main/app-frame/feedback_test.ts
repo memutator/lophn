@@ -437,7 +437,10 @@ test("problems/reporting#R9, problems/feedback#R11: 응답을 잃은 제출은 �
     `submit ${REPORT}`,
   ]);
   assert.equal(w.submitted.length, 2);
-  assert.equal(w.submitted[1]!.input.report_id, w.submitted[0]!.input.report_id);
+  assert.equal(
+    w.submitted[1]!.input.report_id,
+    w.submitted[0]!.input.report_id,
+  );
   // 접수된 뒤에는 읽지도 보내지도 않는다.
   assert.deepEqual(await w.feedback.submit(w.overlay, TEXT), second);
   assert.equal(w.submitted.length, 2);
@@ -454,7 +457,10 @@ test("problems/reporting#R9: 읽어 보니 이미 접수됐으면 다시 보내�
   assert.deepEqual(again, { ok: true, value: ACCEPTED });
   assert.equal(w.submitted.length, 1);
   // 묶인 Issue로 갈 수 있다.
-  assert.equal(w.feedback.openIssue(w.overlay, { draftRef: "draft-1" }).ok, true);
+  assert.equal(
+    w.feedback.openIssue(w.overlay, { draftRef: "draft-1" }).ok,
+    true,
+  );
   assert.equal(w.issues.length, 1);
 });
 

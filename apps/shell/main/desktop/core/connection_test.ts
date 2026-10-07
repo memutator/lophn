@@ -24,7 +24,9 @@ function harness(hello: Promise<unknown>) {
   } as unknown as CoreProcess;
   const connection = startCoreConnection({
     launch: {} as never,
-    ipc: { handle: (channel, listener) => void handlers.set(channel, listener) },
+    ipc: {
+      handle: (channel, listener) => void handlers.set(channel, listener),
+    },
     // 구독 따라잡기 read는 끝나지 않는다. 상태는 ready에 머문다.
     fetch: () => new Promise(() => {}),
     sockets: { open: () => assert.fail("socket is not opened") },

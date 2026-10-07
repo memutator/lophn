@@ -707,6 +707,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 
 ### T37 MCP tool 이름, 분류, preset 선택
 
+- 상태: 완료 (#417)
 - 등급: 기본
 - concern: lophn-agent/extensions
 - 요구: lophn-agent/extensions#R11, R23, R24, R26, R27, R28, R29, R31

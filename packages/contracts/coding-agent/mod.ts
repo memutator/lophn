@@ -77,9 +77,9 @@ export {
   sessionPlanGuideOutputSchema,
   type SessionPlanInput,
   sessionPlanInputSchema,
-  sessionStartInputSchema,
   type SessionPlanOutput,
   sessionPlanOutputSchema,
+  sessionStartInputSchema,
 } from "./launch.ts";
 export {
   AUTH_RESULTS,

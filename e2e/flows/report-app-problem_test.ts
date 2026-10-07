@@ -7,8 +7,7 @@
 // snapshot·문제)는 사람 token의 같은 core 읽기 통로(`window.lophnCore`)로 읽는다. 사람 데이터 root
 // (~/.lophn)는 열지 않는다. HOME·LOPHN_HOME은 임시 폴더이고 띄운 Electron·core 트리는 정확한 pid로만 끝낸다.
 //
-// 앱 자식은 운영 앱의 실제 기동 entry가 아직 없어서(apps#T18 이어보냄, apps#T27이 닫는다) 준비된 bundle에
-// 실제 runtime entrypoint의 `main()`을 부르는 진입 파일을 더해 다시 봉인한 것이다(`withRuntimeEntry`).
+// 앱 자식은 준비한 bundle 그대로 뜬다. release 준비가 낸 진입 파일이 실제 runtime entrypoint의 `main()`을 부른다.
 // 여기서 보는 것: flow 1~6, 갈래(화면 없음 = view 가려짐·보호 창·lophn dialog, 시작 전 실패, 취소, 접수 실패,
 // 직접 시도 실패)와 problems/feedback#R5·R6·R11·R12·R13.
 // 이 flow가 구동하지 못하는 것(T23 상태 줄에 적었다):
@@ -25,13 +24,7 @@ import { DatabaseSync } from "node:sqlite";
 
 import { sha256Hex } from "../../packages/base/mod.ts";
 import { prepareFromSource } from "../../packages/apps/releases/prepare/from-source.ts";
-import {
-  bundleCopyPath,
-  declarationsOfBlueprint,
-  manifestBytes,
-  sealBundle,
-} from "../../packages/apps/releases/mod.ts";
-import type { BundleManifest } from "../../packages/contracts/apps/mod.ts";
+import { declarationsOfBlueprint } from "../../packages/apps/releases/mod.ts";
 import {
   devImportMap,
   readTemplateDirectory,
@@ -70,98 +63,6 @@ async function git(cwd: string, args: string[]): Promise<string> {
   }).output();
   assert(output.success, new TextDecoder().decode(output.stderr));
   return new TextDecoder().decode(output.stdout).trim();
-}
-
-const encoder = new TextEncoder();
-const packagesUrl = new URL("../../packages/", import.meta.url).href;
-
-// 앱 자식 진입 파일. 운영 앱 자식의 실제 기동 entry는 아직 시험 자식뿐이라(docs/plan/apps.md apps#T18
-// 이어보냄, apps#T27이 닫는다) 준비된 bundle의 main.ts는 command 등록만 하고 끝난다. 그래서 같은 bundle
-// 사본에 실제 runtime entrypoint의 `main()`을 부르는 진입 파일을 더해 다시 봉인한다. command handler·
-// 화면 build·blueprint는 fixture의 준비 결과 그대로이고 broker는 닫아 둔다(관측 전달은 앱 응답을 막지 않는다).
-const ENTRY =
-  `import { main } from "${packagesUrl}apps/runtime/entrypoint/main.ts";
-import { bundleScreenFiles } from "${packagesUrl}apps/runtime/entrypoint/screen-files.ts";
-
-async function readLine(): Promise<string> {
-  const reader = Deno.stdin.readable.getReader();
-  const decoder = new TextDecoder();
-  let text = "";
-  while (!text.includes("\\n")) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    text += decoder.decode(value, { stream: true });
-  }
-  return text;
-}
-
-const here = new URL("./", import.meta.url);
-const blueprint = JSON.parse(
-  await Deno.readTextFile(new URL("blueprint.json", here)),
-);
-const screens = bundleScreenFiles(decodeURIComponent(here.pathname));
-const line = await readLine();
-await main({
-  readLine: () => Promise.resolve(line),
-  importModule: (specifier) => import(specifier),
-  blueprint,
-  broker: () => Promise.resolve({ status: 503, body: null }),
-  dataSchema: ${DATA_SCHEMA},
-  reportTransport: () => Promise.resolve(null),
-  screenBytes: screens.screenBytes,
-  contentType: screens.contentType,
-});
-`;
-
-async function withRuntimeEntry(
-  home: string,
-  prepared: { copyPath: string; manifest: BundleManifest },
-): Promise<{ bundleHash: string; blueprintHash: string; blueprint: string }> {
-  const root = prepared.copyPath;
-  const blueprint = await Deno.readTextFile(`${root}/blueprint.json`);
-  const importMap = JSON.parse(
-    await Deno.readTextFile(`${root}/import-map.json`),
-  ) as { imports: Record<string, string> };
-  importMap.imports["@lophn/base"] = `${packagesUrl}base/mod.ts`;
-  const replaced = new Map<string, Uint8Array>([
-    ["import-map.json", encoder.encode(JSON.stringify(importMap))],
-    ["entry.ts", encoder.encode(ENTRY)],
-  ]);
-  const files: { path: string; bytes: Uint8Array }[] = [];
-  for (const file of prepared.manifest.files) {
-    if (file.path === "blueprint.json" || replaced.has(file.path)) continue;
-    files.push({
-      path: file.path,
-      bytes: await Deno.readFile(`${root}/${file.path}`),
-    });
-  }
-  for (const [path, bytes] of replaced) files.push({ path, bytes });
-  const manifest: BundleManifest = {
-    entrypoint: "entry.ts",
-    files: [
-      { path: "blueprint.json", hash: await sha256Hex(blueprint) },
-      ...await Promise.all(files.map(async (file) => ({
-        path: file.path,
-        hash: await sha256Hex(file.bytes),
-      }))),
-    ],
-    sdk_dependencies: prepared.manifest.sdk_dependencies,
-  };
-  const bundleHash = await sha256Hex(manifestBytes(manifest));
-  const copy = bundleCopyPath(home, APP, bundleHash);
-  assert(copy.ok, "bundle 사본 자리를 만들지 못했다");
-  const sealed = await sealBundle({
-    copyPath: copy.value,
-    manifest,
-    blueprintJson: encoder.encode(blueprint),
-    bundleFiles: files,
-  });
-  assert(sealed.ok, sealed.ok ? "" : sealed.error.message);
-  return {
-    bundleHash,
-    blueprintHash: await sha256Hex(blueprint),
-    blueprint,
-  };
 }
 
 /** fixture source를 commit하고 봉인 bundle로 준비해 `home` 아래에 둔다. 그 blueprint를 돌려준다. */
@@ -203,7 +104,13 @@ async function prepareBrokenApp(
       sdkRoot: installed.sdkRoot,
     });
     assert(prepared.ok, prepared.ok ? "" : JSON.stringify(prepared.error));
-    return await withRuntimeEntry(home, prepared.value);
+    return {
+      bundleHash: prepared.value.bundleHash,
+      blueprintHash: prepared.value.blueprintHash,
+      blueprint: await Deno.readTextFile(
+        `${prepared.value.copyPath}/blueprint.json`,
+      ),
+    };
   } finally {
     await removeTree(parent);
     await installed.dispose();
@@ -226,13 +133,14 @@ function seedLedger(
     ).run(APP, RELEASE);
     db.prepare(
       `INSERT INTO releases (id, app, number, code_commit, bundle_hash, blueprint_hash, data_schema, data_changes, ticket_source, created_by, created_at, status, activation, failure, blueprint, declarations)
-       VALUES (?, ?, 1, ?, ?, ?, 3, '[]', NULL, 'machine', ?, 'active', NULL, NULL, ?, ?)`,
+       VALUES (?, ?, 1, ?, ?, ?, ?, '[]', NULL, 'machine', ?, 'active', NULL, NULL, ?, ?)`,
     ).run(
       RELEASE,
       APP,
       "a".repeat(40),
       bundle.bundleHash,
       bundle.blueprintHash,
+      DATA_SCHEMA,
       "2026-10-01T00:00:00.000Z",
       bundle.blueprint,
       JSON.stringify(declarations),

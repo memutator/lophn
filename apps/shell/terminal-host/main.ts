@@ -14,6 +14,7 @@ import {
   yieldChunk,
 } from "./pty.ts";
 import { type ProcessGroup } from "./child-group.ts";
+import type { CodingAttachment, CodingHost } from "./coding-types.ts";
 import { RingBuffer } from "./ring-buffer.ts";
 
 export type FolderRecord = { folder_ref: string; path: string };
@@ -29,6 +30,14 @@ export type HostRequest =
     project: string;
     folder_ref?: string;
     folders: readonly FolderRecord[];
+    columns: number;
+    rows: number;
+  }
+  | {
+    // 사람이 누른 [Start]를 main이 다시 검사해 넘긴 LaunchPlan이다. host가 plan을 검사한다.
+    id: string;
+    type: "open-coding";
+    plan: unknown;
     columns: number;
     rows: number;
   }
@@ -62,6 +71,8 @@ export type HostDeps = {
   /** 종료 확인 사이의 기다림. 테스트가 줄인다. */
   sleep?: (ms: number) => Promise<void>;
   controlFd?: number;
+  /** coding TUI 시작. 없으면 open-coding은 거절한다. */
+  coding?: CodingHost;
 };
 
 type Session = {
@@ -71,6 +82,8 @@ type Session = {
   group: ProcessGroup | null;
   /** 사람이 보낸 입력. 재시작 때 재생하지 않는다. */
   typed: string[];
+  /** lophn이 연 coding TUI의 관측·prompt 전달. 일반 shell에는 없다. */
+  coding?: CodingAttachment;
 };
 
 export type Host = {
@@ -87,7 +100,115 @@ export type Host = {
 
 export function createHost(deps: HostDeps): Host {
   const sessions = new Map<string, Session>();
+  /** 같은 operation_id는 같은 runtime_ref다(shell/terminal#R12). 다시 spawn하지 않는다. */
+  const operations = new Map<string, string>();
   let seq = 0;
+
+  async function startCoding(
+    request: Extract<HostRequest, { type: "open-coding" }>,
+  ): Promise<TerminalReply> {
+    const coding = deps.coding;
+    if (!coding) {
+      return reject("spawn_failed", "coding launch is not available");
+    }
+    const claimed = (request.plan as { operation_id?: unknown } | null)
+      ?.operation_id;
+    const known = typeof claimed === "string"
+      ? sessions.get(operations.get(claimed) ?? "")
+      : undefined;
+    if (known) return { ok: true, runtime: { ...known.runtime } };
+    const prepared = coding.prepare(request.plan, {
+      env: deps.env,
+      checkFolder: deps.checkFolder,
+    });
+    if (!prepared.ok) return reject(prepared.reason, prepared.message);
+    const { launch } = prepared;
+    const plan = launch.plan;
+    const terminalRef = `term_${++seq}`;
+    const runtime: TerminalRuntime = {
+      terminal_ref: terminalRef,
+      project: plan.project,
+      folder_ref: plan.folder_ref,
+      cwd_at_start: launch.cwd,
+      program_path: launch.file,
+      launch_kind: "coding_tui",
+      state: "starting",
+      generation: 1,
+      columns: request.columns,
+      rows: request.rows,
+      exit_code: null,
+      failure_reason: null,
+      output_seq: 0,
+      dropped_output: false,
+      coding: {
+        operation_id: plan.operation_id,
+        ticket: plan.ticket,
+        connection: plan.connection,
+        prompt_delivery: plan.prompt_delivery.mode === "argv"
+          ? "none"
+          : "pending",
+      },
+    };
+    const attachment = coding.attach(
+      launch,
+      { runtime_ref: terminalRef, generation: 1 },
+      (outcome) => {
+        if (runtime.coding) {
+          runtime.coding = { ...runtime.coding, prompt_delivery: outcome };
+        }
+      },
+    );
+    const session: Session = {
+      runtime,
+      buffer: new RingBuffer(),
+      handle: null,
+      group: null,
+      typed: [],
+      coding: attachment,
+    };
+    // 동기로 먼저 잡아 두어 socket을 여는 동안 온 같은 operation_id도 같은 runtime을 본다.
+    sessions.set(terminalRef, session);
+    operations.set(plan.operation_id, terminalRef);
+    const begun = await attachment.begin();
+    if (!begun.ok) {
+      runtime.state = "exited";
+      runtime.failure_reason = "spawn_failed";
+      return { ok: true, runtime: { ...runtime } };
+    }
+    try {
+      const handle = deps.pty.spawn({
+        file: launch.file,
+        args: launch.args,
+        cwd: launch.cwd,
+        env: begun.env,
+        columns: request.columns,
+        rows: request.rows,
+        controlFd: deps.controlFd,
+      });
+      session.handle = handle;
+      session.group = deps.pty.group(handle.pid);
+      runtime.state = "running";
+      handle.onData((chunk) => {
+        attachment.output(chunk);
+        void acceptChunk(session, chunk);
+      });
+      handle.onExit((exit) => {
+        attachment.exited();
+        if (runtime.state === "unknown" || runtime.exit_code !== null) return;
+        runtime.state = "exited";
+        runtime.exit_code = exit.exitCode;
+        runtime.dropped_output = session.buffer.dropped;
+        session.handle = null;
+      });
+      attachment.spawned((text) => handle.write(text));
+    } catch {
+      attachment.abandon();
+      runtime.state = "exited";
+      runtime.failure_reason = "spawn_failed";
+      runtime.exit_code = null;
+    }
+    return { ok: true, runtime: { ...runtime } };
+  }
 
   function start(
     previous: Session | undefined,
@@ -211,6 +332,7 @@ export function createHost(deps: HostDeps): Host {
   return {
     handle(request) {
       if (request.type === "open") return start(undefined, request);
+      if (request.type === "open-coding") return startCoding(request);
       if (request.type === "host-lost") {
         const gone = this.dispose();
         const marked = gone.map((runtime) => {
@@ -266,6 +388,13 @@ export function createHost(deps: HostDeps): Host {
       }
       if (request.type === "close") return stop(session, deps.sleep);
       if (request.type === "restart") {
+        // coding TUI는 자동 resume·재spawn이 없다. 사람이 새 [Start]를 눌러야 한다(shell/terminal#R13).
+        if (session.runtime.launch_kind === "coding_tui") {
+          return reject(
+            "spawn_failed",
+            "coding TUI starts again only from a new start",
+          );
+        }
         return restart(session, request.id);
       }
       return reject("spawn_failed", "unknown request");
@@ -343,6 +472,8 @@ function settleRuntime(session: Session, confirmed: boolean): TerminalReply {
   session.handle = null;
   session.buffer.clear();
   session.typed.length = 0;
+  if (confirmed) session.coding?.exited();
+  else session.coding?.lost("종료를 확인하지 못했다");
   return { ok: true, runtime: { ...session.runtime } };
 }
 

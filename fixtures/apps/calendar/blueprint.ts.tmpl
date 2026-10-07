@@ -73,13 +73,11 @@ export function makeBlueprint(text: Text = en): Blueprint {
         input: {
           type: "object",
           properties: {
-            id: {
-              type: "integer",
-              description: text["events.summary.event-id"],
-              minimum: 1,
-            },
+            invocation: { type: "string", description: text["events.summary.event-id"], minLength: 1 },
+            receipt: { type: "string", description: text["events.summary.event-id"], minLength: 1 },
+            expected_revision: { type: "string", description: text["events.summary.event-id"], minLength: 1 },
           },
-          required: ["id"],
+          required: ["invocation", "receipt", "expected_revision"],
           additionalProperties: false,
         },
         revert: { supported: false },

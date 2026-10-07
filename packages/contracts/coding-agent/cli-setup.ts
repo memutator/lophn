@@ -216,6 +216,8 @@ export const HUMAN_ONLY_NAMES = [
   "harness update",
   "harness remove",
   "skills install",
+  // 시작 계획은 사람 클릭을 검증한 shell main만 부른다(sessions#R2).
+  "session plan",
 ] as const;
 
 export type HumanOnlyName = (typeof HUMAN_ONLY_NAMES)[number];

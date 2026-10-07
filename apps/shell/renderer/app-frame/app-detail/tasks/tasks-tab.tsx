@@ -17,7 +17,13 @@ import { t } from "@lophn/wording";
 import { Loadable } from "../loadable.tsx";
 import { useRead } from "../use-read.ts";
 import styles from "../app-detail.module.css";
-import { nextText, stateText, stateTone, validBody, validTitle } from "./model.ts";
+import {
+  nextText,
+  stateText,
+  stateTone,
+  validBody,
+  validTitle,
+} from "./model.ts";
 import { TaskDetailView } from "./task-detail.tsx";
 import type { TaskRow, TasksSource } from "./source.ts";
 
@@ -147,11 +153,13 @@ function TaskItem(
         </button>
         <StatusMark tone={stateTone(row.state)} label={stateText(row.state)} />
       </div>
-      {row.next === null ? null : (
-        <p className={styles.text} data-task-next={row.next}>
-          {nextText(row.next)}
-        </p>
-      )}
+      {row.next === null
+        ? null
+        : (
+          <p className={styles.text} data-task-next={row.next}>
+            {nextText(row.next)}
+          </p>
+        )}
     </li>
   );
 }

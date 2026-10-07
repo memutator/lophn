@@ -10,7 +10,12 @@ import { Loadable } from "../loadable.tsx";
 import { useRead } from "../use-read.ts";
 import styles from "../app-detail.module.css";
 import { startErrorText } from "./model.ts";
-import type { StartChoices, StartOutcome, TaskDetail, TasksSource } from "./source.ts";
+import type {
+  StartChoices,
+  StartOutcome,
+  TaskDetail,
+  TasksSource,
+} from "./source.ts";
 
 export interface StartPanelProps {
   app: string;
@@ -82,7 +87,10 @@ type Press =
   | { readonly state: "idle" }
   | { readonly state: "starting" }
   | { readonly state: "started" }
-  | { readonly state: "refused"; readonly outcome: Extract<StartOutcome, { ok: false }> }
+  | {
+    readonly state: "refused";
+    readonly outcome: Extract<StartOutcome, { ok: false }>;
+  }
   | { readonly state: "failed" };
 
 function StartForm(
@@ -127,7 +135,9 @@ function StartForm(
   }
 
   const chosenHarness = choices.harnesses.find((item) => item.id === harness);
-  const chosenFolder = choices.folders.find((item) => item.folder_ref === folder);
+  const chosenFolder = choices.folders.find((item) =>
+    item.folder_ref === folder
+  );
   const ready = chosenHarness !== undefined && connection !== null &&
     chosenFolder !== undefined;
 
@@ -234,7 +244,11 @@ function StartForm(
         : null}
       {press.state === "refused"
         ? (
-          <p className={styles.warning} role="alert" data-start-result="refused">
+          <p
+            className={styles.warning}
+            role="alert"
+            data-start-result="refused"
+          >
             {press.outcome.ownTerminal
               ? t("app-detail.error.start-own-terminal")
               : startErrorText(press.outcome.reason)}

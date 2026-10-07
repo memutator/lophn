@@ -2,10 +2,7 @@
 // core read이며 회수는 보호 창을 여는 일이다. 응답은 main의 contract client가 route output schema로 이미
 // 검사했다. 아래 모양은 그 schema에서 이 화면이 읽는 field만 옮긴 것이다. 연결 생성 command와 token은 이
 // 통로에 없다: 연결은 고정 intent(`CONNECT_INTENT`)만 보내고 main이 따로 검증한다(shell/desktop#R19).
-import {
-  type CodingApi,
-  CONNECT_INTENT,
-} from "../../../../../ipc/coding.ts";
+import { type CodingApi, CONNECT_INTENT } from "../../../../../ipc/coding.ts";
 import type { CoreSource } from "../../../connection/connection.ts";
 import { coreAppsSource } from "../../apps/core-source.ts";
 import type {

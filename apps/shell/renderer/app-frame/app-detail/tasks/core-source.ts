@@ -66,6 +66,7 @@ async function call<T>(
 function rowOf(value: ScreenSummary): TaskRow {
   return {
     id: value.id,
+    app: value.app,
     kind: value.kind,
     title: value.title,
     request: value.request,
@@ -224,13 +225,11 @@ export function coreTasksSource(
       if (!reply.ok) return { ok: false, code: reply.error.code };
       return {
         ok: true,
-        value: reply.value.ok
-          ? { ok: true }
-          : {
-            ok: false,
-            reason: reply.value.reason,
-            ownTerminal: reply.value.own_terminal,
-          },
+        value: reply.value.ok ? { ok: true } : {
+          ok: false,
+          reason: reply.value.reason,
+          ownTerminal: reply.value.own_terminal,
+        },
       };
     },
 

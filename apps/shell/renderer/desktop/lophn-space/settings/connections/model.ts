@@ -79,7 +79,9 @@ export function pickable(harness: HarnessView): boolean {
 }
 
 export function defaultLabel(harness: HarnessName): string {
-  return t("settings.label.coding-default-name", { name: harnessName(harness) });
+  return t("settings.label.coding-default-name", {
+    name: harnessName(harness),
+  });
 }
 
 export function scopeText(
@@ -112,7 +114,9 @@ export function installText(status: ConnectView["install"]["status"]): string {
   }
 }
 
-export function installTone(status: ConnectView["install"]["status"]): StatusTone {
+export function installTone(
+  status: ConnectView["install"]["status"],
+): StatusTone {
   return status === "complete" ? "good" : "serious";
 }
 
@@ -151,7 +155,9 @@ export function checkText(result: "success" | "failure" | "unknown"): string {
 }
 
 /** 확인하지 못한 단계를 성공 색으로 칠하지 않는다. */
-export function checkTone(result: "success" | "failure" | "unknown"): StatusTone {
+export function checkTone(
+  result: "success" | "failure" | "unknown",
+): StatusTone {
   return result === "success"
     ? "good"
     : result === "failure"

@@ -102,13 +102,19 @@ export function CodingConnectionsPanel(
     return (id: string) => names.get(id) ?? null;
   }, [apps]);
   const [connected, setConnected] = useState<
-    { readonly harness: HarnessView["harness_id"]; readonly view: ConnectView } | null
+    | {
+      readonly harness: HarnessView["harness_id"];
+      readonly view: ConnectView;
+    }
+    | null
   >(null);
 
   return (
     <div className={styles.groups} data-coding-connections="">
       <section className={styles.section} data-section="harnesses">
-        <h2 className={styles.heading}>{t("settings.heading.coding-agents")}</h2>
+        <h2 className={styles.heading}>
+          {t("settings.heading.coding-agents")}
+        </h2>
         <p className={styles.text}>{t("settings.note.coding-intro")}</p>
         <Harnesses
           source={source}
@@ -121,12 +127,17 @@ export function CodingConnectionsPanel(
             reloadConnections();
           }}
         />
-        {connected === null
-          ? null
-          : <ConnectedResult harness={connected.harness} view={connected.view} />}
+        {connected === null ? null : (
+          <ConnectedResult
+            harness={connected.harness}
+            view={connected.view}
+          />
+        )}
       </section>
       <section className={styles.section} data-section="connections">
-        <h2 className={styles.heading}>{t("settings.heading.coding-access")}</h2>
+        <h2 className={styles.heading}>
+          {t("settings.heading.coding-access")}
+        </h2>
         <Connections
           source={source}
           connections={connections}
@@ -169,7 +180,10 @@ function Harnesses(
 
   if (detected.state === "failed") {
     return (
-      <ErrorState target={t("settings.label.coding-target")} onRetry={onRetry} />
+      <ErrorState
+        target={t("settings.label.coding-target")}
+        onRetry={onRetry}
+      />
     );
   }
   return (
@@ -432,13 +446,15 @@ function ConnectForm(
           {t("settings.button.cancel")}
         </Button>
       </div>
-      {failed === null
-        ? null
-        : (
-          <p className={styles.notice} role="alert" data-connect-failed={failed}>
-            {connectErrorText(failed)}
-          </p>
-        )}
+      {failed === null ? null : (
+        <p
+          className={styles.notice}
+          role="alert"
+          data-connect-failed={failed}
+        >
+          {connectErrorText(failed)}
+        </p>
+      )}
     </form>
   );
 }
@@ -480,23 +496,25 @@ function ConnectedResult(
           </ul>
         )}
       <p className={styles.muted}>{t("settings.note.coding-start-note")}</p>
-      {view.install.resources.length === 0 ? null : (
-        <details data-install-details="">
-          <summary className={styles.muted}>
-            {t("settings.label.coding-install-details")}
-          </summary>
-          <ul className={styles.results}>
-            {view.install.resources.map((resource) => (
-              <li key={resource.identity} className={styles.muted}>
-                {t("settings.label.coding-detail-resource", {
-                  place: resource.identity,
-                  outcome: resource.outcome,
-                })}
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
+      {view.install.resources.length === 0
+        ? null
+        : (
+          <details data-install-details="">
+            <summary className={styles.muted}>
+              {t("settings.label.coding-install-details")}
+            </summary>
+            <ul className={styles.results}>
+              {view.install.resources.map((resource) => (
+                <li key={resource.identity} className={styles.muted}>
+                  {t("settings.label.coding-detail-resource", {
+                    place: resource.identity,
+                    outcome: resource.outcome,
+                  })}
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
     </div>
   );
 }

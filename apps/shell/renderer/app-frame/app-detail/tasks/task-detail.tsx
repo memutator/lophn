@@ -97,19 +97,25 @@ function TaskBody(
 ) {
   // 가장 최근에 연 TUI가 지금 보는 것이다. 같은 Task에 여러 번 시작했을 수 있다.
   const tui = sessions.at(-1) ?? null;
-  const stopped = tui !== null && (tui.tui === "ended" || tui.tui === "unknown");
+  const stopped = tui !== null &&
+    (tui.tui === "ended" || tui.tui === "unknown");
   return (
     <div className={styles.section} data-task-detail={task.state}>
       <div className={styles.rowHead}>
         <p className={styles.title} data-task-title="">{task.title}</p>
-        <StatusMark tone={stateTone(task.state)} label={stateText(task.state)} />
+        <StatusMark
+          tone={stateTone(task.state)}
+          label={stateText(task.state)}
+        />
       </div>
       <p className={styles.text} data-task-request="">{task.request}</p>
-      {task.next === null ? null : (
-        <p className={styles.text} data-task-next={task.next}>
-          {nextText(task.next)}
-        </p>
-      )}
+      {task.next === null
+        ? null
+        : (
+          <p className={styles.text} data-task-next={task.next}>
+            {nextText(task.next)}
+          </p>
+        )}
 
       {task.next === "needs_confirmation" && task.needs.length > 0
         ? (
@@ -183,7 +189,11 @@ function OwnTerminal(
         {requestSentence(task)}
       </p>
       <div className={styles.actions}>
-        <Button size="sm" data-action="copy-request" onClick={() => void copy()}>
+        <Button
+          size="sm"
+          data-action="copy-request"
+          onClick={() => void copy()}
+        >
           {t("app-detail.button.copy-request")}
         </Button>
       </div>
@@ -210,15 +220,19 @@ function TuiSection({ tui }: { tui: TuiSession }) {
   const prompt = promptText(tui.promptDelivery);
   return (
     <section className={styles.section} data-section="tui" data-tui={tui.tui}>
-      <h5 className={styles.heading}>{t("app-detail.heading.task-terminal")}</h5>
+      <h5 className={styles.heading}>
+        {t("app-detail.heading.task-terminal")}
+      </h5>
       <p className={styles.text}>
         <StatusMark tone={tuiTone(tui.tui)} label={tuiText(tui.tui)} />
       </p>
-      {prompt === null ? null : (
-        <p className={styles.muted} data-prompt={tui.promptDelivery}>
-          {prompt}
-        </p>
-      )}
+      {prompt === null
+        ? null
+        : (
+          <p className={styles.muted} data-prompt={tui.promptDelivery}>
+            {prompt}
+          </p>
+        )}
       <p className={styles.muted}>{t("app-detail.note.tui-separate")}</p>
     </section>
   );
@@ -374,14 +388,22 @@ function CancelSection(
         )}
       {state === "changed"
         ? (
-          <p className={styles.warning} role="alert" data-cancel-result="changed">
+          <p
+            className={styles.warning}
+            role="alert"
+            data-cancel-result="changed"
+          >
             {t("app-detail.error.cancel-changed")}
           </p>
         )
         : null}
       {state === "failed"
         ? (
-          <p className={styles.warning} role="alert" data-cancel-result="failed">
+          <p
+            className={styles.warning}
+            role="alert"
+            data-cancel-result="failed"
+          >
             {t("app-detail.error.cancel-failed")}
           </p>
         )

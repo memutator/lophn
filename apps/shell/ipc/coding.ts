@@ -66,7 +66,12 @@ export interface HarnessView {
   readonly discovery: HarnessDiscovery;
   readonly version: string | null;
   readonly version_result: "verified" | "unknown" | "error";
-  readonly auth: "verified" | "not_verified" | "unknown" | "error" | "unverified_capability";
+  readonly auth:
+    | "verified"
+    | "not_verified"
+    | "unknown"
+    | "error"
+    | "unverified_capability";
   readonly profile_id: string | null;
   readonly observed_at: string;
   readonly freshness: "fresh" | "stale";
@@ -155,7 +160,10 @@ export type CodingReply<T> =
   | { readonly ok: true; readonly value: T }
   | {
     readonly ok: false;
-    readonly error: { readonly code: CodingFailureCode; readonly message: string };
+    readonly error: {
+      readonly code: CodingFailureCode;
+      readonly message: string;
+    };
   };
 
 /** preload가 desktop 창 본문에 여는 통로. */

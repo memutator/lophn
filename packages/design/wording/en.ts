@@ -273,7 +273,7 @@ export const en = {
   "app-detail.label.condition-app-test": "The app's own tests pass",
   "app-detail.label.condition-human": "You confirm it",
   "app-detail.label.condition-issues-closed": "The related issues are closed",
-  "app-detail.label.condition-number": "Check {number}",
+  "app-detail.label.condition-number": "Check {number, number}",
   "app-detail.label.condition-reproduction": "The reproduction test passes",
   "app-detail.label.condition-test-command": "A test command passes",
   "app-detail.label.condition-version-in-use": "The new version is in use",

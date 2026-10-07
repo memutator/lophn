@@ -32,6 +32,8 @@ export type TaskNext =
 
 export interface TaskRow {
   readonly id: string;
+  /** 이 Task가 속한 앱. 링크로 온 Task의 앱 공간을 여는 데 쓰고 화면에는 보이지 않는다. */
+  readonly app: string;
   readonly kind: "implementation" | "repair";
   readonly title: string;
   /** 사람이 읽을 요청 문장. 복사할 문장의 본문이다. */
@@ -148,5 +150,8 @@ export interface TasksSource {
     reason: string,
   ): Promise<SourceResult<null>>;
   /** 사람이 새 Task를 만든다. 확인 창이 없다. */
-  create(app: string, draft: TaskDraft): Promise<SourceResult<{ ticket: string }>>;
+  create(
+    app: string,
+    draft: TaskDraft,
+  ): Promise<SourceResult<{ ticket: string }>>;
 }

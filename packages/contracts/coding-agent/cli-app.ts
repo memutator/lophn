@@ -14,14 +14,16 @@ import {
 } from "../apps/package-routes.ts";
 import {
   ticketChecks,
+  ticketCreateInputSchema,
   ticketList,
   ticketShow,
   ticketShowInputSchema,
 } from "./ticket-routes.ts";
 import {
+  ticketCancelInputSchema,
   ticketReleaseClaim,
   ticketRenewClaim,
-  ticketReportCompletion,
+  ticketReportToolInputSchema,
 } from "./ticket-claims.ts";
 import { cliCommonSchema } from "./cli-core.ts";
 
@@ -190,10 +192,30 @@ export const cliTicketReleaseSchema = withCommon(
   "ticket release",
   ticketReleaseClaim.input,
 );
+// 완료 보고는 summary 본문을 받는다. completion seq는 입력이 아니고 통로가 upload_summary로
+// 올린 준비 참조로 보낸다(cli#R36).
 export const cliTicketReportSchema = withCommon(
   "ticket report",
-  ticketReportCompletion.input,
+  ticketReportToolInputSchema,
 );
+
+// 사람 전용 `ticket create|cancel`(cli#R37). 같은 필수 입력 검사와 취소 사유를 소유 입력으로
+// 검사한다. CLI는 사람 credential을 읽지 않으므로 실행하지 않고 결정 화면 링크로 넘긴다
+// (coding-agent 계획 질문 Q1). coding credential에는 이 command도 목표 수정·공개·확인 판정·
+// test result 작성도 없다.
+export const cliTicketCreateSchema = withCommon(
+  "ticket create",
+  ticketCreateInputSchema,
+);
+export const cliTicketCancelSchema = withCommon(
+  "ticket cancel",
+  ticketCancelInputSchema,
+);
+export const CLI_TICKET_HUMAN_NAMES = [
+  "ticket create",
+  "ticket cancel",
+] as const;
+export type CliTicketHumanName = (typeof CLI_TICKET_HUMAN_NAMES)[number];
 
 export const CLI_APP_NAMES = [
   "app list",

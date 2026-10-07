@@ -9,11 +9,13 @@ import {
   createConnectionReads,
   createConnectionSecretRefSource,
 } from "../../packages/coding-agent/mod.ts";
+import { err } from "../../packages/base/mod.ts";
 import {
   connectionConnect,
   defaultHarnessSetting,
   harnessEnabledSetting,
   harnessProfileSetting,
+  REPAIR_CONTEXT_ROUTES,
 } from "../../packages/contracts/coding-agent/mod.ts";
 import type { ReaderRegistration } from "../../packages/platform/ledger/mod.ts";
 
@@ -46,6 +48,15 @@ export const codingAgentConnectionDefinitions = {
   settings: harnessSettings,
   commands: [commands.create, commands.revoke],
   reads: [reads.list, reads.show],
+  // 수리 자료 route다. route만 선언하고 handler는 worker 통로를 가진 core 조립(repair-context)이 붙인다.
+  apiReads: REPAIR_CONTEXT_ROUTES.map((route) => ({
+    route,
+    handle: () =>
+      err({
+        code: "unavailable" as const,
+        message: "수리 자료 읽기가 붙어 있지 않다",
+      }),
+  })),
   // 사람의 연결 결정 입구다. handler는 core 조립(core.ts)이 route 이름으로 붙인다.
   memoryRoutes: [connectionConnect],
   // connection credential(keychain의 token)도 알려진 값 registry에 등록·회수된다(connection#R17).

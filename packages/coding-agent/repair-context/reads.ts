@@ -2,11 +2,7 @@
 // credential로 부르는 client라 범위 밖 대상은 core가 없는 대상과 같은 답으로 거절한다. 이 port는
 // ledger·앱 DB·원본 파일을 직접 열지 않는다.
 import { err, ok, type Result } from "../../base/mod.ts";
-import {
-  blobsRead,
-  type ReadRoute,
-  type Route,
-} from "../../contracts/platform/mod.ts";
+import type { ReadRoute, Route } from "../../contracts/platform/mod.ts";
 import {
   getProblem,
   getReport,
@@ -14,6 +10,7 @@ import {
   listProblems,
   listReports,
   listVerifications,
+  reportBody,
 } from "../../contracts/problems/mod.ts";
 import {
   invocationsGet,
@@ -59,19 +56,14 @@ async function parsed<R extends ReadRoute>(
   return ok(output.data as ReturnType<R["output"]["parse"]>);
 }
 
-function decode(base64: string): string {
-  const raw = atob(base64);
-  const bytes = Uint8Array.from(raw, (char) => char.charCodeAt(0));
-  return new TextDecoder().decode(bytes);
-}
-
 async function defaultBlob(
   client: RepairReadClient,
   ref: { owner_kind: string; owner_key: string; field: string },
   maxBytes: number,
 ): Promise<BlobText> {
-  const read = await parsed(client, blobsRead, {
-    ...ref,
+  const read = await parsed(client, reportBody, {
+    report: ref.owner_key,
+    field: ref.field,
     offset_bytes: 0,
     length_bytes: maxBytes,
   });
@@ -89,7 +81,7 @@ async function defaultBlob(
   }
   return {
     kind: "text",
-    text: decode(result.bytes),
+    text: result.text,
     truncated: result.truncated,
   };
 }

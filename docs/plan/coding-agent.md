@@ -1344,7 +1344,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T38 LaunchPlan과 첫 prompt
 
-- 상태: 진행 (#PR)
+- 상태: 완료 (#431)
 - 등급: 기본
 - concern: coding-agent/sessions, coding-agent/harnesses
 - 요구: coding-agent/sessions#R1, R2, R3, R4, R5, R10; coding-agent/harnesses#R5

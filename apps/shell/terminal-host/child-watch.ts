@@ -205,7 +205,9 @@ function ppidOf(stat: string): number | undefined {
 }
 
 /** Linux /proc 기반 process table. 다른 OS는 비어 있다. */
-export function procTree(platform: NodeJS.Platform = process.platform): ProcessTree {
+export function procTree(
+  platform: NodeJS.Platform = process.platform,
+): ProcessTree {
   return {
     entries() {
       const out = new Map<number, ProcessEntry>();

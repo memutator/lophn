@@ -1238,6 +1238,7 @@ function readSelectedBody(
       row["place_id"] === null || row["place_id"] === undefined
         ? undefined
         : String(row["place_id"]),
+      typeof reference.version === "string" ? reference.version : undefined,
     )
   ) return deny();
   const latest = latestVersion(deps.snapshot, document);
@@ -1562,6 +1563,9 @@ export function createOutlineHandlers(
           row["place_id"] === null || row["place_id"] === undefined
             ? undefined
             : String(row["place_id"]),
+          "version" in reference && typeof reference.version === "string"
+            ? reference.version
+            : undefined,
         )
       ) return deny();
       const latest = latestVersion(deps.snapshot, document);

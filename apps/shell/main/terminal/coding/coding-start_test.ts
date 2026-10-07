@@ -13,7 +13,7 @@ import {
   childPlanRunner,
   createCodingStart,
   createObservationStore,
-} from "../coding-start.ts";
+} from "./coding-start.ts";
 import { createSupervisor, type HostProcess } from "../supervisor.ts";
 import {
   APP,

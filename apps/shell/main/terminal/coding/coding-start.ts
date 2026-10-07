@@ -26,12 +26,12 @@ import {
   ticketIdSchema,
   ticketScreenDetailOutputSchema,
   unknownObservation,
-} from "../../../../packages/contracts/coding-agent/mod.ts";
-import { projectIdSchema } from "../../../../packages/contracts/documents/values.ts";
-import { seqSchema } from "../../../../packages/contracts/platform/mod.ts";
+} from "../../../../../packages/contracts/coding-agent/mod.ts";
+import { projectIdSchema } from "../../../../../packages/contracts/documents/values.ts";
+import { seqSchema } from "../../../../../packages/contracts/platform/mod.ts";
 import { z } from "zod";
 
-import type { TerminalReply, TerminalRuntime } from "../../ipc/terminal.ts";
+import type { TerminalReply, TerminalRuntime } from "../../../ipc/terminal.ts";
 
 /** [Start]를 누른 사람이 본 값이다. renderer는 이것만 보내고 main이 다시 검사한다. */
 export const codingStartClickSchema = z.strictObject({

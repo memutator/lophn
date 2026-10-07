@@ -30,6 +30,7 @@ import {
 } from "./provider-inputs.ts";
 import {
   providerCredentialOutputSchema,
+  providerDefinitionOutputSchema,
   providerRecordSchema,
 } from "./provider-values.ts";
 
@@ -189,6 +190,17 @@ export const providerCredentialList = defineRead({
   output: withReadCommon(z.object({
     credentials: z.array(providerCredentialOutputSchema),
   })),
+  actors: readActors,
+  errors: [...readErrors],
+});
+
+// lophn이 알아두는 연결 가능 provider의 내장 정의. ledger row가 아니라 product catalog다.
+export const providerDefinitions = defineRead({
+  resource: "providers",
+  method: "definitions",
+  name: "ListProviderDefinitions",
+  input: z.strictObject({}),
+  output: z.object({ definitions: z.array(providerDefinitionOutputSchema) }),
   actors: readActors,
   errors: [...readErrors],
 });

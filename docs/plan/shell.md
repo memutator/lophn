@@ -607,7 +607,7 @@ concerns: [shell]
 
 ### T30 roles 화면: 하는 일, 만든 것, 대화, 작업 검토, Preset
 
-- 상태: 완료 (#PR) — 이어보냄: lophn 답의 streaming 임시 글(renderer로 오는 streaming 통로가 core·main에 없다 → lead가 소유를 정한다, 대화 탭과 도크가 같은 message-list라 통로가 서면 한 번에 이어진다), Operator의 붙이기·Preset 적용(보호 승인)·멈춤·회수 → T54, `agent-traces/export` route 구현 → lophn-agent#T40(그 전에는 export가 실패로 보인다), skill 발견 결과와 MCP server의 연결 중 전체 tool 목록을 읽는 route(Preset 편집은 skill을 정확한 이름 입력으로, tool은 사람이 분류한 것만 고른다 → lophn-agent#T35·T36)
+- 상태: 완료 (#445) — 이어보냄: lophn 답의 streaming 임시 글(renderer로 오는 streaming 통로가 core·main에 없다 → lead가 소유를 정한다, 대화 탭과 도크가 같은 message-list라 통로가 서면 한 번에 이어진다), Operator의 붙이기·Preset 적용(보호 승인)·멈춤·회수 → T54, `agent-traces/export` route 구현 → lophn-agent#T40(그 전에는 export가 실패로 보인다), skill 발견 결과와 MCP server의 연결 중 전체 tool 목록을 읽는 route(Preset 편집은 skill을 정확한 이름 입력으로, tool은 사람이 분류한 것만 고른다 → lophn-agent#T35·T36)
 
 - 등급: frontend
 - concern: shell/desktop

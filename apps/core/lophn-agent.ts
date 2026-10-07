@@ -406,7 +406,9 @@ const handoffReads = createHandoffReads({
 // run revert(concern revert). 종료한 run의 event 전체를 owner별로 분류해 복원 가능한 변경을
 // 소유 concern의 새 변경으로 되돌린다. 문서 복원은 documents가 dispatchable로 선언한
 // `document.archive`·`document.restore`를 같은 Tx에서 부르고(`tx.call`), 과거 사실은 모두
-// 유지한다. 요청은 사람만 하고 확인 handle이 필요하다. 앱 복원 단계는 lophn-agent#T48이 더한다.
+// 유지한다. 요청은 사람만 하고 확인 handle이 필요하다. 앱 되돌림 단계(lophn-agent#T48)는
+// run이 applying으로 저장한 revert에 대해 machine이 단계를 CheckpointRevert로 기록하고
+// 전체가 끝났으면 FinishRevert로 끝낸다. 실제 앱 호출은 runtime이 direct call로 한다.
 const revertOwners = defaultRevertOwners();
 const revertCommands = createRevertCommands({ owners: revertOwners });
 const revertReads = createRevertReads({ owners: revertOwners });
@@ -594,6 +596,8 @@ export const lophnAgentDefinitions = {
     waitCommands.correct,
     waitCommands.recover,
     revertCommands.run,
+    revertCommands.checkpoint,
+    revertCommands.finish,
   ],
   reads: [
     reads.read,

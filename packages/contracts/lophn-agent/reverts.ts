@@ -134,6 +134,8 @@ export const checkpointRevertInputSchema = z.strictObject({
 export const finishRevertInputSchema = z.strictObject({
   revert: idSchema("rvt"),
   step_keys: z.array(z.string().min(1)).min(1),
+  // machine이 되돌림을 끝낼 때 저장된 reversible 묶음과 맞추고 prepared 보상 값을 다시 건넨다(R11).
+  groups: z.array(preparedSchema).min(1).optional(),
 });
 
 const revertHeaderOutput = z.object({
@@ -294,4 +296,6 @@ export const REVERT_EVENTS = [
   revertFinished,
 ] as const;
 
-export { revertChangeSchema, revertGroupSchema };
+export type AppRevertBinding = z.infer<typeof appRevertBindingSchema>;
+
+export { appRevertBindingSchema, revertChangeSchema, revertGroupSchema };

@@ -1,7 +1,7 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
-  providerDefinitions,
   type ProviderDefinition,
+  providerDefinitions,
 } from "../../../contracts/lophn-agent/mod.ts";
 import type { ApiReadDefinition } from "../../../contracts/platform/mod.ts";
 import { providerDefinitionSchema } from "../../../contracts/lophn-agent/mod.ts";

@@ -2,8 +2,8 @@
 // product catalog 값으로 답한다(core api read 길이).
 import { assert, assertEquals } from "@std/assert";
 import {
-  providerDefinitionSchema,
   providerDefinitions,
+  providerDefinitionSchema,
 } from "../../../contracts/lophn-agent/mod.ts";
 import {
   builtinProviderDefinition,
@@ -37,8 +37,11 @@ Deno.test("lophn-agent/harness/provider#R1: 내장 정의는 지원 대상 전�
     "lm-studio",
     "llama-cpp",
   ]);
-  assertEquals(definitions.map((definition) => definition.revision), Array
-    .from({ length: 10 }, () => "2026-10"));
+  assertEquals(
+    definitions.map((definition) => definition.revision),
+    Array
+      .from({ length: 10 }, () => "2026-10"),
+  );
 });
 
 Deno.test("lophn-agent/harness/provider#R1: R1 첫 판의 인증 방식과 OAuth 검증 상태를 그대로 담는다", () => {

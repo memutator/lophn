@@ -44,7 +44,8 @@ const ABSENT_COMMANDS: Record<string, readonly string[]> = {
     "secret",
     "secret set",
   ],
-  // cli#R6: 프로젝트·tracking·context·term·assignment 관리, 승인 결정·grant, 문제 닫힘·무시·사람 확인
+  // cli#R6: 프로젝트·tracking·context·term·assignment 관리, 승인 결정·grant, 문제 닫힘·무시.
+  // `problem confirm`·`problem dismiss`는 결정 화면 안내만 내는 사람 전용 command라 표에 있다(T44, D27).
   R6: [
     "project register",
     "project create",
@@ -64,7 +65,6 @@ const ABSENT_COMMANDS: Record<string, readonly string[]> = {
     "grant revoke",
     "problem close",
     "problem ignore",
-    "problem confirm",
     "backup",
     "backup list",
     "db",

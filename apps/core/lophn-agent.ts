@@ -99,6 +99,7 @@ import {
   createHandoffReads,
   handoffBodyFields,
 } from "../../packages/lophn-agent/handoff/mod.ts";
+import { createTraceReads } from "../../packages/lophn-agent/observability/mod.ts";
 import {
   createRevertCommands,
   createRevertEventVisibility,
@@ -412,6 +413,10 @@ const revertOwners = defaultRevertOwners();
 const revertCommands = createRevertCommands({ owners: revertOwners });
 const revertReads = createRevertReads({ owners: revertOwners });
 
+// run·session·독립 호출의 trace 조회(concern observability). trace는 저장하지 않고 조회 때
+// run·event·ModelCall·ToolCall·message 참조에서 조립한다. 쓰는 표가 없어 command·schema step이 없다.
+const traceReads = createTraceReads();
+
 // tool call ledger(concern harness/tools). 기록은 machine 전용이다. 입력·출력
 // 원문은 blob 참조만 남긴다.
 const toolCommands = createToolCommands();
@@ -626,6 +631,7 @@ export const lophnAgentDefinitions = {
     questionReads.list,
     revertReads.preview,
     revertReads.list,
+    traceReads.read,
   ],
   // model.call 본문은 blob 참조만 남는다(R4). tool call 입력·출력도 같은 종류다.
   // 메시지 본문은 영구 참조다(conversation#R2).
@@ -742,6 +748,7 @@ export function createReaderRegistration(): ReaderRegistration {
       questionReads.list,
       revertReads.preview,
       revertReads.list,
+      traceReads.read,
     ],
     ports: new Map(),
   };

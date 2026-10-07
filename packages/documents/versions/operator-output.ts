@@ -20,15 +20,6 @@ function rejected(code: string, message: string): Result<never> {
   return err({ code: code as "forbidden", message });
 }
 
-// Operator 자격인지. 역할은 credential이 고정한 agent 상한에서만 읽고 본문 주장은 보지 않는다.
-// Operator가 아닌 agent의 저장은 이 규칙의 대상이 아니다.
-function operatorAssignment(ctx: RequestContext): string | null {
-  const actor = parseActor(ctx.actor);
-  if (actor?.kind !== "agent") return null;
-  const agent = (ctx.scope as { agent?: { role?: unknown } }).agent;
-  return agent?.role === "operator" ? actor.id : null;
-}
-
 // 문서가 없을 때 저장 command가 주는 답과 같다: 기준 판이 있거나 metadata가 없으면 새 문서
 // 입력이 아니고, 새 문서 입력은 Operator가 만들 수 없어 forbidden이다. 출력이 아닌 문서와 다른
 // assignment의 출력은 없는 문서와 똑같이 답해 존재를 새지 않는다.
@@ -46,15 +37,21 @@ export function operatorOutputRejected(
   document: Document | null,
   prepared: PreparedVersion,
 ): Result<never> | undefined {
-  const assignment = operatorAssignment(ctx);
-  if (assignment === null) return undefined;
-  if (document === null) return absentAnswer(prepared);
-  let lookup;
+  const actor = parseActor(ctx.actor);
+  if (actor?.kind !== "agent") return undefined;
+  const assignment = actor.id;
+  // Operator인지는 lophn-agent가 같은 Tx에서 답한다. Operator가 아닌 agent의 저장은 이 규칙의 대상이 아니다.
+  let port;
   try {
-    lookup = tx.port(OperatorOutput).output(document.id);
+    port = tx.port(OperatorOutput);
   } catch {
     return rejected("unavailable", "operator output lookup unavailable");
   }
+  const operator = port.isOperator(assignment);
+  if (!operator.ok) return operator;
+  if (!operator.value) return undefined;
+  if (document === null) return absentAnswer(prepared);
+  const lookup = port.output(document.id);
   if (!lookup.ok) return lookup;
   if (lookup.value === null || lookup.value.assignment !== assignment) {
     return absentAnswer(prepared);

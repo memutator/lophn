@@ -533,6 +533,13 @@ const operatorOutputPort = defineTxPort(OperatorOutput, (tx) => ({
       state: String(row["state"]) as "enabled" | "paused" | "withdrawn",
     });
   },
+  isOperator: (assignment: string) =>
+    ok(
+      tx.sql.get(
+        "select 1 as found from assignments where id = ? and role = 'operator'",
+        [assignment],
+      ) !== undefined,
+    ),
 }));
 
 export const lophnAgentDefinitions = {

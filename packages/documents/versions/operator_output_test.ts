@@ -28,12 +28,15 @@ const NEXT_IN_SERIES = "doc_01arz3ndektsv4rrffq69g5fb1";
 
 type Fixture = ReturnType<typeof makeFixture>;
 
-// 문서 → 출력으로 가진 assignment. 판정 port가 같은 Tx에서 이 표를 읽는다.
+// 문서 → 출력으로 가진 assignment와 Operator assignment 집합. 판정 port가 같은 Tx에서 이 표를 읽는다.
+const OPERATORS = new Set([ASSIGNMENT, OTHER_ASSIGNMENT]);
+
 function makeFixture(outputs: Map<string, string>) {
   return versionFixture(
     undefined,
     undefined,
     {
+      isOperator: (assignment: string) => ok(OPERATORS.has(assignment)),
       output: (document: string) => {
         const assignment = outputs.get(document);
         return ok(
@@ -46,21 +49,14 @@ function makeFixture(outputs: Map<string, string>) {
   );
 }
 
-function operator(assignment = ASSIGNMENT, role = "operator") {
-  return {
-    ...userContext(`agent:${assignment}`, ids.run),
-    scope: {
-      operations: [],
-      targets: {},
-      agent: { role, assignment, apps: [] },
-    },
-  };
+function operator(assignment = ASSIGNMENT) {
+  return userContext(`agent:${assignment}`, ids.run);
 }
 
 function save(
   fixture: Fixture,
   input: ReturnType<typeof preparedInput>,
-  actor: ReturnType<typeof operator> | ReturnType<typeof userContext>,
+  actor: ReturnType<typeof userContext>,
 ) {
   return fixture.transaction((tx) =>
     commands.save.handle(tx, actor as never, input as never, {
@@ -212,9 +208,16 @@ Deno.test("documents/versions#R14: Operator의 자리·이름 변경 입력과 f
       ]
     ) {
       forbidden(
-        next(fixture, ids.doc, seed.version, NEXT_HASH, `format-${format.name}`, {
-          format,
-        }),
+        next(
+          fixture,
+          ids.doc,
+          seed.version,
+          NEXT_HASH,
+          `format-${format.name}`,
+          {
+            format,
+          },
+        ),
       );
     }
     assertEquals(versionCount(fixture, ids.doc), 1);
@@ -280,6 +283,7 @@ Deno.test("documents/versions#R14: 출력이 아닌 문서와 다른 assignment�
 
 Deno.test("documents/versions#R14: 판정 port가 실패하면 Operator 저장은 거절되고 Operator가 아닌 agent는 이 범위의 대상이 아니다", () => {
   const failing = versionFixture(undefined, undefined, {
+    isOperator: (assignment: string) => ok(assignment === ASSIGNMENT),
     output: () => err({ code: "unavailable", message: "down" }),
   });
   try {
@@ -287,7 +291,7 @@ Deno.test("documents/versions#R14: 판정 port가 실패하면 Operator 저장�
     const refused = next(failing, ids.doc, seed.version, NEXT_HASH, "down");
     assert(!refused.ok);
     assertEquals(refused.error.code, "unavailable");
-    // Operator가 아닌 agent(lophn 역할)는 port를 묻지 않고 일반 agent 출력으로 저장한다.
+    // Operator가 아닌 agent는 출력 범위를 묻지 않고 일반 agent 출력으로 저장한다.
     const other = next(
       failing,
       ids.doc,
@@ -295,7 +299,7 @@ Deno.test("documents/versions#R14: 판정 port가 실패하면 Operator 저장�
       NEXT_HASH,
       "lophn",
       {},
-      operator(OTHER_ASSIGNMENT, "lophn"),
+      operator(OTHER_ASSIGNMENT),
     );
     assertEquals(keep(other).status, "saved");
   } finally {

@@ -189,6 +189,9 @@ secret 사용은 호출자 종류가 아니라 현재 앱 grant와 network host�
 | `/v1/coding_agent_connections/list`, `/show` | filter/cursor 또는 connection → 원문·hash 없는 connection | 인증 scope; 다른 연결 token 없음 |
 | `/v1/coding_agent_connections/create` | id,label,scope,인증 경계의 준비된 token 검증 hash,key → connection; 원문 없음; 확인 창 없음 | user만; ID 미존재·app 존재·사람이 고른 입력 일치·보호 보관 준비; invalid_input/forbidden/conflict |
 | `/v1/coding_agent_connections/connect` (memory) | label,scope → connection 참조만; token·hash 없음; 확인 창 없음; ledger envelope 없음 | user만(shell main이 사람 credential로 부름). core의 인증 경계가 token을 자동 발급·keychain 보관한 뒤 같은 사람 credential로 `create`를 제출한다; 보관 준비 실패는 무생성(unavailable); coding agent·app는 호출 불가 |
+| `/v1/coding_agent_connections/register_child` (memory) | connection,process_generation,loader_identity → `{registered: true}`; scope는 받지 않는다(core가 ledger의 connection 현재 상태에서 읽는다) | user만(shell main이 자기 사람 credential로 부름, coding agent·app·agent는 403). lophn이 띄운 TUI 아래에서 host가 관측한 MCP·CLI process를 보호 전달 경계의 지정 child로 등록한다. active가 아닌 connection·loader 목록 밖 identity는 forbidden |
+| `/v1/coding_agent_connections/end_child` (memory) | process_generation → `{}` | user만; 그 child의 보호 전달을 바로 닫는다 |
+| `/v1/coding_agent_connections/end_connection` (memory) | connection → `{ended}` | user만; 그 connection 아래 등록된 child를 모두 닫는다. connection 회수 commit도 같은 정리를 core가 직접 한다 |
 | `/v1/coding_agent_connections/revoke` | connection,base_revision,confirmation window 근거,key → revoked connection | user만; active·revision·exact 확인; not_found/forbidden/conflict |
 | `/v1/coding_agent_sessions/summary` | app?,cursor? → CodingAgentSessionSummary | coding connection scope; worker 조립. 인증 실패를 빈 결과로 바꾸지 않음 |
 | `/v1/repair_context/summary`, `/bundle` | problem 또는 repair ticket → 요약 또는 RepairContext | 현재 connection의 모든 참조 검사; 둘 다 상태 무변경 |
@@ -221,6 +224,8 @@ connection event는 `CodingAgentConnectionCreated`, `CodingAgentConnectionRevoke
 | `harness list|detect|refresh|inspect|plan|install|update|remove` | exact native target/profile·user/app scope·components·plan·operation key | catalog·최초 감지·명시 재감지·resource별 diff/outcome·receipt·네 loading 관측. 관리 쓰기 사람 전용; 전체 자동 설치 없음 |
 | `skills list|install` | install `--target`, profile?, `--scope`, names? | 이름·설명·version/hash, 파일별 변경/무변경/충돌. 동명 비관리 skill 교체 없음 |
 | `session summary` | app?, cursor?, `--hook`? | lophn_session 결과. hook mode는 아래 별도 상한 |
+| `session plan` | `plan_input`(ticket·revision·connection·harness·profile·project·folder_ref·cwd·method·shell main이 다시 읽은 `facts`·human_start_handle·operation_id) | method가 `terminal_tui`면 LaunchPlan, `own_terminal`이면 안내. process를 열지 않는다. core를 읽지 않고 저장한 감지와 지금 본 실행 파일을 쓴다. 사람 전용 |
+| `session observe` | `--hook <harness>`, stdin의 hook·plugin·extension payload(JSON 하나 또는 NDJSON) | 제품별 normalizer가 정규화한 HarnessSessionObservation NDJSON을 환경 `LOPHN_TERMINAL_OBSERVE` socket에만 쓴다. 환경이 없으면 stdin도 읽지 않고 아무것도 보내지 않는다. core·credential을 부르지 않고 stdout은 비며 exit는 0이다. 사람 전용 아님(TUI 아래 hook이 부른다) |
 | `index root|place|context|document|section|status`, `search <query>` | 대상·depth·cursor·place? | lophn_index 결과; saved view 전용 command 없음 |
 | `read <address>` | version/section/start/length/cursor? | lophn_read 결과·정확한 판·이어 읽기 |
 | `document list|history|diff`, `save <files...>` | 목록 place/unplaced/state/limit; 비교 from/to; 저장 metadata | lophn_document/save 결과·주소·검사 경고·unchanged |

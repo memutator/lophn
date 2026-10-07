@@ -835,6 +835,8 @@ function setupPurpose(name: string): string {
       return "현재 session의 요약을 읽는다";
     case "session plan":
       return "ticket의 TUI 시작 plan을 stdin으로 만든다";
+    case "session observe":
+      return "제품 hook·plugin·extension payload를 정규화해 관측 socket에만 쓴다";
     default:
       if (name.startsWith("harness ")) {
         return `harness ${name.slice("harness ".length)}를 다룬다`;
@@ -853,6 +855,7 @@ function setupRequired(name: string): string[] {
   if (name === "connection create") return ["label", "scope"];
   if (name === "mcp config") return ["--target", "--scope", "connection"];
   if (name === "session plan") return ["plan_input"];
+  if (name === "session observe") return ["--hook"];
   if (
     name === "harness plan" || name === "harness install" ||
     name === "harness update" || name === "harness remove"

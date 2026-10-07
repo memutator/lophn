@@ -98,9 +98,75 @@ const codex: HarnessDefinition = {
       override_file: "AGENTS.override.md",
     },
   ],
-  // Codex hook event는 CODEX_HOME hooks다(조사 9.5). lophn은 상태 hook을
-  // 이번 범위에서 검증하지 않았다(조사 3.1).
-  hooks: [],
+  // Codex hook event는 CODEX_HOME hooks다(조사 9.5). 상태 hook의 payload와
+  // `LOPHN_TERMINAL_OBSERVE` env 생존을 검증한 version이 없어 unverified이고 설치하지 않는다(조사 3.1).
+  hooks: [
+    {
+      event: "SessionStart",
+      target: {
+        scope_kind: "user",
+        root_resolver: "codex_home",
+        path: "hooks.json",
+      },
+      purpose: "status",
+      method: "config_fragment",
+      owned_identity: "SessionStart.lophn",
+      minimum_version: null,
+      capability: "unverified",
+    },
+    {
+      event: "UserPromptSubmit",
+      target: {
+        scope_kind: "user",
+        root_resolver: "codex_home",
+        path: "hooks.json",
+      },
+      purpose: "status",
+      method: "config_fragment",
+      owned_identity: "UserPromptSubmit.lophn",
+      minimum_version: null,
+      capability: "unverified",
+    },
+    {
+      event: "PostToolUse",
+      target: {
+        scope_kind: "user",
+        root_resolver: "codex_home",
+        path: "hooks.json",
+      },
+      purpose: "status",
+      method: "config_fragment",
+      owned_identity: "PostToolUse.lophn",
+      minimum_version: null,
+      capability: "unverified",
+    },
+    {
+      event: "PermissionRequest",
+      target: {
+        scope_kind: "user",
+        root_resolver: "codex_home",
+        path: "hooks.json",
+      },
+      purpose: "status",
+      method: "config_fragment",
+      owned_identity: "PermissionRequest.lophn",
+      minimum_version: null,
+      capability: "unverified",
+    },
+    {
+      event: "Stop",
+      target: {
+        scope_kind: "user",
+        root_resolver: "codex_home",
+        path: "hooks.json",
+      },
+      purpose: "status",
+      method: "config_fragment",
+      owned_identity: "Stop.lophn",
+      minimum_version: null,
+      capability: "unverified",
+    },
+  ],
   // untrusted project는 project doc 전체를 건너뛰고 가까운
   // `AGENTS.override.md`가 `AGENTS.md`를 가린다(조사 skills-and-guides).
   loading: {

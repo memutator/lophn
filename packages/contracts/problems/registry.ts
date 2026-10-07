@@ -6,6 +6,7 @@ import {
   requestTest,
   verificationRecorded,
 } from "./tests.ts";
+import { reportBody } from "./report-body.ts";
 
 import {
   observeException,
@@ -68,6 +69,7 @@ export const ROUTES = [
   getReport,
   getSnapshot,
   getSnapshotLogs,
+  reportBody,
   listProblemFixes,
 ] as const;
 export const EVENTS = [

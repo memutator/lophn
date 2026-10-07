@@ -50,7 +50,10 @@ import {
   SNAPSHOTS_SCHEMA_STEPS,
 } from "../../packages/problems/snapshots/mod.ts";
 import { recordReportCommand } from "../../packages/problems/reporting/commands.ts";
-import { REPORT_BLOB_PURPOSES } from "../../packages/contracts/problems/mod.ts";
+import {
+  REPORT_BLOB_PURPOSES,
+  reportBody,
+} from "../../packages/contracts/problems/mod.ts";
 import type { KindLaunchSpec } from "../../packages/contracts/platform/mod.ts";
 import {
   observeException,
@@ -149,6 +152,14 @@ const REPORT_BLOB_FIELD_FIELDS = [
   "feedback_screenshot",
 ];
 
+// 보고의 사람 글·log·화면 상태만 읽는 좁은 route다. route만 선언하고 handler는 blob 바이트 통로를 가진
+// core 조립(runtime)이 붙인다. 붙기 전과 통로가 없는 등록은 unavailable이다.
+const unattachedReportBodyRead = {
+  route: reportBody,
+  handle: () =>
+    err({ code: "unavailable", message: "본문 읽기가 붙어 있지 않다" }),
+};
+
 export const problemsReportDefinitions = {
   schema: [...REPORTS_SCHEMA_STEPS, ...SNAPSHOTS_SCHEMA_STEPS],
   blobFields: [
@@ -173,6 +184,7 @@ export const problemsReportDefinitions = {
     getSnapshotRead,
     listProblemFixesRead,
   ],
+  apiReads: [unattachedReportBodyRead],
   ports: {} as Record<string, TxPortRegistration>,
   workers: reportCollectorWorkers(),
   // 보고 접수 worker route(T3, T16). dispatch가 입력 형식·scope 뒤 collector로 넘긴다.
@@ -262,6 +274,9 @@ export function createReaderRegistration(): ReaderRegistration {
       getReportRead,
       getSnapshotRead,
       listProblemFixesRead,
+      getTestRequestRead,
+      getVerificationRead,
+      listVerificationsRead,
     ],
     ports: new Map(),
   };

@@ -23,7 +23,10 @@ import {
   runSchemaSteps,
 } from "../harness/run-loop/mod.ts";
 import { presetValidateDeps } from "../harness/run-loop/testing/mod.ts";
+import { toolsSchemaSteps } from "../harness/tools/mod.ts";
+import { createToolCommands } from "../harness/tools/commands.ts";
 import { createAuditOwners } from "./audit-owners.ts";
+import { createAppRevertOwner } from "./app-revert.ts";
 import {
   type GroupDraft,
   type RevertOwner,
@@ -64,6 +67,12 @@ export const mailSent = defineEvent("MailSent", {
 export const strangerHappened = defineEvent("StrangerHappened", {
   subject: z.string(),
   payload: z.object({}),
+});
+// 앱 command 원래 호출의 완료 event fixture다. 증거 행(tool_calls.app_command·result)은
+// h.inspect SQL로 둔다.
+export const fixtureAppCalled = defineEvent("FixtureAppCalled", {
+  subject: z.string(),
+  payload: z.object({ run: z.string() }),
 });
 
 // platform/settings의 저장 선택 표와 같은 모양이다. StartRun이 읽는 한도 표만 같은 SQL로 둔다.
@@ -306,6 +315,39 @@ const recordStranger: CommandDefinition<typeof recordStrangerRoute> = {
   },
 };
 
+// 앱 call 증거 fixture. 앱 command 원래 호출과 그 완료 event를 남긴다(T48). app_command 원문은
+// 되돌림 근거(revert_command)를 포함한 계약이고, result.content.revert는 receipt다(T44).
+const appCallInput = z.strictObject({
+  run: z.string(),
+  tool_call: z.string(),
+  app: z.string(),
+  release: z.string(),
+  command: z.string(),
+  revert_command: z.string().nullable(),
+  invocation: z.string().nullable(),
+  receipt: z.string().nullable(),
+  expected_revision: z.string().nullable(),
+  subject: z.string().optional(),
+});
+export const recordAppCallRoute = defineCommand({
+  resource: "tool-call-fixture",
+  method: "app-call",
+  name: "RecordAppCall",
+  input: appCallInput,
+  output: z.strictObject({ tool_call: z.string() }),
+  compare: z.strictObject({}),
+  actors: ACTOR_KINDS,
+  errors: [],
+});
+
+const recordAppCall: CommandDefinition<typeof recordAppCallRoute> = {
+  route: recordAppCallRoute,
+  handle(tx, _ctx, input) {
+    tx.emit(fixtureAppCalled, input.tool_call, { run: input.run });
+    return ok({ tool_call: input.tool_call });
+  },
+};
+
 export function createLedgerTestRegistration(): LedgerTestRegistration {
   const presetCommands = createPresetCommands(presetValidateDeps());
   const presetReads = createPresetReads();
@@ -314,7 +356,13 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
   // 미반영 steering을 담는 입력 표는 conversation의 것이다. 이 시험에는 사람 입력이 없다.
   const runCommands = createRunCommands({ hasUnappliedSteering: () => false });
   const runReads = createRunReads();
-  const owners = [notesOwner(), mailOwner(), ...createAuditOwners()];
+  const toolCommands = createToolCommands();
+  const owners = [
+    createAppRevertOwner(),
+    notesOwner(),
+    mailOwner(),
+    ...createAuditOwners(),
+  ];
   const revert = createRevertCommands({ owners });
   const reads = createRevertReads({ owners });
   return {
@@ -322,6 +370,7 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
       ...presetSchemaSteps,
       ...assignmentSchemaSteps,
       ...runSchemaSteps,
+      ...toolsSchemaSteps,
       ...revertSchemaSteps,
       {
         id: "revert.test.setting-choices",
@@ -352,7 +401,13 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
       runCommands.stop,
       runCommands.confirmNext,
       revert.run,
+      revert.checkpoint,
+      revert.finish,
       restoreNote,
+      toolCommands.request,
+      toolCommands.decide,
+      toolCommands.start,
+      toolCommands.finish,
     ],
     testCommands: [
       seedSettingChoice,
@@ -360,6 +415,7 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
       touchNote,
       recordMail,
       recordStranger,
+      recordAppCall,
     ],
     reads: [
       presetReads.read,

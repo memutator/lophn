@@ -20,5 +20,4 @@ export {
   SYMPTOM_FRAME,
 } from "./judge.ts";
 export { observeReproduction, toObserved } from "./observe.ts";
-export { runReproductionChild } from "./child.ts";
-export type { ReproductionChildInput } from "./child.ts";
+// 자식 진입(child.ts)은 동기 file API를 쓰므로 core가 import하는 이 묶음에 내보내지 않는다.

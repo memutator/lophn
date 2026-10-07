@@ -1,0 +1,81 @@
+// checker가 판정에 쓰는 사실 묶음과 그 read route(coding-agent/tickets#R18, R19, R20).
+// core가 정본 표에서 모은 사실만 담는다. 판정은 judge.ts가 한다.
+import { z } from "zod";
+import {
+  ticketConditionSchema,
+  ticketIdSchema,
+} from "../../../contracts/coding-agent/mod.ts";
+import { defineRead, idSchema } from "../../../contracts/platform/mod.ts";
+
+export const CHECK_WORK_PAGE = 50;
+
+const link = z.object({
+  ticket: ticketIdSchema,
+  check_index: z.number().int().min(0),
+  check_hash: z.string(),
+  completion_seq: z.string(),
+});
+
+// 같은 app의 Verification 사실. problems/tests가 소유한 행의 읽기 값이다.
+export const verificationFactSchema = z.object({
+  id: idSchema("vrf"),
+  kind: z.enum(["app_test", "reproduction", "test_command"]),
+  app: idSchema("app"),
+  result: z.enum(["pass", "fail", "inconclusive"]),
+  reason: z.string(),
+  bundle_hash: z.string(),
+  ticket: link.nullable(),
+});
+export type VerificationFact = z.infer<typeof verificationFactSchema>;
+
+export const releaseFactSchema = z.object({
+  id: idSchema("rel"),
+  app: idSchema("app"),
+  bundle_hash: z.string(),
+  status: z.enum(["prepared", "activating", "active", "failed", "superseded"]),
+  failure: z.string().nullable(),
+});
+export type ReleaseFact = z.infer<typeof releaseFactSchema>;
+
+export const checkWorkSchema = z.object({
+  ticket: ticketIdSchema,
+  app: idSchema("app"),
+  // 읽은 ticket의 revision. record_checks의 base_revision이다.
+  revision: z.string(),
+  completion: z.object({
+    seq: z.string(),
+    release: idSchema("rel"),
+    verifications: z.array(idSchema("vrf")),
+  }),
+  conditions: z.array(ticketConditionSchema),
+  // 이 completion에 이미 기록된 조건별 결과. 같은 사실을 다시 쓰지 않는 데 쓴다.
+  recorded: z.array(z.object({
+    condition: z.number().int().min(0),
+    result: z.enum(["pass", "fail", "inconclusive"]),
+  })),
+  release: releaseFactSchema.nullable(),
+  // 앱 정본이 가리키는 active release와 그 revision. 비교한 대상이다.
+  app_state: z.object({
+    revision: z.string(),
+    active_release: idSchema("rel").nullable(),
+  }).nullable(),
+  verifications: z.array(verificationFactSchema),
+});
+export type CheckWork = z.infer<typeof checkWorkSchema>;
+
+export const ticketCheckWork = defineRead({
+  resource: "tickets",
+  method: "check_work",
+  name: "TicketCheckWork",
+  input: z.strictObject({
+    ticket: ticketIdSchema.optional(),
+    cursor: z.string().min(1).optional(),
+  }),
+  output: z.object({
+    works: z.array(checkWorkSchema),
+    as_of_seq: z.string(),
+    next_cursor: z.string().nullable(),
+  }),
+  actors: ["machine"],
+  errors: ["forbidden", "invalid_input"],
+});

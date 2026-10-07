@@ -628,6 +628,7 @@ concerns: [shell]
 
 - 상태: 완료 (#409) — 이어보냄: 로그인 시작·완료·취소 통로(`providers/login-begin·complete·cancel`)와 login-complete sink → lophn-agent#T16, MCP 인증 `oauth2` 시작·완료 → lophn-agent#T38. 연결 테스트 `providers/test`는 lophn-agent#T15가 T26에 넘겼고 T26은 완료인데 route가 core에 없다(lead가 소유를 정해야 한다). 내장 연결 정의(Claude·ChatGPT 등)를 등록하는 곳이 없어 실제 설치에서는 연결 목록이 비어 있다(lophn-agent#T3 후속). 한도 대기의 `until`이 서버가 확인한 리셋 시각인지 lophn이 정한 1시간 대기인지 구별하는 field가 없어 화면은 "예상 시각"으로만 말한다(lophn-agent#T3·T15). MCP server별 연결 상태·skill 발견 결과를 읽는 route가 없어 화면에 없다(lophn-agent#T35·T36).
 - 정한 것(T31): settings 화면은 Connections·Tools and skills·General 세 탭이고 통로는 `SettingsSource`다. key·로그인 응답·MCP credential 값은 이 통로를 지나지 않고 보호 창이 받는다. 보호 창에 계정 교체·삭제를 더했다(secret_input 열기의 `change: {key, action: "replace" | "revoke"}`, 결정 `ChangeProviderCredentials`, 삭제 결과는 `stored: "revoked"`라 값을 지웠다고 말하지 않는다). 등록 정보의 `dedup_fingerprint`는 선택으로 바꿔 main이 제출 때 넣은 값의 sha256으로 만든다(같은 key 중복 거절). MCP credential은 `app_secret` 입력(`SetSecret`, 이름 `mcp-<server>`)으로 받고 설정은 `sec:mcp-<server>`를 가리킨다. shell 크롬 링크는 `lophnShell.openExternal(url)` → `shell:open-external`(desktop 창 본문만, 앱 view의 `app:open-external`과 별개)이고 shell/app-frame#R7을 확인 없이 여는 쪽으로 고쳤다. `loginBeginOutputSchema`에 선택 `sign_in {url, user_code}`를 additive로 더했다. 전역 [Instructions] 단추는 General 탭에 놓고 편집기의 돌아가기는 settings다. 개발 시작 자리 `LOPHN_SHELL_START=settings`·`#settings`.
+- 후속 (#421): settings Connections가 내장 provider 정의를 읽는다
 - 등급: frontend
 - concern: shell/wording, shell/desktop, shell/app-frame
 - 요구: shell/wording#R10, R13(For decisions·For summaries), shell/app-frame#R7(shell 크롬 외부 링크)
@@ -1086,6 +1087,15 @@ concerns: [shell]
 - 내놓는 contract: 없음
 - slice: problems
 - 선행: shell#T23, shell#T43, problems#T6, problems#T21
+- 선행 풀기(사람 결정 2026-10-07): 선행이 끝나기 전에 이미 있는 contract와 fake로 먼저 만든다. 선행이 merge되면 실제 구현에 잇는 작은 PR을 따로 내고, 그때 완료로 둔다.
+- 상태: 진행 (#423) — 선행 풀기: problems#T21 merge 뒤 실제 ApplyProblemDecision에 잇는 PR이 남음
+- 선행 풀기 뒤 잇는 PR이 할 일:
+  - 읽기: `app-detail/issues/core-source.ts`를 새로 만들어 `IssuesSource`를 `ListProblems`·`GetProblem`(`detail`만, `problem.work`·`problem.interpretation` 안 읽음)·`ListReports`(마지막 보고로 `basis.observationKnown`)에서 채우고 `desktop/entry.tsx`→`Desktop`→`AppSpace.issues`에 잇는다. 지금은 fake만 있다
+  - 결정 창 열기: `ConfirmationIntent`의 owner_decision에는 `choice`·`note` 자리가 없다. additive로 더하고(contracts·`apps/shell/ipc/confirmation.ts`), 창을 여는 port로 `IssuesSource.decide`를 채운다. concern `problems/closing`, decision `problem_decision`, target은 그 문제
+  - main kind `confirmation/kinds/problem-decision.ts`(T21 command가 있어야 한다): 문제를 독립 read해 problem·basis_seq·release·last_report·note에 묶은 handle을 만들고, 창에 보일 view `{kind: "problem_decision", choice, symptom, seen, version, note}`(renderer `problem-decision.tsx`가 읽는 모양)를 정본에서 만들며, 결정은 `ApplyProblemDecision`으로 보낸다. 닫은 문제는 not_fixed(다시 열기)만 허용한다
+  - `IssuesSource.reportAgain`: report-problem dialog를 그 문제를 고른 채 여는 begin 입력(`main/app-frame/feedback.ts`의 `existing_problem`이 지금 늘 null)과 dialog 쪽 표시를 더한다(shell#T52 (1))
+  - `app-issue` intent(`desktop/intents.tsx`)가 그 앱 공간을 연 뒤 `AppSpace.issueProblem`으로 그 문제 상세를 연다(shell#T52 (2), 화면 쪽 prop은 이미 있음)
+  - fake 대신 실제 command로 다시 확인하고 `e2e/shell`에 flow app-broken·verify-app-repair 화면 test를 더한다. 끝나면 이 상태를 `완료 (#<PR>)`로 바꾼다
 - shell#T52에서 넘어온 것: (1) 기존 문제에 덧붙이기. report-problem dialog는 지금 "이 보고는 기존 문제에 덧붙지 않는다"만 보이고 `SubmitFeedback.existing_problem`은 늘 null이다. Issues에서 "직접 해 봤지만 안 됩니다"로 열 때 그 문제를 고른 채 여는 길(begin 입력 또는 dialog의 같은 앱 문제 고르기)을 둔다. (2) dialog의 [View issue]는 지금 `{kind: "app-issue", app, problem}` intent로 그 앱 공간만 연다(`renderer/desktop/intents.tsx`). Issues 탭이 생기면 그 문제를 고른 상세로 연다. (3) 접수 응답에는 항목별 저장 결과가 없어 dialog가 screenshot·화면 상태의 "저장 실패"를 보이지 못한다. 접수 뒤 그 Report의 snapshot 읽기로 보인다
 - 완료: 아래 확인이 통과한다
   - Issue 목록·상세: 사람이 겪는 영향 한 문장, 보고 수, 수리 주장과 실제 테스트·사람 확인("I checked")·미확인 범위를 구별한다. report·claim·snapshot은 이름으로 보이지 않는다(Details we collected).
@@ -1170,6 +1180,7 @@ concerns: [shell]
 ### T58 settings: backup과 restore, update 안내, 진단, OS notification 선택
 
 - platform#T50에서 넘어온 것: settings의 사람이 고른 로컬 package metadata 후보 선택과 안내 UI, Electron main 정상 정지 연결에 core 신뢰 입구 `updateNotice`·`stopForUpdate`를 쓴다. platform#T50은 shell 자리 밖이라 UI 연결은 하지 않았다
+- apps#T28에서 넘어온 것: 앱 export를 제품 core가 서빙한다(`worker:apps/export`, 입력 `{ app }`, 출력 `{ app, state: ready|failed, reason?, includes_external_data }`). 화면은 shell 몫이다: shell main의 renderer allowlist(`main/desktop/core/allowlist.ts`의 `READING_WORKER_ROUTES`)에 `worker:apps/export`를 더하고, settings의 [Export] 항목(이 T58)과 app-detail Data 탭의 [Export] 항목(T43이 닫혔으므로 이 T58이 함께 맡는다)을 붙인다. Data 탭의 "Exporting this app's data isn't available yet." 문장과 `data-export-unavailable`은 그때 걷는다
 - 등급: frontend
 - concern: shell/wording
 - 요구: shell/wording#R5, R10

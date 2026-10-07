@@ -68,6 +68,17 @@ interface ProviderValue {
   } | null;
 }
 
+/** `providers/definitions`가 주는 내장 정의. 등록 command에 그대로 실으므로 원본을 쥔다. */
+interface BuiltinDefinition {
+  key: string;
+  display_name: string;
+  protocols: string[];
+  auth_kinds: AuthWay[];
+  models_endpoint: string | null;
+  oauth: { verified_for_lophn: boolean } | null;
+  revision: string;
+}
+
 interface SelectionValue {
   provider: string;
   model_name: string;
@@ -102,6 +113,8 @@ interface McpServerValue {
 
 const SKILL_FOLDERS = "lophn-agent.extensions.skill_folders";
 const MCP_SERVERS = "lophn-agent.extensions.mcp_servers";
+/** 아직 등록하지 않은 내장 정의 행의 임시 id 접두사. contract의 provider id가 아니다. */
+const DEFINITION_ROW = "definition:";
 const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
 /** 한 번에 읽는 provider 목록 page 상한. */
 const PAGE_LIMIT = 20;
@@ -169,6 +182,7 @@ function accountOf(value: CredentialValue): AccountRow {
 function providerOf(value: ProviderValue): ProviderRow {
   return {
     id: value.id,
+    registered: true,
     name: value.name,
     enabled: value.enabled,
     definition: value.definition.key,
@@ -186,6 +200,47 @@ function providerOf(value: ProviderValue): ProviderRow {
     },
     revision: value.revision,
   };
+}
+
+/** 등록한 연결이 없는 내장 정의. 계정·확인 기록이 없어 연결할 방법만 보인다. */
+function definitionRowOf(value: BuiltinDefinition): ProviderRow {
+  return {
+    id: `${DEFINITION_ROW}${value.key}`,
+    registered: false,
+    name: value.display_name,
+    enabled: true,
+    definition: value.key,
+    ways: waysOf(value.auth_kinds),
+    signIn: value.oauth === null
+      ? null
+      : { verified: value.oauth.verified_for_lophn },
+    local: value.auth_kinds.every((way) => way === "none"),
+    accounts: [],
+    lastCheck: null,
+    revision: 0,
+  };
+}
+
+/** API base. 내장 정의의 models 주소는 `<base>/models`다(architecture §5.2). */
+function baseOf(modelsEndpoint: string | null): string | null {
+  return modelsEndpoint !== null && modelsEndpoint.endsWith("/models")
+    ? modelsEndpoint.slice(0, -"/models".length)
+    : null;
+}
+
+const ULID_DIGITS = "0123456789abcdefghjkmnpqrstvwxyz";
+
+/** contract provider id(`pvd_` + 소문자 ULID). 시각 48bit와 난수 80bit. */
+function newProviderId(nowMs: number): string {
+  let time = "";
+  let rest = nowMs;
+  for (let index = 0; index < 10; index += 1) {
+    time = ULID_DIGITS[rest % 32]! + time;
+    rest = Math.floor(rest / 32);
+  }
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  const random = [...bytes].map((byte) => ULID_DIGITS[byte % 32]).join("");
+  return `pvd_${time}${random}`;
 }
 
 function choiceOf(value: SelectionValue | null): ModelChoice | null {
@@ -295,6 +350,8 @@ export interface SettingsDeps {
   now: () => number;
   /** 새 계정 key·command key를 만든다. 테스트가 고정한다. */
   random: () => string;
+  /** 연결을 등록할 때 쓰는 새 provider id. */
+  providerId: () => string;
 }
 
 export function coreSettingsSource(
@@ -308,6 +365,9 @@ export function coreSettingsSource(
   const picker = "picker" in deps ? deps.picker : windowFolderPicker();
   const now = deps.now ?? Date.now;
   const random = deps.random ?? (() => crypto.randomUUID().slice(0, 8));
+  const providerId = deps.providerId ?? (() => newProviderId(now()));
+  /** 등록하지 않은 정의 행의 임시 id → 사람 command로 등록한 provider id. */
+  const registered = new Map<string, string>();
 
   async function openProtected(intent: SecretIntent): Promise<WindowOutcome> {
     if (openWindow === undefined) return { ok: false, code: "unavailable" };
@@ -323,6 +383,53 @@ export function coreSettingsSource(
       return { ok: false, code: "unavailable" };
     }
   }
+
+  /**
+   * 내장 정의만 있는 행이 key·로그인을 시작할 때 처음으로 연결을 등록한다. 등록은 사람 command
+   * (`RegisterProvider`)이고 key 값은 여기를 지나지 않는다. 값은 이어서 여는 보호 창이 받는다.
+   */
+  async function connectionOf(row: string): Promise<SourceResult<string>> {
+    if (!row.startsWith(DEFINITION_ROW)) return { ok: true, value: row };
+    const known = registered.get(row);
+    if (known !== undefined) return { ok: true, value: known };
+    const read = await call<{ definitions: BuiltinDefinition[] }>(
+      core,
+      "read",
+      "providers",
+      "definitions",
+      {},
+    );
+    if (!read.ok) return read;
+    const definition = read.value.definitions.find((entry) =>
+      `${DEFINITION_ROW}${entry.key}` === row
+    );
+    const endpoint = definition === undefined
+      ? null
+      : baseOf(definition.models_endpoint);
+    const protocol = definition?.protocols[0];
+    if (
+      definition === undefined || endpoint === null || protocol === undefined
+    ) {
+      return { ok: false, code: "unavailable" };
+    }
+    const id = providerId();
+    const sent = await command(core, "providers", "register", {
+      input: {
+        id,
+        name: definition.display_name,
+        definition,
+        endpoint,
+        protocol,
+      },
+      key: `provider-register-${random()}`,
+    });
+    if (!sent.ok) return sent;
+    registered.set(row, id);
+    return { ok: true, value: id };
+  }
+
+  /** 이미 등록한 연결의 id. 등록 전 행이면 방금 등록한 것이 있을 때만 그 id다. */
+  const knownConnection = (row: string): string => registered.get(row) ?? row;
 
   const credentialIntent = (
     provider: string,
@@ -405,6 +512,20 @@ export function coreSettingsSource(
         if (read.value.next_cursor === null) break;
         cursor = read.value.next_cursor;
       }
+      // 내장 정의는 등록 여부와 상관없이 연결할 수 있는 것의 목록이다. 등록한 연결이 같은
+      // 정의를 쓰면 그 연결 카드가 대신 보이고, 없는 정의만 연결 가능한 행으로 더한다.
+      const defined = await call<{ definitions: BuiltinDefinition[] }>(
+        core,
+        "read",
+        "providers",
+        "definitions",
+        {},
+      );
+      if (!defined.ok) return defined;
+      const used = new Set(rows.map((row) => row.definition));
+      for (const definition of defined.value.definitions) {
+        if (!used.has(definition.key)) rows.push(definitionRowOf(definition));
+      }
       return { ok: true, value: rows };
     },
 
@@ -475,7 +596,10 @@ export function coreSettingsSource(
       return { ok: true, value: results };
     },
 
-    async beginSignIn(provider) {
+    async beginSignIn(row) {
+      const connection = await connectionOf(row);
+      if (!connection.ok) return connection;
+      const provider = connection.value;
       const begun = await command<{
         login: string;
         flow: "device_code" | "device_code_then_pkce_paste_url";
@@ -496,9 +620,9 @@ export function coreSettingsSource(
       };
     },
 
-    async cancelSignIn(provider, login) {
+    async cancelSignIn(row, login) {
       const result = await command(core, "providers", "login-cancel", {
-        input: { provider, login },
+        input: { provider: knownConnection(row), login },
         key: `login-cancel-${random()}`,
       });
       return result.ok ? { ok: true, value: null } : result;
@@ -513,10 +637,15 @@ export function coreSettingsSource(
       }
     },
 
-    connectKey: (provider, label) =>
-      openProtected(credentialIntent(provider, label, "api_key")),
-    enterSignInResponse: (provider, label) =>
-      openProtected(credentialIntent(provider, label, "oauth")),
+    async connectKey(row, label) {
+      const connection = await connectionOf(row);
+      if (!connection.ok) return connection;
+      return openProtected(
+        credentialIntent(connection.value, label, "api_key"),
+      );
+    },
+    enterSignInResponse: (row, label) =>
+      openProtected(credentialIntent(knownConnection(row), label, "oauth")),
     replaceKey: (provider, account) =>
       openProtected(changeIntent(provider, account, "replace")),
     removeAccount: (provider, account) =>

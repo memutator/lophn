@@ -72,7 +72,15 @@ export function ticketFixture(deps: FixtureDeps = {}) {
     CREATE TABLE releases (
       id TEXT PRIMARY KEY,
       app TEXT NOT NULL,
-      ticket_source TEXT
+      ticket_source TEXT,
+      bundle_hash TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'prepared',
+      failure TEXT
+    ) STRICT;
+    CREATE TABLE apps (
+      id TEXT PRIMARY KEY,
+      revision TEXT NOT NULL DEFAULT '1',
+      active_release TEXT
     ) STRICT;
     CREATE TABLE versions (
       id TEXT PRIMARY KEY,
@@ -81,7 +89,16 @@ export function ticketFixture(deps: FixtureDeps = {}) {
     ) STRICT;
     CREATE TABLE verifications (
       id TEXT PRIMARY KEY,
-      app TEXT NOT NULL
+      app TEXT NOT NULL,
+      kind TEXT NOT NULL DEFAULT 'app_test',
+      result TEXT NOT NULL DEFAULT 'pass',
+      reason TEXT NOT NULL DEFAULT '',
+      target_bundle_hash TEXT NOT NULL DEFAULT '',
+      ticket TEXT,
+      ticket_check_index INTEGER,
+      ticket_check_hash TEXT,
+      ticket_completion_seq TEXT,
+      recorded_seq TEXT NOT NULL DEFAULT '1'
     ) STRICT;
     CREATE TABLE blob_refs (
       owner_kind TEXT NOT NULL,

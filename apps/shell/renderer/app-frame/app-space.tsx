@@ -36,6 +36,8 @@ import type {
 } from "../desktop/lophn-space/apps/source.ts";
 import { AppDetail } from "./app-detail/app-detail.tsx";
 import type { PreviewOpen } from "./app-detail/model.ts";
+import { IssuesTab } from "./app-detail/issues/issues-tab.tsx";
+import type { IssuesSource } from "./app-detail/issues/source.ts";
 import type { AppDetailSource } from "./app-detail/source.ts";
 import { AppBar } from "./app-bar.tsx";
 import {
@@ -59,6 +61,10 @@ export interface AppSpaceProps {
   feedback?: LophnShellFeedbackBegin;
   /** 운영 패널의 app-detail 통로. 없으면 app-detail 탭을 두지 않는다. */
   detail?: AppDetailSource;
+  /** 운영 패널 Issues 탭의 통로. 없으면 Issues 탭은 아직 없다고 보인다. */
+  issues?: IssuesSource;
+  /** 있으면 운영 패널을 Issues 탭으로, 그 문제를 고른 채 연다. */
+  issueProblem?: string;
   /** app 층 [Instructions]를 연다. 없으면 단추를 두지 않는다. */
   onInstructions?: () => void;
   /** 창 폭. 테스트가 고정하고 화면은 관측값을 쓴다. */
@@ -152,6 +158,8 @@ export function AppSpace(
     windows,
     feedback,
     detail,
+    issues,
+    issueProblem,
     onInstructions,
     windowWidth,
     onLauncher,
@@ -181,7 +189,7 @@ export function AppSpace(
     contentSize?.width ?? width,
   );
   // 도크가 열리면 운영 패널은 자리를 내주고, 닫히면 사람이 둔 상태로 돌아간다.
-  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(issueProblem !== undefined);
   const ops = opsPanelPlacement(detailsOpen && dock === "hidden", width);
 
   // 운영과 분리된 preview. 열려 있는 동안 본문은 그 preview이고 사람이 닫으면 앱으로 돌아온다.
@@ -381,6 +389,17 @@ export function AppSpace(
                   preview={preview}
                   onPreview={changePreview}
                   onInstructions={onInstructions}
+                  initialTab={issueProblem === undefined ? undefined : "issues"}
+                  issues={issues
+                    ? (
+                      <IssuesTab
+                        app={app}
+                        source={issues}
+                        now={() => new Date()}
+                        initialProblem={issueProblem}
+                      />
+                    )
+                    : undefined}
                 />
               )
               : null}

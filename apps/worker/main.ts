@@ -9,6 +9,10 @@ import {
   runCollectorWorker,
 } from "./problems/report-collector.ts";
 import { runDataWorker } from "./apps/data.ts";
+import {
+  runCheckerWorker,
+  TICKET_CHECKER_KIND,
+} from "./coding-agent/checker.ts";
 
 const WORKER_ENTRIES: Readonly<
   Record<string, (root: string) => Promise<void>>
@@ -28,6 +32,7 @@ const WORKER_ENTRIES: Readonly<
     return runCollectorWorker();
   },
   "apps/data": runDataWorker,
+  [TICKET_CHECKER_KIND]: runCheckerWorker,
 };
 
 export async function runWorker(kind: string, root: string): Promise<void> {

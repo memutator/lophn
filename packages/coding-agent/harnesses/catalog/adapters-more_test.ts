@@ -175,9 +175,9 @@ Deno.test("coding-agent/harnesses#R8: OpenClaw는 자동 merge target이 없고 
   assertEquals(openclaw.skill_targets[0].path, ".openclaw/skills");
 });
 
-Deno.test("coding-agent/harnesses#R11: 세 제품의 상태 hook은 검증 version이 없어 두지 않는다", () => {
+Deno.test("coding-agent/harnesses#R11: 두 제품의 상태 hook은 검증 version이 없어 두지 않는다", () => {
   // 미검증 hook·plugin·extension은 자동 설치하지 않는다(R11).
-  for (const id of ["hermes", "pi", "openclaw"] as const) {
+  for (const id of ["hermes", "openclaw"] as const) {
     assertEquals(definitionOf(id).hooks.length, 0, id);
   }
 });

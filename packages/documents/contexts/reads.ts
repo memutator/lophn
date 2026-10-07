@@ -24,9 +24,9 @@ import {
 import { loadDocument } from "../versions/mod.ts";
 import { targetKey } from "./model.ts";
 import {
+  contextApps,
   type ContextItemRow,
   listContexts,
-  contextApps,
   listContextsByTargetKey,
   listWatchChanges,
   loadContext,

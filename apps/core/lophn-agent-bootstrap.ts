@@ -27,6 +27,7 @@ import {
   BUILTIN_ROLES,
   type BuiltinRole,
   productPresetDefinition,
+  type ProductRole,
 } from "../../packages/lophn-agent/presets/mod.ts";
 import type { PreparedRelayResult } from "./blob-prepare.ts";
 
@@ -46,7 +47,7 @@ export type BootstrapDeps = {
     input: unknown,
   ): Promise<Result<unknown>>;
   // 역할 prompt 자산의 바이트(설치 bundle의 assets/roles/ 또는 소스의 roles/<역할>/prompt.md).
-  asset(role: BuiltinRole): Promise<Result<Uint8Array>>;
+  asset(role: ProductRole): Promise<Result<Uint8Array>>;
   // blob 준비 통로. 없으면(I/O 감독이 없는 기동) 준비를 하지 못하므로 건너뛴다.
   prepare:
     | ((call: {
@@ -95,7 +96,10 @@ export async function bootstrapBuiltinAssignments(
     const done = await prepareRole(deps, ctx, role);
     if (!done.ok) return done;
   }
-  return ok(undefined);
+  // App Engineer는 전역 assignment가 없다. AppCreated 반응이 앱마다 만드는 assignment가 쓸 제품
+  // 기본 preset만 준비한다(assignments#R1).
+  const engineer = await defaultPreset(deps, ctx, "app_engineer");
+  return engineer.ok ? ok(undefined) : engineer;
 }
 
 async function prepareRole(
@@ -131,7 +135,7 @@ async function prepareRole(
 async function defaultPreset(
   deps: BootstrapDeps,
   ctx: AuthenticatedContext,
-  role: BuiltinRole,
+  role: ProductRole,
 ): Promise<Result<{ id: string; revision: number }>> {
   const listed = await deps.read(presetList, ctx, {
     kind: role,
@@ -177,13 +181,14 @@ async function defaultPreset(
 }
 
 // 소스 배치의 역할 prompt 자산이다. 설치 bundle의 assets/roles/ 배치는 설치 조립이 정한다.
-const ROLE_DIRECTORY: Record<BuiltinRole, string> = {
+const ROLE_DIRECTORY: Record<ProductRole, string> = {
   lophn: "lophn",
+  app_engineer: "app-engineer",
   context_engineer: "context-engineer",
 };
 
 export async function readRoleAsset(
-  role: BuiltinRole,
+  role: ProductRole,
 ): Promise<Result<Uint8Array>> {
   try {
     return ok(

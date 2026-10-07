@@ -21,7 +21,10 @@ import {
   createApprovalRequest,
   ROUTES,
 } from "../../packages/contracts/platform/mod.ts";
-import { providerList } from "../../packages/contracts/lophn-agent/mod.ts";
+import {
+  createAppEngineerAssignment,
+  providerList,
+} from "../../packages/contracts/lophn-agent/mod.ts";
 import {
   type ApiServer,
   RouteRegistry,
@@ -174,8 +177,10 @@ import {
   type WatchSync,
 } from "./documents-watch.ts";
 import { startNotifications } from "./notifications.ts";
+import { startAssignmentReactions } from "./assignment-reactions.ts";
 import {
   APPROVAL_EXPIRY_CONTEXT,
+  ASSIGNMENT_REACTIONS_CONTEXT,
   NOTIFICATIONS_CONTEXT,
   withPlatform,
 } from "./platform.ts";
@@ -249,7 +254,7 @@ import {
   noteBootstrapFailure,
   readRoleAsset,
 } from "./lophn-agent-bootstrap.ts";
-import type { BuiltinRole } from "../../packages/lophn-agent/presets/mod.ts";
+import type { ProductRole } from "../../packages/lophn-agent/presets/mod.ts";
 import {
   createApprovalTextPreparer,
   withApprovalText,
@@ -314,7 +319,7 @@ export type CoreOptions = {
   restoreTimeoutMs?: number;
   // 내장 assignment 준비의 역할 prompt 자산과 재시도 대기(ms). 제품 기동은 소스 배치의
   // prompt 자산을 읽고 60초 뒤 한 번 다시 시도한다. 테스트가 대신한다.
-  roleAsset?: (role: BuiltinRole) => Promise<Result<Uint8Array>>;
+  roleAsset?: (role: ProductRole) => Promise<Result<Uint8Array>>;
   bootstrapRetryMs?: number;
   // secret store가 값을 읽는 keychain adapter. 없으면 제품 adapter(Linux Secret Service)다.
   // 테스트는 fake를 주어 사람의 실제 keychain에 닿지 않게 한다.
@@ -800,6 +805,15 @@ async function open(
   if (!notificationsCredential.ok) {
     await runtime.close();
     return notificationsCredential;
+  }
+  // AppCreated 반응 구독자(machine:lophn-agent-assignments)의 자격 기록. token이 없는 core 내부
+  // 자격이라 HTTP로는 이 principal이 될 수 없다. reader·writer는 이 ledger 기록으로 자격을 본다.
+  const assignmentsCredential = await runtime.record(
+    ASSIGNMENT_REACTIONS_CONTEXT,
+  );
+  if (!assignmentsCredential.ok) {
+    await runtime.close();
+    return assignmentsCredential;
   }
   // apps 제어(connect 어댑터·runtime·logs 덮기)가 ledger 사실을 읽는 core 내부 자격 기록.
   const appsControlCredential = await runtime.record(APPS_CONTROL_CONTEXT);
@@ -1821,6 +1835,15 @@ async function open(
     runtime,
     ledgerPath,
   });
+  // core 안 assignments 반응 구독자. AppCreated마다 거두지 않은 AE assignment를 만들고 AppArchived면
+  // 멈추며 cursor를 올린다(lophn-agent/assignments#R1). lophn-agent 팀이 조립에 없으면 반응할
+  // command가 없으므로 열지 않는다.
+  const assignmentReactions =
+    assembled.value.commands.some((c) =>
+        c.route.name === createAppEngineerAssignment.name
+      )
+      ? startAssignmentReactions({ runtime, ledgerPath })
+      : undefined;
   // core 안 documents 구독자. documents event가 오면 root 집합과 관측 근거를 맞춘다. documents
   // worker가 없는 core에서도 구독은 열려 있고, 맞출 대상이 없으면 아무것도 하지 않는다.
   const documentsFeed = startDocumentsFeed({
@@ -2186,6 +2209,8 @@ async function open(
           ticketCheckFeed?.stop();
           // 진행 중인 notification 생성은 writer가 닫히기 전에 끝난다.
           await notifications.stop();
+          // 진행 중인 assignment 반응도 writer가 닫히기 전에 끝난다.
+          await assignmentReactions?.stop();
           rootsWatch?.stop();
           respawnStop?.();
           agentRuntime?.stop();

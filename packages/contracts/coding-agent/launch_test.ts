@@ -5,9 +5,11 @@ import {
   LAUNCH_RESULTS,
   launchResultBodySchema,
   LOPHN_CONNECTION,
+  OWN_TERMINAL_METHOD,
   PROMPT_DELIVERY_DEADLINE_MS,
   PROMPT_DELIVERY_MODES,
   promptDeliverySchema,
+  sessionPlanGuideOutputSchema,
   sessionPlanInputSchema,
   sessionPlanOutputSchema,
 } from "./launch.ts";
@@ -187,3 +189,62 @@ Deno.test(
     assertEquals(AT.slice(0, 4), "2026");
   },
 );
+
+Deno.test("coding-agent/sessions#R2 coding-agent/sessions#R3: plan의 env overlay·delete와 shell이 확인한 facts·자기 터미널 안내는 additive 값이다", () => {
+  const parsed = codingAgentLaunchPlanSchema.parse({
+    ...plan,
+    env_overlay: { TERM: "xterm-256color", LOPHN_CONNECTION: CAC },
+    env_delete: ["LOPHN_TERMINAL_OBSERVE"],
+  });
+  assertEquals(parsed.env_overlay?.TERM, "xterm-256color");
+  assert(codingAgentLaunchPlanSchema.safeParse(plan).success);
+  assert(
+    !codingAgentLaunchPlanSchema.safeParse({
+      ...plan,
+      env_overlay: { "1BAD": "x" },
+    }).success,
+  );
+  assert(
+    !codingAgentLaunchPlanSchema.safeParse({
+      ...plan,
+      env_overlay: { TERM: "a\nb" },
+    }).success,
+  );
+  const facts = {
+    ticket_app: "app_01arz3ndektsv4rrffq69g5fav",
+    screen_state: "ready",
+    connection_state: "active",
+    connection_scope: { kind: "all", app: null },
+    problems: [],
+    inspect: ["src/a.ts"],
+  };
+  const input = {
+    ticket: TKT,
+    ticket_revision: "12",
+    connection: CAC,
+    cwd: "/work/app",
+    method: "terminal_tui",
+    human_start_handle: "hs_1",
+    operation_id: "op_1",
+  };
+  assert(sessionPlanInputSchema.safeParse({ ...input, facts }).success);
+  assert(sessionPlanInputSchema.safeParse(input).success);
+  assert(
+    !sessionPlanInputSchema.safeParse({
+      ...input,
+      facts: { ...facts, inspect: ["../outside"] },
+    }).success,
+  );
+  assertEquals(OWN_TERMINAL_METHOD, "own_terminal");
+  assert(
+    sessionPlanGuideOutputSchema.safeParse({
+      guide: {
+        method: "own_terminal",
+        ticket: TKT,
+        harness_id: null,
+        first_prompt: "p",
+        steps: ["s"],
+      },
+    }).success,
+  );
+});

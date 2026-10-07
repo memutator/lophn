@@ -29,6 +29,7 @@ const helpOnly = new Set([
   "connection install",
   "session summary",
   "session plan",
+  "session observe",
 ]);
 
 Deno.test("coding-agent/cli#R39: help --json은 command 목록을 남긴다", () => {

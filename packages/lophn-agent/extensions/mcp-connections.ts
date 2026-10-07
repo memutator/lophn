@@ -121,6 +121,9 @@ export type McpConnectionsDeps = {
   ): Promise<Result<StdioSpawn>>;
   // HTTP 연결 열기다. 테스트가 로컬 fake server fetch를 끼운다.
   fetch?: HttpFetch;
+  // 서버가 notifications/tools/list_changed를 보냈다(Q16). 조립이 그 server의
+  // 도구 목록을 다시 읽을 때까지 새 호출을 막는다. 없으면 알림은 버려진다.
+  onListChanged?(server: string): void;
 };
 
 export type McpDisconnectReason =
@@ -338,11 +341,12 @@ export function createMcpConnections(
       signal,
     );
     if (!spawn.ok) return spawn;
-    return ok(stdioTransport(spawn.value));
+    return ok(stdioTransport(spawn.value, server.name));
   }
 
   // stdio transport다. 줄 단위 JSON-RPC다. 요청 id는 transport마다 센다.
-  function stdioTransport(spawn: StdioSpawn): McpTransport {
+  // server 이름은 list_changed 알림을 조립에 알릴 때 쓴다(Q16).
+  function stdioTransport(spawn: StdioSpawn, server: string): McpTransport {
     let nextRequestId = 1;
     const pending = new Map<
       number,
@@ -387,6 +391,18 @@ export function createMcpConnections(
                   });
                 } finally {
                   writer.releaseLock();
+                }
+                continue;
+              }
+              // 서버의 알림이다. 도구 목록이 바뀌면 조립이 재조회할 때까지 그
+              // server의 새 호출을 막는다(Q16). 다른 알림은 버려진다.
+              if (
+                typeof message.method === "string" && message.id === undefined
+              ) {
+                if (
+                  message.method === "notifications/tools/list_changed"
+                ) {
+                  deps.onListChanged?.(server);
                 }
                 continue;
               }

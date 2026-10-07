@@ -394,6 +394,7 @@
 | problems/tests#Q3         | 테스트 timeout 기본·상한과 출력·메모리 한도·작업 폴더 보관 기간을 얼마로 둘까.                                                 | 추천대로    | 실측 후 runtime별 유한 한도                                                                                                                                           |
 | problems/tests#Q4         | 옛 Deno test의 무제한 allow-read·allow-write·allow-env·allow-net을 유지할까.                                                   | 추천대로    | 운영 자원 접근 금지 우선                                                                                                                                              |
 | problems/tests#Q5         | cgroup이 없는 macOS에서 Deno test 자식을 어떻게 둘까. Q8의 soft 상한과 #193의 Deno soft 거절이 부딪힌다.                          | 미정        | 사람이 정할 것. 추천은 macOS Deno test 자식을 시작 전 `unavailable`로 거절(#193, R20)                                                                                 |
+| problems/tests#Q6         | app test의 정적 code 사용 검사가 literal이 아닌(계산한) code의 `reportProblem` 자리를 어떻게 다룰까.                          | 추천대로    | 선언 안 되었거나 예약된 code를 literal로 보고하는 자리는 정적 fail이다. 정적으로 code를 알 수 없는 자리는 세어 observations에 적고(`dynamic_sites`), 필수 dynamic guard 검사(`code_usage_dynamic`)가 선언 밖·예약 code의 직접 보고를 실제 보고 통로의 guard가 거절하는 것을 보였을 때만 app test가 통과한다(problems#T12) |
 
 ### lophn-agent (212)
 

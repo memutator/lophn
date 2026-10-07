@@ -855,6 +855,12 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
   - 취소 직후 옛 claim의 갱신·release 준비·보고 거절, 과거 결과·문제 보존, 외부
     프로세스를 멈췄다는 표시 없음(R23, connection#R18)
   - confirmed·cancelled 때 문제 독점 예약 행 제거
+- 상태: 완료 (#413) — 자리는 `packages/coding-agent/tickets/report.ts`다.
+  commands.ts의 `createTicketFinishCommands`가 report_completion·cancel을
+  내보내고 apps/core/tickets.ts의 `ticketDefinitions`가 등록한다. 제품
+  coding_agent operation ceiling에 ticket command route operation이 없어
+  실제 coding token은 claim·보고에서 403으로 거절된다(coding-agent#T40,
+  #411과 같은 의존).
 
 ### T25 MCP·CLI ticket tool: 완료 보고·사람의 생성과 취소
 

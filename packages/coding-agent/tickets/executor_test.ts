@@ -1,5 +1,5 @@
-// ticket claim의 실제 executor 경로(coding-agent/tickets#R11–R14).
-// 임시 파일 SQLite/WAL, writer Worker, executor를 그대로 쓴다.
+// ticket claim·완료 보고·취소의 실제 executor 경로(coding-agent/tickets#R11–R14,
+// R15, R17, R22). 임시 파일 SQLite/WAL, writer Worker, executor를 그대로 쓴다.
 import { assert, assertEquals } from "@std/assert";
 import type { Result } from "../../base/mod.ts";
 import type {
@@ -48,6 +48,9 @@ const operations = [
   "RenewTicketClaim",
   "ReleaseTicketClaim",
   "ExpireTicketClaim",
+  "ReportTicketCompletion",
+  "CancelTicket",
+  "coding-agent.tickets.seed",
 ];
 
 function credential(
@@ -289,6 +292,124 @@ Deno.test("coding-agent/tickets#R14: the executor does not release a claim when 
       ),
     );
     assertEquals(rows.length, 1);
+  } finally {
+    await ledger.close();
+  }
+});
+
+const HASH = "ab".repeat(32);
+const SUMMARY_BYTES = 64;
+
+// R15·R17. agent는 같은 claim으로 release 근거와 summary 준비와 함께 보고한다.
+// release가 ticket_source로 이 ticket을 역조회하는지 실제 표로 본다.
+Deno.test("coding-agent/tickets#R15: the executor reports a completion for the same claim and release", async () => {
+  const ledger = await harness();
+  try {
+    const ready = await readyTicket(ledger);
+    const claimed = value(
+      await ledger.command(
+        agent,
+        envelope("ClaimTicket", "claim", {
+          ticket: ready.ticket,
+          base_revision: ready.revision,
+        }, { base_revision: ready.revision }),
+      ),
+    );
+    const hold = claimResult(claimed);
+    value(
+      await ledger.command(
+        machine,
+        envelope("coding-agent.tickets.seed", "seed", {
+          app: APP,
+          release: "rel_01arz3ndektsv4rrffq69g5fav",
+          release_app: APP,
+          ticket_source: JSON.stringify({
+            ticket: ready.ticket,
+            claim_seq: hold.claim_seq,
+          }),
+          versions: [VER],
+        }),
+      ),
+    );
+    const blob = {
+      preparation: "finish-preparation-1",
+      principal: `coding_agent:${CAC}`,
+      purpose: "ticket_summary",
+      hash: HASH,
+      size_bytes: SUMMARY_BYTES,
+    };
+    const reported = await ledger.command(
+      agent,
+      envelope("ReportTicketCompletion", "report", {
+        ticket: ready.ticket,
+        claim_seq: hold.claim_seq,
+        base_revision: hold.claim_seq,
+        completion: {
+          release: "rel_01arz3ndektsv4rrffq69g5fav",
+          summary_hash: HASH,
+          outputs: [],
+          fix_records: [],
+          verifications: [],
+        },
+        summary_blob: blob,
+      }, { base_revision: hold.claim_seq }),
+    );
+    const report = value(reported);
+    assertEquals((report.result as { state: string }).state, "reported");
+    // claim 접수 때 끝나고 state는 reported다. confirmed는 보고만으로 되지 않는다(R17).
+    const rows = value(
+      await ledger.inspect(
+        "SELECT state, completion_seq FROM tickets WHERE id = ?",
+        [ready.ticket],
+      ),
+    );
+    assertEquals(rows[0]?.state, "reported");
+    assert(rows[0]?.completion_seq !== null);
+    const claims_ = value(
+      await ledger.inspect(
+        "SELECT claim_seq FROM ticket_claims WHERE ticket = ?",
+        [ready.ticket],
+      ),
+    );
+    assertEquals(claims_.length, 0);
+    const refs = value(
+      await ledger.inspect(
+        "SELECT hash, registered_seq FROM blob_refs WHERE owner_kind = 'ticket' AND owner_key = ? AND field = 'summary'",
+        [ready.ticket],
+      ),
+    );
+    assertEquals(refs.length, 1);
+    assertEquals(refs[0]?.hash, HASH);
+  } finally {
+    await ledger.close();
+  }
+});
+
+// R22. machine은 외부 claim·보고·결과가 한 번도 없는 ticket만 취소한다.
+Deno.test("coding-agent/tickets#R22: the executor cancels a ticket without history through a machine actor", async () => {
+  const ledger = await harness();
+  try {
+    const ready = await readyTicket(ledger);
+    const cancelled = await ledger.command(
+      machine,
+      envelope("CancelTicket", "cancel", {
+        ticket: ready.ticket,
+        base_revision: ready.revision,
+        reason: "scope moved",
+      }, { base_revision: ready.revision }),
+    );
+    assertEquals(
+      (value(cancelled).result as { state: string }).state,
+      "cancelled",
+    );
+    const rows = value(
+      await ledger.inspect(
+        "SELECT state, cancel_reason FROM tickets WHERE id = ?",
+        [ready.ticket],
+      ),
+    );
+    assertEquals(rows[0]?.state, "cancelled");
+    assertEquals(rows[0]?.cancel_reason, "scope moved");
   } finally {
     await ledger.close();
   }

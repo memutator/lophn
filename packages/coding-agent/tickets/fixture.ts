@@ -52,12 +52,50 @@ export type FixtureDeps = {
   adoptions?: ReadonlyMap<string, Adoption>;
   connections?: ReadonlyMap<string, ConnectionRecord>;
   nowMs?: number;
+  // 살아 있는 blob 준비 참조. registerBlobRef는 이 목록만 본다(테스트의
+  // core 준비 메모리 자리). 없으면 등록은 unavailable이다.
+  preparedBlobs?: readonly {
+    preparation: string;
+    principal: string;
+    purpose: string;
+    hash: string;
+    size_bytes: number;
+  }[];
 };
 
 export function ticketFixture(deps: FixtureDeps = {}) {
   const db = new DatabaseSync(":memory:");
   db.exec("PRAGMA foreign_keys = ON;");
   for (const step of ticketSchemaSteps) db.exec(step.sql);
+  // report 역조회가 읽는 표들(report 참조 검사가 보는 열만 같은 이름으로 둔다).
+  db.exec(`
+    CREATE TABLE releases (
+      id TEXT PRIMARY KEY,
+      app TEXT NOT NULL,
+      ticket_source TEXT
+    ) STRICT;
+    CREATE TABLE versions (
+      id TEXT PRIMARY KEY,
+      document TEXT NOT NULL,
+      number INTEGER NOT NULL
+    ) STRICT;
+    CREATE TABLE verifications (
+      id TEXT PRIMARY KEY,
+      app TEXT NOT NULL
+    ) STRICT;
+    CREATE TABLE blob_refs (
+      owner_kind TEXT NOT NULL,
+      owner_key TEXT NOT NULL,
+      field TEXT NOT NULL,
+      hash TEXT NOT NULL,
+      size_bytes INTEGER NOT NULL,
+      registered_seq INTEGER NOT NULL,
+      PRIMARY KEY (owner_kind, owner_key, field, hash)
+    ) STRICT;
+    CREATE TRIGGER blob_refs_no_delete BEFORE DELETE ON blob_refs
+    BEGIN
+      SELECT RAISE(ABORT, 'immutable');
+    END;`);
   // claim은 이번 TicketClaimed의 seq를 미리 알아야 한다. 실제 ledger의 events 표와
   // 같은 autoincrement를 두고, emit은 그 seq를 쓴다. 삭제는 막는다.
   db.exec(`
@@ -160,7 +198,43 @@ export function ticketFixture(deps: FixtureDeps = {}) {
       emitted.push({ type: _event.type, subject, payload, seq });
       return seq;
     },
-    registerBlobRef: () => err({ code: "unavailable", message: "no blob" }),
+    registerBlobRef(reference) {
+      // 준비되지 않은 hash는 영구 참조가 되지 못한다(blob-flow와 같은 guard).
+      if (
+        reference.source.kind !== "prepared" ||
+        reference.source.blob === undefined
+      ) {
+        return err({ code: "forbidden", message: "prepared blob만 등록한다" });
+      }
+      const blob = reference.source.blob;
+      const prepared = deps.preparedBlobs?.find((entry) =>
+        entry.hash === blob.hash && entry.principal === blob.principal &&
+        entry.purpose === blob.purpose
+      );
+      if (prepared === undefined) {
+        return err({ code: "invalid_input", message: "살아 있는 준비가 없다" });
+      }
+      const inserted = sql.run(
+        `INSERT INTO blob_refs (
+           owner_kind, owner_key, field, hash, size_bytes, registered_seq
+         ) VALUES (?, ?, ?, ?, ?, ?)`,
+        [
+          reference.owner_kind,
+          reference.owner_key,
+          reference.field,
+          prepared.hash,
+          prepared.size_bytes,
+          BigInt(reference.registered_seq),
+        ],
+      );
+      return ok({
+        owner_kind: reference.owner_kind,
+        owner_key: reference.owner_key,
+        field: reference.field,
+        hash: prepared.hash,
+        registered_seq: String(inserted.lastInsertRowid),
+      });
+    },
     advanceSubscriberCursor: () => ok(undefined),
     useApproval: () => err({ code: "unavailable", message: "no approval" }),
     call: () => err({ code: "unavailable", message: "no dispatch" }),

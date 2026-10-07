@@ -2,8 +2,11 @@ import {
   CLAIM_SWEEP_INTERVAL_MS,
   createTicketClaimCommands,
   createTicketCommands,
+  createTicketFinishCommands,
   createTicketReads,
   expiredClaims,
+  TICKET_BLOB_FIELDS,
+  TICKET_BLOB_PURPOSES,
   ticketSchemaSteps,
 } from "../../packages/coding-agent/mod.ts";
 import {
@@ -22,6 +25,7 @@ import { notificationsOnlyVisibility } from "./platform.ts";
 // 거부하므로 ticket 생성 검사는 fail-closed다.
 const commands = createTicketCommands();
 const claims = createTicketClaimCommands();
+const finish = createTicketFinishCommands();
 const reads = createTicketReads();
 
 // 만료·회수 정리 간격. core 감독 timer가 이 간격으로 후보를 읽고
@@ -51,6 +55,8 @@ export function createEventRegistration(): EventRegistration {
 
 export const ticketDefinitions = {
   schema: ticketSchemaSteps,
+  blobFields: TICKET_BLOB_FIELDS,
+  blobPurposes: TICKET_BLOB_PURPOSES,
   commands: [
     commands.create,
     commands.make_ready,
@@ -58,6 +64,8 @@ export const ticketDefinitions = {
     claims.renew_claim,
     claims.release_claim,
     claims.expire_claim,
+    finish.report_completion,
+    finish.cancel,
   ],
   reads: [reads.list, reads.show, reads.checks, reads.claim_sweep],
 };

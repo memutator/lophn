@@ -6,7 +6,7 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
 
 `docs/`의 모든 intent, requirements, domain model, architecture, flow가 첫 판의 범위다. 덜어 내는 것은 없다.
 
-사람 결정(2026-10-07)으로 이번 판에서 미룬 작업: platform#T49(macOS·Windows 설치 묶음과 OS adapter), coding-agent#T48(오프라인 MCP 시작). 상태 줄은 `미룸`이고 요구는 그대로 남는다. 미룬 작업은 완료 수와 전체 수 양쪽에서 뺀다.
+사람 결정(2026-10-07)으로 이번 판에서 미룬 작업: platform#T49(macOS·Windows 설치 묶음과 OS adapter), coding-agent#T48(오프라인 MCP 시작), lophn-agent#T54·T55·T56(실제 model eval과 그 환경 구축 전부). 상태 줄은 `미룸`이고 요구는 그대로 남는다. 미룬 작업은 완료 수와 전체 수 양쪽에서 뺀다.
 
 ## 문서 모양
 

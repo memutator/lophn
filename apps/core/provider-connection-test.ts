@@ -44,10 +44,13 @@ import {
 // StartModelCall·FinishModelCall로 남고 사용량 대기 credential은 보내지 않는다(R24, R30).
 
 export const CONNECTION_TEST_PRINCIPAL = "machine:provider-connection-test";
+// attach의 process 생존 판정(port)이 항상 true이므로 조건 process·task 값은
+// 판정에 쓰이지 않는 값이다. 조건이 정의되어 있어야 attach 입구 gate가 통과한다.
+const CONNECTION_TEST_PROCESS = "provider-connection-test";
 
-// test 실행이 model call 기록·provider 상태를 쓰는 core 내부 machine 자격이다.
-// token이 없어 HTTP로는 이 principal이 될 수 없고 ledger credential 기록으로만
-// writer가 현재 자격을 본다. 기동 때 record한다(ticket-claims와 같은 자리다).
+// test 실행이 model call 기록·provider 상태·secret 전송을 쓰는 core 내부 machine
+// 자격이다. token이 없어 HTTP로는 이 principal이 될 수 없고 ledger credential
+// 기록으로만 writer가 현재 자격을 본다. 기동 때 record한다(ticket-claims와 같은 자리다).
 export const CONNECTION_TEST_CONTEXT: AuthenticatedContext = {
   principal: CONNECTION_TEST_PRINCIPAL,
   actor: "machine",
@@ -57,10 +60,17 @@ export const CONNECTION_TEST_CONTEXT: AuthenticatedContext = {
       "FinishModelCall",
       "RecordProviderAvailability",
       "RecordProviderCheck",
+      SECRET_SEND,
     ],
-    targets: {},
+    targets: {
+      process: CONNECTION_TEST_PROCESS,
+      task: "connection-test",
+    },
   },
-  conditions: {},
+  conditions: {
+    process: CONNECTION_TEST_PROCESS,
+    task: "connection-test",
+  },
   credential_ref: CONNECTION_TEST_PRINCIPAL,
 };
 

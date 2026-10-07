@@ -1,6 +1,6 @@
-// `lophn session summary|plan|observe` command 표와 plan·observe 실행이다(cli#R40). summary는 `lophn_session`의 결과를
-// 같은 read route로 읽고 그 core route가 아직 없으면 실행은 성공으로 꾸미지 않고 unavailable이다
-// (dispatch). plan은 sessions의 LaunchPlan 입출력이고 spawn이 아니다(coding-agent#T38): shell main이
+// `lophn session summary|plan|observe` command 표와 summary·plan·observe 실행이다(cli#R40). summary는 `lophn_session`의
+// 결과를 같은 read route(`/v1/coding_agent_sessions/summary`)로 읽는다. `--hook`이면 Claude Code 세션 시작 hook의
+// 출력 글 하나를 내고 어떤 실패도 빈 값으로 끝낸다(guides#R23, R24). 일반 summary는 실패를 그대로 보인다. plan은 sessions의 LaunchPlan 입출력이고 spawn이 아니다(coding-agent#T38): shell main이
 // 클릭을 검증하며 넘긴 값으로 plan이나 자기 터미널 안내를 낸다. shell terminal host가 plan을 연다. observe는
 // 제품 hook·plugin·extension이 stdin으로 준 payload를 정규화해 `LOPHN_TERMINAL_OBSERVE` socket에만 쓰고 core·credential을
 // 부르지 않는다(coding-agent#T39, sessions#R6, R9).
@@ -9,12 +9,17 @@ import {
   cliSessionObserveSchema,
   cliSessionPlanSchema,
   cliSessionSummarySchema,
+  codingAgentSessionSummary,
+  type CodingAgentSessionSummary,
   type HarnessDetection,
   type HarnessId,
   LOPHN_TERMINAL_OBSERVE,
   type SessionPlanInput,
 } from "../../../contracts/coding-agent/mod.ts";
+import { runSummaryHookBounded } from "../../guides/mod.ts";
 import { launchPlanOf, observeStream } from "../../sessions/mod.ts";
+import type { Route } from "../../../contracts/platform/mod.ts";
+import { UNREADABLE_MESSAGE } from "../../connection/mod.ts";
 import type { CommandOutput } from "./connection.ts";
 import type { CommandEntry } from "./types.ts";
 
@@ -23,6 +28,70 @@ export const SESSION_COMMANDS: readonly CommandEntry[] = [
   { name: "session plan", input: cliSessionPlanSchema },
   { name: "session observe", input: cliSessionObserveSchema },
 ];
+
+export type SessionSummaryDeps = {
+  // 연결 참조가 없으면 undefined다.
+  client: {
+    read(route: Route, input: unknown): Promise<Result<unknown, LophnError>>;
+  } | undefined;
+};
+
+// hook 출력 글은 data.hook이다. 빈 값은 stdout 빈 값·exit 0이고 hook은 연결이 없어도 실패하지 않는다.
+export async function runSessionSummary(
+  input: { app?: string; cursor?: string; hook?: boolean },
+  deps: SessionSummaryDeps,
+): Promise<Result<CommandOutput, LophnError>> {
+  const client = deps.client;
+  if (input.hook === true) {
+    const text = client === undefined || input.app === undefined
+      ? ""
+      : await runSummaryHookBounded(async (request) => {
+        const read = await client.read(codingAgentSessionSummary, request);
+        if (!read.ok) return read;
+        const checked = codingAgentSessionSummary.output.safeParse(read.value);
+        return checked.success
+          ? ok(checked.data.summary as CodingAgentSessionSummary)
+          : err({ code: "unavailable", message: "읽기 응답이 contract와 다르다" });
+      }, input.app);
+    return ok({ summary: text, data: { hook: text }, next: [] });
+  }
+  if (client === undefined) {
+    return err({
+      code: "invalid_input",
+      message: "연결 참조가 필요하다(--connection 또는 LOPHN_CONNECTION)",
+    });
+  }
+  const read = await client.read(codingAgentSessionSummary, {
+    ...(input.app === undefined ? {} : { app: input.app }),
+    ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
+  });
+  if (!read.ok) {
+    // 없는 대상과 범위 밖 대상은 같은 답이다(connection#R5).
+    return read.error.code === "not_found"
+      ? err({ code: "not_found", message: UNREADABLE_MESSAGE })
+      : read;
+  }
+  const checked = codingAgentSessionSummary.output.safeParse(read.value);
+  if (!checked.success) {
+    return err({
+      code: "unavailable",
+      message: "읽기 응답이 contract와 다르다",
+    });
+  }
+  const summary = checked.data.summary;
+  return ok({
+    summary:
+      `열린 문제 ${summary.problems.length}개, 열린 ticket ${summary.tickets.length}개, 내 claim ${summary.claims.length}개, 남은 검사 ${summary.remaining_checks.length}개`,
+    data: checked.data,
+    next: [
+      summary.claim_rule,
+      "ticket 상세는 `lophn ticket show`로 읽는다",
+      ...(summary.next_cursor === null
+        ? []
+        : ["--cursor로 next_cursor를 넣어 이어 읽는다"]),
+    ],
+  });
+}
 
 export type SessionPlanDeps = {
   // 저장한(없으면 처음 본) 감지 결과다. 재감지나 version·auth probe를 돌리지 않는다(harnesses#R2).

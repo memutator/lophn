@@ -832,7 +832,7 @@ function setupPurpose(name: string): string {
     case "connection install":
       return "기존 connection을 선택 target에 설치한다";
     case "session summary":
-      return "현재 session의 요약을 읽는다";
+      return "연결 범위의 열린 문제·ticket·내 claim 요약을 읽는다. --hook --app <앱>은 Claude Code 시작 hook 출력이다";
     case "session plan":
       return "ticket의 TUI 시작 plan을 stdin으로 만든다";
     case "session observe":

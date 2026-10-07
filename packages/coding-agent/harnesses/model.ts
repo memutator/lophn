@@ -109,6 +109,9 @@ export type HookSpec = {
     path: string;
   };
   purpose: "summary" | "status";
+  // 이 event를 받는 source다. Claude SessionStart의 시작·재개·초기화다(guides#R23). 없으면 matcher를
+  // 쓰지 않는다.
+  matcher?: string;
   // config fragment·plugin·extension 방식이다(domain-model).
   method: "config_fragment" | "plugin" | "extension";
   owned_identity: string;

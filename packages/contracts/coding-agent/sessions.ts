@@ -10,6 +10,7 @@ import {
   connectionScopeSchema,
 } from "./connections.ts";
 import { problemSummarySchema } from "../problems/problems.ts";
+import { repairStateSchema } from "../problems/problem-detail.ts";
 import {
   ticketIdSchema,
   ticketKindSchema,
@@ -243,7 +244,10 @@ export const CodingAgentSessionSummarySchema = z.object({
   scope: connectionScopeSchema,
   observed_seq: seqSchema,
   observed_at: atSchema,
-  problems: z.array(problemSummarySchema).max(12),
+  // repair_state는 문제 상세의 수리 작업 상태다. coding agent가 맡을 수 있는 문제(ready_to_hand_off·
+  // in_progress)와 사람이 먼저 할 일이 있는 문제를 hook이 가르는 근거다(guides#R23).
+  problems: z.array(problemSummarySchema.extend({ repair_state: repairStateSchema }))
+    .max(12),
   tickets: z.array(
     z.object({
       id: ticketIdSchema,
@@ -252,6 +256,8 @@ export const CodingAgentSessionSummarySchema = z.object({
       title: z.string().min(1),
       state: z.enum(["open", "check_failed"]),
       readiness: ticketReadinessSchema,
+      // 이 ticket이 고치는 문제다. hook이 보여 주는 문제의 ticket을 고른다.
+      problems: z.array(idSchema("prb")).max(12),
     }),
   ).max(20),
   claims: z.array(

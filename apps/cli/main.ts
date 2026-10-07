@@ -188,6 +188,9 @@ export async function cliMain(
     await output.failure(failure);
     return output.exitCode(failure);
   }
+  // `session summary --hook`은 어떤 실패도 stdout 빈 값·exit 0이다(guides#R24). 세션 시작을 막지 않는다.
+  const hookMode = command === "session summary" &&
+    (checked.data as { hook?: boolean }).hook === true;
   const env = options.env ?? ambientEnv();
   const connection = connectionFromRef(
     (checked.data as { connection?: string }).connection ??
@@ -201,6 +204,7 @@ export async function cliMain(
     readText: readTextOrUndefined,
   });
   if (!address.ok) {
+    if (hookMode) return 0;
     await output.failure(address.error);
     return output.exitCode(address.error);
   }
@@ -248,6 +252,14 @@ export async function cliMain(
       ...(options.ports === undefined ? {} : { ports: options.ports }),
     },
   );
+  if (hookMode) {
+    if (ran.ok) {
+      await output.raw(
+        String((ran.value.data as { hook?: unknown } | undefined)?.hook ?? ""),
+      );
+    }
+    return 0;
+  }
   if (command === "session observe") {
     // hook의 stdout은 제품이 model context로 읽을 수 있어 비워 둔다. 보내지 못해도 harness 작업을 막지 않으므로
     // 진단은 stderr 한 줄이고 exit는 0이다(조사 T6).

@@ -207,6 +207,7 @@ import {
 import { snapshotLogsEnvironment } from "./problems-logs.ts";
 import {
   registerRepairReads,
+  registerSessionReads,
   REPAIR_WORKER_KIND,
   repairWorkerSpec,
 } from "./repair-context.ts";
@@ -767,6 +768,7 @@ async function open(
   if (!openedRuntime.ok) return openedRuntime;
   runtime = openedRuntime.value;
   registerRepairReads(runtime, repairChannel);
+  registerSessionReads(runtime, repairChannel);
   // sweep가 expire_claim을 제출할 machine credential. 기록이 없으면 writer가
   // 만료 정리를 거절하므로 기동을 여기서 멈춘다(coding-agent/tickets#R13).
   const sweepCredential = await runtime.record({
@@ -1802,7 +1804,10 @@ async function open(
   const repairSpec = repairWorkerSpec();
   if (
     io && repairSpec &&
-    allRoutes.some((route) => route.resource === "repair_context")
+    allRoutes.some((route) =>
+      route.resource === "repair_context" ||
+      route.resource === "coding_agent_sessions"
+    )
   ) {
     const started = await io.start(
       repairSpec,

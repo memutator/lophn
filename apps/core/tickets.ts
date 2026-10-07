@@ -12,6 +12,7 @@ import {
 import {
   ticketCheckFailed,
   ticketConfirmed,
+  ticketUploadSummary,
 } from "../../packages/contracts/coding-agent/mod.ts";
 import type {
   EventRegistration,
@@ -57,6 +58,7 @@ export const ticketDefinitions = {
   schema: ticketSchemaSteps,
   blobFields: TICKET_BLOB_FIELDS,
   blobPurposes: TICKET_BLOB_PURPOSES,
+  uploadRoutes: [ticketUploadSummary],
   commands: [
     commands.create,
     commands.make_ready,

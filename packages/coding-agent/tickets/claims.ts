@@ -200,8 +200,9 @@ function claimTicket(
   if (!ticket.ok) return ticket;
   if (ticket.value === null) return notFound("ticket does not exist");
   const stored = ticket.value;
+  // 범위 밖 ticket은 없는 ticket과 같은 답이다(connection#R5).
   if (!inScope(auth.value, stored.app)) {
-    return forbidden("ticket is outside the connection scope");
+    return notFound("ticket does not exist");
   }
   if (stored.readiness !== "ready") {
     return conflict("ticket is not ready");
@@ -338,8 +339,9 @@ function currentClaim(
   if (!ticket.ok) return ticket;
   if (ticket.value === null) return forbidden("ticket does not exist");
   const stored = ticket.value;
+  // 범위 밖 ticket은 없는 ticket과 같은 답이다(connection#R5).
   if (!inScope(auth.value, stored.app)) {
-    return forbidden("ticket is outside the connection scope");
+    return forbidden("ticket does not exist");
   }
   if (
     !revisionAgrees(stored.revision, input.base_revision, compare.base_revision)

@@ -95,8 +95,9 @@ function reportCompletion(
   if (!ticket.ok) return ticket;
   if (ticket.value === null) return notFound("ticket does not exist");
   const stored = ticket.value;
+  // 범위 밖 ticket은 없는 ticket과 같은 답이다(connection#R5).
   if (!inScope(auth.value, stored.app)) {
-    return forbidden("ticket is outside the connection scope");
+    return notFound("ticket does not exist");
   }
   // 접수·반납 뒤의 state다. 기한 전 현재 claim이 있어야 보고한다.
   if (stored.state !== "claimed") {

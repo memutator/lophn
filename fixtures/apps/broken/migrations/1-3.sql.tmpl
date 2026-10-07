@@ -1,0 +1,5 @@
+-- 둘째 단계(apps#T26 완료 10번)다. 앞 문장은 유효하고, 뒤 문장이 항상 abort로 실패한다.
+-- migrateAppDatabase는 이 단계에서 restoreAppBackup으로 되돌린다. 깨진 앱 fixture라 지우지 않는다.
+alter table board add column label text;
+insert into board (kind, created_at) values ('stop', '2026-10-07T00:00:00.000Z');
+select raise(abort, 'second migration step always fails');

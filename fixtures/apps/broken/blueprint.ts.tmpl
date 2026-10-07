@@ -1,0 +1,224 @@
+import { type Blueprint, defineBlueprint } from "@lophn/blueprint";
+import { DATA_DIR, ECHO, HELPER_APP } from "./src/places.ts";
+import { en } from "./src/wording/en.ts";
+
+// blueprint가 정본이다. 코드를 바꾸기 전에 먼저 바꾼다.
+// 사람에게 보이는 이름·설명은 en catalog 문구고, command·screen의 key는 문구와 별개의 식별자다.
+type Text = Readonly<Record<keyof typeof en, string>>;
+
+export function makeBlueprint(text: Text = en): Blueprint {
+  const screen = {
+    type: "string",
+    description: text["panel.summary.screen"],
+  } as const;
+  const viewSession = {
+    type: "string",
+    description: text["panel.summary.view-session"],
+    minLength: 1,
+    maxLength: 200,
+  } as const;
+  const kind = {
+    type: "string",
+    description: text["panel.summary.kind"],
+    minLength: 1,
+  } as const;
+  const label = {
+    type: "string",
+    description: text["panel.summary.label"],
+    maxLength: 80,
+  } as const;
+
+  return defineBlueprint({
+    name: "Broken",
+    description: text["common.summary.app"],
+    screens: [
+      {
+        key: "panel",
+        label: text["panel.title.screen"],
+        path: "/screens/panel/index.html",
+        sizes: ["full", "panel"],
+      },
+    ],
+    commands: [
+      {
+        key: "list_broken",
+        label: text["panel.label.list-broken"],
+        description: text["panel.summary.list-broken"],
+        effect: "read",
+        confirm: false,
+        input: null,
+        revert: { supported: false },
+      },
+      {
+        // scenario 2: handler 안의 처리되지 않은 TypeError(앱 source frame 2~3개 깊이)와
+        // 같은 함수에서 줄·message만 다른 변형(같은 지문).
+        key: "run_broken",
+        label: text["panel.label.run-broken"],
+        description: text["panel.summary.run-broken"],
+        effect: "read",
+        confirm: false,
+        input: {
+          type: "object",
+          properties: {
+            kind,
+            view_session: viewSession,
+            variant: {
+              type: "string",
+              description: text["panel.summary.variant"],
+              maxLength: 40,
+            },
+          },
+          required: ["kind"],
+          additionalProperties: false,
+        },
+        revert: { supported: false },
+      },
+      {
+        // scenario 3: 처리되지 않은 Promise rejection(process).
+        key: "drop_promise",
+        label: text["panel.label.drop-promise"],
+        description: text["panel.summary.drop-promise"],
+        effect: "read",
+        confirm: false,
+        input: null,
+        revert: { supported: false },
+      },
+      {
+        // scenario 5: 미선언 code를 reportProblem에 넘기는 command(_invalid_report group).
+        // 실제 reportProblem 호출 자은 literal이 아니므로 정적 검사가 가려내지 못한다.
+        key: "report_wrong_code",
+        label: text["panel.label.report-wrong-code"],
+        description: text["panel.summary.report-wrong-code"],
+        effect: "read",
+        confirm: false,
+        input: {
+          type: "object",
+          properties: { kind },
+          required: ["kind"],
+          additionalProperties: false,
+        },
+        revert: { supported: false },
+      },
+      {
+        // scenario 7: 짧은 시간에 보고 25개(core 창 안 상한 20개를 넘는다).
+        key: "flood_reports",
+        label: text["panel.label.flood-reports"],
+        description: text["panel.summary.flood-reports"],
+        effect: "read",
+        confirm: false,
+        input: null,
+        revert: { supported: false },
+      },
+      {
+        // scenario 1의 user fixer다. fixture 설정 레코드를 읽고 틀린 값을 fixture_misconfigured로 보고한다.
+        key: "read_settings",
+        label: text["panel.label.read-settings"],
+        description: text["panel.summary.read-settings"],
+        effect: "read",
+        confirm: false,
+        input: null,
+        revert: { supported: false },
+      },
+      {
+        // scenario 8: 30줄 넘게 log를 남긴 뒤 실패하는 command와 응답 뒤 비동기로 실패하는 command.
+        key: "chatter_then_fail",
+        label: text["panel.label.chatter-then-fail"],
+        description: text["panel.summary.chatter-then-fail"],
+        effect: "read",
+        confirm: false,
+        input: null,
+        revert: { supported: false },
+      },
+      // scenario 4: view의 event handler가 부르는 write. 깨진 상태는 같은 source frame으로 내보낸다.
+      {
+        key: "mark_kind",
+        label: text["panel.label.mark-kind"],
+        description: text["panel.summary.mark-kind"],
+        effect: "write",
+        confirm: false,
+        input: {
+          type: "object",
+          properties: {
+            kind,
+            label,
+            view_session: viewSession,
+          },
+          required: ["kind", "view_session"],
+          additionalProperties: false,
+        },
+        revert: { supported: false },
+      },
+      {
+        key: "panel_context",
+        label: text["panel.label.panel-context"],
+        description: text["panel.summary.panel-context"],
+        effect: "read",
+        confirm: false,
+        input: {
+          type: "object",
+          properties: {
+            screen,
+            view_session: viewSession,
+          },
+          required: ["screen", "view_session"],
+          additionalProperties: false,
+        },
+        revert: { supported: false },
+      },
+    ],
+    automatic_tasks: [],
+    permissions: [
+      {
+        kind: "fs.write",
+        scope: { path: DATA_DIR, recursive: true },
+        reason: text["panel.reason.data-folder"],
+      },
+    ],
+    // fixer coding_agent 하나와 fixer user 하나다(apps#T26 완료 1번). 선언한 code마다 실제 command의
+    // 실패 경로 test가 하나 이상 있어야 한다(tests/failure_path_test.ts).
+    problem_codes: [
+      {
+        code: "fixture_broken",
+        message_key: "common.problem.fixture-broken",
+        message: text["common.problem.fixture-broken"],
+        fixer: "coding_agent",
+      },
+      {
+        code: "fixture_misconfigured",
+        message_key: "common.problem.fixture-misconfigured",
+        message: text["common.problem.fixture-misconfigured"],
+        fixer: "user",
+      },
+    ],
+    documents: [],
+    // agent가 지금 고치는 깨진 상태의 요약을 읽고 힌트를 남긴다.
+    agent_context: [{
+      screen: "panel",
+      read_command: "panel_context",
+      sensitive_paths: ["/kind/private_note"],
+      annotation_targets: [{
+        key: "hint",
+        label: text["panel.label.hint"],
+        write_command: "mark_kind",
+      }],
+    }],
+    app_connections: [{
+      app: HELPER_APP,
+      commands: [ECHO],
+      reason: text["panel.reason.helper"],
+    }],
+    // 정확한 version만 쓴다. deno.json의 import map과 같아야 한다(tests/blueprint_test.ts).
+    sdk_dependencies: [
+      { name: "@lophn/blueprint", version: "1.0.0" },
+      { name: "@lophn/cap-problem", version: "1.0.0" },
+      { name: "@lophn/cap-schedule", version: "1.0.0" },
+      { name: "@lophn/design", version: "1.0.0" },
+      { name: "@lophn/ui-control", version: "1.0.0" },
+      { name: "@lophn/ui-layout", version: "1.0.0" },
+      { name: "@lophn/ui-state", version: "1.0.0" },
+      { name: "@lophn/wording", version: "1.0.0" },
+    ],
+  });
+}
+
+export default makeBlueprint();

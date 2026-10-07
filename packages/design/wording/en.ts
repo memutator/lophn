@@ -168,6 +168,48 @@ export const en = {
   "app-detail.note.export-unavailable":
     "Exporting this app's data isn't available yet.",
   "app-detail.note.issues-unavailable": "Issues aren't available here yet.",
+  "app-detail.note.issues-empty": "This app has no issues.",
+  "app-detail.note.issue-choice-blocked":
+    "Some choices need to know which version was in use, and that isn't known for this issue.",
+  "app-detail.note.issue-checks-scope":
+    "The fix says, the test results, and your own check are separate. One doesn't stand in for another.",
+  "app-detail.note.issue-tried":
+    "Opens a new problem form for this issue, so you can tell us what you saw.",
+  "app-detail.error.issue-tried-failed":
+    "Couldn't open the problem form. Try again.",
+  "app-detail.heading.issue-checks": "What was checked",
+  "app-detail.heading.issue-decide": "Your decision",
+  "app-detail.button.issue-back": "All issues",
+  "app-detail.button.issue-fixed": "It's fixed",
+  "app-detail.button.issue-not-fixed": "It's still not fixed",
+  "app-detail.button.issue-not-visible": "I can't see it now",
+  "app-detail.button.issue-dismiss": "Stop working on this",
+  "app-detail.button.issue-tried": "I tried it myself, but it doesn't work",
+  "app-detail.label.issues-target": "the issues",
+  "app-detail.label.issue-status-open": "Open",
+  "app-detail.label.issue-status-fixing": "Being fixed",
+  "app-detail.label.issue-status-closed": "Closed",
+  "app-detail.label.issue-seen":
+    "{count, plural, one {Seen once} other {Seen # times}}",
+  "app-detail.label.issue-first-seen": "First seen {age}",
+  "app-detail.label.issue-last-seen": "Last seen {age}",
+  "app-detail.label.issue-owner": "Who is on it",
+  "app-detail.label.issue-needed": "What you can do",
+  "app-detail.label.issue-repair": "Repair",
+  "app-detail.label.issue-needs": "Still needed",
+  "app-detail.note.issue-check-failed": "The last check didn't pass.",
+  "app-detail.label.issue-claim": "What the fix says",
+  "app-detail.label.issue-tests": "Test results",
+  "app-detail.label.issue-human": "Your check",
+  "app-detail.note.issue-human-yes": "You checked this yourself.",
+  "app-detail.note.issue-human-no": "You haven't checked this yourself.",
+  "app-detail.label.issue-unconfirmed": "Not confirmed",
+  "app-detail.label.issue-closed": "Why it's closed",
+  "app-detail.label.issue-scope": "What was confirmed",
+  "app-detail.label.issue-version": "Version",
+  "app-detail.label.issue-basis": "What this is based on",
+  "app-detail.label.issue-collected": "Details we collected",
+  "app-detail.label.issue-dismiss-reason": "Why stop (one line)",
   "app-detail.note.no-activity": "No activity yet.",
   "app-detail.note.no-changes": "Nothing differs from the version in use.",
   "app-detail.note.no-current": "No version is in use yet.",
@@ -448,6 +490,39 @@ export const en = {
   "confirmation-window.result.undoing":
     "Undoing the changes. The result will show in Things to confirm.",
   "confirmation-window.result.undone": "The changes were undone.",
+  "confirmation-window.result.decision-saved":
+    "Your answer is saved. The issue updates to match it.",
+  "confirmation-window.result.decision-received":
+    "Your answer was received. The issue will update shortly.",
+  "confirmation-window.title.problem-fixed": "Mark this issue as fixed?",
+  "confirmation-window.title.problem-not-fixed":
+    "Say this issue is still not fixed?",
+  "confirmation-window.title.problem-not-visible":
+    "Say you can't see this issue now?",
+  "confirmation-window.title.problem-dismiss": "Stop working on this issue?",
+  "confirmation-window.problem.effect-fixed":
+    "lophn closes this issue as checked by you. That isn't a test result.",
+  "confirmation-window.problem.effect-not-fixed":
+    "lophn keeps this issue open, or opens it again if it was closed. It doesn't start any work by itself.",
+  "confirmation-window.problem.effect-not-visible":
+    "lophn closes this issue as no longer seen. That isn't a fix and isn't a test result.",
+  "confirmation-window.problem.effect-dismiss":
+    "lophn stops working on this issue and closes it. It isn't marked as fixed.",
+  "confirmation-window.problem.note-fixed":
+    "If it happens again in the version in use, lophn opens it again.",
+  "confirmation-window.problem.note-not-fixed":
+    "You can mark it as fixed later.",
+  "confirmation-window.problem.note-not-visible":
+    "If it shows up again, lophn opens it again.",
+  "confirmation-window.problem.note-dismiss":
+    "You can open it again later by saying it's still not fixed.",
+  "confirmation-window.button.problem-fixed": "Mark as fixed",
+  "confirmation-window.button.problem-not-fixed": "Say it's still not fixed",
+  "confirmation-window.button.problem-not-visible": "Say I can't see it",
+  "confirmation-window.button.problem-dismiss": "Stop working on it",
+  "confirmation-window.label.problem-seen": "Times seen",
+  "confirmation-window.label.problem-version": "Version in use",
+  "confirmation-window.label.problem-reason": "Your reason",
   "confirmation-window.revert-why.audit-fact":
     "This is a record of what happened, so it stays.",
   "confirmation-window.revert-why.conflict":

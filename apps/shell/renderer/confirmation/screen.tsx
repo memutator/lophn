@@ -21,6 +21,7 @@ import { ConfirmCommandKind } from "./kinds/confirm-command/confirm-command.tsx"
 import { GrantKind } from "./kinds/grant/grant.tsx";
 import { OptionActionKind } from "./kinds/option-action/option-action.tsx";
 import { ReleaseActivationKind } from "./kinds/release-activation/release-activation.tsx";
+import { ProblemDecisionKind } from "./kinds/problem-decision/problem-decision.tsx";
 import { RevertKind } from "./kinds/revert/revert.tsx";
 import { SecretInputKind } from "./kinds/secret-input/secret-input.tsx";
 import type { KindProps } from "./kinds/exact.tsx";
@@ -75,6 +76,11 @@ export function outcomeText(
     }
   }
   if (kind === "option_action") return t("confirmation-window.result.answered");
+  if (kind === "problem_decision") {
+    return result.result === "applied"
+      ? t("confirmation-window.result.decision-saved")
+      : t("confirmation-window.result.decision-received");
+  }
   if (done.decision === GRANT) return t("confirmation-window.result.allowed");
   if (done.decision === REJECT) return t("confirmation-window.result.rejected");
   if (done.decision === CANCEL_REQUEST) {
@@ -283,6 +289,8 @@ export function ConfirmationScreen({ api, theme }: ScreenProps) {
     ? <OptionActionKind {...props} />
     : kind === "revert"
     ? <RevertKind {...props} />
+    : kind === "problem_decision"
+    ? <ProblemDecisionKind {...props} />
     : kind === "secret"
     ? <SecretInputKind {...props} />
     : view.request.kind === "owner_decision"

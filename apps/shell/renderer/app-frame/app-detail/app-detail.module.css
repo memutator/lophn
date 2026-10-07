@@ -192,3 +192,12 @@
   flex-direction: column;
   gap: var(--space-3);
 }
+
+.link {
+  padding: var(--space-0);
+  border: none;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}

@@ -21,8 +21,6 @@ import type {
   CodingAttachment,
   CodingHost,
   CodingLaunch as BaseLaunch,
-  PrepareContext,
-  PrepareResult,
 } from "./coding-types.ts";
 import {
   type ChildEvent,

@@ -32,6 +32,8 @@ export type InvokeResult = {
   outcome: "ok" | "error";
   // 이 호출 안에서 접수된 보고.
   reports: ReceivedReport[];
+  // 실제 앱의 응답(상태와 본문)이다. fixture 앱이 남기는 업무 관측(기간·blob·효과 불확실성)을 읽는 데 쓴다.
+  response?: { status: number; body: unknown };
 };
 
 // 화면 검사 host가 판정할 수 없게 끝났다(exit 2–4·기한·잘못된 관측). 화면 검사는
@@ -113,7 +115,7 @@ export type AppDriver = {
   invoke(
     command: string,
     input: unknown,
-    options?: { inject_failure: boolean },
+    options?: { inject_failure: boolean; fault?: "store" | "net" | "none" },
   ): Promise<InvokeResult>;
   // 앱의 고정 SDK reportProblem을 직접 부른다.
   reportDirect(code: string): Promise<SdkResult>;
@@ -150,6 +152,9 @@ export type AppDriver = {
   exerciseAdapters(): Promise<AdapterEffects>;
   // 업무 데이터의 현재 상태 hash.
   businessState(): Promise<string>;
+  // 그 command의 변경이 기대는 앞선 상태(예: 완료할 항목)를 먼저 만든다. 한 번 만든 상태는 바로 다음
+  // `change`가 쓴다. 변경 전 업무 상태를 읽기 전에 부르면 그 상태가 되돌림의 기준에 들어간다.
+  prepareChange(command: string): Promise<void>;
   // 되돌리기를 지원하는 write command를 fixture 입력으로 한 번 실행한다.
   change(command: string): Promise<ChangeResult>;
   revert(token: string): Promise<RevertResult>;

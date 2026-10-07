@@ -1,0 +1,43 @@
+{
+  "failure_paths": [
+    {
+      "code": "store_unavailable",
+      "command": "list_events",
+      "fault": "store"
+    },
+    {
+      "code": "external_calendar_unavailable",
+      "command": "sync_events",
+      "fault": "net"
+    }
+  ],
+  "journal_tables": [
+    "change"
+  ],
+  "inputs": {
+    "add_event": {
+      "title": "Review",
+      "starts_at": "2026-10-07T09:00:00.000Z"
+    },
+    "create_external_event": {
+      "title": "Weekly review",
+      "starts_at": "2026-01-05T09:00:00.000Z"
+    }
+  },
+  "domain": [
+    {
+      "name": "create_effect_unconfirmed",
+      "command": "create_external_event",
+      "input": {
+        "title": "Weekly review",
+        "starts_at": "2026-01-05T09:00:00.000Z"
+      },
+      "fault": "net"
+    },
+    {
+      "name": "sync_refused",
+      "command": "sync_events",
+      "fault": "net"
+    }
+  ]
+}

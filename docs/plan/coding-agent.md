@@ -1595,6 +1595,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T45 repair ticket 검사: reproduction·problems_closed·human_confirmation
 
+- 상태: 진행 (#428) — 선행 풀기: problems#T18·T20·T21 merge 뒤 실제 data에 잇는 PR이 남음
 - 등급: 기본
 - concern: coding-agent/tickets
 - 요구: coding-agent/tickets#R9, R20, R21

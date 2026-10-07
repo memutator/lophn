@@ -13,7 +13,10 @@ import {
   type Result,
   seededRandom,
 } from "../../packages/base/mod.ts";
-import { revertRun } from "../../packages/contracts/lophn-agent/mod.ts";
+import {
+  type AppRevertBinding,
+  revertRun,
+} from "../../packages/contracts/lophn-agent/mod.ts";
 import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
 import {
   devImportMap,
@@ -26,12 +29,14 @@ import {
 } from "../../packages/apps/sdk/testing/mod.ts";
 import { confirmationBinding } from "../../packages/platform/identity/mod.ts";
 import {
-  type AppStepCall,
   type AppStepPorts,
+  type AppStepResult,
   buildRevertInput,
   type RevertGroup,
   runAppSteps,
 } from "../../packages/lophn-agent/revert/mod.ts";
+import { NotSent, ResultLost } from "../../packages/apps/runtime/client/mod.ts";
+import { runtimeAppCaller } from "./app-revert.ts";
 import { type Core, startCore } from "./core.ts";
 import { lophnAgentDefinitions } from "./lophn-agent.ts";
 import {
@@ -74,6 +79,7 @@ const MACHINE_OPERATIONS = [
   "FinishRevert",
 ];
 const USER_OPERATIONS = [
+  "RunAppRevert",
   "PreviewRevert",
   "ListReverts",
   "RevertRun",
@@ -201,6 +207,8 @@ async function titlesOf(fixture: Fixture): Promise<string[]> {
 }
 
 type World = {
+  // core의 앱 revert 호출자가 쓰는 시험 입력이다(fixture 앱의 호출 결과를 바꾼다).
+  behavior: Behavior;
   core: Core;
   server: Server;
   clock: ReturnType<typeof manualClock>;
@@ -223,7 +231,10 @@ async function accept(
 async function open(): Promise<World> {
   const home = await Deno.makeTempDir({ prefix: "lophn-app-revert-core-" });
   const clock = manualClock(Date.UTC(2024, 0, 1));
+  const fixture = await openFixture();
+  const behavior: Behavior = { called: [] };
   const started = await startCore({
+    appRevertCaller: () => fixtureCaller(fixture, behavior),
     lophnHome: home,
     port: 0,
     teams: [{ lophnAgentDefinitions }],
@@ -262,8 +273,8 @@ async function open(): Promise<World> {
     entry.role === "lophn"
   );
   assert(lophn !== undefined);
-  const fixture = await openFixture();
   return {
+    behavior,
     core,
     server,
     clock,
@@ -502,7 +513,11 @@ type Stored = {
     owner: string;
     result: string;
     reason: string | null;
-    app_revert: { step_key: string; invocation: string } | null;
+    app_revert: {
+      step_key: string;
+      invocation: string;
+      revert_invocation: string | null;
+    } | null;
   }[];
 };
 
@@ -519,6 +534,33 @@ async function stored(
   );
   assert(found !== undefined);
   return found;
+}
+
+type Behavior = { lose?: string; drop?: string; called: string[] };
+
+// 앱의 revert command를 실제 fixture 앱으로 한 번 부른다. `drop`은 앱에 닿지 못한 호출, `lose`는 앱은 되돌렸으나
+// 응답이 돌아오지 않은 호출을 만드는 시험 입력이다. 돌려주는 invocation은 revert 호출이 남긴 실제 Invocation이다.
+function fixtureCaller(fixture: Fixture, behavior: Behavior) {
+  return async (binding: AppRevertBinding): Promise<AppStepResult> => {
+    behavior.called.push(binding.invocation);
+    if (behavior.drop === binding.invocation) {
+      return { result: "failure", invocation: null };
+    }
+    const own = id("inv", 90 + behavior.called.length);
+    const reverted = await callApp(fixture, binding.revert_command, own, {
+      invocation: binding.invocation,
+      receipt: binding.receipt,
+      expected_revision: binding.expected_revision,
+    });
+    if (behavior.lose === binding.invocation) {
+      return { result: "uncertain", invocation: null };
+    }
+    if (reverted.ok) return { result: "restored", invocation: own };
+    return {
+      result: reverted.code === "conflict" ? "conflict" : "failure",
+      invocation: null,
+    };
+  };
 }
 
 function core(reply: Reply): Result<unknown> {
@@ -550,25 +592,7 @@ function portsOf(
           })),
       });
     },
-    call: async (binding): Promise<AppStepCall> => {
-      options.called.push(binding.invocation);
-      // 전달하지 못한 호출은 앱이 아무것도 하지 않았다.
-      if (options.drop === binding.invocation) return "failure";
-      const reverted = await callApp(
-        world.fixture,
-        binding.revert_command,
-        id("inv", 90 + options.called.length),
-        {
-          invocation: binding.invocation,
-          receipt: binding.receipt,
-          expected_revision: binding.expected_revision,
-        },
-      );
-      // 앱은 되돌렸으나 응답이 돌아오지 않았다.
-      if (options.lose === binding.invocation) return "uncertain";
-      if (reverted.ok) return "restored";
-      return reverted.code === "conflict" ? "conflict" : "failure";
-    },
+    call: fixtureCaller(world.fixture, options),
     checkpoint: async (input) =>
       core(await machine(world, "reverts/checkpoint", input, {})),
     finish: async (input) =>
@@ -581,6 +605,7 @@ const RUN_2 = id("run", 2);
 const RUN_3 = id("run", 3);
 const RUN_4 = id("run", 4);
 const RUN_5 = id("run", 5);
+const RUN_6 = id("run", 6);
 const RVT = (n: number) => id("rvt", n);
 
 function appRows(found: Stored) {
@@ -685,11 +710,14 @@ Deno.test("lophn-agent/revert#R10: 중단 뒤 이어 받으면 step_key로 이�
     assert(read.ok);
     const last = read.value.steps[1]!.binding;
     assertEquals(last.invocation, second.invocation);
-    assertEquals(await ports.call(last), "restored");
+    const called = await ports.call(last);
+    assertEquals(called.result, "restored");
+    // 기록하는 invocation은 revert 호출의 것이고 원래 write의 invocation과 다르다.
+    assert(called.invocation !== null && called.invocation !== last.invocation);
     const noted = {
       revert: RVT(6),
       step_key: last.step_key,
-      invocation: last.invocation,
+      invocation: called.invocation,
       result: "restored" as const,
     };
     const checkpoint = await ports.checkpoint(noted);
@@ -711,7 +739,83 @@ Deno.test("lophn-agent/revert#R10: 중단 뒤 이어 받으면 step_key로 이�
     assert(ran.ok, ran.ok ? "" : JSON.stringify(ran.error));
     assertEquals(resumed, [first.invocation]);
     assertEquals(await titlesOf(world.fixture), []);
-    assertEquals((await stored(world, RUN_5, RVT(6))).outcome, "applied");
+    const resumedRevert = await stored(world, RUN_5, RVT(6));
+    assertEquals(resumedRevert.outcome, "applied");
+    // 단계 근거는 원래 write의 invocation을 그대로 두고 revert 호출의 invocation을 따로 남긴다.
+    assertEquals(
+      appRows(resumedRevert).map((row) => [
+        row.app_revert!.invocation,
+        row.app_revert!.revert_invocation === null,
+      ]),
+      [[first.invocation, false], [second.invocation, false]],
+    );
+  } finally {
+    await world.dispose();
+  }
+});
+
+Deno.test("lophn-agent/revert#R10: 사람이 확인한 revert는 core의 RunAppRevert 길로 앱 단계를 역순으로 직접 부르고 core 내부 machine이 기록·끝내며 사람 token은 단계 기록을 직접 못 한다", async () => {
+  const world = await open();
+  try {
+    await startRun(world, RUN_6, 6);
+    const first = await appWrite(world, RUN_6, 51, "A");
+    const second = await appWrite(world, RUN_6, 52, "B");
+    await finishRun(world, RUN_6);
+    const shown = await preview(world, RUN_6);
+    const started = await okOf(apply(world, RUN_6, RVT(7), shown));
+    assertEquals(started["outcome"], "applying");
+    assertEquals(await titlesOf(world.fixture), ["A", "B"]);
+    // 사람 token은 단계 기록·끝내기를 직접 하지 못한다(machine만).
+    const direct = await call(
+      world.server,
+      "reverts/finish",
+      USER_TOKEN,
+      command({ revert: RVT(7), step_keys: ["x"] }, { compare: {} }),
+    );
+    assertEquals(direct.status, 403, JSON.stringify(direct.body));
+    // 사람의 shell이 접수 뒤 이어 실행을 부른다. 단계 호출은 호출한 사람 자격으로, 기록은 core 내부 machine이 한다.
+    const ran = await okOf(
+      call(world.server, "reverts/run_apps", USER_TOKEN, { revert: RVT(7) }),
+    );
+    assertEquals(ran["outcome"], "applied");
+    assertEquals(ran["called"], [
+      `${RVT(7)}:${second.invocation}`,
+      `${RVT(7)}:${first.invocation}`,
+    ]);
+    assertEquals(await titlesOf(world.fixture), []);
+    const done = await stored(world, RUN_6, RVT(7));
+    assertEquals(done.outcome, "applied");
+    assertEquals(
+      appRows(done).map((row) => [
+        row.app_revert!.invocation,
+        row.app_revert!.revert_invocation !== null &&
+        row.app_revert!.revert_invocation !== row.app_revert!.invocation,
+        row.result,
+      ]),
+      [[first.invocation, true, "restored"], [
+        second.invocation,
+        true,
+        "restored",
+      ]],
+    );
+    // 이미 끝난 revert를 다시 이어 실행해도 앱을 다시 부르지 않는다.
+    const calls = world.behavior.called.length;
+    const again = await call(
+      world.server,
+      "reverts/run_apps",
+      USER_TOKEN,
+      { revert: RVT(7) },
+    );
+    assertEquals(again.status, 409, JSON.stringify(again.body));
+    assertEquals(world.behavior.called.length, calls);
+    // 없는 revert는 없는 것과 같다.
+    const missing = await call(
+      world.server,
+      "reverts/run_apps",
+      USER_TOKEN,
+      { revert: RVT(9) },
+    );
+    assertEquals(missing.status, 404, JSON.stringify(missing.body));
   } finally {
     await world.dispose();
   }
@@ -859,4 +963,109 @@ Deno.test("lophn-agent/revert#R11: 앱이 시작 뒤 later change로 거절하�
   } finally {
     await world.dispose();
   }
+});
+
+Deno.test("lophn-agent/revert#R10: 제품 호출자는 호출한 사람의 apps/connect 연결로 request_key=step_key를 보내고 닿지 못함·충돌·응답 유실·성공을 구별한다", async () => {
+  const binding: AppRevertBinding = {
+    app: APP,
+    release: REL,
+    command: "add_todo",
+    tool_call: id("tcl", 1),
+    invocation: id("inv", 1),
+    receipt: "change:1",
+    expected_revision: "1",
+    revert_command: "revert_todo",
+    step_key: `${RVT(1)}:${id("inv", 1)}`,
+    revert_invocation: null,
+  };
+  const signature = "s".repeat(86);
+  const connection = (release: string | null) => ({
+    endpoint: "/run/lophn/app.sock",
+    signature,
+    connection: {
+      app: APP,
+      release,
+      bundle_hash: "a".repeat(64),
+      mode: "live",
+      process_nonce: "nonce",
+      actor: "user",
+      credential_ref: "cred-user",
+      screens: ["main"],
+      screen_sizes: {},
+      caller: null,
+      commands: ["revert_todo"],
+      expires_at: null,
+    },
+  });
+  const connects: unknown[] = [];
+  const sent: unknown[] = [];
+  const caller = (
+    release: string | null,
+    direct: (body: unknown) => Promise<{ status: number; body: unknown }>,
+  ) =>
+    runtimeAppCaller({
+      connect: (_path, body) => {
+        connects.push(body);
+        return Promise.resolve({ status: 200, body: connection(release) });
+      },
+      direct: (_endpoint, request) => {
+        sent.push(request.body);
+        return direct(request.body);
+      },
+    });
+  const revertInvocation = id("inv", 77);
+  // 성공: 앱이 남긴 revert 호출의 Invocation을 돌려준다. 입력은 저장한 근거 그대로이고 request_key는 step_key다.
+  const done = await caller(REL, () =>
+    Promise.resolve({
+      status: 200,
+      body: {
+        result: { result: {} },
+        invocation: revertInvocation,
+        mode: "live",
+      },
+    }))(binding);
+  assertEquals(done, { result: "restored", invocation: revertInvocation });
+  assertEquals(connects[0], {
+    app: APP,
+    mode: "live",
+    screens: ["main"],
+    screen_sizes: {},
+    commands: ["revert_todo"],
+  });
+  assertEquals(sent[0], {
+    request_key: binding.step_key,
+    release: REL,
+    command: "revert_todo",
+    input: {
+      invocation: binding.invocation,
+      receipt: "change:1",
+      expected_revision: "1",
+    },
+  });
+  // 앱이 conflict로 거절했다.
+  assertEquals(
+    await caller(REL, () =>
+      Promise.resolve({
+        status: 409,
+        body: { error: { code: "conflict", message: "changed" } },
+      }))(binding),
+    { result: "conflict", invocation: null },
+  );
+  // 앱에 닿지 못했다: 보내지 않았다.
+  assertEquals(
+    await caller(REL, () => Promise.reject(new NotSent()))(binding),
+    { result: "failure", invocation: null },
+  );
+  // 보낸 뒤 응답을 잃었다: 되돌렸는지 모른다.
+  assertEquals(
+    await caller(REL, () => Promise.reject(new ResultLost()))(binding),
+    { result: "uncertain", invocation: null },
+  );
+  // 원래 write의 release가 아니면 보내지 않는다.
+  const before = sent.length;
+  assertEquals(
+    await caller(id("rel", 2), () => Promise.reject(new Error("no")))(binding),
+    { result: "failure", invocation: null },
+  );
+  assertEquals(sent.length, before);
 });

@@ -21,7 +21,10 @@ import {
   createApprovalRequest,
   ROUTES,
 } from "../../packages/contracts/platform/mod.ts";
-import { providerList } from "../../packages/contracts/lophn-agent/mod.ts";
+import {
+  providerList,
+  runAppRevert,
+} from "../../packages/contracts/lophn-agent/mod.ts";
 import {
   type ApiServer,
   RouteRegistry,
@@ -96,7 +99,10 @@ import {
   secretInputHandler,
   type SecretInputRelay,
 } from "./secret-input.ts";
-import { secretInput } from "../../packages/contracts/platform/mod.ts";
+import {
+  ERROR_HTTP_STATUS,
+  secretInput,
+} from "../../packages/contracts/platform/mod.ts";
 import {
   type BlobPrepareRelay,
   type BufferGauge,
@@ -218,6 +224,14 @@ import {
   ticketCheckerSpec,
 } from "./ticket-checker.ts";
 import {
+  APP_REVERT_CONTEXT,
+  APP_REVERT_PRINCIPAL,
+  type AppRevertCaller,
+  appRevertPolicies,
+  createAppRevert,
+  runtimeAppCaller,
+} from "./app-revert.ts";
+import {
   appCredentialIssuer,
   APPS_CONTROL_CONTEXT,
   APPS_CONTROL_PRINCIPAL,
@@ -295,6 +309,9 @@ export type CoreOptions = {
   superviseIo?: boolean;
   // 테스트 harness만 true로 둔다. main.ts는 이 입구를 열지 않는다.
   testCredentials?: boolean;
+  // 앱 revert 단계의 호출자를 바꾼다(lophn-agent#T48). 없으면 호출한 사람의 apps/connect 연결과 앱 direct
+  // socket을 쓴다. 테스트가 실제 앱 프로세스를 띄우지 않고 앱의 호출 결과를 넣는 입구다.
+  appRevertCaller?: (ctx: AuthenticatedContext) => AppRevertCaller;
   // 테스트가 준비 참조를 writer 메모리에 심는 입구. 제품 기동에는 없다.
   notePrepared?: (prepared: PreparedRelayResult, nowMs: number) => void;
   // 테스트가 정지 유지보수를 대신 실행한다. 제품 기동에는 없다. 세 정지
@@ -590,6 +607,8 @@ async function open(
     ...collectorOperationPolicies(),
     // ticket checker(machine)가 판정 사실을 읽고 결과를 기록한다(coding-agent#T26).
     ...ticketCheckerPolicies(),
+    // 앱 revert 단계의 기록·끝내기(core 내부 machine, lophn-agent#T48).
+    ...appRevertPolicies(),
     // agent runtime(machine)과 run의 agent 자격이 닿는 operation(lophn-agent/harness/run-loop).
     ...(options.agentRuntime ? agentRuntimePolicies(allRoutes) : []),
     // 팀이 공개 정책을 내놓은 event 이름. 사람 token의 operation에 들어가 owner 정책이 판단한다.
@@ -797,6 +816,12 @@ async function open(
   if (!appsControlCredential.ok) {
     await runtime.close();
     return appsControlCredential;
+  }
+  // 앱 revert 이어 실행(lophn-agent#T48)이 단계를 기록하고 끝내는 core 내부 자격 기록.
+  const appRevertCredential = await runtime.record(APP_REVERT_CONTEXT);
+  if (!appRevertCredential.ok) {
+    await runtime.close();
+    return appRevertCredential;
   }
   // 명시 연결 test(provider#R30)가 model call 기록·provider 상태를 쓰는 core 내부
   // machine 자격 기록. 기록이 없으면 StartModelCall이 거절해 test가 실패한다.
@@ -1112,6 +1137,33 @@ async function open(
         ...runtime.memory.handlers,
         ...runtime.deliveryMemory,
         ...appsControl.memory,
+        // 확인한 revert의 앱 단계를 이어 실행한다(lophn-agent#T48).
+        [
+          `${runAppRevert.resource}/${runAppRevert.method}`,
+          createAppRevert({
+            ledgerPath,
+            caller: options.appRevertCaller ?? ((ctx) =>
+              runtimeAppCaller({
+                connect: async (_path, body) => {
+                  const handler = appsControl.memory.get("apps/connect");
+                  if (handler === undefined) {
+                    return { status: 503, body: null };
+                  }
+                  const done = await handler(ctx, body);
+                  return done.ok ? { status: 200, body: done.value } : {
+                    status: ERROR_HTTP_STATUS[done.error.code],
+                    body: { error: done.error },
+                  };
+                },
+              })),
+            command: (ctx, envelope) =>
+              runtime?.writer.command(ctx as never, envelope as never),
+            machine: () => {
+              const current = runtime?.current(APP_REVERT_PRINCIPAL);
+              return current?.ok ? current.value : undefined;
+            },
+          }),
+        ] as const,
         // 사람의 연결 결정 입구. codingKeychain이 있을 때만 서고 없으면 route는 처리기 없이 남는다.
         ...(coding
           ? [

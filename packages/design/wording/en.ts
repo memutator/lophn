@@ -544,6 +544,12 @@ export const en = {
   "confirmation-window.revert-why.not-lophn": "lophn didn't make this change.",
   "confirmation-window.revert-why.stale":
     "This list changed. Open the latest version.",
+  "confirmation-window.revert-why.app-failed":
+    "The app couldn't undo this change.",
+  "confirmation-window.revert-why.app-uncertain":
+    "The app was asked to undo this, but its answer never arrived. lophn can't tell if it worked.",
+  "confirmation-window.revert-why.app-not-started":
+    "This wasn't started because an earlier step didn't finish.",
   "confirmation-window.revert-why.title-change":
     "Title changes stay as they are.",
   "confirmation-window.revert-why.unknown-document":

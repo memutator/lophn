@@ -16,6 +16,7 @@ import {
   InstructionAttachments,
   questionCreated,
   runAccepted,
+  runAppRevert,
   runFinished,
   runStarted,
 } from "../../packages/contracts/lophn-agent/mod.ts";
@@ -647,6 +648,8 @@ export const lophnAgentDefinitions = {
     questionOptionPort,
   ],
   workers: [],
+  // 확인한 revert의 앱 단계를 이어 실행하는 core 메모리 route다. handler는 core 조립이 붙인다(T48).
+  memoryRoutes: [runAppRevert],
   // 문서·format tool의 글 값 통로다. 서빙은 core 조립이 한다(apps/core/tool-documents.ts).
   workerRoutes: TOOL_DOCUMENT_ROUTES,
 };

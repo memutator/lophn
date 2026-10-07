@@ -390,22 +390,24 @@ export function createRevertCommands(deps: RevertDeps): {
             "this step already has a different result",
           );
         }
-        const binding = JSON.parse(String(row["app_revert"])) as {
-          invocation: string;
-        };
-        if (binding.invocation !== input.invocation) {
+        // 복원했다는 기록은 그 호출이 남긴 실제 Invocation을 가져야 한다.
+        if (stored.result === "restored" && input.invocation === null) {
           return reject(
             "invalid_input",
-            "the invocation is not the one this step drove",
+            "a restored step needs the invocation of its revert call",
           );
         }
-        // 아직 미확정 unchanged 행만 실제 결과로 한 번 바꾼다.
+        // 아직 미확정 unchanged 행만 실제 결과로 한 번 바꾼다. 앱 revert command 호출의 실제
+        // Invocation은 단계 근거의 revert_invocation에 남고 원래 write의 invocation은 그대로다.
         tx.sql.run(
-          `update revert_changes set result = ?, reason = ?
+          `update revert_changes
+           set result = ?, reason = ?,
+               app_revert = json_set(app_revert, '$.revert_invocation', ?)
            where revert = ? and ordinal = ?`,
           [
             stored.result,
             stored.reason,
+            input.invocation,
             input.revert,
             Number(row["ordinal"]),
           ],

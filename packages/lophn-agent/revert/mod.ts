@@ -14,6 +14,7 @@ export { APP_REVERT_OWNER, createAppRevertOwner } from "./app-revert.ts";
 export {
   type AppStepCall,
   type AppStepPorts,
+  type AppStepResult,
   type AppStepsRun,
   runAppSteps,
   type StoredRevert,

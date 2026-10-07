@@ -898,7 +898,7 @@ E2E는 apps#T27(use-app-command, ask-app-hint, connect-apps, view-agent-visuals 
 
 ### T48 앱 revert
 
-- 상태: 완료 (#436) — 이어보냄: 앱 통로로 `runAppSteps` port를 채우는 조립과 새 reason 코드 문구 → shell#T29
+- 상태: 완료 (#436)
 - 등급: 기본
 - concern: lophn-agent/revert
 - 요구: lophn-agent/revert#R10, R11
@@ -914,7 +914,7 @@ E2E는 apps#T27(use-app-command, ask-app-hint, connect-apps, view-agent-visuals 
 - 완료:
   - app_revert_test.ts에 R10, R11 테스트: 저장한 invocation·receipt·현재 revision 검증 뒤 원래 호출 역순 direct call, applying 단계와 step_key 조회로 중복 방지, 시작 전 실패는 blocked·시작 뒤 실패·충돌·응답 유실은 실제 복원·미시작·불명확으로 보존(전체 완료·전체 미실행으로 덮지 않음), 네트워크와 ledger를 한 transaction으로 주장하지 않음
 - 정한 것(T48): (1) 되돌림 근거(`AppRevertBinding`)는 run의 `tool_calls`에서 읽는다. `tool_call`은 기록 행의 id이고(app_command에는 id가 없다), `app_revert.step_key`는 preview에서는 run, 적용한 revert에서는 revert id를 앞에 둔다. 그래서 `before_ref`는 `{kind: "app", tool_call, invocation}`이고 step_key를 지문(`binding_hash`)에 넣지 않는다(넣으면 적용이 늘 stale_preview다). (2) 앱 단계를 부르는 쪽의 순서 규칙은 `runAppSteps`(revert/app-steps.ts)다. 저장한 revert가 applying일 때만, 원래 호출 역순으로, 이미 기록한 단계(step_key)는 건너뛰고, 앞 단계가 복원되지 않으면 멈춘다. 읽기·호출·기록은 port로 받는다. (3) `CheckpointRevert`는 결과를 `restored`·`failure`·`conflict`(복원 가능 묶음의 check 때문에 failure 행의 `later_change`)·`uncertain`(응답 유실, `app_uncertain`)으로 기록한다. 시작하지 않은 단계와 적용하지 못한 ledger 묶음은 `app_not_started`(reason 코드를 additive로 더했다)다. (4) `FinishRevert`는 앱 단계가 모두 복원됐을 때만 `groups`(RevertRun 입력의 묶음)로 ledger owner를 현재 판정으로 다시 비교해 복원한다. owner가 복원을 거절하면 끝내기 전체가 취소되고 revert는 applying으로 남으며, `groups` 없이 다시 부르면 ledger는 미적용이고 이미 성공한 앱 복원은 partial이다. 결과는 응답 유실이 있으면 uncertain, 복원하지 못한 복원 가능 묶음이 있으면 partial, 전부 복원했을 때만 applied다. (5) 앞선 커밋 일부(d752714c, b7b0856f)는 메시지가 `shell#T48`로 잘못 붙었다. 실제는 lophn-agent#T48이고 역사는 고치지 않았다.
-- shell#T29에 넘기는 것: 앱 단계가 있는 revert는 `RevertRun`이 applying으로 접수만 한다. 창이나 main이 그 revert를 이어 `runAppSteps`로 앱의 revert command를 사람 자격의 앱 통로로 직접 부르고 `CheckpointRevert`·`FinishRevert`(machine 자격)로 끝내는 조립은 아직 없다(이 PR의 port는 시험이 실제 core·todo fixture로 채운다). 새 이유 코드 `app_failed`·`app_uncertain`·`app_not_started`의 문구(revert.tsx `reasonText`)도 아직 없다. 두 항목을 shell#T29의 revert 창 main이 받는다.
+- 이어 실행(T48 후속, 조정자 요청): 앱 단계가 있는 revert의 제품 길은 core 메모리 route `RunAppRevert`(`reverts/run_apps`, 사람 자격)다. revert 창의 main(`apps/shell/main/confirmation/kinds/revert.ts` `submitRevert`)이 `RevertRun`의 applying 접수 뒤 이 route를 부르고, core(`apps/core/app-revert.ts`)가 `runAppSteps`로 앱의 revert command를 호출한 사람의 `apps/connect` 연결과 앱 direct socket(`request_key`=step_key)으로 부르고 단계 기록·끝내기는 core 내부 machine 자격(`machine:app-revert`)으로 한다. shell main이 machine 자격을 들고 있지 않고 packages를 import하지 않아 이어 실행을 core에 두었다. `CheckpointRevert.invocation`은 revert command 호출의 실제 Invocation(nullable)이고 단계 근거의 `revert_invocation`에 남는다(원래 write의 invocation은 그대로). 새 reason 코드 `app_failed`·`app_uncertain`·`app_not_started`의 문구는 revert 창 `reasonText`에 더했다. `apps/agent-runtime`의 `app_command` 기록은 `appCommandOf`로 뽑아 계약 모양을 시험한다(`app_command_test.ts`).
 
 ## coding-agent
 

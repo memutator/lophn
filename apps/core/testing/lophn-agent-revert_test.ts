@@ -703,6 +703,8 @@ Deno.test("lophn-agent/revert#R1: 복원할 변경이 없는 run은 적용하지
 
 const TOOL_CALL = runId("tcl", 1);
 const INVOCATION = runId("inv", 1);
+// 앱의 revert command 호출이 남긴 실제 Invocation이다(원래 write의 것과 다르다).
+const REVERT_INVOCATION = runId("inv", 2);
 const HASH_A = "1".repeat(64);
 const HASH_B = "2".repeat(64);
 
@@ -851,7 +853,7 @@ Deno.test("lophn-agent/revert#R11: 앱 단계가 실패하면 ledger 묶음은 �
         input: {
           revert,
           step_key: key,
-          invocation: INVOCATION,
+          invocation: null,
           result: "failure",
         },
         compare: {},
@@ -898,19 +900,41 @@ Deno.test("lophn-agent/revert#R10: 앱 단계가 모두 복원되면 끝내기�
   const h = await open();
   try {
     const { revert, key, ledger } = await mixedApplying(h, RUN_1);
+    // 복원했다는 기록은 revert 호출의 실제 Invocation이 있어야 한다.
+    code(
+      await h.command(machine, {
+        command: "CheckpointRevert",
+        input: { revert, step_key: key, invocation: null, result: "restored" },
+        compare: {},
+        idempotency_key: `ck-none-${revert}`,
+        prepared: [],
+      }),
+      "invalid_input",
+    );
     value(
       await h.command(machine, {
         command: "CheckpointRevert",
         input: {
           revert,
           step_key: key,
-          invocation: INVOCATION,
+          invocation: REVERT_INVOCATION,
           result: "restored",
         },
         compare: {},
         idempotency_key: `ck-${revert}`,
         prepared: [],
       }),
+    );
+    // 단계 근거는 원래 write의 invocation을 그대로 두고 revert 호출의 invocation을 따로 남긴다.
+    assertEquals(
+      (await sql(
+        h,
+        `select json_extract(app_revert, '$.invocation') as original,
+                json_extract(app_revert, '$.revert_invocation') as own
+           from revert_changes where revert = ? and app_revert is not null`,
+        [revert],
+      )).map((row) => [row["original"], row["own"]]),
+      [[INVOCATION, REVERT_INVOCATION]],
     );
     assertEquals(await noteValue(h, NOTE_A), "a1");
     const done = value(
@@ -949,7 +973,7 @@ Deno.test("lophn-agent/revert#R11: 앱 복원 뒤 ledger owner가 복원을 거�
         input: {
           revert,
           step_key: key,
-          invocation: INVOCATION,
+          invocation: REVERT_INVOCATION,
           result: "restored",
         },
         compare: {},

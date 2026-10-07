@@ -14,6 +14,11 @@ import {
 // 않았다. uncertain은 보냈으나 응답을 잃어 되돌렸는지 모른다(result query 말고 다시 보내지 않는다).
 export type AppStepCall = "restored" | "failure" | "conflict" | "uncertain";
 
+export type AppStepResult = {
+  result: AppStepCall;
+  invocation: string | null;
+};
+
 export type StoredStep = {
   binding: AppRevertBinding;
   // 이미 기록한 결과다. unchanged면 아직 부르지 않았다.
@@ -29,12 +34,13 @@ export type StoredRevert = {
 export type AppStepPorts = {
   // 저장한 revert를 읽는다.
   stored(revert: string): Promise<Result<StoredRevert>>;
-  // 저장한 invocation·receipt·expected_revision으로 revert command를 한 번 직접 부른다.
-  call(binding: AppRevertBinding): Promise<AppStepCall>;
+  // 저장한 invocation·receipt·expected_revision으로 revert command를 한 번 직접 부른다. 돌려주는
+  // invocation은 그 호출이 남긴 실제 Invocation이다(앱에 닿지 않았거나 응답을 잃으면 null).
+  call(binding: AppRevertBinding): Promise<AppStepResult>;
   checkpoint(input: {
     revert: string;
     step_key: string;
-    invocation: string;
+    invocation: string | null;
     result: AppStepCall;
   }): Promise<Result<unknown>>;
   finish(input: { revert: string; step_keys: string[] }): Promise<
@@ -84,11 +90,11 @@ export async function runAppSteps(
     const noted = await ports.checkpoint({
       revert,
       step_key: key,
-      invocation: step.binding.invocation,
-      result: called,
+      invocation: called.invocation,
+      result: called.result,
     });
     if (!noted.ok) return noted;
-    if (called !== "restored") run.stopped_at = key;
+    if (called.result !== "restored") run.stopped_at = key;
   }
   const done = await ports.finish({
     revert,

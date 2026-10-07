@@ -1027,7 +1027,7 @@ export function appCredentialIssuer(
 // supervisor machine credential이 닿는 operation(발급 상한 안이어야 한다).
 export const SUPERVISOR_CREDENTIAL_OPERATIONS = SUPERVISOR_OPERATIONS;
 
-function denoDir(): string {
+export function denoDir(): string {
   let configured: string | undefined;
   try {
     configured = Deno.env.get("DENO_DIR");
@@ -1037,7 +1037,7 @@ function denoDir(): string {
   return home ? `${home}/.cache/deno` : "/tmp";
 }
 
-function repoRoot(): string {
+export function repoRoot(): string {
   return new URL("../..", import.meta.url).pathname.replace(/\/$/, "");
 }
 

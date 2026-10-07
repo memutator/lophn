@@ -203,6 +203,7 @@ Deno.test("problems/feedback#R5, R6: main이 만든 제출 입력은 problems Su
         });
       },
       openIssue() {},
+      lookup: () => Promise.resolve({ ok: true, value: null }),
       ids: {
         draft: () => "draft-1",
         report: () => "rpt_01j9zzzzzzzzzzzzzzzzzzzzzz",

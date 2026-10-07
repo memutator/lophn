@@ -12,3 +12,13 @@ if (import.meta.main && Deno.args.includes("--app-test-job")) {
   Deno.stdout.writeSync(new TextEncoder().encode(`${JSON.stringify(done)}\n`));
   Deno.exit(0);
 }
+
+// reproduction test 한 건을 같은 방식으로 돈다(before·after를 차례로 실행한다). 요청 JSON은
+// `reproduction-run.ts`의 `ReproductionJob`이다.
+if (import.meta.main && Deno.args.includes("--reproduction-job")) {
+  const { runReproductionJob } = await import("./reproduction-run.ts");
+  const text = await new Response(Deno.stdin.readable).text();
+  const done = await runReproductionJob(JSON.parse(text));
+  Deno.stdout.writeSync(new TextEncoder().encode(`${JSON.stringify(done)}\n`));
+  Deno.exit(0);
+}

@@ -147,6 +147,32 @@ export async function readAppTestFile(bundle: string): Promise<AppTestFile> {
   ) as AppTestFile;
 }
 
+// runner를 띄울 때 주는 환경이다. 사람 데이터 root는 없고 temp lophn home만 준다.
+export function runnerEnv(
+  made: MadeFixture,
+  kind: string,
+): Record<string, string> {
+  return {
+    LOPHN_HOME: made.home,
+    LOPHN_WORKER_KIND: kind,
+    ...(Deno.env.get("HOME") ? { HOME: Deno.env.get("HOME")! } : {}),
+    ...(Deno.env.get("DENO_DIR")
+      ? { DENO_DIR: Deno.env.get("DENO_DIR")! }
+      : {}),
+    ...(Deno.env.get("PATH") ? { PATH: Deno.env.get("PATH")! } : {}),
+    ...(Deno.env.get("XDG_RUNTIME_DIR")
+      ? { XDG_RUNTIME_DIR: Deno.env.get("XDG_RUNTIME_DIR")! }
+      : {}),
+    ...(Deno.env.get("DBUS_SESSION_BUS_ADDRESS")
+      ? { DBUS_SESSION_BUS_ADDRESS: Deno.env.get("DBUS_SESSION_BUS_ADDRESS")! }
+      : {}),
+    ...(Deno.env.get("DISPLAY") ? { DISPLAY: Deno.env.get("DISPLAY")! } : {}),
+    ...(Deno.env.get("XAUTHORITY")
+      ? { XAUTHORITY: Deno.env.get("XAUTHORITY")! }
+      : {}),
+  };
+}
+
 export type RunOptions = {
   // 요청 키. 같은 temp home에서 여러 번 돌릴 때 서로 달라야 한다.
   key: string;
@@ -240,25 +266,7 @@ export async function runAppTest(
         : {}),
     },
   };
-  const env: Record<string, string> = {
-    LOPHN_HOME: made.home,
-    LOPHN_WORKER_KIND: spec!.kind,
-    ...(Deno.env.get("HOME") ? { HOME: Deno.env.get("HOME")! } : {}),
-    ...(Deno.env.get("DENO_DIR")
-      ? { DENO_DIR: Deno.env.get("DENO_DIR")! }
-      : {}),
-    ...(Deno.env.get("PATH") ? { PATH: Deno.env.get("PATH")! } : {}),
-    ...(Deno.env.get("XDG_RUNTIME_DIR")
-      ? { XDG_RUNTIME_DIR: Deno.env.get("XDG_RUNTIME_DIR")! }
-      : {}),
-    ...(Deno.env.get("DBUS_SESSION_BUS_ADDRESS")
-      ? { DBUS_SESSION_BUS_ADDRESS: Deno.env.get("DBUS_SESSION_BUS_ADDRESS")! }
-      : {}),
-    ...(Deno.env.get("DISPLAY") ? { DISPLAY: Deno.env.get("DISPLAY")! } : {}),
-    ...(Deno.env.get("XAUTHORITY")
-      ? { XAUTHORITY: Deno.env.get("XAUTHORITY")! }
-      : {}),
-  };
+  const env = runnerEnv(made, spec!.kind);
   const placed: string[] = [];
   for (const item of file.fixture_files ?? []) {
     await Deno.mkdir(

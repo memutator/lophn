@@ -72,13 +72,15 @@ function codeUsageStatic(
   const undeclared = usage.literals.filter((use) => !declared.has(use.code));
   const reserved = usage.literals.filter((use) => use.code.startsWith("_"));
   const bad = [...new Set([...undeclared, ...reserved])];
-  const met = bad.length === 0 && usage.dynamic.length === 0;
+  // dynamic code는 정적으로 확정할 수 없다. 별도 필수 dynamic guard 검사가
+  // 선언 밖·예약 code를 거절해야만 app test 전체가 통과한다.
+  const met = bad.length === 0;
   return {
     met,
     reason: bad.length > 0
       ? "선언하지 않았거나 예약된 code를 source가 보고한다"
       : usage.dynamic.length > 0
-      ? "code를 literal이 아닌 값으로 정해 정적으로 확인할 수 없다"
+      ? "dynamic code 사용 자리를 기록하고 필수 dynamic guard 검사에서 거절을 확인한다"
       : "source가 보고하는 code는 모두 선언한 code다",
     evidence: {
       used: [...new Set(usage.literals.map((use) => use.code))].sort(),

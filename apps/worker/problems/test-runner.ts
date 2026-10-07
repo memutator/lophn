@@ -82,7 +82,7 @@ export function forwardChildReport(
   return brokerReport(frame, scope, sink);
 }
 
-// 固定 app-test 계획과 scratch의 private 관측을 lifecycle 결과와 함께 판정한다.
+// 고정 app-test 계획과 scratch의 private 관측을 lifecycle 결과와 함께 판정한다.
 export async function acceptAppTest(
   request: RunRequest,
   input: AppTestInput,

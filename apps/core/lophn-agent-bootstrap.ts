@@ -26,8 +26,8 @@ import type { Writer } from "../../packages/platform/ledger/mod.ts";
 import {
   BUILTIN_ROLES,
   type BuiltinRole,
-  type ProductRole,
   productPresetDefinition,
+  type ProductRole,
 } from "../../packages/lophn-agent/presets/mod.ts";
 import type { PreparedRelayResult } from "./blob-prepare.ts";
 

@@ -184,9 +184,7 @@ Deno.test("lophn-agent/assignments#R1: core의 AppCreated 반응이 앱마다 �
     );
     assertEquals(unarchived.status, 200, JSON.stringify(unarchived.body));
     await new Promise((resolve) => setTimeout(resolve, 300));
-    const after = (await engineers()).filter((entry) =>
-      entry.scope.id === app
-    );
+    const after = (await engineers()).filter((entry) => entry.scope.id === app);
     assertEquals(after.map((entry) => entry.state), ["paused"]);
   } finally {
     await core.close();

@@ -8,8 +8,8 @@ import { INVOCATION_RECOVERY_PRINCIPAL } from "../../packages/apps/invocations/r
 import { DOCUMENTS_FEED_PRINCIPAL } from "./documents-events.ts";
 import { TICKET_CHECK_FEED_PRINCIPAL } from "./ticket-checker-ids.ts";
 import {
-  ASSIGNMENT_REACTIONS_PRINCIPAL,
   APPROVAL_EXPIRY_PRINCIPAL,
+  ASSIGNMENT_REACTIONS_PRINCIPAL,
   NOTIFICATIONS_PRINCIPAL,
 } from "./platform.ts";
 

@@ -17,7 +17,6 @@ import {
   type AppInvokeOutcome,
   type AppTool,
   buildAppTools,
-  createAppReadToolHandlers,
   createAppToolHandlers,
   executeTool,
   listTools,
@@ -28,6 +27,12 @@ import {
   BUILTIN_TOOLS,
   DOCUMENT_WRITE_TOOL_NAMES,
 } from "../../harness/tools/mod.ts";
+import {
+  type AppJudgmentPorts,
+  type CallFacts,
+  createAppBinding,
+  judge,
+} from "../../harness/tool-judgment/mod.ts";
 import { APP_COMMAND_EXPOSURE, ROLE_CAPS } from "../../presets/mod.ts";
 import { appEngineerOffers, appEngineerTools } from "./mod.ts";
 
@@ -77,6 +82,10 @@ const COMMANDS: AppBlueprintCommand[] = [
     input: LIMIT_INPUT as never,
   }),
   command("undo_add", "write"),
+  command("add_confirmed", "write", {
+    confirm: true,
+    revert: { supported: true, command: "undo_add" },
+  }),
   command("drop_item", "write"),
   command("sync_remote", "external"),
   command("purge", "write", { confirm: true }),
@@ -258,7 +267,6 @@ Deno.test("lophn-agent/roles/app-engineer#R5: 맡지 않는 일 blueprint 수정
   const cap = ROLE_CAPS.get("app_engineer")!;
   const listed = listedForAE();
   const listedNames = new Set(listed.map((tool) => tool.name));
-  const builtinNames = new Set(BUILTIN_TOOLS.map((tool) => tool.name));
   for (
     const absent of [
       // blueprint 원본 수정과 그 사본은 App Engineer tool이 아니다(R5, R12).
@@ -304,13 +312,7 @@ Deno.test("lophn-agent/roles/app-engineer#R5: 맡지 않는 일 blueprint 수정
       "task.complete",
     ]
   ) {
-    // 상한과 내장 정의 어디에도 없어야 한다. 내장 정의가 있는 이름(context
-    // 편집)은 AE preset이 고르지 않는 한 목록에 없다(교집합).
     assert(!cap.tools.includes(absent), `${absent} in role cap`);
-    assert(
-      !builtinNames.has(absent) || cap.tools.includes(absent) === false,
-      `${absent} in builtin without cap`,
-    );
     assertEquals(
       listedNames.has(absent),
       false,
@@ -373,6 +375,7 @@ Deno.test("lophn-agent/roles/app-engineer#R6: 되돌릴 수 있는 설계 문서
 Deno.test("lophn-agent/roles/app-engineer#R21: 앱 command 노출은 담당 앱의 허락된 read와 실제 되돌리기 지원 write만이다", async () => {
   // external·복원 불가 write·선언만 지원인 write는 없다(R21).
   assertEquals(keysOf(await toolsFor("app_engineer")), [
+    "add_confirmed",
     "add_item",
     "audit",
     "read_items",
@@ -419,20 +422,66 @@ Deno.test("lophn-agent/roles/app-engineer#R21: 앱 command 실행은 AgentAppSco
   assert(ae.effects.includes("external") === false);
 });
 
-Deno.test("lophn-agent/roles/app-engineer#R21: confirm 선언 command는 approval을 거치고 목록에서 남는다", async () => {
-  // confirm read(audit)는 제공되고 호출 전 approval binding을 거친다(R21).
+Deno.test("lophn-agent/roles/app-engineer#R21: AE에게 제공된 command의 판정은 read와 되돌리기 검증된 write는 allow이고 confirm은 approval이다", async () => {
+  const world = view();
   const tools = await toolsFor("app_engineer");
-  const audit = tools.find((tool) => tool.command === "audit");
-  assert(audit !== undefined);
-  assertEquals(audit.definition.confirm, true);
-  assertEquals(audit.definition.effect, "read");
-  // confirm인 write(purge)는 노출에 남지 않는다: 복원 불가 write라 제공하지
-  // 않는다(R21). confirm 제공과 복원 제공은 따로 본다.
+  const ports: AppJudgmentPorts = {
+    current: () =>
+      Promise.resolve(
+        ok({ view: world, grants: [{ grant: GRANT, commands: ALL_KEYS }] }),
+      ),
+    nonce: () => Promise.resolve(ok("n".repeat(32))),
+  };
+  async function judged(key: string, input: unknown = {}) {
+    const tool = tools.find((entry) => entry.command === key);
+    assert(tool !== undefined, `${key} is offered to app_engineer`);
+    const resolved = await createAppBinding(tool, ports).resolve(input, {
+      run: RUN,
+      toolCall: CALL,
+    });
+    assert(resolved.ok, key);
+    const facts: CallFacts = {
+      identity: true,
+      assignment: "active",
+      run: "active",
+      origin: "human_request",
+      listed: true,
+      roleAllows: true,
+      connection: "n/a",
+      inputValid: true,
+      effect: tool.definition.effect,
+      confirm: tool.definition.confirm,
+      refused: false,
+      targets: resolved.value.targets.map((target) => ({
+        id: target.id,
+        inScope: true,
+        reversibility: target.reversibility,
+        declared: false,
+      })),
+    };
+    return { judgment: judge(facts), action: resolved.value };
+  }
+  // 허락된 read와 되돌리기 검증된 write는 묻지 않는다.
   assertEquals(
-    tools.some((tool) => tool.command === "purge"),
-    false,
-    "purge is not offered",
+    (await judged("read_items", { limit: 1 })).judgment.decision,
+    "allow",
   );
+  assertEquals(
+    (await judged("add_item", { limit: 1 })).judgment.decision,
+    "allow",
+  );
+  // confirm은 effect보다 먼저 approval이다. read도, 되돌릴 수 있는 write도 같다.
+  for (const key of ["audit", "add_confirmed"]) {
+    const { judgment, action } = await judged(key);
+    assertEquals(judgment.decision, "ask", key);
+    assertEquals(judgment.code, "confirm_required", key);
+    // approval request의 동작이 접수 command라 사전 질문과 앱의 confirm이 approval 하나다.
+    assertEquals(action.operation, "invocation.accept_confirm", key);
+  }
+  // 복원 불가 write·external·confirm 복원 불가 write는 제공 자체가 없다.
+  for (const key of ["drop_item", "undo_add", "sync_remote", "purge"]) {
+    assertEquals(tools.some((tool) => tool.command === key), false, key);
+  }
 });
 
 Deno.test("lophn-agent/roles/app-engineer#R21: 노출된 앱 command은 앱 통로 하나만 쓰고 실행은 Source와 secret 값에 닿지 않는다", async () => {
@@ -493,62 +542,4 @@ Deno.test("lophn-agent/roles/app-engineer#R21: 제공된 read command의 호출�
   assertEquals(fixture.invoked[0]?.app, APP);
   assertEquals(fixture.invoked[0]?.command, "read_items");
   assertEquals(fixture.invoked[0]?.input, { limit: 2 });
-});
-
-Deno.test("lophn-agent/harness/tools#R21: 앱 읽기 묶음 handler는 소스 경로·실행 연결·secret을 결과에 싣지 않는다", async () => {
-  const calls: string[] = [];
-  const handlers = createAppReadToolHandlers({
-    call(contract, _input) {
-      calls.push(contract);
-      if (contract === "app.get") {
-        return Promise.resolve(ok({
-          app: {
-            id: APP,
-            slug: "usage",
-            name: "Usage",
-            description: "usage app",
-            planning_version: null,
-            source_path: "/home/someone/usage",
-            active_release: RELEASE,
-            revision: "1",
-            run_enabled: true,
-            status: "active",
-          },
-          as_of_seq: "5",
-          next_cursor: null,
-        }) as never);
-      }
-      return Promise.resolve(ok({
-        app: APP,
-        state: "running",
-        observation: {
-          app: APP,
-          release: RELEASE,
-          mode: "live",
-          process_nonce: "nonce-secret",
-          endpoint: "/tmp/run/app.sock",
-          ready: true,
-          accepting: true,
-        },
-        observed_at: "2026-10-07T00:00:00.000Z",
-        as_of_seq: "5",
-        next_cursor: null,
-      }) as never);
-    },
-  });
-  const read = await handlers.get("app.read")!({ app: APP }, {
-    run: RUN,
-    operations: new Set(["app.read"]),
-  } as never);
-  const health = await handlers.get("app.health")!({ app: APP }, {
-    run: RUN,
-    operations: new Set(["app.health"]),
-  } as never);
-  assert(read.ok && health.ok);
-  const text = JSON.stringify([read.value, health.value]);
-  for (
-    const leaked of ["/home/someone", "source_path", "nonce-secret", "app.sock"]
-  ) {
-    assertEquals(text.includes(leaked), false, leaked);
-  }
 });

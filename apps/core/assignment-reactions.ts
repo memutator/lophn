@@ -9,8 +9,8 @@
 // 채 다시 읽고, 준비되면 이어서 만든다.
 import { err, ok, type Result } from "../../packages/base/mod.ts";
 import {
-  assignmentList,
   ASSIGNMENT_SUBSCRIBER,
+  assignmentList,
   presetList,
 } from "../../packages/contracts/lophn-agent/mod.ts";
 import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";

@@ -1794,11 +1794,12 @@ async function open(
   // core 안 assignments 반응 구독자. AppCreated마다 거두지 않은 AE assignment를 만들고 AppArchived면
   // 멈추며 cursor를 올린다(lophn-agent/assignments#R1). lophn-agent 팀이 조립에 없으면 반응할
   // command가 없으므로 열지 않는다.
-  const assignmentReactions = assembled.value.commands.some((c) =>
-      c.route.name === createAppEngineerAssignment.name
-    )
-    ? startAssignmentReactions({ runtime, ledgerPath })
-    : undefined;
+  const assignmentReactions =
+    assembled.value.commands.some((c) =>
+        c.route.name === createAppEngineerAssignment.name
+      )
+      ? startAssignmentReactions({ runtime, ledgerPath })
+      : undefined;
   // core 안 documents 구독자. documents event가 오면 root 집합과 관측 근거를 맞춘다. documents
   // worker가 없는 core에서도 구독은 열려 있고, 맞출 대상이 없으면 아무것도 하지 않는다.
   const documentsFeed = startDocumentsFeed({

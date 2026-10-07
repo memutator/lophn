@@ -1,6 +1,7 @@
 // lophn-agent/assignments#R1: AppCreated·AppArchived 반응 engine. 구독자 gate가 있는 등록
 // executor(applyMigrations + runCommand)를 direct connection으로 부르고, 반응 engine은
-// reaction.ts의 실제 것을 쓴다. 제품 core 경로는 apps/core/assignment-reactions_test.ts가 본다.
+// reaction.ts의 실제 것을 쓴다. 제품 core 경로는 apps/core/assignment-reactions_test.ts가 본다. 구독자 gate를 만드는 direct connection이
+// platform/ledger를 직접 부르므로 apps/core/testing/에 둔다(lophn-agent-assignments_test.ts와 같다).
 import { assert, assertEquals } from "@std/assert";
 import { createHash } from "node:crypto";
 import {
@@ -9,24 +10,30 @@ import {
   type LophnError,
   manualClock,
   ok,
-} from "../../base/mod.ts";
-import type { AuthenticatedContext } from "../../contracts/platform/mod.ts";
-import { ASSIGNMENT_SUBSCRIBER } from "../../contracts/lophn-agent/mod.ts";
-import { applyMigrations } from "../../platform/backup-and-migration/mod.ts";
+} from "../../../packages/base/mod.ts";
+import type { AuthenticatedContext } from "../../../packages/contracts/platform/mod.ts";
+import { ASSIGNMENT_SUBSCRIBER } from "../../../packages/contracts/lophn-agent/mod.ts";
+import { applyMigrations } from "../../../packages/platform/backup-and-migration/mod.ts";
 import {
   createSubscriberGate,
   LEDGER_SCHEMA_STEPS,
   openConnection,
   runCommand,
-} from "../../platform/ledger/mod.ts";
-import { advanceSubscriberCursorCommand } from "../../platform/ledger/commands.ts";
-import { createPresetCommands, presetSchemaSteps } from "../presets/mod.ts";
-import { assignmentSchemaSteps, createAssignmentCommands } from "./mod.ts";
+} from "../../../packages/platform/ledger/mod.ts";
+import { advanceSubscriberCursorCommand } from "../../../packages/platform/ledger/commands.ts";
+import {
+  createPresetCommands,
+  presetSchemaSteps,
+} from "../../../packages/lophn-agent/presets/mod.ts";
+import {
+  assignmentSchemaSteps,
+  createAssignmentCommands,
+} from "../../../packages/lophn-agent/assignments/mod.ts";
 import {
   ASSIGNMENT_REACTION_OPERATIONS,
   assignmentEngine,
-} from "./reaction.ts";
-import { presetValidateDeps } from "./registration_test.ts";
+} from "../../../packages/lophn-agent/assignments/reaction.ts";
+import { presetValidateDeps } from "../../../packages/lophn-agent/assignments/registration_test.ts";
 
 const NOW = Date.UTC(2026, 0, 1);
 const NOW_TEXT = "2026-01-01T00:00:00.000Z";

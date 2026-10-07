@@ -32,7 +32,7 @@ export function appEngineerTools(
   return listTools({ builtin: BUILTIN_TOOLS, app: [], external: [] }, scope);
 }
 
-// app_engineer 상한 통로와 지만 ticket·해석 참조 정의가 아직 없어 그 이름은
+// app_engineer 상한에는 있지만 ticket·해석 참조 정의가 아직 없어 그 이름은
 // 목록에 없다(T49, T50).
 export function appEngineerToolNames(
   presetTools: readonly string[] | null,

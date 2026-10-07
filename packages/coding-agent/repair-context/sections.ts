@@ -702,10 +702,15 @@ async function logsSection(
   if (!readable(problem)) return null;
   const draft = new Draft("logs", problem.id, lines);
   draft.source(src("problems", problem.id));
+  // log가 있는 가장 최근 대표 발생을 쓴다. 없으면 snapshot이 있는 가장 최근 발생이다(없는 이유를 낸다).
+  const recent = [...problem.representatives].reverse();
   const item =
-    [...problem.representatives].reverse().find((rep) =>
-      rep.detail.ok && rep.detail.value.snapshot !== null
-    ) ?? problem.representatives[0];
+    recent.find((rep) =>
+      rep.detail.ok && rep.detail.value.snapshot?.logs != null
+    ) ??
+      recent.find((rep) =>
+        rep.detail.ok && rep.detail.value.snapshot !== null
+      ) ?? problem.representatives[0];
   if (item === undefined) {
     draft.missing("log를 읽을 발생이 없다");
     return draft.finish(fallback(problem.id, "occurrences"));
@@ -934,10 +939,17 @@ async function attachmentsSection(
       );
     } else if (images < L.attachments.image_metadata) {
       images += 1;
+      // 이미지 내용은 이 통로가 보내지 않는다(redaction이 image/png를 지원하지 않는다). 크기와 첨부 열기
+      // 참조만 낸다(repair-context#R17).
+      const size = item.detail.value.attachments?.find((attachment) =>
+        attachment.hash === screen.screenshot
+      )?.size_bytes;
       draft.line(
         `${snapshot.id} image blob ${
           screen.screenshot.slice(0, 12)
-        } kind image size unknown(미리 읽지 않음); 열기: coding-agent/cli로 허용 첨부 열기, 읽기: image`,
+        } kind image size ${
+          size === undefined ? "unknown" : `${size} bytes`
+        }; 내용은 보내지 않는다. 열기: 허용 첨부 열기(report ${item.report.id}, feedback_screenshot), 읽기: more image`,
       );
     }
   }

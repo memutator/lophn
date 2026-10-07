@@ -52,6 +52,13 @@ Deno.test("coding-agent/tickets#R12: claim 입력과 만료 사유를 받는다"
 });
 
 Deno.test("coding-agent/tickets#R17: 완료 보고는 claim seq와 release를 요구한다", () => {
+  const blob = {
+    preparation: "worker-preparation-1",
+    principal: CAC,
+    purpose: "ticket_summary",
+    hash: HASH,
+    size_bytes: 64,
+  };
   ticketReportCompletionInputSchema.parse({
     ticket: TKT,
     claim_seq: "8",
@@ -63,6 +70,7 @@ Deno.test("coding-agent/tickets#R17: 완료 보고는 claim seq와 release를 �
       fix_records: [],
       verifications: [VRF],
     },
+    summary_blob: blob,
   });
   assert(
     !ticketReportCompletionInputSchema.safeParse({
@@ -76,6 +84,39 @@ Deno.test("coding-agent/tickets#R17: 완료 보고는 claim seq와 release를 �
         fix_records: [],
         verifications: [],
       },
+      summary_blob: blob,
+    }).success,
+  );
+  // summary blob은 ticket_summary purpose만 받는다.
+  assert(
+    !ticketReportCompletionInputSchema.safeParse({
+      ticket: TKT,
+      claim_seq: "8",
+      base_revision: "8",
+      completion: {
+        release: REL,
+        summary_hash: HASH,
+        outputs: [],
+        fix_records: [],
+        verifications: [],
+      },
+      summary_blob: { ...blob, purpose: "document_file" },
+    }).success,
+  );
+  // hash만 싣는 보고는 가리키는 바이트가 저장된 blob이어야 한다(hash 불일치 거절).
+  assert(
+    !ticketReportCompletionInputSchema.safeParse({
+      ticket: TKT,
+      claim_seq: "8",
+      base_revision: "8",
+      completion: {
+        release: REL,
+        summary_hash: HASH,
+        outputs: [],
+        fix_records: [],
+        verifications: [],
+      },
+      summary_blob: { ...blob, hash: "cd".repeat(32) },
     }).success,
   );
 });

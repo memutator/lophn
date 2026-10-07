@@ -2,6 +2,8 @@
 // 묶음의 위치는 /opt/lophn/ 하나다. 순수 값이라 build 도구(tools/package-linux.ts)와 설치 검사
 // (tools/verify-linux-install.ts), core 조립이 같은 값을 쓴다.
 
+import { INSTANCE_LOCK_NAME } from "./instance-lock.ts";
+
 export const LINUX_INSTALL_ROOT = "/opt/lophn";
 
 // 설치 묶음 안의 자리. 모두 root 소유 읽기 전용이고 사람 데이터 root(H)와 겹치지 않는다.
@@ -107,16 +109,73 @@ function denoRun(
   ].join("\n");
 }
 
+// CLI의 환경 이름이다. token 이름은 없다(coding-agent/cli의 `CLI_ENV_NAMES`와 같은 목록).
+// 제품 감지가 PATH 뒤에 읽는 home 기준 bin 폴더다(coding-agent/harnesses `DETECTION_FALLBACK_DIRS`와 같은 목록).
+const CLI_FALLBACK_BINS = [
+  ".local/bin",
+  ".bun/bin",
+  ".npm-global/bin",
+  ".pnpm-global/bin",
+  ".yarn/bin",
+  ".volta/bin",
+  ".asdf/shims",
+  ".fnm/aliases/default/bin",
+  ".local/share/mise/shims",
+].map((dir) => `$HOME/${dir}`).join(",");
+
+const CLI_ENV =
+  "LOPHN_HOME,LOPHN_CONNECTION,LOPHN_DAEMON_URL,LOPHN_APP,HOME,DENO_DIR,PATH,XDG_RUNTIME_DIR,TMPDIR,CODEX_HOME,XDG_CONFIG_HOME,HERMES_HOME";
+
 // `lophn` CLI. 같은 플랫폼 daemon에 loopback으로 연결하고 token은 helper로만 받는다(R6).
+// 설치·감지·daemon·`sdk add --apply`가 요구하는 write·run은 정확한 경로와 파일로만 연다
+// (open-issues coding-agent/mcp-server#Q9): 쓰기는 `<H>/integrations`와 instance lock 파일, 실행은 helper·
+// 설치 Deno·`lophn-desktop`, 읽기는 PATH 폴더를 더한다. 선택한 제품 설정 파일·앱 source의 `deno.json`·
+// `deno.lock`처럼 명령 시점에야 알 수 있는 경로는 같은 argv를 읽는 권한 계획 entry(`apps/cli/launch.ts`)가
+// 사람이 고른 target·앱에서 정확한 경로로 계산해 이 실행에만 더한다. 일반 쓰기·일반 실행·폴더 단위 쓰기는 없다.
 export function cliLauncher(layout: LinuxInstallLayout): string {
   return [
     launcherHead(layout, "lophn"),
-    denoRun([
-      '--allow-read="$ROOT/platform,$DENO_DIR,$H/run,$PWD,/proc/self/stat"',
-      "--allow-env=LOPHN_HOME,LOPHN_CONNECTION,LOPHN_DAEMON_URL,LOPHN_APP,HOME,DENO_DIR",
-      `--allow-net=${LOOPBACK}`,
-      '--allow-run="$ROOT/lophn-credential"',
-    ], "apps/cli/main.ts"),
+    "# PATH의 절대 폴더만 읽기로 연다(제품 감지).",
+    'PATHDIRS=""',
+    "OLDIFS=$IFS",
+    "IFS=:",
+    "set -f",
+    "for dir in $PATH; do",
+    '  case "$dir" in',
+    '    /*) case "$dir" in *,*) ;; *) PATHDIRS="${PATHDIRS:+$PATHDIRS,}$dir" ;; esac ;;',
+    "  esac",
+    "done",
+    "IFS=$OLDIFS",
+    `READ="$ROOT/platform,$DENO_DIR,$H/run,$H/integrations,$PWD,/proc/self/stat,${CLI_FALLBACK_BINS}\${PATHDIRS:+,$PATHDIRS}"`,
+    `WRITE="$H/integrations,$H/run/${INSTANCE_LOCK_NAME}"`,
+    `ENVNAMES="${CLI_ENV}"`,
+    "# 설치·sdk 명령만 권한 계획을 부른다. 계획은 읽기·loopback·helper 실행뿐이고 쓰기·run은 없다.",
+    'EXTRA=""',
+    'for arg in "$@"; do',
+    '  case "$arg" in harness|connection|sdk) NEED=1 ;; esac',
+    "done",
+    'if [ -n "${NEED:-}" ]; then',
+    '  EXTRA=$("$ROOT/deno" run --cached-only --frozen --no-prompt \\',
+    '    --config="$ROOT/platform/deno.json" \\',
+    '    --allow-read="$ROOT/platform,$DENO_DIR,$H/run,$PWD,/proc/self/stat" \\',
+    '    --allow-env="$ENVNAMES" \\',
+    `    --allow-net=${LOOPBACK} \\`,
+    '    --allow-run="$ROOT/lophn-credential" \\',
+    '    "$ROOT/platform/apps/cli/launch.ts" "$@" 2>/dev/null) || EXTRA=""',
+    "fi",
+    "# 계획의 flag는 한 줄에 하나다. 줄 단위로만 나눈다.",
+    "IFS='",
+    "'",
+    "set -f",
+    'exec "$ROOT/deno" run --cached-only --frozen --no-prompt \\',
+    '  --config="$ROOT/platform/deno.json" \\',
+    '  --allow-read="$READ" \\',
+    '  --allow-write="$WRITE" \\',
+    '  --allow-env="$ENVNAMES" \\',
+    `  --allow-net=${LOOPBACK} \\`,
+    '  --allow-run="$ROOT/lophn-credential,$ROOT/deno,$ROOT/lophn-desktop" \\',
+    "  $EXTRA \\",
+    '  "$ROOT/platform/apps/cli/main.ts" "$@"',
     "",
   ].join("\n");
 }

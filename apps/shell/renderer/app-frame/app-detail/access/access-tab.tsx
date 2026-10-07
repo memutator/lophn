@@ -65,10 +65,14 @@ export function AccessTab({ app, source, now }: AccessTabProps) {
     else setFailed(true);
   }
 
-  async function review(): Promise<void> {
+  async function review(requirement: number): Promise<void> {
     setFailed(false);
     setAsking(true);
-    const reply = await source.decide({ kind: "change_access", app });
+    const reply = await source.decide({
+      kind: "change_access",
+      app,
+      requirement,
+    });
     setAsking(false);
     if (!reply.ok) setFailed(true);
   }
@@ -95,7 +99,7 @@ export function AccessTab({ app, source, now }: AccessTabProps) {
             asking={asking}
             failed={failed}
             onRemove={(grant) => void remove(grant)}
-            onReview={() => void review()}
+            onReview={(requirement) => void review(requirement)}
           />
         )}
       </Loadable>
@@ -113,7 +117,7 @@ function AccessBody(
       asking: boolean;
       failed: boolean;
       onRemove(grant: GrantRow): void;
-      onReview(): void;
+      onReview(requirement: number): void;
     },
 ) {
   const active = view.grants.filter((grant) => grant.active && isAccess(grant));
@@ -216,20 +220,19 @@ function AccessBody(
                 >
                   <span className={styles.mono}>{requirement.exact}</span>
                   <p className={styles.text}>{requirement.reason}</p>
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    disabled={asking}
+                    onClick={() =>
+                      onReview(view.requirements.indexOf(requirement))}
+                    data-change-access=""
+                  >
+                    {t("app-detail.button.change-access")}
+                  </Button>
                 </li>
               ))}
             </ul>
-            <div className={styles.actions}>
-              <Button
-                size="sm"
-                variant="primary"
-                disabled={asking}
-                onClick={onReview}
-                data-change-access=""
-              >
-                {t("app-detail.button.change-access")}
-              </Button>
-            </div>
           </section>
         )
         : null}

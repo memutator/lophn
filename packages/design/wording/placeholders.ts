@@ -428,6 +428,8 @@ export type PlaceholderKinds = {
   "confirmation-window.button.close": Record<never, never>;
   "confirmation-window.button.reject": Record<never, never>;
   "confirmation-window.button.save": Record<never, never>;
+  "confirmation-window.button.remove": Record<never, never>;
+  "confirmation-window.button.replace": Record<never, never>;
   "confirmation-window.button.undo": Record<never, never>;
   "confirmation-window.button.undo-rest": Record<never, never>;
   "confirmation-window.error.save": Record<never, never>;
@@ -449,6 +451,7 @@ export type PlaceholderKinds = {
   "confirmation-window.label.requested-by": Record<never, never>;
   "confirmation-window.label.secret-code": Record<never, never>;
   "confirmation-window.label.secret-key": Record<never, never>;
+  "confirmation-window.label.secret-new-key": Record<never, never>;
   "confirmation-window.label.secret-value": Record<never, never>;
   "confirmation-window.label.stays": Record<never, never>;
   "confirmation-window.label.targets": Record<never, never>;
@@ -465,6 +468,9 @@ export type PlaceholderKinds = {
   "confirmation-window.result.partly-undone": Record<never, never>;
   "confirmation-window.result.rejected": Record<never, never>;
   "confirmation-window.result.saved": {
+    name: "string";
+  };
+  "confirmation-window.result.removed": {
     name: "string";
   };
   "confirmation-window.result.undo-unknown": Record<never, never>;
@@ -500,6 +506,17 @@ export type PlaceholderKinds = {
   };
   "confirmation-window.secret-code.title": Record<never, never>;
   "confirmation-window.secret-key.title": {
+    name: "string";
+  };
+  "confirmation-window.secret-replace.effect": Record<never, never>;
+  "confirmation-window.secret-replace.revert": Record<never, never>;
+  "confirmation-window.secret-replace.title": {
+    name: "string";
+  };
+  "confirmation-window.secret-revoke.effect": Record<never, never>;
+  "confirmation-window.secret-revoke.revert": Record<never, never>;
+  "confirmation-window.secret-revoke.subject": Record<never, never>;
+  "confirmation-window.secret-revoke.title": {
     name: "string";
   };
   "confirmation-window.secret.configured": {
@@ -962,6 +979,14 @@ export type PlaceholderKinds = {
   "document.status.version-saved": Record<never, never>;
   "document.title.global-instructions": Record<never, never>;
   "document.title.project-instructions": Record<never, never>;
+  "document.title.app-instructions": Record<never, never>;
+  "confirmation-window.title.revoke-access": {
+    app: "string";
+  };
+  "confirmation-window.revoke.subject": {
+    app: "string";
+  };
+  "confirmation-window.revoke.effect": Record<never, never>;
   "document.title.compare-disk": Record<never, never>;
   "document.title.compare-newest": Record<never, never>;
   "document.title.unsaved": Record<never, never>;
@@ -1446,6 +1471,208 @@ export type PlaceholderKinds = {
   "report-problem.status.sending": Record<never, never>;
   "report-problem.title.report": Record<never, never>;
   "roles.title.screen": Record<never, never>;
+  "settings.accounts.none": Record<never, never>;
+  "settings.button.add-folder": Record<never, never>;
+  "settings.button.add-key": Record<never, never>;
+  "settings.button.add-server": Record<never, never>;
+  "settings.button.ask-lophn": Record<never, never>;
+  "settings.button.cancel-sign-in": Record<never, never>;
+  "settings.button.continue": Record<never, never>;
+  "settings.button.enter-credential": Record<never, never>;
+  "settings.button.enter-response": Record<never, never>;
+  "settings.button.new-server": Record<never, never>;
+  "settings.button.open-again": Record<never, never>;
+  "settings.button.remove": Record<never, never>;
+  "settings.button.replace-key": Record<never, never>;
+  "settings.button.start-test": Record<never, never>;
+  "settings.button.save": Record<never, never>;
+  "settings.button.sign-in": {
+    name: "string";
+  };
+  "settings.button.sign-in-again": Record<never, never>;
+  "settings.button.test": Record<never, never>;
+  "settings.defaults.current": {
+    model: "string";
+    name: "string";
+  };
+  "settings.defaults.decisions-help": Record<never, never>;
+  "settings.defaults.failed": Record<never, never>;
+  "settings.defaults.intro": Record<never, never>;
+  "settings.defaults.no-connection": Record<never, never>;
+  "settings.defaults.not-chosen": Record<never, never>;
+  "settings.defaults.saved": Record<never, never>;
+  "settings.defaults.summaries-help": Record<never, never>;
+  "settings.defaults.unreadable": Record<never, never>;
+  "settings.error.changed": Record<never, never>;
+  "settings.error.window": Record<never, never>;
+  "settings.extensions.folder-added": {
+    name: "string";
+  };
+  "settings.extensions.folder-failed": Record<never, never>;
+  "settings.extensions.intro": Record<never, never>;
+  "settings.extensions.no-folders": Record<never, never>;
+  "settings.extensions.no-servers": Record<never, never>;
+  "settings.extensions.server-added": {
+    name: "string";
+  };
+  "settings.extensions.server-failed": {
+    name: "string";
+  };
+  "settings.heading.instructions": Record<never, never>;
+  "settings.heading.models": Record<never, never>;
+  "settings.heading.servers": Record<never, never>;
+  "settings.heading.skills": Record<never, never>;
+  "settings.heading.values": Record<never, never>;
+  "settings.instructions.intro": Record<never, never>;
+  "settings.intro.screen": Record<never, never>;
+  "settings.label.account-name": Record<never, never>;
+  "settings.label.accounts-for": {
+    name: "string";
+  };
+  "settings.label.applies": Record<never, never>;
+  "settings.label.apply-next-call": Record<never, never>;
+  "settings.label.apply-next-work": Record<never, never>;
+  "settings.label.apply-now": Record<never, never>;
+  "settings.label.auth-api-key": Record<never, never>;
+  "settings.label.auth-bearer": Record<never, never>;
+  "settings.label.auth-none": Record<never, never>;
+  "settings.label.auth-sign-in": Record<never, never>;
+  "settings.label.billing-api": Record<never, never>;
+  "settings.label.billing-local": Record<never, never>;
+  "settings.label.billing-subscription": Record<never, never>;
+  "settings.label.cost-estimated": {
+    amount: "string";
+  };
+  "settings.label.cost-free": {
+    count: "plural";
+  };
+  "settings.label.cost-reported": {
+    amount: "string";
+  };
+  "settings.label.cost-subscription": {
+    count: "plural";
+  };
+  "settings.label.cost-unknown": {
+    count: "plural";
+  };
+  "settings.label.default": Record<never, never>;
+  "settings.label.details": Record<never, never>;
+  "settings.label.extensions-target": Record<never, never>;
+  "settings.label.general-target": Record<never, never>;
+  "settings.label.location": Record<never, never>;
+  "settings.label.model-connection": Record<never, never>;
+  "settings.label.model-name": Record<never, never>;
+  "settings.label.no-models": Record<never, never>;
+  "settings.label.off": Record<never, never>;
+  "settings.label.on-computer": Record<never, never>;
+  "settings.label.over-web": Record<never, never>;
+  "settings.label.providers-target": Record<never, never>;
+  "settings.label.server-address": Record<never, never>;
+  "settings.label.server-arguments": Record<never, never>;
+  "settings.label.server-auth": Record<never, never>;
+  "settings.label.server-header": Record<never, never>;
+  "settings.label.server-name": Record<never, never>;
+  "settings.label.server-program": Record<never, never>;
+  "settings.label.server-transport": Record<never, never>;
+  "settings.label.source": Record<never, never>;
+  "settings.label.source-default": Record<never, never>;
+  "settings.label.source-you": Record<never, never>;
+  "settings.label.state-disabled": Record<never, never>;
+  "settings.label.state-limit": Record<never, never>;
+  "settings.label.state-plan": Record<never, never>;
+  "settings.label.state-ready": Record<never, never>;
+  "settings.label.state-removed": Record<never, never>;
+  "settings.label.state-sign-in-problem": Record<never, never>;
+  "settings.label.state-signed-out": Record<never, never>;
+  "settings.label.tab-connections": Record<never, never>;
+  "settings.label.tab-extensions": Record<never, never>;
+  "settings.label.tab-general": Record<never, never>;
+  "settings.label.test-model": Record<never, never>;
+  "settings.label.unavailable-connection": Record<never, never>;
+  "settings.label.usage-none": Record<never, never>;
+  "settings.label.usage-partial": Record<never, never>;
+  "settings.label.usage-recent": Record<never, never>;
+  "settings.label.value-custom": Record<never, never>;
+  "settings.label.value-items": {
+    count: "plural";
+  };
+  "settings.label.value-no-default": Record<never, never>;
+  "settings.label.value-not-set": Record<never, never>;
+  "settings.label.value-off": Record<never, never>;
+  "settings.label.value-on": Record<never, never>;
+  "settings.label.way-api-key": Record<never, never>;
+  "settings.label.way-local": Record<never, never>;
+  "settings.label.way-sign-in": Record<never, never>;
+  "settings.label.ways": Record<never, never>;
+  "settings.next.add-account": Record<never, never>;
+  "settings.next.check-plan": Record<never, never>;
+  "settings.next.replace-key": Record<never, never>;
+  "settings.next.sign-in": Record<never, never>;
+  "settings.next.wait": Record<never, never>;
+  "settings.next.wait-until": {
+    time: "string";
+  };
+  "settings.notice.window-opened": Record<never, never>;
+  "settings.providers.account-name-help": Record<never, never>;
+  "settings.providers.empty": Record<never, never>;
+  "settings.providers.never-tested": Record<never, never>;
+  "settings.providers.sign-in-unverified": Record<never, never>;
+  "settings.providers.tested-failed": {
+    time: "string";
+  };
+  "settings.providers.tested-ok": {
+    time: "string";
+  };
+  "settings.server.address-help": Record<never, never>;
+  "settings.server.arguments-help": Record<never, never>;
+  "settings.server.auth-sign-in-absent": Record<never, never>;
+  "settings.server.credential-missing": Record<never, never>;
+  "settings.server.credential-set": Record<never, never>;
+  "settings.server.credential-unknown": Record<never, never>;
+  "settings.server.error-header": Record<never, never>;
+  "settings.server.error-name": Record<never, never>;
+  "settings.server.error-path": Record<never, never>;
+  "settings.server.error-taken": Record<never, never>;
+  "settings.server.error-url": Record<never, never>;
+  "settings.server.name-help": Record<never, never>;
+  "settings.server.program-help": Record<never, never>;
+  "settings.server.sign-in-absent": Record<never, never>;
+  "settings.sign-in.absent": {
+    name: "string";
+  };
+  "settings.sign-in.code": {
+    code: "string";
+  };
+  "settings.sign-in.failed": {
+    name: "string";
+  };
+  "settings.sign-in.no-page": Record<never, never>;
+  "settings.sign-in.not-opened": Record<never, never>;
+  "settings.sign-in.waiting": Record<never, never>;
+  "settings.state.model-access": {
+    model: "string";
+  };
+  "settings.state.model-gone": {
+    model: "string";
+  };
+  "settings.test.about": Record<never, never>;
+  "settings.test.absent": Record<never, never>;
+  "settings.test.cost-note": Record<never, never>;
+  "settings.test.not-started": Record<never, never>;
+  "settings.test.failed": {
+    kind: "string";
+  };
+  "settings.test.loading-models": Record<never, never>;
+  "settings.test.no-models": Record<never, never>;
+  "settings.test.not-tested": {
+    kind: "string";
+  };
+  "settings.test.running": Record<never, never>;
+  "settings.test.worked": {
+    kind: "string";
+  };
+  "settings.usage.failed": Record<never, never>;
+  "settings.usage.loading": Record<never, never>;
   "settings.models.for-decisions": Record<never, never>;
   "settings.models.for-summaries": Record<never, never>;
   "settings.title.screen": Record<never, never>;

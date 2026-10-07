@@ -6,9 +6,9 @@
 // - catalog: 설치 catalog(packages.list)를 읽고 설명·API 이름 검색어로 거른다. 결과는
 //   이름·최신 version·종류·한 줄 설명이다. 이름으로 찾았는데 없으면 비설치(@lophn)와
 //   지원 범위 밖 개인 SDK(@me)를 구별한다.
-// - show: version 목록과 고른 version의 사용 안내(packages.guide의 guide_hash)를 낸다.
-//   안내 원문(API·type·permission·peer·예제)은 owner blob read 자리가 계약에 아직 없어
-//   guide_hash와 그 사실만 낸다(plan coding-agent Q33).
+// - show: version 목록과 고른 version의 사용 안내(version 행의 guide_hash)를 낸다.
+//   안내 원문(API·type·permission·peer·예제)은 `package_version/guide` blob field 하나만 읽는 좁은 route
+//   `packages.guide_body`로 읽어 `body`에 낸다(일반 `blobs/read`는 coding 연결에 열지 않는다). 읽지 못하면 body는 null이고 이유를 낸다(원문을 꾸미지 않는다).
 // - add: exact version만 받는다. 범위·별칭 version, 설치 catalog에 없는 package·version은
 //   거절이다. 결과는 고정 import 안내이고 `apply`일 때만 앱 source의 deno.json에 반영한다.
 //   반영 결과는 changed·unchanged·conflict 셋이다. 다른 version이 이미 있으면 conflict로
@@ -17,6 +17,7 @@ import { err, type LophnError, ok, type Result } from "../../base/mod.ts";
 import {
   appGet,
   packagesGuide,
+  packagesGuideBody,
   packagesList,
   packagesVersions,
 } from "../../contracts/apps/mod.ts";
@@ -253,7 +254,9 @@ async function readVersions(
   name: string,
   deps: SdkOpDeps,
   nextOp: SdkOp,
-): Promise<Result<string[], SdkOpOutput>> {
+): Promise<
+  Result<{ names: string[]; guideHashes: Record<string, string> }, SdkOpOutput>
+> {
   const read = await deps.client.read(packagesVersions, { name });
   if (!read.ok) {
     return err(
@@ -262,9 +265,19 @@ async function readVersions(
         : failure(read.error, [refer(deps, nextOp)]),
     );
   }
-  const versions = versionNames(obj(read.value).versions);
+  const rows = obj(read.value).versions;
+  const versions = versionNames(rows);
   if (versions.length === 0) return err(absentFailure(deps, name));
-  return ok(versions);
+  // 안내 hash는 version 행이 이미 싣는다. 서버에 따로 서빙하지 않는 worker route를 거치지 않는다.
+  const guideHashes: Record<string, string> = {};
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const version = str(obj(row).version);
+    const hash = str(obj(row).guide_hash);
+    if (version !== undefined && hash !== undefined) {
+      guideHashes[version] = hash;
+    }
+  }
+  return ok({ names: versions, guideHashes });
 }
 
 function versionNotInstalled(
@@ -280,6 +293,56 @@ function versionNotInstalled(
   }, [refer(deps, "show", "로 설치된 exact version을 고른다")]);
 }
 
+// 안내 원문 한 번의 읽기 상한이다. 더 길면 잘렸다고 표시한다(출력 예산).
+export const GUIDE_BODY_LIMIT_BYTES = 16 * 1024;
+
+type GuideBody = {
+  body: string | null;
+  body_truncated?: boolean;
+  body_unavailable?: string;
+};
+
+// 안내 blob(`package_version/guide`)을 읽는다. 권한 밖·미등록·보존 byte 없음은 모두 "읽을 수 없음"이고
+// 이유만 다르게 낸다. 어떤 경우에도 본문을 만들어 내지 않는다.
+async function readGuideBody(
+  deps: SdkOpDeps,
+  name: string,
+  version: string,
+): Promise<GuideBody> {
+  const read = await deps.client.read(packagesGuideBody, {
+    name,
+    version,
+    offset_bytes: 0,
+    length_bytes: GUIDE_BODY_LIMIT_BYTES,
+  });
+  if (!read.ok) {
+    return {
+      body: null,
+      body_unavailable: read.error.code === "unavailable"
+        ? "안내 원문을 지금 읽지 못했다"
+        : "안내 원문을 이 연결로 읽을 수 없다",
+    };
+  }
+  const result = obj(read.value);
+  if (result.status !== "available" || typeof result.bytes !== "string") {
+    return {
+      body: null,
+      body_unavailable: `안내 원문 byte를 읽지 못했다(${
+        str(result.reason) ?? "unavailable"
+      })`,
+    };
+  }
+  try {
+    const bytes = Uint8Array.from(atob(result.bytes), (c) => c.charCodeAt(0));
+    return {
+      body: new TextDecoder("utf-8", { fatal: true }).decode(bytes),
+      body_truncated: result.truncated === true,
+    };
+  } catch {
+    return { body: null, body_unavailable: "안내 원문이 UTF-8 글이 아니다" };
+  }
+}
+
 async function showPackage(
   input: Obj,
   deps: SdkOpDeps,
@@ -288,25 +351,23 @@ async function showPackage(
   const versions = await readVersions(name, deps, "catalog");
   if (!versions.ok) return versions.error;
   const asked = str(input.version);
-  if (asked !== undefined && !versions.value.includes(asked)) {
-    return versionNotInstalled(deps, name, asked, versions.value);
+  if (asked !== undefined && !versions.value.names.includes(asked)) {
+    return versionNotInstalled(deps, name, asked, versions.value.names);
   }
-  const version = asked ?? versions.value[0];
-  const guide = await deps.client.read(packagesGuide, { name, version });
-  if (!guide.ok) return failure(guide.error, [refer(deps, "show")]);
+  const version = asked ?? versions.value.names[0];
   return {
-    summary: `SDK ${name}: version ${versions.value.length}개, ${version} 안내`,
+    summary:
+      `SDK ${name}: version ${versions.value.names.length}개, ${version} 안내`,
     data: {
       name,
       support: support(name),
-      versions: versions.value,
-      latest_version: versions.value[0],
+      versions: versions.value.names,
+      latest_version: versions.value.names[0],
       version,
       guide: {
-        guide_hash: obj(guide.value).guide_hash ?? null,
-        // API·type·permission·peer·예제는 안내 원문에 있다. 원문 read 자리는 Q33.
-        body: null,
-        body_unavailable: "안내 원문 read 자리가 계약에 아직 없다",
+        guide_hash: versions.value.guideHashes[version] ?? null,
+        // API·type·permission·peer·예제는 안내 원문에 있다.
+        ...await readGuideBody(deps, name, version),
       },
     },
     next: [refer(deps, "add", "로 이 exact version을 앱에 더한다")],
@@ -515,18 +576,16 @@ async function addPackage(
   if (isPersonalSdk(name)) return absentFailure(deps, name);
   const versions = await readVersions(name, deps, "add");
   if (!versions.ok) return versions.error;
-  if (!versions.value.includes(version)) {
-    return versionNotInstalled(deps, name, version, versions.value);
+  if (!versions.value.names.includes(version)) {
+    return versionNotInstalled(deps, name, version, versions.value.names);
   }
-  const guide = await deps.client.read(packagesGuide, { name, version });
-  if (!guide.ok) return failure(guide.error, [refer(deps, "show")]);
   const entry = sdkImportEntry(name, version);
   const base = {
     name,
     version,
     import_key: entry.key,
     import_value: entry.value,
-    guide_hash: obj(guide.value).guide_hash ?? null,
+    guide_hash: versions.value.guideHashes[version] ?? null,
   };
   if (input.apply !== true) {
     return {

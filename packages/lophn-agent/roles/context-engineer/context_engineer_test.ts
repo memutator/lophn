@@ -391,6 +391,7 @@ function rig(world: ReturnType<typeof readWorld>) {
         session: null,
         role: "context_engineer" as const,
         original_message: id("msg", 1),
+        assignment: "asg_01arz3ndektsv4rrffq69g5fav",
       })),
   });
   const operations = new Set(runOperations(listed));

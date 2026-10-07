@@ -7,6 +7,12 @@ import type {
   CommandDefinition,
   RequestContext,
 } from "../../contracts/platform/mod.ts";
+import {
+  PACKAGE_GUIDE_BLOB_FIELD_NAME,
+  PACKAGE_GUIDE_BLOB_OWNER_KIND,
+  PACKAGE_GUIDE_BLOB_PURPOSE,
+  packageGuideOwnerKey,
+} from "./blobs.ts";
 import { personalRegistrationRejected } from "./model.ts";
 import { loadPackageRow, loadStoredVersion, loadVersions } from "./store.ts";
 
@@ -23,6 +29,41 @@ function requireMachine(ctx: RequestContext): Result<void> {
   return ctx.actor.startsWith("machine")
     ? ok(undefined)
     : forbidden("package versions are registered by the install machine only");
+}
+
+// 안내 byte를 준비한 blob이 있으면 그 참조를 같은 transaction에서 등록한다. 실제로 보존한 byte의 hash만
+// guide_hash로 둘 수 있다: 준비한 blob의 hash·purpose가 다르면 이 command 전체가 거절이다.
+function registerGuide(
+  tx: Parameters<CommandDefinition<typeof packageRegisterVersion>["handle"]>[0],
+  input: Parameters<
+    CommandDefinition<typeof packageRegisterVersion>["handle"]
+  >[2],
+  seq: string,
+): Result<void> {
+  const blob = input.guide_blob;
+  if (blob === undefined) return ok(undefined);
+  if (
+    blob.hash !== input.guide_hash ||
+    blob.purpose !== PACKAGE_GUIDE_BLOB_PURPOSE
+  ) {
+    return err({
+      code: "invalid_input",
+      message: "guide hash is not the preserved guide blob",
+    });
+  }
+  const registered = tx.registerBlobRef({
+    owner_kind: PACKAGE_GUIDE_BLOB_OWNER_KIND,
+    owner_key: packageGuideOwnerKey(input.name, input.version),
+    field: PACKAGE_GUIDE_BLOB_FIELD_NAME,
+    registered_seq: seq,
+    source: { kind: "prepared", blob: { ...blob } },
+  });
+  if (registered.ok) return ok(undefined);
+  const code = registered.error.code;
+  return code === "conflict" ? registered : err({
+    code: "invalid_input",
+    message: "guide blob is not a prepared blob of this caller",
+  });
 }
 
 export function createSdkCommands(): {
@@ -58,7 +99,8 @@ export function createSdkCommands(): {
             "INSERT INTO package_versions (package, version, bundle_hash, guide_hash) VALUES (?, ?, ?, ?)",
             [id, input.version, input.bundle_hash, input.guide_hash],
           );
-          void seq;
+          const guide = registerGuide(tx, input, seq);
+          if (!guide.ok) return guide;
           return ok({
             package: {
               id,
@@ -126,7 +168,8 @@ export function createSdkCommands(): {
           "INSERT INTO package_versions (package, version, bundle_hash, guide_hash) VALUES (?, ?, ?, ?)",
           [packageId, input.version, input.bundle_hash, input.guide_hash],
         );
-        void seq;
+        const guide = registerGuide(tx, input, seq);
+        if (!guide.ok) return guide;
         const versions = loadVersions(tx.sql, packageId);
         const description = current["description"] as string;
         const kind = current["kind"] as typeof input.kind;

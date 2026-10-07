@@ -28,6 +28,7 @@ export {
   type CodingLoaderChild,
   codingTuiEnvironment,
   createCodingCredentialAuthority,
+  externalOf as codingExternalCredential,
   memoryPendingPreparations,
   type PendingPreparations,
   type ProtectedChannel,

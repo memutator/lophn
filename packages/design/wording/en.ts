@@ -393,6 +393,8 @@ export const en = {
   "confirmation-window.button.close": "Close",
   "confirmation-window.button.reject": "Reject",
   "confirmation-window.button.save": "Save",
+  "confirmation-window.button.remove": "Remove",
+  "confirmation-window.button.replace": "Replace",
   "confirmation-window.button.undo": "Undo changes",
   "confirmation-window.button.undo-rest": "Undo the rest",
   "confirmation-window.error.save": "Couldn't save the value. Try again.",
@@ -418,6 +420,7 @@ export const en = {
   "confirmation-window.label.requested-by": "Requested by",
   "confirmation-window.label.secret-code": "Code or final address",
   "confirmation-window.label.secret-key": "Key",
+  "confirmation-window.label.secret-new-key": "New key",
   "confirmation-window.label.secret-value": "Value",
   "confirmation-window.label.stays": "Stays as is",
   "confirmation-window.label.targets": "Applies to",
@@ -439,6 +442,7 @@ export const en = {
   "confirmation-window.result.rejected":
     "You rejected this. Nothing will happen.",
   "confirmation-window.result.saved": "{name} is saved.",
+  "confirmation-window.result.removed": "{name} won't be used for new work.",
   "confirmation-window.result.undo-unknown":
     "Some results aren't known yet. Nothing will be repeated.",
   "confirmation-window.result.undoing":
@@ -490,6 +494,18 @@ export const en = {
   "confirmation-window.secret-app.title": "Save a value for {name}?",
   "confirmation-window.secret-code.title": "Finish signing in?",
   "confirmation-window.secret-key.title": "Add the key {name}?",
+  "confirmation-window.secret-replace.effect":
+    "lophn uses the new key for this account from now on.",
+  "confirmation-window.secret-replace.revert":
+    "You can replace it again later.",
+  "confirmation-window.secret-replace.title": "Replace the key for {name}?",
+  "confirmation-window.secret-revoke.effect":
+    "New work won't use this account. Work in progress isn't changed by this window.",
+  "confirmation-window.secret-revoke.revert":
+    "You can add the account again later.",
+  "confirmation-window.secret-revoke.subject":
+    "This is one of the accounts you connected. Nothing needs to be typed to remove it.",
+  "confirmation-window.secret-revoke.title": "Remove {name}?",
   "confirmation-window.secret.configured":
     "{name} already has a value. Replacing it isn't available here yet.",
   "confirmation-window.secret.effect":
@@ -938,6 +954,11 @@ export const en = {
   "document.status.version-saved": "Saved as a new version.",
   "document.title.global-instructions": "Global instructions",
   "document.title.project-instructions": "Project instructions",
+  "document.title.app-instructions": "App instructions",
+  "confirmation-window.title.revoke-access": "Remove access for {app}?",
+  "confirmation-window.revoke.subject": "{app} has this access now.",
+  "confirmation-window.revoke.effect":
+    "This app will no longer have this access. Any running app process must stop before removal completes.",
   "document.title.compare-disk": "Your changes and the file on disk",
   "document.title.compare-newest": "Your changes and the newest version",
   "document.title.unsaved": "Changes aren't saved yet",
@@ -1431,6 +1452,205 @@ export const en = {
   "report-problem.status.sending": "Sending your report.",
   "report-problem.title.report": "Report a problem",
   "roles.title.screen": "Roles",
+  "settings.accounts.none": "No accounts are connected yet.",
+  "settings.button.add-folder": "Add a skill folder",
+  "settings.button.add-key": "Add an API key",
+  "settings.button.add-server": "Add server",
+  "settings.button.ask-lophn": "Ask lophn",
+  "settings.button.cancel-sign-in": "Cancel sign-in",
+  "settings.button.continue": "Continue",
+  "settings.button.enter-credential": "Enter credential",
+  "settings.button.enter-response": "Enter the final address",
+  "settings.button.new-server": "New tool server",
+  "settings.button.open-again": "Open the page again",
+  "settings.button.remove": "Remove",
+  "settings.button.replace-key": "Replace key",
+  "settings.button.start-test": "Start test",
+  "settings.button.save": "Save",
+  "settings.button.sign-in": "Sign in with {name}",
+  "settings.button.sign-in-again": "Sign in again",
+  "settings.button.test": "Test connection",
+  "settings.defaults.current": "{model} on {name}.",
+  "settings.defaults.decisions-help":
+    "Used when lophn weighs a choice or an action.",
+  "settings.defaults.failed": "Couldn't save the choice. Nothing changed.",
+  "settings.defaults.intro":
+    "New Presets start with these models. Presets you already have, and work in progress, don't change.",
+  "settings.defaults.no-connection":
+    "Connect an account first. Then you can choose a model here.",
+  "settings.defaults.not-chosen": "No model is chosen yet.",
+  "settings.defaults.saved": "Saved. New Presets will start with this model.",
+  "settings.defaults.summaries-help": "Used for short titles and summaries.",
+  "settings.defaults.unreadable":
+    "The model choices couldn't be read right now. Try again later.",
+  "settings.error.changed":
+    "This changed somewhere else. The latest is shown. Try again.",
+  "settings.error.window":
+    "The window didn't open. Nothing changed. Try again.",
+  "settings.extensions.folder-added":
+    "{name} is added. New work can use its skills.",
+  "settings.extensions.folder-failed":
+    "The folder wasn't added. Nothing changed. Pick the folder again.",
+  "settings.extensions.intro":
+    "Skills and tool servers extend what an agent can do. Adding one doesn't give an agent more access.",
+  "settings.extensions.no-folders": "No skill folders are added yet.",
+  "settings.extensions.no-servers": "No tool servers are added yet.",
+  "settings.extensions.server-added":
+    "{name} is added. New work can use it once any credential is saved.",
+  "settings.extensions.server-failed":
+    "{name} wasn't added. Nothing changed. Check the details and add it again.",
+  "settings.heading.instructions": "Instructions",
+  "settings.heading.models": "Models",
+  "settings.heading.servers": "Tool servers",
+  "settings.heading.skills": "Skills",
+  "settings.heading.values": "Settings",
+  "settings.instructions.intro":
+    "Instructions you write once and lophn follows everywhere.",
+  "settings.intro.screen":
+    "Connect your accounts, add skills and tool servers, and review your settings.",
+  "settings.label.account-name": "Account name",
+  "settings.label.accounts-for": "Accounts for {name}",
+  "settings.label.applies": "Applies",
+  "settings.label.apply-next-call": "Starting with the next call",
+  "settings.label.apply-next-work": "Starting with new work",
+  "settings.label.apply-now": "Right away",
+  "settings.label.auth-api-key": "API key",
+  "settings.label.auth-bearer": "Access token",
+  "settings.label.auth-none": "No sign-in",
+  "settings.label.auth-sign-in": "Sign in",
+  "settings.label.billing-api": "Billed by use on your API account",
+  "settings.label.billing-local": "Runs on this computer",
+  "settings.label.billing-subscription": "Uses your subscription limits",
+  "settings.label.cost-estimated": "About {amount}",
+  "settings.label.cost-free":
+    "{count, plural, one {# call, free} other {# calls, free}}",
+  "settings.label.cost-reported": "{amount}",
+  "settings.label.cost-subscription":
+    "{count, plural, one {# call in your plan} other {# calls in your plan}}",
+  "settings.label.cost-unknown":
+    "{count, plural, one {# call, cost unknown} other {# calls, cost unknown}}",
+  "settings.label.default": "Default",
+  "settings.label.details": "Details",
+  "settings.label.extensions-target": "your tools and skills",
+  "settings.label.general-target": "your settings",
+  "settings.label.location": "Location",
+  "settings.label.model-connection": "Connection",
+  "settings.label.model-name": "Model",
+  "settings.label.no-models": "No models listed",
+  "settings.label.off": "Off",
+  "settings.label.on-computer": "Runs on this computer",
+  "settings.label.over-web": "Connects over the web",
+  "settings.label.providers-target": "your connections",
+  "settings.label.server-address": "Address",
+  "settings.label.server-arguments": "Arguments",
+  "settings.label.server-auth": "Sign-in",
+  "settings.label.server-header": "Header name",
+  "settings.label.server-name": "Name",
+  "settings.label.server-program": "Program",
+  "settings.label.server-transport": "How it connects",
+  "settings.label.source": "Where it comes from",
+  "settings.label.source-default": "lophn's default",
+  "settings.label.source-you": "Changed by you",
+  "settings.label.state-disabled": "Turned off",
+  "settings.label.state-limit": "Usage limit reached",
+  "settings.label.state-plan": "Plan doesn't allow this",
+  "settings.label.state-ready": "Ready",
+  "settings.label.state-removed": "Removed",
+  "settings.label.state-sign-in-problem": "Sign-in problem",
+  "settings.label.state-signed-out": "Signed out",
+  "settings.label.tab-connections": "Connections",
+  "settings.label.tab-extensions": "Tools and skills",
+  "settings.label.tab-general": "General",
+  "settings.label.test-model": "Model to test",
+  "settings.label.unavailable-connection": "A connection that isn't listed",
+  "settings.label.usage-none": "No use",
+  "settings.label.usage-partial": "Some records are missing",
+  "settings.label.usage-recent": "Last 30 days",
+  "settings.label.value-custom": "Custom",
+  "settings.label.value-items": "{count, plural, one {# item} other {# items}}",
+  "settings.label.value-no-default": "None",
+  "settings.label.value-not-set": "Not set",
+  "settings.label.value-off": "Off",
+  "settings.label.value-on": "On",
+  "settings.label.way-api-key": "API key",
+  "settings.label.way-local": "On this computer",
+  "settings.label.way-sign-in": "Sign in with an account",
+  "settings.label.ways": "Ways to connect",
+  "settings.next.add-account": "Add the account again to use it for new work.",
+  "settings.next.check-plan":
+    "Check that your plan includes this, then test the connection.",
+  "settings.next.replace-key": "Replace the key to use this account again.",
+  "settings.next.sign-in": "Sign in again to use this account.",
+  "settings.next.wait": "Wait for the limit to reset.",
+  "settings.next.wait-until":
+    "Wait for the limit to reset. It is expected around {time}.",
+  "settings.notice.window-opened":
+    "Finish in the window that opened. This list updates when you come back.",
+  "settings.providers.account-name-help":
+    "A name you will recognize. The key is typed in a protected window next.",
+  "settings.providers.empty":
+    "No connections are available yet. They appear here once lophn can set them up.",
+  "settings.providers.never-tested":
+    "Not tested yet. Saving an account doesn't check that it works.",
+  "settings.providers.sign-in-unverified":
+    "Signing in with this account isn't confirmed to work with lophn yet.",
+  "settings.providers.tested-failed": "The last test, {time}, didn't work.",
+  "settings.providers.tested-ok": "The last test, {time}, worked.",
+  "settings.server.address-help":
+    "A secure web address, or one on this computer.",
+  "settings.server.arguments-help": "One per line. They are passed as written.",
+  "settings.server.auth-sign-in-absent":
+    "Signing in to a tool server isn't available yet.",
+  "settings.server.credential-missing":
+    "A credential is needed before new work can use this server.",
+  "settings.server.credential-set": "Credential saved.",
+  "settings.server.credential-unknown":
+    "Whether a credential is saved couldn't be checked.",
+  "settings.server.error-header": "Use letters, numbers and dashes, up to 64.",
+  "settings.server.error-name":
+    "Use letters, numbers, dashes and underscores, up to 32.",
+  "settings.server.error-path":
+    "Enter the full path of the program, starting from the top folder.",
+  "settings.server.error-taken": "A server with this name already exists.",
+  "settings.server.error-url":
+    "Enter a secure web address, or one on this computer.",
+  "settings.server.name-help": "A short name you will recognize.",
+  "settings.server.program-help":
+    "The full path of the program to start on this computer.",
+  "settings.server.sign-in-absent":
+    "Signing in to this server isn't available yet.",
+  "settings.sign-in.absent":
+    "Signing in with {name} isn't available in this version yet.",
+  "settings.sign-in.code": "Enter this code on the page: {code}.",
+  "settings.sign-in.failed":
+    "Couldn't start signing in with {name}. Nothing changed. Try again.",
+  "settings.sign-in.no-page":
+    "No sign-in page was provided. Cancel and try again.",
+  "settings.sign-in.not-opened":
+    "The sign-in page didn't open. Open it again to continue.",
+  "settings.sign-in.waiting": "Complete the sign-in in your browser.",
+  "settings.state.model-access": "This account can't use {model} right now.",
+  "settings.state.model-gone": "{model} isn't available on this account.",
+  "settings.test.about":
+    "This sends a small made-up message. None of your documents or conversations are sent.",
+  "settings.test.absent":
+    "Connection tests aren't available in this version yet.",
+  "settings.test.cost-note":
+    "If the cost wasn't reported, it shows as unknown above.",
+  "settings.test.not-started":
+    "The test couldn't start. Nothing was changed. Try again.",
+  "settings.test.failed":
+    "{kind, select, text {Text messages didn't work} other {Tool use didn't work}}.",
+  "settings.test.loading-models": "Loading models.",
+  "settings.test.no-models":
+    "The models for this connection couldn't be listed, so it can't be tested yet.",
+  "settings.test.not-tested":
+    "{kind, select, text {Text messages weren't tested} other {Tool use wasn't tested}}.",
+  "settings.test.running": "Testing. This takes up to 30 seconds.",
+  "settings.test.worked":
+    "{kind, select, text {Text messages worked} other {Tool use worked}}.",
+  "settings.usage.failed": "Use and cost couldn't be read right now.",
+  "settings.usage.loading": "Reading use and cost.",
   "settings.models.for-decisions": "For decisions",
   "settings.models.for-summaries": "For summaries",
   "settings.title.screen": "Settings",

@@ -141,7 +141,11 @@ Deno.test({
       assertEquals(await body(history[0]!.id), second);
 
       // 1번 판 복원은 현재 파일을 검사한 새 쓰기고 새 판은 관측이 만든다.
-      const restored = await versions.restore(document, history[1]!.id);
+      const restored = await versions.restore(
+        document,
+        history[1]!.id,
+        history[0]!.id,
+      );
       assert(restored.ok, JSON.stringify(restored));
       assertEquals(restored.value.file, "written");
       assertEquals(await Deno.readTextFile(file), first);

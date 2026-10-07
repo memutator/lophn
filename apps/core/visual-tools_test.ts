@@ -222,6 +222,7 @@ function tools(
         session: facts.session,
         role: "lophn" as const,
         original_message: id("msg", 1),
+        assignment: "asg_01arz3ndektsv4rrffq69g5fav",
       })),
   };
   const listed = listTools(

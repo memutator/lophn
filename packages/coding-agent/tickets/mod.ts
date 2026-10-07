@@ -1,4 +1,5 @@
 export { ticketSchemaSteps } from "./schema.ts";
+export { TICKET_BLOB_FIELDS, TICKET_BLOB_PURPOSES } from "./blobs.ts";
 export {
   adoptionMatches,
   conditionInputsValid,
@@ -22,3 +23,4 @@ export {
   expired,
 } from "./expiry.ts";
 export { createTicketClaimCommands, expiredClaims } from "./claims.ts";
+export { createTicketFinishCommands } from "./report.ts";

@@ -12,6 +12,7 @@ import {
   createProviderSecretRefSource,
   PROVIDER_SECRET_OWNER,
   providerSchemaSteps,
+  providerSecretDestination,
 } from "./mod.ts";
 
 function database(): DatabaseSync {
@@ -92,4 +93,30 @@ Deno.test("platform/secrets#R8: 표를 읽지 못하면 비어 있는 것으로 
   });
   assert(!read.ok);
   assertEquals(read.error.code, "unavailable");
+});
+
+Deno.test("lophn-agent/harness/provider#R5 platform/secrets#R5: credential 값은 HTTPS origin이나 같은 기계의 loopback HTTP origin에만 가고 그 밖의 HTTP·모르는 형식에는 목적지가 없다", () => {
+  assertEquals(providerSecretDestination("https://api.openai.com/v1"), {
+    kind: "https",
+    origin: "https://api.openai.com",
+  });
+  assertEquals(providerSecretDestination("http://127.0.0.1:11434/v1"), {
+    kind: "loopback_http",
+    origin: "http://127.0.0.1:11434",
+  });
+  assertEquals(providerSecretDestination("http://localhost:1234"), {
+    kind: "loopback_http",
+    origin: "http://localhost:1234",
+  });
+  assertEquals(
+    providerSecretDestination("http://192.168.0.5:11434"),
+    undefined,
+  );
+  assertEquals(providerSecretDestination("http://api.openai.com"), undefined);
+  assertEquals(
+    providerSecretDestination("https://user:pw@api.openai.com"),
+    undefined,
+  );
+  assertEquals(providerSecretDestination("ftp://localhost"), undefined);
+  assertEquals(providerSecretDestination("not a url"), undefined);
 });

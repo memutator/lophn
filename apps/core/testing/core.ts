@@ -33,6 +33,8 @@ import type {
   PreviewReleases,
 } from "../../../packages/apps/preview/service.ts";
 import type { TeamModule } from "../registration.ts";
+import type { CodingCredentials } from "../coding-credential.ts";
+import type { KeychainAdapter } from "../../../packages/platform/secrets/mod.ts";
 
 export type CoreHarnessCredential = {
   actor: ActorKind;
@@ -51,6 +53,9 @@ export type CoreHarnessOptions = {
   // I/O worker를 띄운다. 글·본문을 blob으로 준비하는 command(approval 설명 글 등)를 시험할 때 켠다.
   io?: boolean;
   // apps 제어를 시험한다. supervisor를 실제로 띄우거나(supervisor), 프로세스 관측을 바꿔 끼운다.
+  // 실제 coding credential 발급·인증을 켠다(fake keychain은 호출자가 준다). 사람의 실제 keychain은
+  // 열지 않는다.
+  coding?: { keychain: KeychainAdapter; loaders?: readonly string[] };
   apps?: {
     supervisor?: boolean | { runtimeDir?: string };
     process?: ProcessSource;
@@ -75,6 +80,9 @@ export type CoreHarness = {
   notePrepared(prepared: PreparedBlob, nowMs: number): Promise<Result<void>>;
   // 신뢰 프로세스의 blob 준비 호출이다. 실제 I/O worker가 바이트를 저장한다(`io: true`).
   prepareBlob: Core["prepareBlob"];
+  // `coding`을 켠 core의 credential 발급 입구와 준비 완료 신호.
+  codingCredentials?: CodingCredentials;
+  codingCredentialsReady?: Promise<void>;
   // 테스트 시계. advance 뒤 sweepTicketClaims를 부르면 만료 정리를 기다리지 않는다.
   clock: ManualClock;
   // 만료·회수 claim을 한 번 정리한다. 60초 timer와 같은 함수다.
@@ -119,6 +127,12 @@ export async function createCoreHarness(
     random: seededRandom(seed),
     testCredentials: true,
     superviseIo: options.io === true,
+    ...(options.coding
+      ? {
+        codingKeychain: options.coding.keychain,
+        codingLoaders: options.coding.loaders ?? [],
+      }
+      : {}),
     ...(options.apps?.supervisor
       ? { appSupervisor: options.apps.supervisor }
       : {}),
@@ -164,6 +178,12 @@ export async function createCoreHarness(
       return await core.notePrepared(prepared, nowMs);
     },
     prepareBlob: (call) => core.prepareBlob(call),
+    ...(core.codingCredentials
+      ? {
+        codingCredentials: core.codingCredentials,
+        codingCredentialsReady: core.codingCredentialsReady,
+      }
+      : {}),
     clock,
     sweepTicketClaims: () => core.sweepTicketClaims(),
     sweepApprovalExpiry: () => core.sweepApprovalExpiry(),

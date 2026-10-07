@@ -21,12 +21,22 @@ import {
   createApprovalRequest,
   ROUTES,
 } from "../../packages/contracts/platform/mod.ts";
+import { providerList } from "../../packages/contracts/lophn-agent/mod.ts";
 import {
   type ApiServer,
   RouteRegistry,
   startApiServer,
 } from "../../packages/platform/api/mod.ts";
 import type { WorkerRouteTarget } from "../../packages/platform/responsiveness/mod.ts";
+import {
+  AGENT_RUNTIME_KIND,
+  AGENT_RUNTIME_TASK,
+  type AgentRuntimeChild,
+  agentRuntimePolicies,
+  providerHost,
+  startAgentRuntimeChild,
+} from "./agent-runtime.ts";
+import { createAgentRuntimeSecrets } from "./agent-runtime-secret.ts";
 import { withViewBinding } from "./view-binding.ts";
 import {
   applyMigrations,
@@ -64,13 +74,18 @@ import {
   SECRET_SCHEMA_STEPS,
   SECRET_TOOL_PATHS,
 } from "../../packages/platform/secrets/mod.ts";
-import { connectionConnect } from "../../packages/contracts/coding-agent/mod.ts";
+import {
+  connectionConnect,
+  ticketUploadSummary,
+} from "../../packages/contracts/coding-agent/mod.ts";
 import { CONNECTION_SECRET_OWNER } from "../../packages/coding-agent/mod.ts";
 import {
   type CodingCredentials,
   connectHandler,
   createCodingCredentials,
+  withRevocationSweep,
 } from "./coding-credential.ts";
+import { codingAgentOperationPolicies } from "./coding-operations.ts";
 import { productKeychain } from "./secret-store.ts";
 import {
   createSecretInputRelay,
@@ -101,6 +116,7 @@ import {
   relaySink,
 } from "./documents-prepare.ts";
 import { documentUploadHandler } from "./documents-upload.ts";
+import { ticketSummaryUploadHandler } from "./ticket-summary-upload.ts";
 import {
   type FilesRouteDeps,
   fileWorkers,
@@ -295,6 +311,9 @@ export type CoreOptions = {
   // 앱 supervisor(앱 프로세스 감독)를 띄운다. 제품 기동만 true다. runtimeDir은 앱 socket을 두는
   // XDG runtime 디렉터리 자리이고 없으면 core 환경의 XDG_RUNTIME_DIR·사용자별 임시 폴더다.
   appSupervisor?: boolean | { runtimeDir?: string };
+  // lophn agent runtime child를 띄운다. 제품 기동만 true다. pollMs는 등록 provider 목적지가 바뀌었는지
+  // 보는 주기(ms)이고 없으면 1초다. 감독(I/O)이 없으면 띄우지 않는다.
+  agentRuntime?: boolean | { pollMs?: number };
   // 테스트가 supervisor 대신 프로세스 관측을 바꿔 끼운다. 제품 기동에는 없다.
   appProcess?: ProcessSource;
   // 발급한 앱 connection의 회수 검사 간격(ms). 없으면 1초. 테스트가 줄인다.
@@ -524,50 +543,57 @@ async function open(
       loaders: options.codingLoaders ?? [],
     })
     : undefined;
+  const baseOperations: OperationPolicy[] = [
+    {
+      name: "platform/status",
+      actors: ["user", "machine", "app", "agent", "coding_agent"],
+      kind: "read",
+    },
+    {
+      name: "platform/health",
+      actors: ["user", "machine", "app", "agent", "coding_agent"],
+      kind: "read",
+    },
+    { name: "document.save", actors: ["machine"], kind: "command" },
+    { name: "document.prepare", actors: ["machine"], kind: "command" },
+    // 파일 작업 결과 기록(documents#T12). 사람 요청에 결합해 받은 worker만 쓴다.
+    { name: "file.record_result", actors: ["machine"], kind: "command" },
+    // 확인된 문서 watch 변화 기록(documents#T24). coordinator의 watch consumer만 쓴다.
+    {
+      name: "context.record_watch_change",
+      actors: ["machine"],
+      kind: "command",
+    },
+    // apps 관측 기록·제어 connection·자식 앱 credential이 닿는 operation(apps#T10).
+    ...appsOperationPolicies(),
+    // problems report collector(machine)가 보고를 제출한다.
+    ...collectorOperationPolicies(),
+    // agent runtime(machine)과 run의 agent 자격이 닿는 operation(lophn-agent/harness/run-loop).
+    ...(options.agentRuntime ? agentRuntimePolicies(allRoutes) : []),
+    // 팀이 공개 정책을 내놓은 event 이름. 사람 token의 operation에 들어가 owner 정책이 판단한다.
+    ...eventNames.map((name): OperationPolicy => ({
+      name,
+      actors: ["user"],
+      kind: "read",
+    })),
+    // 사람 token 상한. user를 허용하는 route만 올라가고 다른 actor의 상한은 그대로다.
+    ...allRoutes.filter((route) => route.actors.includes("user")).map((
+      route,
+    ): OperationPolicy => ({
+      name: route.name,
+      actors: ["user"],
+      kind: route.kind === "command" ? "command" : "read",
+    })),
+  ];
   const productRegistry = new CredentialRegistry({
     epoch,
     clock,
     random,
     ...(coding ? { external: coding.authority } : {}),
+    // coding_agent 상한은 route가 선언한 actors를 따른다(blobs 제외).
     operations: [
-      {
-        name: "platform/status",
-        actors: ["user", "machine", "app", "agent", "coding_agent"],
-        kind: "read",
-      },
-      {
-        name: "platform/health",
-        actors: ["user", "machine", "app", "agent", "coding_agent"],
-        kind: "read",
-      },
-      { name: "document.save", actors: ["machine"], kind: "command" },
-      { name: "document.prepare", actors: ["machine"], kind: "command" },
-      // 파일 작업 결과 기록(documents#T12). 사람 요청에 결합해 받은 worker만 쓴다.
-      { name: "file.record_result", actors: ["machine"], kind: "command" },
-      // 확인된 문서 watch 변화 기록(documents#T24). coordinator의 watch consumer만 쓴다.
-      {
-        name: "context.record_watch_change",
-        actors: ["machine"],
-        kind: "command",
-      },
-      // apps 관측 기록·제어 connection·자식 앱 credential이 닿는 operation(apps#T10).
-      ...appsOperationPolicies(),
-      // problems report collector(machine)가 보고를 제출한다.
-      ...collectorOperationPolicies(),
-      // 팀이 공개 정책을 내놓은 event 이름. 사람 token의 operation에 들어가 owner 정책이 판단한다.
-      ...eventNames.map((name): OperationPolicy => ({
-        name,
-        actors: ["user"],
-        kind: "read",
-      })),
-      // 사람 token 상한. user를 허용하는 route만 올라가고 다른 actor의 상한은 그대로다.
-      ...allRoutes.filter((route) => route.actors.includes("user")).map((
-        route,
-      ): OperationPolicy => ({
-        name: route.name,
-        actors: ["user"],
-        kind: route.kind === "command" ? "command" : "read",
-      })),
+      ...baseOperations,
+      ...codingAgentOperationPolicies(allRoutes, baseOperations),
     ],
   });
   const registry = options.testCredentials
@@ -638,6 +664,7 @@ async function open(
   // 종료 때 감독이 포기한 documents worker를 다시 띄우는 일을 멈춘다.
   let respawnStop: (() => void) | undefined;
   let closeCollectorBlob: (() => void) | undefined;
+  let agentRuntime: AgentRuntimeChild | undefined;
   // deno-lint-ignore prefer-const
   let runtime: CoreRuntime | undefined;
   const source: StatusSource = {
@@ -816,8 +843,10 @@ async function open(
         });
       },
     }),
+    // coding credential은 ledger의 connection 상태가 현재 자격이다(회수는 다음 요청부터가 아니라 바로).
     revalidate: (credentialRef) =>
-      registry.revalidate({ credential_ref: credentialRef }),
+      coding?.current(credentialRef) ??
+        registry.revalidate({ credential_ref: credentialRef }),
     redact: (line) =>
       redactLine(
         { concern: "apps/runtime", revision: "1", scope: "app-log" },
@@ -991,43 +1020,47 @@ async function open(
       // approval 설명 글(이유·변경·외부 영향·되돌림)도 같은 길이다.
       // handoff 내용(무엇·왜·제외·기대 결과)도 같은 길이다. 용어 후보·근거 변경은 writer에
       // 닿기 전에 고정 판 본문의 출현을 확인한다(documents Q8).
-      writer: withReleasePreparation(
-        withPlacementReservation(
-          withTermOccurrence(
-            withApprovalText(
-              withQuestionText(
-                withHandoffBody(
-                  withMessageBody(
-                    runtime.writer,
-                    createMessageBodyPreparer({
+      writer: withRevocationSweep(
+        withReleasePreparation(
+          withPlacementReservation(
+            withTermOccurrence(
+              withApprovalText(
+                withQuestionText(
+                  withHandoffBody(
+                    withMessageBody(
+                      runtime.writer,
+                      createMessageBodyPreparer({
+                        relay: () => bodyPrepare.current,
+                        // 알려진 secret 값도 pattern과 함께 가린다. 값을 다 모르는 동안은 막는다.
+                        known: () => runtime?.knownSecrets,
+                      }),
+                    ),
+                    createHandoffBodyPreparer({
                       relay: () => bodyPrepare.current,
-                      // 알려진 secret 값도 pattern과 함께 가린다. 값을 다 모르는 동안은 막는다.
                       known: () => runtime?.knownSecrets,
                     }),
                   ),
-                  createHandoffBodyPreparer({
+                  createQuestionTextPreparer({
                     relay: () => bodyPrepare.current,
-                    known: () => runtime?.knownSecrets,
                   }),
                 ),
-                createQuestionTextPreparer({
+                createApprovalTextPreparer({
                   relay: () => bodyPrepare.current,
+                  known: () => runtime?.knownSecrets,
                 }),
               ),
-              createApprovalTextPreparer({
-                relay: () => bodyPrepare.current,
-                known: () => runtime?.knownSecrets,
-              }),
+              (ctx, command, input) =>
+                runtime!.readers.read(TERM_OCCURRENCE_ROUTE, ctx, {
+                  command,
+                  input,
+                }),
             ),
-            (ctx, command, input) =>
-              runtime!.readers.read(TERM_OCCURRENCE_ROUTE, ctx, {
-                command,
-                input,
-              }),
+            placementReservations,
           ),
-          placementReservations,
+          appsControl.commands,
+          appsControl.grantChange,
         ),
-        appsControl.commands,
+        () => appsControl.connector.sweep(),
       ),
       reads: runtime.reads,
       // 현재 보기 relay와 apps.connect(supervisor 메모리 관측을 읽는 제어 어댑터)다.
@@ -1069,6 +1102,10 @@ async function open(
       uploads: new Map([[
         `${documentUpload.resource}/${documentUpload.method}`,
         documentUploadHandler(prepareRelay),
+      ], [
+        // ticket 완료 보고 summary: purpose는 ticket 등록값(ticket_summary)으로 고정이다.
+        `${ticketUploadSummary.resource}/${ticketUploadSummary.method}`,
+        ticketSummaryUploadHandler(prepareRelay),
       ], [
         // 사람의 보호 입력 값: core는 해석·보관 없이 I/O worker의 keychain adapter로 흘린다.
         `${secretInput.resource}/${secretInput.method}`,
@@ -1757,6 +1794,71 @@ async function open(
       .catch(() => {})
     : undefined;
   ready = true;
+  // agent runtime child. API가 열린 뒤에 띄워 hello 직후의 읽기가 닿는다. 띄우지 못해도 core는
+  // 계속 선다: agent는 돌지 않고 사람의 요청은 접수된 채 남는다.
+  if (options.agentRuntime && io) {
+    // provider API key를 읽는 keychain adapter. 요청이 올 때 처음 한 번 만든다. 시험은 fake를 준다.
+    let agentKeychain: KeychainAdapter | undefined;
+    const agentSecretKeychain = (): KeychainAdapter =>
+      agentKeychain ??= options.secretKeychain ?? options.codingKeychain ??
+        productKeychain();
+    const started = await startAgentRuntimeChild({
+      io,
+      registry: productRegistry,
+      record: (context) => runtime!.record(context),
+      epoch,
+      dataRoot: root.path,
+      apiPort: server.port,
+      gauge: blobBuffer,
+      prepareBlob: (call) =>
+        blobRelay ? blobRelay.prepare(call) : Promise.resolve(err({
+          code: "unavailable",
+          message: "blob 준비 통로가 없다",
+        })),
+      read: (route, context, input) =>
+        runtime!.readers.read(route, context, input),
+      known: () => runtime?.knownSecrets,
+      secrets: createAgentRuntimeSecrets({
+        ledgerPath,
+        keychain: agentSecretKeychain,
+        known: () => runtime?.knownSecrets,
+        process: AGENT_RUNTIME_KIND,
+        task: AGENT_RUNTIME_TASK,
+      }),
+      readProviders: async (context) => {
+        const hosts = new Set<string>();
+        let cursor: string | undefined;
+        for (;;) {
+          const read = await runtime!.readers.read(
+            providerList,
+            context,
+            cursor === undefined ? {} : { cursor },
+          );
+          if (!read.ok) return read;
+          const page = read.value as {
+            providers: { endpoint: string; enabled: boolean }[];
+            next_cursor?: string | null;
+          };
+          for (const provider of page.providers) {
+            const host = provider.enabled
+              ? providerHost(provider.endpoint)
+              : undefined;
+            if (host !== undefined) hosts.add(host);
+          }
+          if (page.next_cursor === null || page.next_cursor === undefined) {
+            return ok([...hosts].sort());
+          }
+          cursor = page.next_cursor;
+        }
+      },
+      ...(typeof options.agentRuntime === "object" &&
+          options.agentRuntime.pollMs !== undefined
+        ? { pollMs: options.agentRuntime.pollMs }
+        : {}),
+    });
+    if (started.ok) agentRuntime = started.value;
+    else console.error(`agent runtime: ${started.error.message}`);
+  }
   // 부모 pipe는 호출자가 명시할 때만 연다. 터미널에서 직접 띄우면 종료는 신호가 담당한다.
   const parent = options.parent;
   const hello = parent
@@ -1931,6 +2033,7 @@ async function open(
           await notifications.stop();
           rootsWatch?.stop();
           respawnStop?.();
+          agentRuntime?.stop();
           basisSync?.stop();
           searchSync?.stop();
           watchSync?.stop();

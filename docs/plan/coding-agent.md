@@ -855,6 +855,11 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
   - 취소 직후 옛 claim의 갱신·release 준비·보고 거절, 과거 결과·문제 보존, 외부
     프로세스를 멈췄다는 표시 없음(R23, connection#R18)
   - confirmed·cancelled 때 문제 독점 예약 행 제거
+- 상태: 완료 (#413) — 자리는 `packages/coding-agent/tickets/report.ts`다.
+  commands.ts의 `createTicketFinishCommands`가 report_completion·cancel을
+  내보내고 apps/core/tickets.ts의 `ticketDefinitions`가 등록한다. 제품
+  coding_agent operation ceiling이 ticket route를 싣지 않아 실제 coding
+  token이 403이던 것은 coding-agent#T36 후속이 고쳤다.
 
 ### T25 MCP·CLI ticket tool: 완료 보고·사람의 생성과 취소
 
@@ -1137,6 +1142,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 - slice: coding-agent
 - 조사: docs/research/coding-agent-skills-and-guides.md
 - 선행: T29, T25, contracts#T43
+- coding-agent#T36에서 넘어온 것: CLI `skills list|install`은 command 표에 있고 실행은 배포 skill 원본(`packages/coding-agent/guides/skills`, 설치 묶음 `skills/`)이 없어 unavailable이다(apps/cli/dispatch.ts). 원본·설치 입력(이름·설명·version·hash, 동명 비관리 skill 충돌)을 이 작업이 채우면 그 자리에서 `skills`를 harnesses engine(`installSelected`의 `skill` 입력)에 잇는다
 - 완료:
   - 네 skill(탐색·저장·앱 제작·수리), 시작 발견에는 name·description만, 본문은
     선택 시(R1)
@@ -1213,6 +1219,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 - slice: coding-agent
 - 조사: docs/research/coding-agent-skills-and-guides.md
 - 선행: T27, T30, contracts#T42, contracts#T43, problems#T6, platform#T12
+- coding-agent#T36에서 넘어온 것: CLI `session summary`는 command 표에 있고 실행은 core의 `/v1/coding_agent_sessions/summary` read handler가 없어 unavailable이다(apps/cli/dispatch.ts, contracts `codingAgentSessionSummary`는 있음). handler가 서면 dispatch에서 `session ` 분기를 소유 읽기 route로 바꾼다
 - 완료:
   - summary: 범위 안 open·fixing 문제와 open·check_failed ticket 요약, 자기
     claim·기한, reported의 남은 조건, next_cursor, claim_rule.
@@ -1228,7 +1235,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T36 keychain loader·연결 생성·설치 흐름과 기본 harness
 
-- 상태: 진행 (#393) — 끝낸 것: 완료 기준 전부(helper loader production provider, 사람의 연결 결정 입구 `connect` route와 연결·설치·doctor 흐름 통합 시험, 무생성·partial 분리, 기본 harness 선택, `connection install`, R1 process 시험)와 넘어온 것 중 platform#T19 알려진 값 source, platform#T34 연결 결정 입구, platform#T48 helper 양성 경로(fake keychain 통합 시험), T22 `SdkSourcePort` 외 MCP 쪽, T23 `appBlueprint`, T15 (1) CLI core 실행 배선·(2) `forbidden` data root, T13 문서 읽기 CLI 실행, T16 CLI question·approval open, T21 (2) CLI `runApp` 배선, T32 `doctorOf` 배선. 남은 것: (1) CLI의 `harness list|detect|refresh|inspect|plan|install|update|remove`, `skills`, `mcp config`, `session`, `daemon`(`DaemonPort`) 실행 배선(지금은 성공으로 꾸미지 않고 unavailable) — 감지 port·launcher 권한 결정(platform#T48 (3)) 뒤 (2) `doctor`의 daemon 상태 port (3) 앱 direct socket transport와 MCP 권한(T21 (1), platform#T48 (3)) (4) CLI `SdkSourcePort`(`sdk add --apply`의 deno.json 쓰기·lock 재생성; CLI에 write·run 권한이 없다) (5) `sdk show` 안내 원문 → apps#T5로 넘김 (6) T13의 `cliDocumentHistorySchema` section과 CLI 6단계 통합 시험 (7) T15 (3) 앱 하나 범위 credential 모양 불일치 → platform#T34로 넘김(위 platform 줄) (8) `tools/verify-linux-install.ts`의 양성 단계 → platform#T48로 넘김(실제 Secret Service 필요)
+- 상태: 진행 (#405, #408, #416) — 끝낸 것: #393의 완료 기준 전부와 넘어온 것 일부(위 #393 줄)에 더해 #405가 CLI `harness list|detect|refresh|inspect|plan|install|update|remove`·`mcp config`·`daemon start|stop|status|logs` 실행 배선과 doctor daemon 상태 port, 앱 하나 범위 connection의 발급·문서 authorization 모양 일치(조건으로 앱을 채우지 않고 문서 owner가 자리의 앱을 target에 준다), MCP 앱 direct socket transport와 정확한 경로 권한·CLI `SdkSourcePort`(open-issues coding-agent/mcp-server#Q9), SDK 안내 blob field(`package_version/guide`, general_read) 등록과 `sdk show` 원문 read, `document history --section`, CLI 6단계 통합 시험(찾은 `search` route 누락도 고침)을 끝냈다. #408이 CLI launcher(`cliLauncher`)의 정확한 경로 권한(open-issues coding-agent/mcp-server#Q9: `<H>/integrations`·instance lock 쓰기, helper·설치 Deno·`lophn-desktop` 실행, PATH·감지 bin 폴더 읽기, env, 선택한 제품 설정 파일·`sdk add --apply` 앱 source의 `deno.json`·`deno.lock`은 권한 계획 process가 정확한 경로로 더함)와 `sdk show` 안내 원문의 좁은 read `packages.guide_body`(일반 `blobs/read`를 열지 않음)를 끝냈다. 남은 것: (1) CLI `skills list|install`(T33 원본 필요)·`session summary`(T35 core handler 필요)·`session plan`(T38 필요)은 unavailable로 두었다 — 각 작업 블록에 넘겼다 (2) `tools/verify-linux-install.ts`의 양성 단계 → platform#T48(실제 Secret Service 필요) (3) `harness refresh`의 제품 version·auth probe는 제품 실행 파일의 run 권한이 Q9 목록에 없어 실행되지 않고 unknown으로 남는다. 제품 coding_agent operation 상한은 route가 선언한 coding_agent actors를 따른다(`blobs` 자원 제외, 앱 하나 범위는 credential targets와 owner target이 좁힌다). ticket summary blob은 `/v1/tickets/upload_summary`가 `ticket_summary` purpose로 준비한다.
 - 등급: 기본
 - concern: coding-agent/connection, coding-agent/harnesses, coding-agent/cli,
   coding-agent/mcp-server
@@ -1307,6 +1314,9 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
   - lophn 시작·문제 발생·ticket 생성만으로 외부 process가 뜨지
     않는다(connection#R1)
   - 이어받음: coding-agent#T12의 core dispatch. R1·R5 테스트는 dispatch 배선 뒤 이 작업에서 닫는다
+  - #405 CLI 실행(`apps/cli/run_setup_test.ts`): `harness detect`는 최초 감지(PATH·catalog fallback만, version·auth probe 없음)를 `~/.lophn/integrations/detection.json`에 저장하고 환경·catalog revision이 같으면 다시 감지하지 않으며, `refresh`만 사람 요청 재감지와 version·auth probe를 돈다(harnesses#R2·R3; native 환경 identity는 `native`). `plan`은 쓰지 않는 dry-run, `update`는 receipt 있는 target만, `remove`는 receipt 소유 resource만, 쓰기 command는 coding credential에 `forbidden`(cli#R6·R40)
+  - #405 앱 하나 범위(`apps/core/coding-agent-scope_test.ts`): 발급(`codingExternalCredential`)이 낸 `targets.app`·`conditions.app`으로 자기 앱 문서는 읽히고 다른 앱·project·자리 없는 문서는 없는 문서와 같은 답이다. platform ledger의 `mergeTarget`은 coding agent의 `app`을 조건에서 채우지 않는다
+  - #405 SDK 안내(`apps/core/sdk-guide-blob_test.ts`): `package.register_version`이 준비한 안내 byte를 같은 transaction에서 등록하고(`guide_blob`), 준비하지 않은 hash는 거절이다. `contracts/apps/socket-slots`가 앱 socket 자리 이름의 한 곳이다(apps runtime이 같은 이름을 쓴다)
 
 ### T37 daemon command
 
@@ -1344,6 +1354,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 - slice: coding-agent
 - 조사: docs/research/coding-agent-session-launch.md
 - 선행: T28, T27, contracts#T42, contracts#T43
+- coding-agent#T36에서 넘어온 것: CLI `session plan`은 command 표에 있고 실행은 sessions의 plan 입출력이 없어 unavailable이다(apps/cli/dispatch.ts). plan이 서면 `session ` 분기를 plan 실행으로 바꾼다
 - platform#T34에서 넘어온 것: lophn이 띄운 TUI 아래의 MCP·CLI child process generation을 신뢰 감독(terminal host가 runtime_ref·generation을 아는 쪽)이 관측해 `CodingCredentialAuthority.registerChild`(connection·scope·loader identity)로 등록하고 종료 때 `endChild`·회수 때 `endConnection`을 부르는 일. TUI env는 `codingTuiEnvironment`(`LOPHN_CONNECTION` 참조만)를 쓴다. 자기 터미널의 session은 lophn이 시작하지 않아 이 길이 없다(보호 전달은 등록된 child에만 열린다). 이 일을 맡을 작업이 따로 없어 LaunchPlan·terminal host spawn이 만나는 이 작업에 가장 가깝다고 보고 넘겼다(shell terminal 쪽 관측 입구가 필요하면 lead가 shell 작업으로 나눈다)
 - coding-agent#T36에서 넘어온 것: loader child의 `process_generation`은 `<pid>.<시작 tick>`(`processGenerationOf`·`currentProcessGeneration`, coding-agent/connection/credential/helper.ts; `/proc/<pid>/stat` 22번째 field, 읽지 못하면 pid)이고 `loader_identity`는 helper 절대 경로(`<설치 root>/lophn-credential`)다. 신뢰 감독이 TUI 아래 MCP·CLI process를 같은 값으로 관측해 `registerChild`로 등록해야 helper가 token을 전달한다(`apps/core/coding-connect-flow_test.ts`가 같은 값으로 등록하는 양성 경로).
 - 완료:
@@ -1410,6 +1421,8 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T40 연결 회수
 
+- 상태: 완료 (#411) — 이어보냄: 아래
+- 이어보냄: shell#T50(회수 결정 화면) — CLI가 내는 링크는 `lophn://things-to-confirm/<cac_...>`이고(`decisionLink(connection)`) shell `open-intent`는 지금 `apr`·`qst`만 받는다. shell이 `cac` 링크를 받아 그 연결의 현재 판을 `ShowCodingAgentConnection`으로 읽고 `RevokeCodingAgentConnection` confirmation window(결정 `coding_agent_connection_revoke`, binding connection·base_revision)를 여는 일은 shell#T50에서 한다. 화면 E2E는 shell#T50 뒤 T41에서 돈다.
 - 등급: 기본
 - concern: coding-agent/connection, coding-agent/cli, coding-agent/tickets
 - 요구: coding-agent/connection#R2, R8, R18; coding-agent/cli#R7;
@@ -1450,6 +1463,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
   docs/research/coding-agent-harness-integration.md
 - 선행: T25, T26, T27, T32, T34, T35, T37, T39, T40, lophn-agent#T49, shell#T25,
   shell#T47, shell#T49, shell#T50, shell#T51
+- coding-agent#T40에서 넘어온 것: 제품 core의 coding credential operation 상한(`apps/core/core.ts`의 registry operations)에는 아직 ticket claim·문서 저장 같은 command가 없어 실제 coding token이 `ClaimTicket` 등을 부르면 403이다(읽기 route와 `app.connect`는 닿는다). claim→작업→보고 E2E는 이 상한을 platform이 정한 뒤에 실제 token으로 돈다(사람 결정 필요, T36 남은 것 (3)과 같은 문제)
 - problems#T13에서 넘어온 것: manage-tickets 6단계 acceptance check가 problems Verification(TicketTestLink)을 쓰는 통합 확인(#222)
 - 완료:
   - fake harness: PATH fixture로 감지되고 테스트 catalog의 ExecutionSpec(argv
@@ -1566,6 +1580,10 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
   - `app test --kind reproduction` 요청과 실제 결과 read(cli#R26)
   - `problem attachment open`은 scope 검사한 허용 첨부만, 운영 경로 대신 안전한
     참조(cli#R33)
+  - problems#T14에서 넘어온 것: `lophn_problem` record_fix는 준비 증거가 필요한
+    `summary_blob`을 받는다. tool이 먼저 blob을 준비하는 신뢰 프로세스 요청
+    (core `prepareBlob`, purpose `fix_summary`)을 하고 그 준비 결과를 입력에 싣는다.
+    hash만 싣는 기록은 거절된다(problems/repairs#T40)
   - lead 결정(D27, problems/feedback#R1): CLI는 feedback을 접수하지 않는다.
     `problem report`는 shell의 문제 알리기 화면을 여는 안내만,
     `request-repair`는 담당 agent의 ticket 준비 화면 링크, `confirm|dismiss`와

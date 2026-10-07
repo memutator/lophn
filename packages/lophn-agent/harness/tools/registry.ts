@@ -2,6 +2,13 @@ import type { z } from "zod";
 import type { ToolEffect } from "../../../contracts/lophn-agent/mod.ts";
 import { AGENT_TOOLS } from "./bundles/agent.ts";
 import {
+  APP_READ_TOOL_NAMES,
+  APP_READ_TOOLS,
+  PROBLEM_READ_TOOL_NAMES,
+  PROBLEM_READ_TOOLS,
+} from "./bundles/app.ts";
+import { SDK_TOOL_NAMES, SDK_TOOLS } from "./bundles/sdk.ts";
+import {
   CONTEXT_READ_TOOL_NAMES,
   CONTEXT_TOOLS,
   CONTEXT_WRITE_TOOL_NAMES,
@@ -26,6 +33,9 @@ export type ToolDefinition = {
   description: string;
   revision: string;
   input: z.ZodType;
+  // model에 보이는 입력 JSON Schema. 없으면 `input`에서 만든다. 앱 command처럼 선언이 이미 JSON Schema인 정의가
+  // 자기 schema를 그대로 보이려고 쓴다. 실행 검사는 어느 쪽이든 `input`이 한다.
+  inputSchema?: Record<string, unknown>;
   // 효과 선언이 없으면 제공도 호출도 없다(R4). 그래서 타입에서 필수로 둔다.
   effect: ToolEffect;
   confirm: boolean;
@@ -48,6 +58,9 @@ export const BUILTIN_TOOLS: readonly ToolDefinition[] = [
   ...DOCUMENT_TOOLS,
   ...CONTEXT_TOOLS,
   ...METADATA_TOOLS,
+  ...APP_READ_TOOLS,
+  ...PROBLEM_READ_TOOLS,
+  ...SDK_TOOLS,
   ...FORMAT_TOOLS,
   ...VISUAL_TOOLS,
   ...GUIDE_TOOLS,
@@ -63,6 +76,9 @@ export const TOOL_BUNDLES: ReadonlyMap<string, readonly string[]> = new Map([
   ["context-read", CONTEXT_READ_TOOL_NAMES],
   ["context-write", CONTEXT_WRITE_TOOL_NAMES],
   ["metadata-read", METADATA_TOOL_NAMES],
+  ["app-read", APP_READ_TOOL_NAMES],
+  ["problem-read", PROBLEM_READ_TOOL_NAMES],
+  ["sdk", SDK_TOOL_NAMES],
   ["format", FORMAT_TOOL_NAMES],
   ["lophn-guide", GUIDE_TOOL_NAMES],
   ["visual", VISUAL_TOOL_NAMES],
@@ -117,7 +133,12 @@ export function listTools(
     const definition of [...source.builtin, ...source.app, ...source.external]
   ) {
     if (FORBIDDEN.has(definition.name)) continue;
-    if (!allowed.has(definition.name) || !role.has(definition.name)) continue;
+    // 앱 command 정의는 이름이 동적이라 preset·역할 이름 목록에 없다. 역할·현재 허락·assignment의
+    // 교집합(AgentAppScope)이 이미 고른 것만 들어오므로 이름 검사를 건너뛴다(R17).
+    if (
+      definition.origin !== "app" &&
+      (!allowed.has(definition.name) || !role.has(definition.name))
+    ) continue;
     if (seen.has(definition.name)) continue;
     seen.add(definition.name);
     listed.push(definition);
@@ -139,6 +160,8 @@ const SUPPORTING_OPERATIONS: ReadonlyMap<string, readonly string[]> = new Map([
   ["term.archive", ["term.get"]],
   // 시각 출처 검증은 이 run이 실행해 끝낸 앱 command의 ToolCall을 읽는다.
   ["RecordMessage", ["ReadToolCall"]],
+  // 사람의 정의 답은 질문 정본(답·고정 action)을 읽은 뒤에만 전달한다(questions#R13).
+  ["ApplyQuestionOption", ["ReadQuestion"]],
 ]);
 
 // run의 agent 자격이 가져야 하는 operation 목록이다. 제공 목록의 소유 contract와 그 보조 operation의

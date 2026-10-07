@@ -1,8 +1,9 @@
 import { z } from "zod";
 import { ERROR_CODES } from "../../base/mod.ts";
 import { defineEvent } from "../platform/events.ts";
+import { preparedBlobSchema } from "../platform/mod.ts";
 import { idSchema } from "../platform/ids.ts";
-import { defineCommand } from "../platform/route.ts";
+import { defineCommand, defineUpload } from "../platform/route.ts";
 import { atSchema, seqSchema, sha256Schema } from "../platform/values.ts";
 import { checkResultSchema, ticketIdSchema } from "./ticket-values.ts";
 
@@ -88,15 +89,48 @@ const completionFields = {
   verifications: z.array(idSchema("vrf")).max(24),
 };
 export const ticketCompletionInputSchema = z.strictObject(completionFields);
+// summary blob의 준비 증거다(hash만 싣는 보고는 가리키는 바이트가 저장된 blob이어야 한다).
+// handler가 같은 준비를 본 뒤 같은 transaction에서 영구 참조를 등록한다(contracts#T40 선례).
+export const ticketSummaryBlobSchema = z.strictObject(preparedBlobSchema.shape)
+  .refine(
+    (value) => value.purpose === "ticket_summary",
+    { message: "summary blob purpose must be ticket_summary" },
+  );
+
+// summary blob 한 개의 상한이다. `ticket_summary` purpose의 max_size_bytes와 같은 값이다.
+export const TICKET_SUMMARY_MAX_BYTES = 262_144;
+// 보고할 summary 바이트를 core의 blob 준비로 보낸다(주체는 요청 credential, purpose는
+// `ticket_summary` 고정). 준비된 참조가 이어지는 report_completion의 summary_blob이다.
+export const ticketUploadSummary = defineUpload({
+  resource: "tickets",
+  method: "upload_summary",
+  name: "UploadTicketSummary",
+  input: z.strictObject({
+    blob_hash: sha256Schema,
+    bytes: z.number().int().min(1).max(TICKET_SUMMARY_MAX_BYTES),
+  }),
+  output: ticketSummaryBlobSchema,
+  actors: ["coding_agent"],
+  errors: ["invalid_input", "unauthorized", "forbidden", "unavailable"],
+  max_bytes: TICKET_SUMMARY_MAX_BYTES,
+});
+
 export const ticketReportCompletionInputSchema = z.strictObject({
   ...claimed,
   completion: ticketCompletionInputSchema,
-});
+  summary_blob: ticketSummaryBlobSchema,
+}).refine(
+  (value) => value.summary_blob.hash === value.completion.summary_hash,
+  { message: "summary blob hash must match completion.summary_hash" },
+);
 export const ticketReportCompletionOutputSchema = z.object({
   ticket: ticketIdSchema,
   state: z.literal("reported"),
   completion_seq: seqSchema,
 });
+export type TicketReportCompletionInput = z.infer<
+  typeof ticketReportCompletionInputSchema
+>;
 export const ticketReportCompletion = defineCommand({
   resource: "tickets",
   method: "report_completion",
@@ -162,6 +196,7 @@ export const ticketCancelOutputSchema = z.object({
   ticket: ticketIdSchema,
   state: z.literal("cancelled"),
 });
+export type TicketCancelInput = z.infer<typeof ticketCancelInputSchema>;
 export const ticketCancel = defineCommand({
   resource: "tickets",
   method: "cancel",
@@ -282,6 +317,7 @@ export const TICKET_CLAIM_ROUTES = [
   ticketExpireClaim,
   ticketRecordChecks,
   ticketCancel,
+  ticketUploadSummary,
 ] as const;
 
 export const TICKET_CLAIM_EVENTS = [

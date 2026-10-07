@@ -297,6 +297,19 @@ Deno.test("shell/wording#R10: 적용에 실패한 Version은 현재 Version이 �
 Deno.test("shell/wording#R4: Version의 [Open preview]는 지금 쓰는 앱이 아니라 그 Version의 preview를 열고 닫을 수 있다", async () => {
   const opened: (PreviewOpen | null)[] = [];
   const { fake, ui } = detail({}, { onPreview: (next) => opened.push(next) });
+  fake.source.blueprint = (app, release) => {
+    fake.calls.push(["blueprint-of", app, release]);
+    return Promise.resolve({
+      ok: true,
+      value: {
+        release: release ?? REL_3,
+        commands: [],
+        automations: [],
+        connections: [],
+        fullScreen: release === REL_4 ? "new-home" : "home",
+      },
+    });
+  };
   using view = render(ui);
   await flush();
   click(find(view.container, `[data-version='${REL_4}'] [data-preview-open]`));
@@ -306,10 +319,15 @@ Deno.test("shell/wording#R4: Version의 [Open preview]는 지금 쓰는 앱이 �
     APP,
     REL_4,
   ]);
+  assertEquals(fake.calls.find((call) => call[0] === "blueprint-of"), [
+    "blueprint-of",
+    APP,
+    REL_4,
+  ]);
   assertEquals(opened, [{
     release: REL_4,
     number: 4,
-    screen: "home",
+    screen: "new-home",
     nonce: "nonce-1",
   }]);
   // 이미 쓰는 Version과 older Version에는 preview 단추가 없다.
@@ -395,7 +413,7 @@ Deno.test("shell/wording#R10: Access를 바꾸거나 회수하는 것은 확인 
   assertEquals(
     fake.calls.filter((call) => call[0] === "decide").map((call) => call[1]),
     [
-      { kind: "change_access", app: APP },
+      { kind: "change_access", app: APP, requirement: 0 },
       { kind: "remove_access", app: APP, grant: grant.id },
     ],
   );
@@ -588,6 +606,15 @@ Deno.test("shell/wording#R10: Automation 켜기는 확인 창으로 보내고 �
   const on = detail({
     access: { ...ACCESS, grants: [...ACCESS.grants, grant] },
   });
+  on.fake.source.turnOffAutomation = (id) => {
+    on.fake.calls.push(["turnOff", id]);
+    on.fake.source.access = () =>
+      Promise.resolve({
+        ok: true,
+        value: { ...ACCESS, grants: ACCESS.grants },
+      });
+    return Promise.resolve({ ok: true, value: true });
+  };
   using onView = render(on.ui);
   await flush();
   await openTab(onView.container, "automations");
@@ -599,6 +626,12 @@ Deno.test("shell/wording#R10: Automation 켜기는 확인 창으로 보내고 �
     ["turnOff", grant.id],
   ]);
   assertEquals(on.fake.calls.filter((call) => call[0] === "decide"), []);
+  assertEquals(
+    find(onView.container, "[data-automation='weekly_report']").getAttribute(
+      "data-on",
+    ),
+    "off",
+  );
 });
 
 Deno.test("shell/wording#R10: 끄지 못하면 어느 automation이 아직 켜져 있는지와 다시 시도를 적는다", async () => {
@@ -657,7 +690,7 @@ Deno.test("shell/wording#R4: Connections는 부르려는 앱과 action을 사람
   await flush();
   assertEquals(
     fake.calls.filter((call) => call[0] === "decide").map((call) => call[1]),
-    [{ kind: "connect_apps", app: APP }],
+    [{ kind: "connect_apps", app: APP, target: OTHER }],
   );
   noInternal(view.container);
 });

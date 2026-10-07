@@ -16,6 +16,8 @@ export type McpLaunchInputs = {
   coreEndpoint: string;
   // app scope 연결이 허용한 app loopback endpoint 목록이다.
   appEndpoints?: readonly string[];
+  // 앱 direct socket의 정확한 절대 경로 목록이다. 폴더나 와일드카드가 아니다.
+  appSockets?: readonly string[];
   // daemon 발견 파일이 있는 절대 위치 목록이다(현재 daemon 연결 정보·설치 설정).
   discoveryFiles?: readonly string[];
   // 연결 source가 없는 문서 작업의 제출 workspace다. 사람이 선택한 폴더 하나만 있다.
@@ -68,9 +70,11 @@ export function mcpLaunchArgv(inputs: McpLaunchInputs): {
   const resources = inputs.resources.replace(/\/$/, "");
   const entry = `${resources}/${MCP_ENTRY}`;
   const config = `${resources}/deno.json`;
+  const sockets = inputs.appSockets ?? [];
   const net = [
     netValue(inputs.coreEndpoint),
     ...(inputs.appEndpoints ?? []).map(netValue),
+    ...sockets.map((path) => `unix:${path}`),
   ]
     .join(",");
   const read = [
@@ -80,6 +84,7 @@ export function mcpLaunchArgv(inputs: McpLaunchInputs): {
     ...(inputs.submissionRoot ? [inputs.submissionRoot] : []),
     // helper 요청의 process generation(시작 tick)을 읽는 고정 파일이다.
     ...(inputs.credentialHelper ? ["/proc/self/stat"] : []),
+    ...sockets,
   ].join(",");
 
   const args = [
@@ -90,6 +95,7 @@ export function mcpLaunchArgv(inputs: McpLaunchInputs): {
     `--allow-read=${read}`,
     "--allow-env=LOPHN_HOME,LOPHN_CONNECTION,LOPHN_DAEMON_URL,LOPHN_APP,LOPHN_MCP_TOOLSETS,LOPHN_AGENT_LABEL,DENO_DIR",
     `--allow-net=${net}`,
+    ...(sockets.length > 0 ? [`--allow-write=${sockets.join(",")}`] : []),
     ...(inputs.credentialHelper ? [helperArg(inputs.credentialHelper)] : []),
     entry,
   ];

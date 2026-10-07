@@ -33,12 +33,18 @@ import {
 } from "../../packages/coding-agent/connection/credential/helper.ts";
 import { LOPHN_CONNECTION } from "../../packages/contracts/coding-agent/mod.ts";
 import { REDACTION_REPLACEMENT } from "../../packages/contracts/platform/mod.ts";
-import { err, ok, type Result } from "../../packages/base/mod.ts";
 import {
   createKnownSecretRegistry,
   createRedactionStream,
 } from "../../packages/platform/redaction/mod.ts";
-import { actorOf, ambientEnv, runCliCommand } from "./dispatch.ts";
+import { candidateOf, commandNameOf, inputOf } from "./invocation.ts";
+import {
+  actorOf,
+  ambientEnv,
+  appSocketDirOf,
+  type CliPorts,
+  runCliCommand,
+} from "./dispatch.ts";
 import type { CredentialProvider } from "../../packages/coding-agent/connection/credential/provider.ts";
 import type { RpcFetch } from "../../packages/contracts/platform/mod.ts";
 
@@ -56,33 +62,6 @@ function redactor(
   };
 }
 
-function inputOf(parsed: ParsedArgs): Result<unknown, AgentFailure> {
-  if (parsed.input === undefined && parsed.inputFile === undefined) {
-    return ok(undefined);
-  }
-  if (parsed.input !== undefined) return safeJson(parsed.input);
-  const file = parsed.inputFile;
-  const resolved = file?.startsWith("/") ? file : `${Deno.cwd()}/${file}`;
-  try {
-    const text = Deno.readTextFileSync(resolved);
-    return safeJson(text);
-  } catch {
-    return err({
-      code: "invalid_input",
-      message: "input 파일을 읽지 못했다",
-      details: { path: resolved },
-    });
-  }
-}
-
-function safeJson(text: string): Result<unknown, AgentFailure> {
-  try {
-    return ok(JSON.parse(text));
-  } catch {
-    return err({ code: "invalid_input", message: "input JSON을 읽지 못했다" });
-  }
-}
-
 // 시험이 끼우는 환경이다. 없으면 process의 것이다. 사람의 실제 data root·HOME은 시험이 temp로 준다.
 export type CliOptions = {
   env?: { get(name: string): string | undefined };
@@ -93,6 +72,8 @@ export type CliOptions = {
   cwd?: string;
   home?: string;
   installRoot?: string;
+  ports?: Partial<CliPorts>;
+  appSocketDir?: string;
 };
 
 // 설치 묶음의 위치다. 이 entry는 `<설치 root>/platform/apps/cli/main.ts`라 세 단계 위다.
@@ -167,16 +148,7 @@ export async function cliMain(
   // command 이름은 표에 있는 가장 긴 앞부분이다(`app preview start`까지 세 조각). 남는 위치 인자는
   // 받지 않는다(위치 인자가 없고 선택값만 있다).
   const tokens = [parsed.command, ...parsed.positional];
-  let command = tokens.slice(0, 2).join(" ");
-  let used = Math.min(2, tokens.length);
-  for (let size = Math.min(3, tokens.length); size >= 1; size -= 1) {
-    const candidate = tokens.slice(0, size).join(" ");
-    if (findCommand(candidate) !== undefined) {
-      command = candidate;
-      used = size;
-      break;
-    }
-  }
+  const { command, used } = commandNameOf(parsed);
   const entry = findCommand(command);
   if (entry !== undefined && tokens.length > used) {
     const failure: AgentFailure = {
@@ -202,22 +174,7 @@ export async function cliMain(
     await output.failure(body.error);
     return output.exitCode(body.error);
   }
-  // command와 공통 option(flag)을 입력에 합친다. flag는 `--input`의 같은 field보다 우선한다.
-  const flags: Record<string, unknown> = {
-    command,
-    json: parsed.json || undefined,
-    connection: parsed.connection,
-    daemon_url: parsed.daemonUrl,
-    app: parsed.app,
-    base_revision: parsed.baseRevision,
-    idempotency_key: parsed.idempotencyKey,
-  };
-  const candidate: Record<string, unknown> = {
-    ...((body.value ?? {}) as Record<string, unknown>),
-  };
-  for (const [key, value] of Object.entries(flags)) {
-    if (value !== undefined) candidate[key] = value;
-  }
+  const candidate = candidateOf(parsed, command, body.value);
   const checked = entry.input.safeParse(candidate);
   if (!checked.success) {
     const field = checked.error.issues[0]?.path.join(".") ?? "";
@@ -264,6 +221,13 @@ export async function cliMain(
       ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
     })
     : undefined;
+  const appSocketDir = options.appSocketDir ?? appSocketDirOf(env, () => {
+    try {
+      return Deno.uid();
+    } catch {
+      return null;
+    }
+  });
   const ran = await runCliCommand(
     command,
     { ...checked.data as Record<string, unknown> },
@@ -277,7 +241,9 @@ export async function cliMain(
       home: options.home ?? env.get("HOME"),
       installRoot: options.installRoot ?? INSTALL_ROOT,
       daemonUrl: address.value.url,
+      ...(appSocketDir === undefined ? {} : { appSocketDir }),
       now: () => new Date().toISOString(),
+      ...(options.ports === undefined ? {} : { ports: options.ports }),
     },
   );
   if (!ran.ok) {

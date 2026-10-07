@@ -371,6 +371,7 @@ concerns: [shell]
 ### T18 정보 패널, 버전 이력, 비교, 복원
 
 - 상태: 완료 (#310) — 정보 패널 탭 본문(정보·버전·컨텍스트, 절 이력), 비교 화면(접기·나란히·절 고르기·같은 판·누락), main 복원 통로(원문 참조 준비·`document.restore` CAS, 원본 연결 문서는 파일 CAS 쓰기 뒤 그 관측으로 확정, 1 MiB 넘는 명시 format 판 포함), overlay 닫기·CommandOrControl+Alt+B, 실제 core 테스트. 제품 core에서 비교·절 이력은 documents#T21(파생 consumer 조립) 뒤에 보인다. 그 전에는 비교 화면이 불러오지 못했다고 답한다(Q20 (3)).
+- 후속 (#410): 복원 기준 hash와 재시도 표시
 - 등급: frontend
 - concern: shell/editor
 - 요구: shell/editor#R6, R13, R14
@@ -625,6 +626,8 @@ concerns: [shell]
 
 ### T31 settings: provider 연결과 계정, 확장, 전역 Instructions 진입
 
+- 상태: 완료 (#409) — 이어보냄: 로그인 시작·완료·취소 통로(`providers/login-begin·complete·cancel`)와 login-complete sink → lophn-agent#T16, MCP 인증 `oauth2` 시작·완료 → lophn-agent#T38. 연결 테스트 `providers/test`는 lophn-agent#T15가 T26에 넘겼고 T26은 완료인데 route가 core에 없다(lead가 소유를 정해야 한다). 내장 연결 정의(Claude·ChatGPT 등)를 등록하는 곳이 없어 실제 설치에서는 연결 목록이 비어 있다(lophn-agent#T3 후속). 한도 대기의 `until`이 서버가 확인한 리셋 시각인지 lophn이 정한 1시간 대기인지 구별하는 field가 없어 화면은 "예상 시각"으로만 말한다(lophn-agent#T3·T15). MCP server별 연결 상태·skill 발견 결과를 읽는 route가 없어 화면에 없다(lophn-agent#T35·T36).
+- 정한 것(T31): settings 화면은 Connections·Tools and skills·General 세 탭이고 통로는 `SettingsSource`다. key·로그인 응답·MCP credential 값은 이 통로를 지나지 않고 보호 창이 받는다. 보호 창에 계정 교체·삭제를 더했다(secret_input 열기의 `change: {key, action: "replace" | "revoke"}`, 결정 `ChangeProviderCredentials`, 삭제 결과는 `stored: "revoked"`라 값을 지웠다고 말하지 않는다). 등록 정보의 `dedup_fingerprint`는 선택으로 바꿔 main이 제출 때 넣은 값의 sha256으로 만든다(같은 key 중복 거절). MCP credential은 `app_secret` 입력(`SetSecret`, 이름 `mcp-<server>`)으로 받고 설정은 `sec:mcp-<server>`를 가리킨다. shell 크롬 링크는 `lophnShell.openExternal(url)` → `shell:open-external`(desktop 창 본문만, 앱 view의 `app:open-external`과 별개)이고 shell/app-frame#R7을 확인 없이 여는 쪽으로 고쳤다. `loginBeginOutputSchema`에 선택 `sign_in {url, user_code}`를 additive로 더했다. 전역 [Instructions] 단추는 General 탭에 놓고 편집기의 돌아가기는 settings다. 개발 시작 자리 `LOPHN_SHELL_START=settings`·`#settings`.
 - 등급: frontend
 - concern: shell/wording, shell/desktop, shell/app-frame
 - 요구: shell/wording#R10, R13(For decisions·For summaries), shell/app-frame#R7(shell 크롬 외부 링크)
@@ -876,6 +879,7 @@ concerns: [shell]
 ### T43 app-detail: Version, Access, Automations, Connections, Activity, Data
 
 - 상태: 완료 (#392) — 이어보냄: automation 끄기(grant.revoke의 확인 handle·grants_seq) → apps#T4, 준비만 된 Version의 화면 선언 read → apps#T19, 앱 export → apps#T28, 결정 intent 5종 main 처리 → T45, Issues·Tasks 탭 내용 → T53·T50
+- 후속 (#404): app-detail 결정 intent를 approval·확인 창에 이음, automation 끄기, 실행 중 앱 grant 회수 적용, release별 blueprint, 앱 층 지침 제목
 - 등급: frontend
 - concern: shell/desktop, shell/wording
 - 요구: shell/wording#R4, R10, R12
@@ -1024,6 +1028,7 @@ concerns: [shell]
 - slice: coding-agent
 - 선행: shell#T29, shell#T43, shell#T49, coding-agent#T27, coding-agent#T36, coding-agent#T40
 - coding-agent#T36에서 넘어온 것: 연결 생성 입구는 core의 `POST /v1/coding_agent_connections/connect`(memory route, user만; 입력 `{label, scope}`, 출력 `{connection}`)다. renderer allowlist는 read·command만이라 main이 사람 credential로 부른다(`CONNECTION_INTENT`의 route 이름도 이 route로 바꾼다). 이어서 `lophn connection install --connection <id> --input '{"target":...}' --json`으로 선택 target을 설치하고 `lophn doctor --json`을 부른다. 순서와 결과 모양은 `connectAndInstall`(packages/coding-agent/cli/commands/connection.ts)이다. `harness detect|refresh --json`의 CLI 실행은 coding-agent#T36 남은 것이다.
+- coding-agent#T40에서 넘어온 것: 회수 결정 화면. CLI `connection revoke`는 창을 열지 않고 `lophn://things-to-confirm/<cac_...>` 링크와 대기 사실만 낸다(`decisionLink(connection)`). main의 `open-intent`는 지금 `apr`·`qst` 링크만 받으므로 `cac` 링크를 받아 연결의 현재 판(`ShowCodingAgentConnection`의 revision)을 읽고 `RevokeCodingAgentConnection`(결정 `coding_agent_connection_revoke`, binding `connection`·`base_revision`)의 confirmation window를 여는 종류를 `apps/shell/main/confirmation/kinds/`에 더한다. core는 정확한 binding의 handle만 받는다(다른 연결·낡은 판·닫힌 창의 handle은 거절, 회수 응답 직후 그 credential의 모든 새 요청이 거절된다. `apps/core/connection-revoke_test.ts`).
 - 완료: 아래 확인이 통과한다
   - Connection: 감지된 harness(예: "Claude Code")를 고르기만 한다. renderer는 "이 harness로 연결" 고정 intent만 보내고 main이 따로 검증한다. main이 `lophn harness detect|refresh|install --json`, `lophn doctor --json`을 child로 부른다(refresh는 사람 클릭만). 감지 기록·MCP·skill 위치는 펼친 자리에만. 회수만 confirmation window.
   - Tasks(ticket): 목록·상세, 상태, 복사할 요청 문장, [Start](누르는 것이 허락, 확인 창 없음, 등록 project 폴더가 여럿이면 고른 뒤 누른다), TUI 상태(starting/ready/working/waiting_input/ended/unknown)를 Task 상태와 구별. 한 줄 사유로 취소, claim이 풀린 일을 다시 맡기기, 완료 주장과 실제 검사(통과·실패·미확인)와 남은 확인을 구별한다.

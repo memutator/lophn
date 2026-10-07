@@ -25,7 +25,7 @@ const credentialSchema = z.object({
   account: z.string().regex(NONBLANK).nullable(),
   organization: z.string().regex(NONBLANK).nullable(),
   plan: z.string().regex(NONBLANK).nullable(),
-  dedup_fingerprint: z.string().regex(/^[0-9a-f]{64}$/),
+  dedup_fingerprint: z.string().regex(/^[0-9a-f]{64}$/).optional(),
 }).strict();
 
 // 창을 열 때 보내는 참조. command 본문·HTML·허락 값은 받지 않는다.
@@ -44,13 +44,24 @@ export const confirmationIntentSchema = z.discriminatedUnion("kind", [
     targets: z.array(z.string().regex(ID)).min(1).refine((values) =>
       new Set(values).size === values.length
     ).optional(),
+    automation: z.string().min(1).optional(),
+    requirement: z.number().int().nonnegative().optional(),
   }).strict(),
   z.object({
     kind: z.literal("secret_input"),
     owner: z.string().min(1),
     purpose: z.string().min(1),
     credential: credentialSchema.optional(),
-  }).strict(),
+    change: z.object({
+      key: z.string().regex(NONBLANK),
+      action: z.enum(["replace", "revoke"]),
+    }).strict().optional(),
+  }).strict().refine(
+    (value) =>
+      (value.credential === undefined && value.change === undefined) ||
+      (value.purpose === "provider_credential" &&
+        (value.credential === undefined || value.change === undefined)),
+  ),
 ]);
 
 export const confirmationOpenSchema = z.object({

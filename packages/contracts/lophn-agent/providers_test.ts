@@ -4,6 +4,7 @@ import { routePath } from "../platform/mod.ts";
 import {
   changeProviderCredentialsInputSchema,
   connectionTestInputSchema,
+  loginBeginOutputSchema,
   loginCompleteInputSchema,
   recordProviderAvailabilityInputSchema,
   refreshProviderCredentialInputSchema,
@@ -283,5 +284,25 @@ Deno.test("lophn-agent/harness/provider#R11: login completion is a protected sub
         revoke: true,
       }],
     }).success,
+  );
+});
+
+Deno.test("lophn-agent/harness/provider#R12: login begin may carry the official sign-in address and a device code, and still parses without them", () => {
+  const begin = {
+    login: "login-handle",
+    flow: "device_code" as const,
+    interval_ms: 5000,
+    expires_at: at,
+  };
+  assert(loginBeginOutputSchema.safeParse(begin).success);
+  assert(
+    loginBeginOutputSchema.safeParse({
+      ...begin,
+      sign_in: { url: "https://auth.x.ai/device", user_code: "ABCD-1234" },
+    }).success,
+  );
+  assert(
+    !loginBeginOutputSchema.safeParse({ ...begin, sign_in: { url: 1 } })
+      .success,
   );
 });

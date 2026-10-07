@@ -71,6 +71,8 @@ export function InstructionsButton(
 function titleOf(place: InstructionsPlace): string {
   return place.layer === "project"
     ? t("document.title.project-instructions")
+    : place.layer === "app"
+    ? t("document.title.app-instructions")
     : t("document.title.global-instructions");
 }
 

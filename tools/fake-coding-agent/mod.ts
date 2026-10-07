@@ -1,5 +1,5 @@
 // 테스트가 쓰는 진입점. MCP client script로 lophn-mcp의 ticket tool을 돌린다:
-// ticket show → claim → (app tool 호출) → release 준비 → (T25 뒤) report.
+// ticket show → claim → (app tool 호출) → release 준비 → report.
 // apps 팀 new-app·change-app E2E가 coding agent 자리에 쓴다(Q10).
 import type {
   JsonRpcId,
@@ -17,10 +17,17 @@ export type FakeAgentStep =
     base_revision: string;
   }
   | {
+    // 완료 보고다(coding-agent#T25). summary 본문은 lophn_ticket이 upload_summary로 올리고 준비 참조로
+    // 보고한다. completion seq는 입력이 아니다.
     kind: "report";
     ticket: string;
     claim_seq: string;
     base_revision: string;
+    release: string;
+    summary: string;
+    outputs?: string[];
+    fix_records?: string[];
+    verifications?: string[];
   };
 
 export type FakeAgentResult = {
@@ -30,7 +37,10 @@ export type FakeAgentResult = {
   }[];
   claim_seq: string | null;
   release_state: string | null;
+  // report 결과의 단계들이다. 완료 주장·보고 접수·확인 상태를 따로 남긴다.
   report_state: string | null;
+  completion_seq: string | null;
+  check_state: string | null;
 };
 
 type Child = {
@@ -94,6 +104,8 @@ export async function startFakeCodingAgent(
   let claimSeq: string | null = null;
   let releaseState: string | null = null;
   let reportState: string | null = null;
+  let completionSeq: string | null = null;
+  let checkState: string | null = null;
 
   const child = new Deno.Command(options.command, {
     args: [...options.args],
@@ -149,9 +161,14 @@ export async function startFakeCodingAgent(
         response = undefined;
       }
       emitted.push({ step, response });
-      const content = structuredOf(response) as {
+      // 실제 lophn-mcp의 structuredContent는 {summary, data, next}다. 값은 data 안에 있다.
+      const structured = structuredOf(response) as { data?: unknown };
+      const content = (structured.data ?? structured) as {
         claim_seq?: unknown;
         state?: unknown;
+        report?: { accepted?: unknown; state?: unknown };
+        completion_claim?: { completion_seq?: unknown };
+        check?: { state?: unknown };
       };
       if (step.kind === "claim" && typeof content.claim_seq === "string") {
         claimSeq = content.claim_seq;
@@ -159,8 +176,18 @@ export async function startFakeCodingAgent(
       if (step.kind === "release" && typeof content.state === "string") {
         releaseState = content.state;
       }
-      if (step.kind === "report" && typeof content.state === "string") {
-        reportState = content.state;
+      if (step.kind === "report") {
+        if (
+          content.report?.accepted === true &&
+          typeof content.report.state === "string"
+        ) {
+          reportState = content.report.state;
+        }
+        const seq = content.completion_claim?.completion_seq;
+        if (typeof seq === "string") completionSeq = seq;
+        if (typeof content.check?.state === "string") {
+          checkState = content.check.state;
+        }
       }
     }
     return {
@@ -168,6 +195,8 @@ export async function startFakeCodingAgent(
       claim_seq: claimSeq,
       release_state: releaseState,
       report_state: reportState,
+      completion_seq: completionSeq,
+      check_state: checkState,
     };
   } finally {
     try {
@@ -219,6 +248,15 @@ function callOf(step: FakeAgentStep): {
           ticket: step.ticket,
           claim_seq: step.claim_seq,
           base_revision: step.base_revision,
+          release: step.release,
+          summary: step.summary,
+          ...(step.outputs === undefined ? {} : { outputs: step.outputs }),
+          ...(step.fix_records === undefined
+            ? {}
+            : { fix_records: step.fix_records }),
+          ...(step.verifications === undefined
+            ? {}
+            : { verifications: step.verifications }),
         },
       };
   }

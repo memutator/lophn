@@ -128,6 +128,14 @@ export {
   type SdkOpOutput,
   type SdkSourcePort,
 } from "./sdk-ops.ts";
+export {
+  reportInputOf,
+  reportTicket,
+  ticketCompare,
+  type TicketOpClient,
+  type TicketOpDeps,
+  type TicketOpOutput,
+} from "./ticket-ops.ts";
 export { UNREADABLE_MESSAGE } from "./unreadable.ts";
 export {
   CONNECTION_SECRET_OWNER,

@@ -300,6 +300,11 @@ Deno.test("coding-agent/harnesses#R11: version을 모르거나 낮으면 Claude 
     "SessionStart@1.0.62",
     "PermissionRequest@2.0.45",
     "PostCompact@2.1.76",
+    "UserPromptSubmit@null",
+    "PostToolUse@null",
+    "Stop@null",
+    "SessionEnd@null",
+    "SessionStart@null",
   ]);
 });
 
@@ -540,6 +545,10 @@ Deno.test("coding-agent/harnesses#R11: Gemini hook event는 Claude와 다른 이
   assertEquals(gemini.hooks.map((hook) => hook.event), [
     "SessionStart",
     "BeforeTool",
+    "BeforeAgent",
+    "AfterAgent",
+    "Notification",
+    "SessionEnd",
   ]);
   for (const hook of gemini.hooks) assertEquals(hook.capability, "unverified");
   const fx = await fixture();

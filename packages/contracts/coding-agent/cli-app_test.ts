@@ -1,8 +1,9 @@
 import { assertEquals } from "@std/assert";
-import { APP, CAC, HASH, REL, TKT, VER, VRF } from "./ticket-fixtures.ts";
+import { APP, CAC, HASH, PRB, REL, TKT, VER, VRF } from "./ticket-fixtures.ts";
 import {
   appHumanOnlyNames,
   CLI_APP_NAMES,
+  CLI_TICKET_HUMAN_NAMES,
   cliAppAutomationRunSchema,
   cliAppBlueprintSchema,
   cliAppCommandSchema,
@@ -27,8 +28,10 @@ import {
   cliSdkAddSchema,
   cliSdkCatalogSchema,
   cliSdkShowSchema,
+  cliTicketCancelSchema,
   cliTicketChecksSchema,
   cliTicketClaimSchema,
+  cliTicketCreateSchema,
   cliTicketListSchema,
   cliTicketReleaseSchema,
   cliTicketRenewSchema,
@@ -267,22 +270,106 @@ Deno.test(
       ticket: TKT,
       base_revision: "15",
       claim_seq: "8",
-      completion: {
-        release: REL,
-        summary_hash: HASH,
-        outputs: [VER],
-        fix_records: [],
-        verifications: [VRF],
-      },
-      summary_blob: {
-        preparation: "worker-preparation-1",
-        principal: CAC,
-        purpose: "ticket_summary",
-        hash: HASH,
-        size_bytes: 64,
-      },
+      release: REL,
+      summary: "변경: leaf redaction\n수행한 확인: deno task test",
+      outputs: [VER],
+      fix_records: [],
+      verifications: [VRF],
       json: true,
     });
+    // completion seq·hash·준비 참조는 입력이 아니다. 통로가 summary로 올리고 만든다.
+    for (
+      const extra of [
+        { completion_seq: "9" },
+        { summary_hash: HASH },
+        { completion: { release: REL } },
+      ]
+    ) {
+      assertEquals(
+        cliTicketReportSchema.safeParse({
+          command: "ticket report",
+          ticket: TKT,
+          base_revision: "15",
+          claim_seq: "8",
+          release: REL,
+          summary: "요약",
+          ...extra,
+        }).success,
+        false,
+      );
+    }
+    assertEquals(
+      cliTicketReportSchema.safeParse({
+        command: "ticket report",
+        ticket: TKT,
+        base_revision: "15",
+        claim_seq: "8",
+        release: REL,
+        summary: "   ",
+      }).success,
+      false,
+    );
+  },
+);
+
+Deno.test(
+  "coding-agent/cli#R37: ticket create·cancel은 같은 필수 입력과 취소 사유를 검사한다",
+  () => {
+    const create = {
+      command: "ticket create",
+      app: APP,
+      kind: "implementation",
+      title: "leaf redaction",
+      what: "redact leaf",
+      why: "snapshot shows the raw leaf",
+      references: [],
+      adoption_questions: [],
+      conditions: [],
+      inspect: [],
+      preserve: [],
+      problems: [],
+      readiness: "needs_confirmation",
+      needs: ["confirm the redaction"],
+    };
+    cliTicketCreateSchema.parse(create);
+    // 구현 ticket은 문제를 가질 수 없고 title은 필수다.
+    assertEquals(
+      cliTicketCreateSchema.safeParse({ ...create, problems: [PRB] }).success,
+      false,
+    );
+    assertEquals(
+      cliTicketCreateSchema.safeParse({ ...create, title: undefined }).success,
+      false,
+    );
+    cliTicketCancelSchema.parse({
+      command: "ticket cancel",
+      ticket: TKT,
+      base_revision: "15",
+      reason: "더 이상 필요 없다",
+    });
+    for (const reason of ["", "  ", "두 줄\n입니다"]) {
+      assertEquals(
+        cliTicketCancelSchema.safeParse({
+          command: "ticket cancel",
+          ticket: TKT,
+          base_revision: "15",
+          reason,
+        }).success,
+        false,
+      );
+    }
+    assertEquals(
+      cliTicketCancelSchema.safeParse({
+        command: "ticket cancel",
+        ticket: TKT,
+        base_revision: "15",
+      }).success,
+      false,
+    );
+    assertEquals([...CLI_TICKET_HUMAN_NAMES], [
+      "ticket create",
+      "ticket cancel",
+    ]);
   },
 );
 

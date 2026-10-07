@@ -445,7 +445,10 @@ Deno.test("problems/tests#R7: 정적 code 사용 검사는 선언 없는·예약
   assertEquals(statusOf(dynamic.judgment, "code_usage_static")?.status, "pass");
   const unguarded = await run({}, { sources, omit: ["dynamic_guard"] });
   assertEquals(unguarded.judgment.result, "fail");
-  assertEquals(statusOf(unguarded.judgment, "code_usage_dynamic")?.status, "fail");
+  assertEquals(
+    statusOf(unguarded.judgment, "code_usage_dynamic")?.status,
+    "fail",
+  );
 });
 
 Deno.test("problem-codes#R3: 같은 code의 의미 변경을 observations에 남긴다", async () => {

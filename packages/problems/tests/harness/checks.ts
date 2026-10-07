@@ -414,6 +414,7 @@ async function revertCheck(
     let ok = false;
     let why = "";
     if (kind === "restore") {
+      await driver.prepareChange(command);
       const before = await driver.businessState();
       const change = await driver.change(command);
       const reverted = change.revert === null

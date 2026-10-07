@@ -150,6 +150,9 @@ export type AppDriver = {
   exerciseAdapters(): Promise<AdapterEffects>;
   // 업무 데이터의 현재 상태 hash.
   businessState(): Promise<string>;
+  // 그 command의 변경이 기대는 앞선 상태(예: 완료할 항목)를 먼저 만든다. 한 번 만든 상태는 바로 다음
+  // `change`가 쓴다. 변경 전 업무 상태를 읽기 전에 부르면 그 상태가 되돌림의 기준에 들어간다.
+  prepareChange(command: string): Promise<void>;
   // 되돌리기를 지원하는 write command를 fixture 입력으로 한 번 실행한다.
   change(command: string): Promise<ChangeResult>;
   revert(token: string): Promise<RevertResult>;

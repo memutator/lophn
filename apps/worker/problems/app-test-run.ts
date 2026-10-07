@@ -24,7 +24,11 @@ import {
 import type { ScreenReportSink } from "../../../packages/problems/tests/app-test/mod.ts";
 import type { ViewDriver } from "../../../packages/problems/tests/harness/mod.ts";
 import { canonicalHash } from "../../../packages/problems/tests/canonical.ts";
-import { createRealAppDriver, type RealDriver } from "./app-driver.ts";
+import {
+  createRealAppDriver,
+  type RealDriver,
+  type RealDriverInput,
+} from "./app-driver.ts";
 import { acceptAppTest, platformMemory, runnerView } from "./runner-core.ts";
 
 export type AppTestJob = {
@@ -43,6 +47,8 @@ export type AppTestJob = {
   scenarios: HarnessFailurePath[];
   frozen_failure_paths: { code: string; test_hash: string }[];
   inputs: Record<string, unknown>;
+  prepare?: RealDriverInput["prepare"];
+  journal_tables?: string[];
   // 이전 release의 data schema와 선언(없으면 null).
   previous_schema: number | null;
   previous_declarations: ProblemCodeDeclaration[] | null;
@@ -222,6 +228,8 @@ export async function runAppTestJob(
     base_module: new URL("packages/base/mod.ts", root).href,
     environment: job.environment,
     inputs: job.inputs,
+    prepare: job.prepare,
+    journal_tables: job.journal_tables,
     sink: {
       report(report) {
         forwarded.push({ kind: "report", code: report.code, scope });

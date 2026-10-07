@@ -53,8 +53,22 @@ export async function git(cwd: string, args: string[]): Promise<string> {
 }
 
 // fixture 원본을 앱 폴더로 풀고 개발용 import map을 둔다.
+// fixture가 쓰는 SDK 중 기본 템플릿 묶음에 없는 것이다.
+const EXTRA_PACKAGES: Record<FixtureName, string[]> = {
+  "rate-limit-dashboard": [
+    "@lophn/cap-fs",
+    "@lophn/ui-chart",
+    "@lophn/ui-filter",
+    "@lophn/ui-stat",
+    "@lophn/ui-table",
+  ],
+  todo: ["@lophn/cap-fs"],
+  calendar: ["@lophn/cap-net", "@lophn/cap-secret"],
+  broken: [],
+};
+
 export async function madeFixture(name: FixtureName): Promise<MadeFixture> {
-  const installed = await installedHome();
+  const installed = await installedHome(EXTRA_PACKAGES[name]);
   const parent = await Deno.makeTempDir({ prefix: "lophn-fixture-app-" });
   const dir = `${parent}/app`;
   const source = `${FIXTURES}${name}/`;
@@ -120,6 +134,11 @@ export async function sealedBundle(made: MadeFixture): Promise<SealedBundle> {
 export type AppTestFile = {
   failure_paths: HarnessFailurePath[];
   inputs?: Record<string, unknown>;
+  prepare?: AppTestJob["prepare"];
+  journal_tables?: string[];
+  // blueprint가 선언한 바깥 자리에 둘 fixture 파일이다. 읽거나 쓸 수 없는 상태(폴더가 파일 자리에 있다)를
+  // 만들어 선언 code의 실패를 실제로 낸다. 요청한 쪽이 만들고 돌린 뒤 지운다(runner 작업 root 밖이다).
+  fixture_files?: { path: string; kind: "dir" | "file"; text?: string }[];
 };
 
 export async function readAppTestFile(bundle: string): Promise<AppTestFile> {
@@ -177,6 +196,8 @@ export async function runAppTest(
         test_hash: canonicalHash(path),
       })),
     inputs: file.inputs ?? {},
+    prepare: file.prepare,
+    journal_tables: file.journal_tables,
     previous_schema: options.previous_schema === undefined
       ? 1
       : options.previous_schema,
@@ -193,7 +214,7 @@ export async function runAppTest(
   };
   const env: Record<string, string> = {
     LOPHN_HOME: made.home,
-    LOPHN_WORKER_KIND: spec.kind,
+    LOPHN_WORKER_KIND: spec!.kind,
     ...(Deno.env.get("HOME") ? { HOME: Deno.env.get("HOME")! } : {}),
     ...(Deno.env.get("DENO_DIR")
       ? { DENO_DIR: Deno.env.get("DENO_DIR")! }
@@ -210,30 +231,53 @@ export async function runAppTest(
       ? { XAUTHORITY: Deno.env.get("XAUTHORITY")! }
       : {}),
   };
-  const child = new Deno.Command(Deno.execPath(), {
-    args: [...launchArgv(spec), "--app-test-job"],
-    clearEnv: true,
-    env,
-    stdin: "piped",
-    stdout: "piped",
-    stderr: "piped",
-  }).spawn();
-  const writer = child.stdin.getWriter();
-  await writer.write(new TextEncoder().encode(JSON.stringify(job)));
-  await writer.close();
-  const output = await child.output();
-  const stderr = new TextDecoder().decode(output.stderr);
-  assert(
-    output.success,
-    `runner exited ${output.code}\n${stderr}\n${
-      new TextDecoder().decode(output.stdout)
-    }`,
-  );
-  const parsed = JSON.parse(new TextDecoder().decode(output.stdout)) as
-    | { ok: true; value: AppTestJobResult }
-    | { ok: false; error: { code: string; message: string } };
-  assert(parsed.ok, parsed.ok ? "" : JSON.stringify(parsed.error) + stderr);
-  return { result: parsed.value, stderr };
+  const placed: string[] = [];
+  for (const item of file.fixture_files ?? []) {
+    await Deno.mkdir(
+      item.kind === "dir"
+        ? item.path
+        : item.path.slice(0, item.path.lastIndexOf("/")),
+      { recursive: true },
+    );
+    if (item.kind === "file") {
+      await Deno.writeTextFile(item.path, item.text ?? "");
+    }
+    placed.push(item.path);
+  }
+  try {
+    return await spawnRunner();
+  } finally {
+    for (const path of placed) {
+      await Deno.remove(path, { recursive: true }).catch(() => undefined);
+    }
+  }
+
+  async function spawnRunner(): Promise<RunOutcome> {
+    const child = new Deno.Command(Deno.execPath(), {
+      args: [...launchArgv(spec!), "--app-test-job"],
+      clearEnv: true,
+      env,
+      stdin: "piped",
+      stdout: "piped",
+      stderr: "piped",
+    }).spawn();
+    const writer = child.stdin.getWriter();
+    await writer.write(new TextEncoder().encode(JSON.stringify(job)));
+    await writer.close();
+    const output = await child.output();
+    const stderr = new TextDecoder().decode(output.stderr);
+    assert(
+      output.success,
+      `runner exited ${output.code}\n${stderr}\n${
+        new TextDecoder().decode(output.stdout)
+      }`,
+    );
+    const parsed = JSON.parse(new TextDecoder().decode(output.stdout)) as
+      | { ok: true; value: AppTestJobResult }
+      | { ok: false; error: { code: string; message: string } };
+    assert(parsed.ok, parsed.ok ? "" : JSON.stringify(parsed.error) + stderr);
+    return { result: parsed.value, stderr };
+  }
 }
 
 export function hashOf(text: string): Promise<string> {

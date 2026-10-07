@@ -17,6 +17,7 @@ import {
 } from "../../../packages/base/mod.ts";
 import { createCrashObserver } from "../../../packages/apps/runtime/observations/crash.ts";
 import type { Blueprint } from "../../../packages/apps/blueprint/mod.ts";
+import type { ResolvedRequirement } from "../../../packages/apps/permissions/model.ts";
 import {
   appFlags,
   type BrokerChild,
@@ -80,6 +81,13 @@ export type RealDriverInput = {
   environment: { home?: string; denoDir?: string; xdgCacheHome?: string };
   // command마다 앱이 낸 fixture 입력. 없으면 blueprint 입력 계약에서 최소 값을 만든다.
   inputs: Record<string, unknown>;
+  // 이 command의 변경 전에 먼저 돌릴 command다. 결과의 필드를 입력에 묶는다(예: 완료할 항목의 id).
+  // 앱의 되돌림 근거 표(journal)다. 되돌림은 이 표에 쓰므로 업무 상태 hash에서 뺀다.
+  journal_tables?: string[];
+  prepare?: Record<
+    string,
+    { command: string; input?: unknown; bind?: Record<string, string> }
+  >;
   sink: DriverSink;
   view: RunnerDriver["view"];
 };
@@ -347,10 +355,12 @@ export async function createRealAppDriver(
     data: string;
     direct: string;
     map: string;
+    // 앱이 blueprint에 선언한 fs 권한이다. 사람이 grant한 것과 같은 모양으로 flag가 된다.
+    grants?: ResolvedRequirement[];
   }): Promise<Child> {
     await Deno.remove(options.direct).catch(() => undefined);
     const flags = appFlags(
-      [],
+      options.grants ?? [],
       {
         bundle: options.bundle,
         data: options.data,
@@ -454,6 +464,7 @@ export async function createRealAppDriver(
     });
   }
 
+  const opened = new Set<Child>();
   let app: Child | undefined;
   let appGone = false;
   async function ensureApp(): Promise<Child> {
@@ -471,6 +482,17 @@ export async function createRealAppDriver(
       data: dataDir,
       direct: input.sockets.direct,
       map,
+      grants: input.blueprint.permissions.flatMap((permission) => {
+        if (permission.kind !== "fs.read" && permission.kind !== "fs.write") {
+          return [];
+        }
+        const scope = permission.scope as { path: string; recursive: boolean };
+        return [{
+          kind: permission.kind,
+          scope: { ...scope, outsideLinks: [] },
+          reason: permission.reason,
+        }];
+      }),
     });
     void app.exited.then(() => {
       appGone = true;
@@ -496,6 +518,16 @@ export async function createRealAppDriver(
             await connection([], "machine"),
           );
           if (answered.status === 200) {
+            // write는 open 뒤에만 받는다. 준비가 끝난 앱을 한 번 연다(supervisor의 open과 같다).
+            if (!opened.has(running)) {
+              opened.add(running);
+              await direct(
+                input.sockets.direct,
+                "/_lophn/control/open",
+                { process_nonce: NONCE, release: null },
+                await connection([], "machine"),
+              );
+            }
             const value = answered.body as {
               bundle_hash: string;
               commands: string[];
@@ -598,7 +630,7 @@ export async function createRealAppDriver(
     try {
       await Deno.stat(source);
     } catch {
-      return createHash("sha256").update("no-database").digest("hex");
+      return createHash("sha256").update("{}").digest("hex");
     }
     snapshots += 1;
     const copy = `${work}/snap-${snapshots}`;
@@ -613,12 +645,15 @@ export async function createRealAppDriver(
     }
     try {
       const db = new DatabaseSync(`${copy}/app.sqlite`, { readOnly: true });
+      const journal = new Set(input.journal_tables ?? []);
       const tables = db.prepare(
         "select name from sqlite_master where type = 'table' and name not like 'sqlite_%' and name not like 'lophn_%' order by name",
-      ).all().map((row) => String(row["name"]));
+      ).all().map((row) => String(row["name"])).filter((name) =>
+        !journal.has(name)
+      );
       const dump: Record<string, unknown[]> = {};
       for (const table of tables) {
-        dump[table] = db.prepare(`select * from "${table}" order by rowid`)
+        const rows = db.prepare(`select * from "${table}" order by rowid`)
           .all().map((row) =>
             JSON.parse(
               JSON.stringify(
@@ -628,6 +663,8 @@ export async function createRealAppDriver(
               ),
             )
           );
+        // 빈 표는 표가 없는 것과 같다: 처음 열 때 schema를 만드는 것은 업무 데이터 변경이 아니다.
+        if (rows.length > 0) dump[table] = rows;
       }
       db.close();
       return createHash("sha256").update(JSON.stringify(dump)).digest("hex");
@@ -749,6 +786,24 @@ export async function createRealAppDriver(
     } catch { /* 이 앱은 migration이 없다 */ }
     return found.sort((a, b) => a.change.from - b.change.from);
   };
+
+  // 앞선 상태를 만들고 그 결과를 입력에 묶는다(예: 완료할 항목을 먼저 추가하고 그 id를 쓴다).
+  const pending = new Map<string, unknown>();
+  async function preparedBody(command: string): Promise<unknown> {
+    const body = validInput(command);
+    const prepared = input.prepare?.[command];
+    if (!prepared) return body;
+    const first = await call(prepared.command, prepared.input);
+    const result = (first.response.body as {
+      result?: { result?: Record<string, unknown> };
+    } | null)?.result?.result;
+    const bound = Object.fromEntries(
+      Object.entries(prepared.bind ?? {}).map((
+        [field, from],
+      ) => [field, result?.[from]]),
+    );
+    return { ...(body as Record<string, unknown>), ...bound };
+  }
 
   let migrations = 0;
   const driver: RealDriver = {
@@ -956,8 +1011,14 @@ export async function createRealAppDriver(
       };
     },
     businessState,
+    async prepareChange(command) {
+      pending.set(command, await preparedBody(command));
+    },
     async change(command) {
-      const done = await call(command, validInput(command));
+      const taken = pending.get(command);
+      pending.delete(command);
+      const body = taken ?? await preparedBody(command);
+      const done = await call(command, body);
       const result = (done.response.body as {
         result?: { revert?: unknown };
       } | null)?.result;
@@ -999,7 +1060,9 @@ export async function createRealAppDriver(
         )
         : err({
           code: "unavailable",
-          message: `command failed with status ${done.response.status}`,
+          message: `command failed with status ${done.response.status}: ${
+            JSON.stringify(done.response.body)
+          }`,
         });
     },
     received: () => received,

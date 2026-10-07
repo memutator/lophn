@@ -89,6 +89,7 @@ export function rpcDriver(
     useSecret: (input) => call("useSecret", input),
     exerciseAdapters: () => call("exerciseAdapters"),
     businessState: () => call<string>("businessState"),
+    prepareChange: (command) => call<void>("prepareChange", command),
     change: (command) => call<ChangeResult>("change", command),
     revert: (token) => call<RevertResult>("revert", token),
   };

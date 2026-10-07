@@ -47,6 +47,7 @@ export function provider(
 ): ProviderRow {
   return {
     id,
+    registered: true,
     name,
     enabled: true,
     definition: `${name.toLowerCase()}-def`,

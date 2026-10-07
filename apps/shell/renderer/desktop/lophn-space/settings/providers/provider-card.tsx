@@ -128,6 +128,15 @@ export function ProviderCard(
           </li>
         ))}
       </ul>
+      {provider.registered
+        ? null
+        : (
+          <p className={styles.muted} data-not-connected="">
+            {provider.local
+              ? t("settings.providers.local-not-set-up")
+              : t("settings.providers.not-connected")}
+          </p>
+        )}
       {adding
         ? (
           <form
@@ -248,17 +257,24 @@ export function ProviderCard(
         onSignIn={() => void signIn()}
         onNotice={setNotice}
       />
-      <p className={styles.muted} data-last-check={checked?.result ?? "never"}>
-        {checked === null
-          ? t("settings.providers.never-tested")
-          : checked.result === "success"
-          ? t("settings.providers.tested-ok", {
-            time: timeText(checked.at),
-          })
-          : t("settings.providers.tested-failed", {
-            time: timeText(checked.at),
-          })}
-      </p>
+      {provider.registered
+        ? (
+          <p
+            className={styles.muted}
+            data-last-check={checked?.result ?? "never"}
+          >
+            {checked === null
+              ? t("settings.providers.never-tested")
+              : checked.result === "success"
+              ? t("settings.providers.tested-ok", {
+                time: timeText(checked.at),
+              })
+              : t("settings.providers.tested-failed", {
+                time: timeText(checked.at),
+              })}
+          </p>
+        )
+        : null}
     </Card>
   );
 }

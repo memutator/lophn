@@ -23,6 +23,7 @@ import {
   UNREADABLE_MESSAGE,
 } from "./model.ts";
 import { buildSections } from "./sections.ts";
+import { reduceSections, renderSections } from "./budget.ts";
 import {
   type Fingerprint,
   type OccurrenceCandidate,
@@ -34,6 +35,8 @@ import { clipCodePoints, inlineFence, lineCount, utf8Bytes } from "./text.ts";
 export const REPORT_LIST_PAGES = 5;
 // 상세를 읽어 비교하는 발생 수의 상한. 넘으면 접수 순서에 고르게 뽑되 첫·마지막은 항상 넣는다.
 export const OCCURRENCE_SCAN_LIMIT = 16;
+// 발생 상세를 한 번에 읽는 개수. 읽기 통로의 동시 요청 상한(12) 안이다.
+const DETAIL_READ_BATCH = 4;
 const HUMAN_TEXT_BYTES = 8_192;
 const LOG_BYTES = 65_536;
 const SUMMARY_MAX_PROBLEMS = 5;
@@ -47,9 +50,10 @@ export type RepairSummary = {
 };
 
 export type AssembledRepair = {
+  as_of_seq: string;
   summary: RepairSummary;
-  // 전체 상한(24,576 bytes·300줄) 안에서 만든 bundle이다. 상한을 넘으면 null이고
-  // over_budget에 센 값이 있다. 상한 축소(log → 대표 excerpt → 첨부)는 T43이 맡는다.
+  // 전체 상한(24,576 bytes·300줄) 안에서 만든 bundle이다. 절을 줄이고도(budget.ts) 상한을 넘으면
+  // null이고 over_budget에 센 값이 있다.
   context: RepairContext | null;
   over_budget: { bytes: number; lines: number } | null;
 };
@@ -147,27 +151,35 @@ async function gatherProblem(
   // 목록은 최신순이다. 접수 순서(오름차순)로 뒤집는다.
   listed.reverse();
   const indexes = scanIndexes(listed.length, OCCURRENCE_SCAN_LIMIT);
-  const occurrences: OccurrenceFacts[] = await Promise.all(
-    indexes.map(async (index): Promise<OccurrenceFacts> => {
-      const report = listed[index];
-      const detail = await port.report(report.id);
-      const invocationId = detail.ok
-        ? detail.value.snapshot?.invocation?.id ?? null
-        : null;
-      const invocation = invocationId === null
-        ? null
-        : await port.invocation(invocationId);
-      return {
-        report,
-        rank: index + 1,
-        detail,
-        invocation,
-        fingerprint: fingerprintOf(report, detail, invocation),
-        human_text: null,
-        logs: null,
-      };
-    }),
-  );
+  const occurrences: OccurrenceFacts[] = [];
+  // core reader는 동시 요청 수에 상한이 있어 넘치면 일시 장애로 거절한다. 상세는 몇 개씩만 묶어 읽는다.
+  for (let at = 0; at < indexes.length; at += DETAIL_READ_BATCH) {
+    occurrences.push(
+      ...await Promise.all(
+        indexes.slice(at, at + DETAIL_READ_BATCH).map(
+          async (index): Promise<OccurrenceFacts> => {
+            const report = listed[index];
+            const detail = await port.report(report.id);
+            const invocationId = detail.ok
+              ? detail.value.snapshot?.invocation?.id ?? null
+              : null;
+            const invocation = invocationId === null
+              ? null
+              : await port.invocation(invocationId);
+            return {
+              report,
+              rank: index + 1,
+              detail,
+              invocation,
+              fingerprint: fingerprintOf(report, detail, invocation),
+              human_text: null,
+              logs: null,
+            };
+          },
+        ),
+      ),
+    );
+  }
   const candidates: OccurrenceCandidate[] = occurrences.map((item) => ({
     id: item.report.id,
     rank: item.rank,
@@ -257,17 +269,7 @@ function basisOf(facts: TargetFacts): RepairEvidenceSource[] {
 export function renderBundleText(
   context: Pick<RepairContext, "observed_at" | "sections">,
 ): string {
-  const parts: string[] = [];
-  for (const section of context.sections) {
-    const header = `## ${section.kind}${
-      section.problem === null ? "" : ` ${section.problem}`
-    }`;
-    const state = section.availability === "available"
-      ? []
-      : [`[${section.availability}] ${section.reason}`];
-    parts.push([header, section.content, ...state].join("\n"));
-  }
-  return parts.join("\n");
+  return renderSections(context.sections);
 }
 
 function limitsOf(sections: RepairContextSection[], problem: string): string {
@@ -315,6 +317,26 @@ async function summarize(
       seq: read.problem.seq,
     });
   }
+  // 식별·상태·이어 읽기도 summary 두 줄의 문자 예산에 포함한다. fence는 통째로 유지한다.
+  for (const item of problems) {
+    const limit = Math.floor(
+      REPAIR_CONTEXT_SUMMARY_MAX_CHARS / problems.length,
+    );
+    const fixed =
+      Array.from(`${item.id} ${item.status}\n${item.next_action}`).length;
+    if (Array.from(item.symptom).length + fixed > limit) {
+      item.next_action = `read repair_context bundle ${item.id}`;
+      const room = limit -
+        Array.from(`${item.id} ${item.status}\n${item.next_action}`).length -
+        Array.from(inlineFence("symptom", "")).length;
+      item.symptom = inlineFence(
+        "symptom",
+        clipCodePoints("summary truncated; limits present", Math.max(0, room))
+          .text,
+      );
+      truncated = true;
+    }
+  }
   return {
     app: facts.app,
     ticket: facts.ticket !== null && facts.ticket.ok
@@ -357,6 +379,13 @@ export async function assembleRepairContext(
     );
   }
   if (!problems.some((item) => item.problem.ok)) return unreadable();
+  const as_of_seq = problems.reduce(
+    (seq, item) =>
+      item.problem.ok && BigInt(item.problem.value.as_of_seq) > BigInt(seq)
+        ? item.problem.value.as_of_seq
+        : seq,
+    "0",
+  );
   const [same_app, releases] = await Promise.all([
     port.problems(app),
     port.releases(app),
@@ -373,6 +402,7 @@ export async function assembleRepairContext(
     facts,
     redact: (text) => port.redact(text),
   });
+  built.sections = reduceSections(built.sections);
   const truncated = built.skipped.length > 0 ||
     built.sections.some((section) => section.availability === "truncated");
   const text = renderBundleText({ observed_at, sections: built.sections });
@@ -392,12 +422,17 @@ export async function assembleRepairContext(
   });
   if (!parsed.success) {
     if (bytes > REPAIR_CONTEXT_BYTES || lines > REPAIR_CONTEXT_LINES) {
-      return ok({ summary, context: null, over_budget: { bytes, lines } });
+      return ok({
+        as_of_seq,
+        summary,
+        context: null,
+        over_budget: { bytes, lines },
+      });
     }
     return err({
       code: "internal",
       message: "수리 자료 조립 결과가 contract에 맞지 않는다",
     });
   }
-  return ok({ summary, context: parsed.data, over_budget: null });
+  return ok({ as_of_seq, summary, context: parsed.data, over_budget: null });
 }

@@ -87,6 +87,13 @@ export type ToolSetup = {
   mcpConnection(definition: ToolDefinition): { revision: number } | undefined;
   // 외부 MCP tool의 서버 이름. 없으면 내장·앱 tool이다.
   server?(definition: ToolDefinition): string | null;
+  // 외부 MCP tool의 기록 확장이다(T37). 없는 tool·내장·앱은 null이다.
+  extension?(definition: ToolDefinition): {
+    server_name: string;
+    configuration_revision: number;
+    original_tool: string;
+    canonical_name: string;
+  } | null;
   approvalTtlMs: number;
 };
 
@@ -410,7 +417,10 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
         definition_revision: definition?.revision ?? "unlisted",
         effect: definition?.effect ?? "read",
         confirm: definition?.confirm ?? false,
-        extension: null,
+        // 외부 MCP tool의 원래 서버·tool 쌍이다(T37). 내장·앱·없는 tool은 null이다.
+        extension: definition === undefined
+          ? null
+          : deps.tools.extension?.(definition) ?? null,
         input: inputBlob.value.hash,
         input_size: inputBlob.value.size,
         retry_of: call.retry_of,

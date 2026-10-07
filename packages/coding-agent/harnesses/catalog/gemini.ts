@@ -90,8 +90,9 @@ const gemini: HarnessDefinition = {
       member: "AGENTS.md",
     },
   ],
-  // event 이름은 Claude와 다르다. 실행기 코드를 검증하지 못해(조사 [미확인])
-  // 모두 unverified이고 설치하지 않는다.
+  // event 이름은 Claude와 다르다. 실행기 코드와 hook env sanitizer가 `LOPHN_TERMINAL_OBSERVE`를
+  // 살리는지 version별로 검증하지 못해(조사 [미확인]) 모두 unverified이고 설치하지 않는다.
+  // `Notification`의 `notification_type=ToolPermission`만 waiting_input evidence다.
   hooks: [
     {
       event: "SessionStart",
@@ -117,6 +118,62 @@ const gemini: HarnessDefinition = {
       purpose: "status",
       method: "config_fragment",
       owned_identity: "BeforeTool.lophn",
+      minimum_version: null,
+      timeout_unit: "ms",
+      capability: "unverified",
+    },
+    {
+      event: "BeforeAgent",
+      target: {
+        scope_kind: "user",
+        root_resolver: "home",
+        path: ".gemini/settings.json",
+      },
+      purpose: "status",
+      method: "config_fragment",
+      owned_identity: "BeforeAgent.lophn",
+      minimum_version: null,
+      timeout_unit: "ms",
+      capability: "unverified",
+    },
+    {
+      event: "AfterAgent",
+      target: {
+        scope_kind: "user",
+        root_resolver: "home",
+        path: ".gemini/settings.json",
+      },
+      purpose: "status",
+      method: "config_fragment",
+      owned_identity: "AfterAgent.lophn",
+      minimum_version: null,
+      timeout_unit: "ms",
+      capability: "unverified",
+    },
+    {
+      event: "Notification",
+      target: {
+        scope_kind: "user",
+        root_resolver: "home",
+        path: ".gemini/settings.json",
+      },
+      purpose: "status",
+      method: "config_fragment",
+      owned_identity: "Notification.lophn",
+      minimum_version: null,
+      timeout_unit: "ms",
+      capability: "unverified",
+    },
+    {
+      event: "SessionEnd",
+      target: {
+        scope_kind: "user",
+        root_resolver: "home",
+        path: ".gemini/settings.json",
+      },
+      purpose: "status",
+      method: "config_fragment",
+      owned_identity: "SessionEnd.lophn",
       minimum_version: null,
       timeout_unit: "ms",
       capability: "unverified",

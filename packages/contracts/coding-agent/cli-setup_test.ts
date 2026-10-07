@@ -81,6 +81,7 @@ Deno.test(
       "connection install",
       "session summary",
       "session plan",
+      "session observe",
     ]);
     assertEquals(CLI_SETUP_COMMANDS.length, CLI_SETUP_NAMES.length);
   },
@@ -275,6 +276,7 @@ Deno.test(
     assertEquals(HUMAN_ONLY_NAMES.includes("connection create"), true);
     assertEquals(HUMAN_ONLY_NAMES.includes("connection revoke"), true);
     assertEquals(HUMAN_ONLY_NAMES.includes("connection install"), true);
+    assertEquals(HUMAN_ONLY_NAMES.includes("session plan"), true);
     // revoke만 confirmation window를 쓴다(cli#R7).
     assertEquals(CONFIRMATION_NAMES, ["connection revoke"]);
 

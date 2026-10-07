@@ -1021,3 +1021,70 @@ Deno.test("problems/grouping#R11: 문제 목록의 기본 항목(앱·증상·�
     await h.close();
   }
 });
+
+Deno.test("problems/closing#R13 grouping#R12 tests#R5: 상세 detail은 닫힘 4종을 구별하고 읽지 못한 ticket·테스트는 모름이며 내부 field와 따로다", async () => {
+  const h = await open();
+  try {
+    const problem = await record(h, { serial: 1, kind: "declared" });
+    const base = {
+      basis_seq: "1",
+      release: RELEASE,
+      verification: null,
+      confirmation: "confirmation-1",
+      last_report: null,
+      note: null,
+    };
+    const closures = {
+      verified: {
+        ...base,
+        reason: "verified",
+        verification: "vrf_01arz3ndektsv4rrffq69g5fav",
+        confirmation: null,
+      },
+      user_confirmed: { ...base, reason: "user_confirmed" },
+      recovered: {
+        ...base,
+        reason: "recovered",
+        last_report: "rpt_01arz3ndektsv4rrffq69g5fav",
+      },
+      dismissed: { ...base, reason: "dismissed", note: "not needed" },
+    };
+    const labels: string[] = [];
+    for (const [reason, closure] of Object.entries(closures)) {
+      await arrange(h, problem, {
+        status: "closed",
+        closure: JSON.stringify(closure),
+      });
+      const read = value(await get(h, "get", { problem }));
+      const detail = read["detail"] as Record<string, Record<string, unknown>>;
+      assertEquals(detail["progress"]["state"], "closed");
+      assertEquals(detail["closed"]["reason"], reason);
+      labels.push(String(detail["closed"]["label"]));
+      // port가 없으면 테스트는 모름이다. 성공으로 채우지 않는다.
+      assertEquals(
+        (detail["result"]["tests"] as Record<string, unknown>)["state"],
+        "unknown",
+      );
+      const text = JSON.stringify(detail);
+      for (const hidden of [RELEASE, "vrf_", "rpt_", "confirmation-1"]) {
+        assert(!text.includes(hidden), hidden);
+      }
+    }
+    assertEquals(new Set(labels).size, 4);
+
+    // 수리 중인데 ticket을 읽는 port가 없으면 담당은 모름이고 내부 ticket ID는 problem에만 있다.
+    await arrange(h, problem, { status: "fixing", work: TICKET });
+    const fixing = value(await get(h, "get", { problem }));
+    const detail = fixing["detail"] as Record<string, Record<string, unknown>>;
+    assertEquals(detail["owner"]["kind"], "unknown");
+    assertEquals(detail["repair"]["state"], "unknown");
+    assertEquals(detail["closed"], null);
+    assert(!JSON.stringify(detail).includes(TICKET));
+    assertEquals(
+      (fixing["problem"] as Record<string, unknown>)["work"],
+      TICKET,
+    );
+  } finally {
+    await h.close();
+  }
+});

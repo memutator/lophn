@@ -816,6 +816,8 @@ function openIntent(intent: OpenIntent): void {
     });
   } else if (intent.kind === "things-to-confirm") {
     sendIntent({ kind: "things-to-confirm", request: intent.request });
+  } else if (intent.kind === "coding") {
+    sendIntent({ kind: "coding", target: intent.target });
   } else openDesktopWindow();
 }
 
@@ -1045,6 +1047,7 @@ const instance = startSingleInstance({
   onOpenApp: (app) => openIntent({ kind: "app", app }),
   onThingsToConfirm: (request) =>
     openIntent({ kind: "things-to-confirm", request }),
+  onCoding: (target) => openIntent({ kind: "coding", target }),
   onQuitIntent: () =>
     requestQuit({
       windows: { hasWindows: () => BrowserWindow.getAllWindows().length > 0 },
@@ -1058,7 +1061,10 @@ const instance = startSingleInstance({
 app.on("open-url", (event, url) => {
   event.preventDefault();
   const intent = openUrlIntent(url);
-  if (intent.kind === "things-to-confirm" && instance.acquired) {
+  if (
+    (intent.kind === "things-to-confirm" || intent.kind === "coding") &&
+    instance.acquired
+  ) {
     void app.whenReady().then(() => openIntent(intent));
   }
 });
@@ -1144,7 +1150,10 @@ if (instance.acquired) {
     // 창 없는 시작은 main과 core만 띄운다(desktop#R21). 첫 시작의 `--open-app`은 기본 창
     // 대신 앱 전용 창을, 링크는 그 대상을 고른 기본 창을 연다.
     const start = readOpenIntent(process.argv);
-    if (start.kind === "app" || start.kind === "things-to-confirm") {
+    if (
+      start.kind === "app" || start.kind === "things-to-confirm" ||
+      start.kind === "coding"
+    ) {
       openIntent(start);
     } else if (!mode.tray) openDesktopWindow();
   });

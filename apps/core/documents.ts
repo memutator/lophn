@@ -150,6 +150,9 @@ function projectDocuments(
 // 없는 것이다: 추적 안 함으로 꾸미지 않고 unavailable이다.
 export type DocumentsEnvironment = {
   status?: StatusMemory;
+  // context 항목의 앱 command 판정 test double. apps blueprint read가 들어오기 전까지 제품 등록은
+  // 앱 항목을 만들지 못하므로(fail-closed) 앱 항목이 있는 context가 필요한 시험만 준다.
+  contextAppCommand?: (app: string, command: string) => boolean;
 };
 
 const UNATTACHED_STATUS: StatusMemory = {
@@ -408,7 +411,11 @@ export function createLedgerRegistration(
   const fileReads = createFileReads();
   const addressing = createDocumentChangeCommands();
   // 앱 command 효과 검사는 apps blueprint read가 들어올 때 교체한다(documents T22).
-  const contexts = createContextCommands();
+  const contexts = createContextCommands(
+    environment?.contextAppCommand === undefined
+      ? {}
+      : { appCommand: environment.contextAppCommand },
+  );
   const terms = createTermCommands();
   const series = createSeriesCommands();
   const views = createViewCommands();

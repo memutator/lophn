@@ -1532,8 +1532,10 @@ export const en = {
   "report-problem.status.received": "Received. lophn will look into it.",
   "report-problem.status.sending": "Sending your report.",
   "report-problem.title.report": "Report a problem",
-  "roles.attach.attached": "Attached. The first check happens at the time you chose.",
-  "roles.attach.changed": "Approved and switched. The next check uses this version.",
+  "roles.attach.attached":
+    "Attached. The first check happens at the time you chose.",
+  "roles.attach.changed":
+    "Approved and switched. The next check uses this version.",
   "roles.attach.declined": "Not attached. Nothing changed.",
   "roles.attach.failed":
     "You approved it, but it couldn't be applied. Nothing changed.",

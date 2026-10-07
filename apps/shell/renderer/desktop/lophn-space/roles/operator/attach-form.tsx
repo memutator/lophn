@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { Button, Checkbox, Field, Input, Textarea } from "@lophn/design/components";
+import {
+  Button,
+  Checkbox,
+  Field,
+  Input,
+  Textarea,
+} from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
 import type { Catalog } from "../../source.ts";
@@ -178,10 +184,13 @@ export function AttachForm(
     else setStage({ kind: outcome });
   };
 
-  const named = [...catalog.projects.map((item) => ({
-    kind: "project" as const,
-    ...item,
-  })), ...catalog.apps.map((item) => ({ kind: "app" as const, ...item }))];
+  const named = [
+    ...catalog.projects.map((item) => ({
+      kind: "project" as const,
+      ...item,
+    })),
+    ...catalog.apps.map((item) => ({ kind: "app" as const, ...item })),
+  ];
 
   if (stage.kind === "waiting") {
     return (
@@ -312,7 +321,8 @@ export function AttachForm(
                 <Checkbox
                   label={app.title}
                   checked={apps.includes(app.id)}
-                  onCheckedChange={(on) => toggleApp(app.id, on)}
+                  onCheckedChange={(on) =>
+                    toggleApp(app.id, on)}
                 />
                 {apps.includes(app.id)
                   ? (
@@ -357,24 +367,27 @@ export function AttachForm(
                   onCheckedChange={(on) =>
                     setContent((current) => {
                       const next = { ...current };
-                      if (on) next[doc.id] = "";
-                      else delete next[doc.id];
+                      if (on) {
+                        next[doc.id] = "";
+                      } else delete next[doc.id];
                       return next;
                     })}
                 />
-                {content[doc.id] === undefined ? null : (
-                  <Field label={t("roles.label.attach-output-content")}>
-                    <Textarea
-                      rows={3}
-                      value={content[doc.id]}
-                      onChange={(event) =>
-                        setContent((current) => ({
-                          ...current,
-                          [doc.id]: event.target.value,
-                        }))}
-                    />
-                  </Field>
-                )}
+                {content[doc.id] === undefined
+                  ? null
+                  : (
+                    <Field label={t("roles.label.attach-output-content")}>
+                      <Textarea
+                        rows={3}
+                        value={content[doc.id]}
+                        onChange={(event) =>
+                          setContent((current) => ({
+                            ...current,
+                            [doc.id]: event.target.value,
+                          }))}
+                      />
+                    </Field>
+                  )}
               </div>
             ))}
           </div>
@@ -401,7 +414,9 @@ export function AttachForm(
           </div>
           <Field
             label={t("roles.label.attach-first")}
-            error={problem === "past" ? t("roles.attach.past-start") : undefined}
+            error={problem === "past"
+              ? t("roles.attach.past-start")
+              : undefined}
           >
             <Input
               type="datetime-local"

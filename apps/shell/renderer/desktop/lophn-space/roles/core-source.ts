@@ -1,7 +1,6 @@
 // RolesSource를 main의 core 통로로 만든다. 응답은 main의 contract client가 route output schema로
 // 이미 검사했다. 아래 모양은 그 schema에서 이 화면이 읽는 field만 옮긴 것이다. 본문(근거·도구 입력·
 // 도구 결과)은 `runs/body-view`로만 읽는다. 사람 전용이고 core가 지금의 redaction을 거친 값이다.
-import type { CoreCall } from "../../../../ipc/core.ts";
 import type { FolderPickerApi } from "../../../../ipc/folder-picker.ts";
 import { coreConversationSource } from "../../../conversation/core-source.ts";
 import type { CoreSource } from "../../connection/connection.ts";

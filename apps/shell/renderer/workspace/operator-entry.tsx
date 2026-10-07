@@ -52,7 +52,10 @@ export function OperatorEntry(
   // 읽지 못하면 붙이기만 둔다. 개수를 모르면서 없다고 말하지 않는다.
   return (
     <div className={styles.operatorEntry} data-operator-entry={project}>
-      <p className={styles.operatorText} data-operator-count={attached?.length ?? ""}>
+      <p
+        className={styles.operatorText}
+        data-operator-count={attached?.length ?? ""}
+      >
         {attached === null
           ? null
           : attached.length === 0

@@ -83,7 +83,10 @@ export function coreOperatorSource(
 ): OperatorSource {
   return {
     async presets() {
-      const listed = await pages<PresetValue, Page & { presets: PresetValue[] }>(
+      const listed = await pages<
+        PresetValue,
+        Page & { presets: PresetValue[] }
+      >(
         core,
         "presets",
         "list",

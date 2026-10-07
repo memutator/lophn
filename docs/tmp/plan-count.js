@@ -15,8 +15,10 @@ for (const f of files) {
   const s = execSync(`git show ${c}:${f}`).toString();
   for (const b of s.split(/\n### /).slice(1)) {
     if (!/^T\d+/.test(b)) continue;
-    n++;
     const st = (b.match(/\n- 상태: (\S+)/) || [])[1] || "";
+    // 사람 결정으로 미룬 작업은 이번 판의 수에서 뺀다(docs/plan/README.md).
+    if (st.startsWith("미룸")) continue;
+    n++;
     if (st.startsWith("완료")) d++;
   }
 }

@@ -1660,6 +1660,8 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T48 오프라인 MCP 시작
 
+- 상태: 미룸 (사람 결정 2026-10-07: 오프라인 MCP 시작 검증은 이번 판에서 뺀다)
+
 - 등급: 좁은
 - concern: coding-agent/connection, coding-agent/mcp-server
 - 요구: coding-agent/connection#R16; coding-agent/mcp-server#R1

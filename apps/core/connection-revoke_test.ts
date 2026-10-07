@@ -356,9 +356,10 @@ function seedCompletion(world: World, ticket: string, claimSeq: string) {
   }
 }
 
-// ticket claim 쓰기는 연결 표의 현재 상태를 transaction마다 다시 읽는다(tickets#R13). 제품 coding credential의
-// operation 상한은 아직 ticket route를 열지 않아(platform 몫, 보고 참조) claim을 하는 credential은 같은
-// 연결의 principal을 가진 시험 credential로 만든다. 연결 상태는 위의 실제 회수가 정한다.
+// ticket claim 쓰기는 연결 표의 현재 상태를 transaction마다 다시 읽는다(tickets#R13). 이 시험은 인증이
+// 아니라 그 handler의 검사를 보려고, 같은 연결의 principal을 가진 시험 credential로 claim한다(실제 token은
+// 회수 직후 인증에서 먼저 거절된다). 연결 상태는 위의 실제 회수가 정한다. 실제 token의 claim은
+// coding-ceiling_test.ts가 본다.
 async function claimant(world: World, connection: string): Promise<string> {
   const issued = await world.harness.credential({
     actor: "coding_agent",

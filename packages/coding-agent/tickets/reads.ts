@@ -15,9 +15,11 @@ import {
 } from "../../contracts/coding-agent/mod.ts";
 import {
   defineRead,
+  parseActor,
   type ReadDefinition,
   type ReadSnapshot,
   type RequestContext,
+  TargetAuthorization,
 } from "../../contracts/platform/mod.ts";
 import { nextCursor, pageAfter } from "./cursor.ts";
 import { checkTicketClaim, expiredClaims } from "./claims.ts";
@@ -98,6 +100,18 @@ function visible(ctx: RequestContext): Result<void> {
   return ok(undefined);
 }
 
+// coding agent는 연결 범위의 앱 ticket만 본다. 범위는 owner(여기)가 ticket의 앱을 target에 줘서
+// 맞춘다. 범위 밖 ticket은 없는 ticket과 같은 답이다(connection#R5).
+function inCodingScope(
+  snapshot: ReadSnapshot,
+  ctx: RequestContext,
+  operation: string,
+  app: string,
+): boolean {
+  if (parseActor(ctx.actor)?.kind !== "coding_agent") return true;
+  return snapshot.port(TargetAuthorization)(ctx, operation, { app }).ok;
+}
+
 // checkTicketClaim은 read가 아니라 같은 transaction의 검사다. release 준비와
 // 완료 보고가 현재 claim·기한·연결·seq를 즉시 확인한다(R13). 기한을 연장하지 않는다.
 export { checkTicketClaim };
@@ -133,11 +147,17 @@ export function createTicketReads(): {
       handle(snapshot, ctx, input) {
         const seen = visible(ctx);
         if (!seen.ok) return seen;
-        const loaded = summaries(snapshot.sql, {
+        const found = summaries(snapshot.sql, {
           app: input.app ?? null,
           state: input.state ?? null,
         });
-        if (!loaded.ok) return loaded;
+        if (!found.ok) return found;
+        const loaded = {
+          ...found,
+          value: found.value.filter((item) =>
+            inCodingScope(snapshot, ctx, ticketList.name, item.app)
+          ),
+        };
         const after = pageAfter(input.cursor, snapshot.as_of_seq);
         if (!after.ok) return after;
         const start = after.value === null
@@ -163,7 +183,7 @@ export function createTicketReads(): {
     },
     show: {
       route: ticketShow,
-      handle(snapshot, _ctx, input) {
+      handle(snapshot, ctx, input) {
         const row = snapshot.sql.get(
           `SELECT id, app, kind, title, what, why, inspect, preserve, problems,
              state, readiness, needs, cancel_reason, completion_seq, revision
@@ -171,6 +191,9 @@ export function createTicketReads(): {
           [input.ticket],
         );
         if (row === undefined) return notFound();
+        if (!inCodingScope(snapshot, ctx, ticketShow.name, String(row.app))) {
+          return notFound();
+        }
         const claim = claimOf(snapshot, input.ticket);
         if (!claim.ok) return claim;
         const conditions = conditionRows(snapshot, input.ticket);
@@ -236,8 +259,14 @@ export function createTicketReads(): {
     },
     checks: {
       route: ticketChecks,
-      handle(snapshot, _ctx, input) {
-        const completion = snapshot.sql.get(
+      handle(snapshot, ctx, input) {
+        const owner = snapshot.sql.get("SELECT app FROM tickets WHERE id = ?", [
+          input.ticket,
+        ]);
+        // 범위 밖 ticket은 없는 ticket처럼 비어 있다.
+        const visibleTicket = owner === undefined ||
+          inCodingScope(snapshot, ctx, ticketChecks.name, String(owner.app));
+        const completion = !visibleTicket ? undefined : snapshot.sql.get(
           `SELECT seq FROM ticket_completions WHERE ticket = ?
            ORDER BY seq DESC LIMIT 1`,
           [input.ticket],

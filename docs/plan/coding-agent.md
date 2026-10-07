@@ -855,6 +855,11 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
   - 취소 직후 옛 claim의 갱신·release 준비·보고 거절, 과거 결과·문제 보존, 외부
     프로세스를 멈췄다는 표시 없음(R23, connection#R18)
   - confirmed·cancelled 때 문제 독점 예약 행 제거
+- 상태: 완료 (#413) — 자리는 `packages/coding-agent/tickets/report.ts`다.
+  commands.ts의 `createTicketFinishCommands`가 report_completion·cancel을
+  내보내고 apps/core/tickets.ts의 `ticketDefinitions`가 등록한다. 제품
+  coding_agent operation ceiling이 ticket route를 싣지 않아 실제 coding
+  token이 403이던 것은 coding-agent#T36 후속이 고쳤다.
 
 ### T25 MCP·CLI ticket tool: 완료 보고·사람의 생성과 취소
 
@@ -1230,7 +1235,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T36 keychain loader·연결 생성·설치 흐름과 기본 harness
 
-- 상태: 진행 (#405, #408) — 끝낸 것: #393의 완료 기준 전부와 넘어온 것 일부(위 #393 줄)에 더해 #405가 CLI `harness list|detect|refresh|inspect|plan|install|update|remove`·`mcp config`·`daemon start|stop|status|logs` 실행 배선과 doctor daemon 상태 port, 앱 하나 범위 connection의 발급·문서 authorization 모양 일치(조건으로 앱을 채우지 않고 문서 owner가 자리의 앱을 target에 준다), MCP 앱 direct socket transport와 정확한 경로 권한·CLI `SdkSourcePort`(open-issues coding-agent/mcp-server#Q9), SDK 안내 blob field(`package_version/guide`, general_read) 등록과 `sdk show` 원문 read, `document history --section`, CLI 6단계 통합 시험(찾은 `search` route 누락도 고침)을 끝냈다. #408이 CLI launcher(`cliLauncher`)의 정확한 경로 권한(open-issues coding-agent/mcp-server#Q9: `<H>/integrations`·instance lock 쓰기, helper·설치 Deno·`lophn-desktop` 실행, PATH·감지 bin 폴더 읽기, env, 선택한 제품 설정 파일·`sdk add --apply` 앱 source의 `deno.json`·`deno.lock`은 권한 계획 process가 정확한 경로로 더함)와 `sdk show` 안내 원문의 좁은 read `packages.guide_body`(일반 `blobs/read`를 열지 않음)를 끝냈다. 남은 것: (1) CLI `skills list|install`(T33 원본 필요)·`session summary`(T35 core handler 필요)·`session plan`(T38 필요)은 unavailable로 두었다 — 각 작업 블록에 넘겼다 (2) `tools/verify-linux-install.ts`의 양성 단계 → platform#T48(실제 Secret Service 필요) (3) `harness refresh`의 제품 version·auth probe는 제품 실행 파일의 run 권한이 Q9 목록에 없어 실행되지 않고 unknown으로 남는다. 제품 coding_agent operation 상한이 문서·SDK catalog 읽기를 아직 싣지 않는다(#408은 `packages.guide_body`만 더했다).
+- 상태: 진행 (#405, #408, #416) — 끝낸 것: #393의 완료 기준 전부와 넘어온 것 일부(위 #393 줄)에 더해 #405가 CLI `harness list|detect|refresh|inspect|plan|install|update|remove`·`mcp config`·`daemon start|stop|status|logs` 실행 배선과 doctor daemon 상태 port, 앱 하나 범위 connection의 발급·문서 authorization 모양 일치(조건으로 앱을 채우지 않고 문서 owner가 자리의 앱을 target에 준다), MCP 앱 direct socket transport와 정확한 경로 권한·CLI `SdkSourcePort`(open-issues coding-agent/mcp-server#Q9), SDK 안내 blob field(`package_version/guide`, general_read) 등록과 `sdk show` 원문 read, `document history --section`, CLI 6단계 통합 시험(찾은 `search` route 누락도 고침)을 끝냈다. #408이 CLI launcher(`cliLauncher`)의 정확한 경로 권한(open-issues coding-agent/mcp-server#Q9: `<H>/integrations`·instance lock 쓰기, helper·설치 Deno·`lophn-desktop` 실행, PATH·감지 bin 폴더 읽기, env, 선택한 제품 설정 파일·`sdk add --apply` 앱 source의 `deno.json`·`deno.lock`은 권한 계획 process가 정확한 경로로 더함)와 `sdk show` 안내 원문의 좁은 read `packages.guide_body`(일반 `blobs/read`를 열지 않음)를 끝냈다. 남은 것: (1) CLI `skills list|install`(T33 원본 필요)·`session summary`(T35 core handler 필요)·`session plan`(T38 필요)은 unavailable로 두었다 — 각 작업 블록에 넘겼다 (2) `tools/verify-linux-install.ts`의 양성 단계 → platform#T48(실제 Secret Service 필요) (3) `harness refresh`의 제품 version·auth probe는 제품 실행 파일의 run 권한이 Q9 목록에 없어 실행되지 않고 unknown으로 남는다. 제품 coding_agent operation 상한은 route가 선언한 coding_agent actors를 따른다(`blobs` 자원 제외, 앱 하나 범위는 credential targets와 owner target이 좁힌다). ticket summary blob은 `/v1/tickets/upload_summary`가 `ticket_summary` purpose로 준비한다.
 - 등급: 기본
 - concern: coding-agent/connection, coding-agent/harnesses, coding-agent/cli,
   coding-agent/mcp-server
@@ -1599,6 +1604,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 - slice: problems
 - 조사: docs/research/coding-agent-ticket-claim.md
 - 선행: T26, problems#T18, problems#T20, problems#T21
+- 선행 풀기(사람 결정 2026-10-07): 선행이 끝나기 전에 이미 있는 contract와 fake로 먼저 만든다. 선행이 merge되면 실제 구현에 잇는 작은 PR을 따로 내고, 그때 완료로 둔다.
 - 완료:
   - reproduction_test는 해당 문제·고정 test_hash·보고 after release의
     Verification만, human_confirmation pass는 "내가 확인함"이고 Verification이
@@ -1654,6 +1660,8 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 ## operations slice
 
 ### T48 오프라인 MCP 시작
+
+- 상태: 미룸 (사람 결정 2026-10-07: 오프라인 MCP 시작 검증은 이번 판에서 뺀다)
 
 - 등급: 좁은
 - concern: coding-agent/connection, coding-agent/mcp-server

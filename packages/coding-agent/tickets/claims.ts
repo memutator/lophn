@@ -36,7 +36,7 @@ import {
   expired,
 } from "./expiry.ts";
 
-type ConnectionAuth = CodingAgentConnectionAuthResult;
+export type ConnectionAuth = CodingAgentConnectionAuthResult;
 
 function conflict(message: string): Result<never> {
   return err({ code: "conflict", message });
@@ -54,8 +54,9 @@ function notFound(message: string): Result<never> {
   return err({ code: "not_found", message });
 }
 
-type StoredTicket = {
+export type StoredTicket = {
   app: string;
+  kind: "implementation" | "repair";
   state: string;
   readiness: string;
   problems: string[];
@@ -63,9 +64,9 @@ type StoredTicket = {
   completion_seq: string | null;
 };
 
-function loadTicket(tx: Tx, id: string): Result<StoredTicket | null> {
+export function loadTicket(tx: Tx, id: string): Result<StoredTicket | null> {
   const row = tx.sql.get(
-    `SELECT app, state, readiness, problems, revision, completion_seq
+    `SELECT app, kind, state, readiness, problems, revision, completion_seq
      FROM tickets WHERE id = ?`,
     [id],
   );
@@ -73,6 +74,7 @@ function loadTicket(tx: Tx, id: string): Result<StoredTicket | null> {
   const problems = JSON.parse(String(row.problems)) as unknown;
   return ok({
     app: String(row.app),
+    kind: row.kind === "repair" ? "repair" : "implementation",
     state: String(row.state),
     readiness: String(row.readiness),
     problems: Array.isArray(problems) ? problems.map(String) : [],
@@ -83,7 +85,7 @@ function loadTicket(tx: Tx, id: string): Result<StoredTicket | null> {
   });
 }
 
-function loadClaim(tx: Tx, ticket: string): ClaimRow | null {
+export function loadClaim(tx: Tx, ticket: string): ClaimRow | null {
   const row = tx.sql.get(
     "SELECT connection, claim_seq, expires_at FROM ticket_claims WHERE ticket = ?",
     [ticket],
@@ -98,7 +100,7 @@ function loadClaim(tx: Tx, ticket: string): ClaimRow | null {
 
 // 회수 credential은 인증 port가 revoked로 답한다. command handler는 동기라
 // port도 동기여야 한다. 제품 등록은 connection 표의 동기 lookup을 이 port에 건다.
-function connectionOf(
+export function connectionOf(
   tx: Tx,
   principal: string,
 ): Result<ConnectionAuth | null> {
@@ -112,7 +114,7 @@ function connectionOf(
   return ok(found ?? null);
 }
 
-function revisionAgrees(
+export function revisionAgrees(
   stored: string,
   base: string,
   compare: string,
@@ -121,13 +123,13 @@ function revisionAgrees(
 }
 
 // 범위 안 connection만 claim한다. all은 모든 앱, app은 그 앱 하나다(R11).
-function inScope(auth: ConnectionAuth, app: string): boolean {
+export function inScope(auth: ConnectionAuth, app: string): boolean {
   return auth.scope.kind === "all" || auth.scope.app === app;
 }
 
 // 다음 event seq. events는 삭제 trigger가 있어 seq가 비지 않는다.
 // claim_seq는 이어지는 TicketClaimed의 seq와 같아야 한다(domain model).
-function nextEventSeq(tx: Tx): string {
+export function nextEventSeq(tx: Tx): string {
   const row = tx.sql.get("SELECT MAX(seq) AS seq FROM events", []);
   const current = row?.seq;
   const n = typeof current === "bigint"
@@ -198,8 +200,9 @@ function claimTicket(
   if (!ticket.ok) return ticket;
   if (ticket.value === null) return notFound("ticket does not exist");
   const stored = ticket.value;
+  // 범위 밖 ticket은 없는 ticket과 같은 답이다(connection#R5).
   if (!inScope(auth.value, stored.app)) {
-    return forbidden("ticket is outside the connection scope");
+    return notFound("ticket does not exist");
   }
   if (stored.readiness !== "ready") {
     return conflict("ticket is not ready");
@@ -336,8 +339,9 @@ function currentClaim(
   if (!ticket.ok) return ticket;
   if (ticket.value === null) return forbidden("ticket does not exist");
   const stored = ticket.value;
+  // 범위 밖 ticket은 없는 ticket과 같은 답이다(connection#R5).
   if (!inScope(auth.value, stored.app)) {
-    return forbidden("ticket is outside the connection scope");
+    return forbidden("ticket does not exist");
   }
   if (
     !revisionAgrees(stored.revision, input.base_revision, compare.base_revision)

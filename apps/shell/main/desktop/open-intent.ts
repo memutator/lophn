@@ -15,6 +15,11 @@ const APP_ID = new RegExp(`^app_${ULID}$`);
 const CONFIRM_LINK = new RegExp(
   `^lophn://things-to-confirm/((?:apr|qst)_${ULID})$`,
 );
+// coding agent CLI가 사람 결정이 필요하다고 낼 때 가리키는 대상이다(coding-agent#T40, T25): 연결 회수
+// (`cac_`), ticket 취소(`tkt_`), ticket 생성(`app_`). 링크는 그 화면만 열고 아무것도 실행하지 않는다.
+const CODING_LINK = new RegExp(
+  `^lophn://things-to-confirm/((?:cac|tkt|app)_${ULID})$`,
+);
 
 export type OpenIntent =
   /** 대상 없는 새 기본 창. */
@@ -24,7 +29,9 @@ export type OpenIntent =
   /** 그 앱의 전용 창. */
   | { kind: "app"; app: string }
   /** things-to-confirm에서 그 요청을 고른 화면. confirmation window는 열지 않는다. */
-  | { kind: "things-to-confirm"; request: string };
+  | { kind: "things-to-confirm"; request: string }
+  /** coding agent의 회수·취소·생성 결정 화면. confirmation window는 사람이 그 화면에서 누를 때 연다. */
+  | { kind: "coding"; target: string };
 
 const WINDOW: OpenIntent = { kind: "window" };
 
@@ -32,6 +39,12 @@ const WINDOW: OpenIntent = { kind: "window" };
 export function readConfirmLink(url: unknown): string | undefined {
   if (typeof url !== "string") return undefined;
   return CONFIRM_LINK.exec(url)?.[1];
+}
+
+/** `lophn://things-to-confirm/<cac|tkt|app id>` 링크 하나를 엄격히 읽는다. 아니면 undefined다. */
+export function readCodingLink(url: unknown): string | undefined {
+  if (typeof url !== "string") return undefined;
+  return CODING_LINK.exec(url)?.[1];
 }
 
 function isLink(arg: string): boolean {
@@ -62,9 +75,9 @@ export function readOpenIntent(argv: readonly string[]): OpenIntent {
 /** macOS `open-url`과 argv의 링크. 등록한 링크 모양이 아니면 기본 창이다. */
 export function openUrlIntent(url: unknown): OpenIntent {
   const request = readConfirmLink(url);
-  return request === undefined
-    ? WINDOW
-    : { kind: "things-to-confirm", request };
+  if (request !== undefined) return { kind: "things-to-confirm", request };
+  const target = readCodingLink(url);
+  return target === undefined ? WINDOW : { kind: "coding", target };
 }
 
 export interface UrlSchemePort {

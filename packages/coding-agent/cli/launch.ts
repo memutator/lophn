@@ -4,7 +4,10 @@
 // instance lock 파일, 설치 Deno와 `lophn-desktop`, PATH 폴더 읽기. `-A`·일반 `--allow-write`·`--allow-run`,
 // 폴더 단위나 와일드카드 쓰기는 없다. 명령 시점에야 알 수 있는 경로(제품 설정 파일·앱 source)는 사람이 고른
 // target·앱에서 정확한 경로로 계산해(`planSelection`) 그 실행의 argv에만 더한다.
-import type { IntegrationTarget } from "../../contracts/coding-agent/mod.ts";
+import {
+  type IntegrationTarget,
+  LOPHN_TERMINAL_OBSERVE,
+} from "../../contracts/coding-agent/mod.ts";
 import {
   DETECTION_FALLBACK_DIRS,
   type RootInputs,
@@ -21,6 +24,7 @@ export const CLI_ENV_NAMES = [
   "LOPHN_CONNECTION",
   "LOPHN_DAEMON_URL",
   "LOPHN_APP",
+  "LOPHN_TERMINAL_OBSERVE",
   "HOME",
   "DENO_DIR",
   "PATH",
@@ -63,6 +67,8 @@ export type CliSelection = {
   harnessFiles: readonly string[];
   // `sdk add --apply` 대상 앱 source 폴더다. 이 폴더의 `deno.json`·`deno.lock` 두 파일만 열린다.
   sdkSourceDirs: readonly string[];
+  // `session observe`가 쓰는 환경의 관측 socket 하나다. Unix socket 연결은 그 경로의 읽기·쓰기 권한이다.
+  observeSockets?: readonly string[];
 };
 
 export const NO_SELECTION: CliSelection = {
@@ -85,6 +91,7 @@ export function selectionFiles(selection: CliSelection): string[] {
     const base = dir.replace(/\/+$/, "");
     files.push(`${base}/deno.json`, `${base}/deno.lock`);
   }
+  files.push(...(selection.observeSockets ?? []));
   return files.filter(exactPath);
 }
 
@@ -183,6 +190,12 @@ export async function planSelection(
     const files = selectedWriteFiles(target, request.roots);
     return files.ok
       ? { harnessFiles: files.value, sdkSourceDirs: [] }
+      : NO_SELECTION;
+  }
+  if (request.command === "session observe") {
+    const socket = request.roots.env.get(LOPHN_TERMINAL_OBSERVE);
+    return socket !== undefined && exactPath(socket)
+      ? { harnessFiles: [], sdkSourceDirs: [], observeSockets: [socket] }
       : NO_SELECTION;
   }
   if (

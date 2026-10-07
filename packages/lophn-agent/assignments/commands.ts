@@ -2,6 +2,7 @@ import { canonicalize, err, ok, type Result } from "../../base/mod.ts";
 import { createHash } from "node:crypto";
 import {
   applyOperatorAssignment,
+  ASSIGNMENT_SUBSCRIBER,
   assignmentChanged,
   assignmentCreated,
   assignmentPaused,
@@ -348,6 +349,16 @@ export function createAssignmentCommands(): {
           approval: null,
         });
         insertAssignment(tx, input.id, ctx, definition, "app_engineer", null);
+        // assignment·event·cursor를 같은 transaction에 확정한다(R1,
+        // architecture 5.10, createNotification과 같은 모양). 반응 없이 직접
+        // 내는 등록은 cursor를 건드리지 않는다.
+        if (input.processed_through_seq !== undefined) {
+          const advanced = tx.advanceSubscriberCursor(
+            ASSIGNMENT_SUBSCRIBER,
+            input.processed_through_seq,
+          );
+          if (!advanced.ok) return advanced;
+        }
         return ok({
           assignment: requireRecord(
             loadRow(tx, input.id)!,
@@ -749,6 +760,14 @@ export function createAssignmentCommands(): {
             tx.now(),
           ],
         );
+        // AppArchived 반응이면 멈춤·event·cursor를 같은 transaction에 확정한다(R1).
+        if (input.processed_through_seq !== undefined) {
+          const advanced = tx.advanceSubscriberCursor(
+            ASSIGNMENT_SUBSCRIBER,
+            input.processed_through_seq,
+          );
+          if (!advanced.ok) return advanced;
+        }
         return {
           ok: true,
           value: {

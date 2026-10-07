@@ -68,6 +68,7 @@ export function candidateOf(
     app: parsed.app,
     base_revision: parsed.baseRevision,
     idempotency_key: parsed.idempotencyKey,
+    hook: parsed.hook,
   };
   const candidate: Record<string, unknown> = {
     ...((body ?? {}) as Record<string, unknown>),

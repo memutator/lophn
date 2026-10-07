@@ -110,3 +110,31 @@ test("problems/feedback#R13: preload는 접수된 feedback의 Issue 열기를 �
   assert.deepEqual(received, [{ kind: "app-issue", app: APP, problem: PRB }]);
   assert.ok(Object.isFrozen(received[0]));
 });
+
+test("shell/desktop#R14: preload는 coding agent 회수·취소·생성 링크를 검사한 cac·tkt·app ID 하나만 넘기고 다른 모양은 버린다", () => {
+  const listeners = new Map<
+    string,
+    (event: unknown, payload: unknown) => void
+  >();
+  const api = createIntentApi({
+    on: (channel, callback) => void listeners.set(channel, callback),
+    removeListener: () => {},
+  });
+  const received: DesktopIntent[] = [];
+  api.subscribe((intent) => received.push(intent));
+  const deliver = listeners.get(DESKTOP_INTENT_CHANNEL)!;
+  const ULID = "01j9zzzzzzzzzzzzzzzzzzzzzz";
+  for (const prefix of ["cac", "tkt", "app"]) {
+    deliver({}, { kind: "coding", target: `${prefix}_${ULID}` });
+  }
+  deliver({}, { kind: "coding", target: `cac_${ULID}`, revoke: true });
+  deliver({}, { kind: "coding", target: `apr_${ULID}` });
+  deliver({}, { kind: "coding", target: "cac_bad" });
+  deliver({}, { kind: "coding", request: `cac_${ULID}` });
+  assert.deepEqual(received, [
+    { kind: "coding", target: `cac_${ULID}` },
+    { kind: "coding", target: `tkt_${ULID}` },
+    { kind: "coding", target: `app_${ULID}` },
+  ]);
+  assert.ok(received.every((intent) => Object.isFrozen(intent)));
+});

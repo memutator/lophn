@@ -191,10 +191,10 @@ handoff는 Run.source, tool 판정은 ToolCall, safety 실패수는 확정 call,
 | CreatePreset | `/v1/presets/create` | user·구성 전체·복사할 판?·참조와 상한 검증 |
 | RevisePreset | `/v1/presets/revise` | user·이전 revision CAS·구성 전체·이유; immutable 새 판 |
 | CreateBuiltinAssignment | `/v1/assignments/create-builtin` | lophn/CE preset 판; 종류별 거두지 않은 assignment 하나 |
-| CreateAppEngineerAssignment | `/v1/assignments/create-app-engineer` | AppCreated seq·app·AE 판; 앱별 중복 없음 |
+| CreateAppEngineerAssignment | `/v1/assignments/create-app-engineer` | AppCreated seq·app·AE 판; 앱별 중복 없음; core 반응 구독자(`lophn-agent-assignments`)가 AppCreated마다 부르고 처리 cursor를 같은 transaction에 올림 |
 | ApplyOperatorAssignment | `/v1/assignments/apply-operator` | approval·고정 OperatorApprovalBundle·CAS; 고정 preset 참조·assignment·승인 사용 원자 확정; preset 판 저장은 먼저 사람 결정 |
 | ChangeAssignmentPreset | `/v1/assignments/change-preset` | user·현재 revision CAS·같은 kind의 고정 preset 판; Operator는 전체 승인 필요; 다음 run부터 |
-| PauseAssignment | `/v1/assignments/pause` | user 또는 machine·revision·정확한 pause 근거 |
+| PauseAssignment | `/v1/assignments/pause` | user 또는 machine·revision·정확한 pause 근거; 같은 구독자가 AppArchived마다 그 앱의 enabled AE에 `scope_archived`로 부르고 cursor를 같은 transaction에 올림(보관 해제로 자동 재개 없음) |
 | ResumeAssignment | `/v1/assignments/resume` | user·paused revision·유효 대상/outputs/승인 |
 | WithdrawAssignment | `/v1/assignments/withdraw` | user·현재 revision; lophn/CE 전체 범위는 forbidden |
 | OpenSession | `/v1/sessions/open` | user·assignment enabled/paused·현재 revision·개설 WorkPlace·continued_from?; withdrawn은 과거 읽기만 |

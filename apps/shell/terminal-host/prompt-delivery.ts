@@ -19,8 +19,13 @@ export type PromptDeliveryRun = {
   exited(): void;
 };
 
-const ANSI =
-  /\u001b\[[0-?]*[ -/]*[@-~]|\u001b\][^\u0007\u001b]*(?:\u0007|\u001b\\)|\u001b[@-Z\\-_]/g;
+// readiness를 찾기 전에 CSI·OSC·2글자 제어열을 지운다.
+const ESC = String.fromCharCode(27);
+const BEL = String.fromCharCode(7);
+const ANSI = new RegExp(
+  `${ESC}\\[[0-?]*[ -/]*[@-~]|${ESC}\\][^${BEL}${ESC}]*(?:${BEL}|${ESC}\\\\)|${ESC}[@-Z\\\\-_]`,
+  "g",
+);
 
 // 붙여 넣기 구간으로 한 번에 쓰면 prompt 안의 줄바꿈이 제출이 되지 않는다. 제출은 마지막 CR 하나다.
 const PASTE_START = "\u001b[200~";

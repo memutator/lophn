@@ -32,8 +32,9 @@ readiness deadline은 10,000ms이며 adapter가 정한 검증 신호를 쓰되 �
 | `connection` | `cac` | 아니오 | active·ticket app 허용; → coding-agent/connection | 시작 중 scope 확대 없음 |
 | `project`, `folder_ref`, `cwd` | project·등록 폴더 참조·absolute path | 아니오 | → documents/projects; 앱 연결 source가 해당 project에 속하고 선택 폴더 검증 | 터미널 작업 자리 |
 | `method` | `terminal_tui` | 아니오 | 사람 [Start]에만 실행 | 자기 터미널은 안내이며 이 plan의 spawn 없음 |
-| `executable`, `argv` | absolute path·string[] | 아니오 | shell 문자열 조합 금지; 실행 직전 candidate 재확인 | |
+| `executable`, `argv` | absolute path·string[] | 아니오 | shell 문자열 조합 금지; 실행 직전 candidate 재확인 | `argv[0]`은 명령 이름이고 host는 `executable`을 `argv.slice(1)`로 연다 |
 | `env_names` | 안전한 이름[] | 아니오 | token 원문 없음; connection 참조는 `LOPHN_CONNECTION`만 | TUI 아래 MCP/CLI가 helper로 credential을 받음 |
+| `env_overlay`, `env_delete` | 이름→값, 이름[] | 예 | overlay 이름이 `env_names`이고 값은 TERM 같은 안전 값과 `LOPHN_CONNECTION` 참조뿐; `LOPHN_TERMINAL_OBSERVE`는 host가 더하고 삭제는 overlay 뒤에 한 번 더 적용 | 상속된 다른 terminal·connection 식별 값을 끊음 |
 | `first_prompt` | text | 아니오 | ticket 읽을 참조·MCP claim→작업→보고 지시만; data 인용과 지시 구별 | body·log·secret 복제 없음 |
 | `human_start_handle`, `operation_id` | local one-use handle·local key | 아니오 | exact ticket/harness/method와 클릭에 묶음; shell main이 검증 | approval entity 아님 |
 

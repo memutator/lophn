@@ -17,6 +17,8 @@ export type ParsedArgs = {
   claimSeq: string | undefined;
   input: string | undefined;
   inputFile: string | undefined;
+  // `session observe --hook <harness>`의 제품이다.
+  hook: string | undefined;
   errors: string[];
 };
 
@@ -29,6 +31,7 @@ const VALUE_FLAGS = new Set([
   "--claim-seq",
   "--input",
   "--input-file",
+  "--hook",
 ]);
 
 const KNOWN_FLAGS = new Set(["--json", "--help", ...VALUE_FLAGS]);
@@ -47,6 +50,7 @@ export function emptyParsedArgs(): ParsedArgs {
     claimSeq: undefined,
     input: undefined,
     inputFile: undefined,
+    hook: undefined,
     errors: [],
   };
 }
@@ -151,6 +155,12 @@ function assignFlag(parsed: ParsedArgs, flag: string, value: string): void {
         parsed.errors.push("option이 중복된다: --input-file");
       }
       parsed.inputFile = value;
+      return;
+    case "--hook":
+      if (parsed.hook !== undefined) {
+        parsed.errors.push("option이 중복된다: --hook");
+      }
+      parsed.hook = value;
       return;
   }
 }

@@ -90,6 +90,13 @@ export type ToolSetup = {
   // 앱 command tool의 원래 호출 계약(AppCommandBinding)이다. 없으면 앱 tool이 아니다. 기록이
   // 이 값을 tool_calls.app_command로 묶어 revert가 앱의 선언된 revert command를 부른다(R10).
   appCommand?(definition: ToolDefinition): unknown;
+  // 외부 MCP tool의 기록 확장이다(T37). 없는 tool·내장·앱은 null이다.
+  extension?(definition: ToolDefinition): {
+    server_name: string;
+    configuration_revision: number;
+    original_tool: string;
+    canonical_name: string;
+  } | null;
   approvalTtlMs: number;
 };
 
@@ -416,7 +423,10 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
         definition_revision: definition?.revision ?? "unlisted",
         effect: definition?.effect ?? "read",
         confirm: definition?.confirm ?? false,
-        extension: null,
+        // 외부 MCP tool의 원래 서버·tool 쌍이다(T37). 내장·앱·없는 tool은 null이다.
+        extension: definition === undefined
+          ? null
+          : deps.tools.extension?.(definition) ?? null,
         input: inputBlob.value.hash,
         input_size: inputBlob.value.size,
         retry_of: call.retry_of,

@@ -20,7 +20,10 @@ import {
   startRun,
   type WorkPlace,
 } from "../../packages/contracts/lophn-agent/mod.ts";
-import { settingsGet } from "../../packages/contracts/platform/mod.ts";
+import {
+  createApprovalRequest,
+  settingsGet,
+} from "../../packages/contracts/platform/mod.ts";
 import type { InstructionDeps } from "../../packages/lophn-agent/instructions/mod.ts";
 import type { SkillEntry } from "../../packages/lophn-agent/extensions/mod.ts";
 import { ROLE_CAPS } from "../../packages/lophn-agent/presets/mod.ts";
@@ -57,10 +60,35 @@ import { createCorePorts, type RunSeat } from "./core-ports.ts";
 import type { ModelBinding } from "./model-binding.ts";
 import { type BlobPort, type RedactText, storeValue } from "./run-blobs.ts";
 import type { DriveDeps, PreparedResume, PreparedRun } from "./run-driver.ts";
+import {
+  buildMcpTools,
+  createMcpToolHandlers,
+  EXTERNAL_TOOL_CONCERN,
+  type ExternalTool,
+  type McpSelection,
+  type McpToolCall,
+  type McpToolsSource,
+} from "../../packages/lophn-agent/extensions/mod.ts";
 
 // 선택한 run을 시작하기 전의 재료를 core 기록에서 모은다(lophn-agent/harness/run-loop). assignment와
 // preset 판, 역할 상한과 preset이 고른 tool 목록, 적용 한도, StartRun이 확정할 AgentAppScope, 고정할
 // run 근거(basis)를 만든다. model 선택의 검증(catalog·credential)과 tool의 소유 계약 연결은 주입한다.
+
+// 이 run의 외부 MCP tool 등록이다(Q16, T37). 등록 화면은 현재 서버 설정과 연결 화면을 읽어
+// buildMcpTools로 정의를 만들고, Q16 재조회가 끝날 때까지 그 server tool 호출을 막는다.
+export type McpToolkit = {
+  // 등록된 서버 설정과 검증을 지난 tool 목록을 읽는다. 설정은 사람의 registry 출처(R11)다.
+  source(assignment: string): Promise<Result<McpToolsSource>>;
+  // preset 판의 MCP 선택(서버+현재 tool 정확한 쌍, R31)과 safe 표시를 골라낸다.
+  selection(definition: unknown): McpSelection | null;
+  // 도구 호출 통로다(Q16 재조회가 끝날 때까지 호출은 거절된다).
+  call(assignment: string): McpToolCall;
+  // 서버의 연결 설정 판이다(판정 근거 mcp_configuration_revision).
+  connectionRevision(
+    definition: ToolDefinition,
+    assignment: string,
+  ): { revision: number } | undefined;
+};
 
 export type Toolkit = {
   // 내장 tool 정의의 출처. 없으면 제품 내장 전부다.
@@ -73,8 +101,8 @@ export type Toolkit = {
   targets?(
     assignment: { scope: { kind: string; id: string | null } },
   ): string[];
-  server?(definition: ToolDefinition): string | null;
-  mcpConnection?(definition: ToolDefinition): { revision: number } | undefined;
+  // 외부 MCP tool 등록이다. 없으면 external 정의가 없다.
+  mcp?(assignment: string): McpToolkit | undefined;
   // 결과를 모르는 쓰기·external의 저장된 결과를 소유 계약에서 조회한다(tool 이름 → 조회). 없는 tool은
   // 결과를 확인할 수 없는 것으로 다룬다.
   lookups?(seat: RunSeat, agent: CoreCall): ReadonlyMap<string, ToolLookup>;
@@ -122,6 +150,31 @@ export function readBinding(definition: ToolDefinition): ToolBinding {
         changes: "reads only",
         external: null,
         reversibility: "nothing changes",
+      }),
+  };
+}
+
+// 외부 MCP tool의 연결이다. 대상은 고른 쌍 하나이고 판정이 그 쌍으로 범위와 되돌림을 본다.
+// 분류가 안 됐거나 쓰기·external이면 판정표가 묻는다(R26, R28). 입력 비교 기준은 없다.
+function externalBinding(tool: ExternalTool): ToolBinding {
+  return {
+    resolve: () =>
+      ok({
+        concern: EXTERNAL_TOOL_CONCERN,
+        operation: tool.definition.contract,
+        contractRevision: tool.definition.revision,
+        targets: [{
+          id: tool.target,
+          reversibility: tool.reversible
+            ? "reversible" as const
+            : "unknown" as const,
+        }],
+        comparison: {},
+        changes: tool.effect === "read"
+          ? "reads only"
+          : `calls tool ${tool.original} of server ${tool.server}`,
+        external: tool.effect === "read" ? null : `MCP server ${tool.server}`,
+        reversibility: tool.reversible ? "reversible" : "not guaranteed",
       }),
   };
 }
@@ -184,7 +237,9 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
     const preset = read.value.preset;
     const definition = preset.definition;
 
-    // 역할 상한 ∩ preset 선택이 이번 run이 제공하는 tool 목록이다.
+    // 역할 상한 ∩ preset 선택이 이번 run이 제공하는 tool 목록이다. 외부 MCP tool은
+    // 상한 항목이 아니라 preset의 선택 항목이라(presets role-caps R5) 정의 이름을
+    // 양쪽 이름 목록에 더한다. 그렇지 않으면 목록 이름 검사가 모두 떨어뜨린다.
     const roleTools = ROLE_CAPS.get(assignment.role)?.tools ?? null;
     const presetTools = [
       ...definition.capability.bundles.flatMap((bundle) =>
@@ -215,13 +270,41 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
         loaded === undefined || !loaded.ok
       ? []
       : await deps.apps.define(scope.value, loaded.value);
+
+    // 외부 MCP tool 등록이다(T37). 사람의 registry(mcp_servers 설정)와 preset 선택만이 출처이며,
+    // 목록을 다시 읽지 못하면 그 server tool 정의가 없는 것과 같다(Q16: 재조회 실패는 옛 정의를
+    // 호출 가능으로 두지 않는다).
+    const mcpKit = deps.toolkit.mcp?.(assignment.id);
+    let external: readonly ExternalTool[] = [];
+    if (mcpKit !== undefined) {
+      const source = await mcpKit.source(assignment.id);
+      // 설정을 읽지 못하면 서버 자체가 없는 것과 같은 답이다(R11: fails closed).
+      if (source.ok) {
+        const selection = mcpKit.selection(definition);
+        // 선택이 아직 고정되지 않았으면 제공도 없다(R31).
+        if (selection !== null) {
+          const built = await buildMcpTools(source.value, selection);
+          // 남은 충돌은 등록을 거절한다(R23). 그 server의 정의가 전부 빠진다.
+          if (built.ok) external = built.value;
+        }
+      }
+    }
+
     const listed = listTools(
       {
         builtin: deps.toolkit.definitions ?? BUILTIN_TOOLS,
         app: appTools.map((tool) => tool.definition),
-        external: [],
+        external: external.map((tool) => tool.definition),
       },
-      { presetTools, roleTools },
+      {
+        presetTools: external.length === 0
+          ? presetTools
+          : [...presetTools, ...external.map((tool) => tool.definition.name)],
+        roleTools: roleTools === null || external.length === 0 ? roleTools : [
+          ...roleTools,
+          ...external.map((tool) => tool.definition.name),
+        ],
+      },
     );
 
     const model = await deps.resolveModel({
@@ -247,10 +330,12 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
       definition,
       listed,
       appTools,
+      external,
       scope: scope.value,
       model: model.value,
       place,
       seat,
+      mcpKit,
     });
   }
 
@@ -265,8 +350,11 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
     assignment: AssignmentRecord,
     agent: CoreCall,
   ) {
-    const { seat, listed, model, definition, place } = m;
+    const { seat, listed, model, definition, place, external } = m;
     const toolkit = deps.toolkit;
+    const externalByName = new Map(
+      external.map((tool) => [tool.definition.name, tool]),
+    );
     const bindings = new Map<string, ToolBinding>();
     const appByName = new Map(
       m.appTools.map((tool) => [tool.definition.name, tool]),
@@ -280,6 +368,10 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
       const bound = toolkit.binding(tool) ??
         (tool.effect === "read" ? readBinding(tool) : undefined);
       if (bound !== undefined) bindings.set(tool.name, bound);
+    }
+    // 외부 MCP tool의 소유 계약 연결이다. 스코프 검사는 builder가 이미 정확한 쌍만 골랐다.
+    for (const tool of external) {
+      bindings.set(tool.definition.name, externalBinding(tool));
     }
     const context = async (): Promise<Result<RunContext>> => {
       const role = await deps.rolePrompt(assignment.role);
@@ -330,6 +422,10 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
         handlers: new Map([
           ...toolkit.handlers(seat, agent),
           ...(deps.apps?.handlers(m.appTools, agent) ?? []),
+          ...(m.mcpKit === undefined ? [] : createMcpToolHandlers(
+            external,
+            m.mcpKit.call(assignment.id),
+          )),
         ]),
         credential: {
           run: seat.run,
@@ -337,11 +433,27 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
           targets: new Set([
             ...(toolkit.targets?.(assignment) ?? []),
             ...m.scope.apps.map((entry) => entry.app),
+            ...external.map((tool) => tool.target),
           ]),
-          operations: new Set(runOperations(listed)),
+          operations: new Set([
+            ...runOperations(listed),
+            // 외부 MCP tool의 ask는 이 run의 자격으로 approval request를 만든다(R28).
+            ...(external.length === 0 ? [] : [createApprovalRequest.name]),
+          ]),
         },
-        mcpConnection: toolkit.mcpConnection ?? (() => undefined),
-        ...(toolkit.server === undefined ? {} : { server: toolkit.server }),
+        mcpConnection: (toolDefinition) =>
+          m.mcpKit?.connectionRevision(toolDefinition, assignment.id),
+        server: (toolDefinition) =>
+          externalByName.get(toolDefinition.name)?.server ?? null,
+        extension: (toolDefinition) => {
+          const found = externalByName.get(toolDefinition.name);
+          return found === undefined ? null : {
+            server_name: found.server,
+            configuration_revision: found.configurationRevision,
+            original_tool: found.original,
+            canonical_name: found.definition.name,
+          };
+        },
         // 앱 command tool의 원래 호출 계약이다. 기록이 tool_calls.app_command로 묶는다(R10).
         // revert_command가 있으면 기록이 앱의 선언된 revert command를 revert에 싣는다.
         appCommand: (definition) => {

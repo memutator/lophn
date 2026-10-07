@@ -1025,6 +1025,7 @@ concerns: [shell]
 
 ### T50 Connection 화면과 Tasks
 
+- 상태: 완료 (#450) — 이어보냄: project 터미널 탭이 [Start]로 연 coding runtime을 붙여 보이는 일, `lophn harness install` 단독 입구와 packaged 밖(Windows·macOS) `lophn` 실행 경로 → coding-agent#T41·platform#T49
 - 등급: frontend
 - concern: shell/desktop
 - 요구: shell/desktop#R19(고정 연결 intent 검증)

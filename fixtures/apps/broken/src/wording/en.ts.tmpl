@@ -1,0 +1,54 @@
+// 앱의 en catalog다(apps/sdk#R41). 값은 완성된 문장 하나의 ICU MessageFormat이고 화면 코드는 문장 조각을
+// 이어 붙이지 않는다. key는 `<screen>.<part>.<name>`이며 첫 구간은 이 앱의 screen key나 common이다.
+// placeholders.ts는 이 파일에서 생성한다(`deno task wording`). 사용자 이름·업무 데이터는 catalog에 넣지 않는다.
+export const en = {
+  "common.problem.fixture-broken":
+    "The broken fixture reported one of its failures.",
+  "common.problem.fixture-misconfigured":
+    "The broken fixture is set up wrong. Check its settings.",
+  "common.summary.app":
+    "Deliberately breaking app used by the problems team to test problem reports and repairs.",
+  "panel.button.report": "Report a problem",
+  "panel.button.reload": "Reload",
+  "panel.empty.none": "Nothing is broken yet. Run a failure to see one.",
+  "panel.error.load-failed": "Couldn't read the board.",
+  "panel.label.chatter-then-fail": "Log and fail",
+  "panel.label.count": "{count, plural, one {# failure} other {# failures}}",
+  "panel.label.drop-promise": "Drop a promise",
+  "panel.label.flood-reports": "Flood reports",
+  "panel.label.hint": "Add an agent hint",
+  "panel.label.kind": "Failure kind",
+  "panel.label.list-broken": "Read the board",
+  "panel.label.mark-kind": "Mark a kind",
+  "panel.label.panel-context": "Read the panel state",
+  "panel.label.read-settings": "Check the fixture settings",
+  "panel.label.report-wrong-code": "Report an undeclared code",
+  "panel.label.run-broken": "Run a failure",
+  "panel.label.view-session": "View session",
+  "panel.reason.data-folder": "Write the broken fixture's data files.",
+  "panel.reason.helper": "Call the helper app's echo command.",
+  "panel.status.reported": "Reported.",
+  "panel.summary.kind": "The kind of failure to run.",
+  "panel.summary.label": "The label to set on the kind",
+  "panel.summary.list-broken": "Read the failure board.",
+  "panel.summary.mark-kind": "Set a label on a failure kind.",
+  "panel.summary.panel-context":
+    "Read what the panel screen shows: its mode and recent failures.",
+  "panel.summary.read-settings":
+    "Read the fixture settings and report the wrong ones.",
+  "panel.summary.report-wrong-code":
+    "Report a problem code that is not declared.",
+  "panel.summary.run-broken":
+    "Run one broken failure. This fixture exists to fail.",
+  "panel.summary.screen": "The screen key.",
+  "panel.summary.variant": "Which variant of the failure to run.",
+  "panel.summary.view-session": "The screen view this call is about.",
+  "panel.summary.flood-reports": "Send many problem reports at once.",
+  "panel.summary.drop-promise": "Leave one promise rejected.",
+  "panel.summary.chatter-then-fail":
+    "Write many log lines and then fail; one more failure follows after the response.",
+  "panel.title.screen": "Broken",
+} as const;
+
+export type Catalog = typeof en;
+export type MessageKey = keyof Catalog;

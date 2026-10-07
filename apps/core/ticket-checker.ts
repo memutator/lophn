@@ -23,12 +23,15 @@ import {
   openInternalSubscription,
 } from "./internal-subscription.ts";
 import type { CoreRuntime } from "./runtime.ts";
+import {
+  TICKET_CHECK_FEED_PRINCIPAL,
+  TICKET_CHECKER_PRINCIPAL,
+} from "./ticket-checker-ids.ts";
 
 export const TICKET_CHECKER_KIND = "coding-agent/checker";
 // worker 깨움 요청 op. apps/worker/coding-agent/checker.ts와 같은 값이다.
 export const TICKET_CHECK_OP = "tickets.check";
-export const TICKET_CHECKER_PRINCIPAL = "machine:ticket-checker";
-export const TICKET_CHECK_FEED_PRINCIPAL = "machine:ticket-check-feed";
+export { TICKET_CHECK_FEED_PRINCIPAL, TICKET_CHECKER_PRINCIPAL };
 
 // worker가 core loopback에 낼 수 있는 operation: 판정 사실 read와 결과 기록 command.
 export const TICKET_CHECKER_OPERATIONS = [

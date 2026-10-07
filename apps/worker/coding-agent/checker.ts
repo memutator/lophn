@@ -234,3 +234,8 @@ export async function runCheckerWorker(_root: string): Promise<void> {
   });
   await session.run();
 }
+
+// launchArgv가 내는 argv의 entry는 이 모듈 자체다.
+if (import.meta.main) {
+  await runCheckerWorker(Deno.env.get("LOPHN_HOME") ?? "");
+}

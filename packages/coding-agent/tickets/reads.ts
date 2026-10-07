@@ -8,8 +8,13 @@ import {
   type TicketCondition,
   type TicketKind,
   ticketList,
+  type TicketNextAction,
   type TicketReadiness,
   type TicketReference,
+  ticketScreenDetail,
+  ticketScreenList,
+  type TicketScreenState,
+  type TicketScreenSummary,
   ticketShow,
   type TicketState,
 } from "../../contracts/coding-agent/mod.ts";
@@ -49,6 +54,49 @@ function stateOf(value: unknown): TicketState {
 
 function readinessOf(value: unknown): TicketReadiness {
   return value === "ready" ? "ready" : "needs_confirmation";
+}
+
+// 사람 화면 상태. 여섯 state와 readiness가 서로 다른 값 일곱 개로 나온다(R27).
+// readiness는 open일 때만 다른 화면 상태가 된다(ready 뒤 되돌림이 없어 claim 뒤 state는 모두 ready다).
+export function screenStateOf(
+  state: TicketState,
+  readiness: TicketReadiness,
+): TicketScreenState {
+  switch (state) {
+    case "open":
+      return readiness === "ready" ? "ready" : "needs_confirmation";
+    case "claimed":
+      return "in_progress";
+    case "reported":
+      return "reported";
+    case "confirmed":
+      return "confirmed";
+    case "check_failed":
+      return "check_failed";
+    case "cancelled":
+      return "cancelled";
+  }
+}
+
+// 다음 행동은 정확히 하나다: [Start] 가능(ready·open|check_failed), 확인 필요
+// (needs_confirmation), 결과 확인(confirmed), 승인 대기(reported). 사람이 할 일이 없는
+// 작업 중·취소는 null이다.
+export function nextActionOf(
+  state: TicketState,
+  readiness: TicketReadiness,
+): TicketNextAction | null {
+  switch (state) {
+    case "open":
+    case "check_failed":
+      return readiness === "ready" ? "start" : "needs_confirmation";
+    case "reported":
+      return "waiting_for_approval";
+    case "confirmed":
+      return "check_result";
+    case "claimed":
+    case "cancelled":
+      return null;
+  }
 }
 
 type Summary = {
@@ -92,6 +140,30 @@ function summaries(sql: ReadSnapshot["sql"], filter: {
     });
   }
   return ok(values);
+}
+
+function pageOf<T extends { id: string }>(
+  items: readonly T[],
+  cursor: string | undefined,
+  limit: number,
+  asOf: string,
+): Result<{ page: T[]; next_cursor: string | null }> {
+  const after = pageAfter(cursor, asOf);
+  if (!after.ok) return after;
+  const start = after.value === null
+    ? 0
+    : items.findIndex((item) => item.id === after.value) + 1;
+  if (after.value !== null && start === 0) {
+    return err({ code: "invalid_input", message: "invalid ticket cursor" });
+  }
+  const page = items.slice(start, start + limit);
+  const next = start + page.length;
+  return ok({
+    page,
+    next_cursor: next < items.length
+      ? nextCursor(page[page.length - 1]!.id, asOf)
+      : null,
+  });
 }
 
 // ticket read 주체와 event·cancellation 조건은 read actor 검사를 여기 남긴다.
@@ -139,6 +211,8 @@ export function createTicketReads(): {
   list: ReadDefinition<typeof ticketList>;
   show: ReadDefinition<typeof ticketShow>;
   checks: ReadDefinition<typeof ticketChecks>;
+  screen_list: ReadDefinition<typeof ticketScreenList>;
+  screen_detail: ReadDefinition<typeof ticketScreenDetail>;
   claim_sweep: ReadDefinition<typeof claimSweep>;
 } {
   return {
@@ -158,26 +232,17 @@ export function createTicketReads(): {
             inCodingScope(snapshot, ctx, ticketList.name, item.app)
           ),
         };
-        const after = pageAfter(input.cursor, snapshot.as_of_seq);
-        if (!after.ok) return after;
-        const start = after.value === null
-          ? 0
-          : loaded.value.findIndex((item) => item.id === after.value) + 1;
-        if (after.value !== null && start === 0) {
-          return err({
-            code: "invalid_input",
-            message: "invalid ticket cursor",
-          });
-        }
-        const limit = input.limit ?? 20;
-        const page = loaded.value.slice(start, start + limit);
-        const next = start + page.length;
+        const paged = pageOf(
+          loaded.value,
+          input.cursor,
+          input.limit ?? 20,
+          snapshot.as_of_seq,
+        );
+        if (!paged.ok) return paged;
         return ok({
-          tickets: page,
+          tickets: paged.value.page,
           as_of_seq: snapshot.as_of_seq,
-          next_cursor: next < loaded.value.length
-            ? nextCursor(page[page.length - 1]!.id, snapshot.as_of_seq)
-            : null,
+          next_cursor: paged.value.next_cursor,
         });
       },
     },
@@ -226,6 +291,129 @@ export function createTicketReads(): {
         };
         return ok({
           ticket,
+          as_of_seq: snapshot.as_of_seq,
+          next_cursor: null,
+        });
+      },
+    },
+    screen_list: {
+      route: ticketScreenList,
+      handle(snapshot, ctx, input) {
+        const rows = snapshot.sql.all(
+          `SELECT t.id, t.app, t.kind, t.title, t.what, t.state, t.readiness,
+             (SELECT COUNT(*) FROM ticket_problems p WHERE p.ticket = t.id) AS problem_count
+           FROM tickets t
+           WHERE (? IS NULL OR t.app = ?)
+           ORDER BY t.id`,
+          [input.app ?? null, input.app ?? null],
+        );
+        const items: TicketScreenSummary[] = [];
+        for (const row of rows) {
+          if (
+            !inCodingScope(
+              snapshot,
+              ctx,
+              ticketScreenList.name,
+              String(row.app),
+            )
+          ) continue;
+          const summary = screenSummary(row);
+          if (
+            input.screen_state !== undefined &&
+            summary.screen_state !== input.screen_state
+          ) continue;
+          items.push(summary);
+        }
+        const paged = pageOf(
+          items,
+          input.cursor,
+          input.limit ?? 20,
+          snapshot.as_of_seq,
+        );
+        if (!paged.ok) return paged;
+        return ok({
+          tickets: paged.value.page,
+          as_of_seq: snapshot.as_of_seq,
+          next_cursor: paged.value.next_cursor,
+        });
+      },
+    },
+    screen_detail: {
+      route: ticketScreenDetail,
+      handle(snapshot, ctx, input) {
+        const row = snapshot.sql.get(
+          `SELECT t.id, t.app, t.kind, t.title, t.what, t.why, t.inspect, t.preserve,
+             t.problems, t.state, t.readiness, t.needs, t.completion_seq, t.revision,
+             (SELECT COUNT(*) FROM ticket_problems p WHERE p.ticket = t.id) AS problem_count
+           FROM tickets t WHERE t.id = ?`,
+          [input.ticket],
+        );
+        if (row === undefined) return notFound();
+        if (
+          !inCodingScope(
+            snapshot,
+            ctx,
+            ticketScreenDetail.name,
+            String(row.app),
+          )
+        ) return notFound();
+        const claim = claimOf(snapshot, input.ticket);
+        if (!claim.ok) return claim;
+        const conditions = conditionRows(snapshot, input.ticket);
+        if (!conditions.ok) return conditions;
+        const latest = row.completion_seq === null
+          ? undefined
+          : snapshot.sql.get(
+            `SELECT seq, release, summary_hash, outputs, fix_records, verifications
+           FROM ticket_completions WHERE ticket = ? AND seq = ?`,
+            [input.ticket, String(row.completion_seq)],
+          );
+        const checks = latest === undefined ? [] : snapshot.sql.all(
+          `SELECT condition, result, reason, verification FROM ticket_check_results
+           WHERE ticket = ? AND completion_seq = ? ORDER BY condition`,
+          [input.ticket, String(latest.seq)],
+        ).map((check) => ({
+          condition: Number(check.condition),
+          result: check.result === "pass"
+            ? "pass" as const
+            : check.result === "fail"
+            ? "fail" as const
+            : "inconclusive" as const,
+          reason: String(check.reason),
+          verification: check.verification === null
+            ? null
+            : String(check.verification),
+        }));
+        const passed = new Set(
+          checks.filter((check) => check.result === "pass").map((check) =>
+            check.condition
+          ),
+        );
+        const remaining = latest === undefined ? [] : conditions.value
+          .map((condition) => condition.position)
+          .filter((position) => !passed.has(position));
+        return ok({
+          ticket: {
+            ...screenSummary(row),
+            why: String(row.why),
+            needs: stringArray(row.needs),
+            problems: stringArray(row.problems),
+            inspect: stringArray(row.inspect),
+            preserve: stringArray(row.preserve),
+            claim: claim.value,
+            conditions: conditions.value,
+            completion: latest === undefined ? null : {
+              seq: String(latest.seq),
+              release: String(latest.release),
+              summary_hash: String(latest.summary_hash),
+              outputs: stringArray(latest.outputs),
+              fix_records: stringArray(latest.fix_records),
+              verifications: stringArray(latest.verifications),
+            },
+            checks,
+            remaining,
+            revision: seqText(row.revision),
+          },
           as_of_seq: snapshot.as_of_seq,
           next_cursor: null,
         });
@@ -306,6 +494,22 @@ export function createTicketReads(): {
         });
       },
     },
+  };
+}
+
+// 기본 data 모양. 기한·연결·조건·보고·test 원문은 이 값에 없다(R27).
+function screenSummary(row: Record<string, unknown>): TicketScreenSummary {
+  const state = stateOf(row.state);
+  const readiness = readinessOf(row.readiness);
+  return {
+    id: String(row.id),
+    app: String(row.app),
+    kind: kindOf(row.kind),
+    title: String(row.title),
+    request: String(row.what),
+    problem_count: Number(row.problem_count),
+    screen_state: screenStateOf(state, readiness),
+    next_action: nextActionOf(state, readiness),
   };
 }
 

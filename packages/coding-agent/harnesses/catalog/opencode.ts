@@ -105,9 +105,62 @@ const opencode: HarnessDefinition = {
       mode: "canonical",
     },
   ],
-  // OpenCode plugin은 config `plugin` 배열이다(조사 9.5). lophn 상태 hook의
-  // 검증 version이 없다.
-  hooks: [],
+  // OpenCode plugin은 config `plugin` 배열이다(조사 9.5). plugin 하나가 아래 event를 받아
+  // `session observe`로 넘긴다. 검증 version이 없어 unverified이고 설치하지 않는다.
+  hooks: [
+    {
+      event: "session.status",
+      target: {
+        scope_kind: "user",
+        root_resolver: "xdg_config_opencode",
+        path: "plugin/lophn-status.ts",
+      },
+      purpose: "status",
+      method: "plugin",
+      owned_identity: "session.status.lophn",
+      minimum_version: null,
+      capability: "unverified",
+    },
+    {
+      event: "permission.asked",
+      target: {
+        scope_kind: "user",
+        root_resolver: "xdg_config_opencode",
+        path: "plugin/lophn-status.ts",
+      },
+      purpose: "status",
+      method: "plugin",
+      owned_identity: "permission.asked.lophn",
+      minimum_version: null,
+      capability: "unverified",
+    },
+    {
+      event: "permission.replied",
+      target: {
+        scope_kind: "user",
+        root_resolver: "xdg_config_opencode",
+        path: "plugin/lophn-status.ts",
+      },
+      purpose: "status",
+      method: "plugin",
+      owned_identity: "permission.replied.lophn",
+      minimum_version: null,
+      capability: "unverified",
+    },
+    {
+      event: "session.idle",
+      target: {
+        scope_kind: "user",
+        root_resolver: "xdg_config_opencode",
+        path: "plugin/lophn-status.ts",
+      },
+      purpose: "status",
+      method: "plugin",
+      owned_identity: "session.idle.lophn",
+      minimum_version: null,
+      capability: "unverified",
+    },
+  ],
   // OpenCode는 프로젝트 신뢰 gate가 없다(조사 skills-and-guides 비교표).
   loading: {
     trust_gates: { mcp: false, skills: false, guide: false },

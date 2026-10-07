@@ -83,6 +83,9 @@ import {
 } from "../../packages/platform/secrets/mod.ts";
 import {
   connectionConnect,
+  connectionEndChild,
+  connectionEndConnection,
+  connectionRegisterChild,
   ticketUploadSummary,
 } from "../../packages/contracts/coding-agent/mod.ts";
 import { problemsUploadFixSummary } from "../../packages/contracts/problems/mod.ts";
@@ -91,6 +94,9 @@ import {
   type CodingCredentials,
   connectHandler,
   createCodingCredentials,
+  endChildHandler,
+  endConnectionHandler,
+  registerChildHandler,
   withRevocationSweep,
 } from "./coding-credential.ts";
 import { codingAgentOperationPolicies } from "./coding-operations.ts";
@@ -1130,6 +1136,8 @@ async function open(
           connectionTestSecrets,
         ),
         () => appsControl.connector.sweep(),
+        // 회수된 connection 아래 등록된 MCP·CLI child도 바로 닫는다(platform/identity#R15).
+        (connection) => coding?.authority.endConnection(connection),
       ),
       reads: runtime.reads,
       // 현재 보기 relay와 apps.connect(supervisor 메모리 관측을 읽는 제어 어댑터)다.
@@ -1143,6 +1151,19 @@ async function open(
             [
               `${connectionConnect.resource}/${connectionConnect.method}`,
               connectHandler(coding, () => runtime!.writer),
+            ] as const,
+            // 신뢰 감독(shell main, 사람 credential)이 TUI 아래 MCP·CLI child를 등록·해제한다.
+            [
+              `${connectionRegisterChild.resource}/${connectionRegisterChild.method}`,
+              registerChildHandler(coding),
+            ] as const,
+            [
+              `${connectionEndChild.resource}/${connectionEndChild.method}`,
+              endChildHandler(coding),
+            ] as const,
+            [
+              `${connectionEndConnection.resource}/${connectionEndConnection.method}`,
+              endConnectionHandler(coding),
             ] as const,
           ]
           : []),

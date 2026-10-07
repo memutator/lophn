@@ -118,7 +118,9 @@ export async function main(deps: MainDeps): Promise<void> {
   startDirectServer(started.state);
 }
 
-if (import.meta.main) {
+// 앱 프로세스를 띄운다. 직접 실행하면 이 파일이, 준비한 bundle의 진입 파일(`bundle/runtime-entry.ts`가 만든다)이면
+// 그 파일이 부른다. 시작이 실패하면 이유를 stderr로 알리고 끝난다.
+export async function run(): Promise<void> {
   const reason = await boot().catch((error: unknown) =>
     error instanceof Error ? error.message : String(error)
   );
@@ -127,6 +129,8 @@ if (import.meta.main) {
     Deno.exit(1);
   }
 }
+
+if (import.meta.main) await run();
 
 // supervisor(T8)와 test runner가 시작 입력을 stdin 한 줄로 준다. broker socket과 credential은 그
 // 줄에서, blueprint와 화면 자원은 `@lophn/app`이 가리키는 bundle 폴더에서 읽는다(앱 자식에는 env

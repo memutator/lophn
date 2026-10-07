@@ -5,6 +5,7 @@
 import { err, type Result } from "../../../base/mod.ts";
 import { devImportMap } from "../../sdk/mod.ts";
 import { lockAppImports, readSdkCopies } from "../bundle/lock.ts";
+import { runtimeEntry } from "../bundle/runtime-entry.ts";
 import {
   buildEnvironment,
   denoDirOf,
@@ -41,7 +42,8 @@ export type SourcePrepareDeps = PrepareDeps & {
   stepLimitMs?: number;
 };
 
-const ENTRYPOINT = "main.ts";
+// 앱의 진입 module이다. 앱 source에 있어야 하고 runtime entrypoint가 `@lophn/app`으로 불러 온다.
+const APP_MODULE = "main.ts";
 const STEP_LIMIT_MS = 120_000;
 
 function fail(
@@ -102,6 +104,7 @@ const EVAL_BLUEPRINT = new URL("../ui-build/eval-blueprint.ts", import.meta.url)
   .pathname;
 const APP_BUILD = new URL("../ui-build/app-build.ts", import.meta.url)
   .pathname;
+const PACKAGES_URL = new URL("../../../", import.meta.url).href;
 const REPO = new URL("../../../..", import.meta.url).pathname.replace(
   /\/$/,
   "",
@@ -155,6 +158,7 @@ export async function prepareFromSource(
   const limitMs = deps.stepLimitMs ?? STEP_LIMIT_MS;
   const sdkRoot = input.sdkRoot ?? `${input.dataRoot}/sdk`;
   const denoDir = denoDirOf();
+  const platformEntry = runtimeEntry(PACKAGES_URL);
   const aborted = () =>
     deps.signal?.aborted === true || deps.cancelled?.() === true;
   const extracted = await extractCommit(git, {
@@ -166,7 +170,7 @@ export async function prepareFromSource(
     extracted.value.find((file) => file.path === path);
   const config = find("deno.json");
   if (config === undefined) return fail("deno_json_missing");
-  if (find(ENTRYPOINT) === undefined) return fail("entrypoint_missing");
+  if (find(APP_MODULE) === undefined) return fail("entrypoint_missing");
   if (find("blueprint.ts") === undefined) return fail("blueprint_missing");
   let imports: Record<string, string>;
   try {
@@ -262,7 +266,8 @@ export async function prepareFromSource(
       app: input.app,
       sourceRoot: input.sourceRoot,
       commit: input.commit,
-      entrypoint: ENTRYPOINT,
+      entrypoint: platformEntry.entrypoint,
+      entryFiles: platformEntry.files,
       blueprintSource: evaluated.stdout.trim(),
       screens: screens.screens,
       assets: screens.assets,
@@ -274,7 +279,7 @@ export async function prepareFromSource(
         ...reactPins(imports),
       ],
       sdkCopies: copies.value,
-      lockedImports: locked.value.imports,
+      lockedImports: { ...locked.value.imports, ...platformEntry.imports },
     }, { ...deps, git, cancelled: aborted });
   } catch {
     return fail("staging_failed", "unavailable");

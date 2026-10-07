@@ -50,12 +50,21 @@ export const createBuiltinAssignmentInputSchema = z.strictObject({
   message: "builtin assignment scope is not all",
 });
 
+// AppCreated 반응 구독자다. notification 구독자와 같은 등록 규칙을 쓴다(R1).
+export const ASSIGNMENT_SUBSCRIBER = "lophn-agent-assignments";
+
 export const createAppEngineerAssignmentInputSchema = z.strictObject({
   id: idSchema("asg"),
   app_created_seq: seqSchema,
   app: idSchema("app"),
   preset: idSchema("pst"),
   preset_revision: positiveRevisionSchema,
+  // AppCreated 반응(assignment 생성)과 cursor 전진을 같은 transaction에 확정한다
+  // (architecture 5.10, createNotification과 같은 모양). 반응 없이 직접 내는
+  // 등록은 이 둘을 비워 둔다.
+  processed_through_seq: seqSchema.optional(),
+  // cursor CAS가 자기 구독자를 input에서 읽는다(events advance-cursor와 같은 모양).
+  subscriber: z.literal(ASSIGNMENT_SUBSCRIBER).optional(),
 });
 
 export const applyOperatorAssignmentInputSchema = z.strictObject({
@@ -83,11 +92,16 @@ export const changeAssignmentPresetCompareSchema = z.strictObject({
 export const pauseAssignmentInputSchema = z.strictObject({
   assignment: idSchema("asg"),
   reason: pauseReasonSchema,
+  // AppArchived 반응의 멈춤과 cursor 전진을 같은 transaction에 확정한다(R1).
+  // 반응 없이 내는 멈춤은 이 둘을 비워 둔다.
+  processed_through_seq: seqSchema.optional(),
+  subscriber: z.literal(ASSIGNMENT_SUBSCRIBER).optional(),
 });
 
 export const pauseAssignmentCompareSchema = z.strictObject({
   revision: positiveRevisionSchema,
   state: z.literal("enabled"),
+  processed_through_seq: seqSchema.optional(),
 });
 
 export const resumeAssignmentInputSchema = z.strictObject({
@@ -120,12 +134,18 @@ export const createBuiltinAssignment = defineCommand({
   errors: [...errors],
 });
 
+// 반응 command의 비교 기준은 기록된 cursor다(R1, createNotification과 같은 모양).
+export const createAppEngineerAssignmentCompareSchema = z.strictObject({
+  processed_through_seq: seqSchema.optional(),
+});
+
 export const createAppEngineerAssignment = defineCommand({
   resource: "assignments",
   method: "create-app-engineer",
   name: "CreateAppEngineerAssignment",
   input: createAppEngineerAssignmentInputSchema,
   output: assignmentResult,
+  compare: createAppEngineerAssignmentCompareSchema,
   actors: ["machine"],
   errors: [...errors],
 });

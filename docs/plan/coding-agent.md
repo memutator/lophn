@@ -863,6 +863,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T25 MCP·CLI ticket tool: 완료 보고·사람의 생성과 취소
 
+- 상태: 완료 (#429) — 정한 것: report 입력은 summary 본문(통로가 upload_summary로 올림)이고 `ticketReportToolInputSchema`로 MCP·CLI가 같다. CLI `ticket create|cancel`은 core에 쓰지 않고 결정 화면 링크(`applied:false`)로 넘기며(Q1) 연결 참조로 시작하면 forbidden이다. 이어보냄: 결정 화면의 취소·생성 열기 → shell#T50, fake coding agent를 new-app·change-app E2E에서 쓰기 → apps#T27
 - 등급: 좁은
 - concern: coding-agent/mcp-server, coding-agent/cli
 - 요구: coding-agent/mcp-server#R27, R28; coding-agent/cli#R36, R37
@@ -1526,6 +1527,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T43 repair context 예산·추가 근거·cursor·이미지
 
+- 상태: 완료 (#435) — 전체 경로는 owner 작업이 있어야 한다: source diff 근거는 apps release read가 첫 발생 전·현재 고정 release의 보존 source 참조를 내야 하고(지금은 이유만), image 내용은 platform redaction이 image/png를 지원해야 한다(지금은 허용 첨부 열기 참조·종류·크기만). 좁은 본문 읽기 `problems.report_body`는 report_text·snapshot_logs와 R15 screen용 feedback_state를 연다
 - 등급: 기본
 - concern: coding-agent/repair-context
 - 요구: coding-agent/repair-context#R11, R12, R15, R16, R17, R19

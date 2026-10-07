@@ -27,4 +27,5 @@ export {
   BUILTIN_ROLES,
   type BuiltinRole,
   productPresetDefinition,
+  type ProductRole,
 } from "./defaults.ts";

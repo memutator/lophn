@@ -60,6 +60,11 @@ import {
   runSessionObserve,
   runSessionPlan,
 } from "../../packages/coding-agent/cli/commands/session.ts";
+import {
+  runTicketWrite,
+  ticketHumanOnly,
+  type TicketWriteName,
+} from "../../packages/coding-agent/cli/commands/ticket.ts";
 import { findCommand } from "../../packages/coding-agent/cli/registry.ts";
 import {
   catalogOf,
@@ -372,13 +377,21 @@ export async function runCliCommand(
       input as { connection: ConnectionId; base_revision: string },
     ));
   }
-  if (name.startsWith("ticket ") && entry.monoRoute === undefined) {
-    // claim·renew·release·report는 MCP의 `lophn_ticket`에만 둔다. CLI는 안내만 한다(mcp#R27).
+  if (name === "ticket create" || name === "ticket cancel") {
+    // 사람 전용이다. 연결 참조(coding credential)가 있으면 실행 전 거절이고, 사람은 결정 화면
+    // 링크를 받는다(cli#R37, 질문 Q1).
+    return ticketHumanOnly(name, input, {
+      actor: runtime.actor,
+      connected: runtime.client !== undefined,
+    });
+  }
+  if (name === "ticket claim") {
+    // claim은 MCP의 `lophn_ticket`에만 둔다. CLI는 안내만 한다(cli#R41, mcp#R27).
     return ok({
       summary: `${name}은 MCP 연결에서만 한다`,
       data: { command: name, mcp_only: true },
       next: [
-        "MCP의 lophn_ticket으로 claim·보고한다. CLI는 지정 ticket 읽기만 한다",
+        "MCP의 lophn_ticket으로 claim한다. CLI는 지정 ticket 읽기·갱신·반납·완료 보고를 한다",
       ],
       isError: true,
     });
@@ -513,6 +526,16 @@ export async function runCliCommand(
       { client, idempotencyKey: idempotency },
     );
     return ran.ok ? ok(ran.value) : ran;
+  }
+  if (
+    name === "ticket renew" || name === "ticket release" ||
+    name === "ticket report"
+  ) {
+    const ran = await runTicketWrite(name as TicketWriteName, input, {
+      client,
+      idempotencyKey: idempotency,
+    });
+    return ok(ran);
   }
   if (name.startsWith("sdk ")) {
     // `apply`는 앱 source의 deno.json·deno.lock만 정확한 경로 권한으로 쓰는 CLI 전용 port다. MCP에는

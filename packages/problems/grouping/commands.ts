@@ -242,14 +242,12 @@ export function handleLinkProblemInterpretation(
   ) {
     return notFound();
   }
-  const current: Link | null = row["interpretation_version"] === null
-    ? null
-    : {
-      version: String(row["interpretation_version"]),
-      section: row["interpretation_section"] === null
-        ? null
-        : String(row["interpretation_section"]),
-    };
+  const current: Link | null = row["interpretation_version"] === null ? null : {
+    version: String(row["interpretation_version"]),
+    section: row["interpretation_section"] === null
+      ? null
+      : String(row["interpretation_section"]),
+  };
   // 같은 이전 상태를 읽은 두 변경 중 뒤의 것이 낡았다(R14).
   if (problemSeq(tx.sql, input.problem) !== compare.problem_seq) {
     return conflict("문제가 바뀌었다");

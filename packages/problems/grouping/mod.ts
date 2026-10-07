@@ -29,6 +29,6 @@ export {
   WORK_EVENT_TYPES,
   WORK_SUBSCRIBER,
   type WorkEvent,
-  type WorkReactionPorts,
   workReactionKey,
+  type WorkReactionPorts,
 } from "./work.ts";

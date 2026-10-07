@@ -44,7 +44,9 @@ export type WorkEvent = {
 export type WorkReactionPorts = {
   // cursor 뒤(seq > after)의 보이는 ticket event를 읽는다. ListEvents와 같은 모양이다.
   events(after: string, types: readonly string[]): Promise<
-    Result<{ events: WorkEvent[]; scanned_through_seq: string; head_seq: string }>
+    Result<
+      { events: WorkEvent[]; scanned_through_seq: string; head_seq: string }
+    >
   >;
   // 문제의 현재 기준(seq·work). 없거나 범위 밖이면 null이다.
   problem(
@@ -104,7 +106,9 @@ async function reconcileOne(
     if (done.ok) return ok(undefined);
     // 이 ticket이 문제와 맞지 않거나(범위 밖·repair 아님) 열린 ticket이 둘이 되는 연결은 반응하지
     // 않는 사실로 확인하고 넘어간다. 낡은 기준이면 다시 읽는다. 나머지는 멈춘다.
-    if (done.error.code === "not_found" || done.error.code === "invalid_input") {
+    if (
+      done.error.code === "not_found" || done.error.code === "invalid_input"
+    ) {
       return ok(undefined);
     }
     if (done.error.code !== "conflict") return done;

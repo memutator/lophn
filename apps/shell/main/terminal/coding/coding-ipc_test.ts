@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { TerminalReply, TerminalRuntime } from "../../../ipc/terminal.ts";
-import { createChildRegistrar } from "../coding-children.ts";
+import { createChildRegistrar } from "./coding-children.ts";
 import {
   createCodingStart,
   createObservationStore,

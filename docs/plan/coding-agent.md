@@ -1481,6 +1481,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T42 repair context 조립과 대표 근거
 
+- 상태: 완료 (#427)
 - 등급: 기본
 - concern: coding-agent/repair-context
 - 요구: coding-agent/repair-context#R1, R2, R3, R4, R5, R6, R7, R8, R9, R10,

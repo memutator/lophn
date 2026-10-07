@@ -319,6 +319,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
   - failures_test.ts에 R19–R24 테스트: 일시 실패(연결·단절·500·502·503·529·retry 시각 30초 이내 429), retry-after-ms → retry-after(숫자·HTTP-date) → reset header 순서 해석, credential 사용 불가(인증 거절·잔액·지출 한도·30초 초과 또는 미상 429)와 SuperGrok 요금제 403을 인증 폐기와 구별, model 사용 불가는 그 credential+model만, 문맥 초과·사람 취소·응답 거절 구별, 문맥 초과를 알리지 않는 provider는 원인 불명(질문 Q5), 원인 불명을 인증 실패로 추측하지 않음, 오류 본문 보존 없음, usage_wait는 reset까지 또는 1시간이고 그동안 test 없음
   - credentials_test.ts에 R10, R27 테스트: 첫 usable credential affinity, 고정 목록 뒤 계정만, 하나면 이동 없음, 앞 계정으로 돌아가지 않음, 다른 provider·model 자동 이동 없음, API key는 API 과금·ChatGPT와 SuperGrok OAuth는 구독으로 구별하고 청구 미확정은 모름
   - connection_test_test.ts에 R29, R30 테스트: 명시 요청만, 설정 조회로 test 없음, 고정 test 재료(text·tool call), 30초 상한, 사용량 기록, 세션·문서를 재료로 보내지 않음
+  - 후속 (#419): 기본 provider 목록과 연결 test route
 
 ### T16 구독 OAuth 로그인과 token 갱신
 

@@ -12,10 +12,6 @@ import {
   ticketSchemaSteps,
 } from "../../packages/coding-agent/mod.ts";
 import {
-  releaseActivated,
-  releaseSuperseded,
-} from "../../packages/contracts/apps/mod.ts";
-import {
   ticketCheckFailed,
   ticketCompletionReported,
   ticketConfirmed,
@@ -68,8 +64,6 @@ export function createEventRegistration(): EventRegistration {
       notificationsOnlyVisibility(ticketCheckFailed),
       // checker를 깨우는 event. checker 구독자(machine:ticket-check-feed)에게만 열린다.
       ticketCheckFeedVisibility(ticketCompletionReported),
-      ticketCheckFeedVisibility(releaseActivated),
-      ticketCheckFeedVisibility(releaseSuperseded),
     ],
   };
 }

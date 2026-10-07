@@ -20,6 +20,10 @@ export function serveTestAppSocket(options: {
   path: string;
   invoke: TestAppInvoke;
 }): TestAppSocket {
+  // 같은 자리를 쓰던 이전 자식이 끝나며 남긴 socket 파일은 새로 듣기 전에 지운다.
+  try {
+    Deno.removeSync(options.path);
+  } catch { /* 남은 파일이 없다 */ }
   const server = Deno.serve({ path: options.path, onListen() {} }, async (
     request,
   ) => {

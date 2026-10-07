@@ -33,11 +33,21 @@ for (const route of ALL_ROUTES) {
   }
   if (route.kind !== "read" && route.kind !== "command") continue;
   if (route.resource === "identity" && route.method === "issue") continue;
+  // 연결 생성은 renderer가 token 검증 hash를 직접 낼 수 없으므로 renderer allowlist에 없다. 연결은
+  // main의 고정 연결 intent(CONNECTION_INTENT)로만 만든다(desktop#R19).
+  if (
+    route.resource === "coding_agent_connections" && route.method === "create"
+  ) {
+    continue;
+  }
   ALLOWED.add(`${route.kind}:${route.resource}/${route.method}`);
 }
 
-/** 고정 연결 intent는 연결 화면만 검증해서 부른다(desktop#R19). */
-export const CONNECTION_INTENT = "command:coding_agent_connections/create";
+/**
+ * 고정 연결 intent가 부르는 core route(사람 credential, memory route)다. renderer는 이 이름을 부를 수 없고
+ * main의 연결 모듈(desktop/coding-connection.ts)이 renderer의 고정 intent를 따로 검증한 뒤에만 부른다(desktop#R19).
+ */
+export const CONNECTION_INTENT = "memory:coding_agent_connections/connect";
 
 export function lookupCall(
   kind: string,

@@ -56,13 +56,24 @@ export interface AppIssueIntent {
   readonly problem: string;
 }
 
+/**
+ * `lophn://things-to-confirm/<cac|tkt|app id>` 링크(coding agent 회수·취소·생성). target은 연결(`cac_`)·
+ * Task(`tkt_`)·앱(`app_`) 하나이고 renderer가 그 대상의 화면을 연다. 결정 창은 사람이 그 화면에서 누를 때 연다.
+ */
+export interface CodingTargetIntent {
+  readonly kind: "coding";
+  readonly target: string;
+}
+
 export type DesktopIntent =
   | typeof DESKTOP_INTENTS[number]
   | ConfirmTargetIntent
-  | AppIssueIntent;
+  | AppIssueIntent
+  | CodingTargetIntent;
 
 const CONFIRM_TARGET = /^(?:apr|qst)_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
 const APP_ID = /^app_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
+const CODING_TARGET = /^(?:cac|tkt|app)_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
 const PROBLEM_ID = /^prb_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
 
 export function isDesktopIntent(value: unknown): value is DesktopIntent {
@@ -75,6 +86,10 @@ export function isDesktopIntent(value: unknown): value is DesktopIntent {
     return Object.keys(target).sort().join(",") === "app,kind,problem" &&
       typeof target.app === "string" && APP_ID.test(target.app) &&
       typeof target.problem === "string" && PROBLEM_ID.test(target.problem);
+  }
+  if (target.kind === "coding") {
+    return Object.keys(target).sort().join(",") === "kind,target" &&
+      typeof target.target === "string" && CODING_TARGET.test(target.target);
   }
   return Object.keys(target).sort().join(",") === "kind,request" &&
     target.kind === "things-to-confirm" &&

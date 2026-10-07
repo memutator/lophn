@@ -120,7 +120,8 @@ export interface FlowOptions {
     | "conversation"
     | "things-to-confirm"
     | "instructions:global"
-    | `project:${string}`;
+    | `project:${string}`
+    | `app:${string}`;
   /** 이미 있는 데이터 root를 다시 연다(core를 다시 띄운 뒤에도 남는 것을 본다). */
   home?: string;
 }

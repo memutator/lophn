@@ -1,6 +1,11 @@
 import { z } from "zod";
 import { getProblem, getSnapshot, listProblems } from "../problems/mod.ts";
-import { listProblemFixes, recordProblemFix } from "../problems/fixes.ts";
+import {
+  listProblemFixes,
+  recordProblemFix,
+  recordProblemFixToolInputSchema,
+} from "../problems/fixes.ts";
+import { idSchema, seqSchema } from "../platform/mod.ts";
 import { requestTest } from "../problems/tests.ts";
 import {
   repairContextBundle,
@@ -10,18 +15,35 @@ import {
 import { readOnlyHint, type ScopeMark, type Toolset } from "./output.ts";
 import { cliCommonSchema } from "./cli-core.ts";
 
+// 처리 대상이다. 사람이 조정할 문제(선언의 fixer가 user)와 coding agent가 고칠 문제를 나눈다.
+// owner list read에는 이 filter가 없어 통로가 문제 요약의 next_action으로 가른다(mcp#R24).
+export const PROBLEM_HANDLERS = ["user", "coding_agent"] as const;
+export const problemHandlerSchema = z.enum(PROBLEM_HANDLERS);
+
+// record_fix·test의 근거 ticket claim이다. 지정 ticket의 현재 claim이 아니면 쓰지 않는다
+// (mcp#R25, cli#R34). 문제 직접 claim·별도 시도 단계는 입력에 없다.
+export const problemTicketSourceSchema = z.strictObject({
+  ticket: idSchema("tkt"),
+  claim_seq: seqSchema,
+});
+export type ProblemTicketSource = z.infer<typeof problemTicketSourceSchema>;
+
+const listExtra = { handler: problemHandlerSchema.optional() };
+const testExtra = { ticket_source: problemTicketSourceSchema };
+
 // tool 입력은 owner route 입력을 다시 적지 않고 고른다(mcp-core·mcp-decisions 같은
-// 모양). state·handler 같은 filter 이름도 owner 것이 그대로다.
+// 모양). state 같은 filter 이름도 owner 것이 그대로다. record_fix는 summary 본문을 받고
+// 통로가 준비 증거를 만든다(ticket report와 같은 모양).
 const problemInput = z.discriminatedUnion("op", [
-  listProblems.input.extend({ op: z.literal("list") }),
+  listProblems.input.extend({ ...listExtra, op: z.literal("list") }),
   getProblem.input.extend({ op: z.literal("show") }),
   getSnapshot.input.extend({ op: z.literal("snapshot") }),
   listProblemFixes.input.extend({ op: z.literal("fix_records") }),
   repairContextSummary.input.extend({ op: z.literal("summary") }),
   repairContextBundle.input.extend({ op: z.literal("bundle") }),
   repairContextMore.input.extend({ op: z.literal("more") }),
-  recordProblemFix.input.extend({ op: z.literal("record_fix") }),
-  requestTest.input.extend({ op: z.literal("test") }),
+  recordProblemFixToolInputSchema.extend({ op: z.literal("record_fix") }),
+  requestTest.input.extend({ ...testExtra, op: z.literal("test") }),
 ]);
 
 export const MCP_PROBLEM_TOOLS = [
@@ -79,11 +101,16 @@ const common = cliCommonSchema.shape;
 const withCommon = <T extends z.ZodRawShape>(
   command: string,
   input: z.ZodObject<T>,
+  extra: Record<string, z.ZodType> = {},
 ) => {
   const extensible = input as z.ZodObject<T> & {
     safeExtend: (schema: Record<string, z.ZodType>) => z.ZodObject<T>;
   };
-  return extensible.safeExtend({ command: z.literal(command), ...common });
+  return extensible.safeExtend({
+    ...extra,
+    command: z.literal(command),
+    ...common,
+  });
 };
 
 // MCP가 고른 op 밖의 command를 만들지 않는다(cli-decisions 같은 모양). 위치 인자가
@@ -91,6 +118,7 @@ const withCommon = <T extends z.ZodRawShape>(
 export const cliProblemListSchema = withCommon(
   "problem list",
   listProblems.input,
+  listExtra,
 );
 export const cliProblemShowSchema = withCommon(
   "problem show",
@@ -119,11 +147,12 @@ export const cliProblemMoreSchema = withCommon(
 // coding 쓰기는 현재 ticket·claim_seq 필수다(repair-context#R25).
 export const cliProblemRecordFixSchema = withCommon(
   "problem record-fix",
-  recordProblemFix.input,
+  recordProblemFixToolInputSchema,
 );
 export const cliProblemTestSchema = withCommon(
   "problem test",
   requestTest.input,
+  testExtra,
 );
 
 // 허용된 첨부의 로컬 열기다. 운영 경로 대신 안전한 참조를 받고 scope·redaction 검사는

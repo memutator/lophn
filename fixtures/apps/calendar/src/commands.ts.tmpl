@@ -1,5 +1,5 @@
 // blueprint에 선언한 command의 handler. 선언한 key와 등록한 handler가 같아야 준비가 끝난다.
-import { command, CommandRejection, readResult } from "@lophn/cap-schedule";
+import { command, CommandRejection, readResult, withRevert } from "@lophn/cap-schedule";
 import { createNetClient, type NetClient } from "@lophn/cap-net";
 import { createSecretClient, type SecretClient } from "@lophn/cap-secret";
 import { openStore, type Store } from "@lophn/cap-store";
@@ -11,7 +11,9 @@ import {
   ensureSchema,
   listEvents,
   normalizeStart,
-  removeEvent,
+  eventChange,
+  revertEvent,
+  type RevertInput,
   saveExternal,
 } from "./events.ts";
 import { createExternalEvent, fetchExternalEvents } from "./external.ts";
@@ -89,22 +91,26 @@ export function addEventHandler(deps: Deps = defaults) {
     return await withStore(
       deps,
       "add_event",
-      (store) => addEvent(store, event.title, event.starts_at, deps.now()),
+      (store) => store.transaction(() => {
+        const added = addEvent(store, event.title, event.starts_at, deps.now());
+        return withRevert(added, eventChange(store, added.id));
+      }),
     );
   };
 }
 
-// add_event를 되돌린다. 만든 일정의 id만 지운다.
+// add_event의 invocation·receipt·revision이 그대로일 때만 만든 일정을 되돌린다.
 export function revertEventHandler(deps: Deps = defaults) {
   return async (input: unknown) => {
-    const id = (input as { id?: unknown } | null)?.id;
-    if (typeof id !== "number" || !Number.isInteger(id) || id < 1) {
-      throw new CommandRejection("invalid_input", "the event id is invalid");
+    const value = input as Partial<RevertInput> | null;
+    if (!value || typeof value.invocation !== "string" ||
+      typeof value.receipt !== "string" || typeof value.expected_revision !== "string") {
+      throw new CommandRejection("invalid_input", "the revert evidence is invalid");
     }
     return await withStore(
       deps,
       "revert_event",
-      (store) => ({ removed: removeEvent(store, id) }),
+      (store) => revertEvent(store, value as RevertInput),
     );
   };
 }

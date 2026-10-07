@@ -38,6 +38,8 @@ export type RunVerdict = {
   outcome: ChildOutcome | null;
   // stdout의 pass 문자열은 판정에 쓰지 않는다.
   used_stdout: false;
+  started_at: string;
+  frames: SideObservations["frames"];
 };
 
 const NOT_STARTED = "시작 시도가 확정되지 않아 실행하지 않았다";
@@ -90,7 +92,27 @@ export async function runPrepared(
   const outcome = await child.value.finished();
   const sides: Record<ObservationSide, SideObservations> = emptySides();
   let bad = false;
-  for (const frame of options.frames ?? []) {
+  let frames = options.frames;
+  if (frames === undefined) {
+    // 자식 scratch만 읽는다. stdout은 관측 통로가 아니다.
+    const path = `${request.prepare.scratch}/frames.jsonl`;
+    frames = [];
+    try {
+      const stat = await Deno.lstat(path);
+      if (!stat.isFile || stat.size > 1_048_576 + 65_536) {
+        bad = true;
+      } else {
+        const text = await Deno.readTextFile(path);
+        if (!text.endsWith("\n")) bad = true;
+        frames = text.trimEnd().split("\n").map((line) =>
+          new TextEncoder().encode(line)
+        );
+      }
+    } catch {
+      bad = true;
+    }
+  }
+  for (const frame of frames) {
     if (!acceptFrame(sides, frame).ok) bad = true;
   }
   const observed = sideVerdict(sides[request.side], request.test_hash);
@@ -108,6 +130,8 @@ export async function runPrepared(
       mode: child.value.mode,
       outcome,
       used_stdout: false,
+      started_at: child.value.started_at,
+      frames: sides[request.side].frames,
     });
   }
   const expected = options.expected_exit_code ?? 0;
@@ -118,6 +142,8 @@ export async function runPrepared(
     mode: child.value.mode,
     outcome,
     used_stdout: false,
+    started_at: child.value.started_at,
+    frames: sides[request.side].frames,
   });
 }
 

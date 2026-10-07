@@ -78,4 +78,23 @@ export {
   type StdioSpawn,
   type StdioSpawnInput,
 } from "./adapters/mcp-stdio.ts";
+export {
+  assignExternalToolNames,
+  baseExternalToolName,
+  buildMcpTools,
+  classificationOf,
+  createMcpToolHandlers,
+  EXTERNAL_TOOL_CONTRACT,
+  EXTERNAL_TOOL_PREFIX,
+  type ExternalTool,
+  externalToolHashSuffix,
+  type McpCallOutcome,
+  type McpInvokeCall,
+  type McpSelection,
+  type McpToolCall,
+  mcpToolDefinitionHash,
+  type McpToolEntry,
+  type McpToolsSource,
+  widestEffect,
+} from "./mcp-tools.ts";
 export { createMcpSecretRefSource, MCP_SECRET_OWNER } from "./secret-refs.ts";

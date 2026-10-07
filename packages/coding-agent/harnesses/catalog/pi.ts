@@ -83,9 +83,50 @@ export const pi: HarnessDefinition = {
   instructions: [
     { marker: "lophn-managed-instruction", file: "AGENTS.md" },
   ],
-  // pi extension event는 `session_start` 등의 union이다(조사 9.5). loader
-  // 디렉터리가 [미확인]이라 lophn이 쓰는 검증 version이 없어 두지 않는다(R11).
-  hooks: [],
+  // pi extension event는 `session_start` 등의 union이다(조사 9.5). extension 하나가 아래 event를
+  // 받아 `session observe`로 넘긴다. loader 디렉터리가 [미확인]이라 검증 version이 없어 unverified이고
+  // 설치하지 않는다(R11).
+  hooks: [
+    {
+      event: "session_start",
+      target: {
+        scope_kind: "user",
+        root_resolver: "home",
+        path: ".pi/agent/extensions/lophn-status.ts",
+      },
+      purpose: "status",
+      method: "extension",
+      owned_identity: "session_start.lophn",
+      minimum_version: null,
+      capability: "unverified",
+    },
+    {
+      event: "agent_start",
+      target: {
+        scope_kind: "user",
+        root_resolver: "home",
+        path: ".pi/agent/extensions/lophn-status.ts",
+      },
+      purpose: "status",
+      method: "extension",
+      owned_identity: "agent_start.lophn",
+      minimum_version: null,
+      capability: "unverified",
+    },
+    {
+      event: "agent_settled",
+      target: {
+        scope_kind: "user",
+        root_resolver: "home",
+        path: ".pi/agent/extensions/lophn-status.ts",
+      },
+      purpose: "status",
+      method: "extension",
+      owned_identity: "agent_settled.lophn",
+      minimum_version: null,
+      capability: "unverified",
+    },
+  ],
   // `<cwd>/.pi/mcp.json`과 `.pi`·`.agents/skills`는 project trust 뒤에 읽고
   // 깨진 mcp.json은 파일 전체를 건너뛴다(조사 9.1·skills-and-guides).
   loading: {

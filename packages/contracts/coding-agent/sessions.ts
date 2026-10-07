@@ -144,6 +144,79 @@ export const observeEnvelopeSchema = z.object({
 
 export type ObserveEnvelope = z.infer<typeof observeEnvelopeSchema>;
 
+// 관측이 이 시간보다 오래되면 현재 상태는 unknown이다(sessions#R6). 무호출이 오래된 것을 process 종료나
+// idle로 추정하지 않으려는 보수 값이고 adapter별 값은 검증 뒤에 정한다.
+export const OBSERVATION_STALE_AFTER_MS = 15 * 60_000;
+
+// 지금 보이는 상태다. 관측이 없거나 낡았거나 수집이 끊겼으면 unknown이다(R6, R10). ended는 낡아도 ended다.
+export function observationAt(
+  observation: HarnessSessionObservation | null,
+  now: string,
+): { state: SessionState; freshness: Freshness; reason: string | null } {
+  if (observation === null) {
+    return { state: "unknown", freshness: "stale", reason: "관측이 없다" };
+  }
+  if (observation.state === "ended") {
+    return { state: "ended", freshness: observation.freshness, reason: null };
+  }
+  if (observation.freshness === "stale") {
+    return {
+      state: "unknown",
+      freshness: "stale",
+      reason: observation.reason ?? "낡은 관측이다",
+    };
+  }
+  const age = Date.parse(now) - Date.parse(observation.observed_at);
+  if (!(age <= OBSERVATION_STALE_AFTER_MS)) {
+    return { state: "unknown", freshness: "stale", reason: "관측이 낡았다" };
+  }
+  return {
+    state: observation.state,
+    freshness: "fresh",
+    reason: observation.reason,
+  };
+}
+
+// 같은 runtime_ref·generation의 새 관측을 받는다. ended는 늦은 작업 event로 되살리지 않고, 새 관측에 ID
+// evidence가 없으면 지난 evidence를 지키며 지우지 않는다(R6, R7).
+export function acceptObservation(
+  current: HarnessSessionObservation | null,
+  incoming: HarnessSessionObservation,
+): HarnessSessionObservation {
+  if (current === null) return incoming;
+  if (current.state === "ended") return current;
+  if (incoming.provider_session === null && current.provider_session !== null) {
+    return { ...incoming, provider_session: current.provider_session };
+  }
+  return incoming;
+}
+
+// 연결된 process가 끝났다는 host evidence다. ticket 완료나 claim 해제가 아니다(R6, R9).
+export function endedByProcessExit(
+  current: HarnessSessionObservation,
+  now: string,
+): HarnessSessionObservation {
+  return {
+    ...current,
+    state: "ended",
+    observed_at: now,
+    evidence_source: "process",
+    evidence_ref: "process-exit",
+    freshness: "fresh",
+    reason: null,
+  };
+}
+
+// 수집 끊김·lophn 재시작 같은 이유로 지금 모른다는 표시다. 마지막 evidence는 지난 값으로 남고 ended는 그대로다
+// (R6, R10).
+export function unknownObservation(
+  current: HarnessSessionObservation,
+  reason: string,
+): HarnessSessionObservation {
+  if (current.state === "ended") return current;
+  return { ...current, state: "unknown", freshness: "stale", reason };
+}
+
 // `/v1/coding_agent_sessions/summary` 요청 입력(architecture 5.3). app 단위 paging
 // cursor를 받는다.
 export const CodingAgentSessionSummaryInputSchema = z.strictObject({

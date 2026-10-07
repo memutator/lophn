@@ -3,7 +3,11 @@
 import { assert, assertEquals } from "@std/assert";
 
 import { ALL_ROUTES } from "../../../../../../packages/contracts/mod.ts";
-import { mcpServersSetting } from "../../../../../../packages/contracts/lophn-agent/mod.ts";
+import {
+  connectionTest,
+  mcpServersSetting,
+  providerDefinitions,
+} from "../../../../../../packages/contracts/lophn-agent/mod.ts";
 import type { CoreCall } from "../../../../ipc/core.ts";
 import type { CoreReply } from "../../../../ipc/core-api.ts";
 import type { CoreSource } from "../../connection/connection.ts";
@@ -94,7 +98,50 @@ const OPTIONS = {
   picker: undefined,
   now: () => NOW,
   random: () => "r1",
+  providerId: () => NEW_PVD,
 };
+
+const NEW_PVD = "pvd_01h455vb4pex5v6nkc6gd5fd09";
+
+const OAUTH = {
+  product: "chatgpt",
+  flow: "device_code_then_pkce_paste_url",
+  issuer: "https://auth.example.com",
+  authorization_endpoint: "https://auth.example.com/authorize",
+  token_endpoint: "https://auth.example.com/token",
+  allowed_call_origins: ["https://chatgpt.example.com"],
+  scopes: ["openid"],
+  verified_for_lophn: false,
+};
+
+/** `providers/definitions`의 내장 정의 모양. 답은 route output schema를 통과해야 한다. */
+function builtin(key: string, over: object = {}) {
+  return {
+    key,
+    display_name: key.toUpperCase(),
+    protocols: ["openai-chat-completions"],
+    auth_kinds: ["api_key"],
+    models_endpoint: `https://api.${key}.example.com/v1/models`,
+    oauth: null,
+    revision: "2026-10",
+    ...over,
+  };
+}
+
+const DEFINITIONS = [
+  builtin("claude-def", {
+    protocols: ["anthropic-messages"],
+    auth_kinds: ["api_key", "oauth"],
+    oauth: { ...OAUTH, product: "chatgpt" },
+  }),
+  builtin("openai", {
+    protocols: ["openai-responses", "openai-chat-completions"],
+    auth_kinds: ["api_key", "oauth"],
+    oauth: OAUTH,
+  }),
+  builtin("groq"),
+  builtin("ollama", { auth_kinds: ["none"], models_endpoint: null }),
+];
 
 Deno.test("shell/wording#R10: 연결 목록은 contract가 알려 준 인증 방식만 정해진 순서로 옮기고 secret 참조를 화면 값에 싣지 않는다", async () => {
   const { core, calls } = fakeCore({
@@ -121,10 +168,14 @@ Deno.test("shell/wording#R10: 연결 목록은 contract가 알려 준 인증 방
           })],
           next_cursor: null,
         }),
+    "read:providers/definitions": () => ok({ definitions: DEFINITIONS }),
   });
   const result = await coreSettingsSource(core, OPTIONS).providers();
   assert(result.ok);
-  assertEquals(calls.map((call) => call.body), [{}, { cursor: "c1" }]);
+  assertEquals(calls.map((call) => call.body), [{}, { cursor: "c1" }, {}]);
+  assert(
+    providerDefinitions.output.safeParse({ definitions: DEFINITIONS }).success,
+  );
   const [claude, local] = result.value;
   assertEquals(claude!.ways, ["oauth", "api_key", "none"]);
   assertEquals(claude!.signIn, { verified: false });
@@ -139,6 +190,150 @@ Deno.test("shell/wording#R10: 연결 목록은 contract가 알려 준 인증 방
   ]);
   assert(!JSON.stringify(result.value).includes("sealed-value"));
   assert(!JSON.stringify(result.value).includes("f".repeat(64)));
+  // 등록한 연결이 쓰지 않는 내장 정의만 연결 가능한 행으로 더한다. 계정·확인 기록·secret은 없다.
+  assertEquals(result.value.map((row) => [row.id, row.registered]), [
+    [PVD, true],
+    ["pvd_01h455vb4pex5v6nkc6gd5fd02", true],
+    ["definition:openai", false],
+    ["definition:groq", false],
+    ["definition:ollama", false],
+  ]);
+  const [openai, groq, ollama] = result.value.slice(2);
+  assertEquals(openai!.ways, ["oauth", "api_key"]);
+  assertEquals(openai!.signIn, { verified: false });
+  assertEquals(groq!.ways, ["api_key"]);
+  assertEquals(groq!.signIn, null);
+  assertEquals([ollama!.ways, ollama!.local], [["none"], true]);
+  assertEquals(openai!.accounts, []);
+  assertEquals(openai!.lastCheck, null);
+});
+
+Deno.test("shell/wording#R10: 등록한 연결이 없는 처음 설치에서도 내장 정의가 연결 목록이 되고 정의를 못 읽으면 그 오류가 간다", async () => {
+  const fresh = fakeCore({
+    "read:providers/list": () => ok({ providers: [], next_cursor: null }),
+    "read:providers/definitions": () => ok({ definitions: DEFINITIONS }),
+  });
+  const rows = await coreSettingsSource(fresh.core, OPTIONS).providers();
+  assert(rows.ok);
+  assertEquals(
+    rows.value.map((row) => row.definition),
+    ["claude-def", "openai", "groq", "ollama"],
+  );
+  assert(
+    rows.value.every((row) => !row.registered && row.accounts.length === 0),
+  );
+  const noDefinitions = fakeCore({
+    "read:providers/list": () => ok({ providers: [], next_cursor: null }),
+  });
+  assertEquals(
+    await coreSettingsSource(noDefinitions.core, OPTIONS).providers(),
+    { ok: false, code: "not_found" },
+  );
+});
+
+Deno.test("platform/secrets#R2, shell/wording#R10: 등록 전 정의에서 key를 연결하면 사람 command로 provider를 먼저 등록하고 값 없는 보호 창만 연다", async () => {
+  const { core, calls } = fakeCore({
+    "read:providers/definitions": () => ok({ definitions: DEFINITIONS }),
+    "command:providers/register": () => ok({ provider: {} }),
+  });
+  const sent: { request: Record<string, unknown> }[] = [];
+  const source = coreSettingsSource(core, {
+    ...OPTIONS,
+    openWindow: (intent) => {
+      sent.push(intent as typeof sent[number]);
+      return Promise.resolve({ windowId: "w1", displayId: "d1" });
+    },
+  });
+  assertEquals(await source.connectKey("definition:groq", "Work"), {
+    ok: true,
+    value: null,
+  });
+  const register = calls.find((call) => call.method === "register")!;
+  assertEquals(register.kind, "command");
+  const body = register.body as {
+    input: Record<string, unknown>;
+    idempotency_key: string;
+  };
+  assertEquals(body.input.id, NEW_PVD);
+  assertEquals(body.input.name, "GROQ");
+  assertEquals(body.input.endpoint, "https://api.groq.example.com/v1");
+  assertEquals(body.input.protocol, "openai-chat-completions");
+  assertEquals(
+    body.input.definition,
+    DEFINITIONS.find((entry) => entry.key === "groq"),
+  );
+  assertEquals(sent.map((item) => item.request.owner), [NEW_PVD]);
+  assert(!JSON.stringify([calls, sent]).includes("secret_ref"));
+  // 같은 행을 다시 누르면 다시 등록하지 않는다. 로그인 응답과 취소도 등록한 id를 쓴다.
+  await source.connectKey("definition:groq", "Spare");
+  assertEquals(calls.filter((call) => call.method === "register").length, 1);
+  assertEquals(
+    await source.enterSignInResponse("definition:groq", "Groq"),
+    { ok: true, value: null },
+  );
+  assertEquals(sent.map((item) => item.request.owner), [
+    NEW_PVD,
+    NEW_PVD,
+    NEW_PVD,
+  ]);
+  // 주소를 알 수 없는 정의(로컬)는 등록하지 않는다.
+  assertEquals(await source.connectKey("definition:ollama", "Local"), {
+    ok: false,
+    code: "unavailable",
+  });
+  assertEquals(calls.filter((call) => call.method === "register").length, 1);
+  // 등록이 거절되면 보호 창을 열지 않는다.
+  const refused = fakeCore({
+    "read:providers/definitions": () => ok({ definitions: DEFINITIONS }),
+    "command:providers/register": () => ({
+      ok: false,
+      error: { code: "forbidden", message: "no" },
+    }),
+  });
+  const opened: unknown[] = [];
+  const denied = coreSettingsSource(refused.core, {
+    ...OPTIONS,
+    openWindow: (intent) => {
+      opened.push(intent);
+      return Promise.resolve({ windowId: "w1" });
+    },
+  });
+  assertEquals(await denied.connectKey("definition:groq", "Work"), {
+    ok: false,
+    code: "forbidden",
+  });
+  assertEquals(opened, []);
+});
+
+Deno.test("lophn-agent/harness/provider#R30: 연결 테스트 입력과 응답은 TestProviderConnection의 {check, timeout_ms}와 같고 결과 없음은 성공으로 채우지 않는다", async () => {
+  const check = {
+    at: "2026-10-07T00:00:00.000Z",
+    credential_key: "main",
+    credential_revision: 2,
+    model_name: "m1",
+    test_kind: "text",
+    command_key: "test-text-r1",
+    calls: [],
+    result: "success",
+    code: null,
+  };
+  const reply = { check, timeout_ms: 30_000 };
+  assert(connectionTest.output.safeParse(reply).success);
+  assert(
+    connectionTest.output.safeParse({ check: null, timeout_ms: 30_000 })
+      .success,
+  );
+  const answers = [reply, { check: null, timeout_ms: 30_000 }];
+  const { core } = fakeCore({
+    "command:providers/test": () => ok(answers.shift()),
+  });
+  const tested = await coreSettingsSource(core, OPTIONS).testConnection({
+    provider: PVD,
+    account: "main",
+    model: "m1",
+  });
+  assert(tested.ok);
+  assertEquals(tested.value.map((result) => result.result), ["success", null]);
 });
 
 Deno.test("shell/wording#R10: 사용량은 그 계정의 최근 30일만 읽고 비용 줄은 종류별로 모으되 모르는 비용에 금액을 붙이지 않는다", async () => {
@@ -643,6 +838,9 @@ Deno.test("shell/wording#R10: 보내는 입력과 비교 기준은 contract rout
     };
   const answer = (value: unknown) => () => ok(value);
   const { core, calls } = fakeCore({
+    "read:providers/list": answer({ providers: [], next_cursor: null }),
+    "read:providers/definitions": answer({ definitions: DEFINITIONS }),
+    "command:providers/register": answer({ provider: {} }),
     "read:agent-model-defaults/read": answer({
       defaults: { judgment: null, organizing: null, settings_seq: "9" },
     }),
@@ -666,7 +864,10 @@ Deno.test("shell/wording#R10: 보내는 입력과 비교 기준은 contract rout
   const source = coreSettingsSource(core, {
     ...OPTIONS,
     picker: { pick: () => Promise.resolve({ ok: true, path: "/home/me/s" }) },
+    openWindow: () => Promise.resolve({ windowId: "w1" }),
   });
+  assert((await source.providers()).ok);
+  await source.connectKey("definition:openai", "Work");
   const defaults = await source.modelDefaults();
   assert(defaults.ok);
   await source.setModelDefault("decisions", {
@@ -695,7 +896,7 @@ Deno.test("shell/wording#R10: 보내는 입력과 비교 기준은 contract rout
     executable: "/usr/bin/files-mcp",
     args: [],
   });
-  assert(calls.length >= 12);
+  assert(calls.length >= 15);
   for (const call of calls) {
     const found = route(call.kind, call.resource, call.method);
     assert(found !== undefined, `${call.resource}/${call.method} is a route`);

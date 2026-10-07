@@ -1590,8 +1590,12 @@ export const en = {
     "A name you will recognize. The key is typed in a protected window next.",
   "settings.providers.empty":
     "No connections are available yet. They appear here once lophn can set them up.",
+  "settings.providers.local-not-set-up":
+    "Not set up. Connecting a model that runs on this computer isn't available here yet.",
   "settings.providers.never-tested":
     "Not tested yet. Saving an account doesn't check that it works.",
+  "settings.providers.not-connected":
+    "Not connected yet. Add an API key or sign in to start using it.",
   "settings.providers.sign-in-unverified":
     "Signing in with this account isn't confirmed to work with lophn yet.",
   "settings.providers.tested-failed": "The last test, {time}, didn't work.",

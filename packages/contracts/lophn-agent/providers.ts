@@ -270,6 +270,7 @@ export const PROVIDER_ROUTES = [
   recordProviderCheck,
   providerRead,
   providerList,
+  providerDefinitions,
   loginBegin,
   loginComplete,
   loginCancel,

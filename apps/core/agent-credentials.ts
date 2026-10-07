@@ -23,6 +23,27 @@ import type { AgentCredentialIssuer } from "../../packages/lophn-agent/harness/r
 // StartRun이 확정한 AgentAppScope와 같은지, 요청한 operation이 그 assignment 역할의 상한 안인지를
 // core 자신의 ledger 기록으로 확인한다. 어느 하나라도 어긋나면 없는 run과 똑같이 답하지 않는다.
 
+// agent credential의 고정 조건이다(lophn-agent/roles/app-engineer#R2). App Engineer는 담당 앱 하나에
+// 묶이므로 그 앱을 `app` 조건으로 고정한다: 다른 앱·project·자리 없음 문서는 요청 범위 밖이라 없는
+// 문서와 같은 답이다(platform/ledger의 target 판정). 다른 역할은 앱 조건이 없다.
+export function agentConditions(input: {
+  assignment: string;
+  run: string;
+  process: string;
+  role: string;
+  scope: { kind: string; id?: string | null };
+}): { assignment: string; run: string; process: string; app?: string } {
+  const base = {
+    assignment: input.assignment,
+    run: input.run,
+    process: input.process,
+  };
+  return input.role === "app_engineer" && input.scope.kind === "app" &&
+      typeof input.scope.id === "string"
+    ? { ...base, app: input.scope.id }
+    : base;
+}
+
 export type CoreCall = (
   path: string,
   body: unknown,
@@ -113,11 +134,13 @@ export function createAgentCredentialLink(options: {
         targets: { assignment: message.assignment, run: message.run },
         agent: fixed.data,
       },
-      conditions: {
+      conditions: agentConditions({
         assignment: message.assignment,
         run: message.run,
         process: options.process,
-      },
+        role: assigned.assignment.role,
+        scope: assigned.assignment.scope,
+      }),
     });
     if (!issued.ok) return undefined;
     return {

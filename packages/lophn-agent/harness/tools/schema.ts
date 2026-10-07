@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import { err, ok, type Result } from "../../../base/mod.ts";
+import { canonicalize, err, ok, type Result } from "../../../base/mod.ts";
 
 // 진입 전 입력 검사(R3). JSON Schema 검증은 정의의 zod schema가 맡는다. 숫자
 // 문자열을 숫자로 바꾸거나 모르는 필드를 지우거나 잘못된 값을 추측해 고치지
@@ -33,7 +33,12 @@ export function checkInput(
   });
 }
 
-// 입력이 바뀌지 않았는지 본다. 변환·보정이 있었다면 실행하지 않는다.
+// 입력이 바뀌지 않았는지 본다. 변환·보정이 있었다면 실행하지 않는다. 객체 key의 순서는 값이 아니라
+// 모델이 쓴 순서일 뿐이므로 정규화해 비교한다(순서만 다른 입력을 바뀐 입력으로 거절하지 않는다).
 export function unchanged(input: unknown, parsed: unknown): boolean {
-  return JSON.stringify(input) === JSON.stringify(parsed);
+  try {
+    return canonicalize(input) === canonicalize(parsed);
+  } catch {
+    return false;
+  }
 }

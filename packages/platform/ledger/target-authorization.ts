@@ -1,3 +1,4 @@
+import { err } from "../../base/mod.ts";
 import {
   type AuthorizationTarget,
   parseActor,
@@ -22,8 +23,25 @@ export function createTargetAuthorizer(
 ): TargetAuthorizer {
   return (_ctx, operation, target) => {
     if (ctx === undefined) return TARGET_AUTHORIZATION_UNAVAILABLE;
+    if (outsideBoundApp(ctx, target)) {
+      return err({ code: "not_found", message: "target not found" });
+    }
     return authorize(ctx, operation, mergeTarget(ctx, target));
   };
+}
+
+// 앱 하나에 묶인 agent(App Engineer의 `conditions.app`)의 문서·자리 target이 그 앱의 자리가 아니면
+// 범위 밖이다. owner는 문서 자리가 앱일 때만 target의 앱을 주므로(project·자리 없음 문서는 주지 않는다)
+// 앱을 말하지 않은 문서·자리 target은 조건의 앱으로 채우지 않고 없는 대상과 같은 답으로 닫는다.
+function outsideBoundApp(
+  ctx: RequestContext,
+  target: AuthorizationTarget,
+): boolean {
+  if (parseActor(ctx.actor)?.kind !== "agent") return false;
+  if (ctx.conditions.app === undefined) return false;
+  const addressed = target["document"] !== undefined ||
+    target["place_kind"] !== undefined;
+  return addressed && target["app"] === undefined;
 }
 
 function mergeTarget(

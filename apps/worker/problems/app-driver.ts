@@ -6,7 +6,16 @@
 // guard를 지난 뒤에만 collector 쪽(sink)으로 간다. net·secret·문서 쓰기는 apps/preview의 고정 대역이 받는다.
 import { createHash } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
-import { err, ok, type Result, sha256Hex } from "../../../packages/base/mod.ts";
+import {
+  createIdSource,
+  cryptoRandom,
+  err,
+  ok,
+  type Result,
+  sha256Hex,
+  systemClock,
+} from "../../../packages/base/mod.ts";
+import { createCrashObserver } from "../../../packages/apps/runtime/observations/crash.ts";
 import type { Blueprint } from "../../../packages/apps/blueprint/mod.ts";
 import {
   appFlags,
@@ -79,6 +88,8 @@ export type RealDriver = RunnerDriver & {
   // 화면 검사 host의 화면이 `lophnApp.call`로 부르는 command다(test 앱 socket이 이 함수로 온다).
   command(key: string, input: unknown): Promise<Result<unknown>>;
   received(): readonly ReceivedReport[];
+  // 마지막 platform probe 자식이 쓴 출력이다(실패를 설명하는 데만 쓴다).
+  probeOutput(): string;
   close(): Promise<void>;
 };
 
@@ -181,7 +192,7 @@ if (config.mode === "report") {
   await attempt("write", () => Deno.writeTextFile(config.outside + ".probe", "x"));
   await attempt("net", () => fetch("https://example.com/"));
   await attempt("env", () => Deno.env.get("HOME"));
-  await attempt("run", () => new Deno.Command("true").output());
+  await attempt("run", () => new Deno.Command("/usr/bin/true").output());
   say(attempts);
 } else if (config.mode === "unhandled") {
   setTimeout(() => { throw new Error("lophn-probe-unhandled"); }, 50);
@@ -468,42 +479,48 @@ export async function createRealAppDriver(
   }
 
   async function probeAttestation() {
-    const running = await ensureApp();
-    let gone = false;
-    void running.exited.then(() => {
-      gone = true;
-    });
-    const deadline = Date.now() + READY_MS;
     let last = "app did not answer";
-    while (!gone && Date.now() < deadline) {
-      try {
-        const answered = await direct(
-          input.sockets.direct,
-          "/_lophn/control/probe",
-          { process_nonce: NONCE },
-          await connection([], "machine"),
-        );
-        if (answered.status === 200) {
-          const value = answered.body as {
-            bundle_hash: string;
-            commands: string[];
-            data_schema: number;
-            process_nonce: string;
-          };
-          return {
-            bundle_hash: value.bundle_hash,
-            commands: value.commands,
-            data_schema: value.data_schema,
-            process_nonce: value.process_nonce,
-          };
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const running = await ensureApp();
+      let gone = false;
+      void running.exited.then(() => {
+        gone = true;
+      });
+      const deadline = Date.now() + READY_MS;
+      while (!gone && Date.now() < deadline) {
+        try {
+          const answered = await direct(
+            input.sockets.direct,
+            "/_lophn/control/probe",
+            { process_nonce: NONCE },
+            await connection([], "machine"),
+          );
+          if (answered.status === 200) {
+            const value = answered.body as {
+              bundle_hash: string;
+              commands: string[];
+              data_schema: number;
+              process_nonce: string;
+            };
+            return {
+              bundle_hash: value.bundle_hash,
+              commands: value.commands,
+              data_schema: value.data_schema,
+              process_nonce: value.process_nonce,
+            };
+          }
+          last = `probe answered ${answered.status}`;
+        } catch {
+          last = "app socket is not open";
         }
-        last = `probe answered ${answered.status}`;
-      } catch {
-        last = "app socket is not open";
+        await sleep(80);
       }
-      await sleep(80);
+      // 앱이 끝났으면 한 번 더 띄운다. 끝나지 않았는데 답이 없으면 그대로 실패다.
+      last = `${last}: ${running.output().slice(-400)}`;
+      if (!gone) break;
+      appGone = true;
     }
-    throw new Error(`${last}: ${running.output().slice(-400)}`);
+    throw new Error(last);
   }
 
   const commandOf = (key: string) =>
@@ -524,17 +541,23 @@ export async function createRealAppDriver(
   ) {
     await probeAttestation();
     const before = received.length;
-    const response = await direct(
-      input.sockets.direct,
-      "/_lophn/commands/invoke",
-      {
-        request_key: crypto.randomUUID(),
-        command: key,
-        ...(body === undefined || body === null ? {} : { input: body }),
-        ...(options.proof === undefined ? {} : { proof: options.proof }),
-      },
-      await connection([key]),
-    );
+    let response: { status: number; body: unknown };
+    try {
+      response = await direct(
+        input.sockets.direct,
+        "/_lophn/commands/invoke",
+        {
+          request_key: crypto.randomUUID(),
+          command: key,
+          ...(body === undefined || body === null ? {} : { input: body }),
+          ...(options.proof === undefined ? {} : { proof: options.proof }),
+        },
+        await connection([key]),
+      );
+    } catch {
+      // 응답을 받기 전에 앱이 끝났다(처리되지 않은 rejection으로 스스로 종료). 결과 모름이다.
+      response = { status: 0, body: null };
+    }
     let seen = received.length;
     for (let waited = 0; waited < 1500; waited += QUIET_MS) {
       await sleep(QUIET_MS);
@@ -622,6 +645,7 @@ export async function createRealAppDriver(
   // platform probe: bundle 사본에 앱 진입 파일만 probe로 바꾼 폴더에서 같은 진입점·같은 SDK·같은 flag로
   // 짧은 자식을 띄운다. 앱 code가 아니라 앱 자식의 격리와 SDK 보고 경로를 본다.
   let probeReady = false;
+  let lastProbeOutput = "";
   async function runProbe(
     config: JsonObject,
     wait: "line" | "exit",
@@ -651,8 +675,10 @@ export async function createRealAppDriver(
     const deadline = Date.now() + READY_MS;
     let line: JsonObject | null = null;
     let gone = false;
-    void running.exited.then(() => {
+    let exitCode: number | null = null;
+    void running.exited.then((code) => {
       gone = true;
+      exitCode = code;
     });
     while (Date.now() < deadline) {
       const found = running.output().split("\n").find((text) =>
@@ -666,6 +692,17 @@ export async function createRealAppDriver(
       await sleep(40);
     }
     await sleep(QUIET_MS);
+    lastProbeOutput = running.output();
+    // 예상 밖 종료는 supervisor 역할인 runner가 관측한다. 앱 안의 observer는 종료가 먼저라 보내지 못할 수
+    // 있어, 종료 근거(exit code·stderr)를 crash observer(apps/runtime)로 같은 접수 통로에 올린다.
+    if (gone && exitCode !== 0) {
+      await crash.observe({
+        kind: "exit",
+        intended: false,
+        exitCode,
+        stderrTail: lastProbeOutput.slice(-2000),
+      });
+    }
     await running.stop();
     return { line, reports: received.slice(before) };
   }
@@ -681,6 +718,14 @@ export async function createRealAppDriver(
       report,
     };
   };
+
+  const crash = createCrashObserver({
+    ids: createIdSource({ clock: systemClock, random: cryptoRandom }),
+    now: () => Date.now(),
+    report: async (observed) => {
+      await acceptException(observed);
+    },
+  });
 
   const scripts = async (): Promise<MigrationScript[]> => {
     const found: MigrationScript[] = [];
@@ -958,6 +1003,7 @@ export async function createRealAppDriver(
         });
     },
     received: () => received,
+    probeOutput: () => lastProbeOutput,
     async close() {
       for (const running of [...children]) await running.stop();
       await brokerServer.shutdown();

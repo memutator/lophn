@@ -488,6 +488,15 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - slice: problems
 - 선행: problems#T14, problems#T21, coding-agent#T18
 - 선행 풀기(사람 결정 2026-10-07): 선행이 끝나기 전에 이미 있는 contract와 fake로 먼저 만든다. 선행이 merge되면 실제 구현에 잇는 작은 PR을 따로 내고, 그때 완료로 둔다.
+- 상태: 진행 (#422) — 선행 풀기: problems#T21 merge 뒤 실제 닫힘·결정 data에 잇는 PR이 남음
+- 선행 풀기 뒤 잇는 PR이 할 일:
+  - `ProblemWorkPort` 등록(core, coding-agent tickets 기반): problem과 `work` ticket을 받아 문제에 걸린 끝나지 않은 repair ticket(아직 claim 전인 open ticket 포함)의 `{state, readiness, needs}`를 준다, 없으면 null
+  - `ProblemTestPort` 등록(tests leaf의 `verifications`·`test_requests`): 접수만 됨 → pending, 실제 시작 뒤 결과 없음 → running, pass → pass, fail → fail, inconclusive → unconfirmed, 실행 증거의 종료 시각 포함
+  - fake 닫힘 fixture를 T21의 실제 `ApplyProblemDecision`·`ProblemClosed` 닫힘으로 바꾸고, 4종 닫힘을 실제 command로 닫은 뒤 `GetProblem.detail`을 읽는 ledger 테스트를 더한다. `ReconcileProblemWork`의 open·fixing도 실제로 확인한다
+  - 두 port의 fake를 `packages/problems/grouping/testing/mod.ts`에 둔다(지금은 미등록이라 통합 테스트가 `unknown`을 본다)
+  - shell·CLI 소비자는 `problem.work`·`problem.interpretation`이 아니라 `detail`을 읽는다
+  - user 호출자에게 ID 없는 `problem`을 주는 contract 분리(`problemSchema`가 fixing에 `work`를 요구하므로 큰 변경이다)를 한다
+  - 끝나면 T22를 `완료 (#<PR>)`로 바꾼다
 - T6에서 넘어온 것: `GetProblem`이 실제 담당과 필요한 사람 조치를 싣는다(#261은 담당·조치 field가 없다); 사용자용 상세에서는 contract의 `problem.work`·`problem.interpretation` ticket·version ID를 빼고 en 작업 상태로 대신하도록 contract를 나눈다; claim·기한 field는 처음부터 없다
 - 완료:
   - 닫힘 4종(테스트로 확인됨·내가 확인함·현상이 안 보임·더 다루지 않음)이 서로 다른 값이고, 기본은 닫힌 이유와 지금 필요한 주의, 확인 범위·미확인·release·근거는 펼친 상세(closing#R13)

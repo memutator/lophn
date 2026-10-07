@@ -8,6 +8,7 @@ export * from "./exception-observation.ts";
 export * from "./snapshots.ts";
 export * from "./feedback.ts";
 export * from "./problems.ts";
+export * from "./problem-detail.ts";
 export * from "./problem-reads.ts";
 export * from "./fixes.ts";
 export * from "./closing.ts";

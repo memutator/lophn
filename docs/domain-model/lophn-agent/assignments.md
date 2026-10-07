@@ -133,10 +133,10 @@ Preset은 사람이 먼저 저장한 고정 판이다. Assignment 적용은 판�
 | command | actor | 입력 | 비교 기준 | event | 거절(error code) |
 |---|---|---|---|---|---|
 | `CreateBuiltinAssignment` | machine | lophn 또는 CE Preset 판 | 종류별 거두지 않은 Assignment 없음; 재전송은 기존 결과 | `AssignmentCreated` | `invalid_input`, `conflict` |
-| `CreateAppEngineerAssignment` | machine | `AppCreated` seq, 앱 ID, AE Preset 판 | 해당 event·앱·기존 AE 확인; event 재전송은 기존 결과 | `AssignmentCreated` | `not_found`, `conflict`, `forbidden` |
+| `CreateAppEngineerAssignment` | machine | `AppCreated` seq, 앱 ID, AE Preset 판 | 해당 event·앱·기존 AE 확인; event 재전송은 기존 결과; 반응이면 구독자 cursor CAS와 한 transaction | `AssignmentCreated` | `not_found`, `conflict`, `forbidden` |
 | `ApplyOperatorAssignment` | machine | approval ID·결정 seq, OperatorApprovalBundle | 승인 전체 입력·초안 고정 판·검토 Preset 판과 이전 Assignment 판·대상·출력 독점; 승인 한 번 사용 | `AssignmentCreated` 또는 `AssignmentChanged` ; Preset 변경 event 없음 | `invalid_input`, `not_found`, `conflict`, `forbidden` |
 | `ChangeAssignmentPreset` | user | ID, 새 preset ID·revision | 현재 Assignment revision CAS·같은 역할 kind·읽기/tool 상한; Operator는 ApplyOperatorAssignment로 전체 승인 필요; 다음 run부터 | `AssignmentChanged` | invalid_input, not_found, conflict, forbidden |
-| `PauseAssignment` | user 또는 machine | ID, PauseReason | 현재 revision·state; machine은 archive 또는 실패 근거 재검사 | `AssignmentPaused` | `not_found`, `conflict`, `forbidden` |
+| `PauseAssignment` | user 또는 machine | ID, PauseReason | 현재 revision·state; machine은 archive 또는 실패 근거 재검사; `AppArchived` 반응이면 구독자 cursor CAS와 한 transaction | `AssignmentPaused` | `not_found`, `conflict`, `forbidden` |
 | `ResumeAssignment` | user | ID | 현재 revision·paused; 대상·outputs active·현재 승인 유효 | `AssignmentResumed` | `not_found`, `conflict`, `forbidden` |
 | `WithdrawAssignment` | user | ID | 현재 revision; enabled 또는 paused; lophn·CE 전체 범위면 forbidden | `AssignmentWithdrawn` | `not_found`, `conflict`, `forbidden` |
 

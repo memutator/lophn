@@ -560,27 +560,82 @@ const TICKET_HELP: readonly CommandHelp[] = [
   },
   {
     command: "ticket report",
-    purpose: "완료 주장과 근거를 접수해 ticket을 reported로 둔다",
-    required: ["ticket", "claim_seq", "base_revision", "completion"],
-    optional: ["--input", "--input-file"],
+    purpose:
+      "summary를 올려 완료 주장을 접수하고 ticket을 reported로 둔다. 확인됨·문제 닫힘은 아니다",
+    required: ["ticket", "claim_seq", "base_revision", "release", "summary"],
+    optional: [
+      "--input",
+      "--input-file",
+      "outputs",
+      "fix_records",
+      "verifications",
+    ],
     jsonExample: {
       command: "ticket report",
       ticket: "tkt-x",
       claim_seq: "8",
       base_revision: "15",
-      completion: {
-        release: "rel-x",
-        summary_hash: "ab".repeat(32),
-        outputs: [],
-        fix_records: [],
-        verifications: [],
-      },
+      release: "rel-x",
+      summary: "변경: ... 수행한 확인: ... 미실행 확인: ... 한계: ...",
+      outputs: [],
+      fix_records: [],
+      verifications: [],
       json: true,
     },
     mutate: true,
     humanOnly: false,
     confirmation: false,
     next: ["ticket checks", "ticket show"],
+  },
+  {
+    command: "ticket create",
+    purpose:
+      "ticket을 만든다. 사람 전용이고 결정 화면 링크로 넘긴다. 확인 창은 없다",
+    required: ["app", "kind", "title", "what", "why", "readiness"],
+    optional: [
+      "--input",
+      "--input-file",
+      "references",
+      "adoption_questions",
+      "conditions",
+      "inspect",
+      "preserve",
+      "problems",
+      "needs",
+    ],
+    jsonExample: {
+      command: "ticket create",
+      app: "app-x",
+      kind: "implementation",
+      title: "...",
+      what: "...",
+      why: "...",
+      readiness: "needs_confirmation",
+      needs: ["..."],
+      json: true,
+    },
+    mutate: false,
+    humanOnly: true,
+    confirmation: false,
+    next: ["ticket show"],
+  },
+  {
+    command: "ticket cancel",
+    purpose:
+      "ticket을 취소한다. 사람 전용이고 한 줄 사유와 함께 결정 화면 링크로 넘긴다. 확인 창은 없다",
+    required: ["ticket", "base_revision", "reason"],
+    optional: ["--input", "--input-file"],
+    jsonExample: {
+      command: "ticket cancel",
+      ticket: "tkt-x",
+      base_revision: "15",
+      reason: "더 이상 필요 없다",
+      json: true,
+    },
+    mutate: false,
+    humanOnly: true,
+    confirmation: false,
+    next: ["ticket show"],
   },
 ];
 
@@ -780,6 +835,8 @@ function setupPurpose(name: string): string {
       return "현재 session의 요약을 읽는다";
     case "session plan":
       return "ticket의 TUI 시작 plan을 stdin으로 만든다";
+    case "session observe":
+      return "제품 hook·plugin·extension payload를 정규화해 관측 socket에만 쓴다";
     default:
       if (name.startsWith("harness ")) {
         return `harness ${name.slice("harness ".length)}를 다룬다`;
@@ -798,6 +855,7 @@ function setupRequired(name: string): string[] {
   if (name === "connection create") return ["label", "scope"];
   if (name === "mcp config") return ["--target", "--scope", "connection"];
   if (name === "session plan") return ["plan_input"];
+  if (name === "session observe") return ["--hook"];
   if (
     name === "harness plan" || name === "harness install" ||
     name === "harness update" || name === "harness remove"

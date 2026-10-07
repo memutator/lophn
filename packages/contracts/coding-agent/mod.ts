@@ -413,6 +413,10 @@ export {
   MCP_PROBLEM_TOOLS,
   mcpProblemTool,
   type McpProblemToolName,
+  PROBLEM_HANDLERS,
+  problemHandlerSchema,
+  type ProblemTicketSource,
+  problemTicketSourceSchema,
 } from "./mcp-problem.ts";
 export { EVENTS, ROUTES } from "./registry.ts";
 export {

@@ -13,6 +13,7 @@
 // - attachment open은 허용된 첨부의 안전한 참조만 낸다. 운영 경로·blob hash 단독 접근은 없다(cli#R33).
 import { type LophnError, ok, type Result, sha256Hex } from "../../base/mod.ts";
 import {
+  fixSummaryBlobSchema,
   getProblem,
   getReport,
   getSnapshot,
@@ -22,13 +23,12 @@ import {
   problemsUploadFixSummary,
   recordProblemFix,
 } from "../../contracts/problems/mod.ts";
-import { fixSummaryBlobSchema } from "../../contracts/problems/fixes.ts";
 import {
   repairContextBundle,
   repairContextMore,
   repairContextSummary,
-} from "../../contracts/coding-agent/repair-context.ts";
-import { ticketShow } from "../../contracts/coding-agent/ticket-routes.ts";
+  ticketShow,
+} from "../../contracts/coding-agent/mod.ts";
 import type { Route } from "../../contracts/platform/mod.ts";
 import { type AppOpDeps, runAppOp } from "./app-ops.ts";
 import type { TicketOpClient } from "./ticket-ops.ts";

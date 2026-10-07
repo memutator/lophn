@@ -416,6 +416,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - slice: problems
 - 선행: problems#T9, problems#T10, problems#T12
 - 상태: 완료 (#446) — 이어보냄: RequestTest 접수가 runner를 깨워 `--reproduction-job`(`apps/worker/problems/reproduction-run.ts`)을 부르고 결과를 core RecordVerification으로 보내는 상시 service 연결, 접수 때 problem의 원래 Report에서 `ReproductionScenario`(증상·기대·인접 불변식)를 만드는 준비 단계 → T8·T14 후속, 코딩 agent 통로(coding-agent#T21)
+- coding-agent#T44에서 넘어온 것: core `RequestTest`는 coding_agent의 reproduction 요청에서 지정 ticket의 현재 claim을 확인하지 않는다(입력 contract에 claim 근거가 없다). 지금은 MCP `lophn_problem test`·CLI `problem test`가 ticket 읽기로 현재 claim을 확인한 뒤 보내고, `lophn_app test`·`app test --kind reproduction`은 claim 없이도 같은 route로 요청할 수 있다. runner 연결(follow-up 40) 때 core 쪽 claim 검사를 더할지 정한다. 지금 core는 runner가 없어 접수를 `internal`로 거절하고 이 통로는 그것을 실패로 낸다(성공 pass 아님)
 - 정한 것(T18): 고정 증상 정의는 `ReproductionScenario`(원래 problem code·probe command·증상·기대·인접 불변식 matcher)이고 hash가 FrozenTest의 `input`·`expected`·`symptom`에 묶인다(`packages/problems/tests/reproduction/`). harness 자식은 side별 `symptom`·`adjacent:<name>` frame을 내고 runner가 같은 정의로 재판정한다. 약화 검사는 problem code 선언 삭제, source의 보고 호출 삭제, 업무 증상은 남았는데 보고만 사라진 보고 경로 삭제, 관측 기대 hash 불일치(기대 낮춤)다. 깨지는 앱 fixture의 판 B·E를 `run_broken`에 연결했다(판 A 동작은 그대로).
 - 완료:
   - before·after마다 source read-only·새 fixture DB·같은 FrozenTest·input·expected·environment; 운영 DB 복사와 실계정 재전송 없이 replay·stub(R15)

@@ -57,14 +57,14 @@ import { runQuestionOpen } from "../../packages/coding-agent/cli/commands/questi
 import { runSave } from "../../packages/coding-agent/cli/commands/save.ts";
 import { runSdk } from "../../packages/coding-agent/cli/commands/sdk.ts";
 import {
+  runSessionObserve,
+  runSessionPlan,
+} from "../../packages/coding-agent/cli/commands/session.ts";
+import {
   runTicketWrite,
   ticketHumanOnly,
   type TicketWriteName,
 } from "../../packages/coding-agent/cli/commands/ticket.ts";
-import {
-  runSessionObserve,
-  runSessionPlan,
-} from "../../packages/coding-agent/cli/commands/session.ts";
 import { findCommand } from "../../packages/coding-agent/cli/registry.ts";
 import {
   catalogOf,

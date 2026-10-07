@@ -710,6 +710,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 
 ### T37 MCP tool 이름, 분류, preset 선택
 
+- 상태: 완료 (#434)
 - 등급: 기본
 - concern: lophn-agent/extensions
 - 요구: lophn-agent/extensions#R11, R23, R24, R26, R27, R28, R29, R31
@@ -721,7 +722,10 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - 선행: T22, T36
 - 완료:
   - mcp_tools_test.ts에 R11, R23, R24, R26–R29, R31 테스트: `ext_<server>_<tool>` 64자·충돌은 원래 쌍(UTF-8 `JSON.stringify([server, tool])`)의 SHA-256 앞 8자를 충돌 묶음 전체에 붙여 순서와 무관·그래도 충돌이면 거절(질문 Q15), list_changed·재연결이면 전체 재조회와 그동안 그 server tool 호출 차단(질문 Q16), name·description·inputSchema·hints로 만든 정의 hash가 바뀐 tool의 분류·safe 표시 무효(분류는 원본 정의에 묶음)·삭제 tool 즉시 차단·새 tool 자동 선택 없음, read·write·external 정의와 사람 분류·여러 행동은 가장 넓은 분류, 되돌림 모르는 external은 ask·safe 표시 tool만 묻지 않음·hints는 참고만·역할 상한 확대 없음, 호출마다 판정 입력·연결·로그인·이전 성공은 허락 아님, 문서·skill·server 응답에서 설정 자동 수입 없음, 서버+현재 tool 정확한 쌍만 선택(서버 전체·미래 tool 거절)
-  - flow add-agent-extension의 agent 갈래
+  - 제품 연결: `apps/agent-runtime/prepare.ts`의 Toolkit `mcp` 자리에 `buildMcpTools`·`createMcpToolHandlers`를 잇고(`mcp-toolkit.ts`가 등록 설정 읽기·연결·재조회 소유) #399 제품 모드(`product-driver.ts`)에서 켠다. `core-ports.ts` `record()`가 외부 호출의 원래 server·tool 쌍·canonical 이름·서버 설정 판을 ToolCall의 `extension`으로 적는다. 외부 tool의 판정 연결(`externalBinding`)은 고른 쌍 하나를 approval이 가리킬 수 있는 고정 ID 대상(`externalToolTargetId`, 쌍의 SHA-256 앞 128 bit)으로 두어 미분류·쓰기·external 호출이 target_unknown deny가 아니라 ask가 된다. run 자격과 발급 상한(`EXTERNAL_TOOL_OPERATIONS`)에 `external_mcp_call`과 approval request 생성을 더한다. `apps/core/lophn-agent.ts` preset 검증은 `mcp_servers` 설정을 배열로 읽는다
+  - Q16: `mcp-connections`가 list_changed 알림을 server 이름으로 알리고 `mcp-toolkit`이 그 server tool 전체를 다시 읽는다. 끝날 때까지(실패면 계속) 그 server 호출을 거절하고 판정의 연결 판도 없다. `mcp-toolkit_test.ts`(R24·R22, Q16)가 실제 stdio child로 list_changed → 호출 거절 → 전체 재조회(새 tool 포함) → 호출 재개, 재조회 실패 → 계속 거절을 본다
+  - flow add-agent-extension의 agent 갈래: `apps/core/mcp-extension-flow_test.ts`가 실제 core·runtime 조립·fake stdio MCP child·`tools/fake-provider`로 사람이 server와 preset 선택을 정하는 길부터 run 끝까지 본다. 고른 쌍만 `ext_` 이름으로 model에 보이고 고르지 않은 tool은 어느 요청에도 없으며, 분류·safe 쌍은 묻지 않고 원래 server·tool 이름·입력 그대로 닿고 extension 쌍으로 기록된다. 미분류 tool은 approval request를 만들고 run은 기다리며 허락 전에는 server에 닿지 않는다
+  - 남은 것: 사람의 허락 뒤 외부 MCP 호출을 이어 실행하는 경로(approval 해소 → 같은 run 재개 → handler)와 runtime 종료 때 `mcpKit.endAll()` 호출은 시험하지 않았다
 
 ### T38 MCP HTTP 인증
 
@@ -741,6 +745,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 ### T39 trace 읽기
 
 - 등급: 기본
+- 상태: 완료 (#439) — 이어보냄: 화면(roles 작업 검토) → shell#T30, 보존 정리로 사라진 본문의 부재 표시 → T57
 - concern: lophn-agent/observability
 - 요구: lophn-agent/observability#R1, R2, R3, R4, R5, R6, R7, R8, R9, R11, R18, R19, R20, R21, R22
 - 자리: packages/lophn-agent/observability/ (model.ts: RunTrace, reads.ts), apps/core/lophn-agent.ts
@@ -752,6 +757,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - 완료:
   - trace는 저장하지 않고 조회 때 event·ModelCall·ToolCall·message blob을 seq 순으로 조립한다. 경과 시간은 T12·T25가 CheckpointRun과 대기 진입·탈출 경계에 남긴 단조 누적값을 쓴다
   - trace_test.ts에 R1–R9, R11, R18–R22 테스트(실패 model 2회+거절 tool 1회, 시계를 뒤로 옮긴 경과, 종료 event 없이 끊긴 run 사례 포함): run 하나의 시작 조건·상태·호출 참조(사본 없음)와 시작 당시 고정 판, handoff 양방향 연결과 비용 귀속, run 밖 호출은 독립 trace(가짜 run·세션 없음), 모든 model 시도·tool 판정을 샘플링 없이·retry·실패·취소·미실행·불명확 구별, UTC ms 시각과 단조 시계 경과(run·model·첫 응답·tool·사람 기다림), 종료 종류 구별·종료 event 없이 끊긴 run은 unconfirmed로 정상과 분리, 본문은 소유 원본으로만·오류 원문·secret·추론 사본 없음, stream 조각 없음, 사용량·비용·품질은 가리키기만, MCP 호출의 주체·서버·tool·분류·판정·approval·결과, 화면용 기본·상세 자료, 도구 활동 접기, 판단은 검토 가능한 요약만
+- 정한 것(T39): `RunTrace`에 `session`·`assignment`·`state`·`started_at`·`finished_at`·`activity`를 더했다(additive, contracts#T30). R6 시각과 R20·R21 화면 자료를 계약의 id 목록만으로는 줄 수 없었다. `run`은 독립 호출 trace와 session 묶음에서 null이다. 대상이 session이면 접수 순서 run들의 trace를 한 쪽(`limit` 기본 50, `cursor`)씩 묶고 `reason`·`state`는 null이다. `wall_ms`는 `active_ms`(CheckpointRun의 단조 누적값)와 `waiting_ms`(RunWaited부터 재개·종료 event, 시계가 뒤로 가면 0)의 합이고 시작·종료 시각의 차이를 쓰지 않는다. 열린 기다림은 더하지 않는다. blob 본문은 ledger에서 사라진 것을 알 수 없어(blob_refs는 불변) `missing`의 `body`는 영구 참조 행이 없을 때만이다(보존 정리 표시는 T57)
 
 ### T40 trace export
 
@@ -850,17 +856,19 @@ E2E는 apps#T27(use-app-command, ask-app-hint, connect-apps, view-agent-visuals 
 ### T45 App Engineer assignment와 tool 범위
 
 - 등급: 기본
+- 상태: 완료 (#433)
 - concern: lophn-agent/assignments, lophn-agent/roles/app-engineer
 - 요구: lophn-agent/assignments#R1, lophn-agent/roles/app-engineer#R5, R6, R21
-- 자리: packages/lophn-agent/assignments/ (AppCreated 반응: CreateAppEngineerAssignment), packages/lophn-agent/roles/app-engineer/ (역할 tool 선택), apps/core/lophn-agent.ts
+- 자리: packages/lophn-agent/assignments/ (AppCreated 반응: CreateAppEngineerAssignment), packages/lophn-agent/roles/app-engineer/ (역할 tool 선택), apps/core/ (assignment-reactions.ts, lophn-agent-bootstrap.ts)
 - 쓰는 contract: AppCreated·AppArchived event(apps#T1), event 구독 cursor(contracts#T7)
 - 내놓는 contract: CreateAppEngineerAssignment (contracts#T27)
 - slice: apps
 - 조사: docs/research/presets-and-agent-config.md
 - 선행: T9, T44, apps#T1
 - 완료:
-  - assignments_test.ts에 assignments#R1 테스트: AppCreated마다 거두지 않은 AE 하나(같은 event 재전달에 중복 없음, 반응과 cursor를 같이 commit), 보관이면 멈춤·자동 해제·재개 없음
-  - app_engineer_tools_test.ts에 AE#R5, R6, R21 테스트: 담당 앱의 허락된 read와 실제 되돌리기 지원 write만, confirm은 approval, external·복원 불가 write 없음, 설계 문서 저장과 ticket 생성은 approval 없음, ticket tool은 생성·읽기·make_ready만(T49)
+  - assignments#R1 테스트: AppCreated마다 거두지 않은 AE 하나(같은 event 재전달에 중복 없음, 반응과 cursor를 같이 commit), 보관이면 멈춤·자동 해제·재개 없음. 반응 engine은 apps/core/testing/lophn-agent-assignments-reaction_test.ts(구독자 gate가 있는 direct connection), 제품 core 경로는 apps/core/assignment-reactions_test.ts(실제 core가 앱 만들기·보관·보관 해제에 반응)
+  - app_engineer_tools_test.ts에 AE#R5, R6, R21 테스트: 담당 앱의 허락된 read와 실제 되돌리기 지원 write만, confirm은 approval, external·복원 불가 write 없음, 설계 문서 저장은 approval 없음. ticket tool(생성·읽기·make_ready만, 생성은 approval 없음)은 정의가 T49에 있어 T49가 채운다
+  - (구현) core 기동의 준비(apps/core/lophn-agent-bootstrap.ts)가 App Engineer product preset도 등록하고(전역 assignment는 없다), 반응 구독자(apps/core/assignment-reactions.ts, machine:lophn-agent-assignments)가 AppCreated·AppArchived만 앱 event 공개 정책으로 읽는다. 반응이 쓰는 command는 CreateAppEngineerAssignment·PauseAssignment이고 둘 다 선택 입력 `processed_through_seq`·`subscriber`를 받아 cursor와 한 transaction이다(contracts에 additive)
 
 ### T46 App Engineer 인터뷰와 설계 문서
 
@@ -926,6 +934,7 @@ E2E는 apps#T27(use-app-command, ask-app-hint, connect-apps, view-agent-visuals 
 - slice: coding-agent
 - 조사: docs/research/tool-registry-and-judgment.md
 - 선행: T31, T46, coding-agent#T18, contracts#T41
+- lophn-agent#T45에서 넘어온 것: App Engineer 상한(ROLE_CAPS)에 있는 `ticket.list`·`ticket.read`·`ticket.create`는 내장 정의가 없어 App Engineer 목록에 나오지 않는다(roles/app-engineer/tool-selection.ts는 정의가 서면 목록에 올린다). 정의를 세울 때 AE#R6 시험을 더한다: 설계 근거를 갖춘 ticket 생성은 approval 없음(reversible 선언), ticket tool은 생성·읽기·make_ready만, claim·연장·보고·[Start] 없음
 - lophn-agent#T44에서 넘어온 것: ticket 취소 tool을 정의할 때 소유 계약이 되돌릴 수 있는 변경이면 `ToolBinding`의 대상 `reversibility: "reversible"`로 선언한다. 판정표에 ticket 전용 분기가 없어 그러면 사람 요청에서 묻지 않고 allow다(tool-judgment#R10 "ticket 취소는 묻지 않는다").
 - 완료:
   - ticket_tools_test.ts에 tools#R9, roles/lophn#R24, AE#R16, R17, R22 테스트: 생성·make_ready·읽기만(claim·연장·보고·[Start] 없음), 직접 요청·피드백도 ticket, 근거·acceptance check 부족은 `readiness: needs_confirmation`과 필요한 확인 목록(질문 Q4), 실행 준비(ready)는 채택 고정 설계·채택 질문·실행 가능한 acceptance check·흐름 하나 최대 6개 요구, 같은 원인 가설의 수리 묶음, 설정 변경만 필요한 일은 coding ticket 아님, ToolCall 성공과 ticket 생성이 한 transaction

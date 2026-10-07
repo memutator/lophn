@@ -383,6 +383,7 @@ export {
   repairContextBundle,
   RepairContextBundleInputSchema,
   repairContextMore,
+  RepairContextMoreInputSchema,
   RepairContextSchema,
   type RepairContextSection,
   RepairContextSectionSchema,

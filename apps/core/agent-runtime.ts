@@ -24,6 +24,7 @@ import {
 } from "../../packages/lophn-agent/harness/tools/mod.ts";
 import {
   type AgentCredentialIssuer,
+  EXTERNAL_TOOL_OPERATIONS,
   RUNTIME_MACHINE_OPERATIONS,
 } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
 import type {
@@ -63,11 +64,15 @@ type RouteLike = { name: string; kind: string };
 
 // 제품 registry의 발급 상한. machine은 command 정책에만 닿으므로 runtime의 machine route는 모두
 // command 정책으로 올리고, agent는 내장 tool이 쓰는 contract를 route의 종류 그대로 올린다.
+// external_mcp_call은 route 이름이 없는 T37의 소유 contract라 command 정책으로 두고, ask가 쓰는
+// approval request 생성(create_approval_request)을 같이 올린다(T37).
 export function agentRuntimePolicies(
   routes: readonly RouteLike[],
 ): OperationPolicy[] {
   const kinds = new Map(routes.map((route) => [route.name, route.kind]));
-  const agent = runOperations(BUILTIN_TOOLS);
+  const agent = [
+    ...new Set([...runOperations(BUILTIN_TOOLS), ...EXTERNAL_TOOL_OPERATIONS]),
+  ];
   return [
     ...RUNTIME_MACHINE_OPERATIONS.map((name): OperationPolicy => ({
       name,

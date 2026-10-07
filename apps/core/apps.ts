@@ -69,6 +69,8 @@ import {
 } from "../../packages/contracts/documents/mod.ts";
 import { createPlaceNameReservation } from "../../packages/documents/addressing/mod.ts";
 import {
+  appArchived,
+  appCreated,
   packagesGuideBody,
   releaseActivated,
   releaseActivationFailed,
@@ -81,8 +83,11 @@ import type {
   TxPortRegistration,
 } from "../../packages/platform/ledger/mod.ts";
 import type { WorkerRoute } from "../../packages/contracts/platform/mod.ts";
-import { notificationsOnlyVisibility } from "./platform.ts";
 import { ticketCheckFeedVisibility } from "./ticket-checker.ts";
+import {
+  assignmentReactionsOnlyVisibility,
+  notificationsOnlyVisibility,
+} from "./platform.ts";
 
 type LedgerRegistration = {
   blobFields?: readonly unknown[];
@@ -270,6 +275,9 @@ export function createEventRegistration(): EventRegistration {
       // 신호로만 열린다(coding-agent#T26). 다른 자격이 보는 것은 그대로 숨김이다.
       ticketCheckFeedVisibility(releaseActivated),
       ticketCheckFeedVisibility(releaseSuperseded),
+      // 앱 만들기·보관은 assignments 반응 구독자(machine:lophn-agent-assignments)만 읽는다.
+      assignmentReactionsOnlyVisibility(appCreated),
+      assignmentReactionsOnlyVisibility(appArchived),
     ],
   };
 }

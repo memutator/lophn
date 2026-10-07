@@ -7,6 +7,7 @@ import {
 } from "../../packages/apps/registration/mod.ts";
 import {
   appConnect,
+  appExport,
   appPairConfirmPoll,
   appPairConfirmRequest,
   appPairObserve,
@@ -79,6 +80,7 @@ import type {
   ReaderRegistration,
   TxPortRegistration,
 } from "../../packages/platform/ledger/mod.ts";
+import type { WorkerRoute } from "../../packages/contracts/platform/mod.ts";
 import { notificationsOnlyVisibility } from "./platform.ts";
 import { ticketCheckFeedVisibility } from "./ticket-checker.ts";
 
@@ -90,6 +92,8 @@ type LedgerRegistration = {
   reads?: readonly unknown[];
   // ledger를 쓰지 않는 core 메모리 route. handler는 core 조립이 apps-control의 service로 붙인다.
   memoryRoutes?: readonly unknown[];
+  // worker route. serving은 core 조립이 연결하고(테스트 주입 포함), 등록만 여기서 한다.
+  workerRoutes?: readonly WorkerRoute[];
   ports?: readonly TxPortRegistration[];
 };
 
@@ -210,6 +214,10 @@ export function createLedgerRegistration(
       releasePreparation,
       releaseCancelPreparation,
     ],
+    // 앱 export 준비(apps/data#R13). 준비 본체는 data worker 모듈(worker/export.ts)이 하고,
+    // serving은 core 조립이 연결한다. 제품 기동에는 serving이 아직 없다(준비 중·완성·실패
+    // 구별은 contract의 state로 내놓는다).
+    workerRoutes: [appExport],
     // coding-agent connection의 app scope 검사와 documents의 자리 해석은 같은 Tx의
     // 존재 조회를 쓴다. TargetAuthorization은 tx.ts가 주입하므로 여기 등록하지 않는다.
     ports: [

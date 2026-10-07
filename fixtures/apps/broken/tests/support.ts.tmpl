@@ -1,0 +1,17 @@
+// test 공통 도구. 깨진 앱의 test 값과 임시 폴더를 맞춘다. 운영 DB와 사람의 실제 폴더는 열지 않는다.
+export const NOW = "2026-10-07T12:00:00.000Z";
+
+export type Place = { data: string };
+
+export async function withPlace<T>(
+  work: (place: Place) => Promise<T>,
+): Promise<T> {
+  const root = await Deno.makeTempDir({ prefix: "app-broken-" });
+  try {
+    const place = { data: `${root}/data` };
+    await Deno.mkdir(place.data);
+    return await work(place);
+  } finally {
+    await Deno.remove(root, { recursive: true });
+  }
+}

@@ -1,0 +1,143 @@
+import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { CircleX } from "lucide-react";
+import { Button, Field, Input, Textarea } from "@lophn/ui-control";
+import { AppShell } from "@lophn/ui-layout";
+import { ReadState } from "@lophn/ui-state";
+import { VIEW_BREAK } from "../../board.ts";
+import { t } from "../../wording/t.ts";
+import {
+  listBroken,
+  markKind,
+  panelContext,
+  readSettings,
+  runBroken,
+} from "./bridge.ts";
+import styles from "./app.module.css";
+
+// view의 root render 오류다(apps#T26 완료 4번). 깨진 값은 fixture 설정(src/board.ts의
+// VIEW_BREAK)이 고른다. board A·D에서 처음 렌더링에서 터지고 AppErrorBoundary가 받는다.
+function renderBreaker(): void {
+  if (VIEW_BREAK === "render") {
+    throw new TypeError("view render failed in the broken fixture");
+  }
+}
+
+// panel 화면. 깨진 앱의 상태를 보고 실패를 고르는 화면 하나다. 문구는 모두 en catalog의 key고,
+// 같은 화면이 full과 panel(320px)에서 쓰인다. 깨진 상태는 apps#T26 완료 4번이다.
+export function App() {
+  renderBreaker();
+  const [rows, setRows] = useState<{ screen: string; broken: boolean }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [kind, setKind] = useState("type_error");
+  const [note, setNote] = useState("");
+  const [reported, setReported] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      setRows(await listBroken());
+      setFailed(false);
+    } catch {
+      setFailed(true);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+    void panelContext();
+    void readSettings();
+  }, [load]);
+
+  // 깨진 보고 버튼이다. 깨진 view에서도 동작한다(apps#T26 완료 4번).
+  function report(event: FormEvent) {
+    event.preventDefault();
+    setReported(true);
+  }
+
+  async function run() {
+    try {
+      await runBroken(kind);
+      await load();
+    } catch {
+      setFailed(true);
+    }
+  }
+
+  // view의 event handler error다(apps#T26 완료 4번). 깨진 종류에서 실제로 터진다. AppErrorBoundary가
+  // 받거나 window.onerror로 전달된다. 지우지 않는다.
+  async function mark() {
+    if (kind === "type_error") {
+      throw new TypeError("mark_kind handler threw in the broken fixture");
+    }
+    const before = rows.length;
+    void await markKind(kind);
+    if (before < 0) {
+      setRows([]);
+    }
+  }
+
+  // view의 unhandledrejection이다. 응답 뒤 비동기로 터진다.
+  useEffect(() => {
+    if (rows.length > 0 && rows[0].screen === "__late__") {
+      void Promise.reject(new Error("late rejection from the panel view"));
+    }
+  }, [rows]);
+
+  return (
+    <AppShell title={t("panel.title.screen")}>
+      <form className={styles.form} onSubmit={report}>
+        <Field label={t("panel.label.kind")}>
+          <Input
+            value={kind}
+            maxLength={40}
+            onChange={(event) => setKind(event.target.value)}
+          />
+        </Field>
+        <Field label={t("panel.label.hint")}>
+          <Textarea
+            value={note}
+            maxLength={500}
+            onChange={(event) => setNote(event.target.value)}
+          />
+        </Field>
+        <div className={styles.actions}>
+          <Button type="submit" variant="primary">
+            {t("panel.button.report")}
+          </Button>
+          <Button onClick={() => void run()}>
+            {t("panel.label.run-broken")}
+          </Button>
+          <Button onClick={() => void mark()}>
+            {t("panel.label.mark-kind")}
+          </Button>
+        </div>
+      </form>
+      {reported && (
+        <p className={styles.notice} role="status">
+          {t("panel.status.reported")}
+        </p>
+      )}
+      <ReadState
+        loading={loading}
+        failed={failed ? t("panel.title.screen") : undefined}
+        onRetry={() => void load()}
+        isEmpty={rows.length === 0}
+        empty={{
+          icon: CircleX,
+          message: t("panel.empty.none"),
+          action: {
+            label: t("panel.button.reload"),
+            onSelect: () => void load(),
+          },
+        }}
+      >
+        <p className={styles.count}>
+          {t("panel.label.count", { count: rows.length })}
+        </p>
+      </ReadState>
+    </AppShell>
+  );
+}

@@ -1352,6 +1352,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
 
 ### T26 fixture: 일부러 깨지는 앱
 
+- 상태: 완료 (#425)
 - 등급: 기본
 - concern: apps/runtime, apps/data
 - 요구: apps/runtime#R2, R19, R22, R28, apps/data#R7, R11
@@ -1372,7 +1373,8 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
        깊이)와, 같은 함수에서 줄·message만 다른 변형(같은 지문)
     3. 처리되지 않은 Promise rejection(process)
     4. view의 root render 오류(TSX, source map 포함), event handler error,
-       view의 unhandledrejection. 깨진 view에서도 [문제 알리기]가 동작
+       view의 unhandledrejection. 깨진 view에서도 [문제 알리기]가 동작(버튼과
+       보고 자리는 fixture가 심고, 누르는 것은 shell E2E 몫이다)
     5. 미선언 code를 reportProblem에 넘기는 command(_invalid_report)
     6. 앱 frame 없는 exception(의존 package 안에서 throw)
     7. 짧은 시간에 보고 25개를 내는 command(앱당 60초 20개 한도)
@@ -1504,6 +1506,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
 - slice: operations
 - 선행: apps#T17, apps#T19, platform#T12, platform#T13
 - shell#T43에서 넘어온 것: core에 `worker:apps/export`가 서면 app-detail Data 탭에 [Export]를 붙인다. 지금은 route가 core에 없어 탭이 "아직 내보낼 수 없다"만 보인다. shell main의 renderer allowlist(`main/desktop/core/allowlist.ts`의 `READING_WORKER_ROUTES`)에 이 worker route를 더하는 일도 그때 한다
+- 상태: 완료 (#424)
 - 완료:
   - export 안에 고정 blueprint·release 이력·각 불변 bundle·정확한 SDK byte·WAL
     확정 내용을 포함한 무결성 확인 DB 사본이 있고 secret 원값·credential이

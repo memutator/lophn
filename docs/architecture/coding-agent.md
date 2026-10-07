@@ -221,6 +221,7 @@ connection event는 `CodingAgentConnectionCreated`, `CodingAgentConnectionRevoke
 | `harness list|detect|refresh|inspect|plan|install|update|remove` | exact native target/profile·user/app scope·components·plan·operation key | catalog·최초 감지·명시 재감지·resource별 diff/outcome·receipt·네 loading 관측. 관리 쓰기 사람 전용; 전체 자동 설치 없음 |
 | `skills list|install` | install `--target`, profile?, `--scope`, names? | 이름·설명·version/hash, 파일별 변경/무변경/충돌. 동명 비관리 skill 교체 없음 |
 | `session summary` | app?, cursor?, `--hook`? | lophn_session 결과. hook mode는 아래 별도 상한 |
+| `session plan` | `plan_input`(ticket·revision·connection·harness·profile·project·folder_ref·cwd·method·shell main이 다시 읽은 `facts`·human_start_handle·operation_id) | method가 `terminal_tui`면 LaunchPlan, `own_terminal`이면 안내. process를 열지 않는다. core를 읽지 않고 저장한 감지와 지금 본 실행 파일을 쓴다. 사람 전용 |
 | `index root|place|context|document|section|status`, `search <query>` | 대상·depth·cursor·place? | lophn_index 결과; saved view 전용 command 없음 |
 | `read <address>` | version/section/start/length/cursor? | lophn_read 결과·정확한 판·이어 읽기 |
 | `document list|history|diff`, `save <files...>` | 목록 place/unplaced/state/limit; 비교 from/to; 저장 metadata | lophn_document/save 결과·주소·검사 경고·unchanged |

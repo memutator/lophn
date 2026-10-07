@@ -63,16 +63,23 @@ export {
   launchResultBodySchema,
   launchResultSchema,
   LOPHN_CONNECTION,
+  OWN_TERMINAL_METHOD,
   PROMPT_DELIVERY_DEADLINE_MS,
   PROMPT_DELIVERY_MODES,
   type PromptDelivery,
   type PromptDeliveryMode,
   promptDeliveryModeSchema,
   promptDeliverySchema,
+  type SessionGuide,
+  sessionGuideSchema,
+  type SessionPlanFacts,
+  sessionPlanFactsSchema,
+  sessionPlanGuideOutputSchema,
   type SessionPlanInput,
   sessionPlanInputSchema,
   type SessionPlanOutput,
   sessionPlanOutputSchema,
+  sessionStartInputSchema,
 } from "./launch.ts";
 export {
   AUTH_RESULTS,
@@ -500,6 +507,26 @@ export type {
   TicketCancelInput,
   TicketReportCompletionInput,
 } from "./ticket-claims.ts";
+export {
+  TICKET_NEXT_ACTIONS,
+  TICKET_SCREEN_ROUTES,
+  TICKET_SCREEN_STATES,
+  ticketNextActionSchema,
+  ticketScreenDetail,
+  ticketScreenDetailInputSchema,
+  ticketScreenDetailOutputSchema,
+  ticketScreenDetailSchema,
+  ticketScreenList,
+  ticketScreenListInputSchema,
+  ticketScreenListOutputSchema,
+  ticketScreenStateSchema,
+  ticketScreenSummarySchema,
+} from "./ticket-screen.ts";
+export type {
+  TicketNextAction,
+  TicketScreenState,
+  TicketScreenSummary,
+} from "./ticket-screen.ts";
 export {
   TICKET_CLAIM_REJECTS,
   TicketClaimCheck,

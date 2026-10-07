@@ -55,12 +55,14 @@ import {
 import { runQuestionOpen } from "../../packages/coding-agent/cli/commands/question.ts";
 import { runSave } from "../../packages/coding-agent/cli/commands/save.ts";
 import { runSdk } from "../../packages/coding-agent/cli/commands/sdk.ts";
+import { runSessionPlan } from "../../packages/coding-agent/cli/commands/session.ts";
 import { findCommand } from "../../packages/coding-agent/cli/registry.ts";
 import {
   catalogOf,
   detectHarnesses,
   detectionCacheOf,
   type DetectPorts,
+  discover,
   filePort,
   inspectIntegration,
   type Inspection,
@@ -400,8 +402,11 @@ export async function runCliCommand(
     // 배포 skill 원본(guides)이 설치 묶음에 없다. 성공으로 꾸미지 않는다.
     return unwired(name);
   }
+  if (name === "session plan") {
+    return await runSessionPlanCommand(input, runtime);
+  }
   if (name.startsWith("session ")) {
-    // session summary의 core route와 plan(sessions)이 아직 없다.
+    // session summary의 core route가 아직 없다.
     return unwired(name);
   }
   if (client === undefined) return connectionRequired();
@@ -483,6 +488,42 @@ export async function runCliCommand(
       : read;
   }
   return ok({ summary: `${name} 결과`, data: read.value, next: [] });
+}
+
+// `lophn session plan`: shell main이 클릭을 검증하며 넘긴 값으로 시작 계획을 낸다. core를 읽지 않고
+// (ticket·connection 현재 사실은 입력의 facts) 저장한 감지와 지금 본 실행 파일만 쓴다. process를 열지 않는다.
+async function runSessionPlanCommand(
+  input: Record<string, unknown>,
+  runtime: CliRuntime,
+): Promise<Result<CommandOutput, LophnError>> {
+  const ports = portsOf(runtime);
+  const home = runtime.home ?? "";
+  return await runSessionPlan(
+    input as Parameters<typeof runSessionPlan>[0],
+    {
+      async detect() {
+        const detected = await detectHarnesses(
+          "detect",
+          ports.detect,
+          detectionCacheOf(home, filePort(), integrationsDirOf(runtime)),
+          runtime.now(),
+        );
+        return detected.ok ? ok(detected.value.detections) : detected;
+      },
+      current(harness) {
+        const definition = catalogOf(harness);
+        if (definition === undefined) {
+          return err({ code: "invalid_input", message: "알 수 없는 제품이다" });
+        }
+        const found = discover(
+          definition,
+          { environment: NATIVE_ENVIRONMENT, profile_id: null },
+          ports.detect,
+        );
+        return found.ok ? ok({ selected: found.value.selected }) : found;
+      },
+    },
+  );
 }
 
 async function runDoctor(

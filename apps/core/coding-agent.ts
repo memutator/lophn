@@ -11,6 +11,9 @@ import {
 } from "../../packages/coding-agent/mod.ts";
 import {
   connectionConnect,
+  connectionEndChild,
+  connectionEndConnection,
+  connectionRegisterChild,
   defaultHarnessSetting,
   harnessEnabledSetting,
   harnessProfileSetting,
@@ -47,7 +50,12 @@ export const codingAgentConnectionDefinitions = {
   commands: [commands.create, commands.revoke],
   reads: [reads.list, reads.show],
   // 사람의 연결 결정 입구다. handler는 core 조립(core.ts)이 route 이름으로 붙인다.
-  memoryRoutes: [connectionConnect],
+  memoryRoutes: [
+    connectionConnect,
+    connectionRegisterChild,
+    connectionEndChild,
+    connectionEndConnection,
+  ],
   // connection credential(keychain의 token)도 알려진 값 registry에 등록·회수된다(connection#R17).
   secretRefs: [createConnectionSecretRefSource()],
   ports: {

@@ -18,7 +18,10 @@ import {
 import {
   connectionConnectInputSchema,
   connectionCreate,
+  connectionEndChildInputSchema,
+  connectionEndConnectionInputSchema,
   connectionIdSchema,
+  connectionRegisterChildInputSchema,
   connectionRevoke,
 } from "../../packages/contracts/coding-agent/mod.ts";
 import type {
@@ -46,6 +49,13 @@ export type CodingCredentials = {
   // 사람 credential로 connection create command를 보내는 함수다. 성공하면 인증된 context를 ledger
   // credential 기록에 남긴다.
   connect: CodingCredentialAuthority["connect"];
+  // 신뢰 감독(shell main)이 TUI 아래 MCP·CLI child를 등록한다. scope는 ledger의 connection 현재 상태에서
+  // 읽고, active가 아니거나 없는 connection은 등록하지 않는다. loader가 설치 목록 밖이면 forbidden이다.
+  registerChild(input: {
+    connection: string;
+    process_generation: string;
+    loader_identity: string;
+  }): Result<void>;
   // `coding:<connection>` credential_ref의 지금 상태다. ledger의 connection 상태를 읽으므로 회수된
   // connection은 바로 거절이고 coding credential이 아닌 ref는 undefined다.
   current(
@@ -125,6 +135,28 @@ export function createCodingCredentials(options: {
 
   return {
     authority,
+    registerChild(input) {
+      const opened = openConnection(options.ledgerPath);
+      if (!opened.ok) {
+        return err({ code: "unavailable", message: "ledger unreadable" });
+      }
+      try {
+        const found = lookupConnectionAuth(
+          opened.value.sql,
+          `coding_agent:${input.connection}`,
+        );
+        if (found === undefined || found.state !== "active") {
+          // 없는 connection·회수된 connection은 같은 답이다.
+          return err({
+            code: "forbidden",
+            message: "loader child를 등록할 수 없다",
+          });
+        }
+        return authority.registerChild({ ...input, scope: found.scope });
+      } finally {
+        opened.value.close();
+      }
+    },
     current(credentialRef) {
       if (!credentialRef.startsWith(CODING_REF_PREFIX)) return undefined;
       const connection = connectionIdSchema.safeParse(
@@ -247,7 +279,7 @@ export function connectHandler(
           idempotency_key: `connect-${submission.id}`,
           compare: {},
           prepared: [],
-        } as never);
+        });
         return sent.ok ? ok(sent.value.result) : err(sent.error);
       },
     );
@@ -273,5 +305,58 @@ export function withRevocationSweep(
       }
       return done;
     },
+  };
+}
+
+// 신뢰 감독(shell main)의 child 등록·해제 입구의 처리기다(platform/identity#R15). route actors가 user라 사람
+// credential의 요청만 닿고 coding_agent·app·agent는 route 앞에서 403이다. 결과에는 token·scope가 없다.
+export function registerChildHandler(
+  coding: Pick<CodingCredentials, "registerChild">,
+): MemoryHandler {
+  return (_ctx, input) => {
+    const parsed = connectionRegisterChildInputSchema.safeParse(input);
+    if (!parsed.success) {
+      return Promise.resolve(err({
+        code: "invalid_input",
+        message: "child 등록 입력이 올바르지 않다",
+      }));
+    }
+    const registered = coding.registerChild(parsed.data);
+    return Promise.resolve(
+      registered.ok ? ok({ registered: true }) : registered,
+    );
+  };
+}
+
+export function endChildHandler(
+  coding: Pick<CodingCredentials, "authority">,
+): MemoryHandler {
+  return (_ctx, input) => {
+    const parsed = connectionEndChildInputSchema.safeParse(input);
+    if (!parsed.success) {
+      return Promise.resolve(err({
+        code: "invalid_input",
+        message: "child 해제 입력이 올바르지 않다",
+      }));
+    }
+    coding.authority.endChild(parsed.data.process_generation);
+    return Promise.resolve(ok({}));
+  };
+}
+
+export function endConnectionHandler(
+  coding: Pick<CodingCredentials, "authority">,
+): MemoryHandler {
+  return (_ctx, input) => {
+    const parsed = connectionEndConnectionInputSchema.safeParse(input);
+    if (!parsed.success) {
+      return Promise.resolve(err({
+        code: "invalid_input",
+        message: "connection 해제 입력이 올바르지 않다",
+      }));
+    }
+    return Promise.resolve(
+      ok({ ended: coding.authority.endConnection(parsed.data.connection) }),
+    );
   };
 }

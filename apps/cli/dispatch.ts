@@ -65,7 +65,15 @@ import {
   ticketHumanOnly,
   type TicketWriteName,
 } from "../../packages/coding-agent/cli/commands/ticket.ts";
+import {
+  runSkillsInstall,
+  runSkillsList,
+} from "../../packages/coding-agent/cli/commands/skills.ts";
 import { findCommand } from "../../packages/coding-agent/cli/registry.ts";
+import {
+  installSkills,
+  loadDistribution,
+} from "../../packages/coding-agent/guides/mod.ts";
 import {
   catalogOf,
   detectHarnesses,
@@ -461,9 +469,43 @@ export async function runCliCommand(
   if (name.startsWith("harness ")) {
     return await runHarness(name, input, runtime);
   }
-  if (name.startsWith("skills ")) {
-    // 배포 skill 원본(guides)이 설치 묶음에 없다. 성공으로 꾸미지 않는다.
-    return unwired(name);
+  if (name === "skills list") {
+    return await runSkillsList({ distribution: () => loadDistribution() });
+  }
+  if (name === "skills install") {
+    return await runSkillsInstall(
+      input as Parameters<typeof runSkillsInstall>[0],
+      {
+        actor: runtime.actor,
+        distribution: () => loadDistribution(),
+        async install(request) {
+          const loaded = await loadDistribution();
+          if (!loaded.ok) return loaded;
+          // skill만 설치하므로 연결 참조는 없어도 되고 launch의 connection은 쓰이지 않는다.
+          const connection = typeof input.connection === "string"
+            ? input.connection
+            : runtime.env.get(LOPHN_CONNECTION) ?? "";
+          return await installSkills({
+            target: request.target,
+            names: request.names,
+            skills: loaded.value.skills,
+            roots: {
+              home: runtime.home ?? "",
+              env: runtime.env,
+              cwd: runtime.cwd,
+            },
+            launch: launchOf({
+              ...launchInputs(runtime, request.target),
+              connection,
+              toolsets: "core,app",
+            }),
+            connection: connection === "" ? null : connection,
+            operationId: request.operationId,
+            now: runtime.now(),
+          }, { files: filePort(), store: storeOf(runtime) });
+        },
+      },
+    );
   }
   if (name === "session plan") {
     return await runSessionPlanCommand(input, runtime);

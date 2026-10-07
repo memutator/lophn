@@ -108,7 +108,7 @@ function view(
 const ALL_KEYS = COMMANDS.map((entry) => entry.key);
 
 function grants(commands: readonly string[] = ALL_KEYS) {
-  const list: AppGrant[] = [{ grant: GRANT, commands }];
+  const list: AppGrant[] = [{ grant: GRANT, commands, basis_seq: "1" }];
   return new Map<string, readonly AppGrant[]>([[APP, list]]);
 }
 
@@ -428,7 +428,10 @@ Deno.test("lophn-agent/roles/app-engineer#R21: AE에게 제공된 command의 판
   const ports: AppJudgmentPorts = {
     current: () =>
       Promise.resolve(
-        ok({ view: world, grants: [{ grant: GRANT, commands: ALL_KEYS }] }),
+        ok({
+          view: world,
+          grants: [{ grant: GRANT, commands: ALL_KEYS, basis_seq: "1" }],
+        }),
       ),
     nonce: () => Promise.resolve(ok("n".repeat(32))),
   };

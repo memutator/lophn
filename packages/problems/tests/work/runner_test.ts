@@ -521,3 +521,41 @@ Deno.test("coding-agent/mcp-server#R33, problems/tests#R20: 요청 timeout은 me
     assert(!prepareCommand({ ...base, request_timeout_ms }).ok);
   }
 });
+
+Deno.test("problems/tests#R14 R16: runner가 고른 import map과 runtime 환경은 flag와 자식 환경에만 들어가고 allow-env나 요청 argv로는 넣지 못한다", () => {
+  const base = {
+    method,
+    source: "/work/harness",
+    scratch: "/work/scratch",
+    reads: ["/bundle"],
+    env: {},
+    deno: "/usr/bin/deno",
+  };
+  const plain = prepareCommand(base);
+  assert(plain.ok);
+  assert(!plain.value.args.some((arg) => arg.startsWith("--import-map")));
+  const mapped = prepareCommand({
+    ...base,
+    import_map: "/work/harness/import-map.json",
+    runtime_env: { HOME: "/home/runner", DENO_DIR: "/cache" },
+  });
+  assert(mapped.ok);
+  assert(mapped.value.args.includes("--no-config"));
+  assert(
+    mapped.value.args.includes("--import-map=/work/harness/import-map.json"),
+  );
+  // 환경은 자식 프로세스에만 가고 자식에게 env 권한은 없다.
+  assertEquals(mapped.value.env, { HOME: "/home/runner", DENO_DIR: "/cache" });
+  assert(!mapped.value.args.some((arg) => arg.startsWith("--allow-env")));
+  // 요청이 argv로 import map을 바꾸려 하면 거절한다.
+  assert(
+    !prepareCommand({
+      ...base,
+      method: {
+        ...method,
+        argv: ["test", "child_test.ts", "--import-map=/evil.json"],
+      },
+    }).ok,
+  );
+  assert(!prepareCommand({ ...base, import_map: "relative.json" }).ok);
+});

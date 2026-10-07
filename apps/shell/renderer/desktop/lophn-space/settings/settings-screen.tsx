@@ -3,6 +3,8 @@
 import { Button, Tab, TabList, TabPanel, Tabs } from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
+import { CodingConnectionsPanel } from "./connections/connections-panel.tsx";
+import type { CodingConnectionsSource } from "./connections/source.ts";
 import { ExtensionsPanel } from "./extensions/extensions-panel.tsx";
 import { GeneralPanel } from "./general/general-panel.tsx";
 import { ProvidersPanel } from "./providers/providers-panel.tsx";
@@ -15,10 +17,15 @@ export interface SettingsScreenProps {
   onInstructions?: () => void;
   /** 대화 도크를 연다. 설정의 뜻을 lophn에게 묻는다(flow ask-lophn-help). */
   onAsk?: () => void;
+  /** coding agent 연결 통로(shell#T50). 없으면 그 탭을 두지 않는다. */
+  coding?: CodingConnectionsSource;
+  /** `lophn://things-to-confirm/<cac id>` 링크로 온 연결. 있으면 그 탭을 먼저 연다. */
+  initialConnection?: string;
 }
 
 export function SettingsScreen(
-  { source, onInstructions, onAsk }: SettingsScreenProps,
+  { source, onInstructions, onAsk, coding, initialConnection }:
+    SettingsScreenProps,
 ) {
   return (
     <section className={styles.screen} data-screen-body="settings">
@@ -36,9 +43,14 @@ export function SettingsScreen(
             </Button>
           )}
         </div>
-        <Tabs defaultValue="connections">
+        <Tabs
+          defaultValue={coding && initialConnection ? "coding" : "connections"}
+        >
           <TabList>
             <Tab value="connections">{t("settings.label.tab-connections")}</Tab>
+            {coding === undefined
+              ? null
+              : <Tab value="coding">{t("settings.label.tab-coding")}</Tab>}
             <Tab value="extensions">{t("settings.label.tab-extensions")}</Tab>
             <Tab value="general">{t("settings.label.tab-general")}</Tab>
           </TabList>
@@ -47,6 +59,16 @@ export function SettingsScreen(
               <ProvidersPanel source={source} />
             </div>
           </TabPanel>
+          {coding === undefined ? null : (
+            <TabPanel value="coding">
+              <div className={styles.panel}>
+                <CodingConnectionsPanel
+                  source={coding}
+                  focus={initialConnection}
+                />
+              </div>
+            </TabPanel>
+          )}
           <TabPanel value="extensions">
             <div className={styles.panel}>
               <ExtensionsPanel source={source} />

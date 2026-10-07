@@ -43,6 +43,12 @@ import { coreTrackingSource } from "../workspace/tracking/core-source.ts";
 import { coreAppsSource } from "./lophn-space/apps/core-source.ts";
 import { coreSettingsSource } from "./lophn-space/settings/core-source.ts";
 import { coreAppDetailSource } from "../app-frame/app-detail/core-source.ts";
+import {
+  coreCodingConnectionsSource,
+  windowCodingApi,
+  windowRevokeOpener,
+} from "./lophn-space/settings/connections/core-source.ts";
+import { coreTasksSource } from "../app-frame/app-detail/tasks/core-source.ts";
 import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
 import type { LophnAppWindowsApi } from "../../ipc/app-window.ts";
 import type { LophnShellFeedbackBegin } from "../../ipc/feedback.ts";
@@ -62,6 +68,13 @@ const apps = coreAppsSource(core);
 const appDetail = coreAppDetailSource(core);
 // settings 화면. 연결·계정·확장·일반 설정. key·로그인 응답은 보호 창이 받는다.
 const settings = coreSettingsSource(core);
+// coding agent 연결(settings)과 앱 공간 Tasks 탭. 감지·연결·[Start]는 main이 따로 검증하는 통로(`lophnCoding`)다.
+const codingApi = windowCodingApi();
+const coding = coreCodingConnectionsSource(core, {
+  coding: codingApi,
+  openWindow: windowRevokeOpener(),
+});
+const tasks = coreTasksSource(core, { coding: codingApi });
 // 런처의 프로젝트 카드·등록과 작업대(추적 켜기 포함)는 제품 core 통로로 읽고 쓴다.
 const projects = coreLauncherSource(core, windowFolderPicker());
 const workspace = seed?.source ?? coreWorkspaceSource(core);
@@ -173,6 +186,8 @@ mount(
             intents={bridges.lophnIntents}
             apps={apps}
             settings={settings}
+            coding={coding}
+            tasks={tasks}
             appDetail={appDetail}
             views={views}
             appWindows={bridges.lophnAppWindows}

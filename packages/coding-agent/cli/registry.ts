@@ -15,6 +15,7 @@ import type { CommandEntry } from "./commands/types.ts";
 import { FORMAT_COMMANDS } from "./commands/format.ts";
 import { INDEX_COMMANDS } from "./commands/index.ts";
 import { MCP_COMMANDS } from "./commands/mcp.ts";
+import { PROBLEM_COMMANDS } from "./commands/problem.ts";
 import { PROJECT_COMMANDS } from "./commands/project.ts";
 import { SAVE_COMMANDS } from "./commands/save.ts";
 import { SDK_COMMANDS } from "./commands/sdk.ts";
@@ -38,6 +39,7 @@ export const COMMANDS: readonly CommandEntry[] = [
   ...APP_COMMANDS,
   ...SDK_COMMANDS,
   ...TICKET_COMMANDS,
+  ...PROBLEM_COMMANDS,
   ...DAEMON_COMMANDS,
   ...DOCTOR_COMMANDS,
   ...HARNESS_COMMANDS,

@@ -3,7 +3,6 @@
 // ledger·앱 DB·원본 파일을 직접 열지 않는다.
 import { err, ok, type Result } from "../../base/mod.ts";
 import {
-  blobsRead,
   type ReadRoute,
   type Route,
 } from "../../contracts/platform/mod.ts";
@@ -14,6 +13,7 @@ import {
   listProblems,
   listReports,
   listVerifications,
+  reportBody,
 } from "../../contracts/problems/mod.ts";
 import {
   invocationsGet,
@@ -70,8 +70,12 @@ async function defaultBlob(
   ref: { owner_kind: string; owner_key: string; field: string },
   maxBytes: number,
 ): Promise<BlobText> {
-  const read = await parsed(client, blobsRead, {
-    ...ref,
+  const detail = await parsed(client, getReport, { report: ref.owner_key });
+  if (!detail.ok || detail.value.report.problem === null) return { kind: "unavailable", reason: "현재 연결로 읽을 수 없다" };
+  const read = await parsed(client, reportBody, {
+    problem: detail.value.report.problem,
+    report: ref.owner_key,
+    field: ref.field,
     offset_bytes: 0,
     length_bytes: maxBytes,
   });

@@ -356,6 +356,7 @@ export {
   type RepairContext,
   repairContextBundle,
   RepairContextBundleInputSchema,
+  RepairContextMoreInputSchema,
   repairContextMore,
   RepairContextSchema,
   type RepairContextSection,

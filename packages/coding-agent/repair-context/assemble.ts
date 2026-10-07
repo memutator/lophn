@@ -23,6 +23,7 @@ import {
   UNREADABLE_MESSAGE,
 } from "./model.ts";
 import { buildSections } from "./sections.ts";
+import { reduceSections } from "./budget.ts";
 import {
   type Fingerprint,
   type OccurrenceCandidate,
@@ -285,8 +286,7 @@ async function summarize(
 ): Promise<RepairSummary> {
   const readable = facts.problems.filter((item) => item.problem.ok);
   const shown = readable.slice(0, SUMMARY_MAX_PROBLEMS);
-  const share = Math.floor(REPAIR_CONTEXT_SUMMARY_MAX_CHARS / shown.length) -
-    180;
+  const share = Math.floor(REPAIR_CONTEXT_SUMMARY_MAX_CHARS / shown.length) - 180;
   const problems: ProblemSummary[] = [];
   for (const item of shown) {
     const read = (item.problem as { ok: true; value: ProblemOut }).value;
@@ -303,10 +303,7 @@ async function summarize(
       id: item.id,
       app: read.problem.app,
       status: read.problem.status,
-      symptom: `${symptom}${evidence}${limitsOf(sections, item.id)}`.replace(
-        /[\r\n]+/g,
-        " ",
-      ),
+      symptom: `${symptom}${evidence}${limitsOf(sections, item.id)}`.replace(/[\r\n]+/g, " "),
       next_action: "read: repair_context bundle " +
         (facts.problems.length > shown.length ||
             readable.length < facts.problems.length
@@ -314,6 +311,15 @@ async function summarize(
           : `for ${item.id}`),
       seq: read.problem.seq,
     });
+  }
+  // 식별·상태·이어 읽기도 summary 두 줄의 문자 예산에 포함한다. fence는 통째로 유지한다.
+  for (const item of problems) {
+    const limit = Math.floor(REPAIR_CONTEXT_SUMMARY_MAX_CHARS / problems.length);
+    const fixed = Array.from(`${item.id} ${item.status}\n${item.next_action}`).length;
+    if (Array.from(item.symptom).length + fixed > limit) {
+      item.symptom = inlineFence("symptom", "summary truncated; limits present");
+      truncated = true;
+    }
   }
   return {
     app: facts.app,
@@ -373,6 +379,7 @@ export async function assembleRepairContext(
     facts,
     redact: (text) => port.redact(text),
   });
+  built.sections = reduceSections(built.sections);
   const truncated = built.skipped.length > 0 ||
     built.sections.some((section) => section.availability === "truncated");
   const text = renderBundleText({ observed_at, sections: built.sections });

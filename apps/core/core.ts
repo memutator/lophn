@@ -200,6 +200,8 @@ import {
   writeParent,
 } from "./parent.ts";
 import { snapshotLogsEnvironment } from "./problems-logs.ts";
+import { REPAIR_WORKER_KIND, registerRepairReads, repairWorkerSpec } from "./repair-context.ts";
+import { answerRedactRequest } from "./agent-runtime-redaction.ts";
 import {
   COLLECTOR_CREDENTIAL_OPERATIONS,
   COLLECTOR_ROUTES,
@@ -463,6 +465,7 @@ async function open(
   const documentsChannel = createDocumentsChannel();
   // problems report collector 요청 통로. 같은 통로 모양을 쓴다.
   const collectorChannel = createDocumentsChannel();
+  const repairChannel = createDocumentsChannel();
   // coordinator가 파일 읽기의 창으로 보내는 byte frame의 우편함(`files.read` stream).
   const fileWindows = createFileWindows();
   const ledgerPath = `${root.path}/lophn.db`;
@@ -735,6 +738,7 @@ async function open(
   });
   if (!openedRuntime.ok) return openedRuntime;
   runtime = openedRuntime.value;
+  registerRepairReads(runtime, repairChannel);
   // sweep가 expire_claim을 제출할 machine credential. 기록이 없으면 writer가
   // 만료 정리를 거절하므로 기동을 여기서 멈춘다(coding-agent/tickets#R13).
   const sweepCredential = await runtime.record({
@@ -1689,6 +1693,20 @@ async function open(
         );
       }
     }
+  }
+  const repairSpec = repairWorkerSpec();
+  if (io && repairSpec && allRoutes.some((route) => route.resource === "repair_context")) {
+    const started = await io.start(repairSpec, {
+      type: "hello", core_epoch: epoch, process_identity: epoch, kind: REPAIR_WORKER_KIND,
+      task: "repair-context", scope: { operations: [], targets: {} }, credential: "", api_port: server.port,
+    }, {
+      onMessage: (message) => {
+        const answer = answerRedactRequest(message, runtime!.knownSecrets);
+        if (answer) void io!.send(REPAIR_WORKER_KIND, answer);
+        else repairChannel.onMessage(message);
+      },
+    });
+    if (started.ok) repairChannel.bind((message) => io!.send(REPAIR_WORKER_KIND, message).then((sent) => sent.ok));
   }
   // core 안 notifications 구독자. 계기 event를 notification으로 바꾸고 cursor를 올린다.
   const notifications = startNotifications({

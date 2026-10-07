@@ -61,6 +61,7 @@ import {
   CONDITION_TARGET_KEYS,
 } from "../../packages/platform/identity/mod.ts";
 import { packagesGuideBody } from "../../packages/contracts/apps/mod.ts";
+import { getReport, reportBody } from "../../packages/contracts/problems/mod.ts";
 import {
   PACKAGE_GUIDE_BLOB_FIELD_NAME,
   PACKAGE_GUIDE_BLOB_OWNER_KIND,
@@ -307,6 +308,23 @@ export async function openRuntime(input: {
     (ctx, body) =>
       packageGuideBodyHandler(input.ledgerPath, input.blob, ctx, body),
   );
+  reads.set("problems/report_body", async (ctx, body) => {
+    const parsed = reportBody.input.safeParse(body);
+    if (!parsed.success) return err({ code: "invalid_input", message: "invalid input" });
+    const target = { app: ctx.conditions.app };
+    if (!ctx.scope.operations.includes(reportBody.name)) return err({ code: "forbidden", message: "operation forbidden" });
+    const judged = await readers.value.read(getReport, ctx, { report: parsed.data.report });
+    if (!judged.ok) return judged;
+    const report = (judged.value as { report: { problem: string | null; app: string } }).report;
+    if (report.problem !== parsed.data.problem) return err({ code: "not_found", message: "대상을 찾을 수 없다" });
+    return blobReadHandler(input.ledgerPath, input.blob === undefined ? undefined : {
+      ...input.blob,
+      fields: input.blob.fields.map((field) => field.owner_kind === "report" && field.field === parsed.data.field ? { ...field, general_read: true } : field),
+    }, ctx, {
+      owner_kind: "report", owner_key: parsed.data.report, field: parsed.data.field,
+      offset_bytes: parsed.data.offset_bytes, length_bytes: parsed.data.length_bytes,
+    }, (current) => authorize(current, reportBody.name, { ...target, app: report.app, problem: report.problem }));
+  });
   // OS 표시 전달 상태(R9, R10). get·list·display 응답을 꾸미고 shell의 실패 보고를 받는다.
   const delivery = createNotificationDelivery({
     clock: input.clock,

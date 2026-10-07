@@ -21,6 +21,9 @@ import {
 } from "../../../packages/contracts/coding-agent/mod.ts";
 import {
   assembleRepairContext,
+  createRepairCursor,
+  type RepairCursor,
+  repairMore,
   createRepairReadPort,
   type RepairReadClient,
   type RepairTarget,
@@ -36,11 +39,12 @@ export const CODING_AGENT_WORKER_KIND = "coding-agent/worker";
 export const REPAIR_CONTEXT_OPS = {
   summary: "repair_context.summary",
   bundle: "repair_context.bundle",
+  more: "repair_context.more",
 } as const;
 
 // worker 요청 payload. credential은 요청자 connection의 것이고 core가 요청마다 싣는다.
 // worker는 machine credential로 범위 밖 근거를 대신 읽지 않는다.
-export type RepairContextPayload = { credential: string; input: unknown };
+export type RepairContextPayload = { credential: string; principal?: string; input: unknown };
 
 export class RepairContextRejection extends Error {
   readonly code: ErrorCode;
@@ -55,6 +59,7 @@ export type RepairContextDeps = {
   redact(text: string): Promise<string | null>;
   now?(): string;
   fetch?: RpcFetch;
+  cursor?: RepairCursor;
 };
 
 function rpcFetch(): RpcFetch {
@@ -112,16 +117,21 @@ export async function acceptRepairContext(
   deps: RepairContextDeps,
 ): Promise<unknown> {
   const summary = request.op === REPAIR_CONTEXT_OPS.summary;
-  if (!summary && request.op !== REPAIR_CONTEXT_OPS.bundle) {
+  if (!summary && request.op !== REPAIR_CONTEXT_OPS.bundle && request.op !== REPAIR_CONTEXT_OPS.more) {
     throw new RepairContextRejection("invalid_input", "unknown op");
   }
   const payload = payloadOf(request);
-  const target = targetOf(payload.input, summary);
   const port = createRepairReadPort({
     client: readClient(deps, payload.credential),
     now: deps.now ?? (() => new Date().toISOString()),
     redact: deps.redact,
   });
+  if (request.op === REPAIR_CONTEXT_OPS.more) {
+    const result = await repairMore(port, payload.input, payload.principal ?? payload.credential, deps.cursor ?? await createRepairCursor());
+    if (!result.ok) throw new RepairContextRejection(result.error.code, result.error.message);
+    return result.value;
+  }
+  const target = targetOf(payload.input, summary);
   const assembled = await assembleRepairContext(port, target);
   if (!assembled.ok) {
     throw new RepairContextRejection(
@@ -205,6 +215,7 @@ export async function runCodingAgentWorker(_root: string): Promise<void> {
   console.log = console.info = console.debug = (...args: unknown[]) =>
     console.error(...args);
   let apiPort = 0;
+  const cursor = await createRepairCursor();
   const link = createRedactLink({
     send: (message) => session.send(message),
   });
@@ -218,7 +229,10 @@ export async function runCodingAgentWorker(_root: string): Promise<void> {
       acceptRepairContext(request, {
         baseUrl: `http://127.0.0.1:${apiPort}`,
         redact: (text) => link.redact(text),
+        cursor,
       }),
   });
   await session.run();
 }
+
+if (import.meta.main) await runCodingAgentWorker("");

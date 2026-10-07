@@ -236,6 +236,9 @@ export function createReaderRegistration(): ReaderRegistration {
       getReportRead,
       getSnapshotRead,
       listProblemFixesRead,
+      getTestRequestRead,
+      getVerificationRead,
+      listVerificationsRead,
     ],
     ports: new Map(),
   };

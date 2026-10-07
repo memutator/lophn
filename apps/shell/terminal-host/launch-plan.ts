@@ -16,14 +16,7 @@ import {
   type ObserveEnvelope,
   unknownObservation,
 } from "../../../packages/contracts/coding-agent/mod.ts";
-import type { PromptOutcome } from "../ipc/terminal.ts";
-import type {
-  CodingAttachment,
-  CodingHost,
-  CodingLaunch as BaseLaunch,
-  PrepareContext,
-  PrepareResult,
-} from "./coding-types.ts";
+import type { CodingHost, CodingLaunch as BaseLaunch } from "./coding-types.ts";
 import {
   type ChildEvent,
   createChildWatch,

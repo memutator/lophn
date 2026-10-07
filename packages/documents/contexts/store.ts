@@ -138,6 +138,16 @@ export function loadContextRow(
   return contextFromRow(row);
 }
 
+// context의 항목이 읽기 명령으로 가리키는 앱 ID들이다. 앱 하나에 묶인 agent의 범위 판정이 쓴다
+// (platform/ledger target 판정의 `context_apps`).
+export function contextApps(sql: Pick<Sql, "all">, id: string): string[] {
+  return sql.all(
+    `SELECT DISTINCT app FROM context_items
+     WHERE context = ? AND target_kind = 'app_command'`,
+    [id],
+  ).flatMap((row) => typeof row["app"] === "string" ? [row["app"]] : []);
+}
+
 export function listItems(
   sql: Pick<Sql, "all">,
   context: string,

@@ -3,125 +3,134 @@ type: guide
 concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell]
 ---
 
-# lead handoff (2026-10-06 22:20 기준)
+# lead handoff (2026-10-07 20:00 기준)
 
 다음 orchestrator(lead)가 이 팀을 이어 받을 때 알아야 하는 것. 무엇을 만들지는 `docs/plan/`이 정하고,
 여기는 운영 방법·현재 상태·함정만 적는다. 숫자와 PR 목록은 작성 시각 기준이니 시작할 때
-`docs/tmp/plan-count.js now`와 `gh pr list`로 다시 본다.
+`node docs/tmp/plan-count.js now`와 `gh pr list`로 다시 본다.
+
+## 0. 멈춘 이유와 다시 시작할 때
+
+- 2026-10-07 19:1x 사람 지시: "주간 한도 임박 이유로 추가적인 Task 진행은 하지 않는다". 새 worker를 띄우지 않았고, 막 띄운 worker 둘(lophn-agent#T47, coding-agent#T35)은 멈춰 WIP를 push했다. 이미 돌던 worker는 끝까지 받아 PR로 남겼고, lead는 승인된 PR의 merge만 마무리했다.
+- 지금 돌고 있는 worker·검사·cron은 없다.
+- 사람이 다시 시작하라고 하기 전에는 새 task를 띄우지 않는다. 시작하면 6절 "다음에 할 일" 순서로 간다.
 
 ## 1. 사람이 정한 운영 규칙
 
-- 사람에게는 한국어로 답한다. 개발 용어는 영어 그대로 쓴다(AGENTS.md).
-- lead는 직접 기능을 만들지 않는다. worker를 띄우고, PR을 리뷰하고, merge한다. merge 권한은 lead에게 위임돼 있다.
-- **놀고 있는 worker가 없게 한다.** merge 대기열만 보다가 새 worker를 안 띄운 것을 사람이 강하게 지적했다. PR 하나를 처리할 때마다 시작할 수 있는 task를 다시 계산해 바로 띄운다.
-- **구현에 집중**(2026-10-06 사람 지시). 일어나지 않은 문제·미래 유지보수 비용 때문에 범위를 넓히지 않는다. 리뷰에서 돌려보내는 기준은 보안 경계(범위 밖 노출, 권한 우회), 저장 안 된 blob의 가짜 hash, 테스트 실패, task 완료 기준 미달뿐이다. 나머지는 이어보냄을 받아들이고 바로 merge한다. 자세한 worker 쪽 규칙은 `worker-common.md`의 "구현에 집중" 절.
-- full `deno task check`는 lead도 worker도 돌리지 않는다. lead는 merge 직전에 `light-check.sh`만 돈다.
-- plan 파일 끝에 새 Q 항목을 더하지 않는다(PR끼리 번호 충돌). 결정은 그 task 블록 안 "정한 것" 줄로 적는다.
-- 진행도는 시간순으로 `.dev-data/progress-log.md`(git 무시)에 남긴다. `docs/tmp/progress-snap.sh`가 한 줄을 더한다. 매시간 돌리던 cron은 세션 한정이라 새 세션에서 다시 건다(CronCreate, 매시 7분).
+- 사람에게는 한국어로 답한다. 개발 용어는 영어 그대로 쓴다(AGENTS.md). 번역어(잎, 장부, 시험 등)를 만들지 않는다. plan 줄에 worker가 "시험:"이라고 쓰면 "테스트:"로 고친다.
+- lead는 직접 기능을 만들지 않는다. worker를 띄우고, PR을 리뷰하고, merge한다. merge 권한은 lead에게 위임돼 있다. merge 검사에서 걸린 작은 것(쓰지 않는 import, test 기대값, fixture 한 줄)은 lead가 PR branch에 직접 고쳐 넣어도 된다.
+- 한도가 있을 때는 놀고 있는 worker가 없게 한다. PR 하나를 처리할 때마다 시작할 수 있는 task를 다시 계산해 바로 띄운다(`docs/tmp/lead-tools/ready.js`).
+- **구현에 집중**(2026-10-06). 리뷰에서 돌려보내는 기준은 보안 경계(범위 밖 노출, 권한 우회), 저장 안 된 blob의 가짜 hash, 테스트 실패, task 완료 기준 미달뿐이다. 나머지는 이어보냄을 받아들인다.
+- **test 생략**(2026-10-07, 기계 메모리 고갈 뒤). worker는 `worker-common.md`의 "test 생략"을 따른다: 자기가 쓰거나 고친 `_test.ts`만 파일 단위로, `memwait.sh`로. npm check·e2e·Electron은 task가 요구할 때만 `heavy.sh`로. 넓은 회귀는 lead의 batch 검사가 한 번 맡는다.
+- full `deno task check`는 아무도 돌리지 않는다. lead는 batch마다 `light-check.sh`만 돈다.
+- 진행도는 `.dev-data/progress-log.md`(git 무시)에 `docs/tmp/progress-snap.sh`로 남긴다. 사람에게 진행도를 말할 때는 이 log와 `plan-count.js "<시각>"`로 git 이력에서 계산한다. 어림으로 말했다가 사람에게 지적받은 적이 있다.
+- plan 파일 끝에 새 Q 항목을 더하지 않는다. 결정은 그 task 블록 안 줄로 적는다.
 
-## 2. worker 배정 (사람 지시, 2026-10-07 갱신)
+## 2. worker 배정 (사람 지시, 2026-10-07)
 
 | 일 | subagent_type | 비고 |
 |---|---|---|
-| 기본(대부분의 task) | `sonnet-high` | 제품 연결(core 조립·runtime·화면 통로)이 걸린 task는 모두 여기 |
-| 범위가 좁고 할 일이 분명한 task(한 module·한 test 파일, 제품 연결 없음) | `glm-flash-max` | glm은 module만 만들고 제품에 잇지 않거나 완료 기준을 완료된 task로 넘기는 실수를 되풀이했다(#414, #417) |
-| 프론트(shell 화면·renderer·UI) | `sonnet-high` | opus는 쓰지 않는다. 화면 작업은 headless screenshot을 보고 확인하게 한다 |
+| 기본(대부분의 task, 제품 연결·화면 포함) | `sonnet-high` | glm보다 완료 기준을 지키고 제품에 실제로 잇는다 |
+| 범위가 좁고 할 일이 분명한 task(한 module·한 test 파일, 제품 연결 없음)만 | `glm-flash-max` | 오래 돌다 멈추는 일이 잦았다. 3시간 가까이 돈 glm worker 셋을 사람 지시로 멈추고 sonnet-high로 넘긴 적이 있다(handoff는 `.dev-data/handoffs/`) |
 
-- 동시 worker는 6개까지다(2026-10-07 기계 메모리 고갈 뒤). worker는 docs/tmp/worker-common.md의 "test 생략"을 따른다.
-- 선행 풀기(사람 결정 2026-10-07): shell#T53, problems#T22, coding-agent#T45는 선행이 끝나기 전에 이미 있는 contract와 fake로 먼저 만들고, 선행이 merge되면 실제로 잇는 작은 PR을 따로 낸다. 각 task 블록에 같은 줄이 있다.
+- 동시 worker는 6개까지.
+- worker 프롬프트 첫 줄은 항상 "Don't use the Agent tool or spawn subagents. Do the work yourself in your own worktree." 그리고 `AGENTS.md` → `docs/tmp/worker-common.md` → `docs/dev/team-brief.md` → 자기 task 블록 순서로 읽게 한다.
+- permission classifier가 `&&`로 이은 git 명령을 거절한다. 프롬프트에 "one plain command per shell call"을 넣는다.
+- 바뀐 것이 없는 worktree는 agent가 끝나면 지워진다. 같은 worker를 다시 부를 때 worktree가 없으면 새 worker를 띄운다.
+- 끝난 worker가 "background work still running"으로 다시 깨어나 같은 보고를 되풀이하면 TaskStop으로 멈춘다(한도만 쓴다).
+- 선행 풀기(사람 결정): shell#T53, problems#T22, coding-agent#T45는 contract와 fake로 먼저 만들었고, 선행(problems#T20·T21)이 merge되면 실제로 잇는 작은 PR을 따로 낸다. 그 PR이 들어가야 상태를 완료로 바꾼다.
+- 미룸(사람 결정): platform#T49(macOS·Windows), coding-agent#T48(오프라인 MCP). plan-count와 ready.js가 빼고 센다.
 
-- glm-flash-max는 proxy가 모델을 정한다. worker가 자기를 "Claude Haiku 4.5"라고 말하는 것은 사람이 정상이라고 확인했다.
-- **worker는 Agent tool로 하위 agent를 띄우면 안 된다.** 하위 agent는 lead 모델(Opus)로 돌아 배정한 모델을 벗어나고, 같은 branch에 두 agent가 동시에 commit했다. `worker-common.md`에 규칙을 넣었지만 프롬프트 첫 줄에도 "Don't use the Agent tool or spawn subagents"를 꼭 넣는다.
-- glm 결과는 반드시 직접 확인한다. 이번 구간에서 glm에게 준 기능 task(lophn-agent T42, problems T16, T10, documents T28, coding-agent T22, shell T57)는 대부분 완료 기준 미달·가짜 테스트·없는 route 호출이 있어 다시 돌려보내거나 sonnet-high로 넘겼다. 보고에 "완료"라고 써도 테스트 이름·completion criteria를 plan과 대조한다.
-- 동시 worker는 6~8개가 적당했다. 각 worker는 test 프로세스를 2개까지만.
+## 3. 반드시 지키는 안전 규칙
 
-## 3. 반드시 지키는 안전 규칙 (사람·brief)
+- 실제 사람 데이터 root(`~/.lophn`, `~/.config/lophn`)와 harness home(`~/.claude`, `~/.codex`, `~/.gemini` 등)을 열거나 쓰지 않는다. core·shell·worker는 항상 `LOPHN_HOME=$(mktemp -d)`. hook·skill 설치 test는 temp HOME과 temp harness 폴더만.
+- 실제 OS keychain·secret-tool, 전역 단축키, autostart, OS notification을 건드리지 않는다. 사람의 app-control autostart와 다른 project(att)도 건드리지 않는다.
+- Electron은 headless만. 직접 띄운 정확한 pid만 죽인다.
+- legacy repo는 읽기만. `docs/intent/`는 사람만 고친다.
+- `git stash` 금지. main에 force push·이력 재작성 금지. `lead/merge-batch`는 lead 전용이라 `reset --hard origin/main` 해도 된다.
+- 테스트는 실제 model provider(tools/fake-provider)나 실제 coding agent 제품을 부르지 않는다. 저장하지 않은 blob의 가짜 hash 금지. redaction은 core known-values 통로로.
+- worker가 거절당한 명령을 lead가 대신 돌리지 않는다(permission laundering).
 
-- 실제 사람 데이터 root(`~/.lophn`, `~/.config/lophn`)와 사람 harness home(`~/.claude`, `~/.codex`, `~/.gemini` 등)을 열거나 쓰지 않는다. core·shell·worker는 항상 `mktemp -d`(0700) LOPHN_HOME.
-- 실제 OS keychain·secret-tool, 전역 단축키, autostart, OS notification, OS 앱 바로가기를 건드리지 않는다. 테스트는 fake.
-- Electron은 headless만(`LOPHN_SHELL_HEADLESS=1`, `LOPHN_SHELL_SHOT_DIR`). 사람이 자기 Electron 창을 띄워 둘 수 있으니 직접 띄운 정확한 pid만 죽인다.
-- legacy repo는 읽기만. intent(`docs/intent/`)는 사람만 고친다(domain-model·architecture는 intent가 아니다).
-- `git stash` 금지. `deno fmt`를 docs/ 전체에 돌리지 않는다. main에 force push·이력 재작성 금지. 되돌리기 어려운 git 작업은 사람에게 묻는다.
-- 테스트는 실제 model provider를 부르지 않는다(tools/fake-provider). 저장하지 않은 blob의 가짜 hash 금지.
-- worker가 권한을 거절당한 일을 lead가 대신 하지 않는다(permission laundering). 예: wildcard `rm`, 남의 프로세스 kill은 사람에게 넘긴다.
+## 4. 도구
 
-## 4. 도구 (모두 이 폴더)
+lead가 쓰는 사본은 `.dev-data/lead-tools/`(git 무시, 이 기계에 남는다)에 있다. 잃으면 `docs/tmp/lead-tools/`의 사본을 그리로 복사한다(경로가 그 자리로 박혀 있다).
 
 | 파일 | 쓰임 |
 |---|---|
-| `merge.sh <pr> <worktree 이름> <branch> "<review>"` | origin/main 합치기 → light-check → push → main 안 움직였는지 확인 → review 코멘트 → squash merge → branch·worktree 정리. log는 `$TMPDIR/lophn-check<pr>.log` |
-| `light-check.sh` | fmt·lint·deps·contract coverage·type check·docs check, 바뀐 폴더 test, core tripwire, shell npm check |
-| `merge-queue.sh <queue 파일>` | 대기열 파일(`pr|worktree 이름|review` 한 줄씩)을 위에서부터 계속 처리한다. merge 전에 main을 합치고, **plan 파일만 충돌하면 양쪽을 남겨 자동 해결**(`keepboth.py`), PR이 바꾼 코드·md를 deno fmt, 남는 `apps/shell/main/desktop/core/deno.lock` 변경을 되돌린 뒤 `merge.sh`. 파일 끝에 줄을 더하면 이어서 처리한다. 같은 PR을 다시 넣으려면 review 문구를 바꾼다(문구 hash로 중복을 거른다). background로 돌린다 |
-| `keepboth.py <files>` | 충돌 표시를 "main 쪽 + PR 쪽" 순서로 둘 다 남긴다. plan 문서 전용 |
-| `plan-count.js "<시각>"\|now` | 그 시각 origin/main의 plan 완료 수/전체 |
-| `progress-snap.sh` | `.dev-data/progress-log.md`에 진행도 한 줄 |
-| `worker-common.md` | worker 공통 지침. 프롬프트에서 항상 읽게 한다 |
+| `.dev-data/merge-queue.txt` | 승인된 PR 대기열. 한 줄에 `pr|worktree 이름|review 문구` |
+| `integrate.sh` | `.claude/worktrees/merge-batch`(branch `lead/merge-batch`)에 origin/main 위로 대기열 PR branch를 차례로 합친다. `SKIP="436 445"`로 뺄 PR. plan 파일 충돌은 양쪽을 남기고, 코드 충돌은 그 PR을 건너뛰고 알린다. 먼저 `git reset --hard origin/main` 하고 돌린다 |
+| `light-check.sh` (docs/tmp) | fmt·lint·deps·contract coverage·deno check·docs check, 바뀐 폴더 test, core tripwire, shell npm check. `LIGHT_TEST_TIMEOUT`(기본 900초)를 받는다 |
+| `heavy.sh <cmd>` | 동시 2개 flock, MemAvailable 8GB 대기, `systemd-run --user --scope` 8G 상한으로 돌린다. light-check는 `heavy.sh env -u LOPHN_HOME LIGHT_TEST_TIMEOUT=2400 docs/tmp/light-check.sh > .dev-data/logs/check-batchN.log`로 background |
+| `memwait.sh <cmd>` | 6GB 대기, 4G 상한. 파일 하나짜리 test용 |
+| `rerun-failed.sh <log>` | log의 `=> ./x_test.ts` 실패 파일만 merge-batch에서 하나씩 다시 돌린다 |
+| `batch.sh` | `LIST="438 440" MERGE_COMMIT_PRS="438 440" bash batch.sh`. PR마다 `merge-nocheck.sh`(main 합치기, plan 충돌 양쪽 남김, deno.lock 되돌림, push, mergeable 대기, review 코멘트, `gh pr merge --match-head-commit`, branch·worktree 정리)를 부르고 merge된 줄을 대기열에서 지운다 |
+| `ready.js` | 선행이 모두 완료인 미완 task 목록(미룸 빼고, 선행 풀기 반영) |
+| `plan-count.js "<시각>"\|now`, `progress-snap.sh` (docs/tmp) | 진행도 |
 
-ready task 계산(선행이 모두 완료인 미완 task)은 `docs/plan/*.md`의 `- 상태:`·`- 선행:` 줄을 node 한 줄로 파싱해 왔다. in-flight PR의 task를 완료로 쳐서 "PR이 들어가면 열리는 task"도 미리 본다.
+### batch merge 규칙 (사람 승인 2026-10-07)
 
-## 5. merge 쪽 함정 (실제로 겪은 것)
+- 대기열을 크게 묶어 한 번에 검사한다. 검사가 도는 동안 들어온 PR은 다음 batch로.
+- 실패하면 전체를 다시 돌리지 않는다. `rerun-failed.sh`로 실패한 파일만 따로 돌려, 통과하면 부하 탓으로 보고 merge한다.
+- 따로 돌려도 실패하거나 정적 검사·shell check가 실패하면 실제 결함이다. 원인 PR만 빼거나 고치고 나머지는 merge한다.
+- 다른 PR이 위에 쌓인 PR은 merge commit으로(`MERGE_COMMIT_PRS`). 쌓인 순서대로 merge한다.
+- test가 timeout(rc 124)으로 끊기면 log에 `=>` 줄이 없다. 끊긴 자리 뒤의 test 파일을 따로 모아 다시 돌린다(같은 PR의 앞부분은 이미 통과).
 
-- **light-check 실패 이유는 log 끝 몇 줄만 보면 놓친다.** fmt 실패가 테스트 통과 줄 뒤에 숨어 몇 시간 merge가 멈춘 적이 있다. `grep -E "실패|LIGHT|FAILED" $TMPDIR/lophn-check<pr>.log`로 본다.
-- main에 포맷 안 된 파일이 들어가면 그 뒤 모든 PR이 fmt에서 떨어진다(#326 → #352로 고침). 그런 파일은 바로 고쳐 merge.
-- 부하 flaky(같은 파일 단독 실행은 통과): `apps/core/documents-file-stream_test.ts`("worker가 사용할 수 없다"), `documents-observation_test.ts`, lophn-agent tool-judgment·waiting-and-recovery(25s timeout), apps runtime("reader가 현재 요청을 처리할 수 없다"), events-subscribe. 단독으로 돌려 통과하면 대기열 뒤에 다시 넣는다. #335/#345가 원인 일부를 고쳤다.
-- **충돌 정리를 맡긴 worker가 main 쪽 내용을 지울 수 있다.** "HEAD 쪽을 남겼다"는 보고가 있으면 `git diff origin/main origin/<branch> -- <파일>`에서 `-` 줄을 본다. 실제로 #356이 #350의 confirmation contract를, #351이 wording key 20개를 잃었다. wording은 원래 branch 커밋의 en.ts key 중 main에도 PR에도 없는 것을 찾아 되살리고 `packages/design/wording/generate.ts`로 placeholders를 다시 만든다.
-- **base가 다른 PR branch인 PR**은 그 base branch가 merge로 지워지면 GitHub가 PR을 닫는다(#337 → #345로 다시 엶). 쌓인 PR은 먼저 `gh api -X PATCH repos/memutator/lophn/pulls/<n> -f base=main`.
-- 앞 PR의 commit을 포함한 PR(예: #351·#353·#366이 #342를 포함)은 앞 PR 다음 순서로 merge한다.
-- worker가 shell npm check를 돌리면 main checkout의 node_modules를 symlink로 빌리고 `deno.lock`(apps/shell/main/desktop/core)을 바꿔 둔다. merge 전에 되돌린다(merge-queue.sh가 한다).
-- main checkout의 `apps/shell/main/node_modules`가 오래되면 build가 깨진다. `npm --prefix apps/shell/main ci`.
-- 대기열 chain을 다른 chain의 출력에 기대 이어 붙이지 않는다. 앞 chain을 멈추면 뒤가 영원히 기다린다(몇 시간 멈춘 적 있음). 대기열 파일 하나 + `merge-queue.sh` 하나만 쓴다.
+## 5. 함정 (실제로 겪은 것)
 
-## 6. 현재 상태 (2026-10-06 22:20, 사람이 모든 worker와 merge chain을 멈춘 시점)
+- **log 끝 줄만 보면 놓친다.** `deno lint ... | tail -1`이 "Checked 1 file"만 보여 쓰지 않는 import 두 개를 놓쳐 batch를 한 번 더 돌렸다. `grep -E "^error|Found"`로 본다.
+- **core 재시작 test가 줄줄이 "credential 기록이 이미 있고 권한이 다르다"로 실패하면** 새 고정 machine credential이 `apps/core/credentials.ts`의 `FIXED_CREDENTIALS`에 없는 것이다(#436).
+- **core tripwire**(`packages/platform/responsiveness/core_imports_test.ts`): core module graph에 동기 file API·압축·외부 fetch가 들어오면 실패한다. test child 진입 module을 core가 import하는 `mod.ts`에서 re-export한 경우(#442·#446), core 안에서 앱 runtime client를 직접 쓴 경우(#436)가 있었다.
+- **shell tsc는 `packages/contracts`를 따라가면 깨진다.** coding 관련 shell 코드는 deno가 검사하는 자리(`apps/shell/terminal-host` 등)에 둔다(#438).
+- 새 route·event·bundle을 더한 PR이 그 목록을 고정한 contract test(`registry_test`, `reverts_test`, `document_tools_test`)나 port 모양을 쓰는 다른 test fixture를 안 고치는 일이 잦다. 같은 PR에 고쳐 넣는다.
+- 부하 flaky: core를 띄우는 test가 25초 timeout으로 무더기 실패. 따로 돌리면 통과한다.
+- GitHub GraphQL 502, mergeable UNKNOWN은 잠시 뒤 다시. merge-nocheck가 기다린다.
+- worker의 shell npm check는 `apps/shell/main/desktop/core/deno.lock`을 바꿔 둔다. merge 전에 되돌린다(merge-nocheck가 한다). `apps/shell/node_modules` symlink가 없으면 ipc의 zod import가 node test에서 깨진다(merge-batch에는 있다).
 
-- 완료 263/364(72%). 진행도 기록은 `.dev-data/progress-log.md`. 시간당 완료는 초반 5~6개, 최근 3~4개.
-- 돌고 있는 worker·merge chain·cron 없음. 아래 열린 PR은 모두 lead 리뷰를 통과했고(#369 제외) merge만 남았다. 새 세션에서 대기열 파일을 만들어 `merge-queue.sh`로 이 순서대로 돌린다.
+## 6. 현재 상태 (2026-10-07 20:00)
 
-### 열린 PR (merge 순서대로)
+- 완료 324/362(89%, 미룸 2개 제외). 오늘 기록: 18:20 316 → 19:45 324.
+- 돌고 있는 worker·검사·cron 없음. `lead/merge-batch`는 지난 batch 그대로라 다음 batch 전에 reset한다.
 
-| 순서 | PR | task | 남은 일 |
-|---|---|---|---|
-| 1 | #354 | apps app.rename | 부하 timeout 재시도만 |
-| 2 | #347 | problems T10 앱 계약 검사 | 재시도만 |
-| 3 | #345 | core child 채널 deadline | worktree `agent-abb49fe7977335f58`에 main merge commit `b265ff4e`가 있으나 push 여부·테스트 미확인(멈춘 worker). 확인 후 push. PR branch는 `fix/real-core-test-stability-followup` |
-| 4 | #340 | problems T16 view binding | main 합친 `5a93bf40` push됨, 테스트 미확인 |
-| 5 | #367 | problems T5 submit-feedback | #340 다음(#340 commit 포함). base는 main으로 바꿔 둠 |
-| 6 | #330 | documents T31 앱 출력 | worktree `agent-aa087d05635282184`의 main merge `ca978be9`가 push 안 됨, 미commit 파일 1개. 확인 후 push |
-| 7 | #361 | problems T11 화면 검사 | main 합침·테스트 통과·push됨 |
-| 8 | #358 | coding-agent T22 SDK tool | main 합침·테스트 통과·push됨 |
-| 9 | #363 | shell T57 패키징 | main 합침·테스트 통과·push됨 |
-| 10 | #342 | shell T39 native view | worktree가 **merge 도중 상태(MERGE_HEAD 있음)**. `git merge --abort` 뒤 다시 합친다 |
-| 11 | #351 | shell T44 앱 패널·카드 | 같은 상태(merge 도중). #342 다음. wording key 복구 commit `65f843aa`는 push됨 |
-| 12 | #353 | shell T42 앱 공간 | 같은 상태(merge 도중). #342 다음 |
-| 13 | #366 | shell T52 문제 알리기 | #353 다음(#353 commit 포함) |
-| 14 | #356 | shell T20 projects | confirmation contract 되돌림을 고친 `51826201` push됨 |
-| 15 | #365 | shell T36 contexts | 승인 |
-| 16 | #369 | lophn-agent T19 prompt 층 | **리뷰 안 함.** worker가 PR까지 열고 멈췄다. 완료 기준과 대조해 리뷰한다 |
-| 17 | #368 | 이 handoff | docs만 |
+### 열린 PR
 
-### 멈춘 작업 (PR 없음)
+| PR | task | 상태와 남은 일 |
+|---|---|---|
+| #436 | lophn-agent#T48 앱 revert | 리뷰 통과했으나 merge 검사에서 뺐다. lead가 고정 credential·test 기대값은 고쳐 push했다(`748138c3`). **남은 결함:** `apps/core/app-revert.ts`가 core 안에서 앱 runtime client(unix socket fetch)를 써 core tripwire에 걸린다. 앱 revert command 호출을 다른 앱 호출처럼 worker·invocation 경로로 옮겨야 한다(followup 51) |
+| #445 | shell#T30 roles 화면 | 리뷰 통과. main과 `apps/core/core.ts`(+ plan 두 파일) 충돌. #455가 이미 #445를 합치며 같은 충돌을 풀었으니 참고 |
+| #453 | problems#T19 work reaction·해석 연결 | **리뷰 안 함.** core.ts·tickets.ts·credentials.ts·writer-assembly.ts까지 고쳤다. worker 보고: 실제 core checker가 repair ticket의 problem target `revision`을 "open"으로 보내 `record_checks`가 거절한다(coding-agent#T45로 넘김). 제품 core에 `PROBLEM_STATUSES_PORT`가 없어 repair ticket 생성이 test 밖에서 막힌다 |
+| #454 | coding-agent#T33 배포 skill | **리뷰 안 함.** skill 네 개, manifest, `skills install` 권한 planner(skill 폴더 단위 read·write) |
+| #455 | shell#T54 Operator 화면 | **리뷰 안 함.** #445를 포함한다(#445 다음). 상태를 완료로 달았지만 실제 core에서 승인된 붙이기가 적용되지 않는다: `ApplyOperatorAssignment`가 machine 전용이라 user apply가 forbidden, `decision_seq` 자리표시 "1", `approval.submit_assignment` 입력 모양 불일치(lophn-agent#T53로 넘김). 완료로 둘지 리뷰에서 정한다 |
+| #456 | followup 40 RequestTest 제품 실행 경로 | **리뷰 안 함.** #442·#446은 main에 들어갔다. #446과 같은 core graph 고침을 다른 방식(`child-types.ts`)으로 해 main과 충돌할 것이다. main(#446, `failure-path.ts`) 쪽을 따른다. core에서 coding agent reproduction claim을 검사한다. reproduction 실행은 `RequestTest`에 ReproductionScenario가 없어 `preparation_failed`로 끝나고(가짜 없음), agent가 고정 test hash를 얻을 통로가 없다(coding-agent 결정 필요) |
 
-- **apps T19**(가장 중요): branch `worktree-agent-ae961ecfbc3ee5c0f`, worktree 같은 이름, commit 11개 push됨. 마지막 commit "Serve preview stand-in brokers, bundle ledger preview releases (apps#T19 WIP)". 어디까지 했는지 `git log origin/main..`으로 보고 sonnet-high로 이어서 끝낸다. 할 일 목록은 plan apps T19 블록의 "넘어온 것" 줄들(blueprint read route, supervisor broker 조립, cap-host 설치, release 준비의 SDK 사본·lock, R22 검사, APP_OP_ROUTES.blueprint 교체 등).
-- **platform T58**: 시작 직후 멈춤. worktree `agent-a991b84b975f48cb7`에 미commit 파일 3개. 처음부터 다시 해도 된다.
+### 멈춘 WIP (PR 없음, branch push됨)
 
-### 핵심 경로
+- lophn-agent#T47: branch `worktree-agent-a87eea81af0e4153f`(`8863afa9`). app-context judgment와 test 일부. 멈출 때 하던 일: "app_panel kind와 executeTool 인자 순서 test 고치기".
+- coding-agent#T35: branch `worktree-agent-a02c45df5defe12c1`(`b7b9d321`). core summary handler·CLI·MCP를 고치던 중. 멈출 때 하던 일: "selectedWriteFiles 주석, dispatch의 hookArgv·version 연결".
+- 이어갈 때는 sonnet-high에게 branch에서 시작하라고 하고 `git log origin/main..`과 task 블록을 대조하게 한다.
 
-- **apps T19**가 끝나야 apps T18·T23~T28, shell T43·T45, lophn-agent T44, problems T14·T27 등이 열린다. 앱 fixture 4개(T23~T26)는 T19 다음.
-- **lophn-agent T19(#369) → T20 → T26(agent loop) → T27·T28·T31·T43·T44…** lophn-agent 남은 task 대부분이 T26 뒤에 있다.
-- coding-agent ticket 쪽(T24 → …)은 problems T14(apps T19 뒤)에 걸려 있다.
-- platform T48(.deb)은 shell T57(#363) 다음.
-- 오래 "진행" 상태인 task: documents T21, platform T42, shell T17. 상태 줄의 "남은 것"을 보고 마무리 worker를 띄운다.
+### 남은 task (2026-10-07 20:00, 미완 38)
 
-## 7. 알려진 남은 구멍 (다른 task로 이어보낸 것 위주)
+- 진행(선행 풀기·연결 PR·남은 단계는 각 상태 줄): coding-agent#T36·T45, problems#T22·T23, shell#T53, documents#T21·T27
+- PR 있음: lophn-agent#T48(#436), shell#T30(#445), problems#T19(#453), coding-agent#T33(#454), shell#T54(#455)
+- WIP: lophn-agent#T47, coding-agent#T35
+- 아직 시작 안 함: apps#T27, coding-agent#T34·T41·T46·T47, lophn-agent#T16·T38·T40·T41·T50·T53·T54·T55·T56·T57, platform#T54, problems#T20·T21·T24·T25·T26, shell#T48·T58·T59
+- 핵심 경로: problems#T19(#453) → T20 → T21이 들어가야 선행 풀기 세 task의 연결 PR과 problems E2E(T24·T25)가 열린다. lophn-agent#T53(Operator)은 #455의 넘어온 것을 받는다.
 
-- shell의 실제 앱 command 호출·앱 열기 버튼은 `/v1/apps/blueprint`(apps T19)가 있어야 동작한다.
-- 런처 실패 화면: core 시작 실패 신호만 실제로 들어온다. sandbox 실패·schema 비호환 신호는 main이 아직 안 보낸다(shell T57 이후 작업).
-- "파일 빼기" 확인 창의 `delete_file` owner decision을 main이 처리하지 않는다(shell T20·T29 사이, 이어보냄 기록 있음).
-- 앱 층 `LOPHN.md`: documents가 앱 자리 경로를 몰라 등록 목록에 없다(apps registration이 경로를 내야 함).
-- coding-agent `sdk show`는 guide 본문 read가 없어 API·예제를 못 보인다. MCP에는 쓰기 권한이 없어 SDK apply는 CLI만(coding-agent T36).
-- problems collector의 settings·invocation machine read는 #367에서 붙였지만 직접 테스트는 없다.
+### 다음에 할 일 (다시 시작할 때 순서)
 
-## 8. 사람 장치에 남은 것 (사람이 정리)
+1. `gh pr list`, `node docs/tmp/plan-count.js now`로 숫자 확인.
+2. #453 → #454 → #456 리뷰(완료 기준·요구 대조). #445 충돌 정리 뒤 #455 리뷰. 통과한 것을 대기열에 넣고 한 batch로.
+3. #436은 앱 호출 경로를 고칠 sonnet-high worker에게(followup 51).
+4. WIP 둘(lophn-agent#T47, coding-agent#T35) 이어서 끝내기.
+5. ready.js로 빈 자리를 채운다. problems#T20은 #453 merge 뒤.
 
-- 고아 앱 프로세스 2876949, 2877136(runtime-source 테스트가 남김)과 오래된 `deno test` 2623887. lead 권한으로 kill이 거절됐다. 사람에게 `! kill …`을 안내했다.
-- `/tmp/lophn-e2e-sandbox-*` 임시 폴더 5개(worker의 wildcard rm이 거절됨).
-- `.claude/worktrees/` 아래 merge된 PR의 worktree가 많이 남아 있다. merge.sh는 merge된 것만 지운다.
+## 7. 알려진 남은 구멍
+
+이어보낸 것 전체는 `.dev-data/followups.md`(git 무시, 번호 1~51)에 있다. 아직 열린 큰 것:
+
+- 33: coding agent status hook·plugin 대상이 실제 제품에서 맞는지 사람 확인 필요.
+- 35·36: repair context의 source diff 전체, 이미지 첨부 redaction.
+- 42: agent 대화 임시 글 streaming 통로(core→main→renderer)가 없다.
+- 43: 문제의 원래 Report에서 ReproductionScenario를 만드는 builder가 없다(#456의 reproduction 실행이 여기에 걸림).
+- 47~50(#448에서): `document.create`가 없는 project 자리에도 성공, 정기 run의 `question.submit` 거절, 끝난 run의 질문, 불확실한 내장 write 결과 조회 미연결.
+- 51: #436 core 안 앱 fetch.

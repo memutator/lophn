@@ -176,6 +176,7 @@ concerns: [shell]
   - core 준비 전·실패·단절을 화면 말(en key)로 구별하고 다음 행동 하나를 보인다. 단절 때 마지막 화면과 확인 시각을 남긴다.
   - `launcher_test`, `router_test`에 위 요구 테스트. contracts#T10의 skeleton smoke가 이 창을 쓴다.
 - 가져올 것: legacy `renderer/src/spaces/Launcher.tsx`, `shell/Shell.tsx`의 골격. 구 data store와 router의 v2 symbol은 가져오지 않는다.
+- 후속 (#451): problems#T23 E2E가 찾은 "런처가 core ready 뒤에도 getting ready에 머무는" 문제를 고쳤다. preload `lophnCore.subscribe`가 구독 시작에 main에 지금 상태를 묻고(`shell:core-state-get`, 더 새 push가 있으면 그것을 따른다), renderer `windowCoreSource`가 창이 받은 마지막 상태를 기억해(`current()`) 새로 마운트한 런처가 starting에서 시작하지 않는다. 시험: `core_preload_test`, `core/connection_test`, `launcher_test`(R7)
 
 ## documents
 
@@ -1081,6 +1082,7 @@ concerns: [shell]
   - `feedback_test`와 `e2e/shell/report-problem_test.ts`(깨진 view에서 dialog 열림, 캡처 동안 view가 보임)에 위 요구 테스트. problems#T23의 선행.
 - 정한 것: dialog는 main이 overlay에 직접 여는 feedback 표면(`overlay.openFeedback`, 창 본문 전체, overlay 페이지의 일반 결과로는 닫지 못함)이고 제출·취소·Issue 열기는 overlay preload의 `lophnFeedback`만 갖는다. 미리보기 push에 같은 PNG의 data URL·이미지가 없는 분류·화면 이름과 URL path를 더했다(contracts `feedbackPreviewSchema` additive, `shell:feedback-open-issue` 추가). headless(offscreen)에서는 `capturePage`가 실패해 그 view의 마지막 paint를 쓴다
 - shell#T42에서 넘어온 것: 앱 공간 바의 [Report a problem] 자리는 `renderer/app-frame/app-bar.tsx`의 `AppBar.report`(지금 `app-space.tsx`가 넘기지 않아 비어 있다)다. 버튼이 묶일 view_session은 `EmbeddedView`의 `onState`가 알린 값이다
+- 후속 (#451): problems#T23 E2E가 찾은 두 가지를 고쳤다. (1) `app-call.ts`가 view마다 마지막 호출이 시작 전에 막혔는지(입력 검사·선언 밖·연결 밖 command)를 기억하고, feedback 초안이 버튼 시점에 그 값을 고정해 `command_start: "blocked_before_start"`로 보낸다(모르면 `unknown`, invocation은 만들지 않는다, problems/feedback#R4). (2) 접수 여부를 모르는 채 끝난 제출(unavailable·internal·conflict)은 다시 보내기 전에 같은 Report ID를 `problems/get-report`로 읽는다. 접수돼 있으면 그 접수를 돌려주고, 없으면 같은 Report ID로 다시 보내고, 읽지 못하면 보내지 않는다(problems/reporting#R9). 시험: `feedback_test`, `app-call_test`
 
 ### T53 app-detail Issues: 문제, 수리 결과, 사람 결정
 

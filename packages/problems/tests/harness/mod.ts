@@ -53,6 +53,5 @@ export {
 } from "./checks.ts";
 export { RPC_DIR, rpcDriver, serveRpc } from "./rpc.ts";
 export type { RunnerDriver } from "./rpc.ts";
-export { runHarnessChild } from "./child.ts";
-export type { HarnessChildInput, HarnessFailurePath } from "./child.ts";
+export type { HarnessChildInput, HarnessFailurePath } from "./child-types.ts";
 export type { ChecksInput } from "./checks.ts";

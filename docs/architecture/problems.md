@@ -192,8 +192,9 @@ SDK는 `completion` 실패를 값으로 제공해 SDK 내부 전송 실패가 �
 
 | RPC | 이름·실행 자리 | 입력 | 출력 |
 |---|---|---|---|
-| `POST /v1/problems/request-test` | `RequestTest`; runner 준비 후 core 접수 | request key·kind·app·TestTarget·FrozenTest hash·종류별 연결 | `{request_key, accepted, result_ref}`; 접수는 통과 아님 |
+| `POST /v1/problems/request-test` | `RequestTest`; runner 준비 후 core 접수 | request key·kind·app·TestTarget·FrozenTest hash·종류별 연결; coding agent의 reproduction은 현재 claim의 `ticket_source {ticket, claim_seq}`가 필수이고 core가 그 연결의 현재 claim·이 앱의 repair ticket·이 문제와 맞는지 접수 때 다시 확인한다(맞지 않으면 `conflict`) | `{request_key, accepted, result_ref}`; 접수는 통과 아님 |
 | `POST /v1/problems/record-verification` | `RecordVerification`; core, runner 전용 | 실제 시작한 실행의 고정 Verification·blob 준비 참조 | Verification ID·`VerificationRecorded` seq |
+| `POST /v1/problems/observe-test-request` · `start-test-side` · `stage-test-evidence` | `ObserveTestRequest`·`StartTestSide`·`StageTestEvidence`; core, runner 전용 machine command | 요청 key·hash에 묶인 시작 시도/준비 실패/시작 불명/recovery·실제 시작·결과 근거(+proof) | 요청 기록 seq·근거 기록 여부 |
 | `POST /v1/problems/get-test-request` | `GetTestRequest`; core read | 요청 principal에 속한 key | 미실행/준비 실패/접수 대기/시작 흔적/결과 참조와 이유; Verification 상태를 새로 만들지 않음 |
 | `POST /v1/problems/get-verification` | `GetVerification`; core read | Verification ID·상세 선택 | kind·대상 hash·test hash·result/reason·execution/관측 참조 |
 | `POST /v1/problems/list-verifications` | `ListVerifications`; core read | app·problem 또는 ticket·kind·cursor | 결과 목록·next cursor; 현재 적용 가능성은 해당 concern에서 판정 |

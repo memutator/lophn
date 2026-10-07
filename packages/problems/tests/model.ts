@@ -93,6 +93,8 @@ export type PreparedAdmission = {
   app_in_scope: boolean;
   refs_ok: boolean;
   unavailable: boolean;
+  // coding agent의 reproduction 요청이 기댄 ticket claim이 현재가 아닌 이유다. 있으면 접수하지 않는다.
+  claim_rejected?: string;
 };
 
 export type SideStart = {

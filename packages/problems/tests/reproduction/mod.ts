@@ -20,5 +20,4 @@ export {
   SYMPTOM_FRAME,
 } from "./judge.ts";
 export { observeReproduction, toObserved } from "./observe.ts";
-export { runReproductionChild } from "./child.ts";
-export type { ReproductionChildInput } from "./child.ts";
+export type { ReproductionChildInput } from "./child-types.ts";

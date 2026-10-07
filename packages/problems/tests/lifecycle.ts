@@ -233,6 +233,7 @@ export function productAdmission(
     app_registered: boolean;
     refs_ok: boolean;
     before_target: { release: string; bundle_hash: string } | null;
+    claim_rejected?: string;
   },
 ): PreparedAdmission | null {
   const reproduction = input.kind === "reproduction";
@@ -251,6 +252,9 @@ export function productAdmission(
     app_in_scope: facts.app_registered,
     refs_ok: facts.refs_ok,
     unavailable: input.kind === "test_command",
+    ...(facts.claim_rejected === undefined
+      ? {}
+      : { claim_rejected: facts.claim_rejected }),
   };
 }
 

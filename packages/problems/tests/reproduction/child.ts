@@ -3,15 +3,8 @@
 // 만지지 않고 모든 접근은 runner가 쥔 AppDriver를 private 호출 통로로 부른다.
 import { createEmitter } from "../harness/emit.ts";
 import { rpcDriver } from "../harness/rpc.ts";
-import type { ReproductionSide } from "./judge.ts";
+import type { ReproductionChildInput } from "./child-types.ts";
 import { observeReproduction } from "./observe.ts";
-import type { ReproductionScenario } from "./scenario.ts";
-
-export type ReproductionChildInput = {
-  side: ReproductionSide;
-  test_hash: string;
-  scenario: ReproductionScenario;
-};
 
 export async function runReproductionChild(scratch: string): Promise<void> {
   const input = JSON.parse(

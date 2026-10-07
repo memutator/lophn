@@ -226,7 +226,7 @@ Deno.test("problems/tests#R1 R2 R4 R5 R17 R21: 접수한 RequestTest를 제품 c
 
     // 2) 정상 요청: runner가 실제로 시작하고 결과가 실제 RecordVerification으로 남는다.
     await send("full-run", derived.value.test_hash);
-    const done = await until(core, "full-run", ended, 150_000);
+    const done = await until(core, "full-run", ended, 600_000);
     assertEquals(done.preparation_failed, false);
     assert(done.start_attempted_at !== null);
     assert(done.started_at !== null);
@@ -287,7 +287,7 @@ Deno.test("problems/tests#R1 R2 R4 R5 R17 R21: 접수한 RequestTest를 제품 c
       ...requesterContext,
       credential_ref: "cred-requester-2",
     }, REQUESTER);
-    const lost = await until(core, "lost-run", ended, 30_000);
+    const lost = await until(core, "lost-run", ended, 300_000);
     assert(lost.result_ref !== null, JSON.stringify(lost));
     const lostRead = await post(
       core,

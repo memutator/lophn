@@ -670,6 +670,7 @@ concerns: [documents]
 
 ### T32 Operator 출력 범위
 
+- 상태: 완료 (#444) — 구현은 packages/documents/versions/operator-output.ts. 역할이 ledger의 현재 자격(`scope.agent`)에 실리지 않아 contracts의 `OperatorOutputLookup`에 `isOperator(assignment)`를 additive로 더하고 core(apps/core/lophn-agent.ts)에 `OperatorOutput` port 구현을 등록했다. 시험은 operator_output_test.ts(단위)와 apps/core/documents-operator-output_test.ts(실제 core)
 - 등급: 기본
 - concern: documents/versions
 - 요구: documents/versions#R14

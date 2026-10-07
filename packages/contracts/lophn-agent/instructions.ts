@@ -71,6 +71,9 @@ export type OperatorOutputRef = z.infer<typeof operatorOutputRefSchema>;
 // 그 문서를 출력으로 가진 Operator가 없으면 null.
 export interface OperatorOutputLookup {
   output(document: string): Result<OperatorOutputRef | null>;
+  // 그 assignment가 Operator인지. agent credential의 상한(scope.agent)은 ledger의 현재 자격에
+  // 실리지 않으므로 documents가 Operator 자격의 저장 범위를 정할 때 같은 Tx에서 묻는다.
+  isOperator(assignment: string): Result<boolean>;
 }
 
 export const OperatorOutput = definePort<OperatorOutputLookup>(

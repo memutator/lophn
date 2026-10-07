@@ -22,14 +22,11 @@ export function registerRepairReads(runtime: CoreRuntime, channel: DocumentsChan
     runtime.reads.set(`${route.resource}/${route.method}`, async (ctx, input, credential): Promise<Result<unknown>> => {
       if (!ctx.scope.operations.includes(route.name)) return err({ code: "forbidden", message: "operation forbidden" });
       if (!credential || !runtime.current(ctx.credential_ref).ok) return err({ code: "unauthorized", message: "credential이 없다" });
-      const result = await channel.request(route.name, { credential, principal: ctx.principal, input }, 30_000);
+      const result = await channel.request(`repair_context.${route.method}`, { credential, principal: ctx.principal, input }, 30_000);
       if (!result.ok) return result;
       if (!runtime.current(ctx.credential_ref).ok) return err({ code: "unauthorized", message: "credential이 없다" });
       const value = result.value as Record<string, unknown>;
-      // page의 high-water seq는 worker가 보존한다. bundle은 reader의 현재 seq를 붙인다.
-      const status = await runtime.reads.get("platform/status")!(ctx, {});
-      const seq = status.ok && typeof (status.value as Record<string, unknown>).as_of_seq === "string" ? (status.value as Record<string, unknown>).as_of_seq : "0";
-      return ok({ ...value, as_of_seq: value.as_of_seq ?? seq, next_cursor: value.next_cursor ?? null });
+      return ok(value);
     });
   }
 }

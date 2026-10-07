@@ -72,6 +72,7 @@ import {
   INVOCATION_RECOVERY_CONTEXT,
 } from "../../packages/apps/invocations/restart.ts";
 import { createNotificationDelivery } from "./notification-delivery.ts";
+import { createProductRedactor } from "./documents-redactor.ts";
 import { APPROVAL_EXPIRY_CONTEXT } from "./platform.ts";
 import type { Assembled } from "./registration.ts";
 import { openSecretStore, withSecretSync } from "./secret-store.ts";
@@ -317,13 +318,23 @@ export async function openRuntime(input: {
     if (!judged.ok) return judged;
     const report = (judged.value as { report: { problem: string | null; app: string } }).report;
     if (report.problem !== parsed.data.problem) return err({ code: "not_found", message: "대상을 찾을 수 없다" });
-    return blobReadHandler(input.ledgerPath, input.blob === undefined ? undefined : {
+    const result = await blobReadHandler(input.ledgerPath, input.blob === undefined ? undefined : {
       ...input.blob,
       fields: input.blob.fields.map((field) => field.owner_kind === "report" && field.field === parsed.data.field ? { ...field, general_read: true } : field),
     }, ctx, {
       owner_kind: "report", owner_key: parsed.data.report, field: parsed.data.field,
       offset_bytes: parsed.data.offset_bytes, length_bytes: parsed.data.length_bytes,
-    }, (current) => authorize(current, reportBody.name, { ...target, app: report.app, problem: report.problem }));
+    }, (current) => {
+      const live = currentCredential(input.ledgerPath, current.credential_ref);
+      return live.ok ? authorize(live.value, reportBody.name, { ...target, app: report.app, problem: report.problem }) : live;
+    });
+    if (!result.ok) return result;
+    const value = result.value as { status: string; bytes?: string };
+    if (value.status !== "available" || value.bytes === undefined) return result;
+    const raw = new TextDecoder().decode(Uint8Array.from(atob(value.bytes), (c) => c.charCodeAt(0)));
+    const safe = createProductRedactor(secretStore.known)({ concern: "coding-agent/repair-context", revision: "1", scope: "report-body" }, "text/plain", raw);
+    if (safe === null) return err({ code: "unavailable", message: "redaction을 완료하지 못했다" });
+    return ok({ status: "available", text: safe, truncated: (value as { truncated?: boolean }).truncated === true });
   });
   // OS 표시 전달 상태(R9, R10). get·list·display 응답을 꾸미고 shell의 실패 보고를 받는다.
   const delivery = createNotificationDelivery({

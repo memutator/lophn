@@ -37,7 +37,7 @@ export async function createRepairCursor(): Promise<RepairCursor> {
         const body = decode(parts[0]);
         if (!await crypto.subtle.verify("HMAC", key, decode(parts[1]), body)) return invalid();
         const state = JSON.parse(new TextDecoder().decode(body)) as CursorState;
-        if (!Number.isSafeInteger(state.offset) || state.offset < 0 || !/^\d+$/.test(state.high_water)) return invalid();
+        if (state === null || typeof state !== "object" || ["principal", "app", "problem", "kind", "source", "fixed", "high_water"].some((key) => typeof state[key as keyof CursorState] !== "string") || !Number.isSafeInteger(state.offset) || state.offset < 0 || !/^\d+$/.test(state.high_water)) return invalid();
         return ok(state);
       } catch {
         return invalid();

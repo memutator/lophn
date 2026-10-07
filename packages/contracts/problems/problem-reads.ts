@@ -77,6 +77,7 @@ export const getReportInputSchema = z.strictObject({
 });
 export const getReportOutputSchema = withReadCommon(z.object({
   report: reportSchema,
+  attachments: z.array(z.object({ field: z.string(), hash: sha256Schema, size_bytes: z.number().int().nonnegative() })).optional(),
   snapshot: snapshotSchema.nullable(),
   missing: z.object({
     invocation: missingReasonSchema.nullable(),

@@ -48,6 +48,7 @@ export type RepairSummary = {
 };
 
 export type AssembledRepair = {
+  as_of_seq: string;
   summary: RepairSummary;
   // 전체 상한(24,576 bytes·300줄) 안에서 만든 bundle이다. 상한을 넘으면 null이고
   // over_budget에 센 값이 있다. 상한 축소(log → 대표 excerpt → 첨부)는 T43이 맡는다.
@@ -317,7 +318,9 @@ async function summarize(
     const limit = Math.floor(REPAIR_CONTEXT_SUMMARY_MAX_CHARS / problems.length);
     const fixed = Array.from(`${item.id} ${item.status}\n${item.next_action}`).length;
     if (Array.from(item.symptom).length + fixed > limit) {
-      item.symptom = inlineFence("symptom", "summary truncated; limits present");
+      item.next_action = `read repair_context bundle ${item.id}`;
+      const room = limit - Array.from(`${item.id} ${item.status}\n${item.next_action}`).length - Array.from(inlineFence("symptom", "")).length;
+      item.symptom = inlineFence("symptom", clipCodePoints("summary truncated; limits present", Math.max(0, room)).text);
       truncated = true;
     }
   }
@@ -363,6 +366,7 @@ export async function assembleRepairContext(
     );
   }
   if (!problems.some((item) => item.problem.ok)) return unreadable();
+  const as_of_seq = problems.reduce((seq, item) => item.problem.ok && BigInt(item.problem.value.as_of_seq) > BigInt(seq) ? item.problem.value.as_of_seq : seq, "0");
   const [same_app, releases] = await Promise.all([
     port.problems(app),
     port.releases(app),
@@ -399,12 +403,12 @@ export async function assembleRepairContext(
   });
   if (!parsed.success) {
     if (bytes > REPAIR_CONTEXT_BYTES || lines > REPAIR_CONTEXT_LINES) {
-      return ok({ summary, context: null, over_budget: { bytes, lines } });
+      return ok({ as_of_seq, summary, context: null, over_budget: { bytes, lines } });
     }
     return err({
       code: "internal",
       message: "수리 자료 조립 결과가 contract에 맞지 않는다",
     });
   }
-  return ok({ summary, context: parsed.data, over_budget: null });
+  return ok({ as_of_seq, summary, context: parsed.data, over_budget: null });
 }

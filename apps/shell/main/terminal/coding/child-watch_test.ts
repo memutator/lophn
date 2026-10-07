@@ -16,7 +16,7 @@ import {
 } from "../../../terminal-host/child-watch.ts";
 import {
   createCodingHost,
-  type HostEvent,
+  type HostLine,
 } from "../../../terminal-host/launch-plan.ts";
 import { CAC, launchPlan, tempDir } from "./fixtures.ts";
 
@@ -301,7 +301,7 @@ test("shell/terminal#R5 platform/identity#R15: host는 spawn한 TUI의 pid로 �
     { pid: 100, ppid: 1, ticks: "500" },
     { pid: 120, ppid: 100, ticks: "520", exe: `${ROOT}/deno`, argv: MCP_ARGV },
   ]);
-  const events: HostEvent[] = [];
+  const events: HostLine[] = [];
   let poll: (() => void) | undefined;
   let cancelled = 0;
   const host = createCodingHost({

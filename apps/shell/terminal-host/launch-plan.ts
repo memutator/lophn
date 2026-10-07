@@ -34,9 +34,10 @@ import { createObserveSocket } from "./observe-socket.ts";
 import { createPromptDelivery, type PromptTimer } from "./prompt-delivery.ts";
 
 /** host가 main으로 먼저 보내는 줄. 요청의 답이 아니라 id가 없다. */
-export type HostEvent =
-  | { event: "observation"; envelope: ObserveEnvelope }
-  | ChildEvent;
+export type HostEvent = { event: "observation"; envelope: ObserveEnvelope };
+
+/** host가 main으로 보내는 모든 줄: 관측과 TUI 아래 child 관측이다. */
+export type HostLine = HostEvent | ChildEvent;
 
 export type CodingLaunch = Omit<BaseLaunch, "plan"> & {
   plan: CodingAgentLaunchPlan;
@@ -46,7 +47,7 @@ export type CodingHostDeps = {
   platform: NodeJS.Platform;
   now(): string;
   timer: PromptTimer;
-  emit(event: HostEvent): void;
+  emit(event: HostLine): void;
   /** TUI 아래 MCP·CLI process 관측. 없으면 관측하지 않는다(그 child는 token을 받지 못한다). */
   watch?: {
     tree: ProcessTree;

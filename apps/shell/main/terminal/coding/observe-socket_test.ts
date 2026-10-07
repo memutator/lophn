@@ -34,7 +34,9 @@ function setup(ref = "term_9", generation = 3) {
     platform: "linux",
     now: () => `2026-10-05T00:00:0${tick++ % 10}.000Z`,
     timer: () => () => {},
-    emit: (event) => events.push(event),
+    emit: (event) => {
+      if (event.event === "observation") events.push(event);
+    },
     socketRoot: root,
   });
   const cwd = tempDir("cwd");

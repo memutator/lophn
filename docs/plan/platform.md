@@ -1077,6 +1077,8 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 
 ### T49 macOS·Windows 설치 묶음과 OS adapter
 
+- 상태: 미룸 (사람 결정 2026-10-07: macOS·Windows 설치 묶음과 그 검증은 이번 판에서 뺀다. 이 Linux 장치에서 검증할 수 없다)
+
 - 등급: 최상위
 - concern: platform/install-and-update, platform/secrets, platform/responsiveness
 - 요구: platform/install-and-update#R1

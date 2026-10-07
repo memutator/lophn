@@ -140,6 +140,8 @@ async function withCore(
         createHelperCredentialProvider({
           helper,
           generation: () => generation,
+          // 등록되지 않은 process의 거절을 기다리지 않고 본다(재시도는 helper_test가 본다).
+          retry: { intervalMs: 1, boundMs: 0 },
         }),
     });
   } finally {

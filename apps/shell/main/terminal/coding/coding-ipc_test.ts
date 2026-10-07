@@ -118,7 +118,8 @@ function world(over: { plan?: PlanRunner; hostReply?: TerminalReply } = {}) {
         }),
     },
     folders: {
-      folders: () => Promise.resolve([{ folder_ref: "src", path: "/work/src" }]),
+      folders: () =>
+        Promise.resolve([{ folder_ref: "src", path: "/work/src" }]),
     },
     plan: over.plan ?? ((input) =>
       Promise.resolve({
@@ -278,7 +279,9 @@ test("coding-agent/sessions#R4: 클릭 모양이 다르면 거절하고 plan 거
 });
 
 test("coding-agent/sessions#R6: TUI 상태는 관측 표의 현재 값이고 일반 터미널은 싣지 않으며 prompt 전달 결과는 runtime 값 그대로다", () => {
-  const store = createObservationStore({ now: () => "2026-10-07T00:10:00.000Z" });
+  const store = createObservationStore({
+    now: () => "2026-10-07T00:10:00.000Z",
+  });
   const runtimes = [
     runtimeOf("term_shell"),
     runtimeOf("term_1", {
@@ -299,7 +302,11 @@ test("coding-agent/sessions#R6: TUI 상태는 관측 표의 현재 값이고 일
     envelope: {
       runtime_ref: "term_1",
       generation: 1,
-      observation: observation("term_1", "waiting_input", "2026-10-07T00:09:00.000Z"),
+      observation: observation(
+        "term_1",
+        "waiting_input",
+        "2026-10-07T00:09:00.000Z",
+      ),
     },
   });
   assert.deepEqual(codingSessions(runtimes, store), [
@@ -352,7 +359,9 @@ test("shell/terminal#R13: host가 보낸 줄은 child 등록과 관측 표가 �
       },
     }),
   });
-  const store = createObservationStore({ now: () => "2026-10-07T00:10:00.000Z" });
+  const store = createObservationStore({
+    now: () => "2026-10-07T00:10:00.000Z",
+  });
   const sinks = hostEventSinks(registrar, store);
   sinks.onEvent({
     event: "child_started",
@@ -390,7 +399,12 @@ test("shell/terminal#R13: host가 보낸 줄은 child 등록과 관측 표가 �
 
 test("documents/projects#R1: 등록된 project 폴더는 terminal이 다시 해석하는 folder_ref 규칙으로 나오고 읽지 못하면 비어 있다", async () => {
   const session = {
-    call: (_kind: string, _resource: string, _method: string, body: unknown) => {
+    call: (
+      _kind: string,
+      _resource: string,
+      _method: string,
+      body: unknown,
+    ) => {
       assert.deepEqual(body, { status: "active" });
       return Promise.resolve({
         ok: true,
@@ -408,8 +422,18 @@ test("documents/projects#R1: 등록된 project 폴더는 terminal이 다시 해�
     },
   };
   assert.deepEqual(await registeredFolders(session), [
-    { project: PRJ, project_name: "Notes", folder_ref: `${PRJ}_0`, path: "/work/a" },
-    { project: PRJ, project_name: "Notes", folder_ref: `${PRJ}_1`, path: "/work/b" },
+    {
+      project: PRJ,
+      project_name: "Notes",
+      folder_ref: `${PRJ}_0`,
+      path: "/work/a",
+    },
+    {
+      project: PRJ,
+      project_name: "Notes",
+      folder_ref: `${PRJ}_1`,
+      path: "/work/b",
+    },
   ]);
   assert.deepEqual(await registeredFolders(null), []);
   assert.deepEqual(
@@ -441,5 +465,8 @@ test("coding-agent/harnesses#R2: main의 감지 모양은 contracts의 실제 �
   });
   const local = detectionSchema.safeParse(real);
   assert.equal(local.success, true);
-  assert.equal(local.success && local.data.selected_executable, "/usr/bin/claude");
+  assert.equal(
+    local.success && local.data.selected_executable,
+    "/usr/bin/claude",
+  );
 });

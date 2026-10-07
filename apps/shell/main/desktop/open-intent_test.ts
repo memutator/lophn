@@ -79,10 +79,13 @@ test("shell/desktop#R14: coding agent의 회수·취소·생성 링크는 cac·t
   for (const id of [CAC, TKT, APP]) {
     assert.equal(readCodingLink(`lophn://things-to-confirm/${id}`), id);
     assert.equal(readConfirmLink(`lophn://things-to-confirm/${id}`), undefined);
-    assert.deepEqual(readOpenIntent([EXEC, `lophn://things-to-confirm/${id}`]), {
-      kind: "coding",
-      target: id,
-    });
+    assert.deepEqual(
+      readOpenIntent([EXEC, `lophn://things-to-confirm/${id}`]),
+      {
+        kind: "coding",
+        target: id,
+      },
+    );
   }
   for (
     const url of [

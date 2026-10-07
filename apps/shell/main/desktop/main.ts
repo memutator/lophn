@@ -869,7 +869,9 @@ const terminals = createSupervisor({
 // `/usr/bin/lophn`, `<설치 root>/lophn-credential`). 개발 실행은 LOPHN_CLI(절대 경로)를 준 때만 child를 부르고,
 // 없으면 연결·시작은 unavailable이다. child에는 이 main의 데이터 root만 환경으로 준다.
 function lophnCommand(): string | null {
-  if (app.isPackaged) return process.platform === "linux" ? "/usr/bin/lophn" : null;
+  if (app.isPackaged) {
+    return process.platform === "linux" ? "/usr/bin/lophn" : null;
+  }
   const given = process.env.LOPHN_CLI;
   return given !== undefined && given.startsWith("/") ? given : null;
 }

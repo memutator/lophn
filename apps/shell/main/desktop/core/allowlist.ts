@@ -35,7 +35,9 @@ for (const route of ALL_ROUTES) {
   if (route.resource === "identity" && route.method === "issue") continue;
   // 연결 생성은 renderer가 token 검증 hash를 직접 낼 수 없으므로 renderer allowlist에 없다. 연결은
   // main의 고정 연결 intent(CONNECTION_INTENT)로만 만든다(desktop#R19).
-  if (route.resource === "coding_agent_connections" && route.method === "create") {
+  if (
+    route.resource === "coding_agent_connections" && route.method === "create"
+  ) {
     continue;
   }
   ALLOWED.add(`${route.kind}:${route.resource}/${route.method}`);

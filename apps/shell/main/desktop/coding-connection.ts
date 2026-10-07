@@ -26,7 +26,9 @@ import {
 // shell main은 contracts를 따라가지 않는다(shell tsc). 이 모듈이 읽는 감지·연결 값의 모양만 여기 둔다. 값은
 // contracts coding-agent의 harnessDetectionSchema·connectionIdSchema와 같아야 하고
 // terminal/coding/coding-ipc_test.ts가 실제 schema의 값이 이 모양을 통과하는지 본다.
-const connectionIdSchema = z.string().regex(/^cac_[0-7][0-9a-hjkmnp-tv-z]{25}$/);
+const connectionIdSchema = z.string().regex(
+  /^cac_[0-7][0-9a-hjkmnp-tv-z]{25}$/,
+);
 
 export const detectionSchema = z.object({
   harness_id: z.enum(HARNESS_IDS),

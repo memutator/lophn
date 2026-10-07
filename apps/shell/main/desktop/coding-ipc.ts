@@ -28,7 +28,13 @@ export interface CodingStartPort {
     | { ok: false; reason: "invalid_input"; message: string };
   start(handle: string): Promise<
     | { ok: true; runtime: { terminal_ref: string } }
-    | { ok: false; reason: string; message: string; next: string[]; guide?: unknown }
+    | {
+      ok: false;
+      reason: string;
+      message: string;
+      next: string[];
+      guide?: unknown;
+    }
   >;
 }
 

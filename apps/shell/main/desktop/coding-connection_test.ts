@@ -3,9 +3,9 @@ import { test } from "node:test";
 
 import { CONNECT_INTENT } from "../../ipc/coding.ts";
 import {
+  childCliRunner,
   type CliResult,
   type CliRun,
-  childCliRunner,
   createCodingConnection,
 } from "./coding-connection.ts";
 
@@ -48,7 +48,12 @@ type Fake = {
   cli: CliRun;
   runs: string[][];
   core: Parameters<typeof createCodingConnection>[0]["core"];
-  coreCalls: { kind: string; resource: string; method: string; body: unknown }[];
+  coreCalls: {
+    kind: string;
+    resource: string;
+    method: string;
+    body: unknown;
+  }[];
 };
 
 function fake(
@@ -70,29 +75,43 @@ function fake(
       );
     }
     if (args[0] === "connection") {
-      return Promise.resolve(options.install ?? {
+      return Promise.resolve(
+        options.install ?? {
+          ok: true,
+          data: {
+            connection: CAC,
+            install: "complete",
+            resources: [{
+              resource_identity: "claude/mcp",
+              outcome: "changed",
+              receipt_stored: true,
+              reason: "ok",
+            }],
+          },
+        },
+      );
+    }
+    return Promise.resolve(
+      options.doctor ?? {
         ok: true,
         data: {
-          connection: CAC,
-          install: "complete",
-          resources: [{
-            resource_identity: "claude/mcp",
-            outcome: "changed",
-            receipt_stored: true,
-            reason: "ok",
-          }],
+          loading: [
+            {
+              stage: "mcp_initialize",
+              result: "success",
+              reason: "ok",
+              next: "",
+            },
+            {
+              stage: "tool_discovery",
+              result: "unknown",
+              reason: "?",
+              next: "",
+            },
+          ],
         },
-      });
-    }
-    return Promise.resolve(options.doctor ?? {
-      ok: true,
-      data: {
-        loading: [
-          { stage: "mcp_initialize", result: "success", reason: "ok", next: "" },
-          { stage: "tool_discovery", result: "unknown", reason: "?", next: "" },
-        ],
       },
-    });
+    );
   };
   return {
     cli,
@@ -103,14 +122,16 @@ function fake(
         coreCalls.push({ kind, resource, method, body });
         if (resource === "coding_agent_connections") {
           return Promise.resolve(
-            (options.connect ?? { ok: true, value: { connection: CAC } }) as
-              never,
+            (options.connect ??
+              { ok: true, value: { connection: CAC } }) as never,
           );
         }
         return Promise.resolve(
           (options.app ??
-            { ok: true, value: { app: { source_path: "/work/budget" } } }) as
-              never,
+            {
+              ok: true,
+              value: { app: { source_path: "/work/budget" } },
+            }) as never,
         );
       },
     }),
@@ -321,7 +342,11 @@ test("coding-agent/harnesses#R2: 화면이 여는 감지는 저장한 결과이�
   const world = fake({
     detect: detectOk(
       detection("claude", "detected", {
-        candidates: [{ path: "/usr/bin/claude", source: "path", executable_result: "ok" }],
+        candidates: [{
+          path: "/usr/bin/claude",
+          source: "path",
+          executable_result: "ok",
+        }],
         probe_results: [{ probe: "version", outcome: "ok", detail: null }],
       }),
       detection("codex", "absent"),
@@ -345,7 +370,10 @@ test("coding-agent/harnesses#R2: 화면이 여는 감지는 저장한 결과이�
   const claude = first.value.harnesses[0]!;
   assert.equal(claude.version, "1.2.3");
   assert.equal(claude.executable, "/usr/bin/claude");
-  assert.deepEqual(claude.candidates, [{ path: "/usr/bin/claude", source: "path" }]);
+  assert.deepEqual(claude.candidates, [{
+    path: "/usr/bin/claude",
+    source: "path",
+  }]);
   assert.deepEqual(claude.probes, [{ probe: "version", outcome: "ok" }]);
 });
 
@@ -384,7 +412,10 @@ test("coding-agent/cli#R40: child는 --json으로 부르고 connection·관측 s
       seen.push({ file, args, env: options.env });
       return Promise.resolve({
         code: 4,
-        stdout: JSON.stringify({ summary: "partial", data: { install: "partial" } }),
+        stdout: JSON.stringify({
+          summary: "partial",
+          data: { install: "partial" },
+        }),
       });
     },
   });

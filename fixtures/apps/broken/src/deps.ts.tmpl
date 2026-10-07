@@ -1,0 +1,43 @@
+// handler가 쓰는 바깥 자원(시계·보고)과 깨진 동작을 고르는 공통 틀. test는 이 값을 바꿔 쓴다.
+// 깨진 앱 fixture라 저장소를 열지 않는다(apps#T26). 깨진 값은 board.ts가 고른다.
+import { reportProblem } from "@lophn/cap-problem";
+import { CommandRejection } from "@lophn/cap-schedule";
+import { MODE, type BoardMode } from "./board.ts";
+
+export type Deps = {
+  now: () => string;
+  log: (line: string) => void;
+};
+
+export const defaults: Deps = {
+  now: () => new Date().toISOString(),
+  log: (line) => console.log(line),
+};
+
+// run_broken이 깨지는 실패 종류다(apps#T26 완료 2·3·6번).
+// - type_error: handler 안 2~3 frame 깊이에서 처리되지 않은 TypeError. 같은 함수에서 줄·message만 다른
+//   변형을 variant로 고른다(같은 지문).
+// - dependency_throw: 앱 frame이 하나도 없는 예외. 의존 package 안에서 던진다.
+export type FailureKind = "type_error" | "dependency_throw";
+
+export const FAILURE_KINDS: readonly FailureKind[] = [
+  "type_error",
+  "dependency_throw",
+];
+
+export function isFailureKind(value: string): value is FailureKind {
+  return (FAILURE_KINDS as readonly string[]).includes(value);
+}
+
+// run_broken의 깨진 경로다. board B는 그대로 두고 board C는 보고를 지운다(약화).
+function reportBroken(kind: FailureKind, details: Record<string, unknown>) {
+  if (MODE === "C") return; // 약화 판: 보고 경로를 삭제한다. 깨진 값은 그대로 남는다.
+  reportProblem("fixture_broken", details);
+}
+
+export { reportBroken };
+
+// board E는 실패 code를 UNAVAILABLE로 바꾼다(다른 실패, 다른 문장의 다른 지문).
+export function codedFailure(kind: BoardMode, message: string): never {
+  throw new CommandRejection(kind === "E" ? "unavailable" : "failed", message);
+}

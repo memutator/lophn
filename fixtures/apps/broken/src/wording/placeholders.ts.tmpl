@@ -1,0 +1,57 @@
+// en.ts에서 생성한다. 직접 고치지 않고 `deno task wording --check`로 맞춘다.
+import type { MessageKey } from "./en.ts";
+
+export type PlaceholderKinds = {
+  "broken.button.reload": Record<never, never>;
+  "broken.button.report": Record<never, never>;
+  "broken.empty.none": Record<never, never>;
+  "broken.error.load-failed": Record<never, never>;
+  "broken.label.count": {
+    count: "plural";
+  };
+  "broken.label.hint": Record<never, never>;
+  "broken.label.kind": Record<never, never>;
+  "broken.label.list-broken": Record<never, never>;
+  "broken.label.panel-context": Record<never, never>;
+  "broken.label.run-broken": Record<never, never>;
+  "broken.label.view-session": Record<never, never>;
+  "broken.reason.data-folder": Record<never, never>;
+  "broken.reason.helper": Record<never, never>;
+  "broken.status.reported": Record<never, never>;
+  "broken.summary.chatter-then-fail": Record<never, never>;
+  "broken.summary.drop-promise": Record<never, never>;
+  "broken.summary.flood-reports": Record<never, never>;
+  "broken.summary.kind": Record<never, never>;
+  "broken.summary.label": Record<never, never>;
+  "broken.summary.list-broken": Record<never, never>;
+  "broken.summary.mark-kind": Record<never, never>;
+  "broken.summary.panel-context": Record<never, never>;
+  "broken.summary.report-wrong-code": Record<never, never>;
+  "broken.summary.run-broken": Record<never, never>;
+  "broken.summary.screen": Record<never, never>;
+  "broken.summary.variant": Record<never, never>;
+  "broken.summary.view-session": Record<never, never>;
+  "broken.title.screen": Record<never, never>;
+  "common.problem.fixture-broken": Record<never, never>;
+  "common.problem.fixture-misconfigured": Record<never, never>;
+  "common.summary.app": Record<never, never>;
+};
+
+type ValueFor<T> = T extends "plural" | "number" ? number
+  : T extends "date" ? Date
+  : string;
+
+export type ValuesOf<K extends MessageKey> = {
+  [P in keyof PlaceholderKinds[K]]: ValueFor<PlaceholderKinds[K][P]>;
+};
+
+export type HasPlaceholders<K extends MessageKey> = [
+  keyof PlaceholderKinds[K],
+] extends [never] ? false
+  : true;
+
+type _SameKeys =
+  | Exclude<MessageKey, keyof PlaceholderKinds>
+  | Exclude<keyof PlaceholderKinds, MessageKey>;
+const _sameKeys: [_SameKeys] extends [never] ? true : never = true;
+void _sameKeys;

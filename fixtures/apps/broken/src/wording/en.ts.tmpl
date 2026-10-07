@@ -1,0 +1,46 @@
+// 앱의 en catalog다(apps/sdk#R41). 값은 완성된 문장 하나의 ICU MessageFormat이고 화면 코드는 문장 조각을
+// 이어 붙이지 않는다. key는 `<screen>.<part>.<name>`이며 첫 구간은 이 앱의 screen key나 common이다.
+// placeholders.ts는 이 파일에서 생성한다(`deno task wording`). 사용자 이름·업무 데이터는 catalog에 넣지 않는다.
+export const en = {
+  "common.problem.fixture-broken":
+    "The broken fixture reported one of its failures.",
+  "common.problem.fixture-misconfigured":
+    "The broken fixture is set up wrong. Check its settings.",
+  "common.summary.app":
+    "Deliberately breaking app used by the problems team to test problem reports and repairs.",
+  "broken.button.report": "Report a problem",
+  "broken.button.reload": "Reload",
+  "broken.empty.none": "Nothing is broken yet. Run a failure to see one.",
+  "broken.error.load-failed": "Couldn't read the board.",
+  "broken.label.count": "{count, plural, one {# failure} other {# failures}}",
+  "broken.label.hint": "Add an agent hint",
+  "broken.label.kind": "Failure kind",
+  "broken.label.list-broken": "Read the board",
+  "broken.label.panel-context": "Read the panel state",
+  "broken.label.run-broken": "Run a failure",
+  "broken.label.view-session": "View session",
+  "broken.reason.data-folder": "Write the broken fixture's data files.",
+  "broken.reason.helper": "Call the helper app's echo command.",
+  "broken.status.reported": "Reported.",
+  "broken.summary.kind": "The kind of failure to run.",
+  "broken.summary.label": "The label to set on the kind.",
+  "broken.summary.list-broken": "Read the failure board.",
+  "broken.summary.mark-kind": "Set a label on a failure kind.",
+  "broken.summary.panel-context":
+    "Read what the panel screen shows: its mode and recent failures.",
+  "broken.summary.report-wrong-code":
+    "Report a problem code that is not declared.",
+  "broken.summary.run-broken":
+    "Run one broken failure. This fixture exists to fail.",
+  "broken.summary.screen": "The screen key.",
+  "broken.summary.variant": "Which variant of the failure to run.",
+  "broken.summary.view-session": "The screen view this call is about.",
+  "broken.summary.flood-reports": "Send many problem reports at once.",
+  "broken.summary.drop-promise": "Leave one promise rejected.",
+  "broken.summary.chatter-then-fail":
+    "Write many log lines and then fail; one more failure follows after the response.",
+  "broken.title.screen": "Broken",
+} as const;
+
+export type Catalog = typeof en;
+export type MessageKey = keyof Catalog;

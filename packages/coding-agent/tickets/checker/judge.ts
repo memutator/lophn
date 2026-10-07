@@ -47,7 +47,9 @@ function repairCoverageGap(work: CheckWork): string | null {
   );
   if (!repair) return null;
   if (work.problems.length === 0) return "the ticket has no target problem";
-  if (!work.conditions.some((condition) => condition.kind === "problems_closed")) {
+  if (
+    !work.conditions.some((condition) => condition.kind === "problems_closed")
+  ) {
     return "the ticket does not require the problems to close";
   }
   const covered = new Set(
@@ -208,7 +210,9 @@ function problemTarget(fact: ProblemFact): CheckTarget {
     id: fact.id,
     revision: closure === null
       ? fact.status
-      : `closed/${closure.reason}/${closure.release ?? "-"}/${closure.basis_seq}`,
+      : `closed/${closure.reason}/${
+        closure.release ?? "-"
+      }/${closure.basis_seq}`,
     release: closure?.release ?? null,
   };
 }
@@ -280,7 +284,8 @@ function problemsClosed(
   return waiting.length === 0
     ? {
       result: "pass",
-      reason: `every target problem was closed by release ${work.completion.release}`,
+      reason:
+        `every target problem was closed by release ${work.completion.release}`,
       verification: null,
       targets,
     }

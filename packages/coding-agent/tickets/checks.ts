@@ -211,7 +211,11 @@ export function loadCheckWork(sql: ReadSql, ticket: string): CheckWork | null {
     [] as VerificationFact[],
   );
   const problems = parseList(row["problems"]);
-  const problemFacts = problems.flatMap((id) => {
+  // 조건이 가리키는 문제도 읽는다: 대상 문제에서 빠진 문제는 닫혀도 확인으로 치지 않아야 한다.
+  const named = conditions.flatMap((condition) =>
+    "problem" in condition.input ? [condition.input.problem] : []
+  );
+  const problemFacts = [...new Set([...problems, ...named])].flatMap((id) => {
     const found = readIfPresent(
       () =>
         sql.get("SELECT id, app, status, closure FROM problems WHERE id = ?", [

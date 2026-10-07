@@ -3,6 +3,7 @@
 import { existsSync, statSync } from "node:fs";
 import { createInterface } from "node:readline";
 
+import { procTree } from "./child-watch.ts";
 import { createCodingHost } from "./launch-plan.ts";
 import type { HostRequest } from "./main.ts";
 import { hostFromNodePty } from "./main.ts";
@@ -27,6 +28,14 @@ const host = hostFromNodePty({
     timer: (ms, fire) => {
       const timer = setTimeout(fire, ms);
       return () => clearTimeout(timer);
+    },
+    // TUI 아래 MCP·CLI process는 /proc을 훑어 본다. 등록은 main이 core에 한다.
+    watch: {
+      tree: procTree(),
+      every: (ms, fire) => {
+        const timer = setInterval(fire, ms);
+        return () => clearInterval(timer);
+      },
     },
     // 관측은 요청의 답이 아니라 host가 먼저 보내는 줄이다. id가 없다.
     emit: (event) => process.stdout.write(JSON.stringify(event) + "\n"),

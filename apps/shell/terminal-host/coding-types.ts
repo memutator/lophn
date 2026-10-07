@@ -25,10 +25,14 @@ export type CodingLaunch = {
   cwd: string;
   /** observe 경로를 더하기 전의 환경이다. */
   baseEnv: Record<string, string>;
+  /** 설치된 helper 절대 경로(loader identity). 있으면 TUI 아래 MCP·CLI process를 관측한다. */
+  credential_helper?: string;
 };
 
 export type PrepareContext = {
   env: Readonly<Record<string, string | undefined>>;
+  /** main이 준 설치 helper 절대 경로. 절대 경로가 아니면 관측하지 않는다. */
+  credential_helper?: string;
   checkFolder: (
     path: string,
   ) => { ok: true; path: string } | {
@@ -45,7 +49,7 @@ export type CodingAttachment = {
   /** socket을 열고 starting 관측을 낸다. 환경에 더할 observe 경로를 돌려준다. */
   begin(): Promise<{ ok: true; env: Record<string, string> } | { ok: false }>;
   /** PTY가 열렸다. 첫 hook 전까지 지금 상태는 unknown이고 prompt 기한이 시작한다. */
-  spawned(write: (text: string) => void): void;
+  spawned(write: (text: string) => void, pid?: number): void;
   output(chunk: string): void;
   /** 연결된 process exit. ended는 ticket 완료나 claim 해제가 아니다. */
   exited(): void;

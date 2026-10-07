@@ -38,6 +38,8 @@ export type HostRequest =
     id: string;
     type: "open-coding";
     plan: unknown;
+    /** 설치된 helper 절대 경로. 있으면 TUI 아래 MCP·CLI process를 관측해 main에 알린다. */
+    credential_helper?: string;
     columns: number;
     rows: number;
   }
@@ -119,6 +121,7 @@ export function createHost(deps: HostDeps): Host {
     if (known) return { ok: true, runtime: { ...known.runtime } };
     const prepared = coding.prepare(request.plan, {
       env: deps.env,
+      credential_helper: request.credential_helper,
       checkFolder: deps.checkFolder,
     });
     if (!prepared.ok) return reject(prepared.reason, prepared.message);
@@ -200,7 +203,7 @@ export function createHost(deps: HostDeps): Host {
         runtime.dropped_output = session.buffer.dropped;
         session.handle = null;
       });
-      attachment.spawned((text) => handle.write(text));
+      attachment.spawned((text) => handle.write(text), handle.pid);
     } catch {
       attachment.abandon();
       runtime.state = "exited";

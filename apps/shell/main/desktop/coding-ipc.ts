@@ -10,7 +10,6 @@ import {
   type StartView,
 } from "../../ipc/coding.ts";
 import type { TerminalRuntime } from "../../ipc/terminal.ts";
-import type { CodingStart, ObservationStore } from "../terminal/coding-start.ts";
 import type { CodingConnection } from "./coding-connection.ts";
 import {
   checkCaller,
@@ -19,10 +18,30 @@ import {
   type IpcEvent,
 } from "./ipc-guard.ts";
 
+// 시작과 관측 표의 모양만 본다. 구현(terminal/coding/coding-start.ts)은 contracts를 읽으므로 shell tsc가 따라가지
+// 않게 이 파일은 구조 모양으로만 받는다.
+export interface CodingStartPort {
+  issue(
+    click: unknown,
+  ):
+    | { ok: true; human_start_handle: string; operation_id: string }
+    | { ok: false; reason: "invalid_input"; message: string };
+  start(handle: string): Promise<
+    | { ok: true; runtime: { terminal_ref: string } }
+    | { ok: false; reason: string; message: string; next: string[]; guide?: unknown }
+  >;
+}
+
+export interface ObservationPort {
+  onEvent(event: unknown): void;
+  hostLost(): void;
+  current(runtime_ref: string): { state: SessionView["tui"] };
+}
+
 export interface CodingIpcDeps {
   registry: ContentsRegistry;
   connection: CodingConnection;
-  start: CodingStart;
+  start: CodingStartPort;
   /** 등록된 project 폴더 전부. 사람이 [Start] 앞에서 고른다. */
   folders(): Promise<readonly FolderChoiceView[]>;
   /** lophn이 [Start]로 연 coding TUI와 지금 관측한 상태. */
@@ -110,7 +129,7 @@ export function removeCodingIpc(main: Pick<CodingIpcMain, "removeHandler">) {
  */
 export function codingSessions(
   runtimes: readonly TerminalRuntime[],
-  store: Pick<ObservationStore, "current">,
+  store: Pick<ObservationPort, "current">,
 ): SessionView[] {
   return runtimes.flatMap((runtime) =>
     runtime.coding === undefined ? [] : [{
@@ -169,7 +188,7 @@ export async function registeredFolders(
  */
 export function hostEventSinks(
   registrar: { onEvent(event: unknown): void; hostLost(): void },
-  store: Pick<ObservationStore, "onEvent" | "hostLost">,
+  store: Pick<ObservationPort, "onEvent" | "hostLost">,
 ): { onEvent(event: unknown): void; onHostLost(): void } {
   return {
     onEvent(event) {

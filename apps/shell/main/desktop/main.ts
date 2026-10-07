@@ -183,7 +183,7 @@ import {
   childPlanRunner,
   createCodingStart,
   createObservationStore,
-} from "../terminal/coding-start.ts";
+} from "../terminal/coding/coding-start.ts";
 import { createSupervisor, spawnNodeHost } from "../terminal/supervisor.ts";
 import { childCliRunner, createCodingConnection } from "./coding-connection.ts";
 import {

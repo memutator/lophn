@@ -8,22 +8,79 @@
 // (순서는 coding-agent `connectAndInstall`과 같다). 설치·doctor가 실패해도 이미 만든 연결을 회수하거나
 // 다시 발급하지 않고 따로 알린다. 감지는 `harness detect`가 저장 결과를, `harness refresh`만 사람 요청
 // 재감지를 먹는다(화면이 열릴 때 자동 재감지는 없다).
+import { execFile } from "node:child_process";
+import { z } from "zod";
+
 import {
-  connectionIdSchema,
-  type HarnessDetection,
-  harnessDetectionSchema,
-} from "../../../../packages/contracts/coding-agent/mod.ts";
-import {
+  type CodingFailureCode,
+  type CodingReply,
   type ConnectRequest,
   connectRequestSchema,
   type ConnectView,
   type DetectView,
+  HARNESS_IDS,
   type HarnessView,
   type InstallStatus,
-  type CodingFailureCode,
-  type CodingReply,
 } from "../../ipc/coding.ts";
-import { defaultExec, type ExecFile } from "../terminal/coding-start.ts";
+
+// shell main은 contracts를 따라가지 않는다(shell tsc). 이 모듈이 읽는 감지·연결 값의 모양만 여기 둔다. 값은
+// contracts coding-agent의 harnessDetectionSchema·connectionIdSchema와 같아야 하고
+// terminal/coding/coding-ipc_test.ts가 실제 schema의 값이 이 모양을 통과하는지 본다.
+const connectionIdSchema = z.string().regex(/^cac_[0-7][0-9a-hjkmnp-tv-z]{25}$/);
+
+export const detectionSchema = z.object({
+  harness_id: z.enum(HARNESS_IDS),
+  environment: z.object({
+    kind: z.enum(["host", "wsl", "remote"]),
+    identity: z.string().min(1),
+  }),
+  profile_id: z.string().min(1).nullable(),
+  observed_at: z.string().min(1),
+  discovery: z.enum(["unobserved", "detected", "absent", "unknown", "error"]),
+  candidates: z.array(z.object({
+    path: z.string().min(1),
+    source: z.string().min(1),
+  })),
+  selected_executable: z.string().min(1).nullable(),
+  version: z.object({
+    result: z.enum(["verified", "unknown", "error"]),
+    value: z.string().min(1).nullable(),
+  }),
+  auth: z.object({
+    result: z.enum([
+      "verified",
+      "not_verified",
+      "unknown",
+      "error",
+      "unverified_capability",
+    ]),
+  }),
+  probe_results: z.array(z.object({
+    probe: z.string().min(1),
+    outcome: z.string().min(1),
+  })),
+  freshness: z.enum(["fresh", "stale"]),
+});
+
+type HarnessDetection = z.infer<typeof detectionSchema>;
+
+type ExecFile = (
+  file: string,
+  args: string[],
+  options: { env: Record<string, string>; timeout: number; maxBuffer: number },
+) => Promise<{ code: number | null; stdout: string }>;
+
+const defaultExec: ExecFile = (file, args, options) =>
+  new Promise((resolve) => {
+    execFile(file, args, options, (error, stdout) => {
+      const code = error === null
+        ? 0
+        : typeof (error as { code?: unknown }).code === "number"
+        ? (error as { code: number }).code
+        : null;
+      resolve({ code, stdout: String(stdout) });
+    });
+  });
 
 /** 고정 연결 intent가 부르는 core route 하나. renderer allowlist에는 없고 main만 부른다. */
 export const CONNECTION_INTENT = "memory:coding_agent_connections/connect";
@@ -170,7 +227,7 @@ async function readDetections(
   }
   const detections: HarnessDetection[] = [];
   for (const item of data.detections) {
-    const parsed = harnessDetectionSchema.safeParse(item);
+    const parsed = detectionSchema.safeParse(item);
     if (parsed.success) detections.push(parsed.data);
   }
   return { ok: true, value: { source, detections } };

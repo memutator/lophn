@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import type { TerminalReply, TerminalRuntime } from "../../ipc/terminal.ts";
-import { createChildRegistrar } from "../terminal/coding-children.ts";
+import type { TerminalReply, TerminalRuntime } from "../../../ipc/terminal.ts";
+import { createChildRegistrar } from "../coding-children.ts";
 import {
   createCodingStart,
   createObservationStore,
   type PlanRunner,
-} from "../terminal/coding-start.ts";
+} from "./coding-start.ts";
 import {
   APP,
   CAC,
@@ -16,19 +16,23 @@ import {
   PRJ,
   ticketDetail,
   TKT,
-} from "../terminal/coding/fixtures.ts";
-import type { CodingConnection } from "./coding-connection.ts";
+} from "./fixtures.ts";
+import {
+  type CodingConnection,
+  detectionSchema,
+} from "../../desktop/coding-connection.ts";
+import { harnessDetectionSchema } from "../../../../../packages/contracts/coding-agent/mod.ts";
 import {
   codingSessions,
   createCodingIpc,
   hostEventSinks,
   registeredFolders,
-} from "./coding-ipc.ts";
+} from "../../desktop/coding-ipc.ts";
 import {
   type CallerContents,
   ContentsRegistry,
   type IpcEvent,
-} from "./ipc-guard.ts";
+} from "../../desktop/ipc-guard.ts";
 
 function sender(id: number, url: string): CallerContents {
   return { id, isDestroyed: () => false, mainFrame: { url, parent: null } };
@@ -414,4 +418,28 @@ test("documents/projects#R1: 등록된 project 폴더는 terminal이 다시 해�
     }),
     [],
   );
+});
+
+test("coding-agent/harnesses#R2: main의 감지 모양은 contracts의 실제 감지 값을 그대로 통과한다", () => {
+  const real = harnessDetectionSchema.parse({
+    harness_id: "claude",
+    catalog_revision: "1",
+    environment: { kind: "host", identity: "desk" },
+    profile_id: null,
+    observed_at: "2026-10-07T00:00:00.000Z",
+    discovery: "detected",
+    candidates: [{
+      path: "/usr/bin/claude",
+      source: "path",
+      executable_result: "ok",
+    }],
+    selected_executable: "/usr/bin/claude",
+    version: { result: "verified", value: "1.2.3", reason: null },
+    auth: { result: "verified", evidence: "login", reason: null },
+    probe_results: [{ probe: "version", outcome: "ok", detail: null }],
+    freshness: "fresh",
+  });
+  const local = detectionSchema.safeParse(real);
+  assert.equal(local.success, true);
+  assert.equal(local.success && local.data.selected_executable, "/usr/bin/claude");
 });

@@ -7,6 +7,7 @@ import {
 } from "../../packages/apps/registration/mod.ts";
 import {
   appConnect,
+  appExport,
   appPairConfirmPoll,
   appPairConfirmRequest,
   appPairObserve,
@@ -69,7 +70,9 @@ import {
 import { createPlaceNameReservation } from "../../packages/documents/addressing/mod.ts";
 import {
   packagesGuideBody,
+  releaseActivated,
   releaseActivationFailed,
+  releaseSuperseded,
 } from "../../packages/contracts/apps/mod.ts";
 import { SecretAllowance } from "../../packages/contracts/platform/mod.ts";
 import type {
@@ -77,7 +80,9 @@ import type {
   ReaderRegistration,
   TxPortRegistration,
 } from "../../packages/platform/ledger/mod.ts";
+import type { WorkerRoute } from "../../packages/contracts/platform/mod.ts";
 import { notificationsOnlyVisibility } from "./platform.ts";
+import { ticketCheckFeedVisibility } from "./ticket-checker.ts";
 
 type LedgerRegistration = {
   blobFields?: readonly unknown[];
@@ -87,6 +92,8 @@ type LedgerRegistration = {
   reads?: readonly unknown[];
   // ledger를 쓰지 않는 core 메모리 route. handler는 core 조립이 apps-control의 service로 붙인다.
   memoryRoutes?: readonly unknown[];
+  // worker route. serving은 core 조립이 연결하고(테스트 주입 포함), 등록만 여기서 한다.
+  workerRoutes?: readonly WorkerRoute[];
   ports?: readonly TxPortRegistration[];
 };
 
@@ -207,6 +214,10 @@ export function createLedgerRegistration(
       releasePreparation,
       releaseCancelPreparation,
     ],
+    // 앱 export 준비(apps/data#R13). 준비 본체는 data worker 모듈(worker/export.ts)이 하고,
+    // serving은 core 조립이 연결한다. 제품 기동에는 serving이 아직 없다(준비 중·완성·실패
+    // 구별은 contract의 state로 내놓는다).
+    workerRoutes: [appExport],
     // coding-agent connection의 app scope 검사와 documents의 자리 해석은 같은 Tx의
     // 존재 조회를 쓴다. TargetAuthorization은 tx.ts가 주입하므로 여기 등록하지 않는다.
     ports: [
@@ -252,7 +263,15 @@ export function createLedgerRegistration(
 // release 계기 event의 공개 정책(platform/notifications#R1). notifications 구독자에게만 열고,
 // 다른 apps event는 정책이 없어 계속 숨김이다.
 export function createEventRegistration(): EventRegistration {
-  return { visibility: [notificationsOnlyVisibility(releaseActivationFailed)] };
+  return {
+    visibility: [
+      notificationsOnlyVisibility(releaseActivationFailed),
+      // active release가 바뀐 event는 ticket checker 구독자(machine:ticket-check-feed)의 깨움
+      // 신호로만 열린다(coding-agent#T26). 다른 자격이 보는 것은 그대로 숨김이다.
+      ticketCheckFeedVisibility(releaseActivated),
+      ticketCheckFeedVisibility(releaseSuperseded),
+    ],
+  };
 }
 
 // reader Worker가 이 모듈을 import해 read를 reader 풀에 붙인다. 실행 port는 없다.

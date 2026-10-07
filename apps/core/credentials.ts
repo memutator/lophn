@@ -6,6 +6,7 @@ import { APPS_CONTROL_PRINCIPAL } from "./apps-control.ts";
 import { CONNECTION_TEST_PRINCIPAL } from "./provider-connection-test.ts";
 import { INVOCATION_RECOVERY_PRINCIPAL } from "../../packages/apps/invocations/restart.ts";
 import { DOCUMENTS_FEED_PRINCIPAL } from "./documents-events.ts";
+import { TICKET_CHECK_FEED_PRINCIPAL } from "./ticket-checker-ids.ts";
 import {
   APPROVAL_EXPIRY_PRINCIPAL,
   NOTIFICATIONS_PRINCIPAL,
@@ -88,6 +89,7 @@ const FIXED_CREDENTIALS = new Set([
   APPROVAL_EXPIRY_PRINCIPAL,
   INVOCATION_RECOVERY_PRINCIPAL,
   DOCUMENTS_FEED_PRINCIPAL,
+  TICKET_CHECK_FEED_PRINCIPAL,
   NOTIFICATIONS_PRINCIPAL,
   CONNECTION_TEST_PRINCIPAL,
 ]);

@@ -208,6 +208,16 @@ import {
 } from "./problems-collector.ts";
 import { COLLECTOR_KIND, reportCollectorSpec } from "./problems-runner.ts";
 import {
+  startTicketCheckFeed,
+  TICKET_CHECK_FEED_CONTEXT,
+  TICKET_CHECK_OP,
+  TICKET_CHECKER_KIND,
+  TICKET_CHECKER_OPERATIONS,
+  TICKET_CHECKER_PRINCIPAL,
+  ticketCheckerPolicies,
+  ticketCheckerSpec,
+} from "./ticket-checker.ts";
+import {
   appCredentialIssuer,
   APPS_CONTROL_CONTEXT,
   APPS_CONTROL_PRINCIPAL,
@@ -394,6 +404,9 @@ export type Core = {
   ): Promise<Result<void>>;
   // 만료 claim 정리. 60초 timer와 재시작이 같은 함수를 부른다(tickets#R13).
   sweepTicketClaims(): Promise<void>;
+  // 보고된 ticket의 조건을 checker worker가 정본으로 다시 비교하게 한다. 감독 worker가 없으면
+  // unavailable이다. event 구독자와 시험이 같은 함수를 부른다(coding-agent#T26).
+  sweepTicketChecks(): Promise<Result<unknown>>;
   // 사람이 잃을 범위를 확인한 backup 복원(platform/backup-and-migration#R13, R14). handle은
   // `restoreBinding(plan)`의 target·content에 묶인 `restore_backup` 결정이어야 한다. 확인이
   // 맞으면 새 command 입장을 닫고 모든 worker·writer를 멈춘 뒤 현재 자료를 보존하고 검증한
@@ -463,6 +476,8 @@ async function open(
   const documentsChannel = createDocumentsChannel();
   // problems report collector 요청 통로. 같은 통로 모양을 쓴다.
   const collectorChannel = createDocumentsChannel();
+  // ticket checker worker 요청 통로. 같은 통로 모양을 쓴다(coding-agent#T26).
+  const checkerChannel = createDocumentsChannel();
   // coordinator가 파일 읽기의 창으로 보내는 byte frame의 우편함(`files.read` stream).
   const fileWindows = createFileWindows();
   const ledgerPath = `${root.path}/lophn.db`;
@@ -572,6 +587,8 @@ async function open(
     ...appsOperationPolicies(),
     // problems report collector(machine)가 보고를 제출한다.
     ...collectorOperationPolicies(),
+    // ticket checker(machine)가 판정 사실을 읽고 결과를 기록한다(coding-agent#T26).
+    ...ticketCheckerPolicies(),
     // agent runtime(machine)과 run의 agent 자격이 닿는 operation(lophn-agent/harness/run-loop).
     ...(options.agentRuntime ? agentRuntimePolicies(allRoutes) : []),
     // 팀이 공개 정책을 내놓은 event 이름. 사람 token의 operation에 들어가 owner 정책이 판단한다.
@@ -1690,6 +1707,61 @@ async function open(
       }
     }
   }
+  // coding-agent/checker. 보고된 ticket의 조건을 machine actor로 판정하는 상시 worker다. 감독이
+  // 없는 harness와 record_checks를 등록하지 않은 조립은 띄우지 않는다. 띄우지 못해도 core는
+  // 계속 선다: 판정이 멈출 뿐 ticket은 reported로 남는다(없는 검사를 성공으로 꾸미지 않는다).
+  const checkerSpec = ticketCheckerSpec({ dataRoot: root.path });
+  let ticketCheckFeed: InternalSubscription | undefined;
+  if (
+    io && checkerSpec &&
+    allRoutes.some((route) => route.name === TICKET_CHECKER_OPERATIONS[1])
+  ) {
+    const issued = await productRegistry.issue({
+      actor: "machine",
+      principal: TICKET_CHECKER_PRINCIPAL,
+      scope: {
+        operations: [...TICKET_CHECKER_OPERATIONS],
+        targets: { task: "coding-agent" },
+      },
+      conditions: { task: "coding-agent", process: TICKET_CHECKER_KIND },
+    });
+    const current = issued.ok
+      ? productRegistry.revalidate({
+        credential_ref: issued.value.credential_ref,
+      })
+      : issued;
+    const recorded = issued.ok && current.ok
+      ? await runtime.record(current.value)
+      : current;
+    const feedRecorded = await runtime.record(TICKET_CHECK_FEED_CONTEXT);
+    if (issued.ok && recorded.ok && feedRecorded.ok) {
+      const started = await io.start(
+        checkerSpec,
+        {
+          type: "hello",
+          core_epoch: epoch,
+          process_identity: epoch,
+          kind: TICKET_CHECKER_KIND,
+          task: "coding-agent",
+          scope: { operations: [], targets: {} },
+          credential: issued.value.token,
+          api_port: server.port,
+        },
+        { onMessage: (message) => checkerChannel.onMessage(message) },
+      );
+      if (started.ok) {
+        checkerChannel.bind((payload) =>
+          io.send(TICKET_CHECKER_KIND, payload).then((sent) => sent.ok)
+        );
+        // VerificationRecorded·ReleaseActivated·ReleaseSuperseded·TicketCompletionReported가 오면
+        // worker가 정본을 다시 읽는다. 구독이 열릴 때도 한 번 깨워 닫혀 있던 동안을 따라잡는다.
+        ticketCheckFeed = startTicketCheckFeed({
+          runtime,
+          wake: () => checkerChannel.request(TICKET_CHECK_OP, {}, 30_000),
+        });
+      }
+    }
+  }
   // core 안 notifications 구독자. 계기 event를 notification으로 바꾸고 cursor를 올린다.
   const notifications = startNotifications({
     runtime,
@@ -1922,6 +1994,7 @@ async function open(
       read: (hash, offset, length) => blobRead.deps.read(hash, offset, length),
     }),
     sweepTicketClaims: () => runtime!.sweepTicketClaims(),
+    sweepTicketChecks: () => checkerChannel.request(TICKET_CHECK_OP, {}, 30_000),
     sweepApprovalExpiry: () => runtime!.sweepApprovalExpiry(),
     reconcileApp: (desired) => appsControl.reconcile(desired),
     sweepInterruptedInvocations: () => runtime!.sweepInterruptedInvocations(),
@@ -2055,6 +2128,7 @@ async function open(
           // 새 입장을 먼저 닫는다. 이미 입장한 command는 writer가 확정 또는 실패로 마친다.
           ready = false;
           documentsFeed.stop();
+          ticketCheckFeed?.stop();
           // 진행 중인 notification 생성은 writer가 닫히기 전에 끝난다.
           await notifications.stop();
           rootsWatch?.stop();

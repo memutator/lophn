@@ -1,4 +1,4 @@
-import { err } from "../../packages/base/mod.ts";
+import { err, ok } from "../../packages/base/mod.ts";
 import {
   getTestRequestRead,
   getVerificationRead,
@@ -60,7 +60,18 @@ import {
   verificationRecorded,
 } from "../../packages/contracts/problems/mod.ts";
 import { notificationsOnlyVisibility } from "./platform.ts";
+import { isTicketCheckFeed } from "./ticket-checker.ts";
 import { reportCollectorSpec, testRunnerSpec } from "./problems-runner.ts";
+
+// Verification 기록은 test 결과를 기다리는 ticket checker 구독자(machine:ticket-check-feed)도
+// 깨우는 신호로 본다(coding-agent#T26). 그 밖의 자격은 owner 정책이 그대로 판단한다.
+const verificationRecordedForChecker: typeof verificationRecordedVisibility = {
+  event: verificationRecordedVisibility.event,
+  handle: (snapshot, ctx, event) =>
+    isTicketCheckFeed(ctx)
+      ? ok(true)
+      : verificationRecordedVisibility.handle(snapshot, ctx, event),
+};
 
 // owner definitions만 내보낸다. port 구현과 writer 조립은 core가 맡는다.
 export const problemsTestDefinitions = {
@@ -69,7 +80,7 @@ export const problemsTestDefinitions = {
   blobPurposes: TEST_BLOB_PURPOSES,
   commands: [requestTestCommand, recordVerificationCommand],
   reads: [getTestRequestRead, getVerificationRead, listVerificationsRead],
-  visibility: [verificationRecordedVisibility],
+  visibility: [verificationRecordedForChecker],
   ports: { admission: testAdmissionPort, evidence: testEvidencePort },
   workers: testRunnerWorkers(),
 };

@@ -12,6 +12,7 @@ import {
 import {
   type ConnectionId,
   connectionShow,
+  type HarnessId,
   HUMAN_ONLY_NAMES,
   type IntegrationTarget,
   LOPHN_CONNECTION,
@@ -60,12 +61,17 @@ import {
   ticketHumanOnly,
   type TicketWriteName,
 } from "../../packages/coding-agent/cli/commands/ticket.ts";
+import {
+  runSessionObserve,
+  runSessionPlan,
+} from "../../packages/coding-agent/cli/commands/session.ts";
 import { findCommand } from "../../packages/coding-agent/cli/registry.ts";
 import {
   catalogOf,
   detectHarnesses,
   detectionCacheOf,
   type DetectPorts,
+  discover,
   filePort,
   inspectIntegration,
   type Inspection,
@@ -121,6 +127,8 @@ export type CliRuntime = {
   // direct socket 권한이 없다.
   appSocketDir?: string;
   now(): string;
+  // hook payload를 읽는 눈이다. 없으면 process stdin이다(`session observe`만 읽는다).
+  stdin?: () => Promise<string>;
   // 시험이 끼우는 눈이다. 없으면 실제 파일·process·platform daemon 판정을 쓴다.
   ports?: Partial<CliPorts>;
 };
@@ -132,7 +140,50 @@ export type CliPorts = {
   launch(
     decision: { executable: string; argv: readonly string[] },
   ): Promise<Result<void, LophnError>>;
+  // 관측 socket에 NDJSON을 쓴다. observation 전용이라 credential을 싣지 않는다.
+  observe(path: string, ndjson: string): Promise<Result<void, LophnError>>;
 };
+
+// hook payload 상한이다(조사 T6의 body 64KiB 제안). 넘으면 읽지 않는다.
+const OBSERVE_STDIN_LIMIT = 64 * 1024;
+
+async function readProcessStdin(): Promise<string> {
+  if (Deno.stdin.isTerminal()) return "";
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for await (const chunk of Deno.stdin.readable) {
+    size += chunk.length;
+    if (size > OBSERVE_STDIN_LIMIT) return "";
+    chunks.push(chunk);
+  }
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return new TextDecoder().decode(bytes);
+}
+
+async function writeObserveSocket(
+  path: string,
+  ndjson: string,
+): Promise<Result<void, LophnError>> {
+  try {
+    const connection = await Deno.connect({ transport: "unix", path });
+    try {
+      await connection.write(new TextEncoder().encode(ndjson));
+    } finally {
+      connection.close();
+    }
+    return ok(undefined);
+  } catch {
+    return err({
+      code: "unavailable",
+      message: "관측 socket에 쓰지 못했다",
+    });
+  }
+}
 
 // 실제 눈이다. platform의 instance lock·위치 metadata 판정을 그대로 쓰고 detect는 PATH와 catalog
 // fallback만 읽는다.
@@ -191,6 +242,7 @@ function defaultPorts(runtime: CliRuntime): CliPorts {
           `${dataRoot}/logs/platform-${index}.jsonl`
         ),
     },
+    observe: writeObserveSocket,
     launch(decision) {
       try {
         const child = new Deno.Command(decision.executable, {
@@ -413,8 +465,20 @@ export async function runCliCommand(
     // 배포 skill 원본(guides)이 설치 묶음에 없다. 성공으로 꾸미지 않는다.
     return unwired(name);
   }
+  if (name === "session plan") {
+    return await runSessionPlanCommand(input, runtime);
+  }
+  if (name === "session observe") {
+    // core·credential을 읽지 않고 socket에만 쓴다. coding credential context(LOPHN_CONNECTION 환경)의 TUI도 부른다.
+    return await runSessionObserve(input as { hook: HarnessId }, {
+      env: runtime.env,
+      stdin: runtime.stdin ?? readProcessStdin,
+      now: runtime.now,
+      send: portsOf(runtime).observe,
+    });
+  }
   if (name.startsWith("session ")) {
-    // session summary의 core route와 plan(sessions)이 아직 없다.
+    // session summary의 core route가 아직 없다.
     return unwired(name);
   }
   if (client === undefined) return connectionRequired();
@@ -506,6 +570,42 @@ export async function runCliCommand(
       : read;
   }
   return ok({ summary: `${name} 결과`, data: read.value, next: [] });
+}
+
+// `lophn session plan`: shell main이 클릭을 검증하며 넘긴 값으로 시작 계획을 낸다. core를 읽지 않고
+// (ticket·connection 현재 사실은 입력의 facts) 저장한 감지와 지금 본 실행 파일만 쓴다. process를 열지 않는다.
+async function runSessionPlanCommand(
+  input: Record<string, unknown>,
+  runtime: CliRuntime,
+): Promise<Result<CommandOutput, LophnError>> {
+  const ports = portsOf(runtime);
+  const home = runtime.home ?? "";
+  return await runSessionPlan(
+    input as Parameters<typeof runSessionPlan>[0],
+    {
+      async detect() {
+        const detected = await detectHarnesses(
+          "detect",
+          ports.detect,
+          detectionCacheOf(home, filePort(), integrationsDirOf(runtime)),
+          runtime.now(),
+        );
+        return detected.ok ? ok(detected.value.detections) : detected;
+      },
+      current(harness) {
+        const definition = catalogOf(harness);
+        if (definition === undefined) {
+          return err({ code: "invalid_input", message: "알 수 없는 제품이다" });
+        }
+        const found = discover(
+          definition,
+          { environment: NATIVE_ENVIRONMENT, profile_id: null },
+          ports.detect,
+        );
+        return found.ok ? ok({ selected: found.value.selected }) : found;
+      },
+    },
+  );
 }
 
 async function runDoctor(

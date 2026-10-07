@@ -124,7 +124,7 @@ const CLI_FALLBACK_BINS = [
 ].map((dir) => `$HOME/${dir}`).join(",");
 
 const CLI_ENV =
-  "LOPHN_HOME,LOPHN_CONNECTION,LOPHN_DAEMON_URL,LOPHN_APP,HOME,DENO_DIR,PATH,XDG_RUNTIME_DIR,TMPDIR,CODEX_HOME,XDG_CONFIG_HOME,HERMES_HOME";
+  "LOPHN_HOME,LOPHN_CONNECTION,LOPHN_DAEMON_URL,LOPHN_APP,LOPHN_TERMINAL_OBSERVE,HOME,DENO_DIR,PATH,XDG_RUNTIME_DIR,TMPDIR,CODEX_HOME,XDG_CONFIG_HOME,HERMES_HOME";
 
 // `lophn` CLI. 같은 플랫폼 daemon에 loopback으로 연결하고 token은 helper로만 받는다(R6).
 // 설치·감지·daemon·`sdk add --apply`가 요구하는 write·run은 정확한 경로와 파일로만 연다
@@ -152,7 +152,7 @@ export function cliLauncher(layout: LinuxInstallLayout): string {
     "# 설치·sdk 명령만 권한 계획을 부른다. 계획은 읽기·loopback·helper 실행뿐이고 쓰기·run은 없다.",
     'EXTRA=""',
     'for arg in "$@"; do',
-    '  case "$arg" in harness|connection|sdk) NEED=1 ;; esac',
+    '  case "$arg" in harness|connection|sdk|observe) NEED=1 ;; esac',
     "done",
     'if [ -n "${NEED:-}" ]; then',
     '  EXTRA=$("$ROOT/deno" run --cached-only --frozen --no-prompt \\',

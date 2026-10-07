@@ -9,6 +9,7 @@ import { DOCUMENTS_FEED_PRINCIPAL } from "./documents-events.ts";
 import { TICKET_CHECK_FEED_PRINCIPAL } from "./ticket-checker-ids.ts";
 import {
   APPROVAL_EXPIRY_PRINCIPAL,
+  ASSIGNMENT_REACTIONS_PRINCIPAL,
   NOTIFICATIONS_PRINCIPAL,
 } from "./platform.ts";
 
@@ -92,6 +93,7 @@ const FIXED_CREDENTIALS = new Set([
   TICKET_CHECK_FEED_PRINCIPAL,
   NOTIFICATIONS_PRINCIPAL,
   CONNECTION_TEST_PRINCIPAL,
+  ASSIGNMENT_REACTIONS_PRINCIPAL,
 ]);
 
 // coding agent connection의 인증 context는 connection마다 고정 ref(`coding:<cac>`)이고 시작마다

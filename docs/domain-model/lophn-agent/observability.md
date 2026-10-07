@@ -12,14 +12,19 @@ concerns: [lophn-agent/observability]
 
 | 필드 | 타입 | null | 제약 | 뜻 |
 |---|---|---|---|---|
-| `run` | `run` ID | 아니오 | trace 하나의 기준; → lophn-agent/harness/run-loop | 대상 |
+| `run` | `run` ID | 예 | trace 하나의 기준; 독립 호출 trace와 session 묶음은 null; → lophn-agent/harness/run-loop | 대상 |
+| `session` | `ses` ID | 예 | 실제 연결된 session만; 가짜 session 없음; → lophn-agent/conversation | 대화 |
+| `assignment` | `asg` ID | 예 | 실제 일한 주체. handoff 수신 run도 받은 assignment | 주체 |
+| `state` | run 상태 | 예 | run 기준일 때만; `finished`가 아니면 종료 확인 전 | 상태 |
+| `started_at`·`finished_at` | UTC 시각(ms) | 예 | run의 시작·종료 기록. 경과 시간 계산에 쓰지 않는다 | 시각 |
 | `basis` | sha256 | 예 | Run.basis 참조; 별도 본문 복제 없음 | 시작 당시 preset·scope·model 선택·tool 판 |
 | `events` | seq 배열 | 아니오 | 원본 event seq 순; 샘플링 없음; → platform/ledger | 상태·실제 변경 |
 | `messages` | `msg` ID 배열 | 아니오 | 원본 참조; → lophn-agent/conversation | 입력·결과 |
 | `model_calls` | `mcl` ID 배열 | 아니오 | 모든 시도; → lophn-agent/harness/usage | model 이력 |
 | `tool_calls` | `tcl` ID 배열 | 아니오 | deny·미실행·불명확 포함; → lophn-agent/harness/tools | tool 이력 |
 | `handoff_links` | `{sender_run,receiver_run,original_message}` 배열 | 아니오 | 실제 source 관계; 양방향 조회; → lophn-agent/handoff | 독립 trace 연결 |
-| `times` | `{wall_ms,active_ms,waiting_ms,model_ms,first_output_ms?,tool_ms}` | 아니오 | 0 이상 정수 ms; 서로 다른 의미를 합쳐 중복 표시 안 함 | 시간 종류 |
+| `activity` | `{model, tools}` | 아니오 | 호출 수와 비성공 호출의 참조(실패·부분·취소·불명확·미종료·거절·미실행·외부 MCP); `succeeded`는 outcome이 success인 수만; 파생 사실이며 저장 없음 | 도구 활동 접기·실패 요약 |
+| `times` | `{wall_ms,active_ms,waiting_ms,model_ms,first_output_ms?,tool_ms}` | 아니오 | 0 이상 정수 ms; 서로 다른 의미를 합쳐 중복 표시 안 함; `active_ms`는 run의 단조 누적값, `waiting_ms`는 RunWaited부터 재개·종료 event까지(시계가 뒤로 가면 0), `wall_ms`는 둘의 합이다(시작·종료 시각의 차이가 아니다) | 시간 종류 |
 | `reason` | RunOutcome.reason | 예 | 종료 확인 전 null; 정상 완료 추정 금지 | 종료 분류 |
 | `missing` | `{kind,reference,reason}` 배열 | 아니오 | 기본 `[]`; 없는 본문·기록 구별 | 부재 |
 

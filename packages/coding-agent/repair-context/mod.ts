@@ -19,6 +19,8 @@ export {
   UNREADABLE_MESSAGE,
 } from "./model.ts";
 export { createRepairReadPort, type RepairReadClient } from "./reads.ts";
+export { createRepairCursor, type RepairCursor } from "./cursor.ts";
+export { repairMore, textPage } from "./more.ts";
 export {
   allocate,
   type Fingerprint,

@@ -74,6 +74,7 @@ export type CliOptions = {
   installRoot?: string;
   ports?: Partial<CliPorts>;
   appSocketDir?: string;
+  stdin?: () => Promise<string>;
 };
 
 // 설치 묶음의 위치다. 이 entry는 `<설치 root>/platform/apps/cli/main.ts`라 세 단계 위다.
@@ -243,9 +244,18 @@ export async function cliMain(
       daemonUrl: address.value.url,
       ...(appSocketDir === undefined ? {} : { appSocketDir }),
       now: () => new Date().toISOString(),
+      ...(options.stdin === undefined ? {} : { stdin: options.stdin }),
       ...(options.ports === undefined ? {} : { ports: options.ports }),
     },
   );
+  if (command === "session observe") {
+    // hook의 stdout은 제품이 model context로 읽을 수 있어 비워 둔다. 보내지 못해도 harness 작업을 막지 않으므로
+    // 진단은 stderr 한 줄이고 exit는 0이다(조사 T6).
+    if (!ran.ok) {
+      await output.diagnostic(`session observe: ${ran.error.message}`);
+    }
+    return 0;
+  }
   if (!ran.ok) {
     const failure: AgentFailure = {
       code: ran.error.code,

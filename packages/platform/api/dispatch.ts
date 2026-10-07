@@ -55,6 +55,7 @@ import {
 export type ReadHandler = (
   ctx: AuthenticatedContext,
   input: unknown,
+  credential?: string,
 ) => Result<unknown> | Promise<Result<unknown>>;
 
 export type MemoryHandler = (
@@ -264,7 +265,15 @@ export async function dispatchHttp(
     if (isCommandRoute(route)) {
       return await command(route, parsed.value, ctx, deps);
     }
-    if (isReadRoute(route)) return await read(route, parsed.value, ctx, deps);
+    if (isReadRoute(route)) {
+      return await read(
+        route,
+        parsed.value,
+        ctx,
+        deps,
+        request.headers.get("authorization")?.replace(/^Bearer /, ""),
+      );
+    }
     if (isMemoryRoute(route)) {
       return await memory(route, parsed.value, ctx, deps);
     }
@@ -442,6 +451,7 @@ async function read(
   value: unknown,
   ctx: AuthenticatedContext,
   deps: DispatchDeps,
+  credential?: string,
 ): Promise<HttpResult> {
   const parsed = route.input.safeParse(value);
   if (!parsed.success) {
@@ -451,7 +461,7 @@ async function read(
   if (!handler) {
     return rejected({ code: "unavailable", message: "read unavailable" });
   }
-  const result = await handler(ctx, parsed.data);
+  const result = await handler(ctx, parsed.data, credential);
   if (!result.ok) return rejected(result.error);
   const output = route.output.safeParse(result.value);
   if (!output.success) {

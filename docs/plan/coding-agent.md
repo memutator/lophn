@@ -1345,6 +1345,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T38 LaunchPlan과 첫 prompt
 
+- 상태: 완료 (#431)
 - 등급: 기본
 - concern: coding-agent/sessions, coding-agent/harnesses
 - 요구: coding-agent/sessions#R1, R2, R3, R4, R5, R10; coding-agent/harnesses#R5
@@ -1390,6 +1391,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T39 session 관측
 
+- 상태: 완료 (#432) — 이어보냄: shell#T49(host가 runtime_ref·generation·origin을 붙이고 process exit·재시작을 관측으로 내는 일)
 - 등급: 기본
 - concern: coding-agent/sessions, coding-agent/harnesses
 - 요구: coding-agent/sessions#R6, R7, R8, R9, R10; coding-agent/harnesses#R11
@@ -1525,6 +1527,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T43 repair context 예산·추가 근거·cursor·이미지
 
+- 상태: 완료 (#435) — 전체 경로는 owner 작업이 있어야 한다: source diff 근거는 apps release read가 첫 발생 전·현재 고정 release의 보존 source 참조를 내야 하고(지금은 이유만), image 내용은 platform redaction이 image/png를 지원해야 한다(지금은 허용 첨부 열기 참조·종류·크기만). 좁은 본문 읽기 `problems.report_body`는 report_text·snapshot_logs와 R15 screen용 feedback_state를 연다
 - 등급: 기본
 - concern: coding-agent/repair-context
 - 요구: coding-agent/repair-context#R11, R12, R15, R16, R17, R19

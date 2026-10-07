@@ -488,6 +488,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - slice: problems
 - 선행: problems#T14, problems#T21, coding-agent#T18
 - 선행 풀기(사람 결정 2026-10-07): 선행이 끝나기 전에 이미 있는 contract와 fake로 먼저 만든다. 선행이 merge되면 실제 구현에 잇는 작은 PR을 따로 내고, 그때 완료로 둔다.
+- 상태: 진행 (#422) — 선행 풀기: problems#T21 merge 뒤 실제 닫힘·결정 data에 잇는 PR이 남음
 - T6에서 넘어온 것: `GetProblem`이 실제 담당과 필요한 사람 조치를 싣는다(#261은 담당·조치 field가 없다); 사용자용 상세에서는 contract의 `problem.work`·`problem.interpretation` ticket·version ID를 빼고 en 작업 상태로 대신하도록 contract를 나눈다; claim·기한 field는 처음부터 없다
 - 완료:
   - 닫힘 4종(테스트로 확인됨·내가 확인함·현상이 안 보임·더 다루지 않음)이 서로 다른 값이고, 기본은 닫힌 이유와 지금 필요한 주의, 확인 범위·미확인·release·근거는 펼친 상세(closing#R13)

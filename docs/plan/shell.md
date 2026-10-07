@@ -1117,6 +1117,7 @@ concerns: [shell]
 
 ### T54 Operator: 붙이기, Repeating check, 보고, 멈춤과 회수
 
+- 상태: 완료 (#455) — 이어보냄: 실제 core에서 끝까지 적용되는 길(user 자격의 `ApplyOperatorAssignment` dispatch·승인 결정 seq·`approval.submit_assignment` 입력 모양) → lophn-agent#T53
 - 등급: frontend
 - concern: shell/desktop
 - 요구: shell/desktop#R4(회수된 담당), R5

@@ -113,7 +113,7 @@ export type AppDriver = {
   invoke(
     command: string,
     input: unknown,
-    options?: { inject_failure: boolean },
+    options?: { inject_failure: boolean; fault?: "store" | "none" },
   ): Promise<InvokeResult>;
   // 앱의 고정 SDK reportProblem을 직접 부른다.
   reportDirect(code: string): Promise<SdkResult>;

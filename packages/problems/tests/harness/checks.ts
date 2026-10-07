@@ -603,6 +603,8 @@ export async function observeFailurePath(input: {
   code: string;
   command: string;
   command_input: unknown;
+  // 실패를 어디에 주입하는지. 기본은 환경(저장소)이고 `none`은 입력만으로 실패가 난다.
+  fault?: "store" | "none";
 }): Promise<Result<boolean>> {
   const name = failurePathName(input.code);
   const check = input.plan.checks.find((item) => item.name === name);
@@ -615,7 +617,7 @@ export async function observeFailurePath(input: {
   const invoked = await input.driver.invoke(
     input.command,
     input.command_input,
-    { inject_failure: true },
+    { inject_failure: input.fault !== "none", fault: input.fault ?? "store" },
   );
   const via = invoked.reports.find((report) =>
     report.code === input.code && report.invocation_id === invoked.invocation_id
@@ -643,4 +645,36 @@ export async function observeFailurePath(input: {
   const sent = frame(check, verdict, input.emitter);
   if (!sent.ok) return sent;
   return ok(met);
+}
+
+// 앱이 쓴 실패 경로 test가 SDK의 reportProblem만 직접 부른 경우다. 그 보고는 실제 command 호출 안에서
+// 나지 않았으므로 선언 code의 실패 경로 근거가 아니다(problem-codes#R9). 보고가 접수됐는지는
+// 관측하지만 expectation은 늘 충족되지 않는다.
+export async function observeDirectFailurePath(input: {
+  driver: AppDriver;
+  plan: HarnessPlan;
+  emitter: Emitter;
+  code: string;
+}): Promise<Result<boolean>> {
+  const name = failurePathName(input.code);
+  const check = input.plan.checks.find((item) => item.name === name);
+  if (!check || !isFailurePathName(check.name)) {
+    return err({ code: "invalid_input", message: "선언하지 않은 실패 경로다" });
+  }
+  const direct = await input.driver.reportDirect(input.code);
+  const verdict: Verdict = {
+    met: false,
+    reason: "SDK를 직접 부른 보고뿐이라 실제 실패 경로를 통과하지 않았다",
+    evidence: {
+      via: "sdk_direct",
+      code: input.code,
+      command: null,
+      invocation_id: null,
+      report_id: direct.report?.report_id ?? null,
+      outcome: direct.accepted ? "ok" : "error",
+    },
+  };
+  const sent = frame(check, verdict, input.emitter);
+  if (!sent.ok) return sent;
+  return ok(false);
 }

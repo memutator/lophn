@@ -178,7 +178,7 @@ import {
   TerminalFocusTable,
 } from "../terminal/controller.ts";
 import { createTerminalIpc } from "../terminal/ipc.ts";
-import { createChildRegistrar } from "../terminal/coding-children.ts";
+import { createChildRegistrar } from "../terminal/coding/coding-children.ts";
 import { createSupervisor, spawnNodeHost } from "../terminal/supervisor.ts";
 
 // shell tsc는 base를 보지 않으므로 Result 모양만 여기서 맞춘다.

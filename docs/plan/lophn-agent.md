@@ -745,7 +745,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 ### T39 trace 읽기
 
 - 등급: 기본
-- 상태: 진행
+- 상태: 완료 (#439) — 이어보냄: 화면(roles 작업 검토) → shell#T30, 보존 정리로 사라진 본문의 부재 표시 → T57
 - concern: lophn-agent/observability
 - 요구: lophn-agent/observability#R1, R2, R3, R4, R5, R6, R7, R8, R9, R11, R18, R19, R20, R21, R22
 - 자리: packages/lophn-agent/observability/ (model.ts: RunTrace, reads.ts), apps/core/lophn-agent.ts

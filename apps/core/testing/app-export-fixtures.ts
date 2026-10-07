@@ -7,7 +7,6 @@ import { createHash } from "node:crypto";
 import { sha256Hex } from "../../../packages/base/mod.ts";
 import type { Blueprint } from "../../../packages/apps/blueprint/mod.ts";
 import { canonicalJson } from "../../../packages/apps/blueprint/mod.ts";
-import { APP } from "../../../packages/apps/releases/testing/mod.ts";
 import {
   bundleCopyPath,
   sealBundle,
@@ -15,7 +14,7 @@ import {
 import { installPackage } from "../../../packages/apps/sdk/mod.ts";
 import { openAppDatabase } from "../../../packages/apps/data/worker/db.ts";
 
-export { APP };
+export const APP = "app_01h455vb4pex5v6nkc6gd5fdw1";
 export const AT = "2024-01-01T00:00:00.000Z";
 export const RELEASE_ID = "rel_01h455vb4pex5v6nkc6gd5fdw1";
 export const TEST_VRF = "vrf_01h455vb4pex5v6nkc6gd5fdw1";

@@ -13,5 +13,6 @@ export * from "./problem-reads.ts";
 export * from "./fixes.ts";
 export * from "./closing.ts";
 export * from "./report-blobs.ts";
+export * from "./report-body.ts";
 export * from "./sdk-report.ts";
 export { EVENTS, ROUTES } from "./registry.ts";

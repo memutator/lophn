@@ -325,6 +325,20 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
         },
         mcpConnection: toolkit.mcpConnection ?? (() => undefined),
         ...(toolkit.server === undefined ? {} : { server: toolkit.server }),
+        // 앱 command tool의 원래 호출 계약이다. 기록이 tool_calls.app_command로 묶는다(R10).
+        appCommand: (definition) => {
+          const app = appByName.get(definition.name);
+          if (app === undefined) return undefined;
+          return {
+            app: app.app,
+            release: app.release,
+            command: app.command,
+            blueprint_hash: app.blueprintHash,
+            definition_hash: app.definitionHash,
+            permission_basis: app.permissionBasis,
+            context_binding: null,
+          };
+        },
         approvalTtlMs: deps.approvalTtlMs ?? 600_000,
       },
       context,

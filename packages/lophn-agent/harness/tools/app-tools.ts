@@ -35,16 +35,21 @@ export type AppBlueprintView = {
   commands: readonly AppBlueprintCommand[];
 };
 
-// 현재 허락(agent.commands grant)이 연 command다. grant ID는 판정 근거에 남는다.
-export type AppGrant = { grant: string; commands: readonly string[] };
+// 현재 허락(agent.commands grant)이 연 command다. grant ID는 판정 근거에 남고 basis_seq는
+// grant 집합이 마지막으로 바뀐 seq다(호출 기록의 permission_basis 원문).
+export type AppGrant = {
+  grant: string;
+  commands: readonly string[];
+  basis_seq: string;
+};
 
 // command를 연 grant다. 여럿이면 ID가 앞선 것이다. 없으면 허락이 없다.
 export function grantFor(
   grants: readonly AppGrant[],
   command: string,
-): string | undefined {
+): AppGrant | undefined {
   return grants.filter((entry) => entry.commands.includes(command))
-    .map((entry) => entry.grant).sort()[0];
+    .sort((a, b) => (a.grant < b.grant ? -1 : a.grant > b.grant ? 1 : 0))[0];
 }
 
 export type AppTool = {
@@ -61,6 +66,9 @@ export type AppTool = {
   // 이 정의가 만들어진 선언의 지문. release·입력·effect·confirm·되돌리기 중 하나라도 바뀌면 달라진다.
   definitionHash: string;
   schema: InputSchema | null;
+  // 사람의 허락 근거(grant·scope·basis_seq)다. 호출 기록이 이 열로 묶여 revert가 앱의 선언된
+  // revert command를 부른다(lophn-agent#T48).
+  permissionBasis: { grant: string; scope: string; basis_seq: string };
 };
 
 // 대응 command가 검증된 되돌리기만 지원으로 본다(tool-judgment R11). 선언 `supported`만으로 낮추지 않는다.
@@ -181,7 +189,8 @@ export async function buildAppTools(
     if (view === undefined || grant === undefined) continue;
     for (const key of [...entry.commands].sort()) {
       const command = view.commands.find((item) => item.key === key);
-      if (command === undefined || grantFor(grant, key) === undefined) continue;
+      const allowed = grantFor(grant, key);
+      if (command === undefined || allowed === undefined) continue;
       if (!entry.effects.includes(command.effect)) continue;
       if (command.confirm && !entry.confirm_allowed) continue;
       const reversible = revertCounterpart(view.commands, command) !== null;
@@ -236,6 +245,12 @@ export async function buildAppTools(
         reversible,
         definitionHash,
         schema,
+        permissionBasis: {
+          grant: allowed.grant,
+          // Grant.kind = agent.commands다. scope 원문은 command 목록의 JSON이다.
+          scope: JSON.stringify(allowed.commands),
+          basis_seq: allowed.basis_seq,
+        },
       });
     }
   }

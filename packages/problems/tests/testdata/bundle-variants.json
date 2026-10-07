@@ -1,0 +1,7 @@
+[
+  { "name": "no-failure-path", "failure_paths": false, "omit": [] },
+  { "name": "sdk-direct-only", "failure_paths": true, "omit": ["failure_via_sdk_only"] },
+  { "name": "no-root-boundary", "failure_paths": true, "omit": ["view_exception"] },
+  { "name": "read-business-write", "failure_paths": true, "omit": ["read_writes_business_data"] },
+  { "name": "confirm-automation", "failure_paths": true, "omit": ["confirm_automation_allowed"] }
+]

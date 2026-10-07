@@ -110,7 +110,11 @@ function workerRoot(): string | undefined {
 function testRunnerWorkers(): KindLaunchSpec[] {
   const root = workerRoot();
   if (!root) return [];
-  const spec = testRunnerSpec({ dataRoot: root, deno: Deno.execPath() });
+  const spec = testRunnerSpec({
+    dataRoot: root,
+    deno: Deno.execPath(),
+    screenHost: Deno.env.get("SCREEN_TEST_HOST"),
+  });
   return spec ? [spec] : [];
 }
 

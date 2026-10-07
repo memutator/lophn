@@ -186,7 +186,12 @@ export function builtinBinding(
       const readInput = spec.verify?.input(input);
       if (spec.verify !== undefined && readInput !== undefined) {
         const seen = await run.call(spec.verify.contract, readInput);
-        if (!seen.ok) return unavailable();
+        // 사람의 결정을 기다리는 run을 이을 때는 이 process에 agent 자격이 아직 없다(unauthorized).
+        // 그때는 판정 때 확인한 같은 대상·입력(비교 기준)이고, 소유 contract가 실행 때 자격으로 다시
+        // 막는다. 그 밖의 거절은 없는 대상과 같다.
+        if (!seen.ok && seen.error.code !== "unauthorized") {
+          return unavailable();
+        }
       }
       // 확인이 끝난 대상만 이 run의 범위로 올린다.
       for (const target of targets) run.reach.add(target);

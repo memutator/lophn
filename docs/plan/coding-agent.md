@@ -1133,6 +1133,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T33 배포 skill 네 개와 검사
 
+- 상태: 완료 (#454) — 이어보냄: `lophn_problem`·`lophn_session` 본문 일치 확인 → T44·T35. 앱 root 안내가 skill 이름을 가리키는 일 → T34
 - 등급: 기본
 - concern: coding-agent/guides, coding-agent/cli
 - 요구: coding-agent/guides#R1, R2, R3, R6, R7, R8, R9, R10, R11, R12, R20, R22,

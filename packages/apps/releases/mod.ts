@@ -48,8 +48,8 @@ export {
   parseManifest,
 } from "./bundle/manifest.ts";
 export {
-  type LockedImports,
   lockAppImports,
+  type LockedImports,
   readSdkCopies,
   type SdkRef,
 } from "./bundle/lock.ts";

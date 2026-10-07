@@ -66,7 +66,10 @@ import {
   resolveDataRoot,
   writeRunMetadata,
 } from "../../packages/platform/install-and-update/mod.ts";
-import { LEDGER_SCHEMA_STEPS } from "../../packages/platform/ledger/mod.ts";
+import {
+  type KnownSecretMatch,
+  LEDGER_SCHEMA_STEPS,
+} from "../../packages/platform/ledger/mod.ts";
 import {
   createSupervisor,
   type Spawned,
@@ -489,6 +492,17 @@ async function open(
   const eventNames = await eventOperations(modules);
   // approvals·notifications는 contract ROUTES가 route를 고정하므로 team 조립 뒤에 한 번만 더한다.
   // 메시지 본문·질문 글·approval 설명 글을 읽는 통로. 참조 판정은 ledger snapshot, 바이트는 blob 읽기다.
+  // 사람 화면이 run 본문을 볼 때 쓰는 지금의 redaction. 알려진 secret 값은 runtime이 열린 뒤에 채운다.
+  // 채우기 전에 읽으면 알려진 값을 모른 채 내보내지 않도록 ready가 false다.
+  const knownForBodies: { current: KnownSecretMatch | undefined } = {
+    current: undefined,
+  };
+  const bodyRedactor = createProductRedactor({
+    get ready() {
+      return knownForBodies.current?.ready ?? false;
+    },
+    match: (text: string) => knownForBodies.current?.match(text),
+  });
   const bodyEnvironment = messageBodyEnvironment({
     ledgerPath,
     read: (hash, offset, length) => blobRead.deps.read(hash, offset, length),
@@ -504,6 +518,17 @@ async function open(
       }),
       // ReadMessageBody의 참조 판정과 blob 바이트 읽기 통로.
       messageBody: bodyEnvironment,
+      // ReadRunBodyView가 본문을 내보내기 전에 거치는 지금의 redaction.
+      redactBody: (text: string) =>
+        bodyRedactor(
+          {
+            concern: "lophn-agent/observability",
+            revision: "1",
+            scope: "run-body",
+          },
+          "text/plain",
+          text,
+        ),
     }),
     // ReadApprovalText도 같은 통로를 쓴다.
     { approvalText: bodyEnvironment },
@@ -753,6 +778,7 @@ async function open(
   });
   if (!openedRuntime.ok) return openedRuntime;
   runtime = openedRuntime.value;
+  knownForBodies.current = runtime.knownSecrets;
   // sweep가 expire_claim을 제출할 machine credential. 기록이 없으면 writer가
   // 만료 정리를 거절하므로 기동을 여기서 멈춘다(coding-agent/tickets#R13).
   const sweepCredential = await runtime.record({

@@ -542,6 +542,24 @@ const feedback = createFeedback({
       value: { report: value.report, problem: value.problem },
     };
   },
+  commandStart: (view_session) => appCall.commandStart(view_session),
+  // 응답을 잃은 제출은 다시 보내기 전에 그 Report ID가 접수됐는지 읽는다(problems/reporting#R9).
+  async lookup(report) {
+    const session = core.session();
+    if (session === null) return { ok: false };
+    const reply = await session.internal("read", "problems", "get-report", {
+      report,
+    });
+    if (reply.ok) {
+      const found = (reply.value as {
+        report: { id: string; problem: string | null };
+      }).report;
+      return { ok: true, value: { report: found.id, problem: found.problem } };
+    }
+    return reply.error.code === "not_found"
+      ? { ok: true, value: null }
+      : { ok: false };
+  },
   openIssue: (ref, target) => {
     const window = windowOfRef(ref);
     if (window !== undefined && !window.webContents.isDestroyed()) {

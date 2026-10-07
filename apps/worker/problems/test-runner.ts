@@ -11,6 +11,20 @@ import {
   type StartAttemptCommit,
 } from "../../../packages/problems/tests/work/mod.ts";
 import { err, ok, type Result } from "../../../packages/base/mod.ts";
+import {
+  type AppTestInput,
+  generateAppTestChecks,
+  judgeAppTest,
+  openViewDriver,
+  type ScreenReportSink,
+} from "../../../packages/problems/tests/app-test/mod.ts";
+import {
+  runScreenHost,
+  screenErrorBoundaries,
+} from "../../../packages/problems/tests/adapters/screen-host.ts";
+import { serveTestAppSocket, type TestAppInvoke } from "../../../packages/problems/tests/adapters/test-app-socket.ts";
+import type { ScreenTestInput } from "../../../packages/contracts/shell/mod.ts";
+import type { SpawnPort } from "../../../packages/problems/tests/work/mod.ts";
 
 export const TEST_RUNNER_KIND = "problems/test-runner";
 
@@ -40,6 +54,7 @@ export async function acceptRun(
   request: RunRequest,
   options: {
     memory?: MemoryLimitPort;
+    spawn?: SpawnPort;
     // ledger에 시작 시도를 확정한다. ok가 아니면 자식을 띄우지 않는다(R17).
     commit?: StartAttemptCommit;
   } = {},
@@ -52,6 +67,7 @@ export async function acceptRun(
   }
   return await runPrepared(request, {
     memory: options.memory ?? platformMemory,
+    spawn: options.spawn,
     commit: options.commit,
   });
 }
@@ -64,6 +80,72 @@ export function forwardChildReport(
   sink: ReportSink,
 ): Promise<Result<unknown>> {
   return brokerReport(frame, scope, sink);
+}
+
+// 固定 app-test 계획과 scratch의 private 관측을 lifecycle 결과와 함께 판정한다.
+export async function acceptAppTest(
+  request: RunRequest,
+  input: AppTestInput,
+  options: Parameters<typeof acceptRun>[1] = {},
+) {
+  if (request.side !== "single" || request.test_hash !== input.test_hash) {
+    return err({ code: "invalid_input", message: "app test 대상이 다르다" });
+  }
+  const execution = await acceptRun(request, options);
+  if (!execution.ok) return execution;
+  const judgment = judgeAppTest({
+    plan: generateAppTestChecks(input),
+    test_hash: input.test_hash,
+    frames: execution.value.frames,
+  });
+  if (execution.value.result !== "pass") {
+    judgment.result = execution.value.result;
+    judgment.reason = execution.value.reason;
+  }
+  return ok({ execution: execution.value, judgment });
+}
+
+// 요청 폴더의 socket과 설치 host를 이어 준다. host가 내는 오류는 collector가
+// mode=test·scope로 접수한 뒤에만 ViewDriver 근거가 된다.
+export async function runnerView(input: {
+  command?: string;
+  args?: readonly string[];
+  work_dir: string;
+  screens: Omit<ScreenTestInput, "app_socket_path" | "probe_nonce">;
+  invoke: TestAppInvoke;
+  sink: ScreenReportSink;
+  scope: string;
+  nonce: string;
+  newReportId: () => string;
+  now: () => string;
+}) {
+  const socket = serveTestAppSocket({
+    path: `${input.work_dir}/app.sock`,
+    invoke: input.invoke,
+  });
+  try {
+    const screens = { ...input.screens, app_socket_path: socket.path };
+    const boundaries = await screenErrorBoundaries(screens);
+    const command = input.command ?? Deno.env.get("SCREEN_TEST_HOST");
+    return await openViewDriver({
+      nonce: input.nonce,
+      run: (nonce) => command
+        ? runScreenHost({
+          command,
+          args: input.args,
+          work_dir: input.work_dir,
+          input: { ...screens, probe_nonce: nonce },
+        })
+        : Promise.resolve({ kind: "unavailable", reason: "화면 host가 없다" }),
+      has_boundary: (screen) => boundaries.has(screen),
+      sink: input.sink,
+      scope: input.scope,
+      newReportId: input.newReportId,
+      now: input.now,
+    });
+  } finally {
+    await socket.shutdown();
+  }
 }
 
 export function runnerReady(kind: string): Result<true> {

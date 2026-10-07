@@ -11,8 +11,12 @@ export const COLLECTOR_KIND = "problems/report-collector";
 export function testRunnerSpec(input: {
   dataRoot: string;
   deno: string;
+  screenHost?: string;
 }): KindLaunchSpec | undefined {
-  if (!input.dataRoot.startsWith("/") || !input.deno.startsWith("/")) {
+  if (
+    !input.dataRoot.startsWith("/") || !input.deno.startsWith("/") ||
+    (input.screenHost !== undefined && !input.screenHost.startsWith("/"))
+  ) {
     return undefined;
   }
   const work = `${input.dataRoot}/work/problems/tests`;
@@ -26,9 +30,12 @@ export function testRunnerSpec(input: {
     allow_read: [input.dataRoot, entry],
     allow_write: [work],
     allow_net: [],
-    allow_run: [input.deno],
-    allow_sys: [],
-    allow_env: ["LOPHN_HOME", "LOPHN_WORKER_KIND"],
+    allow_run: [input.deno, ...(input.screenHost ? [input.screenHost] : [])],
+    allow_sys: ["kill"],
+    allow_env: [
+      "LOPHN_HOME", "LOPHN_WORKER_KIND", "SCREEN_TEST_HOST",
+      "PATH", "DISPLAY", "XAUTHORITY", "XDG_RUNTIME_DIR",
+    ],
     policy: "always",
     memory_limit_bytes: 536_870_912,
   };

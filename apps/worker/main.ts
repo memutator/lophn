@@ -3,6 +3,7 @@ import { runCoordinator } from "./documents/coordinator.ts";
 import { runPreparation } from "./documents/preparation.ts";
 import { runReleaseWorker } from "./apps/release.ts";
 import { runnerReady, TEST_RUNNER_KIND } from "./problems/test-runner.ts";
+import { runRunnerService } from "./problems/runner-service.ts";
 import {
   COLLECTOR_KIND,
   collectorReady,
@@ -25,10 +26,10 @@ const WORKER_ENTRIES: Readonly<
   "documents/worker": runCoordinator,
   "documents/preparation": runPreparation,
   "apps/release": runReleaseWorker,
-  [TEST_RUNNER_KIND]: () => {
+  [TEST_RUNNER_KIND]: async () => {
     const ready = runnerReady(TEST_RUNNER_KIND);
-    if (!ready.ok) return Promise.reject(new Error(ready.error.message));
-    return Promise.resolve();
+    if (!ready.ok) throw new Error(ready.error.message);
+    await runRunnerService();
   },
   [COLLECTOR_KIND]: () => {
     const ready = collectorReady(COLLECTOR_KIND);

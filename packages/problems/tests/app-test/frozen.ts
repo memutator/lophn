@@ -74,7 +74,10 @@ export async function deriveAppTest(
       await Deno.readTextFile(`${bundle}/tests/app-test.json`),
     ) as AppTestFile;
   } catch {
-    return { ok: false, reason: "bundle에 앱 시험 자료(tests/app-test.json)가 없다" };
+    return {
+      ok: false,
+      reason: "bundle에 앱 시험 자료(tests/app-test.json)가 없다",
+    };
   }
   if (!Array.isArray(file.failure_paths)) {
     return { ok: false, reason: "앱 시험 자료에 실패 경로 목록이 없다" };
@@ -101,7 +104,9 @@ export async function deriveAppTest(
     }));
     const environment = store(environmentBytes());
     const frozen: FrozenTest = {
-      code: store(encode(canonicalJson({ kind: "bundle", bundle_hash: bundleHash }))),
+      code: store(
+        encode(canonicalJson({ kind: "bundle", bundle_hash: bundleHash })),
+      ),
       input: store(encode(canonicalJson({
         inputs: file.inputs ?? {},
         prepare: file.prepare ?? {},

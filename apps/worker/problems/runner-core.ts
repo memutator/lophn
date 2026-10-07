@@ -5,6 +5,7 @@ import {
   brokerReport,
   type MemoryLimitPort,
   type ReportSink,
+  type RunningChild,
   runPrepared,
   type RunRequest,
   type RunVerdict,
@@ -60,6 +61,10 @@ export async function acceptRun(
     spawn?: SpawnPort;
     // ledger에 시작 시도를 확정한다. ok가 아니면 자식을 띄우지 않는다(R17).
     commit?: StartAttemptCommit;
+    // 자식이 실제로 시작한 직후 부른다(실제 시작을 ledger에 남기는 자리).
+    started?: (
+      child: { started_at: string; mode: RunningChild["mode"] },
+    ) => Promise<void>;
   } = {},
 ): Promise<Result<RunVerdict>> {
   if (request.prepare.env && "LOPHN_HOME" in request.prepare.env) {
@@ -72,6 +77,7 @@ export async function acceptRun(
     memory: options.memory ?? platformMemory,
     spawn: options.spawn,
     commit: options.commit,
+    started: options.started,
   });
 }
 

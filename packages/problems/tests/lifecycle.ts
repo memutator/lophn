@@ -51,7 +51,10 @@ export const observeTestRequestCommand: CommandDefinition<
         observation.request_key,
       ).some((record) => record.phase === "start_attempt");
       if (prior) {
-        return err({ code: "conflict", message: "이미 시작을 시도한 요청이다" });
+        return err({
+          code: "conflict",
+          message: "이미 시작을 시도한 요청이다",
+        });
       }
     }
     const seq = appendRequestObservation(
@@ -87,8 +90,16 @@ function evidenceOf(
   const flag = (key: string) => typeof item[key] === "boolean";
   const side = item.unstarted_side;
   if (
-    !["request_principal", "request_key", "request_hash", "runner_principal",
-      "verification_canonical", "test", "execution", "observations"].every(text) ||
+    ![
+      "request_principal",
+      "request_key",
+      "request_hash",
+      "runner_principal",
+      "verification_canonical",
+      "test",
+      "execution",
+      "observations",
+    ].every(text) ||
     !flag("actually_started") || !flag("evidence_sufficient") ||
     typeof item.frozen !== "object" || item.frozen === null ||
     !Array.isArray(item.execution_evidence) ||
@@ -104,23 +115,33 @@ export function handleStageTestEvidence(
   ctx: RequestContext,
   input: Input<typeof stageTestEvidence>,
 ): Result<{ staged: boolean }> {
-  const records = loadRecords(tx.sql, input.request_principal, input.request_key);
+  const records = loadRecords(
+    tx.sql,
+    input.request_principal,
+    input.request_key,
+  );
   const accepted = records.find((record) => record.phase === "accepted");
   if (!accepted) return err({ code: "not_found", message: NOT_FOUND });
   if (accepted.request_hash !== input.request_hash) {
     return err({ code: "conflict", message: CONFLICT });
   }
-  const allowed = checkTestAuthority(ctx, {
-    runner_principal: currentRunner(records),
-    app: accepted.payload.app,
-    request_principal: input.request_principal,
-    request_key: input.request_key,
-    request_hash: input.request_hash,
-  }, STAGE_TEST_EVIDENCE_ROUTE, tx.port(TargetAuthorization));
+  const allowed = checkTestAuthority(
+    ctx,
+    {
+      runner_principal: currentRunner(records),
+      app: accepted.payload.app,
+      request_principal: input.request_principal,
+      request_key: input.request_key,
+      request_hash: input.request_hash,
+    },
+    STAGE_TEST_EVIDENCE_ROUTE,
+    tx.port(TargetAuthorization),
+  );
   if (!allowed.ok) return allowed;
   const evidence = evidenceOf(input.evidence);
   if (
-    evidence === null || evidence.request_principal !== input.request_principal ||
+    evidence === null ||
+    evidence.request_principal !== input.request_principal ||
     evidence.request_key !== input.request_key ||
     evidence.request_hash !== input.request_hash ||
     evidence.runner_principal !== ctx.principal
@@ -181,13 +202,21 @@ export function stagedEvidence(
   }
 }
 
-// 제품 접수의 준비 값이다. app test만 접수하고 다른 종류는 준비할 수 없다(unavailable). 대상 bundle·고정 시험의
-// 일치는 runner가 시작 전에 준비 단계에서 확인하고 어긋나면 준비 실패로 이유를 남긴다.
+// 제품 접수의 준비 값이다. app test와 reproduction만 접수하고 test_command는 준비할 수 없다(unavailable).
+// 앱·참조의 존재와 reproduction의 이전 bundle은 조립(core)이 같은 transaction에서 읽은 사실이다. app test의 대상
+// bundle·고정 시험의 일치는 runner가 시작 전에 준비 단계에서 확인하고 어긋나면 준비 실패로 이유를 남긴다.
 export function productAdmission(
   ctx: Pick<RequestContext, "principal">,
   input: Input<typeof requestTest>,
-  facts: { runner_principal: string; app_registered: boolean },
+  facts: {
+    runner_principal: string;
+    app_registered: boolean;
+    refs_ok: boolean;
+    before_target: { release: string; bundle_hash: string } | null;
+  },
 ): PreparedAdmission | null {
+  const reproduction = input.kind === "reproduction";
+  const before = reproduction ? facts.before_target : null;
   const canonical = canonicalRequest({ ...input, before_bundle_hash: null });
   if (!canonical.ok) return null;
   return {
@@ -197,11 +226,11 @@ export function productAdmission(
     request_hash: hashCanonical(canonical.value),
     canonical: canonical.value,
     runner_principal: facts.runner_principal,
-    before_bundle_hash: null,
-    before_target: null,
+    before_bundle_hash: before?.bundle_hash ?? null,
+    before_target: before,
     app_in_scope: facts.app_registered,
-    refs_ok: true,
-    unavailable: input.kind !== "app_test",
+    refs_ok: facts.refs_ok,
+    unavailable: input.kind === "test_command",
   };
 }
 
@@ -217,6 +246,8 @@ export type OpenTestRequest = {
   current_runner: string;
   attempted: boolean;
   recovered: boolean;
+  // 첫 recovery를 남긴 시각. 이어받은 요청의 끝 시각 근거다(다시 이어받아도 같은 값이다).
+  recovered_at: string | null;
   sides: StoredSideStart[];
 };
 
@@ -252,6 +283,8 @@ export function listOpenTestRequests(
       current_runner: currentRunner(records),
       attempted: records.some((record) => record.phase === "start_attempt"),
       recovered: records.some((record) => record.phase === "recovery"),
+      recovered_at: records.find((record) => record.phase === "recovery")?.at ??
+        null,
       sides: loadSideStarts(sql, principal, key, accepted.request_hash),
     });
   }

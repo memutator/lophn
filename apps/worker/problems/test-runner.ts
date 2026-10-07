@@ -22,3 +22,13 @@ if (import.meta.main && Deno.args.includes("--reproduction-job")) {
   Deno.stdout.writeSync(new TextEncoder().encode(`${JSON.stringify(done)}\n`));
   Deno.exit(0);
 }
+
+// 그 밖의 기동은 core 감독이 띄운 상시 service다. core가 감독 pipe로 보낸 요청(접수된 RequestTest)을 받아
+// 실제 runner 경로로 돌리고 결과를 core command로 남긴다(runner-service.ts).
+if (
+  import.meta.main && !Deno.args.includes("--app-test-job") &&
+  !Deno.args.includes("--reproduction-job")
+) {
+  const { runRunnerService } = await import("./runner-service.ts");
+  await runRunnerService();
+}

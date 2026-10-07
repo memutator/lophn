@@ -204,6 +204,7 @@ import {
   watchParent,
   writeParent,
 } from "./parent.ts";
+import { observeTestRequest } from "../../packages/contracts/problems/mod.ts";
 import { snapshotLogsEnvironment } from "./problems-logs.ts";
 import {
   registerRepairReads,
@@ -217,7 +218,18 @@ import {
   collectorOperationPolicies,
   collectorWorkers,
 } from "./problems-collector.ts";
-import { COLLECTOR_KIND, reportCollectorSpec } from "./problems-runner.ts";
+import {
+  COLLECTOR_KIND,
+  reportCollectorSpec,
+  TEST_RUNNER_KIND,
+  testRunnerSpec,
+} from "./problems-runner.ts";
+import {
+  startTestControl,
+  type TestControl,
+  testRunnerBlobPolicy,
+  testRunnerPolicies,
+} from "./problems-test-control.ts";
 import {
   startTicketCheckFeed,
   TICKET_CHECK_FEED_CONTEXT,
@@ -488,6 +500,8 @@ async function open(
   const documentsChannel = createDocumentsChannel();
   // problems report collector 요청 통로. 같은 통로 모양을 쓴다.
   const collectorChannel = createDocumentsChannel();
+  // problems test runner 요청 통로. 접수된 요청 한 건을 보내고 끝맺음을 받는다.
+  const runnerChannel = createDocumentsChannel();
   // ticket checker worker 요청 통로. 같은 통로 모양을 쓴다(coding-agent#T26).
   const checkerChannel = createDocumentsChannel();
   // coding-agent 수리 자료 worker 요청 통로. 같은 통로 모양을 쓴다(coding-agent#T43).
@@ -601,6 +615,8 @@ async function open(
     ...appsOperationPolicies(),
     // problems report collector(machine)가 보고를 제출한다.
     ...collectorOperationPolicies(),
+    // problems test runner(machine)가 요청 기록을 잇고 결과를 남긴다(problems/tests#R1, R4, R17).
+    ...testRunnerPolicies(),
     // ticket checker(machine)가 판정 사실을 읽고 결과를 기록한다(coding-agent#T26).
     ...ticketCheckerPolicies(),
     // agent runtime(machine)과 run의 agent 자격이 닿는 operation(lophn-agent/harness/run-loop).
@@ -699,6 +715,8 @@ async function open(
   // 종료 때 감독이 포기한 documents worker를 다시 띄우는 일을 멈춘다.
   let respawnStop: (() => void) | undefined;
   let closeCollectorBlob: (() => void) | undefined;
+  // 종료 때 test runner의 blob 준비와 요청 기록 읽기를 닫는다.
+  let closeTestRunner: (() => void) | undefined;
   let agentRuntime: AgentRuntimeChild | undefined;
   // deno-lint-ignore prefer-const
   let runtime: CoreRuntime | undefined;
@@ -1740,6 +1758,98 @@ async function open(
       }
     }
   }
+  // problems/test-runner. 접수된 RequestTest를 정확히 한 번 시작해 실제 test 자식으로 돌리고 결과를 core command로
+  // 남기는 상시 worker다. 접수 기록은 core가 주기로 읽어 요청 한 건씩 보낸다. 감독이 없는 harness와 problems를
+  // 등록하지 않은 조립은 띄우지 않는다. 띄우지 못해도 core는 계속 선다: 접수된 요청은 기록에 남고 시작하지 않는다.
+  const runnerSpec = testRunnerSpec({
+    dataRoot: root.path,
+    deno: Deno.execPath(),
+    screenHost: Deno.env.get("SCREEN_TEST_HOST"),
+  });
+  let testControl: TestControl | undefined;
+  if (
+    io && runnerSpec &&
+    assembled.value.commands.some((command) =>
+      command.route.name === observeTestRequest.name
+    )
+  ) {
+    const handler = createChildBlobPrepare({
+      kind: TEST_RUNNER_KIND,
+      gauge: blobBuffer,
+      send: (message) =>
+        io.send(TEST_RUNNER_KIND, message).then((sent) => sent.ok),
+      prepareBlob: (call) =>
+        blobRelay ? blobRelay.prepare(call) : Promise.resolve(err({
+          code: "unavailable",
+          message: "blob 준비 통로가 없다",
+        })),
+      // 준비 참조의 주체는 지금 맡은 일의 runner 주체다(결과를 쓰는 자격의 주체와 같아야 등록된다).
+      policies: new Map([[
+        TEST_RUNNER_KIND,
+        testRunnerBlobPolicy(() =>
+          testControl?.blobPrincipal() ?? "problems-test-runner"
+        ),
+      ]]),
+    });
+    const started = await io.start(
+      runnerSpec,
+      {
+        type: "hello",
+        core_epoch: epoch,
+        process_identity: epoch,
+        kind: TEST_RUNNER_KIND,
+        task: "problems",
+        scope: { operations: [], targets: {} },
+        // runner의 credential은 요청마다 요청과 함께 온다. hello에는 자리만 둔다.
+        credential: "none",
+        api_port: server.port,
+      },
+      {
+        onMessage: (message) => {
+          if (!handler.onMessage(message)) runnerChannel.onMessage(message);
+        },
+        onFrame: (frame) => handler.onFrame(frame),
+        onEnd: () => testControl?.runnerEnded(),
+      },
+    );
+    if (started.ok) {
+      runnerChannel.bind((payload) =>
+        io.send(TEST_RUNNER_KIND, payload).then((sent) => sent.ok)
+      );
+      testControl = startTestControl({
+        ledgerPath,
+        channel: runnerChannel,
+        apiPort: server.port,
+        // 요청마다 credential을 발급해 ledger에 기록한다. 쓴 뒤에는 폐기한다.
+        issue: async (input) => {
+          const issued = await productRegistry.issue(input);
+          if (!issued.ok) return issued;
+          const current = productRegistry.revalidate({
+            credential_ref: issued.value.credential_ref,
+          });
+          const recorded = current.ok
+            ? await runtime.record(current.value)
+            : current;
+          if (!recorded.ok) {
+            productRegistry.revoke(issued.value.credential_ref);
+            return recorded;
+          }
+          return ok({
+            token: issued.value.token,
+            revoke: () => {
+              productRegistry.revoke(issued.value.credential_ref);
+            },
+          });
+        },
+      });
+      closeTestRunner = () => {
+        testControl?.stop();
+        handler.close();
+      };
+    } else {
+      handler.close();
+    }
+  }
   // coding-agent/checker. 보고된 ticket의 조건을 machine actor로 판정하는 상시 worker다. 감독이
   // 없는 harness와 record_checks를 등록하지 않은 조립은 띄우지 않는다. 띄우지 못해도 core는
   // 계속 선다: 판정이 멈출 뿐 ticket은 reported로 남는다(없는 검사를 성공으로 꾸미지 않는다).
@@ -2219,6 +2329,7 @@ async function open(
           watchSync?.stop();
           closeChildBlob?.();
           closeCollectorBlob?.();
+          closeTestRunner?.();
           // main 연결이 끊기면 그 main의 relay 값을 모두 disconnected로 바꾼다(T57).
           runtime?.memory.disconnect();
           // server.stop은 받은 요청이 끝나기를 기다린 뒤 listen을 닫는다. 그 뒤에야

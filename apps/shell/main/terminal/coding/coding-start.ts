@@ -345,7 +345,7 @@ export type ExecFile = (
   options: { env: Record<string, string>; timeout: number; maxBuffer: number },
 ) => Promise<{ code: number | null; stdout: string }>;
 
-const defaultExec: ExecFile = (file, args, options) =>
+export const defaultExec: ExecFile = (file, args, options) =>
   new Promise((resolve) => {
     execFile(file, args, options, (error, stdout) => {
       const code = error === null

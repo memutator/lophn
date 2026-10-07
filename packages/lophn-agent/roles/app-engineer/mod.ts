@@ -56,3 +56,18 @@ export {
   type ReadRequest,
   type ReadScope,
 } from "./scope.ts";
+export {
+  bundleRepairs,
+  type CodingRequest,
+  type FlowRequirement,
+  prepareTicket,
+  REPAIR_PROBLEM_MAX,
+  type RepairBundle,
+  type RepairCandidate,
+  splitTicketUnits,
+  TICKET_FORBIDDEN_TOOL_NAMES,
+  TICKET_REQUIREMENT_MAX,
+  type TicketPreparation,
+  ticketRoute,
+  type TicketUnit,
+} from "./ticket.ts";

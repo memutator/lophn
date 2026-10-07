@@ -54,9 +54,9 @@ tool 정의·목록·입력 검사·효과 분류·결과와 크기·읽기 후�
 - 확인: 역할별 허용 command와 effect 판정이 적용되고 소스·secret 직접 접근이 막히는지 확인한다.
 - 의도: lophn-agent#I1
 
-**[R9]** agent 티켓 tool은 coding-agent/tickets의 허용 읽기·생성만 제공하고 claim·연장·완료 보고·release 연결은 coding-agent/mcp-server를 가리킨다.
-- 이유: agent가 coding agent의 작업 증거를 대신 작성하지 않는다.
-- 확인: agent 목록에는 읽기·생성만 있고 claim·완료·release 연결이 없는지 확인한다.
+**[R9]** agent 티켓 tool은 coding-agent/tickets의 허용 읽기·생성과 확인 필요 ticket의 실행 준비 전환(`ticket.make_ready`)만 제공하고 claim·연장·완료 보고·release 연결·취소·시작은 coding-agent/mcp-server와 사람 경로를 가리킨다.
+- 이유: agent가 coding agent의 작업 증거를 대신 작성하지 않는다. 근거·acceptance check가 모자란 직접 요청도 먼저 확인 필요 ticket으로 남기므로 채워진 뒤 실행 준비로 바꿀 길이 필요하다.
+- 확인: agent 목록에는 읽기·생성·make_ready만 있고 claim·완료·release 연결·취소·시작이 없는지 확인한다.
 - 의도: lophn-agent#I2
 
 **[R10]** preset·assignment tool은 구성·판·담당 현황 읽기와 초안·approval request 제출만 제공하고 실제 생성·변경·적용은 사람 결정의 owner command로만 하며 agent가 직접 적용하지 못한다.

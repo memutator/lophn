@@ -11,7 +11,7 @@ import {
   withReadCommon,
 } from "../platform/mod.ts";
 import { agentRoleSchema } from "./scope.ts";
-import { runOutcomeOutputSchema } from "./run-values.ts";
+import { runOutcomeOutputSchema, runStateSchema } from "./run-values.ts";
 
 const count = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
 const nonempty = z.string().regex(/\S/);
@@ -62,14 +62,45 @@ const handoffLinkSchema = z.strictObject({
   original_message: idSchema("msg"),
 });
 
+const callIds = z.array(idSchema("mcl"));
+const toolIds = z.array(idSchema("tcl"));
+
+// 호출 수와 비성공 호출의 참조다. 성공으로 끝났다는 사실이 아니라 outcome이 success인 것만 센다.
+const activitySchema = z.object({
+  model: z.object({
+    attempts: count,
+    failed: callIds,
+    partial: callIds,
+    cancelled: callIds,
+    uncertain: callIds,
+    unfinished: callIds,
+  }),
+  tools: z.object({
+    steps: count,
+    succeeded: count,
+    failed: toolIds,
+    denied: toolIds,
+    not_executed: toolIds,
+    uncertain: toolIds,
+    unfinished: toolIds,
+    external: toolIds,
+  }),
+});
+
 export const runTraceSchema = z.object({
   run: idSchema("run").nullable(),
+  session: idSchema("ses").nullable(),
+  assignment: idSchema("asg").nullable(),
+  state: runStateSchema.nullable(),
+  started_at: atSchema.nullable(),
+  finished_at: atSchema.nullable(),
   basis: hash.nullable(),
   events: z.array(seqSchema),
   messages: z.array(idSchema("msg")),
   model_calls: z.array(idSchema("mcl")),
   tool_calls: z.array(idSchema("tcl")),
   handoff_links: z.array(handoffLinkSchema),
+  activity: activitySchema,
   times: timesSchema,
   reason: runOutcomeOutputSchema.nullable(),
   missing: z.array(missingSchema),

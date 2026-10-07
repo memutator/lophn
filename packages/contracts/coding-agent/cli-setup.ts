@@ -174,6 +174,14 @@ export const cliSessionPlanSchema = withCommon(
   }),
 );
 export const cliSessionPlanOutputSchema = sessionPlanOutputSchema;
+// `lophn session observe --hook <harness>`는 제품 hook·plugin·extension이 stdin으로 준 payload를 정규화해
+// `LOPHN_TERMINAL_OBSERVE` socket에만 쓴다(sessions#R6). 환경에 socket이 없으면 아무것도 보내지 않는다.
+export const cliSessionObserveSchema = withCommon(
+  "session observe",
+  z.strictObject({
+    hook: harnessIdSchema,
+  }),
+);
 
 export const CLI_SETUP_NAMES = [
   "doctor",
@@ -199,6 +207,7 @@ export const CLI_SETUP_NAMES = [
   "connection install",
   "session summary",
   "session plan",
+  "session observe",
 ] as const;
 
 export type CliSetupName = (typeof CLI_SETUP_NAMES)[number];
@@ -216,6 +225,8 @@ export const HUMAN_ONLY_NAMES = [
   "harness update",
   "harness remove",
   "skills install",
+  // 시작 계획은 사람 클릭을 검증한 shell main만 부른다(sessions#R2).
+  "session plan",
 ] as const;
 
 export type HumanOnlyName = (typeof HUMAN_ONLY_NAMES)[number];
@@ -247,4 +258,5 @@ export const CLI_SETUP_COMMANDS = [
   cliConnectionInstallSchema,
   cliSessionSummarySchema,
   cliSessionPlanSchema,
+  cliSessionObserveSchema,
 ] as const;

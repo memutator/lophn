@@ -1,4 +1,4 @@
-// lophn_ticket tool의 실행이다(T20, mcp#R26, R27). registry route로만 dispatch한
+// lophn_ticket tool의 실행이다(T20·T25, mcp#R26, R27, R28). registry route로만 dispatch한
 // 입력을 core RPC 하나로 보내고, 대응 contract 출력을 그대로 돌려준다. claim·
 // renew·release는 실제 실행이며 응답에 connection·claim_seq·expires_at·반납
 // 방법을 남긴다. 통로가 기한이나 자동 갱신을 덧붙이지 않는다(mcp#R27, cli#R41).
@@ -7,41 +7,31 @@
 import type { Result } from "../../../base/mod.ts";
 import type { LophnError } from "../../../base/mod.ts";
 import {
+  reportInputOf,
+  reportTicket,
+  ticketCompare,
+  type TicketOpClient,
+} from "../../connection/mod.ts";
+import {
   MCP_APP_ROUTES,
   type McpAppToolName,
 } from "../../../contracts/coding-agent/mod.ts";
 import type { Route } from "../../../contracts/platform/mod.ts";
 import { commandsResult } from "../../../contracts/platform/mod.ts";
 
-// core client의 command 호출 모양이다. connection client leaf 내부 type이라
-// leaf mod.ts를 거치지 않고 여기서 구별 없이 구조로만 좁혀 쓴다(check-deps
-// leaf 규칙 — connection client leaf의 내부는 다른 leaf에서 import하지 않는다).
-type ClientLike = {
-  command(
-    route: { resource: string; method: string; name?: string },
-    body: { input: unknown; idempotency_key: string },
-  ): Promise<
-    Result<
-      unknown,
-      LophnError
-    >
-  >;
-  // read route는 envelope 없이 입력만 보낸다.
-  read(route: Route, input: unknown): Promise<Result<unknown, LophnError>>;
-};
-
 // tools/call의 실행 결과다. server가 mcpToolResult로 두 표현을 만든다(R5).
 export type TicketToolResult = {
   summary: string;
   data: unknown;
   next: string[];
+  isError?: true;
 };
 
 // core client가 command envelope에 채우는 idempotency key 발급이다.
 export type IdempotencyKey = () => string;
 
 export type TicketToolDeps = {
-  client: ClientLike;
+  client: TicketOpClient;
   now: () => string;
   idempotencyKey: IdempotencyKey;
 };
@@ -79,10 +69,12 @@ function failure(error: LophnError): TicketToolResult {
     summary: error.message,
     data: { code: error.code, details: error.details ?? {} },
     next: ["ticket show로 현재 상태를 다시 읽는다"],
+    isError: true,
   };
 }
 
-// list·show·checks·claim·renew·release·report를 소유 route 하나로 core에 보낸다.
+// list·show·checks·claim·renew·release·report를 소유 route로 core에 보낸다(report는 upload_summary로
+// summary를 먼저 올린 뒤 준비 참조로 보낸다).
 // 입력 검사는 registry(route input)가 실행 전에 했다(R6).
 export function createTicketTool(
   deps: TicketToolDeps,
@@ -122,15 +114,26 @@ export function createTicketTool(
           : ["lophn_ticket list로 목록을 돌아본다"],
       };
     }
+    // `op`는 tool의 선택자라 소유 route 입력에는 없다. 쓰기는 소유 route가 요구하는 CAS 비교를
+    // 싣는다(만료·취소 뒤 쓰기의 거절은 core가 한다. 통로가 기한을 정하거나 갱신하지 않는다).
+    const { op: _op, ...body } = input;
+    if (op === "report") {
+      // summary를 올린 준비 참조로 보고한다. completion seq는 입력이 아니다(mcp#R28).
+      return await reportTicket(reportInputOf(body), deps);
+    }
     const sent = await deps.client.command(
-      route as unknown as Parameters<ClientLike["command"]>[0],
-      { input, idempotency_key: deps.idempotencyKey() },
+      route as unknown as Parameters<TicketOpClient["command"]>[0],
+      {
+        input: body,
+        idempotency_key: deps.idempotencyKey(),
+        compare: ticketCompare(body),
+      },
     );
     if (!sent.ok) return failure(sent.error);
     const value = sent.value as ClaimView & Record<string, unknown>;
     if (op === "claim" || op === "renew") {
       return {
-        summary: claimSummary(value, op === "claim" ? "claim했다" : "갠했다"),
+        summary: claimSummary(value, op === "claim" ? "claim했다" : "갱신했다"),
         data: value,
         // 반납 방법을 응답에 남긴다. 통로가 갱신 주기를 대신하지 않는다(mcp#R27).
         next: claimNext(value),
@@ -145,16 +148,7 @@ export function createTicketTool(
         next: ["ticket show로 반납 뒤 state를 읽는다"],
       };
     }
-    if (op === "report") {
-      return {
-        summary: `report ${value.ticket ?? "ticket"} → ${
-          value.state ?? "reported"
-        }`,
-        data: value,
-        next: ["ticket checks로 조건별 검사 결과를 읽는다"],
-      };
-    }
-    // list·show·checks 외 command가 더 생기지 않는다(7개 op).
+    // claim·renew·release·report 외 command op가 없다.
     return {
       summary: `${op}`,
       data: value,

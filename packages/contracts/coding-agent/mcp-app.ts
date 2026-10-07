@@ -17,6 +17,7 @@ import {
   ticketReleaseClaim,
   ticketRenewClaim,
   ticketReportCompletion,
+  ticketReportToolInputSchema,
 } from "./ticket-claims.ts";
 import { ticketChecks, ticketList, ticketShow } from "./ticket-routes.ts";
 import { readOnlyHint, type ScopeMark, type Toolset } from "./output.ts";
@@ -96,7 +97,7 @@ const ticketInput = z.discriminatedUnion("op", [
   ticketClaim.input.extend({ op: z.literal("claim") }),
   ticketRenewClaim.input.extend({ op: z.literal("renew") }),
   ticketReleaseClaim.input.extend({ op: z.literal("release") }),
-  ticketReportCompletion.input.extend({ op: z.literal("report") }),
+  ticketReportToolInputSchema.extend({ op: z.literal("report") }),
 ]);
 
 export const MCP_APP_TOOLS = [

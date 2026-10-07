@@ -196,6 +196,8 @@ export type ExternalTool = {
   server: string;
   // 서버가 알려준 원래 tool 이름이다. routing은 호출 이름이 아니라 이 이름으로 돌아간다(R23).
   original: string;
+  // 서버 설정 판이다(기록·판정 근거의 configuration_revision, R24).
+  configurationRevision: number;
   effect: ToolEffect;
   confirm: boolean;
   reversible: boolean;
@@ -284,6 +286,7 @@ export async function buildMcpTools(
       definition,
       server: entry.server,
       original: entry.original,
+      configurationRevision: server.revision,
       effect: classification.effect,
       confirm: definition.confirm,
       reversible,

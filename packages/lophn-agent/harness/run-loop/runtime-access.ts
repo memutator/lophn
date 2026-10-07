@@ -5,6 +5,7 @@ import {
   BUILTIN_TOOLS,
   runOperations,
 } from "../tools/mod.ts";
+import { EXTERNAL_TOOL_CONTRACT } from "../../extensions/mod.ts";
 import {
   applyQuestionOption,
   assignmentList,
@@ -125,8 +126,11 @@ export function roleOperations(role: string): readonly string[] {
   const own = runOperations(
     BUILTIN_TOOLS.filter((tool) => names.has(tool.name)),
   );
+  // 외부 MCP tool의 소유 contract다(T37). 확장 선택은 상한 항목이 아니라 preset의
+  // 선택 항목이라(presets role-caps R5) 상한 이름에 넣지 않고 contract만 더한다.
+  // run이 실제로 제공하는 external 정의는 runOperations(listed)가 더한다.
   // 앱 command를 실행하는 역할은 앱 통로(`app.connect`)를 더한다. 범위는 StartRun이 고정한 AgentAppScope가 정한다.
   return APP_COMMAND_EXPOSURE.get(role)?.execution === "none"
-    ? own
-    : [...own, APP_TOOL_CONTRACT];
+    ? [...own, EXTERNAL_TOOL_CONTRACT]
+    : [...own, APP_TOOL_CONTRACT, EXTERNAL_TOOL_CONTRACT];
 }

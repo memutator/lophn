@@ -299,8 +299,9 @@ function presetValidateDeps(sql: Pick<Tx["sql"], "get" | "all">) {
       const parsed: unknown = JSON.parse(String(rows[0]["value"]));
       const shaped = mcpServersSetting.value_type.safeParse(parsed);
       if (shaped.success) {
-        for (const [name, config] of Object.entries(shaped.data)) {
-          mcpServers.set(name, config);
+        // value_type은 server 목록의 배열이다. 배열을 그대로 펼쳐 이름으로 둔다.
+        for (const config of shaped.data) {
+          mcpServers.set(config.name, config);
         }
       }
     }

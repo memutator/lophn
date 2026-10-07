@@ -745,6 +745,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 ### T39 trace 읽기
 
 - 등급: 기본
+- 상태: 진행
 - concern: lophn-agent/observability
 - 요구: lophn-agent/observability#R1, R2, R3, R4, R5, R6, R7, R8, R9, R11, R18, R19, R20, R21, R22
 - 자리: packages/lophn-agent/observability/ (model.ts: RunTrace, reads.ts), apps/core/lophn-agent.ts
@@ -756,6 +757,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - 완료:
   - trace는 저장하지 않고 조회 때 event·ModelCall·ToolCall·message blob을 seq 순으로 조립한다. 경과 시간은 T12·T25가 CheckpointRun과 대기 진입·탈출 경계에 남긴 단조 누적값을 쓴다
   - trace_test.ts에 R1–R9, R11, R18–R22 테스트(실패 model 2회+거절 tool 1회, 시계를 뒤로 옮긴 경과, 종료 event 없이 끊긴 run 사례 포함): run 하나의 시작 조건·상태·호출 참조(사본 없음)와 시작 당시 고정 판, handoff 양방향 연결과 비용 귀속, run 밖 호출은 독립 trace(가짜 run·세션 없음), 모든 model 시도·tool 판정을 샘플링 없이·retry·실패·취소·미실행·불명확 구별, UTC ms 시각과 단조 시계 경과(run·model·첫 응답·tool·사람 기다림), 종료 종류 구별·종료 event 없이 끊긴 run은 unconfirmed로 정상과 분리, 본문은 소유 원본으로만·오류 원문·secret·추론 사본 없음, stream 조각 없음, 사용량·비용·품질은 가리키기만, MCP 호출의 주체·서버·tool·분류·판정·approval·결과, 화면용 기본·상세 자료, 도구 활동 접기, 판단은 검토 가능한 요약만
+- 정한 것(T39): `RunTrace`에 `session`·`assignment`·`state`·`started_at`·`finished_at`·`activity`를 더했다(additive, contracts#T30). R6 시각과 R20·R21 화면 자료를 계약의 id 목록만으로는 줄 수 없었다. `run`은 독립 호출 trace와 session 묶음에서 null이다. 대상이 session이면 접수 순서 run들의 trace를 한 쪽(`limit` 기본 50, `cursor`)씩 묶고 `reason`·`state`는 null이다. `wall_ms`는 `active_ms`(CheckpointRun의 단조 누적값)와 `waiting_ms`(RunWaited부터 재개·종료 event, 시계가 뒤로 가면 0)의 합이고 시작·종료 시각의 차이를 쓰지 않는다. 열린 기다림은 더하지 않는다. blob 본문은 ledger에서 사라진 것을 알 수 없어(blob_refs는 불변) `missing`의 `body`는 영구 참조 행이 없을 때만이다(보존 정리 표시는 T57)
 
 ### T40 trace export
 

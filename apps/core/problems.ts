@@ -19,6 +19,10 @@ import {
   recordProblemFixCommand,
 } from "../../packages/problems/repairs/mod.ts";
 import type {
+  EventDefinition,
+  EventVisibilityDefinition,
+} from "../../packages/contracts/platform/mod.ts";
+import type {
   EventRegistration,
   ReaderRegistration,
   TxPortRegistration,
@@ -63,15 +67,21 @@ import { notificationsOnlyVisibility } from "./platform.ts";
 import { isTicketCheckFeed } from "./ticket-checker.ts";
 import { reportCollectorSpec, testRunnerSpec } from "./problems-runner.ts";
 
-// Verification 기록은 test 결과를 기다리는 ticket checker 구독자(machine:ticket-check-feed)도
-// 깨우는 신호로 본다(coding-agent#T26). 그 밖의 자격은 owner 정책이 그대로 판단한다.
-const verificationRecordedForChecker: typeof verificationRecordedVisibility = {
-  event: verificationRecordedVisibility.event,
-  handle: (snapshot, ctx, event) =>
-    isTicketCheckFeed(ctx)
-      ? ok(true)
-      : verificationRecordedVisibility.handle(snapshot, ctx, event),
-};
+// ticket checker 구독자(machine:ticket-check-feed)도 깨움 신호로 보는 event다(coding-agent#T26,
+// T45). 그 밖의 자격은 owner 정책이 그대로 판단한다.
+function visibleToChecker<D extends EventDefinition>(
+  owner: EventVisibilityDefinition<D>,
+): EventVisibilityDefinition<D> {
+  return {
+    event: owner.event,
+    handle: (snapshot, ctx, event) =>
+      isTicketCheckFeed(ctx) ? ok(true) : owner.handle(snapshot, ctx, event),
+  };
+}
+
+const verificationRecordedForChecker = visibleToChecker(
+  verificationRecordedVisibility,
+);
 
 // owner definitions만 내보낸다. port 구현과 writer 조립은 core가 맡는다.
 export const problemsTestDefinitions = {
@@ -230,8 +240,9 @@ export function createEventRegistration(): EventRegistration {
       ...problemsTestDefinitions.visibility,
       // notifications 계기(platform/notifications#R1)다. notifications 구독자에게만 연다.
       notificationsOnlyVisibility(problemOpened),
-      notificationsOnlyVisibility(problemReopened),
-      notificationsOnlyVisibility(problemClosed),
+      // 닫힘·재발은 보고된 ticket의 남은 조건을 다시 비교하는 신호이기도 하다.
+      visibleToChecker(notificationsOnlyVisibility(problemReopened)),
+      visibleToChecker(notificationsOnlyVisibility(problemClosed)),
     ],
   };
 }

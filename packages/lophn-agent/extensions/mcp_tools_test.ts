@@ -121,7 +121,7 @@ async function classifiedServer(
 // ---- R23: 호출 이름 ----
 
 Deno.test("lophn-agent/extensions#R23: 서로 다른 서버의 같은 원래 이름, 구두점 치환으로 같아지는 이름, 64자를 넘는 이름이 모두 다른 호출 이름을 얻고 원래 서버·도구로 정확히 돌아가며 lophn 자체 도구가 대신 실행되지 않는다", async () => {
-  // 서로 다른 서버의 같은 원래 이름: 기본 이름이 겹치므로 충돌 묶음 suffix로 구별된다(Q15).
+  // 서로 다른 서버의 같은 원래 이름: 서버 이름이 기본 이름에 들어가 구별된다(R23).
   const same = await assignExternalToolNames([
     { server: "notes", original: "search" },
     { server: "mail", original: "search" },
@@ -132,15 +132,29 @@ Deno.test("lophn-agent/extensions#R23: 서로 다른 서버의 같은 원래 이
   assert(notes !== mail);
   assert(canonicalExternalToolSchema.safeParse(notes).success, notes);
   assert(canonicalExternalToolSchema.safeParse(mail).success, mail);
-  // 두 이름 모두 충돌 묶음 전체에 suffix가 붙는다(순서와 무관, Q15).
-  const suffixNotes = (await import("../../base/mod.ts")).sha256Hex;
-  const expected = await suffixNotes(JSON.stringify(["notes", "search"]));
+  assertEquals(notes, baseExternalToolName("notes", "search"));
+  assertEquals(mail, baseExternalToolName("mail", "search"));
+
+  // 축약이 같아지는 원래 이름은 충돌 묶음 전체에 suffix가 붙는다(Q15): 40자를
+  // 넘는 도구 이름 뒤에 바뀐 부분은 잘린다.
+  const clipped = await assignExternalToolNames([
+    { server: "notes", original: `${"a".repeat(40)}-x` },
+    { server: "notes", original: `${"a".repeat(40)}_x` },
+  ]);
+  assert(clipped.ok, clipped.ok ? "" : clipped.error.message);
+  const first = clipped.value.get(`notes\0${"a".repeat(40)}-x`)!;
+  const second = clipped.value.get(`notes\0${"a".repeat(40)}_x`)!;
+  assert(first !== second);
+  const suffix = await (await import("../../base/mod.ts")).sha256Hex(
+    JSON.stringify(["notes", `${"a".repeat(40)}-x`]),
+  );
   assertEquals(
-    notes,
-    `${baseExternalToolName("notes", "search").slice(0, 55)}_${
-      expected.slice(0, 8)
+    first,
+    `${baseExternalToolName("notes", `${"a".repeat(40)}-x`).slice(0, 55)}_${
+      suffix.slice(0, 8)
     }`,
   );
+  assert(canonicalExternalToolSchema.safeParse(second).success, second);
 
   // 구두점 치환으로 같아지는 이름: 같은 묶음에 suffix가 붙는다.
   const punct = await assignExternalToolNames([
@@ -290,9 +304,10 @@ Deno.test("lophn-agent/extensions#R26: 로컬 조회·로컬 문서 편집·원�
         reversible,
       }),
     });
-    return toolsOf(source([server], [tool]), selection()).then((tools) =>
-      tools[0]
-    );
+    return toolsOf(
+      source([server], [tool]),
+      selection({ tools: [{ server_name: "notes", original_tool: "x" }] }),
+    ).then((tools) => tools[0]);
   };
   // 사람이 지정한 분류가 그대로 정의가 된다(R26).
   const lookup = await make("read", true);
@@ -398,23 +413,18 @@ Deno.test("lophn-agent/extensions#R28: 미분류 도구가 읽기 힌트와 조�
   // 공통 종륜다. 표시가 상한을 바꾸는 입력은 없다(R28).
   assertEquals(marked[0].definition.contract, "external_mcp_call");
 
-  // 사람 분류(read)가 있어도 safe 표시가 없으면external 아닌 read는 안 묻는다:
-  // read는 원래 confirm이 없다. 여기서 볼 것은 분류가 유효해야 safe가 의미 있다는 것.
+  // 사람 분류(read)가 있어도 safe 표시가 없으면 읽기 도구는 처음부터 묻지 않는다:
+  // read는 원래 confirm이 없다. 여기서 볼 것은 safe 표시가 정의의 효과를 바꾸지
+  // 못한다는 것이다(R28).
   const lookup = entry("notes", "real-lookup", "looks up", schema, {
     readOnly: true,
   });
-  const hash = await mcpToolDefinitionHash(lookup);
-  const readServer = httpServer("notes", {
-    "real-lookup": mcpToolClassificationSchema.parse({
-      effect: "read",
-      schema_hash: hash,
-      reversible: true,
-    }),
-  });
+  const readServer = await classifiedServer(lookup);
   const readBuilt = await toolsOf(
     source([readServer], [lookup]),
     selection({
       tools: [{ server_name: "notes", original_tool: "real-lookup" }],
+      safe_tools: [{ server_name: "notes", original_tool: "real-lookup" }],
     }),
   );
   assertEquals(readBuilt.length, 1);

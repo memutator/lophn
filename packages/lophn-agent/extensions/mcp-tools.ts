@@ -239,10 +239,16 @@ export async function buildMcpTools(
     const name = names.value.get(`${entry.server}\0${entry.original}`)!;
     const definitionHash = await mcpToolDefinitionHash(entry);
     const classification = classificationOf(entry, server, definitionHash);
-    const safe = safePairs.has(pairKey({
-      server_name: entry.server,
-      original_tool: entry.original,
-    }));
+    // safe 표시다(R28): 분류 기록이 아예 없는 tool은 사람이 그 tool을 직접 본
+    // 표시 그대로 유효하다. 분류가 있었는데 정의 hash가 바뀐 tool은 분류와 함께
+    // 무효다(R24): safe 표시의 전제인 분류 일치가 무너진다.
+    const hasClassification =
+      server.classifications[entry.original] !== undefined;
+    const safe = (!hasClassification || classification.classified) &&
+      safePairs.has(pairKey({
+        server_name: entry.server,
+        original_tool: entry.original,
+      }));
     const reversible = classification.reversible &&
       classification.effect !== "external";
     const notes = [

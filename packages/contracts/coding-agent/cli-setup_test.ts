@@ -81,6 +81,7 @@ Deno.test(
       "connection install",
       "session summary",
       "session plan",
+      "session observe",
     ]);
     assertEquals(CLI_SETUP_COMMANDS.length, CLI_SETUP_NAMES.length);
   },

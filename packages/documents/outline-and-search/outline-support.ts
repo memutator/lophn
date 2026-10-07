@@ -99,11 +99,14 @@ export function authorizeTarget(
   document: string,
   placeKind: string | undefined,
   placeId: string | undefined,
+  // 판을 주소로 연 읽기의 판이다. handoff 고정 근거의 (문서, 판) 판정이 쓴다. 최신 판 읽기·목록은 주지 않는다.
+  version?: string,
 ): boolean {
   return authorize(deps.ports, ctx, operation, {
     document,
     place_kind: placeKind,
     place: placeId,
+    ...(version === undefined ? {} : { version }),
     // 앱 하나 범위 연결의 앱은 문서의 자리가 앱일 때만 준다(project·자리 없음은 범위 밖).
     ...(placeKind === "app" && placeId !== undefined ? { app: placeId } : {}),
   } as AuthorizationTarget);

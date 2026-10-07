@@ -31,6 +31,7 @@ import {
 } from "../../packages/problems/tests/fixtures.ts";
 import { FAILING_BLOB_FIELD } from "../../packages/problems/tests/harness-registration_test.ts";
 import { type CommandEnvelope, createLedgerHarness } from "./testing/ledger.ts";
+import { installedHome } from "../../packages/apps/sdk/testing/mod.ts";
 import {
   type BundleVariant,
   type FixtureName,
@@ -62,6 +63,23 @@ const VARIANTS = JSON.parse(
     ),
   ),
 ) as BundleVariant[];
+
+// fixture가 쓰는 SDK 중 기본 템플릿 묶음에 없는 것이다.
+const EXTRA_PACKAGES: Record<FixtureName, string[]> = {
+  "rate-limit-dashboard": [
+    "@lophn/cap-fs",
+    "@lophn/ui-chart",
+    "@lophn/ui-filter",
+    "@lophn/ui-stat",
+    "@lophn/ui-table",
+  ],
+  todo: ["@lophn/cap-fs"],
+  calendar: ["@lophn/cap-net", "@lophn/cap-secret"],
+  broken: [],
+};
+
+const fixtureOf = async (name: FixtureName): Promise<MadeFixture> =>
+  await madeFixture(name, await installedHome(EXTRA_PACKAGES[name]));
 
 const failedChecks = (outcome: RunOutcome): string[] =>
   outcome.result.judgment.observations.checks.filter((check) =>
@@ -346,7 +364,7 @@ Deno.test(
         await t.step(
           `${name}: 봉인 bundle을 만들고 runner로 app test를 돈다`,
           async () => {
-            const fixture = await madeFixture(name);
+            const fixture = await fixtureOf(name);
             made.set(name, fixture);
             const bundle = await sealedBundle(fixture);
             sealed.set(name, bundle);
@@ -449,7 +467,7 @@ Deno.test(
           async () => {
             const base = sealed.get(variant.base) ??
               await (async () => {
-                const fixture = await madeFixture(variant.base);
+                const fixture = await fixtureOf(variant.base);
                 made.set(variant.base, fixture);
                 const bundle = await sealedBundle(fixture);
                 sealed.set(variant.base, bundle);
@@ -471,9 +489,13 @@ Deno.test(
                 direct: true,
               }))
               : undefined;
+            // 화면 검사 host는 화면 검사를 바꾼 변형(루트 오류 경계 없음)만 쓴다. 나머지 변형은 화면과 상관이 없다.
+            const host = variant.name === "no-root-boundary"
+              ? screenHost
+              : null;
             const outcome = await runAppTest(fixture, changed, {
               key: `variant-${variant.name}`,
-              screen_host: screenHost,
+              screen_host: host,
               ...(paths === undefined ? {} : { failure_paths: paths }),
             });
             assertEquals(outcome.result.judgment.result, "fail", variant.name);
@@ -494,7 +516,7 @@ Deno.test(
             // 바꾼 것만 실패하고 나머지는 그대로다: 화면 검사 host가 없을 때의 화면 검사만 더 실패한다.
             const unexpected = failed.filter((name) =>
               !variant.expect_fail.includes(name) &&
-              !(screenHost === null && VIEW_CHECKS.includes(name))
+              !(host === null && VIEW_CHECKS.includes(name))
             );
             assertEquals(unexpected, [], variant.name);
             if (variant.name === "no-root-boundary") {

@@ -9,10 +9,6 @@ import {
   devImportMap,
   readTemplateDirectory,
 } from "../../../packages/apps/sdk/mod.ts";
-import {
-  installedHome,
-  removeTree,
-} from "../../../packages/apps/sdk/testing/mod.ts";
 import { launchArgv } from "../../../packages/platform/security/mod.ts";
 import {
   type HarnessFailurePath,
@@ -59,22 +55,17 @@ export async function git(cwd: string, args: string[]): Promise<string> {
 }
 
 // fixture 원본을 앱 폴더로 풀고 개발용 import map을 둔다.
-// fixture가 쓰는 SDK 중 기본 템플릿 묶음에 없는 것이다.
-const EXTRA_PACKAGES: Record<FixtureName, string[]> = {
-  "rate-limit-dashboard": [
-    "@lophn/cap-fs",
-    "@lophn/ui-chart",
-    "@lophn/ui-filter",
-    "@lophn/ui-stat",
-    "@lophn/ui-table",
-  ],
-  todo: ["@lophn/cap-fs"],
-  calendar: ["@lophn/cap-net", "@lophn/cap-secret"],
-  broken: [],
+// 설치한 temp lophn home이다(SDK 설치·bundle 사본·runner 작업 root). 만드는 쪽(*_test.ts)이 SDK 시험 도구로 준다.
+export type InstalledHomeLike = {
+  home: string;
+  sdkRoot: string;
+  dispose(): Promise<void>;
 };
 
-export async function madeFixture(name: FixtureName): Promise<MadeFixture> {
-  const installed = await installedHome(EXTRA_PACKAGES[name]);
+export async function madeFixture(
+  name: FixtureName,
+  installed: InstalledHomeLike,
+): Promise<MadeFixture> {
   const parent = await Deno.makeTempDir({ prefix: "lophn-fixture-app-" });
   const dir = `${parent}/app`;
   const source = `${FIXTURES}${name}/`;
@@ -108,7 +99,7 @@ export async function madeFixture(name: FixtureName): Promise<MadeFixture> {
       return await git(dir, ["rev-parse", "HEAD"]);
     },
     async dispose() {
-      await removeTree(parent);
+      await Deno.remove(parent, { recursive: true }).catch(() => undefined);
       await installed.dispose();
     },
   };

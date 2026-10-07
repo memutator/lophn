@@ -191,7 +191,8 @@ export async function runAppTestJob(
     },
   };
 
-  let driver: RealDriver | undefined;
+  // 화면 검사 host가 부르는 command가 아래에서 만든 driver를 쓰므로 나중에 채운다.
+  const live: { driver?: RealDriver } = {};
   let viewDriver: Promise<ViewDriver | null> | undefined;
   const host = job.screen_host;
   const screens = blueprint.screens.map((screen) => ({
@@ -209,7 +210,7 @@ export async function runAppTestJob(
         screens,
         deadline_ms: 30_000,
       },
-      invoke: (command, body) => driver!.command(command, body),
+      invoke: (command, body) => live.driver!.command(command, body),
       sink: screenSink,
       scope,
       nonce,
@@ -261,7 +262,8 @@ export async function runAppTestJob(
     view: lazyView,
   });
   if (!created.ok) return created;
-  driver = created.value;
+  const driver = created.value;
+  live.driver = driver;
   const served = serveRpc(scratch, driver);
   try {
     await Deno.writeTextFile(

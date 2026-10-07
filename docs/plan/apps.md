@@ -1352,6 +1352,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
 
 ### T26 fixture: 일부러 깨지는 앱
 
+- 상태: 완료 (#425)
 - 등급: 기본
 - concern: apps/runtime, apps/data
 - 요구: apps/runtime#R2, R19, R22, R28, apps/data#R7, R11
@@ -1372,7 +1373,8 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
        깊이)와, 같은 함수에서 줄·message만 다른 변형(같은 지문)
     3. 처리되지 않은 Promise rejection(process)
     4. view의 root render 오류(TSX, source map 포함), event handler error,
-       view의 unhandledrejection. 깨진 view에서도 [문제 알리기]가 동작
+       view의 unhandledrejection. 깨진 view에서도 [문제 알리기]가 동작(버튼과
+       보고 자리는 fixture가 심고, 누르는 것은 shell E2E 몫이다)
     5. 미선언 code를 reportProblem에 넘기는 command(_invalid_report)
     6. 앱 frame 없는 exception(의존 package 안에서 throw)
     7. 짧은 시간에 보고 25개를 내는 command(앱당 60초 20개 한도)
@@ -1418,6 +1420,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
     넣는다
   - 설치된 SDK catalog에 apps/sdk#R4의 이름 전부(@lophn/blueprint, tokens, ui-*
     10개, cap-* 7개, format-document)가 1.0.0으로 있다
+  - coding-agent#T25에서 넘어온 것: new-app·change-app flow의 coding agent 자리는 `tools/fake-coding-agent`(`startFakeCodingAgent`)다. 지금 e2e/flows에 두 flow가 없어 쓰는 곳이 아직 없다. step에 `report`(release·summary·outputs·fix_records·verifications)가 있고 summary는 `lophn_ticket`이 upload_summary로 올린다. 결과의 `report_state`·`completion_seq`·`check_state`를 완료 주장·접수·확인으로 따로 읽는다. change-app도 같은 도구를 쓴다(위 완료 줄은 new-app만 적었다)
   - apps#T16에서 넘어온 것: ask-app-hint flow에서 탭을 닫은 뒤 agent의 context
     조회·주석 쓰기가 `unavailable`이고 옛 상태를 최신으로 내보내지 않는다(실제
     앱 view와 T23 fixture)

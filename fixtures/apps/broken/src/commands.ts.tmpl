@@ -1,0 +1,193 @@
+// blueprint에 선언한 command의 handler. 선언한 key와 등록한 handler가 같아야 준비가 끝난다.
+// 깨진 앱 fixture다(apps#T26). 각 command는 계획의 시나리오 번호에 맞춰 실제로 깨진다.
+// 깨진 위치는 board.ts의 MODE가 고른다(환경 값이 아니다).
+import { reportProblem } from "@lophn/cap-problem";
+import { CommandRejection } from "@lophn/cap-schedule";
+import { command, continueRead, readResult } from "@lophn/cap-schedule";
+import { MODE } from "./board.ts";
+import {
+  defaults,
+  type Deps,
+  FIXTURE_SETTINGS,
+  isFailureKind,
+  reportBroken,
+  reportMisconfigured,
+} from "./deps.ts";
+
+// run_broken의 TypeError 변형이다(apps#T26 완료 2번). 같은 함수에서 stack frame의 path·function은 같고,
+// 줄과 message만 다른 두 변형을 같은 call에서 고른다 → 하나의 지문(fingerprint)으로 묶인다.
+// listBroken은 depth 2(run_broken handler ← listBroken), readPanel은 depth 3(← readPanel ← listBroken)이다.
+function listBroken(position: "head" | "tail"): never {
+  if (position === "head") {
+    throw new TypeError("cannot read properties of undefined (reading 'note')");
+  }
+  throw new TypeError("cannot read properties of undefined (reading 'label')");
+}
+
+// depth 3(← readPanel ← listBroken)이다.
+function readPanel(position: "head" | "tail"): never {
+  if (position === "head") {
+    throw new TypeError("cannot read properties of null (reading 'rows')");
+  }
+  throw new TypeError("cannot read properties of null (reading 'kind')");
+}
+
+// 의존 package 안에서 던지는 예외다(apps#T26 완료 6번). stack frame에 앱 source가 하나도 없어
+// exception 지문이 만들어지지 않는다(report_id 대신).
+function readDependency(): string[] {
+  return continueRead(
+    {
+      query: { filter: { gone: true }, order: ["asc"], basis: "nothing" },
+      cursor: "0",
+    },
+    { filter: { gone: true }, order: ["asc"], basis: "nothing" },
+    [],
+    { coverage: "complete", freshness: "fresh" },
+  ).rows;
+}
+
+export function listBrokenHandler(deps: Deps = defaults) {
+  return () => {
+    // 틀린 집계를 정상 응답으로 돌려준다(apps#T26 완료 마지막 줄).
+    const counted = Number(MODE === "A" || MODE === "C" || MODE === "D");
+    deps.log(`list_broken counted ${counted}`);
+    return readResult(
+      [{ screen: "panel", broken: counted > 0 }],
+      { coverage: counted > 0 ? "partial" : "complete", freshness: "fresh" },
+    );
+  };
+}
+
+export function runBrokenHandler(deps: Deps = defaults) {
+  return (input: unknown) => {
+    const body = input as { kind?: unknown; variant?: unknown };
+    const kind = typeof body?.kind === "string" ? body.kind : "";
+    if (!isFailureKind(kind)) {
+      throw new CommandRejection(
+        "invalid_input",
+        "the failure kind is unknown",
+      );
+    }
+    reportBroken({ command: "run_broken", kind });
+    deps.log(`run_broken ${kind} at ${deps.now()}`);
+    if (kind === "type_error") {
+      const position = (body.variant ?? "") === "tail" ? "tail" : "head";
+      if ((body.variant ?? "") === "deep") {
+        readPanel(position);
+      } else {
+        listBroken(position);
+      }
+    }
+    const rows = readDependency();
+    return { rows };
+  };
+}
+
+export function dropPromiseHandler(deps: Deps = defaults) {
+  return () => {
+    // 처리되지 않은 Promise rejection이다(apps#T26 완료 3번). 응답은 정상으로 돌아가고 reject는 훗날 터진다.
+    void Promise.reject(new Error("dropped promise from the broken fixture"));
+    deps.log("drop_promise scheduled a rejected promise");
+    return { scheduled: true };
+  };
+}
+
+export function reportWrongCodeHandler(deps: Deps = defaults) {
+  return (input: unknown) => {
+    const body = input as { kind?: unknown };
+    const kind = typeof body?.kind === "string" ? body.kind : "";
+    if (kind === "") {
+      throw new CommandRejection("invalid_input", "the kind is empty");
+    }
+    // board.ts에서 고른 call 자은 string literal이 아니므로 정적 code 검사가 이 자을 가려내지 못한다.
+    const WRONG_CODE = [
+      "fixture_missing",
+      "fixture_misconfigured",
+      "_invalid_report",
+    ];
+    reportProblem(WRONG_CODE[2], { command: "report_wrong_code" });
+    deps.log("report_wrong_code sent an undeclared code");
+    return { sent: true };
+  };
+}
+
+export function floodReportsHandler(deps: Deps = defaults) {
+  return () => {
+    // 짧은 시간에 보고 25개다(apps#T26 완료 7번). core는 60초에 앱당 20개까지 받는다.
+    for (let index = 0; index < 25; index++) {
+      reportProblem("fixture_broken", { command: "flood_reports", index });
+    }
+    deps.log("flood_reports sent 25 reports");
+    return { sent: 25 };
+  };
+}
+
+export function chatterThenFailHandler(deps: Deps = defaults) {
+  return () => {
+    // 30줄 넘게 log를 남긴 뒤 실패한다(apps#T26 완료 8번 첫 절반).
+    for (let index = 0; index < 40; index++) {
+      deps.log(`chatter line ${index}`);
+    }
+    // 응답 뒤 비동기로도 실패한다(둘째 절반).
+    void Promise.reject(
+      new Error("late failure after the chatter_then_fail response"),
+    );
+    throw new CommandRejection(
+      "invalid_input",
+      "the command failed after chattering",
+    );
+  };
+}
+
+export function markKindHandler(deps: Deps = defaults) {
+  return (input: unknown) => {
+    const body = input as { kind?: unknown; label?: unknown };
+    const kind = typeof body?.kind === "string" ? body.kind : "";
+    deps.log(`mark_kind ${kind}`);
+    return { marked: kind };
+  };
+}
+
+export function panelContextHandler(deps: Deps = defaults) {
+  return (input: unknown) => {
+    const body = input as { screen?: unknown; view_session?: unknown };
+    return readResult(
+      [{ screen: String(body?.screen ?? "panel"), at: deps.now() }],
+      { coverage: "complete", freshness: "fresh" },
+    );
+  };
+}
+
+// 사용자가 고쳐야 하는 설정 깨짐을 읽는다(apps#T26 완료 1번). board.ts의 설정 레코드를 읽고,
+// 값이 모자라거나 틀리면 fixture_misconfigured로 보고한다. 깨진 값은 fixture 설정이 고른다.
+export function readSettingsHandler(deps: Deps = defaults) {
+  return () => {
+    const settings: { label_max?: unknown; board_mode?: unknown } =
+      FIXTURE_SETTINGS;
+    const problems: string[] = [];
+    if (typeof settings.label_max !== "number" || settings.label_max < 1) {
+      problems.push("label_max");
+    }
+    if (settings.board_mode !== "A") problems.push("board_mode");
+    if (MODE !== "C" && problems.length > 0) {
+      reportMisconfigured({
+        command: "read_settings",
+        settings: problems.join(","),
+      });
+    }
+    deps.log(`read_settings checked ${problems.length} settings`);
+    return { settings, problems };
+  };
+}
+
+export function registerCommands(deps: Deps = defaults): void {
+  command("list_broken", listBrokenHandler(deps));
+  command("run_broken", runBrokenHandler(deps));
+  command("drop_promise", dropPromiseHandler(deps));
+  command("report_wrong_code", reportWrongCodeHandler(deps));
+  command("flood_reports", floodReportsHandler(deps));
+  command("chatter_then_fail", chatterThenFailHandler(deps));
+  command("mark_kind", markKindHandler(deps));
+  command("panel_context", panelContextHandler(deps));
+  command("read_settings", readSettingsHandler(deps));
+}

@@ -134,6 +134,7 @@ export {
   resourceInstallResultSchema,
 } from "./harnesses.ts";
 export {
+  acceptObservation,
   type CodingAgentSessionSummary,
   codingAgentSessionSummary,
   CodingAgentSessionSummaryInputSchema,
@@ -141,6 +142,7 @@ export {
   codingAgentSessionSummaryQuerySchema,
   type CodingAgentSessionSummaryRoute,
   CodingAgentSessionSummarySchema,
+  endedByProcessExit,
   EVIDENCE_SOURCES,
   type EvidenceSource,
   evidenceSourceSchema,
@@ -151,6 +153,8 @@ export {
   harnessSessionObservationSchema,
   LOPHN_TERMINAL_OBSERVE,
   OBSERVATION_ORIGINS,
+  OBSERVATION_STALE_AFTER_MS,
+  observationAt,
   type ObservationOrigin,
   observationOriginSchema,
   type ObserveEnvelope,
@@ -162,6 +166,7 @@ export {
   SESSION_STATES,
   type SessionState,
   sessionStateSchema,
+  unknownObservation,
 } from "./sessions.ts";
 export {
   type AgentFailure,
@@ -258,6 +263,7 @@ export {
   cliHarnessRemoveSchema,
   cliHarnessUpdateSchema,
   cliMcpConfigSchema,
+  cliSessionObserveSchema,
   cliSessionPlanOutputSchema,
   cliSessionPlanSchema,
   cliSessionSummarySchema,

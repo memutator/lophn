@@ -12,6 +12,7 @@ import {
 import {
   type ConnectionId,
   connectionShow,
+  type HarnessId,
   HUMAN_ONLY_NAMES,
   type IntegrationTarget,
   LOPHN_CONNECTION,
@@ -55,7 +56,10 @@ import {
 import { runQuestionOpen } from "../../packages/coding-agent/cli/commands/question.ts";
 import { runSave } from "../../packages/coding-agent/cli/commands/save.ts";
 import { runSdk } from "../../packages/coding-agent/cli/commands/sdk.ts";
-import { runSessionPlan } from "../../packages/coding-agent/cli/commands/session.ts";
+import {
+  runSessionObserve,
+  runSessionPlan,
+} from "../../packages/coding-agent/cli/commands/session.ts";
 import {
   runTicketWrite,
   ticketHumanOnly,
@@ -123,6 +127,8 @@ export type CliRuntime = {
   // direct socket 권한이 없다.
   appSocketDir?: string;
   now(): string;
+  // hook payload를 읽는 눈이다. 없으면 process stdin이다(`session observe`만 읽는다).
+  stdin?: () => Promise<string>;
   // 시험이 끼우는 눈이다. 없으면 실제 파일·process·platform daemon 판정을 쓴다.
   ports?: Partial<CliPorts>;
 };
@@ -134,7 +140,50 @@ export type CliPorts = {
   launch(
     decision: { executable: string; argv: readonly string[] },
   ): Promise<Result<void, LophnError>>;
+  // 관측 socket에 NDJSON을 쓴다. observation 전용이라 credential을 싣지 않는다.
+  observe(path: string, ndjson: string): Promise<Result<void, LophnError>>;
 };
+
+// hook payload 상한이다(조사 T6의 body 64KiB 제안). 넘으면 읽지 않는다.
+const OBSERVE_STDIN_LIMIT = 64 * 1024;
+
+async function readProcessStdin(): Promise<string> {
+  if (Deno.stdin.isTerminal()) return "";
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for await (const chunk of Deno.stdin.readable) {
+    size += chunk.length;
+    if (size > OBSERVE_STDIN_LIMIT) return "";
+    chunks.push(chunk);
+  }
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return new TextDecoder().decode(bytes);
+}
+
+async function writeObserveSocket(
+  path: string,
+  ndjson: string,
+): Promise<Result<void, LophnError>> {
+  try {
+    const connection = await Deno.connect({ transport: "unix", path });
+    try {
+      await connection.write(new TextEncoder().encode(ndjson));
+    } finally {
+      connection.close();
+    }
+    return ok(undefined);
+  } catch {
+    return err({
+      code: "unavailable",
+      message: "관측 socket에 쓰지 못했다",
+    });
+  }
+}
 
 // 실제 눈이다. platform의 instance lock·위치 metadata 판정을 그대로 쓰고 detect는 PATH와 catalog
 // fallback만 읽는다.
@@ -193,6 +242,7 @@ function defaultPorts(runtime: CliRuntime): CliPorts {
           `${dataRoot}/logs/platform-${index}.jsonl`
         ),
     },
+    observe: writeObserveSocket,
     launch(decision) {
       try {
         const child = new Deno.Command(decision.executable, {
@@ -417,6 +467,15 @@ export async function runCliCommand(
   }
   if (name === "session plan") {
     return await runSessionPlanCommand(input, runtime);
+  }
+  if (name === "session observe") {
+    // core·credential을 읽지 않고 socket에만 쓴다. coding credential context(LOPHN_CONNECTION 환경)의 TUI도 부른다.
+    return await runSessionObserve(input as { hook: HarnessId }, {
+      env: runtime.env,
+      stdin: runtime.stdin ?? readProcessStdin,
+      now: runtime.now,
+      send: portsOf(runtime).observe,
+    });
   }
   if (name.startsWith("session ")) {
     // session summary의 core route가 아직 없다.

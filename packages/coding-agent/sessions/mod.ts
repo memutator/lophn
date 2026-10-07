@@ -13,3 +13,9 @@ export {
   type PlanContext,
   type PlanOutcome,
 } from "./plan.ts";
+export {
+  observationFromPayload,
+  type ObserveContext,
+  type ObserveOutcome,
+  observeStream,
+} from "./observe/mod.ts";

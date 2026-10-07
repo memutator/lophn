@@ -1,6 +1,6 @@
 import { assertEquals } from "@std/assert";
 import { sha256Hex } from "../../base/mod.ts";
-import { APP, CAC, HASH, REL, TKT } from "./ticket-fixtures.ts";
+import { APP, HASH, REL, TKT } from "./ticket-fixtures.ts";
 import {
   APP_TOOL_NAME_LENGTH,
   APP_TOOL_NAME_PREFIX,
@@ -362,21 +362,25 @@ Deno.test(
       ticket: TKT,
       base_revision: "15",
       claim_seq: "8",
-      completion: {
-        release: REL,
-        summary_hash: HASH,
-        outputs: [],
-        fix_records: [],
-        verifications: [],
-      },
-      summary_blob: {
-        preparation: "worker-preparation-1",
-        principal: CAC,
-        purpose: "ticket_summary",
-        hash: HASH,
-        size_bytes: 64,
-      },
+      release: REL,
+      summary: "변경: leaf redaction",
+      outputs: [],
+      fix_records: [],
+      verifications: [],
     });
+    // completion seq와 hash·준비 참조는 입력이 아니다(통로가 upload_summary로 만든다).
+    assertEquals(
+      ticket.input.safeParse({
+        op: "report",
+        ticket: TKT,
+        base_revision: "15",
+        claim_seq: "8",
+        release: REL,
+        summary: "요약",
+        completion_seq: "9",
+      }).success,
+      false,
+    );
     // ticket 준비에 ticket 없는 test를 요청하지 않으므로 mcp#R37의 create·cancel·
     // check 판정 op는 없다.
     for (const op of ["create", "cancel", "record_checks"]) {

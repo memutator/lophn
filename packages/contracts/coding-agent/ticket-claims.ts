@@ -115,6 +115,26 @@ export const ticketUploadSummary = defineUpload({
   max_bytes: TICKET_SUMMARY_MAX_BYTES,
 });
 
+// 완료 보고의 통로 입력이다(mcp#R27, R28, cli#R36). 통로는 summary 본문을 받아 hash를 내고
+// `upload_summary`로 바이트를 올린 뒤 준비 참조로 report_completion을 보낸다. completion seq는
+// 입력이 아니다(core가 부여한다). `fix_records`는 고친 기록(fix event)의 seq 참조다.
+const utf8Bytes = (value: string) => new TextEncoder().encode(value).length;
+export const ticketReportSummarySchema = z.string().refine(
+  (value) => /\S/.test(value) && utf8Bytes(value) <= TICKET_SUMMARY_MAX_BYTES,
+  { message: "summary must be non-blank and within the upload limit" },
+);
+export const ticketReportToolInputSchema = z.strictObject({
+  ...claimed,
+  release: completionFields.release,
+  summary: ticketReportSummarySchema,
+  outputs: completionFields.outputs.optional(),
+  fix_records: completionFields.fix_records.optional(),
+  verifications: completionFields.verifications.optional(),
+});
+export type TicketReportToolInput = z.infer<
+  typeof ticketReportToolInputSchema
+>;
+
 export const ticketReportCompletionInputSchema = z.strictObject({
   ...claimed,
   completion: ticketCompletionInputSchema,

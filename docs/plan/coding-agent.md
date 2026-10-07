@@ -1390,6 +1390,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T39 session 관측
 
+- 상태: 완료 (#432) — 이어보냄: shell#T49(host가 runtime_ref·generation·origin을 붙이고 process exit·재시작을 관측으로 내는 일)
 - 등급: 기본
 - concern: coding-agent/sessions, coding-agent/harnesses
 - 요구: coding-agent/sessions#R6, R7, R8, R9, R10; coding-agent/harnesses#R11

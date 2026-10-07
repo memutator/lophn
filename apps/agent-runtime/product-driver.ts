@@ -7,7 +7,10 @@ import {
 } from "../../packages/base/mod.ts";
 import { ALL_ROUTES } from "../../packages/contracts/mod.ts";
 import { abortableWait } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
+import { spawnStdioMcp } from "../../packages/lophn-agent/extensions/mod.ts";
+import type { McpConnectionsDeps } from "../../packages/lophn-agent/extensions/mod.ts";
 import type { CoreCalls } from "./main.ts";
+import { createMcpToolkit } from "./mcp-toolkit.ts";
 import { createRunPreparer } from "./prepare.ts";
 import { createModelResolver } from "./resolve-model.ts";
 import { PRODUCT_INSTRUCTIONS, rolePrompt } from "./role-prompts.ts";
@@ -19,7 +22,7 @@ import { createBuiltinToolkit } from "./toolkit.ts";
 // 제품 runtime의 driver 재료(lophn-agent/harness/run-loop). core 연결을 받아 run 시작 재료, 복구 재료,
 // 기본 harness 묶음(내장 tool, 역할 prompt, model 선택 검증)을 만든다. 아래는 소유 작업이 채울 자리라
 // 비어 있다: 쓰기·external tool의 소유 계약 연결(`binding`)과 결과 조회(`lookups`),
-// skill·MCP·material source, 사람 지침 파일 읽기(`InstructionFiles`).
+// skill·material source, 사람 지침 파일 읽기(`InstructionFiles`).
 export function productDriver(options: { fetch?: typeof fetch } = {}) {
   return (
     calls: CoreCalls,
@@ -28,6 +31,12 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
     "prepare" | "closeUnusable" | "liveRuns" | "prepareResume"
   > => {
     const ids = createIdSource({ clock: systemClock, random: cryptoRandom });
+    // 외부 MCP 연결과 등록 통로다(Q16, T37). 프로세스 수명의 상태는 entry에서
+    // 만들어 넘기므로(architecture) productDriver 호출마다 하나를 만든다.
+    const mcpKit = createMcpToolkit({
+      machine: calls.machine,
+      connections: mcpConnectionsDeps(),
+    });
     return createRunPreparer({
       clock: systemClock,
       ids,
@@ -49,11 +58,15 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
         },
         ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
       }),
-      toolkit: createBuiltinToolkit({
-        routes: ALL_ROUTES,
-        machine: calls.machine,
-        ids,
-      }),
+      toolkit: {
+        ...createBuiltinToolkit({
+          routes: ALL_ROUTES,
+          machine: calls.machine,
+          ids,
+        }),
+        // 외부 MCP tool 등록 통로다(Q16, T37). 등록·재조회는 mcp-toolkit이 소유한다.
+        mcp: (assignment: string) => mcpKit.toolkit(assignment),
+      },
       // 앱 command 선언·허락 읽기와 앱 통로 호출, 결과 조회(lophn-agent/harness/tools R16).
       apps: createAppToolkit({ machine: calls.machine }),
       product: PRODUCT_INSTRUCTIONS,
@@ -78,6 +91,31 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
 // 기다리는 run은 같은 길로 이어 간다. 쉬는 동안에도 core read로만 본다.
 export const PUMP_IDLE_MS = 500;
 export const PUMP_WAITING_MS = 2_000;
+
+// 제품 MCP 연결 눈이다(Q16, T37). 실제 stdio process를 열고(spawnStdioMcp) 단조
+// deadline timer를 쓴다. 테스트는 fake child·fake fetch를 끼운다.
+function mcpConnectionsDeps(): McpConnectionsDeps {
+  return {
+    nowMs: () => Date.now(),
+    wait: abortableWait,
+    deadline: (ms, signal) =>
+      new Promise((resolve) => {
+        const timer = setTimeout(() => {
+          signal.removeEventListener("abort", onAbort);
+          resolve("elapsed");
+        }, ms);
+        function onAbort() {
+          clearTimeout(timer);
+          resolve("aborted");
+        }
+        signal.addEventListener("abort", onAbort, { once: true });
+      }),
+    openStdio: (_server, input, signal) => {
+      void signal;
+      return Promise.resolve(spawnStdioMcp(input));
+    },
+  };
+}
 
 export function startRunPump(options: {
   driver: RunDriver;

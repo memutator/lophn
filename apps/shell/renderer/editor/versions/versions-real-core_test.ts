@@ -133,7 +133,11 @@ Deno.test({
       assertEquals(contexts, { ok: true, value: [] });
 
       // 1번 판을 되살린다: 원본 파일에 1번 바이트를 쓰고 그 관측으로 새 최신 판이 선다.
-      const restored = await versions.restore(document, history[1]!.id);
+      const restored = await versions.restore(
+        document,
+        history[1]!.id,
+        history[0]!.id,
+      );
       assert(restored.ok, JSON.stringify(restored));
       assertEquals(restored.value.outcome, "saved");
       assertEquals(restored.value.file, "written");
@@ -146,7 +150,11 @@ Deno.test({
       assertEquals(after.value[0]!.contentHash, history[1]!.contentHash);
 
       // 같은 판을 다시 되살리면 파일도 판도 그대로다.
-      const again = await versions.restore(document, history[1]!.id);
+      const again = await versions.restore(
+        document,
+        history[1]!.id,
+        restored.value.version!,
+      );
       assert(again.ok, JSON.stringify(again));
       assertEquals(again.value, {
         outcome: "unchanged",
@@ -256,7 +264,11 @@ Deno.test({
       assertEquals(facts.value.linked, false);
       assertEquals(facts.value.formatExplicit, true);
 
-      const restored = await versions.restore(document, bigVersion);
+      const restored = await versions.restore(
+        document,
+        bigVersion,
+        history.value[0]!.id,
+      );
       assert(restored.ok, JSON.stringify(restored));
       // 원본 파일이 없는 문서라 파일 단계는 없다.
       assertEquals(restored.value.outcome, "saved");

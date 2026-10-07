@@ -37,6 +37,8 @@ import { ContextsScreen } from "./contexts/contexts-screen.tsx";
 import type { ContextsSource } from "./contexts/source.ts";
 import { AppsScreen } from "./apps/apps-screen.tsx";
 import type { AppsSource } from "./apps/source.ts";
+import { SettingsScreen } from "./settings/settings-screen.tsx";
+import type { SettingsSource } from "./settings/source.ts";
 import styles from "./lophn-space.module.css";
 
 export interface LophnSpaceProps {
@@ -68,6 +70,10 @@ export interface LophnSpaceProps {
   apps?: AppsSource;
   /** 그 앱의 앱 공간으로 간다. apps 화면의 열기와 팔레트의 앱 행이 쓴다. */
   onApp?: (app: string) => void;
+  /** settings 화면 통로. 없으면 settings는 준비 전 안내다. */
+  settings?: SettingsSource;
+  /** 전역 [Instructions] 편집기로 간다. settings 화면의 단추가 쓴다. */
+  onInstructions?: () => void;
 }
 
 const EMPTY_CATALOG: Catalog = { projects: [], apps: [], contexts: [] };
@@ -90,6 +96,8 @@ export function LophnSpace(
     connected = 0,
     apps,
     onApp,
+    settings,
+    onInstructions,
   }: LophnSpaceProps,
 ) {
   const [current, setCurrent] = useState<LophnScreen>(screen ?? DEFAULT_SCREEN);
@@ -271,6 +279,14 @@ export function LophnSpace(
             )
             : current === "apps" && apps && onApp
             ? <AppsScreen source={apps} onOpen={onApp} />
+            : current === "settings" && settings
+            ? (
+              <SettingsScreen
+                source={settings}
+                onInstructions={onInstructions}
+                onAsk={conversation ? () => setDockOpen(true) : undefined}
+              />
+            )
             : current === "things-to-confirm" && requests !== null
             ? (
               <ThingsToConfirm

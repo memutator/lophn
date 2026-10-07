@@ -177,6 +177,12 @@ export const loginBeginOutputSchema = z.object({
   flow: z.enum(OAUTH_FLOWS),
   interval_ms: durationMsSchema,
   expires_at: atSchema,
+  // 사람이 OS browser에서 열 공식 로그인 주소와 device code(shell#T31이 이 단추로 연다).
+  // 값 없는 안내라 secret이 아니다. 주소가 없으면 shell은 열 곳이 없다고 보인다.
+  sign_in: z.object({
+    url: z.string(),
+    user_code: nonblankSchema.nullable(),
+  }).optional(),
 });
 
 export const loginCompleteInputSchema = z.strictObject({

@@ -25,6 +25,7 @@ export {
   type DetectionKey,
   discover,
   type ExecPort,
+  FALLBACK_DIRS as DETECTION_FALLBACK_DIRS,
   type FilesPort,
   PROBE_OUTPUT_LIMIT_BYTES,
   PROBE_TIMEOUT_MS,
@@ -58,7 +59,12 @@ export {
   type Receipt,
   RECEIPT_SCHEMA_VERSION,
 } from "./integration/receipt.ts";
-export { filePort, storeOf } from "./integration/journal.ts";
+export {
+  filePort,
+  integrationsStore,
+  storeOf,
+  WRITE_TEMP_SUFFIX,
+} from "./integration/journal.ts";
 export {
   type BuildInput,
   buildResources,
@@ -110,6 +116,7 @@ export {
   installSelected,
   planSelected,
   removeSelected,
+  selectedWriteFiles,
   updateSelected,
 } from "./install.ts";
 export {

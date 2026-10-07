@@ -16,16 +16,20 @@ function targetKey(target: IntegrationTarget): string {
 // 새 파일의 기본 권한이다. 기존 파일이 있으면 그 mode를 따른다.
 const DEFAULT_MODE = 0o644;
 
+// 쓰기 중인 temp 파일의 이름이다. 정해진 이름이라 CLI launcher가 선택한 파일마다 이 이름의 쓰기도 함께
+// 정확한 경로로 허락할 수 있다(폴더 단위 쓰기 권한 없이 같은 폴더 temp·rename이 된다).
+export const WRITE_TEMP_SUFFIX = ".lophn-tmp";
+
 async function atomic(path: string, text: string): Promise<boolean> {
   const dir = path.slice(0, path.lastIndexOf("/"));
   // 기존 파일의 mode를 보존한다. temp 파일은 0600이라 그대로 두면 실행 권한이
   // 사라진다.
   const mode = await existingMode(path);
-  let temp: string | null = null;
+  const temp = `${path}${WRITE_TEMP_SUFFIX}`;
   try {
-    await Deno.mkdir(dir, { recursive: true });
-    temp = await Deno.makeTempFile({ dir, prefix: ".lophn-" });
-    const handle = await Deno.open(temp, { write: true });
+    // 이전에 끊긴 temp가 symlink여도 따라가지 않는다. 지우고 새로 만든다(createNew는 있으면 실패).
+    await Deno.remove(temp).catch(() => {});
+    const handle = await openNew(temp, dir);
     try {
       await handle.write(new TextEncoder().encode(text));
       await handle.sync();
@@ -34,18 +38,35 @@ async function atomic(path: string, text: string): Promise<boolean> {
     }
     await Deno.chmod(temp, mode);
     await Deno.rename(temp, path);
-    temp = null;
-    // rename 뒤 디렉터리를 fsync해 이름 변경이 디스크에 남게 한다.
-    const dirHandle = await Deno.open(dir);
+    // rename 뒤 디렉터리를 fsync해 이름 변경이 디스크에 남게 한다. 폴더를 열 권한이 없는 통로(CLI
+    // launcher의 정확한 파일 권한)에서는 건너뛴다. 이름은 이미 바뀌었다.
     try {
-      await dirHandle.sync();
-    } finally {
-      dirHandle.close();
+      const dirHandle = await Deno.open(dir);
+      try {
+        await dirHandle.sync();
+      } finally {
+        dirHandle.close();
+      }
+    } catch {
+      // 폴더 fsync는 best-effort다.
     }
     return true;
   } catch {
-    if (temp !== null) await Deno.remove(temp).catch(() => {});
+    await Deno.remove(temp).catch(() => {});
     return false;
+  }
+}
+
+// temp 파일을 새로 만든다. 폴더가 없을 때만 만들고 다시 시도한다(있는 폴더에 mkdir를 부르지 않는다).
+async function openNew(temp: string, dir: string): Promise<Deno.FsFile> {
+  const open = () =>
+    Deno.open(temp, { write: true, createNew: true, mode: 0o600 });
+  try {
+    return await open();
+  } catch (error) {
+    if (!(error instanceof Deno.errors.NotFound)) throw error;
+    await Deno.mkdir(dir, { recursive: true });
+    return await open();
   }
 }
 
@@ -118,7 +139,11 @@ export function filePort(): FilePort {
 
 // receipt·journal 저장이다. home은 lophn home이지 harness home이 아니다.
 export function storeOf(home: string): Store {
-  const dir = `${home}/${INTEGRATIONS}`;
+  return integrationsStore(`${home}/${INTEGRATIONS}`);
+}
+
+// receipt·journal 폴더를 직접 받는 저장이다. CLI는 data root `H`의 `integrations`를 준다.
+export function integrationsStore(dir: string): Store {
   return {
     async receipt(target) {
       return await readJson<Receipt>(`${dir}/${targetKey(target)}.json`);
@@ -182,6 +207,9 @@ async function pathEscapes(root: string, path: string): Promise<boolean> {
       if (!stat.isDirectory) return true;
     } catch (error) {
       if (error instanceof Deno.errors.NotFound) return false;
+      // CLI launcher는 선택한 파일만 정확한 경로로 허락해 폴더를 볼 수 없다. 보지 못한 것은 증명되지
+      // 않았지만 쓰기 권한도 그 정확한 파일과 temp 이름뿐이라 범위가 거기서 끝난다.
+      if (error instanceof Deno.errors.NotCapable) return false;
       return true;
     }
   }
@@ -193,6 +221,7 @@ async function pathEscapes(root: string, path: string): Promise<boolean> {
   } catch (error) {
     // 아직 없는 root(처음 설치하는 `~/.codex`)에는 따라갈 symlink가 없다.
     if (error instanceof Deno.errors.NotFound) return false;
+    if (error instanceof Deno.errors.NotCapable) return false;
     return true;
   }
 }

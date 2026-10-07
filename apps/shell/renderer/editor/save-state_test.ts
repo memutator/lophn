@@ -84,7 +84,10 @@ function report(over: Partial<SaveReport> = {}): SaveReport {
 }
 
 function harness(
-  answer: (sent: Sent, index: number) => EditorReply<SaveReport> = (
+  answer: (
+    sent: Sent,
+    index: number,
+  ) => EditorReply<SaveReport> | Promise<EditorReply<SaveReport>> = (
     sent,
     index,
   ) => ({
@@ -247,6 +250,55 @@ Deno.test("shell/editor#R12: 쓰기 실패는 정한 간격으로 다시 시도�
   await flushPromises();
   assertEquals(session.facts.disk.state, "saved");
   assertEquals(session.unsettled(), false);
+});
+
+Deno.test("shell/editor#R12: 정한 간격의 다시 시도가 쓰는 중에 사람이 다시 시도를 눌러도 같은 기준 hash의 쓰기를 겹쳐 보내지 않아 저장됨으로 끝난다", async () => {
+  // 쓸 수 없던 폴더가 풀린 뒤다. 두 번째 쓰기는 지연시켜 쓰는 중으로 둔다.
+  let release: (reply: EditorReply<SaveReport>) => void = () => {};
+  const { session, sent, time } = harness((_sent, index) =>
+    index === 1
+      ? new Promise((resolve) => release = resolve)
+      : index === 0
+      ? { ok: true, value: report({ disk: "failed", failure: "unavailable" }) }
+      : { ok: true, value: report({ written_hash: "h3".padEnd(64, "0") }) }
+  );
+  session.edit("x");
+  await time.advance(SAVE_QUIET_MS);
+  await time.advance(RETRY_DELAYS_MS[0]!);
+  // 다시 시도가 쓰는 중이다. 이때 "실패 + 다시 시도" 행동이 보인다.
+  assertEquals(sent.length, 2);
+  assertEquals(saveHeadline(session.facts).kind, "failed");
+  session.retry();
+  await flushPromises();
+  // 겹쳐 쓰지 않는다.
+  assertEquals(sent.length, 2);
+  release({ ok: true, value: report({ written_hash: "h2".padEnd(64, "0") }) });
+  await flushPromises();
+  assertEquals(sent.length, 2);
+  assertEquals(sent.map((item) => item.base), [H0, H0]);
+  assertEquals(session.facts.disk.state, "saved");
+  assertEquals(saveHeadline(session.facts).kind, "saved");
+  assertEquals(session.unsettled(), false);
+  // 쓰는 중이던 다시 시도가 또 실패하면 사람이 고른 다시 시도가 그 뒤에 쓴다.
+  const second = harness((_sent, index) =>
+    index === 1
+      ? new Promise((resolve) => release = resolve)
+      : index === 0
+      ? { ok: true, value: report({ disk: "failed", failure: "unavailable" }) }
+      : { ok: true, value: report({ written_hash: "h4".padEnd(64, "0") }) }
+  );
+  second.session.edit("y");
+  await second.time.advance(SAVE_QUIET_MS);
+  await second.time.advance(RETRY_DELAYS_MS[0]!);
+  second.session.retry();
+  release({
+    ok: true,
+    value: report({ disk: "failed", failure: "unavailable" }),
+  });
+  await flushPromises();
+  assertEquals(second.sent.length, 3);
+  assertEquals(second.sent.map((item) => item.base), [H0, H0, H0]);
+  assertEquals(second.session.facts.disk.state, "saved");
 });
 
 Deno.test("shell/editor#R12: 연결이 끊긴 쓰기는 연결 끊김으로 보이고 정상 저장으로 보이지 않는다", async () => {

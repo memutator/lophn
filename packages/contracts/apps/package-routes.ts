@@ -1,5 +1,7 @@
 import { z } from "zod";
 import {
+  BLOB_READ_MAX_BYTES,
+  blobReadResultSchema,
   defineCommand,
   defineEvent,
   defineRead,
@@ -124,6 +126,25 @@ export const packagesGuide = defineWorker({
   errors: readErrors,
 });
 
+// 안내 원문(`package_version/guide` blob)의 읽기다. 일반 `blobs/read`를 열지 않고 이 한 field만 읽는다:
+// owner_kind·field는 고정이고 입력은 package 이름·정확한 version과 읽을 구간뿐이라 다른 blob(문서 판 파일·
+// format module·problem log 등)을 가리킬 수 없다. 등록되지 않은 version·안내 없는 version은 없는 것과 같은 답이다.
+export const packagesGuideBodyInputSchema = z.strictObject({
+  name: packageNameSchema,
+  version: packageVersionNameSchema,
+  offset_bytes: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+  length_bytes: z.number().int().min(0).max(BLOB_READ_MAX_BYTES),
+});
+export const packagesGuideBody = defineRead({
+  resource: "packages",
+  method: "guide_body",
+  name: "packages.guide_body",
+  input: packagesGuideBodyInputSchema,
+  output: blobReadResultSchema,
+  actors: readActors,
+  errors: readErrors,
+});
+
 // release의 고정 sdk_dependencies로 찾은 사용처(apps/sdk#R6).
 export const packagesUsageInputSchema = z.strictObject({
   name: packageNameSchema,
@@ -154,6 +175,7 @@ export const PACKAGE_ROUTES = [
   packagesList,
   packagesVersions,
   packagesGuide,
+  packagesGuideBody,
   packagesUsage,
 ] as const;
 
@@ -162,6 +184,7 @@ export const PACKAGE_KIND_ROUTES = [
   "list",
   "versions",
   "guide",
+  "guide_body",
   "usage",
 ] as const;
 

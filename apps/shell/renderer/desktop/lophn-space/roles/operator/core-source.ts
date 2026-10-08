@@ -202,10 +202,10 @@ export function coreOperatorSource(
         },
         reason: REASON,
       };
-      // 승인 결정의 seq는 허락 전에는 알 수 없는 자리 값이다. 적용 command는 이 값을 검사하지 않는다.
+      // 허락이 확정한 결정 seq(lophn-agent#T53)는 적용 전에는 알 수 없는 값이라
+      // 생략한다. apply handler가 승인 기록의 결정 seq로 맞춘다.
       const value = {
         approval,
-        decision_seq: "1",
         id: assignment,
         bundle,
       };

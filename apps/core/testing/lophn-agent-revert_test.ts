@@ -33,7 +33,8 @@ import {
 // 임시 ledger 파일을 쓰고, 소유 concern의 복원 command는 시험용 소유자(notes, mail)로 대신한다
 // (packages/lophn-agent/revert/registration_test.ts). 문서의 실제 판정과 복원은
 // apps/core/revert_test.ts가 실제 core와 documents로 본다. 실제 provider를 부르지 않고 사람
-// 데이터 root를 열지 않는다.
+// 데이터 root를 열지 않는다. 앱 단계와 ledger 묶음이 섞인 revert의 끝내기(lophn-agent#T48, R10·R11)도
+// 여기서 본다: 실제 앱 호출 쪽은 apps/core/app_revert_test.ts가 실제 core와 todo fixture로 본다.
 
 const MY_OPERATIONS = [
   "RevertRun",
@@ -44,6 +45,12 @@ const MY_OPERATIONS = [
   "RestoreNote",
   "RecordMail",
   "RecordStranger",
+  "RecordToolRequest",
+  "DecideToolCall",
+  "StartToolCall",
+  "FinishToolCall",
+  "CheckpointRevert",
+  "FinishRevert",
 ];
 const user: AuthenticatedContext = {
   ...userCredential,
@@ -689,6 +696,315 @@ Deno.test("lophn-agent/revert#R1: 복원할 변경이 없는 run은 적용하지
       "invalid_input",
     );
     assertEquals(await count(h, "select count(*) as n from reverts"), 0);
+  } finally {
+    await h.close();
+  }
+});
+
+const TOOL_CALL = runId("tcl", 1);
+const INVOCATION = runId("inv", 1);
+// 앱의 revert command 호출이 남긴 실제 Invocation이다(원래 write의 것과 다르다).
+const REVERT_INVOCATION = runId("inv", 2);
+const HASH_A = "1".repeat(64);
+const HASH_B = "2".repeat(64);
+
+// 되돌림 근거가 있는 앱 write 하나를 run의 ToolCall 기록으로 남긴다(app_command와 receipt).
+async function appWrite(h: LedgerHarness, run: string) {
+  const step = async (command: string, input: unknown, compare: unknown) =>
+    value(
+      await h.command(machine, {
+        run,
+        command,
+        input,
+        compare,
+        idempotency_key: `${command}-${TOOL_CALL}`,
+        prepared: [],
+      }),
+    );
+  await step("RecordToolRequest", {
+    id: TOOL_CALL,
+    run,
+    model_call: runId("mcl", 1),
+    response_key: "call-1",
+    response_order: 0,
+    tool: "add_todo",
+    definition_revision: "1",
+    effect: "write",
+    confirm: false,
+    extension: null,
+    input: HASH_A,
+    retry_of: null,
+    attempt: 0,
+    app_command: {
+      app: runId("app", 1),
+      release: runId("rel", 1),
+      command: "add_todo",
+      blueprint_hash: HASH_A,
+      definition_hash: HASH_B,
+      permission_basis: {
+        grant: runId("grt", 1),
+        scope: "todos",
+        basis_seq: "0",
+      },
+      context_binding: null,
+      revert_command: "revert_todo",
+    },
+  }, { run_state_seq: "1", model_call_finished_seq: "1" });
+  await step("DecideToolCall", {
+    tool_call: TOOL_CALL,
+    decision: {
+      decision: "allow",
+      reason: "scope allows it",
+      effect: "reversible_write",
+      assignment_revision: 1,
+      preset_revision: 1,
+      contract_revision: "1",
+      comparison_basis: null,
+      approval: null,
+    },
+  }, { state_seq: "0" });
+  await step("StartToolCall", {
+    tool_call: TOOL_CALL,
+    started_at: new Date(RUN_NOW).toISOString(),
+    approval: null,
+  }, { state_seq: "1", run_state_seq: "1", assignment_revision: 1 });
+  await step("FinishToolCall", {
+    tool_call: TOOL_CALL,
+    outcome: { kind: "success", code: "ok" },
+    output: HASH_B,
+    result: {
+      status: "success",
+      summary: "command add_todo of todo finished",
+      content: {
+        invocation: INVOCATION,
+        revert: {
+          invocation: INVOCATION,
+          receipt: "change:1",
+          expected_revision: "1",
+        },
+      },
+      complete: true,
+      source: null,
+      continuation: null,
+      pending: [],
+    },
+    finished_at: new Date(RUN_NOW).toISOString(),
+    duration_ms: 1,
+  }, { state_seq: "2" });
+}
+
+// 앱 단계 하나와 ledger 묶음 하나(note)가 섞인 run을 사람이 본 판으로 적용한다. 적용은 applying으로
+// 저장할 뿐 ledger 묶음을 바꾸지 않는다.
+async function mixedApplying(h: LedgerHarness, run: string) {
+  await finished(h, run, 1, async () => {
+    await note(h, run, NOTE_A, "a1");
+    await appWrite(h, run);
+  });
+  const shown = await preview(h, run);
+  const step = shown.groups.find((group) => group.app_revert !== null)!;
+  assertEquals(step.capability, "reversible");
+  assertEquals(step.app_revert!.invocation, INVOCATION);
+  const started = value(await apply(h, run, { shown })) as { result: Header };
+  assertEquals(started.result.outcome, "applying");
+  assertEquals(started.result.result_seq, null);
+  assertEquals(await noteValue(h, NOTE_A), "a1");
+  const revert = started.result.id;
+  const items = value(
+    await buildRevertInput(
+      shown.groups,
+      () => Promise.resolve({ ok: true as const, value: null }),
+    ),
+  );
+  // 끝내기가 다시 받는 ledger 묶음의 복원 입력이다(앱 단계는 제외).
+  const ledger = items.filter((_, index) =>
+    shown.groups[index]!.capability === "reversible" &&
+    shown.groups[index]!.app_revert === null
+  );
+  return {
+    revert,
+    key: step.app_revert!.step_key.replace(/^[^:]+/, revert),
+    ledger,
+  };
+}
+
+const finishBody = (
+  revert: string,
+  key: string,
+  groups?: unknown[],
+) => ({
+  command: "FinishRevert",
+  input: {
+    revert,
+    step_keys: [key],
+    ...(groups === undefined ? {} : { groups }),
+  },
+  compare: {},
+  idempotency_key: `finish-${revert}-${groups === undefined ? "bare" : "full"}`,
+  prepared: [],
+});
+
+Deno.test("lophn-agent/revert#R11: 앱 단계가 실패하면 ledger 묶음은 복원하지 않고 앱의 실제 결과·미적용 묶음을 각각 남기며 전체를 applied로 표시하지 않는다", async () => {
+  const h = await open();
+  try {
+    const { revert, key, ledger } = await mixedApplying(h, RUN_1);
+    value(
+      await h.command(machine, {
+        command: "CheckpointRevert",
+        input: {
+          revert,
+          step_key: key,
+          invocation: null,
+          result: "failure",
+        },
+        compare: {},
+        idempotency_key: `ck-${revert}`,
+        prepared: [],
+      }),
+    );
+    const done = value(
+      await h.command(machine, finishBody(revert, key, ledger)),
+    ) as { result: Header };
+    assertEquals(done.result.outcome, "partial");
+    // ledger 묶음은 그대로다. 앱 단계가 끝나지 않아 시작하지 않은 것으로 남는다.
+    assertEquals(await noteValue(h, NOTE_A), "a1");
+    const [stored] = await list(h, RUN_1);
+    assertEquals(stored.outcome, "partial");
+    assertEquals(
+      stored.changes.filter((change) => change.capability === "reversible")
+        .map((change) => [change.owner, change.result, change.reason]),
+      [
+        ["fixture/notes", "unchanged", "app_not_started"],
+        ["apps/invocations", "failure", "app_failed"],
+      ],
+    );
+    assertEquals(
+      await count(
+        h,
+        "select count(*) as n from events where type = 'RevertFinished'",
+      ),
+      1,
+    );
+    assertEquals(
+      await count(
+        h,
+        "select count(*) as n from events where type = 'RevertApplied'",
+      ),
+      0,
+    );
+  } finally {
+    await h.close();
+  }
+});
+
+Deno.test("lophn-agent/revert#R10: 앱 단계가 모두 복원되면 끝내기가 ledger 묶음을 준비 입력으로 복원하고 둘 다 복원돼야 applied다", async () => {
+  const h = await open();
+  try {
+    const { revert, key, ledger } = await mixedApplying(h, RUN_1);
+    // 복원했다는 기록은 revert 호출의 실제 Invocation이 있어야 한다.
+    code(
+      await h.command(machine, {
+        command: "CheckpointRevert",
+        input: { revert, step_key: key, invocation: null, result: "restored" },
+        compare: {},
+        idempotency_key: `ck-none-${revert}`,
+        prepared: [],
+      }),
+      "invalid_input",
+    );
+    value(
+      await h.command(machine, {
+        command: "CheckpointRevert",
+        input: {
+          revert,
+          step_key: key,
+          invocation: REVERT_INVOCATION,
+          result: "restored",
+        },
+        compare: {},
+        idempotency_key: `ck-${revert}`,
+        prepared: [],
+      }),
+    );
+    // 단계 근거는 원래 write의 invocation을 그대로 두고 revert 호출의 invocation을 따로 남긴다.
+    assertEquals(
+      (await sql(
+        h,
+        `select json_extract(app_revert, '$.invocation') as original,
+                json_extract(app_revert, '$.revert_invocation') as own
+           from revert_changes where revert = ? and app_revert is not null`,
+        [revert],
+      )).map((row) => [row["original"], row["own"]]),
+      [[INVOCATION, REVERT_INVOCATION]],
+    );
+    assertEquals(await noteValue(h, NOTE_A), "a1");
+    const done = value(
+      await h.command(machine, finishBody(revert, key, ledger)),
+    ) as { result: Header };
+    assertEquals(done.result.outcome, "applied");
+    assertEquals(await noteValue(h, NOTE_A), "");
+    const [stored] = await list(h, RUN_1);
+    assertEquals(
+      stored.changes.filter((change) => change.capability === "reversible")
+        .map((change) => [change.owner, change.result, change.reason]),
+      [
+        ["fixture/notes", "restored", null],
+        ["apps/invocations", "restored", null],
+      ],
+    );
+    assertEquals(
+      await count(
+        h,
+        "select count(*) as n from events where type = 'RevertApplied'",
+      ),
+      1,
+    );
+  } finally {
+    await h.close();
+  }
+});
+
+Deno.test("lophn-agent/revert#R11: 앱 복원 뒤 ledger owner가 복원을 거절하면 끝내기가 취소되고 ledger 없이 끝내면 이미 성공한 앱 복원과 함께 partial로 남긴다", async () => {
+  const h = await open();
+  try {
+    const { revert, key, ledger } = await mixedApplying(h, RUN_1);
+    value(
+      await h.command(machine, {
+        command: "CheckpointRevert",
+        input: {
+          revert,
+          step_key: key,
+          invocation: REVERT_INVOCATION,
+          result: "restored",
+        },
+        compare: {},
+        idempotency_key: `ck-${revert}`,
+        prepared: [],
+      }),
+    );
+    // 앱 복원은 끝났고 그 사이 owner의 숨은 상태가 바뀌었다. owner가 복원을 거절하면 끝내기
+    // 전체가 취소되어 어느 묶음도 바뀌지 않고 revert는 applying으로 남는다.
+    value(await h.command(machine, envelope("TouchNote", { note: NOTE_A })));
+    code(
+      await h.command(machine, finishBody(revert, key, ledger)),
+      "conflict",
+    );
+    assertEquals(await noteValue(h, NOTE_A), "a1");
+    assertEquals((await list(h, RUN_1))[0]!.outcome, "applying");
+    // 부르는 쪽은 ledger 묶음 없이 끝내 앱 결과만 확정한다: 앱 복원은 남고 ledger는 미적용이다.
+    const done = value(
+      await h.command(machine, finishBody(revert, key)),
+    ) as { result: Header };
+    assertEquals(done.result.outcome, "partial");
+    assertEquals(await noteValue(h, NOTE_A), "a1");
+    const [stored] = await list(h, RUN_1);
+    assertEquals(
+      stored.changes.filter((change) => change.capability === "reversible")
+        .map((change) => [change.owner, change.result, change.reason]),
+      [
+        ["fixture/notes", "unchanged", "app_not_started"],
+        ["apps/invocations", "restored", null],
+      ],
+    );
   } finally {
     await h.close();
   }

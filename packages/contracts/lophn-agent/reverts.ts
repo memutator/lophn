@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   defineCommand,
   defineEvent,
+  defineMemory,
   defineRead,
   idSchema,
   jsonObjectSchema,
@@ -127,13 +128,18 @@ export const revertRunInputSchema = z.strictObject({
 export const checkpointRevertInputSchema = z.strictObject({
   revert: idSchema("rvt"),
   step_key: z.string().min(1),
-  invocation: idSchema("inv"),
+  // 앱의 revert command 호출이 남긴 실제 Invocation이다(원래 write의 invocation이 아니다). 호출이
+  // 앱에 닿지 않았거나 응답을 잃어 알 수 없으면 null이다. 원래 write의 invocation은 앱 단계
+  // 근거(AppRevertBinding.invocation)에 그대로 있다.
+  invocation: idSchema("inv").nullable(),
   result: revertResultSchema,
 });
 
 export const finishRevertInputSchema = z.strictObject({
   revert: idSchema("rvt"),
   step_keys: z.array(z.string().min(1)).min(1),
+  // machine이 되돌림을 끝낼 때 저장된 reversible 묶음과 맞추고 prepared 보상 값을 다시 건넨다(R11).
+  groups: z.array(preparedSchema).min(1).optional(),
 });
 
 const revertHeaderOutput = z.object({
@@ -279,7 +285,31 @@ export const revertFinished = defineEvent("RevertFinished", {
   }),
 });
 
+// 사람이 확인해 applying으로 접수된 revert의 앱 단계를 core가 이어 실행한다(lophn-agent#T48).
+// 호출한 사람의 자격으로 앱의 revert command를 직접 부르고, 단계 기록과 끝내기는 core 내부 machine
+// 자격이 한다. 결과(outcome)는 끝낸 revert의 실제 결과다. 사람 결정은 RevertRun의 확인 handle이
+// 이미 받았고 이 route는 applying인 revert만 이어 받는다. ledger를 거치지 않는 core 메모리 route다.
+export const runAppRevert = defineMemory({
+  resource: "reverts",
+  method: "run_apps",
+  name: "RunAppRevert",
+  input: z.strictObject({
+    revert: idSchema("rvt"),
+    // RevertRun이 받은 입력의 묶음(준비 결과 포함). 문서 같은 ledger 묶음을 앱 단계 뒤에 복원한다.
+    groups: z.array(preparedSchema).min(1).optional(),
+  }),
+  output: z.object({
+    revert: idSchema("rvt"),
+    outcome: revertOutcomeSchema,
+    // 이번에 부른 단계의 step_key(호출 순서)다.
+    called: z.array(z.string()),
+  }),
+  actors: ["user"],
+  errors: [...commandErrors],
+});
+
 export const REVERT_ROUTES = [
+  runAppRevert,
   checkpointRevert,
   finishRevert,
   revertRun,
@@ -294,4 +324,6 @@ export const REVERT_EVENTS = [
   revertFinished,
 ] as const;
 
-export { revertChangeSchema, revertGroupSchema };
+export type AppRevertBinding = z.infer<typeof appRevertBindingSchema>;
+
+export { appRevertBindingSchema, revertChangeSchema, revertGroupSchema };

@@ -153,6 +153,8 @@ changes는 시도 결과와 event 연결이며 원래 내용 복사본이 아니
 
 `revert_run`은 앱 단계가 있으면 durable applying 접수 결과를 반환한다. runtime은 저장한 preview_hash와 AppRevertBinding을 읽고 `step_key`로 이미 수행한 복원 Invocation을 먼저 조회한다. 원래 write 역순으로 앱 revert command를 호출하며 사람 복원 결정·현재 앱 존재·release 계약·CAS를 검사한다. agent.commands Grant를 복원 권한으로 복사하지 않고 사용자 결정에 묶인 user actor의 앱 통로를 사용한다. 각 결과는 원래 receipt 및 revert ID에 묶어 `CheckpointRevert`로 남긴다. 이미 전달된 효과가 불명확하면 result query 외 재송신하지 않는다. 앱 단계 모두 성공 후 `FinishRevert`가 ledger owner CAS를 다시 검사하고 ledger 복원 전체 및 최종 결과를 transaction으로 확정한다. 새 conflict면 ledger는 미적용이고 이미 성공한 앱 복원은 partial이다.
 
+이어 실행은 core의 `RunAppRevert`(`reverts/run_apps`, 사람 자격의 core 메모리 route)다. revert 창이 `RevertRun`의 applying 접수 뒤 이 route를 부르면 core가 위 순서를 이어 받는다: 앱 호출은 호출한 사람의 `apps/connect` 연결과 앱 direct socket(`request_key`=step_key), 단계 기록·끝내기는 core 내부 machine 자격이다(사람 token은 `CheckpointRevert`·`FinishRevert`를 직접 부르지 못한다). `CheckpointRevert.invocation`은 앱의 revert command 호출이 남긴 실제 Invocation(닿지 못했거나 응답을 잃었으면 null)이고 단계 근거의 `revert_invocation`에 남으며 원래 write의 invocation은 `invocation`에 그대로 있다. 끝내기가 owner CAS 거절로 취소되면 `groups` 없이 다시 끝내 앱 결과만 확정한다.
+
 | command | actor | 입력 | 비교 기준 | event | 거절(error code) |
 |---|---|---|---|---|---|
 | `CheckpointRevert` | machine | revert, step_key, 실제 Invocation·결과 | applying·고정 preview·단계 중복 없음; 저장한 사람 결정 근거 | 없음; 앱 사실은 → apps/invocations | `conflict`, `forbidden` |

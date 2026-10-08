@@ -181,17 +181,36 @@ function classifyDocument(
     }
   }
   if (titles.length > 0) {
-    // 제목 복원은 사람 자격으로 부를 수 없는 보상 값이다. 남는 변경으로 설명한다.
-    drafts.push(
-      draft(
-        document,
-        titles.map((event) => event.seq),
-        "irreversible",
-        "title_change",
-        null,
-        null,
-      ),
+    // 제목 복원은 `document.restore`의 제목 보상 값(title)으로 machine이 한다(FinishRevert,
+    // lophn-agent#T48). 준비는 내용 복원 묶음과 같은 이전 판이므로 그 묶음이 복원될 때
+    // 같이 간다. 내용 저장 묶음이 없는 문서는 restore_version도 마지막 저장 앞 판이지만
+    // 저장 묶음이 restore를 먼저 한다. 제목만 바뀐 문서는 마지막 판의 준비 결과가 필요하다.
+    const firstTitle = documentUpdated.payload.safeParse(titles[0].payload);
+    const lastTitle = documentUpdated.payload.safeParse(
+      titles[titles.length - 1].payload,
     );
+    if (!firstTitle.success || !lastTitle.success) {
+      drafts.push(
+        draft(
+          document,
+          titles.map((event) => event.seq),
+          "irreversible",
+          "unclassified_document_event",
+          null,
+          null,
+        ),
+      );
+    } else {
+      drafts.push(
+        draft(document, titles.map((event) => event.seq), "reversible", null, {
+          kind: "title",
+          document,
+          title: firstTitle.data.before_title,
+          base_version: revision,
+          base_revision: revision,
+        }, { kind: "title", document, title: firstTitle.data.before_title }),
+      );
+    }
   }
   return drafts;
 }
@@ -236,11 +255,15 @@ export function createDocumentsOwner(): RevertOwner {
       }
       return drafts;
     },
-    // 내용 복원은 이전 판의 준비 결과가 있어야 한다. 준비 결과는 복원 입력의 comparison.prepared에
-    // 실려 오고, 그 hash(prepared_ref)와 문서·기준 판이 맞아야 한다. 없으면 복원을 시작하지 않는다.
+    // 내용 복원과 제목 복원은 이전 판의 준비 결과가 있어야 한다. 준비 결과는 복원 입력의
+    // comparison.prepared에 실려 오고, 그 hash(prepared_ref)와 문서·기준 판이 맞아야 한다.
+    // 없으면 복원을 시작하지 않는다.
     ready(group, input) {
       const comparison = group.comparison;
-      if (comparison === null || comparison["kind"] !== "restore") {
+      if (
+        comparison === null || comparison["kind"] !== "restore" &&
+          comparison["kind"] !== "title"
+      ) {
         return ok(null);
       }
       const prepared = preparedOf(input);
@@ -271,6 +294,21 @@ export function createDocumentsOwner(): RevertOwner {
           code: "invalid_input",
           message: "this group has nothing to restore",
         });
+      }
+      if (comparison["kind"] === "title") {
+        // 제목 복원은 machine만 하는 보상 값이다. 준비 결과는 마지막 판의 것이다.
+        const prepared = preparedVersionSchema.parse(preparedOf(input));
+        const result = tx.call(documentRestore, {
+          document,
+          restore_version: String(comparison["base_version"]),
+          prepared,
+          title: String(comparison["title"]),
+        }, {
+          base_version: String(comparison["base_version"]),
+          base_revision: String(comparison["base_revision"]),
+        });
+        if (!result.ok) return err(result.error);
+        return ok(undefined);
       }
       const result = comparison["kind"] === "archive"
         ? tx.call(documentArchive, { document }, {

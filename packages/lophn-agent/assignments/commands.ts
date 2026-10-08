@@ -369,6 +369,10 @@ export function createAssignmentCommands(): {
     },
     applyOperator: {
       route: applyOperatorAssignment,
+      // approval 적용(`apply_approved_action`)이 같은 transaction에서 부를 수
+      // 있게 dispatchable이다. user의 직접 호출은 route로 도달해 handler의
+      // 승인 기록 검사에서 거절된다(lophn-agent#T53, shell#T54에서 넘어온 것).
+      dispatchable: true,
       handle(tx, ctx, input: Input<typeof applyOperatorAssignment>) {
         // 적용 주체는 machine이거나 승인 경유의 user다(lophn-agent#T53).
         // approvals/apply의 dispatch만 user 자격으로 부르고 승인 없는 직접 호출은
@@ -383,7 +387,7 @@ export function createAssignmentCommands(): {
         // 승인 상태는 approval_requests의 현재 status와 결정 seq로 본다. T23
         // 결합 전까지 useApproval을 쓰지 않는다(남은 것).
         const approval = tx.sql.get(
-          "select status, closed_seq from approval_requests where id = ?",
+          "select status, cast(closed_seq as text) as closed_seq from approval_requests where id = ?",
           [input.approval],
         );
         if (approval === undefined) {

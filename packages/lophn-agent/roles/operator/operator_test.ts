@@ -16,8 +16,8 @@ import {
 import { handoffAllowed, runSourceSchema } from "@lophn/contracts/lophn-agent";
 import {
   noChange,
-  outcomeOf,
   type OccurrenceOutcome,
+  outcomeOf,
   type OutcomePoint,
   update,
 } from "./mod.ts";
@@ -336,7 +336,10 @@ Deno.test("lophn-agent/roles/operator#R6: 갱신 조건 미충족이면 근거�
   });
   assert(produced.ok);
   assertEquals(produced.value.kind, "no_change");
-  assertEquals(produced.value.update_condition, "count gap exceeds the threshold");
+  assertEquals(
+    produced.value.update_condition,
+    "count gap exceeds the threshold",
+  );
   assertEquals(produced.value.evidence, evidence.slice(0, 1));
   // 근거 없는 무변화는 없다(없는 근거를 성공 보고로 채우지 않는다, R6 확인).
   assertEquals(
@@ -424,12 +427,14 @@ Deno.test("lophn-agent/roles/operator#R8: 사람 대화의 오래 남길 답은 
 Deno.test("lophn-agent/roles/operator#R8: T53의 receiver roles 화면은 사람 답으로 정의를 바꾸지 않고 operator 상한 어디에도 역할 관리 tool이 없다", () => {
   const cap = ROLE_CAPS.get("operator");
   assert(cap !== undefined);
-  for (const outside of [
-    "operator.create",
-    "assignment.change_preset",
-    "preset.create",
-    "preset.copy",
-  ]) {
+  for (
+    const outside of [
+      "operator.create",
+      "assignment.change_preset",
+      "preset.create",
+      "preset.copy",
+    ]
+  ) {
     assertEquals(
       cap.tools.includes(outside),
       false,
@@ -472,18 +477,67 @@ Deno.test("lophn-agent/roles/operator#R9: Operator 상한은 model 이름을 고
   );
 });
 
+// --- R7: 승인한 기존 문서의 새 version -----------------------------------------------
+
+Deno.test("lophn-agent/roles/operator#R7: outputs 새 version은 회차마다 승인을 다시 묻지 않고 자리·형식 변경·선언 밖 문서 쓰기가 없다", () => {
+  // save_version은 builtin definition 그대로다: 회차마다 approval을 다시 묻는
+  // confirm이 없고(R7), 저장 범위는 선언된 남길 문서뿐이다.
+  const defined = BUILTIN_TOOLS.find((tool) =>
+    tool.name === "document.save_version"
+  );
+  assert(defined !== undefined);
+  assertEquals(defined.confirm, false);
+  // 저장 범위는 documents/versions의 operator-output이 정한다. 자리·형식·선언
+  // 밖 문서는 scopeCheck 문장의 범위밖이고 역할 상한 어디에도 format·place 쓰기
+  // tool이 없다(R7).
+  assertEquals(
+    defined.scopeCheck,
+    "documents this run's request covers",
+  );
+  const cap = ROLE_CAPS.get("operator");
+  assert(cap !== undefined);
+  // 새 문서·자리 이동·형식 선언 쓰기는 역할 밖이다(R5, R7).
+  for (
+    const outside of [
+      "document.create",
+      "document.move",
+      "document.rename",
+    ]
+  ) {
+    assertEquals(
+      cap.tools.includes(outside),
+      false,
+      `${outside} should stay out of the operator cap`,
+    );
+  }
+  // 승인 문서 새 version은 회차 결과의 몫이다: 무변화는 새 version 없이 끝낸다(R6·R7).
+  const unchanged = noChange({
+    points: { fact: "f", judgment: "j", uncertainty: "u" },
+    evidence: [{
+      document: id("doc", 1),
+      version: id("ver", 1),
+      section: null,
+    }],
+    update_condition: "the condition",
+  });
+  assert(unchanged.ok);
+  assertEquals(outcomeOf(unchanged.value).kind, "completed");
+});
+
 // --- R10: 반복 실패와 대기 중 회차 ----------------------------------------------
 
 Deno.test("lophn-agent/roles/operator#R10: Operator에게는 실패를 무시하는 선택이나 handoff 송수신 tool이 없다", () => {
   const cap = ROLE_CAPS.get("operator");
   assert(cap !== undefined);
   // handoff 방향 자체가 Operator로/에서 열려 있지 않다	R10.
-  for (const role of [
-    "lophn",
-    "app_engineer",
-    "context_engineer",
-    "operator",
-  ]) {
+  for (
+    const role of [
+      "lophn",
+      "app_engineer",
+      "context_engineer",
+      "operator",
+    ]
+  ) {
     assertEquals(handoffAllowed("operator", role), false);
     assertEquals(handoffAllowed(role, "operator"), false);
   }

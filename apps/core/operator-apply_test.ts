@@ -19,6 +19,13 @@ import type { ApprovalAction } from "../../packages/contracts/platform/mod.ts";
 import { approvalBinding } from "../../packages/contracts/platform/mod.ts";
 import type { ActorKind } from "../../packages/contracts/platform/mod.ts";
 import { type CoreHarness, createCoreHarness } from "./testing/core.ts";
+import {
+  createLedgerRegistration as createDocumentsRegistration,
+} from "./documents.ts";
+import {
+  createLedgerRegistration as createLophnAgentRegistration,
+  lophnAgentDefinitions,
+} from "./lophn-agent.ts";
 
 const PRESET = "pst_01arz3ndektsv4rrffq69g5fav";
 const SLOT = "asg_01arz3ndektsv4rrffq69g5fav";
@@ -27,6 +34,10 @@ const DOC = "doc_01arz3ndektsv4rrffq69g5fav";
 const APPLIES =
   "select count(*) as n from events where type = 'AssignmentCreated'";
 
+// 시작 준비(lophn-agent-bootstrap)가 builtin assignment 둘(lophn·context_engineer)을
+// 만든다. Operator 하나를 더하면 그 둘 뒤의 총계다.
+const BASE_ASSIGNMENTS = 2;
+
 type Login = {
   token: string;
   context: { actor: ActorKind; principal: string };
@@ -34,6 +45,8 @@ type Login = {
 
 const OPERATIONS = [
   "RegisterDefaultPreset",
+  "CreatePreset",
+  "ReadPreset",
   "create_approval_request",
   "grant_approval_request",
   "reject_approval_request",
@@ -189,14 +202,16 @@ async function actionOf(
 }
 
 // 사람이 confirmation window에서 본 내용으로 handle을 발급한다. 승인 결정은
-// route가 선언한 binding field(approval·bundle)의 내용 기준으로 묶인 handle이어야 한다.
+// grant route가 선언한 binding field(approval·created_seq·binding_hash)의 내용
+// 기준으로 묶인 handle이어야 한다.
 async function confirmWindow(
   harness: CoreHarness,
   input: Record<string, unknown>,
 ): Promise<string> {
   const binding: Record<string, unknown> = {
     approval: input["approval"],
-    bundle: input["bundle"],
+    created_seq: input["created_seq"],
+    binding_hash: input["binding_hash"],
   };
   const content = await sha256Hex(canonicalize(binding));
   const issued = await harness.confirmation({
@@ -206,7 +221,7 @@ async function confirmWindow(
       window_id: "win-operator",
       target_ref: String(binding.approval),
       content_hash: content,
-      allowed_decisions: [applyOperatorAssignment.name],
+      allowed_decisions: ["grant_approval_request"],
       expires_at: new Date(Date.now() + 120_000).toISOString(),
     },
   });
@@ -215,7 +230,20 @@ async function confirmWindow(
 }
 
 Deno.test("platform/approvals#R5 lophn-agent/assignments#R4: 사람이 Operator 붙이기를 승인하면 user 자격의 approvals/apply dispatch가 machine 전용이었던 ApplyOperatorAssignment를 부르고 승인 결정 seq로 assignment가 붙는다", async () => {
-  const opened = await createCoreHarness({ io: true });
+  const opened = await createCoreHarness({
+    io: true,
+    teams: [
+      { createLedgerRegistration: createDocumentsRegistration },
+      {
+        lophnAgentDefinitions,
+        createLedgerRegistration: createLophnAgentRegistration,
+      },
+    ],
+    teamModules: [
+      new URL("./documents.ts", import.meta.url).href,
+      new URL("./lophn-agent.ts", import.meta.url).href,
+    ],
+  });
   assert(opened.ok, opened.ok ? "" : opened.error.message);
   const harness = opened.value;
   try {
@@ -248,7 +276,8 @@ Deno.test("platform/approvals#R5 lophn-agent/assignments#R4: 사람이 Operator 
     );
     assertEquals(created.status, 200, JSON.stringify(created.body));
 
-    // 승인 없이 user가 직접 부르는 길은 열지 않는다: 결정 보호 창 handle이 없다.
+    // 승인 없이 user가 직접 부르는 길은 열지 않는다: 사람 결정 확인이 필수라
+    // handle 없는 요청은 경계에서 거절되고 handler의 승인 기록 검사까지 가지 않는다.
     const direct = await post(
       harness,
       "assignments/apply-operator",
@@ -260,7 +289,9 @@ Deno.test("platform/approvals#R5 lophn-agent/assignments#R4: 사람이 Operator 
           .bundle,
       }),
     );
-    assertEquals(direct.status, 403, JSON.stringify(direct.body));
+    assertEquals(direct.status, 400, JSON.stringify(direct.body));
+    // 기동 준비(builtin assignment 2개) 뒤의 총계다: 아직 Operator 만들기가 없다.
+    assertEquals(countOf(harness, APPLIES), BASE_ASSIGNMENTS);
 
     // 사람이 보호 창에서 허락한다.
     const request = created.body["request"] as {
@@ -337,7 +368,7 @@ Deno.test("platform/approvals#R5 lophn-agent/assignments#R4: 사람이 Operator 
         decision_seq: "3",
       }).success,
     );
-    assertEquals(countOf(harness, APPLIES), 1);
+    assertEquals(countOf(harness, APPLIES), BASE_ASSIGNMENTS + 1);
   } finally {
     await harness.close();
   }

@@ -23,6 +23,33 @@ export function useConnection(source: CoreSource): ConnectionState {
   return connection;
 }
 
+const NO_CONNECTION: CoreSource = {
+  subscribe: () => () => {},
+  call: () =>
+    Promise.resolve({
+      ok: false,
+      error: { code: "unavailable", message: "core bridge is missing" },
+    }),
+};
+
+/**
+ * 통로가 없는 창(테스트·다른 창)에서도 훅 순서를 같게 두고 ready를 보인다 — 통로가 없다는
+ * 것은 끊김을 알 길이 없다는 뜻이므로 끊김 줄을 걸지 않는다. 통로가 있으면 useConnection과
+ * 같다.
+ */
+export function useConnectionSafe(
+  core: CoreSource | undefined,
+): ConnectionState {
+  const [connection, setConnection] = useState<ConnectionState>(
+    () => core?.current?.() ?? { state: "ready", confirmedAt: null },
+  );
+  useEffect(
+    () => (core ?? NO_CONNECTION).subscribe(setConnection),
+    [core],
+  );
+  return connection;
+}
+
 /** 다시 시도·다시 연결은 core 상태를 한 번 읽어 main이 연결을 다시 확인하게 한다. */
 export function retryConnection(source: CoreSource): void {
   void source.call({

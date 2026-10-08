@@ -1219,7 +1219,7 @@ concerns: [shell]
 
 ### T59 offline: provider 끊김과 core 끊김
 
-- 상태: 완료 (#462) — 이어보냄: ProviderNotice·provider-state 소스를 대화 도크(composer)에 두는 연결과 save-status의 connection prop을 document-view가 실제 연결 상태로 채우는 연결은 자리 밖(conversation/·document-view.tsx)이라 후속 thread로 넘긴다
+- 상태: 완료 (#462)
 - 등급: frontend
 - concern: shell/desktop, shell/editor
 - 요구: shell/desktop#R7, shell/editor#R12(연결 끊김)

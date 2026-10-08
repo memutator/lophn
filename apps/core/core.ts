@@ -44,6 +44,10 @@ import {
   CONNECTION_TEST_CONTEXT,
   withConnectionTest,
 } from "./provider-connection-test.ts";
+import {
+  type TraceExportWriterDeps,
+  withTraceExport,
+} from "./agent-trace-export.ts";
 import { withViewBinding } from "./view-binding.ts";
 import {
   applyMigrations,
@@ -847,6 +851,13 @@ async function open(
     known: () => runtime?.knownSecrets,
     newCallId: () => connectionTestIds.newId("mcl"),
   };
+  // trace export(observability#R17)의 ledger 경로와 blob 읽기 통로다. 계기 기록이 없다.
+  const traceExportSecrets: TraceExportWriterDeps = {
+    ledgerPath,
+    readBlob: (hash, offset, length) =>
+      blobRead.deps.read(hash, offset, length),
+    known: () => knownSecrets,
+  };
   const knownSecrets = runtime.knownSecrets;
   const redactLine = createProductRedactor(knownSecrets);
   // 앱 쌍 confirm의 approval 요청은 approval 글 준비를 지나는 writer로 낸다(사람이 보는 글은 blob이다).
@@ -1092,48 +1103,52 @@ async function open(
       // handoff 내용(무엇·왜·제외·기대 결과)도 같은 길이다. 용어 후보·근거 변경은 writer에
       // 닿기 전에 고정 판 본문의 출현을 확인한다(documents Q8).
       // 명시 연결 test(provider#R29, R30)는 writer queue 앞에서 네트워크를 기다린다.
+      // trace export(observability#R17)는 writer queue 앞에서 로컬 파일에 쓴다.
       writer: withRevocationSweep(
-        withConnectionTest(
-          withReleasePreparation(
-            withPlacementReservation(
-              withTermOccurrence(
-                withApprovalText(
-                  withQuestionText(
-                    withHandoffBody(
-                      withMessageBody(
-                        runtime.writer,
-                        createMessageBodyPreparer({
+        withTraceExport(
+          withConnectionTest(
+            withReleasePreparation(
+              withPlacementReservation(
+                withTermOccurrence(
+                  withApprovalText(
+                    withQuestionText(
+                      withHandoffBody(
+                        withMessageBody(
+                          runtime.writer,
+                          createMessageBodyPreparer({
+                            relay: () => bodyPrepare.current,
+                            // 알려진 secret 값도 pattern과 함께 가린다. 값을 다 모르는 동안은 막는다.
+                            known: () => runtime?.knownSecrets,
+                          }),
+                        ),
+                        createHandoffBodyPreparer({
                           relay: () => bodyPrepare.current,
-                          // 알려진 secret 값도 pattern과 함께 가린다. 값을 다 모르는 동안은 막는다.
                           known: () => runtime?.knownSecrets,
                         }),
                       ),
-                      createHandoffBodyPreparer({
+                      createQuestionTextPreparer({
                         relay: () => bodyPrepare.current,
-                        known: () => runtime?.knownSecrets,
                       }),
                     ),
-                    createQuestionTextPreparer({
+                    createApprovalTextPreparer({
                       relay: () => bodyPrepare.current,
+                      known: () => runtime?.knownSecrets,
                     }),
                   ),
-                  createApprovalTextPreparer({
-                    relay: () => bodyPrepare.current,
-                    known: () => runtime?.knownSecrets,
-                  }),
+                  (ctx, command, input) =>
+                    runtime!.readers.read(TERM_OCCURRENCE_ROUTE, ctx, {
+                      command,
+                      input,
+                    }),
                 ),
-                (ctx, command, input) =>
-                  runtime!.readers.read(TERM_OCCURRENCE_ROUTE, ctx, {
-                    command,
-                    input,
-                  }),
+                placementReservations,
               ),
-              placementReservations,
+              appsControl.commands,
+              appsControl.grantChange,
             ),
-            appsControl.commands,
-            appsControl.grantChange,
+            connectionTestSecrets,
           ),
-          connectionTestSecrets,
+          traceExportSecrets,
         ),
         () => appsControl.connector.sweep(),
         // 회수된 connection 아래 등록된 MCP·CLI child도 바로 닫는다(platform/identity#R15).

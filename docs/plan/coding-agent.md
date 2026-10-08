@@ -1642,6 +1642,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
   - `ProblemClosed`·`ProblemReopened`에서 남은 조건 재비교, 재시작 뒤
     이어서(R20)
   - 일부 문제만 통과·전부 제외에서 자동 confirmed가 없다(R9)
+- problems#T19에서 넘어온 것: 제품 checker가 repair ticket의 `problems_closed`·`human_confirmation` 판정에 문제 대상 `targets[].revision`을 문제 상태 문구("open")로 보내 `record_checks`가 `invalid_input`(seqSchema)으로 거절된다(제품 core의 실제 repair ticket 시험으로 확인). 문제의 최신 seq를 revision으로 싣는다. 또 제품 core는 repair ticket 생성의 `PROBLEM_STATUSES_PORT`를 아직 등록하지 않아 시험용 port로만 repair ticket을 만든다
 
 ### T46 사람 화면의 repair ticket 준비와 수리 요청
 

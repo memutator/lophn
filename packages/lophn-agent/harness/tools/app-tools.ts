@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { err, fingerprint, ok, type Result } from "../../../base/mod.ts";
 import {
+  type AppBlueprintAgentContext,
   type AppBlueprintCommand,
   appConnect,
   type InputSchema,
@@ -33,18 +34,26 @@ export type AppBlueprintView = {
   release: string;
   blueprint_hash: string;
   commands: readonly AppBlueprintCommand[];
+  // 화면 선언(크기)과 화면 context 선언이다. 읽지 않은 호출자는 생략하고 그러면 context·카드는 없다.
+  screens?: readonly { key: string; sizes: readonly string[] }[];
+  agent_context?: readonly AppBlueprintAgentContext[];
 };
 
-// 현재 허락(agent.commands grant)이 연 command다. grant ID는 판정 근거에 남는다.
-export type AppGrant = { grant: string; commands: readonly string[] };
+// 현재 허락(agent.commands grant)이 연 command다. grant ID는 판정 근거에 남고 basis_seq는
+// grant 집합이 마지막으로 바뀐 seq다(호출 기록의 permission_basis 원문).
+export type AppGrant = {
+  grant: string;
+  commands: readonly string[];
+  basis_seq: string;
+};
 
 // command를 연 grant다. 여럿이면 ID가 앞선 것이다. 없으면 허락이 없다.
 export function grantFor(
   grants: readonly AppGrant[],
   command: string,
-): string | undefined {
+): AppGrant | undefined {
   return grants.filter((entry) => entry.commands.includes(command))
-    .map((entry) => entry.grant).sort()[0];
+    .sort((a, b) => (a.grant < b.grant ? -1 : a.grant > b.grant ? 1 : 0))[0];
 }
 
 export type AppTool = {
@@ -56,11 +65,18 @@ export type AppTool = {
   command: string;
   effect: AppBlueprintCommand["effect"];
   confirm: boolean;
-  // blueprint가 되돌리기 지원을 선언하고 대응 write command가 같은 blueprint에 있다.
+  // blueprint가 되돌리기 지원을 선언하고 대응 command가 이 blueprint에 있다. 이 이름의 command가
+  // revert의 되돌림 단계다(lophn-agent#T48).
+  revertCommand: string | null;
+  // 위 값이 null이 아닐 때만 되돌리기 지원으로 본다(tool-judgment R11). 선언 `supported`만으로
+  // 낮추지 않는다.
   reversible: boolean;
   // 이 정의가 만들어진 선언의 지문. release·입력·effect·confirm·되돌리기 중 하나라도 바뀌면 달라진다.
   definitionHash: string;
   schema: InputSchema | null;
+  // 사람의 허락 근거(grant·scope·basis_seq)다. 호출 기록이 이 열로 묶여 revert가 앱의 선언된
+  // revert command를 부른다(lophn-agent#T48).
+  permissionBasis: { grant: string; scope: string; basis_seq: string };
 };
 
 // 대응 command가 검증된 되돌리기만 지원으로 본다(tool-judgment R11). 선언 `supported`만으로 낮추지 않는다.
@@ -181,10 +197,12 @@ export async function buildAppTools(
     if (view === undefined || grant === undefined) continue;
     for (const key of [...entry.commands].sort()) {
       const command = view.commands.find((item) => item.key === key);
-      if (command === undefined || grantFor(grant, key) === undefined) continue;
+      const allowed = grantFor(grant, key);
+      if (command === undefined || allowed === undefined) continue;
       if (!entry.effects.includes(command.effect)) continue;
       if (command.confirm && !entry.confirm_allowed) continue;
-      const reversible = revertCounterpart(view.commands, command) !== null;
+      const revertCommand = revertCounterpart(view.commands, command);
+      const reversible = revertCommand !== null;
       if (
         command.effect === "write" && entry.revert_required && !reversible
       ) continue;
@@ -233,9 +251,16 @@ export async function buildAppTools(
         command: key,
         effect: command.effect,
         confirm: command.confirm,
+        revertCommand,
         reversible,
         definitionHash,
         schema,
+        permissionBasis: {
+          grant: allowed.grant,
+          // Grant.kind = agent.commands다. scope 원문은 command 목록의 JSON이다.
+          scope: JSON.stringify(allowed.commands),
+          basis_seq: allowed.basis_seq,
+        },
       });
     }
   }

@@ -459,6 +459,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: C-문제command의 `close-verified`, event `ProblemClosed`
 - slice: problems
 - 선행: problems#T18, problems#T19, apps#T18, apps#T19
+- 상태: 완료 (#469) — closing leaf(model·commands·work·testing fixture·closing_test·commands_test), test-runner worker의 `problems.closing` 깨움 통로, core 정책·event 공개·구독자 cursor·깨움 feed·`sweepProblemsClosing()`, 제품 core 시험
 - 완료:
   - `VerificationRecorded`·`ReleaseActivated`·`ProblemObserved`에서 reproduction pass만 후보로 다시 읽는다(R3)
   - after가 현재 활성 release이고 `basis_seq` 뒤 같은 문제의 새 live Report가 0개(늦은 이전 release 보고 포함)일 때만 닫는다(R4)
@@ -466,6 +467,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
   - release 준비·activation·앱 시작·command 성공·app test·test command·ticket 완료·고친 기록·앱 주장만으로는 닫히지 않는다(R2)
   - coding agent·lophn agent·앱·일반 CLI의 닫기는 거절, fixer=user 분류도 권한을 주지 않는다(R1, problem-codes#R7)
   - 이어받음: platform#T39의 ProblemClosed 발생. 닫는 이 작업이 event를 낸다
+  - 시험 자리: 제품 core 시험(apps/core/problems-closing_test.ts)은 문제·닫힘·자격 거절을 실제 op로 보고 반응기는 core와 같은 함수(`sweepProblemsClosing`)로 깨운다. reproduction pass Verification 행·release 행·`VerificationRecorded`는 core에 실제 RecordVerification·activation 조립이 붙기 전이라 검증 조건이 읽는 열 이름 그대로 심는다(problems-repair-blob_test.ts 선례). apps의 활성 release read contract는 넣지 않았다: 닫힘 command가 같은 transaction에서 `releases` status를 다시 본다(architecture/problems 7.6, problems/repairs/commands.ts 선례)
 
 ### T21 사람 결정과 재발
 

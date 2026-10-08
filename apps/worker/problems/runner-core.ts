@@ -36,6 +36,9 @@ export const TEST_RUNNER_KIND = "problems/test-runner";
 // `problems.work` 처리 위치를 읽어 싣고, 상태는 그 뒤 event와 정본에서 다시 읽는다(problems#T19).
 export const PROBLEMS_WORK_OP = "problems.work";
 
+// 같은 runner service가 도는 `problems.closing` 반응기(problems#T20)의 깨움 op다. 본문은 cursor 하나다.
+export const PROBLEMS_CLOSING_OP = "problems.closing";
+
 export type RunnerChild = {
   pid: number;
   killGroup(signal?: Deno.Signal): void;

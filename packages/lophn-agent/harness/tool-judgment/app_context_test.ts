@@ -171,7 +171,7 @@ type World = {
 function worldOf(): World {
   return {
     view: BLUEPRINT(),
-    grants: [{ grant: GRANT, commands: ALL }],
+    grants: [{ grant: GRANT, commands: ALL, basis_seq: "1" }],
     revision: REVISION,
     screen: ctx(),
     invoked: [],
@@ -304,7 +304,7 @@ Deno.test("lophn-agent/harness/tools#R18: 선언하지 않은 화면과 허락 �
   );
   assert(!undeclared.ok);
   assertEquals(undeclared.error.code, "not_found");
-  world.grants = [{ grant: GRANT, commands: ["write_hint"] }];
+  world.grants = [{ grant: GRANT, commands: ["write_hint"], basis_seq: "1" }];
   const revoked = await handler(READ_ARGS, credential);
   assert(!revoked.ok);
   assertEquals(revoked.error, undeclared.error);
@@ -423,6 +423,7 @@ Deno.test("lophn-agent/roles/lophn#R23: 사람이 허락한 command의 화면 co
         granted.length === 0 ? [] : [{
           grant: GRANT,
           commands: [...granted],
+          basis_seq: "1",
         }],
       ]]),
     }).map((tool) => tool.name);
@@ -438,7 +439,11 @@ Deno.test("lophn-agent/roles/lophn#R23: 사람이 허락한 command의 화면 co
     buildAppContextTools({
       scope: scopeOf(ALL),
       views: [{ ...BLUEPRINT(), agent_context: [] }],
-      grants: new Map([[APP, [{ grant: GRANT, commands: ALL }]]]),
+      grants: new Map([[APP, [{
+        grant: GRANT,
+        commands: ALL,
+        basis_seq: "1",
+      }]]]),
     }).map((tool) => tool.name),
     [],
   );
@@ -543,6 +548,7 @@ Deno.test("lophn-agent/harness/tool-judgment#R12: 선언 밖 write command·허�
     world.grants = [{
       grant: GRANT,
       commands: ALL.filter((key) => key !== "write_hint"),
+      basis_seq: "1",
     }]
   );
   await deny((world) => world.grants = []);
@@ -597,7 +603,7 @@ Deno.test("lophn-agent/harness/tool-judgment#R12: 화면 조회는 선언한 rea
     "deny",
   );
   // 허락을 거둔 read command.
-  world.grants = [{ grant: GRANT, commands: ["write_hint"] }];
+  world.grants = [{ grant: GRANT, commands: ["write_hint"], basis_seq: "1" }];
   assertEquals((await judged(binding, "read", READ_ARGS)).decision, "deny");
   // 정의의 입력 schema는 detail에 default를 채우지 않는다.
   assertEquals(appScreenContextTool.input.safeParse(READ_ARGS).success, true);

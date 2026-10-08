@@ -457,10 +457,11 @@ Deno.test("lophn-agent/visuals#R6: 문서 본문은 escape한 명세 JSON과 읽
     block_key: "card",
     status: "unavailable",
     captured_at: null,
+    snapshot: null,
+    hash: null,
   }]);
   assert(text.includes("No snapshot of this card was captured."));
   assert(text.includes(`app ${app} release ${rel} view summary`));
-  assertFalse("hash" in prepared.value.snapshots[0]!);
   assertFalse("body_hash" in prepared.value);
   // 저장된 문자열이 markup이었어도 escape된다.
   const hostile = visualBlockSchema.parse({

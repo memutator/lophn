@@ -107,6 +107,8 @@ export function createAppToolkit(options: {
         release: value.release,
         blueprint_hash: value.blueprint_hash,
         commands: value.commands,
+        screens: value.screens,
+        agent_context: value.agent_context ?? [],
       },
       grants,
     });

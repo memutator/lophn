@@ -24,6 +24,7 @@ import {
 import {
   createAppEngineerAssignment,
   providerList,
+  runAppRevert,
 } from "../../packages/contracts/lophn-agent/mod.ts";
 import {
   type ApiServer,
@@ -44,6 +45,10 @@ import {
   CONNECTION_TEST_CONTEXT,
   withConnectionTest,
 } from "./provider-connection-test.ts";
+import {
+  type TraceExportWriterDeps,
+  withTraceExport,
+} from "./agent-trace-export.ts";
 import { withViewBinding } from "./view-binding.ts";
 import {
   applyMigrations,
@@ -228,7 +233,21 @@ import {
   collectorOperationPolicies,
   collectorWorkers,
 } from "./problems-collector.ts";
-import { COLLECTOR_KIND, reportCollectorSpec } from "./problems-runner.ts";
+import {
+  COLLECTOR_KIND,
+  reportCollectorSpec,
+  TEST_RUNNER_KIND,
+  testRunnerSpec,
+} from "./problems-runner.ts";
+import {
+  PROBLEMS_WORK_FEED_CONTEXT,
+  PROBLEMS_WORK_OP,
+  PROBLEMS_WORK_OPERATIONS,
+  PROBLEMS_WORK_PRINCIPAL,
+  problemsWorkCursor,
+  problemsWorkPolicies,
+  startProblemsWorkFeed,
+} from "./problems-work.ts";
 import {
   startTicketCheckFeed,
   TICKET_CHECK_FEED_CONTEXT,
@@ -240,11 +259,24 @@ import {
   ticketCheckerSpec,
 } from "./ticket-checker.ts";
 import {
+  APP_REVERT_CONTEXT,
+  APP_REVERT_PRINCIPAL,
+  type AppRevertCaller,
+  appRevertPolicies,
+  createAppRevert,
+} from "./app-revert.ts";
+import {
+  REVERT_WORKER_KIND,
+  revertWorkerSpec,
+  workerAppCaller,
+} from "./revert-caller.ts";
+import {
   appCredentialIssuer,
   APPS_CONTROL_CONTEXT,
   APPS_CONTROL_PRINCIPAL,
   APPS_SUPERVISOR_KIND,
   type AppsControl,
+  appSocketRoot,
   appsOperationPolicies,
   appSupervisorSpec,
   createAppsControl,
@@ -317,6 +349,9 @@ export type CoreOptions = {
   superviseIo?: boolean;
   // 테스트 harness만 true로 둔다. main.ts는 이 입구를 열지 않는다.
   testCredentials?: boolean;
+  // 앱 revert 단계의 호출자를 바꾼다(lophn-agent#T48). 없으면 호출한 사람의 apps/connect 연결과 앱 direct
+  // socket을 쓴다. 테스트가 실제 앱 프로세스를 띄우지 않고 앱의 호출 결과를 넣는 입구다.
+  appRevertCaller?: (ctx: AuthenticatedContext) => AppRevertCaller;
   // 테스트가 준비 참조를 writer 메모리에 심는 입구. 제품 기동에는 없다.
   notePrepared?: (prepared: PreparedRelayResult, nowMs: number) => void;
   // 테스트가 정지 유지보수를 대신 실행한다. 제품 기동에는 없다. 세 정지
@@ -430,6 +465,9 @@ export type Core = {
   // 보고된 ticket의 조건을 checker worker가 정본으로 다시 비교하게 한다. 감독 worker가 없으면
   // unavailable이다. event 구독자와 시험이 같은 함수를 부른다(coding-agent#T26).
   sweepTicketChecks(): Promise<Result<unknown>>;
+  // `problems.work` 반응기가 저장된 cursor 뒤 ticket event를 따라잡게 한다. test-runner worker가 없으면
+  // unavailable이다. event 구독자와 시험이 같은 함수를 부른다(problems#T19).
+  sweepProblemsWork(): Promise<Result<unknown>>;
   // 사람이 잃을 범위를 확인한 backup 복원(platform/backup-and-migration#R13, R14). handle은
   // `restoreBinding(plan)`의 target·content에 묶인 `restore_backup` 결정이어야 한다. 확인이
   // 맞으면 새 command 입장을 닫고 모든 worker·writer를 멈춘 뒤 현재 자료를 보존하고 검증한
@@ -501,8 +539,12 @@ async function open(
   const collectorChannel = createDocumentsChannel();
   // ticket checker worker 요청 통로. 같은 통로 모양을 쓴다(coding-agent#T26).
   const checkerChannel = createDocumentsChannel();
+  // problems test-runner(`problems.work` 반응기) 요청 통로. 같은 통로 모양을 쓴다(problems#T19).
+  const runnerChannel = createDocumentsChannel();
   // coding-agent 수리 자료 worker 요청 통로. 같은 통로 모양을 쓴다(coding-agent#T43).
   const repairChannel = createDocumentsChannel();
+  // 앱 revert 호출 worker 요청 통로. 같은 통로 모양을 쓴다(lophn-agent#T48).
+  const revertChannel = createDocumentsChannel();
   // coordinator가 파일 읽기의 창으로 보내는 byte frame의 우편함(`files.read` stream).
   const fileWindows = createFileWindows();
   const ledgerPath = `${root.path}/lophn.db`;
@@ -636,6 +678,10 @@ async function open(
     ...collectorOperationPolicies(),
     // ticket checker(machine)가 판정 사실을 읽고 결과를 기록한다(coding-agent#T26).
     ...ticketCheckerPolicies(),
+    // test-runner kind의 `problems.work` 반응기(machine)가 event를 읽고 문제 work를 맞춘다(problems#T19).
+    ...problemsWorkPolicies(),
+    // 앱 revert 단계의 기록·끝내기(core 내부 machine, lophn-agent#T48).
+    ...appRevertPolicies(),
     // agent runtime(machine)과 run의 agent 자격이 닿는 operation(lophn-agent/harness/run-loop).
     ...(options.agentRuntime ? agentRuntimePolicies(allRoutes) : []),
     // 팀이 공개 정책을 내놓은 event 이름. 사람 token의 operation에 들어가 owner 정책이 판단한다.
@@ -855,6 +901,12 @@ async function open(
     await runtime.close();
     return appsControlCredential;
   }
+  // 앱 revert 이어 실행(lophn-agent#T48)이 단계를 기록하고 끝내는 core 내부 자격 기록.
+  const appRevertCredential = await runtime.record(APP_REVERT_CONTEXT);
+  if (!appRevertCredential.ok) {
+    await runtime.close();
+    return appRevertCredential;
+  }
   // 명시 연결 test(provider#R30)가 model call 기록·provider 상태를 쓰는 core 내부
   // machine 자격 기록. 기록이 없으면 StartModelCall이 거절해 test가 실패한다.
   const connectionTestCredential = await runtime.record(
@@ -872,6 +924,13 @@ async function open(
       options.secretKeychain ?? options.codingKeychain ?? productKeychain(),
     known: () => runtime?.knownSecrets,
     newCallId: () => connectionTestIds.newId("mcl"),
+  };
+  // trace export(observability#R17)의 ledger 경로와 blob 읽기 통로다. 계기 기록이 없다.
+  const traceExportSecrets: TraceExportWriterDeps = {
+    ledgerPath,
+    readBlob: (hash, offset, length) =>
+      blobRead.deps.read(hash, offset, length),
+    known: () => knownSecrets,
   };
   const knownSecrets = runtime.knownSecrets;
   const redactLine = createProductRedactor(knownSecrets);
@@ -1118,48 +1177,52 @@ async function open(
       // handoff 내용(무엇·왜·제외·기대 결과)도 같은 길이다. 용어 후보·근거 변경은 writer에
       // 닿기 전에 고정 판 본문의 출현을 확인한다(documents Q8).
       // 명시 연결 test(provider#R29, R30)는 writer queue 앞에서 네트워크를 기다린다.
+      // trace export(observability#R17)는 writer queue 앞에서 로컬 파일에 쓴다.
       writer: withRevocationSweep(
-        withConnectionTest(
-          withReleasePreparation(
-            withPlacementReservation(
-              withTermOccurrence(
-                withApprovalText(
-                  withQuestionText(
-                    withHandoffBody(
-                      withMessageBody(
-                        runtime.writer,
-                        createMessageBodyPreparer({
+        withTraceExport(
+          withConnectionTest(
+            withReleasePreparation(
+              withPlacementReservation(
+                withTermOccurrence(
+                  withApprovalText(
+                    withQuestionText(
+                      withHandoffBody(
+                        withMessageBody(
+                          runtime.writer,
+                          createMessageBodyPreparer({
+                            relay: () => bodyPrepare.current,
+                            // 알려진 secret 값도 pattern과 함께 가린다. 값을 다 모르는 동안은 막는다.
+                            known: () => runtime?.knownSecrets,
+                          }),
+                        ),
+                        createHandoffBodyPreparer({
                           relay: () => bodyPrepare.current,
-                          // 알려진 secret 값도 pattern과 함께 가린다. 값을 다 모르는 동안은 막는다.
                           known: () => runtime?.knownSecrets,
                         }),
                       ),
-                      createHandoffBodyPreparer({
+                      createQuestionTextPreparer({
                         relay: () => bodyPrepare.current,
-                        known: () => runtime?.knownSecrets,
                       }),
                     ),
-                    createQuestionTextPreparer({
+                    createApprovalTextPreparer({
                       relay: () => bodyPrepare.current,
+                      known: () => runtime?.knownSecrets,
                     }),
                   ),
-                  createApprovalTextPreparer({
-                    relay: () => bodyPrepare.current,
-                    known: () => runtime?.knownSecrets,
-                  }),
+                  (ctx, command, input) =>
+                    runtime!.readers.read(TERM_OCCURRENCE_ROUTE, ctx, {
+                      command,
+                      input,
+                    }),
                 ),
-                (ctx, command, input) =>
-                  runtime!.readers.read(TERM_OCCURRENCE_ROUTE, ctx, {
-                    command,
-                    input,
-                  }),
+                placementReservations,
               ),
-              placementReservations,
+              appsControl.commands,
+              appsControl.grantChange,
             ),
-            appsControl.commands,
-            appsControl.grantChange,
+            connectionTestSecrets,
           ),
-          connectionTestSecrets,
+          traceExportSecrets,
         ),
         () => appsControl.connector.sweep(),
         // 회수된 connection 아래 등록된 MCP·CLI child도 바로 닫는다(platform/identity#R15).
@@ -1171,6 +1234,26 @@ async function open(
         ...runtime.memory.handlers,
         ...runtime.deliveryMemory,
         ...appsControl.memory,
+        // 확인한 revert의 앱 단계를 이어 실행한다(lophn-agent#T48). 실제 복원 호출은 감독
+        // worker(apps/revert)가 호출자의 credential으로 하고 core는 결과를 받아 판정한다.
+        [
+          `${runAppRevert.resource}/${runAppRevert.method}`,
+          createAppRevert({
+            ledgerPath,
+            caller: options.appRevertCaller ??
+              ((_ctx, credential) =>
+                workerAppCaller({
+                  channel: revertChannel,
+                  credential,
+                })),
+            command: (ctx, envelope) =>
+              runtime?.writer.command(ctx as never, envelope as never),
+            machine: () => {
+              const current = runtime?.current(APP_REVERT_PRINCIPAL);
+              return current?.ok ? current.value : undefined;
+            },
+          }),
+        ] as const,
         // 사람의 연결 결정 입구. codingKeychain이 있을 때만 서고 없으면 route는 처리기 없이 남는다.
         ...(coding
           ? [
@@ -1848,6 +1931,67 @@ async function open(
       }
     }
   }
+  // problems/test-runner. `problems.work` 반응기가 도는 상시 worker다(problems#T19). ticket event를
+  // 읽어 문제 work·status를 ReconcileProblemWork로 맞춘다. 감독이 없는 harness와 그 command를 등록하지
+  // 않은 조립은 띄우지 않는다. 띄우지 못해도 core는 계속 선다: 문제 진행 표시가 갱신되지 않을 뿐
+  // ticket 정본은 그대로다(없는 반응을 성공으로 꾸미지 않는다).
+  const runnerSpec = testRunnerSpec({
+    dataRoot: root.path,
+    deno: Deno.execPath(),
+  });
+  let problemsWorkFeed: InternalSubscription | undefined;
+  if (
+    io && runnerSpec &&
+    allRoutes.some((route) => route.name === PROBLEMS_WORK_OPERATIONS[2])
+  ) {
+    const issued = await productRegistry.issue({
+      actor: "machine",
+      principal: PROBLEMS_WORK_PRINCIPAL,
+      scope: {
+        operations: [...PROBLEMS_WORK_OPERATIONS],
+        targets: { task: "problems" },
+      },
+      conditions: { task: "problems", process: TEST_RUNNER_KIND },
+    });
+    const current = issued.ok
+      ? productRegistry.revalidate({
+        credential_ref: issued.value.credential_ref,
+      })
+      : issued;
+    const recorded = issued.ok && current.ok
+      ? await runtime.record(current.value)
+      : current;
+    const feedRecorded = await runtime.record(PROBLEMS_WORK_FEED_CONTEXT);
+    if (issued.ok && recorded.ok && feedRecorded.ok) {
+      const started = await io.start(
+        runnerSpec,
+        {
+          type: "hello",
+          core_epoch: epoch,
+          process_identity: epoch,
+          kind: TEST_RUNNER_KIND,
+          task: "problems",
+          scope: { operations: [], targets: {} },
+          credential: issued.value.token,
+          api_port: server.port,
+        },
+        { onMessage: (message) => runnerChannel.onMessage(message) },
+      );
+      if (started.ok) {
+        runnerChannel.bind((payload) =>
+          io.send(TEST_RUNNER_KIND, payload).then((sent) => sent.ok)
+        );
+        // ticket event가 오면 worker가 cursor 뒤를 따라잡는다. 구독이 열릴 때와 주기마다도 깨워
+        // 재시작·worker 교체 동안의 변화를 따라잡는다.
+        problemsWorkFeed = startProblemsWorkFeed({
+          runtime,
+          ledgerPath,
+          wake: (cursor) =>
+            runnerChannel.request(PROBLEMS_WORK_OP, { cursor }, 30_000),
+        });
+      }
+    }
+  }
   // coding-agent/worker. 수리 자료(`/v1/repair_context/*`)를 요청자 credential로 조립하는 상시 worker다.
   // 자기 credential이 없고(hello의 credential은 자리만 채운다) 요청마다 core가 요청자의 것을 싣는다.
   // 알려진 값 pipe의 `redact_request`는 여기서 답한다. 띄우지 못해도 core는 계속 서고 그 route만
@@ -1880,6 +2024,33 @@ async function open(
     if (started.ok) {
       repairChannel.bind((payload) =>
         io.send(REPAIR_WORKER_KIND, payload).then((sent) => sent.ok)
+      );
+    }
+  }
+  // apps/revert. 확인한 revert의 앱 단계를 호출자의 credential로 실제로 부르는 상시 worker다
+  // (lophn-agent#T48). 감독이 없는 harness는 띄우지 않는다. 띄우지 못해도 core는 계속 선다:
+  // 사람의 run_apps 이어 실행이 failure로 닿지 않는다(접수는 applying으로 남는다).
+  if (io) {
+    const spec = revertWorkerSpec({
+      socketRoot: appSocketRoot(appsRuntimeDir),
+    });
+    const started = await io.start(
+      spec,
+      {
+        type: "hello",
+        core_epoch: epoch,
+        process_identity: epoch,
+        kind: REVERT_WORKER_KIND,
+        task: "apps",
+        scope: { operations: [], targets: {} },
+        credential: "none",
+        api_port: server.port,
+      },
+      { onMessage: (message) => revertChannel.onMessage(message) },
+    );
+    if (started.ok) {
+      revertChannel.bind((payload) =>
+        io.send(REVERT_WORKER_KIND, payload).then((sent) => sent.ok)
       );
     }
   }
@@ -2126,6 +2297,16 @@ async function open(
     sweepTicketClaims: () => runtime!.sweepTicketClaims(),
     sweepTicketChecks: () =>
       checkerChannel.request(TICKET_CHECK_OP, {}, 30_000),
+    sweepProblemsWork: () => {
+      const cursor = problemsWorkCursor(ledgerPath);
+      return cursor.ok
+        ? runnerChannel.request(
+          PROBLEMS_WORK_OP,
+          { cursor: cursor.value },
+          30_000,
+        )
+        : Promise.resolve(cursor);
+    },
     sweepApprovalExpiry: () => runtime!.sweepApprovalExpiry(),
     reconcileApp: (desired) => appsControl.reconcile(desired),
     sweepInterruptedInvocations: () => runtime!.sweepInterruptedInvocations(),
@@ -2260,6 +2441,7 @@ async function open(
           ready = false;
           documentsFeed.stop();
           ticketCheckFeed?.stop();
+          problemsWorkFeed?.stop();
           // 진행 중인 notification 생성은 writer가 닫히기 전에 끝난다.
           await notifications.stop();
           // 진행 중인 assignment 반응도 writer가 닫히기 전에 끝난다.

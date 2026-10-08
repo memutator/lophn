@@ -58,7 +58,6 @@ export function createAppBinding(
       if (hash !== tool.definitionHash) return unavailable();
       const grant = grantFor(grants, tool.command);
       if (grant === undefined) return unavailable();
-
       const reversible = counterpart !== null;
       const base: ResolvedAction = {
         concern: "apps/runtime",
@@ -74,7 +73,7 @@ export function createAppBinding(
           blueprint_hash: view.blueprint_hash,
           command: tool.command,
           definition_hash: hash,
-          grant,
+          grant: grant.grant,
         },
         changes: command.effect === "read"
           ? `Runs the read command ${tool.command} of app ${view.name}.`

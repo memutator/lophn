@@ -91,6 +91,11 @@ Deno.test("problems/grouping#R8: one open repair ticket and three statuses only"
       .success,
     true,
   );
+  // ticket이 이어지면 work는 open 문제도 가진다(질문 Q3). fixing은 work가 있어야 한다.
+  assertEquals(
+    problemSchema.safeParse({ ...problem, work: id("tkt") }).success,
+    true,
+  );
   assertEquals(
     problemSchema.safeParse({ ...problem, status: "watching" }).success,
     false,

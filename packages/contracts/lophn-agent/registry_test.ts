@@ -48,6 +48,7 @@ Deno.test("lophn-agent/harness/run-loop#R2: public entry registers the exact run
     "/v1/handoffs/submit",
     "/v1/handoffs/status",
     "/v1/handoffs/result",
+    "/v1/reverts/run_apps",
     "/v1/reverts/checkpoint",
     "/v1/reverts/finish",
     "/v1/reverts/apply",

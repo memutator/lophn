@@ -45,6 +45,21 @@ export const appBlueprintAutomationSchema = z.object({
   ]),
 });
 
+// 화면 context 선언의 읽는 모양이다(apps/agent-context#R1). 화면마다 상태를 읽는 command와 주석을 받는
+// 자리·write command만 싣는다. 민감 칸 path는 앱 host의 제거 규칙이라 읽는 쪽에 싣지 않는다.
+export const appBlueprintAgentContextSchema = z.object({
+  screen: z.string().min(1),
+  read_command: z.string().min(1),
+  annotation_targets: z.array(z.object({
+    key: z.string().min(1),
+    label: z.string().min(1),
+    write_command: z.string().min(1),
+  })),
+});
+export type AppBlueprintAgentContext = z.infer<
+  typeof appBlueprintAgentContextSchema
+>;
+
 // 설명·구조 검증·실제 test 통과는 서로 다른 근거다. 설명이 완성됐거나 구조가 맞다는 것만으로
 // test 성공을 표시하지 않는다(apps/blueprint#R3).
 export const appBlueprintEvidenceSchema = z.object({
@@ -102,6 +117,8 @@ export const appBlueprintOutputSchema = withReadCommon(z.object({
   commands: z.array(appBlueprintCommandSchema),
   screens: z.array(appBlueprintScreenSchema),
   automations: z.array(appBlueprintAutomationSchema),
+  // 이 필드를 모르는 옛 소비자는 무시하므로 additive다. 선언이 없으면 빈 배열이다.
+  agent_context: z.array(appBlueprintAgentContextSchema).optional(),
   declarations: appDeclarationsSchema,
   evidence: appBlueprintEvidenceSchema,
 }));

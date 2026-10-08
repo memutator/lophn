@@ -60,7 +60,8 @@ export const problemSchema = z.object({
 }).refine(
   (value) =>
     (value.status === "closed") === (value.closure !== null) &&
-    (value.status === "fixing") === (value.work !== null),
+    (value.status !== "fixing" || value.work !== null),
+  // work는 ticket이 생기면 이어지므로 open도 work를 가질 수 있다. fixing은 work가 있어야 한다.
   { message: "status must match work and closure" },
 );
 export type Problem = z.infer<typeof problemSchema>;
@@ -107,7 +108,8 @@ export const reconcileProblemWork = defineCommand({
   output: reconcileProblemWorkOutputSchema,
   compare: reconcileProblemWorkCompareSchema,
   actors: ["machine"],
-  errors: ["not_found", "conflict", "forbidden"],
+  // 열린 repair ticket을 이미 가진 문제에 다른 열린 ticket을 이으려 하면 invalid_input이다(grouping#R8).
+  errors: ["not_found", "conflict", "forbidden", "invalid_input"],
 });
 
 export const linkProblemInterpretationInputSchema = z.strictObject({
@@ -183,6 +185,7 @@ export const WORK_END_REASONS = [
   "expired",
   "completion_reported",
   "cancelled",
+  "confirmed",
 ] as const;
 export const workEndReasonSchema = z.enum(WORK_END_REASONS);
 
@@ -190,7 +193,8 @@ export const problemWorkStarted = defineEvent("ProblemWorkStarted", {
   subject: idSchema("prb"),
   payload: z.object({
     ticket: idSchema("tkt"),
-    claim_seq: seqSchema,
+    // null이면 ticket만 이은 것이고(open), 값이 있으면 유효 claim으로 고치는 중이 시작됐다.
+    claim_seq: seqSchema.nullable(),
     ticket_event_seq: seqSchema,
   }),
 });

@@ -321,6 +321,40 @@ import { type CoreRuntime, openRuntime } from "./runtime.ts";
 import { appExportWorkers } from "./apps-export.ts";
 import { ticketClaimSweepIntervalMs } from "./tickets.ts";
 import { testCredentialFront } from "./test-credentials.ts";
+import {
+  createMcpAuthControl,
+  openMcpCallbackListener,
+} from "./lophn-agent.ts";
+import type { McpServerConfig } from "../../packages/contracts/lophn-agent/mod.ts";
+import { mcpServersSetting } from "../../packages/contracts/lophn-agent/mod.ts";
+import { openConnection } from "../../packages/platform/ledger/mod.ts";
+
+// 등록한 MCP server 설정의 snapshot 재료다(extensions R11). ledger 경로의 setting_choices
+// 행을 readOnly로 열어 형식 검사를 지난 server 목록으로 옮긴다(credentials 열기와 별개다).
+// credentials 열림이 실패해도 설정 읽기는 readOnly라 그대로 온다.
+function mcpServerSnapshot(
+  ledgerPath: string,
+): Promise<Result<McpServerConfig[]>> {
+  const opened = openConnection(ledgerPath);
+  if (!opened.ok) return Promise.resolve(opened);
+  try {
+    const rows = opened.value.sql.all(
+      "select layer, key, value from setting_choices where key = ?",
+      [mcpServersSetting.key],
+    );
+    if (rows.length === 0) return Promise.resolve(ok([]));
+    const parsed: unknown = JSON.parse(String(rows[0]["value"]));
+    const shaped = mcpServersSetting.value_type.safeParse(parsed);
+    if (!shaped.success) {
+      return Promise.resolve(ok([]));
+    }
+    return Promise.resolve(ok(shaped.data));
+  } catch {
+    return Promise.resolve(ok([]));
+  } finally {
+    opened.value.close();
+  }
+}
 
 // approval 만료 정리 간격. ticket claim 정리와 같은 60초다(platform Q25).
 const APPROVAL_EXPIRY_SWEEP_INTERVAL_MS = 60_000;
@@ -932,6 +966,19 @@ async function open(
       blobRead.deps.read(hash, offset, length),
     known: () => knownSecrets,
   };
+  // MCP OAuth의 시작·완료 입구다(extensions R16, shell#T31에서 넘어온 것의 route 절반).
+  // 업무 규칙은 extensions의 mcp-auth에 있고(concern lophn-agent/extensions, code-map
+  // 의존 규칙) 여기는 core의 memory route 입구와 snapshot 재료를 끼운다.
+  // - verifier·state·access token은 memory 작업 메모리에만 산다.
+  // - credential 값 보관은 보호 창의 `SetSecret`(이름 `mcp-<server>`)이 하고 설정은
+  //   `sec:mcp-<server>`를 가리킨다(shell#T31 규칙). 이 입구는 그 값의 전송 callback이
+  //   아니라 작업 상태만 기록한다.
+  const mcpAuthControl = createMcpAuthControl({
+    fetch: undefined,
+    openListener: openMcpCallbackListener,
+    snapshot: () => mcpServerSnapshot(ledgerPath),
+    nowMs: () => clock.nowMs(),
+  });
   const knownSecrets = runtime.knownSecrets;
   const redactLine = createProductRedactor(knownSecrets);
   // 앱 쌍 confirm의 approval 요청은 approval 글 준비를 지나는 writer로 낸다(사람이 보는 글은 blob이다).
@@ -1254,6 +1301,10 @@ async function open(
             },
           }),
         ] as const,
+        // MCP OAuth의 시작·완료 입구다(extensions R16). handler는 등록한 http 서버의
+        // oauth2 인증 방식만 잠근다. verifier·state·access token은 memory 작업
+        // 메모리에만 산다(값은 응답·ledger·log 어디에도 옮기지 않는다).
+        ...mcpAuthControl.handlers,
         // 사람의 연결 결정 입구. codingKeychain이 있을 때만 서고 없으면 route는 처리기 없이 남는다.
         ...(coding
           ? [

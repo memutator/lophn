@@ -730,6 +730,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 ### T38 MCP HTTP 인증
 
 - 등급: 기본
+- 상태: 완료 (#460)
 - concern: lophn-agent/extensions
 - 요구: lophn-agent/extensions#R16, R17
 - 자리: packages/lophn-agent/extensions/ (mcp-auth.ts)

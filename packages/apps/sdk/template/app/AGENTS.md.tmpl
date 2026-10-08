@@ -4,6 +4,57 @@ lophn 앱 `{{APP}}`이다. 업무 프로세스는 Deno, 화면은 React이고 lo
 설치 SDK Package를 쓴다.
 
 <!-- begin lophn-managed -->
+lophn 앱이다. 업무 프로세스는 Deno, 화면은 React이고 lophn 화면과 같은 설치 SDK
+Package를 쓴다.
+
+이 안내는 앱 root의 정본 `AGENTS.md` 하나에서 읽는다. 제품별 파일은 정본을
+가리키는 얇은 안내만 두고 규칙 본문을 복제하지 않는다.
+
+## 통로와 필요한 배포 skill
+
+- 탐색·문서 저장 안내는 배포 skill `lophn-navigate`와 `lophn-save` 본문의 순서를
+  따른다.
+- 앱 구현·수리 안내는 배포 skill `lophn-build-app`과 `lophn-repair` 본문의
+  순서를 따른다: 모든 coding 작업은 구현 ticket 하나의 현재 claim 아래에서만
+  한다.
+- 시작할 일 파악: 배포 skill이 가리키는 세션 시작 summary(`lophn_session` op
+  `summary`)를 읽는다. summary를 읽는 것은 착수 지시가 아니다.
+
+## 사람 지시 claim
+
+- 이 터미널에서 사람이 ticket을 지정했거나 [Start]의 첫 prompt가 ticket을
+  지정했을 때만 시작한다. 지정된 ticket만 claim한다. 목록·summary 읽기는 착수
+  지시가 아니다.
+- 사람이 ticket 없이 직접 제작·수리를 요청하면 code를 시작하지 않는다. lophn의
+  담당 agent(App Engineer)가 요청을 구현 가능한 ticket으로 정리해 준다고
+  안내한다.
+
+## 설계와 구현의 구별
+
+- `blueprint.ts`가 정본 선언이다. 코드를 바꾸기 전에 먼저 바꾼다.
+- 설계 문서, blueprint 선언, 구현 code, machine 생성물(생성된
+  placeholders·locks·build 자원)은 서로 다른 몫이다. machine이 만든 파일은
+  손으로 고치지 않는다.
+- 기존 fixture와 작업 제약을 보존한다. 선언한 문제 코드를 지우거나 테스트
+  기대값을 낮춰 통과시키지 않는다.
+- 용어는 작업 저장소의 context glossary를 읽는다(절차는 `lophn-navigate`).
+
+## SDK 확인과 문제 보고
+
+- 새 SDK Package는 설치 catalog(`lophn_sdk`)에서 찾고 exact version만 쓴다.
+  범위·별칭 version과 조용한 upgrade는 쓰지 않는다.
+- 처리하지 못한 예외는 설치된 예외 수집 통로로 모이게 한다. 문제 보고는 선언한
+  코드로 `reportProblem`만 부른다.
+
+## 테스트·preview·결과 반환
+
+- 실제 테스트는 지정한 test command로 돌린다. 직접 돌린 shell log는 test
+  result가 아니다. 통과 전에 release 준비를 시도하지 않는다.
+- preview는 fixture 격리 사본에서 화면·command를 확인하는 것뿐이고 운영 정상의
+  증거가 아니다.
+- 보고할 때 완료 주장·preview에서 본 동작·runner가 낸 실제 test result·release
+  준비·activation·문제 닫힘을 서로 다른 말로 구별한다. 미실행 확인과 알려진
+  한계를 그대로 적는다.
 <!-- end lophn-managed -->
 
 ## 자리

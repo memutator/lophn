@@ -34,3 +34,9 @@ export {
   type SkillsInstallInput,
   type SkillsInstallOutcome,
 } from "./install.ts";
+export { staleGuideMessage, syncTools } from "./sync-tools.ts";
+export type {
+  SyncFileResult,
+  SyncToolsOutcome,
+  SyncToolsPorts,
+} from "./sync-tools.ts";

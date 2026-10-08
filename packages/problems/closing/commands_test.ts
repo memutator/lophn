@@ -4,9 +4,7 @@
 // 낸다. verified 근거 행은 problems/tests fixture가 하는 일의 줄임인 시험 command가 심는다.
 import { assert, assertEquals, assertFalse } from "@std/assert";
 import { type Result } from "../../base/mod.ts";
-import type {
-  AuthenticatedContext,
-} from "../../contracts/platform/mod.ts";
+import type { AuthenticatedContext } from "../../contracts/platform/mod.ts";
 import {
   createLedgerHarness,
   type LedgerHarness,
@@ -21,7 +19,10 @@ import {
 } from "../grouping/testing/mod.ts";
 import { CLOSING_EVENT_TYPES } from "./work.ts";
 
-const registration = new URL("./testing/mod.ts", import.meta.url);
+const registration = [
+  new URL("../grouping/testing/mod.ts", import.meta.url),
+  new URL("./testing/mod.ts", import.meta.url),
+];
 const NOW_MS = Date.parse("2026-10-04T12:00:00.000Z");
 const REL_AFTER = "rel_01arz3ndektsv4rrffq69g5fa2";
 const REL_BEFORE = "rel_01arz3ndektsv4rrffq69g5fa1";
@@ -45,7 +46,7 @@ function code(result: Result<unknown>, expected: string): void {
 async function open(...extra: AuthenticatedContext[]): Promise<LedgerHarness> {
   return value(
     await createLedgerHarness({
-      registrationModules: [registration],
+      registrationModules: registration,
       credentials: [COLLECTOR, MACHINE, ...extra],
       nowMs: NOW_MS,
     }),
@@ -245,7 +246,9 @@ Deno.test("problems/closing#R4 R5 R14: closes when after is the active release a
     // 고친 release를 활성화하면 닫힌다.
     await arrangeActive(h, APP_A, REL_AFTER);
     const done = value(await closeCall(h, problem, VRF, REL_AFTER));
-    const closure = (done.result as { closure: { reason: string; release: string; verification: string } }).closure;
+    const closure = (done.result as {
+      closure: { reason: string; release: string; verification: string };
+    }).closure;
     assertEquals(closure.reason, "verified");
     assertEquals(closure.release, REL_AFTER);
     assertEquals(closure.verification, VRF);

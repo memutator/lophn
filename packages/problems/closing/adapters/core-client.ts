@@ -4,10 +4,8 @@
 // 대신 property 접근으로 넘긴다).
 import { err, ERROR_CODES, ok, type Result } from "../../../base/mod.ts";
 import type { LophnError } from "../../../base/mod.ts";
-import {
-  CLOSING_SUBSCRIBER,
-  type ClosingReactionPorts,
-} from "../work.ts";
+import { CLOSING_SUBSCRIBER, type ClosingReactionPorts } from "../work.ts";
+export type { ClosingReactionPorts };
 
 export type LoopbackFetch = (
   input: string,

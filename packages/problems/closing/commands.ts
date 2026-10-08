@@ -3,7 +3,7 @@
 // 다시 검사한다. 자료 해석·테스트는 하지 않는다. verifications 표는 problems/tests가
 // 소유하므로 이 handler는 그 표의 읽는 열만 읽는다(repairs/commands.ts가 verifications를
 // 읽는 선례).
-import { err, ok, type Result, parseSeq } from "../../base/mod.ts";
+import { err, ok, parseSeq, type Result } from "../../base/mod.ts";
 import type { LophnError } from "../../base/mod.ts";
 import type {
   CommandDefinition,
@@ -116,15 +116,15 @@ export function handleCloseProblemVerified(
     status: String(row.status) as ProblemRow["status"],
     work: row.work === null ? null : String(row.work),
   };
-  if (problemRow.status === "closed") {
-    return conflict("이미 닫혔다");
-  }
   const found = findVerification(tx, input.verification);
   if (found === null) return notFound();
   // 다른 앱의 결과, reproduction이 아닌 결과, 실패·불가 판정은 후보가 아니다(R3).
   if (found.app !== problemRow.app) return notFound();
   if (found.kind !== "reproduction" || found.result !== "pass") {
-    return err({ code: "invalid_input", message: "reproduction pass만 닫는다" });
+    return err({
+      code: "invalid_input",
+      message: "reproduction pass만 닫는다",
+    });
   }
   if (found.problem !== input.problem) {
     return err({ code: "invalid_input", message: "근거 문제가 다르다" });
@@ -154,6 +154,11 @@ export function handleCloseProblemVerified(
   const expectedSeq = problemSeqOf(tx, input.problem);
   if (expectedSeq !== input.problem_seq) {
     return conflict("문제가 바뀌었다");
+  }
+  // 이미 닫힌 문제는 다시 닫지 않는다(R14: 근거 연결과 CAS를 먼저 검사한다.
+  // 없는 Verification·없는 문제는 같은 not_found다).
+  if (problemRow.status === "closed") {
+    return conflict("이미 닫혔다");
   }
   const closure = {
     reason: "verified" as const,

@@ -249,6 +249,16 @@ import {
   startProblemsWorkFeed,
 } from "./problems-work.ts";
 import {
+  PROBLEMS_CLOSING_FEED_CONTEXT,
+  PROBLEMS_CLOSING_FEED_PRINCIPAL,
+  PROBLEMS_CLOSING_OP,
+  PROBLEMS_CLOSING_OPERATIONS,
+  PROBLEMS_CLOSING_PRINCIPAL,
+  problemsClosingCursor,
+  problemsClosingPolicies,
+  startProblemsClosingFeed,
+} from "./problems-closing.ts";
+import {
   startTicketCheckFeed,
   TICKET_CHECK_FEED_CONTEXT,
   TICKET_CHECK_OP,
@@ -468,6 +478,9 @@ export type Core = {
   // `problems.work` 반응기가 저장된 cursor 뒤 ticket event를 따라잡게 한다. test-runner worker가 없으면
   // unavailable이다. event 구독자와 시험이 같은 함수를 부른다(problems#T19).
   sweepProblemsWork(): Promise<Result<unknown>>;
+  // `problems.closing` 반응기가 저장된 cursor 뒤 closing event를 따라잡게 한다. 같은 test-runner
+  // worker가 closing credential 없이 뜨면 unavailable이다(problems#T20).
+  sweepProblemsClosing(): Promise<Result<unknown>>;
   // 사람이 잃을 범위를 확인한 backup 복원(platform/backup-and-migration#R13, R14). handle은
   // `restoreBinding(plan)`의 target·content에 묶인 `restore_backup` 결정이어야 한다. 확인이
   // 맞으면 새 command 입장을 닫고 모든 worker·writer를 멈춘 뒤 현재 자료를 보존하고 검증한
@@ -680,6 +693,8 @@ async function open(
     ...ticketCheckerPolicies(),
     // test-runner kind의 `problems.work` 반응기(machine)가 event를 읽고 문제 work를 맞춘다(problems#T19).
     ...problemsWorkPolicies(),
+    // 같은 kind의 `problems.closing` 반응기(machine)가 테스트로 확인됨 닫힘을 낸다(problems#T20).
+    ...problemsClosingPolicies(),
     // 앱 revert 단계의 기록·끝내기(core 내부 machine, lophn-agent#T48).
     ...appRevertPolicies(),
     // agent runtime(machine)과 run의 agent 자격이 닿는 operation(lophn-agent/harness/run-loop).
@@ -1940,6 +1955,7 @@ async function open(
     deno: Deno.execPath(),
   });
   let problemsWorkFeed: InternalSubscription | undefined;
+  let problemsClosingFeed: InternalSubscription | undefined;
   if (
     io && runnerSpec &&
     allRoutes.some((route) => route.name === PROBLEMS_WORK_OPERATIONS[2])
@@ -1989,6 +2005,36 @@ async function open(
           wake: (cursor) =>
             runnerChannel.request(PROBLEMS_WORK_OP, { cursor }, 30_000),
         });
+        // 같은 runner 안의 `problems.closing` 반응기도 자기 credential(basis 별도)로 cursor
+        // 뒤 closing event를 따라잡는다(problems#T20). 조건 판정은 command가 정본에서 다시 한다.
+        const closingIssued = await productRegistry.issue({
+          actor: "machine",
+          principal: PROBLEMS_CLOSING_PRINCIPAL,
+          scope: {
+            operations: [...PROBLEMS_CLOSING_OPERATIONS],
+            targets: { task: "problems" },
+          },
+          conditions: { task: "problems", process: TEST_RUNNER_KIND },
+        });
+        const closingCurrent = closingIssued.ok
+          ? productRegistry.revalidate({
+            credential_ref: closingIssued.value.credential_ref,
+          })
+          : closingIssued;
+        const closingRecorded = closingIssued.ok && closingCurrent.ok
+          ? await runtime.record(closingCurrent.value)
+          : closingCurrent;
+        const closingFeedRecorded = await runtime.record(
+          PROBLEMS_CLOSING_FEED_CONTEXT,
+        );
+        if (closingIssued.ok && closingRecorded.ok && closingFeedRecorded.ok) {
+          problemsClosingFeed = startProblemsClosingFeed({
+            runtime,
+            ledgerPath,
+            wake: (cursor) =>
+              runnerChannel.request(PROBLEMS_CLOSING_OP, { cursor }, 30_000),
+          });
+        }
       }
     }
   }
@@ -2307,6 +2353,16 @@ async function open(
         )
         : Promise.resolve(cursor);
     },
+    sweepProblemsClosing: () => {
+      const cursor = problemsClosingCursor(ledgerPath);
+      return cursor.ok
+        ? runnerChannel.request(
+          PROBLEMS_CLOSING_OP,
+          { cursor: cursor.value },
+          30_000,
+        )
+        : Promise.resolve(cursor);
+    },
     sweepApprovalExpiry: () => runtime!.sweepApprovalExpiry(),
     reconcileApp: (desired) => appsControl.reconcile(desired),
     sweepInterruptedInvocations: () => runtime!.sweepInterruptedInvocations(),
@@ -2442,6 +2498,7 @@ async function open(
           documentsFeed.stop();
           ticketCheckFeed?.stop();
           problemsWorkFeed?.stop();
+          problemsClosingFeed?.stop();
           // 진행 중인 notification 생성은 writer가 닫히기 전에 끝난다.
           await notifications.stop();
           // 진행 중인 assignment 반응도 writer가 닫히기 전에 끝난다.

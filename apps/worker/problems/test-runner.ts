@@ -18,6 +18,12 @@ import {
   reactWork,
   type WorkReactionPorts,
 } from "../../../packages/problems/grouping/work.ts";
+import {
+  type ClosingClientOptions,
+  type ClosingReactionPorts,
+  createClosingPorts,
+} from "../../../packages/problems/closing/adapters/core-client.ts";
+import { reactClosing } from "../../../packages/problems/closing/work.ts";
 import { TEST_RUNNER_KIND } from "./runner-core.ts";
 
 export * from "./runner-core.ts";
@@ -46,6 +52,8 @@ if (import.meta.main && Deno.args.includes("--reproduction-job")) {
 // core가 감독 pipe로 보내는 깨움 요청의 op. 본문은 cursor 하나다: core가 ledger의 `problems.work`
 // 처리 위치를 읽어 싣고, 상태는 그 뒤 event와 정본에서 다시 읽는다.
 export const PROBLEMS_WORK_OP = "problems.work";
+// 같은 runner가 도는 `problems.closing` 반응기(problems#T20)의 깨움 op다. 본문은 cursor 하나다.
+export const PROBLEMS_CLOSING_OP = "problems.closing";
 
 function requestOf(message: ParentMessage): WorkerRequest | undefined {
   const record = message as unknown as Record<string, unknown>;
@@ -60,6 +68,10 @@ export type RunnerWorkerOptions = {
   streams: ChildStreams;
   // hello가 준 machine credential과 core api port로 반응 통로를 만든다.
   ports(position: { credential: string; api_port: number }): WorkReactionPorts;
+  // `problems.closing` 반응기의 통로다(problems#T20). 없으면 그 op는 unavailable이다.
+  closing?: (
+    position: { credential: string; api_port: number },
+  ) => ClosingReactionPorts;
 };
 
 // test-runner kind 안의 `problems.work` 반응기(problems/grouping#R9). 요청은 한 번에 하나씩 차례로
@@ -67,14 +79,21 @@ export type RunnerWorkerOptions = {
 // 깨움이 정본 위치를 준다.
 export function createRunnerWorker(options: RunnerWorkerOptions): ChildSession {
   let ports: WorkReactionPorts | undefined;
+  let closing: ClosingReactionPorts | undefined;
   let known: string | undefined;
+  let closingKnown: string | undefined;
   let chain: Promise<unknown> = Promise.resolve();
+  let closingChain: Promise<unknown> = Promise.resolve();
   const session: ChildSession = startChild(options.streams, {
     onHello(hello) {
       if (hello.kind !== TEST_RUNNER_KIND) {
         throw new Error("invalid worker kind");
       }
       ports = options.ports({
+        credential: hello.credential,
+        api_port: hello.api_port,
+      });
+      closing = options.closing?.({
         credential: hello.credential,
         api_port: hello.api_port,
       });
@@ -94,7 +113,9 @@ export function createRunnerWorker(options: RunnerWorkerOptions): ChildSession {
           error: { code, message: text },
         });
       const cursor = (request.payload as { cursor?: unknown } | null)?.cursor;
-      if (request.op !== PROBLEMS_WORK_OP) {
+      if (
+        request.op !== PROBLEMS_WORK_OP && request.op !== PROBLEMS_CLOSING_OP
+      ) {
         await fail("invalid_input", "unknown runner op");
         return;
       }
@@ -105,6 +126,36 @@ export function createRunnerWorker(options: RunnerWorkerOptions): ChildSession {
       const mine = ports;
       if (mine === undefined) {
         await fail("unavailable", "runner has no credential");
+        return;
+      }
+      // `problems.closing`은 같은 runner의 다른 반응기다(problems#T20). 통로가 없으면
+      // unavailable이다. 두 반응기는 요청을 하나씩 차례로 처리하고, 성공한 위치는 각자
+      // 기억해 더 낡은 깨움의 cursor로 되돌아가지 않는다.
+      if (request.op === PROBLEMS_CLOSING_OP) {
+        const theirs = closing;
+        if (theirs === undefined) {
+          await fail("unavailable", "runner has no closing credential");
+          return;
+        }
+        const run = closingChain.then(async () => {
+          const from = closingKnown !== undefined &&
+              BigInt(closingKnown) > BigInt(cursor)
+            ? closingKnown
+            : cursor;
+          const done = await reactClosing(theirs, from);
+          closingKnown = done.ok ? done.value.processed_through_seq : undefined;
+          return done;
+        });
+        closingChain = run.catch(() => undefined);
+        const done = await run;
+        await (done.ok
+          ? session.send({
+            type: "worker_response",
+            request_id: request.request_id,
+            ok: true,
+            payload: done.value,
+          })
+          : fail("unavailable", "problems closing reaction failed"));
         return;
       }
       const run = chain.then(async () => {
@@ -150,6 +201,20 @@ export async function runRunnerWorker(_root: string): Promise<void> {
             }));
           },
         } satisfies WorkClientOptions,
+      ),
+    closing: (position) =>
+      createClosingPorts(
+        {
+          baseUrl: `http://127.0.0.1:${position.api_port}`,
+          credential: position.credential,
+          fetch: (input, init) => {
+            const globalFetch = globalThis.fetch;
+            return globalFetch(input, init).then(async (response) => ({
+              status: response.status,
+              bytes: new Uint8Array(await response.arrayBuffer()),
+            }));
+          },
+        } satisfies ClosingClientOptions,
       ),
   });
   await session.run();

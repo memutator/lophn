@@ -1,6 +1,8 @@
-// problems/closing 시험의 harness 등록. Deno.test는 없다. grouping fixture에
-// close-verified command와 verified 근거·활성 release의 줄임 시험 command를 더한다.
-// handler가 읽는 problems·verifications·releases·reports 열은 grouping과 tests fixture가
+// problems/closing 시험의 harness 확장 조각. Deno.test는 없다. 조립은 leaf의
+// *_test.ts만 한다(code-map: leaf의 testing/은 제품 코드가 import하지 않고 다른
+// leaf의 testing fixture는 *_test.ts가 import한다). 확장은 close-verified command,
+// verified 근거·활성 release의 줄임 시험 command, 근거 행이 참조하는 앱·release 표다.
+// handler가 읽는 problems·verifications·releases·reports 열은 grouping·tests fixture가
 // 같은 이름으로 둔다. 문제 seq는 문제 표 subject event에서 읽으므로 시험이 직접 event를 낸다.
 import { z } from "zod";
 import { ok } from "../../../base/mod.ts";
@@ -9,7 +11,6 @@ import {
   defineCommand,
   type Tx,
 } from "../../../contracts/platform/mod.ts";
-import { createLedgerTestRegistration as grouping } from "../../grouping/testing/mod.ts";
 import { closeProblemVerifiedCommand } from "../mod.ts";
 
 // 실제 RecordVerification이 하는 일의 줄임이다: verified 근거(reproduction pass
@@ -185,7 +186,12 @@ export function seedFixtureRows(tx: Tx): void {
       on conflict (id) do nothing`,
     ["app_01arz3ndektsv4rrffq69g5faw", "other", "Other"],
   );
-  for (const release of ["rel_01arz3ndektsv4rrffq69g5fa1", "rel_01arz3ndektsv4rrffq69g5fa2"]) {
+  for (
+    const release of [
+      "rel_01arz3ndektsv4rrffq69g5fa1",
+      "rel_01arz3ndektsv4rrffq69g5fa2",
+    ]
+  ) {
     tx.sql.run(
       `insert into releases (id, app, number, code_commit, bundle_hash, blueprint_hash,
          data_schema, data_changes, ticket_source, created_by, created_at, status,
@@ -208,7 +214,9 @@ export function seedFixtureRows(tx: Tx): void {
          '2026-10-04T00:00:00.000Z', 'prepared', '{}', '[]')
        on conflict (id) do nothing`,
       [
-        `rel_01arz3ndektsv4rrffq69g5f${release.slice(-1) === "1" ? "ax" : "ay"}`,
+        `rel_01arz3ndektsv4rrffq69g5f${
+          release.slice(-1) === "1" ? "ax" : "ay"
+        }`,
         "a".repeat(40),
         "b".repeat(64),
         "c".repeat(64),
@@ -217,32 +225,19 @@ export function seedFixtureRows(tx: Tx): void {
   }
 }
 
-export function createLedgerTestRegistration() {
-  const base = grouping();
+// grouping fixture의 등록에 closing 확장을 더한다. 등록 모듈은 두 개다: grouping
+// fixture의 초기 등록과 여기 closing 확장(code-map: 다른 leaf의 testing fixture는
+// *_test.ts만 import한다).
+export function createLedgerTestRegistration(
+  _environment: unknown = {},
+) {
   return {
-    ...base,
-    schemaSteps: [...base.schemaSteps, FIXTURE_STEP],
+    schemaSteps: [FIXTURE_STEP],
     commands: [
-      ...base.commands,
       closeProblemVerifiedCommand,
       verifyCommand as CommandDefinition,
       activateCommand as CommandDefinition,
     ],
-    testCommands: [
-      ...(base.testCommands ?? []).map((command) => wrapFixtures(command)),
-    ],
-  };
-}
-
-// grouping fixture의 test command는 grouping 표만 안다. writer Tx가 열릴 때 근거 행이
-// 참조하는 앱·release 행을 먼저 둔다.
-function wrapFixtures(command: CommandDefinition): CommandDefinition {
-  return {
-    route: command.route,
-    handle(tx, ctx, input, compare) {
-      seedFixtureRows(tx);
-      return command.handle(tx, ctx, input, compare);
-    },
   };
 }
 

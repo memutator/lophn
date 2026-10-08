@@ -122,6 +122,7 @@ import {
 import {
   createWaitCommands,
   runBodyRead,
+  runBodyViewRead,
   waitSchemaSteps,
 } from "../../packages/lophn-agent/harness/waiting-and-recovery/mod.ts";
 import {
@@ -711,8 +712,15 @@ const UNATTACHED_MESSAGE_BODY: MessageBodyEnvironment = {
     })),
 };
 
+// 사람이 run 근거·tool 입력·tool 결과를 펼쳐 볼 때 지금의 redaction을 거치는 통로다. 알려진 secret 값은
+// 기동 뒤에야 알려지므로 core가 늦게 채우는 함수로 준다. 붙이지 않은 등록은 끝내지 못한 것으로 답한다.
+const UNATTACHED_REDACT = (): string | null => null;
+
 export function createLedgerRegistration(
-  environment: { messageBody?: MessageBodyEnvironment } = {},
+  environment: {
+    messageBody?: MessageBodyEnvironment;
+    redactBody?: (text: string) => string | null;
+  } = {},
 ) {
   return {
     // ReadQuestionText도 같은 읽기 통로(ledger snapshot과 blob 바이트)를 쓴다.
@@ -721,6 +729,11 @@ export function createLedgerRegistration(
       questionTextRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
       // 복구가 저장된 run basis·model 응답·tool 결과를 다시 읽는 같은 길이다(machine만).
       runBodyRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
+      // 사람 화면이 같은 본문을 지금의 redaction을 거쳐 읽는 길이다(user만).
+      runBodyViewRead({
+        ...(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
+        redact: environment.redactBody ?? UNATTACHED_REDACT,
+      }),
       // 연결 가능 provider의 내장 정의(provider#R1)는 ledger row가 아니라 동봉
       // product catalog다. snapshot이 없어도 답하므로 api read 길이다.
       createProviderDefinitionsRead(),

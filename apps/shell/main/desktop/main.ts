@@ -178,7 +178,22 @@ import {
   TerminalFocusTable,
 } from "../terminal/controller.ts";
 import { createTerminalIpc } from "../terminal/ipc.ts";
+import { createChildRegistrar } from "../terminal/coding/coding-children.ts";
+import {
+  childPlanRunner,
+  createCodingStart,
+  createObservationStore,
+} from "../terminal/coding/coding-start.ts";
 import { createSupervisor, spawnNodeHost } from "../terminal/supervisor.ts";
+import { childCliRunner, createCodingConnection } from "./coding-connection.ts";
+import {
+  codingSessions,
+  createCodingIpc,
+  hostEventSinks,
+  registerCodingIpc,
+  registeredFolders,
+  removeCodingIpc,
+} from "./coding-ipc.ts";
 
 // shell tsc는 base를 보지 않으므로 Result 모양만 여기서 맞춘다.
 type CallResult = { ok: true; value: unknown } | {
@@ -542,6 +557,24 @@ const feedback = createFeedback({
       value: { report: value.report, problem: value.problem },
     };
   },
+  commandStart: (view_session) => appCall.commandStart(view_session),
+  // 응답을 잃은 제출은 다시 보내기 전에 그 Report ID가 접수됐는지 읽는다(problems/reporting#R9).
+  async lookup(report) {
+    const session = core.session();
+    if (session === null) return { ok: false };
+    const reply = await session.internal("read", "problems", "get-report", {
+      report,
+    });
+    if (reply.ok) {
+      const found = (reply.value as {
+        report: { id: string; problem: string | null };
+      }).report;
+      return { ok: true, value: { report: found.id, problem: found.problem } };
+    }
+    return reply.error.code === "not_found"
+      ? { ok: true, value: null }
+      : { ok: false };
+  },
   openIssue: (ref, target) => {
     const window = windowOfRef(ref);
     if (window !== undefined && !window.webContents.isDestroyed()) {
@@ -815,6 +848,8 @@ function openIntent(intent: OpenIntent): void {
     });
   } else if (intent.kind === "things-to-confirm") {
     sendIntent({ kind: "things-to-confirm", request: intent.request });
+  } else if (intent.kind === "coding") {
+    sendIntent({ kind: "coding", target: intent.target });
   } else openDesktopWindow();
 }
 
@@ -832,11 +867,74 @@ function refreshAppViews(
     }
   }
 }
+// lophn이 띄운 coding TUI 아래 MCP·CLI process를 host가 관측해 알리면 main이 자기 사람 credential로 core에
+// 등록·해제한다(platform/identity#R15). 같은 줄이 TUI 관측(ObservationStore)도 채운다. 관측 표는 이 process의
+// 메모리라 Electron이 다시 뜨면 비고 모든 TUI는 unknown이다(자동 spawn·resume 없음).
+const codingChildren = createChildRegistrar({ core: () => core.session() });
+const observations = createObservationStore({
+  now: () => new Date().toISOString(),
+});
+const hostSinks = hostEventSinks(codingChildren, observations);
 const terminals = createSupervisor({
   // build가 host를 main과 같은 dist에 묶는다. 생성만 하고 첫 요청 때 띄운다.
   entry: join(here, "terminal-host.cjs"),
   spawnHost: spawnNodeHost,
+  onEvent: (event) => hostSinks.onEvent(event),
+  onHostLost: () => hostSinks.onHostLost(),
 });
+
+// coding agent 연결과 ticket [Start](shell#T50). `lophn` 실행 파일과 helper는 설치 묶음에 있다(Linux .deb의
+// `/usr/bin/lophn`, `<설치 root>/lophn-credential`). 개발 실행은 LOPHN_CLI(절대 경로)를 준 때만 child를 부르고,
+// 없으면 연결·시작은 unavailable이다. child에는 이 main의 데이터 root만 환경으로 준다.
+function lophnCommand(): string | null {
+  if (app.isPackaged) {
+    return process.platform === "linux" ? "/usr/bin/lophn" : null;
+  }
+  const given = process.env.LOPHN_CLI;
+  return given !== undefined && given.startsWith("/") ? given : null;
+}
+const lophnCli = lophnCommand();
+const cliEnv = { ...process.env, LOPHN_HOME: dataRoot };
+const codingConnection = createCodingConnection({
+  core: () => core.session(),
+  cli: lophnCli === null
+    ? null
+    : childCliRunner({ command: lophnCli, env: cliEnv }),
+});
+const codingStart = createCodingStart({
+  core: { internal: coreInternal },
+  folders: { folders: (project) => projectFolders(core.session(), project) },
+  plan: lophnCli === null
+    ? () =>
+      Promise.resolve({
+        ok: false as const,
+        error: {
+          code: "unavailable",
+          message: "lophn command is not installed",
+        },
+      })
+    : childPlanRunner({ command: lophnCli, env: cliEnv }),
+  host: terminals,
+  ...(app.isPackaged
+    ? {
+      credential_helper: join(
+        packagedInstall(process.resourcesPath).root,
+        "lophn-credential",
+      ),
+    }
+    : {}),
+});
+const codingIpcMain = {
+  handle: (
+    channel: string,
+    listener: (event: IpcEvent, input: unknown) => Promise<unknown>,
+  ) =>
+    ipcMain.handle(
+      channel,
+      (event, input: unknown) => listener(event as unknown as IpcEvent, input),
+    ),
+  removeHandler: (channel: string) => ipcMain.removeHandler(channel),
+};
 
 // terminal IPC. sender·frame 검사는 registry로, focus·generation은 ipc.ts가 본다.
 // folder_ref는 documents#T7 등록 폴더 read를 다시 해석하고, 출력은 잡아 당기는
@@ -856,6 +954,17 @@ registerTerminalIpc(
     removeHandler: (channel) => ipcMain.removeHandler(channel),
   } satisfies MainIpc,
   terminalIpc,
+);
+// 연결 화면과 [Start]. desktop 창 본문만 부르고 연결 intent·시작 클릭은 main이 다시 검사한다(desktop#R19).
+registerCodingIpc(
+  codingIpcMain,
+  createCodingIpc({
+    registry: overlays.overlayRegistry(),
+    connection: codingConnection,
+    start: codingStart,
+    folders: () => registeredFolders(core.session()),
+    sessions: () => codingSessions(terminals.runtimes(), observations),
+  }),
 );
 
 // 프로젝트 등록의 OS 폴더 선택기. 그 창에 붙은 dialog로 열고 desktop 창 본문만 부른다.
@@ -965,6 +1074,7 @@ function stopAll(): void {
       removeHandler: (channel) => ipcMain.removeHandler(channel),
     } satisfies MainIpc,
   );
+  removeCodingIpc(codingIpcMain);
   ipcMain.removeHandler(FOLDER_PICK_CHANNEL);
   ipcMain.removeHandler(OPEN_EXTERNAL_CHANNEL);
   removeEditorIpc(editorIpc);
@@ -1039,6 +1149,7 @@ const instance = startSingleInstance({
   onOpenApp: (app) => openIntent({ kind: "app", app }),
   onThingsToConfirm: (request) =>
     openIntent({ kind: "things-to-confirm", request }),
+  onCoding: (target) => openIntent({ kind: "coding", target }),
   onQuitIntent: () =>
     requestQuit({
       windows: { hasWindows: () => BrowserWindow.getAllWindows().length > 0 },
@@ -1052,7 +1163,10 @@ const instance = startSingleInstance({
 app.on("open-url", (event, url) => {
   event.preventDefault();
   const intent = openUrlIntent(url);
-  if (intent.kind === "things-to-confirm" && instance.acquired) {
+  if (
+    (intent.kind === "things-to-confirm" || intent.kind === "coding") &&
+    instance.acquired
+  ) {
     void app.whenReady().then(() => openIntent(intent));
   }
 });
@@ -1138,7 +1252,10 @@ if (instance.acquired) {
     // 창 없는 시작은 main과 core만 띄운다(desktop#R21). 첫 시작의 `--open-app`은 기본 창
     // 대신 앱 전용 창을, 링크는 그 대상을 고른 기본 창을 연다.
     const start = readOpenIntent(process.argv);
-    if (start.kind === "app" || start.kind === "things-to-confirm") {
+    if (
+      start.kind === "app" || start.kind === "things-to-confirm" ||
+      start.kind === "coding"
+    ) {
       openIntent(start);
     } else if (!mode.tray) openDesktopWindow();
   });

@@ -18,6 +18,7 @@ import {
   LOPHN_CONNECTION,
 } from "../../packages/contracts/coding-agent/mod.ts";
 import {
+  connectionFromRef,
   type CoreClient,
   UNREADABLE_MESSAGE,
 } from "../../packages/coding-agent/connection/client/core.ts";
@@ -53,6 +54,11 @@ import {
   doctorOf,
   doctorSummary,
 } from "../../packages/coding-agent/cli/commands/doctor.ts";
+import {
+  isProblemHumanOnly,
+  problemHumanOnly,
+  runProblem,
+} from "../../packages/coding-agent/cli/commands/problem.ts";
 import { runQuestionOpen } from "../../packages/coding-agent/cli/commands/question.ts";
 import { runSave } from "../../packages/coding-agent/cli/commands/save.ts";
 import { runSdk } from "../../packages/coding-agent/cli/commands/sdk.ts";
@@ -393,6 +399,14 @@ export async function runCliCommand(
       connected: runtime.client !== undefined,
     });
   }
+  if (isProblemHumanOnly(name)) {
+    // 사람 전용이다. CLI는 feedback·수리 요청·확인·무시를 접수하지 않는다. 연결 참조(coding
+    // credential)가 있으면 실행 전 거절이고, 사람은 결정 화면 링크와 대기 사실만 받는다(D27, cli#R7, R35).
+    return problemHumanOnly(name, input, {
+      actor: runtime.actor,
+      connected: runtime.client !== undefined,
+    });
+  }
   if (name === "ticket claim") {
     // claim은 MCP의 `lophn_ticket`에만 둔다. CLI는 안내만 한다(cli#R41, mcp#R27).
     return ok({
@@ -578,6 +592,24 @@ export async function runCliCommand(
       idempotencyKey: idempotency,
     });
     return ok(ran);
+  }
+  if (name.startsWith("problem ")) {
+    // 읽기·record-fix·reproduction test·첨부 열기다. MCP `lophn_problem`과 같은 흐름이다(cli#R33, R34).
+    const connection = connectionFromRef(
+      typeof input.connection === "string"
+        ? input.connection
+        : runtime.env.get(LOPHN_CONNECTION),
+    );
+    return await runProblem(
+      name as Parameters<typeof runProblem>[0],
+      input,
+      {
+        client,
+        idempotencyKey: idempotency,
+        now: runtime.now,
+        ...(connection.ok ? { connection: connection.value } : {}),
+      },
+    );
   }
   if (name.startsWith("sdk ")) {
     // `apply`는 앱 source의 deno.json·deno.lock만 정확한 경로 권한으로 쓰는 CLI 전용 port다. MCP에는

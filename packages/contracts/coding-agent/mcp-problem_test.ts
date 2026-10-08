@@ -29,7 +29,8 @@ const tool = (name: string) => {
   return found;
 };
 
-const fixInput = {
+// owner command 입력이다(통로가 summary를 올린 준비 증거를 싣는다).
+const ownerFixInput = {
   problem: PRB,
   fix: {
     before: REL,
@@ -49,7 +50,23 @@ const fixInput = {
   idempotency_key: "fix-1",
 };
 
+// MCP·CLI record_fix 입력이다. 모델이 hash나 준비 증거를 만들지 않고 summary 본문을 준다.
+const fixInput = {
+  problem: PRB,
+  problem_seq: "12",
+  fix: {
+    before: REL,
+    after: "rel_01h455vb4pex5v6nkc6gd5fdw2",
+    verification: [VRF],
+    ticket: TKT,
+    claim_seq: "12",
+  },
+  summary: "변경: leaf redaction\n수행한 확인: deno task test\n",
+  idempotency_key: "fix-1",
+};
+
 const testInput = {
+  ticket_source: { ticket: TKT, claim_seq: "12" },
   request_key: "test-1",
   kind: "reproduction" as const,
   app: APP,
@@ -183,18 +200,35 @@ Deno.test(
   "coding-agent/mcp-server#R25: record_fix와 test는 현재 ticket·claim_seq가 필수다",
   () => {
     const problem = tool("lophn_problem");
-    // fixRecordInputSchema가 ticket·claim_seq를 필수로 묶는다(problems/repairs).
+    // record_fix 입력이 ticket·claim_seq를 필수로 묶는다. 준비 증거는 통로가 만들어 싣는다.
     problem.input.parse({ ...fixInput, op: "record_fix" });
     assertEquals(
       problem.input.safeParse({
         ...fixInput,
+        op: "record_fix",
         fix: { ...fixInput.fix, ticket: null, claim_seq: null },
       }).success,
+      false,
+    );
+    // 모델이 hash나 준비 증거를 직접 싣는 입력은 없다.
+    assertEquals(
+      problem.input.safeParse({
+        ...fixInput,
+        op: "record_fix",
+        summary_blob: ownerFixInput.summary_blob,
+      }).success,
+      false,
+    );
+    // test는 지정 ticket의 claim 근거가 필수다.
+    const { ticket_source: _claim, ...unclaimed } = testInput;
+    assertEquals(
+      problem.input.safeParse({ ...unclaimed, op: "test" }).success,
       false,
     );
     assertEquals(
       problem.input.safeParse({
         ...fixInput,
+        op: "record_fix",
         fix: { ...fixInput.fix, after: fixInput.fix.before },
       }).success,
       false,
@@ -226,8 +260,8 @@ Deno.test(
       MCP_PROBLEM_ROUTES.lophn_problem.record_fix,
     )
       .parse({
-        input: fixInput,
-        idempotency_key: fixInput.idempotency_key,
+        input: ownerFixInput,
+        idempotency_key: ownerFixInput.idempotency_key,
         compare: { problem_seq: "12" },
         prepared: [],
       });
@@ -300,37 +334,22 @@ Deno.test(
   () => {
     cliProblemRecordFixSchema.parse({
       command: "problem record-fix",
-      problem: PRB,
-      fix: {
-        before: REL,
-        after: "rel_01h455vb4pex5v6nkc6gd5fdw2",
-        summary: HASH,
-        verification: [VRF],
-        ticket: TKT,
-        claim_seq: "12",
-      },
-      summary_blob: {
-        preparation: "prep-fix-1",
-        principal: "coding_agent:cac_01arz3ndektsv4rrffq69g5fav",
-        purpose: "fix_summary",
-        hash: HASH,
-        size_bytes: 64,
-      },
-      idempotency_key: "fix-1",
+      ...fixInput,
     });
     // ticket 없는 fix 기록은 owner input이 거절한다(mcp#R25).
     assertEquals(
       cliProblemRecordFixSchema.safeParse({
         command: "problem record-fix",
         problem: PRB,
+        problem_seq: "12",
         fix: {
           before: REL,
           after: "rel_01h455vb4pex5v6nkc6gd5fdw2",
-          summary: HASH,
           verification: [],
           ticket: null,
           claim_seq: null,
         },
+        summary: "변경 없음",
         idempotency_key: "fix-2",
       }).success,
       false,

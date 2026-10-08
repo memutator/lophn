@@ -76,13 +76,29 @@ export type TerminalFailure =
   | "kill_unconfirmed"
   | "host_lost";
 
+/** coding TUI의 첫 prompt 전달 결과. argv는 `none`, 입력 전달은 pending에서 셋 중 하나로 끝난다. */
+export type PromptOutcome =
+  | "none"
+  | "pending"
+  | "delivered"
+  | "not_delivered"
+  | "unknown";
+
+/** lophn이 [Start]로 연 coding TUI의 시작 표지. 일반 shell runtime에는 없다. */
+export type TerminalCoding = {
+  operation_id: string;
+  ticket: string;
+  connection: string;
+  prompt_delivery: PromptOutcome;
+};
+
 export type TerminalRuntime = {
   terminal_ref: string;
   project: string;
   folder_ref: string;
   cwd_at_start: string;
   program_path: string;
-  launch_kind: "shell";
+  launch_kind: "shell" | "coding_tui";
   state: TerminalStateName;
   generation: number;
   columns: number;
@@ -91,6 +107,8 @@ export type TerminalRuntime = {
   failure_reason: TerminalFailure | null;
   output_seq: number;
   dropped_output: boolean;
+  /** coding TUI일 때만 있다. */
+  coding?: TerminalCoding;
 };
 
 export type TerminalOutput = {

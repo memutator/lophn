@@ -24,6 +24,7 @@ import {
 import { loadDocument } from "../versions/mod.ts";
 import { targetKey } from "./model.ts";
 import {
+  contextApps,
   type ContextItemRow,
   listContexts,
   listContextsByTargetKey,
@@ -53,7 +54,11 @@ function allowed(
   const decision = snapshot.port(TargetAuthorization)(
     ctx,
     operation,
-    { context: contextId },
+    {
+      context: contextId,
+      // 앱 하나에 묶인 agent는 그 앱의 읽기를 항목으로 가진 context만 본다.
+      context_apps: contextApps(snapshot.sql as never, contextId),
+    },
   );
   if (!decision.ok) {
     return decision.error.code === "forbidden" ||

@@ -430,3 +430,27 @@ test("shell/app-frame#R12: 연결이 view와 다른 프로세스면 보내지 �
   await w.calls.call(viewOf(), { command: "usage.list", input: {} });
   assert.equal(w.state.connects.length, before + 1);
 });
+
+test("problems/feedback#R4: 마지막 호출이 입력 검사 등으로 시작 전에 막혔으면 blocked_before_start이고 앱으로 보낸 뒤나 호출이 없으면 모른다", async () => {
+  const w = world();
+  assert.equal(w.calls.commandStart("view-1"), "unknown");
+  const bad = await w.calls.call(viewOf(), {
+    command: "usage.list",
+    input: { limit: 0 },
+  });
+  assert.equal(bad.ok, false);
+  assert.equal(w.state.invokes.length, 0);
+  assert.equal(w.calls.commandStart("view-1"), "blocked_before_start");
+  // view마다 따로다.
+  assert.equal(w.calls.commandStart("view-2"), "unknown");
+  // 선언 밖 command도 시작되지 못한 호출이다.
+  await w.calls.call(viewOf({ view_session: "view-3" }), {
+    command: "files.read",
+    input: {},
+  });
+  assert.equal(w.calls.commandStart("view-3"), "blocked_before_start");
+  // 그 뒤 호출이 앱에 보내지면 더는 막혔다고 하지 않는다. 보낸 호출을 지목하지도 않는다.
+  const ok = await w.calls.call(viewOf(), { command: "usage.list", input: {} });
+  assert.equal(ok.ok, true);
+  assert.equal(w.calls.commandStart("view-1"), "unknown");
+});

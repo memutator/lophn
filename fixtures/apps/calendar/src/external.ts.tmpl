@@ -78,7 +78,8 @@ export async function createExternalEvent(
 ): Promise<ExternalEvent> {
   const query = new URLSearchParams(input).toString();
   const body = await call(deps, command, "POST", `/events?${query}`) as {
-    event: ExternalEvent;
-  };
-  return body.event;
+    event?: ExternalEvent;
+  } | null;
+  // 2xx인데 본문이 없는 응답(고정 대역)은 만들어졌다는 사실만 있고 상대가 붙인 ID는 모른다.
+  return body?.event ?? { id: "unconfirmed", ...input };
 }

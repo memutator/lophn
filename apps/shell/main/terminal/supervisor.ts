@@ -28,6 +28,10 @@ export type Supervisor = {
 export function createSupervisor(options: {
   spawnHost: SpawnHost;
   entry: string;
+  /** host가 요청의 답이 아니라 먼저 보낸 줄(coding TUI 관측). id 없는 `event` 줄이다. */
+  onEvent?: (event: unknown) => void;
+  /** host가 끝났거나 멈췄다. 그 host가 연 runtime의 관측은 unknown이 된다(R13). */
+  onHostLost?: () => void;
 }): Supervisor {
   // 창이 뜨자마자 host를 띄우지 않는다. 첫 요청이 child를 만든다.
   let child: HostProcess | undefined;
@@ -59,6 +63,7 @@ export function createSupervisor(options: {
 
   function onExit(): void {
     lost = true;
+    options.onHostLost?.();
     for (const [id, resolve] of pending) {
       pending.delete(id);
       resolve({
@@ -80,12 +85,17 @@ export function createSupervisor(options: {
   function onLine(line: string): void {
     let parsed: {
       id?: string;
+      event?: unknown;
       reply?: TerminalReply;
       runtime?: TerminalRuntime;
     };
     try {
       parsed = JSON.parse(line) as typeof parsed;
     } catch {
+      return;
+    }
+    if (parsed.event !== undefined) {
+      options.onEvent?.(parsed);
       return;
     }
     if (parsed.runtime) {
@@ -130,7 +140,8 @@ export function createSupervisor(options: {
       const type = (message as { type?: unknown } | null)?.type;
       // 사람이 누른 열기·다시 시작만 죽은 host 뒤를 살린다. input·resize·close·
       // snapshot 같은 자동 경로는 죽은 host에 닿지 않는다(R13).
-      const current = type === "open" || type === "restart"
+      const current = type === "open" || type === "open-coding" ||
+          type === "restart"
         ? revive()
         : ensure();
       if (!current || current.killed || !current.stdin) {
@@ -153,6 +164,14 @@ export function createSupervisor(options: {
             ok: false,
             reason: "host_lost",
             message: "generation does not match",
+          });
+        }
+        // coding TUI는 자동 resume·재spawn이 없고 shell로 바뀌지도 않는다. 새 [Start]만 있다(R13).
+        if (terminal.launch_kind === "coding_tui") {
+          return Promise.resolve({
+            ok: false,
+            reason: "spawn_failed",
+            message: "coding TUI starts again only from a new start",
           });
         }
         if (
@@ -181,6 +200,7 @@ export function createSupervisor(options: {
     },
     stop() {
       lost = true;
+      options.onHostLost?.();
       try {
         child?.kill("SIGTERM");
       } catch {

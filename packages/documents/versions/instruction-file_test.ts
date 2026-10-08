@@ -267,6 +267,8 @@ Deno.test("documents/file-tracking#R20 documents/versions#R20: instruction_fileì
         revision: 1,
         state: "enabled" as const,
       }),
+    isOperator: (assignment: string) =>
+      ok(assignment === "asg_01arz3ndektsv4rrffq69g5fav"),
   };
   const fixture = versionFixture(undefined, undefined, output);
   try {

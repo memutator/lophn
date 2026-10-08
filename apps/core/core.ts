@@ -21,7 +21,10 @@ import {
   createApprovalRequest,
   ROUTES,
 } from "../../packages/contracts/platform/mod.ts";
-import { providerList } from "../../packages/contracts/lophn-agent/mod.ts";
+import {
+  createAppEngineerAssignment,
+  providerList,
+} from "../../packages/contracts/lophn-agent/mod.ts";
 import {
   type ApiServer,
   RouteRegistry,
@@ -83,13 +86,20 @@ import {
 } from "../../packages/platform/secrets/mod.ts";
 import {
   connectionConnect,
+  connectionEndChild,
+  connectionEndConnection,
+  connectionRegisterChild,
   ticketUploadSummary,
 } from "../../packages/contracts/coding-agent/mod.ts";
+import { problemsUploadFixSummary } from "../../packages/contracts/problems/mod.ts";
 import { CONNECTION_SECRET_OWNER } from "../../packages/coding-agent/mod.ts";
 import {
   type CodingCredentials,
   connectHandler,
   createCodingCredentials,
+  endChildHandler,
+  endConnectionHandler,
+  registerChildHandler,
   withRevocationSweep,
 } from "./coding-credential.ts";
 import { codingAgentOperationPolicies } from "./coding-operations.ts";
@@ -124,6 +134,7 @@ import {
 } from "./documents-prepare.ts";
 import { documentUploadHandler } from "./documents-upload.ts";
 import { ticketSummaryUploadHandler } from "./ticket-summary-upload.ts";
+import { fixSummaryUploadHandler } from "./problems-fix-summary-upload.ts";
 import {
   type FilesRouteDeps,
   fileWorkers,
@@ -177,8 +188,10 @@ import {
   type WatchSync,
 } from "./documents-watch.ts";
 import { startNotifications } from "./notifications.ts";
+import { startAssignmentReactions } from "./assignment-reactions.ts";
 import {
   APPROVAL_EXPIRY_CONTEXT,
+  ASSIGNMENT_REACTIONS_CONTEXT,
   NOTIFICATIONS_CONTEXT,
   withPlatform,
 } from "./platform.ts";
@@ -203,6 +216,12 @@ import {
   writeParent,
 } from "./parent.ts";
 import { snapshotLogsEnvironment } from "./problems-logs.ts";
+import {
+  registerRepairReads,
+  REPAIR_WORKER_KIND,
+  repairWorkerSpec,
+} from "./repair-context.ts";
+import { answerRedactRequest } from "./agent-runtime-redaction.ts";
 import {
   COLLECTOR_CREDENTIAL_OPERATIONS,
   COLLECTOR_ROUTES,
@@ -246,7 +265,7 @@ import {
   noteBootstrapFailure,
   readRoleAsset,
 } from "./lophn-agent-bootstrap.ts";
-import type { BuiltinRole } from "../../packages/lophn-agent/presets/mod.ts";
+import type { ProductRole } from "../../packages/lophn-agent/presets/mod.ts";
 import {
   createApprovalTextPreparer,
   withApprovalText,
@@ -311,7 +330,7 @@ export type CoreOptions = {
   restoreTimeoutMs?: number;
   // 내장 assignment 준비의 역할 prompt 자산과 재시도 대기(ms). 제품 기동은 소스 배치의
   // prompt 자산을 읽고 60초 뒤 한 번 다시 시도한다. 테스트가 대신한다.
-  roleAsset?: (role: BuiltinRole) => Promise<Result<Uint8Array>>;
+  roleAsset?: (role: ProductRole) => Promise<Result<Uint8Array>>;
   bootstrapRetryMs?: number;
   // secret store가 값을 읽는 keychain adapter. 없으면 제품 adapter(Linux Secret Service)다.
   // 테스트는 fake를 주어 사람의 실제 keychain에 닿지 않게 한다.
@@ -482,6 +501,8 @@ async function open(
   const collectorChannel = createDocumentsChannel();
   // ticket checker worker 요청 통로. 같은 통로 모양을 쓴다(coding-agent#T26).
   const checkerChannel = createDocumentsChannel();
+  // coding-agent 수리 자료 worker 요청 통로. 같은 통로 모양을 쓴다(coding-agent#T43).
+  const repairChannel = createDocumentsChannel();
   // coordinator가 파일 읽기의 창으로 보내는 byte frame의 우편함(`files.read` stream).
   const fileWindows = createFileWindows();
   const ledgerPath = `${root.path}/lophn.db`;
@@ -779,6 +800,7 @@ async function open(
   if (!openedRuntime.ok) return openedRuntime;
   runtime = openedRuntime.value;
   knownForBodies.current = runtime.knownSecrets;
+  registerRepairReads(runtime, repairChannel);
   // sweep가 expire_claim을 제출할 machine credential. 기록이 없으면 writer가
   // 만료 정리를 거절하므로 기동을 여기서 멈춘다(coding-agent/tickets#R13).
   const sweepCredential = await runtime.record({
@@ -817,6 +839,15 @@ async function open(
   if (!notificationsCredential.ok) {
     await runtime.close();
     return notificationsCredential;
+  }
+  // AppCreated 반응 구독자(machine:lophn-agent-assignments)의 자격 기록. token이 없는 core 내부
+  // 자격이라 HTTP로는 이 principal이 될 수 없다. reader·writer는 이 ledger 기록으로 자격을 본다.
+  const assignmentsCredential = await runtime.record(
+    ASSIGNMENT_REACTIONS_CONTEXT,
+  );
+  if (!assignmentsCredential.ok) {
+    await runtime.close();
+    return assignmentsCredential;
   }
   // apps 제어(connect 어댑터·runtime·logs 덮기)가 ledger 사실을 읽는 core 내부 자격 기록.
   const appsControlCredential = await runtime.record(APPS_CONTROL_CONTEXT);
@@ -1131,6 +1162,8 @@ async function open(
           connectionTestSecrets,
         ),
         () => appsControl.connector.sweep(),
+        // 회수된 connection 아래 등록된 MCP·CLI child도 바로 닫는다(platform/identity#R15).
+        (connection) => coding?.authority.endConnection(connection),
       ),
       reads: runtime.reads,
       // 현재 보기 relay와 apps.connect(supervisor 메모리 관측을 읽는 제어 어댑터)다.
@@ -1144,6 +1177,19 @@ async function open(
             [
               `${connectionConnect.resource}/${connectionConnect.method}`,
               connectHandler(coding, () => runtime!.writer),
+            ] as const,
+            // 신뢰 감독(shell main, 사람 credential)이 TUI 아래 MCP·CLI child를 등록·해제한다.
+            [
+              `${connectionRegisterChild.resource}/${connectionRegisterChild.method}`,
+              registerChildHandler(coding),
+            ] as const,
+            [
+              `${connectionEndChild.resource}/${connectionEndChild.method}`,
+              endChildHandler(coding),
+            ] as const,
+            [
+              `${connectionEndConnection.resource}/${connectionEndConnection.method}`,
+              endConnectionHandler(coding),
             ] as const,
           ]
           : []),
@@ -1176,6 +1222,10 @@ async function open(
         // ticket 완료 보고 summary: purpose는 ticket 등록값(ticket_summary)으로 고정이다.
         `${ticketUploadSummary.resource}/${ticketUploadSummary.method}`,
         ticketSummaryUploadHandler(prepareRelay),
+      ], [
+        // 고친 기록 summary: purpose는 problems/repairs 등록값(fix_summary)으로 고정이다.
+        `${problemsUploadFixSummary.resource}/${problemsUploadFixSummary.method}`,
+        fixSummaryUploadHandler(prepareRelay),
       ], [
         // 사람의 보호 입력 값: core는 해석·보관 없이 I/O worker의 keychain adapter로 흘린다.
         `${secretInput.resource}/${secretInput.method}`,
@@ -1798,11 +1848,55 @@ async function open(
       }
     }
   }
+  // coding-agent/worker. 수리 자료(`/v1/repair_context/*`)를 요청자 credential로 조립하는 상시 worker다.
+  // 자기 credential이 없고(hello의 credential은 자리만 채운다) 요청마다 core가 요청자의 것을 싣는다.
+  // 알려진 값 pipe의 `redact_request`는 여기서 답한다. 띄우지 못해도 core는 계속 서고 그 route만
+  // unavailable이다.
+  const repairSpec = repairWorkerSpec();
+  if (
+    io && repairSpec &&
+    allRoutes.some((route) => route.resource === "repair_context")
+  ) {
+    const started = await io.start(
+      repairSpec,
+      {
+        type: "hello",
+        core_epoch: epoch,
+        process_identity: epoch,
+        kind: REPAIR_WORKER_KIND,
+        task: "repair-context",
+        scope: { operations: [], targets: {} },
+        credential: "none",
+        api_port: server.port,
+      },
+      {
+        onMessage: (message) => {
+          const answer = answerRedactRequest(message, runtime!.knownSecrets);
+          if (answer) void io.send(REPAIR_WORKER_KIND, answer);
+          else repairChannel.onMessage(message);
+        },
+      },
+    );
+    if (started.ok) {
+      repairChannel.bind((payload) =>
+        io.send(REPAIR_WORKER_KIND, payload).then((sent) => sent.ok)
+      );
+    }
+  }
   // core 안 notifications 구독자. 계기 event를 notification으로 바꾸고 cursor를 올린다.
   const notifications = startNotifications({
     runtime,
     ledgerPath,
   });
+  // core 안 assignments 반응 구독자. AppCreated마다 거두지 않은 AE assignment를 만들고 AppArchived면
+  // 멈추며 cursor를 올린다(lophn-agent/assignments#R1). lophn-agent 팀이 조립에 없으면 반응할
+  // command가 없으므로 열지 않는다.
+  const assignmentReactions =
+    assembled.value.commands.some((c) =>
+        c.route.name === createAppEngineerAssignment.name
+      )
+      ? startAssignmentReactions({ runtime, ledgerPath })
+      : undefined;
   // core 안 documents 구독자. documents event가 오면 root 집합과 관측 근거를 맞춘다. documents
   // worker가 없는 core에서도 구독은 열려 있고, 맞출 대상이 없으면 아무것도 하지 않는다.
   const documentsFeed = startDocumentsFeed({
@@ -2168,6 +2262,8 @@ async function open(
           ticketCheckFeed?.stop();
           // 진행 중인 notification 생성은 writer가 닫히기 전에 끝난다.
           await notifications.stop();
+          // 진행 중인 assignment 반응도 writer가 닫히기 전에 끝난다.
+          await assignmentReactions?.stop();
           rootsWatch?.stop();
           respawnStop?.();
           agentRuntime?.stop();

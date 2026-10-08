@@ -857,17 +857,19 @@ E2E는 apps#T27(use-app-command, ask-app-hint, connect-apps, view-agent-visuals 
 ### T45 App Engineer assignment와 tool 범위
 
 - 등급: 기본
+- 상태: 완료 (#433)
 - concern: lophn-agent/assignments, lophn-agent/roles/app-engineer
 - 요구: lophn-agent/assignments#R1, lophn-agent/roles/app-engineer#R5, R6, R21
-- 자리: packages/lophn-agent/assignments/ (AppCreated 반응: CreateAppEngineerAssignment), packages/lophn-agent/roles/app-engineer/ (역할 tool 선택), apps/core/lophn-agent.ts
+- 자리: packages/lophn-agent/assignments/ (AppCreated 반응: CreateAppEngineerAssignment), packages/lophn-agent/roles/app-engineer/ (역할 tool 선택), apps/core/ (assignment-reactions.ts, lophn-agent-bootstrap.ts)
 - 쓰는 contract: AppCreated·AppArchived event(apps#T1), event 구독 cursor(contracts#T7)
 - 내놓는 contract: CreateAppEngineerAssignment (contracts#T27)
 - slice: apps
 - 조사: docs/research/presets-and-agent-config.md
 - 선행: T9, T44, apps#T1
 - 완료:
-  - assignments_test.ts에 assignments#R1 테스트: AppCreated마다 거두지 않은 AE 하나(같은 event 재전달에 중복 없음, 반응과 cursor를 같이 commit), 보관이면 멈춤·자동 해제·재개 없음
-  - app_engineer_tools_test.ts에 AE#R5, R6, R21 테스트: 담당 앱의 허락된 read와 실제 되돌리기 지원 write만, confirm은 approval, external·복원 불가 write 없음, 설계 문서 저장과 ticket 생성은 approval 없음, ticket tool은 생성·읽기·make_ready만(T49)
+  - assignments#R1 테스트: AppCreated마다 거두지 않은 AE 하나(같은 event 재전달에 중복 없음, 반응과 cursor를 같이 commit), 보관이면 멈춤·자동 해제·재개 없음. 반응 engine은 apps/core/testing/lophn-agent-assignments-reaction_test.ts(구독자 gate가 있는 direct connection), 제품 core 경로는 apps/core/assignment-reactions_test.ts(실제 core가 앱 만들기·보관·보관 해제에 반응)
+  - app_engineer_tools_test.ts에 AE#R5, R6, R21 테스트: 담당 앱의 허락된 read와 실제 되돌리기 지원 write만, confirm은 approval, external·복원 불가 write 없음, 설계 문서 저장은 approval 없음. ticket tool(생성·읽기·make_ready만, 생성은 approval 없음)은 정의가 T49에 있어 T49가 채운다
+  - (구현) core 기동의 준비(apps/core/lophn-agent-bootstrap.ts)가 App Engineer product preset도 등록하고(전역 assignment는 없다), 반응 구독자(apps/core/assignment-reactions.ts, machine:lophn-agent-assignments)가 AppCreated·AppArchived만 앱 event 공개 정책으로 읽는다. 반응이 쓰는 command는 CreateAppEngineerAssignment·PauseAssignment이고 둘 다 선택 입력 `processed_through_seq`·`subscriber`를 받아 cursor와 한 transaction이다(contracts에 additive)
 
 ### T46 App Engineer 인터뷰와 설계 문서
 
@@ -880,6 +882,8 @@ E2E는 apps#T27(use-app-command, ask-app-hint, connect-apps, view-agent-visuals 
 - slice: apps
 - 조사: docs/research/presets-and-agent-config.md, docs/research/questions-and-hitl.md
 - 선행: T29, T32, T45
+- 상태: 완료 (#437)
+- 후속 (#441): AE 읽기 범위 전체와 handoff 고정 근거
 - 완료:
   - app_engineer_test.ts에 R1–R4, R7–R12, R20 테스트: 사람 요청·handoff로만, 읽기 범위 한정(담당 앱 자료·그 앱 read를 가진 context·SDK 계약·handoff 고정 근거), 맡지 않는 일 tool 없음, 앱 목적·SDK는 lophn 기획에서 시작, 인터뷰 질문 최대 12개·선택지 2~3개와 근거 있는 추천 하나, 가정 최대 3개·범위·동작·acceptance check 답이 없으면 ticket 보류, 8종 Markdown 문서와 순서·앞 결과의 읽은 고정 version 근거, 명세 흐름 최대 8단계·빈 결과·실패 별도·시각 배치·라이브러리 결정 없음, blueprint 원본 수정·문서 사본 없음, judgment·organizing 용도
   - E2E는 coding-agent slice의 new-app·change-app
@@ -933,7 +937,10 @@ E2E는 apps#T27(use-app-command, ask-app-hint, connect-apps, view-agent-visuals 
 - slice: coding-agent
 - 조사: docs/research/tool-registry-and-judgment.md
 - 선행: T31, T46, coding-agent#T18, contracts#T41
+- lophn-agent#T45에서 넘어온 것: App Engineer 상한(ROLE_CAPS)에 있는 `ticket.list`·`ticket.read`·`ticket.create`는 내장 정의가 없어 App Engineer 목록에 나오지 않는다(roles/app-engineer/tool-selection.ts는 정의가 서면 목록에 올린다). 정의를 세울 때 AE#R6 시험을 더한다: 설계 근거를 갖춘 ticket 생성은 approval 없음(reversible 선언), ticket tool은 생성·읽기·make_ready만, claim·연장·보고·[Start] 없음
 - lophn-agent#T44에서 넘어온 것: ticket 취소 tool을 정의할 때 소유 계약이 되돌릴 수 있는 변경이면 `ToolBinding`의 대상 `reversibility: "reversible"`로 선언한다. 판정표에 ticket 전용 분기가 없어 그러면 사람 요청에서 묻지 않고 allow다(tool-judgment#R10 "ticket 취소는 묻지 않는다").
+- 상태: 완료 (#443) — 정한 것: (1) ToolCall 성공과 ticket 생성은 한 transaction이 아니다. ticket 생성 command의 actor는 user·agent뿐이라 machine인 `FinishToolCall`을 `tx.call`로 묶으면 저장 주체가 달라지고(Q43과 같은 이유), 대신 agent 자격이 최초 ToolCall ID를 idempotency key로 `CreateTicket`을 부르므로 같은 호출의 재전송은 ticket을 하나만 만들고 응답이 없으면 효과 불명확(`change_confirmation`)이다. (2) readiness는 모델이 고르지 않는다: 근거(고정 참조)·채택 질문·실행 가능한 acceptance check(app_test와 test_command, 수리는 problems_closed와 문제별 재현·사람 확인)가 모두 있고 모델이 따로 적은 확인이 없을 때만 ready다. (3) `ticket.make_ready`는 AE 상한에만 둔다(lophn은 채택한 설계를 모른다). ticket 취소 tool은 정의하지 않으므로 T44에서 넘어온 reversibility 선언은 `ticket.create`·`ticket.make_ready`의 `reversible: true`(claim 전 ticket은 사람이 취소)로 적용했고 판정은 allow다. (4) 보안 경계: 앱 하나에 묶인 agent 자격(AE의 `app` 조건)이 다른 앱에 ticket을 만들거나 읽거나 전환하는 길이 있었다. coding-agent/tickets의 create·make_ready·list·show·checks가 자격의 앱 조건으로 없는 대상과 같은 답을 낸다. (5) 시험은 `apps/core/ticket-tools_test.ts`(실제 core, 제품과 같은 `createContractCall`·`ALL_ROUTES`, model 호출 없음)이 맡고 E2E는 coding-agent slice다. 이어보냄: 제품 core가 `QuestionAdoptions`·`ProblemStatuses` port를 올리지 않아 채택 질문이 있는 ready 생성·make_ready와 수리 ticket 생성은 제품에서 fail-closed다(시험은 `ticket-claim-ports_test.ts`의 대역을 쓴다). 내장 쓰기 tool의 `Toolkit.binding`은 제품 조립에 아직 없어 ticket 쓰기도 그 binding이 오기 전에는 실행되지 않는다.
+- 후속 (#448): 내장 write tool 제품 binding — 내장 쓰기 tool 19개의 `Toolkit.binding`(`apps/agent-runtime/builtin-binding.ts`)과 run 자격의 `create_approval_request`(쓰기·external이 하나라도 있으면), `QuestionAdoptions`·`ProblemStatuses` port의 제품 구현(`apps/core/ticket-ports.ts`, `main.ts`에 등록)을 닫았다. 시험은 `apps/core/builtin-write-flow_test.ts`. 남은 것: 내장 쓰기 tool의 결과 조회(`Toolkit.lookups`)는 아직 없다.
 - 완료:
   - ticket_tools_test.ts에 tools#R9, roles/lophn#R24, AE#R16, R17, R22 테스트: 생성·make_ready·읽기만(claim·연장·보고·[Start] 없음), 직접 요청·피드백도 ticket, 근거·acceptance check 부족은 `readiness: needs_confirmation`과 필요한 확인 목록(질문 Q4), 실행 준비(ready)는 채택 고정 설계·채택 질문·실행 가능한 acceptance check·흐름 하나 최대 6개 요구, 같은 원인 가설의 수리 묶음, 설정 변경만 필요한 일은 coding ticket 아님, ToolCall 성공과 ticket 생성이 한 transaction
   - lophn-agent/harness/tools#R9와 architecture의 ticket tool 목록을 make_ready에 맞게 고친다

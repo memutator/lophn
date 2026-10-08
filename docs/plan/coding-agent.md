@@ -1345,6 +1345,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T38 LaunchPlan과 첫 prompt
 
+- 상태: 완료 (#431)
 - 등급: 기본
 - concern: coding-agent/sessions, coding-agent/harnesses
 - 요구: coding-agent/sessions#R1, R2, R3, R4, R5, R10; coding-agent/harnesses#R5
@@ -1390,6 +1391,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T39 session 관측
 
+- 상태: 완료 (#432) — 이어보냄: shell#T49(host가 runtime_ref·generation·origin을 붙이고 process exit·재시작을 관측으로 내는 일)
 - 등급: 기본
 - concern: coding-agent/sessions, coding-agent/harnesses
 - 요구: coding-agent/sessions#R6, R7, R8, R9, R10; coding-agent/harnesses#R11
@@ -1466,6 +1468,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
   docs/research/coding-agent-harness-integration.md
 - 선행: T25, T26, T27, T32, T34, T35, T37, T39, T40, lophn-agent#T49, shell#T25,
   shell#T47, shell#T49, shell#T50, shell#T51
+- shell#T50에서 넘어온 것: (1) 화면은 [Start]가 연 TUI 상태와 첫 prompt 전달을 Tasks 탭에서 보이지만 project 터미널 탭이 그 runtime(`terminal_ref`)을 탭으로 붙여 보이는 길은 없다(renderer 터미널 store는 자기가 연 터미널만 안다). start-coding-agent flow 4단계("사람은 project 터미널 탭에서 TUI를 본다")의 E2E 전에 이 연결이 필요하다. (2) main은 `lophn`을 설치 묶음 경로(Linux `/usr/bin/lophn`)나 개발 `LOPHN_CLI`로만 부른다. 다른 OS의 `lophn` 경로는 platform#T49 몫이고 E2E는 fake `lophn` 또는 설치 묶음을 준비해야 한다. (3) `lophn harness install` 단독 호출은 화면에 입구가 없다(연결 때 `connection install`만 부른다).
 - coding-agent#T40에서 넘어온 것: 제품 core의 coding credential operation 상한(`apps/core/core.ts`의 registry operations)에는 아직 ticket claim·문서 저장 같은 command가 없어 실제 coding token이 `ClaimTicket` 등을 부르면 403이다(읽기 route와 `app.connect`는 닿는다). claim→작업→보고 E2E는 이 상한을 platform이 정한 뒤에 실제 token으로 돈다(사람 결정 필요, T36 남은 것 (3)과 같은 문제)
 - problems#T13에서 넘어온 것: manage-tickets 6단계 acceptance check가 problems Verification(TicketTestLink)을 쓰는 통합 확인(#222)
 - coding-agent#T26에서 넘어온 것: checker는 Verification을 읽기만 하고 test_command 실행을 요청하지 않는다. 보고 뒤의 completion_seq로 TicketTestLink를 붙여 test_command를 요청하는 주체·경로(고정 test blob 준비 포함)가 정해지지 않았다. 그 요청이 없으면 test_command 조건은 `inconclusive`(실행 안 함)로 reported에 남는다
@@ -1525,6 +1528,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T43 repair context 예산·추가 근거·cursor·이미지
 
+- 상태: 완료 (#435) — 전체 경로는 owner 작업이 있어야 한다: source diff 근거는 apps release read가 첫 발생 전·현재 고정 release의 보존 source 참조를 내야 하고(지금은 이유만), image 내용은 platform redaction이 image/png를 지원해야 한다(지금은 허용 첨부 열기 참조·종류·크기만). 좁은 본문 읽기 `problems.report_body`는 report_text·snapshot_logs와 R15 screen용 feedback_state를 연다
 - 등급: 기본
 - concern: coding-agent/repair-context
 - 요구: coding-agent/repair-context#R11, R12, R15, R16, R17, R19
@@ -1561,6 +1565,8 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T44 MCP·CLI 문제 tool과 사람의 문제 command
 
+- 상태: 완료 (#452) — 남은 것: 이미지 내용 전달(`attachment open`은 참조·종류·크기만, platform redaction image/png 필요, T43과 같다). reproduction test의 core 요청 접수는 runner 연결(follow-up 40) 전이라 거절로 읽히고, core `RequestTest`의 claim 검사는 problems가 정한다(problems#T18 이어보냄)
+- 정한 것(T44): `record_fix` tool·CLI 입력은 owner command 입력이 아니라 `{problem, problem_seq, fix{before, after, verification, ticket, claim_seq}, summary 본문}`이다. 통로가 summary를 `problems/upload_fix_summary`(additive upload route, purpose `fix_summary`)로 저장해 받은 준비 증거와 그 hash만 `RecordProblemFix`에 싣고, 올린 바이트와 다른 hash의 준비 증거는 보내지 않는다. `test`는 reproduction만이고 `ticket_source{ticket, claim_seq}`를 필수로 받아 지정 repair ticket의 현재 claim(claimed·같은 앱·문제 포함·claim_seq 일치·기한 안·이 연결의 claim)을 읽어 확인한 뒤 `app test`와 같은 흐름으로 요청한다. 처리 대상(`handler` user/coding_agent)은 문제 요약의 next_action으로 통로가 가른다(owner list에 filter가 없다). `problem attachment open`은 보고·snapshot 소속과 허용 첨부(snapshot log·화면 이미지)를 읽어 `{kind, media_type, size_bytes, open{report_attachment, problem, report, field}}` 참조만 내고 hash·운영 경로·내용은 내지 않는다
 - 등급: 기본
 - concern: coding-agent/mcp-server, coding-agent/cli
 - 요구: coding-agent/mcp-server#R24, R25; coding-agent/cli#R7, R26, R33, R34,

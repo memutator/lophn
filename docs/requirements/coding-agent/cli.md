@@ -202,9 +202,9 @@ concerns: [coding-agent/cli]
 - 확인: problems/repairs·problems/tests와 coding-agent/tickets의 정본 결과를 다시 읽고 직접 요청도 담당 agent가 만든 ticket의 MCP claim을 사용하며 과거 ticket 없는 고친 기록은 조회만 유지한다.
 - 의도: coding-agent#I4
 
-**[R35]** 사람은 앱과 한 줄 증상으로 피드백을 제출하고 수리 요청을 담당 agent의 ticket 준비로 연결하고 지정 ticket 지시 또는 [Start]를 선택하며 정상·미수정·무시·false alarm과 테스트로 확인할 수 없는 수리는 현재 문제와 근거를 shell/confirmation-window에서 확인하고 그 확인은 "내가 확인함"으로 테스트 통과와 구별한다.
-- 이유: 수리 부탁은 실행 승인이 아니고, 테스트를 만들 수 없는 repair는 사람의 확인을 acceptance check로 둔다.
-- 확인: problems/feedback·problems/closing의 허용 결과가 읽히고 coding credential의 사람 확인·무시는 거절되며 요청만으로 문제를 닫거나 coding agent를 띄우지 않고 [Start]를 누른 TUI 시작만 coding-agent/sessions를 따르며 사람 확인이 test result 통과로 기록되지 않는다.
+**[R35]** CLI는 feedback을 접수하지 않고 사람의 문제 알리기·수리 요청·정상·미수정·무시·false alarm·테스트로 확인할 수 없는 수리 확인을 shell의 화면과 confirmation-window로 안내한다: `problem report`는 문제 알리기 화면 안내, `request-repair`는 담당 agent의 ticket 준비 화면 링크, `confirm`·`dismiss`는 결정 화면 링크와 대기 사실만 내며, 그 확인은 "내가 확인함"으로 테스트 통과와 구별한다.
+- 이유: 수리 부탁은 실행 승인이 아니고, feedback 접수는 shell의 사람 화면(problems/feedback#R1)만 하며, 테스트를 만들 수 없는 repair는 사람의 확인을 acceptance check로 둔다.
+- 확인: CLI 호출이 보고·문제 상태를 바꾸지 않고 problems/feedback·problems/closing의 허용 결과가 읽히며 coding credential의 이 command는 실행 전 거절이고 요청만으로 문제를 닫거나 coding agent를 띄우지 않으며 [Start]를 누른 TUI 시작만 coding-agent/sessions를 따르고 사람 확인이 test result 통과로 기록되지 않는다.
 - 의도: coding-agent#I4
 
 ### ticket

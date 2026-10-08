@@ -26,6 +26,11 @@ export type PrepareInput = {
   env: Record<string, string>;
   // runner가 고른 Deno. 절대 경로여야 한다.
   deno: string;
+  // runner가 고른 앱 import map(runner 설치 자료)이다. 요청의 argv가 아니라 이 값만 `--import-map`이 된다.
+  // 있으면 자식은 `--no-config`로 뜬다: 고정 source의 deno.json·lock을 읽지 않는다.
+  import_map?: string;
+  // 자식 프로세스의 환경에만 들어가는 runner 값(HOME·DENO_DIR). `--allow-env`에는 들어가지 않는다.
+  runtime_env?: Record<string, string>;
   // 접수한 요청의 실행 기한이다. method의 timeout_ms보다 길어지지 않는다(짧은 쪽을 쓴다).
   request_timeout_ms?: number;
 };
@@ -77,9 +82,17 @@ export function prepareCommand(
   const envNames = Object.keys(input.env);
   // `--no-prompt` 같은 전역 flag는 서브커맨드 앞에 둔다. deno 2.9는
   // `test --no-prompt`를 거절한다.
+  if (input.import_map !== undefined) {
+    if (!input.import_map.startsWith("/") || input.import_map.includes("\0")) {
+      return reject();
+    }
+  }
   const args = [
     "test",
     ...FIXED_DENO_FLAGS,
+    ...(input.import_map === undefined
+      ? []
+      : ["--no-config", `--import-map=${input.import_map}`]),
     `--allow-read=${reads.join(",")}`,
     `--allow-write=${input.scratch}`,
   ];
@@ -93,7 +106,7 @@ export function prepareCommand(
     args,
     cwd,
     timeout_ms: Math.min(method.timeout_ms, requested ?? method.timeout_ms),
-    env: envNames.length > 0 ? { ...input.env } : {},
+    env: { ...input.env, ...(input.runtime_env ?? {}) },
   });
 }
 

@@ -34,6 +34,8 @@ import { AppSpace } from "../app-frame/app-space.tsx";
 import type { AppsSource } from "./lophn-space/apps/source.ts";
 import type { RolesSource } from "./lophn-space/roles/source.ts";
 import type { SettingsSource } from "./lophn-space/settings/source.ts";
+import type { CodingConnectionsSource } from "./lophn-space/settings/connections/source.ts";
+import type { TasksSource } from "../app-frame/app-detail/tasks/source.ts";
 import type { AppDetailSource } from "../app-frame/app-detail/source.ts";
 import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
 import type { LophnAppWindowsApi } from "../../ipc/app-window.ts";
@@ -82,6 +84,10 @@ export interface DesktopProps {
   appWindows?: LophnAppWindowsApi;
   /** [Report a problem] 통로. 앱 공간 바의 버튼이 쓴다. */
   feedback?: LophnShellFeedbackBegin;
+  /** settings의 coding agent 연결 통로. 없으면 그 탭을 두지 않는다. */
+  coding?: CodingConnectionsSource;
+  /** 앱 공간 Tasks 탭 통로. 없으면 Tasks 탭은 아직 없다고 보인다. */
+  tasks?: TasksSource;
 }
 
 // 새 기본 창의 첫 화면. 공간 이동은 이 상태가 기억한다.
@@ -109,6 +115,8 @@ export function Desktop(
     views,
     appWindows,
     feedback,
+    coding,
+    tasks,
   }: DesktopProps,
 ) {
   const [route, setRoute] = useState<Route>(initial);
@@ -133,6 +141,31 @@ export function Desktop(
     request === undefined
       ? thingsToConfirm()
       : visit({ ...openLophn("things-to-confirm"), request });
+  // 회수·취소·생성 링크(`cac_`·`tkt_`·`app_`). 그 대상의 화면만 열고 결정 창은 사람이 누를 때 연다.
+  // Task 링크는 그 Task가 속한 앱 공간의 Tasks 탭으로 가고, 읽지 못하면 things-to-confirm으로 간다.
+  const codingTarget = (target: string) => {
+    if (target.startsWith("cac_")) {
+      visit({ ...openLophn("settings"), connection: target });
+    } else if (target.startsWith("app_")) {
+      setVisits((value) => value + 1);
+      setRoute({
+        ...openApp(target),
+        taskTarget: { ticket: null, create: true },
+      });
+    } else if (tasks) {
+      void tasks.get(target).then((read) => {
+        if (!read.ok) {
+          thingsToConfirm();
+          return;
+        }
+        setVisits((value) => value + 1);
+        setRoute({
+          ...openApp(read.value.app),
+          taskTarget: { ticket: target, create: false },
+        });
+      });
+    } else thingsToConfirm();
+  };
   // 전역 팔레트에서 고른 대상. lophn 공간 팔레트와 같은 목적지로만 간다(desktop#R30).
   const go = (target: LophnTarget) => {
     if (target.kind === "launcher") launcher();
@@ -191,13 +224,15 @@ export function Desktop(
   } else if (route.space === "app" && route.app && apps && live) {
     space = (
       <AppSpace
-        key={route.app}
+        key={route.taskTarget ? `${route.app}:${visits}` : route.app}
         app={route.app}
         source={apps}
         views={views}
         windows={appWindows}
         feedback={feedback}
         detail={appDetail}
+        tasks={tasks}
+        taskTarget={route.taskTarget}
         onInstructions={instructions
           ? () =>
             setRoute(openInstructions({ layer: "app", place: route.app! }))
@@ -234,6 +269,8 @@ export function Desktop(
         onApp={appSpace}
         roles={roles}
         settings={settings}
+        coding={coding}
+        initialConnection={route.connection}
         onInstructions={instructions
           ? () => setRoute(openInstructions({ layer: "global" }))
           : undefined}
@@ -261,6 +298,7 @@ export function Desktop(
             intents={intents}
             lophn={lophn}
             onThingsToConfirm={confirmTarget}
+            onCoding={codingTarget}
             go={go}
           />
         )

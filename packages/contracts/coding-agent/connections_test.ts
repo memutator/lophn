@@ -16,9 +16,13 @@ import {
   connectionCreate,
   connectionCreateInputSchema,
   connectionCreateOutputSchema,
+  connectionEndChild,
+  connectionEndConnection,
   connectionListInputSchema,
   connectionListOutputSchema,
   connectionPrincipal,
+  connectionRegisterChild,
+  connectionRegisterChildInputSchema,
   connectionRevoke,
   connectionRevokeInputSchema,
   connectionRevokeOutputSchema,
@@ -53,6 +57,9 @@ Deno.test("coding-agent/connection#R1, coding-agent/connection#R2, coding-agent/
       ["read", "/v1/coding_agent_connections/show"],
       ["command", "/v1/coding_agent_connections/create"],
       ["memory", "/v1/coding_agent_connections/connect"],
+      ["memory", "/v1/coding_agent_connections/register_child"],
+      ["memory", "/v1/coding_agent_connections/end_child"],
+      ["memory", "/v1/coding_agent_connections/end_connection"],
       ["command", "/v1/coding_agent_connections/revoke"],
     ],
   );
@@ -256,6 +263,38 @@ Deno.test("coding-agent/connection#R2: 연결 결정 입구는 사람만 부르�
     !connectionConnectOutputSchema.safeParse({
       connection: CAC,
       token: "x",
+    }).success,
+  );
+});
+
+Deno.test("coding-agent/connection#R17 platform/identity#R15: child 등록·해제 입구는 사람(신뢰 감독) credential만 부르고 scope·token 필드가 없다", () => {
+  for (
+    const route of [
+      connectionRegisterChild,
+      connectionEndChild,
+      connectionEndConnection,
+    ]
+  ) {
+    assertEquals(route.kind, "memory");
+    assertEquals(route.actors, ["user"]);
+  }
+  const input = {
+    connection: CAC,
+    process_generation: "123.456",
+    loader_identity: "/opt/lophn/lophn-credential",
+  };
+  assert(connectionRegisterChildInputSchema.safeParse(input).success);
+  // scope·token은 본문으로 받지 않는다(scope는 core가 ledger에서 읽는다).
+  for (const extra of ["scope", "token", "token_digest"]) {
+    assert(
+      !connectionRegisterChildInputSchema.safeParse({ ...input, [extra]: "x" })
+        .success,
+    );
+  }
+  assert(
+    !connectionRegisterChildInputSchema.safeParse({
+      ...input,
+      process_generation: "",
     }).success,
   );
 });

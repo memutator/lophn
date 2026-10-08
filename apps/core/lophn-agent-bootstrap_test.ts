@@ -112,7 +112,9 @@ Deno.test("lophn-agent/assignments#R2: a fresh core has exactly one enabled loph
           definition: { kind: string; model: unknown; prompt: string };
         }[];
       }).presets;
+      // App Engineer는 전역 assignment 없이 제품 기본 preset만 준비된다(assignments#R1).
       assertEquals(listed.map((entry) => entry.definition.kind).sort(), [
+        "app_engineer",
         "context_engineer",
         "lophn",
       ]);
@@ -156,7 +158,7 @@ Deno.test("lophn-agent/assignments#R2: restarting the same data root creates no 
         const presets = await read(again.port, "presets/list", {});
         assertEquals(
           (presets.body as { presets: unknown[] }).presets.length,
-          2,
+          3,
         );
       } finally {
         await again.shutdown();

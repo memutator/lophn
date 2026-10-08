@@ -137,7 +137,7 @@ core의 command·read는 동기이고 파일을 읽지 않으므로 `releases` �
   templates/app/                    hash 검증한 설치 템플릿
 ```
 
-bundle·정규 blueprint·SDK 코드와 guide·redaction된 실패 detail은 `blob` contract로 불변 저장한다. bundle manifest에는 entrypoint, 각 상대 path·hash, exact sdk_dependencies가 있다. 공개 SDK와 bundle 사본은 파일 0444·디렉터리 0555(깊은 파일의 중간 폴더까지)로 봉인하며 내용 hash를 확인하여 다시 만들 수 있다. 이 사본은 ledger 정본이 아니며 앱에 SDK 설치 디렉터리 전체 접근을 주지 않는다.
+bundle·정규 blueprint·SDK 코드와 guide·redaction된 실패 detail은 `blob` contract로 불변 저장한다. bundle manifest에는 entrypoint, 각 상대 path·hash, exact sdk_dependencies가 있다. entrypoint는 release 준비가 bundle에 더하는 플랫폼 진입 파일 `lophn-entry.ts`이고, 이 파일이 `runtime/entrypoint`의 `run()`을 불러 앱의 `main.ts`(`@lophn/app`)를 불러 온다. 잠근 import map의 `@lophn/base`는 준비한 플랫폼 설치의 file URL이라 그 설치에서 준비한 bundle만 그 설치에서 뜬다. 공개 SDK와 bundle 사본은 파일 0444·디렉터리 0555(깊은 파일의 중간 폴더까지)로 봉인하며 내용 hash를 확인하여 다시 만들 수 있다. 이 사본은 ledger 정본이 아니며 앱에 SDK 설치 디렉터리 전체 접근을 주지 않는다.
 
 app test Verification은 완성된 bundle hash를 대상으로 만들어지고 Release.tests로 고정된다. test result를 이미 hash한 bundle byte 안에 다시 집어넣어 hash를 바꾸지 않는다. 화면 build와 external source map, source commit 경로 대응은 bundle 안에 둔다. stack의 앱 frame은 그 commit 경로, SDK frame은 Package·version으로 해석한다. 일반 invocation 입력·출력 전체나 secret 원문을 blob으로 저장하지 않는다.
 

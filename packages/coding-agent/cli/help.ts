@@ -639,6 +639,137 @@ const TICKET_HELP: readonly CommandHelp[] = [
   },
 ];
 
+// 문제 command다(T44, cli#R33–R35). 읽기와 접수는 변경이 아니다: record-fix만 고친 기록을 남기고
+// test는 실제 runner 요청을 접수할 뿐이다. 사람 전용 네 command는 feedback·수리 요청·확인·무시를
+// 접수하지 않고 결정 화면 링크와 대기 사실만 낸다(D27).
+function problemHelp(
+  command: string,
+  purpose: string,
+  required: string[],
+  options: {
+    optional?: string[];
+    mutate?: boolean;
+    humanOnly?: boolean;
+    next?: string[];
+    example?: Record<string, unknown>;
+  } = {},
+): CommandHelp {
+  return {
+    command,
+    purpose,
+    required,
+    optional: ["--input", "--input-file", ...(options.optional ?? [])],
+    jsonExample: { command, ...(options.example ?? {}), json: true },
+    mutate: options.mutate ?? false,
+    humanOnly: options.humanOnly ?? false,
+    confirmation: false,
+    next: options.next ?? [],
+  };
+}
+
+const PROBLEM_HELP: readonly CommandHelp[] = [
+  problemHelp(
+    "problem list",
+    "앱·진행 상태·처리 대상(사람 또는 coding agent)을 고른 문제 요약 목록을 읽는다. claim을 만들지 않는다",
+    [],
+    {
+      optional: ["--app", "status", "handler", "limit", "cursor"],
+      next: ["problem show", "problem summary"],
+    },
+  ),
+  problemHelp("problem show", "문제 하나의 상세를 읽는다", ["problem"], {
+    next: ["problem summary", "problem fix-records"],
+  }),
+  problemHelp(
+    "problem snapshot",
+    "snapshot의 invocation·error·logs·screen 증거를 읽는다",
+    ["snapshot"],
+    { optional: ["item"], next: ["problem more"] },
+  ),
+  problemHelp(
+    "problem fix-records",
+    "문제의 지난 고친 기록을 읽는다. ticket 없는 과거 기록은 조회만 한다",
+    ["problem"],
+    { optional: ["cursor"], next: ["problem show"] },
+  ),
+  problemHelp(
+    "problem summary",
+    "문제 하나 또는 repair ticket의 적은 양 요약(문제당 2줄·전체 10줄·1,200자)을 읽는다",
+    ["selector"],
+    { optional: ["summary_version"], next: ["problem bundle"] },
+  ),
+  problemHelp(
+    "problem bundle",
+    "전체 수리 자료(24,576 bytes·300줄)를 읽는다",
+    ["selector"],
+    { optional: ["summary_version"], next: ["problem more"] },
+  ),
+  problemHelp(
+    "problem more",
+    "log·발생·source diff·화면·이미지 같은 종류별 추가 근거를 cursor로 읽는다",
+    ["problem", "kind", "source"],
+    { optional: ["cursor"], next: ["problem bundle"] },
+  ),
+  problemHelp(
+    "problem record-fix",
+    "지정 ticket의 현재 claim 아래 고친 release와 summary를 기록한다. summary는 먼저 blob으로 저장하고 문제를 닫지 않는다",
+    ["problem", "problem_seq", "fix", "summary"],
+    {
+      optional: ["--idempotency-key"],
+      mutate: true,
+      next: ["ticket report", "problem fix-records"],
+    },
+  ),
+  problemHelp(
+    "problem test",
+    "지정 ticket의 현재 claim 아래 reproduction test를 runner에 요청한다. 요청과 실제 결과를 따로 읽는다",
+    [
+      "ticket_source",
+      "request_key",
+      "kind",
+      "app",
+      "target",
+      "problem",
+      "basis_seq",
+      "reports",
+      "before",
+      "after",
+      "test",
+    ],
+    { optional: ["timeout_ms"], next: ["problem record-fix"] },
+  ),
+  problemHelp(
+    "problem attachment open",
+    "허용된 첨부의 안전한 참조·종류·크기를 낸다. 운영 경로는 내지 않는다",
+    ["problem", "snapshot"],
+    { optional: ["item"], next: ["problem more"] },
+  ),
+  problemHelp(
+    "problem report",
+    "문제 알리기는 shell 화면 안내만 낸다. CLI는 feedback을 접수하지 않는다",
+    ["symptom"],
+    { optional: ["--app"], humanOnly: true, next: ["problem list"] },
+  ),
+  problemHelp(
+    "problem request-repair",
+    "수리 요청은 담당 agent의 ticket 준비 화면 링크만 낸다. agent를 띄우지 않는다",
+    ["problem"],
+    { humanOnly: true, next: ["problem show"] },
+  ),
+  problemHelp(
+    "problem confirm",
+    "사람 확인은 결정 화면 링크와 대기 사실만 낸다. 테스트 통과가 아니다",
+    ["problem", "evidence"],
+    { humanOnly: true, next: ["problem show"] },
+  ),
+  problemHelp(
+    "problem dismiss",
+    "무시·false alarm은 결정 화면 링크와 대기 사실만 낸다. 문제를 닫지 않는다",
+    ["problem", "reason"],
+    { optional: ["false_alarm"], humanOnly: true, next: ["problem show"] },
+  ),
+];
+
 const DECISION_HELP: readonly CommandHelp[] = [
   {
     command: "context list",
@@ -792,6 +923,7 @@ const DECISION_HELP: readonly CommandHelp[] = [
   ...APP_HELP,
   ...SDK_HELP,
   ...TICKET_HELP,
+  ...PROBLEM_HELP,
 ];
 
 const SETUP_HELP: readonly CommandHelp[] = CLI_SETUP_NAMES.map((name) => {
@@ -835,6 +967,8 @@ function setupPurpose(name: string): string {
       return "현재 session의 요약을 읽는다";
     case "session plan":
       return "ticket의 TUI 시작 plan을 stdin으로 만든다";
+    case "session observe":
+      return "제품 hook·plugin·extension payload를 정규화해 관측 socket에만 쓴다";
     default:
       if (name.startsWith("harness ")) {
         return `harness ${name.slice("harness ".length)}를 다룬다`;
@@ -853,6 +987,7 @@ function setupRequired(name: string): string[] {
   if (name === "connection create") return ["label", "scope"];
   if (name === "mcp config") return ["--target", "--scope", "connection"];
   if (name === "session plan") return ["plan_input"];
+  if (name === "session observe") return ["--hook"];
   if (
     name === "harness plan" || name === "harness install" ||
     name === "harness update" || name === "harness remove"

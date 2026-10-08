@@ -45,6 +45,8 @@ export function windowEditorDeps(core: CoreSource): EditorDeps {
     source,
     // 이력·비교는 core 읽기, 복원은 main의 편집 통로(준비·파일 쓰기)다.
     versions: coreVersionSource(core, source, api),
+    // core 끊김(desktop#R7)에서 저장 gate와 확인 시각을 화면이 알게 같은 통로를 남긴다.
+    core,
     readingWidth: readingWidthStore(
       coreSettingsPort(core, () => `reading-width-${crypto.randomUUID()}`),
     ),

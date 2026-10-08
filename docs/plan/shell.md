@@ -1220,6 +1220,7 @@ concerns: [shell]
 
 ### T59 offline: provider 끊김과 core 끊김
 
+- 상태: 완료 (#462)
 - 등급: frontend
 - concern: shell/desktop, shell/editor
 - 요구: shell/desktop#R7, shell/editor#R12(연결 끊김)

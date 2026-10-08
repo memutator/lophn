@@ -1,6 +1,11 @@
 export { waitSchemaSteps } from "./schema.ts";
 export { createWaitCommands, type WaitDeps } from "./commands.ts";
-export { type RunBodyEnvironment, runBodyRead } from "./reads.ts";
+export {
+  type RunBodyEnvironment,
+  runBodyRead,
+  type RunBodyViewEnvironment,
+  runBodyViewRead,
+} from "./reads.ts";
 export {
   advanceElapsed,
   type Boundary,

@@ -32,6 +32,7 @@ import { DesktopIntents } from "./intents.tsx";
 import type { LophnTarget } from "./palette/lophn-scope.ts";
 import { AppSpace } from "../app-frame/app-space.tsx";
 import type { AppsSource } from "./lophn-space/apps/source.ts";
+import type { RolesSource } from "./lophn-space/roles/source.ts";
 import type { SettingsSource } from "./lophn-space/settings/source.ts";
 import type { CodingConnectionsSource } from "./lophn-space/settings/connections/source.ts";
 import type { TasksSource } from "../app-frame/app-detail/tasks/source.ts";
@@ -71,6 +72,8 @@ export interface DesktopProps {
   instructions?: InstructionsSource;
   /** apps 화면과 앱 공간의 통로. 없으면 앱 행은 apps 형제 화면으로만 간다. */
   apps?: AppsSource;
+  /** roles 화면 통로. 없으면 roles는 준비 전 안내다. */
+  roles?: RolesSource;
   /** settings 화면 통로. 없으면 settings는 준비 전 안내다. */
   settings?: SettingsSource;
   /** 앱 공간 운영 패널의 app-detail 통로. 없으면 app-detail 탭을 두지 않는다. */
@@ -106,6 +109,7 @@ export function Desktop(
     intents,
     instructions,
     apps,
+    roles,
     settings,
     appDetail,
     views,
@@ -263,6 +267,7 @@ export function Desktop(
         onProject={(project) => setRoute(openProject(project))}
         apps={apps}
         onApp={appSpace}
+        roles={roles}
         settings={settings}
         coding={coding}
         initialConnection={route.connection}

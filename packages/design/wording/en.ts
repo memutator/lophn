@@ -1465,7 +1465,7 @@ export const en = {
   "project-workspace.label.operators":
     "{count, plural, one {# Operator repeats a check here} other {# Operators repeat checks here}}",
   "project-workspace.label.operators-none":
-    "No Operator repeats a check here yet.",
+    "No Operator repeats a check here yet",
   "project-workspace.label.choose-app": "Choose an app",
   "project-workspace.label.drop-here": "Move here",
   "project-workspace.label.drop-side": "Open in side pane",

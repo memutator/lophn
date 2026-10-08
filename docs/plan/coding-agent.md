@@ -1219,6 +1219,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T35 session 시작 summary와 Claude Code hook
 
+- 상태: 완료 (#461) — 끝낸 것: 완료 기준 전부에 더해 T36에서 넘어온 것(dispatch `session summary` 분기를 소유 읽기 route `/v1/coding_agent_sessions/summary`로, core read handler를 repair-context와 같은 worker 통로로 등록)과 T33에서 넘어온 것(`lophn-build-app`·`lophn-repair` 본문의 `lophn_session` op `summary` 안내와 실제 응답의 claim_rule이 같은 문장이다 — summary.ts의 CLAIM_RULE)을 끝냈다. `apps/core/registry_test.ts`는 repo에 없고 core의 route 등록을 검사하는 목록 테스트도 없어 맞춘 것 없다. hook 설치는 temp dir 가짜 home 테스트로만 확인했다(실제 ~/.claude는 쓰지 않았다). 추가로 고친 것: apps/cli/main.ts의 redactor가 `createRedactionStream.push`의 검사 확정 prefix를 버려 hookMode stdout을 포함한 모든 사람 출력이 꼬리 24 code point만큼 잘리던 것을 push+finish 연결로 고쳤다.
 - 등급: 기본
 - concern: coding-agent/guides, coding-agent/mcp-server, coding-agent/cli
 - 요구: coding-agent/guides#R21, R22, R23, R24, R25; coding-agent/harnesses#R11

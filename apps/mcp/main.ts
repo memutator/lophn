@@ -68,6 +68,7 @@ import { createReadTool } from "../../packages/coding-agent/mcp-server/tools/rea
 import { createFormatTool } from "../../packages/coding-agent/mcp-server/tools/format.ts";
 import { createApprovalTool } from "../../packages/coding-agent/mcp-server/tools/approval.ts";
 import { createQuestionTool } from "../../packages/coding-agent/mcp-server/tools/question.ts";
+import { createSessionTool } from "../../packages/coding-agent/mcp-server/tools/session.ts";
 import { createSaveTool } from "../../packages/coding-agent/mcp-server/tools/save.ts";
 import { createSeriesTool } from "../../packages/coding-agent/mcp-server/tools/series.ts";
 import {
@@ -340,6 +341,8 @@ export function startMcpServer(
     ? {
       lophn_question: createQuestionTool({ client: caller }),
       lophn_approval: createApprovalTool({ client: caller }),
+      // 세션 시작 summary 읽기(T35). 읽기 route 하나이고 claim·착수를 하지 않는다.
+      lophn_session: createSessionTool({ client: caller }),
     }
     : undefined;
   const handler = createHandler({

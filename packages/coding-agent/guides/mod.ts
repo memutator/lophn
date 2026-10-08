@@ -34,6 +34,26 @@ export {
   type SkillsInstallInput,
   type SkillsInstallOutcome,
 } from "./install.ts";
+// 세션 시작 summary와 Claude Code hook이다(coding-agent#T35).
+export {
+  assembleSessionSummary,
+  CLAIM_LIMIT,
+  CLAIM_RULE,
+  PROBLEM_PAGE,
+  REMAINING_LIMIT,
+  type SessionSummaryResult,
+  type SummaryReadClient,
+  TICKET_PAGE,
+} from "./summary.ts";
+export {
+  HOOK_LIMITS,
+  type HookFacts,
+  type HookLimits,
+  type HookRead,
+  renderHook,
+  runSummaryHook,
+  runSummaryHookBounded,
+} from "./hook.ts";
 export { staleGuideMessage, syncTools } from "./sync-tools.ts";
 export type {
   SyncFileResult,

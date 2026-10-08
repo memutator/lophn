@@ -96,6 +96,8 @@ const claude: HarnessDefinition = {
         path: ".claude/settings.local.json",
       },
       purpose: "summary",
+      // 시작·재개·초기화만 받는다. compact 같은 다른 source는 summary를 다시 넣지 않는다(guides#R23).
+      matcher: "startup|resume|clear",
       method: "config_fragment",
       owned_identity: "SessionStart.lophn",
       minimum_version: "1.0.62",

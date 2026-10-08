@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { err, ok } from "../../packages/base/mod.ts";
+import { err, ok, type Result } from "../../packages/base/mod.ts";
 import {
   defineSetting,
   type KindLaunchSpec,
@@ -127,12 +127,18 @@ import {
 } from "../../packages/lophn-agent/harness/waiting-and-recovery/mod.ts";
 import {
   DEFAULT_RUN_LIMITS,
+  mcpAuthBegin,
+  mcpAuthBeginInputSchema,
+  mcpAuthComplete,
+  mcpAuthCompleteInputSchema,
   type McpServerConfig,
   mcpServersSetting,
   TOOL_DOCUMENT_ROUTES,
 } from "../../packages/contracts/lophn-agent/mod.ts";
 import { allowRunList } from "../../packages/lophn-agent/extensions/mod.ts";
+import { createMcpAuth } from "../../packages/lophn-agent/extensions/mod.ts";
 import { createMcpSecretRefSource } from "../../packages/lophn-agent/extensions/mod.ts";
+import type { HttpFetch } from "../../packages/lophn-agent/extensions/adapters/mcp-http.ts";
 
 // agent runtime 등록 뼈대. worker는 나중 작업이 이 객체에 더한다.
 // 권한 목록은 architecture §2.3의 최소다. host·skill·MCP를 등록하면 core가 목록을 바꿔 재기동한다.
@@ -589,6 +595,9 @@ export const lophnAgentDefinitions = {
     commands.recordAvailability,
     commands.recordCheck,
     commands.test,
+    commands.beginLogin,
+    commands.completeLogin,
+    commands.cancelLogin,
     modelCommands.change,
     usage.start,
     usage.finish,
@@ -692,10 +701,260 @@ export const lophnAgentDefinitions = {
   ],
   workers: [],
   // 확인한 revert의 앱 단계를 이어 실행하는 core 메모리 route다. handler는 core 조립이 붙인다(T48).
-  memoryRoutes: [runAppRevert],
+  memoryRoutes: [runAppRevert, mcpAuthBegin, mcpAuthComplete],
   // 문서·format tool의 글 값 통로다. 서빙은 core 조립이 한다(apps/core/tool-documents.ts).
   workerRoutes: TOOL_DOCUMENT_ROUTES,
+  // MCP OAuth의 시작·완료 입구다(extensions R16). handler는 core 조립(apps/core)이
+  // createMcpAuthControl로 붙인다. route만 등록한다.
 };
+
+// MCP OAuth 2.1의 시작·완료 runtime 제어 작업이다(extensions R16, R17, shell#T31에서
+// 넘어온 것의 route 절반). settings 화면의 도구 server 추가가 고르는 `oauth2` 인증 방식의
+// 시작(사람이 OS browser에서 열 authorization 주소와 callback port)과 완료(사람이 돌아온
+// callback으로 token 교환)를 잇는다. 업무 규칙은 extensions의 mcp-auth에 있고(concern
+// lophn-agent/extensions, code-map 의존 규칙) 여기는 core의 memory route 입구를 끼운다.
+// - verifier·state·access token은 값이다: memory route 작업 메모리에만 산다. 응답·log·
+//   ledger·event 어디에도 옮기지 않는다(extensions R7의 골자, shell#T31 골자).
+// - credential 값 보관은 보호 창의 `SetSecret`(이름 `mcp-<server>`)이 하고 설정은
+//   `sec:mcp-<server>`를 가리킨다(shell#T31에서 넘어온 규칙). 이 route는 그 값의 전송
+//   callback이 아니라 작업 상태만 기록한다.
+// - ledger를 거치지 않는다: 작업 메모리가 곧 상태다(architecture/apps 5.1의 골자).
+type McpAuthMemoryHandler = (
+  ctx: unknown,
+  input: unknown,
+) => Promise<Result<unknown>>;
+
+export type McpAuthControlDeps = {
+  // 실제 token 교환·갱신이 쓰는 fetch 눈이다(concern extensions). 테스트가 가짜를 끼운다.
+  fetch?: HttpFetch;
+  // 사람 credential의 loopback callback listener다(extensions R16). 127.0.0.1에만
+  // 듣는다. 테스트가 가짜를 끼우므로 사람의 실제 OS browser는 열지 않는다.
+  openListener(): Promise<
+    Result<
+      import("../../packages/lophn-agent/extensions/mod.ts").CallbackListener
+    >
+  >;
+  // 등록한 MCP server 설정의 snapshot 읽기다. 제품 main은 ledger 경로를 주고,
+  // 시험이 기록을 끼운다. 설정이 없는 등록은 not_found다(architecture 관례).
+  snapshot?: () => Promise<Result<McpServerConfig[]>>;
+  nowMs(): number;
+};
+
+// 등록한 MCP server 설정을 읽는 눈이다. 조입이 실제 snapshot 읽기를 붙인다.
+export function createMcpAuthControl(
+  deps: McpAuthControlDeps,
+): {
+  handlers: ReadonlyMap<string, McpAuthMemoryHandler>;
+  endAll(): void;
+} {
+  const auths = new Map<
+    string,
+    ReturnType<typeof createMcpAuth>
+  >();
+  const opened = new Map<
+    string,
+    import("../../packages/lophn-agent/extensions/mod.ts").CallbackListener
+  >();
+
+  function authOf(name: string) {
+    const found = auths.get(name);
+    if (found !== undefined) return found;
+    const made = createMcpAuth({ nowMs: deps.nowMs });
+    auths.set(name, made);
+    return made;
+  }
+
+  async function registeredServerOf(
+    name: string,
+  ): Promise<Result<McpServerConfig>> {
+    const loaded = await (deps.snapshot?.() ?? Promise.resolve(
+      ok([] as McpServerConfig[]),
+    ));
+    if (!loaded.ok) return loaded;
+    const found = loaded.value.find((server) => server.name === name);
+    if (found === undefined) {
+      return err({ code: "not_found", message: "등록한 서버가 아니다" });
+    }
+    return ok(found);
+  }
+
+  const begin: McpAuthMemoryHandler = async (_ctx, input) => {
+    const parsed = mcpAuthBeginInputSchema.safeParse(input);
+    if (!parsed.success) {
+      return err({
+        code: "invalid_input",
+        message: "서버 이름이 올바르지 않다",
+      });
+    }
+    const name = parsed.data.name;
+    // 등록한 서버 설정이다(shell#T31에서 넘어온 규칙): 등록 밖 서버 이름은
+    // not_found다(architecture 관례의 not_found, extensions R11의 골자).
+    const config = await registeredServerOf(name);
+    if (!config.ok) return config;
+    if (config.value.transport !== "http") {
+      return err({
+        code: "invalid_input",
+        message: "oauth2 인증은 http 서버만 고른다",
+      });
+    }
+    const httpAuth = config.value.http.auth;
+    if (httpAuth.kind !== "oauth2") {
+      return err({
+        code: "invalid_input",
+        message: "oauth2 인증 방식이 아니다",
+      });
+    }
+    // 사람 credential의 callback listener다(extensions R16: 사람 credential의
+    // loopback callback). 실제 loopback listener는 port에서 만든다.
+    const listener = await deps.openListener();
+    if (!listener.ok) return listener;
+    opened.set(name, listener.value);
+    const begun = await authOf(name).begin({
+      authorizationEndpoint: `${httpAuth.issuer}/authorize`,
+      tokenEndpoint: `${httpAuth.issuer}/token`,
+      clientId: httpAuth.client_id,
+      scopes: parsed.data.scopes,
+      listener: listener.value,
+    });
+    if (!begun.ok) return begun;
+    return ok({
+      url: begun.value.url.href,
+      callback_port: listener.value.port(),
+    });
+  };
+
+  const complete: McpAuthMemoryHandler = async (_ctx, input) => {
+    const parsed = mcpAuthCompleteInputSchema.safeParse(input);
+    if (!parsed.success) {
+      return err({
+        code: "invalid_input",
+        message: "서버 이름이 올바르지 않다",
+      });
+    }
+    const name = parsed.data.name;
+    const config = await registeredServerOf(name);
+    if (!config.ok) return config;
+    const fetch = deps.fetch;
+    if (fetch === undefined) {
+      return err({ code: "unavailable", message: "token 교환 눈이 없다" });
+    }
+    const done = await authOf(name).complete({
+      fetch,
+      signal: new AbortController().signal,
+    });
+    if (!done.ok) return done;
+    return done;
+  };
+
+  return {
+    handlers: new Map([
+      [`${mcpAuthBegin.resource}/${mcpAuthBegin.method}`, begin],
+      [`${mcpAuthComplete.resource}/${mcpAuthComplete.method}`, complete],
+    ]),
+    endAll() {
+    },
+  };
+}
+
+// 사람 credential의 loopback callback listener다(extensions R16). 127.0.0.1에만 듣는다.
+// 사람이 OS browser에서 돌아온 callback 요청을 받아 code·state를 옮긴다. 실제 browser 열기는
+// shell#T31이 크롬 링크로 하고 이 listener는 닿는 요청만 받는다. 요청 하나를 마치면 닫는다.
+// 요청이 몇 분을 넘기면 AbortSignal이 일찍 끊고 unavailable 돌아온다.
+export const MCP_CALLBACK_WAIT_MS = 5 * 60_000;
+
+export function openMcpCallbackListener(): Promise<
+  Result<
+    import("../../packages/lophn-agent/extensions/mod.ts").CallbackListener
+  >
+> {
+  const settled: { code: string | null; state: string | null } = {
+    code: null,
+    state: null,
+  };
+  let accepted: (() => void) | undefined;
+  const waiters: () => void = () => {
+    accepted?.();
+  };
+  const incoming = new Promise<void>((resolve) => {
+    accepted = resolve;
+  });
+  let http: Deno.HttpServer<Deno.NetAddr>;
+  try {
+    http = Deno.serve(
+      { hostname: "127.0.0.1", port: 0, onListen: () => {} },
+      (request: Request) => {
+        const url = new URL(request.url);
+        const code = url.searchParams.get("code");
+        const state = url.searchParams.get("state");
+        if (code === null || code.length === 0 || state === null) {
+          return new Response("요청 값이 부족하다", { status: 400 });
+        }
+        settled.code = code;
+        settled.state = state;
+        waiters();
+        return new Response("", { status: 200 });
+      },
+    );
+  } catch {
+    return Promise.resolve(err({
+      code: "unavailable",
+      message: "loopback callback port를 열 수 없다",
+    }));
+  }
+  const port = http.addr.port;
+  return Promise.resolve({
+    ok: true,
+    value: {
+      port: () => port,
+      receive(signal: AbortSignal) {
+        const merged = new AbortController();
+        if (signal.aborted) merged.abort();
+        else {
+          signal.addEventListener("abort", () => merged.abort(), {
+            once: true,
+          });
+        }
+        void merged.signal;
+        const arrived = Promise.race([
+          incoming,
+          new Promise<null>((resolve) => {
+            if (merged.signal.aborted) resolve(null);
+            else {
+              merged.signal.addEventListener("abort", () => resolve(null), {
+                once: true,
+              });
+            }
+          }),
+        ]);
+        return arrived.then((how): Result<{
+          code: string;
+          state: string;
+          iss: string | null;
+        }> => {
+          if (how === null) {
+            return err({
+              code: "unavailable",
+              message: "callback이 오지 않았다",
+            });
+          }
+          if (settled.code === null || settled.state === null) {
+            return err({
+              code: "unavailable",
+              message: "callback이 오지 않았다",
+            });
+          }
+          return {
+            ok: true,
+            value: { code: settled.code, state: settled.state, iss: null },
+          };
+        });
+      },
+      close(): Promise<void> {
+        return Promise.resolve(http.shutdown());
+      },
+    },
+  });
+}
 
 // ReadMessageBody는 ledger snapshot 없이 blob 바이트를 기다리는 core read다. core가 기동
 // 때 environment로 읽기 통로를 넣고, 넣지 않은 등록(harness)은 unavailable이다.

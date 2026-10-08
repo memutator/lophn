@@ -19,6 +19,7 @@ import {
   harnessEnabledSetting,
   harnessProfileSetting,
   REPAIR_CONTEXT_ROUTES,
+  SESSION_ROUTES,
 } from "../../packages/contracts/coding-agent/mod.ts";
 import type { ReaderRegistration } from "../../packages/platform/ledger/mod.ts";
 
@@ -51,8 +52,8 @@ export const codingAgentConnectionDefinitions = {
   settings: harnessSettings,
   commands: [commands.create, commands.revoke],
   reads: [reads.list, reads.show],
-  // 수리 자료 route다. route만 선언하고 handler는 worker 통로를 가진 core 조립(repair-context)이 붙인다.
-  apiReads: REPAIR_CONTEXT_ROUTES.map((route) => ({
+  // 수리 자료·세션 시작 summary route다. route만 선언하고 handler는 worker 통로를 가진 core 조립(repair-context)이 붙인다.
+  apiReads: [...REPAIR_CONTEXT_ROUTES, ...SESSION_ROUTES].map((route) => ({
     route,
     handle: () =>
       err({

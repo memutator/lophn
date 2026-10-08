@@ -324,6 +324,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 ### T16 구독 OAuth 로그인과 token 갱신
 
 - 등급: 기본
+- 상태: 완료 (#462)
 - concern: lophn-agent/harness/provider
 - 요구: lophn-agent/harness/provider#R1, R12, R13, R14, R15, R16, R17, R18
 - 자리: packages/lophn-agent/harness/provider/ (oauth.ts, adapters/oauth-*.ts), apps/agent-runtime/ (login 제어 작업), (provider requirements 변경은 T3)

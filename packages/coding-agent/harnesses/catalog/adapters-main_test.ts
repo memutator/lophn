@@ -7,7 +7,12 @@ import type {
   HarnessId,
   IntegrationTarget,
 } from "../../../contracts/coding-agent/mod.ts";
-import { type BuildInput, buildResources } from "../builder.ts";
+import {
+  type BuildInput,
+  buildResources,
+  summaryGuideOf,
+  summaryHookSupported,
+} from "../builder.ts";
 import { type LaunchInputs, launchOf } from "../launch.ts";
 import { rootOf } from "../resolvers.ts";
 import { skillGuidanceOf, skillShadowsOf } from "../skills.ts";
@@ -276,6 +281,90 @@ Deno.test("coding-agent/harnesses#R11: Claude SessionStart는 검증 version 이
   );
   // status event는 검증하지 않아 설치되지 않는다.
   assertEquals(parsed.hooks.PermissionRequest, undefined);
+});
+
+Deno.test("coding-agent/guides#R23: Claude SessionStart hook 조각은 시작·재개·초기화 matcher를 두고 timeout이 초 단위 5다", async () => {
+  const fx = await fixture();
+  await write(
+    `${fx.project}/.claude/settings.local.json`,
+    JSON.stringify({ permissions: { allow: ["Read"] } }),
+  );
+  const done = await installAll(fx, "claude", "app", {
+    version: "2.1.0",
+    hookArgv: ["/opt/lophn/bin/lophn", "hook", "session-summary"],
+  });
+  assertEquals(done.outcomes["hook:SessionStart"], "changed");
+  const parsed = JSON.parse(
+    (await readOrNull(`${fx.project}/.claude/settings.local.json`))!,
+  );
+  const entry = parsed.hooks.SessionStart[0];
+  // 시작·재개·초기화만 받는다(guides#R23). compact 같은 source는 받지 않는다.
+  assertEquals(entry.matcher, "startup|resume|clear");
+  assertEquals(entry.hooks[0].timeout, 5);
+  // command�� owner token이 있다. 소유 조각을 찾는 열쇠다(harnesses#R11).
+  assertStringIncludes(entry.hooks[0].command, "--owner");
+  assertStringIncludes(entry.hooks[0].command, "lophn-summary-hook");
+});
+
+Deno.test("coding-agent/guides#R25: summary hook은 Claude Code에만 있다. 다른 제품은 상태 수집 hook이 있어도 summary 안내를 내고 hook을 설치하지 않는다", async () => {
+  // Claude Code는 summary hook이 검증되어 있다.
+  assertEquals(summaryHookSupported(definitionOf("claude")), true);
+  // 다른 여섯 제품은 summary 전달 hook이 없다(unverified 상태 hook뿐이다).
+  for (
+    const id of [
+      "codex",
+      "opencode",
+      "hermes",
+      "pi",
+      "gemini",
+      "openclaw",
+    ] as const
+  ) {
+    const definition = definitionOf(id);
+    assertEquals(summaryHookSupported(definition), false, id);
+    // 명시 summary 조회 안내가 있다(guides#R25).
+    const guide = summaryGuideOf(definition);
+    assertStringIncludes(guide, definition.label);
+    assertStringIncludes(guide, "session summary");
+    assertStringIncludes(guide, "착수 지시가 아니다");
+    // 설치에도 그 안내가 notices로 나온다.
+    const fx = await fixture();
+    const done = await installAll(fx, id, "user");
+    assert(done.notices.includes(guide), id);
+  }
+});
+
+Deno.test("coding-agent/harnesses#R11: 상태 수집 hook의 설치·파일은 summary hook 설치와 분리다. summary hook 파일만 쓴다", async () => {
+  // Claude의 summary hook 파일은 settings.local.json 하나다. 상태 수집 hook의 파일도
+  // 같은 파일이지만 capability가 unverified라 설치에 안 더해진다(selectedWriteFiles).
+  const fx = await fixture();
+  await write(
+    `${fx.project}/.claude/settings.local.json`,
+    JSON.stringify({ permissions: { allow: ["Read"] } }),
+  );
+  const done = await installAll(fx, "claude", "app", {
+    version: "2.1.0",
+    hookArgv: ["/opt/lophn/bin/lophn", "hook", "session-summary"],
+  });
+  assertEquals(done.outcomes["hook:SessionStart"], "changed");
+  const parsed = JSON.parse(
+    (await readOrNull(`${fx.project}/.claude/settings.local.json`))!,
+  );
+  // 검증되지 않은 상태 수집 event는 어느 것도 설치되지 않았다(guides#R25).
+  for (
+    const event of [
+      "PermissionRequest",
+      "PostCompact",
+      "UserPromptSubmit",
+      "PostToolUse",
+      "Stop",
+      "SessionEnd",
+    ]
+  ) {
+    assertEquals(parsed.hooks[event], undefined, event);
+  }
+  // summary hook의 SessionStart만 있다(사람 항목 아래 두 번째).
+  assertEquals(parsed.hooks.SessionStart.length, 1);
 });
 
 Deno.test("coding-agent/harnesses#R11: version을 모르거나 낮으면 Claude hook을 쓰지 않는다", async () => {

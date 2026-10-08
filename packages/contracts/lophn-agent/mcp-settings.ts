@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineSetting, sha256Schema } from "../platform/mod.ts";
+import { defineMemory, defineSetting, sha256Schema } from "../platform/mod.ts";
 
 const revision = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
 const nonempty = z.string().regex(/\S/);
@@ -110,4 +110,72 @@ export const mcpServersSetting = defineSetting({
   default_present: true,
   default: [],
   value_type: z.array(mcpServerConfigSchema).max(32),
+});
+
+// MCP OAuth 2.1의 시작 입구다(extensions#R16, shell#T31에서 넘어온 것의 route 절반).
+// 사람이 서버 이름을 정하고 lophn이 S256 PKCE verifier·challenge와 무작위 state를 만들어
+// 사람이 OS browser에서 열 authorization 주소와 callback port를 돌려준다. verifier·state는
+// 값이므로 응답 어디에도 옮기지 않고 core runtime 제어 작업(packages/lophn-agent/
+// extensions/mcp-auth.ts)의 작업 메모리에만 산다. credential 값 보관은 보호 창의
+// `SetSecret`(이름 `mcp-<server>`)이 하고 설정은 `sec:mcp-<server>`를 가리킨다.
+// ledger queue를 거치지 않는다(작업 메모리가 곧 상태다).
+export const mcpAuthBeginInputSchema = z.strictObject({
+  // 등록한 서버 이름이다. 계약 serverFields의 nameSchema(extensions R12)다.
+  name: z.string().regex(/^[A-Za-z0-9_-]{1,32}$/),
+  // 사람이 등록한 client_id다(R16: 동적 등록을 지원하지 않는 서버도 이 하나로 진행한다).
+  client_id: z.string().min(1).max(200),
+  scopes: z.array(z.string().min(1).max(128)).max(32),
+});
+export const mcpAuthBeginOutputSchema = z.object({
+  // 사람이 OS browser에서 열 주소다(shell#T31이 크롬 링크로 연다). 값 없는 안내라
+  // secret이 아니다.
+  url: z.string(),
+  // 사람 credential의 loopback callback port다(127.0.0.1, extensions R16).
+  callback_port: z.number().int().positive(),
+});
+
+export const mcpAuthBegin = defineMemory({
+  resource: "agent-mcp-auth",
+  method: "begin",
+  name: "BeginMcpAuth",
+  input: mcpAuthBeginInputSchema,
+  output: mcpAuthBeginOutputSchema,
+  actors: ["user"],
+  errors: [
+    "unauthorized",
+    "forbidden",
+    "invalid_input",
+    "conflict",
+    "unavailable",
+  ],
+});
+
+// MCP OAuth 2.1의 완료 입구다(extensions#R16, R17). 사람이 돌아온 callback의 code·state를
+// 받아 lophn이 token 교환을 마친다. state는 시작이 만든 무작위 값과 같아야 하고(잘못된
+// 반환 검증 값은 거절이다, extensions R16), 교환 성공·갱신 실패의 상태는
+// `/v1/agent-mcp-auth/state` read로만 보인다: token·verifier·state 값은 응답 어디에도 없다.
+export const mcpAuthCompleteInputSchema = z.strictObject({
+  name: z.string().regex(/^[A-Za-z0-9_-]{1,32}$/),
+  // 사람 credential의 loopback callback port다.
+  callback_port: z.number().int().positive(),
+});
+export const mcpAuthCompleteOutputSchema = z.object({
+  // extensions R16: 잘못된 state는 거절이다. complete이 결과 코드만 남기고 값은 없다.
+  completed: z.boolean(),
+});
+
+export const mcpAuthComplete = defineMemory({
+  resource: "agent-mcp-auth",
+  method: "complete",
+  name: "CompleteMcpAuth",
+  input: mcpAuthCompleteInputSchema,
+  output: mcpAuthCompleteOutputSchema,
+  actors: ["user"],
+  errors: [
+    "unauthorized",
+    "forbidden",
+    "invalid_input",
+    "conflict",
+    "unavailable",
+  ],
 });

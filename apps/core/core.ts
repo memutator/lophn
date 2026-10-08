@@ -49,6 +49,7 @@ import {
   type TraceExportWriterDeps,
   withTraceExport,
 } from "./agent-trace-export.ts";
+import { withProviderLogin } from "./provider-oauth.ts";
 import { withViewBinding } from "./view-binding.ts";
 import {
   applyMigrations,
@@ -224,6 +225,7 @@ import { observeTestRequest } from "../../packages/contracts/problems/mod.ts";
 import { snapshotLogsEnvironment } from "./problems-logs.ts";
 import {
   registerRepairReads,
+  registerSessionReads,
   REPAIR_WORKER_KIND,
   repairWorkerSpec,
 } from "./repair-context.ts";
@@ -328,6 +330,40 @@ import { type CoreRuntime, openRuntime } from "./runtime.ts";
 import { appExportWorkers } from "./apps-export.ts";
 import { ticketClaimSweepIntervalMs } from "./tickets.ts";
 import { testCredentialFront } from "./test-credentials.ts";
+import {
+  createMcpAuthControl,
+  openMcpCallbackListener,
+} from "./lophn-agent.ts";
+import type { McpServerConfig } from "../../packages/contracts/lophn-agent/mod.ts";
+import { mcpServersSetting } from "../../packages/contracts/lophn-agent/mod.ts";
+import { openConnection } from "../../packages/platform/ledger/mod.ts";
+
+// 등록한 MCP server 설정의 snapshot 재료다(extensions R11). ledger 경로의 setting_choices
+// 행을 readOnly로 열어 형식 검사를 지난 server 목록으로 옮긴다(credentials 열기와 별개다).
+// credentials 열림이 실패해도 설정 읽기는 readOnly라 그대로 온다.
+function mcpServerSnapshot(
+  ledgerPath: string,
+): Promise<Result<McpServerConfig[]>> {
+  const opened = openConnection(ledgerPath);
+  if (!opened.ok) return Promise.resolve(opened);
+  try {
+    const rows = opened.value.sql.all(
+      "select layer, key, value from setting_choices where key = ?",
+      [mcpServersSetting.key],
+    );
+    if (rows.length === 0) return Promise.resolve(ok([]));
+    const parsed: unknown = JSON.parse(String(rows[0]["value"]));
+    const shaped = mcpServersSetting.value_type.safeParse(parsed);
+    if (!shaped.success) {
+      return Promise.resolve(ok([]));
+    }
+    return Promise.resolve(ok(shaped.data));
+  } catch {
+    return Promise.resolve(ok([]));
+  } finally {
+    opened.value.close();
+  }
+}
 
 // approval 만료 정리 간격. ticket claim 정리와 같은 60초다(platform Q25).
 const APPROVAL_EXPIRY_SWEEP_INTERVAL_MS = 60_000;
@@ -868,6 +904,7 @@ async function open(
   runtime = openedRuntime.value;
   knownForBodies.current = runtime.knownSecrets;
   registerRepairReads(runtime, repairChannel);
+  registerSessionReads(runtime, repairChannel);
   // sweep가 expire_claim을 제출할 machine credential. 기록이 없으면 writer가
   // 만료 정리를 거절하므로 기동을 여기서 멈춘다(coding-agent/tickets#R13).
   const sweepCredential = await runtime.record({
@@ -952,6 +989,28 @@ async function open(
     readBlob: (hash, offset, length) =>
       blobRead.deps.read(hash, offset, length),
     known: () => knownSecrets,
+  };
+  // MCP OAuth의 시작·완료 입구다(extensions R16, shell#T31에서 넘어온 것의 route 절반).
+  // 업무 규칙은 extensions의 mcp-auth에 있고(concern lophn-agent/extensions, code-map
+  // 의존 규칙) 여기는 core의 memory route 입구와 snapshot 재료를 끼운다.
+  // - verifier·state·access token은 memory 작업 메모리에만 산다.
+  // - credential 값 보관은 보호 창의 `SetSecret`(이름 `mcp-<server>`)이 하고 설정은
+  //   `sec:mcp-<server>`를 가리킨다(shell#T31 규칙). 이 입구는 그 값의 전송 callback이
+  //   아니라 작업 상태만 기록한다.
+  const mcpAuthControl = createMcpAuthControl({
+    fetch: undefined,
+    openListener: openMcpCallbackListener,
+    snapshot: () => mcpServerSnapshot(ledgerPath),
+    nowMs: () => clock.nowMs(),
+  });
+  // OAuth 로그인(provider#R12–R16, D31)의 writer queue 앞 처리기 재료다. 활성 gate는
+  // 사람이 LOPHN_LIVE_PROVIDER=1로 실제 계정 확인을 시작했을 때만 열리고, 테스트가
+  // 대신 준다. login 세션과 token 값은 처리기 메모리에만 있다(R6, R7).
+  const providerLoginSecrets = {
+    ledgerPath,
+    keychain: () =>
+      options.secretKeychain ?? options.codingKeychain ?? productKeychain(),
+    known: () => runtime?.knownSecrets,
   };
   const knownSecrets = runtime.knownSecrets;
   const redactLine = createProductRedactor(knownSecrets);
@@ -1199,51 +1258,56 @@ async function open(
       // 닿기 전에 고정 판 본문의 출현을 확인한다(documents Q8).
       // 명시 연결 test(provider#R29, R30)는 writer queue 앞에서 네트워크를 기다린다.
       // trace export(observability#R17)는 writer queue 앞에서 로컬 파일에 쓴다.
+      // OAuth 로그인(provider#R12–R16, D31)도 writer queue 앞에서 listener와 network를
+      // 기다린다. login 세션은 처리기 메모리에만 있다.
       writer: withRevocationSweep(
-        withTraceExport(
-          withConnectionTest(
-            withReleasePreparation(
-              withPlacementReservation(
-                withTermOccurrence(
-                  withApprovalText(
-                    withQuestionText(
-                      withHandoffBody(
-                        withMessageBody(
-                          runtime.writer,
-                          createMessageBodyPreparer({
+        withProviderLogin(
+          withTraceExport(
+            withConnectionTest(
+              withReleasePreparation(
+                withPlacementReservation(
+                  withTermOccurrence(
+                    withApprovalText(
+                      withQuestionText(
+                        withHandoffBody(
+                          withMessageBody(
+                            runtime.writer,
+                            createMessageBodyPreparer({
+                              relay: () => bodyPrepare.current,
+                              // 알려진 secret 값도 pattern과 함께 가린다. 값을 다 모르는 동안은 막는다.
+                              known: () => runtime?.knownSecrets,
+                            }),
+                          ),
+                          createHandoffBodyPreparer({
                             relay: () => bodyPrepare.current,
-                            // 알려진 secret 값도 pattern과 함께 가린다. 값을 다 모르는 동안은 막는다.
                             known: () => runtime?.knownSecrets,
                           }),
                         ),
-                        createHandoffBodyPreparer({
+                        createQuestionTextPreparer({
                           relay: () => bodyPrepare.current,
-                          known: () => runtime?.knownSecrets,
                         }),
                       ),
-                      createQuestionTextPreparer({
+                      createApprovalTextPreparer({
                         relay: () => bodyPrepare.current,
+                        known: () => runtime?.knownSecrets,
                       }),
                     ),
-                    createApprovalTextPreparer({
-                      relay: () => bodyPrepare.current,
-                      known: () => runtime?.knownSecrets,
-                    }),
+                    (ctx, command, input) =>
+                      runtime!.readers.read(TERM_OCCURRENCE_ROUTE, ctx, {
+                        command,
+                        input,
+                      }),
                   ),
-                  (ctx, command, input) =>
-                    runtime!.readers.read(TERM_OCCURRENCE_ROUTE, ctx, {
-                      command,
-                      input,
-                    }),
+                  placementReservations,
                 ),
-                placementReservations,
+                appsControl.commands,
+                appsControl.grantChange,
               ),
-              appsControl.commands,
-              appsControl.grantChange,
+              connectionTestSecrets,
             ),
-            connectionTestSecrets,
+            traceExportSecrets,
           ),
-          traceExportSecrets,
+          providerLoginSecrets,
         ),
         () => appsControl.connector.sweep(),
         // 회수된 connection 아래 등록된 MCP·CLI child도 바로 닫는다(platform/identity#R15).
@@ -1275,6 +1339,10 @@ async function open(
             },
           }),
         ] as const,
+        // MCP OAuth의 시작·완료 입구다(extensions R16). handler는 등록한 http 서버의
+        // oauth2 인증 방식만 잠근다. verifier·state·access token은 memory 작업
+        // 메모리에만 산다(값은 응답·ledger·log 어디에도 옮기지 않는다).
+        ...mcpAuthControl.handlers,
         // 사람의 연결 결정 입구. codingKeychain이 있을 때만 서고 없으면 route는 처리기 없이 남는다.
         ...(coding
           ? [
@@ -2109,7 +2177,10 @@ async function open(
   const repairSpec = repairWorkerSpec();
   if (
     io && repairSpec &&
-    allRoutes.some((route) => route.resource === "repair_context")
+    allRoutes.some((route) =>
+      route.resource === "repair_context" ||
+      route.resource === "coding_agent_sessions"
+    )
   ) {
     const started = await io.start(
       repairSpec,

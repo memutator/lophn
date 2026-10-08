@@ -65,6 +65,7 @@ import { runSdk } from "../../packages/coding-agent/cli/commands/sdk.ts";
 import {
   runSessionObserve,
   runSessionPlan,
+  runSessionSummary,
 } from "../../packages/coding-agent/cli/commands/session.ts";
 import {
   runTicketWrite,
@@ -533,10 +534,15 @@ export async function runCliCommand(
       send: portsOf(runtime).observe,
     });
   }
-  if (name.startsWith("session ")) {
-    // session summary의 core route가 아직 없다.
-    return unwired(name);
+  if (name === "session summary") {
+    // 소유 읽기 route `/v1/coding_agent_sessions/summary` 하나다. 연결이 없으면 일반 summary는 거절이고
+    // hook은 빈 값이다(guides#R24).
+    return await runSessionSummary(
+      input as Parameters<typeof runSessionSummary>[0],
+      { client },
+    );
   }
+  if (name.startsWith("session ")) return unwired(name);
   if (client === undefined) return connectionRequired();
   // 같은 호출을 다시 확인할 수 있게 사람이 준 key를 그대로 쓴다. 없으면 호출마다 새 key다.
   const idempotency = () =>

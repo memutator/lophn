@@ -306,7 +306,8 @@ export function createPreviewLauncher(
       });
       return;
     }
-    entry.probed = true;
+    // ready 관측은 open이 마친 뒤에만 낸다. probe 성공과 open 완료 사이의 창에 ready=true·
+    // accepting=false를 내면 connect가 지금 연결되고 write가 거절된다(apps/preview#R5).
     if (deps.open) {
       let opened = false;
       try {
@@ -316,7 +317,6 @@ export function createPreviewLauncher(
       }
       if (entry.intended) return;
       if (!opened) {
-        entry.probed = false;
         await failStart(entry, {
           code: "start_failed",
           summary: "open failed",
@@ -324,6 +324,7 @@ export function createPreviewLauncher(
         return;
       }
     }
+    entry.probed = true;
     entry.opened = true;
   }
 

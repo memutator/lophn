@@ -34,6 +34,7 @@ import {
   startChild,
 } from "../../../packages/platform/responsiveness/mod.ts";
 import { createRedactLink } from "../../agent-runtime/redact-link.ts";
+import { acceptSessionSummary, SESSION_SUMMARY_OP } from "./session-summary.ts";
 
 export const CODING_AGENT_WORKER_KIND = "coding-agent/worker";
 export const REPAIR_CONTEXT_OPS = {
@@ -257,11 +258,15 @@ export async function runCodingAgentWorker(_root: string): Promise<void> {
     },
     onMessage: (message) => link.onParent(message),
     accept: (request) =>
-      acceptRepairContext(request, {
-        baseUrl: `http://127.0.0.1:${apiPort}`,
-        redact: (text) => link.redact(text),
-        cursor,
-      }),
+      request.op === SESSION_SUMMARY_OP
+        ? acceptSessionSummary(request, {
+          baseUrl: `http://127.0.0.1:${apiPort}`,
+        })
+        : acceptRepairContext(request, {
+          baseUrl: `http://127.0.0.1:${apiPort}`,
+          redact: (text) => link.redact(text),
+          cursor,
+        }),
   });
   await session.run();
 }

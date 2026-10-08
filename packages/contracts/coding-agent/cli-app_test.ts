@@ -139,7 +139,18 @@ Deno.test(
       cursor: "4",
     });
     cliAppLogsSchema.parse({ command: "app logs", app: APP, limit: 200 });
-    cliAppSyncToolsSchema.parse({ command: "app sync-tools", app: APP });
+    cliAppSyncToolsSchema.parse({
+      command: "app sync-tools",
+      app: APP,
+      target: {
+        scope_kind: "app",
+        environment: { kind: "host", identity: "native" },
+        profile_id: null,
+        harness_id: "claude",
+        app: APP,
+        app_realpath: "/work/notes",
+      },
+    });
   },
 );
 

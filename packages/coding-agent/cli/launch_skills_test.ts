@@ -83,3 +83,86 @@ Deno.test("coding-agent/cli#R10: target이 없거나 지원하지 않는 환경�
     NO_SELECTION,
   );
 });
+
+Deno.test("coding-agent/cli#R17, coding-agent/cli#R29: app sync-tools는 앱 root 두 위치(안내 파일·.gitignore과 lophn skill 디렉터리)만 읽기·쓰기로 연다", async () => {
+  const appTarget = (
+    harness: IntegrationTarget["harness_id"],
+  ): IntegrationTarget => ({
+    scope_kind: "app",
+    environment: { kind: "host", identity: "native" },
+    profile_id: null,
+    harness_id: harness,
+    app: "app_01h455vb4pex5v6nkc6gd5fdw1",
+    app_realpath: "/w/notes",
+  });
+  const selection = await planSelection(
+    {
+      command: "app sync-tools",
+      input: { target: appTarget("claude"), roots },
+      roots,
+    },
+    deps,
+  );
+  // 관리 구간 지침 파일(CLAUDE.md)·MCP 설정(.mcp.json)·.gitignore가 앱 root에 있다.
+  // temp 이름은 selectionFlags가 파일마다 함께 더한다(WRITE_TEMP_SUFFIX).
+  const expected = [
+    "/w/notes/.mcp.json",
+    "/w/notes/CLAUDE.md",
+    "/w/notes/.gitignore",
+  ];
+  const files = new Set(selection.harnessFiles);
+  for (const path of expected) assert(files.has(path), path);
+  const flagged = selectionFlags(selection).join(",");
+  assert(flagged.includes("/w/notes/CLAUDE.md.lophn-tmp"), "temp");
+  assert(flagged.includes("/w/notes/.gitignore.lophn-tmp"), "temp");
+  // lophn skill 디렉터리는 앱의 skill root 아래다.
+  assertEquals(
+    [...(selection.skillDirs ?? [])].sort(),
+    SKILL_RELEASES.map((release) => `/w/notes/.claude/skills/${release.name}`)
+      .sort(),
+  );
+  const flags = selectionFlags(selection);
+  assertEquals(flags.length, 2);
+  for (const flag of flags) {
+    assertFalse(flag.includes(",/w/notes,"));
+    assertFalse(flag.endsWith("/w/notes"));
+    assertFalse(flag.includes("*"));
+    // 사람 home과 다른 제품 root는 없다.
+    assertFalse(flag.includes("/h/person"));
+    assertFalse(flag.includes("/.codex"));
+  }
+});
+
+Deno.test("coding-agent/cli#R17: app sync-tools의 names로 고르면 그 skill 디렉터리만 열리고 배포하지 않는 이름은 아무것도 열지 않는다", async () => {
+  const appTarget: IntegrationTarget = {
+    scope_kind: "app",
+    environment: { kind: "host", identity: "native" },
+    profile_id: null,
+    harness_id: "claude",
+    app: "app_01h455vb4pex5v6nkc6gd5fdw1",
+    app_realpath: "/w/notes",
+  };
+  const one = await planSelection({
+    command: "app sync-tools",
+    input: { target: appTarget, names: ["lophn-save"] },
+    roots,
+  }, deps);
+  assertEquals(one.skillDirs, ["/w/notes/.claude/skills/lophn-save"]);
+  const unknown = await planSelection({
+    command: "app sync-tools",
+    input: { target: appTarget, names: ["lophn-save", "my-own"] },
+    roots,
+  }, deps);
+  assertEquals(unknown, NO_SELECTION);
+});
+
+Deno.test("coding-agent/cli#R17: app sync-tools의 user target은 아무것도 열지 않는다", async () => {
+  assertEquals(
+    await planSelection({
+      command: "app sync-tools",
+      input: { target: target("claude") },
+      roots,
+    }, deps),
+    NO_SELECTION,
+  );
+});

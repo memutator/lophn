@@ -967,6 +967,7 @@ E2E는 apps#T27(use-app-command, ask-app-hint, connect-apps, view-agent-visuals 
   - interpretation_test.ts에 R13–R15, R18, R19 테스트: 관측 설계는 문제 정의·보존 동작만(집계·해결 확인·닫힘 없음), 원인 가설 최대 3개와 지지·반박 근거·부족 자료·다음 확인, 해석 문서 고정 version·절 참조만 설정(문제 상태 변경 없음, ToolCall과 한 transaction), release 검토의 의미상 어긋남과 후속 ticket 후보·새 결정은 먼저 질문, SDK 변경은 담당 앱 영향만
   - revert가 이전 해석 참조를 같은 LinkProblemInterpretation으로 다시 연결
   - E2E는 problems#T25(app-broken)
+- problems#T19에서 넘어온 것: `LinkProblemInterpretation`은 `dispatchable`로 등록되어 `tx.call`로 부를 수 있고 담당 App Engineer assignment만 통과한다. version이 있고 호출자가 읽을 수 있는지, 절이 있는지는 command가 보지 않으므로 ToolCall이 command 전에 `packages/problems/grouping`의 `checkInterpretationLink`(reader를 documents get·history·outline/document로 주입)를 부른다. compare는 `{problem_seq, previous}`이고 revert의 재연결은 현재 참조를 `previous`로 싣는다
 
 ## operator
 

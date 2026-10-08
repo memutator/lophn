@@ -39,8 +39,10 @@ import {
 } from "../../packages/problems/reporting/reads.ts";
 import {
   getProblemRead,
+  linkProblemInterpretationCommand,
   listProblemsRead,
-} from "../../packages/problems/grouping/reads.ts";
+  reconcileProblemWorkCommand,
+} from "../../packages/problems/grouping/mod.ts";
 import { REPORTS_SCHEMA_STEPS } from "../../packages/problems/reporting/mod.ts";
 import {
   DETAIL_COLLECTION_SETTING_KEY,
@@ -60,9 +62,12 @@ import {
   observeViewError,
   problemClosed,
   problemFixRecorded,
+  problemInterpretationLinked,
   problemOpened,
   problemReopened,
   problemsUploadFixSummary,
+  problemWorkEnded,
+  problemWorkStarted,
   reportProblem,
   submitFeedback,
   verificationRecorded,
@@ -70,6 +75,7 @@ import {
 import { notificationsOnlyVisibility } from "./platform.ts";
 import { isTicketCheckFeed } from "./ticket-checker.ts";
 import { reportCollectorSpec, testRunnerSpec } from "./problems-runner.ts";
+import { problemsWorkSubscribers } from "./problems-work.ts";
 
 // ticket checker 구독자(machine:ticket-check-feed)도 깨움 신호로 보는 event다(coding-agent#T26,
 // T45). 그 밖의 자격은 owner 정책이 그대로 판단한다.
@@ -176,7 +182,14 @@ export const problemsReportDefinitions = {
     ),
     ...FIX_BLOB_PURPOSES,
   ],
-  commands: [recordReportCommand, recordProblemFixCommand],
+  commands: [
+    recordReportCommand,
+    recordProblemFixCommand,
+    reconcileProblemWorkCommand,
+    linkProblemInterpretationCommand,
+  ],
+  // `problems.work` 반응기(test-runner kind)만 자기 cursor를 올린다(problems/grouping#R9).
+  subscribers: problemsWorkSubscribers(),
   reads: [
     listProblemsRead,
     getProblemRead,
@@ -254,7 +267,13 @@ export function createLedgerRegistration(
 // 만든다(platform/ledger#R15). 정책이 없는 problems event는 숨김이다.
 export function createEventRegistration(): EventRegistration {
   return {
-    events: [verificationRecorded, problemFixRecorded],
+    events: [
+      verificationRecorded,
+      problemFixRecorded,
+      problemWorkStarted,
+      problemWorkEnded,
+      problemInterpretationLinked,
+    ],
     visibility: [
       ...problemsTestDefinitions.visibility,
       // notifications 계기(platform/notifications#R1)다. notifications 구독자에게만 연다.

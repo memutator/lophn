@@ -12,6 +12,8 @@ export type OutputWriter = {
   result(result: AgentResult): Promise<void>;
   failure(failure: AgentFailure): Promise<void>;
   diagnostic(message: string): Promise<void>;
+  // 제품 hook이 context로 읽는 글 그대로다. 빈 글은 아무것도 쓰지 않는다(guides#R24).
+  raw(text: string): Promise<void>;
   exitCode(failure: AgentFailure | undefined): number;
 };
 
@@ -77,6 +79,9 @@ export function createOutput(options: OutputOptions): OutputWriter {
     failure: emitFailure,
     async diagnostic(message) {
       await write(stderr, `${redact(message)}\n`);
+    },
+    async raw(text) {
+      if (text !== "") await write(stdout, `${redact(text)}\n`);
     },
     exitCode(failure) {
       return cliExit(failure);

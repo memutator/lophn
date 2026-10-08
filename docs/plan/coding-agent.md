@@ -1133,6 +1133,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T33 배포 skill 네 개와 검사
 
+- 상태: 완료 (#454) — 이어보냄: `lophn_problem`·`lophn_session` 본문 일치 확인 → T44·T35. 앱 root 안내가 skill 이름을 가리키는 일 → T34
 - 등급: 기본
 - concern: coding-agent/guides, coding-agent/cli
 - 요구: coding-agent/guides#R1, R2, R3, R6, R7, R8, R9, R10, R11, R12, R20, R22,
@@ -1223,6 +1224,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 - 조사: docs/research/coding-agent-skills-and-guides.md
 - 선행: T27, T30, contracts#T42, contracts#T43, problems#T6, platform#T12
 - coding-agent#T36에서 넘어온 것: CLI `session summary`는 command 표에 있고 실행은 core의 `/v1/coding_agent_sessions/summary` read handler가 없어 unavailable이다(apps/cli/dispatch.ts, contracts `codingAgentSessionSummary`는 있음). handler가 서면 dispatch에서 `session ` 분기를 소유 읽기 route로 바꾼다
+- coding-agent#T33에서 넘어온 것: 배포 skill `lophn-build-app`·`lophn-repair` 본문이 시작 summary를 `lophn_session` op `summary`로 가리키고 "읽는 것은 착수 지시가 아니다"라고 적었다. summary 본문이 서면 이 안내와 실제 응답이 맞는지 확인한다
 - 완료:
   - summary: 범위 안 open·fixing 문제와 open·check_failed ticket 요약, 자기
     claim·기한, reported의 남은 조건, next_cursor, claim_rule.
@@ -1582,6 +1584,13 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
   docs/research/coding-agent-repair-context.md
 - 선행: T43, contracts#T44, problems#T14, problems#T15, problems#T18,
   problems#T21
+- coding-agent#T33에서 넘어온 것: 배포 skill `lophn-repair`·`lophn-build-app`
+  본문은 `lophn_problem`(contract 이름·op list, show, snapshot, fix_records,
+  summary, bundle, more, record_fix, test)을 가리키고, tool이 목록에 없으면 수리를
+  진행하지 않고 사람에게 알리라고 적었다. 이 tool이 실제로 서면 본문의 op 이름·입력
+  (`more`의 `kind`, `record_fix`·`test`의 ticket·`claim_seq`)이 실제와 맞는지
+  확인하고, 달라졌으면 skill 본문을 고치며 version을 올리고 manifest hash를
+  갱신한다(`packages/coding-agent/guides/manifest.ts`, 배포 테스트가 잡는다)
 - 완료:
   - `lophn_problem` list(앱·진행 상태·처리
     대상)·show·snapshot·fix_records·summary·bundle·more, 추가 조회가 claim을
@@ -1632,6 +1641,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
   - `ProblemClosed`·`ProblemReopened`에서 남은 조건 재비교, 재시작 뒤
     이어서(R20)
   - 일부 문제만 통과·전부 제외에서 자동 confirmed가 없다(R9)
+- problems#T19에서 넘어온 것: 제품 checker가 repair ticket의 `problems_closed`·`human_confirmation` 판정에 문제 대상 `targets[].revision`을 문제 상태 문구("open")로 보내 `record_checks`가 `invalid_input`(seqSchema)으로 거절된다(제품 core의 실제 repair ticket 시험으로 확인). 문제의 최신 seq를 revision으로 싣는다. 또 제품 core는 repair ticket 생성의 `PROBLEM_STATUSES_PORT`를 아직 등록하지 않아 시험용 port로만 repair ticket을 만든다
 
 ### T46 사람 화면의 repair ticket 준비와 수리 요청
 

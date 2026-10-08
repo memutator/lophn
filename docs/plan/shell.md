@@ -609,6 +609,8 @@ concerns: [shell]
 
 ### T30 roles 화면: 하는 일, 만든 것, 대화, 작업 검토, Preset
 
+- 상태: 완료 (#445) — 이어보냄: lophn 답의 streaming 임시 글(renderer로 오는 streaming 통로가 core·main에 없다 → lead가 소유를 정한다, 대화 탭과 도크가 같은 message-list라 통로가 서면 한 번에 이어진다), Operator의 붙이기·Preset 적용(보호 승인)·멈춤·회수 → T54, `agent-traces/export` route 구현 → lophn-agent#T40(그 전에는 export가 실패로 보인다), skill 발견 결과와 MCP server의 연결 중 전체 tool 목록을 읽는 route(Preset 편집은 skill을 정확한 이름 입력으로, tool은 사람이 분류한 것만 고른다 → lophn-agent#T35·T36)
+
 - 등급: frontend
 - concern: shell/desktop
 - 요구: shell/desktop#R3, R4, R5, lophn-agent/observability#R16, R17, R20, R21, R22(화면)
@@ -626,6 +628,9 @@ concerns: [shell]
   - flow review-agent-work, resume-agent-session(roles 쪽), add-agent-extension(Preset 쪽) 화면. 화면 테스트.
 - shell#T35에서 넘어온 것: lophn 답의 streaming 임시 글(shell#T27 → T35에서 이어온 것, Q15 (3)). 대화 탭과 도크가 같은 `conversation/message-list`를 쓰므로 여기서 함께 한다. 임시 글을 보이고 같은 id의 확정 메시지가 오면 바꾸며, 그 동안에도 입력 focus와 읽던 위치를 지킨다(shell/workspace#R13). stream 조각은 시각 블록으로 그리지 않는다(lophn-agent/conversation#R13). renderer로 오는 streaming 통로(core event → main → renderer)가 아직 없으니 먼저 그 통로가 있는지 보고, 없으면 lead에게 올린다.
 - lophn-agent#T39에서 넘어온 것: trace 읽기는 `agent-traces/read`(`ReadAgentTrace`, 사람·agent·machine)이다. 입력은 `target`(`run`·`session`·`model_call` 중 하나)과 선택 `role`·`from_at`·`through_at`·`cursor`·`limit`(cursor·limit은 session 대상의 run 쪽 나누기)이고, 범위 밖 대상은 없는 대상과 같은 `not_found`다. 출력 `trace`는 본문 없이 참조만 담는다: `events`(seq 순)·`messages`·`model_calls`(시도 순)·`tool_calls`(시작 순)·`handoff_links`(양방향)와 `activity`(model 시도 수와 실패·부분·취소·불명확·미종료 id, tool 단계 수·성공 수와 실패·거절·미실행·불명확·미종료·외부 MCP id), `times`(wall=active+waiting, 모두 0 이상), `started_at`·`finished_at`(UTC ms), `state`·`reason`, `missing`. 도구 활동 접기와 실패 요약은 `activity`로 그리고, 펼친 단계의 대상·한 일·상태·MCP 서버·원래 tool·분류·판정·approval은 `tool-calls/read`, model 시도는 `model-calls/read`, 메시지 본문은 `messages/body`로 읽는다. `reason`이 null이고 `state`가 `finished`가 아니면 종료 확인 전이다(성공으로 그리지 않고 `missing`의 `end_not_confirmed`를 보인다). `missing`은 없는 기록·본문의 참조와 이유다(`reference_not_registered`, `attempt_record_absent`, `result_not_recorded` 등). run 고정 근거(`basis`)·model·tool 본문은 `ReadRunBody`가 machine 전용이라 사람 화면이 열 route가 없다(참조만 보이고 본문은 없다고 말한다). 사용량·비용은 `agent-usage/read`로 따로 읽는다
+- 정한 것(T30): 화면은 왼쪽 목록 칸(documents와 같은 열)과 오른쪽 상세(Work·Made·Conversation·Preset 탭)이고 통로는 `RolesSource`(`roles/source.ts`)다. 작업 검토는 하는 일 행의 [Review]에서 열린다: 기본은 대상(처음 요청 글)·결과(끝난 이유 한 문장과 실제로 만든 문서만)·다음 행동 하나(다시 시킬 일이면 [Ask again], 앞선 일이 멈춰 기다리면 [Restart], 기다리는 답이면 [Answer], 만든 것이 있는 끝난 일이면 [Undo this work]), 시각·역할·근거·영향·도구 활동·사용량·export는 [Details] 안이다. [Restart]는 `ConfirmNextRun`(앞선 일이 실패·멈춤으로 끝난 뒤 사람의 확인을 기다리는 접수된 일)이고 [Ask again]은 처음 요청의 글을 대화 입력칸에 채워 대화 탭으로 갈 뿐 보내는 것은 사람이다(새 일은 보낸 뒤에 생긴다). 되돌리기는 shell#T29의 열기 모양(`owner_decision`, `RevertRun`)을 그대로 쓴다. 대화 탭은 `Dock`에 `embedded`를 더해 같은 대화 칸을 역할의 담당에 묶은 통로(`conversation(role)`: `agent()`만 그 역할로 바꾼 `ConversationSource`)로 쓴다. `Agent`에 선택 `role`을 더했고 새 대화는 그 역할로 연다(`OpenSession`의 `role`). 회수된 담당은 `Dock`의 기존 규칙(지난 대화만, 입력창 없음)을 그대로 따르고 멈춘 담당은 보존 안내와 입력창이 그대로 있다. 하는 일은 `workStatus`로 In progress/Waiting/Stopped/Done을 가르고, 앞선 일이 멈춰 확인을 기다리는 접수된 일은 Waiting이다.
+- 정한 것(T30, 본문 읽기): 도구 이름·입력·원문 결과와 근거(run basis)는 요구(observability#R20·R21)가 사람 화면에서 열게 하는데 `ReadRunBody`가 machine 전용이라 사람이 열 route가 없었다. contract에 사람 전용 `runs/body-view`(`ReadRunBodyView`, additive)를 더했다: 종류는 run basis·tool 입력·tool 결과뿐(model 응답은 사고 원문일 수 있어 열지 않는다, R22), 저장된 값을 같은 길(참조 행 확인·hash 확인)로 읽은 뒤 core가 지금의 redaction(고정 검출 규칙과 알려진 secret 값)을 한 번 더 거친 값만 주고 끝내지 못하면 값을 주지 않으며(`unavailable`), 64KiB를 넘으면 글의 앞부분과 `truncated`를 준다. 사람이 아니거나 없는 대상은 모두 `not_found`다. core는 알려진 secret 값을 기동 뒤에 채우는 redactor를 `createLedgerRegistration`의 `redactBody`로 넘긴다. 화면은 펼치기 전에는 본문을 읽지 않고, 본문이 없으면 "No saved copy of this."를 보인다.
+- 정한 것(T30, Preset): 목록은 역할의 `presets/list`(기본 Preset과 사람이 만든 것, 이전 판은 [Earlier versions]에서 판 번호로 고른다)이고 편집 저장은 사람이 만든 Preset이면 `RevisePreset`(새 판, 비교 기준은 읽은 판), 기본 Preset이면 `CreatePreset` 사본(`copied_from`)이다. 저장은 쓰는 판을 바꾸지 않고 적용(`ChangeAssignmentPreset`)은 사람이 [Use this version]으로 따로 한다. 편집하는 자리는 이름·model(For decisions·For summaries, 연결·계정 순서·model)·context(대상 없는 종류만 더하고 대상 있는 것은 지우기만)·skill(정확한 이름)·MCP server와 개별 tool이고, 고치지 않는 prompt·capability·지침·추론 단계·옵션은 원본 그대로 돌려보낸다. 안쪽 구성은 [Inside]를 펼쳐야 보인다. Operator는 이 화면이 적용하지 않는다.
 
 ### T31 settings: provider 연결과 계정, 확장, 전역 Instructions 진입
 
@@ -1120,6 +1125,7 @@ concerns: [shell]
 
 ### T54 Operator: 붙이기, Repeating check, 보고, 멈춤과 회수
 
+- 상태: 완료 (#455) — 이어보냄: 실제 core에서 끝까지 적용되는 길(user 자격의 `ApplyOperatorAssignment` dispatch·승인 결정 seq·`approval.submit_assignment` 입력 모양) → lophn-agent#T53
 - 등급: frontend
 - concern: shell/desktop
 - 요구: shell/desktop#R4(회수된 담당), R5
@@ -1133,6 +1139,7 @@ concerns: [shell]
   - 보고 결과는 roles의 만든 것에서 문서로 열고, 사람 결정이 필요한 질문만 things-to-confirm으로 간다.
   - 멈춤·다시 시작·회수, 회수된 담당은 지난 대화만. 답을 기다리는 동안 주기를 건너뛴 사실을 보인다.
   - flow set-up-operator, receive-operator-report, manage-operator 화면. 화면 테스트.
+- 정한 것(T54): roles 화면 목록 위 [Attach an Operator]와 작업대 한 줄(`workspace/operator-entry.tsx`: 이 프로젝트에 붙은 Operator 수, [Attach an Operator]·[See Operators])이 붙이기 화면(`roles/operator/attach-form.tsx`)을 연다. 붙일 곳(project·app)·Preset 판(기본과 사람이 만든 것, 가장 새 판의 `definition_hash`가 승인에 묶인다)·읽을 자료(Preset의 context는 보이기만, 읽게 할 앱 명령은 `apps/blueprint`의 확인 없는 읽기만)·보고할 문서(첫 판이 있는 기존 문서만: 원본 파일 연결 문서와 다른 Operator가 쓰는 문서는 후보에서 뺀다, 회수된 Operator가 쓰던 것은 다시 쓴다)와 남길 판단 항목·Repeating check(간격 고르기와 처음 시각, 지금보다 앞이면 막는다)를 정한다. 같은 곳에 Operator를 여럿 붙일 수 있다. 사람이 직접 정한 구성이라 `draft_version`은 첫 보고 문서의 지금 판이다. 붙이기·바꾸기는 renderer가 `approvals/create`(requester·caller `user`, action `ApplyOperatorAssignment`의 입력 전체를 inline으로 고정, `input_hash`·`binding_hash`는 platform과 같은 canonical JSON의 sha256)로 승인 요청을 만들고 `{kind: approval_request, approval}` 보호 창(shell#T29의 approval 종류)을 연다. 창이 열리지 않으면 만든 요청을 취소한다. 허락은 창에서만 하고 화면은 `approvals/get`으로 따라가다(자동 확인과 [Check again]) 허락되면 `approvals/apply`를 부르고, 거절·취소·만료는 "Not attached. Nothing changed."로 끝난다. 이미 붙은 Operator의 Preset 바꾸기도 같은 길이고 가장 새 판으로만 바꾼다(판 hash를 가장 새 판만 안다). 붙은 Operator의 상세(`roles/operator/operator-panel.tsx`)는 Repeating check·보고할 문서·읽는 앱·마지막 회차를 보이고 [Pause]는 바로 되며(`PauseAssignment` user 사유), 멈춘 이유(사람·연속 실패·범위 보관·출력 보관)별 안내와 [Resume]이 따로 있다. [Withdraw]는 한 번 더 묻고(`WithdrawAssignment`) 회수된 Operator는 행동 없이 지난 대화(입력창 없음)와 만든 것만 남는다. 건너뛴 회차는 `assignment-occurrences/list`의 skipped와 막은 일의 상태로 "while waiting for your answer"와 "last check hadn't finished"를 가르고 앞의 것에는 확인할 것으로 가는 [Answer]가 있다(막은 일의 지금 상태로 가르므로 그 사이 답이 와서 끝났으면 뒤의 말이다). 보고 결과는 만든 것 탭에서 문서로 열고, 사람 결정이 필요한 질문은 하는 일 탭의 [Answer]로 things-to-confirm에 간다(T30). 화면 테스트는 `roles/operator/operator_test.tsx`, 통로는 `roles/operator/core-source_test.ts`가 contract route schema로 본다.
 
 ## operations
 

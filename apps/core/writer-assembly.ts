@@ -211,7 +211,11 @@ function teamRegistration(team: TeamModule): Loose | undefined {
     const blobFields: BlobFieldDefinition[] = problems.flatMap((value) =>
       value.blobFields ?? []
     );
-    return { commands, ports, blobFields };
+    // `problems.work` 반응기의 cursor 전진 자격도 problems 등록이 낸다.
+    const subscribers: SubscriberBinding[] = problems.flatMap((value) =>
+      value.subscribers ?? []
+    );
+    return { commands, ports, blobFields, subscribers };
   }
   const sources = [
     direct,

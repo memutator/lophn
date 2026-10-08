@@ -8,7 +8,7 @@ import styles from "./result-links.module.css";
 
 export interface ResultLinksProps {
   links: readonly ResultLink[];
-  source: ConversationSource;
+  source: Pick<ConversationSource, "documentTitle">;
   onOpen?: (document: string, version: string | null) => void;
 }
 

@@ -67,6 +67,8 @@ export interface DockProps {
   source: ConversationSource;
   drafts: DraftStore;
   placement: "docked" | "overlay";
+  /** 본문 안에 놓는다(roles 화면의 대화 탭). 폭을 채우고 닫기 단추를 두지 않는다. */
+  embedded?: boolean;
   /** 새 세션을 열 자리. 지금 공간이다(lophn-agent/conversation#R16). */
   workPlace: WorkPlace;
   onClose: () => void;
@@ -132,6 +134,7 @@ export function Dock(
     source,
     drafts,
     placement,
+    embedded = false,
     workPlace,
     onClose,
     onOpenResult,
@@ -415,15 +418,17 @@ export function Dock(
             </Tooltip>
           )
           : null}
-        <Tooltip content={t("conversation.button.close")}>
-          <IconButton
-            icon={conversationIcons.close}
-            label={t("conversation.button.close")}
-            size="sm"
-            data-close-dock=""
-            onClick={onClose}
-          />
-        </Tooltip>
+        {embedded ? null : (
+          <Tooltip content={t("conversation.button.close")}>
+            <IconButton
+              icon={conversationIcons.close}
+              label={t("conversation.button.close")}
+              size="sm"
+              data-close-dock=""
+              onClick={onClose}
+            />
+          </Tooltip>
+        )}
       </div>
     </div>
   );
@@ -557,11 +562,15 @@ export function Dock(
   return (
     <aside
       className={`${styles.dock} ${
-        placement === "overlay" ? styles.overlay : ""
+        embedded
+          ? styles.embedded
+          : placement === "overlay"
+          ? styles.overlay
+          : ""
       }`}
-      data-dock={placement}
+      data-dock={embedded ? "embedded" : placement}
       aria-label={t("conversation.title.dock")}
-      style={{ width: `${DOCK_WIDTH}px` }}
+      style={embedded ? undefined : { width: `${DOCK_WIDTH}px` }}
     >
       {header}
       {stale}

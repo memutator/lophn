@@ -1437,6 +1437,8 @@ export const en = {
   "launcher.label.wordmark": "lophn",
   "launcher.title.register": "Register project",
   "project-workspace.button.add-rule": "Add rule",
+  "project-workspace.button.attach-operator": "Attach an Operator",
+  "project-workspace.button.see-operators": "See Operators",
   "project-workspace.button.close-tab": "Close tab",
   "project-workspace.button.collapse-sidebar": "Collapse sidebar",
   "project-workspace.button.edit-rules": "Edit rules",
@@ -1460,6 +1462,10 @@ export const en = {
   "project-workspace.heading.left-out": "Left out",
   "project-workspace.heading.tracked": "Will be tracked",
   "project-workspace.info.empty": "Nothing to show yet.",
+  "project-workspace.label.operators":
+    "{count, plural, one {# Operator repeats a check here} other {# Operators repeat checks here}}",
+  "project-workspace.label.operators-none":
+    "No Operator repeats a check here yet",
   "project-workspace.label.choose-app": "Choose an app",
   "project-workspace.label.drop-here": "Move here",
   "project-workspace.label.drop-side": "Open in side pane",
@@ -1657,8 +1663,38 @@ export const en = {
   "report-problem.status.received": "Received. lophn will look into it.",
   "report-problem.status.sending": "Sending your report.",
   "report-problem.title.report": "Report a problem",
+  "roles.attach.attached":
+    "Attached. The first check happens at the time you chose.",
+  "roles.attach.changed":
+    "Approved and switched. The next check uses this version.",
+  "roles.attach.declined": "Not attached. Nothing changed.",
+  "roles.attach.failed":
+    "You approved it, but it couldn't be applied. Nothing changed.",
+  "roles.attach.intro":
+    "An Operator repeats a check on a project or an app and writes what it finds into a document you already have. You approve everything below in a protected window before it starts.",
+  "roles.attach.no-outputs":
+    "No document here can take reports yet. A report goes into a document that already has a saved version.",
+  "roles.attach.no-preset": "No Operator Presets are available yet.",
+  "roles.attach.no-reads": "This app has no read-only commands to choose.",
+  "roles.attach.open-failed":
+    "Couldn't open the review window. Nothing changed.",
+  "roles.attach.output-help":
+    "The Operator only adds new versions to these documents. It never creates or changes anything else.",
+  "roles.attach.past-start": "Pick a first check that is later than now.",
+  "roles.attach.waiting":
+    "Review the details in the window that opened. Nothing starts until you approve.",
   "roles.button.answer": "Answer",
   "roles.button.ask-again": "Ask again",
+  "roles.button.attach": "Attach an Operator",
+  "roles.button.attach-cancel": "Cancel",
+  "roles.button.attach-check": "Check again",
+  "roles.button.attach-review": "Review and attach",
+  "roles.button.output-add": "Add",
+  "roles.button.output-remove": "Remove",
+  "roles.button.pause": "Pause",
+  "roles.button.withdraw": "Withdraw",
+  "roles.button.withdraw-confirm": "Withdraw it",
+  "roles.button.withdraw-keep": "Keep it",
   "roles.button.back-to-work": "Back to work",
   "roles.button.export": "Export to a file",
   "roles.button.preset-add": "Add",
@@ -1685,12 +1721,14 @@ export const en = {
   "roles.empty.pick-role": "Pick a role to see its work.",
   "roles.error.apply": "Couldn't switch to that version. Nothing changed.",
   "roles.error.ask-again": "Couldn't read the first request. Nothing was sent.",
+  "roles.error.pause": "Couldn't pause this role. Nothing changed.",
   "roles.error.preset-changed":
     "This Preset changed since you opened it. Open it again to see the latest version.",
   "roles.error.preset-save": "Couldn't save. Nothing changed.",
   "roles.error.restart": "Couldn't restart this work. Nothing changed.",
   "roles.error.resume": "Couldn't resume this role. Nothing changed.",
   "roles.error.stop": "Couldn't stop this work. Nothing changed.",
+  "roles.error.withdraw": "Couldn't withdraw this role. Nothing changed.",
   "roles.label.action-external": "Used an outside tool",
   "roles.label.action-read": "Looked at",
   "roles.label.action-write": "Changed",
@@ -1704,6 +1742,40 @@ export const en = {
   "roles.label.origin-handoff": "Handed over by another role",
   "roles.label.origin-message": "Your request",
   "roles.label.origin-schedule": "Repeating check",
+  "roles.label.attach-apps": "Apps it may read",
+  "roles.label.attach-apps-add": "Add an app",
+  "roles.label.attach-every": "How often",
+  "roles.label.attach-first": "First check",
+  "roles.label.attach-group-apps": "Apps",
+  "roles.label.attach-group-projects": "Projects",
+  "roles.label.attach-output-content": "What it should write there",
+  "roles.label.attach-output-doc": "Document",
+  "roles.label.attach-outputs": "Where it reports",
+  "roles.label.attach-period": "Repeating check",
+  "roles.label.attach-preset": "Preset",
+  "roles.label.attach-preset-line": "{name}, version {version, number}",
+  "roles.label.attach-reads": "What it reads",
+  "roles.label.attach-reads-preset": "From the Preset",
+  "roles.label.attach-title": "Attach an Operator",
+  "roles.label.attach-where": "Attach to",
+  "roles.label.attach-where-pick": "Pick a project or an app",
+  "roles.label.every-day": "Every day",
+  "roles.label.every-hour": "Every hour",
+  "roles.label.every-six-hours": "Every 6 hours",
+  "roles.label.every-week": "Every week",
+  "roles.label.operator-every": "Repeating check: {every}",
+  "roles.label.operator-every-custom":
+    "every {hours, plural, one {# hour} other {# hours}}",
+  "roles.label.operator-first": "First check {when}",
+  "roles.label.operator-last-due": "Last check was due {when}",
+  "roles.label.operator-reads":
+    "May read {count, plural, one {# app} other {# apps}}",
+  "roles.label.operator-reports": "Reports to",
+  "roles.label.operator-skipped": "Skipped checks",
+  "roles.label.operator-skipped-busy":
+    "{when}: skipped because the last check hadn't finished",
+  "roles.label.operator-skipped-waiting":
+    "{when}: skipped while waiting for your answer",
   "roles.label.preset-account-down": "Move {name} down",
   "roles.label.preset-account-up": "Move {name} up",
   "roles.label.preset-accounts": "Accounts, in the order to use them",
@@ -1837,6 +1909,16 @@ export const en = {
   "roles.label.target-skill": "A skill",
   "roles.label.target-tool": "A tool",
   "roles.label.target-work": "the work",
+  "roles.notice.operator-paused-failures":
+    "It paused itself after three checks in a row failed. Look at the failed work, then resume it when you're ready.",
+  "roles.notice.operator-paused-output":
+    "It paused because a document it reports to was archived. Nothing repeats until you resume it.",
+  "roles.notice.operator-paused-scope":
+    "It paused because the project or app it watches was archived. Nothing repeats until you resume it.",
+  "roles.notice.operator-paused-user":
+    "You paused it. Nothing repeats until you resume it.",
+  "roles.notice.withdraw-ask":
+    "Withdraw this Operator? It stops for good. You can still read its past conversations and what it wrote.",
   "roles.notice.paused":
     "This role is paused. New requests are kept and start only after you resume it.",
   "roles.notice.withdrawn":
@@ -1855,7 +1937,7 @@ export const en = {
   "roles.preset.no-skills": "No skills chosen.",
   "roles.preset.no-tools": "No tools known for this server yet.",
   "roles.preset.operator-note":
-    "An Operator's Preset changes with its own approval, not here.",
+    "Switching an Operator's Preset asks for your approval in a protected window.",
   "roles.preset.saved":
     "Saved as version {version, number}. It isn't used until you switch to it.",
   "roles.preset.skill-help": "Type the exact skill name.",

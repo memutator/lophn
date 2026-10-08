@@ -6,6 +6,7 @@ import type {
   ConversationSource,
   SourceResult,
 } from "../../../conversation/source.ts";
+import type { OperatorSource } from "./operator/source.ts";
 
 export type { ConversationSource, SourceResult };
 
@@ -22,6 +23,36 @@ export interface RoleScope {
   readonly id: string | null;
 }
 
+/** 멈춘 이유(사람이 읽을 분류와 안전한 설명). */
+export interface PauseFacts {
+  readonly kind:
+    | "user"
+    | "consecutive_failures"
+    | "scope_archived"
+    | "output_archived";
+  readonly detail: string;
+}
+
+/** Operator에만 있는 사실. 주기(Repeating check)·보고할 문서·읽는 앱·멈춘 이유. */
+export interface OperatorFacts {
+  readonly schedule: {
+    readonly firstAt: string;
+    readonly everyMs: number;
+  } | null;
+  readonly lastDueAt: string | null;
+  /** 보고할 문서와 거기에 남길 판단 항목. */
+  readonly outputs: readonly {
+    readonly document: string;
+    readonly content: string;
+  }[];
+  readonly readApps: readonly string[];
+  readonly readCommands: readonly {
+    readonly app: string;
+    readonly command: string;
+  }[];
+  readonly pause: PauseFacts | null;
+}
+
 /** 역할 하나(역할을 어떤 범위에 붙인 것). 목록의 한 행이다. */
 export interface RoleRow {
   readonly id: string;
@@ -34,6 +65,8 @@ export interface RoleRow {
   readonly presetName: string | null;
   /** Operator가 보고를 남기는 문서. */
   readonly outputs: readonly string[];
+  /** Operator의 주기·읽는 앱·멈춘 이유. 다른 역할은 없다. */
+  readonly operator?: OperatorFacts | null;
 }
 
 export type WorkState = "accepted" | "running" | "waiting_user" | "finished";
@@ -313,6 +346,8 @@ export interface PresetEntry {
   readonly id: string;
   readonly revision: number;
   readonly definition: PresetDefinition;
+  /** 판 전체의 hash. Operator 붙이기 승인이 이 판에 묶인다. */
+  readonly hash?: string;
 }
 
 /** Preset을 고를 때 보이는 선택지. */
@@ -336,6 +371,8 @@ export interface PresetChoices {
 }
 
 export interface RolesSource {
+  /** Operator 붙이기·멈춤·회수. */
+  readonly operator: OperatorSource;
   /** core 연결 상태를 듣는다. 준비되면 화면이 다시 읽는다. 해제는 반환 함수다. */
   watch(listener: (state: { readonly state: string }) => void): () => void;
   roles(): Promise<SourceResult<readonly RoleRow[]>>;

@@ -3,6 +3,8 @@ import { t } from "@lophn/wording";
 
 import type { Catalog, SourceResult } from "../source.ts";
 import { RoleDetail } from "./detail/role-detail.tsx";
+import { AttachForm } from "./operator/attach-form.tsx";
+import type { OperatorScope } from "./operator/source.ts";
 import { RoleList } from "./list/role-list.tsx";
 import { sortRoles } from "./model.ts";
 import type { RoleRow, RolesSource } from "./source.ts";
@@ -22,6 +24,10 @@ export interface RolesScreenProps {
   onApp?: (app: string) => void;
   /** 처음 열 역할. */
   initialRole?: string;
+  /** 이 곳에 Operator를 붙이는 화면으로 연다(작업대의 [Attach an Operator]). */
+  initialAttach?: OperatorScope;
+  /** Operator 승인을 기다리며 확인하는 간격(ms). 테스트가 고정한다. */
+  pollMs?: number;
   /** 상대 시각의 기준. 테스트가 고정한다. */
   now?: () => number;
 }
@@ -41,6 +47,8 @@ export function RolesScreen(
     onConfirm,
     onApp,
     initialRole,
+    initialAttach,
+    pollMs,
     now,
   }: RolesScreenProps,
 ) {
@@ -48,6 +56,14 @@ export function RolesScreen(
   const [loaded, setLoaded] = useState<Loaded>({ kind: "loading" });
   const [names, setNames] = useState<Readonly<Record<string, string>>>({});
   const [attempt, setAttempt] = useState(0);
+  const [attaching, setAttaching] = useState<
+    { readonly scope: OperatorScope | undefined } | null
+  >(initialAttach === undefined ? null : { scope: initialAttach });
+  const [named, setNamed] = useState<Catalog>({
+    projects: [],
+    apps: [],
+    contexts: [],
+  });
 
   const reload = useCallback(() => setAttempt((value) => value + 1), []);
 
@@ -66,6 +82,7 @@ export function RolesScreen(
     });
     void catalog().then((result) => {
       if (!live || !result.ok) return;
+      setNamed(result.value);
       const next: Record<string, string> = {};
       for (const item of [...result.value.projects, ...result.value.apps]) {
         next[item.id] = item.title;
@@ -87,12 +104,36 @@ export function RolesScreen(
           loaded={loaded}
           names={names}
           current={current}
-          onOpen={setCurrent}
+          onOpen={(id) => {
+            setAttaching(null);
+            setCurrent(id);
+          }}
           onRetry={reload}
+          onAttach={() => setAttaching({ scope: undefined })}
         />
       </div>
       <div className={listStyles.detailColumn} data-detail-column="">
-        {row === undefined
+        {attaching !== null
+          ? (
+            <AttachForm
+              key={attaching.scope === undefined
+                ? "pick"
+                : `${attaching.scope.kind}:${attaching.scope.id}`}
+              source={source}
+              catalog={named}
+              initialScope={attaching.scope}
+              pollMs={pollMs}
+              now={now}
+              onDone={(assignment) => {
+                setAttaching(null);
+                if (assignment !== null) {
+                  setCurrent(assignment);
+                  reload();
+                }
+              }}
+            />
+          )
+          : row === undefined
           ? (
             <p className={listStyles.placeholder} data-detail="none">
               {t("roles.empty.pick-role")}

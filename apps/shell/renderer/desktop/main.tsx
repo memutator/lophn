@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 
 import type { CoreSource } from "./connection/connection.ts";
 import { useConnection } from "./connection/connection.tsx";
@@ -27,6 +27,7 @@ import { type PaletteDeps, PaletteProvider } from "./palette/host.tsx";
 import { NotificationChip } from "./notification-chip/notification-chip.tsx";
 import type { LauncherSource } from "./launcher/source.ts";
 import type { TrackingSource } from "../workspace/tracking/source.ts";
+import type { OperatorEntrySource } from "../workspace/operator-entry.tsx";
 import type { IntentApi } from "../../ipc/shortcuts.ts";
 import { DesktopIntents } from "./intents.tsx";
 import type { LophnTarget } from "./palette/lophn-scope.ts";
@@ -120,6 +121,26 @@ export function Desktop(
   }: DesktopProps,
 ) {
   const [route, setRoute] = useState<Route>(initial);
+  // 작업대가 이 프로젝트에 붙은 Operator를 읽는 통로. roles 통로의 목록에서 프로젝트 것만 고른다.
+  const operators = useMemo<OperatorEntrySource | undefined>(
+    () =>
+      roles === undefined ? undefined : {
+        async operators(project) {
+          const rows = await roles.roles();
+          if (!rows.ok) return rows;
+          return {
+            ok: true,
+            value: rows.value.flatMap((row) =>
+              row.role === "operator" && row.scope.kind === "project" &&
+                row.scope.id === project && row.state !== "withdrawn"
+                ? [{ id: row.id, state: row.state }]
+                : []
+            ),
+          };
+        },
+      },
+    [roles],
+  );
   // things-to-confirm으로 간 횟수. 이미 lophn 공간이어도 그 형제를 다시 연다.
   const [visits, setVisits] = useState(0);
   const launcher = () => setRoute(LAUNCHER);
@@ -204,6 +225,13 @@ export function Desktop(
         editor={editor}
         terminal={terminal}
         tracking={tracking}
+        operators={operators}
+        onAttachOperator={(project) =>
+          visit({
+            ...openLophn("roles"),
+            attach: { kind: "project", id: project },
+          })}
+        onOpenOperator={(role) => visit({ ...openLophn("roles"), role })}
       />
     );
   } else if (
@@ -268,6 +296,8 @@ export function Desktop(
         apps={apps}
         onApp={appSpace}
         roles={roles}
+        initialRole={route.role}
+        initialAttach={route.attach}
         settings={settings}
         coding={coding}
         initialConnection={route.connection}

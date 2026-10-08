@@ -1,11 +1,12 @@
 // RolesSource를 main의 core 통로로 만든다. 응답은 main의 contract client가 route output schema로
 // 이미 검사했다. 아래 모양은 그 schema에서 이 화면이 읽는 field만 옮긴 것이다. 본문(근거·도구 입력·
 // 도구 결과)은 `runs/body-view`로만 읽는다. 사람 전용이고 core가 지금의 redaction을 거친 값이다.
-import type { CoreCall } from "../../../../ipc/core.ts";
 import type { FolderPickerApi } from "../../../../ipc/folder-picker.ts";
 import { coreConversationSource } from "../../../conversation/core-source.ts";
 import type { CoreSource } from "../../connection/connection.ts";
 import { windowFolderPicker } from "../../launcher/core-source.ts";
+import { call, command, type Page, pages } from "./core-calls.ts";
+import { coreOperatorSource } from "./operator/core-source.ts";
 import { newId } from "../model.ts";
 import type {
   BodyKind,
@@ -16,6 +17,8 @@ import type {
   Cost,
   ModelAttempt,
   ModelPick,
+  OperatorFacts,
+  PauseFacts,
   PresetChoices,
   PresetDefinition,
   PresetEntry,
@@ -31,10 +34,6 @@ import type {
   WorkRow,
 } from "./source.ts";
 
-interface Page {
-  next_cursor: string | null;
-}
-
 interface AssignmentValue {
   id: string;
   role: RoleKind;
@@ -42,7 +41,12 @@ interface AssignmentValue {
   state: RoleRow["state"];
   preset: string;
   preset_revision: number;
-  outputs: { document: string }[];
+  outputs: { document: string; content?: string }[];
+  read_apps?: string[];
+  read_commands?: { app: string; command: string }[];
+  schedule?: { first_at: string; every_ms: number } | null;
+  last_due_at?: string | null;
+  pause_reason?: { kind: PauseFacts["kind"]; detail: string } | null;
   revision: number;
 }
 
@@ -54,9 +58,10 @@ interface ModelValue {
   options: Record<string, unknown>;
 }
 
-interface PresetValue {
+export interface PresetValue {
   id: string;
   revision: number;
+  definition_hash?: string;
   definition: {
     kind: RoleKind;
     name: string;
@@ -191,66 +196,9 @@ interface McpValue {
 }
 
 const MCP_SERVERS = "lophn-agent.extensions.mcp_servers";
-/** 목록을 끝까지 모을 때 page 상한. 넘으면 모은 것까지만 보인다. */
-const PAGE_LIMIT = 20;
 /** 만든 것을 모을 때 읽는 가장 최근 대화 수. */
 const MADE_SESSIONS = 12;
 const DAY = 24 * 60 * 60 * 1000;
-
-async function call<T>(
-  core: CoreSource,
-  kind: CoreCall["kind"],
-  resource: string,
-  method: string,
-  body: unknown,
-): Promise<SourceResult<T>> {
-  try {
-    const reply = await core.call({ kind, resource, method, body });
-    if (!reply.ok) return { ok: false, code: reply.error?.code ?? "internal" };
-    return { ok: true, value: reply.value as T };
-  } catch {
-    return { ok: false, code: "unavailable" };
-  }
-}
-
-function command<T>(
-  core: CoreSource,
-  resource: string,
-  method: string,
-  body: { input: unknown; compare?: unknown; key: string },
-): Promise<SourceResult<T>> {
-  return call<T>(core, "command", resource, method, {
-    input: body.input,
-    idempotency_key: body.key,
-    ...(body.compare === undefined ? {} : { compare: body.compare }),
-    prepared: [],
-  });
-}
-
-async function pages<T, V extends Page>(
-  core: CoreSource,
-  resource: string,
-  method: string,
-  input: Record<string, unknown>,
-  rows: (value: V) => readonly T[],
-): Promise<SourceResult<readonly T[]>> {
-  const found: T[] = [];
-  let cursor: string | null = null;
-  for (let page = 0; page < PAGE_LIMIT; page += 1) {
-    const result: SourceResult<V> = await call<V>(
-      core,
-      "read",
-      resource,
-      method,
-      cursor === null ? input : { ...input, cursor },
-    );
-    if (!result.ok) return result;
-    found.push(...rows(result.value));
-    cursor = result.value.next_cursor;
-    if (cursor === null) break;
-  }
-  return { ok: true, value: found };
-}
 
 function modelOf(value: ModelValue | null): ModelPick | null {
   return value === null ? null : {
@@ -288,6 +236,9 @@ export function presetOf(value: PresetValue): PresetEntry {
     id: value.id,
     revision: value.revision,
     definition: definitionView,
+    ...(value.definition_hash === undefined
+      ? {}
+      : { hash: value.definition_hash }),
   };
 }
 
@@ -332,27 +283,48 @@ export function definitionOf(
   };
 }
 
+export function factsOf(item: AssignmentValue): OperatorFacts | null {
+  if (item.role !== "operator") return null;
+  return {
+    schedule: item.schedule == null ? null : {
+      firstAt: item.schedule.first_at,
+      everyMs: item.schedule.every_ms,
+    },
+    lastDueAt: item.last_due_at ?? null,
+    outputs: item.outputs.map((output) => ({
+      document: output.document,
+      content: output.content ?? "",
+    })),
+    readApps: item.read_apps ?? [],
+    readCommands: item.read_commands ?? [],
+    pause: item.pause_reason == null ? null : {
+      kind: item.pause_reason.kind,
+      detail: item.pause_reason.detail,
+    },
+  };
+}
+
 function stepOutcome(value: ToolValue): StepOutcome {
   return value.state === "finished" && value.outcome !== null
     ? value.outcome.kind
     : "unfinished";
 }
 
+export type DecisionIntent = {
+  request:
+    | {
+      kind: "owner_decision";
+      concern: string;
+      decision: string;
+      targets: string[];
+    }
+    | { kind: "approval_request"; approval: string };
+  parentWindow: string;
+};
+
 export interface RolesDeps {
   picker: FolderPickerApi | undefined;
-  openDecision:
-    | ((
-      intent: {
-        request: {
-          kind: "owner_decision";
-          concern: string;
-          decision: string;
-          targets: string[];
-        };
-        parentWindow: string;
-      },
-    ) => Promise<unknown>)
-    | undefined;
+  openDecision: ((intent: DecisionIntent) => Promise<unknown>) | undefined;
   now: () => number;
   random: () => string;
   /** 대화 통로. 테스트가 바꾼다. */
@@ -395,6 +367,12 @@ export function coreRolesSource(
   }
 
   return {
+    operator: coreOperatorSource(core, {
+      openDecision,
+      now,
+      random,
+      presetOf,
+    }),
     watch: (listener) => core.subscribe(listener),
 
     async roles() {
@@ -429,6 +407,7 @@ export function coreRolesSource(
           preset: { id: item.preset, revision: item.preset_revision },
           presetName: names.get(item.preset) ?? null,
           outputs: item.outputs.map((output) => output.document),
+          operator: factsOf(item),
         })),
       };
     },

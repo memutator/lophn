@@ -186,6 +186,7 @@ Deno.test("shell/desktop#R4: 역할 목록은 assignments와 presets를 읽어 �
     preset: { id: PST, revision: 2 },
     presetName: "App Engineer",
     outputs: ["doc_x"],
+    operator: null,
   }]);
   assertValid(calls);
 });

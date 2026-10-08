@@ -862,7 +862,7 @@ Deno.test("lophn-agent/presets#R11: Preset은 기본과 사람이 고친 판을 
   assert(find(view.container, "[data-preset-notice='applied']"));
 });
 
-Deno.test("lophn-agent/presets#R12: 이전 판도 고를 수 있고 Operator의 Preset은 이 화면이 적용하지 않는다", async () => {
+Deno.test("lophn-agent/presets#R12: 이전 판도 고를 수 있고 Operator의 Preset은 보호 승인으로만 바뀐다", async () => {
   const fake = fakeRoles(base({
     presets: {
       ...presetsOf(),
@@ -890,17 +890,20 @@ Deno.test("lophn-agent/presets#R12: 이전 판도 고를 수 있고 Operator의 
       2,
     ],
   );
-  // Operator는 보호된 승인으로만 바뀐다.
+  // Operator는 보호된 승인으로만 바뀐다. 이전 판은 승인이 묶을 판 hash를 몰라 고르지 못한다.
   openRole(view.container, OPERATOR.id);
   await flush();
   pressTab(byText(view.container, "Preset"));
   await flush();
   assert(
     text(view.container).includes(
-      "An Operator's Preset changes with its own approval, not here.",
+      "Switching an Operator's Preset asks for your approval in a protected window.",
     ),
   );
-  assertEquals(view.container.querySelector("[data-action='apply']"), null);
+  assertEquals(
+    view.container.querySelector("[data-action='apply-earlier']"),
+    null,
+  );
 });
 
 Deno.test("lophn-agent/presets#R7: 기본 Preset은 사본으로 저장하고 계정 순서·model·skill·MCP 개별 tool을 고른 새 판을 저장해도 쓰는 판은 바뀌지 않는다", async () => {

@@ -75,6 +75,10 @@ export interface LophnSpaceProps {
   onApp?: (app: string) => void;
   /** roles 화면 통로. 없으면 roles는 준비 전 안내다. */
   roles?: RolesSource;
+  /** roles 화면에서 처음 열 역할. */
+  initialRole?: string;
+  /** roles 화면에서 이 곳에 Operator를 붙이는 화면으로 연다. */
+  initialAttach?: { readonly kind: "project" | "app"; readonly id: string };
   /** settings 화면 통로. 없으면 settings는 준비 전 안내다. */
   settings?: SettingsSource;
   /** 전역 [Instructions] 편집기로 간다. settings 화면의 단추가 쓴다. */
@@ -106,6 +110,8 @@ export function LophnSpace(
     apps,
     onApp,
     roles,
+    initialRole,
+    initialAttach,
     settings,
     onInstructions,
     coding,
@@ -298,6 +304,8 @@ export function LophnSpace(
               <RolesScreen
                 source={roles}
                 catalog={catalogOf}
+                initialRole={initialRole}
+                initialAttach={initialAttach}
                 connected={connected}
                 now={now}
                 onRead={(document, version) => {

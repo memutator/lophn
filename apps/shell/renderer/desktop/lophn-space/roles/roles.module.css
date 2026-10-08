@@ -367,3 +367,15 @@
   align-items: flex-end;
   gap: var(--space-4);
 }
+
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}

@@ -115,13 +115,17 @@ export const setClockRoute = defineCommand({
   errors: ["conflict"],
 });
 
-// approval 표는 platform/approvals 소유다. ApplyOperatorAssignment가 읽는 id·status만 같은
-// 모양으로 심는 fixture command다.
+// approval 표는 platform/approvals 소유다. ApplyOperatorAssignment가 읽는 id·status·closed_seq만
+// 같은 모양으로 심는 fixture command다.
 export const seedApprovalRoute = defineCommand({
   resource: "approval-fixture",
   method: "seed",
   name: "SeedApprovalFixture",
-  input: z.strictObject({ id: z.string(), status: z.string() }),
+  input: z.strictObject({
+    id: z.string(),
+    status: z.string(),
+    closed_seq: z.string().nullish(),
+  }),
   output: z.strictObject({ id: z.string() }),
   compare: z.strictObject({}),
   actors: ACTOR_KINDS,
@@ -145,7 +149,7 @@ export const setRunStateRoute = defineCommand({
 });
 
 export const APPROVAL_FIXTURE_SQL =
-  "create table approval_requests (id text primary key, status text not null)";
+  "create table approval_requests (id text primary key, status text not null, closed_seq integer)";
 
 export function atOf(ms: number): string {
   return formatAt(ms);

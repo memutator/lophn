@@ -26,6 +26,7 @@ import {
   ticketReportToolInputSchema,
 } from "./ticket-claims.ts";
 import { cliCommonSchema } from "./cli-core.ts";
+import { integrationTargetSchema } from "./harnesses.ts";
 
 // CLI도 MCP가 고른 op 밖의 command를 만들지 않는다(cli-decisions·cli-setup 같은
 // 모양). 위치 인자가 없고 선택값만 있다. refine을 가진 owner 입력(test 등)은
@@ -96,9 +97,13 @@ export const cliAppInvocationsSchema = withCommon(
 );
 export const cliAppLogsSchema = withCommon("app logs", appLogs.input);
 // sync-tools는 재배포 접수다(mcp#R19, cli#R29). 파일별 결과는 host가 낸다.
+// 대상은 사람이 고른 exact target 하나고(--target), names는 설치할 skill이다.
 export const cliAppSyncToolsSchema = withCommon(
   "app sync-tools",
-  appGet.input,
+  appGet.input.extend({
+    target: integrationTargetSchema,
+    names: z.array(z.string().min(1)).min(1).optional(),
+  }),
 );
 
 // `lophn sdk catalog|show|add`(cli#R30). catalog는 검색, show는 상세, add는

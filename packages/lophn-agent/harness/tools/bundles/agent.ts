@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { err, fingerprint, ok, type Result } from "../../../../base/mod.ts";
+import {
+  err,
+  fingerprint,
+  ok,
+  type Result,
+  sha256Hex,
+} from "../../../../base/mod.ts";
 import {
   agentRoleSchema,
   fixedVersionReferenceSchema,
@@ -236,7 +242,7 @@ export const AGENT_TOOLS: readonly ToolDefinition[] = [
 // handler가 소유 contract를 부르는 통로다. 실제 연결(core client)은 agent runtime 조립이
 // 넣는다. `call`은 contract 이름 하나와 그 입력 하나이고 여러 영역의 숨은 절차는 없다.
 export type AgentToolPorts = ContractCall & {
-  newId(prefix: "qst" | "run" | "msg" | "apr"): string;
+  newId(prefix: "qst" | "run" | "msg" | "apr" | "asg"): string;
   // 호출 run이 이어진 사실. 질문의 session과 handoff의 보낸 역할·원래 사람 요청,
   // 초안 제출의 요청 assignment를 정한다.
   runFacts(run: string): Promise<
@@ -340,9 +346,33 @@ export function createAgentToolHandlers(
       return ok(success("handoff sent", sent.value));
     },
   );
-  // 초안 번들은 그대로 approval의 action 입력이 된다. id·요청자·run·기한은 모델이
+  // 초안 번들은 승인의 action 입력에 apply가 받는 모양 그대로 실린다
+  // (lophn-agent#T53, shell#T54에서 넘어온 것). id·요청자·run·기한은 모델이
   // 정하지 않는다: handler가 호출 run의 사실과 core 준비 값에서 채운다(P9, R4).
   // 대상은 승인이 묶을 assignment 하나다(생성은 preset 판 reviewer가 고른다).
+  //
+  // 접수 필드의 id는 초안 번들의 지문에서 만든 고정 id다: 같은 초안은 같은
+  // approval·slot id를 내므로 같은 지문이 같은 승인 요청을 가리키고, 거절된 같은
+  // 초안의 재제출은 승인 금지 계보(rejectedInLineage, platform/approvals#R16)가
+  // 같은 지문으로 다시 묻지 않는다. 모델이 고르는 값은 대상·값 후보뿐이다.
+  const CROCKFORD = "0123456789abcdefghjkmnpqrstvwxyz";
+
+  // 초안 번들의 지문에서 ULID 모양의 고정 tail을 만든다. 같은 key는 같은 id다.
+  async function keyedTail(key: string): Promise<string> {
+    const hex = await sha256Hex(key);
+    let value = 0n;
+    for (let index = 0; index < 25; index += 1) {
+      value = (value << 8n) | BigInt(parseInt(hex.slice(index, index + 2), 16));
+    }
+    // 첫 글자는 시각 48bit의 상위 bit라 0~7만 된다(ids.ts ULID).
+    const head = Number(value >> 195n) % 8;
+    let tail = CROCKFORD[head]!;
+    for (let position = 24; position >= 0; position -= 1) {
+      tail += CROCKFORD[Number((value >> BigInt(position * 5)) & 31n)]!;
+    }
+    return tail;
+  }
+
   handlers.set(
     approvalSubmitAssignmentTool.name,
     async (input, credential: RunCredential) => {
@@ -350,19 +380,28 @@ export function createAgentToolHandlers(
       const facts = await ports.runFacts(credential.run);
       if (!facts.ok) return facts;
       // approval에 고정하는 동작은 승인 뒤 사람이 결정하고 machine이 내는
-      // ApplyOperatorAssignment다(assignments#R5). action의 입력은 apply 그대로다:
-      // 승인이 확정한 decision·bundle이 그대로 적용된다(apply.ts의 dispatch).
-      const bundle = {
-        ...value,
-        assignment: value.assignment ?? facts.value.assignment,
+      // ApplyOperatorAssignment다(assignments#R5). action의 입력은 apply
+      // contract가 받는 모양 그대로다(lophn-agent#T53의 입력 모양 맞춤): 접수
+      // 필드(approval·id)를 채우고 결정 seq는 허락이 확정하는 것이라 생략하고
+      // apply handler가 승인 기록으로 맞춘다. 초안 번들은 사람이 검토한 모양
+      // 그대로 실린다: creating 초안의 assignment는 null이다.
+      const applyInput = {
+        approval: `apr_${await keyedTail(
+          `approval:${credential.run}:${await fingerprint(value)}`,
+        )}`,
+        id: value.assignment ??
+          `asg_${await keyedTail(
+            `slot:${credential.run}:${await fingerprint(value)}`,
+          )}`,
+        bundle: value,
       };
       const base = {
         concern: "lophn-agent/assignments",
         command: "ApplyOperatorAssignment",
         caller: `agent:${facts.value.assignment}` as ApprovalAction["caller"],
-        targets: [value.assignment ?? value.preset],
-        input: { kind: "inline" as const, value: bundle },
-        input_hash: await fingerprint(bundle),
+        targets: [applyInput.id],
+        input: { kind: "inline" as const, value: applyInput },
+        input_hash: await fingerprint(applyInput),
         comparison: {},
       };
       const action: ApprovalAction = {
@@ -371,7 +410,7 @@ export function createAgentToolHandlers(
       };
       // 이 tool은 제출만 한다: 적용은 승인 뒤 사람 decision의 apply다.
       const submitted = await ports.call("create_approval_request", {
-        id: ports.newId("apr"),
+        id: applyInput.approval,
         requester: `agent:${facts.value.assignment}`,
         run: credential.run,
         reason: value.reason,

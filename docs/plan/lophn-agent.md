@@ -1081,6 +1081,7 @@ eval은 제품 프로세스가 아니라 개발 runner다(`deno task eval`). 네
 ### T57 trace 보존 정리 연결
 
 - 등급: 기본
+- 상태: 완료 (#468) — retention.ts에 R23–R26 정리 판정(큰 자료 후보·보호 근거·derived/부재 요청·남는 최소 식별)을 넣고 retention_test.ts 4개를 통과시켰다
 - concern: lophn-agent/observability
 - 요구: lophn-agent/observability#R23, R24, R25, R26
 - 자리: packages/lophn-agent/observability/ (retention.ts)
@@ -1091,6 +1092,7 @@ eval은 제품 프로세스가 아니라 개발 runner다(`deno task eval`). 네
 - 선행: T39, T40, platform#T44
 - 완료:
   - retention_test.ts에 R23–R26 테스트: 큰 자료만 오래된 것부터 정리 대상·변경 기록·결정·확정 결과는 보존(용량 숫자와 실제 삭제는 platform), 진행 run·미반영 입력·답·approval 대기·revert 근거는 넘기지 않음(쓰기 때 정리 후보를 고르는 쪽에서 제외), 사라진 본문의 derived index·cache 제거와 부재 표시 요청(한 transaction 약속 없음), 문서·release 삭제로 번지지 않고 변경 주체 최소 식별 유지
+- 정한 것(T57): 정리 판정은 agent가 등록한 field(capacity만 후보, permanent는 제외)와 참조 등록 순번으로만 하고, 용량 숫자·실제 삭제는 platform에 둔다. 사라진 본문을 trace가 부재로 보이는 표시(`missing[].reason`)는 `agentTraceRead`가 pool read라 blob 부재를 알 수 없어 남는다: blob-store 관찰 port를 core 조립에 붙이는 일이 선행이다
 
 ## 요구 덮기
 

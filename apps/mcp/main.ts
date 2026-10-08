@@ -53,6 +53,7 @@ import {
 import { createContextTool } from "../../packages/coding-agent/mcp-server/tools/context.ts";
 import { createDocumentTool } from "../../packages/coding-agent/mcp-server/tools/document.ts";
 import { createIndexTool } from "../../packages/coding-agent/mcp-server/tools/index.ts";
+import { createProblemTool } from "../../packages/coding-agent/mcp-server/tools/problem.ts";
 import { createProjectTool } from "../../packages/coding-agent/mcp-server/tools/project.ts";
 import { createReadTool } from "../../packages/coding-agent/mcp-server/tools/read.ts";
 import { createFormatTool } from "../../packages/coding-agent/mcp-server/tools/format.ts";
@@ -191,6 +192,16 @@ export function startMcpServer(
       idempotencyKey: () => `mcp-ticket-${crypto.randomUUID()}`,
     })
     : undefined;
+  // 문제 tool의 실행이다(T44). 읽기와 지정 ticket의 현재 claim 아래 record_fix·reproduction test만
+  // 소유 route로 보낸다. 문제 직접 claim op는 없다(mcp#R24, R25).
+  const problemTool = caller
+    ? createProblemTool({
+      client: caller,
+      idempotencyKey: () => `mcp-problem-${crypto.randomUUID()}`,
+      now: () => new Date().toISOString(),
+      ...(connection.ok ? { connection: connection.value } : {}),
+    })
+    : undefined;
   const direct = options.appDirect ??
     (caller
       ? createAppDirect({ client: caller, transport: unixAppDirectTransport() })
@@ -298,6 +309,15 @@ export function startMcpServer(
             next: ["lophn doctor로 연결과 credential을 확인한다"],
           })
           : ticketTool(toolName, resolved.route, callArgs);
+      }
+      if (toolName === "lophn_problem") {
+        return problemTool === undefined
+          ? Promise.resolve({
+            summary: "tool 실행 준비가 안 됐다",
+            data: { tool: toolName, op, connected: false },
+            next: ["lophn doctor로 연결과 credential을 확인한다"],
+          })
+          : problemTool(toolName, resolved.route, callArgs, context);
       }
       if (toolName === "lophn_app") {
         return appTool === undefined

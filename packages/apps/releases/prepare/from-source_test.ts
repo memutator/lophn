@@ -78,7 +78,17 @@ Deno.test("apps/sdk#R10 apps/releases#R1: source commit의 준비는 설치 SDK 
       map.imports["@lophn/blueprint"],
       "./sdk/blueprint/1.0.0/mod.ts",
     );
-    for (const value of Object.values(map.imports)) {
+    // 운영 앱은 앱의 main.ts가 아니라 platform이 만든 진입 파일로 뜬다. 그 파일이 runtime entrypoint를 부르고
+    // `@lophn/base`는 platform의 file URL이다.
+    assertEquals(prepared.value.manifest.entrypoint, "lophn-entry.ts");
+    assert(paths.includes("lophn-entry.ts"));
+    const entry = await Deno.readTextFile(`${copy}/lophn-entry.ts`);
+    assert(entry.includes("/packages/apps/runtime/entrypoint/main.ts"), entry);
+    assert(entry.includes("await run();"), entry);
+    assert(map.imports["@lophn/base"].startsWith("file:///"));
+    assertEquals(map.imports["@lophn/app"], "./main.ts");
+    for (const [key, value] of Object.entries(map.imports)) {
+      if (key === "@lophn/base") continue;
       assert(!value.startsWith("lophn-sdk:"), value);
       assert(!/[~^]|https?:/.test(value), value);
     }

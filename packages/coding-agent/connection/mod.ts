@@ -129,6 +129,16 @@ export {
   type SdkSourcePort,
 } from "./sdk-ops.ts";
 export {
+  isProblemOp,
+  openProblemAttachment,
+  PROBLEM_OP_CLI_NAMES,
+  PROBLEM_OPS,
+  type ProblemOp,
+  type ProblemOpDeps,
+  type ProblemOpOutput,
+  runProblemOp,
+} from "./problem-ops.ts";
+export {
   reportInputOf,
   reportTicket,
   ticketCompare,

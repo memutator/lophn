@@ -1,6 +1,6 @@
 // 캘린더 앱의 업무 규칙 test. 외부 캘린더는 fake-external(메모리)이고 secret은 SDK의 대역이다.
 import { assert, assertEquals, assertRejects } from "@std/assert";
-import { CommandRejection } from "@lophn/cap-schedule";
+import { CommandRejection, runWith } from "@lophn/cap-schedule";
 import blueprint from "../blueprint.ts";
 import {
   addEventHandler,
@@ -118,7 +118,7 @@ Deno.test("apps/permissions#R14: secret 이름이 grant 밖이면 외부 요청 
   });
 });
 
-Deno.test("apps/blueprint#R5: add_event는 revert를 지원하고 revert_event는 add_event가 돌려준 id만 지운다", async () => {
+Deno.test("apps/blueprint#R5 problems/tests#R9: add_event receipt는 호출에 묶이고 revert는 복원·중복·나중 변경을 구별한다", async () => {
   const add = blueprint.commands.find((item) => item.key === "add_event");
   assertEquals(add?.effect, "write");
   assertEquals(add?.revert, { supported: true, command: "revert_event" });
@@ -128,24 +128,36 @@ Deno.test("apps/blueprint#R5: add_event는 revert를 지원하고 revert_event�
       title: "Keep",
       starts_at: "2026-02-05T09:00:00Z",
     });
-    const added = await addEventHandler(deps)({
-      title: "Mistake",
-      starts_at: "2026-02-06T09:00:00Z",
-    });
-    assertEquals(await revertEventHandler(deps)({ id: added.id }), {
-      removed: 1,
-    });
+    const change = () => runWith({
+      app: "calendar", release: null, mode: "test", invocation: "inv_calendar",
+    }, () => addEventHandler(deps)({
+      title: "Mistake", starts_at: "2026-02-06T09:00:00Z",
+    }));
+    const added = await change();
+    assert(added.revert);
+    assertEquals(added.revert.invocation, "inv_calendar");
+    assertEquals(await revertEventHandler(deps)(added.revert), { removed: 1 });
     assertEquals(
       (await listEventsHandler(deps)()).rows.map((row) => row.id),
-      [kept.id],
+      [kept.result.id],
     );
-    // 이미 지운 id를 다시 되돌려도 다른 일정은 그대로다.
-    assertEquals(await revertEventHandler(deps)({ id: added.id }), {
-      removed: 0,
-    });
+    const before = (await listEventsHandler(deps)()).rows;
+    const duplicate = await assertRejects(
+      async () => await revertEventHandler(deps)(added.revert), CommandRejection,
+    );
+    assertEquals(duplicate.code, "conflict");
+    assertEquals((await listEventsHandler(deps)()).rows, before);
+    const later = await change();
+    assert(later.revert);
+    await addEventHandler(deps)({ title: "Later", starts_at: "2026-02-07T09:00:00Z" });
+    const changed = (await listEventsHandler(deps)()).rows;
+    const conflict = await assertRejects(
+      async () => await revertEventHandler(deps)(later.revert), CommandRejection,
+    );
+    assertEquals(conflict.code, "conflict");
+    assertEquals((await listEventsHandler(deps)()).rows, changed);
     await assertRejects(
-      async () => await revertEventHandler(deps)({ id: "x" }),
-      CommandRejection,
+      async () => await revertEventHandler(deps)({ id: "x" }), CommandRejection,
     );
   });
 });

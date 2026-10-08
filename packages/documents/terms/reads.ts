@@ -51,7 +51,15 @@ function contextVisible(
   const decision = snapshot.port(TargetAuthorization)(
     ctx,
     operation,
-    { context },
+    {
+      context,
+      // 앱 하나에 묶인 agent는 그 앱의 읽기를 항목으로 가진 context의 용어만 본다.
+      context_apps: sql.all(
+        `SELECT DISTINCT app FROM context_items
+         WHERE context = ? AND target_kind = 'app_command'`,
+        [context],
+      ).flatMap((row) => typeof row["app"] === "string" ? [row["app"]] : []),
+    },
   );
   if (!decision.ok) {
     return decision.error.code === "forbidden" ||

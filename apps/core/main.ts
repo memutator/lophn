@@ -12,6 +12,7 @@ import {
   problemsTestDefinitions,
 } from "./problems.ts";
 import { ticketDefinitions } from "./tickets.ts";
+import { createCoreRegistration as createTicketPortsRegistration } from "./ticket-ports.ts";
 import { productKeychain } from "./secret-store.ts";
 import {
   credentialLoaderIdentity,
@@ -29,6 +30,7 @@ const TEAMS = [
   { lophnAgentDefinitions },
   { createLedgerRegistration: createLophnAgentRegistration },
   { ticketDefinitions },
+  { createCoreRegistration: createTicketPortsRegistration },
 ];
 
 const portArg = Deno.args.find((arg) => arg.startsWith("--port="));
@@ -68,6 +70,7 @@ for (;;) {
       new URL("./coding-agent.ts", import.meta.url).href,
       new URL("./lophn-agent.ts", import.meta.url).href,
       new URL("./tickets.ts", import.meta.url).href,
+      new URL("./ticket-ports.ts", import.meta.url).href,
     ],
     parent,
     // coding agent connection credential은 OS keychain에 둔다. 보호 loader는 설치 묶음의 helper

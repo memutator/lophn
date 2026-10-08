@@ -25,6 +25,7 @@ import {
   conditionInputsValid,
   createActorAllowed,
   humanConfirmationCoupled,
+  outsideAppCondition,
   readinessOf,
   readyKindsComplete,
   uniqueConditions,
@@ -104,6 +105,9 @@ function createTicket(
   if (!readiness.ok) return readiness;
   // R4: 구현 ticket은 문제를 묶지 않고 repair는 1개 이상이다. order는 contract
   // validCreate가 검사하지만 동시 생성의 승자는 예약 unique가 만든다.
+  if (outsideAppCondition(ctx, input.app)) {
+    return notFound("app does not exist");
+  }
   const registered = tx.port(appRegistrationLookup).get(input.app);
   if (!registered.ok) return registered;
   if (registered.value === null) return notFound("app does not exist");
@@ -255,6 +259,9 @@ function makeReady(
   if (!row.ok) return row;
   if (row.value === null) return notFound("ticket does not exist");
   const stored = row.value;
+  if (outsideAppCondition(ctx, stored.app)) {
+    return notFound("ticket does not exist");
+  }
   // 종료(confirm·취소)와 이미 ready인 ticket은 전환하지 않는다(R6, R19).
   if (stored.state !== "open" || stored.readiness !== "needs_confirmation") {
     return conflict("ticket is not waiting for confirmation");

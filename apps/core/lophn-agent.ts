@@ -14,6 +14,7 @@ import {
 import {
   assignmentPaused,
   InstructionAttachments,
+  OperatorOutput,
   questionCreated,
   runAccepted,
   runFinished,
@@ -519,6 +520,34 @@ const instructionAttachmentsPort = defineTxPort(
   }),
 );
 
+// documents가 document.save의 같은 Tx에서 묻는 Operator 출력 판정이다(documents/versions#R14).
+// 그 문서를 남길 문서로 선언한 assignment의 지금 판이다. 선언 표는 적용마다 통째로 다시 쓰이므로
+// 지금 선언만 남아 있다. 없으면 null이고 withdrawn도 그대로 돌려준다.
+const operatorOutputPort = defineTxPort(OperatorOutput, (tx) => ({
+  output: (document: string) => {
+    const row = tx.sql.get(
+      `select a.id, a.revision, a.state from assignments a
+         join assignment_outputs o on o.assignment_id = a.id
+         where o.document_id = ? and o.owns_output = 1
+         order by a.id limit 1`,
+      [document],
+    );
+    if (row === undefined) return ok(null);
+    return ok({
+      assignment: String(row["id"]),
+      revision: Number(row["revision"]),
+      state: String(row["state"]) as "enabled" | "paused" | "withdrawn",
+    });
+  },
+  isOperator: (assignment: string) =>
+    ok(
+      tx.sql.get(
+        "select 1 as found from assignments where id = ? and role = 'operator'",
+        [assignment],
+      ) !== undefined,
+    ),
+}));
+
 export const lophnAgentDefinitions = {
   // settings registry 출처의 항목이다(platform/settings#R31). core 조립의 settings.ts가 모은다.
   settings: [
@@ -647,6 +676,7 @@ export const lophnAgentDefinitions = {
     runAdmissionPort,
     approvalLineagePort,
     instructionAttachmentsPort,
+    operatorOutputPort,
     questionOptionPort,
   ],
   workers: [],

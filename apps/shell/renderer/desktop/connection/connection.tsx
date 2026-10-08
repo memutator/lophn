@@ -15,8 +15,8 @@ import styles from "./connection.module.css";
 
 /** main이 민 연결 상태를 따른다. */
 export function useConnection(source: CoreSource): ConnectionState {
-  const [connection, setConnection] = useState<ConnectionState>(
-    initialConnection,
+  const [connection, setConnection] = useState<ConnectionState>(() =>
+    source.current?.() ?? initialConnection
   );
   useEffect(() => source.subscribe(setConnection), [source]);
   return connection;

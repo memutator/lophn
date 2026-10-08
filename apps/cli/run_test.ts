@@ -228,7 +228,7 @@ Deno.test("coding-agent/cli#R5: 쓰기 응답을 잃으면 실제 오류와 구�
         "--idempotency-key",
         "cli-key-1",
         "--input",
-        '{"slug":"notes","name":"Notes","description":"한 줄 목적"}',
+        '{"slug":"notes","name":"Notes","description":"�� 줄 목적"}',
       ],
       {
         env: ENV(),
@@ -252,6 +252,180 @@ Deno.test("coding-agent/cli#R5: 쓰기 응답을 잃으면 실제 오류와 구�
       sent.filter((url) => url.endsWith("/v1/apps/create")).length,
       1,
     );
+  } finally {
+    await removeHelper(helper);
+  }
+});
+
+Deno.test("coding-agent/cli#R40: session summary는 소유 읽기 route `/v1/coding_agent_sessions/summary`를 부르고 요약과 착수 금지 안내를 낸다", async () => {
+  const helper = await fakeHelper(`printf '%s' '{"token":"${TOKEN}"}'`);
+  const seen: string[] = [];
+  const APP = "app_01h455vb4pex5v6nkc6gd5fdw1";
+  const CACX = CAC;
+  const TKT = "tkt_01h455vb4pex5v6nkc6gd5fdw1";
+  const PRB = "prb_01h455vb4pex5v6nkc6gd5fdw1";
+  const AT = "2026-03-02T00:00:00.000Z";
+  try {
+    const result = await run(
+      ["session", "summary", "--connection", CACX, "--json"],
+      {
+        env: ENV(),
+        provider: createHelperCredentialProvider({
+          helper,
+          generation: () => "1",
+        }),
+        fetch: (url) => {
+          seen.push(url);
+          return reply({
+            summary: {
+              connection: CACX,
+              scope: { kind: "app", app: APP },
+              observed_seq: "40",
+              observed_at: AT,
+              problems: [{
+                id: PRB,
+                app: APP,
+                status: "open",
+                symptom: "증상",
+                next_action: null,
+                seq: "10",
+                repair_state: "ready_to_hand_off",
+              }],
+              tickets: [{
+                id: TKT,
+                app: APP,
+                kind: "repair",
+                title: "제목",
+                state: "open",
+                readiness: "ready",
+                problems: [PRB],
+              }],
+              claims: [],
+              remaining_checks: [],
+              project: null,
+              folder: null,
+              claim_rule: "착수 지시가 아니다",
+              next_cursor: null,
+            },
+            as_of_seq: "40",
+            next_cursor: null,
+          });
+        },
+      },
+    );
+    assertEquals(result.exit, 0, result.stdout + result.stderr);
+    assertEquals(seen.length, 1);
+    assert(seen[0].endsWith("/v1/coding_agent_sessions/summary"), seen[0]);
+    const parsed = JSON.parse(result.stdout) as {
+      summary: string;
+      next: string[];
+      data: {
+        summary: {
+          problems: unknown[];
+          tickets: unknown[];
+          claim_rule: string;
+          next_cursor: string | null;
+        };
+      };
+    };
+    assert(parsed.summary.includes("열린 문제 1개"), parsed.summary);
+    assert(parsed.summary.includes("열린 ticket 1개"), parsed.summary);
+    // 착수 지시가 아니라는 안내가 next에 있다(guides#R22).
+    assert(
+      parsed.next.some((line) => line.includes("착수 지시가 아니다")),
+      JSON.stringify(parsed.next),
+    );
+  } finally {
+    await removeHelper(helper);
+  }
+});
+
+Deno.test("coding-agent/guides#R24 coding-agent/cli#R40: session summary --hook --app은 실패에서 stdout 빈 값·exit 0이고 성공에서 hook 글 하나만 stdout에 낸다", async () => {
+  const APP = "app_01h455vb4pex5v6nkc6gd5fdw1";
+  const PRB = "prb_01h455vb4pex5v6nkc6gd5fdw1";
+  const TKT = "tkt_01h455vb4pex5v6nkc6gd5fdw1";
+  const AT = "2026-03-02T00:00:00.000Z";
+  const summaryBody = () =>
+    reply({
+      summary: {
+        connection: CAC,
+        scope: { kind: "app", app: APP },
+        observed_seq: "40",
+        observed_at: AT,
+        problems: [{
+          id: PRB,
+          app: APP,
+          status: "open",
+          symptom: "증상",
+          next_action: null,
+          seq: "10",
+          repair_state: "ready_to_hand_off",
+        }],
+        tickets: [{
+          id: TKT,
+          app: APP,
+          kind: "repair",
+          title: "제목",
+          state: "open",
+          readiness: "ready",
+          problems: [PRB],
+        }],
+        claims: [],
+        remaining_checks: [],
+        project: null,
+        folder: null,
+        claim_rule: "rule",
+        next_cursor: null,
+      },
+      as_of_seq: "40",
+      next_cursor: null,
+    });
+  // daemon 주소가 없어도 hook 모드는 빈 stdout·exit 0이다. 세션 시작을 막지 않는다(guides#R24).
+  const noDaemon = await run(
+    ["session", "summary", "--hook", "--app", APP, "--json"],
+    { env: ENV({ LOPHN_DAEMON_URL: "http://127.0.0.1:1" }) },
+  );
+  assertEquals(noDaemon.exit, 0, noDaemon.stdout + noDaemon.stderr);
+  assertEquals(noDaemon.stdout, "");
+  // helper 없이(연결이 없어도) hook은 실패하지 않는다.
+  const noConnection = await run(
+    ["session", "summary", "--hook", "--app", APP],
+    { env: ENV({ LOPHN_DAEMON_URL: "http://127.0.0.1:1" }) },
+  );
+  assertEquals(noConnection.exit, 0);
+  assertEquals(noConnection.stdout, "");
+  // 성공하면 hook 글 하나만 stdout에 있다. 착수 금지 안내가 들어 있다(guides#R23).
+  const helper = await fakeHelper(`printf '%s' '{"token":"${TOKEN}"}'`);
+  try {
+    const good = await run(
+      [
+        "session",
+        "summary",
+        "--hook",
+        "--app",
+        APP,
+        "--connection",
+        CAC,
+        "--json",
+      ],
+      {
+        env: ENV({ LOPHN_DAEMON_URL: "http://127.0.0.1:9" }),
+        provider: createHelperCredentialProvider({
+          helper,
+          generation: () => "1",
+        }),
+        fetch: (url) => {
+          // summary 읽기만 summary body로 닫는다. 다른 route는 없다.
+          if (!url.endsWith("/v1/coding_agent_sessions/summary")) {
+            throw new Error(`예상하지 못한 route다: ${url}`);
+          }
+          return summaryBody();
+        },
+      },
+    );
+    assertEquals(good.exit, 0, `${good.stdout}STDERR:${good.stderr}`);
+    assert(good.stdout.includes("prb_01h455vb4pex5v6nkc6gd5fdw1"), good.stdout);
+    assert(good.stdout.includes("착수 지시가 아니다"), good.stdout);
   } finally {
     await removeHelper(helper);
   }

@@ -84,7 +84,9 @@ function build(facts: HookFacts, symptomLimit: number): string | null {
     );
   }
   if (rest > 0 || facts.more) {
-    out.push(`- 나머지 문제 ${rest > 0 ? rest : 0}개${facts.more ? " 이상" : ""}`);
+    out.push(
+      `- 나머지 문제 ${rest > 0 ? rest : 0}개${facts.more ? " 이상" : ""}`,
+    );
   }
   out.push(
     "상세는 `lophn session summary`와 MCP lophn_ticket·lophn_problem으로 읽는다. 이 목록은 착수 지시가 아니다: 사람이 지정한 ticket만 claim하고 수리 지시 전에는 착수하지 않는다",
@@ -126,7 +128,7 @@ async function within<T>(
   work: Promise<T>,
   ms: number,
 ): Promise<T | undefined> {
-  let timer: number | undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<undefined>((resolve) => {
     timer = setTimeout(() => resolve(undefined), ms);
   });
@@ -164,7 +166,9 @@ export async function runSummaryHook(
         ).length;
         more = cursor !== undefined;
         // 나머지 수를 알 만큼 모였거나 더 읽을 쪽이 없으면 멈춘다.
-        if (cursor === undefined || targeted > HOOK_MAX_PROBLEMS) break;
+        if (cursor === undefined || targeted > HOOK_MAX_PROBLEMS) {
+          break;
+        }
       }
       return { problems, tickets: [...tickets.values()], more };
     };

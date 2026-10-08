@@ -34,7 +34,6 @@ function id(prefix: string, n: number): string {
 }
 
 const RUN = id("run", 1);
-const OTHER_RUN = id("run", 2);
 const ASSIGNMENT = id("asg", 1);
 const CALL = id("tcl", 1);
 const HASH = "a".repeat(64);
@@ -236,7 +235,7 @@ Deno.test("lophn-agent/roles/operator#R4: Operator 상한은 preset context 읽�
   assert(OPERATOR_CAP_TOOL_NAMES.includes("approval.read_decision"));
 });
 
-Deno.test("lophn-agent/roles/operator#R5: 새 문서 생성·선언 밖 쓰기·write·external·confirm은 상한과 정의 어디에도 없다", async () => {
+Deno.test("lophn-agent/roles/operator#R5: 새 문서 생성·선언 밖 쓰기·write·external·confirm은 상한과 정의 어디에도 없다", () => {
   const cap = ROLE_CAPS.get("operator");
   assert(cap !== undefined);
   const listed = operatorTools(cap.tools);

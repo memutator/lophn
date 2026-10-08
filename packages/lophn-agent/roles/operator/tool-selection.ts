@@ -1,4 +1,4 @@
-import { listTools, BUILTIN_TOOLS } from "../../harness/tools/mod.ts";
+import { BUILTIN_TOOLS, listTools } from "../../harness/tools/mod.ts";
 import type {
   CapabilityScope,
   ToolDefinition,

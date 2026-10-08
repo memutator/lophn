@@ -1169,6 +1169,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T34 앱 template 안내·관리 구간·sync-tools
 
+- 상태: 완료 (#465)
 - 등급: 기본
 - concern: coding-agent/guides, coding-agent/mcp-server, coding-agent/cli
 - 요구: coding-agent/guides#R13, R14, R15, R16, R17, R18, R19;

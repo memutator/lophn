@@ -56,9 +56,9 @@ export function createSessionTool(
       next: [
         summary.claim_rule,
         "lophn_ticket show로 지정된 ticket의 상세를 읽는다",
-        ...(summary.next_cursor === null
-          ? []
-          : ["next_cursor를 cursor로 넣어 lophn_session summary를 이어 읽는다"]),
+        ...(summary.next_cursor === null ? [] : [
+          "next_cursor를 cursor로 넣어 lophn_session summary를 이어 읽는다",
+        ]),
       ],
     };
   };

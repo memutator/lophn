@@ -9,8 +9,8 @@ import {
   cliSessionObserveSchema,
   cliSessionPlanSchema,
   cliSessionSummarySchema,
-  codingAgentSessionSummary,
   type CodingAgentSessionSummary,
+  codingAgentSessionSummary,
   type HarnessDetection,
   type HarnessId,
   LOPHN_TERMINAL_OBSERVE,
@@ -51,7 +51,10 @@ export async function runSessionSummary(
         const checked = codingAgentSessionSummary.output.safeParse(read.value);
         return checked.success
           ? ok(checked.data.summary as CodingAgentSessionSummary)
-          : err({ code: "unavailable", message: "읽기 응답이 contract와 다르다" });
+          : err({
+            code: "unavailable",
+            message: "읽기 응답이 contract와 다르다",
+          });
       }, input.app);
     return ok({ summary: text, data: { hook: text }, next: [] });
   }

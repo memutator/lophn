@@ -246,7 +246,9 @@ export const CodingAgentSessionSummarySchema = z.object({
   observed_at: atSchema,
   // repair_state는 문제 상세의 수리 작업 상태다. coding agent가 맡을 수 있는 문제(ready_to_hand_off·
   // in_progress)와 사람이 먼저 할 일이 있는 문제를 hook이 가르는 근거다(guides#R23).
-  problems: z.array(problemSummarySchema.extend({ repair_state: repairStateSchema }))
+  problems: z.array(
+    problemSummarySchema.extend({ repair_state: repairStateSchema }),
+  )
     .max(12),
   tickets: z.array(
     z.object({

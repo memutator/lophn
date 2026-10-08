@@ -364,7 +364,6 @@ async function open(): Promise<Opened> {
     "CreateCodingAgentConnection",
     "CloseProblemVerified",
   ]);
-  void user;
   const agent = await issue(
     `coding_agent:cac_01arz3ndektsv4rrffq69g5fav`,
     `coding_agent:cac_01arz3ndektsv4rrffq69g5fav`,
@@ -421,8 +420,6 @@ Deno.test("problems/closing#R3 R4 R5 R14: VerificationRecorded 뒤 닫힘·Probl
     });
     // 반응기는 VerificationRecorded를 읽어 CloseProblemVerified를 낸다. 문제 seq CAS는
     // 이 event seq(마지막)와 같다면 좁혀진 것이다.
-    const before = lastSeq(home, "vrf_01arz3ndektsv4rrffq69g5fav");
-    void before;
     await waitFor(() => problemStatus(home, problem) === "closed", "닫힘");
     assertEquals(problemStatus(home, problem), "closed");
     // 닫힘 근거는 출처대로 verification·release·basis가 남는다(R13).

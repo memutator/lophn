@@ -3,7 +3,7 @@
 // ledger의 executor 위에서 제품과 같은 RecordReport로 문제를 만들고 CloseProblemVerified를
 // 낸다. verified 근거 행은 problems/tests fixture가 하는 일의 줄임인 시험 command가 심는다.
 import { assert, assertEquals, assertFalse } from "@std/assert";
-import { type Result } from "../../base/mod.ts";
+import type { Result } from "../../base/mod.ts";
 import type { AuthenticatedContext } from "../../contracts/platform/mod.ts";
 import {
   createLedgerHarness,
@@ -13,7 +13,6 @@ import {
   APP_A,
   APP_B,
   COLLECTOR,
-  RELEASE,
   reportInput,
   rpt,
 } from "../grouping/testing/mod.ts";

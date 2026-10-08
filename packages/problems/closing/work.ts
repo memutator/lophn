@@ -5,7 +5,13 @@
 // 신호이고 판정 조건은 command가 정본에서 다시 읽는다. 반응 key는
 // `(subscriber, cause_seq, reaction)`이고, 처리한 위치는 AdvanceSubscriberCursor로
 // 올리므로 재시작은 그 seq 뒤부터 이어 따라잡는다.
-import { canonicalize, err, ok, type Result, sha256Hex } from "../../base/mod.ts";
+import {
+  canonicalize,
+  err,
+  ok,
+  type Result,
+  sha256Hex,
+} from "../../base/mod.ts";
 import type { LophnError } from "../../base/mod.ts";
 
 export const CLOSING_SUBSCRIBER = "problems.closing";

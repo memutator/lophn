@@ -4,17 +4,13 @@
 import { assert, assertEquals, assertFalse } from "@std/assert";
 import { err, ok, type Result } from "../../base/mod.ts";
 import type { LophnError } from "../../base/mod.ts";
-import type { RequestContext, Seq } from "../../contracts/platform/mod.ts";
 import type { Verification } from "../../contracts/problems/mod.ts";
-import {
-  verifiedCandidate,
-  verifiedClosure,
-} from "./model.ts";
+import { verifiedCandidate, verifiedClosure } from "./model.ts";
 import {
   CLOSING_EVENT_TYPES,
   type ClosingEvent,
-  type ClosingReactionPorts,
   closingReactionKey,
+  type ClosingReactionPorts,
   reactClosing,
 } from "./work.ts";
 
@@ -22,7 +18,6 @@ const APP = "app_01arz3ndektsv4rrffq69g5fav";
 const REL_BEFORE = "rel_01arz3ndektsv4rrffq69g5fa1";
 const REL_AFTER = "rel_01arz3ndektsv4rrffq69g5fa2";
 const PROBLEM = "prb_01arz3ndektsv4rrffq69g5fa1";
-const PROBLEM_OTHER = "prb_01arz3ndektsv4rrffq69g5fa2";
 
 const HASH = "a".repeat(64);
 
@@ -136,9 +131,7 @@ function fake(
       problem(problem) {
         return Promise.resolve(
           ok(
-            options.problem
-              ? options.problem(problem)
-              : { seq: "10" },
+            options.problem ? options.problem(problem) : { seq: "10" },
           ),
         );
       },
@@ -253,7 +246,11 @@ Deno.test("problems/closing#R5: the reaction key is (subscriber, cause_seq, reac
   let reads = 0;
   const conflicted = fake(events, {
     problem: () => ({ seq: String(10 + reads++) }),
-    close: (n) => (n === 1 ? err({ code: "conflict", message: "문제가 바뀌었다" }) : ok({})),
+    close: (
+      n,
+    ) => (n === 1
+      ? err({ code: "conflict", message: "문제가 바뀌었다" })
+      : ok({})),
   });
   const done = await reactClosing(conflicted.ports, "0");
   assert(done.ok, done.ok ? undefined : done.error.message);
@@ -303,7 +300,8 @@ Deno.test("problems/closing#R14: a permanently stale problem stops at its positi
 
   // 조건 불충족(invalid_input)은 확정된 사실로 확인하고 cursor를 올린다.
   const unfit = fake(events, {
-    close: () => err({ code: "invalid_input", message: "reproduction pass만 닫는다" }),
+    close: () =>
+      err({ code: "invalid_input", message: "reproduction pass만 닫는다" }),
   });
   const done3 = await reactClosing(unfit.ports, "0");
   assert(done3.ok, done3.ok ? undefined : done3.error.message);
@@ -332,11 +330,3 @@ Deno.test("problems/closing#R2: an unavailable core stops the reaction without a
   assertEquals(done.error.code, "unavailable");
   assertEquals(down.cursor(), "0");
 });
-
-// RequestContext와 Seq는 판정 재료의 모양이다. 닫힘 command의 권한은 command
-// actor 선언(["machine"])이 좁힌다: agent·앱·user credential은 이 route에 닿지 않는다.
-const _machineShape: Partial<RequestContext> = {
-  principal: "machine:problems-closing",
-  actor: "machine",
-};
-const _basisShape: (basis: Seq) => Seq = (basis) => basis;

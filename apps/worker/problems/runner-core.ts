@@ -5,6 +5,7 @@ import {
   brokerReport,
   type MemoryLimitPort,
   type ReportSink,
+  type RunningChild,
   runPrepared,
   type RunRequest,
   type RunVerdict,
@@ -30,6 +31,10 @@ import type { ScreenTestInput } from "../../../packages/contracts/shell/mod.ts";
 import type { SpawnPort } from "../../../packages/problems/tests/work/mod.ts";
 
 export const TEST_RUNNER_KIND = "problems/test-runner";
+
+// core가 감독 pipe로 보내는 `problems.work` 깨움 요청의 op. 본문은 cursor 하나다: core가 ledger의
+// `problems.work` 처리 위치를 읽어 싣고, 상태는 그 뒤 event와 정본에서 다시 읽는다(problems#T19).
+export const PROBLEMS_WORK_OP = "problems.work";
 
 export type RunnerChild = {
   pid: number;
@@ -60,6 +65,10 @@ export async function acceptRun(
     spawn?: SpawnPort;
     // ledger에 시작 시도를 확정한다. ok가 아니면 자식을 띄우지 않는다(R17).
     commit?: StartAttemptCommit;
+    // 자식이 실제로 시작한 직후 부른다(실제 시작을 ledger에 남기는 자리).
+    started?: (
+      child: { started_at: string; mode: RunningChild["mode"] },
+    ) => Promise<void>;
   } = {},
 ): Promise<Result<RunVerdict>> {
   if (request.prepare.env && "LOPHN_HOME" in request.prepare.env) {
@@ -72,6 +81,7 @@ export async function acceptRun(
     memory: options.memory ?? platformMemory,
     spawn: options.spawn,
     commit: options.commit,
+    started: options.started,
   });
 }
 

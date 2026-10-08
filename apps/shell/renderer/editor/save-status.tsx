@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Button,
+  connectionStaleIcon,
   editorIcons,
   Icon,
   IconButton,
@@ -11,6 +12,7 @@ import {
 } from "@lophn/design/components";
 import { formatRelativeTime, t } from "@lophn/wording";
 
+import type { ConnectionState } from "../desktop/connection/connection.ts";
 import {
   type SaveAction,
   saveDetails,
@@ -70,54 +72,97 @@ export interface SaveStatusProps {
   detailsOpen: boolean;
   onToggleDetails: () => void;
   onAction: (action: Exclude<SaveAction, null>) => void;
+  /** main↔core 연결. 끊기면 저장 불가·초안 유지를 이 줄에서 함께 보인다(desktop#R7). */
+  connection?: ConnectionState;
+  /** 확인 시각의 표시. 테스트가 고정한다. */
+  formatTime?: (confirmedAt: number) => string;
 }
 
-/** 메타 줄의 저장 상태. 결과가 없으면 아무것도 그리지 않는다. */
+/** 메타 줄의 저장 상태. 결과가 없어도 core가 끊겼으면 끊김 줄은 보인다. */
 export function SaveStatus(
-  { facts, detailsOpen, onToggleDetails, onAction }: SaveStatusProps,
+  { facts, detailsOpen, onToggleDetails, onAction, connection, formatTime }:
+    SaveStatusProps,
 ) {
   const headline = saveHeadline(facts);
   const text = headlineText(headline);
   const announced = useAnnounced(text);
-  if (headline.kind === "none") return null;
-  const icon = headline.tone === "critical"
+  const stale = connection !== undefined && connection.state === "stale";
+  if (headline.kind === "none" && !stale) return null;
+  // core 끊김은 파일 상태 headline 위에 함께 보인다. 끊김이 없으면 지금 headline이다.
+  const shown: {
+    kind: "stale" | SaveHeadline["kind"];
+    tone: "muted" | "warning" | "critical";
+    action: SaveAction;
+  } = stale || headline.kind === "none"
+    ? {
+      kind: stale ? "stale" : "none",
+      tone: stale ? "warning" : "muted",
+      action: null,
+    }
+    : headline;
+  const icon = shown.tone === "critical"
     ? editorIcons.saveFailed
-    : headline.tone === "warning"
+    : shown.tone === "warning"
     ? editorIcons.saveWarning
     : null;
   const label = t("document.button.save-details");
+  const confirmedAt = stale && connection ? connection.confirmedAt : null;
   return (
     <span
       className={styles.status}
-      data-save-status={headline.kind}
-      data-tone={headline.tone}
+      data-save-status={shown.kind}
+      data-tone={shown.tone}
     >
-      {icon
+      {stale
         ? (
-          <Icon
-            icon={icon}
-            pixels={iconPixels("small")}
-            className={styles[headline.tone]}
-          />
+          <span className={styles.staleLine}>
+            <Icon
+              icon={connectionStaleIcon}
+              pixels={iconPixels("small")}
+              className={styles.warning}
+            />
+            <span className={styles.strong}>
+              {t("document.status.offline")}
+            </span>
+            {confirmedAt !== null && (
+              <span className={styles.muted}>
+                {formatTime
+                  ? formatTime(confirmedAt)
+                  : absoluteTime(confirmedAt)}
+              </span>
+            )}
+          </span>
         )
-        : null}
-      <span
-        className={headline.tone === "muted" ? styles.muted : styles.strong}
-      >
-        {text}
-      </span>
-      {headline.action
-        ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            data-save-action={headline.action}
-            onClick={() => onAction(headline.action!)}
-          >
-            {actionText(headline.action)}
-          </Button>
-        )
-        : null}
+        : (
+          <>
+            {icon
+              ? (
+                <Icon
+                  icon={icon}
+                  pixels={iconPixels("small")}
+                  className={styles[shown.tone]}
+                />
+              )
+              : null}
+            <span
+              className={shown.tone === "muted" ? styles.muted : styles.strong}
+            >
+              {text}
+            </span>
+            {shown.action
+              ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  data-save-action={shown.action}
+                  onClick={() => onAction(shown.action!)}
+                >
+                  {actionText(shown.action)}
+                </Button>
+              )
+              : null}
+          </>
+        )}
       <IconButton
         icon={detailsOpen ? editorIcons.detailsOpen : editorIcons.detailsClosed}
         label={label}
@@ -130,6 +175,13 @@ export function SaveStatus(
       <span className={styles.srOnly} aria-live="polite">{announced}</span>
     </span>
   );
+}
+
+function absoluteTime(confirmedAt: number): string {
+  return new Intl.DateTimeFormat("en", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(confirmedAt));
 }
 
 function stageLabel(stage: string): string {

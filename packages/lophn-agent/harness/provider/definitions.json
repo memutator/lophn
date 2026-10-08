@@ -18,10 +18,17 @@
       "product": "chatgpt",
       "flow": "device_code_then_pkce_paste_url",
       "issuer": "https://auth.openai.com",
-      "authorization_endpoint": "https://auth.openai.com/authorize",
-      "token_endpoint": "https://auth.openai.com/token",
-      "allowed_call_origins": ["https://chatgpt.com"],
-      "scopes": ["openid"],
+      "authorization_endpoint": "https://auth.openai.com/api/accounts/authorize",
+      "token_endpoint": "https://auth.openai.com/api/accounts/oauth/token",
+      "allowed_call_origins": ["https://api.openai.com"],
+      "scopes": [
+        "openid",
+        "profile",
+        "email",
+        "offline_access",
+        "resource.invoke",
+        "chatgpt.tokens.use.direct"
+      ],
       "verified_for_lophn": false
     },
     "revision": "2026-10"
@@ -36,10 +43,17 @@
       "product": "supergrok",
       "flow": "device_code",
       "issuer": "https://auth.x.ai",
-      "authorization_endpoint": "https://auth.x.ai/authorize",
-      "token_endpoint": "https://auth.x.ai/token",
+      "authorization_endpoint": "https://auth.x.ai/oauth2/device/code",
+      "token_endpoint": "https://auth.x.ai/oauth2/token",
       "allowed_call_origins": ["https://api.x.ai"],
-      "scopes": ["openid", "profile", "email", "offline_access"],
+      "scopes": [
+        "openid",
+        "profile",
+        "email",
+        "offline_access",
+        "grok-cli:access",
+        "api:access"
+      ],
       "verified_for_lophn": false
     },
     "revision": "2026-10"

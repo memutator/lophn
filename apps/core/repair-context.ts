@@ -3,7 +3,10 @@
 // worker가 그 credential로 core loopback에서 정본을 읽게 한다. worker는 자기 machine credential이 없어
 // 범위 밖 근거를 대신 읽을 수 없다. 응답은 route output(공통 필드 포함)으로 검증된다.
 import { err, ok, type Result } from "../../packages/base/mod.ts";
-import { REPAIR_CONTEXT_ROUTES } from "../../packages/contracts/coding-agent/mod.ts";
+import {
+  codingAgentSessionSummary,
+  REPAIR_CONTEXT_ROUTES,
+} from "../../packages/contracts/coding-agent/mod.ts";
 import type { KindLaunchSpec } from "../../packages/contracts/platform/mod.ts";
 import { checkLaunchSpec } from "../../packages/platform/security/mod.ts";
 import type { DocumentsChannel } from "./documents-serving.ts";
@@ -61,4 +64,36 @@ export function registerRepairReads(
       },
     );
   }
+}
+
+// worker 요청 op. apps/worker/coding-agent/session-summary.ts의 SESSION_SUMMARY_OP와 같은 값이다.
+const SESSION_SUMMARY_OP = "coding_agent_sessions.summary";
+
+// 세션 시작 summary(`/v1/coding_agent_sessions/summary`)의 handler를 같은 worker 통로로 붙인다
+// (coding-agent#T35). 요청자 credential을 요청마다 싣고, 이미 회수됐으면 보내지 않는다.
+export function registerSessionReads(
+  runtime: CoreRuntime,
+  channel: DocumentsChannel,
+): void {
+  const route = codingAgentSessionSummary;
+  runtime.reads.set(
+    `${route.resource}/${route.method}`,
+    async (ctx, input, credential): Promise<Result<unknown>> => {
+      const unauthorized = () =>
+        err({
+          code: "unauthorized" as const,
+          message: "credential이 현재 유효하지 않다",
+        });
+      if (!credential || !runtime.current(ctx.credential_ref).ok) {
+        return unauthorized();
+      }
+      const answer = await channel.request(
+        SESSION_SUMMARY_OP,
+        { credential, principal: ctx.principal, input },
+        REPAIR_REQUEST_MS,
+      );
+      if (!runtime.current(ctx.credential_ref).ok) return unauthorized();
+      return answer.ok ? ok(answer.value) : answer;
+    },
+  );
 }

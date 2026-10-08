@@ -20,8 +20,8 @@ Deno.test("problems/tests#R13 R14: runner launch spec은 Deno만 실행하고 �
     "/usr/bin/prlimit",
   ]);
   assertEquals(spec.allow_write, ["/tmp/lophn-home/work/problems/tests"]);
-  // net은 고정 socket 자리 두 slot, 가상 host와 `problems.work` 반응기가 닿는 core
-  // loopback이다(Unix socket은 정확한 경로만 허락된다).
+  // net은 고정 socket 자리 두 slot, 가상 host와 `problems.work` 반응기·runner service가 닿는
+  // core loopback이다(Unix socket은 정확한 경로만 허락된다).
   assertEquals(spec.allow_net[0], "lophn.invalid");
   assertEquals(spec.allow_net[1], "127.0.0.1");
   assertEquals(spec.allow_net.length, 2 + 3 * RUNNER_SLOTS.length);

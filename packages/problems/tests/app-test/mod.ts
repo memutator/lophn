@@ -1,4 +1,13 @@
 export {
+  APP_TEST_TIMEOUT_MS,
+  type AppTestFile,
+  deriveAppTest,
+  type DerivedAppTest,
+  type DeriveResult,
+  environmentBytes,
+  sha256Bytes,
+} from "./frozen.ts";
+export {
   type AppTestInput,
   type AppTestPlan,
   generateAppTestChecks,

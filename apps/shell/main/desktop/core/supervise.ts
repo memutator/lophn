@@ -9,6 +9,8 @@ import {
   FrameDecoder,
   type MainHello,
   mainToCoreMessageSchema,
+  restorePlanRequestSchema,
+  restoreRequestSchema,
 } from "../../../../../packages/contracts/platform/mod.ts";
 
 /** 창 닫기와 무관한 core 종료 요청. tray의 명시 중지와 OS 종료가 이 값을 쓴다. */
@@ -111,10 +113,16 @@ export interface CoreProcess {
    */
   diagnostic(message: unknown): boolean;
   /**
-   * 사람 결정 handle 등록 하나를 비공개 pipe로 보낸다. contract 모양의
+   * 사람 결정 handle 등록 하나를 비공�� pipe로 보낸다. contract 모양의
    * confirmation_handle_register가 아니거나 core가 멈췄으면 보내지 않고 false다.
    */
   confirmation(message: unknown): boolean;
+  /**
+   * backup 복원의 비공개 pipe 메시지(restore_plan_request·restore_request) 하나를
+   * 보낸다. contract 모양이 아니거나 core가 멈췄으면 보내지 않고 false다.
+   * 복원용 응답(restore_plan·restore_result·restore_failed)은 onMessage listener가 받는다.
+   */
+  restore(message: unknown): boolean;
   /** 테스트가 child를 이미 끝났다고 알릴 때. */
   ended(): void;
 }
@@ -264,6 +272,31 @@ export function supervise(
       try {
         child.stdin.write(
           encodeFrame({ kind: "json", channel: 0, payload: parsed.data }),
+        );
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    restore(message) {
+      if (phase !== "ready") return false;
+      const parsed = mainToCoreMessageSchema.safeParse(message);
+      if (
+        !parsed.success ||
+        (parsed.data.type !== "restore_plan_request" &&
+          parsed.data.type !== "restore_request")
+      ) {
+        return false;
+      }
+      let body: unknown;
+      if (parsed.data.type === "restore_plan_request") {
+        body = restorePlanRequestSchema.parse(parsed.data);
+      } else {
+        body = restoreRequestSchema.parse(parsed.data);
+      }
+      try {
+        child.stdin.write(
+          encodeFrame({ kind: "json", channel: 0, payload: body }),
         );
         return true;
       } catch {

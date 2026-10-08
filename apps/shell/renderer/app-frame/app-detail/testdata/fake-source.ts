@@ -203,6 +203,8 @@ export interface FakeOptions {
   decideFails?: boolean;
   previewFails?: boolean;
   names?: Readonly<Record<string, string>>;
+  /** 앱 export 결과 code. 없으면 ready다. */
+  exportCode?: string;
 }
 
 export function fakeDetail(options: FakeOptions = {}) {
@@ -285,6 +287,23 @@ export function fakeDetail(options: FakeOptions = {}) {
     turnOffAutomation: (grant) => {
       calls.push(["turnOff", grant]);
       return Promise.resolve({ ok: true, value: true });
+    },
+    exportApp: (app) => {
+      calls.push(["exportApp", app]);
+      if (options.exportCode) {
+        return Promise.resolve({
+          ok: false as const,
+          code: options.exportCode,
+        });
+      }
+      return Promise.resolve({
+        ok: true as const,
+        value: {
+          app,
+          state: "ready" as const,
+          includesExternalData: false,
+        },
+      });
     },
   };
   return { source, calls };

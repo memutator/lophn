@@ -23,7 +23,9 @@ import {
   runSchemaSteps,
 } from "../harness/run-loop/mod.ts";
 import { presetValidateDeps } from "../harness/run-loop/testing/mod.ts";
+import { createToolCommands, toolsSchemaSteps } from "../harness/tools/mod.ts";
 import { createAuditOwners } from "./audit-owners.ts";
+import { createAppRevertOwner } from "./app-revert.ts";
 import {
   type GroupDraft,
   type RevertOwner,
@@ -65,7 +67,6 @@ export const strangerHappened = defineEvent("StrangerHappened", {
   subject: z.string(),
   payload: z.object({}),
 });
-
 // platform/settings의 저장 선택 표와 같은 모양이다. StartRun이 읽는 한도 표만 같은 SQL로 둔다.
 export const seedSettingChoiceRoute = defineCommand({
   resource: "setting-choice-fixture",
@@ -314,7 +315,13 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
   // 미반영 steering을 담는 입력 표는 conversation의 것이다. 이 시험에는 사람 입력이 없다.
   const runCommands = createRunCommands({ hasUnappliedSteering: () => false });
   const runReads = createRunReads();
-  const owners = [notesOwner(), mailOwner(), ...createAuditOwners()];
+  const toolCommands = createToolCommands();
+  const owners = [
+    createAppRevertOwner(),
+    notesOwner(),
+    mailOwner(),
+    ...createAuditOwners(),
+  ];
   const revert = createRevertCommands({ owners });
   const reads = createRevertReads({ owners });
   return {
@@ -322,6 +329,7 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
       ...presetSchemaSteps,
       ...assignmentSchemaSteps,
       ...runSchemaSteps,
+      ...toolsSchemaSteps,
       ...revertSchemaSteps,
       {
         id: "revert.test.setting-choices",
@@ -352,7 +360,13 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
       runCommands.stop,
       runCommands.confirmNext,
       revert.run,
+      revert.checkpoint,
+      revert.finish,
       restoreNote,
+      toolCommands.request,
+      toolCommands.decide,
+      toolCommands.start,
+      toolCommands.finish,
     ],
     testCommands: [
       seedSettingChoice,

@@ -70,3 +70,16 @@ export function emitObserved(
     previous_status: previousStatus,
   });
 }
+
+// 문제의 최신 변경 seq. 문제마다 별도 counter가 없어 subject event에서 읽는다. event 없는 문제는 0이다.
+export function problemSeq(
+  sql: Pick<Tx["sql"], "get">,
+  problem: string,
+): string {
+  const row = sql.get(
+    `select cast(max(seq) as text) as seq from events where subject = ?`,
+    [problem],
+  );
+  const seq = row?.seq;
+  return seq === undefined || seq === null ? "0" : String(seq);
+}

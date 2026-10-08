@@ -759,9 +759,11 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
   - trace는 저장하지 않고 조회 때 event·ModelCall·ToolCall·message blob을 seq 순으로 조립한다. 경과 시간은 T12·T25가 CheckpointRun과 대기 진입·탈출 경계에 남긴 단조 누적값을 쓴다
   - trace_test.ts에 R1–R9, R11, R18–R22 테스트(실패 model 2회+거절 tool 1회, 시계를 뒤로 옮긴 경과, 종료 event 없이 끊긴 run 사례 포함): run 하나의 시작 조건·상태·호출 참조(사본 없음)와 시작 당시 고정 판, handoff 양방향 연결과 비용 귀속, run 밖 호출은 독립 trace(가짜 run·세션 없음), 모든 model 시도·tool 판정을 샘플링 없이·retry·실패·취소·미실행·불명확 구별, UTC ms 시각과 단조 시계 경과(run·model·첫 응답·tool·사람 기다림), 종료 종류 구별·종료 event 없이 끊긴 run은 unconfirmed로 정상과 분리, 본문은 소유 원본으로만·오류 원문·secret·추론 사본 없음, stream 조각 없음, 사용량·비용·품질은 가리키기만, MCP 호출의 주체·서버·tool·분류·판정·approval·결과, 화면용 기본·상세 자료, 도구 활동 접기, 판단은 검토 가능한 요약만
 - 정한 것(T39): `RunTrace`에 `session`·`assignment`·`state`·`started_at`·`finished_at`·`activity`를 더했다(additive, contracts#T30). R6 시각과 R20·R21 화면 자료를 계약의 id 목록만으로는 줄 수 없었다. `run`은 독립 호출 trace와 session 묶음에서 null이다. 대상이 session이면 접수 순서 run들의 trace를 한 쪽(`limit` 기본 50, `cursor`)씩 묶고 `reason`·`state`는 null이다. `wall_ms`는 `active_ms`(CheckpointRun의 단조 누적값)와 `waiting_ms`(RunWaited부터 재개·종료 event, 시계가 뒤로 가면 0)의 합이고 시작·종료 시각의 차이를 쓰지 않는다. 열린 기다림은 더하지 않는다. blob 본문은 ledger에서 사라진 것을 알 수 없어(blob_refs는 불변) `missing`의 `body`는 영구 참조 행이 없을 때만이다(보존 정리 표시는 T57)
+- shell#T30에서 더한 것: 사람 화면이 근거·도구 입력·도구 결과를 펼쳐 보는 사람 전용 읽기 `runs/body-view`(`ReadRunBodyView`, contracts additive, `packages/lophn-agent/harness/waiting-and-recovery/reads.ts`의 `runBodyViewRead`, core 등록은 `apps/core/lophn-agent.ts`와 `core.ts`의 `redactBody`). 같은 길로 읽은 저장 값을 지금의 redaction으로 한 번 더 거치고 64KiB 위는 앞부분과 `truncated`, model 응답은 열지 않는다(R22). 시험은 `reads_test.ts`
 
 ### T40 trace export
 
+- 상태: 완료 (#459)
 - 등급: 기본
 - concern: lophn-agent/observability
 - 요구: lophn-agent/observability#R10, R12, R14, R16, R17
@@ -775,6 +777,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
   - export_test.ts에 R10, R12, R14, R16, R17 테스트: UTF-8 NDJSON 형식 버전 1과 trace별 기록, 메타데이터 기본과 export마다 내용 종류 선택, redaction 뒤 값마다 UTF-8 32768 bytes 앞부분(문자 중간에서 자르지 않음, 한글 경계 사례)·잘림·제외·원본 참조는 본문 밖 별도 필드, 내용 종류 기본은 빈 집합, 복구 원본에는 상한 없음, network export·제삼자 전송 없음, 실패가 원본·run을 바꾸거나 model 재시도를 시키지 않고 보낸·못 보낸 수 구별
   - 보존 정리는 T57(platform#T44가 operations slice)
   - flow review-agent-work의 trace·export 갈래
+  - 정한 것(T40): contract의 `agentTraceExport` schema(`/v1/agent-traces/export`)는 이미 있어 additive 변경 없이 그대로 썼다. export는 ledger event가 없는 runtime 접수라 connection test와 같은 모양으로 writer queue 앞 처리기가 실행한다(`apps/core/agent-trace-export.ts`). trace 조립은 reads.ts의 accessor(`loadRun`·`traceOfRun`·`traceOfCall`·`Lookup`)를 additive하게 export해 같은 길을 쓴다. 안전화는 core 알려진 값 registry를 쓰는 제품 redactor를 엔진 모양으로 감싸 붙이고, 끝내지 못하면 값을 제외한다(fail-closed).
 
 ### T41 agent slice flow E2E
 
@@ -890,6 +893,7 @@ E2E는 apps#T27(use-app-command, ask-app-hint, connect-apps, view-agent-visuals 
 
 ### T47 lophn의 앱 일: 앱 기획, 화면 context·힌트, 앱 카드, 운영 보고
 
+- 상태: 완료 (#458)
 - 등급: 기본
 - concern: lophn-agent/roles/lophn, lophn-agent/harness/tools, lophn-agent/harness/tool-judgment, lophn-agent/visuals
 - 요구: lophn-agent/roles/lophn#R6, R9, R10, R12, R18, R23, lophn-agent/harness/tools#R18, lophn-agent/harness/tool-judgment#R12, lophn-agent/visuals#R4, R7
@@ -909,6 +913,7 @@ E2E는 apps#T27(use-app-command, ask-app-hint, connect-apps, view-agent-visuals 
 
 ### T48 앱 revert
 
+- 상태: 완료 (#436)
 - 등급: 기본
 - concern: lophn-agent/revert
 - 요구: lophn-agent/revert#R10, R11
@@ -923,6 +928,9 @@ E2E는 apps#T27(use-app-command, ask-app-hint, connect-apps, view-agent-visuals 
 - lophn-agent#T44에서 넘어온 것: 앱 tool 호출의 성공 receipt `{invocation, receipt, expected_revision}`는 ToolCall `result.content.revert`에 보존된다. 앱이 남기는 invocation의 caller가 인증된 `{kind:"agent", run, tool_call}`이라 ToolCall ID로 이어진다. 다만 `tool_calls.app_command`(app·release·command·blueprint_hash·permission_basis)는 `RecordToolRequest` 입력에 자리가 없어 null로 저장된다. 원래 호출 계약을 그 열로 묶으려면 contracts에 `app_command` 입력을 additive하게 더하는 변경이 필요하다.
 - 완료:
   - app_revert_test.ts에 R10, R11 테스트: 저장한 invocation·receipt·현재 revision 검증 뒤 원래 호출 역순 direct call, applying 단계와 step_key 조회로 중복 방지, 시작 전 실패는 blocked·시작 뒤 실패·충돌·응답 유실은 실제 복원·미시작·불명확으로 보존(전체 완료·전체 미실행으로 덮지 않음), 네트워크와 ledger를 한 transaction으로 주장하지 않음
+- 정한 것(T48): (1) 되돌림 근거(`AppRevertBinding`)는 run의 `tool_calls`에서 읽는다. `tool_call`은 기록 행의 id이고(app_command에는 id가 없다), `app_revert.step_key`는 preview에서는 run, 적용한 revert에서는 revert id를 앞에 둔다. 그래서 `before_ref`는 `{kind: "app", tool_call, invocation}`이고 step_key를 지문(`binding_hash`)에 넣지 않는다(넣으면 적용이 늘 stale_preview다). (2) 앱 단계를 부르는 쪽의 순서 규칙은 `runAppSteps`(revert/app-steps.ts)다. 저장한 revert가 applying일 때만, 원래 호출 역순으로, 이미 기록한 단계(step_key)는 건너뛰고, 앞 단계가 복원되지 않으면 멈춘다. 읽기·호출·기록은 port로 받는다. (3) `CheckpointRevert`는 결과를 `restored`·`failure`·`conflict`(복원 가능 묶음의 check 때문에 failure 행의 `later_change`)·`uncertain`(응답 유실, `app_uncertain`)으로 기록한다. 시작하지 않은 단계와 적용하지 못한 ledger 묶음은 `app_not_started`(reason 코드를 additive로 더했다)다. (4) `FinishRevert`는 앱 단계가 모두 복원됐을 때만 `groups`(RevertRun 입력의 묶음)로 ledger owner를 현재 판정으로 다시 비교해 복원한다. owner가 복원을 거절하면 끝내기 전체가 취소되고 revert는 applying으로 남으며, `groups` 없이 다시 부르면 ledger는 미적용이고 이미 성공한 앱 복원은 partial이다. 결과는 응답 유실이 있으면 uncertain, 복원하지 못한 복원 가능 묶음이 있으면 partial, 전부 복원했을 때만 applied다. (5) 앞선 커밋 일부(d752714c, b7b0856f)는 메시지가 `shell#T48`로 잘못 붙었다. 실제는 lophn-agent#T48이고 역사는 고치지 않았다.
+- 이어 실행(T48 후속, 조정자 요청): 앱 단계가 있는 revert의 제품 길은 core 메모리 route `RunAppRevert`(`reverts/run_apps`, 사람 자격)다. revert 창의 main(`apps/shell/main/confirmation/kinds/revert.ts` `submitRevert`)이 `RevertRun`의 applying 접수 뒤 이 route를 부르고, core(`apps/core/app-revert.ts`)가 `runAppSteps`로 앱의 revert command를 호출한 사람의 `apps/connect` 연결과 앱 direct socket(`request_key`=step_key)으로 부르고 단계 기록·끝내기는 core 내부 machine 자격(`machine:app-revert`)으로 한다. shell main이 machine 자격을 들고 있지 않고 packages를 import하지 않아 이어 실행을 core에 두었다. `CheckpointRevert.invocation`은 revert command 호출의 실제 Invocation(nullable)이고 단계 근거의 `revert_invocation`에 남는다(원래 write의 invocation은 그대로). 새 reason 코드 `app_failed`·`app_uncertain`·`app_not_started`의 문구는 revert 창 `reasonText`에 더했다. `apps/agent-runtime`의 `app_command` 기록은 `appCommandOf`로 뽑아 계약 모양을 시험한다(`app_command_test.ts`).
+- 이어 실행 결함 고침: 복원 호출은 worker(apps/worker/revert.ts)가 하고 core는 판정·기록만 한다. `apps/core/app-revert.ts`가 runtime client(`createRuntimeClient`)를 core module graph로 끌어들여 platform/responsiveness#R1의 core import 잡음선이 실패했다. 실제 복원 호출(사람의 `apps/connect` 연결과 앱 direct socket으로 앱 command 보내기)은 감독 worker kind `apps/revert`(apps/worker/revert.ts)로 옮겼고, core의 `reverts/run_apps`는 호출자의 credential을 호출 요청(`revert.call`)에 실어 worker에 보내고 돌려받은 결과를 `runAppSteps`로 판정·기록한다(platform/api의 memory dispatch가 Bearer token을 handler에 additive로 넘겨준다). core 쪽 연결은 apps/core/revert-caller.ts다.
 
 ## coding-agent
 
@@ -963,6 +971,7 @@ E2E는 apps#T27(use-app-command, ask-app-hint, connect-apps, view-agent-visuals 
   - interpretation_test.ts에 R13–R15, R18, R19 테스트: 관측 설계는 문제 정의·보존 동작만(집계·해결 확인·닫힘 없음), 원인 가설 최대 3개와 지지·반박 근거·부족 자료·다음 확인, 해석 문서 고정 version·절 참조만 설정(문제 상태 변경 없음, ToolCall과 한 transaction), release 검토의 의미상 어긋남과 후속 ticket 후보·새 결정은 먼저 질문, SDK 변경은 담당 앱 영향만
   - revert가 이전 해석 참조를 같은 LinkProblemInterpretation으로 다시 연결
   - E2E는 problems#T25(app-broken)
+- problems#T19에서 넘어온 것: `LinkProblemInterpretation`은 `dispatchable`로 등록되어 `tx.call`로 부를 수 있고 담당 App Engineer assignment만 통과한다. version이 있고 호출자가 읽을 수 있는지, 절이 있는지는 command가 보지 않으므로 ToolCall이 command 전에 `packages/problems/grouping`의 `checkInterpretationLink`(reader를 documents get·history·outline/document로 주입)를 부른다. compare는 `{problem_seq, previous}`이고 revert의 재연결은 현재 참조를 `previous`로 싣는다
 
 ## operator
 
@@ -1015,6 +1024,7 @@ E2E는 T53이 쓴다.
 - slice: operator
 - 조사: docs/research/presets-and-agent-config.md, docs/research/scheduled-runs.md
 - 선행: T51, T52, documents#T32, shell#T54
+- shell#T54에서 넘어온 것: 사람이 Operator를 붙이는 길은 화면이 `approvals/create`(requester·caller `user`, action `ApplyOperatorAssignment`, 입력 `{approval, decision_seq, id, bundle}` inline)로 요청을 만들고 `approval_request` 보호 창에서 허락한 뒤 `approvals/apply`를 user 자격으로 부르는 것이다. 이대로 실제 core에서 끝까지 적용되려면 (1) `ApplyOperatorAssignment`가 `requireMachine`이라 apply dispatch(원래 자격 user)에서 forbidden이다 — 승인 dispatch의 user 호출을 받도록 하거나 적용 주체를 정해야 한다. (2) `decision_seq`는 허락 전에는 알 수 없어 화면이 자리 값 "1"을 넣는다(command가 검사하지 않는다) — 승인 결정 seq를 어디서 채울지 정해야 한다. (3) `approval.submit_assignment` tool의 action 입력은 `bundle`뿐이라 적용 command 입력과 달라 dispatch가 invalid_input이다. e2e의 set-up-operator가 이 길을 처음 끝까지 돌린다
 - 완료:
   - operator_test.ts에 R1–R10 테스트: project 또는 app 하나·주기 또는 그 assignment 사람 요청으로만, 고정 preset 판, 겸하지 않는 일 tool 없음, preset context·승인 read만 읽고 자료 관점으로 변화 판단, 제품 상한 안 동작만, 결과의 사실·판단·불확실 구분·갱신 조건 미충족이면 새 version 없이 무변화, 승인 문서 새 version은 묻지 않음·자리·형식 변경·선언 밖 쓰기 없음, 사람 대화로 정의·범위·주기·tool 변경 없음·오래 남길 답은 승인 문서 새 version으로만, organizing 미선택은 같은 model·판 고정, 반복 실패와 대기 회차는 assignments·scheduling 규칙·handoff 없음
   - E2E(fake provider·fixture): set-up-operator, receive-operator-report, manage-operator

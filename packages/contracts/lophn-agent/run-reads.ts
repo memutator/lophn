@@ -130,4 +130,54 @@ export const runBody = defineRead({
   errors: [...readErrors],
 });
 
-export const RUN_READS = [runRead, runList, runResult, runBody] as const;
+// 사람 화면이 열어 보는 같은 저장 본문(run 근거·tool 입력·tool 결과)이다. ReadRunBody와 달리 사람만
+// 읽고, core가 지금의 redaction(고정 검출 규칙과 알려진 secret 값)을 한 번 더 거친 값만 준다. 안전화를
+// 끝내지 못하면 값을 주지 않는다. model 응답은 판단 요약이 아니라 사고 원문일 수 있어 사람에게 열지
+// 않는다(observability#R22). 값이 상한을 넘으면 JSON 글의 앞부분만 주고 `truncated`로 알린다.
+// 범위 밖 대상은 없는 대상과 똑같이 not_found다.
+export const RUN_BODY_VIEW_KINDS = [
+  "run_basis",
+  "tool_call_input",
+  "tool_call_output",
+] as const;
+
+const VIEW_ID_PREFIX = {
+  run_basis: "run_",
+  tool_call_input: "tcl_",
+  tool_call_output: "tcl_",
+} as const;
+
+export const RUN_BODY_VIEW_MAX_BYTES = 64 * 1024;
+
+export const runBodyViewInputSchema = z.strictObject({
+  kind: z.enum(RUN_BODY_VIEW_KINDS),
+  id: z.union([idSchema("run"), idSchema("tcl")]),
+}).refine(
+  (value) => value.id.startsWith(VIEW_ID_PREFIX[value.kind]),
+  { message: "body kind and id do not match" },
+);
+
+export const runBodyView = defineRead({
+  resource: "runs",
+  method: "body-view",
+  name: "ReadRunBodyView",
+  input: runBodyViewInputSchema,
+  output: withReadCommon(z.object({
+    kind: z.enum(RUN_BODY_VIEW_KINDS),
+    id: z.union([idSchema("run"), idSchema("tcl")]),
+    run: idSchema("run"),
+    size_bytes: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+    truncated: z.boolean(),
+    value: z.json(),
+  })),
+  actors: ["user"],
+  errors: [...readErrors],
+});
+
+export const RUN_READS = [
+  runRead,
+  runList,
+  runResult,
+  runBody,
+  runBodyView,
+] as const;

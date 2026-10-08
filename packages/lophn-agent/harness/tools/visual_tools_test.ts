@@ -71,6 +71,7 @@ function world(
     toolCall?: unknown;
     toolCallError?: "not_found" | "unavailable";
     documentText?: string;
+    blueprint?: unknown;
   } = {},
 ) {
   const calls: Call[] = [];
@@ -131,6 +132,15 @@ function world(
           text: options.documentText ?? "the numbers",
           ranges: [],
         }));
+      }
+      // visual.show의 카드 참조 검사가 읽는 앱 blueprint다. card 크기 화면이 없는
+      // 앱이 기본이고, blueprint 자체가 없는 앱은 not_found다.
+      if (contract === "app.blueprint") {
+        return Promise.resolve(
+          options.blueprint === undefined
+            ? err({ code: "not_found", message: "no app" })
+            : ok(options.blueprint),
+        );
       }
       return Promise.resolve(
         err({ code: "internal", message: `unexpected ${contract}` }),
@@ -339,7 +349,35 @@ Deno.test("lophn-agent/harness/tools#R19: 세션 없는 주기 run에는 visual.
   assertEquals(outcome.result.summary, "tool target is not available");
   assertEquals(ports.messages.size, 0);
   // 같은 ID가 다른 내용으로 이미 있으면 소유 contract의 conflict가 안전한 문장으로 돌아온다.
-  const closed = rig();
+  const closed = rig({
+    blueprint: {
+      app,
+      release: rel,
+      blueprint_hash: "a".repeat(64),
+      name: "Orders",
+      commands: [],
+      screens: [{
+        key: "summary",
+        label: "Summary",
+        path: "/summary",
+        sizes: ["card"],
+      }],
+      automations: [],
+      declarations: {
+        permissions: [],
+        app_connections: [],
+        commands: [],
+        automations: [],
+        problem_codes: [],
+        documents: [],
+      },
+      evidence: {
+        description: { complete: true, gaps: [] },
+        structure: { validated: true },
+        test: { passed: true, verifications: [] },
+      },
+    },
+  });
   const message = "msg_01arz3ndektsv4rrffq69g5faw";
   seed(closed.ports, { schema_version: 1, parts: [] }, message);
   const clash = await closed.run(
@@ -627,10 +665,18 @@ Deno.test("lophn-agent/visuals#R6: visual.prepare_document는 읽기만 하고 �
     assertEquals(body["media_type"], "text/html");
     assertEquals(body["block_keys"], ["rows", "card"]);
     assertEquals(body["snapshots"], [
-      { block_key: "card", status: "unavailable", captured_at: null },
+      {
+        block_key: "card",
+        status: "unavailable",
+        captured_at: null,
+        snapshot: null,
+        hash: null,
+      },
     ]);
+    // 준비 자체는 hash를 만들지 않는다: body_hash·spec_hash는 준비 결과에 없다
+    // (snapshot의 hash는 agent_context read 결과가 준 값이다).
     assertEquals(
-      JSON.stringify(body).match(/"(body_hash|spec_hash|hash)"/),
+      JSON.stringify(body).match(/"(body_hash|spec_hash)"/),
       null,
     );
     assert(

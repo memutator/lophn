@@ -207,6 +207,23 @@ export type PreparerResult =
     ): Promise<Result<PreparedResume>>;
   };
 
+// 앱 command tool의 원래 호출 계약이다(tool_calls.app_command). revert_command가 있으면 기록이 앱의 선언된
+// revert command를 revert에 싣는다(lophn-agent#T48, R10).
+export function appCommandOf(app: AppTool) {
+  return {
+    app: app.app,
+    release: app.release,
+    command: app.command,
+    blueprint_hash: app.blueprintHash,
+    definition_hash: app.definitionHash,
+    permission_basis: app.permissionBasis,
+    context_binding: null,
+    ...(app.revertCommand === null
+      ? {}
+      : { revert_command: app.revertCommand }),
+  };
+}
+
 export function createRunPreparer(deps: PreparerDeps): PreparerResult {
   const { machine, clock, ids } = deps;
 
@@ -448,6 +465,12 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
             original_tool: found.original,
             canonical_name: found.definition.name,
           };
+        },
+        // 앱 command tool의 원래 호출 계약이다. 기록이 tool_calls.app_command로 묶는다(R10).
+        // revert_command가 있으면 기록이 앱의 선언된 revert command를 revert에 싣는다.
+        appCommand: (definition) => {
+          const app = appByName.get(definition.name);
+          return app === undefined ? undefined : appCommandOf(app);
         },
         approvalTtlMs: deps.approvalTtlMs ?? 600_000,
       },

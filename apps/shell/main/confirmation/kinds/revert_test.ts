@@ -250,6 +250,78 @@ test("lophn-agent/revert#R5, lophn-agent/revert#R6: 제출은 이전 판을 사�
   assert.equal(core.calls.length, before);
 });
 
+const appStep = {
+  ordinal: 0,
+  owner: "apps/invocations",
+  target: id("tcl", 1),
+  source_seqs: ["5", "6"],
+  capability: "reversible",
+  reason: null,
+  comparison: { kind: "app", app: id("app", 1), command: "add_todo" },
+  before_ref: { kind: "app" },
+  dependencies: [],
+  app_revert: { step_key: "x" },
+};
+
+async function submitApp(
+  applied: { outcome: string },
+  ran: (() => ReturnType<typeof ok>) | undefined,
+) {
+  const core = fakeCore({
+    "read:reverts/preview": preview([appStep]),
+    "command:reverts/apply": () =>
+      ok({ id: "x", run: RUN, result_seq: null, replayed: false, ...applied }),
+    ...(ran === undefined ? {} : { "memory:reverts/run_apps": ran }),
+  });
+  const revert = state();
+  const read = await readRevert(core, revert, "cfw_1", RUN);
+  assert.equal(read.ok, true);
+  if (!read.ok) return { core, sent: undefined };
+  const sent = await submitRevert(core, revert, {
+    handle: handle("cfw_1"),
+    content: read.value.content as Record<string, unknown>,
+  });
+  return { core, sent, content: read.value.content as { id: string } };
+}
+
+test("lophn-agent/revert#R10: 앱 단계가 있어 applying으로 접수되면 core의 run_apps로 이어 실행하고 끝낸 revert의 실제 결과를 돌려준다", async () => {
+  const { core, sent, content } = await submitApp(
+    { outcome: "applying" },
+    () => ok({ revert: "x", outcome: "partial", called: ["a"] }),
+  );
+  assert.deepEqual(sent, {
+    ok: true,
+    value: {
+      receipt: { kind: "entity", id: content!.id },
+      result: "partial",
+    },
+  });
+  const ran = core.calls.find((call) => call.method === "run_apps")!;
+  assert.equal(ran.kind, "memory");
+  assert.equal(ran.resource, "reverts");
+  const body = ran.body as { revert: string; groups: unknown[] };
+  assert.equal(body.revert, content!.id);
+  assert.equal(body.groups.length, 1);
+  // 이어 실행이 닿지 못하면 접수 결과(applying) 그대로이고 같은 revert를 다시 이어 받을 수 있다.
+  const lost = await submitApp({ outcome: "applying" }, () => ({
+    ok: false,
+    error: { code: "unavailable", message: "no" },
+  }));
+  assert.deepEqual(lost.sent, {
+    ok: true,
+    value: {
+      receipt: { kind: "entity", id: lost.content!.id },
+      result: "applying",
+    },
+  });
+  // 앱 단계가 없어 이미 확정된 revert는 이어 실행하지 않는다.
+  const done = await submitApp({ outcome: "applied" }, undefined);
+  assert.equal(
+    done.core.calls.some((call) => call.method === "run_apps"),
+    false,
+  );
+});
+
 test("lophn-agent/revert#R2: revert id는 rvt 접두사의 고정 ID 모양이다", () => {
   const made = newRevertId(1_700_000_000_000, (bytes) => bytes.fill(7));
   assert.match(made, /^rvt_[0-7][0-9a-hjkmnp-tv-z]{25}$/);

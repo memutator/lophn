@@ -115,6 +115,7 @@ async function toolOf(key: string): Promise<AppTool> {
     grants: new Map([[APP, [{
       grant: GRANT,
       commands: COMMANDS.map((entry) => entry.key),
+      basis_seq: "0",
     }]]]),
   });
   return tools.find((tool) => tool.command === key)!;
@@ -122,7 +123,7 @@ async function toolOf(key: string): Promise<AppTool> {
 
 type World = {
   view: AppBlueprintView;
-  grants: { grant: string; commands: string[] }[];
+  grants: { grant: string; commands: string[]; basis_seq: string }[];
   nonce: ReturnType<typeof ok<string>> | ReturnType<typeof err>;
 };
 
@@ -139,7 +140,11 @@ function ports(world: World): AppJudgmentPorts {
 function worldOf(): World {
   return {
     view: blueprint(),
-    grants: [{ grant: GRANT, commands: COMMANDS.map((entry) => entry.key) }],
+    grants: [{
+      grant: GRANT,
+      commands: COMMANDS.map((entry) => entry.key),
+      basis_seq: "0",
+    }],
     nonce: ok("n".repeat(32)),
   };
 }
@@ -249,6 +254,7 @@ Deno.test("lophn-agent/harness/tool-judgment#R10: release·command 계약이 바
     commands: COMMANDS.map((entry) => entry.key).filter((key) =>
       key !== "read_items"
     ),
+    basis_seq: "0",
   }];
   const gone = worldOf();
   gone.grants = [];

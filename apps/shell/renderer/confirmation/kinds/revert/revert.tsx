@@ -77,6 +77,12 @@ export function reasonText(code: string | undefined): string | undefined {
       return t("confirmation-window.revert-why.not-prepared");
     case "stale_preview":
       return t("confirmation-window.revert-why.stale");
+    case "app_failed":
+      return t("confirmation-window.revert-why.app-failed");
+    case "app_uncertain":
+      return t("confirmation-window.revert-why.app-uncertain");
+    case "app_not_started":
+      return t("confirmation-window.revert-why.app-not-started");
     default:
       return undefined;
   }

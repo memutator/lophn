@@ -289,6 +289,35 @@ function revertView(allowPartial: boolean, decisions: string[]) {
   } satisfies ConfirmationView;
 }
 
+Deno.test("lophn-agent/revert#R11: revert 창은 앱 단계의 실패·응답 유실·미시작 이유를 고정 코드로 문장으로 말한다", async () => {
+  const base = revertView(false, []);
+  const view = {
+    ...base,
+    view: {
+      ...base.view,
+      groups: ["app_failed", "app_uncertain", "app_not_started"].map((
+        reason,
+        ordinal,
+      ) => ({
+        ordinal,
+        owner: "apps/invocations",
+        target: null,
+        capability: "irreversible" as const,
+        reason,
+        change: "app",
+        included: false,
+      })),
+    },
+  } satisfies ConfirmationView;
+  const root = await show(fakeApi(view).api);
+  const lines = [...root.querySelectorAll("[data-capability]")].map((group) =>
+    group.textContent
+  );
+  assert(lines[0]?.includes("The app couldn't undo this change."));
+  assert(lines[1]?.includes("its answer never arrived"));
+  assert(lines[2]?.includes("an earlier step didn't finish"));
+});
+
 Deno.test("lophn-agent/revert#R3, lophn-agent/revert#R7: revert 창은 복원 가능·불가·충돌·남을 영향을 보이고 안전하지 않은 부분은 2차 확인 뒤에만 빼고 적용한다", async () => {
   const { api, sent } = fakeApi(
     revertView(true, ["RevertRun"]),

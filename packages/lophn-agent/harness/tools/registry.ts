@@ -165,6 +165,12 @@ export function listTools(
 // 저장 범위와 기준 판 비교를 그대로 적용하려고 요청한 agent의 자격으로 부른다).
 const SUPPORTING_OPERATIONS: ReadonlyMap<string, readonly string[]> = new Map([
   ["SaveToolDocument", ["document.prepare", "document.save"]],
+  // 문제 해석 연결은 command 전에 같은 자격으로 해석 문서의 고정 version·절과 문제의 현재
+  // 참조를 읽어 확인한다(problems#T19, problems/grouping#R13).
+  [
+    "LinkProblemInterpretation",
+    ["document.get", "outline.document", "GetProblem"],
+  ],
   // 제품 안내 읽기는 안내 목록과 설정 정의를 같은 읽기 자격으로 함께 읽는다.
   ["guide.read", ["guide.list"]],
   ["GetSettings", ["SettingsDefinitions"]],

@@ -138,6 +138,16 @@ const SPECS: ReadonlyMap<string, Spec> = new Map<string, Spec>([
       input: (input) => ({ ticket: input["ticket"] }),
     },
   }],
+  ["problem.set_interpretation", {
+    concern: "problems/grouping",
+    targets: (input) => [text(input["problem"])],
+    changes: () =>
+      "links the problem to the fixed version and section of an interpretation document",
+    verify: {
+      contract: "GetProblem",
+      input: (input) => ({ problem: input["problem"] }),
+    },
+  }],
   ["visual.show", {
     concern: "lophn-agent/conversation",
     targets: (_input, run) => [run.run],

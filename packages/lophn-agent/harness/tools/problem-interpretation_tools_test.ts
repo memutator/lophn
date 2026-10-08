@@ -5,6 +5,7 @@ import {
   executeTool,
   problemSetInterpretationTool,
   type RunCredential,
+  runOperations,
 } from "./mod.ts";
 
 // 문제 해석 참조 설정 tool의 command 전 read 단계(problems#T19에서 넘어온 것).
@@ -247,4 +248,20 @@ Deno.test("lophn-agent/harness/tools#R8: 없는 문제는 없는 대상과 같�
   });
   assertEquals(refused.outcome.kind, "failure");
   assertEquals(refused.outcome.code, "not_found");
+});
+
+Deno.test("lophn-agent/harness/tools#R8: run의 agent operation은 command와 command 전 읽기를 함께 담는다", () => {
+  // handler가 command 전에 같은 자격으로 부르는 읽기가 run의 agent operation에 없으면
+  // 제품 경로에서 그 읽기가 forbidden이 된다(problems#T19).
+  const operations = new Set(runOperations([problemSetInterpretationTool]));
+  for (
+    const name of [
+      problemSetInterpretationTool.contract,
+      "document.get",
+      "outline.document",
+      "GetProblem",
+    ]
+  ) {
+    assertEquals(operations.has(name), true, name);
+  }
 });

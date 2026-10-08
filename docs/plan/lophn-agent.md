@@ -782,6 +782,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 
 ### T41 agent slice flow E2E
 
+- 상태: 진행 (#466) — 끝낸 flow: connect-provider, manage-provider-accounts
 - 등급: 기본
 - concern: lophn-agent
 - 요구: 없음(T3–T40 요구의 flow 확인)

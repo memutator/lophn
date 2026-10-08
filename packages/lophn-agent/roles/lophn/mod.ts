@@ -89,4 +89,17 @@ export {
   SDK_CANDIDATE_ORDER,
   type SdkCandidate,
 } from "./app-plan.ts";
+export {
+  type AppFact,
+  buildOpsReport,
+  confirmed,
+  type Interpretation,
+  OPS_INTERPRETATION_LIMIT,
+  type OpsReport,
+  opsReportBody,
+  type ProblemFact,
+  type TicketFact,
+  UNKNOWN_WORD,
+  unknownLine,
+} from "./ops-report.ts";
 export { lophnOffers, lophnToolNames, lophnTools } from "./tool-selection.ts";

@@ -10,9 +10,9 @@ import {
   APP_PLAN_OPTION_WORDS,
   APP_PLAN_OPTIONS,
   APP_PLAN_TEXT_LIMITS,
+  appPlanDocumentBody,
   type AppPlanDraft,
   type AppPlanReads,
-  appPlanDocumentBody,
   checkAppPlan,
   type NewAppHandoff,
   newAppHandoffReady,
@@ -31,7 +31,8 @@ function draft(
   return {
     risks: ["Recording lines would leak values if pasted outside lophn."],
     what: "An app that records usage lines and shows the count.",
-    why: "The person asks for the same count every week, so an app holds the read command and the record command.",
+    why:
+      "The person asks for the same count every week, so an app holds the read command and the record command.",
     chosen: "reuse_existing_sdk",
     rejected: [
       {
@@ -109,7 +110,7 @@ Deno.test("lophn-agent/roles/lophn#R6: 앱 기획은 기존 앱 변경 → 문�
   assertEquals(change, { ok: true });
 });
 
-Deno.test("lophn-agent/roles/lophn#R6: 기존 앱 목록·SDK 안내를 읽기 전에는 맞는 재료가 없다고 결론 내리지 않는다", async () => {
+Deno.test("lophn-agent/roles/lophn#R6: 기존 앱 목록·SDK 안내를 읽기 전에는 맞는 재료가 없다고 결론 내리지 않는다", () => {
   // 아무것도 읽지 않은 run의 새 앱 결론은 거절이다(R6).
   const nothing = checkAppPlan(
     draft({
@@ -292,7 +293,9 @@ Deno.test("lophn-agent/roles/lophn#R10: 버린 세 방안·재사용·새로 만
   );
   assertFalse(withCheck.ok);
   // acceptance check을 비우면 통과다(R10).
-  assertEquals(checkAppPlan(draft({ acceptance_checks: [] }), READ), { ok: true });
+  assertEquals(checkAppPlan(draft({ acceptance_checks: [] }), READ), {
+    ok: true,
+  });
 });
 
 Deno.test("lophn-agent/roles/lophn#R10: 앱 기획 문서는 위험 첫 줄·버린 방안·재사용·새로 만들 것·근거를 남기고 acceptance check 자리가 없다", () => {
@@ -325,7 +328,10 @@ Deno.test("lophn-agent/roles/lophn#R12: 새 앱 기획은 등록·채택 질문 
     false,
   );
   // 채택 질문을 거치지 않았으면 준비가 안 된 것이다(R12).
-  assertEquals(newAppHandoffReady({ ...ready, adoption_question: null }), false);
+  assertEquals(
+    newAppHandoffReady({ ...ready, adoption_question: null }),
+    false,
+  );
   // 담당이 없으면 준비가 안 됐다고 적는다(R12).
   assertEquals(newAppHandoffReady({ ...ready, assignment: null }), false);
   assertEquals(NO_ASSIGNMENT_WORD.includes("assigned"), true);

@@ -1,5 +1,3 @@
-import type { AppBlueprintView } from "../../harness/tools/mod.ts";
-
 // lophn의 앱 기획 문서 검사(roles/lophn#R6, R9, R10). 순수 함수다(plan.ts의
 // 프로젝트 기획 검사와 같은 모양). 앱 기획은 기존 앱 변경 → 문서로 남기기 →
 // 기존 SDK 활용 → 새 앱 순서로 대조하며(R6) SDK 후보는 그 앱이 이미 쓰는 재료,

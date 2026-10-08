@@ -165,8 +165,15 @@ export const en = {
     "Your saved data will be converted. Going back to an older version later won't convert it back.",
   "app-detail.note.decision-waiting":
     "Waiting for your decision in the confirmation window.",
-  "app-detail.note.export-unavailable":
-    "Exporting this app's data isn't available yet.",
+  "app-detail.note.export":
+    "Exporting makes a copy of this app's data. Nothing in the app changes.",
+  "app-detail.note.export-failed":
+    "The copy couldn't be made. Nothing changed. Try again.",
+  "app-detail.note.export-preparing":
+    "Preparing the copy. This can take a moment.",
+  "app-detail.note.export-ready":
+    "The copy is ready in the folder lophn made for it.",
+  "app-detail.button.export-app": "Export",
   "app-detail.note.issues-unavailable": "Issues aren't available here yet.",
   "app-detail.note.issues-empty": "This app has no issues.",
   "app-detail.note.issue-choice-blocked":
@@ -2017,6 +2024,142 @@ export const en = {
     "Some calls weren't recorded, so this total may be low.",
   "roles.title.screen": "Roles",
   "settings.accounts.none": "No accounts are connected yet.",
+  "settings.backup.created":
+    "Backup {time} holds your records and settings. You can restore it.",
+  "settings.backup.created-failed":
+    "The backup couldn't be read. Use the latest backup that passed its check.",
+  "settings.backup.expand-unavailable":
+    "This backup can't be restored. Nothing changed.",
+  "settings.backup.excluded-heading": "Not included in backups.",
+  "settings.backup.excluded-note":
+    "App data, projects and app files, the OS keychain, and credentials are not part of a backup.",
+  "settings.backup.heading": "Backup and restore",
+  "settings.backup.intro":
+    "Backups hold your records and settings. Restoring replaces what is here now with a backup.",
+  "settings.backup.intro-restore-failed":
+    "The restore didn't finish. Nothing was restored. Try again.",
+  "settings.backup.intro-restore-started":
+    "Restoring replaces what is here now with backup {time}.",
+  "settings.backup.lost-heading":
+    "This restores to {time} and drops records after that.",
+  "settings.backup.lost-none":
+    "No records were made after this backup. Nothing is lost.",
+  "settings.backup.lost-count":
+    "{count, plural, one {# record} other {# records}} made after this backup will be lost.",
+  "settings.backup.none": "No backups are available yet.",
+  "settings.backup.reconnect":
+    "Credentials aren't restored. Sign in to each connection again to use it.",
+  "settings.backup.restore-complete":
+    "Restored. Your records now match the backup. Check connections that need signing in again.",
+  "settings.backup.restore-failed":
+    "The restore didn't finish. Your records are unchanged. Try again.",
+  "settings.backup.restore-failed-plan":
+    "The restore couldn't start. Your records are unchanged. Try again.",
+  "settings.backup.restore-restarted":
+    "The restore is working. lophn restarts when it is done.",
+  "settings.backup.restore-uncertain":
+    "The restore started, but lophn couldn't confirm it finished. Try opening your records to see what is here.",
+  "settings.backup.tab-not-restoreable":
+    "This backup failed a check or was made while lophn was busy. The latest checked backup stays usable.",
+  "settings.backup.retained":
+    "The last {count, plural, one {# checked backup} other {# checked backups}} are kept. Newer backups that failed a check are replaced by the latest one that passed.",
+  "settings.backup.reconnect-heading": "After a restore",
+  "settings.backup.app-export-heading": "Take an app's data out",
+  "settings.backup.app-export-note":
+    "This makes a separate copy of one app's records. It is not part of a backup, and app data outside the app (like attached files) is not included.",
+  "settings.backup.app-export-ready":
+    "The copy is ready in the folder lophn made for it.",
+  "settings.backup.app-export-failed":
+    "The copy couldn't be made. Nothing changed. Try again.",
+  "settings.backup.secrets-heading": "Secrets",
+  "settings.backup.secrets-note":
+    "Passwords and keys aren't in backups. Move them separately with a passphrase-protected file.",
+  "settings.backup.secrets-window":
+    "Finish in the window that opened. It holds the secret value.",
+  "settings.button.export-secrets": "Export secrets",
+  "settings.button.import-secrets": "Import secrets",
+  "settings.label.backup-target": "your backups",
+  "settings.label.notifications-target": "notification settings",
+  "settings.label.retained-through": "Holds records through",
+  "settings.label.integrity": "Check",
+  "settings.label.integrity-passed": "Passed",
+  "settings.label.integrity-failed": "Failed",
+  "settings.label.state": "State",
+  "settings.button.before-restore": "Restore",
+  "settings.button.backup-now": "Back up now",
+  "settings.button.check-security": "Check security",
+  "settings.button.choose-package": "Choose update file",
+  "settings.button.export-app": "Export",
+  "settings.button.enter-secret": "Enter secret",
+  "settings.button.restore-again": "Try the restore again",
+  "settings.button.stop-and-update": "Stop for the update",
+  "settings.button.update-now": "Update from this file",
+  "settings.check.failed":
+    "The security check couldn't start right now. Try again.",
+  "settings.check.raw-key-note":
+    "Records have keys in them that look like saved passwords. Replace the key to keep it out of records.",
+  "settings.check.wide-grant-note":
+    "A connection can read more than it needs. Give it a smaller scope.",
+  "settings.check.clean": "No problems were found in the security check.",
+  "settings.diagnostics.finding-at":
+    "Checked {time}. One thing needs your attention.",
+  "settings.diagnostics.next-raw-key":
+    "Replace the key to keep it out of records.",
+  "settings.diagnostics.next-wide-grant":
+    "Give the connection a smaller scope.",
+  "settings.diagnostics.raw-key":
+    "A record holds a key that looks like a saved password.",
+  "settings.diagnostics.wide-grant":
+    "A connection can read more than it needs.",
+  "settings.diagnostics.heading": "Diagnose problems",
+  "settings.diagnostics.intro":
+    "Check the access connections use and how records save names and keys.",
+  "settings.diagnostics.raw-heading": "Raw check results.",
+  "settings.diagnostics.raw-intro":
+    "The same results as the check above, with the exact names and codes.",
+  "settings.diagnostics.check-failed":
+    "The check couldn't start right now. Try again.",
+  "settings.diagnostics.check-failed-no":
+    "The check hasn't run yet. Check the access connections use.",
+  "settings.diagnostics.raw-failed":
+    "The raw results couldn't load. Try again.",
+  "settings.diagnostics.clean-row": "No problem was found in this check.",
+  "settings.label.checked-at": "Checked",
+  "settings.update.heading": "Update lophn",
+  "settings.update.intro":
+    "You choose when to update. lophn doesn't download or restart by itself.",
+  "settings.update.no-package": "No update file is chosen yet.",
+  "settings.update.package-unreadable":
+    "That file isn't an update file lophn can read. Choose the update file again.",
+  "settings.update.system-mismatch":
+    "That file installs on a different system, so it isn't applied.",
+  "settings.update.check-note":
+    "This reads the file you chose. Nothing is downloaded or installed yet.",
+  "settings.update.new-version":
+    "Update file is version {version} for {os}. This version is {current}.",
+  "settings.update.schema-compatible":
+    "Your records keep working with this update.",
+  "settings.update.schema-migration":
+    "Your records are converted the first time lophn starts after the update. Going back later won't convert them back.",
+  "settings.update.schema-newer":
+    "This update is older than your records. It isn't applied.",
+  "settings.update.restart-required":
+    "lophn stops cleanly before the update and you start it again.",
+  "settings.update.stop-failed":
+    "lophn couldn't confirm it stopped cleanly, so nothing was changed. Close your work and try again.",
+  "settings.update.stopped":
+    "lophn stopped cleanly. Install the update file you chose, then start lophn.",
+  "settings.update.deployment-unverified":
+    "Updates on your system aren't checked by lophn yet. Check the file before applying it.",
+  "settings.notifications.heading": "Notifications",
+  "settings.notifications.intro":
+    "lophn can show a system notification when something needs your attention.",
+  "settings.notifications.label": "System notifications",
+  "settings.notifications.help":
+    "The notification opens lophn. It doesn't include message contents.",
+  "settings.notifications.changed": "Saved. Notifications follow this choice.",
+  "settings.notifications.changed-failed":
+    "The choice wasn't saved. Nothing changed. Try again.",
   "settings.button.add-folder": "Add a skill folder",
   "settings.button.add-key": "Add an API key",
   "settings.button.add-server": "Add server",
@@ -2123,8 +2266,12 @@ export const en = {
   "settings.label.state-sign-in-problem": "Sign-in problem",
   "settings.label.state-signed-out": "Signed out",
   "settings.label.tab-connections": "Connections",
+  "settings.label.tab-backup": "Backup",
   "settings.label.tab-extensions": "Tools and skills",
   "settings.label.tab-general": "General",
+  "settings.label.tab-update": "Update lophn",
+  "settings.label.tab-diagnostics": "Diagnose",
+  "settings.label.tab-notifications": "Notifications",
   "settings.label.test-model": "Model to test",
   "settings.label.unavailable-connection": "A connection that isn't listed",
   "settings.label.usage-none": "No use",

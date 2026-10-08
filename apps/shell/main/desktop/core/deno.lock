@@ -83,6 +83,7 @@
     "links": {
       "jsr:@lophn/apps": {
         "dependencies": [
+          "jsr:@luca/esbuild-deno-loader@0.11.1",
           "npm:esbuild@0.28.2"
         ]
       },
@@ -143,6 +144,13 @@
         ]
       },
       "jsr:@lophn/tokens@1.0.0": {},
+      "jsr:@lophn/ui-action@1.0.0": {
+        "dependencies": [
+          "npm:@types/react@19.3.0",
+          "npm:lucide-react@1.51.0",
+          "npm:react@19.3.0"
+        ]
+      },
       "jsr:@lophn/ui-chart@1.0.0": {
         "dependencies": [
           "npm:@types/d3-scale@4.0.9",
@@ -150,6 +158,55 @@
           "npm:@types/react@19.3.0",
           "npm:d3-scale@4.0.2",
           "npm:d3-shape@3.2.0",
+          "npm:lucide-react@1.51.0",
+          "npm:react@19.3.0"
+        ]
+      },
+      "jsr:@lophn/ui-control@1.0.0": {
+        "dependencies": [
+          "npm:@types/react@19.3.0",
+          "npm:lucide-react@1.51.0",
+          "npm:react@19.3.0"
+        ]
+      },
+      "jsr:@lophn/ui-filter@1.0.0": {
+        "dependencies": [
+          "npm:@types/react@19.3.0",
+          "npm:lucide-react@1.51.0",
+          "npm:react@19.3.0"
+        ]
+      },
+      "jsr:@lophn/ui-layout@1.0.0": {
+        "dependencies": [
+          "npm:@types/react@19.3.0",
+          "npm:lucide-react@1.51.0",
+          "npm:react@19.3.0"
+        ]
+      },
+      "jsr:@lophn/ui-overlay@1.0.0": {
+        "dependencies": [
+          "npm:@types/react@19.3.0",
+          "npm:lucide-react@1.51.0",
+          "npm:react@19.3.0"
+        ]
+      },
+      "jsr:@lophn/ui-reading@1.0.0": {
+        "dependencies": [
+          "npm:@types/react@19.3.0",
+          "npm:lucide-react@1.51.0",
+          "npm:react@19.3.0"
+        ]
+      },
+      "jsr:@lophn/ui-stat@1.0.0": {
+        "dependencies": [
+          "npm:@types/react@19.3.0",
+          "npm:lucide-react@1.51.0",
+          "npm:react@19.3.0"
+        ]
+      },
+      "jsr:@lophn/ui-state@1.0.0": {
+        "dependencies": [
+          "npm:@types/react@19.3.0",
           "npm:lucide-react@1.51.0",
           "npm:react@19.3.0"
         ]

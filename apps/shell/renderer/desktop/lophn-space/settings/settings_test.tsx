@@ -15,6 +15,10 @@ import type { EditorDeps } from "../../../editor/document-view.tsx";
 import type { InstructionsSource } from "../../../editor/instructions-entry.tsx";
 import { fakeSource } from "../testdata/fake-source.ts";
 import { byText, find, flush, pressTab, typeInto } from "../testdata/dom.ts";
+import { fakeBackup } from "./backup/testdata/fake-source.ts";
+import { fakeDiagnostics } from "./diagnostics/testdata/fake-source.ts";
+import { fakeNotifications } from "./notifications/testdata/fake-source.ts";
+import { fakeUpdate } from "./update/testdata/fake-source.ts";
 import {
   account,
   CHATGPT,
@@ -1001,4 +1005,34 @@ Deno.test("shell/wording#R13: 단추가 없는 창은 [Instructions]·Ask lophn�
   await flush();
   click(find(wired.container, "[data-open-instructions]"));
   assertEquals(opened, 1);
+});
+
+Deno.test("shell/wording#R10: settings의 backup·update·진단·notification 자리는 통로가 있을 때만 탭으로 보인다", async () => {
+  const { source } = fakeSettings({ providers: [claude([])] });
+  using bare = render(<SettingsScreen source={source} />);
+  await flush();
+  // 통로가 없으면 그 자리의 탭을 두지 않는다.
+  assertEquals(bare.container.querySelector("[role=tablist]"), null);
+
+  const update = fakeUpdate({ picked: null });
+  const diag = fakeDiagnostics();
+  const notes = fakeNotifications({ enabled: false });
+  const backup = fakeBackup({ backups: [] });
+  using wired = render(
+    <SettingsScreen
+      source={source}
+      backup={backup.source}
+      update={update.source}
+      diagnostics={diag.source}
+      notifications={notes.source}
+    />,
+  );
+  await flush();
+  const tabs = [...wired.container.querySelectorAll("[role=tab]")].map(textOf);
+  // 탭이 선다: 통로가 있는 자리만 이 화면의 탭에 온다.
+  assert(tabs.includes("Backup"), tabs.join(" / "));
+  assert(tabs.includes("Connections"), tabs.join(" / "));
+  assert(tabs.includes("Update lophn"), tabs.join(" / "));
+  assert(tabs.includes("Diagnose"), tabs.join(" / "));
+  assert(tabs.includes("Notifications"), tabs.join(" / "));
 });

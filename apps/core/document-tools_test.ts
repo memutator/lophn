@@ -64,8 +64,8 @@ const FORMAT_DOCUMENT = "document";
 const AGENT_OPERATIONS = [
   ...runOperations(BUILTIN_TOOLS),
   // 시험이 저장된 판을 확인하려고 더하는 읽기다. tool이 쓰는 operation이 아니다.
+  // document.get는 LinkProblemInterpretation의 보조 operation으로 이미 들어 있다.
   "document.file",
-  "document.get",
 ];
 
 type World = {

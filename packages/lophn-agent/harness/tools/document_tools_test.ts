@@ -1010,6 +1010,8 @@ Deno.test("lophn-agent/harness/tools#R6: 묶음 이름은 개별 동작으로 �
     "metadata-read",
     "problem-read",
     "sdk",
+    "ticket-read",
+    "ticket-write",
     "visual",
   ]);
   assertEquals(TOOL_BUNDLES.get("document-read"), DOCUMENT_READ_TOOL_NAMES);

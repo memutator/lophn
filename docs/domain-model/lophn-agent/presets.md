@@ -139,7 +139,7 @@ Preset 판 전체는 immutable blob이다. product 기본 preset은 역할별 �
 |---|---|---|
 | 프로젝트·앱·SDK 읽기 | `project.list`, `project.read`, `app.list`, `app.read`, `app.blueprint`, `app.commands`, `app.releases`, `app.health`, `app.invocations`, `sdk.list`, `sdk.contract`, `sdk.examples` | 조회와 현재 허락된 앱 자동 command; 실행 판정은 harness/tool-judgment |
 | problem·ticket 읽기 | `problem.list`, `problem.read`, `report.read`, `snapshot.read`, `verification.read`, `repair.read`, `ticket.list`, `ticket.read` | 문제 해석 참조·상태·기존 ticket 변경 없음 |
-| coding 요청 | `ticket.create` | 직접 요청·피드백을 ticket으로 생성; 부족한 근거는 준비 상태로 표시; claim·시작·완료 처리 없음; → coding-agent/tickets |
+| coding 요청 | `ticket.create` | 직접 요청·피드백을 ticket으로 생성; 부족한 근거는 확인 필요·준비 상태로 표시; claim·시작·완료 처리 없음; → coding-agent/tickets |
 | 제품 안내·공개 설정 | `lophn.guide`, `setting.read` | secret 없는 동봉 안내·현재 공개 설정과 출처만 |
 | 문서 결과 | `document.create`, `document.save_version` | Run 요청 범위; 기존 문서 저장은 기준 Version 필수 |
 | 역할·assignment 읽기 | `preset.list`, `preset.read`, `assignment.list`, `assignment.read`, `run.read_result` | 변경 없음 |
@@ -171,7 +171,7 @@ Preset 판 전체는 immutable blob이다. product 기본 preset은 역할별 �
 | problem·ticket 읽기 | `problem.list`, `problem.read`, `report.read`, `snapshot.read`, `verification.read`, `repair.read`, `ticket.list`, `ticket.read` | 담당 앱만 |
 | 문서 결과 | `document.create`, `document.save_version` | 담당 앱 place·Run 요청 범위; 기준 Version 필수 |
 | 해석 연결 | `problem.set_interpretation` | 담당 problem에 문서 고정 Version·절 참조; 현재 problem seq·기존 참조 CAS; 이전 참조 보존; → problems/grouping |
-| ticket | `ticket.create` | 담당 앱 구현·repair 생성만; → coding-agent/tickets |
+| ticket | `ticket.create`, `ticket.make_ready` | 담당 앱 구현·repair 생성과 확인 필요 ticket의 실행 준비 전환만; → coding-agent/tickets |
 | 역할·assignment 읽기 | `preset.read`, `assignment.read`, `run.read_result` | 관련 범위만 |
 | handoff | `handoff.submit`, `handoff.read_status`, `handoff.read_result` | → lophn-agent/handoff의 허용 방향만 |
 

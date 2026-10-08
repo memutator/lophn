@@ -8,6 +8,7 @@ import { createGuideToolHandlers } from "./guide.ts";
 import { createMetadataToolHandlers } from "./metadata.ts";
 import { createReadLog } from "./read-log.ts";
 import { createSdkToolHandlers } from "./sdk.ts";
+import { createTicketToolHandlers } from "./ticket.ts";
 import { createVisualToolHandlers } from "./visual.ts";
 
 // 내장 묶음 전부의 handler다. 이름이 겹치지 않는다. 묶음마다 필요한 통로는 `call` 하나로 같고
@@ -26,6 +27,7 @@ export function createBuiltinToolHandlers(
       createMetadataToolHandlers(ports),
       createAppReadToolHandlers(ports),
       createSdkToolHandlers(ports),
+      createTicketToolHandlers(ports),
       createFormatToolHandlers(ports),
       createVisualToolHandlers(ports, reads),
       createGuideToolHandlers(ports),

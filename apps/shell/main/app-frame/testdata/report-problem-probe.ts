@@ -197,6 +197,7 @@ async function run(): Promise<unknown> {
       });
     },
     openIssue: () => {},
+    lookup: () => Promise.resolve({ ok: true, value: null }),
     ids: {
       draft: () => `draft-${++serial}`,
       report: () => "rpt_01j9zzzzzzzzzzzzzzzzzzzzzz",

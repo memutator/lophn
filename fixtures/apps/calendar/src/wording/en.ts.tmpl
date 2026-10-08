@@ -36,14 +36,14 @@ export const en = {
   "events.summary.delete-all-events":
     "Delete every event saved in this app. The external calendar is not touched. This can't be undone and needs the person's confirmation.",
   "events.summary.event-id":
-    "The id of the event to remove, as returned by add_event.",
+    "The invocation, receipt, or expected revision from add_event's revert evidence.",
   "events.summary.event-starts":
     "When the event starts, as an ISO 8601 date and time such as 2026-02-01T09:00:00Z.",
   "events.summary.event-title": "The title of the event.",
   "events.summary.list-events":
     "Read the events saved in this app, earliest first. Reads only.",
   "events.summary.revert-event":
-    "Undo add_event by removing the event it created. Takes the id that add_event returned.",
+    "Undo add_event with its invocation, receipt, and expected revision. Refuses duplicate undo and changes made afterward.",
   "events.summary.sync-events":
     "Fetch events from the external calendar and save them in this app; events already fetched are updated. The external calendar is only read.",
   "events.title.screen": "Events",

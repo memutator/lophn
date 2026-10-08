@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import type { RpcFetch } from "../../../../../packages/contracts/platform/mod.ts";
 
+import { CONNECTION_INTENT } from "./allowlist.ts";
 import { openSession } from "./client.ts";
 import { type EventSocket, subscribe } from "./events.ts";
 
@@ -78,49 +79,49 @@ test("shell/desktop#R19: allowlist 밖 호출은 나가지 않고 거절한다",
   assert.deepEqual(fetch.calls, []);
 });
 
-test("shell/desktop#R19: 고정 연결 intent는 연결 화면만 통과한다", async () => {
+test("shell/desktop#R19: 연결 생성 command와 연결 intent route는 renderer allowlist에 없다", async () => {
   const fetch = fetchOf(200, { id: "cac_1" });
-  const blocked = openSession({
+  const session = openSession({
     apiPort: 1,
     coreEpoch: "epoch-1",
     userToken: TOKEN,
     fetch,
   });
-  const denied = await blocked.call(
-    "command",
-    "coding_agent_connections",
-    "create",
-    {},
-  );
-  assert.equal(denied.ok, false);
-  if (!denied.ok) assert.equal(denied.error.code, "forbidden");
-  const allowed = openSession({
+  for (
+    const call of [
+      ["command", "coding_agent_connections", "create"],
+      ["memory", "coding_agent_connections", "connect"],
+      ["command", "coding_agent_connections", "connect"],
+    ]
+  ) {
+    const denied = await session.call(call[0]!, call[1]!, call[2]!, {});
+    assert.equal(denied.ok, false);
+    if (!denied.ok) assert.equal(denied.error.code, "forbidden");
+  }
+  assert.deepEqual(fetch.calls, []);
+});
+
+test("shell/desktop#R19: 고정 연결 intent route는 main 안 통로(internal)만 부른다", async () => {
+  const fetch = fetchOf(200, { connection: "cac_01arz3ndektsv4rrffq69g5fav" });
+  const session = openSession({
     apiPort: 1,
     coreEpoch: "epoch-1",
     userToken: TOKEN,
     fetch,
-    connectionIntent: () => true,
   });
-  const result = await allowed.call(
-    "command",
+  assert.equal(CONNECTION_INTENT, "memory:coding_agent_connections/connect");
+  const result = await session.internal(
+    "memory",
     "coding_agent_connections",
-    "create",
-    {
-      input: {
-        id: "cac_01arz3ndektsv4rrffq69g5fav",
-        label: "desk",
-        scope: { kind: "all", app: null },
-        token_digest: "a".repeat(64),
-      },
-      idempotency_key: "k",
-      compare: {},
-      prepared: [],
-    },
+    "connect",
+    { label: "desk", scope: { kind: "all", app: null } },
   );
-  // 응답 schema는 가짜다. 호출이 나갔는지만 본다.
-  assert.equal(result.ok, false);
-  if (!result.ok) assert.notEqual(result.error.code, "forbidden");
+  assert.equal(result.ok, true);
   assert.equal(fetch.calls.length, 1);
+  assert.equal(
+    fetch.calls[0]!.endsWith("/v1/coding_agent_connections/connect"),
+    true,
+  );
 });
 
 function socket(): EventSocket & {

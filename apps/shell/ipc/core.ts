@@ -29,3 +29,5 @@ export type ConnectionState = z.infer<typeof connectionStateSchema>;
 
 export const CORE_CALL_CHANNEL = "shell:core-call";
 export const CORE_STATE_CHANNEL = "shell:core-state";
+/** 구독을 시작한 renderer가 지금 연결 상태를 한 번 묻는다. main이 push를 다시 하지 않는다. */
+export const CORE_STATE_GET_CHANNEL = "shell:core-state-get";

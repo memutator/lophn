@@ -321,25 +321,29 @@ Deno.test("lophn-agent/roles/app-engineer#R5: 맡지 않는 일 blueprint 수정
   }
 });
 
-Deno.test("lophn-agent/roles/app-engineer#R5: 상한에만 있고 정의가 아직 없는 선택은 목록에 없다(T49 ticket, T50 해석 참조)", () => {
+Deno.test("lophn-agent/roles/app-engineer#R5: 상한에만 있고 정의가 아직 없는 선택은 목록에 없다(T50 해석 참조)", () => {
   const cap = ROLE_CAPS.get("app_engineer")!;
   const listed = listedForAE();
-  // 상한에는 있지만 내장 정의가 아직 없는 선택이다. ticket.list·read·create의
-  // 묶음과 problem.set_interpretation의 정의는 T49·T50이 둔다.
-  for (
-    const name of [
-      "ticket.list",
-      "ticket.read",
-      "ticket.create",
-      "problem.set_interpretation",
-    ]
-  ) {
+  // 상한에는 있지만 내장 정의가 아직 없는 선택이다. problem.set_interpretation의 정의는 T50이 둔다.
+  for (const name of ["problem.set_interpretation"]) {
     assert(cap.tools.includes(name), `${name} is in the AE cap`);
     assertEquals(
       listed.some((tool) => tool.name === name),
       false,
       `app_engineer must not list ${name} without a definition`,
     );
+  }
+  // ticket 읽기·생성·전환은 정의가 있어 목록에 오른다.
+  for (
+    const name of [
+      "ticket.list",
+      "ticket.read",
+      "ticket.create",
+      "ticket.make_ready",
+    ]
+  ) {
+    assert(cap.tools.includes(name), `${name} is in the AE cap`);
+    assert(listed.some((tool) => tool.name === name), `${name} is listed`);
   }
   // 상한 밖 이름은 제공하지 않는다(fail closed).
   assertEquals(appEngineerOffers("subagent"), false);

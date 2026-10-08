@@ -418,6 +418,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - slice: problems
 - 선행: problems#T9, problems#T10, problems#T12
 - 상태: 완료 (#446) — 이어보냄: RequestTest 접수가 runner를 깨워 `--reproduction-job`(`apps/worker/problems/reproduction-run.ts`)을 부르고 결과를 core RecordVerification으로 보내는 상시 service 연결, 접수 때 problem의 원래 Report에서 `ReproductionScenario`(증상·기대·인접 불변식)를 만드는 준비 단계 → T8·T14 후속, 코딩 agent 통로(coding-agent#T21)
+- coding-agent#T44에서 넘어온 것: core `RequestTest`는 coding_agent의 reproduction 요청에서 지정 ticket의 현재 claim을 확인하지 않는다(입력 contract에 claim 근거가 없다). 지금은 MCP `lophn_problem test`·CLI `problem test`가 ticket 읽기로 현재 claim을 확인한 뒤 보내고, `lophn_app test`·`app test --kind reproduction`은 claim 없이도 같은 route로 요청할 수 있다. runner 연결(follow-up 40) 때 core 쪽 claim 검사를 더할지 정한다. 지금 core는 runner가 없어 접수를 `internal`로 거절하고 이 통로는 그것을 실패로 낸다(성공 pass 아님)
 - 정한 것(T18): 고정 증상 정의는 `ReproductionScenario`(원래 problem code·probe command·증상·기대·인접 불변식 matcher)이고 hash가 FrozenTest의 `input`·`expected`·`symptom`에 묶인다(`packages/problems/tests/reproduction/`). harness 자식은 side별 `symptom`·`adjacent:<name>` frame을 내고 runner가 같은 정의로 재판정한다. 약화 검사는 problem code 선언 삭제, source의 보고 호출 삭제, 업무 증상은 남았는데 보고만 사라진 보고 경로 삭제, 관측 기대 hash 불일치(기대 낮춤)다. 깨지는 앱 fixture의 판 B·E를 `run_broken`에 연결했다(판 A 동작은 그대로).
 - 완료:
   - before·after마다 source read-only·새 fixture DB·같은 FrozenTest·input·expected·environment; 운영 DB 복사와 실계정 재전송 없이 replay·stub(R15)
@@ -513,6 +514,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 
 ### T23 report-app-problem flow E2E
 
+- 상태: 진행 (#447) — 12단계가 실제 headless shell·core·앱 감독·깨진 fixture 앱으로 통과한다(flow 1~6, 보호 창·lophn dialog·가려진 view, 취소, 제출 전후 닫기, screenshot 선택, 시작 전 실패, 직접 시도 실패, core 사라짐). 남은 것(구동하지 못해 가짜로 채우지 않았다): (1) R13 기존 문제를 고르는 제출과 [View issue]로 그 문제 상세에 가는 것 — dialog에 기존 문제를 고르는 자리가 없고(`existing_problem` 늘 null) desktop이 Issues 탭을 잇지 않아 `app-issue` intent가 앱 공간만 연다 → shell#T53, (2) R4 "시작 전 실패" 표시 — dialog가 `command_start`를 늘 "unknown"으로 보낸다(invocation이 생기지 않는 것까지만 확인) → shell#T52, (3) 응답 단절 뒤 최신 상태 확인과 같은 발생 재전송, 수집 꺼짐·실패 이유, 두 번째 창 — flow에서 이어 보낼 수 없거나 e2e/shell/report-problem_test가 본다. 앱 자식은 운영 앱의 실제 기동 entry가 아직 없어(apps#T27) bundle에 runtime entrypoint `main()` 진입 파일을 더해 다시 봉인했다
 - 등급: 기본
 - concern: problems/feedback, problems/reporting, problems/snapshots, problems/grouping
 - 요구: problems/feedback#R5, R6, R11, R12, R13

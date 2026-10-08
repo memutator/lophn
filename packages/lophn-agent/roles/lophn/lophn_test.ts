@@ -80,7 +80,7 @@ Deno.test("lophn-agent/roles/lophn#R1: lophn's tool selection holds planning, re
     listed,
   );
   // 기획·추천·안내·보고에 필요한 읽기가 있다(R1). 상한에 있어도 아직 정의가
-  // 없는 선택(app 상세·blueprint·sdk·problem·ticket·report 조회)은 목록에 없다.
+  // 없는 선택(app 상세·blueprint·sdk·problem·report 조회)은 목록에 없다.
   for (
     const name of [
       "project.list",
@@ -110,29 +110,33 @@ Deno.test("lophn-agent/roles/lophn#R1: lophn's tool selection holds planning, re
   );
 });
 
-Deno.test("lophn-agent/roles/lophn#R1: selections with no builtin definition yet are not listed", () => {
+Deno.test("lophn-agent/roles/lophn#R1: the cap selections that have a builtin definition are listed, ticket tools included", () => {
   const lophn = ROLE_CAPS.get("lophn");
   assert(lophn !== undefined);
   const listed = lophnTools(lophn.tools);
-  // 상한에는 있지만 내장 정의가 아직 없는 선택이다(R1: 교집합은 정의가 있는 것만 남는다).
+  // 상한에 있고 내장 정의가 있는 선택은 목록에 남는다(R1: 교집합은 정의가 있는 것만 남는다).
   for (
     const name of [
       "sdk.list",
       "sdk.contract",
-      "ticket.create",
       "problem.list",
       "report.read",
       "app.read",
       "app.blueprint",
+      "ticket.list",
+      "ticket.read",
+      "ticket.create",
     ]
   ) {
     assert(lophn.tools.includes(name), `${name} is in the lophn cap`);
-    assertEquals(
+    assert(
       listed.some((tool) => tool.name === name),
-      false,
-      `lophn must not list ${name} without a definition`,
+      `lophn lists ${name}`,
     );
   }
+  // make_ready는 lophn 상한에 없다: 실행 준비 전환은 채택한 설계를 아는 App Engineer의 몫이다.
+  assertEquals(lophn.tools.includes("ticket.make_ready"), false);
+  assertEquals(listed.some((tool) => tool.name === "ticket.make_ready"), false);
 });
 
 Deno.test("lophn-agent/roles/lophn#R1: lophn preset selection that is not fixed yet lists no tools (fail closed)", () => {
@@ -221,9 +225,7 @@ Deno.test("lophn-agent/roles/lophn#R4: requests in lophn scope list preset reads
       `lophn must not list ${name}`,
     );
   }
-  // preset·assignment 조회, 질문·ticket 생성이 상한에 있고 그중 정의가 있는
-  // preset·assignment·질문은 목록에 있다(R4). ticket 생성은 상한 선택이지만
-  // 내장 정의가 아직 없어 목록에는 없다(R1의 테스트가 함께 본다).
+  // preset·assignment 조회, 질문·ticket 생성이 상한에 있고 정의가 있어 모두 목록에 있다(R4).
   for (
     const name of [
       "preset.list",
@@ -239,10 +241,9 @@ Deno.test("lophn-agent/roles/lophn#R4: requests in lophn scope list preset reads
     assert(listed.some((tool) => tool.name === name), name);
   }
   assert(lophn.tools.includes("ticket.create"), "ticket.create is in the cap");
-  assertEquals(
+  assert(
     listed.some((tool) => tool.name === "ticket.create"),
-    false,
-    "ticket.create has no builtin definition yet",
+    "ticket.create is listed",
   );
 });
 
@@ -809,7 +810,7 @@ Deno.test("lophn-agent/roles/lophn#R19: the question submit tool rejects a model
 
 Deno.test("lophn-agent/roles/lophn#R2: a direct coding request from the person becomes a ticket, not a coding agent start", () => {
   // ticket 생성은 상한 선택에 있고 coding agent 시작 tool은 어느 상한에도
-  // 없다(R2). ticket 생성의 내장 정의는 coding-agent/tickets 작업이 더한다.
+  // 없다(R2). ticket 생성의 내장 정의는 harness/tools의 ticket 묶음이다.
   const lophn = ROLE_CAPS.get("lophn");
   assert(lophn !== undefined);
   assert(lophn.tools.includes("ticket.create"), "ticket.create is in the cap");

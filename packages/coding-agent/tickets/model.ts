@@ -5,7 +5,10 @@ import {
   type TicketKind,
   type TicketReadiness,
 } from "../../contracts/coding-agent/mod.ts";
-import { parseActor } from "../../contracts/platform/mod.ts";
+import {
+  parseActor,
+  type RequestContext,
+} from "../../contracts/platform/mod.ts";
 
 // ticket.create actor는 user·lophn·담당 App Engineer agent다. coding_agent·
 // app·machine은 생성하지 않는다(R5).
@@ -13,6 +16,17 @@ export function createActorAllowed(actor: string): boolean {
   const parts = parseActor(actor);
   if (!parts) return false;
   return parts.kind === "user" || parts.kind === "agent";
+}
+
+// command의 앱 조건 검사다. 자격이 앱 하나에 묶여 있으면(담당 App Engineer agent) 그 앱 밖
+// ticket은 없는 ticket과 같은 답이다. read는 같은 조건을 platform의 TargetAuthorization
+// (reads.ts의 inCodingScope)로 판정하고, command에는 그 port가 없어 이 검사를 쓴다.
+export function outsideAppCondition(
+  ctx: RequestContext,
+  app: string,
+): boolean {
+  const bound = ctx.conditions.app;
+  return bound !== undefined && bound !== app;
 }
 
 // readiness는 needs의 유무와 짝이다. needs_confirmation은 필요한 확인 1개 이상,

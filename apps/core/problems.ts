@@ -63,6 +63,7 @@ import {
   problemFixRecorded,
   problemOpened,
   problemReopened,
+  problemsUploadFixSummary,
   reportProblem,
   submitFeedback,
   verificationRecorded,
@@ -206,6 +207,8 @@ export const problemsReportDefinitions = {
     observeViewError,
     submitFeedback,
   ],
+  // 고친 기록 summary의 blob 준비 route(coding-agent#T44). 바이트는 core 핸들러가 준비 중계로 흘린다.
+  uploadRoutes: [problemsUploadFixSummary],
 };
 
 // 진단 상세 수집 on/off(snapshots#R7). 끄면 새 로그 같은 상세 수집만 멈추고 기존 자료의

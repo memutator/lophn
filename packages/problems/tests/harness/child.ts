@@ -7,9 +7,19 @@ import {
   observeFailurePath,
   runPlatformChecks,
 } from "./checks.ts";
-import type { HarnessChildInput } from "./child-types.ts";
+import type { HarnessPlan } from "./driver.ts";
 import { rpcDriver } from "./rpc.ts";
 import { loadSources } from "./source-scan.ts";
+import type { HarnessFailurePath } from "./failure-path.ts";
+
+export type HarnessChildInput = {
+  plan: HarnessPlan;
+  // 정적 code 사용을 읽을 고정 source 폴더(봉인 bundle 사본).
+  source_dir: string;
+  // runner가 화면 검사 host를 띄울 수 있는지.
+  view: boolean;
+  failure_paths: HarnessFailurePath[];
+};
 
 export async function runHarnessChild(scratch: string): Promise<void> {
   const input = JSON.parse(

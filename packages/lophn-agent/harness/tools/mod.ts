@@ -42,6 +42,15 @@ export {
   PROBLEM_READ_TOOLS,
 } from "./bundles/app.ts";
 export {
+  createTicketToolHandlers,
+  missingForReady,
+  TICKET_READ_TOOL_NAMES,
+  TICKET_TOOL_REVISION,
+  TICKET_TOOLS,
+  TICKET_WRITE_TOOL_NAMES,
+  type TicketToolPorts,
+} from "./bundles/ticket.ts";
+export {
   createSdkToolHandlers,
   SDK_TOOL_NAMES,
   SDK_TOOL_REVISION,

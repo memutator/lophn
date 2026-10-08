@@ -278,12 +278,15 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: 없음
 - slice: apps
 - 선행: problems#T10, problems#T11, apps#T23, apps#T24, apps#T25, apps#T26
+- 상태: 완료 (#442) — 이어보냄: RequestTest 접수가 runner를 감독 통로로 깨워 이 `--app-test-job` 진입점을 부르고 결과를 core RecordVerification으로 보내는 상시 service 연결(지금 runner 진입점은 stdin 요청 한 건을 도는 모드이고 시험은 ledger worker harness로 RecordVerification을 읽는다), runner→collector의 실제 loopback 접수(지금은 한 요청 안의 collector 대역이 mode=test·scope로 받은 보고를 모은다) → T8 후속
 - T11에서 넘어온 것: `ScreenReportSink`·`runScreenHost`·`serveTestAppSocket`(packages/problems/tests/)을 runner 조립에 연결(host 실행 파일 `SCREEN_TEST_HOST` 경로, 요청 작업 폴더, `--allow-run` 값, mode=test·scope로 collector 접수)
 - T9에서 넘어온 것: harness frame의 runner 쪽 비공개 통로(지금은 자식 scratch의 frames.jsonl), 실제 AppDriver, app-test 계획·판정을 test-runner·core launch spec·RecordVerification까지 연결(#247)
 - 완료:
   - 3종 fixture의 app test가 각각 기간·시간대·coverage, blob·충돌, 효과 불확실성 관측을 남기고 pass한다; 새 제품 앱 등록 약속으로 다루지 않는다(R18)
   - 깨지는 앱의 app test가 pass하고(선언 실패 경로·exception·view 오류 경로가 실제로 보고됨), testdata 변형(실패 경로 test 없음, SDK 직접 호출 test만, root 오류 경계 없음, read의 업무 쓰기, confirm automation)은 각각 fail
   - 깨지는 앱의 시나리오 목록은 apps 팀에 보낸다(apps#T26이 만든다)
+- 정한 것(T12): runner 진입점 `apps/worker/problems/test-runner.ts`는 `--app-test-job`으로 요청 한 건(`app-test-run.ts`의 `AppTestJob`)을 돈다. core launch spec(`testRunnerSpec`)의 권한 flag 그대로 뜨고, 그 flag에 `--allow-run`으로 platform 도구(`/usr/bin/setsid`·`systemd-run`·`prlimit`)와 host, `--allow-net`으로 가상 host `lophn.invalid`와 slot별 고정 Unix socket 셋(`runnerSockets`), 읽기로 그룹 도구 경로·루트 `deno.json`, 환경으로 `HOME`·`DENO_DIR`·사용자 bus·`NODE_V8_COVERAGE`(node:child_process가 읽는다)를 더했다(이 부분이 빠져 spec대로는 자식을 띄우지 못했다). 앱 자식은 요청마다 봉인 bundle 사본을 운영과 같은 flag·진입점·mode=test로 띄우고(`app-driver.ts`) runner가 연 broker socket·서명한 direct 연결로 부른다. test 자식은 net·run 없이 scratch의 `rpc/` 파일 통로로만 그 driver를 부른다(`harness/rpc.ts`). 앱이 낸 시험 자료는 bundle의 `tests/app-test.json`(실패 경로 test 목록과 주입 종류 store·net·none, command별 fixture 입력, 변경 전 준비, 되돌림 journal 표, 업무 관측 probe, 앱이 선언한 바깥 자리의 fixture 파일)이다. 정적 code 사용: literal 선언 밖·예약 code는 정적 fail, 계산한 code 자리는 세어 기록하고 필수 `code_usage_dynamic`이 실제 보고 통로의 guard 거절을 보였을 때만 통과한다(open-issues problems/tests#Q6). 실제 앱 진입점이 시작 입력 줄과 bundle 폴더에서 broker·blueprint·화면을 읽도록 `boot()`를 고쳤다(전에는 앱 자식에 없는 env 권한을 요구해 실제 앱 프로세스로는 뜨지 못했다, packages/apps/runtime/entrypoint/main.ts, apps에 알림).
+- T12에서 찾아 고친 fixture 결함: (1) calendar: add_event가 실제 `withRevert`(invocation·receipt·revision)를 내고 `revert_event`가 후속 변경과 중복 되돌림을 거절하며(앞 작업자), (2) 외부 응답이 2xx인데 본문이 없는 경우(고정 대역)를 TypeError로 터뜨리지 않고 확인되지 않은 이벤트로 받는다, (3) 선언한 loopback 목적지(`127.0.0.1:38917`)는 apps/preview 대역이 받지 않으므로 대역이 고정 이름으로 바꿔 받는다(fixture 자체는 그대로), (4) broken: 기본 migration은 빈 DB에서 끝까지 적용되고(`migration_empty` 통과) 실패하는 migration은 testdata의 `upgrade-failure` 변형(0-2·2-3 단계라 이전 schema 1에서 갈 길이 없다)으로 옮겼다. 그 밖의 fixture 코드는 그대로이고 fixture마다 `tests/app-test.json`만 더했다.
 
 ### T16 view exception 귀속과 화면 source map
 
@@ -412,6 +415,9 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: 없음(C-test실행의 reproduction kind)
 - slice: problems
 - 선행: problems#T9, problems#T10, problems#T12
+- 상태: 완료 (#446) — 이어보냄: RequestTest 접수가 runner를 깨워 `--reproduction-job`(`apps/worker/problems/reproduction-run.ts`)을 부르고 결과를 core RecordVerification으로 보내는 상시 service 연결, 접수 때 problem의 원래 Report에서 `ReproductionScenario`(증상·기대·인접 불변식)를 만드는 준비 단계 → T8·T14 후속, 코딩 agent 통로(coding-agent#T21)
+- coding-agent#T44에서 넘어온 것: core `RequestTest`는 coding_agent의 reproduction 요청에서 지정 ticket의 현재 claim을 확인하지 않는다(입력 contract에 claim 근거가 없다). 지금은 MCP `lophn_problem test`·CLI `problem test`가 ticket 읽기로 현재 claim을 확인한 뒤 보내고, `lophn_app test`·`app test --kind reproduction`은 claim 없이도 같은 route로 요청할 수 있다. runner 연결(follow-up 40) 때 core 쪽 claim 검사를 더할지 정한다. 지금 core는 runner가 없어 접수를 `internal`로 거절하고 이 통로는 그것을 실패로 낸다(성공 pass 아님)
+- 정한 것(T18): 고정 증상 정의는 `ReproductionScenario`(원래 problem code·probe command·증상·기대·인접 불변식 matcher)이고 hash가 FrozenTest의 `input`·`expected`·`symptom`에 묶인다(`packages/problems/tests/reproduction/`). harness 자식은 side별 `symptom`·`adjacent:<name>` frame을 내고 runner가 같은 정의로 재판정한다. 약화 검사는 problem code 선언 삭제, source의 보고 호출 삭제, 업무 증상은 남았는데 보고만 사라진 보고 경로 삭제, 관측 기대 hash 불일치(기대 낮춤)다. 깨지는 앱 fixture의 판 B·E를 `run_broken`에 연결했다(판 A 동작은 그대로).
 - 완료:
   - before·after마다 source read-only·새 fixture DB·같은 FrozenTest·input·expected·environment; 운영 DB 복사와 실계정 재전송 없이 replay·stub(R15)
   - before 원증상 재현 + after 같은 기대 충족 + 약화 없음만 `pass`; before 재현 + after 같은 증상은 `fail`; before도 pass·다른 실패·같은 오류 이름만·timeout은 `inconclusive`(R10)
@@ -506,6 +512,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 
 ### T23 report-app-problem flow E2E
 
+- 상태: 진행 (#447) — 12단계가 실제 headless shell·core·앱 감독·깨진 fixture 앱으로 통과한다(flow 1~6, 보호 창·lophn dialog·가려진 view, 취소, 제출 전후 닫기, screenshot 선택, 시작 전 실패, 직접 시도 실패, core 사라짐). 남은 것(구동하지 못해 가짜로 채우지 않았다): (1) R13 기존 문제를 고르는 제출과 [View issue]로 그 문제 상세에 가는 것 — dialog에 기존 문제를 고르는 자리가 없고(`existing_problem` 늘 null) desktop이 Issues 탭을 잇지 않아 `app-issue` intent가 앱 공간만 연다 → shell#T53, (2) R4 "시작 전 실패" 표시 — dialog가 `command_start`를 늘 "unknown"으로 보낸다(invocation이 생기지 않는 것까지만 확인) → shell#T52, (3) 응답 단절 뒤 최신 상태 확인과 같은 발생 재전송, 수집 꺼짐·실패 이유, 두 번째 창 — flow에서 이어 보낼 수 없거나 e2e/shell/report-problem_test가 본다. 앱 자식은 운영 앱의 실제 기동 entry가 아직 없어(apps#T27) bundle에 runtime entrypoint `main()` 진입 파일을 더해 다시 봉인했다
 - 등급: 기본
 - concern: problems/feedback, problems/reporting, problems/snapshots, problems/grouping
 - 요구: problems/feedback#R5, R6, R11, R12, R13

@@ -7,6 +7,7 @@ import {
 } from "../../../../packages/design/components/testing.ts";
 
 import type { ConnectionState, CoreSource } from "./connection/connection.ts";
+import { windowCoreSource } from "./connection/connection.ts";
 import { Launcher } from "./launcher/launcher.tsx";
 
 function sourceOf(states: ConnectionState[]): {
@@ -178,5 +179,53 @@ Deno.test("shell/wording#R1: 런처의 고정 문구는 message key로만 나온
     ]
   ) {
     assert(text.includes(sentence), `missing: ${sentence}`);
+  }
+});
+
+Deno.test("shell/desktop#R7: 앱 공간에서 런처로 돌아와 새로 마운트해도 core가 이미 ready라면 getting ready에 머물지 않는다", () => {
+  // main은 이미 ready를 지나 보냈고 새 구독자에게 다시 밀지 않는다. 이 창이 기억한 상태로 시작한다.
+  const silent: CoreSource = {
+    subscribe: () => () => {},
+    current: () => ready,
+    call: () => Promise.resolve({ ok: true, value: {} }),
+  };
+  using view = render(<Launcher source={silent} onLophn={() => {}} />);
+  assertEquals(view.container.querySelector("[data-connection]"), null);
+  assert(view.container.querySelector("[data-cards]"), "launcher is gated");
+});
+
+Deno.test("shell/desktop#R7: 창이 처음 받은 상태를 기억해 나중에 마운트한 화면이 읽고, 아직 받은 것이 없으면 starting이다", () => {
+  const holder = globalThis as { lophnCore?: unknown };
+  const before = holder.lophnCore;
+  const listeners = new Set<(state: unknown) => void>();
+  holder.lophnCore = {
+    subscribe(listener: (state: unknown) => void) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    call: () => Promise.resolve({ ok: true, value: {} }),
+  };
+  try {
+    const source = windowCoreSource();
+    assertEquals(source.current?.(), undefined);
+    using early = render(<Launcher source={source} onLophn={() => {}} />);
+    assertEquals(
+      early.container.querySelector("[data-connection]")?.getAttribute(
+        "data-connection",
+      ),
+      "starting",
+    );
+    act(() => {
+      for (const listener of listeners) listener(ready);
+      // 모양이 틀린 값은 기억하지 않는다.
+      for (const listener of listeners) listener({ state: "bogus" });
+    });
+    assertEquals(source.current?.(), ready);
+    // 런처가 닫혔다 다시 열린다(공간 이동). 새 화면은 starting 없이 시작한다.
+    using later = render(<Launcher source={source} onLophn={() => {}} />);
+    assertEquals(later.container.querySelector("[data-connection]"), null);
+    assert(later.container.querySelector("[data-cards]"));
+  } finally {
+    holder.lophnCore = before;
   }
 });

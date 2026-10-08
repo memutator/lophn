@@ -37,6 +37,7 @@ import {
 import {
   listProblemFixes,
   problemFixRecorded,
+  problemsUploadFixSummary,
   recordProblemFix,
 } from "./fixes.ts";
 import {
@@ -71,6 +72,7 @@ export const ROUTES = [
   getSnapshotLogs,
   reportBody,
   listProblemFixes,
+  problemsUploadFixSummary,
 ] as const;
 export const EVENTS = [
   verificationRecorded,

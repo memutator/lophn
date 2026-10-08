@@ -60,6 +60,7 @@ Deno.test("coding-agent/connection#R17 coding-agent/connection#R9: locked·no_se
       const provider = createHelperCredentialProvider({
         helper: f.helper,
         generation: () => "1",
+        retry: { intervalMs: 1, boundMs: 0 },
       });
       const result = await provider(CAC);
       assert(!result.ok);
@@ -99,6 +100,7 @@ Deno.test("coding-agent/connection#R17 coding-agent/mcp-server#R36: helper가 �
     const garbled = await createHelperCredentialProvider({
       helper: f.helper,
       generation: () => "1",
+      retry: { intervalMs: 1, boundMs: 0 },
     })(CAC);
     assert(!garbled.ok);
     assertEquals(garbled.error, "not_found");
@@ -111,6 +113,7 @@ Deno.test("coding-agent/connection#R17 coding-agent/mcp-server#R36: helper가 �
     const extra = await createHelperCredentialProvider({
       helper: g.helper,
       generation: () => "1",
+      retry: { intervalMs: 1, boundMs: 0 },
     })(CAC);
     assert(!extra.ok);
     assertFalse(JSON.stringify(extra).includes(TOKEN));
@@ -162,4 +165,82 @@ Deno.test("coding-agent/connection#R17: process generation은 pid와 시작 tick
   assertEquals(processGenerationOf(4242, "987654"), "4242.987654");
   assertEquals(processGenerationOf(4242, undefined), "4242");
   assertEquals(startTicksOf("garbage"), undefined);
+});
+
+// 시계는 sleep만큼 가는 fake다. 실제 기다림 없이 한도를 본다.
+function fakeClock() {
+  let at = 0;
+  return {
+    now: () => at,
+    sleep: (ms: number) => {
+      at += ms;
+      return Promise.resolve();
+    },
+  };
+}
+
+async function requestCount(f: Fake): Promise<number> {
+  return (await Deno.readTextFile(f.requests)).trim().split("\n").length;
+}
+
+Deno.test("coding-agent/connection#R17 platform/identity#R15: 등록이 첫 요청 뒤에 와도 not_found를 한도 안에서 다시 물어 child가 token을 받는다", async () => {
+  // 세 번째 요청부터 등록된 것처럼 token을 낸다(요청마다 기록 한 줄).
+  const f = await fake(
+    [
+      'if [ "$(wc -l < "$(dirname "$0")/requests.log")" -ge 3 ]; then',
+      `  printf '%s' '{"token":"${TOKEN}"}'`,
+      "else",
+      `  printf '%s' '{"reason":"not_found"}'; exit 1`,
+      "fi",
+    ].join("\n"),
+  );
+  try {
+    const provider = createHelperCredentialProvider({
+      helper: f.helper,
+      generation: () => "7.7",
+      clock: fakeClock(),
+    });
+    const got = await provider(CAC);
+    assert(got.ok, got.ok ? "" : got.error);
+    assertEquals(got.value.token, TOKEN);
+    assertEquals(await requestCount(f), 3);
+  } finally {
+    await Deno.remove(f.dir, { recursive: true });
+  }
+});
+
+Deno.test("coding-agent/connection#R17 platform/identity#R15: 등록이 끝내 오지 않으면 한도(100ms 간격 3초) 뒤에 not_found로 실패한다", async () => {
+  const f = await fake(`printf '%s' '{"reason":"not_found"}'\nexit 1`);
+  try {
+    const provider = createHelperCredentialProvider({
+      helper: f.helper,
+      generation: () => "8.8",
+      clock: fakeClock(),
+    });
+    const result = await provider(CAC);
+    assertFalse(result.ok);
+    assertEquals(result.error, "not_found");
+    // 처음 한 번과 100ms 간격 30번이다.
+    assertEquals(await requestCount(f), 31);
+  } finally {
+    await Deno.remove(f.dir, { recursive: true });
+  }
+});
+
+Deno.test("coding-agent/connection#R17 platform/identity#R15: not_found 밖의 답(locked·no_secret_service)은 다시 묻지 않고 바로 실패한다", async () => {
+  for (const reason of ["locked", "no_secret_service"]) {
+    const f = await fake(`printf '%s' '{"reason":"${reason}"}'\nexit 1`);
+    try {
+      const result = await createHelperCredentialProvider({
+        helper: f.helper,
+        generation: () => "9.9",
+        clock: fakeClock(),
+      })(CAC);
+      assertFalse(result.ok);
+      assertEquals(result.error, reason);
+      assertEquals(await requestCount(f), 1);
+    } finally {
+      await Deno.remove(f.dir, { recursive: true });
+    }
+  }
 });

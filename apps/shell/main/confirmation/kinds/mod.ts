@@ -10,6 +10,12 @@ import type { LiveHandle } from "../handle.ts";
 import type { ConfirmationIntent } from "../types.ts";
 import { appDecisions } from "./app-decisions.ts";
 import { GRANT, readApproval, submitApproval } from "./approval.ts";
+import {
+  CONNECTION_CONCERN,
+  CONNECTION_REVOKE,
+  readConnectionRevoke,
+  submitConnectionRevoke,
+} from "./connection-revoke.ts";
 import { failed, type KindCore, record, type Sent } from "./core.ts";
 import { readOptionAction, submitOptionAction } from "./option-action.ts";
 import {
@@ -58,6 +64,13 @@ export function createKinds(options: KindsOptions): {
           return readOptionAction(core, intent.question, intent.option_key);
         case "owner_decision": {
           const run = intent.targets?.[0];
+          if (
+            intent.concern === CONNECTION_CONCERN &&
+            intent.decision === CONNECTION_REVOKE && run !== undefined &&
+            intent.targets?.length === 1
+          ) {
+            return readConnectionRevoke(core, run);
+          }
           if (
             intent.concern === REVERT_CONCERN &&
             intent.decision === REVERT_RUN && run !== undefined &&
@@ -109,6 +122,16 @@ export function createKinds(options: KindsOptions): {
       decision === REVERT_RUN && request.input.kind === "inline"
     ) {
       return submitRevert(core, reverts, {
+        handle,
+        content: record(canonical?.content),
+      });
+    }
+    if (
+      request?.kind === "owner_decision" &&
+      request.concern === CONNECTION_CONCERN &&
+      decision === CONNECTION_REVOKE && request.input.kind === "inline"
+    ) {
+      return submitConnectionRevoke(core, {
         handle,
         content: record(canonical?.content),
       });

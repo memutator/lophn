@@ -13,6 +13,11 @@ test("shell/desktop#R19: renderer allowlist는 contract의 read·command와 문�
     const name = `${route.kind}:${route.resource}/${route.method}`;
     if (route.kind === "worker" && READING_WORKER_ROUTES.includes(name)) {
       assert.equal(allowed, true, name);
+    } else if (
+      route.resource === "coding_agent_connections" && route.method === "create"
+    ) {
+      // 연결 생성은 renderer가 token 검증 hash를 낼 수 없어 allowlist에 없다. 고정 연결 intent로만 만든다.
+      assert.equal(allowed, false, name);
     } else if (route.kind === "read" || route.kind === "command") {
       assert.equal(allowed, true, `${route.resource}/${route.method}`);
       if (route.kind === "read") reads += 1;

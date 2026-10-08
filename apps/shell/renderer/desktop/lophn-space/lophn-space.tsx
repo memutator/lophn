@@ -41,6 +41,7 @@ import { RolesScreen } from "./roles/roles-screen.tsx";
 import type { RolesSource } from "./roles/source.ts";
 import { SettingsScreen } from "./settings/settings-screen.tsx";
 import type { SettingsSource } from "./settings/source.ts";
+import type { CodingConnectionsSource } from "./settings/connections/source.ts";
 import styles from "./lophn-space.module.css";
 
 export interface LophnSpaceProps {
@@ -82,6 +83,10 @@ export interface LophnSpaceProps {
   settings?: SettingsSource;
   /** 전역 [Instructions] 편집기로 간다. settings 화면의 단추가 쓴다. */
   onInstructions?: () => void;
+  /** settings의 coding agent 연결 통로. 없으면 그 자리를 두지 않는다. */
+  coding?: CodingConnectionsSource;
+  /** `lophn://things-to-confirm/<cac id>` 링크로 온 연결. settings가 그 연결을 먼저 보인다. */
+  initialConnection?: string;
 }
 
 const EMPTY_CATALOG: Catalog = { projects: [], apps: [], contexts: [] };
@@ -109,6 +114,8 @@ export function LophnSpace(
     initialAttach,
     settings,
     onInstructions,
+    coding,
+    initialConnection,
   }: LophnSpaceProps,
 ) {
   const [current, setCurrent] = useState<LophnScreen>(screen ?? DEFAULT_SCREEN);
@@ -316,6 +323,8 @@ export function LophnSpace(
             ? (
               <SettingsScreen
                 source={settings}
+                coding={coding}
+                initialConnection={initialConnection}
                 onInstructions={onInstructions}
                 onAsk={conversation ? () => setDockOpen(true) : undefined}
               />

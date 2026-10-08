@@ -27,6 +27,8 @@ export interface SingleInstanceOptions {
   onOpenApp?: (app: string) => void;
   /** `lophn://things-to-confirm/<id>` 링크. 없으면 기본 창이다. */
   onThingsToConfirm?: (request: string) => void;
+  /** `lophn://things-to-confirm/<cac|tkt|app id>` 링크(coding agent 회수·취소·생성). 없으면 기본 창이다. */
+  onCoding?: (target: string) => void;
 }
 
 export interface SingleInstance {
@@ -55,6 +57,8 @@ export function startSingleInstance(
       intent.kind === "things-to-confirm" && options.onThingsToConfirm
     ) {
       options.onThingsToConfirm(intent.request);
+    } else if (intent.kind === "coding" && options.onCoding) {
+      options.onCoding(intent.target);
     } else onOpenWindow();
   });
   return { acquired: true };

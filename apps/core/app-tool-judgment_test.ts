@@ -96,7 +96,11 @@ function portsOf(state: Fixture): AppJudgmentPorts {
       Promise.resolve(
         ok({
           view: state.view,
-          grants: [{ grant: GRANT, commands: state.granted }],
+          grants: [{
+            grant: GRANT,
+            commands: state.granted,
+            basis_seq: "0",
+          }],
         }),
       ),
     nonce: () => {
@@ -129,7 +133,10 @@ async function toolsOf(state: Fixture): Promise<readonly AppTool[]> {
   return await buildAppTools({
     scope: scope.value,
     views: [state.view],
-    grants: new Map([[APP, [{ grant: GRANT, commands: state.granted }]]]),
+    grants: new Map([[
+      APP,
+      [{ grant: GRANT, commands: state.granted, basis_seq: "0" }],
+    ]]),
   });
 }
 

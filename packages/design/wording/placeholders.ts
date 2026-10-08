@@ -656,6 +656,9 @@ export type PlaceholderKinds = {
   "confirmation-window.revert-why.no-earlier": Record<never, never>;
   "confirmation-window.revert-why.not-lophn": Record<never, never>;
   "confirmation-window.revert-why.stale": Record<never, never>;
+  "confirmation-window.revert-why.app-failed": Record<never, never>;
+  "confirmation-window.revert-why.app-uncertain": Record<never, never>;
+  "confirmation-window.revert-why.app-not-started": Record<never, never>;
   "confirmation-window.revert-why.title-change": Record<never, never>;
   "confirmation-window.revert-why.unknown-document": Record<never, never>;
   "confirmation-window.revert-why.unknown": Record<never, never>;

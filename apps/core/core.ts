@@ -24,6 +24,7 @@ import {
 import {
   createAppEngineerAssignment,
   providerList,
+  runAppRevert,
 } from "../../packages/contracts/lophn-agent/mod.ts";
 import {
   type ApiServer,
@@ -251,11 +252,24 @@ import {
   ticketCheckerSpec,
 } from "./ticket-checker.ts";
 import {
+  APP_REVERT_CONTEXT,
+  APP_REVERT_PRINCIPAL,
+  type AppRevertCaller,
+  appRevertPolicies,
+  createAppRevert,
+} from "./app-revert.ts";
+import {
+  REVERT_WORKER_KIND,
+  revertWorkerSpec,
+  workerAppCaller,
+} from "./revert-caller.ts";
+import {
   appCredentialIssuer,
   APPS_CONTROL_CONTEXT,
   APPS_CONTROL_PRINCIPAL,
   APPS_SUPERVISOR_KIND,
   type AppsControl,
+  appSocketRoot,
   appsOperationPolicies,
   appSupervisorSpec,
   createAppsControl,
@@ -328,6 +342,9 @@ export type CoreOptions = {
   superviseIo?: boolean;
   // 테스트 harness만 true로 둔다. main.ts는 이 입구를 열지 않는다.
   testCredentials?: boolean;
+  // 앱 revert 단계의 호출자를 바꾼다(lophn-agent#T48). 없으면 호출한 사람의 apps/connect 연결과 앱 direct
+  // socket을 쓴다. 테스트가 실제 앱 프로세스를 띄우지 않고 앱의 호출 결과를 넣는 입구다.
+  appRevertCaller?: (ctx: AuthenticatedContext) => AppRevertCaller;
   // 테스트가 준비 참조를 writer 메모리에 심는 입구. 제품 기동에는 없다.
   notePrepared?: (prepared: PreparedRelayResult, nowMs: number) => void;
   // 테스트가 정지 유지보수를 대신 실행한다. 제품 기동에는 없다. 세 정지
@@ -519,6 +536,8 @@ async function open(
   const runnerChannel = createDocumentsChannel();
   // coding-agent 수리 자료 worker 요청 통로. 같은 통로 모양을 쓴다(coding-agent#T43).
   const repairChannel = createDocumentsChannel();
+  // 앱 revert 호출 worker 요청 통로. 같은 통로 모양을 쓴다(lophn-agent#T48).
+  const revertChannel = createDocumentsChannel();
   // coordinator가 파일 읽기의 창으로 보내는 byte frame의 우편함(`files.read` stream).
   const fileWindows = createFileWindows();
   const ledgerPath = `${root.path}/lophn.db`;
@@ -632,6 +651,8 @@ async function open(
     ...ticketCheckerPolicies(),
     // test-runner kind의 `problems.work` 반응기(machine)가 event를 읽고 문제 work를 맞춘다(problems#T19).
     ...problemsWorkPolicies(),
+    // 앱 revert 단계의 기록·끝내기(core 내부 machine, lophn-agent#T48).
+    ...appRevertPolicies(),
     // agent runtime(machine)과 run의 agent 자격이 닿는 operation(lophn-agent/harness/run-loop).
     ...(options.agentRuntime ? agentRuntimePolicies(allRoutes) : []),
     // 팀이 공개 정책을 내놓은 event 이름. 사람 token의 operation에 들어가 owner 정책이 판단한다.
@@ -849,6 +870,12 @@ async function open(
   if (!appsControlCredential.ok) {
     await runtime.close();
     return appsControlCredential;
+  }
+  // 앱 revert 이어 실행(lophn-agent#T48)이 단계를 기록하고 끝내는 core 내부 자격 기록.
+  const appRevertCredential = await runtime.record(APP_REVERT_CONTEXT);
+  if (!appRevertCredential.ok) {
+    await runtime.close();
+    return appRevertCredential;
   }
   // 명시 연결 test(provider#R30)가 model call 기록·provider 상태를 쓰는 core 내부
   // machine 자격 기록. 기록이 없으면 StartModelCall이 거절해 test가 실패한다.
@@ -1166,6 +1193,26 @@ async function open(
         ...runtime.memory.handlers,
         ...runtime.deliveryMemory,
         ...appsControl.memory,
+        // 확인한 revert의 앱 단계를 이어 실행한다(lophn-agent#T48). 실제 복원 호출은 감독
+        // worker(apps/revert)가 호출자의 credential으로 하고 core는 결과를 받아 판정한다.
+        [
+          `${runAppRevert.resource}/${runAppRevert.method}`,
+          createAppRevert({
+            ledgerPath,
+            caller: options.appRevertCaller ??
+              ((_ctx, credential) =>
+                workerAppCaller({
+                  channel: revertChannel,
+                  credential,
+                })),
+            command: (ctx, envelope) =>
+              runtime?.writer.command(ctx as never, envelope as never),
+            machine: () => {
+              const current = runtime?.current(APP_REVERT_PRINCIPAL);
+              return current?.ok ? current.value : undefined;
+            },
+          }),
+        ] as const,
         // 사람의 연결 결정 입구. codingKeychain이 있을 때만 서고 없으면 route는 처리기 없이 남는다.
         ...(coding
           ? [
@@ -1936,6 +1983,33 @@ async function open(
     if (started.ok) {
       repairChannel.bind((payload) =>
         io.send(REPAIR_WORKER_KIND, payload).then((sent) => sent.ok)
+      );
+    }
+  }
+  // apps/revert. 확인한 revert의 앱 단계를 호출자의 credential로 실제로 부르는 상시 worker다
+  // (lophn-agent#T48). 감독이 없는 harness는 띄우지 않는다. 띄우지 못해도 core는 계속 선다:
+  // 사람의 run_apps 이어 실행이 failure로 닿지 않는다(접수는 applying으로 남는다).
+  if (io) {
+    const spec = revertWorkerSpec({
+      socketRoot: appSocketRoot(appsRuntimeDir),
+    });
+    const started = await io.start(
+      spec,
+      {
+        type: "hello",
+        core_epoch: epoch,
+        process_identity: epoch,
+        kind: REVERT_WORKER_KIND,
+        task: "apps",
+        scope: { operations: [], targets: {} },
+        credential: "none",
+        api_port: server.port,
+      },
+      { onMessage: (message) => revertChannel.onMessage(message) },
+    );
+    if (started.ok) {
+      revertChannel.bind((payload) =>
+        io.send(REVERT_WORKER_KIND, payload).then((sent) => sent.ok)
       );
     }
   }

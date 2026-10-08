@@ -52,6 +52,7 @@ import {
   releasePrepared,
   releaseSuperseded,
 } from "./releases.ts";
+import { activeRelease } from "./closing.ts";
 
 export const ROUTES = [
   appConnect,
@@ -79,6 +80,7 @@ export const ROUTES = [
   ...PACKAGE_ROUTES,
   ...PREVIEW_ROUTES,
   ...RELEASE_ROUTES,
+  activeRelease,
 ] as const;
 
 export const EVENTS = [

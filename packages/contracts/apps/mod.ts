@@ -39,4 +39,5 @@ export * from "./grants.ts";
 export * from "./package-routes.ts";
 export * from "./previews.ts";
 export * from "./releases.ts";
+export * from "./closing.ts";
 export * from "./data-job.ts";

@@ -29,8 +29,10 @@ concerns: [problems/grouping]
 | 전 | 후 | actor | 조건 | event |
 |---|---|---|---|---|
 | 없음 | `open` | machine | 첫 유효 운영 Report | `ProblemOpened` |
+| `open` | `open` | machine | 열린 repair ticket 생성(`TicketCreated`)으로 `work`를 이음 | `ProblemWorkStarted`(`claim_seq` null) |
 | `open` | `fixing` | machine | `work`의 현재 유효 claim 확인 | `ProblemWorkStarted` |
 | `fixing` | `open` | machine | claim 해제·만료·완료 보고·취소; 닫힘 근거 없음 | `ProblemWorkEnded` |
+| `open` | `open` | machine | `work`의 ticket이 취소·확인되어 `work`를 비움 | `ProblemWorkEnded` |
 | `open` 또는 `fixing` | `closed` | machine 또는 보호된 user 결정 | 판정 → problems/closing | `ProblemClosed` → problems/closing |
 | `closed` | `open` | machine 또는 보호된 user 결정 | 현재 활성 release에서 같은 key의 보고 또는 “아직입니다” | `ProblemReopened` → problems/closing |
 | `open` 또는 `fixing` | 동일 | machine | 같은 key Report 추가 | `ProblemObserved` |
@@ -42,7 +44,7 @@ concerns: [problems/grouping]
 - 보관·보관 해제 상태와 event는 없다. 닫힌 목록 표시는 필터다.
 - 보고 수·처음/마지막 시각·대표 보고·제목·최신 변경 seq는 Report와 event에서 읽는다. 별도 정본 필드로 복제하지 않는다.
 - `work`는 문제당 0..1개다. 한 ticket은 여러 문제를 가리킬 수 있으므로 `work`에 unique를 걸지 않는다. ticket이 끝나면 비운다.
-- ticket 이벤트 뒤 현재 ticket 상태·claim을 읽는다. `TicketClaimed`, `TicketClaimReleased`, `TicketCompletionReported`, `TicketCheckFailed`, `TicketCancelled`, `TicketConfirmed`를 받으며 `TicketCheckFailed`는 새 claim이 아니다.
+- ticket 이벤트 뒤 현재 ticket 상태·claim을 읽는다. `TicketCreated`(연결 문제 포함, readiness 무관), `TicketClaimed`, `TicketClaimReleased`, `TicketCompletionReported`, `TicketCheckFailed`, `TicketCancelled`, `TicketConfirmed`를 받으며 `TicketCheckFailed`는 새 claim이 아니다.
 - ticket 이벤트는 닫힌 문제를 다시 열거나 닫지 않는다. 과거 ticket 없는 수리 기록·고친 기록·test 요청·session 시작은 상태를 바꾸지 않는다.
 
 ## GroupKey (값)
@@ -93,7 +95,7 @@ concerns: [problems/grouping]
 
 | command | actor | 입력 | 비교 기준 | event | 거절(error code) |
 |---|---|---|---|---|---|
-| `ReconcileProblemWork` | machine | problem, ticket, 받은 ticket event seq | 문제 최신 seq·현재 work; 현재 ticket 상태·claim; 문제당 열린 ticket 1개 | 상태 변화면 `ProblemWorkStarted` / `ProblemWorkEnded` | `not_found`, `conflict`, `forbidden` |
+| `ReconcileProblemWork` | machine | problem, ticket, 받은 ticket event seq | 문제 최신 seq·현재 work; 현재 ticket 상태·claim; 문제당 열린 ticket 1개 | 상태·`work` 변화면 `ProblemWorkStarted` / `ProblemWorkEnded` | `not_found`, `conflict`, `forbidden`, `invalid_input`(열린 ticket을 이미 가진 문제에 다른 열린 ticket) |
 | `LinkProblemInterpretation` | 담당 App Engineer | problem, 새 참조 또는 null | 문제 최신 seq·현재 참조; 앱 scope·판 읽기 권한 | `ProblemInterpretationLinked` | `invalid_input`, `not_found`, `forbidden`, `conflict` |
 
 ## event
@@ -102,8 +104,8 @@ concerns: [problems/grouping]
 |---|---|---|---|
 | `ProblemOpened` | Problem ID | `app`, `group_key`, 최초 `report` | platform/notifications, coding-agent/repair-context |
 | `ProblemObserved` | Problem ID | `report`, `release?`, `active_release_at_acceptance?`, `previous_status` | problems/closing, coding-agent/repair-context |
-| `ProblemWorkStarted` | Problem ID | `ticket`, `claim_seq`, 근거 ticket event seq | coding-agent/tickets, coding-agent/repair-context |
-| `ProblemWorkEnded` | Problem ID | `ticket`, 종료 사유, 근거 ticket event seq | coding-agent/tickets, coding-agent/repair-context |
+| `ProblemWorkStarted` | Problem ID | `ticket`, `claim_seq`(ticket만 이으면 null), 근거 ticket event seq | coding-agent/tickets, coding-agent/repair-context |
+| `ProblemWorkEnded` | Problem ID | `ticket`, 종료 사유(released·expired·completion_reported·cancelled·confirmed), 근거 ticket event seq | coding-agent/tickets, coding-agent/repair-context |
 | `ProblemInterpretationLinked` | Problem ID | `previous` 참조?, `current` 참조? | coding-agent/repair-context, lophn-agent |
 
 ## 정책

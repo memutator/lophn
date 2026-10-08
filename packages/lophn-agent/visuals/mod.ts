@@ -7,6 +7,12 @@ export {
   type VisualStage,
 } from "./model.ts";
 export {
+  type CardScreen,
+  type CardSupportError,
+  type CardView,
+  checkCardScreen,
+} from "./app-card.ts";
+export {
   blocksOf,
   readStoredBlock,
   sourceLinks,

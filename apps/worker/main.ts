@@ -2,7 +2,7 @@ import { runPlatformIo } from "./platform/io.ts";
 import { runCoordinator } from "./documents/coordinator.ts";
 import { runPreparation } from "./documents/preparation.ts";
 import { runReleaseWorker } from "./apps/release.ts";
-import { runnerReady, TEST_RUNNER_KIND } from "./problems/test-runner.ts";
+import { runRunnerWorker, TEST_RUNNER_KIND } from "./problems/test-runner.ts";
 import {
   COLLECTOR_KIND,
   collectorReady,
@@ -17,6 +17,7 @@ import {
   CODING_AGENT_WORKER_KIND,
   runCodingAgentWorker,
 } from "./coding-agent/repair-context.ts";
+import { REVERT_WORKER_KIND, runRevertWorker } from "./apps/revert.ts";
 
 const WORKER_ENTRIES: Readonly<
   Record<string, (root: string) => Promise<void>>
@@ -25,11 +26,7 @@ const WORKER_ENTRIES: Readonly<
   "documents/worker": runCoordinator,
   "documents/preparation": runPreparation,
   "apps/release": runReleaseWorker,
-  [TEST_RUNNER_KIND]: () => {
-    const ready = runnerReady(TEST_RUNNER_KIND);
-    if (!ready.ok) return Promise.reject(new Error(ready.error.message));
-    return Promise.resolve();
-  },
+  [TEST_RUNNER_KIND]: runRunnerWorker,
   [COLLECTOR_KIND]: () => {
     const ready = collectorReady(COLLECTOR_KIND);
     if (!ready.ok) return Promise.reject(new Error(ready.error.message));
@@ -38,6 +35,7 @@ const WORKER_ENTRIES: Readonly<
   "apps/data": runDataWorker,
   [TICKET_CHECKER_KIND]: runCheckerWorker,
   [CODING_AGENT_WORKER_KIND]: runCodingAgentWorker,
+  [REVERT_WORKER_KIND]: runRevertWorker,
 };
 
 export async function runWorker(kind: string, root: string): Promise<void> {

@@ -889,6 +889,7 @@ E2E는 apps#T27(use-app-command, ask-app-hint, connect-apps, view-agent-visuals 
 
 ### T47 lophn의 앱 일: 앱 기획, 화면 context·힌트, 앱 카드, 운영 보고
 
+- 상태: 완료 (#458)
 - 등급: 기본
 - concern: lophn-agent/roles/lophn, lophn-agent/harness/tools, lophn-agent/harness/tool-judgment, lophn-agent/visuals
 - 요구: lophn-agent/roles/lophn#R6, R9, R10, R12, R18, R23, lophn-agent/harness/tools#R18, lophn-agent/harness/tool-judgment#R12, lophn-agent/visuals#R4, R7

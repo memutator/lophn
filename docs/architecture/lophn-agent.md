@@ -221,6 +221,7 @@ handoff는 Run.source, tool 판정은 ToolCall, safety 실패수는 확정 call,
 | revert_run | `/v1/reverts/apply` | user·종료 run 전체 preview binding·source seq·owner CAS·준비 참조·부분 동의? |
 | run read/list/result | `/v1/runs/read`, `/v1/runs/list`, `/v1/runs/result` | run 또는 assignment/state·cursor; 현재 상태·확정 결과/변경 참조 |
 | run body | `/v1/runs/body` | machine·종류(run basis·model 응답·tool 결과)와 ID; blob hash를 확인한 저장 값. 복구가 이력을 다시 만드는 읽기다 |
+| run body view | `/v1/runs/body-view` | user·종류(run basis·tool 입력·tool 결과)와 ID; 저장된 값을 지금의 redaction으로 한 번 더 거친 것. 64KiB를 넘으면 JSON 글의 앞부분과 `truncated`. model 응답은 열지 않는다. 사람 화면의 도구 활동 자세히와 근거 읽기다 |
 | preset read/list | `/v1/presets/read`, `/v1/presets/list` | ID/revision 또는 kind·cursor; 구성 전체·고정 판; secret 값 없음 |
 | assignment read/list | `/v1/assignments/read`, `/v1/assignments/list` | ID 또는 역할/상태·cursor; 승인 범위·outputs |
 | session read/list | `/v1/sessions/read`, `/v1/sessions/list` | ID 또는 assignment·cursor; 세션 출처·상태 |

@@ -61,6 +61,7 @@ Deno.test("lophn-agent/harness/run-loop#R2: fourteen run routes and six named ev
     "/v1/runs/list",
     "/v1/runs/result",
     "/v1/runs/body",
+    "/v1/runs/body-view",
   ]);
   assertEquals(RUN_EVENTS.map((event) => event.type), [
     "RunAccepted",

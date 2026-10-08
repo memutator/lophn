@@ -968,6 +968,7 @@ E2E는 apps#T27(use-app-command, ask-app-hint, connect-apps, view-agent-visuals 
 - slice: problems
 - 조사: docs/research/presets-and-agent-config.md
 - 선행: T46, T49, problems#T19
+- 상태: 완료 (#470) — 정한 것: (1) `problem.set_interpretation`은 command 전에 같은 자격으로 해석 문서의 고정 version·절(`document.get`·`outline.document`)과 문제의 현재 참조(`GetProblem`)를 읽어 확인하고 그 참조를 `compare.previous`로 싣는다. 최상위 경계 때문에 `problems/grouping`의 `checkInterpretationLink`를 직접 부를 수 없어 같은 판정을 tool bundle의 reader로 두었고, 그 읽기는 supporting operation과 제품 runtime의 내장 write binding(`problems/grouping`, reversible)으로 연결했다. (2) 해석 참조의 복원은 run의 `ProblemInterpretationLinked` event를 문제별 한 묶음으로 보고 같은 `LinkProblemInterpretation`으로 예전 참조를 다시 연결한다. 이어보냄: 그 `tx.call`은 command actor가 `agent`뿐이라 사람 revert의 자격(user·machine)으로는 `forbidden`이다 — problems#T19의 "담당 App Engineer만 연결·해제"와 problems/grouping#R13의 "revert로 복원할 수 있다" 사이 결정이 필요하다(actor를 넓히거나 revert가 그 assignment의 agent 자격으로 부르는 길).
 - 완료:
   - interpretation_test.ts에 R13–R15, R18, R19 테스트: 관측 설계는 문제 정의·보존 동작만(집계·해결 확인·닫힘 없음), 원인 가설 최대 3개와 지지·반박 근거·부족 자료·다음 확인, 해석 문서 고정 version·절 참조만 설정(문제 상태 변경 없음, ToolCall과 한 transaction), release 검토의 의미상 어긋남과 후속 ticket 후보·새 결정은 먼저 질문, SDK 변경은 담당 앱 영향만
   - revert가 이전 해석 참조를 같은 LinkProblemInterpretation으로 다시 연결

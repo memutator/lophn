@@ -116,6 +116,12 @@ export function checkPreparedAdmission(
   const canonical = canonicalRequest({ ...input, before_bundle_hash: null });
   if (!canonical.ok) return canonical;
   if (!prepared) return err({ code: "forbidden", message: FORBIDDEN });
+  if (prepared.claim_rejected !== undefined) {
+    return err({
+      code: "conflict",
+      message: `ticket claim이 현재가 아니다: ${prepared.claim_rejected}`,
+    });
+  }
   if (prepared.unavailable) {
     return err({ code: "unavailable", message: "테스트 준비를 할 수 없다" });
   }

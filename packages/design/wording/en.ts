@@ -1017,6 +1017,8 @@ export const en = {
   "conversation.notice.not-sent":
     "This message wasn't sent. It's still in the box, so you can send it again.",
   "conversation.notice.offline": "You can send once lophn is connected again.",
+  "conversation.notice.provider-lost":
+    "The agent can't reach its account right now. Your work stays open, and you can check the account in Settings.",
   "conversation.notice.paused":
     "This role is paused. New requests are kept and start only after you resume it.",
   "conversation.notice.stale":

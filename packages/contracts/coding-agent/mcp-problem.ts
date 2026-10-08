@@ -33,7 +33,13 @@ const testExtra = { ticket_source: problemTicketSourceSchema };
 
 // tool 입력은 owner route 입력을 다시 적지 않고 고른다(mcp-core·mcp-decisions 같은
 // 모양). state 같은 filter 이름도 owner 것이 그대로다. record_fix는 summary 본문을 받고
-// 통로가 준비 증거를 만든다(ticket report와 같은 모양).
+// 통로가 준비 증거를 만든다(ticket report와 같은 모양). owner 입력(problems/tests)이
+// ticket_source를 optional로 둔 additive PR(#456)과 달리 tool 입력은 필수로 묶는다(main
+// mcp-problem과 같다). refine 뒤 key 덮기는 extend가 거절하므로 안전 확장(safeExtend)으로 심는다.
+const problemTestInput = requestTest.input.safeExtend({
+  ...testExtra,
+  op: z.literal("test"),
+});
 const problemInput = z.discriminatedUnion("op", [
   listProblems.input.extend({ ...listExtra, op: z.literal("list") }),
   getProblem.input.extend({ op: z.literal("show") }),
@@ -43,7 +49,7 @@ const problemInput = z.discriminatedUnion("op", [
   repairContextBundle.input.extend({ op: z.literal("bundle") }),
   repairContextMore.input.extend({ op: z.literal("more") }),
   recordProblemFixToolInputSchema.extend({ op: z.literal("record_fix") }),
-  requestTest.input.extend({ ...testExtra, op: z.literal("test") }),
+  problemTestInput,
 ]);
 
 export const MCP_PROBLEM_TOOLS = [

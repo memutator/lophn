@@ -20,6 +20,10 @@ import {
 export const SET_SECRET = "SetSecret";
 export const REGISTER_PROVIDER_CREDENTIAL = "RegisterProviderCredential";
 export const CHANGE_PROVIDER_CREDENTIALS = "ChangeProviderCredentials";
+// OAuth 로그인 완료(lophn-agent#T16). oauth credential의 값은 secret store에 가지
+// 않고 login-complete 교환의 submission으로만 간다(R11: 값은 보호 제출이지 보관이
+// 아니다).
+export const COMPLETE_PROVIDER_LOGIN = "CompleteProviderLogin";
 
 /** contracts SECRET_INPUT_MAX_BYTES. */
 export const SECRET_INPUT_MAX_BYTES = 64 * 1024;
@@ -234,6 +238,40 @@ export function createSecretSubmitter(
       if (!canonical.allowed.includes(decision)) {
         return { ok: false, error: safeError("forbidden") };
       }
+      // OAuth 로그인은 값을 secret store에 보관하지 않는다. 값은 login-complete
+      // 교환의 submission으로만 간다(lophn-agent#T16, R11).
+      if (isOAuthLogin(content)) {
+        const raw = record(commandInput).value;
+        if (typeof raw !== "string" || raw.trim().length === 0) {
+          return { ok: false, error: safeError("invalid_input") };
+        }
+        const built = loginCommandOf(canonical, raw);
+        const bound = bindingOf(built.binding, built.input);
+        const handle = await register({
+          target_ref: bound.target,
+          content_hash: bound.hash,
+          allowed_decisions: [built.decision],
+          expires_at: new Date(clock.now() + HANDLE_TTL_MS).toISOString(),
+        });
+        if (!handle.ok) return { ok: false, error: safeError("conflict") };
+        const sent = await sendCommand(core, built.resource, built.method, {
+          input: built.input,
+          idempotency_key: `confirmation:${handle.confirmation}`,
+          compare: built.compare,
+          prepared: [],
+          confirmation: handle.confirmation,
+        });
+        if (!sent.ok) {
+          return {
+            ok: false,
+            error: safeError(sent.unknown ? "unavailable" : sent.error.code),
+          };
+        }
+        return {
+          ok: true,
+          value: { secret_ref: built.safeName, stored: "stored" as const },
+        };
+      }
       // 삭제는 받을 값이 없다. 증거 없이 계정 상태만 바꾼다.
       let evidence: Record<string, string> | null = null;
       let fingerprint: string | null = null;
@@ -307,6 +345,42 @@ export function createSecretSubmitter(
 /** 계정 삭제인지. 삭제는 값도 증거도 없다. */
 function isRevoke(content: Record<string, unknown>): boolean {
   return record(content.change).action === "revoke";
+}
+
+/** OAuth 로그인 완료인지. 값은 secret store에 가지 않는다(lophn-agent#T16, R11). */
+function isOAuthLogin(content: Record<string, unknown>): boolean {
+  const credential = record(content.credential);
+  return content.change === undefined && credential.kind === "oauth";
+}
+
+/** OAuth 로그인 완료 command다. submission은 사람이 붙여넣은 코드·최종 주소다. */
+function loginCommandOf(
+  canonical: Canonical,
+  submission: string,
+): {
+  decision: string;
+  resource: string;
+  method: string;
+  binding: readonly string[];
+  input: Record<string, unknown>;
+  compare: Record<string, unknown>;
+  safeName: string;
+} {
+  const content = record(canonical.content);
+  const credential = record(content.credential);
+  return {
+    decision: COMPLETE_PROVIDER_LOGIN,
+    resource: "providers",
+    method: "login-complete",
+    binding: ["provider", "login", "submission"],
+    input: {
+      provider: content.owner,
+      login: credential.key,
+      submission,
+    },
+    compare: {},
+    safeName: String(credential.label),
+  };
 }
 
 function commandOf(

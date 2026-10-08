@@ -65,6 +65,10 @@ export type AppTestJob = {
   // 화면 검사 host(shell이 설치한 실행 파일). 없으면 화면 있는 bundle은 pass하지 못한다.
   screen_host: { command: string; args: string[] } | null;
   timeout_ms: number;
+  // 접수한 요청의 실행 기한(RequestTest `timeout_ms`)이다. 동결 method의 timeout_ms보다 길어지지 않는다(짧은 쪽).
+  request_timeout_ms?: number;
+  // 보고의 진단 scope. 제품 경로에서는 요청별 credential이 고정한 값이다. 없으면 요청 key에서 정한다.
+  scope?: string;
   // 자식 flag·환경에 쓰는 runner 설치 자료.
   deno: string;
   environment: { home?: string; denoDir?: string; xdgCacheHome?: string };
@@ -79,6 +83,7 @@ export type AppTestJobResult = {
     exit_code: number | null;
     end_reason: string | null;
     started_at: string;
+    ended_at: string | null;
     frames: number;
     // 자식이 쓴 안전 출력의 끝부분이다. 판정에는 쓰지 않고 실패를 설명하는 데만 쓴다.
     output_tail: string;
@@ -93,6 +98,19 @@ export type AppTestJobResult = {
   }[];
   // collector에 mode=test와 scope로 넘긴 보고(코드와 종류)다.
   forwarded: { kind: string; code: string; scope: string }[];
+};
+
+// 제품 runner의 연결 자리다. 없으면(stdin 한 건 모드) 한 요청 안의 collector 대역이 mode=test·scope로 접수한
+// 보고를 모은다.
+export type AppTestHooks = {
+  // 자식이 실제로 시작한 것을 관측한 직후, 끝나기를 기다리기 전에 부른다(problems/tests#R17).
+  started?: (child: { started_at: string; mode: string }) => Promise<void>;
+  // 실제 collector 연결. 앱 SDK 보고·process 예외·화면 host 관측을 그 요청의 mode=test·scope로 core에 넘긴다.
+  collector?: {
+    report: RealDriverInput["sink"]["report"];
+    exception: RealDriverInput["sink"]["exception"];
+    screen: ScreenReportSink;
+  };
 };
 
 const HARNESS_TEST = (child: string, scratch: string) =>
@@ -115,6 +133,7 @@ async function migrationSchema(bundle: string): Promise<number> {
 
 export async function runAppTestJob(
   job: AppTestJob,
+  hooks: AppTestHooks = {},
 ): Promise<Result<AppTestJobResult>> {
   const blueprint = JSON.parse(
     await Deno.readTextFile(`${job.bundle}/blueprint.json`),
@@ -160,7 +179,7 @@ export async function runAppTestJob(
   );
 
   const ids = createIdSource({ clock: systemClock, random: cryptoRandom });
-  const scope = `app-test-${job.request_key}`;
+  const scope = job.scope ?? `app-test-${job.request_key}`;
   const forwarded: AppTestJobResult["forwarded"] = [];
   const nonce = (await sha256Hex(`${job.request_key}:probe`)).slice(0, 32);
   const now = () => new Date().toISOString();
@@ -171,25 +190,44 @@ export async function runAppTestJob(
     diagnostic_scope: scope,
   });
   // collector 대역: mode=test와 scope로 접수된 보고를 모은다.
-  const screenSink: ScreenReportSink = {
-    exception(exception, target) {
-      forwarded.push({
-        kind: "exception",
-        code: "_exception",
-        scope: target.scope,
-      });
-      return Promise.resolve(ok(accepted(exception.report_id) as never));
-    },
-    feedback(_facts, target) {
-      const id = ids.newId("rpt");
-      forwarded.push({
-        kind: "feedback",
-        code: "_feedback",
-        scope: target.scope,
-      });
-      return Promise.resolve(ok(accepted(id) as never));
-    },
-  };
+  const screenSink: ScreenReportSink = hooks.collector
+    ? {
+      exception(exception, target) {
+        forwarded.push({
+          kind: "exception",
+          code: "_exception",
+          scope: target.scope,
+        });
+        return hooks.collector!.screen.exception(exception, target);
+      },
+      feedback(facts, target) {
+        forwarded.push({
+          kind: "feedback",
+          code: "_feedback",
+          scope: target.scope,
+        });
+        return hooks.collector!.screen.feedback(facts, target);
+      },
+    }
+    : {
+      exception(exception, target) {
+        forwarded.push({
+          kind: "exception",
+          code: "_exception",
+          scope: target.scope,
+        });
+        return Promise.resolve(ok(accepted(exception.report_id) as never));
+      },
+      feedback(_facts, target) {
+        const id = ids.newId("rpt");
+        forwarded.push({
+          kind: "feedback",
+          code: "_feedback",
+          scope: target.scope,
+        });
+        return Promise.resolve(ok(accepted(id) as never));
+      },
+    };
 
   // 화면 검사 host가 부르는 command가 아래에서 만든 driver를 쓰므로 나중에 채운다.
   const live: { driver?: RealDriver } = {};
@@ -250,13 +288,17 @@ export async function runAppTestJob(
     sink: {
       report(report) {
         forwarded.push({ kind: "report", code: report.code, scope });
-        return Promise.resolve(ok(accepted(report.report_id)));
+        return hooks.collector
+          ? hooks.collector.report(report)
+          : Promise.resolve(ok(accepted(report.report_id)));
       },
       exception(body) {
         const id = (body as { report_id?: string } | null)?.report_id ??
           ids.newId("rpt");
         forwarded.push({ kind: "exception", code: "_exception", scope });
-        return Promise.resolve(ok(accepted(id)));
+        return hooks.collector
+          ? hooks.collector.exception(body)
+          : Promise.resolve(ok(accepted(id)));
       },
     },
     view: lazyView,
@@ -290,6 +332,9 @@ export async function runAppTestJob(
           scratch,
           reads: [job.bundle, scratch],
           env: {},
+          ...(job.request_timeout_ms === undefined
+            ? {}
+            : { request_timeout_ms: job.request_timeout_ms }),
           deno: job.deno,
           import_map: `${harness}/import-map.json`,
           // 자식 프로세스의 환경에만 간다. 메모리 경계를 거는 systemd-run이 사용자 bus를 찾는 데 쓰는
@@ -316,7 +361,7 @@ export async function runAppTestJob(
         preparing: 0,
       },
       input,
-      { memory: platformMemory },
+      { memory: platformMemory, started: hooks.started },
     );
     if (!finished.ok) return finished as Result<never>;
     const { execution, judgment } = finished.value;
@@ -344,6 +389,7 @@ export async function runAppTestJob(
         exit_code: execution.outcome?.exit_code ?? null,
         end_reason: execution.outcome?.end_reason ?? null,
         started_at: execution.started_at,
+        ended_at: execution.outcome?.ended_at ?? null,
         frames: execution.frames.length,
         output_tail: new TextDecoder().decode(execution.outcome?.output)
           .slice(-4000),

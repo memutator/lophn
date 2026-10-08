@@ -1017,6 +1017,7 @@ export type PlaceholderKinds = {
   "conversation.notice.not-found": Record<never, never>;
   "conversation.notice.not-sent": Record<never, never>;
   "conversation.notice.offline": Record<never, never>;
+  "conversation.notice.provider-lost": Record<never, never>;
   "conversation.notice.paused": Record<never, never>;
   "conversation.notice.stale": {
     age: "string";

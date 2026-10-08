@@ -438,6 +438,8 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: C-문제command의 `reconcile-work`, `link-interpretation`, event `ProblemWorkStarted`, `ProblemWorkEnded`, `ProblemInterpretationLinked`
 - slice: problems
 - 선행: problems#T2, platform#T18, contracts#T40, contracts#T41, contracts#T18, coding-agent#T18, coding-agent#T19, coding-agent#T24, coding-agent#T26, documents#T6, documents#T14
+- 상태: 완료 (#453) — 이어보냄: lophn-agent#T50의 ToolCall이 command 전에 `checkInterpretationLink`로 version·절을 읽는 연결, 검사 실패·확인(TicketCheckFailed·TicketConfirmed)을 제품 경로로 내는 repair checker 수정(coding-agent#T45)
+- 정한 것: `problemSchema`는 fixing만 `work`를 요구하고 open도 `work`를 가질 수 있다(Q3); `ProblemWorkStarted.claim_seq`는 ticket만 이으면 null, `ProblemWorkEnded` 사유에 `confirmed`를 더하고 `ReconcileProblemWork`의 오류에 `invalid_input`(열린 ticket을 이미 가진 문제)을 더했다; 반응 key의 reaction은 `reconcile:<problem>:<읽은 문제 seq>`이다
 - 완료:
   - 상태는 open·fixing·closed뿐, 문제당 열린 repair ticket 1개를 넘는 연결은 거절(R8)
   - TicketCreated에서 `work`를 잇고 status는 open(질문 Q3); 유효 claim 뒤에만 fixing; claim 해제·만료(`TicketClaimReleased` reason expired, 만료 뒤 최대 약 60초)·완료 보고·취소 뒤 닫힘 근거가 없으면 open; `TicketCheckFailed`를 새 claim으로 보지 않는다; ticket event가 닫힌 문제를 열거나 닫지 않는다(R9)
@@ -503,8 +505,9 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
   - fake 닫힘 fixture를 T21의 실제 `ApplyProblemDecision`·`ProblemClosed` 닫힘으로 바꾸고, 4종 닫힘을 실제 command로 닫은 뒤 `GetProblem.detail`을 읽는 ledger 테스트를 더한다. `ReconcileProblemWork`의 open·fixing도 실제로 확인한다
   - 두 port의 fake를 `packages/problems/grouping/testing/mod.ts`에 둔다(지금은 미등록이라 통합 테스트가 `unknown`을 본다)
   - shell·CLI 소비자는 `problem.work`·`problem.interpretation`이 아니라 `detail`을 읽는다
-  - user 호출자에게 ID 없는 `problem`을 주는 contract 분리(`problemSchema`가 fixing에 `work`를 요구하므로 큰 변경이다)를 한다
+  - user 호출자에게 ID 없는 `problem`을 주는 contract 분리(`problemSchema`는 fixing에만 `work`를 요구하고 open도 `work`를 가진다)를 한다
   - 끝나면 T22를 `완료 (#<PR>)`로 바꾼다
+- T19에서 넘어온 것: 실제 `ReconcileProblemWork`는 `packages/problems/grouping/testing/mod.ts`의 `problems.testing.ticket-event`(ticket 표 최소 모양과 ticket event를 만든다)로 open·fixing을 읽는 ledger 테스트에 쓸 수 있고, `ProblemWorkPort` 실제 등록은 아직 없다
 - T6에서 넘어온 것: `GetProblem`이 실제 담당과 필요한 사람 조치를 싣는다(#261은 담당·조치 field가 없다); 사용자용 상세에서는 contract의 `problem.work`·`problem.interpretation` ticket·version ID를 빼고 en 작업 상태로 대신하도록 contract를 나눈다; claim·기한 field는 처음부터 없다
 - 완료:
   - 닫힘 4종(테스트로 확인됨·내가 확인함·현상이 안 보임·더 다루지 않음)이 서로 다른 값이고, 기본은 닫힌 이유와 지금 필요한 주의, 확인 범위·미확인·release·근거는 펼친 상세(closing#R13)

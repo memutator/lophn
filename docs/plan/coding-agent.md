@@ -1169,6 +1169,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T34 앱 template 안내·관리 구간·sync-tools
 
+- 상태: 완료 (#465)
 - 등급: 기본
 - concern: coding-agent/guides, coding-agent/mcp-server, coding-agent/cli
 - 요구: coding-agent/guides#R13, R14, R15, R16, R17, R18, R19;
@@ -1207,6 +1208,14 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
   지금 `lophn_app sync_tools`는 `connection/app-ops.ts`에서 `unavailable`을 돌려준다
   (소유 route 표에는 appRuntime이 입력 자리로 있다). 파일별 변경·무변경·건너뜀
   결과가 생기면 그 분기를 실행으로 바꾼다.
+- 정한 것(T34): 관리 구간 갱신은 `guides/managed-files.ts`(marker 짝 안쪽만, 바깥
+  bytes 보존, 경계 오류 무변경, hash 충돌 무변경, temp·원자 교체)으로 하고 관리 구간
+  본문은 `guides/templates/`의 body 원본이 정한다(`templates/sync.ts` 표). sync는
+  재사용 구조다: MCP 설정·안내는 harnesses의 `installSelected`(`mcp`·`guide`
+  components), skill은 guides의 `installSkills`를 쓰고 ignore 갱신만 이 모듈이
+  `updateGuideRegion`으로 쓴다. 두 통로(MCP `lophn_app` op와 CLI `app sync-tools`)는
+  `connection/app-ops.ts`의 같은 분기를 지나고 파일 설치는 host가 끼운 `sync` port가
+  `guides/syncTools`로 한다(core route 밖).
 
 ### T35 session 시작 summary와 Claude Code hook
 

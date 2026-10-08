@@ -80,6 +80,7 @@ import { findCommand } from "../../packages/coding-agent/cli/registry.ts";
 import {
   installSkills,
   loadDistribution,
+  syncTools,
 } from "../../packages/coding-agent/guides/mod.ts";
 import {
   catalogOf,
@@ -585,7 +586,48 @@ export async function runCliCommand(
     const ran = await runApp(
       name as Parameters<typeof runApp>[0],
       input,
-      { client, idempotencyKey: idempotency },
+      {
+        client,
+        idempotencyKey: idempotency,
+        // 도구 재배포(guides#R17)는 파일 설치라 core route 밖이다. 검사한 op 입력의
+        // target·names와 연결 참조로 guides의 syncTools를 돌린다(cli#R29).
+        sync: async (opInput) => {
+          const ref = typeof opInput.connection === "string"
+            ? opInput.connection
+            : runtime.env.get(LOPHN_CONNECTION) ?? "";
+          const target = opInput.target as IntegrationTarget | undefined;
+          if (target === undefined) {
+            return Promise.resolve(
+              err({
+                code: "invalid_input",
+                message: "재배포 대상 target이 필요하다(--target)",
+              }),
+            );
+          }
+          const loaded = await loadDistribution();
+          if (!loaded.ok) return loaded;
+          return syncTools({
+            target,
+            ...(Array.isArray(opInput.names)
+              ? { names: opInput.names as string[] }
+              : {}),
+            skills: loaded.value.skills,
+            roots: {
+              home: runtime.home ?? "",
+              env: runtime.env,
+              cwd: runtime.cwd,
+            },
+            launch: launchOf({
+              ...launchInputs(runtime, target),
+              connection: ref,
+              toolsets: "core,app",
+            }),
+            connection: ref === "" ? null : ref,
+            operationId: idempotency(),
+            now: runtime.now(),
+          }, { files: filePort(), store: storeOf(runtime) });
+        },
+      },
     );
     return ran.ok ? ok(ran.value) : ran;
   }

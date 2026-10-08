@@ -25,6 +25,14 @@ const TKT = "tkt_01arz3ndektsv4rrffq69g5fav";
 const HASH = "a".repeat(64);
 const OTHER = "b".repeat(64);
 const COMMIT = "c".repeat(40);
+const APP_TARGET = {
+  scope_kind: "app",
+  environment: { kind: "host", identity: "native" },
+  profile_id: null,
+  harness_id: "claude",
+  app: APP,
+  app_realpath: "/w/notes",
+} as const;
 
 const now = { idempotencyKey: () => "key-0123456789" };
 // 기다림을 건너뛰는 설정이다. sleep은 즉시 끝난다.
@@ -943,7 +951,7 @@ Deno.test("coding-agent/mcp-server#R29: 읽기 원천이 부분·미수집이면
   assert(done.summary.includes("정상 0행"));
 });
 
-Deno.test("coding-agent/mcp-server#R19: 소유 route가 아직 없는 sync_tools는 성공을 꾸미지 않는다", async () => {
+Deno.test("coding-agent/mcp-server#R19: sync port가 없는 process의 sync_tools는 unavailable이고 core에 가지 않는다", async () => {
   const flow = scriptedFlow({});
   const done = await runAppOp({ op: "sync_tools", app: APP }, {
     client: flow.client,
@@ -952,6 +960,115 @@ Deno.test("coding-agent/mcp-server#R19: 소유 route가 아직 없는 sync_tools
   assertEquals(done.isError, true);
   assertEquals((done.data as { code: string }).code, "unavailable");
   assertEquals(flow.sent.length, 0);
+});
+
+Deno.test("coding-agent/mcp-server#R19, coding-agent/guides#R17: sync_tools는 host가 끼운 sync port로 guides의 syncTools를 돌리고 항목별 결과를 낸다", async () => {
+  const flow = scriptedFlow({});
+  const seen: Record<string, unknown>[] = [];
+  const done = await runAppOp({
+    op: "sync_tools",
+    app: APP,
+    target: {
+      scope_kind: "app",
+      environment: { kind: "host", identity: "native" },
+      profile_id: null,
+      harness_id: "claude",
+      app: APP,
+      app_realpath: "/w/notes",
+    },
+  }, {
+    client: flow.client,
+    ...now,
+    sync: (input) => {
+      seen.push(input);
+      return Promise.resolve(ok({
+        status: "complete",
+        files: [
+          {
+            target: "mcp",
+            name: "mcp:app",
+            outcome: "changed",
+            reason: "MCP 설정을 썼다",
+          },
+          {
+            target: "skill",
+            name: "skill:app:lophn-save",
+            outcome: "unchanged",
+            reason: "이미 같은 내용이다",
+          },
+          {
+            target: "ignore",
+            name: ".gitignore",
+            outcome: "changed",
+            reason: "ignore 구간을 썼다",
+          },
+        ],
+        notices: [],
+      }));
+    },
+  });
+  assertEquals(done.isError, undefined);
+  assert(done.summary.includes("도구 재배포를 마쳤다"));
+  const files = (done.data as { files: { outcome: string }[] }).files;
+  assertEquals(files.length, 3);
+  assertEquals(done.next[0].includes("doctor"), true);
+  // 파일 설치라 core route로 가지 않는다.
+  assertEquals(flow.sent.length, 0);
+  // 검사한 입력과 operationId가 port에 온다(소유 route 표의 입력 자리다).
+  const passed = seen[0];
+  assertEquals(
+    (passed.target as { app_realpath: string }).app_realpath,
+    "/w/notes",
+  );
+  assertEquals(passed.app, APP);
+});
+
+Deno.test("coding-agent/mcp-server#R19: sync port의 실패는 같은 오류로 전하고 부분 결과는 isError 없이 표시한다", async () => {
+  const flow = scriptedFlow({});
+  const refused = await runAppOp({
+    op: "sync_tools",
+    app: APP,
+    target: APP_TARGET,
+  }, {
+    client: flow.client,
+    ...now,
+    sync: () =>
+      Promise.resolve(
+        fail(
+          "invalid_input",
+          "sync는 앱 하나 범위의 target만 받는다(--app 범위 target)",
+        ),
+      ),
+  });
+  assertEquals(refused.isError, true);
+  assertEquals((refused.data as { code: string }).code, "invalid_input");
+  assertEquals(flow.sent.length, 0);
+
+  const partial = await runAppOp({
+    op: "sync_tools",
+    app: APP,
+    target: APP_TARGET,
+  }, {
+    client: flow.client,
+    ...now,
+    sync: () =>
+      Promise.resolve(ok({
+        status: "partial",
+        files: [{
+          target: "guide",
+          name: "instruction:region",
+          outcome: "skipped",
+          reason: "symlink라 건드리지 않는다",
+        }],
+        notices: ["CLAUDE.md에 lophn 관리 구간이 없어 건드리지 않는다"],
+      })),
+  });
+  assertEquals(partial.isError, undefined);
+  assert(partial.summary.includes("일부만 됐다"));
+  assertEquals(
+    (partial.data as { status: string }).status,
+    "partial",
+  );
 });
 
 Deno.test("coding-agent/mcp-server#R19, apps/blueprint#R3: blueprint op는 apps.blueprint를 읽고 설명·test 근거를 구별해 보인다", async () => {

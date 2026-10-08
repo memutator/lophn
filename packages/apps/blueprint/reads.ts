@@ -101,6 +101,15 @@ export function createBlueprintReads(load: ActiveBlueprintLoader): {
             command: task.command,
             when: task.when,
           })),
+          agent_context: blueprint.agent_context.map((entry) => ({
+            screen: entry.screen,
+            read_command: entry.read_command,
+            annotation_targets: entry.annotation_targets.map((target) => ({
+              key: target.key,
+              label: target.label,
+              write_command: target.write_command,
+            })),
+          })),
           // 설명·구조·test는 서로 다른 근거다. 구조는 준비 때 검증기를 통과한 것만 저장되고
           // test 통과는 release에 고정한 같은 hash의 app test 참조다.
           declarations: {

@@ -75,6 +75,7 @@ export function createAppToolkit(options: {
     const blueprint = await readOf(machine, appBlueprint, { app });
     if (!blueprint.ok) return blueprint;
     const grants: AppGrant[] = [];
+    let basis_seq = "0";
     let cursor: string | undefined;
     do {
       const page = await readOf(machine, grantsList, {
@@ -83,9 +84,17 @@ export function createAppToolkit(options: {
         ...(cursor === undefined ? {} : { cursor }),
       });
       if (!page.ok) return page;
+      // grant 집합이 마지막으로 바뀐 seq다(app을 지정했으므로 읽기가 준다).
+      if (page.value.grants_seq !== undefined) {
+        basis_seq = String(page.value.grants_seq);
+      }
       for (const grant of page.value.grants) {
         if (grant.scope.kind === "agent.commands") {
-          grants.push({ grant: grant.id, commands: grant.scope.commands });
+          grants.push({
+            grant: grant.id,
+            commands: grant.scope.commands,
+            basis_seq,
+          });
         }
       }
       cursor = page.value.next_cursor ?? undefined;
@@ -98,6 +107,8 @@ export function createAppToolkit(options: {
         release: value.release,
         blueprint_hash: value.blueprint_hash,
         commands: value.commands,
+        screens: value.screens,
+        agent_context: value.agent_context ?? [],
       },
       grants,
     });

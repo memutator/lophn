@@ -41,6 +41,7 @@ import {
 import { coreWorkspaceSource } from "../workspace/core-source.ts";
 import { coreTrackingSource } from "../workspace/tracking/core-source.ts";
 import { coreAppsSource } from "./lophn-space/apps/core-source.ts";
+import { coreRolesSource } from "./lophn-space/roles/core-source.ts";
 import { coreSettingsSource } from "./lophn-space/settings/core-source.ts";
 import { coreAppDetailSource } from "../app-frame/app-detail/core-source.ts";
 import {
@@ -66,6 +67,8 @@ const organize = coreOrganizeSource(core);
 // apps 화면과 앱 공간. 앱 view는 shell preload의 view 통로로 main이 붙인다.
 const apps = coreAppsSource(core);
 const appDetail = coreAppDetailSource(core);
+// roles 화면. 하는 일·만든 것·대화·작업 검토·Preset. 되돌리기는 보호 창이 받는다.
+const roles = coreRolesSource(core);
 // settings 화면. 연결·계정·확장·일반 설정. key·로그인 응답은 보호 창이 받는다.
 const settings = coreSettingsSource(core);
 // coding agent 연결(settings)과 앱 공간 Tasks 탭. 감지·연결·[Start]는 main이 따로 검증하는 통로(`lophnCoding`)다.
@@ -90,7 +93,7 @@ const requests = {
   source: coreRequestSource(core),
   drafts: new RequestDrafts(),
 };
-// 개발 확인용 시작 자리. `#settings`면 settings 형제부터 연다. `#lophn`이면 lophn 공간(documents)부터, `#conversation`이면
+// 개발 확인용 시작 자리. `#roles`면 roles 형제부터, `#settings`면 settings 형제부터 연다. `#lophn`이면 lophn 공간(documents)부터, `#conversation`이면
 // 거기에 대화 도크까지 열어 두고, `#things-to-confirm`이면 그 형제부터, `#project=<id>`면 그
 // 프로젝트 작업대부터, `#app=<id>`면 그 앱 공간부터, `#apps`면 apps 형제부터 연다. `#contexts`면 contexts
 // 형제부터, `#contexts=<id>`면 그 Focus까지 연다. `#instructions=global`·`#instructions=project:<id>`면
@@ -125,6 +128,8 @@ const start: Route | undefined = seed
   ? openLophn("apps")
   : location.hash === "#settings"
   ? openLophn("settings")
+  : location.hash === "#roles"
+  ? openLophn("roles")
   : undefined;
 // 창마다 하나. 탭과 host runtime의 대응만 갖고 출력은 갖지 않는다.
 const terminal = windowTerminalDeps(
@@ -185,6 +190,7 @@ mount(
             tracking={tracking}
             intents={bridges.lophnIntents}
             apps={apps}
+            roles={roles}
             settings={settings}
             coding={coding}
             tasks={tasks}

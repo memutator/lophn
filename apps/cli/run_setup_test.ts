@@ -427,7 +427,7 @@ Deno.test("coding-agent/cli#R8 coding-agent/cli#R10: doctor는 daemon 상태 por
   }
 });
 
-Deno.test("coding-agent/cli#R9: mcp config는 설정 조각만 내고 secret·운영 data 위치가 없으며 backing 없는 session은 성공으로 꾸미지 않고 unavailable이다", async () => {
+Deno.test("coding-agent/cli#R9: mcp config는 설정 조각만 내고 secret·운영 data 위치가 없으며 backing 없는 session은 성공으로 꾸미지 않고 연결 참조 거절이다", async () => {
   const fx = await fixture();
   try {
     const config = await run(
@@ -455,7 +455,16 @@ Deno.test("coding-agent/cli#R9: mcp config는 설정 조각만 내고 secret·�
           generation: () => "1",
         }),
       });
-      assertEquals(result.exit, 5, result.stdout);
+      assertEquals(
+        result.exit,
+        2,
+        `exit ${result.exit}: ${result.stdout}`,
+      );
+      assertEquals(
+        JSON.parse(result.stdout).error.code,
+        "invalid_input",
+        result.stdout,
+      );
     }
   } finally {
     await Deno.remove(fx.home, { recursive: true });

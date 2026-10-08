@@ -35,7 +35,7 @@ const LIMIT_TOOLS = [
 
 // runner control은 플랫폼 code다. 준비 폴더와 작업 root만 읽고 쓰고, 승인된 Deno 실행 파일과 자식을
 // 거는 platform 도구, 화면 검사 host만 --allow-run으로 받는다(architecture/problems 2.2). net은 고정
-// socket 자리와 가상 host뿐이다.
+// socket 자리와 가상 host, core loopback(요청별 machine credential으로 command를 부르고 보고를 낸다)뿐이다.
 export function testRunnerSpec(input: {
   dataRoot: string;
   deno: string;
@@ -64,8 +64,8 @@ export function testRunnerSpec(input: {
     allow_read: [input.dataRoot, entry, rootConfig, ...GROUP_TOOLS],
     allow_write: [work],
     // 고정 socket 자리와 가상 host(Unix socket은 정확한 경로의 net 허락을 요구한다)와
-    // `problems.work` 반응기가 core loopback으로 event를 읽고 command를 내는 데 쓰는
-    // loopback(problems#T19)을 모두 허락한다.
+    // core loopback(`problems.work` 반응기가 event를 읽고 command를 내는 데 쓴다,
+    // problems#T19; runner service가 요청을 받아 core command로 남긴다)을 모두 허락한다.
     allow_net: ["lophn.invalid", "127.0.0.1", ...sockets],
     allow_run: [
       input.deno,

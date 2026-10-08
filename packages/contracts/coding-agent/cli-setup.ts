@@ -165,6 +165,8 @@ export const cliSessionSummarySchema = withCommon(
   z.strictObject({
     ...CodingAgentSessionSummaryInputSchema.shape,
     hook: z.boolean().optional(),
+    // 설치한 hook command가 소유 항목을 찾는 표식이다. 실행에는 쓰지 않는다(harnesses#R11).
+    owner: z.string().min(1).optional(),
   }),
 );
 export const cliSessionPlanSchema = withCommon(

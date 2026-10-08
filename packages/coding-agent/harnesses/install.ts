@@ -341,9 +341,10 @@ async function runSelected(
   });
 }
 
-// 고른 target 하나의 설치·갱신·제거가 쓸 수 있는 파일의 정확한 절대 경로다(CLI launcher의 쓰기 권한 계산,
+// 고른 target 하나의 설치·갱신·제거가 쓰 수 있는 파일의 정확한 절대 경로다(CLI launcher의 쓰기 권한 계산,
 // open-issues coding-agent/mcp-server#Q9). 설정 파일 하나와, 앱 범위의 관리 구간 지침 파일이다. CLI는
-// 제품 version을 모르고 hook argv를 주지 않아 hook 파일은 쓰지 않으며 skill은 `selectedSkillDirs`가 따로 낸다.
+// 시작 summary hook(검증한 제품의 `summary` 목적 hook)의 설정 파일을 더하고 상태 수집 hook의 파일은 더하지
+// 않는다(coding-agent#T35). skill은 `selectedSkillDirs`가 따로 낸다.
 // 폴더·와일드카드·다른 제품·다른 앱의 경로는 나오지 않는다. 절대 경로로 풀리지 않으면 err다.
 export function selectedWriteFiles(
   target: IntegrationTarget,
@@ -392,6 +393,15 @@ export function selectedWriteFiles(
       const added = add("project", instruction.file);
       if (!added.ok) return added;
     }
+  }
+  // 시작 summary hook의 설정 파일이다. 상태 수집 hook은 이 설치에 없어 그 파일은 더하지 않는다(guides#R25).
+  for (const hook of definition.hooks) {
+    if (
+      hook.purpose !== "summary" || hook.capability !== "supported" ||
+      hook.target.scope_kind !== target.scope_kind
+    ) continue;
+    const added = add(hook.target.root_resolver, hook.target.path);
+    if (!added.ok) return added;
   }
   return ok(files);
 }

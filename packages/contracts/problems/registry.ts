@@ -2,8 +2,11 @@ import {
   getTestRequest,
   getVerification,
   listVerifications,
+  observeTestRequest,
   recordVerification,
   requestTest,
+  stageTestEvidence,
+  startTestSide,
   verificationRecorded,
 } from "./tests.ts";
 import { reportBody } from "./report-body.ts";
@@ -56,6 +59,9 @@ export const ROUTES = [
   recordReport,
   requestTest,
   recordVerification,
+  observeTestRequest,
+  startTestSide,
+  stageTestEvidence,
   getTestRequest,
   getVerification,
   listVerifications,

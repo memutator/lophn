@@ -106,7 +106,7 @@ function providerNotFound(): Result<never> {
   return err({ code: "not_found", message: "provider not found" });
 }
 
-async function providerOf(
+function providerOf(
   deps: ProviderLoginWriterDeps,
   id: string,
 ): Promise<Result<ProviderRecord>> {

@@ -1430,9 +1430,12 @@ function appCommandItem(
 }
 
 // 범위 밖으로 둘 값(문서·context·앱 ID)을 바꿀 수 있는 authorizer.
+// `context_apps`는 앱에 묶인 agent의 범위 판정에 주는 사실이지 대상 id가 아니라 보지 않는다.
 function denying(denied: Set<string>): Authorizer {
   return (_ctx, _operation, target) =>
-    Object.values(target).some((value) => denied.has(String(value)))
+    Object.entries(target).some(([key, value]) =>
+        key !== "context_apps" && denied.has(String(value))
+      )
       ? err({ code: "forbidden", message: "outside scope" })
       : ok(undefined);
 }

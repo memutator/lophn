@@ -38,6 +38,13 @@ interface WorldOptions {
     input: SubmitFeedbackRequest,
     png: Uint8Array | null,
   ) => Promise<FeedbackReply<{ report: string; problem: string | null }>>;
+  commandStart?: () => "blocked_before_start" | "unknown";
+  lookup?: (
+    report: string,
+  ) => Promise<
+    | { ok: true; value: { report: string; problem: string | null } | null }
+    | { ok: false }
+  >;
 }
 
 function world(options: WorldOptions = {}) {
@@ -127,6 +134,7 @@ function world(options: WorldOptions = {}) {
     dialog: dialogOf,
     protectedWindow: () => options.protectedWindow ?? false,
     submit(input, png) {
+      steps.push(`submit ${input.report_id}`);
       submitted.push({ input, png });
       return options.submit ? options.submit(input, png) : Promise.resolve({
         ok: true,
@@ -137,6 +145,13 @@ function world(options: WorldOptions = {}) {
       });
     },
     openIssue: (window, target) => issues.push([window, target]),
+    ...(options.commandStart ? { commandStart: options.commandStart } : {}),
+    lookup(report) {
+      steps.push(`lookup ${report}`);
+      return options.lookup
+        ? options.lookup(report)
+        : Promise.resolve({ ok: true, value: null });
+    },
     ids: {
       draft: () => `draft-${++drafts}`,
       report: () => "rpt_01j9zzzzzzzzzzzzzzzzzzzzzz",
@@ -362,4 +377,138 @@ test("problems/feedback#R12, R13: 취소는 초안을 버리고 접수한 뒤에
     { app: APP, problem: "prb_01j9zzzzzzzzzzzzzzzzzzzzzz" },
   ]]);
   assert.equal(w.feedback.size, 0);
+});
+
+test("problems/feedback#R4: 마지막 앱 호출이 시작 전에 막혔으면 버튼 시점에 고정해 blocked_before_start로 보내고 invocation은 만들지 않는다", async () => {
+  let start: "blocked_before_start" | "unknown" = "blocked_before_start";
+  const w = world({ commandStart: () => start });
+  w.feedback.begin(w.desk, { view_session: "view-1" });
+  // 버튼 뒤에 다른 호출이 시작돼도 이 제보가 본 것은 바뀌지 않는다.
+  start = "unknown";
+  const body = {
+    draftRef: "draft-1",
+    text: "Save did nothing.",
+    selection: { screen: true, screenshot: false },
+  };
+  assert.equal((await w.feedback.submit(w.overlay, body)).ok, true);
+  assert.deepEqual(w.submitted[0]!.input.targets, {
+    invocation: null,
+    automation: null,
+    version: null,
+    command_start: "blocked_before_start",
+  });
+});
+
+test("problems/feedback#R3, R4: 막힌 호출을 모르면 command_start는 unknown이다", async () => {
+  const w = world();
+  w.feedback.begin(w.desk, { view_session: "view-1" });
+  await w.feedback.submit(w.overlay, {
+    draftRef: "draft-1",
+    text: "Save did nothing.",
+    selection: { screen: true, screenshot: false },
+  });
+  assert.equal(w.submitted[0]!.input.targets.command_start, "unknown");
+});
+
+const TEXT = {
+  draftRef: "draft-1",
+  text: "Saving does nothing.",
+  selection: { screen: true, screenshot: false },
+};
+const LOST = {
+  ok: false as const,
+  error: { code: "unavailable" as const, message: "lost" },
+};
+const REPORT = "rpt_01j9zzzzzzzzzzzzzzzzzzzzzz";
+const ACCEPTED = { report: REPORT, problem: "prb_01j9zzzzzzzzzzzzzzzzzzzzzz" };
+
+test("problems/reporting#R9, problems/feedback#R11: 응답을 잃은 제출은 다시 보내기 전에 최신 상태를 읽고 접수 전이면 같은 Report ID로 한 번만 다시 보낸다", async () => {
+  let reply: FeedbackReply<{ report: string; problem: string | null }> = LOST;
+  const w = world({ submit: () => Promise.resolve(reply) });
+  w.feedback.begin(w.desk, { view_session: "view-1" });
+  assert.equal((await w.feedback.submit(w.overlay, TEXT)).ok, false);
+  reply = { ok: true, value: ACCEPTED };
+  const second = await w.feedback.submit(w.overlay, TEXT);
+  assert.deepEqual(second, { ok: true, value: ACCEPTED });
+  // 읽기가 두 번째 전송보다 먼저다. 첫 전송 전에는 읽지 않는다.
+  assert.deepEqual(w.steps.slice(2), [
+    `submit ${REPORT}`,
+    `lookup ${REPORT}`,
+    `submit ${REPORT}`,
+  ]);
+  assert.equal(w.submitted.length, 2);
+  assert.equal(
+    w.submitted[1]!.input.report_id,
+    w.submitted[0]!.input.report_id,
+  );
+  // 접수된 뒤에는 읽지도 보내지도 않는다.
+  assert.deepEqual(await w.feedback.submit(w.overlay, TEXT), second);
+  assert.equal(w.submitted.length, 2);
+});
+
+test("problems/reporting#R9: 읽어 보니 이미 접수됐으면 다시 보내지 않고 그 접수를 돌려준다", async () => {
+  const w = world({
+    submit: () => Promise.resolve(LOST),
+    lookup: () => Promise.resolve({ ok: true, value: ACCEPTED }),
+  });
+  w.feedback.begin(w.desk, { view_session: "view-1" });
+  await w.feedback.submit(w.overlay, TEXT);
+  const again = await w.feedback.submit(w.overlay, TEXT);
+  assert.deepEqual(again, { ok: true, value: ACCEPTED });
+  assert.equal(w.submitted.length, 1);
+  // 묶인 Issue로 갈 수 있다.
+  assert.equal(
+    w.feedback.openIssue(w.overlay, { draftRef: "draft-1" }).ok,
+    true,
+  );
+  assert.equal(w.issues.length, 1);
+});
+
+test("problems/reporting#R9: 최신 상태를 읽지 못하면 다시 보내지 않고 접수 전 초안으로 남는다", async () => {
+  let readable = false;
+  const w = world({
+    submit: () => Promise.resolve(LOST),
+    lookup: () =>
+      Promise.resolve(
+        readable ? { ok: true as const, value: null } : { ok: false as const },
+      ),
+  });
+  w.feedback.begin(w.desk, { view_session: "view-1" });
+  await w.feedback.submit(w.overlay, TEXT);
+  const blocked = await w.feedback.submit(w.overlay, TEXT);
+  assert.equal(blocked.ok, false);
+  assert.equal(w.submitted.length, 1);
+  // 읽을 수 있게 되면 그때 같은 Report ID로 다시 보낸다.
+  readable = true;
+  await w.feedback.submit(w.overlay, TEXT);
+  assert.equal(w.submitted.length, 2);
+  assert.equal(w.submitted[1]!.input.report_id, REPORT);
+});
+
+test("problems/reporting#R9: 입력·권한 거절은 접수된 적이 없어 읽지 않고, 충돌은 같은 Report ID의 접수를 읽어 돌려받는다", async () => {
+  const rejected = world({
+    submit: () =>
+      Promise.resolve({
+        ok: false,
+        error: { code: "invalid_input", message: "no" },
+      }),
+  });
+  rejected.feedback.begin(rejected.desk, { view_session: "view-1" });
+  await rejected.feedback.submit(rejected.overlay, TEXT);
+  await rejected.feedback.submit(rejected.overlay, TEXT);
+  assert.equal(rejected.steps.some((step) => step.startsWith("lookup")), false);
+
+  const conflicted = world({
+    submit: () =>
+      Promise.resolve({
+        ok: false,
+        error: { code: "conflict", message: "same id, other content" },
+      }),
+    lookup: () => Promise.resolve({ ok: true, value: ACCEPTED }),
+  });
+  conflicted.feedback.begin(conflicted.desk, { view_session: "view-1" });
+  await conflicted.feedback.submit(conflicted.overlay, TEXT);
+  const second = await conflicted.feedback.submit(conflicted.overlay, TEXT);
+  assert.deepEqual(second, { ok: true, value: ACCEPTED });
+  assert.equal(conflicted.submitted.length, 1);
 });

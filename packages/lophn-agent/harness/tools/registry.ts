@@ -21,6 +21,11 @@ import {
 import { FORMAT_TOOL_NAMES, FORMAT_TOOLS } from "./bundles/format.ts";
 import { GUIDE_TOOL_NAMES, GUIDE_TOOLS } from "./bundles/guide.ts";
 import { METADATA_TOOL_NAMES, METADATA_TOOLS } from "./bundles/metadata.ts";
+import {
+  TICKET_READ_TOOL_NAMES,
+  TICKET_TOOLS,
+  TICKET_WRITE_TOOL_NAMES,
+} from "./bundles/ticket.ts";
 import { VISUAL_TOOL_NAMES, VISUAL_TOOLS } from "./bundles/visual.ts";
 
 // tool 하나는 정의 하나다. 목록과 실행이 같은 schema·효과·실패 종류를 쓴다(R2).
@@ -60,6 +65,7 @@ export const BUILTIN_TOOLS: readonly ToolDefinition[] = [
   ...METADATA_TOOLS,
   ...APP_READ_TOOLS,
   ...PROBLEM_READ_TOOLS,
+  ...TICKET_TOOLS,
   ...SDK_TOOLS,
   ...FORMAT_TOOLS,
   ...VISUAL_TOOLS,
@@ -78,6 +84,8 @@ export const TOOL_BUNDLES: ReadonlyMap<string, readonly string[]> = new Map([
   ["metadata-read", METADATA_TOOL_NAMES],
   ["app-read", APP_READ_TOOL_NAMES],
   ["problem-read", PROBLEM_READ_TOOL_NAMES],
+  ["ticket-read", TICKET_READ_TOOL_NAMES],
+  ["ticket-write", TICKET_WRITE_TOOL_NAMES],
   ["sdk", SDK_TOOL_NAMES],
   ["format", FORMAT_TOOL_NAMES],
   ["lophn-guide", GUIDE_TOOL_NAMES],

@@ -15,10 +15,9 @@ import { ROLE_CAPS } from "../../presets/mod.ts";
 // (harness/run-loop/scope.ts)의 교집합이라 여기에 없다(R21). 앱 command 노출
 // 상한은 APP_COMMAND_EXPOSURE 표가 둔다(presets/role-caps.ts).
 //
-// ticket 생성·읽기와 ticket.make_ready의 준비 검사는 T49가 bundles/ticket.ts와
-// 이 자리에 두므로, ticket.* 상한 이름은 지금은 내장 정의가 없어 목록에 남지
-// 않는다(R6). 문제 해석 참조 설정(problem.set_interpretation)의 정의도 T50이
-// 둔다.
+// ticket 읽기·생성·전환(`ticket.list`·`ticket.read`·`ticket.create`·`ticket.make_ready`)은
+// harness/tools의 ticket 묶음이 정의하고 준비 검사는 ./ticket.ts가 둔다(R6, R16, R17). 문제 해석
+// 참조 설정(problem.set_interpretation)의 정의는 T50이 둔다.
 
 // app_engineer의 현재 제공 목록이다. AE의 preset 선택이 고정돼 있으면 상한
 // 교집합의 내장 tool이고, 아니면 빈 목록이다.
@@ -32,8 +31,7 @@ export function appEngineerTools(
   return listTools({ builtin: BUILTIN_TOOLS, app: [], external: [] }, scope);
 }
 
-// app_engineer 상한에는 있지만 ticket·해석 참조 정의가 아직 없어 그 이름은
-// 목록에 없다(T49, T50).
+// app_engineer 상한에는 있지만 해석 참조 정의가 아직 없어 그 이름은 목록에 없다(T50).
 export function appEngineerToolNames(
   presetTools: readonly string[] | null,
 ): readonly string[] {

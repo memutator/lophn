@@ -182,6 +182,17 @@ export function createAppCall(deps: AppCallDeps) {
   const blueprints = new Map<string, Blueprint>();
   const bindings = new Map<string, CallBinding>();
   const pending = new Map<string, Promise<Outcome<CallBinding>>>();
+  // view마다 마지막 호출이 시작 전에 막혔는지(problems/feedback#R4). 보냈으면 다음 제보는 그 호출이
+  // 막혔다고 말하지 않는다. view가 많아도 자라지 않게 같은 한도로 자른다.
+  const starts = new Map<string, "blocked_before_start" | "started">();
+
+  function blocked<T>(
+    view: BoundView,
+    outcome: CallOutcome<T>,
+  ): CallOutcome<T> {
+    remember(starts, view.view_session, "blocked_before_start");
+    return outcome;
+  }
 
   async function blueprintOf(view: BoundView): Promise<Outcome<Blueprint>> {
     const key = view.binding.bundleHash;
@@ -265,27 +276,43 @@ export function createAppCall(deps: AppCallDeps) {
   }
 
   return {
+    /**
+     * 그 view의 마지막 호출이 입력 검사 등으로 시작되지 못했으면 `blocked_before_start`다. 그 밖에는
+     * 모른다. 보낸 호출을 제보 대상으로 지목하지 않는다(problems/feedback#R3).
+     */
+    commandStart(view_session: string): "blocked_before_start" | "unknown" {
+      return starts.get(view_session) === "blocked_before_start"
+        ? "blocked_before_start"
+        : "unknown";
+    },
+
     /** `app:call` 하나. view는 IPC sender에서 registry가 정한 값이다. */
     async call(view: BoundView, value: unknown): Promise<CallOutcome<unknown>> {
       const call = checkCall(value);
-      if (call === undefined) return fail("invalid_input", "call is invalid");
+      if (call === undefined) {
+        return blocked(view, fail("invalid_input", "call is invalid"));
+      }
       const blueprint = await blueprintOf(view);
       if (!blueprint.ok) return fail("unavailable", "app is not available");
       const declared = blueprint.value.commands.find((command) =>
         command.key === call.command
       );
-      if (declared === undefined) return NOT_AVAILABLE;
+      if (declared === undefined) return blocked(view, NOT_AVAILABLE);
       // 입력이 없는 command는 페이지가 null로 부른다. 앱에는 입력 없이 보낸다.
       const supplied = declared.input === null && call.input === null
         ? undefined
         : call.input;
       const validated = deps.rules.validate(declared.input as never, supplied);
-      if (!validated.ok) return fail("invalid_input", validated.error.message);
+      if (!validated.ok) {
+        return blocked(view, fail("invalid_input", validated.error.message));
+      }
       const input = validated.value;
 
       let bound = await callBinding(view, blueprint.value, false);
       if (!bound.ok) return fail(bound.error.code, bound.error.message);
-      if (!bound.value.commands.includes(declared.key)) return NOT_AVAILABLE;
+      if (!bound.value.commands.includes(declared.key)) {
+        return blocked(view, NOT_AVAILABLE);
+      }
 
       let proof: SignedProof | undefined;
       if (declared.confirm) {
@@ -314,6 +341,7 @@ export function createAppCall(deps: AppCallDeps) {
         ...(input === undefined ? {} : { input }),
         ...(proof === undefined ? {} : { proof }),
       };
+      remember(starts, view.view_session, "started");
       let response = await send(bound.value, body);
       // 401은 handler 전에 연결 검증에서 거절된 것이다. 연결을 한 번 다시 얻어 같은 요청을 보낸다.
       if (response?.status === 401) {

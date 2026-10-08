@@ -53,6 +53,7 @@ export function versionFixture(
   },
   operatorOutput: OperatorOutputLookup = {
     output: () => ok(null),
+    isOperator: () => ok(false),
   },
 ) {
   const authorizer = { current: authorize };

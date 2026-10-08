@@ -56,6 +56,7 @@ import {
 } from "./store.ts";
 import { authorizeDocument } from "./authorization.ts";
 import { appOutputRejected, releaseClaimed } from "./app-output.ts";
+import { operatorOutputRejected } from "./operator-output.ts";
 
 // 판 원문 파일. owner_key는 `<version id>/<상대 경로>`다. 일반 읽기를 연다.
 // save가 준비 결과의 파일별 준비 참조로 같은 tx에서 등록한다(Q16).
@@ -279,6 +280,14 @@ export function createVersionCommands(
         // 문서와 같은 답이다.
         const appOutput = appOutputRejected(tx, ctx, existing.value, input);
         if (appOutput !== undefined) return appOutput;
+        // Operator 자격은 자기 assignment의 기존 출력 문서에 새 판만 더한다(versions#R14).
+        const operatorOutput = operatorOutputRejected(
+          tx,
+          ctx,
+          existing.value,
+          input,
+        );
+        if (operatorOutput !== undefined) return operatorOutput;
         const instruction = instructionWriteRejected(
           ctx,
           tx,

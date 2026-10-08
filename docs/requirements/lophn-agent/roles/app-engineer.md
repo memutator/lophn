@@ -35,7 +35,7 @@ concerns: [lophn-agent/roles/app-engineer]
 - 확인: 담당 앱 command 실행은 역할·effect 경계를 지키고 blueprint 수정·문서 이동·이름 변경·삭제·컨텍스트 편집·assignment 변경·티켓 수정·공개·취소·claim·연장·release 연결 동작이 없는지 본다.
 - 의도: lophn-agent#I2
 
-**[R6]** 담당 앱의 되돌릴 수 있는 설계 문서 저장과 티켓 생성은 매번 approval request를 묻지 않으며 티켓 tool은 생성과 읽기만 제공한다.
+**[R6]** 담당 앱의 되돌릴 수 있는 설계 문서 저장과 티켓 생성은 매번 approval request를 묻지 않으며 티켓 tool은 생성·읽기·실행 준비 전환(make_ready)만 제공한다.
 - 이유: lophn-agent/harness/tool-judgment에 따라 coding agent가 claim하기 전 취소할 수 있는 쓰기를 허용한다.
 - 확인: 설계 근거를 갖춘 생성이 승인을 기다리지 않고 취소·revert 가능성은 coding-agent/tickets와 lophn-agent/revert를 따르는지 본다.
 - 의도: lophn-agent#I2

@@ -56,6 +56,8 @@ export function createIntentApi(transport: ShortcutTransport): IntentApi {
         app: payload.app,
         problem: payload.problem,
       })
+      : payload.kind === "coding"
+      ? Object.freeze({ kind: payload.kind, target: payload.target })
       : Object.freeze({ kind: payload.kind, request: payload.request });
     if (listeners.size === 0) {
       held = intent;

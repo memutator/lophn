@@ -107,10 +107,7 @@ import {
   secretInputHandler,
   type SecretInputRelay,
 } from "./secret-input.ts";
-import {
-  ERROR_HTTP_STATUS,
-  secretInput,
-} from "../../packages/contracts/platform/mod.ts";
+import { secretInput } from "../../packages/contracts/platform/mod.ts";
 import {
   type BlobPrepareRelay,
   type BufferGauge,
@@ -246,14 +243,19 @@ import {
   type AppRevertCaller,
   appRevertPolicies,
   createAppRevert,
-  runtimeAppCaller,
 } from "./app-revert.ts";
+import {
+  REVERT_WORKER_KIND,
+  revertWorkerSpec,
+  workerAppCaller,
+} from "./revert-caller.ts";
 import {
   appCredentialIssuer,
   APPS_CONTROL_CONTEXT,
   APPS_CONTROL_PRINCIPAL,
   APPS_SUPERVISOR_KIND,
   type AppsControl,
+  appSocketRoot,
   appsOperationPolicies,
   appSupervisorSpec,
   createAppsControl,
@@ -515,6 +517,8 @@ async function open(
   const checkerChannel = createDocumentsChannel();
   // coding-agent 수리 자료 worker 요청 통로. 같은 통로 모양을 쓴다(coding-agent#T43).
   const repairChannel = createDocumentsChannel();
+  // 앱 revert 호출 worker 요청 통로. 같은 통로 모양을 쓴다(lophn-agent#T48).
+  const revertChannel = createDocumentsChannel();
   // coordinator가 파일 읽기의 창으로 보내는 byte frame의 우편함(`files.read` stream).
   const fileWindows = createFileWindows();
   const ledgerPath = `${root.path}/lophn.db`;
@@ -1168,25 +1172,18 @@ async function open(
         ...runtime.memory.handlers,
         ...runtime.deliveryMemory,
         ...appsControl.memory,
-        // 확인한 revert의 앱 단계를 이어 실행한다(lophn-agent#T48).
+        // 확인한 revert의 앱 단계를 이어 실행한다(lophn-agent#T48). 실제 복원 호출은 감독
+        // worker(apps/revert)가 호출자의 credential으로 하고 core는 결과를 받아 판정한다.
         [
           `${runAppRevert.resource}/${runAppRevert.method}`,
           createAppRevert({
             ledgerPath,
-            caller: options.appRevertCaller ?? ((ctx) =>
-              runtimeAppCaller({
-                connect: async (_path, body) => {
-                  const handler = appsControl.memory.get("apps/connect");
-                  if (handler === undefined) {
-                    return { status: 503, body: null };
-                  }
-                  const done = await handler(ctx, body);
-                  return done.ok ? { status: 200, body: done.value } : {
-                    status: ERROR_HTTP_STATUS[done.error.code],
-                    body: { error: done.error },
-                  };
-                },
-              })),
+            caller: options.appRevertCaller ??
+              ((_ctx, credential) =>
+                workerAppCaller({
+                  channel: revertChannel,
+                  credential,
+                })),
             command: (ctx, envelope) =>
               runtime?.writer.command(ctx as never, envelope as never),
             machine: () => {
@@ -1904,6 +1901,33 @@ async function open(
     if (started.ok) {
       repairChannel.bind((payload) =>
         io.send(REPAIR_WORKER_KIND, payload).then((sent) => sent.ok)
+      );
+    }
+  }
+  // apps/revert. 확인한 revert의 앱 단계를 호출자의 credential로 실제로 부르는 상시 worker다
+  // (lophn-agent#T48). 감독이 없는 harness는 띄우지 않는다. 띄우지 못해도 core는 계속 선다:
+  // 사람의 run_apps 이어 실행이 failure로 닿지 않는다(접수는 applying으로 남는다).
+  if (io) {
+    const spec = revertWorkerSpec({
+      socketRoot: appSocketRoot(appsRuntimeDir),
+    });
+    const started = await io.start(
+      spec,
+      {
+        type: "hello",
+        core_epoch: epoch,
+        process_identity: epoch,
+        kind: REVERT_WORKER_KIND,
+        task: "apps",
+        scope: { operations: [], targets: {} },
+        credential: "none",
+        api_port: server.port,
+      },
+      { onMessage: (message) => revertChannel.onMessage(message) },
+    );
+    if (started.ok) {
+      revertChannel.bind((payload) =>
+        io.send(REVERT_WORKER_KIND, payload).then((sent) => sent.ok)
       );
     }
   }

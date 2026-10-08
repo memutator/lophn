@@ -1,8 +1,9 @@
 // 앱 단계가 있는 revert의 이어 실행(lophn-agent#T48, R10·R11). 사람이 확인한 RevertRun은 앱 단계가 있으면
 // applying으로 접수만 한다. 사람의 shell(revert 창)이 접수 뒤 `RunAppRevert`를 부르면 core가 그 revert를
 // 이어 받는다.
-//   - 앱의 revert command 호출은 호출한 사람의 자격으로 한다(그 사람의 `apps/connect` 연결과 앱 direct
-//     socket). agent.commands grant를 복원 권한으로 쓰지 않는다.
+//   - 실제 복원 호출(사람의 `apps/connect` 연결과 앱 direct socket으로 앱 command 보내기)은 감독 worker
+//     `apps/revert`(apps/worker/revert.ts)가 한다. core는 호출자의 credential을 호출 요청에 실어 보내고
+//     worker가 돌려준 결과를 받아 판정한다. agent.commands grant를 복원 권한으로 쓰지 않는다.
 //   - 단계 기록(`CheckpointRevert`)과 끝내기(`FinishRevert`)는 core 내부 machine 자격이다. 사람 token이
 //     이 command를 직접 부르지 못한다.
 // 순서 규칙(applying일 때만, 원래 호출 역순, 기록한 단계 건너뜀, 앞 단계가 복원되지 않으면 멈춤)은
@@ -21,11 +22,6 @@ import type {
 import type { OperationPolicy } from "../../packages/platform/identity/mod.ts";
 import { openConnection } from "../../packages/platform/ledger/mod.ts";
 import type { MemoryHandler } from "../../packages/platform/api/mod.ts";
-import {
-  type CoreCall,
-  createRuntimeClient,
-  type DirectTransport,
-} from "../../packages/apps/runtime/client/mod.ts";
 import {
   type AppStepPorts,
   type AppStepResult,
@@ -61,66 +57,19 @@ type Envelope = {
   prepared: string[];
 };
 
-// 호출한 사람의 자격으로 앱의 revert command를 한 번 직접 부른다.
+// 저장한 revert 단계 하나의 실제 호출이다. 감독 worker(apps/revert)가 호출자의 credential과
+// 단계 근거를 받아 앱의 revert command를 부른다(workerAppCaller가 이 모양을 만든다).
 export type AppRevertCaller = (
   binding: AppRevertBinding,
 ) => Promise<AppStepResult>;
 
-const PLACEHOLDER_SCREEN = "main";
-
-// 제품의 호출자. 사람의 `apps/connect` 연결을 받아 연결이 고정한 release가 단계의 release와 같을 때만
-// request_key=step_key로 보낸다(앱이 같은 key의 재전송에 같은 결과를 돌려주므로 중복 실행되지 않는다).
-// 앱에 닿지 못했으면 failure, 앱이 conflict로 거절했으면 conflict, 보낸 뒤 응답을 잃었으면 uncertain이다.
-export function runtimeAppCaller(options: {
-  connect: CoreCall;
-  direct?: DirectTransport;
-}): AppRevertCaller {
-  const client = createRuntimeClient({
-    core: { call: options.connect },
-    ...(options.direct === undefined ? {} : { direct: options.direct }),
-  });
-  const notSent: AppStepResult = { result: "failure", invocation: null };
-  return async (binding) => {
-    const session = await client.connect({
-      app: binding.app,
-      mode: "live",
-      screens: [PLACEHOLDER_SCREEN],
-      screen_sizes: {},
-      commands: [binding.revert_command],
-    });
-    if (!session.ok) return notSent;
-    // 원래 write의 release와 다른 release에는 되돌림 근거가 통하지 않는다.
-    if (session.value.connection.release !== binding.release) return notSent;
-    const sent = await session.value.invoke({
-      command: binding.revert_command,
-      input: {
-        invocation: binding.invocation,
-        receipt: binding.receipt,
-        expected_revision: binding.expected_revision,
-      },
-      request_key: binding.step_key,
-    });
-    if (!sent.ok) {
-      return {
-        result: sent.error.code === "conflict" ? "conflict" : "failure",
-        invocation: null,
-      };
-    }
-    if (sent.value.kind === "unknown") {
-      return { result: "uncertain", invocation: null };
-    }
-    const invocation = sent.value.output.invocation;
-    // 실제 Invocation 없이 복원했다고 기록하지 않는다.
-    return invocation === undefined
-      ? { result: "uncertain", invocation: null }
-      : { result: "restored", invocation };
-  };
-}
-
 export type AppRevertDeps = {
   ledgerPath: string;
-  // 호출한 사람의 자격으로 앱을 부르는 호출자를 만든다.
-  caller(ctx: AuthenticatedContext): AppRevertCaller;
+  // 호출자의 credential로 앱을 부르는 호출자를 만든다. 실제 호출은 감독 worker(apps/revert)가 한다.
+  caller(
+    ctx: AuthenticatedContext,
+    credential: string | undefined,
+  ): AppRevertCaller;
   // writer로 command를 낸다. core 조립이 늦게 채우므로 호출 때 읽는다.
   command(
     ctx: RequestContext,
@@ -171,7 +120,7 @@ function readStored(
 }
 
 export function createAppRevert(deps: AppRevertDeps): MemoryHandler {
-  return async (ctx, value) => {
+  return async (ctx, value, credential) => {
     const input = value as z.infer<typeof runAppRevert.input>;
     const machine = deps.machine();
     if (machine === undefined) return unavailable("app revert is unavailable");
@@ -183,7 +132,7 @@ export function createAppRevert(deps: AppRevertDeps): MemoryHandler {
     };
     const ports: AppStepPorts = {
       stored: (revert) => Promise.resolve(readStored(deps.ledgerPath, revert)),
-      call: deps.caller(ctx),
+      call: deps.caller(ctx, credential),
       checkpoint: (step) =>
         send({
           command: checkpointRevert.name,

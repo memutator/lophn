@@ -36,7 +36,7 @@ import {
   runAppSteps,
 } from "../../packages/lophn-agent/revert/mod.ts";
 import { NotSent, ResultLost } from "../../packages/apps/runtime/client/mod.ts";
-import { runtimeAppCaller } from "./app-revert.ts";
+import { acceptRevertCall } from "../worker/apps/revert.ts";
 import { type Core, startCore } from "./core.ts";
 import { lophnAgentDefinitions } from "./lophn-agent.ts";
 import {
@@ -965,7 +965,7 @@ Deno.test("lophn-agent/revert#R11: 앱이 시작 뒤 later change로 거절하�
   }
 });
 
-Deno.test("lophn-agent/revert#R10: 제품 호출자는 호출한 사람의 apps/connect 연결로 request_key=step_key를 보내고 닿지 못함·충돌·응답 유실·성공을 구별한다", async () => {
+Deno.test("lophn-agent/revert#R10: 호출 worker는 요청이 싣는 자격의 apps/connect 연결로 request_key=step_key를 보내고 닿지 못함·충돌·응답 유실·성공을 구별한다", async () => {
   const binding: AppRevertBinding = {
     app: APP,
     release: REL,
@@ -1003,18 +1003,26 @@ Deno.test("lophn-agent/revert#R10: 제품 호출자는 호출한 사람의 apps/
     release: string | null,
     direct: (body: unknown) => Promise<{ status: number; body: unknown }>,
   ) =>
-    runtimeAppCaller({
-      connect: (_path, body) => {
-        connects.push(body);
+    acceptRevertCall({
+      type: "worker_request",
+      request_id: "cred-user/test",
+      op: "revert.call",
+      payload: {
+        credential: USER_TOKEN,
+        binding,
+      },
+    }, {
+      core: () => {
+        connects.push(USER_TOKEN);
         return Promise.resolve({ status: 200, body: connection(release) });
       },
       direct: (_endpoint, request) => {
         sent.push(request.body);
         return direct(request.body);
       },
-    });
+    }).then((result) => result as AppStepResult);
   const revertInvocation = id("inv", 77);
-  // 성공: 앱이 남긴 revert 호출의 Invocation을 돌려준다. 입력은 저장한 근거 그대로이고 request_key는 step_key다.
+  // 성공: 앱이 남긴 revert 호출의 Invocation을 돌려준다.
   const done = await caller(REL, () =>
     Promise.resolve({
       status: 200,
@@ -1023,15 +1031,9 @@ Deno.test("lophn-agent/revert#R10: 제품 호출자는 호출한 사람의 apps/
         invocation: revertInvocation,
         mode: "live",
       },
-    }))(binding);
+    }));
   assertEquals(done, { result: "restored", invocation: revertInvocation });
-  assertEquals(connects[0], {
-    app: APP,
-    mode: "live",
-    screens: ["main"],
-    screen_sizes: {},
-    commands: ["revert_todo"],
-  });
+  assertEquals(connects[0], USER_TOKEN);
   assertEquals(sent[0], {
     request_key: binding.step_key,
     release: REL,
@@ -1048,23 +1050,23 @@ Deno.test("lophn-agent/revert#R10: 제품 호출자는 호출한 사람의 apps/
       Promise.resolve({
         status: 409,
         body: { error: { code: "conflict", message: "changed" } },
-      }))(binding),
+      })),
     { result: "conflict", invocation: null },
   );
   // 앱에 닿지 못했다: 보내지 않았다.
   assertEquals(
-    await caller(REL, () => Promise.reject(new NotSent()))(binding),
+    await caller(REL, () => Promise.reject(new NotSent())),
     { result: "failure", invocation: null },
   );
   // 보낸 뒤 응답을 잃었다: 되돌렸는지 모른다.
   assertEquals(
-    await caller(REL, () => Promise.reject(new ResultLost()))(binding),
+    await caller(REL, () => Promise.reject(new ResultLost())),
     { result: "uncertain", invocation: null },
   );
   // 원래 write의 release가 아니면 보내지 않는다.
   const before = sent.length;
   assertEquals(
-    await caller(id("rel", 2), () => Promise.reject(new Error("no")))(binding),
+    await caller(id("rel", 2), () => Promise.reject(new Error("no"))),
     { result: "failure", invocation: null },
   );
   assertEquals(sent.length, before);

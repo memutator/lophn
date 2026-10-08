@@ -5,9 +5,8 @@
 // 남기고 snapshot을 얻지 못하면 이용 불가와 참조만 남긴다. model provider와 실제
 // core는 부르지 않는다.
 import { assert, assertEquals, assertFalse } from "@std/assert";
-import { err, ok } from "../../base/mod.ts";
 import type { VisualBlock } from "../../contracts/lophn-agent/mod.ts";
-import { app, at, doc, msg, rel, ver } from "./testing/mod.ts";
+import { app, at, msg, rel } from "./testing/mod.ts";
 import {
   type CardView,
   checkCardScreen,

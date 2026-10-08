@@ -2,6 +2,7 @@
 // 가리키는지, 사람 전용 command가 route 없이 링크만 내는지, 같은 입력의 실행이 MCP tool과
 // 같은 요청·결과인지 본다. core 대신 route별 답을 정한 흐름 client를 쓴다.
 import { assert, assertEquals } from "@std/assert";
+import { ok } from "../../../base/mod.ts";
 import { APP_OP_ROUTES } from "../../connection/mod.ts";
 import { scriptedFlow } from "../../connection/testing/mod.ts";
 import { COMMANDS, findCommand } from "../registry.ts";
@@ -145,6 +146,140 @@ const TEST_FIELDS = {
   test: "b".repeat(64),
   request_key: "req-test-0123456789",
 };
+
+Deno.test("coding-agent/cli#R29: app sync-tools는 검사한 op 입력을 지정 sync port에 넘겨 실행하고 결과를 요약에 담는다", async () => {
+  const target = {
+    scope_kind: "app",
+    environment: { kind: "host", identity: "native" },
+    profile_id: null,
+    harness_id: "claude",
+    app: APP,
+    app_realpath: "/w/notes",
+  };
+  const seen: Record<string, unknown>[] = [];
+  const flow = scriptedFlow({});
+  const done = await runApp("app sync-tools", {
+    command: "app sync-tools",
+    app: APP,
+    target,
+  }, {
+    client: flow.client,
+    ...deps,
+    sync: (opInput) => {
+      seen.push(opInput);
+      return Promise.resolve(ok({
+        status: "complete",
+        files: [{
+          target: "mcp",
+          name: "mcp:app",
+          outcome: "changed",
+          reason: "MCP 설정을 썼다",
+        }],
+        notices: [],
+      }));
+    },
+  });
+  assert(done.ok);
+  assertEquals(done.value.isError, undefined);
+  assert(done.value.summary.includes("도구 재배포를 마쳤다"));
+  const files = (done.value.data as { files: unknown[] }).files;
+  assertEquals(files.length, 1);
+  // op는 떼어 보낸다(withoutOp). target·names는 그대로 온다.
+  assertEquals(seen[0].op, undefined);
+  assertEquals(seen[0].target, target);
+  assertEquals(flow.sent.length, 0);
+});
+
+Deno.test("coding-agent/cli#R29: sync port가 없는 process의 app sync-tools는 unavailable이다", async () => {
+  const flow = scriptedFlow({});
+  const done = await runApp("app sync-tools", {
+    command: "app sync-tools",
+    app: APP,
+    target: {
+      scope_kind: "app",
+      environment: { kind: "host", identity: "native" },
+      profile_id: null,
+      harness_id: "claude",
+      app: APP,
+      app_realpath: "/w/notes",
+    },
+  }, { client: flow.client, ...deps });
+  assert(done.ok);
+  assertEquals(done.value.isError, true);
+  assertEquals((done.value.data as { code: string }).code, "unavailable");
+  assertEquals(flow.sent.length, 0);
+});
+
+Deno.test("coding-agent/cli#R29: app sync-tools는 같은 입력을 두 번 실행해도 중복 항목이 없다(complete twice)", async () => {
+  const target = {
+    scope_kind: "app",
+    environment: { kind: "host", identity: "native" },
+    profile_id: null,
+    harness_id: "claude",
+    app: APP,
+    app_realpath: "/w/notes",
+  };
+  const first = await runApp("app sync-tools", {
+    command: "app sync-tools",
+    app: APP,
+    target,
+  }, {
+    client: scriptedFlow({}).client,
+    ...deps,
+    sync: () =>
+      Promise.resolve(ok({
+        status: "complete",
+        files: [
+          {
+            target: "mcp",
+            name: "mcp:app",
+            outcome: "unchanged",
+            reason: "이미 같다",
+          },
+          {
+            target: "skill",
+            name: "skill:app:lophn-save",
+            outcome: "unchanged",
+            reason: "이미 같다",
+          },
+        ],
+        notices: [],
+      })),
+  });
+  const second = await runApp("app sync-tools", {
+    command: "app sync-tools",
+    app: APP,
+    target,
+  }, {
+    client: scriptedFlow({}).client,
+    ...deps,
+    sync: () =>
+      Promise.resolve(ok({
+        status: "complete",
+        files: [
+          {
+            target: "mcp",
+            name: "mcp:app",
+            outcome: "unchanged",
+            reason: "이미 같다",
+          },
+          {
+            target: "skill",
+            name: "skill:app:lophn-save",
+            outcome: "unchanged",
+            reason: "이미 같다",
+          },
+        ],
+        notices: [],
+      })),
+  });
+  assert(first.ok && second.ok);
+  const one = (first.value.data as { files: { name: string }[] }).files;
+  const two = (second.value.data as { files: { name: string }[] }).files;
+  assertEquals(one.length, two.length);
+  assertEquals(new Set(one.map((f) => f.name)).size, one.length);
+  assertEquals(new Set(two.map((f) => f.name)).size, two.length);
+});
 
 Deno.test("coding-agent/cli#R26: 실패한 검사는 성공 exit로 처리되지 않는 isError다", async () => {
   const flow = scriptedFlow({

@@ -3,7 +3,7 @@
 // 자리다(coding-agent/harnesses). label·toolsets·connection은 argv와 환경 설정
 // 순서로 찾는다(connection#R3). core RPC는 소유 route 하나로만 routing한다(R2).
 import { unixAppDirectTransport } from "../../packages/coding-agent/connection/app-direct-unix.ts";
-import { ok, type Result } from "../../packages/base/mod.ts";
+import { err, ok, type Result } from "../../packages/base/mod.ts";
 import type { LophnError } from "../../packages/base/mod.ts";
 import {
   type ConnectionId,
@@ -44,6 +44,15 @@ import {
   uploadPrepareBytes,
 } from "../../packages/coding-agent/connection/mod.ts";
 import { createAppTool } from "../../packages/coding-agent/mcp-server/tools/app.ts";
+import {
+  loadDistribution,
+  syncTools,
+} from "../../packages/coding-agent/guides/mod.ts";
+import {
+  filePort,
+  integrationsStore,
+  launchOf,
+} from "../../packages/coding-agent/harnesses/mod.ts";
 import { createSdkTool } from "../../packages/coding-agent/mcp-server/tools/sdk.ts";
 import {
   type AppBlueprintSource,
@@ -207,11 +216,68 @@ export function startMcpServer(
       ? createAppDirect({ client: caller, transport: unixAppDirectTransport() })
       : undefined);
   // 앱 개발 tool의 실행이다(T21). 소유 route로만 보내고 CLI와 같은 흐름을 쓴다.
+  // 도구 재배포(guides#R17)는 파일 설치라 core route 밖이다: submissionRoot(앱 source
+  // 폴더, --cwd)의 target으로 guides의 syncTools를 돌린다(mcp#R19).
   const appTool = caller
     ? createAppTool({
       client: caller,
       idempotencyKey: () => `mcp-app-${crypto.randomUUID()}`,
       direct,
+      sync: async (opInput) => {
+        const target = opInput.target as never;
+        if (
+          typeof target !== "object" || target === null ||
+          typeof (target as { app_realpath?: unknown }).app_realpath !==
+            "string"
+        ) {
+          return err({
+            code: "invalid_input",
+            message: "재배포 대상 target이 필요하다(harness plan의 target)",
+          });
+        }
+        const root = (target as { app_realpath: string }).app_realpath
+          .replace(/\/$/, "");
+        const connectionRef = connection.ok ? connection.value : "";
+        const loaded = await loadDistribution();
+        if (!loaded.ok) return loaded;
+        return syncTools({
+          target,
+          ...(Array.isArray(opInput.names)
+            ? { names: opInput.names as string[] }
+            : {}),
+          skills: loaded.value.skills,
+          roots: {
+            home: dataRoot ? dataRoot.replace(/\/lophn$/, "") : "",
+            env: { get: (name) => source[name] },
+            cwd: root,
+          },
+          launch: launchOf({
+            executable: `${dataRoot ?? ""}/deno`,
+            resources: `${dataRoot ?? ""}/platform`,
+            cache: source["DENO_DIR"] ??
+              `${
+                dataRoot ? dataRoot.replace(/\/lophn$/, "") : ""
+              }/.cache/lophn/deno`,
+            discoveryFiles: [],
+            submissionRoot: root,
+            coreAddress: address.ok ? new URL(address.value.url).host : "",
+            appAddresses: [],
+            connection: connectionRef,
+            toolsets: "core,app",
+            credentialHelper: `${dataRoot ?? ""}/lophn-credential`,
+          }),
+          connection: connectionRef === "" ? null : connectionRef,
+          operationId: `mcp-app-${crypto.randomUUID()}`,
+          now: new Date().toISOString(),
+        }, {
+          files: filePort(),
+          store: integrationsStore(
+            `${
+              dataRoot ? dataRoot.replace(/\/lophn$/, "") : ""
+            }/.lophn/integrations`,
+          ),
+        });
+      },
     })
     : undefined;
   // blueprint 유래 앱 read tool이다(T23). app toolset과 blueprint source가 있을 때만 난다.

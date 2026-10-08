@@ -11,6 +11,8 @@ import { ALL_ROUTES } from "../../../../../packages/contracts/mod.ts";
 // contexts 화면(shell#T36)의 Focus 항목 제목·읽기 가능 여부·section 상태도 목차 읽기다.
 // projects 화면의 export(shell#T20)는 사람이 고른 고정 판을 redaction을 거쳐 묶어 읽을 뿐
 // 판·자리를 바꾸지 않는다.
+// settings의 앱 export(shell#T58)는 사람이 고른 앱의 자료를 읽어 밖으로 가져가는 준비다.
+// 준비 본체는 core 그래프 밖 프로세스가 하지만 아무것도 바꾸지 않는다(shell/wording#R12).
 export const READING_WORKER_ROUTES: readonly string[] = [
   "worker:outline/document",
   "worker:outline/context",
@@ -21,6 +23,7 @@ export const READING_WORKER_ROUTES: readonly string[] = [
   "worker:search/query",
   "worker:views/open",
   "worker:projects/preview_tracking",
+  "worker:apps/export",
 ];
 
 /** allowlist는 이름만 기억한다. schema 검사는 client가 route 원본으로 한다. */

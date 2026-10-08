@@ -815,6 +815,29 @@ export function coreSettingsSource(
         owner: secret,
         purpose: "app_secret",
       }),
+
+    async exportApp(app) {
+      // 앱 export는 worker route(allowlist에 더한 것)다. 준비는 core 그래프 밖 프로세스가 하고
+      // 결과(ready·failed·preparing)만 온다. 자료를 바꾸지 않는다(shell/wording#R12).
+      const reply = await call<{
+        app: string;
+        state: "preparing" | "ready" | "failed";
+        reason?: { summary?: string };
+        includes_external_data: boolean;
+      }>(core, "worker", "apps", "export", { app });
+      if (!reply.ok) return reply;
+      return {
+        ok: true,
+        value: {
+          app: reply.value.app,
+          state: reply.value.state,
+          ...(reply.value.reason?.summary === undefined
+            ? {}
+            : { reason: reply.value.reason.summary }),
+          includesExternalData: reply.value.includes_external_data,
+        },
+      };
+    },
   };
 }
 

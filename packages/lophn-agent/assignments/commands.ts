@@ -369,13 +369,25 @@ export function createAssignmentCommands(): {
     },
     applyOperator: {
       route: applyOperatorAssignment,
+      // approval 적용(`apply_approved_action`)이 같은 transaction에서 부를 수
+      // 있게 dispatchable이다. user의 직접 호출은 route로 도달해 handler의
+      // 승인 기록 검사에서 거절된다(lophn-agent#T53, shell#T54에서 넘어온 것).
+      dispatchable: true,
       handle(tx, ctx, input: Input<typeof applyOperatorAssignment>) {
-        const machine = requireMachine(ctx);
-        if (!machine.ok) return machine;
-        // 승인 상태는 approval_requests의 현재 status로 본다. T23 결합 전까지
-        // useApproval을 쓰지 않는다(남은 것).
+        // 적용 주체는 machine이거나 승인 경유의 user다(lophn-agent#T53).
+        // approvals/apply의 dispatch만 user 자격으로 부르고 승인 없는 직접 호출은
+        // route actors와 아래 승인 검사가 막는다.
+        const actor = parseActor(ctx.actor)?.kind;
+        if (actor !== "machine" && actor !== "user") {
+          return reject(
+            "forbidden",
+            "assignment registration is machine or approval-dispatch only",
+          );
+        }
+        // 승인 상태는 approval_requests의 현재 status와 결정 seq로 본다. T23
+        // 결합 전까지 useApproval을 쓰지 않는다(남은 것).
         const approval = tx.sql.get(
-          "select status from approval_requests where id = ?",
+          "select status, cast(closed_seq as text) as closed_seq from approval_requests where id = ?",
           [input.approval],
         );
         if (approval === undefined) {
@@ -383,6 +395,19 @@ export function createAssignmentCommands(): {
         }
         if (String(approval["status"]) !== "granted") {
           return reject("forbidden", "approval is not granted");
+        }
+        // 허락이 확정한 결정 seq다. 이전 화면이 넣은 자리 값밖에 없던 입력과
+        // 구별하려고 제공되면 승인 기록과 일치해야 한다(lophn-agent#T53).
+        const closed = approval["closed_seq"];
+        if (
+          input.decision_seq !== undefined &&
+          (closed === null || typeof closed !== "string" ||
+            BigInt(input.decision_seq) !== BigInt(closed))
+        ) {
+          return reject(
+            "forbidden",
+            "the approval decision seq does not match",
+          );
         }
         const presetKind = loadPresetKind(tx, input.bundle.preset);
         if (presetKind === undefined) {

@@ -10,6 +10,7 @@ import {
 } from "./assignment-values.ts";
 import {
   applyOperatorAssignment,
+  applyOperatorAssignmentInputSchema,
   ASSIGNMENT_EVENTS,
   ASSIGNMENT_ROUTES,
   assignmentOutputs,
@@ -104,13 +105,13 @@ Deno.test("lophn-agent/assignments#R2: ten assignment routes and five assignment
 });
 
 Deno.test("lophn-agent/assignments#R4: applying an operator pairs the approval with the assignment read", () => {
-  assertEquals(applyOperatorAssignment.actors, ["machine"]);
+  // 적용은 machine 또는 승인 경유의 user 자격이다(lophn-agent#T53, shell#T54에서
+  // 넘어온 것). user는 approvals/apply의 dispatch로만 부르고 승인 없는 직접
+  // 호출은 handler의 승인 검사가 막는다.
+  assertEquals(applyOperatorAssignment.actors, ["machine", "user"]);
   assertEquals(applyOperatorAssignment.confirmation, "required");
-  assertEquals(applyOperatorAssignment.binding, [
-    "approval",
-    "decision_seq",
-    "bundle",
-  ]);
+  // 사람이 본 구성은 bundle이고 결정 seq는 허락이 확정하는 것이라 본 내용이 아니다.
+  assertEquals(applyOperatorAssignment.binding, ["approval", "bundle"]);
   assertEquals(applyOperatorAssignment.display_read, "/v1/assignments/read");
   assert(
     operatorApprovalBundleSchema.safeParse(bundle).success,
@@ -119,6 +120,23 @@ Deno.test("lophn-agent/assignments#R4: applying an operator pairs the approval w
     !operatorApprovalBundleSchema.safeParse({
       ...bundle,
       preset_definition: pst,
+    }).success,
+  );
+  // 결정 seq는 생략할 수 있고(lophn-agent#T53의 입력 모양 맞춤), 제공되면
+  // handler가 승인 기록과 일치하는지 본다.
+  assert(
+    applyOperatorAssignmentInputSchema.safeParse({
+      approval: apr,
+      id: asg,
+      bundle,
+    }).success,
+  );
+  assert(
+    applyOperatorAssignmentInputSchema.safeParse({
+      approval: apr,
+      decision_seq: "3",
+      id: asg,
+      bundle,
     }).success,
   );
 });

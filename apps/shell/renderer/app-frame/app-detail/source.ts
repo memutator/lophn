@@ -272,4 +272,16 @@ export interface AppDetailSource {
   decide(decision: AppDecision): Promise<SourceResult<true>>;
   /** automation 끄기. 확인 창 없이 사람의 회수다. */
   turnOffAutomation(grant: string): Promise<SourceResult<true>>;
+  /**
+   * 이 앱의 자료를 밖으로 내보낸다(Data 탭 [Export] 항목, shell#T58). 준비 결과(ready·failed)만
+   * 답하고 실제 묶음은 core가 처리한다. 준비 중이면 preparing이다.
+   */
+  exportApp(app: string): Promise<
+    SourceResult<{
+      readonly app: string;
+      readonly state: "preparing" | "ready" | "failed";
+      readonly reason?: string;
+      readonly includesExternalData: boolean;
+    }>
+  >;
 }

@@ -31,8 +31,9 @@ export type InstallPorts = {
 
 export type InstallInput = {
   target: IntegrationTarget;
-  // 사람이 고른 connection 참조다. token 원문은 없다.
-  connection: string;
+  // 사람이 고른 connection 참조다. token 원문은 없다. skill만 설치하는 흐름은 connection이 없어도 되고
+  // 이때 기존 receipt가 가진 connection 참조를 그대로 둔다.
+  connection: string | null;
   launch: McpLaunch;
   // 설치할 skill이다. 없으면 skill resource를 만들지 않는다(skill 본문은 guides가 낸다).
   skill?: {
@@ -265,7 +266,8 @@ async function runSelected(
     const plan = planOf({
       definition,
       target: input.target,
-      connection: input.connection,
+      connection: input.connection ??
+        (await ports.store.receipt(input.target))?.connection ?? null,
       resources: group.resources,
     });
     if (!plan.ok) {
@@ -339,10 +341,10 @@ async function runSelected(
   });
 }
 
-// 고른 target 하나의 설치·갱신·제거가 쓸 수 있는 파일의 정확한 절대 경로다(CLI launcher의 쓰기 권한 계산,
+// 고른 target 하나의 설치·갱신·제거가 쓰 수 있는 파일의 정확한 절대 경로다(CLI launcher의 쓰기 권한 계산,
 // open-issues coding-agent/mcp-server#Q9). 설정 파일 하나와, 앱 범위의 관리 구간 지침 파일이다. CLI는
 // 시작 summary hook(검증한 제품의 `summary` 목적 hook)의 설정 파일을 더하고 상태 수집 hook의 파일은 더하지
-// 않는다. skill은 아직 설치하지 않는다.
+// 않는다(coding-agent#T35). skill은 `selectedSkillDirs`가 따로 낸다.
 // 폴더·와일드카드·다른 제품·다른 앱의 경로는 나오지 않는다. 절대 경로로 풀리지 않으면 err다.
 export function selectedWriteFiles(
   target: IntegrationTarget,
@@ -402,4 +404,59 @@ export function selectedWriteFiles(
     if (!added.ok) return added;
   }
   return ok(files);
+}
+
+// 고른 target의 skill root 아래에 lophn skill `names`가 놓일 디렉터리의 정확한 절대 경로다(`skills install`의
+// CLI launcher 권한 계산, T33). 설치 root 폴더 전체가 아니라 lophn skill 이름의 디렉터리만 나오고, 사람의
+// 다른 skill 디렉터리·다른 제품·다른 앱의 경로는 나오지 않는다. 절대 경로로 풀리지 않으면 err다.
+export function selectedSkillDirs(
+  target: IntegrationTarget,
+  roots: RootInputs,
+  names: readonly string[],
+): Result<string[]> {
+  const definition = catalogOf(target.harness_id);
+  if (definition === undefined) {
+    return err({ code: "invalid_input", message: "알 수 없는 제품이다" });
+  }
+  if (target.environment.kind !== "host") {
+    return err({
+      code: "invalid_input",
+      message: "지금은 native host만 설치한다",
+    });
+  }
+  const skillRoot = definition.skill_targets.find((entry) =>
+    entry.scope_kind === target.scope_kind
+  );
+  if (skillRoot === undefined) {
+    return err({
+      code: "invalid_input",
+      message: "이 제품은 이 범위의 skill root가 없다",
+    });
+  }
+  const scoped: RootInputs = target.scope_kind === "app"
+    ? { ...roots, cwd: target.app_realpath }
+    : roots;
+  const root = rootOf(skillRoot.root_resolver, scoped);
+  if (!root.ok) return root;
+  const dirs: string[] = [];
+  for (const name of names) {
+    if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(name)) {
+      return err({
+        code: "invalid_input",
+        message: "skill 이름이 정확한 디렉터리 이름이 아니다",
+      });
+    }
+    const full = `${root.value}/${skillRoot.path}/${name}`;
+    if (
+      !full.startsWith("/") || full.split("/").includes("..") ||
+      /[\0\n,]/.test(full)
+    ) {
+      return err({
+        code: "invalid_input",
+        message: "쓸 경로가 정확한 절대 경로가 아니다",
+      });
+    }
+    dirs.push(full);
+  }
+  return ok(dirs);
 }

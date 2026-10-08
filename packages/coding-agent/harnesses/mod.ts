@@ -118,6 +118,7 @@ export {
   installSelected,
   planSelected,
   removeSelected,
+  selectedSkillDirs,
   selectedWriteFiles,
   updateSelected,
 } from "./install.ts";

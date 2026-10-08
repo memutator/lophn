@@ -152,7 +152,7 @@ export function cliLauncher(layout: LinuxInstallLayout): string {
     "# 설치·sdk 명령만 권한 계획을 부른다. 계획은 읽기·loopback·helper 실행뿐이고 쓰기·run은 없다.",
     'EXTRA=""',
     'for arg in "$@"; do',
-    '  case "$arg" in harness|connection|sdk|observe) NEED=1 ;; esac',
+    '  case "$arg" in harness|connection|sdk|observe|skills) NEED=1 ;; esac',
     "done",
     'if [ -n "${NEED:-}" ]; then',
     '  EXTRA=$("$ROOT/deno" run --cached-only --frozen --no-prompt \\',

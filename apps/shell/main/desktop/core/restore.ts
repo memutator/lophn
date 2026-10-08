@@ -69,8 +69,6 @@ const realClock: RestoreClock = {
   nowMs: () => Date.now(),
 };
 
-const isosOf = (nowMs: number): string => new Date(nowMs).toISOString();
-
 /**
  * 복원 계획을 읽는다. `restore_plan_request`를 pipe로 보내 `restore_plan`을 기다린다.
  * `restore_failed`(stage plan)나 응답이 없으면 실패다. core는 아무것도 멈추지 않는다.

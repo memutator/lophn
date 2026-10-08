@@ -2065,15 +2065,15 @@ export const en = {
     "This backup failed a check or was made while lophn was busy. The latest checked backup stays usable.",
   "settings.backup.retained":
     "The last {count, plural, one {# checked backup} other {# checked backups}} are kept. Newer backups that failed a check are replaced by the latest one that passed.",
-  "settings.backup.reconnect-heading": "After a restore",
-  "settings.backup.app-export-heading": "Take an app's data out",
+  "settings.backup.reconnect-heading": "After a restore.",
+  "settings.backup.app-export-heading": "Take an app's data out.",
   "settings.backup.app-export-note":
     "This makes a separate copy of one app's records. It is not part of a backup, and app data outside the app (like attached files) is not included.",
   "settings.backup.app-export-ready":
     "The copy is ready in the folder lophn made for it.",
   "settings.backup.app-export-failed":
     "The copy couldn't be made. Nothing changed. Try again.",
-  "settings.backup.secrets-heading": "Secrets",
+  "settings.backup.secrets-heading": "Secrets.",
   "settings.backup.secrets-note":
     "Passwords and keys aren't in backups. Move them separately with a passphrase-protected file.",
   "settings.backup.secrets-window":

@@ -25,3 +25,9 @@ export {
   type ToolBinding,
 } from "./work.ts";
 export { type AppJudgmentPorts, createAppBinding } from "./app-judgment.ts";
+export {
+  type AppContextJudgmentPorts,
+  createAnnotateBinding,
+  createScreenContextBinding,
+  type ScreenProbe,
+} from "./app-context-judgment.ts";

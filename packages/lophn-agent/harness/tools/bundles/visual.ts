@@ -8,9 +8,11 @@ import {
   type VisualBlock,
   visualKeySchema,
 } from "../../../../contracts/lophn-agent/mod.ts";
+import { appBlueprint } from "../../../../contracts/apps/mod.ts";
 import { idSchema } from "../../../../contracts/platform/mod.ts";
 import {
   blocksOf,
+  checkCardScreen,
   checkVisualContent,
   prepareVisualDocument,
   sourceLinks,
@@ -199,6 +201,47 @@ export function createVisualToolHandlers(
     return ok(null);
   }
 
+  // 앱 카드는 blueprint에서 카드 크기를 지원한 화면만 참조한다(visuals#R4). 카드가 있으면
+  // 이 run의 agent 자격으로 앱 blueprint를 읽어 view 화면이 card 크기를 선언했는지 본다.
+  // 읽지 못한 앱과 card 미지원 화면은 같은 거절이며 존재를 새지 않는다.
+  async function verifyCards(
+    blocks: readonly VisualBlockInput[],
+    credential: RunCredential,
+  ): Promise<Result<VisualRejection | null>> {
+    for (const block of blocks) {
+      if (block.kind !== "app_card") continue;
+      const read = await ports.call(
+        appBlueprint.name,
+        { app: block.payload.app },
+        credential.run,
+      );
+      if (!read.ok) {
+        if (
+          read.error.code === "not_found" || read.error.code === "forbidden"
+        ) {
+          return ok(cardUnsupported(block.key));
+        }
+        return read;
+      }
+      const body = bodyOf(read.value) as {
+        screens?: { key: string; sizes: string[] }[];
+      };
+      const supported = checkCardScreen(body, block.payload);
+      if (!supported.ok) return ok(cardUnsupported(block.key));
+    }
+    return ok(null);
+  }
+
+  function cardUnsupported(block: string): VisualRejection {
+    return {
+      code: "invalid_input",
+      stage: "block",
+      block,
+      message:
+        "app card does not reference a screen of the active release that declares the card size",
+    };
+  }
+
   handlers.set(
     visualShowTool.name,
     async (input, credential: RunCredential) => {
@@ -217,6 +260,12 @@ export function createVisualToolHandlers(
       if (!verified.ok) return verified;
       if (verified.value !== null) {
         return ok(notDone("not shown", verified.value));
+      }
+      // 카드 참조의 화면이 지금 active release의 card 크기 화면인지 본다(visuals#R4).
+      const cards = await verifyCards(blocks, credential);
+      if (!cards.ok) return cards;
+      if (cards.value !== null) {
+        return ok(notDone("not shown", cards.value));
       }
       const id = messageIdFor(credential.call, () => ports.newId("msg"));
       const recorded = await ports.call(recordMessage.name, {

@@ -63,7 +63,10 @@ export function testRunnerSpec(input: {
     entry,
     allow_read: [input.dataRoot, entry, rootConfig, ...GROUP_TOOLS],
     allow_write: [work],
-    allow_net: ["lophn.invalid", ...sockets],
+    // 고정 socket 자리와 가상 host(Unix socket은 정확한 경로의 net 허락을 요구한다)와
+    // `problems.work` 반응기가 core loopback으로 event를 읽고 command를 내는 데 쓰는
+    // loopback(problems#T19)을 모두 허락한다.
+    allow_net: ["lophn.invalid", "127.0.0.1", ...sockets],
     allow_run: [
       input.deno,
       ...LIMIT_TOOLS,

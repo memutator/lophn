@@ -14,9 +14,12 @@ import {
 
 export type PreparedBlockSnapshot = {
   block_key: string;
-  // 앱 카드의 redaction된 snapshot을 얻는 길이 아직 없어 모두 unavailable이다. hash는 captured일 때만 있다.
-  status: "unavailable";
-  captured_at: null;
+  // captured면 redaction된 snapshot JSON과 hash·시각이 있다. snapshot을 얻지 못하면
+  // unavailable이고 고정 참조만 남는다(R7). hash는 core가 준비한 blob의 hash다.
+  status: "captured" | "unavailable";
+  captured_at: string | null;
+  snapshot: string | null;
+  hash: string | null;
 };
 
 export type PreparedVisualDocument = {
@@ -166,8 +169,30 @@ function diagramRows(
   ];
 }
 
-function cardRows(block: Extract<VisualBlock, { kind: "app_card" }>): string[] {
+type CardCapture = {
+  block_key: string;
+  snapshot: string;
+  captured_at: string | null;
+  hash: string | null;
+};
+
+function cardRows(
+  block: Extract<VisualBlock, { kind: "app_card" }>,
+  captures: readonly CardCapture[],
+): string[] {
   const { app, release, view } = block.payload;
+  const capture = captures.find((entry) => entry.block_key === block.key);
+  if (capture !== undefined) {
+    // redaction된 snapshot과 고정 참조를 남긴다(R7). live 화면·credential은 넣지 않는다.
+    return [
+      `<p>App card of app ${e(app)} release ${e(release)} view ${e(view)}.</p>`,
+      `<h4>Snapshot</h4>`,
+      `<pre><code>${e(capture.snapshot)}</code></pre>`,
+      capture.captured_at === null
+        ? ""
+        : `<p>Captured at ${e(capture.captured_at)}.</p>`,
+    ];
+  }
   // live 앱 화면·credential은 문서에 넣지 않는다. snapshot이 없으면 없다고 적고 고정 참조만 남긴다.
   return [
     `<p>App card of app ${e(app)} release ${e(release)} view ${e(view)}.</p>`,
@@ -175,7 +200,10 @@ function cardRows(block: Extract<VisualBlock, { kind: "app_card" }>): string[] {
   ];
 }
 
-function dataRows(block: VisualBlock): string[] {
+function dataRows(
+  block: VisualBlock,
+  captures: readonly CardCapture[],
+): string[] {
   switch (block.kind) {
     case "table":
       return tableRows(block);
@@ -184,11 +212,14 @@ function dataRows(block: VisualBlock): string[] {
     case "diagram":
       return diagramRows(block);
     case "app_card":
-      return cardRows(block);
+      return cardRows(block, captures);
   }
 }
 
-function section(block: VisualBlock): string[] {
+function section(
+  block: VisualBlock,
+  captures: readonly CardCapture[],
+): string[] {
   return [
     `<section data-block="${e(block.key)}" data-kind="${block.kind}">`,
     `<h2>${e(block.title)}</h2>`,
@@ -198,7 +229,7 @@ function section(block: VisualBlock): string[] {
       ? ["<p>No source was recorded for this block.</p>"]
       : ["<ul>", ...block.sources.map(sourceItem), "</ul>"]),
     "<h3>Data</h3>",
-    ...dataRows(block),
+    ...dataRows(block, captures),
     "<h3>Specification</h3>",
     // 명세는 읽을 수 있는 escape된 글이다. script에 넣지 않는다.
     `<pre><code>${e(stableJson(block))}</code></pre>`,
@@ -211,10 +242,15 @@ export function prepareVisualDocument(input: {
   // 고정 근거: 읽은 메시지 본문의 hash다(ReadMessageBody가 돌려준 값).
   source_body: string;
   blocks: readonly VisualBlock[];
+  // 앱 카드의 redaction된 snapshot이다(R7). agent_context read 결과(app.screen_context)
+  // 가 준 값으로, 준비 때 그 값과 시각·hash를 그대로 싣는다. snapshot을 얻지 못한 카드는
+  // 이 입력에 없고 unavailable이 된다.
+  captures?: readonly CardCapture[];
 }): Result<PreparedVisualDocument> {
   if (input.blocks.length === 0) {
     return err({ code: "invalid_input", message: "no block was selected" });
   }
+  const captures = input.captures ?? [];
   const title = input.blocks.length === 1
     ? input.blocks[0]!.title
     : `${input.blocks.length} visuals`;
@@ -231,7 +267,7 @@ export function prepareVisualDocument(input: {
     `<dt>Source message</dt><dd>${e(input.message)}</dd>`,
     `<dt>Source body</dt><dd>${e(input.source_body)}</dd>`,
     "</dl>",
-    ...input.blocks.flatMap(section),
+    ...input.blocks.flatMap((block) => section(block, captures)),
     "</body>",
     "</html>",
     "",
@@ -245,19 +281,35 @@ export function prepareVisualDocument(input: {
         `prepared document is ${bytes} bytes and exceeds ${TOOL_TEXT_MAX_BYTES}; select fewer blocks`,
     });
   }
+  const snapshots: PreparedBlockSnapshot[] = [];
+  for (const block of input.blocks) {
+    if (block.kind !== "app_card") continue;
+    // agent_context read 결과의 redaction된 snapshot이다(R7). 준비 입력에 있던
+    // 값과 시각·hash를 그대로 싣는다. 없는 카드는 unavailable과 참조만이다.
+    const capture = captures.find((entry) => entry.block_key === block.key);
+    snapshots.push(
+      capture === undefined
+        ? {
+          block_key: block.key,
+          status: "unavailable",
+          captured_at: null,
+          snapshot: null,
+          hash: null,
+        }
+        : {
+          block_key: block.key,
+          status: "captured",
+          captured_at: capture.captured_at,
+          snapshot: capture.snapshot,
+          hash: capture.hash,
+        },
+    );
+  }
   return ok({
     text,
     bytes,
     block_keys: input.blocks.map((block) => block.key),
-    snapshots: input.blocks.flatMap((block) =>
-      block.kind === "app_card"
-        ? [{
-          block_key: block.key,
-          status: "unavailable" as const,
-          captured_at: null,
-        }]
-        : []
-    ),
+    snapshots,
   });
 }
 

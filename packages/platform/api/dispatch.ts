@@ -61,6 +61,8 @@ export type ReadHandler = (
 export type MemoryHandler = (
   ctx: AuthenticatedContext,
   input: unknown,
+  // 요청의 Bearer token 원문이다. read와 같다. 요청을 worker로 실어 보내는 route가 쓴다.
+  credential?: string,
 ) => Result<unknown> | Promise<Result<unknown>>;
 
 export type FileHandler = (
@@ -275,7 +277,13 @@ export async function dispatchHttp(
       );
     }
     if (isMemoryRoute(route)) {
-      return await memory(route, parsed.value, ctx, deps);
+      return await memory(
+        route,
+        parsed.value,
+        ctx,
+        deps,
+        request.headers.get("authorization")?.replace(/^Bearer /, ""),
+      );
     }
     if (isFileRoute(route)) {
       const split = fileConfirmation(parsed.value);
@@ -475,6 +483,7 @@ async function memory(
   value: unknown,
   ctx: AuthenticatedContext,
   deps: DispatchDeps,
+  credential?: string,
 ): Promise<HttpResult> {
   const parsed = route.input.safeParse(value);
   if (!parsed.success) {
@@ -484,7 +493,7 @@ async function memory(
   if (!handler) {
     return rejected({ code: "unavailable", message: "route unavailable" });
   }
-  const result = await handler(ctx, parsed.data);
+  const result = await handler(ctx, parsed.data, credential);
   if (!result.ok) return rejected(result.error);
   return { status: 200, json: result.value };
 }

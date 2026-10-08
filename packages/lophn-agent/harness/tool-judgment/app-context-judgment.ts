@@ -13,6 +13,15 @@ import {
 } from "../tools/mod.ts";
 import type { CallRef, ResolvedAction, ToolBinding } from "./work.ts";
 
+// comparison은 JsonObject라 grant(readonly commands)를 JSON 값으로 옮긴다.
+function grantJson(grant: NonNullable<ReturnType<typeof grantFor>>) {
+  return {
+    grant: grant.grant,
+    commands: [...grant.commands],
+    basis_seq: grant.basis_seq,
+  };
+}
+
 // 앱 화면 context 읽기와 주석 되쓰기의 판정 근거(tool-judgment R12). 되쓰기도 일반 write 판정을 거친다:
 // 판정표(`judge`)는 효과와 되돌림만 보고, 이 파일은 그 사실을 소유 계약에서 읽는다. 선언한 화면·주석 자리·
 // write command, 지금의 허락, 현재 화면 revision 중 하나라도 맞지 않으면 err이고 호출은 approval 없이
@@ -70,7 +79,9 @@ export function createScreenContextBinding(
           screen: value.screen,
           view_session: value.view_session,
           definition_hash: hash,
-          grant: grantFor(state.value.grants, plan.value.command.key)!,
+          grant: grantJson(
+            grantFor(state.value.grants, plan.value.command.key)!,
+          ),
         },
         changes:
           `Reads the current screen ${value.screen} of app ${view.name} with the declared read command ${plan.value.command.key}.`,
@@ -130,7 +141,9 @@ export function createAnnotateBinding(
           target: value.target,
           revision: value.expected_revision,
           definition_hash: hash,
-          grant: grantFor(state.value.grants, plan.value.command.key)!,
+          grant: grantJson(
+            grantFor(state.value.grants, plan.value.command.key)!,
+          ),
         },
         changes:
           `Writes a hint into the place ${value.target} of the screen ${value.screen} of app ${view.name} with the declared command ${plan.value.command.key}.`,

@@ -762,6 +762,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 
 ### T40 trace export
 
+- 상태: 완료 (#459)
 - 등급: 기본
 - concern: lophn-agent/observability
 - 요구: lophn-agent/observability#R10, R12, R14, R16, R17
@@ -775,6 +776,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
   - export_test.ts에 R10, R12, R14, R16, R17 테스트: UTF-8 NDJSON 형식 버전 1과 trace별 기록, 메타데이터 기본과 export마다 내용 종류 선택, redaction 뒤 값마다 UTF-8 32768 bytes 앞부분(문자 중간에서 자르지 않음, 한글 경계 사례)·잘림·제외·원본 참조는 본문 밖 별도 필드, 내용 종류 기본은 빈 집합, 복구 원본에는 상한 없음, network export·제삼자 전송 없음, 실패가 원본·run을 바꾸거나 model 재시도를 시키지 않고 보낸·못 보낸 수 구별
   - 보존 정리는 T57(platform#T44가 operations slice)
   - flow review-agent-work의 trace·export 갈래
+  - 정한 것(T40): contract의 `agentTraceExport` schema(`/v1/agent-traces/export`)는 이미 있어 additive 변경 없이 그대로 썼다. export는 ledger event가 없는 runtime 접수라 connection test와 같은 모양으로 writer queue 앞 처리기가 실행한다(`apps/core/agent-trace-export.ts`). trace 조립은 reads.ts의 accessor(`loadRun`·`traceOfRun`·`traceOfCall`·`Lookup`)를 additive하게 export해 같은 길을 쓴다. 안전화는 core 알려진 값 registry를 쓰는 제품 redactor를 엔진 모양으로 감싸 붙이고, 끝내지 못하면 값을 제외한다(fail-closed).
 
 ### T41 agent slice flow E2E
 

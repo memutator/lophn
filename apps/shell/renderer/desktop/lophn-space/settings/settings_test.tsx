@@ -1011,14 +1011,14 @@ Deno.test("shell/wording#R10: settings의 backup·update·진단·notification �
   const { source } = fakeSettings({ providers: [claude([])] });
   using bare = render(<SettingsScreen source={source} />);
   await flush();
-  // 통로가 없으면 그 자리의 탭을 두지 않는다.
+  // 통로가 없으면 그 자리의 탭을 두지 않는다. 탭 목록 자체는 늘 선다.
   const bareTabs = [...bare.container.querySelectorAll("[role=tab]")].map(
-    textOf,
+    (tab) => textOf(tab).trim(),
   );
-  assertEquals(bareTabs.includes("Backup"), false, bareTabs.join(" / "));
-  assertEquals(bareTabs.includes("Update lophn"), false, bareTabs.join(" / "));
-  assertEquals(bareTabs.includes("Diagnose"), false, bareTabs.join(" / "));
-  assertEquals(bareTabs.includes("Notifications"), false, bareTabs.join(" / "));
+  assert(bareTabs.includes("Connections"), bareTabs.join(" / "));
+  for (const label of ["Backup", "Update lophn", "Diagnose", "Notifications"]) {
+    assert(!bareTabs.includes(label), `${label}: ${bareTabs.join(" / ")}`);
+  }
 
   const update = fakeUpdate({ picked: null });
   const diag = fakeDiagnostics();
@@ -1034,7 +1034,9 @@ Deno.test("shell/wording#R10: settings의 backup·update·진단·notification �
     />,
   );
   await flush();
-  const tabs = [...wired.container.querySelectorAll("[role=tab]")].map(textOf);
+  const tabs = [...wired.container.querySelectorAll("[role=tab]")].map(
+    (tab) => textOf(tab).trim(),
+  );
   // 탭이 선다: 통로가 있는 자리만 이 화면의 탭에 온다.
   assert(tabs.includes("Backup"), tabs.join(" / "));
   assert(tabs.includes("Connections"), tabs.join(" / "));

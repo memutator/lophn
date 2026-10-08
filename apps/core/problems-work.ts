@@ -51,11 +51,13 @@ export const PROBLEMS_WORK_OPERATIONS = [
 ];
 
 // machine은 command kind만 받으므로 worker가 읽는 read operation도 command kind로 올린다.
-// GetProblem 정책은 report collector 쪽이 이미 올려 두어 겹치지 않게 뺀다.
+// GetProblem 정책은 report collector 쪽이 이미 올려 두어 겹치지 않게 뺀다. CloseProblemVerified는
+// 같은 worker kind의 `problems.closing` 반응기가 내는 반응 command다(problems#T20).
 export function problemsWorkPolicies(): OperationPolicy[] {
   return [
     eventsList.name,
     reconcileProblemWork.name,
+    closeProblemVerified.name,
     advanceSubscriberCursor.name,
   ]
     .map((name): OperationPolicy => ({

@@ -4,14 +4,9 @@
 // 심는다(test-only seeding, problems-repair-blob_test.ts의 같은 자리). 닫힘은 같은 test-runner kind의
 // problems.closing 반응기가 event를 읽어 CloseProblemVerified를 내는 실제 경로로 확인한다. 사람 data
 // root·keychain은 열지 않는다(testCredentials, wire 없음).
-import { assert, assertEquals, assertFalse } from "@std/assert";
+import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
-import {
-  manualClock,
-  type Result,
-  seededRandom,
-} from "../../packages/base/mod.ts";
-import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
+import { manualClock, seededRandom } from "../../packages/base/mod.ts";
 import { createLedgerRegistration as createAppsRegistration } from "./apps.ts";
 import { createLedgerRegistration as createDocumentsRegistration } from "./documents.ts";
 import {
@@ -54,16 +49,6 @@ async function post(
     status: response.status,
     body: await response.json() as Record<string, unknown>,
   };
-}
-
-function value<T>(result: Result<T>): T {
-  assert(result.ok, result.ok ? undefined : JSON.stringify(result.error));
-  return result.value;
-}
-
-function code(result: Result<unknown>, expected: string): void {
-  assert(!result.ok, "실패해야 한다");
-  assertEquals(result.error.code, expected);
 }
 
 function withDb<T>(home: string, run: (db: DatabaseSync) => T): T {
@@ -277,23 +262,34 @@ function rows<T>(home: string, sql: string, ...params: string[]): T[] {
 }
 
 function problemStatus(home: string, problem: string): string {
-  const found = withDb(home, (db) =>
-    db.prepare("select status, closure from problems where id = ?")
-      .get(problem) as { status: string; closure: string | null } | undefined);
+  const found = withDb(
+    home,
+    (db) =>
+      db.prepare("select status, closure from problems where id = ?")
+        .get(problem) as { status: string; closure: string | null } | undefined,
+  );
   return found?.status ?? "";
 }
 
 function closureOf(home: string, problem: string): string | null {
-  const found = withDb(home, (db) =>
-    db.prepare("select closure from problems where id = ?")
-      .get(problem) as { closure: string | null } | undefined);
+  const found = withDb(
+    home,
+    (db) =>
+      db.prepare("select closure from problems where id = ?")
+        .get(problem) as { closure: string | null } | undefined,
+  );
   return found?.closure ?? null;
 }
 
 function lastSeq(home: string, subject: string): string {
-  const found = withDb(home, (db) =>
-    db.prepare("select cast(max(seq) as text) as seq from events where subject = ?")
-      .get(subject) as { seq: string | number | null } | undefined);
+  const found = withDb(
+    home,
+    (db) =>
+      db.prepare(
+        "select cast(max(seq) as text) as seq from events where subject = ?",
+      )
+        .get(subject) as { seq: string | number | null } | undefined,
+  );
   return found?.seq === undefined || found.seq === null
     ? "0"
     : String(found.seq);
@@ -446,6 +442,99 @@ Deno.test("problems/closing#R3 R4 R5 R14: VerificationRecorded 뒤 닫힘·Probl
       ).length >= 1,
       "ProblemClosed event가 없다",
     );
+  } finally {
+    await opened.close();
+  }
+});
+
+Deno.test("problems/closing#R4 R5: basis_seq 뒤 새 live Report가 있으면 verification pass 근거로도 안 닫힌다", async () => {
+  const opened = await open();
+  try {
+    const { port, home, machine, app } = opened;
+    seedReleases(home, app);
+    const problem = await recordProblem(
+      port,
+      machine,
+      "machine-1",
+      app,
+      START + 1_000_000,
+    );
+    const basis = lastSeq(home, problem);
+    seedVerification(home, {
+      id: "vrf_01arz3ndektsv4rrffq69g5fav",
+      app,
+      problem,
+      basis_seq: basis,
+    });
+    // 근거 뒤 같은 문제의 새 live 보고를 실제 record-report로 접수한다(R4).
+    await recordProblem(port, machine, "machine-1", app, START + 2_000_000);
+    // 반응기가 몇 번을 다시 읽어도 닫힘과 ProblemClosed가 없다.
+    await new Promise((resolve) => setTimeout(resolve, 3_000));
+    assertEquals(problemStatus(home, problem), "open");
+    assertEquals(
+      rows(
+        home,
+        "select seq from events where type = 'ProblemClosed' and subject = ?",
+        problem,
+      ).length,
+      0,
+      "닫힘 근거 뒤 새 live 보고가 있을 때 ProblemClosed가 남았다",
+    );
+    assertEquals(closureOf(home, problem), null);
+  } finally {
+    await opened.close();
+  }
+});
+
+Deno.test("problems/closing#R1 problem-codes#R7: coding agent·앱 자격의 close-verified는 거절이다", async () => {
+  const opened = await open();
+  try {
+    const { port, home, machine, agent, appCredential, app } = opened;
+    seedReleases(home, app);
+    const problem = await recordProblem(
+      port,
+      machine,
+      "machine-1",
+      app,
+      START + 1_000_000,
+    );
+    const basis = lastSeq(home, problem);
+    seedVerification(home, {
+      id: "vrf_01arz3ndektsv4rrffq69g5fav",
+      app,
+      problem,
+      basis_seq: basis,
+    });
+    // 문제 seq CAS는 반응기와 같은 문제 seq로 두고, 자격만 coding agent와 앱이다(R1).
+    const problemSeq = lastSeq(home, problem);
+    const forAgent = await post(
+      port,
+      "problems/close-verified",
+      agent,
+      {
+        problem,
+        verification: "vrf_01arz3ndektsv4rrffq69g5fav",
+        problem_seq: problemSeq,
+        release: REL_AFTER,
+      },
+      { problem_seq: problemSeq, release: REL_AFTER },
+    );
+    assertEquals(forAgent.status, 403, JSON.stringify(forAgent.body));
+    const forApp = await post(
+      port,
+      "problems/close-verified",
+      appCredential,
+      {
+        problem,
+        verification: "vrf_01arz3ndektsv4rrffq69g5fav",
+        problem_seq: problemSeq,
+        release: REL_AFTER,
+      },
+      { problem_seq: problemSeq, release: REL_AFTER },
+    );
+    assertEquals(forApp.status, 403, JSON.stringify(forApp.body));
+    // 아무것도 닫지 않았다.
+    assertEquals(problemStatus(home, problem), "open");
   } finally {
     await opened.close();
   }

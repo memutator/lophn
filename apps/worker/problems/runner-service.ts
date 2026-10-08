@@ -677,7 +677,9 @@ export type RunnerWorkerOptions = {
   ports?(position: { credential: string; api_port: number }): WorkReactionPorts;
   // 같은 session 안의 `problems.closing` 반응기(problems#T20)의 통로다. 없으면 그 op는
   // unavailable이다.
-  closing?(position: { credential: string; api_port: number }): ClosingReactionPorts;
+  closing?(
+    position: { credential: string; api_port: number },
+  ): ClosingReactionPorts;
 };
 
 function requestOf(message: ParentMessage): WorkerRequest | undefined {

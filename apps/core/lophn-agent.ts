@@ -17,6 +17,7 @@ import {
   OperatorOutput,
   questionCreated,
   runAccepted,
+  runAppRevert,
   runFinished,
   runStarted,
 } from "../../packages/contracts/lophn-agent/mod.ts";
@@ -100,7 +101,10 @@ import {
   createHandoffReads,
   handoffBodyFields,
 } from "../../packages/lophn-agent/handoff/mod.ts";
-import { createTraceReads } from "../../packages/lophn-agent/observability/mod.ts";
+import {
+  createTraceReads,
+  traceExportCommand,
+} from "../../packages/lophn-agent/observability/mod.ts";
 import {
   createRevertCommands,
   createRevertEventVisibility,
@@ -118,6 +122,7 @@ import {
 import {
   createWaitCommands,
   runBodyRead,
+  runBodyViewRead,
   waitSchemaSteps,
 } from "../../packages/lophn-agent/harness/waiting-and-recovery/mod.ts";
 import {
@@ -409,13 +414,16 @@ const handoffReads = createHandoffReads({
 // run revert(concern revert). 종료한 run의 event 전체를 owner별로 분류해 복원 가능한 변경을
 // 소유 concern의 새 변경으로 되돌린다. 문서 복원은 documents가 dispatchable로 선언한
 // `document.archive`·`document.restore`를 같은 Tx에서 부르고(`tx.call`), 과거 사실은 모두
-// 유지한다. 요청은 사람만 하고 확인 handle이 필요하다. 앱 복원 단계는 lophn-agent#T48이 더한다.
+// 유지한다. 요청은 사람만 하고 확인 handle이 필요하다. 앱 되돌림 단계(lophn-agent#T48)는
+// run이 applying으로 저장한 revert에 대해 machine이 단계를 CheckpointRevert로 기록하고
+// 전체가 끝났으면 FinishRevert로 끝낸다. 실제 앱 호출은 runtime이 direct call로 한다.
 const revertOwners = defaultRevertOwners();
 const revertCommands = createRevertCommands({ owners: revertOwners });
 const revertReads = createRevertReads({ owners: revertOwners });
 
-// run·session·독립 호출의 trace 조회(concern observability). trace는 저장하지 않고 조회 때
-// run·event·ModelCall·ToolCall·message 참조에서 조립한다. 쓰는 표가 없어 command·schema step이 없다.
+// run·session·독립 호출의 trace 조회와 export(concern observability). trace는 저장하지 않고
+// 조회 때 run·event·ModelCall·ToolCall·message 참조에서 조립한다. 쓰는 표가 없어 command·schema
+// step이 없다. export는 ledger event가 없는 runtime 접수라 writer queue 앞 처리기가 실행한다.
 const traceReads = createTraceReads();
 
 // tool call ledger(concern harness/tools). 기록은 machine 전용이다. 입력·출력
@@ -629,6 +637,9 @@ export const lophnAgentDefinitions = {
     waitCommands.correct,
     waitCommands.recover,
     revertCommands.run,
+    traceExportCommand,
+    revertCommands.checkpoint,
+    revertCommands.finish,
   ],
   reads: [
     reads.read,
@@ -680,6 +691,8 @@ export const lophnAgentDefinitions = {
     questionOptionPort,
   ],
   workers: [],
+  // 확인한 revert의 앱 단계를 이어 실행하는 core 메모리 route다. handler는 core 조립이 붙인다(T48).
+  memoryRoutes: [runAppRevert],
   // 문서·format tool의 글 값 통로다. 서빙은 core 조립이 한다(apps/core/tool-documents.ts).
   workerRoutes: TOOL_DOCUMENT_ROUTES,
 };
@@ -699,8 +712,15 @@ const UNATTACHED_MESSAGE_BODY: MessageBodyEnvironment = {
     })),
 };
 
+// 사람이 run 근거·tool 입력·tool 결과를 펼쳐 볼 때 지금의 redaction을 거치는 통로다. 알려진 secret 값은
+// 기동 뒤에야 알려지므로 core가 늦게 채우는 함수로 준다. 붙이지 않은 등록은 끝내지 못한 것으로 답한다.
+const UNATTACHED_REDACT = (): string | null => null;
+
 export function createLedgerRegistration(
-  environment: { messageBody?: MessageBodyEnvironment } = {},
+  environment: {
+    messageBody?: MessageBodyEnvironment;
+    redactBody?: (text: string) => string | null;
+  } = {},
 ) {
   return {
     // ReadQuestionText도 같은 읽기 통로(ledger snapshot과 blob 바이트)를 쓴다.
@@ -709,6 +729,11 @@ export function createLedgerRegistration(
       questionTextRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
       // 복구가 저장된 run basis·model 응답·tool 결과를 다시 읽는 같은 길이다(machine만).
       runBodyRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
+      // 사람 화면이 같은 본문을 지금의 redaction을 거쳐 읽는 길이다(user만).
+      runBodyViewRead({
+        ...(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
+        redact: environment.redactBody ?? UNATTACHED_REDACT,
+      }),
       // 연결 가능 provider의 내장 정의(provider#R1)는 ledger row가 아니라 동봉
       // product catalog다. snapshot이 없어도 답하므로 api read 길이다.
       createProviderDefinitionsRead(),

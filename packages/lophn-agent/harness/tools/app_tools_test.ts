@@ -104,7 +104,7 @@ function view(
 const ALL_KEYS = COMMANDS.map((entry) => entry.key);
 
 function grants(commands: readonly string[] = ALL_KEYS) {
-  const list: AppGrant[] = [{ grant: GRANT, commands }];
+  const list: AppGrant[] = [{ grant: GRANT, commands, basis_seq: "0" }];
   return new Map<string, readonly AppGrant[]>([[APP, list]]);
 }
 

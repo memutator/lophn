@@ -63,7 +63,7 @@ function cursorOf(after: string): string {
 
 function changesOf(lookup: Lookup, revert: string) {
   const rows = lookup.sql.all(
-    `select ordinal, owner, target, capability, result, reason
+    `select ordinal, owner, target, capability, result, reason, app_revert
        from revert_changes where revert = ? order by ordinal`,
     [revert],
   );
@@ -90,7 +90,9 @@ function changesOf(lookup: Lookup, revert: string) {
         `select cast(restored_seq as text) as seq from revert_change_compensations
           where revert = ? and ordinal = ? order by restored_seq`,
       ),
-      app_revert: null,
+      app_revert: row["app_revert"] === null
+        ? null
+        : JSON.parse(String(row["app_revert"])),
     };
   });
 }

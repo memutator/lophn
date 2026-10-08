@@ -1012,7 +1012,13 @@ Deno.test("shell/wording#R10: settings의 backup·update·진단·notification �
   using bare = render(<SettingsScreen source={source} />);
   await flush();
   // 통로가 없으면 그 자리의 탭을 두지 않는다.
-  assertEquals(bare.container.querySelector("[role=tablist]"), null);
+  const bareTabs = [...bare.container.querySelectorAll("[role=tab]")].map(
+    textOf,
+  );
+  assertEquals(bareTabs.includes("Backup"), false, bareTabs.join(" / "));
+  assertEquals(bareTabs.includes("Update lophn"), false, bareTabs.join(" / "));
+  assertEquals(bareTabs.includes("Diagnose"), false, bareTabs.join(" / "));
+  assertEquals(bareTabs.includes("Notifications"), false, bareTabs.join(" / "));
 
   const update = fakeUpdate({ picked: null });
   const diag = fakeDiagnostics();

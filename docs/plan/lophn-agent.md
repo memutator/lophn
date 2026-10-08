@@ -782,7 +782,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 
 ### T41 agent slice flow E2E
 
-- 상태: 진행 (#466) — 끝낸 flow: connect-provider, manage-provider-accounts
+- 상태: 진행 (#466) — 끝낸 flow: connect-provider, manage-provider-accounts, steer-agent-work, answer-question(질문 읽기·고르기만으로는 답 아님·미루기·취소). 이어보냄: answer-question의 답 확정 경로는 제품 runtime이 질문을 만들 때 run을 멈추지 않아(WaitRun의 대기는 approval만 받는다) 볼 수 없다(questions/answer가 "the run is finished"로 거절됨). 남은 flow: resume-agent-session, review-agent-work, approve-action(앱 confirm 제외), ask-lophn-help, edit-instructions, add-agent-extension, view-agent-visuals(앱 카드 갈래 제외), organize-documents 2~3단계, find-documents 5~6단계, project-workspace 8단계
 - 등급: 기본
 - concern: lophn-agent
 - 요구: 없음(T3–T40 요구의 flow 확인)

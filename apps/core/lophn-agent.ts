@@ -698,12 +698,11 @@ export const lophnAgentDefinitions = {
   ],
   workers: [],
   // 확인한 revert의 앱 단계를 이어 실행하는 core 메모리 route다. handler는 core 조립이 붙인다(T48).
-  memoryRoutes: [runAppRevert],
+  memoryRoutes: [runAppRevert, mcpAuthBegin, mcpAuthComplete],
   // 문서·format tool의 글 값 통로다. 서빙은 core 조립이 한다(apps/core/tool-documents.ts).
   workerRoutes: TOOL_DOCUMENT_ROUTES,
   // MCP OAuth의 시작·완료 입구다(extensions R16). handler는 core 조립(apps/core)이
   // createMcpAuthControl로 붙인다. route만 등록한다.
-  memoryRoutes: [mcpAuthBegin, mcpAuthComplete],
 };
 
 // MCP OAuth 2.1의 시작·완료 runtime 제어 작업이다(extensions R16, R17, shell#T31에서

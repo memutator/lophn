@@ -4,6 +4,15 @@
 import { z } from "zod";
 import { err, ok } from "../../../base/mod.ts";
 import {
+  ticketCancelled,
+  ticketCheckFailed,
+  ticketClaimed,
+  ticketClaimReleased,
+  ticketCompletionReported,
+  ticketConfirmed,
+  ticketCreated,
+} from "../../../contracts/coding-agent/mod.ts";
+import {
   type AuthenticatedContext,
   type CommandDefinition,
   defineCommand,
@@ -20,6 +29,10 @@ import {
 } from "../../reporting/mod.ts";
 import { SNAPSHOTS_SCHEMA_STEPS } from "../../snapshots/mod.ts";
 import { getProblemRead, listProblemsRead } from "../reads.ts";
+import {
+  linkProblemInterpretationCommand,
+  reconcileProblemWorkCommand,
+} from "../commands.ts";
 
 // 진행 전환·해석 연결·닫힘 command는 뒤 작업(ReconcileProblemWork 등)이 만든다. 그 전에
 // 읽기가 보는 모든 상태를 만들 수 있게 문제 행의 상태 열을 테스트에서만 정한다.
@@ -58,6 +71,199 @@ const arrangeCommand: CommandDefinition<typeof arrange> = {
     return Number(changed.changes) === 1
       ? ok({ changed: true })
       : err({ code: "not_found", message: "문제가 없다" });
+  },
+};
+
+// coding-agent ticket 표와 lophn-agent assignment 표의 최소 모양이다. handler가 읽는 열만 같은 이름으로
+// 둔다(packages/problems는 그 표를 import하지 못한다). 제품에서는 각 owner의 schema가 만든다.
+const TICKET_SCHEMA_STEP = {
+  id: "problems.testing_tickets",
+  sql: `
+create table tickets (
+  id text primary key,
+  app text not null,
+  kind text not null,
+  state text not null
+) strict;
+create table ticket_problems (
+  ticket text not null,
+  problem text not null,
+  primary key (ticket, problem)
+) strict;
+create table ticket_claims (
+  ticket text primary key,
+  claim_seq text not null
+) strict;
+create table assignments (
+  id text primary key,
+  role text not null,
+  scope_kind text not null,
+  scope_id text,
+  state text not null
+) strict;`,
+};
+
+const TICKET_EVENTS = [
+  "TicketCreated",
+  "TicketClaimed",
+  "TicketClaimReleased",
+  "TicketCompletionReported",
+  "TicketCancelled",
+  "TicketCheckFailed",
+  "TicketConfirmed",
+] as const;
+
+// 실제 coding-agent command가 하는 일의 줄임이다: ticket 행·claim 행을 바꾸고 같은 ticket event를
+// 낸다. 시험이 ticket 흐름을 ledger에 만들 때만 쓴다.
+const ticketEvent = defineCommand({
+  resource: "problems",
+  method: "test-ticket-event",
+  name: "problems.testing.ticket-event",
+  input: z.object({
+    event: z.enum(TICKET_EVENTS),
+    ticket: z.string(),
+    app: z.string(),
+    kind: z.enum(["repair", "implementation"]).default("repair"),
+    problems: z.array(z.string()),
+    claim_seq: z.string().default("1"),
+    reason: z.string().default("returned"),
+  }),
+  output: z.object({ seq: z.string() }),
+  actors: ["machine"],
+  errors: [],
+});
+
+const STATE_OF: Record<(typeof TICKET_EVENTS)[number], string> = {
+  TicketCreated: "open",
+  TicketClaimed: "claimed",
+  TicketClaimReleased: "open",
+  TicketCompletionReported: "reported",
+  TicketCancelled: "cancelled",
+  TicketCheckFailed: "check_failed",
+  TicketConfirmed: "confirmed",
+};
+const CAC = "cac_01arz3ndektsv4rrffq69g5fav";
+const REL = "rel_01arz3ndektsv4rrffq69g5fav";
+
+const ticketEventCommand: CommandDefinition<typeof ticketEvent> = {
+  route: ticketEvent,
+  handle(tx, _ctx, input) {
+    const { event, ticket, app, problems } = input;
+    if (event === "TicketCreated") {
+      tx.sql.run(
+        "insert into tickets (id, app, kind, state) values (?, ?, ?, 'open')",
+        [ticket, app, input.kind],
+      );
+      for (const problem of problems) {
+        tx.sql.run(
+          "insert into ticket_problems (ticket, problem) values (?, ?)",
+          [ticket, problem],
+        );
+      }
+    } else {
+      tx.sql.run("update tickets set state = ? where id = ?", [
+        STATE_OF[event],
+        ticket,
+      ]);
+    }
+    if (event === "TicketClaimed") {
+      tx.sql.run(
+        "insert into ticket_claims (ticket, claim_seq) values (?, ?)",
+        [
+          ticket,
+          input.claim_seq,
+        ],
+      );
+    } else if (event !== "TicketCreated") {
+      tx.sql.run("delete from ticket_claims where ticket = ?", [ticket]);
+    }
+    const common = { app, problems };
+    const done = {
+      completion_seq: "5",
+      release: REL,
+      fix_records: [],
+    };
+    const seq = event === "TicketCreated"
+      ? tx.emit(ticketCreated, ticket, {
+        ...common,
+        kind: input.kind,
+        readiness: "ready",
+      })
+      : event === "TicketClaimed"
+      ? tx.emit(ticketClaimed, ticket, {
+        ...common,
+        connection: CAC,
+        claim_seq: input.claim_seq,
+        expires_at: "2026-10-04T13:00:00.000Z",
+      })
+      : event === "TicketClaimReleased"
+      ? tx.emit(ticketClaimReleased, ticket, {
+        ...common,
+        connection: CAC,
+        claim_seq: input.claim_seq,
+        reason: input.reason as "returned" | "expired" | "connection_revoked",
+      })
+      : event === "TicketCompletionReported"
+      ? tx.emit(ticketCompletionReported, ticket, {
+        ...common,
+        completion_seq: "5",
+        claim_seq: input.claim_seq,
+        release: REL,
+        fix_records: [],
+        summary_hash: "f".repeat(64),
+        outputs: [],
+        verifications: [],
+      })
+      : event === "TicketCancelled"
+      ? tx.emit(ticketCancelled, ticket, {
+        ...common,
+        reason: "no longer needed",
+        released_claim: null,
+        completion_seq: null,
+        fix_records: [],
+      })
+      : event === "TicketCheckFailed"
+      ? tx.emit(ticketCheckFailed, ticket, {
+        ...common,
+        ...done,
+        failed_conditions: [0],
+      })
+      : tx.emit(ticketConfirmed, ticket, { ...common, ...done });
+    return ok({ seq });
+  },
+};
+
+// App Engineer assignment 행이다. 담당 확인이 읽는 열만 둔다.
+const assignmentRow = defineCommand({
+  resource: "problems",
+  method: "test-assignment",
+  name: "problems.testing.assignment",
+  input: z.object({
+    id: z.string(),
+    role: z.string(),
+    app: z.string().nullable(),
+    state: z.string().default("enabled"),
+  }),
+  output: z.object({ changed: z.boolean() }),
+  actors: ["machine"],
+  errors: [],
+});
+
+const assignmentRowCommand: CommandDefinition<typeof assignmentRow> = {
+  route: assignmentRow,
+  handle(tx, _ctx, input) {
+    tx.sql.run(
+      `insert into assignments (id, role, scope_kind, scope_id, state)
+       values (?, ?, ?, ?, ?)`,
+      [
+        input.id,
+        input.role,
+        input.app === null ? "all" : "app",
+        input.app,
+        input.state,
+      ],
+    );
+    return ok({ changed: true });
   },
 };
 
@@ -194,12 +400,19 @@ export function createLedgerTestRegistration() {
       ...SNAPSHOTS_SCHEMA_STEPS,
       WORDING_SCHEMA_STEP,
       APP_NAME_SCHEMA_STEP,
+      TICKET_SCHEMA_STEP,
     ],
-    commands: [recordReportCommand as CommandDefinition],
+    commands: [
+      recordReportCommand,
+      reconcileProblemWorkCommand,
+      linkProblemInterpretationCommand,
+    ] as CommandDefinition[],
     testCommands: [
       arrangeCommand,
       setWordingCommand,
       setAppNameCommand,
+      ticketEventCommand,
+      assignmentRowCommand,
     ] as CommandDefinition[],
     readPorts: new Map<unknown, unknown>([[
       ProblemWordingPort,
@@ -262,6 +475,9 @@ export const COLLECTOR: AuthenticatedContext = {
       "problems.testing.arrange",
       "problems.testing.set-wording",
       "problems.testing.set-app-name",
+      "problems.testing.ticket-event",
+      "problems.testing.assignment",
+      "ReconcileProblemWork",
     ],
     targets: {},
   },

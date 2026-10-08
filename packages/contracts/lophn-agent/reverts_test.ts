@@ -33,6 +33,7 @@ const group = {
 
 Deno.test("lophn-agent/revert#R1: revert routes and the four named events", () => {
   assertEquals(REVERT_ROUTES.map(routePath), [
+    "/v1/reverts/run_apps",
     "/v1/reverts/checkpoint",
     "/v1/reverts/finish",
     "/v1/reverts/apply",

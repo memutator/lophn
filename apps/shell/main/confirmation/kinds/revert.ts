@@ -3,6 +3,7 @@
 // 안전한 복원 가능 묶음 전체를 적용한다(allow_partial). 제출 때 복원할 문서마다 이전 판을 사람
 // 자격의 documents/prepare로 준비해 lophn-agent buildRevertInput과 같은 규칙으로 RevertRun
 // 입력의 groups를 만든다. shell main은 packages를 import하지 않으므로 그 규칙을 여기 옮긴다.
+// 앱 단계가 있는 revert(applying 접수)는 접수 뒤 core의 `reverts/run_apps`로 이어 실행한다(lophn-agent#T48).
 import { contentBasis, type LiveHandle } from "../handle.ts";
 import {
   bindingOf,
@@ -311,7 +312,17 @@ export async function submitRevert(
     confirmation: input.handle.ref,
   });
   if (!sent.ok) return sent;
-  const outcome = record(sent.value).outcome as ConfirmationResult;
+  let outcome = record(sent.value).outcome as ConfirmationResult;
+  // 앱 단계가 있는 revert는 applying으로 접수만 됐다. 이어 실행은 core가 한다: 호출한 사람의 앱 통로로 앱의
+  // revert command를 원래 호출 역순으로 부르고, 기록·끝내기는 core 내부 machine이 한다. 결과는 끝낸 revert의
+  // 실제 결과다. 이어 실행이 닿지 못해도 접수는 남아 있어 같은 handle의 다시 보내기가 같은 revert를 이어 받는다.
+  if (outcome === "applying") {
+    const ran = await core.internal("memory", "reverts", "run_apps", {
+      revert: id,
+      groups: built.value,
+    });
+    if (ran.ok) outcome = record(ran.value).outcome as ConfirmationResult;
+  }
   return {
     ok: true,
     value: {

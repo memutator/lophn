@@ -68,7 +68,11 @@ export function candidateOf(
     app: parsed.app,
     base_revision: parsed.baseRevision,
     idempotency_key: parsed.idempotencyKey,
-    hook: parsed.hook,
+    // `session summary --hook`은 값 없는 flag라 켜짐이고 `session observe --hook <제품>`은 제품 값이다.
+    hook: command === "session summary" && parsed.hook !== undefined
+      ? true
+      : parsed.hook,
+    owner: parsed.owner,
   };
   const candidate: Record<string, unknown> = {
     ...((body ?? {}) as Record<string, unknown>),

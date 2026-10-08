@@ -524,8 +524,6 @@ async function open(
   const runnerChannel = createDocumentsChannel();
   // ticket checker worker 요청 통로. 같은 통로 모양을 쓴다(coding-agent#T26).
   const checkerChannel = createDocumentsChannel();
-  // problems test-runner(`problems.work` 반응기) 요청 통로. 같은 통로 모양을 쓴다(problems#T19).
-  const problemsWorkChannel = createDocumentsChannel();
   // coding-agent 수리 자료 worker 요청 통로. 같은 통로 모양을 쓴다(coding-agent#T43).
   const repairChannel = createDocumentsChannel();
   // coordinator가 파일 읽기의 창으로 보내는 byte frame의 우편함(`files.read` stream).
@@ -1819,6 +1817,8 @@ async function open(
     screenHost: Deno.env.get("SCREEN_TEST_HOST"),
   });
   let testControl: TestControl | undefined;
+  // runner process(같은 kind 하나)의 session이 `problems.work` 깨움도 받는지. 위 시작 ok 뒤 오른다.
+  let startedProblemsWork = false;
   if (
     io && runnerSpec &&
     assembled.value.commands.some((command) =>
@@ -1843,6 +1843,32 @@ async function open(
         ),
       ]]),
     });
+    // 같은 process 안의 `problems.work` 반응기(problems#T19)가 쓰는 machine credential이다.
+    // 요청별 runner credential은 요청 본문으로 가므로 hello credential과 겹치지 않는다.
+    const workIssued = await productRegistry.issue({
+      actor: "machine",
+      principal: PROBLEMS_WORK_PRINCIPAL,
+      scope: {
+        operations: [...PROBLEMS_WORK_OPERATIONS],
+        targets: { task: "problems" },
+      },
+      conditions: { task: "problems", process: TEST_RUNNER_KIND },
+    });
+    if (!workIssued.ok) {
+      handler.close();
+      return err(workIssued.error);
+    }
+    const workCurrent = productRegistry.revalidate({
+      credential_ref: workIssued.value.credential_ref,
+    });
+    const workRecorded = workCurrent.ok
+      ? await runtime.record(workCurrent.value)
+      : workCurrent;
+    if (!workRecorded.ok) {
+      productRegistry.revoke(workIssued.value.credential_ref);
+      handler.close();
+      return workRecorded;
+    }
     const started = await io.start(
       runnerSpec,
       {
@@ -1852,8 +1878,9 @@ async function open(
         kind: TEST_RUNNER_KIND,
         task: "problems",
         scope: { operations: [], targets: {} },
-        // runner의 credential은 요청마다 요청과 함께 온다. hello에는 자리만 둔다.
-        credential: "none",
+        // `problems.work` 반응기는 hello가 준 credential로 core loopback에 닿는다. RequestTest
+        // runner service의 요별 credential은 요청 본문으로 온다(요청마다 발급해 감독 pipe로 넘긴다).
+        credential: workIssued.value.token,
         api_port: server.port,
       },
       {
@@ -1865,6 +1892,7 @@ async function open(
       },
     );
     if (started.ok) {
+      startedProblemsWork = true;
       runnerChannel.bind((payload) =>
         io.send(TEST_RUNNER_KIND, payload).then((sent) => sent.ok)
       );
@@ -1898,6 +1926,13 @@ async function open(
         testControl?.stop();
         handler.close();
       };
+      // 구독자(machine:problems-work-feed)의 자격 기록. token이 없는 core 내부 자격이라
+      // HTTP로는 이 principal이 될 수 없고, reader가 이 ledger 기록으로 구독자의 자격을 본다.
+      const feedCredential = await runtime.record(PROBLEMS_WORK_FEED_CONTEXT);
+      if (!feedCredential.ok) {
+        await runtime.close();
+        return feedCredential;
+      }
     } else {
       handler.close();
     }
@@ -1961,59 +1996,22 @@ async function open(
   // 읽어 문제 work·status를 ReconcileProblemWork로 맞춘다. 감독이 없는 harness와 그 command를 등록하지
   // 않은 조립은 띄우지 않는다. 띄우지 못해도 core는 계속 선다: 문제 진행 표시가 갱신되지 않을 뿐
   // ticket 정본은 그대로다(없는 반응을 성공으로 꾸미지 않는다). runner process는 위의 RequestTest
-  // runner 감독(같은 kind)이 뜬다.
+  // runner 감독(같은 kind)이 뜨고, 그 process의 session(runner-service.ts)이 `problems.work` 깨움도
+  // 받는다. 반응기 credential은 위 시작 hello에 심고, 깨움 요청은 같은 runnerChannel로 간다.
   let problemsWorkFeed: InternalSubscription | undefined;
   if (
     io && runnerSpec &&
-    allRoutes.some((route) => route.name === PROBLEMS_WORK_OPERATIONS[2])
+    allRoutes.some((route) => route.name === PROBLEMS_WORK_OPERATIONS[2]) &&
+    startedProblemsWork
   ) {
-    const issued = await productRegistry.issue({
-      actor: "machine",
-      principal: PROBLEMS_WORK_PRINCIPAL,
-      scope: {
-        operations: [...PROBLEMS_WORK_OPERATIONS],
-        targets: { task: "problems" },
-      },
-      conditions: { task: "problems", process: TEST_RUNNER_KIND },
+    // ticket event가 오면 worker가 cursor 뒤를 따라잡는다. 구독이 열릴 때와 주기마다도 깨워
+    // 재시작·worker 교체 동안의 변화를 따라잡는다.
+    problemsWorkFeed = startProblemsWorkFeed({
+      runtime,
+      ledgerPath,
+      wake: (cursor) =>
+        runnerChannel.request(PROBLEMS_WORK_OP, { cursor }, 30_000),
     });
-    const current = issued.ok
-      ? productRegistry.revalidate({
-        credential_ref: issued.value.credential_ref,
-      })
-      : issued;
-    const recorded = issued.ok && current.ok
-      ? await runtime.record(current.value)
-      : current;
-    const feedRecorded = await runtime.record(PROBLEMS_WORK_FEED_CONTEXT);
-    if (issued.ok && recorded.ok && feedRecorded.ok) {
-      const started = await io.start(
-        runnerSpec,
-        {
-          type: "hello",
-          core_epoch: epoch,
-          process_identity: epoch,
-          kind: TEST_RUNNER_KIND,
-          task: "problems",
-          scope: { operations: [], targets: {} },
-          credential: issued.value.token,
-          api_port: server.port,
-        },
-        { onMessage: (message) => problemsWorkChannel.onMessage(message) },
-      );
-      if (started.ok) {
-        problemsWorkChannel.bind((payload) =>
-          io.send(TEST_RUNNER_KIND, payload).then((sent) => sent.ok)
-        );
-        // ticket event가 오면 worker가 cursor 뒤를 따라잡는다. 구독이 열릴 때와 주기마다도 깨워
-        // 재시작·worker 교체 동안의 변화를 따라잡는다.
-        problemsWorkFeed = startProblemsWorkFeed({
-          runtime,
-          ledgerPath,
-          wake: (cursor) =>
-            problemsWorkChannel.request(PROBLEMS_WORK_OP, { cursor }, 30_000),
-        });
-      }
-    }
   }
   // coding-agent/worker. 수리 자료(`/v1/repair_context/*`)를 요청자 credential로 조립하는 상시 worker다.
   // 자기 credential이 없고(hello의 credential은 자리만 채운다) 요청마다 core가 요청자의 것을 싣는다.
@@ -2296,7 +2294,7 @@ async function open(
     sweepProblemsWork: () => {
       const cursor = problemsWorkCursor(ledgerPath);
       return cursor.ok
-        ? problemsWorkChannel.request(
+        ? runnerChannel.request(
           PROBLEMS_WORK_OP,
           { cursor: cursor.value },
           30_000,

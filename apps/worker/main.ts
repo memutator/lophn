@@ -2,11 +2,7 @@ import { runPlatformIo } from "./platform/io.ts";
 import { runCoordinator } from "./documents/coordinator.ts";
 import { runPreparation } from "./documents/preparation.ts";
 import { runReleaseWorker } from "./apps/release.ts";
-import {
-  runnerReady,
-  runRunnerWorker,
-  TEST_RUNNER_KIND,
-} from "./problems/test-runner.ts";
+import { runnerReady, TEST_RUNNER_KIND } from "./problems/test-runner.ts";
 import { runRunnerService } from "./problems/runner-service.ts";
 import {
   COLLECTOR_KIND,
@@ -34,8 +30,8 @@ const WORKER_ENTRIES: Readonly<
     const ready = runnerReady(TEST_RUNNER_KIND);
     if (!ready.ok) throw new Error(ready.error.message);
     // RequestTest runner service(problems/tests)와 `problems.work` 반응기(problems#T19)가
-    // 같은 test-runner kind process 안에서 같이 돈다.
-    await Promise.all([runRunnerService(), runRunnerWorker("")]);
+    // 같은 test-runner kind process의 session 하나에서 같이 돈다(stdin 하나).
+    await runRunnerService();
   },
   [COLLECTOR_KIND]: () => {
     const ready = collectorReady(COLLECTOR_KIND);

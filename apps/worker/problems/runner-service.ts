@@ -21,6 +21,14 @@ import {
   startChild,
 } from "../../../packages/platform/responsiveness/mod.ts";
 import {
+  createWorkPorts,
+  type WorkClientOptions,
+} from "../../../packages/problems/grouping/adapters/core-client.ts";
+import {
+  reactWork,
+  type WorkReactionPorts,
+} from "../../../packages/problems/grouping/work.ts";
+import {
   blobPurpose,
   buildRecord,
   deriveAppTest,
@@ -35,7 +43,7 @@ import {
 } from "../../../packages/problems/tests/mod.ts";
 import { sha256Hex } from "../../../packages/base/mod.ts";
 import { canonicalHash } from "../../../packages/problems/tests/canonical.ts";
-import { TEST_RUNNER_KIND } from "./runner-core.ts";
+import { PROBLEMS_WORK_OP, TEST_RUNNER_KIND } from "./runner-core.ts";
 import {
   type AppTestHooks,
   type AppTestJob,
@@ -653,6 +661,9 @@ export async function recoverRequest(
 export type RunnerWorkerOptions = {
   streams: ChildStreams;
   fetch?: LoopbackFetch;
+  // hello가 준 machine credential과 core api port로 `problems.work` 반응 통로를 만든다.
+  // 없으면 깨움 요청(`problems.work`)은 unknown op로 끝난다.
+  ports?(position: { credential: string; api_port: number }): WorkReactionPorts;
 };
 
 function requestOf(message: ParentMessage): WorkerRequest | undefined {
@@ -666,23 +677,69 @@ function requestOf(message: ParentMessage): WorkerRequest | undefined {
 
 export function createRunnerWorker(options: RunnerWorkerOptions): ChildSession {
   let stopped = false;
+  let workPorts: WorkReactionPorts | undefined;
+  let workKnown: string | undefined;
+  let workChain: Promise<unknown> = Promise.resolve();
   const respond = (message: ChildMessage) => session.send(message);
   const session: ChildSession = startChild(options.streams, {
     onHello(hello) {
       if (hello.kind !== TEST_RUNNER_KIND) {
         throw new Error("invalid worker kind");
       }
+      workPorts = options.ports?.({
+        credential: hello.credential,
+        api_port: hello.api_port,
+      });
       return session.send({ type: "ready" });
     },
     onStop() {
       stopped = true;
       return session.send({ type: "stopped" });
     },
-    // 요청은 기다리지 않고 시작한다: 한 요청이 오래 도는 동안에도 다음 frame(blob 준비 credit, 정지)을 읽는다.
-    onParent(message) {
+    async onParent(message) {
       const request = requestOf(message);
       if (request === undefined) return;
       const op = request.op;
+      // `problems.work` 깨움(problems#T19)은 cursor 뒤 ticket event를 따라잡는다. 성공한
+      // 위치는 기억해 더 낡은 깨움의 cursor로 되돌아가지 않는다.
+      if (op === PROBLEMS_WORK_OP) {
+        const cursor = (request.payload as { cursor?: unknown } | null)?.cursor;
+        const fail = (code: "invalid_input" | "unavailable", text: string) =>
+          respond({
+            type: "worker_response",
+            request_id: request.request_id,
+            ok: false,
+            error: { code, message: text },
+          });
+        if (typeof cursor !== "string" || !/^\d+$/.test(cursor)) {
+          return fail("invalid_input", "cursor is not a seq");
+        }
+        const mine = workPorts;
+        if (mine === undefined) {
+          return fail("unavailable", "runner has no credential");
+        }
+        const run = workChain.then(async () => {
+          const from = workKnown !== undefined &&
+              BigInt(workKnown) > BigInt(cursor)
+            ? workKnown
+            : cursor;
+          const done = await reactWork(mine, from);
+          workKnown = done.ok ? done.value.processed_through_seq : undefined;
+          return done;
+        });
+        workChain = run.catch(() => undefined);
+        const done = await run;
+        await (done.ok
+          ? respond({
+            type: "worker_response",
+            request_id: request.request_id,
+            ok: true,
+            payload: done.value,
+          })
+          : fail("unavailable", "problems work reaction failed"));
+        return;
+      }
+      // 요청은 기다리지 않고 시작한다: 한 요청이 오래 도는 동안에도 다음 frame(blob 준비 credit, 정지)을 읽는다.
       if (op !== RUNNER_RUN_OP && op !== RUNNER_RECOVER_OP) {
         return respond({
           type: "worker_response",
@@ -722,6 +779,21 @@ export async function runRunnerService(): Promise<void> {
     console.error(...args);
   const session = createRunnerWorker({
     streams: { stdin: Deno.stdin, stdout: Deno.stdout, stderr: Deno.stderr },
+    ports: (position) =>
+      createWorkPorts(
+        {
+          baseUrl: `http://127.0.0.1:${position.api_port}`,
+          credential: position.credential,
+          // EXTERNAL_FETCH tripwire: property access로만 부른다.
+          fetch: (input, init) => {
+            const globalFetch = globalThis.fetch;
+            return globalFetch(input, init).then(async (response) => ({
+              status: response.status,
+              bytes: new Uint8Array(await response.arrayBuffer()),
+            }));
+          },
+        } satisfies WorkClientOptions,
+      ),
   });
   await session.run();
 }

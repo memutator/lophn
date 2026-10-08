@@ -2,11 +2,16 @@
 // temp LOPHN_HOME의 실제 core(writer·reader·test-runner worker)에서 문제는 실제 record-report로,
 // verified 근거·release·활성 release·VerificationRecorded event는 검증 조건이 읽는 열만 같은 이름으로
 // 심는다(test-only seeding, problems-repair-blob_test.ts의 같은 자리). 닫힘은 같은 test-runner kind의
-// problems.closing 반응기가 event를 읽어 CloseProblemVerified를 내는 실제 경로로 확인한다. 사람 data
-// root·keychain은 열지 않는다(testCredentials, wire 없음).
+// problems.closing 반응기가 event를 읽어 CloseProblemVerified를 내는 실제 경로로 확인한다. 반응기를
+// 깨우는 것도 core가 쓰는 같은 함수(sweepProblemsClosing)다. 사람 data root·keychain은 열지 않는다
+// (testCredentials, wire 없음).
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
-import { manualClock, seededRandom } from "../../packages/base/mod.ts";
+import {
+  manualClock,
+  type Result,
+  seededRandom,
+} from "../../packages/base/mod.ts";
 import { createLedgerRegistration as createAppsRegistration } from "./apps.ts";
 import { createLedgerRegistration as createDocumentsRegistration } from "./documents.ts";
 import {
@@ -295,10 +300,23 @@ function lastSeq(home: string, subject: string): string {
     : String(found.seq);
 }
 
-async function waitFor(check: () => boolean, label: string): Promise<void> {
+// 반응기를 core가 쓰는 것과 같은 함수(sweepProblemsClosing)로 깨우며 조건을 기다린다. feed의
+// event 깨움은 100ms debounce, 놓친 깨움은 30초 주기라 시험은 이 함수로 바로 깨운다(core.ts가
+// "event 구독자와 시험이 같은 함수를 부른다"고 두는 통로다). worker가 아직 hello 전이면 깨움이
+// unavailable이고 이미 닫힌 문제에 반응기가 conflict로 멈추면 그것도 unavailable이라, 깨움의
+// 답을 강제하지 않고 조건만 본다. 마지막 깨움의 답은 시간 초과 메시지에 남긴다.
+async function sweepUntil(
+  opened: Opened,
+  done: () => boolean,
+  label: string,
+): Promise<void> {
   const deadline = Date.now() + 60_000;
-  while (!check()) {
-    assert(Date.now() < deadline, `시간 안에 ${label}`);
+  let last = "아직 깨우지 못했다";
+  for (;;) {
+    const swept = await opened.sweep();
+    last = swept.ok ? "ok" : swept.error.code;
+    if (done()) return;
+    assert(Date.now() < deadline, `시간 안에 ${label} (마지막 깨움: ${last})`);
     await new Promise((resolve) => setTimeout(resolve, 200));
   }
 }
@@ -311,6 +329,8 @@ type Opened = {
   appCredential: string;
   user: string;
   app: string;
+  // `problems.closing` 반응기를 저장된 cursor 뒤로 따라잡게 하는 core 함수다(같은 worker).
+  sweep(): Promise<Result<unknown>>;
   close(): Promise<void>;
 };
 
@@ -389,6 +409,7 @@ async function open(): Promise<Opened> {
     appCredential,
     user,
     app,
+    sweep: () => core.sweepProblemsClosing(),
     close() {
       return core.shutdown().finally(() =>
         Deno.remove(home, { recursive: true })
@@ -420,7 +441,11 @@ Deno.test("problems/closing#R3 R4 R5 R14: VerificationRecorded 뒤 닫힘·Probl
     });
     // 반응기는 VerificationRecorded를 읽어 CloseProblemVerified를 낸다. 문제 seq CAS는
     // 이 event seq(마지막)와 같다면 좁혀진 것이다.
-    await waitFor(() => problemStatus(home, problem) === "closed", "닫힘");
+    await sweepUntil(
+      opened,
+      () => problemStatus(home, problem) === "closed",
+      "닫힘",
+    );
     assertEquals(problemStatus(home, problem), "closed");
     // 닫힘 근거는 출처대로 verification·release·basis가 남는다(R13).
     const closure = JSON.parse(closureOf(home, problem)!) as Record<
@@ -483,7 +508,7 @@ Deno.test("problems/closing#R4 R5: basis_seq 뒤 새 live Report가 있으면 ve
   }
 });
 
-Deno.test("problems/closing#R1 problem-codes#R7: coding agent·앱 자격의 close-verified는 거절이다", async () => {
+Deno.test("problems/closing#R1 problem-codes#R7: coding agent·앱 자격의 close-verified는 거절이고 같은 문제를 machine 반응기가 닫는다", async () => {
   const opened = await open();
   try {
     const { port, home, machine, agent, appCredential, app } = opened;
@@ -530,8 +555,15 @@ Deno.test("problems/closing#R1 problem-codes#R7: coding agent·앱 자격의 clo
       { problem_seq: problemSeq, release: REL_AFTER },
     );
     assertEquals(forApp.status, 403, JSON.stringify(forApp.body));
-    // 아무것도 닫지 않았다.
-    assertEquals(problemStatus(home, problem), "open");
+    // 거절된 자격은 아무것도 닫지 않았고, 같은 문제를 machine 반응기가 같은 조건으로 닫는다(대조).
+    // 문제 상태를 이 자리에서 바로 보지 않는 이유: feed의 깨움은 반응기라서 이 시험이 자격 거절을
+    // 보는 동안에도 닫을 수 있다. 자격만 다르게 둔 같은 요청의 거절은 leaf test(commands_test.ts R1)도 본다.
+    await sweepUntil(
+      opened,
+      () => problemStatus(home, problem) === "closed",
+      "machine 반응기의 닫힘",
+    );
+    assertEquals(problemStatus(home, problem), "closed");
   } finally {
     await opened.close();
   }

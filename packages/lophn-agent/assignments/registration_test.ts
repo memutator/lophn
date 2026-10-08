@@ -151,10 +151,14 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
     testCommands: [{
       route: seedApprovalRoute,
       handle(tx, _ctx, input) {
-        const seeded = input as { id: string; status: string };
+        const seeded = input as {
+          id: string;
+          status: string;
+          closed_seq?: string;
+        };
         tx.sql.run(
-          "insert into approval_requests (id, status) values (?, ?) on conflict (id) do update set status = excluded.status",
-          [seeded.id, seeded.status],
+          "insert into approval_requests (id, status, closed_seq) values (?, ?, ?) on conflict (id) do update set status = excluded.status, closed_seq = excluded.closed_seq",
+          [seeded.id, seeded.status, seeded.closed_seq ?? null],
         );
         return ok({ id: seeded.id });
       },

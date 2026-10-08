@@ -169,9 +169,10 @@ async function applyOperator(
       envelope("SeedApprovalFixture", { id: approval, status: "granted" }),
     ),
   );
+  // 결정 seq(lophn-agent#T53의 decision_seq 맞춤)는 허락이 확정하는 값이라
+  // 적용 입력에 넣지 않고, handler가 승인 기록의 결정 seq로 맞춘다.
   const applied = {
     approval,
-    decision_seq: "1",
     id: ASG_OP,
     bundle: {
       draft_version: id("ver", f.approvals),
@@ -190,10 +191,11 @@ async function applyOperator(
       reason: input.reason ?? "approved by person",
     },
   };
-  // 사람이 승인 묶음을 확인한 handle이다. route가 선언한 binding field만 내용으로 묶는다.
+  // 결정은 route가 선언한 binding field(approval·bundle)의 내용 기준으로 묶인다
+  // (lophn-agent#T53의 decision_seq 맞춤). 이 테스트의 fixture 행은 결정 seq가
+  // 없어 생략 입력은 승인 기록과 일치로 통과한다.
   const bound = {
     approval: applied.approval,
-    decision_seq: applied.decision_seq,
     bundle: applied.bundle,
   };
   const issued = must(

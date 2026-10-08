@@ -69,7 +69,10 @@ export const createAppEngineerAssignmentInputSchema = z.strictObject({
 
 export const applyOperatorAssignmentInputSchema = z.strictObject({
   approval: idSchema("apr"),
-  decision_seq: seqSchema,
+  // 허락이 확정한 결정 seq다. 적용 전에는 알 수 없는 값이라 생략할 수 있고,
+  // handler가 승인 기록의 결정 seq로 맞춘다(lophn-agent#T53, shell#T54에서
+  // 넘어온 것). 제공되면 승인 기록과 일치해야 한다.
+  decision_seq: seqSchema.optional(),
   id: idSchema("asg"),
   bundle: operatorApprovalBundleSchema,
 }).refine(
@@ -156,10 +159,15 @@ export const applyOperatorAssignment = defineCommand({
   name: "ApplyOperatorAssignment",
   input: applyOperatorAssignmentInputSchema,
   output: assignmentResult,
-  actors: ["machine"],
+  // 적용은 machine 또는 승인 경유의 user 자격이다. user는 이 command를 직접
+  // 부르지 않고 approvals/apply의 dispatch로만 부른다(lophn-agent#T53,
+  // shell#T54에서 넘어온 것). 승인 상태는 handler가 승인 기록으로 다시 검사한다.
+  actors: ["machine", "user"],
   errors: [...errors],
   confirmation: "required",
-  binding: ["approval", "decision_seq", "bundle"],
+  // 사람이 본 구성은 bundle이고 결정 seq는 허락이 확정하는 것이라 본 내용이
+  // 아니다. 결정은 이 둘에 묶인다.
+  binding: ["approval", "bundle"],
   display_read: "/v1/assignments/read",
 });
 

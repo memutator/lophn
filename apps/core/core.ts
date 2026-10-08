@@ -49,6 +49,7 @@ import {
   type TraceExportWriterDeps,
   withTraceExport,
 } from "./agent-trace-export.ts";
+import { withProviderLogin } from "./provider-oauth.ts";
 import { withViewBinding } from "./view-binding.ts";
 import {
   applyMigrations,
@@ -981,6 +982,15 @@ async function open(
     snapshot: () => mcpServerSnapshot(ledgerPath),
     nowMs: () => clock.nowMs(),
   });
+  // OAuth 로그인(provider#R12–R16, D31)의 writer queue 앞 처리기 재료다. 활성 gate는
+  // 사람이 LOPHN_LIVE_PROVIDER=1로 실제 계정 확인을 시작했을 때만 열리고, 테스트가
+  // 대신 준다. login 세션과 token 값은 처리기 메모리에만 있다(R6, R7).
+  const providerLoginSecrets = {
+    ledgerPath,
+    keychain: () =>
+      options.secretKeychain ?? options.codingKeychain ?? productKeychain(),
+    known: () => runtime?.knownSecrets,
+  };
   const knownSecrets = runtime.knownSecrets;
   const redactLine = createProductRedactor(knownSecrets);
   // 앱 쌍 confirm의 approval 요청은 approval 글 준비를 지나는 writer로 낸다(사람이 보는 글은 blob이다).
@@ -1227,51 +1237,56 @@ async function open(
       // 닿기 전에 고정 판 본문의 출현을 확인한다(documents Q8).
       // 명시 연결 test(provider#R29, R30)는 writer queue 앞에서 네트워크를 기다린다.
       // trace export(observability#R17)는 writer queue 앞에서 로컬 파일에 쓴다.
+      // OAuth 로그인(provider#R12–R16, D31)도 writer queue 앞에서 listener와 network를
+      // 기다린다. login 세션은 처리기 메모리에만 있다.
       writer: withRevocationSweep(
-        withTraceExport(
-          withConnectionTest(
-            withReleasePreparation(
-              withPlacementReservation(
-                withTermOccurrence(
-                  withApprovalText(
-                    withQuestionText(
-                      withHandoffBody(
-                        withMessageBody(
-                          runtime.writer,
-                          createMessageBodyPreparer({
+        withProviderLogin(
+          withTraceExport(
+            withConnectionTest(
+              withReleasePreparation(
+                withPlacementReservation(
+                  withTermOccurrence(
+                    withApprovalText(
+                      withQuestionText(
+                        withHandoffBody(
+                          withMessageBody(
+                            runtime.writer,
+                            createMessageBodyPreparer({
+                              relay: () => bodyPrepare.current,
+                              // 알려진 secret 값도 pattern과 함께 가린다. 값을 다 모르는 동안은 막는다.
+                              known: () => runtime?.knownSecrets,
+                            }),
+                          ),
+                          createHandoffBodyPreparer({
                             relay: () => bodyPrepare.current,
-                            // 알려진 secret 값도 pattern과 함께 가린다. 값을 다 모르는 동안은 막는다.
                             known: () => runtime?.knownSecrets,
                           }),
                         ),
-                        createHandoffBodyPreparer({
+                        createQuestionTextPreparer({
                           relay: () => bodyPrepare.current,
-                          known: () => runtime?.knownSecrets,
                         }),
                       ),
-                      createQuestionTextPreparer({
+                      createApprovalTextPreparer({
                         relay: () => bodyPrepare.current,
+                        known: () => runtime?.knownSecrets,
                       }),
                     ),
-                    createApprovalTextPreparer({
-                      relay: () => bodyPrepare.current,
-                      known: () => runtime?.knownSecrets,
-                    }),
+                    (ctx, command, input) =>
+                      runtime!.readers.read(TERM_OCCURRENCE_ROUTE, ctx, {
+                        command,
+                        input,
+                      }),
                   ),
-                  (ctx, command, input) =>
-                    runtime!.readers.read(TERM_OCCURRENCE_ROUTE, ctx, {
-                      command,
-                      input,
-                    }),
+                  placementReservations,
                 ),
-                placementReservations,
+                appsControl.commands,
+                appsControl.grantChange,
               ),
-              appsControl.commands,
-              appsControl.grantChange,
+              connectionTestSecrets,
             ),
-            connectionTestSecrets,
+            traceExportSecrets,
           ),
-          traceExportSecrets,
+          providerLoginSecrets,
         ),
         () => appsControl.connector.sweep(),
         // 회수된 connection 아래 등록된 MCP·CLI child도 바로 닫는다(platform/identity#R15).

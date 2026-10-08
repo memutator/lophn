@@ -439,3 +439,70 @@ test("lophn-agent/harness/provider#R9, platform/secrets#R2: 등록 정보에 지
   );
   assert.equal(everything(core.calls.slice(1)).includes(VALUE), false);
 });
+
+test("lophn-agent/harness/provider#R11, lophn-agent#T16: OAuth 로그인 값은 secret store에 가지 않고 CompleteProviderLogin의 submission으로만 간다", async () => {
+  const core = fakeCore({
+    "read:providers/read": () =>
+      ok({ provider: { id: PVD, name: "OpenAI", revision: 5 } }),
+    "upload:secrets/input": () =>
+      ok({
+        preparation: "prep-9",
+        sealed_ref: "sealed-9",
+        purpose: "provider_credential",
+        owner: PVD,
+      }),
+    "command:providers/login-complete": () => ok({ provider: {} }),
+    "command:provider-credentials/register": () => ok({ provider: {} }),
+  });
+  const read = await readSecretInput(core, {
+    owner: PVD,
+    purpose: "provider_credential",
+    credential: {
+      key: "login-abc12345",
+      kind: "oauth",
+      label: "ChatGPT login",
+      account: null,
+      organization: null,
+      plan: null,
+    },
+  });
+  if (!read.ok) return assert.fail("read");
+  assert.deepEqual(read.value.allowed, [REGISTER_PROVIDER_CREDENTIAL]);
+  assert.equal(read.value.view?.entry, "code");
+  const registered: { content_hash: string }[] = [];
+  const pasted =
+    "https://auth.example.test/callback?code=the-code&state=state-1";
+  const sent = await createSecretSubmitter(core, { now: () => 0 }).submit({
+    windowId: "cfw_1",
+    canonical: read.value,
+    decision: REGISTER_PROVIDER_CREDENTIAL,
+    commandInput: { value: pasted },
+    register: (request) => {
+      registered.push(request);
+      return Promise.resolve({ ok: true, confirmation: "L".repeat(43) });
+    },
+  });
+  assert.deepEqual(sent, {
+    ok: true,
+    value: { secret_ref: "ChatGPT login", stored: "stored" },
+  });
+  // OAuth 값은 upload(증거)로 가지 않는다.
+  assert.equal(core.calls.some((call) => call.kind === "upload"), false);
+  const complete = core.calls.find((call) => call.method === "login-complete")!
+    .body as Record<string, unknown>;
+  const input = complete.input as Record<string, string>;
+  assert.deepEqual(input, {
+    provider: PVD,
+    login: "login-abc12345",
+    submission: pasted,
+  });
+  // 값은 소유 command의 submission binding으로만 간다(handle 등록·결과에는 없다).
+  const others = core.calls.filter((
+    call,
+  ) =>
+    !(call.kind === "command" && call.method === "login-complete") &&
+    call.kind !== "upload"
+  );
+  assert.equal(everything(others).includes("the-code"), false);
+  assert.equal(registered.length, 1);
+});

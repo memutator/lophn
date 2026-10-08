@@ -58,6 +58,14 @@ export {
   type SdkToolPorts,
 } from "./bundles/sdk.ts";
 export {
+  createProblemInterpretationToolHandlers,
+  PROBLEM_INTERPRETATION_TOOL_NAMES,
+  PROBLEM_INTERPRETATION_TOOL_REVISION,
+  PROBLEM_INTERPRETATION_TOOLS,
+  type ProblemInterpretationToolPorts,
+  problemSetInterpretationTool,
+} from "./bundles/problem-interpretation.ts";
+export {
   APP_TOOL_CONTRACT,
   APP_TOOL_PREFIX,
   type AppBlueprintView,

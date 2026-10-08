@@ -7,6 +7,7 @@ import { createFormatToolHandlers } from "./format.ts";
 import { createGuideToolHandlers } from "./guide.ts";
 import { createMetadataToolHandlers } from "./metadata.ts";
 import { createReadLog } from "./read-log.ts";
+import { createProblemInterpretationToolHandlers } from "./problem-interpretation.ts";
 import { createSdkToolHandlers } from "./sdk.ts";
 import { createTicketToolHandlers } from "./ticket.ts";
 import { createVisualToolHandlers } from "./visual.ts";
@@ -26,6 +27,7 @@ export function createBuiltinToolHandlers(
       createContextToolHandlers(ports, reads),
       createMetadataToolHandlers(ports),
       createAppReadToolHandlers(ports),
+      createProblemInterpretationToolHandlers(ports),
       createSdkToolHandlers(ports),
       createTicketToolHandlers(ports),
       createFormatToolHandlers(ports),

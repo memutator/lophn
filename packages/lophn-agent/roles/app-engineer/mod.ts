@@ -71,3 +71,20 @@ export {
   ticketRoute,
   type TicketUnit,
 } from "./ticket.ts";
+export {
+  type BasisReferenceLike,
+  type CauseHypothesis,
+  checkHypotheses,
+  checkInterpretationWrite,
+  checkObservationDesign,
+  checkReleaseReview,
+  HYPOTHESIS_MAX,
+  interpretationLinkOf,
+  type InterpretationWrite,
+  narrowHypotheses,
+  type ObservationDesign,
+  type ReleaseReview,
+  type ReleaseReviewMemo,
+  routeSdkChange,
+  type SdkChange,
+} from "./interpretation.ts";

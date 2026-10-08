@@ -1,25 +1,20 @@
-// `problems.closing` 반응기의 core 쪽 연결(problems#T20). 반응기 자체는 제품 core가 감독하는 상시
-// worker kind `problems/test-runner` 안에서 problems.work 반응기와 같이 돈다. 이 파일은 그 worker가
-// core에 낼 수 있는 machine credential의 operation, closing event를 worker 자격에게 여는 공개 정책,
-// `problems.closing` cursor 전진 자격, 그리고 worker를 깨우는 core 안 구독자(machine:problems-closing-feed)다.
-// event는 깨우는 신호이고 payload로 상태를 만들지 않는다: worker가 cursor 뒤 event와 정본을 다시 읽는다.
+// `problems.closing` 반응기의 core 쪽 연결(problems#T20). 반응기 자체는 제품 core가 감독하는 상시 worker
+// kind `problems/test-runner` 안에서 problems.work 반응기와 같이 돈다. worker가 core에 내는 자격은
+// `problems.work`의 machine credential이다(operations는 problems-work.ts의 목록, closing command도
+// 들어 있다). 이 파일은 closing event를 `problems.closing` 반응 쪽에게 여는 공개 정책, cursor 전진 자격,
+// 그리고 worker를 깨우는 core 안 구독자(machine:problems-closing-feed)다. event는 깨우는 신호이고
+// payload로 상태를 만들지 않는다: worker가 cursor 뒤 event와 정본을 다시 읽는다.
 import { err, ok, type Result } from "../../packages/base/mod.ts";
 import {
-  advanceSubscriberCursor,
   type EventDefinition,
   eventsList,
   type EventVisibilityDefinition,
   type RequestContext,
 } from "../../packages/contracts/platform/mod.ts";
 import {
-  closeProblemVerified,
-  getProblem,
-} from "../../packages/contracts/problems/mod.ts";
-import {
   openConnection,
   type SubscriberBinding,
 } from "../../packages/platform/ledger/mod.ts";
-import type { OperationPolicy } from "../../packages/platform/identity/mod.ts";
 import {
   CLOSING_EVENT_TYPES,
   CLOSING_SUBSCRIBER,
@@ -32,51 +27,14 @@ import type { CoreRuntime } from "./runtime.ts";
 
 // worker 깨움 요청 op. apps/worker/problems/test-runner.ts와 같은 값이다.
 export const PROBLEMS_CLOSING_FEED_PRINCIPAL = "machine:problems-closing-feed";
-export const PROBLEMS_CLOSING_PRINCIPAL = "machine:problems-closing";
 export const PROBLEMS_CLOSING_OP = "problems.closing";
 
-// worker가 core loopback에 낼 수 있는 operation: event 읽기, 문제 기준 읽기, 반응 command, cursor 전진.
-export const PROBLEMS_CLOSING_OPERATIONS = [
-  eventsList.name,
-  getProblem.name,
-  closeProblemVerified.name,
-  advanceSubscriberCursor.name,
-];
-
-// machine은 command kind만 받으므로 worker가 읽는 read operation도 command kind로 올린다.
-// GetProblem·ListEvents 정책은 problems.work 반응기 쪽과 collector 쪽이 이미 올려 둔다.
-export function problemsClosingPolicies(): OperationPolicy[] {
-  return [closeProblemVerified.name].map((name): OperationPolicy => ({
-    name,
-    actors: ["machine"],
-    kind: "command",
-  }));
-}
-
-// 구독자의 자격. core가 ledger credential 기록으로 심고 token이 없다. HTTP로는 이 principal이 될 수
-// 없다.
-export const PROBLEMS_CLOSING_FEED_CONTEXT: RequestContext = {
-  principal: PROBLEMS_CLOSING_FEED_PRINCIPAL,
-  actor: "machine",
-  scope: { operations: [eventsList.name], targets: {} },
-  conditions: {},
-  credential_ref: PROBLEMS_CLOSING_FEED_PRINCIPAL,
-};
-
-export function isProblemsClosingFeed(ctx: RequestContext): boolean {
-  return ctx.actor === "machine" &&
-    ctx.principal === PROBLEMS_CLOSING_FEED_PRINCIPAL &&
-    ctx.credential_ref === PROBLEMS_CLOSING_FEED_PRINCIPAL;
-}
-
-// worker는 발급된 credential(ref는 발급마다 다르다)로 event를 읽고 cursor를 올린다.
-export function isProblemsClosingWorker(ctx: RequestContext): boolean {
-  return ctx.actor === "machine" &&
-    ctx.principal === PROBLEMS_CLOSING_PRINCIPAL;
-}
-
 export function isProblemsClosing(ctx: RequestContext): boolean {
-  return isProblemsClosingFeed(ctx) || isProblemsClosingWorker(ctx);
+  // feed는 cursor 없이 숨김 event를 여는 자격이고, worker는 발급된 credential(ref는 발급마다 다르다)로
+  // event를 읽고 cursor를 올린다.
+  return ctx.actor === "machine" &&
+    (ctx.principal === PROBLEMS_CLOSING_FEED_PRINCIPAL ||
+      ctx.principal === "machine:problems-work");
 }
 
 // 정책이 없던 closing event를 `problems.closing` 쪽에게만 연다. 사람·agent·app·다른 machine은
@@ -102,7 +60,10 @@ export function visibleToProblemsClosing<D extends EventDefinition>(
 export function problemsClosingSubscribers(): SubscriberBinding[] {
   return [{
     name: CLOSING_SUBSCRIBER,
-    authorize: (ctx) => ok(isProblemsClosingWorker(ctx)),
+    authorize: (ctx) =>
+      ok(
+        ctx.actor === "machine" && ctx.principal === "machine:problems-work",
+      ),
   }];
 }
 
@@ -171,7 +132,13 @@ export function startProblemsClosingFeed(
   }
   const period = setInterval(() => void attempt(), periodMs);
   const subscription = openInternalSubscription({
-    context: PROBLEMS_CLOSING_FEED_CONTEXT,
+    context: {
+      principal: PROBLEMS_CLOSING_FEED_PRINCIPAL,
+      actor: "machine",
+      scope: { operations: [eventsList.name], targets: {} },
+      conditions: {},
+      credential_ref: PROBLEMS_CLOSING_FEED_PRINCIPAL,
+    },
     backend: deps.runtime.events,
     track: (session) => deps.runtime.track(session),
     // 구독이 닫혀 있던 동안의 변화는 cursor 뒤를 다시 읽어 따라잡는다.

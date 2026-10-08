@@ -249,13 +249,8 @@ import {
   startProblemsWorkFeed,
 } from "./problems-work.ts";
 import {
-  PROBLEMS_CLOSING_FEED_CONTEXT,
-  PROBLEMS_CLOSING_FEED_PRINCIPAL,
   PROBLEMS_CLOSING_OP,
-  PROBLEMS_CLOSING_OPERATIONS,
-  PROBLEMS_CLOSING_PRINCIPAL,
   problemsClosingCursor,
-  problemsClosingPolicies,
   startProblemsClosingFeed,
 } from "./problems-closing.ts";
 import {
@@ -691,10 +686,9 @@ async function open(
     ...collectorOperationPolicies(),
     // ticket checker(machine)가 판정 사실을 읽고 결과를 기록한다(coding-agent#T26).
     ...ticketCheckerPolicies(),
-    // test-runner kind의 `problems.work` 반응기(machine)가 event를 읽고 문제 work를 맞춘다(problems#T19).
+    // test-runner kind의 `problems.work` 반응기(machine)가 event를 읽고 문제 work를 맞춘다.
+    // 같은 kind의 `problems.closing` 반응기도 CloseProblemVerified를 낸다(problems#T20).
     ...problemsWorkPolicies(),
-    // 같은 kind의 `problems.closing` 반응기(machine)가 테스트로 확인됨 닫힘을 낸다(problems#T20).
-    ...problemsClosingPolicies(),
     // 앱 revert 단계의 기록·끝내기(core 내부 machine, lophn-agent#T48).
     ...appRevertPolicies(),
     // agent runtime(machine)과 run의 agent 자격이 닿는 operation(lophn-agent/harness/run-loop).
@@ -2005,36 +1999,15 @@ async function open(
           wake: (cursor) =>
             runnerChannel.request(PROBLEMS_WORK_OP, { cursor }, 30_000),
         });
-        // 같은 runner 안의 `problems.closing` 반응기도 자기 credential(basis 별도)로 cursor
-        // 뒤 closing event를 따라잡는다(problems#T20). 조건 판정은 command가 정본에서 다시 한다.
-        const closingIssued = await productRegistry.issue({
-          actor: "machine",
-          principal: PROBLEMS_CLOSING_PRINCIPAL,
-          scope: {
-            operations: [...PROBLEMS_CLOSING_OPERATIONS],
-            targets: { task: "problems" },
-          },
-          conditions: { task: "problems", process: TEST_RUNNER_KIND },
+        // 같은 runner 안의 `problems.closing` 반응기는 worker의 machine credential(위 발급)로
+        // cursor 뒤 closing event를 따라잡는다(problems#T20). 조건 판정은 command가 정본에서
+        // 다시 한다. 이 구독자는 깨움 신호만 낸다.
+        problemsClosingFeed = startProblemsClosingFeed({
+          runtime,
+          ledgerPath,
+          wake: (cursor) =>
+            runnerChannel.request(PROBLEMS_CLOSING_OP, { cursor }, 30_000),
         });
-        const closingCurrent = closingIssued.ok
-          ? productRegistry.revalidate({
-            credential_ref: closingIssued.value.credential_ref,
-          })
-          : closingIssued;
-        const closingRecorded = closingIssued.ok && closingCurrent.ok
-          ? await runtime.record(closingCurrent.value)
-          : closingCurrent;
-        const closingFeedRecorded = await runtime.record(
-          PROBLEMS_CLOSING_FEED_CONTEXT,
-        );
-        if (closingIssued.ok && closingRecorded.ok && closingFeedRecorded.ok) {
-          problemsClosingFeed = startProblemsClosingFeed({
-            runtime,
-            ledgerPath,
-            wake: (cursor) =>
-              runnerChannel.request(PROBLEMS_CLOSING_OP, { cursor }, 30_000),
-          });
-        }
       }
     }
   }

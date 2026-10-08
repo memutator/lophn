@@ -12,6 +12,9 @@ import {
   changeProvider,
   changeProviderCredentials,
   connectionTest,
+  loginBegin,
+  loginCancel,
+  loginComplete,
   recordProviderAvailability,
   recordProviderCheck,
   refreshProviderCredential,
@@ -200,6 +203,9 @@ export function createProviderCommands(): {
   recordAvailability: CommandDefinition<typeof recordProviderAvailability>;
   recordCheck: CommandDefinition<typeof recordProviderCheck>;
   test: CommandDefinition<typeof connectionTest>;
+  beginLogin: CommandDefinition<typeof loginBegin>;
+  completeLogin: CommandDefinition<typeof loginComplete>;
+  cancelLogin: CommandDefinition<typeof loginCancel>;
 } {
   return {
     // 실제 실행은 ledger transaction 밖의 writer 처리기가 한다(apps/core,
@@ -210,6 +216,35 @@ export function createProviderCommands(): {
         return err({
           code: "unavailable",
           message: "connection test runs outside the ledger writer",
+        });
+      },
+    },
+    // OAuth 로그인(provider#R12–R16)은 writer queue 앞의 처리기가 실제로 돌린다
+    // (withProviderLogin). 이 등록은 경로를 route registry에 열어 두는 자리다.
+    beginLogin: {
+      route: loginBegin,
+      handle() {
+        return err({
+          code: "unavailable",
+          message: "provider login runs outside the ledger writer",
+        });
+      },
+    },
+    completeLogin: {
+      route: loginComplete,
+      handle() {
+        return err({
+          code: "unavailable",
+          message: "provider login runs outside the ledger writer",
+        });
+      },
+    },
+    cancelLogin: {
+      route: loginCancel,
+      handle() {
+        return err({
+          code: "unavailable",
+          message: "provider login runs outside the ledger writer",
         });
       },
     },

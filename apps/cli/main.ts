@@ -51,14 +51,15 @@ import type { RpcFetch } from "../../packages/contracts/platform/mod.ts";
 const VERSION = "0.1.0";
 
 // 조립이 끼워 주는 redaction이다(mcp-server/stdio의 같은 모양). 알려진 secret
-// registry를 process 수명으로 두고 실패 진단·details를 거친다.
+// registry를 process 수명으로 두고 실패 진단·details를 거친다. push는 검사가 확정된
+// prefix만 돌려주므로 push의 결과에 finish의 보류를 더해 온전한 글을 돌려준다.
 function redactor(
   registry: ReturnType<typeof createKnownSecretRegistry>,
 ): (text: string) => string {
   return (text) => {
     const stream = createRedactionStream(registry);
-    stream.push(text);
-    return stream.finish();
+    const released = stream.push(text);
+    return released + stream.finish();
   };
 }
 
@@ -188,6 +189,9 @@ export async function cliMain(
     await output.failure(failure);
     return output.exitCode(failure);
   }
+  // `session summary --hook`은 어떤 실패도 stdout 빈 값·exit 0이다(guides#R24). 세션 시작을 막지 않는다.
+  const hookMode = command === "session summary" &&
+    (checked.data as { hook?: boolean }).hook === true;
   const env = options.env ?? ambientEnv();
   const connection = connectionFromRef(
     (checked.data as { connection?: string }).connection ??
@@ -201,6 +205,7 @@ export async function cliMain(
     readText: readTextOrUndefined,
   });
   if (!address.ok) {
+    if (hookMode) return 0;
     await output.failure(address.error);
     return output.exitCode(address.error);
   }
@@ -248,6 +253,14 @@ export async function cliMain(
       ...(options.ports === undefined ? {} : { ports: options.ports }),
     },
   );
+  if (hookMode) {
+    if (ran.ok) {
+      await output.raw(
+        String((ran.value.data as { hook?: unknown } | undefined)?.hook ?? ""),
+      );
+    }
+    return 0;
+  }
   if (command === "session observe") {
     // hook의 stdout은 제품이 model context로 읽을 수 있어 비워 둔다. 보내지 못해도 harness 작업을 막지 않으므로
     // 진단은 stderr 한 줄이고 exit는 0이다(조사 T6).

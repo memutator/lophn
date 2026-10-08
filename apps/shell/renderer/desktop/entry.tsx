@@ -83,10 +83,16 @@ const projects = coreLauncherSource(core, windowFolderPicker());
 const workspace = seed?.source ?? coreWorkspaceSource(core);
 const tracking = seed ? undefined : coreTrackingSource(core);
 // 창마다 하나인 대화 통로와 메모리. 공간을 오가도 작성 중 말이 남는다(desktop#R8).
+// 도크의 provider 끊김 줄(desktop#R7)은 같은 core 통로에서 계정 상태를 읽고, 행동은
+// lophn 공간 settings로 간다.
 const conversation = {
   source: coreConversationSource(core),
   drafts: new DraftStore(),
   startOpen: location.hash === "#conversation",
+  core,
+  onSettings: () => {
+    location.hash = "#settings";
+  },
 };
 // 창마다 하나인 질문·approval 통로와 고르던 답. 도크의 칸·things-to-confirm·chip이 같이 쓴다.
 const requests = {

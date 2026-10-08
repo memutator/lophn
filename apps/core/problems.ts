@@ -3,13 +3,14 @@ import {
   getTestRequestRead,
   getVerificationRead,
   listVerificationsRead,
+  observeTestRequestCommand,
   recordVerificationCommand,
   requestTestCommand,
+  stageTestEvidenceCommand,
+  startTestSideCommand,
   TEST_BLOB_FIELDS,
   TEST_BLOB_PURPOSES,
   TEST_SCHEMA_STEPS,
-  testAdmissionPort,
-  testEvidencePort,
   verificationRecordedVisibility,
 } from "../../packages/problems/tests/mod.ts";
 import {
@@ -77,6 +78,7 @@ import {
 import { notificationsOnlyVisibility } from "./platform.ts";
 import { isTicketCheckFeed } from "./ticket-checker.ts";
 import { reportCollectorSpec, testRunnerSpec } from "./problems-runner.ts";
+import { testTxPorts } from "./problems-test-ports.ts";
 import { problemsWorkSubscribers } from "./problems-work.ts";
 import {
   isProblemsClosing,
@@ -108,10 +110,17 @@ export const problemsTestDefinitions = {
   schema: TEST_SCHEMA_STEPS,
   blobFields: TEST_BLOB_FIELDS,
   blobPurposes: TEST_BLOB_PURPOSES,
-  commands: [requestTestCommand, recordVerificationCommand],
+  // 접수·결과 기록과, runner가 요청별 좁은 machine credential로만 부르는 lifecycle command다.
+  commands: [
+    requestTestCommand,
+    recordVerificationCommand,
+    observeTestRequestCommand,
+    startTestSideCommand,
+    stageTestEvidenceCommand,
+  ],
   reads: [getTestRequestRead, getVerificationRead, listVerificationsRead],
   visibility: [verificationRecordedForChecker],
-  ports: { admission: testAdmissionPort, evidence: testEvidencePort },
+  ports: testTxPorts(),
   workers: testRunnerWorkers(),
 };
 

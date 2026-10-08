@@ -168,4 +168,28 @@ begin
   select raise(abort, 'immutable');
 end;`,
   },
+  {
+    id: "test-evidence",
+    sql: `
+create table test_evidence (
+  request_principal text not null,
+  request_key text not null,
+  request_hash text not null,
+  runner_principal text not null,
+  evidence text not null,
+  primary key (request_principal, request_key, runner_principal)
+);
+${IMMUTABLE("test_evidence")}
+create trigger test_evidence_no_replace
+before insert on test_evidence
+when exists (
+  select 1 from test_evidence existing
+  where existing.request_principal = new.request_principal
+    and existing.request_key = new.request_key
+    and existing.runner_principal = new.runner_principal
+)
+begin
+  select raise(abort, 'immutable');
+end;`,
+  },
 ];

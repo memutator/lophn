@@ -100,3 +100,23 @@ export {
   widestEffect,
 } from "./mcp-tools.ts";
 export { createMcpSecretRefSource, MCP_SECRET_OWNER } from "./secret-refs.ts";
+export {
+  authHeaders,
+  authorizationUrl,
+  type AuthState,
+  bindingChanged,
+  type BrowserOpener,
+  type CallbackListener,
+  type CallbackOpener,
+  createMcpAuth,
+  type CredentialBinding,
+  exchangeToken,
+  type HttpAuth,
+  type OAuthBinding,
+  type OAuthStartInput,
+  pkceChallengeS256,
+  type RefreshOutcome,
+  type Registration,
+  type TokenExchangeInput,
+  type TokenExchangeOutcome,
+} from "./mcp-auth.ts";

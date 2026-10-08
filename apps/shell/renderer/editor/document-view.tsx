@@ -21,6 +21,8 @@ import {
 import { Markdown, Toc } from "@lophn/design/reading";
 import { formatRelativeTime, t } from "@lophn/wording";
 
+import { useConnectionSafe } from "../desktop/connection/connection.tsx";
+import type { CoreSource } from "../desktop/connection/connection.ts";
 import { ConflictView } from "./conflict/conflict-view.tsx";
 import { CompareView, type RestoreAnswer } from "./compare/compare-view.tsx";
 import { DocumentHead, StickyHeadBar } from "./document-head.tsx";
@@ -43,6 +45,7 @@ import {
   saveNotices,
   topNotice,
 } from "./save-state.ts";
+import { INITIAL_FACTS } from "./save-state.ts";
 import { SaveDetails, SaveStatus } from "./save-status.tsx";
 import type { EditorSessions, OpenedSession, OpenFailure } from "./sessions.ts";
 import type { LinkTarget } from "./link-picker/link-picker.ts";
@@ -74,6 +77,11 @@ export interface EditorDeps {
   readonly files?: EditorSessions;
   /** 버전 이력·비교·복원 통로(shell#T18). 없으면 비교를 열지 않는다. */
   readonly versions?: VersionSource;
+  /**
+   * main의 core 통로. core 끊김(desktop#R7)에서 저장 gate를 닫고 확인 시각을 보이려고
+   * 연결 상태를 여기서 읽는다. 없으면(통로 없는 테스트) 끊김 줄을 두지 않는다.
+   */
+  readonly core?: CoreSource;
 }
 
 /** 문서 탭 본문 자리에 여는 버전 비교. */
@@ -170,8 +178,11 @@ export function DocumentView(
     onCompare,
     onVersionsChanged,
     now = Date.now,
+    core,
   }: DocumentViewProps,
 ) {
+  // core 끊김(desktop#R7). 통로가 있으면 연결 상태를 따르고 저장 gate를 닫는다.
+  const connection = useConnectionSafe(core);
   const [state, setState] = useState<InfoState>({ kind: "loading" });
   const [body, setBody] = useState<BodyState>({ kind: "loading" });
   const [sections, setSections] = useState<readonly OutlineSection[]>([]);
@@ -353,8 +364,10 @@ export function DocumentView(
 
   const onDraft = useCallback((next: string) => {
     setDraft(next);
+    // core가 끊겼으면 새 쓰기를 보내지 않는다. 초안은 이 화면에 남고 연결이 돌아오면 쓴다(desktop#R7).
+    if (connection.state !== "ready") return;
     opened?.session.edit(next);
-  }, [opened]);
+  }, [opened, connection]);
 
   const openCompare = async (against: "disk" | "newest") => {
     if (!opened || !files) return;
@@ -581,7 +594,9 @@ export function DocumentView(
       when: formatRelativeTime(new Date(info.savedAt), new Date(now())),
     })
     : "";
-  const saving = facts !== null && saveHeadline(facts).kind !== "none";
+  // core가 끊겼으면 저장 불가·초안 유지를 메타 줄에서 함께 보인다(desktop#R7, editor#R12).
+  const saving = (facts !== null && saveHeadline(facts).kind !== "none") ||
+    connection.state === "stale";
   const meta = saving && facts
     ? (
       <SaveStatus
@@ -589,6 +604,17 @@ export function DocumentView(
         detailsOpen={detailsOpen}
         onToggleDetails={() => setDetailsOpen((value) => !value)}
         onAction={onSaveAction}
+        connection={connection}
+      />
+    )
+    : connection.state === "stale"
+    ? (
+      <SaveStatus
+        facts={INITIAL_FACTS}
+        detailsOpen={detailsOpen}
+        onToggleDetails={() => setDetailsOpen((value) => !value)}
+        onAction={onSaveAction}
+        connection={connection}
       />
     )
     : versionMeta;

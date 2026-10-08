@@ -2,6 +2,7 @@
 // 디렉터리를 읽는 읽기 시험이고 쓰기는 temp dir에만 한다.
 import { assert, assertEquals, assertFalse } from "@std/assert";
 import { LOPHN_SKILL_NAMES } from "../harnesses/mod.ts";
+import { GUIDE_BYTES_MAX } from "./managed-files.ts";
 import {
   DISTRIBUTED_SKILLS_DIR,
   type Distribution,
@@ -20,6 +21,14 @@ async function real(): Promise<Distribution> {
   const loaded = await loadDistribution();
   assert(loaded.ok);
   return loaded.value;
+}
+
+// sync가 관리 구간에 채우는 몸통 원본이다(templates/). 설정 파일과 같은 몫이다.
+async function templateBody(name: string): Promise<string> {
+  const path = decodeURIComponent(
+    new URL(`./templates/${name}`, import.meta.url).pathname,
+  );
+  return await Deno.readTextFile(path);
 }
 
 Deno.test("coding-agent/guides#R1 coding-agent/guides#R2: 배포 원본의 네 skill이 형식 검사와 manifest를 통과하고 거절된 원본이 없다", async () => {
@@ -179,4 +188,56 @@ Deno.test("coding-agent/guides#R2: 원본 디렉터리를 읽지 못하면 unava
   const loaded = await loadDistribution("/nonexistent-skills-dir");
   assertFalse(loaded.ok);
   assertEquals(loaded.error.code, "unavailable");
+});
+
+Deno.test("coding-agent/guides#R13: 몸통·marker를 합친 안내 파일 전체가 32 KiB 안이다", async () => {
+  const guide = await templateBody("app-root-guide.body.md");
+  const thin = await templateBody("thin-claude.body.md");
+  const ignore = await templateBody("app-ignore.body.md");
+  const whole = (text: string): string =>
+    `# 안내\n\n<!-- begin lophn-managed -->\n${text}\n<!-- end lophn-managed -->\n`;
+  for (
+    const [name, text] of [["app_guide", guide], ["thin_claude", thin], [
+      "app_ignore",
+      ignore,
+    ]] as const
+  ) {
+    const bytes = new TextEncoder().encode(whole(text));
+    assert(
+      bytes.length <= GUIDE_BYTES_MAX,
+      `${name}이 32 KiB를 넘는다: ${bytes.length}`,
+    );
+  }
+});
+
+Deno.test("coding-agent/guides#R14: 안내 몸통은 요구 목록 항목만 있고 ticket 본문·묶음·token이 없다", async () => {
+  // deno fmt가 몸통을 줄바꿈하므로 공백 차이는 무시하고 읽는다.
+  const text = (await templateBody("app-root-guide.body.md")).replace(
+    /\s+/g,
+    " ",
+  );
+  // 요구 목록 항목이다(R14).
+  for (
+    const term of [
+      "lophn 앱이다",
+      "필요한 배포 skill",
+      "시작 summary",
+      "사람이 ticket을 지정했거나",
+      "blueprint.ts`가 정본 선언",
+      "machine 생성물",
+      "machine이 만든 파일은",
+      "용어는",
+      "SDK Package는",
+      "문제 보고는",
+      "실제 테스트는",
+      "preview는",
+      "보고할 때",
+    ]
+  ) {
+    assert(text.includes(term), term);
+  }
+  // ticket 본문·묶음·token은 없다(R14).
+  for (const forbidden of ["cac_", "record_fix", "bundle", "token"]) {
+    assertFalse(text.includes(forbidden), forbidden);
+  }
 });

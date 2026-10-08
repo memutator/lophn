@@ -62,7 +62,21 @@ function hookEntry(spec: HookSpec, argv: readonly string[]): JsonValue {
     .join(" ");
   // Claude timeout은 초, Gemini는 ms다.
   const timeout = spec.timeout_unit === "ms" ? 5_000 : 5;
-  return { hooks: [{ type: "command", command, timeout }] };
+  return {
+    ...(spec.matcher === undefined ? {} : { matcher: spec.matcher }),
+    hooks: [{ type: "command", command, timeout }],
+  };
+}
+
+// 시작 summary hook의 설치 가능 여부다. 상태 수집(`status`) hook은 이 판정에 들지 않는다.
+export function summaryHookSupported(definition: HarnessDefinition): boolean {
+  return definition.hooks.some((spec) =>
+    spec.purpose === "summary" && spec.capability === "supported"
+  );
+}
+
+export function summaryGuideOf(definition: HarnessDefinition): string {
+  return `${definition.label}은 시작 summary hook을 설치하지 않는다. 시작할 때 \`lophn session summary --app <앱>\`이나 MCP lophn_session summary로 명시해서 읽는다. summary 조회는 착수 지시가 아니다`;
 }
 
 export function buildResources(input: BuildInput): BuildOutput {
@@ -148,6 +162,12 @@ export function buildResources(input: BuildInput): BuildOutput {
         );
       }
     }
+  }
+
+  // 시작 summary hook은 검증한 제품(Claude Code)에만 있다. 다른 제품은 상태 수집 hook이 있어도 summary를
+  // 받지 않으므로 명시 summary 조회를 안내한다(guides#R25, harnesses#R11).
+  if (!summaryHookSupported(definition)) {
+    notices.push(summaryGuideOf(definition));
   }
 
   for (const spec of definition.hooks) {

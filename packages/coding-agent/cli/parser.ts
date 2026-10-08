@@ -17,8 +17,10 @@ export type ParsedArgs = {
   claimSeq: string | undefined;
   input: string | undefined;
   inputFile: string | undefined;
-  // `session observe --hook <harness>`의 제품이다.
+  // `session observe --hook <harness>`의 제품이다. `session summary --hook`은 값이 없어 빈 문자열이다.
   hook: string | undefined;
+  // 설치한 hook command가 소유 항목을 찾는 표식이다(`session summary --hook --owner <token>`).
+  owner: string | undefined;
   errors: string[];
 };
 
@@ -32,6 +34,7 @@ const VALUE_FLAGS = new Set([
   "--input",
   "--input-file",
   "--hook",
+  "--owner",
 ]);
 
 const KNOWN_FLAGS = new Set(["--json", "--help", ...VALUE_FLAGS]);
@@ -51,6 +54,7 @@ export function emptyParsedArgs(): ParsedArgs {
     input: undefined,
     inputFile: undefined,
     hook: undefined,
+    owner: undefined,
     errors: [],
   };
 }
@@ -76,6 +80,11 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
       }
       const value = argv[index + 1];
       if (value === undefined || value.startsWith("--")) {
+        if (arg === "--hook") {
+          // `session summary --hook`은 값 없는 flag다. 값이 필요한 command는 입력 검증이 거절한다.
+          assignFlag(parsed, arg, "");
+          continue;
+        }
         parsed.errors.push(`option에 값이 없다: ${arg}`);
         continue;
       }
@@ -161,6 +170,12 @@ function assignFlag(parsed: ParsedArgs, flag: string, value: string): void {
         parsed.errors.push("option이 중복된다: --hook");
       }
       parsed.hook = value;
+      return;
+    case "--owner":
+      if (parsed.owner !== undefined) {
+        parsed.errors.push("option이 중복된다: --owner");
+      }
+      parsed.owner = value;
       return;
   }
 }

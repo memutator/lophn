@@ -631,7 +631,7 @@ Deno.test("shell/desktop#R4: 작업대는 이 프로젝트에 붙은 Operator �
   );
   await flush();
   assert(
-    text(none.container).includes("No Operator repeats a check here yet."),
+    text(none.container).includes("No Operator repeats a check here yet"),
   );
   assertEquals(
     none.container.querySelector("[data-action='see-operators']"),

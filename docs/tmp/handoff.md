@@ -3,7 +3,7 @@ type: guide
 concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell]
 ---
 
-# lead handoff (2026-10-08 22:25 기준)
+# lead handoff (2026-10-09 00:15 기준)
 
 다음 orchestrator(lead)가 이 팀을 이어 받을 때 알아야 하는 것. 무엇을 만들지는 `docs/plan/`이 정하고,
 여기는 운영 방법·현재 상태·함정만 적는다. 숫자와 PR 목록은 작성 시각 기준이니 시작할 때
@@ -11,11 +11,12 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
 
 ## 0. 멈춘 이유와 다시 시작할 때
 
-- 2026-10-08 ~22:06 Claude Code 세션이 rate limit으로 종료됐다. 사람 지시는 "남은 작업을 다 마무리하고
-  마지막에 handoff 갱신"이었고, 끊긴 시점에 worker 5개와 batch 25 검사가 돌고 있었다.
-- 지금 돌고 있는 worker·검사·cron은 없다(merge-queue daemon도 죽어 있다).
-- 다시 시작하면 §6 "다음에 할 일" 순서로 간다. 끊긴 worker의 산출물은 worktree에 그대로 남아 있다
-  (아래 "멈춘 WIP" 표의 미commit·미push 칸을 먼저 본다).
+- 2026-10-08 ~22:06 Claude Code 세션이 rate limit으로 종료됐다. 그 뒤 Devin CLI가 lead를 이어 받아
+  batch 25·26을 merge하고 멈춘 WIP를 전부 commit·push로 보존했다.
+- 2026-10-09 ~00:05 subagent 주간 사용량 한도가 끝나 이어가기 worker(T41·T27)가 중단됐다. 지금 돌고
+  있는 worker·검사·cron은 없다.
+- 다시 시작하면 §6 "다음에 할 일" 순서로 간다. WIP는 전부 push돼 있으니 worktree가 지워져도
+  branch에서 복구된다(아래 "남은 WIP" 표).
 
 ## 1. 사람이 정한 운영 규칙
 
@@ -140,65 +141,54 @@ lead가 쓰는 사본은 `.dev-data/lead-tools/`(git 무시, 이 기계에 남�
 - worker가 시작 전 멈추거나 중간에 죽어도 worktree에 찌꺼기(probe 디렉터리 등)를 남긴다. WIP commit
   전에 untracked 목록을 본다.
 
-## 6. 현재 상태 (2026-10-08 22:25)
+## 6. 현재 상태 (2026-10-09 00:15)
 
-- 완료 335/362(93%). 10-07 20:00(324) 이후 12개 PR merge: #436·#445·#453·#454·#455·#456·#458·
-  #459·#460·#461·#462·#463.
-- 돌고 있는 worker·검사·cron 없음. rate limit으로 끊겼다.
-- `.dev-data/merge-queue.txt`에 #464·#465가 남아 있다. `lead/merge-batch` local은 3433b7ce(batch 25
-  통합본, remote에는 push 안 함).
+- 완료 341/362(94%). Devin CLI 구간 merge 6개: #464(T53)·#465(T34)·#467(T58)·#468(T57)·#469(T20)·
+  #470(T50). 그 전 12개(#436·#445·#453–#456·#458–#463)는 아래 이력대로.
+- merge-queue 비어 있음. `lead/merge-batch` local은 `f1012d99`(batch 26 통합본, push 안 함).
 
 ### 열린 PR
 
 | PR | task | 상태와 남은 일 |
 |---|---|---|
-| #457 | 이 handoff (+eval 미룸, lead-tools 사본) | docs만. 사람 merge 필요(lead self-merge 거절됨) |
-| #464 | lophn-agent#T53 Operator | 리뷰 통과·대기열 있음. **batch 25 lint 실패의 원인** — 아래 "batch 25" |
-| #465 | coding-agent#T34 template·sync-tools | 리뷰 통과·대기열 있음. remote head `4346e081`(lead가 main merge push) |
-| #466 | lophn-agent#T41 agent flow E2E | **부분 PR**(진행 표시). flow 2/14만: connect-provider·manage-provider-accounts. 나머지는 멈춘 WIP 참고 |
+| #457 | 이 handoff (+eval 미룸) | docs만. 사람 merge 필요(lead self-merge 거절됨) |
+| #466 | lophn-agent#T41 agent flow E2E | **부분 PR**(진행 표시). 완료 flow 4/14: connect-provider·manage-provider-accounts·steer-agent-work·answer-question. head `c79ae09e`에 미검증 WIP `resume-agent-session_test.ts`(602줄) 포함 — 다음 worker가 통과 확인부터 |
 
-### batch 25 (중단 상태)
+### batch 25·26 (끝남)
 
-- merge-batch `3433b7ce` = origin/main + #464 + #465. light-check가 `fmt → lint`에서 떨어지고 deno
-  test 단계에서 세션이 끊겼다(`.dev-data/logs/check-batch25.log`).
-- 실패 전부 #464의 파일이다: `packages/lophn-agent/roles/operator/`의 `mod.ts`·`tool-selection.ts`
-  fmt(import 정렬), `operator_test.ts` lint(`OTHER_RUN` unused → `_OTHER_RUN`, 239행 `require-await`
-  → async 제거). lead가 branch `worktree-agent-ac595c07ac0693084`에 직접 고쳐 push하고 재통합→
-  light-check→merge.
+- batch 25: #464의 lint·fmt 3파일을 lead가 고쳐 push → 통과 → #464 `fe70b28`·#465 `abfd9f0` merge.
+- batch 26: #467·#468·#469·#470 통합 `48eb9ddc` → light-check 실패 → `rerun-failed.sh`로 재현 확인
+  (context-revert·document-tools·revert·wording check 단독 실패). 원인 둘을 lead가 PR branch에 고쳐
+  push: #467 `fcc5293f`(`isosOf` unused, settings.backup heading 3개 마침표), #470 `78187bb6`
+  (`AGENT_OPERATIONS`의 `document.get` 중복 — `LinkProblemInterpretation` 보조 operation으로 이미
+  들어와 `acceptTestCredential`의 duplicate operation에 걸렸다). 재통합 `f1012d99` → 통과 → 4개
+  merge(`8f3718c`·`4411d6a`·`fe60307`·`26e5786`).
 
-### 멈춘 WIP (세션 종료로 끊김 — 산출물이 local에만 있음)
+### 남은 WIP (전부 push됨 — worktree가 지워져도 branch에서 복구)
 
-| task | worktree | branch | 상태 |
+| task | branch | head | 상태 |
 |---|---|---|---|
-| lophn-agent#T50 AE 문제 해석·release 검토 | `agent-ac33f052603901bc7` | `worktree-agent-ac33f052603901bc7` | commit 없음·remote 없음. 미commit 12파일: 새 `harness/tools/bundles/problem-interpretation.ts`·test, `revert/interpretation-owner.ts`·`interpretation_revert_test.ts`, `roles/app-engineer/interpretation.ts`·test + `handlers.ts`·`tools/mod.ts`·`registry.ts`·`revert/mod.ts`·`owners.ts`·`app_engineer_tools_test.ts`·`app-engineer/mod.ts`·`tool-selection.ts` 수정(deps 통과 확인까지 함, "duplicate tool handler" 거절 하나 조사 중). WIP commit·push부터 |
-| shell#T58 settings 화면 | `agent-a5571c1ecc3b405de` | `shell-t58-settings-operations` | `ffcac371`(main merge)와 `eb2a200d`(backup·update·진단·notification panel + test) **local만 — remote branch 없음**. 미commit: `settings_test.tsx`(마무리 worker가 bare render의 tablist assertion 고치는 중 — happy-dom 순환 참조로 stack overflow 나는 assertion). 남은 것: test → 상태 줄 → PR |
-| problems#T20 테스트로 확인됨 닫힘 | `agent-aa7794444d2476d45` | `worktree-agent-aa7794444d2476d45` | remote `b3d16ee8`(closing leaf·contract·core 연결·worker·policies·feed·FIXED_CREDENTIALS)까지 push됨. local에 미push merge `b2d06bde` + 미commit 3파일(`apps/core/problems-closing_test.ts` +121, `apps/core/problems-work.ts`, `apps/worker/problems/runner-service.ts` — lint 정리 중). 3차 worker 마지막 보고: "시나리오 3개 모두 통과", 남은 것 lint(value·code 헬퍼, `user` 변수) 정리 → test → 상태 줄 → PR. worker를 3명 태웠으니 이어갈 때 context 아끼게 지시 |
-| lophn-agent#T57 trace 보존 정리 | `agent-ae36ce22a40b1d819` | `lophn-agent-observability/trace-retention` | commit 없음·remote 없음. 미commit `packages/lophn-agent/observability/retention.ts` 초안 하나. worker 조사 결과: `BlobFieldDefinition`·`blobRetentionSchema`는 contracts에 이미 있고, `BLOB_CAPACITY_MAX_BYTES`는 platform/blob-store 소유라 check-deps상 leaf는 contracts만 import 가능. `maintenance.ts`의 정리 통로와 JSON 직렬화 port를 보라는 메모를 남김. 이어가기 worker는 아직 spawn 못 함 |
-| lophn-agent#T41 이어가기 | `agent-a2ddf38d089ec5950` | `lophn-agent/t41-agent-flow-e2e` | 모두 push됨(`17c010bd`, PR #466). 이어가기 worker가 `steer-agent-work` flow(WIP commit `2e4059ef` 있음) 완성 중이었으나 commit 없이 끊김. 남은 flow ~12개: steer-agent-work, resume-agent-session, review-agent-work, answer-question, approve-action(앱 confirm 제외), ask-lophn-help, edit-instructions, add-agent-extension, view-agent-visuals(앱 카드 제외), organize-documents 2~3단계, find-documents 5~6단계, project-workspace 8단계. T26에서 넘어온 것 3개는 task 블록에 있음. flow마다 push해 #466을 키우거나 후속 PR로 |
-| apps#T27 apps slice E2E | `agent-a7478c8a1c3e4ef3f`(locked) | `apps-slice-flow-e2e` | 산출물 0(branch가 main 그대로, clean). 두 번째 worker는 읽기 단계에서 끊겨 worktree가 지워졌다. 처음부터 — 좁은 지시: use-app-command flow 하나로 PR 먼저 |
+| lophn-agent#T41 | `lophn-agent/t41-agent-flow-e2e` (PR #466) | `c79ae09e` | flow 4개 완료 + resume-agent-session 미검증 WIP. 남은 ~9: review-agent-work, approve-action(앱 confirm 제외), ask-lophn-help, edit-instructions, add-agent-extension, view-agent-visuals(앱 카드 제외), organize-documents 2~3단계, find-documents 5~6단계, project-workspace 8단계. 질문 답 확정 경로는 제품 결함(followups 49)으로 이어보냄 |
+| apps#T27 | `apps-slice-flow-e2e` (PR 없음) | `8668e77b` | WIP commit: `e2e/flows/probe-restore_test.ts`·`restore-app-release_test.ts` + `app-decisions.ts`의 `compare:{}` 수정(envelope schema가 요구 — 실제 제품 결함일 수 있음, 다음 worker가 확인). plan은 8개 flow 필요: new-app·change-app·restore-app-release·run-app-automation·manage-app-permissions·use-app-command·connect-apps·ask-app-hint |
 
-### 남은 task (미완 ~24, 미룸 5 빼고)
+### 남은 task (미완 ~21, 미룸 5 빼고)
 
-- PR 있음: lophn-agent#T53(#464), coding-agent#T34(#465), lophn-agent#T41(#466 부분)
-- WIP 이어가기: lophn-agent#T50·T57, shell#T58, problems#T20, apps#T27(처음부터)
-- 진행(선행 풀기, problems#T21 merge 뒤 연결 PR 남음): coding-agent#T45, problems#T22, shell#T53
-- 진행(남은 단계는 상태 줄 참고): coding-agent#T36, documents#T21·T27, problems#T23(#447 — 남은 것은
-  shell#T53·T52와 e2e로 이어보냄)
-- 미착수: coding-agent#T41·T46·T47, platform#T54, problems#T21·T24·T25·T26, shell#T48
-- 핵심 경로: problems#T20(WIP, 거의 끝) → problems#T21 → 선행 풀기 세 task의 연결 PR과 problems
-  E2E(T24·T25·T26)가 열린다. coding-agent#T41은 problems E2E 쪽 선행이 끝나야 한다(ready.js가 말해줌).
+- PR 있음: lophn-agent#T41(#466 부분), apps#T27(branch만)
+- **핵심 경로 다음 단계**: problems#T20이 merge됐으므로 problems#T21이 READY. T21 merge 뒤
+  coding-agent#T45·problems#T22·shell#T53의 "실제 data에 잇는 연결 PR"과 problems E2E T24·T25·T26이
+  열린다(ready.js 확인).
+- 진행(남은 단계는 상태 줄 참고): coding-agent#T36·T45, documents#T21·T27, problems#T22·T23(#447),
+  shell#T53
+- 미착수: coding-agent#T41·T46·T47, platform#T54, problems#T24·T25·T26, shell#T48
 
 ### 다음에 할 일 (다시 시작할 때 순서)
 
 1. `gh pr list`, `node docs/tmp/plan-count.js now`, `node .dev-data/lead-tools/ready.js`로 숫자 확인.
-2. **WIP 보존부터**: 위 표의 미commit·미push를 WIP commit·push한다(특히 T50 전부 미commit, T58은
-   remote branch 자체가 없음, T57은 초안 한 파일).
-3. #464의 lint·fmt 3파일을 lead가 고쳐 push → batch 25 재통합(`integrate.sh`) → light-check →
-   #464·#465 merge.
-4. 멈춘 worker 다시 띄우기(같은 branch/worktree에서 이어가게): problems#T20(마무리 직전), shell#T58
-   (test 하나 + PR만), lophn-agent#T50·T57(이어가기), lophn-agent#T41(#466 이어서 flow마다 push),
-   apps#T27(좁은 지시로 처음부터).
-5. `ready.js`로 빈 slot 채운다(6개까지).
+2. T41 worker: `resume-agent-session_test.ts` 통과 확인 → 나머지 flow 하나씩 commit·push(#466 계속).
+3. T27 worker: `8668e77b`의 app-decisions compare 수정이 제품 결함인지 확인부터 → flow 하나씩 PR.
+   좁은 지시(한 번에 flow 하나)를 지킨다 — glm은 8개를 한 context에서 못 끝낸다.
+4. problems#T21 worker — 핵심 경로.
+5. `ready.js`로 빈 slot 채운다(6개까지). worker는 glm-flash-max만.
 
 ## 7. 알려진 남은 구멍
 
@@ -211,6 +201,15 @@ lead가 쓰는 사본은 `.dev-data/lead-tools/`(git 무시, 이 기계에 남�
 - 새 것 53: `apps/worker/apps/revert.ts`가 사람 Bearer token을 감독 channel로 받아 `apps/connect`를
   부른다 — worker 전용 machine 자격으로 바꾸고 token 전달을 없애는 편이 낫다. worker kind 자체
   `_test.ts`도 없다(lophn-agent 후속).
+- 새 것 54: #470의 `LinkProblemInterpretation`은 agent actor만 받는데 그 revert는 user/machine 자격으로
+  부른다 → 제품 경로에서 revert가 forbidden이 될 수 있다. 결정 필요: actor 인가를 넓히거나 revert를
+  assignment 범위 agent 자격으로 부르게 한다. (lophn-agent#T50 이어보냄)
+- 새 것 55: #469(problems#T20)의 product core test가 verification·release 행을 SQLite에 직접 seed한다
+  (실제 lifecycle 아님). review에서 test fixture 한정으로 받았으나 실제 경로로 만드는 followup.
+- 확인됨: followups 49(끝난 run의 질문에 답할 수 없음)를 T41 E2E가 실제로 재현했다 — `ports.wait`가
+  `{tool_call, approval}`만 받아 `WaitRun`의 question 갈래를 아무도 부르지 않아 질문을 만든 run이
+  곧바로 끝나고 `questions/answer`가 "the run is finished"로 거절된다. answer-question의 답 확정
+  경로는 이 결함으로 검증 불가였다.
 - 아직 열린 큰 것: 33(coding agent hook 대상 사람 확인), 35·36(repair diff·이미지 redaction), 42(agent
   임시 글 streaming 통로 없음), 43(ReproductionScenario builder 없음 — reproduction 실행이 걸림),
   44(launcher가 core 준비 뒤에도 "getting ready"에 멈춤 — lophnCore.subscribe 재생 없음), 45(문제

@@ -52,6 +52,8 @@ export type PrepareReleaseInput = {
   sdkCopies?: readonly { path: string; bytes: Uint8Array }[];
   // bundle 안 상대 경로로 잠근 앱 import map. 있으면 `import-map.json`으로 bundle에 담는다.
   lockedImports?: Readonly<Record<string, string>>;
+  // 플랫폼이 만든 진입 파일(`bundle/runtime-entry.ts`). 앱 source에 같은 path가 있으면 거절한다.
+  entryFiles?: readonly { path: string; bytes: Uint8Array }[];
 };
 
 export type PreparedRelease = {
@@ -134,6 +136,14 @@ export async function prepareRelease(
   // byte는 아래 bundle 합에서 한 번만 더한다.
   const assets = input.assets ?? [];
   const sdkCopies = input.sdkCopies ?? [];
+  const entryFiles = input.entryFiles ?? [];
+  if (
+    entryFiles.some((entry) =>
+      extracted.value.some((file) => file.path === entry.path)
+    )
+  ) {
+    return fail("entrypoint_reserved");
+  }
   const lockedMap = input.lockedImports === undefined ? [] : [{
     path: "import-map.json",
     bytes: new TextEncoder().encode(
@@ -143,7 +153,7 @@ export async function prepareRelease(
   const countedFiles = counter.addBundle(
     0,
     input.screens.length + assets.length + sdkCopies.length +
-      lockedMap.length + 2,
+      lockedMap.length + entryFiles.length + 2,
   );
   if (countedFiles) return fromLimit(countedFiles);
   if (deps.cancelled?.()) return fail("cancelled");
@@ -181,6 +191,7 @@ export async function prepareRelease(
     ...built.value.files,
     ...assets,
     ...sdkCopies,
+    ...entryFiles,
     ...lockedMap,
     { path: "blueprint.json", bytes: blueprintBytes },
   ];

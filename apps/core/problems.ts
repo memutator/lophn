@@ -65,6 +65,7 @@ import {
   problemInterpretationLinked,
   problemOpened,
   problemReopened,
+  problemsUploadFixSummary,
   problemWorkEnded,
   problemWorkStarted,
   reportProblem,
@@ -119,7 +120,11 @@ function workerRoot(): string | undefined {
 function testRunnerWorkers(): KindLaunchSpec[] {
   const root = workerRoot();
   if (!root) return [];
-  const spec = testRunnerSpec({ dataRoot: root, deno: Deno.execPath() });
+  const spec = testRunnerSpec({
+    dataRoot: root,
+    deno: Deno.execPath(),
+    screenHost: Deno.env.get("SCREEN_TEST_HOST"),
+  });
   return spec ? [spec] : [];
 }
 
@@ -206,6 +211,8 @@ export const problemsReportDefinitions = {
     observeViewError,
     submitFeedback,
   ],
+  // 고친 기록 summary의 blob 준비 route(coding-agent#T44). 바이트는 core 핸들러가 준비 중계로 흘린다.
+  uploadRoutes: [problemsUploadFixSummary],
 };
 
 // 진단 상세 수집 on/off(snapshots#R7). 끄면 새 로그 같은 상세 수집만 멈추고 기존 자료의

@@ -125,6 +125,19 @@ export type HelperProviderOptions = {
   generation?: () => string | Promise<string>;
   run?: HelperRunner;
   timeoutMs?: number;
+  // not_found만 다시 묻는 한도다(기본 100ms 간격, 총 3초). 신뢰 감독이 TUI 아래 process를 관측해 등록하는
+  // 데 걸리는 짧은 틈 때문이다. 그 밖의 답(locked·no_secret_service·timeout·거절)은 바로 실패다. 0이면
+  // 다시 묻지 않는다.
+  retry?: { intervalMs: number; boundMs: number };
+  // 다시 묻는 사이의 기다림과 시계다. 시험이 끼운다.
+  clock?: { now(): number; sleep(ms: number): Promise<void> };
+};
+
+const NOT_FOUND_RETRY = { intervalMs: 100, boundMs: 3_000 };
+const realClock = {
+  now: () => Date.now(),
+  sleep: (ms: number) =>
+    new Promise<void>((resolve) => setTimeout(resolve, ms)),
 };
 
 function failureOf(value: unknown): CredentialDeliveryFailure {
@@ -139,6 +152,8 @@ export function createHelperCredentialProvider(
   const run = options.run ?? denoHelperRunner;
   const generation = options.generation ?? currentProcessGeneration;
   const timeoutMs = options.timeoutMs ?? CREDENTIAL_DELIVERY_TIMEOUT_MS;
+  const retry = options.retry ?? NOT_FOUND_RETRY;
+  const clock = options.clock ?? realClock;
   // 성공한 connection의 token이다. 이 process의 메모리에만 있다.
   const held = new Map<string, ConnectionCredential>();
   const inflight = new Map<
@@ -159,6 +174,21 @@ export function createHelperCredentialProvider(
     });
     // connection 참조가 올바르지 않으면 helper를 부르지 않는다. core의 범위 밖 답과 같다.
     if (!request.success) return err("not_found");
+    // 등록 전이라 not_found인 동안만 한도 안에서 다시 묻는다. 다른 답은 바로 돌려준다.
+    const deadline = clock.now() + retry.boundMs;
+    let result = await exchangeOnce(request.data);
+    while (
+      !result.ok && result.error === "not_found" && clock.now() < deadline
+    ) {
+      await clock.sleep(retry.intervalMs);
+      result = await exchangeOnce(request.data);
+    }
+    return result;
+  }
+
+  async function exchangeOnce(
+    data: unknown,
+  ): Promise<Result<ConnectionCredential, CredentialDeliveryFailure>> {
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<"timeout">((resolve) => {
@@ -167,7 +197,7 @@ export function createHelperCredentialProvider(
         resolve("timeout");
       }, timeoutMs);
     });
-    const body = new TextEncoder().encode(JSON.stringify(request.data));
+    const body = new TextEncoder().encode(JSON.stringify(data));
     const exchange = run(options.helper, body, controller.signal).then(
       (outcome) => outcome,
       () => "unrunnable" as const,

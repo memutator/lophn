@@ -93,8 +93,12 @@ export type McpToolkit = {
 export type Toolkit = {
   // 내장 tool 정의의 출처. 없으면 제품 내장 전부다.
   definitions?: readonly ToolDefinition[];
-  // 호출의 소유 계약 연결. 읽기 tool은 기본 연결을 쓰고 쓰기·external은 여기서 낸다.
-  binding(definition: ToolDefinition): ToolBinding | undefined;
+  // 호출의 소유 계약 연결. 읽기 tool은 기본 연결을 쓰고 쓰기·external은 여기서 낸다. run은 이 run의
+  // agent 자격과 자리, 확인을 마친 대상을 올리는 범위다.
+  binding(
+    definition: ToolDefinition,
+    run?: { agent: CoreCall; seat: RunSeat; reach: Set<string> },
+  ): ToolBinding | undefined;
   // 이 run의 agent 자격으로 소유 계약을 부르는 handler.
   handlers(seat: RunSeat, agent: CoreCall): ReadonlyMap<string, ToolHandler>;
   // 현재 run이 닿을 수 있는 대상 ID(assignment 담당 범위).
@@ -339,6 +343,15 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
       external.map((tool) => [tool.definition.name, tool]),
     );
     const bindings = new Map<string, ToolBinding>();
+    // 이 run이 닿는 대상 ID다. 앱 command의 대상은 AgentAppScope에 든 앱이고, 쓰기 tool의 연결이 확인을
+    // 마친 대상을 더한다. run과 assignment는 호출하는 자기 자신이다.
+    const reach = new Set<string>([
+      ...(toolkit.targets?.(assignment) ?? []),
+      ...m.scope.apps.map((entry) => entry.app),
+      ...external.map((tool) => tool.target),
+      seat.run,
+      assignment.id,
+    ]);
     const appByName = new Map(
       m.appTools.map((tool) => [tool.definition.name, tool]),
     );
@@ -348,7 +361,7 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
         bindings.set(tool.name, deps.apps.binding(app, agent));
         continue;
       }
-      const bound = toolkit.binding(tool) ??
+      const bound = toolkit.binding(tool, { agent, seat, reach }) ??
         (tool.effect === "read" ? readBinding(tool) : undefined);
       if (bound !== undefined) bindings.set(tool.name, bound);
     }
@@ -412,16 +425,15 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
         ]),
         credential: {
           run: seat.run,
-          // 앱 command의 대상은 이 run의 AgentAppScope에 든 앱이다.
-          targets: new Set([
-            ...(toolkit.targets?.(assignment) ?? []),
-            ...m.scope.apps.map((entry) => entry.app),
-            ...external.map((tool) => tool.target),
-          ]),
+          targets: reach,
           operations: new Set([
             ...runOperations(listed),
-            // 외부 MCP tool의 ask는 이 run의 자격으로 approval request를 만든다(R28).
-            ...(external.length === 0 ? [] : [createApprovalRequest.name]),
+            // ask는 이 run의 자격으로 approval request를 만든다(R28). 쓰기·external tool이 하나라도
+            // 있으면 내장·앱·외부 어느 길이든 물을 수 있다.
+            ...(external.length > 0 ||
+                listed.some((tool) => tool.effect !== "read")
+              ? [createApprovalRequest.name]
+              : []),
           ]),
         },
         mcpConnection: (toolDefinition) =>

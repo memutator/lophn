@@ -98,6 +98,19 @@ export interface FeedbackDeps {
   ): Promise<FeedbackReply<FeedbackAccepted>>;
   /** 묶인 Issue로 간다. 그 창 renderer가 앱 공간을 연다. */
   openIssue(window: string, target: { app: string; problem: string }): void;
+  /**
+   * 그 view의 마지막 앱 호출이 입력 검사 등으로 시작되지 못했으면 `blocked_before_start`다
+   * (problems/feedback#R4). 없으면 모른다.
+   */
+  commandStart?(view_session: string): "blocked_before_start" | "unknown";
+  /**
+   * 이 Report ID가 이미 접수됐는지 읽는다(problems GetReport). 접수됐으면 그 결과, 없으면 null이고
+   * 읽지 못하면 ok: false다. 응답을 잃은 제출을 다시 보내기 전에 쓴다(problems/reporting#R9).
+   */
+  lookup(report: string): Promise<
+    | { ok: true; value: FeedbackAccepted | null }
+    | { ok: false }
+  >;
   ids: { draft(): string; report(): string };
   clock: { nowIso(): string };
   timer: {
@@ -122,6 +135,10 @@ interface Draft {
   shot: Shot;
   status: "draft" | "sending" | "accepted";
   accepted?: FeedbackAccepted;
+  /** 버튼 시점에 고정한 시작 여부. 제출 시점의 새 호출로 바꾸지 않는다. */
+  commandStart: "blocked_before_start" | "unknown";
+  /** 보낸 뒤 접수 여부를 모르는 채 끝났다. 다시 보내기 전에 최신 상태를 읽는다. */
+  unconfirmed: boolean;
 }
 
 const DESKTOP_HOST = "desktop";
@@ -271,7 +288,7 @@ export function createFeedback(deps: FeedbackDeps) {
         invocation: null,
         automation: null,
         version: null,
-        command_start: "unknown",
+        command_start: draft.commandStart,
       },
       screenshot: attach ? { size_bytes: shot.png.length } : null,
     };
@@ -321,6 +338,8 @@ export function createFeedback(deps: FeedbackDeps) {
           ? { state: "pending" }
           : { state: "blocked", block },
         status: "draft",
+        commandStart: deps.commandStart?.(view.view_session) ?? "unknown",
+        unconfirmed: false,
       };
       drafts.set(draft.draftRef, draft);
       if (!dialog.open(draft.draftRef)) {
@@ -352,11 +371,29 @@ export function createFeedback(deps: FeedbackDeps) {
       if (selection.screenshot && draft.shot.state !== "ready") {
         return fail("invalid_input", "there is no screenshot to attach");
       }
+      draft.status = "sending";
+      // 응답을 잃어 접수 여부를 모르는 제출은 보내기 전에 최신 상태를 읽는다. 이미 접수됐으면 그
+      // 결과를 돌려주고, 못 읽으면 보내지 않는다. 다시 보내도 같은 Report ID라 중복이 아니다.
+      if (draft.unconfirmed) {
+        const known = await deps.lookup(draft.report);
+        if (drafts.get(draft.draftRef) !== draft) {
+          return fail("unavailable", "the draft was closed");
+        }
+        if (!known.ok) {
+          draft.status = "draft";
+          return fail("unavailable", "the earlier submission is not confirmed");
+        }
+        if (known.value !== null) {
+          draft.status = "accepted";
+          draft.accepted = known.value;
+          draft.unconfirmed = false;
+          return { ok: true, value: known.value };
+        }
+      }
       const body = request(draft, text, selection);
       const png = body.screenshot !== null && draft.shot.state === "ready"
         ? draft.shot.png
         : null;
-      draft.status = "sending";
       let reply: FeedbackReply<FeedbackAccepted>;
       try {
         reply = await deps.submit(body, png);
@@ -370,8 +407,13 @@ export function createFeedback(deps: FeedbackDeps) {
       if (reply.ok) {
         draft.status = "accepted";
         draft.accepted = reply.value;
+        draft.unconfirmed = false;
       } else {
         draft.status = "draft";
+        // 입력·권한 거절은 접수되지 않은 것이다. 그 밖의 실패는 접수됐을 수 있다. conflict는 같은
+        // Report ID가 이미 다른 내용으로 접수됐다는 뜻이라 읽어서 그 접수를 돌려받는다.
+        draft.unconfirmed = reply.error.code !== "invalid_input" &&
+          reply.error.code !== "forbidden";
       }
       return reply;
     },

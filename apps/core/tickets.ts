@@ -32,10 +32,9 @@ import {
   visibleToProblemsWork,
 } from "./problems-work.ts";
 
-// owner definitions만 내보낸다. 문제 read·question read 대체 port 구현은
-// 소유 구현(문제#T6, lophn-agent#T24)이 오면 그 port로 바꾼다. 지금은 소유
-// 구현이 없어 port create를 두지 않는다. 등록하지 않은 port 호출은 tx.port가
-// 거부하므로 ticket 생성 검사는 fail-closed다.
+// owner definitions만 내보낸다. 문제 상태·질문 채택 답을 읽는 port(QuestionAdoptions,
+// ProblemStatuses)의 제품 구현은 ticket-ports.ts가 따로 등록한다. 등록하지 않은 port 호출은
+// tx.port가 거부하므로 그 등록이 없는 조립에서 ticket 생성 검사는 fail-closed다.
 const commands = createTicketCommands();
 const claims = createTicketClaimCommands();
 const finish = createTicketFinishCommands();

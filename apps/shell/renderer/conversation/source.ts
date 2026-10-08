@@ -12,6 +12,8 @@ export interface Agent {
   readonly id: string;
   readonly state: "enabled" | "paused" | "withdrawn";
   readonly revision: number;
+  /** 대화하는 역할. 없으면 lophn이다(도크). roles 화면이 다른 역할의 대화를 열 때 쓴다. */
+  readonly role?: "lophn" | "app_engineer" | "context_engineer" | "operator";
 }
 
 export type WorkPlace =

@@ -260,7 +260,7 @@ export function coreConversationSource(core: CoreSource): ConversationSource {
         input: {
           id,
           assignment: agent.id,
-          role: "lophn",
+          role: agent.role ?? "lophn",
           work_place: workPlace,
           continued_from: null,
         },

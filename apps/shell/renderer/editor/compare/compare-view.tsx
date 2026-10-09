@@ -83,6 +83,7 @@ type RestoreNotice =
   | "conflict"
   | "file-conflict"
   | "pending"
+  | "version-failed"
   | "file-unknown"
   | "failed"
   | "unsupported"
@@ -95,6 +96,7 @@ type NoticeKey =
   | "document.notice.restore-conflict"
   | "document.notice.restore-file-conflict"
   | "document.notice.restore-pending"
+  | "document.notice.restore-version-failed"
   | "document.notice.restore-file-unknown"
   | "document.notice.restore-failed"
   | "document.notice.restore-unsupported"
@@ -112,6 +114,7 @@ const NOTICE_TEXT: Record<RestoreNotice, NoticeKey> = {
   conflict: "document.notice.restore-conflict",
   "file-conflict": "document.notice.restore-file-conflict",
   pending: "document.notice.restore-pending",
+  "version-failed": "document.notice.restore-version-failed",
   "file-unknown": "document.notice.restore-file-unknown",
   failed: "document.notice.restore-failed",
   unsupported: "document.notice.restore-unsupported",
@@ -133,7 +136,10 @@ export function restoreNotice(answer: RestoreAnswer): RestoreNotice {
     case "conflict":
       return report.file === "conflict" ? "file-conflict" : "conflict";
     case "pending":
-      return "pending";
+      // 파일은 썼는데 판 확정이 실패한 것과, 판을 아직 기다리는 것은 다른 결과다.
+      return report.file === "written" && report.failure !== null
+        ? "version-failed"
+        : "pending";
     case "failed":
       return report.file === "unknown" ? "file-unknown" : "failed";
   }

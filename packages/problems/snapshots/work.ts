@@ -117,6 +117,11 @@ export async function resolveStackFrames(
   if (!copy.ok) {
     return { frames: [], source_missing_reason: copy.error.message };
   }
+  // 준비 폴더 안 TS stack은 이미 원본 상대 path·함수다. source map을 거치지 않는다.
+  const bundled = await framesInsideBundle(copy.value, evidence.stack);
+  if (bundled !== null) {
+    return { frames: bundled, source_missing_reason: null };
+  }
   const manifest = await readBundleManifest(copy.value);
   if (!manifest.ok) {
     return { frames: [], source_missing_reason: manifest.error.message };
@@ -251,6 +256,114 @@ export async function resolveStackFrames(
 // 준비 폴더 밖 소스 이름 판정. webpack:/~ / file: / absolute 모양은
 // 준비 폴더 안 상대 path가 아니다(snapshots#R6).
 const OUTSIDE_SOURCE = /^[A-Za-z][A-Za-z0-9+.-]*:|^[\\/]|^[A-Za-z]:|\.\.|\\/;
+
+type StackSite = {
+  function: string | null;
+  file: string;
+  line: number;
+  column: number;
+};
+
+function stackSites(stack: string): StackSite[] {
+  const sites: StackSite[] = [];
+  for (const line of stack.split("\n")) {
+    const withName = /^\s*at (?:async )?(.+?) \((.+):(\d+):(\d+)\)\s*$/
+      .exec(line);
+    const bare = withName === null
+      ? /^\s*at (?:async )?(.+):(\d+):(\d+)\s*$/.exec(line)
+      : null;
+    const file = withName?.[2] ?? bare?.[1];
+    const lineNo = Number(withName?.[3] ?? bare?.[2]);
+    const column = Number(withName?.[4] ?? bare?.[3]);
+    if (file === undefined || !Number.isInteger(lineNo) || lineNo < 1) continue;
+    if (!Number.isInteger(column) || column < 1) continue;
+    const named = withName?.[1]?.trim();
+    sites.push({
+      function: named !== undefined && named !== "" ? named : null,
+      file,
+      line: lineNo,
+      column,
+    });
+  }
+  return sites;
+}
+
+function filePathOf(file: string): string | null {
+  if (file.startsWith("file://")) {
+    try {
+      return decodeURIComponent(new URL(file).pathname);
+    } catch {
+      return null;
+    }
+  }
+  if (file.startsWith("/")) return file;
+  return null;
+}
+
+// stack의 file URL이 당시 bundle 사본 안이면 상대 path와 함수를 앱 frame으로 쓴다.
+async function framesInsideBundle(
+  copy: string,
+  stack: string,
+): Promise<SourceFrame[] | null> {
+  let info: Deno.FileInfo;
+  try {
+    info = await Deno.stat(copy);
+  } catch {
+    return null;
+  }
+  if (!info.isDirectory) return null;
+  const root = copy.endsWith("/") ? copy : `${copy}/`;
+  const frames: SourceFrame[] = [];
+  const sites = stackSites(stack);
+  for (const site of sites) {
+    const path = filePathOf(site.file);
+    if (path === null || !path.startsWith(root)) continue;
+    const relative = relativeToFolder(path.slice(root.length));
+    if (relative === null) continue;
+    frames.push({
+      path: relative,
+      function: site.function,
+      line: site.line,
+      column: site.column,
+    });
+    if (frames.length >= LIMITS.snapshot_frames) break;
+  }
+  if (frames.length > 0) return frames;
+  // Deno가 캐시 경로를 찍어도 사본에 있는 src 파일만 앱 frame으로 쓴다.
+  const recovered: SourceFrame[] = [];
+  for (const site of sites) {
+    const marker = site.file.lastIndexOf("/src/");
+    if (marker < 0) continue;
+    const named = site.file.slice(marker + 1).split(":")[0] ?? "";
+    let relative = await bundledSource(root, named);
+    if (relative === null && named.endsWith(".js")) {
+      relative = await bundledSource(root, named.slice(0, -3));
+    }
+    if (relative === null) continue;
+    recovered.push({
+      path: relative,
+      function: site.function,
+      line: site.line,
+      column: site.column,
+    });
+    if (recovered.length >= LIMITS.snapshot_frames) break;
+  }
+  return recovered.length > 0 ? recovered : null;
+}
+
+async function bundledSource(
+  root: string,
+  name: string,
+): Promise<string | null> {
+  const relative = relativeToFolder(name);
+  if (relative === null) return null;
+  try {
+    const info = await Deno.stat(`${root}${relative}`);
+    return info.isFile ? relative : null;
+  } catch {
+    return null;
+  }
+}
 
 function relativeToFolder(name: string): string | null {
   if (name.length === 0) return null;

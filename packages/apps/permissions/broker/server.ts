@@ -18,6 +18,7 @@ export const BROKER_ROUTES = {
   secretsUse: "/_lophn/broker/secrets/use",
   documentsSave: "/_lophn/broker/documents/save",
   problemsReport: "/_lophn/broker/problems/report",
+  problemsObserve: "/_lophn/broker/problems/observe-exception",
   appsConnect: "/_lophn/broker/apps/connect",
   appsConfirmRequest: "/_lophn/broker/apps/confirm/request",
   appsConfirmPoll: "/_lophn/broker/apps/confirm/poll",
@@ -78,6 +79,10 @@ function routes(services: BrokerServices): Map<string, Handler> {
   }
   if (problems) {
     table.set(BROKER_ROUTES.problemsReport, (c, b) => problems.report(c, b));
+    if (problems.observe) {
+      const observe = problems.observe.bind(problems);
+      table.set(BROKER_ROUTES.problemsObserve, (c, b) => observe(c, b));
+    }
   }
   if (apps) table.set(BROKER_ROUTES.appsConnect, (c, b) => apps.connect(c, b));
   if (appsConfirm) {

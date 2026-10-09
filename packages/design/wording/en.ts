@@ -1269,6 +1269,8 @@ export const en = {
     "The file changed outside lophn. Compare again before restoring.",
   "document.notice.restore-pending":
     "The file was restored. lophn is still keeping it as a new version.",
+  "document.notice.restore-version-failed":
+    "The file was restored, but it wasn't kept as a new version. Try again.",
   "document.notice.restore-file-unknown":
     "Couldn't confirm whether the file was restored. Check the file before trying again.",
   "document.notice.restore-failed": "Couldn't restore this version.",

@@ -14,7 +14,13 @@
 // - 2·3·4: things-to-confirm 화면에서 기다리는 결정을 찾아 확인 창을 열고, 창에서 허락한다.
 // - 5·6: 허락한 그 호출만 한 번 실행되고 run이 이어 끝난다. 결정은 지난 것으로 남는다.
 // - 다른 갈래 4: 거절한 호출은 미실행으로 남는다.
-// 넘긴 것: skill 폴더 등록(1)과 skill 선택 판은 이 파일이 돌지 않는다(MCP 갈래만).
+// - 1: 사람이 settings 도구 탭의 [Add a skill folder]로 로컬 skill 폴더를 등록한다(headless 폴더
+//   선택은 LOPHN_SHELL_PICK_FOLDER). 등록은 설정 값의 정확한 절대 경로 하나이고 폴더 이름이 탭에 선다.
+// 결함 (7), 1의 발견 검사는 볼 수 없다: 제품 runtime 조립이 prepare deps의 `skills`를 주지 않고
+// (apps/agent-runtime/prepare.ts `deps.skills?.()`를 채우는 곳이 없다) `discoverSkills`
+// (packages/lophn-agent/extensions/skills.ts)를 부르는 제품 경로도 없어, 등록한 폴더가 검사되지
+// 않고 skill 목록·제외 사유를 보이는 화면도 없다. 그래서 폴더 등록까지만 보고 skill 선택 판은 돌지
+// 않는다.
 // 결함 (6), 5단계와 approve-action 단계는 `ignore`: 제품 runtime이 외부 MCP server에 닿지 못한다.
 // stdio는 core가 runtime child를 띄울 때 `agentRuntimeLaunchSpec`에 `mcpServers`를 넘기지 않고
 // (apps/core/agent-runtime.ts `specFor`는 provider hosts만 넘긴다) 등록 뒤에도 다시 띄우지 않아
@@ -325,6 +331,22 @@ Deno.test({
     const log = `${scratch}/calls.log`;
     await Deno.writeTextFile(child, MCP_CHILD);
     await Deno.writeTextFile(log, "");
+    // 1: 사람이 고를 로컬 skill 폴더. 바로 아래 꾸러미 하나와 형식이 틀린 꾸러미 하나를 둔다.
+    const skills = await Deno.realPath(
+      await Deno.makeTempDir({ prefix: "lophn-e2e-skills-" }),
+    );
+    await Deno.mkdir(`${skills}/release-notes`);
+    await Deno.writeTextFile(
+      `${skills}/release-notes/SKILL.md`,
+      "---\nname: release-notes\ndescription: Write release notes from merged changes.\n---\n\nList each change once.\n",
+    );
+    await Deno.mkdir(`${skills}/Bad_Name`);
+    await Deno.writeTextFile(
+      `${skills}/Bad_Name/SKILL.md`,
+      "---\nname: Bad_Name\ndescription: Not a valid name.\n---\n",
+    );
+    const pickBefore = Deno.env.get("LOPHN_SHELL_PICK_FOLDER");
+    Deno.env.set("LOPHN_SHELL_PICK_FOLDER", skills);
     const provider = startDynamicProvider(STEPS);
     const flow = await openFlowShell({ start: "lophn" });
     const home = flow.home;
@@ -479,6 +501,48 @@ Deno.test({
           `document.querySelector("[data-decision='${decision}']").click()`,
         );
       };
+
+      await t.step(
+        "lophn-agent/extensions#R1 lophn-agent/extensions#R10: 1 settings 도구 탭에서 로컬 skill 폴더를 등록하면 그 절대 경로 하나가 설정 값이 되고 폴더 이름이 선다",
+        async () => {
+          const folders = async () =>
+            JSON.stringify(
+              (await mustCall(flow, {
+                kind: "read",
+                resource: "settings",
+                method: "get",
+                body: { keys: ["lophn-agent.extensions.skill_folders"] },
+              })).settings,
+            );
+          assert(!(await folders()).includes(skills), "등록 전에 폴더가 있다");
+          await flow.click('[data-screen="settings"]');
+          await flow.until(
+            `document.querySelector("[role=tab]") !== null`,
+            "settings 탭이 없다",
+          );
+          await flow.mouseClickText("[role=tab]", "Tools and skills");
+          await flow.until(
+            `document.querySelector("[data-action='add-folder']:not([disabled])") !== null`,
+            "skill 폴더 단추가 없다",
+          );
+          await flow.click("[data-action='add-folder']");
+          await flow.until(
+            `document.querySelector("[data-notice='folder-added']") !== null || document.querySelector("[data-notice='folder-failed']") !== null`,
+            "폴더 등록 결과가 서지 않았다",
+          );
+          assertEquals(await flow.count("[data-notice='folder-added']"), 1);
+          await flow.until(
+            `document.querySelector("[data-skills] [data-folder-name]")?.textContent === ${
+              JSON.stringify(skills.split("/").at(-1))
+            }`,
+            "도구 탭에 등록한 폴더가 없다",
+          );
+          const value = await folders();
+          assert(value.includes(JSON.stringify(skills)), value.slice(0, 400));
+          // 등록은 폴더 하나다. 꾸러미를 따로 등록하거나 원격에서 받지 않는다.
+          assertEquals(await flow.count("[data-skills] [data-folder]"), 1);
+        },
+      );
 
       await t.step(
         "lophn-agent/extensions#R11 lophn-agent/presets#R7 lophn-agent/presets#R14: 2·3·4 MCP server를 등록해 도구 탭에서 보고, 기본 preset을 복사해 정확한 tool만 고른 판을 명시 적용한다",
@@ -665,6 +729,9 @@ Deno.test({
       await removeHome(home);
       await provider.close();
       await Deno.remove(scratch, { recursive: true });
+      await Deno.remove(skills, { recursive: true });
+      if (pickBefore === undefined) Deno.env.delete("LOPHN_SHELL_PICK_FOLDER");
+      else Deno.env.set("LOPHN_SHELL_PICK_FOLDER", pickBefore);
     }
   },
 });

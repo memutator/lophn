@@ -17,6 +17,12 @@ export {
   QUESTION_ADOPTIONS_PORT,
 } from "./commands.ts";
 export { checkTicketClaim, createTicketReads } from "./reads.ts";
+export { prepareRepairTicket, REPAIR_PREPARE_SOURCE } from "./prepare.ts";
+export type {
+  RepairPrepareFacts,
+  RepairPrepareRequest,
+  RepairPrepareSource,
+} from "./prepare.ts";
 export {
   CLAIM_DURATION_MS,
   CLAIM_SWEEP_INTERVAL_MS,

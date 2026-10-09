@@ -1046,7 +1046,12 @@ export function repoRoot(): string {
 export function appSocketRoot(runtimeDir?: string): string {
   const xdg = runtimeDir ?? Deno.env.get("XDG_RUNTIME_DIR");
   if (xdg !== undefined && xdg.length > 0) return `${xdg}/lophn`;
-  const temp = Deno.env.get("TMPDIR") ?? "/tmp";
+  // packaged allow-env에 TMPDIR은 없다. 없으면 기본 임시 폴더다.
+  let temp = "/tmp";
+  try {
+    const configured = Deno.env.get("TMPDIR");
+    if (configured !== undefined && configured.length > 0) temp = configured;
+  } catch { /* 권한이 없으면 /tmp */ }
   return `${temp}/lophn-${Deno.uid() ?? 0}`;
 }
 

@@ -37,6 +37,7 @@ import type { RolesSource } from "./lophn-space/roles/source.ts";
 import type { SettingsSource } from "./lophn-space/settings/source.ts";
 import type { CodingConnectionsSource } from "./lophn-space/settings/connections/source.ts";
 import type { TasksSource } from "../app-frame/app-detail/tasks/source.ts";
+import type { IssuesSource } from "../app-frame/app-detail/issues/source.ts";
 import type { AppDetailSource } from "../app-frame/app-detail/source.ts";
 import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
 import type { LophnAppWindowsApi } from "../../ipc/app-window.ts";
@@ -89,6 +90,8 @@ export interface DesktopProps {
   coding?: CodingConnectionsSource;
   /** 앱 공간 Tasks 탭 통로. 없으면 Tasks 탭은 아직 없다고 보인다. */
   tasks?: TasksSource;
+  /** 앱 공간 Issues 탭 통로. 없으면 Issues 탭은 아직 없다고 보인다. */
+  issues?: IssuesSource;
 }
 
 // 새 기본 창의 첫 화면. 공간 이동은 이 상태가 기억한다.
@@ -118,6 +121,7 @@ export function Desktop(
     feedback,
     coding,
     tasks,
+    issues,
   }: DesktopProps,
 ) {
   const [route, setRoute] = useState<Route>(initial);
@@ -187,6 +191,11 @@ export function Desktop(
       });
     } else thingsToConfirm();
   };
+  // 접수된 feedback이 묶인 Issue. 그 앱 공간을 Issues 탭으로, 그 문제를 고른 채 연다.
+  const issueTarget = (app: string, problem: string) => {
+    setVisits((value) => value + 1);
+    setRoute({ ...openApp(app), issueProblem: problem });
+  };
   // 전역 팔레트에서 고른 대상. lophn 공간 팔레트와 같은 목적지로만 간다(desktop#R30).
   const go = (target: LophnTarget) => {
     if (target.kind === "launcher") launcher();
@@ -252,7 +261,9 @@ export function Desktop(
   } else if (route.space === "app" && route.app && apps && live) {
     space = (
       <AppSpace
-        key={route.taskTarget ? `${route.app}:${visits}` : route.app}
+        key={route.taskTarget || route.issueProblem
+          ? `${route.app}:${visits}`
+          : route.app}
         app={route.app}
         source={apps}
         views={views}
@@ -261,6 +272,8 @@ export function Desktop(
         detail={appDetail}
         tasks={tasks}
         taskTarget={route.taskTarget}
+        issues={issues}
+        issueProblem={route.issueProblem}
         onInstructions={instructions
           ? () =>
             setRoute(openInstructions({ layer: "app", place: route.app! }))
@@ -329,6 +342,7 @@ export function Desktop(
             lophn={lophn}
             onThingsToConfirm={confirmTarget}
             onCoding={codingTarget}
+            onIssue={issueTarget}
             go={go}
           />
         )

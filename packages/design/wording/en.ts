@@ -1662,6 +1662,8 @@ export const en = {
   "report-problem.label.what-happened": "What went wrong?",
   "report-problem.notice.capturing": "Taking a screenshot of this app.",
   "report-problem.notice.copy-text": "Copy your text so you don't lose it.",
+  "report-problem.notice.existing-issue":
+    "This report is added to the issue you were looking at.",
   "report-problem.notice.new-issue":
     "This report isn't added to an existing issue.",
   "report-problem.notice.open-failed":

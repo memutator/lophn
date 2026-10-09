@@ -139,6 +139,8 @@ interface Draft {
   commandStart: "blocked_before_start" | "unknown";
   /** 보낸 뒤 접수 여부를 모르는 채 끝났다. 다시 보내기 전에 최신 상태를 읽는다. */
   unconfirmed: boolean;
+  /** Issues에서 고른 기존 문제. 같은 앱인지는 core 접수가 다시 본다. */
+  existingProblem: string | null;
 }
 
 const DESKTOP_HOST = "desktop";
@@ -185,6 +187,7 @@ export function createFeedback(deps: FeedbackDeps) {
         ? "pending"
         : shot.block,
       screen_summary: { name: draft.view.screen, path: draft.facts.url },
+      existing_issue: draft.existingProblem !== null,
     };
   }
 
@@ -260,7 +263,7 @@ export function createFeedback(deps: FeedbackDeps) {
       report_id: draft.report,
       app: view.app,
       text,
-      existing_problem: null,
+      existing_problem: draft.existingProblem,
       observed_at: draft.observedAt,
       selection,
       view: {
@@ -340,6 +343,7 @@ export function createFeedback(deps: FeedbackDeps) {
         status: "draft",
         commandStart: deps.commandStart?.(view.view_session) ?? "unknown",
         unconfirmed: false,
+        existingProblem: checked.value.problem ?? null,
       };
       drafts.set(draft.draftRef, draft);
       if (!dialog.open(draft.draftRef)) {

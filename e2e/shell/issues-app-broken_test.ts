@@ -25,6 +25,7 @@ Deno.test({
     const { flow } = shell;
     try {
       let problem = "";
+      let ourSymptom = "";
       await t.step(
         "[View issue]로 방금 알린 문제의 상세가 열린다",
         async () => {
@@ -90,6 +91,7 @@ Deno.test({
           body: { app: APP },
         });
         const coreRows = (listed.problems as {
+          id: string;
           status: string;
           symptom: string;
         }[]).map((row) => `${row.status}\n${row.symptom}`);
@@ -100,22 +102,31 @@ Deno.test({
             `core에 없는 줄이다: ${status} ${impact}`,
           );
         }
-        const core = (await shell.problem(problem)).problem as {
+        const ours = (listed.problems as {
+          id: string;
           status: string;
           symptom: string;
-        };
+        }[]).find((row) => row.id === problem);
+        assert(ours !== undefined, "core 목록에 알린 문제가 없다");
         assert(
           rows.some(([status, impact]) =>
-            status === core.status && impact === core.symptom
+            status === ours.status && impact === ours.symptom
           ),
           `목록에 문제가 없다: ${JSON.stringify(rows)}`,
         );
+        ourSymptom = ours.symptom;
       });
 
       await t.step(
         "[Tried it myself, didn't work]는 이 문제에 더하는 보고를 연다",
         async () => {
-          await flow.click("[data-issues-list] [data-issue-open]");
+          // 목록에서 알린 문제의 줄(증상 글)을 눌러 연다.
+          await flow.evaluate(`(() => {
+            const open = [...document.querySelectorAll("[data-issues-list] [data-issue-open]")]
+              .find((el) => el.textContent === ${JSON.stringify(ourSymptom)});
+            open.click();
+            return true;
+          })()`);
           await flow.until(
             `document.querySelector("[data-issue-tried]") !== null`,
             "Issues 상세가 다시 열리지 않았다",

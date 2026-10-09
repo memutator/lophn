@@ -548,6 +548,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: 없음
 - slice: problems
 - 선행: problems#T14, problems#T18, problems#T20, problems#T21, problems#T22, coding-agent#T19, coding-agent#T24, coding-agent#T45, coding-agent#T47, apps#T18, shell#T52, shell#T53
+- 상태: 진행 (#509, #514) — #509: flow 1단계, 그때 남은 것: flow 2–7단계(자기 터미널 제출의 나머지, reproduction 격리, 통과·실패 화면, activation, 자동 닫힘·사람 확인, 닫힌 뒤 재발). 이 PR (#514)은 2단계만 했다. 자기 터미널 수리도 coding agent가 해당 repair ticket의 현재 MCP claim으로 이전 release·고친 release·변경 설명·실제 test 참조를 제출한다. 작은 repair context에는 지난 근거가 이어지고, 과거 ticket 없는 이력은 당시 null 출처로만 읽는다. 없던 claim이나 돌리지 않은 테스트는 보충하지 않는다. 안쪽 출처 검사는 사람에게 보이지 않는다. 남은 것: flow 3–7단계(reproduction 격리, 통과·실패 화면, activation, 자동 닫힘·사람 확인, 닫힌 뒤 재발).
 - 완료:
   - flow 1~7단계: 고친 기록 → reproduction → activation → 자동 닫힘(테스트로 확인됨), 사람 확인(내가 확인함), "아직입니다" 뒤 reopen·재요청 억제
   - 다른 갈래: claim 없는 제출 거절, runner 상실·timeout은 판정 불가, 약화 변경은 닫힘 근거 아님, activation 거절이면 열린 채, 이전 release 늦은 보고는 reopen하지 않음

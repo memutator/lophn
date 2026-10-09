@@ -1,13 +1,19 @@
 // flow define-terms: 실제 headless shell·core·documents worker를 임시 LOPHN_HOME으로 연다.
 // 1의 context 선택과 3·6의 사람 직접 정의 화면, 미루기·전제 변경·같은 이름·보관 갈래를 본다.
-// 후보는 사람 command의 고정 본문 근거로 준비한다. 2의 CE model 후보 수집을 대신하지 않는다.
-// 4~5의 term.define question option adapter는 T29에 아직 없어 사람 직접 정의와 구별한다.
-import { assertEquals } from "@std/assert";
+// 그 테스트의 후보는 사람 command의 고정 본문 근거로 준비한다. 2는 다음 테스트가 본다.
+// 4~5의 term.define question option adapter는 여기서 부르지 않는다.
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 
-import { copyFixture } from "../../fixtures/projects/scenarios.ts";
-import { e2eEnabled } from "../harness.ts";
+import {
+  copyFixture,
+  editExternally,
+} from "../../fixtures/projects/scenarios.ts";
+import { buildReply } from "../../tools/fake-provider/semantic.ts";
+import type { SemanticReply } from "../../tools/fake-provider/types.ts";
+import { e2eEnabled, READY_TIMEOUT_MS } from "../harness.ts";
 import {
   commandBody,
+  delay,
   documentTitled,
   type FlowShell,
   mustCall,
@@ -16,6 +22,7 @@ import {
   removeHome,
   untilDocuments,
   untilSearch,
+  untilSectionStatus,
 } from "../flow-support.ts";
 
 const FOCUS = "ctx_01arz3ndektsv4rrffq69g5fav";
@@ -271,6 +278,2142 @@ Deno.test({
     } finally {
       await flow.close();
       await removeHome(flow.home);
+      await Deno.remove(folder, { recursive: true });
+    }
+  },
+});
+
+// 2: Context Engineer가 context 목차에서 시작해 필요한 section 본문만 읽는다.
+// 같은 context의 서로 다른 문서 3개 이상에 그대로 있는 미등록 말만 후보다.
+// 근거는 그 고정 판의 section·줄 범위이고 후보당 최대 5개다. 뜻은 정하지 않는다.
+// 2개 문서·등록된 말·본문을 읽지 않은 말은 후보가 아니다. 이 단계는 사람 화면에 보이지 않는다.
+// model은 fake provider script다.
+const PROVIDER = "pvd_01arz3ndektsv4rrffq69g5fb6";
+const MODEL = "claude-sonnet-4-5";
+const LARGE = "ctx_01arz3ndektsv4rrffq69g5fb6";
+const SMALL = "ctx_01arz3ndektsv4rrffq69g5fb7";
+const DEFINED = "trm_01arz3ndektsv4rrffq69g5fb6";
+const LARGE_PURPOSE = "같은 자료에서 그대로 쓰인 말을 본다";
+const SMALL_PURPOSE = "자료가 두 개인 묶음";
+const WORD = "정산주기";
+const PAIR = "임시표";
+const REGISTERED = "용어";
+const THIN = "짧은묶음";
+const ASIDE = "배경 문장만";
+const ASK =
+  "같은 context의 자료에서 아직 등록되지 않은 말을 이름과 근거만 남겨 달라.";
+const DONE_TEXT = "읽기를 마쳤다.";
+const EMBEDDED = "[data-dock='embedded']";
+const INPUT = `${EMBEDDED} [data-composer-input]`;
+const SEND = `${EMBEDDED} [data-send]`;
+const TITLES = [
+  "알파",
+  "베타",
+  "감마",
+  "델타",
+  "엡실론",
+  "제타",
+  "짧은가",
+  "짧은나",
+] as const;
+
+function source(title: string, line: string): string {
+  return `# ${title}\n\n${ASIDE} 있다. 여기 말은 본문으로 읽지 않는다.\n\n## 쓰임\n\n${line}\n`;
+}
+
+function note(title: string, line: string): [string, string] {
+  return [`${title}.md`, source(title, line)];
+}
+
+const GATHER_FILES: readonly [string, string][] = [
+  note(
+    "알파",
+    `${WORD}라는 말이 그대로 있다. ${REGISTERED}도 본문에 있다. ${PAIR}는 두 곳에만 있다.`,
+  ),
+  note(
+    "베타",
+    `${WORD}라는 말이 그대로 있다. ${REGISTERED}도 본문에 있다. ${PAIR}는 두 곳에만 있다.`,
+  ),
+  note("감마", `${WORD}라는 말이 그대로 있다. ${REGISTERED}도 본문에 있다.`),
+  note("델타", `${WORD}라는 말이 그대로 있다.`),
+  note("엡실론", `${WORD}라는 말이 그대로 있다.`),
+  note("제타", `${WORD}라는 말이 그대로 있다.`),
+  ["짧은가.md", `# 짧은가\n\n${THIN}이라는 말이 두 문서에만 있다.\n`],
+  ["짧은나.md", `# 짧은나\n\n${THIN}이라는 말이 두 문서에만 있다.\n`],
+];
+
+const ALPHA_NEXT = source("알파", "새 판의 다른 문장이다.");
+
+function toolCall(id: string, name: string, args: unknown): SemanticReply {
+  return {
+    text: "",
+    toolCalls: [{ id, name, arguments: JSON.stringify(args) }],
+    usage: { input: 24, output: 8 },
+    stop: "tool_calls",
+  };
+}
+
+function said(text: string): SemanticReply {
+  return { text, usage: { input: 16, output: 6 }, stop: "end" };
+}
+
+function lastToolJson(body: string): Record<string, unknown> {
+  const request = JSON.parse(body) as { messages?: { content?: unknown }[] };
+  const blocks = (request.messages ?? []).flatMap((message) =>
+    Array.isArray(message.content) ? message.content : []
+  );
+  const result = blocks.findLast((block) =>
+    typeof block === "object" && block !== null &&
+    (block as { type?: string }).type === "tool_result"
+  ) as { content?: unknown } | undefined;
+  assert(result !== undefined, `tool 결과가 없다: ${body.slice(-400)}`);
+  const raw = typeof result.content === "string"
+    ? result.content
+    : Array.isArray(result.content)
+    ? (result.content as { text?: string }[]).map((part) => part.text ?? "")
+      .join("")
+    : "";
+  const start = raw.indexOf('{"status"');
+  const end = raw.lastIndexOf("}");
+  assert(
+    start >= 0 && end > start,
+    `tool 결과 JSON이 없다: ${raw.slice(0, 400)}`,
+  );
+  return JSON.parse(raw.slice(start, end + 1)) as Record<string, unknown>;
+}
+
+function toolContent(body: string): Record<string, unknown> {
+  const json = lastToolJson(body);
+  assertEquals(
+    json["status"],
+    "success",
+    `tool 실패: ${JSON.stringify(json).slice(0, 500)}`,
+  );
+  const content = json["content"];
+  assert(
+    content !== null && typeof content === "object",
+    `tool 본문이 없다: ${JSON.stringify(json).slice(0, 400)}`,
+  );
+  if (json["complete"] === false) {
+    throw new Error(`결과가 잘렸다: ${JSON.stringify(json).slice(0, 300)}`);
+  }
+  return content as Record<string, unknown>;
+}
+
+function offeredTools(body: string): string[] {
+  const request = JSON.parse(body) as { tools?: { name?: string }[] };
+  return (request.tools ?? []).map((tool) => String(tool.name ?? ""));
+}
+
+type Doc = {
+  document: string;
+  version: string;
+  title: string;
+  section: string;
+};
+
+type Evidence = {
+  document: string;
+  version: string;
+  section: string;
+  start_line: number;
+  end_line: number;
+};
+
+type Hit = Doc & {
+  start_line: number;
+  end_line: number;
+  latest: string;
+  pair: boolean;
+  registered: boolean;
+};
+
+type GatherPhase =
+  | "list"
+  | "small"
+  | "large"
+  | "terms"
+  | "outline"
+  | "section"
+  | "propose"
+  | "done";
+
+type GatherFixture = {
+  url: string;
+  calls: () => number;
+  body: (index: number) => string;
+  close: () => Promise<void>;
+  failure: () => string;
+  holding: () => boolean;
+  release: () => void;
+  done: () => boolean;
+  callsNamed: () => readonly string[];
+  readDocuments: () => readonly string[];
+  smallDocuments: () => readonly string[];
+  evidence: () => Evidence[];
+  leftOut: () => string;
+  alpha: () => { document: string; version: string; section: string };
+  pairCount: () => number;
+  registeredSeen: () => number;
+};
+
+function startGatherScript(): GatherFixture {
+  const bodies: string[] = [];
+  const named: string[] = [];
+  const readDocuments: string[] = [];
+  const retries = new Map<string, number>();
+  const found = {
+    phase: "list" as GatherPhase,
+    failure: "",
+    holding: false,
+    largeId: "",
+    smallDocuments: [] as string[],
+    registered: [] as string[],
+    docs: [] as Doc[],
+    outlineAt: 0,
+    sectionAt: 0,
+    hits: [] as Hit[],
+    pairCount: 0,
+    registeredSeen: 0,
+    evidence: [] as Evidence[],
+    leftOut: "",
+  };
+  let resolveHold = (): void => {};
+  const hold = new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error("새 판을 기다리다 끊겼다")),
+      120_000,
+    );
+    resolveHold = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+  });
+  // 아무도 풀지 않아도 프로세스를 붙잡지 않는다. 실패는 handler가 받는다.
+  hold.catch(() => {});
+
+  const issue = (id: string, name: string, args: unknown): SemanticReply => {
+    named.push(name);
+    return toolCall(id, name, args);
+  };
+  const outlineCall = (): SemanticReply => {
+    const doc = found.docs[found.outlineAt];
+    assert(doc !== undefined, "목차 문서가 없다");
+    readDocuments.push(doc.document);
+    const attempt = retries.get(`o:${doc.document}`) ?? 0;
+    return issue(
+      `toolu_outline_${found.outlineAt}_${attempt}`,
+      "document.outline",
+      {
+        reference: {
+          document: doc.document,
+          version: doc.version,
+          section: null,
+        },
+      },
+    );
+  };
+  const sectionCall = (): SemanticReply => {
+    const doc = found.docs[found.sectionAt];
+    assert(doc !== undefined && doc.section !== "", "section 문서가 없다");
+    readDocuments.push(doc.document);
+    const attempt = retries.get(`s:${doc.document}`) ?? 0;
+    return issue(
+      `toolu_section_${found.sectionAt}_${attempt}`,
+      "document.read_section",
+      {
+        reference: {
+          document: doc.document,
+          version: doc.version,
+          section: null,
+        },
+        section: doc.section,
+      },
+    );
+  };
+
+  const server = Deno.serve(
+    { hostname: "127.0.0.1", port: 0, onListen: () => {} },
+    async (request) => {
+      const text = await request.text();
+      const path = new URL(request.url).pathname;
+      if (request.method !== "POST" || !path.endsWith("/messages")) {
+        return Response.json({ error: "unexpected" }, { status: 500 });
+      }
+      const index = bodies.length;
+      bodies.push(text);
+      let reply: SemanticReply;
+      try {
+        if (index === 0) {
+          reply = issue("toolu_list", "context.list", {});
+        } else if (found.phase === "list") {
+          const contexts = toolContent(text)["contexts"] as {
+            id?: string;
+            purpose?: string;
+          }[];
+          const large = contexts.find((row) => row.purpose === LARGE_PURPOSE);
+          const small = contexts.find((row) => row.purpose === SMALL_PURPOSE);
+          assert(
+            typeof large?.id === "string" && typeof small?.id === "string",
+            JSON.stringify(contexts).slice(0, 500),
+          );
+          found.largeId = large.id;
+          found.phase = "small";
+          reply = issue("toolu_small", "context.items", { context: small.id });
+        } else if (found.phase === "small") {
+          const entries = toolContent(text)["entries"] as {
+            kind?: string;
+            target?: { document?: string };
+          }[];
+          assert(
+            entries.length < 3,
+            `작은 묶음이 후보 조건을 넘긴다: ${entries.length}`,
+          );
+          found.smallDocuments = entries.map((entry) => {
+            const id = entry.target?.document;
+            assert(typeof id === "string", JSON.stringify(entry).slice(0, 300));
+            return id;
+          });
+          found.phase = "large";
+          reply = issue("toolu_large", "context.items", {
+            context: found.largeId,
+          });
+        } else if (found.phase === "large") {
+          const entries = toolContent(text)["entries"] as {
+            kind?: string;
+            title?: string;
+            version?: string | null;
+            target?: { document?: string };
+          }[];
+          assert(entries.length >= 3, `자료가 3개 미만이다: ${entries.length}`);
+          const docs: Doc[] = [];
+          for (const entry of entries) {
+            if (entry.kind !== "document") continue;
+            const id = entry.target?.document;
+            assert(
+              typeof id === "string" && typeof entry.version === "string" &&
+                typeof entry.title === "string" && entry.title !== "",
+              JSON.stringify(entry).slice(0, 300),
+            );
+            docs.push({
+              document: id,
+              version: entry.version,
+              title: entry.title,
+              section: "",
+            });
+          }
+          assert(docs.length >= 6, JSON.stringify(docs).slice(0, 500));
+          assert(
+            docs.some((doc) => doc.title === "알파"),
+            "알파가 목차에 없다",
+          );
+          assert(
+            docs.some((doc) => doc.title === "제타"),
+            "제타가 목차에 없다",
+          );
+          found.docs = docs;
+          found.phase = "terms";
+          reply = issue("toolu_terms", "context.terms", {
+            context: found.largeId,
+          });
+        } else if (found.phase === "terms") {
+          const definitions = toolContent(text)["definitions"] as {
+            name?: string;
+          }[];
+          found.registered = definitions.map((term) => String(term.name ?? ""));
+          assert(
+            found.registered.includes(REGISTERED),
+            JSON.stringify(definitions).slice(0, 400),
+          );
+          found.phase = "outline";
+          reply = outlineCall();
+        } else if (found.phase === "outline") {
+          const doc = found.docs[found.outlineAt];
+          assert(doc !== undefined, "목차 차례가 없다");
+          const content = toolContent(text);
+          assertEquals(content["version"], doc.version, doc.title);
+          const raw = JSON.stringify(content);
+          assertEquals(raw.includes(WORD), false, "목차에 본문이 있다");
+          assertEquals(
+            raw.includes(ASIDE),
+            false,
+            "목차에 다른 section 본문이 있다",
+          );
+          const entries = content["entries"] as {
+            key?: string;
+            title?: string;
+          }[];
+          const section = entries.find((entry) => entry.title === "쓰임");
+          const ready = content["section_status"] === "whole" &&
+            typeof section?.key === "string";
+          const attempt = retries.get(`o:${doc.document}`) ?? 0;
+          if (!ready && attempt < 8) {
+            retries.set(`o:${doc.document}`, attempt + 1);
+            await delay(1000);
+            reply = outlineCall();
+          } else {
+            const key = section?.key;
+            assert(
+              ready && typeof key === "string",
+              `목차가 준비되지 않았다: ${doc.title} ${raw.slice(0, 300)}`,
+            );
+            doc.section = key;
+            found.outlineAt += 1;
+            if (found.outlineAt < found.docs.length) {
+              reply = outlineCall();
+            } else {
+              found.holding = true;
+              try {
+                await hold;
+              } finally {
+                found.holding = false;
+              }
+              found.phase = "section";
+              reply = sectionCall();
+            }
+          }
+        } else if (found.phase === "section") {
+          const doc = found.docs[found.sectionAt];
+          assert(doc !== undefined, "본문 차례가 없다");
+          const content = toolContent(text);
+          const version = String(content["version"] ?? "");
+          const latest = String(content["latest_version"] ?? "");
+          const body = typeof content["text"] === "string"
+            ? content["text"]
+            : "";
+          assertEquals(version, doc.version, `${doc.title} 판이 바뀌었다`);
+          assertEquals(
+            body.includes(ASIDE),
+            false,
+            `${doc.title}가 다른 section을 읽었다`,
+          );
+          const fresh = doc.title !== "알파" || latest !== version;
+          const attempt = retries.get(`s:${doc.document}`) ?? 0;
+          if ((!body.includes(WORD) || !fresh) && attempt < 8) {
+            retries.set(`s:${doc.document}`, attempt + 1);
+            await delay(1000);
+            reply = sectionCall();
+          } else {
+            assert(
+              body.includes(WORD) && fresh,
+              `${doc.title} 고정 판 본문이 없다: latest=${latest} ${
+                body.slice(0, 80)
+              }`,
+            );
+            const ranges = content["ranges"] as {
+              start_line?: number;
+              end_line?: number;
+            }[];
+            const start = Math.min(
+              ...ranges.map((range) => range.start_line ?? 0),
+            );
+            const end = Math.max(...ranges.map((range) => range.end_line ?? 0));
+            assert(
+              ranges.length > 0 && start >= 1 && end >= start,
+              JSON.stringify(ranges),
+            );
+            found.hits.push({
+              ...doc,
+              start_line: start,
+              end_line: end,
+              latest,
+              pair: body.includes(PAIR),
+              registered: body.includes(REGISTERED),
+            });
+            found.sectionAt += 1;
+            if (found.sectionAt < found.docs.length) {
+              reply = sectionCall();
+            } else {
+              assertEquals(found.hits.length, found.docs.length);
+              const kept = found.hits.filter((hit) => hit.title !== "제타");
+              const left = found.hits.find((hit) => hit.title === "제타");
+              assert(left !== undefined, "제타 출현이 없다");
+              assertEquals(kept.length, 5);
+              found.pairCount = found.hits.filter((hit) => hit.pair).length;
+              found.registeredSeen = found.hits.filter((hit) =>
+                hit.registered
+              ).length;
+              assertEquals(found.pairCount, 2);
+              assert(found.registeredSeen >= 3, String(found.registeredSeen));
+              assertEquals(found.registered.includes(PAIR), false);
+              assertEquals(found.registered.includes(WORD), false);
+              found.leftOut = left.document;
+              found.evidence = kept.map((hit) => ({
+                document: hit.document,
+                version: hit.version,
+                section: hit.section,
+                start_line: hit.start_line,
+                end_line: hit.end_line,
+              }));
+              found.phase = "propose";
+              reply = issue("toolu_propose", "term.propose_candidate", {
+                context: found.largeId,
+                name: WORD,
+                evidence: found.evidence,
+              });
+            }
+          }
+        } else if (found.phase === "propose") {
+          const term = toolContent(text)["term"] as {
+            name?: string;
+            definition?: string | null;
+            evidence?: unknown[];
+          };
+          assertEquals(term.name, WORD);
+          assertEquals(term.definition, null);
+          assertEquals(term.evidence?.length, 5);
+          found.phase = "done";
+          reply = said(DONE_TEXT);
+        } else {
+          return Response.json({ error: "exhausted" }, { status: 500 });
+        }
+      } catch (error) {
+        found.failure = `call ${index}: ${
+          error instanceof Error ? error.message : String(error)
+        }`;
+        found.holding = false;
+        resolveHold();
+        return Response.json({ error: found.failure }, { status: 500 });
+      }
+      const built = buildReply("messages", reply);
+      return new Response(built.body ?? "", {
+        status: built.status,
+        headers: built.headers,
+      });
+    },
+  );
+  return {
+    url: `http://127.0.0.1:${server.addr.port}`,
+    calls: () => bodies.length,
+    body: (index) => bodies[index] ?? "",
+    close: () => server.shutdown(),
+    failure: () => found.failure,
+    holding: () => found.holding,
+    release: () => resolveHold(),
+    done: () => found.phase === "done",
+    callsNamed: () => named,
+    readDocuments: () => readDocuments,
+    smallDocuments: () => found.smallDocuments,
+    evidence: () => found.evidence,
+    leftOut: () => found.leftOut,
+    alpha: () => {
+      const doc = found.docs.find((item) => item.title === "알파");
+      assert(doc !== undefined, "알파를 못 찾는다");
+      return {
+        document: doc.document,
+        version: doc.version,
+        section: doc.section,
+      };
+    },
+    pairCount: () => found.pairCount,
+    registeredSeen: () => found.registeredSeen,
+  };
+}
+
+async function untilGather(
+  provider: GatherFixture,
+  ready: () => boolean,
+  what: string,
+) {
+  const deadline = Date.now() + 180_000;
+  for (;;) {
+    assert(provider.failure() === "", provider.failure());
+    if (ready()) return;
+    assert(
+      Date.now() < deadline,
+      `${what}: call ${provider.calls()} ${
+        provider.body(provider.calls() - 1).slice(-500)
+      }`,
+    );
+    await delay(250);
+  }
+}
+
+async function untilEngineerDone(flow: FlowShell, provider: GatherFixture) {
+  try {
+    await flow.until(
+      `document.querySelector("${EMBEDDED} [data-work-status]")?.getAttribute("data-work-status") === "done"`,
+      "후보 수집이 끝나지 않았다",
+      180_000,
+    );
+  } catch (error) {
+    const dock = String(
+      await flow.evaluate(
+        `document.querySelector(${
+          JSON.stringify(EMBEDDED)
+        })?.innerText ?? null`,
+      ),
+    ).slice(0, 600);
+    throw new Error(
+      `${
+        (error as Error).message
+      } | failure=${provider.failure()} calls=${provider.calls()} dock=${dock} last=${
+        provider.body(provider.calls() - 1).slice(-400)
+      }`,
+    );
+  }
+}
+
+async function openEngineer(flow: FlowShell): Promise<void> {
+  await flow.click('[data-screen="roles"]');
+  await flow.until(
+    `[...document.querySelectorAll("[data-role]")].some((el) => el.textContent?.includes("Context Engineer"))`,
+    "Context Engineer 담당이 없다",
+  );
+  const marked = await flow.evaluate(`(() => {
+    const row = [...document.querySelectorAll("[data-role]")].find((el) =>
+      el.textContent?.includes("Context Engineer")
+    );
+    if (!row) return false;
+    row.setAttribute("data-flow-ce", "");
+    return true;
+  })()`);
+  assertEquals(marked, true, "Context Engineer 행을 표시하지 못했다");
+  await flow.click("[data-flow-ce]");
+  await flow.until(
+    `document.querySelector("[data-role-detail]") !== null`,
+    "역할 상세가 없다",
+  );
+  await flow.mouseClickText("[role=tab]", "Conversation");
+  await flow.until(
+    `document.querySelector("${EMBEDDED} [data-new-session]") !== null`,
+    "Context Engineer 대화가 서지 않았다",
+  );
+  if (await flow.count(INPUT) === 0) {
+    await flow.click(`${EMBEDDED} [data-new-session]`);
+  }
+  await flow.until(
+    `document.querySelector(${JSON.stringify(INPUT)}) !== null`,
+    "입력칸이 없다",
+  );
+}
+
+async function sendToEngineer(flow: FlowShell, text: string): Promise<void> {
+  await openEngineer(flow);
+  await flow.type(INPUT, text);
+  await flow.click(SEND);
+}
+
+async function untilLatest(
+  flow: FlowShell,
+  title: string,
+  version: string,
+): Promise<string> {
+  const deadline = Date.now() + READY_TIMEOUT_MS + 60_000;
+  for (;;) {
+    const current = await documentTitled(flow, title);
+    if (current.latest_version !== version) return current.latest_version;
+    assert(Date.now() < deadline, `새 판이 없다: ${current.latest_version}`);
+    await delay(250);
+  }
+}
+
+async function readFixed(
+  flow: FlowShell,
+  document: string,
+  version: string,
+  section: string,
+): Promise<Record<string, unknown>> {
+  const deadline = Date.now() + READY_TIMEOUT_MS;
+  let last: Record<string, unknown> = {};
+  for (;;) {
+    last = await mustCall(flow, {
+      kind: "worker",
+      resource: "documents",
+      method: "read",
+      body: {
+        reference: { document, version, section: null },
+        section,
+      },
+    });
+    if (
+      typeof last["text"] === "string" && last["section_status"] === "found"
+    ) {
+      return last;
+    }
+    assert(
+      Date.now() < deadline,
+      `고정 판 본문이 없다: ${JSON.stringify(last).slice(0, 300)}`,
+    );
+    await delay(250);
+  }
+}
+
+Deno.test({
+  name:
+    "lophn-agent/roles/context-engineer#R3 lophn-agent/roles/context-engineer#R8 documents/outline-and-search#R8 documents/terms#R1 documents/terms#R2 flow define-terms: 목차에서 필요한 본문만 읽고 3개 이상 문서의 미등록 말만 후보로 남긴다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn() {
+    const folder = await Deno.realPath(await copyFixture("korean-search"));
+    for (const [name, body] of GATHER_FILES) {
+      await Deno.writeTextFile(`${folder}/${name}`, body);
+    }
+    const provider = startGatherScript();
+    let flow: FlowShell | undefined;
+    try {
+      flow = await openFlowShell({ start: "lophn" });
+      await mustCall(flow, {
+        kind: "command",
+        resource: "providers",
+        method: "register",
+        body: commandBody({
+          id: PROVIDER,
+          name: "fixture",
+          definition: {
+            key: "anthropic",
+            display_name: "Anthropic",
+            protocols: ["anthropic-messages"],
+            auth_kinds: ["none"],
+            models_endpoint: null,
+            oauth: null,
+            revision: "2026-01-01",
+          },
+          endpoint: provider.url,
+          protocol: "anthropic-messages",
+        }),
+      });
+      const defaults = await mustCall(flow, {
+        kind: "read",
+        resource: "agent-model-defaults",
+        method: "read",
+        body: {},
+      });
+      const seq = (defaults.defaults as { settings_seq: string }).settings_seq;
+      await mustCall(flow, {
+        kind: "command",
+        resource: "agent-model-defaults",
+        method: "change",
+        body: commandBody(
+          {
+            judgment: {
+              provider: PROVIDER,
+              credentials: [],
+              model_name: MODEL,
+              reasoning_level: "provider_default",
+              options: {},
+            },
+            organizing: null,
+            settings_seq: seq,
+          },
+          { settings_seq: seq },
+        ),
+      });
+      await registerTrackedProject(flow, { folder });
+      await untilDocuments(flow, TITLES, "문서 관측 대기");
+      for (const title of TITLES.slice(0, 6)) {
+        const document = await documentTitled(flow, title);
+        await untilSectionStatus(
+          flow,
+          document.id,
+          "whole",
+          `${title} 추출 대기`,
+        );
+      }
+      const versions = new Map<string, string>();
+      const byTitle = new Map<string, { id: string; version: string }>();
+      for (const title of TITLES) {
+        const document = await documentTitled(flow, title);
+        versions.set(title, document.latest_version);
+        byTitle.set(title, {
+          id: document.id,
+          version: document.latest_version,
+        });
+      }
+      const items = (titles: readonly string[]) =>
+        titles.map((title) => ({
+          target: {
+            kind: "document" as const,
+            document: byTitle.get(title)!.id,
+            section: null,
+          },
+          perspective: "basis" as const,
+          reason: "말의 본문 근거",
+        }));
+      await mustCall(flow, {
+        kind: "command",
+        resource: "contexts",
+        method: "create",
+        body: commandBody({
+          id: LARGE,
+          title: "Gathered words",
+          purpose: LARGE_PURPOSE,
+          items: items(TITLES.slice(0, 6)),
+        }),
+      });
+      await mustCall(flow, {
+        kind: "command",
+        resource: "contexts",
+        method: "create",
+        body: commandBody({
+          id: SMALL,
+          title: "Thin words",
+          purpose: SMALL_PURPOSE,
+          items: items(TITLES.slice(6)),
+        }),
+      });
+      await mustCall(flow, {
+        kind: "command",
+        resource: "terms",
+        method: "define",
+        body: commandBody({
+          id: DEFINED,
+          context: LARGE,
+          name: REGISTERED,
+          definition: "사람이 이미 정한 말",
+        }),
+      });
+
+      await sendToEngineer(flow, ASK);
+      await untilGather(provider, () => provider.holding(), "목차 대기");
+      const pinned = provider.alpha();
+      assertEquals(pinned.version, versions.get("알파"));
+      await editExternally(folder, "알파.md", ALPHA_NEXT);
+      const latest = await untilLatest(flow, "알파", pinned.version);
+      provider.release();
+      await untilGather(provider, () => provider.done(), "후보 수집");
+      await untilEngineerDone(flow, provider);
+
+      const named = provider.callsNamed();
+      assertEquals(named[0], "context.list");
+      const firstOutline = named.indexOf("document.outline");
+      const firstSection = named.indexOf("document.read_section");
+      assert(firstOutline > named.indexOf("context.items"));
+      assert(firstOutline > named.indexOf("context.terms"));
+      assert(firstSection > firstOutline);
+      assertEquals(named.at(-1), "term.propose_candidate");
+      assert(
+        named.slice(firstOutline, firstSection).every((name) =>
+          name === "document.outline"
+        ),
+        named.join(","),
+      );
+      assert(
+        named.slice(firstSection, -1).every((name) =>
+          name === "document.read_section"
+        ),
+        named.join(","),
+      );
+      for (
+        const name of [
+          "document.read_version",
+          "document.read_range",
+          "document.save_version",
+          "document.create",
+          "term.define",
+          "term.update_candidate",
+          "term.submit_definition_answer",
+        ]
+      ) {
+        assertEquals(named.includes(name), false, name);
+      }
+      const tools = offeredTools(provider.body(0));
+      assert(tools.includes("term.propose_candidate"));
+      assert(tools.includes("document.outline"));
+      assert(tools.includes("document.read_section"));
+      assertEquals(tools.includes("term.define"), false);
+      const smallIds = provider.smallDocuments();
+      assertEquals(smallIds.length, 2);
+      for (const id of smallIds) {
+        assertEquals(provider.readDocuments().includes(id), false, id);
+      }
+
+      assertEquals(provider.pairCount(), 2);
+      assert(provider.registeredSeen() >= 3);
+      const evidence = provider.evidence();
+      assertEquals(evidence.length, 5);
+      assertEquals(new Set(evidence.map((item) => item.document)).size, 5);
+      assertEquals(
+        evidence.some((item) => item.document === provider.leftOut()),
+        false,
+      );
+      const alphaEvidence = evidence.find((item) =>
+        item.document === pinned.document
+      );
+      assert(alphaEvidence !== undefined, JSON.stringify(evidence));
+      assertEquals(alphaEvidence.version, pinned.version);
+      assertEquals(alphaEvidence.version === latest, false);
+      assertEquals(alphaEvidence.section, pinned.section);
+      assert(alphaEvidence.start_line >= 1);
+      assert(alphaEvidence.end_line >= alphaEvidence.start_line);
+
+      const listed = await mustCall(flow, {
+        kind: "read",
+        resource: "terms",
+        method: "list",
+        body: { context: LARGE },
+      });
+      const definitions = listed.definitions as {
+        name: string;
+        definition: string | null;
+      }[];
+      const candidates = listed.candidates as {
+        name: string;
+        definition: string | null;
+        evidence: {
+          document: string;
+          version: string;
+          section: string | null;
+          start_line: number | null;
+          end_line: number | null;
+        }[];
+      }[];
+      assertEquals(definitions.map((term) => term.name), [REGISTERED]);
+      assertEquals(definitions[0].definition, "사람이 이미 정한 말");
+      assertEquals(candidates.map((term) => term.name), [WORD]);
+      assertEquals(candidates[0].definition, null);
+      assertEquals(candidates[0].evidence, evidence);
+      const thin = await mustCall(flow, {
+        kind: "read",
+        resource: "terms",
+        method: "list",
+        body: { context: SMALL },
+      });
+      assertEquals(thin.definitions, []);
+      assertEquals(thin.candidates, []);
+
+      const outline = await mustCall(flow, {
+        kind: "worker",
+        resource: "outline",
+        method: "document",
+        body: {
+          reference: {
+            document: pinned.document,
+            version: pinned.version,
+            section: null,
+          },
+        },
+      });
+      assertEquals(outline.version, pinned.version);
+      assertEquals(outline.latest_version, latest);
+      const oldBody = await readFixed(
+        flow,
+        pinned.document,
+        pinned.version,
+        pinned.section,
+      );
+      assertEquals(oldBody["version"], pinned.version);
+      assertEquals(oldBody["latest_version"], latest);
+      assertStringIncludes(String(oldBody["text"]), WORD);
+      assertEquals(
+        String(oldBody["text"]).includes("새 판의 다른 문장"),
+        false,
+      );
+      const newBody = await readFixed(
+        flow,
+        pinned.document,
+        latest,
+        pinned.section,
+      );
+      assertStringIncludes(String(newBody["text"]), "새 판의 다른 문장");
+      assertEquals(String(newBody["text"]).includes(WORD), false);
+
+      for (const title of TITLES) {
+        const version = (await documentTitled(flow, title)).latest_version;
+        assertEquals(
+          version,
+          title === "알파" ? latest : versions.get(title),
+          title,
+        );
+      }
+      const shown = (await flow.text(EMBEDDED)) ?? "";
+      assertStringIncludes(shown, DONE_TEXT);
+      for (
+        const hidden of [
+          WORD,
+          PAIR,
+          THIN,
+          ASIDE,
+          "document.outline",
+          "document.read_section",
+          "term.propose_candidate",
+          "term.define",
+          "새 판의 다른 문장",
+        ]
+      ) {
+        assertEquals(shown.includes(hidden), false, hidden);
+      }
+      assertEquals(await flow.count("[data-meaning-definition]"), 0);
+      assertEquals(await flow.count("[data-candidates]"), 0);
+    } finally {
+      await flow?.close();
+      await provider.close();
+      if (flow !== undefined) await removeHome(flow.home);
+      await Deno.remove(folder, { recursive: true });
+    }
+  },
+});
+
+// 3: contexts 화면은 이미 정한 뜻과 후보를 나누어 보인다. conversation에서는 결정을
+// 필요로 하는 말 하나만, 고정 판 근거·미정 선택·추천 이유와 함께 묻는다. 고르기만
+// 하거나 일반 메시지로 긍정한 것은 답이 아니고 정의도 아니다. 이름·뜻을 자유 답으로
+// 명시하거나 미루면 그 질문만 닫히고, 후보 정의는 그대로다. 선택지에 고정 action이
+// 없으므로 machine 적용(4)과 변경 기록(5)은 여기서 하지 않는다.
+const ASK_CONTEXT = "ctx_01arz3ndektsv4rrffq69g5fb8";
+const KNOWN_TERM = "trm_01arz3ndektsv4rrffq69g5fb8";
+const OPEN_TERM = "trm_01arz3ndektsv4rrffq69g5fb9";
+const LATER_TERM = "trm_01arz3ndektsv4rrffq69g5fba";
+const KNOWN_NAME = "용어";
+const KNOWN_MEANING = "사람이 이미 정한 말";
+const OPEN_NAME = "정산주기";
+const LATER_NAME = "임시표";
+const ASK_PURPOSE = "뜻을 정할 때 쓰는 자료";
+const ASK_TITLE = "결정알파";
+const SECTION_TITLE = "쓰임";
+const ASK_MARKER = "이미 정한 뜻은 다시 묻지";
+const YES_MARKER = "추천한 대로";
+const SECOND_MARKER = "그 말만 물어 달라";
+const ASK_TEXT =
+  "아직 정하지 않은 말만 물어 달라. 이미 정한 뜻은 다시 묻지 말라.";
+const YES_TEXT = "응, 추천한 대로 뜻을 정해 줘.";
+const SECOND_TEXT = "임시표는 내가 이름과 뜻을 적겠다. 그 말만 물어 달라.";
+const FIRST_PROMPT = "정산주기에 어떤 이름을 쓸까요?";
+const SECOND_PROMPT = "임시표에 쓸 이름과 뜻을 정해 주세요";
+const RECOMMEND_WHY = "고정 판에 그대로 있는 이름이다.";
+const SECOND_WHY = "본문에 그대로 있는 이름이다.";
+const ASK_REPLY = "정산주기의 이름만 물어 두었다. 추천은 적용하지 않았다.";
+const YES_REPLY = "일반 메시지는 정의가 아니다. 추천도 적용하지 않았다.";
+const NOTED_REPLY =
+  "적은 이름과 뜻은 질문의 답으로만 남겼다. 정의로 적용하지 않았다.";
+const OWN_ANSWER = "이름은 임시표, 뜻은 잠시 적어 두는 표";
+const NO_ANSWER = "If you don't answer, nothing is chosen for you.";
+const CHOICES = [
+  [
+    "keep",
+    "정산주기라는 이름을 유지한다",
+    "본문에 있는 이름을 유지한다. 뜻은 아직 없다.",
+  ],
+  ["rename", "다른 이름을 쓴다", "본문과 다른 이름을 쓴다. 뜻은 아직 없다."],
+  ["narrow", "더 좁은 뜻으로 둔다", "쓰는 범위를 좁혀 둔다. 뜻은 아직 없다."],
+  ["widen", "더 넓은 뜻으로 둔다", "쓰는 범위를 넓혀 둔다. 뜻은 아직 없다."],
+  ["split", "두 말로 나누어 둔다", "한 말을 나누어 둔다. 뜻은 아직 없다."],
+  ["note", "근거만 남겨 둔다", "출현 근거만 둔다. 뜻은 아직 없다."],
+  ["hold", "이번엔 정하지 않는다", "결정을 미뤄 둔다. 뜻은 아직 없다."],
+] as const;
+
+function reasonFor(
+  name: string,
+  start: number,
+  end: number,
+  rest: string,
+): string {
+  return `${name}는 고정 판의 쓰임 section ${start}-${end}줄에 그대로 있다. ${rest}`;
+}
+
+type AskPhase =
+  | "list"
+  | "terms"
+  | "outline"
+  | "section"
+  | "ask-result"
+  | "submitted"
+  | "asked"
+  | "yesed"
+  | "second-terms"
+  | "second-hold"
+  | "done";
+
+type Ground = {
+  document: string;
+  version: string;
+  section: string;
+  start_line: number;
+  end_line: number;
+};
+
+type TermSeen = {
+  name?: string;
+  definition?: string | null;
+  evidence?: {
+    document?: string;
+    version?: string;
+    section?: string | null;
+    start_line?: number | null;
+    end_line?: number | null;
+  }[];
+};
+
+type AskFixture = {
+  url: string;
+  calls: () => number;
+  body: (index: number) => string;
+  close: () => Promise<void>;
+  failure: () => string;
+  phase: () => AskPhase;
+  holding: () => boolean;
+  release: () => void;
+  callsNamed: () => readonly string[];
+  ground: () => Ground;
+  firstReason: () => string;
+  secondReason: () => string;
+};
+
+function latestAsk(body: string): "ask" | "yes" | "second" | "none" {
+  const marks = [
+    ["second", body.lastIndexOf(SECOND_MARKER)],
+    ["yes", body.lastIndexOf(YES_MARKER)],
+    ["ask", body.lastIndexOf(ASK_MARKER)],
+  ] as const;
+  let best: "ask" | "yes" | "second" | "none" = "none";
+  let at = -1;
+  for (const [name, index] of marks) {
+    if (index > at) {
+      at = index;
+      best = name;
+    }
+  }
+  return best;
+}
+
+function startAskScript(): AskFixture {
+  const bodies: string[] = [];
+  const named: string[] = [];
+  const retries = new Map<string, number>();
+  const found = {
+    phase: "list" as AskPhase,
+    failure: "",
+    holding: false,
+    context: "",
+    ground: null as Ground | null,
+    firstReason: "",
+    secondReason: "",
+  };
+  let resolveHold = (): void => {};
+  const hold = new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error("명시 답을 기다리다 끊겼다")),
+      180_000,
+    );
+    resolveHold = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+  });
+  hold.catch(() => {});
+
+  const issue = (id: string, name: string, args: unknown): SemanticReply => {
+    named.push(name);
+    return toolCall(id, name, args);
+  };
+  const termsCall = (id: string): SemanticReply =>
+    issue(id, "context.terms", { context: found.context });
+  const askFirst = (): SemanticReply => {
+    const ground = found.ground;
+    assert(ground !== null, "근거가 없다");
+    const evidence = [{
+      document: ground.document,
+      version: ground.version,
+      section: ground.section,
+    }];
+    found.firstReason = reasonFor(
+      OPEN_NAME,
+      ground.start_line,
+      ground.end_line,
+      "이미 정한 용어의 뜻은 다시 묻지 않는다.",
+    );
+    found.phase = "submitted";
+    return issue("toolu_ask_first", "question.submit", {
+      prompt: FIRST_PROMPT,
+      reason: found.firstReason,
+      options: CHOICES.map(([key, label, description]) => ({
+        key,
+        label,
+        description,
+        evidence,
+        adoption: null,
+        action: null,
+      })),
+      recommendation: { option_key: "keep", explanation: RECOMMEND_WHY },
+      expires_at: null,
+    });
+  };
+  const askSecond = (): SemanticReply => {
+    const ground = found.ground;
+    assert(ground !== null, "근거가 없다");
+    found.secondReason = reasonFor(
+      LATER_NAME,
+      ground.start_line,
+      ground.end_line,
+      "정산주기와 이미 정한 용어는 이 질문에 넣지 않는다.",
+    );
+    found.phase = "second-hold";
+    return issue("toolu_ask_second", "question.submit", {
+      prompt: SECOND_PROMPT,
+      reason: found.secondReason,
+      options: [
+        {
+          key: "keep",
+          label: "임시표라는 이름을 유지한다",
+          description: "본문에 있는 이름을 유지하고 뜻은 사람이 적는다.",
+          evidence: [{
+            document: ground.document,
+            version: ground.version,
+            section: ground.section,
+          }],
+          adoption: null,
+          action: null,
+        },
+        {
+          key: "rename",
+          label: "다른 이름을 쓴다",
+          description: "본문과 다른 이름을 사람이 적는다.",
+          evidence: [{
+            document: ground.document,
+            version: ground.version,
+            section: ground.section,
+          }],
+          adoption: null,
+          action: null,
+        },
+      ],
+      recommendation: { option_key: "keep", explanation: SECOND_WHY },
+      expires_at: null,
+    });
+  };
+
+  const server = Deno.serve(
+    { hostname: "127.0.0.1", port: 0, onListen: () => {} },
+    async (request) => {
+      const text = await request.text();
+      const path = new URL(request.url).pathname;
+      if (request.method !== "POST" || !path.endsWith("/messages")) {
+        return Response.json({ error: "unexpected" }, { status: 500 });
+      }
+      bodies.push(text);
+      let reply: SemanticReply;
+      try {
+        if (found.phase === "list") {
+          reply = issue("toolu_ask_list", "context.list", {});
+          found.phase = "terms";
+        } else if (found.phase === "terms") {
+          const contexts = toolContent(text)["contexts"] as {
+            id?: string;
+            purpose?: string;
+          }[];
+          const context = contexts.find((row) => row.purpose === ASK_PURPOSE);
+          assert(
+            context?.id === ASK_CONTEXT,
+            JSON.stringify(contexts).slice(0, 400),
+          );
+          found.context = context.id;
+          reply = termsCall("toolu_ask_terms");
+          found.phase = "outline";
+        } else if (found.phase === "outline") {
+          const content = toolContent(text);
+          const definitions = content["definitions"] as TermSeen[];
+          const candidates = content["candidates"] as TermSeen[];
+          const known = definitions.find((term) => term.name === KNOWN_NAME);
+          const open = candidates.find((term) => term.name === OPEN_NAME);
+          const later = candidates.find((term) => term.name === LATER_NAME);
+          assertEquals(known?.definition, KNOWN_MEANING);
+          assertEquals(open?.definition, null);
+          assertEquals(later?.definition, null);
+          assertEquals(
+            definitions.some((term) => term.name === OPEN_NAME),
+            false,
+          );
+          const evidence = open?.evidence?.[0];
+          assert(
+            typeof evidence?.document === "string" &&
+              typeof evidence.version === "string" &&
+              typeof evidence.section === "string" &&
+              typeof evidence.start_line === "number" &&
+              typeof evidence.end_line === "number",
+            JSON.stringify(open).slice(0, 400),
+          );
+          found.ground = {
+            document: evidence.document,
+            version: evidence.version,
+            section: evidence.section,
+            start_line: evidence.start_line,
+            end_line: evidence.end_line,
+          };
+          reply = issue("toolu_ask_outline", "document.outline", {
+            reference: {
+              document: evidence.document,
+              version: evidence.version,
+              section: null,
+            },
+          });
+          found.phase = "section";
+        } else if (found.phase === "section") {
+          const ground = found.ground;
+          assert(ground !== null, "근거가 없다");
+          const content = toolContent(text);
+          assertEquals(content["version"], ground.version);
+          const raw = JSON.stringify(content);
+          assertEquals(raw.includes(OPEN_NAME), false, "목차에 본문이 있다");
+          assertEquals(
+            raw.includes(ASIDE),
+            false,
+            "목차에 다른 section이 있다",
+          );
+          const entries = content["entries"] as {
+            key?: string;
+            title?: string;
+          }[];
+          const section = entries.find((entry) =>
+            entry.title === SECTION_TITLE
+          );
+          const ready = content["section_status"] === "whole" &&
+            section?.key === ground.section;
+          const attempt = retries.get("outline") ?? 0;
+          if (!ready && attempt < 8) {
+            retries.set("outline", attempt + 1);
+            await delay(1000);
+            reply = issue(
+              `toolu_ask_outline_${attempt}`,
+              "document.outline",
+              {
+                reference: {
+                  document: ground.document,
+                  version: ground.version,
+                  section: null,
+                },
+              },
+            );
+          } else {
+            assert(ready, `목차가 준비되지 않았다: ${raw.slice(0, 300)}`);
+            reply = issue("toolu_ask_section", "document.read_section", {
+              reference: {
+                document: ground.document,
+                version: ground.version,
+                section: null,
+              },
+              section: ground.section,
+            });
+            found.phase = "ask-result";
+          }
+        } else if (found.phase === "ask-result") {
+          const ground = found.ground;
+          assert(ground !== null, "근거가 없다");
+          const content = toolContent(text);
+          const body = typeof content["text"] === "string"
+            ? content["text"]
+            : "";
+          const ranges = content["ranges"] as {
+            start_line?: number;
+            end_line?: number;
+          }[];
+          const start = ranges.length === 0
+            ? 0
+            : Math.min(...ranges.map((range) => range.start_line ?? 0));
+          const end = ranges.length === 0
+            ? 0
+            : Math.max(...ranges.map((range) => range.end_line ?? 0));
+          const fresh = content["version"] === ground.version &&
+            body.includes(OPEN_NAME) && body.includes(LATER_NAME) &&
+            !body.includes(ASIDE) && start === ground.start_line &&
+            end === ground.end_line;
+          const attempt = retries.get("section") ?? 0;
+          if (!fresh && attempt < 8) {
+            retries.set("section", attempt + 1);
+            await delay(1000);
+            reply = issue(
+              `toolu_ask_section_${attempt}`,
+              "document.read_section",
+              {
+                reference: {
+                  document: ground.document,
+                  version: ground.version,
+                  section: null,
+                },
+                section: ground.section,
+              },
+            );
+          } else {
+            assert(fresh, `고정 판 본문이 없다: ${body.slice(0, 160)}`);
+            reply = askFirst();
+          }
+        } else if (found.phase === "submitted") {
+          toolContent(text);
+          found.phase = "asked";
+          reply = said(ASK_REPLY);
+        } else if (found.phase === "asked") {
+          assertEquals(latestAsk(text), "yes", "일반 긍정이 아니다");
+          found.phase = "yesed";
+          reply = said(YES_REPLY);
+        } else if (found.phase === "yesed") {
+          assertEquals(latestAsk(text), "second", "둘째 질문이 아니다");
+          reply = termsCall("toolu_ask_terms_again");
+          found.phase = "second-terms";
+        } else if (found.phase === "second-terms") {
+          const content = toolContent(text);
+          const definitions = content["definitions"] as TermSeen[];
+          const candidates = content["candidates"] as TermSeen[];
+          assertEquals(
+            definitions.find((term) => term.name === KNOWN_NAME)?.definition,
+            KNOWN_MEANING,
+          );
+          assertEquals(
+            candidates.find((term) => term.name === OPEN_NAME)?.definition,
+            null,
+          );
+          assertEquals(
+            candidates.find((term) => term.name === LATER_NAME)?.definition,
+            null,
+          );
+          assertEquals(
+            definitions.some((term) =>
+              term.name === OPEN_NAME || term.name === LATER_NAME
+            ),
+            false,
+          );
+          reply = askSecond();
+        } else if (found.phase === "second-hold") {
+          toolContent(text);
+          found.holding = true;
+          try {
+            await hold;
+          } finally {
+            found.holding = false;
+          }
+          found.phase = "done";
+          reply = said(NOTED_REPLY);
+        } else {
+          throw new Error(`예상하지 않은 단계: ${found.phase}`);
+        }
+      } catch (error) {
+        found.failure = error instanceof Error ? error.message : String(error);
+        found.holding = false;
+        resolveHold();
+        return Response.json({ error: found.failure }, { status: 500 });
+      }
+      const built = buildReply("messages", reply);
+      return new Response(built.body ?? "", {
+        status: built.status,
+        headers: built.headers,
+      });
+    },
+  );
+  return {
+    url: `http://127.0.0.1:${server.addr.port}`,
+    calls: () => bodies.length,
+    body: (index) => bodies[index] ?? "",
+    close: () => server.shutdown(),
+    failure: () => found.failure,
+    phase: () => found.phase,
+    holding: () => found.holding,
+    release: () => resolveHold(),
+    callsNamed: () => named,
+    ground: () => {
+      assert(found.ground !== null, "근거가 없다");
+      return found.ground;
+    },
+    firstReason: () => found.firstReason,
+    secondReason: () => found.secondReason,
+  };
+}
+
+async function untilAsk(
+  provider: AskFixture,
+  ready: () => boolean,
+  what: string,
+) {
+  const deadline = Date.now() + 180_000;
+  for (;;) {
+    assert(provider.failure() === "", provider.failure());
+    if (ready()) return;
+    assert(
+      Date.now() < deadline,
+      `${what}: phase ${provider.phase()} call ${provider.calls()} ${
+        provider.body(provider.calls() - 1).slice(-500)
+      }`,
+    );
+    await delay(250);
+  }
+}
+
+async function untilAskDone(
+  flow: FlowShell,
+  provider: AskFixture,
+  what: string,
+) {
+  try {
+    await flow.until(
+      `document.querySelector("${EMBEDDED} [data-work-status]")?.getAttribute("data-work-status") === "done"`,
+      what,
+      180_000,
+    );
+  } catch (error) {
+    throw new Error(
+      `${
+        (error as Error).message
+      } | failure=${provider.failure()} phase=${provider.phase()} calls=${provider.calls()} last=${
+        provider.body(provider.calls() - 1).slice(-400)
+      }`,
+    );
+  }
+}
+
+async function registerAskProvider(flow: FlowShell, url: string) {
+  await mustCall(flow, {
+    kind: "command",
+    resource: "providers",
+    method: "register",
+    body: commandBody({
+      id: PROVIDER,
+      name: "fixture",
+      definition: {
+        key: "anthropic",
+        display_name: "Anthropic",
+        protocols: ["anthropic-messages"],
+        auth_kinds: ["none"],
+        models_endpoint: null,
+        oauth: null,
+        revision: "2026-01-01",
+      },
+      endpoint: url,
+      protocol: "anthropic-messages",
+    }),
+  });
+  const defaults = await mustCall(flow, {
+    kind: "read",
+    resource: "agent-model-defaults",
+    method: "read",
+    body: {},
+  });
+  const seq = (defaults.defaults as { settings_seq: string }).settings_seq;
+  await mustCall(flow, {
+    kind: "command",
+    resource: "agent-model-defaults",
+    method: "change",
+    body: commandBody(
+      {
+        judgment: {
+          provider: PROVIDER,
+          credentials: [],
+          model_name: MODEL,
+          reasoning_level: "provider_default",
+          options: {},
+        },
+        organizing: null,
+        settings_seq: seq,
+      },
+      { settings_seq: seq },
+    ),
+  });
+}
+
+type AskedQuestion = {
+  id: string;
+  status: string;
+  answer: { kind?: string; option_key?: string | null } | null;
+  applied: boolean;
+  closed_reason: string | null;
+  created_seq: string;
+  options: {
+    key: string;
+    action: unknown;
+    evidence: { document: string; version: string; section: string | null }[];
+  }[];
+  recommendation: { option_key: string | null } | null;
+};
+
+function questionsOf(flow: FlowShell): Promise<AskedQuestion[]> {
+  return mustCall(flow, {
+    kind: "read",
+    resource: "questions",
+    method: "list",
+    body: {},
+  }).then((listed) =>
+    (listed.questions as AskedQuestion[]).slice().sort((left, right) =>
+      BigInt(left.created_seq) < BigInt(right.created_seq) ? -1 : 1
+    )
+  );
+}
+
+async function definitionOf(flow: FlowShell, term: string): Promise<unknown> {
+  const got = await mustCall(flow, {
+    kind: "read",
+    resource: "terms",
+    method: "get",
+    body: { term },
+  });
+  return (got.term as { definition: string | null }).definition;
+}
+
+async function openAskMeanings(flow: FlowShell): Promise<void> {
+  await flow.click('[data-screen="documents"]');
+  await flow.click('[data-screen="contexts"]');
+  await flow.until(
+    `document.querySelector('[data-focus="${ASK_CONTEXT}"]') !== null`,
+    "Focus 목록 대기",
+  );
+  await flow.click(`[data-focus="${ASK_CONTEXT}"]`);
+  await flow.until(
+    `document.querySelector('[data-focus-head="${ASK_CONTEXT}"]') !== null`,
+    "Focus 상세 대기",
+  );
+  await flow.mouseClickText("[role=tab]", "Meanings");
+  await flow.until(
+    `document.querySelector("[data-meanings]") !== null`,
+    "Meanings 대기",
+  );
+}
+
+Deno.test({
+  name:
+    "documents/terms#R4 lophn-agent/roles/context-engineer#R10 lophn-agent/questions#R1 lophn-agent/questions#R3 lophn-agent/questions#R4 lophn-agent/questions#R6 flow define-terms 3: 정한 뜻과 후보를 구별하고 대화에서 근거·미정 선택·추천을 본 뒤 이름·뜻을 명시해 답하거나 미룬다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn(t) {
+    const folder = await Deno.realPath(await copyFixture("korean-search"));
+    await Deno.writeTextFile(
+      `${folder}/${ASK_TITLE}.md`,
+      `# ${ASK_TITLE}\n\n${ASIDE} 있다. 여기 말은 본문으로 읽지 않는다.\n\n## ${SECTION_TITLE}\n\n${OPEN_NAME}라는 말이 그대로 있다. ${LATER_NAME}도 여기에 있다.\n`,
+    );
+    const provider = startAskScript();
+    let flow: FlowShell | undefined;
+    try {
+      flow = await openFlowShell({ start: "lophn" });
+      const shell = flow;
+      await registerAskProvider(shell, provider.url);
+      await registerTrackedProject(shell, { folder });
+      await untilDocuments(shell, [ASK_TITLE], "문서 관측 대기");
+      const alpha = await documentTitled(shell, ASK_TITLE);
+      await untilSectionStatus(
+        shell,
+        alpha.id,
+        "whole",
+        `${ASK_TITLE} 추출 대기`,
+      );
+      const preparedAt = Date.now() + READY_TIMEOUT_MS;
+      let sectionKey = "";
+      let version = alpha.latest_version;
+      for (;;) {
+        const current = await documentTitled(shell, ASK_TITLE);
+        const outline = await mustCall(shell, {
+          kind: "worker",
+          resource: "outline",
+          method: "document",
+          body: {
+            reference: {
+              document: alpha.id,
+              version: current.latest_version,
+              section: null,
+            },
+          },
+        });
+        const section = (outline.entries as { key?: string; title?: string }[])
+          .find((entry) => entry.title === SECTION_TITLE);
+        if (
+          outline.section_status === "whole" &&
+          typeof section?.key === "string"
+        ) {
+          sectionKey = section.key;
+          version = current.latest_version;
+          break;
+        }
+        assert(
+          Date.now() < preparedAt,
+          `목차에 쓰임이 없다: ${
+            JSON.stringify(outline.entries).slice(0, 300)
+          }`,
+        );
+        await delay(250);
+      }
+      let start = 0;
+      let end = 0;
+      for (;;) {
+        const read = await readFixed(shell, alpha.id, version, sectionKey);
+        const body = String(read["text"] ?? "");
+        const ranges = read["ranges"] as {
+          start_line?: number;
+          end_line?: number;
+        }[];
+        if (
+          body.includes(OPEN_NAME) && body.includes(LATER_NAME) &&
+          !body.includes(ASIDE) && ranges.length > 0
+        ) {
+          start = Math.min(...ranges.map((range) => range.start_line ?? 0));
+          end = Math.max(...ranges.map((range) => range.end_line ?? 0));
+          break;
+        }
+        assert(
+          Date.now() < preparedAt,
+          `고정 판 본문이 없다: ${body.slice(0, 160)} ${
+            JSON.stringify(ranges)
+          }`,
+        );
+        await delay(250);
+      }
+      assert(start >= 1 && end >= start, `${start}-${end}`);
+      const evidence = {
+        document: alpha.id,
+        version,
+        section: sectionKey,
+        start_line: start,
+        end_line: end,
+      };
+      await mustCall(shell, {
+        kind: "command",
+        resource: "contexts",
+        method: "create",
+        body: commandBody({
+          id: ASK_CONTEXT,
+          title: "Terms to decide",
+          purpose: ASK_PURPOSE,
+          items: [{
+            target: {
+              kind: "document",
+              document: alpha.id,
+              section: null,
+            },
+            perspective: "basis",
+            reason: "말의 본문 근거",
+          }],
+        }),
+      });
+      await mustCall(shell, {
+        kind: "command",
+        resource: "terms",
+        method: "define",
+        body: commandBody({
+          id: KNOWN_TERM,
+          context: ASK_CONTEXT,
+          name: KNOWN_NAME,
+          definition: KNOWN_MEANING,
+        }),
+      });
+      for (
+        const [id, name] of [[OPEN_TERM, OPEN_NAME], [
+          LATER_TERM,
+          LATER_NAME,
+        ]] as const
+      ) {
+        await mustCall(shell, {
+          kind: "command",
+          resource: "terms",
+          method: "propose",
+          body: commandBody({
+            id,
+            context: ASK_CONTEXT,
+            name,
+            evidence: [evidence],
+          }),
+        });
+      }
+
+      const ready = `${EMBEDDED} [data-question-text='ready']`;
+      const sendAnswer = `${EMBEDDED} [data-send-answer]`;
+      const untilPrompt = async (prompt: string) => {
+        try {
+          await shell.until(
+            `document.querySelector(${
+              JSON.stringify(ready)
+            })?.textContent === ${JSON.stringify(prompt)}`,
+            `질문이 칸에 서지 않았다: ${prompt}`,
+            120_000,
+          );
+        } catch (error) {
+          const dock = String(
+            await shell.evaluate(
+              `document.querySelector(${
+                JSON.stringify(EMBEDDED)
+              })?.innerText ?? null`,
+            ),
+          ).slice(0, 500);
+          throw new Error(
+            `${
+              (error as Error).message
+            } | failure=${provider.failure()} phase=${provider.phase()} dock=${dock}`,
+          );
+        }
+      };
+
+      await t.step(
+        "documents/terms#R4: 3 contexts 화면에서 이미 정한 뜻과 후보를 구별해서 본다",
+        async () => {
+          await openAskMeanings(shell);
+          assertEquals(
+            await shell.count("[data-definitions] [data-term]"),
+            1,
+          );
+          assertEquals(
+            await shell.count("[data-candidates] [data-candidate]"),
+            2,
+          );
+          const defined = (await shell.text("[data-definitions]")) ?? "";
+          assertStringIncludes(defined, KNOWN_NAME);
+          assertStringIncludes(defined, KNOWN_MEANING);
+          assertEquals(defined.includes(OPEN_NAME), false);
+          assertEquals(defined.includes(LATER_NAME), false);
+          const candidates = (await shell.text("[data-candidates]")) ?? "";
+          assertStringIncludes(candidates, OPEN_NAME);
+          assertStringIncludes(candidates, LATER_NAME);
+          assertStringIncludes(candidates, "Lines");
+          assertEquals(candidates.includes(KNOWN_MEANING), false);
+          assertEquals(
+            await shell.count("[data-candidates] [data-evidence-row]"),
+            2,
+          );
+          assertEquals(
+            await shell.count("[data-definitions] [data-evidence-row]"),
+            0,
+          );
+          await shell.click(`[data-evidence-row="${alpha.id}"]`);
+          await shell.until(
+            `document.querySelector("[data-body]")?.textContent.includes(${
+              JSON.stringify(`${OPEN_NAME}라는 말이 그대로 있다`)
+            })`,
+            "출현 고정 판 본문 대기",
+          );
+          const listed = await mustCall(shell, {
+            kind: "read",
+            resource: "terms",
+            method: "list",
+            body: { context: ASK_CONTEXT },
+          });
+          const definitions = listed.definitions as { name: string }[];
+          const undecided = listed.candidates as {
+            name: string;
+            definition: string | null;
+          }[];
+          assertEquals(definitions.map((term) => term.name), [KNOWN_NAME]);
+          assertEquals(
+            undecided.map((term) => term.name).sort(),
+            [LATER_NAME, OPEN_NAME].sort(),
+          );
+          assertEquals(
+            undecided.every((term) => term.definition === null),
+            true,
+          );
+        },
+      );
+
+      await t.step(
+        "lophn-agent/questions#R1 lophn-agent/questions#R3 lophn-agent/questions#R4 lophn-agent/roles/context-engineer#R10: 3 말 하나의 근거·미정 선택·추천만 묻고 고르기만으로는 답이 아니다",
+        async () => {
+          await sendToEngineer(shell, ASK_TEXT);
+          await untilAsk(
+            provider,
+            () => provider.phase() === "asked",
+            "첫 질문",
+          );
+          await untilAskDone(shell, provider, "첫 질문이 끝나지 않았다");
+          const named = provider.callsNamed();
+          assertEquals(named[0], "context.list");
+          assert(
+            named.indexOf("context.terms") < named.indexOf("document.outline"),
+          );
+          assert(
+            named.indexOf("document.outline") <
+              named.indexOf("document.read_section"),
+          );
+          assertEquals(named.at(-1), "question.submit");
+          assertEquals(
+            named.filter((name) => name === "question.submit").length,
+            1,
+          );
+          assertEquals(named.includes("term.define"), false);
+          const tools = offeredTools(provider.body(0));
+          assert(tools.includes("question.submit"));
+          assert(tools.includes("context.terms"));
+          assertEquals(tools.includes("term.define"), false);
+          const ground = provider.ground();
+          assertEquals(ground, evidence);
+          await untilPrompt(FIRST_PROMPT);
+          assertEquals(
+            await shell.text(`${EMBEDDED} [data-question-reason]`),
+            provider.firstReason(),
+          );
+          assertEquals(await shell.count(`${EMBEDDED} [data-option]`), 7);
+          for (const [key, label, description] of CHOICES) {
+            const option = `${EMBEDDED} [data-option='${key}']`;
+            assertEquals(
+              await shell.text(`${option} [data-option-description]`),
+              description,
+            );
+            assertStringIncludes((await shell.text(option)) ?? "", label);
+          }
+          assertEquals(await shell.count(`${EMBEDDED} [data-recommended]`), 1);
+          assertEquals(
+            await shell.count(
+              `${EMBEDDED} [data-option='keep'] [data-recommended]`,
+            ),
+            1,
+          );
+          assertStringIncludes(
+            (await shell.text(`${EMBEDDED} [data-recommendation]`)) ?? "",
+            RECOMMEND_WHY,
+          );
+          assertStringIncludes(
+            (await shell.text(`${EMBEDDED} [data-question-strip]`)) ?? "",
+            NO_ANSWER,
+          );
+          assertEquals(await shell.count(`${EMBEDDED} [data-expires]`), 0);
+          assertEquals(await shell.count(`${EMBEDDED} [data-opens-review]`), 0);
+          assertEquals(await shell.count(`${EMBEDDED} [data-own-answer]`), 1);
+          assertEquals(
+            await shell.evaluate(
+              `document.querySelector(${
+                JSON.stringify(sendAnswer)
+              })?.hasAttribute("disabled") ?? true`,
+            ),
+            true,
+          );
+          const questions = await questionsOf(shell);
+          assertEquals(questions.length, 1);
+          const question = questions[0];
+          assert(question !== undefined);
+          assertEquals(question.status, "pending");
+          assertEquals(question.answer, null);
+          assertEquals(question.applied, false);
+          assertEquals(
+            question.options.map((option) => option.key),
+            CHOICES.map(([key]) => key),
+          );
+          for (const option of question.options) {
+            assertEquals(option.action, null);
+            assertEquals(option.evidence, [{
+              document: evidence.document,
+              version: evidence.version,
+              section: evidence.section,
+            }]);
+          }
+          assertEquals(question.recommendation?.option_key, "keep");
+          const text = await mustCall(shell, {
+            kind: "read",
+            resource: "questions",
+            method: "text",
+            body: { question: question.id },
+          });
+          assertEquals(text["prompt"], FIRST_PROMPT);
+          assertEquals(text["reason"], provider.firstReason());
+          assertEquals(text["answer_text"], null);
+          assertEquals(
+            (text["prompt"] as string).includes(LATER_NAME),
+            false,
+          );
+          await shell.click(`${EMBEDDED} [data-option='keep']`);
+          await shell.until(
+            `document.querySelector(${
+              JSON.stringify(`${EMBEDDED} [data-option='keep']`)
+            })?.getAttribute("aria-checked") === "true"`,
+            "선택지가 골라지지 않았다",
+          );
+          await delay(1_000);
+          const picked = (await questionsOf(shell))[0];
+          assertEquals(picked?.status, "pending");
+          assertEquals(picked?.answer, null);
+          assertEquals(picked?.applied, false);
+          assertEquals(await definitionOf(shell, OPEN_TERM), null);
+          assertEquals(await definitionOf(shell, KNOWN_TERM), KNOWN_MEANING);
+          const shown = (await shell.text(EMBEDDED)) ?? "";
+          assertStringIncludes(shown, ASK_REPLY);
+          assertEquals(shown.includes("document.outline"), false);
+          assertEquals(shown.includes("question.submit"), false);
+        },
+      );
+
+      await t.step(
+        "lophn-agent/questions#R6 lophn-agent/roles/context-engineer#R10: 3 일반 긍정은 답도 정의도 아니다",
+        async () => {
+          await sendToEngineer(shell, YES_TEXT);
+          await untilAsk(
+            provider,
+            () => provider.phase() === "yesed",
+            "일반 긍정",
+          );
+          await untilAskDone(shell, provider, "일반 긍정이 끝나지 않았다");
+          const questions = await questionsOf(shell);
+          assertEquals(questions.length, 1);
+          assertEquals(questions[0]?.status, "pending");
+          assertEquals(questions[0]?.answer, null);
+          assertEquals(questions[0]?.applied, false);
+          assertEquals(await definitionOf(shell, OPEN_TERM), null);
+          assertEquals(await definitionOf(shell, LATER_TERM), null);
+          assertEquals(provider.callsNamed().includes("term.define"), false);
+          assertEquals(
+            provider.callsNamed().filter((name) => name === "question.submit")
+              .length,
+            1,
+          );
+          assertStringIncludes((await shell.text(EMBEDDED)) ?? "", YES_REPLY);
+        },
+      );
+
+      await t.step(
+        "lophn-agent/roles/context-engineer#R10 lophn-agent/questions#R6: 3 미루기는 답 없음이고 후보를 정의하지 않는다",
+        async () => {
+          const before = (await questionsOf(shell))[0];
+          assert(before !== undefined);
+          await shell.click(`${EMBEDDED} [data-later]`);
+          const deadline = Date.now() + 60_000;
+          let deferred: AskedQuestion | undefined;
+          for (;;) {
+            deferred = (await questionsOf(shell))[0];
+            if (deferred?.status === "cancelled") break;
+            assert(
+              Date.now() < deadline,
+              `미루기가 접수되지 않았다: ${JSON.stringify(deferred ?? null)}`,
+            );
+            await delay(250);
+          }
+          assertEquals(deferred?.id, before.id);
+          assertEquals(deferred?.closed_reason, "deferred");
+          assertEquals(deferred?.answer, null);
+          assertEquals(deferred?.applied, false);
+          assertEquals(await definitionOf(shell, OPEN_TERM), null);
+          await shell.until(
+            `document.querySelector(${
+              JSON.stringify(`${EMBEDDED} [data-question-strip]`)
+            }) === null`,
+            "미룬 질문이 칸에 남아 있다",
+          );
+        },
+      );
+
+      await t.step(
+        "lophn-agent/questions#R1 lophn-agent/questions#R3 lophn-agent/questions#R6: 3 이름·뜻을 명시한 자유 답은 질문의 답일 뿐 정의가 아니다",
+        async () => {
+          await sendToEngineer(shell, SECOND_TEXT);
+          await untilAsk(provider, () => provider.holding(), "둘째 질문");
+          await untilPrompt(SECOND_PROMPT);
+          assertEquals(
+            await shell.text(`${EMBEDDED} [data-question-reason]`),
+            provider.secondReason(),
+          );
+          assertEquals(
+            await shell.text(
+              `${EMBEDDED} [data-option='keep'] [data-option-description]`,
+            ),
+            "본문에 있는 이름을 유지하고 뜻은 사람이 적는다.",
+          );
+          assertEquals(
+            await shell.text(
+              `${EMBEDDED} [data-option='rename'] [data-option-description]`,
+            ),
+            "본문과 다른 이름을 사람이 적는다.",
+          );
+          assertStringIncludes(
+            (await shell.text(`${EMBEDDED} [data-recommendation]`)) ?? "",
+            SECOND_WHY,
+          );
+          assertEquals(await shell.count(`${EMBEDDED} [data-opens-review]`), 0);
+          assertEquals(
+            await shell.evaluate(
+              `document.querySelector(${
+                JSON.stringify(sendAnswer)
+              })?.hasAttribute("disabled") ?? true`,
+            ),
+            true,
+          );
+          const pending = await questionsOf(shell);
+          assertEquals(pending.length, 2);
+          const second = pending[1];
+          assert(second !== undefined);
+          assertEquals(second.status, "pending");
+          assertEquals(second.answer, null);
+          assertEquals(second.applied, false);
+          assertEquals(
+            second.options.map((option) => option.key),
+            ["keep", "rename"],
+          );
+          for (const option of second.options) {
+            assertEquals(option.action, null);
+            assertEquals(option.evidence, [{
+              document: evidence.document,
+              version: evidence.version,
+              section: evidence.section,
+            }]);
+          }
+          const text = await mustCall(shell, {
+            kind: "read",
+            resource: "questions",
+            method: "text",
+            body: { question: second.id },
+          });
+          assertEquals(text["prompt"], SECOND_PROMPT);
+          assertEquals((text["prompt"] as string).includes(OPEN_NAME), false);
+          assertEquals((text["prompt"] as string).includes(KNOWN_NAME), false);
+          await shell.type(`${EMBEDDED} [data-own-answer]`, OWN_ANSWER);
+          await shell.until(
+            `(() => { const button = document.querySelector(${
+              JSON.stringify(sendAnswer)
+            }); return button !== null && button.disabled === false; })()`,
+            "명시 답을 보낼 수 없다",
+          );
+          await shell.click(sendAnswer);
+          const deadline = Date.now() + 60_000;
+          let answered: AskedQuestion | undefined;
+          for (;;) {
+            answered = (await questionsOf(shell))[1];
+            if (answered?.status === "answered") break;
+            const dock = String(
+              await shell.evaluate(
+                `document.querySelector(${
+                  JSON.stringify(EMBEDDED)
+                })?.innerText ?? null`,
+              ),
+            ).slice(0, 400);
+            assert(
+              Date.now() < deadline,
+              `명시 답이 접수되지 않았다: ${
+                JSON.stringify(answered ?? null)
+              } dock=${dock}`,
+            );
+            await delay(250);
+          }
+          assertEquals(answered?.answer?.kind, "text");
+          assertEquals(answered?.applied, false);
+          const answeredText = await mustCall(shell, {
+            kind: "read",
+            resource: "questions",
+            method: "text",
+            body: { question: second.id },
+          });
+          assertEquals(answeredText["answer_text"], OWN_ANSWER);
+          assertEquals(await definitionOf(shell, LATER_TERM), null);
+          assertEquals(await definitionOf(shell, OPEN_TERM), null);
+          assertEquals(await definitionOf(shell, KNOWN_TERM), KNOWN_MEANING);
+          provider.release();
+          await untilAsk(
+            provider,
+            () => provider.phase() === "done",
+            "명시 답 종료",
+          );
+          await untilAskDone(shell, provider, "명시 답이 끝나지 않았다");
+          assertEquals(provider.callsNamed().includes("term.define"), false);
+          assertEquals(
+            provider.callsNamed().filter((name) => name === "question.submit")
+              .length,
+            2,
+          );
+          assertStringIncludes((await shell.text(EMBEDDED)) ?? "", NOTED_REPLY);
+          await shell.until(
+            `document.querySelector(${
+              JSON.stringify(`${EMBEDDED} [data-question-strip]`)
+            }) === null`,
+            "답한 질문이 칸에 남아 있다",
+          );
+          const kept = await mustCall(shell, {
+            kind: "read",
+            resource: "questions",
+            method: "text",
+            body: { question: second.id },
+          });
+          assertEquals(kept["answer_text"], OWN_ANSWER);
+          await openAskMeanings(shell);
+          assertEquals(
+            await shell.count("[data-definitions] [data-term]"),
+            1,
+          );
+          assertEquals(
+            await shell.count("[data-candidates] [data-candidate]"),
+            2,
+          );
+          assertEquals(await shell.text("[data-definition]"), KNOWN_MEANING);
+          assertEquals(await definitionOf(shell, LATER_TERM), null);
+        },
+      );
+    } finally {
+      await flow?.close();
+      await provider.close();
+      if (flow !== undefined) await removeHome(flow.home);
       await Deno.remove(folder, { recursive: true });
     }
   },

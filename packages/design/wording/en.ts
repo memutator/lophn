@@ -1203,6 +1203,7 @@ export const en = {
   "document.label.compare-after": "Newer version",
   "document.label.version-number": "Version {number, number}",
   "document.label.version-newest": "Newest",
+  "document.label.version-run": "{id}",
   "document.label.changed-sections": "Changed sections",
   "document.label.section-counts": "+{added, number} −{removed, number}",
   "document.label.section-modified": "Changed",

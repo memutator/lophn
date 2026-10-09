@@ -25,6 +25,7 @@ function row(number: number, savedBy: VersionRow["savedBy"]): VersionRow {
     number,
     savedBy,
     savedAt: NOW - (4 - number) * 3_600_000,
+    run: null,
     fromFile: savedBy === "machine",
     contentHash: `hash_${number}`,
     restorable: true,

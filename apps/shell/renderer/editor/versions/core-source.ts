@@ -26,6 +26,7 @@ interface VersionValue {
   format: { name: string; explicit: boolean };
   saved_by: string;
   saved_at: string;
+  run: string | null;
   source: { kind: string } | null;
 }
 
@@ -153,6 +154,7 @@ function rowOf(value: VersionValue): VersionRow {
     number: value.number,
     savedBy: saverKind(value.saved_by),
     savedAt: Date.parse(value.saved_at),
+    run: value.run ?? null,
     fromFile: value.source !== null && value.source.kind !== "app",
     contentHash: value.content_hash,
     restorable: Array.isArray(value.files),

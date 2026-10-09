@@ -1203,6 +1203,9 @@ export type PlaceholderKinds = {
     number: "number";
   };
   "document.label.version-newest": Record<never, never>;
+  "document.label.version-run": {
+    id: "string";
+  };
   "document.label.changed-sections": Record<never, never>;
   "document.label.section-counts": {
     added: "number";

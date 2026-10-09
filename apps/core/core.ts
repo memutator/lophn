@@ -30,6 +30,7 @@ import {
   type ApiServer,
   RouteRegistry,
   startApiServer,
+  WORKSPACE_MEMORY_ROUTES,
 } from "../../packages/platform/api/mod.ts";
 import type { WorkerRouteTarget } from "../../packages/platform/responsiveness/mod.ts";
 import {
@@ -653,8 +654,14 @@ async function open(
   );
   if (!assembled.ok) return assembled;
   // HTTP route는 writer·reader가 받는 command·read와 같은 조립에서 온다.
+  // 현재 보기 relay는 팀 조립 밖 memory route다. registry에 없으면 handler가
+  // 있어도 lookup이 route not found를 반환한다(shell/workspace#R9).
   // platform 기본 route와 팀 route의 resource/method가 겹치면 기동을 거절한다.
-  const allRoutes = [...ROUTES, ...assembled.value.routes];
+  const allRoutes = [
+    ...ROUTES,
+    ...WORKSPACE_MEMORY_ROUTES,
+    ...assembled.value.routes,
+  ];
   let routes: RouteRegistry;
   try {
     routes = new RouteRegistry(allRoutes);

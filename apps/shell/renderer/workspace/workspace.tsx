@@ -44,6 +44,7 @@ import {
   DocumentView,
   type EditorDeps,
 } from "../editor/document-view.tsx";
+import { layoutHint, type TabPresentation } from "./view-hint.ts";
 import { DocumentInfoPanel } from "../editor/info-panel/info-panel.tsx";
 import { closeTerminalTab, type TerminalDeps } from "../terminal/deps.ts";
 import { TerminalTab } from "../terminal/terminal-tab.tsx";
@@ -167,6 +168,10 @@ export function Workspace(
   const [tabMeta, setTabMeta] = useState<
     Readonly<Record<string, DocumentTabMeta>>
   >({});
+  // 문서 탭의 판·읽기/편집. 현재 보기 힌트만 쓰고 탭 제목(R4)에는 넣지 않는다.
+  const [presentation, setPresentation] = useState<
+    Readonly<Record<string, TabPresentation>>
+  >({});
   // 문서 탭마다 열린 버전 비교. 정보 패널의 버전 탭이 열고 문서 탭 본문 자리에 그린다(editor#R13).
   const [compares, setCompares] = useState<
     Readonly<Record<string, CompareTarget>>
@@ -210,6 +215,15 @@ export function Workspace(
       live = false;
     };
   }, [projectId, source]);
+
+  // 작업대 힌트. 통로가 없는 화면 테스트는 보내지 않는다. 창 신원은 main이 정한다.
+  useEffect(() => {
+    const bridge = (globalThis as {
+      lophnWorkspace?: { report(hint: unknown): Promise<{ ok: boolean }> };
+    }).lophnWorkspace;
+    if (!bridge) return;
+    void bridge.report(layoutHint({ project: projectId, view, presentation }));
+  }, [presentation, projectId, view]);
 
   // 추적을 켠 뒤 문서·파일 목록만 다시 읽는다. 열린 탭과 배치는 그대로 둔다.
   const refreshDocuments = async () => {
@@ -456,6 +470,17 @@ export function Workspace(
     });
   };
 
+  const notePresentation = (key: string, shown: TabPresentation) => {
+    setPresentation((current) => {
+      const prev = current[key];
+      if (
+        prev !== undefined && prev.editing === shown.editing &&
+        prev.version === shown.version
+      ) return current;
+      return { ...current, [key]: shown };
+    });
+  };
+
   // 편집기가 읽은 파일 이름으로 탭 제목을 바꾼다. 같은 이름이면 다시 저장하지 않는다.
   const noteMeta = (key: string, meta: DocumentTabMeta) => {
     setTabMeta((current) => ({ ...current, [key]: meta }));
@@ -522,6 +547,7 @@ export function Workspace(
           onCompare={(target) => showCompare(tab.key, target)}
           onVersionsChanged={() => setVersionsTick((value) => value + 1)}
           onMeta={(meta) => noteMeta(tab.key, meta)}
+          onPresentation={(shown) => notePresentation(tab.key, shown)}
           initialPosition={tab.readPosition}
           onReadPosition={(position) => notePosition(tab.key, position)}
           onOpenDocument={(id) => {

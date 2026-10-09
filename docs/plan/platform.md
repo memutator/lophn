@@ -1169,6 +1169,8 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 - 이 PR (#515)은 flow update-lophn의 3단계만 했다. schema 변경이 필요하면 새 command를 막고 기존 짧은 쓰기를 끝낸 뒤 worker를 정지하고, 일관된 검증 backup 뒤에 포함된 migration을 순서대로 수행한다. 실패·중단 단계는 rollback해서 직전 완료 schema를 유지한다. 사람에게는 보이지 않는다. 4–8단계와 work-offline의 나머지, install-lophn은 남은 그대로다.
 - 상태: 진행 (#521) — 남은 것: work-offline 4–7단계, update-lophn 4–8단계, install-lophn. 한 것: work-offline 3단계는 연결 실패·기다림·결과 모름을 구별하고, 마지막 확인한 로컬 문서를 유지하며 한 앱의 오래 걸리는 호출이 무관한 로컬 문서와 다른 앱을 멈추지 않는다.
 - 이 PR (#521)은 flow work-offline의 3단계만 했다. 외부 연결이 필요한 동작만 연결 실패·기다림·결과 모름으로 안내한다. 마지막 확인한 로컬 문서 내용은 유지하고, 한 앱의 오래 걸리는 호출이 무관한 로컬 문서와 다른 앱을 멈추지 않는다. 4–7단계와 update-lophn, install-lophn은 남은 그대로다.
+- 상태: 진행 (#523) — 남은 것: update-lophn 5–8단계, work-offline의 나머지, install-lophn. 한 것: 4단계는 설정·무결성·기존 고정 판과 참조·실행 자격·중단 작업을 확인한다. 모르는 schema나 손상 원본은 자동 초기화하거나 downgrade하지 않고 보존한다. 사람에게는 보이지 않는다.
+- 이 PR (#523)은 flow update-lophn의 4단계만 했다. 설정·무결성·기존 고정 판과 참조·실행 자격·중단 작업을 확인한다. 모르는 schema나 손상 원본은 자동 초기화하거나 downgrade하지 않고 보존한다. 사람에게는 보이지 않는다. 5–8단계와 work-offline의 나머지, install-lophn은 남은 그대로다.
 - 상태: 진행 (#524) — 남은 것: work-offline 5–7단계, update-lophn 5–8단계, install-lophn. 한 것: work-offline 4단계만. harness가 일시적인 provider 통신 실패만 정해진 횟수와 대기 안에서 retry한다. 불완전한 model 응답의 tool call은 시작하지 않는다. 다른 provider나 model로 바꾸지 않는다. 이 과정은 사람에게 보이지 않는다.
 - 완료: 아래 확인이 통과한다
   - `e2e/flows/install-lophn_test.ts`, `update-lophn_test.ts`, `backup-and-restore_test.ts`, `catch-up-notifications_test.ts`, `work-offline_test.ts`가 flow 문서의 단계·다른 갈래·끝을 그대로 돈다(Linux, fake provider와 fixture).

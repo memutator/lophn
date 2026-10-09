@@ -4,8 +4,8 @@
 // 파일 저장 contract(base_hash 대조·원자 교체)를 따르고 그 파일의 관측으로 새 판이 된다.
 // - 프로젝트 등록·추적은 같은 사람 command를 core 통로로 낸다(first-project가 화면 조작을 따로 본다).
 // - 이력·비교·restore 조작은 모두 정보 패널의 versions 탭과 compare 화면으로 한다.
-// - 이 파일이 보지 않는 갈래(agent가 쓴 판의 run 근거, 옛 이름·자리 참조, 원본 파일이 없을 때, 검색
-//   반영 대기 표시)는 documents#T21의 이어보냄 메모에 적었다.
+// - 원본 파일이 없을 때는 아래 갈래가 본다. 아직 없는 갈래(agent가 쓴 판의 run 근거, 옛 이름·자리
+//   참조, 검색 반영 대기 표시)는 documents#T21의 이어보냄 메모에 적었다.
 import { assert, assertEquals } from "@std/assert";
 
 import { e2eEnabled } from "../harness.ts";
@@ -272,6 +272,97 @@ Deno.test({
           assert(rows[1].content_hash !== rows[0].content_hash);
           assert(rows[2].content_hash !== rows[0].content_hash);
         },
+      );
+    } finally {
+      const home = flow.home;
+      await flow.close();
+      await removeHome(home);
+      await Deno.remove(folder, { recursive: true });
+    }
+  },
+});
+
+async function fileGone(path: string): Promise<boolean> {
+  try {
+    await Deno.stat(path);
+    return false;
+  } catch (error) {
+    return error instanceof Deno.errors.NotFound;
+  }
+}
+
+Deno.test({
+  name:
+    "documents/versions#R11 documents/file-tracking#R9 documents/file-tracking#R15 flow restore-document: 원본 파일이 없으면 옛 판은 읽히고 restore는 파일을 쓴 것처럼 보이지 않는다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn() {
+    const folder = await Deno.realPath(
+      await Deno.makeTempDir({ prefix: "lophn-e2e-restore-gone-" }),
+    );
+    const file = `${folder}/plan.md`;
+    await Deno.writeTextFile(file, ALPHA);
+    const { flow, documentId } = await openProjectWorkspace({
+      folder,
+      name: "plan",
+      title: "Plan",
+      document: "plan",
+    });
+    try {
+      await Deno.writeTextFile(file, BETA);
+      await untilVersions(flow, documentId, 2, "두 번째 판이 없다");
+      await untilReadable(flow, documentId, "지금 판의 본문이 읽히지 않는다");
+      await flow.click(`[data-document="${documentId}"]`);
+      await flow.until(
+        `document.querySelector("[data-document-view]")?.getAttribute("data-document-view") === "read" && document.querySelector("[data-document-body]")?.textContent?.includes("Beta line.")`,
+        "지금 판이 읽히지 않았다",
+      );
+      const before = await versionHistory(flow, documentId);
+      assertEquals(before.map((row) => row.number), [2, 1]);
+
+      // 원본 파일을 지운다. 저장된 판은 파일과 따로 남는다.
+      await Deno.remove(file);
+      assert(await fileGone(file), "원본 파일이 아직 있다");
+      await flow.until(
+        `document.querySelector("[data-document-view]")?.getAttribute("data-document-view") === "read" && document.querySelector("[data-document-body]")?.textContent?.includes("Beta line.")`,
+        "파일이 없어도 고정 판이 읽히지 않는다",
+      );
+
+      await openVersions(flow);
+      await flow.click(`[data-compare-newest="1"]`);
+      await flow.until(
+        `document.querySelector("[data-compare-view]") !== null`,
+        "비교 화면이 열리지 않았다",
+      );
+      await flow.until(
+        `${DIFF_TEXT("delete")}.includes("\\"Alpha line.\\"") && ${
+          DIFF_TEXT("add")
+        }.includes("\\"Beta line.\\"")`,
+        "파일이 없어도 옛 판과 지금 판의 내용이 읽히지 않는다",
+      );
+
+      await flow.click("[data-compare-restore='1']");
+      await flow.until(
+        `document.querySelector("[data-restore-confirm]") !== null`,
+        "restore 확인이 없다",
+      );
+      assert(await fileGone(file), "확인 전에 파일이 되살아났다");
+      await flow.click("[data-restore-confirm-button]");
+      await flow.until(
+        `document.querySelector("[data-restore-notice]")?.getAttribute("data-restore-notice") === "file-conflict"`,
+        "없는 파일의 restore가 파일을 쓴 결과로 보인다",
+      );
+      // 파일 저장이 끝나지 않았고 판 확정도 없다. 둘을 성공이나 서로 같은 실패로 채우지 않는다.
+      assert(
+        await fileGone(file),
+        "restore가 없는 파일을 쓴 것처럼 파일을 만들었다",
+      );
+      const after = await versionHistory(flow, documentId);
+      assertEquals(after.map((row) => row.number), [2, 1]);
+      assertEquals(
+        after.map((row) => row.content_hash),
+        before.map((row) => row.content_hash),
       );
     } finally {
       const home = flow.home;

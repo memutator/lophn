@@ -1004,6 +1004,7 @@ concerns: [shell]
 - 내놓는 contract: 없음
 - slice: apps
 - 선행: shell#T37, shell#T39, shell#T42, apps#T26
+- 상태: 완료 (#472)
 - 완료: 아래 확인이 통과한다
   - 앱 UI의 무한 loop, 큰 렌더링, crash에서 shell 크롬·다른 탭·다른 앱을 조작한다. platform/responsiveness 기준(shell 첫 반응 p95 100ms)을 잰다. WebContents 분리만으로 자원 격리 완료라고 표시하지 않는다.
   - crash·멈춤에 연결 상태를 보이고 자동 재호출 없이 현재 연결로 새 view를 여는 행동을 준다.

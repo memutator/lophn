@@ -17,6 +17,7 @@ import {
 } from "./app-connection.ts";
 import type { ViewDiagnostics, ViewEvent } from "./diagnostics.ts";
 import { bindTarget } from "./binding.ts";
+import { nextHealth, reopenable, type ViewHealth } from "./crash.ts";
 import { navigationAllowed } from "./network-policy.ts";
 import { createPlacement, type Placed } from "./placement.ts";
 import {
@@ -83,6 +84,8 @@ interface Entry extends Bound, Placed {
   view_session: string;
   token: string;
   connectionState: ConnectionState;
+  /** 화면 process 상태(crash.ts). 새 contents마다 ok로 시작한다. */
+  viewHealth: ViewHealth;
   refreshing: Promise<void> | undefined;
   renewedFor: number | undefined;
   /** 세션 카드가 묶인 message·block. 카드가 아니면 null이다. */
@@ -173,16 +176,23 @@ export function createAppFrame(deps: AppFrameDeps) {
     const label = appHostLabel(entry.target.app);
     sessions.ensure(entry.partition, label);
     const screen = entry.target.screen;
-    entry.contents = deps.views.create({
+    // 바뀐 뒤 옛 contents가 늦게 보낸 신호는 새 view 상태가 아니다.
+    const contents = deps.views.create({
       partition: entry.partition,
       allowNavigation: (url) => navigationAllowed(url, label, screen),
+      onHealth: (signal) => {
+        if (entries.get(entry.view_session) !== entry) return;
+        if (entry.contents !== contents) return;
+        setHealth(entry, nextHealth(entry.viewHealth, signal));
+      },
     });
+    entry.contents = contents;
+    entry.viewHealth = "ok";
     entry.token = deps.ids.token();
     byContents.set(entry.contents.id, entry);
     byToken.set(entry.token, entry);
     record(entry, "created");
     placement.mounted(entry);
-    const contents = entry.contents;
     void contents.load(appEntryUrl(label, screen)).catch(() => {}).then(() => {
       // 그 사이 닫히거나 다른 contents로 바뀌었으면 옛 load 결과로 붙이지 않는다.
       if (entries.get(entry.view_session) !== entry) return;
@@ -221,6 +231,32 @@ export function createAppFrame(deps: AppFrameDeps) {
     if (entry.connectionState === next) return;
     entry.connectionState = next;
     pushState(entry);
+  }
+
+  function setHealth(entry: Entry, next: ViewHealth): void {
+    if (entry.viewHealth === next) return;
+    entry.viewHealth = next;
+    pushState(entry);
+  }
+
+  /**
+   * 깨진 view에 지금 연결(같은 binding·partition)로 새 contents를 연다. 연결을 다시 얻거나
+   * 앱을 다시 부르지 않는다. 건강한 view는 conflict다(crash.ts).
+   */
+  function reopen(view_session: string): Outcome<AppFrameViewState> {
+    const entry = entries.get(view_session);
+    if (entry === undefined) {
+      return failure("invalid_input", "view is not open");
+    }
+    if (!reopenable(entry.viewHealth)) {
+      return failure("conflict", "view is not broken");
+    }
+    unmount(entry);
+    entry.generation += 1;
+    record(entry, "replaced");
+    mount(entry);
+    pushState(entry);
+    return { ok: true, value: state(entry) };
   }
 
   function refreshEntry(entry: Entry): Promise<void> {
@@ -306,6 +342,7 @@ export function createAppFrame(deps: AppFrameDeps) {
         placed: false,
         attached: false,
         connectionState: "running",
+        viewHealth: "ok",
         refreshing: undefined,
         renewedFor: undefined,
         card: card === undefined
@@ -354,6 +391,8 @@ export function createAppFrame(deps: AppFrameDeps) {
     },
 
     close,
+
+    reopen,
 
     /**
      * 보이게 하고 bounds를 옮긴다. 준비 전이면 마지막 bounds를 기억했다가 준비되면 붙인다.

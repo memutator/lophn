@@ -15,8 +15,8 @@ import {
 } from "../../contracts/platform/mod.ts";
 import {
   applyProblemDecision,
-  type Closure,
   closeProblemVerified,
+  type Closure,
   problemClosed,
   problemConfirmationRecorded,
   problemReopened,

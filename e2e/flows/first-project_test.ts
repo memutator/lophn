@@ -3,11 +3,10 @@
 // fixture(notes-basic, multi-folder, mixed-formats)를 사람이 등록한 프로젝트로 쓴다.
 // - 3·5·6·7·8과 다른 갈래(등록만으로는 추적하지 않음, 겹침 거절, 미지원 형식, 추적을 꺼도 판은 남음)
 //   를 실제 core 경로로 본다. 8의 "준비된 문서를 열어 읽는다"는 lophn 공간 documents 화면에서 본다.
-// - 1·2·4(launcher의 프로젝트 등록, project-workspace의 추적 켜기와 범위 미리보기 화면)는
-//   shell#T15가 없고 `/v1/projects/preview_tracking`은 shell main의 renderer 통로 allowlist에 아직
-//   없어서(core 서빙은 documents#T12가 붙였다), 화면 대신
-//   같은 사람 command를 core 통로로 내고 미리보기는 같은 계산을 시험이 직접 한다. 그 화면 단계는
-//   이 시험이 대신하지 않는다(계획 T21 이어보냄).
+// - 1·2·4는 실제 화면으로 돈다: launcher의 [프로젝트 등록] dialog(이름·목적·OS 폴더 선택기, headless는
+//   `LOPHN_SHELL_PICK_FOLDER`가 고른 폴더를 돌려준다) → 그 프로젝트 작업대의 추적 꺼짐 안내 →
+//   [Turn on tracking] dialog의 기본 규칙(Markdown, .gitignore)과 포함·제외 미리보기 → 그만두기와 켜기.
+//   다른 시험은 같은 사람 command를 core 통로로 내 준비한다(registerProject·setTracking).
 import { assert, assertEquals } from "@std/assert";
 
 import {
@@ -31,6 +30,170 @@ import {
 } from "../flow-support.ts";
 
 const OTHER_PROJECT = "prj_01arz3ndektsv4rrffq69g5fb0";
+
+type ProjectRow = {
+  id: string;
+  title: string;
+  purpose: string;
+  folders: { path: string }[];
+  tracking: { enabled: boolean };
+};
+
+async function projectRows(
+  flow: Awaited<ReturnType<typeof openFlowShell>>,
+): Promise<ProjectRow[]> {
+  const listed = await mustCall(flow, {
+    kind: "read",
+    resource: "projects",
+    method: "list",
+    body: {},
+  });
+  return (listed.projects as { project: ProjectRow }[] | ProjectRow[]).map((
+    row,
+  ) => ("project" in row ? row.project : row));
+}
+
+Deno.test({
+  name:
+    "documents/projects#R1 documents/projects#R2 documents/projects#R3 documents/projects#R6 shell/desktop#R25 shell/desktop#R28 flow first-project: 1·2·4 launcher에서 폴더를 골라 등록하고 작업대에서 미리본 범위로 추적을 켠다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn(t) {
+    const folder = await Deno.realPath(await copyFixture("notes-basic"));
+    const flow = await openFlowShell({ pickFolder: folder });
+    try {
+      await t.step(
+        "documents/projects#R1 documents/projects#R2 shell/desktop#R25: 1 기본 프로젝트 없이 launcher에서 이름·목적·폴더를 정해 등록한다",
+        async () => {
+          await flow.until(
+            `document.querySelector('[data-space="launcher"] [data-section="projects"] [data-cards="empty"] button') !== null`,
+            "launcher가 서지 않았다",
+          );
+          // lophn은 기본 프로젝트를 만들지 않는다. 빈 카드 자리의 등록 단추로 시작한다.
+          assertEquals(await flow.count("[data-card=project]"), 0);
+          assertEquals(await projectRows(flow), []);
+          await flow.click(
+            '[data-section="projects"] [data-cards="empty"] button',
+          );
+          await flow.until(
+            `document.querySelector("[data-register-form]") !== null`,
+            "등록 dialog가 열리지 않았다",
+          );
+          await flow.type("[data-field=name]", "Field Notes");
+          await flow.type("[data-field=purpose]", "Notes from the field.");
+          await flow.click("[data-add-folder]");
+          await flow.until(
+            `document.querySelector(${
+              JSON.stringify(`[data-folder="${folder}"]`)
+            }) !== null`,
+            "고른 폴더가 등록 dialog에 오르지 않았다",
+          );
+          await flow.click("[data-register]");
+          // 등록 다음 단계(추적을 켤지)는 그 프로젝트의 작업대에서 정한다.
+          await flow.until(
+            `document.querySelector('[data-space="project"]') !== null`,
+            "등록한 프로젝트의 작업대로 가지 않았다",
+          );
+          const rows = await projectRows(flow);
+          assertEquals(rows.length, 1);
+          assertEquals(rows[0]!.title, "Field Notes");
+          assertEquals(rows[0]!.purpose, "Notes from the field.");
+          assertEquals(rows[0]!.folders.map((row) => row.path), [folder]);
+          assertEquals(rows[0]!.tracking.enabled, false);
+        },
+      );
+
+      await t.step(
+        "documents/projects#R3 documents/projects#R8 shell/desktop#R28: 2 등록 직후에는 추적하지 않고 처음 켤 때 Markdown과 .gitignore를 기본으로 제안한다",
+        async () => {
+          await flow.until(
+            `document.querySelector("[data-tracking=off] [data-turn-on-tracking]") !== null`,
+            "추적 꺼짐 안내가 없다",
+          );
+          await delay(3_000);
+          assertEquals(await listDocuments(flow), []);
+          await flow.click("[data-turn-on-tracking]");
+          await flow.until(
+            `document.querySelector("[data-tracking-dialog] [data-preview=ready]") !== null`,
+            "추적 미리보기가 준비되지 않았다",
+          );
+          const rules = await flow.text("[data-rules]") ?? "";
+          assert(rules.includes("*.md"), rules);
+          assert(/gitignore/i.test(rules), rules);
+        },
+      );
+
+      await t.step(
+        "documents/projects#R6 documents/projects#R3: 4 포함·제외 파일과 이유를 미리보고, 그만두면 켜지 않으며 켜면 그 범위만 판이 된다",
+        async () => {
+          const tracked = await flow.evaluate(`JSON.stringify(
+            [...document.querySelectorAll("[data-group=tracked] [data-entry]")]
+              .map((el) => el.getAttribute("data-entry")))`);
+          const leftOut = await flow.evaluate(`JSON.stringify(
+            [...document.querySelectorAll("[data-group=left-out] [data-entry]")]
+              .map((el) => el.getAttribute("data-entry")))`);
+          const include = JSON.parse(String(tracked)) as string[];
+          const exclude = JSON.parse(String(leftOut)) as string[];
+          assert(include.includes("index.md"), String(tracked));
+          assert(include.includes("deep/sub/inner.md"), String(tracked));
+          assert(exclude.includes("notes.txt"), String(leftOut));
+          assert(exclude.includes("private.secret.md"), String(leftOut));
+          assertEquals(include.includes("private.secret.md"), false);
+          assert(
+            (await flow.text("[data-count=tracked]"))?.includes("9"),
+            await flow.text("[data-count=tracked]") ?? "",
+          );
+
+          // 미리보기를 그만두면 추적을 켜지 않는다.
+          const cancelled = await flow.evaluate(`(() => {
+            const button = [...document.querySelectorAll("[role=dialog] button")]
+              .find((el) => el.textContent?.trim() === "Cancel");
+            if (!button) return false;
+            button.click();
+            return true;
+          })()`);
+          assertEquals(cancelled, true);
+          await flow.until(
+            `document.querySelector("[data-tracking-dialog]") === null`,
+            "추적 dialog가 닫히지 않았다",
+          );
+          await delay(2_000);
+          assertEquals((await projectRows(flow))[0]!.tracking.enabled, false);
+          assertEquals(await listDocuments(flow), []);
+
+          // 다시 열어 같은 범위로 켠다.
+          await flow.click("[data-turn-on-tracking]");
+          await flow.until(
+            `document.querySelector("[data-tracking-dialog] [data-preview=ready]") !== null && !document.querySelector("[data-apply-tracking]").disabled`,
+            "추적 미리보기가 다시 준비되지 않았다",
+          );
+          await flow.click("[data-apply-tracking]");
+          await flow.until(
+            `document.querySelector("[data-tracking-dialog]") === null && document.querySelector("[data-tracking=off]") === null`,
+            "추적을 켠 뒤에도 꺼짐 안내가 남았다",
+          );
+          assertEquals((await projectRows(flow))[0]!.tracking.enabled, true);
+          await untilDocuments(
+            flow,
+            ["index", "outer", "inner", "setext", "fenced"],
+            "켠 범위의 파일이 문서가 되지 않았다",
+          );
+          await delay(3_000);
+          const titles = (await listDocuments(flow)).map((row) => row.title);
+          for (const excluded of ["hidden", "private.secret", "notes"]) {
+            assertEquals(titles.includes(excluded), false, excluded);
+          }
+          assertEquals(titles.length, include.length, titles.join(","));
+        },
+      );
+    } finally {
+      await flow.close();
+      await removeHome(flow.home);
+      await Deno.remove(folder, { recursive: true });
+    }
+  },
+});
 
 Deno.test({
   name:

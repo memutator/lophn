@@ -79,7 +79,7 @@ const roles = coreRolesSource(core);
 // settings 화면. 연결·계정·확장·일반 설정. key·로그인 응답은 보호 창이 받는다.
 const settings = coreSettingsSource(core);
 // settings의 운영 탭(shell#T58). backup 복원 계획·제출은 main의 복원 통로(`lophnRestore`)다.
-// update는 사람이 고른 로컬 metadata 안내만 한다(`lophnUpdate`). 다운로드·설치·재시작은 없다.
+// update는 사람이 고른 로컬 파일의 안내와 정상 정지다(`lophnUpdate`). 다운로드·재시작은 없다.
 // OS notification은 이 탭에서 켠 뒤에만 shell main이 올린다(platform/notifications#R9).
 const settingsPanels = {
   backup: coreBackupSource(core),

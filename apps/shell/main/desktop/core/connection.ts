@@ -20,6 +20,7 @@ import {
   type CoreProcess,
   type LaunchOptions,
   spawnCore,
+  UPDATE_STOP_MS,
 } from "./supervise.ts";
 
 export interface StateTarget {
@@ -80,6 +81,8 @@ export interface CoreConnection {
   session(): CoreSession | null;
   /** 명시 종료. 창 닫기는 부르지 않는다. */
   shutdown(): void;
+  /** update 정상 정지. 프로세스가 스스로 끝나면 true다. 다시 띄우지 않는다. */
+  confirmStop(): Promise<boolean>;
   /** main의 안전 진단을 감독 pipe로 보낸다. 보내지 못하면 false다. */
   diagnostic(message: unknown): boolean;
   /**
@@ -228,6 +231,9 @@ export function startCoreConnection(
     },
     shutdown() {
       core.stop();
+    },
+    confirmStop() {
+      return core.confirmStop(UPDATE_STOP_MS);
     },
     diagnostic(message) {
       return core.diagnostic(message);

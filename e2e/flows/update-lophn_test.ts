@@ -1,8 +1,10 @@
-// flow update-lophn 1단계(docs/flows/update-lophn.md). 실제 shell(headless)·core를 임시
+// flow update-lophn 1·2단계(docs/flows/update-lophn.md). 실제 shell(headless)·core를 임시
 // LOPHN_HOME으로 띄운다. 실제 ~/.lophn은 열지 않는다.
-// settings에서 이 OS의 설치 패키지를 확인하고 사람이 고른 로컬 metadata로 수동 update를
+// 1단계: settings에서 이 OS의 설치 패키지를 확인하고 사람이 고른 로컬 metadata로 수동 update를
 // 고른다. 자동 다운로드·자동 설치·사용 중 재시작은 없고, 검증하지 않은 배포를 사용 가능한
-// 완료로 안내하지 않는다. 2–8단계는 보지 않는다.
+// 완료로 안내하지 않는다.
+// 2단계: 정상 정지 뒤 그 패키지 파일로 설치 파일만 바꾼다. 데이터 폴더의 ledger는 남는다.
+// 3–8단계는 보지 않는다.
 import { assert, assertEquals } from "@std/assert";
 
 import { e2eEnabled } from "../harness.ts";
@@ -138,6 +140,103 @@ Deno.test({
       await opened?.close();
       await removeHome(home);
       await Deno.remove(pack, { recursive: true });
+    }
+  },
+});
+
+Deno.test({
+  name:
+    "platform/install-and-update#R14 platform/ledger#R21 flow update-lophn 2: 정상 정지 뒤 사람이 고른 패키지 파일로 설치 파일만 바꾸고 ledger는 남긴다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn() {
+    const os = Deno.build.os;
+    const format = formatOf(os);
+    const home = await Deno.makeTempDir({ prefix: "lophn-e2e-update-" });
+    await Deno.chmod(home, 0o700);
+    const pack = await Deno.realPath(
+      await Deno.makeTempDir({ prefix: "lophn-e2e-update-pkg-" }),
+    );
+    const install = await Deno.realPath(
+      await Deno.makeTempDir({ prefix: "lophn-e2e-update-install-" }),
+    );
+    const metadata = `${pack}/lophn-update.json`;
+    await Deno.writeTextFile(`${install}/lophn-update.json`, "old-install\n");
+    await Deno.writeTextFile(`${install}/untouched.txt`, "keep\n");
+    let opened: FlowShell | undefined;
+    try {
+      const flow = await openFlowShell({
+        home,
+        start: "settings",
+        pickFolder: metadata,
+        env: { LOPHN_INSTALL_ROOT: install },
+      });
+      opened = flow;
+      await openUpdate(flow);
+      const before = await platformStatus(flow);
+      const body = JSON.stringify({
+        version: OFFERED,
+        os,
+        format,
+        schema: before.schema,
+      });
+      await Deno.writeTextFile(metadata, body);
+      await Deno.writeTextFile(`${home}/kept.txt`, "kept\n");
+      await flow.click("[data-action='choose-package']");
+      await flow.until(
+        `document.querySelector("[data-notice='ready']") !== null`,
+        "수동 update 안내가 오지 않았다",
+      );
+      assertEquals(await flow.count("[data-action='stop-and-update']"), 1);
+      const shown = String(await flow.text("[data-update]"));
+      assert(!shown.includes("Download"));
+      await flow.click("[data-action='stop-and-update']");
+      await flow.until(
+        `document.querySelector("[data-stop='stopped'], [data-stop='failed']") !== null`,
+        "정상 정지가 끝나지 않았다",
+        90_000,
+      );
+      assertEquals(
+        (await flow.text("[data-stop='stopped']"))?.trim(),
+        "lophn stopped cleanly. Start lophn again.",
+      );
+      assertEquals((await flow.text("[data-deployment]"))?.trim(), UNVERIFIED);
+      assert(!String(await flow.text("[data-update]")).includes("Download"));
+      let coreGone = false;
+      try {
+        const reply = await flow.call({
+          kind: "read",
+          resource: "platform",
+          method: "status",
+          body: {},
+        });
+        coreGone = !reply.ok;
+      } catch {
+        coreGone = true;
+      }
+      assert(coreGone, "플랫폼이 아직 응답한다");
+      assertEquals(
+        await Deno.readTextFile(`${install}/lophn-update.json`),
+        body,
+      );
+      assertEquals(
+        await Deno.readTextFile(`${install}/untouched.txt`),
+        "keep\n",
+      );
+      assertEquals(await Deno.readTextFile(metadata), body);
+      assertEquals(
+        (await Deno.readTextFile(`${home}/ledger-id`)).trim(),
+        before.ledgerId,
+      );
+      const ledger = await Deno.stat(`${home}/lophn.db`);
+      assert(ledger.isFile && ledger.size > 0);
+      assertEquals(await Deno.readTextFile(`${home}/kept.txt`), "kept\n");
+    } finally {
+      await opened?.close();
+      await removeHome(home);
+      await Deno.remove(pack, { recursive: true });
+      await Deno.remove(install, { recursive: true });
     }
   },
 });

@@ -22,7 +22,10 @@
 import { assert, assertEquals } from "@std/assert";
 
 import { sha256Hex } from "../../packages/base/mod.ts";
-import { removeTree } from "../../packages/apps/sdk/testing/mod.ts";
+import {
+  installedHome,
+  removeTree,
+} from "../../packages/apps/sdk/testing/mod.ts";
 import {
   descendantPids,
   e2eEnabled,
@@ -220,7 +223,7 @@ Deno.test({
     // core 한 번을 띄워 DB를 만든 뒤 멈추고 앱을 심고 앱 공간부터 다시 연다.
     const first = await openFlowShell({ home });
     await first.close();
-    const bundle = await prepareBrokenApp(home);
+    const bundle = await prepareBrokenApp(home, { installedHome, removeTree });
     seedLedger(home, bundle);
     const flow = await openFlowShell({ home, start: `app:${APP}` });
     let overlay: Page | undefined;

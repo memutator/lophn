@@ -5,6 +5,10 @@
 // - problems/feedback#R13: Issues에서 다시 연 보고는 그 문제에 더해짐을 미리 보이고 그대로 묶인다.
 import { assert, assertEquals } from "@std/assert";
 
+import {
+  installedHome,
+  removeTree,
+} from "../../packages/apps/sdk/testing/mod.ts";
 import { APP } from "../broken-app.ts";
 import { mustCall } from "../flow-support.ts";
 import { e2eEnabled } from "../harness.ts";
@@ -21,7 +25,10 @@ Deno.test({
   sanitizeOps: false,
   sanitizeResources: false,
   async fn(t) {
-    const shell = await openIssuesShell("lophn-e2e-issues-broken-");
+    const shell = await openIssuesShell("lophn-e2e-issues-broken-", {
+      installedHome,
+      removeTree,
+    });
     const { flow } = shell;
     try {
       let problem = "";

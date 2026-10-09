@@ -11,7 +11,6 @@ import {
   devImportMap,
   readTemplateDirectory,
 } from "../packages/apps/sdk/mod.ts";
-import { installedHome, removeTree } from "../packages/apps/sdk/testing/mod.ts";
 import { delay, type FlowShell } from "./flow-support.ts";
 
 export const APP = "app_01h455vb4pex5v6nkc6gd5fdw1";
@@ -32,11 +31,21 @@ async function git(cwd: string, args: string[]): Promise<string> {
   return new TextDecoder().decode(output.stdout).trim();
 }
 
+/**
+ * leaf testing/ 도구는 *_test.ts만 import할 수 있어(tools/check-deps.ts) 시험 파일이 넘겨 준다.
+ * 시험은 `{ installedHome, removeTree }`(packages/apps/sdk/testing/mod.ts)를 그대로 넘기면 된다.
+ */
+export interface BrokenAppTools {
+  installedHome(): Promise<{ sdkRoot: string; dispose(): Promise<void> }>;
+  removeTree(path: string): Promise<void>;
+}
+
 /** fixture source를 commit하고 봉인 bundle로 준비해 `home` 아래에 둔다. 그 blueprint를 돌려준다. */
 export async function prepareBrokenApp(
   home: string,
+  tools: BrokenAppTools,
 ): Promise<{ bundleHash: string; blueprintHash: string; blueprint: string }> {
-  const installed = await installedHome();
+  const installed = await tools.installedHome();
   const parent = await Deno.makeTempDir({ prefix: "lophn-e2e-broken-src-" });
   try {
     const dir = `${parent}/app`;
@@ -79,7 +88,7 @@ export async function prepareBrokenApp(
       ),
     };
   } finally {
-    await removeTree(parent);
+    await tools.removeTree(parent);
     await installed.dispose();
   }
 }

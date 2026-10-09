@@ -3,9 +3,9 @@
 // 문제·보고는 core command(problems SubmitFeedback)가 만든 것이고 화면은 core read를 그대로 보인다.
 import { assert, assertEquals } from "@std/assert";
 
-import { removeTree } from "../../packages/apps/sdk/testing/mod.ts";
 import {
   APP,
+  type BrokenAppTools,
   type Page,
   pageClick,
   pageType,
@@ -42,12 +42,15 @@ export interface IssuesShell {
 }
 
 /** core 한 번으로 DB를 만들고 앱을 심은 뒤 앱 공간부터 띄워 [Report a problem]이 켜질 때까지. */
-export async function openIssuesShell(prefix: string): Promise<IssuesShell> {
+export async function openIssuesShell(
+  prefix: string,
+  tools: BrokenAppTools,
+): Promise<IssuesShell> {
   const home = await Deno.makeTempDir({ prefix });
   await Deno.chmod(home, 0o700);
   const first = await openFlowShell({ home });
   await first.close();
-  const bundle = await prepareBrokenApp(home);
+  const bundle = await prepareBrokenApp(home, tools);
   seedLedger(home, bundle);
   const flow = await openFlowShell({ home, start: `app:${APP}` });
   let overlay: Page | undefined;
@@ -127,7 +130,7 @@ export async function openIssuesShell(prefix: string): Promise<IssuesShell> {
       try {
         await flow.close();
       } finally {
-        await removeTree(home);
+        await tools.removeTree(home);
       }
     },
   };

@@ -5,6 +5,10 @@
 //   아직 이상하다고 하면 같은 문제를 다시 연다(problems/closing#R6, R10, shell/confirmation-window#R9).
 import { assert, assertEquals } from "@std/assert";
 
+import {
+  installedHome,
+  removeTree,
+} from "../../packages/apps/sdk/testing/mod.ts";
 import { delay } from "../flow-support.ts";
 import { e2eEnabled } from "../harness.ts";
 import {
@@ -70,7 +74,10 @@ Deno.test({
   sanitizeOps: false,
   sanitizeResources: false,
   async fn(t) {
-    const shell = await openIssuesShell("lophn-e2e-issues-verify-");
+    const shell = await openIssuesShell("lophn-e2e-issues-verify-", {
+      installedHome,
+      removeTree,
+    });
     const { flow } = shell;
     try {
       const problem = await reportNewProblem(

@@ -10,11 +10,13 @@
 // 남기지 않는다. 수집 과정은 화면에 보이지 않는다.
 // (problem-codes#R2, reporting#R1 R2 R5, snapshots#R1 R4 R6 R15)
 //
-// 2단계 테스트는 그 아래에 있다. 하지 않는 것: 3~9단계(notification, App Engineer, repair ticket,
-// 수리, activation, 닫힘). process의 unhandled rejection은 앱 자식이 바로 끝나 이후 읽기를 막으므로
+// 2단계·3단계 테스트는 그 아래에 있다. 3단계는 app-detail에서 문제 열림 notification으로 증상·진행·
+// 다음 행동을 보고 봐 달라고 요청한다. 하지 않는 것: 4~9단계(해석 문서, ticket, claim, reproduction,
+// activation, 자동 닫힘). process의 unhandled rejection은 앱 자식이 바로 끝나 이후 읽기를 막으므로
 // 일으키지 않는다. 화면이 이미 root render에서 깨져 있어 실패 command는 그 view의 lophnApp(화면이
-// command를 부르는 통로)으로 일으킨다. 사람 조작 화면은 없다.
+// command를 부르는 통로)으로 일으킨다. 1단계에는 사람 조작 화면이 없다.
 import { assert, assertEquals } from "@std/assert";
+import { DatabaseSync } from "node:sqlite";
 
 import {
   installedHome,
@@ -23,6 +25,7 @@ import {
 import { e2eEnabled } from "../harness.ts";
 import { APP, prepareBrokenApp, RELEASE, seedLedger } from "../broken-app.ts";
 import {
+  commandBody,
   delay,
   type FlowShell,
   mustCall,
@@ -857,6 +860,579 @@ Deno.test({
       for (const id of kept) {
         assert(settled.some((item) => item.id === id), id);
       }
+    } finally {
+      await opened?.close();
+      await removeTree(home);
+    }
+  },
+});
+
+const ASK_ENGINEER = "Ask the App Engineer to look into this problem.";
+const NOBODY = "Nobody has taken this yet.";
+const LOOK = "Please look at this problem.";
+const SESSION = "ses_01arz3ndektsv4rrffq69g5fav";
+const MESSAGE = "msg_01arz3ndektsv4rrffq69g5fav";
+
+type Note = {
+  notification: { id: string; source_seq: string; read_at: string | null };
+  source_event: string;
+  occurred_at?: string;
+  document?: string | null;
+};
+
+type Engineer = {
+  id: string;
+  state: string;
+  revision: number;
+  scope: { kind: string; id: string | null };
+};
+
+type RunRow = { source: { kind: string; message?: string } };
+
+// 심은 앱 행에는 AppCreated가 없다. shell을 멈춘 동안 그 event만 남겨, 다시 열면
+// 기존 assignment 반응이 이 앱의 App Engineer를 만든다. seedLedger는 다른 테스트가 쓴다.
+function recordAppCreated(home: string): void {
+  const db = new DatabaseSync(`${home}/lophn.db`);
+  try {
+    db.prepare(
+      `insert into events (type, subject, actor, run, payload, at)
+       values ('AppCreated', ?, 'user', null, ?, '2026-10-01T00:00:00.000Z')`,
+    ).run(
+      APP,
+      JSON.stringify({
+        slug: "broken",
+        name: "Broken",
+        description: "A deliberately broken app",
+      }),
+    );
+  } finally {
+    db.close();
+  }
+}
+
+async function notesOf(flow: FlowShell): Promise<Note[]> {
+  const body = await mustCall(flow, {
+    kind: "read",
+    resource: "notifications",
+    method: "list",
+    body: {},
+  });
+  return body.notifications as Note[];
+}
+
+function assertNoteSafe(notes: Note[]): void {
+  const dumped = JSON.stringify(notes);
+  assert(!dumped.includes("payload"), dumped);
+  assert(!dumped.includes("group_key"), dumped);
+  assert(!dumped.includes("rpt_"), dumped);
+  assert(!dumped.includes(APP), dumped);
+  assert(!dumped.includes(RENDER_MESSAGE), dumped);
+  assert(!dumped.includes("ProblemObserved"), dumped);
+  for (const note of notes) {
+    assertEquals(note.source_event, "ProblemOpened");
+    assert(
+      typeof note.occurred_at === "string" && note.occurred_at !== "",
+      JSON.stringify(note),
+    );
+    for (const key of Object.keys(note)) {
+      assert(
+        key === "notification" || key === "source_event" ||
+          key === "occurred_at" || key === "document" || key === "delivery",
+        key,
+      );
+    }
+  }
+}
+
+async function problemRows(
+  flow: FlowShell,
+): Promise<Record<string, unknown>[]> {
+  const body = await mustCall(flow, {
+    kind: "read",
+    resource: "problems",
+    method: "list",
+    body: { app: APP },
+  });
+  return body.problems as Record<string, unknown>[];
+}
+
+function assertUserList(rows: Record<string, unknown>[]): void {
+  assert(rows.length >= 1);
+  for (const row of rows) {
+    assertEquals(
+      Object.keys(row).sort(),
+      ["app", "id", "next_action", "seq", "status", "symptom"],
+    );
+    assertEquals(row.app, APP);
+    assertEquals(row.status, "open");
+    assert(typeof row.symptom === "string" && row.symptom !== "");
+    assert(row.next_action === null || typeof row.next_action === "string");
+  }
+  const dumped = JSON.stringify(rows);
+  assert(!dumped.includes("payload"), dumped);
+  assert(!dumped.includes("group_key"), dumped);
+  assert(!dumped.includes(RENDER_MESSAGE), dumped);
+  assert(!dumped.includes("ProblemOpened"), dumped);
+}
+
+async function settledNotes(flow: FlowShell): Promise<Note[]> {
+  let last = "";
+  let stable = 0;
+  let notes: Note[] = [];
+  await waitFor("notification이 열린 문제 수와 맞지 않는다", async () => {
+    const rows = await problemRows(flow);
+    notes = await notesOf(flow);
+    const key = `${rows.length}:${
+      notes.map((note) => note.notification.id).join(",")
+    }`;
+    if (notes.length === rows.length && rows.length >= 1 && key === last) {
+      stable += 1;
+    } else {
+      stable = 0;
+      last = key;
+    }
+    return stable >= 2;
+  });
+  return notes;
+}
+
+async function engineerOf(flow: FlowShell): Promise<Engineer | undefined> {
+  const body = await mustCall(flow, {
+    kind: "read",
+    resource: "assignments",
+    method: "list",
+    body: { role: "app_engineer" },
+  });
+  return (body.assignments as Engineer[]).find((row) =>
+    row.scope?.kind === "app" && row.scope.id === APP &&
+    row.state !== "withdrawn"
+  );
+}
+
+async function runsOf(flow: FlowShell, assignment: string): Promise<RunRow[]> {
+  const body = await mustCall(flow, {
+    kind: "read",
+    resource: "runs",
+    method: "list",
+    body: { assignment },
+  });
+  return body.runs as RunRow[];
+}
+
+async function openIssues(flow: FlowShell): Promise<void> {
+  await flow.until(
+    `document.querySelector('[data-app-bar="app-details"]') !== null`,
+    "앱 막대",
+  );
+  await flow.click('[data-app-bar="app-details"]');
+  await flow.until(
+    `document.querySelector("[data-ops-panel]") !== null`,
+    "운영 패널",
+  );
+  const picked = await flow.evaluate(`(() => {
+    const tab = document.querySelector('[role=tab][id$="trigger-issues"]');
+    if (!tab) return false;
+    tab.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0, buttons: 1 }));
+    tab.click();
+    return true;
+  })()`);
+  assertEquals(picked, true, "Issues 탭이 없다");
+  await flow.until(
+    `document.querySelector('[role=tab][id$="trigger-issues"]')?.getAttribute("aria-selected") === "true" && document.querySelector("[data-issues-list] [data-issue-open]") !== null`,
+    "Issues 목록",
+  );
+}
+
+async function issueRows(flow: FlowShell): Promise<{
+  status: string;
+  impact: string;
+  text: string;
+}[]> {
+  const raw = await flow.evaluate(`JSON.stringify([...document.querySelectorAll(
+    "[data-issues-list] [data-issue]",
+  )].map((row) => ({
+    status: row.getAttribute("data-issue"),
+    impact: row.querySelector("[data-issue-open]")?.textContent ?? "",
+    text: row.innerText,
+  })))`);
+  return JSON.parse(String(raw)) as {
+    status: string;
+    impact: string;
+    text: string;
+  }[];
+}
+
+function assertScreenHidesRaw(text: string): void {
+  assert(!text.includes(RENDER_MESSAGE), text);
+  assert(!text.includes("group_key"), text);
+  assert(!text.includes("payload"), text);
+  assert(!text.includes("ProblemOpened"), text);
+  assert(!text.includes("rpt_"), text);
+  assert(!text.includes("snp_"), text);
+  assert(!text.includes("rel_"), text);
+  assert(!text.includes("TypeError"), text);
+}
+
+Deno.test({
+  name:
+    "platform/notifications#R1 R2 R3 R7 problems/grouping#R11 R12 lophn-agent/roles/app-engineer#R1 flow app-broken 3: 문제 열림 notification으로 증상·진행·다음 행동을 보고 봐 달라고 요청한다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn() {
+    const home = await Deno.makeTempDir({ prefix: "lophn-e2e-app-broken-" });
+    let opened: FlowShell | undefined;
+    try {
+      await Deno.chmod(home, 0o700);
+      const first = await openFlowShell({ home });
+      await first.close();
+      const bundle = await prepareBrokenApp(home, {
+        installedHome,
+        removeTree,
+      });
+      seedLedger(home, bundle);
+      recordAppCreated(home);
+      const flow = await openFlowShell({ home, start: `app:${APP}` });
+      opened = flow;
+      await flow.until(
+        `document.querySelector("[data-space]")?.getAttribute("data-space") === "app"`,
+        "앱 공간이 서지 않았다",
+      );
+      const runningAt = Date.now() + 60_000;
+      for (;;) {
+        const runtime = await mustCall(flow, {
+          kind: "read",
+          resource: "apps",
+          method: "runtime",
+          body: { app: APP },
+        });
+        if ((runtime.state as { state: string }).state === "running") break;
+        assert(Date.now() < runningAt, "앱이 뜨지 않았다");
+        await delay(500);
+      }
+      await flow.until(
+        `document.querySelector('[data-phase="failed"] button') !== null || document.querySelector('[data-report-problem]:not([disabled])') !== null`,
+        "화면 상태가 오지 않았다",
+      );
+      if ((await flow.count('[data-phase="failed"] button')) > 0) {
+        await flow.click('[data-phase="failed"] button');
+      }
+      await flow.until(
+        `document.querySelector('[data-report-problem]:not([disabled])') !== null`,
+        "[Report a problem]이 켜지지 않았다",
+      );
+
+      let engineer: Engineer | undefined;
+      await waitFor("App Engineer assignment가 없다", async () => {
+        engineer = await engineerOf(flow);
+        return engineer?.state === "enabled";
+      });
+      assert(engineer !== undefined);
+      assertEquals(await runsOf(flow, engineer.id), []);
+
+      const render = await waitRender(flow);
+      const openedNotes = await settledNotes(flow);
+      assertNoteSafe(openedNotes);
+      assertUserList(await problemRows(flow));
+      assertEquals(await runsOf(flow, engineer.id), []);
+      let chip = "";
+      await waitFor("문제 열림 notification chip이 없다", async () => {
+        chip = String(
+          await flow.evaluate(
+            `document.querySelector("[data-notification-chip]")?.innerText ?? ""`,
+          ),
+        );
+        return chip.includes("An issue was reported");
+      });
+      assert(chip.includes("An issue was reported"), chip);
+      assert(!chip.includes(RENDER_MESSAGE), chip);
+      assert(!chip.includes("group_key"), chip);
+
+      await openIssues(flow);
+      const rows = await issueRows(flow);
+      const exceptionRow = rows.find((row) => row.impact === EXCEPTION_SYMPTOM);
+      assert(exceptionRow !== undefined, JSON.stringify(rows));
+      assertEquals(exceptionRow.status, "open");
+      assert(!exceptionRow.text.includes(ASK_ENGINEER), exceptionRow.text);
+      assert(!exceptionRow.text.includes(USER_ACTION), exceptionRow.text);
+      assertScreenHidesRaw(exceptionRow.text);
+
+      const openedDetail = await flow.evaluate(`(() => {
+        const open = [...document.querySelectorAll("[data-issues-list] [data-issue-open]")]
+          .find((el) => el.textContent === ${
+        JSON.stringify(EXCEPTION_SYMPTOM)
+      });
+        if (!open) return false;
+        open.click();
+        return true;
+      })()`);
+      assertEquals(openedDetail, true);
+      await flow.until(
+        `document.querySelector("[data-issue-needed]") !== null`,
+        "문제 상세가 열리지 않았다",
+      );
+      assertEquals(
+        String(
+          await flow.evaluate(
+            `document.querySelector("[data-issue-needed]")?.textContent ?? ""`,
+          ),
+        ),
+        ASK_ENGINEER,
+      );
+      const nowText = String(
+        await flow.evaluate(
+          `document.querySelector("[data-issue-now]")?.innerText ?? ""`,
+        ),
+      );
+      assert(nowText.includes(NOBODY), nowText);
+      assert(nowText.includes("Open"), nowText);
+      assert(nowText.includes("No repair work yet"), nowText);
+      const seen = String(
+        await flow.evaluate(
+          `document.querySelector("[data-issue-seen]")?.innerText ?? ""`,
+        ),
+      );
+      assert(seen.startsWith("Seen once"), seen);
+      assert(seen.includes("First seen"), seen);
+      assert(seen.includes("Last seen"), seen);
+      const detailText = String(
+        await flow.evaluate(
+          `document.querySelector("[data-issue-detail]")?.innerText ?? ""`,
+        ),
+      );
+      assertScreenHidesRaw(detailText);
+      assertEquals(
+        await flow.count("[data-issue-detail] [data-issue-details]"),
+        0,
+      );
+
+      const shot = await mustCall(flow, {
+        kind: "read",
+        resource: "problems",
+        method: "get-snapshot",
+        body: { snapshot: render.snapshot!.id, item: "screen" },
+      });
+      assertEquals(shot.item, null);
+      assert(shot.missing !== null, JSON.stringify(shot.missing));
+      assertEquals(shot.blobs, []);
+      const again = await readReport(flow, render.report.id);
+      assertEquals(again.snapshot?.screen, null);
+      assertEquals(again.snapshot?.error?.stack, null);
+      assertEquals(again.snapshot?.error?.message, RENDER_MESSAGE);
+      assertEquals(await runsOf(flow, engineer.id), []);
+
+      await flow.click("[data-issue-back]");
+      await flow.until(
+        `document.querySelector("[data-issues-list] [data-issue-open]") !== null`,
+        "Issues 목록으로 돌아오지 않았다",
+      );
+      const beforeRepeat = await settledNotes(flow);
+      assertNoteSafe(beforeRepeat);
+      const held = beforeRepeat.map((note) => ({
+        id: note.notification.id,
+        source_seq: note.notification.source_seq,
+        occurred_at: note.occurred_at,
+      }));
+
+      const firstSettings = await callApp(flow, "read_settings", null);
+      assert(firstSettings.ok, firstSettings.message);
+      await waitSymptom(flow, SETTINGS_SYMPTOM);
+      let afterFirst: Note[] = [];
+      await waitFor("새 문제의 notification이 없다", async () => {
+        afterFirst = await notesOf(flow);
+        return afterFirst.length === beforeRepeat.length + 1;
+      });
+      assertNoteSafe(afterFirst);
+      for (const note of held) {
+        const same = afterFirst.find((item) =>
+          item.notification.id === note.id
+        );
+        assert(same !== undefined, note.id);
+        assertEquals(same.notification.source_seq, note.source_seq);
+        assertEquals(same.occurred_at, note.occurred_at);
+      }
+      // 목록은 열 때 한 번만 읽는다. 새 문제를 보려면 패널을 다시 연다.
+      await flow.click("[data-ops-panel-close]");
+      await flow.until(
+        `document.querySelector("[data-ops-panel]") === null`,
+        "운영 패널이 닫히지 않았다",
+      );
+      await openIssues(flow);
+      const settingsRow = (await issueRows(flow)).find((row) =>
+        row.impact === SETTINGS_SYMPTOM
+      );
+      assert(settingsRow !== undefined, JSON.stringify(await issueRows(flow)));
+      assertEquals(settingsRow.status, "open");
+      assert(settingsRow.text.includes(USER_ACTION), settingsRow.text);
+      assertScreenHidesRaw(settingsRow.text);
+      const settings = (await listed(flow)).find((row) =>
+        row.symptom === SETTINGS_SYMPTOM
+      );
+      assert(settings !== undefined);
+      assertEquals(settings.next_action, USER_ACTION);
+      const settingsReports = await reportsOf(flow, settings.id);
+      assertEquals(settingsReports.length, 1);
+
+      const secondSettings = await callApp(flow, "read_settings", null);
+      assert(secondSettings.ok, secondSettings.message);
+      await waitFor(
+        "반복 report가 같은 문제에 붙지 않았다",
+        async () => (await reportsOf(flow, settings.id)).length === 2,
+      );
+      await delay(1_000);
+      const afterSecond = await notesOf(flow);
+      assertEquals(
+        afterSecond.map((note) => note.notification.id),
+        afterFirst.map((note) => note.notification.id),
+      );
+      assertNoteSafe(afterSecond);
+      for (const note of held) {
+        const same = afterSecond.find((item) =>
+          item.notification.id === note.id
+        );
+        assert(same !== undefined);
+        assertEquals(same!.notification.source_seq, note.source_seq);
+        assertEquals(same!.occurred_at, note.occurred_at);
+      }
+      assertEquals(
+        (await listed(flow)).filter((row) => row.symptom === SETTINGS_SYMPTOM)
+          .length,
+        1,
+      );
+      assertEquals(await runsOf(flow, engineer.id), []);
+
+      const marked = await mustCall(flow, {
+        kind: "command",
+        resource: "notifications",
+        method: "read",
+        body: commandBody({
+          notification: beforeRepeat[0]!.notification.id,
+        }),
+      });
+      assertEquals(marked.changed, true);
+      const readBack = await mustCall(flow, {
+        kind: "read",
+        resource: "notifications",
+        method: "get",
+        body: { notification: beforeRepeat[0]!.notification.id },
+      });
+      const readDump = JSON.stringify(readBack);
+      assert(!readDump.includes("payload"), readDump);
+      assert(!readDump.includes("group_key"), readDump);
+      assert(!readDump.includes("rpt_"), readDump);
+      assert(!readDump.includes(RENDER_MESSAGE), readDump);
+      assertNoteSafe([{
+        notification: readBack.notification as Note["notification"],
+        source_event: String(readBack.source_event),
+        occurred_at: readBack.occurred_at as string | undefined,
+        ...(readBack.document === undefined
+          ? {}
+          : { document: readBack.document as string | null }),
+      }]);
+      assert(
+        (readBack.notification as { read_at: string | null }).read_at !== null,
+      );
+      const still = await mustCall(flow, {
+        kind: "read",
+        resource: "problems",
+        method: "get",
+        body: { problem: render.report.problem },
+      });
+      assertEquals((still.problem as { status: string }).status, "open");
+      assertEquals(
+        (still.problem as { interpretation: unknown }).interpretation,
+        null,
+      );
+      assertEquals(await runsOf(flow, engineer.id), []);
+      const detail = still.detail as {
+        needed_action: string;
+        owner: { label: string };
+        progress: { state: string; label: string };
+      };
+      assertEquals(detail.needed_action, ASK_ENGINEER);
+      assertEquals(detail.owner.label, NOBODY);
+      assertEquals(detail.progress, { state: "open", label: "Open" });
+      const detailDump = JSON.stringify(detail);
+      assert(!detailDump.includes("tkt_"), detailDump);
+      assert(!detailDump.includes("claim"), detailDump);
+      assert(!detailDump.includes(RENDER_MESSAGE), detailDump);
+
+      const openedSession = await mustCall(flow, {
+        kind: "command",
+        resource: "sessions",
+        method: "open",
+        body: commandBody({
+          id: SESSION,
+          assignment: engineer.id,
+          role: "app_engineer",
+          work_place: { kind: "app", id: APP },
+          continued_from: null,
+        }, {
+          assignment_revision: engineer.revision,
+          assignment_state: "enabled",
+        }),
+      });
+      const asked = await mustCall(flow, {
+        kind: "command",
+        resource: "messages",
+        method: "receive",
+        body: commandBody({
+          id: MESSAGE,
+          session: SESSION,
+          content: {
+            schema_version: 1,
+            parts: [{ kind: "text", text: LOOK }],
+          },
+          mode: "request",
+        }, {
+          session_state: "open",
+          session_state_seq: String(
+            (openedSession as { state_seq: string }).state_seq,
+          ),
+          assignment_revision: engineer.revision,
+          assignment_state: "enabled",
+        }),
+      });
+      assertEquals(
+        (asked.message as { actor: string; mode: string }).actor,
+        "user",
+      );
+      assertEquals(
+        (asked.message as { mode: string }).mode,
+        "request",
+      );
+      const body = await mustCall(flow, {
+        kind: "read",
+        resource: "messages",
+        method: "body",
+        body: { message: MESSAGE },
+      });
+      const parts =
+        (body.content as { parts: { kind: string; text: string }[] })
+          .parts;
+      assertEquals(parts, [{ kind: "text", text: LOOK }]);
+      const runs = await runsOf(flow, engineer.id);
+      assertEquals(runs.length, 1);
+      assertEquals(runs[0]!.source.kind, "message");
+      assertEquals(runs[0]!.source.message, MESSAGE);
+      const afterAsk = await mustCall(flow, {
+        kind: "read",
+        resource: "problems",
+        method: "get",
+        body: { problem: render.report.problem },
+      });
+      assertEquals(
+        (afterAsk.problem as { interpretation: unknown }).interpretation,
+        null,
+      );
+      assertEquals(
+        (afterAsk.problem as { status: string }).status,
+        "open",
+      );
+      assertEquals(
+        await notesOf(flow).then((notes) => notes.length),
+        afterSecond.length,
+      );
     } finally {
       await opened?.close();
       await removeTree(home);

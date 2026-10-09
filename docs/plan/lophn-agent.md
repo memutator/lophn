@@ -782,7 +782,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 
 ### T41 agent slice flow E2E
 
-- 상태: 진행 (#466) — 끝낸 flow: connect-provider, manage-provider-accounts, steer-agent-work, answer-question(질문 읽기·고르기만으로는 답 아님·미루기·취소). 이어보냄: answer-question의 답 확정 경로는 제품 runtime이 질문을 만들 때 run을 멈추지 않아(WaitRun의 대기는 approval만 받는다) 볼 수 없다(questions/answer가 "the run is finished"로 거절됨). 남은 flow: resume-agent-session, review-agent-work, approve-action(앱 confirm 제외), ask-lophn-help, edit-instructions, add-agent-extension, view-agent-visuals(앱 카드 갈래 제외), organize-documents 2~3단계, find-documents 5~6단계, project-workspace 8단계
+- 상태: 진행 (#466) — 남은 것: review-agent-work, approve-action(앱 confirm 제외), ask-lophn-help, edit-instructions, add-agent-extension, view-agent-visuals(앱 카드 갈래 제외), organize-documents 2~3단계, find-documents 5~6단계, project-workspace 8단계. 끝낸 flow: connect-provider, manage-provider-accounts, steer-agent-work, answer-question(질문 읽기·고르기만으로는 답 아님·미루기·취소), resume-agent-session(1~6단계, 6단계는 받는 run 시작까지). 이어보냄: (1) answer-question의 답 확정 경로는 제품 결함(followups 49: ports.wait가 WaitRun의 질문 갈래를 부르지 않아 질문을 만든 run이 멈추지 않고 questions/answer가 "the run is finished"로 거절됨)이라 볼 수 없다. (2) 세션 없는 run(handoff·주기)의 판단 call은 StartModelCall이 거절한다(`modelCallShape`와 model_calls 표 CHECK가 run이 있으면 session을 요구하나 domain model usage는 세션 없는 run을 허용). 받는 run은 model 전에 failed(configuration_unavailable)로 끝나며 표 CHECK를 고치려면 model_calls migration이 필요하다. T26에서 넘어온 (2)의 받는 run이 맡긴 내용을 읽는 통로는 runs/body `handoff_content`로 이었다.
 - 등급: 기본
 - concern: lophn-agent
 - 요구: 없음(T3–T40 요구의 flow 확인)

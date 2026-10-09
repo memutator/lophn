@@ -11,6 +11,8 @@ import {
   finishModelCall,
   finishRun,
   finishToolCall,
+  type HandoffContent,
+  handoffContentSchema,
   messageBody,
   messagesList,
   modelCallList,
@@ -157,6 +159,19 @@ const UNKNOWN_COST: CallCost = {
   confirmed_at: null,
 };
 
+// 받는 run의 요청 글. 맡긴 내용의 네 필드를 그대로 옮긴다.
+function handoffRequestText(content: HandoffContent): string {
+  const lines = [`What: ${content.what}`, `Why: ${content.why}`];
+  if (content.excludes.length > 0) {
+    lines.push("Excludes:", ...content.excludes.map((item) => `- ${item}`));
+  }
+  lines.push(
+    "Expected outputs:",
+    ...content.expected_outputs.map((item) => `- ${item}`),
+  );
+  return lines.join("\n");
+}
+
 export function createCorePorts(deps: CorePortsDeps): CorePorts {
   const { seat, machine, agent, clock, ids } = deps;
   const store = (purpose: string, value: unknown) =>
@@ -214,6 +229,22 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
       const body = await bodyOf(source.message);
       if (!body.ok) return body;
       request = body.value;
+    }
+    // handoff로 시작한 run은 맡긴 내용(무엇·왜·제외·기대 결과)이 자기 요청이다(handoff#R5).
+    if (source.kind === "handoff") {
+      const body = await readOf(machine, runBody, {
+        kind: "handoff_content",
+        id: seat.run,
+      });
+      if (!body.ok) return body;
+      const content = handoffContentSchema.safeParse(body.value.value);
+      if (!content.success) {
+        return err({
+          code: "unavailable",
+          message: "handoff content is unreadable",
+        });
+      }
+      request = handoffRequestText(content.data);
     }
     const steering: { id: string; text: string }[] = [];
     if (seat.session !== null) {

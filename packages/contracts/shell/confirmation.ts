@@ -86,6 +86,10 @@ const confirmationIntentSchema = z.discriminatedUnion("kind", [
     }).optional(),
     automation: z.string().min(1).optional(),
     requirement: z.number().int().nonnegative().optional(),
+    // 문제 결정(problems/closing)에서 사람이 고른 결정과 dismiss의 한 줄 이유. 창은 이 값을
+    // 그대로 보이고, main은 문제를 독립 read해 handle을 묶는다.
+    choice: z.enum(["fixed", "not_fixed", "not_visible", "dismiss"]).optional(),
+    note: z.string().regex(/^[^\r\n]*\S[^\r\n]*$/).optional(),
   }),
   z.strictObject({
     kind: z.literal("secret_input"),

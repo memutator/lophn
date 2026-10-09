@@ -13,6 +13,8 @@ const ID = /^[a-z]{3}_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
 const CONCERN = /^[a-z][a-z0-9-]*(\/[a-z][a-z0-9-]*)+$/;
 const DECISION = /^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)*$/;
 const NONBLANK = /\S/;
+// 공백만이 아닌 한 줄(problems/closing#R8).
+const ONE_LINE = /^[^\r\n]*\S[^\r\n]*$/;
 
 function prefixed(prefix: string) {
   return z.string().regex(ID).refine((value) => value.startsWith(`${prefix}_`));
@@ -46,6 +48,8 @@ export const confirmationIntentSchema = z.discriminatedUnion("kind", [
     ).optional(),
     automation: z.string().min(1).optional(),
     requirement: z.number().int().nonnegative().optional(),
+    choice: z.enum(["fixed", "not_fixed", "not_visible", "dismiss"]).optional(),
+    note: z.string().regex(ONE_LINE).optional(),
   }).strict(),
   z.object({
     kind: z.literal("secret_input"),

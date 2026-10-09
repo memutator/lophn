@@ -19,6 +19,13 @@ import {
 import { failed, type KindCore, record, type Sent } from "./core.ts";
 import { readOptionAction, submitOptionAction } from "./option-action.ts";
 import {
+  APPLY_PROBLEM_DECISION,
+  isProblemDecision,
+  PROBLEM_CONCERN,
+  readProblemDecision,
+  submitProblemDecision,
+} from "./problem-decision.ts";
+import {
   newRevertId,
   readRevert,
   REVERT_CONCERN,
@@ -78,6 +85,9 @@ export function createKinds(options: KindsOptions): {
           ) {
             return readRevert(core, reverts, windowId, run);
           }
+          if (isProblemDecision(intent)) {
+            return readProblemDecision(core, intent);
+          }
           return apps.read(core, intent, windowId);
         }
         case "secret_input":
@@ -132,6 +142,16 @@ export function createKinds(options: KindsOptions): {
       decision === CONNECTION_REVOKE && request.input.kind === "inline"
     ) {
       return submitConnectionRevoke(core, {
+        handle,
+        content: record(canonical?.content),
+      });
+    }
+    if (
+      request?.kind === "owner_decision" &&
+      request.concern === PROBLEM_CONCERN &&
+      decision === APPLY_PROBLEM_DECISION && request.input.kind === "inline"
+    ) {
+      return submitProblemDecision(core, {
         handle,
         content: record(canonical?.content),
       });

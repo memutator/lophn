@@ -7,6 +7,8 @@
 //   통로로 낸다. 5·6(agent·coding agent 읽기)은 agent slice E2E 몫이다(documents plan Q4).
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 
+import { buildReply } from "../../tools/fake-provider/semantic.ts";
+import type { SemanticReply } from "../../tools/fake-provider/types.ts";
 import {
   copyFixture,
   editExternally,
@@ -24,6 +26,7 @@ import {
   registerTrackedProject,
   removeHome,
   untilDocuments,
+  untilReadable,
   untilSearch,
   untilSectionStatus,
 } from "../flow-support.ts";
@@ -415,6 +418,349 @@ Deno.test({
     } finally {
       await flow.close();
       await removeHome(flow.home);
+      await Deno.remove(folder, { recursive: true });
+    }
+  },
+});
+
+// lophn-agent slice: find-documents 5·6(agent가 같은 근거를 찾고 읽기). 실제 shell(headless)·
+// core(제품 runtime child)·documents worker를 임시 LOPHN_HOME으로 띄우고 model은 이 시험의
+// loopback 응답 server가 낸다. 사람이 추적한 프로젝트 파일 하나를 lophn이 검색 → 목차 → section →
+// 이어 읽기 → 줄 범위로 읽는다.
+// - 5: 읽기마다 model 입력에 가는 tool 결과는 redaction을 거쳐 secret 원문이 없고, 프로젝트의 실제
+//   폴더 경로가 근거 읽기에 실리지 않는다.
+// - 6: model 입력은 목차와 고른 section으로 조립되고, 잘린 section은 이어 읽기 위치와 함께 와서
+//   전체를 읽었다고 하지 않는다. 이어 읽기는 같은 고정 판이다.
+// 빠진 것: 6의 coding agent MCP·CLI 읽기는 coding-agent E2E 몫이다.
+
+const READ_PROVIDER = "pvd_01arz3ndektsv4rrffq69g5fav";
+const READ_MODEL = "claude-sonnet-4-5";
+const READ_SECRET = "sk-ant-flowSecretValue1234567890abcd";
+const READ_ANSWER = "The rollout has eighty steps; the rollback is one line.";
+
+type ReadStep = (body: string) => SemanticReply | Promise<SemanticReply>;
+
+function startReadProvider(steps: ReadStep[]) {
+  const bodies: string[] = [];
+  const server = Deno.serve(
+    { hostname: "127.0.0.1", port: 0, onListen: () => {} },
+    async (request) => {
+      const text = await request.text();
+      const path = new URL(request.url).pathname;
+      if (request.method !== "POST" || !path.endsWith("/messages")) {
+        return Response.json({ error: "unexpected" }, { status: 500 });
+      }
+      const step = steps[bodies.length];
+      bodies.push(text);
+      if (step === undefined) {
+        return Response.json({ error: "exhausted" }, { status: 500 });
+      }
+      const built = buildReply("messages", await step(text));
+      return new Response(built.body ?? "", {
+        status: built.status,
+        headers: built.headers,
+      });
+    },
+  );
+  return {
+    url: `http://127.0.0.1:${server.addr.port}`,
+    calls: () => bodies.length,
+    body: (index: number) => bodies[index] ?? "",
+    close: () => server.shutdown(),
+  };
+}
+
+function readToolCall(id: string, name: string, args: unknown): SemanticReply {
+  return {
+    text: "",
+    toolCalls: [{ id, name, arguments: JSON.stringify(args) }],
+    usage: { input: 30, output: 9 },
+    stop: "tool_calls",
+  };
+}
+
+/** 요청 본문의 마지막 tool 결과(자료 표식 안의 JSON)를 푼다. */
+function lastReadResult(body: string): {
+  status: string;
+  content: Record<string, unknown>;
+  complete: boolean;
+  continuation: { has_more: boolean; read_next: string | null } | null;
+} {
+  const request = JSON.parse(body) as {
+    messages: { content: string | { type: string; content?: unknown }[] }[];
+  };
+  const blocks = request.messages.at(-1)!.content;
+  assert(Array.isArray(blocks), "마지막 메시지에 tool 결과가 없다");
+  const result = blocks.findLast((block) => block.type === "tool_result");
+  assert(result !== undefined, "tool 결과가 없다");
+  const raw = typeof result.content === "string"
+    ? result.content
+    : (result.content as { text?: string }[]).map((part) => part.text ?? "")
+      .join("");
+  const start = raw.indexOf('{"status"');
+  const end = raw.lastIndexOf("}");
+  assert(
+    start >= 0 && end > start,
+    `tool 결과 JSON이 없다: ${raw.slice(0, 300)}`,
+  );
+  return JSON.parse(raw.slice(start, end + 1));
+}
+
+const reading: { document?: string; version?: string; section?: string } = {};
+const fixedRef = () => ({
+  document: reading.document!,
+  version: reading.version!,
+  section: null,
+});
+
+const READ_STEPS: ReadStep[] = [
+  () => readToolCall("toolu_search", "document.search", { query: "rollout" }),
+  () =>
+    readToolCall("toolu_outline", "document.outline", {
+      reference: fixedRef(),
+    }),
+  (body) => {
+    const entries = JSON.stringify(lastReadResult(body).content);
+    const key = entries.match(/"key":"([^"]+)","title":"Rollout"/)?.[1] ??
+      entries.match(/"title":"Rollout"[^}]*?"key":"([^"]+)"/)?.[1];
+    assert(
+      key !== undefined,
+      `목차에 Rollout section이 없다: ${entries.slice(0, 400)}`,
+    );
+    reading.section = key;
+    return readToolCall("toolu_section", "document.read_section", {
+      reference: fixedRef(),
+      section: key,
+    });
+  },
+  (body) => {
+    const next = lastReadResult(body).continuation?.read_next;
+    assert(typeof next === "string", "잘린 section에 이어 읽기 위치가 없다");
+    return readToolCall("toolu_more", "document.read_section", {
+      reference: fixedRef(),
+      section: reading.section!,
+      cursor: next,
+    });
+  },
+  () =>
+    readToolCall("toolu_range", "document.read_range", {
+      reference: fixedRef(),
+      ranges: [{ start_line: 1, end_line: 3 }],
+    }),
+  () => ({ text: READ_ANSWER, usage: { input: 40, output: 9 }, stop: "end" }),
+];
+
+Deno.test({
+  name:
+    "platform/redaction#R5 documents/projects#R9 lophn-agent/harness/prompt-assemble#R4 lophn-agent/harness/prompt-assemble#R18 documents/outline-and-search#R7 flow find-documents 5·6: lophn은 검색·목차·section·이어 읽기로 같은 고정 판을 읽고 model 입력에는 redaction한 자료와 이어 읽기 위치만 간다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn(t) {
+    const folder = await Deno.realPath(
+      await Deno.makeTempDir({ prefix: "lophn-e2e-find-agent-" }),
+    );
+    const steps = Array.from(
+      { length: 80 },
+      (_, index) =>
+        `- rollout step ${
+          index + 1
+        }: move one service to the new cluster and watch the error budget for an hour.`,
+    );
+    await Deno.writeTextFile(
+      `${folder}/runbook.md`,
+      [
+        "# Runbook",
+        "",
+        "Rollout and rollback for the cluster move.",
+        "",
+        "## Rollout",
+        "",
+        `Deploy key: ${READ_SECRET}`,
+        "",
+        ...steps,
+        "",
+        "## Rollback",
+        "",
+        "Move every service back in one batch.",
+        "",
+      ].join("\n"),
+    );
+    const provider = startReadProvider(READ_STEPS);
+    const flow = await openFlowShell({ start: "lophn" });
+    try {
+      await mustCall(flow, {
+        kind: "command",
+        resource: "providers",
+        method: "register",
+        body: commandBody({
+          id: READ_PROVIDER,
+          name: "fixture",
+          definition: {
+            key: "anthropic",
+            display_name: "Anthropic",
+            protocols: ["anthropic-messages"],
+            auth_kinds: ["none"],
+            models_endpoint: null,
+            oauth: null,
+            revision: "2026-01-01",
+          },
+          endpoint: provider.url,
+          protocol: "anthropic-messages",
+        }),
+      });
+      const defaults = await mustCall(flow, {
+        kind: "read",
+        resource: "agent-model-defaults",
+        method: "read",
+        body: {},
+      });
+      const seq = (defaults.defaults as { settings_seq: string }).settings_seq;
+      await mustCall(flow, {
+        kind: "command",
+        resource: "agent-model-defaults",
+        method: "change",
+        body: commandBody(
+          {
+            judgment: {
+              provider: READ_PROVIDER,
+              credentials: [],
+              model_name: READ_MODEL,
+              reasoning_level: "provider_default",
+              options: {},
+            },
+            organizing: null,
+            settings_seq: seq,
+          },
+          { settings_seq: seq },
+        ),
+      });
+      await registerTrackedProject(flow, { folder });
+      await untilDocuments(
+        flow,
+        ["runbook"],
+        "추적한 파일이 문서가 되지 않았다",
+      );
+      const runbook = await documentTitled(flow, "runbook");
+      await untilSearch(
+        flow,
+        "rollout",
+        (page) => page.results.some((row) => row.document === runbook.id),
+        "index가 따라오지 않았다",
+      );
+      await untilReadable(flow, runbook.id, "본문이 준비되지 않았다");
+      reading.document = runbook.id;
+      reading.version = runbook.latest_version;
+      const assignments = await mustCall(flow, {
+        kind: "read",
+        resource: "assignments",
+        method: "list",
+        body: {},
+      });
+      const agent = (assignments.assignments as { id: string; role: string }[])
+        .find((entry) => entry.role === "lophn");
+      assert(agent !== undefined, "lophn assignment가 없다");
+
+      await flow.until(
+        `document.querySelector("[data-dock-toggle]") !== null`,
+        "도크 토글이 없다",
+      );
+      await flow.click("[data-dock-toggle]");
+      await flow.until(
+        `document.querySelector("[data-new-session]") !== null || document.querySelector("[data-composer-input]") !== null`,
+        "새 세션 단추가 서지 않았다",
+      );
+      if (
+        await flow.evaluate(
+          `document.querySelector("[data-composer-input]") === null`,
+        ) === true
+      ) {
+        await flow.click("[data-new-session]");
+      }
+      await flow.until(
+        `document.querySelector("[data-composer-input]") !== null`,
+        "입력칸이 서지 않았다",
+      );
+      await flow.type("[data-composer-input]", "How long is the rollout?");
+      await flow.click("[data-send]");
+      const deadline = Date.now() + 180_000;
+      let runs: { outcome: { kind: string } | null }[] = [];
+      for (;;) {
+        runs = (await mustCall(flow, {
+          kind: "read",
+          resource: "runs",
+          method: "list",
+          body: { assignment: agent.id },
+        })).runs as typeof runs;
+        if (runs.length === 1 && runs[0]!.outcome !== null) break;
+        assert(
+          Date.now() < deadline,
+          `run이 끝나지 않았다: ${
+            JSON.stringify(runs)
+          } calls=${provider.calls()}`,
+        );
+        await delay(250);
+      }
+      assertEquals(runs[0]!.outcome?.kind, "completed");
+      assertEquals(provider.calls(), 6);
+
+      await t.step(
+        "platform/redaction#R5 documents/projects#R9 platform/identity#R8: 5 읽기마다 model 입력의 자료는 redaction을 거치고 프로젝트 폴더 경로가 근거로 실리지 않는다",
+        () => {
+          for (let index = 1; index < 6; index += 1) {
+            const body = provider.body(index);
+            assert(
+              !body.includes(READ_SECRET),
+              `${index}번 입력에 secret 원문이 있다`,
+            );
+            assert(
+              !body.includes(folder),
+              `${index}번 입력에 폴더 경로가 있다`,
+            );
+          }
+          const search = JSON.stringify(
+            lastReadResult(provider.body(1)).content,
+          );
+          assertStringIncludes(search, runbook.id);
+          const section = lastReadResult(provider.body(3));
+          assertEquals(section.content.redacted, true);
+        },
+      );
+
+      await t.step(
+        "lophn-agent/harness/prompt-assemble#R4 lophn-agent/harness/prompt-assemble#R18 documents/outline-and-search#R7 documents/outline-and-search#R8: 6 목차와 고른 section으로 읽고, 잘린 section은 이어 읽기 위치와 함께 와서 같은 고정 판으로 이어 읽는다",
+        () => {
+          // 목차는 본문 없이 section 구조만 준다.
+          const outline = JSON.stringify(
+            lastReadResult(provider.body(2)).content,
+          );
+          assertStringIncludes(outline, "Rollback");
+          assert(!outline.includes("rollout step 1:"), "목차에 본문이 섞였다");
+          // 잘린 section은 전체라고 하지 않고 이어 읽기 위치를 준다.
+          const first = lastReadResult(provider.body(3));
+          assertEquals(first.complete, false);
+          assertEquals(first.continuation?.has_more, true);
+          assert(!String(first.content.text).includes("rollout step 80:"));
+          assert(
+            !String(first.content.text).includes("Move every service back"),
+          );
+          // 이어 읽기는 같은 고정 판의 나머지다.
+          const rest = lastReadResult(provider.body(4));
+          assertEquals(rest.content.version, runbook.latest_version);
+          assertStringIncludes(String(rest.content.text), "rollout step 80:");
+          assert(
+            !String(rest.content.text).includes("Move every service back"),
+          );
+          // 줄 범위 읽기도 같은 판이다.
+          const range = lastReadResult(provider.body(5));
+          assertEquals(range.content.version, runbook.latest_version);
+          assertStringIncludes(String(range.content.text), "# Runbook");
+        },
+      );
+    } finally {
+      await flow.close();
+      await removeHome(flow.home);
+      await provider.close();
       await Deno.remove(folder, { recursive: true });
     }
   },

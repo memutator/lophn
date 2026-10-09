@@ -5,6 +5,7 @@ import {
   VIEW_BOUNDS_CHANNEL,
   VIEW_CLOSE_CHANNEL,
   VIEW_OPEN_APP_CHANNEL,
+  VIEW_REOPEN_CHANNEL,
   VIEW_STATE_CHANNEL,
   type ViewReply,
   VIEWS_HIDDEN_CHANNEL,
@@ -52,6 +53,8 @@ export function createViewsApi(transport: ViewsTransport): LophnShellViewsApi {
       closeView: async (input) => {
         await call<null>(transport, VIEW_CLOSE_CHANNEL, input);
       },
+      reopenView: (input) =>
+        call<AppFrameViewState>(transport, VIEW_REOPEN_CHANNEL, input),
       subscribeViewState(listener) {
         const callback = (_event: unknown, payload: unknown) => {
           const parsed = appFrameViewStateSchema.safeParse(payload);

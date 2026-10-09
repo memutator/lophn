@@ -191,6 +191,67 @@ Deno.test("shell/app-frame#R33, shell/app-frame#R34: 같은 앱의 두 패널은
   });
 });
 
+Deno.test("shell/app-frame#R21, shell/app-frame#R32: 멈추거나 crash한 패널은 크롬에 상태와 [Open again]을 보이고 누를 때만 그 view를 새로 열며 문제 알리기는 그대로 눌린다", async () => {
+  await withLayout(async () => {
+    const fake = fakeAppViews();
+    using view = render(
+      <AppViewsProvider value={fake.deps}>
+        <div data-rect="0 48 400 600" data-left="">
+          <AppPanelTab app={APP_A} screen="board" shown />
+        </div>
+        <div data-rect="401 48 400 600" data-right="">
+          <AppPanelTab app={APP_A} screen="board" shown />
+        </div>
+      </AppViewsProvider>,
+    );
+    await frames();
+    const left = one(view.container, "[data-left] [data-view-chrome]");
+    const right = one(view.container, "[data-right] [data-view-chrome]");
+    const leftSession = left.getAttribute("data-view-session")!;
+    // 건강한 view에는 상태 표시도 새로 열기도 없다.
+    assertEquals(left.querySelector("[data-view-health]"), null);
+    assertEquals(left.querySelector("[data-reopen-view]"), null);
+    const state = {
+      view_session: leftSession,
+      app: APP_A,
+      release: REL_1,
+      mode: "live" as const,
+      screen: "board",
+      size: "panel" as const,
+      connectionState: "running" as const,
+    };
+    for (
+      const [health, label] of [
+        ["unresponsive", "Not responding"],
+        ["crashed", "Screen stopped"],
+      ] as const
+    ) {
+      await act(() => fake.push({ ...state, viewHealth: health }));
+      await frames();
+      assertEquals(one(left, "[data-view-health]").textContent, label);
+      // 연결 상태는 따로 그대로 보인다.
+      assertEquals(
+        one(left, "[data-view-connection]").textContent,
+        "Connected",
+      );
+      assertEquals(right.querySelector("[data-view-health]"), null);
+    }
+    // 스스로 다시 열지 않는다.
+    assertEquals(fake.calls.filter((call) => call[0] === "reopen"), []);
+    click(one(left, "[data-reopen-view]"));
+    click(one(left, "[data-report-problem]"));
+    assertEquals(fake.calls.filter((call) => call[0] === "reopen"), [
+      ["reopen", leftSession],
+    ]);
+    assertEquals(fake.reports, [leftSession]);
+    // main이 새 view 상태를 알리면 표시가 걷힌다.
+    await act(() => fake.push({ ...state, viewHealth: "ok" }));
+    await frames();
+    assertEquals(left.querySelector("[data-view-health]"), null);
+    assertEquals(left.querySelector("[data-reopen-view]"), null);
+  });
+});
+
 Deno.test("shell/app-frame#R35, shell/workspace#R5: 작업대에서 연 앱 패널은 다른 탭을 고르면 view를 남긴 채 숨기고 다시 고르면 bounds를 보내며 닫으면 폐기한다", async () => {
   await withLayout(async () => {
     const fake = fakeAppViews({ screens: SCREENS });

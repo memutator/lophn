@@ -24,7 +24,8 @@ export type ViewCall =
   | ["open", AppViewOpen]
   | ["bounds", string, ViewBounds]
   | ["hide", ...string[]]
-  | ["close", string];
+  | ["close", string]
+  | ["reopen", string];
 
 export interface FakeAppViews {
   deps: AppViewsDeps;
@@ -82,6 +83,10 @@ export function fakeAppViews(
     closeView(input) {
       calls.push(["close", input.view_session]);
       return Promise.resolve();
+    },
+    reopenView(input) {
+      calls.push(["reopen", input.view_session]);
+      return Promise.reject(new Error("conflict"));
     },
     subscribeViewState(listener) {
       listeners.add(listener);

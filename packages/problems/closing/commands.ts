@@ -5,16 +5,22 @@
 // 읽는 선례).
 import { err, ok, parseSeq, type Result } from "../../base/mod.ts";
 import type { LophnError } from "../../base/mod.ts";
-import type {
-  CommandDefinition,
-  Input,
-  Output,
-  RequestContext,
-  Tx,
+import {
+  type CommandDefinition,
+  type Input,
+  type Output,
+  parseActor,
+  type RequestContext,
+  type Tx,
 } from "../../contracts/platform/mod.ts";
 import {
+  applyProblemDecision,
+  type Closure,
   closeProblemVerified,
   problemClosed,
+  problemConfirmationRecorded,
+  problemReopened,
+  type UserProblemDecision,
 } from "../../contracts/problems/mod.ts";
 import { NOT_FOUND } from "../reporting/mod.ts";
 
@@ -187,5 +193,145 @@ export const closeProblemVerifiedCommand: CommandDefinition<
   route: closeProblemVerified,
   handle(tx, ctx, input) {
     return handleCloseProblemVerified(tx, ctx, input);
+  },
+};
+
+// 마지막 live Report다. ReportRecorded는 live 보고에만 problem을 싣는다.
+function lastReportOf(tx: Tx, problem: string): string | null {
+  const row = tx.sql.get(
+    `select subject from events
+      where type = 'ReportRecorded' and json_extract(payload, '$.problem') = ?
+      order by seq desc limit 1`,
+    [problem],
+  );
+  return row === undefined ? null : String(row.subject);
+}
+
+// 보호된 사람 결정 적용(problems/closing#R1, R6~R10, R14). 일회 handle의 검증·소비는
+// ledger executor가 같은 transaction에서 한다: confirmation route라 handle·binding 없이는
+// 여기 오지 않고, 재사용 handle도 여기 오지 않는다. handler는 actor·문제 seq·활성 release·
+// 필요한 last Report를 다시 비교하고 Verification을 만들지 않는다(R6).
+export function handleApplyProblemDecision(
+  tx: Tx,
+  ctx: RequestContext,
+  input: Input<typeof applyProblemDecision>,
+  compare: { problem_seq: string; release: string | null },
+): Result<Output<typeof applyProblemDecision>, LophnError> {
+  // agent·앱·machine의 사람 주장은 거절한다(R1). executor의 actors 검사와 같은 답이다.
+  if (parseActor(ctx.actor)?.kind !== "user") {
+    return err({ code: "forbidden", message: "사람 결정만 적용한다" });
+  }
+  if (
+    compare.problem_seq !== input.basis_seq || compare.release !== input.release
+  ) {
+    return conflict("결정 기준이 비교 기준과 다르다");
+  }
+  const row = tx.sql.get(
+    `select app, status, closure from problems where id = ?`,
+    [input.problem],
+  );
+  if (row === undefined) return notFound();
+  const app = String(row.app);
+  const status = String(row.status) as ProblemRow["status"];
+  // 보호 화면이 보여 준 문제 seq와 활성 release가 지금도 같아야 한다(R6, R14).
+  if (problemSeqOf(tx, input.problem) !== input.basis_seq) {
+    return conflict("문제가 바뀌었다");
+  }
+  if (activeReleaseOf(tx, app) !== input.release) {
+    return conflict("활성 release가 바뀌었다");
+  }
+  const decision: UserProblemDecision = {
+    choice: input.choice,
+    problem: input.problem,
+    basis_seq: input.basis_seq,
+    release: input.release,
+    last_report: input.last_report,
+    note: input.note,
+  };
+  if (input.choice === "not_fixed") {
+    if (status !== "closed") {
+      // 열린 문제는 닫지 않고 부정 확인만 남긴다(R10).
+      tx.emit(problemConfirmationRecorded, input.problem, decision);
+      return ok({ status, closure: null });
+    }
+    // 닫힌 문제는 같은 ID로 다시 연다. 이전 closure는 event에 남는다(R10).
+    const previous = JSON.parse(String(row.closure)) as Closure;
+    tx.sql.run(
+      `update problems set status = 'open', closure = NULL where id = ?`,
+      [input.problem],
+    );
+    tx.emit(problemReopened, input.problem, {
+      previous,
+      report: null,
+      decision,
+    });
+    return ok({ status: "open", closure: null });
+  }
+  if (status === "closed") return conflict("이미 닫혔다");
+  // 사람 결정의 근거 참조다. handle 원문은 남기지 않고, 이 문제의 결정 기준에 묶인
+  // 일회 결정을 가리킨다(문제 seq는 적용 뒤 바뀌므로 같은 참조가 다시 생기지 않는다).
+  const confirmation = `${applyProblemDecision.name}@${input.basis_seq}`;
+  let closure: Closure;
+  if (input.choice === "fixed") {
+    // 내가 확인함이다. reproduction 통과를 만들거나 대신하지 않는다(R6, R9).
+    closure = {
+      reason: "user_confirmed",
+      basis_seq: input.basis_seq,
+      release: input.release,
+      verification: null,
+      confirmation,
+      last_report: null,
+      note: input.note,
+    };
+  } else if (input.choice === "not_visible") {
+    // 현재 release와 마지막 Report를 본 사람만 recovered로 닫는다(R7).
+    if (input.last_report !== lastReportOf(tx, input.problem)) {
+      return err({
+        code: "invalid_input",
+        message: "마지막 보고가 아니다",
+      });
+    }
+    closure = {
+      reason: "recovered",
+      basis_seq: input.basis_seq,
+      release: input.release,
+      verification: null,
+      confirmation,
+      last_report: input.last_report,
+      note: input.note,
+    };
+  } else {
+    // 더 다루지 않음은 한 줄 이유가 있어야 하고 수리 성공이 아니다(R8).
+    if (input.note === null || input.note.trim().length === 0) {
+      return err({ code: "invalid_input", message: "이유가 없다" });
+    }
+    closure = {
+      reason: "dismissed",
+      basis_seq: input.basis_seq,
+      release: input.release,
+      verification: null,
+      confirmation,
+      last_report: null,
+      note: input.note,
+    };
+  }
+  tx.sql.run(
+    `update problems set status = 'closed', closure = ? where id = ?`,
+    [JSON.stringify(closure), input.problem],
+  );
+  tx.emit(problemClosed, input.problem, {
+    previous_status: status as "open" | "fixing",
+    closure,
+  });
+  return ok({ status: "closed", closure });
+}
+
+export const applyProblemDecisionCommand: CommandDefinition<
+  typeof applyProblemDecision
+> = {
+  route: applyProblemDecision,
+  // 사람 결정 handle은 ledger executor가 transaction 안에서 검증·소비한다.
+  handle(tx, ctx, input, compare) {
+    return handleApplyProblemDecision(tx, ctx, input, compare);
   },
 };

@@ -127,8 +127,9 @@ export const applyProblemDecisionCompareSchema = z.strictObject({
   problem_seq: seqSchema,
   release: idSchema("rel").nullable(),
 });
+// not_fixed는 진행 중(fixing) 문제의 status를 바꾸지 않으므로 fixing도 결과다.
 export const applyProblemDecisionOutputSchema = z.object({
-  status: z.enum(["open", "closed"]),
+  status: z.enum(["open", "fixing", "closed"]),
   closure: closureSchema.nullable(),
 });
 export const applyProblemDecision = defineCommand({

@@ -3,11 +3,14 @@
 export {
   type ClosureEvidence,
   type ConclusionBasis,
+  offersFixedConfirmation,
   verifiedCandidate,
   verifiedClosure,
 } from "./model.ts";
 export {
+  applyProblemDecisionCommand,
   closeProblemVerifiedCommand,
+  handleApplyProblemDecision,
   handleCloseProblemVerified,
 } from "./commands.ts";
 export {

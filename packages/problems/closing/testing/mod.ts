@@ -11,7 +11,10 @@ import {
   defineCommand,
   type Tx,
 } from "../../../contracts/platform/mod.ts";
-import { closeProblemVerifiedCommand } from "../mod.ts";
+import {
+  applyProblemDecisionCommand,
+  closeProblemVerifiedCommand,
+} from "../mod.ts";
 
 // 실제 RecordVerification이 하는 일의 줄임이다: verified 근거(reproduction pass
 // Verification 행)를 원장에 남긴다. 시험이 근거 연결을 만들 때만 쓴다.
@@ -235,6 +238,7 @@ export function createLedgerTestRegistration(
     schemaSteps: [FIXTURE_STEP],
     commands: [
       closeProblemVerifiedCommand,
+      applyProblemDecisionCommand,
       verifyCommand as CommandDefinition,
       activateCommand as CommandDefinition,
     ],

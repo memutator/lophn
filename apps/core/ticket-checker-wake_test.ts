@@ -36,6 +36,7 @@ function visible(type: string, ctx: RequestContext): boolean | undefined {
 Deno.test("coding-agent/tickets#R20: ProblemClosed and ProblemReopened wake the checker", () => {
   assert(isTicketCheckWake("ProblemClosed"));
   assert(isTicketCheckWake("ProblemReopened"));
+  assert(isTicketCheckWake("ProblemConfirmationRecorded"));
   // 문제 접수 같은 다른 problems event는 깨움이 아니다.
   assert(!isTicketCheckWake("ProblemOpened"));
 });
@@ -47,6 +48,13 @@ Deno.test("coding-agent/tickets#R20: the problems owner policy opens closure eve
     assertEquals(visible(type, USER), false);
     assertEquals(visible(type, OTHER_MACHINE), false);
   }
+  // 사람의 not_fixed 결정은 checker feed에만 열린다.
+  assertEquals(
+    visible("ProblemConfirmationRecorded", TICKET_CHECK_FEED_CONTEXT),
+    true,
+  );
+  assertEquals(visible("ProblemConfirmationRecorded", USER), false);
+  assertEquals(visible("ProblemConfirmationRecorded", OTHER_MACHINE), false);
   // 열지 않은 event는 checker feed에도 계속 숨김이다.
   assertEquals(visible("ProblemOpened", TICKET_CHECK_FEED_CONTEXT), false);
 });

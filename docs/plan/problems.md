@@ -548,6 +548,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: 없음
 - slice: problems
 - 선행: problems#T14, problems#T18, problems#T20, problems#T21, problems#T22, coding-agent#T19, coding-agent#T24, coding-agent#T45, coding-agent#T47, apps#T18, shell#T52, shell#T53
+- 상태: 진행 (#509, #514) — #509: flow 1단계, 그때 남은 것: flow 2–7단계(자기 터미널 제출의 나머지, reproduction 격리, 통과·실패 화면, activation, 자동 닫힘·사람 확인, 닫힌 뒤 재발). 이 PR (#514)은 2단계만 했다. 자기 터미널 수리도 coding agent가 해당 repair ticket의 현재 MCP claim으로 이전 release·고친 release·변경 설명·실제 test 참조를 제출한다. 작은 repair context에는 지난 근거가 이어지고, 과거 ticket 없는 이력은 당시 null 출처로만 읽는다. 없던 claim이나 돌리지 않은 테스트는 보충하지 않는다. 안쪽 출처 검사는 사람에게 보이지 않는다. 남은 것: flow 3–7단계(reproduction 격리, 통과·실패 화면, activation, 자동 닫힘·사람 확인, 닫힌 뒤 재발).
 - 완료:
   - flow 1~7단계: 고친 기록 → reproduction → activation → 자동 닫힘(테스트로 확인됨), 사람 확인(내가 확인함), "아직입니다" 뒤 reopen·재요청 억제
   - 다른 갈래: claim 없는 제출 거절, runner 상실·timeout은 판정 불가, 약화 변경은 닫힘 근거 아님, activation 거절이면 열린 채, 이전 release 늦은 보고는 reopen하지 않음
@@ -562,6 +563,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: 없음
 - slice: problems
 - 선행: problems#T19, problems#T24, platform#T39, lophn-agent#T50, coding-agent#T38, coding-agent#T46, coding-agent#T47, shell#T52, shell#T53
+- 상태: 진행 (#503) — 이 PR은 flow 1단계만. 선언 실패(fixture_misconfigured user fixer, fixture_broken coding_agent)와 view render exception 수집, 당시 release·출처·snapshot 고정, 없는 증거의 이유, 자동 수집은 사람 파일·미선택 화면을 넣지 않음, 수집 UI는 안 보임. 남은 것: 2–9단계(redaction·notification·App Engineer·ticket·claim·reproduction·activation·자동 닫힘)와 process unhandled rejection(자식이 바로 exit).
 - 완료:
   - flow 1~9단계: 선언 실패와 process exception 접수 → 문제 열림 notification 1회 → App Engineer 해석 연결 → repair ticket → claim 뒤 fixing → reproduction·app test → 고친 기록 → activation → 자동 닫힘
   - 다른 갈래: 일부 증거 실패는 이유와 함께 접수, claim 만료 뒤 제출 거절, 재현 실패·약화는 닫힘 아님, 닫힌 뒤 현재 release 재발은 같은 문제 reopen

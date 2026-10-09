@@ -56,6 +56,7 @@ import {
 import type { AppTool } from "../../packages/lophn-agent/harness/tools/mod.ts";
 import type { AppToolkit } from "./app-toolkit.ts";
 import { commandOf, type CoreCall, readOf } from "./core-call.ts";
+import { contextMaterials } from "./context-materials.ts";
 import { createCorePorts, type RunSeat } from "./core-ports.ts";
 import type { ModelBinding } from "./model-binding.ts";
 import { type BlobPort, type RedactText, storeValue } from "./run-blobs.ts";
@@ -406,7 +407,7 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
         purpose: null,
         run_facts: null,
         continuation_summary: null,
-        sources: [],
+        sources: await contextMaterials(agent, definition.context),
         skills: (await deps.skills?.()) ?? [],
         timezone: deps.timezone?.() ?? null,
         limits: {

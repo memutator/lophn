@@ -64,7 +64,7 @@ Deno.test("flow update-lophn: 사람이 고른 파일만 읽고 새 version·지
   assertEquals(calls.find((call) => call[0] === "stop")?.[0], "stop");
   assertEquals(
     find(view.container, "[data-stop='stopped']").textContent,
-    "lophn stopped cleanly. Install the update file you chose, then start lophn.",
+    "lophn stopped cleanly. Start lophn again.",
   );
 });
 

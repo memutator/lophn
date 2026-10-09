@@ -1217,6 +1217,9 @@ export type PlaceholderKinds = {
     number: "number";
   };
   "document.label.version-newest": Record<never, never>;
+  "document.label.version-run": {
+    id: "string";
+  };
   "document.label.changed-sections": Record<never, never>;
   "document.label.section-counts": {
     added: "number";
@@ -2517,6 +2520,7 @@ export type PlaceholderKinds = {
   "things-to-confirm.button.keep-question": Record<never, never>;
   "things-to-confirm.button.later": Record<never, never>;
   "things-to-confirm.button.mark-read": Record<never, never>;
+  "things-to-confirm.button.open-document": Record<never, never>;
   "things-to-confirm.button.review": Record<never, never>;
   "things-to-confirm.button.review-next": Record<never, never>;
   "things-to-confirm.button.send-answer": Record<never, never>;

@@ -5,12 +5,13 @@
 // - 프로젝트 등록·추적은 같은 사람 command를 core 통로로 낸다(first-project가 화면 조작을 따로 본다).
 // - 이력·비교·restore 조작은 모두 정보 패널의 versions 탭과 compare 화면으로 한다.
 // - 원본 파일이 없을 때는 아래 갈래가 본다. agent가 쓴 판의 run 근거는 그 다음 테스트가 본다.
-//   아직 없는 갈래(옛 이름·자리 참조, 검색 반영 대기 표시)는 documents#T21의 이어보냄 메모에 적었다.
-import { assert, assertEquals } from "@std/assert";
+//   옛 이름·자리 참조는 마지막 테스트가 본다. 아직 없는 갈래(검색 반영 대기 표시)는
+//   documents#T21의 이어보냄 메모에 적었다.
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 
 import { buildReply } from "../../tools/fake-provider/semantic.ts";
 import type { SemanticReply } from "../../tools/fake-provider/types.ts";
-import { e2eEnabled } from "../harness.ts";
+import { e2eEnabled, READY_TIMEOUT_MS } from "../harness.ts";
 import {
   commandBody,
   delay,
@@ -21,6 +22,7 @@ import {
   openFlowShell,
   openProjectWorkspace,
   PROJECT,
+  registerProject,
   registerTrackedProject,
   removeHome,
   untilDocuments,
@@ -667,6 +669,282 @@ Deno.test({
       if (flow !== undefined) await flow.close();
       await removeHome(home);
       await Deno.remove(folder, { recursive: true });
+    }
+  },
+});
+
+const OTHER_PROJECT = "prj_01arz3ndektsv4rrffq69g5fb0";
+const FIRST_PLACE = "plan";
+const NEXT_PLACE = "beta";
+const MOVED_NAME = "notes";
+const CURRENT_NAME = "memo";
+
+type AddressResolved = {
+  document: string;
+  version: string;
+  redirected: boolean;
+  current_reference: {
+    place: string;
+    document: string;
+    section: null;
+    version: number;
+  };
+};
+
+async function listedById(flow: FlowShell, id: string) {
+  const found = (await listDocuments(flow)).find((row) => row.id === id);
+  assert(found !== undefined, `문서가 없다: ${id}`);
+  return found;
+}
+
+async function resolveAddress(
+  flow: FlowShell,
+  reference: {
+    place: string;
+    document: string;
+    section: null;
+    version: number | null;
+  },
+): Promise<AddressResolved> {
+  const value = await mustCall(flow, {
+    kind: "read",
+    resource: "documents",
+    method: "resolve",
+    body: { reference },
+  });
+  return value.resolved as AddressResolved;
+}
+
+async function untilVersionText(
+  flow: FlowShell,
+  document: string,
+  version: string,
+  text: string,
+): Promise<void> {
+  const deadline = Date.now() + READY_TIMEOUT_MS;
+  for (;;) {
+    const read = await flow.call({
+      kind: "worker",
+      resource: "documents",
+      method: "read",
+      body: { reference: { document, version, section: null } },
+    });
+    const page = read.ok
+      ? read.value as { text: string | null; section_status: string }
+      : null;
+    if (
+      page !== null && page.text?.includes(text) &&
+      page.section_status !== "unverified"
+    ) return;
+    assert(
+      Date.now() < deadline,
+      `판 본문이 아직 없다: ${JSON.stringify(read)}`,
+    );
+    await delay(250);
+  }
+}
+
+async function openAddress(flow: FlowShell, link: string): Promise<void> {
+  if (await flow.count("[data-link-form]") === 0) {
+    await flow.click("[data-open-link]");
+    await flow.until(
+      `document.querySelector("[data-link-input]") !== null`,
+      "링크 입력칸이 열리지 않았다",
+    );
+  }
+  await flow.type("[data-link-input]", link);
+  await flow.click("[data-link-submit]");
+}
+
+Deno.test({
+  name:
+    "documents/addressing#R6 documents/versions#R2 documents/versions#R6 documents/versions#R8 flow restore-document: 옛 이름이나 자리의 참조로 같은 문서의 지정 판과 이력을 읽는다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn() {
+    const folder = await Deno.realPath(
+      await Deno.makeTempDir({ prefix: "lophn-e2e-restore-address-" }),
+    );
+    const other = await Deno.realPath(
+      await Deno.makeTempDir({ prefix: "lophn-e2e-restore-place-" }),
+    );
+    const file = `${folder}/plan.md`;
+    await Deno.writeTextFile(file, ALPHA);
+    const flow = await openFlowShell({ start: "lophn" });
+    try {
+      await registerTrackedProject(flow, {
+        folder,
+        name: FIRST_PLACE,
+        title: "Plan",
+      });
+      await untilDocuments(flow, ["plan"], "추적한 파일이 문서가 되지 않았다");
+      const created = await documentTitled(flow, "plan");
+      assert(created.name !== null, "문서 address 이름이 없다");
+      const documentId = created.id;
+      const originalName = created.name;
+      await Deno.writeTextFile(file, BETA);
+      await untilVersions(flow, documentId, 2, "두 번째 판이 없다");
+      const historyBefore = await versionHistory(flow, documentId);
+      assertEquals(historyBefore.map((row) => row.number), [2, 1]);
+      const version2 = historyBefore[0]!;
+      const version1 = historyBefore[1]!;
+      assert(
+        historyBefore.every((row) => row.saved_by.startsWith("machine")),
+        `파일 관측 판의 저장 주체가 아니다: ${JSON.stringify(historyBefore)}`,
+      );
+      await untilVersionText(flow, documentId, version1.id, "Alpha line.");
+      await untilVersionText(flow, documentId, version2.id, "Beta line.");
+      const placed = await listedById(flow, documentId);
+      assertEquals(placed.name, originalName);
+      assertEquals(placed.latest_version, version2.id);
+
+      await registerProject(flow, {
+        folder: other,
+        id: OTHER_PROJECT,
+        name: NEXT_PLACE,
+        title: "Beta",
+      });
+      await mustCall(flow, {
+        kind: "command",
+        resource: "documents",
+        method: "move",
+        body: commandBody(
+          {
+            document: documentId,
+            place: { kind: "project", id: OTHER_PROJECT },
+            name: MOVED_NAME,
+          },
+          { base_revision: placed.revision },
+        ),
+      });
+      const moved = await listedById(flow, documentId);
+      assertEquals(moved.name, MOVED_NAME);
+      assertEquals(moved.latest_version, version2.id);
+      await mustCall(flow, {
+        kind: "command",
+        resource: "documents",
+        method: "rename",
+        body: commandBody(
+          { document: documentId, name: CURRENT_NAME },
+          { base_revision: moved.revision },
+        ),
+      });
+      const renamed = await listedById(flow, documentId);
+      assertEquals(renamed.id, documentId);
+      assertEquals(renamed.name, CURRENT_NAME);
+      assertEquals(renamed.latest_version, version2.id);
+      assertEquals(await versionHistory(flow, documentId), historyBefore);
+      assertEquals(await Deno.readTextFile(file), BETA);
+
+      const first = await resolveAddress(flow, {
+        place: FIRST_PLACE,
+        document: originalName,
+        section: null,
+        version: version1.number,
+      });
+      assertEquals(first.document, documentId);
+      assertEquals(first.version, version1.id);
+      assertEquals(first.redirected, true);
+      assertEquals(first.current_reference, {
+        place: NEXT_PLACE,
+        document: CURRENT_NAME,
+        section: null,
+        version: version1.number,
+      });
+      const intermediate = await resolveAddress(flow, {
+        place: NEXT_PLACE,
+        document: MOVED_NAME,
+        section: null,
+        version: version2.number,
+      });
+      assertEquals(intermediate.document, documentId);
+      assertEquals(intermediate.version, version2.id);
+      assertEquals(intermediate.redirected, true);
+      assertEquals(intermediate.current_reference, {
+        place: NEXT_PLACE,
+        document: CURRENT_NAME,
+        section: null,
+        version: version2.number,
+      });
+      const current = await resolveAddress(flow, {
+        place: NEXT_PLACE,
+        document: CURRENT_NAME,
+        section: null,
+        version: null,
+      });
+      assertEquals(current.document, documentId);
+      assertEquals(current.redirected, false);
+      assertEquals(current.version, version2.id);
+
+      await flow.until(
+        `document.querySelector("[data-open-link]") !== null`,
+        "문서 화면이 서지 않았다",
+      );
+      await openAddress(
+        flow,
+        `${FIRST_PLACE}/${originalName}@${version1.number}`,
+      );
+      const readerBody =
+        `document.querySelector('[data-reader="${documentId}"] [data-body]')?.textContent`;
+      await flow.until(
+        `${readerBody}?.includes("Alpha line.") && !${readerBody}?.includes("Beta line.") && document.querySelector("[data-link-moved]") !== null && document.querySelector("[data-link-pinned]") !== null && document.querySelector('[data-reader="${documentId}"] [data-version-state="older"]') !== null`,
+        "옛 address가 같은 문서의 지정 판을 열지 않았다",
+      );
+      assertStringIncludes(
+        (await flow.text("[data-link-moved]")) ?? "",
+        `${NEXT_PLACE}/${CURRENT_NAME}`,
+      );
+      assertStringIncludes(
+        (await flow.text("[data-link-pinned]")) ?? "",
+        `version ${version1.number}`,
+      );
+
+      await flow.click("[data-launcher-back]");
+      await flow.until(
+        `document.querySelector('[data-card="project"][data-project="${OTHER_PROJECT}"] button:not([data-details-toggle])') !== null`,
+        "옮긴 프로젝트 카드가 없다",
+      );
+      await flow.click(
+        `[data-card="project"][data-project="${OTHER_PROJECT}"] button:not([data-details-toggle])`,
+      );
+      await flow.until(
+        `document.querySelector("[data-space]")?.getAttribute("data-space") === "project"`,
+        "project 작업대가 서지 않았다",
+      );
+      await flow.until(
+        `document.querySelector('[data-document="${documentId}"]') !== null`,
+        "옮긴 문서가 작업대에 없다",
+      );
+      await flow.click(`[data-document="${documentId}"]`);
+      await flow.until(
+        `document.querySelector('[data-tab="${documentId}"]') !== null && document.querySelector("[data-document-body]")?.textContent?.includes("Beta line.")`,
+        "같은 문서의 최신 판이 열리지 않았다",
+      );
+      await openVersions(flow);
+      const historyScreen = JSON.parse(String(
+        await flow.evaluate(
+          `JSON.stringify({ rows: [...document.querySelectorAll("[data-version-row]")].map((el) => Number(el.getAttribute("data-version-row"))), text: document.querySelector("[data-versions-tab]")?.innerText ?? "" })`,
+        ),
+      )) as { rows: number[]; text: string };
+      assertEquals(historyScreen.rows, historyBefore.map((row) => row.number));
+      assertEquals(
+        await flow.count("[data-versions-tab] time"),
+        historyBefore.length,
+      );
+      assertEquals(
+        await flow.count("[data-versions-tab] [data-version-run]"),
+        0,
+      );
+      assert(
+        historyScreen.text.includes("From the file"),
+        historyScreen.text,
+      );
+    } finally {
+      await flow.close();
+      await removeHome(flow.home);
+      await Deno.remove(folder, { recursive: true });
+      await Deno.remove(other, { recursive: true });
     }
   },
 });

@@ -214,6 +214,9 @@ export function AppPanelTab(
         connection={state?.connectionState ?? null}
         viewSession={state?.view_session ?? null}
         onReport={deps.report}
+        health={state?.viewHealth}
+        onReopen={(view_session) =>
+          void deps.views.reopenView({ view_session }).catch(() => {})}
       />
       <div className={styles.view}>
         <EmbeddedView

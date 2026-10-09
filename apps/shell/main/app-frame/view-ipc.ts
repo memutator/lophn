@@ -9,6 +9,7 @@ import {
   VIEW_BOUNDS_CHANNEL,
   VIEW_CLOSE_CHANNEL,
   VIEW_OPEN_APP_CHANNEL,
+  VIEW_REOPEN_CHANNEL,
   viewBoundsRequestSchema,
   viewCloseRequestSchema,
   type ViewReply,
@@ -31,7 +32,7 @@ export interface ViewIpcDeps {
   windowOf(sender: CallerContents): string | undefined;
   visibility: Pick<
     ViewVisibility,
-    "openApp" | "setBounds" | "hide" | "close"
+    "openApp" | "setBounds" | "hide" | "close" | "reopen"
   >;
 }
 
@@ -49,6 +50,10 @@ export interface ViewIpcHandlers {
     input: unknown,
   ): Promise<ViewReply<VisibilityResult>>;
   close(event: IpcEvent, input: unknown): Promise<ViewReply<null>>;
+  reopen(
+    event: IpcEvent,
+    input: unknown,
+  ): Promise<ViewReply<AppFrameViewState>>;
 }
 
 const DESKTOP_HOST = "desktop";
@@ -114,6 +119,16 @@ export function createViewIpc(deps: ViewIpcDeps): ViewIpcHandlers {
         ),
       );
     },
+    reopen(event, input) {
+      const checked = guard(event, viewCloseRequestSchema, input);
+      if (!checked.ok) return Promise.resolve(checked);
+      return Promise.resolve(
+        deps.visibility.reopen(
+          checked.value.window,
+          checked.value.input.view_session,
+        ),
+      );
+    },
   };
 }
 
@@ -130,6 +145,7 @@ const CHANNELS = [
   [VIEW_BOUNDS_CHANNEL, "setBounds"],
   [VIEWS_HIDDEN_CHANNEL, "setHidden"],
   [VIEW_CLOSE_CHANNEL, "close"],
+  [VIEW_REOPEN_CHANNEL, "reopen"],
 ] as const;
 
 export function registerViewIpc(

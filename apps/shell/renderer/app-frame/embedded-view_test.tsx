@@ -88,6 +88,7 @@ function fakeViews(options: { failFirst?: boolean } = {}) {
       calls.push(["close", input.view_session]);
       return Promise.resolve();
     },
+    reopenView: () => Promise.reject(new Error("conflict")),
     subscribeViewState(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);

@@ -2,6 +2,7 @@
 // 근거는 core가 읽어 준 사실뿐이다: 같은 app·bundle hash의 Verification, 앱 정본의 active
 // release. shell 성공 문장·완료 summary·agent의 주장은 근거가 아니다(R18).
 // 없는 근거는 inconclusive다(P11). 실제로 일어난 실패만 fail이다(P10).
+import { applyProblemDecision } from "../../../contracts/problems/mod.ts";
 import type {
   CheckWork,
   ProblemFact,
@@ -202,19 +203,19 @@ function releaseActive(
   };
 }
 
-// 문제 닫힘의 비교 대상 revision. 닫힘 근거가 바뀌면(재발·다시 닫힘) 달라진다.
+// 문제 닫힘의 비교 대상 revision은 문제의 최신 seq다. 재발·다시 닫힘·사람 결정마다 달라진다.
 function problemTarget(fact: ProblemFact): CheckTarget {
-  const closure = fact.closure;
   return {
     concern: "problems",
     id: fact.id,
-    revision: closure === null
-      ? fact.status
-      : `closed/${closure.reason}/${
-        closure.release ?? "-"
-      }/${closure.basis_seq}`,
-    release: closure?.release ?? null,
+    revision: fact.seq,
+    release: fact.closure?.release ?? null,
   };
+}
+
+// 사람 결정이 남긴 확인 참조다(problems/closing의 user_confirmed 닫힘). handle 원문이 아니다.
+function decisionReference(basisSeq: string): string {
+  return `${applyProblemDecision.name}@${basisSeq}`;
 }
 
 function problemOf(work: CheckWork, id: string): ProblemFact | undefined {
@@ -297,25 +298,46 @@ function problemsClosed(
     };
 }
 
-// "내가 확인함"이다. 문제 닫힘 가운데 사람이 이 release를 확인한 닫힘(user_confirmed)만 센다.
-// Verification이 아니고 test 통과로 세지 않는다(R9).
+// "내가 확인함"이다. 문제 닫힘 가운데 사람 결정이 이 release를 확인한 닫힘(user_confirmed)만
+// 센다. Verification이 아니고 "테스트로 확인됨"으로 세지 않는다(R9). 사람이 이 release에서
+// "아직입니다"(not_fixed)라고 했고 그 뒤 닫힘이 없으면 실제로 일어난 실패다.
 function humanConfirmation(
   work: CheckWork,
   problem: string,
 ): Pick<ConditionDecision, "result" | "reason" | "verification" | "targets"> {
   const fact = problemOf(work, problem);
   const closure = fact?.closure ?? null;
+  const targets = fact === undefined ? [] : [problemTarget(fact)];
   const confirmed = fact !== undefined && fact.status === "closed" &&
     closure !== null && closure.reason === "user_confirmed" &&
-    closure.confirmation !== null &&
+    closure.confirmation === decisionReference(closure.basis_seq) &&
     closure.release === work.completion.release;
+  if (confirmed) {
+    return {
+      result: "pass",
+      reason:
+        `the person checked problem ${problem} on release ${work.completion.release} (I checked, not a test)`,
+      verification: null,
+      targets,
+    };
+  }
+  if (
+    fact !== undefined && fact.status !== "closed" &&
+    fact.not_fixed_release === work.completion.release
+  ) {
+    return {
+      result: "fail",
+      reason:
+        `the person said problem ${problem} is not fixed on release ${work.completion.release}`,
+      verification: null,
+      targets,
+    };
+  }
   return {
-    result: confirmed ? "pass" : "inconclusive",
-    reason: confirmed
-      ? `the person confirmed problem ${problem} on release ${work.completion.release}`
-      : `waiting for the person to confirm problem ${problem}`,
+    result: "inconclusive",
+    reason: `waiting for the person to confirm problem ${problem}`,
     verification: null,
-    targets: fact === undefined ? [] : [problemTarget(fact)],
+    targets,
   };
 }
 

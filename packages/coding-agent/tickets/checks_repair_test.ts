@@ -1,7 +1,20 @@
 // repair ticket 검사 테스트(coding-agent/tickets#R9, R20, R21; plan coding-agent T45).
-// problems/tests·problems/closing이 만들 사실(reproduction Verification, 문제 닫힘·재발,
-// 사람 확인으로 닫힌 문제)은 fixture 행으로 심는다. 그 command는 이 task가 만들지 않는다.
+// problems/tests·problems/closing이 만드는 사실(reproduction Verification, 문제 닫힘·재발,
+// 사람 결정)은 그 command가 쓰는 모양 그대로 심는다: closure는 contract closureSchema로 만들고
+// 문제 표와 함께 `ProblemClosed`·`ProblemReopened`·`ProblemConfirmationRecorded` event를 낸다.
+// 사람 확인 닫힘의 confirmation은 handle이 아니라 `ApplyProblemDecision@<basis_seq>` 참조다.
+// 제품 core의 실제 command 경로는 apps/core/ticket-checker_test.ts가 본다.
 import { assert, assertEquals } from "@std/assert";
+import { ok } from "../../base/mod.ts";
+import { seqSchema } from "../../contracts/platform/mod.ts";
+import {
+  applyProblemDecision,
+  type Closure as ProblemClosure,
+  closureSchema,
+  problemClosed,
+  problemConfirmationRecorded,
+  problemReopened,
+} from "../../contracts/problems/mod.ts";
 import { createTicketCheckCommands, loadCheckWork } from "./checks.ts";
 import { judgeTicket } from "./checker/mod.ts";
 import { APP, PRB, PRB_B, ticketFixture, userContext } from "./fixture.ts";
@@ -111,32 +124,107 @@ type Closure = {
   release: string | null;
   verification?: string | null;
   confirmation?: string | null;
+  note?: string | null;
 };
 
-// problems/closing이 결정한 닫힘을 그대로 둔다. 닫힘을 만드는 쪽은 이 task가 아니다.
-function close(ledger: Ledger, problem: string, closure: Closure): void {
-  ledger.sql.run(
-    "UPDATE problems SET status = 'closed', closure = ? WHERE id = ?",
-    [
-      JSON.stringify({
-        verification: null,
-        confirmation: null,
-        last_report: null,
-        note: null,
-        basis_seq: "7",
-        ...closure,
-      }),
-      problem,
-    ],
-  );
-}
-
-// ProblemReopened 뒤의 표 상태.
-function reopen(ledger: Ledger, problem: string): void {
-  ledger.sql.run(
-    "UPDATE problems SET status = 'open', closure = NULL WHERE id = ?",
+function problemSeq(ledger: Ledger, problem: string): string {
+  const row = ledger.sql.get(
+    "SELECT cast(max(seq) AS text) AS seq FROM events WHERE subject = ?",
     [problem],
   );
+  return row?.["seq"] === null || row?.["seq"] === undefined
+    ? "0"
+    : String(row["seq"]);
+}
+
+function problemRow(ledger: Ledger, problem: string) {
+  const row = ledger.sql.get(
+    "SELECT status, closure FROM problems WHERE id = ?",
+    [problem],
+  )!;
+  return {
+    status: String(row["status"]) as "open" | "fixing" | "closed",
+    closure: row["closure"] === null
+      ? null
+      : closureSchema.parse(JSON.parse(String(row["closure"]))),
+  };
+}
+
+// problems/closing의 닫힘과 같다: 문제 seq가 basis이고 closure는 contract 모양이며
+// ProblemClosed를 낸다. user_confirmed의 기본 confirmation은 사람 결정 참조다.
+function close(ledger: Ledger, problem: string, input: Closure): void {
+  const basis = problemSeq(ledger, problem);
+  const closure: ProblemClosure = closureSchema.parse({
+    basis_seq: basis,
+    verification: null,
+    confirmation: input.reason === "verified"
+      ? null
+      : `${applyProblemDecision.name}@${basis}`,
+    last_report: null,
+    note: input.reason === "dismissed" ? "won't fix" : null,
+    ...input,
+  });
+  const before = problemRow(ledger, problem);
+  if (before.status === "closed") reopen(ledger, problem);
+  ledger.transaction((tx) => {
+    tx.sql.run(
+      "UPDATE problems SET status = 'closed', closure = ? WHERE id = ?",
+      [JSON.stringify(closure), problem],
+    );
+    tx.emit(problemClosed, problem, {
+      previous_status: "open",
+      closure,
+    });
+    return ok(null);
+  });
+}
+
+// 사람의 not_fixed 결정이다. 열린 문제는 ProblemConfirmationRecorded만 남고, 닫힌 문제는
+// 같은 ID로 다시 열린다(ProblemReopened, problems/closing#R10).
+function notFixed(ledger: Ledger, problem: string, release = REL): void {
+  const decision = {
+    choice: "not_fixed" as const,
+    problem,
+    basis_seq: problemSeq(ledger, problem),
+    release,
+    last_report: null,
+    note: null,
+  };
+  const before = problemRow(ledger, problem);
+  ledger.transaction((tx) => {
+    if (before.closure === null) {
+      tx.emit(problemConfirmationRecorded, problem, decision);
+    } else {
+      tx.sql.run(
+        "UPDATE problems SET status = 'open', closure = NULL WHERE id = ?",
+        [problem],
+      );
+      tx.emit(problemReopened, problem, {
+        previous: before.closure,
+        report: null,
+        decision,
+      });
+    }
+    return ok(null);
+  });
+}
+
+// 새 live 보고로 다시 열림(ProblemReopened, report)이다.
+function reopen(ledger: Ledger, problem: string): void {
+  const before = problemRow(ledger, problem);
+  assert(before.closure !== null);
+  ledger.transaction((tx) => {
+    tx.sql.run(
+      "UPDATE problems SET status = 'open', closure = NULL WHERE id = ?",
+      [problem],
+    );
+    tx.emit(problemReopened, problem, {
+      previous: before.closure!,
+      report: "rpt_01arz3ndektsv4rrffq69g5fav",
+      decision: null,
+    });
+    return ok(null);
+  });
 }
 
 const verified = (release: string | null = REL): Closure => ({
@@ -147,7 +235,6 @@ const verified = (release: string | null = REL): Closure => ({
 const userConfirmed = (release: string | null = REL): Closure => ({
   reason: "user_confirmed",
   release,
-  confirmation: "cfm_handle",
 });
 
 function judged(ledger: Ledger) {
@@ -260,7 +347,12 @@ Deno.test("coding-agent/tickets#R9: a human confirmation is I-checked, not a Ver
   seed(other, [human(PRB), closedCondition], [PRB]);
   close(other, PRB, userConfirmed(REL_OTHER));
   assertEquals(judged(other).decisions[0]!.result, "inconclusive");
-  close(other, PRB, { reason: "user_confirmed", release: REL });
+  // 사람 결정 참조가 아닌 확인 값(handle 원문 등)은 사람 확인 근거가 아니다.
+  close(other, PRB, {
+    reason: "user_confirmed",
+    release: REL,
+    confirmation: "cfm_handle",
+  });
   assertEquals(judged(other).decisions[0]!.result, "inconclusive");
   other.close();
 });
@@ -336,7 +428,6 @@ Deno.test("coding-agent/tickets#R20: a closure and a reopening recompare the rem
   assertEquals(results(ledger), ["pass", "inconclusive", "pass"]);
   // 다시 닫힌 뒤(ProblemClosed) 남은 조건이 맞아 확인된다.
   close(ledger, PRB, verified());
-  close(ledger, PRB_B, userConfirmed());
   const closed = runChecker(ledger);
   assert(closed.ok);
   assertEquals(closed.value.state, "confirmed");
@@ -357,7 +448,9 @@ Deno.test("coding-agent/tickets#R9: all conditions passing does not confirm when
   assertEquals(some.value.state, "reported");
   assertEquals(state(partial), "reported");
   assertEquals(
-    partial.emitted.map((event) => event.type),
+    partial.emitted.filter((event) => event.subject === TICKET).map((event) =>
+      event.type
+    ),
     ["TicketChecksRecorded"],
   );
   partial.close();
@@ -458,5 +551,84 @@ Deno.test("coding-agent/tickets#R9: record_checks takes pass or fail for the rep
   );
   assert(accepted.ok);
   assertEquals(accepted.value.state, "check_failed");
+  ledger.close();
+});
+
+Deno.test("coding-agent/tickets#R9 R20: the person's not_fixed decision on the reported release is a real human_confirmation failure", () => {
+  // 열린 문제에 "아직입니다": 문제는 열린 채 남고(ProblemConfirmationRecorded) 조건은 fail이다.
+  const open = ticketFixture();
+  seed(open, [human(PRB), closedCondition], [PRB]);
+  notFixed(open, PRB);
+  assertEquals(problemRow(open, PRB).status, "open");
+  const failed = runChecker(open);
+  assert(failed.ok);
+  assertEquals(failed.value.state, "check_failed");
+  assertEquals(results(open), ["fail", "inconclusive"]);
+  open.close();
+
+  // 다른 release에 대한 "아직입니다"는 이번 보고의 실패가 아니다.
+  const other = ticketFixture();
+  seed(other, [human(PRB), closedCondition], [PRB]);
+  notFixed(other, PRB, REL_OTHER);
+  assertEquals(judged(other).decisions[0]!.result, "inconclusive");
+  // 그 뒤 사람이 이 release를 확인해 닫으면 지난 결정은 남지 않는다.
+  notFixed(other, PRB);
+  close(other, PRB, userConfirmed());
+  const done = runChecker(other);
+  assert(done.ok);
+  assertEquals(done.value.state, "confirmed");
+  other.close();
+
+  // 사람 확인으로 닫힌 문제를 같은 release에서 다시 연 not_fixed(ProblemReopened)도 실패다.
+  const reopened = ticketFixture();
+  seed(
+    reopened,
+    [human(PRB), closedCondition, human(PRB_B)],
+    [PRB, PRB_B],
+  );
+  close(reopened, PRB, userConfirmed());
+  const first = runChecker(reopened);
+  assert(first.ok);
+  assertEquals(results(reopened), ["pass", "inconclusive", "inconclusive"]);
+  notFixed(reopened, PRB);
+  assertEquals(problemRow(reopened, PRB).status, "open");
+  const again = runChecker(reopened);
+  assert(again.ok);
+  assertEquals(again.value.state, "check_failed");
+  assertEquals(results(reopened), ["fail", "inconclusive", "inconclusive"]);
+  reopened.close();
+});
+
+Deno.test("coding-agent/tickets#R20: a problem target carries the problem's latest seq so record_checks takes it", () => {
+  const ledger = ticketFixture();
+  seed(ledger, [human(PRB), closedCondition], [PRB]);
+  close(ledger, PRB, userConfirmed());
+  const { decisions } = judged(ledger);
+  const target = decisions[0]!.targets[0]!;
+  assertEquals(target.revision, problemSeq(ledger, PRB));
+  assertEquals(target.release, REL);
+  for (const decision of decisions) {
+    for (const item of decision.targets) {
+      assert(seqSchema.safeParse(item.revision).success, item.revision);
+    }
+  }
+  // 재발과 다시 닫힘은 revision을 바꾼다: 앞서 읽은 결과는 conflict로 최신 상태를 덮지 못한다.
+  const stale = judged(ledger);
+  reopen(ledger, PRB);
+  close(ledger, PRB, userConfirmed());
+  assert(judged(ledger).decisions[0]!.targets[0]!.revision !== target.revision);
+  const late = ledger.transaction((tx) =>
+    checks.record_checks.handle(tx, userContext("machine"), {
+      ticket: TICKET,
+      completion_seq: stale.work.completion.seq,
+      base_revision: stale.work.revision,
+      checks: stale.decisions,
+    }, { base_revision: stale.work.revision })
+  );
+  assert(!late.ok);
+  assertEquals(late.error.code, "conflict");
+  const fresh = runChecker(ledger);
+  assert(fresh.ok);
+  assertEquals(fresh.value.state, "confirmed");
   ledger.close();
 });

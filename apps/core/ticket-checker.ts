@@ -14,6 +14,7 @@ import {
 } from "../../packages/contracts/apps/mod.ts";
 import {
   problemClosed,
+  problemConfirmationRecorded,
   problemReopened,
   verificationRecorded,
 } from "../../packages/contracts/problems/mod.ts";
@@ -101,6 +102,8 @@ const WAKE_EVENTS: readonly EventDefinition[] = [
   verificationRecorded,
   problemClosed,
   problemReopened,
+  // 열린 문제에 사람이 "아직입니다"(not_fixed)라고 한 결정은 human_confirmation의 실패다.
+  problemConfirmationRecorded,
   releaseActivated,
   releaseSuperseded,
 ];

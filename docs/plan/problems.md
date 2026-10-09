@@ -501,7 +501,8 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - slice: problems
 - 선행: problems#T14, problems#T21, coding-agent#T18
 - 선행 풀기(사람 결정 2026-10-07): 선행이 끝나기 전에 이미 있는 contract와 fake로 먼저 만든다. 선행이 merge되면 실제 구현에 잇는 작은 PR을 따로 내고, 그때 완료로 둔다.
-- 상태: 진행 (#422) — 선행 풀기: problems#T21 merge 뒤 실제 닫힘·결정 data에 잇는 PR이 남음
+- 상태: 완료 (#475) — 이어보냄: 실제 core에 잇는 shell Issues 통로(`issueViewOf` 사용) → shell#T53
+- #475에서 한 것: 사람 결정 닫힘 근거 시각을 실제 `ProblemClosed` 시각으로 채우고, `detail.decision`(additive)으로 마지막 "아직입니다"·다시 열림(보고/사람)과 `offersFixedConfirmation` 기반 고쳐짐 재제안 여부를 준다. 닫힘 4종은 실제 `CloseProblemVerified`·`ApplyProblemDecision`으로 닫아 읽는다(closure-detail_test.ts). `ProblemWorkPort`(coding-agent tickets의 `problemWorkLookup`)·`ProblemTestPort`(tests leaf의 `problemTestLookup`)를 `apps/core/problems.ts` reader에 등록하고 두 fake를 grouping `testing/mod.ts`에 두었다. 실제 `ReconcileProblemWork`의 open·fixing을 `GetProblem.detail`로 읽는다(work-detail_test.ts). 사용자용 ID 없는 `userProblemSchema`·`getProblemUserOutputSchema`·`userProblemReadOf`를 더했고(additive, route output은 그대로), CLI·MCP `problem show`와 shell `issueViewOf`가 이것과 `detail`만 읽는다
 - 선행 풀기 뒤 잇는 PR이 할 일:
   - `ProblemWorkPort` 등록(core, coding-agent tickets 기반): problem과 `work` ticket을 받아 문제에 걸린 끝나지 않은 repair ticket(아직 claim 전인 open ticket 포함)의 `{state, readiness, needs}`를 준다, 없으면 null
   - `ProblemTestPort` 등록(tests leaf의 `verifications`·`test_requests`): 접수만 됨 → pending, 실제 시작 뒤 결과 없음 → running, pass → pass, fail → fail, inconclusive → unconfirmed, 실행 증거의 종료 시각 포함

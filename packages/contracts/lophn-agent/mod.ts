@@ -32,4 +32,5 @@ export * from "./tool-calls.ts";
 export * from "./tool-documents.ts";
 export * from "./traces.ts";
 export * from "./mcp-settings.ts";
+export * from "./skill-settings.ts";
 export { EVENTS, ROUTES } from "./registry.ts";

@@ -1,10 +1,13 @@
 // flow build-context: 실제 headless shell·core·documents worker를 임시 LOPHN_HOME으로 연다.
-// 1은 아래 시험이 contexts 화면과 Context Engineer 대화로 본다. 2~4는 이 파일에 없다.
-// 이 시험은 기존 사람 command로 준비한 context에서 5의 화면·고정 section 읽기, 6~7의 실제 파일 관측·
+// 1은 아래 테스트가 contexts 화면과 Context Engineer 대화로 본다. 2는 그 다음 테스트가
+// 목차·검색·section·본문 범위와 blueprint 읽기 command 조회를 본다. 3~4는 이 파일에 없다.
+// 이 테스트는 기존 사람 command로 준비한 context에서 5의 화면·고정 section 읽기, 6~7의 실제 파일 관측·
 // watch·notification·전후 판 읽기, section 소실과 항목 제거·보관 갈래를 확인한다.
 // 8의 contexts revert 진입은 아직 없다(shell#T36). 미확인·단절·범위 갈래는 T27의 남은 E2E다.
+import { DatabaseSync } from "node:sqlite";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 
+import { sha256Hex } from "../../packages/base/mod.ts";
 import { buildReply } from "../../tools/fake-provider/semantic.ts";
 import type { SemanticReply } from "../../tools/fake-provider/types.ts";
 import {
@@ -751,6 +754,576 @@ Deno.test({
       await flow?.close();
       await provider.close();
       if (flow !== undefined) await removeHome(flow.home);
+      await Deno.remove(folder, { recursive: true });
+    }
+  },
+});
+
+// 2: Context Engineer가 목차·검색으로 이번 목적의 section과 그 본문 범위만 읽는다.
+// 앱 자료 후보는 blueprint의 command 이름·설명·입력·효과를 app.commands로 조회하고,
+// 앱 command는 실행하지 않는다. 앱은 실행을 켜지 않은 release 행이라 자식이 뜨지 않는다.
+// 검색은 대화 화면에 나오지 않는다. model은 fake provider script다.
+const NOTES_APP = "app_01arz3ndektsv4rrffq69g5fb2";
+const NOTES_RELEASE = "rel_01arz3ndektsv4rrffq69g5fb2";
+const NOTES_VERIFICATION = "vrf_01arz3ndektsv4rrffq69g5fb2";
+const OTHER_BODY = "한 정본을 가지는";
+const SECTION_BODY = "뜻이 고정된 말";
+const LOOKUP =
+  "이번 목적에 필요한 용어 section만 읽어 달라. 앱은 읽기 command 계약만 본다.";
+const LOOKUP_REPLY = "용어 section만 읽었다.";
+const NOTES_BLUEPRINT = {
+  name: "Notes",
+  description: "Reads notes for one purpose.",
+  screens: [],
+  commands: [
+    {
+      key: "list_notes",
+      label: "List notes",
+      description: "Read the note titles for this purpose.",
+      effect: "read",
+      confirm: false,
+      input: {
+        type: "object",
+        description: "How many notes to list.",
+        properties: {
+          limit: {
+            type: "integer",
+            description: "Maximum number of notes.",
+          },
+        },
+        additionalProperties: false,
+      },
+      revert: { supported: false },
+    },
+    {
+      key: "save_note",
+      label: "Save note",
+      description: "Write a note outside this purpose.",
+      effect: "write",
+      confirm: false,
+      input: null,
+      revert: { supported: false },
+    },
+  ],
+  automatic_tasks: [],
+  permissions: [],
+  problem_codes: [],
+  documents: [],
+  agent_context: [],
+  app_connections: [],
+  sdk_dependencies: [],
+};
+
+function seedNotesApp(
+  home: string,
+  blueprintJson: string,
+  blueprintHash: string,
+): void {
+  const db = new DatabaseSync(`${home}/lophn.db`);
+  try {
+    db.exec("PRAGMA busy_timeout = 8000");
+    db.prepare(
+      `INSERT INTO apps (id, slug, name, description, planning_version, source_path, active_release, run_enabled, revision, status)
+       VALUES (?, 'notes', 'Notes', 'Reads notes for one purpose.', NULL, NULL, ?, 0, '1', 'active')`,
+    ).run(NOTES_APP, NOTES_RELEASE);
+    db.prepare(
+      `INSERT INTO releases (id, app, number, code_commit, bundle_hash, blueprint_hash, data_schema, data_changes, ticket_source, created_by, created_at, status, activation, failure, blueprint, declarations)
+       VALUES (?, ?, 1, ?, ?, ?, 0, '[]', NULL, 'machine', '2026-10-01T00:00:00.000Z', 'active', NULL, NULL, ?, ?)`,
+    ).run(
+      NOTES_RELEASE,
+      NOTES_APP,
+      "a".repeat(40),
+      "b".repeat(64),
+      blueprintHash,
+      blueprintJson,
+      JSON.stringify({
+        permissions: [],
+        app_connections: [],
+        commands: ["list_notes", "save_note"],
+        automations: [],
+        problem_codes: [],
+        documents: [],
+      }),
+    );
+    db.prepare(
+      "INSERT INTO release_tests (release, verification) VALUES (?, ?)",
+    ).run(NOTES_RELEASE, NOTES_VERIFICATION);
+  } finally {
+    db.close();
+  }
+}
+
+type LookupFixture = Fixture & {
+  failure: () => string;
+  document: () => string;
+  version: () => string;
+  done: () => boolean;
+  /** tool 결과가 들어 있는 요청 번호. 검색이 index 따라잡기 중이면 번호가 밀린다. */
+  result: (step: "outline" | "section" | "range" | "commands") => number;
+  callsNamed: () => readonly string[];
+};
+
+function toolContent(body: string): Record<string, unknown> {
+  const json = lastToolJson(body);
+  assertEquals(
+    json["status"],
+    "success",
+    `tool 실패: ${JSON.stringify(json).slice(0, 500)}`,
+  );
+  const content = json["content"];
+  assert(
+    content !== null && typeof content === "object",
+    `tool 본문이 없다: ${JSON.stringify(json).slice(0, 400)}`,
+  );
+  return content as Record<string, unknown>;
+}
+
+function offeredTools(body: string): string[] {
+  const request = JSON.parse(body) as { tools?: { name?: string }[] };
+  return (request.tools ?? []).map((tool) => String(tool.name ?? ""));
+}
+
+type LookupPhase =
+  | "search"
+  | "list"
+  | "outline"
+  | "section"
+  | "range"
+  | "apps"
+  | "commands"
+  | "done";
+
+type FixedDoc = { document: string; version: string };
+
+/** 검색·목차·section·범위·앱 command 조회. id는 tool 결과에만 있다.
+ * 대화가 ledger를 앞으로 밀면 검색은 lagging으로 빈 결과를 준다. 그때는 같은 검색을
+ * 몇 번만 다시 하고, 그래도 비면 document.list와 목차로 용어 section을 찾는다. */
+function startLookupScript(): LookupFixture {
+  const bodies: string[] = [];
+  const named: string[] = [];
+  const queue: FixedDoc[] = [];
+  const found = {
+    document: "",
+    version: "",
+    failure: "",
+    phase: "search" as LookupPhase,
+    searches: 0,
+  };
+  const at = { outline: -1, section: -1, range: -1, commands: -1 };
+  const search = (): SemanticReply => {
+    found.searches += 1;
+    named.push("document.search");
+    return toolCall(`toolu_search_${found.searches}`, "document.search", {
+      query: "용어",
+    });
+  };
+  const outlineNext = (): SemanticReply => {
+    const next = queue.shift();
+    assert(next !== undefined, "용어 section이 있는 문서가 없다");
+    found.document = next.document;
+    found.version = next.version;
+    found.phase = "outline";
+    named.push("document.outline");
+    return toolCall(`toolu_outline_${named.length}`, "document.outline", {
+      reference: {
+        document: next.document,
+        version: next.version,
+        section: null,
+      },
+    });
+  };
+  const server = Deno.serve(
+    { hostname: "127.0.0.1", port: 0, onListen: () => {} },
+    async (request) => {
+      const text = await request.text();
+      const path = new URL(request.url).pathname;
+      if (request.method !== "POST" || !path.endsWith("/messages")) {
+        return Response.json({ error: "unexpected" }, { status: 500 });
+      }
+      const index = bodies.length;
+      bodies.push(text);
+      let reply: SemanticReply;
+      try {
+        if (found.phase === "search" && index === 0) {
+          reply = search();
+        } else if (found.phase === "search") {
+          const content = toolContent(text);
+          const coverage = content["coverage"] as {
+            lagging?: boolean;
+            rebuilding?: boolean;
+          } | undefined;
+          const waiting = coverage?.lagging === true ||
+            coverage?.rebuilding === true;
+          const results = (content["results"] ?? []) as {
+            document?: string;
+            version?: string;
+            title?: string;
+            snippet?: string;
+          }[];
+          const hit = results.find((row) =>
+            `${row.title ?? ""} ${row.snippet ?? ""}`.includes("용어")
+          );
+          if (hit?.document !== undefined && hit.version !== undefined) {
+            queue.push({ document: hit.document, version: hit.version });
+            reply = outlineNext();
+          } else if (waiting && found.searches < 3) {
+            await delay(1000);
+            reply = search();
+          } else {
+            found.phase = "list";
+            named.push("document.list");
+            reply = toolCall("toolu_list", "document.list", {});
+          }
+        } else if (found.phase === "list") {
+          const documents = toolContent(text)["documents"] as Record<
+            string,
+            unknown
+          >[];
+          assert(
+            Array.isArray(documents),
+            JSON.stringify(toolContent(text)).slice(0, 500),
+          );
+          for (const row of documents) {
+            const nested = row["document"];
+            const doc = nested !== null && typeof nested === "object"
+              ? nested as Record<string, unknown>
+              : row;
+            const id = doc["id"] ?? doc["document"];
+            const latest = doc["latest_version"] ?? row["latest_version"];
+            const version = typeof latest === "string"
+              ? latest
+              : (latest as { id?: string } | null)?.id;
+            if (typeof id === "string" && typeof version === "string") {
+              queue.push({ document: id, version });
+            }
+          }
+          assert(queue.length > 0, JSON.stringify(documents).slice(0, 500));
+          reply = outlineNext();
+        } else if (found.phase === "outline") {
+          const entries = toolContent(text)["entries"] as {
+            key?: string;
+            title?: string;
+          }[];
+          const section = entries.find((row) => row.title === "용어")?.key;
+          if (typeof section !== "string") {
+            reply = outlineNext();
+          } else {
+            at.outline = index;
+            found.phase = "section";
+            named.push("document.read_section");
+            reply = toolCall("toolu_section", "document.read_section", {
+              reference: {
+                document: found.document,
+                version: found.version,
+                section: null,
+              },
+              section,
+            });
+          }
+        } else if (found.phase === "section") {
+          at.section = index;
+          const ranges = toolContent(text)["ranges"] as {
+            start_line?: number;
+            end_line?: number;
+          }[];
+          const range = ranges[0];
+          assert(
+            typeof range?.start_line === "number" &&
+              typeof range.end_line === "number",
+            JSON.stringify(ranges),
+          );
+          found.phase = "range";
+          named.push("document.read_range");
+          reply = toolCall("toolu_range", "document.read_range", {
+            reference: {
+              document: found.document,
+              version: found.version,
+              section: null,
+            },
+            ranges: [{
+              start_line: range.start_line,
+              end_line: range.end_line,
+            }],
+          });
+        } else if (found.phase === "range") {
+          at.range = index;
+          toolContent(text);
+          found.phase = "apps";
+          named.push("app.list");
+          reply = toolCall("toolu_apps", "app.list", {});
+        } else if (found.phase === "apps") {
+          const apps = toolContent(text)["apps"] as {
+            id?: string;
+            slug?: string;
+          }[];
+          const notes = apps.find((row) => row.slug === "notes");
+          assert(notes?.id === NOTES_APP, JSON.stringify(apps).slice(0, 500));
+          found.phase = "commands";
+          named.push("app.commands");
+          reply = toolCall("toolu_commands", "app.commands", { app: notes.id });
+        } else if (found.phase === "commands") {
+          at.commands = index;
+          const commands = toolContent(text)["commands"] as {
+            key?: string;
+            effect?: string;
+          }[];
+          assert(
+            commands.some((row) =>
+              row.key === "list_notes" && row.effect === "read"
+            ),
+            JSON.stringify(commands).slice(0, 500),
+          );
+          found.phase = "done";
+          reply = said(LOOKUP_REPLY);
+        } else {
+          return Response.json({ error: "exhausted" }, { status: 500 });
+        }
+      } catch (error) {
+        found.failure = `call ${index}: ${
+          error instanceof Error ? error.message : String(error)
+        }`;
+        return Response.json({ error: found.failure }, { status: 500 });
+      }
+      const built = buildReply("messages", reply);
+      return new Response(built.body ?? "", {
+        status: built.status,
+        headers: built.headers,
+      });
+    },
+  );
+  return {
+    url: `http://127.0.0.1:${server.addr.port}`,
+    calls: () => bodies.length,
+    body: (index) => bodies[index] ?? "",
+    close: () => server.shutdown(),
+    failure: () => found.failure,
+    document: () => found.document,
+    version: () => found.version,
+    done: () => found.phase === "done",
+    result: (step) => at[step],
+    callsNamed: () => named,
+  };
+}
+
+async function untilLookup(provider: LookupFixture) {
+  const deadline = Date.now() + 180_000;
+  for (;;) {
+    assert(provider.failure() === "", provider.failure());
+    if (provider.done()) return;
+    assert(
+      Date.now() < deadline,
+      `조회 call ${provider.calls()} ${
+        provider.body(provider.calls() - 1).slice(-500)
+      }`,
+    );
+    await delay(250);
+  }
+}
+
+Deno.test({
+  name:
+    "lophn-agent/roles/context-engineer#R2 lophn-agent/roles/context-engineer#R3 lophn-agent/roles/context-engineer#R4 lophn-agent/roles/common#R1 lophn-agent/roles/common#R3 lophn-agent/roles/common#R11 apps/blueprint#R4 apps/blueprint#R20 flow build-context: 목차·검색에서 필요한 section과 본문 범위만 읽고 앱 읽기 command 계약만 조회한다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn() {
+    const home = await Deno.makeTempDir({ prefix: "lophn-e2e-context-read-" });
+    await Deno.chmod(home, 0o700);
+    const bootstrap = await openFlowShell({ home });
+    await bootstrap.close();
+    const blueprintJson = JSON.stringify(NOTES_BLUEPRINT);
+    seedNotesApp(home, blueprintJson, await sha256Hex(blueprintJson));
+    const folder = await Deno.realPath(await copyFixture("korean-search"));
+    const provider = startLookupScript();
+    let flow: FlowShell | undefined;
+    try {
+      flow = await openFlowShell({ home, start: "lophn" });
+      await mustCall(flow, {
+        kind: "command",
+        resource: "providers",
+        method: "register",
+        body: commandBody({
+          id: PROVIDER,
+          name: "fixture",
+          definition: {
+            key: "anthropic",
+            display_name: "Anthropic",
+            protocols: ["anthropic-messages"],
+            auth_kinds: ["none"],
+            models_endpoint: null,
+            oauth: null,
+            revision: "2026-01-01",
+          },
+          endpoint: provider.url,
+          protocol: "anthropic-messages",
+        }),
+      });
+      const defaults = await mustCall(flow, {
+        kind: "read",
+        resource: "agent-model-defaults",
+        method: "read",
+        body: {},
+      });
+      const seq = (defaults.defaults as { settings_seq: string }).settings_seq;
+      await mustCall(flow, {
+        kind: "command",
+        resource: "agent-model-defaults",
+        method: "change",
+        body: commandBody(
+          {
+            judgment: {
+              provider: PROVIDER,
+              credentials: [],
+              model_name: MODEL,
+              reasoning_level: "provider_default",
+              options: {},
+            },
+            organizing: null,
+            settings_seq: seq,
+          },
+          { settings_seq: seq },
+        ),
+      });
+      await registerTrackedProject(flow, { folder });
+      await untilDocuments(flow, ["glossary", "migration"], "문서 관측 대기");
+      await untilSearch(
+        flow,
+        "용어",
+        (page) => page.results.length > 0,
+        "목차 반영 대기",
+      );
+      const glossary = await documentTitled(flow, "glossary");
+      const migration = await documentTitled(flow, "migration");
+
+      await sendToEngineer(flow, LOOKUP);
+      await untilLookup(provider);
+      await untilEngineerDone(flow, provider, "자료 조회가 끝나지 않았다");
+      const named = provider.callsNamed();
+      assert(named[0] === "document.search", named.join(","));
+      assert(
+        named.every((name, index) =>
+          index <= named.lastIndexOf("document.search")
+            ? name === "document.search"
+            : true
+        ),
+        named.join(","),
+      );
+      const afterSearch = named.slice(named.lastIndexOf("document.search") + 1);
+      assertEquals(afterSearch.slice(-4), [
+        "document.read_section",
+        "document.read_range",
+        "app.list",
+        "app.commands",
+      ]);
+      assert(
+        afterSearch.slice(0, -4).every((name) =>
+          name === "document.list" || name === "document.outline"
+        ),
+        afterSearch.join(","),
+      );
+      assert(
+        afterSearch.includes("document.outline"),
+        afterSearch.join(","),
+      );
+      assertEquals(provider.document(), glossary.id);
+      assertEquals(provider.version(), glossary.latest_version);
+
+      const tools = offeredTools(provider.body(0));
+      for (
+        const name of [
+          "document.search",
+          "document.outline",
+          "document.read_section",
+          "document.read_range",
+          "app.commands",
+        ]
+      ) {
+        assert(tools.includes(name), `${name}이 제공 목록에 없다`);
+      }
+      for (const name of tools) {
+        assert(
+          !/web|browser|shell|http|fetch/i.test(name),
+          `범위 밖 tool: ${name}`,
+        );
+        assert(name !== "list_notes" && name !== "save_note", name);
+      }
+
+      const outline = JSON.stringify(
+        toolContent(provider.body(provider.result("outline"))),
+      );
+      assertStringIncludes(outline, "용어");
+      assertEquals(outline.includes(OTHER_BODY), false);
+      assertEquals(outline.includes(SECTION_BODY), false);
+      assertEquals(outline.includes(folder), false);
+      const section = toolContent(provider.body(provider.result("section")));
+      assertEquals(section["version"], glossary.latest_version);
+      assertStringIncludes(String(section["text"]), SECTION_BODY);
+      assertEquals(String(section["text"]).includes(OTHER_BODY), false);
+      const range = toolContent(provider.body(provider.result("range")));
+      assertEquals(range["version"], glossary.latest_version);
+      assertStringIncludes(String(range["text"]), SECTION_BODY);
+      assertEquals(String(range["text"]).includes(OTHER_BODY), false);
+      const commands = toolContent(
+        provider.body(provider.result("commands")),
+      )["commands"] as {
+        key: string;
+        description: string;
+        effect: string;
+        input: { type?: string } | null;
+      }[];
+      const readCommand = commands.find((row) => row.key === "list_notes");
+      assert(readCommand !== undefined, JSON.stringify(commands));
+      assertEquals(readCommand.effect, "read");
+      assertEquals(
+        readCommand.description,
+        "Read the note titles for this purpose.",
+      );
+      assertEquals(readCommand.input?.type, "object");
+      const commandJson = JSON.stringify(commands);
+      assertEquals(commandJson.includes("source_path"), false);
+      assertEquals(commandJson.includes(folder), false);
+      for (let bodyIndex = 1; bodyIndex < provider.calls(); bodyIndex += 1) {
+        assertEquals(provider.body(bodyIndex).includes(folder), false);
+      }
+
+      const shown = (await flow.text(EMBEDDED)) ?? "";
+      assertStringIncludes(shown, LOOKUP_REPLY);
+      assertEquals(shown.includes(OTHER_BODY), false);
+      assertEquals(shown.includes("document.search"), false);
+      assertEquals(shown.includes("document.outline"), false);
+      assertEquals(shown.includes("list_notes"), false);
+      await flow.click('[data-screen="documents"]');
+      await flow.until(
+        `document.querySelector("[data-search-input]") !== null`,
+        "문서 검색칸이 없다",
+      );
+      assertEquals(
+        await flow.evaluate(
+          `document.querySelector("[data-search-input]").value`,
+        ),
+        "",
+      );
+      assertEquals(await flow.count("[data-hits] [data-hit]"), 0);
+
+      assertEquals(
+        (await documentTitled(flow, "glossary")).latest_version,
+        glossary.latest_version,
+      );
+      assertEquals(
+        (await documentTitled(flow, "migration")).latest_version,
+        migration.latest_version,
+      );
+      const invocations = await mustCall(flow, {
+        kind: "read",
+        resource: "invocations",
+        method: "list",
+        body: { app: NOTES_APP },
+      });
+      assertEquals(invocations.invocations, []);
+    } finally {
+      await flow?.close();
+      await provider.close();
+      await removeHome(home);
       await Deno.remove(folder, { recursive: true });
     }
   },

@@ -563,7 +563,7 @@ concerns: [documents]
 
 ### T27 context slice flow E2E
 
-- 상태: 진행 (#482) — 한 것: build-context 1(contexts 화면에서 목적을 말하고 Context Engineer 대화로 의도·경계를 정해 context에 남긴다. 도크를 닫아도 context와 문서 화면이 남고 문서 판은 그대로다), 실제 headless shell·core·documents worker로 build-context 5(사람 구성의 화면·고정 section 읽기)·6·7, section 소실·항목 제거·보관과 define-terms 1·3·6(사람 직접 정의), 미루기·직접 정의 CAS 충돌·같은 이름 다른 context·보관. 남은 것: build-context 2~4·5의 agent 입력·권한 검사·8, 담당 없음·목적 미정·미확인·범위 밖·revert 충돌·단절; define-terms 2·3의 conversation 질문·4~5, agent 근거 부족·반영 지연·question 전제 변경·단절. 제품 runtime child 기동(T26·platform#T24 완료), term.define option adapter(T29 완료), contexts revert 진입(shell#T36 완료)은 없는 경로라 구현하지 않았고 완료 task에는 새 넘어온 것 줄을 넣지 않았다. 앱 계약 tool은 lophn-agent#T44에 넘겼다.
+- 상태: 진행 (#486) — 한 것: build-context 1(contexts 화면에서 목적을 말하고 Context Engineer 대화로 의도·경계를 정해 context에 남긴다. 도크를 닫아도 context와 문서 화면이 남고 문서 판은 그대로다), build-context 2(목차·검색에서 이번 목적의 고정 문서 section과 본문 범위만 읽고, blueprint 읽기 command의 이름·설명·입력·효과를 조회한다. 앱 command는 실행하지 않고 사람에게는 검색이 보이지 않는다), 실제 headless shell·core·documents worker로 build-context 5(사람 구성의 화면·고정 section 읽기)·6·7, section 소실·항목 제거·보관과 define-terms 1·3·6(사람 직접 정의), 미루기·직접 정의 CAS 충돌·같은 이름 다른 context·보관. 남은 것: build-context 3~4·5의 agent 입력·권한 검사·8, 담당 없음·목적 미정·미확인·범위 밖·revert 충돌·단절; define-terms 2·3의 conversation 질문·4~5, agent 근거 부족·반영 지연·question 전제 변경·단절. 제품 runtime child 기동(T26·platform#T24 완료), term.define option adapter(T29 완료), contexts revert 진입(shell#T36 완료)은 없는 경로라 구현하지 않았고 완료 task에는 새 넘어온 것 줄을 넣지 않았다. 앱 계약 tool은 lophn-agent#T44에 넘겼다.
 - 등급: 기본
 - concern: documents
 - 요구: 없음 (flow 시나리오: build-context, define-terms)

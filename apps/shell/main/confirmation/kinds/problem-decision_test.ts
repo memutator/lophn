@@ -53,7 +53,9 @@ function core(
       }),
     "read:releases/get": () => ok({ release: { id: REL, number: 4 } }),
     "read:problems/list-reports": () =>
-      ok({ reports: (over.reports ?? [RPT]).map((report) => ({ id: report })) }),
+      ok({
+        reports: (over.reports ?? [RPT]).map((report) => ({ id: report })),
+      }),
   });
 }
 
@@ -102,7 +104,10 @@ test("problems/closing#R8, R10: dismiss는 한 줄 이유를 묶고, 이유가 �
     dismissed.ok && record(dismissed.value.content).note,
     "Not needed anymore",
   );
-  assert.equal(dismissed.ok && record(dismissed.value.content).last_report, null);
+  assert.equal(
+    dismissed.ok && record(dismissed.value.content).last_report,
+    null,
+  );
   const noReason = await readProblemDecision(core(), intent("dismiss"));
   assert.equal(noReason.ok && noReason.value.allowed.length, 0);
   const closedFixed = await readProblemDecision(

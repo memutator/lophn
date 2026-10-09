@@ -84,14 +84,6 @@ async function sessions(flow: FlowShell): Promise<string> {
   );
 }
 
-async function dump(flow: FlowShell): Promise<string> {
-  return String(
-    await flow.evaluate(
-      `document.querySelector('[data-ops-panel]')?.innerText ?? document.body.innerText`,
-    ),
-  );
-}
-
 // 앱 하나·등록 project 폴더 하나·실행 준비가 끝난 ticket 하나가 있는 shell을 연다.
 async function openSeeded(
   fixture: CodingFixture,

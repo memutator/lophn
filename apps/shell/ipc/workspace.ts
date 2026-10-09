@@ -9,7 +9,11 @@ export const LAYOUT_READ_CHANNEL = "shell:layout-read";
 
 export type LayoutSaveResult =
   | { ok: true }
-  | { ok: false; code: "invalid_input" | "unwritable"; message: string };
+  | {
+    ok: false;
+    code: "invalid_input" | "unwritable" | "forbidden";
+    message: string;
+  };
 
 export type LayoutReadResult =
   | {
@@ -22,4 +26,8 @@ export type LayoutReadResult =
     available: false;
     reason: "unsupported_schema" | "corrupt" | "absent";
   }
-  | { ok: false; code: "unwritable" | "unreadable"; message: string };
+  | {
+    ok: false;
+    code: "unwritable" | "unreadable" | "forbidden";
+    message: string;
+  };

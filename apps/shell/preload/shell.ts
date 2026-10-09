@@ -16,6 +16,7 @@ import { createConfirmationOpener } from "./confirmation-open.ts";
 import { createEditorApi } from "./editor-api.ts";
 import { createInstructionsApi } from "./instructions-api.ts";
 import { createFeedbackBegin, createOverlayFeedback } from "./feedback-api.ts";
+import { createLayoutApi } from "./layout-api.ts";
 import { createRestoreApi } from "./restore-api.ts";
 import { createShellApi } from "./shell-api.ts";
 import { createIntentApi, createShortcutApi } from "./shortcut-api.ts";
@@ -98,6 +99,11 @@ if (role === "shell") {
   contextBridge.exposeInMainWorld(
     "lophnRestore",
     createRestoreApi(ipcRenderer),
+  );
+  // 작업대 layout(shell/workspace#R6). 탭과 정보 패널만 보내고 main이 다시 검사한다.
+  contextBridge.exposeInMainWorld(
+    "lophnLayout",
+    createLayoutApi(ipcRenderer),
   );
   // [Instructions]: 지침 파일을 같은 편집기로 연다(shell/editor#R17). 경로는 main에만 있다.
   contextBridge.exposeInMainWorld(

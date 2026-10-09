@@ -15,8 +15,6 @@ import {
   INFO_PANEL_WIDTH,
   infoPanelPlacement,
   moveTab,
-  normalizePane,
-  type PaneState,
   SIDEBAR_WIDTH,
   type SidebarState,
   sidebarView,
@@ -30,10 +28,10 @@ import type {
   ContextRow,
   DocumentRow,
   FileRow,
-  LayoutRead,
   ProjectView,
   WorkspaceSource,
 } from "./source.ts";
+import { toStoredLayout, viewFromStored } from "./layout-map.ts";
 import {
   PaletteButton,
   usePaletteEnv,
@@ -109,12 +107,6 @@ interface Loaded {
   readonly failed: boolean;
 }
 
-interface RestoredLayout {
-  readonly view: WorkspaceView | null;
-  readonly infoOpen: boolean;
-  readonly infoTab: InfoTab;
-}
-
 const EMPTY_LOADED: Loaded = {
   project: null,
   documents: [],
@@ -122,47 +114,6 @@ const EMPTY_LOADED: Loaded = {
   contexts: [],
   failed: false,
 };
-
-const INFO_TABS: readonly InfoTab[] = ["info", "versions", "contexts"];
-
-// 저장된 layout에서 화면이 쓰는 부분만 꺼낸다. 검증은 main이 이미 했다.
-function viewFromLayout(layout: unknown): RestoredLayout {
-  const empty: RestoredLayout = {
-    view: null,
-    infoOpen: false,
-    infoTab: "info",
-  };
-  if (typeof layout !== "object" || layout === null) return empty;
-  const value = layout as {
-    panes?: { tabs?: TabItem[]; selected_tab?: string | null }[];
-    split_ratio?: number;
-    focused_pane?: number;
-    information_panel?: { open?: boolean; tab?: string };
-  };
-  const panel = value.information_panel;
-  const infoTab = INFO_TABS.find((tab) => tab === panel?.tab) ?? "info";
-  const infoOpen = panel?.open === true;
-  if (!Array.isArray(value.panes)) return { ...empty, infoOpen, infoTab };
-  const panes: PaneState[] = value.panes.map((pane) =>
-    normalizePane({
-      tabs: Array.isArray(pane.tabs) ? pane.tabs : [],
-      selected: pane.selected_tab ?? null,
-    })
-  );
-  return {
-    view: {
-      panes,
-      splitRatio: typeof value.split_ratio === "number"
-        ? value.split_ratio
-        : 0.5,
-      focusedPane: typeof value.focused_pane === "number"
-        ? value.focused_pane
-        : 0,
-    },
-    infoOpen,
-    infoTab,
-  };
-}
 
 let terminalCount = 0;
 let appPanelCount = 0;
@@ -248,7 +199,7 @@ export function Workspace(
         failed: !project.ok || !documents.ok || !contexts.ok,
       });
       if (layout.ok && layout.available) {
-        const restored = viewFromLayout(layout.layout);
+        const restored = viewFromStored(layout.layout);
         if (restored.view) setView(restored.view);
         setInfoOpen(restored.infoOpen);
         setInfoTab(restored.infoTab);
@@ -293,22 +244,61 @@ export function Workspace(
   // 비동기 닫기·시작 결과는 그 사이 바뀐 배치에 적용한다.
   const latest = useRef(view);
   latest.current = view;
+  const infoNow = useRef({ open: infoOpen, tab: infoTab });
+  infoNow.current = { open: infoOpen, tab: infoTab };
+  // 문서 탭의 읽던 위치. scroll마다 배치 state를 바꾸지 않고 저장만 늦춘다.
+  const positions = useRef<
+    Record<string, { section: string; scroll_offset: number }>
+  >({});
+  const positionTimer = useRef<number | null>(null);
+
+  const withPositions = (next: WorkspaceView): WorkspaceView => ({
+    ...next,
+    panes: next.panes.map((pane) => ({
+      ...pane,
+      tabs: pane.tabs.map((tab) => {
+        const position = positions.current[tab.key] ?? tab.readPosition;
+        return position === undefined
+          ? tab
+          : { ...tab, readPosition: position };
+      }),
+    })),
+  });
 
   const persist = (
     next: WorkspaceView,
-    info: { open: boolean; tab: InfoTab } = { open: infoOpen, tab: infoTab },
+    info: { open: boolean; tab: InfoTab } = infoNow.current,
   ) => {
-    void source.saveLayout({
+    void source.saveLayout(toStoredLayout({
       project: projectId,
-      panes: next.panes.map((pane) => ({
-        tabs: pane.tabs,
-        selected_tab: pane.selected,
-      })),
-      split_ratio: next.splitRatio,
-      focused_pane: next.focusedPane,
-      information_panel: info,
-    });
+      view: withPositions(next),
+      informationPanel: info,
+      lastSpace: "project",
+    }));
   };
+  const persistRef = useRef(persist);
+  persistRef.current = persist;
+
+  const notePosition = (
+    key: string,
+    position: { section: string; scroll_offset: number },
+  ) => {
+    positions.current[key] = position;
+    if (positionTimer.current !== null) {
+      clearTimeout(positionTimer.current);
+    }
+    positionTimer.current = setTimeout(() => {
+      positionTimer.current = null;
+      persistRef.current(latest.current);
+    }, 200);
+  };
+
+  useEffect(() => () => {
+    if (positionTimer.current === null) return;
+    clearTimeout(positionTimer.current);
+    positionTimer.current = null;
+    persistRef.current(latest.current);
+  }, []);
 
   const update = (next: WorkspaceView) => {
     latest.current = next;
@@ -532,6 +522,8 @@ export function Workspace(
           onCompare={(target) => showCompare(tab.key, target)}
           onVersionsChanged={() => setVersionsTick((value) => value + 1)}
           onMeta={(meta) => noteMeta(tab.key, meta)}
+          initialPosition={tab.readPosition}
+          onReadPosition={(position) => notePosition(tab.key, position)}
           onOpenDocument={(id) => {
             const row = loaded.documents.find((item) => item.id === id);
             openDocument(row ?? { id, title: tabMeta[id]?.fileName ?? id });
@@ -769,4 +761,4 @@ export function Workspace(
   );
 }
 
-export type { LayoutRead };
+export type { LayoutRead } from "./source.ts";

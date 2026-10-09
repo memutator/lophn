@@ -124,6 +124,11 @@ export interface TabItem {
   /** 앱 패널 탭의 앱과 panel 크기를 선언한 화면. 고르기 전에는 없다(workspace#R5). */
   readonly app?: string;
   readonly screen?: string;
+  /** 문서 탭의 읽던 위치. 저장할 때 section key와 scroll offset만 남긴다. */
+  readonly readPosition?: {
+    readonly section: string;
+    readonly scroll_offset: number;
+  };
 }
 
 export interface PaneState {

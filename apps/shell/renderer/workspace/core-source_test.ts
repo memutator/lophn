@@ -90,7 +90,7 @@ Deno.test("shell/desktop#R28: 작업대는 projects.get·documents.list와 그 �
     ok: true,
     value: [{ id: "ctx_01k6p0000000000000000000aa", title: "Planning" }],
   });
-  // layout 통로는 main이 아직 열지 않았다. 읽지 못함으로 답하고 빈 배치로 시작한다.
+  // 이 단위 테스트에는 layout bridge(lophnLayout)가 없다. 통로가 없으면 읽지 못함으로 답한다.
   assertEquals((await source.readLayout(PROJECT)).ok, false);
 });
 

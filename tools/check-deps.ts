@@ -118,10 +118,7 @@ export async function checkRepo(root: string): Promise<Violation[]> {
   for (const path of paths) {
     if (!/^(packages|apps|tools|e2e)\//.test(path)) continue;
     const segment = path.slice(path.lastIndexOf("/") + 1);
-    // docs/flows/new-app.md 흐름 이름. new- 판 접두가 아니다.
-    if (
-      numberedName(segment) && path !== "e2e/coding-agent/new-app_test.ts"
-    ) {
+    if (numberedName(segment)) {
       add(path, 1, "name", `판·단계·작업 번호 이름 금지: ${segment}`);
     }
   }

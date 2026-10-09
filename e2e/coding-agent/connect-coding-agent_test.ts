@@ -8,6 +8,10 @@
 // - 다른 갈래 keychain 잠김: core는 OS keychain(`secret-tool`, 절대 경로만 실행 허락)이 없으면 연결을
 //   만들지 않고 unavailable로 끝난다. 연결·설치 결과·harness 설정 파일이 남지 않는다. 이 기계에
 //   `secret-tool`이 있으면 keychain이 실제로 열릴 수 있어 이 갈래 시험은 건너뛴다.
+// 통로가 없어 볼 수 없는 것: 연결 성공 갈래(3단계 credential 발급·OS keychain 보관, 4단계 설치·receipt,
+// 5단계 loading 확인)는 실제 OS keychain 저장이 필요하다. 시험은 실제 keychain을 열지 않고 제품 core에
+// 시험 전용 keychain 길을 두지 않으므로 이 E2E 범위 밖이다(그 순서는 apps/core/coding-connect-flow_test.ts가
+// fake keychain으로 본다). 6단계 [Start]는 start-coding-agent flow 몫이다.
 import { assert, assertEquals } from "@std/assert";
 import { join } from "node:path";
 

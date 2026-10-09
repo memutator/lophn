@@ -1679,6 +1679,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T47 수리 flow의 coding agent 단계
 
+- 상태: 완료 (#487)
 - 등급: 기본
 - concern: coding-agent/repair-context, coding-agent/tickets,
   coding-agent/connection

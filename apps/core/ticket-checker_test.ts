@@ -7,6 +7,7 @@ import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
 import { createLedgerRegistration as createAppsRegistration } from "./apps.ts";
+import { createLedgerRegistration as createDocumentsRegistration } from "./documents.ts";
 import { codingAgentConnectionDefinitions } from "./coding-agent.ts";
 import {
   problemsReportDefinitions,
@@ -357,6 +358,341 @@ Deno.test("coding-agent/tickets#R18 R19 R20: 제품 core의 checker worker가 �
       await second.shutdown();
     }
   } finally {
+    await Deno.remove(home, { recursive: true });
+  }
+});
+
+// ---- coding-agent#T45: repair 조건을 실제 problems 경로로 잇는다 ----
+// 문제는 실제 problems/record-report로 만들고, 닫힘은 problems.closing 반응기가 실제 reproduction
+// Verification 행(problems/tests 표의 열 그대로, T18)과 VerificationRecorded event를 읽어 내는
+// CloseProblemVerified·ProblemClosed다. 그 뒤 checker가 같은 ledger에서 reproduction_test와
+// problems_closed를 다시 비교하고, 문제 대상의 revision(문제 최신 seq)을 record_checks가 받는다.
+const REPAIR = {
+  ticket: "tkt_01arz3ndektsv4rrffq69g5fr1",
+  release: "rel_01arz3ndektsv4rrffq69g5fr1",
+  before: "rel_01arz3ndektsv4rrffq69g5fr0",
+  bundle: "b1".repeat(32),
+  frozen: "d1".repeat(32),
+  execution: "e1".repeat(32),
+};
+
+async function bootWithCredentials(home: string) {
+  const started = await startCore({
+    lophnHome: home,
+    port: 0,
+    teams: [
+      { createLedgerRegistration: createDocumentsRegistration },
+      { createLedgerRegistration: createAppsRegistration },
+      { codingAgentConnectionDefinitions },
+      { problemsTestDefinitions },
+      { problemsReportDefinitions },
+      { ticketDefinitions },
+    ],
+    teamModules: [
+      new URL("./documents.ts", import.meta.url).href,
+      new URL("./apps.ts", import.meta.url).href,
+      new URL("./coding-agent.ts", import.meta.url).href,
+      new URL("./problems.ts", import.meta.url).href,
+      new URL("./tickets.ts", import.meta.url).href,
+    ],
+    clock: manualClock(START),
+    random: seededRandom(7),
+    testCredentials: true,
+  });
+  assert(started.ok, started.ok ? undefined : JSON.stringify(started.error));
+  return started.value;
+}
+
+async function post(
+  port: number,
+  path: string,
+  token: string,
+  input: unknown,
+  compare: unknown = {},
+): Promise<{ status: number; body: Record<string, unknown> }> {
+  const response = await fetch(`http://127.0.0.1:${port}/v1/${path}`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      input,
+      idempotency_key: `k-${crypto.randomUUID()}`,
+      compare,
+      prepared: [],
+    }),
+  });
+  return {
+    status: response.status,
+    body: await response.json() as Record<string, unknown>,
+  };
+}
+
+// collector가 접수하는 최소 보고(problems-closing_test.ts와 같은 모양)다.
+function repairReport(app: string, principal: string): Record<string, unknown> {
+  const rpt = "rpt_01arz3ndektsv4rrffq69g5fr1";
+  const snp = "snp_01arz3ndektsv4rrffq69g5fr1";
+  const at = new Date(START + 1_000_000).toISOString();
+  return {
+    report: {
+      id: rpt,
+      app,
+      mode: "live",
+      diagnostic_scope: null,
+      release: REPAIR.release,
+      release_missing_reason: null,
+      bundle_hash: REPAIR.bundle,
+      source: "exception",
+      code: "_exception",
+      text: null,
+      details: null,
+      snapshot: snp,
+      observed_at: at,
+      principal,
+      content_hash: "1".repeat(64),
+    },
+    snapshot: {
+      id: snp,
+      captured_at: at,
+      invocation: null,
+      invocation_missing_reason: { reason: "no invocation" },
+      error: {
+        name: "TypeError",
+        message: "boom",
+        message_missing_reason: null,
+        frames: [{ path: "src/f.ts", function: null, line: 1, column: 1 }],
+        source_missing_reason: null,
+        stack: null,
+        stack_missing_reason: { reason: "stack unavailable" },
+        truncation_notes: [],
+      },
+      error_missing_reason: null,
+      logs: null,
+      logs_missing_reason: { reason: "log not collected" },
+      screen: null,
+      screen_missing_reason: { reason: "not collected" },
+    },
+    group_key: { kind: "exception", code: "_exception", discriminator: rpt },
+    existing_problem: null,
+    blobs: [],
+    origin: {
+      context: {
+        authentication: {
+          principal,
+          actor: "machine",
+          scope: { operations: ["RecordReport"], targets: {} },
+          conditions: {},
+          credential_ref: "cred-1",
+        },
+        app,
+        mode: "live",
+        diagnostic_scope: null,
+        release: REPAIR.release,
+        release_missing_reason: null,
+        bundle_hash: REPAIR.bundle,
+        binding: "sdk",
+        origin: "process_observer",
+      },
+      report_id: rpt,
+      content_hash: "1".repeat(64),
+    },
+  };
+}
+
+function seedRepairWork(home: string, app: string, problem: string): void {
+  withDb(home, (db) => {
+    const release = db.prepare(
+      `insert into releases (id, app, number, code_commit, bundle_hash, blueprint_hash,
+         data_schema, data_changes, ticket_source, created_by, created_at, status,
+         blueprint, declarations)
+       values (?, ?, ?, ?, ?, ?, 0, '[]', NULL, 'coding_agent', ?, ?, '{}', '[]')`,
+    );
+    release.run(
+      REPAIR.before,
+      app,
+      1,
+      "b".repeat(40),
+      "c".repeat(64),
+      "e".repeat(64),
+      "2026-10-05T00:00:00.000Z",
+      "superseded",
+    );
+    release.run(
+      REPAIR.release,
+      app,
+      2,
+      "b".repeat(40),
+      REPAIR.bundle,
+      "e".repeat(64),
+      "2026-10-06T00:00:00.000Z",
+      "active",
+    );
+    db.prepare(
+      `insert into tickets (id, app, kind, title, what, why, inspect, preserve, problems,
+         state, readiness, needs, cancel_reason, completion_seq, revision)
+       values (?, ?, 'repair', 't', 'w', 'y', '[]', '[]', ?, 'reported',
+         'ready', '[]', NULL, '1', '1')`,
+    ).run(REPAIR.ticket, app, JSON.stringify([problem]));
+    const condition = db.prepare(
+      `insert into ticket_conditions (ticket, position, kind, input, condition_hash)
+       values (?, ?, ?, ?, ?)`,
+    );
+    condition.run(
+      REPAIR.ticket,
+      0,
+      "reproduction_test",
+      JSON.stringify({
+        kind: "reproduction_test",
+        problem,
+        test_hash: REPAIR.frozen,
+      }),
+      CMD_HASH,
+    );
+    condition.run(
+      REPAIR.ticket,
+      1,
+      "problems_closed",
+      '{"kind":"problems_closed"}',
+      CMD_HASH,
+    );
+    db.prepare(
+      `insert into ticket_completions (ticket, seq, claim_seq, release, summary_hash,
+         outputs, fix_records, verifications)
+       values (?, '1', '1', ?, ?, '[]', '[]', '[]')`,
+    ).run(REPAIR.ticket, REPAIR.release, "f".repeat(64));
+  });
+}
+
+// runner가 남기는 reproduction Verification 행과 그 event다(T18의 행 모양: 고정 test hash는
+// test, 보고 뒤 release는 after_release, 같은 묶음은 target_bundle_hash).
+function seedReproduction(
+  home: string,
+  app: string,
+  problem: string,
+  basis: string,
+): void {
+  const id = "vrf_01arz3ndektsv4rrffq69g5fr1";
+  withDb(home, (db) => {
+    db.exec("PRAGMA busy_timeout = 5000");
+    db.prepare(
+      `insert into verifications (id, request_principal, request_key, request_hash, kind, app,
+         target_bundle_hash, target_release, problem, basis_seq,
+         before_release, after_release, ticket, ticket_check_index,
+         ticket_check_hash, ticket_completion_seq, test, execution, result,
+         reason, observations, recorded_seq, verification_canonical)
+       values (?, 'runner-1', ?, ?, 'reproduction', ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL,
+         NULL, ?, ?, 'pass', 'ran', '[]', '1', '{}')`,
+    ).run(
+      id,
+      `key-${id}`,
+      "f".repeat(64),
+      app,
+      REPAIR.bundle,
+      REPAIR.release,
+      problem,
+      basis,
+      REPAIR.before,
+      REPAIR.release,
+      REPAIR.frozen,
+      REPAIR.execution,
+    );
+    db.prepare(
+      `insert into events (type, subject, actor, run, payload, at)
+       values ('VerificationRecorded', ?, 'machine', NULL, ?, '2026-10-07T00:00:01.000Z')`,
+    ).run(
+      id,
+      JSON.stringify({
+        kind: "reproduction",
+        app,
+        target: { bundle_hash: REPAIR.bundle, release: REPAIR.release },
+        problem,
+        basis_seq: basis,
+        result: "pass",
+        test: REPAIR.frozen,
+        execution: REPAIR.execution,
+      }),
+    );
+  });
+}
+
+Deno.test("coding-agent/tickets#R9 R20 R21: 실제 reproduction 행과 problems.closing의 ProblemClosed로 repair ticket이 confirmed가 된다", async () => {
+  const home = await Deno.makeTempDir({ prefix: "lophn-ticket-repair-" });
+  const core = await bootWithCredentials(home);
+  try {
+    let serial = 0;
+    const issue = async (
+      actor: string,
+      principal: string,
+      operations: string[],
+    ): Promise<string> => {
+      const context = {
+        principal,
+        actor: actor as never,
+        scope: { operations, targets: {} },
+        conditions: {},
+        credential_ref: `t45-${++serial}`,
+      };
+      const token = `${serial}`.repeat(43).slice(0, 43);
+      assert(core.acceptTestCredential);
+      const accepted = await core.acceptTestCredential!(context, token);
+      assert(accepted.ok, accepted.ok ? "" : JSON.stringify(accepted.error));
+      assert((await core.record(context)).ok);
+      return token;
+    };
+    const machine = await issue("machine", "machine-1", ["RecordReport"]);
+    const user = await issue("user", "user-1", ["app.create"]);
+    const created = await post(core.port, "apps/create", user, {
+      slug: "notes",
+      name: "Notes",
+      description: "notes app",
+    });
+    assertEquals(created.status, 200, JSON.stringify(created.body));
+    const app = String(created.body["id"]);
+    const recorded = await post(
+      core.port,
+      "problems/record-report",
+      machine,
+      repairReport(app, "machine-1"),
+      { active_release: null, problem_seq: null },
+    );
+    assertEquals(recorded.status, 200, JSON.stringify(recorded.body));
+    const problem = String(recorded.body["problem"]);
+    seedRepairWork(home, app, problem);
+    const basis = withDb(home, (db) =>
+      String(
+        (db.prepare(
+          "select cast(max(seq) as text) as seq from events where subject = ?",
+        ).get(problem) as { seq: string }).seq,
+      ));
+    seedReproduction(home, app, problem, basis);
+
+    // problems.closing 반응기가 실제로 닫고, checker는 ProblemClosed 뒤 남은 조건을 다시 비교한다.
+    const deadline = Date.now() + 60_000;
+    while (stateOf(home, REPAIR.ticket) !== "confirmed") {
+      await core.sweepProblemsClosing();
+      await core.sweepTicketChecks();
+      assert(
+        Date.now() < deadline,
+        `시간 안에 confirmed가 되지 않았다: ${
+          JSON.stringify(resultsOf(home, REPAIR.ticket))
+        }`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    assertEquals(resultsOf(home, REPAIR.ticket), ["pass", "pass"]);
+    const closure = withDb(home, (db) =>
+      JSON.parse(
+        (db.prepare("select closure from problems where id = ?").get(
+          problem,
+        ) as { closure: string }).closure,
+      ) as Record<string, unknown>);
+    assertEquals(closure["reason"], "verified");
+    assertEquals(closure["release"], REPAIR.release);
+    // confirmed까지 왔다는 것은 record_checks가 문제 대상(revision = 문제 최신 seq)을
+    // invalid_input 없이 받았다는 뜻이다(T19 이어받음).
+  } finally {
+    await core.shutdown();
     await Deno.remove(home, { recursive: true });
   }
 });

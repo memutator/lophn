@@ -11,7 +11,7 @@
 import { assert, assertEquals } from "@std/assert";
 
 import { e2eEnabled } from "../harness.ts";
-import { type FlowShell, openFlowShell, removeHome } from "../flow-support.ts";
+import { openFlowShell, removeHome } from "../flow-support.ts";
 
 Deno.test({
   name:
@@ -61,7 +61,9 @@ Deno.test({
         async () => {
           // 값 입력칸(type=password)은 이 화면 어디에도 없다. 창이 받는다.
           assertEquals(
-            await flow.count("[data-screen-body='settings'] input[type='password']"),
+            await flow.count(
+              "[data-screen-body='settings'] input[type='password']",
+            ),
             0,
             "값 입력칸이 연결 화면에 보인다",
           );

@@ -17,23 +17,9 @@
 import { assert, assertEquals } from "@std/assert";
 
 import { e2eEnabled } from "../harness.ts";
-import {
-  type FlowShell,
-  mustCall,
-  openFlowShell,
-  removeHome,
-} from "../flow-support.ts";
+import { openFlowShell, removeHome } from "../flow-support.ts";
 
 const SECRET_VALUE = "flow-e2e-api-key-4821-not-a-real-key";
-
-// 연결 등록 입력. 폼의 account name은 label이고 key 값은 보호 창이 받는다.
-const SECRET_INTENT = (owner: string) =>
-  `window.lophnShell.openConfirmation({
-     request: { kind: "secret_input", owner: ${JSON.stringify(owner)}, purpose: "provider_credential",
-       credential: { key: "key-flow", kind: "api_key", label: "Flow key",
-         account: null, organization: null, plan: null } },
-     parentWindow: "requesting-window",
-   }).then((reply) => JSON.stringify(reply))`;
 
 Deno.test({
   name:
@@ -84,7 +70,10 @@ Deno.test({
           const cards = (await flow.evaluate(
             `[...document.querySelectorAll("[data-providers] h2")].map((h) => h.textContent)`,
           )) as string[];
-          assert(cards.includes("Anthropic"), `Anthropic 카드가 없다: ${cards}`);
+          assert(
+            cards.includes("Anthropic"),
+            `Anthropic 카드가 없다: ${cards}`,
+          );
         },
       );
 
@@ -103,7 +92,9 @@ Deno.test({
         async () => {
           // 보호 입력창은 [Add an API key] → 이름 → [Continue]로 연다. 이름 입력칸은
           // password가 아니고, 값 입력칸(type=password)은 이 화면에 없다(창이 받는다).
-          const addKey = await flow.text("[data-provider-ways] [data-action='add-key']");
+          const addKey = await flow.text(
+            "[data-provider-ways] [data-action='add-key']",
+          );
           assert(addKey !== null, "Add an API key 단추가 없다");
           assertEquals(
             await flow.count("[data-providers] input[type='password']"),

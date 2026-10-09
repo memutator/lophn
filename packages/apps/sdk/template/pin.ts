@@ -31,4 +31,4 @@ export const TEMPLATE_TOOL_IMPORTS: Readonly<Record<string, string>> = {
 };
 
 export const TEMPLATE_HASH =
-  "5b211c8d88a8fb2587171b10c508b36c4bff5d6c5f1e7d681cafebfbc6712bac";
+  "e8cbb45546053afd50091196e01526b98cb1f9c075bb5f96baf177ffec8ccf99";

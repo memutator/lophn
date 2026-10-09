@@ -968,6 +968,7 @@ E2E는 apps#T27(use-app-command, ask-app-hint, connect-apps, view-agent-visuals 
 - slice: problems
 - 조사: docs/research/presets-and-agent-config.md
 - 선행: T46, T49, problems#T19
+- 상태: 완료 (#470) — 정한 것: (1) `problem.set_interpretation`은 command 전에 같은 자격으로 해석 문서의 고정 version·절(`document.get`·`outline.document`)과 문제의 현재 참조(`GetProblem`)를 읽어 확인하고 그 참조를 `compare.previous`로 싣는다. 최상위 경계 때문에 `problems/grouping`의 `checkInterpretationLink`를 직접 부를 수 없어 같은 판정을 tool bundle의 reader로 두었고, 그 읽기는 supporting operation과 제품 runtime의 내장 write binding(`problems/grouping`, reversible)으로 연결했다. (2) 해석 참조의 복원은 run의 `ProblemInterpretationLinked` event를 문제별 한 묶음으로 보고 같은 `LinkProblemInterpretation`으로 예전 참조를 다시 연결한다. 이어보냄: 그 `tx.call`은 command actor가 `agent`뿐이라 사람 revert의 자격(user·machine)으로는 `forbidden`이다 — problems#T19의 "담당 App Engineer만 연결·해제"와 problems/grouping#R13의 "revert로 복원할 수 있다" 사이 결정이 필요하다(actor를 넓히거나 revert가 그 assignment의 agent 자격으로 부르는 길).
 - 완료:
   - interpretation_test.ts에 R13–R15, R18, R19 테스트: 관측 설계는 문제 정의·보존 동작만(집계·해결 확인·닫힘 없음), 원인 가설 최대 3개와 지지·반박 근거·부족 자료·다음 확인, 해석 문서 고정 version·절 참조만 설정(문제 상태 변경 없음, ToolCall과 한 transaction), release 검토의 의미상 어긋남과 후속 ticket 후보·새 결정은 먼저 질문, SDK 변경은 담당 앱 영향만
   - revert가 이전 해석 참조를 같은 LinkProblemInterpretation으로 다시 연결
@@ -1025,6 +1026,7 @@ E2E는 T53이 쓴다.
 - slice: operator
 - 조사: docs/research/presets-and-agent-config.md, docs/research/scheduled-runs.md
 - 선행: T51, T52, documents#T32, shell#T54
+- 상태: 완료 (#464) — 정한 것(shell#T54에서 넘어온 것): `ApplyOperatorAssignment`는 `dispatchable` 등록으로 `apply_approved_action`(approvals/apply)의 dispatch가 같은 Tx에서 user 자격으로 부를 수 있다(actors에 user, additive). user의 `/v1/assignments/apply-operator` 직접 호출은 confirmation 필수라 handle 없는 요청은 api 경계에서 거절되고, machine 자격의 handler 직접 경로는 handler의 승인 상태 검사가 막는다. `decision_seq`는 허락이 확정한 결정 seq다: 선택 field로 두고 제공되면 승인 기록(closed_seq)과 일치를 본다 — 화면·tool 입력에서는 생략한다. `approval.submit_assignment` tool의 action 입력은 apply contract 입력 모양 그대로다(`{approval, id, bundle}`, handler가 approval·id를 초안 지문의 고정 id로 채운다). 실제 core 적용 길은 `apps/core/operator-apply_test.ts`
 - shell#T54에서 넘어온 것: 사람이 Operator를 붙이는 길은 화면이 `approvals/create`(requester·caller `user`, action `ApplyOperatorAssignment`, 입력 `{approval, decision_seq, id, bundle}` inline)로 요청을 만들고 `approval_request` 보호 창에서 허락한 뒤 `approvals/apply`를 user 자격으로 부르는 것이다. 이대로 실제 core에서 끝까지 적용되려면 (1) `ApplyOperatorAssignment`가 `requireMachine`이라 apply dispatch(원래 자격 user)에서 forbidden이다 — 승인 dispatch의 user 호출을 받도록 하거나 적용 주체를 정해야 한다. (2) `decision_seq`는 허락 전에는 알 수 없어 화면이 자리 값 "1"을 넣는다(command가 검사하지 않는다) — 승인 결정 seq를 어디서 채울지 정해야 한다. (3) `approval.submit_assignment` tool의 action 입력은 `bundle`뿐이라 적용 command 입력과 달라 dispatch가 invalid_input이다. e2e의 set-up-operator가 이 길을 처음 끝까지 돌린다
 - 완료:
   - operator_test.ts에 R1–R10 테스트: project 또는 app 하나·주기 또는 그 assignment 사람 요청으로만, 고정 preset 판, 겸하지 않는 일 tool 없음, preset context·승인 read만 읽고 자료 관점으로 변화 판단, 제품 상한 안 동작만, 결과의 사실·판단·불확실 구분·갱신 조건 미충족이면 새 version 없이 무변화, 승인 문서 새 version은 묻지 않음·자리·형식 변경·선언 밖 쓰기 없음, 사람 대화로 정의·범위·주기·tool 변경 없음·오래 남길 답은 승인 문서 새 version으로만, organizing 미선택은 같은 model·판 고정, 반복 실패와 대기 회차는 assignments·scheduling 규칙·handoff 없음
@@ -1081,6 +1083,7 @@ eval은 제품 프로세스가 아니라 개발 runner다(`deno task eval`). 네
 ### T57 trace 보존 정리 연결
 
 - 등급: 기본
+- 상태: 완료 (#468) — retention.ts에 R23–R26 정리 판정(큰 자료 후보·보호 근거·derived/부재 요청·남는 최소 식별)을 넣고 retention_test.ts 4개를 통과시켰다
 - concern: lophn-agent/observability
 - 요구: lophn-agent/observability#R23, R24, R25, R26
 - 자리: packages/lophn-agent/observability/ (retention.ts)
@@ -1091,6 +1094,7 @@ eval은 제품 프로세스가 아니라 개발 runner다(`deno task eval`). 네
 - 선행: T39, T40, platform#T44
 - 완료:
   - retention_test.ts에 R23–R26 테스트: 큰 자료만 오래된 것부터 정리 대상·변경 기록·결정·확정 결과는 보존(용량 숫자와 실제 삭제는 platform), 진행 run·미반영 입력·답·approval 대기·revert 근거는 넘기지 않음(쓰기 때 정리 후보를 고르는 쪽에서 제외), 사라진 본문의 derived index·cache 제거와 부재 표시 요청(한 transaction 약속 없음), 문서·release 삭제로 번지지 않고 변경 주체 최소 식별 유지
+- 정한 것(T57): 정리 판정은 agent가 등록한 field(capacity만 후보, permanent는 제외)와 참조 등록 순번으로만 하고, 용량 숫자·실제 삭제는 platform에 둔다. 사라진 본문을 trace가 부재로 보이는 표시(`missing[].reason`)는 `agentTraceRead`가 pool read라 blob 부재를 알 수 없어 남는다: blob-store 관찰 port를 core 조립에 붙이는 일이 선행이다
 
 ## 요구 덮기
 

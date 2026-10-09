@@ -198,6 +198,29 @@ export async function planSelection(
       ? { harnessFiles: files.value, sdkSourceDirs: [] }
       : NO_SELECTION;
   }
+  if (request.command === "app sync-tools") {
+    const target = request.input.target as IntegrationTarget | undefined;
+    if (target === undefined || typeof target !== "object") {
+      return NO_SELECTION;
+    }
+    const released = SKILL_RELEASES.map((release) => release.name);
+    const names = Array.isArray(request.input.names)
+      ? request.input.names as string[]
+      : released;
+    if (!names.every((name) => released.includes(name))) return NO_SELECTION;
+    // 앱 root 두 위치만: 관리 구간 지침 파일(과 그 temp)과 skill root 아래 lophn skill
+    // 디렉터리. ignore 갱신은 앱 root의 .gitignore 하나다(R17).
+    if (target.scope_kind !== "app") return NO_SELECTION;
+    const writes = selectedWriteFiles(target, request.roots);
+    const dirs = selectedSkillDirs(target, request.roots, names);
+    if (!writes.ok || !dirs.ok) return NO_SELECTION;
+    const root = target.app_realpath.replace(/\/$/, "");
+    return {
+      harnessFiles: [...writes.value, `${root}/.gitignore`],
+      sdkSourceDirs: [],
+      skillDirs: dirs.value,
+    };
+  }
   if (request.command === "skills install") {
     const target = request.input.target as IntegrationTarget | undefined;
     if (target === undefined || typeof target !== "object") {

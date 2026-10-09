@@ -1127,6 +1127,7 @@ concerns: [shell]
 ### T54 Operator: 붙이기, Repeating check, 보고, 멈춤과 회수
 
 - 상태: 완료 (#455) — 이어보냄: 실제 core에서 끝까지 적용되는 길(user 자격의 `ApplyOperatorAssignment` dispatch·승인 결정 seq·`approval.submit_assignment` 입력 모양) → lophn-agent#T53
+- lophn-agent#T53(#464)가 실제 core 적용 길을 이었다
 - 등급: frontend
 - concern: shell/desktop
 - 요구: shell/desktop#R4(회수된 담당), R5
@@ -1200,6 +1201,7 @@ concerns: [shell]
 
 ### T58 settings: backup과 restore, update 안내, 진단, OS notification 선택
 
+- 상태: 완료 (#467) — 통로가 있을 때만 서는 backup·update·진단·notification 탭과 복원 확인 window, update 안내, doctor 결과, OS notification opt-in, app export 연결까지 넣었다.
 - platform#T50에서 넘어온 것: settings의 사람이 고른 로컬 package metadata 후보 선택과 안내 UI, Electron main 정상 정지 연결에 core 신뢰 입구 `updateNotice`·`stopForUpdate`를 쓴다. platform#T50은 shell 자리 밖이라 UI 연결은 하지 않았다
 - apps#T28에서 넘어온 것: 앱 export를 제품 core가 서빙한다(`worker:apps/export`, 입력 `{ app }`, 출력 `{ app, state: ready|failed, reason?, includes_external_data }`). 화면은 shell 몫이다: shell main의 renderer allowlist(`main/desktop/core/allowlist.ts`의 `READING_WORKER_ROUTES`)에 `worker:apps/export`를 더하고, settings의 [Export] 항목(이 T58)과 app-detail Data 탭의 [Export] 항목(T43이 닫혔으므로 이 T58이 함께 맡는다)을 붙인다. Data 탭의 "Exporting this app's data isn't available yet." 문장과 `data-export-unavailable`은 그때 걷는다
 - 등급: frontend

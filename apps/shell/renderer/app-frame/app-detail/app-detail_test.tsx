@@ -772,18 +772,22 @@ Deno.test("shell/wording#R4: Activity는 기본에서 접혀 있고 펼치면 �
   noInternal(body);
 });
 
-Deno.test("shell/wording#R10: Data는 없는 export를 있는 것처럼 보이지 않고 아직 할 수 없다고 한 문장으로 적는다", async () => {
-  const { ui } = detail();
+Deno.test("shell/wording#R10: Data는 사람이 누를 때만 export를 청하고 준비 결과를 구별해 보인다", async () => {
+  const { fake, ui } = detail();
   using view = render(ui);
   await flush();
   await openTab(view.container, "data");
   const body = find(view.container, "[data-tab-body='data']");
-  assertEquals(
-    textOf(find(body, "[data-export-unavailable]")),
-    "Exporting this app's data isn't available yet.",
-  );
   assertEquals(textOf(find(body, "[data-data-format]")), "Saved data format 2");
-  assertEquals(body.querySelectorAll("button").length, 0);
+  // 화면을 연 것만으로는 청하지 않는다.
+  assertEquals(fake.calls.filter((call) => call[0] === "exportApp").length, 0);
+  click(find(body, "[data-action='export-app']"));
+  await flush();
+  assertEquals(fake.calls.filter((call) => call[0] === "exportApp").length, 1);
+  assertEquals(
+    find(body, "[data-export='ready']").textContent,
+    "The copy is ready in the folder lophn made for it.",
+  );
 });
 
 Deno.test("shell/wording#R10: 읽지 못한 탭은 실패한 대상과 다시 읽기를 보인다", async () => {

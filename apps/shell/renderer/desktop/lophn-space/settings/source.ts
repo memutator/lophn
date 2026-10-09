@@ -242,4 +242,16 @@ export interface SettingsSource {
   ): Promise<SourceResult<null>>;
   /** MCP credential을 보호 창에 넣는다. secret은 ServerRow.secret이다. */
   enterServerCredential(secret: string): Promise<WindowOutcome>;
+  /**
+   * 사람이 고른 앱의 자료를 밖으로 내보낸다(settings [Export] 항목, shell#T58). 준비 결과
+   * (ready·failed)만 답하고 실제 묶음은 core가 처리한다. 준비 중이면 preparing이다.
+   */
+  exportApp(app: string): Promise<
+    SourceResult<{
+      readonly app: string;
+      readonly state: "preparing" | "ready" | "failed";
+      readonly reason?: string;
+      readonly includesExternalData: boolean;
+    }>
+  >;
 }

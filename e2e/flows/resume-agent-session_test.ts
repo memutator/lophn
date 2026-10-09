@@ -161,7 +161,6 @@ type RunRow = {
 
 type QuestionRow = {
   id: string;
-  prompt: string;
   status: string;
   answer: unknown;
 };
@@ -458,9 +457,11 @@ Deno.test({
           await openDock();
 
           // 원래 요청을 다시 입력시키지 않는다: 확정 메시지가 그대로 보인다.
-          assert(
-            (await dockText()).includes(FIRST),
-            `확정 메시지가 없다: ${JSON.stringify(await dockText())}`,
+          await flow.until(
+            `document.querySelector(${
+              JSON.stringify(DOCK)
+            })?.innerText.includes(${JSON.stringify(FIRST)})`,
+            "다시 연 도크에 확정 메시지가 없다",
           );
           assertEquals(
             await flow.evaluate(
@@ -525,7 +526,13 @@ Deno.test({
           );
           assertEquals(kept?.status, "pending", "창을 닫았다고 질문이 닫혔다");
           assertEquals(kept?.answer, null, "답 없이 답이 생겼다");
-          assertEquals(kept?.prompt, ASK, "질문 본문이 바뀌었다");
+          const text = await mustCall(flow, {
+            kind: "read",
+            resource: "questions",
+            method: "text",
+            body: { question: question.id },
+          });
+          assertEquals(text.prompt, ASK, "질문 본문이 바뀌었다");
           await flow.until(
             `document.querySelector("[data-question-text='ready']")?.textContent === ${
               JSON.stringify(ASK)
@@ -550,7 +557,6 @@ Deno.test({
             (row) => row.id === sent.id && row.state === "finished",
             "보낸 run이 끝나지 않았다",
           );
-          assertEquals(sender.outcome?.kind, "completed");
           // 전달 사실은 보낸 run의 trace에 남는다: tool call 하나와 받는 run으로의 연결.
           const trace = await mustCall(flow, {
             kind: "read",
@@ -558,6 +564,15 @@ Deno.test({
             method: "read",
             body: { target: { kind: "run", run: sender.id } },
           });
+          assertEquals(
+            sender.outcome?.kind,
+            "completed",
+            `보낸 run이 정상 종료하지 않았다: ${JSON.stringify(sender)} ${
+              JSON.stringify(trace).slice(0, 1500)
+            } last_call=${
+              JSON.stringify(fixture.requests().at(-1)?.body).slice(-1500)
+            }`,
+          );
           const facts = trace.trace as {
             handoff_links: { sender_run: string; receiver_run: string }[];
             tool_calls: string[];
@@ -576,7 +591,29 @@ Deno.test({
             "받는 run이 끝나지 않았다",
           );
           assertEquals(receiver.id, facts.handoff_links[0]!.receiver_run);
-          assertEquals(receiver.outcome?.kind, "completed");
+          assertEquals(
+            receiver.outcome?.kind,
+            "completed",
+            `받는 run이 정상 종료하지 않았다: ${JSON.stringify(receiver)} ${
+              JSON.stringify(
+                await mustCall(flow, {
+                  kind: "read",
+                  resource: "agent-traces",
+                  method: "read",
+                  body: { target: { kind: "run", run: receiver.id } },
+                }),
+              ).slice(0, 2000)
+            } calls=${fixture.requests().length} assignment=${
+              JSON.stringify(
+                await mustCall(flow, {
+                  kind: "read",
+                  resource: "assignments",
+                  method: "read",
+                  body: { assignment: editor.id },
+                }),
+              ).slice(0, 2000)
+            }`,
+          );
           // 받는 run의 판단 입력에 맡긴 내용이 들어 있다: 받는 역할의 prompt와 함께 온 요청 하나.
           const received = fixture.requests().filter((entry) =>
             JSON.stringify(entry.body).includes(CE_MARK)

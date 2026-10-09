@@ -443,19 +443,10 @@ Deno.test({
             "사람이 허락한 적용이 시작되지 않았다",
             async () => await releaseStatus(flow, OLDER) !== "superseded",
           );
-          try {
-            await untilTrue("이전 release로 시작하지 않았다", async () => {
-              const seen = await running(flow);
-              return seen?.release === OLDER && seen.ready === true;
-            });
-          } catch (error) {
-            const dbg = async (resource: string, method: string, body: unknown) =>
-              JSON.stringify(await flow.call({ kind: "read", resource, method, body })).slice(0, 1500);
-            console.log("DBG rel", await dbg("releases", "get", { release: OLDER }));
-            console.log("DBG rt", await dbg("apps", "runtime", { app: APP }));
-            console.log("DBG app", await dbg("apps", "get", { app: APP }));
-            throw error;
-          }
+          await untilTrue("이전 release로 시작하지 않았다", async () => {
+            const seen = await running(flow);
+            return seen?.release === OLDER && seen.ready === true;
+          });
           assertEquals(await releaseStatus(flow, OLDER), "active");
           assertEquals(await releaseStatus(flow, NEWER), "superseded");
           assertEquals(await activeRelease(flow), OLDER);

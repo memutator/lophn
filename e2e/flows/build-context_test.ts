@@ -1,6 +1,7 @@
 // flow build-context: 실제 headless shell·core·documents worker를 임시 LOPHN_HOME으로 연다.
 // 1은 아래 테스트가 contexts 화면과 Context Engineer 대화로 본다. 2는 그 다음 테스트가
-// 목차·검색·section·본문 범위와 blueprint 읽기 command 조회를 본다. 3~4는 이 파일에 없다.
+// 목차·검색·section·본문 범위와 blueprint 읽기 command 조회를 본다. 3은 그 다음 테스트가
+// 기준·참고·watch 제안과 사람 화면의 항목·읽기 가능 여부를 본다. 4는 이 파일에 없다.
 // 이 테스트는 기존 사람 command로 준비한 context에서 5의 화면·고정 section 읽기, 6~7의 실제 파일 관측·
 // watch·notification·전후 판 읽기, section 소실과 항목 제거·보관 갈래를 확인한다.
 // 8의 contexts revert 진입은 아직 없다(shell#T36). 미확인·단절·범위 갈래는 T27의 남은 E2E다.
@@ -1324,6 +1325,912 @@ Deno.test({
       await flow?.close();
       await provider.close();
       await removeHome(home);
+      await Deno.remove(folder, { recursive: true });
+    }
+  },
+});
+
+// 3: conversation에서 Context Engineer가 책임 근거는 기준, 배경 자료는 참고,
+// 변화만 따라갈 자료는 watch로 제안한다. 같은 문서 section도 context마다 관점과 이유가 다르다.
+// 사람은 목적·지금 필요한 항목·읽을 수 있는지를 먼저 보고, 선택 이유·읽은 고정 근거·부족한 자료는
+// 펼쳐 본다. 설계 보고는 요청 범위 문서에 목적·범위·용어·경계로 남고, 읽은 고정 판과 부족한 자료,
+// 저장의 접수·판 확정·파일 반영을 섞지 않는다. model은 fake provider script다.
+const TITLE_A = "Reading terms";
+const TITLE_B = "Background terms";
+const PURPOSE_A = "자료에서 쓰는 말의 책임 근거와 변화를 나눈다.";
+const PURPOSE_B = "같은 용어 자료를 배경으로만 본다.";
+const BASIS_REASON = "목적에 대한 책임 근거";
+const GAP_REASON = "아직 읽을 수 없는 배경";
+const WATCH_REASON = "변화만 따라갈 자료";
+const REF_REASON = "다른 목적에서는 배경 자료";
+const MISSING_SECTION = "없는-절";
+const UNDECIDED_TERM = "색인";
+const REPORT_TITLE = "컨텍스트 설계 보고";
+const REPORT_TERM_LIMIT = 30;
+const PROPOSE =
+  "함께 볼 자료의 관점을 정해 달라. 책임 근거, 배경, 변화만 따라갈 자료를 나누고 설계 보고를 남겨 달라.";
+const PROPOSAL =
+  "책임 근거는 기준, 배경 자료는 참고, 변화만 따라갈 자료는 watch로 둔다. 용어 section은 읽은 고정 판의 근거다. 없는 section과 읽지 않은 판은 부족한 자료이고 확인된 근거가 아니다. 보고 저장은 접수와 판 확정이고 파일 반영은 아니다.";
+const GAP_NOTICE =
+  "This section isn't in the latest version. Pick the part to use again.";
+
+type ProposalPhase =
+  | "search"
+  | "list"
+  | "outline"
+  | "section"
+  | "docs"
+  | "create-a"
+  | "create-b"
+  | "save"
+  | "done";
+
+type ListedDoc = { id: string; title: string; version: string };
+
+type ScopeLine = {
+  target: {
+    kind: "document";
+    document: string;
+    section: string | null;
+  };
+  perspective: "basis" | "reference" | "watch";
+  reason: string;
+};
+
+type DesignReport = {
+  context: string;
+  purpose: string;
+  scope: ScopeLine[];
+  terms: { confirmed: string[]; undecided: string[] };
+  boundaries: string[];
+};
+
+type ProposalFixture = LookupFixture & {
+  migration: () => string;
+  migrationVersion: () => string;
+  section: () => string;
+  contextA: () => string;
+  contextB: () => string;
+  /** document.create 결과가 들어 있는 요청 번호. */
+  saved: () => number;
+};
+
+function listedDocs(content: Record<string, unknown>): ListedDoc[] {
+  const rows = content["documents"];
+  assert(Array.isArray(rows), JSON.stringify(content).slice(0, 800));
+  const out: ListedDoc[] = [];
+  for (const row of rows) {
+    if (row === null || typeof row !== "object") continue;
+    const record = row as Record<string, unknown>;
+    const nested = record["document"];
+    const doc = nested !== null && typeof nested === "object"
+      ? nested as Record<string, unknown>
+      : record;
+    const id = doc["id"] ?? doc["document"];
+    const title = doc["title"];
+    const latest = record["latest_version"] ?? doc["latest_version"];
+    const version = typeof latest === "string"
+      ? latest
+      : latest !== null && typeof latest === "object"
+      ? (latest as { id?: string }).id
+      : undefined;
+    if (
+      typeof id === "string" && typeof title === "string" &&
+      typeof version === "string"
+    ) {
+      out.push({ id, title, version });
+    }
+  }
+  return out;
+}
+
+function createdContext(
+  content: Record<string, unknown>,
+): { id: string } {
+  const context = content["context"];
+  const id = context !== null && typeof context === "object"
+    ? (context as { id?: unknown }).id
+    : undefined;
+  assert(typeof id === "string", JSON.stringify(content).slice(0, 500));
+  return { id };
+}
+
+function docTarget(
+  document: string,
+  section: string | null,
+): ScopeLine["target"] {
+  return { kind: "document", document, section };
+}
+
+function designReport(
+  context: string,
+  purpose: string,
+  scope: ScopeLine[],
+  boundaries: string[],
+): DesignReport {
+  return {
+    context,
+    purpose,
+    scope,
+    terms: { confirmed: [], undecided: [UNDECIDED_TERM] },
+    boundaries,
+  };
+}
+
+/** 검색·목차로 용어 section만 읽고, 두 context에 관점을 다르게 넣은 뒤 설계 보고를 저장한다.
+ * migration 본문은 읽지 않는다. 저장 근거에 그 판을 실어도 결과는 읽지 않음으로 남는다. */
+function startProposalScript(): ProposalFixture {
+  const bodies: string[] = [];
+  const named: string[] = [];
+  const queue: FixedDoc[] = [];
+  const found = {
+    document: "",
+    version: "",
+    section: "",
+    migration: "",
+    migrationVersion: "",
+    contextA: "",
+    contextB: "",
+    failure: "",
+    phase: "search" as ProposalPhase,
+    searches: 0,
+  };
+  const at = { outline: -1, section: -1, range: -1, commands: -1, save: -1 };
+  const search = (): SemanticReply => {
+    found.searches += 1;
+    named.push("document.search");
+    return toolCall(`toolu_search_${found.searches}`, "document.search", {
+      query: "용어",
+    });
+  };
+  const outlineNext = (): SemanticReply => {
+    const next = queue.shift();
+    assert(next !== undefined, "용어 section이 있는 문서가 없다");
+    found.document = next.document;
+    found.version = next.version;
+    found.phase = "outline";
+    named.push("document.outline");
+    return toolCall(`toolu_outline_${named.length}`, "document.outline", {
+      reference: {
+        document: next.document,
+        version: next.version,
+        section: null,
+      },
+    });
+  };
+  const server = Deno.serve(
+    { hostname: "127.0.0.1", port: 0, onListen: () => {} },
+    async (request) => {
+      const text = await request.text();
+      const path = new URL(request.url).pathname;
+      if (request.method !== "POST" || !path.endsWith("/messages")) {
+        return Response.json({ error: "unexpected" }, { status: 500 });
+      }
+      const index = bodies.length;
+      bodies.push(text);
+      let reply: SemanticReply;
+      try {
+        if (found.phase === "search" && index === 0) {
+          reply = search();
+        } else if (found.phase === "search") {
+          const content = toolContent(text);
+          const coverage = content["coverage"] as {
+            lagging?: boolean;
+            rebuilding?: boolean;
+          } | undefined;
+          const waiting = coverage?.lagging === true ||
+            coverage?.rebuilding === true;
+          const results = (content["results"] ?? []) as {
+            document?: string;
+            version?: string;
+            title?: string;
+            snippet?: string;
+          }[];
+          const hit = results.find((row) =>
+            `${row.title ?? ""} ${row.snippet ?? ""}`.includes("용어")
+          );
+          if (hit?.document !== undefined && hit.version !== undefined) {
+            queue.push({ document: hit.document, version: hit.version });
+            reply = outlineNext();
+          } else if (waiting && found.searches < 3) {
+            await delay(1000);
+            reply = search();
+          } else {
+            found.phase = "list";
+            named.push("document.list");
+            reply = toolCall("toolu_list", "document.list", {});
+          }
+        } else if (found.phase === "list") {
+          for (const row of listedDocs(toolContent(text))) {
+            queue.push({ document: row.id, version: row.version });
+          }
+          assert(queue.length > 0, "문서 목록이 비었다");
+          reply = outlineNext();
+        } else if (found.phase === "outline") {
+          const entries = toolContent(text)["entries"] as {
+            key?: string;
+            title?: string;
+          }[];
+          const section = entries.find((row) => row.title === "용어")?.key;
+          if (typeof section !== "string") {
+            reply = outlineNext();
+          } else {
+            at.outline = index;
+            found.section = section;
+            found.phase = "section";
+            named.push("document.read_section");
+            reply = toolCall("toolu_section", "document.read_section", {
+              reference: {
+                document: found.document,
+                version: found.version,
+                section: null,
+              },
+              section,
+            });
+          }
+        } else if (found.phase === "section") {
+          at.section = index;
+          const content = toolContent(text);
+          const readText = String(content["text"] ?? "");
+          assert(
+            readText.includes(SECTION_BODY),
+            `읽은 section이 용어 본문이 아니다: ${readText.slice(0, 200)}`,
+          );
+          assertEquals(readText.includes(OTHER_BODY), false);
+          const version = content["version"];
+          assert(
+            typeof version === "string",
+            JSON.stringify(content).slice(0, 300),
+          );
+          found.version = version;
+          found.phase = "docs";
+          named.push("document.list");
+          reply = toolCall("toolu_docs", "document.list", {});
+        } else if (found.phase === "docs") {
+          const docs = listedDocs(toolContent(text));
+          const migration = docs.find((row) => row.title === "migration");
+          assert(migration !== undefined, JSON.stringify(docs));
+          assert(
+            migration.id !== found.document,
+            "migration이 용어 문서와 같다",
+          );
+          found.migration = migration.id;
+          found.migrationVersion = migration.version;
+          assert(found.section !== MISSING_SECTION, found.section);
+          const basis = docTarget(found.document, found.section);
+          const gap = docTarget(found.document, MISSING_SECTION);
+          const watch = docTarget(found.migration, null);
+          found.phase = "create-a";
+          named.push("context.create");
+          reply = toolCall("toolu_context_a", "context.create", {
+            title: TITLE_A,
+            purpose: PURPOSE_A,
+            items: [
+              { target: basis, perspective: "basis", reason: BASIS_REASON },
+              { target: gap, perspective: "reference", reason: GAP_REASON },
+              { target: watch, perspective: "watch", reason: WATCH_REASON },
+            ],
+          });
+        } else if (found.phase === "create-a") {
+          found.contextA = createdContext(toolContent(text)).id;
+          const basis = docTarget(found.document, found.section);
+          found.phase = "create-b";
+          named.push("context.create");
+          reply = toolCall("toolu_context_b", "context.create", {
+            title: TITLE_B,
+            purpose: PURPOSE_B,
+            items: [
+              {
+                target: basis,
+                perspective: "reference",
+                reason: REF_REASON,
+              },
+            ],
+          });
+        } else if (found.phase === "create-b") {
+          found.contextB = createdContext(toolContent(text)).id;
+          assert(found.contextA !== found.contextB, "두 context id가 같다");
+          const basis = docTarget(found.document, found.section);
+          const gap = docTarget(found.document, MISSING_SECTION);
+          const watch = docTarget(found.migration, null);
+          const reports = [
+            designReport(found.contextA, PURPOSE_A, [
+              { target: basis, perspective: "basis", reason: BASIS_REASON },
+              { target: gap, perspective: "reference", reason: GAP_REASON },
+              { target: watch, perspective: "watch", reason: WATCH_REASON },
+            ], ["앱 command 실행과 원본 이동은 맡지 않는다"]),
+            designReport(found.contextB, PURPOSE_B, [
+              { target: basis, perspective: "reference", reason: REF_REASON },
+            ], ["이 목적에서는 책임 근거와 watch를 맡지 않는다"]),
+          ];
+          found.phase = "save";
+          named.push("document.create");
+          reply = toolCall("toolu_report", "document.create", {
+            title: REPORT_TITLE,
+            place: null,
+            name: null,
+            text: JSON.stringify({ reports }),
+            media_type: "text/markdown",
+            evidence: {
+              relied_on: [
+                { document: found.document, version: found.version },
+                {
+                  document: found.migration,
+                  version: found.migrationVersion,
+                },
+              ],
+              missing: [MISSING_SECTION],
+            },
+          });
+        } else if (found.phase === "save") {
+          at.save = index;
+          const saved = toolContent(text);
+          assertEquals(saved["accepted"], true);
+          assertEquals(saved["version_confirmed"], true);
+          assertEquals(saved["file_reflection"], "not_applicable");
+          const evidence = saved["evidence"] as {
+            all_read?: boolean;
+            read?: { document?: string; version?: string }[];
+            not_read?: { document?: string }[];
+            missing?: string[];
+          };
+          assertEquals(evidence.all_read, false);
+          assert(
+            evidence.read?.some((row) =>
+              row.document === found.document && row.version === found.version
+            ),
+            JSON.stringify(evidence),
+          );
+          assert(
+            evidence.not_read?.some((row) => row.document === found.migration),
+            JSON.stringify(evidence),
+          );
+          assertEquals(evidence.missing, [MISSING_SECTION]);
+          found.phase = "done";
+          reply = said(PROPOSAL);
+        } else {
+          return Response.json({ error: "exhausted" }, { status: 500 });
+        }
+      } catch (error) {
+        found.failure = `call ${index}: ${
+          error instanceof Error ? error.message : String(error)
+        }`;
+        return Response.json({ error: found.failure }, { status: 500 });
+      }
+      const built = buildReply("messages", reply);
+      return new Response(built.body ?? "", {
+        status: built.status,
+        headers: built.headers,
+      });
+    },
+  );
+  return {
+    url: `http://127.0.0.1:${server.addr.port}`,
+    calls: () => bodies.length,
+    body: (index) => bodies[index] ?? "",
+    close: () => server.shutdown(),
+    failure: () => found.failure,
+    document: () => found.document,
+    version: () => found.version,
+    done: () => found.phase === "done",
+    result: (step) => at[step],
+    callsNamed: () => named,
+    migration: () => found.migration,
+    migrationVersion: () => found.migrationVersion,
+    section: () => found.section,
+    contextA: () => found.contextA,
+    contextB: () => found.contextB,
+    saved: () => at.save,
+  };
+}
+
+async function openFocusId(flow: FlowShell, id: string): Promise<void> {
+  await flow.click('[data-screen="contexts"]');
+  await flow.until(
+    `document.querySelector('[data-focus="${id}"]') !== null`,
+    "Focus 목록이 없다",
+  );
+  await flow.click(`[data-focus="${id}"]`);
+  await flow.until(
+    `document.querySelector('[data-focus-head="${id}"]') !== null`,
+    "Focus 상세가 없다",
+  );
+}
+
+async function markRow(
+  flow: FlowShell,
+  perspective: string,
+  includes: string,
+): Promise<void> {
+  const selector = `[data-perspective="${perspective}"] [data-item]`;
+  const marked = await flow.evaluate(`(() => {
+    for (const old of document.querySelectorAll("[data-flow-row]")) {
+      old.removeAttribute("data-flow-row");
+    }
+    const row = [...document.querySelectorAll(${JSON.stringify(selector)})]
+      .find((el) =>
+        (el.querySelector("button")?.textContent ?? "").includes(${
+    JSON.stringify(includes)
+  })
+      );
+    if (!row) return false;
+    row.setAttribute("data-flow-row", "");
+    return true;
+  })()`);
+  assertEquals(marked, true, `항목이 없다: ${perspective} ${includes}`);
+}
+
+type OutlineEntry = {
+  perspective: string;
+  reason: string;
+  title: string;
+  readable: boolean;
+  version: string | null;
+  section_status: string | null;
+  target: { kind: string; document?: string; section?: string | null };
+};
+
+function outlineOf(page: Record<string, unknown>): {
+  purpose: string;
+  entries: OutlineEntry[];
+  perspectives: Record<"basis" | "reference" | "watch", OutlineEntry[]>;
+  glossary: { name?: string; definition?: string | null }[];
+  candidates: { name?: string; definition?: string | null }[];
+} {
+  const perspectives = page["perspectives"] as Record<
+    "basis" | "reference" | "watch",
+    OutlineEntry[]
+  >;
+  return {
+    purpose: String(page["purpose"] ?? ""),
+    entries: page["entries"] as OutlineEntry[],
+    perspectives,
+    glossary: page["glossary"] as { name?: string }[],
+    candidates: page["candidates"] as { name?: string }[],
+  };
+}
+
+Deno.test({
+  name:
+    "lophn-agent/roles/context-engineer#R6 lophn-agent/roles/context-engineer#R7 lophn-agent/roles/common#R10 documents/contexts#R1 documents/outline-and-search#R4 flow build-context 3: 기준·참고·watch를 제안하고 사람은 항목과 읽기 가능 여부를 먼저 본다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn() {
+    const folder = await Deno.realPath(await copyFixture("korean-search"));
+    const provider = startProposalScript();
+    let flow: FlowShell | undefined;
+    try {
+      flow = await openFlowShell({ start: "lophn" });
+      await mustCall(flow, {
+        kind: "command",
+        resource: "providers",
+        method: "register",
+        body: commandBody({
+          id: PROVIDER,
+          name: "fixture",
+          definition: {
+            key: "anthropic",
+            display_name: "Anthropic",
+            protocols: ["anthropic-messages"],
+            auth_kinds: ["none"],
+            models_endpoint: null,
+            oauth: null,
+            revision: "2026-01-01",
+          },
+          endpoint: provider.url,
+          protocol: "anthropic-messages",
+        }),
+      });
+      const defaults = await mustCall(flow, {
+        kind: "read",
+        resource: "agent-model-defaults",
+        method: "read",
+        body: {},
+      });
+      const seq = (defaults.defaults as { settings_seq: string }).settings_seq;
+      await mustCall(flow, {
+        kind: "command",
+        resource: "agent-model-defaults",
+        method: "change",
+        body: commandBody(
+          {
+            judgment: {
+              provider: PROVIDER,
+              credentials: [],
+              model_name: MODEL,
+              reasoning_level: "provider_default",
+              options: {},
+            },
+            organizing: null,
+            settings_seq: seq,
+          },
+          { settings_seq: seq },
+        ),
+      });
+      await registerTrackedProject(flow, { folder });
+      await untilDocuments(flow, ["glossary", "migration"], "문서 관측 대기");
+      await untilSearch(
+        flow,
+        "용어",
+        (page) => page.results.length > 0,
+        "목차 반영 대기",
+      );
+      const glossary = await documentTitled(flow, "glossary");
+      const migration = await documentTitled(flow, "migration");
+
+      await sendToEngineer(flow, PROPOSE);
+      await untilLookup(provider);
+      await untilEngineerDone(flow, provider, "관점 제안이 끝나지 않았다");
+
+      const named = provider.callsNamed();
+      const readAt = named.lastIndexOf("document.read_section");
+      assert(readAt > 0, named.join(","));
+      assertEquals(named[0], "document.search");
+      assert(
+        named.slice(0, readAt).every((name) =>
+          name === "document.search" || name === "document.list" ||
+          name === "document.outline"
+        ),
+        named.join(","),
+      );
+      assert(
+        named.slice(0, readAt).includes("document.outline"),
+        named.join(","),
+      );
+      assertEquals(named.slice(readAt), [
+        "document.read_section",
+        "document.list",
+        "context.create",
+        "context.create",
+        "document.create",
+      ]);
+      assertEquals(provider.document(), glossary.id);
+      assertEquals(provider.version(), glossary.latest_version);
+      assertEquals(provider.migration(), migration.id);
+      assertEquals(provider.migrationVersion(), migration.latest_version);
+      const tools = offeredTools(provider.body(0));
+      assert(tools.includes("context.create"), tools.join(","));
+      assert(tools.includes("document.create"), tools.join(","));
+      assertEquals(tools.includes("term.define"), false);
+
+      const sectionRead = toolContent(
+        provider.body(provider.result("section")),
+      );
+      assertEquals(sectionRead["version"], glossary.latest_version);
+      assertStringIncludes(String(sectionRead["text"]), SECTION_BODY);
+      assertEquals(String(sectionRead["text"]).includes(OTHER_BODY), false);
+      const saved = toolContent(provider.body(provider.saved()));
+      assertEquals(saved["accepted"], true);
+      assertEquals(saved["version_confirmed"], true);
+      assertEquals(saved["file_reflection"], "not_applicable");
+      const evidence = saved["evidence"] as {
+        all_read: boolean;
+        read: { document: string; version: string }[];
+        not_read: { document: string }[];
+        missing: string[];
+      };
+      assertEquals(evidence.all_read, false);
+      assertEquals(
+        evidence.read.map((row) => ({
+          document: row.document,
+          version: row.version,
+        })),
+        [{
+          document: glossary.id,
+          version: glossary.latest_version,
+        }],
+      );
+      assertEquals(
+        evidence.not_read.map((row) => row.document),
+        [migration.id],
+      );
+      assertEquals(evidence.missing, [MISSING_SECTION]);
+
+      const shown = (await flow.text(EMBEDDED)) ?? "";
+      assertStringIncludes(shown, PROPOSAL);
+      assertStringIncludes(shown, "기준");
+      assertStringIncludes(shown, "참고");
+      assertStringIncludes(shown, "watch");
+      assertEquals(shown.includes(OTHER_BODY), false);
+      assertEquals(shown.includes("데이터베이스마이그레이션계획서"), false);
+      assertEquals(shown.includes("document.search"), false);
+      assertEquals(shown.includes("document.create"), false);
+      assertEquals(shown.includes("context.create"), false);
+      assertEquals(shown.includes(folder), false);
+
+      const contextA = provider.contextA();
+      const contextB = provider.contextB();
+      const section = provider.section();
+      const storedA = await mustCall(flow, {
+        kind: "read",
+        resource: "contexts",
+        method: "get",
+        body: { context: contextA },
+      });
+      const storedB = await mustCall(flow, {
+        kind: "read",
+        resource: "contexts",
+        method: "get",
+        body: { context: contextB },
+      });
+      const itemsA = (storedA.context as {
+        purpose: string;
+        items: {
+          perspective: string;
+          reason: string;
+          target: { document: string; section: string | null };
+        }[];
+      }).items;
+      const itemsB = (storedB.context as {
+        purpose: string;
+        items: {
+          perspective: string;
+          reason: string;
+          target: { document: string; section: string | null };
+        }[];
+      }).items;
+      assertEquals(
+        (storedA.context as { purpose: string }).purpose,
+        PURPOSE_A,
+      );
+      assertEquals(
+        (storedB.context as { purpose: string }).purpose,
+        PURPOSE_B,
+      );
+      const basisItem = itemsA.find((item) => item.target.section === section);
+      const otherItem = itemsB.find((item) => item.target.section === section);
+      assert(basisItem !== undefined && otherItem !== undefined);
+      assertEquals(basisItem.target.document, glossary.id);
+      assertEquals(otherItem.target.document, glossary.id);
+      assertEquals(basisItem.perspective, "basis");
+      assertEquals(otherItem.perspective, "reference");
+      assertEquals(basisItem.reason, BASIS_REASON);
+      assertEquals(otherItem.reason, REF_REASON);
+      assert(basisItem.reason !== otherItem.reason);
+
+      const pageA = outlineOf(
+        await mustCall(flow, {
+          kind: "worker",
+          resource: "outline",
+          method: "context",
+          body: { context: contextA },
+        }),
+      );
+      const pageB = outlineOf(
+        await mustCall(flow, {
+          kind: "worker",
+          resource: "outline",
+          method: "context",
+          body: { context: contextB },
+        }),
+      );
+      assertEquals(pageA.purpose, PURPOSE_A);
+      assertEquals(
+        pageA.entries.map((entry) => entry.perspective),
+        ["basis", "reference", "watch"],
+      );
+      assertEquals(pageA.perspectives.basis.length, 1);
+      assertEquals(pageA.perspectives.reference.length, 1);
+      assertEquals(pageA.perspectives.watch.length, 1);
+      const basisEntry = pageA.perspectives.basis[0];
+      const gapEntry = pageA.perspectives.reference[0];
+      const watchEntry = pageA.perspectives.watch[0];
+      assertEquals(basisEntry.readable, true);
+      assertEquals(basisEntry.version, glossary.latest_version);
+      assertEquals(basisEntry.section_status, "found");
+      assertEquals(basisEntry.target.section, section);
+      assertEquals(basisEntry.reason, BASIS_REASON);
+      assertEquals(gapEntry.readable, false);
+      assertEquals(gapEntry.section_status, "missing");
+      assertEquals(gapEntry.target.section, MISSING_SECTION);
+      assertEquals(gapEntry.reason, GAP_REASON);
+      assertEquals(watchEntry.readable, true);
+      assertEquals(watchEntry.version, migration.latest_version);
+      assertEquals(watchEntry.section_status, "whole");
+      assertEquals(watchEntry.target.document, migration.id);
+      assertEquals(watchEntry.target.section, null);
+      assertEquals(watchEntry.reason, WATCH_REASON);
+      assertEquals(pageB.perspectives.basis, []);
+      assertEquals(pageB.perspectives.watch, []);
+      assertEquals(pageB.perspectives.reference.length, 1);
+      assertEquals(
+        pageB.perspectives.reference[0].target.document,
+        glossary.id,
+      );
+      assertEquals(pageB.perspectives.reference[0].target.section, section);
+      assertEquals(pageB.perspectives.reference[0].perspective, "reference");
+      assertEquals(pageB.perspectives.reference[0].reason, REF_REASON);
+      assertEquals(
+        pageB.perspectives.reference[0].version,
+        glossary.latest_version,
+      );
+      assertEquals(pageA.glossary, []);
+      assertEquals(pageA.candidates, []);
+      assertEquals(pageB.glossary, []);
+      assertEquals(pageB.candidates, []);
+      for (const name of pageA.candidates.map((term) => term.name)) {
+        assertEquals(
+          pageA.glossary.some((term) => term.name === name),
+          false,
+          name,
+        );
+      }
+
+      const reportDoc = await documentTitled(flow, REPORT_TITLE);
+      assertEquals(reportDoc.name, null);
+      const reportRead = await mustCall(flow, {
+        kind: "worker",
+        resource: "documents",
+        method: "read",
+        body: {
+          reference: {
+            document: reportDoc.id,
+            version: reportDoc.latest_version,
+            section: null,
+          },
+        },
+      });
+      assertEquals(reportRead["version"], saved["version"]);
+      const reports = (JSON.parse(String(reportRead["text"])) as {
+        reports: DesignReport[];
+      }).reports;
+      assertEquals(reports.length, 2);
+      for (const report of reports) {
+        assert(report.purpose.trim().length > 0);
+        assert(report.scope.length > 0);
+        assert(report.boundaries.length > 0);
+        assert(report.terms.confirmed.length <= REPORT_TERM_LIMIT);
+        for (const name of report.terms.undecided) {
+          assertEquals(report.terms.confirmed.includes(name), false, name);
+        }
+        for (const line of report.scope) {
+          assertEquals(line.reason.includes("\n"), false);
+          assert(line.reason.trim().length > 0);
+          assertEquals(line.target.kind, "document");
+        }
+      }
+      assertEquals(reports[0].context, contextA);
+      assertEquals(reports[0].purpose, PURPOSE_A);
+      assertEquals(
+        reports[0].scope.map((line) => line.perspective),
+        ["basis", "reference", "watch"],
+      );
+      assertEquals(reports[0].terms.confirmed, []);
+      assertEquals(reports[0].terms.undecided, [UNDECIDED_TERM]);
+      assertEquals(reports[1].context, contextB);
+      assertEquals(reports[1].scope[0].perspective, "reference");
+      assertEquals(reports[1].scope[0].target.section, section);
+      assertEquals(reports[1].scope[0].reason, REF_REASON);
+
+      await openFocusId(flow, contextA);
+      assertEquals(await flow.text("[data-focus-purpose]"), PURPOSE_A);
+      assertEquals(
+        JSON.parse(String(
+          await flow.evaluate(
+            `JSON.stringify([...document.querySelectorAll("[data-perspective]")].map((el) => el.getAttribute("data-perspective")))`,
+          ),
+        )),
+        ["basis", "reference", "watch"],
+      );
+      assertEquals(
+        JSON.parse(String(
+          await flow.evaluate(
+            `JSON.stringify([...document.querySelectorAll("[data-perspective] h2")].map((el) => el.textContent))`,
+          ),
+        )),
+        ["Baseline1", "Reference1", "Follow changes1"],
+      );
+      const materials = (await flow.text("[data-materials]")) ?? "";
+      assertStringIncludes(materials, "glossary");
+      assertStringIncludes(materials, "migration");
+      assertStringIncludes(materials, "What's missing");
+      assertEquals(materials.includes(BASIS_REASON), false);
+      assertEquals(materials.includes(GAP_REASON), false);
+      assertEquals(materials.includes(WATCH_REASON), false);
+      assertEquals(materials.includes(GAP_NOTICE), false);
+      assertEquals(materials.includes("Nothing here yet."), false);
+      assertEquals(await flow.count("[data-item-reason]"), 0);
+      assertEquals(await flow.count("[data-item-gaps]"), 0);
+      assertEquals(await flow.count("[data-item-body]"), 0);
+
+      await markRow(flow, "reference", MISSING_SECTION);
+      assertEquals(
+        await flow.text("[data-flow-row] [data-item-state]"),
+        "What's missing",
+      );
+      assertEquals(
+        await flow.evaluate(
+          `document.querySelector("[data-flow-row] [data-item-state]")?.getAttribute("data-item-state")`,
+        ),
+        "gaps",
+      );
+      await flow.click("[data-flow-row] > button");
+      assertEquals(
+        await flow.text("[data-flow-row] [data-gap]"),
+        GAP_NOTICE,
+      );
+      assertEquals(
+        await flow.evaluate(
+          `document.querySelector("[data-flow-row] [data-gap]")?.getAttribute("data-gap")`,
+        ),
+        "section-missing",
+      );
+      assertEquals(await flow.count("[data-flow-row] [data-open-item]"), 0);
+
+      await markRow(flow, "watch", "migration");
+      assertEquals(
+        await flow.evaluate(
+          `document.querySelector("[data-flow-row] [data-item-state]")?.getAttribute("data-item-state")`,
+        ),
+        "quiet",
+      );
+      await flow.click("[data-flow-row] > button");
+      assertEquals(
+        await flow.text("[data-flow-row] [data-item-reason]"),
+        WATCH_REASON,
+      );
+
+      await markRow(flow, "basis", section);
+      assertEquals(await flow.count("[data-flow-row] [data-item-state]"), 0);
+      await flow.click("[data-flow-row] > button");
+      assertEquals(
+        await flow.text("[data-flow-row] [data-item-reason]"),
+        BASIS_REASON,
+      );
+      assertEquals(await flow.count("[data-flow-row] [data-open-item]"), 1);
+
+      await openFocusId(flow, contextB);
+      assertEquals(await flow.text("[data-focus-purpose]"), PURPOSE_B);
+      assertEquals(
+        await flow.text('[data-perspective="basis"] p'),
+        "Nothing here yet.",
+      );
+      assertEquals(
+        await flow.text('[data-perspective="watch"] p'),
+        "Nothing here yet.",
+      );
+      const referenceText =
+        (await flow.text('[data-perspective="reference"]')) ?? "";
+      assertStringIncludes(referenceText, "glossary");
+      assertStringIncludes(referenceText, section);
+      assertEquals(referenceText.includes(BASIS_REASON), false);
+      assertEquals(referenceText.includes("What's missing"), false);
+      await markRow(flow, "reference", section);
+      await flow.click("[data-flow-row] > button");
+      assertEquals(
+        await flow.text("[data-flow-row] [data-item-reason]"),
+        REF_REASON,
+      );
+
+      await openFocusId(flow, contextA);
+      await markRow(flow, "basis", section);
+      await flow.click("[data-flow-row] > button");
+      await flow.click("[data-flow-row] [data-open-item]");
+      const reader = `[data-reader="${glossary.id}"] [data-body]`;
+      await flow.until(
+        `document.querySelector(${
+          JSON.stringify(reader)
+        })?.textContent.includes(${JSON.stringify(SECTION_BODY)})`,
+        "읽은 고정 section이 없다",
+      );
+      const body = (await flow.text(reader)) ?? "";
+      assertStringIncludes(body, SECTION_BODY);
+      assertEquals(body.includes(OTHER_BODY), false);
+      assertEquals(body.includes("데이터베이스마이그레이션계획서"), false);
+
+      assertEquals(
+        (await documentTitled(flow, "glossary")).latest_version,
+        glossary.latest_version,
+      );
+      assertEquals(
+        (await documentTitled(flow, "migration")).latest_version,
+        migration.latest_version,
+      );
+    } finally {
+      await flow?.close();
+      await provider.close();
+      if (flow !== undefined) await removeHome(flow.home);
       await Deno.remove(folder, { recursive: true });
     }
   },

@@ -1163,6 +1163,8 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 - 이 PR (#494)은 flow work-offline의 1단계만 했다. 설치된 안내, 고정한 옛 판, 연결이 필요 없는 로컬 앱을 이어 열고 프로젝트 탭과 읽던 위치를 남긴다. 문서 저장, 판 확정, 검색은 서로 다른 결과다. 2–7단계와 update-lophn, install-lophn은 남은 그대로다.
 - 이 PR (#500)은 flow work-offline의 2단계만 했다. lophn은 동봉한 runtime·고정 의존성과 앱의 pinned SDK만 써 로컬 동작을 제공한다. 플랫폼 시작·앱 시작·패키지 MCP 연결은 다운로드를 요구하지 않고, 사람에게는 보이지 않는다. 3–7단계와 update-lophn, install-lophn은 남은 그대로다.
 - 이 PR (#505)은 flow update-lophn의 1단계만 했다. settings에서 이 OS의 설치 패키지가 아직 검증되지 않았음을 확인하고, 사람이 고른 로컬 metadata로 수동 update를 고른다. 자동 다운로드·자동 설치·사용 중 재시작은 없다. 검증하지 않은 배포를 사용 가능한 완료로 안내하지 않는다. 2–8단계와 work-offline의 나머지, install-lophn은 남은 그대로다.
+- 상태: 진행 (#510) — 남은 것: update-lophn 3–8단계, work-offline의 나머지, install-lophn. 한 것: 2단계는 진행 작업과 플랫폼을 정상 정지한 뒤 사람이 고른 패키지 파일로 설치 파일만 교체한다. 데이터 폴더의 ledger는 지우지 않는다. 다운로드·재시작은 없다. 검증하지 않은 배포는 검증됨으로 두지 않는다.
+- 이 PR (#510)은 flow update-lophn의 2단계만 했다. 진행 작업과 플랫폼을 정상 정지한 뒤 사람이 고른 패키지 파일로 설치 파일만 교체한다. 데이터 폴더의 ledger는 지우지 않는다. 다운로드·재시작은 없다. 검증하지 않은 배포는 검증됨으로 두지 않는다. 3–8단계와 work-offline의 나머지, install-lophn은 남은 그대로다.
 - 완료: 아래 확인이 통과한다
   - `e2e/flows/install-lophn_test.ts`, `update-lophn_test.ts`, `backup-and-restore_test.ts`, `catch-up-notifications_test.ts`, `work-offline_test.ts`가 flow 문서의 단계·다른 갈래·끝을 그대로 돈다(Linux, fake provider와 fixture).
   - `deno task e2e`에서 operations slice의 다섯 flow가 모두 통과한다.

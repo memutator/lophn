@@ -120,10 +120,13 @@ export interface FlowOptions {
     | "conversation"
     | "things-to-confirm"
     | "instructions:global"
+    | "settings"
     | `project:${string}`
     | `app:${string}`;
   /** 이미 있는 데이터 root를 다시 연다(core를 다시 띄운 뒤에도 남는 것을 본다). */
   home?: string;
+  /** shell·core·그 child에 더 줄 환경 변수(PATH·HOME·LOPHN_CLI 같은 fixture 자리). */
+  env?: Record<string, string>;
 }
 
 function quote(value: string): string {
@@ -148,6 +151,7 @@ export async function openFlowShell(
       ...(options.start === undefined
         ? {}
         : { LOPHN_SHELL_START: options.start }),
+      ...options.env,
     },
   });
   const evaluate = (expression: string) => shell.evaluate(expression);

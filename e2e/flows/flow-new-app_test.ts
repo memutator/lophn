@@ -88,28 +88,6 @@ type Reply = {
   data: Record<string, unknown>;
 };
 
-async function post(
-  core: Core,
-  path: string,
-  body: unknown,
-  token: string,
-): Promise<{ status: number; body: Record<string, unknown> }> {
-  const response = await fetch(`http://127.0.0.1:${core.port}/v1/${path}`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(body),
-  });
-  const text = await response.text();
-  let json: Record<string, unknown> = {};
-  try {
-    json = JSON.parse(text) as Record<string, unknown>;
-  } catch { /* JSON이 아니다 */ }
-  return { status: response.status, body: json };
-}
-
 async function accept(
   core: Core,
   context: AuthenticatedContext,

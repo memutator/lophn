@@ -62,6 +62,7 @@ import {
   snapshotLogsRead,
   SNAPSHOTS_SCHEMA_STEPS,
 } from "../../packages/problems/snapshots/mod.ts";
+import { snapshotViewApiRead } from "./problems-logs.ts";
 import { recordReportCommand } from "../../packages/problems/reporting/commands.ts";
 import {
   REPORT_BLOB_PURPOSES,
@@ -230,10 +231,10 @@ export const problemsReportDefinitions = {
     getProblemRead,
     listReportsRead,
     getReportRead,
-    getSnapshotRead,
     listProblemFixesRead,
   ],
-  apiReads: [unattachedReportBodyRead],
+  // GetSnapshot은 blob 정리 여부를 보느라 pool 밖에서 연다(snapshots#R17).
+  apiReads: [unattachedReportBodyRead, snapshotViewApiRead()],
   ports: {} as Record<string, TxPortRegistration>,
   workers: reportCollectorWorkers(),
   // 보고 접수 worker route(T3, T16). dispatch가 입력 형식·scope 뒤 collector로 넘긴다.

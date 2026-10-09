@@ -109,6 +109,15 @@ export interface DocumentViewProps extends EditorDeps {
   onCompare?: (target: CompareTarget | null) => void;
   /** 복원으로 판이 바뀌었다. 정보 패널이 다시 읽는다. */
   onVersionsChanged?: () => void;
+  /** 저장해 둔 읽던 위치. scroll이 잡힐 때까지 다시 적용한다. */
+  initialPosition?: {
+    readonly section: string;
+    readonly scroll_offset: number;
+  };
+  /** 읽던 위치. 0은 저장 위치를 적용하기 전에는 올리지 않는다. */
+  onReadPosition?: (
+    position: { section: string; scroll_offset: number },
+  ) => void;
   now?: () => number;
 }
 
@@ -182,6 +191,8 @@ export function DocumentView(
     compare = null,
     onCompare,
     onVersionsChanged,
+    initialPosition,
+    onReadPosition,
     now = Date.now,
     core,
   }: DocumentViewProps,
@@ -208,6 +219,11 @@ export function DocumentView(
   const mounted = useRef(true);
   const [width, setWidth] = useReadingWidth(readingWidth);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const restoreTarget = useRef(initialPosition?.scroll_offset ?? 0);
+  // 복원 scroll이 잡히기 전의 0은 저장 위치를 지우지 않는다.
+  const restoreHold = useRef(restoreTarget.current > 0);
+  const onPosition = useRef(onReadPosition);
+  onPosition.current = onReadPosition;
   const titleRef = useRef<HTMLHeadingElement>(null);
   const articleRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<MarkdownEditorHandle>(null);
@@ -260,6 +276,37 @@ export function DocumentView(
       mounted.current = false;
     };
   }, []);
+
+  // 본문이 놓인 뒤에 저장 위치를 다시 적용한다. 높이가 생기기 전에는 scrollTop이 0으로 붙는다.
+  useEffect(() => {
+    const target = restoreTarget.current;
+    if (!(target > 0) || body.kind !== "text") return;
+    let tries = 0;
+    let stuckFor = 0;
+    let timer = 0;
+    let stopped = false;
+    const tick = () => {
+      if (stopped) return;
+      const scroller = scrollRef.current;
+      tries += 1;
+      if (scroller) scroller.scrollTop = target;
+      if (scroller !== null && scroller.scrollTop > 0) stuckFor += 1;
+      else stuckFor = 0;
+      // 세 번 연속 붙으면 더 덮어쓰지 않는다. 0 보고는 잠깐 더 막는다.
+      if (stuckFor >= 3 || tries >= 40) {
+        timer = setTimeout(() => {
+          restoreHold.current = false;
+        }, 400);
+        return;
+      }
+      timer = setTimeout(tick, 50);
+    };
+    timer = setTimeout(tick, 0);
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+    };
+  }, [body.kind, documentId]);
 
   // 저장 사실을 듣는다. 화면이 사라지면 편집을 끝내고(탭 전환·닫기) 남은 저장은 창이 센다.
   useEffect(() => {
@@ -496,6 +543,13 @@ export function DocumentView(
         ? current
         : next
     );
+    if (!onPosition.current) return;
+    const offset = scroller.scrollTop;
+    if (offset === 0 && restoreHold.current) return;
+    const matched = sections.find((section) => section.title === next.section);
+    const raw = matched?.key ?? sections[0]?.key ?? "document";
+    const section = raw.length >= 1 && raw.length <= 128 ? raw : "document";
+    onPosition.current({ section, scroll_offset: offset });
   };
 
   const goToSection = (key: string) => {

@@ -64,6 +64,14 @@ test("shell/editor#R7: 문서 읽기 worker는 outline·본문 읽기뿐이고 �
   assert.equal(isAllowed("worker", "formats", "validate"), false);
 });
 
+test("documents/versions#R17: 설치 안내 읽기 worker는 통과하고 안내 쓰기는 없다", () => {
+  assert.equal(isAllowed("worker", "guides", "list"), true);
+  assert.equal(isAllowed("worker", "guides", "get"), true);
+  assert.equal(isAllowed("worker", "guides", "outline"), true);
+  assert.equal(isAllowed("worker", "guides", "read"), true);
+  assert.equal(isAllowed("worker", "guides", "write"), false);
+});
+
 test("shell/desktop#R1: documents 화면의 검색과 saved view 열기 worker는 읽기라 통과하고 준비는 막는다", () => {
   assert.equal(isAllowed("worker", "search", "query"), true);
   assert.equal(isAllowed("worker", "views", "open"), true);

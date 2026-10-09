@@ -28,6 +28,12 @@ import {
   removeRestoreIpc,
   type RestoreIpcMain,
 } from "./core/restore-ipc.ts";
+import {
+  type LayoutIpcMain,
+  registerLayoutIpc,
+  removeLayoutIpc,
+} from "./core/layout-ipc.ts";
+import { createLayoutStore } from "../workspace/layout-store.ts";
 import { OPEN_EXTERNAL_CHANNEL } from "../../ipc/open-external.ts";
 import {
   DESKTOP_INTENT_CHANNEL,
@@ -258,12 +264,27 @@ let tray: InstalledTray | undefined;
 const osNotifications = createOsNotifications({
   notifier: guardNotifier(electronNotifier(), headless, log),
   display: async (notification) => {
-    const session = core.session();
-    if (!session) return null;
-    const reply = await session.internal("read", "notifications", "display", {
-      notification,
-    });
-    return reply.ok ? displayFromReply(reply.value) : null;
+    // event가 먼저 도착하고 display reader가 한 박자 늦으면 not_found·unavailable다.
+    // 그때 null로 끝내면 이 main은 그 id를 이미 본 것으로 기억해 실패를 보고하지 않는다.
+    // 사람이 끈 경우(ok이고 display가 비어 있음)와 다른 오류는 다시 묻지 않는다.
+    const deadline = Date.now() + 4_000;
+    for (;;) {
+      const session = core.session();
+      if (!session) return null;
+      const reply = await session.internal(
+        "read",
+        "notifications",
+        "display",
+        { notification },
+      );
+      if (reply.ok) return displayFromReply(reply.value);
+      const code = reply.error.code;
+      if (
+        (code !== "not_found" && code !== "unavailable") ||
+        Date.now() >= deadline
+      ) return null;
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
   },
   report: async (notification, reason) => {
     const session = core.session();
@@ -1027,6 +1048,24 @@ registerRestoreIpc(restoreIpcMain, {
   register: (request) => core.registerConfirmation(request),
 });
 
+// 작업대 layout(shell/workspace#R6). desktop 창 본문만 부르고 파일 schema는 여기서 검사한다.
+const layoutIpcMain: LayoutIpcMain = {
+  handle: (channel, listener) =>
+    ipcMain.handle(channel, (event, input) => listener(event, input)),
+  removeHandler: (channel) => ipcMain.removeHandler(channel),
+};
+registerLayoutIpc(layoutIpcMain, {
+  registry: overlays.overlayRegistry(),
+  store: createLayoutStore(dataRoot),
+  bounds: (event) => {
+    const sender = (event as unknown as { sender: WebContents }).sender;
+    const parent = BrowserWindow.fromWebContents(sender);
+    if (!parent) return null;
+    const box = parent.getBounds();
+    return { x: box.x, y: box.y, width: box.width, height: box.height };
+  },
+});
+
 // 프로젝트 등록의 OS 폴더 선택기. 그 창에 붙은 dialog로 열고 desktop 창 본문만 부른다.
 ipcMain.handle(
   FOLDER_PICK_CHANNEL,
@@ -1136,6 +1175,7 @@ function stopAll(): void {
   );
   removeCodingIpc(codingIpcMain);
   removeRestoreIpc(restoreIpcMain);
+  removeLayoutIpc(layoutIpcMain);
   ipcMain.removeHandler(FOLDER_PICK_CHANNEL);
   ipcMain.removeHandler(OPEN_EXTERNAL_CHANNEL);
   removeEditorIpc(editorIpc);

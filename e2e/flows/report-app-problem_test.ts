@@ -9,12 +9,11 @@
 //
 // 앱 자식은 준비한 bundle 그대로 뜬다. release 준비가 낸 진입 파일이 실제 runtime entrypoint의 `main()`을 부른다.
 // 여기서 보는 것: flow 1~6, 갈래(화면 없음 = view 가려짐·보호 창·lophn dialog, 시작 전 실패, 취소, 접수 실패,
-// 직접 시도 실패)와 problems/feedback#R5·R6·R11·R12·R13.
-// 이 flow가 구동하지 못하는 것(T23 상태 줄에 적었다):
-// - R13 기존 문제 선택: dialog에 기존 문제를 고르는 자리가 없다(`existing_problem`이 늘 null, shell#T53 (1)).
-//   선택하지 않은 제출과 [View issue]가 보내는 intent의 문제 ID까지만 본다(Issues 상세로 가는 것은 shell#T53).
-// - R4 시작 전 실패 표시: dialog가 `command_start`를 늘 "unknown"으로 보낸다. 입력 검사로 막힌 호출 뒤 글을
-//   보내도 invocation이 생기지 않는 것까지만 본다.
+// 직접 시도 실패)와 problems/feedback#R4·R5·R6·R11·R12·R13.
+// R13은 Issues 목록에서 같은 앱의 기존 문제를 고르고 [I tried it myself, but it doesn't work]로
+// 연 dialog가 그 문제에 연결되는지, [View issue]가 그 문제 상세를 여는지 본다.
+// R4는 입력 검사로 막힌 호출 뒤의 제보가 `blocked_before_start`로 남고 invocation을 만들지 않는지 본다.
+// 이 flow가 구동하지 않는 것:
 // - R5 다른 창: 두 번째 창 없이 없는 view에 대한 거절만 본다. 수집 꺼짐·수집 실패의 이유 표시는
 //   e2e/shell/report-problem_test.ts(crash한 view)가 본다.
 // - 응답 단절로 접수가 확인되지 않은 뒤의 최신 상태 확인·재전송(problems/feedback#R11 갈래)은 core가 사라진
@@ -173,6 +172,13 @@ async function feedbackReport(
   }) as unknown as ReadReport;
 }
 
+/** problems/feedback `TARGET_REASONS.blocked`. 시작 전 실패로 snapshot에 남기는 이유. */
+const BLOCKED_BEFORE_START =
+  "실행 전: 입력 검사에서 막혀 command가 시작되지 않았다";
+
+/** `_exception` 증상. feedback 문제("You reported an issue.")와 겹치지 않는다. */
+const APP_EXCEPTION = "Something went wrong in this app.";
+
 /** home 아래 모든 파일에서 글이 있는지(초안·미제출 글이 디스크에 남지 않았는지). */
 async function foundOnDisk(root: string, needle: string): Promise<string[]> {
   const found: string[] = [];
@@ -213,7 +219,7 @@ const DRAFT_HINT = "Your text is kept only while this window is open.";
 
 Deno.test({
   name:
-    "problems/feedback#R5 R6 R11 R12 R13 flow report-app-problem: 깨진 앱 화면에서 문제를 알린다",
+    "problems/feedback#R4 R5 R6 R11 R12 R13 flow report-app-problem: 깨진 앱 화면에서 문제를 알린다",
   ignore: !e2eEnabled(),
   sanitizeOps: false,
   sanitizeResources: false,
@@ -609,6 +615,233 @@ Deno.test({
         },
       );
 
+      const closeOps = async () => {
+        if ((await flow.count("[data-ops-panel]")) === 0) return;
+        await flow.click("[data-ops-panel-close]");
+        await flow.until(
+          `document.querySelector("[data-ops-panel]") === null`,
+          "운영 패널이 닫히지 않았다",
+        );
+      };
+      // [View issue]가 앱 공간을 다시 붙인다. 뒤 단계가 기대하는 켜진 버튼으로 되돌린다.
+      const readyApp = async () => {
+        const deadline = Date.now() + 60_000;
+        for (;;) {
+          if ((await flow.count('[data-phase="failed"] button')) > 0) {
+            await flow.click('[data-phase="failed"] button');
+          }
+          if (
+            (await flow.count("[data-report-problem]:not([disabled])")) > 0
+          ) return;
+          assert(Date.now() < deadline, "앱 화면이 돌아오지 않았다");
+          await delay(400);
+        }
+      };
+      const seenLabel = (count: number) =>
+        count === 1 ? "Seen once" : `Seen ${count} times`;
+
+      await t.step(
+        "problems/feedback#R13: 같은 앱의 기존 문제를 고르면 그 문제에 연결되고 [View issue]가 그 문제 상세를 연다",
+        async () => {
+          // 실패해도 뒤 단계가 닫힌 패널과 켜진 [Report a problem]에서 시작한다.
+          try {
+            // 앞선 [View issue]가 연 패널을 닫고, 목록에서 문제를 직접 고른다.
+            await closeOps();
+            await readyApp();
+            await flow.click('[data-app-bar="app-details"]');
+            await flow.until(
+              `document.querySelector("[data-ops-panel]") !== null`,
+              "운영 패널이 열리지 않았다",
+            );
+            await flow.click('[role=tab][id$="trigger-issues"]');
+            await flow.until(
+              `document.querySelector("[data-issue-back]") !== null || document.querySelector("[data-issues-list]") !== null || document.querySelector("[data-slot-empty=issues]") !== null`,
+              "Issues 탭이 서지 않았다",
+            );
+            assertEquals(
+              await flow.count("[data-slot-empty=issues]"),
+              0,
+              "Issues 통로가 없다",
+            );
+            if ((await flow.count("[data-issue-back]")) > 0) {
+              await flow.click("[data-issue-back]");
+            }
+            await flow.until(
+              `document.querySelector("[data-issues-list] [data-issue-open]") !== null`,
+              "Issues 목록이 보이지 않는다",
+            );
+            // Issues 목록은 한 번 읽고 갱신하지 않는다. core 목록은 seq 내림차순이라
+            // 그 뒤에 생긴 문제는 앞에 붙고, 화면은 그때의 접미로 남는다.
+            type Summary = { id: string; symptom: string };
+            let picked: Summary | undefined;
+            let pickedAt = -1;
+            const pickDeadline = Date.now() + 15_000;
+            for (;;) {
+              const dom = JSON.parse(
+                String(
+                  await flow.evaluate(
+                    `JSON.stringify([...document.querySelectorAll("[data-issues-list] [data-issue-open]")].map((el) => el.textContent))`,
+                  ),
+                ),
+              ) as string[];
+              const core: Summary[] = [];
+              let cursor: string | undefined;
+              for (let page = 0; page < 10; page++) {
+                const listed = await mustCall(flow, {
+                  kind: "read",
+                  resource: "problems",
+                  method: "list",
+                  body: cursor === undefined
+                    ? { app: APP }
+                    : { app: APP, cursor },
+                });
+                core.push(...listed.problems as Summary[]);
+                const next = listed.next_cursor;
+                if (typeof next !== "string") break;
+                cursor = next;
+              }
+              const start = core.length - dom.length;
+              const aligned = dom.length > 0 && start >= 0 &&
+                dom.every((text, index) =>
+                  core[start + index]?.symptom === text
+                );
+              const at = dom.indexOf(APP_EXCEPTION);
+              if (aligned && at >= 0) {
+                picked = core[start + at];
+                pickedAt = at;
+                break;
+              }
+              assert(
+                Date.now() < pickDeadline,
+                `같은 앱의 기존 문제를 고르지 못했다: 화면 ${
+                  JSON.stringify(dom)
+                }, core ${JSON.stringify(core.map((row) => row.symptom))}`,
+              );
+              await delay(300);
+            }
+            if (picked === undefined) throw new Error("문제를 고르지 못했다");
+            const chosen = picked;
+            const clicked = await flow.evaluate(
+              `(() => {
+                const row = [...document.querySelectorAll("[data-issues-list] [data-issue-open]")][${pickedAt}];
+                if (!row || row.textContent !== ${
+                JSON.stringify(APP_EXCEPTION)
+              }) return false;
+                row.click();
+                return true;
+              })()`,
+            );
+            assertEquals(clicked, true, "고른 문제 행이 없다");
+            const opened = await mustCall(flow, {
+              kind: "read",
+              resource: "problems",
+              method: "get",
+              body: { problem: chosen.id },
+            });
+            const beforeCount = Number(opened.report_count);
+            await flow.until(
+              `document.querySelector("[data-issue-tried]") !== null && document.querySelector("[data-issue-impact]")?.textContent === ${
+                JSON.stringify(chosen.symptom)
+              } && document.querySelector("[data-issue-seen]")?.textContent.startsWith(${
+                JSON.stringify(seenLabel(beforeCount))
+              })`,
+              "고른 문제 상세가 열리지 않았다",
+            );
+            const before = await counts(flow);
+            assertEquals(before.problems.get(chosen.id), beforeCount);
+            await flow.click("[data-issue-tried]");
+            const openDeadline = Date.now() + 15_000;
+            for (;;) {
+              const failed = await flow.evaluate(
+                `document.querySelector("[data-issue-failed]")?.getAttribute("data-issue-failed") ?? ""`,
+              );
+              assert(failed !== "tried", "기존 문제로 dialog를 열지 못했다");
+              const notice = await overlay!.evaluate(
+                `document.querySelector('[data-feedback="existing-issue"]')?.textContent ?? ""`,
+              );
+              if (
+                notice ===
+                  "This report is added to the issue you were looking at."
+              ) break;
+              assert(
+                Date.now() < openDeadline,
+                `기존 문제를 고른 dialog가 안 열렸다: ${notice}`,
+              );
+              await delay(200);
+            }
+            const again = "Still wrong after I looked at the existing issue";
+            await sendReport(again);
+            await untilPage(
+              overlay!,
+              `document.querySelector('[data-feedback-phase="received"]') !== null`,
+              "접수 완료가 보이지 않는다",
+            );
+            const after = await counts(flow);
+            assertEquals(
+              [...after.problems.keys()].sort(),
+              [...before.problems.keys()].sort(),
+              "기존 문제에 덧붙이지 않고 새 문제가 생겼다",
+            );
+            assertEquals(after.problems.get(chosen.id), beforeCount + 1);
+            for (const [id, count] of before.problems) {
+              if (id === chosen.id) continue;
+              assertEquals(
+                after.problems.get(id),
+                count,
+                `${id} 보고 수가 바뀌었다`,
+              );
+            }
+            const listedReports = await mustCall(flow, {
+              kind: "read",
+              resource: "problems",
+              method: "list-reports",
+              body: { problem: chosen.id },
+            });
+            const hash = await sha256Hex(again);
+            let linked = false;
+            for (
+              const row of listedReports.reports as {
+                id: string;
+                source: string;
+              }[]
+            ) {
+              if (row.source !== "feedback") continue;
+              const got = await mustCall(flow, {
+                kind: "read",
+                resource: "problems",
+                method: "get-report",
+                body: { report: row.id },
+              }) as unknown as ReadReport;
+              if (got.report.text !== hash) continue;
+              assertEquals(got.report.problem, chosen.id);
+              linked = true;
+            }
+            assert(linked, "고른 문제에 이 글의 Report가 없다");
+            await pageClick(overlay!, '[data-feedback="view-issue"]');
+            await untilClosed();
+            await flow.until(
+              `document.querySelector("[data-issue-detail]") !== null && document.querySelector("[data-issue-impact]")?.textContent === ${
+                JSON.stringify(chosen.symptom)
+              } && document.querySelector("[data-issue-seen]")?.textContent.startsWith(${
+                JSON.stringify(seenLabel(beforeCount + 1))
+              })`,
+              "[View issue]가 고른 문제 상세를 열지 않았다",
+            );
+          } finally {
+            if (overlay !== undefined) {
+              await overlay.evaluate(`(() => {
+                if (document.querySelector("[data-feedback-phase]") === null) return false;
+                const button = document.querySelector('[data-feedback="close"]') ?? document.querySelector('[data-feedback="cancel"]');
+                button?.click();
+                return true;
+              })()`);
+            }
+            await closeOps();
+            await readyApp();
+          }
+        },
+      );
+
       // 앱 공간에서 view가 가려졌거나 보호 창이 떠 있으면 캡처하지 않고 이유만 보이며 글은 보낼 수 있다.
       const reasonOf = () =>
         overlay!.evaluate(
@@ -793,7 +1026,7 @@ Deno.test({
       );
 
       await t.step(
-        "다른 갈래: 입력 검사로 command가 시작되지 못한 이상도 글로 알리고 없는 invocation은 만들지 않는다",
+        "problems/feedback#R4: 입력 검사로 시작하지 못한 command는 blocked_before_start로 남고 invocation은 만들지 않는다",
         async () => {
           const invocations = async () =>
             ((await mustCall(flow, {
@@ -820,9 +1053,13 @@ Deno.test({
           );
           const problem = newProblem(before, await counts(flow));
           const read = await feedbackReport(flow, problem);
-          // 실행하지 않은 일을 실행 기록으로 남기지 않는다.
+          // 실행하지 않은 일을 실행 기록으로 남기지 않고, 모르는 호출(unknown)로 두지 않는다.
           assertEquals(read.snapshot?.invocation ?? null, null);
           assert(read.snapshot !== null);
+          const missing = read.snapshot.invocation_missing_reason as {
+            reason: string;
+          } | null;
+          assertEquals(missing?.reason, BLOCKED_BEFORE_START);
           assertEquals(await invocations(), startedBefore);
           await closeDialog("close");
         },

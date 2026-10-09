@@ -27,6 +27,7 @@ import type {
   UploadRoute,
   WorkerRoute,
 } from "../../packages/contracts/platform/mod.ts";
+import { isActiveReadCommand } from "../../packages/apps/releases/store.ts";
 import type {
   EventRegistration,
   ReaderRegistration,
@@ -150,8 +151,8 @@ function projectDocuments(
 // 없는 것이다: 추적 안 함으로 꾸미지 않고 unavailable이다.
 export type DocumentsEnvironment = {
   status?: StatusMemory;
-  // context 항목의 앱 command 판정 test double. apps blueprint read가 들어오기 전까지 제품 등록은
-  // 앱 항목을 만들지 못하므로(fail-closed) 앱 항목이 있는 context가 필요한 시험만 준다.
+  // 제품 등록은 active release blueprint의 read command만 항목으로 받는다.
+  // 이 callback이 있으면 그 검사를 대신한다. 앱 항목이 필요한 시험만 준다.
   contextAppCommand?: (app: string, command: string) => boolean;
 };
 
@@ -410,12 +411,14 @@ export function createLedgerRegistration(
   const fileCommands = createFileCommands();
   const fileReads = createFileReads();
   const addressing = createDocumentChangeCommands();
-  // 앱 command 효과 검사는 apps blueprint read가 들어올 때 교체한다(documents T22).
-  const contexts = createContextCommands(
-    environment?.contextAppCommand === undefined
-      ? {}
-      : { appCommand: environment.contextAppCommand },
-  );
+  // 앱 command 효과는 active release blueprint다. 시험 double이 있으면 그 검사가 대신한다.
+  const appCommand = environment?.contextAppCommand;
+  const contexts = createContextCommands({
+    appCommand: (app, command, sql) =>
+      appCommand !== undefined
+        ? appCommand(app, command)
+        : sql !== undefined && isActiveReadCommand(sql, app, command),
+  });
   const terms = createTermCommands();
   const series = createSeriesCommands();
   const views = createViewCommands();

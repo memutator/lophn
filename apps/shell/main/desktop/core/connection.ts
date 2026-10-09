@@ -14,6 +14,7 @@ import {
   type SocketFactory,
   subscribe,
 } from "./events.ts";
+import type { RestorePipe } from "./restore.ts";
 import { type IpcEvent } from "../ipc-guard.ts";
 import {
   type CoreProcess,
@@ -81,6 +82,8 @@ export interface CoreConnection {
     | { ok: true; confirmation: string; expiresAt: string }
     | { ok: false; error: { code: string; message: string } }
   >;
+  /** backup 복원 pipe(shell#T58). supervise.ts의 CoreProcess를 그대로 받는다. */
+  restorePipe(): RestorePipe;
 }
 
 /** handle 등록 응답을 기다리는 시간. 넘으면 그 등록은 없다. */
@@ -101,7 +104,13 @@ export function startCoreConnection(
     }
   };
 
-  core.hello.then((hello) => {
+  // hello 하나에 session·구독을 연다. 복원 뒤 core가 같은 pipe로 보내는 새 hello에도
+  // 같은 값(새 epoch·token·port)으로 다시 연다(shell#T58).
+  const greet = (hello: {
+    readonly user_token: string;
+    readonly api_port: number;
+    readonly core_epoch: string;
+  }) => {
     session = openSession({
       apiPort: hello.api_port,
       coreEpoch: hello.core_epoch,
@@ -133,9 +142,33 @@ export function startCoreConnection(
         arrived: (events) => options.arrived?.(events),
       },
     });
-  }).catch(() => {
+  };
+
+  core.hello.then(greet).catch(() => {
     state.state = "failed-start";
     push();
+  });
+
+  // 복원으로 멈춘 core는 같은 pipe의 새 hello(새 epoch·token·port)로 다시 시작한다. hello는
+  // supervise.ts의 onMessage listener로 온다. session과 구독을 새 값으로 다시 연다. main hello
+  // frame(contracts `mainHelloSchema`)에는 type이 없다. user_token·api_port·core_epoch 모양으로 안다.
+  core.onMessage((payload) => {
+    const message = payload as {
+      user_token?: unknown;
+      api_port?: unknown;
+      core_epoch?: unknown;
+    };
+    if (
+      typeof message.user_token === "string" &&
+      typeof message.api_port === "number" &&
+      typeof message.core_epoch === "string"
+    ) {
+      greet({
+        user_token: message.user_token,
+        api_port: message.api_port,
+        core_epoch: message.core_epoch,
+      });
+    }
   });
 
   // 새로 구독하는 renderer(런처로 돌아옴·창 다시 읽기)는 지금 상태를 한 번 묻는다. push는
@@ -183,6 +216,18 @@ export function startCoreConnection(
     },
     diagnostic(message) {
       return core.diagnostic(message);
+    },
+    /** backup 복원 pipe(shell#T58). supervise.ts의 CoreProcess를 그대로 받는다. */
+    restorePipe(): RestorePipe {
+      return {
+        get phase() {
+          return core.phase;
+        },
+        restore: (message: unknown) => core.restore(message),
+        confirmation: (message: unknown) => core.confirmation(message),
+        onMessage: (listener: (payload: unknown) => void) =>
+          core.onMessage(listener),
+      };
     },
     registerConfirmation(request) {
       const run = () => registerOnce(core, request);

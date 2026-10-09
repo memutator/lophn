@@ -281,6 +281,43 @@ Deno.test("platform/notifications#R5: 읽음 표시는 notifications/read 하나
   });
 });
 
+Deno.test("platform/notifications#R10: 목록의 OS 전달 실패 이유만 row에 옮기고 다른 전달 상태는 옮기지 않는다", async () => {
+  const row = (id: string, delivery: unknown) => ({
+    notification: { id, source_seq: id.slice(-1), read_at: null },
+    source_event: "ApprovalRequestCreated",
+    delivery,
+  });
+  const { core } = coreOf((call) =>
+    name(call) === "read:notifications/list"
+      ? ok({
+        notifications: [
+          row("ntf_01k6aaaaaaaaaaaaaaaaaaaaa1", {
+            state: "failed",
+            reason: "show_failed",
+            observed_at: "2026-10-09T00:00:00Z",
+          }),
+          row("ntf_01k6aaaaaaaaaaaaaaaaaaaaa2", {
+            state: "failed",
+            reason: "unsupported",
+            observed_at: "2026-10-09T00:00:00Z",
+          }),
+          row("ntf_01k6aaaaaaaaaaaaaaaaaaaaa3", { state: "unconfirmed" }),
+          row("ntf_01k6aaaaaaaaaaaaaaaaaaaaa4", undefined),
+        ],
+      })
+      : ok({})
+  );
+  const unread = await coreRequestSource(core, undefined).unread();
+  assert(unread.ok);
+  assertEquals(unread.value.map((value) => value.osFailure), [
+    "show_failed",
+    "unsupported",
+    undefined,
+    undefined,
+  ]);
+  assert(!("osFailure" in unread.value[2]!));
+});
+
 Deno.test("shell/desktop#R6: 칸의 요청은 그 세션의 것만이고 run이 그 요청을 기다리면 먼저 둘 표시를 단다", async () => {
   const { core, calls } = coreOf((call) => {
     switch (name(call)) {

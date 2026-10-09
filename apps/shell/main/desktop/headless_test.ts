@@ -226,3 +226,24 @@ test("shell/desktop#R10: headless는 OS notification을 올리지 않고 log만 
   assert.equal(logs[0]!.includes("ntf_a"), false);
   assert.equal(guardNotifier(os.notifier, SHELL_OFF, () => {}), os.notifier);
 });
+
+test("platform/notifications#R10: headless 시험의 OS 표시 실패 갈래는 env로만 켜고 실제 OS에는 올리지 않는다", () => {
+  assert.equal(readHeadless({ LOPHN_SHELL_OS_NOTIFY: "fail" }), SHELL_OFF);
+  const mode = readHeadless({
+    LOPHN_SHELL_HEADLESS: "1",
+    LOPHN_SHELL_OS_NOTIFY: "fail",
+  });
+  assert.deepEqual(mode, { headless: true, osNotifyFails: true });
+  let shown = 0;
+  const real: OsNotifier = {
+    isSupported: () => true,
+    show: () => void shown++,
+  };
+  const notifier = guardNotifier(real, mode, () => {});
+  assert.throws(() => notifier.show({ title: "t", body: "b" }, () => {}));
+  assert.equal(shown, 0);
+  // 켜지 않은 headless는 그대로 조용히 성공한다.
+  const quiet = guardNotifier(real, { headless: true }, () => {});
+  quiet.show({ title: "t", body: "b" }, () => {});
+  assert.equal(shown, 0);
+});

@@ -106,6 +106,8 @@ export interface FakeSettingsOptions {
   /** 설정 바꾸기 결과 code. 없으면 성공이다. */
   applyCode?: string;
   setDefaultCode?: string;
+  /** 앱 export 결과 code. 없으면 ready다. */
+  exportCode?: string;
 }
 
 export const EMPTY_DEFAULTS: ModelDefaults = {
@@ -233,6 +235,23 @@ export function fakeSettings(options: FakeSettingsOptions = {}) {
         : Promise.resolve({ ok: true, value: null });
     },
     enterServerCredential: (secret) => opened(["server-credential", secret]),
+    exportApp(app) {
+      calls.push(["export-app", app]);
+      if (options.exportCode) {
+        return Promise.resolve({
+          ok: false as const,
+          code: options.exportCode,
+        });
+      }
+      return Promise.resolve({
+        ok: true as const,
+        value: {
+          app,
+          state: "ready" as const,
+          includesExternalData: false,
+        },
+      });
+    },
   };
   return { source, calls };
 }

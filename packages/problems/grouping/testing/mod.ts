@@ -17,7 +17,13 @@ import {
   type CommandDefinition,
   defineCommand,
 } from "../../../contracts/platform/mod.ts";
-import { ProblemWordingPort } from "../../../contracts/problems/mod.ts";
+import {
+  type ProblemTestFact,
+  ProblemTestPort,
+  ProblemWordingPort,
+  ProblemWorkPort,
+  type RepairTicketFact,
+} from "../../../contracts/problems/mod.ts";
 import type { RecordReportInput } from "../../../contracts/problems/mod.ts";
 import type { Sql } from "../../../contracts/platform/mod.ts";
 import {
@@ -83,7 +89,9 @@ create table tickets (
   id text primary key,
   app text not null,
   kind text not null,
-  state text not null
+  state text not null,
+  readiness text not null default 'ready',
+  needs text not null default '[]'
 ) strict;
 create table ticket_problems (
   ticket text not null,
@@ -127,6 +135,9 @@ const ticketEvent = defineCommand({
     problems: z.array(z.string()),
     claim_seq: z.string().default("1"),
     reason: z.string().default("returned"),
+    // 만들 때의 실행 준비다. 확인이 필요한 ticket은 needs를 함께 둔다.
+    readiness: z.enum(["ready", "needs_confirmation"]).default("ready"),
+    needs: z.array(z.string()).default([]),
   }),
   output: z.object({ seq: z.string() }),
   actors: ["machine"],
@@ -151,8 +162,9 @@ const ticketEventCommand: CommandDefinition<typeof ticketEvent> = {
     const { event, ticket, app, problems } = input;
     if (event === "TicketCreated") {
       tx.sql.run(
-        "insert into tickets (id, app, kind, state) values (?, ?, ?, 'open')",
-        [ticket, app, input.kind],
+        `insert into tickets (id, app, kind, state, readiness, needs)
+         values (?, ?, ?, 'open', ?, ?)`,
+        [ticket, app, input.kind, input.readiness, JSON.stringify(input.needs)],
       );
       for (const problem of problems) {
         tx.sql.run(
@@ -187,7 +199,7 @@ const ticketEventCommand: CommandDefinition<typeof ticketEvent> = {
       ? tx.emit(ticketCreated, ticket, {
         ...common,
         kind: input.kind,
-        readiness: "ready",
+        readiness: input.readiness,
       })
       : event === "TicketClaimed"
       ? tx.emit(ticketClaimed, ticket, {
@@ -393,6 +405,91 @@ const fixtureWording = (
   return ok({ app_name, declaration: declared });
 };
 
+// 지금 수리 ticket port의 fake다(problems#T22). 제품 구현(coding-agent의 problemWorkLookup)은
+// repair 예약 표를 읽지만, 이 fixture는 `problems.testing.ticket-event`가 만든 최소 ticket 표에서
+// 문제에 걸린 끝나지 않은 repair ticket을 고르고, 없으면 문제의 work ticket을 읽는다. work가
+// 가리키는 ticket이 fixture 표에 없으면 읽지 못한 것(unavailable)이라 상세는 담당을 모름으로 보인다.
+const OPEN_TICKET_STATES = ["open", "claimed", "reported", "check_failed"];
+const fixtureProblemWork = (
+  sql: Pick<Sql, "get">,
+  problem: string,
+  work: string | null,
+) => {
+  const open = sql.get(
+    `select t.state, t.readiness, t.needs from tickets t
+     join ticket_problems p on p.ticket = t.id
+     where p.problem = ? and t.kind = 'repair'
+       and t.state in (${OPEN_TICKET_STATES.map(() => "?").join(", ")})
+     order by t.rowid desc limit 1`,
+    [problem, ...OPEN_TICKET_STATES],
+  );
+  const row = open ?? (work === null ? undefined : sql.get(
+    "select state, readiness, needs from tickets where id = ?",
+    [work],
+  ));
+  if (row === undefined) {
+    return work === null
+      ? ok(null)
+      : err({ code: "unavailable", message: "fixture ticket이 없다" });
+  }
+  return ok({
+    state: String(row.state) as RepairTicketFact["state"],
+    readiness: String(row.readiness) as RepairTicketFact["readiness"],
+    needs: JSON.parse(String(row.needs)) as string[],
+  });
+};
+
+// 테스트 사실 port의 fake다(problems#T22). 제품 구현(tests leaf의 problemTestLookup)은
+// verifications·test_requests를 읽지만, 이 fixture는 시험이 `problems.testing.set-tests`로 정한
+// 문제별 사실을 그대로 준다. 정하지 않은 문제는 읽지 못한 것(unavailable)이라 상세는 모름이다.
+const TESTS_SCHEMA_STEP = {
+  id: "problems.testing_problem_tests",
+  sql: `
+create table test_problem_tests (
+  problem text primary key,
+  facts text not null
+) strict;`,
+};
+
+const setTests = defineCommand({
+  resource: "problems",
+  method: "set-test-facts",
+  name: "problems.testing.set-tests",
+  input: z.object({
+    problem: z.string(),
+    tests: z.array(z.object({
+      kind: z.enum(["reproduction", "app_test", "test_command"]),
+      state: z.enum(["pending", "running", "pass", "fail", "unconfirmed"]),
+      ended_at: z.string().nullable(),
+    })),
+  }),
+  output: z.object({ changed: z.boolean() }),
+  actors: ["machine"],
+  errors: [],
+});
+
+const setTestsCommand: CommandDefinition<typeof setTests> = {
+  route: setTests,
+  handle(tx, _ctx, input) {
+    tx.sql.run(
+      `insert into test_problem_tests (problem, facts) values (?, ?)
+       on conflict (problem) do update set facts = excluded.facts`,
+      [input.problem, JSON.stringify(input.tests)],
+    );
+    return ok({ changed: true });
+  },
+};
+
+const fixtureProblemTests = (sql: Pick<Sql, "get">, problem: string) => {
+  const row = sql.get(
+    "select facts from test_problem_tests where problem = ?",
+    [problem],
+  );
+  return row === undefined
+    ? err({ code: "unavailable", message: "fixture 테스트 사실이 없다" })
+    : ok(JSON.parse(String(row.facts)) as ProblemTestFact[]);
+};
+
 export function createLedgerTestRegistration() {
   return {
     schemaSteps: [
@@ -401,6 +498,7 @@ export function createLedgerTestRegistration() {
       WORDING_SCHEMA_STEP,
       APP_NAME_SCHEMA_STEP,
       TICKET_SCHEMA_STEP,
+      TESTS_SCHEMA_STEP,
     ],
     commands: [
       recordReportCommand,
@@ -413,11 +511,13 @@ export function createLedgerTestRegistration() {
       setAppNameCommand,
       ticketEventCommand,
       assignmentRowCommand,
+      setTestsCommand,
     ] as CommandDefinition[],
-    readPorts: new Map<unknown, unknown>([[
-      ProblemWordingPort,
-      fixtureWording,
-    ]]),
+    readPorts: new Map<unknown, unknown>([
+      [ProblemWordingPort, fixtureWording],
+      [ProblemWorkPort, fixtureProblemWork],
+      [ProblemTestPort, fixtureProblemTests],
+    ]),
     // harness에는 blob 저장소가 없다. 준비 참조가 맞는지만 보고 그대로 등록한다.
     registerBlobRef(
       _tx: unknown,
@@ -477,6 +577,7 @@ export const COLLECTOR: AuthenticatedContext = {
       "problems.testing.set-app-name",
       "problems.testing.ticket-event",
       "problems.testing.assignment",
+      "problems.testing.set-tests",
       "ReconcileProblemWork",
     ],
     targets: {},

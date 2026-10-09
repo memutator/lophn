@@ -18,6 +18,7 @@ export const VIEW_OPEN_APP_CHANNEL = "shell:view-open-app";
 export const VIEW_BOUNDS_CHANNEL = "shell:view-bounds";
 export const VIEWS_HIDDEN_CHANNEL = "shell:views-hidden";
 export const VIEW_CLOSE_CHANNEL = "shell:view-close";
+export const VIEW_REOPEN_CHANNEL = "shell:view-reopen";
 export const VIEW_STATE_CHANNEL = "shell:view-state";
 
 // 창 본문 경계 안의 정수 rectangle. renderer는 CSS pixel로 보내고 main이 창 DIP로 바꾼다.
@@ -66,6 +67,9 @@ export const appFrameViewStateSchema = z.object({
   screen: screenKey,
   size,
   connectionState: z.enum(["preparing", "stopped", "running", "unavailable"]),
+  // 화면 process 상태(shell/app-frame#R21). main은 늘 싣고, 없으면 ok로 읽는다. 깨진 view만
+  // [새 view 열기]를 받는다.
+  viewHealth: z.enum(["ok", "unresponsive", "crashed"]).optional(),
 }).refine((value) => value.mode === "preview" || value.release !== null);
 
 export type ViewBounds = z.infer<typeof viewBoundsSchema>;
@@ -97,5 +101,7 @@ export interface LophnShellViewsApi {
   setViewBounds(input: ViewBoundsRequest): Promise<VisibilityResult>;
   setViewsHidden(input: ViewsHidden): Promise<VisibilityResult>;
   closeView(input: ViewCloseRequest): Promise<void>;
+  /** crash·멈춘 view를 지금 연결로 새로 연다. 건강한 view는 conflict다. */
+  reopenView(input: ViewCloseRequest): Promise<AppFrameViewState>;
   subscribeViewState(listener: (state: AppFrameViewState) => void): () => void;
 }

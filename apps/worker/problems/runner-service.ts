@@ -1,7 +1,8 @@
 // test runner control의 상시 service다(problems/tests#R1, R4, R5, R17, R21). core 감독이 하나를 띄우고, core가
 // 감독 pipe로 보내는 요청 한 건(`problems.test.run`)을 받아 실제 runner 경로(app-test-run.ts)로 돌린다.
 // 시작 시도·실제 시작·결과는 요청별 좁은 machine credential로 core command에 남기고, 앱의 보고는 요청별
-// app credential(mode=test·진단 scope 고정)로 실제 collector 접수 route에 넘긴다. 돌리지 못한 요청은
+// app credential(mode=test·진단 scope 고정)로 실제 collector 접수 route에 넘긴다. 같은 session이
+// `problems.work`(problems#T19)·`problems.closing`(problems#T20) 깨움도 받는다. 돌리지 못한 요청은
 // 이유와 함께 끝난다: 조용히 두거나 성공으로 꾸미지 않는다.
 //
 // 이 모듈은 core graph 밖이다(worker). 요청 credential은 argv·log에 싣지 않는다.
@@ -29,6 +30,12 @@ import {
   type WorkReactionPorts,
 } from "../../../packages/problems/grouping/work.ts";
 import {
+  type ClosingClientOptions,
+  type ClosingReactionPorts,
+  createClosingPorts,
+} from "../../../packages/problems/closing/adapters/core-client.ts";
+import { reactClosing } from "../../../packages/problems/closing/work.ts";
+import {
   blobPurpose,
   buildRecord,
   deriveAppTest,
@@ -43,7 +50,11 @@ import {
 } from "../../../packages/problems/tests/mod.ts";
 import { sha256Hex } from "../../../packages/base/mod.ts";
 import { canonicalHash } from "../../../packages/problems/tests/canonical.ts";
-import { PROBLEMS_WORK_OP, TEST_RUNNER_KIND } from "./runner-core.ts";
+import {
+  PROBLEMS_CLOSING_OP,
+  PROBLEMS_WORK_OP,
+  TEST_RUNNER_KIND,
+} from "./runner-core.ts";
 import {
   type AppTestHooks,
   type AppTestJob,
@@ -664,6 +675,11 @@ export type RunnerWorkerOptions = {
   // hello가 준 machine credential과 core api port로 `problems.work` 반응 통로를 만든다.
   // 없으면 깨움 요청(`problems.work`)은 unknown op로 끝난다.
   ports?(position: { credential: string; api_port: number }): WorkReactionPorts;
+  // 같은 session 안의 `problems.closing` 반응기(problems#T20)의 통로다. 없으면 그 op는
+  // unavailable이다.
+  closing?(
+    position: { credential: string; api_port: number },
+  ): ClosingReactionPorts;
 };
 
 function requestOf(message: ParentMessage): WorkerRequest | undefined {
@@ -680,6 +696,9 @@ export function createRunnerWorker(options: RunnerWorkerOptions): ChildSession {
   let workPorts: WorkReactionPorts | undefined;
   let workKnown: string | undefined;
   let workChain: Promise<unknown> = Promise.resolve();
+  let closing: ClosingReactionPorts | undefined;
+  let closingKnown: string | undefined;
+  let closingChain: Promise<unknown> = Promise.resolve();
   const respond = (message: ChildMessage) => session.send(message);
   const session: ChildSession = startChild(options.streams, {
     onHello(hello) {
@@ -687,6 +706,10 @@ export function createRunnerWorker(options: RunnerWorkerOptions): ChildSession {
         throw new Error("invalid worker kind");
       }
       workPorts = options.ports?.({
+        credential: hello.credential,
+        api_port: hello.api_port,
+      });
+      closing = options.closing?.({
         credential: hello.credential,
         api_port: hello.api_port,
       });
@@ -737,6 +760,46 @@ export function createRunnerWorker(options: RunnerWorkerOptions): ChildSession {
             payload: done.value,
           })
           : fail("unavailable", "problems work reaction failed"));
+        return;
+      }
+      // `problems.closing` 깨움(problems#T20)은 같은 runner의 다른 반응기다. 통로가 없으면
+      // unavailable이다. 두 반응기는 요청을 하나씩 차례로 처리하고, 성공한 위치는 각자
+      // 기억해 더 낡은 깨움의 cursor로 되돌아가지 않는다.
+      if (op === PROBLEMS_CLOSING_OP) {
+        const cursor = (request.payload as { cursor?: unknown } | null)?.cursor;
+        const fail = (code: "invalid_input" | "unavailable", text: string) =>
+          respond({
+            type: "worker_response",
+            request_id: request.request_id,
+            ok: false,
+            error: { code, message: text },
+          });
+        if (typeof cursor !== "string" || !/^\d+$/.test(cursor)) {
+          return fail("invalid_input", "cursor is not a seq");
+        }
+        const theirs = closing;
+        if (theirs === undefined) {
+          return fail("unavailable", "runner has no closing credential");
+        }
+        const run = closingChain.then(async () => {
+          const from = closingKnown !== undefined &&
+              BigInt(closingKnown) > BigInt(cursor)
+            ? closingKnown
+            : cursor;
+          const done = await reactClosing(theirs, from);
+          closingKnown = done.ok ? done.value.processed_through_seq : undefined;
+          return done;
+        });
+        closingChain = run.catch(() => undefined);
+        const done = await run;
+        await (done.ok
+          ? respond({
+            type: "worker_response",
+            request_id: request.request_id,
+            ok: true,
+            payload: done.value,
+          })
+          : fail("unavailable", "problems closing reaction failed"));
         return;
       }
       // 요청은 기다리지 않고 시작한다: 한 요청이 오래 도는 동안에도 다음 frame(blob 준비 credit, 정지)을 읽는다.
@@ -793,6 +856,21 @@ export async function runRunnerService(): Promise<void> {
             }));
           },
         } satisfies WorkClientOptions,
+      ),
+    closing: (position) =>
+      createClosingPorts(
+        {
+          baseUrl: `http://127.0.0.1:${position.api_port}`,
+          credential: position.credential,
+          // EXTERNAL_FETCH tripwire: property access로만 부른다.
+          fetch: (input, init) => {
+            const globalFetch = globalThis.fetch;
+            return globalFetch(input, init).then(async (response) => ({
+              status: response.status,
+              bytes: new Uint8Array(await response.arrayBuffer()),
+            }));
+          },
+        } satisfies ClosingClientOptions,
       ),
   });
   await session.run();

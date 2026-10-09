@@ -17,7 +17,7 @@ import { ROLE_CAPS } from "../../presets/mod.ts";
 //
 // ticket 읽기·생성·전환(`ticket.list`·`ticket.read`·`ticket.create`·`ticket.make_ready`)은
 // harness/tools의 ticket 묶음이 정의하고 준비 검사는 ./ticket.ts가 둔다(R6, R16, R17). 문제 해석
-// 참조 설정(problem.set_interpretation)의 정의는 T50이 둔다.
+// 참조 설정(problem.set_interpretation)의 정의는 내장 묶음 `bundles/problem-interpretation.ts`가 둔다.
 
 // app_engineer의 현재 제공 목록이다. AE의 preset 선택이 고정돼 있으면 상한
 // 교집합의 내장 tool이고, 아니면 빈 목록이다.

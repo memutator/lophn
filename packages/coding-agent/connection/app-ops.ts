@@ -31,6 +31,7 @@ import {
 } from "../../contracts/problems/mod.ts";
 import { decisionLink } from "../../contracts/coding-agent/mod.ts";
 import type { CommandRoute } from "../../contracts/platform/mod.ts";
+import type { SyncToolsOutcome } from "../guides/mod.ts";
 import {
   APP_ENVIRONMENTS,
   type AppDirect,
@@ -40,9 +41,9 @@ import {
 import { UNREADABLE_MESSAGE } from "./unreadable.ts";
 import type { FlowClient } from "./document-save.ts";
 
-// op마다 첫 소유 route다. sync_tools는 core에 아직 소유 route가 없어 contract가 입력을
-// 빌린 appRuntime을 가리키고, 실행은 구별해 거절한다(아래). command의 첫 core 요청은 앱 통로를
-// 여는 apps/connect이고 그 뒤는 core를 지나지 않는다(mcp#R29).
+// op마다 첫 소유 route다. sync_tools는 재배포가 core route 밖 파일 설치라 contract가 입력을
+// 빌린 appRuntime을 가리키고, 실행은 guides의 syncTools가 한다(아래). command의 첫 core 요청은
+// 앱 통로를 여는 apps/connect이고 그 뒤는 core를 지나지 않는다(mcp#R29).
 export const APP_OP_ROUTES = {
   list: appList,
   show: appGet,
@@ -114,6 +115,12 @@ export type AppOpDeps = {
   idempotencyKey: () => string;
   // 앱 통로다. 없으면 command op는 `unavailable`이다.
   direct?: AppDirect;
+  // 도구 재배포다(guides#R17). 검사한 입력(op·target·names)을 받아 guides의 syncTools를
+  // 돌린다. 파일 설치라 core route 밖이고 host(entry)가 끼운다. 없으면 sync_tools는
+  // `unavailable`이다.
+  sync?: (input: Obj) => Promise<
+    Result<SyncToolsOutcome, LophnError>
+  >;
   // 호출 이름 표면이다. 다음 조회 안내의 이름이 달라진다.
   surface?: "mcp" | "cli";
   // 기다리는 동안의 알림이다. 알림 실패는 호출을 막지 않는다.
@@ -266,11 +273,7 @@ export async function runAppOp(
     case "blueprint":
       return await readBlueprint(input, deps);
     case "sync_tools":
-      return unrouted(
-        deps,
-        "sync_tools",
-        "도구 재배포는 안내 파일 설치가 있어야 한다(coding-agent#T34)",
-      );
+      return await syncAppTools(input, deps);
     case "invocations":
       return await listInvocations(input, deps);
     case "invocation":
@@ -282,13 +285,40 @@ export async function runAppOp(
   }
 }
 
-// 소유 route나 실행 근거가 아직 없는 op다. 성공을 꾸며 내지 않는다.
-function unrouted(deps: AppOpDeps, op: AppOp, reason: string): AppOpOutput {
-  return failure({
-    code: "unavailable",
-    message: `${op}: ${reason}`,
-    details: { op },
-  }, [refer(deps, "show", "로 앱의 현재 상태를 읽는다")]);
+// 도구 재배포다(guides#R17, mcp#R19, cli#R29). 사람이 고른 target 하나의 앱 범위에
+// MCP 설정·skill·관리 구간 안내·ignore 안내를 다시 맞춘다. 파일 설치라 core route 밖이다:
+// 실행은 host가 끼운 sync port가 guides의 syncTools로 하고 이 흐름은 결과를 항목별로
+// 풀어 낸다. user target은 syncTools가 거절한다.
+async function syncAppTools(input: Obj, deps: AppOpDeps): Promise<AppOpOutput> {
+  if (deps.sync === undefined) {
+    return failure({
+      code: "unavailable",
+      message: "도구 재배포가 이 process에 연결되지 않았다",
+    }, [refer(deps, "sync_tools")]);
+  }
+  const synced = await deps.sync(input);
+  if (!synced.ok) return failure(synced.error, [refer(deps, "sync_tools")]);
+  const outcome = synced.value;
+  const files = outcome.files.map((file) => ({
+    target: file.target,
+    name: file.name,
+    outcome: file.outcome,
+    reason: file.reason,
+  }));
+  const changed = files.filter((file) => file.outcome === "changed").length;
+  const summary = outcome.status === "failed"
+    ? "도구 재배포를 하지 못했다"
+    : outcome.status === "partial"
+    ? `도구 재배포가 일부만 됐다(${changed}개 파일을 새로 썼다)`
+    : `도구 재배포를 마쳤다(${changed}개 파일을 새로 썼다)`;
+  return {
+    summary,
+    data: { status: outcome.status, files, notices: outcome.notices },
+    next: outcome.status === "complete"
+      ? ["`lophn doctor`로 앱 안내 loading을 확인한다"]
+      : ["파일별 결과의 충돌·실패를 사람이 확인한다"],
+    ...(outcome.status === "failed" ? { isError: true as const } : {}),
+  };
 }
 
 async function listApps(input: Obj, deps: AppOpDeps): Promise<AppOpOutput> {

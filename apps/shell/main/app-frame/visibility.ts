@@ -74,7 +74,7 @@ interface Pending {
 export function createViewVisibility(deps: {
   frame: Pick<
     AppFrameService,
-    "open" | "setBounds" | "hide" | "close" | "owner"
+    "open" | "setBounds" | "hide" | "close" | "reopen" | "owner"
   >;
   geometry: WindowGeometry;
   timer: FrameTimer;
@@ -172,6 +172,15 @@ export function createViewVisibility(deps: {
       cancel(view_session, notOpen);
       deps.frame.close(view_session);
       return { ok: true, value: null };
+    },
+
+    /**
+     * crash·멈춘 view를 지금 연결로 새로 연다(crash.ts). 기다리던 bounds는 그대로 두고 마지막
+     * 자리에 새 contents가 준비되면 붙는다.
+     */
+    reopen(window: string, view_session: string): Outcome<AppFrameViewState> {
+      if (!owned(window, view_session)) return notOpen();
+      return deps.frame.reopen(view_session);
     },
 
     /** 닫힌 창의 기다리던 bounds를 버린다. view 폐기는 registry.closeWindow가 한다. */

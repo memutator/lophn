@@ -640,5 +640,26 @@ export function coreAppDetailSource(
       });
       return reply.ok ? { ok: true, value: true } : reply;
     },
+
+    async exportApp(app) {
+      const reply = await call<{
+        app: string;
+        state: "preparing" | "ready" | "failed";
+        reason?: { summary?: string };
+        includes_external_data: boolean;
+      }>(core, "worker", "apps", "export", { app });
+      if (!reply.ok) return reply;
+      return {
+        ok: true,
+        value: {
+          app: reply.value.app,
+          state: reply.value.state,
+          ...(reply.value.reason?.summary === undefined
+            ? {}
+            : { reason: reply.value.reason.summary }),
+          includesExternalData: reply.value.includes_external_data,
+        },
+      };
+    },
   };
 }

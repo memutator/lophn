@@ -120,10 +120,18 @@ export interface FlowOptions {
     | "conversation"
     | "things-to-confirm"
     | "instructions:global"
+    | "settings"
     | `project:${string}`
     | `app:${string}`;
   /** 이미 있는 데이터 root를 다시 연다(core를 다시 띄운 뒤에도 남는 것을 본다). */
   home?: string;
+  /** headless OS notification 표시를 실패시킨다(`LOPHN_SHELL_OS_NOTIFY=fail`). */
+  osNotifyFails?: boolean;
+  /**
+   * headless OS 폴더 선택기가 고른 것으로 돌려줄 폴더(`LOPHN_SHELL_PICK_FOLDER`). 사람 화면에
+   * dialog를 띄우지 않고 launcher 등록 화면의 [폴더 추가]를 끝까지 구동한다.
+   */
+  pickFolder?: string;
 }
 
 function quote(value: string): string {
@@ -148,6 +156,10 @@ export async function openFlowShell(
       ...(options.start === undefined
         ? {}
         : { LOPHN_SHELL_START: options.start }),
+      ...(options.osNotifyFails ? { LOPHN_SHELL_OS_NOTIFY: "fail" } : {}),
+      ...(options.pickFolder === undefined
+        ? {}
+        : { LOPHN_SHELL_PICK_FOLDER: options.pickFolder }),
     },
   });
   const evaluate = (expression: string) => shell.evaluate(expression);
@@ -368,7 +380,8 @@ export type TrackingOptions = {
 
 /**
  * 사람이 프로젝트를 등록한다. 추적은 켜지 않는다(등록과 추적은 다르다, documents/projects#R3).
- * launcher의 등록 화면은 shell#T15 몫이라 아직 없어서 같은 사람 command를 core 통로로 낸다.
+ * 화면 조작(launcher 등록 dialog)은 first-project 1·2·4 시험이 보고, 다른 시험은 준비로 같은 사람
+ * command를 core 통로로 낸다.
  */
 export async function registerProject(
   flow: FlowShell,
@@ -436,9 +449,8 @@ export function setTracking(
 }
 
 /**
- * 사람이 프로젝트를 등록하고 파일 추적을 켠다. 미리보기 화면과
- * `/v1/projects/preview_tracking`은 core가 서빙하지만(documents#T12) shell main의 renderer
- * 통로 allowlist에 아직 없어서 그 화면(shell#T15)이 열 때까지 미리보기는 시험이 계산한다.
+ * 사람이 프로젝트를 등록하고 파일 추적을 켠다. 추적 미리보기 화면은 first-project 1·2·4 시험이
+ * 보고, 이 준비 길은 같은 사람 command를 core 통로로 내며 미리보기는 시험이 계산한다.
  */
 export async function registerTrackedProject(
   flow: FlowShell,

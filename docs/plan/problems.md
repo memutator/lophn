@@ -459,6 +459,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: C-문제command의 `close-verified`, event `ProblemClosed`
 - slice: problems
 - 선행: problems#T18, problems#T19, apps#T18, apps#T19
+- 상태: 완료 (#469) — closing leaf(model·commands·work·testing fixture·closing_test·commands_test), test-runner worker의 `problems.closing` 깨움 통로, core 정책·event 공개·구독자 cursor·깨움 feed·`sweepProblemsClosing()`, 제품 core 시험
 - 완료:
   - `VerificationRecorded`·`ReleaseActivated`·`ProblemObserved`에서 reproduction pass만 후보로 다시 읽는다(R3)
   - after가 현재 활성 release이고 `basis_seq` 뒤 같은 문제의 새 live Report가 0개(늦은 이전 release 보고 포함)일 때만 닫는다(R4)
@@ -466,6 +467,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
   - release 준비·activation·앱 시작·command 성공·app test·test command·ticket 완료·고친 기록·앱 주장만으로는 닫히지 않는다(R2)
   - coding agent·lophn agent·앱·일반 CLI의 닫기는 거절, fixer=user 분류도 권한을 주지 않는다(R1, problem-codes#R7)
   - 이어받음: platform#T39의 ProblemClosed 발생. 닫는 이 작업이 event를 낸다
+  - 시험 자리: 제품 core 시험(apps/core/problems-closing_test.ts)은 문제·닫힘·자격 거절을 실제 op로 보고 반응기는 core와 같은 함수(`sweepProblemsClosing`)로 깨운다. reproduction pass Verification 행·release 행·`VerificationRecorded`는 core에 실제 RecordVerification·activation 조립이 붙기 전이라 검증 조건이 읽는 열 이름 그대로 심는다(problems-repair-blob_test.ts 선례). apps의 활성 release read contract는 넣지 않았다: 닫힘 command가 같은 transaction에서 `releases` status를 다시 본다(architecture/problems 7.6, problems/repairs/commands.ts 선례)
 
 ### T21 사람 결정과 재발
 
@@ -477,6 +479,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: C-문제command의 `apply-decision`, event `ProblemReopened`, `ProblemConfirmationRecorded`
 - slice: problems
 - 선행: problems#T20, contracts#T13, platform#T56 (shell#T53 결정 window는 이 작업 뒤; handle은 platform#T56으로 테스트)
+- 상태: 완료 (#471)
 - 완료:
   - `fixed`는 user_confirmed, `not_visible`은 현재 release·last Report가 맞을 때 recovered, `dismiss`는 공백 아닌 한 줄 이유로 dismissed; 어느 것도 Verification을 만들지 않는다(R6, R7, R8)
   - handle 재사용·release 변경·seq 변경 뒤 적용은 거절; agent·앱·CLI의 사람 주장은 거절(R1, R6, R14)
@@ -498,7 +501,8 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - slice: problems
 - 선행: problems#T14, problems#T21, coding-agent#T18
 - 선행 풀기(사람 결정 2026-10-07): 선행이 끝나기 전에 이미 있는 contract와 fake로 먼저 만든다. 선행이 merge되면 실제 구현에 잇는 작은 PR을 따로 내고, 그때 완료로 둔다.
-- 상태: 진행 (#422) — 선행 풀기: problems#T21 merge 뒤 실제 닫힘·결정 data에 잇는 PR이 남음
+- 상태: 완료 (#475) — 이어보냄: 실제 core에 잇는 shell Issues 통로(`issueViewOf` 사용) → shell#T53
+- #475에서 한 것: 사람 결정 닫힘 근거 시각을 실제 `ProblemClosed` 시각으로 채우고, `detail.decision`(additive)으로 마지막 "아직입니다"·다시 열림(보고/사람)과 `offersFixedConfirmation` 기반 고쳐짐 재제안 여부를 준다. 닫힘 4종은 실제 `CloseProblemVerified`·`ApplyProblemDecision`으로 닫아 읽는다(closure-detail_test.ts). `ProblemWorkPort`(coding-agent tickets의 `problemWorkLookup`)·`ProblemTestPort`(tests leaf의 `problemTestLookup`)를 `apps/core/problems.ts` reader에 등록하고 두 fake를 grouping `testing/mod.ts`에 두었다. 실제 `ReconcileProblemWork`의 open·fixing을 `GetProblem.detail`로 읽는다(work-detail_test.ts). 사용자용 ID 없는 `userProblemSchema`·`getProblemUserOutputSchema`·`userProblemReadOf`를 더했고(additive, route output은 그대로), CLI·MCP `problem show`와 shell `issueViewOf`가 이것과 `detail`만 읽는다
 - 선행 풀기 뒤 잇는 PR이 할 일:
   - `ProblemWorkPort` 등록(core, coding-agent tickets 기반): problem과 `work` ticket을 받아 문제에 걸린 끝나지 않은 repair ticket(아직 claim 전인 open ticket 포함)의 `{state, readiness, needs}`를 준다, 없으면 null
   - `ProblemTestPort` 등록(tests leaf의 `verifications`·`test_requests`): 접수만 됨 → pending, 실제 시작 뒤 결과 없음 → running, pass → pass, fail → fail, inconclusive → unconfirmed, 실행 증거의 종료 시각 포함

@@ -4,6 +4,7 @@ import {
   getVerificationRead,
   listVerificationsRead,
   observeTestRequestCommand,
+  problemTestLookup,
   recordVerificationCommand,
   requestTestCommand,
   stageTestEvidenceCommand,
@@ -44,6 +45,15 @@ import {
   listProblemsRead,
   reconcileProblemWorkCommand,
 } from "../../packages/problems/grouping/mod.ts";
+import {
+  applyProblemDecisionCommand,
+  closeProblemVerifiedCommand,
+} from "../../packages/problems/closing/mod.ts";
+import {
+  ProblemTestPort,
+  ProblemWorkPort,
+} from "../../packages/contracts/problems/mod.ts";
+import { problemWorkLookup } from "../../packages/coding-agent/mod.ts";
 import { REPORTS_SCHEMA_STEPS } from "../../packages/problems/reporting/mod.ts";
 import {
   DETAIL_COLLECTION_SETTING_KEY,
@@ -62,8 +72,10 @@ import {
   observeException,
   observeViewError,
   problemClosed,
+  problemConfirmationRecorded,
   problemFixRecorded,
   problemInterpretationLinked,
+  problemObserved,
   problemOpened,
   problemReopened,
   problemsUploadFixSummary,
@@ -74,20 +86,31 @@ import {
   verificationRecorded,
 } from "../../packages/contracts/problems/mod.ts";
 import { notificationsOnlyVisibility } from "./platform.ts";
-import { isTicketCheckFeed } from "./ticket-checker.ts";
+import {
+  isTicketCheckFeed,
+  ticketCheckFeedVisibility,
+} from "./ticket-checker.ts";
 import { reportCollectorSpec, testRunnerSpec } from "./problems-runner.ts";
 import { testTxPorts } from "./problems-test-ports.ts";
 import { problemsWorkSubscribers } from "./problems-work.ts";
+import {
+  isProblemsClosing,
+  problemsClosingSubscribers,
+  problemsClosingVisibility,
+} from "./problems-closing.ts";
 
 // ticket checker 구독자(machine:ticket-check-feed)도 깨움 신호로 보는 event다(coding-agent#T26,
-// T45). 그 밖의 자격은 owner 정책이 그대로 판단한다.
+// T45). `problems.closing` 반응기(problems#T20)도 문제 상태·활성 release를 다시 읽는 신호로 본다.
+// 그 밖의 자격은 owner 정책이 그대로 판단한다.
 function visibleToChecker<D extends EventDefinition>(
   owner: EventVisibilityDefinition<D>,
 ): EventVisibilityDefinition<D> {
   return {
     event: owner.event,
     handle: (snapshot, ctx, event) =>
-      isTicketCheckFeed(ctx) ? ok(true) : owner.handle(snapshot, ctx, event),
+      isTicketCheckFeed(ctx) || isProblemsClosing(ctx)
+        ? ok(true)
+        : owner.handle(snapshot, ctx, event),
   };
 }
 
@@ -196,9 +219,12 @@ export const problemsReportDefinitions = {
     recordProblemFixCommand,
     reconcileProblemWorkCommand,
     linkProblemInterpretationCommand,
+    closeProblemVerifiedCommand,
+    applyProblemDecisionCommand,
   ],
-  // `problems.work` 반응기(test-runner kind)만 자기 cursor를 올린다(problems/grouping#R9).
-  subscribers: problemsWorkSubscribers(),
+  // `problems.work`·`problems.closing` 반응기(test-runner kind)만 자기 cursor를 올린다
+  // (problems/grouping#R9, problems/closing#R5).
+  subscribers: [...problemsWorkSubscribers(), ...problemsClosingSubscribers()],
   reads: [
     listProblemsRead,
     getProblemRead,
@@ -290,12 +316,19 @@ export function createEventRegistration(): EventRegistration {
       // 닫힘·재발은 보고된 ticket의 남은 조건을 다시 비교하는 신호이기도 하다.
       visibleToChecker(notificationsOnlyVisibility(problemReopened)),
       visibleToChecker(notificationsOnlyVisibility(problemClosed)),
+      // 사람의 not_fixed 결정은 checker feed에게만 연다(human_confirmation fail 신호).
+      ticketCheckFeedVisibility(problemConfirmationRecorded),
+      // 같은 문제의 새 live 보고는 `problems.closing` 반응기의 재평가 신호다(problems#T20,
+      // closing#R4). 다른 자격은 정책이 없을 때와 똑같이 못 본다.
+      problemsClosingVisibility(problemObserved),
     ],
   };
 }
 
 // reader Worker가 이 모듈을 import해 read를 reader 풀에 붙인다(#142).
-// 실행 port는 없다.
+// 실행 port는 없다. reader Worker는 read마다 그 read를 등록한 module의 port만 넘기므로, 문제 상세
+// (problems#T22)가 읽는 지금 수리 ticket 사실은 ticket 표 owner(coding-agent)의 구현을 여기서
+// `ProblemWorkPort`로, 테스트 사실은 tests leaf 구현을 `ProblemTestPort`로 등록한다.
 export function createReaderRegistration(): ReaderRegistration {
   return {
     reads: [
@@ -309,6 +342,9 @@ export function createReaderRegistration(): ReaderRegistration {
       getVerificationRead,
       listVerificationsRead,
     ],
-    ports: new Map(),
+    ports: new Map<unknown, unknown>([
+      [ProblemWorkPort, problemWorkLookup],
+      [ProblemTestPort, problemTestLookup],
+    ]),
   };
 }

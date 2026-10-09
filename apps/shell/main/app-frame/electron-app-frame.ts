@@ -45,7 +45,7 @@ export function electronAppViews(input: ElectronAppViewsInput): {
 
   const views: AppViewHost = {
     hasWindow: (ref) => live(ref) !== undefined,
-    create({ partition, allowNavigation }) {
+    create({ partition, allowNavigation, onHealth }) {
       const view = new WebContentsView(surfaceOptions({
         webPreferences: {
           ...webPreferences(input.packaged),
@@ -78,10 +78,14 @@ export function electronAppViews(input: ElectronAppViewsInput): {
         },
       };
       native.set(adapter, view);
+      // 깨진 화면은 알리기만 한다. 다시 load하지 않는다(crash.ts).
       contents.on("render-process-gone", () => {
         gone.add(adapter);
         painted.delete(adapter);
+        onHealth?.("gone");
       });
+      contents.on("unresponsive", () => onHealth?.("unresponsive"));
+      contents.on("responsive", () => onHealth?.("responsive"));
       if (input.headless.headless) {
         contents.on("paint", (_event, _dirty, image) => {
           if (native.has(adapter)) painted.set(adapter, image);

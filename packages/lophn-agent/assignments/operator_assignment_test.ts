@@ -173,18 +173,26 @@ async function applyOperator(
   );
   const creating = current.length === 0;
   const approval = id("apr", ++f.approvals);
+  // 허락이 확정한 결정 seq(fixture)다. 이벤트 마지막 seq 뒤의 다음 번호다.
+  const head = await sql(
+    f,
+    "select coalesce(max(seq), 0) as seq from events",
+    [],
+  );
+  const decisionSeq = String(Number(head[0]!["seq"]) + 1);
   must(
     await f.h.command(
       machineCredential,
       envelope("SeedApprovalFixture", {
         id: approval,
         status: input.status ?? "granted",
+        closed_seq: decisionSeq,
       }),
     ),
   );
   const applied = {
     approval,
-    decision_seq: "1",
+    decision_seq: decisionSeq,
     id: target,
     bundle: {
       ...bundle(f, creating),
@@ -193,9 +201,11 @@ async function applyOperator(
       ...input.bundle,
     },
   };
+  // 결정은 route가 선언한 binding field(approval·bundle)의 내용 기준으로 묶인다
+  // (lophn-agent#T53의 decision_seq 맞춤: 결정 seq는 허락이 확정하는 값이라 번들에
+  // 묶지 않고, 제공되면 handler가 승인 기록과 일치하는지 본다).
   const bound = {
     approval: applied.approval,
-    decision_seq: applied.decision_seq,
     bundle: applied.bundle,
   };
   const issued = must(

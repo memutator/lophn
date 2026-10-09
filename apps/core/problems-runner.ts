@@ -33,6 +33,16 @@ const LIMIT_TOOLS = [
   "/usr/bin/prlimit",
 ] as const;
 
+// packaged core의 --allow-env에는 이 이름이 없다. 권한이 없으면 host가 없는 것과 같고,
+// 화면 검사를 띄울 수 없는 spec이 된다(architecture/problems 2.2).
+export function screenTestHost(): string | undefined {
+  try {
+    return Deno.env.get("SCREEN_TEST_HOST");
+  } catch {
+    return undefined;
+  }
+}
+
 // runner control은 플랫폼 code다. 준비 폴더와 작업 root만 읽고 쓰고, 승인된 Deno 실행 파일과 자식을
 // 거는 platform 도구, 화면 검사 host만 --allow-run으로 받는다(architecture/problems 2.2). net은 고정
 // socket 자리와 가상 host, core loopback(요청별 machine credential으로 command를 부르고 보고를 낸다)뿐이다.

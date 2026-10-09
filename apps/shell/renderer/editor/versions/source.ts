@@ -20,6 +20,8 @@ export interface VersionRow {
   readonly savedBy: SaverKind;
   /** 저장 시각(ms). */
   readonly savedAt: number;
+  /** 제품이 이 판에 남긴 run. agent 저장이 아니면 null이다. */
+  readonly run: string | null;
   /** 파일 관측으로 생긴 판인지. */
   readonly fromFile: boolean;
   readonly contentHash: string;

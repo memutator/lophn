@@ -163,8 +163,11 @@ async function run(): Promise<unknown> {
 
   const health = (view_session: string) =>
     frame.state(view_session)?.viewHealth;
+  // 닫힌 view는 webContents가 없어질 수 있다.
+  const gone = (view: WebContentsView) =>
+    !view.webContents || view.webContents.isDestroyed();
   const pid = (view: WebContentsView) =>
-    view.webContents.isDestroyed() ? -1 : view.webContents.getOSProcessId();
+    gone(view) ? -1 : view.webContents.getOSProcessId();
 
   async function scenario(load: Load) {
     // 같은 앱의 다른 탭을 먼저 열고 숨긴다. 그 다음 깨질 view를 같은 칸에 연다.
@@ -187,7 +190,7 @@ async function run(): Promise<unknown> {
       // 멈춤 감지는 입력이 기다릴 때 생긴다. 사람이 누르듯 입력을 보낸다.
       await wait(600);
       const poke = setInterval(() => {
-        if (broken.webContents.isDestroyed()) return;
+        if (gone(broken)) return;
         broken.webContents.sendInputEvent({
           type: "mouseDown",
           x: 20,
@@ -261,7 +264,7 @@ async function run(): Promise<unknown> {
       connection: frame.state(brokenSession)?.connectionState,
       connects: connects - connectsBefore,
       sameContents: appViews().includes(broken) &&
-        !broken.webContents.isDestroyed(),
+        !gone(broken),
     };
 
     // 사람이 [Open again]을 누른 것처럼 새 view를 지금 연결로 연다.
@@ -274,7 +277,7 @@ async function run(): Promise<unknown> {
         health: health(brokenSession),
         connects: connects - connectsBefore,
         newContents: fresh !== broken,
-        oldDestroyed: broken.webContents.isDestroyed(),
+        oldDestroyed: gone(broken),
         answers: await timed(() => fresh.webContents.executeJavaScript("1")),
       };
     }
@@ -318,7 +321,12 @@ run().then(
   (error: unknown) => {
     writeFileSync(
       config.result,
-      JSON.stringify({ ok: false, error: String(error) }),
+      JSON.stringify({
+        ok: false,
+        error: error instanceof Error
+          ? (error.stack ?? String(error))
+          : String(error),
+      }),
     );
     app.exit(1);
   },

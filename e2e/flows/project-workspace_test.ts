@@ -7,6 +7,7 @@ import { assert, assertEquals } from "@std/assert";
 import { e2eEnabled, READY_TIMEOUT_MS } from "../harness.ts";
 import { launchShell, type RunningShell } from "../run.ts";
 import {
+  type FlowShell,
   openProjectWorkspace,
   removeHome,
   typeAtEnd,
@@ -294,6 +295,156 @@ Deno.test({
           assertEquals(
             await Deno.readTextFile(file),
             `${first}Second line. Mine. Lost.`,
+          );
+        },
+      );
+    } finally {
+      await restore?.();
+      await flow.close();
+      await removeHome(home);
+      await Deno.remove(folder, { recursive: true });
+    }
+  },
+});
+
+/** overlay dialog가 열릴 때까지 기다려 제목·버튼 글을 돌려준다. */
+async function untilLeaveDialog(
+  flow: FlowShell,
+): Promise<{ title: string; buttons: string[] }> {
+  const deadline = Date.now() + READY_TIMEOUT_MS;
+  for (;;) {
+    try {
+      const overlay = await flow.shell.connect(
+        "lophn-shell://overlay/index.html",
+      );
+      try {
+        const found = await overlay.evaluate(
+          `(() => { const d = document.querySelector('[role="dialog"]'); return d ? JSON.stringify({ title: d.textContent ?? "", buttons: [...d.querySelectorAll("button")].map((el) => el.textContent ?? "") }) : ""; })()`,
+        );
+        if (found) return JSON.parse(String(found));
+      } finally {
+        overlay.close();
+      }
+    } catch {
+      // overlay page가 아직 없다.
+    }
+    assert(Date.now() < deadline, "닫기 guard dialog가 열리지 않았다");
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+}
+
+/** overlay dialog에서 글이 `label`인 버튼을 누른다. */
+async function pressLeaveChoice(flow: FlowShell, label: string): Promise<void> {
+  const overlay = await flow.shell.connect("lophn-shell://overlay/index.html");
+  try {
+    const pressed = await overlay.evaluate(
+      `(() => { const b = [...document.querySelectorAll('[role="dialog"] button')].find((el) => el.textContent === ${
+        JSON.stringify(label)
+      }); if (!b) return false; b.click(); return true; })()`,
+    );
+    assertEquals(pressed, true, `${label} 버튼이 없다`);
+  } finally {
+    overlay.close();
+  }
+}
+
+Deno.test({
+  name:
+    "shell/editor#R1 shell/editor#R2 documents/file-tracking#R15 flow edit-document 8: 저장되지 않은 글이 남은 탭을 닫으면 guard dialog가 묻고 계속 편집이나 버리고 닫기를 사람이 고른다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn(t) {
+    const folder = await Deno.realPath(
+      await Deno.makeTempDir({ prefix: "lophn-e2e-guard-" }),
+    );
+    const file = `${folder}/notes.md`;
+    const first = "# Notes\n\nFirst line.\n";
+    await Deno.writeTextFile(file, first);
+    const { flow, documentId } = await openProjectWorkspace({
+      folder,
+      name: "notes",
+      title: "Notes",
+      document: "notes",
+    });
+    const home = flow.home;
+    let restore: (() => Promise<void>) | undefined;
+    try {
+      await flow.until(
+        `document.querySelector('[data-document="${documentId}"]') !== null`,
+        "sidebar에 문서가 없다",
+      );
+      await flow.click(`[data-document="${documentId}"]`);
+      await flow.until(
+        `document.querySelector("[data-edit-toggle]")?.disabled === false`,
+        "편집 전환이 켜지지 않았다",
+      );
+      await flow.click("[data-edit-toggle]");
+      await flow.until(
+        `document.querySelector("[data-document-view]")?.getAttribute("data-document-view") === "edit"`,
+        "편집 화면이 열리지 않았다",
+      );
+      // 폴더를 막은 채 고치면 파일에 쓰지 못해 저장되지 않은 글이 남는다.
+      await Deno.chmod(folder, 0o555);
+      restore = () => Deno.chmod(folder, 0o755);
+      await typeAtEnd(flow, "Unsaved line.");
+      await flow.until(
+        `document.querySelector("[data-save-status]")?.getAttribute("data-save-status") === "failed"`,
+        "저장 실패 상태가 오지 않았다",
+      );
+
+      await t.step(
+        "shell/editor#R1 8: 탭을 닫으면 저장 결과를 확인하고 남은 글을 두고 사람에게 묻는다",
+        async () => {
+          await flow.click("[data-close]");
+          const dialog = await untilLeaveDialog(flow);
+          assert(
+            dialog.title.includes("Changes aren't saved yet"),
+            `guard dialog 제목이 다르다: ${dialog.title}`,
+          );
+          assertEquals(
+            dialog.buttons.filter((label) =>
+              ["Keep editing", "Check again", "Discard changes"].includes(label)
+            ).sort(),
+            ["Check again", "Discard changes", "Keep editing"],
+          );
+          // 묻는 동안 탭은 남아 있고 저장된 것처럼 보이지 않으며 파일은 그대로다.
+          assertEquals(await flow.count(`[data-document-view="edit"]`), 1);
+          assertEquals(await Deno.readTextFile(file), first);
+        },
+      );
+
+      await t.step(
+        "shell/editor#R1 8: 계속 편집을 고르면 탭과 저장되지 않은 글이 남는다",
+        async () => {
+          await pressLeaveChoice(flow, "Keep editing");
+          await flow.until(
+            `document.querySelector("[data-document-view]")?.getAttribute("data-document-view") === "edit"`,
+            "계속 편집을 골랐는데 편집 화면이 사라졌다",
+          );
+          assertEquals(
+            await flow.text(`[data-save-status="failed"]`) === null,
+            false,
+            "저장 실패 상태가 사라졌다",
+          );
+          assertEquals(await Deno.readTextFile(file), first);
+        },
+      );
+
+      await t.step(
+        "shell/editor#R1 documents/file-tracking#R15 8: 버리고 닫기는 사람이 고르며 파일에 쓰지도 판을 만들지도 않는다",
+        async () => {
+          await flow.click("[data-close]");
+          await untilLeaveDialog(flow);
+          await pressLeaveChoice(flow, "Discard changes");
+          await flow.until(
+            `document.querySelector("[data-document-view]") === null`,
+            "버리고 닫았는데 문서 탭이 남아 있다",
+          );
+          assertEquals(await Deno.readTextFile(file), first);
+          assertEquals(
+            (await versionHistory(flow, documentId)).map((v) => v.number),
+            [1],
           );
         },
       );

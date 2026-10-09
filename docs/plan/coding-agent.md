@@ -1679,6 +1679,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T47 수리 flow의 coding agent 단계
 
+- 상태: 완료 (#487) — 이어보냄: `release_prepare`는 release id를 만들지 않는다(테스트 앱에 source가 없고 release.prepare finalizer가 없다). report가 쓰는 release 행은 claim 뒤에 sqlite로 심은 같은 ticket_source다. reproduction은 pass가 아니고 verification은 비어 있다.
 - 등급: 기본
 - concern: coding-agent/repair-context, coding-agent/tickets,
   coding-agent/connection

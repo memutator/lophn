@@ -285,7 +285,6 @@ Deno.test("platform/notifications#R1 platform/identity#R8: agent·app·coding ag
         "name-only",
         await login(harness, "machine", NOTIFICATIONS_PRINCIPAL, operations),
       ],
-      ["user", user],
     ];
     for (const [who, token] of outsiders) {
       // 일어난 적 없는 등록 event. 계기 event와 같은 모양이어야 존재가 새지 않는다.
@@ -308,5 +307,33 @@ Deno.test("platform/notifications#R1 platform/identity#R8: agent·app·coding ag
       assertEquals(everything.status, 200, who);
       assertEquals(everything.body["events"], [], who);
     }
+
+    // 사람 token은 계기 event 자체는 못 보고, shell 구독이 쓰는 notification event만 본다.
+    const absentUser = await call(harness, "events/list", user, {
+      after_seq: "0",
+      types: ["VerificationRecorded"],
+    });
+    assertEquals(absentUser.status, 200, "user");
+    for (const event of EVENT_TYPES) {
+      const present = await call(harness, "events/list", user, {
+        after_seq: "0",
+        types: [event],
+      });
+      assertEquals(present.status, 200, `user ${event}`);
+      assertEquals(present.body, absentUser.body, `user ${event}`);
+    }
+    const userEvents = await call(harness, "events/list", user, {
+      after_seq: "0",
+    });
+    assertEquals(userEvents.status, 200, "user");
+    const visible = userEvents.body["events"] as { type: string }[];
+    assert(visible.length > 0, "user");
+    assert(
+      visible.every((event) =>
+        event.type === "NotificationCreated" ||
+        event.type === "NotificationRead"
+      ),
+      JSON.stringify(visible.map((event) => event.type)),
+    );
   });
 });

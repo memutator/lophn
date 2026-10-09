@@ -22,6 +22,14 @@ export type ProblemReportRequest = {
   code: string;
   details?: unknown;
   trace?: string;
+  // SDK가 전송 전에 고정한 값. 없으면 supervisor가 id·시각을 정한다.
+  reportId?: string;
+  observedAt?: string;
+  invocation?: {
+    id: string;
+    binding: "sdk_context" | "view_context";
+    record_missing_reason: { reason: string } | null;
+  } | null;
 };
 
 // problems의 보고 contract(`/v1/problems/report`)를 감싼 포트다.
@@ -68,6 +76,13 @@ export function createProblemReportService(deps: {
         code: input.code,
         ...(input.details === undefined ? {} : { details: input.details }),
         ...(input.trace === undefined ? {} : { trace: input.trace }),
+        ...(input.report_id === undefined ? {} : { reportId: input.report_id }),
+        ...(input.observed_at === undefined
+          ? {}
+          : { observedAt: input.observed_at }),
+        ...(input.invocation === undefined
+          ? {}
+          : { invocation: input.invocation }),
       });
     },
   };

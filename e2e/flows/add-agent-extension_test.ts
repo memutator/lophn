@@ -15,8 +15,8 @@
 // - 5·6: 허락한 그 호출만 한 번 실행되고 run이 이어 끝난다. 결정은 지난 것으로 남는다.
 // - 다른 갈래 4: 거절한 호출은 미실행으로 남는다.
 // - 1: 사람이 settings 도구 탭의 [Add a skill folder]로 로컬 skill 폴더를 등록한다(headless 폴더
-//   선택은 LOPHN_SHELL_PICK_FOLDER). 등록은 설정 값의 정확한 절대 경로 하나이고 폴더 이름이 탭에 선다.
-//   이 단계는 아직 한 번도 돌리지 않았다(미검증 WIP — 실행 전, `ignore`).
+//   선택은 openFlowShell의 pickFolder → LOPHN_SHELL_PICK_FOLDER). 등록은 설정 값의 정확한 절대
+//   경로 하나이고 폴더 이름이 탭에 선다. skill 발견은 보지 않는다(결함 (7)).
 // 결함 (7), 1의 발견 검사는 볼 수 없다: 제품 runtime 조립이 prepare deps의 `skills`를 주지 않고
 // (apps/agent-runtime/prepare.ts `deps.skills?.()`를 채우는 곳이 없다) `discoverSkills`
 // (packages/lophn-agent/extensions/skills.ts)를 부르는 제품 경로도 없어, 등록한 폴더가 검사되지
@@ -346,10 +346,8 @@ Deno.test({
       `${skills}/Bad_Name/SKILL.md`,
       "---\nname: Bad_Name\ndescription: Not a valid name.\n---\n",
     );
-    const pickBefore = Deno.env.get("LOPHN_SHELL_PICK_FOLDER");
-    Deno.env.set("LOPHN_SHELL_PICK_FOLDER", skills);
     const provider = startDynamicProvider(STEPS);
-    const flow = await openFlowShell({ start: "lophn" });
+    const flow = await openFlowShell({ start: "lophn", pickFolder: skills });
     const home = flow.home;
     try {
       await setDefaults(flow, provider.url);
@@ -506,8 +504,6 @@ Deno.test({
       await t.step({
         name:
           "lophn-agent/extensions#R1 lophn-agent/extensions#R10: 1 settings 도구 탭에서 로컬 skill 폴더를 등록하면 그 절대 경로 하나가 설정 값이 되고 폴더 이름이 선다",
-        // 미검증 WIP — 실행 전
-        ignore: true,
         fn: async () => {
           const folders = async () =>
             JSON.stringify(
@@ -545,6 +541,9 @@ Deno.test({
           assert(value.includes(JSON.stringify(skills)), value.slice(0, 400));
           // 등록은 폴더 하나다. 꾸러미를 따로 등록하거나 원격에서 받지 않는다.
           assertEquals(await flow.count("[data-skills] [data-folder]"), 1);
+          // 도구 탭은 열릴 때만 설정 값을 읽는다. 여기 머물면 다음 단계가 server를 등록한
+          // 뒤에도 이미 연 패널이 그 값을 다시 읽지 않는다.
+          await flow.click('[data-screen="documents"]');
         },
       });
 
@@ -734,8 +733,6 @@ Deno.test({
       await provider.close();
       await Deno.remove(scratch, { recursive: true });
       await Deno.remove(skills, { recursive: true });
-      if (pickBefore === undefined) Deno.env.delete("LOPHN_SHELL_PICK_FOLDER");
-      else Deno.env.set("LOPHN_SHELL_PICK_FOLDER", pickBefore);
     }
   },
 });

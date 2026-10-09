@@ -15,6 +15,7 @@ import { type LophnError, ok, type Result, sha256Hex } from "../../base/mod.ts";
 import {
   fixSummaryBlobSchema,
   getProblem,
+  getProblemOutputSchema,
   getReport,
   getSnapshot,
   listProblemFixes,
@@ -22,6 +23,7 @@ import {
   listReports,
   problemsUploadFixSummary,
   recordProblemFix,
+  userProblemReadOf,
 } from "../../contracts/problems/mod.ts";
 import {
   repairContextBundle,
@@ -220,6 +222,21 @@ async function readOp(
   const value = obj(read.value);
   switch (op) {
     case "show": {
+      // 사용자용 상세만 보인다(problems#T22). ticket·version 연결 식별자는 싣지 않고 담당·수리
+      // 상태는 `detail`의 en 문구로 읽는다. detail이 없는 이전 응답은 받은 그대로 둔다.
+      const parsed = getProblemOutputSchema.safeParse(value);
+      const user = parsed.success ? userProblemReadOf(parsed.data) : null;
+      if (user !== null) {
+        return {
+          summary:
+            `문제 ${user.problem.id}: ${user.detail.progress.label}, 담당 ${user.detail.owner.label}, 수리 ${user.detail.repair.label}, 보고 ${user.report_count}개`,
+          data: user,
+          next: [
+            refer(deps, "summary", "로 적은 양의 수리 자료를 읽는다"),
+            refer(deps, "fix_records", "로 지난 고친 기록을 읽는다"),
+          ],
+        };
+      }
       const problem = obj(value.problem);
       return {
         summary: `문제 ${str(problem.id) ?? ""}: ${

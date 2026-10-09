@@ -26,3 +26,4 @@ export { createTicketClaimCommands, expiredClaims } from "./claims.ts";
 export { createTicketFinishCommands } from "./report.ts";
 export { createTicketCheckCommands, createTicketCheckReads } from "./checks.ts";
 export { ticketCheckWork } from "./checker/mod.ts";
+export { problemWorkLookup } from "./problem-work.ts";

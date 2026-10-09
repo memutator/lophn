@@ -40,7 +40,8 @@ export function existingProblem(
 
 // 없음→open은 첫 유효 운영 Report 하나로 열고 ProblemOpened를 낸다(reporting#R3,
 // grouping#R1). open/fixing→동일, closed→closed 유지는 ProblemObserved다.
-// 2번째 발생을 기다리는 상태가 없다. closed+현재 활성 release의 reopen은 T21.
+// 2번째 발생을 기다리는 상태가 없다. closed+현재 활성 release의 reopen은 같은 접수
+// transaction의 reporting/commands.ts가 한다(reporting→grouping import는 순환이다).
 export function emitOpened(
   tx: Tx,
   problemId: string,

@@ -101,9 +101,51 @@ function problemFact(row: Record<string, unknown>): ProblemFact {
   return {
     id: String(row["id"]),
     app: String(row["app"]),
+    seq: "0",
     status: String(row["status"]) as ProblemFact["status"],
+    not_fixed_release: null,
     closure,
   };
+}
+
+// 문제의 최신 event seq(problems/closing의 문제 seq와 같은 값)다.
+function problemSeq(sql: ReadSql, problem: string): string {
+  const row = readIfPresent(
+    () =>
+      sql.get(
+        "SELECT cast(max(seq) AS text) AS seq FROM events WHERE subject = ?",
+        [problem],
+      ),
+    undefined,
+  );
+  const seq = row?.["seq"];
+  return seq === undefined || seq === null ? "0" : String(seq);
+}
+
+// 사람의 마지막 not_fixed 결정(열린 문제의 ProblemConfirmationRecorded, 닫힌 문제를 다시 연
+// ProblemReopened)의 release다. 그 뒤 문제가 다시 닫혔으면 지난 결정이라 null이다.
+function notFixedRelease(sql: ReadSql, problem: string): string | null {
+  const row = readIfPresent(
+    () =>
+      sql.get(
+        `SELECT coalesce(json_extract(e.payload, '$.decision.release'),
+                  json_extract(e.payload, '$.release')) AS release
+           FROM events e
+          WHERE e.subject = ?
+            AND ((e.type = 'ProblemConfirmationRecorded'
+                  AND json_extract(e.payload, '$.choice') = 'not_fixed')
+              OR (e.type = 'ProblemReopened'
+                  AND json_extract(e.payload, '$.decision.choice') = 'not_fixed'))
+            AND NOT EXISTS (SELECT 1 FROM events c
+                             WHERE c.subject = e.subject
+                               AND c.type = 'ProblemClosed' AND c.seq > e.seq)
+          ORDER BY e.seq DESC LIMIT 1`,
+        [problem],
+      ),
+    undefined,
+  );
+  const release = row?.["release"];
+  return release === undefined || release === null ? null : String(release);
 }
 
 function verificationFact(row: Record<string, unknown>): VerificationFact {
@@ -223,7 +265,12 @@ export function loadCheckWork(sql: ReadSql, ticket: string): CheckWork | null {
         ]),
       undefined,
     );
-    return found === undefined ? [] : [problemFact(found)];
+    if (found === undefined) return [];
+    return [{
+      ...problemFact(found),
+      seq: problemSeq(sql, id),
+      not_fixed_release: notFixedRelease(sql, id),
+    }];
   });
   return {
     ticket,

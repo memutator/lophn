@@ -1,0 +1,8 @@
+#!/bin/sh
+# fake Codex harness(coding-agent#T41). 실제 제품이 아니다. lophn이 부르는 version·auth probe에만
+# 정해진 답을 하고 그 밖의 호출은 무엇도 실행하지 않는다.
+case "$1 $2" in
+  "--version "*) echo "codex-cli 0.160.0" ;;
+  "login status") echo "Logged in using an API key" >&2 ;;
+  *) echo "fake codex: $*" >&2; exit 2 ;;
+esac

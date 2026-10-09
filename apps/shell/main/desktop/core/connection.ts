@@ -150,16 +150,15 @@ export function startCoreConnection(
   });
 
   // 복원으로 멈춘 core는 같은 pipe의 새 hello(새 epoch·token·port)로 다시 시작한다. hello는
-  // supervise.ts의 onMessage listener로 온다. session과 구독을 새 값으로 다시 연다.
+  // supervise.ts의 onMessage listener로 온다. session과 구독을 새 값으로 다시 연다. main hello
+  // frame(contracts `mainHelloSchema`)에는 type이 없다. user_token·api_port·core_epoch 모양으로 안다.
   core.onMessage((payload) => {
     const message = payload as {
-      type?: unknown;
       user_token?: unknown;
       api_port?: unknown;
       core_epoch?: unknown;
     };
     if (
-      message.type === "hello" &&
       typeof message.user_token === "string" &&
       typeof message.api_port === "number" &&
       typeof message.core_epoch === "string"

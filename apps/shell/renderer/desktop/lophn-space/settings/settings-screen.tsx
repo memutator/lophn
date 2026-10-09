@@ -20,6 +20,12 @@ import type { UpdateSource } from "./update/source.ts";
 import type { SettingsSource } from "./source.ts";
 import styles from "./settings.module.css";
 
+/** settings의 운영 탭 통로 묶음(shell#T58). 제품 조립이 entry에서 만든다. */
+export type SettingsPanels = Pick<
+  SettingsScreenProps,
+  "backup" | "update" | "diagnostics" | "notifications"
+>;
+
 export interface SettingsScreenProps {
   source: SettingsSource;
   /** 전역 [Instructions] 편집기를 연다(shell/editor#R17). 없으면 단추를 두지 않는다. */

@@ -71,6 +71,8 @@ export function RestoreConfirm(
     })();
     return () => {
       live = false;
+      // 확인 자리가 닫히면(취소·이동) main의 계획을 버린다. 제출은 이미 계획을 썼다.
+      void source.restoreCancel?.(createdAt);
     };
   }, [source, createdAt]);
 

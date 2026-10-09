@@ -125,6 +125,8 @@ export interface FlowOptions {
     | `app:${string}`;
   /** 이미 있는 데이터 root를 다시 연다(core를 다시 띄운 뒤에도 남는 것을 본다). */
   home?: string;
+  /** headless OS notification 표시를 실패시킨다(`LOPHN_SHELL_OS_NOTIFY=fail`). */
+  osNotifyFails?: boolean;
 }
 
 function quote(value: string): string {
@@ -149,6 +151,7 @@ export async function openFlowShell(
       ...(options.start === undefined
         ? {}
         : { LOPHN_SHELL_START: options.start }),
+      ...(options.osNotifyFails ? { LOPHN_SHELL_OS_NOTIFY: "fail" } : {}),
     },
   });
   const evaluate = (expression: string) => shell.evaluate(expression);

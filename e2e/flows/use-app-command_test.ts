@@ -637,8 +637,8 @@ Deno.test({
           );
           assertEquals(
             listed.length,
-            1,
-            `list가 실행되지 않았다: ${await facts()}`,
+            0,
+            `성공한 일반 읽기가 invocation을 남겼다: ${await facts()}`,
           );
           // tool 결과는 판단 본문 안의 문자열이라 JSON을 다시 감싸면 quote가 이스케이프된다.
           assert(

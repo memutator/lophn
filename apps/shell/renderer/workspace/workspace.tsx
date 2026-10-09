@@ -537,6 +537,7 @@ export function Workspace(
           documentId={tab.key}
           projectId={projectId}
           source={editor.source}
+          core={editor.core}
           readingWidth={editor.readingWidth}
           menu={editor.menu}
           files={editor.files}

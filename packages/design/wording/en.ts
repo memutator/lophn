@@ -2562,6 +2562,10 @@ export const en = {
   "things-to-confirm.label.period-week": "Last 7 days",
   "things-to-confirm.label.question": "Question",
   "things-to-confirm.label.question-from": "Question from {role}",
+  "things-to-confirm.label.os-show-failed":
+    "Couldn't show this as a desktop notification",
+  "things-to-confirm.label.os-unsupported":
+    "Desktop notifications aren't available on this computer",
   "things-to-confirm.label.read": "Read",
   "things-to-confirm.label.recommended": "Recommended",
   "things-to-confirm.label.role": "Role",

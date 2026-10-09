@@ -82,6 +82,11 @@ export interface NotificationRow {
   readonly sourceEvent: string;
   readonly sourceSeq: string;
   readonly readAt: string | null;
+  /**
+   * OS notification으로 올리지 못한 이유. core가 이번 실행에서 본 것만 온다
+   * (platform/notifications#R10). 없으면 실패를 본 적이 없다.
+   */
+  readonly osFailure?: "unsupported" | "show_failed";
 }
 
 export interface Overview {

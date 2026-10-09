@@ -51,7 +51,16 @@ export function VersionsTab(
     pollMs: polling ? POLL_MS : undefined,
     now,
   });
-  const start = useRead(() => source.startCheck(app), [app, source], { now });
+  // 시작 확인은 지금 Version의 사실이다. 지금 Version이 바뀌면(적용 완료) 다시 읽고, 적용을 기다리는
+  // 동안은 목록과 함께 읽는다.
+  const currentId = list.loaded.state === "ready"
+    ? list.loaded.value.current
+    : null;
+  const start = useRead(
+    () => source.startCheck(app),
+    [app, source, currentId],
+    { pollMs: polling ? POLL_MS : undefined, now },
+  );
 
   const versions = list.loaded.state === "ready"
     ? list.loaded.value.versions

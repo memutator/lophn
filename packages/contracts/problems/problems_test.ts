@@ -8,6 +8,7 @@ import {
   getProblem,
   getProblemInputSchema,
   getProblemOutputSchema,
+  getProblemUserOutputSchema,
   interpretationLinkInputSchema,
   linkProblemInterpretation,
   linkProblemInterpretationInputSchema,
@@ -20,6 +21,8 @@ import {
   reconcileProblemWork,
   reconcileProblemWorkInputSchema,
   ROUTES,
+  userProblemReadOf,
+  userProblemSchema,
 } from "./mod.ts";
 
 const id = (prefix: string) => `${prefix}_01arz3ndektsv4rrffq69g5fav`;
@@ -243,6 +246,73 @@ Deno.test("problems/grouping#R11: problem detail carries the release at the firs
   assertEquals(
     getProblemOutputSchema.safeParse({ ...detail, last_release: id("app") })
       .success,
+    false,
+  );
+});
+
+Deno.test("problems/grouping#R12 problems#T22: 사용자용 GetProblem은 ID 없는 problem과 detail만 준다", () => {
+  const detail = {
+    progress: { state: "fixing", label: "Fixing" },
+    owner: {
+      kind: "coding_agent",
+      label: "A coding agent is working on this.",
+    },
+    needed_action: null,
+    repair: {
+      state: "in_progress",
+      label: "In progress",
+      needs: [],
+      last_check_failed: false,
+    },
+    result: {
+      fix_report: "none",
+      fix_report_label: "No fix reported yet.",
+      tests: { state: "not_run", label: "No tests have run.", items: [] },
+    },
+    closed: null,
+  };
+  const read = getProblemOutputSchema.parse({
+    problem: {
+      id: id("prb"),
+      app: id("app"),
+      group_key: { kind: "declared", code: "save_failed", discriminator: null },
+      status: "fixing",
+      work: id("tkt"),
+      interpretation: { version: id("ver"), section: null },
+      closure: null,
+      seq: "4",
+    },
+    detail,
+    text: "Saving failed.",
+    report_count: 1,
+    first_observed_at: null,
+    last_observed_at: null,
+    first_release: null,
+    last_release: null,
+    as_of_seq: "4",
+    next_cursor: null,
+  });
+  // 내부 문제를 그대로 넘기면 거부한다(연결 식별자가 남으면 안 된다).
+  assertEquals(
+    getProblemUserOutputSchema.safeParse(read).success,
+    false,
+  );
+  const user = userProblemReadOf(read);
+  assertEquals(getProblemUserOutputSchema.safeParse(user).success, true);
+  assertEquals(user?.problem, {
+    id: id("prb"),
+    app: id("app"),
+    status: "fixing",
+    closure: null,
+    seq: "4",
+  });
+  assertEquals(JSON.stringify(user).includes(id("tkt")), false);
+  assertEquals(JSON.stringify(user).includes(id("ver")), false);
+  // detail이 없는 이전 응답은 사용자용으로 만들지 않는다.
+  const { detail: _old, ...legacy } = read;
+  assertEquals(userProblemReadOf(legacy), null);
+  assertEquals(
+    userProblemSchema.safeParse({ ...user?.problem, status: "closed" }).success,
     false,
   );
 });

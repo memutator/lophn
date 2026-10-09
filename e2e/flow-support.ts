@@ -120,10 +120,13 @@ export interface FlowOptions {
     | "conversation"
     | "things-to-confirm"
     | "instructions:global"
+    | "settings"
     | `project:${string}`
     | `app:${string}`;
   /** 이미 있는 데이터 root를 다시 연다(core를 다시 띄운 뒤에도 남는 것을 본다). */
   home?: string;
+  /** headless OS notification 표시를 실패시킨다(`LOPHN_SHELL_OS_NOTIFY=fail`). */
+  osNotifyFails?: boolean;
   /**
    * headless OS 폴더 선택기가 고른 것으로 돌려줄 폴더(`LOPHN_SHELL_PICK_FOLDER`). 사람 화면에
    * dialog를 띄우지 않고 launcher 등록 화면의 [폴더 추가]를 끝까지 구동한다.
@@ -153,6 +156,7 @@ export async function openFlowShell(
       ...(options.start === undefined
         ? {}
         : { LOPHN_SHELL_START: options.start }),
+      ...(options.osNotifyFails ? { LOPHN_SHELL_OS_NOTIFY: "fail" } : {}),
       ...(options.pickFolder === undefined
         ? {}
         : { LOPHN_SHELL_PICK_FOLDER: options.pickFolder }),

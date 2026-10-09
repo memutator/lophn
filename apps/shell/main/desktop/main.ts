@@ -23,6 +23,11 @@ import { dirname, join } from "node:path";
 import { CORE_STATE_CHANNEL } from "../../ipc/core.ts";
 import { EDITOR_CLOSE_REQUEST_CHANNEL } from "../../ipc/editor.ts";
 import { FOLDER_PICK_CHANNEL } from "../../ipc/folder-picker.ts";
+import {
+  registerRestoreIpc,
+  removeRestoreIpc,
+  type RestoreIpcMain,
+} from "./core/restore-ipc.ts";
 import { OPEN_EXTERNAL_CHANNEL } from "../../ipc/open-external.ts";
 import {
   DESKTOP_INTENT_CHANNEL,
@@ -967,6 +972,19 @@ registerCodingIpc(
   }),
 );
 
+// settings backup 복원(shell#T58). 계획을 읽고 사람이 확인한 묶음만 결정 handle로 복원한다.
+// 복원 뒤 core는 같은 pipe의 새 hello로 다시 시작하고 connection이 session을 다시 연다.
+const restoreIpcMain: RestoreIpcMain = {
+  handle: (channel, listener) =>
+    ipcMain.handle(channel, (event, input) => listener(event, input)),
+  removeHandler: (channel) => ipcMain.removeHandler(channel),
+};
+registerRestoreIpc(restoreIpcMain, {
+  registry: overlays.overlayRegistry(),
+  pipe: () => core.restorePipe(),
+  register: (request) => core.registerConfirmation(request),
+});
+
 // 프로젝트 등록의 OS 폴더 선택기. 그 창에 붙은 dialog로 열고 desktop 창 본문만 부른다.
 ipcMain.handle(
   FOLDER_PICK_CHANNEL,
@@ -1075,6 +1093,7 @@ function stopAll(): void {
     } satisfies MainIpc,
   );
   removeCodingIpc(codingIpcMain);
+  removeRestoreIpc(restoreIpcMain);
   ipcMain.removeHandler(FOLDER_PICK_CHANNEL);
   ipcMain.removeHandler(OPEN_EXTERNAL_CHANNEL);
   removeEditorIpc(editorIpc);

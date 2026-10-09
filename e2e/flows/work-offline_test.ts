@@ -69,6 +69,7 @@ import {
   openFlowShell,
   PROJECT,
   registerTrackedProject,
+  removeHome,
   searchOnce,
   typeAtEnd,
   untilDocuments,
@@ -2386,6 +2387,456 @@ Deno.test({
       await fixture?.close();
       await removeTree(home);
       await Deno.remove(folder, { recursive: true }).catch(() => undefined);
+    }
+  },
+});
+
+// flow work-offline 4단계. 사람에게는 보이지 않는다. 일시적인 provider 통신 실패만
+// 정해진 횟수·대기 안에서 같은 입력으로 retry하고, 불완전한 응답의 tool call은
+// 시작하지 않는다. 다른 provider·model로 바꾸지 않는다. 5–7단계, update-lophn,
+// install-lophn은 보지 않는다.
+const PRIMARY = "pvd_01arz3ndektsv4rrffq69g5fd1";
+const OTHER = "pvd_01arz3ndektsv4rrffq69g5fd2";
+const ASK = "Keep working offline.";
+const AGAIN = "Send one bad request.";
+const PARTIAL = "zz-cut-marker";
+const GHOST = "zz-ghost-title";
+const FINAL = "The local note stays.";
+const REQUEST = '[data-mode="request"]';
+
+function httpStep(
+  id: string,
+  status: number,
+  headers: Record<string, string>,
+  body: string,
+) {
+  return {
+    id,
+    protocol: "messages" as const,
+    response: {
+      status,
+      headers: { "content-type": "application/json", ...headers },
+      body,
+    },
+  };
+}
+
+/** max_tokens로 잘린 tool_use. 인자가 완전해도 이 응답의 tool은 시작하면 안 된다. */
+function cutTool(id: string) {
+  const frames = [
+    'event: message_start\ndata: {"type":"message_start","message":{"usage":{"input_tokens":11}}}\n\n',
+    'event: content_block_start\ndata: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}\n\n',
+    `event: content_block_delta\ndata: ${
+      JSON.stringify({
+        type: "content_block_delta",
+        index: 0,
+        delta: { type: "text_delta", text: PARTIAL },
+      })
+    }\n\n`,
+    'event: content_block_stop\ndata: {"type":"content_block_stop","index":0}\n\n',
+    `event: content_block_start\ndata: ${
+      JSON.stringify({
+        type: "content_block_start",
+        index: 1,
+        content_block: {
+          type: "tool_use",
+          id: "toolu_cut",
+          name: "document.create",
+        },
+      })
+    }\n\n`,
+    `event: content_block_delta\ndata: ${
+      JSON.stringify({
+        type: "content_block_delta",
+        index: 1,
+        delta: {
+          type: "input_json_delta",
+          partial_json: JSON.stringify({
+            title: GHOST,
+            place: null,
+            name: null,
+            text: "# Ghost\n",
+            media_type: "text/markdown",
+          }),
+        },
+      })
+    }\n\n`,
+    'event: content_block_stop\ndata: {"type":"content_block_stop","index":1}\n\n',
+    'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"max_tokens"},"usage":{"output_tokens":8}}\n\n',
+    'event: message_stop\ndata: {"type":"message_stop"}\n\n',
+  ];
+  return {
+    id,
+    protocol: "messages" as const,
+    response: {
+      status: 200,
+      headers: { "content-type": "text/event-stream" },
+      chunks: [{ bytes: frames.join("") }],
+    },
+  };
+}
+
+// provider host가 allow-net에 들어간 새 runtime이 뜰 때까지 기다린다.
+async function untilRuntimeAllows(
+  rootPid: number,
+  ports: readonly string[],
+): Promise<void> {
+  const needles = ports.map((port) => `127.0.0.1:${port}`);
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
+    for (const pid of await descendantPids(rootPid)) {
+      let cmdline = "";
+      try {
+        cmdline = await readCmdline(pid);
+      } catch {
+        continue;
+      }
+      if (needles.every((needle) => cmdline.includes(needle))) return;
+    }
+    await delay(200);
+  }
+  throw new Error("runtime이 provider 포트를 아직 열지 않았다");
+}
+
+type RetryCall = {
+  id: string;
+  attempt_kind: string;
+  attempt_order: number;
+  retry_of: string | null;
+  credential_change_of: string | null;
+  input: string;
+  started_at: string;
+  model: { provider: string; name: string };
+  outcome: {
+    kind: string;
+    code?: string | null;
+    retry_at?: string | null;
+    finish_reason?: string | null;
+    http_status?: number | null;
+  } | null;
+};
+
+Deno.test({
+  name:
+    "lophn-agent/harness/provider#R10 lophn-agent/harness/provider#R20 lophn-agent/harness/run-loop#R11 lophn-agent/harness/run-loop#R23 flow work-offline 4: 일시적인 provider 통신 실패만 정해진 횟수와 대기 안에서 retry하고 불완전한 응답의 tool call은 시작하지 않으며 다른 provider나 model로 바꾸지 않는다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn() {
+    const primary = startFakeProvider({
+      script: {
+        steps: [
+          httpStep(
+            "limited",
+            429,
+            { "retry-after": "3" },
+            '{"type":"error","error":{"type":"overloaded_error","message":"busy"}}',
+          ),
+          httpStep(
+            "unavailable",
+            503,
+            {},
+            '{"type":"error","error":{"type":"api_error","message":"unavailable"}}',
+          ),
+          cutTool("cut"),
+          endTurn("done", FINAL),
+          httpStep(
+            "bad",
+            400,
+            {},
+            '{"type":"error","error":{"type":"invalid_request_error","message":"bad request"}}',
+          ),
+        ],
+      },
+      nowMs: () => Date.now(),
+      instant: true,
+    });
+    const other = startFakeProvider({
+      script: { steps: [] },
+      nowMs: () => Date.now(),
+      instant: true,
+    });
+    const flow = await openFlowShell({ start: "lophn" });
+    try {
+      await mustCall(flow, {
+        kind: "command",
+        resource: "providers",
+        method: "register",
+        body: providerBody(PRIMARY, "Primary", primary.url),
+      });
+      await mustCall(flow, {
+        kind: "command",
+        resource: "providers",
+        method: "register",
+        body: providerBody(OTHER, "Other", other.url),
+      });
+      let pointed = "";
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const defaults = await mustCall(flow, {
+          kind: "read",
+          resource: "agent-model-defaults",
+          method: "read",
+          body: {},
+        });
+        const seq =
+          (defaults.defaults as { settings_seq: string }).settings_seq;
+        const reply = await flow.call({
+          kind: "command",
+          resource: "agent-model-defaults",
+          method: "change",
+          body: commandBody(
+            {
+              judgment: {
+                provider: PRIMARY,
+                credentials: [],
+                model_name: MODEL,
+                reasoning_level: "provider_default",
+                options: {},
+              },
+              organizing: null,
+              settings_seq: seq,
+            },
+            { settings_seq: seq },
+          ),
+        });
+        if (reply.ok) {
+          pointed = PRIMARY;
+          break;
+        }
+        pointed = JSON.stringify(reply);
+        if (reply.error?.code !== "conflict") break;
+      }
+      assertEquals(pointed, PRIMARY, pointed);
+      // provider 등록은 runtime의 allow-net을 바꾼 뒤 프로세스를 다시 띄운다.
+      // 그 전에 보내면 첫 호출이 권한 거부로 끊기고 retry 횟수를 쓴다.
+      await untilRuntimeAllows(flow.shell.pid, [
+        new URL(primary.url).port,
+        new URL(other.url).port,
+      ]);
+
+      await flow.until(
+        `document.querySelector("[data-dock-toggle]") !== null`,
+        "도크 토글이 없다",
+      );
+      await flow.click("[data-dock-toggle]");
+      await flow.until(
+        `document.querySelector("[data-dock]") !== null`,
+        "대화 도크가 열리지 않았다",
+      );
+      await flow.until(
+        `document.querySelector("[data-new-session]") !== null`,
+        "새 세션 단추가 서지 않았다",
+      );
+      await flow.click("[data-new-session]");
+      await flow.until(
+        `document.querySelector(${JSON.stringify(INPUT)}) !== null`,
+        "입력칸이 서지 않았다",
+      );
+      await flow.type(INPUT, ASK);
+      await flow.until(
+        `document.querySelector(${JSON.stringify(SEND)})?.disabled === false`,
+        "보내기가 켜지지 않았다",
+      );
+      await flow.click(SEND);
+
+      const shown = Date.now() + 120_000;
+      let answered = false;
+      while (Date.now() < shown) {
+        const dock = String(
+          await flow.evaluate(
+            `document.querySelector("[data-dock]")?.innerText ?? ""`,
+          ),
+        );
+        assertEquals(
+          await flow.evaluate(
+            `document.querySelector("[data-external='connection-failed']") !== null`,
+          ),
+          false,
+          "retry 중 연결 실패가 보인다",
+        );
+        assertEquals(await flow.count("[data-confirmed-retry]"), 0);
+        assertEquals(await flow.count("[data-expires]"), 0);
+        assertEquals(dock.includes("didn't respond"), false, dock);
+        assertEquals(dock.includes("The next try is confirmed"), false, dock);
+        assertEquals(dock.includes(PARTIAL), false, dock);
+        assertEquals(dock.includes(GHOST), false, dock);
+        assertEquals(dock.includes("cut off"), false, dock);
+        if (dock.includes(FINAL)) {
+          answered = true;
+          break;
+        }
+        await delay(250);
+      }
+      assert(answered, "retry 뒤 답이 보이지 않는다");
+      assertEquals(other.requests().length, 0, "다른 provider를 불렀다");
+
+      const listed = await mustCall(flow, {
+        kind: "read",
+        resource: "assignments",
+        method: "list",
+        body: { role: "lophn" },
+      });
+      const agent = (listed.assignments as { id: string }[])[0];
+      assert(agent !== undefined, "lophn assignment가 없다");
+      const runs = await mustCall(flow, {
+        kind: "read",
+        resource: "runs",
+        method: "list",
+        body: { assignment: agent.id },
+      });
+      const ordered = (runs.runs as RunRow[]).slice().sort((left, right) =>
+        left.accepted_seq < right.accepted_seq
+          ? -1
+          : left.accepted_seq > right.accepted_seq
+          ? 1
+          : 0
+      );
+      assertEquals(ordered.length, 1, JSON.stringify(ordered));
+      const run = ordered[0]!;
+      assertEquals(run.outcome?.kind, "completed");
+      const calls = await mustCall(flow, {
+        kind: "read",
+        resource: "model-calls",
+        method: "list",
+        body: { run: run.id },
+      });
+      const modelCalls = (calls.calls as RetryCall[]).slice().sort((
+        left,
+        right,
+      ) => left.attempt_order - right.attempt_order);
+      assertEquals(modelCalls.length, 4, JSON.stringify(modelCalls));
+      assertEquals(
+        modelCalls.map((call) => call.attempt_kind),
+        ["initial", "retry", "retry", "initial"],
+      );
+      assertEquals(modelCalls[1]?.retry_of, modelCalls[0]?.id);
+      assertEquals(modelCalls[2]?.retry_of, modelCalls[1]?.id);
+      assertEquals(modelCalls[3]?.retry_of, null);
+      assertEquals(
+        new Set(modelCalls.map((call) => call.credential_change_of)),
+        new Set([null]),
+      );
+      assertEquals(modelCalls[0]?.input, modelCalls[1]?.input);
+      assertEquals(modelCalls[1]?.input, modelCalls[2]?.input);
+      assert(modelCalls[3]?.input !== modelCalls[0]?.input);
+      assertEquals(modelCalls[0]?.outcome?.kind, "failed");
+      assertEquals(modelCalls[0]?.outcome?.code, "temporary");
+      assertEquals(modelCalls[0]?.outcome?.http_status, 429);
+      assert(typeof modelCalls[0]?.outcome?.retry_at === "string");
+      assertEquals(modelCalls[1]?.outcome?.kind, "failed");
+      assertEquals(modelCalls[1]?.outcome?.code, "temporary");
+      assertEquals(modelCalls[1]?.outcome?.http_status, 503);
+      assertEquals(modelCalls[1]?.outcome?.retry_at ?? null, null);
+      assertEquals(modelCalls[2]?.outcome?.kind, "partial");
+      assertEquals(modelCalls[2]?.outcome?.finish_reason, "max_tokens");
+      assertEquals(modelCalls[3]?.outcome?.kind, "complete");
+      for (const call of modelCalls) {
+        assertEquals(call.model.provider, PRIMARY);
+        assertEquals(call.model.name, MODEL);
+      }
+      const firstAt = Date.parse(modelCalls[0]!.started_at);
+      const secondAt = Date.parse(modelCalls[1]!.started_at);
+      const thirdAt = Date.parse(modelCalls[2]!.started_at);
+      const retryAt = Date.parse(modelCalls[0]!.outcome!.retry_at!);
+      // 타이머가 몇 ms 일찍 깨도 서버 최소 시각과 2초·4초 기본 대기는 구별된다.
+      assert(
+        secondAt + 100 >= retryAt,
+        `서버 시각보다 일찍 retry: ${secondAt - retryAt}`,
+      );
+      assert(
+        secondAt - firstAt >= 2_900,
+        `첫째 retry 대기가 3초보다 짧다: ${secondAt - firstAt}`,
+      );
+      assert(
+        thirdAt - secondAt >= 3_900,
+        `둘째 retry 대기가 4초보다 짧다: ${thirdAt - secondAt}`,
+      );
+
+      const messages = primary.requests().filter((entry) =>
+        entry.path === "/messages"
+      );
+      assertEquals(
+        messages.map((entry) => entry.matchedStep),
+        ["limited", "unavailable", "cut", "done"],
+      );
+      const sent = messages.map((entry) => JSON.stringify(entry.body));
+      assertEquals(sent[0], sent[1]);
+      assertEquals(sent[1], sent[2]);
+      assertEquals(sent[0]?.includes(PARTIAL), false);
+      assertEquals(sent[2]?.includes("cut off"), false);
+      assert(sent[3]?.includes("cut off (max_tokens)"), sent[3]);
+      assertEquals(sent[3]?.includes(PARTIAL), false);
+      assertEquals(sent[3]?.includes(GHOST), false);
+      assertEquals(sent[3]?.includes(`"model":"${MODEL}"`), true);
+      for (const body of sent) {
+        assertEquals(body?.includes(`"model":"${MODEL}"`), true, body);
+        assertEquals(body?.includes(OTHER), false, body);
+      }
+
+      const tools = await mustCall(flow, {
+        kind: "read",
+        resource: "tool-calls",
+        method: "list",
+        body: { run: run.id },
+      });
+      const toolCalls = tools.tool_calls as unknown[];
+      assertEquals(toolCalls.length, 0, JSON.stringify(toolCalls));
+      const documents = await listDocuments(flow);
+      assertEquals(
+        documents.some((document) => document.title === GHOST),
+        false,
+        JSON.stringify(documents.map((document) => document.title)),
+      );
+
+      // 일시 실패가 아닌 응답은 retry하지 않고, 다른 provider·model로도 가지 않는다.
+      await flow.click(REQUEST);
+      await flow.type(INPUT, AGAIN);
+      await flow.click(SEND);
+      const refused = Date.now() + 90_000;
+      let failed: RunRow | undefined;
+      while (Date.now() < refused) {
+        const again = await mustCall(flow, {
+          kind: "read",
+          resource: "runs",
+          method: "list",
+          body: { assignment: agent.id },
+        });
+        failed = (again.runs as RunRow[]).find((row) => row.id !== run.id);
+        if (failed?.state === "finished") break;
+        await delay(300);
+      }
+      assertEquals(failed?.state, "finished", JSON.stringify(failed));
+      assertEquals(failed?.outcome?.kind, "failed");
+      const once = await mustCall(flow, {
+        kind: "read",
+        resource: "model-calls",
+        method: "list",
+        body: { run: failed!.id },
+      });
+      const only = once.calls as RetryCall[];
+      assertEquals(only.length, 1, JSON.stringify(only));
+      assertEquals(only[0]?.attempt_kind, "initial");
+      assertEquals(only[0]?.retry_of, null);
+      assertEquals(only[0]?.credential_change_of, null);
+      assertEquals(only[0]?.outcome?.kind, "failed");
+      assertEquals(only[0]?.outcome?.code, "invalid_request");
+      assertEquals(only[0]?.outcome?.http_status, 400);
+      assertEquals(only[0]?.model.provider, PRIMARY);
+      assertEquals(only[0]?.model.name, MODEL);
+      const after = primary.requests().filter((entry) =>
+        entry.path === "/messages"
+      );
+      assertEquals(
+        after.map((entry) => entry.matchedStep),
+        ["limited", "unavailable", "cut", "done", "bad"],
+      );
+      assertEquals(other.requests().length, 0);
+      primary.assertDone(5);
+    } finally {
+      await flow.close();
+      await removeHome(flow.home);
+      await primary.close();
+      await other.close();
     }
   },
 });

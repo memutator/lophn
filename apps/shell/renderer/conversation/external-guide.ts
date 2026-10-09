@@ -6,6 +6,8 @@ export interface GuideCall {
   readonly state: "started" | "finished";
   readonly startedAt: string;
   readonly attemptOrder: number;
+  /** 같은 입력의 자동 retry면 기다림으로 보이지 않는다. */
+  readonly attemptKind: "initial" | "retry" | "credential_change" | null;
   readonly providerId: string;
   readonly modelName: string;
   readonly outcome: {
@@ -52,6 +54,8 @@ export function externalGuide(
   const connection = connectionOf(focus, names);
   if (connection.trim() === "") return null;
   if (focus.state === "started" || focus.outcome === null) {
+    // 일시 실패의 자동 retry는 사람에게 보이지 않는다. 첫 호출의 기다림은 그대로다.
+    if (focus.attemptKind === "retry") return null;
     return { kind: "waiting", connection, action: null, retryAt: null };
   }
   if (focus.outcome.kind === "uncertain") {
@@ -78,6 +82,7 @@ function callOf(value: unknown): GuideCall | null {
     state?: unknown;
     started_at?: unknown;
     attempt_order?: unknown;
+    attempt_kind?: unknown;
     model?: { provider?: unknown; name?: unknown };
     outcome?: {
       kind?: unknown;
@@ -88,6 +93,11 @@ function callOf(value: unknown): GuideCall | null {
   if (row.state !== "started" && row.state !== "finished") return null;
   if (typeof row.started_at !== "string") return null;
   if (typeof row.attempt_order !== "number") return null;
+  const attemptKind = row.attempt_kind === "initial" ||
+      row.attempt_kind === "retry" ||
+      row.attempt_kind === "credential_change"
+    ? row.attempt_kind
+    : null;
   const modelName = row.model?.name;
   if (typeof modelName !== "string") return null;
   const providerId = typeof row.model?.provider === "string"
@@ -99,6 +109,7 @@ function callOf(value: unknown): GuideCall | null {
       state: row.state,
       startedAt: row.started_at,
       attemptOrder: row.attempt_order,
+      attemptKind,
       providerId,
       modelName,
       outcome: null,
@@ -109,6 +120,7 @@ function callOf(value: unknown): GuideCall | null {
     state: row.state,
     startedAt: row.started_at,
     attemptOrder: row.attempt_order,
+    attemptKind,
     providerId,
     modelName,
     outcome: {

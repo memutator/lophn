@@ -242,6 +242,7 @@ export async function runCollectorWorker(): Promise<void> {
   let stopped = false;
   const known = createKnownSecretRegistry();
   const redaction = createRedactionEngine({ registry: known });
+  const replays = createOccurrenceReplays();
   const queue = createCollectorQueue({
     pending_count: COLLECTOR_CAPS.pending_count,
     pending_bytes: COLLECTOR_CAPS.pending_bytes,
@@ -288,6 +289,8 @@ export async function runCollectorWorker(): Promise<void> {
           queue,
           session,
           position,
+          coreLogs(client),
+          replays,
         );
       }
       if (request.op === "ObserveException") {
@@ -435,6 +438,45 @@ function coreLogs(client: CoreClientOptions): CollectorLogs {
   };
 }
 
+type OccurrenceReplay = {
+  fingerprint: string;
+  acceptance: ReportAcceptance;
+};
+
+// 같은 worker 안의 재전송. 조립 시각이 달라도 같은 발생이면 저장한 접수를 돌려준다(R9).
+export type OccurrenceReplays = {
+  lookup(reportId: string): OccurrenceReplay | undefined;
+  remember(
+    reportId: string,
+    fingerprint: string,
+    acceptance: ReportAcceptance,
+  ): void;
+};
+
+export function createOccurrenceReplays(): OccurrenceReplays {
+  const held = new Map<string, OccurrenceReplay>();
+  return {
+    lookup(reportId) {
+      return held.get(reportId);
+    },
+    remember(reportId, fingerprint, acceptance) {
+      held.set(reportId, { fingerprint, acceptance });
+    },
+  };
+}
+
+function occurrenceFingerprint(parts: {
+  code: string;
+  observed_at: string;
+  app: string;
+  mode: string;
+  text: string | null;
+  details: string | null;
+  invocation: string | null;
+}): Promise<string> {
+  return sha256Hex(JSON.stringify(parts));
+}
+
 // app 출처 보고 접수. 본문은 redaction을 거친 뒤 ledger에 닿는다(R1, T3).
 // text·details 원문은 bounded memory에서만 있고 permanent content는 hash뿐이다.
 // app·release·process·mode·bundle_hash·diagnostic_scope 주장은 hello scope
@@ -447,6 +489,7 @@ export async function acceptReportProblem(
   session: ChildSession,
   position: CollectorPosition,
   logs: CollectorLogs = coreLogs(client),
+  replays: OccurrenceReplays = createOccurrenceReplays(),
 ): Promise<unknown> {
   const startedMs = Date.now();
   const parsed = acceptReportPayload(payload);
@@ -475,8 +518,36 @@ export async function acceptReportProblem(
   }
   // 조립값은 접수 본문이 검증한 필드만 이름으로 둔다(R1).
   const { report_id, code, observed_at, text, details } = parsed.value;
-  const textContent = await redactText(redaction, text);
-  const detailsContent = await redactDetails(redaction, details);
+  const textContent = await redactOutcome(redaction, text, "text/plain");
+  const detailsContent = await redactOutcome(
+    redaction,
+    details === undefined ? undefined : JSON.stringify(details),
+    "application/json",
+  );
+  const textValue = text === undefined ? null : textContent.value;
+  const detailsValue = details === undefined ? null : detailsContent.value;
+  const fingerprint = await occurrenceFingerprint({
+    code,
+    observed_at,
+    app: position.claims.app,
+    mode: position.claims.mode,
+    text: textValue,
+    details: detailsValue,
+    invocation: parsed.value.invocation?.id ?? null,
+  });
+  const prior = replays.lookup(report_id);
+  if (prior !== undefined) {
+    if (prior.fingerprint === fingerprint) return prior.acceptance;
+    throw new CollectorRejection(
+      "conflict",
+      "같은 Report ID의 원주체나 내용이 다르다",
+    );
+  }
+  const omitted = text !== undefined && textValue === null
+    ? textContent.reason
+    : details !== undefined && detailsValue === null
+    ? detailsContent.reason
+    : null;
   // redaction이 비운 값을 내면 hash 없이 ledger에 닿는다(R1).
   // snapshot ID는 제출 rpt ID에서 결정적으로 정한다(snapshots#R ID 자리).
   // 접수 본문의 report_id가 곧 제출 rpt ID다(R1).
@@ -487,13 +558,13 @@ export async function acceptReportProblem(
   const preparedText = await prepareContent(
     session,
     "report_text",
-    textContent,
+    textValue,
     REPORTING_LIMITS.automatic_body_bytes,
   );
   const preparedDetails = await prepareContent(
     session,
     "report_details",
-    detailsContent,
+    detailsValue,
     REPORTING_LIMITS.automatic_body_bytes,
   );
   const claims = position.claims;
@@ -535,7 +606,7 @@ export async function acceptReportProblem(
     bundle_hash: claims.bundle_hash ?? null,
     content_hash: "",
   } as RecordReportInput["report"];
-  return await submit(
+  const acceptance = await submit(
     client,
     report,
     [
@@ -555,10 +626,15 @@ export async function acceptReportProblem(
       },
       logs: logEvidence.logs,
       logs_missing_reason: logEvidence.logs_missing_reason,
+      error_missing_reason: omitted === null
+        ? "collector"
+        : `redaction:${omitted}`,
     },
     queue,
     session,
   );
+  replays.remember(report_id, fingerprint, acceptance as ReportAcceptance);
+  return acceptance;
 }
 
 // redaction을 통과한 inline content를 core blob prepare로 준비한다(T4).
@@ -638,18 +714,40 @@ async function redactText(
   return result;
 }
 
-// details를 준비한다. JSON으로 직렬화한 뒤 redaction 엔진을 거친다(R1).
-async function redactDetails(
+type RedactedBody = { value: string | null; reason: string | null };
+
+// 본문이 없으면 뺄 원문이 없다. passed가 아니면 원문 없이 생략 이유만 남긴다(R14).
+async function redactOutcome(
   redaction: RedactionEngine,
-  details: unknown,
-): Promise<string | null> {
-  if (details === undefined) return null;
-  const result = await redact({
-    redaction,
-    body: JSON.stringify(details),
-    mediaType: "application/json",
-  });
-  return result;
+  body: string | undefined,
+  mediaType: string,
+): Promise<RedactedBody> {
+  if (body === undefined) return { value: null, reason: null };
+  try {
+    const result = await redaction.redact({
+      source: {
+        concern: "problems/reporting",
+        revision: "collector-intake",
+        scope: "report_intake",
+      },
+      media_type: mediaType,
+      audience: "storage",
+      safe_fields: [],
+      private_fields: [],
+    }, body);
+    if (
+      result.status === "passed" && result.content !== null &&
+      result.content.kind === "inline"
+    ) {
+      return { value: result.content.value, reason: null };
+    }
+    return {
+      value: null,
+      reason: result.omissions[0]?.reason ?? "redaction",
+    };
+  } catch {
+    return { value: null, reason: "redaction" };
+  }
 }
 
 // redaction 엔진 호출 하나. passed가 아니면 null로 둔다: 부분 지워진 값도
@@ -659,27 +757,12 @@ async function redact(options: {
   body: string;
   mediaType: string;
 }): Promise<string | null> {
-  try {
-    const result = await options.redaction.redact({
-      source: {
-        concern: "problems/reporting",
-        revision: "collector-intake",
-        scope: "report_intake",
-      },
-      media_type: options.mediaType,
-      audience: "storage",
-      safe_fields: [],
-      private_fields: [],
-    }, options.body);
-    if (result.status !== "passed") return null;
-    if (result.content === null || result.content.kind !== "inline") {
-      return null;
-    }
-    return result.content.value;
-  } catch {
-    // redaction 실패는 원문을 통과시키지 않는다(R1).
-    return null;
-  }
+  const outcome = await redactOutcome(
+    options.redaction,
+    options.body,
+    options.mediaType,
+  );
+  return outcome.value;
 }
 
 // 준비 입���을 record-report로 제출한다(R16 retry). 대기 큐는 같은 고정 input만
@@ -696,10 +779,12 @@ async function submit(
       size_bytes: number;
     };
   }[],
-  evidence: Pick<
-    RecordReportInput["snapshot"],
-    "invocation" | "logs" | "logs_missing_reason"
-  >,
+  evidence:
+    & Pick<
+      RecordReportInput["snapshot"],
+      "invocation" | "logs" | "logs_missing_reason"
+    >
+    & { error_missing_reason?: string },
   queue: ReturnType<typeof createCollectorQueue>,
   _session: ChildSession,
 ): Promise<unknown> {
@@ -712,7 +797,9 @@ async function submit(
       ? { reason: "SDK가 연결한 invocation이 없다" }
       : null,
     error: null,
-    error_missing_reason: { reason: "collector" },
+    error_missing_reason: {
+      reason: evidence.error_missing_reason ?? "collector",
+    },
     logs: evidence.logs,
     logs_missing_reason: evidence.logs_missing_reason,
     screen: null,
@@ -1089,13 +1176,13 @@ async function submitException(
 // exception observation의 error name을 redaction한다. 이름은 안전한 오류 이름만
 // 남긴다(snapshots#R10: 안전한 오류 이름).
 
-// collector의 준비 폴더 출처. LOPHN_HOME env의 apps 부분만 이름 짓는다(등록
-// spec allow_read와 같다). env가 없으면 null이다: 준비 폴더 없음 이유로 남는다.
+// collector의 준비 폴더 출처. bundleCopyPath가 `apps/<app>/bundles/<hash>`를 붙이므로
+// 여기 값은 LOPHN_HOME이다. env가 없으면 null이다.
 function collectorAppsRoot(): string | null {
   try {
     const home = Deno.env.get("LOPHN_HOME");
     if (home === undefined || !home.startsWith("/")) return null;
-    return `${home}/apps`;
+    return home;
   } catch {
     return null;
   }

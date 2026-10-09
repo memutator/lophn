@@ -14,6 +14,8 @@ import {
   type CommandRoute,
   type EventDefinition,
   type EventVisibilityDefinition,
+  notificationCreated,
+  notificationRead,
   type RequestContext,
 } from "../../packages/contracts/platform/mod.ts";
 import {
@@ -195,7 +197,7 @@ export function createReaderRegistration(): ReaderRegistration {
 }
 
 // notification 계기 중 platform이 소유한 event다. 정책이 없는 event는 events/list에서 숨김이므로
-// notifications 구독자가 읽도록 이 event만 공개한다. 사람은 결정 대기를 볼 수 있다. 다른 소유
+// notifications 구독자가 읽도록 이 event를 공개한다. 사람은 결정 대기를 볼 수 있다. 다른 소유
 // concern(problems·lophn-agent·coding-agent·documents·apps)의 계기 event는 그 owner가 자기
 // 등록 파일의 공개 정책에 notifications 구독자(`NOTIFICATIONS_PRINCIPAL`)를 더해야 켜진다.
 const approvalCreatedVisibility: EventVisibilityDefinition<
@@ -207,8 +209,23 @@ const approvalCreatedVisibility: EventVisibilityDefinition<
   },
 };
 
+// shell/desktop가 구독하는 notification 자신의 event다. 정책이 없으면 사람 token의
+// events/list와 구독이 둘 다 숨겨, shell main이 표시·실패 보고까지 가지 못한다.
+// 계기 event는 각 owner의 notifications 구독자 정책에 남긴다.
+function userNotificationVisibility<D extends EventDefinition>(
+  event: D,
+): EventVisibilityDefinition<D> {
+  return { event, handle: (_snapshot, ctx) => ok(ctx.actor === "user") };
+}
+
 export function createEventRegistration(): EventRegistration {
-  return { visibility: [approvalCreatedVisibility] };
+  return {
+    visibility: [
+      approvalCreatedVisibility,
+      userNotificationVisibility(notificationCreated),
+      userNotificationVisibility(notificationRead),
+    ],
+  };
 }
 
 // ReadApprovalText는 ledger snapshot에서 참조를 판정한 뒤 blob 바이트를 기다리는 core read다.

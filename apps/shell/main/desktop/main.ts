@@ -262,12 +262,27 @@ let tray: InstalledTray | undefined;
 const osNotifications = createOsNotifications({
   notifier: guardNotifier(electronNotifier(), headless, log),
   display: async (notification) => {
-    const session = core.session();
-    if (!session) return null;
-    const reply = await session.internal("read", "notifications", "display", {
-      notification,
-    });
-    return reply.ok ? displayFromReply(reply.value) : null;
+    // event가 먼저 도착하고 display reader가 한 박자 늦으면 not_found·unavailable다.
+    // 그때 null로 끝내면 이 main은 그 id를 이미 본 것으로 기억해 실패를 보고하지 않는다.
+    // 사람이 끈 경우(ok이고 display가 비어 있음)와 다른 오류는 다시 묻지 않는다.
+    const deadline = Date.now() + 4_000;
+    for (;;) {
+      const session = core.session();
+      if (!session) return null;
+      const reply = await session.internal(
+        "read",
+        "notifications",
+        "display",
+        { notification },
+      );
+      if (reply.ok) return displayFromReply(reply.value);
+      const code = reply.error.code;
+      if (
+        (code !== "not_found" && code !== "unavailable") ||
+        Date.now() >= deadline
+      ) return null;
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
   },
   report: async (notification, reason) => {
     const session = core.session();

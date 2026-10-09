@@ -338,6 +338,16 @@ export function ThingsToConfirm(
                     ? t("things-to-confirm.label.unread")
                     : t("things-to-confirm.label.read")}
                 </span>
+                {notification.osFailure === undefined ? null : (
+                  <span
+                    className={styles.notificationMeta}
+                    data-os-failed={notification.osFailure}
+                  >
+                    {notification.osFailure === "unsupported"
+                      ? t("things-to-confirm.label.os-unsupported")
+                      : t("things-to-confirm.label.os-show-failed")}
+                  </span>
+                )}
                 {markFailed === notification.id
                   ? (
                     <span className={styles.problem} data-mark-failed="">

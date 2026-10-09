@@ -2561,6 +2561,8 @@ export type PlaceholderKinds = {
   "things-to-confirm.label.question-from": {
     role: "string";
   };
+  "things-to-confirm.label.os-show-failed": Record<never, never>;
+  "things-to-confirm.label.os-unsupported": Record<never, never>;
   "things-to-confirm.label.read": Record<never, never>;
   "things-to-confirm.label.recommended": Record<never, never>;
   "things-to-confirm.label.role": Record<never, never>;

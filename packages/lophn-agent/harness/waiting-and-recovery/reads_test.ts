@@ -9,7 +9,11 @@ import type {
   SqlParams,
   SqlRow,
 } from "../../../contracts/platform/mod.ts";
-import { type RunBodyViewEnvironment, runBodyViewRead } from "./reads.ts";
+import {
+  runBodyRead,
+  type RunBodyViewEnvironment,
+  runBodyViewRead,
+} from "./reads.ts";
 
 // ReadRunBodyView: 사람 화면이 저장된 본문을 지금의 redaction을 거쳐 읽는 길. ledger 표와 blob store는
 // 메모리로 두고 판정만 본다. 실제 core의 기동 조립은 core 쪽 시험이 맡는다.
@@ -126,4 +130,58 @@ Deno.test("lophn-agent/observability#R21: a value over the limit is cut on a cha
   assert(typeof shown === "string");
   assert(encoder.encode(shown).length <= RUN_BODY_VIEW_MAX_BYTES);
   assert(!shown.includes("�"));
+});
+
+Deno.test("lophn-agent/handoff#R5: the machine reads the handoff content a receiving run owns, and no one else does", async () => {
+  const content = {
+    what: "Tidy the glossary words.",
+    why: "the glossary needs one owner",
+    excludes: [],
+    expected_outputs: ["one context"],
+  };
+  const bytes = encoder.encode(JSON.stringify(content));
+  const hash = await sha256Hex(bytes);
+  const queries: string[] = [];
+  const read = runBodyRead({
+    snapshot<T>(
+      read: (
+        sql: { get(query: string, params: SqlParams): SqlRow | undefined },
+        asOfSeq: string,
+      ) => Result<T>,
+    ) {
+      return read({
+        get(query, params): SqlRow | undefined {
+          queries.push(query);
+          if (!query.includes("from blob_refs") || !params.includes(RUN)) {
+            return undefined;
+          }
+          return { run: RUN, hash, size_bytes: bytes.length };
+        },
+      }, "9");
+    },
+    bytes: (want, offset, length) =>
+      Promise.resolve(
+        want === hash
+          ? ok({
+            hash,
+            sizeBytes: bytes.length,
+            bytes: bytes.slice(offset, offset + length),
+          })
+          : err({ code: "not_found", message: "missing" }),
+      ),
+  });
+  const result = await read.handle(ctx("machine"), {
+    kind: "handoff_content",
+    id: RUN,
+  });
+  assert(result.ok);
+  assertEquals(result.value.run, RUN);
+  assertEquals(result.value.value, content);
+  assert(queries[0]!.includes("field = 'handoff_content'"));
+  const other = await read.handle(ctx("user"), {
+    kind: "handoff_content",
+    id: RUN,
+  });
+  assert(!other.ok);
+  assertEquals(other.error.code, "not_found");
 });

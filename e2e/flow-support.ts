@@ -132,6 +132,8 @@ export interface FlowOptions {
    * dialog를 띄우지 않고 launcher 등록 화면의 [폴더 추가]를 끝까지 구동한다.
    */
   pickFolder?: string;
+  /** shell·core·그 child에 더 줄 환경 변수(PATH·HOME·LOPHN_CLI 같은 fixture 자리). */
+  env?: Record<string, string>;
 }
 
 function quote(value: string): string {
@@ -160,6 +162,7 @@ export async function openFlowShell(
       ...(options.pickFolder === undefined
         ? {}
         : { LOPHN_SHELL_PICK_FOLDER: options.pickFolder }),
+      ...options.env,
     },
   });
   const evaluate = (expression: string) => shell.evaluate(expression);

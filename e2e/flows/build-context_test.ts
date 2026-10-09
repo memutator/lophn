@@ -1,7 +1,8 @@
 // flow build-context: 실제 headless shell·core·documents worker를 임시 LOPHN_HOME으로 연다.
 // 1은 아래 테스트가 contexts 화면과 Context Engineer 대화로 본다. 2는 그 다음 테스트가
 // 목차·검색·section·본문 범위와 blueprint 읽기 command 조회를 본다. 3은 그 다음 테스트가
-// 기준·참고·watch 제안과 사람 화면의 항목·읽기 가능 여부를 본다. 4는 이 파일에 없다.
+// 기준·참고·watch 제안과 사람 화면의 항목·읽기 가능 여부를 본다. 4는 마지막 테스트가
+// 정할 수 없는 경계만 묻고, 사람이 정한 목적·범위만 구성과 보고로 남기는지 본다.
 // 이 테스트는 기존 사람 command로 준비한 context에서 5의 화면·고정 section 읽기, 6~7의 실제 파일 관측·
 // watch·notification·전후 판 읽기, section 소실과 항목 제거·보관 갈래를 확인한다.
 // 8의 contexts revert 진입은 아직 없다(shell#T36). 미확인·단절·범위 갈래는 T27의 남은 E2E다.
@@ -2226,6 +2227,846 @@ Deno.test({
       assertEquals(
         (await documentTitled(flow, "migration")).latest_version,
         migration.latest_version,
+      );
+    } finally {
+      await flow?.close();
+      await provider.close();
+      if (flow !== undefined) await removeHome(flow.home);
+      await Deno.remove(folder, { recursive: true });
+    }
+  },
+});
+
+// 4: 기존 요청과 자료만으로 목적의 경계(색인을 넣을지)를 정할 수 없으면 그 결정만 묻는다.
+// 문서에 있는 사실은 다시 묻지 않고, 선택지의 고정 action은 없다. 자유 답과 그 글을 그대로 보낸
+// 메시지는 context·문서 이동이 아니다. 사람이 목적과 범위를 직접 말하면 Context Engineer가
+// 허용된 구성 변경(생성·항목 추가)과 설계 보고를 남긴다. 보고 쓰기에 질문을 다시 열지 않는다.
+const OPEN_ASK =
+  "자료를 함께 보고 싶다. 목적은 말의 변화만 볼지 색인까지 넣을지 아직 정하지 못했다. 문서에 적힌 사실은 다시 묻지 말고, 정할 수 없는 경계만 물어 달라.";
+const OPEN_MARKER = "아직 정하지 못했다";
+const FREE_TEXT = "색인을 기준으로 넣고 glossary 문서를 다른 자리로 옮겨 달라";
+const FREE_MARKER = "다른 자리로 옮겨 달라";
+const DIRECT_ASK =
+  "목적은 자료에서 쓰는 말의 변화만 확인하는 것이다. 범위는 glossary의 용어 section만 기준이다. 색인은 넣지 않는다. 이 구성과 설계 보고를 남겨 달라.";
+const DIRECT_MARKER = "이 구성과 설계 보고를 남겨 달라";
+const QUESTION_PROMPT = "이 목적의 경계에 색인을 넣을까요?";
+const QUESTION_REASON =
+  "요청과 읽은 자료만으로는 색인을 경계 안에 둘지 정할 수 없다. 용어 section 본문은 이미 확인한 사실이라 다시 묻지 않는다.";
+const EXCLUDE_KEY = "exclude";
+const INCLUDE_KEY = "include";
+const EXCLUDE_LABEL = "색인은 넣지 않는다";
+const INCLUDE_LABEL = "색인도 범위에 넣는다";
+const EXCLUDE_DESCRIPTION =
+  "목적은 말의 변화만 본다. 색인 section은 항목으로 넣지 않는다.";
+const INCLUDE_DESCRIPTION = "목적은 색인까지 함께 본다. 색인을 범위에 더한다.";
+const RECOMMEND_WHY = "요청이 말의 변화를 먼저 말했다.";
+const ASK_REPLY = "색인을 경계에 넣을지만 물어 두었다. 추천은 적용하지 않았다.";
+const HOLD_REPLY =
+  "자유 답은 구성 변경으로 해석하지 않는다. 목적과 범위를 직접 정해 주면 그때 남긴다.";
+const PURPOSE_DECIDED = "자료에서 쓰는 말의 변화만 확인하는 것이다.";
+const DECIDED_TITLE = "Reading terms";
+const DECIDED_REASON = "사람이 정한 범위의 기준";
+const BOUNDARY_INDEX = "색인은 넣지 않는다";
+const BOUNDARY_FREE = "자유 답은 구성 변경으로 쓰지 않는다";
+const BOUNDARY_MOVE = "문서 이동은 맡지 않는다";
+const RECORDED =
+  "사람이 정한 목적과 범위로 context를 바꾸고 설계 보고를 남겼다. 자유 답은 변경으로 쓰지 않았다.";
+const DECISION_REPORT = "경계 결정 보고";
+
+type DecisionPhase =
+  | "search"
+  | "list"
+  | "outline"
+  | "section"
+  | "ask-result"
+  | "asked"
+  | "freed"
+  | "reread"
+  | "create"
+  | "add"
+  | "save"
+  | "done";
+
+type DecisionFixture = Fixture & {
+  failure: () => string;
+  phase: () => DecisionPhase;
+  callsNamed: () => readonly string[];
+  context: () => string;
+  section: () => string;
+  saved: () => number;
+};
+
+function latestIntent(body: string): "open" | "free" | "decide" | "none" {
+  const marks = [
+    ["decide", body.lastIndexOf(DIRECT_MARKER)],
+    ["free", body.lastIndexOf(FREE_MARKER)],
+    ["open", body.lastIndexOf(OPEN_MARKER)],
+  ] as const;
+  let best: "open" | "free" | "decide" | "none" = "none";
+  let at = -1;
+  for (const [name, index] of marks) {
+    if (index > at) {
+      at = index;
+      best = name;
+    }
+  }
+  return best;
+}
+
+function createdRevision(content: Record<string, unknown>): string {
+  const context = content["context"];
+  const revision = context !== null && typeof context === "object"
+    ? (context as { revision?: unknown }).revision
+    : undefined;
+  assert(typeof revision === "string", JSON.stringify(content).slice(0, 500));
+  return revision;
+}
+
+/** 자료를 읽어 경계 하나만 묻고, 자유 답에는 쓰지 않으며, 직접 말한 목적·범위만 남긴다. */
+function startDecisionScript(): DecisionFixture {
+  const bodies: string[] = [];
+  const named: string[] = [];
+  const queue: FixedDoc[] = [];
+  const found = {
+    document: "",
+    version: "",
+    section: "",
+    context: "",
+    revision: "",
+    failure: "",
+    phase: "search" as DecisionPhase,
+    searches: 0,
+  };
+  const at = { save: -1 };
+  const search = (): SemanticReply => {
+    found.searches += 1;
+    named.push("document.search");
+    return toolCall(
+      `toolu_decide_search_${found.searches}`,
+      "document.search",
+      {
+        query: "용어",
+      },
+    );
+  };
+  const outlineNext = (): SemanticReply => {
+    const next = queue.shift();
+    assert(next !== undefined, "용어 section이 있는 문서가 없다");
+    found.document = next.document;
+    found.version = next.version;
+    found.phase = "outline";
+    named.push("document.outline");
+    return toolCall(
+      `toolu_decide_outline_${named.length}`,
+      "document.outline",
+      {
+        reference: {
+          document: next.document,
+          version: next.version,
+          section: null,
+        },
+      },
+    );
+  };
+  const readSection = (): SemanticReply => {
+    named.push("document.read_section");
+    return toolCall("toolu_decide_section", "document.read_section", {
+      reference: {
+        document: found.document,
+        version: found.version,
+        section: null,
+      },
+      section: found.section,
+    });
+  };
+  const ask = (): SemanticReply => {
+    const evidence = [{
+      document: found.document,
+      version: found.version,
+      section: found.section,
+    }];
+    named.push("question.submit");
+    found.phase = "ask-result";
+    return toolCall("toolu_decide_ask", "question.submit", {
+      prompt: QUESTION_PROMPT,
+      reason: QUESTION_REASON,
+      options: [
+        {
+          key: EXCLUDE_KEY,
+          label: EXCLUDE_LABEL,
+          description: EXCLUDE_DESCRIPTION,
+          evidence,
+          adoption: null,
+          action: null,
+        },
+        {
+          key: INCLUDE_KEY,
+          label: INCLUDE_LABEL,
+          description: INCLUDE_DESCRIPTION,
+          evidence,
+          adoption: null,
+          action: null,
+        },
+      ],
+      recommendation: {
+        option_key: EXCLUDE_KEY,
+        explanation: RECOMMEND_WHY,
+      },
+      expires_at: null,
+    });
+  };
+  const hold = (): SemanticReply => {
+    found.phase = "freed";
+    return said(HOLD_REPLY);
+  };
+  const server = Deno.serve(
+    { hostname: "127.0.0.1", port: 0, onListen: () => {} },
+    async (request) => {
+      const text = await request.text();
+      const path = new URL(request.url).pathname;
+      if (request.method !== "POST" || !path.endsWith("/messages")) {
+        return Response.json({ error: "unexpected" }, { status: 500 });
+      }
+      const index = bodies.length;
+      bodies.push(text);
+      let reply: SemanticReply;
+      try {
+        if (found.phase === "search" && index === 0) {
+          reply = search();
+        } else if (found.phase === "search") {
+          const content = toolContent(text);
+          const coverage = content["coverage"] as {
+            lagging?: boolean;
+            rebuilding?: boolean;
+          } | undefined;
+          const waiting = coverage?.lagging === true ||
+            coverage?.rebuilding === true;
+          const results = (content["results"] ?? []) as {
+            document?: string;
+            version?: string;
+            title?: string;
+            snippet?: string;
+          }[];
+          const hit = results.find((row) =>
+            `${row.title ?? ""} ${row.snippet ?? ""}`.includes("용어")
+          );
+          if (hit?.document !== undefined && hit.version !== undefined) {
+            queue.push({ document: hit.document, version: hit.version });
+            reply = outlineNext();
+          } else if (waiting && found.searches < 3) {
+            await delay(1000);
+            reply = search();
+          } else {
+            found.phase = "list";
+            named.push("document.list");
+            reply = toolCall("toolu_decide_list", "document.list", {});
+          }
+        } else if (found.phase === "list") {
+          for (const row of listedDocs(toolContent(text))) {
+            queue.push({ document: row.id, version: row.version });
+          }
+          assert(queue.length > 0, "문서 목록이 비었다");
+          reply = outlineNext();
+        } else if (found.phase === "outline") {
+          const entries = toolContent(text)["entries"] as {
+            key?: string;
+            title?: string;
+          }[];
+          const section = entries.find((row) => row.title === "용어")?.key;
+          if (typeof section !== "string") {
+            reply = outlineNext();
+          } else {
+            found.section = section;
+            found.phase = "section";
+            reply = readSection();
+          }
+        } else if (found.phase === "section") {
+          const content = toolContent(text);
+          const readText = String(content["text"] ?? "");
+          assert(
+            readText.includes(SECTION_BODY),
+            `읽은 section이 용어 본문이 아니다: ${readText.slice(0, 200)}`,
+          );
+          assertEquals(readText.includes(OTHER_BODY), false);
+          const version = content["version"];
+          assert(
+            typeof version === "string",
+            JSON.stringify(content).slice(0, 300),
+          );
+          found.version = version;
+          reply = ask();
+        } else if (found.phase === "ask-result") {
+          toolContent(text);
+          found.phase = "asked";
+          reply = said(ASK_REPLY);
+        } else if (found.phase === "asked" || found.phase === "freed") {
+          const intent = latestIntent(text);
+          if (intent === "free") {
+            reply = hold();
+          } else if (intent === "decide") {
+            found.phase = "reread";
+            reply = readSection();
+          } else {
+            throw new Error(`예상 밖 요청이다: ${intent}`);
+          }
+        } else if (found.phase === "reread") {
+          const content = toolContent(text);
+          assert(
+            String(content["text"] ?? "").includes(SECTION_BODY),
+            "다시 읽은 section이 용어 본문이 아니다",
+          );
+          const version = content["version"];
+          assert(
+            typeof version === "string",
+            JSON.stringify(content).slice(0, 300),
+          );
+          found.version = version;
+          found.phase = "create";
+          named.push("context.create");
+          reply = toolCall("toolu_decide_create", "context.create", {
+            title: DECIDED_TITLE,
+            purpose: PURPOSE_DECIDED,
+          });
+        } else if (found.phase === "create") {
+          const content = toolContent(text);
+          found.context = createdContext(content).id;
+          found.revision = createdRevision(content);
+          found.phase = "add";
+          named.push("context.add_item");
+          reply = toolCall("toolu_decide_add", "context.add_item", {
+            context: found.context,
+            base_revision: found.revision,
+            item: {
+              target: docTarget(found.document, found.section),
+              perspective: "basis",
+              reason: DECIDED_REASON,
+            },
+          });
+        } else if (found.phase === "add") {
+          const added = toolContent(text);
+          assertEquals(added["accepted"], true);
+          assertEquals(added["confirmed"], true);
+          found.phase = "save";
+          named.push("document.create");
+          reply = toolCall("toolu_decide_report", "document.create", {
+            title: DECISION_REPORT,
+            place: null,
+            name: null,
+            text: JSON.stringify({
+              reports: [
+                designReport(found.context, PURPOSE_DECIDED, [{
+                  target: docTarget(found.document, found.section),
+                  perspective: "basis",
+                  reason: DECIDED_REASON,
+                }], [BOUNDARY_INDEX, BOUNDARY_FREE, BOUNDARY_MOVE]),
+              ],
+            }),
+            media_type: "text/markdown",
+            evidence: {
+              relied_on: [{
+                document: found.document,
+                version: found.version,
+              }],
+              missing: [],
+            },
+          });
+        } else if (found.phase === "save") {
+          at.save = index;
+          const saved = toolContent(text);
+          assertEquals(saved["accepted"], true);
+          assertEquals(saved["version_confirmed"], true);
+          assertEquals(saved["file_reflection"], "not_applicable");
+          const evidence = saved["evidence"] as { all_read?: boolean };
+          assertEquals(evidence.all_read, true);
+          found.phase = "done";
+          reply = said(RECORDED);
+        } else {
+          return Response.json({ error: "exhausted" }, { status: 500 });
+        }
+      } catch (error) {
+        found.failure = `call ${index}: ${
+          error instanceof Error ? error.message : String(error)
+        }`;
+        return Response.json({ error: found.failure }, { status: 500 });
+      }
+      const built = buildReply("messages", reply);
+      return new Response(built.body ?? "", {
+        status: built.status,
+        headers: built.headers,
+      });
+    },
+  );
+  return {
+    url: `http://127.0.0.1:${server.addr.port}`,
+    calls: () => bodies.length,
+    body: (index) => bodies[index] ?? "",
+    close: () => server.shutdown(),
+    failure: () => found.failure,
+    phase: () => found.phase,
+    callsNamed: () => named,
+    context: () => found.context,
+    section: () => found.section,
+    saved: () => at.save,
+  };
+}
+
+async function untilDecision(
+  provider: DecisionFixture,
+  phase: DecisionPhase,
+  what: string,
+) {
+  const deadline = Date.now() + 180_000;
+  for (;;) {
+    assert(provider.failure() === "", provider.failure());
+    if (provider.phase() === phase) return;
+    assert(
+      Date.now() < deadline,
+      `${what}: phase ${provider.phase()} call ${provider.calls()} ${
+        provider.body(provider.calls() - 1).slice(-500)
+      }`,
+    );
+    await delay(250);
+  }
+}
+
+type AskedQuestion = {
+  id: string;
+  status: string;
+  answer: { kind?: string } | null;
+  applied: boolean;
+  options: {
+    key: string;
+    action: unknown;
+    evidence: { document: string; version: string; section: string | null }[];
+  }[];
+  recommendation: { option_key: string | null } | null;
+};
+
+function questionsOf(flow: FlowShell): Promise<AskedQuestion[]> {
+  return mustCall(flow, {
+    kind: "read",
+    resource: "questions",
+    method: "list",
+    body: {},
+  }).then((listed) => listed.questions as AskedQuestion[]);
+}
+
+function contextCount(flow: FlowShell): Promise<number> {
+  return mustCall(flow, {
+    kind: "read",
+    resource: "contexts",
+    method: "list",
+    body: {},
+  }).then((listed) => (listed.contexts as unknown[]).length);
+}
+
+function documentPlace(flow: FlowShell, document: string): Promise<unknown> {
+  return mustCall(flow, {
+    kind: "read",
+    resource: "documents",
+    method: "get",
+    body: { document },
+  }).then((read) => (read.document as { place: unknown }).place);
+}
+
+Deno.test({
+  name:
+    "lophn-agent/roles/context-engineer#R5 lophn-agent/roles/context-engineer#R10 documents/contexts#R5 lophn-agent/questions#R1 lophn-agent/questions#R15 flow build-context 4: 정할 수 없는 경계만 묻고 사람이 정한 목적·범위만 남기며 자유 답은 변경으로 쓰지 않는다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn(t) {
+    const folder = await Deno.realPath(await copyFixture("korean-search"));
+    const provider = startDecisionScript();
+    let flow: FlowShell | undefined;
+    try {
+      flow = await openFlowShell({ start: "lophn" });
+      const shell = flow;
+      await mustCall(shell, {
+        kind: "command",
+        resource: "providers",
+        method: "register",
+        body: commandBody({
+          id: PROVIDER,
+          name: "fixture",
+          definition: {
+            key: "anthropic",
+            display_name: "Anthropic",
+            protocols: ["anthropic-messages"],
+            auth_kinds: ["none"],
+            models_endpoint: null,
+            oauth: null,
+            revision: "2026-01-01",
+          },
+          endpoint: provider.url,
+          protocol: "anthropic-messages",
+        }),
+      });
+      const defaults = await mustCall(shell, {
+        kind: "read",
+        resource: "agent-model-defaults",
+        method: "read",
+        body: {},
+      });
+      const seq = (defaults.defaults as { settings_seq: string }).settings_seq;
+      await mustCall(shell, {
+        kind: "command",
+        resource: "agent-model-defaults",
+        method: "change",
+        body: commandBody(
+          {
+            judgment: {
+              provider: PROVIDER,
+              credentials: [],
+              model_name: MODEL,
+              reasoning_level: "provider_default",
+              options: {},
+            },
+            organizing: null,
+            settings_seq: seq,
+          },
+          { settings_seq: seq },
+        ),
+      });
+      await registerTrackedProject(shell, { folder });
+      await untilDocuments(shell, ["glossary", "migration"], "문서 관측 대기");
+      await untilSearch(
+        shell,
+        "용어",
+        (page) => page.results.length > 0,
+        "목차 반영 대기",
+      );
+      const glossary = await documentTitled(shell, "glossary");
+      const migration = await documentTitled(shell, "migration");
+      const placeBefore = await documentPlace(shell, glossary.id);
+      assertEquals(await contextCount(shell), 0);
+
+      await t.step(
+        "lophn-agent/questions#R1 lophn-agent/roles/context-engineer#R10: 자료로 정할 수 없는 경계만 근거와 함께 묻고 추천은 적용하지 않는다",
+        async () => {
+          await sendToEngineer(shell, OPEN_ASK);
+          await untilDecision(provider, "asked", "경계 질문");
+          await untilEngineerDone(shell, provider, "경계 질문이 끝나지 않았다");
+          const named = provider.callsNamed();
+          const askedAt = named.indexOf("question.submit");
+          assert(askedAt > 0, named.join(","));
+          assertEquals(named[0], "document.search");
+          assert(
+            named.slice(0, askedAt).every((name) =>
+              name === "document.search" || name === "document.list" ||
+              name === "document.outline" || name === "document.read_section"
+            ),
+            named.join(","),
+          );
+          assert(named.includes("document.outline"), named.join(","));
+          assert(named.includes("document.read_section"), named.join(","));
+          assertEquals(
+            named.filter((name) => name === "question.submit").length,
+            1,
+          );
+          assertEquals(named.includes("context.create"), false);
+          assertEquals(named.includes("document.create"), false);
+          const tools = offeredTools(provider.body(0));
+          assert(tools.includes("question.submit"), tools.join(","));
+          assert(tools.includes("context.create"), tools.join(","));
+          assert(tools.includes("context.add_item"), tools.join(","));
+          assert(tools.includes("document.create"), tools.join(","));
+          assertEquals(tools.includes("term.define"), false);
+          const shown = (await shell.text(EMBEDDED)) ?? "";
+          assertStringIncludes(shown, ASK_REPLY);
+          assertEquals(shown.includes(SECTION_BODY), false);
+          assertEquals(shown.includes("document.search"), false);
+          await shell.until(
+            `document.querySelector(${
+              JSON.stringify(`${EMBEDDED} [data-question-text='ready']`)
+            })?.textContent === ${JSON.stringify(QUESTION_PROMPT)}`,
+            "경계 질문이 칸에 서지 않았다",
+            120_000,
+          );
+          assertEquals(
+            await shell.text(`${EMBEDDED} [data-question-reason]`),
+            QUESTION_REASON,
+          );
+          assertEquals(
+            await shell.text(
+              `${EMBEDDED} [data-option='${EXCLUDE_KEY}'] [data-option-description]`,
+            ),
+            EXCLUDE_DESCRIPTION,
+          );
+          assertEquals(
+            await shell.text(
+              `${EMBEDDED} [data-option='${INCLUDE_KEY}'] [data-option-description]`,
+            ),
+            INCLUDE_DESCRIPTION,
+          );
+          assertEquals(await shell.count(`${EMBEDDED} [data-recommended]`), 1);
+          assertStringIncludes(
+            (await shell.text(`${EMBEDDED} [data-recommendation]`)) ?? "",
+            RECOMMEND_WHY,
+          );
+          const questions = await questionsOf(shell);
+          assertEquals(questions.length, 1);
+          const question = questions[0];
+          assert(question !== undefined);
+          assertEquals(question.status, "pending");
+          assertEquals(question.answer, null);
+          assertEquals(question.applied, false);
+          assertEquals(
+            question.options.map((option) => option.key),
+            [EXCLUDE_KEY, INCLUDE_KEY],
+          );
+          for (const option of question.options) {
+            assertEquals(option.action, null);
+            assertEquals(option.evidence, [{
+              document: glossary.id,
+              version: glossary.latest_version,
+              section: provider.section(),
+            }]);
+          }
+          assertEquals(question.recommendation?.option_key, EXCLUDE_KEY);
+          const text = await mustCall(shell, {
+            kind: "read",
+            resource: "questions",
+            method: "text",
+            body: { question: question.id },
+          });
+          assertEquals(text["prompt"], QUESTION_PROMPT);
+          assertEquals(text["reason"], QUESTION_REASON);
+          assertEquals(String(text["prompt"]).includes(SECTION_BODY), false);
+          assertEquals(text["answer_text"], null);
+          assertEquals(text["recommendation"], {
+            option_key: EXCLUDE_KEY,
+            explanation: RECOMMEND_WHY,
+          });
+          assertEquals(await contextCount(shell), 0);
+          assertEquals(await documentPlace(shell, glossary.id), placeBefore);
+          assertEquals(
+            (await documentTitled(shell, "glossary")).latest_version,
+            glossary.latest_version,
+          );
+          assertEquals(
+            (await documentTitled(shell, "migration")).latest_version,
+            migration.latest_version,
+          );
+        },
+      );
+
+      await t.step(
+        "lophn-agent/questions#R15 lophn-agent/roles/context-engineer#R10: 자유 답과 그 글의 메시지는 정확한 변경이 아니고 관련 구성은 보류다",
+        async () => {
+          const own = `${EMBEDDED} [data-own-answer]`;
+          const sendAnswer = `${EMBEDDED} [data-send-answer]`;
+          await shell.type(own, FREE_TEXT);
+          await shell.until(
+            `(() => { const button = document.querySelector(${
+              JSON.stringify(sendAnswer)
+            }); return button !== null && button.disabled === false; })()`,
+            "자유 답을 보낼 수 없다",
+          );
+          await shell.click(sendAnswer);
+          await shell.until(
+            `document.querySelector(${
+              JSON.stringify(`${EMBEDDED} [data-problem]`)
+            }) !== null || document.querySelector(${
+              JSON.stringify(`${EMBEDDED} [data-answer]`)
+            }) !== null`,
+            "자유 답이 접수도 거절도 되지 않았다",
+            30_000,
+          );
+          await sendToEngineer(shell, FREE_TEXT);
+          await untilDecision(provider, "freed", "자유 답 보류");
+          await shell.until(
+            `document.querySelector(${
+              JSON.stringify(EMBEDDED)
+            })?.innerText.includes(${JSON.stringify(HOLD_REPLY)})`,
+            "자유 답을 거절하는 말이 없다",
+            180_000,
+          );
+          const named = provider.callsNamed();
+          assertEquals(named.includes("context.create"), false);
+          assertEquals(named.includes("context.add_item"), false);
+          assertEquals(named.includes("document.create"), false);
+          assertEquals(
+            named.filter((name) => name === "question.submit").length,
+            1,
+          );
+          const questions = await questionsOf(shell);
+          assertEquals(questions.length, 1);
+          const question = questions[0];
+          assert(question !== undefined);
+          if (question.status === "answered") {
+            assertEquals(question.answer?.kind, "text");
+            assertEquals(question.applied, false);
+          } else {
+            assertEquals(question.status, "pending");
+            assertEquals(question.answer, null);
+          }
+          assertEquals(await contextCount(shell), 0);
+          assertEquals(await documentPlace(shell, glossary.id), placeBefore);
+          assertEquals(
+            (await documentTitled(shell, "glossary")).latest_version,
+            glossary.latest_version,
+          );
+          assertEquals(
+            (await documentTitled(shell, "migration")).latest_version,
+            migration.latest_version,
+          );
+        },
+      );
+
+      await t.step(
+        "lophn-agent/roles/context-engineer#R5 documents/contexts#R5 lophn-agent/questions#R15: 사람이 정한 목적·범위만 개별 구성 변경과 설계 보고로 남긴다",
+        async () => {
+          await sendToEngineer(shell, DIRECT_ASK);
+          await untilDecision(provider, "done", "구성 기록");
+          await shell.until(
+            `document.querySelector(${
+              JSON.stringify(EMBEDDED)
+            })?.innerText.includes(${JSON.stringify(RECORDED)})`,
+            "구성 기록이 대화에 없다",
+            180_000,
+          );
+          const named = provider.callsNamed();
+          assertEquals(
+            named.filter((name) => name === "context.create").length,
+            1,
+          );
+          assertEquals(
+            named.filter((name) => name === "context.add_item").length,
+            1,
+          );
+          assertEquals(
+            named.filter((name) => name === "document.create").length,
+            1,
+          );
+          assertEquals(
+            named.filter((name) => name === "question.submit").length,
+            1,
+          );
+          assertEquals(named.includes("term.define"), false);
+          const saved = toolContent(provider.body(provider.saved()));
+          assertEquals(saved["accepted"], true);
+          assertEquals(saved["file_reflection"], "not_applicable");
+          const evidence = saved["evidence"] as {
+            all_read: boolean;
+            read: { document: string; version: string }[];
+          };
+          assertEquals(evidence.all_read, true);
+          assertEquals(evidence.read, [{
+            document: glossary.id,
+            version: glossary.latest_version,
+          }]);
+          const approvals = await mustCall(shell, {
+            kind: "read",
+            resource: "approvals",
+            method: "list",
+            body: {},
+          });
+          assertEquals(approvals["requests"], []);
+          const questions = await questionsOf(shell);
+          assertEquals(questions.length, 1);
+          assertEquals(questions[0]?.applied, false);
+          const context = provider.context();
+          const section = provider.section();
+          const stored = await mustCall(shell, {
+            kind: "read",
+            resource: "contexts",
+            method: "get",
+            body: { context },
+          });
+          const record = stored.context as {
+            purpose: string;
+            items: {
+              perspective: string;
+              reason: string;
+              target: {
+                kind: string;
+                document: string;
+                section: string | null;
+              };
+            }[];
+          };
+          assertEquals(record.purpose, PURPOSE_DECIDED);
+          assertEquals(record.items.length, 1);
+          assertEquals(record.items[0]?.perspective, "basis");
+          assertEquals(record.items[0]?.reason, DECIDED_REASON);
+          assertEquals(record.items[0]?.target, {
+            kind: "document",
+            document: glossary.id,
+            section,
+          });
+          const reportDoc = await documentTitled(shell, DECISION_REPORT);
+          assertEquals(reportDoc.name, null);
+          const reportRead = await mustCall(shell, {
+            kind: "worker",
+            resource: "documents",
+            method: "read",
+            body: {
+              reference: {
+                document: reportDoc.id,
+                version: reportDoc.latest_version,
+                section: null,
+              },
+            },
+          });
+          const reports = (JSON.parse(String(reportRead["text"])) as {
+            reports: DesignReport[];
+          }).reports;
+          assertEquals(reports.length, 1);
+          const report = reports[0];
+          assert(report !== undefined);
+          assertEquals(report.context, context);
+          assertEquals(report.purpose, PURPOSE_DECIDED);
+          assertEquals(report.scope, [{
+            target: {
+              kind: "document",
+              document: glossary.id,
+              section,
+            },
+            perspective: "basis",
+            reason: DECIDED_REASON,
+          }]);
+          assertEquals(report.terms.confirmed, []);
+          assertEquals(report.terms.undecided, [UNDECIDED_TERM]);
+          assertEquals(report.terms.confirmed.includes(UNDECIDED_TERM), false);
+          assertEquals(report.boundaries, [
+            BOUNDARY_INDEX,
+            BOUNDARY_FREE,
+            BOUNDARY_MOVE,
+          ]);
+          await openFocusId(shell, context);
+          assertEquals(
+            await shell.text("[data-focus-purpose]"),
+            PURPOSE_DECIDED,
+          );
+          assertEquals(
+            await shell.count('[data-perspective="basis"] [data-item]'),
+            1,
+          );
+          assertEquals(
+            await shell.count('[data-perspective="reference"] [data-item]'),
+            0,
+          );
+          assertEquals(
+            await shell.count('[data-perspective="watch"] [data-item]'),
+            0,
+          );
+          await markRow(shell, "basis", section);
+          await shell.click("[data-flow-row] > button");
+          assertEquals(
+            await shell.text("[data-flow-row] [data-item-reason]"),
+            DECIDED_REASON,
+          );
+          assertEquals(await documentPlace(shell, glossary.id), placeBefore);
+          assertEquals(
+            (await documentTitled(shell, "glossary")).latest_version,
+            glossary.latest_version,
+          );
+          assertEquals(
+            (await documentTitled(shell, "migration")).latest_version,
+            migration.latest_version,
+          );
+        },
       );
     } finally {
       await flow?.close();

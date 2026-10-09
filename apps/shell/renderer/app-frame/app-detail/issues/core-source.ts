@@ -3,6 +3,7 @@
 // 읽는 field만 옮긴 것이다. 결정은 여기서 쓰지 않고 보호 창(owner decision)을 열기만 한다.
 import type { CoreCall } from "../../../../ipc/core.ts";
 import type { CoreSource } from "../../../desktop/connection/connection.ts";
+import { issueViewOf, type ProblemUserRead } from "./core-read.ts";
 import type {
   IssueChoice,
   IssueRow,
@@ -63,95 +64,28 @@ interface SummaryValue {
   next_action: string | null;
 }
 
-interface DetailValue {
-  progress: { state: IssueStatus; label: string };
-  owner: { label: string };
-  needed_action: string | null;
-  repair: { label: string; needs: string[]; last_check_failed: boolean };
-  result: {
-    fix_report: "none" | "reported";
-    fix_report_label: string;
-    tests: {
-      state: IssueView["result"]["tests"]["state"];
-      label: string;
-      items: {
-        state: IssueView["result"]["tests"]["items"][number]["state"];
-        label: string;
-        ended_at: string | null;
-      }[];
-    };
-  };
-  closed: {
-    reason: NonNullable<IssueView["closed"]>["reason"];
-    label: string;
-    attention: string;
-    expanded: {
-      scope: string;
-      unconfirmed: string[];
-      release: string | null;
-      evidence: { text: string; at: string | null }[];
-    };
-  } | null;
-}
+/** GetProblem 응답: 화면이 읽는 사용자용 field(`ProblemUserRead`)에 이 앱 ID가 더 붙는다. */
+type ProblemValue = Omit<ProblemUserRead, "detail"> & {
+  problem: ProblemUserRead["problem"] & { app: string };
+  detail?: ProblemUserRead["detail"];
+};
 
-interface ProblemValue {
-  problem: { id: string; app: string; status: IssueStatus };
-  detail?: DetailValue;
-  text: string | null;
-  report_count: number;
-  first_observed_at: string | null;
-  last_observed_at: string | null;
-}
-
-/** core 응답을 화면 모양으로 옮긴다. detail이 없으면 사람에게 보일 상세가 없다. */
+/**
+ * core 응답을 화면 모양으로 옮긴다. 옮기는 일은 `issueViewOf`(core-read.ts) 하나이고 여기서는 결정
+ * 선택지의 근거만 고친다: 고쳐졌음·현상이 안 보임은 그 문제가 마지막으로 본 release가 아니라 지금
+ * 쓰는 release를 기준으로 하므로(보호 창 main kind가 같은 기준으로 다시 읽는다) 활성 release로 정한다.
+ * detail이 없는 이전 응답이나 증상 문구가 없는 문제는 보일 상세가 없다.
+ */
 export function issueView(
   value: ProblemValue,
   activeRelease: string | null,
 ): IssueView | null {
-  const detail = value.detail;
-  if (detail === undefined) return null;
-  const closed = detail.closed;
+  if (value.detail === undefined) return null;
+  const view = issueViewOf({ ...value, detail: value.detail });
+  if (view === null) return null;
   return {
-    id: value.problem.id,
-    status: value.problem.status,
-    impact: value.text ?? detail.progress.label,
-    seen: value.report_count,
-    firstSeenAt: value.first_observed_at,
-    lastSeenAt: value.last_observed_at,
-    progress: detail.progress.label,
-    owner: detail.owner.label,
-    neededAction: detail.needed_action,
-    repair: {
-      label: detail.repair.label,
-      needs: detail.repair.needs,
-      lastCheckFailed: detail.repair.last_check_failed,
-    },
-    result: {
-      claimed: detail.result.fix_report === "reported",
-      claimLabel: detail.result.fix_report_label,
-      tests: {
-        state: detail.result.tests.state,
-        label: detail.result.tests.label,
-        items: detail.result.tests.items.map((item) => ({
-          label: item.label,
-          state: item.state,
-          endedAt: item.ended_at,
-        })),
-      },
-    },
-    closed: closed === null ? null : {
-      reason: closed.reason,
-      label: closed.label,
-      attention: closed.attention,
-      scope: closed.expanded.scope,
-      unconfirmed: closed.expanded.unconfirmed,
-      version: closed.expanded.release,
-      evidence: closed.expanded.evidence,
-    },
-    basis: {
-      versionKnown: activeRelease !== null,
-      observationKnown: value.report_count > 0,
-    },
+    ...view,
+    basis: { ...view.basis, versionKnown: activeRelease !== null },
   };
 }
 

@@ -521,7 +521,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 
 ### T23 report-app-problem flow E2E
 
-- 상태: 진행 (#447) — 12단계가 실제 headless shell·core·앱 감독·깨진 fixture 앱으로 통과한다(flow 1~6, 보호 창·lophn dialog·가려진 view, 취소, 제출 전후 닫기, screenshot 선택, 시작 전 실패, 직접 시도 실패, core 사라짐). 남은 것(구동하지 못해 가짜로 채우지 않았다): (1) R13 기존 문제를 고르는 제출과 [View issue]로 그 문제 상세에 가는 것 — dialog에 기존 문제를 고르는 자리가 없고(`existing_problem` 늘 null) desktop이 Issues 탭을 잇지 않아 `app-issue` intent가 앱 공간만 연다 → shell#T53, (2) R4 "시작 전 실패" 표시 — dialog가 `command_start`를 늘 "unknown"으로 보낸다(invocation이 생기지 않는 것까지만 확인) → shell#T52, (3) 응답 단절 뒤 최신 상태 확인과 같은 발생 재전송, 수집 꺼짐·실패 이유, 두 번째 창 — flow에서 이어 보낼 수 없거나 e2e/shell/report-problem_test가 본다. 앱 자식은 운영 앱의 실제 기동 entry가 아직 없어(apps#T27) bundle에 runtime entrypoint `main()` 진입 파일을 더해 다시 봉인했다
+- 상태: 진행 (#447, #492) — 12단계가 실제 headless shell·core·앱 감독·깨진 fixture 앱으로 통과한다(flow 1~6, 보호 창·lophn dialog·가려진 view, 취소, 제출 전후 닫기, screenshot 선택, 시작 전 실패, 직접 시도 실패, core 사라짐). #492: (1) R13 같은 앱의 기존 문제를 고르면 제출이 그 문제에 연결되고 [View issue]가 그 문제 상세를 연다. (2) R4 시작하지 못한 command는 `blocked_before_start`로 남고 invocation을 만들지 않는다. 남은 것: (3) 응답 단절 뒤 최신 상태 확인과 같은 발생 재전송, 수집 꺼짐·실패 이유, 두 번째 창 — flow에서 이어 보낼 수 없거나 e2e/shell/report-problem_test가 본다. 앱 자식은 운영 앱의 실제 기동 entry가 아직 없어(apps#T27) bundle에 runtime entrypoint `main()` 진입 파일을 더해 다시 봉인했다
 - 등급: 기본
 - concern: problems/feedback, problems/reporting, problems/snapshots, problems/grouping
 - 요구: problems/feedback#R5, R6, R11, R12, R13

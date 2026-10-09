@@ -1463,6 +1463,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T41 coding-agent slice E2E
 
+- 상태: 진행 (#478) — 남은 것: connect-coding-agent 연결 성공 갈래(core keychain 필요), start-coding-agent, manage-coding-access, manage-tickets, new-app flow, fake harness TUI 모드, 일곱 adapter 설치 fixture 시험
 - 등급: 기본
 - concern: coding-agent/connection, coding-agent/harnesses,
   coding-agent/sessions, coding-agent/tickets

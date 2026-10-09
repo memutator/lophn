@@ -18,6 +18,12 @@ import { createInstructionsApi } from "./instructions-api.ts";
 import { createFeedbackBegin, createOverlayFeedback } from "./feedback-api.ts";
 import { createLayoutApi } from "./layout-api.ts";
 import { createRestoreApi } from "./restore-api.ts";
+import {
+  UPDATE_NOTICE_CHANNEL,
+  UPDATE_READ_CHANNEL,
+  type UpdateNoticeReply,
+  type UpdateReadReply,
+} from "../ipc/update.ts";
 import { createShellApi } from "./shell-api.ts";
 import { createIntentApi, createShortcutApi } from "./shortcut-api.ts";
 import { createTerminalApi } from "./terminal-api.ts";
@@ -100,6 +106,34 @@ if (role === "shell") {
   contextBridge.exposeInMainWorld(
     "lophnRestore",
     createRestoreApi(ipcRenderer),
+  );
+  // settings update. 사람이 고른 로컬 metadata의 안내만 받고 다운로드·설치·재시작은 없다.
+  // 정상 정지는 이 단계에서 청하지 않는다. 확인하지 못한 정지는 실패다.
+  contextBridge.exposeInMainWorld(
+    "lophnUpdate",
+    Object.freeze({
+      async readPackage(path: string): Promise<UpdateReadReply> {
+        try {
+          return await ipcRenderer.invoke(UPDATE_READ_CHANNEL, {
+            path,
+          }) as UpdateReadReply;
+        } catch {
+          return { ok: false, code: "unavailable" };
+        }
+      },
+      async notice(candidate: unknown): Promise<UpdateNoticeReply> {
+        try {
+          return await ipcRenderer.invoke(UPDATE_NOTICE_CHANNEL, {
+            candidate,
+          }) as UpdateNoticeReply;
+        } catch {
+          return { ok: false, code: "unavailable" };
+        }
+      },
+      stop(): Promise<{ ok: false; code: "unavailable" }> {
+        return Promise.resolve({ ok: false, code: "unavailable" });
+      },
+    }),
   );
   // 작업대 layout(shell/workspace#R6). 탭과 정보 패널만 보내고 main이 다시 검사한다.
   contextBridge.exposeInMainWorld(

@@ -14,6 +14,7 @@ import {
   problemsTestDefinitions,
 } from "./problems.ts";
 import { ticketDefinitions } from "./tickets.ts";
+import { createCoreRegistration as createTicketPortsRegistration } from "./ticket-ports.ts";
 import { startCore } from "./core.ts";
 
 const START = Date.parse("2026-10-07T00:00:00.000Z");
@@ -387,6 +388,8 @@ async function bootWithCredentials(home: string) {
       { problemsTestDefinitions },
       { problemsReportDefinitions },
       { ticketDefinitions },
+      // 제품 main.ts와 같은 ticket port 등록(PROBLEM_STATUSES_PORT의 실제 구현)이다.
+      { createCoreRegistration: createTicketPortsRegistration },
     ],
     teamModules: [
       new URL("./documents.ts", import.meta.url).href,
@@ -394,6 +397,7 @@ async function bootWithCredentials(home: string) {
       new URL("./coding-agent.ts", import.meta.url).href,
       new URL("./problems.ts", import.meta.url).href,
       new URL("./tickets.ts", import.meta.url).href,
+      new URL("./ticket-ports.ts", import.meta.url).href,
     ],
     clock: manualClock(START),
     random: seededRandom(7),
@@ -401,6 +405,30 @@ async function bootWithCredentials(home: string) {
   });
   assert(started.ok, started.ok ? undefined : JSON.stringify(started.error));
   return started.value;
+}
+
+// 시험용 credential(testCredentials)을 발급한다. 사람 data root·keychain은 열지 않는다.
+function issuer(core: Awaited<ReturnType<typeof bootWithCredentials>>) {
+  let serial = 0;
+  return async (
+    actor: string,
+    principal: string,
+    operations: string[],
+  ): Promise<string> => {
+    const context = {
+      principal,
+      actor: actor as never,
+      scope: { operations, targets: {} },
+      conditions: {},
+      credential_ref: `t45-${++serial}`,
+    };
+    const token = `${serial}`.repeat(43).slice(0, 43);
+    assert(core.acceptTestCredential);
+    const accepted = await core.acceptTestCredential!(context, token);
+    assert(accepted.ok, accepted.ok ? "" : JSON.stringify(accepted.error));
+    assert((await core.record(context)).ok);
+    return token;
+  };
 }
 
 async function post(
@@ -620,26 +648,7 @@ Deno.test("coding-agent/tickets#R9 R20 R21: 실제 reproduction 행과 problems.
   const home = await Deno.makeTempDir({ prefix: "lophn-ticket-repair-" });
   const core = await bootWithCredentials(home);
   try {
-    let serial = 0;
-    const issue = async (
-      actor: string,
-      principal: string,
-      operations: string[],
-    ): Promise<string> => {
-      const context = {
-        principal,
-        actor: actor as never,
-        scope: { operations, targets: {} },
-        conditions: {},
-        credential_ref: `t45-${++serial}`,
-      };
-      const token = `${serial}`.repeat(43).slice(0, 43);
-      assert(core.acceptTestCredential);
-      const accepted = await core.acceptTestCredential!(context, token);
-      assert(accepted.ok, accepted.ok ? "" : JSON.stringify(accepted.error));
-      assert((await core.record(context)).ok);
-      return token;
-    };
+    const issue = issuer(core);
     const machine = await issue("machine", "machine-1", ["RecordReport"]);
     const user = await issue("user", "user-1", ["app.create"]);
     const created = await post(core.port, "apps/create", user, {
@@ -691,6 +700,70 @@ Deno.test("coding-agent/tickets#R9 R20 R21: 실제 reproduction 행과 problems.
     assertEquals(closure["release"], REPAIR.release);
     // confirmed까지 왔다는 것은 record_checks가 문제 대상(revision = 문제 최신 seq)을
     // invalid_input 없이 받았다는 뜻이다(T19 이어받음).
+  } finally {
+    await core.shutdown();
+    await Deno.remove(home, { recursive: true });
+  }
+});
+
+Deno.test("coding-agent/tickets#R3 R4: 제품 core의 PROBLEM_STATUSES_PORT로 실제 문제에 repair ticket을 만들고 없는 문제는 거절한다", async () => {
+  const home = await Deno.makeTempDir({ prefix: "lophn-ticket-repair-port-" });
+  const core = await bootWithCredentials(home);
+  try {
+    const issue = issuer(core);
+    const machine = await issue("machine", "machine-1", ["RecordReport"]);
+    const user = await issue("user", "user-1", ["app.create", "CreateTicket"]);
+    const created = await post(core.port, "apps/create", user, {
+      slug: "notes",
+      name: "Notes",
+      description: "notes app",
+    });
+    assertEquals(created.status, 200, JSON.stringify(created.body));
+    const app = String(created.body["id"]);
+    const recorded = await post(
+      core.port,
+      "problems/record-report",
+      machine,
+      repairReport(app, "machine-1"),
+      { active_release: null, problem_seq: null },
+    );
+    assertEquals(recorded.status, 200, JSON.stringify(recorded.body));
+    const problem = String(recorded.body["problem"]);
+    const repair = (problems: string[]) =>
+      post(core.port, "tickets/create", user, {
+        app,
+        kind: "repair",
+        title: "Fix crash",
+        what: "Stop the crash on save.",
+        why: "Users lose data.",
+        references: [],
+        adoption_questions: [],
+        conditions: [],
+        inspect: [],
+        preserve: [],
+        problems,
+        readiness: "needs_confirmation",
+        needs: ["Confirm the acceptance checks."],
+      });
+    // problems 표를 읽는 실제 port가 열린 문제로 답해 repair ticket이 만들어진다.
+    const made = await repair([problem]);
+    assertEquals(made.status, 200, JSON.stringify(made.body));
+    const stored = withDb(
+      home,
+      (db) =>
+        db.prepare("select kind, problems from tickets where id = ?").get(
+          String(made.body["ticket"]),
+        ) as { kind: string; problems: string },
+    );
+    assertEquals(stored.kind, "repair");
+    assertEquals(JSON.parse(stored.problems), [problem]);
+    // ledger에 없는 문제는 같은 port가 not_found로 막는다(fail-closed).
+    const missing = await repair(["prb_01arz3ndektsv4rrffq69g5fzz"]);
+    assert(missing.status !== 200, JSON.stringify(missing.body));
+    assert(
+      JSON.stringify(missing.body).includes("not_found"),
+      JSON.stringify(missing.body),
+    );
   } finally {
     await core.shutdown();
     await Deno.remove(home, { recursive: true });

@@ -1624,7 +1624,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T45 repair ticket 검사: reproduction·problems_closed·human_confirmation
 
-- 상태: 완료 (#476) — 보고 release에 대한 사람의 not_fixed 결정은 human_confirmation 실패로 정함. 제품 core의 PROBLEM_STATUSES_PORT 등록은 남음
+- 상태: 완료 (#476) — 보고 release에 대한 사람의 not_fixed 결정은 human_confirmation 실패로 정함. 제품 core의 PROBLEM_STATUSES_PORT(ticket-ports.ts)로 repair ticket을 만드는 core 시험을 더함
 - 등급: 기본
 - concern: coding-agent/tickets
 - 요구: coding-agent/tickets#R9, R20, R21

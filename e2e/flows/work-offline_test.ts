@@ -1549,7 +1549,7 @@ Deno.test({
       const openNamedApp = async (name: string) => {
         await goApps();
         const clicked = await shell().evaluate(`(() => {
-          const row = [...document.querySelectorAll("[data-app-row]")].find((item) => item.querySelector(".name")?.textContent === ${
+          const row = [...document.querySelectorAll("[data-app-row]")].find((item) => item.querySelector("span")?.textContent === ${
           JSON.stringify(name)
         });
           const button = row?.querySelector("[data-action=open]");
@@ -1563,19 +1563,26 @@ Deno.test({
           `${name} 앱 공간이 서지 않았다`,
         );
       };
-      const goProject = async () => {
+      const goProject = async (timeoutMs?: number) => {
         if (await spaceOf() === "project") return;
         if (await spaceOf() !== "launcher") await goLauncher();
-        await shell().click(
-          `[data-card="project"][data-project="${PROJECT}"] button:not([data-details-toggle])`,
+        // 런처 카드는 space가 launcher가 된 뒤 projects.list가 돌아와야 생긴다.
+        const card =
+          `[data-card="project"][data-project="${PROJECT}"] button:not([data-details-toggle])`;
+        await shell().until(
+          `document.querySelector(${JSON.stringify(card)}) !== null`,
+          "프로젝트 카드가 없다",
+          timeoutMs,
         );
+        await shell().click(card);
         await shell().until(
           `document.querySelector("[data-space]")?.getAttribute("data-space") === "project"`,
           "프로젝트 작업대가 서지 않았다",
+          timeoutMs,
         );
       };
       const openNote = async (bodyTimeout?: number) => {
-        await goProject();
+        await goProject(bodyTimeout);
         await shell().until(
           `document.querySelector('[data-document="${noteId}"]') !== null`,
           "sidebar에 노트가 없다",
@@ -1809,6 +1816,30 @@ Deno.test({
         }
         throw new Error("앱 bridge가 서지 않았다");
       };
+      const readLocalSettings = async (
+        page: Awaited<ReturnType<FlowShell["shell"]["connect"]>>,
+        ms: number,
+      ): Promise<string> => {
+        const deadline = Date.now() + ms;
+        let last = "";
+        while (Date.now() < deadline) {
+          try {
+            const value = await within(
+              Math.max(1, deadline - Date.now()),
+              page.evaluate(
+                `window.lophnApp.call("read_settings", null).then((body) => "ok:" + JSON.stringify(body), (error) => "failed:" + String(error && error.message || error))`,
+              ),
+              "read_settings",
+            );
+            last = typeof value === "string" ? value : JSON.stringify(value);
+            if (last.startsWith("ok:") && last.includes("{")) return last;
+          } catch (error) {
+            last = String(error);
+          }
+          await delay(200);
+        }
+        return last;
+      };
       const pidsOf = async (needle: string): Promise<number[]> => {
         const found: number[] = [];
         for (const pid of await descendantPids(shell().shell.pid)) {
@@ -1979,10 +2010,20 @@ Deno.test({
       const hangPage = await appPage(HANG_APP);
       await untilBridge(hangPage);
       const sent = await hangPage.evaluate(`(() => {
-        void window.lophnApp.call("mark_kind", { kind: "once", view_session: "view-1" });
-        return "sent";
+        const call = window.lophnApp.call("mark_kind", { kind: "once", view_session: "view-1" });
+        const pending = new Promise((resolve) => setTimeout(() => resolve("pending"), 5000));
+        return Promise.race([
+          Promise.resolve(call).then(
+            (value) => "ok:" + JSON.stringify(value),
+            (error) => "failed:" + String(error && error.message),
+          ),
+          pending,
+        ]);
       })()`);
-      assertEquals(sent, "sent");
+      assert(
+        sent === "pending" || String(sent).startsWith("ok:"),
+        `mark_kind가 시작되지 않았다: ${String(sent)}`,
+      );
       const marker = `${home}/apps/${HANG_APP}/data/hang-once`;
       const marked = Date.now() + 30_000;
       let marks: InvocationRow[] = [];
@@ -1998,7 +2039,11 @@ Deno.test({
         ) break;
         await delay(200);
       }
-      assertEquals(marks.length, 1, JSON.stringify(marks));
+      assertEquals(
+        marks.length,
+        1,
+        `${JSON.stringify(marks)} call=${String(sent)}`,
+      );
       assertEquals(marks[0]?.status, "running");
       assertEquals(await Deno.readTextFile(marker), "once\n");
       try {
@@ -2049,16 +2094,10 @@ Deno.test({
       );
       const brokenPage = await appPage(APP);
       await untilBridge(brokenPage);
-      const settings = await within(
-        5_000,
-        brokenPage.evaluate(
-          `window.lophnApp.call("read_settings", null).then((value) => JSON.stringify(value))`,
-        ),
-        "read_settings",
-      );
+      const settings = await readLocalSettings(brokenPage, 5_000);
       assert(
-        typeof settings === "string" && settings.includes("{"),
-        String(settings),
+        settings.startsWith("ok:") && settings.includes("{"),
+        settings,
       );
       const toggled = await within(
         5_000,
@@ -2175,10 +2214,23 @@ Deno.test({
         await delay(200);
       }
       assertEquals(await Deno.readTextFile(marker), "once\n");
-      const beforeKill = await markKinds();
-      assertEquals(beforeKill.length, 1);
-      assertEquals(beforeKill[0]?.status, "running");
-      assertEquals(beforeKill[0]?.summary.effects, undefined);
+      // 시작이 기록된 호출은 프로세스 종료를 supervisor가 unknown/process_exited로 남긴다.
+      // 그 기록이 core보다 늦으면 재시작 점검이 running을 core_restarted로 닫는다.
+      const exitSeen = Date.now() + 15_000;
+      let beforeKill = await markKinds();
+      while (Date.now() < exitSeen && beforeKill[0]?.status === "running") {
+        await delay(200);
+        beforeKill = await markKinds();
+      }
+      assertEquals(beforeKill.length, 1, JSON.stringify(beforeKill));
+      const exitReason = beforeKill[0]?.summary.reason;
+      if (beforeKill[0]?.status === "running") {
+        assertEquals(beforeKill[0]?.summary.effects, undefined);
+      } else {
+        assertEquals(beforeKill[0]?.status, "unknown");
+        assertEquals(exitReason, "process_exited");
+        assert(beforeKill[0]?.summary.effects !== "none");
+      }
 
       await openNote();
       const chipsBefore = Number(
@@ -2188,6 +2240,10 @@ Deno.test({
       );
       const corePid = (await pidsOf("apps/core/main.ts"))[0];
       assert(corePid !== undefined, "core pid를 찾지 못했다");
+      // core가 죽으면 worker는 init으로 옮겨 지고 ledger를 잡은 채 남는다. 다시 열기 전에 끝낸다.
+      const coreChildren = (await descendantPids(corePid)).filter((pid) =>
+        pid !== corePid
+      );
       signalPids([corePid], "SIGKILL");
       const coreGone = Date.now() + 30_000;
       while (processAlive(corePid)) {
@@ -2221,6 +2277,12 @@ Deno.test({
         chipsAfter <= chipsBefore,
         `알림이 늘었다: ${chipsBefore} -> ${chipsAfter}`,
       );
+      signalPids(coreChildren.filter((pid) => processAlive(pid)), "SIGKILL");
+      const childrenGone = Date.now() + 5_000;
+      while (coreChildren.some((pid) => processAlive(pid))) {
+        assert(Date.now() < childrenGone, "core 자손이 끝나지 않았다");
+        await delay(100);
+      }
 
       await closeFlow();
       flow = await openFlowShell({ home, start: `project:${PROJECT}` });
@@ -2232,8 +2294,12 @@ Deno.test({
         await delay(400);
       }
       assertEquals(unknown?.status, "unknown", JSON.stringify(unknown));
-      assertEquals(unknown?.summary.reason, "core_restarted");
-      assertEquals(unknown?.summary.observation, "result_not_observed");
+      if (exitReason === "process_exited") {
+        assertEquals(unknown?.summary.reason, "process_exited");
+      } else {
+        assertEquals(unknown?.summary.reason, "core_restarted");
+        assertEquals(unknown?.summary.observation, "result_not_observed");
+      }
       assert(unknown?.summary.effects !== "none");
       assertEquals(await Deno.readTextFile(marker), "once\n");
       await openNote();
@@ -2254,7 +2320,19 @@ Deno.test({
         `document.querySelector("[data-ops-panel]") !== null`,
         "앱 상세가 열리지 않았다",
       );
-      await shell().click('[role=tab][id$="trigger-activity"]');
+      // Radix 탭은 mousedown으로 고른다. element.click()만으로는 패널이 안 바뀐다.
+      await shell().until(
+        `document.querySelector('[role=tab][id$="trigger-activity"]') !== null`,
+        "활동 탭이 없다",
+      );
+      const picked = await shell().evaluate(`(() => {
+        const tab = document.querySelector('[role=tab][id$="trigger-activity"]');
+        if (!tab) return false;
+        tab.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0, buttons: 1 }));
+        tab.click();
+        return true;
+      })()`);
+      assertEquals(picked, true, "활동 탭이 없다");
       await shell().until(
         `document.querySelector("[data-activity-toggle]") !== null`,
         "활동 탭이 서지 않았다",
@@ -2281,8 +2359,10 @@ Deno.test({
       const checked = await markKinds();
       assertEquals(checked.length, 1);
       assertEquals(checked[0]?.status, "unknown");
-      assertEquals(checked[0]?.summary.reason, "core_restarted");
-      assertEquals(checked[0]?.summary.observation, "result_not_observed");
+      assertEquals(checked[0]?.summary.reason, unknown?.summary.reason);
+      if (unknown?.summary.reason === "core_restarted") {
+        assertEquals(checked[0]?.summary.observation, "result_not_observed");
+      }
       assertEquals(
         await shell().evaluate(
           `document.querySelector("[data-activity='unknown']")?.textContent?.includes("Result unknown") === true && document.querySelector("[data-activity='unknown']")?.textContent?.includes("Done") !== true`,
@@ -2295,14 +2375,11 @@ Deno.test({
       await untilReady(APP);
       const again = await appPage(APP);
       await untilBridge(again);
-      const local = await within(
-        30_000,
-        again.evaluate(
-          `window.lophnApp.call("read_settings", null).then((value) => JSON.stringify(value))`,
-        ),
-        "다시 연 로컬 앱",
+      const local = await readLocalSettings(again, 30_000);
+      assert(
+        local.startsWith("ok:") && local.includes("{"),
+        local,
       );
-      assert(typeof local === "string" && local.startsWith("{"), String(local));
     } finally {
       if (stopped !== undefined) signalPids([stopped], "SIGCONT");
       await closeFlow();

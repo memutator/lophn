@@ -6,6 +6,11 @@
 export const LAYOUT_SAVE_CHANNEL = "shell:layout-save";
 /** renderer가 main에 요청하는 마지막 공간 layout 복원. */
 export const LAYOUT_READ_CHANNEL = "shell:layout-read";
+/**
+ * renderer가 지금 창의 layout 힌트를 보낸다. window_ref는 main이 sender 창으로
+ * 정하고, 힌트는 현재 보기 relay publish의 입력일 뿐 파일에 남지 않는다.
+ */
+export const VIEW_HINT_CHANNEL = "shell:workspace-view";
 
 export type LayoutSaveResult =
   | { ok: true }

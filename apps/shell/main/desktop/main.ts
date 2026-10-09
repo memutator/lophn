@@ -51,6 +51,7 @@ import {
 import type { IpcEvent } from "./ipc-guard.ts";
 import { createViewVisibility } from "../app-frame/visibility.ts";
 import { VIEW_STATE_CHANNEL } from "../../ipc/app-frame.ts";
+import { VIEW_HINT_CHANNEL } from "../../ipc/workspace.ts";
 import { createAppCall } from "../app-frame/app-call.ts";
 import {
   createBlueprintSource,
@@ -71,6 +72,7 @@ import {
   removeFeedbackIpc,
 } from "../app-frame/feedback.ts";
 import { startCoreConnection } from "./core/connection.ts";
+import { createLiveView, type LiveView } from "../workspace/live-view.ts";
 import { resolveDenoBinary } from "./core/deno-binary.ts";
 import { createCoordinator } from "../confirmation/coordinator.ts";
 import { createKinds } from "../confirmation/kinds/mod.ts";
@@ -276,6 +278,9 @@ const osNotifications = createOsNotifications({
   log,
 });
 // 창을 다 닫아도 core는 남긴다. 명시 종료(tray·OS 종료)만 core를 멈춘다.
+// 현재 보기 publish는 appFrame 다음에 붙인다. beforeCall이 그 전에 이 자리를 닫아 둔다.
+// deno-lint-ignore prefer-const
+let liveView: LiveView | undefined;
 const core = startCoreConnection({
   launch: {
     // packaged는 설치 묶음의 platform/(source·lock·vendor)이고, 개발은 저장소 루트다.
@@ -302,6 +307,17 @@ const core = startCoreConnection({
   arrived: (events) => {
     void osNotifications.arrived(events);
     refreshAppViews(events);
+  },
+  beforeCall: async (event, call) => {
+    if (
+      liveView === undefined || call.kind !== "command" ||
+      call.resource !== "messages" || call.method !== "receive"
+    ) return;
+    const window = [...windows].find((one) =>
+      !one.isDestroyed() && one.webContents.id === event.sender.id
+    );
+    if (window === undefined) return;
+    await liveView.bindReceive(call.body, windowRef(window));
   },
 });
 
@@ -370,6 +386,32 @@ const appFrame = createAppFrame({
     }
   },
   closed: (view) => void relayViewClosed(view),
+});
+liveView = createLiveView({
+  session: () => {
+    const current = core.session();
+    if (!current) return null;
+    return {
+      call: (kind, resource, method, body) =>
+        current.internal(kind, resource, method, body),
+    };
+  },
+  isLive: (ref) =>
+    [...windows].some((window) =>
+      !window.isDestroyed() && windowRef(window) === ref
+    ),
+  views: (ref) => appFrame.views(ref),
+  now: () => new Date().toISOString(),
+});
+ipcMain.handle(VIEW_HINT_CHANNEL, (event, input: unknown) => {
+  const sender = (event as unknown as { sender: { id: number } }).sender;
+  const window = [...windows].find((one) =>
+    !one.isDestroyed() && one.webContents.id === sender.id
+  );
+  if (window === undefined || liveView === undefined) {
+    return Promise.resolve({ ok: false });
+  }
+  return liveView.hint(windowRef(window), input);
 });
 
 // native view 배치(shell#T39). renderer는 사각형만 보내고 붙이기·숨기기·폐기는 registry가 한다.
@@ -1483,6 +1525,7 @@ function openDesktopWindow(): BrowserWindow | undefined {
           viewVisibility.closeWindow(ref);
           feedback.closeWindow(ref);
           appFrame.closeWindow(ref);
+          void liveView?.unavailable(ref);
         });
         window.on("focus", () => {
           windows.delete(window);

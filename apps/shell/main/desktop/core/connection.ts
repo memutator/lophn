@@ -52,6 +52,14 @@ export interface ConnectionOptions {
   start?: (options: LaunchOptions) => CoreProcess;
   /** main이 직접 보는 지금 도착한 event(OS notification). renderer로 나가지 않는다. */
   arrived?: EventSink["arrived"];
+  /**
+   * allowlist 호출을 core로 보내기 전에 main이 붙인다. 실패해도 그 호출은
+   * 그대로 보낸다(현재 보기 bind가 사람 메시지를 막지 않는다).
+   */
+  beforeCall?: (
+    event: IpcEvent,
+    call: { kind: string; resource: string; method: string; body: unknown },
+  ) => Promise<void>;
 }
 
 export interface ConnectionState {
@@ -195,6 +203,13 @@ export function startCoreConnection(
         ok: false,
         error: { code: "unavailable", message: "core가 준비되지 않았다" },
       };
+    }
+    if (options.beforeCall) {
+      try {
+        await options.beforeCall(event as IpcEvent, parsed.data);
+      } catch {
+        // 보기 결합이 실패해도 사람 메시지는 보낸다.
+      }
     }
     return await session.call(
       parsed.data.kind,

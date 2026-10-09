@@ -21,6 +21,7 @@ import { createShellApi } from "./shell-api.ts";
 import { createIntentApi, createShortcutApi } from "./shortcut-api.ts";
 import { createTerminalApi } from "./terminal-api.ts";
 import { createViewsApi } from "./views-api.ts";
+import { createWorkspaceHintApi } from "./workspace-api.ts";
 
 const location =
   (globalThis as unknown as { location: { host: string } }).location;
@@ -103,6 +104,11 @@ if (role === "shell") {
   contextBridge.exposeInMainWorld(
     "lophnInstructions",
     createInstructionsApi(ipcRenderer),
+  );
+  // 작업대 현재 보기 힌트. 창 신원은 main이 IPC sender로 정한다.
+  contextBridge.exposeInMainWorld(
+    "lophnWorkspace",
+    createWorkspaceHintApi(ipcRenderer),
   );
 }
 

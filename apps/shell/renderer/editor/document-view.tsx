@@ -98,6 +98,10 @@ export interface DocumentViewProps extends EditorDeps {
   /** 바깥에서 넘기는 형식 검사 문제. 저장 흐름의 검사 결과와 함께 보인다. */
   problems?: readonly EditorProblem[];
   onMeta?: (meta: DocumentTabMeta) => void;
+  /** 이 탭이 보이는 판과 읽기·편집. 현재 보기 힌트만 쓰고 탭 제목에는 쓰지 않는다. */
+  onPresentation?: (
+    presentation: { editing: boolean; version: string },
+  ) => void;
   /** 문서 링크를 따라 다른 문서를 연다. */
   onOpenDocument?: (document: string) => void;
   /** 열린 버전 비교. null이면 문서를 읽거나 고친다. */
@@ -172,6 +176,7 @@ export function DocumentView(
     problems = [],
     files,
     onMeta,
+    onPresentation,
     onOpenDocument,
     versions,
     compare = null,
@@ -206,8 +211,8 @@ export function DocumentView(
   const titleRef = useRef<HTMLHeadingElement>(null);
   const articleRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<MarkdownEditorHandle>(null);
-  const latest = useRef({ onMeta });
-  latest.current = { onMeta };
+  const latest = useRef({ onMeta, onPresentation });
+  latest.current = { onMeta, onPresentation };
 
   useEffect(() => {
     let live = true;
@@ -438,6 +443,14 @@ export function DocumentView(
       }
     }
   };
+
+  useEffect(() => {
+    if (state.kind !== "ready") return;
+    latest.current.onPresentation?.({
+      editing,
+      version: state.info.version,
+    });
+  }, [editing, state]);
 
   useEffect(() => {
     if (editing) editorRef.current?.focus();

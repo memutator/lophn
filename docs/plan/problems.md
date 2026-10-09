@@ -570,6 +570,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 
 ### T26 snapshot 큰 자료 정리 뒤 부재 표시
 
+- 상태: 완료 (#485) — 이어보냄: reader Worker의 sync `getSnapshotRead`는 정리 부재를 얹지 않는다. 제품 HTTP GetSnapshot(`snapshotViewApiRead`)만 "정리됨"을 보인다.
 - 등급: 좁은
 - concern: problems/snapshots
 - 요구: problems/snapshots#R17

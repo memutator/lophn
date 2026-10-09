@@ -1,19 +1,20 @@
-// apps#T27 flow new-app E2E(docs/flows/new-app.md). 제품 core(temp LOPHN_HOME)와 실제 apps supervisor·
-// 준비 자식·test runner를 띄우고(Electron은 띄우지 않는다, app-export flow와 같다) coding agent가 MCP tool
-// `lophn_app`으로 가는 길을 실제 core client로 돌린다: 사람이 앱을 등록한다(4) → 앱 source에 템플릿으로 만든 git
-// repository를 연결한다(7) → coding agent가 bundle을 준비하고(8, `validate`) → 같은 bundle의 app test를 실제
-// runner로 돌려 Verification을 남기고(8) → 그 사실이 있어도 release는 아직 확정되지 않았음을 본다(9의 앞).
-// coding agent 자리는 lophn-mcp handler를 core client로 직접 부른다(`tools/fake-coding-agent`의 stdio 자식은
-// 쓰지 않는다: 연결 credential 발급은 coding-agent#T36이라 시험 credential을 core에 직접 넣는다).
+// apps#T27 flow new-app E2E(docs/flows/new-app.md) — 지금 제품이 실제로 가는 데까지만 본다.
+// 제품 core(temp LOPHN_HOME)와 실제 apps supervisor·준비 자식을 띄우고(Electron은 띄우지 않는다, app-export
+// flow와 같다) coding agent 자리가 MCP tool `lophn_app`으로 가는 길을 실제 core client로 돌린다:
+// 앱을 코드·source·release 없이 등록한다(4) → 템플릿으로 만든 git repository를 source로 연결한다(7) →
+// bundle을 준비해 고정 bundle hash를 받는다(8, `validate`) → 준비가 release를 확정하지 않음을 본다(active
+// release 없음). coding agent 자리는 lophn-mcp handler를 core client로 직접 부른다(`tools/fake-coding-agent`의
+// stdio 자식은 쓰지 않는다: 연결 credential 발급은 coding-agent#T36이라 시험 credential을 core에 직접 넣는다).
 // 사람 데이터 root(~/.lophn)는 열지 않는다. 띄운 core 트리는 temp home 이름으로만 정리한다.
 //
 // 통로가 없어 볼 수 없는 것(T27 상태 줄에 적었다. 새 결함으로 리드가 따로 맡긴다):
 // - release.prepare를 부르는 쪽(finalizer)이 제품 코드에 없다. prepare_bundle 완료·같은 bundle의 app test 통과
 //   뒤 machine이 봉인 사본에서 blueprint·manifest·data_changes·tests를 모아 `release.prepare`를 부르는 길이
-//   core·supervisor 어디에도 없어(apps#T19 이어보냄 (1)) new-app의 9 이후(preview 확인 → 적용 허락 → activation →
-//   acceptance check)는 이 flow로 끝까지 돌 수 없다. 그래서 이 flow는 "release가 아직 없다"까지만 단언한다.
-// - 템플릿 앱의 운영 진입 파일(`lophn-entry.ts`)을 release 준비가 만들지 않는다(apps#T18 이어보냄 (1)). 템플릿
-//   앱이 운영 자식으로 뜨는 흐름(entry·`@lophn/base` 해석·read 허락)은 이 때문에 본 적이 없다.
+//   core·supervisor 어디에도 없어(apps#T19 이어보냄 (1)) new-app의 9 이후(preview 확인 → 적용 허락 →
+//   activation → acceptance check)는 이 flow로 끝까지 돌 수 없다.
+// 이 flow가 아직 돌리지 않은 것(통로가 없는 것이 아니라 하지 않았다):
+// - 같은 bundle의 app test(RequestTest → Verification)와 preview. 둘 다 core 쪽 길은 있다.
+// - 템플릿 앱이 운영 자식으로 뜨는 흐름(entry·`@lophn/base` 해석·read 허락).
 // - ticket 없는 준비(`validate`)만 돈다. `release_prepare`는 ticket·claim이 필요하고 claim·보고는 coding-agent
 //   slice E2E가 돈다.
 import { assert, assertEquals } from "@std/assert";
@@ -23,7 +24,6 @@ import { createCoreClient } from "../../packages/coding-agent/connection/client/
 import { createHandler } from "../../packages/coding-agent/mcp-server/server.ts";
 import { resolveRoute } from "../../packages/coding-agent/mcp-server/registry.ts";
 import { createAppTool } from "../../packages/coding-agent/mcp-server/tools/app.ts";
-import { deriveAppTest } from "../../packages/problems/tests/mod.ts";
 import {
   installedHome,
   removeTree,
@@ -123,7 +123,7 @@ async function accept(
 
 Deno.test({
   name:
-    "apps/registration#R2 R3, apps/releases#R1 R5 R19, problems/tests#R1 R4 flow new-app: 새 앱을 등록해 템플릿 source로 bundle을 준비하고 같은 bundle의 app test를 실제로 돌려도 release는 확정되지 않는다",
+    "apps/registration#R2 R3, apps/releases#R1 R19 flow new-app(통로 있는 데까지): 새 앱을 등록해 템플릿 source로 bundle을 준비해도 release는 확정되지 않는다",
   ignore: !e2eEnabled(),
   fn: async () => {
     const installed = await installedHome();
@@ -243,7 +243,10 @@ Deno.test({
       assertEquals(done.data.status, "completed", JSON.stringify(done));
       const bundleHash = String(done.data.bundle_hash);
       assert(/^sha256:|^[0-9a-f]{64}$/.test(bundleHash), bundleHash);
-      console.log("DBG prepared", JSON.stringify(done.data));
+      // 준비는 release 확정이 아니다: 앱에는 아직 active release가 없다.
+      const shown = await agent({ op: "show", app });
+      assertEquals(shown.isError, false, shown.summary);
+      assertEquals(shown.data.active_release, null);
     } finally {
       await core.shutdown();
       await new Deno.Command("pkill", { args: ["-f", home] }).output().catch(
@@ -256,4 +259,3 @@ Deno.test({
     }
   },
 });
-void deriveAppTest;

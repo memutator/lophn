@@ -1656,6 +1656,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T46 사람 화면의 repair ticket 준비와 수리 요청
 
+- 상태: 완료 (#481)
 - 등급: 기본
 - concern: coding-agent/tickets
 - 요구: coding-agent/tickets#R24, R26

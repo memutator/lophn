@@ -126,6 +126,10 @@ import {
   waitSchemaSteps,
 } from "../../packages/lophn-agent/harness/waiting-and-recovery/mod.ts";
 import {
+  appDirectSocketPaths,
+  SOCKET_HOST,
+} from "../../packages/contracts/apps/mod.ts";
+import {
   DEFAULT_RUN_LIMITS,
   mcpAuthBegin,
   mcpAuthBeginInputSchema,
@@ -145,20 +149,30 @@ import type { HttpFetch } from "../../packages/lophn-agent/extensions/adapters/m
 export function agentRuntimeLaunchSpec(input: {
   dataRoot: string;
   apiPort: number;
+  // supervisor가 앱 direct socket을 두는 폴더(`appSocketRoot`). 자리 경로는 그 폴더와 같다.
+  socketRoot: string;
   // 등록된 MCP server 설정이다(contracts#T24 settings registry의 행). 없으면
   // `--allow-run`은 빈 목록이다(architecture §2.3).
   mcpServers?: readonly McpServerConfig[];
   // 사람이 등록한 provider의 목적지(`host:port`). 등록되면 core가 이 목록을 바꿔 재기동한다.
   hosts?: readonly string[];
 }): KindLaunchSpec {
+  // confirm proof의 direct call은 이 프로세스가 앱 socket으로 보낸다. Deno는 자리마다
+  // read·write·`unix:<경로>`와 가상 host를 요구하고 폴더 prefix는 받지 않는다.
+  const sockets = appDirectSocketPaths(input.socketRoot);
   return {
     kind: "lophn-agent/runtime",
     entry: new URL("../agent-runtime/main.ts", import.meta.url).pathname,
-    allow_read: [input.dataRoot],
-    // derived만 쓴다. ledger·blob·원본은 쓰지 않는다.
-    allow_write: [`${input.dataRoot}/derived/lophn-agent`],
-    // core loopback과 등록된 provider 목적지만. MCP host와 공개 models.dev는 등록될 때 더한다.
-    allow_net: [`127.0.0.1:${input.apiPort}`, ...(input.hosts ?? [])],
+    allow_read: [input.dataRoot, ...sockets],
+    // derived만 쓴다. ledger·blob·원본은 쓰지 않는다. socket 쓰기는 연결에 필요한 허락이다.
+    allow_write: [`${input.dataRoot}/derived/lophn-agent`, ...sockets],
+    // core loopback, 앱 direct socket, 등록된 provider 목적지. MCP host와 공개 models.dev는 등록될 때 더한다.
+    allow_net: [
+      `127.0.0.1:${input.apiPort}`,
+      SOCKET_HOST,
+      ...sockets.map((path) => `unix:${path}`),
+      ...(input.hosts ?? []),
+    ],
     // 사람이 enabled로 등록한 MCP stdio executable만이다(architecture §2.3).
     allow_run: allowRunList(input.mcpServers ?? []),
     allow_sys: [],

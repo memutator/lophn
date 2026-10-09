@@ -2411,6 +2411,7 @@ async function open(
       epoch,
       dataRoot: root.path,
       apiPort: server.port,
+      socketRoot: appSocketRoot(appsRuntimeDir),
       gauge: blobBuffer,
       prepareBlob: (call) =>
         blobRelay ? blobRelay.prepare(call) : Promise.resolve(err({

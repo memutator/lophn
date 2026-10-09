@@ -42,6 +42,7 @@ import {
   waitRun,
 } from "../../../contracts/lophn-agent/mod.ts";
 import {
+  appAgentConfirmProof,
   appBlueprint,
   grantsList,
   invocationsList,
@@ -106,6 +107,8 @@ export const RUNTIME_MACHINE_ROUTES = [
   appBlueprint,
   grantsList,
   invocationsList,
+  // 이미 접수된 agent confirm의 서명 proof. 적용은 apply_approved_action이고 서명은 core가 한다.
+  appAgentConfirmProof,
 ] as const;
 
 // machine credential이 가져야 하는 operation 이름이다. 사람이 고른 선택지의 고정 action을 적용하는

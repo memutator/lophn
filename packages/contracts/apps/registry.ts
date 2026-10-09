@@ -32,6 +32,7 @@ import {
   appUnavailable,
 } from "./runtime.ts";
 import {
+  appAgentConfirmProof,
   INVOCATION_ROUTES,
   invocationAccepted,
   invocationDenied,
@@ -56,6 +57,7 @@ import {
 export const ROUTES = [
   appConnect,
   appViewClosed,
+  appAgentConfirmProof,
   appCreate,
   appConnectSource,
   appArchive,

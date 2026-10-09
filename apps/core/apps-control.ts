@@ -11,6 +11,7 @@ import {
   type Result,
 } from "../../packages/base/mod.ts";
 import {
+  appAgentConfirmProof,
   appAutomations,
   appBlueprint,
   appConnect,
@@ -29,6 +30,7 @@ import {
   type Grant,
   grantsList,
   invocationAcceptConfirm,
+  type InvocationAcceptConfirmInput,
   packagesGuideBody,
   previewsGet,
   previewsStart,
@@ -69,6 +71,7 @@ import {
   createTargetAuthorizer,
   openConnection,
 } from "../../packages/platform/ledger/mod.ts";
+import { existingAcceptance } from "../../packages/apps/invocations/confirm.ts";
 import { loadApp } from "../../packages/apps/registration/mod.ts";
 import type { Writer } from "../../packages/platform/ledger/mod.ts";
 import {
@@ -888,6 +891,35 @@ export async function createAppsControl(
 
   // 사람의 shell이 닫은 화면 view를 그 앱의 지금 live 자식에 중계한다. 앱 프로세스 nonce는
   // supervisor가 지금 쥔 자식에서 정하고 본문에서 받지 않는다. 범위 밖 앱은 없는 앱과 같다.
+  // agent caller의 confirm proof. apply_approved_action이 만든 접수를 core key로 서명해 돌려준다.
+  // 새 접수와 approval 사용은 여기 없다. 앱·direct caller는 이 길로 받지 않는다.
+  const agentConfirmProof: MemoryHandler = async (_ctx, value) => {
+    const input = value as InvocationAcceptConfirmInput;
+    if (input.caller.kind !== "agent") {
+      return err({
+        code: "forbidden",
+        message: "confirm caller is not an agent",
+      });
+    }
+    const opened = openConnection(deps.ledgerPath);
+    if (!opened.ok) {
+      return err({ code: "unavailable", message: "ledger is unavailable" });
+    }
+    try {
+      const found = existingAcceptance(opened.value.sql, input);
+      if (!found.ok) return found;
+      if (found.value === undefined) {
+        return err({ code: "not_found", message: "acceptance not found" });
+      }
+      const proof = await signer.signConfirmProof(found.value.proof);
+      return ok({ invocation: found.value.invocation, proof });
+    } catch {
+      return err({ code: "unavailable", message: "ledger is unavailable" });
+    } finally {
+      opened.value.close();
+    }
+  };
+
   const viewClosed: MemoryHandler = async (ctx, value) => {
     const input = value as AppViewClosedInput;
     if (!deps.revalidate(ctx.credential_ref).ok) {
@@ -924,6 +956,10 @@ export async function createAppsControl(
     memory: new Map<string, MemoryHandler>([
       [`${appConnect.resource}/${appConnect.method}`, connect],
       [`${appViewClosed.resource}/${appViewClosed.method}`, viewClosed],
+      [
+        `${appAgentConfirmProof.resource}/${appAgentConfirmProof.method}`,
+        agentConfirmProof,
+      ],
       [`${appPairPrepare.resource}/${appPairPrepare.method}`, pairPrepare],
       [
         `${appPairConfirmRequest.resource}/${appPairConfirmRequest.method}`,

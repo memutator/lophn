@@ -172,6 +172,8 @@ export type AgentRuntimeDeps = {
   known(): KnownSecretMatch | undefined;
   // provider API key의 전송 부착(`secret_send_request`). child가 청하면 값을 한 번 건넨다.
   secrets: AgentRuntimeSecrets;
+  // 앱 direct socket 폴더. supervisor의 `appSocketRoot`와 같은 값이다.
+  socketRoot: string;
   // 목적지 점검 주기. 시험이 줄인다.
   pollMs?: number;
 };
@@ -279,6 +281,7 @@ export async function startAgentRuntimeChild(
     agentRuntimeLaunchSpec({
       dataRoot: deps.dataRoot,
       apiPort: deps.apiPort,
+      socketRoot: deps.socketRoot,
       hosts: list,
     });
   const initial = await deps.readProviders(HOSTS_READER);

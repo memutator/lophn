@@ -546,6 +546,61 @@ Deno.test("documents/file-tracking#R15 shell/editor#R2: 파일은 저장됐지�
   rendered.unmount();
 });
 
+Deno.test("shell/editor#R12 documents/file-tracking#R10 documents/file-tracking#R15: 연결이 끊겨 확인하지 못한 복원은 확인된 저장이나 판 확정 실패와 다른 notice다", async () => {
+  const offline = {
+    outcome: "failed" as const,
+    version: null,
+    file: "written" as const,
+    failure: "offline",
+  };
+  assertEquals(
+    restoreNotice({ kind: "failed", code: "offline" }),
+    "disconnected",
+  );
+  assertEquals(
+    restoreNotice({ kind: "report", report: offline }),
+    "disconnected",
+  );
+  assertEquals(
+    restoreNotice({
+      kind: "report",
+      report: {
+        outcome: "pending",
+        version: null,
+        file: "written",
+        failure: "unavailable",
+      },
+    }),
+    "version-failed",
+  );
+  const before = ["a", "b"];
+  const { after, diff } = changed(before, 2, "B");
+  const { source } = sourceOf({ before, after, diff });
+  const { rendered } = view(source, {
+    onRestore: () => Promise.resolve({ kind: "report", report: offline }),
+  });
+  await flush();
+  const container = rendered.container;
+  click(one(container, "[data-compare-restore]"));
+  await flush();
+  click(one(container, "[data-restore-confirm-button]"));
+  await flush();
+  const notice = one(container, "[data-restore-notice]");
+  assertEquals(notice.dataset.restoreNotice, "disconnected");
+  const text = notice.textContent ?? "";
+  assert(text.includes("Not connected"));
+  assertEquals(text.includes("newest version"), false);
+  assertEquals(text.includes("wasn't kept"), false);
+  assertEquals(text.includes("The file was restored"), false);
+  assertEquals(text.includes("Couldn't restore"), false);
+  assertEquals(container.querySelector("[data-restore-notice='saved']"), null);
+  assertEquals(
+    container.querySelector("[data-restore-notice='version-failed']"),
+    null,
+  );
+  rendered.unmount();
+});
+
 Deno.test("shell/editor#R13: 비교를 읽지 못하면 다시 시도를 두고, 판을 바꾸면 같은 문서의 다른 두 판을 연다", async () => {
   const before = ["a"];
   const { after, diff } = changed(before, 1, "b");

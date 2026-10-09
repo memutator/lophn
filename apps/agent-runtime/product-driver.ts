@@ -19,6 +19,7 @@ import { PRODUCT_INSTRUCTIONS, rolePrompt } from "./role-prompts.ts";
 import type { RunDriver } from "./run-driver.ts";
 import type { DriveDeps } from "./run-driver.ts";
 import { createAppToolkit } from "./app-toolkit.ts";
+import { registeredSkillEntries } from "./skill-folders.ts";
 import { createBuiltinToolkit } from "./toolkit.ts";
 
 // 제품 runtime의 tool 묶음이다. 내장 tool의 정의·handler·소유 계약 연결(쓰기는 입력에서 정확한 대상을
@@ -39,9 +40,9 @@ export function productToolkit(options: {
 }
 
 // 제품 runtime의 driver 재료(lophn-agent/harness/run-loop). core 연결을 받아 run 시작 재료, 복구 재료,
-// 기본 harness 묶음(내장 tool, 역할 prompt, model 선택 검증)을 만든다. 아래는 소유 작업이 채울 자리라
-// 비어 있다: 쓰기·external tool의 결과 조회(`lookups`),
-// skill·material source, 사람 지침 파일 읽기(`InstructionFiles`).
+// 기본 harness 묶음(내장 tool, 역할 prompt, model 선택 검증, 등록 skill 폴더)을 만든다. 아래는 소유
+// 작업이 채울 자리라 비어 있다: 쓰기·external tool의 결과 조회(`lookups`), 사람 지침 파일 읽기
+// (`InstructionFiles`).
 export function productDriver(options: { fetch?: typeof fetch } = {}) {
   return (
     calls: CoreCalls,
@@ -99,6 +100,8 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
         redact: calls.redact,
       },
       redact: calls.redact,
+      // 등록한 skill 폴더만 검사한다(extensions R1). 설정이 없으면 빈 목록이다.
+      skills: () => registeredSkillEntries(calls.machine),
     });
   };
 }

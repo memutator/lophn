@@ -224,6 +224,16 @@ Deno.test("problems/feedback#R11, shell/wording#R8: 접수 실패는 완료 표�
   await dialog.done();
 });
 
+Deno.test("shell#T53: Issues에서 고른 문제로 연 보고는 기존 문제에 덧붙는다고 말한다", async () => {
+  const fake = fakeApi();
+  const view = mount(fake.api);
+  await fake.preview({ existing_issue: true });
+  assertEquals(
+    view.find("[data-feedback=existing-issue]").textContent,
+    t("report-problem.notice.existing-issue"),
+  );
+});
+
 Deno.test("problems/feedback#R12, R13: 기존 문제 선택 여부를 보이고 취소는 저장하지 않으며 접수 뒤 묶인 Issue로 간다", async () => {
   const cancelled = fakeApi();
   const first = mount(cancelled.api);

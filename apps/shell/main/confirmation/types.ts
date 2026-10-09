@@ -21,6 +21,10 @@ export type ConfirmationIntent =
     targets?: string[];
     automation?: string;
     requirement?: number;
+    /** 문제 결정에서 고른 결정. */
+    choice?: "fixed" | "not_fixed" | "not_visible" | "dismiss";
+    /** dismiss의 한 줄 이유. */
+    note?: string;
   }
   | {
     kind: "secret_input";

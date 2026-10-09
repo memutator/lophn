@@ -51,6 +51,10 @@ import {
   windowRevokeOpener,
 } from "./lophn-space/settings/connections/core-source.ts";
 import { coreTasksSource } from "../app-frame/app-detail/tasks/core-source.ts";
+import {
+  coreIssuesSource,
+  windowIssueDecision,
+} from "../app-frame/app-detail/issues/core-source.ts";
 import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
 import type { LophnAppWindowsApi } from "../../ipc/app-window.ts";
 import type { LophnShellFeedbackBegin } from "../../ipc/feedback.ts";
@@ -81,6 +85,7 @@ const coding = coreCodingConnectionsSource(core, {
   openWindow: windowRevokeOpener(),
 });
 const tasks = coreTasksSource(core, { coding: codingApi });
+const issues = coreIssuesSource(core, windowIssueDecision());
 // 런처의 프로젝트 카드·등록과 작업대(추적 켜기 포함)는 제품 core 통로로 읽고 쓴다.
 const projects = coreLauncherSource(core, windowFolderPicker());
 const workspace = seed?.source ?? coreWorkspaceSource(core);
@@ -204,6 +209,7 @@ mount(
             settingsPanels={settingsPanels}
             coding={coding}
             tasks={tasks}
+            issues={issues}
             appDetail={appDetail}
             views={views}
             appWindows={bridges.lophnAppWindows}

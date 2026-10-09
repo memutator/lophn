@@ -1657,6 +1657,7 @@ export type PlaceholderKinds = {
   "report-problem.label.what-happened": Record<never, never>;
   "report-problem.notice.capturing": Record<never, never>;
   "report-problem.notice.copy-text": Record<never, never>;
+  "report-problem.notice.existing-issue": Record<never, never>;
   "report-problem.notice.new-issue": Record<never, never>;
   "report-problem.notice.open-failed": Record<never, never>;
   "report-problem.notice.screen-not-sent": Record<never, never>;

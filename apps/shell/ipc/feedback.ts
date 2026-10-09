@@ -42,7 +42,10 @@ export const feedbackTextSchema = z.string().regex(/\S/).refine((text) => {
     });
 });
 
-export const feedbackBeginSchema = z.strictObject({ view_session: ref });
+export const feedbackBeginSchema = z.strictObject({
+  view_session: ref,
+  problem: z.string().regex(/^prb_[0-7][0-9a-hjkmnp-tv-z]{25}$/).optional(),
+});
 
 export const feedbackSubmitSchema = z.strictObject({
   draftRef: ref,
@@ -81,6 +84,7 @@ export const feedbackPreviewSchema = z.strictObject({
     name: z.string().regex(/\S/),
     path: z.string().nullable(),
   }).nullable().optional(),
+  existing_issue: z.boolean().optional(),
 }).refine((value) =>
   (value.screen === null) !== (value.screen_missing_reason === null)
 ).refine((value) =>
@@ -112,7 +116,11 @@ export interface FeedbackAccepted {
 
 /** desktop renderer의 버튼 쪽. view_session만 보내고 신원은 main이 정한다. */
 export interface LophnShellFeedbackBegin {
-  beginFeedback(view_session: string): Promise<{ draftRef: string }>;
+  /** problem이 있으면 그 기존 문제에 덧붙이는 보고로 연다(Issues의 "직접 해 봤지만 안 됩니다"). */
+  beginFeedback(
+    view_session: string,
+    problem?: string,
+  ): Promise<{ draftRef: string }>;
 }
 
 /** overlay의 dialog 쪽. 실패는 code 하나를 message로 싣은 Error로 거절한다. */

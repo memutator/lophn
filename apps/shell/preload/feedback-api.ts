@@ -47,9 +47,10 @@ export function createFeedbackBegin(
 ): LophnShellFeedbackBegin {
   return Object.freeze(
     {
-      beginFeedback: (view_session) =>
+      beginFeedback: (view_session, problem) =>
         call<{ draftRef: string }>(transport, FEEDBACK_BEGIN_CHANNEL, {
           view_session,
+          ...(problem === undefined ? {} : { problem }),
         }),
     } satisfies LophnShellFeedbackBegin,
   );

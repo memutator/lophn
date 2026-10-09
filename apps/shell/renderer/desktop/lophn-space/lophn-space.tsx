@@ -39,7 +39,10 @@ import { AppsScreen } from "./apps/apps-screen.tsx";
 import type { AppsSource } from "./apps/source.ts";
 import { RolesScreen } from "./roles/roles-screen.tsx";
 import type { RolesSource } from "./roles/source.ts";
-import { SettingsScreen } from "./settings/settings-screen.tsx";
+import {
+  type SettingsPanels,
+  SettingsScreen,
+} from "./settings/settings-screen.tsx";
 import type { SettingsSource } from "./settings/source.ts";
 import type { CodingConnectionsSource } from "./settings/connections/source.ts";
 import styles from "./lophn-space.module.css";
@@ -87,6 +90,8 @@ export interface LophnSpaceProps {
   coding?: CodingConnectionsSource;
   /** `lophn://things-to-confirm/<cac id>` 링크로 온 연결. settings가 그 연결을 먼저 보인다. */
   initialConnection?: string;
+  /** settings의 backup·update·진단·notification 탭 통로. 없는 탭은 두지 않는다. */
+  settingsPanels?: SettingsPanels;
 }
 
 const EMPTY_CATALOG: Catalog = { projects: [], apps: [], contexts: [] };
@@ -116,6 +121,7 @@ export function LophnSpace(
     onInstructions,
     coding,
     initialConnection,
+    settingsPanels,
   }: LophnSpaceProps,
 ) {
   const [current, setCurrent] = useState<LophnScreen>(screen ?? DEFAULT_SCREEN);
@@ -322,6 +328,7 @@ export function LophnSpace(
             : current === "settings" && settings
             ? (
               <SettingsScreen
+                {...settingsPanels}
                 source={settings}
                 coding={coding}
                 initialConnection={initialConnection}

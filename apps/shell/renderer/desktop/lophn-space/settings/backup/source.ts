@@ -57,6 +57,11 @@ export interface BackupSource {
     createdAt: string,
     plan: RestorePlanView,
   ): Promise<SourceResult<RestoreOutcome>>;
+  /**
+   * 확인 자리를 닫았다(취소·화면 이동). main이 그 묶음의 계획을 버려 확인 없이 제출되지
+   * 않는다. 없는 source는 버릴 계획도 없다.
+   */
+  restoreCancel?(createdAt: string): Promise<void>;
   /** secret 값의 암호 보호 export를 시작한다. 값은 보호 창만 받는다. */
   exportSecrets(): Promise<SourceResult<null>>;
   /** secret 값의 암호 보호 import를 시작한다. 값은 보호 창만 받는다. */

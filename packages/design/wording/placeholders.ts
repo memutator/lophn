@@ -3,6 +3,7 @@ import type { MessageKey } from "./en.ts";
 
 export type PlaceholderKinds = {
   "app-detail.button.change-access": Record<never, never>;
+  "app-detail.button.check-result": Record<never, never>;
   "app-detail.button.close-preview": Record<never, never>;
   "app-detail.button.hide-activity": Record<never, never>;
   "app-detail.button.hide-changes": Record<never, never>;
@@ -940,6 +941,7 @@ export type PlaceholderKinds = {
     message: "string";
   };
   "conversation.button.check-delivery": Record<never, never>;
+  "conversation.button.check-result": Record<never, never>;
   "conversation.button.close": Record<never, never>;
   "conversation.button.jump-latest": Record<never, never>;
   "conversation.button.mode-correction": Record<never, never>;
@@ -1016,6 +1018,18 @@ export type PlaceholderKinds = {
   "conversation.label.visual-untitled": Record<never, never>;
   "conversation.label.visual-yes": Record<never, never>;
   "conversation.notice.ended": Record<never, never>;
+  "conversation.notice.external-failed": {
+    connection: "string";
+  };
+  "conversation.notice.external-retry-at": {
+    when: "string";
+  };
+  "conversation.notice.external-unknown": {
+    connection: "string";
+  };
+  "conversation.notice.external-waiting": {
+    connection: "string";
+  };
   "conversation.notice.message-loading": Record<never, never>;
   "conversation.notice.not-found": Record<never, never>;
   "conversation.notice.not-sent": Record<never, never>;

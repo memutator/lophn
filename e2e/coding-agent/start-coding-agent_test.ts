@@ -1,6 +1,7 @@
 // flow start-coding-agent(docs/flows/start-coding-agent.md). 실제 headless shell·core를 임시 LOPHN_HOME으로
 // 띄우고, 등록한 앱·등록 project 폴더·실행 준비가 끝난 ticket을 ledger에 심은 뒤 앱 운영 패널 Tasks 탭에서
-// 사람이 하는 일을 한다. harness는 PATH fixture의 fake Codex뿐(또는 하나도 없음)이고 HOME은 temp dir이라
+// 사람이 하는 일을 한다. ticket은 core 명령으로 만들려면 문서 version·채택 답이 필요해 tickets 표에 실행 준비가
+// 끝난(ready) 한 건만 SQL로 심는다(리드 승인). harness는 PATH fixture의 fake Codex뿐(또는 하나도 없음)이고 HOME은 temp dir이라
 // 사람이 설치한 실제 coding agent 제품을 probe하지 않는다. 연결 행은 심지 않는다(성공을 꾸미지 않는다).
 // - 1단계: 실행 준비가 끝난 ticket은 자기 터미널 문장이 열리고 시작 자리가 보인다. 연결이 없으면 [Start]를
 //   내지 않고 연결부터 만들라고만 한다. 감지된 harness가 없으면 harness부터라고 한다. 둘 다 아무것도 시작하지
@@ -11,6 +12,8 @@
 // 거절, 4~5단계 PTY가 열린 뒤 TUI 상태·MCP claim·완료 보고는 연결 성공(coding credential·OS keychain 보관)과
 // 시험용 TUI가 필요하다. 시험은 실제 keychain을 열지 않고 제품 core에 시험 전용 길을 두지 않으며 연결 행을
 // 심어 성공을 꾸미지도 않으므로 이 E2E 범위 밖이다(connect-coding-agent와 같은 이유).
+// flow manage-coding-access(연결 점검·범위 확인·회수)도 같은 이유로 통로가 없어 볼 수 없다. 활성 연결을 만들 수
+// 없어 점검·회수할 대상이 없고, 연결 없음 상태의 화면은 connect-coding-agent 시험이 본다.
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { join } from "node:path";
@@ -68,7 +71,7 @@ async function openTask(flow: FlowShell): Promise<void> {
   );
   await flow.click("[data-task-open]");
   await flow.until(
-    `document.querySelector('[data-section="start"]') !== null`,
+    `document.querySelector('[data-section="start"] [data-start-missing], [data-section="start"] [data-action="start"], [data-section="start"] [data-start-choice]') !== null`,
     "시작 자리",
   );
 }

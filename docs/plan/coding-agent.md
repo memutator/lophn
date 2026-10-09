@@ -1463,7 +1463,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T41 coding-agent slice E2E
 
-- 상태: 진행 (#478) — 끝난 flow E2E: connect-coding-agent, manage-tickets, start-coding-agent(연결 없음·harness 없음·읽을 수 없는 연결 거절 갈래). 남은 것: new-app flow, fake harness TUI 모드, 일곱 adapter 설치 fixture 시험. 통로가 없어 볼 수 없는 것으로 E2E 범위 밖: 연결 성공(OS keychain 저장)과 그 뒤의 [Start] 클릭·PTY·claim·보고·연결 회수(manage-tickets의 claim·보고, manage-coding-access 전체)
+- 상태: 진행 (#490) — 끝난 flow E2E: connect-coding-agent, manage-tickets, start-coding-agent(연결 없음·harness 없음·읽을 수 없는 연결 거절 갈래). 끝낸 것: 일곱 제품 adapter 설치 fixture 테스트. 남은 것: new-app flow, fake harness TUI 모드. 통로가 없어 볼 수 없는 것으로 E2E 범위 밖: 연결 성공(OS keychain 저장)과 그 뒤의 [Start] 클릭·PTY·claim·보고·연결 회수(manage-tickets의 claim·보고, manage-coding-access 전체)
 - 등급: 기본
 - concern: coding-agent/connection, coding-agent/harnesses,
   coding-agent/sessions, coding-agent/tickets

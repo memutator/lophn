@@ -7,7 +7,6 @@
 // - 끝난 question·approval의 오래된 notification, ticket 검사와 문제 닫힘. 이 준비로는
 //   그 결정을 만들지 않는다.
 // - 연결이 끊긴 뒤 놓친 진행을 재생하지 않음. harness가 socket만 끊지 못한다.
-// - notification 줄의 발생 시각·원래 문서 링크. 이 계기 줄은 결정 화면으로 열리지 않는다.
 // - 창을 닫은 뒤의 실패 이유 문구. 실패 관측은 프로세스 메모리라 재시작 뒤 성공으로
 //   채우지 않을 뿐, 같은 실행의 다음 조회에서만 이유를 확인한다.
 import { assert, assertEquals } from "@std/assert";
@@ -66,6 +65,8 @@ type Delivery = {
 type Listed = {
   notification: { id: string; source_seq: string; read_at: string | null };
   source_event: string;
+  occurred_at?: string;
+  document?: string | null;
   delivery?: Delivery;
 };
 
@@ -211,6 +212,39 @@ async function openNotificationsTab(flow: FlowShell): Promise<void> {
   await flow.until(
     `document.querySelector("[data-tab-panel='notifications']") !== null`,
     "Notifications 탭이 열리지 않았다",
+  );
+}
+
+function assertStoredLine(row: Listed, document: string): string {
+  assert(
+    typeof row.occurred_at === "string" &&
+      /^[0-9]{4}-[0-9]{2}-[0-9]{2}T/.test(row.occurred_at),
+    JSON.stringify(row),
+  );
+  assertEquals(row.document, document);
+  assertEquals("payload" in row, false);
+  return row.occurred_at;
+}
+
+async function assertVisibleLine(
+  flow: FlowShell,
+  id: string,
+  occurredAt: string,
+  document: string,
+): Promise<void> {
+  await flow.until(
+    `(() => {
+      const row = document.querySelector("[data-notification='${id}']");
+      const time = row?.querySelector("[data-occurred-at]");
+      const link = row?.querySelector("[data-document]");
+      return time?.getAttribute("data-occurred-at") === ${
+      JSON.stringify(occurredAt)
+    }
+        && (time.textContent ?? "").trim().length > 0
+        && link?.getAttribute("data-document") === ${JSON.stringify(document)}
+        && (link.textContent ?? "").trim() === "Open the document";
+    })()`,
+    "notification 줄에 당시 발생 시각이나 원래 문서 링크가 없다",
   );
 }
 
@@ -440,6 +474,35 @@ Deno.test({
           },
         );
 
+        await t.step(
+          "platform/notifications#R3 shell/desktop#R9: notification 줄에 당시 발생 시각과 원래 문서 링크가 있다",
+          async () => {
+            const listed = (await listNotifications(flow)).find((row) =>
+              row.notification.id === firstId
+            );
+            assert(listed);
+            const occurredAt = assertStoredLine(listed, glossaryId);
+            const got = await notificationOf(flow, firstId);
+            assertEquals(got.occurred_at, occurredAt);
+            assertEquals(got.document, glossaryId);
+            await assertVisibleLine(flow, firstId, occurredAt, glossaryId);
+            assertEquals(
+              await flow.count("[data-notification] [data-document]"),
+              1,
+            );
+            await flow.click(
+              `[data-notification="${firstId}"] [data-document]`,
+            );
+            await flow.until(
+              `document.querySelector("[data-reader='${glossaryId}']") !== null && document.querySelector("[data-current-screen]")?.getAttribute("data-current-screen") === "documents"`,
+              "원래 문서가 열리지 않았다",
+            );
+            await flow.click('[data-screen="things-to-confirm"]');
+            await openNotificationsTab(flow);
+            await assertVisibleLine(flow, firstId, occurredAt, glossaryId);
+          },
+        );
+
         let secondId = "";
         await t.step(
           "platform/notifications#R11 shell/desktop#R9: 서로 다른 사실 둘을 버리지 않는다",
@@ -467,6 +530,24 @@ Deno.test({
             assertEquals(await flow.count("[data-notification]"), 2);
             assertEquals(await runCount(flow), 0);
             assert(glossaryId !== "" && section !== "");
+            const both = await listNotifications(flow);
+            assertEquals(both.length, 2);
+            const times = new Set<string>();
+            for (const row of both) {
+              const occurredAt = assertStoredLine(row, glossaryId);
+              times.add(occurredAt);
+              await assertVisibleLine(
+                flow,
+                row.notification.id,
+                occurredAt,
+                glossaryId,
+              );
+            }
+            assertEquals(times.size, 2);
+            assertEquals(
+              await flow.count("[data-notification] [data-document]"),
+              2,
+            );
           },
         );
 

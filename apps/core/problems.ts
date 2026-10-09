@@ -51,9 +51,11 @@ import {
 } from "../../packages/problems/closing/mod.ts";
 import {
   ProblemTestPort,
+  ProblemWordingPort,
   ProblemWorkPort,
 } from "../../packages/contracts/problems/mod.ts";
 import { problemWorkLookup } from "../../packages/coding-agent/mod.ts";
+import { releaseWording } from "../../packages/apps/releases/store.ts";
 import { REPORTS_SCHEMA_STEPS } from "../../packages/problems/reporting/mod.ts";
 import {
   DETAIL_COLLECTION_SETTING_KEY,
@@ -334,6 +336,8 @@ export function createEventRegistration(): EventRegistration {
 // 실행 port는 없다. reader Worker는 read마다 그 read를 등록한 module의 port만 넘기므로, 문제 상세
 // (problems#T22)가 읽는 지금 수리 ticket 사실은 ticket 표 owner(coding-agent)의 구현을 여기서
 // `ProblemWorkPort`로, 테스트 사실은 tests leaf 구현을 `ProblemTestPort`로 등록한다.
+// 목록·상세 문구는 보고 당시 release 선언이다(problems#T27). 구현은 apps/releases이고,
+// apps reader에만 두면 이 read가 port를 못 봐 선언 문구가 fallback이 된다.
 export function createReaderRegistration(): ReaderRegistration {
   return {
     reads: [
@@ -350,6 +354,7 @@ export function createReaderRegistration(): ReaderRegistration {
     ports: new Map<unknown, unknown>([
       [ProblemWorkPort, problemWorkLookup],
       [ProblemTestPort, problemTestLookup],
+      [ProblemWordingPort, releaseWording],
     ]),
   };
 }

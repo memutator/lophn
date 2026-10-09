@@ -109,9 +109,17 @@ export type OsDelivery = z.infer<typeof osDeliverySchema>;
 export const notificationsGetInputSchema = z.strictObject({
   notification: idSchema("ntf"),
 });
+// 사람 줄이 source event에서 읽는 당시 시각과 문서 참조다(platform/notifications#R3).
+// 문서 참조가 없으면 null이다. payload 자체는 없다.
+const notificationLineSchema = {
+  occurred_at: atSchema.optional(),
+  document: idSchema("doc").nullable().optional(),
+};
+
 export const notificationsGetOutputSchema = withReadCommon(z.object({
   notification: notificationSchema,
   source_event: eventTypeSchema,
+  ...notificationLineSchema,
   delivery: osDeliverySchema.optional(),
 }));
 export const notificationsGet = defineRead({
@@ -133,6 +141,7 @@ export const notificationsListOutputSchema = withReadCommon(z.object({
   notifications: z.array(z.object({
     notification: notificationSchema,
     source_event: eventTypeSchema,
+    ...notificationLineSchema,
     delivery: osDeliverySchema.optional(),
   })),
 }));

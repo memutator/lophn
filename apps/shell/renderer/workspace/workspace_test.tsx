@@ -479,6 +479,7 @@ Deno.test("shell/editor#R6 shell/editor#R13: 버전 탭의 비교는 focus 칸 �
     number,
     savedBy: "user" as const,
     savedAt: 0,
+    run: null,
     fromFile: false,
     contentHash: `h${number}`,
     restorable: true,

@@ -18,10 +18,10 @@ existing="$existing packages/platform/responsiveness/core_imports_test.ts apps/c
 # 형 검사는 위의 저장소 전체 deno check가 한다. deno test가 Worker module을 다시 형 검사하면 부하 아래서 reader Worker 기동이 10초를 넘겨 멈출 수 있다(#299).
 if true; then
   echo "== deno test$existing"
-  tlog=$(mktemp); timeout --kill-after=10 900 deno test --no-check --allow-all --permit-no-files $existing </dev/null >"$tlog" 2>&1; rc=$?; out=$(cat "$tlog"); rm -f "$tlog"
+  tlog=$(mktemp); timeout --kill-after=10 ${LIGHT_TEST_TIMEOUT:-900} deno test --no-check --allow-all --permit-no-files $existing </dev/null >"$tlog" 2>&1; rc=$?; out=$(cat "$tlog"); rm -f "$tlog"
   echo "$out" | grep -E 'passed \|' | tail -1
   if [ $rc -eq 124 ]; then
-    echo "실패: deno test가 900초 안에 끝나지 않았다(멈춘 test 의심)"
+    echo "실패: deno test가 ${LIGHT_TEST_TIMEOUT:-900}초 안에 끝나지 않았다(멈춘 test 의심)"
     # 멈춘 자리 단서: deno가 60초마다 찍는 "has been running" 줄과 마지막으로 시작한 test 이름.
     echo "--- 멈춘 test 단서"
     echo "$out" | sed 's/\x1b\[[0-9;]*m//g' | grep -E 'has been running| \.\.\.' | tail -4 | cut -c1-200

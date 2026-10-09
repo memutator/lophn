@@ -1035,9 +1035,11 @@ E2E는 T53이 쓴다.
 
 ## operations
 
-eval은 제품 프로세스가 아니라 개발 runner다(`deno task eval`). 네 역할이 모두 생긴 뒤에 둔다. operations slice E2E는 platform#T54가 돈다(update-lophn·work-offline의 agent 복구 갈래는 T27이 단위·통합으로 확인).
+eval은 제품 프로세스가 아니라 개발 runner다(`deno task eval`). 네 역할이 모두 생긴 뒤에 둔다. 사람 결정(2026-10-07)으로 eval 작업 T54·T55·T56은 미룬다. operations slice E2E는 platform#T54가 돈다(update-lophn·work-offline의 agent 복구 갈래는 T27이 단위·통합으로 확인).
 
 ### T54 eval runner와 fixture
+
+- 상태: 미룸 (사람 결정 2026-10-07: 실제 model eval은 eval 환경 구축(runner·fixture·판정·내용 판정 model 보정)까지 전부 이번 판에서 뺀다)
 
 - 등급: 기본
 - concern: lophn-agent/evaluation
@@ -1054,6 +1056,8 @@ eval은 제품 프로세스가 아니라 개발 runner다(`deno task eval`). 네
 
 ### T55 eval 판정, 결과, 공통 사례
 
+- 상태: 미룸 (사람 결정 2026-10-07: 실제 model eval은 eval 환경 구축(runner·fixture·판정·내용 판정 model 보정)까지 전부 이번 판에서 뺀다)
+
 - 등급: 기본
 - concern: lophn-agent/evaluation
 - 요구: lophn-agent/evaluation#R4, R5, R6, R9, R10, R11, R12, R13, R19, R20, R22, R23
@@ -1068,6 +1072,8 @@ eval은 제품 프로세스가 아니라 개발 runner다(`deno task eval`). 네
   - fixtures/eval에 R5의 함정 9가지, R6의 regression 다섯 사례, 네 역할의 capability 사례(T31, T43, T46, T47, T53 판단 품질)
 
 ### T56 내용 판정 model 보정
+
+- 상태: 미룸 (사람 결정 2026-10-07: 실제 model eval은 eval 환경 구축(runner·fixture·판정·내용 판정 model 보정)까지 전부 이번 판에서 뺀다)
 
 - 등급: 기본
 - concern: lophn-agent/evaluation

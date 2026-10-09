@@ -1463,7 +1463,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T41 coding-agent slice E2E
 
-- 상태: 진행 (#490, #499, #501) — 끝난 flow E2E: connect-coding-agent, manage-tickets, start-coding-agent(연결 없음·harness 없음·읽을 수 없는 연결 거절 갈래). 끝낸 것: 일곱 제품 adapter 설치 fixture 테스트, fake harness TUI(PATH fixture 감지, 테스트 catalog ExecutionSpec의 argv prompt·stdin_after_ready. claim은 하지 않는다). #499는 new-app 1·2단계만이다. 남은 것: new-app 3–13단계. 통로가 없어 볼 수 없는 것으로 E2E 범위 밖: 연결 성공(OS keychain 저장)과 그 뒤의 [Start] 클릭·PTY·claim·보고·연결 회수(manage-tickets의 claim·보고, manage-coding-access 전체)
+- 상태: 진행 (#490, #499, #501, #512) — 끝난 flow E2E: connect-coding-agent, manage-tickets, start-coding-agent(연결 없음·harness 없음·읽을 수 없는 연결 거절 갈래). 끝낸 것: 일곱 제품 adapter 설치 fixture 테스트, fake harness TUI(PATH fixture 감지, 테스트 catalog ExecutionSpec의 argv prompt·stdin_after_ready. claim은 하지 않는다). #499는 new-app 1·2단계만이다. 3단계는 취향 질문(설명 7개, 추천은 자동 선택·적용이 아님, 자유 입력)과 확인한 기획 판 채택, 그 뒤 새 판이 채택을 옮기지 않음, 등록을 채택과 별개 질문으로 그 판의 slug·name·한 줄 목적만 보이는 것까지다. 등록 적용은 하지 않는다. question.submit은 action null만 받고 run은 질문으로 waiting_user에 들어가지 않으며 action 선택지는 확인 창을 연다. 그 적용은 apps/agent-runtime을 고쳐야 해서 막혀 있다. 한 run의 두 번째 question.submit은 idempotency key가 run과 CreateQuestion으로만 정해져 conflict다. 호출마다 key를 넘기는 고침은 lophn-agent 자리다. 3단계 테스트는 질문마다 run을 나눈다. 남은 것: new-app 3단계 등록 적용, new-app 4–13단계. 통로가 없어 볼 수 없는 것으로 E2E 범위 밖: 연결 성공(OS keychain 저장)과 그 뒤의 [Start] 클릭·PTY·claim·보고·연결 회수(manage-tickets의 claim·보고, manage-coding-access 전체)
 - 등급: 기본
 - concern: coding-agent/connection, coding-agent/harnesses,
   coding-agent/sessions, coding-agent/tickets

@@ -479,6 +479,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: C-문제command의 `apply-decision`, event `ProblemReopened`, `ProblemConfirmationRecorded`
 - slice: problems
 - 선행: problems#T20, contracts#T13, platform#T56 (shell#T53 결정 window는 이 작업 뒤; handle은 platform#T56으로 테스트)
+- 상태: 완료 (#471)
 - 완료:
   - `fixed`는 user_confirmed, `not_visible`은 현재 release·last Report가 맞을 때 recovered, `dismiss`는 공백 아닌 한 줄 이유로 dismissed; 어느 것도 Verification을 만들지 않는다(R6, R7, R8)
   - handle 재사용·release 변경·seq 변경 뒤 적용은 거절; agent·앱·CLI의 사람 주장은 거절(R1, R6, R14)

@@ -25,6 +25,11 @@ function reportingLedger() {
   for (const step of [...REPORTS_SCHEMA_STEPS, ...SNAPSHOTS_SCHEMA_STEPS]) {
     ledger.db.exec(step.sql);
   }
+  // 닫힌 문제의 재발 판정이 읽는 활성 release 열의 최소 모양이다(apps/releases 표).
+  // 활성 release가 없으니 닫힌 문제의 새 보고는 닫힘을 유지한다.
+  ledger.db.exec(
+    "create table releases (id text primary key, app text not null, status text not null) strict",
+  );
   return ledger;
 }
 

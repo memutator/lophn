@@ -1,6 +1,6 @@
 // 수리 script 통합 테스트의 stdio 통로다. 줄 단위 JSON-RPC를 받아 실제
 // lophn_ticket·lophn_problem·lophn_app tool로 core에 보낸다. 제품 MCP 실행
-// 파일·실제 keychain·실제 model은 쓰지 않는다. token은 시험이 메모리로 넘긴다.
+// 파일·실제 keychain·실제 model은 쓰지 않는다. token은 테스트가 메모리로 넘긴다.
 import { ok } from "../../../packages/base/mod.ts";
 import { createCoreClient } from "../../../packages/coding-agent/connection/client/core.ts";
 import { mcpToolResult } from "../../../packages/contracts/coding-agent/mod.ts";

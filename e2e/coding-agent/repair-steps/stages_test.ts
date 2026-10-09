@@ -1,6 +1,6 @@
 // coding-agent#T47. app-broken 6–7과 verify-app-repair 2의 coding agent 단계,
 // 그리고 범위 밖·회수된 연결의 수리 요청 거절. 수리 script는 stdio JSON-RPC로
-// 시험 bridge를 부르고, bridge는 실제 core tool을 부른다. 제품 MCP·실제
+// 테스트 bridge를 부르고, bridge는 실제 core tool을 부른다. 제품 MCP·실제
 // keychain·실제 model은 띄우지 않는다. release 행만 sqlite로 심는다.
 // ticket_source는 준비 내용이라 INSERT 때만 넣고 UPDATE하지 않는다.
 import { DatabaseSync } from "node:sqlite";

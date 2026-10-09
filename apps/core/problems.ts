@@ -48,6 +48,8 @@ import {
   applyProblemDecisionCommand,
   closeProblemVerifiedCommand,
 } from "../../packages/problems/closing/mod.ts";
+import { ProblemWorkPort } from "../../packages/contracts/problems/mod.ts";
+import { problemWorkLookup } from "../../packages/coding-agent/mod.ts";
 import { REPORTS_SCHEMA_STEPS } from "../../packages/problems/reporting/mod.ts";
 import {
   DETAIL_COLLECTION_SETTING_KEY,
@@ -314,7 +316,9 @@ export function createEventRegistration(): EventRegistration {
 }
 
 // reader Worker가 이 모듈을 import해 read를 reader 풀에 붙인다(#142).
-// 실행 port는 없다.
+// 실행 port는 없다. reader Worker는 read마다 그 read를 등록한 module의 port만 넘기므로, 문제 상세
+// (problems#T22)가 읽는 지금 수리 ticket 사실은 ticket 표 owner(coding-agent)의 구현을 여기서
+// `ProblemWorkPort`로 등록한다.
 export function createReaderRegistration(): ReaderRegistration {
   return {
     reads: [
@@ -328,6 +332,6 @@ export function createReaderRegistration(): ReaderRegistration {
       getVerificationRead,
       listVerificationsRead,
     ],
-    ports: new Map(),
+    ports: new Map<unknown, unknown>([[ProblemWorkPort, problemWorkLookup]]),
   };
 }

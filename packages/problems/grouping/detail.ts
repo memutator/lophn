@@ -22,6 +22,20 @@ export type DetailFacts = {
   tests: ProblemTestFact[] | undefined;
   // 선언한 fixer가 user인 문제의 사람 조치다.
   nextAction: string | null;
+  // 지금 닫힘을 남긴 ProblemClosed의 시각이다. 사람 결정 근거의 시각으로 보인다.
+  closedAt?: string | null;
+  // 사람 결정 뒤의 사실이다(T21의 ProblemConfirmationRecorded·ProblemReopened).
+  decision?: DecisionFacts;
+};
+
+export type DecisionFacts = {
+  // closing의 offersFixedConfirmation 결과와 활성 release를 아는지를 합친 값이다.
+  offerFixed: boolean;
+  // 지금 닫힘 뒤가 아니라 마지막 "아직입니다"·다시 열림 event다. 없으면 null이다.
+  last: {
+    kind: "not_fixed" | "reopened_by_report" | "reopened_by_you";
+    at: string;
+  } | null;
 };
 
 type Owner = ProblemDetail["owner"];
@@ -190,6 +204,7 @@ const NO_TEST = "No test ran for this.";
 function closedOf(
   closure: Closure,
   tests: ProblemDetail["result"]["tests"],
+  at: string | null,
 ): NonNullable<ProblemDetail["closed"]> {
   const release = closure.release === null
     ? null
@@ -229,7 +244,7 @@ function closedOf(
           "You confirmed it is fixed in the app version you were using. No test checked this.",
         unconfirmed: [NO_TEST, EFFECTS, NOT_PROVEN],
         release,
-        evidence: [{ text: "Your confirmation.", at: null }],
+        evidence: [{ text: "Your confirmation.", at }],
       },
     };
   }
@@ -249,7 +264,7 @@ function closedOf(
         release,
         evidence: [{
           text: "Your confirmation after the last report.",
-          at: null,
+          at,
         }],
       },
     };
@@ -264,8 +279,31 @@ function closedOf(
       release,
       evidence: [{
         text: `Your reason: ${closure.note ?? "none given"}`,
-        at: null,
+        at,
       }],
+    },
+  };
+}
+
+const LAST_DECISION_LABEL = {
+  not_fixed: "You said this is not fixed yet.",
+  reopened_by_report:
+    "This was closed, and a new report from the active release reopened it.",
+  reopened_by_you: "This was closed, and you said it is not fixed yet.",
+} as const;
+
+function decisionOf(
+  status: DetailFacts["status"],
+  facts: DecisionFacts | undefined,
+): ProblemDetail["decision"] {
+  if (facts === undefined) return undefined;
+  if (status === "closed") return { offer_fixed: false, last: null };
+  return {
+    offer_fixed: facts.offerFixed,
+    last: facts.last === null ? null : {
+      kind: facts.last.kind,
+      label: LAST_DECISION_LABEL[facts.last.kind],
+      at: facts.last.at,
     },
   };
 }
@@ -297,7 +335,10 @@ export function projectProblemDetail(facts: DetailFacts): ProblemDetail {
       tests,
     },
     closed: facts.status === "closed" && facts.closure !== null
-      ? closedOf(facts.closure, tests)
+      ? closedOf(facts.closure, tests, facts.closedAt ?? null)
       : null,
+    ...(facts.decision === undefined
+      ? {}
+      : { decision: decisionOf(facts.status, facts.decision) }),
   };
 }

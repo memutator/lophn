@@ -344,3 +344,38 @@ Deno.test("problems/grouping#R12: the ticket fact values match coding-agent getT
   assertEquals(states, [...TICKET_STATES]);
   assertEquals(readiness, [...TICKET_READINESS]);
 });
+
+Deno.test("problems/closing#R10 R13: user decisions carry the close time and an open problem shows its last not_fixed or reopen", () => {
+  const AT = "2026-10-08T03:04:05.000Z";
+  for (const reason of ["user_confirmed", "recovered", "dismissed"] as const) {
+    const detail = closed(reason, { closedAt: AT });
+    assertEquals(detail.closed!.expanded.evidence[0]!.at, AT);
+  }
+  // 닫힌 문제는 제안도 마지막 결정 안내도 없다.
+  const closedDetail = closed("user_confirmed", {
+    decision: { offerFixed: true, last: { kind: "not_fixed", at: AT } },
+  });
+  assertEquals(closedDetail.decision, { offer_fixed: false, last: null });
+
+  const labels = new Set<string>();
+  for (
+    const kind of [
+      "not_fixed",
+      "reopened_by_report",
+      "reopened_by_you",
+    ] as const
+  ) {
+    const detail = projectProblemDetail(facts({
+      decision: {
+        offerFixed: kind === "reopened_by_report",
+        last: { kind, at: AT },
+      },
+    }));
+    assert(problemDetailSchema.safeParse(detail).success);
+    assertEquals(detail.decision!.last!.kind, kind);
+    assertEquals(detail.decision!.last!.at, AT);
+    assertEquals(detail.decision!.offer_fixed, kind === "reopened_by_report");
+    labels.add(detail.decision!.last!.label);
+  }
+  assertEquals(labels.size, 3);
+});

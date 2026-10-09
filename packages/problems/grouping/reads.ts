@@ -23,7 +23,8 @@ import {
   problemSchema,
   type ProblemSummary,
 } from "../../contracts/problems/mod.ts";
-import { projectProblemDetail } from "./detail.ts";
+import { type DecisionFacts, projectProblemDetail } from "./detail.ts";
+import { offersFixedConfirmation } from "../closing/mod.ts";
 import { reservedProblemCodes } from "../problem-codes/mod.ts";
 import {
   invalidCursor,
@@ -275,6 +276,59 @@ function testFacts(
   return readFact(() => snapshot.port(ProblemTestPort)(snapshot.sql, problem));
 }
 
+// 지금 닫힘을 남긴 마지막 ProblemClosed의 시각이다(T20·T21의 실제 닫힘).
+function closedAtOf(snapshot: ReadSnapshot, problem: string): string | null {
+  const row = snapshot.sql.get(
+    `select at from events where type = 'ProblemClosed' and subject = ?
+      order by seq desc limit 1`,
+    [problem],
+  );
+  return row === undefined ? null : String(row["at"]);
+}
+
+// 앱의 활성 release다. release 표를 읽지 못하면 모름(null)이고 그때는 "고쳐졌다"를 제안하지
+// 않는다(fixed 결정은 release가 있어야 한다).
+function activeReleaseOf(snapshot: ReadSnapshot, app: string): string | null {
+  try {
+    const row = snapshot.sql.get(
+      `select id from releases where app = ? and status = 'active'`,
+      [app],
+    );
+    return row === undefined ? null : String(row["id"]);
+  } catch {
+    return null;
+  }
+}
+
+// 사람 결정 뒤의 사실이다(problems#T21): 마지막 "아직입니다"(ProblemConfirmationRecorded)나
+// 다시 열림(ProblemReopened)과, 같은 release·근거로 고쳐짐 확인을 다시 제안할지(closing#R10).
+function decisionFacts(
+  snapshot: ReadSnapshot,
+  problem: string,
+  app: string,
+): DecisionFacts {
+  const row = snapshot.sql.get(
+    `select type, at, json_extract(payload, '$.report') as report from events
+      where subject = ? and type in ('ProblemConfirmationRecorded', 'ProblemReopened')
+      order by seq desc limit 1`,
+    [problem],
+  );
+  const last: DecisionFacts["last"] = row === undefined ? null : {
+    kind: row["type"] === "ProblemConfirmationRecorded"
+      ? "not_fixed"
+      : row["report"] === null
+      ? "reopened_by_you"
+      : "reopened_by_report",
+    at: String(row["at"]),
+  };
+  const release = activeReleaseOf(snapshot, app);
+  return {
+    offerFixed: release !== null &&
+      offersFixedConfirmation(snapshot.sql, problem, release),
+    last,
+  };
+}
+
 // 진행은 상태 하나로 먼저 오고, 수·처음/최근 시각은 Report에서 센다. 실제 담당과 수리
 // 작업 상태는 `detail`(사용자용 상세)에 있고, ticket을 읽지 못하면 가짜 담당 없이 모름이다.
 // `problem`은 내부 contract(ticket·version ID)라 화면은 `detail`만 쓴다(problems#T22).
@@ -365,6 +419,8 @@ export const getProblemRead = {
       fixRecorded,
       tests: testFacts(snapshot, input.problem),
       nextAction: wording.value.next_action,
+      closedAt: closedAtOf(snapshot, input.problem),
+      decision: decisionFacts(snapshot, input.problem, String(row["app"])),
     });
     return ok({
       problem: problem.data,

@@ -14,6 +14,8 @@ import { DatabaseSync } from "node:sqlite";
 
 import { declarationsOfBlueprint } from "../../packages/apps/releases/mod.ts";
 import { prepareFromSource } from "../../packages/apps/releases/prepare/from-source.ts";
+import { migrateAppDatabase } from "../../packages/apps/data/worker/migrate.ts";
+import { sha256Hex } from "../../packages/base/mod.ts";
 import {
   devImportMap,
   readTemplateDirectory,
@@ -48,7 +50,12 @@ async function git(cwd: string, args: string[]): Promise<string> {
   return new TextDecoder().decode(output.stdout).trim();
 }
 
-type Bundle = { bundleHash: string; blueprintHash: string; blueprint: string };
+type Bundle = {
+  bundleHash: string;
+  blueprintHash: string;
+  blueprint: string;
+  copyPath: string;
+};
 
 /** fixture source를 commit하고 봉인 bundle로 준비해 `home` 아래에 둔다. 그 blueprint를 돌려준다. */
 async function prepareFixtureApp(
@@ -101,6 +108,7 @@ async function prepareFixtureApp(
     return {
       bundleHash: prepared.value.bundleHash,
       blueprintHash: prepared.value.blueprintHash,
+      copyPath: prepared.value.copyPath,
       blueprint: await Deno.readTextFile(
         `${prepared.value.copyPath}/blueprint.json`,
       ),
@@ -109,6 +117,43 @@ async function prepareFixtureApp(
     await removeTree(parent);
     await installed.dispose();
   }
+}
+
+/** 봉인 사본의 migration 단계(0-1, 1-2)다. release 준비가 data_changes로 내는 것과 같은 모양이다. */
+async function dataChangesOf(bundle: Bundle) {
+  const scripts = [];
+  for (let from = 0; from < DATA_SCHEMA; from++) {
+    const sql = await Deno.readTextFile(
+      `${bundle.copyPath}/migrations/${from}-${from + 1}.sql`,
+    );
+    scripts.push({
+      change: {
+        from,
+        to: from + 1,
+        script_hash: await sha256Hex(sql),
+        description: `migration ${from}-${from + 1}`,
+      },
+      sql,
+    });
+  }
+  return scripts;
+}
+
+/** 지금 release(새 release)의 activation이 남겼을 앱 DB를 만든다. schema가 DATA_SCHEMA에 있다. */
+async function seedAppData(home: string, bundle: Bundle): Promise<void> {
+  const dataArea = `${home}/apps/${APP}/data`;
+  await Deno.mkdir(`${dataArea}/backups`, { recursive: true });
+  const migrated = await migrateAppDatabase({
+    dataArea,
+    databasePath: `${dataArea}/app.sqlite`,
+    backupPath: `${dataArea}/backups/seed`,
+    targetSchema: DATA_SCHEMA,
+    scripts: await dataChangesOf(bundle),
+    appliedAt: "2026-10-02T00:00:00.000Z",
+    result: { release: NEWER, activation_seq: "1", invocation: null },
+  });
+  assert(migrated.ok, migrated.ok ? "" : JSON.stringify(migrated.error));
+  assertEquals(migrated.value.result.data_schema, DATA_SCHEMA);
 }
 
 /** 등록 transaction이 남기는 모양으로 앱 행과 release 두 행을 심는다(core를 멈춘 동안). */
@@ -327,6 +372,7 @@ Deno.test({
     const older = await prepareFixtureApp(home, { edit: false });
     const newer = await prepareFixtureApp(home, { edit: true });
     seedLedger(home, older, newer);
+    await seedAppData(home, newer);
     const flow = await openFlowShell({ home, start: `app:${APP}` });
     let confirmation: Page | undefined;
     try {
@@ -397,10 +443,19 @@ Deno.test({
             "사람이 허락한 적용이 시작되지 않았다",
             async () => await releaseStatus(flow, OLDER) !== "superseded",
           );
-          await untilTrue("이전 release로 시작하지 않았다", async () => {
-            const seen = await running(flow);
-            return seen?.release === OLDER && seen.ready === true;
-          });
+          try {
+            await untilTrue("이전 release로 시작하지 않았다", async () => {
+              const seen = await running(flow);
+              return seen?.release === OLDER && seen.ready === true;
+            });
+          } catch (error) {
+            const dbg = async (resource: string, method: string, body: unknown) =>
+              JSON.stringify(await flow.call({ kind: "read", resource, method, body })).slice(0, 1500);
+            console.log("DBG rel", await dbg("releases", "get", { release: OLDER }));
+            console.log("DBG rt", await dbg("apps", "runtime", { app: APP }));
+            console.log("DBG app", await dbg("apps", "get", { app: APP }));
+            throw error;
+          }
           assertEquals(await releaseStatus(flow, OLDER), "active");
           assertEquals(await releaseStatus(flow, NEWER), "superseded");
           assertEquals(await activeRelease(flow), OLDER);
@@ -457,6 +512,14 @@ Deno.test({
         "다른 갈래: 사람이 결정 창을 그만두면(닫기) 그 release로 바뀌지 않는다",
         async () => {
           await reloadAppSpace(flow);
+          // 다시 연 화면은 돌아갈 Version을 접어 둔다. 사람이 펼쳐서 고른다.
+          await flow.click(`[data-version="${NEWER}"] [data-version-expand]`);
+          await flow.until(
+            `document.querySelector(${
+              JSON.stringify(`[data-version="${NEWER}"] [data-use-version]`)
+            }) !== null`,
+            "돌아갈 Version을 고를 수 없다",
+          );
           await flow.click(`[data-version="${NEWER}"] [data-use-version]`);
           await untilConfirmationWindow(flow);
           await delay(1_000);

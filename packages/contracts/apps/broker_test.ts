@@ -134,6 +134,21 @@ Deno.test("apps/runtime#R5, apps/runtime#R9, apps/runtime#R18, apps/connections#
       unknown: true,
     }).success === false,
   );
+  assert(
+    brokerProblemReportInputSchema.safeParse({
+      process_nonce: "nonce-1",
+      mode: "live",
+      code: "usage_stale",
+      report_id: "rpt_01h455vb4pex5v6nkc6gd5fdw1",
+      observed_at: "2026-10-04T01:02:03.004Z",
+      details: { command: "read_settings" },
+      invocation: {
+        id: "inv_01h455vb4pex5v6nkc6gd5fdw1",
+        binding: "sdk_context",
+        record_missing_reason: null,
+      },
+    }).success,
+  );
   const permit = brokerAutomationTryAcquireOutputSchema.parse({
     permit: false,
     limit: AUTOMATION_CONCURRENCY_LIMIT,

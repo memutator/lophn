@@ -1,10 +1,9 @@
-// 테스트가 쓰는 진입점. MCP client script로 lophn-mcp의 ticket tool을 돌린다:
-// ticket show → claim → (app tool 호출) → release 준비 → report.
-// apps 팀 new-app·change-app E2E가 coding agent 자리에 쓴다(Q10).
-import type {
-  JsonRpcId,
-  JsonRpcResponse,
-} from "../../packages/coding-agent/mcp-server/mod.ts";
+// 테스트가 쓰는 진입점. MCP client script로 lophn-mcp에 줄 단위 JSON-RPC를 보낸다.
+// ticket show·claim·claim 반납(op release)·report와 app tool 호출은
+// startFakeCodingAgent가 받은 step 순서대로 돈다(T20, T25). 수리 순서
+// (claim → summary·bundle·more → reproduction → record_fix → lophn_app
+// release_prepare → report)는 repair.ts가 응답을 보고 만든다.
+import type { JsonRpcResponse } from "../../packages/coding-agent/mcp-server/mod.ts";
 
 export type FakeAgentStep =
   | { kind: "show"; ticket: string }
@@ -28,6 +27,23 @@ export type FakeAgentStep =
     outputs?: string[];
     fix_records?: string[];
     verifications?: string[];
+  }
+  | {
+    kind: "summary" | "bundle";
+    selector: { ticket: string } | { problem: string };
+  }
+  | {
+    // evidence는 lophn_problem more의 kind다. step 이름 kind와 겹치지 않게 둔다.
+    kind: "more";
+    problem: string;
+    evidence: string;
+    source: string;
+    cursor?: string | null;
+  }
+  | { kind: "problem_show"; problem: string }
+  | {
+    kind: "reproduction" | "record_fix" | "release_prepare";
+    body: Record<string, unknown>;
   };
 
 export type FakeAgentResult = {
@@ -43,6 +59,31 @@ export type FakeAgentResult = {
   check_state: string | null;
 };
 
+export type FakeAgentCall = {
+  step: FakeAgentStep;
+  tool: string;
+  input: Record<string, unknown>;
+  response: JsonRpcResponse | undefined;
+  isError: boolean;
+  summary: string | null;
+  data: Record<string, unknown>;
+  code: string | null;
+};
+
+export type FakeAgentSession = {
+  call(step: FakeAgentStep): Promise<FakeAgentCall>;
+  close(): Promise<void>;
+};
+
+type SessionOptions = {
+  command: string;
+  args: readonly string[];
+  env?: Record<string, string>;
+  cwd?: string;
+  protocolVersion?: string;
+  label?: string;
+};
+
 type Child = {
   stdin: WritableStream<Uint8Array>;
   stdout: ReadableStream<Uint8Array>;
@@ -51,19 +92,27 @@ type Child = {
   status: Promise<number>;
 };
 
-// stdout에서 한 줄(개행까지)을 읽어 문자열로 돌려준다.
-async function readLine(stdout: ReadableStream<Uint8Array>): Promise<string> {
-  const reader = stdout.getReader();
-  const decoder = new TextDecoder();
-  let line = "";
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) throw new Error("lophn-mcp stdout이 닫혔다");
-    line += decoder.decode(value, { stream: true });
-    const index = line.indexOf("\n");
-    if (index >= 0) {
-      reader.releaseLock();
-      return line.slice(0, index);
+// stdout 한 줄. 한 chunk에 줄이 여러 개면 남은 바이트를 다음 읽기에 남긴다.
+class LineReader {
+  #reader: ReadableStreamDefaultReader<Uint8Array>;
+  #decoder = new TextDecoder();
+  #pending = "";
+
+  constructor(stdout: ReadableStream<Uint8Array>) {
+    this.#reader = stdout.getReader();
+  }
+
+  async readLine(): Promise<string> {
+    while (true) {
+      const index = this.#pending.indexOf("\n");
+      if (index >= 0) {
+        const line = this.#pending.slice(0, index);
+        this.#pending = this.#pending.slice(index + 1);
+        return line;
+      }
+      const { done, value } = await this.#reader.read();
+      if (done) throw new Error("lophn-mcp stdout이 닫혔다");
+      this.#pending += this.#decoder.decode(value, { stream: true });
     }
   }
 }
@@ -86,27 +135,33 @@ function structuredOf(response: JsonRpcResponse | undefined): unknown {
   return result.structuredContent ?? {};
 }
 
-// stdio로 lophn-mcp 자식 process를 띄우고 줄 단위 JSON-RPC로 돌린다. stdout 첫
-// 줄 이후 JSON-RPC만 읽는다. 사람 데이터 root는 열지 않는다(worker-common).
-// initialize로 붙은 뒤 step 순서대로 tools/call을 보내고, step 결과의
-// structuredContent를 그대로 남긴다.
-export async function startFakeCodingAgent(
-  options: {
-    command: string;
-    args: readonly string[];
-    env?: Record<string, string>;
-    cwd?: string;
-    steps: readonly FakeAgentStep[];
-    protocolVersion?: string;
-    label?: string;
-  },
-): Promise<FakeAgentResult> {
-  let claimSeq: string | null = null;
-  let releaseState: string | null = null;
-  let reportState: string | null = null;
-  let completionSeq: string | null = null;
-  let checkState: string | null = null;
+// 실제 lophn-mcp는 {summary, data, next}다. 값은 data 안에 있다. 테스트 double의
+// 평평한 claim·release 응답은 structuredContent 자체다.
+function payloadOf(
+  response: JsonRpcResponse | undefined,
+): Record<string, unknown> {
+  const structured = structuredOf(response);
+  if (typeof structured !== "object" || structured === null) return {};
+  const record = structured as Record<string, unknown>;
+  const data = record.data;
+  if (typeof data === "object" && data !== null && !Array.isArray(data)) {
+    return data as Record<string, unknown>;
+  }
+  return record;
+}
 
+function summaryOf(response: JsonRpcResponse | undefined): string | null {
+  const structured = structuredOf(response);
+  if (typeof structured !== "object" || structured === null) return null;
+  const summary = (structured as { summary?: unknown }).summary;
+  return typeof summary === "string" ? summary : null;
+}
+
+// stdio 자식을 띄우고 initialize까지 끝낸 session이다. step은 호출자가 하나씩 보낸다.
+// stdout 첫 줄 이후 JSON-RPC만 읽는다. 사람 데이터 root는 열지 않는다.
+export async function openFakeCodingAgentSession(
+  options: SessionOptions,
+): Promise<FakeAgentSession> {
   const child = new Deno.Command(options.command, {
     args: [...options.args],
     env: options.env,
@@ -114,18 +169,29 @@ export async function startFakeCodingAgent(
     stdin: "piped",
     stdout: "piped",
     stderr: "piped",
-  });
-  const process = child.spawn() as unknown as Child;
-  void (async () => {
-    for await (const _chunk of process.stderr) {
+  }).spawn() as unknown as Child;
+  const drained = (async () => {
+    for await (const _chunk of child.stderr) {
       // 진단은 버린다. protocol 통로는 stdout뿐이다.
     }
   })();
-
+  const lines = new LineReader(child.stdout);
+  let closed = false;
+  const close = async () => {
+    if (closed) return;
+    closed = true;
+    try {
+      child.kill("SIGTERM");
+    } catch {
+      // 이미 끝났으면 조용히 넘어간다.
+    }
+    await child.status.catch(() => {});
+    await drained.catch(() => {});
+  };
   try {
     // initialize는 프로토콜 시작이다. notification이 아니라 id 있는 요청이다.
     await writeLine(
-      process.stdin,
+      child.stdin,
       JSON.stringify({
         jsonrpc: "2.0",
         id: 0,
@@ -136,34 +202,69 @@ export async function startFakeCodingAgent(
         },
       }),
     );
-    await readLine(process.stdout);
-
-    const emitted: {
-      step: FakeAgentStep;
-      response: JsonRpcResponse | undefined;
-    }[] = [];
-    for (const [index, step] of options.steps.entries()) {
+    await lines.readLine();
+  } catch (error) {
+    await close();
+    throw error;
+  }
+  let nextId = 1;
+  return {
+    async call(step) {
       const called = callOf(step);
+      const id = nextId;
+      nextId += 1;
       await writeLine(
-        process.stdin,
+        child.stdin,
         JSON.stringify({
           jsonrpc: "2.0",
-          id: index + 1,
+          id,
           method: "tools/call",
           params: { name: called.tool, arguments: called.input },
         }),
       );
-      const line = await readLine(process.stdout);
+      const line = await lines.readLine();
       let response: JsonRpcResponse | undefined;
       try {
         response = JSON.parse(line) as JsonRpcResponse;
       } catch {
         response = undefined;
       }
-      emitted.push({ step, response });
-      // 실제 lophn-mcp의 structuredContent는 {summary, data, next}다. 값은 data 안에 있다.
-      const structured = structuredOf(response) as { data?: unknown };
-      const content = (structured.data ?? structured) as {
+      const result = (response?.result ?? {}) as { isError?: unknown };
+      const data = payloadOf(response);
+      const code = data.code;
+      return {
+        step,
+        tool: called.tool,
+        input: called.input,
+        response,
+        isError: result.isError === true,
+        summary: summaryOf(response),
+        data,
+        code: typeof code === "string" ? code : null,
+      };
+    },
+    close,
+  };
+}
+
+// stdio로 lophn-mcp 자식 process를 띄우고 줄 단위 JSON-RPC로 돌린다.
+// initialize로 붙은 뒤 step 순서대로 tools/call을 보내고, step 결과의
+// structuredContent를 그대로 남긴다.
+export async function startFakeCodingAgent(
+  options: SessionOptions & { steps: readonly FakeAgentStep[] },
+): Promise<FakeAgentResult> {
+  let claimSeq: string | null = null;
+  let releaseState: string | null = null;
+  let reportState: string | null = null;
+  let completionSeq: string | null = null;
+  let checkState: string | null = null;
+  const session = await openFakeCodingAgentSession(options);
+  try {
+    const emitted: FakeAgentResult["steps"] = [];
+    for (const step of options.steps) {
+      const called = await session.call(step);
+      emitted.push({ step, response: called.response });
+      const content = called.data as {
         claim_seq?: unknown;
         state?: unknown;
         report?: { accepted?: unknown; state?: unknown };
@@ -199,12 +300,7 @@ export async function startFakeCodingAgent(
       check_state: checkState,
     };
   } finally {
-    try {
-      process.kill("SIGTERM");
-    } catch {
-      // 이미 끝났으면 조용히 넘어간다.
-    }
-    await process.status.catch(() => {});
+    await session.close();
   }
 }
 
@@ -259,7 +355,45 @@ function callOf(step: FakeAgentStep): {
             : { verifications: step.verifications }),
         },
       };
+    case "summary":
+    case "bundle":
+      return {
+        tool: "lophn_problem",
+        input: { op: step.kind, selector: step.selector },
+      };
+    case "more":
+      return {
+        tool: "lophn_problem",
+        input: {
+          op: "more",
+          problem: step.problem,
+          kind: step.evidence,
+          source: step.source,
+          ...(step.cursor === undefined ? {} : { cursor: step.cursor }),
+        },
+      };
+    case "problem_show":
+      return {
+        tool: "lophn_problem",
+        input: { op: "show", problem: step.problem },
+      };
+    case "reproduction":
+      return {
+        tool: "lophn_problem",
+        input: { ...step.body, op: "test" },
+      };
+    case "record_fix":
+      return {
+        tool: "lophn_problem",
+        input: { ...step.body, op: "record_fix" },
+      };
+    case "release_prepare":
+      // ticket op release(claim 반납)와 다르다. release 준비는 lophn_app이다.
+      return {
+        tool: "lophn_app",
+        input: { ...step.body, op: "release_prepare" },
+      };
   }
 }
 
-export type { JsonRpcId, JsonRpcResponse };
+export type { JsonRpcResponse };

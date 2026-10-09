@@ -689,7 +689,7 @@ test("shell/app-frame#R21: 멈춤·crash는 연결 상태와 함께 알리고 �
   const w = world();
   const view = await opened(w);
   const other = await opened(w, { app: APP_B, release: REL_1 });
-  const first = w.contents[0];
+  const first = w.contents[0]!;
   const connects = w.state.connects.length;
 
   // 건강한 view는 새로 열지 않는다.
@@ -723,7 +723,7 @@ test("shell/app-frame#R21: 멈춤·crash는 연결 상태와 함께 알리고 �
   assert.equal(first.destroyed, false);
   assert.equal(w.state.connects.length, connects);
   assert.equal(w.frame.state(other.view_session)?.viewHealth, "ok");
-  assert.equal(w.contents[1].destroyed, false);
+  assert.equal(w.contents[1]?.destroyed, false);
 
   const generation = w.frame.views("window-1")
     .find((item) => item.view_session === view.view_session)?.generation;

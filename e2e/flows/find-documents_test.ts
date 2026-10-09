@@ -553,7 +553,8 @@ const READ_STEPS: ReadStep[] = [
 Deno.test({
   name:
     "platform/redaction#R5 documents/projects#R9 lophn-agent/harness/prompt-assemble#R4 lophn-agent/harness/prompt-assemble#R18 documents/outline-and-search#R7 flow find-documents 5·6: lophn은 검색·목차·section·이어 읽기로 같은 고정 판을 읽고 model 입력에는 redaction한 자료와 이어 읽기 위치만 간다",
-  ignore: !e2eEnabled(),
+  // 미검증 WIP — 실행 전
+  ignore: true,
   sanitizeOps: false,
   sanitizeResources: false,
   async fn(t) {

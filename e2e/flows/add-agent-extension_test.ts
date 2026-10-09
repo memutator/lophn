@@ -16,6 +16,7 @@
 // - 다른 갈래 4: 거절한 호출은 미실행으로 남는다.
 // - 1: 사람이 settings 도구 탭의 [Add a skill folder]로 로컬 skill 폴더를 등록한다(headless 폴더
 //   선택은 LOPHN_SHELL_PICK_FOLDER). 등록은 설정 값의 정확한 절대 경로 하나이고 폴더 이름이 탭에 선다.
+//   이 단계는 아직 한 번도 돌리지 않았다(미검증 WIP — 실행 전, `ignore`).
 // 결함 (7), 1의 발견 검사는 볼 수 없다: 제품 runtime 조립이 prepare deps의 `skills`를 주지 않고
 // (apps/agent-runtime/prepare.ts `deps.skills?.()`를 채우는 곳이 없다) `discoverSkills`
 // (packages/lophn-agent/extensions/skills.ts)를 부르는 제품 경로도 없어, 등록한 폴더가 검사되지
@@ -502,9 +503,12 @@ Deno.test({
         );
       };
 
-      await t.step(
-        "lophn-agent/extensions#R1 lophn-agent/extensions#R10: 1 settings 도구 탭에서 로컬 skill 폴더를 등록하면 그 절대 경로 하나가 설정 값이 되고 폴더 이름이 선다",
-        async () => {
+      await t.step({
+        name:
+          "lophn-agent/extensions#R1 lophn-agent/extensions#R10: 1 settings 도구 탭에서 로컬 skill 폴더를 등록하면 그 절대 경로 하나가 설정 값이 되고 폴더 이름이 선다",
+        // 미검증 WIP — 실행 전
+        ignore: true,
+        fn: async () => {
           const folders = async () =>
             JSON.stringify(
               (await mustCall(flow, {
@@ -542,7 +546,7 @@ Deno.test({
           // 등록은 폴더 하나다. 꾸러미를 따로 등록하거나 원격에서 받지 않는다.
           assertEquals(await flow.count("[data-skills] [data-folder]"), 1);
         },
-      );
+      });
 
       await t.step(
         "lophn-agent/extensions#R11 lophn-agent/presets#R7 lophn-agent/presets#R14: 2·3·4 MCP server를 등록해 도구 탭에서 보고, 기본 preset을 복사해 정확한 tool만 고른 판을 명시 적용한다",

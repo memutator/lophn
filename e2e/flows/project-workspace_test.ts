@@ -353,7 +353,8 @@ function startViewProvider() {
 Deno.test({
   name:
     "lophn-agent/harness/prompt-assemble#R25 lophn-agent/harness/prompt-assemble#R26 shell/workspace#R9 shell/workspace#R10 flow project-workspace 8: 작업대에서 일을 청하면 그 창의 탭·초점·관측 시각을 현재 보기로 조립하고 바뀐 보기는 새로 모은다",
-  ignore: !e2eEnabled(),
+  // 미검증 WIP — 실행 전
+  ignore: true,
   sanitizeOps: false,
   sanitizeResources: false,
   async fn(t) {

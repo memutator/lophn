@@ -221,3 +221,57 @@ Deno.test("coding-agent/mcp-server#R25: test는 reproduction만 요청하고 현
   assertEquals(body.input["ticket"], null);
   assertEquals((ran.data as { real_test?: boolean }).real_test, undefined);
 });
+
+Deno.test("problems#T22 problems/grouping#R12: show는 ticket·version ID 없이 detail의 담당·수리 상태를 보인다", async () => {
+  const VER = "ver_01arz3ndektsv4rrffq69g5fav";
+  const read = {
+    problem: {
+      id: PRB,
+      app: APP,
+      group_key: { kind: "declared", code: "save_failed", discriminator: null },
+      status: "fixing",
+      work: TKT,
+      interpretation: { version: VER, section: null },
+      closure: null,
+      seq: "4",
+    },
+    detail: {
+      progress: { state: "fixing", label: "Fixing" },
+      owner: {
+        kind: "coding_agent",
+        label: "A coding agent is working on this.",
+      },
+      needed_action: null,
+      repair: {
+        state: "in_progress",
+        label: "In progress",
+        needs: [],
+        last_check_failed: false,
+      },
+      result: {
+        fix_report: "none",
+        fix_report_label: "No fix reported yet.",
+        tests: { state: "not_run", label: "No tests have run.", items: [] },
+      },
+      closed: null,
+    },
+    text: "Saving failed.",
+    report_count: 2,
+    first_observed_at: null,
+    last_observed_at: null,
+    first_release: null,
+    last_release: null,
+    as_of_seq: "4",
+    next_cursor: null,
+  };
+  const { deps } = fake({
+    read: (route) => route === "GetProblem" ? ok(read) : undefined!,
+  });
+  const shown = await runProblemOp({ op: "show", problem: PRB }, deps);
+  assertEquals(shown.isError, undefined, shown.summary);
+  assert(shown.summary.includes("A coding agent is working on this."));
+  assert(shown.summary.includes("In progress"));
+  const text = JSON.stringify(shown.data);
+  assert(!text.includes(TKT) && !text.includes(VER), text);
+  assertEquals((shown.data as { problem: { seq: string } }).problem.seq, "4");
+});

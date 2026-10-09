@@ -416,6 +416,7 @@ export type PlaceholderKinds = {
   "common.button.copy-code": Record<never, never>;
   "common.button.copy-id": Record<never, never>;
   "common.button.next-page": Record<never, never>;
+  "common.button.open-again": Record<never, never>;
   "common.button.palette-go-to": {
     screen: "string";
   };
@@ -477,6 +478,8 @@ export type PlaceholderKinds = {
   "common.label.app-state-running": Record<never, never>;
   "common.label.app-state-stopped": Record<never, never>;
   "common.label.app-state-unavailable": Record<never, never>;
+  "common.label.app-view-crashed": Record<never, never>;
+  "common.label.app-view-unresponsive": Record<never, never>;
   "common.label.date-from": Record<never, never>;
   "common.label.date-to": Record<never, never>;
   "common.label.date-with-weekday": {

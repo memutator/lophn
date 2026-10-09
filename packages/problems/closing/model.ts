@@ -50,3 +50,49 @@ export function verifiedClosure(evidence: ClosureEvidence): Closure {
     note: null,
   };
 }
+
+type SqlGet = {
+  get(
+    sql: string,
+    params?: readonly unknown[],
+  ): Record<string, unknown> | undefined;
+};
+
+// 사람이 "아직입니다"(not_fixed)라고 한 뒤 같은 release·같은 근거로 고쳐짐 확인을 다시
+// 제안하지 않는다(problems/closing#R10). 마지막 부정 확인 event의 release와 그 뒤 새 근거
+// (같은 문제의 고친 기록·Verification)를 읽는다. 부정 확인이 없거나, 활성 release가 그때와
+// 다르거나, 그 뒤 새 근거가 있으면 다시 제안한다.
+export function offersFixedConfirmation(
+  sql: SqlGet,
+  problem: string,
+  activeRelease: string | null,
+): boolean {
+  const last = sql.get(
+    `select cast(seq as text) as seq,
+            coalesce(json_extract(payload, '$.decision.release'),
+                     json_extract(payload, '$.release')) as release
+       from events
+      where subject = ?
+        and ((type = 'ProblemConfirmationRecorded'
+              and json_extract(payload, '$.choice') = 'not_fixed')
+          or (type = 'ProblemReopened'
+              and json_extract(payload, '$.decision.choice') = 'not_fixed'))
+      order by seq desc limit 1`,
+    [problem],
+  );
+  if (last === undefined) return true;
+  const release = last["release"] === null || last["release"] === undefined
+    ? null
+    : String(last["release"]);
+  if (release !== activeRelease) return true;
+  const evidence = sql.get(
+    `select 1 as found from events
+      where seq > ?
+        and ((type = 'ProblemFixRecorded' and subject = ?)
+          or (type = 'VerificationRecorded'
+              and json_extract(payload, '$.problem') = ?))
+      limit 1`,
+    [BigInt(String(last["seq"])), problem, problem],
+  );
+  return evidence !== undefined;
+}

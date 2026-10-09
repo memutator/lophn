@@ -42,11 +42,15 @@ export const releaseFactSchema = z.object({
 export type ReleaseFact = z.infer<typeof releaseFactSchema>;
 
 // problems/closing이 이미 판정한 문제 닫힘의 읽기 값이다. 이 checker는 읽기만 한다(R21).
-// user_confirmed 닫힘의 confirmation은 사람 결정이 platform confirmation을 쓴 결과다.
+// user_confirmed 닫힘의 confirmation은 사람 결정의 참조(`ApplyProblemDecision@<basis_seq>`)다.
 export const problemFactSchema = z.object({
   id: idSchema("prb"),
   app: idSchema("app"),
+  // 문제의 최신 event seq. 닫힘·재발마다 바뀌는 비교 대상 revision이다.
+  seq: z.string().default("0"),
   status: z.enum(["open", "fixing", "closed"]),
+  // 사람이 "아직입니다"(not_fixed)라고 한 release. 그 뒤 닫힘이 있으면 null이다.
+  not_fixed_release: idSchema("rel").nullable().default(null),
   closure: z.object({
     reason: z.enum(["verified", "user_confirmed", "recovered", "dismissed"]),
     release: idSchema("rel").nullable(),

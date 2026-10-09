@@ -5,8 +5,7 @@
 // - 프로젝트 등록·추적은 같은 사람 command를 core 통로로 낸다(first-project가 화면 조작을 따로 본다).
 // - 이력·비교·restore 조작은 모두 정보 패널의 versions 탭과 compare 화면으로 한다.
 // - 원본 파일이 없을 때는 아래 갈래가 본다. agent가 쓴 판의 run 근거는 그 다음 테스트가 본다.
-//   옛 이름·자리 참조는 마지막 테스트가 본다. 아직 없는 갈래(검색 반영 대기 표시)는
-//   documents#T21의 이어보냄 메모에 적었다.
+//   옛 이름·자리 참조는 그 다음 테스트가 본다. 검색 반영 대기는 마지막 테스트가 본다.
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 
 import { buildReply } from "../../tools/fake-provider/semantic.ts";
@@ -25,9 +24,11 @@ import {
   registerProject,
   registerTrackedProject,
   removeHome,
+  searchOnce,
   untilDocuments,
   untilFile,
   untilReadable,
+  untilSearch,
   untilVersions,
   versionHistory,
 } from "../flow-support.ts";
@@ -945,6 +946,191 @@ Deno.test({
       await removeHome(flow.home);
       await Deno.remove(folder, { recursive: true });
       await Deno.remove(other, { recursive: true });
+    }
+  },
+});
+
+const RESTORED = "zzrestorealpha";
+const LATER = "zzrestorebeta";
+const RESTORED_TEXT = `# Plan\n\n${RESTORED}\n`;
+const LATER_TEXT = `# Plan\n\n${LATER}\n`;
+
+Deno.test({
+  name:
+    "documents/outline-and-search#R15 documents/file-tracking#R15 documents/versions#R5 documents/versions#R10 shell/editor#R2 flow restore-document: 새 판 뒤 파일 저장·판 확정·검색 반영 대기를 각각 확인한다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn() {
+    const folder = await Deno.realPath(
+      await Deno.makeTempDir({ prefix: "lophn-e2e-restore-search-" }),
+    );
+    const file = `${folder}/plan.md`;
+    await Deno.writeTextFile(file, RESTORED_TEXT);
+    const { flow, documentId } = await openProjectWorkspace({
+      folder,
+      name: "plan",
+      title: "Plan",
+      document: "plan",
+    });
+    try {
+      await Deno.writeTextFile(file, LATER_TEXT);
+      await untilVersions(flow, documentId, 2, "두 번째 판이 없다");
+      await untilSearch(
+        flow,
+        LATER,
+        (page) => page.results.some((row) => row.document === documentId),
+        "나중 판의 검색 반영이 끝나지 않았다",
+      );
+      const indexed = await searchOnce(flow, RESTORED);
+      assertEquals(indexed.coverage.lagging, false);
+      assertEquals(indexed.coverage.rebuilding, false);
+      assertEquals(
+        indexed.results.some((row) => row.document === documentId),
+        false,
+        "아직 되살리지 않은 옛 내용이 최신 반영으로 남았다",
+      );
+      await untilReadable(flow, documentId, "지금 판의 본문이 읽히지 않는다");
+      await flow.click(`[data-document="${documentId}"]`);
+      await flow.until(
+        `document.querySelector("[data-document-view]")?.getAttribute("data-document-view") === "read" && document.querySelector("[data-document-body]")?.textContent?.includes(${
+          JSON.stringify(LATER)
+        })`,
+        "지금 판이 읽히지 않았다",
+      );
+      await openVersions(flow);
+      await flow.click(`[data-compare-newest="1"]`);
+      await flow.until(
+        `document.querySelector("[data-compare-restore='1']") !== null`,
+        "restore 조작이 없다",
+      );
+      await flow.click("[data-compare-restore='1']");
+      await flow.until(
+        `document.querySelector("[data-restore-confirm]") !== null`,
+        "restore 확인이 없다",
+      );
+      assertEquals(await Deno.readTextFile(file), LATER_TEXT);
+      await flow.click("[data-restore-confirm-button]");
+      await flow.until(
+        `document.querySelector("[data-restore-notice]")?.getAttribute("data-restore-notice") === "saved"`,
+        "restore 결과가 saved가 아니다",
+      );
+      const notice = (await flow.text("[data-restore-notice]")) ?? "";
+      assertStringIncludes(notice, "newest version");
+      assertEquals(notice.includes("Couldn't restore"), false);
+      assertEquals(notice.includes("hasn't caught up"), false);
+      assertEquals(await flow.count("[data-restore-notice='failed']"), 0);
+      assertEquals(await flow.count("[data-restore-notice='pending']"), 0);
+      assertEquals(await Deno.readTextFile(file), RESTORED_TEXT);
+      await untilVersions(flow, documentId, 3, "restore한 판 3이 없다");
+      const rows = await versionHistory(flow, documentId);
+      assertEquals(rows.map((row) => row.number), [3, 2, 1]);
+      assertEquals(rows[0].content_hash, rows[2].content_hash);
+      assert(rows[1].content_hash !== rows[0].content_hash);
+      const confirmed = rows[0].id;
+
+      const searched = await searchOnce(flow, RESTORED);
+      if (searched.coverage.lagging || searched.coverage.rebuilding) {
+        assertEquals(searched.results.length, 0);
+      } else {
+        assert(
+          searched.results.some((row) => row.document === documentId),
+          "반영이 끝났는데 되살린 내용이 검색에 없다",
+        );
+      }
+      const read = await flow.call({
+        kind: "worker",
+        resource: "documents",
+        method: "read",
+        body: {
+          reference: {
+            document: documentId,
+            version: confirmed,
+            section: null,
+          },
+        },
+      });
+      assert(read.ok, `documents/read: ${JSON.stringify(read)}`);
+      const page = read.value as {
+        text: string | null;
+        section_status: string;
+        version: string;
+      };
+      assertEquals(page.version, confirmed);
+      if (page.text === null) {
+        assertEquals(page.section_status, "unverified");
+      } else {
+        assert(page.text.includes(RESTORED));
+        assertEquals(page.text.includes(LATER), false);
+      }
+      const outline = await flow.call({
+        kind: "worker",
+        resource: "outline",
+        method: "document",
+        body: {
+          reference: {
+            document: documentId,
+            version: confirmed,
+            section: null,
+          },
+        },
+      });
+      assert(outline.ok, `outline/document: ${JSON.stringify(outline)}`);
+      const outlinePage = outline.value as {
+        version: string;
+        section_status: string;
+        entries: unknown[];
+      };
+      assertEquals(outlinePage.version, confirmed);
+      if (outlinePage.section_status === "unverified") {
+        assertEquals(outlinePage.entries.length, 0);
+      }
+
+      await flow.click("[data-entry=lophn]");
+      await flow.until(
+        `document.querySelector("[data-space]")?.getAttribute("data-space") === "lophn" && document.querySelector("[data-search-input]") !== null`,
+        "documents 화면이 서지 않았다",
+      );
+      await flow.type("[data-search-input]", RESTORED);
+      await flow.click("[data-search-submit]");
+      const hit = `[data-hit="${documentId}"]`;
+      await flow.until(
+        `document.querySelector("[data-coverage-note=lagging]") !== null || document.querySelector("[data-coverage-note=rebuilding]") !== null || document.querySelector(${
+          JSON.stringify(hit)
+        }) !== null`,
+        "검색 반영 대기나 반영된 결과가 없다",
+      );
+      const waiting = (await flow.count("[data-coverage-note=lagging]")) +
+        (await flow.count("[data-coverage-note=rebuilding]"));
+      const hits = await flow.count(hit);
+      assertEquals(
+        waiting > 0 && hits > 0,
+        false,
+        "검색 반영 대기와 완료한 결과가 함께 보인다",
+      );
+      if (waiting > 0) {
+        assertEquals(hits, 0);
+        const note = (await flow.text("[data-coverage-note=lagging]")) ??
+          (await flow.text("[data-coverage-note=rebuilding]")) ?? "";
+        assert(
+          note.includes("hasn't caught up") || note.includes("being rebuilt"),
+          note,
+        );
+        assertEquals(await flow.count("[data-restore-notice='failed']"), 0);
+      } else {
+        assert(hits > 0);
+        assertEquals(await flow.count("[data-coverage-note=lagging]"), 0);
+      }
+      assertEquals(
+        await flow.evaluate(
+          `document.querySelector("[data-restore-notice]")?.getAttribute("data-restore-notice") ?? ""`,
+        ),
+        "",
+      );
+    } finally {
+      await flow.close();
+      await removeHome(flow.home);
+      await Deno.remove(folder, { recursive: true });
     }
   },
 });

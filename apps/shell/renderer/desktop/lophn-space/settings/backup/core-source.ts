@@ -4,6 +4,7 @@
 import type { CoreCall } from "../../../../../ipc/core.ts";
 import type { CoreSource } from "../../../connection/connection.ts";
 import {
+  RESTORE_CANCEL_CHANNEL,
   RESTORE_PLAN_CHANNEL,
   RESTORE_SUBMIT_CHANNEL,
   type RestorePlanInput,
@@ -64,13 +65,29 @@ export type RestoreTransport = {
 
 export function windowRestore(): RestoreTransport | undefined {
   const shell = (globalThis as {
-    lophnRestore?: { plan: unknown; submit: unknown };
+    lophnRestore?: {
+      plan?: (input: unknown) => Promise<unknown>;
+      submit?: (input: unknown) => Promise<unknown>;
+      cancel?: (input: unknown) => Promise<unknown>;
+    };
   }).lophnRestore;
-  return shell !== undefined &&
-      typeof shell.plan === "function" &&
-      typeof shell.submit === "function"
-    ? (shell as unknown as RestoreTransport)
-    : undefined;
+  const plan = shell?.plan;
+  const submit = shell?.submit;
+  const cancel = shell?.cancel;
+  if (typeof plan !== "function" || typeof submit !== "function") {
+    return undefined;
+  }
+  // preload는 plan·submit 두 함수만 노출한다. channel을 그 함수로 옮긴다.
+  return {
+    invoke: (channel, input) =>
+      channel === RESTORE_PLAN_CHANNEL
+        ? plan(input)
+        : channel === RESTORE_SUBMIT_CHANNEL
+        ? submit(input)
+        : channel === RESTORE_CANCEL_CHANNEL && typeof cancel === "function"
+        ? cancel(input)
+        : Promise.reject(new Error("unknown restore channel")),
+  };
 }
 
 export interface BackupDeps {
@@ -111,6 +128,10 @@ export function coreBackupSource(
       );
       if (!read.ok) return read;
       return { ok: true, value: read.value.backups.map(rowOf) };
+    },
+
+    async restoreCancel(createdAt) {
+      await askMain(RESTORE_CANCEL_CHANNEL, { created_at: createdAt });
     },
 
     async restorePlan(createdAt) {

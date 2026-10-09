@@ -35,6 +35,7 @@ import { AppSpace } from "../app-frame/app-space.tsx";
 import type { AppsSource } from "./lophn-space/apps/source.ts";
 import type { RolesSource } from "./lophn-space/roles/source.ts";
 import type { SettingsSource } from "./lophn-space/settings/source.ts";
+import type { SettingsPanels } from "./lophn-space/settings/settings-screen.tsx";
 import type { CodingConnectionsSource } from "./lophn-space/settings/connections/source.ts";
 import type { TasksSource } from "../app-frame/app-detail/tasks/source.ts";
 import type { AppDetailSource } from "../app-frame/app-detail/source.ts";
@@ -77,6 +78,8 @@ export interface DesktopProps {
   roles?: RolesSource;
   /** settings 화면 통로. 없으면 settings는 준비 전 안내다. */
   settings?: SettingsSource;
+  /** settings의 backup·update·진단·notification 탭 통로. 없는 탭은 두지 않는다. */
+  settingsPanels?: SettingsPanels;
   /** 앱 공간 운영 패널의 app-detail 통로. 없으면 app-detail 탭을 두지 않는다. */
   appDetail?: AppDetailSource;
   /** shell preload의 앱 view 통로. 앱 공간 본문이 쓴다. */
@@ -112,6 +115,7 @@ export function Desktop(
     apps,
     roles,
     settings,
+    settingsPanels,
     appDetail,
     views,
     appWindows,
@@ -299,6 +303,7 @@ export function Desktop(
         initialRole={route.role}
         initialAttach={route.attach}
         settings={settings}
+        settingsPanels={settingsPanels}
         coding={coding}
         initialConnection={route.connection}
         onInstructions={instructions

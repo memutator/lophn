@@ -10,6 +10,11 @@ export interface HeadlessMode {
   readonly headless: boolean;
   /** 있으면 창마다 첫 paint와 안정된 뒤 paint를 PNG로 쓴다. */
   readonly shotDir?: string;
+  /**
+   * headless 시험에서 OS notification 표시가 실패하는 갈래를 만든다(`LOPHN_SHELL_OS_NOTIFY=fail`).
+   * headless가 아니면 읽지 않는다. 실제 OS에는 여전히 아무것도 올리지 않는다.
+   */
+  readonly osNotifyFails?: boolean;
 }
 
 export const SHELL_OFF: HeadlessMode = { headless: false };
@@ -20,7 +25,11 @@ export function readHeadless(
 ): HeadlessMode {
   if (env.LOPHN_SHELL_HEADLESS !== "1") return SHELL_OFF;
   const shotDir = env.LOPHN_SHELL_SHOT_DIR;
-  return shotDir ? { headless: true, shotDir } : { headless: true };
+  return {
+    headless: true,
+    ...(shotDir ? { shotDir } : {}),
+    ...(env.LOPHN_SHELL_OS_NOTIFY === "fail" ? { osNotifyFails: true } : {}),
+  };
 }
 
 interface SurfaceConfig {
@@ -98,6 +107,7 @@ export function guardNotifier(
     isSupported: () => true,
     show(note) {
       log(`headless os-notification not shown title=${note.title}`);
+      if (mode.osNotifyFails) throw new Error("headless os-notification fails");
     },
   };
 }

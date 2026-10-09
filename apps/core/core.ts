@@ -240,6 +240,7 @@ import {
 import {
   COLLECTOR_KIND,
   reportCollectorSpec,
+  screenTestHost,
   TEST_RUNNER_KIND,
   testRunnerSpec,
 } from "./problems-runner.ts";
@@ -797,9 +798,7 @@ async function open(
       ...(kind === TEST_RUNNER_KIND
         ? {
           ...sessionBusEnv(),
-          ...(Deno.env.get("SCREEN_TEST_HOST")
-            ? { SCREEN_TEST_HOST: Deno.env.get("SCREEN_TEST_HOST")! }
-            : {}),
+          ...(screenTestHost() ? { SCREEN_TEST_HOST: screenTestHost()! } : {}),
         }
         : {}),
     }),
@@ -830,7 +829,7 @@ async function open(
               Deno.env.get("XDG_RUNTIME_DIR"))!,
           }
           : {}),
-        ...(Deno.env.get("TMPDIR") ? { TMPDIR: Deno.env.get("TMPDIR")! } : {}),
+        ...(optionalEnv("TMPDIR") ? { TMPDIR: optionalEnv("TMPDIR")! } : {}),
       }),
     })
     : undefined;
@@ -1990,7 +1989,7 @@ async function open(
   const runnerSpec = testRunnerSpec({
     dataRoot: root.path,
     deno: Deno.execPath(),
-    screenHost: Deno.env.get("SCREEN_TEST_HOST"),
+    screenHost: screenTestHost(),
   });
   let testControl: TestControl | undefined;
   // runner process(같은 kind 하나)의 session이 `problems.work` 깨움도 받는지. 위 시작 ok 뒤 오른다.
@@ -3071,6 +3070,15 @@ const trackingReader: RequestContext = {
   conditions: {},
   credential_ref: "machine:documents-roots",
 };
+
+// packaged allow-env에 없는 이름은 없는 값이다. NotCapable로 기동을 끝내지 않는다.
+function optionalEnv(name: string): string | undefined {
+  try {
+    return Deno.env.get(name);
+  } catch {
+    return undefined;
+  }
+}
 
 // I/O worker의 secret-tool이 쓰는 session bus 위치. secret 값이 아니다.
 function sessionBusEnv(): Record<string, string> {

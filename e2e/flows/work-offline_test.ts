@@ -10,6 +10,28 @@
 // app panel 탭, 두 번째 앱 command. 로컬 앱은 하나이고 그 시작이 문서·안내 읽기를 막지 않는지만 본다.
 import { assert, assertEquals } from "@std/assert";
 
+import { sha256Hex } from "../../packages/base/mod.ts";
+import { canonicalJson } from "../../packages/apps/blueprint/mod.ts";
+import { appFlags } from "../../packages/apps/permissions/mod.ts";
+import {
+  bundleCopyPath,
+  bundleFlags,
+  manifestBytes,
+  readBundleCopy,
+  sealBundle,
+} from "../../packages/apps/releases/mod.ts";
+import {
+  blueprint,
+  command as declared,
+} from "../../packages/apps/releases/testing/mod.ts";
+import { spawnApp } from "../../apps/app-supervisor/spawn.ts";
+import type { AppLaunch } from "../../packages/apps/runtime/processes/mod.ts";
+import {
+  coreLaunch,
+  spawnCore,
+  type SpawnedCore,
+} from "../../apps/shell/main/desktop/core/supervise.ts";
+import { mcpLaunchArgv } from "../../packages/coding-agent/mcp-server/launch.ts";
 import { guideInstallFixture } from "../../packages/documents/versions/testing/mod.ts";
 import {
   installedHome,
@@ -560,6 +582,494 @@ Deno.test({
       await removeTree(home);
       await Deno.remove(install, { recursive: true });
       await Deno.remove(folder, { recursive: true });
+    }
+  },
+});
+
+// flow work-offline 2단계. 사람에게는 보이지 않는다. 플랫폼 시작·앱 시작·패키지 MCP 연결이
+// 동봉 runtime, 고정 의존성, 앱의 pinned SDK만으로 되고 다운로드를 요구하지 않는지 본다.
+// 화면은 열지 않는다. LOPHN_HOME과 HOME은 temp다. 의존성 캐시는 이미 받아 둔 사본만 읽고,
+// 그 사본에 파일이 늘면 다운로드로 본다.
+const OFFLINE_REPO = new URL("../../", import.meta.url).pathname.replace(
+  /\/$/,
+  "",
+);
+const OFFLINE_APP = "app_01h455vb4pex5v6nkc6gd5fdw1";
+const CACHE_STORES = ["npm", "remote", "dl"] as const;
+const BLOCKED_PROXY = "http://127.0.0.1:9";
+
+function sourceDenoDir(): string {
+  const configured = Deno.env.get("DENO_DIR");
+  if (configured !== undefined && configured !== "") return configured;
+  const home = Deno.env.get("HOME");
+  if (home === undefined || home === "") {
+    throw new Error("DENO_DIR도 HOME도 없어 고정 의존성 캐시를 못 찾는다");
+  }
+  return `${home}/.cache/deno`;
+}
+
+async function walkFiles(
+  directory: string,
+  prefix: string,
+  found: string[],
+): Promise<void> {
+  for await (const entry of Deno.readDir(directory)) {
+    const relative = `${prefix}/${entry.name}`;
+    if (entry.isDirectory && !entry.isSymlink) {
+      await walkFiles(`${directory}/${entry.name}`, relative, found);
+    } else found.push(relative);
+  }
+}
+
+async function cacheListing(denoDir: string): Promise<string[]> {
+  const found: string[] = [];
+  for (const name of CACHE_STORES) {
+    const root = `${denoDir}/${name}`;
+    try {
+      await Deno.stat(root);
+    } catch {
+      continue;
+    }
+    await walkFiles(root, name, found);
+  }
+  found.sort();
+  return found;
+}
+
+function addedPaths(
+  before: readonly string[],
+  after: readonly string[],
+): string[] {
+  const seen = new Set(before);
+  return after.filter((path) => !seen.has(path));
+}
+
+async function pipeText(
+  pipe: { read(buffer: Uint8Array): Promise<number | null> },
+): Promise<string> {
+  const parts: Uint8Array[] = [];
+  const buffer = new Uint8Array(8192);
+  for (;;) {
+    const count = await pipe.read(buffer);
+    if (count === null) break;
+    parts.push(buffer.slice(0, count));
+  }
+  const merged = new Uint8Array(
+    parts.reduce((sum, part) => sum + part.length, 0),
+  );
+  let offset = 0;
+  for (const part of parts) {
+    merged.set(part, offset);
+    offset += part.length;
+  }
+  return new TextDecoder().decode(merged);
+}
+
+async function runSpawned(
+  launch: AppLaunch,
+): Promise<{ code: number | null; stdout: string; stderr: string }> {
+  const child = await spawnApp(launch);
+  const stdout = pipeText(child.stdout);
+  const stderr = pipeText(child.stderr);
+  const code = await child.exited;
+  await child.terminate();
+  return { code, stdout: await stdout, stderr: await stderr };
+}
+
+async function stopCore(core: SpawnedCore): Promise<void> {
+  core.stop(5_000);
+  const child = core.child;
+  for (let i = 0; i < 40 && child.exitCode === null; i += 1) {
+    await delay(250);
+  }
+  if (child.exitCode === null) {
+    try {
+      child.kill("SIGKILL");
+    } catch { /* 이미 끝남 */ }
+  }
+}
+
+Deno.test({
+  name:
+    "platform/install-and-update#R4 apps/runtime#R23 apps/sdk#R10 coding-agent/connection#R16 flow work-offline 2: 플랫폼·앱·패키지 MCP는 다운로드 없이 고정 의존성과 pinned SDK로 시작한다",
+  ignore: Deno.env.get("LOPHN_E2E") !== "1",
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn(t) {
+    const root = await Deno.makeTempDir({ prefix: "lophn-e2e-offline-step2-" });
+    const home = `${root}/lophn-home`;
+    const sessionHome = `${root}/session-home`;
+    const denoDir = `${root}/deno`;
+    const appDeno = `${root}/app-deno`;
+    await Deno.mkdir(home);
+    await Deno.chmod(home, 0o700);
+    await Deno.mkdir(sessionHome);
+    await Deno.mkdir(denoDir);
+    await Deno.mkdir(appDeno);
+    const sourceCache = sourceDenoDir();
+    for (const name of CACHE_STORES) {
+      const from = `${sourceCache}/${name}`;
+      try {
+        await Deno.stat(from);
+      } catch {
+        continue;
+      }
+      const copied = await new Deno.Command("cp", {
+        args: ["-a", from, `${denoDir}/${name}`],
+      }).output();
+      assert(copied.success, `${name} 캐시 사본을 만들지 못했다`);
+    }
+    try {
+      await Deno.symlink(`${sourceCache}/gen`, `${denoDir}/gen`);
+    } catch {
+      // transpile cache가 없어도 고정 의존성만으로 시작해야 한다.
+    }
+    const offlineEnv = {
+      HOME: sessionHome,
+      DENO_DIR: denoDir,
+      PATH: "",
+      HTTPS_PROXY: BLOCKED_PROXY,
+      HTTP_PROXY: BLOCKED_PROXY,
+      ALL_PROXY: BLOCKED_PROXY,
+      NO_PROXY: "127.0.0.1,localhost,::1",
+      DENO_NO_UPDATE_CHECK: "1",
+    };
+    const before = await cacheListing(denoDir);
+    assert(
+      before.some((path) => path.startsWith("npm/")),
+      "고정 npm 의존성 사본이 없다",
+    );
+    let core: SpawnedCore | undefined;
+    try {
+      await t.step(
+        "platform/install-and-update#R4: 플랫폼은 동봉 runtime과 고정 의존성으로 시작하고 다운로드하지 않는다",
+        async () => {
+          const launch = coreLaunch({
+            repoRoot: OFFLINE_REPO,
+            dataRoot: home,
+            denoBinary: Deno.execPath(),
+            packaged: true,
+            env: offlineEnv,
+          });
+          assertEquals(launch.command, Deno.execPath());
+          assert(launch.args.includes("--cached-only"));
+          assert(launch.args.includes("--frozen"));
+          assert(launch.args.includes("--no-prompt"));
+          assertEquals(launch.args.includes("--allow-all"), false);
+          assertEquals(launch.args.includes("-A"), false);
+          core = spawnCore({
+            repoRoot: OFFLINE_REPO,
+            dataRoot: home,
+            denoBinary: Deno.execPath(),
+            packaged: true,
+            env: offlineEnv,
+          });
+          const hello = await core.hello;
+          assert(hello.api_port > 0);
+          assert(hello.user_token.length > 0);
+          assert(hello.core_epoch.length > 0);
+          const cmdline = await Deno.readTextFile(
+            `/proc/${core.child.pid}/cmdline`,
+          );
+          assert(cmdline.includes("--cached-only"));
+          assert(cmdline.includes("--frozen"));
+          assertEquals(cmdline.includes("--allow-all"), false);
+          await stopCore(core);
+          core = undefined;
+        },
+      );
+
+      await t.step(
+        "apps/runtime#R23 apps/sdk#R10: 앱은 pinned SDK byte로 뜨고 원격 import와 설치 사본 변경은 받지 않는다",
+        async () => {
+          const installCopy = `${root}/install-sdk/probe/1.0.0/mod.ts`;
+          await Deno.mkdir(`${root}/install-sdk/probe/1.0.0`, {
+            recursive: true,
+          });
+          await Deno.writeTextFile(
+            installCopy,
+            `export const hello = () => "mutated-install";\n`,
+          );
+          const pinned = `export const hello = () => "pinned-sdk";\n`;
+          const main = [
+            `import { hello } from "@lophn/probe";`,
+            `let outside = "read";`,
+            `try { await Deno.readTextFile(${JSON.stringify(installCopy)}); }`,
+            `catch { outside = "denied"; }`,
+            `console.log(JSON.stringify({ hello: hello(), outside }));`,
+          ].join("\n");
+          const files = new Map<string, string>([
+            ["main.ts", main],
+            ["sdk/probe/1.0.0/mod.ts", pinned],
+            [
+              "import-map.json",
+              JSON.stringify({
+                imports: { "@lophn/probe": "./sdk/probe/1.0.0/mod.ts" },
+              }),
+            ],
+          ]);
+          const blueprintJson = canonicalJson(
+            blueprint({
+              commands: [declared("list")],
+              screens: [{
+                key: "home",
+                label: "Home",
+                path: "/home",
+                sizes: ["full"],
+              }],
+              sdk_dependencies: [{ name: "@lophn/probe", version: "1.0.0" }],
+            }) as never,
+          );
+          const manifestFiles: { path: string; hash: string }[] = [];
+          for (const [path, text] of files) {
+            manifestFiles.push({ path, hash: await sha256Hex(text) });
+          }
+          manifestFiles.push({
+            path: "blueprint.json",
+            hash: await sha256Hex(blueprintJson),
+          });
+          const manifest = {
+            entrypoint: "main.ts",
+            files: manifestFiles,
+            sdk_dependencies: [{ name: "@lophn/probe", version: "1.0.0" }],
+          };
+          const bundleHash = await sha256Hex(
+            new TextDecoder().decode(manifestBytes(manifest)),
+          );
+          const copy = bundleCopyPath(home, OFFLINE_APP, bundleHash);
+          assert(copy.ok, copy.ok ? "" : copy.error.message);
+          const sealed = await sealBundle({
+            copyPath: copy.value,
+            manifest,
+            blueprintJson: new TextEncoder().encode(blueprintJson),
+            bundleFiles: [...files].map(([path, text]) => ({
+              path,
+              bytes: new TextEncoder().encode(text),
+            })),
+          });
+          assert(sealed.ok, sealed.ok ? "" : sealed.error.message);
+          const read = await readBundleCopy(home, OFFLINE_APP, bundleHash);
+          assert(
+            read.ok && read.value !== undefined,
+            "bundle 사본을 못 읽는다",
+          );
+          const parts = read.value;
+          const dataPath = `${home}/apps/${OFFLINE_APP}/data`;
+          await Deno.mkdir(dataPath, { recursive: true });
+          const flags = bundleFlags(parts, {
+            requirements: [],
+            dataPath,
+            platform: { ports: [7431] },
+            protectedDenies: [],
+          });
+          assert(flags.ok, flags.ok ? "" : flags.error.message);
+          for (
+            const flag of [
+              "--no-prompt",
+              "--no-config",
+              "--no-remote",
+              "--no-npm",
+              "--cached-only",
+            ]
+          ) {
+            assert(flags.value.args.includes(flag), flag);
+          }
+          assertEquals(flags.value.args.includes("--allow-all"), false);
+          const launch: AppLaunch = {
+            deno: Deno.execPath(),
+            entry: parts.entry,
+            flags: flags.value,
+            importMap: parts.importMap,
+            environment: {
+              home: sessionHome,
+              denoDir: appDeno,
+              xdgCacheHome: `${root}/xdg-cache`,
+              path: "/usr/bin:/bin",
+            },
+            startLine: "{}",
+          };
+          const ran = await runSpawned(launch);
+          assertEquals(
+            ran.code,
+            0,
+            ran.stderr,
+          );
+          assertEquals(JSON.parse(ran.stdout), {
+            hello: "pinned-sdk",
+            outside: "denied",
+          });
+          await Deno.writeTextFile(
+            installCopy,
+            `export const hello = () => "mutated-again";\n`,
+          );
+          const again = await runSpawned(launch);
+          assertEquals(again.code, 0, again.stderr);
+          assertEquals(JSON.parse(again.stdout).hello, "pinned-sdk");
+
+          await Deno.chmod(parts.root, 0o755);
+          await Deno.chmod(`${parts.root}/manifest.json`, 0o644);
+          await Deno.writeTextFile(
+            `${parts.root}/manifest.json`,
+            `${await Deno.readTextFile(`${parts.root}/manifest.json`)} `,
+          );
+          const broken = await readBundleCopy(home, OFFLINE_APP, bundleHash);
+          assert(!broken.ok);
+          assertEquals(broken.error.code, "unavailable");
+
+          const remoteDir = `${root}/remote-app`;
+          const remoteData = `${root}/remote-data`;
+          await Deno.mkdir(remoteDir);
+          await Deno.mkdir(remoteData);
+          await Deno.writeTextFile(
+            `${remoteDir}/import-map.json`,
+            JSON.stringify({ imports: {} }),
+          );
+          await Deno.writeTextFile(
+            `${remoteDir}/main.ts`,
+            `import "https://127.0.0.1:9/not-pinned.ts";\n`,
+          );
+          const remoteFlags = appFlags(
+            [],
+            { bundle: remoteDir, data: remoteData },
+            { ports: [] },
+            [],
+          );
+          assert(
+            remoteFlags.ok,
+            remoteFlags.ok ? "" : remoteFlags.error.message,
+          );
+          assert(remoteFlags.value.args.includes("--no-remote"));
+          assert(remoteFlags.value.args.includes("--no-npm"));
+          const remote = await runSpawned({
+            deno: Deno.execPath(),
+            entry: `${remoteDir}/main.ts`,
+            flags: remoteFlags.value,
+            importMap: `${remoteDir}/import-map.json`,
+            environment: {
+              home: sessionHome,
+              denoDir: appDeno,
+              path: "/usr/bin:/bin",
+            },
+            startLine: "{}",
+          });
+          assert(remote.code !== 0, remote.stdout);
+          const npmDir = `${root}/npm-app`;
+          const npmData = `${root}/npm-data`;
+          await Deno.mkdir(npmDir);
+          await Deno.mkdir(npmData);
+          await Deno.writeTextFile(
+            `${npmDir}/import-map.json`,
+            JSON.stringify({ imports: {} }),
+          );
+          await Deno.writeTextFile(
+            `${npmDir}/main.ts`,
+            `import "npm:left-pad@1.3.0";\n`,
+          );
+          const npmFlags = appFlags(
+            [],
+            { bundle: npmDir, data: npmData },
+            { ports: [] },
+            [],
+          );
+          assert(npmFlags.ok, npmFlags.ok ? "" : npmFlags.error.message);
+          const npm = await runSpawned({
+            deno: Deno.execPath(),
+            entry: `${npmDir}/main.ts`,
+            flags: npmFlags.value,
+            importMap: `${npmDir}/import-map.json`,
+            environment: {
+              home: sessionHome,
+              denoDir: appDeno,
+              path: "/usr/bin:/bin",
+            },
+            startLine: "{}",
+          });
+          assert(npm.code !== 0, npm.stdout);
+        },
+      );
+
+      await t.step(
+        "coding-agent/connection#R16: 패키지 MCP는 설치된 코드·설정·캐시만으로 initialize와 tool 발견을 한다",
+        async () => {
+          const argv = mcpLaunchArgv({
+            deno: Deno.execPath(),
+            resources: OFFLINE_REPO,
+            cache: denoDir,
+            connection: "",
+            coreEndpoint: "http://127.0.0.1:1",
+          });
+          assertEquals(argv.command, Deno.execPath());
+          assert(argv.args.includes("--cached-only"));
+          assert(argv.args.includes("--no-prompt"));
+          assertEquals(argv.args.includes("-A"), false);
+          assertEquals(argv.args.includes("--allow-all"), false);
+          assert(
+            argv.args.includes(`--config=${OFFLINE_REPO}/deno.json`),
+          );
+          const child = new Deno.Command(argv.command, {
+            args: argv.args,
+            cwd: OFFLINE_REPO,
+            clearEnv: true,
+            env: { ...argv.env, ...offlineEnv, LOPHN_HOME: home },
+            stdin: "piped",
+            stdout: "piped",
+            stderr: "piped",
+          }).spawn();
+          const encoder = new TextEncoder();
+          const writer = child.stdin.getWriter();
+          await writer.write(
+            encoder.encode(
+              '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","clientInfo":{"name":"offline"}}}\n',
+            ),
+          );
+          await writer.write(
+            encoder.encode('{"jsonrpc":"2.0","id":2,"method":"tools/list"}\n'),
+          );
+          await writer.close();
+          const decoder = new TextDecoder();
+          let stdout = "";
+          let stderrText = "";
+          const timer = setTimeout(() => {
+            try {
+              child.kill("SIGKILL");
+            } catch { /* 이미 끝남 */ }
+          }, 60_000);
+          const diag = (async () => {
+            for await (const chunk of child.stderr) {
+              stderrText += decoder.decode(chunk, { stream: true });
+            }
+          })();
+          try {
+            for await (const chunk of child.stdout) {
+              stdout += decoder.decode(chunk, { stream: true });
+              if (stdout.includes("lophn_index")) break;
+            }
+          } finally {
+            clearTimeout(timer);
+            try {
+              child.kill("SIGTERM");
+            } catch { /* 이미 끝남 */ }
+          }
+          await child.status;
+          await diag;
+          assert(stdout.includes('"serverInfo"'), stderrText);
+          assert(stdout.includes("2025-06-18"));
+          assert(stdout.includes("lophn_index"), stderrText);
+          assertEquals(stdout.startsWith("{"), true);
+          assertEquals(stderrText.includes("Download"), false, stderrText);
+        },
+      );
+
+      const after = await cacheListing(denoDir);
+      const added = addedPaths(before, after);
+      assertEquals(
+        added,
+        [],
+        `의존성 캐시에 새 파일이 생겼다: ${added.slice(0, 8).join(", ")}`,
+      );
+    } finally {
+      if (core !== undefined) await stopCore(core);
+      await removeTree(root);
     }
   },
 });

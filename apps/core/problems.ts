@@ -93,7 +93,11 @@ import {
   isTicketCheckFeed,
   ticketCheckFeedVisibility,
 } from "./ticket-checker.ts";
-import { reportCollectorSpec, testRunnerSpec } from "./problems-runner.ts";
+import {
+  reportCollectorSpec,
+  screenTestHost,
+  testRunnerSpec,
+} from "./problems-runner.ts";
 import { testTxPorts } from "./problems-test-ports.ts";
 import { problemsWorkSubscribers } from "./problems-work.ts";
 import {
@@ -158,7 +162,7 @@ function testRunnerWorkers(): KindLaunchSpec[] {
   const spec = testRunnerSpec({
     dataRoot: root,
     deno: Deno.execPath(),
-    screenHost: Deno.env.get("SCREEN_TEST_HOST"),
+    screenHost: screenTestHost(),
   });
   return spec ? [spec] : [];
 }

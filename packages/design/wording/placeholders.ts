@@ -2503,6 +2503,7 @@ export type PlaceholderKinds = {
   "things-to-confirm.button.keep-question": Record<never, never>;
   "things-to-confirm.button.later": Record<never, never>;
   "things-to-confirm.button.mark-read": Record<never, never>;
+  "things-to-confirm.button.open-document": Record<never, never>;
   "things-to-confirm.button.review": Record<never, never>;
   "things-to-confirm.button.review-next": Record<never, never>;
   "things-to-confirm.button.send-answer": Record<never, never>;

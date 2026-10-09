@@ -1,5 +1,7 @@
 import { err, ok } from "../../base/mod.ts";
 import {
+  atSchema,
+  idSchema,
   notificationsDisplay,
   notificationsGet,
   notificationsList,
@@ -8,6 +10,49 @@ import {
 import { notificationView } from "./model.ts";
 import { osDisplayRequest } from "./os-display.ts";
 import { notificationOf, readNotificationRow } from "./store.ts";
+
+const documentId = idSchema("doc");
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function parsePayload(raw: unknown): unknown {
+  if (typeof raw !== "string") return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+// ContextWatchedItemChanged가 저장한 문서 참조만. 없거나 id가 아니면 null이다.
+function documentOf(event: string, payload: unknown): string | null {
+  if (event !== "ContextWatchedItemChanged" || !isRecord(payload)) return null;
+  const target = payload["target"];
+  if (!isRecord(target) || target["kind"] !== "document") return null;
+  const document = target["document"];
+  return typeof document === "string" && documentId.safeParse(document).success
+    ? document
+    : null;
+}
+
+// 사람 줄만 본다. 다른 actor에게는 source 시각·문서 참조를 열지 않고 payload는 어디에도 없다.
+function lineFacts(
+  actor: string,
+  event: string,
+  at: unknown,
+  payload: unknown,
+): { occurred_at?: string; document?: string | null } {
+  if (actor !== "user") return {};
+  const facts: { occurred_at?: string; document: string | null } = {
+    document: documentOf(event, payload),
+  };
+  if (typeof at === "string" && atSchema.safeParse(at).success) {
+    facts.occurred_at = at;
+  }
+  return facts;
+}
 
 type GetRoute = typeof notificationsGet;
 type ListRoute = typeof notificationsList;
@@ -18,11 +63,15 @@ type DisplayRoute = typeof notificationsDisplay;
 export function notificationsGetRead(): ReadDefinition<GetRoute> {
   return {
     route: notificationsGet,
-    handle(snapshot, _ctx, input) {
+    handle(snapshot, ctx, input) {
       const row = readNotificationRow(snapshot.sql, input.notification);
       if (row === undefined) {
         return err({ code: "not_found", message: "notification이 없다" });
       }
+      const source = snapshot.sql.get(
+        "select at, payload from events where seq = ?",
+        [BigInt(row.notification.source_seq)],
+      );
       return ok({
         notification: {
           id: row.notification.id,
@@ -30,6 +79,12 @@ export function notificationsGetRead(): ReadDefinition<GetRoute> {
           read_at: row.notification.read_at,
         },
         source_event: row.source_event,
+        ...lineFacts(
+          ctx.actor,
+          row.source_event,
+          source?.["at"],
+          parsePayload(source?.["payload"]),
+        ),
         as_of_seq: snapshot.as_of_seq,
         next_cursor: null,
       } as never);
@@ -41,7 +96,7 @@ export function notificationsGetRead(): ReadDefinition<GetRoute> {
 export function notificationsListRead(): ReadDefinition<ListRoute> {
   return {
     route: notificationsList,
-    handle(snapshot, _ctx, input) {
+    handle(snapshot, ctx, input) {
       const limit = Math.min(input.limit ?? 100, 500);
       const clauses: string[] = [];
       const params: bigint[] = [];
@@ -58,7 +113,8 @@ export function notificationsListRead(): ReadDefinition<ListRoute> {
            select id, cast(source_seq as text) as source_seq, read_at
            from notifications ${where} order by source_seq limit ?
          )
-         select source.*, events.type as source_event
+         select source.*, events.type as source_event,
+                events.at as source_at, events.payload as source_payload
          from source join events on events.seq = cast(source.source_seq as integer)
          order by cast(source.source_seq as integer)`,
         [...params, limit],
@@ -70,6 +126,12 @@ export function notificationsListRead(): ReadDefinition<ListRoute> {
           read_at: row["read_at"] === null ? null : String(row["read_at"]),
         },
         source_event: String(row["source_event"]),
+        ...lineFacts(
+          ctx.actor,
+          String(row["source_event"]),
+          row["source_at"],
+          parsePayload(row["source_payload"]),
+        ),
       }));
       const last = rows.length
         ? String(rows[rows.length - 1]["source_seq"])

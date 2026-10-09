@@ -19,22 +19,34 @@ export function installProblemReporter(reporter: ReportProblem): void {
 
 // 앱이 선언 code로 보고한다. 진입점이 reporter를 설치하지 않았으면(단위 test·로컬 실행) 보내지 않고
 // 실패 값을 돌려준다. 업무 흐름에 던지지 않는다.
-export const reportProblem: ReportProblem = (
-  code: string,
-  details?: SafeReportDetails,
-): ReportProblemResult => {
+function installedReporter(): ReportProblem | undefined {
   const installed = (globalThis as Store)[REPORTER_PORT];
-  if (typeof installed === "function") {
-    return (installed as ReportProblem)(code, details);
-  }
-  return {
-    report_id: "",
-    completion: Promise.resolve({
-      status: "failed",
-      reason: {
-        code: "unavailable",
-        message: "problem reporting is not installed",
-      },
-    }),
-  };
-};
+  return typeof installed === "function"
+    ? installed as ReportProblem
+    : undefined;
+}
+
+export const reportProblem: ReportProblem = Object.assign(
+  (
+    code: string,
+    details?: SafeReportDetails,
+  ): ReportProblemResult => {
+    const installed = installedReporter();
+    if (installed) return installed(code, details);
+    return {
+      report_id: "",
+      completion: Promise.resolve({
+        status: "failed",
+        reason: {
+          code: "unavailable",
+          message: "problem reporting is not installed",
+        },
+      }),
+    };
+  },
+  {
+    retransmit(reportId: string, details?: SafeReportDetails) {
+      return installedReporter()?.retransmit?.(reportId, details) ?? null;
+    },
+  },
+);

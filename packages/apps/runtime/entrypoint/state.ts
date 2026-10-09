@@ -59,6 +59,8 @@ export type RuntimeState = {
   automations?: { open(): void; close(): void };
   screenBytes: (screen: string, path: string) => Uint8Array | undefined;
   contentType: (path: string) => string;
+  // handler가 잡은 예외를 process를 끝내지 않고 보고한다. 없으면 보고하지 않는다.
+  reportCaught?: (error: Error, invocation: string) => void;
 };
 
 export const CLOSED_VIEW_LIMIT = 1024;

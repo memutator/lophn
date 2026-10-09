@@ -10,10 +10,10 @@
 // 남기지 않는다. 수집 과정은 화면에 보이지 않는다.
 // (problem-codes#R2, reporting#R1 R2 R5, snapshots#R1 R4 R6 R15)
 //
-// 하지 않는 것: 2~9단계(redaction 표시, notification, App Engineer, repair ticket, 수리, activation,
-// 닫힘). process의 unhandled rejection은 앱 자식이 바로 끝나 이후 읽기를 막으므로 여기서 일으키지
-// 않는다. 화면이 이미 root render에서 깨져 있어 실패 command는 그 view의 lophnApp(화면이 command를
-// 부르는 통로)으로 일으킨다. 사람 조작 화면은 없다.
+// 2단계 테스트는 그 아래에 있다. 하지 않는 것: 3~9단계(notification, App Engineer, repair ticket,
+// 수리, activation, 닫힘). process의 unhandled rejection은 앱 자식이 바로 끝나 이후 읽기를 막으므로
+// 일으키지 않는다. 화면이 이미 root render에서 깨져 있어 실패 command는 그 view의 lophnApp(화면이
+// command를 부르는 통로)으로 일으킨다. 사람 조작 화면은 없다.
 import { assert, assertEquals } from "@std/assert";
 
 import {
@@ -468,6 +468,395 @@ Deno.test({
           await collectionHidden(flow);
         },
       );
+    } finally {
+      await opened?.close();
+      await removeTree(home);
+    }
+  },
+});
+
+const VIEW_TOKEN = ["ghp", "w".repeat(20)].join("_");
+const OMIT_TOKEN = ["ghp", "omitzzzzzzzzzzzzzzzzz"].join("_");
+
+type ReportItem = {
+  id: string;
+  problem: string;
+  code: string;
+  source: string;
+};
+
+type AppCall = {
+  ok: boolean;
+  value?: Record<string, unknown>;
+  message?: string;
+};
+
+function callApp(
+  flow: FlowShell,
+  command: string,
+  input: unknown,
+): Promise<AppCall> {
+  const script =
+    `lophnApp.call(${JSON.stringify(command)}, ${JSON.stringify(input)})` +
+    `.then((value) => ({ ok: true, value }), (error) => ({ ok: false, message: String(error && error.message) }))`;
+  return inApp(flow, script).then((raw) => {
+    const reply = raw as AppCall;
+    const outer = reply.value?.result;
+    const inner = outer !== null && typeof outer === "object"
+      ? (outer as { result?: unknown }).result
+      : undefined;
+    if (inner !== null && typeof inner === "object") {
+      return { ok: true, value: inner as Record<string, unknown> };
+    }
+    return reply;
+  });
+}
+
+async function reportItems(flow: FlowShell): Promise<ReportItem[]> {
+  const items: ReportItem[] = [];
+  for (const problem of await listed(flow)) {
+    const body = await mustCall(flow, {
+      kind: "read",
+      resource: "problems",
+      method: "list-reports",
+      body: { problem: problem.id },
+    });
+    for (const report of body.reports as ReportItem[]) {
+      items.push({
+        id: report.id,
+        problem: problem.id,
+        code: report.code,
+        source: report.source,
+      });
+    }
+  }
+  return items;
+}
+
+async function waitFor(
+  label: string,
+  read: () => Promise<boolean>,
+): Promise<void> {
+  const deadline = Date.now() + 45_000;
+  while (Date.now() < deadline) {
+    if (await read()) return;
+    await delay(400);
+  }
+  throw new Error(label);
+}
+
+async function filesContaining(
+  home: string,
+  token: string,
+): Promise<string[]> {
+  const hits: string[] = [];
+  const walk = async (dir: string): Promise<void> => {
+    for await (const entry of Deno.readDir(dir)) {
+      const path = `${dir}/${entry.name}`;
+      if (entry.isDirectory) {
+        if (entry.name === "apps") continue;
+        await walk(path);
+        continue;
+      }
+      if (!entry.isFile) continue;
+      const info = await Deno.stat(path);
+      if (info.size > 8_000_000) continue;
+      const text = new TextDecoder().decode(await Deno.readFile(path));
+      if (text.includes(token)) hits.push(path);
+    }
+  };
+  await walk(home);
+  return hits;
+}
+
+Deno.test({
+  name:
+    "platform/redaction#R5 R14 problems/reporting#R9 R11 R12 problems/grouping#R1 R2 R5 flow app-broken 2: 저장 전에 redaction하고 재전송·과다 보고·같은 분류를 한 문제로 다룬다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn() {
+    const home = await Deno.makeTempDir({ prefix: "lophn-e2e-app-broken-" });
+    let opened: FlowShell | undefined;
+    try {
+      await Deno.chmod(home, 0o700);
+      const first = await openFlowShell({ home });
+      await first.close();
+      const bundle = await prepareBrokenApp(home, {
+        installedHome,
+        removeTree,
+      });
+      seedLedger(home, bundle);
+      const flow = await openFlowShell({ home, start: `app:${APP}` });
+      opened = flow;
+      await flow.until(
+        `document.querySelector("[data-space]")?.getAttribute("data-space") === "app"`,
+        "앱 공간이 서지 않았다",
+      );
+      const runningAt = Date.now() + 60_000;
+      for (;;) {
+        const runtime = await mustCall(flow, {
+          kind: "read",
+          resource: "apps",
+          method: "runtime",
+          body: { app: APP },
+        });
+        if ((runtime.state as { state: string }).state === "running") break;
+        assert(Date.now() < runningAt, "앱이 뜨지 않았다");
+        await delay(500);
+      }
+      await flow.until(
+        `document.querySelector('[data-phase="failed"] button') !== null || document.querySelector('[data-report-problem]:not([disabled])') !== null`,
+        "화면 상태가 오지 않았다",
+      );
+      if ((await flow.count('[data-phase="failed"] button')) > 0) {
+        await flow.click('[data-phase="failed"] button');
+      }
+      await flow.until(
+        `document.querySelector('[data-report-problem]:not([disabled])') !== null`,
+        "[Report a problem]이 켜지지 않았다",
+      );
+      await delay(1_000);
+      await waitRender(flow);
+      await collectionHidden(flow);
+
+      await inApp(
+        flow,
+        `(() => {
+          const token = ["ghp", "w".repeat(20)].join("_");
+          const message = "view broke near " + token;
+          const error = new Error(message);
+          window.dispatchEvent(new ErrorEvent("error", { error, message }));
+          return true;
+        })()`,
+      );
+      let secretReport = "";
+      await waitFor("가린 view 오류 보고가 없다", async () => {
+        for (const item of await reportItems(flow)) {
+          if (item.code !== "_exception") continue;
+          const read = await readReport(flow, item.id);
+          const message = read.snapshot?.error?.message ?? "";
+          if (message === RENDER_MESSAGE || message === "") continue;
+          if (!message.includes("view broke")) continue;
+          secretReport = item.id;
+          return true;
+        }
+        return false;
+      });
+      const secret = await readReport(flow, secretReport);
+      const secretMessage = secret.snapshot?.error?.message ?? null;
+      assert(secretMessage !== null, "통과한 문장을 통째로 빼 두지 않는다");
+      assert(!secretMessage.includes(VIEW_TOKEN), secretMessage);
+      assert(secretMessage.includes("*"), secretMessage);
+      assert(
+        !JSON.stringify(secret).includes(VIEW_TOKEN),
+        "가린 원문이 조회에 남았다",
+      );
+      const secretLogs = await mustCall(flow, {
+        kind: "read",
+        resource: "problems",
+        method: "get-snapshot-logs",
+        body: { snapshot: secret.snapshot!.id },
+      });
+      assert(!JSON.stringify(secretLogs).includes(VIEW_TOKEN));
+      const screen = String(await flow.evaluate("document.body.innerText"));
+      const appText = String(
+        await main(
+          flow,
+          `${APP_VIEW}.executeJavaScript("document.body.innerText")`,
+        ),
+      );
+      assert(!screen.includes(VIEW_TOKEN), screen);
+      assert(!appText.includes(VIEW_TOKEN), appText);
+      assertEquals(await filesContaining(home, VIEW_TOKEN), []);
+
+      // RPC JSON 깊이 한도가 redaction 한도보다 앞에서 거절한다. 그 원문은 접수되지 않는다.
+      const omitted = await callApp(flow, "repeat_report", { kind: "omit" });
+      assert(omitted.ok, omitted.message);
+      assertEquals(
+        omitted.value?.status,
+        "failed",
+        JSON.stringify(omitted.value),
+      );
+      assertEquals(omitted.value?.reason, "invalid_input");
+      const omittedId = String(omitted.value?.report_id);
+      assert(
+        !(await reportItems(flow)).some((item) => item.id === omittedId),
+        omittedId,
+      );
+      for (const item of await reportItems(flow)) {
+        const read = await readReport(flow, item.id);
+        assert(!JSON.stringify(read).includes(OMIT_TOKEN), item.id);
+      }
+      assertEquals(await filesContaining(home, OMIT_TOKEN), []);
+
+      const same = await callApp(flow, "repeat_report", { kind: "same" });
+      assert(same.ok, same.message);
+      assertEquals(same.value?.first, "accepted");
+      assertEquals(same.value?.second, "accepted");
+      const sameId = String(same.value?.report_id);
+      await waitFor(
+        "재전송 보고가 없다",
+        async () =>
+          (await reportItems(flow)).some((item) => item.id === sameId),
+      );
+      assertEquals(
+        (await reportItems(flow)).filter((item) => item.id === sameId).length,
+        1,
+      );
+
+      const altered = await callApp(flow, "repeat_report", {
+        kind: "altered",
+      });
+      assert(altered.ok, altered.message);
+      assertEquals(altered.value?.first, "accepted");
+      assertEquals(altered.value?.second, "failed");
+      assertEquals(altered.value?.reason, "conflict");
+      const alteredId = String(altered.value?.report_id);
+      assertEquals(
+        (await reportItems(flow)).filter((item) => item.id === alteredId)
+          .length,
+        1,
+      );
+
+      const settingsFirst = await callApp(flow, "read_settings", null);
+      assert(settingsFirst.ok, settingsFirst.message);
+      const settingsSecond = await callApp(flow, "read_settings", null);
+      assert(settingsSecond.ok, settingsSecond.message);
+      await waitFor("설정 보고가 둘이 아니다", async () => {
+        const settings = (await listed(flow)).filter((row) =>
+          row.symptom === SETTINGS_SYMPTOM
+        );
+        if (settings.length !== 1) return false;
+        return (await reportsOf(flow, settings[0]!.id)).length === 2;
+      });
+      const settingsProblem = (await listed(flow)).find((row) =>
+        row.symptom === SETTINGS_SYMPTOM
+      );
+      assert(settingsProblem !== undefined);
+      const settingsIds = (await reportsOf(flow, settingsProblem.id)).map((
+        item,
+      ) => item.id);
+      assertEquals(settingsIds.length, 2);
+      assert(settingsIds[0] !== settingsIds[1], settingsIds.join(","));
+
+      const head = await callApp(flow, "run_broken", { kind: "type_error" });
+      assertEquals(head.ok, false);
+      const tail = await callApp(flow, "run_broken", {
+        kind: "type_error",
+        variant: "tail",
+      });
+      assertEquals(tail.ok, false);
+      const deep = await callApp(flow, "run_broken", {
+        kind: "type_error",
+        variant: "deep",
+      });
+      assertEquals(deep.ok, false);
+      type Thrown = {
+        id: string;
+        problem: string;
+        frames: { path: string; function: string | null }[];
+      };
+      let thrown: Thrown[] = [];
+      await waitFor("예외 frame 보고가 모이지 않았다", async () => {
+        thrown = [];
+        for (const item of await reportItems(flow)) {
+          if (item.code !== "_exception") continue;
+          const read = await readReport(flow, item.id);
+          const frames = (read.snapshot?.error?.frames ?? []) as Thrown[
+            "frames"
+          ];
+          if (frames.length === 0) continue;
+          thrown.push({ id: item.id, problem: item.problem, frames });
+        }
+        const listedBroken = thrown.filter((item) =>
+          item.frames.some((frame) => frame.function === "listBroken")
+        );
+        const panel = thrown.filter((item) =>
+          item.frames.some((frame) => frame.function === "readPanel")
+        );
+        return listedBroken.length >= 2 && panel.length >= 1;
+      });
+      const listedBroken = thrown.filter((item) =>
+        item.frames.some((frame) => frame.function === "listBroken")
+      );
+      const panel = thrown.filter((item) =>
+        item.frames.some((frame) => frame.function === "readPanel") &&
+        item.frames.every((frame) => frame.function !== "listBroken")
+      );
+      assertEquals(listedBroken.length, 2);
+      assertEquals(listedBroken[0]!.problem, listedBroken[1]!.problem);
+      assert(listedBroken[0]!.id !== listedBroken[1]!.id);
+      assertEquals(panel.length, 1);
+      assert(panel[0]!.problem !== listedBroken[0]!.problem);
+      for (const item of [...listedBroken, ...panel]) {
+        for (const frame of item.frames) {
+          assert(!frame.path.startsWith("/"), frame.path);
+          assert(!frame.path.includes(home), frame.path);
+          assert(frame.path.includes("commands.ts"), frame.path);
+        }
+      }
+      const brokenProblems = (await listed(flow)).filter((row) =>
+        row.symptom === BROKEN_SYMPTOM
+      );
+      assertEquals(brokenProblems.length, 1);
+      assert(brokenProblems[0]!.id !== settingsProblem.id);
+      const brokenGot = await mustCall(flow, {
+        kind: "read",
+        resource: "problems",
+        method: "get",
+        body: { problem: brokenProblems[0]!.id },
+      });
+      const brokenJson = JSON.stringify(brokenGot);
+      assertEquals(
+        (brokenGot.problem as { interpretation: unknown }).interpretation,
+        null,
+      );
+      assert(!brokenJson.includes("root_cause"), brokenJson);
+      assert(!brokenJson.includes("confirmed_cause"), brokenJson);
+      assert(!brokenJson.includes("same_cause"), brokenJson);
+      assert(!brokenJson.includes("같은 원인"), brokenJson);
+      const shown = `${screen}\n${appText}\n${
+        String(await flow.evaluate("document.body.innerText"))
+      }`;
+      assert(!shown.includes("group_key"), shown);
+      assert(!shown.includes("fingerprint"), shown);
+      assert(!shown.includes("같은 원인"), shown);
+      await collectionHidden(flow);
+
+      const kept = new Set((await reportItems(flow)).map((item) => item.id));
+      assert(kept.size < 20, `창이 차기 전에 보고가 ${kept.size}개다`);
+      assert(kept.has(sameId));
+      const flood = await callApp(flow, "flood_reports", null);
+      assert(flood.ok, flood.message);
+      assertEquals(flood.value?.sent, 25);
+      const beforeFlood = kept.size;
+      let capped: ReportItem[] = [];
+      let stable = 0;
+      let previous = -1;
+      await waitFor("과다 보고 상한이 보이지 않는다", async () => {
+        capped = await reportItems(flow);
+        if (capped.length === previous && capped.length > beforeFlood) {
+          stable += 1;
+        } else {
+          stable = 0;
+          previous = capped.length;
+        }
+        return stable >= 3;
+      });
+      assert(capped.length > beforeFlood, String(capped.length));
+      assert(capped.length <= beforeFlood + 20, String(capped.length));
+      for (const id of kept) {
+        assert(capped.some((item) => item.id === id), id);
+      }
+      assertEquals(capped.filter((item) => item.id === sameId).length, 1);
+      await delay(1_000);
+      const settled = await reportItems(flow);
+      assert(settled.length <= beforeFlood + 20, String(settled.length));
+      assertEquals(settled.filter((item) => item.id === sameId).length, 1);
+      for (const id of kept) {
+        assert(settled.some((item) => item.id === id), id);
+      }
     } finally {
       await opened?.close();
       await removeTree(home);

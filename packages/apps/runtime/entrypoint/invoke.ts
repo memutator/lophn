@@ -313,6 +313,14 @@ function launch(
         () => call.handler.handle(call.input),
       );
     } catch (error) {
+      // 거절이 아닌 예외는 발생으로 남긴다. command 결과와 프로세스 종료는 그대로다.
+      if (readRejection(error) === undefined && error instanceof Error) {
+        try {
+          state.reportCaught?.(error, id);
+        } catch {
+          // 보고 실패가 command 결과를 바꾸지 않는다.
+        }
+      }
       // timeout으로 이미 결과 모름을 남겼으면 늦은 종료가 그 사실을 바꾸지 않는다.
       if (record.settled) {
         takeStages(id);

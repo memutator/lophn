@@ -10,6 +10,7 @@ import {
   idSchema,
   secretNameSchema,
 } from "../platform/mod.ts";
+import { exceptionObservationInputSchema } from "../problems/exception-observation.ts";
 import { problemCodeSchema } from "../problems/problem-codes.ts";
 import { reportAcceptanceSchema } from "../problems/reports.ts";
 import { invocationEvidenceInputSchema } from "../problems/snapshots.ts";
@@ -146,6 +147,13 @@ export const brokerProblemReportInputSchema = z.strictObject({
   invocation: invocationEvidenceInputSchema.nullable().optional(),
 });
 export const brokerProblemReportOutputSchema = reportAcceptanceSchema;
+
+// 잡은 예외의 관측. app·release·mode는 자식 연결의 credential이 정하고 본문은 관측만 담는다.
+export const brokerProblemObserveInputSchema = z.strictObject({
+  ...childFields,
+  observation: exceptionObservationInputSchema,
+});
+export const brokerProblemObserveOutputSchema = reportAcceptanceSchema;
 
 // source 자식 신원으로 제한된 다른 앱 connection 준비. 업무 payload는 중계하지 않는다.
 export const brokerAppsConnectInputSchema = z.strictObject({

@@ -110,6 +110,27 @@ export function makeBlueprint(text: Text = en): Blueprint {
         revert: { supported: false },
       },
       {
+        // 같은 발생을 다시 보내거나, 본문을 바꾼 재전송, 한도를 넘긴 details를 보낸다.
+        key: "repeat_report",
+        label: text["panel.label.repeat-report"],
+        description: text["panel.summary.repeat-report"],
+        effect: "read",
+        confirm: false,
+        input: {
+          type: "object",
+          properties: {
+            kind: {
+              type: "string",
+              description: text["panel.summary.repeat-kind"],
+              maxLength: 40,
+            },
+          },
+          required: ["kind"],
+          additionalProperties: false,
+        },
+        revert: { supported: false },
+      },
+      {
         // scenario 1의 user fixer다. fixture 설정 레코드를 읽고 틀린 값을 fixture_misconfigured로 보고한다.
         key: "read_settings",
         label: text["panel.label.read-settings"],

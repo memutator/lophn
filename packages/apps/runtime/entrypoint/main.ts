@@ -113,6 +113,32 @@ export async function main(deps: MainDeps): Promise<void> {
     screenBytes: deps.screenBytes,
     contentType: deps.contentType,
   });
+  started.state.reportCaught = (error, invocation) => {
+    const message = error.message;
+    const stack = error.stack ?? null;
+    void deps.reportTransport({
+      report_id: ids.newId("rpt"),
+      observed_at: clock.now(),
+      observation: "error",
+      error: {
+        name: error.name.trim() !== "" ? error.name : "Error",
+        message,
+        message_missing_reason: null,
+        stack,
+        stack_missing_reason: stack === null
+          ? { reason: "not a string" }
+          : null,
+      },
+      error_missing_reason: null,
+      invocation: {
+        id: invocation,
+        binding: "sdk_context",
+        record_missing_reason: null,
+      },
+    }).catch(() => {
+      // 보고 실패가 command 결과나 프로세스 종료를 바꾸지 않는다.
+    });
+  };
   await deps.importModule(APP);
   installAutomations(started.state, deps.automationTimers);
   startDirectServer(started.state);
@@ -153,7 +179,8 @@ async function boot(): Promise<void> {
     blueprint,
     broker: unixBroker(broker),
     dataSchema: await bundleDataSchema(bundleDir),
-    reportTransport: (input) => reportException(broker, credential, input),
+    reportTransport: (input) =>
+      reportException(broker, credential, start, input),
     problemTransport: (input) =>
       reportProblemToBroker(
         broker,
@@ -194,13 +221,18 @@ function unixBroker(socketPath: string): BrokerTransport {
 async function reportException(
   socketPath: string,
   credential: string,
+  child: { process_nonce: string; mode: string },
   input: unknown,
 ): Promise<unknown> {
   const response = await postUnix(
     socketPath,
-    "/v1/problems/observe-exception",
+    BROKER_PATHS.problemsObserve,
     credential,
-    input,
+    {
+      process_nonce: child.process_nonce,
+      mode: child.mode,
+      observation: input,
+    },
   );
   return response.body;
 }

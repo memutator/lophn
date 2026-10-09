@@ -57,6 +57,11 @@ export type SafeReportDetails =
   | { [key: string]: SafeReportDetails };
 export interface ReportProblem {
   (code: string, details?: SafeReportDetails): ReportProblemResult;
+  // 같은 report id의 고정 발생을 다시 보낸다. details를 넘기면 그 본문만 바꾼 재전송이다.
+  retransmit?(
+    reportId: string,
+    details?: SafeReportDetails,
+  ): Promise<ReportCompletion> | null;
 }
 export type ObservationMissingReason = { reason: string };
 export type ObservationInvocationEvidence = {

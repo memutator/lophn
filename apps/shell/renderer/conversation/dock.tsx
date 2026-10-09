@@ -19,7 +19,15 @@ import {
 } from "@lophn/design/components";
 import { formatRelativeTime, t } from "@lophn/wording";
 
-import type { ConnectionState } from "../desktop/connection/connection.ts";
+import type {
+  ConnectionState,
+  CoreSource,
+} from "../desktop/connection/connection.ts";
+import {
+  type ProviderFacts,
+  readProviderFacts,
+} from "../desktop/connection/provider-state.ts";
+import { ProviderNotice } from "../desktop/connection/connection.tsx";
 import { newId } from "../desktop/lophn-space/model.ts";
 import type {
   SaveRequest,
@@ -67,6 +75,8 @@ export interface DockProps {
   source: ConversationSource;
   drafts: DraftStore;
   placement: "docked" | "overlay";
+  /** 본문 안에 놓는다(roles 화면의 대화 탭). 폭을 채우고 닫기 단추를 두지 않는다. */
+  embedded?: boolean;
   /** 새 세션을 열 자리. 지금 공간이다(lophn-agent/conversation#R16). */
   workPlace: WorkPlace;
   onClose: () => void;
@@ -74,6 +84,13 @@ export interface DockProps {
   /** 다시 읽는 박자. 테스트가 직접 부른다. */
   ticks?: Ticks;
   now?: () => number;
+  /**
+   * main의 core 통로. provider 계정 상태(desktop#R7의 provider 끊김)를 여기서 읽는다.
+   * 없으면(통로 없는 테스트) provider 끊김 줄을 두지 않는다.
+   */
+  core?: CoreSource;
+  /** 설정의 연결 자리로 간다. provider 끊김 줄의 행동이 쓴다. */
+  onSettings?: () => void;
 }
 
 /** 기본 박자. 열린 도크만 3초마다 현재 기록을 읽는다. */
@@ -126,17 +143,21 @@ const STATUS_TONE = {
 } as const;
 
 // 대화 도크. 모든 공간 오른쪽 400px에서 열고 닫는다(shell/desktop#R1, R2). 상태는 core의
-// 현재 기록을 다시 읽어 맞추고, 끊기면 마지막 내용과 확인 시각을 둔다(R7).
+// 현재 기록을 다시 읽어 맞추고, 끊기면 마지막 내용과 확인 시각을 둔다(R7). provider 끊김은
+// core가 살아 있어도 대화만 끊기므로 계정 상태를 따로 읽고 한 줄로 보인다(desktop#R7).
 export function Dock(
   {
     source,
     drafts,
     placement,
+    embedded = false,
     workPlace,
     onClose,
     onOpenResult,
     ticks = intervalTicks,
     now = Date.now,
+    core,
+    onSettings,
   }: DockProps,
 ) {
   const [loaded, setLoaded] = useState<Loaded>(EMPTY);
@@ -144,6 +165,7 @@ export function Dock(
     state: "starting",
     confirmedAt: null,
   });
+  const [provider, setProvider] = useState<ProviderFacts | null>(null);
   const [problem, setProblem] = useState<
     "open-failed" | "stop-failed" | null
   >(null);
@@ -223,6 +245,22 @@ export function Dock(
   useEffect(() => {
     void refresh();
   }, [refresh, current]);
+
+  // provider 계정 상태(desktop#R7). core가 살아 있을 때만 읽고, 다시 살아나면 다시 읽는다.
+  useEffect(() => {
+    if (core === undefined) return;
+    let live = true;
+    if (connection.state === "ready") {
+      void readProviderFacts(core).then((facts) => {
+        if (live) setProvider(facts);
+      });
+    } else {
+      setProvider(null);
+    }
+    return () => {
+      live = false;
+    };
+  }, [core, connection.state, refresh]);
 
   useEffect(
     () =>
@@ -415,15 +453,17 @@ export function Dock(
             </Tooltip>
           )
           : null}
-        <Tooltip content={t("conversation.button.close")}>
-          <IconButton
-            icon={conversationIcons.close}
-            label={t("conversation.button.close")}
-            size="sm"
-            data-close-dock=""
-            onClick={onClose}
-          />
-        </Tooltip>
+        {embedded ? null : (
+          <Tooltip content={t("conversation.button.close")}>
+            <IconButton
+              icon={conversationIcons.close}
+              label={t("conversation.button.close")}
+              size="sm"
+              data-close-dock=""
+              onClick={onClose}
+            />
+          </Tooltip>
+        )}
       </div>
     </div>
   );
@@ -557,14 +597,19 @@ export function Dock(
   return (
     <aside
       className={`${styles.dock} ${
-        placement === "overlay" ? styles.overlay : ""
+        embedded
+          ? styles.embedded
+          : placement === "overlay"
+          ? styles.overlay
+          : ""
       }`}
-      data-dock={placement}
+      data-dock={embedded ? "embedded" : placement}
       aria-label={t("conversation.title.dock")}
-      style={{ width: `${DOCK_WIDTH}px` }}
+      style={embedded ? undefined : { width: `${DOCK_WIDTH}px` }}
     >
       {header}
       {stale}
+      <ProviderNotice facts={provider} onSettings={onSettings} />
       {problem === null
         ? null
         : (

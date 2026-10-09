@@ -236,9 +236,10 @@ Deno.test("lophn-agent/revert#R4: run 뒤에 끼거나 이어진 다른 주체�
 
 Deno.test("lophn-agent/revert#R9: 소유 concern이 복원할 수 없다고 본 변경은 이유와 함께 복원 불가로 남고 목록에서 빠지지 않는다", () => {
   const db = open();
-  // 제목 변경은 사람 자격으로 부를 수 없는 보상 값이라 남는 변경이다. 내용 변경과 따로 설명한다.
+  // 제목 변경은 `document.restore`의 제목 보상 값으로 machine이 되돌린다(FinishRevert).
+  // 되돌릴 title과 기준 revision을 근거로 남긴다.
   saved(db, VER_2, VER_1);
-  emit(db, "DocumentUpdated", DOC, {
+  const updatedSeq = emit(db, "DocumentUpdated", DOC, {
     before_title: "a",
     title: "b",
     before_revision: "1",
@@ -246,9 +247,20 @@ Deno.test("lophn-agent/revert#R9: 소유 concern이 복원할 수 없다고 본 
   const mixed = docGroups(db);
   assertEquals(mixed.map((group) => group.capability), [
     "reversible",
-    "irreversible",
+    "reversible",
   ]);
-  assertEquals(mixed[1].reason, "title_change");
+  assertEquals(mixed[1].comparison, {
+    kind: "title",
+    document: DOC,
+    title: "a",
+    base_version: updatedSeq,
+    base_revision: updatedSeq,
+  });
+  assertEquals(mixed[1].before_ref, {
+    kind: "title",
+    document: DOC,
+    title: "a",
+  });
   // 이전 판이 없는 저장(첫 판)은 되돌릴 기준이 없다.
   const first = open();
   saved(first, VER_1, null);
@@ -357,7 +369,9 @@ Deno.test("lophn-agent/revert#R6: run·tool call·model call·질문·승인 같
     assertEquals(group.comparison, null);
   }
   const owners = new Set(groups.map((group) => group.owner));
-  assert(owners.has("lophn-agent/harness/tools"));
+  // tool call 기록은 앱 복원 owner(lophn-agent#T48)가 먼저 맡고, 되돌림 근거가 없는
+  // 호출은 유지하는 사실로 남는다.
+  assert(owners.has("apps/invocations"));
   assert(owners.has("lophn-agent/harness/usage"));
   assert(owners.has("platform/approvals"));
   for (const owner of createAuditOwners()) {

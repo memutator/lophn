@@ -165,8 +165,15 @@ export const en = {
     "Your saved data will be converted. Going back to an older version later won't convert it back.",
   "app-detail.note.decision-waiting":
     "Waiting for your decision in the confirmation window.",
-  "app-detail.note.export-unavailable":
-    "Exporting this app's data isn't available yet.",
+  "app-detail.note.export":
+    "Exporting makes a copy of this app's data. Nothing in the app changes.",
+  "app-detail.note.export-failed":
+    "The copy couldn't be made. Nothing changed. Try again.",
+  "app-detail.note.export-preparing":
+    "Preparing the copy. This can take a moment.",
+  "app-detail.note.export-ready":
+    "The copy is ready in the folder lophn made for it.",
+  "app-detail.button.export-app": "Export",
   "app-detail.note.issues-unavailable": "Issues aren't available here yet.",
   "app-detail.note.issues-empty": "This app has no issues.",
   "app-detail.note.issue-choice-blocked":
@@ -662,6 +669,12 @@ export const en = {
   "confirmation-window.revert-why.not-lophn": "lophn didn't make this change.",
   "confirmation-window.revert-why.stale":
     "This list changed. Open the latest version.",
+  "confirmation-window.revert-why.app-failed":
+    "The app couldn't undo this change.",
+  "confirmation-window.revert-why.app-uncertain":
+    "The app was asked to undo this, but its answer never arrived. lophn can't tell if it worked.",
+  "confirmation-window.revert-why.app-not-started":
+    "This wasn't started because an earlier step didn't finish.",
   "confirmation-window.revert-why.title-change":
     "Title changes stay as they are.",
   "confirmation-window.revert-why.unknown-document":
@@ -1004,6 +1017,8 @@ export const en = {
   "conversation.notice.not-sent":
     "This message wasn't sent. It's still in the box, so you can send it again.",
   "conversation.notice.offline": "You can send once lophn is connected again.",
+  "conversation.notice.provider-lost":
+    "The agent can't reach its account right now. Your work stays open, and you can check the account in Settings.",
   "conversation.notice.paused":
     "This role is paused. New requests are kept and start only after you resume it.",
   "conversation.notice.stale":
@@ -1437,6 +1452,8 @@ export const en = {
   "launcher.label.wordmark": "lophn",
   "launcher.title.register": "Register project",
   "project-workspace.button.add-rule": "Add rule",
+  "project-workspace.button.attach-operator": "Attach an Operator",
+  "project-workspace.button.see-operators": "See Operators",
   "project-workspace.button.close-tab": "Close tab",
   "project-workspace.button.collapse-sidebar": "Collapse sidebar",
   "project-workspace.button.edit-rules": "Edit rules",
@@ -1460,6 +1477,10 @@ export const en = {
   "project-workspace.heading.left-out": "Left out",
   "project-workspace.heading.tracked": "Will be tracked",
   "project-workspace.info.empty": "Nothing to show yet.",
+  "project-workspace.label.operators":
+    "{count, plural, one {# Operator repeats a check here} other {# Operators repeat checks here}}",
+  "project-workspace.label.operators-none":
+    "No Operator repeats a check here yet",
   "project-workspace.label.choose-app": "Choose an app",
   "project-workspace.label.drop-here": "Move here",
   "project-workspace.label.drop-side": "Open in side pane",
@@ -1657,8 +1678,490 @@ export const en = {
   "report-problem.status.received": "Received. lophn will look into it.",
   "report-problem.status.sending": "Sending your report.",
   "report-problem.title.report": "Report a problem",
+  "roles.attach.attached":
+    "Attached. The first check happens at the time you chose.",
+  "roles.attach.changed":
+    "Approved and switched. The next check uses this version.",
+  "roles.attach.declined": "Not attached. Nothing changed.",
+  "roles.attach.failed":
+    "You approved it, but it couldn't be applied. Nothing changed.",
+  "roles.attach.intro":
+    "An Operator repeats a check on a project or an app and writes what it finds into a document you already have. You approve everything below in a protected window before it starts.",
+  "roles.attach.no-outputs":
+    "No document here can take reports yet. A report goes into a document that already has a saved version.",
+  "roles.attach.no-preset": "No Operator Presets are available yet.",
+  "roles.attach.no-reads": "This app has no read-only commands to choose.",
+  "roles.attach.open-failed":
+    "Couldn't open the review window. Nothing changed.",
+  "roles.attach.output-help":
+    "The Operator only adds new versions to these documents. It never creates or changes anything else.",
+  "roles.attach.past-start": "Pick a first check that is later than now.",
+  "roles.attach.waiting":
+    "Review the details in the window that opened. Nothing starts until you approve.",
+  "roles.button.answer": "Answer",
+  "roles.button.ask-again": "Ask again",
+  "roles.button.attach": "Attach an Operator",
+  "roles.button.attach-cancel": "Cancel",
+  "roles.button.attach-check": "Check again",
+  "roles.button.attach-review": "Review and attach",
+  "roles.button.output-add": "Add",
+  "roles.button.output-remove": "Remove",
+  "roles.button.pause": "Pause",
+  "roles.button.withdraw": "Withdraw",
+  "roles.button.withdraw-confirm": "Withdraw it",
+  "roles.button.withdraw-keep": "Keep it",
+  "roles.button.back-to-work": "Back to work",
+  "roles.button.export": "Export to a file",
+  "roles.button.preset-add": "Add",
+  "roles.button.preset-add-account": "Add {name}",
+  "roles.button.preset-apply": "Use this version",
+  "roles.button.preset-customize": "Make my copy",
+  "roles.button.preset-down": "Down",
+  "roles.button.preset-edit": "Edit",
+  "roles.button.preset-remove": "Remove",
+  "roles.button.preset-save-copy": "Save as my Preset",
+  "roles.button.preset-save-version": "Save as a new version",
+  "roles.button.preset-up": "Up",
+  "roles.button.restart": "Restart",
+  "roles.button.resume": "Resume",
+  "roles.button.review": "Review",
+  "roles.button.stop": "Stop",
+  "roles.button.open-conversation": "Open conversation",
+  "roles.button.reload": "Reload",
+  "roles.button.undo": "Undo this work",
+  "roles.empty.no-made": "Nothing made yet.",
+  "roles.empty.no-preset": "No Presets for this role yet.",
+  "roles.empty.no-roles": "No roles yet.",
+  "roles.empty.no-work": "No work yet.",
+  "roles.empty.pick-role": "Pick a role to see its work.",
+  "roles.error.apply": "Couldn't switch to that version. Nothing changed.",
+  "roles.error.ask-again": "Couldn't read the first request. Nothing was sent.",
+  "roles.error.pause": "Couldn't pause this role. Nothing changed.",
+  "roles.error.preset-changed":
+    "This Preset changed since you opened it. Open it again to see the latest version.",
+  "roles.error.preset-save": "Couldn't save. Nothing changed.",
+  "roles.error.restart": "Couldn't restart this work. Nothing changed.",
+  "roles.error.resume": "Couldn't resume this role. Nothing changed.",
+  "roles.error.stop": "Couldn't stop this work. Nothing changed.",
+  "roles.error.withdraw": "Couldn't withdraw this role. Nothing changed.",
+  "roles.label.action-external": "Used an outside tool",
+  "roles.label.action-read": "Looked at",
+  "roles.label.action-write": "Changed",
+  "roles.label.call-cancelled": "Cancelled",
+  "roles.label.call-complete": "Finished",
+  "roles.label.call-failed": "Failed",
+  "roles.label.call-partial": "Partly finished",
+  "roles.label.call-uncertain": "Result unclear",
+  "roles.label.call-unfinished": "Didn't finish",
+  "roles.label.not-started": "Not started",
+  "roles.label.origin-handoff": "Handed over by another role",
+  "roles.label.origin-message": "Your request",
+  "roles.label.origin-schedule": "Repeating check",
+  "roles.label.attach-apps": "Apps it may read",
+  "roles.label.attach-apps-add": "Add an app",
+  "roles.label.attach-every": "How often",
+  "roles.label.attach-first": "First check",
+  "roles.label.attach-group-apps": "Apps",
+  "roles.label.attach-group-projects": "Projects",
+  "roles.label.attach-output-content": "What it should write there",
+  "roles.label.attach-output-doc": "Document",
+  "roles.label.attach-outputs": "Where it reports",
+  "roles.label.attach-period": "Repeating check",
+  "roles.label.attach-preset": "Preset",
+  "roles.label.attach-preset-line": "{name}, version {version, number}",
+  "roles.label.attach-reads": "What it reads",
+  "roles.label.attach-reads-preset": "From the Preset",
+  "roles.label.attach-title": "Attach an Operator",
+  "roles.label.attach-where": "Attach to",
+  "roles.label.attach-where-pick": "Pick a project or an app",
+  "roles.label.every-day": "Every day",
+  "roles.label.every-hour": "Every hour",
+  "roles.label.every-six-hours": "Every 6 hours",
+  "roles.label.every-week": "Every week",
+  "roles.label.operator-every": "Repeating check: {every}",
+  "roles.label.operator-every-custom":
+    "every {hours, plural, one {# hour} other {# hours}}",
+  "roles.label.operator-first": "First check {when}",
+  "roles.label.operator-last-due": "Last check was due {when}",
+  "roles.label.operator-reads":
+    "May read {count, plural, one {# app} other {# apps}}",
+  "roles.label.operator-reports": "Reports to",
+  "roles.label.operator-skipped": "Skipped checks",
+  "roles.label.operator-skipped-busy":
+    "{when}: skipped because the last check hadn't finished",
+  "roles.label.operator-skipped-waiting":
+    "{when}: skipped while waiting for your answer",
+  "roles.label.preset-account-down": "Move {name} down",
+  "roles.label.preset-account-up": "Move {name} up",
+  "roles.label.preset-accounts": "Accounts, in the order to use them",
+  "roles.label.preset-capabilities": "Built-in tools",
+  "roles.label.preset-connection": "Connection",
+  "roles.label.preset-context": "Context",
+  "roles.label.preset-context-all": "Everything",
+  "roles.label.preset-context-app": "An app",
+  "roles.label.preset-context-document": "A document",
+  "roles.label.preset-context-focus": "A Focus",
+  "roles.label.preset-context-project": "A project",
+  "roles.label.preset-context-scope": "What this role is attached to",
+  "roles.label.preset-context-sdk": "App SDK",
+  "roles.label.preset-context-work-place": "Where the conversation is",
+  "roles.label.preset-copy-name": "{name} (copy)",
+  "roles.label.preset-decisions-model": "For decisions: {model}",
+  "roles.label.preset-default": "Default",
+  "roles.label.preset-earlier": "Earlier versions",
+  "roles.label.preset-for-decisions": "For decisions",
+  "roles.label.preset-for-summaries": "For summaries",
+  "roles.label.preset-in-use": "In use",
+  "roles.label.preset-inside": "Inside",
+  "roles.label.preset-instructions": "Instructions attached",
+  "roles.label.preset-model": "Model",
+  "roles.label.preset-name": "Name",
+  "roles.label.list-preset": "Preset: {name}",
+  "roles.label.preset-none": "None",
+  "roles.label.preset-pick-model": "Pick a model",
+  "roles.label.preset-prompt": "Prompt",
+  "roles.label.preset-reason": "Why are you changing it? (optional)",
+  "roles.label.preset-server-off": "Turned off",
+  "roles.label.preset-servers": "Tool servers",
+  "roles.label.preset-skill-name": "Skill name",
+  "roles.label.preset-skills": "Skills",
+  "roles.label.preset-use-default": "Use the default model",
+  "roles.label.preset-version": "Version {version, number}",
+  "roles.label.preset-yours": "Yours",
+  "roles.label.review-affected": "Affected",
+  "roles.label.review-affected-documents":
+    "{count, plural, one {# document} other {# documents}}",
+  "roles.label.review-basis": "Based on",
+  "roles.label.review-basis-decisions": "For decisions: {model}",
+  "roles.label.review-basis-preset": "Preset version {version, number}",
+  "roles.label.review-basis-summaries": "For summaries: {model}",
+  "roles.label.review-call-line": "Call {number, number} · {model}",
+  "roles.label.review-cost-billed": "Billed {amount}",
+  "roles.label.review-cost-estimated": "About {amount}, estimated",
+  "roles.label.review-cost-free": "Free",
+  "roles.label.review-cost-subscription": "Included in your subscription",
+  "roles.label.review-cost-unknown": "Cost unknown",
+  "roles.label.review-decision": "Decision",
+  "roles.label.review-decision-automatic": "Allowed by an automatic check",
+  "roles.label.review-decision-denied": "Not allowed",
+  "roles.label.review-decision-you": "You approved it",
+  "roles.label.review-details": "Details",
+  "roles.label.review-done-by": "Done by",
+  "roles.label.review-export": "Export",
+  "roles.label.review-export-messages": "Messages",
+  "roles.label.review-export-model-input": "What was sent to the model",
+  "roles.label.review-export-model-output": "What the model answered",
+  "roles.label.review-export-tool-input": "Tool inputs",
+  "roles.label.review-export-tool-output": "Tool results",
+  "roles.label.review-finished": "Finished",
+  "roles.label.review-handed-over": "handed over by another role",
+  "roles.label.review-input": "Input",
+  "roles.label.review-more": "More",
+  "roles.label.review-next": "Next",
+  "roles.label.review-outcome": "Result",
+  "roles.label.review-outside-tool": "Outside tool",
+  "roles.label.review-outside-tool-line": "{tool} on {server}",
+  "roles.label.review-problem-denied": "{count, number} not allowed",
+  "roles.label.review-problem-failed": "{count, number} failed",
+  "roles.label.review-problem-not-run": "{count, number} not done",
+  "roles.label.review-problem-unclear": "{count, number} unclear",
+  "roles.label.review-problem-unfinished": "{count, number} didn't finish",
+  "roles.label.review-result": "Result",
+  "roles.label.review-started": "Started",
+  "roles.label.review-step-line": "{action} · {target}",
+  "roles.label.review-steps-summary":
+    "{steps, plural, one {# step} other {# steps}}, {done, number} done",
+  "roles.label.review-target": "Target",
+  "roles.label.review-tokens-cache-read": "Cache read {count}",
+  "roles.label.review-tokens-cache-write": "Cache write {count}",
+  "roles.label.review-tokens-input": "In {count}",
+  "roles.label.review-tokens-output": "Out {count}",
+  "roles.label.review-tool-activity": "Tool activity",
+  "roles.label.review-tool-name": "Tool",
+  "roles.label.review-total-calls":
+    "{count, plural, one {# call} other {# calls}} in total",
+  "roles.label.review-total-line":
+    "{cost} · {count, plural, one {# call} other {# calls}}",
+  "roles.label.review-usage": "Usage and cost",
+  "roles.label.review-why": "Why",
+  "roles.label.role-app-engineer": "App Engineer",
+  "roles.label.role-context-engineer": "Context Engineer",
+  "roles.label.role-lophn": "lophn",
+  "roles.label.role-operator": "Operator",
+  "roles.label.role-with-scope": "{role} · {name}",
+  "roles.label.state-active": "Active",
+  "roles.label.state-paused": "Paused",
+  "roles.label.state-withdrawn": "Removed",
+  "roles.label.status-done": "Done",
+  "roles.label.status-in-progress": "In progress",
+  "roles.label.status-stopped": "Stopped",
+  "roles.label.status-waiting": "Waiting",
+  "roles.label.step-denied": "Not allowed",
+  "roles.label.step-done": "Done",
+  "roles.label.step-failed": "Failed",
+  "roles.label.step-not-run": "Not done",
+  "roles.label.step-unclear": "Result unclear",
+  "roles.label.step-unfinished": "Didn't finish",
+  "roles.label.tab-conversation": "Conversation",
+  "roles.label.tab-made": "Made",
+  "roles.label.tab-preset": "Preset",
+  "roles.label.tab-work": "Work",
+  "roles.label.target-app": "An app",
+  "roles.label.target-approval": "An approval",
+  "roles.label.target-chart": "A chart or table",
+  "roles.label.target-document": "A document",
+  "roles.label.target-file": "A file",
+  "roles.label.target-focus": "A Focus",
+  "roles.label.target-guide": "A guide",
+  "roles.label.target-list": "the roles",
+  "roles.label.target-made": "what this role made",
+  "roles.label.target-meaning": "A Meaning",
+  "roles.label.target-outside": "An outside tool",
+  "roles.label.target-preset": "the Presets",
+  "roles.label.target-project": "A project",
+  "roles.label.target-question": "A question",
+  "roles.label.target-role": "Another role",
+  "roles.label.target-skill": "A skill",
+  "roles.label.target-tool": "A tool",
+  "roles.label.target-work": "the work",
+  "roles.notice.operator-paused-failures":
+    "It paused itself after three checks in a row failed. Look at the failed work, then resume it when you're ready.",
+  "roles.notice.operator-paused-output":
+    "It paused because a document it reports to was archived. Nothing repeats until you resume it.",
+  "roles.notice.operator-paused-scope":
+    "It paused because the project or app it watches was archived. Nothing repeats until you resume it.",
+  "roles.notice.operator-paused-user":
+    "You paused it. Nothing repeats until you resume it.",
+  "roles.notice.withdraw-ask":
+    "Withdraw this Operator? It stops for good. You can still read its past conversations and what it wrote.",
+  "roles.notice.paused":
+    "This role is paused. New requests are kept and start only after you resume it.",
+  "roles.notice.withdrawn":
+    "This role was removed. You can read its past conversations but not reply.",
+  "roles.preset.applied": "Switched. The next work uses this version.",
+  "roles.preset.default-reason": "Changed in the Preset editor.",
+  "roles.preset.edit-copy-intro":
+    "This is the default Preset. Your changes are saved as your own copy.",
+  "roles.preset.edit-intro":
+    "Saving makes a new version after version {version, number}. It isn't used until you switch to it.",
+  "roles.preset.intro":
+    "A Preset decides which models, skills, and tools this role uses. Saving makes a new version, and a version is used only after you switch to it.",
+  "roles.preset.no-accounts": "No accounts chosen. Add one to use this model.",
+  "roles.preset.no-servers":
+    "No tool servers are added yet. Add one in Settings.",
+  "roles.preset.no-skills": "No skills chosen.",
+  "roles.preset.no-tools": "No tools known for this server yet.",
+  "roles.preset.operator-note":
+    "Switching an Operator's Preset asks for your approval in a protected window.",
+  "roles.preset.saved":
+    "Saved as version {version, number}. It isn't used until you switch to it.",
+  "roles.preset.skill-help": "Type the exact skill name.",
+  "roles.preset.tools-help":
+    "Only tools you've already classified are listed. New tools aren't added for you.",
+  "roles.reason.active-limit":
+    "It stopped because it ran out of its working time.",
+  "roles.reason.answer-completed": "It answered and finished.",
+  "roles.reason.attempt-limit":
+    "It stopped after too many tries with the model.",
+  "roles.reason.clock-uncertain":
+    "It stopped because the clock couldn't be trusted.",
+  "roles.reason.configuration":
+    "It couldn't start because its setup wasn't available.",
+  "roles.reason.context-limit":
+    "It stopped because the conversation grew too long for the model.",
+  "roles.reason.effect-unknown":
+    "It stopped because it couldn't tell whether a change happened.",
+  "roles.reason.model-error": "It stopped because the model returned an error.",
+  "roles.reason.no-answer": "It stopped because no answer came.",
+  "roles.reason.no-change": "It finished without changing anything.",
+  "roles.reason.repeated-failure":
+    "It stopped after the same step failed again and again.",
+  "roles.reason.role-paused": "It stopped because the role was paused.",
+  "roles.reason.role-withdrawn": "It stopped because the role was removed.",
+  "roles.reason.stall-limit": "It stopped because nothing moved for too long.",
+  "roles.reason.target":
+    "It stopped because what it was working on wasn't available.",
+  "roles.reason.tool-error": "It stopped because a tool returned an error.",
+  "roles.reason.unknown": "It ended for a reason this version can't describe.",
+  "roles.reason.user-stopped": "You stopped it.",
+  "roles.review.basis-absent": "The saved basis can't be shown.",
+  "roles.review.basis-none": "This work didn't start, so there's no basis.",
+  "roles.review.body-absent": "No saved copy of this.",
+  "roles.review.body-cut": "Only the first part is shown.",
+  "roles.review.body-unreadable": "The saved copy can't be read right now.",
+  "roles.review.end-unconfirmed":
+    "The end of this work isn't confirmed, so it isn't shown as done.",
+  "roles.review.export-cancelled": "Nothing was exported.",
+  "roles.review.export-done":
+    "Exported {sent, plural, one {# record} other {# records}}.",
+  "roles.review.export-failed":
+    "Couldn't export. Your records and this work weren't changed.",
+  "roles.review.export-intro":
+    "A file has details only by default. Choose what else to include each time.",
+  "roles.review.export-partial":
+    "Exported {sent, plural, one {# record} other {# records}}. {notSent, plural, one {# record} other {# records}} couldn't be exported.",
+  "roles.review.failed": "Couldn't load this review. Try again.",
+  "roles.review.judgment-note":
+    "lophn shows a short summary of why it decided, not its internal reasoning.",
+  "roles.review.missing":
+    "{count, plural, one {# saved record isn't} other {# saved records aren't}} available.",
+  "roles.review.missing-body": "A saved body isn't available.",
+  "roles.review.missing-record": "A record isn't available.",
+  "roles.review.missing-source": "A source isn't available.",
+  "roles.review.no-affected": "Nothing else was affected.",
+  "roles.review.no-calls": "No model calls were recorded.",
+  "roles.review.no-result": "No result was saved.",
+  "roles.review.no-results": "It didn't make or change any document.",
+  "roles.review.no-steps": "No tool steps were taken.",
+  "roles.review.readable":
+    "You can read {steps, plural, one {# tool step} other {# tool steps}}, {calls, plural, one {# model call} other {# model calls}}, and {messages, plural, one {# message} other {# messages}} of this work.",
+  "roles.review.request-unavailable": "The request can't be shown.",
+  "roles.review.steps-failed": "Couldn't load the steps.",
+  "roles.review.tokens-unknown": "Usage wasn't reported.",
+  "roles.review.undo-failed": "Couldn't open the undo window. Nothing changed.",
+  "roles.review.undo-opened":
+    "The undo window shows what can be restored and what can't.",
+  "roles.review.usage-failed": "Couldn't load usage.",
+  "roles.review.usage-incomplete":
+    "Some calls weren't recorded, so this total may be low.",
   "roles.title.screen": "Roles",
   "settings.accounts.none": "No accounts are connected yet.",
+  "settings.backup.created":
+    "Backup {time} holds your records and settings. You can restore it.",
+  "settings.backup.created-failed":
+    "The backup couldn't be read. Use the latest backup that passed its check.",
+  "settings.backup.expand-unavailable":
+    "This backup can't be restored. Nothing changed.",
+  "settings.backup.excluded-heading": "Not included in backups.",
+  "settings.backup.excluded-note":
+    "App data, projects and app files, the OS keychain, and credentials are not part of a backup.",
+  "settings.backup.heading": "Backup and restore",
+  "settings.backup.intro":
+    "Backups hold your records and settings. Restoring replaces what is here now with a backup.",
+  "settings.backup.intro-restore-failed":
+    "The restore didn't finish. Nothing was restored. Try again.",
+  "settings.backup.intro-restore-started":
+    "Restoring replaces what is here now with backup {time}.",
+  "settings.backup.lost-heading":
+    "This restores to {time} and drops records after that.",
+  "settings.backup.lost-none":
+    "No records were made after this backup. Nothing is lost.",
+  "settings.backup.lost-count":
+    "{count, plural, one {# record} other {# records}} made after this backup will be lost.",
+  "settings.backup.none": "No backups are available yet.",
+  "settings.backup.reconnect":
+    "Credentials aren't restored. Sign in to each connection again to use it.",
+  "settings.backup.restore-complete":
+    "Restored. Your records now match the backup. Check connections that need signing in again.",
+  "settings.backup.restore-failed":
+    "The restore didn't finish. Your records are unchanged. Try again.",
+  "settings.backup.restore-failed-plan":
+    "The restore couldn't start. Your records are unchanged. Try again.",
+  "settings.backup.restore-restarted":
+    "The restore is working. lophn restarts when it is done.",
+  "settings.backup.restore-uncertain":
+    "The restore started, but lophn couldn't confirm it finished. Try opening your records to see what is here.",
+  "settings.backup.tab-not-restoreable":
+    "This backup failed a check or was made while lophn was busy. The latest checked backup stays usable.",
+  "settings.backup.retained":
+    "The last {count, plural, one {# checked backup} other {# checked backups}} are kept. Newer backups that failed a check are replaced by the latest one that passed.",
+  "settings.backup.reconnect-heading": "After a restore.",
+  "settings.backup.app-export-heading": "Take an app's data out.",
+  "settings.backup.app-export-note":
+    "This makes a separate copy of one app's records. It is not part of a backup, and app data outside the app (like attached files) is not included.",
+  "settings.backup.app-export-ready":
+    "The copy is ready in the folder lophn made for it.",
+  "settings.backup.app-export-failed":
+    "The copy couldn't be made. Nothing changed. Try again.",
+  "settings.backup.secrets-heading": "Secrets.",
+  "settings.backup.secrets-note":
+    "Passwords and keys aren't in backups. Move them separately with a passphrase-protected file.",
+  "settings.backup.secrets-window":
+    "Finish in the window that opened. It holds the secret value.",
+  "settings.button.export-secrets": "Export secrets",
+  "settings.button.import-secrets": "Import secrets",
+  "settings.label.backup-target": "your backups",
+  "settings.label.notifications-target": "notification settings",
+  "settings.label.retained-through": "Holds records through",
+  "settings.label.integrity": "Check",
+  "settings.label.integrity-passed": "Passed",
+  "settings.label.integrity-failed": "Failed",
+  "settings.label.state": "State",
+  "settings.button.before-restore": "Restore",
+  "settings.button.backup-now": "Back up now",
+  "settings.button.check-security": "Check security",
+  "settings.button.choose-package": "Choose update file",
+  "settings.button.export-app": "Export",
+  "settings.button.enter-secret": "Enter secret",
+  "settings.button.restore-again": "Try the restore again",
+  "settings.button.stop-and-update": "Stop for the update",
+  "settings.button.update-now": "Update from this file",
+  "settings.check.failed":
+    "The security check couldn't start right now. Try again.",
+  "settings.check.raw-key-note":
+    "Records have keys in them that look like saved passwords. Replace the key to keep it out of records.",
+  "settings.check.wide-grant-note":
+    "A connection can read more than it needs. Give it a smaller scope.",
+  "settings.check.clean": "No problems were found in the security check.",
+  "settings.diagnostics.finding-at":
+    "Checked {time}. One thing needs your attention.",
+  "settings.diagnostics.next-raw-key":
+    "Replace the key to keep it out of records.",
+  "settings.diagnostics.next-wide-grant":
+    "Give the connection a smaller scope.",
+  "settings.diagnostics.raw-key":
+    "A record holds a key that looks like a saved password.",
+  "settings.diagnostics.wide-grant":
+    "A connection can read more than it needs.",
+  "settings.diagnostics.heading": "Diagnose problems",
+  "settings.diagnostics.intro":
+    "Check the access connections use and how records save names and keys.",
+  "settings.diagnostics.raw-heading": "Raw check results.",
+  "settings.diagnostics.raw-intro":
+    "The same results as the check above, with the exact names and codes.",
+  "settings.diagnostics.check-failed":
+    "The check couldn't start right now. Try again.",
+  "settings.diagnostics.check-failed-no":
+    "The check hasn't run yet. Check the access connections use.",
+  "settings.diagnostics.raw-failed":
+    "The raw results couldn't load. Try again.",
+  "settings.diagnostics.clean-row": "No problem was found in this check.",
+  "settings.label.checked-at": "Checked",
+  "settings.update.heading": "Update lophn",
+  "settings.update.intro":
+    "You choose when to update. lophn doesn't download or restart by itself.",
+  "settings.update.no-package": "No update file is chosen yet.",
+  "settings.update.package-unreadable":
+    "That file isn't an update file lophn can read. Choose the update file again.",
+  "settings.update.system-mismatch":
+    "That file installs on a different system, so it isn't applied.",
+  "settings.update.check-note":
+    "This reads the file you chose. Nothing is downloaded or installed yet.",
+  "settings.update.new-version":
+    "Update file is version {version} for {os}. This version is {current}.",
+  "settings.update.schema-compatible":
+    "Your records keep working with this update.",
+  "settings.update.schema-migration":
+    "Your records are converted the first time lophn starts after the update. Going back later won't convert them back.",
+  "settings.update.schema-newer":
+    "This update is older than your records. It isn't applied.",
+  "settings.update.restart-required":
+    "lophn stops cleanly before the update and you start it again.",
+  "settings.update.stop-failed":
+    "lophn couldn't confirm it stopped cleanly, so nothing was changed. Close your work and try again.",
+  "settings.update.stopped":
+    "lophn stopped cleanly. Install the update file you chose, then start lophn.",
+  "settings.update.deployment-unverified":
+    "Updates on your system aren't checked by lophn yet. Check the file before applying it.",
+  "settings.notifications.heading": "Notifications",
+  "settings.notifications.intro":
+    "lophn can show a system notification when something needs your attention.",
+  "settings.notifications.label": "System notifications",
+  "settings.notifications.help":
+    "The notification opens lophn. It doesn't include message contents.",
+  "settings.notifications.changed": "Saved. Notifications follow this choice.",
+  "settings.notifications.changed-failed":
+    "The choice wasn't saved. Nothing changed. Try again.",
   "settings.button.add-folder": "Add a skill folder",
   "settings.button.add-key": "Add an API key",
   "settings.button.add-server": "Add server",
@@ -1765,8 +2268,12 @@ export const en = {
   "settings.label.state-sign-in-problem": "Sign-in problem",
   "settings.label.state-signed-out": "Signed out",
   "settings.label.tab-connections": "Connections",
+  "settings.label.tab-backup": "Backup",
   "settings.label.tab-extensions": "Tools and skills",
   "settings.label.tab-general": "General",
+  "settings.label.tab-update": "Update lophn",
+  "settings.label.tab-diagnostics": "Diagnose",
+  "settings.label.tab-notifications": "Notifications",
   "settings.label.test-model": "Model to test",
   "settings.label.unavailable-connection": "A connection that isn't listed",
   "settings.label.usage-none": "No use",

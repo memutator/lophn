@@ -69,6 +69,8 @@ export {
   type BuildInput,
   buildResources,
   HOOK_OWNER_TOKEN,
+  summaryGuideOf,
+  summaryHookSupported,
 } from "./builder.ts";
 export type { BuildOutput, RootGroup } from "./builder.ts";
 export {
@@ -116,6 +118,7 @@ export {
   installSelected,
   planSelected,
   removeSelected,
+  selectedSkillDirs,
   selectedWriteFiles,
   updateSelected,
 } from "./install.ts";

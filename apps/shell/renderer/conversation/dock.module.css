@@ -12,6 +12,13 @@
   font-family: var(--font-sans);
 }
 
+/* roles 화면의 대화 탭. 본문 폭을 채우고 옆 선이 없다. */
+.embedded {
+  flex: 1;
+  width: 100%;
+  border-left: var(--space-0);
+}
+
 .overlay {
   position: absolute;
   top: var(--space-0);

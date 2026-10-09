@@ -20,6 +20,7 @@ Deno.test("lophn-agent/harness/run-loop#R2: public entry registers the exact run
     "/v1/runs/list",
     "/v1/runs/result",
     "/v1/runs/body",
+    "/v1/runs/body-view",
     "/v1/sessions/open",
     "/v1/sessions/change-work-place",
     "/v1/sessions/close",
@@ -47,6 +48,7 @@ Deno.test("lophn-agent/harness/run-loop#R2: public entry registers the exact run
     "/v1/handoffs/submit",
     "/v1/handoffs/status",
     "/v1/handoffs/result",
+    "/v1/reverts/run_apps",
     "/v1/reverts/checkpoint",
     "/v1/reverts/finish",
     "/v1/reverts/apply",
@@ -105,6 +107,8 @@ Deno.test("lophn-agent/harness/run-loop#R2: public entry registers the exact run
     "/v1/agent-traces/read",
     "/v1/agent-traces/export",
     "/v1/agent-usage/read",
+    "/v1/agent-mcp-auth/begin",
+    "/v1/agent-mcp-auth/complete",
   ]);
   assertEquals(lophnAgent.ROUTES, ROUTES);
   for (const route of ROUTES) {

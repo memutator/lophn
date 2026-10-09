@@ -76,7 +76,6 @@ const LIMITS = { model_attempts: 30, stall_ms: 300_000, active_ms: 1_800_000 };
 const AGENT_OPERATIONS = [
   ...runOperations(BUILTIN_TOOLS),
   "document.file",
-  "document.get",
   "PreviewRevert",
   "RevertRun",
   "ListReverts",

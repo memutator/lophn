@@ -9,6 +9,7 @@ import { t } from "@lophn/wording";
 import { Dock, type Ticks } from "./dock.tsx";
 import type { DraftStore } from "./drafts.ts";
 import type { DockPlacement } from "./model.ts";
+import type { CoreSource } from "../desktop/connection/connection.ts";
 import type { ConversationSource, WorkPlace } from "./source.ts";
 
 /** 창마다 하나. entry가 만들어 모든 공간이 같은 대화 메모리를 쓴다. */
@@ -19,6 +20,13 @@ export interface ConversationDeps {
   readonly now?: () => number;
   /** 첫 공간이 도크를 연 채로 시작한다. headless 확인(`#conversation`)만 준다. */
   readonly startOpen?: boolean;
+  /**
+   * main의 core 통로. provider 계정 상태(desktop#R7의 provider 끊김)를 도크가 읽는다.
+   * 없으면(통로 없는 테스트·창) provider 끊김 줄을 두지 않는다.
+   */
+  readonly core?: CoreSource;
+  /** 설정의 연결 자리로 간다. provider 끊김 줄의 행동이 쓴다. */
+  readonly onSettings?: () => void;
 }
 
 const ConversationContext = createContext<ConversationDeps | null>(null);
@@ -83,6 +91,10 @@ export function DockSlot(
       workPlace={workPlace}
       onClose={onClose}
       onOpenResult={onOpenResult}
+      {...(deps.core === undefined ? {} : { core: deps.core })}
+      {...(deps.onSettings === undefined
+        ? {}
+        : { onSettings: deps.onSettings })}
     />
   );
 }

@@ -279,6 +279,8 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - slice: apps
 - 선행: problems#T10, problems#T11, apps#T23, apps#T24, apps#T25, apps#T26
 - 상태: 완료 (#442) — 이어보냄: RequestTest 접수가 runner를 감독 통로로 깨워 이 `--app-test-job` 진입점을 부르고 결과를 core RecordVerification으로 보내는 상시 service 연결(지금 runner 진입점은 stdin 요청 한 건을 도는 모드이고 시험은 ledger worker harness로 RecordVerification을 읽는다), runner→collector의 실제 loopback 접수(지금은 한 요청 안의 collector 대역이 mode=test·scope로 받은 보고를 모은다) → T8 후속
+- 후속 (#456): RequestTest 제품 실행 경로 — 접수한 RequestTest가 제품 core에서 실제로 돈다. core(`apps/core/problems-test-control.ts`)가 접수 기록 `test_requests`를 500ms 주기로 읽어(접수 event가 없다) 시작 시도가 없는 요청을 상시 worker `problems/test-runner`(`apps/worker/problems/runner-service.ts`)에 한 건씩 보낸다. 요청마다 좁은 machine credential(주체 `problems-test-runner`)과 앱 보고용 app credential(mode=test·진단 scope `app-test-<key>`)을 발급해 감독 pipe로만 준다. runner는 bundle 사본에서 고정 시험을 다시 만들어(`deriveAppTest`) 요청의 `test` hash와 대조하고, 시작 시도를 `ObserveTestRequest`로 확정한 뒤(한 요청에 한 번) 자식을 띄워 실제 시작을 `StartTestSide`로 남기고, 결과 근거(`StageTestEvidence`)와 영구 blob을 준비해 실제 `RecordVerification`을 부른다. 앱 SDK 보고·process 예외·화면 host의 view 예외는 실제 collector 접수 route(`ReportProblem`·`ObserveException`)로 간다. 시작하지 못하는 요청(고정 시험 hash 불일치·bundle 사본 없음·메모리 경계 불가)은 `preparation_failed`와 이유로 끝나고 Verification은 없다. runner가 끝난 뒤 시작 시도는 있고 결과가 없는 요청은 복구 runner(주체 `problems-test-recovery`)가 이어받아 실제 시작을 관측했으면 `runner_lost` inconclusive, 모르면 시작 불명으로 닫고 다시 시작하지 않는다. coding-agent#T21에서 넘어온 `request_timeout_ms`는 `AppTestJob.request_timeout_ms` → `PrepareInput.request_timeout_ms`로 이었다. 접수 준비는 제품 tx port로 연결했다(`apps/core/problems-test-ports.ts`: 앱·release·problem·report 참조, runner 주체). 한 요청의 Verification ID는 요청 hash에서 정한다. 이 PR에서 더한 contract: `ObserveTestRequest`·`StartTestSide`·`StageTestEvidence`(machine 전용 command), `RequestTest.ticket_source`(additive, coding agent의 reproduction은 현재 claim과 이 앱·이 문제의 repair ticket이어야 접수한다, coding-agent#T44에서 넘어온 것), ledger 표 `test_evidence`.
+  - 남은 것: reproduction은 접수 준비(release·problem·report 참조)와 runner 배정은 이었지만 RequestTest가 FrozenTest hash만 싣고 ReproductionScenario를 싣지 않아 runner가 `preparation_failed`(이유 있음)로 끝낸다(가짜 시나리오를 만들지 않는다) — 시나리오 출처가 정해지면 `--reproduction-job` 경로(`reproduction-run.ts`)를 side별 `StartTestSide`와 연결해야 한다. `test_command`는 접수 전 `unavailable`이다. 화면 host의 feedback 관측은 test mode 접수 통로가 없어(SubmitFeedback은 shell 사용자 전용) 통과하지 못한다. 자식 출력은 아직 결과에 싣지 않는다(`output_missing_reason`). 요청이 이전 release의 data schema를 싣지 않아 이전 release 없음으로 다룬다. 접수 전 메모리 경계 사전 확인(R20), 시작하지 못한 요청의 재시도 상한, 에이전트가 `RequestTest.test` hash를 얻는 고정 시험 준비 통로는 없다.
 - T11에서 넘어온 것: `ScreenReportSink`·`runScreenHost`·`serveTestAppSocket`(packages/problems/tests/)을 runner 조립에 연결(host 실행 파일 `SCREEN_TEST_HOST` 경로, 요청 작업 폴더, `--allow-run` 값, mode=test·scope로 collector 접수)
 - T9에서 넘어온 것: harness frame의 runner 쪽 비공개 통로(지금은 자식 scratch의 frames.jsonl), 실제 AppDriver, app-test 계획·판정을 test-runner·core launch spec·RecordVerification까지 연결(#247)
 - 완료:
@@ -436,6 +438,8 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: C-문제command의 `reconcile-work`, `link-interpretation`, event `ProblemWorkStarted`, `ProblemWorkEnded`, `ProblemInterpretationLinked`
 - slice: problems
 - 선행: problems#T2, platform#T18, contracts#T40, contracts#T41, contracts#T18, coding-agent#T18, coding-agent#T19, coding-agent#T24, coding-agent#T26, documents#T6, documents#T14
+- 상태: 완료 (#453) — 이어보냄: lophn-agent#T50의 ToolCall이 command 전에 `checkInterpretationLink`로 version·절을 읽는 연결, 검사 실패·확인(TicketCheckFailed·TicketConfirmed)을 제품 경로로 내는 repair checker 수정(coding-agent#T45)
+- 정한 것: `problemSchema`는 fixing만 `work`를 요구하고 open도 `work`를 가질 수 있다(Q3); `ProblemWorkStarted.claim_seq`는 ticket만 이으면 null, `ProblemWorkEnded` 사유에 `confirmed`를 더하고 `ReconcileProblemWork`의 오류에 `invalid_input`(열린 ticket을 이미 가진 문제)을 더했다; 반응 key의 reaction은 `reconcile:<problem>:<읽은 문제 seq>`이다
 - 완료:
   - 상태는 open·fixing·closed뿐, 문제당 열린 repair ticket 1개를 넘는 연결은 거절(R8)
   - TicketCreated에서 `work`를 잇고 status는 open(질문 Q3); 유효 claim 뒤에만 fixing; claim 해제·만료(`TicketClaimReleased` reason expired, 만료 뒤 최대 약 60초)·완료 보고·취소 뒤 닫힘 근거가 없으면 open; `TicketCheckFailed`를 새 claim으로 보지 않는다; ticket event가 닫힌 문제를 열거나 닫지 않는다(R9)
@@ -455,6 +459,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: C-문제command의 `close-verified`, event `ProblemClosed`
 - slice: problems
 - 선행: problems#T18, problems#T19, apps#T18, apps#T19
+- 상태: 완료 (#469) — closing leaf(model·commands·work·testing fixture·closing_test·commands_test), test-runner worker의 `problems.closing` 깨움 통로, core 정책·event 공개·구독자 cursor·깨움 feed·`sweepProblemsClosing()`, 제품 core 시험
 - 완료:
   - `VerificationRecorded`·`ReleaseActivated`·`ProblemObserved`에서 reproduction pass만 후보로 다시 읽는다(R3)
   - after가 현재 활성 release이고 `basis_seq` 뒤 같은 문제의 새 live Report가 0개(늦은 이전 release 보고 포함)일 때만 닫는다(R4)
@@ -462,6 +467,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
   - release 준비·activation·앱 시작·command 성공·app test·test command·ticket 완료·고친 기록·앱 주장만으로는 닫히지 않는다(R2)
   - coding agent·lophn agent·앱·일반 CLI의 닫기는 거절, fixer=user 분류도 권한을 주지 않는다(R1, problem-codes#R7)
   - 이어받음: platform#T39의 ProblemClosed 발생. 닫는 이 작업이 event를 낸다
+  - 시험 자리: 제품 core 시험(apps/core/problems-closing_test.ts)은 문제·닫힘·자격 거절을 실제 op로 보고 반응기는 core와 같은 함수(`sweepProblemsClosing`)로 깨운다. reproduction pass Verification 행·release 행·`VerificationRecorded`는 core에 실제 RecordVerification·activation 조립이 붙기 전이라 검증 조건이 읽는 열 이름 그대로 심는다(problems-repair-blob_test.ts 선례). apps의 활성 release read contract는 넣지 않았다: 닫힘 command가 같은 transaction에서 `releases` status를 다시 본다(architecture/problems 7.6, problems/repairs/commands.ts 선례)
 
 ### T21 사람 결정과 재발
 
@@ -501,8 +507,9 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
   - fake 닫힘 fixture를 T21의 실제 `ApplyProblemDecision`·`ProblemClosed` 닫힘으로 바꾸고, 4종 닫힘을 실제 command로 닫은 뒤 `GetProblem.detail`을 읽는 ledger 테스트를 더한다. `ReconcileProblemWork`의 open·fixing도 실제로 확인한다
   - 두 port의 fake를 `packages/problems/grouping/testing/mod.ts`에 둔다(지금은 미등록이라 통합 테스트가 `unknown`을 본다)
   - shell·CLI 소비자는 `problem.work`·`problem.interpretation`이 아니라 `detail`을 읽는다
-  - user 호출자에게 ID 없는 `problem`을 주는 contract 분리(`problemSchema`가 fixing에 `work`를 요구하므로 큰 변경이다)를 한다
+  - user 호출자에게 ID 없는 `problem`을 주는 contract 분리(`problemSchema`는 fixing에만 `work`를 요구하고 open도 `work`를 가진다)를 한다
   - 끝나면 T22를 `완료 (#<PR>)`로 바꾼다
+- T19에서 넘어온 것: 실제 `ReconcileProblemWork`는 `packages/problems/grouping/testing/mod.ts`의 `problems.testing.ticket-event`(ticket 표 최소 모양과 ticket event를 만든다)로 open·fixing을 읽는 ledger 테스트에 쓸 수 있고, `ProblemWorkPort` 실제 등록은 아직 없다
 - T6에서 넘어온 것: `GetProblem`이 실제 담당과 필요한 사람 조치를 싣는다(#261은 담당·조치 field가 없다); 사용자용 상세에서는 contract의 `problem.work`·`problem.interpretation` ticket·version ID를 빼고 en 작업 상태로 대신하도록 contract를 나눈다; claim·기한 field는 처음부터 없다
 - 완료:
   - 닫힘 4종(테스트로 확인됨·내가 확인함·현상이 안 보임·더 다루지 않음)이 서로 다른 값이고, 기본은 닫힌 이유와 지금 필요한 주의, 확인 범위·미확인·release·근거는 펼친 상세(closing#R13)

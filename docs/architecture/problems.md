@@ -59,7 +59,7 @@ coding agent 통로 ──────────► test runner control (Deno)
 - collector·runner는 core의 **command**, **read**, **blob**을 loopback HTTP로 호출하고 **event 구독**을 WebSocket으로 받는다. core 감독과 자식의 ready·exit·취소 통지는 상속된 private IPC로 한다. token을 URL·stdout·임의 요청 본문에 싣지 않는다.
 - 앱 SDK는 자기 앱 보고만 가능한 실행 credential을 쓴다. collector는 실행 credential에서 app·당시 release·bundle·mode·diagnostic scope를 얻고 인증된 원주체를 준비 참조에 묶는다. 수집기 machine으로 전달해도 원출처의 app/user/관측 자격을 잃지 않는다. 본문의 `actor`, 다른 앱, `live` 주장으로 바꾸지 못한다.
 - collector는 `deno run --no-prompt`에 core/ingress의 정확한 loopback 주소만 `--allow-net`으로 준다. 고정 bundle·source map은 **release 준비·적용** contract가 내준 읽기 전용 준비 폴더만 `--allow-read`로 받는다. blob은 contract로 준비하므로 blob store·ledger 파일을 직접 열지 않는다. `--allow-write`, `--allow-run`, `--allow-ffi`, 일반 `--allow-env`는 없다.
-- runner control은 플랫폼 code다. 준비 폴더와 runner 작업 root만 읽고 쓰며 승인된 Deno 실행 파일, 자식에 메모리 경계·프로세스 그룹을 거는 platform 도구(`/usr/bin/setsid`·`/usr/bin/systemd-run`·`/usr/bin/prlimit`), shell이 설치한 앱 화면 검사 host 실행 파일(`SCREEN_TEST_HOST`의 절대 경로 하나)만 `--allow-run=<absolute-deno-path>,<absolute-tool-paths>,<absolute-host-path>`로 받고, net은 가상 host `lophn.invalid`와 요청 slot(동시 2개)마다 고정한 Unix socket 경로 셋(broker·앱 direct·probe)의 `unix:<경로>`만 받는다(Deno는 Unix socket 듣기·연결에 정확한 경로의 net 허락을 요구하므로 요청마다 만든 경로는 쓰지 않는다). 환경은 `LOPHN_HOME`·자식이 쓸 `HOME`·`DENO_DIR`·메모리 경계 도구가 찾는 사용자 bus·host용 `DISPLAY` 계열이다. host는 `--app-screen-test`로 띄우고 임시 작업 폴더의 HOME·LOPHN_HOME·TMPDIR만 주며 core·collector 주소와 credential은 주지 않는다. 운영 앱 DB·backup·source working tree·keychain·일반 홈은 권한 목록에 없다. core 접근은 정확한 loopback 주소와 요청별 좁은 machine credential로 한다.
+- runner control은 플랫폼 code다. 준비 폴더와 runner 작업 root만 읽고 쓰며 승인된 Deno 실행 파일, 자식에 메모리 경계·프로세스 그룹을 거는 platform 도구(`/usr/bin/setsid`·`/usr/bin/systemd-run`·`/usr/bin/prlimit`), shell이 설치한 앱 화면 검사 host 실행 파일(`SCREEN_TEST_HOST`의 절대 경로 하나)만 `--allow-run=<absolute-deno-path>,<absolute-tool-paths>,<absolute-host-path>`로 받고, net은 가상 host `lophn.invalid`와 요청 slot(동시 2개)마다 고정한 Unix socket 경로 셋(broker·앱 direct·probe)의 `unix:<경로>`, core loopback `127.0.0.1`만 받는다(Deno는 Unix socket 듣기·연결에 정확한 경로의 net 허락을 요구하므로 요청마다 만든 경로는 쓰지 않는다). 환경은 `LOPHN_HOME`·자식이 쓸 `HOME`·`DENO_DIR`·메모리 경계 도구가 찾는 사용자 bus·host용 `DISPLAY` 계열이다. host는 `--app-screen-test`로 띄우고 임시 작업 폴더의 HOME·LOPHN_HOME·TMPDIR만 주며 core·collector 주소와 credential은 주지 않는다. 운영 앱 DB·backup·source working tree·keychain·일반 홈은 권한 목록에 없다. core 접근은 정확한 loopback 주소와 요청별 좁은 machine credential로 한다.
 - 앱 code·test code 자식에는 collector/runner의 credential과 core HTTP 접근을 주지 않는다. SDK 보고는 자식의 private test IPC를 통해 runner에 보내고 runner가 해당 요청의 `mode=test`와 scope를 붙여 collector에 전달한다. IPC 메시지로 live 전환·결과 기록을 요청할 수 없다.
 - Deno test 자식의 기준은 `deno test --no-prompt --cached-only --locked`다. 읽기는 고정 source·의존·플랫폼 harness, 쓰기는 해당 side의 scratch·fixture DB, 환경은 명시한 안전한 변수만 허용한다. 필요 없는 permission은 플래그 자체를 생략한다. network 대역은 가능하면 in-process replay/stub를 쓰고, HTTP가 필요한 대역만 정확한 loopback host:port를 허용한다. core/collector 주소와 실제 외부 host는 허용하지 않는다.
 - 자식에 `-A`, `--allow-all`, 무제한 `--allow-read/write/env/net`, `--allow-run`, FFI를 허용하지 않는다. permission prompt도 없다. `TestMethod.argv`는 허용한 Deno test 진입점으로만 해석하며 shell·bash·임의 native 실행 파일은 준비 단계에서 거절한다. source·cwd·fixture의 real path와 symlink를 검사하고 묶음 밖 참조를 거절한다.
@@ -170,7 +170,7 @@ SDK는 `completion` 실패를 값으로 제공해 SDK 내부 전송 실패가 �
 
 | RPC | command/read 이름 | 입력·출력 | 오류·권한·비교 |
 |---|---|---|---|
-| `/v1/problems/reconcile-work` | `ReconcileProblemWork` | problem·ticket·원 ticket event seq → 현재 status/work·변경 event | machine만; 문제 seq/work·현재 ticket/claim 비교; `not_found/conflict/forbidden` |
+| `/v1/problems/reconcile-work` | `ReconcileProblemWork` | problem·ticket·원 ticket event seq → 현재 status/work·변경 event | machine만; 문제 seq/work·현재 ticket/claim 비교; `not_found/conflict/forbidden/invalid_input`(열린 ticket을 이미 가진 문제) |
 | `/v1/problems/link-interpretation` | `LinkProblemInterpretation` | problem·고정 version/section 또는 null → 현재 참조 | 담당 App Engineer; scope·판 읽기 권한·문제 seq/기존 참조; `invalid_input/not_found/forbidden/conflict` |
 | `/v1/problems/record-fix` | `RecordProblemFix` | problem·FixRecord·key → `ProblemFixRecorded` seq | coding_agent만; 문제 seq·before/after·결과 연결·있으면 현재 claim; `invalid_input/not_found/forbidden/conflict` |
 | `/v1/problems/close-verified` | `CloseProblemVerified` | problem·verification·예상 문제 seq/활성 release → Closure·event | machine 판정기만; 7.6 조건; `not_found/forbidden/conflict/invalid_input` |
@@ -192,8 +192,9 @@ SDK는 `completion` 실패를 값으로 제공해 SDK 내부 전송 실패가 �
 
 | RPC | 이름·실행 자리 | 입력 | 출력 |
 |---|---|---|---|
-| `POST /v1/problems/request-test` | `RequestTest`; runner 준비 후 core 접수 | request key·kind·app·TestTarget·FrozenTest hash·종류별 연결 | `{request_key, accepted, result_ref}`; 접수는 통과 아님 |
+| `POST /v1/problems/request-test` | `RequestTest`; runner 준비 후 core 접수 | request key·kind·app·TestTarget·FrozenTest hash·종류별 연결; coding agent의 reproduction은 현재 claim의 `ticket_source {ticket, claim_seq}`가 필수이고 core가 그 연결의 현재 claim·이 앱의 repair ticket·이 문제와 맞는지 접수 때 다시 확인한다(맞지 않으면 `conflict`) | `{request_key, accepted, result_ref}`; 접수는 통과 아님 |
 | `POST /v1/problems/record-verification` | `RecordVerification`; core, runner 전용 | 실제 시작한 실행의 고정 Verification·blob 준비 참조 | Verification ID·`VerificationRecorded` seq |
+| `POST /v1/problems/observe-test-request` · `start-test-side` · `stage-test-evidence` | `ObserveTestRequest`·`StartTestSide`·`StageTestEvidence`; core, runner 전용 machine command | 요청 key·hash에 묶인 시작 시도/준비 실패/시작 불명/recovery·실제 시작·결과 근거(+proof) | 요청 기록 seq·근거 기록 여부 |
 | `POST /v1/problems/get-test-request` | `GetTestRequest`; core read | 요청 principal에 속한 key | 미실행/준비 실패/접수 대기/시작 흔적/결과 참조와 이유; Verification 상태를 새로 만들지 않음 |
 | `POST /v1/problems/get-verification` | `GetVerification`; core read | Verification ID·상세 선택 | kind·대상 hash·test hash·result/reason·execution/관측 참조 |
 | `POST /v1/problems/list-verifications` | `ListVerifications`; core read | app·problem 또는 ticket·kind·cursor | 결과 목록·next cursor; 현재 적용 가능성은 해당 concern에서 판정 |
@@ -217,7 +218,7 @@ SDK는 `completion` 실패를 값으로 제공해 SDK 내부 전송 실패가 �
 | `SnapshotRecorded` | snapshot; report·captured_at·evidence hash·누락 이유 | 증거 확정 |
 | `ProblemOpened` | problem; app·group_key·첫 report | 첫 운영 발생 |
 | `ProblemObserved` | problem; report·관측 release·접수 당시 활성 release·이전 status | 추가 발생; 이전 release의 늦은 보고 포함 |
-| `ProblemWorkStarted` / `ProblemWorkEnded` | problem; ticket·claim seq 또는 종료 이유·근거 event seq | 현재 유효 claim 기반 상태 변화 |
+| `ProblemWorkStarted` / `ProblemWorkEnded` | problem; ticket·claim seq(ticket만 이으면 null) 또는 종료 이유(released·expired·completion_reported·cancelled·confirmed)·근거 event seq | ticket 연결과 현재 유효 claim 기반 상태 변화 |
 | `ProblemInterpretationLinked` | problem; previous/current 고정 참조 | 해석 연결 변경 |
 | `ProblemFixRecorded` | problem; FixRecord | 고쳤다는 coding agent의 주장 |
 | `VerificationRecorded` | verification; kind·app·target·problem?·basis_seq?·ticket?·result·test·execution | 실제 test result |
@@ -355,12 +356,12 @@ core는 지문을 계산하지 않는다. 신뢰 collector의 준비 참조·key
   → ProblemClosed / ProblemReopened / ProblemConfirmationRecorded
 ```
 
-1. runner의 `work-reaction.ts`는 `TicketClaimed`, `TicketClaimReleased`, `TicketCompletionReported`, `TicketCheckFailed`, `TicketCancelled`, `TicketConfirmed`와 claim 만료 시점을 받아 현재 사실을 다시 읽는다. `TicketCheckFailed`를 새 claim으로 보지 않는다. 닫힌 문제를 ticket event로 열지 않는다.
+1. runner의 `work-reaction.ts`는 `TicketCreated`(연결 문제 포함, readiness 무관: `work`를 잇고 status는 open), `TicketClaimed`, `TicketClaimReleased`, `TicketCompletionReported`, `TicketCheckFailed`, `TicketCancelled`, `TicketConfirmed`와 claim 만료 시점을 받아 현재 사실을 다시 읽는다. `TicketCheckFailed`를 새 claim으로 보지 않는다. 닫힌 문제를 ticket event로 열지 않는다.
 2. `closing-reaction.ts`는 reproduction pass만 후보로 읽는다. before 원증상 재현·after 같은 업무 기대·약화 없음, after가 현재 활성 release, `Verification.basis_seq` 뒤 같은 문제의 **모든 새 live Report가 0개**인지 확인한다. 늦은 이전 release 보고도 이 0개 조건에 포함된다.
 3. 반응기는 현재 문제 최신 seq·활성 release를 compare에 넣어 `CloseProblemVerified`를 낸다. core는 참조된 신뢰 runner 결과의 kind/대상/판정과 현재 조건을 transaction 안에서 다시 검사한다. 자료 해석·테스트는 하지 않는다. 동시 보고/activation/ticket 변화로 seq가 달라지면 `conflict`이며 다시 읽는다. 추가 quiet 대기는 0ms, 날짜 기반 결과 만료는 없다.
 4. `fixed`는 user_confirmed, `not_visible`는 recovered, 한 줄 이유 있는 `dismiss`는 dismissed다. `not_fixed`는 closed면 reopen하고 열린 문제면 부정 확인 event만 쓴다. 사람이 본 현재 release·문제 seq·필요한 last Report와 일회 handle을 검증한다. Verification을 만들어 대신하지 않는다.
 5. 같은 release·같은 근거에서 부정 확인한 뒤 고쳐짐 확인을 반복 요청하지 않는다. 기존 `ProblemConfirmationRecorded`/`ProblemReopened`를 읽어 새 release나 새 근거가 있을 때만 다시 제안한다. 자동 recovered/quiet close·앱 clear·agent close는 없다.
-6. event 반응 key는 공통 `(subscriber, cause_seq, reaction)`이다. 반응 command 확정/조건 불충족 확인 뒤 cursor를 올린다. 대표 subscriber는 `problems.work`, `problems.closing`이며 재시작 때 seq로 따라잡는다.
+6. event 반응 key는 공통 `(subscriber, cause_seq, reaction)`이다. 반응 command 확정/조건 불충족 확인 뒤 cursor를 올린다. 대표 subscriber는 `problems.work`, `problems.closing`이며 재시작 때 seq로 따라잡는다. `problems.work`는 core의 구독자가 ticket event마다 test-runner worker를 깨우며 ledger의 처리 위치를 싣고, worker가 그 뒤 event를 읽어 반응한 다음 `AdvanceSubscriberCursor`로 올린다. 낡은 기준으로 다시 읽을 때 같은 key로 다른 compare를 내지 않도록 reaction에 읽은 문제 seq를 넣는다.
 
 ## 8. 실패와 재시작
 
@@ -382,7 +383,7 @@ core는 지문을 계산하지 않는다. 신뢰 collector의 준비 참조·key
 | source map·binding 출처 불명 | map/frame 부재는 이유·Report별 key; 실행 귀속 자체가 불명인 관측은 platform/diagnostics |
 | 디스크 부족 | 기존 blob 삭제로 숨기지 않음. 큰 신규 항목 제외/작은 접수 실패, 공간·내보내기·한도 조정 안내 |
 
-test 요청 접수·고정 입력 참조·시작 시도·runner 식별·복구 처리 위치는 problems 소유 `test_requests`의 append-only 기록이다. side별 실제 시작은 `test_side_starts`다. platform 공통 command 기록은 이 정본이 아니다. 시작 시도를 확정하기 전 자식을 띄우지 않되 그 기록만으로 실제 execution을 만들지 않는다. runner가 spawn 성공·실제 started_at을 관측한 사실과 감독의 자식 lifecycle을 복구 근거로 쓴다. 시작 여부 자체를 모르면 실제 시작/성공을 꾸미지 않고 GetTestRequest에 확인 불가로 남긴다. lifecycle wire는 T8 입구가 맡는다.
+test 요청 접수·고정 입력 참조·시작 시도·runner 식별·복구 처리 위치는 problems 소유 `test_requests`의 append-only 기록이다. side별 실제 시작은 `test_side_starts`다. platform 공통 command 기록은 이 정본이 아니다. 시작 시도를 확정하기 전 자식을 띄우지 않되 그 기록만으로 실제 execution을 만들지 않는다. runner가 spawn 성공·실제 started_at을 관측한 사실과 감독의 자식 lifecycle을 복구 근거로 쓴다. 시작 여부 자체를 모르면 실제 시작/성공을 꾸미지 않고 GetTestRequest에 확인 불가로 남긴다. lifecycle은 runner 전용 machine command `ObserveTestRequest`(시작 시도·준비 실패·시작 불명·recovery)·`StartTestSide`(실제 시작)·`StageTestEvidence`(RecordVerification 앞의 결과 근거, 한 요청에 한 번)이고 요청마다 발급한 좁은 machine credential(targets: task·app·요청 principal·key·hash)로만 부른다. 시작 시도는 한 요청에 한 번이라 두 번째는 어느 runner가 보내도 `conflict`다. core는 접수 기록(`test_requests`)을 주기로 읽어 시작 시도가 없는 요청을 runner(주체 `problems-test-runner`)에 한 건씩 보내고, runner가 끝난 뒤 시작 시도는 있으나 결과가 없는 요청은 복구 runner(주체 `problems-test-recovery`)가 recovery로 이어받아 실제 시작을 관측했으면 `runner_lost` inconclusive, 아니면 시작 불명으로 남긴다. 준비 실패(고정 시험 hash가 bundle에서 만든 시험과 다름·bundle 사본 없음·메모리 경계를 걸 수 없음)는 `preparation_failed`와 이유이며 Verification은 없다.
 
 이미 시작한 요청은 재시작으로 처음부터 다시 돌리지 않는다. 재실행은 새 request key·Verification ID다. 복구 runner도 해당 요청의 결과 기록만 가능한 machine scope를 받으며 테스트 자식은 받지 않는다. 작업 폴더가 결과 정본이 되지 않고 유일한 확정 사실은 ledger다.
 

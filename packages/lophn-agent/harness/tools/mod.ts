@@ -58,6 +58,14 @@ export {
   type SdkToolPorts,
 } from "./bundles/sdk.ts";
 export {
+  createProblemInterpretationToolHandlers,
+  PROBLEM_INTERPRETATION_TOOL_NAMES,
+  PROBLEM_INTERPRETATION_TOOL_REVISION,
+  PROBLEM_INTERPRETATION_TOOLS,
+  type ProblemInterpretationToolPorts,
+  problemSetInterpretationTool,
+} from "./bundles/problem-interpretation.ts";
+export {
   APP_TOOL_CONTRACT,
   APP_TOOL_PREFIX,
   type AppBlueprintView,
@@ -77,6 +85,23 @@ export {
   recordedResult,
   revertCounterpart,
 } from "./app-tools.ts";
+export {
+  type AnnotateInput,
+  type AnnotationPlan,
+  APP_CONTEXT_TOOL_NAMES,
+  APP_CONTEXT_TOOL_REVISION,
+  appAnnotateTool,
+  type AppContextPorts,
+  type AppContextState,
+  appScreenContextTool,
+  buildAppContextTools,
+  createAppContextToolHandlers,
+  declaredContext,
+  planAnnotation,
+  planScreenRead,
+  type ScreenContextInput,
+  type ScreenReadPlan,
+} from "./bundles/app-context.ts";
 export {
   createMetadataToolHandlers,
   METADATA_TOOL_NAMES,

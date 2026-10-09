@@ -427,7 +427,7 @@ Deno.test("coding-agent/cli#R8 coding-agent/cli#R10: doctor는 daemon 상태 por
   }
 });
 
-Deno.test("coding-agent/cli#R9 coding-agent/cli#R10: mcp config는 설정 조각만 내고 secret·운영 data 위치가 없으며 backing 없는 skills·session은 성공으로 꾸미지 않고 unavailable이다", async () => {
+Deno.test("coding-agent/cli#R9: mcp config는 설정 조각만 내고 secret·운영 data 위치가 없으며 backing 없는 session은 성공으로 꾸미지 않고 연결 참조 거절이다", async () => {
   const fx = await fixture();
   try {
     const config = await run(
@@ -445,12 +445,7 @@ Deno.test("coding-agent/cli#R9 coding-agent/cli#R10: mcp config는 설정 조각
     assertFalse(config.stdout.includes("nonexistent-lophn-home"));
     assertFalse(await exists(`${fx.home}/.codex`));
 
-    for (
-      const argv of [
-        ["skills", "list", "--json"],
-        ["session", "summary", "--json"],
-      ]
-    ) {
+    for (const argv of [["session", "summary", "--json"]]) {
       const result = await run(argv, {
         env: ENV(),
         home: fx.home,
@@ -460,7 +455,16 @@ Deno.test("coding-agent/cli#R9 coding-agent/cli#R10: mcp config는 설정 조각
           generation: () => "1",
         }),
       });
-      assertEquals(result.exit, 5, result.stdout);
+      assertEquals(
+        result.exit,
+        2,
+        `exit ${result.exit}: ${result.stdout}`,
+      );
+      assertEquals(
+        JSON.parse(result.stdout).error.code,
+        "invalid_input",
+        result.stdout,
+      );
     }
   } finally {
     await Deno.remove(fx.home, { recursive: true });
@@ -475,3 +479,67 @@ async function exists(path: string): Promise<boolean> {
     return false;
   }
 }
+
+Deno.test("coding-agent/cli#R10 coding-agent/guides#R4: skills list는 배포 skill 네 개의 이름·설명·version·hash를 내고 install은 고른 target의 skill root에만 파일별 결과로 설치하며 coding credential은 거절된다", async () => {
+  const fx = await fixture();
+  try {
+    const options = {
+      env: ENV({ LOPHN_HOME: `${fx.home}/.lophn` }),
+      home: fx.home,
+      ports: fx.ports,
+    };
+    const listed = await run(["skills", "list", "--json"], options);
+    assertEquals(listed.exit, 0, listed.stdout + listed.stderr);
+    const skills = JSON.parse(listed.stdout).data.skills as {
+      name: string;
+      description: string;
+      version: string;
+      hash: string;
+    }[];
+    assertEquals(skills.map((skill) => skill.name).sort(), [
+      "lophn-build-app",
+      "lophn-navigate",
+      "lophn-repair",
+      "lophn-save",
+    ]);
+    for (const skill of skills) {
+      assert(skill.description.length > 0 && skill.version.length > 0);
+      assertEquals(skill.hash.length, 64);
+    }
+
+    const input = JSON.stringify({ target: CLAUDE_TARGET });
+    const refused = await run(
+      ["skills", "install", "--json", "--input", input],
+      {
+        ...options,
+        env: ENV({ LOPHN_CONNECTION: CAC }),
+      },
+    );
+    assertEquals(refused.exit, 3);
+    assertFalse(await exists(`${fx.home}/.claude`));
+
+    const installed = await run(
+      ["skills", "install", "--json", "--input", input],
+      options,
+    );
+    assertEquals(installed.exit, 0, installed.stdout + installed.stderr);
+    const data = JSON.parse(installed.stdout).data as {
+      install: string;
+      skills: { name: string; files: { outcome: string }[] }[];
+    };
+    assertEquals(data.install, "complete");
+    assertEquals(data.skills.length, 4);
+    assert(
+      data.skills.every((skill) =>
+        skill.files.every((file) => file.outcome === "changed")
+      ),
+    );
+    assert(await exists(`${fx.home}/.claude/skills/lophn-save/SKILL.md`));
+    // 고르지 않은 제품 root는 만들지 않고 MCP 설정도 쓰지 않는다.
+    assertFalse(await exists(`${fx.home}/.codex`));
+    assertFalse(await exists(`${fx.home}/.agents`));
+    assertFalse(await exists(`${fx.home}/.claude.json`));
+  } finally {
+    await Deno.remove(fx.home, { recursive: true });
+  }
+});

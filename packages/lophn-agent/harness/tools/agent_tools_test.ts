@@ -2,6 +2,7 @@ import { assert, assertEquals } from "@std/assert";
 import type { z } from "zod";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
+  applyOperatorAssignmentInputSchema,
   operatorApprovalBundleSchema,
   ROUTES,
 } from "../../../contracts/lophn-agent/mod.ts";
@@ -368,29 +369,41 @@ Deno.test("lophn-agent/harness/tools#R4: approval.submit_assignment는 create_ap
   assertEquals(calls[0]!.contract, "create_approval_request");
   const created = calls[0]!.input as Record<string, unknown>;
   // id·요청자·run·기한은 모델이 정하지 않는다(P9).
-  assert(/^apr_/.test(String(created["id"])));
+  const aprId = String(created["id"]);
+  assert(/^apr_/.test(aprId));
   assertEquals(created["requester"], `agent:${ASG}`);
   assertEquals(created["run"], RUN);
   assertEquals(created["expires_at"], null);
   assertEquals(created["reason"], "watch 변화가 반복된다");
-  // action은 적용 command 하나에 묶인다. 생성의 대상은 preset이다(pre가 reviewer가 고른다).
+  // action은 적용 command 하나에 묶인다(lophn-agent#T53의 입력 모양 맞춤).
   const action = created["action"] as Record<string, unknown>;
   assertEquals(action["concern"], "lophn-agent/assignments");
   assertEquals(action["command"], "ApplyOperatorAssignment");
   assertEquals(action["caller"], `agent:${ASG}`);
-  assertEquals(action["targets"], ["pst_01arz3ndektsv4rrffq69g5fav"]);
+  // 대상은 승인이 묶을 assignment 하나다: creating 초안은 새로 만들 id다.
+  assertEquals(
+    (action["targets"] as string[])[0],
+    applyInputValue(action)["id"],
+  );
   assert(action["binding_hash"] !== action["input_hash"]);
-  // 입력은 apply가 받는 모양 그대로다. 생성은 bundle.assignment를 호출 run의
-  // assignment로 채운다. apply의 접수 필드(approval·decision_seq·id)는 입력에 없다.
-  const applyInput =
-    (action["input"] as { value: Record<string, unknown> })["value"]!;
-  assertEquals("approval" in applyInput, false);
+  // 입력은 apply가 받는 모양 그대로다(lophn-agent#T53): 접수 필드
+  // (approval·id)를 handler가 채우고, 결정 seq는 허락이 확정하는 것이라 생략하고
+  // apply handler가 승인 기록으로 맞춘다. 초안 번들은 사람이 검토한 모양 그대로다.
+  const applyInput = applyInputValue(action);
+  assertEquals(applyInput["approval"], aprId);
   assertEquals("decision_seq" in applyInput, false);
-  assertEquals("id" in applyInput, false);
-  // action.input.value가 apply 입력 그 자체다(bundle이 아니라 wrap 없이).
-  const applied = { ...bundle(), assignment: ASG };
-  assertEquals(applyInput as unknown, applied);
+  assertEquals(applyInput["bundle"], bundle());
+  // action.input.value는 apply contract의 입력 schema를 그대로 통과한다.
+  assert(
+    applyOperatorAssignmentInputSchema.safeParse(applyInput).success,
+  );
 });
+
+function applyInputValue(
+  action: Record<string, unknown>,
+): Record<string, unknown> {
+  return (action["input"] as { value: Record<string, unknown> })["value"]!;
+}
 
 Deno.test("lophn-agent/harness/tools#R4: 같은 bundle 초안은 같은 binding hash를 내고 정의 밖 자유 입력은 거절된다", async () => {
   const calls: Call[] = [];

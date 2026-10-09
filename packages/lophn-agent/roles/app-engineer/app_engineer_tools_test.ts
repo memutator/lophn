@@ -108,7 +108,7 @@ function view(
 const ALL_KEYS = COMMANDS.map((entry) => entry.key);
 
 function grants(commands: readonly string[] = ALL_KEYS) {
-  const list: AppGrant[] = [{ grant: GRANT, commands }];
+  const list: AppGrant[] = [{ grant: GRANT, commands, basis_seq: "1" }];
   return new Map<string, readonly AppGrant[]>([[APP, list]]);
 }
 
@@ -321,16 +321,15 @@ Deno.test("lophn-agent/roles/app-engineer#R5: 맡지 않는 일 blueprint 수정
   }
 });
 
-Deno.test("lophn-agent/roles/app-engineer#R5: 상한에만 있고 정의가 아직 없는 선택은 목록에 없다(T50 해석 참조)", () => {
+Deno.test("lophn-agent/roles/app-engineer#R5: 상한의 해석 참조 선택은 정의가 서면 목록에 오른다(T50)", () => {
   const cap = ROLE_CAPS.get("app_engineer")!;
   const listed = listedForAE();
-  // 상한에는 있지만 내장 정의가 아직 없는 선택이다. problem.set_interpretation의 정의는 T50이 둔다.
+  // problem.set_interpretation의 정의는 T50이 뒀다.
   for (const name of ["problem.set_interpretation"]) {
     assert(cap.tools.includes(name), `${name} is in the AE cap`);
-    assertEquals(
+    assert(
       listed.some((tool) => tool.name === name),
-      false,
-      `app_engineer must not list ${name} without a definition`,
+      `app_engineer lists ${name}`,
     );
   }
   // ticket 읽기·생성·전환은 정의가 있어 목록에 오른다.
@@ -432,7 +431,10 @@ Deno.test("lophn-agent/roles/app-engineer#R21: AE에게 제공된 command의 판
   const ports: AppJudgmentPorts = {
     current: () =>
       Promise.resolve(
-        ok({ view: world, grants: [{ grant: GRANT, commands: ALL_KEYS }] }),
+        ok({
+          view: world,
+          grants: [{ grant: GRANT, commands: ALL_KEYS, basis_seq: "1" }],
+        }),
       ),
     nonce: () => Promise.resolve(ok("n".repeat(32))),
   };

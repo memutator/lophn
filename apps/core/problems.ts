@@ -3,13 +3,14 @@ import {
   getTestRequestRead,
   getVerificationRead,
   listVerificationsRead,
+  observeTestRequestCommand,
   recordVerificationCommand,
   requestTestCommand,
+  stageTestEvidenceCommand,
+  startTestSideCommand,
   TEST_BLOB_FIELDS,
   TEST_BLOB_PURPOSES,
   TEST_SCHEMA_STEPS,
-  testAdmissionPort,
-  testEvidencePort,
   verificationRecordedVisibility,
 } from "../../packages/problems/tests/mod.ts";
 import {
@@ -39,8 +40,11 @@ import {
 } from "../../packages/problems/reporting/reads.ts";
 import {
   getProblemRead,
+  linkProblemInterpretationCommand,
   listProblemsRead,
-} from "../../packages/problems/grouping/reads.ts";
+  reconcileProblemWorkCommand,
+} from "../../packages/problems/grouping/mod.ts";
+import { closeProblemVerifiedCommand } from "../../packages/problems/closing/mod.ts";
 import { REPORTS_SCHEMA_STEPS } from "../../packages/problems/reporting/mod.ts";
 import {
   DETAIL_COLLECTION_SETTING_KEY,
@@ -60,9 +64,13 @@ import {
   observeViewError,
   problemClosed,
   problemFixRecorded,
+  problemInterpretationLinked,
+  problemObserved,
   problemOpened,
   problemReopened,
   problemsUploadFixSummary,
+  problemWorkEnded,
+  problemWorkStarted,
   reportProblem,
   submitFeedback,
   verificationRecorded,
@@ -70,16 +78,26 @@ import {
 import { notificationsOnlyVisibility } from "./platform.ts";
 import { isTicketCheckFeed } from "./ticket-checker.ts";
 import { reportCollectorSpec, testRunnerSpec } from "./problems-runner.ts";
+import { testTxPorts } from "./problems-test-ports.ts";
+import { problemsWorkSubscribers } from "./problems-work.ts";
+import {
+  isProblemsClosing,
+  problemsClosingSubscribers,
+  problemsClosingVisibility,
+} from "./problems-closing.ts";
 
 // ticket checker 구독자(machine:ticket-check-feed)도 깨움 신호로 보는 event다(coding-agent#T26,
-// T45). 그 밖의 자격은 owner 정책이 그대로 판단한다.
+// T45). `problems.closing` 반응기(problems#T20)도 문제 상태·활성 release를 다시 읽는 신호로 본다.
+// 그 밖의 자격은 owner 정책이 그대로 판단한다.
 function visibleToChecker<D extends EventDefinition>(
   owner: EventVisibilityDefinition<D>,
 ): EventVisibilityDefinition<D> {
   return {
     event: owner.event,
     handle: (snapshot, ctx, event) =>
-      isTicketCheckFeed(ctx) ? ok(true) : owner.handle(snapshot, ctx, event),
+      isTicketCheckFeed(ctx) || isProblemsClosing(ctx)
+        ? ok(true)
+        : owner.handle(snapshot, ctx, event),
   };
 }
 
@@ -92,10 +110,17 @@ export const problemsTestDefinitions = {
   schema: TEST_SCHEMA_STEPS,
   blobFields: TEST_BLOB_FIELDS,
   blobPurposes: TEST_BLOB_PURPOSES,
-  commands: [requestTestCommand, recordVerificationCommand],
+  // 접수·결과 기록과, runner가 요청별 좁은 machine credential로만 부르는 lifecycle command다.
+  commands: [
+    requestTestCommand,
+    recordVerificationCommand,
+    observeTestRequestCommand,
+    startTestSideCommand,
+    stageTestEvidenceCommand,
+  ],
   reads: [getTestRequestRead, getVerificationRead, listVerificationsRead],
   visibility: [verificationRecordedForChecker],
-  ports: { admission: testAdmissionPort, evidence: testEvidencePort },
+  ports: testTxPorts(),
   workers: testRunnerWorkers(),
 };
 
@@ -176,7 +201,16 @@ export const problemsReportDefinitions = {
     ),
     ...FIX_BLOB_PURPOSES,
   ],
-  commands: [recordReportCommand, recordProblemFixCommand],
+  commands: [
+    recordReportCommand,
+    recordProblemFixCommand,
+    reconcileProblemWorkCommand,
+    linkProblemInterpretationCommand,
+    closeProblemVerifiedCommand,
+  ],
+  // `problems.work`·`problems.closing` 반응기(test-runner kind)만 자기 cursor를 올린다
+  // (problems/grouping#R9, problems/closing#R5).
+  subscribers: [...problemsWorkSubscribers(), ...problemsClosingSubscribers()],
   reads: [
     listProblemsRead,
     getProblemRead,
@@ -254,7 +288,13 @@ export function createLedgerRegistration(
 // 만든다(platform/ledger#R15). 정책이 없는 problems event는 숨김이다.
 export function createEventRegistration(): EventRegistration {
   return {
-    events: [verificationRecorded, problemFixRecorded],
+    events: [
+      verificationRecorded,
+      problemFixRecorded,
+      problemWorkStarted,
+      problemWorkEnded,
+      problemInterpretationLinked,
+    ],
     visibility: [
       ...problemsTestDefinitions.visibility,
       // notifications 계기(platform/notifications#R1)다. notifications 구독자에게만 연다.
@@ -262,6 +302,9 @@ export function createEventRegistration(): EventRegistration {
       // 닫힘·재발은 보고된 ticket의 남은 조건을 다시 비교하는 신호이기도 하다.
       visibleToChecker(notificationsOnlyVisibility(problemReopened)),
       visibleToChecker(notificationsOnlyVisibility(problemClosed)),
+      // 같은 문제의 새 live 보고는 `problems.closing` 반응기의 재평가 신호다(problems#T20,
+      // closing#R4). 다른 자격은 정책이 없을 때와 똑같이 못 본다.
+      problemsClosingVisibility(problemObserved),
     ],
   };
 }

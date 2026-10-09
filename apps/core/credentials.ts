@@ -3,10 +3,13 @@ import type { AuthenticatedContext } from "../../packages/contracts/platform/mod
 import { authenticatedContextSchema } from "../../packages/contracts/platform/mod.ts";
 import type { LedgerConnection } from "../../packages/platform/ledger/mod.ts";
 import { APPS_CONTROL_PRINCIPAL } from "./apps-control.ts";
+import { APP_REVERT_PRINCIPAL } from "./app-revert.ts";
 import { CONNECTION_TEST_PRINCIPAL } from "./provider-connection-test.ts";
 import { INVOCATION_RECOVERY_PRINCIPAL } from "../../packages/apps/invocations/restart.ts";
 import { DOCUMENTS_FEED_PRINCIPAL } from "./documents-events.ts";
 import { TICKET_CHECK_FEED_PRINCIPAL } from "./ticket-checker-ids.ts";
+import { PROBLEMS_WORK_FEED_PRINCIPAL } from "./problems-work-ids.ts";
+import { PROBLEMS_CLOSING_FEED_PRINCIPAL } from "./problems-closing.ts";
 import {
   APPROVAL_EXPIRY_PRINCIPAL,
   ASSIGNMENT_REACTIONS_PRINCIPAL,
@@ -91,9 +94,12 @@ const FIXED_CREDENTIALS = new Set([
   INVOCATION_RECOVERY_PRINCIPAL,
   DOCUMENTS_FEED_PRINCIPAL,
   TICKET_CHECK_FEED_PRINCIPAL,
+  PROBLEMS_WORK_FEED_PRINCIPAL,
+  PROBLEMS_CLOSING_FEED_PRINCIPAL,
   NOTIFICATIONS_PRINCIPAL,
   CONNECTION_TEST_PRINCIPAL,
   ASSIGNMENT_REACTIONS_PRINCIPAL,
+  APP_REVERT_PRINCIPAL,
 ]);
 
 // coding agent connection의 인증 context는 connection마다 고정 ref(`coding:<cac>`)이고 시작마다

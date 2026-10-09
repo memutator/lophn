@@ -182,7 +182,11 @@ export type PlaceholderKinds = {
   "app-detail.note.connections-empty": Record<never, never>;
   "app-detail.note.data-converts": Record<never, never>;
   "app-detail.note.decision-waiting": Record<never, never>;
-  "app-detail.note.export-unavailable": Record<never, never>;
+  "app-detail.note.export": Record<never, never>;
+  "app-detail.note.export-failed": Record<never, never>;
+  "app-detail.note.export-preparing": Record<never, never>;
+  "app-detail.note.export-ready": Record<never, never>;
+  "app-detail.button.export-app": Record<never, never>;
   "app-detail.note.issues-unavailable": Record<never, never>;
   "app-detail.note.issues-empty": Record<never, never>;
   "app-detail.note.issue-choice-blocked": Record<never, never>;
@@ -656,6 +660,9 @@ export type PlaceholderKinds = {
   "confirmation-window.revert-why.no-earlier": Record<never, never>;
   "confirmation-window.revert-why.not-lophn": Record<never, never>;
   "confirmation-window.revert-why.stale": Record<never, never>;
+  "confirmation-window.revert-why.app-failed": Record<never, never>;
+  "confirmation-window.revert-why.app-uncertain": Record<never, never>;
+  "confirmation-window.revert-why.app-not-started": Record<never, never>;
   "confirmation-window.revert-why.title-change": Record<never, never>;
   "confirmation-window.revert-why.unknown-document": Record<never, never>;
   "confirmation-window.revert-why.unknown": Record<never, never>;
@@ -1010,6 +1017,7 @@ export type PlaceholderKinds = {
   "conversation.notice.not-found": Record<never, never>;
   "conversation.notice.not-sent": Record<never, never>;
   "conversation.notice.offline": Record<never, never>;
+  "conversation.notice.provider-lost": Record<never, never>;
   "conversation.notice.paused": Record<never, never>;
   "conversation.notice.stale": {
     age: "string";
@@ -1441,6 +1449,8 @@ export type PlaceholderKinds = {
   "launcher.label.wordmark": Record<never, never>;
   "launcher.title.register": Record<never, never>;
   "project-workspace.button.add-rule": Record<never, never>;
+  "project-workspace.button.attach-operator": Record<never, never>;
+  "project-workspace.button.see-operators": Record<never, never>;
   "project-workspace.button.close-tab": Record<never, never>;
   "project-workspace.button.collapse-sidebar": Record<never, never>;
   "project-workspace.button.edit-rules": Record<never, never>;
@@ -1464,6 +1474,10 @@ export type PlaceholderKinds = {
   "project-workspace.heading.left-out": Record<never, never>;
   "project-workspace.heading.tracked": Record<never, never>;
   "project-workspace.info.empty": Record<never, never>;
+  "project-workspace.label.operators": {
+    count: "plural";
+  };
+  "project-workspace.label.operators-none": Record<never, never>;
   "project-workspace.label.choose-app": Record<never, never>;
   "project-workspace.label.drop-here": Record<never, never>;
   "project-workspace.label.drop-side": Record<never, never>;
@@ -1650,8 +1664,502 @@ export type PlaceholderKinds = {
   "report-problem.status.received": Record<never, never>;
   "report-problem.status.sending": Record<never, never>;
   "report-problem.title.report": Record<never, never>;
+  "roles.attach.attached": Record<never, never>;
+  "roles.attach.changed": Record<never, never>;
+  "roles.attach.declined": Record<never, never>;
+  "roles.attach.failed": Record<never, never>;
+  "roles.attach.intro": Record<never, never>;
+  "roles.attach.no-outputs": Record<never, never>;
+  "roles.attach.no-preset": Record<never, never>;
+  "roles.attach.no-reads": Record<never, never>;
+  "roles.attach.open-failed": Record<never, never>;
+  "roles.attach.output-help": Record<never, never>;
+  "roles.attach.past-start": Record<never, never>;
+  "roles.attach.waiting": Record<never, never>;
+  "roles.button.answer": Record<never, never>;
+  "roles.button.ask-again": Record<never, never>;
+  "roles.button.attach": Record<never, never>;
+  "roles.button.attach-cancel": Record<never, never>;
+  "roles.button.attach-check": Record<never, never>;
+  "roles.button.attach-review": Record<never, never>;
+  "roles.button.output-add": Record<never, never>;
+  "roles.button.output-remove": Record<never, never>;
+  "roles.button.pause": Record<never, never>;
+  "roles.button.withdraw": Record<never, never>;
+  "roles.button.withdraw-confirm": Record<never, never>;
+  "roles.button.withdraw-keep": Record<never, never>;
+  "roles.button.back-to-work": Record<never, never>;
+  "roles.button.export": Record<never, never>;
+  "roles.button.preset-add": Record<never, never>;
+  "roles.button.preset-add-account": {
+    name: "string";
+  };
+  "roles.button.preset-apply": Record<never, never>;
+  "roles.button.preset-customize": Record<never, never>;
+  "roles.button.preset-down": Record<never, never>;
+  "roles.button.preset-edit": Record<never, never>;
+  "roles.button.preset-remove": Record<never, never>;
+  "roles.button.preset-save-copy": Record<never, never>;
+  "roles.button.preset-save-version": Record<never, never>;
+  "roles.button.preset-up": Record<never, never>;
+  "roles.button.restart": Record<never, never>;
+  "roles.button.resume": Record<never, never>;
+  "roles.button.review": Record<never, never>;
+  "roles.button.stop": Record<never, never>;
+  "roles.button.open-conversation": Record<never, never>;
+  "roles.button.reload": Record<never, never>;
+  "roles.button.undo": Record<never, never>;
+  "roles.empty.no-made": Record<never, never>;
+  "roles.empty.no-preset": Record<never, never>;
+  "roles.empty.no-roles": Record<never, never>;
+  "roles.empty.no-work": Record<never, never>;
+  "roles.empty.pick-role": Record<never, never>;
+  "roles.error.apply": Record<never, never>;
+  "roles.error.ask-again": Record<never, never>;
+  "roles.error.pause": Record<never, never>;
+  "roles.error.preset-changed": Record<never, never>;
+  "roles.error.preset-save": Record<never, never>;
+  "roles.error.restart": Record<never, never>;
+  "roles.error.resume": Record<never, never>;
+  "roles.error.stop": Record<never, never>;
+  "roles.error.withdraw": Record<never, never>;
+  "roles.label.action-external": Record<never, never>;
+  "roles.label.action-read": Record<never, never>;
+  "roles.label.action-write": Record<never, never>;
+  "roles.label.call-cancelled": Record<never, never>;
+  "roles.label.call-complete": Record<never, never>;
+  "roles.label.call-failed": Record<never, never>;
+  "roles.label.call-partial": Record<never, never>;
+  "roles.label.call-uncertain": Record<never, never>;
+  "roles.label.call-unfinished": Record<never, never>;
+  "roles.label.not-started": Record<never, never>;
+  "roles.label.origin-handoff": Record<never, never>;
+  "roles.label.origin-message": Record<never, never>;
+  "roles.label.origin-schedule": Record<never, never>;
+  "roles.label.attach-apps": Record<never, never>;
+  "roles.label.attach-apps-add": Record<never, never>;
+  "roles.label.attach-every": Record<never, never>;
+  "roles.label.attach-first": Record<never, never>;
+  "roles.label.attach-group-apps": Record<never, never>;
+  "roles.label.attach-group-projects": Record<never, never>;
+  "roles.label.attach-output-content": Record<never, never>;
+  "roles.label.attach-output-doc": Record<never, never>;
+  "roles.label.attach-outputs": Record<never, never>;
+  "roles.label.attach-period": Record<never, never>;
+  "roles.label.attach-preset": Record<never, never>;
+  "roles.label.attach-preset-line": {
+    name: "string";
+    version: "number";
+  };
+  "roles.label.attach-reads": Record<never, never>;
+  "roles.label.attach-reads-preset": Record<never, never>;
+  "roles.label.attach-title": Record<never, never>;
+  "roles.label.attach-where": Record<never, never>;
+  "roles.label.attach-where-pick": Record<never, never>;
+  "roles.label.every-day": Record<never, never>;
+  "roles.label.every-hour": Record<never, never>;
+  "roles.label.every-six-hours": Record<never, never>;
+  "roles.label.every-week": Record<never, never>;
+  "roles.label.operator-every": {
+    every: "string";
+  };
+  "roles.label.operator-every-custom": {
+    hours: "plural";
+  };
+  "roles.label.operator-first": {
+    when: "string";
+  };
+  "roles.label.operator-last-due": {
+    when: "string";
+  };
+  "roles.label.operator-reads": {
+    count: "plural";
+  };
+  "roles.label.operator-reports": Record<never, never>;
+  "roles.label.operator-skipped": Record<never, never>;
+  "roles.label.operator-skipped-busy": {
+    when: "string";
+  };
+  "roles.label.operator-skipped-waiting": {
+    when: "string";
+  };
+  "roles.label.preset-account-down": {
+    name: "string";
+  };
+  "roles.label.preset-account-up": {
+    name: "string";
+  };
+  "roles.label.preset-accounts": Record<never, never>;
+  "roles.label.preset-capabilities": Record<never, never>;
+  "roles.label.preset-connection": Record<never, never>;
+  "roles.label.preset-context": Record<never, never>;
+  "roles.label.preset-context-all": Record<never, never>;
+  "roles.label.preset-context-app": Record<never, never>;
+  "roles.label.preset-context-document": Record<never, never>;
+  "roles.label.preset-context-focus": Record<never, never>;
+  "roles.label.preset-context-project": Record<never, never>;
+  "roles.label.preset-context-scope": Record<never, never>;
+  "roles.label.preset-context-sdk": Record<never, never>;
+  "roles.label.preset-context-work-place": Record<never, never>;
+  "roles.label.preset-copy-name": {
+    name: "string";
+  };
+  "roles.label.preset-decisions-model": {
+    model: "string";
+  };
+  "roles.label.preset-default": Record<never, never>;
+  "roles.label.preset-earlier": Record<never, never>;
+  "roles.label.preset-for-decisions": Record<never, never>;
+  "roles.label.preset-for-summaries": Record<never, never>;
+  "roles.label.preset-in-use": Record<never, never>;
+  "roles.label.preset-inside": Record<never, never>;
+  "roles.label.preset-instructions": Record<never, never>;
+  "roles.label.preset-model": Record<never, never>;
+  "roles.label.preset-name": Record<never, never>;
+  "roles.label.list-preset": {
+    name: "string";
+  };
+  "roles.label.preset-none": Record<never, never>;
+  "roles.label.preset-pick-model": Record<never, never>;
+  "roles.label.preset-prompt": Record<never, never>;
+  "roles.label.preset-reason": Record<never, never>;
+  "roles.label.preset-server-off": Record<never, never>;
+  "roles.label.preset-servers": Record<never, never>;
+  "roles.label.preset-skill-name": Record<never, never>;
+  "roles.label.preset-skills": Record<never, never>;
+  "roles.label.preset-use-default": Record<never, never>;
+  "roles.label.preset-version": {
+    version: "number";
+  };
+  "roles.label.preset-yours": Record<never, never>;
+  "roles.label.review-affected": Record<never, never>;
+  "roles.label.review-affected-documents": {
+    count: "plural";
+  };
+  "roles.label.review-basis": Record<never, never>;
+  "roles.label.review-basis-decisions": {
+    model: "string";
+  };
+  "roles.label.review-basis-preset": {
+    version: "number";
+  };
+  "roles.label.review-basis-summaries": {
+    model: "string";
+  };
+  "roles.label.review-call-line": {
+    number: "number";
+    model: "string";
+  };
+  "roles.label.review-cost-billed": {
+    amount: "string";
+  };
+  "roles.label.review-cost-estimated": {
+    amount: "string";
+  };
+  "roles.label.review-cost-free": Record<never, never>;
+  "roles.label.review-cost-subscription": Record<never, never>;
+  "roles.label.review-cost-unknown": Record<never, never>;
+  "roles.label.review-decision": Record<never, never>;
+  "roles.label.review-decision-automatic": Record<never, never>;
+  "roles.label.review-decision-denied": Record<never, never>;
+  "roles.label.review-decision-you": Record<never, never>;
+  "roles.label.review-details": Record<never, never>;
+  "roles.label.review-done-by": Record<never, never>;
+  "roles.label.review-export": Record<never, never>;
+  "roles.label.review-export-messages": Record<never, never>;
+  "roles.label.review-export-model-input": Record<never, never>;
+  "roles.label.review-export-model-output": Record<never, never>;
+  "roles.label.review-export-tool-input": Record<never, never>;
+  "roles.label.review-export-tool-output": Record<never, never>;
+  "roles.label.review-finished": Record<never, never>;
+  "roles.label.review-handed-over": Record<never, never>;
+  "roles.label.review-input": Record<never, never>;
+  "roles.label.review-more": Record<never, never>;
+  "roles.label.review-next": Record<never, never>;
+  "roles.label.review-outcome": Record<never, never>;
+  "roles.label.review-outside-tool": Record<never, never>;
+  "roles.label.review-outside-tool-line": {
+    tool: "string";
+    server: "string";
+  };
+  "roles.label.review-problem-denied": {
+    count: "number";
+  };
+  "roles.label.review-problem-failed": {
+    count: "number";
+  };
+  "roles.label.review-problem-not-run": {
+    count: "number";
+  };
+  "roles.label.review-problem-unclear": {
+    count: "number";
+  };
+  "roles.label.review-problem-unfinished": {
+    count: "number";
+  };
+  "roles.label.review-result": Record<never, never>;
+  "roles.label.review-started": Record<never, never>;
+  "roles.label.review-step-line": {
+    action: "string";
+    target: "string";
+  };
+  "roles.label.review-steps-summary": {
+    steps: "plural";
+    done: "number";
+  };
+  "roles.label.review-target": Record<never, never>;
+  "roles.label.review-tokens-cache-read": {
+    count: "string";
+  };
+  "roles.label.review-tokens-cache-write": {
+    count: "string";
+  };
+  "roles.label.review-tokens-input": {
+    count: "string";
+  };
+  "roles.label.review-tokens-output": {
+    count: "string";
+  };
+  "roles.label.review-tool-activity": Record<never, never>;
+  "roles.label.review-tool-name": Record<never, never>;
+  "roles.label.review-total-calls": {
+    count: "plural";
+  };
+  "roles.label.review-total-line": {
+    cost: "string";
+    count: "plural";
+  };
+  "roles.label.review-usage": Record<never, never>;
+  "roles.label.review-why": Record<never, never>;
+  "roles.label.role-app-engineer": Record<never, never>;
+  "roles.label.role-context-engineer": Record<never, never>;
+  "roles.label.role-lophn": Record<never, never>;
+  "roles.label.role-operator": Record<never, never>;
+  "roles.label.role-with-scope": {
+    role: "string";
+    name: "string";
+  };
+  "roles.label.state-active": Record<never, never>;
+  "roles.label.state-paused": Record<never, never>;
+  "roles.label.state-withdrawn": Record<never, never>;
+  "roles.label.status-done": Record<never, never>;
+  "roles.label.status-in-progress": Record<never, never>;
+  "roles.label.status-stopped": Record<never, never>;
+  "roles.label.status-waiting": Record<never, never>;
+  "roles.label.step-denied": Record<never, never>;
+  "roles.label.step-done": Record<never, never>;
+  "roles.label.step-failed": Record<never, never>;
+  "roles.label.step-not-run": Record<never, never>;
+  "roles.label.step-unclear": Record<never, never>;
+  "roles.label.step-unfinished": Record<never, never>;
+  "roles.label.tab-conversation": Record<never, never>;
+  "roles.label.tab-made": Record<never, never>;
+  "roles.label.tab-preset": Record<never, never>;
+  "roles.label.tab-work": Record<never, never>;
+  "roles.label.target-app": Record<never, never>;
+  "roles.label.target-approval": Record<never, never>;
+  "roles.label.target-chart": Record<never, never>;
+  "roles.label.target-document": Record<never, never>;
+  "roles.label.target-file": Record<never, never>;
+  "roles.label.target-focus": Record<never, never>;
+  "roles.label.target-guide": Record<never, never>;
+  "roles.label.target-list": Record<never, never>;
+  "roles.label.target-made": Record<never, never>;
+  "roles.label.target-meaning": Record<never, never>;
+  "roles.label.target-outside": Record<never, never>;
+  "roles.label.target-preset": Record<never, never>;
+  "roles.label.target-project": Record<never, never>;
+  "roles.label.target-question": Record<never, never>;
+  "roles.label.target-role": Record<never, never>;
+  "roles.label.target-skill": Record<never, never>;
+  "roles.label.target-tool": Record<never, never>;
+  "roles.label.target-work": Record<never, never>;
+  "roles.notice.operator-paused-failures": Record<never, never>;
+  "roles.notice.operator-paused-output": Record<never, never>;
+  "roles.notice.operator-paused-scope": Record<never, never>;
+  "roles.notice.operator-paused-user": Record<never, never>;
+  "roles.notice.withdraw-ask": Record<never, never>;
+  "roles.notice.paused": Record<never, never>;
+  "roles.notice.withdrawn": Record<never, never>;
+  "roles.preset.applied": Record<never, never>;
+  "roles.preset.default-reason": Record<never, never>;
+  "roles.preset.edit-copy-intro": Record<never, never>;
+  "roles.preset.edit-intro": {
+    version: "number";
+  };
+  "roles.preset.intro": Record<never, never>;
+  "roles.preset.no-accounts": Record<never, never>;
+  "roles.preset.no-servers": Record<never, never>;
+  "roles.preset.no-skills": Record<never, never>;
+  "roles.preset.no-tools": Record<never, never>;
+  "roles.preset.operator-note": Record<never, never>;
+  "roles.preset.saved": {
+    version: "number";
+  };
+  "roles.preset.skill-help": Record<never, never>;
+  "roles.preset.tools-help": Record<never, never>;
+  "roles.reason.active-limit": Record<never, never>;
+  "roles.reason.answer-completed": Record<never, never>;
+  "roles.reason.attempt-limit": Record<never, never>;
+  "roles.reason.clock-uncertain": Record<never, never>;
+  "roles.reason.configuration": Record<never, never>;
+  "roles.reason.context-limit": Record<never, never>;
+  "roles.reason.effect-unknown": Record<never, never>;
+  "roles.reason.model-error": Record<never, never>;
+  "roles.reason.no-answer": Record<never, never>;
+  "roles.reason.no-change": Record<never, never>;
+  "roles.reason.repeated-failure": Record<never, never>;
+  "roles.reason.role-paused": Record<never, never>;
+  "roles.reason.role-withdrawn": Record<never, never>;
+  "roles.reason.stall-limit": Record<never, never>;
+  "roles.reason.target": Record<never, never>;
+  "roles.reason.tool-error": Record<never, never>;
+  "roles.reason.unknown": Record<never, never>;
+  "roles.reason.user-stopped": Record<never, never>;
+  "roles.review.basis-absent": Record<never, never>;
+  "roles.review.basis-none": Record<never, never>;
+  "roles.review.body-absent": Record<never, never>;
+  "roles.review.body-cut": Record<never, never>;
+  "roles.review.body-unreadable": Record<never, never>;
+  "roles.review.end-unconfirmed": Record<never, never>;
+  "roles.review.export-cancelled": Record<never, never>;
+  "roles.review.export-done": {
+    sent: "plural";
+  };
+  "roles.review.export-failed": Record<never, never>;
+  "roles.review.export-intro": Record<never, never>;
+  "roles.review.export-partial": {
+    sent: "plural";
+    notSent: "plural";
+  };
+  "roles.review.failed": Record<never, never>;
+  "roles.review.judgment-note": Record<never, never>;
+  "roles.review.missing": {
+    count: "plural";
+  };
+  "roles.review.missing-body": Record<never, never>;
+  "roles.review.missing-record": Record<never, never>;
+  "roles.review.missing-source": Record<never, never>;
+  "roles.review.no-affected": Record<never, never>;
+  "roles.review.no-calls": Record<never, never>;
+  "roles.review.no-result": Record<never, never>;
+  "roles.review.no-results": Record<never, never>;
+  "roles.review.no-steps": Record<never, never>;
+  "roles.review.readable": {
+    steps: "plural";
+    calls: "plural";
+    messages: "plural";
+  };
+  "roles.review.request-unavailable": Record<never, never>;
+  "roles.review.steps-failed": Record<never, never>;
+  "roles.review.tokens-unknown": Record<never, never>;
+  "roles.review.undo-failed": Record<never, never>;
+  "roles.review.undo-opened": Record<never, never>;
+  "roles.review.usage-failed": Record<never, never>;
+  "roles.review.usage-incomplete": Record<never, never>;
   "roles.title.screen": Record<never, never>;
   "settings.accounts.none": Record<never, never>;
+  "settings.backup.created": {
+    time: "string";
+  };
+  "settings.backup.created-failed": Record<never, never>;
+  "settings.backup.expand-unavailable": Record<never, never>;
+  "settings.backup.excluded-heading": Record<never, never>;
+  "settings.backup.excluded-note": Record<never, never>;
+  "settings.backup.heading": Record<never, never>;
+  "settings.backup.intro": Record<never, never>;
+  "settings.backup.intro-restore-failed": Record<never, never>;
+  "settings.backup.intro-restore-started": {
+    time: "string";
+  };
+  "settings.backup.lost-heading": {
+    time: "string";
+  };
+  "settings.backup.lost-none": Record<never, never>;
+  "settings.backup.lost-count": {
+    count: "plural";
+  };
+  "settings.backup.none": Record<never, never>;
+  "settings.backup.reconnect": Record<never, never>;
+  "settings.backup.restore-complete": Record<never, never>;
+  "settings.backup.restore-failed": Record<never, never>;
+  "settings.backup.restore-failed-plan": Record<never, never>;
+  "settings.backup.restore-restarted": Record<never, never>;
+  "settings.backup.restore-uncertain": Record<never, never>;
+  "settings.backup.tab-not-restoreable": Record<never, never>;
+  "settings.backup.retained": {
+    count: "plural";
+  };
+  "settings.backup.reconnect-heading": Record<never, never>;
+  "settings.backup.app-export-heading": Record<never, never>;
+  "settings.backup.app-export-note": Record<never, never>;
+  "settings.backup.app-export-ready": Record<never, never>;
+  "settings.backup.app-export-failed": Record<never, never>;
+  "settings.backup.secrets-heading": Record<never, never>;
+  "settings.backup.secrets-note": Record<never, never>;
+  "settings.backup.secrets-window": Record<never, never>;
+  "settings.button.export-secrets": Record<never, never>;
+  "settings.button.import-secrets": Record<never, never>;
+  "settings.label.backup-target": Record<never, never>;
+  "settings.label.notifications-target": Record<never, never>;
+  "settings.label.retained-through": Record<never, never>;
+  "settings.label.integrity": Record<never, never>;
+  "settings.label.integrity-passed": Record<never, never>;
+  "settings.label.integrity-failed": Record<never, never>;
+  "settings.label.state": Record<never, never>;
+  "settings.button.before-restore": Record<never, never>;
+  "settings.button.backup-now": Record<never, never>;
+  "settings.button.check-security": Record<never, never>;
+  "settings.button.choose-package": Record<never, never>;
+  "settings.button.export-app": Record<never, never>;
+  "settings.button.enter-secret": Record<never, never>;
+  "settings.button.restore-again": Record<never, never>;
+  "settings.button.stop-and-update": Record<never, never>;
+  "settings.button.update-now": Record<never, never>;
+  "settings.check.failed": Record<never, never>;
+  "settings.check.raw-key-note": Record<never, never>;
+  "settings.check.wide-grant-note": Record<never, never>;
+  "settings.check.clean": Record<never, never>;
+  "settings.diagnostics.finding-at": {
+    time: "string";
+  };
+  "settings.diagnostics.next-raw-key": Record<never, never>;
+  "settings.diagnostics.next-wide-grant": Record<never, never>;
+  "settings.diagnostics.raw-key": Record<never, never>;
+  "settings.diagnostics.wide-grant": Record<never, never>;
+  "settings.diagnostics.heading": Record<never, never>;
+  "settings.diagnostics.intro": Record<never, never>;
+  "settings.diagnostics.raw-heading": Record<never, never>;
+  "settings.diagnostics.raw-intro": Record<never, never>;
+  "settings.diagnostics.check-failed": Record<never, never>;
+  "settings.diagnostics.check-failed-no": Record<never, never>;
+  "settings.diagnostics.raw-failed": Record<never, never>;
+  "settings.diagnostics.clean-row": Record<never, never>;
+  "settings.label.checked-at": Record<never, never>;
+  "settings.update.heading": Record<never, never>;
+  "settings.update.intro": Record<never, never>;
+  "settings.update.no-package": Record<never, never>;
+  "settings.update.package-unreadable": Record<never, never>;
+  "settings.update.system-mismatch": Record<never, never>;
+  "settings.update.check-note": Record<never, never>;
+  "settings.update.new-version": {
+    version: "string";
+    os: "string";
+    current: "string";
+  };
+  "settings.update.schema-compatible": Record<never, never>;
+  "settings.update.schema-migration": Record<never, never>;
+  "settings.update.schema-newer": Record<never, never>;
+  "settings.update.restart-required": Record<never, never>;
+  "settings.update.stop-failed": Record<never, never>;
+  "settings.update.stopped": Record<never, never>;
+  "settings.update.deployment-unverified": Record<never, never>;
+  "settings.notifications.heading": Record<never, never>;
+  "settings.notifications.intro": Record<never, never>;
+  "settings.notifications.label": Record<never, never>;
+  "settings.notifications.help": Record<never, never>;
+  "settings.notifications.changed": Record<never, never>;
+  "settings.notifications.changed-failed": Record<never, never>;
   "settings.button.add-folder": Record<never, never>;
   "settings.button.add-key": Record<never, never>;
   "settings.button.add-server": Record<never, never>;
@@ -1765,8 +2273,12 @@ export type PlaceholderKinds = {
   "settings.label.state-sign-in-problem": Record<never, never>;
   "settings.label.state-signed-out": Record<never, never>;
   "settings.label.tab-connections": Record<never, never>;
+  "settings.label.tab-backup": Record<never, never>;
   "settings.label.tab-extensions": Record<never, never>;
   "settings.label.tab-general": Record<never, never>;
+  "settings.label.tab-update": Record<never, never>;
+  "settings.label.tab-diagnostics": Record<never, never>;
+  "settings.label.tab-notifications": Record<never, never>;
   "settings.label.test-model": Record<never, never>;
   "settings.label.unavailable-connection": Record<never, never>;
   "settings.label.usage-none": Record<never, never>;

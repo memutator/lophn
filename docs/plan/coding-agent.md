@@ -1133,6 +1133,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T33 배포 skill 네 개와 검사
 
+- 상태: 완료 (#454) — 이어보냄: `lophn_problem`·`lophn_session` 본문 일치 확인 → T44·T35. 앱 root 안내가 skill 이름을 가리키는 일 → T34
 - 등급: 기본
 - concern: coding-agent/guides, coding-agent/cli
 - 요구: coding-agent/guides#R1, R2, R3, R6, R7, R8, R9, R10, R11, R12, R20, R22,
@@ -1168,6 +1169,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T34 앱 template 안내·관리 구간·sync-tools
 
+- 상태: 완료 (#465)
 - 등급: 기본
 - concern: coding-agent/guides, coding-agent/mcp-server, coding-agent/cli
 - 요구: coding-agent/guides#R13, R14, R15, R16, R17, R18, R19;
@@ -1206,9 +1208,18 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
   지금 `lophn_app sync_tools`는 `connection/app-ops.ts`에서 `unavailable`을 돌려준다
   (소유 route 표에는 appRuntime이 입력 자리로 있다). 파일별 변경·무변경·건너뜀
   결과가 생기면 그 분기를 실행으로 바꾼다.
+- 정한 것(T34): 관리 구간 갱신은 `guides/managed-files.ts`(marker 짝 안쪽만, 바깥
+  bytes 보존, 경계 오류 무변경, hash 충돌 무변경, temp·원자 교체)으로 하고 관리 구간
+  본문은 `guides/templates/`의 body 원본이 정한다(`templates/sync.ts` 표). sync는
+  재사용 구조다: MCP 설정·안내는 harnesses의 `installSelected`(`mcp`·`guide`
+  components), skill은 guides의 `installSkills`를 쓰고 ignore 갱신만 이 모듈이
+  `updateGuideRegion`으로 쓴다. 두 통로(MCP `lophn_app` op와 CLI `app sync-tools`)는
+  `connection/app-ops.ts`의 같은 분기를 지나고 파일 설치는 host가 끼운 `sync` port가
+  `guides/syncTools`로 한다(core route 밖).
 
 ### T35 session 시작 summary와 Claude Code hook
 
+- 상태: 완료 (#461) — 끝낸 것: 완료 기준 전부에 더해 T36에서 넘어온 것(dispatch `session summary` 분기를 소유 읽기 route `/v1/coding_agent_sessions/summary`로, core read handler를 repair-context와 같은 worker 통로로 등록)과 T33에서 넘어온 것(`lophn-build-app`·`lophn-repair` 본문의 `lophn_session` op `summary` 안내와 실제 응답의 claim_rule이 같은 문장이다 — summary.ts의 CLAIM_RULE)을 끝냈다. `apps/core/registry_test.ts`는 repo에 없고 core의 route 등록을 검사하는 목록 테스트도 없어 맞춘 것 없다. hook 설치는 temp dir 가짜 home 테스트로만 확인했다(실제 ~/.claude는 쓰지 않았다). 추가로 고친 것: apps/cli/main.ts의 redactor가 `createRedactionStream.push`의 검사 확정 prefix를 버려 hookMode stdout을 포함한 모든 사람 출력이 꼬리 24 code point만큼 잘리던 것을 push+finish 연결로 고쳤다.
 - 등급: 기본
 - concern: coding-agent/guides, coding-agent/mcp-server, coding-agent/cli
 - 요구: coding-agent/guides#R21, R22, R23, R24, R25; coding-agent/harnesses#R11
@@ -1223,6 +1234,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 - 조사: docs/research/coding-agent-skills-and-guides.md
 - 선행: T27, T30, contracts#T42, contracts#T43, problems#T6, platform#T12
 - coding-agent#T36에서 넘어온 것: CLI `session summary`는 command 표에 있고 실행은 core의 `/v1/coding_agent_sessions/summary` read handler가 없어 unavailable이다(apps/cli/dispatch.ts, contracts `codingAgentSessionSummary`는 있음). handler가 서면 dispatch에서 `session ` 분기를 소유 읽기 route로 바꾼다
+- coding-agent#T33에서 넘어온 것: 배포 skill `lophn-build-app`·`lophn-repair` 본문이 시작 summary를 `lophn_session` op `summary`로 가리키고 "읽는 것은 착수 지시가 아니다"라고 적었다. summary 본문이 서면 이 안내와 실제 응답이 맞는지 확인한다
 - 완료:
   - summary: 범위 안 open·fixing 문제와 open·check_failed ticket 요약, 자기
     claim·기한, reported의 남은 조건, next_cursor, claim_rule.
@@ -1582,6 +1594,13 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
   docs/research/coding-agent-repair-context.md
 - 선행: T43, contracts#T44, problems#T14, problems#T15, problems#T18,
   problems#T21
+- coding-agent#T33에서 넘어온 것: 배포 skill `lophn-repair`·`lophn-build-app`
+  본문은 `lophn_problem`(contract 이름·op list, show, snapshot, fix_records,
+  summary, bundle, more, record_fix, test)을 가리키고, tool이 목록에 없으면 수리를
+  진행하지 않고 사람에게 알리라고 적었다. 이 tool이 실제로 서면 본문의 op 이름·입력
+  (`more`의 `kind`, `record_fix`·`test`의 ticket·`claim_seq`)이 실제와 맞는지
+  확인하고, 달라졌으면 skill 본문을 고치며 version을 올리고 manifest hash를
+  갱신한다(`packages/coding-agent/guides/manifest.ts`, 배포 테스트가 잡는다)
 - 완료:
   - `lophn_problem` list(앱·진행 상태·처리
     대상)·show·snapshot·fix_records·summary·bundle·more, 추가 조회가 claim을
@@ -1632,6 +1651,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
   - `ProblemClosed`·`ProblemReopened`에서 남은 조건 재비교, 재시작 뒤
     이어서(R20)
   - 일부 문제만 통과·전부 제외에서 자동 confirmed가 없다(R9)
+- problems#T19에서 넘어온 것: 제품 checker가 repair ticket의 `problems_closed`·`human_confirmation` 판정에 문제 대상 `targets[].revision`을 문제 상태 문구("open")로 보내 `record_checks`가 `invalid_input`(seqSchema)으로 거절된다(제품 core의 실제 repair ticket 시험으로 확인). 문제의 최신 seq를 revision으로 싣는다. 또 제품 core는 repair ticket 생성의 `PROBLEM_STATUSES_PORT`를 아직 등록하지 않아 시험용 port로만 repair ticket을 만든다
 
 ### T46 사람 화면의 repair ticket 준비와 수리 요청
 

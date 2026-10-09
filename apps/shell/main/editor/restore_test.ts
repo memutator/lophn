@@ -493,3 +493,74 @@ test("shell/editor#R15 documents/file-tracking#R11: 쓰기 기준 hash는 비교
   assert.equal(reply.ok && reply.value.outcome, "saved");
   assert.equal(state.writes[0]!.base_hash, sha256(OLD));
 });
+
+const LOST: PortError = {
+  code: "unavailable",
+  message: "transport failed",
+  details: { reason: "transport_failed" },
+};
+
+test("shell/editor#R12 documents/file-tracking#R10 documents/file-tracking#R15: 파일을 쓴 뒤 연결이 끊기면 판 확정을 성공이나 확정 실패로 채우지 않는다", async () => {
+  const state = fake({
+    linked: true,
+    restore: () => ({ ok: false, error: LOST }),
+  });
+  const reply = await createRestorer({ port: () => state.port, log: () => {} })
+    .restore({
+      document: DOC,
+      version: V1,
+      base_version: V2,
+      request_key: KEY,
+    });
+  assert.equal(state.writes.length, 1);
+  assert.deepEqual(reply, {
+    ok: true,
+    value: {
+      outcome: "failed",
+      version: null,
+      file: "written",
+      failure: "offline",
+    },
+  });
+  // 응답이 끊긴 것이 아니라 판 확정이 실패한 것은 그대로 확정 실패다.
+  const refused = fake({
+    linked: true,
+    restore: () => ({
+      ok: false,
+      error: { code: "unavailable", message: "busy" },
+    }),
+  });
+  const failed = await createRestorer({
+    port: () => refused.port,
+    log: () => {},
+  }).restore({
+    document: DOC,
+    version: V1,
+    base_version: V2,
+    request_key: KEY,
+  });
+  assert.deepEqual(failed, {
+    ok: true,
+    value: {
+      outcome: "pending",
+      version: null,
+      file: "written",
+      failure: "unavailable",
+    },
+  });
+});
+
+test("shell/editor#R12 documents/file-tracking#R15: 복원을 시작하기도 전에 연결이 끊기면 저장된 판으로 답하지 않는다", async () => {
+  const state = fake({ linked: true });
+  state.port.fixed = () => Promise.resolve({ ok: false, error: LOST });
+  const reply = await createRestorer({ port: () => state.port, log: () => {} })
+    .restore({
+      document: DOC,
+      version: V1,
+      base_version: V2,
+      request_key: KEY,
+    });
+  assert.deepEqual(reply, { ok: false, code: "offline" });
+  assert.equal(state.writes.length, 0);
+  assert.equal(state.restores.length, 0);
+});

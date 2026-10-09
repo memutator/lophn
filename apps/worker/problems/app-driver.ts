@@ -251,17 +251,34 @@ export async function createRealAppDriver(
   }
 
   async function acceptReport(body: unknown): Promise<Response> {
-    const parsed = reportProblemInputSchema.safeParse(body);
+    // broker 본문에는 자식 nonce·mode가 있다. 신원은 이 연결의 값과 같아야 하고,
+    // collector가 읽는 보고 입력에는 그 신원을 넣지 않는다.
+    if (body === null || typeof body !== "object" || Array.isArray(body)) {
+      return Response.json({
+        error: { code: "invalid_input", message: "report input is invalid" },
+      }, { status: 400 });
+    }
+    const claimed = body as Record<string, unknown>;
+    if (claimed.process_nonce !== NONCE || claimed.mode !== "test") {
+      return Response.json({
+        error: {
+          code: "unauthorized",
+          message: "request does not match the child connection",
+        },
+      }, { status: 401 });
+    }
+    const reportBody = { ...claimed };
+    delete reportBody.process_nonce;
+    delete reportBody.mode;
+    const parsed = reportProblemInputSchema.safeParse(reportBody);
     if (!parsed.success) {
       return Response.json({
-        ok: false,
         error: { code: "invalid_input", message: "report input is invalid" },
       }, { status: 400 });
     }
     const report = parsed.data;
     if (!declared.has(report.code) || report.code.startsWith("_")) {
       return Response.json({
-        ok: false,
         error: {
           code: "invalid_input",
           message: "problem code is not declared",
@@ -270,7 +287,7 @@ export async function createRealAppDriver(
     }
     const sent = await input.sink.report(report);
     if (!sent.ok) {
-      return Response.json({ ok: false, error: sent.error }, { status: 503 });
+      return Response.json({ error: sent.error }, { status: 503 });
     }
     received.push({
       report_id: report.report_id,
@@ -278,7 +295,8 @@ export async function createRealAppDriver(
       invocation_id: report.invocation?.id ?? null,
       stored: await redactedBody(report.details),
     });
-    return Response.json({ ok: true, value: sent.value });
+    // 앱 진입점은 접수 값 자체를 응답 본문으로 읽는다.
+    return Response.json(sent.value);
   }
 
   async function acceptException(body: unknown): Promise<Response> {
@@ -366,6 +384,17 @@ export async function createRealAppDriver(
     ) {
       const body = await request.json().catch(() => null);
       return await acceptReport(body);
+    }
+    if (
+      request.method === "POST" &&
+      path === "/_lophn/broker/problems/observe-exception"
+    ) {
+      const body = await request.json().catch(() => null);
+      const observation = body !== null && typeof body === "object" &&
+          "observation" in body
+        ? (body as { observation: unknown }).observation
+        : body;
+      return await acceptException(observation);
     }
     return await endpoint.handle(request);
   });

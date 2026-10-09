@@ -121,6 +121,57 @@ export function reportWrongCodeHandler(deps: Deps = defaults) {
   };
 }
 
+function buriedToken(): string {
+  return ["ghp", "omitzzzzzzzzzzzzzzzzz"].join("_");
+}
+
+type NestedBody = { note: string } | { wrap: NestedBody };
+
+function deepDetails(token: string): NestedBody {
+  let value: NestedBody = { note: token };
+  for (let depth = 0; depth < 20; depth++) value = { wrap: value };
+  return value;
+}
+
+export function repeatReportHandler(deps: Deps = defaults) {
+  return async (input: unknown) => {
+    const body = input as { kind?: unknown };
+    const kind = body?.kind === "altered" || body?.kind === "omit"
+      ? body.kind
+      : "same";
+    if (kind === "omit") {
+      const sent = reportProblem("fixture_broken", deepDetails(buriedToken()));
+      const done = await sent.completion;
+      deps.log("repeat_report omitted an uncertain body");
+      return {
+        report_id: sent.report_id,
+        status: done.status,
+        reason: done.status === "failed" ? done.reason.code : null,
+        detail: done.status === "failed" ? done.reason.message : null,
+      };
+    }
+    const sent = reportProblem("fixture_broken", {
+      command: "repeat_report",
+      n: 1,
+    });
+    const first = await sent.completion;
+    const again = reportProblem.retransmit?.(
+      sent.report_id,
+      kind === "altered" ? { command: "repeat_report", n: 2 } : undefined,
+    );
+    const second = again === null || again === undefined
+      ? { status: "missing" as const, reason: { code: "unavailable" } }
+      : await again;
+    deps.log(`repeat_report ${kind} ${first.status}`);
+    return {
+      report_id: sent.report_id,
+      first: first.status,
+      second: second.status,
+      reason: second.status === "failed" ? second.reason.code : null,
+    };
+  };
+}
+
 export function floodReportsHandler(deps: Deps = defaults) {
   return () => {
     // 짧은 시간에 보고 25개다(apps#T26 완료 7번). core는 60초에 앱당 20개까지 받는다.
@@ -196,6 +247,7 @@ export function registerCommands(deps: Deps = defaults): void {
   command("drop_promise", dropPromiseHandler(deps));
   command("report_wrong_code", reportWrongCodeHandler(deps));
   command("flood_reports", floodReportsHandler(deps));
+  command("repeat_report", repeatReportHandler(deps));
   command("chatter_then_fail", chatterThenFailHandler(deps));
   command("mark_kind", markKindHandler(deps));
   command("panel_context", panelContextHandler(deps));

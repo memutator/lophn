@@ -32,6 +32,7 @@ export const BROKER_SOCKET_PATHS = {
   secretsUse: "/_lophn/broker/secrets/use",
   documentsSave: "/_lophn/broker/documents/save",
   problemsReport: "/_lophn/broker/problems/report",
+  problemsObserve: "/_lophn/broker/problems/observe-exception",
   appsConnect: "/_lophn/broker/apps/connect",
   appsConfirmRequest: "/_lophn/broker/apps/confirm/request",
   appsConfirmPoll: "/_lophn/broker/apps/confirm/poll",

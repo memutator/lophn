@@ -29,6 +29,9 @@ import {
   type Grant,
   grantsList,
   invocationAcceptConfirm,
+  invocationRecordDenied,
+  invocationRecordFinished,
+  invocationRecordStarted,
   packagesGuideBody,
   previewsGet,
   previewsStart,
@@ -165,6 +168,10 @@ const SUPERVISOR_OPERATIONS = [
   appRecordStarted.name,
   appRecordStopped.name,
   appRecordUnavailable.name,
+  // 앱이 broker로 보낸 invocation 후행 기록이다(architecture/apps 7.1).
+  invocationRecordStarted.name,
+  invocationRecordFinished.name,
+  invocationRecordDenied.name,
   appConnect.name,
   // 앱 쌍 연결 준비와 confirm은 core만 쥔 서명 key로 한다. 앱 자식의 요청을 supervisor가 신원과 함께 보낸다.
   appPairPrepare.name,
@@ -189,7 +196,14 @@ const APP_CHILD_OPERATIONS = [reportProblem.name, observeException.name];
 // registry 상한. 이 목록에 없는 operation은 그 actor에게 발급하지 못한다.
 export function appsOperationPolicies(): OperationPolicy[] {
   return [
-    ...[appRecordStarted, appRecordStopped, appRecordUnavailable].map((
+    ...[
+      appRecordStarted,
+      appRecordStopped,
+      appRecordUnavailable,
+      invocationRecordStarted,
+      invocationRecordFinished,
+      invocationRecordDenied,
+    ].map((
       route,
     ): OperationPolicy => ({
       name: route.name,

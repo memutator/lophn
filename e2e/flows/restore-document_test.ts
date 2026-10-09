@@ -6,12 +6,19 @@
 // - 이력·비교·restore 조작은 모두 정보 패널의 versions 탭과 compare 화면으로 한다.
 // - 원본 파일이 없을 때는 아래 갈래가 본다. agent가 쓴 판의 run 근거는 그 다음 테스트가 본다.
 //   옛 이름·자리 참조는 그 다음 테스트가 본다. 검색 반영 대기는 그 다음 테스트가 본다.
-//   보관·추적 중단 뒤의 옛 판 읽기는 마지막 테스트가 본다.
+//   보관·추적 중단 뒤의 옛 판 읽기는 그 다음 테스트가 본다.
+//   원본 바이트는 저장됐지만 판 확정이 실패한 갈래는 마지막 테스트가 본다.
+import { DatabaseSync } from "node:sqlite";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 
 import { buildReply } from "../../tools/fake-provider/semantic.ts";
 import type { SemanticReply } from "../../tools/fake-provider/types.ts";
-import { e2eEnabled, READY_TIMEOUT_MS } from "../harness.ts";
+import {
+  descendantPids,
+  e2eEnabled,
+  READY_TIMEOUT_MS,
+  signalPids,
+} from "../harness.ts";
 import {
   commandBody,
   delay,
@@ -1488,6 +1495,238 @@ Deno.test({
       await Deno.remove(keptFolder, { recursive: true });
       await Deno.remove(heldFolder, { recursive: true });
       await Deno.remove(idleFolder, { recursive: true });
+    }
+  },
+});
+
+// 판 확정 command의 commit만 막는다(platform/ledger#R6의 잠금 대기). 파일 바이트 쓰기는
+// ledger commit 밖이라 그대로 끝난다. 잠금을 풀기 전에 화면과 이력을 본다.
+function holdLedger(home: string): () => void {
+  const db = new DatabaseSync(`${home}/lophn.db`);
+  let open = true;
+  const release = () => {
+    if (!open) return;
+    open = false;
+    try {
+      db.exec("ROLLBACK");
+    } catch {
+      // 잠금을 못 잡았으면 transaction이 없다.
+    }
+    db.close();
+  };
+  try {
+    db.exec("PRAGMA busy_timeout = 8000");
+    db.exec("BEGIN IMMEDIATE");
+  } catch (error) {
+    release();
+    throw error;
+  }
+  return release;
+}
+
+Deno.test({
+  name:
+    "documents/file-tracking#R15 shell/editor#R2 platform/ledger#R5 platform/ledger#R6 flow restore-document: 원본 바이트는 저장됐지만 판 확정이 실패하면 끝난 저장과 실패한 뒤 단계를 구별한다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn() {
+    const folder = await Deno.realPath(
+      await Deno.makeTempDir({ prefix: "lophn-e2e-restore-commit-" }),
+    );
+    const file = `${folder}/plan.md`;
+    await Deno.writeTextFile(file, ALPHA);
+    const { flow, documentId } = await openProjectWorkspace({
+      folder,
+      name: "plan",
+      title: "Plan",
+      document: "plan",
+    });
+    let release: (() => void) | undefined;
+    try {
+      await Deno.writeTextFile(file, BETA);
+      await untilVersions(flow, documentId, 2, "두 번째 판이 없다");
+      const before = await versionHistory(flow, documentId);
+      assertEquals(before.map((row) => row.number), [2, 1]);
+      await untilReadable(flow, documentId, "지금 판의 본문이 읽히지 않는다");
+      await flow.click(`[data-document="${documentId}"]`);
+      await flow.until(
+        `document.querySelector("[data-document-view]")?.getAttribute("data-document-view") === "read" && document.querySelector("[data-document-body]")?.textContent?.includes("Beta line.")`,
+        "지금 판이 읽히지 않았다",
+      );
+      await openVersions(flow);
+      await flow.click(`[data-compare-newest="1"]`);
+      await flow.until(
+        `document.querySelector("[data-compare-restore='1']") !== null`,
+        "restore 조작이 없다",
+      );
+      await flow.click("[data-compare-restore='1']");
+      await flow.until(
+        `document.querySelector("[data-restore-confirm]") !== null`,
+        "restore 확인이 없다",
+      );
+      assertEquals(await Deno.readTextFile(file), BETA);
+      release = holdLedger(flow.home);
+      await flow.click("[data-restore-confirm-button]");
+      await flow.until(
+        `document.querySelector("[data-restore-notice]")?.getAttribute("data-restore-notice") === "version-failed"`,
+        "판 확정 실패가 끝난 파일 저장과 구별되지 않는다",
+        45_000,
+      );
+      const notice = (await flow.text("[data-restore-notice]")) ?? "";
+      assertStringIncludes(notice, "The file was restored");
+      assertStringIncludes(notice, "wasn't kept as a new version");
+      assertEquals(/cancel/i.test(notice), false);
+      assertEquals(notice.includes("Not saved"), false);
+      assertEquals(notice.includes("Couldn't save"), false);
+      assertEquals(notice.includes("Couldn't restore"), false);
+      assertEquals(await flow.count("[data-restore-notice='saved']"), 0);
+      assertEquals(await flow.count("[data-restore-notice='failed']"), 0);
+      assertEquals(await flow.count("[data-restore-notice='pending']"), 0);
+      assertEquals(await Deno.readTextFile(file), ALPHA);
+      const after = await versionHistory(flow, documentId);
+      assertEquals(after.map((row) => row.number), [2, 1]);
+      assertEquals(
+        after.map((row) => row.content_hash),
+        before.map((row) => row.content_hash),
+      );
+    } finally {
+      release?.();
+      const home = flow.home;
+      await flow.close();
+      await removeHome(home);
+      await Deno.remove(folder, { recursive: true });
+    }
+  },
+});
+
+async function commandOf(pid: number): Promise<string> {
+  try {
+    return await Deno.readTextFile(`/proc/${pid}/cmdline`);
+  } catch {
+    return "";
+  }
+}
+
+// shell이 띄운 core만 끊는다. 화면(electron)은 남겨 결과를 읽는다.
+async function stopCore(root: number): Promise<void> {
+  const pids: number[] = [];
+  for (const pid of await descendantPids(root)) {
+    if (pid === root) continue;
+    if ((await commandOf(pid)).includes("apps/core/main.ts")) pids.push(pid);
+  }
+  if (pids.length === 0) throw new Error("core 프로세스가 없다");
+  signalPids(pids, "SIGKILL");
+}
+
+// core를 끊은 뒤 남은 documents worker가 잠금이 풀리며 판을 확정하지 않게 끝낸다.
+async function stopWorkers(pids: readonly number[]): Promise<void> {
+  const found: number[] = [];
+  for (const pid of pids) {
+    const command = await commandOf(pid);
+    if (
+      command.includes("apps/core/main.ts") ||
+      command.includes("apps/worker/")
+    ) found.push(pid);
+  }
+  signalPids(found, "SIGKILL");
+}
+
+function versionNumbers(home: string, document: string): number[] {
+  const db = new DatabaseSync(`${home}/lophn.db`, { readOnly: true });
+  try {
+    const rows = db.prepare(
+      "SELECT number FROM versions WHERE document = ? ORDER BY number",
+    ).all(document) as { number: number }[];
+    return rows.map((row) => row.number);
+  } finally {
+    db.close();
+  }
+}
+
+Deno.test({
+  name:
+    "shell/editor#R12 documents/file-tracking#R10 documents/file-tracking#R15 flow restore-document: 연결이 끊겨 결과를 확인하지 못하면 연결 끊김과 확인된 저장을 구별하고 확인하지 못한 판 확정을 성공으로 채우지 않는다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn() {
+    const folder = await Deno.realPath(
+      await Deno.makeTempDir({ prefix: "lophn-e2e-restore-lost-" }),
+    );
+    const file = `${folder}/plan.md`;
+    await Deno.writeTextFile(file, ALPHA);
+    const { flow, documentId } = await openProjectWorkspace({
+      folder,
+      name: "plan",
+      title: "Plan",
+      document: "plan",
+    });
+    let release: (() => void) | undefined;
+    let tree: number[] = [];
+    try {
+      await Deno.writeTextFile(file, BETA);
+      await untilVersions(flow, documentId, 2, "두 번째 판이 없다");
+      const before = await versionHistory(flow, documentId);
+      assertEquals(before.map((row) => row.number), [2, 1]);
+      await untilReadable(flow, documentId, "지금 판의 본문이 읽히지 않는다");
+      await flow.click(`[data-document="${documentId}"]`);
+      await flow.until(
+        `document.querySelector("[data-document-view]")?.getAttribute("data-document-view") === "read" && document.querySelector("[data-document-body]")?.textContent?.includes("Beta line.")`,
+        "지금 판이 읽히지 않았다",
+      );
+      await openVersions(flow);
+      await flow.click(`[data-compare-newest="1"]`);
+      await flow.until(
+        `document.querySelector("[data-compare-restore='1']") !== null`,
+        "restore 조작이 없다",
+      );
+      await flow.click("[data-compare-restore='1']");
+      await flow.until(
+        `document.querySelector("[data-restore-confirm]") !== null`,
+        "restore 확인이 없다",
+      );
+      assertEquals(await Deno.readTextFile(file), BETA);
+      // 판 확정 commit을 잡아 둔 채 core를 끊는다. 응답이 없으면 확정 실패가 아니라 연결 끊김이다.
+      release = holdLedger(flow.home);
+      tree = await descendantPids(flow.shell.pid);
+      await flow.click("[data-restore-confirm-button]");
+      await flow.until(
+        `document.querySelector("[data-restore-notice]")?.getAttribute("data-restore-notice") === "restoring"`,
+        "restore가 시작되지 않았다",
+      );
+      const deadline = Date.now() + 2_000;
+      while (Date.now() < deadline) {
+        if (await Deno.readTextFile(file) === ALPHA) break;
+        await delay(50);
+      }
+      await stopCore(flow.shell.pid);
+      await flow.until(
+        `document.querySelector("[data-restore-notice]")?.getAttribute("data-restore-notice") === "disconnected"`,
+        "연결 끊김이 확인된 저장이나 판 확정 실패와 구별되지 않는다",
+        20_000,
+      );
+      const notice = (await flow.text("[data-restore-notice]")) ?? "";
+      assertStringIncludes(notice, "Not connected");
+      assertEquals(notice.includes("newest version"), false);
+      assertEquals(notice.includes("wasn't kept"), false);
+      assertEquals(notice.includes("The file was restored"), false);
+      assertEquals(notice.includes("Couldn't restore"), false);
+      assertEquals(await flow.count("[data-restore-notice='saved']"), 0);
+      assertEquals(
+        await flow.count("[data-restore-notice='version-failed']"),
+        0,
+      );
+      assertEquals(await flow.count("[data-restore-notice='failed']"), 0);
+      assertEquals(await flow.count("[data-restore-notice='pending']"), 0);
+      assertEquals(versionNumbers(flow.home, documentId), [1, 2]);
+    } finally {
+      await stopWorkers(tree);
+      release?.();
+      const home = flow.home;
+      await flow.close();
+      await removeHome(home);
+      await Deno.remove(folder, { recursive: true });
     }
   },
 });

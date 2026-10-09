@@ -9,13 +9,16 @@
 // 이 단계가 하지 않는 것: 2–7단계, update-lophn, install-lophn, 두 칸이 보이는 분할, terminal·
 // app panel 탭, 두 번째 앱 command. 로컬 앱은 하나이고 그 시작이 문서·안내 읽기를 막지 않는지만 본다.
 import { assert, assertEquals } from "@std/assert";
+import { DatabaseSync } from "node:sqlite";
 
 import { sha256Hex } from "../../packages/base/mod.ts";
 import { canonicalJson } from "../../packages/apps/blueprint/mod.ts";
 import { appFlags } from "../../packages/apps/permissions/mod.ts";
+import { prepareFromSource } from "../../packages/apps/releases/prepare/from-source.ts";
 import {
   bundleCopyPath,
   bundleFlags,
+  declarationsOfBlueprint,
   manifestBytes,
   readBundleCopy,
   sealBundle,
@@ -34,12 +37,30 @@ import {
 import { mcpLaunchArgv } from "../../packages/coding-agent/mcp-server/launch.ts";
 import { guideInstallFixture } from "../../packages/documents/versions/testing/mod.ts";
 import {
+  devImportMap,
+  readTemplateDirectory,
+} from "../../packages/apps/sdk/mod.ts";
+import {
   installedHome,
   removeTree,
 } from "../../packages/apps/sdk/testing/mod.ts";
-import { e2eEnabled, READY_TIMEOUT_MS } from "../harness.ts";
-import { prepareBrokenApp, seedLedger } from "../broken-app.ts";
+import { startFakeProvider } from "../../tools/fake-provider/mod.ts";
 import {
+  descendantPids,
+  e2eEnabled,
+  processAlive,
+  READY_TIMEOUT_MS,
+  signalPids,
+} from "../harness.ts";
+import {
+  APP,
+  DATA_SCHEMA,
+  FIXTURE,
+  prepareBrokenApp,
+  seedLedger,
+} from "../broken-app.ts";
+import {
+  commandBody,
   delay,
   documentTitled,
   type FlowShell,
@@ -1070,6 +1091,1301 @@ Deno.test({
     } finally {
       if (core !== undefined) await stopCore(core);
       await removeTree(root);
+    }
+  },
+});
+
+// flow work-offline 3단계. 프로젝트·문서·앱 화면에서 외부 연결이 필요한 동작만
+// 연결 실패·기다림·결과 모름으로 안내한다. 로컬 문서와 다른 앱은 그 안내를 받지 않고
+// 멈추지 않는다. 4–7단계, update-lophn, install-lophn은 보지 않는다.
+const CLOSED_PROVIDER = "pvd_01arz3ndektsv4rrffq69g5fb1";
+const FIXTURE_PROVIDER = "pvd_01arz3ndektsv4rrffq69g5fb2";
+const HANG_APP = "app_01h455vb4pex5v6nkc6gd5fdw2";
+const HANG_RELEASE = "rel_01h455vb4pex5v6nkc6gd5fdw2";
+const HANG_VERIFICATION = "vrf_01h455vb4pex5v6nkc6gd5fdw2";
+const MODEL = "claude-sonnet-4-5";
+const NOTE = "Keep the local note.";
+const HOLD_GATE = "hold-answer";
+const INPUT = "[data-composer-input]";
+const SEND = "[data-send]";
+const WORKER_NEEDLES = [
+  "apps/worker/problems/report-collector.ts",
+  "apps/worker/problems/test-runner.ts",
+  "apps/worker/coding-agent/checker.ts",
+  "apps/worker/platform/",
+];
+
+const MARK_KIND_BEFORE = [
+  "export function markKindHandler(deps: Deps = defaults) {",
+  "  return (input: unknown) => {",
+  "    const body = input as { kind?: unknown; label?: unknown };",
+  '    const kind = typeof body?.kind === "string" ? body.kind : "";',
+  "    deps.log(`mark_kind ${kind}`);",
+  "    return { marked: kind };",
+  "  };",
+  "}",
+].join("\n");
+
+const MARK_KIND_AFTER = [
+  "export function markKindHandler(deps: Deps = defaults) {",
+  "  return async (input: unknown) => {",
+  "    const body = input as { kind?: unknown; label?: unknown };",
+  '    const kind = typeof body?.kind === "string" ? body.kind : "";',
+  "    deps.log(`mark_kind ${kind}`);",
+  "    const host = (globalThis as unknown as Record<",
+  "      symbol,",
+  "      { dataPath?: string } | undefined",
+  '    >)[Symbol.for("lophn.cap-host")];',
+  "    const dataPath = host?.dataPath;",
+  '    if (typeof dataPath !== "string" || dataPath.length === 0) {',
+  '      throw new Error("app data path is missing");',
+  "    }",
+  "    const marker = `${dataPath}/hang-once`;",
+  "    try {",
+  "      await Deno.stat(marker);",
+  "    } catch {",
+  "      await Deno.writeTextFile(marker, `${kind}\\n`);",
+  "    }",
+  "    await new Promise<never>(() => {});",
+  "    return { marked: kind };",
+  "  };",
+  "}",
+].join("\n");
+
+type PreparedBundle = {
+  bundleHash: string;
+  blueprintHash: string;
+  blueprint: string;
+};
+
+type ModelCallRow = {
+  state: string;
+  started_at: string;
+  attempt_order: number;
+  outcome:
+    | { kind: string; code?: string | null; retry_at?: string | null }
+    | null;
+};
+
+type InvocationRow = {
+  status: string;
+  operation: { kind: string; command?: string };
+  summary: { reason?: string; observation?: string; effects?: string };
+};
+
+type RunRow = {
+  id: string;
+  session: string | null;
+  state: string;
+  accepted_seq: string;
+  start_after: string | null;
+  outcome: { kind: string } | null;
+};
+
+function heldAnswer(id: string, gate: string, text: string) {
+  const frames = [
+    'event: message_start\ndata: {"type":"message_start","message":{"usage":{"input_tokens":11}}}\n\n',
+    'event: content_block_start\ndata: {"type":"content_block_start","index":0,"content_block":{"type":"text"}}\n\n',
+    `event: content_block_delta\ndata: ${
+      JSON.stringify({
+        type: "content_block_delta",
+        index: 0,
+        delta: { type: "text_delta", text },
+      })
+    }\n\n`,
+    'event: content_block_stop\ndata: {"type":"content_block_stop","index":0}\n\n',
+    'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":3}}\n\n',
+    'event: message_stop\ndata: {"type":"message_stop"}\n\n',
+  ];
+  return {
+    id,
+    protocol: "messages" as const,
+    response: {
+      status: 200,
+      headers: { "content-type": "text/event-stream" },
+      chunks: [
+        { bytes: frames[0]! },
+        { bytes: frames.slice(1).join(""), gate },
+      ],
+    },
+  };
+}
+
+function endTurn(id: string, text: string) {
+  return {
+    id,
+    protocol: "messages" as const,
+    reply: { text, usage: { input: 40, output: 9 }, stop: "end" as const },
+  };
+}
+
+function askQuestion(id: string) {
+  return {
+    id,
+    protocol: "messages" as const,
+    reply: {
+      text: "One decision is yours.",
+      toolCalls: [{
+        id: "toolu_ask",
+        name: "question.submit",
+        arguments: JSON.stringify({
+          prompt: "Which note?",
+          reason: "the note has two possible meanings",
+          options: [{
+            key: "keep",
+            label: "Keep the local note",
+            description: "Leave the note as it is.",
+            evidence: [],
+            adoption: null,
+            action: null,
+          }],
+          recommendation: null,
+          expires_at: null,
+        }),
+      }],
+      usage: { input: 20, output: 8 },
+      stop: "tool_calls" as const,
+    },
+  };
+}
+
+function newerCall(left: ModelCallRow, right: ModelCallRow): ModelCallRow {
+  if (left.attempt_order !== right.attempt_order) {
+    return left.attempt_order > right.attempt_order ? left : right;
+  }
+  return left.started_at >= right.started_at ? left : right;
+}
+
+function newest(runs: readonly RunRow[]): RunRow | null {
+  let found: RunRow | null = null;
+  for (const run of runs) {
+    if (
+      found === null || BigInt(run.accepted_seq) > BigInt(found.accepted_seq)
+    ) found = run;
+  }
+  return found;
+}
+
+// failed 선행의 후속은 start_confirmed_seq 없이 시작하지 않는다. 기다림은 그 후속이 아니다.
+function apartFromFailure(
+  run: RunRow,
+  runs: readonly RunRow[],
+  failed: { id: string; session: string | null },
+): boolean {
+  if (run.id === failed.id || run.start_after === failed.id) return false;
+  if (run.start_after === null) return run.session !== failed.session;
+  const predecessor = runs.find((row) => row.id === run.start_after);
+  return predecessor?.state === "finished" &&
+    predecessor.outcome?.kind === "completed";
+}
+
+function within<T>(ms: number, work: Promise<T>, what: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`${what}: ${ms}ms 안에 돌아오지 않았다`)),
+      ms,
+    );
+  });
+  work.catch(() => undefined);
+  return Promise.race([work, timeout]).finally(() => clearTimeout(timer));
+}
+
+async function readCmdline(pid: number): Promise<string> {
+  const raw = await Deno.readFile(`/proc/${pid}/cmdline`);
+  return new TextDecoder().decode(raw).replaceAll("\0", " ");
+}
+
+async function git(cwd: string, args: string[]): Promise<string> {
+  const output = await new Deno.Command("git", {
+    args,
+    cwd,
+    stdout: "piped",
+    stderr: "piped",
+  }).output();
+  assert(output.success, new TextDecoder().decode(output.stderr));
+  return new TextDecoder().decode(output.stdout).trim();
+}
+
+async function materialize(
+  parent: string,
+  name: string,
+  sdkRoot: string,
+  patch: string | null,
+): Promise<string> {
+  const dir = `${parent}/${name}`;
+  const config = JSON.parse(
+    await Deno.readTextFile(`${FIXTURE}/deno.json.tmpl`),
+  ) as { imports: Record<string, string> };
+  const files = await readTemplateDirectory(FIXTURE, { stripSuffix: true });
+  assert(files.ok, files.ok ? "" : files.error.message);
+  for (const file of files.value) {
+    const target = `${dir}/${file.path}`;
+    await Deno.mkdir(target.slice(0, target.lastIndexOf("/")), {
+      recursive: true,
+    });
+    const bytes = file.path === "src/commands.ts" && patch !== null
+      ? new TextEncoder().encode(patch)
+      : file.bytes;
+    await Deno.writeFile(target, bytes);
+  }
+  await Deno.mkdir(`${dir}/.lophn`);
+  await Deno.writeTextFile(
+    `${dir}/.lophn/import-map.json`,
+    JSON.stringify(devImportMap(config.imports, sdkRoot, dir)),
+  );
+  return dir;
+}
+
+async function commitSource(dir: string): Promise<string> {
+  await git(dir, ["init", "-q"]);
+  await git(dir, ["config", "user.email", "dev@lophn.local"]);
+  await git(dir, ["config", "user.name", "dev"]);
+  await git(dir, ["add", "-A"]);
+  await git(dir, ["commit", "-q", "-m", "init"]);
+  return await git(dir, ["rev-parse", "HEAD"]);
+}
+
+async function preparedBundle(
+  home: string,
+  app: string,
+  sourceRoot: string,
+  commit: string,
+  sdkRoot: string,
+): Promise<PreparedBundle> {
+  const prepared = await prepareFromSource({
+    dataRoot: home,
+    app,
+    sourceRoot,
+    commit,
+    sdkRoot,
+  });
+  assert(prepared.ok, prepared.ok ? "" : JSON.stringify(prepared.error));
+  return {
+    bundleHash: prepared.value.bundleHash,
+    blueprintHash: prepared.value.blueprintHash,
+    blueprint: await Deno.readTextFile(
+      `${prepared.value.copyPath}/blueprint.json`,
+    ),
+  };
+}
+
+function seedHang(home: string, bundle: PreparedBundle): void {
+  const blueprint = JSON.parse(bundle.blueprint);
+  const declarations = declarationsOfBlueprint(HANG_RELEASE, blueprint);
+  assert(declarations !== undefined, "Hang 선언 사실을 만들지 못했다");
+  const db = new DatabaseSync(`${home}/lophn.db`);
+  try {
+    db.prepare(
+      `INSERT INTO apps (id, slug, name, description, planning_version, source_path, active_release, run_enabled, revision, status)
+       VALUES (?, 'hang', 'Hang', 'A write that does not return', NULL, NULL, ?, 1, '1', 'active')`,
+    ).run(HANG_APP, HANG_RELEASE);
+    db.prepare(
+      `INSERT INTO releases (id, app, number, code_commit, bundle_hash, blueprint_hash, data_schema, data_changes, ticket_source, created_by, created_at, status, activation, failure, blueprint, declarations)
+       VALUES (?, ?, 1, ?, ?, ?, ?, '[]', NULL, 'machine', ?, 'active', NULL, NULL, ?, ?)`,
+    ).run(
+      HANG_RELEASE,
+      HANG_APP,
+      "b".repeat(40),
+      bundle.bundleHash,
+      bundle.blueprintHash,
+      DATA_SCHEMA,
+      "2026-10-01T00:00:00.000Z",
+      bundle.blueprint,
+      JSON.stringify(declarations),
+    );
+    db.prepare(
+      "INSERT INTO release_tests (release, verification) VALUES (?, ?)",
+    ).run(HANG_RELEASE, HANG_VERIFICATION);
+  } finally {
+    db.close();
+  }
+}
+
+function providerBody(id: string, name: string, endpoint: string) {
+  return commandBody({
+    id,
+    name,
+    definition: {
+      key: "anthropic",
+      display_name: "Anthropic",
+      protocols: ["anthropic-messages"],
+      auth_kinds: ["none"],
+      models_endpoint: null,
+      oauth: null,
+      revision: "2026-01-01",
+    },
+    endpoint,
+    protocol: "anthropic-messages",
+  });
+}
+
+Deno.test({
+  name:
+    "apps/runtime#R12 shell/desktop#R7 lophn-agent/harness/waiting-and-recovery#R6 platform/responsiveness#R1 platform/responsiveness#R5 shell/wording#R10 flow work-offline 3: 외부 연결이 필요한 동작만 연결 실패·기다림·결과 모름으로 안내하고 로컬 문서·앱은 멈추지 않는다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn() {
+    const folder = await Deno.realPath(
+      await Deno.makeTempDir({ prefix: "lophn-e2e-offline3-folder-" }),
+    );
+    await Deno.writeTextFile(`${folder}/note.md`, `# note\n\n${NOTE}\n`);
+    const home = await Deno.makeTempDir({ prefix: "lophn-e2e-offline3-" });
+    await Deno.chmod(home, 0o700);
+    let flow: FlowShell | undefined;
+    let fixture: ReturnType<typeof startFakeProvider> | undefined;
+    let stopped: number | undefined;
+    const shell = (): FlowShell => {
+      if (flow === undefined) throw new Error("shell이 없다");
+      return flow;
+    };
+    const closeFlow = async () => {
+      const current = flow;
+      flow = undefined;
+      await current?.close();
+    };
+    try {
+      flow = await openFlowShell({ home });
+      await registerTrackedProject(flow, {
+        folder,
+        name: "alpha",
+        title: "Alpha",
+      });
+      await untilDocuments(flow, ["note"], "노트가 문서가 되지 않았다");
+      const noteId = (await documentTitled(flow, "note")).id;
+      await closeFlow();
+
+      const installed = await installedHome();
+      const parent = await Deno.makeTempDir({
+        prefix: "lophn-e2e-offline3-src-",
+      });
+      try {
+        const source = await Deno.readTextFile(
+          `${FIXTURE}/src/commands.ts.tmpl`,
+        );
+        assertEquals(source.split(MARK_KIND_BEFORE).length - 1, 1);
+        const patched = source.replace(MARK_KIND_BEFORE, MARK_KIND_AFTER);
+        assertEquals(patched.includes("hang-once"), true);
+        assertEquals(patched.split(MARK_KIND_BEFORE).length - 1, 0);
+        const localDir = await materialize(
+          parent,
+          "local",
+          installed.sdkRoot,
+          null,
+        );
+        const hangDir = await materialize(
+          parent,
+          "hang",
+          installed.sdkRoot,
+          patched,
+        );
+        const local = await preparedBundle(
+          home,
+          APP,
+          localDir,
+          await commitSource(localDir),
+          installed.sdkRoot,
+        );
+        const hang = await preparedBundle(
+          home,
+          HANG_APP,
+          hangDir,
+          await commitSource(hangDir),
+          installed.sdkRoot,
+        );
+        seedLedger(home, local);
+        seedHang(home, hang);
+      } finally {
+        await removeTree(parent);
+        await installed.dispose();
+      }
+
+      fixture = startFakeProvider({
+        script: {
+          steps: [
+            heldAnswer("hold", HOLD_GATE, "Holding the answer."),
+            askQuestion("ask"),
+            endTurn("spare", "The question is waiting."),
+          ],
+        },
+        nowMs: () => Date.now(),
+        instant: true,
+      });
+      const server = fixture;
+      flow = await openFlowShell({ home, start: `project:${PROJECT}` });
+
+      const spaceOf = async (): Promise<string> =>
+        String(
+          await shell().evaluate(
+            `document.querySelector("[data-space]")?.getAttribute("data-space") ?? ""`,
+          ),
+        );
+      const goLauncher = async () => {
+        if (await spaceOf() === "launcher") return;
+        await shell().click("[data-launcher-back]");
+        await shell().until(
+          `document.querySelector("[data-space]")?.getAttribute("data-space") === "launcher"`,
+          "launcher로 돌아오지 않았다",
+        );
+      };
+      const goLophn = async () => {
+        if (await spaceOf() === "app") await goLauncher();
+        if (await spaceOf() === "lophn") return;
+        await shell().click("[data-entry=lophn]");
+        await shell().until(
+          `document.querySelector("[data-space]")?.getAttribute("data-space") === "lophn"`,
+          "lophn 공간이 서지 않았다",
+        );
+      };
+      const goApps = async () => {
+        await goLophn();
+        await shell().click("[data-screen=apps]");
+        await shell().until(
+          `document.querySelector("[data-app-row] [data-action=open]") !== null`,
+          "앱 목록이 서지 않았다",
+        );
+      };
+      const openNamedApp = async (name: string) => {
+        await goApps();
+        const clicked = await shell().evaluate(`(() => {
+          const row = [...document.querySelectorAll("[data-app-row]")].find((item) => item.querySelector("span")?.textContent === ${
+          JSON.stringify(name)
+        });
+          const button = row?.querySelector("[data-action=open]");
+          if (!button) return false;
+          button.click();
+          return true;
+        })()`);
+        assertEquals(clicked, true, `${name} 앱 행이 없다`);
+        await shell().until(
+          `document.querySelector("[data-space]")?.getAttribute("data-space") === "app"`,
+          `${name} 앱 공간이 서지 않았다`,
+        );
+      };
+      const goProject = async (timeoutMs?: number) => {
+        if (await spaceOf() === "project") return;
+        if (await spaceOf() !== "launcher") await goLauncher();
+        // 런처 카드는 space가 launcher가 된 뒤 projects.list가 돌아와야 생긴다.
+        const card =
+          `[data-card="project"][data-project="${PROJECT}"] button:not([data-details-toggle])`;
+        await shell().until(
+          `document.querySelector(${JSON.stringify(card)}) !== null`,
+          "프로젝트 카드가 없다",
+          timeoutMs,
+        );
+        await shell().click(card);
+        await shell().until(
+          `document.querySelector("[data-space]")?.getAttribute("data-space") === "project"`,
+          "프로젝트 작업대가 서지 않았다",
+          timeoutMs,
+        );
+      };
+      const openNote = async (bodyTimeout?: number) => {
+        await goProject(bodyTimeout);
+        await shell().until(
+          `document.querySelector('[data-document="${noteId}"]') !== null`,
+          "sidebar에 노트가 없다",
+        );
+        await shell().click(`[data-document="${noteId}"]`);
+        const expression =
+          `document.querySelector("[data-document-body]")?.textContent?.includes(${
+            JSON.stringify(NOTE)
+          })`;
+        if (bodyTimeout === undefined) {
+          await shell().until(expression, "노트 본문이 열리지 않았다");
+        } else {
+          await shell().until(
+            expression,
+            "노트 본문이 열리지 않았다",
+            bodyTimeout,
+          );
+        }
+      };
+      const runsOf = async (): Promise<RunRow[]> => {
+        const listed = await mustCall(shell(), {
+          kind: "read",
+          resource: "assignments",
+          method: "list",
+          body: {},
+        });
+        const agent = (listed.assignments as { id: string; role: string }[])
+          .find((entry) => entry.role === "lophn");
+        assert(agent !== undefined, "lophn assignment가 없다");
+        const runs = await mustCall(shell(), {
+          kind: "read",
+          resource: "runs",
+          method: "list",
+          body: { assignment: agent.id },
+        });
+        return runs.runs as RunRow[];
+      };
+      const latestRun = async (): Promise<RunRow | null> => {
+        let found: RunRow | null = null;
+        for (const run of await runsOf()) {
+          if (
+            found === null ||
+            BigInt(run.accepted_seq) > BigInt(found.accepted_seq)
+          ) found = run;
+        }
+        return found;
+      };
+      const modelCalls = async (run: string): Promise<ModelCallRow[]> => {
+        const rows: ModelCallRow[] = [];
+        let cursor: string | undefined;
+        for (let page = 0; page < 8; page += 1) {
+          const listed = await mustCall(shell(), {
+            kind: "read",
+            resource: "model-calls",
+            method: "list",
+            body: cursor === undefined ? { run } : { run, cursor },
+          });
+          rows.push(...listed.calls as ModelCallRow[]);
+          const next = listed.next_cursor;
+          if (typeof next !== "string" || next.length === 0) return rows;
+          cursor = next;
+        }
+        return rows;
+      };
+      const invocationsOf = async (app: string): Promise<InvocationRow[]> => {
+        const listed = await mustCall(shell(), {
+          kind: "read",
+          resource: "invocations",
+          method: "list",
+          body: { app, limit: 50 },
+        });
+        return listed.invocations as InvocationRow[];
+      };
+      const markKinds = async (): Promise<InvocationRow[]> =>
+        (await invocationsOf(HANG_APP)).filter((row) =>
+          row.operation.kind === "command" &&
+          row.operation.command === "mark_kind"
+        );
+      const untilReady = async (app: string) => {
+        const deadline = Date.now() + 120_000;
+        let last = "";
+        while (Date.now() < deadline) {
+          const got = await mustCall(shell(), {
+            kind: "read",
+            resource: "apps",
+            method: "runtime",
+            body: { app },
+          });
+          const observation = got.observation as {
+            ready?: boolean;
+            mode?: string;
+            reason?: string;
+          } | null;
+          if (observation?.ready === true && observation.mode === "live") {
+            return;
+          }
+          last = JSON.stringify(observation);
+          await delay(400);
+        }
+        throw new Error(`${app} runtime이 준비되지 않았다: ${last}`);
+      };
+      const pointAt = async (provider: string) => {
+        let last = "";
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+          const defaults = await mustCall(shell(), {
+            kind: "read",
+            resource: "agent-model-defaults",
+            method: "read",
+            body: {},
+          });
+          const seq =
+            (defaults.defaults as { settings_seq: string }).settings_seq;
+          const reply = await shell().call({
+            kind: "command",
+            resource: "agent-model-defaults",
+            method: "change",
+            body: commandBody(
+              {
+                judgment: {
+                  provider,
+                  credentials: [],
+                  model_name: MODEL,
+                  reasoning_level: "provider_default",
+                  options: {},
+                },
+                organizing: null,
+                settings_seq: seq,
+              },
+              { settings_seq: seq },
+            ),
+          });
+          if (reply.ok) return;
+          last = JSON.stringify(reply);
+          if (reply.error?.code !== "conflict") break;
+        }
+        throw new Error(`model 기본값을 바꾸지 못했다: ${last}`);
+      };
+      const openDock = async () => {
+        if (
+          await shell().evaluate(
+            `document.querySelector("[data-dock]") === null`,
+          ) ===
+            true
+        ) {
+          await shell().until(
+            `document.querySelector("[data-dock-toggle]") !== null`,
+            "도크 토글이 없다",
+          );
+          await shell().click("[data-dock-toggle]");
+          await shell().until(
+            `document.querySelector("[data-dock]") !== null`,
+            "대화 도크가 열리지 않았다",
+          );
+        }
+        await shell().until(
+          `document.querySelector("[data-new-session]") !== null || document.querySelector(${
+            JSON.stringify(INPUT)
+          }) !== null`,
+          "도크가 서지 않았다",
+        );
+        if (
+          await shell().evaluate(
+            `document.querySelector(${JSON.stringify(INPUT)}) === null`,
+          ) === true
+        ) {
+          await shell().click("[data-new-session]");
+        }
+        await shell().until(
+          `document.querySelector(${JSON.stringify(INPUT)}) !== null`,
+          "입력칸이 서지 않았다",
+        );
+      };
+      const sendText = async (text: string) => {
+        await openDock();
+        await shell().type(INPUT, text);
+        await shell().until(
+          `document.querySelector(${JSON.stringify(SEND)})?.disabled === false`,
+          "보내기가 켜지지 않았다",
+        );
+        await shell().click(SEND);
+      };
+      // 같은 세션의 다음 말은 마지막 run을 start_after로 잇는다. 기다림은 그 세션에 보내지 않는다.
+      const openOtherSession = async () => {
+        await openDock();
+        await shell().until(
+          `document.querySelector("[data-dock] [data-session-menu]") !== null`,
+          "세션 메뉴가 없다",
+        );
+        const before = String(
+          await shell().evaluate(
+            `document.querySelector("[data-dock] [data-session-menu]")?.textContent ?? ""`,
+          ),
+        );
+        const opened = await shell().evaluate(`(() => {
+          const dock = document.querySelector("[data-composer-input]")?.closest("[data-dock]")
+            ?? document.querySelector("[data-dock]");
+          const button = dock?.querySelector("[data-new-session]");
+          if (!button) return false;
+          button.click();
+          return true;
+        })()`);
+        assertEquals(opened, true, "다른 세션을 열 버튼이 없다");
+        await shell().until(
+          `(() => {
+            const label = document.querySelector("[data-dock] [data-session-menu]")?.textContent ?? "";
+            return label.length > 0 && label !== ${JSON.stringify(before)};
+          })()`,
+          "다른 세션이 열리지 않았다",
+          20_000,
+        );
+        await shell().until(
+          `document.querySelector(${JSON.stringify(INPUT)}) !== null`,
+          "새 세션 입력칸이 서지 않았다",
+        );
+      };
+      const appPage = (app: string) =>
+        shell().shell.connect(`lophn-app://app-${app.slice(4)}`);
+      const untilBridge = async (
+        page: Awaited<ReturnType<FlowShell["shell"]["connect"]>>,
+      ) => {
+        const deadline = Date.now() + 30_000;
+        while (Date.now() < deadline) {
+          try {
+            if (
+              await page.evaluate(
+                `typeof window.lophnApp?.call === "function"`,
+              ) === true
+            ) return;
+          } catch { /* 화면이 아직 없다 */ }
+          await delay(200);
+        }
+        throw new Error("앱 bridge가 서지 않았다");
+      };
+      const readLocalSettings = async (
+        page: Awaited<ReturnType<FlowShell["shell"]["connect"]>>,
+        ms: number,
+      ): Promise<string> => {
+        const deadline = Date.now() + ms;
+        let last = "";
+        while (Date.now() < deadline) {
+          try {
+            const value = await within(
+              Math.max(1, deadline - Date.now()),
+              page.evaluate(
+                `window.lophnApp.call("read_settings", null).then((body) => "ok:" + JSON.stringify(body), (error) => "failed:" + String(error && error.message || error))`,
+              ),
+              "read_settings",
+            );
+            last = typeof value === "string" ? value : JSON.stringify(value);
+            if (last.startsWith("ok:") && last.includes("{")) return last;
+          } catch (error) {
+            last = String(error);
+          }
+          await delay(200);
+        }
+        return last;
+      };
+      const pidsOf = async (needle: string): Promise<number[]> => {
+        const found: number[] = [];
+        for (const pid of await descendantPids(shell().shell.pid)) {
+          try {
+            const cmdline = await readCmdline(pid);
+            if (cmdline.includes(needle)) found.push(pid);
+          } catch { /* 이미 끝남 */ }
+        }
+        return found;
+      };
+
+      await openNote();
+      assertEquals(
+        await shell().evaluate(
+          `document.querySelector("[data-document-view] [data-external]") === null`,
+        ),
+        true,
+      );
+      assertEquals(
+        String(await shell().text("[data-document-view]")).includes(
+          "Result unknown",
+        ),
+        false,
+      );
+      assertEquals(
+        await shell().count("[data-document-view] [data-expires]"),
+        0,
+      );
+
+      await mustCall(shell(), {
+        kind: "command",
+        resource: "providers",
+        method: "register",
+        body: providerBody(CLOSED_PROVIDER, "Closed", "http://127.0.0.1:1"),
+      });
+      await mustCall(shell(), {
+        kind: "command",
+        resource: "providers",
+        method: "register",
+        body: providerBody(FIXTURE_PROVIDER, "Fixture", server.url),
+      });
+      await pointAt(CLOSED_PROVIDER);
+      await sendText("Check the closed connection.");
+      const failedDeadline = Date.now() + 90_000;
+      let failedRun = "";
+      let failedSession: string | null = null;
+      while (Date.now() < failedDeadline) {
+        const run = await latestRun();
+        if (run !== null && run.state === "finished") {
+          const calls = await modelCalls(run.id);
+          const open = calls.some((call) =>
+            call.state === "started" || call.outcome === null
+          );
+          const latest = calls.length === 0 ? null : calls.reduce(newerCall);
+          if (
+            !open && latest?.outcome?.kind === "failed" &&
+            latest.outcome.code === "temporary"
+          ) {
+            failedRun = run.id;
+            failedSession = run.session;
+            break;
+          }
+        }
+        await delay(400);
+      }
+      assert(failedRun !== "", "연결 실패 호출이 끝나지 않았다");
+      await shell().until(
+        `document.querySelector("[data-external='connection-failed']")?.getAttribute("data-external-connection") === "Closed"`,
+        "연결 실패 안내가 없다",
+        20_000,
+      );
+      const failedText = await shell().text(
+        "[data-external='connection-failed']",
+      );
+      assert(failedText?.includes("didn't respond"), failedText ?? "");
+      assertEquals(
+        await shell().count("[data-external='connection-failed'] button"),
+        1,
+      );
+      assertEquals(await shell().count("[data-confirmed-retry]"), 0);
+      assertEquals(await shell().count("[data-dock] [data-expires]"), 0);
+      assertEquals(await shell().count("[data-provider='unusable']"), 0);
+      assert(
+        String(await shell().text("[data-document-body]")).includes(NOTE),
+      );
+      assertEquals(
+        await shell().evaluate(
+          `document.querySelector("[data-document-view] [data-external]") === null`,
+        ),
+        true,
+      );
+      const saveStatus = String(
+        await shell().evaluate(
+          `document.querySelector("[data-save-status]")?.getAttribute("data-save-status") ?? ""`,
+        ),
+      );
+      assert(saveStatus !== "stale", saveStatus);
+      assertEquals(
+        String(await shell().text("[data-save-status]") ?? "").includes(
+          "Not connected",
+        ),
+        false,
+      );
+      await shell().click("[data-external='connection-failed'] button");
+      assertEquals(await shell().evaluate(`location.hash`), "#settings");
+
+      // 연결 실패를 본 뒤 셸을 다시 연다. 같은 세션에서 실패 run 뒤에 말을 보내
+      // 그 model 호출이 시작되기를 기다리지 않는다. 기다림은 다른 세션이다.
+      await closeFlow();
+      flow = await openFlowShell({ home, start: `project:${PROJECT}` });
+      await openNote();
+      await pointAt(FIXTURE_PROVIDER);
+      await openOtherSession();
+      await sendText("Hold this answer.");
+      let heldRun = "";
+      const failed = { id: failedRun, session: failedSession };
+      const holdSeen = Date.now() + 90_000;
+      while (Date.now() < holdSeen) {
+        const runs = await runsOf();
+        const run = newest(runs);
+        if (run !== null && apartFromFailure(run, runs, failed)) {
+          const calls = await modelCalls(run.id);
+          if (
+            calls.some((call) =>
+              call.state === "started" && call.outcome === null
+            )
+          ) {
+            heldRun = run.id;
+            break;
+          }
+        }
+        await delay(300);
+      }
+      if (heldRun === "") {
+        const runs = await runsOf();
+        const last = newest(runs);
+        const lastCalls = last === null ? [] : await modelCalls(last.id);
+        assert(
+          false,
+          `붙든 model 호출이 시작되지 않았다 run=${
+            JSON.stringify(last)
+          } calls=${
+            JSON.stringify(lastCalls)
+          } fixture=${server.requests().length}`,
+        );
+      }
+      const heldRows = await runsOf();
+      const held = heldRows.find((row) => row.id === heldRun);
+      assert(held !== undefined, "기다림 run이 없다");
+      assert(
+        apartFromFailure(held, heldRows, failed),
+        JSON.stringify(held),
+      );
+      const t0 = Date.now();
+      await shell().until(
+        `document.querySelector("[data-external='waiting']")?.getAttribute("data-external-connection") === "Fixture" && !document.querySelector("[data-external='waiting']")?.hasAttribute("data-external-action")`,
+        "기다림 안내가 없다",
+        20_000,
+      );
+      const waitingText = await shell().text("[data-external='waiting']");
+      assert(waitingText?.includes("has not answered"), waitingText ?? "");
+      assertEquals(await shell().count("[data-external='waiting'] button"), 0);
+      assertEquals(await shell().count("[data-dock] [data-expires]"), 0);
+      assertEquals(await shell().count("[data-confirmed-retry]"), 0);
+
+      await openNamedApp("Hang");
+      await untilReady(HANG_APP);
+      const hangPage = await appPage(HANG_APP);
+      await untilBridge(hangPage);
+      const sent = await hangPage.evaluate(`(() => {
+        const call = window.lophnApp.call("mark_kind", { kind: "once", view_session: "view-1" });
+        const pending = new Promise((resolve) => setTimeout(() => resolve("pending"), 5000));
+        return Promise.race([
+          Promise.resolve(call).then(
+            (value) => "ok:" + JSON.stringify(value),
+            (error) => "failed:" + String(error && error.message),
+          ),
+          pending,
+        ]);
+      })()`);
+      assert(
+        sent === "pending" || String(sent).startsWith("ok:"),
+        `mark_kind가 시작되지 않았다: ${String(sent)}`,
+      );
+      const marker = `${home}/apps/${HANG_APP}/data/hang-once`;
+      const marked = Date.now() + 30_000;
+      let marks: InvocationRow[] = [];
+      while (Date.now() < marked) {
+        marks = await markKinds();
+        let file = "";
+        try {
+          file = await Deno.readTextFile(marker);
+        } catch { /* 아직 없다 */ }
+        if (
+          marks.length === 1 && marks[0]?.status === "running" &&
+          file === "once\n"
+        ) break;
+        await delay(200);
+      }
+      assertEquals(
+        marks.length,
+        1,
+        `${JSON.stringify(marks)} call=${String(sent)}`,
+      );
+      assertEquals(marks[0]?.status, "running");
+      assertEquals(await Deno.readTextFile(marker), "once\n");
+      try {
+        await hangPage.command("Page.crash");
+      } catch { /* crash가 세션을 닫는다 */ }
+      await delay(500);
+      const afterCrash = await markKinds();
+      assertEquals(afterCrash.length, 1);
+      assertEquals(afterCrash[0]?.status, "running");
+
+      await openNamedApp("Broken");
+      await untilReady(APP);
+      const tree = await descendantPids(shell().shell.pid);
+      const lines: string[] = [];
+      for (const pid of tree) {
+        try {
+          lines.push(`${pid} ${await readCmdline(pid)}`);
+        } catch { /* 이미 끝남 */ }
+      }
+      for (const needle of WORKER_NEEDLES) {
+        const pid = lines.map((line) => {
+          const id = Number(line.slice(0, line.indexOf(" ")));
+          return line.includes(needle) ? id : 0;
+        }).find((id) => id > 0);
+        if (pid === undefined) continue;
+        signalPids([pid], "SIGSTOP");
+        stopped = pid;
+        try {
+          await within(
+            5_000,
+            mustCall(shell(), {
+              kind: "read",
+              resource: "documents",
+              method: "get",
+              body: { document: noteId },
+            }),
+            "documents/get",
+          );
+          break;
+        } catch {
+          signalPids([pid], "SIGCONT");
+          stopped = undefined;
+        }
+      }
+      assert(
+        stopped !== undefined,
+        `무관한 worker를 멈추지 못했다: ${lines.join(" | ")}`,
+      );
+      const brokenPage = await appPage(APP);
+      await untilBridge(brokenPage);
+      const settings = await readLocalSettings(brokenPage, 5_000);
+      assert(
+        settings.startsWith("ok:") && settings.includes("{"),
+        settings,
+      );
+      const toggled = await within(
+        5_000,
+        shell().evaluate(`(() => {
+          const el = document.querySelector("[data-dock-toggle]");
+          if (!el) return false;
+          el.click();
+          return true;
+        })()`),
+        "dock toggle",
+      );
+      assertEquals(toggled, true);
+      await within(
+        5_000,
+        shell().evaluate(`(() => {
+          const el = document.querySelector("[data-dock-toggle]");
+          if (!el) return false;
+          el.click();
+          return true;
+        })()`),
+        "dock toggle back",
+      );
+      await openNote(8_000);
+      const still = await modelCalls(heldRun);
+      assert(
+        still.some((call) => call.state === "started" && call.outcome === null),
+        `model 호출이 끝나 버렸다: ${JSON.stringify(still)}`,
+      );
+      while (Date.now() - t0 < 30_000) {
+        const calls = await modelCalls(heldRun);
+        assert(
+          calls.some((call) =>
+            call.state === "started" && call.outcome === null
+          ),
+          `30초 전에 기다림이 끝났다: ${JSON.stringify(calls)}`,
+        );
+        await delay(1_000);
+      }
+      assert(Date.now() - t0 >= 30_000);
+      if (stopped !== undefined) {
+        signalPids([stopped], "SIGCONT");
+        stopped = undefined;
+      }
+
+      server.release(HOLD_GATE);
+      const released = Date.now() + 90_000;
+      while (Date.now() < released) {
+        const run = (await runsOf()).find((row) => row.id === heldRun);
+        const calls = await modelCalls(heldRun);
+        const open = calls.some((call) =>
+          call.state === "started" || call.outcome === null
+        );
+        if (
+          run?.state === "finished" && !open &&
+          run.outcome?.kind === "completed"
+        ) {
+          break;
+        }
+        if (run?.state === "finished" && !open) {
+          throw new Error(
+            `붙든 run이 완료가 아니다: ${JSON.stringify(run)} calls=${
+              JSON.stringify(calls)
+            } requests=${server.requests().length}`,
+          );
+        }
+        await delay(400);
+      }
+      const finishedHeld = (await runsOf()).find((row) => row.id === heldRun);
+      assertEquals(finishedHeld?.outcome?.kind, "completed");
+      await openDock();
+      const questionShown = async () =>
+        await shell().evaluate(
+          `document.querySelector("[data-question-text='ready']") !== null`,
+        ) === true;
+      const early = Date.now() + 4_000;
+      let asked = false;
+      while (Date.now() < early) {
+        if (await questionShown()) {
+          asked = true;
+          break;
+        }
+        await delay(200);
+      }
+      if (!asked) {
+        await sendText("Ask one question.");
+        await shell().until(
+          `document.querySelector("[data-question-text='ready']") !== null`,
+          "기다리는 질문이 서지 않았다",
+          90_000,
+        );
+      }
+      assertEquals(
+        await shell().evaluate(
+          `document.querySelector("[data-question-text='ready']") !== null && document.querySelector("[data-question-reason]") !== null && document.querySelector("[data-send-answer]") !== null && document.querySelector("[data-expires]") === null`,
+        ),
+        true,
+      );
+
+      const hangTargets: number[] = [];
+      for (const pid of await descendantPids(shell().shell.pid)) {
+        try {
+          const cmdline = await readCmdline(pid);
+          if (
+            cmdline.includes(`/apps/${HANG_APP}/`) &&
+            !cmdline.includes("app-supervisor")
+          ) hangTargets.push(pid);
+        } catch { /* 이미 끝남 */ }
+      }
+      assert(hangTargets.length > 0, "Hang 앱 프로세스가 없다");
+      signalPids(hangTargets, "SIGKILL");
+      const gone = Date.now() + 15_000;
+      while (hangTargets.some((pid) => processAlive(pid))) {
+        assert(Date.now() < gone, "Hang 앱이 끝나지 않았다");
+        await delay(200);
+      }
+      assertEquals(await Deno.readTextFile(marker), "once\n");
+      // 시작이 기록된 호출은 프로세스 종료를 supervisor가 unknown/process_exited로 남긴다.
+      // 그 기록이 core보다 늦으면 재시작 점검이 running을 core_restarted로 닫는다.
+      const exitSeen = Date.now() + 15_000;
+      let beforeKill = await markKinds();
+      while (Date.now() < exitSeen && beforeKill[0]?.status === "running") {
+        await delay(200);
+        beforeKill = await markKinds();
+      }
+      assertEquals(beforeKill.length, 1, JSON.stringify(beforeKill));
+      const exitReason = beforeKill[0]?.summary.reason;
+      if (beforeKill[0]?.status === "running") {
+        assertEquals(beforeKill[0]?.summary.effects, undefined);
+      } else {
+        assertEquals(beforeKill[0]?.status, "unknown");
+        assertEquals(exitReason, "process_exited");
+        assert(beforeKill[0]?.summary.effects !== "none");
+      }
+
+      await openNote();
+      const chipsBefore = Number(
+        await shell().evaluate(
+          `document.querySelectorAll("[data-notification-chip]").length`,
+        ),
+      );
+      const corePid = (await pidsOf("apps/core/main.ts"))[0];
+      assert(corePid !== undefined, "core pid를 찾지 못했다");
+      // core가 죽으면 worker는 init으로 옮겨 지고 ledger를 잡은 채 남는다. 다시 열기 전에 끝낸다.
+      const coreChildren = (await descendantPids(corePid)).filter((pid) =>
+        pid !== corePid
+      );
+      signalPids([corePid], "SIGKILL");
+      const coreGone = Date.now() + 30_000;
+      while (processAlive(corePid)) {
+        assert(Date.now() < coreGone, "core가 끝나지 않았다");
+        await delay(200);
+      }
+      await shell().until(
+        `(() => { const el = document.querySelector("[data-save-status]"); const text = el?.textContent ?? ""; return el?.getAttribute("data-save-status") === "stale" && text.includes("Not connected. Your changes are kept here.") && /\\d/.test(text); })()`,
+        "core가 죽었는데 문서 단절 안내가 없다",
+        20_000,
+      );
+      assert(
+        String(await shell().text("[data-document-body]")).includes(NOTE),
+      );
+      await shell().until(
+        `document.querySelector("[data-dock] [data-stale]") !== null`,
+        "도크 단절 줄이 없다",
+      );
+      assertEquals(
+        await shell().evaluate(
+          `document.querySelector("[data-external='connection-failed']") === null`,
+        ),
+        true,
+      );
+      const chipsAfter = Number(
+        await shell().evaluate(
+          `document.querySelectorAll("[data-notification-chip]").length`,
+        ),
+      );
+      assert(
+        chipsAfter <= chipsBefore,
+        `알림이 늘었다: ${chipsBefore} -> ${chipsAfter}`,
+      );
+      signalPids(coreChildren.filter((pid) => processAlive(pid)), "SIGKILL");
+      const childrenGone = Date.now() + 5_000;
+      while (coreChildren.some((pid) => processAlive(pid))) {
+        assert(Date.now() < childrenGone, "core 자손이 끝나지 않았다");
+        await delay(100);
+      }
+
+      await closeFlow();
+      flow = await openFlowShell({ home, start: `project:${PROJECT}` });
+      const unknownDeadline = Date.now() + 60_000;
+      let unknown: InvocationRow | undefined;
+      while (Date.now() < unknownDeadline) {
+        unknown = (await markKinds())[0];
+        if (unknown?.status === "unknown") break;
+        await delay(400);
+      }
+      assertEquals(unknown?.status, "unknown", JSON.stringify(unknown));
+      if (exitReason === "process_exited") {
+        assertEquals(unknown?.summary.reason, "process_exited");
+      } else {
+        assertEquals(unknown?.summary.reason, "core_restarted");
+        assertEquals(unknown?.summary.observation, "result_not_observed");
+      }
+      assert(unknown?.summary.effects !== "none");
+      assertEquals(await Deno.readTextFile(marker), "once\n");
+      await openNote();
+      assertEquals(
+        await shell().evaluate(
+          `document.querySelector("[data-save-status]")?.getAttribute("data-save-status") ?? ""`,
+        ) === "stale",
+        false,
+      );
+      assertEquals(
+        await Deno.readTextFile(`${folder}/note.md`),
+        `# note\n\n${NOTE}\n`,
+      );
+
+      await openNamedApp("Hang");
+      await shell().click('[data-app-bar="app-details"]');
+      await shell().until(
+        `document.querySelector("[data-ops-panel]") !== null`,
+        "앱 상세가 열리지 않았다",
+      );
+      // Radix 탭은 mousedown으로 고른다. element.click()만으로는 패널이 안 바뀐다.
+      await shell().until(
+        `document.querySelector('[role=tab][id$="trigger-activity"]') !== null`,
+        "활동 탭이 없다",
+      );
+      const picked = await shell().evaluate(`(() => {
+        const tab = document.querySelector('[role=tab][id$="trigger-activity"]');
+        if (!tab) return false;
+        tab.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0, buttons: 1 }));
+        tab.click();
+        return true;
+      })()`);
+      assertEquals(picked, true, "활동 탭이 없다");
+      await shell().until(
+        `document.querySelector("[data-activity-toggle]") !== null`,
+        "활동 탭이 서지 않았다",
+      );
+      await shell().click("[data-activity-toggle]");
+      await shell().until(
+        `document.querySelector("[data-activity='unknown'] [data-activity-action='check']") !== null`,
+        "결과 모름 확인이 없다",
+      );
+      const unknownText = await shell().text("[data-activity='unknown']");
+      assert(unknownText?.includes("Result unknown"), unknownText ?? "");
+      assert(unknownText?.includes("Check the result"), unknownText ?? "");
+      assertEquals(unknownText?.includes("Done"), false);
+      assertEquals(
+        await shell().count(
+          "[data-activity='unknown'] [data-activity-action='check']",
+        ),
+        1,
+      );
+      await shell().click(
+        "[data-activity='unknown'] [data-activity-action='check']",
+      );
+      await delay(500);
+      const checked = await markKinds();
+      assertEquals(checked.length, 1);
+      assertEquals(checked[0]?.status, "unknown");
+      assertEquals(checked[0]?.summary.reason, unknown?.summary.reason);
+      if (unknown?.summary.reason === "core_restarted") {
+        assertEquals(checked[0]?.summary.observation, "result_not_observed");
+      }
+      assertEquals(
+        await shell().evaluate(
+          `document.querySelector("[data-activity='unknown']")?.textContent?.includes("Result unknown") === true && document.querySelector("[data-activity='unknown']")?.textContent?.includes("Done") !== true`,
+        ),
+        true,
+      );
+      assertEquals(await Deno.readTextFile(marker), "once\n");
+
+      await openNamedApp("Broken");
+      await untilReady(APP);
+      const again = await appPage(APP);
+      await untilBridge(again);
+      const local = await readLocalSettings(again, 30_000);
+      assert(
+        local.startsWith("ok:") && local.includes("{"),
+        local,
+      );
+    } finally {
+      if (stopped !== undefined) signalPids([stopped], "SIGCONT");
+      await closeFlow();
+      await fixture?.close();
+      await removeTree(home);
+      await Deno.remove(folder, { recursive: true }).catch(() => undefined);
     }
   },
 });

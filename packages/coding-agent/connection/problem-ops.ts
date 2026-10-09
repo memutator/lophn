@@ -459,8 +459,9 @@ async function requestReproduction(
       "지정 ticket의 현재 claim을 다시 읽는다(ticket show). 문제 직접 claim은 없다",
     ]);
   }
+  // core가 접수 때 이 연결의 현재 claim을 다시 확인한다. ticket_source를 빼면 접수되지 않는다.
   const ran = await runAppOp(
-    { ...withoutKeys(input, "ticket_source"), op: "test" },
+    { ...input, op: "test" },
     {
       client: deps.client,
       idempotencyKey: deps.idempotencyKey,

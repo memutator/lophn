@@ -4,6 +4,7 @@
 import { z } from "zod";
 import { err, ok, type Result } from "../../base/mod.ts";
 import {
+  repairPrepare,
   ticketChecks,
   type TicketCondition,
   type TicketKind,
@@ -28,6 +29,11 @@ import {
 } from "../../contracts/platform/mod.ts";
 import { nextCursor, pageAfter } from "./cursor.ts";
 import { checkTicketClaim, expiredClaims } from "./claims.ts";
+import {
+  prepareRepairTicket,
+  REPAIR_PREPARE_SOURCE,
+  type RepairPrepareSource,
+} from "./prepare.ts";
 
 function notFound(): Result<never> {
   return err({ code: "not_found", message: "ticket not found" });
@@ -218,6 +224,7 @@ export function createTicketReads(): {
   checks: ReadDefinition<typeof ticketChecks>;
   screen_list: ReadDefinition<typeof ticketScreenList>;
   screen_detail: ReadDefinition<typeof ticketScreenDetail>;
+  screen_repair_prepare: ReadDefinition<typeof repairPrepare>;
   claim_sweep: ReadDefinition<typeof claimSweep>;
 } {
   return {
@@ -445,6 +452,41 @@ export function createTicketReads(): {
         }
         return ok({
           claims: expiredClaims(snapshot.sql, input.now, revoked),
+          as_of_seq: snapshot.as_of_seq,
+          next_cursor: null,
+        });
+      },
+    },
+    screen_repair_prepare: {
+      route: repairPrepare,
+      handle(snapshot, ctx, input) {
+        let source: RepairPrepareSource;
+        try {
+          source = snapshot.port(REPAIR_PREPARE_SOURCE);
+        } catch {
+          return err({
+            code: "unavailable",
+            message: "repair prepare source is not registered",
+          });
+        }
+        const loaded = source.facts(input.problem);
+        if (!loaded.ok) return loaded;
+        const facts = loaded.value;
+        if (facts.problem === null || facts.problem.id !== input.problem) {
+          return notFound();
+        }
+        if (
+          !inCodingScope(
+            snapshot,
+            ctx,
+            repairPrepare.name,
+            facts.problem.app,
+          )
+        ) return notFound();
+        const prepared = prepareRepairTicket(facts, input);
+        if (!prepared.ok) return prepared;
+        return ok({
+          outcome: prepared.value,
           as_of_seq: snapshot.as_of_seq,
           next_cursor: null,
         });

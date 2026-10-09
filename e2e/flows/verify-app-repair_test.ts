@@ -1,0 +1,1026 @@
+// problems#T24 flow verify-app-repair 1단계만(docs/flows/verify-app-repair.md 1).
+// 실제 headless shell과 실제 core에서 app-detail Issues를 본다. 수리 기록은 fake coding agent
+// 수리 script(coding-agent#T47, #487)를 record_fix까지만 호출해 만든다. release 준비·완료 보고·
+// activation·닫힘은 2–7단계라 여기서 하지 않는다. 사람 데이터 root(~/.lophn)는 열지 않는다.
+// HOME·LOPHN_HOME은 임시 폴더이고, shell은 LOPHN_SHELL_HEADLESS=1(openFlowShell)로만 띄운다.
+//
+// 화면이 가진 것: 진행·실제 담당·필요한 사람 조치(없으면 그 줄을 만들지 않는다), 고쳤다는 주장과
+// 실제 테스트 상태. 당시 release·summary 본문·작성자는 화면 글에 없고 list-fixes와 그 event·
+// 저장된 summary blob으로만 읽는다. 없는 필드를 화면에 지어내지 않는다.
+import { DatabaseSync } from "node:sqlite";
+import { fileURLToPath } from "node:url";
+import { assert, assertEquals, assertNotEquals } from "@std/assert";
+
+import { err, ok, type Result, sha256Hex } from "../../packages/base/mod.ts";
+import { objectPathFor } from "../../packages/platform/blob-store/model.ts";
+import {
+  codingCredentialRef,
+  createFakeKeychain,
+  type FakeKeychain,
+} from "../../packages/platform/secrets/mod.ts";
+import {
+  type CoreHarness,
+  createCoreHarness,
+} from "../../apps/core/testing/core.ts";
+import { createLedgerRegistration as createDocumentsRegistration } from "../../apps/core/documents.ts";
+import { createLedgerRegistration as createAppsRegistration } from "../../apps/core/apps.ts";
+import { codingAgentConnectionDefinitions } from "../../apps/core/coding-agent.ts";
+import {
+  createLedgerRegistration as createProblemsRegistration,
+  problemsReportDefinitions,
+  problemsTestDefinitions,
+} from "../../apps/core/problems.ts";
+import {
+  createLedgerRegistration as createLophnAgentRegistration,
+  lophnAgentDefinitions,
+} from "../../apps/core/lophn-agent.ts";
+import { ticketDefinitions } from "../../apps/core/tickets.ts";
+import { createCoreRegistration as createTicketPortsRegistration } from "../../apps/core/ticket-ports.ts";
+import {
+  type RepairScriptResult,
+  type RepairStage,
+  runRepairScript,
+} from "../../tools/fake-coding-agent/repair.ts";
+import { e2eEnabled } from "../harness.ts";
+import {
+  delay,
+  type FlowShell,
+  mustCall,
+  openFlowShell,
+} from "../flow-support.ts";
+
+const ROOT = fileURLToPath(new URL("../../", import.meta.url));
+const BRIDGE = fileURLToPath(
+  new URL("../coding-agent/repair-steps/mcp-bridge.ts", import.meta.url),
+);
+const VER = "ver_01arz3ndektsv4rrffq69g5fav";
+const QUESTION = "qst_01arz3ndektsv4rrffq69g5fav";
+const REL_BEFORE = "rel_01arz3ndektsv4rrffq69g5fa1";
+const REL_AFTER = "rel_01arz3ndektsv4rrffq69g5fa2";
+const REL_NOW = "rel_01arz3ndektsv4rrffq69g5fa3";
+const BUNDLE_BEFORE = "a".repeat(64);
+const BUNDLE_AFTER = "b".repeat(64);
+const BUNDLE_NOW = "c".repeat(64);
+const TEST_HASH = "9".repeat(64);
+const COMMIT = "a".repeat(40);
+const SUMMARY = [
+  "변경: leaf redaction",
+  "수행한 확인: 없음",
+  "미실행 확인: reproduction 통과 결과는 없다",
+  "한계: 돌리지 않은 테스트는 통과가 아니다",
+  "",
+].join("\n");
+const CURRENT_MARKER = "CURRENT_RELEASE_MARKER";
+const IMPACT = "Something went wrong in this app.";
+const OWNER = "A coding agent is working on this.";
+const CLAIM =
+  "A fix was reported. This is the agent's word, not a confirmation.";
+
+const decoder = new TextDecoder();
+const encoder = new TextEncoder();
+
+type Reply = { status: number; body: Record<string, unknown> };
+type Connected = { connection: string; token: string; revision: string };
+type Prepared = {
+  preparation: string;
+  principal: string;
+  purpose: string;
+  hash: string;
+  size_bytes: number;
+};
+type FixView = {
+  before: string;
+  after: string;
+  summary: string;
+  verification: string[];
+  ticket: string;
+  claim_seq: string;
+};
+type Held = {
+  problem: string;
+  report: string;
+  ticket: string;
+  fix: FixView;
+  actor: string;
+  at: string;
+  snapshotId: string;
+  capturedAt: string;
+  release: string;
+  errorMessage: string;
+  logHash: string;
+  logBytes: Uint8Array;
+  summaryBytes: Uint8Array;
+};
+
+const rpt = (n: number) =>
+  `rpt_01arz3ndektsv4rrffq69g5f${String(n).padStart(2, "0")}`;
+const snp = (n: number) =>
+  `snp_01arz3ndektsv4rrffq69g5f${String(n).padStart(2, "0")}`;
+
+function envelope(input: unknown, compare: unknown = {}) {
+  return {
+    input,
+    idempotency_key: `k-${crypto.randomUUID()}`,
+    compare,
+    prepared: [] as string[],
+  };
+}
+
+type Ledger = {
+  harness: CoreHarness;
+  app: string;
+  close(): Promise<void>;
+};
+
+async function post(
+  world: Ledger,
+  path: string,
+  token: string,
+  body: unknown,
+): Promise<Reply> {
+  const response = await fetch(
+    `http://127.0.0.1:${world.harness.port}/v1/${path}`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+    },
+  );
+  return {
+    status: response.status,
+    body: await response.json() as Record<string, unknown>,
+  };
+}
+
+async function prepareBlob(
+  world: Ledger,
+  principal: string,
+  purpose: string,
+  text: string,
+): Promise<Prepared> {
+  const prepared = await world.harness.prepareBlob({
+    principal,
+    purpose,
+    bytes: new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(text));
+        controller.close();
+      },
+    }),
+  });
+  assert(prepared.ok, prepared.ok ? "" : prepared.error.message);
+  return prepared.value as Prepared;
+}
+
+function reportInput(
+  principal: string,
+  app: string,
+  n: number,
+  logs: Prepared,
+) {
+  const at = new Date(Date.now() - 600_000).toISOString();
+  return {
+    report: {
+      id: rpt(n),
+      app,
+      mode: "live",
+      diagnostic_scope: null,
+      release: REL_BEFORE,
+      release_missing_reason: null,
+      bundle_hash: BUNDLE_BEFORE,
+      source: "exception",
+      code: "_exception",
+      text: null,
+      details: null,
+      snapshot: snp(n),
+      observed_at: at,
+      principal,
+      content_hash: "01".repeat(32),
+    },
+    snapshot: {
+      id: snp(n),
+      captured_at: at,
+      invocation: {
+        id: "inv_01arz3ndektsv4rrffq69g5fav",
+        binding: "sdk_context",
+        record_missing_reason: null,
+      },
+      invocation_missing_reason: null,
+      error: {
+        name: "TypeError",
+        message: "boom 1",
+        message_missing_reason: null,
+        frames: [{ path: "src/leaf.ts", function: null, line: 1, column: 1 }],
+        source_missing_reason: null,
+        stack: null,
+        stack_missing_reason: { reason: "stack unavailable" },
+        truncation_notes: [],
+      },
+      error_missing_reason: null,
+      logs: {
+        blob: logs.hash,
+        line_count: 3,
+        truncated: false,
+        scope: "process",
+        from_at: null,
+        to_at: null,
+        collected_at: at,
+      },
+      logs_missing_reason: null,
+      screen: null,
+      screen_missing_reason: { reason: "not collected" },
+    },
+    group_key: { kind: "exception", code: "_exception", discriminator: rpt(n) },
+    existing_problem: null,
+    blobs: [{
+      hash: logs.hash,
+      size_bytes: logs.size_bytes,
+      purpose: logs.purpose,
+      source: { kind: "prepared", blob: logs },
+    }],
+    origin: {
+      context: {
+        authentication: {
+          principal,
+          actor: "machine",
+          scope: { operations: ["RecordReport"], targets: {} },
+          conditions: {},
+          credential_ref: "cred-1",
+        },
+        app,
+        mode: "live",
+        diagnostic_scope: null,
+        release: REL_BEFORE,
+        release_missing_reason: null,
+        bundle_hash: BUNDLE_BEFORE,
+        binding: "sdk",
+        origin: "process_observer",
+      },
+      report_id: rpt(n),
+      content_hash: "01".repeat(32),
+    },
+  };
+}
+
+function openDb(path: string, readOnly: boolean): DatabaseSync {
+  const db = new DatabaseSync(path, { readOnly });
+  db.exec("PRAGMA busy_timeout = 5000");
+  return db;
+}
+
+function insertRelease(
+  world: Ledger,
+  row: { id: string; number: number; bundle: string; source: string | null },
+): void {
+  const db = openDb(`${world.harness.dataRoot}/lophn.db`, false);
+  try {
+    db.prepare(
+      `INSERT INTO releases (id, app, number, code_commit, bundle_hash, blueprint_hash,
+         data_schema, data_changes, ticket_source, created_by, created_at, status,
+         blueprint, declarations)
+       VALUES (?, ?, ?, ?, ?, ?, 0, '[]', ?, 'coding_agent', ?, 'prepared', '{}', '{}')`,
+    ).run(
+      row.id,
+      world.app,
+      row.number,
+      COMMIT,
+      row.bundle,
+      "d".repeat(64),
+      row.source,
+      new Date().toISOString(),
+    );
+  } finally {
+    db.close();
+  }
+}
+
+type Opened = {
+  world: Ledger;
+  user: string;
+  coding: Connected;
+  problem: string;
+};
+
+type SnapshotRead = {
+  id: string;
+  captured_at: string;
+  error: { message: string };
+  logs: { blob: string };
+};
+
+async function openLedger(): Promise<Opened> {
+  // 제품 shell이 여는 schema와 같은 단계만 적용한다. world_test의 fixture·permission
+  // 단계는 설치본과 hash가 달라 제품 core가 그 ledger를 거절한다.
+  const keychain: FakeKeychain = createFakeKeychain();
+  const started = await createCoreHarness({
+    nowMs: Date.now(),
+    io: true,
+    teams: [
+      { createLedgerRegistration: createDocumentsRegistration },
+      { createLedgerRegistration: createAppsRegistration },
+      { problemsTestDefinitions },
+      { problemsReportDefinitions },
+      { createLedgerRegistration: createProblemsRegistration },
+      { codingAgentConnectionDefinitions },
+      { lophnAgentDefinitions },
+      { createLedgerRegistration: createLophnAgentRegistration },
+      { ticketDefinitions },
+      { createCoreRegistration: createTicketPortsRegistration },
+    ],
+    teamModules: [
+      new URL("../../apps/core/documents.ts", import.meta.url).href,
+      new URL("../../apps/core/apps.ts", import.meta.url).href,
+      new URL("../../apps/core/problems.ts", import.meta.url).href,
+      new URL("../../apps/core/coding-agent.ts", import.meta.url).href,
+      new URL("../../apps/core/lophn-agent.ts", import.meta.url).href,
+      new URL("../../apps/core/tickets.ts", import.meta.url).href,
+      // ticket-ports와 같은 port key를 같이 올리면 writer registry가 닫힌다.
+      // 이 둘은 schema 단계가 없고, 제품 shell은 자기 ticket-ports로 읽기만 한다.
+      new URL("../../apps/core/ticket-claim-ports_test.ts", import.meta.url)
+        .href,
+      new URL("../../apps/core/repair-context-ports_test.ts", import.meta.url)
+        .href,
+    ],
+    coding: { keychain, loaders: [] },
+  });
+  assert(started.ok, started.ok ? "" : started.error.message);
+  const harness = started.value;
+  const login = async (
+    actor: "user" | "machine",
+    principal: string,
+    operations: string[],
+  ) => {
+    const issued = await harness.credential({
+      actor,
+      principal,
+      scope: { operations, targets: {} },
+      conditions: {},
+    });
+    assert(issued.ok, issued.ok ? "" : issued.error.message);
+    return issued.value;
+  };
+  const userCred = await login("user", "user-repair", [
+    "app.create",
+    "CreateCodingAgentConnection",
+    "CreateTicket",
+    "MakeTicketReady",
+    "GetProblem",
+    "ListProblems",
+    "ListProblemFixes",
+    "GetReport",
+    "ListReports",
+  ]);
+  const machine = await login("machine", "machine-report", ["RecordReport"]);
+  const created = await post(
+    { harness, app: "", close: () => harness.close() },
+    "apps/create",
+    userCred.token,
+    envelope({ slug: "usage", name: "Usage", description: "usage app" }),
+  );
+  assertEquals(created.status, 200, JSON.stringify(created.body));
+  const world: Ledger = {
+    harness,
+    app: String(created.body["id"]),
+    close: () => harness.close(),
+  };
+  const user = userCred.token;
+  await world.harness.codingCredentialsReady;
+  const seen: { revision?: string } = {};
+  const connected = await world.harness.codingCredentials!.connect(
+    { label: "claude", scope: { kind: "app", app: world.app } },
+    async (submission): Promise<Result<unknown>> => {
+      const sent = await post(
+        world,
+        "coding_agent_connections/create",
+        user,
+        envelope(submission),
+      );
+      if (sent.status !== 200) {
+        return err({ code: "conflict", message: `${sent.status}` });
+      }
+      seen.revision = (sent.body["connection"] as { revision: string })
+        .revision;
+      return ok(sent.body);
+    },
+  );
+  assert(connected.ok, connected.ok ? "" : connected.error.message);
+  const coding: Connected = {
+    connection: connected.value.connection,
+    token: decoder.decode(
+      keychain.stored.get(codingCredentialRef(connected.value.connection)!)!,
+    ),
+    revision: seen.revision!,
+  };
+  insertRelease(world, {
+    id: REL_BEFORE,
+    number: 1,
+    bundle: BUNDLE_BEFORE,
+    source: null,
+  });
+  const logs = await prepareBlob(
+    world,
+    machine.context.principal,
+    "snapshot_logs",
+    "line 1 1\nline 2\nline 3\n",
+  );
+  const sent = await post(
+    world,
+    "problems/record-report",
+    machine.token,
+    envelope(
+      reportInput(machine.context.principal, world.app, 1, logs),
+      { active_release: REL_BEFORE, problem_seq: null },
+    ),
+  );
+  assertEquals(sent.status, 200, JSON.stringify(sent.body));
+  return {
+    world,
+    user,
+    coding,
+    problem: String(sent.body["problem"]),
+  };
+}
+
+async function readyTicket(opened: Opened): Promise<{
+  ticket: string;
+  revision: string;
+}> {
+  const created = await post(
+    opened.world,
+    "tickets/create",
+    opened.user,
+    envelope({
+      app: opened.world.app,
+      kind: "repair",
+      title: "fix leaf redaction",
+      what: "redact the leaf",
+      why: "the snapshot still shows it",
+      references: [],
+      adoption_questions: [],
+      conditions: [],
+      inspect: ["src/leaf.ts"],
+      preserve: ["docs/leaf.md"],
+      problems: [opened.problem],
+      readiness: "needs_confirmation",
+      needs: ["confirm the redaction"],
+    }),
+  );
+  assertEquals(created.status, 200, JSON.stringify(created.body));
+  const ticket = String(created.body["ticket"]);
+  const revision = String(created.body["revision"]);
+  const made = await post(
+    opened.world,
+    "tickets/make_ready",
+    opened.user,
+    envelope({
+      ticket,
+      base_revision: revision,
+      references: [{
+        kind: "version",
+        target: VER,
+        address: {
+          place: "project",
+          document: "leaf-redaction",
+          section: null,
+          version: 1,
+        },
+        section: null,
+      }],
+      adoption_questions: [QUESTION],
+      conditions: [
+        { kind: "app_test" },
+        {
+          kind: "test_command",
+          executable: "deno",
+          argv: ["task", "test"],
+          cwd: ".",
+          timeout_ms: 60_000,
+          expected_exit_code: 0,
+        },
+        {
+          kind: "reproduction_test",
+          problem: opened.problem,
+          test_hash: TEST_HASH,
+        },
+        { kind: "problems_closed" },
+      ],
+      inspect: ["src/leaf.ts"],
+      preserve: ["docs/leaf.md"],
+    }, { base_revision: revision }),
+  );
+  assertEquals(made.status, 200, JSON.stringify(made.body));
+  const shown = await post(
+    opened.world,
+    "tickets/show",
+    opened.coding.token,
+    { ticket },
+  );
+  assertEquals(shown.status, 200, JSON.stringify(shown.body));
+  return {
+    ticket,
+    revision: String((shown.body["ticket"] as { revision: string }).revision),
+  };
+}
+
+async function waitWork(root: string, problem: string): Promise<void> {
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
+    const db = openDb(`${root}/lophn.db`, true);
+    try {
+      const row = db.prepare("select status from problems where id = ?").get(
+        problem,
+      ) as { status: string } | undefined;
+      if (row?.status === "fixing") return;
+    } finally {
+      db.close();
+    }
+    await delay(200);
+  }
+}
+
+async function settleEvents(root: string, problem: string): Promise<void> {
+  const deadline = Date.now() + 12_000;
+  let last = "";
+  let quiet = 0;
+  while (Date.now() < deadline) {
+    const db = openDb(`${root}/lophn.db`, true);
+    let seq = "0";
+    try {
+      const row = db.prepare(
+        "select cast(max(seq) as text) as seq from events where subject = ?",
+      ).get(problem) as { seq: string | null };
+      seq = row.seq ?? "0";
+    } finally {
+      db.close();
+    }
+    if (seq === last) quiet += 1;
+    else quiet = 0;
+    last = seq;
+    if (quiet >= 5) return;
+    await delay(200);
+  }
+}
+
+async function runScript(
+  opened: Opened,
+  ticket: { ticket: string; revision: string },
+): Promise<RepairScriptResult> {
+  const home = await Deno.makeTempDir({ prefix: "lophn-repair-home-" });
+  try {
+    const env: Record<string, string> = {
+      PATH: Deno.env.get("PATH") ?? "",
+      HOME: home,
+      LOPHN_SHELL_HEADLESS: "1",
+      LOPHN_TEST_TOKEN: opened.coding.token,
+      LOPHN_TEST_DAEMON: `http://127.0.0.1:${opened.world.harness.port}`,
+      LOPHN_TEST_CONNECTION: opened.coding.connection,
+    };
+    const denoDir = Deno.env.get("DENO_DIR");
+    if (denoDir) env.DENO_DIR = denoDir;
+    return await runRepairScript({
+      command: Deno.execPath(),
+      args: ["run", "-A", BRIDGE],
+      cwd: ROOT,
+      env,
+      label: "lophn-repair-script",
+      ticket: ticket.ticket,
+      base_revision: ticket.revision,
+      app: opened.world.app,
+      problem: opened.problem,
+      before: REL_BEFORE,
+      release: REL_AFTER,
+      bundle_hash: BUNDLE_AFTER,
+      reports: [rpt(1)],
+      basis_seq: "1",
+      test: TEST_HASH,
+      summary: SUMMARY,
+      commit: COMMIT,
+      request_key: "repro-stage1",
+      release_request_key: "release-stage1",
+      after: async (stage: RepairStage, traced) => {
+        if (stage === "claim" && !traced.isError) {
+          insertRelease(opened.world, {
+            id: REL_AFTER,
+            number: 2,
+            bundle: BUNDLE_AFTER,
+            source: JSON.stringify({
+              ticket: ticket.ticket,
+              claim_seq: traced.data.claim_seq,
+            }),
+          });
+          // problems.work가 claim 뒤에 status를 고친다. record_fix의 problem_seq보다 먼저 끝나게 둔다.
+          await waitWork(opened.world.harness.dataRoot, opened.problem);
+        }
+        if (stage === "reproduction") {
+          await settleEvents(opened.world.harness.dataRoot, opened.problem);
+        }
+        // 1단계는 고친 기록까지다. release 준비와 완료 보고는 하지 않는다.
+        if (stage === "record_fix") return "stop";
+      },
+    });
+  } finally {
+    await Deno.remove(home, { recursive: true });
+  }
+}
+
+function step(result: RepairScriptResult, stage: string) {
+  const found = result.steps.find((item) => item.stage === stage);
+  assert(found, stage);
+  return found;
+}
+
+async function heldFrom(opened: Opened, ticket: string): Promise<Held> {
+  const fixes = await post(opened.world, "problems/list-fixes", opened.user, {
+    problem: opened.problem,
+  });
+  assertEquals(fixes.status, 200, JSON.stringify(fixes.body));
+  const rows = fixes.body["fixes"] as { seq: string; fix: FixView }[];
+  assertEquals(rows.length, 1);
+  const fix = rows[0]!.fix;
+  const report = await post(opened.world, "problems/get-report", opened.user, {
+    report: rpt(1),
+  });
+  assertEquals(report.status, 200, JSON.stringify(report.body));
+  const snapshot = report.body["snapshot"] as SnapshotRead;
+  const reported = report.body["report"] as { release: string };
+  const db = openDb(`${opened.world.harness.dataRoot}/lophn.db`, true);
+  let event: { actor: string; at: string };
+  try {
+    event = db.prepare(
+      `select actor, at from events
+       where type = 'ProblemFixRecorded' and subject = ?`,
+    ).get(opened.problem) as { actor: string; at: string };
+  } finally {
+    db.close();
+  }
+  assert(event, "ProblemFixRecorded가 없다");
+  const logBytes = await Deno.readFile(
+    objectPathFor(opened.world.harness.dataRoot, snapshot.logs.blob),
+  );
+  const summaryBytes = await Deno.readFile(
+    objectPathFor(opened.world.harness.dataRoot, fix.summary),
+  );
+  return {
+    problem: opened.problem,
+    report: rpt(1),
+    ticket,
+    fix,
+    actor: event.actor,
+    at: event.at,
+    snapshotId: snapshot.id,
+    capturedAt: snapshot.captured_at,
+    release: reported.release,
+    errorMessage: snapshot.error.message,
+    logHash: snapshot.logs.blob,
+    logBytes,
+    summaryBytes,
+  };
+}
+
+async function copyHome(root: string): Promise<string> {
+  // 실행 중인 harness의 파일 복사는 db·lock이 어긋난다. VACUUM INTO는 그 시점의
+  // ledger snapshot이고, blob은 이미 저장한 바이트만 복사한다. run/은 제품 core가 새로 만든다.
+  const home = await Deno.makeTempDir({ prefix: "lophn-e2e-verify-repair-" });
+  await Deno.chmod(home, 0o700);
+  const db = openDb(`${root}/lophn.db`, false);
+  try {
+    const dest = `${home}/lophn.db`.replaceAll("'", "''");
+    db.exec(`VACUUM INTO '${dest}'`);
+  } finally {
+    db.close();
+  }
+  await Deno.chmod(`${home}/lophn.db`, 0o600);
+  try {
+    await Deno.stat(`${root}/blobs`);
+    const copied = await new Deno.Command("cp", {
+      args: ["-a", `${root}/blobs`, `${home}/blobs`],
+    }).output();
+    assert(copied.success, decoder.decode(copied.stderr));
+  } catch (error) {
+    if (!(error instanceof Deno.errors.NotFound)) throw error;
+  }
+  return home;
+}
+
+async function waitFixing(flow: FlowShell, problem: string): Promise<void> {
+  const deadline = Date.now() + 45_000;
+  let last = "";
+  for (;;) {
+    const read = await mustCall(flow, {
+      kind: "read",
+      resource: "problems",
+      method: "get",
+      body: { problem },
+    });
+    const status = (read.problem as { status: string }).status;
+    last = status;
+    if (status === "fixing") return;
+    assert(Date.now() < deadline, `문제가 fixing이 되지 않았다 (${last})`);
+    await delay(500);
+  }
+}
+
+async function openIssue(flow: FlowShell): Promise<void> {
+  await flow.until(
+    `document.querySelector('[data-app-bar="app-details"]') !== null`,
+    "앱 막대",
+  );
+  await flow.click('[data-app-bar="app-details"]');
+  await flow.until(
+    `document.querySelector("[data-ops-panel]") !== null`,
+    "운영 패널",
+  );
+  // Radix 탭은 mousedown으로 고른다. element.click()만으로는 패널이 안 바뀐다.
+  const picked = await flow.evaluate(`(() => {
+    const tab = document.querySelector('[role=tab][id$="trigger-issues"]');
+    if (!tab) return false;
+    tab.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0, buttons: 1 }));
+    tab.click();
+    return true;
+  })()`);
+  assertEquals(picked, true, "Issues 탭이 없다");
+  try {
+    await flow.until(
+      `document.querySelector('[role=tab][id$="trigger-issues"]')?.getAttribute("aria-selected") === "true" && document.querySelector("[data-issues-list] [data-issue-open]") !== null`,
+      "Issues 목록",
+    );
+  } catch (error) {
+    const detail = await flow.evaluate(`JSON.stringify({
+      empty: document.querySelector("[data-issues-empty]")?.textContent ?? null,
+      slot: document.querySelector("[data-slot-empty='issues']")?.textContent ?? null,
+      tab: document.querySelector("[data-tab-body='issues']")?.innerText?.slice(0, 800) ?? null,
+      ops: document.querySelector("[data-ops-panel]")?.innerText?.slice(0, 800) ?? null,
+    })`);
+    throw new Error(
+      `${error instanceof Error ? error.message : error}\n${detail}`,
+    );
+  }
+}
+
+function screenText(flow: FlowShell, selector: string): Promise<string> {
+  return flow.evaluate(
+    `document.querySelector(${JSON.stringify(selector)})?.textContent ?? ""`,
+  ).then((value) => String(value));
+}
+
+/** 지금 자료만 바꾼다. prepared release 내용은 고칠 수 없으므로 새 release를 더하고, 앱 설명과 파일을 적는다. 당시 snapshot·수리 event·before/after는 건드리지 않는다. */
+function writeCurrent(home: string, app: string): void {
+  const db = openDb(`${home}/lophn.db`, false);
+  try {
+    db.prepare("update apps set description = ? where id = ?").run(
+      CURRENT_MARKER,
+      app,
+    );
+    db.prepare(
+      `INSERT INTO releases (id, app, number, code_commit, bundle_hash, blueprint_hash,
+         data_schema, data_changes, ticket_source, created_by, created_at, status,
+         blueprint, declarations)
+       VALUES (?, ?, 3, ?, ?, ?, 0, '[]', null, 'coding_agent', ?, 'prepared', '{}', '{}')`,
+    ).run(
+      REL_NOW,
+      app,
+      COMMIT,
+      BUNDLE_NOW,
+      "d".repeat(64),
+      new Date().toISOString(),
+    );
+  } finally {
+    db.close();
+  }
+  Deno.writeTextFileSync(`${home}/current-material.txt`, `${CURRENT_MARKER}\n`);
+}
+
+Deno.test({
+  name:
+    "problems/grouping#R12 problems/repairs#R1 problems/repairs#R2 problems/tests#R5 problems/snapshots#R1 flow verify-app-repair 1: 진행·담당을 먼저 보고 고친 기록과 당시 snapshot을 현재 자료와 구별한다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn(t) {
+    const opened = await openLedger();
+    let home: string | undefined;
+    try {
+      const ticket = await readyTicket(opened);
+      const script = await runScript(opened, ticket);
+      const recorded = step(script, "record_fix");
+      assertEquals(
+        recorded.isError,
+        false,
+        JSON.stringify({ halted: script.halted_before, recorded }),
+      );
+      assertEquals(script.halted_before, "release_prepare");
+      const reproduction = step(script, "reproduction");
+      assertNotEquals(reproduction.data.state, "pass");
+      assertNotEquals(reproduction.data.real_test, true);
+      const held = await heldFrom(opened, ticket.ticket);
+      assertEquals(held.fix.before, REL_BEFORE);
+      assertEquals(held.fix.after, REL_AFTER);
+      assertEquals(held.fix.verification, []);
+      assertEquals(held.fix.ticket, ticket.ticket);
+      assertEquals(held.fix.claim_seq, script.claim_seq);
+      assert(held.actor.startsWith("coding_agent:"), held.actor);
+      assert(held.at.length > 0);
+      assertEquals(decoder.decode(held.summaryBytes), SUMMARY);
+      assertEquals(await sha256Hex(held.summaryBytes), held.fix.summary);
+      assertEquals(decoder.decode(held.logBytes), "line 1 1\nline 2\nline 3\n");
+      assertEquals(await sha256Hex(held.logBytes), held.logHash);
+      assertEquals(held.release, REL_BEFORE);
+      assertEquals(held.errorMessage, "boom 1");
+
+      home = await copyHome(opened.world.harness.dataRoot);
+      await opened.world.close();
+
+      await t.step(
+        "Issues는 진행과 실제 담당을 수리 주장·테스트보다 먼저 보인다",
+        async () => {
+          const flow = await openFlowShell({
+            home,
+            start: `app:${opened.world.app}`,
+          });
+          try {
+            await waitFixing(flow, held.problem);
+            const listed = await mustCall(flow, {
+              kind: "read",
+              resource: "problems",
+              method: "list",
+              body: { app: opened.world.app },
+            });
+            try {
+              await openIssue(flow);
+            } catch (error) {
+              throw new Error(`${JSON.stringify(listed)}\n${error}`);
+            }
+            assertEquals(await flow.count("[data-issue-detail]"), 0);
+            const row = await screenText(
+              flow,
+              "[data-issues-list] [data-issue='fixing']",
+            );
+            assert(row.includes(IMPACT), row);
+            assert(row.includes("Being fixed"), row);
+            assert(!row.includes("What you can do"), row);
+            await flow.click("[data-issue-open]");
+            await flow.until(
+              `document.querySelector('[data-issue-detail="fixing"] [data-issue-now]') !== null`,
+              "Issues 상세",
+            );
+            const order = await flow.evaluate(`(() => {
+              const now = document.querySelector("[data-issue-now]");
+              const checks = document.querySelector("[data-section=checks]");
+              if (!now || !checks) return "missing";
+              return (now.compareDocumentPosition(checks) & 4) ? "now-first" : "checks-first";
+            })()`);
+            assertEquals(order, "now-first");
+            const now = await screenText(flow, "[data-issue-now]");
+            assert(now.includes(OWNER), now);
+            assert(now.includes("Being fixed"), now);
+            assert(now.includes("In progress"), now);
+            assert(!now.includes(CLAIM), now);
+            assertEquals(await flow.count("[data-issue-needed]"), 0);
+            const claim = await screenText(flow, "[data-check='claim']");
+            const tests = await screenText(flow, "[data-check='tests']");
+            assert(claim.includes(CLAIM), claim);
+            assertEquals(
+              await flow.evaluate(
+                `document.querySelector("[data-check='claim']")?.getAttribute("data-claimed")`,
+              ),
+              "true",
+            );
+            const state = String(
+              await flow.evaluate(
+                `document.querySelector("[data-check='tests']")?.getAttribute("data-test-state")`,
+              ),
+            );
+            assertNotEquals(state, "pass");
+            assert(!tests.includes(CLAIM), tests);
+            assertEquals(
+              await flow.evaluate(
+                `document.querySelector("[data-check='human']")?.getAttribute("data-checked")`,
+              ),
+              "false",
+            );
+            const human = await screenText(flow, "[data-check='human']");
+            assert(human.includes("haven't checked this yourself"), human);
+            assertEquals(await flow.count("[data-issue-details]"), 0);
+            const visible = await screenText(flow, "[data-issue-detail]");
+            for (
+              const hidden of [
+                "rel_",
+                "prb_",
+                "tkt_",
+                "claim_seq",
+                "coding_agent",
+                "leaf redaction",
+                "snapshot",
+              ]
+            ) {
+              assert(!visible.toLowerCase().includes(hidden), hidden);
+            }
+            const read = await mustCall(flow, {
+              kind: "read",
+              resource: "problems",
+              method: "list-fixes",
+              body: { problem: held.problem },
+            });
+            const again = (read.fixes as { fix: FixView }[])[0]!.fix;
+            assertEquals(again, held.fix);
+          } finally {
+            await flow.close();
+          }
+        },
+      );
+
+      await t.step(
+        "당시 snapshot과 고친 기록은 지금 자료로 바뀌지 않는다",
+        async () => {
+          writeCurrent(home!, opened.world.app);
+          const flow = await openFlowShell({
+            home,
+            start: `app:${opened.world.app}`,
+          });
+          try {
+            await waitFixing(flow, held.problem);
+            const read = await mustCall(flow, {
+              kind: "read",
+              resource: "problems",
+              method: "get-report",
+              body: { report: held.report },
+            });
+            const snapshot = read.snapshot as SnapshotRead;
+            const reported = read.report as { release: string };
+            assertEquals(snapshot.id, held.snapshotId);
+            assertEquals(snapshot.captured_at, held.capturedAt);
+            assertEquals(snapshot.error.message, held.errorMessage);
+            assertEquals(snapshot.logs.blob, held.logHash);
+            assertEquals(reported.release, REL_BEFORE);
+            assertNotEquals(reported.release, REL_NOW);
+            const fixes = await mustCall(flow, {
+              kind: "read",
+              resource: "problems",
+              method: "list-fixes",
+              body: { problem: held.problem },
+            });
+            assertEquals((fixes.fixes as { fix: FixView }[])[0]!.fix, held.fix);
+            const problem = await mustCall(flow, {
+              kind: "read",
+              resource: "problems",
+              method: "get",
+              body: { problem: held.problem },
+            });
+            assertEquals(problem.last_release, REL_BEFORE);
+            assertEquals(
+              (problem.detail as { result: { tests: { state: string } } })
+                .result.tests.state === "pass",
+              false,
+            );
+            const logBytes = await Deno.readFile(
+              objectPathFor(home!, held.logHash),
+            );
+            const summaryBytes = await Deno.readFile(
+              objectPathFor(home!, held.fix.summary),
+            );
+            assertEquals(logBytes, held.logBytes);
+            assertEquals(summaryBytes, held.summaryBytes);
+            const db = openDb(`${home}/lophn.db`, true);
+            try {
+              const event = db.prepare(
+                `select actor, at from events
+                 where type = 'ProblemFixRecorded' and subject = ?`,
+              ).get(held.problem) as { actor: string; at: string };
+              assertEquals(event.actor, held.actor);
+              assertEquals(event.at, held.at);
+            } finally {
+              db.close();
+            }
+            await openIssue(flow);
+            await flow.click("[data-issue-open]");
+            await flow.until(
+              `document.querySelector('[data-issue-detail="fixing"]') !== null`,
+              "Issues 상세",
+            );
+            const visible = await screenText(flow, "[data-issue-detail]");
+            assert(!visible.includes(CURRENT_MARKER), visible);
+            assert(
+              (await screenText(flow, "[data-check='claim']")).includes(CLAIM),
+            );
+            assertNotEquals(
+              await flow.evaluate(
+                `document.querySelector("[data-check='tests']")?.getAttribute("data-test-state")`,
+              ),
+              "pass",
+            );
+          } finally {
+            await flow.close();
+          }
+        },
+      );
+    } finally {
+      await opened.world.close();
+      if (home !== undefined) {
+        await Deno.remove(home, { recursive: true });
+      }
+    }
+  },
+});

@@ -44,10 +44,11 @@ import {
   updateContext,
 } from "./store.ts";
 
-// 앱 command 효과 검사는 apps blueprint read가 들어오기 전 test double로만 한다.
-// double이 없거나 false를 내면 fail-closed다.
+// 앱 command 효과 검사. 셋째 인자는 이 transaction의 ledger다. 제품 등록은 active
+// release blueprint를 읽고, double은 (app, command)만 봐도 된다. 함수가 없거나
+// false면 fail-closed다.
 export type ContextCommandDeps = {
-  appCommand?: (app: string, command: string) => boolean;
+  appCommand?: (app: string, command: string, sql?: Sql) => boolean;
 };
 
 function rejected(code: string, message: string): Result<never> {
@@ -488,10 +489,13 @@ function validTarget(
     }
     return ok(undefined);
   }
-  // 앱 command 효과는 apps blueprint read를 따른다. 그 전까지는 주입한 test
-  // double만 본다. double이 없으면 fail-closed다.
+  // 효과는 주입한 검사가 active release blueprint로 판정한다. 없거나 false면
+  // write·없는 command와 같이 거절한다.
   const allowed = deps.appCommand;
-  if (typeof allowed !== "function" || !allowed(target.app, target.command)) {
+  if (
+    typeof allowed !== "function" ||
+    !allowed(target.app, target.command, tx.sql)
+  ) {
     return rejected("invalid_input", "context item needs a read app command");
   }
   return ok(undefined);

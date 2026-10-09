@@ -528,8 +528,7 @@ const AGENT_STEPS: AgentStep[] = [
 Deno.test({
   name:
     "lophn-agent/roles/lophn#R14 lophn-agent/questions#R6 lophn-agent/questions#R8 documents/addressing#R3 flow organize-documents 2·3: lophn이 자리 없는 문서의 자리를 선택지와 추천 이유로 묻고, 고르기·미루기로는 옮기지 않는다",
-  // 미검증 WIP — 실행 전
-  ignore: true,
+  ignore: !e2eEnabled(),
   sanitizeOps: false,
   sanitizeResources: false,
   async fn(t) {

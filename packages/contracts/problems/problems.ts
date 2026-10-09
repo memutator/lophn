@@ -66,6 +66,32 @@ export const problemSchema = z.object({
 );
 export type Problem = z.infer<typeof problemSchema>;
 
+// 사용자 호출자에게 주는 문제(grouping#R12, problems#T22). 내부 `problemSchema`에서 ticket·version
+// 연결 식별자(`work`·`interpretation`)와 묶음 키를 뺀 것이다. 담당·수리 상태는 `detail`이 en으로
+// 대신한다. strict라 내부 문제를 그대로 넘기면 거부한다. 기존 `getProblem` output은 바꾸지 않는다.
+export const userProblemSchema = z.strictObject({
+  id: idSchema("prb"),
+  app: idSchema("app"),
+  status: problemStatusSchema,
+  closure: closureSchema.nullable(),
+  seq: seqSchema,
+}).refine(
+  (value) => (value.status === "closed") === (value.closure !== null),
+  { message: "status must match closure" },
+);
+export type UserProblem = z.infer<typeof userProblemSchema>;
+
+/** 내부 문제에서 사용자용 문제를 만든다. 연결 식별자는 옮기지 않는다. */
+export function userProblemOf(problem: Problem): UserProblem {
+  return {
+    id: problem.id,
+    app: problem.app,
+    status: problem.status,
+    closure: problem.closure,
+    seq: problem.seq,
+  };
+}
+
 // 목록은 앱·증상·진행만 준다. claim·기한·연결 식별자는 넣지 않는다(grouping#R11, R12).
 export const problemSummarySchema = z.object({
   id: idSchema("prb"),
@@ -169,6 +195,28 @@ export const getProblemOutputSchema = withReadCommon(z.object({
   first_release: idSchema("rel").nullable(),
   last_release: idSchema("rel").nullable(),
 }));
+// 사용자 화면·CLI가 읽는 GetProblem 모양(problems#T22). `problem`은 ID 없는 사용자용이고 `detail`은
+// 반드시 있다. 같은 read의 output에서 `userProblemReadOf`로 만든다(additive: route output은 그대로다).
+export const getProblemUserOutputSchema = withReadCommon(z.object({
+  problem: userProblemSchema,
+  detail: problemDetailSchema,
+  text: z.string().nullable(),
+  report_count: z.number().int().nonnegative(),
+  first_observed_at: z.string().nullable(),
+  last_observed_at: z.string().nullable(),
+  first_release: idSchema("rel").nullable(),
+  last_release: idSchema("rel").nullable(),
+}));
+export type GetProblemUserOutput = z.infer<typeof getProblemUserOutputSchema>;
+
+/** GetProblem output을 사용자용으로 바꾼다. `detail`이 없는 이전 응답은 null이다. */
+export function userProblemReadOf(
+  read: z.infer<typeof getProblemOutputSchema>,
+): GetProblemUserOutput | null {
+  if (read.detail === undefined) return null;
+  return { ...read, problem: userProblemOf(read.problem), detail: read.detail };
+}
+
 export const getProblem = defineRead({
   resource: "problems",
   method: "get",

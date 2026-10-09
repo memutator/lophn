@@ -86,6 +86,18 @@ export const problemDetailSchema = z.object({
       evidence: z.array(z.object({ text, at: atSchema.nullable() })).min(1),
     }),
   }).nullable(),
+  // 사람 결정의 뒤(problems/closing#R10, R11, grouping#R10). 열린 문제에서 마지막 "아직입니다"·
+  // 다시 열림을 사람이 아는 en으로 보이고, 결정 window가 "고쳐졌다"를 다시 제안할지 읽는다.
+  // 같은 release·같은 근거로 "아직입니다" 뒤에는 제안하지 않고, 활성 release를 모르면 제안하지
+  // 않는다. 닫힌 문제는 늘 false·null이다. 이전 소비자 fixture를 깨지 않도록 optional이다.
+  decision: z.object({
+    offer_fixed: z.boolean(),
+    last: z.object({
+      kind: z.enum(["not_fixed", "reopened_by_report", "reopened_by_you"]),
+      label: text,
+      at: atSchema,
+    }).nullable(),
+  }).optional(),
 }).refine(
   (value) => (value.progress.state === "closed") === (value.closed !== null),
   { message: "closed detail follows progress" },

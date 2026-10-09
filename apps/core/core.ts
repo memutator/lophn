@@ -645,8 +645,11 @@ async function open(
           text,
         ),
     }),
-    // ReadApprovalText도 같은 통로를 쓴다.
-    { approvalText: bodyEnvironment },
+    // ReadApprovalText도 같은 통로를 쓴다. backups/list·get은 데이터 root의 manifest를 읽는다.
+    {
+      approvalText: bodyEnvironment,
+      backups: { root: root.path, ledgerPath },
+    },
   );
   if (!assembled.ok) return assembled;
   // HTTP route는 writer·reader가 받는 command·read와 같은 조립에서 온다.

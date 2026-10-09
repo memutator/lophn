@@ -155,6 +155,17 @@ function originOf(
   return { id: null, kind: "periodic" };
 }
 
+// confirm 접수의 같은 동작은 앱·release·command·입력 지문이다. approval·key·caller는
+// 호출마다 다르고, process nonce는 run이 끝나 앱이 다시 뜨면 바뀐다(apps Q23).
+function confirmRefusalInput(value: JsonObject): JsonObject {
+  return {
+    app: value["app"],
+    release: value["release"],
+    command: value["command"],
+    input_hash: value["input_hash"],
+  };
+}
+
 // 사람이 거절한 같은 동작이 이 run의 계보에 있는지(R9). 거절만 본다. 만료·취소·기술 실패는
 // status가 달라 걸리지 않는다. 계보는 같은 run이거나 같은 원래 사람 요청이다.
 async function refusedBefore(
@@ -167,22 +178,21 @@ async function refusedBefore(
     limit: 100,
   });
   if (!listed.ok) return false;
-  const key = refusalKey(action);
+  const confirm = action.operation === "invocation.accept_confirm";
+  const key = refusalKey(
+    confirm ? { ...action, input: confirmRefusalInput(action.input) } : action,
+  );
   const origins = new Map<string, string | null>();
   for (const request of listed.value.requests) {
     if (request.run === null || request.action.input.kind !== "inline") {
       continue;
     }
-    // confirm 접수 입력의 approval ID는 요청마다 달라 같은 동작의 비교에서 뺀다.
     const rejected = request.action.input.value;
     const same = refusalKey({
       operation: request.action.command,
       targets: request.action.targets,
-      input: "approval" in rejected && request.action.command ===
-          "invocation.accept_confirm"
-        ? Object.fromEntries(
-          Object.entries(rejected).filter(([name]) => name !== "approval"),
-        )
+      input: request.action.command === "invocation.accept_confirm"
+        ? confirmRefusalInput(rejected)
         : rejected,
     }) === key;
     if (!same) continue;

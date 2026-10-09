@@ -2,7 +2,7 @@
 // command를 대화 agent가 fake-provider로 부른다. 실제 model·coding agent·keychain은 쓰지 않는다.
 // 사람 데이터 root(~/.lophn)는 열지 않는다. HOME은 임시 폴더이고 Electron은 LOPHN_SHELL_HEADLESS=1이다.
 //
-// 이 시험이 보는 것: 허락된 command만 tool이 된다(화면을 연 앱·다른 command는 실행 허락이 아니다),
+// 이 테스트가 보는 것: 허락된 command만 tool이 된다(화면을 연 앱·다른 command는 실행 허락이 아니다),
 // 읽기 command는 approval 없이 실제 결과가 대화에 남는다, confirm command는 확인 창의 앱·command를
 // 사람이 허락한 뒤 서명 proof로 실행되고 그 결과가 대화에 남는다, 거절하면 실행하지 않고 같은
 // 요청이 같은 동작을 다시 묻지 않는다.
@@ -61,7 +61,7 @@ async function git(cwd: string, args: string[]): Promise<string> {
   return new TextDecoder().decode(output.stdout).trim();
 }
 
-/** appToolName과 같다. harness가 이름을 export하지 않아 시험이 같은 지문을 만든다. */
+/** appToolName과 같다. harness가 이름을 export하지 않아 테스트가 같은 지문을 만든다. */
 async function appToolName(app: string, command: string): Promise<string> {
   const appHash = (await fingerprint(app)).slice(0, 8);
   const commandHash = (await fingerprint(command)).slice(0, 6);
@@ -388,8 +388,8 @@ Deno.test({
         );
       const bodies = () =>
         provider.requests().map((request) => JSON.stringify(request.body));
-      const facts = async () =>
-        JSON.stringify({
+      const facts = async () => {
+        return JSON.stringify({
           steps: provider.requests().map((request) => request.matchedStep),
           runs: (await runs()).map((row) => ({
             state: row.state,
@@ -414,15 +414,30 @@ Deno.test({
               "forbidden",
               "rows",
               "deleted",
+              "finished",
+              "not known",
+              "not available",
+              "conflicted",
+              "did not start",
+              "not valid",
+              "not authorized",
+              "tool call failed",
+              "NotCapable",
             ];
             return keys.flatMap((key) => {
               const at = joined.indexOf(key);
               return at < 0
                 ? []
-                : [joined.slice(Math.max(0, at - 30), at + 70)];
+                : [joined.slice(Math.max(0, at - 40), at + 120)];
             });
           })(),
+          // 첫 판단의 도구 설명에 있는 rows와 구분하려고 다음 판단의 tool_result만 남긴다.
+          result: bodies().slice(1).map((body) => {
+            const at = body.indexOf("tool_result");
+            return at < 0 ? body.slice(0, 240) : body.slice(at, at + 700);
+          }),
         });
+      };
 
       await untilTrue("calendar가 쓰기 준비가 되지 않았다", async () => {
         const got = await mustCall(flow, {
@@ -669,6 +684,9 @@ Deno.test({
       await t.step(
         "갈래 거절: 사람이 거절하면 command는 실행되지 않고 같은 요청이 같은 동작을 다시 묻지 않는다",
         async () => {
+          const earlier = new Set(
+            (await confirmApprovals()).map((row) => row.id),
+          );
           const before = provider.requests().length;
           await send("다시 모두 지워 줘.");
           await untilCalls(before + 1);
@@ -677,6 +695,7 @@ Deno.test({
             row.status === "pending"
           );
           assert(pending !== undefined);
+          assert(!earlier.has(pending.id), "거절 대상이 새 요청이 아니다");
           await decide("reject_approval_request");
           await untilTrue(
             "거절이 기록되지 않았다",
@@ -687,7 +706,7 @@ Deno.test({
           );
           await untilTrue("거절 뒤 결과가 대화에 없다", async () => {
             const extra = (await confirmApprovals()).filter((row) =>
-              row.id !== pending.id
+              row.id !== pending.id && !earlier.has(row.id)
             );
             if (extra.length > 0) {
               throw new Error(
@@ -698,7 +717,9 @@ Deno.test({
           });
           assertEquals(await succeededDeletes(), 1);
           assert(
-            (await confirmApprovals()).every((row) => row.id === pending.id),
+            (await confirmApprovals()).every((row) =>
+              row.id === pending.id || earlier.has(row.id)
+            ),
             "거절 뒤 새 approval이 있다",
           );
         },

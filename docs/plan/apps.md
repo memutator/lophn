@@ -1390,7 +1390,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
 
 ### T27 apps slice flow E2E
 
-- 상태: 진행 (#489) — 이 slice는 use-app-command만. list step은 아직 끝나지 않았다.
+- 상태: 진행 (#489) — 이 slice는 use-app-command만. confirm 허락은 실행되고 거절은 다시 묻지 않는다. list step은 성공한 읽기가 ledger에 남지 않아(apps/invocations#R2, R18) 아직 끝나지 않았다.
 - 등급: 기본
 - concern: apps
 - 요구: flow new-app(fixture 경로), change-app, restore-app-release,

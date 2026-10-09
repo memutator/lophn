@@ -2,6 +2,7 @@ import { err, ok, type Result } from "../../packages/base/mod.ts";
 import {
   appAgentConfirmProof,
   appBlueprint,
+  appRuntime,
   grantsList,
   invocationAcceptConfirm,
   type InvocationAcceptConfirmInput,
@@ -297,16 +298,22 @@ export function createAppToolkit(options: {
         return asked.ok ? ok(asked.value as never) : asked;
       },
       current,
-      async nonce(app, command, call) {
-        const session = await connect({
-          app,
-          command,
-          run: call.run,
-          toolCall: call.toolCall,
-        });
-        return session.ok
-          ? ok(session.value.connection.process_nonce)
-          : session;
+      async nonce(app) {
+        // confirm이 묶는 프로세스 nonce다. apps/connect는 연결을 남겨 credential이
+        // 끝나면 그 프로세스를 다시 띄운다. 사람 허락을 기다리는 동안 nonce가 바뀌므로
+        // 여기서는 연결을 만들지 않고 machine 관측만 읽는다. 실제 호출은 run이 다시
+        // 돈 뒤 agent의 apps/connect로 한다.
+        const observed = await readOf(machine, appRuntime, { app });
+        if (!observed.ok) return observed;
+        const observation = observed.value.observation;
+        if (
+          observation === null || observation.mode !== "live" ||
+          !observation.ready || !observation.accepting ||
+          observation.process_nonce === "none"
+        ) {
+          return err({ code: "unavailable", message: "app is not running" });
+        }
+        return ok(observation.process_nonce);
       },
     };
     return ports;

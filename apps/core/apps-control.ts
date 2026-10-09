@@ -31,6 +31,9 @@ import {
   grantsList,
   invocationAcceptConfirm,
   type InvocationAcceptConfirmInput,
+  invocationRecordDenied,
+  invocationRecordFinished,
+  invocationRecordStarted,
   packagesGuideBody,
   previewsGet,
   previewsStart,
@@ -177,6 +180,10 @@ const SUPERVISOR_OPERATIONS = [
   // broker가 요청마다 현재 release 선언과 active grant를 다시 읽는다(apps/permissions#R2, R14).
   appBlueprint.name,
   grantsList.name,
+  // 앱이 broker로 보낸 invocation 기록은 이 자격이 core command로 전달한다.
+  invocationRecordStarted.name,
+  invocationRecordFinished.name,
+  invocationRecordDenied.name,
   // activation을 진행하는 supervisor는 시도의 참조·결과를 확정하고 시도의 현재 상태를 읽는다
   // (apps/releases#R12–R15, apps/data#R4). 시작은 사람 approval의 적용(`apply_approved_action`)이다.
   releaseRecordBackup.name,
@@ -222,6 +229,16 @@ export function appsOperationPolicies(): OperationPolicy[] {
       kind: "command",
     })),
     { name: grantsList.name, actors: ["machine"], kind: "command" },
+    // supervisor가 앱의 invocation 후행 기록을 core에 전달한다.
+    ...[
+      invocationRecordStarted,
+      invocationRecordFinished,
+      invocationRecordDenied,
+    ].map((route): OperationPolicy => ({
+      name: route.name,
+      actors: ["machine"],
+      kind: "command",
+    })),
     ...[
       releaseRecordBackup,
       releaseRecordDataChange,

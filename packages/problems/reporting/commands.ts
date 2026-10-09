@@ -14,6 +14,7 @@ import type {
 import {
   problemObserved,
   problemOpened,
+  problemReopened,
   recordReport,
   reportRecorded,
   snapshotRecorded,
@@ -30,6 +31,16 @@ import {
 } from "./model.ts";
 
 const CONFLICT = "같은 Report ID의 원주체나 내용이 다르다";
+
+// 앱의 현재 활성 release다. activation이 releases 표의 status로 바꿔 둔 사실이다
+// (problems/closing의 닫힘 command가 읽는 것과 같은 열).
+function activeReleaseOf(tx: Tx, app: string): string | null {
+  const row = tx.sql.get(
+    `select id from releases where app = ? and status = 'active'`,
+    [app],
+  );
+  return row === undefined ? null : String(row.id);
+}
 
 type AcceptedReport = Output<typeof recordReport>;
 
@@ -247,9 +258,25 @@ export function handleRecordReport(
       group_key: input.group_key,
       report: report.id,
     });
+  } else if (
+    live && problemRow !== null && problemRow.status === "closed" &&
+    report.release !== null &&
+    report.release === activeReleaseOf(tx, report.app)
+  ) {
+    // closed+현재 활성 release의 운영 보고는 경과 기간·닫힘 이유와 무관하게 같은 ID로
+    // 다시 연다(closing#R11, grouping#R10). 이전 closure는 event에 남는다. 활성 release는
+    // collector가 보낸 비교 값이 아니라 같은 transaction의 releases 표에서 읽는다.
+    tx.sql.run(
+      `update problems set status = 'open', closure = NULL where id = ?`,
+      [problemRow.id],
+    );
+    tx.emit(problemReopened, problemRow.id, {
+      previous: JSON.parse(problemRow.closure!),
+      report: report.id,
+      decision: null,
+    });
   } else if (live && problemRow !== null) {
-    // open/fixing→동일, closed→closed 유지(늦은 이전 release 보고).
-    // closed+현재 활성 release의 reopen 분기는 problems/closing의 몫이다(T21).
+    // open/fixing→동일, closed→closed 유지(이전 release의 늦은 보고, closing#R12).
     tx.emit(problemObserved, problemRow.id, {
       report: report.id,
       release: report.release,

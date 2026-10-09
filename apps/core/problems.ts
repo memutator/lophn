@@ -44,7 +44,10 @@ import {
   listProblemsRead,
   reconcileProblemWorkCommand,
 } from "../../packages/problems/grouping/mod.ts";
-import { closeProblemVerifiedCommand } from "../../packages/problems/closing/mod.ts";
+import {
+  applyProblemDecisionCommand,
+  closeProblemVerifiedCommand,
+} from "../../packages/problems/closing/mod.ts";
 import { REPORTS_SCHEMA_STEPS } from "../../packages/problems/reporting/mod.ts";
 import {
   DETAIL_COLLECTION_SETTING_KEY,
@@ -207,6 +210,7 @@ export const problemsReportDefinitions = {
     reconcileProblemWorkCommand,
     linkProblemInterpretationCommand,
     closeProblemVerifiedCommand,
+    applyProblemDecisionCommand,
   ],
   // `problems.work`·`problems.closing` 반응기(test-runner kind)만 자기 cursor를 올린다
   // (problems/grouping#R9, problems/closing#R5).

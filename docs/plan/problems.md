@@ -570,6 +570,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 
 ### T26 snapshot 큰 자료 정리 뒤 부재 표시
 
+- 상태: 완료 (#485)
 - 등급: 좁은
 - concern: problems/snapshots
 - 요구: problems/snapshots#R17

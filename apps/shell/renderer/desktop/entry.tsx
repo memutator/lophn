@@ -44,6 +44,7 @@ import { coreAppsSource } from "./lophn-space/apps/core-source.ts";
 import { coreRolesSource } from "./lophn-space/roles/core-source.ts";
 import { coreSettingsSource } from "./lophn-space/settings/core-source.ts";
 import { coreBackupSource } from "./lophn-space/settings/backup/core-source.ts";
+import { coreNotificationsSource } from "./lophn-space/settings/notifications/core-source.ts";
 import { coreAppDetailSource } from "../app-frame/app-detail/core-source.ts";
 import {
   coreCodingConnectionsSource,
@@ -77,7 +78,11 @@ const roles = coreRolesSource(core);
 // settings 화면. 연결·계정·확장·일반 설정. key·로그인 응답은 보호 창이 받는다.
 const settings = coreSettingsSource(core);
 // settings의 운영 탭(shell#T58). backup 복원 계획·제출은 main의 복원 통로(`lophnRestore`)다.
-const settingsPanels = { backup: coreBackupSource(core) };
+// OS notification은 이 탭에서 켠 뒤에만 shell main이 올린다(platform/notifications#R9).
+const settingsPanels = {
+  backup: coreBackupSource(core),
+  notifications: coreNotificationsSource(core),
+};
 // coding agent 연결(settings)과 앱 공간 Tasks 탭. 감지·연결·[Start]는 main이 따로 검증하는 통로(`lophnCoding`)다.
 const codingApi = windowCodingApi();
 const coding = coreCodingConnectionsSource(core, {

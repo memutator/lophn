@@ -1656,6 +1656,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T46 사람 화면의 repair ticket 준비와 수리 요청
 
+- 상태: 완료 (#481) — 이어보냄: `PrepareRepairTicket` read와 `REPAIR_PREPARE_SOURCE` port의 core 등록(`apps/core/tickets.ts`의 `createReaderRegistration`은 `screen_repair_prepare`를 아직 넣지 않는다)
 - 등급: 기본
 - concern: coding-agent/tickets
 - 요구: coding-agent/tickets#R24, R26

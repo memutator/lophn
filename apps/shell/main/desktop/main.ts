@@ -1059,8 +1059,8 @@ registerRestoreIpc(restoreIpcMain, {
   register: (request) => core.registerConfirmation(request),
 });
 
-// settings update(flow update-lophn 1). 사람이 고른 로컬 metadata의 안내만 만든다.
-// 다운로드·설치·재시작은 하지 않고, 배포를 검증됨으로 두지 않는다.
+// settings update(flow update-lophn 1–2). 사람이 고른 로컬 metadata로 안내하고,
+// 정상 정지를 확인한 뒤에만 그 파일로 설치 파일을 바꾼다. 다운로드·재시작은 없다.
 const updateIpcMain: UpdateIpcMain = {
   handle: (channel, listener) =>
     ipcMain.handle(channel, (event, input) => listener(event, input)),
@@ -1069,6 +1069,8 @@ const updateIpcMain: UpdateIpcMain = {
 registerUpdateIpc(updateIpcMain, {
   registry: overlays.overlayRegistry(),
   session: () => core.session(),
+  dataRoot: () => dataRoot,
+  stopPlatform: () => core.confirmStop(),
   version: () => {
     try {
       const parsed = JSON.parse(

@@ -6,6 +6,7 @@ import type {
   ScreenSize,
   ViewMode,
 } from "./app-connection.ts";
+import type { ViewHealth, ViewHealthSignal } from "./crash.ts";
 import type { FetchHost } from "./network-policy.ts";
 
 export interface ViewBounds {
@@ -47,6 +48,8 @@ export interface AppFrameViewState {
   screen: string;
   size: ScreenSize;
   connectionState: ConnectionState;
+  /** 그 view 화면 process의 상태(crash.ts). 연결 상태와 따로 본다. */
+  viewHealth: ViewHealth;
 }
 
 /** Electron WebContentsView 하나. */
@@ -63,6 +66,8 @@ export interface AppViewHost {
   create(input: {
     partition: string;
     allowNavigation(url: string): boolean;
+    /** 화면 process가 사라지거나 응답이 없거나 돌아왔다(crash.ts). */
+    onHealth?(signal: ViewHealthSignal): void;
   }): AppViewContents;
   /** 창 본문에 붙이거나 bounds를 옮긴다. 창이 없으면 false다. */
   attach(window: string, view: AppViewContents, bounds: ViewBounds): boolean;
@@ -199,6 +204,7 @@ interface ViewEntry extends Bound {
   view_session: string;
   generation: number;
   connectionState: ConnectionState;
+  viewHealth: ViewHealth;
 }
 
 export function stateOf(entry: ViewEntry): AppFrameViewState {
@@ -210,6 +216,7 @@ export function stateOf(entry: ViewEntry): AppFrameViewState {
     screen: entry.target.screen,
     size: entry.target.size,
     connectionState: entry.connectionState,
+    viewHealth: entry.viewHealth,
   };
 }
 

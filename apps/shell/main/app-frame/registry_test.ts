@@ -6,12 +6,14 @@ import { fileURLToPath } from "node:url";
 
 import type { AppBinding, ConnectTarget, Outcome } from "./app-connection.ts";
 import { VIEW_HEADER } from "./app-protocol.ts";
+import type { ViewHealthSignal } from "./crash.ts";
 import {
   createViewDiagnostics,
   type ViewLifetimeDiagnostic,
 } from "./diagnostics.ts";
 import type { FetchHost } from "./network-policy.ts";
 import {
+  type AppFrameViewState,
   type AppViewContents,
   createAppFrame,
   type ViewBounds,
@@ -74,6 +76,7 @@ function world() {
     loaded: string[];
     destroyed: boolean;
     allow(url: string): boolean;
+    health?(signal: ViewHealthSignal): void;
   }[] = [];
   const attached: { window: string; id: number; bounds: ViewBounds }[] = [];
   const detached: { window: string; id: number }[] = [];
@@ -81,6 +84,7 @@ function world() {
   const diagnostics: ViewLifetimeDiagnostic[] = [];
   const logs: string[] = [];
   const upstream: { path: string; authorization: string }[] = [];
+  const pushed: { window: string; state: AppFrameViewState }[] = [];
   let now = 0;
   let viewSerial = 0;
   let tokenSerial = 0;
@@ -124,13 +128,14 @@ function world() {
     },
     views: {
       hasWindow: (window) => windows.has(window),
-      create({ partition, allowNavigation }) {
+      create({ partition, allowNavigation, onHealth }) {
         const record = {
           id: nextContents++,
           partition,
           loaded: [] as string[],
           destroyed: false,
           allow: allowNavigation,
+          health: onHealth,
         };
         contents.push(record);
         const adapter: AppViewContents = {
@@ -203,9 +208,11 @@ function world() {
       token: () => `token-${++tokenSerial}`,
     },
     clock: { nowMs: () => now },
+    onState: (window, state) => pushed.push({ window, state }),
   });
   return {
     frame,
+    pushed,
     state,
     sessions,
     handles,
@@ -277,6 +284,7 @@ test("shell/app-frame#R12, shell/app-frame#R20: view 신원은 main이 얻은 �
       screen: "main",
       size: "full",
       connectionState: "running",
+      viewHealth: "ok",
     },
   });
   assert.deepEqual(w.state.connects[0], {
@@ -675,4 +683,75 @@ test("shell/app-frame#R35, shell/workspace#R12: 카드는 message·block 표시 
     target.size === "card"
   );
   assert.equal(cardConnects.every(({ follow }) => !follow), true);
+});
+
+test("shell/app-frame#R21: 멈춤·crash는 연결 상태와 함께 알리고 다시 load하지 않으며, 새 view는 누를 때만 지금 연결로 연다", async () => {
+  const w = world();
+  const view = await opened(w);
+  const other = await opened(w, { app: APP_B, release: REL_1 });
+  const first = w.contents[0]!;
+  const connects = w.state.connects.length;
+
+  // 건강한 view는 새로 열지 않는다.
+  const healthy = w.frame.reopen(view.view_session);
+  assert.equal(healthy.ok, false);
+  assert.equal(
+    (healthy as { error: { code: string } }).error.code,
+    "conflict",
+  );
+
+  first.health?.("unresponsive");
+  assert.equal(w.frame.state(view.view_session)?.viewHealth, "unresponsive");
+  assert.equal(w.frame.state(view.view_session)?.connectionState, "running");
+  first.health?.("responsive");
+  assert.equal(w.frame.state(view.view_session)?.viewHealth, "ok");
+
+  first.health?.("gone");
+  // 늦은 responsive가 crash를 되살리지 않는다.
+  first.health?.("responsive");
+  assert.equal(w.frame.state(view.view_session)?.viewHealth, "crashed");
+  assert.deepEqual(
+    w.pushed.map((item) => [item.window, item.state.viewHealth]),
+    [
+      ["window-1", "unresponsive"],
+      ["window-1", "ok"],
+      ["window-1", "crashed"],
+    ],
+  );
+  // 자동으로 다시 load하거나 연결을 다시 얻지 않는다. 다른 앱 view는 그대로다.
+  assert.equal(first.loaded.length, 1);
+  assert.equal(first.destroyed, false);
+  assert.equal(w.state.connects.length, connects);
+  assert.equal(w.frame.state(other.view_session)?.viewHealth, "ok");
+  assert.equal(w.contents[1]?.destroyed, false);
+
+  const generation = w.frame.views("window-1")
+    .find((item) => item.view_session === view.view_session)?.generation;
+  const reopened = w.frame.reopen(view.view_session);
+  assert.equal(reopened.ok, true, JSON.stringify(reopened));
+  const next = w.contents.at(-1)!;
+  assert.equal(first.destroyed, true);
+  assert.notEqual(next.id, first.id);
+  // 같은 연결·partition·화면으로 연다. core에서 연결을 새로 얻지 않는다.
+  assert.equal(next.partition, first.partition);
+  assert.deepEqual(next.loaded, first.loaded);
+  assert.equal(w.state.connects.length, connects);
+  assert.equal(w.frame.state(view.view_session)?.viewHealth, "ok");
+  assert.equal(
+    w.frame.views("window-1")
+      .find((item) => item.view_session === view.view_session)?.generation,
+    (generation ?? 0) + 1,
+  );
+  assert.equal(w.pushed.at(-1)?.state.viewHealth, "ok");
+
+  // 옛 contents의 늦은 신호는 새 view 상태를 바꾸지 않는다.
+  first.health?.("gone");
+  assert.equal(w.frame.state(view.view_session)?.viewHealth, "ok");
+  next.health?.("gone");
+  assert.equal(w.frame.state(view.view_session)?.viewHealth, "crashed");
+
+  // 닫힌 view는 새로 열 수 없다.
+  w.frame.close(view.view_session);
+  const closed = w.frame.reopen(view.view_session);
+  assert.equal(closed.ok, false);
 });

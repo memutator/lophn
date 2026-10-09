@@ -51,6 +51,7 @@ function world() {
             screen: input.screen,
             size: input.size,
             connectionState: "running",
+            viewHealth: "ok",
           },
         });
       },
@@ -65,6 +66,22 @@ function world() {
       close(window, view) {
         calls.push(["close", window, view]);
         return { ok: true, value: null };
+      },
+      reopen(window, view) {
+        calls.push(["reopen", window, view]);
+        return {
+          ok: true,
+          value: {
+            view_session: view,
+            app: APP,
+            release: REL,
+            mode: "live",
+            screen: "main",
+            size: "panel",
+            connectionState: "running",
+            viewHealth: "ok",
+          },
+        };
       },
     },
   });
@@ -160,6 +177,7 @@ test("shell/app-frame#R23: shell preload의 view 통로는 고정 channel만 쓰
     "setViewBounds",
     "setViewsHidden",
     "closeView",
+    "reopenView",
     "subscribeViewState",
   ]);
   assert(Object.isFrozen(api));
@@ -232,4 +250,23 @@ test("apps/agent-context#R2, apps/agent-context#R5: 닫힌 live view는 core 앱
   assert.deepEqual(logs, [
     `view-closed not relayed view-1 app=${APP} code=unavailable`,
   ]);
+});
+
+test("shell/app-frame#R21: 새 view 열기는 desktop 창 main frame만 부르고 그 창의 view_session 하나만 받는다", async () => {
+  const w = world();
+  for (const sender of [overlay, app]) {
+    const denied = await w.handlers.reopen(event(sender), {
+      view_session: "view-1",
+    });
+    assert.deepEqual(denied.ok ? "" : denied.error.code, "forbidden");
+  }
+  for (const bad of [{}, { view_session: "view-1", app: APP }]) {
+    const rejected = await w.handlers.reopen(event(desk), bad);
+    assert.deepEqual(rejected.ok ? "" : rejected.error.code, "invalid_input");
+  }
+  const reopened = await w.handlers.reopen(event(desk), {
+    view_session: "view-1",
+  });
+  assert.equal(reopened.ok, true);
+  assert.deepEqual(w.calls, [["reopen", "window-1", "view-1"]]);
 });

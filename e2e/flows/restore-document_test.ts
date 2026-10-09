@@ -5,7 +5,8 @@
 // - 프로젝트 등록·추적은 같은 사람 command를 core 통로로 낸다(first-project가 화면 조작을 따로 본다).
 // - 이력·비교·restore 조작은 모두 정보 패널의 versions 탭과 compare 화면으로 한다.
 // - 원본 파일이 없을 때는 아래 갈래가 본다. agent가 쓴 판의 run 근거는 그 다음 테스트가 본다.
-//   옛 이름·자리 참조는 그 다음 테스트가 본다. 검색 반영 대기는 마지막 테스트가 본다.
+//   옛 이름·자리 참조는 그 다음 테스트가 본다. 검색 반영 대기는 그 다음 테스트가 본다.
+//   보관·추적 중단 뒤의 옛 판 읽기는 마지막 테스트가 본다.
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 
 import { buildReply } from "../../tools/fake-provider/semantic.ts";
@@ -25,6 +26,7 @@ import {
   registerTrackedProject,
   removeHome,
   searchOnce,
+  setTracking,
   untilDocuments,
   untilFile,
   untilReadable,
@@ -1131,6 +1133,361 @@ Deno.test({
       await flow.close();
       await removeHome(flow.home);
       await Deno.remove(folder, { recursive: true });
+    }
+  },
+});
+
+const HELD_PROJECT = "prj_01arz3ndektsv4rrffq69g5faw";
+const IDLE_PROJECT = "prj_01arz3ndektsv4rrffq69g5fax";
+const STALE_TEXT = "# Plan\n\nStale line.\n";
+// 관측 loop의 조용함(750ms)보다 길게 본다. 낡은 범위의 loop가 아직 돌면 이 안에 새 판이 된다.
+const STALE_QUIET_MS = 10_000;
+
+type FileStatusView = { state?: string; details?: string | null };
+
+type PreparedDoc = {
+  id: string;
+  file: string;
+  folder: string;
+  project: string;
+  title: string;
+};
+
+async function prepareTracked(
+  flow: FlowShell,
+  options: {
+    folder: string;
+    id?: string;
+    name: string;
+    title: string;
+    fileName: string;
+  },
+): Promise<PreparedDoc> {
+  const file = `${options.folder}/${options.fileName}`;
+  await Deno.writeTextFile(file, ALPHA);
+  const registered = await registerTrackedProject(flow, {
+    folder: options.folder,
+    ...(options.id === undefined ? {} : { id: options.id }),
+    name: options.name,
+    title: options.title,
+  });
+  const documentTitle = options.fileName.slice(0, -".md".length);
+  await untilDocuments(
+    flow,
+    [documentTitle],
+    `${documentTitle}가 문서가 되지 않았다`,
+  );
+  return {
+    id: "",
+    file,
+    folder: options.folder,
+    project: registered.project,
+    title: documentTitle,
+  };
+}
+
+async function secondVersion(
+  flow: FlowShell,
+  doc: PreparedDoc,
+): Promise<PreparedDoc> {
+  await untilDocuments(flow, [doc.title], `${doc.title}가 문서가 되지 않았다`);
+  const created = await documentTitled(flow, doc.title);
+  await Deno.writeTextFile(doc.file, BETA);
+  await untilVersions(flow, created.id, 2, `${doc.title}의 두 번째 판이 없다`);
+  await untilReadable(flow, created.id, `${doc.title}의 본문이 읽히지 않는다`);
+  assertEquals(
+    (await versionHistory(flow, created.id)).map((row) => row.number),
+    [2, 1],
+  );
+  return { ...doc, id: created.id };
+}
+
+async function projectRevision(
+  flow: FlowShell,
+  project: string,
+): Promise<string> {
+  const got = await mustCall(flow, {
+    kind: "read",
+    resource: "projects",
+    method: "get",
+    body: { project },
+  });
+  return String((got.project as { revision: string }).revision);
+}
+
+async function fileStatus(
+  flow: FlowShell,
+  project: string,
+  path: string,
+): Promise<FileStatusView | undefined> {
+  const reply = await flow.call({
+    kind: "read",
+    resource: "files",
+    method: "status",
+    body: { target: { kind: "project_file", project, path } },
+  });
+  if (!reply.ok) return undefined;
+  return (reply.value as { status?: FileStatusView }).status;
+}
+
+async function untilFileStatus(
+  flow: FlowShell,
+  project: string,
+  path: string,
+  done: (status: FileStatusView) => boolean,
+  what: string,
+): Promise<void> {
+  const deadline = Date.now() + READY_TIMEOUT_MS;
+  let last: FileStatusView | undefined;
+  for (;;) {
+    last = await fileStatus(flow, project, path);
+    if (last !== undefined && done(last)) return;
+    assert(Date.now() < deadline, `${what}: ${JSON.stringify(last)}`);
+    await delay(250);
+  }
+}
+
+async function openTrackedDocument(
+  flow: FlowShell,
+  project: string,
+  documentId: string,
+): Promise<void> {
+  const space = String(
+    await flow.evaluate(
+      `document.querySelector("[data-space]")?.getAttribute("data-space") ?? ""`,
+    ),
+  );
+  if (space !== "launcher") {
+    await flow.click("[data-launcher-back]");
+    await flow.until(
+      `document.querySelector("[data-space]")?.getAttribute("data-space") === "launcher"`,
+      "런처로 돌아오지 않았다",
+    );
+  }
+  const card =
+    `[data-card="project"][data-project="${project}"] button:not([data-details-toggle])`;
+  await flow.until(
+    `document.querySelector(${JSON.stringify(card)}) !== null`,
+    "프로젝트 카드가 없다",
+  );
+  await flow.click(card);
+  await flow.until(
+    `document.querySelector("[data-space]")?.getAttribute("data-space") === "project" && document.querySelector('[data-document="${documentId}"]') !== null`,
+    "작업대에 문서가 없다",
+  );
+  await flow.click(`[data-document="${documentId}"]`);
+  await flow.until(
+    `document.querySelector('[data-tab="${documentId}"]') !== null && document.querySelector("[data-document-body]")?.textContent?.includes("Beta line.")`,
+    "확정한 지금 판이 읽히지 않았다",
+  );
+}
+
+async function closeCompare(flow: FlowShell): Promise<void> {
+  if (await flow.count("[data-compare-view]") === 0) return;
+  await flow.click("[data-compare-close]");
+  await flow.until(
+    `document.querySelector("[data-compare-view]") === null`,
+    "비교 화면이 닫히지 않았다",
+  );
+}
+
+async function compareOldToNewest(flow: FlowShell): Promise<void> {
+  await closeCompare(flow);
+  await openVersions(flow);
+  await flow.until(
+    `${ROW_NUMBERS} === "[2,1]"`,
+    "이력에 옛 판과 지금 판이 없다",
+  );
+  await flow.click(`[data-compare-newest="1"]`);
+  await flow.until(
+    `document.querySelector("[data-compare-view]") !== null`,
+    "비교 화면이 열리지 않았다",
+  );
+  await flow.until(
+    `${DIFF_TEXT("delete")}.includes("\\"Alpha line.\\"") && ${
+      DIFF_TEXT("add")
+    }.includes("\\"Beta line.\\"")`,
+    "옛 판과 지금 판의 내용이 읽히지 않는다",
+  );
+}
+
+async function unchangedAfterOutsideWrite(
+  flow: FlowShell,
+  documentId: string,
+  file: string,
+): Promise<void> {
+  const before = await versionHistory(flow, documentId);
+  assertEquals(before.map((row) => row.number), [2, 1]);
+  await Deno.writeTextFile(file, STALE_TEXT);
+  const deadline = Date.now() + STALE_QUIET_MS;
+  while (Date.now() < deadline) {
+    const rows = await versionHistory(flow, documentId);
+    assertEquals(
+      rows.map((row) => row.content_hash),
+      before.map((row) => row.content_hash),
+      "낡은 추적 범위로 새 판이 확정됐다",
+    );
+    await delay(400);
+  }
+  assertEquals(await Deno.readTextFile(file), STALE_TEXT);
+}
+
+async function confirmedStillReadable(
+  flow: FlowShell,
+  documentId: string,
+): Promise<void> {
+  await closeCompare(flow);
+  await flow.until(
+    `document.querySelector('[data-tab="${documentId}"]') !== null && document.querySelector("[data-document-body]")?.textContent?.includes("Beta line.") && !document.querySelector("[data-document-body]")?.textContent?.includes("Stale line.")`,
+    "확정한 판 대신 파일의 새 글이 읽힌다",
+  );
+  await openVersions(flow);
+  await flow.until(
+    `${ROW_NUMBERS} === "[2,1]"`,
+    "이력이 옛 판을 잃거나 새 판을 보여 준다",
+  );
+  const rows = await versionHistory(flow, documentId);
+  await untilVersionText(flow, documentId, rows[1]!.id, "Alpha line.");
+  await untilVersionText(flow, documentId, rows[0]!.id, "Beta line.");
+  const old = await mustCall(flow, {
+    kind: "worker",
+    resource: "documents",
+    method: "read",
+    body: {
+      reference: { document: documentId, version: rows[1]!.id, section: null },
+    },
+  });
+  const text = String(old.text ?? "");
+  assert(text.includes("Alpha line."), text);
+  assertEquals(text.includes("Beta line."), false);
+  assertEquals(text.includes("Stale line."), false);
+}
+
+Deno.test({
+  name:
+    "documents/versions#R11 documents/file-tracking#R8 flow restore-document: 문서나 프로젝트를 보관했거나 추적을 중단해도 옛 판은 읽히고 낡은 추적 범위로 새 판을 확정하지 않는다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn() {
+    const keptFolder = await Deno.realPath(
+      await Deno.makeTempDir({ prefix: "lophn-e2e-restore-kept-" }),
+    );
+    const heldFolder = await Deno.realPath(
+      await Deno.makeTempDir({ prefix: "lophn-e2e-restore-held-" }),
+    );
+    const idleFolder = await Deno.realPath(
+      await Deno.makeTempDir({ prefix: "lophn-e2e-restore-idle-" }),
+    );
+    const flow = await openFlowShell({ start: "lophn" });
+    try {
+      const keptRegistered = await prepareTracked(flow, {
+        folder: keptFolder,
+        name: "kept",
+        title: "Kept",
+        fileName: "kept.md",
+      });
+      const heldRegistered = await prepareTracked(flow, {
+        folder: heldFolder,
+        id: HELD_PROJECT,
+        name: "held",
+        title: "Held",
+        fileName: "held.md",
+      });
+      const idleRegistered = await prepareTracked(flow, {
+        folder: idleFolder,
+        id: IDLE_PROJECT,
+        name: "idle",
+        title: "Idle",
+        fileName: "idle.md",
+      });
+      const kept = await secondVersion(flow, keptRegistered);
+      const held = await secondVersion(flow, heldRegistered);
+      const idle = await secondVersion(flow, idleRegistered);
+
+      await openTrackedDocument(flow, kept.project, kept.id);
+      const keptBefore = await documentTitled(flow, "kept");
+      await mustCall(flow, {
+        kind: "command",
+        resource: "documents",
+        method: "archive",
+        body: commandBody(
+          { document: kept.id },
+          { base_revision: keptBefore.revision },
+        ),
+      });
+      const archived = await documentTitled(flow, "kept", "archived");
+      assertEquals(archived.id, kept.id);
+      assertEquals(archived.latest_version, keptBefore.latest_version);
+      await untilFileStatus(
+        flow,
+        kept.project,
+        kept.file,
+        (status) =>
+          status.state === "unverified" &&
+          status.details === "document archived",
+        "보관된 문서의 관측이 새 판을 만들지 않는 상태로 오지 않았다",
+      );
+      await compareOldToNewest(flow);
+      await flow.click(`[data-info-tab="info"]`);
+      await flow.until(
+        `document.querySelector("[data-info-facts]")?.textContent?.includes("Archived")`,
+        "보관한 문서라는 안내가 없다",
+      );
+      await unchangedAfterOutsideWrite(flow, kept.id, kept.file);
+      await confirmedStillReadable(flow, kept.id);
+
+      await openTrackedDocument(flow, held.project, held.id);
+      await mustCall(flow, {
+        kind: "command",
+        resource: "projects",
+        method: "archive",
+        body: commandBody(
+          { project: held.project },
+          { base_revision: await projectRevision(flow, held.project) },
+        ),
+      });
+      const heldStill = await documentTitled(flow, "held");
+      assertEquals(heldStill.status, "active");
+      assertEquals(heldStill.id, held.id);
+      await untilFileStatus(
+        flow,
+        held.project,
+        held.file,
+        (status) => status.state === "not_tracked",
+        "보관한 프로젝트의 낡은 추적이 멈추지 않았다",
+      );
+      await compareOldToNewest(flow);
+      await unchangedAfterOutsideWrite(flow, held.id, held.file);
+      await confirmedStillReadable(flow, held.id);
+
+      await openTrackedDocument(flow, idle.project, idle.id);
+      const turnedOff = await setTracking(
+        flow,
+        idle.project,
+        await projectRevision(flow, idle.project),
+        { folder: idle.folder, globs: [], enabled: false },
+      );
+      assert(turnedOff.ok, JSON.stringify(turnedOff));
+      const idleStill = await documentTitled(flow, "idle");
+      assertEquals(idleStill.status, "active");
+      assertEquals(idleStill.id, idle.id);
+      await untilFileStatus(
+        flow,
+        idle.project,
+        idle.file,
+        (status) => status.state === "not_tracked",
+        "추적을 끈 뒤에도 낡은 범위가 추적 중이다",
+      );
+      await compareOldToNewest(flow);
+      await unchangedAfterOutsideWrite(flow, idle.id, idle.file);
+      await confirmedStillReadable(flow, idle.id);
+    } finally {
+      await flow.close();
+      await removeHome(flow.home);
+      await Deno.remove(keptFolder, { recursive: true });
+      await Deno.remove(heldFolder, { recursive: true });
+      await Deno.remove(idleFolder, { recursive: true });
     }
   },
 });

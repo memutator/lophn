@@ -385,6 +385,17 @@ export async function createRealAppDriver(
       const body = await request.json().catch(() => null);
       return await acceptReport(body);
     }
+    if (
+      request.method === "POST" &&
+      path === "/_lophn/broker/problems/observe-exception"
+    ) {
+      const body = await request.json().catch(() => null);
+      const observation = body !== null && typeof body === "object" &&
+          "observation" in body
+        ? (body as { observation: unknown }).observation
+        : body;
+      return await acceptException(observation);
+    }
     return await endpoint.handle(request);
   });
 

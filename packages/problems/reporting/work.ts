@@ -69,9 +69,14 @@ export function contentHashOf(
   >,
 ): string | undefined {
   const { content_hash: _omitted, ...report } = input.report;
+  // 조립 시각은 재전송마다 달라진다. 같은 발생의 hash에는 넣지 않는다(R9).
+  const snapshot = {
+    ...input.snapshot,
+    captured_at: report.observed_at,
+  };
   const parsed = reportContentHashInputSchema.safeParse({
     report,
-    snapshot: input.snapshot,
+    snapshot,
     group_key: input.group_key,
     existing_problem: input.existing_problem,
     blobs: input.blobs.map((blob) => ({

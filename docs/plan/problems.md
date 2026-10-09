@@ -563,7 +563,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: 없음
 - slice: problems
 - 선행: problems#T19, problems#T24, platform#T39, lophn-agent#T50, coding-agent#T38, coding-agent#T46, coding-agent#T47, shell#T52, shell#T53
-- 상태: 진행 (#503) — 이 PR은 flow 1단계만. 선언 실패(fixture_misconfigured user fixer, fixture_broken coding_agent)와 view render exception 수집, 당시 release·출처·snapshot 고정, 없는 증거의 이유, 자동 수집은 사람 파일·미선택 화면을 넣지 않음, 수집 UI는 안 보임. 남은 것: 2–9단계(redaction·notification·App Engineer·ticket·claim·reproduction·activation·자동 닫힘)와 process unhandled rejection(자식이 바로 exit).
+- 상태: 진행 (#503, #517, #519) — 이 PR은 flow 1단계만. 선언 실패(fixture_misconfigured user fixer, fixture_broken coding_agent)와 view render exception 수집, 당시 release·출처·snapshot 고정, 없는 증거의 이유, 자동 수집은 사람 파일·미선택 화면을 넣지 않음, 수집 UI는 안 보임. #517은 flow 2단계(redaction·재전송 중복·과다 보고 제한·같은 분류를 한 문제, 묶음은 같은 원인의 증명이 아님). #519는 flow 3단계만. app-detail에서 문제 열림 notification으로 증상·진행·다음 행동을 보고 봐 달라고 요청한다. 반복 report는 notification을 늘리거나 App Engineer를 자동 시작하지 않는다. 당시 증거는 원할 때 펼쳐 본다. 남은 것: 4–9단계(해석 문서, ticket, claim, reproduction, activation, 자동 닫힘)와 process unhandled rejection(자식이 바로 exit).
 - 완료:
   - flow 1~9단계: 선언 실패와 process exception 접수 → 문제 열림 notification 1회 → App Engineer 해석 연결 → repair ticket → claim 뒤 fixing → reproduction·app test → 고친 기록 → activation → 자동 닫힘
   - 다른 갈래: 일부 증거 실패는 이유와 함께 접수, claim 만료 뒤 제출 거절, 재현 실패·약화는 닫힘 아님, 닫힌 뒤 현재 release 재발은 같은 문제 reopen

@@ -1165,6 +1165,10 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 - 이 PR (#505)은 flow update-lophn의 1단계만 했다. settings에서 이 OS의 설치 패키지가 아직 검증되지 않았음을 확인하고, 사람이 고른 로컬 metadata로 수동 update를 고른다. 자동 다운로드·자동 설치·사용 중 재시작은 없다. 검증하지 않은 배포를 사용 가능한 완료로 안내하지 않는다. 2–8단계와 work-offline의 나머지, install-lophn은 남은 그대로다.
 - 상태: 진행 (#510) — 남은 것: update-lophn 3–8단계, work-offline의 나머지, install-lophn. 한 것: 2단계는 진행 작업과 플랫폼을 정상 정지한 뒤 사람이 고른 패키지 파일로 설치 파일만 교체한다. 데이터 폴더의 ledger는 지우지 않는다. 다운로드·재시작은 없다. 검증하지 않은 배포는 검증됨으로 두지 않는다.
 - 이 PR (#510)은 flow update-lophn의 2단계만 했다. 진행 작업과 플랫폼을 정상 정지한 뒤 사람이 고른 패키지 파일로 설치 파일만 교체한다. 데이터 폴더의 ledger는 지우지 않는다. 다운로드·재시작은 없다. 검증하지 않은 배포는 검증됨으로 두지 않는다. 3–8단계와 work-offline의 나머지, install-lophn은 남은 그대로다.
+- 상태: 진행 (#515) — 남은 것: update-lophn 4–8단계, work-offline의 나머지, install-lophn. 한 것: 3단계는 schema 변경이 필요하면 새 command를 막고 기존 짧은 쓰기를 끝낸 뒤 worker를 정지하고, 일관된 검증 backup 뒤에 포함된 migration을 순서대로 수행한다. 실패·중단 단계는 rollback해서 직전 완료 schema를 유지한다. 사람에게는 보이지 않는다.
+- 이 PR (#515)은 flow update-lophn의 3단계만 했다. schema 변경이 필요하면 새 command를 막고 기존 짧은 쓰기를 끝낸 뒤 worker를 정지하고, 일관된 검증 backup 뒤에 포함된 migration을 순서대로 수행한다. 실패·중단 단계는 rollback해서 직전 완료 schema를 유지한다. 사람에게는 보이지 않는다. 4–8단계와 work-offline의 나머지, install-lophn은 남은 그대로다.
+- 상태: 진행 (#521) — 남은 것: work-offline 4–7단계, update-lophn 4–8단계, install-lophn. 한 것: work-offline 3단계는 연결 실패·기다림·결과 모름을 구별하고, 마지막 확인한 로컬 문서를 유지하며 한 앱의 오래 걸리는 호출이 무관한 로컬 문서와 다른 앱을 멈추지 않는다.
+- 이 PR (#521)은 flow work-offline의 3단계만 했다. 외부 연결이 필요한 동작만 연결 실패·기다림·결과 모름으로 안내한다. 마지막 확인한 로컬 문서 내용은 유지하고, 한 앱의 오래 걸리는 호출이 무관한 로컬 문서와 다른 앱을 멈추지 않는다. 4–7단계와 update-lophn, install-lophn은 남은 그대로다.
 - 완료: 아래 확인이 통과한다
   - `e2e/flows/install-lophn_test.ts`, `update-lophn_test.ts`, `backup-and-restore_test.ts`, `catch-up-notifications_test.ts`, `work-offline_test.ts`가 flow 문서의 단계·다른 갈래·끝을 그대로 돈다(Linux, fake provider와 fixture).
   - `deno task e2e`에서 operations slice의 다섯 flow가 모두 통과한다.

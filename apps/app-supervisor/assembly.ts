@@ -354,6 +354,34 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
           message: "the report was refused",
         });
       },
+      async observe(observation) {
+        // 잡은 예외도 그 자식의 app credential로만 core에 간다. 본문이 앱을 정하지 않는다.
+        const bearer = credentials.get(child.processNonce);
+        if (bearer === undefined) {
+          return err({
+            code: "unavailable",
+            message: "the app has no reporting credential",
+          });
+        }
+        let response: { status: number; body: unknown };
+        try {
+          response = await io.post(
+            "problems/observe-exception",
+            bearer,
+            observation,
+          );
+        } catch {
+          return err({ code: "unavailable", message: "core is unreachable" });
+        }
+        const accepted = reportAcceptanceSchema.safeParse(response.body);
+        if (response.status === 200 && accepted.success) {
+          return ok(accepted.data);
+        }
+        return err({
+          code: errorCodeOf(response.status, response.body),
+          message: "the report was refused",
+        });
+      },
     };
   }
 

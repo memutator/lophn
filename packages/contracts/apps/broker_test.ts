@@ -23,9 +23,9 @@ const APP = "app_01h455vb4pex5v6nkc6gd5fdw1";
 const REL = "rel_01h455vb4pex5v6nkc6gd5fdw1";
 const HASH = "ab".repeat(32);
 
-Deno.test("apps/runtime#R5, apps/runtime#R9, apps/runtime#R18, apps/connections#R6, apps/automations#R5, apps/automations#R6, apps/automations#R9, apps/automations#R12, apps/sdk#R23, apps/sdk#R27, apps/sdk#R28, apps/sdk#R30, apps/sdk#R31, apps/sdk#R40: broker 경로 12개의 입력·출력", () => {
-  assertEquals(Object.keys(BROKER_SOCKET_PATHS).length, 12);
-  assertEquals(new Set(Object.values(BROKER_SOCKET_PATHS)).size, 12);
+Deno.test("apps/runtime#R5, apps/runtime#R9, apps/runtime#R18, apps/connections#R6, apps/automations#R5, apps/automations#R6, apps/automations#R9, apps/automations#R12, apps/sdk#R23, apps/sdk#R27, apps/sdk#R28, apps/sdk#R30, apps/sdk#R31, apps/sdk#R40: broker 경로 13개의 입력·출력", () => {
+  assertEquals(Object.keys(BROKER_SOCKET_PATHS).length, 13);
+  assertEquals(new Set(Object.values(BROKER_SOCKET_PATHS)).size, 13);
   for (const path of Object.values(BROKER_SOCKET_PATHS)) {
     assert(path.startsWith("/_lophn/broker/"));
     assert(path.startsWith("/v1/") === false);

@@ -16,6 +16,7 @@ export const BROKER_PATHS = {
   ready: "/_lophn/broker/ready",
   invocationsSubmit: "/_lophn/broker/invocations/submit",
   problemsReport: "/_lophn/broker/problems/report",
+  problemsObserve: "/_lophn/broker/problems/observe-exception",
   appsConnect: "/_lophn/broker/apps/connect",
   appsConfirmRequest: "/_lophn/broker/apps/confirm/request",
   appsConfirmPoll: "/_lophn/broker/apps/confirm/poll",

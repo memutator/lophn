@@ -28,6 +28,8 @@ import {
   readProviderFacts,
 } from "../desktop/connection/provider-state.ts";
 import { ProviderNotice } from "../desktop/connection/connection.tsx";
+import { ExternalNotice } from "./external-guide.tsx";
+import { type ExternalGuide, loadExternalGuide } from "./external-guide.ts";
 import { newId } from "../desktop/lophn-space/model.ts";
 import type {
   SaveRequest,
@@ -166,6 +168,7 @@ export function Dock(
     confirmedAt: null,
   });
   const [provider, setProvider] = useState<ProviderFacts | null>(null);
+  const [guide, setGuide] = useState<ExternalGuide | null>(null);
   const [problem, setProblem] = useState<
     "open-failed" | "stop-failed" | null
   >(null);
@@ -275,6 +278,22 @@ export function Dock(
   const draft = current === null ? null : drafts.draft(current);
   const run = current === null ? null : latestRun(loaded.runs, current);
   const active = activeRun(run);
+  const runId = run?.id ?? null;
+  // core가 끊기면 마지막으로 읽은 안내를 둔다. 끊김을 연결 실패로 바꾸지 않는다.
+  useEffect(() => {
+    if (core === undefined || runId === null) {
+      setGuide(null);
+      return;
+    }
+    if (connection.state !== "ready") return;
+    let live = true;
+    void loadExternalGuide(core, runId).then((next) => {
+      if (live) setGuide(next);
+    });
+    return () => {
+      live = false;
+    };
+  }, [core, connection.state, runId, loaded.checkedAt]);
   const offline = connection.state !== "ready";
 
   const deliver = async (
@@ -609,7 +628,15 @@ export function Dock(
     >
       {header}
       {stale}
-      <ProviderNotice facts={provider} onSettings={onSettings} />
+      {guide !== null
+        ? (
+          <ExternalNotice
+            guide={guide}
+            onReconnect={onSettings}
+            onCheck={() => void refresh()}
+          />
+        )
+        : <ProviderNotice facts={provider} onSettings={onSettings} />}
       {problem === null
         ? null
         : (

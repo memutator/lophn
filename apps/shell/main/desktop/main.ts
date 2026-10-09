@@ -28,6 +28,12 @@ import {
   removeRestoreIpc,
   type RestoreIpcMain,
 } from "./core/restore-ipc.ts";
+import {
+  type LayoutIpcMain,
+  registerLayoutIpc,
+  removeLayoutIpc,
+} from "./core/layout-ipc.ts";
+import { createLayoutStore } from "../workspace/layout-store.ts";
 import { OPEN_EXTERNAL_CHANNEL } from "../../ipc/open-external.ts";
 import {
   DESKTOP_INTENT_CHANNEL,
@@ -985,6 +991,24 @@ registerRestoreIpc(restoreIpcMain, {
   register: (request) => core.registerConfirmation(request),
 });
 
+// 작업대 layout(shell/workspace#R6). desktop 창 본문만 부르고 파일 schema는 여기서 검사한다.
+const layoutIpcMain: LayoutIpcMain = {
+  handle: (channel, listener) =>
+    ipcMain.handle(channel, (event, input) => listener(event, input)),
+  removeHandler: (channel) => ipcMain.removeHandler(channel),
+};
+registerLayoutIpc(layoutIpcMain, {
+  registry: overlays.overlayRegistry(),
+  store: createLayoutStore(dataRoot),
+  bounds: (event) => {
+    const sender = (event as unknown as { sender: WebContents }).sender;
+    const parent = BrowserWindow.fromWebContents(sender);
+    if (!parent) return null;
+    const box = parent.getBounds();
+    return { x: box.x, y: box.y, width: box.width, height: box.height };
+  },
+});
+
 // 프로젝트 등록의 OS 폴더 선택기. 그 창에 붙은 dialog로 열고 desktop 창 본문만 부른다.
 ipcMain.handle(
   FOLDER_PICK_CHANNEL,
@@ -1094,6 +1118,7 @@ function stopAll(): void {
   );
   removeCodingIpc(codingIpcMain);
   removeRestoreIpc(restoreIpcMain);
+  removeLayoutIpc(layoutIpcMain);
   ipcMain.removeHandler(FOLDER_PICK_CHANNEL);
   ipcMain.removeHandler(OPEN_EXTERNAL_CHANNEL);
   removeEditorIpc(editorIpc);

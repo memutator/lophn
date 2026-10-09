@@ -1258,6 +1258,7 @@ export type PlaceholderKinds = {
   "document.notice.restore-conflict": Record<never, never>;
   "document.notice.restore-file-conflict": Record<never, never>;
   "document.notice.restore-pending": Record<never, never>;
+  "document.notice.restore-version-failed": Record<never, never>;
   "document.notice.restore-file-unknown": Record<never, never>;
   "document.notice.restore-failed": Record<never, never>;
   "document.notice.restore-unsupported": Record<never, never>;

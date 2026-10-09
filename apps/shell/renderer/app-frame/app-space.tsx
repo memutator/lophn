@@ -38,6 +38,7 @@ import { AppDetail } from "./app-detail/app-detail.tsx";
 import type { PreviewOpen } from "./app-detail/model.ts";
 import { IssuesTab } from "./app-detail/issues/issues-tab.tsx";
 import type { IssuesSource } from "./app-detail/issues/source.ts";
+import { withReportAgain } from "./app-detail/issues/report-again.ts";
 import { TasksTab } from "./app-detail/tasks/tasks-tab.tsx";
 import type { TasksSource } from "./app-detail/tasks/source.ts";
 import type { AppDetailSource } from "./app-detail/source.ts";
@@ -411,7 +412,11 @@ export function AppSpace(
                     ? (
                       <IssuesTab
                         app={app}
-                        source={issues}
+                        source={withReportAgain(
+                          issues,
+                          feedback,
+                          embedded ? viewSession : null,
+                        )}
                         now={() => new Date()}
                         initialProblem={issueProblem}
                       />

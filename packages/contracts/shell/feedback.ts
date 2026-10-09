@@ -20,6 +20,8 @@ const viewSessionSchema = z.string().min(1).refine(
 
 export const feedbackBeginSchema = z.strictObject({
   view_session: viewSessionSchema,
+  // Issues의 "직접 해 봤지만 안 됩니다": 이 보고를 덧붙일 같은 앱의 기존 문제(shell#T53).
+  problem: z.string().regex(/^prb_[0-7][0-9a-hjkmnp-tv-z]{25}$/).optional(),
 });
 
 export type FeedbackBegin = z.infer<typeof feedbackBeginSchema>;
@@ -77,6 +79,8 @@ export const feedbackPreviewSchema = z.strictObject({
     name: z.string().regex(/\S/),
     path: z.string().nullable(),
   }).nullable().optional(),
+  // 이 보고가 Issues에서 고른 기존 문제에 덧붙는지.
+  existing_issue: z.boolean().optional(),
 }).refine((value) =>
   (value.screen === null) !== (value.screen_missing_reason === null)
 ).refine((value) =>

@@ -42,6 +42,7 @@ import type {
   SubscriberBinding,
 } from "../../packages/platform/ledger/mod.ts";
 import type { Assembled } from "./registration.ts";
+import { type BackupReadEnvironment, backupReads } from "./backup-reads.ts";
 
 // notifications 구독자의 core 내부 machine 자격이다. token이 없어 HTTP로는 이 principal이 될 수
 // 없고, ledger credential 기록으로만 reader·writer가 현재 자격을 다시 본다.
@@ -229,12 +230,17 @@ const UNATTACHED_APPROVAL_TEXT: ApprovalTextEnvironment = {
 // field가 팀 등록과 겹치면 거절한다. route는 더하지 않는다: contract ROUTES가 소유한다.
 export function withPlatform(
   assembled: Result<Assembled>,
-  environment: { approvalText?: ApprovalTextEnvironment } = {},
+  environment: {
+    approvalText?: ApprovalTextEnvironment;
+    /** settings Backup 탭의 backups/list·get. 데이터 root가 없는 조립(시험)은 붙이지 않는다. */
+    backups?: BackupReadEnvironment;
+  } = {},
 ): Result<Assembled> {
   if (!assembled.ok) return assembled;
   const value = assembled.value;
   const apiReads = [
     approvalsTextRead(environment.approvalText ?? UNATTACHED_APPROVAL_TEXT),
+    ...(environment.backups ? backupReads(environment.backups) : []),
   ];
   const commands = new Set(value.commands.map((c) => c.route.name));
   const reads = new Set(

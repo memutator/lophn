@@ -310,6 +310,27 @@ test("problems/feedback#R6: screenshot은 사람이 고른 때만 같은 바이�
   assert.equal(request.input.existing_problem, null);
 });
 
+test("shell#T53: Issues에서 고른 문제로 연 보고는 그 기존 문제에 덧붙고 dialog가 그것을 안다", async () => {
+  const w = world();
+  const problem = "prb_01j9zzzzzzzzzzzzzzzzzzzzzz";
+  const begun = w.feedback.begin(w.desk, { view_session: "view-1", problem });
+  assert.equal(begun.ok, true);
+  await settle();
+  assert.equal(w.previews.at(-1)?.existing_issue, true);
+  await w.feedback.submit(w.overlay, {
+    draftRef: "draft-1",
+    text: "Still broken.",
+    selection: { screen: true, screenshot: false },
+  });
+  assert.equal(w.submitted[0]!.input.existing_problem, problem);
+  // 문제 ID 모양이 아니면 begin을 받지 않는다.
+  const bad = w.feedback.begin(w.desk, {
+    view_session: "view-1",
+    problem: "not-a-problem",
+  });
+  assert.equal(bad.ok, false);
+});
+
 test("problems/feedback#R11: 접수 실패는 초안을 남겨 다시 보낼 수 있고 접수 뒤에는 같은 Report를 돌려주며 다시 보내지 않는다", async () => {
   let fail = true;
   const w = world({

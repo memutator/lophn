@@ -1108,7 +1108,7 @@ concerns: [shell]
 - slice: problems
 - 선행: shell#T23, shell#T43, problems#T6, problems#T21
 - 선행 풀기(사람 결정 2026-10-07): 선행이 끝나기 전에 이미 있는 contract와 fake로 먼저 만든다. 선행이 merge되면 실제 구현에 잇는 작은 PR을 따로 내고, 그때 완료로 둔다.
-- 상태: 진행 (#423) — 선행 풀기: problems#T21 merge 뒤 실제 ApplyProblemDecision에 잇는 PR이 남음
+- 상태: 완료 (#477)
 - 선행 풀기 뒤 잇는 PR이 할 일:
   - 읽기: `app-detail/issues/core-source.ts`를 새로 만들어 `IssuesSource`를 `ListProblems`·`GetProblem`(`detail`만, `problem.work`·`problem.interpretation` 안 읽음)·`ListReports`(마지막 보고로 `basis.observationKnown`)에서 채우고 `desktop/entry.tsx`→`Desktop`→`AppSpace.issues`에 잇는다. 지금은 fake만 있다
   - 결정 창 열기: `ConfirmationIntent`의 owner_decision에는 `choice`·`note` 자리가 없다. additive로 더하고(contracts·`apps/shell/ipc/confirmation.ts`), 창을 여는 port로 `IssuesSource.decide`를 채운다. concern `problems/closing`, decision `problem_decision`, target은 그 문제

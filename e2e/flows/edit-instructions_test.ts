@@ -4,11 +4,24 @@
 // - 1: 파일이 없으면 빈 편집 초안만 보이고 아무 파일도 만들지 않는다. 경로·version 식별자는 화면에 없다.
 // - 2: 사람이 쓰고 편집을 끝내면(CommandOrControl+S) data root의 LOPHN.md가 생기고 같은 문서 화면이 된다.
 // - 3: 연 뒤 바깥에서 파일이 바뀌면 저장은 충돌로 멈추고 바깥 글을 덮지 않는다.
+// - 4(두 번째 시험, 제품 결함으로 꺼 둠): 저장한 전역 지침의 확정 판이 run의 model call마다 다시 읽힌다. 진행 중인 run의
+//   첫 call이 끝나기 전에 사람이 지침을 고쳐 저장하면 같은 run의 다음 call부터 새 글이 실린다.
+//   model 응답은 시험 안의 작은 loopback server(fake-provider 응답 builder)가 낸다. 첫 call을
+//   붙든 동안 편집기에서 고쳐 저장하기 위해서다.
 // `LOPHN_SHELL_SHOT_DIR`을 주면 각 단계의 headless 화면을 그 폴더에 남긴다.
 import { assert, assertEquals } from "@std/assert";
 
+import { buildReply } from "../../tools/fake-provider/semantic.ts";
+import type { SemanticReply } from "../../tools/fake-provider/types.ts";
 import { e2eEnabled } from "../harness.ts";
-import { type FlowShell, openFlowShell, removeHome } from "../flow-support.ts";
+import {
+  commandBody,
+  delay,
+  type FlowShell,
+  mustCall,
+  openFlowShell,
+  removeHome,
+} from "../flow-support.ts";
 
 async function shot(flow: FlowShell, name: string): Promise<void> {
   const dir = Deno.env.get("LOPHN_SHELL_SHOT_DIR");
@@ -169,6 +182,252 @@ Deno.test({
     } finally {
       await flow.close();
       await removeHome(flow.home);
+    }
+  },
+});
+
+const PROVIDER = "pvd_01arz3ndektsv4rrffq69g5fav";
+const MODEL = "claude-sonnet-4-5";
+const RULE = "Always answer briefly.";
+const NEXT_RULE = "Name every file you touch.";
+
+/** 요청마다 다음 step 함수로 Anthropic messages 응답을 낸다. 요청 본문은 남긴다. */
+function startDynamicProvider(
+  steps: ((body: string) => Promise<SemanticReply>)[],
+) {
+  const bodies: string[] = [];
+  const server = Deno.serve(
+    { hostname: "127.0.0.1", port: 0, onListen: () => {} },
+    async (request) => {
+      const text = await request.text();
+      if (
+        request.method !== "POST" ||
+        !new URL(request.url).pathname.endsWith("/messages")
+      ) {
+        return Response.json({ error: "unexpected" }, { status: 500 });
+      }
+      const step = steps[bodies.length];
+      bodies.push(text);
+      if (step === undefined) {
+        return Response.json({ error: "exhausted" }, { status: 500 });
+      }
+      const built = buildReply("messages", await step(text));
+      return new Response(built.body ?? "", {
+        status: built.status,
+        headers: built.headers,
+      });
+    },
+  );
+  return {
+    url: `http://127.0.0.1:${server.addr.port}`,
+    bodies: () => [...bodies],
+    close: () => server.shutdown(),
+  };
+}
+
+async function useProvider(flow: FlowShell, endpoint: string): Promise<void> {
+  await mustCall(flow, {
+    kind: "command",
+    resource: "providers",
+    method: "register",
+    body: commandBody({
+      id: PROVIDER,
+      name: "fixture",
+      definition: {
+        key: "anthropic",
+        display_name: "Anthropic",
+        protocols: ["anthropic-messages"],
+        auth_kinds: ["none"],
+        models_endpoint: null,
+        oauth: null,
+        revision: "2026-01-01",
+      },
+      endpoint,
+      protocol: "anthropic-messages",
+    }),
+  });
+  const defaults = await mustCall(flow, {
+    kind: "read",
+    resource: "agent-model-defaults",
+    method: "read",
+    body: {},
+  });
+  const seq = (defaults.defaults as { settings_seq: string }).settings_seq;
+  await mustCall(flow, {
+    kind: "command",
+    resource: "agent-model-defaults",
+    method: "change",
+    body: commandBody(
+      {
+        judgment: {
+          provider: PROVIDER,
+          credentials: [],
+          model_name: MODEL,
+          reasoning_level: "provider_default",
+          options: {},
+        },
+        organizing: null,
+        settings_seq: seq,
+      },
+      { settings_seq: seq },
+    ),
+  });
+}
+
+Deno.test({
+  name:
+    "lophn-agent/instructions#R4 lophn-agent/instructions#R5 flow edit-instructions: 4 저장한 지침은 call마다 다시 읽혀 진행 중인 run의 다음 call부터 새 판이 실린다",
+  // 제품 결함으로 지금은 돌리지 않는다: 제품 runtime 조립(apps/agent-runtime/product-driver.ts)의
+  // 지침 파일 통로가 `registered: () => ok(null)`인 stub이라 저장한 전역 지침이 어느 call에도 실리지
+  // 않는다(core에는 instruction-files.ts가 있으나 runtime child로 잇는 통로가 없다). 이어지면 켠다.
+  ignore: true || !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn() {
+    const shell: { flow?: FlowShell } = {};
+    const file = { path: "" };
+    // 첫 call을 붙든 동안 사람이 편집기에서 지침을 고쳐 저장한다. 저장이 파일에 닿고 확정될
+    // 때까지 기다린 뒤에야 첫 call의 답(읽기 tool 하나)을 낸다.
+    const provider = startDynamicProvider([
+      async () => {
+        const flow = shell.flow!;
+        // 도크가 있는 settings에서 지침 편집기로 간다(전역 지침의 진입 자리).
+        await flow.click("[data-open-instructions]");
+        await flow.until(
+          `document.querySelector("[data-instructions-view='document']") !== null`,
+          "지침 문서 화면이 열리지 않았다",
+        );
+        await flow.click("[data-edit-toggle]");
+        await flow.until(
+          `document.querySelector("[data-document-view='edit'] .cm-content") !== null`,
+          "편집으로 바뀌지 않았다",
+        );
+        assertEquals(
+          await flow.evaluate(
+            INSERT("[data-document-view='edit'] .cm-content", `${NEXT_RULE}\n`),
+          ),
+          true,
+        );
+        await flow.evaluate(CTRL_S("[data-document-view='edit']"));
+        const deadline = Date.now() + 30_000;
+        while (!(await Deno.readTextFile(file.path)).includes(NEXT_RULE)) {
+          assert(Date.now() < deadline, "고친 지침이 파일에 닿지 않았다");
+          await delay(200);
+        }
+        // 저장한 바이트가 새 판으로 확정되는 시간을 준다.
+        await delay(1_500);
+        await flow.click("[data-instructions-back]");
+        return {
+          text: "",
+          toolCalls: [{
+            id: "toolu_list",
+            name: "document.list",
+            arguments: "{}",
+          }],
+          usage: { input: 30, output: 9 },
+          stop: "tool_calls",
+        };
+      },
+      () =>
+        Promise.resolve({
+          text: "Done.",
+          usage: { input: 40, output: 9 },
+          stop: "end",
+        }),
+    ]);
+    const flow = await openFlowShell({ start: "instructions:global" });
+    shell.flow = flow;
+    file.path = `${flow.home}/LOPHN.md`;
+    try {
+      await flow.until(
+        `document.querySelector("[data-instructions-view='draft']") !== null`,
+        "빈 지침 초안이 열리지 않았다",
+      );
+      await flow.evaluate(
+        INSERT(
+          "[data-instructions-view='draft'] .cm-content",
+          `# Instructions\n\n${RULE}\n`,
+        ),
+      );
+      await flow.evaluate(CTRL_S("[data-instructions-view='draft']"));
+      await flow.until(
+        `document.querySelector("[data-instructions-view='document']") !== null`,
+        "저장한 지침이 문서 화면으로 바뀌지 않았다",
+      );
+      await useProvider(flow, provider.url);
+      // 지침 편집기에는 도크가 없다. 뒤로 가면 settings(lophn 공간)이다.
+      await flow.click("[data-instructions-back]");
+      await flow.until(
+        `document.querySelector("[data-screen-body='settings']") !== null`,
+        "settings로 돌아가지 않았다",
+      );
+      await flow.mouseClickText("[role=tab]", "General");
+      await flow.until(
+        `document.querySelector("[data-open-instructions]") !== null`,
+        "settings로 돌아가지 않았다",
+      );
+
+      await flow.until(
+        `document.querySelector("[data-dock-toggle]") !== null`,
+        "도크 토글이 없다",
+      );
+      await flow.click("[data-dock-toggle]");
+      await flow.until(
+        `document.querySelector("[data-new-session]") !== null`,
+        "새 세션 단추가 서지 않았다",
+      );
+      if (
+        await flow.evaluate(
+          `document.querySelector("[data-composer-input]") === null`,
+        ) === true
+      ) {
+        await flow.click("[data-new-session]");
+      }
+      await flow.until(
+        `document.querySelector("[data-composer-input]") !== null`,
+        "입력칸이 서지 않았다",
+      );
+      await flow.type("[data-composer-input]", "List my documents.");
+      await flow.click("[data-send]");
+      // 첫 call 동안 화면이 편집기로 갔다 오므로 끝은 run 기록으로 본다.
+      const deadline = Date.now() + 180_000;
+      for (;;) {
+        const listed = await mustCall(flow, {
+          kind: "read",
+          resource: "runs",
+          method: "list",
+          body: {},
+        });
+        const runs = listed.runs as { state: string; outcome: unknown }[];
+        if (runs.length > 0 && runs.every((run) => run.state === "finished")) {
+          assertEquals(
+            (runs[0]!.outcome as { kind: string }).kind,
+            "completed",
+            JSON.stringify(runs),
+          );
+          break;
+        }
+        assert(
+          Date.now() < deadline,
+          `run이 끝나지 않았다: ${
+            JSON.stringify(runs)
+          } calls=${provider.bodies().length}`,
+        );
+        await delay(250);
+      }
+      const bodies = provider.bodies();
+      assertEquals(bodies.length, 2);
+      // 첫 call은 저장한 판, 같은 run의 다음 call은 사람이 고친 새 판을 싣는다.
+      assert(bodies[0]!.includes(RULE), "첫 call에 지침이 없다");
+      assert(!bodies[0]!.includes(NEXT_RULE), "첫 call에 아직 없는 글이 있다");
+      assert(bodies[1]!.includes(RULE), "다음 call에 지침이 없다");
+      assert(bodies[1]!.includes(NEXT_RULE), "다음 call에 고친 지침이 없다");
+      // 파일 경로·안쪽 ID는 model에 보내지 않는다.
+      assert(!bodies[1]!.includes(flow.home), "data root 경로가 model에 갔다");
+    } finally {
+      await flow.close();
+      await removeHome(flow.home);
+      await provider.close();
     }
   },
 });

@@ -1665,6 +1665,8 @@ export const en = {
   "report-problem.label.what-happened": "What went wrong?",
   "report-problem.notice.capturing": "Taking a screenshot of this app.",
   "report-problem.notice.copy-text": "Copy your text so you don't lose it.",
+  "report-problem.notice.existing-issue":
+    "This report is added to the issue you were looking at.",
   "report-problem.notice.new-issue":
     "This report isn't added to an existing issue.",
   "report-problem.notice.open-failed":
@@ -2562,6 +2564,10 @@ export const en = {
   "things-to-confirm.label.period-week": "Last 7 days",
   "things-to-confirm.label.question": "Question",
   "things-to-confirm.label.question-from": "Question from {role}",
+  "things-to-confirm.label.os-show-failed":
+    "Couldn't show this as a desktop notification",
+  "things-to-confirm.label.os-unsupported":
+    "Desktop notifications aren't available on this computer",
   "things-to-confirm.label.read": "Read",
   "things-to-confirm.label.recommended": "Recommended",
   "things-to-confirm.label.role": "Role",

@@ -46,6 +46,13 @@ const SOURCES = {
     owner: "tool_call",
     field: "output",
   },
+  // 받는 run이 소유하는 handoff 내용 blob(handoff leaf의 영구 참조). 표 열이 없어 참조 행이 곧 근거다.
+  handoff_content: {
+    sql:
+      "select owner_key as run, hash from blob_refs where owner_kind = 'run' and field = 'handoff_content' and owner_key = ?",
+    owner: "run",
+    field: "handoff_content",
+  },
 } as const;
 
 function absent(): Result<never> {

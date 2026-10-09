@@ -11,7 +11,7 @@ import type {
   SubmitResult,
 } from "../../frame/api.ts";
 import { ConfirmationScreen } from "../../screen.tsx";
-import { PROBLEM_DECISION } from "./problem-decision.tsx";
+import { APPLY_PROBLEM_DECISION } from "./problem-decision.tsx";
 
 const PRB = "prb_01arz3ndektsv4rrffq69g5fav";
 
@@ -43,14 +43,14 @@ function fakeApi(view: ConfirmationView, result?: SubmitResult) {
 function decision(
   choice: string,
   extra: Record<string, unknown> = {},
-  decisions: string[] = [PROBLEM_DECISION],
+  decisions: string[] = [APPLY_PROBLEM_DECISION],
 ): ConfirmationView {
   return {
     displayId: "dsp_1",
     request: {
       kind: "owner_decision",
       concern: "problems/closing",
-      decision: PROBLEM_DECISION,
+      decision: "problem_decision",
       targets: [PRB],
       input: { kind: "inline", value: {} },
       comparison: {},
@@ -60,7 +60,7 @@ function decision(
       choice,
       symptom: "Some bank files can't be read.",
       seen: 3,
-      version: "Version 4",
+      version: 4,
       ...extra,
     },
     decisions,
@@ -119,7 +119,7 @@ Deno.test("shell/confirmation-window#R4, platform/approvals#R9: 결정 버튼은
     click(find(view.container, "[data-decision]"));
     await settle();
     assertEquals(sent.length, 1);
-    assertEquals(sent[0].decision, PROBLEM_DECISION);
+    assertEquals(sent[0].decision, APPLY_PROBLEM_DECISION);
     // 선택·이유·기준은 handle에 묶여 있고 화면이 보낸 본문은 없다.
     assertEquals(sent[0].input, undefined);
     assertEquals(cancelled(), 0);

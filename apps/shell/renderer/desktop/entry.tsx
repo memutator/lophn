@@ -43,6 +43,7 @@ import { coreTrackingSource } from "../workspace/tracking/core-source.ts";
 import { coreAppsSource } from "./lophn-space/apps/core-source.ts";
 import { coreRolesSource } from "./lophn-space/roles/core-source.ts";
 import { coreSettingsSource } from "./lophn-space/settings/core-source.ts";
+import { coreBackupSource } from "./lophn-space/settings/backup/core-source.ts";
 import { coreAppDetailSource } from "../app-frame/app-detail/core-source.ts";
 import {
   coreCodingConnectionsSource,
@@ -50,6 +51,10 @@ import {
   windowRevokeOpener,
 } from "./lophn-space/settings/connections/core-source.ts";
 import { coreTasksSource } from "../app-frame/app-detail/tasks/core-source.ts";
+import {
+  coreIssuesSource,
+  windowIssueDecision,
+} from "../app-frame/app-detail/issues/core-source.ts";
 import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
 import type { LophnAppWindowsApi } from "../../ipc/app-window.ts";
 import type { LophnShellFeedbackBegin } from "../../ipc/feedback.ts";
@@ -71,6 +76,8 @@ const appDetail = coreAppDetailSource(core);
 const roles = coreRolesSource(core);
 // settings 화면. 연결·계정·확장·일반 설정. key·로그인 응답은 보호 창이 받는다.
 const settings = coreSettingsSource(core);
+// settings의 운영 탭(shell#T58). backup 복원 계획·제출은 main의 복원 통로(`lophnRestore`)다.
+const settingsPanels = { backup: coreBackupSource(core) };
 // coding agent 연결(settings)과 앱 공간 Tasks 탭. 감지·연결·[Start]는 main이 따로 검증하는 통로(`lophnCoding`)다.
 const codingApi = windowCodingApi();
 const coding = coreCodingConnectionsSource(core, {
@@ -78,6 +85,7 @@ const coding = coreCodingConnectionsSource(core, {
   openWindow: windowRevokeOpener(),
 });
 const tasks = coreTasksSource(core, { coding: codingApi });
+const issues = coreIssuesSource(core, windowIssueDecision());
 // 런처의 프로젝트 카드·등록과 작업대(추적 켜기 포함)는 제품 core 통로로 읽고 쓴다.
 const projects = coreLauncherSource(core, windowFolderPicker());
 const workspace = seed?.source ?? coreWorkspaceSource(core);
@@ -198,8 +206,10 @@ mount(
             apps={apps}
             roles={roles}
             settings={settings}
+            settingsPanels={settingsPanels}
             coding={coding}
             tasks={tasks}
+            issues={issues}
             appDetail={appDetail}
             views={views}
             appWindows={bridges.lophnAppWindows}

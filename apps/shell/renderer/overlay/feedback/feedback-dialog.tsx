@@ -198,7 +198,9 @@ export function FeedbackDialog(
                 />
               </Field>
               <p className={styles.note} data-feedback="existing-issue">
-                {t("report-problem.notice.new-issue")}
+                {preview?.existing_issue === true
+                  ? t("report-problem.notice.existing-issue")
+                  : t("report-problem.notice.new-issue")}
               </p>
               <section className={styles.attachments}>
                 <h3 className={styles.heading}>

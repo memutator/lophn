@@ -202,6 +202,9 @@ export function appDecisions(
         expires_at: null,
       },
       idempotency_key: `app-detail:${approval}`,
+      // command 요청 봉투는 compare를 요구한다(contracts/platform envelope). 대상 비교는
+      // action의 comparison이 맡고 여기서는 빈 CAS다.
+      compare: {},
       prepared: [],
     });
     if (!created.ok) return readFailure(created);
@@ -229,6 +232,7 @@ export function appDecisions(
           idempotency_key: `app-detail-apply:${approval}`,
         },
         idempotency_key: `app-detail-apply:${approval}`,
+        compare: {},
         prepared: [],
       });
       if (!applied.ok) return applied;

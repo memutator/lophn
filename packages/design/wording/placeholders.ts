@@ -1657,6 +1657,7 @@ export type PlaceholderKinds = {
   "report-problem.label.what-happened": Record<never, never>;
   "report-problem.notice.capturing": Record<never, never>;
   "report-problem.notice.copy-text": Record<never, never>;
+  "report-problem.notice.existing-issue": Record<never, never>;
   "report-problem.notice.new-issue": Record<never, never>;
   "report-problem.notice.open-failed": Record<never, never>;
   "report-problem.notice.screen-not-sent": Record<never, never>;
@@ -2561,6 +2562,8 @@ export type PlaceholderKinds = {
   "things-to-confirm.label.question-from": {
     role: "string";
   };
+  "things-to-confirm.label.os-show-failed": Record<never, never>;
+  "things-to-confirm.label.os-unsupported": Record<never, never>;
   "things-to-confirm.label.read": Record<never, never>;
   "things-to-confirm.label.recommended": Record<never, never>;
   "things-to-confirm.label.role": Record<never, never>;

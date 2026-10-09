@@ -4,9 +4,12 @@
 // 화면이 없으면(DISPLAY 없음) 건너뛴다.
 import { assert, assertEquals } from "@std/assert";
 
+import { buildReply } from "../../tools/fake-provider/semantic.ts";
 import { e2eEnabled, READY_TIMEOUT_MS } from "../harness.ts";
 import { launchShell, type RunningShell } from "../run.ts";
 import {
+  commandBody,
+  mustCall,
   openProjectWorkspace,
   removeHome,
   typeAtEnd,
@@ -301,6 +304,233 @@ Deno.test({
       await restore?.();
       await flow.close();
       await removeHome(home);
+      await Deno.remove(folder, { recursive: true });
+    }
+  },
+});
+
+// lophn-agent slice: project-workspace 8(현재 보기 상태). 실제 shell(headless)·core(제품 runtime
+// child)를 임시 LOPHN_HOME으로 띄우고 model은 이 시험의 loopback 응답 server가 낸다. project
+// 작업대에서 문서를 연 채 도크로 일을 청하면, lophn은 그 창의 탭·초점과 관측 시각을 짧은 turn
+// context로 조립해 model 입력에 싣는다. 보기가 바뀐 뒤의 요청은 새로 모은 보기를 싣고 옛 보기를
+// 대신 쓰지 않는다. 터미널은 열지 않으며(node-pty 미빌드) 터미널 출력은 turn context에 없다.
+
+const VIEW_PROVIDER = "pvd_01arz3ndektsv4rrffq69g5fav";
+const VIEW_MODEL = "claude-sonnet-4-5";
+
+function startViewProvider() {
+  const bodies: string[] = [];
+  const server = Deno.serve(
+    { hostname: "127.0.0.1", port: 0, onListen: () => {} },
+    async (request) => {
+      const text = await request.text();
+      if (
+        request.method !== "POST" ||
+        !new URL(request.url).pathname.endsWith("/messages")
+      ) {
+        return Response.json({ error: "unexpected" }, { status: 500 });
+      }
+      bodies.push(text);
+      const built = buildReply("messages", {
+        text: `Noted ${bodies.length}.`,
+        usage: { input: 30, output: 4 },
+        stop: "end",
+      });
+      return new Response(built.body ?? "", {
+        status: built.status,
+        headers: built.headers,
+      });
+    },
+  );
+  return {
+    url: `http://127.0.0.1:${server.addr.port}`,
+    calls: () => bodies.length,
+    body: (index: number) => bodies[index] ?? "",
+    close: () => server.shutdown(),
+  };
+}
+
+Deno.test({
+  name:
+    "lophn-agent/harness/prompt-assemble#R25 lophn-agent/harness/prompt-assemble#R26 shell/workspace#R9 shell/workspace#R10 flow project-workspace 8: 작업대에서 일을 청하면 그 창의 탭·초점·관측 시각을 현재 보기로 조립하고 바뀐 보기는 새로 모은다",
+  // 미검증 WIP — 실행 전
+  ignore: true,
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn(t) {
+    const folder = await Deno.realPath(
+      await Deno.makeTempDir({ prefix: "lophn-e2e-ws-view-" }),
+    );
+    await Deno.writeTextFile(`${folder}/notes.md`, "# Notes\n\nFirst line.\n");
+    const provider = startViewProvider();
+    const { flow, documentId } = await openProjectWorkspace({
+      folder,
+      name: "notes",
+      title: "Notes",
+      document: "notes",
+    });
+    const home = flow.home;
+    try {
+      await mustCall(flow, {
+        kind: "command",
+        resource: "providers",
+        method: "register",
+        body: commandBody({
+          id: VIEW_PROVIDER,
+          name: "fixture",
+          definition: {
+            key: "anthropic",
+            display_name: "Anthropic",
+            protocols: ["anthropic-messages"],
+            auth_kinds: ["none"],
+            models_endpoint: null,
+            oauth: null,
+            revision: "2026-01-01",
+          },
+          endpoint: provider.url,
+          protocol: "anthropic-messages",
+        }),
+      });
+      const defaults = await mustCall(flow, {
+        kind: "read",
+        resource: "agent-model-defaults",
+        method: "read",
+        body: {},
+      });
+      const seq = (defaults.defaults as { settings_seq: string }).settings_seq;
+      await mustCall(flow, {
+        kind: "command",
+        resource: "agent-model-defaults",
+        method: "change",
+        body: commandBody(
+          {
+            judgment: {
+              provider: VIEW_PROVIDER,
+              credentials: [],
+              model_name: VIEW_MODEL,
+              reasoning_level: "provider_default",
+              options: {},
+            },
+            organizing: null,
+            settings_seq: seq,
+          },
+          { settings_seq: seq },
+        ),
+      });
+      const untilCalls = async (count: number) => {
+        const deadline = Date.now() + 180_000;
+        while (provider.calls() < count) {
+          assert(
+            Date.now() < deadline,
+            `model call이 ${count}번 오지 않았다: ${provider.calls()} dock=${
+              String(
+                await flow.evaluate(
+                  `document.querySelector("[data-dock]")?.innerText ?? null`,
+                ),
+              ).slice(0, 400)
+            }`,
+          );
+          await new Promise((resolve) => setTimeout(resolve, 250));
+        }
+      };
+      const ask = async (text: string, count: number) => {
+        await flow.type("[data-composer-input]", text);
+        await flow.click("[data-send]");
+        await untilCalls(count);
+        await flow.until(
+          `document.querySelector("[data-dock]")?.innerText.includes("Noted ${count}.")`,
+          "도크에 답이 없다",
+        );
+      };
+
+      await t.step(
+        "lophn-agent/harness/prompt-assemble#R25 lophn-agent/harness/prompt-assemble#R26 shell/workspace#R9: 8 열린 문서 탭과 초점·관측 시각이 짧은 현재 보기로 model 입력에 실린다",
+        async () => {
+          await flow.until(
+            `document.querySelector('[data-document="${documentId}"]') !== null`,
+            "sidebar에 문서가 없다",
+          );
+          await flow.click(`[data-document="${documentId}"]`);
+          await flow.until(
+            `document.querySelector("[data-document-view]")?.getAttribute("data-document-view") === "read"`,
+            "읽기 화면이 열리지 않았다",
+          );
+          await flow.until(
+            `document.querySelector("[data-dock-toggle]") !== null`,
+            "도크 토글이 없다",
+          );
+          await flow.click("[data-dock-toggle]");
+          await flow.until(
+            `document.querySelector("[data-new-session]") !== null || document.querySelector("[data-composer-input]") !== null`,
+            "새 세션 단추가 서지 않았다",
+          );
+          if (
+            await flow.evaluate(
+              `document.querySelector("[data-composer-input]") === null`,
+            ) === true
+          ) {
+            await flow.click("[data-new-session]");
+          }
+          await flow.until(
+            `document.querySelector("[data-composer-input]") !== null`,
+            "입력칸이 서지 않았다",
+          );
+          await ask("What am I looking at?", 1);
+          const body = provider.body(0);
+          for (
+            const word of [
+              "[turn context]",
+              "화면 관측:",
+              `* document_viewer`,
+              documentId,
+            ]
+          ) {
+            assert(body.includes(word), `turn context에 ${word}가 없다`);
+          }
+          assert(!body.includes("화면: 없음"), "현재 보기가 없는 것으로 왔다");
+          // 터미널을 열지 않았으니 터미널 탭도 출력도 없다.
+          const turn = body.split("[turn context]").at(-1) ?? "";
+          assert(
+            !/- (\* )?terminal /.test(turn),
+            "터미널이 turn context에 있다",
+          );
+          assert(!turn.includes(folder), "폴더 경로가 turn context에 있다");
+        },
+      );
+
+      await t.step(
+        "lophn-agent/harness/prompt-assemble#R27 lophn-agent/harness/prompt-assemble#R28 shell/workspace#R10: 보기가 바뀐 뒤의 요청은 새로 모은 보기를 싣고 옛 보기를 대신 쓰지 않는다",
+        async () => {
+          await flow.until(
+            `document.querySelector("[data-edit-toggle]")?.disabled === false`,
+            "편집 전환이 켜지지 않았다",
+          );
+          await flow.click("[data-edit-toggle]");
+          await flow.until(
+            `document.querySelector("[data-document-view]")?.getAttribute("data-document-view") === "edit"`,
+            "편집 화면이 열리지 않았다",
+          );
+          // 창의 보기 generation이 publish될 시간을 준다.
+          await new Promise((resolve) => setTimeout(resolve, 1_500));
+          await ask("And now?", 2);
+          const before = provider.body(0).match(/generation (\d+)/)?.[1];
+          const turn = provider.body(1).split("[turn context]").at(-1) ?? "";
+          const after = turn.match(/generation (\d+)/)?.[1];
+          assert(
+            before !== undefined && after !== undefined,
+            "generation이 없다",
+          );
+          assert(Number(after) > Number(before), `${before} → ${after}`);
+          assert(
+            turn.includes("* document_editor"),
+            "새 보기가 편집 탭이 아니다",
+          );
+        },
+      );
+    } finally {
+      await flow.close();
+      await removeHome(home);
+      await provider.close();
       await Deno.remove(folder, { recursive: true });
     }
   },

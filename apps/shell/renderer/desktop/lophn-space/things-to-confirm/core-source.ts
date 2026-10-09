@@ -72,6 +72,7 @@ interface ApprovalValue {
 interface NotificationValue {
   notification: { id: string; source_seq: string; read_at: string | null };
   source_event: string;
+  delivery?: { state: string; reason?: string };
 }
 
 interface QuestionTextValue {
@@ -265,7 +266,17 @@ function notificationOf(value: NotificationValue): NotificationRow {
     sourceEvent: value.source_event,
     sourceSeq: value.notification.source_seq,
     readAt: value.notification.read_at,
+    ...osFailureOf(value.delivery),
   };
+}
+
+function osFailureOf(
+  delivery: NotificationValue["delivery"],
+): Pick<NotificationRow, "osFailure"> {
+  if (delivery?.state !== "failed") return {};
+  return delivery.reason === "unsupported"
+    ? { osFailure: "unsupported" }
+    : { osFailure: "show_failed" };
 }
 
 function decodeText(base64: string): string | null {

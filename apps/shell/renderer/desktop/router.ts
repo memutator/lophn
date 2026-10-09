@@ -31,6 +31,8 @@ export interface Route {
     readonly ticket: string | null;
     readonly create: boolean;
   };
+  /** app 공간에서 Issues 탭으로, 고른 채 열 문제. report-problem dialog의 [View issue]가 쓴다. */
+  readonly issueProblem?: string;
 }
 
 export const LAUNCHER: Route = { space: "launcher" };

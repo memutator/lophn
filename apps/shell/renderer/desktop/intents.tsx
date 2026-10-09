@@ -21,12 +21,21 @@ export interface DesktopIntentsProps {
   onThingsToConfirm(request?: string): void;
   /** `lophn://things-to-confirm/<cac|tkt|app id>` 링크(coding agent 회수·취소·생성). 그 대상의 화면으로 간다. */
   onCoding?(target: string): void;
+  /** 접수된 feedback이 묶인 Issue. 그 앱 공간의 Issues 탭에서 그 문제를 고른 채 연다. */
+  onIssue?(app: string, problem: string): void;
   /** 전역 팔레트에서 고른 대상으로 간다. */
   go(target: LophnTarget): void;
 }
 
 export function DesktopIntents(
-  { intents, lophn, onThingsToConfirm, onCoding, go }: DesktopIntentsProps,
+  {
+    intents,
+    lophn,
+    onThingsToConfirm,
+    onCoding,
+    onIssue,
+    go,
+  }: DesktopIntentsProps,
 ) {
   const openGlobal = useGlobalPalette();
   const env = usePaletteEnv();
@@ -34,6 +43,7 @@ export function DesktopIntents(
     lophn,
     onThingsToConfirm,
     onCoding,
+    onIssue,
     go,
     openGlobal,
     env,
@@ -42,6 +52,7 @@ export function DesktopIntents(
     lophn,
     onThingsToConfirm,
     onCoding,
+    onIssue,
     go,
     openGlobal,
     env,
@@ -57,8 +68,9 @@ export function DesktopIntents(
         }
         if (typeof intent === "object") {
           if (intent.kind === "app-issue") {
-            // 접수된 feedback이 묶인 Issue. 지금은 그 앱 공간을 연다.
-            current.go({ kind: "app", id: intent.app });
+            // 접수된 feedback이 묶인 Issue. 그 앱 공간의 Issues 탭에서 그 문제를 연다.
+            if (current.onIssue) current.onIssue(intent.app, intent.problem);
+            else current.go({ kind: "app", id: intent.app });
           } else if (intent.kind === "coding") {
             // 연결 회수·Task 취소·Task 생성 링크. 화면만 열고 결정 창은 사람이 누를 때 연다.
             if (current.onCoding) current.onCoding(intent.target);

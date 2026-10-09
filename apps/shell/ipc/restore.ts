@@ -8,6 +8,12 @@ export const RESTORE_PLAN_CHANNEL = "shell:restore-plan";
 /** renderer가 사람 확인 뒤 복원을 제출하는 요청. */
 export const RESTORE_SUBMIT_CHANNEL = "shell:restore-submit";
 
+/**
+ * 사람이 확인 자리를 닫았다(취소·화면 이동). main은 그 묶음의 계획을 버려 확인 없는 제출이
+ * 남은 계획으로 복원하지 못하게 한다. 답은 늘 `{ ok: true }`다.
+ */
+export const RESTORE_CANCEL_CHANNEL = "shell:restore-cancel";
+
 /** 복원하면 잃는 기록 범위. 잃는 것이 없으면 lost가 null이다. */
 export type RestoreLost =
   | {

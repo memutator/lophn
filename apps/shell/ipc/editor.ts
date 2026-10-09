@@ -227,7 +227,8 @@ export type RestoreFile =
 /**
  * 복원 결과. saved: 새 최신 판, unchanged: 최신 판이 이미 같은 내용이라 판을 만들지 않음,
  * conflict: 그 사이 최신 판·파일이 바뀌어 멈춤, pending: 파일은 썼지만 판 확정은 documents의
- * 관측을 기다림, failed: 끝내지 못함(failure에 이유).
+ * 관측을 기다리거나(failure가 없으면) 판 확정이 실패한 것(failure가 있으면), failed: 끝내지
+ * 못함. failure가 offline이면 연결이 끊겨 판 확정을 확인하지 못한 것이고 성공이 아니다.
  */
 export interface RestoreReport {
   readonly outcome: "saved" | "unchanged" | "conflict" | "pending" | "failed";

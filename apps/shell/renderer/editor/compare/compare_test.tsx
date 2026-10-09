@@ -43,6 +43,7 @@ function row(id: string, number: number): VersionRow {
     number,
     savedBy: "user",
     savedAt: Date.parse("2026-10-05T09:00:00Z") + number * 60_000,
+    run: null,
     fromFile: false,
     contentHash: id,
     restorable: true,

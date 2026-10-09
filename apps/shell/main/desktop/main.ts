@@ -16,7 +16,13 @@ import {
   WebContentsView,
 } from "electron";
 import { randomBytes, randomFillSync, randomUUID } from "node:crypto";
-import { mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -28,6 +34,11 @@ import {
   removeRestoreIpc,
   type RestoreIpcMain,
 } from "./core/restore-ipc.ts";
+import {
+  registerUpdateIpc,
+  removeUpdateIpc,
+  type UpdateIpcMain,
+} from "./core/update-ipc.ts";
 import {
   type LayoutIpcMain,
   registerLayoutIpc,
@@ -1048,6 +1059,33 @@ registerRestoreIpc(restoreIpcMain, {
   register: (request) => core.registerConfirmation(request),
 });
 
+// settings update(flow update-lophn 1–2). 사람이 고른 로컬 metadata로 안내하고,
+// 정상 정지를 확인한 뒤에만 그 파일로 설치 파일을 바꾼다. 다운로드·재시작은 없다.
+const updateIpcMain: UpdateIpcMain = {
+  handle: (channel, listener) =>
+    ipcMain.handle(channel, (event, input) => listener(event, input)),
+  removeHandler: (channel) => ipcMain.removeHandler(channel),
+};
+registerUpdateIpc(updateIpcMain, {
+  registry: overlays.overlayRegistry(),
+  session: () => core.session(),
+  dataRoot: () => dataRoot,
+  stopPlatform: () => core.confirmStop(),
+  version: () => {
+    try {
+      const parsed = JSON.parse(
+        readFileSync(join(here, "..", "package.json"), "utf8"),
+      ) as { version?: unknown };
+      if (typeof parsed.version === "string" && parsed.version !== "") {
+        return parsed.version;
+      }
+    } catch {
+      // package.json을 못 읽으면 Electron이 아는 version만 쓴다.
+    }
+    return app.getVersion();
+  },
+});
+
 // 작업대 layout(shell/workspace#R6). desktop 창 본문만 부르고 파일 schema는 여기서 검사한다.
 const layoutIpcMain: LayoutIpcMain = {
   handle: (channel, listener) =>
@@ -1175,6 +1213,7 @@ function stopAll(): void {
   );
   removeCodingIpc(codingIpcMain);
   removeRestoreIpc(restoreIpcMain);
+  removeUpdateIpc(updateIpcMain);
   removeLayoutIpc(layoutIpcMain);
   ipcMain.removeHandler(FOLDER_PICK_CHANNEL);
   ipcMain.removeHandler(OPEN_EXTERNAL_CHANNEL);

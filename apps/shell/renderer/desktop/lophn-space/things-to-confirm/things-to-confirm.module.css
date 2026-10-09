@@ -166,6 +166,21 @@
   cursor: default;
 }
 
+.documentLink {
+  flex: none;
+  margin: var(--space-0);
+  padding: var(--space-1) var(--space-0);
+  border: var(--space-0);
+  background: none;
+  color: var(--color-link);
+  font-family: var(--font-sans);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  text-align: left;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .notificationBody[aria-current="true"] {
   color: var(--color-text-primary);
 }

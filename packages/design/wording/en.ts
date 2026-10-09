@@ -1203,6 +1203,7 @@ export const en = {
   "document.label.compare-after": "Newer version",
   "document.label.version-number": "Version {number, number}",
   "document.label.version-newest": "Newest",
+  "document.label.version-run": "{id}",
   "document.label.changed-sections": "Changed sections",
   "document.label.section-counts": "+{added, number} −{removed, number}",
   "document.label.section-modified": "Changed",
@@ -2154,8 +2155,7 @@ export const en = {
     "lophn stops cleanly before the update and you start it again.",
   "settings.update.stop-failed":
     "lophn couldn't confirm it stopped cleanly, so nothing was changed. Close your work and try again.",
-  "settings.update.stopped":
-    "lophn stopped cleanly. Install the update file you chose, then start lophn.",
+  "settings.update.stopped": "lophn stopped cleanly. Start lophn again.",
   "settings.update.deployment-unverified":
     "Updates on your system aren't checked by lophn yet. Check the file before applying it.",
   "settings.notifications.heading": "Notifications",
@@ -2502,6 +2502,7 @@ export const en = {
   "things-to-confirm.button.keep-question": "Keep the question",
   "things-to-confirm.button.later": "Answer later",
   "things-to-confirm.button.mark-read": "Mark as read",
+  "things-to-confirm.button.open-document": "Open the document",
   "things-to-confirm.button.review": "Review",
   "things-to-confirm.button.review-next": "Review the next decision",
   "things-to-confirm.button.send-answer": "Send answer",

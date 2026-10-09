@@ -5,6 +5,7 @@
 // 정할 수 없는 경계만 묻고, 사람이 정한 목적·범위만 구성과 보고로 남기는지 본다.
 // 이 테스트는 기존 사람 command로 준비한 context에서 5의 화면·고정 section 읽기, 6~7의 실제 파일 관측·
 // watch·notification·전후 판 읽기, section 소실과 항목 제거·보관 갈래를 확인한다.
+// 마지막 테스트는 5의 agent 입력·권한 검사다. 초기 입력은 관점별 목차이고 본문은 요청한 section만이다.
 // 8의 contexts revert 진입은 아직 없다(shell#T36). 미확인·단절·범위 갈래는 T27의 남은 E2E다.
 import { DatabaseSync } from "node:sqlite";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
@@ -3072,6 +3073,541 @@ Deno.test({
       await flow?.close();
       await provider.close();
       if (flow !== undefined) await removeHome(flow.home);
+      await Deno.remove(folder, { recursive: true });
+    }
+  },
+});
+
+// 5: 사람이 고른 context를 preset이 가리키면 초기 model 입력은 관점별 목차·주소다.
+// 본문은 요청한 section의 tool 결과에만 있다. context 이름과 연결된 앱 command는
+// 읽기·실행 범위를 넓히지 않는다. 범위 밖 읽기와 앱 command는 거절된 결과로 남는다.
+const FOCUS = "ctx_01arz3ndektsv4rrffq69g5fb3";
+const FOCUS_PRESET = "pst_01arz3ndektsv4rrffq69g5fb3";
+const TASKS_APP = "app_01arz3ndektsv4rrffq69g5fb4";
+const TASKS_RELEASE = "rel_01arz3ndektsv4rrffq69g5fb4";
+const TASKS_VERIFICATION = "vrf_01arz3ndektsv4rrffq69g5fb4";
+const MISSING_DOCUMENT = "doc_01arz3ndektsv4rrffq69g5fb9";
+const FOCUS_PURPOSE = "자료에서 쓰는 말의 변화를 확인한다.";
+const FOCUS_ASK = "고른 context의 목차를 보고 용어 section만 읽어 달라.";
+const FOCUS_REPLY = "요청한 section만 읽었다.";
+const TASKS_BLUEPRINT = {
+  name: "Tasks",
+  description: "Reads tasks for one purpose.",
+  screens: [],
+  commands: [
+    {
+      key: "list_tasks",
+      label: "List tasks",
+      description: "Read the task titles for this purpose.",
+      effect: "read",
+      confirm: false,
+      input: null,
+      revert: { supported: false },
+    },
+    {
+      key: "save_task",
+      label: "Save task",
+      description: "Write a task outside this purpose.",
+      effect: "write",
+      confirm: false,
+      input: null,
+      revert: { supported: false },
+    },
+  ],
+  automatic_tasks: [],
+  permissions: [],
+  problem_codes: [],
+  documents: [],
+  agent_context: [],
+  app_connections: [],
+  sdk_dependencies: [],
+};
+
+function seedTasksApp(
+  home: string,
+  blueprintJson: string,
+  blueprintHash: string,
+): void {
+  const db = new DatabaseSync(`${home}/lophn.db`);
+  try {
+    db.exec("PRAGMA busy_timeout = 8000");
+    db.prepare(
+      `INSERT INTO apps (id, slug, name, description, planning_version, source_path, active_release, run_enabled, revision, status)
+       VALUES (?, 'tasks', 'Tasks', 'Reads tasks for one purpose.', NULL, NULL, ?, 0, '1', 'active')`,
+    ).run(TASKS_APP, TASKS_RELEASE);
+    db.prepare(
+      `INSERT INTO releases (id, app, number, code_commit, bundle_hash, blueprint_hash, data_schema, data_changes, ticket_source, created_by, created_at, status, activation, failure, blueprint, declarations)
+       VALUES (?, ?, 1, ?, ?, ?, 0, '[]', NULL, 'machine', '2026-10-01T00:00:00.000Z', 'active', NULL, NULL, ?, ?)`,
+    ).run(
+      TASKS_RELEASE,
+      TASKS_APP,
+      "c".repeat(40),
+      "d".repeat(64),
+      blueprintHash,
+      blueprintJson,
+      JSON.stringify({
+        permissions: [],
+        app_connections: [],
+        commands: ["list_tasks", "save_task"],
+        automations: [],
+        problem_codes: [],
+        documents: [],
+      }),
+    );
+    db.prepare(
+      "INSERT INTO release_tests (release, verification) VALUES (?, ?)",
+    ).run(TASKS_RELEASE, TASKS_VERIFICATION);
+  } finally {
+    db.close();
+  }
+}
+
+function materialBlock(body: string, perspective: string): string {
+  const marker = `[자료 ${perspective}]`;
+  const start = body.indexOf(marker);
+  assert(start >= 0, `${perspective} 자료가 없다`);
+  const next = body.indexOf("[자료 ", start + marker.length);
+  return body.slice(start, next === -1 ? undefined : next);
+}
+
+function startScopeScript(plan: {
+  document: string;
+  version: string;
+  section: string;
+}): Fixture {
+  const bodies: string[] = [];
+  const server = Deno.serve(
+    { hostname: "127.0.0.1", port: 0, onListen: () => {} },
+    async (request) => {
+      const text = await request.text();
+      const path = new URL(request.url).pathname;
+      if (request.method !== "POST" || !path.endsWith("/messages")) {
+        return Response.json({ error: "unexpected" }, { status: 500 });
+      }
+      const index = bodies.length;
+      bodies.push(text);
+      let reply: SemanticReply;
+      if (index === 0) {
+        reply = toolCall("toolu_focus_section", "document.read_section", {
+          reference: {
+            document: plan.document,
+            version: plan.version,
+            section: null,
+          },
+          section: plan.section,
+        });
+      } else if (index === 1) {
+        reply = toolCall("toolu_focus_notes", "list_notes", {});
+      } else if (index === 2) {
+        reply = toolCall("toolu_focus_tasks", "list_tasks", {});
+      } else if (index === 3) {
+        reply = toolCall("toolu_focus_missing", "document.read_section", {
+          reference: {
+            document: MISSING_DOCUMENT,
+            version: plan.version,
+            section: null,
+          },
+          section: plan.section,
+        });
+      } else if (index === 4) {
+        reply = said(FOCUS_REPLY);
+      } else {
+        return Response.json({ error: "exhausted" }, { status: 500 });
+      }
+      const built = buildReply("messages", reply);
+      return new Response(built.body ?? "", {
+        status: built.status,
+        headers: built.headers,
+      });
+    },
+  );
+  return {
+    url: `http://127.0.0.1:${server.addr.port}`,
+    calls: () => bodies.length,
+    body: (index) => bodies[index] ?? "",
+    close: () => server.shutdown(),
+  };
+}
+
+Deno.test({
+  name:
+    "documents/contexts#R2 documents/contexts#R4 platform/identity#R8 platform/identity#R9 apps/permissions#R28 apps/runtime#R32 lophn-agent/harness/prompt-assemble#R4 flow build-context 5: agent 입력·권한 검사",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn() {
+    const home = await Deno.makeTempDir({ prefix: "lophn-e2e-context-scope-" });
+    await Deno.chmod(home, 0o700);
+    const bootstrap = await openFlowShell({ home });
+    await bootstrap.close();
+    const notesJson = JSON.stringify(NOTES_BLUEPRINT);
+    seedNotesApp(home, notesJson, await sha256Hex(notesJson));
+    const tasksJson = JSON.stringify(TASKS_BLUEPRINT);
+    seedTasksApp(home, tasksJson, await sha256Hex(tasksJson));
+    const folder = await Deno.realPath(await copyFixture("korean-search"));
+    let flow: FlowShell | undefined;
+    let provider: Fixture | undefined;
+    try {
+      flow = await openFlowShell({ home, start: "lophn" });
+      await registerTrackedProject(flow, { folder });
+      await untilDocuments(flow, ["glossary", "migration"], "문서 관측 대기");
+      await untilSearch(
+        flow,
+        "용어",
+        (page) => page.results.length > 0,
+        "목차 반영 대기",
+      );
+      const glossary = await documentTitled(flow, "glossary");
+      const migration = await documentTitled(flow, "migration");
+      const outline = await mustCall(flow, {
+        kind: "worker",
+        resource: "outline",
+        method: "document",
+        body: {
+          reference: {
+            document: glossary.id,
+            version: glossary.latest_version,
+            section: null,
+          },
+        },
+      });
+      const entries = outline.entries as {
+        key: string;
+        title: string;
+        parent: string | null;
+      }[];
+      const section = entries.find((row) => row.title === "용어")?.key;
+      assert(section, `용어 section이 없다: ${JSON.stringify(entries)}`);
+      assert(
+        entries.some((row) => row.parent === null && row.key === section),
+        JSON.stringify(entries),
+      );
+      const created = await mustCall(flow, {
+        kind: "command",
+        resource: "contexts",
+        method: "create",
+        body: commandBody({
+          id: FOCUS,
+          title: "list_notes",
+          purpose: FOCUS_PURPOSE,
+          items: [
+            {
+              target: {
+                kind: "document",
+                document: glossary.id,
+                section: null,
+              },
+              perspective: "basis",
+              reason: "말을 정하는 기준",
+            },
+            {
+              target: {
+                kind: "document",
+                document: migration.id,
+                section: null,
+              },
+              perspective: "reference",
+              reason: "사용하는 배경",
+            },
+            {
+              target: {
+                kind: "app_command",
+                app: NOTES_APP,
+                command: "list_notes",
+              },
+              perspective: "reference",
+              reason: "읽기 command 주소",
+            },
+            {
+              target: {
+                kind: "app_command",
+                app: TASKS_APP,
+                command: "list_tasks",
+              },
+              perspective: "reference",
+              reason: "다른 앱의 읽기 command 주소",
+            },
+            {
+              target: { kind: "document", document: glossary.id, section },
+              perspective: "watch",
+              reason: "뜻의 변화만 확인",
+            },
+          ],
+        }),
+      });
+      const revision = created.revision;
+      assert(typeof revision === "string", JSON.stringify(created));
+      const writeCommand = await flow.call({
+        kind: "command",
+        resource: "contexts",
+        method: "set_item",
+        body: commandBody({
+          context: FOCUS,
+          item: {
+            target: {
+              kind: "app_command",
+              app: NOTES_APP,
+              command: "save_note",
+            },
+            perspective: "reference",
+            reason: "쓰면 안 되는 명령",
+          },
+        }, { base_revision: revision }),
+      });
+      assertEquals(writeCommand.ok, false);
+      assertEquals(
+        writeCommand.error?.message,
+        "context item needs a read app command",
+      );
+      const missingDocument = await flow.call({
+        kind: "command",
+        resource: "contexts",
+        method: "set_item",
+        body: commandBody({
+          context: FOCUS,
+          item: {
+            target: {
+              kind: "document",
+              document: MISSING_DOCUMENT,
+              section: null,
+            },
+            perspective: "reference",
+            reason: "저장되지 않은 문서",
+          },
+        }, { base_revision: revision }),
+      });
+      assertEquals(missingDocument.ok, false);
+      assertEquals(
+        missingDocument.error?.message,
+        "context item needs a stored document",
+      );
+      const folderItem = await flow.call({
+        kind: "command",
+        resource: "contexts",
+        method: "set_item",
+        body: commandBody({
+          context: FOCUS,
+          item: {
+            target: { kind: "document", document: folder, section: null },
+            perspective: "reference",
+            reason: "프로젝트 폴더",
+          },
+        }, { base_revision: revision }),
+      });
+      assertEquals(folderItem.ok, false);
+      assertEquals(folderItem.error?.code, "invalid_input");
+      const stored = await mustCall(flow, {
+        kind: "read",
+        resource: "contexts",
+        method: "get",
+        body: { context: FOCUS },
+      });
+      const items = (stored.context as {
+        items: { target: { command?: string; document?: string } }[];
+      }).items;
+      assertEquals(items.length, 5);
+      assertEquals(
+        items.some((item) => item.target.command === "save_note"),
+        false,
+      );
+      assertEquals(
+        items.some((item) => item.target.document === MISSING_DOCUMENT),
+        false,
+      );
+
+      const assignments = await mustCall(flow, {
+        kind: "read",
+        resource: "assignments",
+        method: "list",
+        body: { role: "context_engineer" },
+      });
+      const engineer = (assignments.assignments as {
+        id: string;
+        revision: number;
+        preset: string;
+        preset_revision: number;
+      }[])[0];
+      assert(engineer !== undefined, JSON.stringify(assignments));
+      const preset = await mustCall(flow, {
+        kind: "read",
+        resource: "presets",
+        method: "read",
+        body: {
+          preset: engineer.preset,
+          revision: engineer.preset_revision,
+        },
+      });
+      const definition =
+        (preset.preset as { definition: Record<string, unknown> }).definition;
+      await mustCall(flow, {
+        kind: "command",
+        resource: "presets",
+        method: "create",
+        body: commandBody({
+          id: FOCUS_PRESET,
+          definition: {
+            ...definition,
+            name: "Focus materials",
+            origin: "user",
+            context: [{ kind: "context", target: FOCUS, section: null }],
+          },
+          copied_from: {
+            preset: engineer.preset,
+            revision: engineer.preset_revision,
+          },
+        }),
+      });
+      await mustCall(flow, {
+        kind: "command",
+        resource: "assignments",
+        method: "change-preset",
+        body: commandBody({
+          assignment: engineer.id,
+          preset: FOCUS_PRESET,
+          preset_revision: 1,
+        }, { revision: engineer.revision, role: "context_engineer" }),
+      });
+
+      provider = startScopeScript({
+        document: glossary.id,
+        version: glossary.latest_version,
+        section,
+      });
+      await mustCall(flow, {
+        kind: "command",
+        resource: "providers",
+        method: "register",
+        body: commandBody({
+          id: PROVIDER,
+          name: "fixture",
+          definition: {
+            key: "anthropic",
+            display_name: "Anthropic",
+            protocols: ["anthropic-messages"],
+            auth_kinds: ["none"],
+            models_endpoint: null,
+            oauth: null,
+            revision: "2026-01-01",
+          },
+          endpoint: provider.url,
+          protocol: "anthropic-messages",
+        }),
+      });
+      const defaults = await mustCall(flow, {
+        kind: "read",
+        resource: "agent-model-defaults",
+        method: "read",
+        body: {},
+      });
+      const seq = (defaults.defaults as { settings_seq: string }).settings_seq;
+      await mustCall(flow, {
+        kind: "command",
+        resource: "agent-model-defaults",
+        method: "change",
+        body: commandBody(
+          {
+            judgment: {
+              provider: PROVIDER,
+              credentials: [],
+              model_name: MODEL,
+              reasoning_level: "provider_default",
+              options: {},
+            },
+            organizing: null,
+            settings_seq: seq,
+          },
+          { settings_seq: seq },
+        ),
+      });
+
+      await sendToEngineer(flow, FOCUS_ASK);
+      await untilCalls(provider, 5, "권한 검사");
+      await untilEngineerDone(flow, provider, "권한 검사가 끝나지 않았다");
+
+      const initial = provider.body(0);
+      const basis = materialBlock(initial, "basis");
+      assertStringIncludes(basis, `document ${glossary.id}`);
+      assertStringIncludes(basis, `version ${glossary.latest_version}`);
+      assertStringIncludes(basis, "제목: glossary");
+      assertStringIncludes(basis, "outline:");
+      assertStringIncludes(basis, "- 용어 용어");
+      assertEquals(basis.includes(SECTION_BODY), false);
+      assertEquals(basis.includes(OTHER_BODY), false);
+      const reference = materialBlock(initial, "reference");
+      assertStringIncludes(reference, `document ${migration.id}`);
+      assertStringIncludes(reference, `version ${migration.latest_version}`);
+      assertEquals(reference.includes("outline:"), false);
+      assertEquals(
+        reference.includes("데이터베이스마이그레이션계획서"),
+        false,
+      );
+      const watchBlock = materialBlock(initial, "watch");
+      assertStringIncludes(watchBlock, glossary.id);
+      assertStringIncludes(watchBlock, section);
+      assertStringIncludes(watchBlock, "미변경");
+      assertEquals(watchBlock.includes("summary:"), false);
+      assertEquals(watchBlock.includes(SECTION_BODY), false);
+      assertStringIncludes(initial, `app_command ${NOTES_APP} list_notes`);
+      assertStringIncludes(initial, `app_command ${TASKS_APP} list_tasks`);
+      assertEquals(initial.includes("save_note"), false);
+      assertEquals(initial.includes("save_task"), false);
+      assertEquals(initial.includes(MISSING_DOCUMENT), false);
+      assertEquals(initial.includes(folder), false);
+      assertEquals(initial.includes(SECTION_BODY), false);
+      assertEquals(initial.includes(OTHER_BODY), false);
+      for (const name of offeredTools(initial)) {
+        assert(name !== "list_notes" && name !== "save_note", name);
+        assert(name !== "list_tasks" && name !== "save_task", name);
+        assert(!name.startsWith("app_"), name);
+      }
+
+      const sectionRead = toolContent(provider.body(1));
+      assertEquals(sectionRead["version"], glossary.latest_version);
+      assertStringIncludes(String(sectionRead["text"]), SECTION_BODY);
+      assertEquals(String(sectionRead["text"]).includes(OTHER_BODY), false);
+      const notesDenied = lastToolJson(provider.body(2));
+      assertEquals(notesDenied["status"], "failure");
+      assertEquals(notesDenied["summary"], "tool is not available");
+      const tasksDenied = lastToolJson(provider.body(3));
+      assertEquals(tasksDenied["status"], "failure");
+      assertEquals(tasksDenied["summary"], "tool is not available");
+      const missingRead = lastToolJson(provider.body(4));
+      assertEquals(missingRead["status"], "failure");
+      assertEquals(missingRead["summary"], "tool target is not available");
+      for (let index = 1; index < provider.calls(); index += 1) {
+        const body = provider.body(index);
+        assertEquals(body.includes(OTHER_BODY), false);
+        assertEquals(body.includes(folder), false);
+        assertEquals(body.includes("save_note"), false);
+      }
+
+      for (const app of [NOTES_APP, TASKS_APP]) {
+        const invocations = await mustCall(flow, {
+          kind: "read",
+          resource: "invocations",
+          method: "list",
+          body: { app },
+        });
+        assertEquals(invocations.invocations, []);
+      }
+      const dock = (await flow.text(EMBEDDED)) ?? "";
+      assertStringIncludes(dock, FOCUS_REPLY);
+      assertEquals(dock.includes(SECTION_BODY), false);
+      assertEquals(dock.includes("list_notes"), false);
+      assertEquals(dock.includes("document.read_section"), false);
+      assertEquals(dock.includes("[자료 basis]"), false);
+      await openFocusId(flow, FOCUS);
+      const screen = (await flow.text("[data-focus-detail]")) ??
+        (await flow.text("[data-screen-body='contexts']")) ?? "";
+      assertEquals(await flow.text("[data-focus-purpose]"), FOCUS_PURPOSE);
+      assertEquals(screen.includes(SECTION_BODY), false);
+      assertEquals(screen.includes("[자료 basis]"), false);
+      assertEquals(screen.includes("tool is not available"), false);
+      assertEquals(screen.includes(folder), false);
+    } finally {
+      await flow?.close();
+      await provider?.close();
+      await removeHome(home);
       await Deno.remove(folder, { recursive: true });
     }
   },

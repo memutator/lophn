@@ -184,6 +184,41 @@ Deno.test("platform/notifications#R10: delivery는 고정 상태 셋뿐이고 de
   }
 });
 
+Deno.test("platform/notifications#R3: get·list의 당시 시각과 문서 참조는 선택이고 문서 id가 아니면 거절한다", () => {
+  const item = { notification, source_event: "ContextWatchedItemChanged" };
+  const common = { as_of_seq: "42", next_cursor: null };
+  const at = "2026-10-04T00:00:00.000Z";
+  const document = "doc_01arz3ndektsv4rrffq69g5fav";
+  assert(
+    notificationsGet.output.safeParse({
+      ...item,
+      ...common,
+      occurred_at: at,
+      document,
+    }).success,
+  );
+  assert(
+    notificationsList.output.safeParse({
+      notifications: [{ ...item, occurred_at: at, document: null }, item],
+      ...common,
+    }).success,
+  );
+  assert(
+    !notificationsGet.output.safeParse({
+      ...item,
+      ...common,
+      document: "glossary",
+    }).success,
+  );
+  assert(
+    !notificationsGet.output.safeParse({
+      ...item,
+      ...common,
+      occurred_at: "yesterday",
+    }).success,
+  );
+});
+
 Deno.test("platform/notifications#R10: get·list 출력의 delivery는 선택 필드다(옛 응답도 통과)", () => {
   const item = { notification, source_event: "QuestionCreated" };
   const common = { as_of_seq: "42", next_cursor: null };

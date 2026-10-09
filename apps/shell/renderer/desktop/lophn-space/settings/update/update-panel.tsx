@@ -1,6 +1,6 @@
 // settings의 update 자리(shell#T58, platform#T50에서 넘어온 것). 새 version·지원 OS·schema
-// 호환·정상 정지·재시작 필요만 보인다. 자동 다운로드·설치·재시작은 없다: 사람이 로컬
-// package metadata 파일을 고르고, lophn은 안내와 정상 정지 요청만 한다.
+// 호환·정상 정지·재시작 필요만 보인다. 자동 다운로드·재시작은 없다. 설치 파일 교체는
+// 화면에 보이지 않는다.
 import { useCallback, useState } from "react";
 import { Button, Skeleton } from "@lophn/design/components";
 import { t } from "@lophn/wording";

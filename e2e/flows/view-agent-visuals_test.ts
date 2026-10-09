@@ -141,7 +141,10 @@ const STEPS: Step[] = [
               description: "Units sold per quarter. Q3 has no recorded figure.",
               sources: [{
                 kind: "document",
-                reference: reference(),
+                reference: {
+                  document: state.document!,
+                  version: state.version!,
+                },
                 observed_at: null,
               }],
               payload: {
@@ -167,7 +170,10 @@ const STEPS: Step[] = [
               description: "Bar per quarter. Q3 is missing, not zero.",
               sources: [{
                 kind: "document",
-                reference: reference(),
+                reference: {
+                  document: state.document!,
+                  version: state.version!,
+                },
                 observed_at: null,
               }],
               payload: {
@@ -393,7 +399,7 @@ Deno.test({
           // 3·4: 검사한 명세가 SDK 표·막대 차트로 그려진다.
           await flow.until(
             `document.querySelector("${DOCK} [data-visual='table'][data-visual-key='sales'] [data-visual-table]") !== null`,
-            `표 블록이 그려지지 않았다: ${await dockText()}`,
+            `표 블록이 그려지지 않았다: ${provider.body(2).slice(-600)}`,
           );
           await flow.until(
             `document.querySelector("${DOCK} [data-visual='chart'][data-visual-key='trend'] [data-visual-chart='bar']") !== null`,

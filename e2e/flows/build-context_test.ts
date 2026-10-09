@@ -1,7 +1,7 @@
 // flow build-context: 실제 headless shell·core·documents worker를 임시 LOPHN_HOME으로 연다.
-// 1은 아래 시험이 contexts 화면과 Context Engineer 대화로 본다. 2는 그 다음 시험이
+// 1은 아래 테스트가 contexts 화면과 Context Engineer 대화로 본다. 2는 그 다음 테스트가
 // 목차·검색·section·본문 범위와 blueprint 읽기 command 조회를 본다. 3~4는 이 파일에 없다.
-// 이 시험은 기존 사람 command로 준비한 context에서 5의 화면·고정 section 읽기, 6~7의 실제 파일 관측·
+// 이 테스트는 기존 사람 command로 준비한 context에서 5의 화면·고정 section 읽기, 6~7의 실제 파일 관측·
 // watch·notification·전후 판 읽기, section 소실과 항목 제거·보관 갈래를 확인한다.
 // 8의 contexts revert 진입은 아직 없다(shell#T36). 미확인·단절·범위 갈래는 T27의 남은 E2E다.
 import { DatabaseSync } from "node:sqlite";

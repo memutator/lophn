@@ -3,6 +3,7 @@
 // 수리 script(coding-agent#T47, #487)를 record_fix까지만 호출해 만든다. release 준비·완료 보고·
 // activation·닫힘은 2–7단계라 여기서 하지 않는다. 사람 데이터 root(~/.lophn)는 열지 않는다.
 // HOME·LOPHN_HOME은 임시 폴더이고, shell은 LOPHN_SHELL_HEADLESS=1(openFlowShell)로만 띄운다.
+// 2단계 테스트는 이 파일의 두 번째 Deno.test다. 1단계 본문은 바꾸지 않는다.
 //
 // 화면이 가진 것: 진행·실제 담당·필요한 사람 조치(없으면 그 줄을 만들지 않는다), 고쳤다는 주장과
 // 실제 테스트 상태. 당시 release·summary 본문·작성자는 화면 글에 없고 list-fixes와 그 event·
@@ -12,6 +13,7 @@ import { fileURLToPath } from "node:url";
 import { assert, assertEquals, assertNotEquals } from "@std/assert";
 
 import { err, ok, type Result, sha256Hex } from "../../packages/base/mod.ts";
+import { SECTION_KINDS } from "../../packages/contracts/coding-agent/mod.ts";
 import { objectPathFor } from "../../packages/platform/blob-store/model.ts";
 import {
   codingCredentialRef,
@@ -39,6 +41,7 @@ import { createCoreRegistration as createTicketPortsRegistration } from "../../a
 import {
   type RepairScriptResult,
   type RepairStage,
+  type RepairStepRecord,
   runRepairScript,
 } from "../../tools/fake-coding-agent/repair.ts";
 import { e2eEnabled } from "../harness.ts";
@@ -61,6 +64,14 @@ const REL_NOW = "rel_01arz3ndektsv4rrffq69g5fa3";
 const BUNDLE_BEFORE = "a".repeat(64);
 const BUNDLE_AFTER = "b".repeat(64);
 const BUNDLE_NOW = "c".repeat(64);
+const REL_PAST = "rel_01arz3ndektsv4rrffq69g5fa4";
+const BUNDLE_PAST = "e".repeat(64);
+const PAST_SUMMARY = [
+  "변경: 예전 leaf",
+  "수행한 확인: 없음",
+  "미실행 확인: 당시 테스트는 없다",
+  "",
+].join("\n");
 const TEST_HASH = "9".repeat(64);
 const COMMIT = "a".repeat(40);
 const SUMMARY = [
@@ -1016,6 +1027,402 @@ Deno.test({
           }
         },
       );
+    } finally {
+      await opened.world.close();
+      if (home !== undefined) {
+        await Deno.remove(home, { recursive: true });
+      }
+    }
+  },
+});
+
+type StoredFix = {
+  before: string;
+  after: string;
+  summary: string;
+  verification: string[];
+  ticket: string | null;
+  claim_seq: string | null;
+};
+
+type ContextSection = {
+  kind: string;
+  content: string;
+  more: { problem: string; kind: string; source: string }[] | null;
+};
+
+function sectionOrder(kinds: readonly string[]): boolean {
+  let cursor = -1;
+  for (const kind of kinds) {
+    const at = SECTION_KINDS.indexOf(kind as (typeof SECTION_KINDS)[number]);
+    if (at < 0 || at < cursor) return false;
+    cursor = at;
+  }
+  return kinds.length > 0 && kinds.at(-1) === "return_method";
+}
+
+function sectionsOf(stepRecord: RepairStepRecord): ContextSection[] {
+  const context = stepRecord.data.context as { sections?: ContextSection[] };
+  return context.sections ?? [];
+}
+
+async function absentBlob(root: string, hash: string): Promise<void> {
+  try {
+    await Deno.stat(objectPathFor(root, hash));
+    assert(false, `${hash.slice(0, 8)}가 blob으로 저장됐다`);
+  } catch (error) {
+    if (!(error instanceof Deno.errors.NotFound)) throw error;
+  }
+}
+
+// 과거 ticket 없는 고친 기록. summary hash는 방금 저장한 blob의 hash만 쓴다.
+async function plantPastFix(opened: Opened): Promise<string> {
+  insertRelease(opened.world, {
+    id: REL_PAST,
+    number: 2,
+    bundle: BUNDLE_PAST,
+    source: null,
+  });
+  const prepared = await prepareBlob(
+    opened.world,
+    "user-repair",
+    "fix_summary",
+    PAST_SUMMARY,
+  );
+  const db = openDb(`${opened.world.harness.dataRoot}/lophn.db`, false);
+  try {
+    db.prepare(
+      `insert into events (type, subject, actor, payload, at)
+       values ('ProblemFixRecorded', ?, 'machine', ?, ?)`,
+    ).run(
+      opened.problem,
+      JSON.stringify({
+        before: REL_BEFORE,
+        after: REL_PAST,
+        summary: prepared.hash,
+        verification: [],
+        ticket: null,
+        claim_seq: null,
+      }),
+      new Date(Date.now() - 86_400_000).toISOString(),
+    );
+  } finally {
+    db.close();
+  }
+  const bytes = await Deno.readFile(
+    objectPathFor(opened.world.harness.dataRoot, prepared.hash),
+  );
+  assertEquals(decoder.decode(bytes), PAST_SUMMARY);
+  assertEquals(await sha256Hex(bytes), prepared.hash);
+  return prepared.hash;
+}
+
+async function runStageTwo(
+  opened: Opened,
+  ticket: { ticket: string; revision: string },
+  options: { plantRelease: boolean; requestKey: string },
+): Promise<RepairScriptResult> {
+  const home = await Deno.makeTempDir({ prefix: "lophn-repair-home-" });
+  try {
+    const env: Record<string, string> = {
+      PATH: Deno.env.get("PATH") ?? "",
+      HOME: home,
+      LOPHN_SHELL_HEADLESS: "1",
+      LOPHN_TEST_TOKEN: opened.coding.token,
+      LOPHN_TEST_DAEMON: `http://127.0.0.1:${opened.world.harness.port}`,
+      LOPHN_TEST_CONNECTION: opened.coding.connection,
+    };
+    const denoDir = Deno.env.get("DENO_DIR");
+    if (denoDir) env.DENO_DIR = denoDir;
+    return await runRepairScript({
+      command: Deno.execPath(),
+      args: ["run", "-A", BRIDGE],
+      cwd: ROOT,
+      env,
+      label: "lophn-repair-script",
+      ticket: ticket.ticket,
+      base_revision: ticket.revision,
+      app: opened.world.app,
+      problem: opened.problem,
+      before: REL_BEFORE,
+      release: REL_AFTER,
+      bundle_hash: BUNDLE_AFTER,
+      reports: [rpt(1)],
+      basis_seq: "1",
+      test: TEST_HASH,
+      summary: SUMMARY,
+      commit: COMMIT,
+      request_key: options.requestKey,
+      release_request_key: `release-${options.requestKey}`,
+      after: async (stage: RepairStage, traced) => {
+        if (!options.plantRelease) return;
+        if (stage === "claim" && !traced.isError) {
+          insertRelease(opened.world, {
+            id: REL_AFTER,
+            number: 3,
+            bundle: BUNDLE_AFTER,
+            source: JSON.stringify({
+              ticket: ticket.ticket,
+              claim_seq: traced.data.claim_seq,
+            }),
+          });
+          await waitWork(opened.world.harness.dataRoot, opened.problem);
+        }
+        if (stage === "reproduction") {
+          await settleEvents(opened.world.harness.dataRoot, opened.problem);
+        }
+      },
+    });
+  } finally {
+    await Deno.remove(home, { recursive: true });
+  }
+}
+
+function releaseSource(root: string, id: string): string | null {
+  const db = openDb(`${root}/lophn.db`, true);
+  try {
+    const row = db.prepare(
+      "select ticket_source from releases where id = ?",
+    ).get(id) as { ticket_source: string | null } | undefined;
+    assert(row, id);
+    return row.ticket_source;
+  } finally {
+    db.close();
+  }
+}
+
+Deno.test({
+  name:
+    "problems/repairs#R1 problems/repairs#R4 problems/repairs#R5 coding-agent/tickets#R11 apps/releases#R6 coding-agent/repair-context#R3 flow verify-app-repair 2: 자기 터미널 수리를 현재 MCP claim으로 제출하고 과거 null 출처는 보충하지 않는다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn() {
+    const opened = await openLedger();
+    let home: string | undefined;
+    try {
+      const pastHash = await plantPastFix(opened);
+      const ticket = await readyTicket(opened);
+      const script = await runStageTwo(opened, ticket, {
+        plantRelease: true,
+        requestKey: "repro-stage2",
+      });
+      const claim = step(script, "claim");
+      assertEquals(claim.isError, false, JSON.stringify(claim));
+      assert(typeof script.claim_seq === "string", JSON.stringify(claim.data));
+      const bundle = step(script, "bundle");
+      assertEquals(bundle.isError, false, JSON.stringify(bundle.data));
+      const sections = sectionsOf(bundle);
+      const kinds = sections.map((section) => section.kind);
+      assertEquals(sectionOrder(kinds), true, kinds.join(","));
+      const past = sections.find((section) => section.kind === "past_repairs");
+      assert(past, kinds.join(","));
+      assert(
+        past.content.includes(`${REL_BEFORE} -> ${REL_PAST}`),
+        past.content,
+      );
+      assert(past.content.includes("verification 없음"), past.content);
+      assert(!past.content.includes("ticket "), past.content);
+      const logs = sections.find((section) => section.kind === "logs");
+      assert(logs, kinds.join(","));
+      assert(logs.content.includes("line 1"), logs.content);
+      const reproductionSection = sections.find((section) =>
+        section.kind === "reproduction"
+      );
+      assert(reproductionSection, kinds.join(","));
+      assert(
+        !reproductionSection.content.includes("reproduction pass"),
+        reproductionSection.content,
+      );
+      const more = step(script, "more");
+      const moreRef = sections.flatMap((section) => section.more ?? [])[0];
+      if (moreRef) {
+        assertEquals(more.input.problem, moreRef.problem);
+        assertEquals(more.input.kind, moreRef.kind);
+        assertEquals(more.input.source, moreRef.source);
+      }
+      const reproduction = step(script, "reproduction");
+      assertEquals(reproduction.input.ticket, null);
+      assertEquals(reproduction.input.test, TEST_HASH);
+      assertEquals(reproduction.input.ticket_source, {
+        ticket: ticket.ticket,
+        claim_seq: script.claim_seq,
+      });
+      assertNotEquals(reproduction.data.state, "pass");
+      assertNotEquals(reproduction.data.real_test, true);
+      const recorded = step(script, "record_fix");
+      assertEquals(recorded.isError, false, JSON.stringify(recorded));
+      assertEquals(recorded.input.fix, {
+        before: REL_BEFORE,
+        after: REL_AFTER,
+        verification: [],
+        ticket: ticket.ticket,
+        claim_seq: script.claim_seq,
+      });
+      assertEquals(recorded.input.summary, SUMMARY);
+      const prepared = step(script, "release_prepare");
+      assertEquals(prepared.input.ticket_source, {
+        ticket: ticket.ticket,
+        claim_seq: script.claim_seq,
+      });
+      assertEquals(prepared.isError, true, JSON.stringify(prepared.data));
+      assertNotEquals(prepared.data.prepared_release, true);
+      const report = step(script, "report");
+      assertEquals(report.isError, false, JSON.stringify(report));
+      assertEquals(report.input.verifications, undefined);
+      assertEquals(report.input.release, REL_AFTER);
+      assertEquals(report.input.claim_seq, script.claim_seq);
+      assertEquals(report.input.fix_records, [script.fix_seq]);
+      assertEquals(script.report_state, "reported");
+      const root = opened.world.harness.dataRoot;
+      assertEquals(releaseSource(root, REL_BEFORE), null);
+      assertEquals(releaseSource(root, REL_PAST), null);
+      assertEquals(
+        releaseSource(root, REL_AFTER),
+        JSON.stringify({
+          ticket: ticket.ticket,
+          claim_seq: script.claim_seq,
+        }),
+      );
+      for (const hash of [BUNDLE_BEFORE, BUNDLE_PAST, BUNDLE_AFTER]) {
+        await absentBlob(root, hash);
+      }
+      const fixes = await post(
+        opened.world,
+        "problems/list-fixes",
+        opened.user,
+        { problem: opened.problem },
+      );
+      assertEquals(fixes.status, 200, JSON.stringify(fixes.body));
+      const rows = fixes.body["fixes"] as { seq: string; fix: StoredFix }[];
+      assertEquals(rows.length, 2);
+      const newest = rows[0]!.fix;
+      const oldest = rows[1]!.fix;
+      assertEquals(oldest.ticket, null);
+      assertEquals(oldest.claim_seq, null);
+      assertEquals(oldest.verification, []);
+      assertEquals(oldest.before, REL_BEFORE);
+      assertEquals(oldest.after, REL_PAST);
+      assertEquals(oldest.summary, pastHash);
+      assertEquals(newest.before, REL_BEFORE);
+      assertEquals(newest.after, REL_AFTER);
+      assertEquals(newest.verification, []);
+      assertEquals(newest.ticket, ticket.ticket);
+      assertEquals(newest.claim_seq, script.claim_seq);
+      const summaryBytes = await Deno.readFile(
+        objectPathFor(root, newest.summary),
+      );
+      assertEquals(decoder.decode(summaryBytes), SUMMARY);
+      assertEquals(await sha256Hex(summaryBytes), newest.summary);
+      const db = openDb(`${root}/lophn.db`, true);
+      try {
+        const events = db.prepare(
+          `select actor from events
+           where type = 'ProblemFixRecorded' and subject = ?
+           order by seq desc`,
+        ).all(opened.problem) as { actor: string }[];
+        assertEquals(events.length, 2);
+        assert(events[0]!.actor.startsWith("coding_agent:"), events[0]!.actor);
+        assertEquals(events[1]!.actor, "machine");
+        const status = db.prepare("select status from problems where id = ?")
+          .get(opened.problem) as { status: string };
+        assertNotEquals(status.status, "closed");
+      } finally {
+        db.close();
+      }
+      const again = await runStageTwo(opened, ticket, {
+        plantRelease: false,
+        requestKey: "repro-stage2-again",
+      });
+      assertEquals(step(again, "claim").isError, true);
+      assertEquals(again.claim_seq, null);
+      assertEquals(again.halted_before, "reproduction");
+      assert(!again.stages.includes("record_fix"));
+      assert(!again.stages.includes("release_prepare"));
+
+      home = await copyHome(root);
+      await opened.world.close();
+      const flow = await openFlowShell({
+        home,
+        start: `app:${opened.world.app}`,
+      });
+      try {
+        await openIssue(flow);
+        await flow.click("[data-issue-open]");
+        await flow.until(
+          `document.querySelector("[data-issue-detail]") !== null`,
+          "Issues 상세",
+        );
+        const shown = String(
+          await flow.evaluate(
+            `document.querySelector("[data-issue-detail]")?.getAttribute("data-issue-detail")`,
+          ),
+        );
+        assertNotEquals(shown, "closed");
+        assertEquals(await flow.count("[data-issue-closed]"), 0);
+        assertNotEquals(
+          await flow.evaluate(
+            `document.querySelector("[data-check='tests']")?.getAttribute("data-test-state")`,
+          ),
+          "pass",
+        );
+        const tests = await screenText(flow, "[data-check='tests']");
+        assert(!tests.includes("passed"), tests);
+        assertEquals(
+          await flow.evaluate(
+            `document.querySelector("[data-check='human']")?.getAttribute("data-checked")`,
+          ),
+          "false",
+        );
+        const visible = await screenText(flow, "[data-issue-detail]");
+        for (
+          const hidden of [
+            "claim_seq",
+            "tkt_",
+            "rel_",
+            "cac_",
+            "vrf_",
+            "ticket claim is not current",
+            "leaf redaction",
+            "예전 leaf",
+            "verification 없음",
+            "coding_agent",
+          ]
+        ) {
+          assert(!visible.toLowerCase().includes(hidden.toLowerCase()), hidden);
+        }
+        const read = await mustCall(flow, {
+          kind: "read",
+          resource: "problems",
+          method: "list-fixes",
+          body: { problem: opened.problem },
+        });
+        const listed = read.fixes as { fix: StoredFix }[];
+        assertEquals(listed.length, 2);
+        assertEquals(listed[1]!.fix.ticket, null);
+        assertEquals(listed[1]!.fix.claim_seq, null);
+        assertEquals(listed[1]!.fix.verification, []);
+        assertEquals(listed[0]!.fix.verification, []);
+        assertEquals(listed[0]!.fix.claim_seq, script.claim_seq);
+        const problem = await mustCall(flow, {
+          kind: "read",
+          resource: "problems",
+          method: "get",
+          body: { problem: opened.problem },
+        });
+        assertNotEquals(
+          (problem.problem as { status: string }).status,
+          "closed",
+        );
+        assertEquals(problem.last_release, REL_BEFORE);
+        assertEquals(
+          (problem.detail as { result: { tests: { state: string } } }).result
+            .tests.state === "pass",
+          false,
+        );
+      } finally {
+        await flow.close();
+      }
     } finally {
       await opened.world.close();
       if (home !== undefined) {

@@ -2503,6 +2503,7 @@ export const en = {
   "things-to-confirm.button.keep-question": "Keep the question",
   "things-to-confirm.button.later": "Answer later",
   "things-to-confirm.button.mark-read": "Mark as read",
+  "things-to-confirm.button.open-document": "Open the document",
   "things-to-confirm.button.review": "Review",
   "things-to-confirm.button.review-next": "Review the next decision",
   "things-to-confirm.button.send-answer": "Send answer",

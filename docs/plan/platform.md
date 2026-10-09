@@ -1158,6 +1158,7 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 - platform#T52에서 넘어온 것: work-offline flow의 응답성 단계(#226)
 - platform#T42에서 넘어온 것: flow backup-and-restore E2E(`e2e/flows/backup-and-restore_test.ts`)의 복원 단계. core 쪽(계획·확인한 복원·새 hello 재시작)은 `apps/core/restore-pipe_test.ts`가 실제 main.ts로 이미 돈다. 남은 것은 shell#T58의 복원 확인 창을 거치는 전체 흐름이다
 - platform#T46에서 넘어온 것: flow catch-up-notifications의 OS 전달 실패 갈래(표시 실패 뒤 다음 조회에서 같은 notification과 안전한 이유, 재시도 업무 없음). wire·core·shell main은 T46에 있다. 화면은 shell#T58·things-to-confirm이 쓴다
+- 상태: 진행 (#473) — 남은 것: flow catch-up-notifications, work-offline, update-lophn, install-lophn. 한 것: flow backup-and-restore(`e2e/flows/backup-and-restore_test.ts`)가 통과한다. 그 흐름에 필요한 제품 조립을 같이 이었다: core `/v1/backups/list·get` api read(`apps/core/backup-reads.ts`), shell main 복원 통로(`apps/shell/main/desktop/core/restore-ipc.ts`, 확인 자리를 닫으면 계획을 버리는 `shell:restore-cancel`), 복원 뒤 type 없는 main hello로 session을 다시 여는 연결(`connection.ts`), preload `lophnRestore`와 settings Backup source 조립
 - 완료: 아래 확인이 통과한다
   - `e2e/flows/install-lophn_test.ts`, `update-lophn_test.ts`, `backup-and-restore_test.ts`, `catch-up-notifications_test.ts`, `work-offline_test.ts`가 flow 문서의 단계·다른 갈래·끝을 그대로 돈다(Linux, fake provider와 fixture).
   - `deno task e2e`에서 operations slice의 다섯 flow가 모두 통과한다.

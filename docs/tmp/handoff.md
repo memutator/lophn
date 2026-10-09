@@ -3,7 +3,7 @@ type: guide
 concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell]
 ---
 
-# lead handoff (2026-10-09 00:15 기준)
+# lead handoff (2026-10-09 18:15 기준)
 
 다음 orchestrator(lead)가 이 팀을 이어 받을 때 알아야 하는 것. 무엇을 만들지는 `docs/plan/`이 정하고,
 여기는 운영 방법·현재 상태·함정만 적는다. 숫자와 PR 목록은 작성 시각 기준이니 시작할 때
@@ -15,8 +15,9 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
   batch 25·26을 merge하고 멈춘 WIP를 전부 commit·push로 보존했다.
 - 2026-10-09 ~00:05 subagent 주간 사용량 한도가 끝나 이어가기 worker(T41·T27)가 중단됐다. 지금 돌고
   있는 worker·검사·cron은 없다.
-- 다시 시작하면 §6 "다음에 할 일" 순서로 간다. WIP는 전부 push돼 있으니 worktree가 지워져도
-  branch에서 복구된다(아래 "남은 WIP" 표).
+- 2026-10-09 17:30 박스 lead가 로컬로 넘겼다. 사람 지시: "추가 배치는 하지 말고 지금 작업을 다 merge하고 알려줘."
+  로컬 lead가 열린 부분 PR 6개를 merge했다(§6). 새 worker는 띄우지 않는다.
+- 다시 시작하면 §6을 본다. 사람이 배치를 다시 허용하기 전에는 ready task를 시작하지 않는다.
 
 ## 1. 사람이 정한 운영 규칙
 
@@ -141,77 +142,93 @@ lead가 쓰는 사본은 `.dev-data/lead-tools/`(git 무시, 이 기계에 남�
 - worker가 시작 전 멈추거나 중간에 죽어도 worktree에 찌꺼기(probe 디렉터리 등)를 남긴다. WIP commit
   전에 untracked 목록을 본다.
 
-## 6. 현재 상태 (2026-10-09 00:15)
+## 6. 현재 상태 (2026-10-09 18:15)
 
-- 완료 341/362(94%). Devin CLI 구간 merge 6개: #464(T53)·#465(T34)·#467(T58)·#468(T57)·#469(T20)·
-  #470(T50). 그 전 12개(#436·#445·#453–#456·#458–#463)는 아래 이력대로.
-- merge-queue 비어 있음. `lead/merge-batch` local은 `f1012d99`(batch 26 통합본, push 안 함).
+- 완료 346/362(95%). 인수 시각(17:30)은 345/362, 그 전 lead 인수 때 341/362. 이번 merge로 완료가 늘어난
+  task는 shell#T53뿐이다. 나머지 다섯 PR은 상태 줄이 진행이다.
+- main `ae07c7b`. 열린 PR은 #457(이 handoff)뿐. merge-queue는 비어 있다.
+- 사람 지시(17:30): 추가 배치 금지. 새 worker를 띄우지 않는다. lophn-agent#T54·T55·T56 실제 model eval은
+  사람이 미룸 — 시작 금지.
+- #457은 docs만. lead self-merge는 거절되므로 사람이 merge한다.
 
-### 열린 PR
+### batch 27 (끝남)
 
-| PR | task | 상태와 남은 일 |
-|---|---|---|
-| #457 | 이 handoff (+eval 미룸) | docs만. 사람 merge 필요(lead self-merge 거절됨) |
-| #466 | lophn-agent#T41 agent flow E2E | **부분 PR**(진행 표시). 완료 flow 4/14: connect-provider·manage-provider-accounts·steer-agent-work·answer-question. head `c79ae09e`에 미검증 WIP `resume-agent-session_test.ts`(602줄) 포함 — 다음 worker가 통과 확인부터 |
+통합 branch에서 light-check(fmt·lint·deps·coverage·deno check·docs·바뀐 폴더 deno test·shell npm check)를
+통과시킨 뒤 squash merge했다. `e2e/flow-support.ts`는 #473의 `osNotifyFails`, #479의 `pickFolder`,
+#478의 `env`를 같이 두었고, `organize-documents_test.ts`는 #466의 2·3과 #479의 1·6·7을 같이 두었다.
 
-### batch 25·26 (끝남)
-
-- batch 25: #464의 lint·fmt 3파일을 lead가 고쳐 push → 통과 → #464 `fe70b28`·#465 `abfd9f0` merge.
-- batch 26: #467·#468·#469·#470 통합 `48eb9ddc` → light-check 실패 → `rerun-failed.sh`로 재현 확인
-  (context-revert·document-tools·revert·wording check 단독 실패). 원인 둘을 lead가 PR branch에 고쳐
-  push: #467 `fcc5293f`(`isosOf` unused, settings.backup heading 3개 마침표), #470 `78187bb6`
-  (`AGENT_OPERATIONS`의 `document.get` 중복 — `LinkProblemInterpretation` 보조 operation으로 이미
-  들어와 `acceptTestCredential`의 duplicate operation에 걸렸다). 재통합 `f1012d99` → 통과 → 4개
-  merge(`8f3718c`·`4411d6a`·`fe60307`·`26e5786`).
-
-### 남은 WIP (전부 push됨 — worktree가 지워져도 branch에서 복구)
-
-| task | branch | head | 상태 |
+| PR | task | merge | 상태 줄에 남은 것 |
 |---|---|---|---|
-| lophn-agent#T41 | `lophn-agent/t41-agent-flow-e2e` (PR #466) | `c79ae09e` | flow 4개 완료 + resume-agent-session 미검증 WIP. 남은 ~9: review-agent-work, approve-action(앱 confirm 제외), ask-lophn-help, edit-instructions, add-agent-extension, view-agent-visuals(앱 카드 제외), organize-documents 2~3단계, find-documents 5~6단계, project-workspace 8단계. 질문 답 확정 경로는 제품 결함(followups 49)으로 이어보냄 |
-| apps#T27 | `apps-slice-flow-e2e` (PR 없음) | `8668e77b` | WIP commit: `e2e/flows/probe-restore_test.ts`·`restore-app-release_test.ts` + `app-decisions.ts`의 `compare:{}` 수정(envelope schema가 요구 — 실제 제품 결함일 수 있음, 다음 worker가 확인). plan은 8개 flow 필요: new-app·change-app·restore-app-release·run-app-automation·manage-app-permissions·use-app-command·connect-apps·ask-app-hint |
+| #473 | platform#T54 | `14cbe8e` | 진행. backup-and-restore 통과. 남은 flow: catch-up-notifications(전달 상태가 `failed`가 아니라 `unconfirmed`), work-offline, update-lophn, install-lophn |
+| #474 | apps#T27 | `7ae8666` | 진행. restore-app-release 통과. new-app은 `e2e/flows/flow-new-app_test.ts`까지 썼으나 통과 미확인. 남은 flow: new-app의 app test·preview·적용, change-app, run-app-automation, manage-app-permissions, use-app-command, connect-apps, ask-app-hint |
+| #479 | documents#T21 | `7200475` | 진행. first-project 1·2·4, organize-documents 1·6·7 통과. edit-document 8은 overlay dialog를 못 찾아 시험을 뺐다. restore-document 1의 agent run 근거·옛 이름·파일 없음 갈래는 미착수 |
+| #466 | lophn-agent#T41 | `72e74f6` | 진행. 끝낸 flow: connect-provider, manage-provider-accounts, steer-agent-work, answer-question(답 확정 제외), resume-agent-session, review-agent-work, ask-lophn-help(1~4·미루기), add-agent-extension 2~4, view-agent-visuals(앱 카드 제외). `ignore`인 미검증: organize-documents 2~3, find-documents 5~6, project-workspace 8, add-agent-extension 1 폴더 등록. 제품 결함으로 막힌 시험도 `ignore` |
+| #478 | coding-agent#T41 | `737d047` | 진행. connect-coding-agent, manage-tickets, start-coding-agent 통과. 남은 것: new-app, fake harness TUI, 일곱 adapter fixture. keychain 성공 갈래와 manage-coding-access는 통로가 없어 범위 밖 |
+| #477 | shell#T53 | `ae07c7b` | 완료. Issues 결정을 ApplyProblemDecision과 확인 창에 잇는다. `basis.versionKnown`은 `issueViewOf`의 last_release가 아니라 apps/get 활성 release로 덮어쓴다. text가 null인 문제는 unavailable |
 
-### 남은 task (미완 ~21, 미룸 5 빼고)
+lead가 PR branch에 고친 것(lint·fmt·이름): #466 쓰지 않는 import·`SECRET_INTENT`, #474 `new-app_test.ts`가
+`new-` 접두라 `flow-new-app_test.ts`로 변경하고 쓰지 않는 `post` 삭제, #478 쓰지 않는 `dump`, #477
+`problem-decision_test.ts` fmt.
 
-- PR 있음: lophn-agent#T41(#466 부분), apps#T27(branch만)
-- **핵심 경로 다음 단계**: problems#T20이 merge됐으므로 problems#T21이 READY. T21 merge 뒤
-  coding-agent#T45·problems#T22·shell#T53의 "실제 data에 잇는 연결 PR"과 problems E2E T24·T25·T26이
-  열린다(ready.js 확인).
-- 진행(남은 단계는 상태 줄 참고): coding-agent#T36·T45, documents#T21·T27, problems#T22·T23(#447),
-  shell#T53
-- 미착수: coding-agent#T41·T46·T47, platform#T54, problems#T24·T25·T26, shell#T48
+이번 E2E가 같이 고친 제품 결함 5건은 위 PR에 들어갔다: backup 목록 read, restore cancel 뒤 plan 잔존,
+restore 뒤 reconnect, versions 탭 시작 확인 refresh, app decision `compare`.
 
-### 다음에 할 일 (다시 시작할 때 순서)
+### 검사에서 본 것
 
-1. `gh pr list`, `node docs/tmp/plan-count.js now`, `node .dev-data/lead-tools/ready.js`로 숫자 확인.
-2. T41 worker: `resume-agent-session_test.ts` 통과 확인 → 나머지 flow 하나씩 commit·push(#466 계속).
-3. T27 worker: `8668e77b`의 app-decisions compare 수정이 제품 결함인지 확인부터 → flow 하나씩 PR.
-   좁은 지시(한 번에 flow 하나)를 지킨다 — glm은 8개를 한 context에서 못 끝낸다.
-4. problems#T21 worker — 핵심 경로.
-5. `ready.js`로 빈 slot 채운다(6개까지). worker는 glm-flash-max만.
+- 저장소 `deno fmt`은 통과했는데 shell npm check의 `deno fmt`은 `apps/shell/main` 기준으로 한 파일을
+  더 감싼다. shell 파일을 건드리면 그 fmt로 본다.
+- `docs/tmp/light-check.sh`의 deno test 한계는 900초로 박혀 있고 `LIGHT_TEST_TIMEOUT`을 무시한다.
+  이번 통합 시험은 그 값을 읽는 로컬 수정으로 2400초에 돌렸다(commit하지 않음). apps/core가 들어오면
+  900초를 넘길 수 있다.
+- 알려진 환경 실패·flaky는 §7의 60·61·65·70. 이번 로컬 light-check의 deno test와 shell check는 통과했다.
+
+### READY (2026-10-09 18:15 `ready.js`, 미배정)
+
+사람이 배치를 막았다. 시작하지 않는다.
+
+- 진행 PR이 merge된 뒤에도 남은 flow가 있어 READY: platform#T54, apps#T27, documents#T21, documents#T27,
+  lophn-agent#T41, coding-agent#T36, coding-agent#T41, problems#T23(#447, shell#T53 merge 뒤에도 남은
+  갈래가 상태 줄에 있다).
+- 상태 줄이 없는 READY: coding-agent#T46, problems#T26.
+- problems#T24·T25는 #477 merge만으로 열리지 않았다. `ready.js`에 없다.
+
+### 다음에 할 일
+
+1. 사람이 #457을 merge한다.
+2. 사람이 배치를 다시 허용하기 전에는 worker를 띄우지 않는다. 허용되면 `ready.js`와 각 상태 줄의 남은
+   flow부터 하고, 아래 제품 결함(§7의 68·69·64·67·71)이 E2E를 막고 있다.
 
 ## 7. 알려진 남은 구멍
 
-이어보낸 것 전체는 `.dev-data/followups.md`(git 무시, 번호 1~53)에 있다. 이번 구간에 닫힌 것·새 것:
+이어보낸 것 전체는 `.dev-data/followups.md`(git 무시)에 있다. 1~55는 그 파일, 56~73은 2026-10-09 박스
+기록이다.
 
-- 닫힘: 40(RequestTest 제품 실행 경로 → #456), 51(#436 core 안 앱 fetch → 감독 worker `apps/revert`로
-  옮겨 merge).
-- 새 것 52: #453의 test-runner kind가 RequestTest 실행(stdout JSON)과 problems.work 반응기(감독 pipe
-  envelope)를 같은 child에서 돌린다. 경합은 없어 보이나 실제 가동으로 확인(problems#T22 wiring 때).
-- 새 것 53: `apps/worker/apps/revert.ts`가 사람 Bearer token을 감독 channel로 받아 `apps/connect`를
-  부른다 — worker 전용 machine 자격으로 바꾸고 token 전달을 없애는 편이 낫다. worker kind 자체
-  `_test.ts`도 없다(lophn-agent 후속).
-- 새 것 54: #470의 `LinkProblemInterpretation`은 agent actor만 받는데 그 revert는 user/machine 자격으로
-  부른다 → 제품 경로에서 revert가 forbidden이 될 수 있다. 결정 필요: actor 인가를 넓히거나 revert를
-  assignment 범위 agent 자격으로 부르게 한다. (lophn-agent#T50 이어보냄)
-- 새 것 55: #469(problems#T20)의 product core test가 verification·release 행을 SQLite에 직접 seed한다
-  (실제 lifecycle 아님). review에서 test fixture 한정으로 받았으나 실제 경로로 만드는 followup.
-- 확인됨: followups 49(끝난 run의 질문에 답할 수 없음)를 T41 E2E가 실제로 재현했다 — `ports.wait`가
-  `{tool_call, approval}`만 받아 `WaitRun`의 question 갈래를 아무도 부르지 않아 질문을 만든 run이
-  곧바로 끝나고 `questions/answer`가 "the run is finished"로 거절된다. answer-question의 답 확정
-  경로는 이 결함으로 검증 불가였다.
+- 52: #453 test-runner kind가 RequestTest 실행과 problems.work 반응기를 같은 child에서 돈다. 실제 가동 확인.
+- 53: `apps/worker/apps/revert.ts`가 사람 Bearer token을 감독 channel로 받아 `apps/connect`를 부른다.
+- 54: #470 `LinkProblemInterpretation`은 agent actor만 받는데 revert는 user/machine 자격이다.
+- 55: #469 product core test가 verification·release 행을 SQLite에 직접 seed한다. 49가 T41 E2E에서 재현됨
+  (`ports.wait`가 question 갈래를 부르지 않아 질문을 만든 run이 끝나고 `questions/answer`가 거절된다).
+- 56: #472 e2e가 가짜로 깨뜨린 앱을 쓴다.
+- 57: 같은 앱의 다른 탭이 process를 공유한다는 단언이 없다.
+- 58: #471 `closure.confirmation`은 `ApplyProblemDecision@<basis_seq>` 참조이고, handle `target_ref`는 choice 값이다.
+- 59: 세션 없는 run이 `model_calls` CHECK에 거절된다. harness/usage migration이 필요하다.
+- 60·61: 환경 실패. 박스에서 `problems-app-test-fixtures`·`problems-reproduction-fixtures`·`problems-test-run`
+  ("프로세스 메모리 경계를 강제할 수 없다")와 `terminal/coding/coding-start_test.ts` R4·R12. 번호와 항목의
+  짝은 박스 원문. 로컬에서는 통과할 수 있다.
+- 62: `ProblemWordingPort`가 `apps.ts` reader에만 등록된다. 배정 필요.
+- 63: roles review 근거가 `model_name`을 읽지만 저장 값은 `name`이라 모델 이름이 빠진다.
+- 64: 저장한 지침이 model call에 안 실린다(`product-driver.ts`의 instruction-files stub). edit-instructions 4단계가 막힌다.
+- 65·70: flaky(단독 통과). `builtin-write-flow_test.ts`의 tickets#R3, `desktop/core/byte-routes_test.ts`.
+  번호 짝은 박스 원문. shell/main test는 `--config=desktop/core/deno.json`이 필요하다.
+- 66: settings가 core 준비 전 [Connect]를 거절한다.
+- 67: 설정 변경 질문의 선택지에 변경이 실리지 않는다(`draftSubmission`이 runtime에 없다).
+- 68: 제품 runtime이 외부 MCP에 닿지 못한다. `agent-runtime.ts` `specFor`가 `mcpServers`를 넘기지 않고, HTTP는
+  `fetch`와 `--allow-net`이 없다. approve-action과 add-agent-extension 5단계가 막힌다.
+- 69: `release.prepare` finalizer가 없다. `prepare_bundle` → app test 통과 → `release.prepare`를 잇는 core
+  호출자가 없어 new-app이 실제 core로 끝까지 못 돈다.
+- 71: 등록한 skill 폴더를 제품이 검사하지 않는다(`discoverSkills` 제품 경로 없음).
+- 72: answer 메시지가 run이 저장한 문서를 결과 링크로 싣지 않는다. review-agent-work의 결과 링크 단언은 결함 수정 뒤 다시 확인.
+- 73: edit-document 8 overlay dialog를 시험이 못 찾았다. 시험 구동인지 제품인지는 아직 모른다.
 - 아직 열린 큰 것: 33(coding agent hook 대상 사람 확인), 35·36(repair diff·이미지 redaction), 42(agent
-  임시 글 streaming 통로 없음), 43(ReproductionScenario builder 없음 — reproduction 실행이 걸림),
-  44(launcher가 core 준비 뒤에도 "getting ready"에 멈춤 — lophnCore.subscribe 재생 없음), 45(문제
-  알리기 dialog 시작 전 실패·재전송 규칙), 47~50(#448: document.create 자리 검증, 정기 run
-  question.submit, 끝난 run 질문, Toolkit.lookups 미연결).
+  임시 글 streaming 통로 없음), 43(ReproductionScenario builder 없음), 44(launcher가 core 준비 뒤에도
+  "getting ready"에 멈춤), 45(문제 알리기 dialog 시작 전 실패·재전송), 47~50(#448).

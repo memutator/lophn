@@ -1,6 +1,6 @@
 // UpdateSource를 main의 core 통로로 만든다. metadata 파일 선택은 main의 OS 선택기고, notice는
-// main이 core의 신뢰 입구(updateNotice)로 계산해 돌려준다. 정상 정지도 main의 core 입구다.
-// 이 source는 뭘 다운로드·설치하지 않는다: 안내와 정상 정지 요청만 있다.
+// main이 core의 신뢰 입구(updateNotice)로 계산해 돌려준다. 정상 정지와 설치 파일 교체도 main이 한다.
+// 이 source는 다운로드·재시작을 청하지 않는다.
 import type { CoreSource } from "../../../connection/connection.ts";
 import type { FolderPickerApi } from "../../../../../ipc/folder-picker.ts";
 import { windowFolderPicker } from "../../../launcher/core-source.ts";

@@ -2155,8 +2155,7 @@ export const en = {
     "lophn stops cleanly before the update and you start it again.",
   "settings.update.stop-failed":
     "lophn couldn't confirm it stopped cleanly, so nothing was changed. Close your work and try again.",
-  "settings.update.stopped":
-    "lophn stopped cleanly. Install the update file you chose, then start lophn.",
+  "settings.update.stopped": "lophn stopped cleanly. Start lophn again.",
   "settings.update.deployment-unverified":
     "Updates on your system aren't checked by lophn yet. Check the file before applying it.",
   "settings.notifications.heading": "Notifications",

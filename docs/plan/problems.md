@@ -548,6 +548,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: 없음
 - slice: problems
 - 선행: problems#T14, problems#T18, problems#T20, problems#T21, problems#T22, coding-agent#T19, coding-agent#T24, coding-agent#T45, coding-agent#T47, apps#T18, shell#T52, shell#T53
+- 상태: 진행 (#509) — 남은 것: flow 2–7단계(자기 터미널 제출의 나머지, reproduction 격리, 통과·실패 화면, activation, 자동 닫힘·사람 확인, 닫힌 뒤 재발)
 - 완료:
   - flow 1~7단계: 고친 기록 → reproduction → activation → 자동 닫힘(테스트로 확인됨), 사람 확인(내가 확인함), "아직입니다" 뒤 reopen·재요청 억제
   - 다른 갈래: claim 없는 제출 거절, runner 상실·timeout은 판정 불가, 약화 변경은 닫힘 근거 아님, activation 거절이면 열린 채, 이전 release 늦은 보고는 reopen하지 않음

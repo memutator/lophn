@@ -19,8 +19,10 @@ import { createFeedbackBegin, createOverlayFeedback } from "./feedback-api.ts";
 import { createLayoutApi } from "./layout-api.ts";
 import { createRestoreApi } from "./restore-api.ts";
 import {
+  UPDATE_APPLY_CHANNEL,
   UPDATE_NOTICE_CHANNEL,
   UPDATE_READ_CHANNEL,
+  type UpdateApplyReply,
   type UpdateNoticeReply,
   type UpdateReadReply,
 } from "../ipc/update.ts";
@@ -107,8 +109,8 @@ if (role === "shell") {
     "lophnRestore",
     createRestoreApi(ipcRenderer),
   );
-  // settings update. 사람이 고른 로컬 metadata의 안내만 받고 다운로드·설치·재시작은 없다.
-  // 정상 정지는 이 단계에서 청하지 않는다. 확인하지 못한 정지는 실패다.
+  // settings update. 사람이 고른 로컬 파일만 적용한다. 다운로드·재시작은 없다.
+  // 정상 정지를 확인하지 못하면 main이 설치 파일을 바꾸지 않는다.
   contextBridge.exposeInMainWorld(
     "lophnUpdate",
     Object.freeze({
@@ -130,8 +132,14 @@ if (role === "shell") {
           return { ok: false, code: "unavailable" };
         }
       },
-      stop(): Promise<{ ok: false; code: "unavailable" }> {
-        return Promise.resolve({ ok: false, code: "unavailable" });
+      async stop(): Promise<UpdateApplyReply> {
+        try {
+          return await ipcRenderer.invoke(
+            UPDATE_APPLY_CHANNEL,
+          ) as UpdateApplyReply;
+        } catch {
+          return { ok: false, code: "unavailable" };
+        }
       },
     }),
   );

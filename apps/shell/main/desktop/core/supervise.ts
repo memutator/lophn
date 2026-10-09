@@ -16,6 +16,9 @@ import {
 /** 창 닫기와 무관한 core 종료 요청. tray의 명시 중지와 OS 종료가 이 값을 쓴다. */
 export const STOP_GRACE_MS = 5_000;
 
+/** update 정상 정지를 기다리는 시간. 정지 유지보수 상한보다 길다. 넘으면 확인하지 못한 정지로 본다. */
+export const UPDATE_STOP_MS = 60_000;
+
 /** hello가 이 안에 오지 않으면 core 시작이 실패다. */
 export const HELLO_TIMEOUT_MS = 30_000;
 
@@ -107,6 +110,11 @@ export interface CoreProcess {
   onMessage(listener: (payload: unknown) => void): () => void;
   /** 명시 종료. 창 닫기는 이 함수를 부르지 않는다. */
   stop(graceMs?: number): void;
+  /**
+   * update용 정상 정지. stop frame을 보내고 프로세스가 스스로 끝나면 true다.
+   * 기한 안에 끝나지 않으면 죽이고 false다(확인하지 못한 정지). 그 경우 설치 파일을 바꾸지 않는다.
+   */
+  confirmStop(graceMs?: number): Promise<boolean>;
   /**
    * 안전 진단 하나를 감독 pipe로 보낸다(platform#T8 diagnostic 메시지). contract 모양이
    * 아니거나 core가 멈췄으면 보내지 않고 false다.
@@ -248,6 +256,40 @@ export function supervise(
           child.kill();
         }
       }, graceMs);
+    },
+    confirmStop(graceMs = UPDATE_STOP_MS) {
+      if (phase !== "ready") return Promise.resolve(false);
+      return new Promise((resolve) => {
+        let settled = false;
+        // 기한 안에 스스로 끝나지 않으면 죽인다. 그 끝은 정상 정지가 아니다.
+        const timer = timers.setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          phase = "stopped";
+          try {
+            child.kill();
+          } catch { /* 이미 끝남 */ }
+          resolve(false);
+        }, graceMs);
+        const finish = (stopped: boolean) => {
+          if (settled) return;
+          settled = true;
+          timers.clearTimeout(timer);
+          resolve(stopped);
+        };
+        child.on("exit", () => finish(true));
+        const message = mainToCoreMessageSchema.parse({
+          type: "stop",
+          grace_ms: graceMs,
+        });
+        try {
+          child.stdin.write(
+            encodeFrame({ kind: "json", channel: 0, payload: message }),
+          );
+        } catch {
+          finish(false);
+        }
+      });
     },
     diagnostic(message) {
       if (phase === "stopped") return false;

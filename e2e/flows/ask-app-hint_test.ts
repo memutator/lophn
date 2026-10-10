@@ -25,7 +25,10 @@ import {
   installedHome,
   removeTree,
 } from "../../packages/apps/sdk/testing/mod.ts";
-import { startFakeProvider } from "../../tools/fake-provider/mod.ts";
+import {
+  type FakeProvider,
+  startFakeProvider,
+} from "../../tools/fake-provider/mod.ts";
 import { e2eEnabled } from "../harness.ts";
 import {
   commandBody,
@@ -46,6 +49,8 @@ const DATA_SCHEMA = 2;
 const FIXTURE = new URL("../../fixtures/apps/todo/", import.meta.url).pathname;
 const PROVIDER = "pvd_01arz3ndektsv4rrffq69g5fav";
 const MODEL = "claude-sonnet-4-5";
+const TODO_TITLE = "Write the report";
+const PRIVATE_NOTE = "private-note-7c1d4e";
 const INPUT = "[data-composer-input]";
 const SEND = "[data-send]";
 
@@ -67,14 +72,19 @@ async function git(cwd: string, args: string[]): Promise<string> {
   return new TextDecoder().decode(output.stdout).trim();
 }
 
-function reply(id: string, text: string) {
+function reply(
+  id: string,
+  text: string,
+  toolCalls?: { id: string; name: string; arguments: string }[],
+) {
   return {
     id,
     protocol: "messages" as const,
     reply: {
-      text,
+      ...(text === "" ? {} : { text }),
+      ...(toolCalls === undefined ? {} : { toolCalls }),
       usage: { input: 20, output: 8 },
-      stop: "end" as const,
+      stop: toolCalls === undefined ? "end" as const : "tool_calls" as const,
     },
   };
 }
@@ -157,6 +167,16 @@ async function seedAppData(home: string, bundle: Bundle): Promise<void> {
     result: { release: RELEASE, activation_seq: "1", invocation: null },
   });
   assert(migrated.ok, migrated.ok ? "" : JSON.stringify(migrated.error));
+  // 사람이 고치는 중인 할 일 하나. private_note는 앱이 민감하다고 선언한 칸이다.
+  const db = new DatabaseSync(`${dataArea}/app.sqlite`);
+  try {
+    db.prepare(
+      `INSERT INTO todo (id, title, done, created_at, private_note, version, due)
+       VALUES (1, ?, 0, '2026-10-02T00:00:00.000Z', ?, 0, NULL)`,
+    ).run(TODO_TITLE, PRIVATE_NOTE);
+  } finally {
+    db.close();
+  }
 }
 
 /** core를 멈춘 동안 앱·release·agent.commands grant를 심는다. 이미 있는 fixture 앱 release로 시작한다. */
@@ -229,16 +249,7 @@ Deno.test({
   sanitizeOps: false,
   sanitizeResources: false,
   async fn(t) {
-    const provider = startFakeProvider({
-      script: {
-        steps: [
-          reply("hint-1", "지금 보는 할 일을 확인하겠습니다."),
-          reply("hint-2", "화면을 다시 확인하겠습니다."),
-        ],
-      },
-      nowMs: () => Date.now(),
-      instant: true,
-    });
+    let provider: FakeProvider | undefined;
     const home = await Deno.makeTempDir({ prefix: "lophn-e2e-ask-hint-" });
     const folder = await Deno.makeTempDir({ prefix: "lophn-e2e-ask-hint-ws-" });
     await Deno.chmod(home, 0o700);
@@ -279,6 +290,80 @@ Deno.test({
       await seedAppData(home, bundle);
       const flow = await openFlowShell({ home, start: `project:${PROJECT}` });
       opened = flow;
+      await untilTrue("todo가 쓰기 준비가 되지 않았다", async () => {
+        const got = await mustCall(flow, {
+          kind: "read",
+          resource: "apps",
+          method: "runtime",
+          body: { app: APP },
+        });
+        const observation = got.observation as {
+          mode: string;
+          ready: boolean;
+          release: string | null;
+        } | null;
+        return observation !== null && observation.mode === "live" &&
+          observation.release === RELEASE && observation.ready === true;
+      });
+
+      // 앱 패널 view가 서면 page URL의 query가 그 view의 session이다. model 응답의 tool 입력이 이 값을 쓴다.
+      const APP_VIEW =
+        `electron.webContents.getAllWebContents().find((c) => !c.isDestroyed() && c.getURL().startsWith("lophn-app:"))`;
+      const viewUrl = async () =>
+        String(
+          await flow.shell.mainEvaluate(
+            `(${APP_VIEW})?.getURL() ?? ""`,
+          ),
+        );
+      await flow.until(
+        `document.querySelector("[data-app-panel='${APP}']") !== null`,
+        "앱 패널이 서지 않았다",
+        60_000,
+      );
+      let lastUrl = "";
+      await untilTrue(
+        "앱 패널 view의 session이 page URL에 없다",
+        async () => {
+          lastUrl = await viewUrl();
+          return lastUrl.includes("?view_session=");
+        },
+        30_000,
+      ).catch((error) => {
+        throw new Error(
+          `${(error as Error).message} url=${lastUrl} ${await flow.shell
+            .mainEvaluate(
+              `JSON.stringify(electron.webContents.getAllWebContents().map((c) => c.isDestroyed() ? "x" : c.getURL()))`,
+            )} ${await flow.evaluate(
+              `document.querySelector("[data-app-panel]")?.innerText ?? "nopanel"`,
+            )}`,
+        );
+      });
+      const SESSION = new URL(await viewUrl()).searchParams.get(
+        "view_session",
+      )!;
+      const readArgs = {
+        app: APP,
+        screen: "todos",
+        view_session: SESSION,
+        detail: true,
+      };
+      provider = startFakeProvider({
+        script: {
+          steps: [
+            reply("hint-1", "지금 보는 할 일을 확인하겠습니다."),
+            reply("hint-2", "화면을 다시 확인하겠습니다."),
+            reply("read", "", [{
+              id: "read1",
+              name: "app.screen_context",
+              arguments: JSON.stringify(readArgs),
+            }]),
+            reply("read-done", "읽었습니다."),
+          ],
+        },
+        nowMs: () => Date.now(),
+        instant: true,
+      });
+      const fake = provider;
       await mustCall(flow, {
         kind: "command",
         resource: "providers",
@@ -295,7 +380,7 @@ Deno.test({
             oauth: null,
             revision: "2026-01-01",
           },
-          endpoint: provider.url,
+          endpoint: fake.url,
           protocol: "anthropic-messages",
         }),
       });
@@ -325,22 +410,6 @@ Deno.test({
           { settings_seq: seq },
         ),
       });
-      await untilTrue("todo가 쓰기 준비가 되지 않았다", async () => {
-        const got = await mustCall(flow, {
-          kind: "read",
-          resource: "apps",
-          method: "runtime",
-          body: { app: APP },
-        });
-        const observation = got.observation as {
-          mode: string;
-          ready: boolean;
-          release: string | null;
-        } | null;
-        return observation !== null && observation.mode === "live" &&
-          observation.release === RELEASE && observation.ready === true;
-      });
-
       const agentText = async () =>
         String(
           await flow.evaluate(
@@ -364,11 +433,11 @@ Deno.test({
       const untilCalls = (count: number) =>
         untilTrue(
           `판단이 ${count}번째 call에 이르지 않았다`,
-          () => Promise.resolve(provider.requests().length >= count),
+          () => Promise.resolve(fake.requests().length >= count),
           120_000,
         );
       const bodyOf = (index: number) =>
-        JSON.stringify(provider.requests()[index]?.body ?? null);
+        JSON.stringify(fake.requests()[index]?.body ?? null);
 
       await t.step(
         "flow 1: 앱 패널을 연 채 힌트를 청하면 그 창의 탭·선택·관측 시각이 현재 보기로 model 입력에 실린다",
@@ -415,7 +484,9 @@ Deno.test({
             "\n",
           );
           assert(
-            new RegExp(`- \\* app_panel \\S+ ${APP} todos`).test(turn),
+            new RegExp(
+              `- \\* app_panel \\S+ ${APP} todos view_session=${SESSION}`,
+            ).test(turn),
             `선택한 app_panel 탭 줄이 없다: ${turn.slice(0, 600)}`,
           );
           // DOM·screenshot을 자동으로 모으지 않는다. 화면 글자와 앱 내부 값은 이 입력에 없다.
@@ -433,7 +504,7 @@ Deno.test({
         name:
           "apps/agent-context#R1 apps/agent-context#R2 lophn-agent/harness/tools#R18 flow ask-app-hint 2: 선언된 화면의 read command와 주석 자리 write command만 agent의 tool이 된다",
         fn: async () => {
-          const before = provider.requests().length;
+          const before = fake.requests().length;
           await send("한 번 더 보고 힌트를 줘.");
           await untilCalls(before + 1);
           const offered = bodyOf(before);
@@ -446,6 +517,64 @@ Deno.test({
           );
         },
       });
+      const inApp = (expression: string) =>
+        flow.shell.mainEvaluate(
+          `(${APP_VIEW}).executeJavaScript(${JSON.stringify(expression)})`,
+        );
+      const toolResults = (from: number) =>
+        fake.requests().slice(from).map((request) =>
+          JSON.stringify(request.body)
+        );
+
+      await t.step(
+        "apps/agent-context#R2 apps/agent-context#R4 lophn-agent/harness/tools#R18 flow ask-app-hint 3: 사람이 앱에서 고치는 중인 할 일이 선언한 read command로 조회되고 민감한 칸은 상세에 없다",
+        async () => {
+          // 사람이 앱 화면에서 할 일 하나의 편집을 시작한다. 화면은 자기 view_session을 page URL에서 읽어 앱에 알린다.
+          await untilTrue("편집 단추가 없다", async () =>
+            await inApp(
+              `[...document.querySelectorAll("button")].some((el) => el.textContent.trim() === "Edit")`,
+            ) === true);
+          await inApp(
+            `[...document.querySelectorAll("button")].find((el) => el.textContent.trim() === "Edit").click()`,
+          );
+          await untilTrue("편집이 시작되지 않았다", async () =>
+            await inApp(
+              `[...document.querySelectorAll("button")].some((el) => el.textContent.trim() === "Editing")`,
+            ) === true);
+          await delay(1_500);
+          const before = fake.requests().length;
+          await send("지금 고치는 할 일을 자세히 읽어 줘.");
+          await untilCalls(before + 2);
+          const [result] = toolResults(before + 1);
+          // 앱이 이 view의 상태를 돌려줬다: 요약·상세·revision.
+          for (
+            const word of [
+              `Editing todo #1`,
+              TODO_TITLE,
+              `"availability`,
+              "created_at",
+              "1.0",
+            ]
+          ) {
+            assert(
+              result?.includes(word),
+              `조회 결과에 ${word}가 없다: ${result}`,
+            );
+          }
+          // 민감하다고 선언한 칸의 값은 요약·상세·어느 model 입력에도 없다.
+          for (const body of toolResults(0)) {
+            assert(
+              !body.includes(PRIVATE_NOTE),
+              "민감한 칸 값이 model 입력에 있다",
+            );
+          }
+          await untilTrue(
+            "대화에 답이 없다",
+            async () => (await agentText()).includes("읽었습니다."),
+          );
+        },
+      );
+
       // 이 step은 새 앱 패널 탭을 더해 초점 탭을 바꾸므로 맨 뒤에 둔다.
       await t.step(
         "shell/workspace#R1 shell/workspace#R5 flow ask-app-hint: 사람이 프로젝트 탭의 앱 패널 열기로 앱의 패널 화면을 고르면 새 앱 패널 탭이 선다",
@@ -472,7 +601,7 @@ Deno.test({
         },
       );
     } finally {
-      await provider.close();
+      await provider?.close();
       await opened?.close();
       await removeTree(home);
       await removeTree(folder);

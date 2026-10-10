@@ -3,6 +3,7 @@ import {
   appAgentConfirmProof,
   appBlueprint,
   appRuntime,
+  appScreenContextSchema,
   grantsList,
   invocationAcceptConfirm,
   type InvocationAcceptConfirmInput,
@@ -25,19 +26,28 @@ import {
   type DirectTransport,
 } from "../../packages/apps/runtime/client/mod.ts";
 import {
+  type AppContextJudgmentPorts,
   type AppJudgmentPorts,
+  createAnnotateBinding,
   createAppBinding,
+  createScreenContextBinding,
   type ToolBinding,
 } from "../../packages/lophn-agent/harness/tool-judgment/mod.ts";
 import {
+  appAnnotateTool,
   type AppBlueprintView,
   type AppCommandPorts,
+  type AppContextPorts,
   type AppGrant,
   type AppInvokeCall,
+  appScreenContextTool,
   type AppTool,
+  buildAppContextTools,
   buildAppTools,
+  createAppContextToolHandlers,
   createAppToolHandlers,
   revertCounterpart,
+  type ToolDefinition,
   type ToolHandler,
 } from "../../packages/lophn-agent/harness/tools/mod.ts";
 import {
@@ -68,6 +78,21 @@ export type AppToolkit = {
     agent: CoreCall,
   ): ReadonlyMap<string, ToolHandler>;
   lookups(tools: readonly AppTool[]): ReadonlyMap<string, ToolLookup>;
+  // 화면 context 조회(`app.screen_context`)와 주석 쓰기(`app.annotate`). 앱이 선언한 화면·주석 자리와
+  // 현재 허락, 역할·assignment 범위가 하나라도 열어 둔 것만 정의가 된다(tools R18).
+  defineContext(
+    scope: AgentAppScope,
+    loaded: AppLoad,
+  ): readonly ToolDefinition[];
+  contextBinding(
+    tool: ToolDefinition,
+    scope: AgentAppScope,
+    agent: CoreCall,
+  ): ToolBinding | undefined;
+  contextHandlers(
+    scope: AgentAppScope,
+    agent: CoreCall,
+  ): ReadonlyMap<string, ToolHandler>;
 };
 
 const PLACEHOLDER_SCREEN = "main";
@@ -319,6 +344,49 @@ export function createAppToolkit(options: {
     return ports;
   }
 
+  // 화면 context의 판정 근거와 실행 통로다. 조회·주석은 선언한 command를 같은 앱 direct 통로로 부른다.
+  function contextPorts(
+    agent: CoreCall,
+  ): AppContextPorts & AppContextJudgmentPorts {
+    const ports = commandPorts(agent);
+    return {
+      ...ports,
+      // 주석을 쓰기 직전의 현재 화면 revision이다. 선언한 read command에 지금 물어 얻고, 앱이 이 view의
+      // 화면을 모르거나 닫혔으면 null이다(옛 조회의 revision을 재사용하지 않는다).
+      async currentRevision(probe, call) {
+        const state = await current(probe.app);
+        if (!state.ok) return state;
+        const declaration = state.value.view.agent_context?.find((entry) =>
+          entry.screen === probe.screen
+        );
+        if (declaration === undefined) return ok(null);
+        const sent = await ports.invoke({
+          app: probe.app,
+          release: probe.release,
+          command: declaration.read_command,
+          input: {
+            screen: probe.screen,
+            view_session: probe.view_session,
+            detail: false,
+          },
+          requestKey: `${call.toolCall}:revision`,
+          run: call.run,
+          toolCall: call.toolCall,
+        });
+        if (!sent.ok) return sent;
+        if (sent.value.kind !== "result") return ok(null);
+        const parsed = appScreenContextSchema.safeParse(sent.value.result);
+        if (
+          !parsed.success || parsed.data.app !== probe.app ||
+          parsed.data.release !== probe.release ||
+          parsed.data.screen !== probe.screen ||
+          parsed.data.view_session !== probe.view_session
+        ) return ok(null);
+        return ok(parsed.data.revision);
+      },
+    };
+  }
+
   return {
     async load() {
       const listed = await apps();
@@ -369,6 +437,25 @@ export function createAppToolkit(options: {
         },
         ...commandPorts(agent),
       });
+    },
+    defineContext(scope, loaded) {
+      return buildAppContextTools({
+        scope,
+        views: loaded.views,
+        grants: loaded.grants,
+      });
+    },
+    contextBinding(tool, scope, agent) {
+      if (tool.name === appScreenContextTool.name) {
+        return createScreenContextBinding(scope, contextPorts(agent));
+      }
+      if (tool.name === appAnnotateTool.name) {
+        return createAnnotateBinding(scope, contextPorts(agent));
+      }
+      return undefined;
+    },
+    contextHandlers(scope, agent) {
+      return createAppContextToolHandlers(scope, contextPorts(agent));
     },
     lookups(tools) {
       return createAppToolLookups(

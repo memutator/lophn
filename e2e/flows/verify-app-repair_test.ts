@@ -306,7 +306,13 @@ function openDb(path: string, readOnly: boolean): DatabaseSync {
 
 function insertRelease(
   world: Ledger,
-  row: { id: string; number: number; bundle: string; source: string | null },
+  row: {
+    id: string;
+    number: number;
+    bundle: string;
+    source: string | null;
+    by: string;
+  },
 ): void {
   const db = openDb(`${world.harness.dataRoot}/lophn.db`, false);
   try {
@@ -314,7 +320,7 @@ function insertRelease(
       `INSERT INTO releases (id, app, number, code_commit, bundle_hash, blueprint_hash,
          data_schema, data_changes, ticket_source, created_by, created_at, status,
          blueprint, declarations)
-       VALUES (?, ?, ?, ?, ?, ?, 0, '[]', ?, 'coding_agent', ?, 'prepared', '{}', '{}')`,
+       VALUES (?, ?, ?, ?, ?, ?, 0, '[]', ?, ?, ?, 'prepared', '{}', '{}')`,
     ).run(
       row.id,
       world.app,
@@ -323,8 +329,26 @@ function insertRelease(
       row.bundle,
       "d".repeat(64),
       row.source,
+      row.by,
       new Date().toISOString(),
     );
+  } finally {
+    db.close();
+  }
+}
+
+// Version의 test 참조는 실제로 기록된 검증만 단다. 그 묶음을 대상으로 돌아가지 않은
+// 검증이나 존재하지 않는 검증 id는 넣지 않는다.
+function linkReleaseTest(
+  world: Ledger,
+  release: string,
+  verification: string,
+): void {
+  const db = openDb(`${world.harness.dataRoot}/lophn.db`, false);
+  try {
+    db.prepare(
+      "INSERT INTO release_tests (release, verification) VALUES (?, ?)",
+    ).run(release, verification);
   } finally {
     db.close();
   }
@@ -464,6 +488,7 @@ async function openLedger(options?: {
     number: 1,
     bundle: beforeBundle,
     source: null,
+    by: "machine",
   });
   const logs = await prepareBlob(
     world,
@@ -655,6 +680,7 @@ async function runScript(
               ticket: ticket.ticket,
               claim_seq: traced.data.claim_seq,
             }),
+            by: `coding_agent:${opened.coding.connection}`,
           });
           // problems.work가 claim 뒤에 status를 고친다. record_fix의 problem_seq보다 먼저 끝나게 둔다.
           await waitWork(opened.world.harness.dataRoot, opened.problem);
@@ -823,7 +849,7 @@ function writeCurrent(home: string, app: string): void {
       `INSERT INTO releases (id, app, number, code_commit, bundle_hash, blueprint_hash,
          data_schema, data_changes, ticket_source, created_by, created_at, status,
          blueprint, declarations)
-       VALUES (?, ?, 3, ?, ?, ?, 0, '[]', null, 'coding_agent', ?, 'prepared', '{}', '{}')`,
+       VALUES (?, ?, 3, ?, ?, ?, 0, '[]', null, 'machine', ?, 'prepared', '{}', '{}')`,
     ).run(
       REL_NOW,
       app,
@@ -1116,6 +1142,7 @@ async function plantPastFix(opened: Opened): Promise<string> {
     number: 2,
     bundle: BUNDLE_PAST,
     source: null,
+    by: "machine",
   });
   const prepared = await prepareBlob(
     opened.world,
@@ -1199,6 +1226,7 @@ async function runStageTwo(
               ticket: ticket.ticket,
               claim_seq: traced.data.claim_seq,
             }),
+            by: `coding_agent:${opened.coding.connection}`,
           });
           await waitWork(opened.world.harness.dataRoot, opened.problem);
         }
@@ -1634,6 +1662,7 @@ async function runStageThree(
               ticket: ticket.ticket,
               claim_seq: traced.data.claim_seq,
             }),
+            by: `coding_agent:${opened.coding.connection}`,
           });
           await waitWork(opened.world.harness.dataRoot, opened.problem);
         }
@@ -2113,12 +2142,14 @@ Deno.test({
         number: 4,
         bundle: still.hash,
         source: null,
+        by: "machine",
       });
       insertRelease(opened.world, {
         id: REL_OTHER,
         number: 5,
         bundle: other.hash,
         source: null,
+        by: "machine",
       });
       await made.dispose();
       made = undefined;
@@ -2223,6 +2254,41 @@ Deno.test({
       const unrun = await waitRequestEnd(root, "app-unrun", 60_000);
       assertEquals(unrun.phase, "preparation_failed", unrun.reason);
       assertEquals(unrun.result_ref, null);
+      // before Version에도 그 묶음을 대상으로 실제 돌아간 test가 있어야 한다.
+      const derivedBefore = await deriveAppTest(
+        `${root}/apps/${opened.world.app}/bundles/${beforeHash}`,
+        beforeHash,
+      );
+      assert(derivedBefore.ok, derivedBefore.ok ? "" : derivedBefore.reason);
+      await send({
+        request_key: "app-before",
+        kind: "app_test",
+        app: opened.world.app,
+        target: { bundle_hash: beforeHash, release: null },
+        problem: null,
+        basis_seq: null,
+        reports: [],
+        before: null,
+        after: null,
+        ticket: null,
+        test: derivedBefore.value.test_hash,
+        timeout_ms: APP_TEST_TIMEOUT_MS,
+      });
+      const beforeRun = await waitRequestEnd(root, "app-before", 600_000);
+      assertEquals(
+        beforeRun.phase,
+        "result_ref",
+        `${beforeRun.phase} ${beforeRun.reason}`,
+      );
+      // 각 Version은 그 묶음을 대상으로 실제 기록된 검증만 test로 단다.
+      assert(appRun.result_ref !== null, appRun.phase);
+      assert(failed.result_ref !== null, failed.phase);
+      assert(unclear.result_ref !== null, unclear.phase);
+      assert(beforeRun.result_ref !== null, beforeRun.phase);
+      linkReleaseTest(opened.world, REL_BEFORE, beforeRun.result_ref);
+      linkReleaseTest(opened.world, REL_AFTER, appRun.result_ref);
+      linkReleaseTest(opened.world, REL_STILL, failed.result_ref);
+      linkReleaseTest(opened.world, REL_OTHER, unclear.result_ref);
 
       const db = openDb(`${root}/lophn.db`, true);
       let results: { key: string; result: string }[];
@@ -2297,7 +2363,7 @@ Deno.test({
         );
         assertEquals(
           await flow.evaluate(
-            `document.querySelector("[data-status='active']") !== null`,
+            `document.querySelector("[data-version][data-status='active']") !== null`,
           ),
           false,
         );
@@ -2307,8 +2373,22 @@ Deno.test({
         );
         await flow.click("[data-version-expand]");
         await flow.until(
-          `document.querySelector("[data-fact='applied']")?.textContent?.includes("Not in use") && document.querySelector("[data-test-result='not_run']")?.textContent?.includes("Not yet")`,
+          `document.querySelector("[data-fact='applied']")?.textContent?.includes("Not in use") && document.querySelector("[data-fact='test'] [data-test-result]") !== null`,
           "준비만 된 Version",
+        );
+        // 첫 카드는 가장 새 REL_OTHER다. 그 묶음으로 실제 돌아간 검증(repro-other,
+        // inconclusive)만 보이고 돌리지 않은 것을 통과로 보이지 않는다.
+        assertEquals(
+          await flow.evaluate(
+            `document.querySelector("[data-fact='test'] [data-test-result]")?.getAttribute("data-test-result")`,
+          ),
+          "inconclusive",
+        );
+        assertEquals(
+          await flow.evaluate(
+            `document.querySelectorAll("[data-version][data-status='prepared']").length`,
+          ),
+          4,
         );
         await openIssue(flow);
         const impact = await mustCall(flow, {
@@ -2380,6 +2460,7 @@ Deno.test({
             other.hash,
             stored.testHash,
             derived.value.test_hash,
+            derivedBefore.value.test_hash,
             opened.coding.token,
             token,
             PASS_REASON,

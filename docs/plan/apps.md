@@ -1390,7 +1390,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
 
 ### T27 apps slice flow E2E
 
-- 상태: 완료 (#474, #489, #546, #547, #548, #549, #550, #560, #561, #562, #563, #576, #PR) — 주요 단계 통과: restore-app-release, use-app-command, manage-app-permissions(앞 단계), run-app-automation, connect-apps(1~5), ask-app-hint(1·2·3·6·패널 열기), new-app(등록·source·bundle·실제 runner app test) 넘김(사람 결정 2026-10-10): new-app 확정·preview·적용·activation(화면 있는 앱 app test가 test mode feedback·화면 검사 host 없어 pass 불가, followup 95), ask-app-hint 4·5(app.annotate 판정 deny, followup 100), change-app(미착수), manage-app-permissions secret 단계·net+file 경고(keychain 없음·fixture 없음), connect-apps 다른 갈래(반대 방향·사라진 command·재귀 상한), grant 재시작 뒤 열린 view conflict·읽기 not available(followup 83·99)
+- 상태: 완료 (#474, #489, #546, #547, #548, #549, #550, #560, #561, #562, #563, #576, #580) — 주요 단계 통과: restore-app-release, use-app-command, manage-app-permissions(앞 단계), run-app-automation, connect-apps(1~5), ask-app-hint(1·2·3·6·패널 열기), new-app(등록·source·bundle·실제 runner app test) 넘김(사람 결정 2026-10-10): new-app 확정·preview·적용·activation(화면 있는 앱 app test가 test mode feedback·화면 검사 host 없어 pass 불가, followup 95), ask-app-hint 4·5(app.annotate 판정 deny, followup 100), change-app(미착수), manage-app-permissions secret 단계·net+file 경고(keychain 없음·fixture 없음), connect-apps 다른 갈래(반대 방향·사라진 command·재귀 상한), grant 재시작 뒤 열린 view conflict·읽기 not available(followup 83·99)
   이전 상태: 진행 — 완료: restore-app-release. new-app은 등록·source 연결·bundle
   준비까지 e2e/flows/flow-new-app_test.ts를 썼고 통과한다(#576).
   #560: release.prepare finalizer를 core에 이었다(`apps/core/apps-release-finalizer.ts`: ticket claim을 가진 coding

@@ -145,6 +145,11 @@ import { createMcpAuth } from "../../packages/lophn-agent/extensions/mod.ts";
 import { createMcpSecretRefSource } from "../../packages/lophn-agent/extensions/mod.ts";
 import type { HttpFetch } from "../../packages/lophn-agent/extensions/adapters/mcp-http.ts";
 
+// 설치 묶음에 동봉된 skill 폴더다(extensions R1). runtime의 skill 발견(apps/agent-runtime/skill-folders.ts)이
+// 같은 위치를 연다. 폴더가 없으면 동봉 skill이 없는 것이다.
+const BUNDLED_SKILLS_ROOT = new URL("../../assets/skills", import.meta.url)
+  .pathname;
+
 // agent runtime 등록 뼈대. worker는 나중 작업이 이 객체에 더한다.
 // 권한 목록은 architecture §2.3의 최소다. host·skill·MCP를 등록하면 core가 목록을 바꿔 재기동한다.
 export function agentRuntimeLaunchSpec(input: {
@@ -164,7 +169,8 @@ export function agentRuntimeLaunchSpec(input: {
   return {
     kind: "lophn-agent/runtime",
     entry: new URL("../agent-runtime/main.ts", import.meta.url).pathname,
-    allow_read: [input.dataRoot, ...sockets],
+    // 개인 skill 보관소(<dataRoot>/skills)는 dataRoot 안이고, 동봉 skill 폴더는 설치 묶음의 assets/skills다.
+    allow_read: [input.dataRoot, BUNDLED_SKILLS_ROOT, ...sockets],
     // derived만 쓴다. ledger·blob·원본은 쓰지 않는다. socket 쓰기는 연결에 필요한 허락이다.
     allow_write: [`${input.dataRoot}/derived/lophn-agent`, ...sockets],
     // core loopback, 앱 direct socket, 등록된 provider 목적지. MCP host와 공개 models.dev는 등록될 때 더한다.

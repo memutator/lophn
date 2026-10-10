@@ -17,6 +17,7 @@ import type {
 import {
   eventsList,
   routePath,
+  settingsGet,
 } from "../../packages/contracts/platform/mod.ts";
 import {
   BUILTIN_TOOLS,
@@ -43,6 +44,11 @@ import type { BlobPrepareCall } from "./core.ts";
 import type { BufferGauge, PreparedRelayResult } from "./blob-prepare.ts";
 import type { KnownSecretMatch } from "../../packages/platform/ledger/mod.ts";
 import { agentRuntimeLaunchSpec } from "./lophn-agent.ts";
+import type { McpServerConfig } from "../../packages/contracts/lophn-agent/mod.ts";
+import {
+  allowNetList,
+  allowRunList,
+} from "../../packages/lophn-agent/extensions/mod.ts";
 
 // 제품 core가 agent runtime child를 띄우고 감독하는 자리(lophn-agent/harness/run-loop). child는
 // 상시 신뢰 process이고 core 안의 인증 경계(CredentialRegistry)가 두 가지 자격을 발급한다.
@@ -137,6 +143,15 @@ const HOSTS_READER: RequestContext = {
   credential_ref: "machine:agent-runtime-hosts",
 };
 
+// 등록한 skill 폴더를 읽는 자격이다. 이 폴더만 child의 읽기 허락에 더한다.
+export const SKILL_ROOTS_READER: RequestContext = {
+  principal: "machine:agent-runtime-skill-roots",
+  actor: "machine",
+  scope: { operations: [settingsGet.name], targets: {} },
+  conditions: {},
+  credential_ref: "machine:agent-runtime-skill-roots",
+};
+
 // 발급 판정이 읽는 route뿐이다. 요청한 run·assignment·scope를 core 자신의 기록과 대조한다.
 const LINK_READS: ReadonlyMap<string, ReadRoute> = new Map(
   ([runRead, assignmentRead, eventsList] as ReadRoute[]).map((
@@ -162,6 +177,13 @@ export type AgentRuntimeDeps = {
   prepareBlob(call: BlobPrepareCall): Promise<Result<PreparedRelayResult>>;
   // 등록한 provider endpoint 목록(ledger reader).
   readProviders(context: RequestContext): Promise<Result<readonly string[]>>;
+  // 사람이 등록한 MCP server 설정(설정 registry의 snapshot). 없으면 MCP 권한은 없다. enabled인 stdio
+  // 실행 경로와 HTTP `host:port`만 child 권한이 되고, 이 목록이 바뀌면 child를 다시 띄운다.
+  readMcpServers?(): Promise<Result<readonly McpServerConfig[]>>;
+  // 사람이 등록한 skill 폴더(절대 경로, 등록 순서). 읽기 허락에 더한다(extensions R1).
+  readSkillRoots?(
+    context: RequestContext,
+  ): Promise<Result<readonly string[]>>;
   // machine credential의 자격으로 ledger reader를 직접 읽는다(발급 판정이 쓰는 run·assignment·event).
   read(
     route: ReadRoute,
@@ -277,16 +299,41 @@ export async function startAgentRuntimeChild(
   };
 
   let hosts: readonly string[] = [];
-  const specFor = (list: readonly string[]): KindLaunchSpec =>
+  let mcp: readonly McpServerConfig[] = [];
+  let skillRoots: readonly string[] = [];
+  const readSkillRoots = async (): Promise<readonly string[] | undefined> => {
+    if (deps.readSkillRoots === undefined) return skillRoots;
+    const read = await deps.readSkillRoots(SKILL_ROOTS_READER);
+    return read.ok ? read.value : undefined;
+  };
+  const specFor = (
+    list: readonly string[],
+    roots: readonly string[],
+    servers: readonly McpServerConfig[],
+  ): KindLaunchSpec =>
     agentRuntimeLaunchSpec({
       dataRoot: deps.dataRoot,
       apiPort: deps.apiPort,
       socketRoot: deps.socketRoot,
       hosts: list,
+      mcpServers: servers,
+      skillRoots: roots,
     });
+  // 읽지 못한 목록은 바꾸지 않은 것으로 본다. 권한은 읽은 목록으로만 정해진다.
+  const readMcp = async (): Promise<readonly McpServerConfig[] | undefined> => {
+    if (deps.readMcpServers === undefined) return [];
+    const read = await deps.readMcpServers();
+    return read.ok ? read.value : undefined;
+  };
   const initial = await deps.readProviders(HOSTS_READER);
   if (initial.ok) hosts = initial.value;
-  const started = await deps.io.start(specFor(hosts), hello, callbacks());
+  skillRoots = (await readSkillRoots()) ?? [];
+  mcp = await readMcp() ?? [];
+  const started = await deps.io.start(
+    specFor(hosts, skillRoots, mcp),
+    hello,
+    callbacks(),
+  );
   if (!started.ok) {
     return err({
       code: "unavailable",
@@ -302,14 +349,26 @@ export async function startAgentRuntimeChild(
     checking = true;
     void (async () => {
       const read = await deps.readProviders(HOSTS_READER);
-      if (!read.ok || stopped) return;
-      if (same(read.value, hosts)) return;
+      const roots = await readSkillRoots();
+      if (!read.ok || roots === undefined || stopped) return;
+      const servers = await readMcp();
+      if (servers === undefined || stopped) return;
+      // 권한에 닿는 것은 provider 목적지, skill 폴더, MCP의 net·run 목록뿐이다. 다른 설정 변경은 다시 띄우지 않는다.
+      if (
+        same(read.value, hosts) && same(roots, skillRoots) &&
+        same(allowNetList(servers), allowNetList(mcp)) &&
+        same(allowRunList(servers), allowRunList(mcp))
+      ) return;
       const restarted = await deps.io.updateSpec(
-        specFor(read.value),
+        specFor(read.value, roots, servers),
         hello,
         callbacks(),
       );
-      if (restarted.ok) hosts = read.value;
+      if (restarted.ok) {
+        hosts = read.value;
+        mcp = servers;
+        skillRoots = roots;
+      }
     })().catch(() => {}).finally(() => {
       checking = false;
     });

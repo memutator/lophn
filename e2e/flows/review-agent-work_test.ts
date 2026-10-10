@@ -10,12 +10,9 @@
 //   되돌리기 창을 연 사실만 보이고 복원 결과를 보이는 자리가 없어 화면으로는 보지 않는다.
 // 문서 ID·version은 run이 만든 뒤에야 정해지므로 model 응답은 고정 script가 아니라 앞 요청의 tool
 // 결과에서 ID를 읽어 내는 작은 loopback server(fake-provider의 응답 builder)로 낸다.
-// 결함 (8)과 1단계의 결과 링크: 제품 답 메시지(apps/agent-runtime/core-ports.ts `answer`)는
-// model_call 링크만 싣고 run이 만든 문서를 링크하지 않는다. 도크의 `[data-result]`와 검토의
-// `[data-review-basic] [data-result]`는 둘 다 agent 메시지의 문서·판 링크에서 오므로, 이 시험에서는
-// visual.show 메시지가 출처로 단 만든 문서의 판 링크로만 채워진다. 즉 1단계 확인은 "답이 만든
-// 문서를 결과로 단다"(conversation#R4)를 보이지 못하고, visual.show 출처 링크가 결과 자리에 선다는
-// 것까지만 본다. 결함 (8)을 고친 뒤 visual.show 없이 다시 확인해야 한다.
+// 1단계의 결과 링크: 답 메시지(apps/agent-runtime/core-ports.ts `answer`)는 run이 document.create로
+// 실제 저장한 문서 판을 version 링크로 싣는다. 이 시험은 그 마지막 답 메시지의 링크를 ledger에서
+// 읽어 확인하고(visual.show 메시지의 출처 링크와 구별), 도크와 검토의 `[data-result]`가 그 판을 연다.
 // 넘긴 결함: 검토 상세의 근거 요약은 preset 판만 보이고 판단 model 이름이 빠진다(shell roles
 // `basisOf`가 run_basis의 `models.judgment.model_name`을 읽지만 저장 값은 `models.judgment.name`).
 import { assert, assertEquals } from "@std/assert";
@@ -168,6 +165,7 @@ const STEPS: Step[] = [
 
 type RunRow = {
   id: string;
+  session: string | null;
   state: string;
   outcome: { kind: string } | null;
 };
@@ -320,9 +318,30 @@ Deno.test({
           run = rows[0]!.id;
           assertEquals(provider.calls(), 4);
           const made = await documentTitled(flow, TITLE);
-          // 도크: 결과 링크가 선다. 지금은 visual.show 출처 링크로만 채워진다(결함 (8), 머리 주석).
+          // 마지막 답 메시지가 run이 저장한 문서 판을 결과 링크로 싣는다(visual.show 출처 링크가 아니다).
+          const listed = (await mustCall(flow, {
+            kind: "read",
+            resource: "messages",
+            method: "list",
+            body: { session: rows[0]!.session, run },
+          })).messages as {
+            message: { actor: string; links: Record<string, string>[] };
+          }[];
+          const answer = listed.map((entry) => entry.message)
+            .filter((message) => message.actor.startsWith("agent:")).at(-1)!;
+          assert(
+            answer.links.some((link) =>
+              link["kind"] === "version" && link["document"] === made.id &&
+              link["version"] === made.latest_version
+            ),
+            `답 메시지에 저장한 문서 판 링크가 없다: ${
+              JSON.stringify(answer.links)
+            }`,
+          );
+          const resultKey = `${made.id}@${made.latest_version}`;
+          // 도크: 그 결과 링크가 선다.
           await flow.until(
-            `document.querySelector("${DOCK} [data-result]") !== null`,
+            `document.querySelector("${DOCK} [data-result='${resultKey}']") !== null`,
             "도크에 결과 링크가 없다",
           );
           assert((await dockText()).includes(ANSWER), await dockText());
@@ -344,9 +363,11 @@ Deno.test({
             "검토가 서지 않았다",
           );
           assertEquals(await flow.text("[data-review-target]"), REQUEST);
-          // 결과 링크(지금은 visual.show 출처 링크, 결함 (8)), 다음 행동은 되돌리기, 상세는 접혀 있다.
+          // 결과 링크(저장한 문서 판), 다음 행동은 되돌리기, 상세는 접혀 있다.
           assert(
-            await flow.count("[data-review-basic] [data-result]") >= 1,
+            await flow.count(
+              `[data-review-basic] [data-result='${resultKey}']`,
+            ) >= 1,
             "검토의 결과 링크가 없다",
           );
           assertEquals(await flow.count("[data-action='undo']"), 1);

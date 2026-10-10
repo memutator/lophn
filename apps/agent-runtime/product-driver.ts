@@ -7,13 +7,15 @@ import {
   systemClock,
 } from "../../packages/base/mod.ts";
 import { ALL_ROUTES } from "../../packages/contracts/mod.ts";
+import { instructionRead } from "../../packages/contracts/lophn-agent/mod.ts";
+import { instructionFilesOverCore } from "../../packages/lophn-agent/instructions/mod.ts";
 import { abortableWait } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
 import { spawnStdioMcp } from "../../packages/lophn-agent/extensions/mod.ts";
 import type { McpConnectionsDeps } from "../../packages/lophn-agent/extensions/mod.ts";
 import type { CoreCalls } from "./main.ts";
 import { createMcpToolkit } from "./mcp-toolkit.ts";
 import { createRunPreparer, type Toolkit } from "./prepare.ts";
-import type { CoreCall } from "./core-call.ts";
+import { type CoreCall, readOf } from "./core-call.ts";
 import { createModelResolver } from "./resolve-model.ts";
 import { PRODUCT_INSTRUCTIONS, rolePrompt } from "./role-prompts.ts";
 import type { RunDriver } from "./run-driver.ts";
@@ -41,8 +43,7 @@ export function productToolkit(options: {
 
 // 제품 runtime의 driver 재료(lophn-agent/harness/run-loop). core 연결을 받아 run 시작 재료, 복구 재료,
 // 기본 harness 묶음(내장 tool, 역할 prompt, model 선택 검증, 등록 skill 폴더)을 만든다. 아래는 소유
-// 작업이 채울 자리라 비어 있다: 쓰기·external tool의 결과 조회(`lookups`), 사람 지침 파일 읽기
-// (`InstructionFiles`).
+// 작업이 채울 자리라 비어 있다: 쓰기·external tool의 결과 조회(`lookups`).
 export function productDriver(options: { fetch?: typeof fetch } = {}) {
   return (
     calls: CoreCalls,
@@ -55,7 +56,7 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
     // 만들어 넘기므로(architecture) productDriver 호출마다 하나를 만든다.
     const mcpKit = createMcpToolkit({
       machine: calls.machine,
-      connections: mcpConnectionsDeps(),
+      connections: mcpConnectionsDeps(calls.secrets),
     });
     return createRunPreparer({
       clock: systemClock,
@@ -89,16 +90,27 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
       product: PRODUCT_INSTRUCTIONS,
       rolePrompt,
       instructions: {
+        // run 없이는 읽지 않는다. 실제 읽기는 아래 instructionFilesFor가 run마다 연다.
         files: {
-          registered: () => Promise.resolve(ok(null)),
+          registered: () =>
+            Promise.resolve(
+              err({ code: "unavailable", message: "no run for instructions" }),
+            ),
           attached: () =>
             Promise.resolve(
-              err({ code: "unavailable", message: "no instruction files" }),
+              err({ code: "unavailable", message: "no run for instructions" }),
             ),
           projectOf: () => Promise.resolve(ok(null)),
         },
         redact: calls.redact,
       },
+      // 저장한 지침의 확정 판은 core의 ReadInstructionFile로 그 run의 이름으로 매 call 직전에 읽는다
+      // (instructions R4, R5, R8). core가 run의 작업 자리와 preset 첨부만 읽게 한다.
+      instructionFilesFor: (run) =>
+        instructionFilesOverCore(
+          run,
+          (input) => readOf(calls.machine, instructionRead, input),
+        ),
       redact: calls.redact,
       // 등록한 skill 폴더만 검사한다(extensions R1). 설정이 없으면 빈 목록이다.
       skills: () => registeredSkillEntries(calls.machine),
@@ -113,7 +125,9 @@ export const PUMP_WAITING_MS = 2_000;
 
 // 제품 MCP 연결 눈이다(Q16, T37). 실제 stdio process를 열고(spawnStdioMcp) 단조
 // deadline timer를 쓴다. 테스트는 fake child·fake fetch를 끼운다.
-function mcpConnectionsDeps(): McpConnectionsDeps {
+export function mcpConnectionsDeps(
+  secrets?: McpConnectionsDeps["secrets"],
+): McpConnectionsDeps {
   return {
     nowMs: () => Date.now(),
     wait: abortableWait,
@@ -129,6 +143,10 @@ function mcpConnectionsDeps(): McpConnectionsDeps {
         }
         signal.addEventListener("abort", onAbort, { once: true });
       }),
+    // HTTP MCP는 core가 child 권한에 더한 등록 server의 정확한 host:port로만 닿는다.
+    fetch: (url, init) => fetch(url, init),
+    // bearer·api_key·secret_ref 헤더의 값은 core가 감독 pipe로 요청마다 한 번 건넨다(R17).
+    ...(secrets === undefined ? {} : { secrets }),
     openStdio: (_server, input, signal) => {
       void signal;
       return Promise.resolve(spawnStdioMcp(input));

@@ -1390,7 +1390,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
 
 ### T27 apps slice flow E2E
 
-- 상태: 진행 (#474, #489, #546, #548, #549) — 완료: restore-app-release. new-app은 등록·source 연결·bundle
+- 상태: 진행 (#474, #489, #546, #547, #548, #549) — 완료: restore-app-release. new-app은 등록·source 연결·bundle
   준비까지 e2e/flows/flow-new-app_test.ts를 썼으나 통과는 아직 확인하지 못했다(실행 대기열).
   새 결함: release.prepare를 부르는 finalizer가 제품 코드에 없어 new-app의 app test 통과
   이후(preview·적용·activation)는 돌 수 없다. #489 use-app-command: confirm 허락은 실행되고 거절은 다시 묻지 않는다. list의 성공한 일반 읽기는 invocation을 남기지 않는다(apps/invocations#R2, R18). 남은 것: new-app의 app test·preview·적용,
@@ -1404,11 +1404,13 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
   Automations 탭까지 돈다. 남은 것은 secret grant 쓰기(flow 3, OS keychain 없음·SecretDelivery 미부착),
   놓친 회차·진행 중 건너뜀(시계 주입이 없어 단위 시험이 맡는다), 실패의 문제 보고, timeout·결과 모름.
   #546 ask-app-hint 1단계: 앱 패널 탭의 turn context(e2e/flows/ask-app-hint_test.ts).
-  ask-app-hint 2단계 이후(현재 화면 조회·redaction·주석 쓰기·revision 충돌·탭 닫은 뒤)는 제품 결함 셋이
-  막는다: (1) `app.screen_context`·`app.annotate`가 `apps/agent-runtime/app-toolkit.ts`에 조립되지 않아 run의
-  tool이 아니다, (2) agent·앱 화면 둘 다 자기 view_session을 알 길이 없다(turn context 탭 줄에 없고 화면
-  URL query는 앱 socket에만 붙는다), (3) desktop renderer 진입이 `appViews.screens`를 주지 않아 앱 패널 열기
-  단추가 서지 않는다(1단계는 저장된 layout.json으로 패널을 복원해 시작). 2단계는 ignore 상태로 파일에 있다
+  #547 ask-app-hint 2단계: `app.screen_context`·`app.annotate`를 `apps/agent-runtime/app-toolkit.ts`
+  (`defineContext`·`contextBinding`·`contextHandlers`)와 `prepare.ts`의 tool 목록·binding·handler에 이었고,
+  desktop renderer 진입의 `appViews.screens`(`coreAppScreens`)를 이어 앱 패널 열기 단추가 선다. 2단계(선언된
+  read·주석 command만 tool)와 열기 단추 step이 e2e로 돈다. 3단계 이후(현재 화면 조회·redaction·주석 쓰기·revision
+  충돌·탭을 닫은 뒤)는 제품 결함 하나가 막는다: agent·앱 화면 둘 다 자기 view_session을 알 길이 없다(turn context
+  탭 줄에 없고 화면 page URL에 query가 없다). 잇는 길은 `ViewTab`(app_panel)에 view_session을 더하는 contract
+  모양 변경이 필요해 lead 결정을 기다린다
 - 등급: 기본
 - concern: apps
 - 요구: flow new-app(fixture 경로), change-app, restore-app-release,

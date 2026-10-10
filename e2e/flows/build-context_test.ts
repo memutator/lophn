@@ -3616,12 +3616,14 @@ Deno.test({
 });
 
 // 8: Context Engineer가 끝낸 일(context 생성·항목 추가·설계 보고 문서)을 되돌린다.
-// 결함: shell#T36의 contexts 화면에는 revert 진입이 없다(Focus 상세에 되돌리기 단추가 없다).
-// 되돌리기 진입은 roles 화면 역할의 끝난 일 검토(`[data-action='undo']`)뿐이라 그 진입으로 확인 창을
-// 열고, 결과는 contexts 화면의 Focus(보관됨)와 reverts/list로 본다. 진입이 contexts 화면에
-// 생기면 이 테스트의 진입만 옮긴다.
-// 검사는 사람에게 보이지 않는다: reverts/preview가 지금의 event와 현재 판으로 만든 묶음(복원 가능·유지)을
-// 먼저 읽고, 확인 창은 같은 묶음을 보인다. 결정 전에는 아무것도 바뀌지 않는다.
+// 결함 둘: (1) shell#T36의 contexts 화면에는 revert 진입이 없다(Focus 상세에 되돌리기 단추가 없다).
+// (2) roles 검토의 [되돌리기] 단추는 일의 결과 링크가 있어야 서는데 Context Engineer의 답 메시지는
+// 만든 context·문서를 링크하지 않아 서지 않는다(review-agent-work 머리 주석의 결함 (8)과 같은 원인).
+// 그래서 단추 대신 같은 owner_decision 요청을 renderer의 shell 다리로 직접 내 확인 창을 연다.
+// 결과는 contexts 화면의 Focus(보관됨)와 reverts/list로 본다. 진입이 생기면 openRevert만 바꾼다.
+// 검사는 사람에게 보이지 않는다: reverts/preview가 지금의 event와 현재 판으로 만든 묶음을 먼저 읽고
+// (복원 가능: context·보고 문서, 유지: 대화 메시지의 감사 사실), 확인 창은 같은 묶음을 보인다.
+// 결정 전에는 아무것도 바뀌지 않는다. 불가·충돌 묶음과 후속 변경 갈래는 이 테스트가 만들지 않는다.
 const REVERT_CE = "context_engineer";
 
 type PreviewGroup = {
@@ -3736,6 +3738,7 @@ Deno.test({
         run: string;
         outcome: string;
         changes: {
+          owner: string;
           capability: string;
           result: string;
           source_seqs: string[];
@@ -3753,6 +3756,26 @@ Deno.test({
       let run = "";
       let context = "";
       let before: PreviewGroup[] = [];
+
+      // 되돌리기 진입. roles 검토의 [되돌리기] 단추와 같은 owner_decision 요청을 낸다. 그 단추는 일의 결과
+      // 링크(`made`)가 있어야 서는데 Context Engineer의 답 메시지는 만든 context·문서를 링크하지 않아
+      // 단추가 서지 않는다(review-agent-work 머리 주석의 결함 (8)과 같은 원인). 그래서 단추 대신 같은
+      // 요청을 renderer의 shell 다리로 직접 낸다.
+      const openRevert = async () => {
+        const opened = await shell.evaluate(`(async () => {
+          const result = await globalThis.lophnShell.openConfirmation({
+            request: {
+              kind: "owner_decision",
+              concern: "lophn-agent/revert",
+              decision: "RevertRun",
+              targets: [${JSON.stringify(run)}],
+            },
+            parentWindow: "requesting-window",
+          });
+          return typeof result?.windowId === "string" ? "opened" : JSON.stringify(result);
+        })()`);
+        assertEquals(opened, "opened");
+      };
 
       await t.step(
         "lophn-agent/revert#R1: 정할 수 없는 경계를 묻고 사람이 정한 구성·설계 보고를 남긴 일이 끝나야 revert 대상이 된다",
@@ -3802,17 +3825,19 @@ Deno.test({
           const reversible = before.filter((group) =>
             group.capability === "reversible"
           );
-          assert(
-            reversible.some((group) => group.owner === "documents/contexts"),
+          assertEquals(
+            reversible.map((group) => group.owner).sort(),
+            ["documents/contexts", "documents/versions"],
             JSON.stringify(before),
           );
-          assert(
-            reversible.some((group) => group.owner === "documents/versions") ||
-              reversible.some((group) =>
-                group.owner.startsWith("documents/") &&
-                group.owner !== "documents/contexts"
-              ),
-            `설계 보고 문서의 복원 묶음이 없다: ${JSON.stringify(before)}`,
+          // 대화 메시지는 감사 사실이라 복원하지 않고 남는다(남을 영향).
+          const retained = before.filter((group) =>
+            group.capability === "retained"
+          );
+          assertEquals(
+            retained.map((group) => [group.owner, group.reason]),
+            [["lophn-agent/conversation", "audit_fact"]],
+            JSON.stringify(before),
           );
           // 복원할 수 없거나 유지되는 묶음은 이유 코드를 단다. 이유 없는 묶음이 목록에서 빠지지도 않는다.
           for (const group of before) {
@@ -3827,37 +3852,7 @@ Deno.test({
         "shell/confirmation-window#R4 shell/confirmation-window#R5 lophn-agent/revert#R7: 되돌리기는 확인 창이 묶음을 먼저 보이고 닫기는 결정이 아니며 사람이 결정하기 전에는 아무것도 바뀌지 않는다",
         async () => {
           const callsBefore = provider.calls();
-          await shell.click('[data-screen="roles"]');
-          await shell.until(
-            `[...document.querySelectorAll("[data-role]")].some((el) => el.textContent?.includes("Context Engineer"))`,
-            "Context Engineer 담당이 없다",
-          );
-          const marked = await shell.evaluate(`(() => {
-            const row = [...document.querySelectorAll("[data-role]")].find((el) =>
-              el.textContent?.includes("Context Engineer")
-            );
-            if (!row) return false;
-            row.setAttribute("data-flow-ce", "");
-            return true;
-          })()`);
-          assertEquals(marked, true);
-          await shell.click("[data-flow-ce]");
-          await shell.mouseClickText("[role=tab]", "Work");
-          await shell.until(
-            `document.querySelector("[data-work='${run}'] [data-action='review']") !== null`,
-            "역할의 일 목록에 그 run이 없다",
-          );
-          await shell.click(`[data-work='${run}'] [data-action='review']`);
-          await shell.until(
-            `document.querySelector("[data-review='${run}'] [data-review-basic]") !== null`,
-            "검토가 서지 않았다",
-          );
-          await shell.click("[data-action='undo']");
-          await shell.until(
-            `document.querySelector("[data-undo='opened']") !== null || document.querySelector("[data-undo='failed']") !== null`,
-            "되돌리기 결과가 서지 않았다",
-          );
-          assertEquals(await shell.count("[data-undo='opened']"), 1);
+          await openRevert();
           let page: Awaited<ReturnType<FlowShell["shell"]["connect"]>> | null =
             null;
           const deadline = Date.now() + 30_000;
@@ -3921,17 +3916,14 @@ Deno.test({
       await t.step(
         "lophn-agent/revert#R5 lophn-agent/revert#R6: 다시 열어 명시적으로 결정하면 안전한 복원 가능 변경만 새 변경으로 복원되고 같은 revert는 한 번만 적용된다",
         async () => {
-          await shell.click("[data-action='undo']");
-          await shell.until(
-            `document.querySelector("[data-undo='opened']") !== null`,
-            "되돌리기 창이 다시 열리지 않았다",
-          );
+          await openRevert();
           let page: Awaited<ReturnType<FlowShell["shell"]["connect"]>> | null =
             null;
           const deadline = Date.now() + 30_000;
           while (page === null) {
             try {
-              page = await shell.shell.connect("lophn-shell://confirmation/");
+              // connect는 urlPart별로 연결을 캐시하므로 닫힌 첫 창의 연결을 다시 받지 않게 다른 urlPart로 잇는다.
+              page = await shell.shell.connect("lophn-shell://confirmation");
             } catch (error) {
               assert(Date.now() < deadline, `확인 창이 없다: ${error}`);
               await delay(250);
@@ -3947,8 +3939,9 @@ Deno.test({
             assert(Date.now() < limit, "결정 단추가 서지 않았다");
             await delay(200);
           }
+          // 결정하면 창이 닫혀 evaluate가 돌아오지 못하므로 click은 다음 turn에 맡기고 먼저 돌려준다.
           await confirmation.evaluate(
-            `document.querySelector("[data-decision='RevertRun']").click()`,
+            `(() => { const button = document.querySelector("[data-decision='RevertRun']"); setTimeout(() => button.click(), 0); return true; })()`,
           );
           // 남는 영향이 섞이면 두 번째 확인 단계가 선다. 사람이 그 영향을 확인해야 나머지가 복원된다.
           await delay(500);
@@ -3959,7 +3952,7 @@ Deno.test({
               ) === true
             ) {
               await confirmation.evaluate(
-                `document.querySelector("[data-decision='RevertRun'][data-step='second']").click()`,
+                `(() => { const button = document.querySelector("[data-decision='RevertRun'][data-step='second']"); setTimeout(() => button.click(), 0); return true; })()`,
               );
             }
           } catch { /* 결정 뒤 창이 이미 닫혔다 */ }
@@ -3994,6 +3987,15 @@ Deno.test({
               assertEquals(change.source_seqs.includes(seq), false);
             }
           }
+          // 남는 영향은 복원됐다고 세지 않는다: 대화 메시지는 유지로 남고 복원 event가 없다.
+          const stays = rows[0]!.changes.filter((change) =>
+            change.capability === "retained"
+          );
+          assertEquals(
+            stays.map((change) => [change.owner, change.result]),
+            [["lophn-agent/conversation", "retained"]],
+          );
+          assertEquals(stays[0]!.restored_seqs, []);
           // 복원되지 않은 변경은 복원됐다고 세지 않는다.
           for (const change of rows[0]!.changes) {
             if (change.result !== "restored") {

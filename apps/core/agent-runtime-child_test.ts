@@ -5,7 +5,10 @@
 // 않는다.
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
-import { registerProviderCredential } from "../../packages/contracts/lophn-agent/mod.ts";
+import {
+  mcpServersSetting,
+  registerProviderCredential,
+} from "../../packages/contracts/lophn-agent/mod.ts";
 import {
   type AuthenticatedContext,
   setSecret,
@@ -21,6 +24,7 @@ import {
   type SpawnRequest,
 } from "../../packages/platform/responsiveness/mod.ts";
 import { startFakeProvider } from "../../tools/fake-provider/mod.ts";
+import { SOCKET_HOST } from "../../packages/contracts/apps/mod.ts";
 import { RUNTIME_MACHINE_OPERATIONS } from "../agent-runtime/core-http.ts";
 import { AGENT_RUNTIME_KIND } from "./agent-runtime.ts";
 import { type Core, startCore } from "./core.ts";
@@ -51,6 +55,8 @@ const USER_OPERATIONS = [
   "ReadModelDefaults",
   "ReadRun",
   "SetSecret",
+  "SettingsDefinitions",
+  "ApplySettings",
   "project.create",
   "project.list",
 ];
@@ -447,6 +453,127 @@ Deno.test("lophn-agent/harness/run-loop#R8: runtime child의 argv에는 -A가 �
     );
   } finally {
     await world.provider.close();
+    await world.close();
+    await Deno.remove(world.home, { recursive: true });
+  }
+});
+
+// allow-net에서 앱 direct socket 자리(가상 host와 unix 경로)를 뺀 목적지다.
+function netHosts(args: readonly string[]): string[] | undefined {
+  return permissions(args).get("allow-net")?.filter((entry) =>
+    entry !== SOCKET_HOST && !entry.startsWith("unix:")
+  );
+}
+
+// 사람이 MCP server 목록을 등록한다(settings/apply). revision은 매 호출 읽은 값이다.
+async function registerMcpServers(
+  world: World,
+  servers: readonly unknown[],
+  key: string,
+): Promise<void> {
+  const { server } = world;
+  const definitions = await call(server, "settings/definitions", USER_TOKEN, {
+    keys: [mcpServersSetting.key],
+  });
+  assertEquals(definitions.status, 200, JSON.stringify(definitions.body));
+  const current = await call(server, "settings/get", USER_TOKEN, {
+    keys: [mcpServersSetting.key],
+  });
+  const applied = await call(server, "settings/apply", USER_TOKEN, {
+    input: {
+      changes: [{
+        layer: "common",
+        key: mcpServersSetting.key,
+        action: "set",
+        value: servers,
+      }],
+    },
+    idempotency_key: key,
+    compare: {
+      revision: (current.body as { revision?: number }).revision ?? 0,
+      defaults_revision:
+        (definitions.body as { defaults_revision: string }).defaults_revision,
+    },
+    prepared: [],
+  });
+  assertEquals(applied.status, 200, JSON.stringify(applied.body));
+}
+
+Deno.test("lophn-agent/extensions#R13 lophn-agent/extensions#R15 lophn-agent/harness/run-loop#R8: 등록한 MCP server가 있으면 child는 그 HTTP의 정확한 host:port만 net으로, stdio의 정확한 실행 경로만 run으로 더해 다시 뜨고 끄면 다시 좁아진다", async () => {
+  // 이 시험이 연 localhost 가짜 MCP server다. 실제 외부 service는 쓰지 않는다.
+  const fake = Deno.serve(
+    { hostname: "127.0.0.1", port: 0, onListen: () => {} },
+    () => new Response("{}"),
+  );
+  const world = await openWorld({});
+  try {
+    await until("first child", () => world.children.length >= 1);
+    const first = world.children[0]!.request.args;
+    assertEquals(netHosts(first), [`127.0.0.1:${world.core.port}`]);
+    assertEquals(permissions(first).get("allow-run"), undefined);
+
+    const base = {
+      revision: 1,
+      call_timeout_ms: 60_000,
+      classifications: {},
+    };
+    const servers = [
+      {
+        ...base,
+        name: "remote",
+        enabled: true,
+        transport: "http",
+        http: {
+          url: `http://127.0.0.1:${fake.addr.port}/rpc`,
+          headers: {},
+          auth: { kind: "none" },
+        },
+      },
+      {
+        ...base,
+        name: "notes",
+        enabled: true,
+        transport: "stdio",
+        stdio: { executable: "/bin/sh", args: [], cwd: null, env: {} },
+      },
+      {
+        ...base,
+        name: "off",
+        enabled: false,
+        transport: "http",
+        http: {
+          url: "https://off.example.test/rpc",
+          headers: {},
+          auth: { kind: "none" },
+        },
+      },
+    ];
+    await registerMcpServers(world, servers, "mcp-register-1");
+    await until(
+      "restart with the MCP servers",
+      () => world.children.length >= 2,
+    );
+    const second = world.children[1]!.request.args;
+    assertEquals(netHosts(second), [
+      `127.0.0.1:${world.core.port}`,
+      `127.0.0.1:${fake.addr.port}`,
+    ]);
+    assertEquals(permissions(second).get("allow-run"), ["/bin/sh"]);
+
+    await registerMcpServers(
+      world,
+      servers.map((entry) => ({ ...entry, enabled: false })),
+      "mcp-register-2",
+    );
+    await until(
+      "restart without the MCP servers",
+      () => world.children.length >= 3,
+    );
+    const third = world.children[2]!.request.args;
+    assertEquals(netHosts(third), [`127.0.0.1:${world.core.port}`]);
+    assertEquals(permissions(third).get("allow-run"), undefined);
+  } finally {
+    await fake.shutdown();
     await world.close();
     await Deno.remove(world.home, { recursive: true });
   }

@@ -1,11 +1,25 @@
 import { err, ok, type Result } from "../../packages/base/mod.ts";
 import {
+  appAgentConfirmProof,
   appBlueprint,
+  appRuntime,
   grantsList,
+  invocationAcceptConfirm,
+  type InvocationAcceptConfirmInput,
+  invocationAcceptConfirmInputSchema,
   invocationsList,
+  type SignedConfirmProof,
 } from "../../packages/contracts/apps/mod.ts";
-import type { AgentAppScope } from "../../packages/contracts/lophn-agent/mod.ts";
-import { routePath } from "../../packages/contracts/platform/mod.ts";
+import {
+  type AgentAppScope,
+  toolCallRead,
+} from "../../packages/contracts/lophn-agent/mod.ts";
+import {
+  applyApprovedAction,
+  type ApprovalAction,
+  approvalsGet,
+  routePath,
+} from "../../packages/contracts/platform/mod.ts";
 import {
   createRuntimeClient,
   type DirectTransport,
@@ -31,7 +45,7 @@ import {
   type ToolLookup,
 } from "../../packages/lophn-agent/harness/waiting-and-recovery/mod.ts";
 import type { AppOffer } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
-import { type CoreCall, readOf } from "./core-call.ts";
+import { commandOf, type CoreCall, readOf } from "./core-call.ts";
 
 // agent runtime의 앱 command 연결(lophn-agent/harness/tools R8, R16, R17). 이 run이 부를 수 있는 앱
 // command의 선언과 사람의 허락을 apps 계약 읽기로 모으고(StartRun의 AgentAppScope 입력과 tool 정의의
@@ -59,7 +73,7 @@ export type AppToolkit = {
 const PLACEHOLDER_SCREEN = "main";
 
 export function createAppToolkit(options: {
-  // machine 자격의 loopback. 선언·허락·invocation 기록을 읽기만 한다.
+  // machine 자격의 loopback. 선언·허락·invocation 기록과 confirm 접수 proof를 다룬다.
   machine: CoreCall;
   // 앱 direct socket의 transport. 기본은 unix socket이다.
   direct?: DirectTransport;
@@ -131,6 +145,61 @@ export function createAppToolkit(options: {
     return ok([...found].sort());
   }
 
+  // confirm command의 접수 입력. approval이 없거나 이 ToolCall의 접수가 아니면 연결하지 않는다.
+  async function confirmAcceptance(call: AppInvokeCall): Promise<
+    Result<{
+      approval: string;
+      action: ApprovalAction;
+      accept: InvocationAcceptConfirmInput;
+      process_nonce: string;
+    }>
+  > {
+    const read = await readOf(machine, toolCallRead, {
+      tool_call: call.toolCall,
+    });
+    if (!read.ok) return read;
+    const approval = read.value.tool_call.decision?.approval ?? null;
+    if (approval === null) {
+      return err({
+        code: "forbidden",
+        message: "confirm command has no approval",
+      });
+    }
+    const got = await readOf(machine, approvalsGet, { approval });
+    if (!got.ok) return got;
+    const action = got.value.request.action;
+    if (
+      action.command !== invocationAcceptConfirm.name ||
+      action.input.kind !== "inline"
+    ) {
+      return err({
+        code: "conflict",
+        message: "approval is not a confirm acceptance",
+      });
+    }
+    const parsed = invocationAcceptConfirmInputSchema.safeParse(
+      action.input.value,
+    );
+    if (
+      !parsed.success || parsed.data.app !== call.app ||
+      parsed.data.release !== call.release ||
+      parsed.data.command !== call.command ||
+      parsed.data.caller.kind !== "agent" ||
+      parsed.data.caller.tool_call !== call.toolCall
+    ) {
+      return err({
+        code: "conflict",
+        message: "approval is not a confirm acceptance",
+      });
+    }
+    return ok({
+      approval,
+      action,
+      accept: parsed.data,
+      process_nonce: parsed.data.process_nonce,
+    });
+  }
+
   function commandPorts(agent: CoreCall) {
     const client = createRuntimeClient({
       core: {
@@ -157,6 +226,10 @@ export function createAppToolkit(options: {
       });
     const ports: AppCommandPorts & AppJudgmentPorts = {
       async invoke(call) {
+        const acceptance = call.confirm === true
+          ? await confirmAcceptance(call)
+          : undefined;
+        if (acceptance !== undefined && !acceptance.ok) return acceptance;
         const session = await connect(call);
         if (!session.ok) return session;
         // 정의가 만들어진 release가 지금 앱의 release와 같을 때만 보낸다(옛 정의로 부르지 않는다).
@@ -166,10 +239,43 @@ export function createAppToolkit(options: {
             message: "the app release changed",
           });
         }
+        // confirm은 사람이 허락한 접수를 한 번 적용하고, 그 proof의 nonce가 지금 프로세스와 같을 때만 보낸다.
+        let proof: SignedConfirmProof | undefined;
+        if (acceptance?.ok) {
+          if (
+            session.value.connection.process_nonce !==
+              acceptance.value.process_nonce
+          ) {
+            return err({
+              code: "conflict",
+              message: "the app process changed",
+            });
+          }
+          const applied = await commandOf(
+            machine,
+            applyApprovedAction,
+            {
+              approval: acceptance.value.approval,
+              action: acceptance.value.action,
+              idempotency_key: call.toolCall,
+            },
+            {},
+            `${call.toolCall}:apply`,
+          );
+          if (!applied.ok) return applied;
+          const signed = await readOf(
+            machine,
+            appAgentConfirmProof,
+            acceptance.value.accept,
+          );
+          if (!signed.ok) return signed;
+          proof = signed.value.proof;
+        }
         const sent = await session.value.invoke({
           command: call.command,
           ...(call.input === undefined ? {} : { input: call.input as never }),
           request_key: call.requestKey,
+          ...(proof === undefined ? {} : { proof }),
         });
         if (!sent.ok) return sent;
         if (sent.value.kind === "unknown") return ok({ kind: "unknown" });
@@ -192,16 +298,22 @@ export function createAppToolkit(options: {
         return asked.ok ? ok(asked.value as never) : asked;
       },
       current,
-      async nonce(app, command, call) {
-        const session = await connect({
-          app,
-          command,
-          run: call.run,
-          toolCall: call.toolCall,
-        });
-        return session.ok
-          ? ok(session.value.connection.process_nonce)
-          : session;
+      async nonce(app) {
+        // confirm이 묶는 프로세스 nonce다. apps/connect는 연결을 남겨 credential이
+        // 끝나면 그 프로세스를 다시 띄운다. 사람 허락을 기다리는 동안 nonce가 바뀌므로
+        // 여기서는 연결을 만들지 않고 machine 관측만 읽는다. 실제 호출은 run이 다시
+        // 돈 뒤 agent의 apps/connect로 한다.
+        const observed = await readOf(machine, appRuntime, { app });
+        if (!observed.ok) return observed;
+        const observation = observed.value.observation;
+        if (
+          observation === null || observation.mode !== "live" ||
+          !observation.ready || !observation.accepting ||
+          observation.process_nonce === "none"
+        ) {
+          return err({ code: "unavailable", message: "app is not running" });
+        }
+        return ok(observation.process_nonce);
       },
     };
     return ports;

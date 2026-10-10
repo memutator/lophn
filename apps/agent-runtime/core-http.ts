@@ -2,7 +2,7 @@ import { err, ok, type Result } from "../../packages/base/mod.ts";
 import {
   RUNTIME_MACHINE_ROUTES,
 } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
-import { routePath } from "../../packages/contracts/platform/mod.ts";
+import { API_MAJOR, routePath } from "../../packages/contracts/platform/mod.ts";
 import type { CoreCall } from "./core-call.ts";
 
 export {
@@ -80,11 +80,22 @@ export function machineCall(options: {
   };
 }
 
+// runtime client는 `apps/connect`처럼 resource/method를 준다. loop는 routePath(/v1/...)를 준다.
+function httpPath(path: string): string {
+  return path.startsWith("/") ? path : `/v${API_MAJOR}/${path}`;
+}
+
 export function agentCall(options: {
   port: number;
   token: string;
   fetch?: Fetch;
 }): CoreCall {
   return (path, body) =>
-    post(options.fetch ?? fetch, options.port, options.token, path, body);
+    post(
+      options.fetch ?? fetch,
+      options.port,
+      options.token,
+      httpPath(path),
+      body,
+    );
 }

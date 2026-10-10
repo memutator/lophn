@@ -2,8 +2,7 @@
 // 1의 context 선택과 3·6의 사람 직접 정의 화면, 미루기·전제 변경·같은 이름·보관 갈래를 본다.
 // 그 테스트의 후보는 사람 command의 고정 본문 근거로 준비한다. 2는 다음 테스트가 본다.
 // 3은 고정 action 없는 질문만 본다. 4는 마지막 테스트가 고정한 term.define 선택지를
-// 확인 창 없이 사람의 결정으로 접수한다. 접수된 결정의 machine 적용은 답 확정 경로
-// 결함(followups 49·55)으로 볼 수 없어 그 테스트 안의 ignore step으로 표시해 두었다.
+// 확인 창 없이 사람의 결정으로 접수한다. 접수된 결정의 machine 적용까지 본다.
 // 5의 변경 기록·목록 구별은 여기서 하지 않는다.
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 
@@ -2446,35 +2445,18 @@ type FixFixture = {
   close: () => Promise<void>;
   failure: () => string;
   phase: () => FixPhase;
-  holding: () => boolean;
-  release: () => void;
   callsNamed: () => string[];
   body: (index: number) => string;
   calls: () => number;
 };
 
-// 사람이 답하는 동안 model 응답을 미뤄 run을 살아 있게 한다. 답 접수는 끝나지 않은
-// run의 질문만 받는다(3의 second-hold와 같다). 고정 action의 실제 적용은 machine의
-// 갈래다(이 파일 아래 Deno.test 주석).
+// 질문을 낸 run은 답을 기다리고(WaitRun) 답이 정해지면 같은 run이 이어져 tool 결과를
+// 싣고 다시 model을 부른다. hold 단계의 두 번째 호출이 그 이어짐이다. 고정 action의
+// 실제 적용은 machine의 갈래다(이 파일 아래 Deno.test 주석).
 function startFixScript(): FixFixture {
   const bodies: string[] = [];
   const named: string[] = [];
-  const found = { phase: "ask" as FixPhase, failure: "", holding: false };
-  let releaseHold = (): void => {};
-  const arm = () => {
-    const waiter = new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(
-        () => reject(new Error("답을 기다리다 끊겼다")),
-        180_000,
-      );
-      releaseHold = () => {
-        clearTimeout(timer);
-        resolve();
-      };
-    });
-    waiter.catch(() => {});
-    return waiter;
-  };
+  const found = { phase: "ask" as FixPhase, failure: "" };
   const issue = (id: string, name: string, args: unknown): SemanticReply => {
     named.push(name);
     return toolCall(id, name, args);
@@ -2533,13 +2515,6 @@ function startFixScript(): FixFixture {
           found.phase = "first-hold";
         } else if (found.phase === "first-hold") {
           toolContent(text);
-          const waiter = arm();
-          found.holding = true;
-          try {
-            await waiter;
-          } finally {
-            found.holding = false;
-          }
           found.phase = "idle";
           reply = said(FREE_REPLY);
         } else if (found.phase === "idle") {
@@ -2547,13 +2522,6 @@ function startFixScript(): FixFixture {
           found.phase = "second-hold";
         } else if (found.phase === "second-hold") {
           toolContent(text);
-          const waiter = arm();
-          found.holding = true;
-          try {
-            await waiter;
-          } finally {
-            found.holding = false;
-          }
           found.phase = "done";
           reply = said(AGAIN_NOTE);
         } else if (found.phase === "done") {
@@ -2563,8 +2531,6 @@ function startFixScript(): FixFixture {
         }
       } catch (error) {
         found.failure = error instanceof Error ? error.message : String(error);
-        found.holding = false;
-        releaseHold();
         return Response.json({ error: found.failure }, { status: 500 });
       }
       const built = buildReply("messages", reply);
@@ -2579,8 +2545,6 @@ function startFixScript(): FixFixture {
     close: () => server.shutdown(),
     failure: () => found.failure,
     phase: () => found.phase,
-    holding: () => found.holding,
-    release: () => releaseHold(),
     callsNamed: () => named,
     body: (index) => bodies[index] ?? "",
     calls: () => bodies.length,
@@ -2768,6 +2732,13 @@ Deno.test({
           );
         }
       };
+      const untilQuestion = async (index: number) => {
+        const until = Date.now() + 60_000;
+        while ((await questionsOf(shell))[index] === undefined) {
+          assert(Date.now() < until, `질문 ${index}이 만들어지지 않았다`);
+          await delay(250);
+        }
+      };
       const noWindow = async () => {
         assertEquals(await shell.count(`${EMBEDDED} [data-opens-review]`), 0);
         assertEquals(await shell.count(`${EMBEDDED} [data-review]`), 0);
@@ -2782,9 +2753,10 @@ Deno.test({
       await sendToEngineer(shell, FIX_TEXT);
       await untilFix(
         provider,
-        () => provider.phase() === "first-hold" && provider.holding(),
+        () => provider.phase() === "first-hold",
         "첫 질문",
       );
+      await untilQuestion(0);
       const first = (await questionsOf(shell))[0];
       assert(first !== undefined);
       assertEquals(first.status, "pending");
@@ -2873,16 +2845,16 @@ Deno.test({
       });
       assertEquals(freeText["answer_text"], FREE_ANSWER);
       assertEquals(await definitionOf(shell, FIX_TERM), null);
-      provider.release();
       await untilFixDone(shell, provider, "첫 질문이 끝나지 않았다");
       assertEquals(provider.callsNamed().includes("term.define"), false);
 
       await sendToEngineer(shell, FIX_AGAIN);
       await untilFix(
         provider,
-        () => provider.phase() === "second-hold" && provider.holding(),
+        () => provider.phase() === "second-hold",
         "둘째 질문",
       );
+      await untilQuestion(1);
       const second = (await questionsOf(shell))[1];
       assert(second !== undefined);
       assertEquals(second.status, "pending");
@@ -2927,31 +2899,23 @@ Deno.test({
         await delay(250);
       }
       await noWindow();
-      // 접수된 결정의 machine 적용은 답 확정 경로 결함(followups 49·55)으로 볼 수
-      // 없다. ports.wait가 WaitRun의 질문 갈래를 부르지 않아 질문을 만든 run이 끝나
-      // 해소기가 기다리는 run으로 돌리지 못한다. 결함이 풀리면 ignore를 지운다.
-      await t.step({
-        name:
-          "접수된 고정 뜻이 정의로 적용된다 (followups 49·55: ports.wait가 question 갈래를 부르지 않는다)",
-        ignore: true,
-        async fn() {
-          const appliedAt = Date.now() + 60_000;
-          for (;;) {
-            const answered = (await questionsOf(shell))[1];
-            const meaning = await definitionOf(shell, FIX_TERM);
-            if (answered?.applied === true && meaning === FIX_MEANING) break;
-            assert(
-              Date.now() < appliedAt,
-              `고정 뜻이 적용되지 않았다: ${JSON.stringify(answered ?? null)} ${
-                String(meaning)
-              }`,
-            );
-            await delay(250);
-          }
-          await noWindow();
-        },
+      // 접수된 결정은 질문을 기다리던 run을 해소기가 이어 machine이 고정 뜻을 적용한다.
+      await t.step("접수된 고정 뜻이 정의로 적용된다", async () => {
+        const appliedAt = Date.now() + 60_000;
+        for (;;) {
+          const answered = (await questionsOf(shell))[1];
+          const meaning = await definitionOf(shell, FIX_TERM);
+          if (answered?.applied === true && meaning === FIX_MEANING) break;
+          assert(
+            Date.now() < appliedAt,
+            `고정 뜻이 적용되지 않았다: ${JSON.stringify(answered ?? null)} ${
+              String(meaning)
+            }`,
+          );
+          await delay(250);
+        }
+        await noWindow();
       });
-      provider.release();
       await untilFixDone(shell, provider, "둘째 질문이 끝나지 않았다");
       assertEquals(provider.callsNamed().includes("term.define"), false);
       assertEquals(

@@ -9,7 +9,7 @@ import {
 } from "./mod.ts";
 
 // 문제 해석 참조 설정 tool의 command 전 read 단계(problems#T19에서 넘어온 것).
-// reader로 documents get·outline.document를 부른 뒤 command로 넘기는지 본다. 소유
+// reader로 documents get·document.read를 부른 뒤 command로 넘기는지 본다. 소유
 // contract(LinkProblemInterpretation)는 대역이 받는다. 실제 core·documents worker와
 // 실제 사람 데이터 root는 열지 않는다.
 
@@ -62,7 +62,7 @@ function rig(
           next_cursor: null,
         }));
       }
-      if (contract === "outline.document") {
+      if (contract === "document.read") {
         return Promise.resolve(ok({
           section_status: options.section ?? "found",
           as_of_seq: "5",
@@ -130,7 +130,7 @@ Deno.test("lophn-agent/harness/tools#R8: 해석 참조 설정 tool은 command �
   // command 전에 reader가 get과 outline을 부른다.
   assertEquals(seen.map((call) => call.contract).slice(0, 2), [
     "document.get",
-    "outline.document",
+    "document.read",
   ]);
   // 그 뒤 문제의 현재 참조(compare.previous)와 command를 부른다.
   const sent = seen.find((call) =>
@@ -258,7 +258,7 @@ Deno.test("lophn-agent/harness/tools#R8: run의 agent operation은 command와 co
     const name of [
       problemSetInterpretationTool.contract,
       "document.get",
-      "outline.document",
+      "document.read",
       "GetProblem",
     ]
   ) {

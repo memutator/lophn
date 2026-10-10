@@ -169,7 +169,7 @@ const SUPPORTING_OPERATIONS: ReadonlyMap<string, readonly string[]> = new Map([
   // 참조를 읽어 확인한다(problems#T19, problems/grouping#R13).
   [
     "LinkProblemInterpretation",
-    ["document.get", "outline.document", "GetProblem"],
+    ["document.get", "document.read", "GetProblem"],
   ],
   // 제품 안내 읽기는 안내 목록과 설정 정의를 같은 읽기 자격으로 함께 읽는다.
   ["guide.read", ["guide.list"]],

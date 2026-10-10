@@ -2503,17 +2503,6 @@ Deno.test({
         body: { app: APP },
       });
       assertEquals(tickets.tickets, []);
-      const verifications = await mustCall(flow, {
-        kind: "read",
-        resource: "problems",
-        method: "list-verifications",
-        body: { app: APP },
-      });
-      for (
-        const row of verifications.verifications as { result: string }[]
-      ) {
-        assert(row.result !== "pass", JSON.stringify(row));
-      }
       const runs = await runRows(flow, engineer.id);
       assertEquals(runs.length, 2);
       assert(

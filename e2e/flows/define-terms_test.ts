@@ -1274,7 +1274,6 @@ const FIRST_PROMPT = "정산주기에 어떤 이름을 쓸까요?";
 const SECOND_PROMPT = "임시표에 쓸 이름과 뜻을 정해 주세요";
 const RECOMMEND_WHY = "고정 판에 그대로 있는 이름이다.";
 const SECOND_WHY = "본문에 그대로 있는 이름이다.";
-const ASK_REPLY = "정산주기의 이름만 물어 두었다. 추천은 적용하지 않았다.";
 const YES_REPLY = "일반 메시지는 정의가 아니다. 추천도 적용하지 않았다.";
 const NOTED_REPLY =
   "적은 이름과 뜻은 질문의 답으로만 남겼다. 정의로 적용하지 않았다.";
@@ -1343,8 +1342,6 @@ type AskFixture = {
   close: () => Promise<void>;
   failure: () => string;
   phase: () => AskPhase;
-  holding: () => boolean;
-  release: () => void;
   callsNamed: () => readonly string[];
   ground: () => Ground;
   firstReason: () => string;
@@ -1375,24 +1372,11 @@ function startAskScript(): AskFixture {
   const found = {
     phase: "list" as AskPhase,
     failure: "",
-    holding: false,
     context: "",
     ground: null as Ground | null,
     firstReason: "",
     secondReason: "",
   };
-  let resolveHold = (): void => {};
-  const hold = new Promise<void>((resolve, reject) => {
-    const timer = setTimeout(
-      () => reject(new Error("명시 답을 기다리다 끊겼다")),
-      180_000,
-    );
-    resolveHold = () => {
-      clearTimeout(timer);
-      resolve();
-    };
-  });
-  hold.catch(() => {});
 
   const issue = (id: string, name: string, args: unknown): SemanticReply => {
     named.push(name);
@@ -1629,9 +1613,11 @@ function startAskScript(): AskFixture {
             reply = askFirst();
           }
         } else if (found.phase === "submitted") {
-          toolContent(text);
-          found.phase = "asked";
-          reply = said(ASK_REPLY);
+          // 질문을 낸 run은 답을 기다린다. 질문이 미뤄지면 그 run은 model을 다시 부르지 않고
+          // 기다리던 일반 긍정이 새 run으로 이어진다.
+          assertEquals(latestAsk(text), "yes", "일반 긍정이 아니다");
+          found.phase = "yesed";
+          reply = said(YES_REPLY);
         } else if (found.phase === "asked") {
           assertEquals(latestAsk(text), "yes", "일반 긍정이 아니다");
           found.phase = "yesed";
@@ -1664,13 +1650,8 @@ function startAskScript(): AskFixture {
           );
           reply = askSecond();
         } else if (found.phase === "second-hold") {
+          // 사람의 답으로 같은 run이 이어진 호출이다.
           toolContent(text);
-          found.holding = true;
-          try {
-            await hold;
-          } finally {
-            found.holding = false;
-          }
           found.phase = "done";
           reply = said(NOTED_REPLY);
         } else {
@@ -1678,8 +1659,6 @@ function startAskScript(): AskFixture {
         }
       } catch (error) {
         found.failure = error instanceof Error ? error.message : String(error);
-        found.holding = false;
-        resolveHold();
         return Response.json({ error: found.failure }, { status: 500 });
       }
       const built = buildReply("messages", reply);
@@ -1696,8 +1675,6 @@ function startAskScript(): AskFixture {
     close: () => server.shutdown(),
     failure: () => found.failure,
     phase: () => found.phase,
-    holding: () => found.holding,
-    release: () => resolveHold(),
     callsNamed: () => named,
     ground: () => {
       assert(found.ground !== null, "근거가 없다");
@@ -2001,6 +1978,13 @@ Deno.test({
 
       const ready = `${EMBEDDED} [data-question-text='ready']`;
       const sendAnswer = `${EMBEDDED} [data-send-answer]`;
+      const untilQuestion = async (index: number) => {
+        const until = Date.now() + 60_000;
+        while ((await questionsOf(shell))[index] === undefined) {
+          assert(Date.now() < until, `질문 ${index}이 만들어지지 않았다`);
+          await delay(250);
+        }
+      };
       const untilPrompt = async (prompt: string) => {
         try {
           await shell.until(
@@ -2092,10 +2076,10 @@ Deno.test({
           await sendToEngineer(shell, ASK_TEXT);
           await untilAsk(
             provider,
-            () => provider.phase() === "asked",
+            () => provider.phase() === "submitted",
             "첫 질문",
           );
-          await untilAskDone(shell, provider, "첫 질문이 끝나지 않았다");
+          await untilQuestion(0);
           const named = provider.callsNamed();
           assertEquals(named[0], "context.list");
           assert(
@@ -2205,7 +2189,6 @@ Deno.test({
           assertEquals(await definitionOf(shell, OPEN_TERM), null);
           assertEquals(await definitionOf(shell, KNOWN_TERM), KNOWN_MEANING);
           const shown = (await shell.text(EMBEDDED)) ?? "";
-          assertStringIncludes(shown, ASK_REPLY);
           assertEquals(shown.includes("document.outline"), false);
           assertEquals(shown.includes("question.submit"), false);
         },
@@ -2214,13 +2197,10 @@ Deno.test({
       await t.step(
         "lophn-agent/questions#R6 lophn-agent/roles/context-engineer#R10: 3 일반 긍정은 답도 정의도 아니다",
         async () => {
+          // 질문을 기다리는 run은 일반 메시지로 풀리지 않는다. 메시지는 다음 접수로 남는다.
           await sendToEngineer(shell, YES_TEXT);
-          await untilAsk(
-            provider,
-            () => provider.phase() === "yesed",
-            "일반 긍정",
-          );
-          await untilAskDone(shell, provider, "일반 긍정이 끝나지 않았다");
+          await delay(2_000);
+          assertEquals(provider.phase(), "submitted");
           const questions = await questionsOf(shell);
           assertEquals(questions.length, 1);
           assertEquals(questions[0]?.status, "pending");
@@ -2234,7 +2214,6 @@ Deno.test({
               .length,
             1,
           );
-          assertStringIncludes((await shell.text(EMBEDDED)) ?? "", YES_REPLY);
         },
       );
 
@@ -2266,6 +2245,52 @@ Deno.test({
             }) === null`,
             "미룬 질문이 칸에 남아 있다",
           );
+          // 질문이 답 없음으로 끝나면 기다리던 일반 긍정이 새 run으로 이어진다.
+          // 답 없음으로 끝난 run 뒤의 요청은 사람이 계속하라고 확인해야 시작한다(run-loop R6).
+          // 기다리던 일반 긍정이 그 요청이다.
+          const confirmBy = Date.now() + 60_000;
+          for (;;) {
+            const listed = await mustCall(shell, {
+              kind: "read",
+              resource: "runs",
+              method: "list",
+              body: {},
+            });
+            const runs = listed["runs"] as {
+              id: string;
+              state: string;
+              start_after: string | null;
+              accepted_seq: string;
+              state_seq: string;
+            }[];
+            const queued = runs.find((run) => run.state === "accepted");
+            const before = runs.find((run) => run.id === queued?.start_after);
+            if (
+              queued !== undefined && before !== undefined &&
+              before.state === "finished"
+            ) {
+              await mustCall(shell, {
+                kind: "command",
+                resource: "runs",
+                method: "confirm-next",
+                body: commandBody({ run: queued.id, predecessor: before.id }, {
+                  accepted_seq: queued.accepted_seq,
+                  predecessor_state_seq: before.state_seq,
+                }),
+              });
+              break;
+            }
+            assert(Date.now() < confirmBy, "기다리던 요청이 접수되지 않았다");
+            await delay(250);
+          }
+          await untilAsk(
+            provider,
+            () => provider.phase() === "yesed",
+            "일반 긍정",
+          );
+          await untilAskDone(shell, provider, "일반 긍정이 끝나지 않았다");
+          assertStringIncludes((await shell.text(EMBEDDED)) ?? "", YES_REPLY);
+          assertEquals(await definitionOf(shell, OPEN_TERM), null);
         },
       );
 
@@ -2273,7 +2298,12 @@ Deno.test({
         "lophn-agent/questions#R1 lophn-agent/questions#R3 lophn-agent/questions#R6: 3 이름·뜻을 명시한 자유 답은 질문의 답일 뿐 정의가 아니다",
         async () => {
           await sendToEngineer(shell, SECOND_TEXT);
-          await untilAsk(provider, () => provider.holding(), "둘째 질문");
+          await untilAsk(
+            provider,
+            () => provider.phase() === "second-hold",
+            "둘째 질문",
+          );
+          await untilQuestion(1);
           await untilPrompt(SECOND_PROMPT);
           assertEquals(
             await shell.text(`${EMBEDDED} [data-question-reason]`),
@@ -2372,7 +2402,6 @@ Deno.test({
           assertEquals(await definitionOf(shell, LATER_TERM), null);
           assertEquals(await definitionOf(shell, OPEN_TERM), null);
           assertEquals(await definitionOf(shell, KNOWN_TERM), KNOWN_MEANING);
-          provider.release();
           await untilAsk(
             provider,
             () => provider.phase() === "done",

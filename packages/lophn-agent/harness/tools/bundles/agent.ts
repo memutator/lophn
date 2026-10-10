@@ -24,7 +24,7 @@ import {
   idSchema,
 } from "../../../../contracts/platform/mod.ts";
 import { handoffBodyHash } from "../../../handoff/mod.ts";
-import { defineTermOptionAction } from "../../../questions/option-actions.ts";
+import { defineTermOptionAction } from "../../../questions/mod.ts";
 import {
   type ContractCall,
   defineBuiltin,
@@ -325,18 +325,23 @@ export function createAgentToolHandlers(
         });
       }
       const id = ports.newId("qst");
-      const created = await ports.call("CreateQuestion", {
-        id,
-        run: credential.run,
-        session: facts.value.session,
-        prompt: value.prompt,
-        reason: value.reason,
-        options,
-        recommendation: value.recommendation,
-        expires_at: value.expires_at,
-      }, credential.run, credential.call === undefined
-        ? undefined
-        : { idempotency_key: credential.call });
+      const created = await ports.call(
+        "CreateQuestion",
+        {
+          id,
+          run: credential.run,
+          session: facts.value.session,
+          prompt: value.prompt,
+          reason: value.reason,
+          options,
+          recommendation: value.recommendation,
+          expires_at: value.expires_at,
+        },
+        credential.run,
+        credential.call === undefined
+          ? undefined
+          : { idempotency_key: credential.call },
+      );
       if (!created.ok) return created;
       return ok(success("question asked", created.value));
     },

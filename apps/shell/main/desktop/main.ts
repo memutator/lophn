@@ -1144,7 +1144,9 @@ ipcMain.handle(
 // term.define 선택지의 확정. 확인 창을 열지 않고 정본의 그 command만 접수한다.
 ipcMain.handle(TERM_DEFINITION_CHANNEL, async (event, input) => {
   const body = input as { question?: unknown; option_key?: unknown };
-  if (typeof body?.question !== "string" || typeof body.option_key !== "string") {
+  if (
+    typeof body?.question !== "string" || typeof body.option_key !== "string"
+  ) {
     return { ok: false, code: "invalid_input" };
   }
   const window = [...windows].find((one) =>

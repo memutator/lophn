@@ -3617,11 +3617,9 @@ Deno.test({
 });
 
 // 8: Context Engineer가 끝낸 일(context 생성·항목 추가·설계 보고 문서)을 되돌린다.
-// 결함 둘: (1) shell#T36의 contexts 화면에는 revert 진입이 없다(Focus 상세에 되돌리기 단추가 없다).
-// (2) roles 검토의 [되돌리기] 단추는 일의 결과 링크가 있어야 서는데 Context Engineer의 답 메시지는
-// 만든 context·문서를 링크하지 않아 서지 않는다(review-agent-work 머리 주석의 결함 (8)과 같은 원인).
-// 그래서 단추 대신 같은 owner_decision 요청을 renderer의 shell 다리로 직접 내 확인 창을 연다.
-// 결과는 contexts 화면의 Focus(보관됨)와 reverts/list로 본다. 진입이 생기면 openRevert만 바꾼다.
+// 결함: shell#T36의 contexts 화면에는 revert 진입이 없다(Focus 상세에 되돌리기 단추가 없다). 진입은
+// roles 화면 역할의 끝난 일 검토 [되돌리기]뿐이라 그 진입으로 확인 창을 열고, 결과는 contexts 화면의
+// Focus(보관됨)와 reverts/list로 본다. 진입이 contexts 화면에 생기면 openRevert만 바꾼다.
 // 검사는 사람에게 보이지 않는다: reverts/preview가 지금의 event와 현재 판으로 만든 묶음을 먼저 읽고
 // (복원 가능: context·보고 문서, 유지: 대화 메시지의 감사 사실), 확인 창은 같은 묶음을 보인다.
 // 결정 전에는 아무것도 바뀌지 않는다. 불가·충돌 묶음과 후속 변경 갈래는 이 테스트가 만들지 않는다.
@@ -3758,31 +3756,65 @@ Deno.test({
       let context = "";
       let before: PreviewGroup[] = [];
 
-      // 되돌리기 진입. roles 검토의 [되돌리기] 단추와 같은 owner_decision 요청을 낸다. 그 단추는 일의 결과
-      // 링크(`made`)가 있어야 서는데 Context Engineer의 답 메시지는 만든 context·문서를 링크하지 않아
-      // 단추가 서지 않는다(review-agent-work 머리 주석의 결함 (8)과 같은 원인). 그래서 단추 대신 같은
-      // 요청을 renderer의 shell 다리로 직접 낸다.
+      // 되돌리기 진입: roles 화면 Context Engineer 역할의 끝난 일 검토에서 [되돌리기]를 누른다.
       const openRevert = async () => {
-        const opened = await shell.evaluate(`(async () => {
-          const result = await globalThis.lophnShell.openConfirmation({
-            request: {
-              kind: "owner_decision",
-              concern: "lophn-agent/revert",
-              decision: "RevertRun",
-              targets: [${JSON.stringify(run)}],
-            },
-            parentWindow: "requesting-window",
-          });
-          return typeof result?.windowId === "string" ? "opened" : JSON.stringify(result);
-        })()`);
-        assertEquals(opened, "opened");
+        if (await shell.count(`[data-review='${run}']`) === 0) {
+          await shell.click('[data-screen="roles"]');
+          await shell.until(
+            `[...document.querySelectorAll("[data-role]")].some((el) => el.textContent?.includes("Context Engineer"))`,
+            "Context Engineer 담당이 없다",
+          );
+          const marked = await shell.evaluate(`(() => {
+            const row = [...document.querySelectorAll("[data-role]")].find((el) =>
+              el.textContent?.includes("Context Engineer")
+            );
+            if (!row) return false;
+            row.setAttribute("data-flow-ce", "");
+            return true;
+          })()`);
+          assertEquals(marked, true);
+          await shell.click("[data-flow-ce]");
+          await shell.mouseClickText("[role=tab]", "Work");
+          await shell.until(
+            `document.querySelector("[data-work='${run}'] [data-action='review']") !== null`,
+            "역할의 일 목록에 그 run이 없다",
+          );
+          await shell.click(`[data-work='${run}'] [data-action='review']`);
+          await shell.until(
+            `document.querySelector("[data-review='${run}'] [data-review-basic]") !== null`,
+            "검토가 서지 않았다",
+          );
+        }
+        await shell.click("[data-action='undo']");
+        await shell.until(
+          `document.querySelector("[data-undo='opened']") !== null || document.querySelector("[data-undo='failed']") !== null`,
+          "되돌리기 결과가 서지 않았다",
+        );
+        assertEquals(await shell.count("[data-undo='opened']"), 1);
       };
 
       await t.step(
         "lophn-agent/revert#R1: 정할 수 없는 경계를 묻고 사람이 정한 구성·설계 보고를 남긴 일이 끝나야 revert 대상이 된다",
         async () => {
           await sendToEngineer(shell, OPEN_ASK);
-          await untilDecision(provider, "asked", "경계 질문");
+          // 질문을 낸 run은 답을 기다린다. 사람이 자기 말로 답하면 run이 이어져 끝난다.
+          await untilDecision(provider, "ask-result", "경계 질문");
+          const own = `${EMBEDDED} [data-own-answer]`;
+          const sendAnswer = `${EMBEDDED} [data-send-answer]`;
+          await shell.until(
+            `document.querySelector(${JSON.stringify(own)}) !== null`,
+            "질문 칸이 서지 않았다",
+            120_000,
+          );
+          await shell.type(own, FREE_TEXT);
+          await shell.until(
+            `(() => { const button = document.querySelector(${
+              JSON.stringify(sendAnswer)
+            }); return button !== null && button.disabled === false; })()`,
+            "자유 답을 보낼 수 없다",
+          );
+          await shell.click(sendAnswer);
+          await untilDecision(provider, "asked", "질문 답 뒤 이어짐");
           await untilEngineerDone(shell, provider, "경계 질문이 끝나지 않았다");
           await sendToEngineer(shell, DIRECT_ASK);
           await untilDecision(provider, "done", "구성 기록");

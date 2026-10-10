@@ -7,7 +7,10 @@
 //   `LOPHN_SHELL_PICK_FOLDER`가 고른 폴더를 돌려준다) → 그 프로젝트 작업대의 추적 꺼짐 안내 →
 //   [Turn on tracking] dialog의 기본 규칙(Markdown, .gitignore)과 포함·제외 미리보기 → 그만두기와 켜기.
 //   다른 시험은 같은 사람 command를 core 통로로 내 준비한다(registerProject·setTracking).
+// - format 검사 갈래(5)는 지정 format의 구조 error가 새 판을 거절하고, 미지정 새 문서는
+//   구조 실패에도 원문과 warning을 남기며 section 추출 실패와 구별한다.
 import { assert, assertEquals } from "@std/assert";
+import { sha256Hex } from "../../packages/base/mod.ts";
 
 import {
   copyFixture,
@@ -20,6 +23,7 @@ import {
   listDocuments,
   mustCall,
   openFlowShell,
+  PROJECT,
   registerProject,
   registerTrackedProject,
   removeHome,
@@ -27,6 +31,7 @@ import {
   setTracking,
   untilDocuments,
   untilSearch,
+  versionHistory,
 } from "../flow-support.ts";
 
 const OTHER_PROJECT = "prj_01arz3ndektsv4rrffq69g5fb0";
@@ -446,3 +451,345 @@ Deno.test({
     }
   },
 });
+
+const SPECIFIED_DOC = "doc_01fmtcheck0000000000000001";
+const GOOD = "# Specified\n\n## Kept\n";
+const BAD = "# Specified\n\n## 첫 제목 {#same}\n\n## 두 번째 제목 {#same}\n";
+const LOOSE = "# 느슨\n\n## 첫 제목 {#same}\n\n## 두 번째 제목 {#same}\n";
+const CLEAN = "# 깨끗\n\n## 하나\n";
+
+type Flow = Awaited<ReturnType<typeof openFlowShell>>;
+
+type FileView = {
+  state: string;
+  details: string | null;
+};
+
+type VersionFile = {
+  path: string;
+  blob_hash: string;
+  bytes: number;
+  media_type: string;
+  primary: boolean;
+};
+
+type GotVersion = {
+  id: string;
+  content_hash: string;
+  format: { name: string; module_hash: string; explicit: boolean };
+  files: VersionFile[];
+};
+
+Deno.test({
+  name:
+    "documents/formats#R4 documents/formats#R5 documents/formats#R6 flow first-project: 지정 format 검사 error는 새 version을 거절하고 미지정 구조 실패는 원문과 경고를 남긴다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn() {
+    const folder = await Deno.realPath(
+      await Deno.makeTempDir({ prefix: "lophn-format-" }),
+    );
+    await Deno.writeTextFile(`${folder}/loose.md`, LOOSE);
+    await Deno.writeTextFile(`${folder}/clean.md`, CLEAN);
+    const loosePath = await Deno.realPath(`${folder}/loose.md`);
+    const cleanPath = await Deno.realPath(`${folder}/clean.md`);
+    const flow = await openFlowShell({ start: "lophn" });
+    try {
+      await registerTrackedProject(flow, { folder, globs: ["**/*.md"] });
+      await untilDocuments(
+        flow,
+        ["loose", "clean"],
+        "미지정 파일이 문서가 되지 않았다",
+      );
+      const loose = await documentTitled(flow, "loose");
+      const clean = await documentTitled(flow, "clean");
+      // 추출 실패는 outline에서 unverified다. 성공한 전체 문서는 whole이다.
+      const looseOutline = await untilOutline(
+        flow,
+        loose.id,
+        (outline) =>
+          outline.section_status === "unverified" &&
+          outline.failure_reason !== null,
+        "구조가 잘못된 미지정 문서의 추출이 끝나지 않았다",
+      );
+      const cleanOutline = await untilOutline(
+        flow,
+        clean.id,
+        (outline) =>
+          outline.section_status === "whole" && outline.entries.length > 0,
+        "바른 미지정 문서의 추출이 끝나지 않았다",
+      );
+      assertEquals(looseOutline.format.explicit, false);
+      assertEquals(looseOutline.section_status, "unverified");
+      assert(looseOutline.failure_reason !== null);
+      assertEquals(cleanOutline.format.explicit, false);
+      assertEquals(cleanOutline.section_status, "whole");
+      assertEquals(cleanOutline.failure_reason, null);
+      const looseStatus = await untilFileStatus(
+        flow,
+        PROJECT,
+        loosePath,
+        (status) =>
+          status.state === "tracked" &&
+          (status.details ?? "").includes("duplicate_anchor"),
+        "미지정 구조 실패의 경고가 상태에 남지 않았다",
+      );
+      assertEquals(looseStatus.state, "tracked");
+      const cleanStatus = await untilFileStatus(
+        flow,
+        PROJECT,
+        cleanPath,
+        (status) => status.state === "tracked",
+        "바른 파일이 추적되지 않았다",
+      );
+      assertEquals(cleanStatus.details, null);
+      assertEquals(await Deno.readTextFile(loosePath), LOOSE);
+      assertEquals(await Deno.readTextFile(cleanPath), CLEAN);
+      const looseVersion = await documentVersion(flow, loose.id);
+      assertEquals(looseVersion.files[0]?.blob_hash, await sha256Hex(LOOSE));
+
+      const created = await editorCall(flow, "create", {
+        document: SPECIFIED_DOC,
+        request_key: "format-check-create1",
+        title: "Specified",
+        place: { kind: "project", id: PROJECT },
+        name: "specified",
+        text: GOOD,
+      });
+      assertEquals(created.outcome, "saved", JSON.stringify(created));
+      const first = await documentVersion(flow, SPECIFIED_DOC);
+      assertEquals(first.format.explicit, false);
+      const file = first.files[0];
+      assert(file !== undefined, "첫 판의 파일이 없다");
+      const key = "format-explicit-save1";
+      const prepared = await mustCall(flow, {
+        kind: "worker",
+        resource: "documents",
+        method: "prepare",
+        body: {
+          document: SPECIFIED_DOC,
+          base_version: first.id,
+          files: [{
+            path: file.path,
+            blob_hash: file.blob_hash,
+            bytes: file.bytes,
+            media_type: file.media_type,
+            primary: true,
+            content: {
+              kind: "existing",
+              reference: {
+                owner_kind: "document_version",
+                owner_key: `${first.id}/${file.path}`,
+                field: "file",
+                hash: file.blob_hash,
+                registered_seq: "1",
+              },
+            },
+          }],
+          format: {
+            name: first.format.name,
+            module_hash: first.format.module_hash,
+            explicit: true,
+          },
+          source: null,
+          idempotency_key: key,
+        },
+      });
+      const saved = await mustCall(flow, {
+        kind: "command",
+        resource: "documents",
+        method: "save",
+        body: {
+          input: prepared,
+          idempotency_key: prepared.idempotency_key,
+          compare: { base_version: prepared.base_version },
+          prepared: [prepared.preparation_ref],
+        },
+      });
+      assertEquals(saved.status, "saved");
+      const explicit = await documentVersion(flow, SPECIFIED_DOC);
+      assertEquals(explicit.format.explicit, true);
+      assertEquals(explicit.files[0]?.blob_hash, await sha256Hex(GOOD));
+      const specifiedPath = `${folder}/specified.md`;
+      const placed = await editorCall(flow, "place", {
+        document: SPECIFIED_DOC,
+        version: explicit.id,
+        project: PROJECT,
+        path: specifiedPath,
+        request_key: "format-check-place01",
+      });
+      assertEquals(placed.file, "written", JSON.stringify(placed));
+      const linked = await Deno.realPath(specifiedPath);
+      await untilFileStatus(
+        flow,
+        PROJECT,
+        linked,
+        (status) => status.state === "tracked",
+        "지정 format 파일이 추적되지 않았다",
+      );
+      const settled = await stableLatest(flow, SPECIFIED_DOC);
+      await editExternally(folder, "specified.md", BAD);
+      const failed = await untilFileStatus(
+        flow,
+        PROJECT,
+        linked,
+        (status) => status.state === "validation_failed",
+        "지정 format 검사 실패가 상태에 남지 않았다",
+      );
+      assertEquals(failed.details, "invalid_input");
+      const after = await versionHistory(flow, SPECIFIED_DOC);
+      assertEquals(after.length, settled.count);
+      assertEquals(after[0]?.id, settled.id);
+      assertEquals(after[0]?.content_hash, settled.contentHash);
+      assertEquals(await Deno.readTextFile(linked), BAD);
+      const kept = await documentVersion(flow, SPECIFIED_DOC);
+      assertEquals(kept.id, settled.id);
+      assertEquals(kept.files[0]?.blob_hash, await sha256Hex(GOOD));
+      assertEquals(
+        (await listDocuments(flow)).map((row) => row.title).sort(),
+        ["Specified", "clean", "loose"],
+      );
+    } finally {
+      await flow.close();
+      await removeHome(flow.home);
+      await Deno.remove(folder, { recursive: true });
+    }
+  },
+});
+
+type OutlineView = {
+  format: { explicit: boolean };
+  section_status: string;
+  failure_reason: string | null;
+  entries: unknown[];
+};
+
+async function outlineOf(flow: Flow, document: string): Promise<OutlineView> {
+  const outline = await mustCall(flow, {
+    kind: "worker",
+    resource: "outline",
+    method: "document",
+    body: { reference: { document, version: null, section: null } },
+  }) as OutlineView;
+  assert(Array.isArray(outline.entries), "outline entries가 없다");
+  return outline;
+}
+
+async function untilOutline(
+  flow: Flow,
+  document: string,
+  done: (outline: OutlineView) => boolean,
+  what: string,
+): Promise<OutlineView> {
+  const deadline = Date.now() + 60_000;
+  let last: OutlineView | undefined;
+  for (;;) {
+    last = await outlineOf(flow, document);
+    if (done(last)) return last;
+    assert(Date.now() < deadline, `${what}: ${JSON.stringify(last)}`);
+    await delay(250);
+  }
+}
+
+async function documentVersion(
+  flow: Flow,
+  document: string,
+): Promise<GotVersion> {
+  const got = await mustCall(flow, {
+    kind: "read",
+    resource: "documents",
+    method: "get",
+    body: { document },
+  });
+  const version = got.version as GotVersion;
+  assert(Array.isArray(version.files), "판의 파일 목록이 없다");
+  return version;
+}
+
+async function fileStatus(
+  flow: Flow,
+  project: string,
+  path: string,
+): Promise<FileView | undefined> {
+  const reply = await flow.call({
+    kind: "read",
+    resource: "files",
+    method: "status",
+    body: { target: { kind: "project_file", project, path } },
+  });
+  if (!reply.ok) return undefined;
+  return (reply.value as { status?: FileView }).status;
+}
+
+async function untilFileStatus(
+  flow: Flow,
+  project: string,
+  path: string,
+  done: (status: FileView) => boolean,
+  what: string,
+): Promise<FileView> {
+  const deadline = Date.now() + 60_000;
+  let last: FileView | undefined;
+  for (;;) {
+    last = await fileStatus(flow, project, path);
+    if (last !== undefined && done(last)) return last;
+    assert(Date.now() < deadline, `${what}: ${JSON.stringify(last)}`);
+    await delay(250);
+  }
+}
+
+async function stableLatest(
+  flow: Flow,
+  document: string,
+): Promise<{ id: string; contentHash: string; count: number }> {
+  const deadline = Date.now() + 60_000;
+  let previous = "";
+  for (;;) {
+    const rows = await versionHistory(flow, document);
+    const id = rows[0]?.id ?? "";
+    if (id !== "" && id === previous) {
+      return {
+        id,
+        contentHash: rows[0]!.content_hash,
+        count: rows.length,
+      };
+    }
+    previous = id;
+    assert(
+      Date.now() < deadline,
+      `판이 멈추지 않았다: ${JSON.stringify(rows)}`,
+    );
+    await delay(1000);
+  }
+}
+
+async function editorCall(
+  flow: Flow,
+  method: "create" | "place",
+  input: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const text = input.text;
+  const fields = { ...input };
+  delete fields.text;
+  const reply = await flow.evaluate(
+    `(async () => {
+      const input = ${JSON.stringify(fields)};
+      ${
+      text === undefined
+        ? ""
+        : `input.bytes = new TextEncoder().encode(${JSON.stringify(text)});`
+    }
+      const answer = await window.lophnEditor.${method}(input);
+      return JSON.stringify(answer);
+    })()`,
+  );
+  assert(typeof reply === "string", "편집 통로가 답하지 않았다");
+  const parsed = JSON.parse(reply) as {
+    ok?: boolean;
+    value?: Record<string, unknown>;
+    code?: string;
+  };
+  assert(parsed.ok === true, JSON.stringify(parsed));
+  return parsed.value ?? {};
+}

@@ -94,7 +94,7 @@ import { startCoreConnection } from "./core/connection.ts";
 import { createLiveView, type LiveView } from "../workspace/live-view.ts";
 import { resolveDenoBinary } from "./core/deno-binary.ts";
 import { createCoordinator } from "../confirmation/coordinator.ts";
-import { createKinds } from "../confirmation/kinds/mod.ts";
+import { createKinds, REFUSALS } from "../confirmation/kinds/mod.ts";
 import {
   type ConfirmationIpc,
   type ConfirmationIpcEvent,
@@ -780,6 +780,7 @@ const confirmations = createCoordinator({
   submit: confirmationKinds.submit,
   deferred: confirmationKinds.deferred,
   forget: (windowId) => confirmationKinds.closed(windowId),
+  refusals: REFUSALS,
   clock: { now: () => Date.now() },
   // build가 보호 preload를 같은 dist에 .cjs로 낸다.
   preload: join(here, "preload-confirmation.cjs"),

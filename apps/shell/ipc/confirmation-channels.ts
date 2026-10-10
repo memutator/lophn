@@ -11,6 +11,7 @@ export const CONFIRMATION_ENDED_KINDS = [
   "crashed",
   "expired",
   "replaced",
+  "rejected",
 ] as const;
 
 export type ConfirmationEndedKind = (typeof CONFIRMATION_ENDED_KINDS)[number];

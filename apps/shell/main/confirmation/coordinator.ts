@@ -146,6 +146,11 @@ export interface CoordinatorOptions {
   deferred?: DeferredPort;
   /** 창이 닫히면 종류별로 그 창에 고정한 값을 버린다. */
   forget?(windowId: string): void;
+  /**
+   * 제출해도 확정이 아닌 결정(거절·명시 취소)과 연 창에 알릴 끝난 종류. 제출은 받아 처리하되
+   * 연 창은 허락 대기를 풀어야 하므로 성공한 뒤에 알린다.
+   */
+  refusals?: Readonly<Record<string, ConfirmationEndedKind>>;
   clock: HandleClock;
   preload: string;
   packaged: boolean;
@@ -240,14 +245,17 @@ export function createCoordinator(options: CoordinatorOptions) {
     const handle = table.drop(live.displayId);
     const ended = !decided(live, handle);
     const expired = live.gate.state === "expired";
+    const closing = reason === "closed" || reason === "cancelled" ||
+      reason === "crashed";
+    // core에 handle 정리를 청하는 동안 실패해도 연 창의 대기는 풀어야 하므로 먼저 알린다.
+    if (closing && ended) notifyEnded(live, expired ? "expired" : reason);
     if (handle !== undefined && !handle.spent) {
       await options.handles.closeWindow(handle.windowId);
     }
     live.gate = { state: "stale", reason };
-    if (reason === "closed" || reason === "cancelled" || reason === "crashed") {
+    if (closing) {
       windows.delete(live.opened.windowId);
       options.forget?.(live.opened.windowId);
-      if (ended) notifyEnded(live, expired ? "expired" : reason);
     }
   };
 
@@ -525,7 +533,7 @@ export function createCoordinator(options: CoordinatorOptions) {
     },
 
     /** 제출 직전 정본을 다시 읽는다. 바뀌었으면 옛 버튼을 없앤다. */
-    submit(input: {
+    async submit(input: {
       windowId: string;
       displayId: string;
       decision: string;
@@ -533,26 +541,31 @@ export function createCoordinator(options: CoordinatorOptions) {
       confirmedSecond?: boolean;
     }) {
       const live = windows.get(input.windowId);
-      if (live?.canonical?.handle === "deferred") {
-        return submitDeferred(live, input);
+      const result = live?.canonical?.handle === "deferred"
+        ? await submitDeferred(live, input)
+        : await decide({
+          request: input,
+          live,
+          table,
+          canon: options.canon,
+          submit: options.submit,
+          now: options.clock.now(),
+          epoch: options.epoch(),
+          connected: options.connected(),
+          publish,
+          invalidate: (window) => {
+            const current = windows.get(input.windowId);
+            if (current !== undefined) return invalidate(current, "replaced");
+            void window;
+            return Promise.resolve();
+          },
+        });
+      // 거절·명시 취소는 접수돼도 확정이 아니다. 연 창이 허락 대기를 풀도록 알린다.
+      const refused = options.refusals?.[input.decision];
+      if (result.ok && live !== undefined && refused !== undefined) {
+        notifyEnded(live, refused);
       }
-      return decide({
-        request: input,
-        live,
-        table,
-        canon: options.canon,
-        submit: options.submit,
-        now: options.clock.now(),
-        epoch: options.epoch(),
-        connected: options.connected(),
-        publish,
-        invalidate: (window) => {
-          const current = windows.get(input.windowId);
-          if (current !== undefined) return invalidate(current, "replaced");
-          void window;
-          return Promise.resolve();
-        },
-      });
+      return result;
     },
 
     /** 최신 내용 열기. 같은 창에서 정본을 다시 읽어 새 표시를 고정한다. */

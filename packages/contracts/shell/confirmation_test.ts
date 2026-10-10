@@ -214,6 +214,12 @@ Deno.test(
       confirmationEndedSchema.safeParse({ windowId: "cfw_1", ended: "closed" })
         .success,
     );
+    assert(
+      confirmationEndedSchema.safeParse({
+        windowId: "cfw_1",
+        ended: "rejected",
+      }).success,
+    );
     for (
       const extra of [
         { decision: "grant" },

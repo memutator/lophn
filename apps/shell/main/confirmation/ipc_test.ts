@@ -197,6 +197,37 @@ test("shell/confirmation-window#R9: 결정을 제출한 확인은 닫혀도 끝�
   assert.equal(received.get(100), undefined);
 });
 
+test("shell/confirmation-window#R4: 거절은 접수된 결정이어도 연 창에 rejected로 알려 허락 대기를 풀고 허락은 알리지 않는다", async () => {
+  const { call, received } = wire();
+  const opened = await call("shell:confirmation-open", 100, {
+    request: INTENT,
+    parentWindow: "window-1",
+  }) as { windowId: string; displayId: string };
+  const granted = await call("confirmation:submit", 1, {
+    displayId: opened.displayId,
+    decision: "grant_approval_request",
+  }) as { outcome?: string };
+  assert.equal(granted.outcome, "decided");
+  assert.equal(received.get(100), undefined);
+  // 다른 확인: 거절 제출은 결정으로 접수되고 연 창에는 windowId와 종류만 간다.
+  const second = await call("shell:confirmation-open", 100, {
+    request: INTENT,
+    parentWindow: "window-1",
+  }) as { windowId: string; displayId: string };
+  const rejected = await call("confirmation:submit", 2, {
+    displayId: second.displayId,
+    decision: "reject_approval_request",
+  }) as { outcome?: string };
+  assert.equal(rejected.outcome, "decided");
+  assert.deepEqual(received.get(100)?.at(-1), [
+    "shell:confirmation-ended",
+    { windowId: second.windowId, ended: "rejected" },
+  ]);
+  // 거절 뒤 창을 닫아도 다시 알리지 않는다.
+  await call("confirmation:cancel", 2);
+  assert.equal(received.get(100)?.length, 1);
+});
+
 test("shell/confirmation-window#R9: 같은 창에서 다른 확인을 열어 바뀌면 옛 확인을 replaced로 알린다", async () => {
   const { call, received } = wire();
   const open = () =>

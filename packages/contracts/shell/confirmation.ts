@@ -242,13 +242,14 @@ export const confirmationOutcomeSchema = z.union([
 
 export type ConfirmationOutcome = z.infer<typeof confirmationOutcomeSchema>;
 
-// 확인이 확정되지 않은 채 끝난 종류. 거절과 같은 닫기·취소와 만료·충돌·교체가 모두 여기 든다.
+// 확인이 확정되지 않은 채 끝난 종류. 사람의 거절(rejected)과 닫기·취소, 만료·교체가 모두 여기 든다.
 export const CONFIRMATION_ENDED_KINDS = [
   "cancelled",
   "closed",
   "crashed",
   "expired",
   "replaced",
+  "rejected",
 ] as const;
 
 // main이 확인을 연 창에게만 보내는 끝남 알림. 어느 요청이었는지 알아보는 windowId(열기 결과로

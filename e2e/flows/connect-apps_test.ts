@@ -622,15 +622,46 @@ Deno.test({
         },
       );
 
-      // 제품 결함(shell/app-detail Connections 탭): 거절하거나 확인 창을 닫은 줄의 [Review connection]이 탭을 다시
-      // 열기 전까지 "기다리는 중"으로 막혀 있다(connections-tab.tsx의 asked가 비지 않는다). 사람이 같은 탭에서
-      // 다시 검토하려 해도 단추가 눌리지 않는다. 위 press는 Access 탭을 거쳐 돌아와 우회한다.
-      await t.step({
-        name:
-          "결함: 거절·창 닫기 뒤에도 같은 Connections 탭에서 [Review connection]을 다시 누를 수 있다",
-        ignore: true,
-        fn: () => {},
-      });
+      // 거절하거나 확인 창을 닫으면 main이 확인을 연 창에 확정 없이 끝났다고 알려, 같은 Connections 탭의
+      // [Review connection]이 탭을 다시 열지 않아도 다시 눌린다(shell/confirmation-window#R4).
+      await t.step(
+        "거절·창 닫기 뒤에도 같은 Connections 탭에서 [Review connection]을 다시 누를 수 있다",
+        async () => {
+          const reviewEnabled =
+            `document.querySelector('${ROW} [data-review-connection]')?.disabled === false`;
+          const click = () =>
+            flow.evaluate(
+              `(() => { document.querySelector('${ROW} [data-review-connection]').click(); return true; })()`,
+            );
+          const untilEnabled = async (what: string) => {
+            try {
+              await flow.until(reviewEnabled, what);
+            } catch (error) {
+              const row = await flow.evaluate(
+                `document.querySelector('${ROW}')?.innerText ?? "(줄 없음) 탭: " + document.querySelector("[data-tab-body]")?.getAttribute("data-tab-body") + " 화면: " + document.body.innerText.slice(0, 400)`,
+              );
+              throw new Error(`${error} 줄: ${row}`);
+            }
+          };
+          await untilEnabled("[Review connection]이 다시 활성이 아니다");
+          // 거절한 뒤.
+          await click();
+          await untilDecisionWindow(flow, "reject_approval_request");
+          await decide(flow, "reject_approval_request");
+          await untilEnabled(
+            "거절 뒤 같은 탭의 [Review connection]이 다시 활성이 되지 않았다",
+          );
+          await closeConfirmationWindows(flow);
+          // 창을 닫은 뒤.
+          await click();
+          await untilDecisionWindow(flow, "grant_approval_request");
+          await closeConfirmationWindows(flow);
+          await untilEnabled(
+            "창 닫기 뒤 같은 탭의 [Review connection]이 다시 활성이 되지 않았다",
+          );
+          assertEquals(await pairGrants("active"), []);
+        },
+      );
 
       await t.step(
         "flow 2·3·4·6: 사람이 방향과 command 범위를 허락하면 부르는 앱의 호출이 대상 앱의 handler로 가 일정을 만든다",

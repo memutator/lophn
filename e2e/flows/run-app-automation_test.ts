@@ -34,6 +34,7 @@ import {
 } from "../../packages/apps/sdk/testing/mod.ts";
 import { e2eEnabled } from "../harness.ts";
 import {
+  commandBody,
   delay,
   type FlowShell,
   mustCall,
@@ -673,6 +674,129 @@ Deno.test({
             "두 번째 시작의 일이 기록되지 않았다",
             async () =>
               ranBy(await invocationsOf(flow), "add_on_start").length === 2,
+          );
+        },
+      );
+
+      await t.step(
+        "flow 1·5: 간격 계기의 일은 최소 간격 60000ms가 지난 뒤 도래해 같은 명령으로 돈다",
+        async () => {
+          // 제품에는 자식 안 시계를 시험이 바꿀 통로가 없다. 받는 최소 간격을 실제로 한 번 기다린다.
+          const before = ranBy(await invocationsOf(flow), "add_every_minute");
+          assertEquals(before.length, 0);
+          const facts = async () =>
+            JSON.stringify({
+              rows: (await invocationsOf(flow)).map((row) =>
+                `${row.trigger.key ?? row.trigger.kind}:${row.status}`
+              ),
+              running: await running(flow),
+            });
+          await untilTrue(
+            "간격 계기의 일이 돌지 않았다",
+            async () =>
+              ranBy(await invocationsOf(flow), "add_every_minute").some((
+                row,
+              ) => row.status === "succeeded"),
+            150_000,
+          ).catch(async (error) => {
+            throw new Error(`${error.message} ${await facts()}`);
+          });
+          const rows = ranBy(await invocationsOf(flow), "add_every_minute");
+          assertEquals(rows[0].operation.command, "add_todo");
+          assert(countOf(await listed(), EVERY_TITLE) >= 1);
+        },
+      );
+
+      await t.step(
+        "다른 갈래: 사람이 켠 일을 끄면 확인 창 없이 grant가 거두어지고 앱 실행 허용을 끄면 시작하지 않으며 다시 허용하기 전에는 자동 재시작하지 않는다",
+        async () => {
+          await openAutomationsTab(flow);
+          await flow.until(
+            `document.querySelector('${AUTOMATIONS} [data-automation="export_on_start"] [data-turn-off]') !== null`,
+            "켠 일의 끄기 단추가 보이지 않는다",
+          );
+          await flow.click(
+            `${AUTOMATIONS} [data-automation="export_on_start"] [data-turn-off]`,
+          );
+          await untilTrue(
+            "automation grant가 거두어지지 않았다",
+            async () =>
+              (await grantsOf(flow)).some((grant) =>
+                grant.kind === "automation.run" && grant.status === "revoked"
+              ),
+          );
+          await flow.until(
+            `document.querySelector('${AUTOMATIONS} [data-automation="export_on_start"]')?.dataset.on === "off"`,
+            "끈 일이 꺼짐으로 보이지 않는다",
+          );
+
+          // 앱 실행 허용 끄기는 사람 command다(shell 화면에는 이 단추가 없다).
+          const app = (await mustCall(flow, {
+            kind: "read",
+            resource: "apps",
+            method: "get",
+            body: { app: APP },
+          })).app as { revision: string };
+          const disabled = await flow.call({
+            kind: "command",
+            resource: "apps",
+            method: "disable_execution",
+            body: commandBody({ app: APP }, { base_revision: app.revision }),
+          });
+          assert(disabled.ok, JSON.stringify(disabled));
+          await untilTrue(
+            "앱이 멈추지 않았다",
+            async () => await running(flow) === null,
+          );
+          const startRuns = ranBy(await invocationsOf(flow), "add_on_start")
+            .length;
+          await delay(4_000);
+          assertEquals(await running(flow), null);
+          assertEquals(
+            ranBy(await invocationsOf(flow), "add_on_start").length,
+            startRuns,
+          );
+          const seen = await mustCall(flow, {
+            kind: "read",
+            resource: "apps",
+            method: "automations",
+            body: { app: APP },
+          });
+          const view = (seen.automations as {
+            key: string;
+            runnable: boolean;
+            observed: boolean;
+            reason?: { code: string };
+          }[]).find((entry) => entry.key === "add_on_start");
+          assertEquals(view?.runnable, false);
+          assertEquals(view?.reason?.code, "execution_disabled");
+          // 지난 활동은 지워지지 않고 지금 시작 가능 여부만 다르다.
+          assertEquals(view?.observed, true);
+
+          const latest = (await mustCall(flow, {
+            kind: "read",
+            resource: "apps",
+            method: "get",
+            body: { app: APP },
+          })).app as { revision: string };
+          const enabled = await flow.call({
+            kind: "command",
+            resource: "apps",
+            method: "enable_execution",
+            body: commandBody({ app: APP }, { base_revision: latest.revision }),
+          });
+          assert(enabled.ok, JSON.stringify(enabled));
+          await untilReady(flow, "다시 허용한 앱이 뜨지 않았다");
+          await untilTrue(
+            "다시 허용한 뒤 시작 계기의 일이 돌지 않았다",
+            async () =>
+              ranBy(await invocationsOf(flow), "add_on_start").length ===
+                startRuns + 1,
+          );
+          // 꺼 둔 external 일은 다시 열려도 돌지 않았다.
+          assertEquals(
+            ranBy(await invocationsOf(flow), "export_on_start").length,
+            1,
           );
         },
       );

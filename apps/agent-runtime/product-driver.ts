@@ -113,7 +113,7 @@ export const PUMP_WAITING_MS = 2_000;
 
 // 제품 MCP 연결 눈이다(Q16, T37). 실제 stdio process를 열고(spawnStdioMcp) 단조
 // deadline timer를 쓴다. 테스트는 fake child·fake fetch를 끼운다.
-function mcpConnectionsDeps(): McpConnectionsDeps {
+export function mcpConnectionsDeps(): McpConnectionsDeps {
   return {
     nowMs: () => Date.now(),
     wait: abortableWait,
@@ -129,6 +129,8 @@ function mcpConnectionsDeps(): McpConnectionsDeps {
         }
         signal.addEventListener("abort", onAbort, { once: true });
       }),
+    // HTTP MCP는 core가 child 권한에 더한 등록 server의 정확한 host:port로만 닿는다.
+    fetch: (url, init) => fetch(url, init),
     openStdio: (_server, input, signal) => {
       void signal;
       return Promise.resolve(spawnStdioMcp(input));

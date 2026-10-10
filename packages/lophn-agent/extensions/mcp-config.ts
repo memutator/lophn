@@ -145,3 +145,21 @@ export function allowRunList(
   }
   return [...names].sort();
 }
+
+// `--allow-net` 중 MCP 몫이다(architecture §2.3). 사람이 enabled로 등록한 HTTP server의 정확한
+// `host:port`만 둔다. 같은 host의 다른 port, 일반 net, model이 제시한 URL은 없다. 기본 port는
+// https 443, http 80이다.
+export function allowNetList(
+  servers: readonly McpServerConfig[],
+): string[] {
+  const hosts = new Set<string>();
+  for (const server of servers) {
+    if (!server.enabled) continue;
+    if (server.transport !== "http") continue;
+    if (httpEndpointReason(server.http.url) !== null) continue;
+    const url = new URL(server.http.url);
+    const port = url.port || (url.protocol === "https:" ? "443" : "80");
+    hosts.add(`${url.hostname}:${port}`);
+  }
+  return [...hosts].sort();
+}

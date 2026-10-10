@@ -27,6 +27,7 @@ export {
   type SkillSupplementalReadInput,
 } from "./skill-read.ts";
 export {
+  allowNetList,
   allowRunList,
   checkMcpConfig,
   httpEndpointReason,

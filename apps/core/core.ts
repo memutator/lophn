@@ -2456,6 +2456,7 @@ async function open(
         process: AGENT_RUNTIME_KIND,
         task: AGENT_RUNTIME_TASK,
       }),
+      readMcpServers: () => mcpServerSnapshot(ledgerPath),
       readProviders: async (context) => {
         const hosts = new Set<string>();
         let cursor: string | undefined;

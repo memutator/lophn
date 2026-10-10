@@ -133,6 +133,9 @@ export type PreparerDeps = {
   product: string;
   rolePrompt(role: string): Promise<Result<string>>;
   instructions: InstructionDeps;
+  // run마다 그 run으로 지침 파일을 읽는 통로. 있으면 `instructions.files` 대신 쓴다(core가 run의 작업 자리와
+  // preset 첨부만 읽게 한다).
+  instructionFilesFor?(run: string): InstructionDeps["files"];
   // run 근거·결과와 model·tool 기록의 본문을 blob으로 먼저 저장하는 통로.
   blobs: BlobPort;
   skills?(): Promise<readonly SkillEntry[]>;
@@ -508,7 +511,12 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
       clock,
       wait: abortableWait,
       random: Math.random,
-      instructions: deps.instructions,
+      instructions: deps.instructionFilesFor === undefined
+        ? deps.instructions
+        : {
+          ...deps.instructions,
+          files: deps.instructionFilesFor(seat.run),
+        },
       ports: ported.ports,
     };
     return { ported, resolver, loopDeps };

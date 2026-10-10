@@ -1,15 +1,18 @@
-// flow new-app(docs/flows/new-app.md)의 1·2단계와 3단계. 실제 headless shell·core를
+// flow new-app(docs/flows/new-app.md)의 1·2단계와 3단계, 4단계. 실제 headless shell·core를
 // 임시 LOPHN_HOME으로 띄우고 model은 이 파일의 loopback 응답 server가 낸다. 실제
 // ~/.lophn, 실제 provider, 실제 coding agent는 쓰지 않는다.
 // - 1·2단계 테스트: 기존 앱·문서·공용 SDK를 먼저 읽고, 기획을 고정 판으로 남긴다.
 //   문서로 충분하면 앱을 만들지 않는다. 저장과 판 보존은 대화 화면에 보이지 않는다.
 // - 3단계 테스트: 아직 정하지 않은 취향만 설명·추천을 보고 답하고, 확인한 기획 판을
 //   채택한다. 등록은 채택과 별개 질문이고 그 판의 등록 내용만 보인다. 등록 적용
-//   단계는 question.submit이 action을 싣지 못하고 shell이 확인 창을 열며 run이
-//   질문으로 멈추지 않아 ignore다(그 단계 위 주석).
-//   한 run의 두 번째 question.submit은 기본 idempotency key가 같아 conflict라
+//   단계는 question.submit이 action을 싣지 못하고 shell이 확인 창을 열어 ignore다(그
+//   단계 위 주석). 질문을 낸 run은 답을 기다리고(waiting_user) 답이 오면 같은 run이
+//   이어진다. 한 run의 두 번째 question.submit은 기본 idempotency key가 같아 conflict라
 //   질문은 run을 나눠 하나씩 묻는다.
-// 4~13(handoff·ticket·[Start]·claim·release·preview·적용·acceptance)은 돌리지 않는다.
+// - 4단계 테스트: 3단계의 등록 적용이 ignore라 같은 등록을 사람 직접 경로(apps/create)로
+//   만들어 따로 본다. 등록 뒤 App Engineer 담당이 앱마다 하나 준비되고, lophn이 같은
+//   채택 판과 채택 답을 그 담당에게 맡기며 전달 사실만 남긴다.
+// 5~13(설계·ticket·[Start]·claim·release·preview·적용·acceptance)은 돌리지 않는다.
 import { assert, assertEquals } from "@std/assert";
 
 import { buildReply } from "../../tools/fake-provider/semantic.ts";
@@ -715,54 +718,6 @@ Deno.test({
   },
 });
 
-// 질문 답을 받으려면 run이 finished가 아니어야 한다. 제품 loop는 질문으로
-// waiting_user에 들어가지 않으므로, 다음 model 응답을 답이 저장될 때까지 붙잡는다.
-function startGatedProvider(steps: Step[], hold: ReadonlySet<number>) {
-  const bodies: string[] = [];
-  let waiting: number | null = null;
-  let releaseHold: (() => void) | null = null;
-  const server = Deno.serve(
-    { hostname: "127.0.0.1", port: 0, onListen: () => {} },
-    async (request) => {
-      const text = await request.text();
-      const path = new URL(request.url).pathname;
-      if (request.method !== "POST" || !path.endsWith("/messages")) {
-        return Response.json({ error: "unexpected" }, { status: 500 });
-      }
-      const index = bodies.length;
-      bodies.push(text);
-      if (hold.has(index)) {
-        waiting = index;
-        await new Promise<void>((resolve) => {
-          releaseHold = resolve;
-        });
-        releaseHold = null;
-        waiting = null;
-      }
-      const step = steps[index];
-      if (step === undefined) {
-        return Response.json({ error: "exhausted" }, { status: 500 });
-      }
-      const built = buildReply("messages", step(text));
-      return new Response(built.body ?? "", {
-        status: built.status,
-        headers: built.headers,
-      });
-    },
-  );
-  return {
-    url: `http://127.0.0.1:${server.addr.port}`,
-    calls: () => bodies.length,
-    body: (index: number) => bodies[index] ?? "",
-    waiting: () => waiting,
-    release: () => releaseHold?.(),
-    close: () => {
-      releaseHold?.();
-      return server.shutdown();
-    },
-  };
-}
-
 const STAGE3_ASK =
   "I want a household ledger that records each spend and shows the month total. I have not picked the starting month.";
 const TASTE_END = "March is noted. The saved plan can be adopted next.";
@@ -950,7 +905,7 @@ Deno.test({
       },
       () => end(STAGE3_END),
     ];
-    const provider = startGatedProvider(steps, new Set([6, 8, 12]));
+    const provider = startDynamicProvider(steps);
     let flow: FlowShell | undefined;
     let home = "";
     try {
@@ -1014,14 +969,23 @@ Deno.test({
         });
         return String(read.prompt);
       };
-      const hold = async (index: number): Promise<void> => {
+      // 질문을 낸 run은 답을 기다린다(waiting_user). 그 사이 model은 더 불리지 않는다.
+      const hold = async (calls: number): Promise<void> => {
         const deadline = Date.now() + 180_000;
         for (;;) {
-          if (provider.waiting() === index) return;
+          const rows = await runsOf();
+          if (
+            provider.calls() === calls &&
+            rows.some((row) => row.state === "waiting_user")
+          ) {
+            await delay(300);
+            assertEquals(provider.calls(), calls, "답 전에 model이 불렸다");
+            return;
+          }
           if (Date.now() > deadline) {
             throw new Error(
-              `model 요청 ${index}가 멈추지 않았다 | calls=${provider.calls()} runs=${
-                JSON.stringify(await runsOf())
+              `run이 답을 기다리지 않는다 | calls=${provider.calls()} runs=${
+                JSON.stringify(rows)
               } dock=${JSON.stringify(await dockText(flow!))}`,
             );
           }
@@ -1104,10 +1068,9 @@ Deno.test({
         "lophn-agent/questions#R1 lophn-agent/questions#R3: 3 시작 월은 설명 7개와 추천을 보고 고르며, 클릭만으로는 답이 아니다",
         async () => {
           await hold(6);
-          assertEquals(provider.calls(), 7);
           assertReadOrder(provider.body, 0, STAGE3_ASK, PICK_IDS);
           const plan = await readPlan(flow!, APP_TITLE);
-          saved = savedIds(provider.body(6), PICK_IDS[4]!);
+          saved = savedIds(provider.body(5), PICK_IDS[4]!);
           assertEquals(saved.document, plan.id);
           assertEquals(saved.version, plan.version);
           assertEquals(plan.text, APP_BODY);
@@ -1184,7 +1147,6 @@ Deno.test({
           assertEquals(pending(await questions()).length, 0);
           assertEquals(await appsOf(flow!), []);
           await noWindow();
-          provider.release();
           await untilRuns(1);
         },
       );
@@ -1240,7 +1202,6 @@ Deno.test({
           assertEquals(await appsOf(flow!), []);
           await noWindow();
           assertHidden(await dockText(flow!));
-          provider.release();
           await untilRuns(2);
         },
       );
@@ -1251,7 +1212,7 @@ Deno.test({
           await flow!.type(INPUT, REGISTER_ASK);
           await flow!.click(SEND);
           await hold(12);
-          const revised = savedIds(provider.body(12), "toolu_pick_revise");
+          const revised = savedIds(provider.body(11), "toolu_pick_revise");
           assertEquals(revised.document, saved!.document);
           assert(revised.version !== saved!.version, "새 판이 생기지 않았다");
           const latest = await readPlan(flow!, APP_TITLE);
@@ -1316,13 +1277,11 @@ Deno.test({
       // 등록 적용은 지금 제품에서 닿지 않는다. (1) question.submit이 선택지 action을 null로만
       // 받아 model이 app.create 고정 action(appCreateOptionAction)을 실을 수 없다
       // (lophn-agent tools). (2) shell은 term.define만 확인 창 없이 접수하고 그 밖 action은
-      // [Review]로 확인 창을 연다(shell). (3) followups 49·55: question.submit이 run을
-      // 답 대기로 두지 않아(ports.wait가 WaitRun의 question 갈래를 부르지 않는다) 접수된
-      // 결정을 적용할 해소기가 닿지 않는다(lophn-agent run-loop·apps/agent-runtime
-      // core-ports). 셋이 풀리면 ignore를 지운다.
+      // [Review]로 확인 창을 연다(shell). 둘이 풀리면 ignore를 지운다. 질문을 낸 run은 답을
+      // 기다리므로(followups 49·55) 위 질문은 waiting_user의 run이 쥐고 있다.
       await t.step({
         name:
-          "apps/registration#R3 lophn-agent/questions#R13: 3 고정 등록 선택지를 고르면 확인 창 없이 그 판의 slug·이름·목적으로만 앱이 등록된다 (question.submit action null·shell 확인 창·followups 49)",
+          "apps/registration#R3 lophn-agent/questions#R13: 3 고정 등록 선택지를 고르면 확인 창 없이 그 판의 slug·이름·목적으로만 앱이 등록된다 (question.submit action null·shell 확인 창)",
         ignore: true,
         async fn() {
           const question = (await questions()).find((row) =>
@@ -1367,10 +1326,14 @@ Deno.test({
       });
 
       await t.step(
-        "lophn-agent/questions#R1 lophn-agent/questions#R16: 3 run이 끝나도 채택은 방금 확인한 판에 남고 끝난 답에 안쪽 식별자가 없다",
+        "lophn-agent/questions#R1 lophn-agent/questions#R16: 3 등록하지 않기로 답해 run이 끝나도 앱은 없고 채택은 방금 확인한 판에 남으며 끝난 답에 안쪽 식별자가 없다",
         async () => {
-          provider.release();
+          await flow!.click("[data-option=skip]");
+          await flow!.click("[data-send-answer]");
+          const answered = await untilStatus(registration, "answered");
+          assertEquals(answered.answer?.option_key, "skip");
           await untilRuns(3);
+          assertEquals(await appsOf(flow!), []);
           assertEquals(provider.calls(), 13);
           const again = (await questions()).find((row) => row.id === adopted);
           assertEquals(
@@ -1502,7 +1465,7 @@ Deno.test({
         }),
       () => end(HANDOFF_END),
     ];
-    const provider = startGatedProvider(steps, new Set([2]));
+    const provider = startDynamicProvider(steps);
     let flow: FlowShell | undefined;
     let home = "";
     try {
@@ -1614,7 +1577,10 @@ Deno.test({
           await flow!.type(INPUT, ADOPT4_ASK);
           await flow!.click(SEND);
           const deadline = Date.now() + 120_000;
-          while (provider.waiting() !== 2) {
+          while (
+            !(provider.calls() === 2 &&
+              (await runsOf()).some((row) => row.state === "waiting_user"))
+          ) {
             assert(Date.now() < deadline, "채택 질문까지 가지 않았다");
             await delay(200);
           }
@@ -1642,7 +1608,6 @@ Deno.test({
           }
           assertEquals(await appsOf(flow!), []);
           await noWindow();
-          provider.release();
           await untilRuns(1);
         },
       );
@@ -1722,9 +1687,25 @@ Deno.test({
           );
           assertEquals(provider.calls(), 7);
           // 거절된 둘은 전달 사실도 받는 run도 만들지 않는다.
-          console.log(
-            provider.body(4).slice(-700),
-            provider.body(5).slice(-700),
+          const resultOf = (index: number, id: string): string => {
+            const body = provider.body(index);
+            return body.slice(body.lastIndexOf(id));
+          };
+          assert(
+            resultOf(4, "toolu_hand_bare").includes(
+              '\\"status\\":\\"failure\\",\\"code\\":\\"invalid_input',
+            ),
+            "채택한 판 없는 전달이 거절되지 않았다",
+          );
+          assert(
+            resultOf(5, "toolu_hand_none").includes(
+              '\\"status\\":\\"failure\\",\\"code\\":\\"unavailable',
+            ),
+            "받을 담당이 없는 전달이 거절되지 않았다",
+          );
+          assert(
+            resultOf(6, "toolu_hand_send").includes("handoff sent"),
+            "전달이 접수되지 않았다",
           );
           const trace = await mustCall(flow!, {
             kind: "read",
@@ -1738,7 +1719,6 @@ Deno.test({
               tool_calls: string[];
             };
           }).trace;
-          console.log("TOOLS", JSON.stringify(facts.tool_calls));
           assertEquals(facts.handoff_links.length, 1, "전달 사실이 없다");
           assertEquals(facts.handoff_links[0]!.sender_run, sent.id);
           const received = await runsOf(engineer);

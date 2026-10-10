@@ -3,7 +3,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import type { Sql, SqlRow } from "../../contracts/platform/mod.ts";
-import { problemTestLookup } from "./problem-tests.ts";
+import { problemTestHistory, problemTestLookup } from "./problem-tests.ts";
 import { schemaSql } from "./support.ts";
 
 const PRB = "prb_01arz3ndektsv4rrffq69g5fav";
@@ -138,6 +138,100 @@ Deno.test("problems/tests#R5: 접수만 됨·실제 시작·pass·fail·inconclu
     const settled = problemTestLookup(l.sql, PRB);
     assert(settled.ok);
     assertEquals(settled.value[0].state, "pass");
+  } finally {
+    l.db.close();
+  }
+});
+
+Deno.test("problems/tests#R4 problems/tests#R5: 앞선 결과와 준비 실패는 지금 값과 따로 남고 통과로 접지 않는다", () => {
+  const l = ledger();
+  try {
+    l.verification("vrf_1", "k1", "reproduction", "fail", "9");
+    l.verification("vrf_2", "k2", "reproduction", "pass", "12");
+    l.evidence("k2", "canonical-vrf_2", ["2026-10-09T00:00:05.000Z"]);
+    l.request("k7", "accepted", { kind: "reproduction", problem: PRB });
+    l.request("k7", "preparation_failed", {
+      kind: "reproduction",
+      problem: PRB,
+    });
+    const current = problemTestLookup(l.sql, PRB);
+    assert(current.ok);
+    assertEquals(current.value[0], {
+      kind: "reproduction",
+      state: "pass",
+      ended_at: "2026-10-09T00:00:05.000Z",
+    });
+    const history = problemTestHistory(l.sql, PRB);
+    assert(history.ok);
+    assertEquals(history.value, [
+      { kind: "reproduction", state: "fail", ended_at: null },
+      {
+        kind: "reproduction",
+        state: "pass",
+        ended_at: "2026-10-09T00:00:05.000Z",
+      },
+      { kind: "reproduction", state: "not_run", ended_at: null },
+    ]);
+
+    l.db.exec(`
+      create table events (
+        seq integer primary key,
+        type text not null,
+        subject text not null,
+        payload text not null
+      );
+      create table releases (
+        id text primary key,
+        bundle_hash text not null,
+        status text not null
+      );
+    `);
+    const after = "b".repeat(64);
+    l.sql.run(
+      `insert into events (seq, type, subject, payload) values (1, 'ProblemFixRecorded', ?, ?)`,
+      [PRB, JSON.stringify({ after: "rel_01arz3ndektsv4rrffq69g5fa2" })],
+    );
+    l.sql.run(
+      `insert into releases (id, bundle_hash, status) values (?, ?, 'prepared')`,
+      ["rel_01arz3ndektsv4rrffq69g5fa2", after],
+    );
+    l.sql.run(
+      `insert into verifications (id, request_principal, request_key, request_hash,
+         kind, app, target_bundle_hash, problem, test, execution, result, reason,
+         observations, recorded_seq, verification_canonical)
+       values ('vrf_app', 'user-1', 'app-1', 'h', 'app_test', 'app_1', ?, null,
+               't', 'e', 'fail', 'r', 'o', '20', 'canonical-vrf_app')`,
+      [after],
+    );
+    l.sql.run(
+      `insert into verifications (id, request_principal, request_key, request_hash,
+         kind, app, target_bundle_hash, problem, test, execution, result, reason,
+         observations, recorded_seq, verification_canonical)
+       values ('vrf_other', 'user-1', 'app-2', 'h', 'app_test', 'app_1', ?, null,
+               't', 'e', 'pass', 'r', 'o', '21', 'canonical-vrf_other')`,
+      ["c".repeat(64)],
+    );
+    l.sql.run(
+      `insert into test_requests (seq, request_principal, request_key, request_hash,
+         phase, accepted, preparation_failed, at, start_unknown, result_ref,
+         runner_principal, reason, payload)
+       values (40, 'user-1', 'app-miss', 'h', 'preparation_failed', 0, 1, null, 0, null,
+               'runner-1', 'r', ?)`,
+      [JSON.stringify({
+        kind: "app_test",
+        problem: null,
+        target: { bundle_hash: after },
+      })],
+    );
+    const withApp = problemTestHistory(l.sql, PRB);
+    assert(withApp.ok);
+    assertEquals(
+      withApp.value.filter((item) => item.kind === "app_test"),
+      [
+        { kind: "app_test", state: "fail", ended_at: null },
+        { kind: "app_test", state: "not_run", ended_at: null },
+      ],
+    );
   } finally {
     l.db.close();
   }

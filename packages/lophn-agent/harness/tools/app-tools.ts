@@ -278,6 +278,8 @@ export type AppInvokeCall = {
   requestKey: string;
   run: string;
   toolCall: string;
+  // confirm command면 호출 쪽이 접수 proof를 붙인다. 없으면 증명 없는 호출이다.
+  confirm?: boolean;
 };
 
 export type AppInvokeOutcome =
@@ -438,6 +440,7 @@ export function createAppToolHandlers(
           requestKey: credential.call,
           run: credential.run,
           toolCall: credential.call,
+          ...(tool.confirm ? { confirm: true } : {}),
         };
         const sent = await ports.invoke(call);
         if (!sent.ok) return sent;

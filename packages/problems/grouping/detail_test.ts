@@ -328,6 +328,54 @@ Deno.test("problems/tests#R5: a failed or unconfirmed test outranks a passed one
   );
 });
 
+Deno.test("problems/tests#R4 problems/closing#R2 problems/closing#R4: 적용되지 않은 고친 기록은 통과·실패·판정 불가·미실행과 남은 확인을 구별하고 닫지 않는다", () => {
+  const detail = projectProblemDetail(facts({
+    status: "fixing",
+    fixRecorded: true,
+    fixApplied: false,
+    tests: [{ kind: "app_test", state: "pass", ended_at: ENDED }],
+    recorded: [
+      { kind: "reproduction", state: "pass", ended_at: ENDED },
+      { kind: "reproduction", state: "fail", ended_at: ENDED },
+      { kind: "reproduction", state: "unconfirmed", ended_at: null },
+      { kind: "app_test", state: "not_run", ended_at: null },
+    ],
+  }));
+  assert(problemDetailSchema.safeParse(detail).success, "detail");
+  assertEquals(detail.progress.state, "fixing");
+  assertEquals(detail.closed, null);
+  assertEquals(detail.result.tests.state, "pass");
+  assertEquals(
+    detail.result.remaining,
+    "The fixed version is not in use, so this stays open.",
+  );
+  const recorded = detail.result.recorded ?? [];
+  assertEquals(recorded.map((item) => item.state), [
+    "pass",
+    "fail",
+    "unconfirmed",
+    "not_run",
+  ]);
+  assertEquals(new Set(recorded.map((item) => item.label)).size, 4);
+  assertEquals(recorded[0]?.ended_at, ENDED);
+  assertEquals(recorded[3]?.ended_at, null);
+  const applied = projectProblemDetail(facts({
+    fixRecorded: true,
+    fixApplied: true,
+    tests: [{ kind: "app_test", state: "pass", ended_at: ENDED }],
+  }));
+  assertEquals(applied.result.remaining, undefined);
+  assertEquals(applied.closed, null);
+  const closed = projectProblemDetail(facts({
+    status: "closed",
+    closure: CLOSURES.verified,
+    fixRecorded: true,
+    fixApplied: false,
+    tests: [passed],
+  }));
+  assertEquals(closed.result.remaining, undefined);
+});
+
 Deno.test("problems/grouping#R12: the ticket fact values match coding-agent getTicket state and readiness", () => {
   const states: RepairTicketFact["state"][] = [
     "open",

@@ -4,6 +4,7 @@
 // 읽지 않는다. 담당·수리·결과·닫힘 문구는 problems가 정한 en 그대로다(shell/wording#R9).
 import type {
   IssueClosure,
+  IssueRecorded,
   IssueStatus,
   IssueTestState,
   IssueTestSummary,
@@ -29,6 +30,13 @@ export interface ProblemUserRead {
           ended_at: string | null;
         }[];
       };
+      recorded?: {
+        kind: IssueRecorded["kind"];
+        state: IssueRecorded["state"];
+        label: string;
+        ended_at: string | null;
+      }[];
+      remaining?: string;
     };
     closed: {
       reason: IssueClosure;
@@ -81,6 +89,13 @@ export function issueViewOf(read: ProblemUserRead): IssueView | null {
           endedAt: item.ended_at,
         })),
       },
+      recorded: detail.result.recorded?.map((item) => ({
+        kind: item.kind,
+        label: item.label,
+        state: item.state,
+        endedAt: item.ended_at,
+      })),
+      remaining: detail.result.remaining,
     },
     closed: closed === null ? null : {
       reason: closed.reason,

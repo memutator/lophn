@@ -386,13 +386,15 @@ async function grantsOf(flow: FlowShell, app: string): Promise<GrantRow[]> {
   return got.grants as GrantRow[];
 }
 
-/** 사람 token의 앱 runtime 읽기. 앱 자식이 준비 상태가 될 때까지 기다린다. */
+/** 사람 token의 앱 runtime 읽기. 앱 자식이 준비 상태가 될 때까지 기다리고 그 자식의 nonce를 돌려준다. */
 async function untilReady(
   flow: FlowShell,
   app: string,
   release: string,
   what: string,
-): Promise<void> {
+  not?: string,
+): Promise<string> {
+  let nonce = "";
   await untilTrue(what, async () => {
     const got = await mustCall(flow, {
       kind: "read",
@@ -404,14 +406,23 @@ async function untilReady(
       mode: string;
       ready: boolean;
       release: string | null;
+      process_nonce: string;
     } | null;
-    return observation !== null && observation.mode === "live" &&
-      observation.ready && observation.release === release;
+    if (
+      observation === null || observation.mode !== "live" ||
+      !observation.ready || observation.release !== release ||
+      observation.process_nonce === not ||
+      (got.state as { termination_pending: boolean }).termination_pending
+    ) return false;
+    nonce = observation.process_nonce;
+    return true;
   });
+  return nonce;
 }
 
 type InvocationRow = {
   status: string;
+  actor?: string;
   caller?: unknown;
   operation: { kind: string; command?: string };
 };
@@ -513,7 +524,12 @@ Deno.test({
       appCall(flow, "add_to_calendar", { id, starts_at: STARTS_AT });
     let todoId = 0;
     try {
-      await untilReady(flow, CALLER, CALLER_RELEASE, "todo가 뜨지 않았다");
+      let callerNonce = await untilReady(
+        flow,
+        CALLER,
+        CALLER_RELEASE,
+        "todo가 뜨지 않았다",
+      );
       await untilReady(flow, TARGET, TARGET_RELEASE, "calendar가 뜨지 않았다");
       const added = await appCall(flow, "add_todo", { title: itemTitle });
       assert(added.startsWith("ok:"), `할 일을 만들지 못했다: ${added}`);
@@ -606,6 +622,16 @@ Deno.test({
         },
       );
 
+      // 제품 결함(shell/app-detail Connections 탭): 거절하거나 확인 창을 닫은 줄의 [Review connection]이 탭을 다시
+      // 열기 전까지 "기다리는 중"으로 막혀 있다(connections-tab.tsx의 asked가 비지 않는다). 사람이 같은 탭에서
+      // 다시 검토하려 해도 단추가 눌리지 않는다. 위 press는 Access 탭을 거쳐 돌아와 우회한다.
+      await t.step({
+        name:
+          "결함: 거절·창 닫기 뒤에도 같은 Connections 탭에서 [Review connection]을 다시 누를 수 있다",
+        ignore: true,
+        fn: () => {},
+      });
+
       await t.step(
         "flow 2·3·4·6: 사람이 방향과 command 범위를 허락하면 부르는 앱의 호출이 대상 앱의 handler로 가 일정을 만든다",
         async () => {
@@ -615,6 +641,14 @@ Deno.test({
           await untilTrue(
             "앱 쌍 grant가 생기지 않았다",
             async () => (await pairGrants("active")).length === 1,
+          );
+          // grant 집합이 달라지면 부르는 앱은 대상 앱 socket에 닿는 범위로 다시 뜬다.
+          callerNonce = await untilReady(
+            flow,
+            CALLER,
+            CALLER_RELEASE,
+            "todo가 넓어진 범위로 다시 뜨지 않았다",
+            callerNonce,
           );
           const [grant] = await pairGrants("active");
           assertEquals(grant.scope.app, TARGET);
@@ -631,14 +665,28 @@ Deno.test({
       await t.step(
         "flow 6·7: 대상 앱에 호출 기록이 남고 사람은 허락한 범위와 실제 결과를 구별해 본다",
         async () => {
-          const rows = await invocationsOf(flow, TARGET);
-          const done = rows.filter((row) =>
-            row.operation.kind === "command" &&
-            row.operation.command === "add_event" &&
-            row.status === "succeeded"
+          // 실제 결과와 caller 근거는 후행 기록이라 잠시 뒤 끝난 상태로 남는다.
+          const added = () =>
+            invocationsOf(flow, TARGET).then((rows) =>
+              rows.filter((row) =>
+                row.operation.kind === "command" &&
+                row.operation.command === "add_event"
+              )
+            );
+          await untilTrue(
+            "대상 앱의 호출 기록이 끝나지 않았다",
+            async () =>
+              (await added()).some((row) => row.status === "succeeded"),
+            60_000,
           );
-          assert(done.length === 1, JSON.stringify(rows));
-          console.log("INVOCATION", JSON.stringify(done[0]));
+          const rows = await added();
+          assertEquals(rows.length, 1);
+          // 입력 본문의 주장이 아니라 실제 caller 앱과 당시 release가 남는다.
+          const caller = rows[0].caller as Record<string, unknown>;
+          assertEquals(caller.kind, "app");
+          assertEquals(caller.app, CALLER);
+          assertEquals(caller.release, CALLER_RELEASE);
+          assertEquals(rows[0].actor, `app:${CALLER}`);
           await openTab(flow, "Connections", "connections");
           await flow.until(
             `document.querySelector('${ROW}')?.getAttribute("data-allowed") === "all"`,
@@ -656,6 +704,13 @@ Deno.test({
           await untilTrue(
             "앱 쌍 grant가 거두어지지 않았다",
             async () => (await pairGrants("revoked")).length === 1,
+          );
+          callerNonce = await untilReady(
+            flow,
+            CALLER,
+            CALLER_RELEASE,
+            "todo가 줄어든 범위로 다시 뜨지 않았다",
+            callerNonce,
           );
           await untilTrue(
             "거둔 뒤에도 새 호출이 간다",

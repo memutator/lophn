@@ -1390,14 +1390,16 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
 
 ### T27 apps slice flow E2E
 
-- 상태: 진행 (#474, #489, #546, #548) — 완료: restore-app-release. new-app은 등록·source 연결·bundle
+- 상태: 진행 (#474, #489, #546, #548, #561) — 완료: restore-app-release. new-app은 등록·source 연결·bundle
   준비까지 e2e/flows/flow-new-app_test.ts를 썼으나 통과는 아직 확인하지 못했다(실행 대기열).
   새 결함: release.prepare를 부르는 finalizer가 제품 코드에 없어 new-app의 app test 통과
   이후(preview·적용·activation)는 돌 수 없다. #489 use-app-command: confirm 허락은 실행되고 거절은 다시 묻지 않는다. list의 성공한 일반 읽기는 invocation을 남기지 않는다(apps/invocations#R2, R18). 남은 것: new-app의 app test·preview·적용,
   change-app, run-app-automation, manage-app-permissions(#548: fs 접근 허락·거절·창 닫기·회수와
   새 nonce 재시작까지 돈다. 남은 것은 secret 단계 2·3·6(OS keychain 없음, SecretDelivery 미부착), command 허락 4,
-  보호 범위·조합 경고 갈래), connect-apps,
-  ask-app-hint. #546 ask-app-hint 1단계: 앱 패널 탭의 turn context(e2e/flows/ask-app-hint_test.ts).
+  보호 범위·조합 경고 갈래), connect-apps(#561: 선언은 허락이 아님·거절과 창 닫기·허락한 쌍의 호출이 대상 앱
+  handler로 가 일정을 만들고 caller 앱·release 근거가 남음·회수 뒤 새 호출 차단까지 돈다. 남은 것: confirm 필요
+  command 5단계, 반대 방향·command 사라짐·재귀/깊이 상한 갈래. 결함: 거절·창 닫기 뒤 Connections 탭의
+  [Review connection]이 탭을 다시 열기 전까지 막힘), ask-app-hint. #546 ask-app-hint 1단계: 앱 패널 탭의 turn context(e2e/flows/ask-app-hint_test.ts).
   ask-app-hint 2단계 이후(현재 화면 조회·redaction·주석 쓰기·revision 충돌·탭 닫은 뒤)는 제품 결함 셋이
   막는다: (1) `app.screen_context`·`app.annotate`가 `apps/agent-runtime/app-toolkit.ts`에 조립되지 않아 run의
   tool이 아니다, (2) agent·앱 화면 둘 다 자기 view_session을 알 길이 없다(turn context 탭 줄에 없고 화면

@@ -212,6 +212,38 @@ Deno.test("documents/file-tracking#R9: 안정 확인 실패는 제출 없이 미
   assertEquals(wired.status.get(TARGET)?.unverified, true);
 });
 
+Deno.test("documents/formats#R4 documents/formats#R5: 저장 결과의 warning은 파일 상태에 남고 판은 확정된다", async () => {
+  const calls: Calls = [];
+  const wired = ports(calls, {
+    save: () =>
+      Promise.resolve(ok({
+        status: "saved",
+        warnings: [{
+          severity: "warning",
+          code: "duplicate_anchor",
+          message: "anchor repeated",
+        }],
+      })),
+  });
+  const result = await createObservationSubmit(wired)(STABLE);
+  assert(result.ok);
+  const status = wired.status.get(TARGET);
+  assertEquals(status?.validationFailed, false);
+  assertEquals(status?.latestHash, NEW);
+  assertEquals(status?.details, "duplicate_anchor: anchor repeated");
+  wired.link = () => Promise.resolve(ok({ ...LINK, latest_hash: NEW }));
+  const again = await createObservationSubmit(wired)(STABLE);
+  assert(again.ok);
+  assertEquals(calls.map((call) => call.path), [
+    "documents/prepare",
+    "documents/save",
+  ]);
+  assertEquals(
+    wired.status.get(TARGET)?.details,
+    "duplicate_anchor: anchor repeated",
+  );
+});
+
 Deno.test("documents/file-tracking#R9: 준비 검사 실패는 상태에 남고 제출은 conflict 재관측 대상이다", async () => {
   const calls: Calls = [];
   const wired = ports(calls, {

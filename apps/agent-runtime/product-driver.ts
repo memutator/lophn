@@ -56,7 +56,7 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
     // 만들어 넘기므로(architecture) productDriver 호출마다 하나를 만든다.
     const mcpKit = createMcpToolkit({
       machine: calls.machine,
-      connections: mcpConnectionsDeps(),
+      connections: mcpConnectionsDeps(calls.secrets),
     });
     return createRunPreparer({
       clock: systemClock,
@@ -125,7 +125,9 @@ export const PUMP_WAITING_MS = 2_000;
 
 // 제품 MCP 연결 눈이다(Q16, T37). 실제 stdio process를 열고(spawnStdioMcp) 단조
 // deadline timer를 쓴다. 테스트는 fake child·fake fetch를 끼운다.
-export function mcpConnectionsDeps(): McpConnectionsDeps {
+export function mcpConnectionsDeps(
+  secrets?: McpConnectionsDeps["secrets"],
+): McpConnectionsDeps {
   return {
     nowMs: () => Date.now(),
     wait: abortableWait,
@@ -143,6 +145,8 @@ export function mcpConnectionsDeps(): McpConnectionsDeps {
       }),
     // HTTP MCP는 core가 child 권한에 더한 등록 server의 정확한 host:port로만 닿는다.
     fetch: (url, init) => fetch(url, init),
+    // bearer·api_key·secret_ref 헤더의 값은 core가 감독 pipe로 요청마다 한 번 건넨다(R17).
+    ...(secrets === undefined ? {} : { secrets }),
     openStdio: (_server, input, signal) => {
       void signal;
       return Promise.resolve(spawnStdioMcp(input));

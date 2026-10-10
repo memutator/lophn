@@ -303,20 +303,38 @@ function inDecisionWindow(
   })()`);
 }
 
+/** 열려 있는 확인 창들의 글. 결정 단추가 서지 않을 때 이유를 보인다. */
+async function confirmationTexts(flow: FlowShell): Promise<string> {
+  return JSON.stringify(
+    await flow.shell.mainEvaluate(`(async () => {
+      const out = [];
+      for (const c of electron.webContents.getAllWebContents()) {
+        if (c.isDestroyed() || !c.getURL().startsWith("lophn-shell://confirmation/")) continue;
+        out.push(await c.executeJavaScript("document.body.innerText"));
+      }
+      return out;
+    })()`),
+  );
+}
+
 async function untilDecisionWindow(
   flow: FlowShell,
   decision: string,
 ): Promise<string> {
   let shown = "";
-  await untilTrue("확인 창에 결정 단추가 없다", async () => {
-    const text = await inDecisionWindow(
-      flow,
-      decision,
-      `document.querySelector("[data-decision='${decision}']") ? document.body.innerText : ""`,
-    );
-    shown = typeof text === "string" ? text : "";
-    return shown !== "";
-  }, 30_000);
+  try {
+    await untilTrue("확인 창에 결정 단추가 없다", async () => {
+      const text = await inDecisionWindow(
+        flow,
+        decision,
+        `document.querySelector("[data-decision='${decision}']") ? document.body.innerText : ""`,
+      );
+      shown = typeof text === "string" ? text : "";
+      return shown !== "";
+    }, 30_000);
+  } catch (error) {
+    throw new Error(`${error} ${await confirmationTexts(flow)}`);
+  }
   return shown;
 }
 
@@ -501,11 +519,10 @@ Deno.test({
       assert(added.startsWith("ok:"), `할 일을 만들지 못했다: ${added}`);
       const listed = await appCall(flow, "list_todos", null);
       assert(listed.startsWith("ok:"), listed);
-      todoId = (JSON.parse(listed.slice(3)).rows as { id: number }[])
-        .find((row) =>
-          (row as unknown as { title: string }).title === itemTitle
-        )
-        ?.id ?? 0;
+      todoId = Number(
+        new RegExp(`"id":(\\d+)[^{}]*"title":"${itemTitle}"`).exec(listed)
+          ?.[1] ?? 0,
+      );
       assert(todoId > 0, `만든 할 일을 찾지 못했다: ${listed}`);
 
       await t.step(
@@ -538,6 +555,115 @@ Deno.test({
             `허락 없이 대상 앱을 불렀다: ${refused}`,
           );
           assertEquals(calendarTitles(home), []);
+        },
+      );
+
+      const pairGrants = async (status: string) =>
+        (await grantsOf(flow, CALLER)).filter((grant) =>
+          grant.kind === "app.call" && grant.status === status
+        );
+      const press = async (button: string) => {
+        // 결정이 끝난 줄의 단추는 탭을 다시 열기 전까지 "기다리는 중"으로 막혀 있다(제품 결함, 보고에 적음).
+        await openTab(flow, "Access", "access");
+        await openTab(flow, "Connections", "connections");
+        await flow.until(
+          `document.querySelector('${ROW} ${button}') !== null`,
+          `${button} 단추가 없다`,
+        );
+        await flow.evaluate(
+          `(() => { document.querySelector('${ROW} ${button}').click(); return true; })()`,
+        );
+      };
+
+      await t.step(
+        "flow 2와 다른 갈래: 사람이 거절하거나 확인 창을 닫으면 앱 쌍을 열지 않는다",
+        async () => {
+          await press("[data-review-connection]");
+          const shown = await untilDecisionWindow(
+            flow,
+            "reject_approval_request",
+          );
+          assert(shown.includes("Todo"), `부르는 앱 이름이 없다: ${shown}`);
+          assert(shown.includes("Calendar"), `대상 앱 이름이 없다: ${shown}`);
+          assert(shown.includes("add_event"), `command 범위가 없다: ${shown}`);
+          // 미리 보기만으로는 grant가 생기지 않는다.
+          assertEquals(await pairGrants("active"), []);
+          await decide(flow, "reject_approval_request");
+          await delay(3_000);
+          await closeConfirmationWindows(flow);
+          await press("[data-review-connection]");
+          await untilDecisionWindow(flow, "grant_approval_request");
+          await closeConfirmationWindows(flow);
+          await delay(3_000);
+          assertEquals(await pairGrants("active"), []);
+          const refused = await addToCalendar(todoId);
+          assert(
+            refused.startsWith("failed:") &&
+              /forbidden|not connected/i.test(refused),
+            `결정 없이 대상 앱을 불렀다: ${refused}`,
+          );
+          assertEquals(calendarTitles(home), []);
+        },
+      );
+
+      await t.step(
+        "flow 2·3·4·6: 사람이 방향과 command 범위를 허락하면 부르는 앱의 호출이 대상 앱의 handler로 가 일정을 만든다",
+        async () => {
+          await press("[data-review-connection]");
+          await untilDecisionWindow(flow, "grant_approval_request");
+          await decide(flow, "grant_approval_request");
+          await untilTrue(
+            "앱 쌍 grant가 생기지 않았다",
+            async () => (await pairGrants("active")).length === 1,
+          );
+          const [grant] = await pairGrants("active");
+          assertEquals(grant.scope.app, TARGET);
+          assertEquals(grant.scope.commands, ["add_event"]);
+          const called = await addToCalendar(todoId);
+          assert(
+            called.startsWith("ok:"),
+            `허락한 뒤에도 대상 앱을 부르지 못했다: ${called}`,
+          );
+          assertEquals(calendarTitles(home), [itemTitle]);
+        },
+      );
+
+      await t.step(
+        "flow 6·7: 대상 앱에 호출 기록이 남고 사람은 허락한 범위와 실제 결과를 구별해 본다",
+        async () => {
+          const rows = await invocationsOf(flow, TARGET);
+          const done = rows.filter((row) =>
+            row.operation.kind === "command" &&
+            row.operation.command === "add_event" &&
+            row.status === "succeeded"
+          );
+          assert(done.length === 1, JSON.stringify(rows));
+          console.log("INVOCATION", JSON.stringify(done[0]));
+          await openTab(flow, "Connections", "connections");
+          await flow.until(
+            `document.querySelector('${ROW}')?.getAttribute("data-allowed") === "all"`,
+            "허락한 범위가 보이지 않는다",
+          );
+        },
+      );
+
+      await t.step(
+        "다른 갈래: 사람이 연결을 거두면 새 호출이 막히고 이미 만든 일정은 그대로다",
+        async () => {
+          await press("[data-remove-connection]");
+          await untilDecisionWindow(flow, "grant_approval_request");
+          await decide(flow, "grant_approval_request");
+          await untilTrue(
+            "앱 쌍 grant가 거두어지지 않았다",
+            async () => (await pairGrants("revoked")).length === 1,
+          );
+          await untilTrue(
+            "거둔 뒤에도 새 호출이 간다",
+            async () => (await addToCalendar(todoId)).startsWith("failed:"),
+            30_000,
+          );
+          assertEquals(await pairGrants("active"), []);
+          assertEquals(calendarTitles(home), [itemTitle]);
         },
       );
     } finally {

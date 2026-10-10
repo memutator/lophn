@@ -9,12 +9,12 @@ import {
   confirmationOpenSchema,
   confirmationSubmitSchema,
 } from "../../ipc/confirmation.ts";
-import type { Coordinator } from "./coordinator.ts";
+import type { Coordinator, Opener } from "./coordinator.ts";
 import type { ConfirmationIntent } from "./types.ts";
 import type { ParentWindow } from "./window.ts";
 
 export interface ConfirmationIpcEvent {
-  readonly sender: { readonly id: number };
+  readonly sender: Opener & { readonly id: number };
 }
 
 export interface ConfirmationIpc {
@@ -54,6 +54,8 @@ export function registerConfirmationIpc(
     const opened = await deps.coordinator.open({
       intent: parsed.data.request as ConfirmationIntent,
       parent,
+      // 끝남 알림은 열기를 보낸 이 창 본문에만 간다. 다른 창은 받지 못한다.
+      opener: event.sender,
       requestedByPerson: true,
     });
     if (!opened.ok) return opened.error;

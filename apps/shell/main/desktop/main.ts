@@ -97,6 +97,7 @@ import { createCoordinator } from "../confirmation/coordinator.ts";
 import { createKinds } from "../confirmation/kinds/mod.ts";
 import {
   type ConfirmationIpc,
+  type ConfirmationIpcEvent,
   registerConfirmationIpc,
   removeConfirmationIpc,
 } from "../confirmation/ipc.ts";
@@ -791,7 +792,7 @@ const confirmationIpc: ConfirmationIpc = {
   handle: (channel, listener) =>
     ipcMain.handle(
       channel,
-      (event, input) => listener(event as { sender: { id: number } }, input),
+      (event, input) => listener(event as ConfirmationIpcEvent, input),
     ),
   removeHandler: (channel) => ipcMain.removeHandler(channel),
 };

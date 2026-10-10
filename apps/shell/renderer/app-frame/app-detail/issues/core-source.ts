@@ -3,6 +3,11 @@
 // 읽는 field만 옮긴 것이다. 결정은 여기서 쓰지 않고 보호 창(owner decision)을 열기만 한다.
 import type { CoreCall } from "../../../../ipc/core.ts";
 import type { CoreSource } from "../../../desktop/connection/connection.ts";
+import {
+  decisionEnds,
+  type SubscribeEnded,
+  windowEnded,
+} from "../decision-end.ts";
 import { issueViewOf, type ProblemUserRead } from "./core-read.ts";
 import type {
   IssueChoice,
@@ -92,7 +97,9 @@ export function issueView(
 export function coreIssuesSource(
   core: CoreSource,
   open?: OpenIssueDecision,
+  subscribeEnded: SubscribeEnded | undefined = windowEnded(),
 ): IssuesSource {
+  const ends = decisionEnds(subscribeEnded);
   return {
     async list(app) {
       const rows: IssueRow[] = [];
@@ -137,10 +144,10 @@ export function coreIssuesSource(
         ? { ok: false, code: "unavailable" }
         : { ok: true, value: view };
     },
-    async decide({ problem, choice, note }) {
+    async decide({ problem, choice, note }, onUnconfirmed) {
       if (open === undefined) return { ok: false, code: "unavailable" };
       try {
-        await open({
+        const opened = await open({
           request: {
             kind: "owner_decision",
             concern: CONCERN,
@@ -150,7 +157,13 @@ export function coreIssuesSource(
             ...(choice === "dismiss" && note !== null ? { note } : {}),
           },
           parentWindow: PARENT_WINDOW,
-        });
+        }) as { windowId?: unknown; code?: unknown } | undefined;
+        if (typeof opened?.code === "string") {
+          return { ok: false, code: opened.code };
+        }
+        if (typeof opened?.windowId === "string") {
+          ends.watch(opened.windowId, onUnconfirmed);
+        }
         return { ok: true, value: true };
       } catch {
         return { ok: false, code: "unavailable" };

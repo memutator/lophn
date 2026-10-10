@@ -10,6 +10,10 @@ import type {
 } from "./types.ts";
 
 import {
+  CONFIRMATION_ENDED_CHANNEL,
+  type ConfirmationEndedKind,
+} from "../../ipc/confirmation-channels.ts";
+import {
   contentBasis,
   type CoreHandlePort,
   earlierDeadline,
@@ -118,9 +122,17 @@ export interface DeferredPort {
   >;
 }
 
+/** 확인을 연 창의 webContents. 확정되지 않고 끝났다는 알림은 여기로만 보낸다. */
+export interface Opener {
+  send(channel: string, payload: unknown): void;
+  isDestroyed(): boolean;
+}
+
 export interface OpenRequest {
   readonly intent: ConfirmationIntent;
   readonly parent: ParentWindow;
+  /** 열기를 보낸 창 본문. 없으면 끝남을 알릴 곳이 없다. */
+  readonly opener?: Opener;
   /** 사람이 [Review]를 누른 창. event만 도착해서는 열지 않는다. */
   readonly requestedByPerson: boolean;
 }
@@ -155,6 +167,7 @@ export interface OpenedView {
 interface LiveWindow {
   readonly opened: OpenedConfirmation;
   readonly parentId: string;
+  readonly opener: Opener | undefined;
   readonly intent: ConfirmationIntent;
   readonly windowId: string;
   displayId: string;
@@ -205,11 +218,28 @@ export function createCoordinator(options: CoordinatorOptions) {
     live.opened.window.webContents.send("confirmation:display", display);
   };
 
+  // 확정되지 않고 끝난 확인만 연 창에게 알린다. 제출했거나 결과를 모르는 확인은 알리지 않고,
+  // 허락은 실제 상태 변화로 풀린다. 알림에는 windowId와 끝난 종류만 있다.
+  const notifyEnded = (live: LiveWindow, ended: ConfirmationEndedKind) => {
+    const opener = live.opener;
+    if (opener === undefined || opener.isDestroyed()) return;
+    opener.send(CONFIRMATION_ENDED_CHANNEL, {
+      windowId: live.windowId,
+      ended,
+    });
+  };
+
+  const decided = (live: LiveWindow, handle: LiveHandle | undefined) =>
+    handle?.spent === true || live.gate.state === "submitted" ||
+    live.gate.state === "unknown";
+
   const invalidate = async (
     live: LiveWindow,
     reason: "closed" | "cancelled" | "crashed" | "disconnected" | "replaced",
   ) => {
     const handle = table.drop(live.displayId);
+    const ended = !decided(live, handle);
+    const expired = live.gate.state === "expired";
     if (handle !== undefined && !handle.spent) {
       await options.handles.closeWindow(handle.windowId);
     }
@@ -217,6 +247,7 @@ export function createCoordinator(options: CoordinatorOptions) {
     if (reason === "closed" || reason === "cancelled" || reason === "crashed") {
       windows.delete(live.opened.windowId);
       options.forget?.(live.opened.windowId);
+      if (ended) notifyEnded(live, expired ? "expired" : reason);
     }
   };
 
@@ -436,12 +467,16 @@ export function createCoordinator(options: CoordinatorOptions) {
       }
       for (const existing of windows.values()) {
         if (existing.parentId === request.parent.id) {
+          const handle = table.find(existing.displayId);
+          const ended = !decided(existing, handle);
           await invalidate(existing, "replaced");
+          // 닫힘 알림이 한 번 더 가지 않게 먼저 뺀다.
+          windows.delete(existing.opened.windowId);
+          if (ended) notifyEnded(existing, "replaced");
           existing.opened.releaseInputBlock();
           if (!existing.opened.window.isDestroyed()) {
             existing.opened.window.close();
           }
-          windows.delete(existing.opened.windowId);
         }
       }
       table.dropEpoch(options.epoch());
@@ -463,6 +498,7 @@ export function createCoordinator(options: CoordinatorOptions) {
       const live: LiveWindow = {
         opened,
         parentId: request.parent.id,
+        opener: request.opener,
         intent: request.intent,
         windowId: opened.windowId,
         displayId: "",

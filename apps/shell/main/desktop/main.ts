@@ -46,6 +46,8 @@ import {
 } from "./core/layout-ipc.ts";
 import { createLayoutStore } from "../workspace/layout-store.ts";
 import { OPEN_EXTERNAL_CHANNEL } from "../../ipc/open-external.ts";
+import { TERM_DEFINITION_CHANNEL } from "../../ipc/term-definition.ts";
+import { confirmTermDefinition } from "../confirmation/term-definition.ts";
 import {
   DESKTOP_INTENT_CHANNEL,
   type DesktopIntent,
@@ -1139,6 +1141,29 @@ ipcMain.handle(
   }),
 );
 
+// term.define 선택지의 확정. 확인 창을 열지 않고 정본의 그 command만 접수한다.
+ipcMain.handle(TERM_DEFINITION_CHANNEL, async (event, input) => {
+  const body = input as { question?: unknown; option_key?: unknown };
+  if (typeof body?.question !== "string" || typeof body.option_key !== "string") {
+    return { ok: false, code: "invalid_input" };
+  }
+  const window = [...windows].find((one) =>
+    !one.isDestroyed() && one.webContents.id === event.sender.id
+  );
+  const session = core.session();
+  if (window === undefined || session === null) {
+    return { ok: false, code: "unavailable" };
+  }
+  return await confirmTermDefinition({
+    core: session,
+    register: (request) => core.registerConfirmation(request),
+    windowId: windowRef(window),
+    question: body.question,
+    optionKey: body.option_key,
+    nowMs: Date.now(),
+  });
+});
+
 // 편집기 파일 adapter와 창 닫기 guard(shell#T17). renderer는 문서 id와 session handle만 보내고
 // 실제 FileTarget·경로·core port는 여기서 정한다. 창마다 guard가 저장 중 수를 기억한다.
 const fileAdapter = createFileAdapter({
@@ -1217,6 +1242,7 @@ function stopAll(): void {
   removeLayoutIpc(layoutIpcMain);
   ipcMain.removeHandler(FOLDER_PICK_CHANNEL);
   ipcMain.removeHandler(OPEN_EXTERNAL_CHANNEL);
+  ipcMain.removeHandler(TERM_DEFINITION_CHANNEL);
   removeEditorIpc(editorIpc);
   removeViewIpc(viewIpcMain);
   removeAppWindowIpc(appWindowIpcMain);

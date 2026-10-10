@@ -5,6 +5,10 @@ import {
   type OpenExternalReply,
 } from "../ipc/open-external.ts";
 import {
+  TERM_DEFINITION_CHANNEL,
+  type TermDefinitionReply,
+} from "../ipc/term-definition.ts";
+import {
   FOLDER_PICK_CHANNEL,
   type FolderPickerApi,
   type FolderPickReply,
@@ -43,6 +47,20 @@ contextBridge.exposeInMainWorld(
     ? Object.freeze({
       ...createShellApi(ipcRenderer, role),
       openConfirmation: createConfirmationOpener(ipcRenderer),
+      // term.define 선택지는 확인 창 없이 main이 정본을 다시 읽어 접수한다.
+      async confirmTermDefinition(input: {
+        question: string;
+        option_key: string;
+      }): Promise<TermDefinitionReply> {
+        try {
+          return await ipcRenderer.invoke(
+            TERM_DEFINITION_CHANNEL,
+            input,
+          ) as TermDefinitionReply;
+        } catch {
+          return { ok: false, code: "unavailable" };
+        }
+      },
       // shell 크롬의 외부 링크는 확인 없이 OS browser로 연다. URL 검사는 main이 한다(R7).
       async openExternal(url: string): Promise<OpenExternalReply> {
         try {

@@ -1,7 +1,8 @@
 // flow define-terms: 실제 headless shell·core·documents worker를 임시 LOPHN_HOME으로 연다.
 // 1의 context 선택과 3·6의 사람 직접 정의 화면, 미루기·전제 변경·같은 이름·보관 갈래를 본다.
 // 그 테스트의 후보는 사람 command의 고정 본문 근거로 준비한다. 2는 다음 테스트가 본다.
-// 4~5의 term.define question option adapter는 여기서 부르지 않는다.
+// 3은 고정 action 없는 질문만 본다. 4는 마지막 테스트가 고정한 term.define 선택지를
+// 확인 창 없이 적용한다. 5의 변경 기록·목록 구별은 여기서 하지 않는다.
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 
 import {
@@ -2410,6 +2411,421 @@ Deno.test({
           assertEquals(await definitionOf(shell, LATER_TERM), null);
         },
       );
+    } finally {
+      await flow?.close();
+      await provider.close();
+      if (flow !== undefined) await removeHome(flow.home);
+      await Deno.remove(folder, { recursive: true });
+    }
+  },
+});
+
+// 4: 고정한 context·이름·뜻이 있는 선택지를 사람이 확정하면 machine이 그 내용만
+// 사람의 결정으로 적용한다. 확인 창은 열지 않는다. 자유 답은 정의가 아니다.
+const FIX_CONTEXT = "ctx_01arz3ndektsv4rrffq69g5fbb";
+const FIX_TERM = "trm_01arz3ndektsv4rrffq69g5fbb";
+const FIX_NAME = "정산주기";
+const FIX_MEANING = "한 달이 끝나는 날 맞추는 계산";
+const FIX_PURPOSE = "고정한 뜻만 적용한다";
+const FIX_TITLE = "적용알파";
+const FIX_PROMPT = "정산주기의 뜻을 이 글로 고정할까요?";
+const FIX_REASON = "후보 이름과 이 뜻을 선택지에 고정했다.";
+const FIX_TEXT = "정산주기의 뜻을 고정한 선택지로 물어 달라.";
+const FIX_AGAIN = "같은 고정 선택지로 다시 물어 달라.";
+const FREE_ANSWER = "뜻은 대충 한 달마다";
+const FREE_NOTE = "고정한 선택지를 물어 두었다. 추천은 적용하지 않았다.";
+const FREE_REPLY = "자유 답은 정의로 적용하지 않았다.";
+const AGAIN_NOTE = "같은 이름과 뜻을 다시 고정해 물어 두었다.";
+const APPLIED_NOTE = "사람이 고른 선택지만 적용했다.";
+
+type FixPhase = "ask" | "open" | "idle" | "second" | "held" | "done";
+
+function startFixScript(): {
+  url: string;
+  close: () => Promise<void>;
+  failure: () => string;
+  phase: () => FixPhase;
+  callsNamed: () => string[];
+  body: (index: number) => string;
+  calls: () => number;
+} {
+  const bodies: string[] = [];
+  const named: string[] = [];
+  const found = { phase: "ask" as FixPhase, failure: "" };
+  const issue = (id: string, name: string, args: unknown): SemanticReply => {
+    named.push(name);
+    return toolCall(id, name, args);
+  };
+  const choice = (
+    key: string,
+    label: string,
+    description: string,
+    fixed: boolean,
+  ) => ({
+    key,
+    label,
+    description,
+    evidence: [],
+    adoption: null,
+    action: null,
+    ...(fixed
+      ? {
+        term_definition: {
+          term: FIX_TERM,
+          name: FIX_NAME,
+          definition: FIX_MEANING,
+        },
+      }
+      : {}),
+  });
+  const ask = (id: string): SemanticReply =>
+    issue(id, "question.submit", {
+      prompt: FIX_PROMPT,
+      reason: FIX_REASON,
+      options: [
+        choice("use", FIX_NAME, FIX_MEANING, true),
+        choice(
+          "leave",
+          "지금은 정하지 않는다",
+          "이 선택지는 뜻을 고정하지 않는다.",
+          false,
+        ),
+      ],
+      recommendation: { option_key: "use", explanation: FIX_REASON },
+      expires_at: null,
+    });
+  const server = Deno.serve(
+    { hostname: "127.0.0.1", port: 0, onListen: () => {} },
+    async (request) => {
+      const text = await request.text();
+      const path = new URL(request.url).pathname;
+      if (request.method !== "POST" || !path.endsWith("/messages")) {
+        return Response.json({ error: "unexpected" }, { status: 500 });
+      }
+      bodies.push(text);
+      let reply: SemanticReply;
+      try {
+        if (found.phase === "ask") {
+          reply = ask("toolu_fix_ask");
+          found.phase = "open";
+        } else if (found.phase === "open") {
+          toolContent(text);
+          found.phase = "idle";
+          reply = said(FREE_NOTE);
+        } else if (found.phase === "idle") {
+          reply = said(FREE_REPLY);
+          found.phase = "second";
+        } else if (found.phase === "second") {
+          reply = ask("toolu_fix_again");
+          found.phase = "held";
+        } else if (found.phase === "held") {
+          toolContent(text);
+          found.phase = "done";
+          reply = said(AGAIN_NOTE);
+        } else if (found.phase === "done") {
+          reply = said(APPLIED_NOTE);
+        } else {
+          throw new Error(`예상하지 않은 단계: ${found.phase}`);
+        }
+      } catch (error) {
+        found.failure = error instanceof Error ? error.message : String(error);
+        return Response.json({ error: found.failure }, { status: 500 });
+      }
+      const built = buildReply("messages", reply);
+      return new Response(built.body ?? "", {
+        status: built.status,
+        headers: built.headers,
+      });
+    },
+  );
+  return {
+    url: `http://127.0.0.1:${server.addr.port}`,
+    close: () => server.shutdown(),
+    failure: () => found.failure,
+    phase: () => found.phase,
+    callsNamed: () => named,
+    body: (index) => bodies[index] ?? "",
+    calls: () => bodies.length,
+  };
+}
+
+Deno.test({
+  name:
+    "documents/terms#R2 lophn-agent/questions#R13 lophn-agent/questions#R15 lophn-agent/questions#R6 flow define-terms 4: 고정한 context·이름·뜻 선택지를 확인 창 없이 사람의 결정으로 적용하고 자유 답은 정의로 쓰지 않는다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn() {
+    const folder = await Deno.realPath(await copyFixture("korean-search"));
+    await Deno.writeTextFile(
+      `${folder}/${FIX_TITLE}.md`,
+      `# ${FIX_TITLE}\n\n## 쓰임\n\n${FIX_NAME}라는 말이 그대로 있다.\n`,
+    );
+    const provider = startFixScript();
+    let flow: FlowShell | undefined;
+    try {
+      flow = await openFlowShell({ start: "lophn" });
+      const shell = flow;
+      await registerAskProvider(shell, provider.url);
+      await registerTrackedProject(shell, { folder });
+      await untilDocuments(shell, [FIX_TITLE], "문서 관측 대기");
+      const alpha = await documentTitled(shell, FIX_TITLE);
+      await untilSectionStatus(
+        shell,
+        alpha.id,
+        "whole",
+        `${FIX_TITLE} 추출 대기`,
+      );
+      const preparedAt = Date.now() + READY_TIMEOUT_MS;
+      let sectionKey = "";
+      let version = alpha.latest_version;
+      for (;;) {
+        const current = await documentTitled(shell, FIX_TITLE);
+        const outline = await mustCall(shell, {
+          kind: "worker",
+          resource: "outline",
+          method: "document",
+          body: {
+            reference: {
+              document: alpha.id,
+              version: current.latest_version,
+              section: null,
+            },
+          },
+        });
+        const section = (outline.entries as { key?: string; title?: string }[])
+          .find((entry) => entry.title === "쓰임");
+        if (
+          outline.section_status === "whole" &&
+          typeof section?.key === "string"
+        ) {
+          sectionKey = section.key;
+          version = current.latest_version;
+          break;
+        }
+        assert(
+          Date.now() < preparedAt,
+          `목차에 쓰임이 없다: ${JSON.stringify(outline.entries).slice(0, 300)}`,
+        );
+        await delay(250);
+      }
+      let start = 0;
+      let end = 0;
+      for (;;) {
+        const read = await readFixed(shell, alpha.id, version, sectionKey);
+        const body = String(read["text"] ?? "");
+        const ranges = read["ranges"] as {
+          start_line?: number;
+          end_line?: number;
+        }[];
+        if (body.includes(FIX_NAME) && ranges.length > 0) {
+          start = Math.min(...ranges.map((range) => range.start_line ?? 0));
+          end = Math.max(...ranges.map((range) => range.end_line ?? 0));
+          break;
+        }
+        assert(
+          Date.now() < preparedAt,
+          `고정 판 본문이 없다: ${body.slice(0, 160)}`,
+        );
+        await delay(250);
+      }
+      assert(start >= 1 && end >= start, `${start}-${end}`);
+      await mustCall(shell, {
+        kind: "command",
+        resource: "contexts",
+        method: "create",
+        body: commandBody({
+          id: FIX_CONTEXT,
+          title: "Fixed meaning",
+          purpose: FIX_PURPOSE,
+          items: [{
+            target: {
+              kind: "document",
+              document: alpha.id,
+              section: null,
+            },
+            perspective: "basis",
+            reason: "말의 본문 근거",
+          }],
+        }),
+      });
+      await mustCall(shell, {
+        kind: "command",
+        resource: "terms",
+        method: "propose",
+        body: commandBody({
+          id: FIX_TERM,
+          context: FIX_CONTEXT,
+          name: FIX_NAME,
+          evidence: [{
+            document: alpha.id,
+            version,
+            section: sectionKey,
+            start_line: start,
+            end_line: end,
+          }],
+        }),
+      });
+      const ready = `${EMBEDDED} [data-question-text='ready']`;
+      const sendAnswer = `${EMBEDDED} [data-send-answer]`;
+      const untilPrompt = async () => {
+        try {
+          await shell.until(
+            `document.querySelector(${JSON.stringify(ready)})?.textContent === ${
+              JSON.stringify(FIX_PROMPT)
+            }`,
+            "질문이 칸에 서지 않았다",
+            120_000,
+          );
+        } catch (error) {
+          throw new Error(
+            `${(error as Error).message} | failure=${provider.failure()} phase=${provider.phase()}`,
+          );
+        }
+      };
+      const noWindow = async () => {
+        assertEquals(await shell.count(`${EMBEDDED} [data-opens-review]`), 0);
+        assertEquals(await shell.count(`${EMBEDDED} [data-review]`), 0);
+        assertEquals(await shell.count("[data-confirmation]"), 0);
+      };
+
+      await sendToEngineer(shell, FIX_TEXT);
+      await untilAsk(provider, () => provider.phase() === "idle", "첫 질문");
+      await untilAskDone(shell, provider, "첫 질문이 끝나지 않았다");
+      await untilPrompt();
+      await noWindow();
+      const first = (await questionsOf(shell))[0];
+      assert(first !== undefined);
+      assertEquals(first.status, "pending");
+      assertEquals(first.applied, false);
+      const use = first.options.find((option) => option.key === "use");
+      const leave = first.options.find((option) => option.key === "leave");
+      assert(use !== undefined && leave !== undefined);
+      const action = use.action as {
+        command: string;
+        concern: string;
+        targets: string[];
+        input: {
+          kind: string;
+          value: { term: string; name: string; definition: string };
+        };
+        comparison: { base_revision: string };
+      };
+      assertEquals(action.command, "term.define");
+      assertEquals(action.concern, "documents/terms");
+      assertEquals(action.targets, [FIX_TERM]);
+      assertEquals(action.input.kind, "inline");
+      assertEquals(action.input.value, {
+        term: FIX_TERM,
+        name: FIX_NAME,
+        definition: FIX_MEANING,
+      });
+      assert(action.comparison.base_revision.length > 0);
+      assertEquals(leave.action, null);
+      const term = await mustCall(shell, {
+        kind: "read",
+        resource: "terms",
+        method: "get",
+        body: { term: FIX_TERM },
+      });
+      assertEquals(
+        (term.term as { context: string; definition: string | null }).context,
+        FIX_CONTEXT,
+      );
+      assertEquals(await definitionOf(shell, FIX_TERM), null);
+      await shell.click(`${EMBEDDED} [data-option='use']`);
+      await delay(1_000);
+      assertEquals((await questionsOf(shell))[0]?.status, "pending");
+      assertEquals((await questionsOf(shell))[0]?.answer, null);
+      assertEquals(await definitionOf(shell, FIX_TERM), null);
+      await shell.click(`${EMBEDDED} [data-option='use']`);
+      await shell.type(`${EMBEDDED} [data-own-answer]`, FREE_ANSWER);
+      await shell.until(
+        `(() => { const button = document.querySelector(${
+          JSON.stringify(sendAnswer)
+        }); return button !== null && button.disabled === false; })()`,
+        "자유 답을 보낼 수 없다",
+      );
+      await noWindow();
+      await shell.click(sendAnswer);
+      const freeAt = Date.now() + 60_000;
+      for (;;) {
+        const answered = (await questionsOf(shell))[0];
+        if (answered?.status === "answered") {
+          assertEquals(answered.answer?.kind, "text");
+          assertEquals(answered.applied, false);
+          break;
+        }
+        assert(Date.now() < freeAt, `자유 답이 접수되지 않았다`);
+        await delay(250);
+      }
+      const freeText = await mustCall(shell, {
+        kind: "read",
+        resource: "questions",
+        method: "text",
+        body: { question: first.id },
+      });
+      assertEquals(freeText["answer_text"], FREE_ANSWER);
+      assertEquals(await definitionOf(shell, FIX_TERM), null);
+      await untilAsk(provider, () => provider.phase() === "second", "자유 답");
+      await untilAskDone(shell, provider, "자유 답이 끝나지 않았다");
+      assertEquals(provider.callsNamed().includes("term.define"), false);
+
+      await sendToEngineer(shell, FIX_AGAIN);
+      await untilAsk(provider, () => provider.phase() === "done", "둘째 질문");
+      await untilAskDone(shell, provider, "둘째 질문이 끝나지 않았다");
+      await untilPrompt();
+      await noWindow();
+      const second = (await questionsOf(shell))[1];
+      assert(second !== undefined);
+      assertEquals(second.status, "pending");
+      assertEquals(second.applied, false);
+      await shell.click(`${EMBEDDED} [data-option='use']`);
+      await shell.until(
+        `document.querySelector(${
+          JSON.stringify(`${EMBEDDED} [data-option='use']`)
+        })?.getAttribute("aria-checked") === "true"`,
+        "선택지가 골라지지 않았다",
+      );
+      await delay(1_000);
+      assertEquals((await questionsOf(shell))[1]?.status, "pending");
+      assertEquals(await definitionOf(shell, FIX_TERM), null);
+      await noWindow();
+      assertEquals(await shell.count(sendAnswer), 1);
+      await shell.click(sendAnswer);
+      const appliedAt = Date.now() + 60_000;
+      for (;;) {
+        const answered = (await questionsOf(shell))[1];
+        const meaning = await definitionOf(shell, FIX_TERM);
+        if (answered?.status === "answered" && meaning === FIX_MEANING) {
+          assertEquals(answered.answer?.kind, "option");
+          assertEquals(answered.answer?.option_key, "use");
+          assertEquals(answered.applied, true);
+          break;
+        }
+        assert(
+          Date.now() < appliedAt,
+          `고정 뜻이 적용되지 않았다: ${JSON.stringify(answered ?? null)} ${
+            String(meaning)
+          } failure=${provider.failure()} phase=${provider.phase()}`,
+        );
+        await delay(250);
+      }
+      await noWindow();
+      assertEquals(await definitionOf(shell, FIX_TERM), FIX_MEANING);
+      assertEquals(provider.callsNamed().includes("term.define"), false);
+      assertEquals(
+        provider.callsNamed().filter((name) => name === "question.submit")
+          .length,
+        2,
+      );
+      const kept = await mustCall(shell, {
+        kind: "read",
+        resource: "questions",
+        method: "text",
+        body: { question: first.id },
+      });
+      assertEquals(kept["answer_text"], FREE_ANSWER);
     } finally {
       await flow?.close();
       await provider.close();

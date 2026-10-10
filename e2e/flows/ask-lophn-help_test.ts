@@ -8,10 +8,11 @@
 // - 4: 바꾸려면 lophn이 선택지와 추천 이유를 question으로 묻는다. 고르기만으로는 답이나 변경이
 //   아니고, 미루면 답 없음으로 남고 설정은 그대로다.
 // 질문을 낸 run은 답을 기다리고(WaitRun의 질문 갈래) 미루면 답 없음으로 끝난다.
-// 볼 수 없는 것(이어보냄): 5~7 답 확정·machine 적용은 제품 `question.submit` tool이 선택지
-// action을 null로만 받고 `settingChangeQuestion`의 고정 action(ApplySettings)을 싣는 통로
-// (roles/lophn/question-submission.ts `draftSubmission`)가 runtime에 이어져 있지 않아, model이 낸
-// 설정 질문의 선택지에는 고정 변경이 실리지 않기 때문이다.
+// - 4의 선택지 변경: model이 `setting_change`로 키·새 값만 제안하면 handler가 현재 값·revision을
+//   읽어 ApplySettings action을 고정한다(model이 action 객체를 싣지 않는다). 질문 정본에서 확인한다.
+// - 5·6·7: 질문 칸과 shell main이 설정 변경(apply_settings)도 확인 창 없이 답으로 접수한다(되돌릴 수 있는
+//   안쪽 동작). 사람은 고른 선택지를 보내 답을 확정하고, machine이 고정한 변경만 한 번 적용하며,
+//   같은 run이 이어져 적용 결과를 알린다.
 import { assert, assertEquals } from "@std/assert";
 
 import { buildReply } from "../../tools/fake-provider/semantic.ts";
@@ -42,6 +43,7 @@ const EXPLAIN =
   "Reading width sets how wide every document reads. It is the default width now.";
 const CHANGE = "Make documents narrower.";
 const PROMPT = "Which reading width should documents use?";
+const APPLIED = "Reading width is now narrow for every document.";
 
 type Step = (body: string) => SemanticReply | Promise<SemanticReply>;
 
@@ -85,14 +87,44 @@ function toolCall(id: string, name: string, args: unknown): SemanticReply {
   };
 }
 
-const option = (key: string, label: string, description: string) => ({
+const option = (
+  key: string,
+  label: string,
+  description: string,
+  change?: { key: string; value: unknown },
+) => ({
   key,
   label,
   description,
   evidence: [],
   adoption: null,
   action: null,
+  ...(change === undefined ? {} : { setting_change: change }),
 });
+
+const ask = (id: string): SemanticReply =>
+  toolCall(id, "question.submit", {
+    prompt: PROMPT,
+    reason: "the reading width changes every open document at once",
+    options: [
+      option(
+        "keep",
+        "Keep the default width",
+        "Now: default. Nothing changes.",
+      ),
+      option(
+        "narrow",
+        "Use the narrow width",
+        "Now: default. New: narrow. Every document reads narrower at the next check.",
+        { key: KEY, value: "narrow" },
+      ),
+    ],
+    recommendation: {
+      option_key: "narrow",
+      explanation: "You asked for narrower documents.",
+    },
+    expires_at: null,
+  });
 
 const STEPS: Step[] = [
   // 첫 요청(설명): 안내 목록 → Settings 안내 → 설정 정의·현재 값 → 답.
@@ -102,29 +134,12 @@ const STEPS: Step[] = [
   () => ({ text: EXPLAIN, usage: { input: 40, output: 12 }, stop: "end" }),
   // 둘째 요청(변경): 현재 값을 다시 읽고 선택지와 추천을 question으로 묻는다.
   () => toolCall("toolu_reread", "setting.read", { keys: [KEY] }),
-  () =>
-    toolCall("toolu_ask", "question.submit", {
-      prompt: PROMPT,
-      reason: "the reading width changes every open document at once",
-      options: [
-        option(
-          "keep",
-          "Keep the default width",
-          "Now: default. Nothing changes.",
-        ),
-        option(
-          "narrow",
-          "Use the narrow width",
-          "Now: default. New: narrow. Every document reads narrower at the next check.",
-        ),
-      ],
-      recommendation: {
-        option_key: "narrow",
-        explanation: "You asked for narrower documents.",
-      },
-      expires_at: null,
-    }),
+  () => ask("toolu_ask"),
   // 질문을 낸 run은 답을 기다리므로 model을 다시 부르지 않는다.
+  // 셋째 요청(다시 변경): 같은 질문을 다시 묻고, 답이 정해지면 같은 run이 이어져 결과를 알린다.
+  () => toolCall("toolu_reread_again", "setting.read", { keys: [KEY] }),
+  () => ask("toolu_ask_again"),
+  () => ({ text: APPLIED, usage: { input: 40, output: 12 }, stop: "end" }),
 ];
 
 type RunRow = { id: string; state: string; outcome: { kind: string } | null };
@@ -134,6 +149,8 @@ type QuestionRow = {
   status: string;
   answer: unknown;
   closed_reason: string | null;
+  created_seq: string;
+  applied: boolean;
 };
 
 async function setDefaults(flow: FlowShell, endpoint: string): Promise<void> {
@@ -187,7 +204,7 @@ async function setDefaults(flow: FlowShell, endpoint: string): Promise<void> {
 
 Deno.test({
   name:
-    "lophn-agent/roles/lophn#R1 lophn-agent/roles/lophn#R20 lophn-agent/harness/tools#R20 lophn-agent/questions#R6 flow ask-lophn-help: settings 화면에서 물은 설정을 lophn이 설치 안내와 공개 설정으로 설명하고, 바꾸려면 질문으로 묻되 고르기·미루기로는 설정이 바뀌지 않는다",
+    "lophn-agent/roles/lophn#R1 lophn-agent/roles/lophn#R20 lophn-agent/harness/tools#R20 lophn-agent/questions#R6 flow ask-lophn-help: settings 화면에서 물은 설정을 lophn이 설치 안내와 공개 설정으로 설명하고, 바꾸려면 질문으로 묻되 고르기·미루기로는 설정이 바뀌지 않고 답을 확정하면 고정한 변경만 적용된다",
   ignore: !e2eEnabled(),
   sanitizeOps: false,
   sanitizeResources: false,
@@ -368,6 +385,43 @@ Deno.test({
           const [question] = await questions();
           assert(question !== undefined, "질문이 없다");
           assertEquals(question.status, "pending");
+          // 선택지의 변경은 handler가 읽은 근거로 고정했다. 모델은 action 객체를 싣지 않았다.
+          const read = await mustCall(flow, {
+            kind: "read",
+            resource: "questions",
+            method: "read",
+            body: { question: question.id },
+          });
+          const fixed = (read.question as {
+            options: {
+              key: string;
+              action: {
+                command: string;
+                targets: string[];
+                input: { value: { changes: unknown[] } };
+                comparison: Record<string, unknown>;
+              } | null;
+            }[];
+          }).options;
+          assertEquals(fixed.find((o) => o.key === "keep")?.action, null);
+          const change = fixed.find((o) => o.key === "narrow")?.action;
+          assert(
+            change !== null && change !== undefined,
+            "변경이 고정되지 않았다",
+          );
+          assertEquals(change.command, "apply_settings");
+          assertEquals(change.targets, [question.id]);
+          assertEquals(change.input.value.changes, [{
+            layer: "common",
+            key: KEY,
+            action: "set",
+            value: "narrow",
+          }]);
+          assert(
+            typeof change.comparison["revision"] === "number" &&
+              typeof change.comparison["defaults_revision"] === "string",
+            "비교 기준이 없다",
+          );
 
           // 고르기만으로는 답도 변경도 아니다.
           await flow.click("[data-option='narrow']");
@@ -410,6 +464,104 @@ Deno.test({
           }
         },
       );
+      await t.step({
+        name:
+          "lophn-agent/questions#R13 lophn-agent/questions#R10 lophn-agent/roles/lophn#R21 platform/settings#R19: 5·6·7 고른 선택지의 답을 확정하면 확인 창 없이 고정한 변경만 한 번 적용하고 답 접수와 적용 결과를 구별해 본다",
+        fn: async () => {
+          await flow.type(INPUT, CHANGE);
+          await flow.click(SEND);
+          // 미루어 답 없음으로 끝난 run 뒤의 요청은 사람이 계속하라고 확인해야 시작한다(run-loop R6).
+          const queuedBy = Date.now() + 60_000;
+          for (;;) {
+            const listed = await runsOf() as (RunRow & {
+              start_after: string | null;
+              accepted_seq: string;
+              state_seq: string;
+            })[];
+            const queued = listed.find((run) => run.state === "accepted");
+            const before = listed.find((run) => run.id === queued?.start_after);
+            if (
+              queued !== undefined && before !== undefined &&
+              before.state === "finished"
+            ) {
+              await mustCall(flow, {
+                kind: "command",
+                resource: "runs",
+                method: "confirm-next",
+                body: commandBody({ run: queued.id, predecessor: before.id }, {
+                  accepted_seq: queued.accepted_seq,
+                  predecessor_state_seq: before.state_seq,
+                }),
+              });
+              break;
+            }
+            assert(Date.now() < queuedBy, "이어 갈 요청이 접수되지 않았다");
+            await delay(250);
+          }
+          const rows = await untilRuns(3);
+          assertEquals(provider.calls(), 8);
+          assertEquals(rows[2]?.state, "waiting_user");
+          await flow.until(
+            `document.querySelector(${
+              JSON.stringify(READY)
+            })?.textContent === ${JSON.stringify(PROMPT)}`,
+            "다시 낸 질문이 칸에 서지 않았다",
+            120_000,
+          );
+          const pending = (await questions()).find((row) =>
+            row.status === "pending"
+          );
+          assert(pending !== undefined, "대기 중인 질문이 없다");
+          // 선택지의 변경은 handler가 고정했고 고르기만으로는 아무것도 바뀌지 않는다.
+          await flow.click("[data-option='narrow']");
+          await flow.until(
+            `document.querySelector("[data-option='narrow']")?.getAttribute("aria-checked") === "true"`,
+            "선택지가 골라지지 않았다",
+          );
+          await delay(1_000);
+          assertEquals(await setting(), initial);
+          assertEquals(
+            (await questions()).find((row) => row.id === pending.id)?.status,
+            "pending",
+          );
+
+          // 5: 고른 선택지를 보내면 답이 접수되고 별도 확인 창은 열리지 않는다.
+          await flow.click("[data-send-answer]");
+          const deadline = Date.now() + 120_000;
+          let row = pending;
+          while (row.status !== "answered") {
+            assert(
+              Date.now() < deadline,
+              `답이 접수되지 않았다: ${JSON.stringify(row)}`,
+            );
+            await delay(250);
+            row = (await questions()).find((item) => item.id === pending.id) ??
+              row;
+          }
+          // 6: machine이 고정한 변경만 한 번 적용한다.
+          while (!row.applied) {
+            assert(
+              Date.now() < deadline,
+              `변경이 적용되지 않았다: ${JSON.stringify(row)}`,
+            );
+            await delay(250);
+            row = (await questions()).find((item) => item.id === pending.id) ??
+              row;
+          }
+          const after = await setting();
+          assert(after !== initial, "설정이 바뀌지 않았다");
+          assert(after.includes("narrow"), `새 값이 아니다: ${after}`);
+          // 7: 같은 run이 이어져 적용 결과를 알린다.
+          await flow.until(
+            `document.querySelector(${
+              JSON.stringify(DOCK)
+            })?.innerText.includes(${JSON.stringify(APPLIED)})`,
+            "도크에 적용 결과가 없다",
+            120_000,
+          );
+          assertEquals(provider.calls(), 9);
+        },
+      });
     } finally {
       await flow.close();
       await removeHome(home);

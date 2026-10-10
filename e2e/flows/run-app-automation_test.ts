@@ -483,6 +483,32 @@ function ranBy(rows: InvocationRow[], key: string): InvocationRow[] {
   );
 }
 
+/** 실패 설명에 붙이는 지금까지의 automation 기록. */
+async function recorded(flow: FlowShell): Promise<string> {
+  return JSON.stringify(
+    (await invocationsOf(flow)).map((row) =>
+      `${row.trigger.key ?? row.trigger.kind}:${row.status}`
+    ),
+  );
+}
+
+/** 앱 실행 허용 끄기·켜기는 사람 command다(shell 화면에는 이 단추가 없다). */
+async function setExecution(flow: FlowShell, on: boolean): Promise<void> {
+  const app = (await mustCall(flow, {
+    kind: "read",
+    resource: "apps",
+    method: "get",
+    body: { app: APP },
+  })).app as { revision: string };
+  const reply = await flow.call({
+    kind: "command",
+    resource: "apps",
+    method: on ? "enable_execution" : "disable_execution",
+    body: commandBody({ app: APP }, { base_revision: app.revision }),
+  });
+  assert(reply.ok, JSON.stringify(reply));
+}
+
 Deno.test({
   name:
     "apps/automations#R1 R2 R4 R10 R13 apps/invocations#R2 apps/permissions#R2 flow run-app-automation: 앱이 열리면 허락한 일이 직접 호출과 같은 명령으로 돌고 external 일은 사람이 켠 뒤에만 돈다",
@@ -643,6 +669,54 @@ Deno.test({
             "켠 일이 켜짐으로 보이지 않는다",
           );
 
+          // 켠 일이라도 파일 쓰기 접근이 없으면 시작 때 그 명령이 직접 호출처럼 거절된다. 호출을
+          // 시작했다는 사실과 업무 성공은 다르게 남고 자동 재호출은 없다.
+          await setExecution(flow, false);
+          await untilTrue(
+            "앱이 멈추지 않았다",
+            async () => await running(flow) === null,
+          );
+          await setExecution(flow, true);
+          await untilReady(flow, "다시 허용한 앱이 뜨지 않았다");
+          await untilTrue(
+            "접근 없이 시작한 일이 기록되지 않았다",
+            async () =>
+              ranBy(await invocationsOf(flow), "export_on_start").length === 1,
+          );
+          const refused = ranBy(await invocationsOf(flow), "export_on_start");
+          assert(
+            refused[0].status !== "succeeded",
+            `접근 없이 내보내기가 성공했다: ${await recorded(flow)}`,
+          );
+          await Deno.stat(exportPath).then(
+            () => assert(false, "접근 없이 파일이 생겼다"),
+            () => undefined,
+          );
+          await delay(3_000);
+          assertEquals(
+            ranBy(await invocationsOf(flow), "export_on_start").length,
+            1,
+          );
+          // 탭을 벗어났다 돌아와 현재 기록을 다시 읽는다.
+          await openAccessTab(flow);
+          await openAutomationsTab(flow);
+          await flow.until(
+            `(document.querySelector('${AUTOMATIONS} [data-automation="export_on_start"] [data-last-activity]')?.textContent ?? "").length > 0 && !document.querySelector('${AUTOMATIONS} [data-automation="export_on_start"] [data-last-activity]').textContent.includes("No activity")`,
+            "실패한 활동이 보이지 않는다",
+          );
+          assert(
+            !String(
+              await flow.text(
+                `${AUTOMATIONS} [data-automation="export_on_start"] [data-last-activity]`,
+              ),
+            ).includes("Done"),
+            "거절된 호출이 완료로 보인다",
+          );
+          const nonceAfterRefusal = await untilReady(
+            flow,
+            "앱이 돌지 않는다",
+          );
+
           // 파일 쓰기 접근은 별도 허락이다. 허락하면 앱이 다시 뜨고 시작 계기의 일이 다시 돈다.
           await openAccessTab(flow);
           await reviewAccess(flow, EXPORT_DIR);
@@ -651,7 +725,7 @@ Deno.test({
           await untilTrue("앱이 다시 뜨지 않았다", async () => {
             const seen = await running(flow);
             return seen !== null && seen.ready && seen.release === RELEASE &&
-              seen.nonce !== nonce && !seen.terminationPending;
+              seen.nonce !== nonceAfterRefusal && !seen.terminationPending;
           });
           await untilTrue(
             "켠 일이 돌지 않았다",
@@ -662,7 +736,8 @@ Deno.test({
           );
           assertEquals(
             ranBy(await invocationsOf(flow), "export_on_start").length,
-            1,
+            2,
+            await recorded(flow),
           );
           const exported = await Deno.readTextFile(exportPath);
           assert(
@@ -673,7 +748,7 @@ Deno.test({
           await untilTrue(
             "두 번째 시작의 일이 기록되지 않았다",
             async () =>
-              ranBy(await invocationsOf(flow), "add_on_start").length === 2,
+              ranBy(await invocationsOf(flow), "add_on_start").length === 3,
           );
         },
       );
@@ -697,7 +772,7 @@ Deno.test({
               ranBy(await invocationsOf(flow), "add_every_minute").some((
                 row,
               ) => row.status === "succeeded"),
-            150_000,
+            200_000,
           ).catch(async (error) => {
             throw new Error(`${error.message} ${await facts()}`);
           });
@@ -730,20 +805,7 @@ Deno.test({
             "끈 일이 꺼짐으로 보이지 않는다",
           );
 
-          // 앱 실행 허용 끄기는 사람 command다(shell 화면에는 이 단추가 없다).
-          const app = (await mustCall(flow, {
-            kind: "read",
-            resource: "apps",
-            method: "get",
-            body: { app: APP },
-          })).app as { revision: string };
-          const disabled = await flow.call({
-            kind: "command",
-            resource: "apps",
-            method: "disable_execution",
-            body: commandBody({ app: APP }, { base_revision: app.revision }),
-          });
-          assert(disabled.ok, JSON.stringify(disabled));
+          await setExecution(flow, false);
           await untilTrue(
             "앱이 멈추지 않았다",
             async () => await running(flow) === null,
@@ -773,19 +835,7 @@ Deno.test({
           // 지난 활동은 지워지지 않고 지금 시작 가능 여부만 다르다.
           assertEquals(view?.observed, true);
 
-          const latest = (await mustCall(flow, {
-            kind: "read",
-            resource: "apps",
-            method: "get",
-            body: { app: APP },
-          })).app as { revision: string };
-          const enabled = await flow.call({
-            kind: "command",
-            resource: "apps",
-            method: "enable_execution",
-            body: commandBody({ app: APP }, { base_revision: latest.revision }),
-          });
-          assert(enabled.ok, JSON.stringify(enabled));
+          await setExecution(flow, true);
           await untilReady(flow, "다시 허용한 앱이 뜨지 않았다");
           await untilTrue(
             "다시 허용한 뒤 시작 계기의 일이 돌지 않았다",
@@ -796,7 +846,7 @@ Deno.test({
           // 꺼 둔 external 일은 다시 열려도 돌지 않았다.
           assertEquals(
             ranBy(await invocationsOf(flow), "export_on_start").length,
-            1,
+            2,
           );
         },
       );

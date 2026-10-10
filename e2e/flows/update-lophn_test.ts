@@ -1,4 +1,4 @@
-// flow update-lophn 1·2·3·4·5단계(docs/flows/update-lophn.md). 실제 ~/.lophn은 열지 않는다.
+// flow update-lophn 1·2·3·4·5·6단계(docs/flows/update-lophn.md). 실제 ~/.lophn은 열지 않는다.
 // 1·2단계는 실제 shell(headless)과 core를 임시 LOPHN_HOME으로 띄운다.
 // 1단계: settings에서 이 OS의 설치 패키지를 확인하고 사람이 고른 로컬 metadata로 수동 update를
 // 고른다. 자동 다운로드·자동 설치·사용 중 재시작은 없고, 검증하지 않은 배포를 사용 가능한
@@ -13,7 +13,11 @@
 // 보존한다. 검증 backup·단계 rollback·이력 hash 불일치는 3단계가 본다.
 // 5단계: 화면 없이 제품 core(apps 팀)를 temp home으로 띄운다. update가 새 SDK version만 더하고,
 // 기존 앱의 release가 고정한 SDK 의존과 bundle 사본은 그대로이며 앱 activation 결정은 없다.
-// 6–8단계는 보지 않는다.
+// 6단계: 화면 없이 제품 core(lophn-agent 팀)를 temp home으로 띄운다. update가 agent runtime을
+// 중단 지점에 멈추고 같은 데이터 root로 core를 다시 띄운 뒤, 새 runtime이 끊긴 일을 저장된
+// 경계에서 복구한다. 완전 응답·확정 결과와 결과를 모르는 쓰기는 반복하지 않는다. provider는
+// fake provider다.
+// 7–8단계는 보지 않는다.
 import { assert, assertEquals, assertThrows } from "@std/assert";
 import { type ChildProcess, spawn } from "node:child_process";
 import { DatabaseSync } from "node:sqlite";
@@ -45,6 +49,16 @@ import { RECOVERY_STAMP } from "../../packages/platform/backup-and-migration/mod
 import { SECRET_SCHEMA_STEPS } from "../../packages/platform/secrets/mod.ts";
 import { SETTINGS_SCHEMA_STEPS } from "../../packages/platform/settings/mod.ts";
 import { coreLaunch } from "../../apps/shell/main/desktop/core/supervise.ts";
+import type { Script } from "../../tools/fake-provider/mod.ts";
+import type { ToolLookup } from "../../packages/lophn-agent/harness/waiting-and-recovery/mod.ts";
+import { decide as humanDecide } from "../../apps/core/testing/approvals-fixture.ts";
+import {
+  count,
+  inspect,
+  openRecoveryWorld,
+  type RecoveryWorld,
+  USER_TOKEN,
+} from "../../apps/core/testing/run-recovery-world.ts";
 import { e2eEnabled } from "../harness.ts";
 import {
   type FlowShell,
@@ -1943,5 +1957,417 @@ Deno.test({
       if (core !== undefined) await core.shutdown();
       await removeTree(root);
     }
+  },
+});
+
+const AGENT_PLAN: Script = {
+  steps: [
+    {
+      id: "plan",
+      protocol: "messages" as const,
+      reply: {
+        text: "I will list projects and write two notes.",
+        toolCalls: [
+          { id: "toolu_1", name: "project.list", arguments: "{}" },
+          {
+            id: "toolu_2",
+            name: "document.create",
+            arguments: JSON.stringify({ note: "one" }),
+          },
+          {
+            id: "toolu_3",
+            name: "document.create",
+            arguments: JSON.stringify({ note: "two" }),
+          },
+        ],
+        usage: { input: 20, output: 8 },
+        stop: "tool_calls" as const,
+      },
+    },
+    {
+      id: "done",
+      protocol: "messages" as const,
+      reply: {
+        text: "All three are done.",
+        usage: { input: 40, output: 9 },
+        stop: "end" as const,
+      },
+    },
+  ],
+};
+const AGENT_ASK: Script = {
+  steps: [
+    {
+      id: "ask",
+      protocol: "messages" as const,
+      reply: {
+        text: "I need a person to confirm this write.",
+        toolCalls: [{
+          id: "toolu_1",
+          name: "document.save_version",
+          arguments: JSON.stringify({ note: "approve me" }),
+        }],
+        usage: { input: 20, output: 8 },
+        stop: "tool_calls" as const,
+      },
+    },
+    AGENT_PLAN.steps[1]!,
+  ],
+};
+
+function agentRows(world: RecoveryWorld, sql: string) {
+  return inspect(world.server, sql, [world.run]);
+}
+
+function agentToolRows(world: RecoveryWorld) {
+  return agentRows(
+    world,
+    `select response_key as key, state, json_extract(outcome, '$.kind') as kind
+     from tool_calls where run = ? order by response_order, attempt`,
+  );
+}
+
+function agentRun(world: RecoveryWorld) {
+  return agentRows(
+    world,
+    "select state, outcome_kind, outcome_reason from runs where id = ?",
+  )[0]!;
+}
+
+function runEvents(world: RecoveryWorld, type: string): number {
+  return count(
+    world.server,
+    `select count(*) as n from events where type = '${type}'`,
+  );
+}
+
+// 일이 중단 지점에서 죽는다. update가 진행 중이던 runtime을 멈춘 것과 같다.
+async function runUntilStopped(
+  world: RecoveryWorld,
+  die: NonNullable<Parameters<RecoveryWorld["runtime"]>[0]>["die"],
+) {
+  const first = world.runtime({ die });
+  const started = await first.driver.startNext();
+  assert(started.kind === "started", JSON.stringify(started));
+  assertEquals(started.run, world.run);
+  await started.done;
+  assert(first.dead());
+}
+
+// 사람에게는 보이지 않는 복구: 사람의 새 메시지·approval·question이 생기지 않는다.
+function assertNothingAskedOfPerson(world: RecoveryWorld, approvals = 0) {
+  assertEquals(
+    count(
+      world.server,
+      "select count(*) as n from messages where actor = 'user'",
+    ),
+    1,
+  );
+  assertEquals(
+    count(world.server, "select count(*) as n from approval_requests"),
+    approvals,
+  );
+  assertEquals(count(world.server, "select count(*) as n from runs"), 1);
+}
+
+Deno.test({
+  name:
+    "lophn-agent/harness/waiting-and-recovery#R8 lophn-agent/harness/waiting-and-recovery#R9 lophn-agent/harness/waiting-and-recovery#R10 platform/backup-and-migration#R16 platform/backup-and-migration#R17 flow update-lophn 6: update로 끊긴 agent 일은 저장된 경계에서 복구하고 결과를 모르는 쓰기는 반복하지 않는다",
+  ignore: Deno.env.get("LOPHN_E2E") !== "1",
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn(t) {
+    await t.step(
+      "완전 응답과 확정 결과는 반복하지 않고 셋째 call부터 같은 run으로 이어 간다",
+      async () => {
+        const world = await openRecoveryWorld(AGENT_PLAN);
+        try {
+          await runUntilStopped(world, {
+            when: "after",
+            path: "/v1/tool-calls/finish",
+            nth: 2,
+          });
+          assertEquals(agentRun(world)["state"], "running");
+          assertEquals(world.effects.writes, ["one"]);
+
+          // update: 같은 데이터 root로 core가 다시 선다. 재기동만으로는 아무 일도 다시 하지 않는다.
+          await world.restartCore();
+          world.clock.advance(60_000);
+          assertEquals(agentRun(world)["state"], "running");
+          assertEquals(world.provider.requests().length, 1);
+          assertEquals(world.effects.writes, ["one"]);
+
+          const report = await world.runtime().driver.recover();
+          assert(report.ok);
+          assertEquals(report.value.map((entry) => entry.result), ["resumed"]);
+          assertEquals(await report.value[0]!.done!, {
+            kind: "finished",
+            outcome: { kind: "completed", reason: "answer_completed" },
+          });
+          // 반복 없음: 완전 응답은 계획과 마무리 둘, 읽기는 한 번, 쓰기는 둘째·셋째 한 번씩.
+          assertEquals(world.provider.requests().length, 2);
+          assertEquals(world.effects.reads, 1);
+          assertEquals(world.effects.writes, ["one", "two"]);
+          assertEquals(
+            agentToolRows(world).map((row) => [row["key"], row["kind"]]),
+            [["toolu_1", "success"], ["toolu_2", "success"], [
+              "toolu_3",
+              "success",
+            ]],
+          );
+          assertEquals(agentRun(world)["outcome_kind"], "completed");
+          assertEquals(runEvents(world, "RunRecovered"), 1);
+          assertNothingAskedOfPerson(world);
+          // 이어 간 판단은 앞 응답과 세 결과를 이력으로 받았다.
+          const final = JSON.stringify(world.provider.requests()[1]!.body);
+          assert(final.includes("Wrote one.") && final.includes("Wrote two."));
+          // 다음 기동에도 끝난 일은 건드리지 않는다.
+          await world.restartCore();
+          const again = await world.runtime().driver.recover();
+          assert(again.ok);
+          assertEquals(again.value, []);
+          assertEquals(world.effects.writes, ["one", "two"]);
+        } finally {
+          await world.dispose();
+        }
+      },
+    );
+
+    await t.step(
+      "결과를 모르는 쓰기는 조회가 없으면 다시 보내지 않고 불명확 효과와 남은 일로 끝낸다",
+      async () => {
+        const world = await openRecoveryWorld(AGENT_PLAN);
+        try {
+          // 첫째 쓰기의 효과는 일어났고 결과 기록이 유실된 채 update가 runtime을 멈춘다.
+          await runUntilStopped(world, {
+            when: "before",
+            path: "/v1/tool-calls/finish",
+            nth: 2,
+          });
+          assertEquals(world.effects.writes, ["one"]);
+          assertEquals(agentToolRows(world)[1]!["state"], "started");
+
+          await world.restartCore();
+          world.clock.advance(1000);
+          const report = await world.runtime().driver.recover();
+          assert(report.ok);
+          assertEquals(report.value.map((entry) => entry.result), ["finished"]);
+          // 다시 보내지 않았고 셋째 call도, 뒤 판단 model도 시작하지 않았다.
+          assertEquals(world.effects.writes, ["one"]);
+          assertEquals(world.provider.requests().length, 1);
+          const run = agentRun(world);
+          assertEquals(
+            [run["state"], run["outcome_kind"], run["outcome_reason"]],
+            ["finished", "failed", "effect_unknown"],
+          );
+          // 성공이나 미실행으로 채우지 않고 불명확 효과와 남은 일을 따로 남긴다.
+          assertEquals(agentToolRows(world).map((row) => row["kind"]), [
+            "success",
+            "uncertain",
+            "not_executed",
+          ]);
+          const facts = JSON.parse(String(
+            agentRows(
+              world,
+              "select result_facts as f from runs where id = ?",
+            )[0]!["f"],
+          ));
+          assertEquals(facts.confirmed.unknown_effects.length, 1);
+          assertEquals(facts.confirmed.unexecuted.length, 1);
+          assertNothingAskedOfPerson(world);
+          // 다음 기동도 같은 효과를 반복하지 않는다.
+          await world.restartCore();
+          const again = await world.runtime().driver.recover();
+          assert(again.ok);
+          assertEquals(again.value, []);
+          assertEquals(world.effects.writes, ["one"]);
+        } finally {
+          await world.dispose();
+        }
+      },
+    );
+
+    await t.step(
+      "소유 계약의 결과 조회로 확정한 쓰기는 그 결과를 쓰고 다시 보내지 않는다",
+      async () => {
+        const world = await openRecoveryWorld(AGENT_PLAN);
+        try {
+          await runUntilStopped(world, {
+            when: "before",
+            path: "/v1/tool-calls/finish",
+            nth: 2,
+          });
+          await world.restartCore();
+          const asked: string[] = [];
+          const lookup: ToolLookup = (call) => {
+            asked.push(call.tool_call);
+            return Promise.resolve({
+              outcome: { kind: "success" as const, code: "ok" },
+              result: {
+                status: "success" as const,
+                summary: "Wrote one.",
+                content: { note: "one" },
+                complete: true,
+                source: null,
+                continuation: null,
+                pending: [],
+              },
+            });
+          };
+          const report = await world.runtime({
+            lookups: new Map([["document.create", lookup]]),
+          }).driver.recover();
+          assert(report.ok);
+          assertEquals(report.value.map((entry) => entry.result), ["resumed"]);
+          await report.value[0]!.done!;
+          // 조회한 call은 하나이고 그 쓰기는 다시 실행하지 않았다. 셋째 쓰기만 새로 한 번 했다.
+          assertEquals(asked.length, 1);
+          assertEquals(world.effects.writes, ["one", "two"]);
+          assertEquals(agentToolRows(world).map((row) => row["kind"]), [
+            "success",
+            "success",
+            "success",
+          ]);
+          assertEquals(agentRun(world)["outcome_kind"], "completed");
+          assertNothingAskedOfPerson(world);
+        } finally {
+          await world.dispose();
+        }
+      },
+    );
+
+    await t.step(
+      "사람이 이미 멈춘 일은 update 복구가 다시 시작하지 않는다",
+      async () => {
+        const world = await openRecoveryWorld(AGENT_PLAN);
+        try {
+          await runUntilStopped(world, {
+            when: "after",
+            path: "/v1/tool-calls/finish",
+            nth: 2,
+          });
+          await world.restartCore();
+          const paused = await world.post("assignments/pause", USER_TOKEN, {
+            assignment: world.assignment.id,
+            reason: {
+              kind: "user",
+              detail: "paused while lophn was updating",
+              runs: [],
+              target: null,
+            },
+          }, { revision: world.assignment.revision, state: "enabled" });
+          assertEquals(paused.status, 200, JSON.stringify(paused.body));
+
+          const report = await world.runtime().driver.recover();
+          assert(report.ok);
+          assertEquals(report.value.map((entry) => entry.result), ["stopped"]);
+          const run = agentRun(world);
+          assertEquals(
+            [run["state"], run["outcome_kind"], run["outcome_reason"]],
+            ["finished", "stopped", "assignment_paused"],
+          );
+          // 새 model call도 새 효과도 없고 확정한 결과와 사람의 입력은 그대로다.
+          assertEquals(world.provider.requests().length, 1);
+          assertEquals(world.effects.writes, ["one"]);
+          assertEquals(agentToolRows(world).length, 2);
+          assertNothingAskedOfPerson(world);
+          await world.restartCore();
+          const again = await world.runtime().driver.recover();
+          assert(again.ok);
+          assertEquals(again.value, []);
+        } finally {
+          await world.dispose();
+        }
+      },
+    );
+
+    await t.step(
+      "update가 오래 걸려도 누적 한도는 초기화되지 않아 한도를 넘으면 새 진입 없이 확정 결과를 남기고 끝낸다",
+      async () => {
+        const world = await openRecoveryWorld(AGENT_PLAN);
+        try {
+          await runUntilStopped(world, {
+            when: "after",
+            path: "/v1/tool-calls/finish",
+            nth: 2,
+          });
+          await world.restartCore();
+          // 기본 stall 한도는 5분이다. 꺼져 있던 6분을 센다.
+          world.clock.advance(6 * 60_000);
+          const report = await world.runtime().driver.recover();
+          assert(report.ok);
+          assertEquals(report.value.map((entry) => entry.result), ["resumed"]);
+          assertEquals(await report.value[0]!.done!, {
+            kind: "finished",
+            outcome: { kind: "failed", reason: "stall_limit" },
+          });
+          assertEquals(world.provider.requests().length, 1);
+          assertEquals(world.effects.writes, ["one"]);
+          assertEquals(agentToolRows(world).map((row) => row["kind"]), [
+            "success",
+            "success",
+            "not_executed",
+          ]);
+          assertNothingAskedOfPerson(world);
+        } finally {
+          await world.dispose();
+        }
+      },
+    );
+
+    await t.step(
+      "approval을 기다리던 일은 update 뒤에도 결정을 기다리고 허락 한 번으로 그 call 하나만 한 번 실행한다",
+      async () => {
+        const world = await openRecoveryWorld(AGENT_ASK);
+        try {
+          const first = world.runtime();
+          const started = await first.driver.startNext();
+          assert(started.kind === "started", JSON.stringify(started));
+          assertEquals((await started.done).kind, "waiting");
+          assertEquals(agentRun(world)["state"], "waiting_user");
+          const approval = inspect(
+            world.server,
+            "select id from approval_requests where run = ?",
+            [world.run],
+          )[0]!["id"] as string;
+
+          await world.restartCore();
+          // 결정이 없으면 계속 기다린다. 기다림을 허락이나 거절로 바꾸지 않는다.
+          const waiting = await world.runtime().driver.recover();
+          assert(waiting.ok);
+          assertEquals(waiting.value.map((entry) => entry.result), ["waiting"]);
+          assertEquals(world.effects.writes, []);
+          assertEquals(agentRun(world)["state"], "waiting_user");
+
+          const read = await world.read("approvals/get", USER_TOKEN, {
+            approval,
+          });
+          const decided = await humanDecide(
+            world.server,
+            USER_TOKEN,
+            (read.body as { request: never })["request"],
+            "grant",
+            null,
+          );
+          assertEquals(decided.status, 200, JSON.stringify(decided.body));
+          await world.restartCore();
+          const report = await world.runtime().driver.recover();
+          assert(report.ok);
+          assertEquals(report.value.map((entry) => entry.result), ["resumed"]);
+          assertEquals((await report.value[0]!.done!).kind, "finished");
+          assertEquals(world.effects.writes, ["approve me"]);
+          assertEquals(agentRun(world)["outcome_kind"], "completed");
+          // 같은 허락으로 그 call의 진입은 한 번이다.
+          assertEquals(runEvents(world, "ToolCallStarted"), 1);
+          assertNothingAskedOfPerson(world, 1);
+          const again = await world.runtime().driver.recover();
+          assert(again.ok);
+          assertEquals(again.value, []);
+          assertEquals(world.effects.writes, ["approve me"]);
+        } finally {
+          await world.dispose();
+        }
+      },
+    );
   },
 });

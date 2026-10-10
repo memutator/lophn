@@ -52,7 +52,9 @@ function tabLine(tab: ViewTab): string {
     ? `${tab.document} ${tab.version}`
     : tab.kind === "terminal"
     ? tab.project_folder
-    : `${tab.app} ${tab.surface}`;
+    : `${tab.app} ${tab.surface}${
+      tab.view_session === undefined ? "" : ` view_session=${tab.view_session}`
+    }`;
   return `- ${tab.selected ? "* " : ""}${tab.kind} ${tab.key} ${target}`;
 }
 

@@ -390,7 +390,12 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
         continue;
       }
       if (contextNames.has(tool.name) && deps.apps !== undefined) {
-        const bound = deps.apps.contextBinding(tool, m.scope, agent);
+        const bound = deps.apps.contextBinding(
+          tool,
+          m.scope,
+          agent,
+          seat.session,
+        );
         if (bound !== undefined) bindings.set(tool.name, bound);
         continue;
       }
@@ -453,7 +458,7 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
           ...(deps.apps?.handlers(m.appTools, agent) ?? []),
           ...(m.contextTools.length === 0
             ? []
-            : deps.apps?.contextHandlers(m.scope, agent) ?? []),
+            : deps.apps?.contextHandlers(m.scope, agent, seat.session) ?? []),
           ...(m.mcpKit === undefined ? [] : createMcpToolHandlers(
             external,
             m.mcpKit.call(assignment.id),

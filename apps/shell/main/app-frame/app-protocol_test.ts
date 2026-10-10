@@ -16,6 +16,7 @@ import {
   type UpstreamResponse,
   VIEW_HEADER,
 } from "./app-protocol.ts";
+import { navigationAllowed } from "./network-policy.ts";
 
 const LABEL = "app-01j9zzzzzzzzzzzzzzzzzzzzzz";
 const VIEW: ProtocolView = {
@@ -287,4 +288,30 @@ test("shell/app-frame#R9: socket이 없으면 view에 경로를 보이지 않고
   );
   assert.equal(response.status, 503);
   assert.equal(await response.text(), "");
+});
+
+test("apps/agent-context#R2: 첫 주소는 이 view의 session만 page query로 싣고 앱 socket 요청에는 그 query가 아니라 main이 정한 session만 간다", async () => {
+  const entry = appEntryUrl(LABEL, "main", "view-1");
+  assert.equal(
+    entry,
+    `lophn-app://${LABEL}/main/index.html?view_session=view-1`,
+  );
+  // 같은 화면의 주소라 탐색이 허용되고 경로 해석은 query와 무관하다.
+  assert.equal(navigationAllowed(entry, LABEL, "main"), true);
+  assert.deepEqual(parseAppUrl(entry, LABEL), {
+    screen: "main",
+    asset: ["index.html"],
+  });
+  // 페이지가 다른 session을 query로 주장해도 socket에는 main이 정한 view의 session이 간다.
+  const { seen, request } = harness(html);
+  const forged =
+    `lophn-app://${LABEL}/main/index.html?view_session=view-other&size=full`;
+  assert.equal((await request(forged)).status, 200);
+  assert.equal(seen[0]!.path.includes("view_session=view-1"), true);
+  assert.equal(seen[0]!.path.includes("view-other"), false);
+  // 세션이 없는 호출은 query를 붙이지 않는다.
+  assert.equal(
+    appEntryUrl(LABEL, "main"),
+    `lophn-app://${LABEL}/main/index.html`,
+  );
 });

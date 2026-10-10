@@ -307,7 +307,17 @@ function parseTab(value: unknown): HintTab | null {
       app === null || typeof tab.surface !== "string" ||
       tab.surface.length === 0 || tab.surface.length > 80
     ) return null;
-    return { kind: "app_panel", key, app, surface: tab.surface };
+    const session = typeof tab.view_session === "string" &&
+        tab.view_session.length > 0 && tab.view_session.length <= 80
+      ? tab.view_session
+      : undefined;
+    return {
+      kind: "app_panel",
+      key,
+      app,
+      surface: tab.surface,
+      ...(session === undefined ? {} : { view_session: session }),
+    };
   }
   return null;
 }

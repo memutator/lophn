@@ -22,6 +22,10 @@ import {
   routePath,
 } from "../../packages/contracts/platform/mod.ts";
 import {
+  workspaceRead,
+  workspaceReadOutputSchema,
+} from "../../packages/contracts/shell/mod.ts";
+import {
   createRuntimeClient,
   type DirectTransport,
 } from "../../packages/apps/runtime/client/mod.ts";
@@ -84,18 +88,69 @@ export type AppToolkit = {
     scope: AgentAppScope,
     loaded: AppLoad,
   ): readonly ToolDefinition[];
+  // `session`은 이 run이 묶인 대화 session이다. 입력의 view_session은 그 session의 사람 창에 열린 그 앱의
+  // 패널 탭의 것일 때만 믿고, 아니면 없는 대상과 같은 답이다(apps/agent-context#R2).
   contextBinding(
     tool: ToolDefinition,
     scope: AgentAppScope,
     agent: CoreCall,
+    session: string | null,
   ): ToolBinding | undefined;
   contextHandlers(
     scope: AgentAppScope,
     agent: CoreCall,
+    session: string | null,
   ): ReadonlyMap<string, ToolHandler>;
 };
 
 const PLACEHOLDER_SCREEN = "main";
+const WORKSPACE_PAGE_LIMIT = 10;
+
+const NOT_AVAILABLE = () =>
+  err({
+    code: "not_found" as const,
+    message: "the app command is not available",
+  });
+
+// agent가 준 view_session이 지금 이 run의 workspace(사람 창)에 열린 그 앱의 패널 탭의 것인지. 현재 보기를
+// 읽지 못하거나 끊겼거나 session이 없으면 아니다. 열린 탭은 식별일 뿐 허락이 아니다.
+async function panelOpen(
+  agent: CoreCall,
+  session: string | null,
+  app: string,
+  viewSession: string,
+): Promise<boolean> {
+  if (session === null) return false;
+  let page: number | undefined = 0;
+  for (
+    let read = 0;
+    page !== undefined && read < WORKSPACE_PAGE_LIMIT;
+    read++
+  ) {
+    const reply = await agent(routePath(workspaceRead), { session, page });
+    if (!reply.ok) return false;
+    const parsed = workspaceReadOutputSchema.safeParse(reply.value);
+    if (!parsed.success || parsed.data.availability !== "current") return false;
+    if (
+      parsed.data.tab_page?.some((tab) =>
+        tab.kind === "app_panel" && tab.app === app &&
+        tab.view_session === viewSession
+      )
+    ) return true;
+    page = parsed.data.next_page;
+  }
+  return false;
+}
+
+function claimed(
+  input: unknown,
+): { app: string; view_session: string } | undefined {
+  const value = input as { app?: unknown; view_session?: unknown } | null;
+  return typeof value?.app === "string" &&
+      typeof value.view_session === "string"
+    ? { app: value.app, view_session: value.view_session }
+    : undefined;
+}
 
 export function createAppToolkit(options: {
   // machine 자격의 loopback. 선언·허락·invocation 기록과 confirm 접수 proof를 다룬다.
@@ -445,17 +500,39 @@ export function createAppToolkit(options: {
         grants: loaded.grants,
       });
     },
-    contextBinding(tool, scope, agent) {
-      if (tool.name === appScreenContextTool.name) {
-        return createScreenContextBinding(scope, contextPorts(agent));
-      }
-      if (tool.name === appAnnotateTool.name) {
-        return createAnnotateBinding(scope, contextPorts(agent));
-      }
-      return undefined;
+    contextBinding(tool, scope, agent, session) {
+      const inner = tool.name === appScreenContextTool.name
+        ? createScreenContextBinding(scope, contextPorts(agent))
+        : tool.name === appAnnotateTool.name
+        ? createAnnotateBinding(scope, contextPorts(agent))
+        : undefined;
+      if (inner === undefined) return undefined;
+      return {
+        async resolve(input, call) {
+          const asked = claimed(input);
+          if (
+            asked === undefined ||
+            !await panelOpen(agent, session, asked.app, asked.view_session)
+          ) return NOT_AVAILABLE();
+          return await inner.resolve(input, call);
+        },
+      };
     },
-    contextHandlers(scope, agent) {
-      return createAppContextToolHandlers(scope, contextPorts(agent));
+    contextHandlers(scope, agent, session) {
+      const inner = createAppContextToolHandlers(scope, contextPorts(agent));
+      return new Map(
+        [...inner].map(([name, handler]): [string, ToolHandler] => [
+          name,
+          async (input, credential) => {
+            const asked = claimed(input);
+            if (
+              asked === undefined ||
+              !await panelOpen(agent, session, asked.app, asked.view_session)
+            ) return NOT_AVAILABLE();
+            return await handler(input, credential);
+          },
+        ]),
+      );
     },
     lookups(tools) {
       return createAppToolLookups(

@@ -4,6 +4,7 @@
 // activation·닫힘은 2–7단계라 여기서 하지 않는다. 사람 데이터 root(~/.lophn)는 열지 않는다.
 // HOME·LOPHN_HOME은 임시 폴더이고, shell은 LOPHN_SHELL_HEADLESS=1(openFlowShell)로만 띄운다.
 // 2단계 테스트는 이 파일의 두 번째 Deno.test다. 1단계 본문은 바꾸지 않는다.
+// 3단계 테스트는 이 파일의 세 번째 Deno.test다. 1·2단계 본문은 바꾸지 않는다.
 //
 // 화면이 가진 것: 진행·실제 담당·필요한 사람 조치(없으면 그 줄을 만들지 않는다), 고쳤다는 주장과
 // 실제 테스트 상태. 당시 release·summary 본문·작성자는 화면 글에 없고 list-fixes와 그 event·
@@ -13,6 +14,19 @@ import { fileURLToPath } from "node:url";
 import { assert, assertEquals, assertNotEquals } from "@std/assert";
 
 import { err, ok, type Result, sha256Hex } from "../../packages/base/mod.ts";
+import type { FrozenTest } from "../../packages/contracts/problems/mod.ts";
+import { prepareFromSource } from "../../packages/apps/releases/prepare/from-source.ts";
+import { installedHome } from "../../packages/apps/sdk/testing/mod.ts";
+import {
+  type MadeFixture,
+  madeFixture,
+} from "../../apps/core/testing/problems-app-test.ts";
+import { BROKEN_SCENARIO } from "../../apps/core/testing/problems-reproduction.ts";
+import {
+  canonicalHash,
+  canonicalJson,
+} from "../../packages/problems/tests/canonical.ts";
+import { reproductionFrozen } from "../../packages/problems/tests/mod.ts";
 import { SECTION_KINDS } from "../../packages/contracts/coding-agent/mod.ts";
 import { objectPathFor } from "../../packages/platform/blob-store/model.ts";
 import {
@@ -191,6 +205,7 @@ function reportInput(
   app: string,
   n: number,
   logs: Prepared,
+  bundle: string = BUNDLE_BEFORE,
 ) {
   const at = new Date(Date.now() - 600_000).toISOString();
   return {
@@ -201,7 +216,7 @@ function reportInput(
       diagnostic_scope: null,
       release: REL_BEFORE,
       release_missing_reason: null,
-      bundle_hash: BUNDLE_BEFORE,
+      bundle_hash: bundle,
       source: "exception",
       code: "_exception",
       text: null,
@@ -266,7 +281,7 @@ function reportInput(
         diagnostic_scope: null,
         release: REL_BEFORE,
         release_missing_reason: null,
-        bundle_hash: BUNDLE_BEFORE,
+        bundle_hash: bundle,
         binding: "sdk",
         origin: "process_observer",
       },
@@ -322,7 +337,9 @@ type SnapshotRead = {
   logs: { blob: string };
 };
 
-async function openLedger(): Promise<Opened> {
+async function openLedger(options?: {
+  beforeBundle?: (app: string, dataRoot: string) => Promise<string>;
+}): Promise<Opened> {
   // 제품 shell이 여는 schema와 같은 단계만 적용한다. world_test의 fixture·permission
   // 단계는 설치본과 hash가 달라 제품 core가 그 ledger를 거절한다.
   const keychain: FakeKeychain = createFakeKeychain();
@@ -425,10 +442,20 @@ async function openLedger(): Promise<Opened> {
     ),
     revision: seen.revision!,
   };
+  let beforeBundle = BUNDLE_BEFORE;
+  if (options?.beforeBundle) {
+    try {
+      beforeBundle = await options.beforeBundle(world.app, harness.dataRoot);
+    } catch (error) {
+      await widen(harness.dataRoot);
+      await harness.close();
+      throw error;
+    }
+  }
   insertRelease(world, {
     id: REL_BEFORE,
     number: 1,
-    bundle: BUNDLE_BEFORE,
+    bundle: beforeBundle,
     source: null,
   });
   const logs = await prepareBlob(
@@ -442,7 +469,7 @@ async function openLedger(): Promise<Opened> {
     "problems/record-report",
     machine.token,
     envelope(
-      reportInput(machine.context.principal, world.app, 1, logs),
+      reportInput(machine.context.principal, world.app, 1, logs, beforeBundle),
       { active_release: REL_BEFORE, problem_seq: null },
     ),
   );
@@ -1425,6 +1452,598 @@ Deno.test({
       }
     } finally {
       await opened.world.close();
+      if (home !== undefined) {
+        await Deno.remove(home, { recursive: true });
+      }
+    }
+  },
+});
+
+const STAGE3_SUMMARY = [
+  "변경: board B",
+  "수행한 확인: 테스트 통과",
+  "미실행 확인: 없음",
+  "한계: 이 문장은 통과가 아니다",
+  "",
+].join("\n");
+const CODE_TEXT = "problems/tests reproduction harness";
+const ENV_TEXT = "problems/tests runner environment";
+const PASS_REASON =
+  "before가 원래 증상을 재현하고 after가 같은 기대를 충족하며 약화가 없다";
+const STAGE3_TIMEOUT_MS = 120_000;
+
+async function sealBoard(
+  made: MadeFixture,
+  mode: "A" | "B",
+  app: string,
+  dataRoot: string,
+): Promise<{ hash: string; path: string }> {
+  const file = `${made.dir}/src/board.ts`;
+  const text = await Deno.readTextFile(file);
+  const patched = text.replace(
+    /export const MODE: BoardMode = "[A-E]";/,
+    `export const MODE: BoardMode = "${mode}";`,
+  );
+  assert(patched.includes(`BoardMode = "${mode}";`), mode);
+  await Deno.writeTextFile(file, patched);
+  const commit = await made.commit(`board ${mode}`);
+  const prepared = await prepareFromSource({
+    dataRoot,
+    app,
+    sourceRoot: made.dir,
+    commit,
+    sdkRoot: `${made.home}/sdk`,
+  });
+  assert(prepared.ok, prepared.ok ? "" : JSON.stringify(prepared.error));
+  const hash = prepared.value.bundleHash;
+  const path = prepared.value.copyPath;
+  assertEquals(path, `${dataRoot}/apps/${app}/bundles/${hash}`);
+  await absentBlob(dataRoot, hash);
+  return { hash, path };
+}
+
+async function storeText(
+  world: Ledger,
+  text: string,
+  expected: string,
+): Promise<void> {
+  const prepared = await prepareBlob(world, "user-repair", "frozen_test", text);
+  const bytes = encoder.encode(text);
+  assertEquals(prepared.hash, expected, text.slice(0, 40));
+  assertEquals(prepared.size_bytes, bytes.byteLength);
+  assertEquals(await sha256Hex(bytes), expected);
+  const stored = await Deno.readFile(
+    objectPathFor(world.harness.dataRoot, expected),
+  );
+  assertEquals(stored, bytes);
+}
+
+async function storeReproduction(world: Ledger): Promise<{
+  testHash: string;
+  environment: string;
+}> {
+  const fixed = reproductionFrozen(BROKEN_SCENARIO);
+  const codeHash = await sha256Hex(CODE_TEXT);
+  const environment = await sha256Hex(ENV_TEXT);
+  await storeText(world, CODE_TEXT, codeHash);
+  await storeText(
+    world,
+    canonicalJson({
+      probe: BROKEN_SCENARIO.probe,
+      adjacent: BROKEN_SCENARIO.adjacent.map(({ name, command, input }) => ({
+        name,
+        command,
+        input,
+      })),
+    }),
+    fixed.input,
+  );
+  await storeText(
+    world,
+    canonicalJson({
+      expectation: BROKEN_SCENARIO.expectation,
+      adjacent: BROKEN_SCENARIO.adjacent.map(({ name, holds }) => ({
+        name,
+        holds,
+      })),
+    }),
+    fixed.expected,
+  );
+  await storeText(
+    world,
+    canonicalJson({
+      problem_code: BROKEN_SCENARIO.problem_code,
+      symptom: BROKEN_SCENARIO.symptom,
+    }),
+    fixed.symptom,
+  );
+  await storeText(world, ENV_TEXT, environment);
+  const frozen: FrozenTest = {
+    code: codeHash,
+    input: fixed.input,
+    expected: fixed.expected,
+    method: {
+      argv: ["test", "child_test.ts"],
+      cwd: ".",
+      timeout_ms: STAGE3_TIMEOUT_MS,
+      expected_exit_code: 0,
+      environment,
+    },
+    blueprint: null,
+    sdk_dependencies: null,
+    failure_paths: null,
+    symptom: fixed.symptom,
+  };
+  const testHash = canonicalHash(frozen);
+  await storeText(world, canonicalJson(frozen), testHash);
+  assertNotEquals(testHash, codeHash);
+  return { testHash, environment };
+}
+
+async function runStageThree(
+  opened: Opened,
+  ticket: { ticket: string; revision: string },
+  hashes: { test: string; after: string },
+): Promise<RepairScriptResult> {
+  const home = await Deno.makeTempDir({ prefix: "lophn-repair-home-" });
+  try {
+    const env: Record<string, string> = {
+      PATH: Deno.env.get("PATH") ?? "",
+      HOME: home,
+      LOPHN_SHELL_HEADLESS: "1",
+      LOPHN_TEST_TOKEN: opened.coding.token,
+      LOPHN_TEST_DAEMON: `http://127.0.0.1:${opened.world.harness.port}`,
+      LOPHN_TEST_CONNECTION: opened.coding.connection,
+    };
+    const denoDir = Deno.env.get("DENO_DIR");
+    if (denoDir) env.DENO_DIR = denoDir;
+    return await runRepairScript({
+      command: Deno.execPath(),
+      args: ["run", "-A", BRIDGE],
+      cwd: ROOT,
+      env,
+      label: "lophn-repair-script",
+      ticket: ticket.ticket,
+      base_revision: ticket.revision,
+      app: opened.world.app,
+      problem: opened.problem,
+      before: REL_BEFORE,
+      release: REL_AFTER,
+      bundle_hash: hashes.after,
+      reports: [rpt(1)],
+      basis_seq: "1",
+      test: hashes.test,
+      summary: STAGE3_SUMMARY,
+      commit: COMMIT,
+      request_key: "repro-stage3",
+      release_request_key: "release-stage3",
+      after: async (stage: RepairStage, traced) => {
+        if (stage === "claim" && !traced.isError) {
+          insertRelease(opened.world, {
+            id: REL_AFTER,
+            number: 2,
+            bundle: hashes.after,
+            source: JSON.stringify({
+              ticket: ticket.ticket,
+              claim_seq: traced.data.claim_seq,
+            }),
+          });
+          await waitWork(opened.world.harness.dataRoot, opened.problem);
+        }
+        if (stage === "reproduction") {
+          await settleEvents(opened.world.harness.dataRoot, opened.problem);
+        }
+        if (stage === "record_fix") return "stop";
+      },
+    });
+  } finally {
+    await Deno.remove(home, { recursive: true });
+  }
+}
+
+type RequestEnd = {
+  phase: string;
+  reason: string;
+  result_ref: string | null;
+};
+
+async function waitRequestEnd(
+  root: string,
+  requestKey: string,
+  limitMs: number,
+): Promise<RequestEnd> {
+  const deadline = Date.now() + limitMs;
+  let last = "없음";
+  while (Date.now() < deadline) {
+    const db = openDb(`${root}/lophn.db`, true);
+    try {
+      const row = db.prepare(
+        `select phase, reason, result_ref from test_requests
+         where request_key = ? and phase in ('result_ref', 'preparation_failed', 'start_unknown')
+         order by seq desc limit 1`,
+      ).get(requestKey) as RequestEnd | undefined;
+      if (row) return row;
+      const running = db.prepare(
+        `select phase, reason from test_requests
+         where request_key = ? order by seq desc limit 1`,
+      ).get(requestKey) as { phase: string; reason: string } | undefined;
+      if (running) last = `${running.phase} ${running.reason}`;
+    } finally {
+      db.close();
+    }
+    await delay(1000);
+  }
+  throw new Error(`요청이 끝나지 않았다 (${requestKey}: ${last})`);
+}
+
+async function widen(directory: string): Promise<void> {
+  let info: Deno.FileInfo;
+  try {
+    info = await Deno.lstat(directory);
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) return;
+    throw error;
+  }
+  // symlink 대상(deno 실행 파일)의 권한을 바꾸지 않는다.
+  if (info.isSymlink) return;
+  if (!info.isDirectory) {
+    await Deno.chmod(directory, 0o644);
+    return;
+  }
+  await Deno.chmod(directory, 0o755);
+  for await (const entry of Deno.readDir(directory)) {
+    await widen(`${directory}/${entry.name}`);
+  }
+}
+
+async function filesUnder(dir: string): Promise<string[]> {
+  const found: string[] = [];
+  const walk = async (current: string) => {
+    for await (const entry of Deno.readDir(current)) {
+      const path = `${current}/${entry.name}`;
+      if (entry.isDirectory) await walk(path);
+      else found.push(path);
+    }
+  };
+  try {
+    await walk(dir);
+  } catch (error) {
+    if (!(error instanceof Deno.errors.NotFound)) throw error;
+  }
+  return found;
+}
+
+Deno.test({
+  name:
+    "problems/tests#R1 problems/tests#R2 problems/tests#R4 problems/tests#R5 problems/tests#R10 problems/tests#R13 problems/tests#R15 flow verify-app-repair 3: runner가 이전 실패와 고친 통과만 기록한다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn() {
+    let made: MadeFixture | undefined;
+    let home: string | undefined;
+    let opened: Opened | undefined;
+    let beforeHash = "";
+    try {
+      opened = await openLedger({
+        beforeBundle: async (app, dataRoot) => {
+          made = await madeFixture("broken", await installedHome([]));
+          const sealed = await sealBoard(made, "A", app, dataRoot);
+          beforeHash = sealed.hash;
+          return sealed.hash;
+        },
+      });
+      const ticket = await readyTicket(opened);
+      const stored = await storeReproduction(opened.world);
+      assert(made, "봉인할 source가 없다");
+      const after = await sealBoard(
+        made,
+        "B",
+        opened.world.app,
+        opened.world.harness.dataRoot,
+      );
+      assertNotEquals(after.hash, beforeHash);
+      await made.dispose();
+      made = undefined;
+      await absentBlob(opened.world.harness.dataRoot, after.hash);
+      await absentBlob(opened.world.harness.dataRoot, beforeHash);
+      await absentBlob(opened.world.harness.dataRoot, TEST_HASH);
+
+      const script = await runStageThree(opened, ticket, {
+        test: stored.testHash,
+        after: after.hash,
+      });
+      const recorded = step(script, "record_fix");
+      assertEquals(
+        recorded.isError,
+        false,
+        JSON.stringify({ halted: script.halted_before, recorded }),
+      );
+      assertEquals(script.halted_before, "release_prepare");
+      const reproduction = step(script, "reproduction");
+      assertEquals(
+        reproduction.isError ?? false,
+        false,
+        JSON.stringify(reproduction.data),
+      );
+      assertNotEquals(reproduction.data.state, "pass");
+      assertNotEquals(reproduction.data.real_test, true);
+      const held = await heldFrom(opened, ticket.ticket);
+      assertEquals(held.fix.verification, []);
+      assertEquals(decoder.decode(held.summaryBytes), STAGE3_SUMMARY);
+      assert(!decoder.decode(held.summaryBytes).includes(PASS_REASON));
+
+      const root = opened.world.harness.dataRoot;
+      const ended = await waitRequestEnd(root, "repro-stage3", 660_000);
+      assertEquals(
+        ended.phase,
+        "result_ref",
+        `${ended.phase} ${ended.reason}`,
+      );
+      assert(ended.result_ref?.startsWith("vrf_"), ended.result_ref ?? "");
+      const db = openDb(`${root}/lophn.db`, true);
+      let verification: {
+        id: string;
+        kind: string;
+        result: string;
+        test: string;
+        reason: string;
+        target_bundle_hash: string;
+        before_release: string;
+        after_release: string;
+        observations: string;
+      };
+      let evidenceText = "";
+      try {
+        verification = db.prepare(
+          `select id, kind, result, test, reason, target_bundle_hash,
+                  before_release, after_release, observations
+           from verifications where request_key = ?`,
+        ).get("repro-stage3") as typeof verification;
+        const evidence = db.prepare(
+          `select evidence from test_evidence where request_key = ?`,
+        ).get("repro-stage3") as { evidence: string };
+        evidenceText = evidence.evidence;
+        const fixes = db.prepare(
+          `select count(*) as n from verifications where problem = ?`,
+        ).get(opened.problem) as { n: number };
+        assertEquals(fixes.n, 1);
+      } finally {
+        db.close();
+      }
+      assertEquals(verification.id, ended.result_ref);
+      assertEquals(verification.kind, "reproduction");
+      assertEquals(verification.result, "pass", verification.reason);
+      assertEquals(verification.test, stored.testHash);
+      assertEquals(verification.reason, PASS_REASON);
+      assert(!verification.reason.includes("테스트 통과"));
+      assertEquals(verification.target_bundle_hash, after.hash);
+      assertEquals(verification.before_release, REL_BEFORE);
+      assertEquals(verification.after_release, REL_AFTER);
+      assert(!held.fix.verification.includes(verification.id));
+      const observed = JSON.parse(evidenceText) as {
+        execution_evidence: {
+          side: string;
+          bundle_hash: string;
+          test_hash: string;
+          ended_at: string;
+          end_reason: string;
+          output: null;
+          environment: string;
+        }[];
+        observations_json: {
+          original_symptom: {
+            before?: { symptom_reproduced?: boolean };
+            after?: { symptom_reproduced?: boolean };
+          };
+          changed_expectation: { sides: { after?: { met?: boolean } } };
+          isolation: {
+            operating_db_copied: boolean;
+            real_account_resend: boolean;
+            sides: {
+              side: string;
+              fresh_fixture: boolean;
+              source_read_only: boolean;
+            }[];
+          };
+          external_effects: { invocations: Record<string, unknown>[] };
+        };
+        frozen: { symptom: string | null; blueprint: string | null };
+      };
+      assertEquals(
+        observed.execution_evidence.map((item) => item.side),
+        ["before", "after"],
+      );
+      assertEquals(observed.execution_evidence[0]!.bundle_hash, beforeHash);
+      assertEquals(observed.execution_evidence[1]!.bundle_hash, after.hash);
+      for (const item of observed.execution_evidence) {
+        assertEquals(item.test_hash, stored.testHash);
+        assertEquals(item.end_reason, "exited");
+        assertEquals(item.output, null);
+        assertEquals(item.environment, stored.environment);
+        assertNotEquals(item.bundle_hash, item.test_hash);
+      }
+      assertEquals(observed.frozen.blueprint, null);
+      assert(observed.frozen.symptom);
+      const facts = observed.observations_json;
+      assertEquals(facts.original_symptom.before?.symptom_reproduced, true);
+      assertEquals(facts.original_symptom.after?.symptom_reproduced, false);
+      assertEquals(facts.changed_expectation.sides.after?.met, true);
+      assertEquals(facts.isolation.operating_db_copied, false);
+      assertEquals(facts.isolation.real_account_resend, false);
+      assertEquals(
+        facts.isolation.sides.map((item) => [
+          item.side,
+          item.fresh_fixture,
+          item.source_read_only,
+        ]),
+        [["before", true, true], ["after", true, true]],
+      );
+      for (const item of facts.external_effects.invocations) {
+        assertEquals(Object.keys(item).sort(), ["invocation", "side"]);
+      }
+      const observationBytes = await Deno.readFile(
+        objectPathFor(root, verification.observations),
+      );
+      assertEquals(
+        await sha256Hex(observationBytes),
+        verification.observations,
+      );
+      const latestEnd = observed.execution_evidence.map((item) => item.ended_at)
+        .sort()
+        .at(-1)!;
+
+      const work = `${root}/work/problems/tests/${
+        (await sha256Hex("repro-stage3")).slice(0, 24)
+      }`;
+      const files = await filesUnder(work);
+      assert(files.some((path) => path.includes("/before/")), "before fixture");
+      assert(files.some((path) => path.includes("/after/")), "after fixture");
+      assert(!files.some((path) => path.endsWith("/lophn.db")));
+      assert(!files.includes(`${root}/lophn.db`));
+      for (const path of files) {
+        if ((await Deno.stat(path)).size > 262_144) continue;
+        const text = decoder.decode(await Deno.readFile(path));
+        assert(!text.includes(opened.coding.token), path);
+        assert(!text.includes("LOPHN_HOME="), path);
+      }
+
+      const issued = await opened.world.harness.credential({
+        actor: "user",
+        principal: "user-repair-stage3",
+        scope: {
+          operations: ["RequestTest"],
+          targets: { app: opened.world.app },
+        },
+        conditions: { app: opened.world.app },
+      });
+      assert(issued.ok, issued.ok ? "" : issued.error.message);
+      const missing = await post(
+        opened.world,
+        "problems/request-test",
+        issued.value.token,
+        envelope({
+          request_key: "repro-missing",
+          kind: "reproduction",
+          app: opened.world.app,
+          target: { bundle_hash: after.hash, release: REL_AFTER },
+          problem: opened.problem,
+          basis_seq: "1",
+          reports: [rpt(1)],
+          before: REL_BEFORE,
+          after: REL_AFTER,
+          ticket: null,
+          test: TEST_HASH,
+          timeout_ms: 30_000,
+        }),
+      );
+      assertEquals(missing.status, 200, JSON.stringify(missing.body));
+      assertEquals(missing.body["accepted"], true);
+      const missed = await waitRequestEnd(root, "repro-missing", 30_000);
+      assertEquals(missed.phase, "preparation_failed", missed.reason);
+      assertEquals(missed.result_ref, null);
+      const again = openDb(`${root}/lophn.db`, true);
+      try {
+        const count = again.prepare(
+          `select count(*) as n from verifications where problem = ?`,
+        ).get(opened.problem) as { n: number };
+        assertEquals(count.n, 1);
+        const pass = again.prepare(
+          `select result from verifications where request_key = ?`,
+        ).get("repro-stage3") as { result: string };
+        assertEquals(pass.result, "pass");
+      } finally {
+        again.close();
+      }
+
+      home = await copyHome(root);
+      // 봉인 bundle은 읽기 전용이라 close의 삭제가 거절된다. symlink는 따라가지 않는다.
+      await widen(root);
+      await opened.world.close();
+      const flow = await openFlowShell({
+        home,
+        start: `app:${opened.world.app}`,
+      });
+      try {
+        await waitFixing(flow, opened.problem);
+        await openIssue(flow);
+        await flow.click("[data-issue-open]");
+        await flow.until(
+          `document.querySelector('[data-issue-detail="fixing"]') !== null`,
+          "Issues 상세",
+        );
+        assertEquals(
+          await flow.evaluate(
+            `document.querySelector("[data-check='tests']")?.getAttribute("data-test-state")`,
+          ),
+          "pass",
+        );
+        const tests = await screenText(flow, "[data-check='tests']");
+        assert(tests.includes("passed"), tests);
+        assert(!tests.includes("이 문장은 통과가 아니다"), tests);
+        assert(!tests.includes(PASS_REASON), tests);
+        assert(
+          (await screenText(flow, "[data-check='claim']")).includes(CLAIM),
+        );
+        assertEquals(
+          await flow.evaluate(
+            `document.querySelector("[data-check='human']")?.getAttribute("data-checked")`,
+          ),
+          "false",
+        );
+        const visible = await screenText(flow, "[data-issue-detail]");
+        for (
+          const hidden of [
+            beforeHash,
+            after.hash,
+            stored.testHash,
+            opened.coding.token,
+            "work/problems",
+            "이 문장은 통과가 아니다",
+            PASS_REASON,
+            "lophn.invalid",
+            STAGE3_SUMMARY,
+          ]
+        ) {
+          assert(!visible.includes(hidden), hidden.slice(0, 24));
+        }
+        const problem = await mustCall(flow, {
+          kind: "read",
+          resource: "problems",
+          method: "get",
+          body: { problem: opened.problem },
+        });
+        assertNotEquals(
+          (problem.problem as { status: string }).status,
+          "closed",
+        );
+        const detail = (problem.detail as {
+          result: {
+            tests: {
+              state: string;
+              items: {
+                kind: string;
+                state: string;
+                ended_at: string | null;
+              }[];
+            };
+          };
+        }).result.tests;
+        assertEquals(detail.state, "pass");
+        const item = detail.items.find((entry) =>
+          entry.kind === "reproduction"
+        );
+        assertEquals(item?.state, "pass");
+        assertEquals(item?.ended_at, latestEnd);
+      } finally {
+        await flow.close();
+      }
+    } finally {
+      await made?.dispose();
+      if (opened) {
+        await widen(opened.world.harness.dataRoot);
+        await opened.world.close();
+      }
       if (home !== undefined) {
         await Deno.remove(home, { recursive: true });
       }

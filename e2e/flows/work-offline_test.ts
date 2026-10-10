@@ -4062,6 +4062,16 @@ Deno.test({
         `document.querySelector("[data-document-view]")?.getAttribute("data-document-view") === "read"`,
         "노트 화면이 열리지 않았다",
       );
+      // 본문은 글이나 읽지 못한다는 알림 중 하나로 정해질 때까지 기다린 뒤 화면의 글을 담아 둔다.
+      await shell().until(
+        `(document.querySelector("[data-document-body]")?.textContent ?? "").length > 0`,
+        "노트 본문이 정해지지 않았다",
+      );
+      const noteScreenText = String(
+        await shell().evaluate(
+          `document.querySelector("[data-document-body]")?.textContent ?? ""`,
+        ),
+      );
       assertEquals(
         await shell().evaluate(
           `document.querySelector("[data-save-status]")?.getAttribute("data-save-status") ?? ""`,
@@ -4173,27 +4183,28 @@ Deno.test({
       assertEquals(checked[0]?.summary.reason, unknown?.summary.reason);
       assertEquals(await Deno.readTextFile(marker), "hang\n");
 
-      // 제품 결함: core가 outline 조립에 직접 추출(OutlineHandlerDeps.extract)을 넣지 않아 index가
-      // 아직 그 판을 추출하지 못했으면 documents/read가 본문 없이 section_status unverified로 답한다
-      // (apps/core/documents-reader.ts의 outline(), R15의 "필요하면 그 판을 직접 추출한다").
-      // 화면은 "text couldn't be read yet"을 보인다. documents 팀이 직접 추출을 이으면 이 단언을 켠다.
+      // R15: index가 아직 그 판을 추출하지 못했어도 core가 고정 판의 대표 파일을 직접 읽어 추출해
+      // 본문을 답한다(derived에는 쓰지 않는다).
       await t.step({
         name:
-          "documents/outline-and-search#R15: index를 다시 만드는 동안에도 고정 판 본문이 읽힌다 (제품 결함: 직접 추출이 조립에 없어 본문 없이 unverified)",
-        ignore: true,
+          "documents/outline-and-search#R15: index를 다시 만드는 동안에도 고정 판 본문이 읽힌다",
         async fn() {
-          const direct = await shell().call({
-            kind: "worker",
-            resource: "documents",
-            method: "read",
-            body: {
-              reference: {
-                document: noteId,
-                version: pinned.id,
-                section: null,
+          const direct = await within(
+            15_000,
+            shell().call({
+              kind: "worker",
+              resource: "documents",
+              method: "read",
+              body: {
+                reference: {
+                  document: noteId,
+                  version: pinned.id,
+                  section: null,
+                },
               },
-            },
-          });
+            }),
+            "documents/read",
+          );
           assert(direct.ok, JSON.stringify(direct));
           const value = direct.value as {
             text: string | null;
@@ -4201,34 +4212,40 @@ Deno.test({
           };
           assertEquals(value.section_status, "whole");
           assert(value.text?.includes(SEVEN_NOTE), String(value.text));
-          await shell().until(
-            `document.querySelector("[data-document-body]")?.textContent?.includes(${
-              JSON.stringify(SEVEN_NOTE)
-            })`,
-            "노트 본문이 열리지 않았다",
-          );
+          // 화면도 같은 본문을 보인다(노트를 열었을 때 본 화면의 글).
+          assert(noteScreenText.includes(SEVEN_NOTE), noteScreenText);
         },
       });
 
-      // 제품 결함: 따라잡기가 끝난 뒤 문서가 쓰지 않는 event(관측 근거 같은 것)가 ledger 끝에 붙으면
-      // documents feed가 그 event로는 index를 다시 확인하지 않아 cursor가 한 칸 뒤에 머문 채 검색이
-      // 계속 lagging이다(apps/core/documents-feed.ts는 SEARCH_CONSUMED_EVENTS에만 깨운다).
-      // documents 팀이 고치면 이 단언을 켠다.
+      // R14: 따라잡기가 끝난 뒤 문서가 쓰지 않는 event(관측 근거 같은 것)가 ledger 끝에 붙어도
+      // documents feed가 index를 다시 확인해 cursor가 basis까지 간다. 호출 하나가 멈추면 오래
+      // 기다리지 않고 어느 호출인지 드러낸다.
       await t.step({
         name:
-          "documents/outline-and-search#R14: 다시 만든 index가 끝까지 따라와 노트를 돌려준다 (제품 결함: 끝에 붙은 비소비 event 뒤 cursor가 멈춘다)",
-        ignore: true,
+          "documents/outline-and-search#R14: 다시 만든 index가 끝까지 따라와 노트를 돌려준다",
         async fn() {
-          await untilSearch(
-            shell(),
-            SEVEN_QUERY,
-            (found) => found.results.some((row) => row.document === noteId),
-            "다시 만든 검색이 노트를 돌려주지 않았다",
-          );
-          assertEquals(
-            (await searchOnce(shell(), SEVEN_QUERY)).coverage.rebuilding,
-            false,
-          );
+          const catchUpDeadline = Date.now() + 120_000;
+          for (;;) {
+            const page = await within(
+              15_000,
+              searchOnce(shell(), SEVEN_QUERY),
+              "search/query",
+            );
+            if (
+              !page.coverage.lagging &&
+              page.results.some((row) => row.document === noteId)
+            ) {
+              assertEquals(page.coverage.rebuilding, false);
+              break;
+            }
+            assert(
+              Date.now() < catchUpDeadline,
+              `다시 만든 검색이 노트를 돌려주지 않았다: ${
+                JSON.stringify(page)
+              }`,
+            );
+            await delay(250);
+          }
         },
       });
     } finally {

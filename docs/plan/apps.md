@@ -1390,11 +1390,13 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
 
 ### T27 apps slice flow E2E
 
-- 상태: 진행 (#474, #489) — 완료: restore-app-release. new-app은 등록·source 연결·bundle
+- 상태: 진행 (#474, #489, #548) — 완료: restore-app-release. new-app은 등록·source 연결·bundle
   준비까지 e2e/flows/flow-new-app_test.ts를 썼으나 통과는 아직 확인하지 못했다(실행 대기열).
   새 결함: release.prepare를 부르는 finalizer가 제품 코드에 없어 new-app의 app test 통과
   이후(preview·적용·activation)는 돌 수 없다. #489 use-app-command: confirm 허락은 실행되고 거절은 다시 묻지 않는다. list의 성공한 일반 읽기는 invocation을 남기지 않는다(apps/invocations#R2, R18). 남은 것: new-app의 app test·preview·적용,
-  change-app, run-app-automation, manage-app-permissions, connect-apps,
+  change-app, run-app-automation, manage-app-permissions(#548: fs 접근 허락·거절·창 닫기·회수와
+  새 nonce 재시작까지 돈다. 남은 것은 secret 단계 2·3·6(OS keychain 없음, SecretDelivery 미부착), command 허락 4,
+  보호 범위·조합 경고 갈래), connect-apps,
   ask-app-hint
 - 등급: 기본
 - concern: apps

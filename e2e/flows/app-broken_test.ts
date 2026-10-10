@@ -19,7 +19,7 @@
 // 않는다). [Start]를 실제로 누르는 것, 그 첫 prompt를 받은 coding agent의 claim, claim 없는 제출 거절은 활성
 // coding 연결(OS keychain)이 있어야 해서 이 E2E 통로가 없다. 첫 prompt는 순수 함수에 실제 ticket의 값을 넣어 본다.
 // 하지 않는 것: claim, reproduction, activation, 자동 닫힘. process의 unhandled rejection은
-// 앱 자식이 바로 끝나 이후 읽기를 막으므로 일으키지 않는다. 화면이 이미 root render에서 깨져 있어
+// 앱 자식이 바로 끝나 이후 읽기를 막으므로 마지막 테스트가 따로 일으킨다. 화면이 이미 root render에서 깨져 있어
 // 실패 command는 그 view의 lophnApp(화면이
 // command를 부르는 통로)으로 일으킨다. 1단계에는 사람 조작 화면이 없다.
 import { assert, assertEquals } from "@std/assert";
@@ -3251,6 +3251,122 @@ Deno.test({
       await opened?.close();
       await removeTree(home);
       await coding.remove();
+    }
+  },
+});
+
+const EXIT_MESSAGE = "the app process exited with code 1";
+
+async function processNonce(flow: FlowShell): Promise<string | null> {
+  const runtime = await mustCall(flow, {
+    kind: "read",
+    resource: "apps",
+    method: "runtime",
+    body: { app: APP },
+  });
+  const observation = runtime.observation as { process_nonce: string } | null;
+  return observation?.process_nonce ?? null;
+}
+
+// flow 1단계의 process 갈래: 앱 process의 처리되지 않은 Promise rejection(drop_promise)도 앱이
+// 보고하지 않아도 수집된다. 앱 자식은 stderr에 원래 실패를 남기고 exit 1로 끝나며, 그 종료 근거가
+// 당시 release·출처·snapshot으로 접수된다. 종료는 성공으로 바뀌지 않는다(reporting#R5, runtime#R22).
+Deno.test({
+  name:
+    "problems/reporting#R5 problems/snapshots#R1 R4 apps/runtime#R22 flow app-broken 1: 앱 process의 처리되지 않은 Promise rejection을 수집한다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn() {
+    const home = await Deno.makeTempDir({ prefix: "lophn-e2e-app-broken-" });
+    let opened: FlowShell | undefined;
+    try {
+      await Deno.chmod(home, 0o700);
+      const first = await openFlowShell({ home });
+      await first.close();
+      const bundle = await prepareBrokenApp(home, {
+        installedHome,
+        removeTree,
+      });
+      seedLedger(home, bundle);
+      const flow = await openFlowShell({ home, start: `app:${APP}` });
+      opened = flow;
+      await flow.until(
+        `document.querySelector("[data-space]")?.getAttribute("data-space") === "app"`,
+        "앱 공간이 서지 않았다",
+      );
+      const runningAt = Date.now() + 60_000;
+      for (;;) {
+        const runtime = await mustCall(flow, {
+          kind: "read",
+          resource: "apps",
+          method: "runtime",
+          body: { app: APP },
+        });
+        if ((runtime.state as { state: string }).state === "running") break;
+        assert(Date.now() < runningAt, "앱이 뜨지 않았다");
+        await delay(500);
+      }
+      await flow.until(
+        `document.querySelector('[data-phase="failed"] button') !== null || document.querySelector('[data-report-problem]:not([disabled])') !== null`,
+        "화면 상태가 오지 않았다",
+      );
+      if ((await flow.count('[data-phase="failed"] button')) > 0) {
+        await flow.click('[data-phase="failed"] button');
+      }
+      await flow.until(
+        `document.querySelector('[data-report-problem]:not([disabled])') !== null`,
+        "[Report a problem]이 켜지지 않았다",
+      );
+      await waitRender(flow);
+      const before = await processNonce(flow);
+      assert(before !== null, "실행 중인 앱 process가 없다");
+
+      // 호출은 reject가 터지기 전에 응답하지 못하고 process가 끝난다. 호출 결과가 아니라 접수를 본다.
+      await callApp(flow, "drop_promise", null);
+      let exited: ReadReport | undefined;
+      await waitFor("process rejection 종료 보고가 없다", async () => {
+        for (const item of await reportItems(flow)) {
+          const read = await readReport(flow, item.id);
+          if (read.snapshot?.error?.message === EXIT_MESSAGE) {
+            exited = read;
+            return true;
+          }
+        }
+        return false;
+      });
+      const read = exited!;
+      const snapshot = assertReportScope(read, "exception", "_exception");
+      assertEvidence(snapshot, home);
+      assert(snapshot.error !== null);
+      assertEquals(snapshot.error.name, "unexpected_exit");
+      const row = (await listed(flow)).find((item) =>
+        item.id === read.report.problem
+      );
+      assert(row !== undefined);
+      assertEquals(row.status, "open");
+      assertEquals(row.symptom, EXCEPTION_SYMPTOM);
+      const got = await mustCall(flow, {
+        kind: "read",
+        resource: "problems",
+        method: "get",
+        body: { problem: row.id },
+      });
+      assertEquals(got.first_release, RELEASE);
+      assertEquals(got.last_release, RELEASE);
+
+      // 종료를 숨기지 않는다: 원래 process는 끝났고 새 process가 감독 아래 다시 뜬다.
+      await waitFor("앱 process가 다시 뜨지 않았다", async () => {
+        const now = await processNonce(flow);
+        return now !== null && now !== before;
+      });
+      const desktop = String(await flow.evaluate("document.body.innerText"));
+      assert(!desktop.includes("rpt_"), desktop);
+      assert(!desktop.includes("snp_"), desktop);
+      assert(!desktop.includes(EXIT_MESSAGE), desktop);
+    } finally {
+      await opened?.close();
+      await removeTree(home);
     }
   },
 });

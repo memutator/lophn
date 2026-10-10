@@ -7,7 +7,11 @@ import type { ConfirmationHandleRegister } from "./types.ts";
 import type { KindCore } from "./kinds/core.ts";
 import { readOptionAction, submitOptionAction } from "./kinds/option-action.ts";
 
-const WITHOUT_WINDOW = new Set(["term.define", "app.create"]);
+const WITHOUT_WINDOW = new Set([
+  "term.define",
+  "app.create",
+  "apply_settings",
+]);
 
 type Code =
   | "forbidden"

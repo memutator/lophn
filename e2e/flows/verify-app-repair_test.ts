@@ -8,6 +8,7 @@
 // 4단계 테스트는 이 파일의 네 번째 Deno.test다. 1–3단계 본문은 바꾸지 않는다.
 // 5단계 테스트는 이 파일의 다섯 번째 Deno.test다. 1–4단계 본문은 바꾸지 않는다.
 // 6단계 테스트는 이 파일의 여섯 번째 Deno.test다. 1–5단계 본문은 바꾸지 않는다.
+// 7단계 테스트는 이 파일의 일곱 번째 Deno.test다. 1–6단계 본문은 바꾸지 않는다.
 //
 // 화면이 가진 것: 진행·실제 담당·필요한 사람 조치(없으면 그 줄을 만들지 않는다), 고쳤다는 주장과
 // 실제 테스트 상태. 당시 release·summary 본문·작성자는 화면 글에 없고 list-fixes와 그 event·
@@ -47,6 +48,7 @@ import {
   type CoreHarness,
   createCoreHarness,
 } from "../../apps/core/testing/core.ts";
+import { startCore } from "../../apps/core/core.ts";
 import { createLedgerRegistration as createDocumentsRegistration } from "../../apps/core/documents.ts";
 import { createLedgerRegistration as createAppsRegistration } from "../../apps/core/apps.ts";
 import { codingAgentConnectionDefinitions } from "../../apps/core/coding-agent.ts";
@@ -67,7 +69,12 @@ import {
   type RepairStepRecord,
   runRepairScript,
 } from "../../tools/fake-coding-agent/repair.ts";
-import { e2eEnabled } from "../harness.ts";
+import {
+  descendantPids,
+  e2eEnabled,
+  processAlive,
+  signalPids,
+} from "../harness.ts";
 import {
   delay,
   type FlowShell,
@@ -304,6 +311,35 @@ function reportInput(
   };
 }
 
+// 앱이 선언한 code의 보고 모양이다. 같은 code의 앱 보고는 같은 묶기 key로 한 문제에 모인다.
+function declaredReport(input: ReturnType<typeof reportInput>) {
+  return {
+    ...input,
+    report: { ...input.report, source: "app", code: "fixture_broken" },
+    snapshot: {
+      ...input.snapshot,
+      error: null,
+      error_missing_reason: { reason: "no error" },
+    },
+    group_key: {
+      kind: "declared",
+      code: "fixture_broken",
+      discriminator: null,
+    },
+    origin: {
+      ...input.origin,
+      context: {
+        ...input.origin.context,
+        origin: "app",
+        authentication: {
+          ...input.origin.context.authentication,
+          actor: `app:${input.report.app}`,
+        },
+      },
+    },
+  };
+}
+
 function openDb(path: string, readOnly: boolean): DatabaseSync {
   const db = new DatabaseSync(path, { readOnly });
   db.exec("PRAGMA busy_timeout = 5000");
@@ -403,6 +439,8 @@ async function openLedger(options?: {
   beforeBundle?: (app: string, dataRoot: string) => Promise<string>;
   // 이전 release 행에 봉인 bundle의 실제 blueprint를 둔다(activation을 실제로 돌리는 5단계).
   sealedContent?: boolean;
+  // 첫 보고를 앱이 선언한 code(fixture_broken)의 보고로 접수한다(닫힌 뒤 재발을 앱의 실제 보고로 받는 7단계).
+  declared?: boolean;
 }): Promise<Opened> {
   // 제품 shell이 여는 schema와 같은 단계만 적용한다. world_test의 fixture·permission
   // 단계는 설치본과 hash가 달라 제품 core가 그 ledger를 거절한다.
@@ -537,7 +575,23 @@ async function openLedger(options?: {
     "problems/record-report",
     machine.token,
     envelope(
-      reportInput(machine.context.principal, world.app, 1, logs, beforeBundle),
+      options?.declared === true
+        ? declaredReport(
+          reportInput(
+            machine.context.principal,
+            world.app,
+            1,
+            logs,
+            beforeBundle,
+          ),
+        )
+        : reportInput(
+          machine.context.principal,
+          world.app,
+          1,
+          logs,
+          beforeBundle,
+        ),
       { active_release: REL_BEFORE, problem_seq: null },
     ),
   );
@@ -3191,8 +3245,16 @@ type ClosingWorld = {
   reproduction: string;
 };
 
+// 고친 release의 board와 그 reproduction 판정을 고르는 선택이다. 기본은 B(고침)의 pass다.
+type ClosingOptions = {
+  declared?: boolean;
+};
+
+type ClosingBasis = { test: string; after: string; before: string };
+
 async function closingWorld(
-  inspect: (opened: Opened) => Promise<void>,
+  inspect: (opened: Opened, basis: ClosingBasis) => Promise<void>,
+  options?: ClosingOptions,
 ): Promise<ClosingWorld & { cleanup(): Promise<void> }> {
   let made: MadeFixture | undefined;
   let home: string | undefined;
@@ -3212,6 +3274,7 @@ async function closingWorld(
   try {
     opened = await openLedger({
       sealedContent: true,
+      ...(options?.declared === true ? { declared: true } : {}),
       beforeBundle: async (app, dataRoot) => {
         made = await madeFixture("broken", await installedHome([]));
         const sealed = await sealBoard(made, "A", app, dataRoot);
@@ -3289,7 +3352,11 @@ async function closingWorld(
     );
     linkReleaseTest(opened.world, REL_BEFORE, beforeRun);
     linkReleaseTest(opened.world, REL_AFTER, afterRun);
-    await inspect(opened);
+    await inspect(opened, {
+      test: stored.testHash,
+      after: fixed.hash,
+      before: beforeHash,
+    });
 
     home = await copyHome(root);
     const db = openDb(`${home}/lophn.db`, false);
@@ -3303,7 +3370,7 @@ async function closingWorld(
       ).run(REL_BEFORE, opened.world.app);
       reproduction = (db.prepare(
         `select id from verifications
-          where kind = 'reproduction' and result = 'pass' and problem = ?`,
+          where kind = 'reproduction' and request_key = 'repro-stage3' and problem = ?`,
       ).get(opened.problem) as { id: string } | undefined)?.id ?? "";
     } finally {
       db.close();
@@ -3311,7 +3378,7 @@ async function closingWorld(
     assertNotEquals(
       reproduction,
       "",
-      "runner가 기록한 reproduction pass가 없다",
+      "runner가 기록한 reproduction이 없다",
     );
     await Deno.mkdir(`${home}/apps`, { mode: 0o700 });
     await Deno.mkdir(`${home}/apps/${opened.world.app}`, { mode: 0o700 });
@@ -3678,6 +3745,480 @@ Deno.test({
         await flow.close();
       }
     } finally {
+      await world?.cleanup();
+    }
+  },
+});
+
+// 7단계. 6단계와 같은 준비(봉인 bundle·기록된 reproduction pass·그 bundle의 app test)로 운영 중인 이전 release와
+// 준비만 된 고친 release를 만든다. 첫 보고만 앱이 선언한 code(fixture_broken)의 보고라, 닫힌 뒤 실제 앱이 같은
+// code로 보고하면 같은 묶기 key로 같은 문제에 모인다. 6단계 본문은 건드리지 않고 같은 준비를 한다.
+const APP_VIEW =
+  `electron.webContents.getAllWebContents().find((c) => c.getURL().startsWith("lophn-app:"))`;
+
+type AppReply = {
+  ok: boolean;
+  value?: Record<string, unknown>;
+  message?: string;
+};
+
+// 실행 중인 앱 view에서 앱 command를 부른다. 답은 command 결과 값이다.
+async function callApp(
+  flow: FlowShell,
+  command: string,
+  input: unknown,
+): Promise<AppReply> {
+  const script =
+    `lophnApp.call(${JSON.stringify(command)}, ${JSON.stringify(input)})` +
+    `.then((value) => ({ ok: true, value }), (error) => ({ ok: false, message: String(error && error.message) }))`;
+  const raw = await flow.shell.mainEvaluate(
+    `${APP_VIEW}.executeJavaScript(${JSON.stringify(script)})`,
+  ) as AppReply;
+  const outer = raw.value?.["result"];
+  const inner = outer !== null && typeof outer === "object"
+    ? (outer as { result?: unknown }).result
+    : undefined;
+  if (inner !== null && typeof inner === "object") {
+    return { ok: true, value: inner as Record<string, unknown> };
+  }
+  return raw;
+}
+
+// 사람이 허락해 고친 release를 적용한다(6단계와 같은 길). 적용이 시작 확인까지 끝나면 돌아온다.
+async function applyFixed(flow: FlowShell, app: string): Promise<void> {
+  await flow.until(
+    `document.querySelector('[data-app-bar="app-details"]') !== null`,
+    "앱 막대",
+  );
+  await flow.click('[data-app-bar="app-details"]');
+  await flow.until(
+    `document.querySelector(${
+      JSON.stringify(`[data-version="${REL_BEFORE}"]`)
+    })?.getAttribute("data-status") === "active"`,
+    "지금 Version이 보이지 않는다",
+  );
+  await flow.click(`[data-version="${REL_AFTER}"] [data-version-expand]`);
+  await flow.until(
+    `document.querySelector(${
+      JSON.stringify(`[data-version="${REL_AFTER}"] [data-use-version]`)
+    }) !== null`,
+    "고친 Version을 고를 수 없다",
+  );
+  await flow.click(`[data-version="${REL_AFTER}"] [data-use-version]`);
+  await decideInWindow(flow, '[data-decision="grant_approval_request"]', null);
+  await untilRead("허락한 release가 적용되지 않았다", async () => {
+    const seen = await runningOf(flow, app);
+    return seen?.release === REL_AFTER && seen.ready === true &&
+      (await releaseOf(flow, REL_AFTER)).status === "active";
+  });
+}
+
+// 적용한 뒤 기록된 reproduction 통과로 자동으로 닫힐 때까지 간다.
+async function applyFixedAndClose(
+  flow: FlowShell,
+  world: { app: string; problem: string; reproduction: string },
+): Promise<ProblemRead> {
+  await applyFixed(flow, world.app);
+  const closed = await untilProblem(
+    flow,
+    world.problem,
+    "자동으로 닫히지 않았다",
+    (read) => read.status === "closed",
+    90_000,
+  );
+  assertEquals(closed.closure?.reason, "verified");
+  assertEquals(closed.closure?.verification, world.reproduction);
+  await settleWindow(flow);
+  return closed;
+}
+
+// 닫힌 문제에 이전 release의 늦은 보고를 접수한다. 앱 process는 이미 새 release라 이전 release 이름으로
+// 보고할 수 없으므로, shell core를 멈춘 같은 데이터 root에서 보고 접수 command를 직접 보낸다.
+async function recordLateReport(
+  home: string,
+  app: string,
+  release: string,
+): Promise<string> {
+  const db = openDb(`${home}/lophn.db`, true);
+  let bundle = "";
+  try {
+    bundle = (db.prepare("select bundle_hash from releases where id = ?")
+      .get(release) as { bundle_hash: string }).bundle_hash;
+  } finally {
+    db.close();
+  }
+  const started = await startCore({
+    lophnHome: home,
+    port: 0,
+    writerClock: "system",
+    testCredentials: true,
+    teams: [
+      { createLedgerRegistration: createDocumentsRegistration },
+      { createLedgerRegistration: createAppsRegistration },
+      { problemsTestDefinitions },
+      { problemsReportDefinitions },
+      { createLedgerRegistration: createProblemsRegistration },
+      { codingAgentConnectionDefinitions },
+      { lophnAgentDefinitions },
+      { createLedgerRegistration: createLophnAgentRegistration },
+      { ticketDefinitions },
+      { createCoreRegistration: createTicketPortsRegistration },
+    ],
+    teamModules: [
+      new URL("../../apps/core/documents.ts", import.meta.url).href,
+      new URL("../../apps/core/apps.ts", import.meta.url).href,
+      new URL("../../apps/core/problems.ts", import.meta.url).href,
+      new URL("../../apps/core/coding-agent.ts", import.meta.url).href,
+      new URL("../../apps/core/lophn-agent.ts", import.meta.url).href,
+      new URL("../../apps/core/tickets.ts", import.meta.url).href,
+      new URL("../../apps/core/ticket-ports.ts", import.meta.url).href,
+    ],
+  });
+  assert(started.ok, started.ok ? "" : JSON.stringify(started.error));
+  const core = started.value;
+  try {
+    const context = {
+      principal: "machine-late",
+      actor: "machine" as const,
+      scope: { operations: ["RecordReport"], targets: {} },
+      conditions: {},
+      credential_ref: "late-1",
+    };
+    const token = "9".repeat(43);
+    assert(core.acceptTestCredential);
+    const accepted = await core.acceptTestCredential!(context, token);
+    assert(accepted.ok, accepted.ok ? "" : JSON.stringify(accepted.error));
+    assert((await core.record(context)).ok);
+    const base = reportInput(
+      context.principal,
+      app,
+      9,
+      { preparation: "", principal: "", purpose: "", hash: "", size_bytes: 0 },
+      bundle,
+    );
+    const at = new Date().toISOString();
+    const late = declaredReport(base);
+    const input = {
+      ...late,
+      report: { ...late.report, release, observed_at: at },
+      snapshot: {
+        ...late.snapshot,
+        captured_at: at,
+        logs: null,
+        logs_missing_reason: { reason: "logs off" },
+      },
+      blobs: [],
+      origin: {
+        ...late.origin,
+        context: { ...late.origin.context, release },
+      },
+    };
+    const sent = await fetch(
+      `http://127.0.0.1:${core.port}/v1/problems/record-report`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(
+          envelope(input, { active_release: REL_AFTER, problem_seq: null }),
+        ),
+      },
+    );
+    const body = await sent.json() as Record<string, unknown>;
+    assertEquals(sent.status, 200, JSON.stringify(body));
+    return String(body["problem"]);
+  } finally {
+    await core.shutdown();
+  }
+}
+
+/** shell 아래의 core를 SIGKILL하고 그 자손도 정리한다(다시 열 때 ledger를 잡고 있지 않게). */
+async function killCoreOf(shellPid: number): Promise<void> {
+  let corePid: number | undefined;
+  for (const pid of await descendantPids(shellPid)) {
+    try {
+      const raw = await Deno.readFile(`/proc/${pid}/cmdline`);
+      if (decoder.decode(raw).includes("apps/core/main.ts")) {
+        corePid = pid;
+        break;
+      }
+    } catch { /* 이미 끝남 */ }
+  }
+  assert(corePid !== undefined, "core pid를 찾지 못했다");
+  const children = (await descendantPids(corePid)).filter((pid) =>
+    pid !== corePid
+  );
+  signalPids([corePid], "SIGKILL");
+  const gone = Date.now() + 30_000;
+  while (processAlive(corePid)) {
+    assert(Date.now() < gone, "core가 끝나지 않았다");
+    await delay(200);
+  }
+  signalPids(children.filter((pid) => processAlive(pid)), "SIGKILL");
+  const childrenGone = Date.now() + 5_000;
+  while (children.some((pid) => processAlive(pid))) {
+    assert(Date.now() < childrenGone, "core 자손이 끝나지 않았다");
+    await delay(100);
+  }
+}
+
+type ReportRow = { id: string; release: string | null; code: string };
+
+async function reportsOfProblem(
+  flow: FlowShell,
+  problem: string,
+): Promise<ReportRow[]> {
+  const got = await mustCall(flow, {
+    kind: "read",
+    resource: "problems",
+    method: "list-reports",
+    body: { problem },
+  });
+  return got.reports as ReportRow[];
+}
+
+Deno.test({
+  name:
+    "problems/closing#R11 problems/closing#R12 problems/closing#R13 problems/grouping#R10 problems/repairs#R3 problems/snapshots#R17 shell/desktop#R7 flow verify-app-repair 7: 닫힌 뒤 현재 release의 재발은 같은 문제를 다시 열고 이전 release의 늦은 보고는 열지 않는다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn(t) {
+    let world: Awaited<ReturnType<typeof closingWorld>> | undefined;
+    let flow: FlowShell | undefined;
+    try {
+      world = await closingWorld(() => Promise.resolve(), { declared: true });
+      const { home, app, problem, reproduction } = world;
+      const verificationsBefore = countRows(home, "verifications");
+      flow = await openFlowShell({ home, start: `app:${app}` });
+      await waitFixing(flow, problem);
+      await untilRead("이전 release가 시작하지 않았다", async () => {
+        const seen = await runningOf(flow!, app);
+        return seen?.release === REL_BEFORE && seen.ready;
+      });
+      let originalReport = "";
+      let fixCount = 0;
+
+      await t.step(
+        "닫힌 문제는 닫힌 이유와 지금 필요한 주의를 먼저 보이고 원할 때 실제 확인 범위와 근거를 펼친다",
+        async () => {
+          await applyFixedAndClose(flow!, { app, problem, reproduction });
+          await reopenIssueDetail(flow!);
+          await flow!.until(
+            `document.querySelector('[data-issue-closed="verified"]') !== null`,
+            "테스트로 확인된 닫힘이 보이지 않는다",
+          );
+          assert(
+            (await screenText(flow!, "[data-issue-attention]")).length > 0,
+            "지금 필요한 주의가 없다",
+          );
+          // 실제 확인 범위와 근거는 접힌 상세에 있고 펼쳐야 읽는다. 미확인 부분은 따로 읽힌다.
+          assertEquals(
+            await flow!.evaluate(
+              `document.querySelector("[data-issue-details]")?.open`,
+            ),
+            false,
+          );
+          await flow!.click("[data-issue-details] summary");
+          await flow!.until(
+            `document.querySelector("[data-issue-details]")?.open === true`,
+            "근거가 펼쳐지지 않는다",
+          );
+          assert(
+            (await screenText(flow!, "[data-issue-details]")).length > 0,
+            "펼친 근거가 비었다",
+          );
+          assert(
+            (await screenText(flow!, "[data-check='unconfirmed']")).length > 0,
+            "미확인 부분이 없다",
+          );
+          const reports = await reportsOfProblem(flow!, problem);
+          assertEquals(reports.length, 1);
+          originalReport = reports[0]!.id;
+          const fixes = await mustCall(flow!, {
+            kind: "read",
+            resource: "problems",
+            method: "list-fixes",
+            body: { problem },
+          });
+          fixCount = (fixes.fixes as unknown[]).length;
+          assert(fixCount >= 1, "닫힌 문제에 고친 기록이 없다");
+        },
+      );
+
+      await t.step(
+        "다른 갈래: 이전 release의 늦은 보고는 근거로 남지만 현재 release의 재발로 다시 열지 않는다",
+        async () => {
+          await flow!.close();
+          flow = undefined;
+          const late = await recordLateReport(home, app, REL_BEFORE);
+          assertEquals(late, problem);
+          flow = await openFlowShell({ home, start: `app:${app}` });
+          const still = await problemOf(flow, problem);
+          assertEquals(still.status, "closed");
+          assertEquals(still.closure?.reason, "verified");
+          assertEquals(eventCount(home, "ProblemReopened", problem), 0);
+          // 보고는 읽히고 그 보고의 release는 이전 release다.
+          const reports = await reportsOfProblem(flow, problem);
+          assertEquals(reports.length, 2);
+          const lateRow = reports.find((row) => row.id !== originalReport);
+          assertEquals(lateRow?.release, REL_BEFORE);
+          // 닫힌 화면은 그대로다.
+          await reopenIssueDetail(flow);
+          await flow.until(
+            `document.querySelector('[data-issue-closed="verified"]') !== null`,
+            "늦은 보고 뒤 닫힘이 바뀌었다",
+          );
+        },
+      );
+
+      await t.step(
+        "flow 7: 닫힌 뒤 현재 release에서 같은 분류가 재발하면 같은 문제를 다시 열고 이전 수리와 근거를 보존한다",
+        async () => {
+          await untilRead("고친 release가 다시 시작하지 않았다", async () => {
+            const seen = await runningOf(flow!, app);
+            return seen?.release === REL_AFTER && seen.ready;
+          });
+          // 앱 view는 앱 공간에 있다. 상세를 닫고 앱 공간으로 돌아가 앱이 보일 때 앱을 부른다.
+          await flow!.evaluate(`(() => { location.reload(); return true; })()`);
+          await delay(500);
+          await flow!.until(
+            `document.querySelector('[data-space="app"]') !== null`,
+            "앱 공간이 다시 서지 않았다",
+          );
+          await untilRead("앱 view가 서지 않았다", async () => {
+            try {
+              return await flow!.shell.mainEvaluate(
+                `${APP_VIEW}.executeJavaScript("typeof lophnApp !== 'undefined'")`,
+              ) === true;
+            } catch {
+              return false;
+            }
+          });
+          const sent = await callApp(flow!, "repeat_report", { kind: "same" });
+          assert(sent.ok, sent.message);
+          assertEquals(sent.value?.["first"], "accepted");
+          const reopened = await untilProblem(
+            flow!,
+            problem,
+            "같은 문제가 다시 열리지 않았다",
+            (read) => read.status !== "closed",
+          );
+          assertEquals(reopened.closure, null);
+          assertEquals(eventCount(home, "ProblemReopened", problem), 1);
+          // 같은 문제다: 새 문제를 만들지 않았다.
+          const listed = await mustCall(flow!, {
+            kind: "read",
+            resource: "problems",
+            method: "list",
+            body: { app },
+          });
+          assertEquals((listed.problems as unknown[]).length, 1);
+          // 이전 닫힘의 근거는 event에 남는다.
+          const db = openDb(`${home}/lophn.db`, true);
+          try {
+            const row = db.prepare(
+              "select payload from events where type = 'ProblemReopened' and subject = ?",
+            ).get(problem) as { payload: string };
+            const payload = JSON.parse(row.payload) as {
+              previous: {
+                reason: string;
+                verification: string;
+                release: string;
+              };
+            };
+            assertEquals(payload.previous.reason, "verified");
+            assertEquals(payload.previous.verification, reproduction);
+            assertEquals(payload.previous.release, REL_AFTER);
+            assertEquals(
+              (db.prepare(
+                "select count(*) as n from events where type = 'ProblemClosed' and subject = ?",
+              ).get(problem) as { n: number }).n,
+              1,
+            );
+            const verification = db.prepare(
+              "select result from verifications where id = ?",
+            ).get(reproduction) as { result: string };
+            assertEquals(verification.result, "pass");
+          } finally {
+            db.close();
+          }
+          // 재발은 새 test를 만들지 않고 이전 수리 기록과 당시 보고·snapshot이 그대로 읽힌다.
+          assertEquals(countRows(home, "verifications"), verificationsBefore);
+          const fixes = await mustCall(flow!, {
+            kind: "read",
+            resource: "problems",
+            method: "list-fixes",
+            body: { problem },
+          });
+          assertEquals((fixes.fixes as unknown[]).length, fixCount);
+          const reports = await reportsOfProblem(flow!, problem);
+          assertEquals(reports.length, 3);
+          assert(reports.some((row) => row.id === originalReport));
+          const recurred = reports.find((row) =>
+            row.release === REL_AFTER && row.id !== originalReport
+          );
+          assert(recurred !== undefined, "현재 release 재발 보고가 없다");
+          const original = await mustCall(flow!, {
+            kind: "read",
+            resource: "problems",
+            method: "get-report",
+            body: { report: originalReport },
+          });
+          assertEquals(
+            (original.report as { release: string }).release,
+            REL_BEFORE,
+          );
+          // 화면은 닫힘이 아니라 열린 문제를 보이고 닫힘 이유는 없다.
+          await reopenIssueDetail(flow!);
+          assertEquals(await flow!.count("[data-issue-closed]"), 0);
+          assertNotEquals(
+            await flow!.evaluate(
+              `document.querySelector("[data-issue-detail]")?.getAttribute("data-issue-detail")`,
+            ),
+            "closed",
+          );
+        },
+      );
+
+      await t.step(
+        "다른 갈래: 연결이 끊기면 마지막 화면을 두고 최신 확인 못함을 보이며 지난 상태를 새 판정으로 바꾸지 않는다",
+        async () => {
+          const before = await flow!.evaluate(
+            `document.querySelector("[data-issue-detail]")?.getAttribute("data-issue-detail")`,
+          );
+          // 문제 상세 자신의 최신 확인 못함 표시(상세 바로 앞 줄)를 본다. 다른 자리의 연결 표시가 아니다.
+          const stale = "[data-stale] + [data-issue-detail]";
+          assertEquals(await flow!.count(stale), 0);
+          // 답을 기다리는 동안 화면은 다시 읽는다.
+          await flow!.click('[data-issue-choice="not_fixed"]');
+          await untilWindow(flow!, true);
+          await closeWindow(flow!);
+          await untilWindow(flow!, false);
+          await killCoreOf(flow!.shell.pid);
+          await flow!.until(
+            `document.querySelector(${JSON.stringify(stale)}) !== null`,
+            "연결이 끊겼는데 문제 상세에 최신 확인 못함이 보이지 않는다",
+            30_000,
+          );
+          assert(
+            (await screenText(flow!, "[data-stale]:has(+ [data-issue-detail])"))
+              .includes("Last updated"),
+            "마지막 확인 시각이 없다",
+          );
+          assertEquals(
+            await flow!.evaluate(
+              `document.querySelector("[data-issue-detail]")?.getAttribute("data-issue-detail")`,
+            ),
+            before,
+          );
+          assertEquals(await flow!.count("[data-issue-closed]"), 0);
+        },
+      );
+    } finally {
+      await flow?.close();
       await world?.cleanup();
     }
   },

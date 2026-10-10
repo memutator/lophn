@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { registerViewSchemes } from "../../desktop/security.ts";
 import { createShellHandler } from "../../desktop/shell-protocol.ts";
 import { createCoordinator } from "../coordinator.ts";
-import { registerConfirmationIpc } from "../ipc.ts";
+import { type ConfirmationIpcEvent, registerConfirmationIpc } from "../ipc.ts";
 import { intents, world } from "../kinds/app-decisions_fixture.ts";
 import type {
   AppContents,
@@ -130,7 +130,7 @@ async function run(): Promise<unknown> {
     handle: (channel, listener) =>
       ipcMain.handle(
         channel,
-        (event, input) => listener(event as { sender: { id: number } }, input),
+        (event, input) => listener(event as ConfirmationIpcEvent, input),
       ),
     removeHandler: (channel) => ipcMain.removeHandler(channel),
   }, { coordinator, parentOf: () => parentRef });

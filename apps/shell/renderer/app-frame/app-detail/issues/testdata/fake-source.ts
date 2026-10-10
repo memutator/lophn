@@ -124,6 +124,8 @@ export interface FakeIssues {
   readonly decisions: IssueDecision[];
   readonly again: { app: string; problem: string }[];
   readonly reads: string[];
+  /** 열린 결정 창을 모두 거절·닫기로 끝낸다. */
+  endDecisions(): void;
 }
 
 export interface FakeIssuesOptions {
@@ -137,6 +139,7 @@ export function fakeIssues(options: FakeIssuesOptions = {}): FakeIssues {
   const decisions: IssueDecision[] = [];
   const again: { app: string; problem: string }[] = [];
   const reads: string[] = [];
+  const unconfirmed: (() => void)[] = [];
   const views = options.views ?? {
     [PRB_OPEN]: OPEN_ISSUE,
     [PRB_FIXING]: FIXING_ISSUE,
@@ -153,8 +156,11 @@ export function fakeIssues(options: FakeIssuesOptions = {}): FakeIssues {
           : { ok: true as const, value: view },
       );
     },
-    decide: (decision) => {
+    decide: (decision, onUnconfirmed) => {
       decisions.push(decision);
+      if (onUnconfirmed !== undefined && options.decide?.ok !== false) {
+        unconfirmed.push(onUnconfirmed);
+      }
       return Promise.resolve(options.decide ?? { ok: true, value: true });
     },
     reportAgain: (app, problem) => {
@@ -162,5 +168,13 @@ export function fakeIssues(options: FakeIssuesOptions = {}): FakeIssues {
       return Promise.resolve(options.reportAgain ?? { ok: true, value: true });
     },
   };
-  return { source, decisions, again, reads };
+  return {
+    source,
+    decisions,
+    again,
+    reads,
+    endDecisions: () => {
+      for (const end of unconfirmed.splice(0)) end();
+    },
+  };
 }

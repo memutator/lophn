@@ -60,8 +60,14 @@ export function ConnectionsTab({ app, source, now }: ConnectionsTabProps) {
       | { kind: "remove_access"; app: string; grant: string },
   ): Promise<void> {
     setFailed(false);
-    const reply = await source.decide(decision);
-    if (reply.ok) setAsked(new Set(asked).add(target));
+    // 확인 창이 거절·닫힘 등으로 확정 없이 끝나면 기다림을 푼다.
+    const reply = await source.decide(decision, () =>
+      setAsked((now) => {
+        const next = new Set(now);
+        next.delete(target);
+        return next;
+      }));
+    if (reply.ok) setAsked((now) => new Set(now).add(target));
     else setFailed(true);
   }
 

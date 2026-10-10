@@ -170,10 +170,11 @@ export function placeWaiting(
  * 고르는 것이 결정이다(flow new-app 3, documents/terms#R2). 그 밖 action은 확인 창을 연다.
  */
 export function confirmsWithoutWindow(command: string | null | undefined) {
-  return command === "term.define" || command === "app.create";
+  return command === "term.define" || command === "app.create" ||
+    command === "apply_settings";
 }
 
-/** 이 선택지는 confirmation window에서만 답을 확정한다. term.define·app.create는 아니다. */
+/** 이 선택지는 confirmation window에서만 답을 확정한다. term.define·app.create·apply_settings는 아니다(되돌릴 수 있는 안쪽 동작). */
 export function needsReview(
   question: QuestionRequest,
   option: string | null,

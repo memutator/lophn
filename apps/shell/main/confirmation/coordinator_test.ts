@@ -214,3 +214,30 @@ test("shell/app-frame#R30: 보호 창이 열려도 앱 view를 떼지 않는다"
   assert.equal(env.hidden.length, 0);
   assert.equal(view.blocked, true);
 });
+
+test("shell/confirmation-window#R9: 기한이 지난 확인은 닫힐 때 expired로 연 창에만 알린다", async () => {
+  const env = fake();
+  env.canon.value = {
+    ...env.canon.value,
+    expiresAt: new Date(env.clock.now - 1000).toISOString(),
+  };
+  const confirm = coordinator(env);
+  const sent: [string, unknown][] = [];
+  const opened = await confirm.open({
+    intent: INTENT,
+    parent: parent("shell-1"),
+    opener: {
+      send: (channel, payload) => sent.push([channel, payload]),
+      isDestroyed: () => false,
+    },
+    requestedByPerson: true,
+  });
+  assert.equal(opened.ok, true);
+  if (!opened.ok) return;
+  assert.equal(confirm.gate(opened.value.windowId)?.state, "expired");
+  await confirm.cancel(opened.value.windowId);
+  assert.deepEqual(sent, [[
+    "shell:confirmation-ended",
+    { windowId: opened.value.windowId, ended: "expired" },
+  ]]);
+});

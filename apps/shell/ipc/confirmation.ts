@@ -5,8 +5,12 @@ import { z } from "zod";
 export {
   CONFIRMATION_CANCEL_CHANNEL,
   CONFIRMATION_DISPLAY_CHANNEL,
+  CONFIRMATION_ENDED_CHANNEL,
+  CONFIRMATION_ENDED_KINDS,
   CONFIRMATION_OPEN_CHANNEL,
   CONFIRMATION_SUBMIT_CHANNEL,
+  type ConfirmationEnded,
+  type ConfirmationEndedKind,
 } from "./confirmation-channels.ts";
 
 const ID = /^[a-z]{3}_[0-7][0-9a-hjkmnp-tv-z]{25}$/;

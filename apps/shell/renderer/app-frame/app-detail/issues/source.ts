@@ -118,8 +118,14 @@ export interface IssueDecision {
 export interface IssuesSource {
   list(app: string): Promise<SourceResult<readonly IssueRow[]>>;
   get(problem: string): Promise<SourceResult<IssueView>>;
-  /** 결정 창(owner decision)을 연다. 결정 자체는 그 창에서만 받는다. */
-  decide(decision: IssueDecision): Promise<SourceResult<true>>;
+  /**
+   * 결정 창(owner decision)을 연다. 결정 자체는 그 창에서만 받는다. 창이 확정되지 않고 끝나면
+   * (닫기·취소·만료·교체) onUnconfirmed를 한 번 부른다.
+   */
+  decide(
+    decision: IssueDecision,
+    onUnconfirmed?: () => void,
+  ): Promise<SourceResult<true>>;
   /** "직접 해 봤지만 안 됩니다": 그 문제를 고른 채 새 feedback을 연다. */
   reportAgain(app: string, problem: string): Promise<SourceResult<true>>;
 }

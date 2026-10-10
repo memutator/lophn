@@ -37,6 +37,12 @@ import {
   READ,
   success,
 } from "./common.ts";
+import {
+  documentMoveAction,
+  fixedDocumentMove,
+  fixedSettingChange,
+  settingChangeAction,
+} from "./question-actions.ts";
 import type { ToolDefinition } from "../registry.ts";
 import type { RunCredential, ToolHandler } from "../work.ts";
 
@@ -69,7 +75,9 @@ function define(
 // `term_definition`으로, 새 앱 등록은 `app_registration`으로만 제안할 수 있고, handler가
 // 고정 action을 만든다. term.define은 읽은 후보의 이름·revision으로 고정하고(뜻 글의
 // blob hash는 만들지 않는다), app.create는 handler가 앱 ID를 미리 배정하고 선택지의 근거
-// 판(evidence 하나)을 등록 근거 판으로 고정한다.
+// 판(evidence 하나)을 등록 근거 판으로 고정한다. 설정 변경(`setting_change`)과 문서 자리
+// 이동(`document_move`)도 대상과 새 값만 제안하고 현재 값·revision 같은 비교 기준은 handler가
+// 읽어 고정한다(question-actions.ts).
 const fixedAppRegistration = appCreateInputSchema.pick({
   slug: true,
   name: true,
@@ -89,6 +97,8 @@ const questionOption = z.strictObject({
   action: z.null(),
   term_definition: fixedTermDefinition.optional(),
   app_registration: fixedAppRegistration.optional(),
+  setting_change: fixedSettingChange.optional(),
+  document_move: fixedDocumentMove.optional(),
 });
 
 export const questionSubmitInput = z.strictObject({
@@ -296,18 +306,33 @@ export function createAgentToolHandlers(
       const value = input as z.infer<typeof questionSubmitInput>;
       const facts = await ports.runFacts(credential.run);
       if (!facts.ok) return facts;
+      const id = ports.newId("qst");
       const options = [];
       for (const option of value.options) {
         const {
           term_definition: proposed,
           app_registration: registration,
+          setting_change: setting,
+          document_move: move,
           ...rest
         } = option;
-        if (proposed !== undefined && registration !== undefined) {
+        const fixes = [proposed, registration, setting, move].filter((
+          fixed,
+        ) => fixed !== undefined).length;
+        if (fixes > 1) {
           return err({
             code: "invalid_input",
             message: "an option fixes one action",
           });
+        }
+        if (setting !== undefined || move !== undefined) {
+          const run = { ports, run: credential.run };
+          const action = setting !== undefined
+            ? await settingChangeAction(run, id, setting)
+            : await documentMoveAction(run, move!);
+          if (!action.ok) return action;
+          options.push({ ...rest, action: action.value });
+          continue;
         }
         if (registration !== undefined) {
           // 등록 근거 판은 선택지의 근거 하나다. 그 판이 실제 판인지는 질문 command가 확인한다.
@@ -368,7 +393,6 @@ export function createAgentToolHandlers(
           }),
         });
       }
-      const id = ports.newId("qst");
       const created = await ports.call(
         "CreateQuestion",
         {

@@ -49,7 +49,7 @@ const WRITE_INPUT = {
     view_session: { type: "string" },
     expected_revision: { type: "string" },
     target: { type: "string" },
-    text: { type: "string" },
+    text: { type: "string", minLength: 1 },
   },
   required: ["screen", "view_session", "expected_revision", "target", "text"],
   additionalProperties: false,

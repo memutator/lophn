@@ -292,7 +292,7 @@ export function makeBlueprint(text: Text = en): Blueprint {
     agent_context: [{
       screen: "todos",
       read_command: "todo_context",
-      sensitive_paths: ["/todo/private_note"],
+      sensitive_paths: ["/data/todo/private_note"],
       annotation_targets: [{
         key: "hint",
         label: text["todos.label.hint"],

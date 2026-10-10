@@ -241,7 +241,8 @@ export function buildAppContextTools(source: {
         screen: declaration.screen,
         view_session: "x",
         expected_revision: "x",
-        text: "",
+        // 앱이 text의 길이 하한을 선언할 수 있어 비어 있지 않은 값으로 가능성을 본다.
+        text: "x",
       };
       if (planScreenRead(source.scope, state, probe).ok) read = true;
       for (const place of declaration.annotation_targets) {

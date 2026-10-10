@@ -69,9 +69,11 @@ function remove(data: Json, pointer: string): string[] {
     const data = input.data === undefined
       ? undefined
       : structuredClone(input.data);
+    // 선언한 path는 AppScreenContext 값(`/summary`, `/data/...`)을 가리킨다.
+    const root = { data };
     const redacted = data === undefined
       ? []
-      : input.sensitive_paths.flatMap((path) => remove(data, path));
+      : input.sensitive_paths.flatMap((path) => remove(root, path));
     return { summary: input.summary, data, redacted };
   },
 };
@@ -204,7 +206,7 @@ Deno.test("apps/agent-context#R3: 요약은 2KiB 이하이고 상세 자료는 d
 
 Deno.test("apps/agent-context#R4: 선언한 민감 칸 private_note는 요약과 상세 어디에도 나오지 않는다", async () => {
   assertEquals(blueprint.agent_context[0].sensitive_paths, [
-    "/todo/private_note",
+    "/data/todo/private_note",
   ]);
   const id = await newTodo("With note", SECRET);
   open.set("v-r4", "todos");
@@ -212,7 +214,7 @@ Deno.test("apps/agent-context#R4: 선언한 민감 칸 private_note는 요약과
 
   // 선언한 path가 실제 상세 데이터 안의 그 칸을 가리킨다(host가 지울 대상).
   const detail = await read("v-r4", true);
-  assertEquals(detail.redacted, ["/todo/private_note"]);
+  assertEquals(detail.redacted, ["/data/todo/private_note"]);
   assertEquals(detail.data?.todo["title"], "With note");
   for (const output of [await read("v-r4"), detail]) {
     assertEquals(JSON.stringify(output).includes(SECRET), false);

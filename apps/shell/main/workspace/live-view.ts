@@ -96,7 +96,10 @@ async function applyHint(
     (count, pane) => count + pane.tabs.length,
     0,
   );
-  if (hintedTabs === 0) {
+  // 마지막 탭을 닫아 비었으면(판을 기다리는 탭도 없다) 이전에 publish한 보기를 빈 보기로 바꾼다.
+  // 그대로 두면 agent가 닫힌 탭을 지금 열린 탭으로 읽는다(prompt-assemble#R28).
+  const clearing = !parsed.pending && (known.get(windowRef)?.tabs ?? 0) > 0;
+  if (hintedTabs === 0 && !clearing) {
     if (parsed.pending) markPending(known, windowRef);
     return { ok: true };
   }
@@ -115,7 +118,7 @@ async function applyHint(
     scope,
     observed_at: deps.now(),
   });
-  if (!assembled.ok || assembled.state.tabs.length === 0) {
+  if (!assembled.ok || (assembled.state.tabs.length === 0 && !clearing)) {
     if (parsed.pending) markPending(known, windowRef);
     return { ok: assembled.ok };
   }

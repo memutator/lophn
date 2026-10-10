@@ -275,6 +275,11 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
         loaded === undefined || !loaded.ok
       ? []
       : await deps.apps.define(scope.value, loaded.value);
+    // 화면 context 조회·주석 쓰기도 같은 범위에서만 정의가 된다.
+    const contextTools: readonly ToolDefinition[] = deps.apps === undefined ||
+        loaded === undefined || !loaded.ok
+      ? []
+      : deps.apps.defineContext(scope.value, loaded.value);
 
     // 외부 MCP tool 등록이다(T37). 사람의 registry(mcp_servers 설정)와 preset 선택만이 출처이며,
     // 목록을 다시 읽지 못하면 그 server tool 정의가 없는 것과 같다(Q16: 재조회 실패는 옛 정의를
@@ -298,7 +303,10 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
     const listed = listTools(
       {
         builtin: deps.toolkit.definitions ?? BUILTIN_TOOLS,
-        app: appTools.map((tool) => tool.definition),
+        app: [
+          ...appTools.map((tool) => tool.definition),
+          ...contextTools,
+        ],
         external: external.map((tool) => tool.definition),
       },
       {
@@ -335,6 +343,7 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
       definition,
       listed,
       appTools,
+      contextTools,
       external,
       scope: scope.value,
       model: model.value,
@@ -373,10 +382,16 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
     const appByName = new Map(
       m.appTools.map((tool) => [tool.definition.name, tool]),
     );
+    const contextNames = new Set(m.contextTools.map((tool) => tool.name));
     for (const tool of listed) {
       const app = appByName.get(tool.name);
       if (app !== undefined && deps.apps !== undefined) {
         bindings.set(tool.name, deps.apps.binding(app, agent));
+        continue;
+      }
+      if (contextNames.has(tool.name) && deps.apps !== undefined) {
+        const bound = deps.apps.contextBinding(tool, m.scope, agent);
+        if (bound !== undefined) bindings.set(tool.name, bound);
         continue;
       }
       const bound = toolkit.binding(tool, { agent, seat, reach }) ??
@@ -436,6 +451,9 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
         handlers: new Map([
           ...toolkit.handlers(seat, agent),
           ...(deps.apps?.handlers(m.appTools, agent) ?? []),
+          ...(m.contextTools.length === 0
+            ? []
+            : deps.apps?.contextHandlers(m.scope, agent) ?? []),
           ...(m.mcpKit === undefined ? [] : createMcpToolHandlers(
             external,
             m.mcpKit.call(assignment.id),

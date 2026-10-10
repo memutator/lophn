@@ -3,8 +3,10 @@
 // 그 테스트의 후보는 사람 command의 고정 본문 근거로 준비한다. 2는 다음 테스트가 본다.
 // 3은 고정 action 없는 질문만 본다. 4는 마지막 테스트가 고정한 term.define 선택지를
 // 확인 창 없이 사람의 결정으로 접수한다. 접수된 결정의 machine 적용까지 본다.
-// 5의 변경 기록·목록 구별은 여기서 하지 않는다.
+// 5의 변경 기록·목록 구별은 마지막 테스트가 본다. 5는 같은 term.define 명령을
+// 사람 직접 정의 경로로 부른 결과를 본다.
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { DatabaseSync } from "node:sqlite";
 
 import {
   copyFixture,
@@ -2959,6 +2961,384 @@ Deno.test({
         body: { question: first.id },
       });
       assertEquals(kept["answer_text"], FREE_ANSWER);
+    } finally {
+      await flow?.close();
+      await provider.close();
+      if (flow !== undefined) await removeHome(flow.home);
+      await Deno.remove(folder, { recursive: true });
+    }
+  },
+});
+
+// 5: 사람의 정의는 결정 주체·이전/이후 내용이 있는 변경 기록으로 남고, 이후 agent가
+// 읽는 목록에서도 사람 정의와 미정 후보가 섞이지 않는다. 4의 machine 적용(followups
+// 49·55)은 볼 수 없어, 같은 term.define 명령을 사람 직접 정의 경로로 불러 본다.
+const LOG_CONTEXT = "ctx_01arz3ndektsv4rrffq69g5fbc";
+const LOG_DEFINED = "trm_01arz3ndektsv4rrffq69g5fbc";
+const LOG_OPEN = "trm_01arz3ndektsv4rrffq69g5fbd";
+const LOG_TITLE = "기록알파";
+const LOG_SECTION = "쓰임";
+const LOG_PURPOSE = "변경 기록과 목록을 가르는 자료";
+const LOG_NAME = "정산주기";
+const LOG_OPEN_NAME = "임시표";
+const LOG_FIRST = "한 달이 끝나는 날 맞추는 계산";
+const LOG_SECOND = "분기가 끝나는 날 맞추는 계산";
+const LOG_READ_TEXT = "이 context의 용어 목록을 읽어 달라.";
+const LOG_READ_DONE = "용어 목록을 읽었다.";
+
+type FixedEvidence = {
+  document: string;
+  version: string;
+  section: string;
+  start_line: number;
+  end_line: number;
+};
+
+// 목차에서 section을 찾아 그 고정 판 본문이 읽힐 때의 section·줄 범위를 근거로 준다.
+async function fixedEvidence(
+  flow: FlowShell,
+  document: string,
+  title: string,
+  section: string,
+  word: string,
+): Promise<FixedEvidence> {
+  const deadline = Date.now() + READY_TIMEOUT_MS;
+  for (;;) {
+    const current = await documentTitled(flow, title);
+    const outline = await mustCall(flow, {
+      kind: "worker",
+      resource: "outline",
+      method: "document",
+      body: {
+        reference: {
+          document,
+          version: current.latest_version,
+          section: null,
+        },
+      },
+    });
+    const found = (outline.entries as { key?: string; title?: string }[])
+      .find((entry) => entry.title === section);
+    if (outline.section_status === "whole" && typeof found?.key === "string") {
+      const read = await readFixed(
+        flow,
+        document,
+        current.latest_version,
+        found.key,
+      );
+      const ranges = read["ranges"] as {
+        start_line?: number;
+        end_line?: number;
+      }[];
+      if (String(read["text"] ?? "").includes(word) && ranges.length > 0) {
+        return {
+          document,
+          version: current.latest_version,
+          section: found.key,
+          start_line: Math.min(...ranges.map((range) => range.start_line ?? 0)),
+          end_line: Math.max(...ranges.map((range) => range.end_line ?? 0)),
+        };
+      }
+    }
+    assert(Date.now() < deadline, `고정 판 근거가 없다: ${title}`);
+    await delay(250);
+  }
+}
+
+type LoggedEvent = {
+  seq: string;
+  type: string;
+  subject: string | null;
+  actor: string;
+  run: string | null;
+  payload: Record<string, unknown>;
+};
+
+// term event는 사람 화면에도 events read에도 공개하지 않는다(공개 정책이 없는 event는
+// 숨김이다). 변경 기록은 ledger의 events 행을 읽기 전용으로 열어 본다.
+function termEvents(home: string, subjects: string[]): LoggedEvent[] {
+  const db = new DatabaseSync(`${home}/lophn.db`, { readOnly: true });
+  try {
+    const rows = db.prepare(
+      `SELECT seq, type, subject, actor, run, payload FROM events
+       WHERE subject IN (${subjects.map(() => "?").join(", ")}) ORDER BY seq`,
+    ).all(...subjects) as {
+      seq: number | bigint;
+      type: string;
+      subject: string | null;
+      actor: string;
+      run: string | null;
+      payload: string;
+    }[];
+    return rows.map((row) => ({
+      seq: String(row.seq),
+      type: row.type,
+      subject: row.subject,
+      actor: row.actor,
+      run: row.run,
+      payload: JSON.parse(row.payload) as Record<string, unknown>,
+    }));
+  } finally {
+    db.close();
+  }
+}
+
+type LogFixture = {
+  url: string;
+  close: () => Promise<void>;
+  failure: () => string;
+  calls: () => number;
+  body: (index: number) => string;
+  read: () => Record<string, unknown> | null;
+};
+
+function startLogScript(): LogFixture {
+  const bodies: string[] = [];
+  const found = {
+    phase: "ask" as "ask" | "seen" | "done",
+    failure: "",
+    read: null as Record<string, unknown> | null,
+  };
+  const server = Deno.serve(
+    { hostname: "127.0.0.1", port: 0, onListen: () => {} },
+    async (request) => {
+      const text = await request.text();
+      const path = new URL(request.url).pathname;
+      if (request.method !== "POST" || !path.endsWith("/messages")) {
+        return Response.json({ error: "unexpected" }, { status: 500 });
+      }
+      bodies.push(text);
+      let reply: SemanticReply;
+      try {
+        if (found.phase === "ask") {
+          found.phase = "seen";
+          reply = toolCall("toolu_log_terms", "context.terms", {
+            context: LOG_CONTEXT,
+          });
+        } else if (found.phase === "seen") {
+          found.read = toolContent(text);
+          found.phase = "done";
+          reply = said(LOG_READ_DONE);
+        } else {
+          reply = said(LOG_READ_DONE);
+        }
+      } catch (error) {
+        found.failure = error instanceof Error ? error.message : String(error);
+        return Response.json({ error: found.failure }, { status: 500 });
+      }
+      const built = buildReply("messages", reply);
+      return new Response(built.body ?? "", {
+        status: built.status,
+        headers: built.headers,
+      });
+    },
+  );
+  return {
+    url: `http://127.0.0.1:${server.addr.port}`,
+    close: () => server.shutdown(),
+    failure: () => found.failure,
+    calls: () => bodies.length,
+    body: (index) => bodies[index] ?? "",
+    read: () => found.read,
+  };
+}
+
+Deno.test({
+  name:
+    "documents/terms#R1 documents/terms#R2 documents/terms#R4 platform/ledger#R3 platform/ledger#R10 flow define-terms 5: 사람 정의를 결정 주체와 이전·이후 내용의 변경 기록으로 남기고 agent가 읽는 목록에서 정의와 미정 후보를 구별한다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn(t) {
+    const folder = await Deno.realPath(await copyFixture("korean-search"));
+    await Deno.writeTextFile(
+      `${folder}/${LOG_TITLE}.md`,
+      `# ${LOG_TITLE}\n\n## ${LOG_SECTION}\n\n${LOG_NAME}라는 말과 ${LOG_OPEN_NAME}라는 말이 그대로 있다.\n`,
+    );
+    const provider = startLogScript();
+    let flow: FlowShell | undefined;
+    try {
+      flow = await openFlowShell({ start: "lophn" });
+      const shell = flow;
+      await registerAskProvider(shell, provider.url);
+      await registerTrackedProject(shell, { folder });
+      await untilDocuments(shell, [LOG_TITLE], "문서 관측 대기");
+      const glossary = await documentTitled(shell, LOG_TITLE);
+      await untilSectionStatus(
+        shell,
+        glossary.id,
+        "whole",
+        `${LOG_TITLE} 추출 대기`,
+      );
+      const evidence = await fixedEvidence(
+        shell,
+        glossary.id,
+        LOG_TITLE,
+        LOG_SECTION,
+        LOG_NAME,
+      );
+      await mustCall(shell, {
+        kind: "command",
+        resource: "contexts",
+        method: "create",
+        body: commandBody({
+          id: LOG_CONTEXT,
+          title: "Change log",
+          purpose: LOG_PURPOSE,
+          items: [{
+            target: {
+              kind: "document",
+              document: glossary.id,
+              section: null,
+            },
+            perspective: "basis",
+            reason: "말의 본문 근거",
+          }],
+        }),
+      });
+      await mustCall(shell, {
+        kind: "command",
+        resource: "terms",
+        method: "propose",
+        body: commandBody({
+          id: LOG_OPEN,
+          context: LOG_CONTEXT,
+          name: LOG_OPEN_NAME,
+          evidence: [evidence],
+        }),
+      });
+      await mustCall(shell, {
+        kind: "command",
+        resource: "terms",
+        method: "propose",
+        body: commandBody({
+          id: LOG_DEFINED,
+          context: LOG_CONTEXT,
+          name: LOG_NAME,
+          evidence: [evidence],
+        }),
+      });
+      // 사람이 직접 정의한다(4의 선택지 접수와 같은 term.define이다).
+      const candidate = await mustCall(shell, {
+        kind: "read",
+        resource: "terms",
+        method: "get",
+        body: { term: LOG_DEFINED },
+      });
+      await mustCall(shell, {
+        kind: "command",
+        resource: "terms",
+        method: "define",
+        body: commandBody(
+          { term: LOG_DEFINED, name: LOG_NAME, definition: LOG_FIRST },
+          { base_revision: (candidate.term as { revision: string }).revision },
+        ),
+      });
+
+      await t.step(
+        "platform/ledger#R3 documents/terms#R2: 정의는 사람 주체와 이전·이후 내용이 있는 변경 기록으로 남고 후보는 정의 기록이 없다",
+        () => {
+          const events = termEvents(shell.home, [LOG_DEFINED, LOG_OPEN]);
+          const defined = events.filter((event) =>
+            event.type === "TermDefined"
+          );
+          assertEquals(defined.length, 1);
+          assertEquals(defined[0].subject, LOG_DEFINED);
+          assertEquals(defined[0].actor, "user");
+          assertEquals(defined[0].payload["context"], LOG_CONTEXT);
+          assertEquals(defined[0].payload["name"], LOG_NAME);
+          assertEquals(defined[0].payload["before_definition"], null);
+          assertEquals(defined[0].payload["definition"], LOG_FIRST);
+          assert(typeof defined[0].payload["before_revision"] === "string");
+          // 정의가 아닌 후보에는 정의 기록이 없다.
+          assertEquals(
+            events.some((event) =>
+              event.subject === LOG_OPEN && event.type !== "TermProposed"
+            ),
+            false,
+          );
+          assertEquals(
+            events.filter((event) =>
+              event.subject === LOG_OPEN && event.type === "TermProposed"
+            ).length,
+            1,
+          );
+        },
+      );
+
+      await t.step(
+        "platform/ledger#R10: 사람이 뜻을 고치면 먼저 기록은 그대로 두고 이전·이후 내용의 새 기록이 더해진다",
+        async () => {
+          const before = termEvents(shell.home, [LOG_DEFINED]);
+          const first = before.find((event) => event.type === "TermDefined");
+          assert(first !== undefined);
+          const current = await mustCall(shell, {
+            kind: "read",
+            resource: "terms",
+            method: "get",
+            body: { term: LOG_DEFINED },
+          });
+          await mustCall(shell, {
+            kind: "command",
+            resource: "terms",
+            method: "update",
+            body: commandBody(
+              { term: LOG_DEFINED, definition: LOG_SECOND },
+              {
+                base_revision: (current.term as { revision: string }).revision,
+              },
+            ),
+          });
+          const after = termEvents(shell.home, [LOG_DEFINED]);
+          // 먼저 기록은 seq·주체·내용 그대로이고 뒤에 새 기록만 붙는다.
+          assertEquals(after.slice(0, before.length), before);
+          assertEquals(after.length, before.length + 1);
+          const updated = after.at(-1);
+          assertEquals(updated?.type, "TermUpdated");
+          assertEquals(updated?.actor, "user");
+          assert(BigInt(updated!.seq) > BigInt(first.seq));
+          const payload = updated!.payload as {
+            before: { definition?: string };
+            after: { definition?: string };
+          };
+          assertEquals(payload.before.definition, LOG_FIRST);
+          assertEquals(payload.after.definition, LOG_SECOND);
+          const defined = after.filter((event) => event.type === "TermDefined");
+          assertEquals(defined.length, 1);
+          assertEquals(defined[0].payload["definition"], LOG_FIRST);
+        },
+      );
+
+      await t.step(
+        "documents/terms#R1 documents/terms#R4: 이후 agent가 읽는 목록에서 사람 정의와 미정 후보가 갈라져 있다",
+        async () => {
+          await sendToEngineer(shell, LOG_READ_TEXT);
+          const deadline = Date.now() + 180_000;
+          while (provider.read() === null) {
+            assert(provider.failure() === "", provider.failure());
+            assert(
+              Date.now() < deadline,
+              `목록을 읽지 못했다: calls ${provider.calls()} ${
+                provider.body(provider.calls() - 1).slice(-400)
+              }`,
+            );
+            await delay(250);
+          }
+          const read = provider.read()!;
+          const definitions = read["definitions"] as TermSeen[];
+          const candidates = read["candidates"] as TermSeen[];
+          assertEquals(definitions.map((term) => term.name), [LOG_NAME]);
+          assertEquals(definitions[0].definition, LOG_SECOND);
+          assertEquals(candidates.map((term) => term.name), [LOG_OPEN_NAME]);
+          assertEquals(candidates[0].definition, null);
+          assertEquals((candidates[0].evidence ?? []).length, 1);
+          await shell.until(
+            `document.querySelector("${EMBEDDED} [data-work-status]")?.getAttribute("data-work-status") === "done"`,
+            "목록 읽기가 끝나지 않았다",
+            180_000,
+          );
+        },
+      );
     } finally {
       await flow?.close();
       await provider.close();

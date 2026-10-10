@@ -1,8 +1,10 @@
 // lophn-agent/extensions: runtime child의 `--allow-net` 중 MCP 몫이다(architecture §2.3). 사람이
 // enabled로 등록한 HTTP server의 정확한 host:port만 나오고 stdio·꺼진 server·일반 net은 없다.
-import { assertEquals } from "@std/assert";
+import { assert, assertEquals } from "@std/assert";
 import { mcpServersSetting } from "../../contracts/lophn-agent/mod.ts";
 import { allowNetList } from "./mod.ts";
+import { httpEndpointReason } from "./mcp-config.ts";
+import { endpointReason } from "./adapters/mcp-http.ts";
 
 function server(
   name: string,
@@ -43,4 +45,25 @@ Deno.test("lophn-agent/extensions#R13 lophn-agent/extensions#R15: allow-net은 e
     "mcp2.example.test:8443",
   ]);
   assertEquals(allowNetList([]), []);
+});
+
+Deno.test("lophn-agent/extensions#R15: IPv6 loopback [::1]은 평문 http로 허락하고 다른 IPv6 주소는 거절이다", () => {
+  for (const check of [httpEndpointReason, endpointReason]) {
+    assertEquals(check("http://[::1]:8123/rpc"), null);
+    assertEquals(check("http://[::1]/rpc"), null);
+    assert(check("http://[::2]:8123/rpc") !== null);
+    assert(check("http://[fe80::1]:8123/rpc") !== null);
+    assert(check("http://[2001:db8::1]:8123/rpc") !== null);
+  }
+});
+
+Deno.test("lophn-agent/extensions#R13: allow-net의 IPv6 loopback은 Deno가 받는 [::1]:port 모양이다", () => {
+  const servers = mcpServersSetting.value_type.parse([
+    server("v6", "http://[::1]:8123/rpc"),
+    server("v6-default", "https://[2001:db8::1]/rpc"),
+  ]);
+  assertEquals(allowNetList(servers), [
+    "[2001:db8::1]:443",
+    "[::1]:8123",
+  ]);
 });

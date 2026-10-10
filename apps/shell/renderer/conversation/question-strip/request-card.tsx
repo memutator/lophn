@@ -320,7 +320,7 @@ function QuestionBody(
                     </span>
                   )
                   : null}
-                {option.action
+                {option.action && option.command !== "term.define"
                   ? (
                     <span className={styles.mark} data-opens-review="">
                       <Icon

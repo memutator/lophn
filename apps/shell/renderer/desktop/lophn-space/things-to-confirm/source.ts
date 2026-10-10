@@ -20,8 +20,13 @@ export interface QuestionOption {
   readonly key: string;
   /** agent가 쓴 이름. 그대로 글로만 그린다. */
   readonly label: string;
-  /** 고정 action이 있으면 답은 confirmation window에서만 확정한다. */
+  /** 고정 action이 있으면 보통 confirmation window에서만 확정한다. */
   readonly action: boolean;
+  /**
+   * action의 command. term.define은 질문 답의 확정으로 적용하고 확인 창을 열지 않는다.
+   * action이 없으면 null이다.
+   */
+  readonly command?: string | null;
 }
 
 export type QuestionStatus = "pending" | "answered" | "expired" | "cancelled";

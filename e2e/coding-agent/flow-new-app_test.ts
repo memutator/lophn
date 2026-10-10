@@ -4,8 +4,9 @@
 // - 1·2단계 테스트: 기존 앱·문서·공용 SDK를 먼저 읽고, 기획을 고정 판으로 남긴다.
 //   문서로 충분하면 앱을 만들지 않는다. 저장과 판 보존은 대화 화면에 보이지 않는다.
 // - 3단계 테스트: 아직 정하지 않은 취향만 설명·추천을 보고 답하고, 확인한 기획 판을
-//   채택한다. 등록은 채택과 별개 질문이고 그 판의 등록 내용만 보인다. 적용은
-//   question.submit이 action을 싣지 못하고 run이 질문으로 멈추지 않아 하지 않는다.
+//   채택한다. 등록은 채택과 별개 질문이고 그 판의 등록 내용만 보인다. 등록 적용
+//   단계는 question.submit이 action을 싣지 못하고 shell이 확인 창을 열며 run이
+//   질문으로 멈추지 않아 ignore다(그 단계 위 주석).
 //   한 run의 두 번째 question.submit은 기본 idempotency key가 같아 conflict라
 //   질문은 run을 나눠 하나씩 묻는다.
 // 4~13(handoff·ticket·[Start]·claim·release·preview·적용·acceptance)은 돌리지 않는다.
@@ -1183,6 +1184,7 @@ Deno.test({
       );
 
       let adopted = "";
+      let registration = "";
       await t.step(
         "lophn-agent/questions#R1 lophn-agent/questions#R16: 3 채택은 방금 확인한 기획 판만 가리키고 등록과 묶이지 않는다",
         async () => {
@@ -1301,6 +1303,66 @@ Deno.test({
           assertEquals(await appsOf(flow!), []);
           await noWindow();
           assertEquals(await flow!.count("[data-send-answer]"), 1);
+          registration = question.id;
+        },
+      );
+
+      // 등록 적용은 지금 제품에서 닿지 않는다. (1) question.submit이 선택지 action을 null로만
+      // 받아 model이 app.create 고정 action(appCreateOptionAction)을 실을 수 없다
+      // (lophn-agent tools). (2) shell은 term.define만 확인 창 없이 접수하고 그 밖 action은
+      // [Review]로 확인 창을 연다(shell). (3) followups 49·55: question.submit이 run을
+      // 답 대기로 두지 않아(ports.wait가 WaitRun의 question 갈래를 부르지 않는다) 접수된
+      // 결정을 적용할 해소기가 닿지 않는다(lophn-agent run-loop·apps/agent-runtime
+      // core-ports). 셋이 풀리면 ignore를 지운다.
+      await t.step({
+        name:
+          "apps/registration#R3 lophn-agent/questions#R13: 3 고정 등록 선택지를 고르면 확인 창 없이 그 판의 slug·이름·목적으로만 앱이 등록된다 (question.submit action null·shell 확인 창·followups 49)",
+        ignore: true,
+        async fn() {
+          const question = (await questions()).find((row) =>
+            row.id === registration
+          )!;
+          const action = question.options.find((item) =>
+            item.key === "register"
+          )?.action as { command?: string } | null;
+          assertEquals(action?.command, "app.create");
+          await flow!.click("[data-send-answer]");
+          const acceptedAt = Date.now() + 60_000;
+          for (;;) {
+            const row = (await questions()).find((item) =>
+              item.id === registration
+            );
+            const apps = await appsOf(flow!);
+            if (row?.status === "answered" && row.applied && apps.length > 0) {
+              assertEquals(row.answer?.option_key, "register");
+              assertEquals(apps.length, 1);
+              const app = apps[0] as {
+                slug: string;
+                name: string;
+                description: string;
+              };
+              assertEquals(app.slug, "household-ledger");
+              assertEquals(app.name, "Spending");
+              assertEquals(
+                app.description,
+                "It records each spend and shows the month total.",
+              );
+              break;
+            }
+            assert(
+              Date.now() < acceptedAt,
+              `등록이 적용되지 않았다: ${JSON.stringify(row ?? null)}`,
+            );
+            await delay(250);
+          }
+          await noWindow();
+          assertHidden(await dockText(flow!));
+        },
+      });
+
+      await t.step(
+        "lophn-agent/questions#R1 lophn-agent/questions#R16: 3 run이 끝나도 채택은 방금 확인한 판에 남고 끝난 답에 안쪽 식별자가 없다",
+        async () => {
           provider.release();
           await untilRuns(3);
           assertEquals(provider.calls(), 13);
@@ -1310,13 +1372,6 @@ Deno.test({
               ?.version,
             saved!.version,
           );
-          const registration = (await questions()).find((row) =>
-            row.id === question.id
-          );
-          assertEquals(registration?.status, "pending");
-          assertEquals(registration?.answer, null);
-          assertEquals(registration?.applied, false);
-          assertEquals(await appsOf(flow!), []);
           await flow!.until(
             `document.querySelector(${
               JSON.stringify(DOCK)

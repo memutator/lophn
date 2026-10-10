@@ -441,6 +441,101 @@ Deno.test("documents/terms#R2 lophn-agent/questions#R13: question.submit은 읽�
   assertEquals(calls.some((call) => call.contract === "CreateQuestion"), false);
 });
 
+Deno.test("apps/registration#R3 lophn-agent/questions#R13: question.submit은 등록 제안으로 app.create를 고정하고 근거 판 하나가 등록 근거가 되며 미리 배정한 앱 ID가 대상이다", async () => {
+  const calls: Call[] = [];
+  const handlers = createAgentToolHandlers({
+    ...ports([]),
+    call: (contract, input) => {
+      calls.push({ contract, input, run: RUN });
+      return Promise.resolve(ok({ id: "qst_x", status: "pending" }));
+    },
+  });
+  const deps = {
+    listed: listedAll(),
+    handlers,
+    credential: credential(["CreateQuestion"]),
+  };
+  const ref = { document: DOC, version: VER, section: null };
+  const ask = {
+    prompt: "이 계획으로 앱을 등록할까요",
+    reason: "등록은 채택과 별개 결정이다",
+    recommendation: null,
+    expires_at: null,
+  };
+  const registration = {
+    slug: "household-ledger",
+    name: "Spending",
+    description: "It records each spend and shows the month total.",
+  };
+  const option = {
+    key: "register",
+    label: "Register",
+    description: "slug household-ledger",
+    evidence: [ref],
+    adoption: null,
+    action: null,
+    app_registration: registration,
+  };
+  const fixed = await executeTool(deps, "question.submit", {
+    ...ask,
+    options: [option, {
+      key: "skip",
+      label: "Do not register",
+      description: "Leave it.",
+      evidence: [],
+      adoption: null,
+      action: null,
+    }],
+  });
+  assertEquals(fixed.outcome.kind, "success", JSON.stringify(fixed.result));
+  const options = (calls[0]!.input as { options: Record<string, unknown>[] })
+    .options;
+  assertEquals("app_registration" in options[0]!, false);
+  assertEquals(options[1]!["action"], null);
+  const action = options[0]!["action"] as {
+    concern: string;
+    command: string;
+    targets: string[];
+    input: { value: Record<string, unknown> };
+    comparison: Record<string, unknown>;
+  };
+  assertEquals(action.concern, "apps/registration");
+  assertEquals(action.command, "app.create");
+  assert(/^app_/.test(action.targets[0]!));
+  assertEquals(action.input.value, {
+    id: action.targets[0],
+    ...registration,
+    planning_version: VER,
+  });
+  assertEquals(action.comparison, {});
+  calls.length = 0;
+  // 근거 판이 하나가 아니거나 후보 정의와 같이 오면 질문을 만들지 않는다.
+  for (
+    const bad of [
+      { ...option, evidence: [] },
+      {
+        ...option,
+        evidence: [ref, { ...ref, version: VER.replace("av", "aw") }],
+      },
+      {
+        ...option,
+        term_definition: {
+          term: "trm_01arz3ndektsv4rrffq69g5fav",
+          name: "x",
+          definition: "y",
+        },
+      },
+    ]
+  ) {
+    const rejected = await executeTool(deps, "question.submit", {
+      ...ask,
+      options: [bad],
+    });
+    assertEquals(rejected.outcome.code, "invalid_input");
+  }
+  assertEquals(calls.length, 0);
+});
+
 Deno.test("lophn-agent/harness/tools#R12: 소유 contract가 거절한 오류 문장은 대상의 존재를 새지 않는다", async () => {
   const failing: AgentToolPorts = {
     ...ports([]),

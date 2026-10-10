@@ -27,6 +27,7 @@ export {
   type SkillSupplementalReadInput,
 } from "./skill-read.ts";
 export {
+  allowNetList,
   allowRunList,
   checkMcpConfig,
   httpEndpointReason,
@@ -49,6 +50,7 @@ export {
   type McpConnections,
   type McpConnectionsDeps,
   type McpDisconnectReason,
+  type McpSecretAttach,
   type McpToolView,
   type McpTransport,
   type McpTransportOpener,
@@ -99,7 +101,11 @@ export {
   type McpToolsSource,
   widestEffect,
 } from "./mcp-tools.ts";
-export { createMcpSecretRefSource, MCP_SECRET_OWNER } from "./secret-refs.ts";
+export {
+  createMcpSecretRefSource,
+  lookupMcpSecretUse,
+  MCP_SECRET_OWNER,
+} from "./secret-refs.ts";
 export {
   authHeaders,
   authorizationUrl,

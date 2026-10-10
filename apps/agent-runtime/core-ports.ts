@@ -1,3 +1,4 @@
+import type { z } from "zod";
 import {
   type Clock,
   err,
@@ -16,6 +17,8 @@ import {
   messageBody,
   messagesList,
   modelCallList,
+  questionRead,
+  questionText,
   recordMessage,
   recordToolRequest,
   RUN_BLOB_PURPOSES,
@@ -24,7 +27,9 @@ import {
   startModelCall,
   type TokenUsage,
   toolCallRead,
+  type ToolResult,
   waitRun,
+  waitRunInputSchema,
 } from "../../packages/contracts/lophn-agent/mod.ts";
 import {
   approvalsGet,
@@ -44,6 +49,7 @@ import {
 import {
   callRevision,
   executeTool,
+  questionSubmitTool,
   type RunCredential,
   type ToolDefinition,
   type ToolHandler,
@@ -59,9 +65,12 @@ import type {
   ToolCallRequest,
   ToolDone,
   ToolInfo,
+  WaitTarget,
 } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
 import { parseToolArgs } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
+import { savedDocumentLinks } from "./answer-links.ts";
 import { commandOf, type CoreCall, readOf } from "./core-call.ts";
+import { questionWaitRequest } from "./wait-request.ts";
 import type { ModelBinding } from "./model-binding.ts";
 import {
   type BlobPort,
@@ -625,12 +634,16 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
         "the result could not be recorded",
       );
     }
+    const asked = outcome.outcome.kind === "success"
+      ? askedQuestion(call.name, outcome.result)
+      : undefined;
     return {
       kind: "done",
       tool_call: id,
       status: outcome.outcome.kind,
       code: outcome.outcome.code,
       result: outcome.result,
+      ...(asked === undefined ? {} : { asked }),
     };
   }
 
@@ -691,6 +704,66 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
   async function currentSeq(): Promise<Result<string>> {
     const record = await runRecord();
     return record.ok ? ok(record.value.run.state_seq) : record;
+  }
+
+  // 질문을 만든 call의 결과에서 질문 ID를 읽는다. 질문은 추정 답으로 진행하지 않으므로 run은 그
+  // 답을 기다린다(waiting-and-recovery R1).
+  function askedQuestion(tool: string, result: ToolResult): string | undefined {
+    if (tool !== questionSubmitTool.name) return undefined;
+    const content = result.content;
+    if (content === null || typeof content !== "object") return undefined;
+    const id = (content as Record<string, unknown>)["id"];
+    return typeof id === "string" && id.startsWith("qst_") ? id : undefined;
+  }
+
+  // 판정이 이미 만든 approval을 읽어 같은 내용으로 WaitRun에 싣는다. 요청 생성과 waiting_on 연결은
+  // WaitRun이 한 transaction으로 한다.
+  async function approvalWait(
+    request: Extract<WaitTarget, { approval: string }>,
+  ): Promise<Result<z.input<typeof waitRunInputSchema>["request"]>> {
+    const approval = await readOf(machine, approvalsGet, {
+      approval: request.approval,
+    });
+    if (!approval.ok) return approval;
+    const text = await readOf(machine, approvalsText, {
+      approval: request.approval,
+    });
+    if (!text.ok) return text;
+    const stored = approval.value.request;
+    return ok({
+      kind: "approval",
+      tool_call: request.tool_call,
+      input: {
+        id: stored.id,
+        requester: stored.requester,
+        run: stored.run,
+        reason: text.value.reason,
+        effect: {
+          changes: text.value.changes,
+          external: text.value.external,
+          reversible: stored.effect.reversible,
+          reversibility: text.value.reversibility,
+        },
+        action: stored.action,
+        expires_at: stored.expires_at,
+      },
+    });
+  }
+
+  // tool이 이미 만든 질문을 읽어 같은 내용으로 WaitRun에 싣는다. 글은 저장된 redaction 글이고
+  // WaitRun은 같은 내용이면 그 질문을 잇는다.
+  async function questionWait(
+    request: Extract<WaitTarget, { question: string }>,
+  ): Promise<Result<z.input<typeof waitRunInputSchema>["request"]>> {
+    const read = await readOf(machine, questionRead, {
+      question: request.question,
+    });
+    if (!read.ok) return read;
+    const text = await readOf(machine, questionText, {
+      question: request.question,
+    });
+    if (!text.ok) return text;
+    return ok(questionWaitRequest(read.value.question, text.value));
   }
 
   async function finish(request: FinishRequest) {
@@ -760,6 +833,9 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
     async answer(text) {
       // 세션 없는 주기 run은 답을 남길 대화가 없다. 결과는 run 결과와 출력 문서가 낸다.
       if (seat.session === null || text.trim() === "") return ok(undefined);
+      // 결과 링크는 이 run이 실제로 저장한 문서 판뿐이다(conversation#R4).
+      const saved = await savedDocumentLinks(machine, seat.run);
+      if (!saved.ok) return saved;
       const recorded = await commandOf(
         agent,
         recordMessage,
@@ -768,9 +844,12 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
           session: seat.session,
           run: seat.run,
           content: { schema_version: 1, parts: [{ kind: "text", text }] },
-          links: lastModelCall === null
-            ? []
-            : [{ kind: "model_call", call: lastModelCall }],
+          links: [
+            ...(lastModelCall === null
+              ? []
+              : [{ kind: "model_call" as const, call: lastModelCall }]),
+            ...saved.value,
+          ],
         },
         {},
         `${seat.run}:answer:${lastModelCall ?? "none"}`,
@@ -778,46 +857,22 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
       return recorded.ok ? ok(undefined) : recorded;
     },
     async wait(request) {
-      // 판정이 이미 만든 approval을 읽어 같은 내용으로 WaitRun에 싣는다. 요청 생성과 waiting_on 연결은
-      // WaitRun이 한 transaction으로 한다.
-      const approval = await readOf(machine, approvalsGet, {
-        approval: request.approval,
-      });
-      if (!approval.ok) return approval;
-      const text = await readOf(machine, approvalsText, {
-        approval: request.approval,
-      });
-      if (!text.ok) return text;
-      const stored = approval.value.request;
       const seq = await currentSeq();
       if (!seq.ok) return seq;
+      const submitted = "question" in request
+        ? await questionWait(request)
+        : await approvalWait(request);
+      if (!submitted.ok) return submitted;
       const waited = await commandOf(
         machine,
         waitRun,
         {
           run: seat.run,
-          request: {
-            kind: "approval",
-            tool_call: request.tool_call,
-            input: {
-              id: stored.id,
-              requester: stored.requester,
-              run: stored.run,
-              reason: text.value.reason,
-              effect: {
-                changes: text.value.changes,
-                external: text.value.external,
-                reversible: stored.effect.reversible,
-                reversibility: text.value.reversibility,
-              },
-              action: stored.action,
-              expires_at: stored.expires_at,
-            },
-          },
-          call: request.tool_call,
+          request: submitted.value,
+          call: "question" in request ? null : request.tool_call,
         },
         { state_seq: seq.value },
-        `${request.approval}:wait`,
+        `${"question" in request ? request.question : request.approval}:wait`,
       );
       return waited.ok ? ok(undefined) : waited;
     },

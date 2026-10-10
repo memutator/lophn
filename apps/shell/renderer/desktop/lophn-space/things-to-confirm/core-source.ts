@@ -72,6 +72,8 @@ interface ApprovalValue {
 interface NotificationValue {
   notification: { id: string; source_seq: string; read_at: string | null };
   source_event: string;
+  occurred_at?: string;
+  document?: string | null;
   delivery?: { state: string; reason?: string };
 }
 
@@ -202,6 +204,12 @@ interface Links {
   readonly times: ReadonlyMap<string, number>;
 }
 
+function commandOf(action: unknown): string | null {
+  if (action === null || typeof action !== "object") return null;
+  const command = (action as { command?: unknown }).command;
+  return typeof command === "string" ? command : null;
+}
+
 function questionOf(value: QuestionValue, links: Links): QuestionRequest {
   const run = links.runs.get(value.run);
   const session = value.session ?? run?.session ?? null;
@@ -225,6 +233,7 @@ function questionOf(value: QuestionValue, links: Links): QuestionRequest {
       key: option.key,
       label: option.label,
       action: option.action !== null,
+      command: commandOf(option.action),
     })),
     recommended: value.recommendation?.option_key ?? null,
     answer: value.answer === null
@@ -266,8 +275,22 @@ function notificationOf(value: NotificationValue): NotificationRow {
     sourceEvent: value.source_event,
     sourceSeq: value.notification.source_seq,
     readAt: value.notification.read_at,
+    ...lineOf(value),
     ...osFailureOf(value.delivery),
   };
+}
+
+function lineOf(
+  value: NotificationValue,
+): Pick<NotificationRow, "occurredAt" | "document"> {
+  const facts: { occurredAt?: string; document?: string } = {};
+  if (typeof value.occurred_at === "string" && value.occurred_at.length > 0) {
+    facts.occurredAt = value.occurred_at;
+  }
+  if (typeof value.document === "string" && value.document.length > 0) {
+    facts.document = value.document;
+  }
+  return facts;
 }
 
 function osFailureOf(
@@ -324,6 +347,37 @@ async function eventTimes(
     }
   }
   return times;
+}
+
+type ConfirmTerm = (input: {
+  question: string;
+  option_key: string;
+}) => Promise<{ ok: true } | { ok: false; code: string }>;
+
+/** term.define 확정. 확인 창을 열지 않는 main 통로다. 이 창에 없으면 undefined다. */
+function termConfirmation(): ConfirmTerm | undefined {
+  const shell = (globalThis as {
+    lophnShell?: { confirmTermDefinition?: ConfirmTerm };
+  }).lophnShell;
+  return typeof shell?.confirmTermDefinition === "function"
+    ? (input) => shell.confirmTermDefinition!(input)
+    : undefined;
+}
+
+async function confirmTerm(
+  question: string,
+  option: string,
+): Promise<SourceResult<void>> {
+  const confirm = termConfirmation();
+  if (confirm === undefined) return { ok: false, code: "unavailable" };
+  try {
+    const sent = await confirm({ question, option_key: option });
+    return sent.ok
+      ? { ok: true, value: undefined }
+      : { ok: false, code: sent.code };
+  } catch {
+    return { ok: false, code: "unavailable" };
+  }
 }
 
 /** preload의 보호 창 열기를 찾는다. 이 창에 없으면 undefined다. */
@@ -529,8 +583,16 @@ export function coreRequestSource(
 
     async answer(question, answer) {
       // action 없는 답은 확인 handle 없이 일반 답 경로로 간다. 자유 답은 글을 값으로 싣고
-      // core가 redaction을 거쳐 blob으로 둔다(lophn-agent Q38). action 있는 선택지는 여기로
-      // 오지 않고 [Review]로 보호 창을 연다.
+      // core가 redaction을 거쳐 blob으로 둔다(lophn-agent Q38). term.define만 확인 창 없이
+      // main이 정본을 다시 읽어 접수한다. 그 밖 action은 [Review]로 보호 창을 연다.
+      if (answer.kind === "option") {
+        const chosen = question.options.find((option) =>
+          option.key === answer.option
+        );
+        if (chosen?.command === "term.define") {
+          return await confirmTerm(question.id, answer.option);
+        }
+      }
       const value = answer.kind === "option"
         ? { kind: "option", option_key: answer.option }
         : { kind: "text", text: answer.text };

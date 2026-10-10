@@ -51,9 +51,11 @@ import {
 } from "../../packages/problems/closing/mod.ts";
 import {
   ProblemTestPort,
+  ProblemWordingPort,
   ProblemWorkPort,
 } from "../../packages/contracts/problems/mod.ts";
 import { problemWorkLookup } from "../../packages/coding-agent/mod.ts";
+import { releaseWording } from "../../packages/apps/releases/store.ts";
 import { REPORTS_SCHEMA_STEPS } from "../../packages/problems/reporting/mod.ts";
 import {
   DETAIL_COLLECTION_SETTING_KEY,
@@ -62,6 +64,7 @@ import {
   snapshotLogsRead,
   SNAPSHOTS_SCHEMA_STEPS,
 } from "../../packages/problems/snapshots/mod.ts";
+import { snapshotViewApiRead } from "./problems-logs.ts";
 import { recordReportCommand } from "../../packages/problems/reporting/commands.ts";
 import {
   REPORT_BLOB_PURPOSES,
@@ -90,7 +93,11 @@ import {
   isTicketCheckFeed,
   ticketCheckFeedVisibility,
 } from "./ticket-checker.ts";
-import { reportCollectorSpec, testRunnerSpec } from "./problems-runner.ts";
+import {
+  reportCollectorSpec,
+  screenTestHost,
+  testRunnerSpec,
+} from "./problems-runner.ts";
 import { testTxPorts } from "./problems-test-ports.ts";
 import { problemsWorkSubscribers } from "./problems-work.ts";
 import {
@@ -155,7 +162,7 @@ function testRunnerWorkers(): KindLaunchSpec[] {
   const spec = testRunnerSpec({
     dataRoot: root,
     deno: Deno.execPath(),
-    screenHost: Deno.env.get("SCREEN_TEST_HOST"),
+    screenHost: screenTestHost(),
   });
   return spec ? [spec] : [];
 }
@@ -230,10 +237,10 @@ export const problemsReportDefinitions = {
     getProblemRead,
     listReportsRead,
     getReportRead,
-    getSnapshotRead,
     listProblemFixesRead,
   ],
-  apiReads: [unattachedReportBodyRead],
+  // GetSnapshot은 blob 정리 여부를 보느라 pool 밖에서 연다(snapshots#R17).
+  apiReads: [unattachedReportBodyRead, snapshotViewApiRead()],
   ports: {} as Record<string, TxPortRegistration>,
   workers: reportCollectorWorkers(),
   // 보고 접수 worker route(T3, T16). dispatch가 입력 형식·scope 뒤 collector로 넘긴다.
@@ -329,6 +336,8 @@ export function createEventRegistration(): EventRegistration {
 // 실행 port는 없다. reader Worker는 read마다 그 read를 등록한 module의 port만 넘기므로, 문제 상세
 // (problems#T22)가 읽는 지금 수리 ticket 사실은 ticket 표 owner(coding-agent)의 구현을 여기서
 // `ProblemWorkPort`로, 테스트 사실은 tests leaf 구현을 `ProblemTestPort`로 등록한다.
+// 목록·상세 문구는 보고 당시 release 선언이다(problems#T27). 구현은 apps/releases이고,
+// apps reader에만 두면 이 read가 port를 못 봐 선언 문구가 fallback이 된다.
 export function createReaderRegistration(): ReaderRegistration {
   return {
     reads: [
@@ -345,6 +354,7 @@ export function createReaderRegistration(): ReaderRegistration {
     ports: new Map<unknown, unknown>([
       [ProblemWorkPort, problemWorkLookup],
       [ProblemTestPort, problemTestLookup],
+      [ProblemWordingPort, releaseWording],
     ]),
   };
 }

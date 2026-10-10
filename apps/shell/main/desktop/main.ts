@@ -16,7 +16,13 @@ import {
   WebContentsView,
 } from "electron";
 import { randomBytes, randomFillSync, randomUUID } from "node:crypto";
-import { mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -28,7 +34,20 @@ import {
   removeRestoreIpc,
   type RestoreIpcMain,
 } from "./core/restore-ipc.ts";
+import {
+  registerUpdateIpc,
+  removeUpdateIpc,
+  type UpdateIpcMain,
+} from "./core/update-ipc.ts";
+import {
+  type LayoutIpcMain,
+  registerLayoutIpc,
+  removeLayoutIpc,
+} from "./core/layout-ipc.ts";
+import { createLayoutStore } from "../workspace/layout-store.ts";
 import { OPEN_EXTERNAL_CHANNEL } from "../../ipc/open-external.ts";
+import { TERM_DEFINITION_CHANNEL } from "../../ipc/term-definition.ts";
+import { confirmTermDefinition } from "../confirmation/term-definition.ts";
 import {
   DESKTOP_INTENT_CHANNEL,
   type DesktopIntent,
@@ -51,6 +70,7 @@ import {
 import type { IpcEvent } from "./ipc-guard.ts";
 import { createViewVisibility } from "../app-frame/visibility.ts";
 import { VIEW_STATE_CHANNEL } from "../../ipc/app-frame.ts";
+import { VIEW_HINT_CHANNEL } from "../../ipc/workspace.ts";
 import { createAppCall } from "../app-frame/app-call.ts";
 import {
   createBlueprintSource,
@@ -71,6 +91,7 @@ import {
   removeFeedbackIpc,
 } from "../app-frame/feedback.ts";
 import { startCoreConnection } from "./core/connection.ts";
+import { createLiveView, type LiveView } from "../workspace/live-view.ts";
 import { resolveDenoBinary } from "./core/deno-binary.ts";
 import { createCoordinator } from "../confirmation/coordinator.ts";
 import { createKinds } from "../confirmation/kinds/mod.ts";
@@ -256,12 +277,27 @@ let tray: InstalledTray | undefined;
 const osNotifications = createOsNotifications({
   notifier: guardNotifier(electronNotifier(), headless, log),
   display: async (notification) => {
-    const session = core.session();
-    if (!session) return null;
-    const reply = await session.internal("read", "notifications", "display", {
-      notification,
-    });
-    return reply.ok ? displayFromReply(reply.value) : null;
+    // event가 먼저 도착하고 display reader가 한 박자 늦으면 not_found·unavailable다.
+    // 그때 null로 끝내면 이 main은 그 id를 이미 본 것으로 기억해 실패를 보고하지 않는다.
+    // 사람이 끈 경우(ok이고 display가 비어 있음)와 다른 오류는 다시 묻지 않는다.
+    const deadline = Date.now() + 4_000;
+    for (;;) {
+      const session = core.session();
+      if (!session) return null;
+      const reply = await session.internal(
+        "read",
+        "notifications",
+        "display",
+        { notification },
+      );
+      if (reply.ok) return displayFromReply(reply.value);
+      const code = reply.error.code;
+      if (
+        (code !== "not_found" && code !== "unavailable") ||
+        Date.now() >= deadline
+      ) return null;
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
   },
   report: async (notification, reason) => {
     const session = core.session();
@@ -276,6 +312,9 @@ const osNotifications = createOsNotifications({
   log,
 });
 // 창을 다 닫아도 core는 남긴다. 명시 종료(tray·OS 종료)만 core를 멈춘다.
+// 현재 보기 publish는 appFrame 다음에 붙인다. beforeCall이 그 전에 이 자리를 닫아 둔다.
+// deno-lint-ignore prefer-const
+let liveView: LiveView | undefined;
 const core = startCoreConnection({
   launch: {
     // packaged는 설치 묶음의 platform/(source·lock·vendor)이고, 개발은 저장소 루트다.
@@ -302,6 +341,17 @@ const core = startCoreConnection({
   arrived: (events) => {
     void osNotifications.arrived(events);
     refreshAppViews(events);
+  },
+  beforeCall: async (event, call) => {
+    if (
+      liveView === undefined || call.kind !== "command" ||
+      call.resource !== "messages" || call.method !== "receive"
+    ) return;
+    const window = [...windows].find((one) =>
+      !one.isDestroyed() && one.webContents.id === event.sender.id
+    );
+    if (window === undefined) return;
+    await liveView.bindReceive(call.body, windowRef(window));
   },
 });
 
@@ -370,6 +420,32 @@ const appFrame = createAppFrame({
     }
   },
   closed: (view) => void relayViewClosed(view),
+});
+liveView = createLiveView({
+  session: () => {
+    const current = core.session();
+    if (!current) return null;
+    return {
+      call: (kind, resource, method, body) =>
+        current.internal(kind, resource, method, body),
+    };
+  },
+  isLive: (ref) =>
+    [...windows].some((window) =>
+      !window.isDestroyed() && windowRef(window) === ref
+    ),
+  views: (ref) => appFrame.views(ref),
+  now: () => new Date().toISOString(),
+});
+ipcMain.handle(VIEW_HINT_CHANNEL, (event, input: unknown) => {
+  const sender = (event as unknown as { sender: { id: number } }).sender;
+  const window = [...windows].find((one) =>
+    !one.isDestroyed() && one.webContents.id === sender.id
+  );
+  if (window === undefined || liveView === undefined) {
+    return Promise.resolve({ ok: false });
+  }
+  return liveView.hint(windowRef(window), input);
 });
 
 // native view 배치(shell#T39). renderer는 사각형만 보내고 붙이기·숨기기·폐기는 registry가 한다.
@@ -985,6 +1061,51 @@ registerRestoreIpc(restoreIpcMain, {
   register: (request) => core.registerConfirmation(request),
 });
 
+// settings update(flow update-lophn 1–2). 사람이 고른 로컬 metadata로 안내하고,
+// 정상 정지를 확인한 뒤에만 그 파일로 설치 파일을 바꾼다. 다운로드·재시작은 없다.
+const updateIpcMain: UpdateIpcMain = {
+  handle: (channel, listener) =>
+    ipcMain.handle(channel, (event, input) => listener(event, input)),
+  removeHandler: (channel) => ipcMain.removeHandler(channel),
+};
+registerUpdateIpc(updateIpcMain, {
+  registry: overlays.overlayRegistry(),
+  session: () => core.session(),
+  dataRoot: () => dataRoot,
+  stopPlatform: () => core.confirmStop(),
+  version: () => {
+    try {
+      const parsed = JSON.parse(
+        readFileSync(join(here, "..", "package.json"), "utf8"),
+      ) as { version?: unknown };
+      if (typeof parsed.version === "string" && parsed.version !== "") {
+        return parsed.version;
+      }
+    } catch {
+      // package.json을 못 읽으면 Electron이 아는 version만 쓴다.
+    }
+    return app.getVersion();
+  },
+});
+
+// 작업대 layout(shell/workspace#R6). desktop 창 본문만 부르고 파일 schema는 여기서 검사한다.
+const layoutIpcMain: LayoutIpcMain = {
+  handle: (channel, listener) =>
+    ipcMain.handle(channel, (event, input) => listener(event, input)),
+  removeHandler: (channel) => ipcMain.removeHandler(channel),
+};
+registerLayoutIpc(layoutIpcMain, {
+  registry: overlays.overlayRegistry(),
+  store: createLayoutStore(dataRoot),
+  bounds: (event) => {
+    const sender = (event as unknown as { sender: WebContents }).sender;
+    const parent = BrowserWindow.fromWebContents(sender);
+    if (!parent) return null;
+    const box = parent.getBounds();
+    return { x: box.x, y: box.y, width: box.width, height: box.height };
+  },
+});
+
 // 프로젝트 등록의 OS 폴더 선택기. 그 창에 붙은 dialog로 열고 desktop 창 본문만 부른다.
 ipcMain.handle(
   FOLDER_PICK_CHANNEL,
@@ -1019,6 +1140,31 @@ ipcMain.handle(
     log,
   }),
 );
+
+// term.define 선택지의 확정. 확인 창을 열지 않고 정본의 그 command만 접수한다.
+ipcMain.handle(TERM_DEFINITION_CHANNEL, async (event, input) => {
+  const body = input as { question?: unknown; option_key?: unknown };
+  if (
+    typeof body?.question !== "string" || typeof body.option_key !== "string"
+  ) {
+    return { ok: false, code: "invalid_input" };
+  }
+  const window = [...windows].find((one) =>
+    !one.isDestroyed() && one.webContents.id === event.sender.id
+  );
+  const session = core.session();
+  if (window === undefined || session === null) {
+    return { ok: false, code: "unavailable" };
+  }
+  return await confirmTermDefinition({
+    core: session,
+    register: (request) => core.registerConfirmation(request),
+    windowId: windowRef(window),
+    question: body.question,
+    optionKey: body.option_key,
+    nowMs: Date.now(),
+  });
+});
 
 // 편집기 파일 adapter와 창 닫기 guard(shell#T17). renderer는 문서 id와 session handle만 보내고
 // 실제 FileTarget·경로·core port는 여기서 정한다. 창마다 guard가 저장 중 수를 기억한다.
@@ -1094,8 +1240,11 @@ function stopAll(): void {
   );
   removeCodingIpc(codingIpcMain);
   removeRestoreIpc(restoreIpcMain);
+  removeUpdateIpc(updateIpcMain);
+  removeLayoutIpc(layoutIpcMain);
   ipcMain.removeHandler(FOLDER_PICK_CHANNEL);
   ipcMain.removeHandler(OPEN_EXTERNAL_CHANNEL);
+  ipcMain.removeHandler(TERM_DEFINITION_CHANNEL);
   removeEditorIpc(editorIpc);
   removeViewIpc(viewIpcMain);
   removeAppWindowIpc(appWindowIpcMain);
@@ -1483,6 +1632,7 @@ function openDesktopWindow(): BrowserWindow | undefined {
           viewVisibility.closeWindow(ref);
           feedback.closeWindow(ref);
           appFrame.closeWindow(ref);
+          void liveView?.unavailable(ref);
         });
         window.on("focus", () => {
           windows.delete(window);

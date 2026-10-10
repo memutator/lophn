@@ -521,7 +521,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 
 ### T23 report-app-problem flow E2E
 
-- 상태: 진행 (#447) — 12단계가 실제 headless shell·core·앱 감독·깨진 fixture 앱으로 통과한다(flow 1~6, 보호 창·lophn dialog·가려진 view, 취소, 제출 전후 닫기, screenshot 선택, 시작 전 실패, 직접 시도 실패, core 사라짐). 남은 것(구동하지 못해 가짜로 채우지 않았다): (1) R13 기존 문제를 고르는 제출과 [View issue]로 그 문제 상세에 가는 것 — dialog에 기존 문제를 고르는 자리가 없고(`existing_problem` 늘 null) desktop이 Issues 탭을 잇지 않아 `app-issue` intent가 앱 공간만 연다 → shell#T53, (2) R4 "시작 전 실패" 표시 — dialog가 `command_start`를 늘 "unknown"으로 보낸다(invocation이 생기지 않는 것까지만 확인) → shell#T52, (3) 응답 단절 뒤 최신 상태 확인과 같은 발생 재전송, 수집 꺼짐·실패 이유, 두 번째 창 — flow에서 이어 보낼 수 없거나 e2e/shell/report-problem_test가 본다. 앱 자식은 운영 앱의 실제 기동 entry가 아직 없어(apps#T27) bundle에 runtime entrypoint `main()` 진입 파일을 더해 다시 봉인했다
+- 상태: 진행 (#447, #492) — 12단계가 실제 headless shell·core·앱 감독·깨진 fixture 앱으로 통과한다(flow 1~6, 보호 창·lophn dialog·가려진 view, 취소, 제출 전후 닫기, screenshot 선택, 시작 전 실패, 직접 시도 실패, core 사라짐). #492: (1) R13 같은 앱의 기존 문제를 고르면 제출이 그 문제에 연결되고 [View issue]가 그 문제 상세를 연다. (2) R4 시작하지 못한 command는 `blocked_before_start`로 남고 invocation을 만들지 않는다. 남은 것: (3) 응답 단절 뒤 최신 상태 확인과 같은 발생 재전송, 수집 꺼짐·실패 이유, 두 번째 창 — flow에서 이어 보낼 수 없거나 e2e/shell/report-problem_test가 본다. 앱 자식은 운영 앱의 실제 기동 entry가 아직 없어(apps#T27) bundle에 runtime entrypoint `main()` 진입 파일을 더해 다시 봉인했다
 - 등급: 기본
 - concern: problems/feedback, problems/reporting, problems/snapshots, problems/grouping
 - 요구: problems/feedback#R5, R6, R11, R12, R13
@@ -548,6 +548,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: 없음
 - slice: problems
 - 선행: problems#T14, problems#T18, problems#T20, problems#T21, problems#T22, coding-agent#T19, coding-agent#T24, coding-agent#T45, coding-agent#T47, apps#T18, shell#T52, shell#T53
+- 상태: 진행 (#509, #514, #522) — #509: flow 1단계, 그때 남은 것: flow 2–7단계(자기 터미널 제출의 나머지, reproduction 격리, 통과·실패 화면, activation, 자동 닫힘·사람 확인, 닫힌 뒤 재발). 이 PR (#514)은 2단계만 했다. 자기 터미널 수리도 coding agent가 해당 repair ticket의 현재 MCP claim으로 이전 release·고친 release·변경 설명·실제 test 참조를 제출한다. 작은 repair context에는 지난 근거가 이어지고, 과거 ticket 없는 이력은 당시 null 출처로만 읽는다. 없던 claim이나 돌리지 않은 테스트는 보충하지 않는다. 안쪽 출처 검사는 사람에게 보이지 않는다. 남은 것: flow 3–7단계(reproduction 격리, 통과·실패 화면, activation, 자동 닫힘·사람 확인, 닫힌 뒤 재발). 이 PR (#522)은 3단계만 했다. test runner는 저장된 FrozenTest와 input·expected·symptom·code·environment blob이 있을 때만 reproduction을 돌리고, 없거나 hash가 어긋나면 preparation_failed이며 시나리오를 만들지 않는다. Report를 접수 때 시나리오로 만드는 경로(problems#T18)는 이 PR이 아니다. problem tool의 RequestTest는 현재 claim의 ticket_source를 그대로 넘긴다. runner의 broker 대역은 자식 nonce·mode를 확인한 뒤 보고만 기록한다. agent 완료 문장·빈 verification·돌리지 않은 테스트는 통과가 아니다. 남은 것: flow 4–7단계(통과·실패·판정 불가·미실행의 화면 구별, activation, 자동 닫힘·사람 확인, 닫힌 뒤 재발).
 - 완료:
   - flow 1~7단계: 고친 기록 → reproduction → activation → 자동 닫힘(테스트로 확인됨), 사람 확인(내가 확인함), "아직입니다" 뒤 reopen·재요청 억제
   - 다른 갈래: claim 없는 제출 거절, runner 상실·timeout은 판정 불가, 약화 변경은 닫힘 근거 아님, activation 거절이면 열린 채, 이전 release 늦은 보고는 reopen하지 않음
@@ -562,6 +563,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: 없음
 - slice: problems
 - 선행: problems#T19, problems#T24, platform#T39, lophn-agent#T50, coding-agent#T38, coding-agent#T46, coding-agent#T47, shell#T52, shell#T53
+- 상태: 진행 (#503, #517, #519, #527) — 이 PR은 flow 1단계만. 선언 실패(fixture_misconfigured user fixer, fixture_broken coding_agent)와 view render exception 수집, 당시 release·출처·snapshot 고정, 없는 증거의 이유, 자동 수집은 사람 파일·미선택 화면을 넣지 않음, 수집 UI는 안 보임. #517은 flow 2단계(redaction·재전송 중복·과다 보고 제한·같은 분류를 한 문제, 묶음은 같은 원인의 증명이 아님). #519는 flow 3단계만. app-detail에서 문제 열림 notification으로 증상·진행·다음 행동을 보고 봐 달라고 요청한다. 반복 report는 notification을 늘리거나 App Engineer를 자동 시작하지 않는다. 당시 증거는 원할 때 펼쳐 본다. #527은 flow 4단계만. App Engineer가 snapshot·설계·release·실제 테스트를 비교해 사실과 원인 가설을 구별한 해석 문서를 고정하고 문제에 연결한다. ticket·question은 만들지 않는다. problem.set_interpretation의 절 확인은 document.read로 한다. 남은 것: 5–9단계(ticket, claim, reproduction, activation, 자동 닫힘)와 process unhandled rejection(자식이 바로 exit).
 - 완료:
   - flow 1~9단계: 선언 실패와 process exception 접수 → 문제 열림 notification 1회 → App Engineer 해석 연결 → repair ticket → claim 뒤 fixing → reproduction·app test → 고친 기록 → activation → 자동 닫힘
   - 다른 갈래: 일부 증거 실패는 이유와 함께 접수, claim 만료 뒤 제출 거절, 재현 실패·약화는 닫힘 아님, 닫힌 뒤 현재 release 재발은 같은 문제 reopen
@@ -570,6 +572,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 
 ### T26 snapshot 큰 자료 정리 뒤 부재 표시
 
+- 상태: 완료 (#485) — 이어보냄: reader Worker의 sync `getSnapshotRead`는 정리 부재를 얹지 않는다. 제품 HTTP GetSnapshot(`snapshotViewApiRead`)만 "정리됨"을 보인다.
 - 등급: 좁은
 - concern: problems/snapshots
 - 요구: problems/snapshots#R17

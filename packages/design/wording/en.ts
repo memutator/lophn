@@ -1,6 +1,7 @@
 // en catalog. 값은 완성된 문장 하나의 ICU MessageFormat이다. 화면 코드는 문장 조각을 이어 붙이지 않는다.
 export const en = {
   "app-detail.button.change-access": "Review access",
+  "app-detail.button.check-result": "Check the result",
   "app-detail.button.close-preview": "Close preview",
   "app-detail.button.hide-activity": "Hide activity",
   "app-detail.button.hide-changes": "Hide changes",
@@ -949,6 +950,7 @@ export const en = {
   "conversation.body.save-visual-request":
     "Save the visual “{title}” (block {block} in message {message}) as a document.",
   "conversation.button.check-delivery": "Check whether it arrived",
+  "conversation.button.check-result": "Check the result",
   "conversation.button.close": "Close conversation",
   "conversation.button.jump-latest": "Jump to newest messages",
   "conversation.button.mode-correction": "Send as a change to the current work",
@@ -1014,6 +1016,14 @@ export const en = {
   "conversation.label.visual-yes": "Yes",
   "conversation.notice.ended":
     "This conversation has ended. You can read it but not reply.",
+  "conversation.notice.external-failed":
+    "{connection} didn't respond, so this chat can't continue.",
+  "conversation.notice.external-retry-at":
+    "The next try is confirmed for {when}.",
+  "conversation.notice.external-unknown":
+    "The result from {connection} isn't known yet.",
+  "conversation.notice.external-waiting":
+    "Waiting for {connection}. It has not answered.",
   "conversation.notice.message-loading": "Loading this message.",
   "conversation.notice.not-found":
     "lophn didn't find this message. Sending it again won't make a copy.",
@@ -1203,6 +1213,7 @@ export const en = {
   "document.label.compare-after": "Newer version",
   "document.label.version-number": "Version {number, number}",
   "document.label.version-newest": "Newest",
+  "document.label.version-run": "{id}",
   "document.label.changed-sections": "Changed sections",
   "document.label.section-counts": "+{added, number} −{removed, number}",
   "document.label.section-modified": "Changed",
@@ -1258,6 +1269,10 @@ export const en = {
     "The file changed outside lophn. Compare again before restoring.",
   "document.notice.restore-pending":
     "The file was restored. lophn is still keeping it as a new version.",
+  "document.notice.restore-version-failed":
+    "The file was restored, but it wasn't kept as a new version. Try again.",
+  "document.notice.restore-disconnected":
+    "Not connected, so this restore isn't confirmed as a saved version. Try again when you're connected.",
   "document.notice.restore-file-unknown":
     "Couldn't confirm whether the file was restored. Check the file before trying again.",
   "document.notice.restore-failed": "Couldn't restore this version.",
@@ -2154,8 +2169,7 @@ export const en = {
     "lophn stops cleanly before the update and you start it again.",
   "settings.update.stop-failed":
     "lophn couldn't confirm it stopped cleanly, so nothing was changed. Close your work and try again.",
-  "settings.update.stopped":
-    "lophn stopped cleanly. Install the update file you chose, then start lophn.",
+  "settings.update.stopped": "lophn stopped cleanly. Start lophn again.",
   "settings.update.deployment-unverified":
     "Updates on your system aren't checked by lophn yet. Check the file before applying it.",
   "settings.notifications.heading": "Notifications",
@@ -2502,6 +2516,7 @@ export const en = {
   "things-to-confirm.button.keep-question": "Keep the question",
   "things-to-confirm.button.later": "Answer later",
   "things-to-confirm.button.mark-read": "Mark as read",
+  "things-to-confirm.button.open-document": "Open the document",
   "things-to-confirm.button.review": "Review",
   "things-to-confirm.button.review-next": "Review the next decision",
   "things-to-confirm.button.send-answer": "Send answer",

@@ -3,8 +3,15 @@
 // buffer를 비운 뒤에도 같은 blob에서 읽힌다.
 import { err, ok, type Result, sha256Hex } from "../../base/mod.ts";
 import { parseActor } from "../../contracts/platform/mod.ts";
-import type { ApiReadDefinition } from "../../contracts/platform/mod.ts";
+import type {
+  ApiReadDefinition,
+  Input,
+  Output,
+  ReadSnapshot,
+  RequestContext,
+} from "../../contracts/platform/mod.ts";
 import {
+  type getSnapshot,
   getSnapshotLogs,
   getSnapshotLogsInputSchema,
   type LogEvidence,
@@ -26,6 +33,87 @@ const UNAVAILABLE_REASONS = {
   missing: "로그 조각 blob이 저장소에 없다",
   corrupt: "로그 조각 blob의 내용이 등록된 hash와 다르다",
 } as const;
+
+// GetSnapshot이 사람에게 보이는 정리 부재. 로그 조각 조회의 긴 문장은 위의 pruned다.
+export const PRUNED_ABSENCE_REASON = "정리됨";
+
+const BLOB_STATUS = ["pruned", "missing", "corrupt"] as const;
+export type SnapshotBlobReason = (typeof BLOB_STATUS)[number];
+
+function knownBlobReason(value: unknown): SnapshotBlobReason | undefined {
+  for (const reason of BLOB_STATUS) {
+    if (value === reason) return reason;
+  }
+  return undefined;
+}
+
+// blob 바이트 읽기 오류에서 store가 구별한 이유를 고른다. 표시가 없으면 부재다.
+export function snapshotBlobStatus(error: {
+  code: string;
+  message: string;
+  details?: Record<string, unknown>;
+}): SnapshotBlobReason {
+  return knownBlobReason(error.details?.["reason"]) ??
+    knownBlobReason(error.message) ??
+    "missing";
+}
+
+export type PrunedAttachments = {
+  stack: boolean;
+  logs: boolean;
+  screenshot: boolean;
+};
+
+// 용량 정리로 사라진 첨부만 항목 부재를 "정리됨"으로 바꾼다(snapshots#R17).
+// blobs의 hash 참조는 남긴다. 저장돼 있던 다른 부재 이유는 그대로다.
+export function applyPrunedSnapshotAbsence(
+  value: Output<typeof getSnapshot>,
+  pruned: PrunedAttachments,
+  item: Input<typeof getSnapshot>["item"],
+): Output<typeof getSnapshot> {
+  const next = structuredClone(value);
+  const snapshot = next.snapshot;
+  const error = snapshot.error;
+  if (pruned.stack && error !== null && error.stack !== null) {
+    snapshot.error = {
+      ...error,
+      stack: null,
+      stack_missing_reason: { reason: PRUNED_ABSENCE_REASON },
+    };
+  }
+  if (pruned.logs && snapshot.logs !== null) {
+    snapshot.logs = null;
+    snapshot.logs_missing_reason = { reason: PRUNED_ABSENCE_REASON };
+  }
+  const screen = snapshot.screen;
+  if (pruned.screenshot && screen !== null && screen.screenshot !== null) {
+    snapshot.screen = {
+      ...screen,
+      screenshot: null,
+      screenshot_missing_reason: { reason: PRUNED_ABSENCE_REASON },
+    };
+  }
+  if (item === "error" && pruned.stack && snapshot.error !== null) {
+    next.item = snapshot.error;
+    next.missing = { reason: PRUNED_ABSENCE_REASON };
+  } else if (item === "logs" && pruned.logs) {
+    next.item = null;
+    next.missing = { reason: PRUNED_ABSENCE_REASON };
+  } else if (
+    item === "screen" && pruned.screenshot && snapshot.screen !== null
+  ) {
+    next.item = snapshot.screen;
+    next.missing = { reason: PRUNED_ABSENCE_REASON };
+  }
+  return next;
+}
+
+// core가 GetSnapshot 응답에 정리 부재를 얹을 때 넘기는 ledger snapshot.
+export type SnapshotViewRequest = {
+  snapshot: ReadSnapshot;
+  ctx: RequestContext;
+  input: Input<typeof getSnapshot>;
+};
 
 // 앱·알 수 없는 actor는 snapshot 첨부를 읽을 수 없고 없는 것과 같은 답을 받는다.
 function mayRead(actor: string): boolean {
@@ -97,6 +185,11 @@ export type SnapshotLogsRow = {
 export type SnapshotLogsEnvironment = {
   evidence(snapshot: string): Result<SnapshotLogsRow | undefined>;
   blobs: SnapshotBlobReader;
+  // 붙어 있으면 GetSnapshot이 정리된 첨부를 "정리됨"으로 답한다.
+  view?(
+    ctx: RequestContext,
+    input: unknown,
+  ): Promise<Result<Output<typeof getSnapshot>>>;
 };
 
 const LOGS_COLUMNS = `logs_blob, logs_line_count, logs_truncated, logs_scope,

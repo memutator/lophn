@@ -123,6 +123,19 @@ export function ActivityTab({ app, source, now }: ActivityTabProps) {
                             ? t("app-detail.label.time-unknown")
                             : formatRelativeTime(new Date(row.at), now())}
                         </p>
+                        {row.status === "unknown"
+                          ? (
+                            <div className={styles.actions}>
+                              <Button
+                                size="sm"
+                                data-activity-action="check"
+                                onClick={() => activity.reload()}
+                              >
+                                {t("app-detail.button.check-result")}
+                              </Button>
+                            </div>
+                          )
+                          : null}
                       </li>
                     ))}
                   </ul>

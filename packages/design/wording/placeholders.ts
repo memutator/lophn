@@ -3,6 +3,7 @@ import type { MessageKey } from "./en.ts";
 
 export type PlaceholderKinds = {
   "app-detail.button.change-access": Record<never, never>;
+  "app-detail.button.check-result": Record<never, never>;
   "app-detail.button.close-preview": Record<never, never>;
   "app-detail.button.hide-activity": Record<never, never>;
   "app-detail.button.hide-changes": Record<never, never>;
@@ -940,6 +941,7 @@ export type PlaceholderKinds = {
     message: "string";
   };
   "conversation.button.check-delivery": Record<never, never>;
+  "conversation.button.check-result": Record<never, never>;
   "conversation.button.close": Record<never, never>;
   "conversation.button.jump-latest": Record<never, never>;
   "conversation.button.mode-correction": Record<never, never>;
@@ -1016,6 +1018,18 @@ export type PlaceholderKinds = {
   "conversation.label.visual-untitled": Record<never, never>;
   "conversation.label.visual-yes": Record<never, never>;
   "conversation.notice.ended": Record<never, never>;
+  "conversation.notice.external-failed": {
+    connection: "string";
+  };
+  "conversation.notice.external-retry-at": {
+    when: "string";
+  };
+  "conversation.notice.external-unknown": {
+    connection: "string";
+  };
+  "conversation.notice.external-waiting": {
+    connection: "string";
+  };
   "conversation.notice.message-loading": Record<never, never>;
   "conversation.notice.not-found": Record<never, never>;
   "conversation.notice.not-sent": Record<never, never>;
@@ -1203,6 +1217,9 @@ export type PlaceholderKinds = {
     number: "number";
   };
   "document.label.version-newest": Record<never, never>;
+  "document.label.version-run": {
+    id: "string";
+  };
   "document.label.changed-sections": Record<never, never>;
   "document.label.section-counts": {
     added: "number";
@@ -1255,6 +1272,8 @@ export type PlaceholderKinds = {
   "document.notice.restore-conflict": Record<never, never>;
   "document.notice.restore-file-conflict": Record<never, never>;
   "document.notice.restore-pending": Record<never, never>;
+  "document.notice.restore-version-failed": Record<never, never>;
+  "document.notice.restore-disconnected": Record<never, never>;
   "document.notice.restore-file-unknown": Record<never, never>;
   "document.notice.restore-failed": Record<never, never>;
   "document.notice.restore-unsupported": Record<never, never>;
@@ -2503,6 +2522,7 @@ export type PlaceholderKinds = {
   "things-to-confirm.button.keep-question": Record<never, never>;
   "things-to-confirm.button.later": Record<never, never>;
   "things-to-confirm.button.mark-read": Record<never, never>;
+  "things-to-confirm.button.open-document": Record<never, never>;
   "things-to-confirm.button.review": Record<never, never>;
   "things-to-confirm.button.review-next": Record<never, never>;
   "things-to-confirm.button.send-answer": Record<never, never>;

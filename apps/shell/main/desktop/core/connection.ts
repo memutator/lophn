@@ -20,6 +20,7 @@ import {
   type CoreProcess,
   type LaunchOptions,
   spawnCore,
+  UPDATE_STOP_MS,
 } from "./supervise.ts";
 
 export interface StateTarget {
@@ -52,6 +53,14 @@ export interface ConnectionOptions {
   start?: (options: LaunchOptions) => CoreProcess;
   /** main이 직접 보는 지금 도착한 event(OS notification). renderer로 나가지 않는다. */
   arrived?: EventSink["arrived"];
+  /**
+   * allowlist 호출을 core로 보내기 전에 main이 붙인다. 실패해도 그 호출은
+   * 그대로 보낸다(현재 보기 bind가 사람 메시지를 막지 않는다).
+   */
+  beforeCall?: (
+    event: IpcEvent,
+    call: { kind: string; resource: string; method: string; body: unknown },
+  ) => Promise<void>;
 }
 
 export interface ConnectionState {
@@ -72,6 +81,8 @@ export interface CoreConnection {
   session(): CoreSession | null;
   /** 명시 종료. 창 닫기는 부르지 않는다. */
   shutdown(): void;
+  /** update 정상 정지. 프로세스가 스스로 끝나면 true다. 다시 띄우지 않는다. */
+  confirmStop(): Promise<boolean>;
   /** main의 안전 진단을 감독 pipe로 보낸다. 보내지 못하면 false다. */
   diagnostic(message: unknown): boolean;
   /**
@@ -196,6 +207,13 @@ export function startCoreConnection(
         error: { code: "unavailable", message: "core가 준비되지 않았다" },
       };
     }
+    if (options.beforeCall) {
+      try {
+        await options.beforeCall(event as IpcEvent, parsed.data);
+      } catch {
+        // 보기 결합이 실패해도 사람 메시지는 보낸다.
+      }
+    }
     return await session.call(
       parsed.data.kind,
       parsed.data.resource,
@@ -213,6 +231,9 @@ export function startCoreConnection(
     },
     shutdown() {
       core.stop();
+    },
+    confirmStop() {
+      return core.confirmStop(UPDATE_STOP_MS);
     },
     diagnostic(message) {
       return core.diagnostic(message);

@@ -555,6 +555,16 @@ export type {
   TicketScreenSummary,
 } from "./ticket-screen.ts";
 export {
+  repairPrepare,
+  repairPrepareConversationSchema,
+  repairPrepareInputSchema,
+  repairPrepareOutcomeSchema,
+  repairPrepareOutputSchema,
+  repairPrepareTicketSchema,
+  TICKET_REPAIR_PREPARE_ROUTES,
+} from "./ticket-repair-prepare.ts";
+export type { RepairPrepareOutcome } from "./ticket-repair-prepare.ts";
+export {
   TICKET_CLAIM_REJECTS,
   TicketClaimCheck,
   type TicketClaimChecker,

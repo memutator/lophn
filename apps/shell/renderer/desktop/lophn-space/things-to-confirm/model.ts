@@ -165,13 +165,15 @@ export function placeWaiting(
   ).length;
 }
 
-/** 이 선택지는 confirmation window에서만 답을 확정한다. */
+/** 이 선택지는 confirmation window에서만 답을 확정한다. term.define은 아니다. */
 export function needsReview(
   question: QuestionRequest,
   option: string | null,
 ): boolean {
   if (option === null) return false;
-  return question.options.some((item) => item.key === option && item.action);
+  const chosen = question.options.find((item) => item.key === option);
+  if (chosen === undefined || !chosen.action) return false;
+  return chosen.command !== "term.define";
 }
 
 /** 보낼 수 있는 자유 답. 공백뿐인 글은 답이 아니다(questions#R6). */

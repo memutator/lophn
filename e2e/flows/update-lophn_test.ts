@@ -1,0 +1,1472 @@
+// flow update-lophn 1·2·3·4단계(docs/flows/update-lophn.md). 실제 ~/.lophn은 열지 않는다.
+// 1·2단계는 실제 shell(headless)과 core를 임시 LOPHN_HOME으로 띄운다.
+// 1단계: settings에서 이 OS의 설치 패키지를 확인하고 사람이 고른 로컬 metadata로 수동 update를
+// 고른다. 자동 다운로드·자동 설치·사용 중 재시작은 없고, 검증하지 않은 배포를 사용 가능한
+// 완료로 안내하지 않는다.
+// 2단계: 정상 정지 뒤 그 패키지 파일로 설치 파일만 바꾼다. 데이터 폴더의 ledger는 남는다.
+// 3단계: schema가 뒤처져 있으면 화면 없이 제품 core만 다시 띄운다. 새 command는 migration이
+// 끝나기 전에 받지 않고, 이미 끝난 짧은 쓰기와 데이터 폴더는 남긴다. 검증 backup 뒤에
+// 포함된 단계를 순서대로 적용하고, 실패한 단계는 rollback한 뒤 다음 기동이 그 단계부터
+// 다시 한다.
+// 4단계: 화면 없이 제품 core만 다시 띄운다. 설정·무결성·기존 고정 판과 참조·실행 자격·
+// 중단 작업을 확인한다. 모르는 schema나 손상 원본은 자동 초기화하거나 downgrade하지 않고
+// 보존한다. 검증 backup·단계 rollback·이력 hash 불일치는 3단계가 본다.
+// 5–8단계는 보지 않는다.
+import { assert, assertEquals, assertThrows } from "@std/assert";
+import { type ChildProcess, spawn } from "node:child_process";
+import { DatabaseSync } from "node:sqlite";
+
+import { sha256Hex } from "../../packages/base/mod.ts";
+import {
+  encodeFrame,
+  FrameDecoder,
+  type MainHello,
+  mainHelloSchema,
+  mainToCoreMessageSchema,
+} from "../../packages/contracts/platform/mod.ts";
+import { RECOVERY_STAMP } from "../../packages/platform/backup-and-migration/mod.ts";
+import { SECRET_SCHEMA_STEPS } from "../../packages/platform/secrets/mod.ts";
+import { SETTINGS_SCHEMA_STEPS } from "../../packages/platform/settings/mod.ts";
+import { coreLaunch } from "../../apps/shell/main/desktop/core/supervise.ts";
+import { e2eEnabled } from "../harness.ts";
+import {
+  type FlowShell,
+  mustCall,
+  openFlowShell,
+  removeHome,
+} from "../flow-support.ts";
+
+const OFFERED = "0.9.0";
+const UNVERIFIED =
+  "Updates on your system aren't checked by lophn yet. Check the file before applying it.";
+
+function formatOf(os: string): string {
+  if (os === "linux") return "deb";
+  if (os === "darwin") return "dmg";
+  if (os === "windows") return "exe";
+  throw new Error(`이 테스트가 모르는 OS다: ${os}`);
+}
+
+async function openUpdate(flow: FlowShell): Promise<void> {
+  await flow.until(
+    `document.querySelector("[data-screen-body='settings']") !== null`,
+    "settings가 서지 않았다",
+  );
+  await flow.until(
+    `[...document.querySelectorAll("[role=tab]")].some((el) => el.textContent.trim() === "Update lophn")`,
+    "settings에 Update 탭이 없다",
+  );
+  await flow.mouseClickText("[role=tab]", "Update lophn");
+  await flow.until(
+    `document.querySelector("[data-update]") !== null`,
+    "update 자리가 열리지 않았다",
+  );
+}
+
+async function platformStatus(flow: FlowShell): Promise<{
+  schema: number;
+  ledgerId: string;
+}> {
+  const status = await mustCall(flow, {
+    kind: "read",
+    resource: "platform",
+    method: "status",
+    body: {},
+  });
+  const schema = status.schema;
+  const ledgerId = status.ledger_id;
+  assert(typeof schema === "number" && Number.isInteger(schema) && schema > 0);
+  assert(typeof ledgerId === "string" && ledgerId !== "");
+  assertEquals(status.ready, true);
+  return { schema, ledgerId };
+}
+
+Deno.test({
+  name:
+    "platform/install-and-update#R1 platform/install-and-update#R13 flow update-lophn 1: settings에서 이 OS의 설치 패키지를 확인하고 수동 update를 고른다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn() {
+    const os = Deno.build.os;
+    const format = formatOf(os);
+    const home = await Deno.makeTempDir({ prefix: "lophn-e2e-update-" });
+    await Deno.chmod(home, 0o700);
+    const pack = await Deno.realPath(
+      await Deno.makeTempDir({ prefix: "lophn-e2e-update-pkg-" }),
+    );
+    const metadata = `${pack}/lophn-update.json`;
+    let opened: FlowShell | undefined;
+    try {
+      const flow = await openFlowShell({
+        home,
+        start: "settings",
+        pickFolder: metadata,
+      });
+      opened = flow;
+      await openUpdate(flow);
+      assertEquals(
+        (await flow.text("[data-package='none']"))?.trim(),
+        "No update file is chosen yet.",
+      );
+      assertEquals((await flow.text("[data-deployment]"))?.trim(), UNVERIFIED);
+      assertEquals(await flow.count("[data-action='choose-package']"), 1);
+      assertEquals(await flow.count("[data-action='stop-and-update']"), 0);
+      assertEquals(await flow.count("[data-notice='ready']"), 0);
+      const beforeChoose = String(await flow.text("[data-update]"));
+      assert(
+        beforeChoose.includes(
+          "You choose when to update. lophn doesn't download or restart by itself.",
+        ),
+      );
+      assert(!beforeChoose.includes("Download"));
+      const before = await platformStatus(flow);
+      const body = JSON.stringify({
+        version: OFFERED,
+        os,
+        format,
+        schema: before.schema,
+      });
+      await Deno.writeTextFile(metadata, body);
+      await flow.click("[data-action='choose-package']");
+      await flow.until(
+        `document.querySelector("[data-notice='ready']") !== null`,
+        "수동 update 안내가 오지 않았다",
+      );
+      const version = (await flow.text("[data-update-version]"))?.trim() ?? "";
+      const prefix =
+        `Update file is version ${OFFERED} for ${os}. This version is `;
+      assert(version.startsWith(prefix), version);
+      const current = version.slice(prefix.length).replace(/\.$/, "");
+      assert(current !== "" && current !== OFFERED, version);
+      assertEquals(
+        (await flow.text("[data-update-schema]"))?.trim(),
+        "Your records keep working with this update.",
+      );
+      assertEquals(
+        (await flow.text("[data-update-restart]"))?.trim(),
+        "lophn stops cleanly before the update and you start it again.",
+      );
+      assertEquals((await flow.text("[data-deployment]"))?.trim(), UNVERIFIED);
+      const afterChoose = String(await flow.text("[data-update]"));
+      assert(!afterChoose.includes("Download"));
+      assert(!afterChoose.includes("verified"));
+      assertEquals(await flow.count("[data-stop]"), 0);
+      assertEquals(await Deno.readTextFile(metadata), body);
+      const after = await platformStatus(flow);
+      assertEquals(after.ledgerId, before.ledgerId);
+      assertEquals(after.schema, before.schema);
+      assert((await Deno.stat(`${home}/lophn.db`)).isFile);
+    } finally {
+      await opened?.close();
+      await removeHome(home);
+      await Deno.remove(pack, { recursive: true });
+    }
+  },
+});
+
+Deno.test({
+  name:
+    "platform/install-and-update#R14 platform/ledger#R21 flow update-lophn 2: 정상 정지 뒤 사람이 고른 패키지 파일로 설치 파일만 바꾸고 ledger는 남긴다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn() {
+    const os = Deno.build.os;
+    const format = formatOf(os);
+    const home = await Deno.makeTempDir({ prefix: "lophn-e2e-update-" });
+    await Deno.chmod(home, 0o700);
+    const pack = await Deno.realPath(
+      await Deno.makeTempDir({ prefix: "lophn-e2e-update-pkg-" }),
+    );
+    const install = await Deno.realPath(
+      await Deno.makeTempDir({ prefix: "lophn-e2e-update-install-" }),
+    );
+    const metadata = `${pack}/lophn-update.json`;
+    await Deno.writeTextFile(`${install}/lophn-update.json`, "old-install\n");
+    await Deno.writeTextFile(`${install}/untouched.txt`, "keep\n");
+    let opened: FlowShell | undefined;
+    try {
+      const flow = await openFlowShell({
+        home,
+        start: "settings",
+        pickFolder: metadata,
+        env: { LOPHN_INSTALL_ROOT: install },
+      });
+      opened = flow;
+      await openUpdate(flow);
+      const before = await platformStatus(flow);
+      const body = JSON.stringify({
+        version: OFFERED,
+        os,
+        format,
+        schema: before.schema,
+      });
+      await Deno.writeTextFile(metadata, body);
+      await Deno.writeTextFile(`${home}/kept.txt`, "kept\n");
+      await flow.click("[data-action='choose-package']");
+      await flow.until(
+        `document.querySelector("[data-notice='ready']") !== null`,
+        "수동 update 안내가 오지 않았다",
+      );
+      assertEquals(await flow.count("[data-action='stop-and-update']"), 1);
+      const shown = String(await flow.text("[data-update]"));
+      assert(!shown.includes("Download"));
+      await flow.click("[data-action='stop-and-update']");
+      await flow.until(
+        `document.querySelector("[data-stop='stopped'], [data-stop='failed']") !== null`,
+        "정상 정지가 끝나지 않았다",
+        90_000,
+      );
+      assertEquals(
+        (await flow.text("[data-stop='stopped']"))?.trim(),
+        "lophn stopped cleanly. Start lophn again.",
+      );
+      assertEquals((await flow.text("[data-deployment]"))?.trim(), UNVERIFIED);
+      assert(!String(await flow.text("[data-update]")).includes("Download"));
+      let coreGone = false;
+      try {
+        const reply = await flow.call({
+          kind: "read",
+          resource: "platform",
+          method: "status",
+          body: {},
+        });
+        coreGone = !reply.ok;
+      } catch {
+        coreGone = true;
+      }
+      assert(coreGone, "플랫폼이 아직 응답한다");
+      assertEquals(
+        await Deno.readTextFile(`${install}/lophn-update.json`),
+        body,
+      );
+      assertEquals(
+        await Deno.readTextFile(`${install}/untouched.txt`),
+        "keep\n",
+      );
+      assertEquals(await Deno.readTextFile(metadata), body);
+      assertEquals(
+        (await Deno.readTextFile(`${home}/ledger-id`)).trim(),
+        before.ledgerId,
+      );
+      const ledger = await Deno.stat(`${home}/lophn.db`);
+      assert(ledger.isFile && ledger.size > 0);
+      assertEquals(await Deno.readTextFile(`${home}/kept.txt`), "kept\n");
+    } finally {
+      await opened?.close();
+      await removeHome(home);
+      await Deno.remove(pack, { recursive: true });
+      await Deno.remove(install, { recursive: true });
+    }
+  },
+});
+
+// 3단계는 화면이 없다. 제품 core(main.ts)만 띄운다. 마지막 두 설치 step을 걷어
+// 옛 schema로 만들고, 그 중 앞 단계가 중간에 실패하게 심어 둔다.
+const UPDATE_REPO = new URL("../../", import.meta.url).pathname.replace(
+  /\/$/,
+  "",
+);
+const BOOT_MS = 180_000;
+const KEPT_PROJECT = "prj_01arz3ndektsv4rrffq69g5fav";
+const AFTER_PROJECT = "prj_01arz3ndektsv4rrffq69g5faw";
+const NO_DELETE = `
+create trigger if not exists schema_migrations_no_delete
+before delete on schema_migrations
+begin
+  select raise(abort, 'immutable');
+end`;
+
+type MigrationRow = {
+  version: number;
+  stepId: string;
+  contentHash: string;
+  appliedAt: string;
+};
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function freePort(): number {
+  const listener = Deno.listen({ hostname: "127.0.0.1", port: 0 });
+  const port = (listener.addr as Deno.NetAddr).port;
+  listener.close();
+  return port;
+}
+
+function readHistory(home: string): MigrationRow[] {
+  const db = new DatabaseSync(`${home}/lophn.db`, { readOnly: true });
+  try {
+    return db.prepare(
+      "select version, step_id, content_hash, applied_at from schema_migrations order by version",
+    ).all().map((row) => ({
+      version: Number(row["version"]),
+      stepId: String(row["step_id"]),
+      contentHash: String(row["content_hash"]),
+      appliedAt: String(row["applied_at"]),
+    }));
+  } finally {
+    db.close();
+  }
+}
+
+function tableExists(home: string, name: string): boolean {
+  const db = new DatabaseSync(`${home}/lophn.db`, { readOnly: true });
+  try {
+    return db.prepare(
+      "select 1 as present from sqlite_master where type = 'table' and name = ?",
+    ).get(name) !== undefined;
+  } finally {
+    db.close();
+  }
+}
+
+function countOf(home: string, table: string): number {
+  const db = new DatabaseSync(`${home}/lophn.db`, { readOnly: true });
+  try {
+    return Number(
+      db.prepare(`select count(*) as n from ${table}`).get()?.["n"],
+    );
+  } finally {
+    db.close();
+  }
+}
+
+function projectTitle(home: string, id: string): string | undefined {
+  const db = new DatabaseSync(`${home}/lophn.db`, { readOnly: true });
+  try {
+    const row = db.prepare("select title from projects where id = ?").get(id);
+    return row === undefined ? undefined : String(row["title"]);
+  } finally {
+    db.close();
+  }
+}
+
+function integrityOf(path: string): string {
+  const db = new DatabaseSync(path, { readOnly: true });
+  try {
+    return String(
+      db.prepare("pragma integrity_check").get()?.["integrity_check"],
+    );
+  } finally {
+    db.close();
+  }
+}
+
+function writeLedger(home: string, change: (db: DatabaseSync) => void): void {
+  const db = new DatabaseSync(`${home}/lophn.db`);
+  try {
+    change(db);
+    db.exec("pragma wal_checkpoint(full)");
+  } finally {
+    db.close();
+  }
+}
+
+async function recoveryFolders(home: string): Promise<string[]> {
+  const names: string[] = [];
+  for await (const entry of Deno.readDir(`${home}/backups/migrations`)) {
+    if (entry.isDirectory) names.push(entry.name);
+  }
+  names.sort();
+  return names;
+}
+
+function childPids(pid: number | undefined): number[] {
+  if (pid === undefined) return [];
+  try {
+    return Deno.readTextFileSync(`/proc/${pid}/task/${pid}/children`).trim()
+      .split(/\s+/).filter((part) => part !== "").map(Number);
+  } catch {
+    return [];
+  }
+}
+
+function killTree(pid: number | undefined): void {
+  if (pid === undefined) return;
+  for (const child of childPids(pid)) killTree(child);
+  try {
+    Deno.kill(pid, "SIGKILL");
+  } catch { /* 이미 끝남 */ }
+}
+
+function describePid(pid: number): string {
+  try {
+    return Deno.readTextFileSync(`/proc/${pid}/cmdline`).replaceAll("\0", " ")
+      .trim();
+  } catch {
+    return "gone";
+  }
+}
+
+async function httpUp(port: number): Promise<boolean> {
+  try {
+    const response = await fetch(
+      `http://127.0.0.1:${port}/v1/platform/status`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "{}",
+        signal: AbortSignal.timeout(200),
+      },
+    );
+    await response.body?.cancel();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function exitCode(child: ChildProcess, timeoutMs: number): Promise<number> {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = (code: number | null, signal: NodeJS.Signals | null) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      child.off("exit", onExit);
+      // 신호로 죽은 프로세스를 정상 종료(0)로 세지 않는다.
+      resolve(signal !== null || code === null ? 128 : code);
+    };
+    const onExit = (code: number | null, signal: NodeJS.Signals | null) => {
+      finish(code, signal);
+    };
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      child.off("exit", onExit);
+      reject(new Error("core가 끝나지 않았다"));
+    }, timeoutMs);
+    child.on("exit", onExit);
+    if (child.exitCode !== null || child.signalCode !== null) {
+      finish(child.exitCode, child.signalCode);
+    }
+  });
+}
+
+function readHello(child: ChildProcess, timeoutMs: number): Promise<MainHello> {
+  const decoder = new FrameDecoder();
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const stdout = child.stdout;
+    const finish = (error?: Error, hello?: MainHello) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      stdout?.off("data", onData);
+      child.off("exit", onExit);
+      if (hello !== undefined) resolve(hello);
+      else reject(error ?? new Error("core가 hello 전에 끝났다"));
+    };
+    const timer = setTimeout(
+      () => finish(new Error("core hello가 오지 않았다")),
+      timeoutMs,
+    );
+    const onData = (chunk: Uint8Array) => {
+      let frames;
+      try {
+        frames = decoder.push(new Uint8Array(chunk));
+      } catch (error) {
+        finish(error instanceof Error ? error : new Error("frame"));
+        return;
+      }
+      for (const frame of frames) {
+        if (frame.kind !== "json") continue;
+        const parsed = mainHelloSchema.safeParse(frame.payload);
+        if (parsed.success) finish(undefined, parsed.data);
+      }
+    };
+    const onExit = () => finish(new Error("core가 hello 전에 끝났다"));
+    if (stdout === null) {
+      finish(new Error("core stdout이 없다"));
+      return;
+    }
+    stdout.on("data", onData);
+    child.on("exit", onExit);
+    if (child.exitCode !== null || child.signalCode !== null) onExit();
+  });
+}
+
+type Boot = {
+  child: ChildProcess;
+  port: number;
+  hello: Promise<MainHello>;
+  finished: Promise<number>;
+  sawHttp: () => boolean;
+  children: () => string[];
+  stop: () => Promise<number>;
+};
+
+function bootCore(
+  home: string,
+  sessionHome: string,
+  env: Record<string, string> = {},
+): Boot {
+  const port = freePort();
+  const launch = coreLaunch({
+    repoRoot: UPDATE_REPO,
+    dataRoot: home,
+    denoBinary: Deno.execPath(),
+    packaged: false,
+    port,
+    env: { HOME: sessionHome, ...env },
+  });
+  const child = spawn(launch.command, [...launch.args], {
+    cwd: UPDATE_REPO,
+    env: launch.env,
+    stdio: ["pipe", "pipe", "inherit"],
+  });
+  const hello = readHello(child, BOOT_MS);
+  void hello.catch(() => {});
+  let saw = false;
+  const seen = new Set<number>();
+  let closed = false;
+  const watch = (async () => {
+    while (!closed && child.exitCode === null && child.signalCode === null) {
+      if (await httpUp(port)) saw = true;
+      for (const pid of childPids(child.pid)) seen.add(pid);
+      await delay(50);
+    }
+  })();
+  const finished = exitCode(child, BOOT_MS);
+  void finished.catch(() => {});
+  return {
+    child,
+    port,
+    hello,
+    finished,
+    sawHttp: () => saw,
+    children: () => [...seen].map(describePid),
+    async stop() {
+      closed = true;
+      await watch.catch(() => {});
+      if (child.exitCode !== null) return child.exitCode;
+      if (child.signalCode !== null) return 128;
+      const message = mainToCoreMessageSchema.parse({
+        type: "stop",
+        grace_ms: 5_000,
+      });
+      try {
+        child.stdin?.write(
+          encodeFrame({ kind: "json", channel: 0, payload: message }),
+        );
+      } catch { /* pipe가 이미 닫힘 */ }
+      try {
+        return await exitCode(child, 20_000);
+      } catch {
+        killTree(child.pid);
+        return await exitCode(child, 5_000);
+      }
+    },
+  };
+}
+
+async function post(hello: MainHello, path: string, body: unknown) {
+  const response = await fetch(
+    `http://127.0.0.1:${hello.api_port}/v1/${path}`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${hello.user_token}`,
+      },
+      body: JSON.stringify(body),
+    },
+  );
+  const text = await response.text();
+  return {
+    status: response.status,
+    body: text === "" ? {} : JSON.parse(text) as Record<string, unknown>,
+  };
+}
+
+function projectBody(id: string, name: string, key: string) {
+  return {
+    input: {
+      id,
+      name,
+      title: name,
+      purpose: "",
+      folders: [],
+      tracking: { enabled: false, patterns: [], use_gitignore: false },
+    },
+    idempotency_key: key,
+    compare: {},
+    prepared: [],
+  };
+}
+
+async function assertRefused(boot: Boot): Promise<void> {
+  const outcome = await Promise.race([
+    boot.hello.then(() => "hello" as const, () => "ended" as const),
+    boot.finished.then(() => "ended" as const, () => "ended" as const),
+  ]);
+  assertEquals(outcome, "ended");
+  const code = await boot.finished;
+  assert(code !== 0, "schema를 거절했는데 core가 정상으로 끝났다");
+  assertEquals(
+    boot.sawHttp(),
+    false,
+    "migration 중에 새 command 입구가 열려 있다",
+  );
+  assertEquals(
+    boot.children(),
+    [],
+    `migration 중에 worker가 떠 있다: ${boot.children().join(" | ")}`,
+  );
+}
+
+Deno.test({
+  name:
+    "platform/backup-and-migration#R1 platform/backup-and-migration#R2 platform/backup-and-migration#R3 platform/backup-and-migration#R4 flow update-lophn 3: schema가 필요하면 검증 backup 뒤에 단계를 적용하고 실패한 단계는 직전 schema로 남긴다",
+  ignore: Deno.env.get("LOPHN_E2E") !== "1",
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn() {
+    const root = await Deno.realPath(
+      await Deno.makeTempDir({ prefix: "lophn-e2e-update-schema-" }),
+    );
+    const home = `${root}/data`;
+    const sessionHome = `${root}/session`;
+    await Deno.mkdir(home, { mode: 0o700 });
+    await Deno.chmod(home, 0o700);
+    await Deno.mkdir(sessionHome, { mode: 0o700 });
+    let running: Boot | undefined;
+    const halt = async () => {
+      const current = running;
+      running = undefined;
+      if (current !== undefined) {
+        killTree(current.child.pid);
+        await current.finished.catch(() => {});
+      }
+    };
+    try {
+      const first = bootCore(home, sessionHome);
+      running = first;
+      const hello = await first.hello;
+      assertEquals(hello.api_port, first.port);
+      const created = await post(
+        hello,
+        "projects/create",
+        projectBody(KEPT_PROJECT, "kept", "update-lophn-kept-write"),
+      );
+      assertEquals(created.status, 200, JSON.stringify(created.body));
+      const ledgerId = (await Deno.readTextFile(`${home}/ledger-id`)).trim();
+      assert(ledgerId !== "");
+      const commandsBefore = countOf(home, "command_results");
+      assert(commandsBefore >= 1);
+      assertEquals(
+        await first.stop(),
+        0,
+        "짧은 쓰기를 끝내는 정상 정지가 아니다",
+      );
+      running = undefined;
+      await Deno.writeTextFile(`${home}/kept.txt`, "kept\n");
+      const installed = readHistory(home);
+      assert(installed.length >= 2, "설치 schema가 너무 짧다");
+      const settingsStep = SETTINGS_SCHEMA_STEPS[0];
+      const secretsStep = SECRET_SCHEMA_STEPS[0];
+      assertEquals(
+        installed.slice(-2).map((row) => row.stepId),
+        [settingsStep.id, secretsStep.id],
+      );
+      const prior = installed.length - 2;
+      writeLedger(home, (db) => {
+        assertThrows(() => db.exec("delete from schema_migrations"));
+        assertThrows(
+          () => db.exec("update schema_migrations set applied_at = applied_at"),
+        );
+        db.exec("drop trigger schema_migrations_no_delete");
+        db.prepare("delete from schema_migrations where version > ?").run(
+          prior,
+        );
+        db.exec(NO_DELETE);
+        db.exec("drop table if exists secret_preparations");
+        db.exec("drop table if exists secrets");
+        db.exec("drop table if exists settings_state");
+        db.exec("drop table if exists setting_revisions");
+        db.exec("drop table if exists setting_choices");
+        // 실패는 단계 중간이다. 앞의 create는 transaction 안에서 rollback되어야 한다.
+        db.exec("create table settings_state (key integer primary key)");
+      });
+      assertEquals(readHistory(home).length, prior);
+      assertEquals(tableExists(home, "setting_choices"), false);
+      assertEquals(tableExists(home, "settings_state"), true);
+      assertEquals(tableExists(home, "secrets"), false);
+      assertEquals(projectTitle(home, KEPT_PROJECT), "kept");
+
+      const failed = bootCore(home, sessionHome);
+      running = failed;
+      await assertRefused(failed);
+      await failed.stop();
+      running = undefined;
+      assertEquals(readHistory(home).length, prior);
+      assertEquals(
+        readHistory(home).some((row) => row.stepId === settingsStep.id),
+        false,
+      );
+      assertEquals(tableExists(home, "setting_choices"), false);
+      assertEquals(tableExists(home, "setting_revisions"), false);
+      assertEquals(tableExists(home, "settings_state"), true);
+      assertEquals(tableExists(home, "secrets"), false);
+      assertEquals(tableExists(home, "secret_preparations"), false);
+      assertEquals(countOf(home, "command_results"), commandsBefore);
+      assertEquals(projectTitle(home, KEPT_PROJECT), "kept");
+      assertEquals(await Deno.readTextFile(`${home}/kept.txt`), "kept\n");
+      assertEquals(
+        (await Deno.readTextFile(`${home}/ledger-id`)).trim(),
+        ledgerId,
+      );
+      const failedBackups = await recoveryFolders(home);
+      assertEquals(failedBackups.length, 1);
+      assert(
+        failedBackups[0].startsWith(`s${prior}-`) &&
+          RECOVERY_STAMP.test(failedBackups[0].slice(`s${prior}-`.length)),
+        failedBackups[0],
+      );
+      const failedCopy = `${home}/backups/migrations/${
+        failedBackups[0]
+      }/ledger.db`;
+      assertEquals(integrityOf(failedCopy), "ok");
+      const copyDb = new DatabaseSync(failedCopy, { readOnly: true });
+      try {
+        assertEquals(
+          Number(
+            copyDb.prepare("select count(*) as n from schema_migrations").get()
+              ?.["n"],
+          ),
+          prior,
+        );
+        assertEquals(
+          copyDb.prepare("select title from projects where id = ?").get(
+            KEPT_PROJECT,
+          )?.["title"],
+          "kept",
+        );
+        assertEquals(
+          copyDb.prepare(
+            "select name from sqlite_master where name = 'setting_choices'",
+          ).get(),
+          undefined,
+        );
+      } finally {
+        copyDb.close();
+      }
+
+      await Deno.rename(
+        `${home}/backups/migrations`,
+        `${home}/backups/migrations-kept`,
+      );
+      await Deno.writeTextFile(
+        `${home}/backups/migrations`,
+        "not a directory\n",
+      );
+      const blocked = bootCore(home, sessionHome);
+      running = blocked;
+      await assertRefused(blocked);
+      await blocked.stop();
+      running = undefined;
+      assertEquals(readHistory(home).length, prior);
+      assertEquals(tableExists(home, "setting_choices"), false);
+      assertEquals(countOf(home, "command_results"), commandsBefore);
+      assertEquals(projectTitle(home, KEPT_PROJECT), "kept");
+      assertEquals(await Deno.readTextFile(`${home}/kept.txt`), "kept\n");
+      await Deno.remove(`${home}/backups/migrations`);
+      await Deno.rename(
+        `${home}/backups/migrations-kept`,
+        `${home}/backups/migrations`,
+      );
+      assertEquals(await recoveryFolders(home), failedBackups);
+
+      writeLedger(home, (db) => {
+        db.exec("drop table settings_state");
+      });
+      const settingsHash = await sha256Hex(settingsStep.sql);
+      const secretsHash = await sha256Hex(secretsStep.sql);
+      const again = bootCore(home, sessionHome);
+      running = again;
+      const restarted = await again.hello;
+      assertEquals(restarted.api_port, again.port);
+      const status = await post(restarted, "platform/status", {});
+      assertEquals(status.status, 200, JSON.stringify(status.body));
+      assertEquals(status.body["ready"], true);
+      assertEquals(status.body["ledger_id"], ledgerId);
+      const applied = readHistory(home);
+      assertEquals(applied.length, installed.length);
+      assertEquals(
+        applied.slice(0, prior).map((row) => row.contentHash),
+        installed.slice(0, prior).map((row) => row.contentHash),
+      );
+      assertEquals(applied[prior], {
+        version: prior + 1,
+        stepId: settingsStep.id,
+        contentHash: settingsHash,
+        appliedAt: applied[prior].appliedAt,
+      });
+      assertEquals(applied[prior + 1].stepId, secretsStep.id);
+      assertEquals(applied[prior + 1].contentHash, secretsHash);
+      assert(applied[prior].appliedAt.includes("T"), applied[prior].appliedAt);
+      assert(
+        applied[prior + 1].appliedAt.includes("T"),
+        applied[prior + 1].appliedAt,
+      );
+      assertEquals(tableExists(home, "setting_choices"), true);
+      assertEquals(tableExists(home, "settings_state"), true);
+      assertEquals(tableExists(home, "secrets"), true);
+      assertEquals(tableExists(home, "secret_preparations"), true);
+      assertEquals(projectTitle(home, KEPT_PROJECT), "kept");
+      const after = await post(
+        restarted,
+        "projects/create",
+        projectBody(AFTER_PROJECT, "after", "update-lophn-after-migration"),
+      );
+      assertEquals(after.status, 200, JSON.stringify(after.body));
+      assert(countOf(home, "command_results") > commandsBefore);
+      assertEquals(await Deno.readTextFile(`${home}/kept.txt`), "kept\n");
+      assertEquals(
+        (await Deno.readTextFile(`${home}/ledger-id`)).trim(),
+        ledgerId,
+      );
+      assert((await Deno.stat(`${home}/apps`)).isDirectory);
+      const doneBackups = await recoveryFolders(home);
+      assertEquals(doneBackups.length, 2);
+      assert(doneBackups.includes(failedBackups[0]));
+      for (const name of doneBackups) {
+        assert(
+          name.startsWith(`s${prior}-`) &&
+            RECOVERY_STAMP.test(name.slice(`s${prior}-`.length)),
+          name,
+        );
+      }
+      const second = doneBackups.find((name) => name !== failedBackups[0]);
+      assert(second !== undefined);
+      const secondCopy = `${home}/backups/migrations/${second}/ledger.db`;
+      assertEquals(integrityOf(secondCopy), "ok");
+      const secondDb = new DatabaseSync(secondCopy, { readOnly: true });
+      try {
+        assertEquals(
+          Number(
+            secondDb.prepare("select count(*) as n from schema_migrations")
+              .get()?.["n"],
+          ),
+          prior,
+        );
+        assertEquals(
+          secondDb.prepare(
+            "select name from sqlite_master where name = 'secrets'",
+          ).get(),
+          undefined,
+        );
+        assertEquals(
+          secondDb.prepare("select title from projects where id = ?").get(
+            KEPT_PROJECT,
+          )?.["title"],
+          "kept",
+        );
+      } finally {
+        secondDb.close();
+      }
+      writeLedger(home, (db) => {
+        assertThrows(
+          () =>
+            db.exec("update schema_migrations set content_hash = content_hash"),
+        );
+      });
+      assertEquals(await again.stop(), 0);
+      running = undefined;
+
+      writeLedger(home, (db) => {
+        db.exec("drop trigger schema_migrations_no_update");
+        db.prepare(
+          "update schema_migrations set content_hash = ? where version = 1",
+        )
+          .run("a".repeat(64));
+        db.exec(`
+create trigger schema_migrations_no_update
+before update on schema_migrations
+begin
+  select raise(abort, 'immutable');
+end`);
+      });
+      const beforeTamper = await recoveryFolders(home);
+      const mismatch = bootCore(home, sessionHome);
+      running = mismatch;
+      await assertRefused(mismatch);
+      await mismatch.stop();
+      running = undefined;
+      assertEquals(await recoveryFolders(home), beforeTamper);
+      assertEquals(readHistory(home).length, installed.length);
+      assertEquals(readHistory(home)[0].contentHash, "a".repeat(64));
+      assertEquals(projectTitle(home, KEPT_PROJECT), "kept");
+      assertEquals(projectTitle(home, AFTER_PROJECT), "after");
+      assertEquals(await Deno.readTextFile(`${home}/kept.txt`), "kept\n");
+      assertEquals(
+        (await Deno.readTextFile(`${home}/ledger-id`)).trim(),
+        ledgerId,
+      );
+      assert((await Deno.stat(`${home}/lophn.db`)).isFile);
+    } finally {
+      await halt();
+      await Deno.remove(root, { recursive: true });
+    }
+  },
+});
+
+// 4단계는 화면이 없다. 저장한 원문과 그 hash만 고정 판 참조로 쓴다.
+const NOTE_DOC = "doc_01arz3ndektsv4rrffq69g5fav";
+const NOTE_PROJECT = "prj_01arz3ndektsv4rrffq69g5fb0";
+const NOTE_TEXT = "# Kept\n\nbody\n";
+const NOTE_PATH = "kept.md";
+const INTERRUPTED = "inv_01arz3ndektsv4rrffq69g5fav";
+const INTERRUPTED_APP = "app_01arz3ndektsv4rrffq69g5fav";
+const INTERRUPTED_RELEASE = "rel_01arz3ndektsv4rrffq69g5fav";
+const INTERRUPTED_AT = "2020-01-01T00:00:00.000Z";
+
+type EventFact = {
+  seq: string;
+  type: string;
+  subject: string | null;
+  actor: string;
+  payload: string;
+  at: string;
+};
+
+type VersionFact = {
+  id: string;
+  document: string;
+  number: number;
+  contentHash: string;
+  savedBy: string;
+  filesHash: string;
+  title: string;
+  latest: string;
+};
+
+function blobPath(home: string, hash: string): string {
+  return `${home}/blobs/sha256/${hash.slice(0, 2)}/${hash.slice(2)}`;
+}
+
+function eventsOf(home: string): EventFact[] {
+  const db = new DatabaseSync(`${home}/lophn.db`, { readOnly: true });
+  try {
+    return db.prepare(
+      "select seq, type, subject, actor, payload, at from events order by seq",
+    ).all().map((row) => ({
+      seq: String(row["seq"]),
+      type: String(row["type"]),
+      subject: row["subject"] === null ? null : String(row["subject"]),
+      actor: String(row["actor"]),
+      payload: String(row["payload"]),
+      at: String(row["at"]),
+    }));
+  } finally {
+    db.close();
+  }
+}
+
+function versionOf(home: string, id: string): VersionFact {
+  const db = new DatabaseSync(`${home}/lophn.db`, { readOnly: true });
+  try {
+    const row = db.prepare(
+      `select v.id, v.document, v.number, v.content_hash, v.saved_by, v.files_hash,
+              d.title, d.latest_version
+         from versions v
+         join documents d on d.id = v.document
+        where d.id = ?`,
+    ).get(id);
+    if (row === undefined) throw new Error("고정 판이 없다");
+    return {
+      id: String(row["id"]),
+      document: String(row["document"]),
+      number: Number(row["number"]),
+      contentHash: String(row["content_hash"]),
+      savedBy: String(row["saved_by"]),
+      filesHash: String(row["files_hash"]),
+      title: String(row["title"]),
+      latest: String(row["latest_version"]),
+    };
+  } finally {
+    db.close();
+  }
+}
+
+function fileRef(
+  home: string,
+  version: string,
+): { hash: string; size: number } {
+  const db = new DatabaseSync(`${home}/lophn.db`, { readOnly: true });
+  try {
+    const row = db.prepare(
+      `select hash, size_bytes from blob_refs
+        where owner_kind = 'document_version' and owner_key = ? and field = 'file'`,
+    ).get(`${version}/${NOTE_PATH}`);
+    if (row === undefined) throw new Error("판 파일 참조가 없다");
+    return {
+      hash: String(row["hash"]),
+      size: Number(row["size_bytes"]),
+    };
+  } finally {
+    db.close();
+  }
+}
+
+function invocationOf(
+  home: string,
+): { status: string; summary: string; started: string } {
+  const db = new DatabaseSync(`${home}/lophn.db`, { readOnly: true });
+  try {
+    const rows = db.prepare(
+      "select status, summary, started_at from invocations order by id",
+    ).all();
+    assertEquals(rows.length, 1);
+    return {
+      status: String(rows[0]["status"]),
+      summary: String(rows[0]["summary"]),
+      started: String(rows[0]["started_at"]),
+    };
+  } finally {
+    db.close();
+  }
+}
+
+function triggerNamed(home: string, name: string): boolean {
+  const db = new DatabaseSync(`${home}/lophn.db`, { readOnly: true });
+  try {
+    return db.prepare(
+      "select 1 as present from sqlite_master where type = 'trigger' and name = ?",
+    ).get(name) !== undefined;
+  } finally {
+    db.close();
+  }
+}
+
+async function copyHome(from: string, to: string): Promise<void> {
+  const copied = await new Deno.Command("cp", { args: ["-a", from, to] })
+    .output();
+  if (!copied.success) {
+    throw new Error(new TextDecoder().decode(copied.stderr));
+  }
+}
+
+function uploadInput(hash: string, size: number): string {
+  return btoa(JSON.stringify({ blob_hash: hash, bytes: size })).replaceAll(
+    "+",
+    "-",
+  ).replaceAll("/", "_").replaceAll("=", "");
+}
+
+async function untilReady(
+  hello: MainHello,
+  path: string,
+  body: unknown,
+): Promise<{ status: number; body: Record<string, unknown> }> {
+  let last: { status: number; body: Record<string, unknown> } = {
+    status: 503,
+    body: {},
+  };
+  const deadline = Date.now() + 60_000;
+  while (Date.now() < deadline) {
+    const response = await post(hello, path, body);
+    last = response;
+    if (response.status !== 503) return response;
+    await delay(200);
+  }
+  return last;
+}
+
+async function uploadNote(
+  hello: MainHello,
+  bytes: Uint8Array,
+  hash: string,
+): Promise<Record<string, unknown>> {
+  let last = "";
+  const deadline = Date.now() + 60_000;
+  while (Date.now() < deadline) {
+    const response = await fetch(
+      `http://127.0.0.1:${hello.api_port}/v1/documents/upload`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/octet-stream",
+          "x-lophn-input": uploadInput(hash, bytes.byteLength),
+          authorization: `Bearer ${hello.user_token}`,
+        },
+        body: bytes.slice(),
+        signal: AbortSignal.timeout(20_000),
+      },
+    );
+    const text = await response.text();
+    if (response.status === 200) {
+      return JSON.parse(text) as Record<string, unknown>;
+    }
+    last = `${response.status} ${text}`;
+    if (response.status !== 503) break;
+    await delay(200);
+  }
+  throw new Error(`원문 업로드가 되지 않았다: ${last}`);
+}
+
+async function versionFile(
+  hello: MainHello,
+  version: string,
+): Promise<{ status: number; bytes: Uint8Array }> {
+  const response = await fetch(
+    `http://127.0.0.1:${hello.api_port}/v1/documents/file`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${hello.user_token}`,
+      },
+      body: JSON.stringify({ version, path: NOTE_PATH }),
+    },
+  );
+  return {
+    status: response.status,
+    bytes: new Uint8Array(await response.arrayBuffer()),
+  };
+}
+
+Deno.test({
+  name:
+    "platform/install-and-update#R11 platform/backup-and-migration#R5 platform/backup-and-migration#R6 platform/identity#R7 flow update-lophn 4: 재시작이 설정·무결성·고정 판과 참조·실행 자격·중단 작업을 확인하고 모르는 schema와 손상 원본은 보존한다",
+  ignore: Deno.env.get("LOPHN_E2E") !== "1",
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn() {
+    const root = await Deno.realPath(
+      await Deno.makeTempDir({ prefix: "lophn-e2e-update-check-" }),
+    );
+    const home = `${root}/data`;
+    const sessionHome = `${root}/session`;
+    await Deno.mkdir(home, { mode: 0o700 });
+    await Deno.chmod(home, 0o700);
+    await Deno.mkdir(sessionHome, { mode: 0o700 });
+    // 세션 HOME에는 deno cache가 없다. documents worker는 --cached-only라
+    // 테스트 프로세스가 쓰는 cache를 DENO_DIR로 가리킨다.
+    const cacheDir = Deno.env.get("DENO_DIR") ??
+      `${Deno.env.get("HOME") ?? "/tmp"}/.cache/deno`;
+    const boot = (data: string) =>
+      bootCore(data, sessionHome, { DENO_DIR: cacheDir });
+    const note = new TextEncoder().encode(NOTE_TEXT);
+    const noteHash = await sha256Hex(note);
+    let running: Boot | undefined;
+    const halt = async () => {
+      const current = running;
+      running = undefined;
+      if (current !== undefined) {
+        killTree(current.child.pid);
+        await current.finished.catch(() => {});
+      }
+    };
+    try {
+      const first = boot(home);
+      running = first;
+      const hello = await first.hello;
+      const created = await post(
+        hello,
+        "projects/create",
+        projectBody(NOTE_PROJECT, "kept", "update-lophn-4-project"),
+      );
+      assertEquals(created.status, 200, JSON.stringify(created.body));
+      const settings = await post(hello, "settings/get", {
+        keys: ["shell.reading_width"],
+      });
+      assertEquals(settings.status, 200, JSON.stringify(settings.body));
+      const applied = await post(hello, "settings/apply", {
+        input: {
+          changes: [{
+            layer: "common",
+            key: "shell.reading_width",
+            action: "set",
+            value: "wide",
+          }],
+        },
+        idempotency_key: "update-lophn-4-width",
+        compare: {
+          revision: settings.body["revision"],
+          defaults_revision: settings.body["defaults_revision"],
+        },
+        prepared: [],
+      });
+      assertEquals(applied.status, 200, JSON.stringify(applied.body));
+      const uploaded = await uploadNote(hello, note, noteHash);
+      assertEquals(uploaded["hash"], noteHash);
+      assertEquals(uploaded["purpose"], "document_file");
+      const prepared = await untilReady(hello, "documents/prepare", {
+        document: NOTE_DOC,
+        base_version: null,
+        metadata: { title: "Kept note", place: null, name: null },
+        files: [{
+          path: NOTE_PATH,
+          blob_hash: noteHash,
+          bytes: note.byteLength,
+          media_type: "text/markdown",
+          primary: true,
+          content: { kind: "prepared", blob: uploaded },
+        }],
+        source: null,
+        idempotency_key: "update-lophn-4-prepare",
+      });
+      assertEquals(prepared.status, 200, JSON.stringify(prepared.body));
+      const preparedFiles = prepared.body["files"] as {
+        preparation_ref: string;
+      }[];
+      const saved = await post(hello, "documents/save", {
+        input: prepared.body,
+        idempotency_key: "update-lophn-4-prepare",
+        compare: { base_version: null },
+        prepared: [
+          String(prepared.body["preparation_ref"]),
+          ...preparedFiles.map((file) => file.preparation_ref),
+        ],
+      });
+      assertEquals(saved.status, 200, JSON.stringify(saved.body));
+      const versionId = String(saved.body["version"]);
+      const fixed = versionOf(home, NOTE_DOC);
+      assertEquals(fixed.id, versionId);
+      assertEquals(fixed.document, NOTE_DOC);
+      assertEquals(fixed.latest, versionId);
+      assertEquals(fixed.number, 1);
+      assertEquals(fixed.title, "Kept note");
+      assertEquals(fixed.savedBy, "user");
+      const ref = fileRef(home, versionId);
+      assertEquals(ref.hash, noteHash);
+      assertEquals(ref.size, note.byteLength);
+      assertEquals(await Deno.readFile(blobPath(home, noteHash)), note);
+      const ledgerId = (await Deno.readTextFile(`${home}/ledger-id`)).trim();
+      const history = readHistory(home);
+      const facts = eventsOf(home);
+      assert(
+        facts.some((row) => row.subject === NOTE_DOC && row.actor === "user"),
+      );
+      const status = await post(hello, "platform/status", {});
+      assertEquals(status.status, 200, JSON.stringify(status.body));
+      assertEquals(status.body["ready"], true);
+      const reportedSchema = status.body["schema"];
+      assert(typeof reportedSchema === "number" && reportedSchema > 0);
+      assert(reportedSchema <= history.length);
+      assertEquals(integrityOf(`${home}/lophn.db`), "ok");
+
+      const second = boot(home);
+      await assertRefused(second);
+      await second.stop();
+      const still = await post(hello, "documents/get", { document: NOTE_DOC });
+      assertEquals(still.status, 200, JSON.stringify(still.body));
+      assertEquals(await first.stop(), 0);
+      running = undefined;
+
+      writeLedger(home, (db) => {
+        db.exec("pragma foreign_keys = on");
+        assertThrows(() => db.exec("update events set payload = payload"));
+        assertThrows(() => db.exec("delete from events"));
+        assertThrows(() =>
+          db.exec("update schema_migrations set content_hash = content_hash")
+        );
+        const command = db.prepare(
+          "select principal, idempotency_key, fingerprint, result, first_seq, last_seq, at from command_results limit 1",
+        ).get();
+        assert(command !== undefined);
+        assertThrows(() =>
+          db.prepare(
+            "insert into command_results (principal, idempotency_key, fingerprint, result, first_seq, last_seq, at) values (?, ?, ?, ?, ?, ?, ?)",
+          ).run(
+            command["principal"],
+            command["idempotency_key"],
+            command["fingerprint"],
+            command["result"],
+            command["first_seq"],
+            command["last_seq"],
+            command["at"],
+          )
+        );
+        assertThrows(() =>
+          db.prepare(
+            "insert into blob_refs (owner_kind, owner_key, field, hash, size_bytes, registered_seq) values ('document_version', 'missing', 'file', ?, ?, 999999999)",
+          ).run(noteHash, note.byteLength)
+        );
+      });
+      writeLedger(home, (db) => {
+        db.prepare(
+          `insert into invocations (
+             id, app, release, mode, actor, caller, operation, trigger,
+             approval, input_hash, status, started_at, finished_at, summary, detail_hash
+           ) values (?, ?, ?, 'live', 'user', ?, ?, ?, null, null, 'running', ?, null, '{}', null)`,
+        ).run(
+          INTERRUPTED,
+          INTERRUPTED_APP,
+          INTERRUPTED_RELEASE,
+          JSON.stringify({ kind: "direct" }),
+          JSON.stringify({ kind: "command", command: "usage.sync" }),
+          JSON.stringify({ kind: "direct" }),
+          INTERRUPTED_AT,
+        );
+      });
+      await Deno.writeTextFile(`${home}/kept.txt`, "kept\n");
+
+      const again = boot(home);
+      running = again;
+      const restarted = await again.hello;
+      assert(restarted.user_token !== hello.user_token);
+      assert(restarted.core_epoch !== hello.core_epoch);
+      const stale = await post(
+        { ...restarted, user_token: hello.user_token },
+        "documents/get",
+        { document: NOTE_DOC },
+      );
+      assertEquals(stale.status, 401);
+      const read = await post(restarted, "documents/get", {
+        document: NOTE_DOC,
+      });
+      assertEquals(read.status, 200, JSON.stringify(read.body));
+      const readVersion = read.body["version"] as {
+        id: string;
+        document: string;
+        number: number;
+        content_hash: string;
+        saved_by: string;
+        files: { path: string; blob_hash: string; bytes: number }[];
+      };
+      assertEquals(readVersion.id, fixed.id);
+      assertEquals(readVersion.document, fixed.document);
+      assertEquals(readVersion.number, fixed.number);
+      assertEquals(readVersion.content_hash, fixed.contentHash);
+      assertEquals(readVersion.saved_by, fixed.savedBy);
+      assertEquals(readVersion.files[0].path, NOTE_PATH);
+      assertEquals(readVersion.files[0].blob_hash, noteHash);
+      assertEquals(readVersion.files[0].bytes, note.byteLength);
+      const readDocument = read.body["document"] as {
+        id: string;
+        title: string;
+        latest_version: string;
+      };
+      assertEquals(readDocument.id, NOTE_DOC);
+      assertEquals(readDocument.title, "Kept note");
+      assertEquals(readDocument.latest_version, versionId);
+      const file = await versionFile(restarted, versionId);
+      assertEquals(
+        file.status,
+        200,
+        new TextDecoder().decode(file.bytes),
+      );
+      assertEquals(file.bytes, note);
+      const width = await post(restarted, "settings/get", {
+        keys: ["shell.reading_width"],
+      });
+      assertEquals(width.status, 200, JSON.stringify(width.body));
+      const chosen = (width.body["settings"] as {
+        key: string;
+        value: unknown;
+      }[]).find((row) => row.key === "shell.reading_width");
+      assertEquals(chosen?.value, "wide");
+      const restartedStatus = await post(restarted, "platform/status", {});
+      assertEquals(
+        restartedStatus.status,
+        200,
+        JSON.stringify(restartedStatus.body),
+      );
+      assertEquals(restartedStatus.body["ready"], true);
+      assertEquals(restartedStatus.body["ledger_id"], ledgerId);
+      assertEquals(restartedStatus.body["schema"], reportedSchema);
+      assertEquals(integrityOf(`${home}/lophn.db`), "ok");
+      assertEquals(readHistory(home), history);
+      assertEquals(versionOf(home, NOTE_DOC), fixed);
+      assertEquals(fileRef(home, versionId), ref);
+      assertEquals(await Deno.readFile(blobPath(home, noteHash)), note);
+      const afterFacts = eventsOf(home);
+      assertEquals(afterFacts.slice(0, facts.length), facts);
+      const interrupted = invocationOf(home);
+      assertEquals(interrupted.status, "unknown");
+      assertEquals(interrupted.started, INTERRUPTED_AT);
+      assertEquals(
+        (JSON.parse(interrupted.summary) as { reason?: string }).reason,
+        "core_restarted",
+      );
+      assertEquals(await Deno.readTextFile(`${home}/kept.txt`), "kept\n");
+      assertEquals(projectTitle(home, NOTE_PROJECT), "kept");
+      assertEquals(await again.stop(), 0);
+      running = undefined;
+
+      const unknown = `${root}/unknown`;
+      await copyHome(home, unknown);
+      const unknownHistory = readHistory(unknown);
+      const futureHash = await sha256Hex("update-lophn-4-future-step");
+      writeLedger(unknown, (db) => {
+        db.prepare(
+          "insert into schema_migrations (version, step_id, content_hash, applied_at) values (?, 'future-step', ?, ?)",
+        ).run(
+          unknownHistory[unknownHistory.length - 1].version + 1,
+          futureHash,
+          "2026-10-09T00:00:00.000Z",
+        );
+      });
+      const unknownBefore = readHistory(unknown);
+      const higher = boot(unknown);
+      running = higher;
+      await assertRefused(higher);
+      await higher.stop();
+      running = undefined;
+      assertEquals(readHistory(unknown), unknownBefore);
+      assertEquals(
+        readHistory(unknown).slice(0, unknownHistory.length),
+        unknownHistory,
+      );
+      assertEquals(versionOf(unknown, NOTE_DOC), fixed);
+      assertEquals(await Deno.readFile(blobPath(unknown, noteHash)), note);
+      assertEquals(await Deno.readTextFile(`${unknown}/kept.txt`), "kept\n");
+      assertEquals(
+        (await Deno.readTextFile(`${unknown}/ledger-id`)).trim(),
+        ledgerId,
+      );
+      assertEquals(integrityOf(`${unknown}/lophn.db`), "ok");
+
+      const damaged = `${root}/damaged`;
+      await copyHome(home, damaged);
+      const marker = new TextEncoder().encode(
+        "damaged-original-not-a-sqlite\n",
+      );
+      await Deno.remove(`${damaged}/lophn.db-wal`).catch(() => {});
+      await Deno.remove(`${damaged}/lophn.db-shm`).catch(() => {});
+      await Deno.writeFile(`${damaged}/lophn.db`, marker);
+      const broken = boot(damaged);
+      running = broken;
+      await assertRefused(broken);
+      await broken.stop();
+      running = undefined;
+      assertEquals(await Deno.readFile(`${damaged}/lophn.db`), marker);
+      assertEquals(await Deno.readFile(blobPath(damaged, noteHash)), note);
+      assertEquals(await Deno.readTextFile(`${damaged}/kept.txt`), "kept\n");
+      assertEquals(
+        (await Deno.readTextFile(`${damaged}/ledger-id`)).trim(),
+        ledgerId,
+      );
+
+      const unprotected = `${root}/unprotected`;
+      await copyHome(home, unprotected);
+      const protectedFacts = eventsOf(unprotected);
+      writeLedger(unprotected, (db) => {
+        db.exec("drop trigger events_no_update");
+      });
+      assertEquals(triggerNamed(unprotected, "events_no_update"), false);
+      const open = boot(unprotected);
+      running = open;
+      await assertRefused(open);
+      await open.stop();
+      running = undefined;
+      assertEquals(triggerNamed(unprotected, "events_no_update"), false);
+      assertEquals(eventsOf(unprotected), protectedFacts);
+      assertEquals(versionOf(unprotected, NOTE_DOC), fixed);
+      assertEquals(await Deno.readFile(blobPath(unprotected, noteHash)), note);
+      assertEquals(readHistory(unprotected), history);
+      assertEquals(
+        (await Deno.readTextFile(`${unprotected}/ledger-id`)).trim(),
+        ledgerId,
+      );
+    } finally {
+      await halt();
+      await Deno.remove(root, { recursive: true });
+    }
+  },
+});

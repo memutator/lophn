@@ -6,7 +6,8 @@
 // guest 입력으로 바꿔 넘긴다(reads.ts의 파일 바이트는 준비 worker 몫이다).
 // 명시 format의 error는 invalid_input으로 거절(사전 validate와 같은 오류)하고 warning은
 // 결과에 남긴다. 미지정 새 문서는 MIME 기본 format이고 구조 error는 warning으로 내려가며,
-// 위험 경로·접근 실패·runner 실패는 낮추지 않는다. 옛 module은 보존 목록에서 찾는다.
+// 위험 경로·접근 실패·runner 실패는 낮추지 않는다. format을 생략한 후속 저장도 그 판의
+// explicit를 따른다. 옛 module은 보존 목록에서 찾는다.
 
 import { err, ok, type Result } from "../../base/mod.ts";
 import type {
@@ -94,7 +95,7 @@ export type PreparedResult = Omit<PreparedVersion, "validation"> & {
 
 export type PrepareError = { code: string; message: string };
 
-// 미지정 계약에서 구조 진단이 warning으로 내려간다(R5). 나머지 class는 그대로다.
+// explicit가 아닌 format에서 구조 진단이 warning으로 내려간다(R5). 나머지 class는 그대로다.
 const STRUCTURE_CODES = new Set(["invalid_structure", "duplicate_anchor"]);
 
 function recastDiagnostic(
@@ -196,7 +197,8 @@ export function createPrepareAssembly(deps: PrepareDeps) {
     const resolved = await resolveFormat(request, primary, deps);
     if (!resolved.ok) return resolved;
     const format = resolved.value;
-    const implicit = request.format === undefined;
+    // 요청이 format을 뺐는지는 보지 않는다. 해석된 판이 explicit이면 지정 계약이다.
+    const implicit = !format.explicit;
 
     // 같은 stream을 hash와 blob 준비로 보낸다. 실패는 낮추지 않는다.
     const packaged = await deps.prepareFiles(contentFiles);
@@ -218,7 +220,7 @@ export function createPrepareAssembly(deps: PrepareDeps) {
     }
     const outcome = validated.value;
 
-    // 구조 진단은 미지정 계약에서 warning으로 내려간다. 나머지는 그대로 남는다.
+    // 구조 진단은 explicit가 아닌 format에서 warning으로 내려간다. 나머지는 그대로 남는다.
     // 검사 한도를 넘어 검사를 하지 못한 것(check_skipped)은, 이미 이 FormatRef로 저장된 판을
     // 되돌리는 restore에서만 warning이다(새 바이트의 명시 format 저장은 거절 그대로다).
     const restoring = format.explicit &&

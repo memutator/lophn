@@ -771,7 +771,10 @@ Deno.test("apps/sdk#R26: 문제 보고는 그 자식의 app credential로 core�
     });
     assertEquals(reported.status, 200, JSON.stringify(reported.body));
     assertEquals(reported.body, {
-      report_id: "rpt_01h455vb4pex5v6nkc6gd5fdw1",
+      report: "rpt_01h455vb4pex5v6nkc6gd5fdw1",
+      snapshot: "snp_01h455vb4pex5v6nkc6gd5fdw1",
+      problem: "prb_01h455vb4pex5v6nkc6gd5fdw1",
+      diagnostic_scope: null,
     });
     assertEquals(world.reports.length, 1);
     // supervisor의 machine credential이 아니라 이 자식의 app credential이다.

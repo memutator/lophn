@@ -19,6 +19,12 @@ import {
 } from "../testing/broker.ts";
 
 const RPT = "rpt_01h455vb4pex5v6nkc6gd5fdw1";
+const ACCEPTED = {
+  report: RPT,
+  snapshot: "snp_01h455vb4pex5v6nkc6gd5fdw1",
+  problem: "prb_01h455vb4pex5v6nkc6gd5fdw1",
+  diagnostic_scope: null,
+};
 
 function fixture() {
   const access = createAccessFixture({ problemCodes: ["calendar_failed"] });
@@ -28,7 +34,7 @@ function fixture() {
     problems: {
       report(request) {
         calls.push(request);
-        return Promise.resolve(ok({ report_id: RPT }));
+        return Promise.resolve(ok(ACCEPTED));
       },
     },
   });
@@ -42,7 +48,7 @@ Deno.test("apps/permissions#R4: 문제 보고는 추가 permission 없이 선언
     withChild({ code: "calendar_failed", details: { count: 2 } }),
   );
   assert(reported.ok);
-  assertEquals(reported.value, { report_id: RPT });
+  assertEquals(reported.value, ACCEPTED);
   assertEquals(calls, [{
     app: APP,
     release: RELEASE,
@@ -127,7 +133,7 @@ Deno.test("apps/permissions#R23: 진단·수리 runner(test 자식)는 같은 gr
     problems: {
       report: () => {
         reached.push("problems");
-        return Promise.resolve(ok({ report_id: RPT }));
+        return Promise.resolve(ok(ACCEPTED));
       },
     },
   });

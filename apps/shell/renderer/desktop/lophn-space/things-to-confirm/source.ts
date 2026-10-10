@@ -20,8 +20,13 @@ export interface QuestionOption {
   readonly key: string;
   /** agent가 쓴 이름. 그대로 글로만 그린다. */
   readonly label: string;
-  /** 고정 action이 있으면 답은 confirmation window에서만 확정한다. */
+  /** 고정 action이 있으면 보통 confirmation window에서만 확정한다. */
   readonly action: boolean;
+  /**
+   * action의 command. term.define은 질문 답의 확정으로 적용하고 확인 창을 열지 않는다.
+   * action이 없으면 null이다.
+   */
+  readonly command?: string | null;
 }
 
 export type QuestionStatus = "pending" | "answered" | "expired" | "cancelled";
@@ -82,6 +87,15 @@ export interface NotificationRow {
   readonly sourceEvent: string;
   readonly sourceSeq: string;
   readonly readAt: string | null;
+  /**
+   * source event에 저장된 발생 시각. 없으면 시각을 그리지 않는다.
+   * (platform/notifications#R3)
+   */
+  readonly occurredAt?: string;
+  /**
+   * source event에 저장된 문서. 없으면 링크를 그리지 않는다.
+   */
+  readonly document?: string;
   /**
    * OS notification으로 올리지 못한 이유. core가 이번 실행에서 본 것만 온다
    * (platform/notifications#R10). 없으면 실패를 본 적이 없다.

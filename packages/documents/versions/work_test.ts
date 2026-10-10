@@ -348,6 +348,76 @@ Deno.test("documents/formats#R7: 사람의 명시 format 변경만 새 판의 �
   if (skipped.ok) assertEquals(skipped.value.format, base.format);
 });
 
+Deno.test("documents/formats#R4 documents/formats#R7: format을 생략한 후속 저장은 판의 explicit에 따라 구조 error를 거절하거나 경고로 남긴다", async () => {
+  const base = {
+    id: "ver_01arz3ndektsv4rrffq69g5fav",
+    document: ids.doc,
+    number: 1,
+    files_hash: HASH,
+    primary_path: "report.md",
+    file_count: 1,
+    content_hash: OTHER_HASH,
+    format: {
+      name: "document",
+      module_hash: BUILTIN_MODULE_HASH,
+      explicit: true,
+    },
+    saved_by: "user",
+    saved_at: "2026-10-05T00:00:00.000Z",
+    run: null,
+    source: null,
+  };
+  const diagnostic = {
+    severity: "error" as const,
+    code: "invalid_structure",
+    message: "heading anchors do not nest",
+    file: "report.md",
+    start_line: 3,
+    end_line: 3,
+    column: 1,
+  };
+  const failed = validateOk({
+    status: "failed",
+    error_count: 1,
+    diagnostics: [diagnostic],
+  });
+  const rejected = await createPrepareAssembly(deps({
+    // deno-lint-ignore require-await -- BaseVersionRead의 모양을 그대로 따르는 fake다.
+    loadBaseVersion: async () => ok(base),
+    validateFiles: failed,
+  }))(
+    request({
+      format: undefined,
+      base_version: base.id,
+      metadata: undefined,
+    }),
+  );
+  assertEquals(rejected.ok, false);
+  if (!rejected.ok) {
+    assertEquals(rejected.error.code, "invalid_input");
+    assertEquals(rejected.error.message, "requested format failed validation");
+  }
+  const kept = await createPrepareAssembly(deps({
+    // deno-lint-ignore require-await -- BaseVersionRead의 모양을 그대로 따르는 fake다.
+    loadBaseVersion: async () =>
+      ok({ ...base, format: { ...base.format, explicit: false } }),
+    validateFiles: failed,
+  }))(
+    request({
+      format: undefined,
+      base_version: base.id,
+      metadata: undefined,
+    }),
+  );
+  assert(kept.ok);
+  if (kept.ok) {
+    assertEquals(kept.value.format.explicit, false);
+    assertEquals(kept.value.validation.status, "passed");
+    assertEquals(kept.value.validation.warning_count, 1);
+    assertEquals(kept.value.validation.diagnostics[0]?.severity, "warning");
+  }
+});
+
 Deno.test("documents/formats#R7: 최신 판이 바뀐 후속 준비는 옛 판 계약으로 돌아간다", async () => {
   const base = {
     id: "ver_01arz3ndektsv4rrffq69g5fav",

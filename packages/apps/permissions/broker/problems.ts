@@ -3,6 +3,7 @@
 // 본문이 정하지 못한다. 보고 자체의 수집·묶음은 problems 팀의 collector가 맡는다.
 import { err, type Result } from "../../../base/mod.ts";
 import {
+  brokerProblemObserveInputSchema,
   brokerProblemReportInputSchema,
   type brokerProblemReportOutputSchema,
 } from "../../../contracts/apps/mod.ts";
@@ -14,6 +15,10 @@ export type ProblemReportOutput = z.infer<
   typeof brokerProblemReportOutputSchema
 >;
 
+export type ProblemObserveInput = z.infer<
+  typeof brokerProblemObserveInputSchema
+>["observation"];
+
 export type ProblemReportRequest = {
   app: string;
   release: string | null;
@@ -22,15 +27,31 @@ export type ProblemReportRequest = {
   code: string;
   details?: unknown;
   trace?: string;
+  // SDK가 전송 전에 고정한 값. 없으면 supervisor가 id·시각을 정한다.
+  reportId?: string;
+  observedAt?: string;
+  invocation?: {
+    id: string;
+    binding: "sdk_context" | "view_context";
+    record_missing_reason: { reason: string } | null;
+  } | null;
 };
 
 // problems의 보고 contract(`/v1/problems/report`)를 감싼 포트다.
 export interface ProblemsReport {
   report(request: ProblemReportRequest): Promise<Result<ProblemReportOutput>>;
+  // 잡은 예외. 연결이 없으면 경로를 없애지 않고 unavailable이다.
+  observe?(
+    observation: ProblemObserveInput,
+  ): Promise<Result<ProblemReportOutput>>;
 }
 
 export type ProblemReportService = {
   report(
+    child: BrokerChild,
+    body: unknown,
+  ): Promise<Result<ProblemReportOutput>>;
+  observe?(
     child: BrokerChild,
     body: unknown,
   ): Promise<Result<ProblemReportOutput>>;
@@ -68,7 +89,27 @@ export function createProblemReportService(deps: {
         code: input.code,
         ...(input.details === undefined ? {} : { details: input.details }),
         ...(input.trace === undefined ? {} : { trace: input.trace }),
+        ...(input.report_id === undefined ? {} : { reportId: input.report_id }),
+        ...(input.observed_at === undefined
+          ? {}
+          : { observedAt: input.observed_at }),
+        ...(input.invocation === undefined
+          ? {}
+          : { invocation: input.invocation }),
       });
+    },
+    async observe(_child, body) {
+      const parsed = brokerProblemObserveInputSchema.safeParse(body);
+      if (!parsed.success) {
+        return invalid("exception observation input is invalid");
+      }
+      if (deps.problems.observe === undefined) {
+        return err({
+          code: "unavailable",
+          message: "exception observation is not connected",
+        });
+      }
+      return await deps.problems.observe(parsed.data.observation);
     },
   };
 }

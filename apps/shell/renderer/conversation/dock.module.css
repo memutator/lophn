@@ -101,6 +101,14 @@
   color: var(--color-text-secondary);
 }
 
+/* 외부 연결 안내 한 줄. 문장과 지금 할 행동 하나만 둔다. */
+.external {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
 .empty {
   margin: var(--space-0);
   padding: var(--space-8) var(--space-6);

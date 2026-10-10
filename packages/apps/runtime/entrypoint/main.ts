@@ -113,6 +113,32 @@ export async function main(deps: MainDeps): Promise<void> {
     screenBytes: deps.screenBytes,
     contentType: deps.contentType,
   });
+  started.state.reportCaught = (error, invocation) => {
+    const message = error.message;
+    const stack = error.stack ?? null;
+    void deps.reportTransport({
+      report_id: ids.newId("rpt"),
+      observed_at: clock.now(),
+      observation: "error",
+      error: {
+        name: error.name.trim() !== "" ? error.name : "Error",
+        message,
+        message_missing_reason: null,
+        stack,
+        stack_missing_reason: stack === null
+          ? { reason: "not a string" }
+          : null,
+      },
+      error_missing_reason: null,
+      invocation: {
+        id: invocation,
+        binding: "sdk_context",
+        record_missing_reason: null,
+      },
+    }).catch(() => {
+      // 보고 실패가 command 결과나 프로세스 종료를 바꾸지 않는다.
+    });
+  };
   await deps.importModule(APP);
   installAutomations(started.state, deps.automationTimers);
   startDirectServer(started.state);
@@ -153,9 +179,15 @@ async function boot(): Promise<void> {
     blueprint,
     broker: unixBroker(broker),
     dataSchema: await bundleDataSchema(bundleDir),
-    reportTransport: (input) => reportException(broker, credential, input),
+    reportTransport: (input) =>
+      reportException(broker, credential, start, input),
     problemTransport: (input) =>
-      reportProblemToBroker(broker, credential, input),
+      reportProblemToBroker(
+        broker,
+        credential,
+        start,
+        input,
+      ),
     screenBytes: screens.screenBytes,
     contentType: screens.contentType,
   });
@@ -189,30 +221,124 @@ function unixBroker(socketPath: string): BrokerTransport {
 async function reportException(
   socketPath: string,
   credential: string,
+  child: { process_nonce: string; mode: string },
   input: unknown,
 ): Promise<unknown> {
   const response = await postUnix(
     socketPath,
-    "/v1/problems/observe-exception",
+    BROKER_PATHS.problemsObserve,
     credential,
-    input,
+    {
+      process_nonce: child.process_nonce,
+      mode: child.mode,
+      observation: input,
+    },
   );
   return response.body;
 }
 
-// 앱 code의 선언 code 보고. broker의 problems/report 통로로 보내고 응답 본문을 그대로 돌려준다.
+const REPORT_ERROR_CODES = new Set([
+  "invalid_input",
+  "not_found",
+  "forbidden",
+  "unauthorized",
+  "conflict",
+  "unavailable",
+  "internal",
+]);
+
+// broker는 본문의 nonce·mode가 자식 연결과 같아야 받는다. SDK 입력에는 그 신원이 없고,
+// 첫 전송 전에 고정한 report id·시각·invocation이 있다. 그 값을 빼면 재전송이 새 발생이 된다.
+function problemReportBody(
+  child: { process_nonce: string; mode: string },
+  input: unknown,
+): Record<string, unknown> {
+  const source = input !== null && typeof input === "object"
+    ? input as Record<string, unknown>
+    : {};
+  const body: Record<string, unknown> = {
+    process_nonce: child.process_nonce,
+    mode: child.mode,
+    code: source.code,
+  };
+  if (source.details !== undefined) body.details = source.details;
+  if (typeof source.report_id === "string") body.report_id = source.report_id;
+  if (typeof source.observed_at === "string") {
+    body.observed_at = source.observed_at;
+  }
+  if ("invocation" in source) body.invocation = source.invocation;
+  return body;
+}
+
+type ReportAcceptance =
+  & {
+    report: string;
+    snapshot: string;
+  }
+  & ({ problem: string; diagnostic_scope: null } | {
+    problem: null;
+    diagnostic_scope: string;
+  });
+
+function acceptanceOf(body: unknown): ReportAcceptance | undefined {
+  if (body === null || typeof body !== "object") return;
+  const value = body as Record<string, unknown>;
+  if (typeof value.report !== "string" || typeof value.snapshot !== "string") {
+    return;
+  }
+  if (typeof value.problem === "string" && value.diagnostic_scope === null) {
+    return {
+      report: value.report,
+      snapshot: value.snapshot,
+      problem: value.problem,
+      diagnostic_scope: null,
+    };
+  }
+  if (
+    value.problem === null && typeof value.diagnostic_scope === "string" &&
+    /\S/.test(value.diagnostic_scope)
+  ) {
+    return {
+      report: value.report,
+      snapshot: value.snapshot,
+      problem: null,
+      diagnostic_scope: value.diagnostic_scope,
+    };
+  }
+}
+
+// 앱 code의 선언 code 보고. broker의 problems/report로 보내고, SDK transport가 읽는
+// 접수 Result로 돌려준다. 본문만 넘기면 성공도 응답 유실로 보여 같은 발생을 다시 보낸다.
 async function reportProblemToBroker(
   socketPath: string,
   credential: string,
+  child: { process_nonce: string; mode: string },
   input: unknown,
 ): Promise<unknown> {
   const response = await postUnix(
     socketPath,
     BROKER_PATHS.problemsReport,
     credential,
-    input,
+    problemReportBody(child, input),
   );
-  return response.body;
+  const accepted = acceptanceOf(response.body);
+  if (response.status === 200 && accepted) {
+    return { ok: true, value: accepted };
+  }
+  const error = response.body !== null && typeof response.body === "object" &&
+      "error" in response.body
+    ? (response.body as { error?: { code?: unknown; message?: unknown } }).error
+    : undefined;
+  const code = typeof error?.code === "string" &&
+      REPORT_ERROR_CODES.has(error.code)
+    ? error.code
+    : !Number.isInteger(response.status) || response.status >= 500
+    ? "unavailable"
+    : "invalid_input";
+  const message = typeof error?.message === "string" && /\S/.test(error.message)
+    ? error.message
+    : "the report was refused";
+  return { ok: false, error: { code, message } };
 }
 
 async function postUnix(

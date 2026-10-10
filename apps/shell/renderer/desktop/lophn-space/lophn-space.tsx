@@ -341,6 +341,8 @@ export function LophnSpace(
               <ThingsToConfirm
                 deps={requests}
                 initialSelected={initialRequest}
+                onOpenDocument={(document) =>
+                  readDocument(document, null, null)}
               />
             )
             : current === "projects" && organize !== undefined

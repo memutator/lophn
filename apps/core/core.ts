@@ -30,6 +30,7 @@ import {
   type ApiServer,
   RouteRegistry,
   startApiServer,
+  WORKSPACE_MEMORY_ROUTES,
 } from "../../packages/platform/api/mod.ts";
 import type { WorkerRouteTarget } from "../../packages/platform/responsiveness/mod.ts";
 import {
@@ -239,6 +240,7 @@ import {
 import {
   COLLECTOR_KIND,
   reportCollectorSpec,
+  screenTestHost,
   TEST_RUNNER_KIND,
   testRunnerSpec,
 } from "./problems-runner.ts";
@@ -653,8 +655,14 @@ async function open(
   );
   if (!assembled.ok) return assembled;
   // HTTP route는 writer·reader가 받는 command·read와 같은 조립에서 온다.
+  // 현재 보기 relay는 팀 조립 밖 memory route다. registry에 없으면 handler가
+  // 있어도 lookup이 route not found를 반환한다(shell/workspace#R9).
   // platform 기본 route와 팀 route의 resource/method가 겹치면 기동을 거절한다.
-  const allRoutes = [...ROUTES, ...assembled.value.routes];
+  const allRoutes = [
+    ...ROUTES,
+    ...WORKSPACE_MEMORY_ROUTES,
+    ...assembled.value.routes,
+  ];
   let routes: RouteRegistry;
   try {
     routes = new RouteRegistry(allRoutes);
@@ -790,9 +798,7 @@ async function open(
       ...(kind === TEST_RUNNER_KIND
         ? {
           ...sessionBusEnv(),
-          ...(Deno.env.get("SCREEN_TEST_HOST")
-            ? { SCREEN_TEST_HOST: Deno.env.get("SCREEN_TEST_HOST")! }
-            : {}),
+          ...(screenTestHost() ? { SCREEN_TEST_HOST: screenTestHost()! } : {}),
         }
         : {}),
     }),
@@ -823,7 +829,7 @@ async function open(
               Deno.env.get("XDG_RUNTIME_DIR"))!,
           }
           : {}),
-        ...(Deno.env.get("TMPDIR") ? { TMPDIR: Deno.env.get("TMPDIR")! } : {}),
+        ...(optionalEnv("TMPDIR") ? { TMPDIR: optionalEnv("TMPDIR")! } : {}),
       }),
     })
     : undefined;
@@ -1983,7 +1989,7 @@ async function open(
   const runnerSpec = testRunnerSpec({
     dataRoot: root.path,
     deno: Deno.execPath(),
-    screenHost: Deno.env.get("SCREEN_TEST_HOST"),
+    screenHost: screenTestHost(),
   });
   let testControl: TestControl | undefined;
   // runner process(같은 kind 하나)의 session이 `problems.work` 깨움도 받는지. 위 시작 ok 뒤 오른다.
@@ -2331,7 +2337,29 @@ async function open(
   // 싣고, 자식 앱이 쓸 app credential은 supervisor의 요청마다 발급한다. 띄우지 못해도 core는
   // 계속 선다: connect와 runtime은 supervisor 관측이 없는 상태(unavailable)로 답한다.
   if (appsSupervision) {
-    appsControl.useIssuer(appCredentialIssuer(productRegistry));
+    // collector는 요청 credential을 ledger 행으로 다시 읽는다. 메모리 발급만으로는
+    // 선언 보고가 unauthorized가 된다.
+    const childIssuer = appCredentialIssuer(productRegistry);
+    appsControl.useIssuer({
+      ...childIssuer,
+      async request(message) {
+        const issued = await childIssuer.request(message);
+        if (!issued.ok) return issued;
+        const current = productRegistry.revalidate({
+          credential_ref: issued.value.credential_ref,
+        });
+        if (!current.ok) {
+          childIssuer.end(issued.value.credential_ref);
+          return current;
+        }
+        const recorded = await runtime.record(current.value);
+        if (!recorded.ok) {
+          childIssuer.end(issued.value.credential_ref);
+          return err(recorded.error);
+        }
+        return issued;
+      },
+    });
     const issued = await productRegistry.issue({
       actor: "machine",
       principal: "machine:apps-supervisor",
@@ -3043,6 +3071,15 @@ const trackingReader: RequestContext = {
   conditions: {},
   credential_ref: "machine:documents-roots",
 };
+
+// packaged allow-env에 없는 이름은 없는 값이다. NotCapable로 기동을 끝내지 않는다.
+function optionalEnv(name: string): string | undefined {
+  try {
+    return Deno.env.get(name);
+  } catch {
+    return undefined;
+  }
+}
 
 // I/O worker의 secret-tool이 쓰는 session bus 위치. secret 값이 아니다.
 function sessionBusEnv(): Record<string, string> {

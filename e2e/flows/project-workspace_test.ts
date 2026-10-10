@@ -9,6 +9,7 @@ import { e2eEnabled, READY_TIMEOUT_MS } from "../harness.ts";
 import { launchShell, type RunningShell } from "../run.ts";
 import {
   commandBody,
+  type FlowShell,
   mustCall,
   openProjectWorkspace,
   removeHome,
@@ -16,6 +17,7 @@ import {
   untilFile,
   versionHistory,
 } from "../flow-support.ts";
+import type { PageSession } from "../run.ts";
 
 const repoRoot = new URL("../../", import.meta.url).pathname.replace(/\/$/, "");
 const electronExecutable =
@@ -309,6 +311,210 @@ Deno.test({
   },
 });
 
+// shell.connect는 url마다 CDP session을 캐시한다. 여기서 닫으면 다음 읽기가 죽은
+// session을 받아 overlay dialog를 못 본다. 창을 닫을 때 shell이 session을 정리한다.
+const LEAVE_DIALOG = `(() => {
+  const dialog = document.querySelector('[role="dialog"]');
+  const host = document.querySelector('[data-kind="dialog"]');
+  if (!dialog) {
+    return JSON.stringify({
+      open: false,
+      host: host !== null,
+      text: (document.body.innerText || "").slice(0, 400),
+    });
+  }
+  return JSON.stringify({
+    open: true,
+    host: host !== null,
+    title: dialog.textContent ?? "",
+    buttons: [...dialog.querySelectorAll("button")].map((el) => el.textContent ?? ""),
+  });
+})()`;
+
+type LeaveDialog = {
+  open: boolean;
+  host: boolean;
+  title?: string;
+  buttons?: string[];
+  text?: string;
+};
+
+async function untilLeaveDialog(
+  flow: FlowShell,
+  overlay: PageSession,
+): Promise<LeaveDialog> {
+  const deadline = Date.now() + READY_TIMEOUT_MS;
+  let last = "";
+  while (Date.now() < deadline) {
+    last = String(await overlay.evaluate(LEAVE_DIALOG));
+    const parsed = JSON.parse(last) as LeaveDialog;
+    if (parsed.open) return parsed;
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+  const desktop = await flow.evaluate(`JSON.stringify({
+    status: document.querySelector("[data-save-status]")?.getAttribute("data-save-status") ?? null,
+    view: document.querySelector("[data-document-view]")?.getAttribute("data-document-view") ?? null,
+    kind: document.querySelector("[data-tab-strip] [data-tab]")?.getAttribute("data-kind") ?? null,
+    close: document.querySelector("[data-tab-strip] [data-close]") !== null,
+  })`);
+  throw new Error(
+    `닫기 guard dialog가 열리지 않았다: overlay=${last} desktop=${desktop}`,
+  );
+}
+
+async function pressLeaveChoice(
+  overlay: PageSession,
+  label: string,
+): Promise<void> {
+  const pressed = await overlay.evaluate(
+    `(() => { const button = [...document.querySelectorAll('[role="dialog"] button')].find((el) => el.textContent === ${
+      JSON.stringify(label)
+    }); if (!button) return false; button.click(); return true; })()`,
+  );
+  assertEquals(pressed, true, `${label} 버튼이 없다`);
+}
+
+async function untilDialogClosed(overlay: PageSession): Promise<void> {
+  const deadline = Date.now() + READY_TIMEOUT_MS;
+  let last: unknown;
+  while (Date.now() < deadline) {
+    last = await overlay.evaluate(
+      `document.querySelector('[role="dialog"]') === null`,
+    );
+    if (last === true) return;
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+  throw new Error(`guard dialog가 닫히지 않았다: ${JSON.stringify(last)}`);
+}
+
+Deno.test({
+  name:
+    "shell/editor#R1 shell/editor#R2 documents/file-tracking#R15 flow edit-document 8: 저장되지 않은 글이 남은 탭을 닫으면 guard dialog가 묻고 계속 편집이나 버리고 닫기를 사람이 고른다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn(t) {
+    const folder = await Deno.realPath(
+      await Deno.makeTempDir({ prefix: "lophn-e2e-guard-" }),
+    );
+    const file = `${folder}/notes.md`;
+    const first = "# Notes\n\nFirst line.\n";
+    await Deno.writeTextFile(file, first);
+    const { flow, documentId } = await openProjectWorkspace({
+      folder,
+      name: "notes",
+      title: "Notes",
+      document: "notes",
+    });
+    const home = flow.home;
+    const closeTab = `[data-tab-strip] [data-tab="${documentId}"] [data-close]`;
+    let restore: (() => Promise<void>) | undefined;
+    let overlay: PageSession | undefined;
+    try {
+      await flow.until(
+        `document.querySelector('[data-document="${documentId}"]') !== null`,
+        "sidebar에 문서가 없다",
+      );
+      await flow.click(`[data-document="${documentId}"]`);
+      await flow.until(
+        `document.querySelector("[data-edit-toggle]")?.disabled === false`,
+        "편집 전환이 켜지지 않았다",
+      );
+      await flow.click("[data-edit-toggle]");
+      await flow.until(
+        `document.querySelector("[data-document-view]")?.getAttribute("data-document-view") === "edit"`,
+        "편집 화면이 열리지 않았다",
+      );
+      // 폴더를 막은 채 고치면 원자 교체용 임시 파일을 만들지 못해 저장되지 않은 글이 남는다.
+      await Deno.chmod(folder, 0o555);
+      restore = () => Deno.chmod(folder, 0o755);
+      await typeAtEnd(flow, "Unsaved line.");
+      await flow.until(
+        `document.querySelector("[data-save-status]")?.getAttribute("data-save-status") === "failed"`,
+        "저장 실패 상태가 오지 않았다",
+      );
+      overlay = await flow.shell.connect("lophn-shell://overlay/index.html");
+
+      await t.step(
+        "shell/editor#R1 8: 탭을 닫으면 저장 결과를 확인하고 남은 글을 두고 사람에게 묻는다",
+        async () => {
+          await flow.click(closeTab);
+          const dialog = await untilLeaveDialog(flow, overlay!);
+          assert(
+            dialog.host,
+            "overlay dialog host가 없다",
+          );
+          assert(
+            (dialog.title ?? "").includes("Changes aren't saved yet"),
+            `guard dialog 제목이 다르다: ${dialog.title}`,
+          );
+          assertEquals(
+            (dialog.buttons ?? []).filter((label) =>
+              ["Keep editing", "Check again", "Discard changes"].includes(
+                label,
+              )
+            ).sort(),
+            ["Check again", "Discard changes", "Keep editing"],
+          );
+          // 묻는 동안 탭은 남아 있고 저장된 것처럼 보이지 않으며 파일은 그대로다.
+          assertEquals(await flow.count(`[data-document-view="edit"]`), 1);
+          assertEquals(
+            await flow.evaluate(
+              `document.querySelector("[data-save-status]")?.getAttribute("data-save-status")`,
+            ),
+            "failed",
+          );
+          assertEquals(await Deno.readTextFile(file), first);
+        },
+      );
+
+      await t.step(
+        "shell/editor#R1 8: 계속 편집을 고르면 탭과 저장되지 않은 글이 남는다",
+        async () => {
+          await pressLeaveChoice(overlay!, "Keep editing");
+          await untilDialogClosed(overlay!);
+          await flow.until(
+            `document.querySelector("[data-document-view]")?.getAttribute("data-document-view") === "edit"`,
+            "계속 편집을 골랐는데 편집 화면이 사라졌다",
+          );
+          assertEquals(
+            await flow.evaluate(
+              `document.querySelector("[data-save-status]")?.getAttribute("data-save-status")`,
+            ),
+            "failed",
+          );
+          assertEquals(await Deno.readTextFile(file), first);
+        },
+      );
+
+      await t.step(
+        "shell/editor#R1 documents/file-tracking#R15 8: 버리고 닫기는 사람이 고르며 파일에 쓰지도 판을 만들지도 않는다",
+        async () => {
+          await flow.click(closeTab);
+          await untilLeaveDialog(flow, overlay!);
+          await pressLeaveChoice(overlay!, "Discard changes");
+          await flow.until(
+            `document.querySelector("[data-document-view]") === null`,
+            "버리고 닫았는데 문서 탭이 남아 있다",
+          );
+          assertEquals(await Deno.readTextFile(file), first);
+          assertEquals(
+            (await versionHistory(flow, documentId)).map((version) =>
+              version.number
+            ),
+            [1],
+          );
+        },
+      );
+    } finally {
+      await restore?.();
+      await flow.close();
+      await removeHome(home);
+      await Deno.remove(folder, { recursive: true });
+    }
+  },
+});
+
 // lophn-agent slice: project-workspace 8(현재 보기 상태). 실제 shell(headless)·core(제품 runtime
 // child)를 임시 LOPHN_HOME으로 띄우고 model은 이 시험의 loopback 응답 server가 낸다. project
 // 작업대에서 문서를 연 채 도크로 일을 청하면, lophn은 그 창의 탭·초점과 관측 시각을 짧은 turn
@@ -353,8 +559,7 @@ function startViewProvider() {
 Deno.test({
   name:
     "lophn-agent/harness/prompt-assemble#R25 lophn-agent/harness/prompt-assemble#R26 shell/workspace#R9 shell/workspace#R10 flow project-workspace 8: 작업대에서 일을 청하면 그 창의 탭·초점·관측 시각을 현재 보기로 조립하고 바뀐 보기는 새로 모은다",
-  // 미검증 WIP — 실행 전
-  ignore: true,
+  ignore: !e2eEnabled(),
   sanitizeOps: false,
   sanitizeResources: false,
   async fn(t) {

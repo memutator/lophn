@@ -1,6 +1,7 @@
 import { REPORTING_LIMITS } from "@lophn/contracts/problems/sdk-report";
 import type {
   ObservationInvocationEvidence,
+  ReportCompletion,
   ReportProblem,
   ReportProblemInput,
   ReportProblemResult,
@@ -25,11 +26,24 @@ type Pending = {
   input: Readonly<ReportProblemInput>;
 };
 
+const KEPT_REPORTS = 32;
+
 export function createProblemReporter(
   deps: ProblemReporterDeps,
 ): ReportProblem & { status(reportId: string): ReportStatus | null } {
   const queue = new Map<string, Pending>();
+  const sent = new Map<string, Readonly<ReportProblemInput>>();
   let pendingBytes = 0;
+
+  const remember = (reportId: string, input: Readonly<ReportProblemInput>) => {
+    sent.delete(reportId);
+    sent.set(reportId, input);
+    while (sent.size > KEPT_REPORTS) {
+      const oldest = sent.keys().next().value;
+      if (oldest === undefined) break;
+      sent.delete(oldest);
+    }
+  };
 
   const reportProblem = (
     code: string,
@@ -72,6 +86,7 @@ export function createProblemReporter(
     }
     queue.set(reportId, { bytes, input });
     pendingBytes += bytes;
+    remember(reportId, input);
     const completion = deliver(
       () => deps.transport(input),
       deps.sleep,
@@ -87,8 +102,24 @@ export function createProblemReporter(
     return { report_id: reportId, completion };
   };
 
-  reportProblem.status = (reportId: string): ReportStatus | null =>
+  const status = (reportId: string): ReportStatus | null =>
     queue.has(reportId) ? { status: "pending" } : null;
 
-  return reportProblem;
+  const retransmit = (
+    reportId: string,
+    details?: SafeReportDetails,
+  ): Promise<ReportCompletion> | null => {
+    const held = sent.get(reportId);
+    if (held === undefined) return null;
+    const input = details === undefined
+      ? held
+      : freezeDeep(structuredClone({ ...held, details }));
+    return deliver(
+      () => deps.transport(input),
+      deps.sleep,
+      "report response lost",
+    );
+  };
+
+  return Object.assign(reportProblem, { status, retransmit });
 }

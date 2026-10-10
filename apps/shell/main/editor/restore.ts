@@ -111,10 +111,21 @@ function report(
   return { outcome, version: null, file: null, failure: null, ...over };
 }
 
+/** 응답이 오지 않았다. 판이 확정됐는지 모른다. */
+function connectionLost(error: PortError): boolean {
+  return error.code === "offline" ||
+    (error.code === "unavailable" &&
+      error.details?.["reason"] === "transport_failed");
+}
+
 function failedWith(
   error: PortError,
   file: RestoreFile | null = null,
 ): RestoreReport {
+  // 연결이 끊기면 확인하지 못한 판 확정을 성공이나 확정 실패로 채우지 않는다.
+  if (connectionLost(error)) {
+    return report("failed", { file, failure: "offline" });
+  }
   if (error.code === "conflict") return report("conflict", { file });
   return report(file === "written" ? "pending" : "failed", {
     file,
@@ -336,13 +347,16 @@ export function createRestorer(options: RestorerOptions): Restorer {
       content: { kind: "prepared", blob: blob.value },
     });
     if (!written.ok) {
-      const lost = written.error.code === "unavailable" &&
-        written.error.details?.["reason"] === "transport_failed";
+      // 쓰기 응답을 잃으면 파일이 바뀌었는지 모른다. 확정된 저장이 아니다.
+      if (connectionLost(written.error)) {
+        return {
+          ok: false,
+          report: failedWith(written.error, "unknown"),
+        };
+      }
       return {
         ok: false,
-        report: lost
-          ? report("failed", { file: "unknown", failure: "unknown" })
-          : written.error.code === "conflict"
+        report: written.error.code === "conflict"
           ? report("conflict", { file: "conflict" })
           : failedWith(written.error, "failed"),
       };
@@ -377,6 +391,9 @@ export function createRestorer(options: RestorerOptions): Restorer {
       if (port === null) return { ok: false, code: "offline" };
       const selected = await port.fixed(input.document, input.version);
       if (!selected.ok) {
+        if (connectionLost(selected.error)) {
+          return { ok: false, code: "offline" };
+        }
         const code = selected.error.code;
         return {
           ok: false,

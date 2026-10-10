@@ -5,11 +5,15 @@ function unique<T>(values: readonly T[]): boolean {
 import { z } from "zod";
 import { versionIdSchema } from "../documents/values.ts";
 import {
+  atSchema,
   errorBodySchema,
   idSchema,
   secretNameSchema,
 } from "../platform/mod.ts";
+import { exceptionObservationInputSchema } from "../problems/exception-observation.ts";
 import { problemCodeSchema } from "../problems/problem-codes.ts";
+import { reportAcceptanceSchema } from "../problems/reports.ts";
+import { invocationEvidenceInputSchema } from "../problems/snapshots.ts";
 import { appConnectOutputSchema, signedConfirmProofSchema } from "./channel.ts";
 import {
   appIdSchema,
@@ -131,15 +135,25 @@ export const brokerDocumentSaveOutputSchema = z.object({
 });
 
 // 자기 앱의 선언 code 보고. problem을 닫는 통로는 없다(apps/sdk#R26).
+// report id·발생 시각·invocation은 SDK가 첫 전송 전에 고정한 값이다. 없으면 supervisor가
+// id와 시각을 정하고 invocation은 연결하지 않은 것으로 남긴다.
 export const brokerProblemReportInputSchema = z.strictObject({
   ...childFields,
   code: problemCodeSchema,
   details: jsonValueSchema.optional(),
   trace: z.string().max(TRACE_NAME_MAX_CHARS).optional(),
+  report_id: idSchema("rpt").optional(),
+  observed_at: atSchema.optional(),
+  invocation: invocationEvidenceInputSchema.nullable().optional(),
 });
-export const brokerProblemReportOutputSchema = z.object({
-  report_id: idSchema("rpt"),
+export const brokerProblemReportOutputSchema = reportAcceptanceSchema;
+
+// 잡은 예외의 관측. app·release·mode는 자식 연결의 credential이 정하고 본문은 관측만 담는다.
+export const brokerProblemObserveInputSchema = z.strictObject({
+  ...childFields,
+  observation: exceptionObservationInputSchema,
 });
+export const brokerProblemObserveOutputSchema = reportAcceptanceSchema;
 
 // source 자식 신원으로 제한된 다른 앱 connection 준비. 업무 payload는 중계하지 않는다.
 export const brokerAppsConnectInputSchema = z.strictObject({

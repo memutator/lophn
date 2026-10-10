@@ -16,6 +16,7 @@ import {
   readCursorSchema,
   roleKindSchema,
 } from "../../../../contracts/lophn-agent/mod.ts";
+import { termGet } from "../../../../contracts/documents/mod.ts";
 import {
   type ApprovalAction,
   approvalBindingHash,
@@ -23,6 +24,7 @@ import {
   idSchema,
 } from "../../../../contracts/platform/mod.ts";
 import { handoffBodyHash } from "../../../handoff/mod.ts";
+import { defineTermOptionAction } from "../../../questions/mod.ts";
 import {
   type ContractCall,
   defineBuiltin,
@@ -59,8 +61,14 @@ function define(
   );
 }
 
-// 질문 선택지에는 고정 action을 모델이 싣지 않는다. action은 사람이 열람한 owner 동작을
-// 고정하는 별도 경로(lophn-agent#T29)가 정한다.
+// 질문 선택지에 고정 action 객체는 모델이 싣지 않는다. 기존 후보의 정의만
+// `term_definition`으로 제안할 수 있고, handler가 읽은 후보의 이름·revision으로
+// term.define action을 고정한다. 뜻 글의 blob hash는 만들지 않는다.
+const fixedTermDefinition = z.strictObject({
+  term: idSchema("trm"),
+  name: questionTextSchema,
+  definition: questionTextSchema,
+});
 const questionOption = z.strictObject({
   key: z.string().regex(/\S/),
   label: z.string().regex(/\S/),
@@ -68,6 +76,7 @@ const questionOption = z.strictObject({
   evidence: z.array(fixedVersionReferenceSchema),
   adoption: fixedVersionReferenceSchema.nullable(),
   action: z.null(),
+  term_definition: fixedTermDefinition.optional(),
 });
 
 export const questionSubmitInput = z.strictObject({
@@ -255,6 +264,14 @@ export type AgentToolPorts = ContractCall & {
   >;
 };
 
+type ReadCandidate = {
+  id: string;
+  name: string;
+  definition: string | null;
+  revision: string;
+  status: string;
+};
+
 // 정의별 handler다. 입력은 실행기가 정의 schema로 이미 검사했다. 소유 contract가 거절하면
 // 그 오류를 그대로 돌려주고 실행기가 안전한 문장으로 포장한다(범위 밖은 없는 대상과 같다).
 export function createAgentToolHandlers(
@@ -267,13 +284,64 @@ export function createAgentToolHandlers(
       const value = input as z.infer<typeof questionSubmitInput>;
       const facts = await ports.runFacts(credential.run);
       if (!facts.ok) return facts;
+      const options = [];
+      for (const option of value.options) {
+        const { term_definition: proposed, ...rest } = option;
+        if (proposed === undefined) {
+          options.push(rest);
+          continue;
+        }
+        // 이름·revision·context는 모델 입력이 아니라 읽은 후보가 고정한다.
+        const read = await ports.call(
+          termGet.name,
+          { term: proposed.term },
+          credential.run,
+        );
+        if (!read.ok) return read;
+        const term = (read.value as { term?: ReadCandidate }).term;
+        if (
+          term === undefined || term.id !== proposed.term ||
+          term.status !== "active" || term.definition !== null
+        ) {
+          return err({
+            code: "invalid_input",
+            message: "a definition option needs an open candidate",
+          });
+        }
+        if (term.name !== proposed.name) {
+          return err({
+            code: "invalid_input",
+            message: "defining a term does not rename it",
+          });
+        }
+        options.push({
+          ...rest,
+          action: defineTermOptionAction({
+            term: term.id,
+            name: term.name,
+            definition: proposed.definition,
+            base_revision: term.revision,
+          }),
+        });
+      }
       const id = ports.newId("qst");
-      const created = await ports.call("CreateQuestion", {
-        id,
-        run: credential.run,
-        session: facts.value.session,
-        ...value,
-      }, credential.run);
+      const created = await ports.call(
+        "CreateQuestion",
+        {
+          id,
+          run: credential.run,
+          session: facts.value.session,
+          prompt: value.prompt,
+          reason: value.reason,
+          options,
+          recommendation: value.recommendation,
+          expires_at: value.expires_at,
+        },
+        credential.run,
+        credential.call === undefined
+          ? undefined
+          : { idempotency_key: credential.call },
+      );
       if (!created.ok) return created;
       return ok(success("question asked", created.value));
     },

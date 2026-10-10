@@ -12,3 +12,9 @@ export {
   type InstructionStatus,
 } from "./model.ts";
 export { type InstructionDeps, resolveInstructions } from "./work.ts";
+export {
+  decodeInstructionFile,
+  encodeInstructionFile,
+  instructionFilesOverCore,
+  instructionReadApi,
+} from "./read.ts";

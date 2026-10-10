@@ -17,6 +17,7 @@ import {
   finishModelCall,
   finishRun,
   finishToolCall,
+  instructionRead,
   messageBody,
   messagesList,
   modelCallList,
@@ -76,6 +77,8 @@ export const RUNTIME_MACHINE_ROUTES = [
   modelDefaultsRead,
   sessionRead,
   settingsGet,
+  // 사람 지침(LOPHN.md) 확정 판. 매 model call 직전에 다시 읽는다(instructions R5, R8).
+  instructionRead,
   startRun,
   checkpointRun,
   finishRun,

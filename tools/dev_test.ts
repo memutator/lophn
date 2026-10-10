@@ -6,9 +6,11 @@ import {
   devDataRoot,
   type DevOptions,
   fakeProviderReady,
+  mockDataRoot,
   type Mode,
   planCore,
   planFakeProvider,
+  planRendererBuild,
   planShell,
   type Purpose,
   runDev,
@@ -298,4 +300,97 @@ Deno.test("deno task dev: shell 계획은 --home으로 데이터 root를 받는�
       "/repo/.dev-data",
     ],
   );
+});
+
+async function shellRoot(): Promise<string> {
+  const root = await Deno.makeTempDir({ prefix: "lophn-dev-" });
+  await Deno.mkdir(`${root}/apps/shell/main`, { recursive: true });
+  await Deno.writeTextFile(`${root}/apps/shell/main/package.json`, "{}");
+  return root;
+}
+
+Deno.test("deno task dev: shell을 띄우기 전에 renderer를 build한다(옛 화면이 뜨지 않게)", async () => {
+  const root = await shellRoot();
+  try {
+    const { ok, recorder: record } = await run("dev", root);
+    assertEquals(ok, true);
+    const order = record.plans.map((p) => p.purpose);
+    assertEquals(order, ["fake", "build", "shell"]);
+    const build = record.plans.find((p) => p.purpose === "build")!;
+    assertEquals(
+      build.plan.args.at(-1),
+      `${root}/apps/shell/renderer/build.ts`,
+    );
+    assertEquals(build.plan, planRendererBuild(root));
+  } finally {
+    await Deno.remove(root, { recursive: true });
+  }
+});
+
+Deno.test("deno task dev: renderer build가 실패하면 shell을 띄우지 않는다", async () => {
+  const root = await shellRoot();
+  const original = console.error;
+  const messages: string[] = [];
+  console.error = (message: string) => messages.push(message);
+  try {
+    const plans: Purpose[] = [];
+    const result = await runDev("dev", {
+      root,
+      signals: false,
+      env: { LOPHN_LIVE_PROVIDER: "1" },
+      spawn: (_plan, purpose) => {
+        plans.push(purpose);
+        return fakeChild([], purpose === "build" ? 1 : 0);
+      },
+    });
+    assertEquals(result.ok, false);
+    assertEquals(plans, ["build"]);
+    assert(messages.join("\n").includes("renderer build가 실패했다"));
+  } finally {
+    console.error = original;
+    await Deno.remove(root, { recursive: true });
+  }
+});
+
+Deno.test("deno task dev:mock: renderer를 build하고 mock 주소로 shell을 연다(fake provider·core 없이)", async () => {
+  const root = await shellRoot();
+  try {
+    const { ok, recorder: record } = await run("dev:mock", root);
+    assertEquals(ok, true);
+    assertEquals(record.plans.map((p) => p.purpose), ["build", "shell"]);
+    const shell = record.plans.find((p) => p.purpose === "shell")!;
+    assertEquals(shell.plan.env.LOPHN_DEV_MOCK, "1");
+    assertEquals(shell.plan.args.at(-1), `${root}/.dev-data/mock`);
+    assertEquals(shell.plan.args.at(-1), mockDataRoot(root));
+    assertEquals(shell.plan.env.LOPHN_FAKE_PROVIDER_URL, undefined);
+  } finally {
+    await Deno.remove(root, { recursive: true });
+  }
+});
+
+Deno.test("deno task dev: mock 표시는 dev:mock에서만 shell env에 들어간다", async () => {
+  const root = await shellRoot();
+  try {
+    const { recorder: record } = await run("dev", root);
+    const shell = record.plans.find((p) => p.purpose === "shell")!;
+    assertEquals(shell.plan.env.LOPHN_DEV_MOCK, undefined);
+  } finally {
+    await Deno.remove(root, { recursive: true });
+  }
+});
+
+Deno.test("deno task dev:mock: 이전 실행의 데이터 root를 비우고 새로 만든다", async () => {
+  const root = await shellRoot();
+  try {
+    await Deno.mkdir(mockDataRoot(root), { recursive: true });
+    await Deno.writeTextFile(`${mockDataRoot(root)}/old-state`, "x");
+    await run("dev:mock", root);
+    const names = [];
+    for await (const entry of Deno.readDir(mockDataRoot(root))) {
+      names.push(entry.name);
+    }
+    assertEquals(names, []);
+  } finally {
+    await Deno.remove(root, { recursive: true });
+  }
 });

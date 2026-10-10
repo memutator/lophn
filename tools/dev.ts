@@ -1,5 +1,5 @@
 // docs/dev/stack.md "개발 환경", docs/plan/contracts.md의 `deno task dev`(contracts#T9).
-// 실행: deno task dev, deno task dev:core
+// 실행: deno task dev, deno task dev:core, deno task dev:mock
 //
 // shell main(Electron)이 core를 띄우고 core가 고정 child(writer·reader·io)를 띄운다
 // (shell#T3, platform#T9). 그래서 `deno task dev`는 shell main을 직접 띄우고,
@@ -9,6 +9,11 @@
 // core에 넘긴다(그 값으로 개발 provider를 seed하는 일은 lophn-agent#T3). 사람이
 // LOPHN_LIVE_PROVIDER=1을 두면 fake provider를 띄우지 않는다. Ctrl+C와 SIGTERM에 띄운
 // 프로세스를 정리한다.
+//
+// shell main은 renderer bundle(apps/shell/renderer/build.ts)을 읽는다. `npm run dev`는 main만
+// build하므로 `dev`와 `dev:mock`은 shell을 띄우기 전에 renderer를 먼저 build한다(옛 화면이 뜨지
+// 않게). `dev:mock`은 shell을 mock 주소(`?mock`)로 열어 renderer가 모든 화면을 메모리 가짜 데이터로
+// 채운다. 그래서 fake provider를 띄우지 않고, 데이터 root는 매번 새로 만드는 .dev-data/mock이다.
 
 export type SpawnPlan = {
   command: string;
@@ -16,10 +21,10 @@ export type SpawnPlan = {
   env: Record<string, string>;
 };
 
-export type Mode = "dev" | "dev:core";
+export type Mode = "dev" | "dev:core" | "dev:mock";
 
 /** 띄우는 대상. fake provider는 stdout을 읽어 ready를 기다린다. */
-export type Purpose = "fake" | "core" | "shell";
+export type Purpose = "fake" | "core" | "shell" | "build";
 
 /** fake provider ready 한 줄의 모양. */
 export type FakeProviderReady = { ready: boolean; url: string };
@@ -34,6 +39,20 @@ const LIVE = "LOPHN_LIVE_PROVIDER";
  */
 export function devDataRoot(root: string): string {
   return `${root}/.dev-data`;
+}
+
+/** mock 모드 데이터 root. 실행마다 비우고 새로 만든다. */
+export function mockDataRoot(root: string): string {
+  return `${devDataRoot(root)}/mock`;
+}
+
+/** renderer bundle build 계획. shell main이 읽는 dist를 만든다. */
+export function planRendererBuild(root: string): SpawnPlan {
+  return {
+    command: Deno.execPath(),
+    args: ["run", "--allow-all", `${root}/apps/shell/renderer/build.ts`],
+    env: {},
+  };
 }
 
 /**
@@ -181,7 +200,9 @@ export async function runDev(
   mode: Mode,
   options: DevOptions,
 ): Promise<{ ok: true } | { ok: false }> {
-  const dataRoot = devDataRoot(options.root);
+  const dataRoot = mode === "dev:mock"
+    ? mockDataRoot(options.root)
+    : devDataRoot(options.root);
   const group = new ProcessGroup();
   const spawn = options.spawn ?? defaultSpawn;
 
@@ -200,6 +221,10 @@ export async function runDev(
   }
 
   try {
+    // mock 모드는 이전 실행의 core 상태를 이어받지 않는다.
+    if (mode === "dev:mock") {
+      await Deno.remove(dataRoot, { recursive: true }).catch(() => {});
+    }
     await Deno.mkdir(dataRoot, { recursive: true, mode: 0o700 });
   } catch (error) {
     console.error(
@@ -211,7 +236,7 @@ export async function runDev(
   }
 
   const parentEnv = { ...Deno.env.toObject(), ...options.env };
-  if (shouldStartFakeProvider(parentEnv)) {
+  if (mode !== "dev:mock" && shouldStartFakeProvider(parentEnv)) {
     const fake = spawn(planFakeProvider(options.root), "fake");
     group.add(fake);
     const ready = await fakeProviderReady(fake.stdout);
@@ -225,15 +250,25 @@ export async function runDev(
     parentEnv[FAKE_URL] = ready.url;
   }
 
-  if (mode === "dev") {
+  if (mode === "dev" || mode === "dev:mock") {
     if (!await hasFile(`${options.root}/apps/shell/main/package.json`)) {
       console.error(
-        "deno task dev: apps/shell/main이 없다. shell main이 core를 띄우므로 shell 없이는 dev를 띄울 수 없다. core만 필요하면 deno task dev:core를 쓴다.",
+        `deno task ${mode}: apps/shell/main이 없다. shell main이 core를 띄우므로 shell 없이는 ${mode}를 띄울 수 없다. core만 필요하면 deno task dev:core를 쓴다.`,
+      );
+      group.stop();
+      return { ok: false };
+    }
+    const built = spawn(planRendererBuild(options.root), "build");
+    group.add(built);
+    if (!(await built.status).success) {
+      console.error(
+        `deno task ${mode}: renderer build가 실패했다. 옛 화면을 띄우지 않는다.`,
       );
       group.stop();
       return { ok: false };
     }
     const shellEnv = { ...parentEnv };
+    if (mode === "dev:mock") shellEnv.LOPHN_DEV_MOCK = "1";
     // 이 dev 프로세스에는 LOPHN_HOME이 core를 거르는 역할이 없다. shell main에도
     // 같은 root를 넣어 두 값이 갈라지지 않게 한다.
     shellEnv[LOPHN_HOME] = dataRoot;
@@ -283,8 +318,10 @@ if (import.meta.main) {
   // tools/의 부모가 저장소 루트다.
   const root = new URL("..", new URL("./", import.meta.url)).pathname
     .replace(/\/$/, "");
-  const mode: Mode = Deno.args.some((arg) => arg === "dev:core")
+  const mode: Mode = Deno.args.includes("dev:core")
     ? "dev:core"
+    : Deno.args.includes("dev:mock")
+    ? "dev:mock"
     : "dev";
   const run = await runDev(mode, { root });
   if (!run.ok) Deno.exit(1);

@@ -134,6 +134,10 @@ packages/platform/responsiveness/measure-load_test.ts`로 따로 돌린다.
 
 - `deno task dev`: core, agent runtime, app supervisor, shell을 개발 데이터
   root(`.dev-data/`)로 함께 띄운다. 실제 `~/.lophn`을 건드리지 않는다.
+- `deno task dev:mock`: shell을 mock 주소로 열어 renderer가 core 없이 메모리 가짜
+  데이터로 모든 화면(런처·lophn 공간·settings·앱 공간·대화 도크)을 채운다. 시작 자리는
+  `LOPHN_SHELL_START=settings`처럼 고른다. `dev`와 `dev:mock` 모두 shell을 띄우기 전에
+  renderer bundle을 build한다.
 - `tools/fake-provider/`: Anthropic Messages, OpenAI Responses, Chat
   Completions의 필요한 부분을 흉내 내는 로컬 HTTP server. `fixtures/model/`의
   녹화 응답이나 script로 답한다. 테스트와 E2E는 실제 provider를 부르지 않는다.

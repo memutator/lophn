@@ -1,6 +1,11 @@
 import { err, ok, type Result } from "../../base/mod.ts";
 import { sha256Hex } from "../../base/mod.ts";
 import type { McpServerConfig } from "../../contracts/lophn-agent/mod.ts";
+import type {
+  SecretDestination,
+  SecretSendInput,
+} from "../../contracts/platform/mod.ts";
+import { authHeaders } from "./mcp-auth.ts";
 import type { StdioSpawn, StdioSpawnInput } from "./adapters/mcp-stdio.ts";
 import {
   endpointReason,
@@ -109,6 +114,17 @@ export type DeadlineFn = (
   signal: AbortSignal,
 ) => Promise<"elapsed" | "aborted">;
 
+// secret 전송 부착 port다(platform/secrets#R5, extensions#R17). 값은 transmit callback의
+// 인자로만 오고 결과에는 전송 여부뿐이다. provider 전송 부착과 같은 모양이다.
+export type McpSecretAttach = {
+  send(
+    input: SecretSendInput,
+    transmit: (
+      value: Uint8Array | string,
+    ) => Promise<Result<{ sent: boolean }>>,
+  ): Promise<Result<{ sent: boolean }>>;
+};
+
 export type McpConnectionsDeps = {
   nowMs(): number;
   wait: WaitFn;
@@ -121,6 +137,10 @@ export type McpConnectionsDeps = {
   ): Promise<Result<StdioSpawn>>;
   // HTTP 연결 열기다. 테스트가 로컬 fake server fetch를 끼운다.
   fetch?: HttpFetch;
+  // HTTP 인증 비밀(bearer·api_key·secret_ref 헤더)의 전송 부착이다(R17). 값은 요청 하나를
+  // 보내는 callback 안에서만 쥐고 연결·log·오류에 남지 않는다. 없으면 인증 비밀이 필요한
+  // 서버에 요청을 보내지 않는다.
+  secrets?: McpSecretAttach;
   // 서버가 notifications/tools/list_changed를 보냈다(Q16). 조립이 그 server의
   // 도구 목록을 다시 읽을 때까지 새 호출을 막는다. 없으면 알림은 버려진다.
   onListChanged?(server: string): void;
@@ -197,6 +217,61 @@ function keyOf(assignment: string, server: string): string {
 }
 
 // assignment 사용이 끝나면 연결을 닫는다(R18). views는 사람용 진단이다.
+type SecretHeader = {
+  ref: string;
+  headers(token: string): Record<string, string>;
+};
+
+// 인증 비밀이 갈 수 있는 고정 목적지다. HTTPS origin이거나 같은 기계의 loopback HTTP origin이다.
+function secretDestinationOf(url: string): SecretDestination | null {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === "https:") {
+      return { kind: "https", origin: parsed.origin };
+    }
+    if (parsed.protocol === "http:") {
+      return { kind: "loopback_http", origin: parsed.origin };
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+// 비밀 헤더를 하나씩 전송 부착으로 받아 모두 모이면 send를 부른다. 값은 callback 호출 틀 안에만 있다.
+function attachHeaders(
+  secrets: McpSecretAttach,
+  destination: SecretDestination,
+  url: string,
+  rest: readonly SecretHeader[],
+  collected: Record<string, string>,
+  send: (headers: Record<string, string>) => Promise<Result<{ sent: boolean }>>,
+): Promise<Result<{ sent: boolean }>> {
+  const [head, ...others] = rest;
+  if (head === undefined) return send(collected);
+  return secrets.send({
+    // context는 caller 주장을 믿지 않는다. supervisor가 주입하고 core가 재검사한다.
+    context: {} as never,
+    // MCP 참조는 이름(`sec:...`)으로 가리키고 판은 core가 현재 판으로 채운다.
+    use: {
+      sealed_ref: head.ref,
+      revision: 1,
+      purpose: "external_mcp_credential",
+      destination,
+    },
+    operation: "mcp.request",
+    body: { url, method: "POST" },
+  }, (value) => {
+    const text = typeof value === "string"
+      ? value
+      : new TextDecoder().decode(value);
+    return attachHeaders(secrets, destination, url, others, {
+      ...collected,
+      ...head.headers(text),
+    }, send);
+  });
+}
+
 export function createMcpConnections(
   deps: McpConnectionsDeps,
 ): McpConnections {
@@ -234,11 +309,42 @@ export function createMcpConnections(
       return err({ code: "unavailable", message: "HTTP 연결 눈이 없다" });
     }
     const headers: Record<string, string> = {};
+    // 값이 필요한 헤더다. 값은 요청마다 전송 부착이 callback으로만 준다(R17).
+    const secretHeaders: SecretHeader[] = [];
     for (const [name, value] of Object.entries(server.http.headers)) {
-      // secret ref는 부착 경계에서 풀린다(percent 전송은 이 규격 밖이다). 여기서는
-      // 결정된 값만 온다.
-      if (value.kind !== "value") continue;
-      headers[name] = value.value;
+      if (value.kind === "value") headers[name] = value.value;
+      else {
+        secretHeaders.push({
+          ref: value.secret_ref,
+          headers: (token) => ({ [name]: token }),
+        });
+      }
+    }
+    const auth = server.http.auth;
+    if (auth.kind === "bearer") {
+      secretHeaders.push({
+        ref: auth.secret_ref,
+        headers: (token) => authHeaders({ kind: "bearer", token }).headers,
+      });
+    } else if (auth.kind === "api_key") {
+      secretHeaders.push({
+        ref: auth.secret_ref,
+        headers: (token) =>
+          authHeaders({
+            kind: "api_key",
+            token,
+            header_name: auth.header_name,
+          }).headers,
+      });
+    }
+    // oauth2의 token 교환·갱신은 이 부착이 아니라 별도 흐름이다(R16).
+    const destination = secretDestinationOf(server.http.url);
+    const secrets = deps.secrets;
+    if (
+      secretHeaders.length > 0 &&
+      (secrets === undefined || destination === null)
+    ) {
+      return err({ code: "unavailable", message: "인증 비밀을 붙일 수 없다" });
     }
     const closed: { done: boolean } = { done: false };
     const reverse = new TransformStream<{ id: unknown; method: string }>();
@@ -259,39 +365,76 @@ export function createMcpConnections(
         method,
         params: params ?? {},
       };
-      try {
-        const response = await post(url, {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            "accept": "application/json",
-            ...headers,
-          },
-          body: JSON.stringify(body),
-          signal: requestSignal,
-        });
-        if (response.status >= 300 && response.status < 400) {
-          const location = response.headers.get("location");
-          if (location !== null) {
-            const rejected = redirectOriginRejected(url, location);
-            if (rejected !== null) {
-              return err({ code: "unavailable", message: rejected });
+      // 요청 하나를 보낸다. 인증 헤더는 값이 든 callback 안에서만 붙는다.
+      async function exchange(
+        extra: Record<string, string>,
+      ): Promise<Result<Record<string, unknown>>> {
+        try {
+          const response = await post(url, {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+              "accept": "application/json",
+              ...headers,
+              ...extra,
+            },
+            body: JSON.stringify(body),
+            signal: requestSignal,
+            // 다른 origin으로 인증 헤더를 옮기지 않는다(R16).
+            redirect: "manual",
+          });
+          if (response.status >= 300 && response.status < 400) {
+            const location = response.headers.get("location");
+            if (location !== null) {
+              const rejected = redirectOriginRejected(url, location);
+              if (rejected !== null) {
+                return err({ code: "unavailable", message: rejected });
+              }
             }
           }
+          if (response.status === 401) {
+            return err({ code: "forbidden", message: "서버가 401로 답했다" });
+          }
+          if (response.status !== 200) {
+            return err({
+              code: "unavailable",
+              message: `서버가 ${response.status}로 답했다`,
+            });
+          }
+          const bytes = new Uint8Array(await response.arrayBuffer());
+          const parsed = rpcResultOf(bytes);
+          if (!parsed.ok) return parsed;
+          return ok(parsed.value.result);
+        } catch {
+          return err({ code: "unavailable", message: "서버에 닿지 못했다" });
         }
-        if (response.status !== 200) {
-          return err({
-            code: "unavailable",
-            message: `서버가 ${response.status}로 답했다`,
-          });
-        }
-        const bytes = new Uint8Array(await response.arrayBuffer());
-        const parsed = rpcResultOf(bytes);
-        if (!parsed.ok) return parsed;
-        return ok(parsed.value.result);
-      } catch {
+      }
+      if (secretHeaders.length === 0 || secrets === undefined) {
+        return await exchange({});
+      }
+      let outcome: Result<Record<string, unknown>> | undefined;
+      const attached = await attachHeaders(
+        secrets,
+        destination!,
+        url,
+        secretHeaders,
+        {},
+        async (extra) => {
+          outcome = await exchange(extra);
+          return ok({ sent: true });
+        },
+      );
+      if (outcome !== undefined) return outcome;
+      if (attached.ok) {
         return err({ code: "unavailable", message: "서버에 닿지 못했다" });
       }
+      // 부착이 거절한 이유(오류 원문)는 값이 없어도 옮기지 않는다.
+      return err(
+        attached.error.code === "forbidden" ||
+          attached.error.code === "conflict"
+          ? { code: "forbidden", message: "인증 비밀을 붙이지 못했다" }
+          : { code: "unavailable", message: "인증 비밀을 읽지 못했다" },
+      );
     }
     return await ok({
       async request(method, params, requestSignal) {
@@ -744,7 +887,8 @@ export function createMcpConnections(
       if (!init.ok) {
         // 인증 거절은 transport가 err code로 옮긴다. HTTP 401은 unavailable로
         // 감싸서 온다. 여기서 실패 이유를 구별한다(R20).
-        const authFailed = init.error.message.includes("401");
+        const authFailed = init.error.code === "forbidden" ||
+          init.error.message.includes("401");
         await transport.close();
         return err({
           code: authFailed ? "forbidden" : "unavailable",

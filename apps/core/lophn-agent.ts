@@ -21,6 +21,7 @@ import {
   runFinished,
   runStarted,
 } from "../../packages/contracts/lophn-agent/mod.ts";
+import { instructionReadApi } from "../../packages/lophn-agent/instructions/mod.ts";
 import { notificationsOnlyVisibility } from "./platform.ts";
 import type {
   CommandDefinition,
@@ -140,7 +141,10 @@ import {
   skillFoldersSetting,
   TOOL_DOCUMENT_ROUTES,
 } from "../../packages/contracts/lophn-agent/mod.ts";
-import { allowRunList } from "../../packages/lophn-agent/extensions/mod.ts";
+import {
+  allowNetList,
+  allowRunList,
+} from "../../packages/lophn-agent/extensions/mod.ts";
 import { createMcpAuth } from "../../packages/lophn-agent/extensions/mod.ts";
 import { createMcpSecretRefSource } from "../../packages/lophn-agent/extensions/mod.ts";
 import type { HttpFetch } from "../../packages/lophn-agent/extensions/adapters/mcp-http.ts";
@@ -190,12 +194,14 @@ export function agentRuntimeLaunchSpec(input: {
     ],
     // derived만 쓴다. ledger·blob·원본은 쓰지 않는다. socket 쓰기는 연결에 필요한 허락이다.
     allow_write: [`${input.dataRoot}/derived/lophn-agent`, ...sockets],
-    // core loopback, 앱 direct socket, 등록된 provider 목적지. MCP host와 공개 models.dev는 등록될 때 더한다.
+    // core loopback, 앱 direct socket, 등록된 provider 목적지, enabled로 등록한 MCP HTTP server의 정확한
+    // `host:port`. 공개 models.dev는 등록될 때 더한다.
     allow_net: [
       `127.0.0.1:${input.apiPort}`,
       SOCKET_HOST,
       ...sockets.map((path) => `unix:${path}`),
       ...(input.hosts ?? []),
+      ...allowNetList(input.mcpServers ?? []),
     ],
     // 사람이 enabled로 등록한 MCP stdio executable만이다(architecture §2.3).
     allow_run: allowRunList(input.mcpServers ?? []),
@@ -986,15 +992,44 @@ const UNATTACHED_MESSAGE_BODY: MessageBodyEnvironment = {
 // 기동 뒤에야 알려지므로 core가 늦게 채우는 함수로 준다. 붙이지 않은 등록은 끝내지 못한 것으로 답한다.
 const UNATTACHED_REDACT = (): string | null => null;
 
+// ReadInstructionFile은 등록 지침 파일의 확정 판을 core가 읽어 runtime에 주는 통로다. 붙이지 않은
+// 등록(harness)은 unavailable이다.
+const UNATTACHED_INSTRUCTION_FILES = {
+  files: {
+    registered: () =>
+      Promise.resolve(
+        err({
+          code: "unavailable" as const,
+          message: "지침 읽기 통로가 붙어 있지 않다",
+        }),
+      ),
+    attached: () =>
+      Promise.resolve(
+        err({
+          code: "unavailable" as const,
+          message: "지침 읽기 통로가 붙어 있지 않다",
+        }),
+      ),
+    projectOf: () => Promise.resolve(ok(null)),
+  },
+  permit: () =>
+    err({ code: "not_found" as const, message: "instruction not found" }),
+  asOfSeq: () => ok("0"),
+};
+
 export function createLedgerRegistration(
   environment: {
     messageBody?: MessageBodyEnvironment;
+    instructionFiles?: Parameters<typeof instructionReadApi>[0];
     redactBody?: (text: string) => string | null;
   } = {},
 ) {
   return {
     // ReadQuestionText도 같은 읽기 통로(ledger snapshot과 blob 바이트)를 쓴다.
     apiReads: [
+      instructionReadApi(
+        environment.instructionFiles ?? UNATTACHED_INSTRUCTION_FILES,
+      ),
       messageBodyRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
       questionTextRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
       // 복구가 저장된 run basis·model 응답·tool 결과를 다시 읽는 같은 길이다(machine만).

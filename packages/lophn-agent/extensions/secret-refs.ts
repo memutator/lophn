@@ -1,6 +1,10 @@
 import { err, ok, type Result } from "../../base/mod.ts";
-import type { Sql } from "../../contracts/platform/mod.ts";
-import type { SecretRefSource } from "../../contracts/platform/mod.ts";
+import type {
+  SecretDestination,
+  SecretRefSource,
+  SecretUse,
+  Sql,
+} from "../../contracts/platform/mod.ts";
 
 // 외부 MCP credential의 secret 참조(platform#T19 후속 #294). MCP server 설정이
 // 가리키는 `sec:` 참조를 ledger의 secrets 표에서 읽어 core의 알려진 값
@@ -90,4 +94,101 @@ export function createMcpSecretRefSource(): SecretRefSource {
       }
     },
   };
+}
+
+// runtime가 MCP HTTP 요청에 붙일 인증 비밀의 전송 부착 대조다(platform/secrets#R5, extensions#R17).
+// 설정은 `sec:<이름>`만 갖고 sealed_ref는 core 밖으로 나가지 않으므로 runtime은 그 이름을
+// `use.sealed_ref`에 담아 청한다. 이 함수가 현재 설정과 secrets 표로 정확한 참조·판을 채운다.
+// 그 이름을 참조하는 켜진 HTTP server가 있고 그 server URL의 origin이 청한 목적지와 같을 때만
+// 허용한다(다른 목적지 forbidden). 값은 보지 않는다.
+export function lookupMcpSecretUse(
+  sql: Pick<Sql, "all">,
+  use: SecretUse,
+): Result<{
+  name: string;
+  sealedRef: string;
+  revision: number;
+  purpose: SecretUse["purpose"];
+  destination: SecretDestination;
+}> {
+  const forbidden = {
+    code: "forbidden" as const,
+    message: "secret 전송을 허용하지 않는다",
+  };
+  const name = nameOf(use.sealed_ref);
+  if (name === null || use.purpose !== "external_mcp_credential") {
+    return err(forbidden);
+  }
+  let setting: unknown;
+  let secretRows: Record<string, unknown>[];
+  try {
+    const rows = sql.all(
+      "select layer, key, value from setting_choices where key = ?",
+      [mcpServersSetting.key],
+    );
+    if (rows.length === 0) return err(forbidden);
+    setting = JSON.parse(String(rows[0]["value"]));
+    secretRows = sql.all(
+      "select name, sealed_ref, revision from secrets where name = ?",
+      [name],
+    );
+  } catch {
+    return err({
+      code: "unavailable",
+      message: "MCP credential 참조를 읽지 못했다",
+    });
+  }
+  const servers = mcpServersSetting.value_type.safeParse(setting);
+  if (!servers.success) return err(forbidden);
+  const allowed = servers.data.some((server) =>
+    server.enabled && server.transport === "http" &&
+    sentRefsOf(server.http).includes(use.sealed_ref) &&
+    sameOrigin(server.http.url, use.destination)
+  );
+  if (!allowed) return err(forbidden);
+  const row = secretRows[0];
+  if (row === undefined) {
+    return err({ code: "conflict", message: "현재 참조와 판이 다르다" });
+  }
+  return ok({
+    name,
+    sealedRef: String(row["sealed_ref"]),
+    revision: Number(row["revision"]),
+    purpose: "external_mcp_credential",
+    destination: use.destination,
+  });
+}
+
+function sameOrigin(url: string, destination: SecretDestination): boolean {
+  if (destination.kind !== "https" && destination.kind !== "loopback_http") {
+    return false;
+  }
+  try {
+    const parsed = new URL(url);
+    const kind = parsed.protocol === "https:" ? "https" : "loopback_http";
+    return kind === destination.kind && parsed.origin === destination.origin;
+  } catch {
+    return false;
+  }
+}
+
+// 요청 헤더로 server에 가는 참조다(headers의 secret_ref, bearer·api_key). oauth2의
+// client secret은 server로 가지 않는다.
+function sentRefsOf(http: {
+  headers: Record<string, { kind: string; secret_ref?: string }>;
+  auth: { kind: string; secret_ref?: string };
+}): string[] {
+  const refs: string[] = [];
+  for (const value of Object.values(http.headers)) {
+    if (value.kind === "secret_ref" && value.secret_ref !== undefined) {
+      refs.push(value.secret_ref);
+    }
+  }
+  if (
+    (http.auth.kind === "bearer" || http.auth.kind === "api_key") &&
+    http.auth.secret_ref !== undefined
+  ) {
+    refs.push(http.auth.secret_ref);
+  }
+  return refs;
 }

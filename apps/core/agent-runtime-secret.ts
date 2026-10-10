@@ -1,10 +1,12 @@
-import { err, ok } from "../../packages/base/mod.ts";
+import { err, ok, type Result } from "../../packages/base/mod.ts";
 import {
   type AuthenticatedContext,
   secretSendRequestSchema,
   type SecretSendResponse,
   type SecretValue,
+  type Sql,
 } from "../../packages/contracts/platform/mod.ts";
+import { lookupMcpSecretUse } from "../../packages/lophn-agent/extensions/mod.ts";
 import { lookupProviderSecretUse } from "../../packages/lophn-agent/harness/provider/mod.ts";
 import {
   type KnownSecretMatch,
@@ -73,33 +75,57 @@ export function createAgentRuntimeSecrets(deps: {
         },
       });
 
+      const lookupCurrent = <T>(
+        read: (sql: Pick<Sql, "all">) => Result<T>,
+      ): Result<T> => {
+        const opened = openConnection(deps.ledgerPath);
+        if (!opened.ok) return opened;
+        try {
+          return read(opened.value.sql);
+        } finally {
+          opened.value.close();
+        }
+      };
+
+      // MCP 인증 비밀은 설정의 이름(`sec:...`)으로 청해 오므로 현재 참조·판을 채워 대조한다.
+      // provider 참조는 청한 그대로 현재 provider 기록과 대조한다.
+      let use = request.use;
+      let mcp: ReturnType<typeof lookupMcpSecretUse> | undefined;
+      if (use.purpose === "external_mcp_credential") {
+        const looked = lookupCurrent((sql) => lookupMcpSecretUse(sql, use));
+        if (!looked.ok) return failed(looked.error);
+        mcp = looked;
+        use = {
+          ...use,
+          sealed_ref: looked.value.sealedRef,
+          revision: looked.value.revision,
+        };
+      }
       let value: SecretValue | undefined;
       const sent = await createSecretAttach({
         keychain: deps.keychain(),
         references: {
-          current(use) {
-            const opened = openConnection(deps.ledgerPath);
-            if (!opened.ok) return Promise.resolve(opened);
-            try {
-              return Promise.resolve(
-                lookupProviderSecretUse(opened.value.sql, use),
-              );
-            } finally {
-              opened.value.close();
-            }
+          current(requested) {
+            if (mcp !== undefined) return Promise.resolve(mcp);
+            return Promise.resolve(
+              lookupCurrent((sql) => lookupProviderSecretUse(sql, requested)),
+            );
           },
         },
-        // provider credential은 apps의 grant가 아니라 provider 참조의 현재 상태로 허용한다(조회가 판정).
+        // provider·MCP credential은 apps의 grant가 아니라 그 참조의 현재 상태로 허용한다(조회가 판정).
         allowance: (allowed) =>
-          allowed.purpose === "provider_credential" ? ok(undefined) : err({
-            code: "forbidden",
-            message: "secret 전송을 허용하지 않는다",
-          }),
+          allowed.purpose === "provider_credential" ||
+            allowed.purpose === "external_mcp_credential"
+            ? ok(undefined)
+            : err({
+              code: "forbidden",
+              message: "secret 전송을 허용하지 않는다",
+            }),
         processes: alive,
       }).send(
         {
           context,
-          use: request.use,
+          use,
           operation: request.operation,
           body: { url: request.url, method: request.method },
         },

@@ -2746,8 +2746,13 @@ Deno.test({
         "lophn-agent/questions#R1 lophn-agent/roles/context-engineer#R10: 자료로 정할 수 없는 경계만 근거와 함께 묻고 추천은 적용하지 않는다",
         async () => {
           await sendToEngineer(shell, OPEN_ASK);
-          await untilDecision(provider, "asked", "경계 질문");
-          await untilEngineerDone(shell, provider, "경계 질문이 끝나지 않았다");
+          // 질문을 낸 run은 답을 기다린다. model은 답으로 이어진 뒤에 다시 불린다.
+          await untilDecision(provider, "ask-result", "경계 질문");
+          const askBy = Date.now() + 60_000;
+          while ((await questionsOf(shell)).length === 0) {
+            assert(Date.now() < askBy, "경계 질문이 만들어지지 않았다");
+            await delay(250);
+          }
           const named = provider.callsNamed();
           const askedAt = named.indexOf("question.submit");
           assert(askedAt > 0, named.join(","));
@@ -2774,7 +2779,6 @@ Deno.test({
           assert(tools.includes("document.create"), tools.join(","));
           assertEquals(tools.includes("term.define"), false);
           const shown = (await shell.text(EMBEDDED)) ?? "";
-          assertStringIncludes(shown, ASK_REPLY);
           assertEquals(shown.includes(SECTION_BODY), false);
           assertEquals(shown.includes("document.search"), false);
           await shell.until(
@@ -2865,15 +2869,12 @@ Deno.test({
             "자유 답을 보낼 수 없다",
           );
           await shell.click(sendAnswer);
-          await shell.until(
-            `document.querySelector(${
-              JSON.stringify(`${EMBEDDED} [data-problem]`)
-            }) !== null || document.querySelector(${
-              JSON.stringify(`${EMBEDDED} [data-answer]`)
-            }) !== null`,
-            "자유 답이 접수도 거절도 되지 않았다",
-            30_000,
-          );
+          // 질문을 기다리는 run이 있으므로 자유 답은 해당 질문의 답으로 접수된다.
+          const answerBy = Date.now() + 30_000;
+          while ((await questionsOf(shell))[0]?.status !== "answered") {
+            assert(Date.now() < answerBy, "자유 답이 접수되지 않았다");
+            await delay(250);
+          }
           await sendToEngineer(shell, FREE_TEXT);
           await untilDecision(provider, "freed", "자유 답 보류");
           await shell.until(

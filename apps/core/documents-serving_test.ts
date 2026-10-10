@@ -1,8 +1,13 @@
 // documents coordinator 요청 통로: coordinator를 바꾸는 동안의 요청 처리. 실제 process 없이 보낸
 // 요청과 child 응답을 시험이 직접 흉내 낸다.
 import { assert, assertEquals } from "@std/assert";
-import type { ChildMessage } from "../../packages/contracts/platform/mod.ts";
-import { createDocumentsChannel } from "./documents-serving.ts";
+import { ok } from "../../packages/base/mod.ts";
+import type {
+  ChildMessage,
+  RequestContext,
+  WorkerRequest,
+} from "../../packages/contracts/platform/mod.ts";
+import { createDocumentsChannel, servedWorkers } from "./documents-serving.ts";
 
 type Sent = { request_id: string; op: string };
 
@@ -167,4 +172,49 @@ Deno.test("platform/responsiveness#R3: 교체가 겹쳐도 한 번에 하나씩 
   finishFirst();
   await Promise.all([first, second]);
   assertEquals(order, ["first start", "first end", "second start"]);
+});
+
+const CONTEXT: RequestContext = {
+  principal: "user-1",
+  actor: "user",
+  scope: { operations: ["search.query", "search.status"], targets: {} },
+  conditions: {},
+  credential_ref: "cred-1",
+};
+
+// search 답 하나를 reader 대신 돌려주는 서빙 대상으로 forward 한 번을 보낸다.
+async function searchOnce(
+  key: "search/query" | "search/status",
+  coverage: { lagging: boolean },
+): Promise<number> {
+  let woke = 0;
+  const targets = servedWorkers({
+    readers: {
+      read: () => Promise.resolve(ok({ coverage, next_cursor: null })),
+      health: () => ["healthy"],
+    },
+    current: () => ok(CONTEXT),
+    observedAt: () => "2026-10-10T00:00:00.000Z",
+    wakeSearch: () => {
+      woke += 1;
+    },
+  });
+  const target = targets.get(key);
+  assert(target !== undefined);
+  const answered = await target.handle.forward({
+    type: "worker_request",
+    request_id: "cred-1/1",
+    op: key,
+    payload: {},
+  } as WorkerRequest);
+  assert(answered.ok);
+  assert(answered.value.ok);
+  return woke;
+}
+
+Deno.test("documents/outline-and-search#R14: 뒤처진 search 답을 낸 읽기는 index를 깨우고 따라잡은 답은 깨우지 않는다", async () => {
+  // feed는 documents event만 받아서 그 밖의 ledger 쓰기로 head가 앞서간 index는 읽기가 깨운다.
+  assertEquals(await searchOnce("search/query", { lagging: true }), 1);
+  assertEquals(await searchOnce("search/status", { lagging: true }), 1);
+  assertEquals(await searchOnce("search/query", { lagging: false }), 0);
 });

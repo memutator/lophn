@@ -118,7 +118,16 @@ export type ToolDone = {
   status: "success" | "failure" | "uncertain" | "not_executed";
   code: string;
   result: ToolResult;
+  // 이 call이 만든 질문. 질문은 추정 답으로 진행하지 않으므로 run은 이 질문의 답을 기다린다
+  // (lophn-agent/harness/waiting-and-recovery R1).
+  asked?: string;
 };
+
+// 사람의 결정을 기다리는 대상. approval이면 진입하지 않은 고정 call이고, 질문이면 이미 끝난
+// 질문 제출 call이다.
+export type WaitTarget =
+  | { tool_call: string; approval: string }
+  | { tool_call: string; question: string };
 
 // 사람의 결정을 기다리는 call. 진입하지 않았고 run은 이 결정 전까지 진행하지 않는다.
 export type ToolWaiting = {
@@ -198,9 +207,7 @@ export type RunPorts = {
   // 완전한 tool 없는 답을 남긴다(RecordMessage).
   answer(text: string): Promise<Result<void>>;
   // 사람의 결정을 기다리는 run 상태로 옮긴다(WaitRun).
-  wait(
-    request: { tool_call: string; approval: string },
-  ): Promise<Result<void>>;
+  wait(request: WaitTarget): Promise<Result<void>>;
   finish(request: FinishRequest): Promise<Result<FinishResult>>;
 };
 
@@ -258,7 +265,7 @@ export type LoopEnd =
   // 사람이 멈췄다. run은 core가 이미 끝냈다.
   | { kind: "stopped"; reason: StopReason }
   // 사람의 결정을 기다린다. 재개는 기다림 해소기와 복구가 한다.
-  | { kind: "waiting"; tool_call: string; approval: string }
+  | ({ kind: "waiting" } & WaitTarget)
   // 끝낼 이유는 확정했지만 FinishRun을 확정하지 못했다. 끝남으로 가정하지 않는다.
   | {
     kind: "finish_failed";

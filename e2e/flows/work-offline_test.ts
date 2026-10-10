@@ -2840,3 +2840,328 @@ Deno.test({
     }
   },
 });
+
+// flow work-offline 5단계. 사람이 지금 필요한 준비나 다시 시도할 행동을 확인한다. 확인된
+// 예정 시각이 있는 기다림(서버가 준 retry 시각)과 사람 행동이 필요한 연결 준비(쓸 수 있는
+// 연결이 없음)를 구별하고, 모르는 시각은 만들어 보이지 않는다. 6–7단계, update-lophn,
+// install-lophn은 보지 않는다.
+const READY_PROVIDER = "pvd_01arz3ndektsv4rrffq69g5fe1";
+const SOON = "Try the connection.";
+const CONFIRMED_AFTER_S = 20;
+const SETTINGS_NOTICE = "[data-provider='unusable']";
+const FAILED_NOTICE = "[data-external='connection-failed']";
+const RATE_LIMITED =
+  '{"type":"error","error":{"type":"rate_limit_error","message":"slow down"}}';
+
+Deno.test({
+  name:
+    "lophn-agent/harness/waiting-and-recovery#R6 shell/wording#R10 flow work-offline 5: 확인된 예정 시각이 있는 기다림과 사람 행동이 필요한 연결 준비를 구별하고 모르는 시각은 만들어 보이지 않는다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn() {
+    const folder = await Deno.realPath(
+      await Deno.makeTempDir({ prefix: "lophn-e2e-offline5-folder-" }),
+    );
+    await Deno.writeTextFile(`${folder}/note.md`, `# note\n\n${NOTE}\n`);
+    const home = await Deno.makeTempDir({ prefix: "lophn-e2e-offline5-" });
+    await Deno.chmod(home, 0o700);
+    let flow: FlowShell | undefined;
+    const primary = startFakeProvider({
+      script: {
+        steps: [
+          httpStep("first", 429, { "retry-after": "1" }, RATE_LIMITED),
+          httpStep("second", 429, { "retry-after": "1" }, RATE_LIMITED),
+          httpStep(
+            "third",
+            429,
+            { "retry-after": String(CONFIRMED_AFTER_S) },
+            RATE_LIMITED,
+          ),
+        ],
+      },
+      nowMs: () => Date.now(),
+      instant: true,
+    });
+    const shell = (): FlowShell => {
+      if (flow === undefined) throw new Error("shell이 없다");
+      return flow;
+    };
+    try {
+      flow = await openFlowShell({ home });
+      await registerTrackedProject(flow, {
+        folder,
+        name: "alpha",
+        title: "Alpha",
+      });
+      await untilDocuments(flow, ["note"], "노트가 문서가 되지 않았다");
+      const noteId = (await documentTitled(flow, "note")).id;
+      await flow.close();
+      flow = undefined;
+      const bundle = await prepareBrokenApp(home, {
+        installedHome,
+        removeTree,
+      });
+      seedLedger(home, bundle);
+      flow = await openFlowShell({ home, start: `project:${PROJECT}` });
+
+      const untilSpace = (space: string, what: string) =>
+        shell().until(
+          `document.querySelector("[data-space]")?.getAttribute("data-space") === ${
+            JSON.stringify(space)
+          }`,
+          what,
+        );
+      const openNote = async () => {
+        await shell().until(
+          `document.querySelector('[data-document="${noteId}"]') !== null`,
+          "sidebar에 노트가 없다",
+        );
+        await shell().click(`[data-document="${noteId}"]`);
+        await shell().until(
+          `document.querySelector("[data-document-body]")?.textContent?.includes(${
+            JSON.stringify(NOTE)
+          })`,
+          "노트 본문이 열리지 않았다",
+        );
+      };
+      const openDock = async () => {
+        await shell().until(
+          `document.querySelector("[data-dock-toggle]") !== null`,
+          "도크 토글이 없다",
+        );
+        if (await shell().count("[data-dock]") === 0) {
+          await shell().click("[data-dock-toggle]");
+        }
+        await shell().until(
+          `document.querySelector("[data-dock]") !== null`,
+          "대화 도크가 열리지 않았다",
+        );
+      };
+      // 준비가 필요한 안내: 행동은 설정으로 가는 단추 하나, 시각·세는 숫자·기다림 표시는 없다.
+      const assertPreparation = async (where: string) => {
+        await shell().until(
+          `document.querySelector(${JSON.stringify(SETTINGS_NOTICE)}) !== null`,
+          `${where}: 연결 준비 안내가 없다`,
+          30_000,
+        );
+        const text = String(await shell().text(SETTINGS_NOTICE));
+        assert(text.includes("can't reach its account"), text);
+        assertEquals(await shell().count(`${SETTINGS_NOTICE} button`), 1);
+        assertEquals(/\d/.test(text), false, text);
+        assertEquals(text.includes("next try"), false, text);
+        assertEquals(await shell().count("[data-confirmed-retry]"), 0);
+        assertEquals(await shell().count("[data-expires]"), 0);
+        assertEquals(await shell().count("[data-external]"), 0);
+      };
+
+      // 쓸 수 있는 연결이 없다. 사람 행동(설정)이 필요하고 기다리면 풀리는 일이 아니다.
+      await untilSpace("project", "프로젝트 작업대가 서지 않았다");
+      await openNote();
+      await openDock();
+      await assertPreparation("project-workspace");
+      assert(
+        String(await shell().text("[data-document-body]")).includes(NOTE),
+        "연결 준비 안내가 로컬 문서를 가렸다",
+      );
+
+      await shell().click("[data-launcher-back]");
+      await untilSpace("launcher", "launcher로 돌아오지 않았다");
+      await shell().click("[data-entry=lophn]");
+      await untilSpace("lophn", "lophn 공간이 서지 않았다");
+      await shell().click("[data-screen=apps]");
+      await shell().until(
+        `document.querySelector("[data-app-row] [data-action=open]") !== null`,
+        "앱 목록이 서지 않았다",
+      );
+      await shell().click("[data-app-row] [data-action=open]");
+      await untilSpace("app", "앱 공간이 서지 않았다");
+      await openDock();
+      await assertPreparation("app-space");
+
+      // 연결을 준비한다. 서버가 준 시각이 있는 429만 그 시각을 확인된 다음 시도로 보인다.
+      await mustCall(shell(), {
+        kind: "command",
+        resource: "providers",
+        method: "register",
+        body: providerBody(READY_PROVIDER, "Ready", primary.url),
+      });
+      let pointed = "";
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const defaults = await mustCall(shell(), {
+          kind: "read",
+          resource: "agent-model-defaults",
+          method: "read",
+          body: {},
+        });
+        const seq =
+          (defaults.defaults as { settings_seq: string }).settings_seq;
+        const reply = await shell().call({
+          kind: "command",
+          resource: "agent-model-defaults",
+          method: "change",
+          body: commandBody(
+            {
+              judgment: {
+                provider: READY_PROVIDER,
+                credentials: [],
+                model_name: MODEL,
+                reasoning_level: "provider_default",
+                options: {},
+              },
+              organizing: null,
+              settings_seq: seq,
+            },
+            { settings_seq: seq },
+          ),
+        });
+        if (reply.ok) {
+          pointed = READY_PROVIDER;
+          break;
+        }
+        pointed = JSON.stringify(reply);
+        if (reply.error?.code !== "conflict") break;
+      }
+      assertEquals(pointed, READY_PROVIDER, pointed);
+      await untilRuntimeAllows(shell().shell.pid, [
+        new URL(primary.url).port,
+      ]);
+
+      await shell().click("[data-launcher-back]");
+      await untilSpace("launcher", "launcher로 돌아오지 않았다");
+      const card =
+        `[data-card="project"][data-project="${PROJECT}"] button:not([data-details-toggle])`;
+      await shell().until(
+        `document.querySelector(${JSON.stringify(card)}) !== null`,
+        "프로젝트 카드가 없다",
+      );
+      await shell().click(card);
+      await untilSpace("project", "프로젝트 작업대로 돌아오지 않았다");
+      await openNote();
+      await openDock();
+      await shell().until(
+        `document.querySelector("[data-new-session]") !== null || document.querySelector(${
+          JSON.stringify(INPUT)
+        }) !== null`,
+        "도크가 서지 않았다",
+      );
+      if (await shell().count(INPUT) === 0) {
+        await shell().click("[data-new-session]");
+      }
+      await shell().until(
+        `document.querySelector(${JSON.stringify(INPUT)}) !== null`,
+        "입력칸이 서지 않았다",
+      );
+      await shell().type(INPUT, SOON);
+      await shell().until(
+        `document.querySelector(${JSON.stringify(SEND)})?.disabled === false`,
+        "보내기가 켜지지 않았다",
+      );
+      await shell().click(SEND);
+
+      // retry 대기 중에는 확인된 시각이 안 보이고, 정해진 횟수를 다 쓴 뒤에야 연결 실패와
+      // 그 시각이 함께 선다.
+      const shown = Date.now() + 120_000;
+      let failed = false;
+      while (Date.now() < shown) {
+        const notice = await shell().count(FAILED_NOTICE);
+        const confirmed = await shell().count("[data-confirmed-retry]");
+        assertEquals(confirmed, notice, "시각이 실패 안내보다 먼저 보인다");
+        if (notice === 1) {
+          failed = true;
+          break;
+        }
+        await delay(250);
+      }
+      assert(failed, "연결 실패 안내가 서지 않았다");
+      assertEquals(await shell().count(SETTINGS_NOTICE), 0);
+
+      const listed = await mustCall(shell(), {
+        kind: "read",
+        resource: "assignments",
+        method: "list",
+        body: { role: "lophn" },
+      });
+      const agent = (listed.assignments as { id: string }[])[0];
+      assert(agent !== undefined, "lophn assignment가 없다");
+      const runs = await mustCall(shell(), {
+        kind: "read",
+        resource: "runs",
+        method: "list",
+        body: { assignment: agent.id },
+      });
+      const run = newest(runs.runs as RunRow[]);
+      assert(run !== null, "run이 없다");
+      assertEquals(run.state, "finished");
+      const calls = await mustCall(shell(), {
+        kind: "read",
+        resource: "model-calls",
+        method: "list",
+        body: { run: run.id },
+      });
+      const ordered = (calls.calls as RetryCall[]).slice().sort((
+        left,
+        right,
+      ) => left.attempt_order - right.attempt_order);
+      assertEquals(ordered.length, 3, JSON.stringify(ordered));
+      const last = ordered[2]!;
+      assertEquals(last.outcome?.kind, "failed");
+      assertEquals(last.outcome?.code, "temporary");
+      assertEquals(last.outcome?.http_status, 429);
+      const retryAt = last.outcome?.retry_at;
+      assert(typeof retryAt === "string", JSON.stringify(last.outcome));
+      // 시각은 서버가 준 retry-after에서 왔다. 화면이 따로 정하지 않는다.
+      const span = Date.parse(retryAt) - Date.parse(last.started_at);
+      assert(
+        span >= CONFIRMED_AFTER_S * 1000 - 1_000 &&
+          span <= (CONFIRMED_AFTER_S + 10) * 1000,
+        `retry 시각이 서버 지시에서 벗어났다: ${span}`,
+      );
+
+      const confirmed = await shell().evaluate(
+        `document.querySelector("[data-confirmed-retry]")?.getAttribute("data-confirmed-retry") ?? ""`,
+      );
+      assertEquals(confirmed, retryAt);
+      const when = String(
+        await shell().evaluate(
+          `new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(${
+            JSON.stringify(retryAt)
+          }))`,
+        ),
+      );
+      const failedText = String(await shell().text(FAILED_NOTICE));
+      assert(failedText.includes("didn't respond"), failedText);
+      assert(
+        failedText.includes(`The next try is confirmed for ${when}.`),
+        failedText,
+      );
+      assertEquals(
+        /\b(seconds?|minutes?|left|remaining|countdown)\b/i.test(failedText),
+        false,
+        failedText,
+      );
+      // 사람 행동은 연결을 다시 확인하는 단추 하나다. 예정 시각은 세지 않고 그대로 있다.
+      assertEquals(await shell().count(`${FAILED_NOTICE} button`), 1);
+      assertEquals(await shell().count("[data-expires]"), 0);
+      await delay(2_000);
+      assertEquals(String(await shell().text(FAILED_NOTICE)), failedText);
+      assert(
+        String(await shell().text("[data-document-body]")).includes(NOTE),
+        "연결 실패 안내가 로컬 문서를 가렸다",
+      );
+      assertEquals(
+        primary.requests().filter((entry) => entry.path === "/messages").length,
+        3,
+        "확인된 시각이 오기 전후에 lophn이 더 보냈다",
+      );
+      await shell().click(`${FAILED_NOTICE} button`);
+      assertEquals(await shell().evaluate(`location.hash`), "#settings");
+      primary.assertDone(3);
+    } finally {
+      await flow?.close();
+      await primary.close();
+      await removeTree(home);
+      await Deno.remove(folder, { recursive: true }).catch(() => undefined);
+    }
+  },
+});

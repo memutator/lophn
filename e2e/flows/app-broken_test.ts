@@ -11,19 +11,30 @@
 // (problem-codes#R2, reporting#R1 R2 R5, snapshots#R1 R4 R6 R15)
 //
 // 2단계·3단계 테스트는 그 아래에 있다. 3단계는 app-detail에서 문제 열림 notification으로 증상·진행·
-// 다음 행동을 보고 봐 달라고 요청한다. 하지 않는 것: 4~9단계(해석 문서, ticket, claim, reproduction,
-// activation, 자동 닫힘). process의 unhandled rejection은 앱 자식이 바로 끝나 이후 읽기를 막으므로
-// 일으키지 않는다. 화면이 이미 root render에서 깨져 있어 실패 command는 그 view의 lophnApp(화면이
+// 다음 행동을 보고 봐 달라고 요청한다. 4단계 앞은 마지막 테스트다. App Engineer가 당시 snapshot·
+// 설계·release·실제 테스트와 사실을 원인 가설과 구별한 해석 문서를 고정하고 problem에 연결한다.
+// 하지 않는 것: ticket, claim, reproduction, activation, 자동 닫힘. process의 unhandled rejection은
+// 앱 자식이 바로 끝나 이후 읽기를 막으므로 일으키지 않는다. 화면이 이미 root render에서 깨져 있어
+// 실패 command는 그 view의 lophnApp(화면이
 // command를 부르는 통로)으로 일으킨다. 1단계에는 사람 조작 화면이 없다.
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
+
+import { buildReply } from "../../tools/fake-provider/semantic.ts";
+import type { SemanticReply } from "../../tools/fake-provider/types.ts";
 
 import {
   installedHome,
   removeTree,
 } from "../../packages/apps/sdk/testing/mod.ts";
 import { e2eEnabled } from "../harness.ts";
-import { APP, prepareBrokenApp, RELEASE, seedLedger } from "../broken-app.ts";
+import {
+  APP,
+  prepareBrokenApp,
+  RELEASE,
+  seedLedger,
+  VERIFICATION,
+} from "../broken-app.ts";
 import {
   commandBody,
   delay,
@@ -1434,6 +1445,1122 @@ Deno.test({
         afterSecond.length,
       );
     } finally {
+      await opened?.close();
+      await removeTree(home);
+    }
+  },
+});
+
+const DESIGN_ASK = "이 앱의 설계를 문서로 남겨 달라.";
+const DESIGN_DONE = "설계 문서를 남겼다.";
+const LINK_DONE = "해석 문서를 문제에 연결했다.";
+const SETTINGS_SENTENCE = "설정을 읽으면 설정이 보인다.";
+const SCREEN_SENTENCE = "화면이 깨지면 그 오류를 문제로 남긴다.";
+const FOURTH_CAUSE = "은행 파일 parser가 틀렸다";
+const CAUSE_1 = "view가 그려지기 전에 예외를 던진다.";
+const CAUSE_2 = "설정 화면이 나오기 전에 초기화가 실패한다.";
+const CAUSE_3 = "활성 release의 화면 코드가 설계와 어긋난다.";
+const DESIGN_TEXT = `# Broken app design
+
+## 기대 {#expect}
+
+${SETTINGS_SENTENCE}
+
+## 깨진 화면 {#broken-screen}
+
+${SCREEN_SENTENCE}
+`;
+const SESSION_4 = "ses_01arz3ndektsv4rrffq69g5fb4";
+const DESIGN_MESSAGE = "msg_01arz3ndektsv4rrffq69g5fb4";
+const LOOK_MESSAGE = "msg_01arz3ndektsv4rrffq69g5fb5";
+const PROVIDER_4 = "pvd_01arz3ndektsv4rrffq69g5fb4";
+const MODEL_4 = "claude-sonnet-4-5";
+const LINK_EXPLANATION =
+  "당시 snapshot·설계·release·실제 테스트를 구별한 해석 판의 원인 가설 절이다.";
+
+type InterpretFacts = {
+  problem: string;
+  status: string;
+  release: string;
+  planningVersion: string | null;
+  testsState: string;
+  snapshotName: string;
+  snapshotMessage: string;
+  screenReason: string;
+  designDocument: string;
+  designVersion: string;
+  settingsSentence: string;
+  screenSentence: string;
+  verification: string;
+  verificationStatus: string;
+  verificationCode: string;
+};
+
+type InterpretStep =
+  | "design"
+  | "design-saved"
+  | "look"
+  | "list"
+  | "problem"
+  | "releases"
+  | "app"
+  | "docs"
+  | "design-body"
+  | "verification"
+  | "report"
+  | "snapshot"
+  | "create"
+  | "outline"
+  | "link"
+  | "done";
+
+type InterpretScript = {
+  url: string;
+  close: () => Promise<void>;
+  failure: () => string;
+  step: () => InterpretStep;
+  callsNamed: () => readonly string[];
+  body: (index: number) => string;
+  calls: () => number;
+  facts: () => InterpretFacts;
+  text: () => string;
+  document: () => string;
+  version: () => string;
+  section: () => string;
+};
+
+function asRecord(value: unknown, label: string): Record<string, unknown> {
+  assert(
+    value !== null && typeof value === "object" && !Array.isArray(value),
+    `${label}: ${JSON.stringify(value)?.slice(0, 300)}`,
+  );
+  return value as Record<string, unknown>;
+}
+
+function textOf(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function reasonText(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (value !== null && typeof value === "object" && "reason" in value) {
+    return textOf((value as { reason: unknown }).reason);
+  }
+  return "";
+}
+
+function toolCall(id: string, name: string, args: unknown): SemanticReply {
+  return {
+    text: "",
+    toolCalls: [{ id, name, arguments: JSON.stringify(args) }],
+    usage: { input: 24, output: 8 },
+    stop: "tool_calls",
+  };
+}
+
+function said(text: string): SemanticReply {
+  return { text, usage: { input: 16, output: 6 }, stop: "end" };
+}
+
+function turnOf(
+  body: string,
+): { kind: "user"; text: string } | { kind: "tool" } | {
+  kind: "other";
+} {
+  const request = JSON.parse(body) as {
+    messages?: { role?: string; content?: unknown }[];
+  };
+  const messages = request.messages ?? [];
+  const last = messages[messages.length - 1];
+  if (last?.role !== "user") return { kind: "other" };
+  const content = last.content;
+  const blocks = Array.isArray(content)
+    ? content
+    : typeof content === "string"
+    ? [{ type: "text", text: content }]
+    : [];
+  if (
+    blocks.some((block) =>
+      typeof block === "object" && block !== null &&
+      (block as { type?: string }).type === "tool_result"
+    )
+  ) {
+    return { kind: "tool" };
+  }
+  const text = blocks.map((block) =>
+    typeof block === "object" && block !== null &&
+      (block as { type?: string }).type === "text"
+      ? textOf((block as { text?: unknown }).text)
+      : ""
+  ).join("");
+  return { kind: "user", text };
+}
+
+// 현재 요청은 매 호출의 마지막 user 글이다. tool 결과 차례는 그 글이 아니라
+// 본문 tool_result 수가 이전보다 늘었는지로 가른다.
+function toolResultCount(body: string): number {
+  const request = JSON.parse(body) as { messages?: { content?: unknown }[] };
+  let count = 0;
+  for (const message of request.messages ?? []) {
+    const content = message.content;
+    if (!Array.isArray(content)) continue;
+    for (const block of content) {
+      if (
+        typeof block === "object" && block !== null &&
+        (block as { type?: string }).type === "tool_result"
+      ) count += 1;
+    }
+  }
+  return count;
+}
+
+function lastToolJson(body: string): Record<string, unknown> {
+  const request = JSON.parse(body) as { messages?: { content?: unknown }[] };
+  const blocks = (request.messages ?? []).flatMap((message) =>
+    Array.isArray(message.content) ? message.content : []
+  );
+  const result = blocks.findLast((block) =>
+    typeof block === "object" && block !== null &&
+    (block as { type?: string }).type === "tool_result"
+  ) as { content?: unknown } | undefined;
+  assert(result !== undefined, `tool 결과가 없다: ${body.slice(-400)}`);
+  const raw = typeof result.content === "string"
+    ? result.content
+    : Array.isArray(result.content)
+    ? (result.content as { text?: string }[]).map((part) => part.text ?? "")
+      .join("")
+    : "";
+  const start = raw.indexOf('{"status"');
+  const end = raw.lastIndexOf("}");
+  assert(
+    start >= 0 && end > start,
+    `tool 결과 JSON이 없다: ${raw.slice(0, 400)}`,
+  );
+  return JSON.parse(raw.slice(start, end + 1)) as Record<string, unknown>;
+}
+
+function toolContent(body: string): Record<string, unknown> {
+  const json = lastToolJson(body);
+  assertEquals(json["status"], "success", JSON.stringify(json).slice(0, 500));
+  const content = json["content"];
+  assert(
+    content !== null && typeof content === "object",
+    JSON.stringify(json).slice(0, 400),
+  );
+  assertEquals(json["complete"] === false, false, "결과가 잘렸다");
+  return content as Record<string, unknown>;
+}
+
+function sliceFrom(body: string, sentence: string): string {
+  const at = body.indexOf(sentence);
+  assert(at >= 0, body.slice(0, 240));
+  return body.slice(at, at + sentence.length);
+}
+
+function interpretationText(facts: InterpretFacts): string {
+  const tests = facts.testsState === "not_run"
+    ? `${facts.testsState}. 결과가 없다.`
+    : facts.testsState;
+  return `# 해석
+
+## 사실 {#facts}
+
+- 문제: ${facts.problem}
+- 상태: ${facts.status}
+- release: ${facts.release}
+- snapshot 오류: ${facts.snapshotName}: ${facts.snapshotMessage}
+- 화면 증거: ${facts.screenReason}
+- 설계 문서: ${facts.designDocument} ${facts.designVersion}
+- 설계: ${facts.settingsSentence}
+- 설계: ${facts.screenSentence}
+- verification: ${facts.verification}
+- verification 읽기: ${facts.verificationStatus} ${facts.verificationCode}
+- 통과로 쓰지 않음
+- 테스트 상태: ${tests}
+
+## 원인 가설 {#causes}
+
+원인은 셋만 적는다.
+
+### 가설 1
+
+${CAUSE_1}
+
+- 지지: snapshot 오류 ${facts.snapshotName} ${facts.snapshotMessage}
+- 반박: 설계의 화면 문장은 기대이고 원인 증명이 아니다.
+- 다음 확인: 그 release의 view 시작 순서를 본다.
+
+### 가설 2
+
+${CAUSE_2}
+
+- 지지: 설계는 ${facts.settingsSentence} 라고 적는다.
+- 반박: snapshot 오류는 설정 실패가 아니다.
+- 다음 확인: 설정 읽기와 첫 화면의 순서를 본다.
+
+### 가설 3
+
+${CAUSE_3}
+
+- 지지: 활성 release ${facts.release}
+- 반박: verification ${facts.verification}는 통과로 쓰지 않음
+- 다음 확인: 그 release의 화면과 설계 문장을 나란히 본다.
+
+## 부족한 근거 {#missing}
+
+${FOURTH_CAUSE}. snapshot·설계·테스트가 이 문장을 지지하지 않아 가설로 두지 않는다.
+`;
+}
+
+// report id는 agent tool에 목록이 없다. core가 provider 응답을 기다리는 동안
+// handler에서 다시 읽으면 서로 막히므로, 서버를 열기 전에 잡은 id만 심는다.
+function startInterpretScript(reportId: string): InterpretScript {
+  const bodies: string[] = [];
+  const named: string[] = [];
+  const found = {
+    step: "design" as InterpretStep,
+    failure: "",
+    outlines: 0,
+    document: "",
+    version: "",
+    section: "",
+    text: "",
+    facts: {
+      problem: "",
+      status: "",
+      release: "",
+      planningVersion: null,
+      testsState: "",
+      snapshotName: "",
+      snapshotMessage: "",
+      screenReason: "",
+      designDocument: "",
+      designVersion: "",
+      settingsSentence: "",
+      screenSentence: "",
+      verification: "",
+      verificationStatus: "",
+      verificationCode: "",
+    } as InterpretFacts,
+  };
+  let seq = 0;
+  let seenResults = 0;
+  const rememberResults = (next: number): boolean => {
+    seenResults = next;
+    return true;
+  };
+  const issue = (name: string, args: unknown): SemanticReply => {
+    named.push(name);
+    seq += 1;
+    return toolCall(`toolu_s4_${seq}`, name, args);
+  };
+  const fail = (message: string): never => {
+    throw new Error(message);
+  };
+
+  const server = Deno.serve(
+    { hostname: "127.0.0.1", port: 0, onListen: () => {} },
+    async (request) => {
+      const text = await request.text();
+      const path = new URL(request.url).pathname;
+      if (request.method !== "POST" || !path.endsWith("/messages")) {
+        return Response.json({ error: "unexpected" }, { status: 500 });
+      }
+      bodies.push(text);
+      let reply = said("");
+      try {
+        const turn = turnOf(text);
+        const results = toolResultCount(text);
+        if (found.step === "design") {
+          if (turn.kind !== "user" || !turn.text.includes(DESIGN_ASK)) {
+            fail(`설계 요청이 아니다: ${text.slice(-300)}`);
+          }
+          seenResults = results;
+          found.step = "design-saved";
+          reply = issue("document.create", {
+            title: "Broken app design",
+            place: { kind: "app", id: APP },
+            name: "broken-design",
+            text: DESIGN_TEXT,
+            media_type: "text/markdown",
+          });
+        } else if (results <= seenResults) {
+          if (results < seenResults) seenResults = results;
+          if (
+            found.step !== "look" || turn.kind !== "user" ||
+            !turn.text.includes(LOOK)
+          ) {
+            fail(
+              `도구 결과 차례에 사람 글이 왔다: ${found.step} results=${results}`,
+            );
+          }
+          found.step = "list";
+          reply = issue("problem.list", { app: APP });
+        } else if (rememberResults(results) && found.step === "design-saved") {
+          const saved = toolContent(text);
+          found.facts.designDocument = textOf(saved["document"]);
+          found.facts.designVersion = textOf(saved["version"]);
+          assert(
+            found.facts.designDocument.startsWith("doc_"),
+            JSON.stringify(saved),
+          );
+          assert(
+            found.facts.designVersion.startsWith("ver_"),
+            JSON.stringify(saved),
+          );
+          found.step = "look";
+          reply = said(DESIGN_DONE);
+        } else if (found.step === "list") {
+          const problems = toolContent(text)["problems"] as {
+            id?: string;
+            symptom?: string;
+          }[];
+          const row = problems.find((item) =>
+            item.symptom === EXCEPTION_SYMPTOM
+          );
+          assert(typeof row?.id === "string", JSON.stringify(problems));
+          found.facts.problem = row.id;
+          found.step = "problem";
+          reply = issue("problem.read", { problem: row.id });
+        } else if (found.step === "problem") {
+          const body = toolContent(text);
+          const problem = asRecord(body["problem"], "problem");
+          assertEquals(textOf(problem["id"]), found.facts.problem);
+          found.facts.status = textOf(problem["status"]);
+          const detail = asRecord(body["detail"], "detail");
+          const result = asRecord(detail["result"], "result");
+          const tests = asRecord(result["tests"], "tests");
+          found.facts.testsState = textOf(tests["state"]);
+          assert(found.facts.testsState !== "", JSON.stringify(tests));
+          assert(found.facts.testsState !== "pass", found.facts.testsState);
+          found.step = "releases";
+          reply = issue("app.releases", { app: APP });
+        } else if (found.step === "releases") {
+          const releases = toolContent(text)["releases"] as {
+            id?: string;
+            tests?: string[];
+          }[];
+          const release = releases.find((item) =>
+            item.tests?.includes(VERIFICATION)
+          );
+          assert(typeof release?.id === "string", JSON.stringify(releases));
+          found.facts.release = release.id;
+          found.facts.verification = VERIFICATION;
+          found.step = "app";
+          reply = issue("app.read", { app: APP });
+        } else if (found.step === "app") {
+          const app = asRecord(toolContent(text)["app"], "app");
+          assertEquals(app["planning_version"], null);
+          assertEquals(textOf(app["active_release"]), found.facts.release);
+          found.facts.planningVersion = null;
+          found.step = "docs";
+          reply = issue("document.list", {
+            place: { kind: "app", id: APP },
+          });
+        } else if (found.step === "docs") {
+          const documents = toolContent(text)["documents"] as {
+            document?: { id?: string; title?: string; name?: string };
+            latest_version?: { id?: string };
+          }[];
+          const design = documents.find((item) =>
+            item.document?.name === "broken-design"
+          );
+          const designId = design?.document?.id;
+          const designVersion = design?.latest_version?.id;
+          assert(
+            typeof designId === "string" && typeof designVersion === "string",
+            JSON.stringify(documents).slice(0, 500),
+          );
+          assertEquals(designId, found.facts.designDocument);
+          found.facts.designVersion = designVersion;
+          found.step = "design-body";
+          reply = issue("document.read_version", {
+            reference: {
+              document: designId,
+              version: designVersion,
+              section: null,
+            },
+          });
+        } else if (found.step === "design-body") {
+          const body = textOf(toolContent(text)["text"]);
+          found.facts.settingsSentence = sliceFrom(body, SETTINGS_SENTENCE);
+          found.facts.screenSentence = sliceFrom(body, SCREEN_SENTENCE);
+          found.step = "verification";
+          reply = issue("verification.read", {
+            verification: found.facts.verification,
+          });
+        } else if (found.step === "verification") {
+          const json = lastToolJson(text);
+          found.facts.verificationStatus = textOf(json["status"]);
+          found.facts.verificationCode = textOf(json["code"]);
+          if (found.facts.verificationStatus === "success") {
+            const verification = asRecord(
+              asRecord(json["content"], "content")["verification"],
+              "verification",
+            );
+            assert(
+              textOf(verification["result"]) !== "pass",
+              JSON.stringify(verification),
+            );
+          } else {
+            assertEquals(found.facts.verificationStatus, "failure");
+            assert(found.facts.verificationCode !== "", JSON.stringify(json));
+          }
+          found.step = "report";
+          reply = issue("report.read", { report: reportId });
+        } else if (found.step === "report") {
+          const body = toolContent(text);
+          const report = asRecord(body["report"], "report");
+          assertEquals(textOf(report["id"]), reportId);
+          const snapshot = asRecord(body["snapshot"], "snapshot");
+          const error = asRecord(snapshot["error"], "error");
+          found.facts.snapshotName = textOf(error["name"]);
+          found.facts.snapshotMessage = textOf(error["message"]);
+          assert(found.facts.snapshotMessage !== "", JSON.stringify(error));
+          const screen = reasonText(snapshot["screen_missing_reason"]) ||
+            reasonText(asRecord(body["missing"], "missing")["screen"]);
+          assert(screen !== "", JSON.stringify(body["missing"]));
+          found.facts.screenReason = screen;
+          found.step = "snapshot";
+          reply = issue("snapshot.read", { snapshot: textOf(snapshot["id"]) });
+        } else if (found.step === "snapshot") {
+          const snapshot = asRecord(
+            toolContent(text)["snapshot"],
+            "snapshot",
+          );
+          const error = asRecord(snapshot["error"], "error");
+          assertEquals(textOf(error["message"]), found.facts.snapshotMessage);
+          assertEquals(textOf(error["name"]), found.facts.snapshotName);
+          found.text = interpretationText(found.facts);
+          found.step = "create";
+          reply = issue("document.create", {
+            title: "문제 해석",
+            place: { kind: "app", id: APP },
+            name: "broken-interpretation",
+            text: found.text,
+            media_type: "text/markdown",
+            evidence: {
+              relied_on: [{
+                document: found.facts.designDocument,
+                version: found.facts.designVersion,
+              }],
+              missing: ["release에 적힌 verification 기록이 없다"],
+            },
+          });
+        } else if (found.step === "create") {
+          const saved = toolContent(text);
+          const evidence = asRecord(saved["evidence"], "evidence");
+          const read = evidence["read"] as {
+            document?: string;
+            version?: string;
+          }[];
+          assertEquals(evidence["all_read"], false);
+          assert(
+            read.some((item) =>
+              item.document === found.facts.designDocument &&
+              item.version === found.facts.designVersion
+            ),
+            JSON.stringify(evidence),
+          );
+          found.document = textOf(saved["document"]);
+          found.version = textOf(saved["version"]);
+          assert(found.document.startsWith("doc_"), JSON.stringify(saved));
+          assert(found.version.startsWith("ver_"), JSON.stringify(saved));
+          found.step = "outline";
+          reply = issue("document.outline", {
+            reference: {
+              document: found.document,
+              version: found.version,
+              section: null,
+            },
+            depth: 6,
+          });
+        } else if (found.step === "outline") {
+          const content = toolContent(text);
+          const entries = content["entries"] as {
+            key?: string;
+            title?: string;
+            anchor?: string | null;
+          }[];
+          const section = entries.find((entry) =>
+            entry.title === "원인 가설" || entry.anchor === "causes"
+          );
+          const ready = content["section_status"] === "whole" &&
+            typeof section?.key === "string";
+          found.outlines += 1;
+          if (!ready && found.outlines < 20) {
+            await delay(1000);
+            reply = issue("document.outline", {
+              reference: {
+                document: found.document,
+                version: found.version,
+                section: null,
+              },
+              depth: 6,
+            });
+          } else {
+            assert(
+              ready && typeof section?.key === "string",
+              JSON.stringify(content).slice(0, 400),
+            );
+            found.section = section.key;
+            found.step = "link";
+            reply = issue("problem.set_interpretation", {
+              problem: found.facts.problem,
+              document: found.document,
+              interpretation: {
+                version: found.version,
+                section: section.key,
+              },
+              explanation: LINK_EXPLANATION,
+            });
+          }
+        } else if (found.step === "link") {
+          const saved = toolContent(text);
+          const link = asRecord(saved["interpretation"], "interpretation");
+          assertEquals(textOf(link["version"]), found.version);
+          assertEquals(textOf(link["section"]), found.section);
+          found.step = "done";
+          reply = said(LINK_DONE);
+        } else {
+          fail(`script가 끝났다: ${found.step}`);
+        }
+      } catch (error) {
+        found.failure = error instanceof Error ? error.message : String(error);
+        return Response.json({ error: found.failure }, { status: 500 });
+      }
+      const built = buildReply("messages", reply);
+      return new Response(built.body ?? "", {
+        status: built.status,
+        headers: built.headers,
+      });
+    },
+  );
+  return {
+    url: `http://127.0.0.1:${server.addr.port}`,
+    close: () => server.shutdown(),
+    failure: () => found.failure,
+    step: () => found.step,
+    callsNamed: () => named,
+    body: (index) => bodies[index] ?? "",
+    calls: () => bodies.length,
+    facts: () => found.facts,
+    text: () => found.text,
+    document: () => found.document,
+    version: () => found.version,
+    section: () => found.section,
+  };
+}
+
+type RunSeen = {
+  state: string;
+  outcome: { kind: string; reason: string } | null;
+  source: { kind: string; message?: string };
+};
+
+async function runRows(
+  flow: FlowShell,
+  assignment: string,
+): Promise<RunSeen[]> {
+  const body = await mustCall(flow, {
+    kind: "read",
+    resource: "runs",
+    method: "list",
+    body: { assignment },
+  });
+  return body.runs as RunSeen[];
+}
+
+async function visibleSurfaces(flow: FlowShell): Promise<string> {
+  return String(
+    await flow.evaluate(`(() => {
+      const selectors = [
+        "[data-ops-panel]",
+        "[data-dock]",
+        "[data-question-strip]",
+        "[data-question-text]",
+      ];
+      return selectors.map((selector) =>
+        document.querySelector(selector)?.innerText ?? ""
+      ).join("\\n");
+    })()`),
+  );
+}
+
+function assertWritingHidden(text: string): void {
+  for (
+    const token of [
+      "problem.set_interpretation",
+      "document.create",
+      "document.outline",
+      "document.read_version",
+      "verification.read",
+      "report.read",
+      "snapshot.read",
+      "가설 1",
+      "부족한 근거",
+      "통과로 쓰지 않음",
+      FOURTH_CAUSE,
+      "group_key",
+      "payload",
+      RENDER_MESSAGE,
+      "snp_",
+      "rpt_",
+      "rel_",
+      "vrf_",
+      "doc_",
+      "ver_",
+    ]
+  ) {
+    assert(!text.includes(token), `${token} ${text.slice(0, 400)}`);
+  }
+}
+
+async function untilRunDone(
+  flow: FlowShell,
+  assignment: string,
+  message: string,
+  script: InterpretScript,
+  label: string,
+): Promise<void> {
+  const deadline = Date.now() + 180_000;
+  let last = "";
+  for (;;) {
+    assert(script.failure() === "", script.failure());
+    assertWritingHidden(await visibleSurfaces(flow));
+    assertEquals(await flow.count("[data-dock]"), 0);
+    assertEquals(await flow.count("[data-question-strip]"), 0);
+    const run = (await runRows(flow, assignment)).find((item) =>
+      item.source.message === message
+    );
+    last = JSON.stringify(run);
+    if (run?.state === "waiting_user") {
+      throw new Error(`사람이 기다리는 중: ${last}`);
+    }
+    if (run?.state === "finished") {
+      assertEquals(run.outcome?.kind, "completed", last);
+      return;
+    }
+    assert(
+      Date.now() < deadline,
+      `${label} ${last} ${script.body(script.calls() - 1).slice(-400)}`,
+    );
+    await delay(400);
+  }
+}
+
+async function readDocumentText(
+  flow: FlowShell,
+  document: string,
+  version: string,
+  section: string | null,
+  status: string,
+): Promise<string> {
+  const deadline = Date.now() + 60_000;
+  let last = "";
+  for (;;) {
+    const body = await mustCall(flow, {
+      kind: "worker",
+      resource: "documents",
+      method: "read",
+      body: {
+        reference: { document, version, section: null },
+        section,
+        include_children: section !== null,
+      },
+    });
+    last = JSON.stringify(body).slice(0, 300);
+    if (typeof body["text"] === "string" && body["section_status"] === status) {
+      return body["text"];
+    }
+    assert(Date.now() < deadline, last);
+    await delay(250);
+  }
+}
+
+Deno.test({
+  name:
+    "lophn-agent/roles/app-engineer#R14 R15 flow app-broken 4: 사실과 원인 가설을 구별한 해석 문서를 고정하고 문제에 연결한다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn() {
+    const home = await Deno.makeTempDir({ prefix: "lophn-e2e-app-broken-" });
+    let opened: FlowShell | undefined;
+    let script: InterpretScript | undefined;
+    try {
+      await Deno.chmod(home, 0o700);
+      const first = await openFlowShell({ home });
+      await first.close();
+      const bundle = await prepareBrokenApp(home, {
+        installedHome,
+        removeTree,
+      });
+      seedLedger(home, bundle);
+      recordAppCreated(home);
+      const flow = await openFlowShell({ home, start: `app:${APP}` });
+      opened = flow;
+      await flow.until(
+        `document.querySelector("[data-space]")?.getAttribute("data-space") === "app"`,
+        "앱 공간이 서지 않았다",
+      );
+      const runningAt = Date.now() + 60_000;
+      for (;;) {
+        const runtime = await mustCall(flow, {
+          kind: "read",
+          resource: "apps",
+          method: "runtime",
+          body: { app: APP },
+        });
+        if ((runtime.state as { state: string }).state === "running") break;
+        assert(Date.now() < runningAt, "앱이 뜨지 않았다");
+        await delay(500);
+      }
+      await flow.until(
+        `document.querySelector('[data-phase="failed"] button') !== null || document.querySelector('[data-report-problem]:not([disabled])') !== null`,
+        "화면 상태가 오지 않았다",
+      );
+      if ((await flow.count('[data-phase="failed"] button')) > 0) {
+        await flow.click('[data-phase="failed"] button');
+      }
+      await flow.until(
+        `document.querySelector('[data-report-problem]:not([disabled])') !== null`,
+        "[Report a problem]이 켜지지 않았다",
+      );
+      const render = await waitRender(flow);
+      assert(render.snapshot?.error?.message === RENDER_MESSAGE);
+      const screenReason = reasonOf(
+        render.snapshot.screen_missing_reason,
+        "screen",
+      );
+
+      script = startInterpretScript(render.report.id);
+      await mustCall(flow, {
+        kind: "command",
+        resource: "providers",
+        method: "register",
+        body: commandBody({
+          id: PROVIDER_4,
+          name: "fixture",
+          definition: {
+            key: "anthropic",
+            display_name: "Anthropic",
+            protocols: ["anthropic-messages"],
+            auth_kinds: ["none"],
+            models_endpoint: null,
+            oauth: null,
+            revision: "2026-01-01",
+          },
+          endpoint: script.url,
+          protocol: "anthropic-messages",
+        }),
+      });
+      const defaults = await mustCall(flow, {
+        kind: "read",
+        resource: "agent-model-defaults",
+        method: "read",
+        body: {},
+      });
+      const settingsSeq = (defaults.defaults as { settings_seq: string })
+        .settings_seq;
+      await mustCall(flow, {
+        kind: "command",
+        resource: "agent-model-defaults",
+        method: "change",
+        body: commandBody(
+          {
+            judgment: {
+              provider: PROVIDER_4,
+              credentials: [],
+              model_name: MODEL_4,
+              reasoning_level: "provider_default",
+              options: {},
+            },
+            organizing: null,
+            settings_seq: settingsSeq,
+          },
+          { settings_seq: settingsSeq },
+        ),
+      });
+      let engineer: Engineer | undefined;
+      await waitFor("App Engineer assignment가 없다", async () => {
+        engineer = await engineerOf(flow);
+        return engineer?.state === "enabled";
+      });
+      assert(engineer !== undefined);
+      await openIssues(flow);
+      assertEquals(await flow.count("[data-dock]"), 0);
+      assertWritingHidden(await visibleSurfaces(flow));
+
+      const openedSession = await mustCall(flow, {
+        kind: "command",
+        resource: "sessions",
+        method: "open",
+        body: commandBody({
+          id: SESSION_4,
+          assignment: engineer.id,
+          role: "app_engineer",
+          work_place: { kind: "app", id: APP },
+          continued_from: null,
+        }, {
+          assignment_revision: engineer.revision,
+          assignment_state: "enabled",
+        }),
+      });
+      await mustCall(flow, {
+        kind: "command",
+        resource: "messages",
+        method: "receive",
+        body: commandBody({
+          id: DESIGN_MESSAGE,
+          session: SESSION_4,
+          content: {
+            schema_version: 1,
+            parts: [{ kind: "text", text: DESIGN_ASK }],
+          },
+          mode: "request",
+        }, {
+          session_state: "open",
+          session_state_seq: String(
+            (openedSession as { state_seq: string }).state_seq,
+          ),
+          assignment_revision: engineer.revision,
+          assignment_state: "enabled",
+        }),
+      });
+      await untilRunDone(
+        flow,
+        engineer.id,
+        DESIGN_MESSAGE,
+        script,
+        "설계 run",
+      );
+      assertEquals(script.step(), "look");
+
+      const session = await mustCall(flow, {
+        kind: "read",
+        resource: "sessions",
+        method: "read",
+        body: { session: SESSION_4 },
+      });
+      const again = await engineerOf(flow);
+      assert(again !== undefined);
+      await mustCall(flow, {
+        kind: "command",
+        resource: "messages",
+        method: "receive",
+        body: commandBody({
+          id: LOOK_MESSAGE,
+          session: SESSION_4,
+          content: {
+            schema_version: 1,
+            parts: [{ kind: "text", text: LOOK }],
+          },
+          mode: "request",
+        }, {
+          session_state: "open",
+          session_state_seq: String(
+            (session.session as { state_seq: string }).state_seq,
+          ),
+          assignment_revision: again.revision,
+          assignment_state: "enabled",
+        }),
+      });
+      await untilRunDone(
+        flow,
+        engineer.id,
+        LOOK_MESSAGE,
+        script,
+        "해석 run",
+      );
+      assertEquals(script.failure(), "");
+      assertEquals(script.step(), "done");
+
+      const named = script.callsNamed();
+      for (
+        const forbidden of [
+          "ticket.create",
+          "ticket.make_ready",
+          "question.submit",
+        ]
+      ) {
+        assertEquals(named.includes(forbidden), false, named.join(","));
+      }
+      assertEquals(
+        named.filter((name) => name === "document.create").length,
+        2,
+      );
+      assert(named.includes("document.outline"), named.join(","));
+      assertEquals(named.at(-1), "problem.set_interpretation");
+      const facts = script.facts();
+      assertEquals(facts.problem, render.report.problem);
+      assertEquals(facts.status, "open");
+      assertEquals(facts.release, RELEASE);
+      assertEquals(facts.planningVersion, null);
+      assertEquals(facts.snapshotMessage, RENDER_MESSAGE);
+      assertEquals(facts.snapshotName, "TypeError");
+      assertEquals(facts.screenReason, screenReason);
+      assertEquals(facts.verification, VERIFICATION);
+      assertEquals(facts.verificationStatus, "failure");
+      assertEquals(facts.settingsSentence, SETTINGS_SENTENCE);
+      assertEquals(facts.screenSentence, SCREEN_SENTENCE);
+      const saved = script.text();
+      assert(saved.includes(facts.problem), saved);
+      assert(saved.includes(facts.release), saved);
+      assert(saved.includes(facts.snapshotMessage), saved);
+      assert(saved.includes(facts.screenReason), saved);
+      assert(saved.includes(facts.designDocument), saved);
+      assert(saved.includes(facts.designVersion), saved);
+      assert(saved.includes(SETTINGS_SENTENCE), saved);
+      assert(saved.includes(SCREEN_SENTENCE), saved);
+      assert(saved.includes(VERIFICATION), saved);
+      assert(saved.includes("통과로 쓰지 않음"), saved);
+      assert(saved.includes(facts.testsState), saved);
+      assert(!saved.includes("통과함"), saved);
+      if (facts.testsState === "not_run") {
+        assert(saved.includes("결과가 없다"), saved);
+      }
+      assertEquals(saved.split("### 가설 ").length - 1, 3);
+      assert(!saved.includes("가설 4"), saved);
+      const causesAt = saved.indexOf("## 원인 가설");
+      const missingAt = saved.indexOf("## 부족한 근거");
+      assert(causesAt >= 0 && missingAt > causesAt, saved);
+      assert(!saved.slice(causesAt, missingAt).includes(FOURTH_CAUSE), saved);
+      assert(saved.slice(missingAt).includes(FOURTH_CAUSE), saved);
+      for (const cause of [CAUSE_1, CAUSE_2, CAUSE_3]) {
+        assert(saved.slice(causesAt, missingAt).includes(cause), cause);
+      }
+
+      const whole = await readDocumentText(
+        flow,
+        script.document(),
+        script.version(),
+        null,
+        "whole",
+      );
+      assertEquals(whole, saved);
+      const sectionText = await readDocumentText(
+        flow,
+        script.document(),
+        script.version(),
+        script.section(),
+        "found",
+      );
+      assert(sectionText.includes(CAUSE_1), sectionText);
+      assert(sectionText.includes(CAUSE_3), sectionText);
+      assert(!sectionText.includes(FOURTH_CAUSE), sectionText);
+      const gotDocument = await mustCall(flow, {
+        kind: "read",
+        resource: "documents",
+        method: "get",
+        body: { document: script.document(), version: script.version() },
+      });
+      assertEquals(
+        (gotDocument.version as { id: string }).id,
+        script.version(),
+      );
+
+      const got = await mustCall(flow, {
+        kind: "read",
+        resource: "problems",
+        method: "get",
+        body: { problem: facts.problem },
+      });
+      const problem = got.problem as {
+        status: string;
+        work: string | null;
+        closure: unknown;
+        interpretation: { version: string; section: string | null };
+      };
+      assertEquals(problem.status, "open");
+      assertEquals(problem.work, null);
+      assertEquals(problem.closure, null);
+      assertEquals(problem.interpretation, {
+        version: script.version(),
+        section: script.section(),
+      });
+      const detail = got.detail as {
+        progress: { state: string; label: string };
+        owner: { label: string };
+        result: { tests: { state: string } };
+      };
+      assertEquals(detail.progress, { state: "open", label: "Open" });
+      assertEquals(detail.owner.label, NOBODY);
+      assertEquals(detail.result.tests.state, facts.testsState);
+      assert(detail.result.tests.state !== "pass");
+
+      const questions = await mustCall(flow, {
+        kind: "read",
+        resource: "questions",
+        method: "list",
+        body: {},
+      });
+      assertEquals(questions.questions, []);
+      const tickets = await mustCall(flow, {
+        kind: "read",
+        resource: "tickets",
+        method: "list",
+        body: { app: APP },
+      });
+      assertEquals(tickets.tickets, []);
+      const verifications = await mustCall(flow, {
+        kind: "read",
+        resource: "problems",
+        method: "list-verifications",
+        body: { app: APP },
+      });
+      for (
+        const row of verifications.verifications as { result: string }[]
+      ) {
+        assert(row.result !== "pass", JSON.stringify(row));
+      }
+      const runs = await runRows(flow, engineer.id);
+      assertEquals(runs.length, 2);
+      assert(
+        runs.every((run) => run.outcome?.kind === "completed"),
+        JSON.stringify(runs),
+      );
+
+      const notes = await notesOf(flow);
+      assertNoteSafe(notes);
+      const noteDump = JSON.stringify(notes);
+      assert(!noteDump.includes("원인 가설"), noteDump);
+      assert(!noteDump.includes(FOURTH_CAUSE), noteDump);
+      assert(!noteDump.includes("통과로 쓰지 않음"), noteDump);
+      assertWritingHidden(await visibleSurfaces(flow));
+      const openedDetail = await flow.evaluate(`(() => {
+        const open = [...document.querySelectorAll("[data-issues-list] [data-issue-open]")]
+          .find((el) => el.textContent === ${
+        JSON.stringify(EXCEPTION_SYMPTOM)
+      });
+        if (!open) return false;
+        open.click();
+        return true;
+      })()`);
+      assertEquals(openedDetail, true);
+      await flow.until(
+        `document.querySelector("[data-issue-needed]") !== null`,
+        "문제 상세가 열리지 않았다",
+      );
+      const nowText = String(
+        await flow.evaluate(
+          `document.querySelector("[data-issue-now]")?.innerText ?? ""`,
+        ),
+      );
+      assert(nowText.includes(NOBODY), nowText);
+      assert(nowText.includes("Open"), nowText);
+      assert(nowText.includes("No repair work yet"), nowText);
+      const detailText = String(
+        await flow.evaluate(
+          `document.querySelector("[data-issue-detail]")?.innerText ?? ""`,
+        ),
+      );
+      assertScreenHidesRaw(detailText);
+      assertWritingHidden(detailText);
+      assertEquals(await flow.count("[data-dock]"), 0);
+      assertEquals(await flow.count("[data-question-strip]"), 0);
+    } finally {
+      await script?.close();
       await opened?.close();
       await removeTree(home);
     }

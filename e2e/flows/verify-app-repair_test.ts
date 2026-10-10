@@ -6,6 +6,7 @@
 // 2단계 테스트는 이 파일의 두 번째 Deno.test다. 1단계 본문은 바꾸지 않는다.
 // 3단계 테스트는 이 파일의 세 번째 Deno.test다. 1·2단계 본문은 바꾸지 않는다.
 // 4단계 테스트는 이 파일의 네 번째 Deno.test다. 1–3단계 본문은 바꾸지 않는다.
+// 5단계 테스트는 이 파일의 다섯 번째 Deno.test다. 1–4단계 본문은 바꾸지 않는다.
 //
 // 화면이 가진 것: 진행·실제 담당·필요한 사람 조치(없으면 그 줄을 만들지 않는다), 고쳤다는 주장과
 // 실제 테스트 상태. 당시 release·summary 본문·작성자는 화면 글에 없고 list-fixes와 그 event·
@@ -16,6 +17,8 @@ import { assert, assertEquals, assertNotEquals } from "@std/assert";
 
 import { err, ok, type Result, sha256Hex } from "../../packages/base/mod.ts";
 import type { FrozenTest } from "../../packages/contracts/problems/mod.ts";
+import { declarationsOfBlueprint } from "../../packages/apps/releases/mod.ts";
+import { migrateAppDatabase } from "../../packages/apps/data/worker/migrate.ts";
 import { prepareFromSource } from "../../packages/apps/releases/prepare/from-source.ts";
 import { installedHome } from "../../packages/apps/sdk/testing/mod.ts";
 import {
@@ -95,6 +98,8 @@ const PAST_SUMMARY = [
 ].join("\n");
 const TEST_HASH = "9".repeat(64);
 const COMMIT = "a".repeat(40);
+// fixtures/apps/broken의 data schema다(migrations 0-1, 1-3).
+const BROKEN_DATA_SCHEMA = 3;
 const SUMMARY = [
   "변경: leaf redaction",
   "수행한 확인: 없음",
@@ -304,6 +309,23 @@ function openDb(path: string, readOnly: boolean): DatabaseSync {
   return db;
 }
 
+type SealedContent = { blueprint: string; blueprintHash: string };
+
+// 봉인 bundle 안 blueprint.json의 byte와 그 hash다(release 준비가 ledger에 두는 사본과 같다).
+async function sealedContent(
+  root: string,
+  app: string,
+  bundle: string,
+): Promise<SealedContent> {
+  const bytes = await Deno.readFile(
+    `${root}/apps/${app}/bundles/${bundle}/blueprint.json`,
+  );
+  return {
+    blueprint: decoder.decode(bytes),
+    blueprintHash: await sha256Hex(bytes),
+  };
+}
+
 function insertRelease(
   world: Ledger,
   row: {
@@ -312,25 +334,33 @@ function insertRelease(
     bundle: string;
     source: string | null;
     by: string;
+    // 봉인 bundle의 실제 blueprint다. 없으면 빈 blueprint 자리표시자(5단계 전 단계의 기본)다.
+    content?: SealedContent;
   },
 ): void {
   const db = openDb(`${world.harness.dataRoot}/lophn.db`, false);
   try {
+    const declarations = row.content === undefined ? "{}" : JSON.stringify(
+      declarationsOfBlueprint(row.id, JSON.parse(row.content.blueprint)),
+    );
     db.prepare(
       `INSERT INTO releases (id, app, number, code_commit, bundle_hash, blueprint_hash,
          data_schema, data_changes, ticket_source, created_by, created_at, status,
          blueprint, declarations)
-       VALUES (?, ?, ?, ?, ?, ?, 0, '[]', ?, ?, ?, 'prepared', '{}', '{}')`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, '[]', ?, ?, ?, 'prepared', ?, ?)`,
     ).run(
       row.id,
       world.app,
       row.number,
       COMMIT,
       row.bundle,
-      "d".repeat(64),
+      row.content?.blueprintHash ?? "d".repeat(64),
+      row.content === undefined ? 0 : BROKEN_DATA_SCHEMA,
       row.source,
       row.by,
       new Date().toISOString(),
+      row.content?.blueprint ?? "{}",
+      declarations,
     );
   } finally {
     db.close();
@@ -370,6 +400,8 @@ type SnapshotRead = {
 
 async function openLedger(options?: {
   beforeBundle?: (app: string, dataRoot: string) => Promise<string>;
+  // 이전 release 행에 봉인 bundle의 실제 blueprint를 둔다(activation을 실제로 돌리는 5단계).
+  sealedContent?: boolean;
 }): Promise<Opened> {
   // 제품 shell이 여는 schema와 같은 단계만 적용한다. world_test의 fixture·permission
   // 단계는 설치본과 hash가 달라 제품 core가 그 ledger를 거절한다.
@@ -489,6 +521,9 @@ async function openLedger(options?: {
     bundle: beforeBundle,
     source: null,
     by: "machine",
+    content: options?.sealedContent === true
+      ? await sealedContent(harness.dataRoot, world.app, beforeBundle)
+      : undefined,
   });
   const logs = await prepareBlob(
     world,
@@ -1623,7 +1658,7 @@ async function storeReproduction(world: Ledger): Promise<{
 async function runStageThree(
   opened: Opened,
   ticket: { ticket: string; revision: string },
-  hashes: { test: string; after: string },
+  hashes: { test: string; after: string; content?: SealedContent },
 ): Promise<RepairScriptResult> {
   const home = await Deno.makeTempDir({ prefix: "lophn-repair-home-" });
   try {
@@ -1668,6 +1703,7 @@ async function runStageThree(
               claim_seq: traced.data.claim_seq,
             }),
             by: `coding_agent:${opened.coding.connection}`,
+            content: hashes.content,
           });
           await waitWork(opened.world.harness.dataRoot, opened.problem);
         }
@@ -2525,6 +2561,497 @@ Deno.test({
         await opened.world.close();
       }
       if (home !== undefined) {
+        await Deno.remove(home, { recursive: true });
+      }
+    }
+  },
+});
+
+type Page = Awaited<ReturnType<FlowShell["shell"]["connect"]>>;
+
+async function untilRead(
+  what: string,
+  check: () => Promise<boolean>,
+  timeoutMs = 120_000,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  let last: unknown;
+  while (Date.now() < deadline) {
+    last = await check();
+    if (last === true) return;
+    await delay(500);
+  }
+  throw new Error(`${what}: ${JSON.stringify(last)}`);
+}
+
+async function pageUntil(
+  page: Page,
+  expression: string,
+  what: string,
+  timeoutMs = 30_000,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  let last: unknown;
+  while (Date.now() < deadline) {
+    try {
+      last = await page.evaluate(expression);
+    } catch (error) {
+      last = String(error);
+    }
+    if (last) return;
+    await delay(200);
+  }
+  throw new Error(`${what}: ${JSON.stringify(last)}`);
+}
+
+async function pageTap(page: Page, selector: string): Promise<void> {
+  const clicked = await page.evaluate(`(() => {
+    const el = document.querySelector(${JSON.stringify(selector)});
+    if (!el) return false;
+    el.click();
+    return true;
+  })()`);
+  assertEquals(clicked, true, `누를 요소가 없다: ${selector}`);
+}
+
+const OPEN_WINDOW =
+  `electron.BrowserWindow.getAllWindows().some((w) => !w.isDestroyed() && w.webContents.getURL().includes("confirmation/index.html"))`;
+
+async function untilWindow(flow: FlowShell, open: boolean): Promise<void> {
+  const deadline = Date.now() + 30_000;
+  while (Date.now() < deadline) {
+    if (await flow.shell.mainEvaluate(OPEN_WINDOW) === open) return;
+    await delay(200);
+  }
+  throw new Error(open ? "결정 창이 열리지 않았다" : "결정 창이 닫히지 않았다");
+}
+
+// 창 닫기는 결정이 아니다(shell/confirmation-window#R4).
+async function closeWindow(flow: FlowShell): Promise<void> {
+  await flow.shell.mainEvaluate(
+    `(() => {
+      for (const w of electron.BrowserWindow.getAllWindows()) {
+        if (!w.isDestroyed() && w.webContents.getURL().includes("confirmation/index.html")) w.close();
+      }
+      return true;
+    })()`,
+  );
+}
+
+async function appOf(
+  flow: FlowShell,
+  app: string,
+): Promise<{ active_release: string | null }> {
+  const got = await mustCall(flow, {
+    kind: "read",
+    resource: "apps",
+    method: "get",
+    body: { app },
+  });
+  return got.app as { active_release: string | null };
+}
+
+async function releaseOf(
+  flow: FlowShell,
+  release: string,
+): Promise<{ status: string; activation: unknown; failure: unknown }> {
+  const got = await mustCall(flow, {
+    kind: "read",
+    resource: "releases",
+    method: "get",
+    body: { release },
+  });
+  return got.release as {
+    status: string;
+    activation: unknown;
+    failure: unknown;
+  };
+}
+
+// 실제로 도는 자식의 release와 시작 확인이다. 도는 자식이 없으면 null이다.
+async function runningOf(
+  flow: FlowShell,
+  app: string,
+): Promise<{ release: string | null; ready: boolean } | null> {
+  const got = await mustCall(flow, {
+    kind: "read",
+    resource: "apps",
+    method: "runtime",
+    body: { app },
+  });
+  const seen = got.observation as
+    | { release: string | null; mode: string; ready: boolean }
+    | null;
+  if (seen === null || seen.mode !== "live") return null;
+  return { release: seen.release, ready: seen.ready };
+}
+
+function countRows(home: string, table: string): number {
+  const db = openDb(`${home}/lophn.db`, true);
+  try {
+    return Number(
+      (db.prepare(`select count(*) as n from ${table}`).get() as { n: number })
+        .n,
+    );
+  } finally {
+    db.close();
+  }
+}
+
+// 앱을 처음 켠 activation이 남겼을 앱 DB다. 봉인 bundle의 migration 단계를 그대로 적용한다.
+async function seedAppData(
+  home: string,
+  app: string,
+  bundlePath: string,
+): Promise<void> {
+  const dataArea = `${home}/apps/${app}/data`;
+  await Deno.mkdir(`${dataArea}/backups`, { recursive: true });
+  const steps: { from: number; to: number; name: string }[] = [];
+  for await (const entry of Deno.readDir(`${bundlePath}/migrations`)) {
+    const found = /^(\d+)-(\d+)\.sql$/.exec(entry.name);
+    if (found) {
+      steps.push({
+        from: Number(found[1]),
+        to: Number(found[2]),
+        name: entry.name,
+      });
+    }
+  }
+  steps.sort((a, b) => a.from - b.from);
+  const scripts = [];
+  for (const step of steps) {
+    const sql = await Deno.readTextFile(
+      `${bundlePath}/migrations/${step.name}`,
+    );
+    scripts.push({
+      change: {
+        from: step.from,
+        to: step.to,
+        script_hash: await sha256Hex(sql),
+        description: `migration ${step.from}-${step.to}`,
+      },
+      sql,
+    });
+  }
+  const migrated = await migrateAppDatabase({
+    dataArea,
+    databasePath: `${dataArea}/app.sqlite`,
+    backupPath: `${dataArea}/backups/seed`,
+    targetSchema: BROKEN_DATA_SCHEMA,
+    scripts,
+    appliedAt: "2026-10-02T00:00:00.000Z",
+    result: { release: REL_BEFORE, activation_seq: "1", invocation: null },
+  });
+  assert(migrated.ok, migrated.ok ? "" : JSON.stringify(migrated.error));
+  assertEquals(migrated.value.result.data_schema, BROKEN_DATA_SCHEMA);
+}
+
+Deno.test({
+  name:
+    "apps/releases#R8 apps/releases#R9 apps/releases#R12 apps/releases#R14 platform/approvals#R9 shell/confirmation-window#R1 problems/closing#R2 flow verify-app-repair 5: 정확한 release를 사람이 허락해야 적용되고 거절·그만둠은 미실행으로 남는다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn(t) {
+    let made: MadeFixture | undefined;
+    let home: string | undefined;
+    let opened: Opened | undefined;
+    let beforeHash = "";
+    try {
+      opened = await openLedger({
+        sealedContent: true,
+        beforeBundle: async (app, dataRoot) => {
+          made = await madeFixture("broken", await installedHome([]));
+          const sealed = await sealBoard(made, "A", app, dataRoot);
+          beforeHash = sealed.hash;
+          return sealed.hash;
+        },
+      });
+      const ticket = await readyTicket(opened);
+      const stored = await storeReproduction(opened.world);
+      assert(made, "봉인할 source가 없다");
+      const root = opened.world.harness.dataRoot;
+      const fixed = await sealBoard(made, "B", opened.world.app, root);
+      assertNotEquals(fixed.hash, beforeHash);
+      await made.dispose();
+      made = undefined;
+
+      const script = await runStageThree(opened, ticket, {
+        test: stored.testHash,
+        after: fixed.hash,
+        content: await sealedContent(root, opened.world.app, fixed.hash),
+      });
+      assertEquals(script.halted_before, "release_prepare");
+      assertEquals(step(script, "record_fix").isError, false);
+      const passed = await waitRequestEnd(root, "repro-stage3", 660_000);
+      assertEquals(
+        passed.phase,
+        "result_ref",
+        `${passed.phase} ${passed.reason}`,
+      );
+      // 두 묶음 모두 그 묶음을 대상으로 실제 돌아간 app test만 release의 test로 단다.
+      const issued = await opened.world.harness.credential({
+        actor: "user",
+        principal: "user-repair-stage5",
+        scope: {
+          operations: ["RequestTest"],
+          targets: { app: opened.world.app },
+        },
+        conditions: { app: opened.world.app },
+      });
+      assert(issued.ok, issued.ok ? "" : issued.error.message);
+      const appTest = async (key: string, bundle: string, path: string) => {
+        const derived = await deriveAppTest(path, bundle);
+        assert(derived.ok, derived.ok ? "" : derived.reason);
+        const sent = await post(
+          opened!.world,
+          "problems/request-test",
+          issued.value.token,
+          envelope({
+            request_key: key,
+            kind: "app_test",
+            app: opened!.world.app,
+            target: { bundle_hash: bundle, release: null },
+            problem: null,
+            basis_seq: null,
+            reports: [],
+            before: null,
+            after: null,
+            ticket: null,
+            test: derived.value.test_hash,
+            timeout_ms: APP_TEST_TIMEOUT_MS,
+          }),
+        );
+        assertEquals(sent.status, 200, JSON.stringify(sent.body));
+        assertEquals(sent.body["accepted"], true, JSON.stringify(sent.body));
+        const end = await waitRequestEnd(root, key, 600_000);
+        assertEquals(end.phase, "result_ref", `${end.phase} ${end.reason}`);
+        assert(end.result_ref !== null, key);
+        return end.result_ref;
+      };
+      const afterRun = await appTest(
+        "app-stage5-after",
+        fixed.hash,
+        fixed.path,
+      );
+      const beforeRun = await appTest(
+        "app-stage5-before",
+        beforeHash,
+        `${root}/apps/${opened.world.app}/bundles/${beforeHash}`,
+      );
+      linkReleaseTest(opened.world, REL_BEFORE, beforeRun);
+      linkReleaseTest(opened.world, REL_AFTER, afterRun);
+
+      // 이전 release가 지금 운영 중인 앱의 ledger를 만든다. 고친 release는 준비만 된 채다.
+      home = await copyHome(root);
+      const db = openDb(`${home}/lophn.db`, false);
+      try {
+        db.prepare("update releases set status = 'active' where id = ?").run(
+          REL_BEFORE,
+        );
+        db.prepare(
+          "update apps set active_release = ?, run_enabled = 1 where id = ?",
+        ).run(REL_BEFORE, opened.world.app);
+      } finally {
+        db.close();
+      }
+      const bundles = `${root}/apps/${opened.world.app}/bundles`;
+      await Deno.mkdir(`${home}/apps/${opened.world.app}`, {
+        recursive: true,
+      });
+      const copied = await new Deno.Command("cp", {
+        args: ["-a", bundles, `${home}/apps/${opened.world.app}/bundles`],
+      }).output();
+      assert(copied.success, decoder.decode(copied.stderr));
+      await seedAppData(home, opened.world.app, fixed.path);
+      const app = opened.world.app;
+      const problemId = opened.problem;
+      await widen(root);
+      await opened.world.close();
+
+      const verificationsBefore = countRows(home, "verifications");
+      const flow = await openFlowShell({ home, start: `app:${app}` });
+      let confirmation: Page | undefined;
+      try {
+        await waitFixing(flow, problemId);
+        const problemStatus = async () =>
+          ((await mustCall(flow, {
+            kind: "read",
+            resource: "problems",
+            method: "get",
+            body: { problem: problemId },
+          })).problem as { status: string }).status;
+        const unchanged = async (why: string) => {
+          // 허락 전에는 이전 release가 그대로 운영되고 고친 release는 준비만 된 채다.
+          assertEquals(
+            (await appOf(flow, app)).active_release,
+            REL_BEFORE,
+            why,
+          );
+          const fixedRelease = await releaseOf(flow, REL_AFTER);
+          assertEquals(fixedRelease.status, "prepared", why);
+          assertEquals(fixedRelease.activation, null, why);
+          assertEquals(fixedRelease.failure, null, why);
+          assertEquals((await runningOf(flow, app))?.release, REL_BEFORE, why);
+          assertNotEquals(await problemStatus(), "closed", why);
+          assertEquals(countRows(home!, "verifications"), verificationsBefore);
+        };
+        await untilRead("이전 release가 시작하지 않았다", async () => {
+          const seen = await runningOf(flow, app);
+          return seen?.release === REL_BEFORE && seen.ready;
+        });
+        await flow.until(
+          `document.querySelector('[data-app-bar="app-details"]') !== null`,
+          "앱 막대",
+        );
+        await flow.click('[data-app-bar="app-details"]');
+        await flow.until(
+          `document.querySelector(${
+            JSON.stringify(`[data-version="${REL_BEFORE}"]`)
+          })?.getAttribute("data-status") === "active"`,
+          "지금 Version이 보이지 않는다",
+        );
+        await flow.click(`[data-version="${REL_AFTER}"] [data-version-expand]`);
+        await flow.until(
+          `document.querySelector(${
+            JSON.stringify(
+              `[data-version="${REL_AFTER}"] [data-fact="applied"]`,
+            )
+          })?.textContent?.includes("Not in use")`,
+          "고친 Version이 준비만 된 채로 보이지 않는다",
+        );
+        await t.step({
+          name: "Version의 실제 test 결과가 그 Version에서 보인다",
+          ignore: true,
+          // 사람 token(targets {})이 problems/tests GetVerification을 forbidden으로 받아
+          // 읽지 못함으로만 보인다. 4단계에서 넘어온 결함이다.
+          fn: async () => {
+            assertEquals(
+              await flow.evaluate(
+                `document.querySelector(${
+                  JSON.stringify(
+                    `[data-version="${REL_AFTER}"] [data-fact="test"] [data-test-result]`,
+                  )
+                })?.getAttribute("data-test-result")`,
+              ),
+              "pass",
+            );
+          },
+        });
+        await unchanged("사람이 고르기 전");
+
+        const choose = async () => {
+          await flow.click(`[data-version="${REL_AFTER}"] [data-use-version]`);
+          await untilWindow(flow, true);
+          const page = await flow.shell.connect(
+            "lophn-shell://confirmation/index.html",
+          );
+          await pageUntil(
+            page,
+            `document.querySelector('[data-kind="release_activation"]') !== null`,
+            "release 적용 결정 창이 서지 않았다",
+          );
+          // 사람이 보는 것은 정확한 release의 적용 결정이다.
+          const shown = String(
+            await page.evaluate("document.body.textContent ?? ''"),
+          );
+          assert(shown.includes("Use version 2 of"), shown.slice(0, 200));
+          return page;
+        };
+
+        await t.step(
+          "다른 갈래: 사람이 거절하면 적용하지 않고 미실행으로 남는다",
+          async () => {
+            confirmation = await choose();
+            await pageUntil(
+              confirmation,
+              `document.querySelector('[data-decision="reject_approval_request"]') !== null`,
+              "거절 버튼이 서지 않았다",
+            );
+            await pageTap(
+              confirmation,
+              '[data-decision="reject_approval_request"]',
+            );
+            await delay(3_000);
+            await unchanged("거절 뒤");
+            await closeWindow(flow);
+            await untilWindow(flow, false);
+          },
+        );
+
+        await t.step(
+          "다른 갈래: 사람이 결정 창을 그만두면 적용하지 않는다",
+          async () => {
+            confirmation = await choose();
+            await delay(1_000);
+            await closeWindow(flow);
+            await untilWindow(flow, false);
+            await delay(3_000);
+            await unchanged("그만둔 뒤");
+          },
+        );
+
+        await t.step(
+          "flow 5: 사람이 허락하면 그 release가 시작 확인 뒤에 적용된다",
+          async () => {
+            confirmation = await choose();
+            await pageTap(
+              confirmation,
+              '[data-decision="grant_approval_request"]',
+            );
+            // 접수와 적용은 다르다. 시작을 확인한 release만 지금 Version이 된다.
+            await untilRead("허락한 release가 적용되지 않았다", async () => {
+              const seen = await runningOf(flow, app);
+              return seen?.release === REL_AFTER && seen.ready === true &&
+                (await releaseOf(flow, REL_AFTER)).status === "active";
+            });
+            assertEquals((await appOf(flow, app)).active_release, REL_AFTER);
+            assertEquals(
+              (await releaseOf(flow, REL_BEFORE)).status,
+              "superseded",
+            );
+            const applied = await releaseOf(flow, REL_AFTER);
+            assertEquals(applied.failure, null);
+            await flow.until(
+              `document.querySelector(${
+                JSON.stringify(`[data-version="${REL_AFTER}"]`)
+              })?.getAttribute("data-status") === "active"`,
+              "app-detail이 적용된 Version을 지금 Version으로 보이지 않는다",
+            );
+            assertEquals(
+              await flow.text(
+                `[data-version="${REL_AFTER}"] [data-fact="applied"]`,
+              ),
+              "In use",
+            );
+            await flow.until(
+              `document.querySelector(${
+                JSON.stringify(
+                  `[data-version="${REL_AFTER}"] [data-fact="start"]`,
+                )
+              })?.textContent === "Started and responding"`,
+              "app-detail이 시작 확인을 보이지 않는다",
+            );
+            // 적용은 새 test를 만들지 않는다. 기록은 runner가 남긴 것뿐이다.
+            assertEquals(
+              countRows(home!, "verifications"),
+              verificationsBefore,
+            );
+            await closeWindow(flow);
+            await untilWindow(flow, false);
+          },
+        );
+      } finally {
+        await flow.close();
+      }
+    } finally {
+      await made?.dispose();
+      if (opened) {
+        await widen(opened.world.harness.dataRoot);
+        await opened.world.close();
+      }
+      if (home !== undefined) {
+        await widen(home);
         await Deno.remove(home, { recursive: true });
       }
     }

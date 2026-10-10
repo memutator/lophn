@@ -1438,3 +1438,87 @@ Deno.test("lophn-agent/questions#R15: 자유 답·다른 선택지·바뀐 actio
     await world.dispose();
   }
 });
+
+Deno.test("lophn-agent/harness/waiting-and-recovery#R1: tool이 먼저 만든 질문을 읽어 같은 내용으로 WaitRun하면 새 질문 없이 그 질문을 대기에 잇는다", async () => {
+  const world = await openWaitingWorld();
+  try {
+    const seat = world.lophn;
+    const question = id("qst", 901);
+    const created = {
+      id: question,
+      run: seat.run,
+      session: seat.session,
+      expires_at: null,
+      prompt: "어느 쪽으로 정리할까요?",
+      reason: "두 방향이 모두 가능해서 정해야 합니다",
+      options: [
+        {
+          key: "a",
+          label: "A로",
+          evidence: [],
+          adoption: null,
+          action: null,
+          description: "A 설명",
+        },
+        {
+          key: "b",
+          label: "B로",
+          evidence: [],
+          adoption: null,
+          action: null,
+          description: "B 설명",
+        },
+      ],
+      recommendation: { option_key: "a", explanation: "A가 더 가깝습니다" },
+    };
+    const made = await world.post("questions/create", seat.agentToken, created);
+    assertEquals(made.status, 200, JSON.stringify(made.body));
+    // 질문을 만든 call은 끝났고 run은 아직 running이다.
+    assertEquals(runRow(world, seat.run)["state"], "running");
+    const read = await world.read("questions/read", MACHINE_TOKEN, {
+      question,
+    });
+    const text = await world.read("questions/text", MACHINE_TOKEN, {
+      question,
+    });
+    assertEquals(read.status, 200, JSON.stringify(read.body));
+    assertEquals(text.status, 200, JSON.stringify(text.body));
+    const stored = read.body["question"] as {
+      options: { key: string; description_blob: string }[];
+      recommendation: { option_key: string | null };
+    };
+    const words = text.body as {
+      prompt: string;
+      reason: string;
+      options: { key: string; description: string }[];
+      recommendation: { explanation: string };
+    };
+    const waited = await world.post("runs/wait", MACHINE_TOKEN, {
+      run: seat.run,
+      request: {
+        kind: "question",
+        input: {
+          ...created,
+          prompt: words.prompt,
+          reason: words.reason,
+          options: created.options.map((option) => ({
+            ...option,
+            description: words.options.find((item) => item.key === option.key)!
+              .description,
+          })),
+          recommendation: {
+            option_key: stored.recommendation.option_key,
+            explanation: words.recommendation.explanation,
+          },
+        },
+      },
+      call: null,
+    }, { state_seq: await stateSeqOf(world, seat.run) });
+    assertEquals(waited.status, 200, JSON.stringify(waited.body));
+    assertEquals(runRow(world, seat.run)["state"], "waiting_user");
+    assertEquals(runRow(world, seat.run)["waiting_on"], question);
+    assertEquals(count(world.server, "select count(*) as n from questions"), 1);
+  } finally {
+    await world.dispose();
+  }
+});

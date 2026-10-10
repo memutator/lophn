@@ -326,7 +326,11 @@ import {
   messageBodyEnvironment,
   withMessageBody,
 } from "./message-body.ts";
-import { instructionFilesEnvironment } from "./instruction-files.ts";
+import {
+  instructionAccess,
+  instructionFilesEnvironment,
+  ledgerHead,
+} from "./instruction-files.ts";
 import type { InstructionFiles } from "../../packages/lophn-agent/instructions/mod.ts";
 import {
   createQuestionTextPreparer,
@@ -342,7 +346,11 @@ import {
   openMcpCallbackListener,
 } from "./lophn-agent.ts";
 import type { McpServerConfig } from "../../packages/contracts/lophn-agent/mod.ts";
-import { mcpServersSetting } from "../../packages/contracts/lophn-agent/mod.ts";
+import {
+  mcpServersSetting,
+  skillFoldersSetting,
+} from "../../packages/contracts/lophn-agent/mod.ts";
+import { settingsGet } from "../../packages/contracts/platform/mod.ts";
 import { openConnection } from "../../packages/platform/ledger/mod.ts";
 
 // 등록한 MCP server 설정의 snapshot 재료다(extensions R11). ledger 경로의 setting_choices
@@ -624,8 +632,18 @@ async function open(
     ledgerPath,
     read: (hash, offset, length) => blobRead.deps.read(hash, offset, length),
   });
+  // 사람 지침 파일의 확정 판 읽기. runtime에는 ReadInstructionFile 하나로만 닿는다.
+  const instructionFiles = instructionFilesEnvironment({
+    ledgerPath,
+    read: (hash, offset, length) => blobRead.deps.read(hash, offset, length),
+  });
   const assembled = withPlatform(
     assemble(options.teams, {
+      instructionFiles: {
+        files: instructionFiles,
+        permit: instructionAccess(ledgerPath),
+        asOfSeq: () => ledgerHead(ledgerPath),
+      },
       status: statusMemoryVia(documentsChannel),
       // problems의 GetSnapshotLogs 읽기 통로. 바이트 통로는 relay가 뜬 뒤 채워진다.
       snapshotLogs: snapshotLogsEnvironment({
@@ -2467,6 +2485,7 @@ async function open(
         process: AGENT_RUNTIME_KIND,
         task: AGENT_RUNTIME_TASK,
       }),
+      readMcpServers: () => mcpServerSnapshot(ledgerPath),
       readProviders: async (context) => {
         const hosts = new Set<string>();
         let cursor: string | undefined;
@@ -2492,6 +2511,19 @@ async function open(
           }
           cursor = page.next_cursor;
         }
+      },
+      readSkillRoots: async (context) => {
+        const read = await runtime!.readers.read(settingsGet, context, {
+          keys: [skillFoldersSetting.key],
+        });
+        if (!read.ok) return read;
+        const setting = (read.value as {
+          settings: { key: string; value: unknown }[];
+        }).settings.find((each) => each.key === skillFoldersSetting.key);
+        const shaped = skillFoldersSetting.value_type.safeParse(
+          setting?.value ?? [],
+        );
+        return ok(shaped.success ? shaped.data : []);
       },
       ...(typeof options.agentRuntime === "object" &&
           options.agentRuntime.pollMs !== undefined
@@ -2533,10 +2565,7 @@ async function open(
       ? { codingCredentials: coding, codingCredentialsReady: codingReady }
       : {}),
     record: (context) => runtime!.record(context),
-    instructionFiles: instructionFilesEnvironment({
-      ledgerPath,
-      read: (hash, offset, length) => blobRead.deps.read(hash, offset, length),
-    }),
+    instructionFiles,
     sweepTicketClaims: () => runtime!.sweepTicketClaims(),
     sweepTicketChecks: () =>
       checkerChannel.request(TICKET_CHECK_OP, {}, 30_000),

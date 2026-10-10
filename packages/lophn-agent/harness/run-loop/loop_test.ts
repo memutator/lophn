@@ -23,6 +23,7 @@ import type {
   ToolCallRequest,
   ToolDone,
   ToolInfo,
+  WaitTarget,
 } from "./ports.ts";
 import { synthesizedResult } from "./tool-batch.ts";
 
@@ -184,6 +185,7 @@ function rig(setup: Setup) {
   const answers: string[] = [];
   const checkpoints: number[] = [];
   const views: { session: string; page?: number }[] = [];
+  const waited: WaitTarget[] = [];
   const state = {
     stopped: false,
     steering: [] as { id: string; text: string }[],
@@ -299,7 +301,8 @@ function rig(setup: Setup) {
       answers.push(text);
       return Promise.resolve(ok(undefined));
     },
-    wait() {
+    wait(request) {
+      waited.push(request);
       return Promise.resolve(ok(undefined));
     },
     finish(request) {
@@ -369,6 +372,7 @@ function rig(setup: Setup) {
     answers,
     checkpoints,
     views,
+    waited,
     state,
     deps,
     input,
@@ -747,6 +751,43 @@ Deno.test("lophn-agent/harness/run-loop#R12: 쓰기·external·미분류 call이
       mixed.filter((name) => name !== "unlisted.tool").length,
     );
   }
+});
+
+Deno.test("lophn-agent/harness/waiting-and-recovery#R1: 질문을 만든 call 뒤에는 run이 그 질문의 답을 기다리고 나머지 call과 다음 model call을 시작하지 않는다", async () => {
+  const QUESTION = "qst_01arz3ndektsv4rrffq69g5fav";
+  const r = rig({
+    model: [
+      reply({
+        calls: [
+          call("k0", "question.submit"),
+          call("k1", "doc.write"),
+        ],
+      }),
+    ],
+    tools: {
+      "question.submit": {
+        info: WRITE,
+        run: () =>
+          Promise.resolve({
+            ...done("success", "ok", "tcl_question"),
+            asked: QUESTION,
+          }),
+      },
+      "doc.write": { info: IDEMPOTENT_WRITE },
+    },
+  });
+  const end = await r.run();
+  assertEquals(end, {
+    kind: "waiting",
+    tool_call: "tcl_question",
+    question: QUESTION,
+  });
+  assertEquals(r.waited, [{ tool_call: "tcl_question", question: QUESTION }]);
+  // 질문 call은 끝난 call이고 뒤 call은 시작하지 않는다.
+  assertEquals(r.entries.map((entry) => entry.name), ["question.submit"]);
+  assertEquals(r.closed.map((item) => item.code), ["waiting_for_decision"]);
+  assertEquals(r.finishes, []);
+  assertEquals(r.answers, []);
 });
 
 // ---- R13 ----

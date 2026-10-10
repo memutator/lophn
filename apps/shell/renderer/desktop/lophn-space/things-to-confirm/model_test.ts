@@ -185,8 +185,10 @@ Deno.test("lophn-agent/questions#R6: 공백뿐인 글은 답이 아니고 action
     options: [
       { key: "use", label: "정산주기", action: true, command: "term.define" },
       { key: "move", label: "Move it", action: true, command: "document.move" },
+      { key: "app", label: "Register", action: true, command: "app.create" },
     ],
   });
   assertEquals(needsReview(term, "use"), false);
+  assertEquals(needsReview(term, "app"), false);
   assertEquals(needsReview(term, "move"), true);
 });

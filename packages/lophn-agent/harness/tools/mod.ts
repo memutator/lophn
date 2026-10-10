@@ -137,6 +137,7 @@ export {
   AGENT_TOOLS,
   type AgentToolPorts,
   createAgentToolHandlers,
+  questionSubmitTool,
 } from "./bundles/agent.ts";
 export { checkInput, unchanged } from "./schema.ts";
 export {

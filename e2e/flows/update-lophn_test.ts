@@ -2924,10 +2924,10 @@ Deno.test({
         },
       );
 
-      // 제품 결함: desktop settings에는 구성 요소 가용성·관측 시각을 보이는 자리가 없다.
-      // 진단 탭(DiagnosticsPanel)은 core source가 desktop entry에 이어져 있지 않아 settings에
-      // 서지 않고, 이어도 깨끗한 결과 뒤에 "One thing needs your attention."이 붙는다.
-      // 이 둘은 shell concern이 고치기 전까지 둔다.
+      // 제품 결함(apps/core·worker 조립 몫): 진단 탭은 desktop entry에 이어졌지만 product core가
+      // DoctorSource(`runtime.ts`의 `doctor` 입력)를 받지 않아 `diagnostics/check` read가 등록되지
+      // 않는다. 그래서 탭의 [Check security]가 `failed`("The check couldn't start right now.")로 끝난다.
+      // worker의 observeDoctor는 core에 연결되어 있지 않다. shell settings 안에서 고칠 수 없어 둔다.
       await t.step({
         name:
           "platform/diagnostics#R8 shell/wording#R10: settings 화면이 현재 가용성과 관측 시각을 보인다",

@@ -2124,6 +2124,7 @@ export const en = {
   "settings.check.wide-grant-note":
     "A connection can read more than it needs. Give it a smaller scope.",
   "settings.check.clean": "No problems were found in the security check.",
+  "settings.diagnostics.checked-at": "Checked {time}.",
   "settings.diagnostics.finding-at":
     "Checked {time}. One thing needs your attention.",
   "settings.diagnostics.next-raw-key":

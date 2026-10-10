@@ -7,6 +7,7 @@ import {
 } from "../../../../../../../packages/design/components/testing.ts";
 
 import { DiagnosticsPanel } from "./diagnostics-panel.tsx";
+import { timeText } from "../model.ts";
 import { fakeDiagnostics } from "./testdata/fake-source.ts";
 import { find, flush } from "../../testdata/dom.ts";
 
@@ -92,7 +93,14 @@ Deno.test("flow update-lophn: 주의할 것이 0개면 주의 문구 없이 문�
   click(find(view.container, "[data-action='check']"));
   await flush();
   const result = textOf(find(view.container, "[data-check-result='clean']"));
-  assertEquals(result, "No problems were found in the security check.");
+  const observed = "2026-10-06T00:00:00.000Z";
+  assertEquals(
+    result,
+    `No problems were found in the security check. Checked ${
+      timeText(observed)
+    }.`,
+  );
+  assert(!result.includes("attention"), result);
   assertEquals(view.container.querySelector("[data-finding]"), null);
 });
 

@@ -70,7 +70,10 @@ export function DiagnosticsPanel({ source }: DiagnosticsPanelProps) {
             {findings.length === 0
               ? (
                 <p className={styles.notice} data-check-result="clean">
-                  {t("settings.check.clean")}
+                  {t("settings.check.clean")}{" "}
+                  {t("settings.diagnostics.checked-at", {
+                    time: timeText(loaded.view.observedAt),
+                  })}
                 </p>
               )
               : (

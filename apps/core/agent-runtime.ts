@@ -17,6 +17,7 @@ import type {
 import {
   eventsList,
   routePath,
+  settingsGet,
 } from "../../packages/contracts/platform/mod.ts";
 import {
   BUILTIN_TOOLS,
@@ -137,6 +138,15 @@ const HOSTS_READER: RequestContext = {
   credential_ref: "machine:agent-runtime-hosts",
 };
 
+// 등록한 skill 폴더를 읽는 자격이다. 이 폴더만 child의 읽기 허락에 더한다.
+export const SKILL_ROOTS_READER: RequestContext = {
+  principal: "machine:agent-runtime-skill-roots",
+  actor: "machine",
+  scope: { operations: [settingsGet.name], targets: {} },
+  conditions: {},
+  credential_ref: "machine:agent-runtime-skill-roots",
+};
+
 // 발급 판정이 읽는 route뿐이다. 요청한 run·assignment·scope를 core 자신의 기록과 대조한다.
 const LINK_READS: ReadonlyMap<string, ReadRoute> = new Map(
   ([runRead, assignmentRead, eventsList] as ReadRoute[]).map((
@@ -162,6 +172,10 @@ export type AgentRuntimeDeps = {
   prepareBlob(call: BlobPrepareCall): Promise<Result<PreparedRelayResult>>;
   // 등록한 provider endpoint 목록(ledger reader).
   readProviders(context: RequestContext): Promise<Result<readonly string[]>>;
+  // 사람이 등록한 skill 폴더(절대 경로, 등록 순서). 읽기 허락에 더한다(extensions R1).
+  readSkillRoots?(
+    context: RequestContext,
+  ): Promise<Result<readonly string[]>>;
   // machine credential의 자격으로 ledger reader를 직접 읽는다(발급 판정이 쓰는 run·assignment·event).
   read(
     route: ReadRoute,
@@ -277,16 +291,31 @@ export async function startAgentRuntimeChild(
   };
 
   let hosts: readonly string[] = [];
-  const specFor = (list: readonly string[]): KindLaunchSpec =>
+  let skillRoots: readonly string[] = [];
+  const readSkillRoots = async (): Promise<readonly string[] | undefined> => {
+    if (deps.readSkillRoots === undefined) return skillRoots;
+    const read = await deps.readSkillRoots(SKILL_ROOTS_READER);
+    return read.ok ? read.value : undefined;
+  };
+  const specFor = (
+    list: readonly string[],
+    roots: readonly string[],
+  ): KindLaunchSpec =>
     agentRuntimeLaunchSpec({
       dataRoot: deps.dataRoot,
       apiPort: deps.apiPort,
       socketRoot: deps.socketRoot,
       hosts: list,
+      skillRoots: roots,
     });
   const initial = await deps.readProviders(HOSTS_READER);
   if (initial.ok) hosts = initial.value;
-  const started = await deps.io.start(specFor(hosts), hello, callbacks());
+  skillRoots = (await readSkillRoots()) ?? [];
+  const started = await deps.io.start(
+    specFor(hosts, skillRoots),
+    hello,
+    callbacks(),
+  );
   if (!started.ok) {
     return err({
       code: "unavailable",
@@ -302,14 +331,18 @@ export async function startAgentRuntimeChild(
     checking = true;
     void (async () => {
       const read = await deps.readProviders(HOSTS_READER);
-      if (!read.ok || stopped) return;
-      if (same(read.value, hosts)) return;
+      const roots = await readSkillRoots();
+      if (!read.ok || roots === undefined || stopped) return;
+      if (same(read.value, hosts) && same(roots, skillRoots)) return;
       const restarted = await deps.io.updateSpec(
-        specFor(read.value),
+        specFor(read.value, roots),
         hello,
         callbacks(),
       );
-      if (restarted.ok) hosts = read.value;
+      if (restarted.ok) {
+        hosts = read.value;
+        skillRoots = roots;
+      }
     })().catch(() => {}).finally(() => {
       checking = false;
     });

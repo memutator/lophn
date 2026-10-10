@@ -346,7 +346,11 @@ import {
   openMcpCallbackListener,
 } from "./lophn-agent.ts";
 import type { McpServerConfig } from "../../packages/contracts/lophn-agent/mod.ts";
-import { mcpServersSetting } from "../../packages/contracts/lophn-agent/mod.ts";
+import {
+  mcpServersSetting,
+  skillFoldersSetting,
+} from "../../packages/contracts/lophn-agent/mod.ts";
+import { settingsGet } from "../../packages/contracts/platform/mod.ts";
 import { openConnection } from "../../packages/platform/ledger/mod.ts";
 
 // 등록한 MCP server 설정의 snapshot 재료다(extensions R11). ledger 경로의 setting_choices
@@ -2506,6 +2510,19 @@ async function open(
           }
           cursor = page.next_cursor;
         }
+      },
+      readSkillRoots: async (context) => {
+        const read = await runtime!.readers.read(settingsGet, context, {
+          keys: [skillFoldersSetting.key],
+        });
+        if (!read.ok) return read;
+        const setting = (read.value as {
+          settings: { key: string; value: unknown }[];
+        }).settings.find((each) => each.key === skillFoldersSetting.key);
+        const shaped = skillFoldersSetting.value_type.safeParse(
+          setting?.value ?? [],
+        );
+        return ok(shaped.success ? shaped.data : []);
       },
       ...(typeof options.agentRuntime === "object" &&
           options.agentRuntime.pollMs !== undefined

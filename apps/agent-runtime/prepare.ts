@@ -426,7 +426,11 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
         run_facts: null,
         continuation_summary: null,
         sources: await contextMaterials(agent, definition.context),
-        skills: (await deps.skills?.()) ?? [],
+        // 발견한 skill 중 preset이 고른 정확한 이름만 prompt에 오른다(extensions R4).
+        skills: ((await deps.skills?.()) ?? []).map((entry) => ({
+          ...entry,
+          selected: definition.skills.includes(entry.name),
+        })),
         timezone: deps.timezone?.() ?? null,
         limits: {
           context_limit: model.call.limits.context_limit,

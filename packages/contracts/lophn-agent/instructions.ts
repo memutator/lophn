@@ -28,9 +28,11 @@ export type InstructionLocation = z.infer<typeof instructionLocationSchema>;
 // 연결된 문서가 없으면 `file`이 null(부재)이고, 읽지 못하면 unavailable이다. 로컬 경로는 어느 칸에도 없다.
 export const INSTRUCTION_READ_MAX_BASE64 = 43_700;
 
+// 읽는 쪽은 어느 run을 위해 읽는지 `run`으로 밝힌다. core는 그 run의 작업 자리(전역과 그 run의 project·app)
+// 와 그 run의 preset에 붙은 지침 문서만 읽게 하고, 그 밖은 없는 대상과 똑같이 not_found다.
 export const instructionReadInputSchema = z.union([
-  z.strictObject({ location: instructionLocationSchema }),
-  z.strictObject({ document: idSchema("doc") }),
+  z.strictObject({ run: idSchema("run"), location: instructionLocationSchema }),
+  z.strictObject({ run: idSchema("run"), document: idSchema("doc") }),
 ]);
 
 export const instructionReadFileSchema = z.object({

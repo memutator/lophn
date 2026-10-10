@@ -151,3 +151,87 @@ export function ledgerHead(ledgerPath: string): Result<string> {
     opened.value.close();
   }
 }
+
+type Place = { kind: "global" | "project" | "app"; id: string | null };
+
+function notFound(): Result<never> {
+  return err({ code: "not_found", message: "instruction not found" });
+}
+
+// ReadInstructionFile을 부른 run이 읽을 수 있는 자리·문서인지 ledger로 정한다. 읽을 수 있는 것은
+// 전역과 그 run의 작업 자리(세션이 있으면 세션의 자리, 없으면 assignment 범위)의 project·app 층, 그리고
+// 그 run의 assignment preset(어느 판이든)이 붙인 지침 문서뿐이다. 그 밖은 없는 대상과 같은 not_found다.
+export function instructionAccess(ledgerPath: string) {
+  return (input: {
+    run: string;
+    location?: { layer: string; place: string };
+    document?: string;
+  }): Result<void> => {
+    const opened = openConnection(ledgerPath);
+    if (!opened.ok) return unavailable("지침 문서를 읽지 못했다");
+    try {
+      const { sql } = opened.value;
+      const run = sql.get("select assignment, session from runs where id = ?", [
+        input.run,
+      ]);
+      if (run === undefined) return notFound();
+      const assignment = sql.get(
+        "select preset_id, scope_kind, scope_id from assignments where id = ?",
+        [String(run["assignment"])],
+      );
+      if (assignment === undefined) return notFound();
+      if (input.document !== undefined) {
+        const rows = sql.all(
+          "select definition from preset_revisions where preset_id = ?",
+          [String(assignment["preset_id"])],
+        );
+        for (const row of rows) {
+          let definition: { instructions?: { document?: unknown }[] };
+          try {
+            definition = JSON.parse(String(row["definition"]));
+          } catch {
+            return unavailable("지침 문서를 읽지 못했다");
+          }
+          if (
+            definition.instructions?.some((item) =>
+              item.document === input.document
+            )
+          ) return ok(undefined);
+        }
+        return notFound();
+      }
+      const location = input.location;
+      if (location === undefined) return notFound();
+      if (location.layer === "global") return ok(undefined);
+      let place: Place = {
+        kind: String(assignment["scope_kind"]) === "all"
+          ? "global"
+          : String(assignment["scope_kind"]) as Place["kind"],
+        id: assignment["scope_id"] === null
+          ? null
+          : String(assignment["scope_id"]),
+      };
+      if (run["session"] !== null) {
+        const session = sql.get(
+          "select work_place_kind, work_place_id from sessions where id = ?",
+          [String(run["session"])],
+        );
+        if (session !== undefined) {
+          place = {
+            kind: String(session["work_place_kind"]) as Place["kind"],
+            id: session["work_place_id"] === null
+              ? null
+              : String(session["work_place_id"]),
+          };
+        }
+      }
+      return place.kind === location.layer && place.id === location.place
+        ? ok(undefined)
+        : notFound();
+    } catch {
+      return unavailable("지침 문서를 읽지 못했다");
+    } finally {
+      opened.value.close();
+    }
+  };
+}

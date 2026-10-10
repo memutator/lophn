@@ -16,6 +16,7 @@ import {
 const PROJECT = "prj_01arz3ndektsv4rrffq69g5fav";
 const GLOBAL_DOC = "doc_01arz3ndektsv4rrffq69g5fav";
 const PROJECT_DOC = "doc_01arz3ndektsv4rrffq69g5faw";
+const RUN = "run_01arz3ndektsv4rrffq69g5fav";
 const PRESET_DOC = "doc_01arz3ndektsv4rrffq69g5faz";
 const encoder = new TextEncoder();
 
@@ -49,8 +50,12 @@ function viaRoute(seed: {
     },
     projectOf: () => Promise.resolve(ok(null)),
   };
-  const api = instructionReadApi({ files: core, asOfSeq: () => ok("7") });
-  const files = instructionFilesOverCore(async (input) => {
+  const api = instructionReadApi({
+    files: core,
+    permit: () => ok(undefined),
+    asOfSeq: () => ok("7"),
+  });
+  const files = instructionFilesOverCore(RUN, async (input) => {
     const parsed = instructionRead.input.parse(input);
     const reply = await api.handle(
       {} as never,
@@ -171,26 +176,64 @@ Deno.test("lophn-agent/instructions#R2 R7: 연결된 문서가 없는 자리는 
 });
 
 Deno.test("lophn-agent/instructions#R2: 읽는 입력은 등록 자리나 붙은 문서 하나뿐이고 둘을 함께 주거나 경로를 주면 거절된다", () => {
-  assert(instructionRead.input.safeParse({ document: PRESET_DOC }).success);
+  assert(
+    instructionRead.input.safeParse({ run: RUN, document: PRESET_DOC }).success,
+  );
   assert(
     instructionRead.input.safeParse({
+      run: RUN,
       location: { layer: "global", place: "global" },
     }).success,
   );
   assert(
     !instructionRead.input.safeParse({
+      run: RUN,
       document: PRESET_DOC,
       location: { layer: "global", place: "global" },
     }).success,
   );
-  assert(!instructionRead.input.safeParse({ path: "/etc/passwd" }).success);
+  assert(
+    !instructionRead.input.safeParse({ run: RUN, path: "/etc/passwd" }).success,
+  );
 });
 
 // 읽기 통로가 err를 그대로 올리는지(오류를 부재로 바꾸지 않는다).
 Deno.test("lophn-agent/instructions#R7: 읽기 오류는 부재로 바뀌지 않고 err로 전해진다", async () => {
-  const files = instructionFilesOverCore((): Promise<Result<never>> =>
-    Promise.resolve(err({ code: "unavailable", message: "x" }))
+  const files = instructionFilesOverCore(
+    RUN,
+    (): Promise<Result<never>> =>
+      Promise.resolve(err({ code: "unavailable", message: "x" })),
   );
   const read = await files.registered({ layer: "global", place: "global" });
   assertEquals(read.ok, false);
+});
+
+Deno.test("lophn-agent/instructions#R2: 읽기 정의는 허락되지 않은 대상을 permit이 막으면 파일을 읽지 않고 그 오류를 그대로 낸다", async () => {
+  let read = 0;
+  const api = instructionReadApi({
+    files: {
+      registered: () => {
+        read += 1;
+        return Promise.resolve(ok(null));
+      },
+      attached: () => {
+        read += 1;
+        return Promise.resolve(err({ code: "not_found", message: "x" }));
+      },
+      projectOf: () => Promise.resolve(ok(null)),
+    },
+    permit: () => err({ code: "not_found", message: "instruction not found" }),
+    asOfSeq: () => ok("1"),
+  });
+  for (
+    const input of [
+      { run: RUN, document: PRESET_DOC },
+      { run: RUN, location: { layer: "project" as const, place: PROJECT } },
+    ]
+  ) {
+    const reply = await api.handle({} as never, input);
+    assert(!reply.ok);
+    assertEquals(reply.error.code, "not_found");
+  }
+  assertEquals(read, 0);
 });

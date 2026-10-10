@@ -90,12 +90,27 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
       product: PRODUCT_INSTRUCTIONS,
       rolePrompt,
       instructions: {
-        // 저장한 지침의 확정 판은 core의 ReadInstructionFile로 매 call 직전에 읽는다(instructions R4, R5, R8).
-        files: instructionFilesOverCore((input) =>
-          readOf(calls.machine, instructionRead, input)
-        ),
+        // run 없이는 읽지 않는다. 실제 읽기는 아래 instructionFilesFor가 run마다 연다.
+        files: {
+          registered: () =>
+            Promise.resolve(
+              err({ code: "unavailable", message: "no run for instructions" }),
+            ),
+          attached: () =>
+            Promise.resolve(
+              err({ code: "unavailable", message: "no run for instructions" }),
+            ),
+          projectOf: () => Promise.resolve(ok(null)),
+        },
         redact: calls.redact,
       },
+      // 저장한 지침의 확정 판은 core의 ReadInstructionFile로 그 run의 이름으로 매 call 직전에 읽는다
+      // (instructions R4, R5, R8). core가 run의 작업 자리와 preset 첨부만 읽게 한다.
+      instructionFilesFor: (run) =>
+        instructionFilesOverCore(
+          run,
+          (input) => readOf(calls.machine, instructionRead, input),
+        ),
       redact: calls.redact,
       // 등록한 skill 폴더만 검사한다(extensions R1). 설정이 없으면 빈 목록이다.
       skills: () => registeredSkillEntries(calls.machine),

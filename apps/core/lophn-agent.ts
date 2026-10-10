@@ -984,6 +984,8 @@ const UNATTACHED_INSTRUCTION_FILES = {
       ),
     projectOf: () => Promise.resolve(ok(null)),
   },
+  permit: () =>
+    err({ code: "not_found" as const, message: "instruction not found" }),
   asOfSeq: () => ok("0"),
 };
 

@@ -327,6 +327,7 @@ import {
   withMessageBody,
 } from "./message-body.ts";
 import {
+  instructionAccess,
   instructionFilesEnvironment,
   ledgerHead,
 } from "./instruction-files.ts";
@@ -636,6 +637,7 @@ async function open(
     assemble(options.teams, {
       instructionFiles: {
         files: instructionFiles,
+        permit: instructionAccess(ledgerPath),
         asOfSeq: () => ledgerHead(ledgerPath),
       },
       status: statusMemoryVia(documentsChannel),

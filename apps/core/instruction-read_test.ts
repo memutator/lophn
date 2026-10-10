@@ -29,6 +29,10 @@ const PROJECT = "prj_01kq12a1pha000000000000000";
 const APP = "app_01kq12a1pha000000000000000";
 const USER = "u".repeat(43);
 const MACHINE = "m".repeat(43);
+const SES = "ses_01arz3ndektsv4rrffq69g5fav";
+const MSG = "msg_01arz3ndektsv4rrffq69g5fav";
+const OTHER_PROJECT = "prj_01kq12a1phb000000000000000";
+const UNATTACHED_DOC = "doc_01kq12a1pha000000000000000";
 
 const encoder = new TextEncoder();
 
@@ -131,7 +135,15 @@ Deno.test("lophn-agent/instructions#R4 R5 R8: runtime은 core의 ReadInstruction
     principal: "user",
     actor: "user" as const,
     scope: {
-      operations: ["project.create", "files.write", "document.upload"],
+      operations: [
+        "project.create",
+        "files.write",
+        "document.upload",
+        "ListAssignments",
+        "OpenSession",
+        "ReadSession",
+        "ReceiveMessage",
+      ],
       targets: {},
     },
     conditions: {},
@@ -186,7 +198,58 @@ Deno.test("lophn-agent/instructions#R4 R5 R8: runtime은 core의 ReadInstruction
       () => versionCount(home) === 2 ? true : undefined,
     );
 
-    const files = instructionFilesOverCore(async (input) => {
+    // 사람이 연 project 세션의 요청 하나가 run이 된다. 그 run의 작업 자리는 이 project다.
+    const listed = await post(core, "assignments/list", {});
+    const lophn = (listed.body["assignments"] as {
+      id: string;
+      role: string;
+      revision: number;
+    }[]).find((entry) => entry.role === "lophn");
+    assert(lophn !== undefined, JSON.stringify(listed.body));
+    const envelope = (input: unknown, compare: unknown, key: string) => ({
+      input,
+      idempotency_key: key,
+      compare,
+      prepared: [],
+    });
+    const opened = await post(
+      core,
+      "sessions/open",
+      envelope({
+        id: SES,
+        assignment: lophn.id,
+        role: "lophn",
+        work_place: { kind: "project", id: PROJECT },
+        continued_from: null,
+      }, {
+        assignment_revision: lophn.revision,
+        assignment_state: "enabled",
+      }, "open-session"),
+    );
+    assertEquals(opened.status, 200, JSON.stringify(opened.body));
+    const session = await post(core, "sessions/read", { session: SES });
+    const sent = await post(
+      core,
+      "messages/receive",
+      envelope({
+        id: MSG,
+        session: SES,
+        content: {
+          schema_version: 1,
+          parts: [{ kind: "text", text: "hello" }],
+        },
+        mode: "request",
+      }, {
+        session_state: "open",
+        session_state_seq: session.body.session.state_seq,
+        assignment_revision: lophn.revision,
+        assignment_state: "enabled",
+      }, "receive-message"),
+    );
+    assertEquals(sent.status, 200, JSON.stringify(sent.body));
+    const run: string = sent.body.message.run;
+
+    const files = instructionFilesOverCore(run, async (input) => {
       const reply = await call(MACHINE, input);
       if (!reply.ok) return reply;
       const parsed = instructionRead.output.safeParse(reply.value);
@@ -250,19 +313,44 @@ Deno.test("lophn-agent/instructions#R4 R5 R8: runtime은 core의 ReadInstruction
     assert(second.layers[0].version !== first.layers[0].version);
 
     // 연결된 문서가 없는 자리는 부재, 없는 붙은 문서는 오류다. 사람 자격은 이 읽기를 못 쓴다.
-    const missing = await call(MACHINE, {
-      location: { layer: "app", place: APP },
-    });
-    assert(missing.ok);
-    assertEquals((missing.value as { file: unknown }).file, null);
-    const detached = await call(MACHINE, {
-      document: "doc_01kq12a1pha000000000000000",
-    });
-    assertEquals(detached.ok, false);
     const byUser = await call(USER, {
+      run,
       location: { layer: "global", place: "global" },
     });
     assertEquals(byUser.ok, false);
+
+    // 그 run의 작업 자리가 아닌 project·app 자리와 어느 preset에도 붙지 않은 문서는 없는 대상과
+    // 같은 not_found다(documents 읽기 권한을 우회하지 못한다).
+    const notFound = (reply: { ok: boolean; error?: { code: string } }) => {
+      assertEquals(reply.ok, false);
+      assertEquals(reply.error?.code, "not_found");
+    };
+    notFound(
+      await call(MACHINE, {
+        run,
+        location: { layer: "project", place: OTHER_PROJECT },
+      }),
+    );
+    notFound(
+      await call(MACHINE, { run, location: { layer: "app", place: APP } }),
+    );
+    notFound(await call(MACHINE, { run, document: UNATTACHED_DOC }));
+    // project에 연결된 지침 문서의 id를 알아도 preset에 붙지 않았으면 붙은 문서로 읽을 수 없다.
+    const projectFile = await call(MACHINE, {
+      run,
+      location: { layer: "project", place: PROJECT },
+    });
+    assert(projectFile.ok);
+    const projectDoc = (projectFile.value as { file: { document: string } })
+      .file.document;
+    notFound(await call(MACHINE, { run, document: projectDoc }));
+    // 없는 run은 어느 자리도 읽지 못한다.
+    notFound(
+      await call(MACHINE, {
+        run: "run_01kq12a1pha000000000000000",
+        location: { layer: "global", place: "global" },
+      }),
+    );
   } finally {
     await core.shutdown();
     await Deno.remove(home, { recursive: true });

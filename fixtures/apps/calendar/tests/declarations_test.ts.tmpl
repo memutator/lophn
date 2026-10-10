@@ -52,6 +52,7 @@ Deno.test("apps/blueprint#R5: command 효과는 read·write·external 순서의 
       ["delete_all_events", "write", true],
       ["list_events", "read", false],
       ["revert_event", "write", false],
+      ["send_to_todo", "external", false],
       ["sync_events", "write", false],
     ],
   );

@@ -1,6 +1,10 @@
 import { err, ok, type Result } from "../../base/mod.ts";
 import type { Sql } from "../../contracts/platform/mod.ts";
-import type { ProblemTestFact } from "../../contracts/problems/mod.ts";
+import type {
+  ProblemTestFact,
+  ProblemTestRecord,
+} from "../../contracts/problems/mod.ts";
+import type { TestConnection } from "./model.ts";
 import { loadRecords } from "./records.ts";
 
 // 문제 상세가 읽는 테스트 사실이다(problems/tests#R5, problems#T22). core 조립이
@@ -84,6 +88,114 @@ export function problemTestLookup(
   } catch {
     return unreadable();
   }
+}
+
+// 지금 값(종류마다 하나)과 따로, 이 문제의 실제 결과를 접지 않고 남긴다(tests#R4, R5).
+// reproduction은 문제의 Verification 전부다. app test는 문제 열이 없으므로 마지막
+// ProblemFixRecorded의 after release와 같은 bundle만 붙인다. 준비 실패는 Verification이
+// 없으므로 not_run이고, 통과로 만들지 않는다. 종료 시각은 실행 증거에서만 온다.
+export function problemTestHistory(
+  sql: Pick<Sql, "get" | "all">,
+  problem: string,
+): Result<ProblemTestRecord[]> {
+  try {
+    const bundle = fixBundle(sql, problem);
+    const verifications = sql.all(
+      bundle === null
+        ? `select kind, result, request_principal, request_key, recorded_seq,
+                verification_canonical
+           from verifications where problem = ?`
+        : `select kind, result, request_principal, request_key, recorded_seq,
+                verification_canonical
+           from verifications
+           where problem = ?
+              or (kind = 'app_test' and problem is null and target_bundle_hash = ?)`,
+      bundle === null ? [problem] : [problem, bundle],
+    ).sort((left, right) =>
+      Number(
+        BigInt(String(left.recorded_seq)) -
+          BigInt(String(right.recorded_seq)),
+      )
+    );
+    const recorded: ProblemTestRecord[] = [];
+    const verified = new Set<string>();
+    for (const row of verifications) {
+      const kind = kindOf(row.kind);
+      const state = RESULT[String(row.result)];
+      if (kind === undefined || state === undefined) return unreadable();
+      const principal = String(row.request_principal);
+      const key = String(row.request_key);
+      verified.add(`${principal}\0${key}`);
+      recorded.push({
+        kind,
+        state,
+        ended_at: endedAt(
+          sql,
+          principal,
+          key,
+          String(row.verification_canonical),
+        ),
+      });
+    }
+    const failed = sql.all(
+      `select request_principal, request_key from test_requests
+       where phase = 'preparation_failed' order by seq`,
+      [],
+    );
+    for (const request of failed) {
+      const principal = String(request.request_principal);
+      const key = String(request.request_key);
+      if (verified.has(`${principal}\0${key}`)) continue;
+      const records = loadRecords(sql, principal, key);
+      if (records.some((record) => record.phase === "result_ref")) continue;
+      if (!records.some((record) => record.phase === "preparation_failed")) {
+        continue;
+      }
+      const payload = records.find((record) => record.phase === "accepted")
+        ?.payload ?? records[0]?.payload;
+      if (payload === undefined || !linked(payload, problem, bundle)) continue;
+      const kind = kindOf(payload.kind);
+      if (kind === undefined) return unreadable();
+      recorded.push({ kind, state: "not_run", ended_at: null });
+    }
+    return ok(recorded);
+  } catch {
+    return unreadable();
+  }
+}
+
+// 마지막 고친 기록의 after release bundle이다. 표가 없거나 기록이 없으면 null이고
+// 그때는 문제 열이 없는 app test를 이 문제에 붙이지 않는다.
+function fixBundle(
+  sql: Pick<Sql, "get">,
+  problem: string,
+): string | null {
+  try {
+    const row = sql.get(
+      `select json_extract(payload, '$.after') as after from events
+       where type = 'ProblemFixRecorded' and subject = ?
+       order by seq desc limit 1`,
+      [problem],
+    );
+    if (row === undefined || row.after == null) return null;
+    const release = sql.get(
+      `select bundle_hash from releases where id = ?`,
+      [String(row.after)],
+    );
+    return release === undefined ? null : String(release.bundle_hash);
+  } catch {
+    return null;
+  }
+}
+
+function linked(
+  payload: TestConnection,
+  problem: string,
+  bundle: string | null,
+): boolean {
+  if (payload.problem === problem) return true;
+  return payload.kind === "app_test" && payload.problem === null &&
+    bundle !== null && payload.target?.bundle_hash === bundle;
 }
 
 function kindOf(value: unknown): Kind | undefined {

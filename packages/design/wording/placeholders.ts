@@ -226,6 +226,7 @@ export type PlaceholderKinds = {
   "app-detail.note.issue-human-yes": Record<never, never>;
   "app-detail.note.issue-human-no": Record<never, never>;
   "app-detail.label.issue-unconfirmed": Record<never, never>;
+  "app-detail.label.issue-remaining": Record<never, never>;
   "app-detail.label.issue-closed": Record<never, never>;
   "app-detail.label.issue-scope": Record<never, never>;
   "app-detail.label.issue-version": Record<never, never>;

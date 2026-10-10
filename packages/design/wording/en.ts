@@ -212,6 +212,7 @@ export const en = {
   "app-detail.note.issue-human-yes": "You checked this yourself.",
   "app-detail.note.issue-human-no": "You haven't checked this yourself.",
   "app-detail.label.issue-unconfirmed": "Not confirmed",
+  "app-detail.label.issue-remaining": "Still to confirm",
   "app-detail.label.issue-closed": "Why it's closed",
   "app-detail.label.issue-scope": "What was confirmed",
   "app-detail.label.issue-version": "Version",

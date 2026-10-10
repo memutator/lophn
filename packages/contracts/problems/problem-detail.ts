@@ -33,6 +33,10 @@ export const TEST_STATES = [
 ] as const;
 export const testStateSchema = z.enum(TEST_STATES);
 export type TestState = z.infer<typeof testStateSchema>;
+// 기록으로 남긴 한 건. not_run은 준비 실패·미실행이고 통과가 아니다(tests#R4).
+export const RECORDED_TEST_STATES = [...TEST_STATES, "not_run"] as const;
+export const recordedTestStateSchema = z.enum(RECORDED_TEST_STATES);
+export type RecordedTestState = z.infer<typeof recordedTestStateSchema>;
 // 전체 요약은 한 건도 안 돌았음(not_run)과 읽지 못함(unknown)을 성공으로 채우지 않는다.
 export const testSummaryStateSchema = z.enum([
   ...TEST_STATES,
@@ -72,6 +76,16 @@ export const problemDetailSchema = z.object({
         ended_at: atSchema.nullable(),
       })),
     }),
+    // 종류마다 지금 값과 따로, 이 문제에 남은 실제 결과와 미실행이다(tests#R4, R5).
+    // 이전 응답에는 없다.
+    recorded: z.array(z.object({
+      kind: testKindSchema,
+      state: recordedTestStateSchema,
+      label: text,
+      ended_at: atSchema.nullable(),
+    })).optional(),
+    // 고친 release가 운영에 적용되지 않아 문제가 열린 채 남는 한 문장이다(closing#R2, R4).
+    remaining: text.optional(),
   }),
   closed: z.object({
     // 기본: 닫힌 이유와 지금 필요한 주의.
@@ -133,6 +147,12 @@ export const ProblemWorkPort: PortKey<ProblemWorkLookup> = definePort<
 export type ProblemTestFact = {
   kind: z.infer<typeof testKindSchema>;
   state: TestState;
+  ended_at: string | null;
+};
+// 지금 값으로 접지 않은 결과다. not_run은 Verification이 없는 준비 실패다.
+export type ProblemTestRecord = {
+  kind: z.infer<typeof testKindSchema>;
+  state: RecordedTestState;
   ended_at: string | null;
 };
 // 문제에 걸린 테스트 요청·결과다. 등록되지 않았거나 읽지 못하면 read는 모름으로 보인다.

@@ -269,7 +269,7 @@ function IssueBody(
         </section>
       )}
 
-      <Checks view={view} />
+      <Checks view={view} now={now} />
 
       {view.closed === null
         ? null
@@ -345,9 +345,21 @@ function IssueBody(
   );
 }
 
+function endedMark(at: string | null, now: () => Date) {
+  if (at === null) return null;
+  const date = new Date(at);
+  if (Number.isNaN(date.getTime())) return null;
+  return (
+    <time dateTime={at} data-ended-at="">
+      {formatRelativeTime(date, now())}
+    </time>
+  );
+}
+
 // 고쳤다는 주장, 실제 테스트, 사람의 확인은 서로 다른 줄이다. 하나가 다른 하나를 채우지 않는다.
-function Checks({ view }: { view: IssueView }) {
+function Checks({ view, now }: { view: IssueView; now: () => Date }) {
   const human = view.closed?.reason === "user_confirmed";
+  const recorded = view.result.recorded ?? [];
   return (
     <section className={styles.section} data-section="checks">
       <h5 className={styles.heading}>{t("app-detail.heading.issue-checks")}</h5>
@@ -376,11 +388,40 @@ function Checks({ view }: { view: IssueView }) {
                       tone={testTone(item.state)}
                       label={item.label}
                     />
+                    {endedMark(item.endedAt, now)}
+                  </li>
+                ))}
+              </ul>
+            )}
+          {recorded.length === 0
+            ? null
+            : (
+              <ul className={styles.detailList} data-recorded="">
+                {recorded.map((item, index) => (
+                  <li
+                    key={index}
+                    className={styles.detailItem}
+                    data-recorded-item={item.state}
+                    data-recorded-kind={item.kind}
+                  >
+                    <StatusMark
+                      tone={testTone(item.state)}
+                      label={item.label}
+                    />
+                    {endedMark(item.endedAt, now)}
                   </li>
                 ))}
               </ul>
             )}
         </dd>
+        {view.result.remaining
+          ? (
+            <>
+              <dt>{t("app-detail.label.issue-remaining")}</dt>
+              <dd data-check="remaining">{view.result.remaining}</dd>
+            </>
+          )
+          : null}
         <dt>{t("app-detail.label.issue-human")}</dt>
         <dd data-check="human" data-checked={human}>
           {human

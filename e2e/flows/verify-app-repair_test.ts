@@ -800,6 +800,11 @@ async function openIssue(flow: FlowShell): Promise<void> {
     "앱 막대",
   );
   await flow.click('[data-app-bar="app-details"]');
+  await openIssuesTab(flow);
+}
+
+// 운영 패널이 이미 열려 있을 때 Issues 탭만 고른다.
+async function openIssuesTab(flow: FlowShell): Promise<void> {
   await flow.until(
     `document.querySelector("[data-ops-panel]") !== null`,
     "운영 패널",
@@ -2404,7 +2409,7 @@ Deno.test({
           ),
           4,
         );
-        await openIssue(flow);
+        await openIssuesTab(flow);
         const impact = await mustCall(flow, {
           kind: "read",
           resource: "problems",

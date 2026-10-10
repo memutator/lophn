@@ -4,15 +4,16 @@
 // 계기는 사람이 직접 만든 context의 watch 변화(ContextWatchedItemChanged)다.
 //
 // 이 파일이 단정하지 않는 갈래:
-// - ticket 완료 보고와 검사 결과·문제 닫힘. 사실을 내는 길이 coding credential(OS keychain)뿐이라
-//   이 shell 기동에서는 만들지 못한다. 끝난 question·approval의 오래된 notification은 아래
-//   test가 본다.
+// - 문제 닫힘(ProblemClosed). 사실을 내는 길이 machine credential의 record-report와 reproduction
+//   Verification이라 이 shell 기동에서는 만들지 못한다(아래 ticket test의 ignore step).
+//   끝난 question·approval의 오래된 notification과 ticket 검사 결과는 아래 test가 본다.
 // - core가 살아 있는 채 event socket만 끊겼다가 같은 core에 다시 붙는 경우. harness가 socket만
 //   끊지 못한다. core를 죽이면 shell main에는 core를 다시 띄우거나 구독을 다시 잇는 길이
 //   없어(`reconnect`를 부르는 곳이 없다) 앱을 다시 시작해야 붙는다. 그 경우만 아래 test가 본다.
 // - 이 test는 core를 다시 시작한 뒤 실패 이유를 확인하지 않는다. 실패 관측은 프로세스
 //   메모리라 재시작 뒤에는 성공으로 채우지 않을 뿐이다. 창만 닫았다 다시 연 뒤의 다음
 //   조회는 아래 맨 끝의 test가 본다.
+import { DatabaseSync } from "node:sqlite";
 import { assert, assertEquals } from "@std/assert";
 
 import { fingerprint } from "../../packages/base/mod.ts";
@@ -1560,6 +1561,347 @@ Deno.test({
       await removeHome(home);
       await provider.close();
       await Deno.remove(folder, { recursive: true });
+    }
+  },
+});
+
+// ---- ticket 완료 보고와 실제 검사 결과 ----
+// 완료 보고(ticket_completions)는 coding agent의 MCP 호출로만 생기고 그 credential은 OS keychain이
+// 필요해 이 기동에서 만들 수 없다. 그래서 core를 끈 사이 ledger에 보고된 ticket 행을 심고(test-only
+// seeding, apps/core/ticket-checker_test.ts와 같은 자리), 제품 core의 checker worker가 실제 Verification
+// 행을 읽어 내는 TicketConfirmed·TicketCheckFailed만 notification이 되는지 본다.
+
+const TICKET_APP = "app_01arz3ndektsv4rrffq69g5fav";
+const CMD_HASH = "d".repeat(64);
+
+type Reported = {
+  ticket: string;
+  seq: string;
+  release: string;
+  bundle: string;
+};
+const CONFIRMED: Reported = {
+  ticket: "tkt_01arz3ndektsv4rrffq69g5fa1",
+  seq: "1",
+  release: "rel_01arz3ndektsv4rrffq69g5fa1",
+  bundle: "a1".repeat(32),
+};
+const FAILED: Reported = {
+  ticket: "tkt_01arz3ndektsv4rrffq69g5fa2",
+  seq: "2",
+  release: "rel_01arz3ndektsv4rrffq69g5fa2",
+  bundle: "a2".repeat(32),
+};
+const WAITING: Reported = {
+  ticket: "tkt_01arz3ndektsv4rrffq69g5fa3",
+  seq: "3",
+  release: "rel_01arz3ndektsv4rrffq69g5fa3",
+  bundle: "a3".repeat(32),
+};
+
+function withDb<T>(home: string, run: (db: DatabaseSync) => T): T {
+  const db = new DatabaseSync(`${home}/lophn.db`);
+  try {
+    return run(db);
+  } finally {
+    db.close();
+  }
+}
+
+function seedReportedTicket(
+  db: DatabaseSync,
+  item: Reported,
+  number: number,
+): void {
+  db.prepare(
+    `insert into releases (id, app, number, code_commit, bundle_hash, blueprint_hash,
+       data_schema, data_changes, ticket_source, created_by, created_at, status,
+       activation, failure, blueprint, declarations)
+     values (?, ?, ?, ?, ?, ?, 0, '[]', NULL, 'machine:releaser',
+       '2026-10-07T00:00:00.000Z', 'prepared', NULL, NULL, '{}', '[]')`,
+  ).run(
+    item.release,
+    TICKET_APP,
+    number,
+    "c".repeat(40),
+    item.bundle,
+    "e".repeat(64),
+  );
+  db.prepare(
+    `insert into tickets (id, app, kind, title, what, why, inspect, preserve, problems,
+       state, readiness, needs, cancel_reason, completion_seq, revision)
+     values (?, ?, 'implementation', 't', 'w', 'y', '[]', '[]', '[]', 'reported',
+       'ready', '[]', NULL, ?, ?)`,
+  ).run(item.ticket, TICKET_APP, item.seq, item.seq);
+  const condition = db.prepare(
+    `insert into ticket_conditions (ticket, position, kind, input, condition_hash)
+     values (?, ?, ?, ?, ?)`,
+  );
+  condition.run(item.ticket, 0, "app_test", '{"kind":"app_test"}', CMD_HASH);
+  condition.run(
+    item.ticket,
+    1,
+    "test_command",
+    JSON.stringify({
+      kind: "test_command",
+      executable: "deno",
+      argv: ["task", "test"],
+      cwd: ".",
+      timeout_ms: 60000,
+      expected_exit_code: 0,
+    }),
+    CMD_HASH,
+  );
+  db.prepare(
+    `insert into ticket_completions (ticket, seq, claim_seq, release, summary_hash,
+       outputs, fix_records, verifications)
+     values (?, ?, ?, ?, ?, '[]', '[]', '[]')`,
+  ).run(item.ticket, item.seq, item.seq, item.release, "f".repeat(64));
+}
+
+function seedVerification(
+  db: DatabaseSync,
+  input: {
+    id: string;
+    kind: "app_test" | "test_command";
+    result: "pass" | "fail";
+    bundle: string;
+    ticket?: Reported;
+  },
+): void {
+  db.prepare(
+    `insert into verifications (id, request_principal, request_key, request_hash, kind, app,
+       target_bundle_hash, target_release, problem, basis_seq, before_release, after_release,
+       ticket, ticket_check_index, ticket_check_hash, ticket_completion_seq, test, execution,
+       result, reason, observations, recorded_seq, verification_canonical)
+     values (?, 'user-1', ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, ?, ?, ?, ?, '{}', '{}',
+       ?, 'ran', '[]', '1', '{}')`,
+  ).run(
+    input.id,
+    `key-${input.id}`,
+    "f".repeat(64),
+    input.kind,
+    TICKET_APP,
+    input.bundle,
+    input.ticket?.ticket ?? null,
+    input.ticket === undefined ? null : 1,
+    input.ticket === undefined ? null : CMD_HASH,
+    input.ticket?.seq ?? null,
+    input.result,
+  );
+}
+
+function ticketState(home: string, ticket: string): string {
+  return withDb(
+    home,
+    (db) =>
+      (db.prepare("select state from tickets where id = ?").get(ticket) as {
+        state: string;
+      }).state,
+  );
+}
+
+Deno.test({
+  name:
+    "platform/notifications#R1 platform/notifications#R2 platform/notifications#R6 coding-agent/tickets#R18 coding-agent/tickets#R21 shell/desktop#R9 flow catch-up-notifications: ticket 완료 보고와 실제 검사 결과를 섞지 않고 notification을 열어도 ticket 상태는 그대로다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn(t) {
+    // 첫 기동은 ledger와 schema를 만든다. 그 위에 보고된 ticket을 심고 shell을 다시 띄운다.
+    let flow = await openFlowShell({ start: "things-to-confirm" });
+    const home = flow.home;
+    try {
+      await flow.close();
+      withDb(home, (db) => {
+        db.prepare(
+          `insert into apps (id, slug, name, description, planning_version, source_path,
+             active_release, run_enabled, revision, status)
+           values (?, 'notes', 'Notes', 'notes app', NULL, NULL, NULL, 0, '3', 'active')`,
+        ).run(TICKET_APP);
+        seedReportedTicket(db, CONFIRMED, 1);
+        seedReportedTicket(db, FAILED, 2);
+        seedReportedTicket(db, WAITING, 3);
+        seedVerification(db, {
+          id: "vrf_01arz3ndektsv4rrffq69g5fa1",
+          kind: "app_test",
+          result: "pass",
+          bundle: CONFIRMED.bundle,
+        });
+        seedVerification(db, {
+          id: "vrf_01arz3ndektsv4rrffq69g5fa2",
+          kind: "test_command",
+          result: "pass",
+          bundle: CONFIRMED.bundle,
+          ticket: CONFIRMED,
+        });
+        seedVerification(db, {
+          id: "vrf_01arz3ndektsv4rrffq69g5fa3",
+          kind: "app_test",
+          result: "fail",
+          bundle: FAILED.bundle,
+        });
+        seedVerification(db, {
+          id: "vrf_01arz3ndektsv4rrffq69g5fa4",
+          kind: "test_command",
+          result: "pass",
+          bundle: FAILED.bundle,
+          ticket: FAILED,
+        });
+        // WAITING: 다른 묶음의 통과만 있다. 이 묶음의 근거가 아니다.
+        seedVerification(db, {
+          id: "vrf_01arz3ndektsv4rrffq69g5fa5",
+          kind: "app_test",
+          result: "pass",
+          bundle: CONFIRMED.bundle,
+        });
+      });
+      flow = await openFlowShell({ home, start: "things-to-confirm" });
+
+      let confirmedId = "";
+      let failedId = "";
+      await t.step(
+        "platform/notifications#R1 platform/notifications#R2 coding-agent/tickets#R18: 실제 검사 결과가 난 ticket만 notification이 되고 보고만 된 ticket은 되지 않는다",
+        async () => {
+          const deadline = Date.now() + READY_TIMEOUT_MS;
+          let rows: Listed[] = [];
+          for (;;) {
+            rows = await listNotifications(flow);
+            if (rows.length >= 2) break;
+            assert(
+              Date.now() < deadline,
+              `검사 결과 notification 대기: ${
+                JSON.stringify(rows.map((row) => row.source_event))
+              }`,
+            );
+            await delay(250);
+          }
+          // checker가 남은 ticket을 마저 보는 시간을 주고 더 늘지 않는지 본다.
+          await delay(3_000);
+          rows = await listNotifications(flow);
+          assertEquals(rows.map((row) => row.source_event).sort(), [
+            "TicketCheckFailed",
+            "TicketConfirmed",
+          ]);
+          confirmedId = rows.find((row) =>
+            row.source_event === "TicketConfirmed"
+          )!
+            .notification.id;
+          failedId = rows.find((row) =>
+            row.source_event === "TicketCheckFailed"
+          )!
+            .notification.id;
+          assertEquals(ticketState(flow.home, CONFIRMED.ticket), "confirmed");
+          assertEquals(ticketState(flow.home, FAILED.ticket), "check_failed");
+          // 근거가 아직 없는 ticket은 확인되지도 실패하지도 않고 보고된 채다.
+          assertEquals(ticketState(flow.home, WAITING.ticket), "reported");
+        },
+      );
+
+      await t.step(
+        "platform/notifications#R3 shell/desktop#R9 shell/wording#R2: 두 notification은 서로 다른 안내로 읽히고 안쪽 상태 이름을 내지 않는다",
+        async () => {
+          await flow.until(
+            `document.querySelector("[data-current-screen]")?.getAttribute("data-current-screen") === "things-to-confirm"`,
+            "things-to-confirm 화면이 아니다",
+          );
+          await openNotificationsTab(flow);
+          await flow.until(
+            `document.querySelector("[data-notification='${confirmedId}']") !== null && document.querySelector("[data-notification='${failedId}']") !== null`,
+            "두 notification 줄이 보이지 않는다",
+          );
+          const confirmed = String(
+            await flow.text(`[data-notification="${confirmedId}"]`),
+          );
+          const failed = String(
+            await flow.text(`[data-notification="${failedId}"]`),
+          );
+          assert(confirmed.includes("A task is ready"), confirmed);
+          assert(failed.includes("A task's check failed"), failed);
+          assert(!confirmed.includes("check failed"), confirmed);
+          assert(!failed.includes("is ready"), failed);
+          for (const text of [confirmed, failed]) {
+            assert(!showsInternalName(text), text);
+            assert(
+              !/check_failed|TicketConfirmed|TicketCheckFailed/.test(text),
+            );
+          }
+          // 보고된 ticket이 결정을 기다리는 일은 아니다.
+          assertEquals(
+            await flow.count(
+              "[data-tab-panel='notifications'] [data-notification] [data-document]",
+            ),
+            0,
+          );
+        },
+      );
+
+      await t.step(
+        "platform/notifications#R6 coding-agent/tickets#R21: 열고 읽음 표시해도 ticket 상태와 기다리는 결정은 바뀌지 않는다",
+        async () => {
+          const before = {
+            confirmed: ticketState(flow.home, CONFIRMED.ticket),
+            failed: ticketState(flow.home, FAILED.ticket),
+            waiting: ticketState(flow.home, WAITING.ticket),
+          };
+          await flow.click(`[data-notification="${confirmedId}"] button`);
+          await flow.click(`[data-notification="${failedId}"] button`);
+          await flow.click(
+            `[data-notification="${failedId}"] [data-mark-read]`,
+          );
+          await flow.until(
+            `document.querySelector("[data-notification='${failedId}']")?.hasAttribute("data-unread") === false`,
+            "읽음 표시가 되지 않았다",
+          );
+          assert(
+            (await notificationOf(flow, failedId)).notification.read_at !==
+              null,
+          );
+          assert(
+            (await notificationOf(flow, confirmedId)).notification.read_at ===
+              null,
+          );
+          await delay(2_000);
+          assertEquals(
+            ticketState(flow.home, CONFIRMED.ticket),
+            before.confirmed,
+          );
+          assertEquals(ticketState(flow.home, FAILED.ticket), before.failed);
+          assertEquals(ticketState(flow.home, WAITING.ticket), before.waiting);
+          assertEquals((await listNotifications(flow)).length, 2);
+          assertEquals(await runCount(flow), 0);
+          await flow.mouseClickText("[role=tab]", "Waiting");
+          await flow.until(
+            `document.querySelector("[data-tab-panel='waiting'] [data-counts]") !== null`,
+            "기다리는 결정 목록이 서지 않았다",
+          );
+          assertEquals(
+            await flow.count(
+              "[data-tab-panel='waiting'] ul:not([data-counts]) li",
+            ),
+            0,
+          );
+        },
+      );
+
+      await t.step({
+        name:
+          "coding-agent/tickets#R21 problems/closing: ticket 확인은 문제 닫힘이 아니고 ProblemClosed는 따로 notification이 된다",
+        ignore: true,
+        fn: () => {
+          // 이 shell 기동에서는 닫힌 문제를 만들 길이 없다. ProblemClosed는 problems.closing 반응기가
+          // 실제 reproduction Verification과 machine credential의 record-report로 내고(apps/core/
+          // ticket-checker_test.ts의 repair 장면), 그 credential은 OS keychain이 필요하다.
+          // 닫힘 notification은 apps/core/notifications-triggers_test.ts가 core에서 본다.
+        },
+      });
+    } finally {
+      try {
+        await flow.close();
+      } catch {
+        // 이미 닫았거나 기동이 실패한 경우다.
+      }
+      await removeHome(home);
     }
   },
 });

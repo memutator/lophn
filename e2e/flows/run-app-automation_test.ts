@@ -599,6 +599,83 @@ Deno.test({
           );
         },
       );
+
+      await t.step(
+        "다른 갈래: 사람이 external 일을 한 번 켜면 그 범위에서만 돌고 앱 시작 계기마다 다시 한 번 돈다",
+        async () => {
+          const nonce = await untilReady(flow, "앱이 돌지 않는다");
+          await openAutomationsTab(flow);
+          await flow.click(
+            `${AUTOMATIONS} [data-automation="export_on_start"] [data-turn-on]`,
+          );
+          const shown = await untilDecisionWindow(
+            flow,
+            "grant_approval_request",
+          );
+          assert(shown.includes("export_on_start"), `일 이름이 없다: ${shown}`);
+          assert(shown.includes("export_markdown"), `명령이 없다: ${shown}`);
+          // 미리 보기만으로는 grant가 생기지 않는다.
+          assertEquals(
+            (await grantsOf(flow)).filter((grant) =>
+              grant.kind === "automation.run" && grant.status === "active"
+            ),
+            [],
+          );
+          await decide(flow, "grant_approval_request");
+          await untilTrue(
+            "automation 켜기 grant가 생기지 않았다",
+            async () =>
+              (await grantsOf(flow)).some((grant) =>
+                grant.kind === "automation.run" && grant.status === "active"
+              ),
+          );
+          // 켜기는 앱을 다시 띄우지 않고 이미 지난 시작 계기를 되살리지 않는다.
+          await delay(2_000);
+          assertEquals((await running(flow))?.nonce, nonce);
+          assertEquals(
+            ranBy(await invocationsOf(flow), "export_on_start"),
+            [],
+          );
+          await openAutomationsTab(flow);
+          await flow.until(
+            `document.querySelector('${AUTOMATIONS} [data-automation="export_on_start"]')?.dataset.on === "on"`,
+            "켠 일이 켜짐으로 보이지 않는다",
+          );
+
+          // 파일 쓰기 접근은 별도 허락이다. 허락하면 앱이 다시 뜨고 시작 계기의 일이 다시 돈다.
+          await openAccessTab(flow);
+          await reviewAccess(flow, EXPORT_DIR);
+          await untilDecisionWindow(flow, "grant_approval_request");
+          await decide(flow, "grant_approval_request");
+          await untilTrue("앱이 다시 뜨지 않았다", async () => {
+            const seen = await running(flow);
+            return seen !== null && seen.ready && seen.release === RELEASE &&
+              seen.nonce !== nonce && !seen.terminationPending;
+          });
+          await untilTrue(
+            "켠 일이 돌지 않았다",
+            async () =>
+              ranBy(await invocationsOf(flow), "export_on_start").some((row) =>
+                row.status === "succeeded"
+              ),
+          );
+          assertEquals(
+            ranBy(await invocationsOf(flow), "export_on_start").length,
+            1,
+          );
+          const exported = await Deno.readTextFile(exportPath);
+          assert(
+            exported.includes(START_TITLE),
+            `내보낸 파일에 앱 데이터가 없다: ${exported}`,
+          );
+          // 앱이 시작될 때마다 시작 계기의 일이 한 번씩 돈다.
+          await untilTrue(
+            "두 번째 시작의 일이 기록되지 않았다",
+            async () =>
+              ranBy(await invocationsOf(flow), "add_on_start").length === 2,
+          );
+        },
+      );
     } finally {
       await flow.close();
       await removeTree(home);

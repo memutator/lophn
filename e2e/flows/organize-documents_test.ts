@@ -14,6 +14,7 @@ import { copyFixture } from "../../fixtures/projects/scenarios.ts";
 import { e2eEnabled } from "../harness.ts";
 import {
   commandBody,
+  delay,
   documentTitled,
   type FlowShell,
   listDocuments,
@@ -400,6 +401,271 @@ Deno.test({
           );
         },
       );
+    } finally {
+      await flow.close();
+      await removeHome(flow.home);
+      await Deno.remove(folder, { recursive: true });
+    }
+  },
+});
+
+/** 문서 정리 칸을 연다(projects 화면 → 프로젝트 → 문서). */
+async function openOrganize(
+  flow: FlowShell,
+  project: string,
+  document: string,
+): Promise<void> {
+  if (await flow.count(`[data-project-head="${project}"]`) === 0) {
+    await flow.click('[data-screen="projects"]');
+    await flow.until(
+      `document.querySelector('[data-screen-body="projects"] [data-project="${project}"]') !== null`,
+      "projects 화면에 프로젝트가 없다",
+    );
+    await flow.click(
+      `[data-screen-body="projects"] [data-project="${project}"]`,
+    );
+  }
+  await flow.until(
+    `document.querySelector('[data-project-document="${document}"]') !== null`,
+    "프로젝트 상세와 문서 목록이 열리지 않았다",
+  );
+  await flow.click(`[data-project-document="${document}"]`);
+  await flow.until(
+    `document.querySelector('[data-organize="${document}"] [data-file-section]') !== null`,
+    "문서 정리 칸이 열리지 않았다",
+  );
+}
+
+/** shell preload의 편집 통로(`window.lophnEditor`)로 자리가 있고 파일은 없는 새 문서를 만든다. */
+async function createLoose(
+  flow: FlowShell,
+  input: { document: string; title: string; name: string; project: string },
+  text: string,
+): Promise<void> {
+  const reply = await flow.evaluate(
+    `(async () => {
+      const answer = await window.lophnEditor.create({
+        document: ${JSON.stringify(input.document)},
+        request_key: ${JSON.stringify(`loose-${input.name}-create`)},
+        title: ${JSON.stringify(input.title)},
+        place: { kind: "project", id: ${JSON.stringify(input.project)} },
+        name: ${JSON.stringify(input.name)},
+        bytes: new TextEncoder().encode(${JSON.stringify(text)}),
+      });
+      return JSON.stringify(answer);
+    })()`,
+  );
+  const parsed = JSON.parse(String(reply)) as {
+    ok?: boolean;
+    value?: { outcome?: string };
+  };
+  assertEquals(parsed.value?.outcome, "saved", String(reply));
+}
+
+const LOOSE_ONE = "doc_01arz3ndektsv4rrffq69g5fb1";
+const LOOSE_TWO = "doc_01arz3ndektsv4rrffq69g5fb2";
+
+Deno.test({
+  name:
+    "documents/file-tracking#R13 documents/addressing#R8 flow organize-documents: 파일로 두기는 파일 쓰기와 원본 연결·추적·자리 단계를 각각 보이고 이미 있는 파일을 덮지 않는다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn(t) {
+    const folder = await Deno.realPath(await copyFixture("korean-search"));
+    const flow = await openFlowShell({ start: "lophn" });
+    try {
+      const { project } = await registerTrackedProject(flow, { folder });
+      await untilDocuments(
+        flow,
+        ["glossary", "migration"],
+        "문서가 되지 않았다",
+      );
+      const first = "# Placed note\n\nFirst body.\n";
+      const second = "# Other note\n\nSecond body.\n";
+      await createLoose(flow, {
+        document: LOOSE_ONE,
+        title: "Placed note",
+        name: "placed",
+        project,
+      }, first);
+      await createLoose(flow, {
+        document: LOOSE_TWO,
+        title: "Other note",
+        name: "other",
+        project,
+      }, second);
+      await untilDocuments(
+        flow,
+        ["Placed note", "Other note"],
+        "새 문서가 목록에 없다",
+      );
+      const placed = await documentTitled(flow, "Placed note");
+      assertEquals(placed.id, LOOSE_ONE);
+      assertEquals(await fileSource(flow, LOOSE_ONE), null);
+
+      await t.step(
+        "documents/file-tracking#R13: 파일이 없는 문서를 파일로 두면 파일을 쓰고 원본 연결·추적 규칙·자리를 각각 확정해 단계별로 보인다",
+        async () => {
+          await openOrganize(flow, project, LOOSE_ONE);
+          assertEquals(await flow.count("[data-file-none]"), 1);
+          assertEquals(await flow.count("[data-place-form]"), 1);
+          await flow.type("[data-file-name]", "placed.md");
+          assertStringIncludes(
+            (await flow.text("[data-place-target]"))!,
+            "placed.md",
+          );
+          await flow.click("[data-place]");
+          await flow.until(
+            `document.querySelector("[data-place-result]") !== null`,
+            "파일로 두기 결과가 보이지 않는다",
+          );
+          assertEquals(
+            await flow.evaluate(
+              `document.querySelector("[data-place-result]").getAttribute("data-place-result")`,
+            ),
+            "written",
+          );
+          // 추적이 이미 이 파일을 덮고 문서가 이미 이 프로젝트에 있어 추적 규칙과 자리는 더할
+          // 것이 없어 건너뛴다. 단계마다 따로 보이고 실패한 단계는 없다.
+          for (
+            const [step, expected] of [
+              ["source", "done"],
+              ["tracking", "skipped"],
+              ["move", "skipped"],
+            ]
+          ) {
+            assertEquals(
+              await flow.evaluate(
+                `document.querySelector('[data-place-result] [data-step="${step}"]')?.getAttribute("data-step-state")`,
+              ),
+              expected,
+              `${step} 단계 상태가 다르다`,
+            );
+          }
+          assertEquals(await Deno.readTextFile(`${folder}/placed.md`), first);
+          const source = await fileSource(flow, LOOSE_ONE) as {
+            kind: string;
+            project: string;
+            path: string;
+          } | null;
+          assertEquals(source?.kind, "project_file");
+          assertEquals(source?.project, project);
+          // 추적이 만든 문서의 연결과 같은 모양(등록 폴더 아래 경로)이다.
+          assertEquals(source?.path, `${folder}/placed.md`);
+          const tracked = await fileSource(
+            flow,
+            (await documentTitled(flow, "glossary")).id,
+          ) as { path: string };
+          assertEquals(tracked.path, `${folder}/glossary.md`);
+          // 같은 문서·같은 고정 판이다. 쓴 파일을 관측해도 판이나 문서가 늘지 않는다.
+          const after = await documentTitled(flow, "Placed note");
+          assertEquals(after.id, LOOSE_ONE);
+          assertEquals(after.latest_version, placed.latest_version);
+        },
+      );
+
+      await t.step(
+        "documents/file-tracking#R13: 이미 있는 파일 이름으로 두면 덮지 않고 충돌로 멈추며 문서는 파일 없이 남는다",
+        async () => {
+          await flow.click("[data-organize-back]");
+          await openOrganize(flow, project, LOOSE_TWO);
+          await flow.type("[data-file-name]", "placed.md");
+          await flow.click("[data-place]");
+          await flow.until(
+            `document.querySelector("[data-place-result]") !== null`,
+            "파일로 두기 결과가 보이지 않는다",
+          );
+          assertEquals(
+            await flow.evaluate(
+              `document.querySelector("[data-place-result]").getAttribute("data-place-result")`,
+            ),
+            "conflict",
+          );
+          // 앞 문서의 파일은 그대로고, 이 문서는 파일 없이 남는다.
+          assertEquals(await Deno.readTextFile(`${folder}/placed.md`), first);
+          assertEquals(await fileSource(flow, LOOSE_TWO), null);
+          assertEquals(await flow.count("[data-place-result] [data-step]"), 0);
+        },
+      );
+
+      await t.step(
+        "documents/versions#R16: 7 JSON으로도 export하며 포함한 문서의 파일과 판을 구별하고 원본 파일은 바뀌지 않는다",
+        async () => {
+          await flow.click("[data-organize-back]");
+          await flow.until(
+            `document.querySelector('[data-export-document="${LOOSE_ONE}"]') !== null`,
+            "프로젝트 상세로 돌아가지 않았다",
+          );
+          await flow.click(
+            `[data-export-document="${LOOSE_ONE}"] button[role="checkbox"]`,
+          );
+          await flow.until(
+            `!document.querySelector("[data-export-run]").disabled`,
+            "export 단추가 켜지지 않았다",
+          );
+          // 판 선택은 문서 줄 안에 있고 형식 선택이 마지막이다.
+          await flow.evaluate(
+            `(() => { const all = document.querySelectorAll("[data-export] button[role=combobox]"); all[all.length - 1].setAttribute("data-flow-format", ""); return true; })()`,
+          );
+          await flow.choose("[data-flow-format]", "JSON");
+          await flow.click("[data-export-run]");
+          await flow.until(
+            `document.querySelector('[data-export-result="json"]') !== null`,
+            "JSON export 결과가 보이지 않는다",
+          );
+          assertEquals(await flow.count("[data-export-failed]"), 0);
+          assertEquals(
+            await flow.count(`[data-export-included="${LOOSE_ONE}"]`),
+            1,
+          );
+          assertEquals(
+            await flow.count(`[data-export-included="${LOOSE_TWO}"]`),
+            0,
+          );
+          assertEquals(
+            await flow.count(`[data-export-left-out="${LOOSE_TWO}"]`),
+            1,
+          );
+          const files = await flow.texts(
+            `[data-export-included="${LOOSE_ONE}"] [data-export-file]`,
+          );
+          assert(
+            files.some((file) => file.includes("placed.md")),
+            `원래 파일이 없다: ${JSON.stringify(files)}`,
+          );
+          assertEquals(await Deno.readTextFile(`${folder}/placed.md`), first);
+        },
+      );
+
+      // 파일에서 빼기의 결정 창은 열리지만 main에 delete_file owner decision의 정본 read·제출이
+      // 없다(shell#T29 "남긴 것": 열면 not_found). 창은 "This request changed"만 보이고 결정
+      // 단추가 없어 사람이 지울 수 없다. shell main이 붙이면 이 단계를 켠다.
+      await t.step({
+        name:
+          "documents/file-tracking#R14 documents/versions#R12: 파일에서 빼기는 사람이 결정 창에서 확인해야 파일만 지우고 문서와 고정 판은 남는다",
+        ignore: true,
+        fn: async () => {
+          await flow.click("[data-organize-back]");
+          await openOrganize(flow, project, LOOSE_ONE);
+          await flow.click("[data-remove-file]");
+          const page = await flow.shell.connect("lophn-shell://confirmation/");
+          await page.evaluate(
+            `document.querySelector('[data-decision="confirm"]').click()`,
+          );
+          const gone = Date.now() + 30_000;
+          while (true) {
+            try {
+              await Deno.stat(`${folder}/placed.md`);
+            } catch {
+              break;
+            }
+            assert(Date.now() < gone, "결정했는데 파일이 지워지지 않았다");
+            await delay(200);
+          }
+          assertEquals(await fileSource(flow, LOOSE_ONE), null);
+        },
+      });
     } finally {
       await flow.close();
       await removeHome(flow.home);

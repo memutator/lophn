@@ -10,10 +10,9 @@
 // 질문을 낸 run은 답을 기다리고(WaitRun의 질문 갈래) 미루면 답 없음으로 끝난다.
 // - 4의 선택지 변경: model이 `setting_change`로 키·새 값만 제안하면 handler가 현재 값·revision을
 //   읽어 ApplySettings action을 고정한다(model이 action 객체를 싣지 않는다). 질문 정본에서 확인한다.
-// 볼 수 없는 것(shell 결함, 이어보냄): 5·6·7 답 확정·적용. 질문 칸과 shell main이 `term.define`만
-//   확인 창 없이 답으로 접수하고 그 밖의 고정 action은 모두 [Review] 확인 창으로 보내며, core의
-//   AnswerQuestion은 action 선택지를 확인 handle 없이 받지 않는다. 설정 변경도 되돌릴 수 있는 안쪽
-//   동작이라 확인 창 없이 확정돼야 한다(docs/flows/ask-lophn-help.md 5). 아래 5·6·7 step은 ignore다.
+// - 5·6·7: 질문 칸과 shell main이 설정 변경(apply_settings)도 확인 창 없이 답으로 접수한다(되돌릴 수 있는
+//   안쪽 동작). 사람은 고른 선택지를 보내 답을 확정하고, machine이 고정한 변경만 한 번 적용하며,
+//   같은 run이 이어져 적용 결과를 알린다.
 import { assert, assertEquals } from "@std/assert";
 
 import { buildReply } from "../../tools/fake-provider/semantic.ts";
@@ -205,7 +204,7 @@ async function setDefaults(flow: FlowShell, endpoint: string): Promise<void> {
 
 Deno.test({
   name:
-    "lophn-agent/roles/lophn#R1 lophn-agent/roles/lophn#R20 lophn-agent/harness/tools#R20 lophn-agent/questions#R6 flow ask-lophn-help: settings 화면에서 물은 설정을 lophn이 설치 안내와 공개 설정으로 설명하고, 바꾸려면 질문으로 묻되 고르기·미루기로는 설정이 바뀌지 않는다",
+    "lophn-agent/roles/lophn#R1 lophn-agent/roles/lophn#R20 lophn-agent/harness/tools#R20 lophn-agent/questions#R6 flow ask-lophn-help: settings 화면에서 물은 설정을 lophn이 설치 안내와 공개 설정으로 설명하고, 바꾸려면 질문으로 묻되 고르기·미루기로는 설정이 바뀌지 않고 답을 확정하면 고정한 변경만 적용된다",
   ignore: !e2eEnabled(),
   sanitizeOps: false,
   sanitizeResources: false,
@@ -468,8 +467,6 @@ Deno.test({
       await t.step({
         name:
           "lophn-agent/questions#R13 lophn-agent/questions#R10 lophn-agent/roles/lophn#R21 platform/settings#R19: 5·6·7 고른 선택지의 답을 확정하면 확인 창 없이 고정한 변경만 한 번 적용하고 답 접수와 적용 결과를 구별해 본다",
-        // shell 결함: 위 머리 주석. 질문 칸이 설정 변경 선택지를 [Review] 확인 창으로 보낸다.
-        ignore: true,
         fn: async () => {
           await flow.type(INPUT, CHANGE);
           await flow.click(SEND);

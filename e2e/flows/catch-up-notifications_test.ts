@@ -7,8 +7,9 @@
 // - 끝난 question·approval의 오래된 notification, ticket 검사와 문제 닫힘. 이 준비로는
 //   그 결정을 만들지 않는다.
 // - 연결이 끊긴 뒤 놓친 진행을 재생하지 않음. harness가 socket만 끊지 못한다.
-// - 창을 닫은 뒤의 실패 이유 문구. 실패 관측은 프로세스 메모리라 재시작 뒤 성공으로
-//   채우지 않을 뿐, 같은 실행의 다음 조회에서만 이유를 확인한다.
+// - 이 test는 core를 다시 시작한 뒤 실패 이유를 확인하지 않는다. 실패 관측은 프로세스
+//   메모리라 재시작 뒤에는 성공으로 채우지 않을 뿐이다. 창만 닫았다 다시 연 뒤의 다음
+//   조회는 아래 맨 끝의 test가 본다.
 import { assert, assertEquals } from "@std/assert";
 
 import {
@@ -16,6 +17,7 @@ import {
   editExternally,
 } from "../../fixtures/projects/scenarios.ts";
 import { e2eEnabled, READY_TIMEOUT_MS } from "../harness.ts";
+import type { PageSession } from "../run.ts";
 import {
   commandBody,
   delay,
@@ -25,6 +27,7 @@ import {
   openFlowShell,
   registerTrackedProject,
   removeHome,
+  repoRoot,
   untilDocuments,
   untilSearch,
 } from "../flow-support.ts";
@@ -659,3 +662,303 @@ Deno.test({
     }
   },
 });
+
+// 아래는 위 Deno.test가 보지 않은 갈래를 하나씩 더한 test다. 위 test의 단계는 그대로다.
+// 각 test는 새 shell과 임시 LOPHN_HOME을 쓴다.
+
+/** settings에서 사람이 OS notification을 켠다(위 test의 첫 단계와 같은 조작). */
+async function enableOsNotifications(flow: FlowShell): Promise<void> {
+  await flow.until(
+    `[...document.querySelectorAll("[role=tab]")].some((el) => el.textContent.trim() === "Notifications")`,
+    "settings에 Notifications 탭이 없다",
+  );
+  await flow.mouseClickText("[role=tab]", "Notifications");
+  await flow.until(
+    `document.querySelector('[data-action="os-notifications"] [role=switch]')?.getAttribute("aria-checked") === "false"`,
+    "OS notification 스위치가 꺼진 채로 오지 않았다",
+  );
+  await flow.mouseClick('[data-action="os-notifications"] [role=switch]');
+  await flow.until(
+    `document.querySelector('[data-action="os-notifications"] [role=switch]')?.getAttribute("aria-checked") === "true"`,
+    "OS notification을 켜서 저장하지 못했다",
+  );
+}
+
+/** 용어집의 한 절을 watch하는 context를 만든다. 문서를 고치면 watch notification이 생긴다. */
+async function watchGlossary(
+  flow: FlowShell,
+  folder: string,
+): Promise<{ glossary: string }> {
+  await registerTrackedProject(flow, { folder });
+  await untilDocuments(flow, ["glossary", "migration"], "문서 관측 대기");
+  await untilSearch(
+    flow,
+    "용어",
+    (page) => page.results.length > 0,
+    "목차 반영 대기",
+  );
+  const glossary = await documentTitled(flow, "glossary");
+  const outline = await mustCall(flow, {
+    kind: "worker",
+    resource: "outline",
+    method: "document",
+    body: {
+      reference: {
+        document: glossary.id,
+        version: glossary.latest_version,
+        section: null,
+      },
+    },
+  });
+  const section = (outline.entries as { key: string; title: string }[])
+    .find((row) => row.title === "용어")?.key ?? "";
+  assert(section, `용어 section이 없다: ${JSON.stringify(outline)}`);
+  await mustCall(flow, {
+    kind: "command",
+    resource: "contexts",
+    method: "create",
+    body: commandBody({
+      id: CONTEXT,
+      title: "Reading terms",
+      purpose: "자료에서 쓰는 말의 변화를 확인한다.",
+      items: [{
+        target: { kind: "document", document: glossary.id, section },
+        perspective: "watch",
+        reason: "뜻의 변화만 확인",
+      }],
+    }),
+  });
+  return { glossary: glossary.id };
+}
+
+Deno.test({
+  name:
+    "platform/notifications#R8 platform/notifications#R10 platform/notifications#R4 shell/desktop#R9 shell/wording#R2 flow catch-up-notifications: 창을 닫고 다시 연 뒤 다음 조회에도 같은 notification과 실패 이유 문구가 보인다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn(t) {
+    const folder = await Deno.realPath(await copyFixture("korean-search"));
+    try {
+      const flow = await openFlowShell({
+        start: "settings",
+        osNotifyFails: true,
+      });
+      const home = flow.home;
+      try {
+        let notificationId = "";
+        await t.step(
+          "platform/notifications#R8 platform/notifications#R10: 창이 열려 있는 동안 OS 표시가 실패한다",
+          async () => {
+            await enableOsNotifications(flow);
+            await watchGlossary(flow, folder);
+            await editExternally(folder, "glossary.md", FIRST_GLOSSARY);
+            const rows = await untilWatchNotifications(
+              flow,
+              1,
+              "watch notification 대기",
+            );
+            notificationId = rows[0].notification.id;
+            await untilFailed(flow, notificationId);
+          },
+        );
+
+        await t.step(
+          "platform/notifications#R8: 창을 닫아도 shell과 core는 그대로 있다",
+          async () => {
+            const closed = await flow.shell.mainEvaluate(
+              `(async () => {
+                for (const window of electron.BrowserWindow.getAllWindows()) window.close();
+                const deadline = Date.now() + 10000;
+                while (electron.BrowserWindow.getAllWindows().length > 0) {
+                  if (Date.now() > deadline) return -1;
+                  await new Promise((resolve) => setTimeout(resolve, 100));
+                }
+                return 0;
+              })()`,
+            );
+            assertEquals(closed, 0, "창이 닫히지 않았다");
+            assert(
+              processAliveNow(flow.shell.pid),
+              "창을 닫았는데 shell main이 끝났다",
+            );
+          },
+        );
+
+        await t.step(
+          "platform/notifications#R4 platform/notifications#R8 platform/notifications#R10 shell/desktop#R9 shell/wording#R2: 창을 다시 열면 같은 notification과 실패 이유가 보이고 새 notification이나 run은 없다",
+          async () => {
+            await openSecondWindow(flow.home);
+            const page = await flow.shell.connect("//desktop/");
+            const screen = pageHelpers(page);
+            await screen.until(
+              `document.querySelector("[data-space]") !== null && document.querySelector("[data-connection]") === null`,
+              "다시 연 창이 core 준비 상태가 되지 않았다",
+            );
+            // 창만 닫혔으니 core 기록은 그대로다: 같은 notification과 안전한 실패 이유.
+            await screen.until(
+              `document.querySelector('[data-screen="things-to-confirm"]') !== null`,
+              "things-to-confirm 입구가 없다",
+            );
+            await screen.click('[data-screen="things-to-confirm"]');
+            await screen.mouseClickText("[role=tab]", "Notifications");
+            await screen.until(
+              `document.querySelector("[data-notification='${notificationId}'][data-unread] [data-os-failed='show_failed']") !== null`,
+              "다시 연 창의 notification 줄에 OS 실패 이유가 없다",
+            );
+            const row = String(
+              await page.evaluate(
+                `document.querySelector("[data-notification='${notificationId}']")?.textContent ?? ""`,
+              ),
+            );
+            assert(row.includes(FOCUS_TITLE), row);
+            assert(row.includes(FAILURE_PHRASE), row);
+            assert(!showsInternalName(row), row);
+            const listed = await screen.read("notifications", "list", {});
+            assertEquals(listed.notifications.length, 1);
+            assertEquals(
+              listed.notifications[0].delivery?.state,
+              "failed",
+            );
+            assertEquals(
+              listed.notifications[0].delivery?.reason,
+              "show_failed",
+            );
+            assertEquals(
+              (await screen.read("runs", "list", {})).runs.length,
+              0,
+            );
+            await delay(2_000);
+            assertEquals(
+              (await screen.read("notifications", "list", {})).notifications
+                .length,
+              1,
+            );
+          },
+        );
+      } finally {
+        try {
+          await flow.close();
+        } catch {
+          // 이미 닫혔다.
+        }
+        await removeHome(home);
+      }
+    } finally {
+      await Deno.remove(folder, { recursive: true });
+    }
+  },
+});
+
+function processAliveNow(pid: number): boolean {
+  try {
+    return Deno.statSync(`/proc/${pid}`).isDirectory;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 같은 데이터 root로 shell을 한 번 더 시작한다. 두 번째 시작은 single instance lock에 막혀
+ * 끝나고, 이미 떠 있는 main에 새 기본 창을 요청할 뿐이다(shell/desktop#R13).
+ */
+async function openSecondWindow(home: string): Promise<void> {
+  const second = new Deno.Command(
+    `${repoRoot}/apps/shell/main/node_modules/electron/dist/electron`,
+    {
+      args: [`${repoRoot}/apps/shell/main/dist/main.cjs`, "--home", home],
+      env: {
+        ...Deno.env.toObject(),
+        LOPHN_HOME: home,
+        LOPHN_SHELL_HEADLESS: "1",
+      },
+      stdout: "null",
+      stderr: "null",
+    },
+  );
+  const child = second.spawn();
+  const timer = setTimeout(() => {
+    try {
+      child.kill("SIGKILL");
+    } catch {
+      // 이미 끝났다.
+    }
+  }, 30_000);
+  try {
+    await child.status;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** FlowShell이 아닌 CDP page 하나(다시 연 창)에 쓰는 조작. */
+function pageHelpers(page: PageSession) {
+  const until = async (expression: string, what: string): Promise<void> => {
+    const deadline = Date.now() + READY_TIMEOUT_MS;
+    let last: unknown;
+    while (Date.now() < deadline) {
+      try {
+        last = await page.evaluate(expression);
+      } catch (error) {
+        last = String(error);
+      }
+      if (last) return;
+      await delay(200);
+    }
+    throw new Error(`${what}: ${JSON.stringify(last)}`);
+  };
+  const click = async (selector: string): Promise<void> => {
+    const clicked = await page.evaluate(
+      `(() => { const el = document.querySelector(${
+        JSON.stringify(selector)
+      }); if (!el) return false; el.click(); return true; })()`,
+    );
+    assertEquals(clicked, true, `누를 요소가 없다: ${selector}`);
+  };
+  const mouseClickText = async (
+    selector: string,
+    text: string,
+  ): Promise<void> => {
+    const target = await page.evaluate(`(() => {
+      const el = [...document.querySelectorAll(${JSON.stringify(selector)})]
+        .find((item) => item.textContent?.trim() === ${JSON.stringify(text)});
+      if (!el) return null;
+      el.scrollIntoView({ block: "center", inline: "center" });
+      const rect = el.getBoundingClientRect();
+      return JSON.stringify({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+    })()`);
+    assert(typeof target === "string", `글이 ${text}인 요소가 없다`);
+    const point = JSON.parse(target) as { x: number; y: number };
+    const base = { x: point.x, y: point.y, button: "left", clickCount: 1 };
+    await page.command("Input.dispatchMouseEvent", {
+      ...base,
+      type: "mouseMoved",
+      button: "none",
+    });
+    await page.command("Input.dispatchMouseEvent", {
+      ...base,
+      type: "mousePressed",
+    });
+    await page.command("Input.dispatchMouseEvent", {
+      ...base,
+      type: "mouseReleased",
+    });
+  };
+  // 사람 token의 read를 이 창의 core 통로로 부른다.
+  const read = async (
+    resource: string,
+    method: string,
+    body: unknown,
+  ): Promise<{ notifications: Listed[]; runs: unknown[] }> => {
+    const reply = JSON.parse(String(
+      await page.evaluate(
+        `window.lophnCore.call(${
+          JSON.stringify({ kind: "read", resource, method, body })
+        }).then((reply) => JSON.stringify(reply))`,
+      ),
+    )) as { ok: boolean; value: never };
+    assert(reply.ok, JSON.stringify(reply));
+    return reply.value;
+  };
+  return { until, click, mouseClickText, read };
+}

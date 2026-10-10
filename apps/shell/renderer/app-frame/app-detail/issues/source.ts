@@ -39,6 +39,16 @@ export interface IssueTest {
   readonly endedAt: string | null;
 }
 
+export type IssueRecordedState = IssueTestState | "not_run";
+
+/** 지금 값으로 접지 않은 결과. 문구는 problems가 정한 값이다. */
+export interface IssueRecorded {
+  readonly kind: "reproduction" | "app_test" | "test_command";
+  readonly label: string;
+  readonly state: IssueRecordedState;
+  readonly endedAt: string | null;
+}
+
 export interface IssueClosed {
   readonly reason: IssueClosure;
   readonly label: string;
@@ -82,6 +92,10 @@ export interface IssueView {
       readonly label: string;
       readonly items: readonly IssueTest[];
     };
+    /** 실제 통과·실패·판정 불가·미실행을 접지 않은 목록. 없으면 지금 값만 보인다. */
+    readonly recorded?: readonly IssueRecorded[];
+    /** 운영에 적용되지 않아 열린 채로 남는 한 문장. */
+    readonly remaining?: string;
   };
   readonly closed: IssueClosed | null;
   /** 결정 선택지가 기댈 사실이 있는지(결정은 main이 독립 read로 다시 고정한다). */

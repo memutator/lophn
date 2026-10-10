@@ -397,12 +397,18 @@ function VersionFacts(
         <dt>{t("app-detail.label.fact-test")}</dt>
         <dd data-fact="test">
           {tests.loaded.state === "ready"
-            ? tests.loaded.value.map((result) => (
-              <span key={result.id} data-test-result={result.result}>
-                {testResultText(result.result)}
-                {" "}
-              </span>
-            ))
+            ? tests.loaded.value.length === 0
+              ? (
+                <span data-test-result="not_run">
+                  {t("app-detail.label.not-yet")}
+                </span>
+              )
+              : tests.loaded.value.map((result) => (
+                <span key={result.id} data-test-result={result.result}>
+                  {testResultText(result.result)}
+                  {" "}
+                </span>
+              ))
             : tests.loaded.state === "failed"
             ? t("app-detail.label.test-unavailable")
             : null}

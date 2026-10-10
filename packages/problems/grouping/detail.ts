@@ -2,6 +2,7 @@ import type { Closure } from "../../contracts/problems/mod.ts";
 import type {
   ProblemDetail,
   ProblemTestFact,
+  ProblemTestRecord,
   RepairState,
   RepairTicketFact,
   TestState,
@@ -20,6 +21,10 @@ export type DetailFacts = {
   fixRecorded: boolean;
   // undefined는 읽지 못함이다.
   tests: ProblemTestFact[] | undefined;
+  // 지금 값으로 접지 않은 결과. undefined는 읽지 못함이라 줄을 만들지 않는다.
+  recorded?: ProblemTestRecord[];
+  // false면 고친 release가 활성이 아니다. undefined는 그 사실을 말하지 않는다.
+  fixApplied?: boolean;
   // 선언한 fixer가 user인 문제의 사람 조치다.
   nextAction: string | null;
   // 지금 닫힘을 남긴 ProblemClosed의 시각이다. 사람 결정 근거의 시각으로 보인다.
@@ -60,6 +65,14 @@ const TEST_STATE_LABEL: Record<TestState, string> = {
   fail: "failed",
   unconfirmed: "finished without a confirmed result",
 };
+
+const RECORDED_LABEL: Record<ProblemTestRecord["state"], string> = {
+  ...TEST_STATE_LABEL,
+  not_run: "has not run",
+};
+
+// 운영에 적용되지 않은 수리다. app test 통과나 준비만으로는 닫지 않는다(closing#R2, R4).
+const NOT_IN_USE = "The fixed version is not in use, so this stays open.";
 
 const TESTS_LABEL: Record<TestSummaryState, string> = {
   unknown: "Test results could not be read.",
@@ -185,6 +198,24 @@ function testsOf(
     items.some((item) => item.state === state)
   );
   return { ...summary(worst ?? "pass"), items };
+}
+
+function recordedOf(
+  records: DetailFacts["recorded"],
+): ProblemDetail["result"]["recorded"] {
+  if (records === undefined || records.length === 0) return undefined;
+  return records.map((fact) => ({
+    kind: fact.kind,
+    state: fact.state,
+    label: `${KIND_LABEL[fact.kind]} ${RECORDED_LABEL[fact.state]}`,
+    ended_at: fact.ended_at,
+  }));
+}
+
+function remainingOf(facts: DetailFacts): string | undefined {
+  if (facts.status === "closed" || !facts.fixRecorded) return undefined;
+  if (facts.fixApplied !== false) return undefined;
+  return NOT_IN_USE;
 }
 
 const RELEASE_TEXT: Record<Closure["reason"], string> = {
@@ -315,6 +346,8 @@ export function projectProblemDetail(facts: DetailFacts): ProblemDetail {
     facts.nextAction,
   );
   const tests = testsOf(facts.tests);
+  const recorded = recordedOf(facts.recorded);
+  const remaining = remainingOf(facts);
   const reported = facts.fixRecorded ||
     (facts.ticket !== undefined && facts.ticket !== null &&
       (facts.ticket.state === "reported" ||
@@ -333,6 +366,8 @@ export function projectProblemDetail(facts: DetailFacts): ProblemDetail {
         ? "A fix was reported. This is the agent's word, not a confirmation."
         : "No fix has been reported.",
       tests,
+      ...(recorded === undefined ? {} : { recorded }),
+      ...(remaining === undefined ? {} : { remaining }),
     },
     closed: facts.status === "closed" && facts.closure !== null
       ? closedOf(facts.closure, tests, facts.closedAt ?? null)

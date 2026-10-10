@@ -5,6 +5,7 @@
 // HOME·LOPHN_HOME은 임시 폴더이고, shell은 LOPHN_SHELL_HEADLESS=1(openFlowShell)로만 띄운다.
 // 2단계 테스트는 이 파일의 두 번째 Deno.test다. 1단계 본문은 바꾸지 않는다.
 // 3단계 테스트는 이 파일의 세 번째 Deno.test다. 1·2단계 본문은 바꾸지 않는다.
+// 4단계 테스트는 이 파일의 네 번째 Deno.test다. 1–3단계 본문은 바꾸지 않는다.
 //
 // 화면이 가진 것: 진행·실제 담당·필요한 사람 조치(없으면 그 줄을 만들지 않는다), 고쳤다는 주장과
 // 실제 테스트 상태. 당시 release·summary 본문·작성자는 화면 글에 없고 list-fixes와 그 event·
@@ -26,7 +27,11 @@ import {
   canonicalHash,
   canonicalJson,
 } from "../../packages/problems/tests/canonical.ts";
-import { reproductionFrozen } from "../../packages/problems/tests/mod.ts";
+import {
+  APP_TEST_TIMEOUT_MS,
+  deriveAppTest,
+  reproductionFrozen,
+} from "../../packages/problems/tests/mod.ts";
 import { SECTION_KINDS } from "../../packages/contracts/coding-agent/mod.ts";
 import { objectPathFor } from "../../packages/platform/blob-store/model.ts";
 import {
@@ -79,6 +84,8 @@ const BUNDLE_BEFORE = "a".repeat(64);
 const BUNDLE_AFTER = "b".repeat(64);
 const BUNDLE_NOW = "c".repeat(64);
 const REL_PAST = "rel_01arz3ndektsv4rrffq69g5fa4";
+const REL_STILL = "rel_01arz3ndektsv4rrffq69g5fa5";
+const REL_OTHER = "rel_01arz3ndektsv4rrffq69g5fa6";
 const BUNDLE_PAST = "e".repeat(64);
 const PAST_SUMMARY = [
   "변경: 예전 leaf",
@@ -1474,7 +1481,7 @@ const STAGE3_TIMEOUT_MS = 120_000;
 
 async function sealBoard(
   made: MadeFixture,
-  mode: "A" | "B",
+  mode: "A" | "B" | "C" | "D" | "E",
   app: string,
   dataRoot: string,
 ): Promise<{ hash: string; path: string }> {
@@ -2035,6 +2042,379 @@ Deno.test({
         );
         assertEquals(item?.state, "pass");
         assertEquals(item?.ended_at, latestEnd);
+      } finally {
+        await flow.close();
+      }
+    } finally {
+      await made?.dispose();
+      if (opened) {
+        await widen(opened.world.harness.dataRoot);
+        await opened.world.close();
+      }
+      if (home !== undefined) {
+        await Deno.remove(home, { recursive: true });
+      }
+    }
+  },
+});
+
+const SCREEN_RESULT: Record<string, string> = {
+  pass: "pass",
+  fail: "fail",
+  inconclusive: "unconfirmed",
+};
+
+Deno.test({
+  name:
+    "problems/tests#R4 problems/tests#R5 problems/repairs#R2 apps/releases#R5 problems/closing#R2 problems/closing#R4 flow verify-app-repair 4: 통과·실패·판정 불가·미실행과 남은 확인을 구별하고 적용하지 않은 수리를 닫지 않는다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn() {
+    let made: MadeFixture | undefined;
+    let home: string | undefined;
+    let opened: Opened | undefined;
+    let beforeHash = "";
+    try {
+      opened = await openLedger({
+        beforeBundle: async (app, dataRoot) => {
+          made = await madeFixture("broken", await installedHome([]));
+          const sealed = await sealBoard(made, "A", app, dataRoot);
+          beforeHash = sealed.hash;
+          return sealed.hash;
+        },
+      });
+      const ticket = await readyTicket(opened);
+      const stored = await storeReproduction(opened.world);
+      assert(made, "봉인할 source가 없다");
+      const fixed = await sealBoard(
+        made,
+        "B",
+        opened.world.app,
+        opened.world.harness.dataRoot,
+      );
+      const still = await sealBoard(
+        made,
+        "D",
+        opened.world.app,
+        opened.world.harness.dataRoot,
+      );
+      const other = await sealBoard(
+        made,
+        "E",
+        opened.world.app,
+        opened.world.harness.dataRoot,
+      );
+      assertNotEquals(fixed.hash, beforeHash);
+      assertNotEquals(still.hash, fixed.hash);
+      assertNotEquals(other.hash, fixed.hash);
+      insertRelease(opened.world, {
+        id: REL_STILL,
+        number: 4,
+        bundle: still.hash,
+        source: null,
+      });
+      insertRelease(opened.world, {
+        id: REL_OTHER,
+        number: 5,
+        bundle: other.hash,
+        source: null,
+      });
+      await made.dispose();
+      made = undefined;
+
+      const script = await runStageThree(opened, ticket, {
+        test: stored.testHash,
+        after: fixed.hash,
+      });
+      assertEquals(script.halted_before, "release_prepare");
+      assertEquals(step(script, "record_fix").isError, false);
+      const root = opened.world.harness.dataRoot;
+      const passed = await waitRequestEnd(root, "repro-stage3", 660_000);
+      assertEquals(
+        passed.phase,
+        "result_ref",
+        `${passed.phase} ${passed.reason}`,
+      );
+      const issued = await opened.world.harness.credential({
+        actor: "user",
+        principal: "user-repair-stage4",
+        scope: {
+          operations: ["RequestTest"],
+          targets: { app: opened.world.app },
+        },
+        conditions: { app: opened.world.app },
+      });
+      assert(issued.ok, issued.ok ? "" : issued.error.message);
+      const token = issued.value.token;
+      const reproduction = (
+        key: string,
+        release: string,
+        bundle: string,
+      ) => ({
+        request_key: key,
+        kind: "reproduction",
+        app: opened!.world.app,
+        target: { bundle_hash: bundle, release },
+        problem: opened!.problem,
+        basis_seq: "1",
+        reports: [rpt(1)],
+        before: REL_BEFORE,
+        after: release,
+        ticket: null,
+        test: stored.testHash,
+        timeout_ms: STAGE3_TIMEOUT_MS,
+      });
+      const send = async (input: Record<string, unknown>) => {
+        const sent = await post(
+          opened!.world,
+          "problems/request-test",
+          token,
+          envelope(input),
+        );
+        assertEquals(sent.status, 200, JSON.stringify(sent.body));
+        assertEquals(sent.body["accepted"], true, JSON.stringify(sent.body));
+      };
+      await send(reproduction("repro-fail", REL_STILL, still.hash));
+      const failed = await waitRequestEnd(root, "repro-fail", 660_000);
+      assertEquals(
+        failed.phase,
+        "result_ref",
+        `${failed.phase} ${failed.reason}`,
+      );
+      await send(reproduction("repro-other", REL_OTHER, other.hash));
+      const unclear = await waitRequestEnd(root, "repro-other", 660_000);
+      assertEquals(
+        unclear.phase,
+        "result_ref",
+        `${unclear.phase} ${unclear.reason}`,
+      );
+      const derived = await deriveAppTest(fixed.path, fixed.hash);
+      assert(derived.ok, derived.ok ? "" : derived.reason);
+      await send({
+        request_key: "app-stage4",
+        kind: "app_test",
+        app: opened.world.app,
+        target: { bundle_hash: fixed.hash, release: null },
+        problem: null,
+        basis_seq: null,
+        reports: [],
+        before: null,
+        after: null,
+        ticket: null,
+        test: derived.value.test_hash,
+        timeout_ms: APP_TEST_TIMEOUT_MS,
+      });
+      const appRun = await waitRequestEnd(root, "app-stage4", 600_000);
+      await send({
+        request_key: "app-unrun",
+        kind: "app_test",
+        app: opened.world.app,
+        target: { bundle_hash: fixed.hash, release: null },
+        problem: null,
+        basis_seq: null,
+        reports: [],
+        before: null,
+        after: null,
+        ticket: null,
+        test: "f".repeat(64),
+        timeout_ms: APP_TEST_TIMEOUT_MS,
+      });
+      const unrun = await waitRequestEnd(root, "app-unrun", 60_000);
+      assertEquals(unrun.phase, "preparation_failed", unrun.reason);
+      assertEquals(unrun.result_ref, null);
+
+      const db = openDb(`${root}/lophn.db`, true);
+      let results: { key: string; result: string }[];
+      let active = 0;
+      let problemStatus = "";
+      let passEnded = "";
+      try {
+        results = db.prepare(
+          `select request_key as key, result from verifications
+           where request_key in ('repro-stage3', 'repro-fail', 'repro-other', 'app-stage4')`,
+        ).all() as { key: string; result: string }[];
+        active = Number(
+          (db.prepare(
+            `select count(*) as n from releases where app = ? and status = 'active'`,
+          ).get(opened.world.app) as { n: number }).n,
+        );
+        problemStatus = (db.prepare(
+          `select status from problems where id = ?`,
+        ).get(opened.problem) as { status: string }).status;
+        const evidence = db.prepare(
+          `select evidence from test_evidence where request_key = ?`,
+        ).get("repro-stage3") as { evidence: string };
+        const observed = JSON.parse(evidence.evidence) as {
+          execution_evidence: { ended_at: string }[];
+        };
+        passEnded = observed.execution_evidence.map((item) => item.ended_at)
+          .sort()
+          .at(-1)!;
+      } finally {
+        db.close();
+      }
+      const resultOf = (key: string) =>
+        results.find((row) => row.key === key)?.result;
+      assertEquals(resultOf("repro-stage3"), "pass");
+      assertEquals(resultOf("repro-fail"), "fail");
+      assertEquals(resultOf("repro-other"), "inconclusive");
+      const appState = appRun.phase === "result_ref"
+        ? SCREEN_RESULT[resultOf("app-stage4") ?? ""]
+        : appRun.phase === "preparation_failed"
+        ? "not_run"
+        : "";
+      assert(
+        appState === "pass" || appState === "fail" ||
+          appState === "unconfirmed" || appState === "not_run",
+        `${appRun.phase} ${appRun.reason} ${resultOf("app-stage4") ?? ""}`,
+      );
+      assertEquals(active, 0);
+      assertNotEquals(problemStatus, "closed");
+
+      home = await copyHome(root);
+      await widen(root);
+      await opened.world.close();
+      const flow = await openFlowShell({
+        home,
+        start: `app:${opened.world.app}`,
+      });
+      try {
+        await waitFixing(flow, opened.problem);
+        await flow.until(
+          `document.querySelector('[data-app-bar="app-details"]') !== null`,
+          "앱 막대",
+        );
+        await flow.click('[data-app-bar="app-details"]');
+        await flow.until(
+          `document.querySelector("[data-no-current]") !== null`,
+          "운영 적용 없음",
+        );
+        assert(
+          (await screenText(flow, "[data-no-current]")).includes(
+            "No version is in use yet",
+          ),
+        );
+        assertEquals(
+          await flow.evaluate(
+            `document.querySelector("[data-status='active']") !== null`,
+          ),
+          false,
+        );
+        await flow.until(
+          `document.querySelector("[data-version-expand]") !== null`,
+          "Version 목록",
+        );
+        await flow.click("[data-version-expand]");
+        await flow.until(
+          `document.querySelector("[data-fact='applied']")?.textContent?.includes("Not in use") && document.querySelector("[data-test-result='not_run']")?.textContent?.includes("Not yet")`,
+          "준비만 된 Version",
+        );
+        await openIssue(flow);
+        const impact = await mustCall(flow, {
+          kind: "read",
+          resource: "problems",
+          method: "get",
+          body: { problem: opened.problem },
+        });
+        const symptom = String(impact.text);
+        const openedRow = await flow.evaluate(`(() => {
+          const button = [...document.querySelectorAll("[data-issue-open]")]
+            .find((item) => item.textContent === ${JSON.stringify(symptom)});
+          if (!button) return false;
+          button.click();
+          return true;
+        })()`);
+        assertEquals(openedRow, true, "문제 행이 없다");
+        await flow.until(
+          `document.querySelector('[data-issue-detail="fixing"]') !== null`,
+          "Issues 상세",
+        );
+        const recorded = JSON.parse(String(
+          await flow.evaluate(
+            `JSON.stringify([...document.querySelectorAll("[data-recorded-item]")].map((item) => ({
+            kind: item.getAttribute("data-recorded-kind"),
+            state: item.getAttribute("data-recorded-item"),
+            ended: item.querySelector("time")?.getAttribute("datetime") ?? null,
+            text: item.textContent ?? ""
+          })))`,
+          ),
+        )) as {
+          kind: string;
+          state: string;
+          ended: string | null;
+          text: string;
+        }[];
+        const has = (kind: string, state: string) =>
+          recorded.some((item) => item.kind === kind && item.state === state);
+        assert(has("reproduction", "pass"), JSON.stringify(recorded));
+        assert(has("reproduction", "fail"), JSON.stringify(recorded));
+        assert(has("reproduction", "unconfirmed"), JSON.stringify(recorded));
+        assert(has("app_test", "not_run"), JSON.stringify(recorded));
+        assert(has("app_test", appState), JSON.stringify(recorded));
+        const passLine = recorded.find((item) =>
+          item.kind === "reproduction" && item.state === "pass"
+        );
+        assertEquals(passLine?.ended, passEnded);
+        const remaining = await screenText(flow, "[data-check='remaining']");
+        assert(remaining.includes("not in use"), remaining);
+        assert(remaining.includes("stays open"), remaining);
+        assertEquals(
+          await flow.evaluate(
+            `document.querySelector("[data-check='human']")?.getAttribute("data-checked")`,
+          ),
+          "false",
+        );
+        assertEquals(
+          await flow.evaluate(
+            `document.querySelector("[data-issue-detail]")?.getAttribute("data-issue-detail")`,
+          ),
+          "fixing",
+        );
+        const visible = await screenText(flow, "[data-issue-detail]");
+        for (
+          const hidden of [
+            beforeHash,
+            fixed.hash,
+            still.hash,
+            other.hash,
+            stored.testHash,
+            derived.value.test_hash,
+            opened.coding.token,
+            token,
+            PASS_REASON,
+            STAGE3_SUMMARY,
+            "f".repeat(64),
+          ]
+        ) {
+          assert(!visible.includes(hidden), hidden.slice(0, 24));
+        }
+        const problem = await mustCall(flow, {
+          kind: "read",
+          resource: "problems",
+          method: "get",
+          body: { problem: opened.problem },
+        });
+        assertNotEquals(
+          (problem.problem as { status: string }).status,
+          "closed",
+        );
+        const detail = (problem.detail as {
+          result: {
+            remaining?: string;
+            recorded?: { kind: string; state: string }[];
+          };
+        }).result;
+        assert(
+          detail.remaining?.includes("not in use"),
+          detail.remaining ?? "",
+        );
+        assert(
+          detail.recorded?.some((item) =>
+            item.kind === "app_test" && item.state === appState
+          ),
+          JSON.stringify(detail.recorded),
+        );
       } finally {
         await flow.close();
       }

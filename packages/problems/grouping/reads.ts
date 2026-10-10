@@ -8,6 +8,7 @@ import type {
 import {
   type ProblemTestFact,
   ProblemTestPort,
+  type ProblemTestRecord,
   type ProblemWordingFact,
   ProblemWordingPort,
   ProblemWorkPort,
@@ -24,6 +25,7 @@ import {
   type ProblemSummary,
 } from "../../contracts/problems/mod.ts";
 import { type DecisionFacts, projectProblemDetail } from "./detail.ts";
+import { problemTestHistory } from "../tests/mod.ts";
 import { offersFixedConfirmation } from "../closing/mod.ts";
 import { reservedProblemCodes } from "../problem-codes/mod.ts";
 import {
@@ -276,6 +278,38 @@ function testFacts(
   return readFact(() => snapshot.port(ProblemTestPort)(snapshot.sql, problem));
 }
 
+function testHistory(
+  snapshot: ReadSnapshot,
+  problem: string,
+): ProblemTestRecord[] | undefined {
+  return readFact(() => problemTestHistory(snapshot.sql, problem));
+}
+
+// 마지막 고친 기록의 after release가 활성인지. 기록이 없거나 표를 읽지 못하면
+// undefined라 적용된 것처럼 말하지 않는다. 행이 없거나 활성이 아니면 false다.
+function fixAppliedOf(
+  snapshot: ReadSnapshot,
+  problem: string,
+): boolean | undefined {
+  try {
+    const row = snapshot.sql.get(
+      `select json_extract(payload, '$.after') as after from events
+       where type = 'ProblemFixRecorded' and subject = ?
+       order by seq desc limit 1`,
+      [problem],
+    );
+    if (row === undefined || row["after"] == null) return undefined;
+    const release = snapshot.sql.get(
+      `select status from releases where id = ?`,
+      [String(row["after"])],
+    );
+    if (release === undefined) return false;
+    return String(release["status"]) === "active";
+  } catch {
+    return undefined;
+  }
+}
+
 // 지금 닫힘을 남긴 마지막 ProblemClosed의 시각이다(T20·T21의 실제 닫힘).
 function closedAtOf(snapshot: ReadSnapshot, problem: string): string | null {
   const row = snapshot.sql.get(
@@ -418,6 +452,8 @@ export const getProblemRead = {
       ticket: ticketFact(snapshot, input.problem, problem.data.work),
       fixRecorded,
       tests: testFacts(snapshot, input.problem),
+      recorded: testHistory(snapshot, input.problem),
+      fixApplied: fixAppliedOf(snapshot, input.problem),
       nextAction: wording.value.next_action,
       closedAt: closedAtOf(snapshot, input.problem),
       decision: decisionFacts(snapshot, input.problem, String(row["app"])),

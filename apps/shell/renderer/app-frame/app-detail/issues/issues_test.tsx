@@ -22,6 +22,7 @@ import {
   PRB_FIXING,
   PRB_OPEN,
 } from "./testdata/fake-source.ts";
+import type { IssueView } from "./source.ts";
 
 // 안쪽 개념 이름과 원시 값은 기본 화면 글에 없다. report·claim·snapshot은 그 이름으로 보이지 않는다.
 const INTERNAL = [
@@ -179,6 +180,82 @@ Deno.test("flow verify-app-repair, problems/tests#R5: 고쳤다는 주장·실�
   assertStringIncludes(
     textOf(find(detail, "[data-issue-now]")),
     "Two checks haven't run yet.",
+  );
+  noInternal(view.container);
+});
+
+Deno.test("flow verify-app-repair 4, problems/tests#R4 problems/tests#R5 problems/closing#R2: 통과·실패·판정 불가·미실행과 남은 확인이 서로 다른 줄이고 적용하지 않은 수리는 닫히지 않는다", async () => {
+  const fixing: IssueView = {
+    ...FIXING_ISSUE,
+    result: {
+      ...FIXING_ISSUE.result,
+      recorded: [
+        {
+          kind: "reproduction",
+          label: "Reproduction test passed",
+          state: "pass",
+          endedAt: "2026-10-07T08:00:00.000Z",
+        },
+        {
+          kind: "reproduction",
+          label: "Reproduction test failed",
+          state: "fail",
+          endedAt: "2026-10-07T08:01:00.000Z",
+        },
+        {
+          kind: "reproduction",
+          label: "Reproduction test finished without a confirmed result",
+          state: "unconfirmed",
+          endedAt: null,
+        },
+        {
+          kind: "app_test",
+          label: "App test has not run",
+          state: "not_run",
+          endedAt: null,
+        },
+      ],
+      remaining: "The fixed version is not in use, so this stays open.",
+    },
+  };
+  const { view } = await open({
+    views: {
+      [PRB_OPEN]: OPEN_ISSUE,
+      [PRB_FIXING]: fixing,
+      [PRB_CLOSED]: closedIssue("verified"),
+    },
+  });
+  using _ = view;
+  await openIssue(view, PRB_FIXING);
+  const detail = find(view.container, "[data-issue-detail]");
+  assertEquals(detail.getAttribute("data-issue-detail"), "fixing");
+  assertEquals(detail.querySelector("[data-issue-closed]"), null);
+  const recorded = [
+    ...detail.querySelectorAll("[data-recorded-item]"),
+  ];
+  assertEquals(
+    recorded.map((item) => item.getAttribute("data-recorded-item")),
+    ["pass", "fail", "unconfirmed", "not_run"],
+  );
+  assertEquals(
+    new Set(recorded.map((item) => item.textContent)).size,
+    4,
+  );
+  assertEquals(
+    recorded[0]?.querySelector("time")?.getAttribute("datetime"),
+    "2026-10-07T08:00:00.000Z",
+  );
+  assertEquals(recorded[3]?.querySelector("time"), null);
+  const remaining = find(detail, "[data-check='remaining']");
+  assertStringIncludes(textOf(remaining), "not in use");
+  assertStringIncludes(textOf(remaining), "stays open");
+  assertEquals(
+    find(detail, "[data-check='human']").getAttribute("data-checked"),
+    "false",
+  );
+  assertEquals(
+    find(detail, "[data-check='claim']").getAttribute("data-claimed"),
+    "true",
   );
   noInternal(view.container);
 });

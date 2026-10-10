@@ -1,4 +1,4 @@
-// flow update-lophn 1·2·3·4단계(docs/flows/update-lophn.md). 실제 ~/.lophn은 열지 않는다.
+// flow update-lophn 1·2·3·4·5·6단계(docs/flows/update-lophn.md). 실제 ~/.lophn은 열지 않는다.
 // 1·2단계는 실제 shell(headless)과 core를 임시 LOPHN_HOME으로 띄운다.
 // 1단계: settings에서 이 OS의 설치 패키지를 확인하고 사람이 고른 로컬 metadata로 수동 update를
 // 고른다. 자동 다운로드·자동 설치·사용 중 재시작은 없고, 검증하지 않은 배포를 사용 가능한
@@ -11,12 +11,33 @@
 // 4단계: 화면 없이 제품 core만 다시 띄운다. 설정·무결성·기존 고정 판과 참조·실행 자격·
 // 중단 작업을 확인한다. 모르는 schema나 손상 원본은 자동 초기화하거나 downgrade하지 않고
 // 보존한다. 검증 backup·단계 rollback·이력 hash 불일치는 3단계가 본다.
-// 5–8단계는 보지 않는다.
+// 5단계: 화면 없이 제품 core(apps 팀)를 temp home으로 띄운다. update가 새 SDK version만 더하고,
+// 기존 앱의 release가 고정한 SDK 의존과 bundle 사본은 그대로이며 앱 activation 결정은 없다.
+// 6단계: 화면 없이 제품 core(lophn-agent 팀)를 temp home으로 띄운다. update가 agent runtime을
+// 중단 지점에 멈추고 같은 데이터 root로 core를 다시 띄운 뒤, 새 runtime이 끊긴 일을 저장된
+// 경계에서 복구한다. 완전 응답·확정 결과와 결과를 모르는 쓰기는 반복하지 않는다. provider는
+// fake provider다.
+// 7–8단계는 보지 않는다.
 import { assert, assertEquals, assertThrows } from "@std/assert";
 import { type ChildProcess, spawn } from "node:child_process";
 import { DatabaseSync } from "node:sqlite";
 
-import { sha256Hex } from "../../packages/base/mod.ts";
+import { err, ok, type Result, sha256Hex } from "../../packages/base/mod.ts";
+import { canonicalJson } from "../../packages/apps/blueprint/mod.ts";
+import type { Blueprint } from "../../packages/apps/blueprint/mod.ts";
+import {
+  bundleCopyPath,
+  sealBundle,
+} from "../../packages/apps/releases/mod.ts";
+import { installPackage } from "../../packages/apps/sdk/mod.ts";
+import { removeTree } from "../../packages/apps/sdk/testing/mod.ts";
+import { createLedgerRegistration as createAppsRegistration } from "../../apps/core/apps.ts";
+import { type Core, startCore } from "../../apps/core/core.ts";
+import {
+  APP,
+  RELEASE_ID,
+  seedLedger,
+} from "../../apps/core/testing/app-export-fixtures.ts";
 import {
   encodeFrame,
   FrameDecoder,
@@ -28,6 +49,16 @@ import { RECOVERY_STAMP } from "../../packages/platform/backup-and-migration/mod
 import { SECRET_SCHEMA_STEPS } from "../../packages/platform/secrets/mod.ts";
 import { SETTINGS_SCHEMA_STEPS } from "../../packages/platform/settings/mod.ts";
 import { coreLaunch } from "../../apps/shell/main/desktop/core/supervise.ts";
+import type { Script } from "../../tools/fake-provider/mod.ts";
+import type { ToolLookup } from "../../packages/lophn-agent/harness/waiting-and-recovery/mod.ts";
+import { decide as humanDecide } from "../../apps/core/testing/approvals-fixture.ts";
+import {
+  count,
+  inspect,
+  openRecoveryWorld,
+  type RecoveryWorld,
+  USER_TOKEN,
+} from "../../apps/core/testing/run-recovery-world.ts";
 import { e2eEnabled } from "../harness.ts";
 import {
   type FlowShell,
@@ -1468,5 +1499,875 @@ Deno.test({
       await halt();
       await Deno.remove(root, { recursive: true });
     }
+  },
+});
+
+// 5단계는 화면이 없다. 제품 core의 apps 팀(SDK catalog·release)을 temp home으로 띄운다.
+// 옛 lophn이 SDK 1.0.0을 설치하고 그 판을 고정한 앱의 active release가 있다. update한 lophn은
+// 새 SDK version만 더하고, 앱의 release·봉인 bundle·고정 SDK 사본·승인은 건드리지 않는다.
+const SDK_NAME = "@lophn/sample";
+const SDK_EXTRA = "@lophn/sample-extra";
+const SDK_OLD = 'export const sdkVersion = "1.0.0";\n';
+const SDK_NEW = 'export const sdkVersion = "1.1.0";\n';
+const SDK_CHANGED = 'export const sdkVersion = "1.0.0-changed";\n';
+const SDK_EXTRA_MOD = "export const extra = true;\n";
+const GUIDE_TEXT = (version: string) => `# ${SDK_NAME}\n\n${version}\n`;
+const APP_SDK_MODULE = "@lophn/sample/my-sdk";
+
+async function bootApps(home: string): Promise<Core> {
+  const started = await startCore({
+    lophnHome: home,
+    port: 0,
+    teams: [{ createLedgerRegistration: createAppsRegistration }],
+    teamModules: [new URL("../../apps/core/apps.ts", import.meta.url).href],
+    writerClock: "system",
+    testCredentials: true,
+  });
+  if (!started.ok) throw new Error(started.error.message);
+  return started.value;
+}
+
+async function acceptCredential(
+  core: Core,
+  actor: "machine" | "user",
+  principal: string,
+  ref: string,
+  operations: string[],
+  token: string,
+): Promise<void> {
+  assert(core.acceptTestCredential !== undefined);
+  const context = {
+    principal,
+    actor,
+    credential_ref: ref,
+    scope: { operations, targets: {} },
+    conditions: {},
+  };
+  const accepted = await core.acceptTestCredential(context, token);
+  assert(accepted.ok, accepted.ok ? "" : accepted.error.message);
+  const recorded = await core.record(context);
+  assert(recorded.ok, recorded.ok ? "" : recorded.error.message);
+}
+
+async function callCore(
+  core: Core,
+  token: string,
+  path: string,
+  body: unknown,
+): Promise<{ status: number; body: Record<string, unknown> }> {
+  const response = await fetch(`http://127.0.0.1:${core.port}${path}`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(20_000),
+  });
+  return {
+    status: response.status,
+    body: await response.json() as Record<string, unknown>,
+  };
+}
+
+// 설치 machine이 하는 일: 소스를 묶고 안내를 준비해 register_version을 부르고 읽기 전용 사본을 둔다.
+function installSdk(
+  core: Core,
+  machineToken: string,
+  home: string,
+  sourceRoot: string,
+  name: string,
+  kind: "component" | "capability",
+  version: string,
+) {
+  return installPackage(
+    name,
+    "update-lophn flow package",
+    kind,
+    version,
+    new TextEncoder().encode(GUIDE_TEXT(version)),
+    {
+      dataRoot: home,
+      sourceRoot,
+      prepareBlob: async (input) => {
+        const prepared = await core.prepareBlob(input);
+        return prepared.ok ? ok(prepared.value) : prepared;
+      },
+      registerVersion: async (input): Promise<Result<unknown>> => {
+        const registered = await callCore(
+          core,
+          machineToken,
+          "/v1/packages/register_version",
+          {
+            input,
+            idempotency_key: `update-lophn-5-${name}-${version}-${
+              input.bundle_hash.slice(0, 8)
+            }`,
+            compare: {},
+            prepared: [],
+          },
+        );
+        if (registered.status === 200) return ok(registered.body);
+        return err({
+          code: registered.status === 409 ? "conflict" : "invalid_input",
+          message: JSON.stringify(registered.body),
+        });
+      },
+    },
+  );
+}
+
+async function writeSdkSource(
+  root: string,
+  files: Record<string, string>,
+): Promise<void> {
+  for (const [name, text] of Object.entries(files)) {
+    await Deno.mkdir(`${root}/${name}`, { recursive: true });
+    await Deno.writeTextFile(`${root}/${name}/mod.ts`, text);
+  }
+}
+
+// 폴더 아래 모든 항목의 상대 경로, 권한, 내용 hash.
+async function treeFacts(root: string, prefix = ""): Promise<string[]> {
+  const found: string[] = [];
+  const entries: Deno.DirEntry[] = [];
+  for await (const entry of Deno.readDir(`${root}${prefix}`)) {
+    entries.push(entry);
+  }
+  entries.sort((a, b) => (a.name < b.name ? -1 : 1));
+  for (const entry of entries) {
+    const path = `${prefix}/${entry.name}`;
+    const stat = await Deno.stat(`${root}${path}`);
+    const mode = ((stat.mode ?? 0) & 0o777).toString(8);
+    if (entry.isDirectory) {
+      found.push(`${path}/ ${mode}`);
+      found.push(...await treeFacts(root, path));
+    } else {
+      found.push(
+        `${path} ${mode} ${await sha256Hex(
+          await Deno.readFile(`${root}${path}`),
+        )}`,
+      );
+    }
+  }
+  return found;
+}
+
+function dumpTable(home: string, table: string): string {
+  const db = new DatabaseSync(`${home}/lophn.db`, { readOnly: true });
+  try {
+    return JSON.stringify(
+      db.prepare(`select * from ${table} order by rowid`).all(),
+    );
+  } finally {
+    db.close();
+  }
+}
+
+Deno.test({
+  name:
+    "apps/sdk#R8 apps/sdk#R10 apps/sdk#R11 apps/releases#R8 flow update-lophn 5: update는 새 SDK version만 더하고 기존 앱의 고정 SDK와 release는 그대로이며 activation 결정을 대신하지 않는다",
+  ignore: Deno.env.get("LOPHN_E2E") !== "1",
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn() {
+    const root = await Deno.realPath(
+      await Deno.makeTempDir({ prefix: "lophn-e2e-update-sdk-" }),
+    );
+    const home = `${root}/data`;
+    await Deno.mkdir(home, { mode: 0o700 });
+    await Deno.chmod(home, 0o700);
+    const oldSource = `${root}/source-old`;
+    const newSource = `${root}/source-new`;
+    const changedSource = `${root}/source-changed`;
+    await writeSdkSource(oldSource, { sample: SDK_OLD });
+    await writeSdkSource(newSource, {
+      sample: SDK_NEW,
+      "sample-extra": SDK_EXTRA_MOD,
+    });
+    await writeSdkSource(changedSource, { sample: SDK_CHANGED });
+    let core: Core | undefined;
+    try {
+      // 옛 lophn: SDK 1.0.0을 설치하고 그 판을 고정한 앱의 active release를 둔다.
+      core = await bootApps(home);
+      const oldMachine = "m".repeat(43);
+      await acceptCredential(
+        core,
+        "machine",
+        "machine:install",
+        "cred_update5_old_m",
+        ["package.register_version"],
+        oldMachine,
+      );
+      const first = await installSdk(
+        core,
+        oldMachine,
+        home,
+        oldSource,
+        SDK_NAME,
+        "component",
+        "1.0.0",
+      );
+      assert(first.ok, first.ok ? "" : first.error.message);
+      const oldBundleHash = first.value.bundle_hash;
+      const oldCopy = `${home}/sdk/sample/1.0.0`;
+      assertEquals(await Deno.readTextFile(`${oldCopy}/mod.ts`), SDK_OLD);
+
+      const blueprint: Blueprint = {
+        name: "Calendar",
+        description: "Keeps one calendar",
+        screens: [{
+          key: "home",
+          label: "Home",
+          path: "/home",
+          sizes: ["full"],
+        }],
+        commands: [{
+          key: "list",
+          label: "list",
+          description: "list purpose",
+          effect: "read",
+          confirm: false,
+          input: null,
+          revert: { supported: false },
+        }],
+        automatic_tasks: [],
+        permissions: [],
+        problem_codes: [],
+        documents: [],
+        agent_context: [],
+        app_connections: [],
+        sdk_dependencies: [{ name: SDK_NAME, version: "1.0.0" }],
+      };
+      const blueprintJson = canonicalJson(blueprint as never);
+      const blueprintHash = await sha256Hex(blueprintJson);
+      const mainSource = "export const one = 1;\n";
+      const importMapJson = JSON.stringify({
+        imports: { [APP_SDK_MODULE]: "./sdk/sample/1.0.0/mod.ts" },
+      });
+      const manifest = {
+        entrypoint: "main.ts",
+        files: [
+          { path: "blueprint.json", hash: blueprintHash },
+          { path: "main.ts", hash: await sha256Hex(mainSource) },
+          { path: "import-map.json", hash: await sha256Hex(importMapJson) },
+          { path: "sdk/sample/1.0.0/mod.ts", hash: await sha256Hex(SDK_OLD) },
+        ],
+        sdk_dependencies: [{ name: SDK_NAME, version: "1.0.0" }],
+      };
+      const bundleHash = await sha256Hex(JSON.stringify(manifest));
+      const copy = bundleCopyPath(home, APP, bundleHash);
+      assert(copy.ok);
+      const sealed = await sealBundle({
+        copyPath: copy.value,
+        manifest,
+        blueprintJson: new TextEncoder().encode(blueprintJson),
+        bundleFiles: [
+          {
+            path: "import-map.json",
+            bytes: new TextEncoder().encode(importMapJson),
+          },
+          { path: "main.ts", bytes: new TextEncoder().encode(mainSource) },
+          {
+            path: "sdk/sample/1.0.0/mod.ts",
+            bytes: new TextEncoder().encode(SDK_OLD),
+          },
+        ],
+      });
+      assert(sealed.ok, sealed.ok ? "" : sealed.error.message);
+      // 앱이 실제로 쓰는 판은 봉인 사본 안의 1.0.0이다. 앱 감독이 앱을 띄우지 않게 run을 끈다.
+      seedLedger(home, blueprintJson, bundleHash, 0);
+      const pinned = await import(
+        `file://${copy.value}/sdk/sample/1.0.0/mod.ts`
+      );
+      assertEquals(pinned.sdkVersion, "1.0.0");
+
+      const beforeApp = dumpTable(home, "apps");
+      const beforeReleases = dumpTable(home, "releases");
+      const beforeTests = dumpTable(home, "release_tests");
+      const beforeEvents = eventsOf(home);
+      const beforeBundle = await treeFacts(copy.value);
+      const beforeOldCopy = await treeFacts(oldCopy);
+      assert(
+        beforeBundle.some((line) => line.startsWith("/sdk/sample/1.0.0/")),
+      );
+      assertEquals(await core.shutdown(), undefined);
+      core = undefined;
+
+      // update한 lophn: 같은 data root로 다시 시작해 새 SDK version을 더한다.
+      core = await bootApps(home);
+      const newMachine = "n".repeat(43);
+      const human = "h".repeat(43);
+      await acceptCredential(
+        core,
+        "machine",
+        "machine:install",
+        "cred_update5_new_m",
+        ["package.register_version"],
+        newMachine,
+      );
+      await acceptCredential(
+        core,
+        "user",
+        "user-1",
+        "cred_update5_user",
+        ["app.get", "packages.list", "packages.versions"],
+        human,
+      );
+      const restartedVersions = await callCore(
+        core,
+        human,
+        "/v1/packages/versions",
+        { name: SDK_NAME },
+      );
+      assertEquals(restartedVersions.status, 200);
+      const restartedList = restartedVersions.body["versions"] as {
+        version: string;
+        bundle_hash: string;
+        guide_hash: string;
+      }[];
+      assertEquals(restartedList.map((row) => row.version), ["1.0.0"]);
+      assertEquals(restartedList[0].bundle_hash, oldBundleHash);
+
+      const next = await installSdk(
+        core,
+        newMachine,
+        home,
+        newSource,
+        SDK_NAME,
+        "component",
+        "1.1.0",
+      );
+      assert(next.ok, next.ok ? "" : next.error.message);
+      const extra = await installSdk(
+        core,
+        newMachine,
+        home,
+        newSource,
+        SDK_EXTRA,
+        "capability",
+        "1.0.0",
+      );
+      assert(extra.ok, extra.ok ? "" : extra.error.message);
+      assert(next.value.bundle_hash !== oldBundleHash);
+
+      // 이미 공개한 1.0.0을 다른 byte로 다시 공개하려는 update는 거절되고 사본도 그대로다.
+      const changed = await installSdk(
+        core,
+        newMachine,
+        home,
+        changedSource,
+        SDK_NAME,
+        "component",
+        "1.0.0",
+      );
+      assert(!changed.ok);
+      assertEquals(changed.error.code, "conflict");
+
+      const versions = await callCore(
+        core,
+        human,
+        "/v1/packages/versions",
+        { name: SDK_NAME },
+      );
+      assertEquals(versions.status, 200, JSON.stringify(versions.body));
+      const list = versions.body["versions"] as {
+        version: string;
+        bundle_hash: string;
+        guide_hash: string;
+      }[];
+      assertEquals(list.map((row) => row.version), ["1.0.0", "1.1.0"]);
+      assertEquals(list[0], restartedList[0]);
+      assertEquals(list[1].bundle_hash, next.value.bundle_hash);
+      assertEquals(list[1].guide_hash, next.value.guide_hash);
+      const catalog = await callCore(core, human, "/v1/packages/list", {});
+      assertEquals(catalog.status, 200, JSON.stringify(catalog.body));
+      assertEquals(
+        (catalog.body["packages"] as { name: string }[]).map((row) => row.name)
+          .sort(),
+        [SDK_NAME, SDK_EXTRA],
+      );
+
+      // 앱은 그대로 같은 active release다. update가 release를 만들거나 바꾸지 않았다.
+      const shown = await callCore(core, human, "/v1/apps/get", { app: APP });
+      assertEquals(shown.status, 200, JSON.stringify(shown.body));
+      assertEquals(
+        (shown.body["app"] as { active_release: string }).active_release,
+        RELEASE_ID,
+      );
+      assertEquals(await core.shutdown(), undefined);
+      core = undefined;
+
+      assertEquals(dumpTable(home, "apps"), beforeApp);
+      assertEquals(dumpTable(home, "releases"), beforeReleases);
+      assertEquals(dumpTable(home, "release_tests"), beforeTests);
+      assertEquals(countOf(home, "releases"), 1);
+      const releaseStatus = new DatabaseSync(`${home}/lophn.db`, {
+        readOnly: true,
+      });
+      try {
+        const row = releaseStatus.prepare(
+          "select status, activation from releases where id = ?",
+        ).get(RELEASE_ID);
+        assertEquals(row?.["status"], "active");
+        assertEquals(row?.["activation"], null);
+      } finally {
+        releaseStatus.close();
+      }
+      const afterEvents = eventsOf(home);
+      assertEquals(afterEvents.slice(0, beforeEvents.length), beforeEvents);
+      const added = afterEvents.slice(beforeEvents.length).map((row) =>
+        row.type
+      );
+      assertEquals(added, [
+        "PackageVersionRegistered",
+        "PackageVersionRegistered",
+      ]);
+
+      // 봉인 bundle 사본과 설치된 1.0.0 사본은 byte·권한 그대로, 새 version은 읽기 전용 사본으로 따로 선다.
+      assertEquals(await treeFacts(copy.value), beforeBundle);
+      assertEquals(await treeFacts(oldCopy), beforeOldCopy);
+      assertEquals(await Deno.readTextFile(`${oldCopy}/mod.ts`), SDK_OLD);
+      const newCopy = `${home}/sdk/sample/1.1.0`;
+      assertEquals(await Deno.readTextFile(`${newCopy}/mod.ts`), SDK_NEW);
+      assertEquals(
+        ((await Deno.stat(`${newCopy}/mod.ts`)).mode ?? 0) & 0o777,
+        0o444,
+      );
+      assertEquals(
+        ((await Deno.stat(newCopy)).mode ?? 0) & 0o777,
+        0o555,
+      );
+      assert((await Deno.stat(`${home}/sdk/sample-extra/1.0.0/mod.ts`)).isFile);
+      // 앱이 실제로 읽는 판은 새 설치 판이 아니라 고정한 1.0.0이다.
+      const stillPinned = await import(
+        `file://${copy.value}/sdk/sample/1.0.0/mod.ts`
+      );
+      assertEquals(stillPinned.sdkVersion, "1.0.0");
+      const installedNew = await import(`file://${newCopy}/mod.ts`);
+      assertEquals(installedNew.sdkVersion, "1.1.0");
+      const bundleMap = JSON.parse(
+        await Deno.readTextFile(`${copy.value}/import-map.json`),
+      ) as { imports: Record<string, string> };
+      assertEquals(
+        bundleMap.imports[APP_SDK_MODULE],
+        "./sdk/sample/1.0.0/mod.ts",
+      );
+    } finally {
+      if (core !== undefined) await core.shutdown();
+      await removeTree(root);
+    }
+  },
+});
+
+const AGENT_PLAN: Script = {
+  steps: [
+    {
+      id: "plan",
+      protocol: "messages" as const,
+      reply: {
+        text: "I will list projects and write two notes.",
+        toolCalls: [
+          { id: "toolu_1", name: "project.list", arguments: "{}" },
+          {
+            id: "toolu_2",
+            name: "document.create",
+            arguments: JSON.stringify({ note: "one" }),
+          },
+          {
+            id: "toolu_3",
+            name: "document.create",
+            arguments: JSON.stringify({ note: "two" }),
+          },
+        ],
+        usage: { input: 20, output: 8 },
+        stop: "tool_calls" as const,
+      },
+    },
+    {
+      id: "done",
+      protocol: "messages" as const,
+      reply: {
+        text: "All three are done.",
+        usage: { input: 40, output: 9 },
+        stop: "end" as const,
+      },
+    },
+  ],
+};
+const AGENT_ASK: Script = {
+  steps: [
+    {
+      id: "ask",
+      protocol: "messages" as const,
+      reply: {
+        text: "I need a person to confirm this write.",
+        toolCalls: [{
+          id: "toolu_1",
+          name: "document.save_version",
+          arguments: JSON.stringify({ note: "approve me" }),
+        }],
+        usage: { input: 20, output: 8 },
+        stop: "tool_calls" as const,
+      },
+    },
+    AGENT_PLAN.steps[1]!,
+  ],
+};
+
+function agentRows(world: RecoveryWorld, sql: string) {
+  return inspect(world.server, sql, [world.run]);
+}
+
+function agentToolRows(world: RecoveryWorld) {
+  return agentRows(
+    world,
+    `select response_key as key, state, json_extract(outcome, '$.kind') as kind
+     from tool_calls where run = ? order by response_order, attempt`,
+  );
+}
+
+function agentRun(world: RecoveryWorld) {
+  return agentRows(
+    world,
+    "select state, outcome_kind, outcome_reason from runs where id = ?",
+  )[0]!;
+}
+
+function runEvents(world: RecoveryWorld, type: string): number {
+  return count(
+    world.server,
+    `select count(*) as n from events where type = '${type}'`,
+  );
+}
+
+// 일이 중단 지점에서 죽는다. update가 진행 중이던 runtime을 멈춘 것과 같다.
+async function runUntilStopped(
+  world: RecoveryWorld,
+  die: NonNullable<Parameters<RecoveryWorld["runtime"]>[0]>["die"],
+) {
+  const first = world.runtime({ die });
+  const started = await first.driver.startNext();
+  assert(started.kind === "started", JSON.stringify(started));
+  assertEquals(started.run, world.run);
+  await started.done;
+  assert(first.dead());
+}
+
+// 사람에게는 보이지 않는 복구: 사람의 새 메시지·approval·question이 생기지 않는다.
+function assertNothingAskedOfPerson(world: RecoveryWorld, approvals = 0) {
+  assertEquals(
+    count(
+      world.server,
+      "select count(*) as n from messages where actor = 'user'",
+    ),
+    1,
+  );
+  assertEquals(
+    count(world.server, "select count(*) as n from approval_requests"),
+    approvals,
+  );
+  assertEquals(count(world.server, "select count(*) as n from runs"), 1);
+}
+
+Deno.test({
+  name:
+    "lophn-agent/harness/waiting-and-recovery#R8 lophn-agent/harness/waiting-and-recovery#R9 lophn-agent/harness/waiting-and-recovery#R10 platform/backup-and-migration#R16 platform/backup-and-migration#R17 flow update-lophn 6: update로 끊긴 agent 일은 저장된 경계에서 복구하고 결과를 모르는 쓰기는 반복하지 않는다",
+  ignore: Deno.env.get("LOPHN_E2E") !== "1",
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn(t) {
+    await t.step(
+      "완전 응답과 확정 결과는 반복하지 않고 셋째 call부터 같은 run으로 이어 간다",
+      async () => {
+        const world = await openRecoveryWorld(AGENT_PLAN);
+        try {
+          await runUntilStopped(world, {
+            when: "after",
+            path: "/v1/tool-calls/finish",
+            nth: 2,
+          });
+          assertEquals(agentRun(world)["state"], "running");
+          assertEquals(world.effects.writes, ["one"]);
+
+          // update: 같은 데이터 root로 core가 다시 선다. 재기동만으로는 아무 일도 다시 하지 않는다.
+          await world.restartCore();
+          world.clock.advance(60_000);
+          assertEquals(agentRun(world)["state"], "running");
+          assertEquals(world.provider.requests().length, 1);
+          assertEquals(world.effects.writes, ["one"]);
+
+          const report = await world.runtime().driver.recover();
+          assert(report.ok);
+          assertEquals(report.value.map((entry) => entry.result), ["resumed"]);
+          assertEquals(await report.value[0]!.done!, {
+            kind: "finished",
+            outcome: { kind: "completed", reason: "answer_completed" },
+          });
+          // 반복 없음: 완전 응답은 계획과 마무리 둘, 읽기는 한 번, 쓰기는 둘째·셋째 한 번씩.
+          assertEquals(world.provider.requests().length, 2);
+          assertEquals(world.effects.reads, 1);
+          assertEquals(world.effects.writes, ["one", "two"]);
+          assertEquals(
+            agentToolRows(world).map((row) => [row["key"], row["kind"]]),
+            [["toolu_1", "success"], ["toolu_2", "success"], [
+              "toolu_3",
+              "success",
+            ]],
+          );
+          assertEquals(agentRun(world)["outcome_kind"], "completed");
+          assertEquals(runEvents(world, "RunRecovered"), 1);
+          assertNothingAskedOfPerson(world);
+          // 이어 간 판단은 앞 응답과 세 결과를 이력으로 받았다.
+          const final = JSON.stringify(world.provider.requests()[1]!.body);
+          assert(final.includes("Wrote one.") && final.includes("Wrote two."));
+          // 다음 기동에도 끝난 일은 건드리지 않는다.
+          await world.restartCore();
+          const again = await world.runtime().driver.recover();
+          assert(again.ok);
+          assertEquals(again.value, []);
+          assertEquals(world.effects.writes, ["one", "two"]);
+        } finally {
+          await world.dispose();
+        }
+      },
+    );
+
+    await t.step(
+      "결과를 모르는 쓰기는 조회가 없으면 다시 보내지 않고 불명확 효과와 남은 일로 끝낸다",
+      async () => {
+        const world = await openRecoveryWorld(AGENT_PLAN);
+        try {
+          // 첫째 쓰기의 효과는 일어났고 결과 기록이 유실된 채 update가 runtime을 멈춘다.
+          await runUntilStopped(world, {
+            when: "before",
+            path: "/v1/tool-calls/finish",
+            nth: 2,
+          });
+          assertEquals(world.effects.writes, ["one"]);
+          assertEquals(agentToolRows(world)[1]!["state"], "started");
+
+          await world.restartCore();
+          world.clock.advance(1000);
+          const report = await world.runtime().driver.recover();
+          assert(report.ok);
+          assertEquals(report.value.map((entry) => entry.result), ["finished"]);
+          // 다시 보내지 않았고 셋째 call도, 뒤 판단 model도 시작하지 않았다.
+          assertEquals(world.effects.writes, ["one"]);
+          assertEquals(world.provider.requests().length, 1);
+          const run = agentRun(world);
+          assertEquals(
+            [run["state"], run["outcome_kind"], run["outcome_reason"]],
+            ["finished", "failed", "effect_unknown"],
+          );
+          // 성공이나 미실행으로 채우지 않고 불명확 효과와 남은 일을 따로 남긴다.
+          assertEquals(agentToolRows(world).map((row) => row["kind"]), [
+            "success",
+            "uncertain",
+            "not_executed",
+          ]);
+          const facts = JSON.parse(String(
+            agentRows(
+              world,
+              "select result_facts as f from runs where id = ?",
+            )[0]!["f"],
+          ));
+          assertEquals(facts.confirmed.unknown_effects.length, 1);
+          assertEquals(facts.confirmed.unexecuted.length, 1);
+          assertNothingAskedOfPerson(world);
+          // 다음 기동도 같은 효과를 반복하지 않는다.
+          await world.restartCore();
+          const again = await world.runtime().driver.recover();
+          assert(again.ok);
+          assertEquals(again.value, []);
+          assertEquals(world.effects.writes, ["one"]);
+        } finally {
+          await world.dispose();
+        }
+      },
+    );
+
+    await t.step(
+      "소유 계약의 결과 조회로 확정한 쓰기는 그 결과를 쓰고 다시 보내지 않는다",
+      async () => {
+        const world = await openRecoveryWorld(AGENT_PLAN);
+        try {
+          await runUntilStopped(world, {
+            when: "before",
+            path: "/v1/tool-calls/finish",
+            nth: 2,
+          });
+          await world.restartCore();
+          const asked: string[] = [];
+          const lookup: ToolLookup = (call) => {
+            asked.push(call.tool_call);
+            return Promise.resolve({
+              outcome: { kind: "success" as const, code: "ok" },
+              result: {
+                status: "success" as const,
+                summary: "Wrote one.",
+                content: { note: "one" },
+                complete: true,
+                source: null,
+                continuation: null,
+                pending: [],
+              },
+            });
+          };
+          const report = await world.runtime({
+            lookups: new Map([["document.create", lookup]]),
+          }).driver.recover();
+          assert(report.ok);
+          assertEquals(report.value.map((entry) => entry.result), ["resumed"]);
+          await report.value[0]!.done!;
+          // 조회한 call은 하나이고 그 쓰기는 다시 실행하지 않았다. 셋째 쓰기만 새로 한 번 했다.
+          assertEquals(asked.length, 1);
+          assertEquals(world.effects.writes, ["one", "two"]);
+          assertEquals(agentToolRows(world).map((row) => row["kind"]), [
+            "success",
+            "success",
+            "success",
+          ]);
+          assertEquals(agentRun(world)["outcome_kind"], "completed");
+          assertNothingAskedOfPerson(world);
+        } finally {
+          await world.dispose();
+        }
+      },
+    );
+
+    await t.step(
+      "사람이 이미 멈춘 일은 update 복구가 다시 시작하지 않는다",
+      async () => {
+        const world = await openRecoveryWorld(AGENT_PLAN);
+        try {
+          await runUntilStopped(world, {
+            when: "after",
+            path: "/v1/tool-calls/finish",
+            nth: 2,
+          });
+          await world.restartCore();
+          const paused = await world.post("assignments/pause", USER_TOKEN, {
+            assignment: world.assignment.id,
+            reason: {
+              kind: "user",
+              detail: "paused while lophn was updating",
+              runs: [],
+              target: null,
+            },
+          }, { revision: world.assignment.revision, state: "enabled" });
+          assertEquals(paused.status, 200, JSON.stringify(paused.body));
+
+          const report = await world.runtime().driver.recover();
+          assert(report.ok);
+          assertEquals(report.value.map((entry) => entry.result), ["stopped"]);
+          const run = agentRun(world);
+          assertEquals(
+            [run["state"], run["outcome_kind"], run["outcome_reason"]],
+            ["finished", "stopped", "assignment_paused"],
+          );
+          // 새 model call도 새 효과도 없고 확정한 결과와 사람의 입력은 그대로다.
+          assertEquals(world.provider.requests().length, 1);
+          assertEquals(world.effects.writes, ["one"]);
+          assertEquals(agentToolRows(world).length, 2);
+          assertNothingAskedOfPerson(world);
+          await world.restartCore();
+          const again = await world.runtime().driver.recover();
+          assert(again.ok);
+          assertEquals(again.value, []);
+        } finally {
+          await world.dispose();
+        }
+      },
+    );
+
+    await t.step(
+      "update가 오래 걸려도 누적 한도는 초기화되지 않아 한도를 넘으면 새 진입 없이 확정 결과를 남기고 끝낸다",
+      async () => {
+        const world = await openRecoveryWorld(AGENT_PLAN);
+        try {
+          await runUntilStopped(world, {
+            when: "after",
+            path: "/v1/tool-calls/finish",
+            nth: 2,
+          });
+          await world.restartCore();
+          // 기본 stall 한도는 5분이다. 꺼져 있던 6분을 센다.
+          world.clock.advance(6 * 60_000);
+          const report = await world.runtime().driver.recover();
+          assert(report.ok);
+          assertEquals(report.value.map((entry) => entry.result), ["resumed"]);
+          assertEquals(await report.value[0]!.done!, {
+            kind: "finished",
+            outcome: { kind: "failed", reason: "stall_limit" },
+          });
+          assertEquals(world.provider.requests().length, 1);
+          assertEquals(world.effects.writes, ["one"]);
+          assertEquals(agentToolRows(world).map((row) => row["kind"]), [
+            "success",
+            "success",
+            "not_executed",
+          ]);
+          assertNothingAskedOfPerson(world);
+        } finally {
+          await world.dispose();
+        }
+      },
+    );
+
+    await t.step(
+      "approval을 기다리던 일은 update 뒤에도 결정을 기다리고 허락 한 번으로 그 call 하나만 한 번 실행한다",
+      async () => {
+        const world = await openRecoveryWorld(AGENT_ASK);
+        try {
+          const first = world.runtime();
+          const started = await first.driver.startNext();
+          assert(started.kind === "started", JSON.stringify(started));
+          assertEquals((await started.done).kind, "waiting");
+          assertEquals(agentRun(world)["state"], "waiting_user");
+          const approval = inspect(
+            world.server,
+            "select id from approval_requests where run = ?",
+            [world.run],
+          )[0]!["id"] as string;
+
+          await world.restartCore();
+          // 결정이 없으면 계속 기다린다. 기다림을 허락이나 거절로 바꾸지 않는다.
+          const waiting = await world.runtime().driver.recover();
+          assert(waiting.ok);
+          assertEquals(waiting.value.map((entry) => entry.result), ["waiting"]);
+          assertEquals(world.effects.writes, []);
+          assertEquals(agentRun(world)["state"], "waiting_user");
+
+          const read = await world.read("approvals/get", USER_TOKEN, {
+            approval,
+          });
+          const decided = await humanDecide(
+            world.server,
+            USER_TOKEN,
+            (read.body as { request: never })["request"],
+            "grant",
+            null,
+          );
+          assertEquals(decided.status, 200, JSON.stringify(decided.body));
+          await world.restartCore();
+          const report = await world.runtime().driver.recover();
+          assert(report.ok);
+          assertEquals(report.value.map((entry) => entry.result), ["resumed"]);
+          assertEquals((await report.value[0]!.done!).kind, "finished");
+          assertEquals(world.effects.writes, ["approve me"]);
+          assertEquals(agentRun(world)["outcome_kind"], "completed");
+          // 같은 허락으로 그 call의 진입은 한 번이다.
+          assertEquals(runEvents(world, "ToolCallStarted"), 1);
+          assertNothingAskedOfPerson(world, 1);
+          const again = await world.runtime().driver.recover();
+          assert(again.ok);
+          assertEquals(again.value, []);
+          assertEquals(world.effects.writes, ["approve me"]);
+        } finally {
+          await world.dispose();
+        }
+      },
+    );
   },
 });

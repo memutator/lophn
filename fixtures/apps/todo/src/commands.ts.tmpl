@@ -6,9 +6,10 @@ import {
   readResult,
   withRevert,
 } from "@lophn/cap-schedule";
-import { addCalendarEvent } from "./calendar.ts";
+import { addCalendarEvent, callArchiveCalendar } from "./calendar.ts";
 import { editTodoHandler, registerTodoContext } from "./context.ts";
 import { defaults, type Deps, fileFailure, withStore } from "./deps.ts";
+import { DELETE_ALL_EVENTS, SEND_TO_TODO } from "./places.ts";
 import {
   addTodo,
   completeTodo,
@@ -21,6 +22,7 @@ import {
   toMarkdown,
 } from "./todos.ts";
 
+const ARCHIVE_COMMANDS: readonly string[] = [DELETE_ALL_EVENTS, SEND_TO_TODO];
 const FILE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,79}\.md$/;
 
 function invocation(): string | null {
@@ -160,6 +162,25 @@ export function addToCalendarHandler(deps: Deps = defaults) {
   };
 }
 
+// 보관 캘린더의 command 하나를 부른다. 지우기는 그 앱이 사람 확인을 요구하고, send_to_todo는 그 앱이 이 앱을
+// 다시 부른다. 허락한 앱 쌍과 command 범위 밖은 lophn이 거절한다.
+export function useArchiveCalendarHandler() {
+  return async (input: unknown) => {
+    const { command, title } = input as { command: string; title?: string };
+    if (!ARCHIVE_COMMANDS.includes(command)) {
+      throw new CommandRejection(
+        "invalid_input",
+        "the command is not one this app uses on the archive calendar",
+      );
+    }
+    const result = await callArchiveCalendar(
+      command,
+      command === SEND_TO_TODO ? { title: title ?? "" } : undefined,
+    );
+    return { requested: true, result };
+  };
+}
+
 export function registerCommands(deps: Deps = defaults): void {
   command("list_todos", listTodosHandler(deps));
   command("add_todo", addTodoHandler(deps));
@@ -168,6 +189,7 @@ export function registerCommands(deps: Deps = defaults): void {
   command("export_markdown", exportMarkdownHandler(deps));
   command("import_markdown", importMarkdownHandler(deps));
   command("add_to_calendar", addToCalendarHandler(deps));
+  command("use_archive_calendar", useArchiveCalendarHandler());
   command("edit_todo", editTodoHandler(deps));
   registerTodoContext(deps);
 }

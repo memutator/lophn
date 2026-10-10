@@ -4,9 +4,12 @@ import type { InputSchema } from "@lophn/blueprint";
 import blueprint from "../blueprint.ts";
 import {
   ADD_EVENT,
+  ARCHIVE_APP,
   CALENDAR_APP,
+  DELETE_ALL_EVENTS,
   EXPORT_DIR,
   IMPORT_DIR,
+  SEND_TO_TODO,
 } from "../src/places.ts";
 
 function described(schema: InputSchema, path: string): string[] {
@@ -74,6 +77,7 @@ Deno.test("apps/blueprint#R5: 읽기·내보내기·가져오기·캘린더 호�
   assertEquals(effects["import_markdown"], "write");
   assertEquals(effects["export_markdown"], "external");
   assertEquals(effects["add_to_calendar"], "external");
+  assertEquals(effects["use_archive_calendar"], "external");
 });
 
 Deno.test("apps/permissions#R5: 파일 permission은 읽기와 쓰기를 서로 다른 폴더로 따로 선언한다", () => {
@@ -90,9 +94,15 @@ Deno.test("apps/permissions#R5: 파일 permission은 읽기와 쓰기를 서로 
   );
 });
 
-Deno.test("apps/connections#R1: 캘린더 앱의 add_event 하나만 목적과 함께 선언한다", () => {
-  assertEquals(blueprint.app_connections.length, 1);
-  assertEquals(blueprint.app_connections[0].app, CALENDAR_APP);
-  assertEquals(blueprint.app_connections[0].commands, [ADD_EVENT]);
-  assert(blueprint.app_connections[0].reason.trim() !== "");
+Deno.test("apps/connections#R1: 캘린더 앱의 add_event와 보관 캘린더 앱의 delete_all_events·send_to_todo만 목적과 함께 선언한다", () => {
+  assertEquals(
+    blueprint.app_connections.map((entry) => [entry.app, entry.commands]),
+    [
+      [CALENDAR_APP, [ADD_EVENT]],
+      [ARCHIVE_APP, [DELETE_ALL_EVENTS, SEND_TO_TODO]],
+    ],
+  );
+  for (const entry of blueprint.app_connections) {
+    assert(entry.reason.trim() !== "");
+  }
 });

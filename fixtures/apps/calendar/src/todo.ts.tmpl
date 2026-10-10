@@ -1,0 +1,34 @@
+// 투두 앱에 할 일을 만드는 호출(apps/connections#R1). 대상 앱 ID와 command는 blueprint의 app_connections와
+// 같다. 앱 사이 호출은 lophn의 connectAppCommands 통로로만 가고 사람이 허락한 앱 쌍과 command 범위 안에서만
+// 열린다. 이 앱을 부른 앱 쪽에서 다시 부르는 길은 lophn이 handler 시작 전에 거절한다(apps/connections#R7).
+import { CommandRejection, connectAppCommands } from "@lophn/cap-schedule";
+import { ADD_TODO, TODO_APP } from "./places.ts";
+
+// 투두 앱이 할 일을 만들었으면 그 결과를, 안 만들었으면 CommandRejection을 돌려준다. 호출은 갔지만 결과를
+// 모르면 일반 오류를 던져 이 command의 결과도 모른다고 알린다(자동으로 다시 부르지 않는다).
+export async function addTodoViaTodoApp(title: string): Promise<unknown> {
+  const connected = await connectAppCommands(TODO_APP, [ADD_TODO]);
+  if (!connected.ok) throw refused(connected.error.code);
+  const called = await connected.value.call(ADD_TODO, { title });
+  if (!called.ok) throw refused(called.error.code);
+  if (called.value.kind === "unknown") {
+    throw new Error("the todo app did not confirm the todo");
+  }
+  return called.value.result;
+}
+
+// 투두 앱 쪽 오류의 안내 문장과 원문은 넘기지 않는다.
+function refused(code: string): CommandRejection {
+  if (code === "forbidden" || code === "not_found") {
+    return new CommandRejection(
+      "forbidden",
+      "the todo app is not connected to this app",
+    );
+  }
+  return code === "invalid_input"
+    ? new CommandRejection(
+      "invalid_input",
+      "the todo app could not be called from this path",
+    )
+    : new CommandRejection("unavailable", "the todo app is unavailable");
+}

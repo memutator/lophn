@@ -1,9 +1,12 @@
 import { type Blueprint, defineBlueprint } from "@lophn/blueprint";
 import {
   ADD_EVENT,
+  ARCHIVE_APP,
   CALENDAR_APP,
+  DELETE_ALL_EVENTS,
   EXPORT_DIR,
   IMPORT_DIR,
+  SEND_TO_TODO,
 } from "./src/places.ts";
 import { en } from "./src/wording/en.ts";
 
@@ -182,6 +185,32 @@ export function makeBlueprint(text: Text = en): Blueprint {
         revert: { supported: false },
       },
       {
+        key: "use_archive_calendar",
+        label: text["todos.label.use-archive-calendar"],
+        description: text["todos.summary.use-archive-calendar"],
+        effect: "external",
+        confirm: false,
+        input: {
+          type: "object",
+          properties: {
+            command: {
+              type: "string",
+              description: text["todos.summary.archive-command"],
+              minLength: 1,
+              maxLength: 40,
+            },
+            title: {
+              type: "string",
+              description: text["todos.summary.todo-title"],
+              maxLength: 200,
+            },
+          },
+          required: ["command"],
+          additionalProperties: false,
+        },
+        revert: { supported: false },
+      },
+      {
         key: "edit_todo",
         label: text["todos.label.edit-todo"],
         description: text["todos.summary.edit-todo"],
@@ -303,6 +332,10 @@ export function makeBlueprint(text: Text = en): Blueprint {
       app: CALENDAR_APP,
       commands: [ADD_EVENT],
       reason: text["todos.reason.calendar"],
+    }, {
+      app: ARCHIVE_APP,
+      commands: [DELETE_ALL_EVENTS, SEND_TO_TODO],
+      reason: text["todos.reason.archive"],
     }],
     // 정확한 version만 쓴다. deno.json의 import map과 같아야 한다(tests/blueprint_test.ts).
     sdk_dependencies: [

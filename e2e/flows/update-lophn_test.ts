@@ -1,4 +1,4 @@
-// flow update-lophn 1·2·3·4·5·6·7단계(docs/flows/update-lophn.md). 실제 ~/.lophn은 열지 않는다.
+// flow update-lophn 1·2·3·4·5·6·7·8단계(docs/flows/update-lophn.md). 실제 ~/.lophn은 열지 않는다.
 // 1·2단계는 실제 shell(headless)과 core를 임시 LOPHN_HOME으로 띄운다.
 // 1단계: settings에서 이 OS의 설치 패키지를 확인하고 사람이 고른 로컬 metadata로 수동 update를
 // 고른다. 자동 다운로드·자동 설치·사용 중 재시작은 없고, 검증하지 않은 배포를 사용 가능한
@@ -20,7 +20,10 @@
 // 7단계: 실제 shell(headless)과 core를 임시 LOPHN_HOME으로 띄워 프로젝트 탭(문서 둘·터미널)을
 // 열고, settings의 정상 정지로 update를 멈춘 뒤 같은 홈으로 shell을 다시 띄운다. 탭 순서·선택 탭·
 // 문서 읽던 위치를 이어 쓰고, 터미널은 종료된 자리표시로 남아 사람이 새로 시작하기 전에는 명령을
-// 다시 실행하지 않는다. 8단계는 보지 않는다.
+// 다시 실행하지 않는다.
+// 8단계: 같은 흐름으로 update를 멈추고 같은 홈으로 shell을 다시 띄운 뒤, 사람 token의 health read가
+// 구성 요소별 현재 가용성과 읽는 시각의 관측 시각을 주는지, 중단된 앱 invocation이 성공으로
+// 채워지지 않고 확인 불가로 남는지, update 화면이 재기동만으로 완료·검증을 주장하지 않는지 본다.
 import { assert, assertEquals, assertThrows } from "@std/assert";
 import { type ChildProcess, spawn } from "node:child_process";
 import { DatabaseSync } from "node:sqlite";
@@ -2745,6 +2748,218 @@ Deno.test({
       await Deno.remove(pack, { recursive: true });
       await Deno.remove(install, { recursive: true });
       await Deno.remove(folder, { recursive: true });
+    }
+  },
+});
+
+const UNCONFIRMED_APP = "app_01arz3ndektsv4rrffq69g5faw";
+
+async function healthOf(flow: FlowShell): Promise<{
+  observedAt: string;
+  observations: {
+    component: string;
+    available: boolean;
+    reason?: string;
+    observed_at: string;
+  }[];
+}> {
+  const health = await mustCall(flow, {
+    kind: "read",
+    resource: "platform",
+    method: "health",
+    body: {},
+  });
+  return {
+    observedAt: String(health.observed_at),
+    observations: health.observations as {
+      component: string;
+      available: boolean;
+      reason?: string;
+      observed_at: string;
+    }[],
+  };
+}
+
+Deno.test({
+  name:
+    "platform/diagnostics#R8 platform/backup-and-migration#R16 apps/runtime#R3 shell/wording#R10 flow update-lophn 8: update 뒤 현재 가용성과 실제 관측 시각을 보이고 확인하지 못한 일을 성공으로 채우지 않는다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn(t) {
+    const os = Deno.build.os;
+    const home = await Deno.makeTempDir({ prefix: "lophn-e2e-update-obs-" });
+    await Deno.chmod(home, 0o700);
+    const pack = await Deno.realPath(
+      await Deno.makeTempDir({ prefix: "lophn-e2e-update-obs-pkg-" }),
+    );
+    const install = await Deno.realPath(
+      await Deno.makeTempDir({ prefix: "lophn-e2e-update-obs-install-" }),
+    );
+    const metadata = `${pack}/lophn-update.json`;
+    const env = { LOPHN_INSTALL_ROOT: install };
+    let opened: FlowShell | undefined;
+    try {
+      const flow = await openFlowShell({
+        home,
+        start: "settings",
+        pickFolder: metadata,
+        env,
+      });
+      opened = flow;
+      await openUpdate(flow);
+      const before = await platformStatus(flow);
+      await Deno.writeTextFile(
+        metadata,
+        JSON.stringify({
+          version: OFFERED,
+          os,
+          format: formatOf(os),
+          schema: before.schema,
+        }),
+      );
+      await flow.click("[data-action='choose-package']");
+      await flow.until(
+        `document.querySelector("[data-notice='ready']") !== null`,
+        "수동 update 안내가 오지 않았다",
+      );
+      await flow.click("[data-action='stop-and-update']");
+      await flow.until(
+        `document.querySelector("[data-stop='stopped'], [data-stop='failed']") !== null`,
+        "정상 정지가 끝나지 않았다",
+        90_000,
+      );
+      assertEquals(await flow.count("[data-stop='stopped']"), 1);
+      await flow.close();
+      opened = undefined;
+
+      // update가 끊은 앱 동작 하나. 실행 중으로 남은 채 core가 멈췄다.
+      writeLedger(home, (db) => {
+        db.prepare(
+          `insert into invocations (
+             id, app, release, mode, actor, caller, operation, trigger,
+             approval, input_hash, status, started_at, finished_at, summary, detail_hash
+           ) values (?, ?, ?, 'live', 'user', ?, ?, ?, null, null, 'running', ?, null, '{}', null)`,
+        ).run(
+          INTERRUPTED,
+          UNCONFIRMED_APP,
+          INTERRUPTED_RELEASE,
+          JSON.stringify({ kind: "direct" }),
+          JSON.stringify({ kind: "command", command: "usage.sync" }),
+          JSON.stringify({ kind: "direct" }),
+          INTERRUPTED_AT,
+        );
+      });
+
+      const restartedAt = Date.now();
+      const again = await openFlowShell({
+        home,
+        start: "settings",
+        pickFolder: metadata,
+        env,
+      });
+      opened = again;
+      await openUpdate(again);
+
+      await t.step(
+        "platform/diagnostics#R8: 구성 요소별 현재 가용성은 다시 읽은 시각으로 관측하고 불가에는 안전한 이유가 있다",
+        async () => {
+          const after = await platformStatus(again);
+          assertEquals(after.ledgerId, before.ledgerId);
+          const first = await healthOf(again);
+          assert(first.observations.length > 0);
+          assert(
+            Date.parse(first.observedAt) >= restartedAt,
+            `관측 시각이 재기동보다 앞선다: ${first.observedAt}`,
+          );
+          for (const observation of first.observations) {
+            assertEquals(observation.observed_at, first.observedAt);
+            assertEquals(typeof observation.available, "boolean");
+            if (!observation.available) {
+              assert(
+                (observation.reason ?? "") !== "",
+                `${observation.component}: 불가인데 이유가 없다`,
+              );
+            }
+          }
+          const ledger = first.observations.find((o) =>
+            o.component === "ledger"
+          );
+          assertEquals(ledger?.available, true);
+          // 관측은 읽을 때마다 새로 한다. 이전 읽기의 시각을 재사용하지 않는다.
+          await delay(20);
+          const second = await healthOf(again);
+          assert(
+            Date.parse(second.observedAt) > Date.parse(first.observedAt),
+            `관측 시각이 새로워지지 않았다: ${first.observedAt} ${second.observedAt}`,
+          );
+        },
+      );
+
+      await t.step(
+        "platform/backup-and-migration#R16 apps/runtime#R3: 끊긴 앱 동작은 확인 불가로 남고 성공·미실행으로 채우지 않는다",
+        () => {
+          const interrupted = invocationOf(home);
+          assertEquals(interrupted.status, "unknown");
+          assertEquals(interrupted.started, INTERRUPTED_AT);
+          assertEquals(
+            (JSON.parse(interrupted.summary) as { reason?: string }).reason,
+            "core_restarted",
+          );
+        },
+      );
+
+      await t.step(
+        "shell/wording#R10 platform/install-and-update#R13: 재기동만으로 update 완료나 검증됨을 주장하지 않는다",
+        async () => {
+          assertEquals(await again.count("[data-stop]"), 0);
+          assertEquals(await again.count("[data-notice='ready']"), 0);
+          assertEquals(
+            (await again.text("[data-deployment]"))?.trim(),
+            UNVERIFIED,
+          );
+          const shown = String(await again.text("[data-update]"));
+          assert(!shown.includes("verified"));
+          assert(!shown.includes("Download"));
+        },
+      );
+
+      // 제품 결함: desktop settings에는 구성 요소 가용성·관측 시각을 보이는 자리가 없다.
+      // 진단 탭(DiagnosticsPanel)은 core source가 desktop entry에 이어져 있지 않아 settings에
+      // 서지 않고, 이어도 깨끗한 결과 뒤에 "One thing needs your attention."이 붙는다.
+      // 이 둘은 shell concern이 고치기 전까지 둔다.
+      await t.step({
+        name:
+          "platform/diagnostics#R8 shell/wording#R10: settings 화면이 현재 가용성과 관측 시각을 보인다",
+        ignore: true,
+        async fn() {
+          await again.mouseClickText("[role=tab]", "Diagnose");
+          await again.click("[data-action='check']");
+          await again.until(
+            `document.querySelector("[data-check='ready']") !== null`,
+            "진단 결과가 서지 않았다",
+          );
+          const result = String(await again.text("[data-check-result]"));
+          assert(result.includes("Checked"), result);
+          assert(!result.includes("attention"), result);
+        },
+      });
+
+      // 제품 결함: 확인하지 못한 앱 동작(unknown invocation)을 사람에게 알리고 복구 행동을
+      // 안내하는 settings 자리가 없다. core가 ledger에 확인 불가로 남기는 데서 끝난다.
+      await t.step({
+        name:
+          "platform/backup-and-migration#R16 shell/wording#R10: settings 화면이 확인하지 못한 일과 필요한 복구 행동을 보인다",
+        ignore: true,
+        async fn() {
+          assertEquals(await again.count("[data-unconfirmed]"), 1);
+        },
+      });
+    } finally {
+      await opened?.close();
+      await removeHome(home);
+      await Deno.remove(pack, { recursive: true });
+      await Deno.remove(install, { recursive: true });
     }
   },
 });

@@ -9,7 +9,6 @@ import {
 import type { BasisSync } from "./documents-basis.ts";
 import type { SearchSync } from "./documents-search.ts";
 import type { WatchSync } from "./documents-watch.ts";
-import { SEARCH_CONSUMED_EVENTS } from "../../packages/documents/outline-and-search/mod.ts";
 import type { RootsWatch } from "./documents-roots.ts";
 import {
   type InternalSubscription,
@@ -60,10 +59,10 @@ export function startDocumentsFeed(
       await resync();
     },
     onEvents(events) {
-      if (events.some((event) => SEARCH_CONSUMED_EVENTS.has(event.type))) {
-        clearTimeout(searchTimer);
-        searchTimer = setTimeout(catchUpSearch, debounceMs);
-      }
+      // R14: consumer는 쓰지 않는 event도 scanned_through_seq까지 cursor를 전진시킨다. 소비 대상
+      // event만 깨우면 ledger 끝의 비소비 event 뒤 cursor가 basis보다 한 칸 뒤에 머문다.
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(catchUpSearch, debounceMs);
       if (!events.some((event) => isDocumentsFeedEvent(event.type))) return;
       clearTimeout(timer);
       timer = setTimeout(() => void resync(), debounceMs);

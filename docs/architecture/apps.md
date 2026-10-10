@@ -394,7 +394,7 @@ confirm command의 흐름이다. confirm=false command는 approval 단계 없이
   → [추출/build 자식] 권한 없는 blueprint 추출 / 고정 UI build
   → [release worker] 봉인 bundle hash·manifest, blob 준비
   → [test 실행 contract] 동일 hash의 실제 app test와 Verification
-  → [supervisor] release.prepare command (claim·scope 재확인)
+  → [core 준비 확정기] 준비 진행을 읽을 때 완료이고 같은 앱·hash의 통과한 app test가 있으면 봉인 사본에서 모은 값으로 release.prepare command (claim·scope 재확인)
   → [core] prepared Release·tests·출처 고정
 ```
 

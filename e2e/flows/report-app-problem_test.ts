@@ -8,16 +8,21 @@
 // (~/.lophn)는 열지 않는다. HOME·LOPHN_HOME은 임시 폴더이고 띄운 Electron·core 트리는 정확한 pid로만 끝낸다.
 //
 // 앱 자식은 준비한 bundle 그대로 뜬다. release 준비가 낸 진입 파일이 실제 runtime entrypoint의 `main()`을 부른다.
-// 여기서 보는 것: flow 1~6, 갈래(화면 없음 = view 가려짐·보호 창·lophn dialog, 시작 전 실패, 취소, 접수 실패,
-// 직접 시도 실패)와 problems/feedback#R4·R5·R6·R11·R12·R13.
+// 여기서 보는 것: flow 1~6, 갈래(화면 없음 = view 가려짐·보호 창·lophn dialog, 수집 꺼짐, 시작 전 실패, 취소, 접수 실패,
+// 응답 단절, 직접 시도 실패, 두 번째 창)와 problems/feedback#R4·R5·R6·R11·R12·R13.
 // R13은 Issues 목록에서 같은 앱의 기존 문제를 고르고 [I tried it myself, but it doesn't work]로
 // 연 dialog가 그 문제에 연결되는지, [View issue]가 그 문제 상세를 여는지 본다.
 // R4는 입력 검사로 막힌 호출 뒤의 제보가 `blocked_before_start`로 남고 invocation을 만들지 않는지 본다.
+// 진단 상세 수집을 끈 접수는 상태·이미지를 모으지 않고 꺼져 있다는 이유를 남긴다(R5·R10). 같은 앱을 두 번째 창에 열어도
+// 버튼은 누른 창의 앱 view만 캡처하고 두 번째 창에는 dialog가 없다.
+// 응답 단절(problems/reporting#R9, feedback#R11)은 core가 아니라 report collector worker를 멈추거나(SIGSTOP 뒤 SIGCONT:
+// 접수는 됐는데 응답만 잃음) 끝내서(SIGKILL: 접수 전 끊김) 만든다. 다시 보내면 최신 상태를 읽어 같은 Report를 돌려주거나
+// 같은 발생으로 한 번만 접수한다.
 // 이 flow가 구동하지 않는 것:
-// - R5 다른 창: 두 번째 창 없이 없는 view에 대한 거절만 본다. 수집 꺼짐·수집 실패의 이유 표시는
-//   e2e/shell/report-problem_test.ts(crash한 view)가 본다.
-// - 응답 단절로 접수가 확인되지 않은 뒤의 최신 상태 확인·재전송(problems/feedback#R11 갈래)은 core가 사라진
-//   뒤라 이어 보내 볼 수 없다.
+// - 수집 실패의 이유(crash한 view의 capture_failed)는 e2e/shell/report-problem_test.ts가, 상태 못 얻음·redaction 제외·
+//   blob 저장 실패는 packages/problems/feedback/work_test.ts가 본다.
+// - 다른 창의 view_session에 대한 거절(없는 view와 같은 답)은 apps/shell/main/app-frame/feedback_test.ts가 본다. 두 번째 창의
+//   view_session은 shell 밖에서 알 수 없다. 두 번째 창을 닫으면 headless shell이 끝나 이 flow는 닫지 않는다.
 import { assert, assertEquals } from "@std/assert";
 
 import { sha256Hex } from "../../packages/base/mod.ts";
@@ -214,6 +219,10 @@ async function corePid(flow: FlowShell): Promise<number> {
   }
   throw new Error("core 프로세스를 찾지 못했다");
 }
+
+/** problems/snapshots `SCREEN_REASONS.detailOff`. 진단 상세 수집을 끈 접수의 빠진 이유. */
+const DETAIL_OFF = "진단 상세 수집이 꺼져 있어 새 화면 자료를 모으지 않았다";
+const DETAIL_COLLECTION = "problems.diagnostics.detail_collection";
 
 const DRAFT_HINT = "Your text is kept only while this window is open.";
 
@@ -1133,6 +1142,248 @@ Deno.test({
             "앱 공간으로 돌아오지 못했다",
           );
           assert((await viewBounds(flow)).view !== null);
+        },
+      );
+
+      await t.step(
+        "R5·R10: 진단 상세 수집을 끄면 상태·이미지를 모으지 않고 꺼져 있다는 이유를 다른 이유와 구별해 남기며 글은 접수된다",
+        async () => {
+          const setCollection = async (value: boolean) => {
+            const current = await mustCall(flow, {
+              kind: "read",
+              resource: "settings",
+              method: "get",
+              body: { keys: [DETAIL_COLLECTION] },
+            });
+            await mustCall(flow, {
+              kind: "command",
+              resource: "settings",
+              method: "apply",
+              body: {
+                input: {
+                  changes: [{
+                    layer: "common",
+                    key: DETAIL_COLLECTION,
+                    action: "set",
+                    value,
+                  }],
+                },
+                idempotency_key: crypto.randomUUID(),
+                compare: {
+                  revision: current.revision,
+                  defaults_revision: current.defaults_revision,
+                },
+                prepared: [],
+              },
+            });
+          };
+          await setCollection(false);
+          try {
+            const before = await counts(flow);
+            await pressReport();
+            await untilShotSettled();
+            // 사람은 화면 상태와 미리본 이미지를 모두 골라 보낸다.
+            await pageClick(overlay!, shotCheckbox);
+            assertEquals(await checked(shotCheckbox), "true");
+            const text = "Sent while detailed diagnostics collection was off";
+            await sendReport(text);
+            await untilPage(
+              overlay!,
+              `document.querySelector('[data-feedback-phase="received"]') !== null`,
+              "접수 완료가 보이지 않는다",
+            );
+            const problem = newProblem(before, await counts(flow));
+            const read = await feedbackReport(flow, problem);
+            assertEquals(read.report.text, await sha256Hex(text));
+            const screen = read.snapshot?.screen;
+            assert(screen, "화면 자료 자리가 없다");
+            // 새 화면 자료를 모으지 않았고 둘 다 꺼져 있다는 이유가 남는다.
+            assertEquals(screen.state, null);
+            assertEquals(screen.screenshot, null);
+            assertEquals(screen.state_missing_reason, { reason: DETAIL_OFF });
+            assertEquals(screen.screenshot_missing_reason, {
+              reason: DETAIL_OFF,
+            });
+            // 화면이 없어서 못 모은 것과 이유가 다르다: 화면 자리는 있고 view 이름이 남는다.
+            assertEquals(read.snapshot?.screen_missing_reason, null);
+            assertEquals(screen.name, "panel");
+            await closeDialog("close");
+          } finally {
+            await setCollection(true);
+          }
+        },
+      );
+
+      await t.step(
+        "R5: 같은 앱을 두 번째 창에 열어도 버튼은 누른 창의 앱 view만 캡처하고 두 번째 창에는 dialog가 없다",
+        async () => {
+          const windowsOf = async () =>
+            JSON.parse(
+              String(
+                await main(
+                  flow,
+                  `JSON.stringify(electron.BrowserWindow.getAllWindows().map((w) => ({ id: w.id, desktop: w.webContents.getURL().includes("desktop"), views: w.contentView.children.map((c) => c.webContents?.getURL() ?? null) })))`,
+                ),
+              ),
+            ) as { id: number; desktop: boolean; views: (string | null)[] }[];
+          await pressReport();
+          await untilShotSettled();
+          const alone = await shotOf(await previewPng());
+          await closeDialog("cancel");
+          // 사람이 [New window]를 눌러 같은 앱을 전용 창에 연다.
+          await flow.click('[data-app-bar="new-window"]');
+          const opened = Date.now() + 30_000;
+          let second: { id: number; views: (string | null)[] } | undefined;
+          while (second === undefined) {
+            second = (await windowsOf()).find((w) =>
+              !w.desktop && w.views.some((v) => v?.startsWith("lophn-app:"))
+            );
+            assert(Date.now() < opened, "두 번째 창이 열리지 않았다");
+            await delay(250);
+          }
+          // 두 번째 창에는 shell 화면도 overlay도 없다. 누를 [Report a problem]이 없다.
+          assertEquals(
+            second.views.filter((v) => v?.startsWith("lophn-shell:")),
+            [],
+          );
+          // 두 번째 창의 앱 화면을 눈에 띄게 바꿔도 첫 창에서 누른 캡처는 그대로다.
+          await main(
+            flow,
+            `(() => { const w = electron.BrowserWindow.fromId(${second.id}); const v = w.contentView.children.find((c) => c.webContents?.getURL().startsWith("lophn-app:")); return v.webContents.executeJavaScript(${
+              JSON.stringify(
+                `document.body.style.background = "#ffaa00"; document.documentElement.style.background = "#ffaa00"; true`,
+              )
+            }); })()`,
+          );
+          await delay(800);
+          await pressReport();
+          await untilShotSettled();
+          assertEquals(await shotOf(await previewPng()), alone);
+          await closeDialog("cancel");
+          // 두 번째 창이 열려 있어도 첫 창의 앱 공간은 그대로다.
+          assert((await viewBounds(flow)).view !== null);
+        },
+      );
+
+      // 사람이 쓰는 도중 앱 쪽이 아닌 접수 통로(report collector)가 멈추거나 끝난 뒤의 [Send report].
+      const collectorPid = async (): Promise<number> => {
+        for (const pid of await descendantPids(flow.shell.pid)) {
+          try {
+            const cmd = await Deno.readTextFile(`/proc/${pid}/cmdline`);
+            if (cmd.includes("report-collector")) return pid;
+          } catch { /* 이미 끝났다 */ }
+        }
+        throw new Error("report collector 프로세스를 찾지 못했다");
+      };
+      const phaseOf = () =>
+        overlay!.evaluate(
+          `document.querySelector('[data-feedback-phase]')?.getAttribute("data-feedback-phase") ?? null`,
+        );
+      // 응답이 오지 않아 접수 실패가 보일 때까지(core가 worker 응답을 기다리는 시간 뒤).
+      const untilSendFailed = () =>
+        untilPage(
+          overlay!,
+          `document.querySelector('[data-feedback-phase="failed"]') !== null`,
+          "응답 단절 뒤 접수 실패가 보이지 않는다",
+          60_000,
+        );
+      const untilReceived = () =>
+        untilPage(
+          overlay!,
+          `document.querySelector('[data-feedback-phase="received"]') !== null`,
+          "접수 완료가 보이지 않는다",
+          60_000,
+        );
+
+      await t.step(
+        "problems/reporting#R9, feedback#R11: 접수는 됐는데 응답이 끊기면 다시 보낼 때 최신 상태를 읽어 같은 Report를 돌려주고 두 번 접수하지 않는다",
+        async () => {
+          const before = await counts(flow);
+          await pressReport();
+          await untilShotSettled();
+          const text = "The reply to this report was lost in transit";
+          await pageType(overlay!, '[data-feedback="text"]', text);
+          // collector가 멈춘 채 요청이 기다리다 실패하고, 그 뒤 collector가 그 요청을 처리한다.
+          const pid = await collectorPid();
+          signalPids([pid], "SIGSTOP");
+          let resumed = false;
+          try {
+            await pageClick(overlay!, '[data-feedback="send"]');
+            await untilSendFailed();
+            // 접수 완료로 보이지 않고 글은 그대로다.
+            assertEquals(
+              await overlay!.evaluate(
+                `document.querySelector('[data-feedback="received"]') === null`,
+              ),
+              true,
+            );
+            assertEquals(
+              await overlay!.evaluate(
+                `document.querySelector('[data-feedback="text"]').value`,
+              ),
+              text,
+            );
+            signalPids([pid], "SIGCONT");
+            resumed = true;
+            // 멈췄던 요청이 접수된다(응답만 잃은 접수).
+            const accepted = Date.now() + 30_000;
+            while ((await counts(flow)).reports === before.reports) {
+              assert(Date.now() < accepted, "멈췄던 요청이 접수되지 않았다");
+              await delay(250);
+            }
+          } finally {
+            if (!resumed) signalPids([pid], "SIGCONT");
+          }
+          // 사람이 다시 보낸다. 새 접수 없이 같은 Report의 접수 완료가 보인다.
+          await pageClick(overlay!, '[data-feedback="send"]');
+          await untilReceived();
+          const after = await counts(flow);
+          assertEquals(after.reports, before.reports + 1);
+          const problem = newProblem(before, after);
+          assertEquals(after.problems.get(problem), 1);
+          const read = await feedbackReport(flow, problem);
+          assertEquals(read.report.text, await sha256Hex(text));
+          await closeDialog("close");
+          assertEquals((await counts(flow)).reports, before.reports + 1);
+        },
+      );
+
+      await t.step(
+        "problems/reporting#R9, feedback#R11: 접수 전에 끊겼으면 다시 보낼 때 같은 발생으로 한 번만 접수된다",
+        async () => {
+          const before = await counts(flow);
+          await pressReport();
+          await untilShotSettled();
+          const text = "The collector died before this report was stored";
+          await pageType(overlay!, '[data-feedback="text"]', text);
+          // collector가 요청을 받기 전에 끝난다(감독이 새로 띄운다).
+          signalPids([await collectorPid()], "SIGKILL");
+          await pageClick(overlay!, '[data-feedback="send"]');
+          await untilSendFailed();
+          assertEquals((await counts(flow)).reports, before.reports);
+          // 사람이 새 collector가 뜬 뒤 다시 보낸다. 아직 접수 전이라 다시 보내고 한 번만 접수된다.
+          const retry = Date.now() + 60_000;
+          for (;;) {
+            await pageClick(overlay!, '[data-feedback="send"]');
+            await untilPage(
+              overlay!,
+              `document.querySelector('[data-feedback-phase]')?.getAttribute("data-feedback-phase") !== "sending"`,
+              "다시 보내는 중에 멈췄다",
+              60_000,
+            );
+            if ((await phaseOf()) === "received") break;
+            assert(Date.now() < retry, "다시 보내도 접수되지 않았다");
+            await delay(1_000);
+          }
+          const after = await counts(flow);
+          assertEquals(after.reports, before.reports + 1);
+          const problem = newProblem(before, after);
+          assertEquals(after.problems.get(problem), 1);
+          assertEquals(
+            (await feedbackReport(flow, problem)).report.text,
+            await sha256Hex(text),
+          );
+          await closeDialog("close");
         },
       );
 

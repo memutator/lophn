@@ -41,7 +41,8 @@ export function endpointReason(url: string): string | null {
   }
   if (parsed.protocol === "https:") return null;
   if (parsed.protocol !== "http:") return "전송이 http·https가 아니다";
-  const host = parsed.hostname;
+  // URL.hostname은 IPv6를 대괄호째 돌려준다([::1]). 대괄호를 벗겨 비교한다.
+  const host = parsed.hostname.replace(/^\[(.*)\]$/, "$1");
   if (host === "127.0.0.1" || host === "::1" || host === "localhost") {
     return null;
   }

@@ -1390,14 +1390,23 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
 
 ### T27 apps slice flow E2E
 
-- 상태: 진행 (#474, #489, #546, #547, #548) — 완료: restore-app-release. new-app은 등록·source 연결·bundle
+- 상태: 진행 (#474, #489, #546, #547, #548, #549, #560) — 완료: restore-app-release. new-app은 등록·source 연결·bundle
   준비까지 e2e/flows/flow-new-app_test.ts를 썼으나 통과는 아직 확인하지 못했다(실행 대기열).
-  새 결함: release.prepare를 부르는 finalizer가 제품 코드에 없어 new-app의 app test 통과
-  이후(preview·적용·activation)는 돌 수 없다. #489 use-app-command: confirm 허락은 실행되고 거절은 다시 묻지 않는다. list의 성공한 일반 읽기는 invocation을 남기지 않는다(apps/invocations#R2, R18). 남은 것: new-app의 app test·preview·적용,
-  change-app, run-app-automation, manage-app-permissions(#548: fs 접근 허락·거절·창 닫기·회수와
+  #560: release.prepare finalizer를 core에 이었다(`apps/core/apps-release-finalizer.ts`: ticket claim을 가진 coding
+  agent의 prepare_bundle 접수가 완료됐고 같은 bundle hash의 통과한 app test가 기록돼 있으면 `release.preparation`을
+  읽을 때 봉인 사본의 blueprint·manifest·data_changes로 확정, 시험 `apps/core/release-finalizer_test.ts`). new-app의
+  app test 실행·preview·적용·activation 단계를 flow에서 돌리는 일은 남았다. 이어보냄: `release_prepare` op의 답이
+  만든 release id를 보이지 않는다(contract 출력에 없음) → coding-agent. #489 use-app-command: confirm 허락은 실행되고 거절은 다시 묻지 않는다. list의 성공한 일반 읽기는 invocation을 남기지 않는다(apps/invocations#R2, R18). 남은 것: new-app의 app test·preview·적용,
+  change-app, manage-app-permissions(#548: fs 접근 허락·거절·창 닫기·회수와
   새 nonce 재시작까지 돈다. 남은 것은 secret 단계 2·3·6(OS keychain 없음, SecretDelivery 미부착), command 허락 4,
   보호 범위·조합 경고 갈래), connect-apps,
-  ask-app-hint. #546 ask-app-hint 1단계: 앱 패널 탭의 turn context(e2e/flows/ask-app-hint_test.ts).
+  ask-app-hint. #549 run-app-automation(e2e/flows/run-app-automation_test.ts): fixture todo에 automation
+  셋(on_start 쓰기·on_start external·간격 60000ms 쓰기)을 더한 앱으로 시작 계기의 일, 사람이 켜기 전엔
+  external 일이 안 도는 것, 켠 뒤 접근 없는 거절, 접근 허락 뒤 재시작의 시작 계기, 간격 계기(자식 시계를
+  바꿀 통로가 없어 최소 60000ms를 실제로 기다린다), 끄기, 앱 실행 허용 끄기·다시 켜기, app-detail
+  Automations 탭까지 돈다. 남은 것은 secret grant 쓰기(flow 3, OS keychain 없음·SecretDelivery 미부착),
+  놓친 회차·진행 중 건너뜀(시계 주입이 없어 단위 시험이 맡는다), 실패의 문제 보고, timeout·결과 모름.
+  #546 ask-app-hint 1단계: 앱 패널 탭의 turn context(e2e/flows/ask-app-hint_test.ts).
   #547 ask-app-hint 2단계: `app.screen_context`·`app.annotate`를 `apps/agent-runtime/app-toolkit.ts`
   (`defineContext`·`contextBinding`·`contextHandlers`)와 `prepare.ts`의 tool 목록·binding·handler에 이었고,
   desktop renderer 진입의 `appViews.screens`(`coreAppScreens`)를 이어 앱 패널 열기 단추가 선다. 2단계(선언된

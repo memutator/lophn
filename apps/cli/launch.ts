@@ -1,13 +1,20 @@
 // `lophn` launcher가 실행 전에 부르는 권한 계획 entry다(open-issues coding-agent/mcp-server#Q9). 같은
 // argv에서 사람이 고른 target·앱을 읽어 이 실행이 더 열 정확한 파일 권한 flag만 한 줄씩 낸다. 읽기·net·helper
-// 실행은 CLI와 같고 쓰기·`--allow-run`은 없다. 계산하지 못하면 아무것도 내지 않는다(그 command는 권한이
-// 없어 unavailable로 끝난다). 오류 내용도 내지 않는다: 실제 실행(main.ts)이 같은 입력을 다시 읽고 이유를 낸다.
+// 실행은 CLI와 같다. `--allow-run`은 `harness refresh`에만 감지가 찾은 제품 실행 파일의 정확한 경로로 더한다.
+// 계산하지 못하면 아무것도 내지 않는다(그 command는 권한이 없어 unavailable로 끝난다). 오류 내용도 내지 않는다:
+// 실제 실행(main.ts)이 같은 입력을 다시 읽고 이유를 낸다.
 import {
   findCommand,
   parseArgs,
   planSelection,
   selectionFlags,
 } from "../../packages/coding-agent/cli/mod.ts";
+import {
+  discover,
+  HARNESS_CATALOG,
+  NATIVE_ENVIRONMENT,
+} from "../../packages/coding-agent/harnesses/mod.ts";
+import { systemFilesPort } from "../../packages/coding-agent/harnesses/system-ports.ts";
 import {
   discoverDaemonAddress,
   LOPHN_DAEMON_URL,
@@ -54,6 +61,31 @@ function value<T>(result: Result<T, AgentFailure>): T | undefined {
   return result.ok ? result.value : undefined;
 }
 
+function exactAbsolutePath(path: string): boolean {
+  return path.startsWith("/") && !path.split("/").includes("..") &&
+    !/[\0\n,]/.test(path);
+}
+
+// 감지(`discover`)가 PATH와 정한 bin 폴더에서 고른 제품 실행 파일의 절대 경로들이다. probe는 돌리지 않는다.
+// 같은 감지 함수를 쓰므로 `harness refresh`가 probe를 돌릴 파일과 같다. 없으면 빈 배열이다.
+export function detectedExecutables(
+  env: Env,
+  home: string,
+): string[] {
+  const found: string[] = [];
+  for (const definition of HARNESS_CATALOG) {
+    const result = discover(
+      definition,
+      { environment: NATIVE_ENVIRONMENT, profile_id: null },
+      { files: systemFilesPort(), path: env.get("PATH"), home },
+    );
+    if (result.ok && result.value.selected !== null) {
+      found.push(result.value.selected);
+    }
+  }
+  return [...new Set(found)].filter(exactAbsolutePath);
+}
+
 // 이 argv가 더 열 권한 flag들이다. 없으면 빈 배열이다.
 export async function planCliPermissions(
   argv: readonly string[],
@@ -73,6 +105,15 @@ export async function planCliPermissions(
   );
   if (!checked.success) return [];
   const input = checked.data as Record<string, unknown>;
+  if (command === "harness refresh") {
+    const executables = detectedExecutables(
+      env,
+      options.home ?? env.get("HOME") ?? "",
+    );
+    return executables.length === 0
+      ? []
+      : [`--allow-run=${executables.join(",")}`];
+  }
   const selection = await planSelection({
     command,
     input,

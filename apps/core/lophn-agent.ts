@@ -154,9 +154,11 @@ import type { HttpFetch } from "../../packages/lophn-agent/extensions/adapters/m
 const BUNDLED_SKILLS_ROOT = new URL("../../assets/skills", import.meta.url)
   .pathname;
 
-function bundledSkillRoots(): string[] {
+// 동봉 skill 폴더가 있으면 그 경로만 돌려준다. core graph에는 동기 file API를 두지 않으므로
+// async로 확인하고, 결과를 `agentRuntimeLaunchSpec`의 `bundledSkillRoots`로 넘긴다.
+export async function readBundledSkillRoots(): Promise<string[]> {
   try {
-    return Deno.statSync(BUNDLED_SKILLS_ROOT).isDirectory
+    return (await Deno.stat(BUNDLED_SKILLS_ROOT)).isDirectory
       ? [BUNDLED_SKILLS_ROOT]
       : [];
   } catch {
@@ -178,6 +180,8 @@ export function agentRuntimeLaunchSpec(input: {
   hosts?: readonly string[];
   // 사람이 등록한 skill 폴더다. 읽기 허락에 더하고 등록이 바뀌면 core가 다시 띄운다.
   skillRoots?: readonly string[];
+  // `readBundledSkillRoots()`가 확인한 동봉 skill 폴더다. 읽기 허락에 더한다.
+  bundledSkillRoots?: readonly string[];
 }): KindLaunchSpec {
   // confirm proof의 direct call은 이 프로세스가 앱 socket으로 보낸다. Deno는 자리마다
   // read·write·`unix:<경로>`와 가상 host를 요구하고 폴더 prefix는 받지 않는다.
@@ -188,7 +192,7 @@ export function agentRuntimeLaunchSpec(input: {
     // 개인 skill 보관소(<dataRoot>/skills)는 dataRoot 안이고, 동봉 skill 폴더는 설치 묶음의 assets/skills다.
     allow_read: [
       input.dataRoot,
-      ...bundledSkillRoots(),
+      ...(input.bundledSkillRoots ?? []),
       ...(input.skillRoots ?? []),
       ...sockets,
     ],

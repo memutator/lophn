@@ -1534,6 +1534,11 @@ function showDesktopWindow(): void {
 
 function openDesktopWindow(): BrowserWindow | undefined {
   let created: BrowserWindow | undefined;
+  // 개발 확인 전용(`deno task dev:mock`). renderer가 주소의 `mock`을 보고 core 대신 메모리 가짜
+  // 통로로 모든 화면을 채운다. `LOPHN_SHELL_START`의 시작 자리와 함께 쓴다.
+  const desktopUrl = process.env.LOPHN_DEV_MOCK === "1"
+    ? `${DESKTOP_URL}?mock`
+    : DESKTOP_URL;
   openWindow({
     platform: process.platform,
     packaged: app.isPackaged,
@@ -1549,32 +1554,30 @@ function openDesktopWindow(): BrowserWindow | undefined {
     url: process.env.LOPHN_DEV_SEED === "1"
       ? `${DESKTOP_URL}?dev-seed=1`
       : process.env.LOPHN_SHELL_START === "lophn"
-      ? `${DESKTOP_URL}#lophn`
+      ? `${desktopUrl}#lophn`
       : process.env.LOPHN_SHELL_START === "conversation"
-      ? `${DESKTOP_URL}#conversation`
+      ? `${desktopUrl}#conversation`
       : process.env.LOPHN_SHELL_START === "things-to-confirm"
-      ? `${DESKTOP_URL}#things-to-confirm`
+      ? `${desktopUrl}#things-to-confirm`
       : /^contexts(:ctx_[0-9a-z]{26})?$/.test(
           process.env.LOPHN_SHELL_START ?? "",
         )
-      ? `${DESKTOP_URL}#${process.env.LOPHN_SHELL_START!.replace(":", "=")}`
+      ? `${desktopUrl}#${process.env.LOPHN_SHELL_START!.replace(":", "=")}`
       : process.env.LOPHN_SHELL_START === "projects"
-      ? `${DESKTOP_URL}#projects`
+      ? `${desktopUrl}#projects`
       : /^project:prj_[0-9a-z]{26}$/.test(process.env.LOPHN_SHELL_START ?? "")
-      ? `${DESKTOP_URL}#project=${process.env.LOPHN_SHELL_START!.slice(8)}`
+      ? `${desktopUrl}#project=${process.env.LOPHN_SHELL_START!.slice(8)}`
       : /^instructions:(global|project:prj_[0-9a-z]{26})$/.test(
           process.env.LOPHN_SHELL_START ?? "",
         )
-      ? `${DESKTOP_URL}#instructions=${
-        process.env.LOPHN_SHELL_START!.slice(13)
-      }`
+      ? `${desktopUrl}#instructions=${process.env.LOPHN_SHELL_START!.slice(13)}`
       : process.env.LOPHN_SHELL_START === "apps"
-      ? `${DESKTOP_URL}#apps`
+      ? `${desktopUrl}#apps`
       : process.env.LOPHN_SHELL_START === "settings"
-      ? `${DESKTOP_URL}#settings`
+      ? `${desktopUrl}#settings`
       : /^app:app_[0-9a-z]{26}$/.test(process.env.LOPHN_SHELL_START ?? "")
-      ? `${DESKTOP_URL}#app=${process.env.LOPHN_SHELL_START!.slice(4)}`
-      : DESKTOP_URL,
+      ? `${desktopUrl}#app=${process.env.LOPHN_SHELL_START!.slice(4)}`
+      : desktopUrl,
     windows: {
       create: (config: WindowConfig) => {
         const window = new BrowserWindow(surfaceOptions(config, headless));

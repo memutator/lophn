@@ -2,6 +2,7 @@ import { mount } from "../entry.tsx";
 import { Desktop } from "./main.tsx";
 import { windowCoreSource } from "./connection/connection.ts";
 import { devSeed } from "./dev-seed.ts";
+import { devMock } from "./dev-mock/mod.ts";
 import { windowEditorDeps } from "../editor/window-deps.ts";
 import { windowInstructionsSource } from "../editor/instructions-entry.tsx";
 import {
@@ -66,46 +67,51 @@ import type { LophnShellFeedbackBegin } from "../../ipc/feedback.ts";
 import "@xterm/xterm/css/xterm.css";
 import styles from "./entry.module.css";
 
-const seed = devSeed();
-const core = windowCoreSource();
+// 개발 확인 전용. 주소의 `mock`이면 core 대신 메모리 가짜 통로로 모든 화면을 채운다.
+const mock = devMock();
+const seed = mock ? null : devSeed();
+// 시드 작업대와 mock 모드는 둘 다 가짜 작업대와 문서 탭 통로를 쓴다(core·편집 파일 통로 없음).
+const bench = mock ? { source: mock.workspace, editor: mock.editor } : seed;
+const core = mock?.core ?? windowCoreSource();
 const editor = windowEditorDeps(core);
-const lophn = coreLophnSource(core);
-const contexts = coreContextsSource(core);
+const lophn = mock?.lophn ?? coreLophnSource(core);
+const contexts = mock?.contexts ?? coreContextsSource(core);
 // projects 화면의 정리(이름·보관·문서 이동·export·파일로 두기와 빼기).
-const organize = coreOrganizeSource(core);
+const organize = mock?.organize ?? coreOrganizeSource(core);
 // apps 화면과 앱 공간. 앱 view는 shell preload의 view 통로로 main이 붙인다.
-const apps = coreAppsSource(core);
-const appDetail = coreAppDetailSource(core);
+const apps = mock?.apps ?? coreAppsSource(core);
+const appDetail = mock?.appDetail ?? coreAppDetailSource(core);
 // roles 화면. 하는 일·만든 것·대화·작업 검토·Preset. 되돌리기는 보호 창이 받는다.
-const roles = coreRolesSource(core);
+const roles = mock?.roles ?? coreRolesSource(core);
 // settings 화면. 연결·계정·확장·일반 설정. key·로그인 응답은 보호 창이 받는다.
-const settings = coreSettingsSource(core);
+const settings = mock?.settings ?? coreSettingsSource(core);
 // settings의 운영 탭(shell#T58). backup 복원 계획·제출은 main의 복원 통로(`lophnRestore`)다.
 // update는 사람이 고른 로컬 파일의 안내와 정상 정지다(`lophnUpdate`). 다운로드·재시작은 없다.
 // OS notification은 이 탭에서 켠 뒤에만 shell main이 올린다(platform/notifications#R9).
-const settingsPanels = {
+const settingsPanels = mock?.settingsPanels ?? {
   backup: coreBackupSource(core),
   update: coreUpdateSource(core),
   notifications: coreNotificationsSource(core),
   diagnostics: coreDiagnosticsSource(core),
 };
 // coding agent 연결(settings)과 앱 공간 Tasks 탭. 감지·연결·[Start]는 main이 따로 검증하는 통로(`lophnCoding`)다.
-const codingApi = windowCodingApi();
-const coding = coreCodingConnectionsSource(core, {
+const codingApi = mock ? undefined : windowCodingApi();
+const coding = mock?.coding ?? coreCodingConnectionsSource(core, {
   coding: codingApi,
   openWindow: windowRevokeOpener(),
 });
-const tasks = coreTasksSource(core, { coding: codingApi });
-const issues = coreIssuesSource(core, windowIssueDecision());
+const tasks = mock?.tasks ?? coreTasksSource(core, { coding: codingApi });
+const issues = mock?.issues ?? coreIssuesSource(core, windowIssueDecision());
 // 런처의 프로젝트 카드·등록과 작업대(추적 켜기 포함)는 제품 core 통로로 읽고 쓴다.
-const projects = coreLauncherSource(core, windowFolderPicker());
-const workspace = seed?.source ?? coreWorkspaceSource(core);
-const tracking = seed ? undefined : coreTrackingSource(core);
+const projects = mock?.launcher ??
+  coreLauncherSource(core, windowFolderPicker());
+const workspace = bench?.source ?? coreWorkspaceSource(core);
+const tracking = bench ? undefined : coreTrackingSource(core);
 // 창마다 하나인 대화 통로와 메모리. 공간을 오가도 작성 중 말이 남는다(desktop#R8).
 // 도크의 provider 끊김 줄(desktop#R7)은 같은 core 통로에서 계정 상태를 읽고, 행동은
 // lophn 공간 settings로 간다.
 const conversation = {
-  source: coreConversationSource(core),
+  source: mock?.conversation ?? coreConversationSource(core),
   drafts: new DraftStore(),
   startOpen: location.hash === "#conversation",
   core,
@@ -115,7 +121,7 @@ const conversation = {
 };
 // 창마다 하나인 질문·approval 통로와 고르던 답. 도크의 칸·things-to-confirm·chip이 같이 쓴다.
 const requests = {
-  source: coreRequestSource(core),
+  source: mock?.requests ?? coreRequestSource(core),
   drafts: new RequestDrafts(),
 };
 // 개발 확인용 시작 자리. `#roles`면 roles 형제부터, `#settings`면 settings 형제부터 연다. `#lophn`이면 lophn 공간(documents)부터, `#conversation`이면
@@ -172,14 +178,14 @@ const bridges = globalThis as {
   lophnIntents?: IntentApi;
   lophnAppWindows?: LophnAppWindowsApi;
 };
-const views: LophnShellViewsApi | undefined =
-  typeof bridges.lophnShell?.openApp === "function"
+const views: LophnShellViewsApi | undefined = mock?.views ??
+  (typeof bridges.lophnShell?.openApp === "function"
     ? bridges.lophnShell as LophnShellViewsApi
-    : undefined;
-const feedback: LophnShellFeedbackBegin | undefined =
-  typeof bridges.lophnShell?.beginFeedback === "function"
+    : undefined);
+const feedback: LophnShellFeedbackBegin | undefined = mock?.feedback ??
+  (typeof bridges.lophnShell?.beginFeedback === "function"
     ? bridges.lophnShell as LophnShellFeedbackBegin
-    : undefined;
+    : undefined);
 const palette: PaletteDeps | undefined =
   bridges.lophnShell && bridges.lophnShortcuts
     ? {
@@ -191,9 +197,10 @@ const palette: PaletteDeps | undefined =
 
 // 앱 패널 탭과 세션 앱 카드의 view 통로. desktop 창 preload에만 있다. 화면 선언(blueprint) read로
 // 프로젝트 탭의 앱 패널 열기를 세우고, 문제 알리기는 아직 core 통로가 없어 두지 않는다.
-const appViews: AppViewsDeps | null = views
-  ? { views, app: coreAppRead(core), screens: coreAppScreens(core) }
-  : null;
+const appViews: AppViewsDeps | null = mock?.appViews ??
+  (views
+    ? { views, app: coreAppRead(core), screens: coreAppScreens(core) }
+    : null);
 
 mount(
   <div className={styles.root}>
@@ -204,7 +211,7 @@ mount(
             source={core}
             initial={start}
             workspace={workspace}
-            editor={seed ? { ...seed.editor, menu: editor.menu } : editor}
+            editor={bench ? { ...bench.editor, menu: editor.menu } : editor}
             windowWidth={seed ? 1440 : undefined}
             terminal={terminal}
             lophn={lophn}
@@ -223,9 +230,9 @@ mount(
             issues={issues}
             appDetail={appDetail}
             views={views}
-            appWindows={bridges.lophnAppWindows}
+            appWindows={mock?.appWindows ?? bridges.lophnAppWindows}
             feedback={feedback}
-            instructions={windowInstructionsSource()}
+            instructions={mock?.instructions ?? windowInstructionsSource()}
           />
         </RequestsProvider>
       </ConversationProvider>

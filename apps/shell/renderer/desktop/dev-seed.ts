@@ -67,13 +67,35 @@ const SEED_DOCUMENTS: Record<string, { info: DocumentInfo; text: string }> = {
   },
 };
 
+/** mock 모드의 [Instructions] 편집기가 여는 문서. 문서 목록에는 오르지 않는다. */
+export const SEED_INSTRUCTIONS_DOCUMENT = "doc_instructions";
+
+const INSTRUCTIONS_SEED = {
+  info: {
+    id: SEED_INSTRUCTIONS_DOCUMENT,
+    title: "Instructions",
+    fileName: "AGENTS.md",
+    path: "AGENTS.md",
+    version: "ver_instructions",
+    versionNumber: 1,
+    savedAt: Date.now() - 3 * 24 * 60 * 60 * 1000,
+  },
+  text:
+    "# Instructions\n\nKeep answers short and name the document you changed.",
+};
+
+function seededDocument(id: string) {
+  return SEED_DOCUMENTS[id] ??
+    (id === SEED_INSTRUCTIONS_DOCUMENT ? INSTRUCTIONS_SEED : undefined);
+}
+
 function seededEditor(): Omit<EditorDeps, "menu"> {
   let width: unknown = null;
   let revision = 0;
   return {
     source: {
       document: (id) => {
-        const seeded = SEED_DOCUMENTS[id];
+        const seeded = seededDocument(id);
         return Promise.resolve(
           seeded
             ? { ok: true, value: seeded.info }
@@ -81,7 +103,7 @@ function seededEditor(): Omit<EditorDeps, "menu"> {
         );
       },
       body: (id, _version, onPage) => {
-        const seeded = SEED_DOCUMENTS[id];
+        const seeded = seededDocument(id);
         const state: BodyState = seeded
           ? { kind: "text", text: seeded.text, complete: true }
           : { kind: "failed" };
@@ -89,7 +111,7 @@ function seededEditor(): Omit<EditorDeps, "menu"> {
         return Promise.resolve(state);
       },
       outline: (id) => {
-        const seeded = SEED_DOCUMENTS[id];
+        const seeded = seededDocument(id);
         if (!seeded) return Promise.resolve({ ok: false, code: "not_found" });
         const sections = seeded.text.split("\n").flatMap((line, index) => {
           const match = /^(#{1,6}) (.+)$/.exec(line);
@@ -190,14 +212,19 @@ const SEEDED: WorkspaceSource = {
   saveLayout: () => Promise.resolve({ ok: true }),
 };
 
-/** 주소에 dev-seed가 있으면 시드 작업대를, 없으면 null을 돌려준다. */
-export function devSeed(
-  search: string = globalThis.location?.search ?? "",
-): DevSeed | null {
-  if (!new URLSearchParams(search).has("dev-seed")) return null;
+/** 시드 작업대와 문서 탭 통로. mock 모드도 같은 작업대를 쓴다. */
+export function seedWorkbench(): DevSeed {
   return {
     project: DEV_SEED_PROJECT,
     source: SEEDED,
     editor: seededEditor(),
   };
+}
+
+/** 주소에 dev-seed가 있으면 시드 작업대를, 없으면 null을 돌려준다. */
+export function devSeed(
+  search: string = globalThis.location?.search ?? "",
+): DevSeed | null {
+  if (!new URLSearchParams(search).has("dev-seed")) return null;
+  return seedWorkbench();
 }

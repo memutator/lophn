@@ -1392,6 +1392,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
 
 - 상태: 진행 (#474, #489, #546, #547, #548, #549, #560, #561, #563, #576) — 완료: restore-app-release. new-app은 등록·source 연결·bundle
 - 상태: 진행 (#474, #489, #546, #547, #548, #549, #560, #561, #562, #576) — 완료: restore-app-release. new-app은 등록·source 연결·bundle
+- 상태: 진행 (#474, #489, #546, #547, #548, #549, #550, #560, #561, #563, #576) — 완료: restore-app-release. new-app은 등록·source 연결·bundle
   준비까지 e2e/flows/flow-new-app_test.ts를 썼고 통과한다(#576).
   #560: release.prepare finalizer를 core에 이었다(`apps/core/apps-release-finalizer.ts`: ticket claim을 가진 coding
   agent의 prepare_bundle 접수가 완료됐고 같은 bundle hash의 통과한 app test가 기록돼 있으면 `release.preparation`을
@@ -1420,10 +1421,18 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
   #547 ask-app-hint 2단계: `app.screen_context`·`app.annotate`를 `apps/agent-runtime/app-toolkit.ts`
   (`defineContext`·`contextBinding`·`contextHandlers`)와 `prepare.ts`의 tool 목록·binding·handler에 이었고,
   desktop renderer 진입의 `appViews.screens`(`coreAppScreens`)를 이어 앱 패널 열기 단추가 선다. 2단계(선언된
-  read·주석 command만 tool)와 열기 단추 step이 e2e로 돈다. 3단계 이후(현재 화면 조회·redaction·주석 쓰기·revision
-  충돌·탭을 닫은 뒤)는 제품 결함 하나가 막는다: agent·앱 화면 둘 다 자기 view_session을 알 길이 없다(turn context
-  탭 줄에 없고 화면 page URL에 query가 없다). 잇는 길은 `ViewTab`(app_panel)에 view_session을 더하는 contract
-  모양 변경이 필요해 lead 결정을 기다린다
+  read·주석 command만 tool)와 열기 단추 step이 e2e로 돈다. view_session 통로는 #550이 이었다: app_panel `ViewTab`에 optional
+  `view_session`(additive), 렌더러가 탭 key별 session을 힌트로 올리고 main이 이 창 패널 view와 대조해 싣는다.
+  앱 화면 첫 URL은 이 view의 session만 page query로 갖는다. agent가 tool 입력으로 준 view_session은 이 run의
+  workspace에 열린 그 앱 패널 탭의 것일 때만 믿는다(`app-toolkit.ts` `panelOpen`, 아니면 없는 대상과 같은 답).
+  #550 ask-app-hint 3·6단계(조회+민감한 칸 제거, 탭을 닫은 뒤)와 앱 패널 열기 step이 e2e로 돈다. 고친 것:
+  마지막 탭을 닫아도 publish가 없어 agent가 닫힌 탭을 열린 것으로 읽던 결함(`live-view.ts`), fixture todo의
+  민감 path가 `/summary`·`/data` 밖이라 요약·상세가 통째로 빠지던 것(`/data/todo/private_note`), `app.annotate`
+  가능성 probe의 빈 text가 앱의 `minLength`에 걸려 tool이 안 서던 것. 넘김: 4·5단계(주석 쓰기와 사람 허락, 옛
+  revision 충돌)는 ignore다. agent가 `app.annotate`를 부르면 판정이 approval 없이 deny("the tool or target is
+  not available", decision.contract_revision null)하는데 같은 run의 `app.screen_context`는 통과하고 원인(주석
+  판정 연결의 현재 revision 확인·입력 검사)을 닫지 못했다. 복원한 앱 패널은 앱이 쓰기 준비가 되기 전에 view를
+  열려다 실패하면 [Reload]를 눌러야 다시 열린다(flow가 그렇게 돈다)
 - 정한 것(사람, 2026-10-10 — plan 빨리 닫기): 이 task는 flow의 주요 단계가 실제 e2e로 통과하면 완료다. (1) 다른 갈래, (2) 이 기계에서 구조적으로 돌릴 수 없는 환경 의존 단계(실제 root 설치·실제 Ubuntu 설치 확인, OS keychain이 필요한 단계 — 활성 coding 연결과 그 뒤 [Start]·claim·보고·회수, manage-coding-access, 앱 secret 전달 — 와 node-pty 터미널 갈래), (3) followup으로 넘긴 제품 결함 때문에 ignore로 남은 단계는 이번 계획에서 뺀다. 뺀 것은 상태 줄에 "넘김"으로 적고 `.dev-data/followups.md`·handoff §7에 남긴다. 아직 돌지 않은 주요 단계는 최소로만 돌리고, 돌리다 만난 결함은 보안 경계 결함이나 flow 첫 단계 자체가 안 도는 경우가 아니면 고치지 않고 ignore + followup으로 넘긴다.
 - 등급: 기본
 - concern: apps

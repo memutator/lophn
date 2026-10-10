@@ -8,6 +8,7 @@ import {
   type AppBlueprintCommand,
   grantsList,
 } from "../../packages/contracts/apps/mod.ts";
+import { workspaceRead } from "../../packages/contracts/shell/mod.ts";
 import { routePath } from "../../packages/contracts/platform/mod.ts";
 import { computeAgentAppScope } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
 import {
@@ -27,6 +28,8 @@ const RUN = "run_01arz3ndektsv4rrffq69g5fav";
 const CALL = "tcl_01arz3ndektsv4rrffq69g5fav";
 const VIEW = "view-session-1";
 const REVISION = "rev-3";
+const SESSION = "ses_01arz3ndektsv4rrffq69g5fav";
+const OTHER_APP = "app_01arz3ndektsv4rrffq69g5faw";
 const AT = "2026-10-10T00:00:00.000Z";
 
 const READ_INPUT = {
@@ -46,7 +49,7 @@ const WRITE_INPUT = {
     view_session: { type: "string" },
     expected_revision: { type: "string" },
     target: { type: "string" },
-    text: { type: "string" },
+    text: { type: "string", minLength: 1 },
   },
   required: ["screen", "view_session", "expected_revision", "target", "text"],
   additionalProperties: false,
@@ -150,8 +153,38 @@ function machineOf(granted: string[]): CoreCall {
 }
 
 // run의 agent 자격이다. 연결 요청은 서명된 connection 모양으로 답하고 앱 direct 요청은 `direct`가 받는다.
-function agentOf(connected: string[]): CoreCall {
+// 사람 창의 앱 패널 탭이다. 이 run의 workspace에 열려 있는 view_session만 agent가 가리킬 수 있다.
+type PanelTab = { app: string; view_session?: string };
+const PANELS: PanelTab[] = [{ app: APP, view_session: VIEW }];
+
+function workspaceOf(tabs: PanelTab[], page: number) {
+  return ok({
+    availability: "current",
+    observed_at: AT,
+    generation: 1,
+    summary: "project none",
+    tab_page: page === 0
+      ? tabs.map((tab, index) => ({
+        kind: "app_panel",
+        key: `tab-${index}`,
+        selected: index === 0,
+        surface: "todos",
+        ...tab,
+      }))
+      : [],
+  });
+}
+
+function agentOf(connected: string[], tabs = PANELS): CoreCall {
   return (path, body) => {
+    if (path === routePath(workspaceRead)) {
+      const asked = body as { session: string; page: number };
+      return Promise.resolve(
+        asked.session === SESSION
+          ? workspaceOf(tabs, asked.page)
+          : err({ code: "unavailable", message: "other session" }),
+      );
+    }
     if (path !== "apps/connect") {
       return Promise.resolve(
         err({ code: "not_found", message: "route is not open" }),
@@ -261,7 +294,7 @@ Deno.test("apps/agent-context#R5 apps/agent-context#R6 lophn-agent/harness/tool-
   const tools = toolkit.defineContext(scope, loaded);
   assertEquals(tools.length, 2);
   const [screen, annotate] = tools.map((tool) =>
-    toolkit.contextBinding(tool, scope, agent)
+    toolkit.contextBinding(tool, scope, agent, SESSION)
   );
   assert(screen !== undefined && annotate !== undefined);
   const call = { run: RUN, toolCall: CALL };
@@ -290,10 +323,16 @@ Deno.test("apps/agent-context#R6: 실행 handler는 두 tool이 모두 있고 �
     machine: machineOf(["read_screen", "write_hint", "undo_hint"]),
   });
   const { scope } = await scopeOf([], toolkit);
+  const open = agentOf([]);
   const handlers = toolkit.contextHandlers(
     scope,
-    () =>
-      Promise.resolve(err({ code: "unavailable", message: "no connection" })),
+    (path, body) =>
+      path === "apps/connect"
+        ? Promise.resolve(
+          err({ code: "unavailable", message: "no connection" }),
+        )
+        : open(path, body),
+    SESSION,
   );
   assertEquals([...handlers.keys()].sort(), [
     appAnnotateTool.name,
@@ -317,4 +356,85 @@ Deno.test("apps/agent-context#R6: 실행 handler는 두 tool이 모두 있고 �
   );
   assert(!write.ok);
   assertEquals(write.error.code, "unavailable");
+});
+
+Deno.test("apps/agent-context#R2 lophn-agent/harness/tool-judgment#R12: agent가 준 view_session은 이 run의 사람 창에 열린 그 앱 패널 탭의 것일 때만 믿고 아니면 없는 대상과 같은 답으로 앱에 닿기 전에 거절한다", async () => {
+  const toolkit = createAppToolkit({
+    machine: machineOf(["read_screen", "write_hint", "undo_hint"]),
+  });
+  const { scope, loaded } = await scopeOf([], toolkit);
+  const tools = toolkit.defineContext(scope, loaded);
+  const credential = {
+    run: RUN,
+    call: CALL,
+    targets: new Set([APP]),
+    operations: new Set<string>(),
+  };
+  const call = { run: RUN, toolCall: CALL };
+  const rejects = async (
+    label: string,
+    agent: CoreCall,
+    session: string | null,
+    args: { read: Record<string, unknown>; write: Record<string, unknown> },
+  ) => {
+    const connected: string[] = [];
+    const watched: CoreCall = (path, body) => {
+      if (path === "apps/connect") connected.push(path);
+      return agent(path, body);
+    };
+    const handlers = toolkit.contextHandlers(scope, watched, session);
+    const read = await handlers.get(appScreenContextTool.name)!(
+      args.read,
+      credential,
+    );
+    const write = await handlers.get(appAnnotateTool.name)!(
+      args.write,
+      credential,
+    );
+    assert(!read.ok && !write.ok, label);
+    // 존재하지 않는 대상과 같은 답이고 앱 연결은 열리지 않았다.
+    assertEquals(read.error, write.error, label);
+    assertEquals(read.error.code, "not_found", label);
+    for (const tool of tools) {
+      const bound = toolkit.contextBinding(tool, scope, watched, session)!;
+      const resolved = await bound.resolve(
+        tool.name === appScreenContextTool.name ? args.read : args.write,
+        call,
+      );
+      assert(!resolved.ok, label);
+      assertEquals(resolved.error.code, "not_found", label);
+    }
+    assertEquals(connected, [], label);
+  };
+  const own = { read: READ_ARGS, write: WRITE_ARGS };
+  // 이 창에 없는 view_session.
+  await rejects(
+    "forged",
+    agentOf([]),
+    SESSION,
+    {
+      read: { ...READ_ARGS, view_session: "view-forged" },
+      write: { ...WRITE_ARGS, view_session: "view-forged" },
+    },
+  );
+  // 다른 앱의 패널 탭의 view_session을 이 앱 이름으로 주장한다.
+  await rejects(
+    "other app's tab",
+    agentOf([], [{ app: OTHER_APP, view_session: VIEW }]),
+    SESSION,
+    own,
+  );
+  // 탭에 session이 아직 없다(패널 view가 서지 않았다).
+  await rejects("no session on tab", agentOf([], [{ app: APP }]), SESSION, own);
+  // 이 run에 묶인 대화 session이 없거나 현재 보기를 읽지 못한다.
+  await rejects("no run session", agentOf([]), null, own);
+  await rejects(
+    "workspace unreadable",
+    () => Promise.resolve(err({ code: "unavailable", message: "x" })),
+    SESSION,
+    own,
+  );
+  // 열린 탭의 것이면 같은 입력이 통과한다(위 거절이 입력 모양 때문이 아니다).
+  const pass = toolkit.contextBinding(tools[0]!, scope, agentOf([]), SESSION)!;
+  assert((await pass.resolve(READ_ARGS, call)).ok);
 });

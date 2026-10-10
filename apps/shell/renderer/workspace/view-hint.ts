@@ -13,7 +13,13 @@ type HintTab =
   | { kind: "document_editor"; key: string; document: string }
   | { kind: "document_viewer"; key: string; document: string; version: string }
   | { kind: "terminal"; key: string; project_folder: string }
-  | { kind: "app_panel"; key: string; app: string; surface: string };
+  | {
+    kind: "app_panel";
+    key: string;
+    app: string;
+    surface: string;
+    view_session?: string;
+  };
 
 export interface ViewHint {
   project: string;
@@ -36,6 +42,7 @@ function folderRef(value: string | undefined): string | null {
 function hintTab(
   tab: TabItem,
   presentation: Readonly<Record<string, TabPresentation>>,
+  sessions: Readonly<Record<string, string>>,
 ): HintTab | null {
   if (tab.kind === "document_editor" || tab.kind === "document_viewer") {
     const shown = presentation[tab.key];
@@ -62,6 +69,9 @@ function hintTab(
       key: tab.key,
       app: tab.app,
       surface: tab.screen,
+      ...(sessions[tab.key] === undefined
+        ? {}
+        : { view_session: sessions[tab.key] }),
     };
   }
   return null;
@@ -71,6 +81,8 @@ export function layoutHint(input: {
   project: string;
   view: WorkspaceView;
   presentation: Readonly<Record<string, TabPresentation>>;
+  /** 앱 패널 탭이 연 view의 session. 탭 key로 찾는다. */
+  sessions?: Readonly<Record<string, string>>;
 }): ViewHint {
   let pending = false;
   const panes = input.view.panes.map((pane) => {
@@ -80,7 +92,7 @@ export function layoutHint(input: {
         const shown = input.presentation[tab.key];
         if (shown === undefined || shown.version === "") pending = true;
       }
-      const hinted = hintTab(tab, input.presentation);
+      const hinted = hintTab(tab, input.presentation, input.sessions ?? {});
       if (hinted !== null) tabs.push(hinted);
     }
     return { tabs, selected: pane.selected };

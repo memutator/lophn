@@ -114,3 +114,48 @@ test("shell/workspace#R11: 앱 탭의 현재 보기는 요청 창 패널 view의
     truncated: false,
   }]);
 });
+
+test("apps/agent-context#R2 shell/workspace#R11: 앱 패널 탭은 이 창의 그 앱·screen 패널 view의 session만 싣고 다른 창·다른 화면·꾸며낸 session은 싣지 않는다", () => {
+  const context = appViewContext(source, "win-1");
+  const tabs = (claimed: string, app = APP, surface = "board") => {
+    const assembled = assembleCurrentView({
+      hint: {
+        window_ref: "win-1",
+        project: PRJ,
+        panes: [{
+          tabs: [{
+            kind: "app_panel",
+            key: "a1",
+            app,
+            surface,
+            view_session: claimed,
+          }],
+          selected: "a1",
+        }],
+        focused_pane: 0,
+      },
+      registry: { isLive: () => true, ...context },
+      scope: { project: () => true, document: () => true, app: () => true },
+      observed_at: AT,
+    });
+    assert.equal(assembled.ok, true);
+    return (assembled as Extract<typeof assembled, { ok: true }>).state.tabs;
+  };
+  // 이 창의 패널 view(view-1)다.
+  assert.deepEqual(tabs("view-1"), [{
+    kind: "app_panel",
+    key: "a1",
+    app: APP,
+    surface: "board",
+    view_session: "view-1",
+    selected: true,
+  }]);
+  // 다른 창의 view, 패널이 아닌 전체·카드 view, 꾸며낸 값은 session 없이 탭만 남는다.
+  for (const claimed of ["view-6", "view-3", "view-4", "view-forged"]) {
+    const [tab] = tabs(claimed);
+    assert.equal(tab && "view_session" in tab, false, claimed);
+  }
+  // 다른 앱·다른 화면의 탭에 이 view의 session을 붙이지 못한다.
+  assert.equal("view_session" in tabs("view-1", APP_B)[0]!, false);
+  assert.equal("view_session" in tabs("view-1", APP, "other")[0]!, false);
+});

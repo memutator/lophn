@@ -147,9 +147,22 @@ export function screenPath(
   return `/screens/${encodePath(screen, asset)}?${query}`;
 }
 
-/** view 안에서 여는 첫 주소. */
-export function appEntryUrl(appLabel: string, screen: string): string {
-  return `${APP_SCHEME}://${appLabel}/${encodeURIComponent(screen)}/index.html`;
+/**
+ * view 안에서 여는 첫 주소. 페이지가 자기 view_session을 알 수 있게 이 view의 식별자만 query로 싣는다
+ * (apps/agent-context). 앱 socket으로는 넘기지 않고(`screenPath`가 main이 정한 값만 붙인다) 다른 화면의
+ * 주소에는 붙지 않는다.
+ */
+export function appEntryUrl(
+  appLabel: string,
+  screen: string,
+  viewSession?: string,
+): string {
+  const base = `${APP_SCHEME}://${appLabel}/${
+    encodeURIComponent(screen)
+  }/index.html`;
+  return viewSession === undefined
+    ? base
+    : `${base}?${new URLSearchParams({ view_session: viewSession })}`;
 }
 
 function header(

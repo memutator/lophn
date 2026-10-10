@@ -1174,6 +1174,8 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 - 상태: 진행 (#524) — 남은 것: work-offline 5–7단계, update-lophn 5–8단계, install-lophn. 한 것: work-offline 4단계만. harness가 일시적인 provider 통신 실패만 정해진 횟수와 대기 안에서 retry한다. 불완전한 model 응답의 tool call은 시작하지 않는다. 다른 provider나 model로 바꾸지 않는다. 이 과정은 사람에게 보이지 않는다.
 - 상태: 진행 (#532) — 남은 것: work-offline 6–7단계, update-lophn 5–8단계, install-lophn. 한 것: work-offline 5단계만. 쓸 수 있는 연결이 없으면 project-workspace·app-space 도크에 설정으로 가는 단추 하나만 보이고 시각·숫자는 없다. retry를 다 쓴 429는 서버가 준 retry 시각만 확정된 다음 시도로 보이며 세지 않는다. 그 전에는 시각이 안 보인다.
 - 이 PR (#532)은 flow work-offline의 5단계만 했다. 6–7단계와 update-lophn, install-lophn은 남은 그대로다.
+- 상태: 진행 (#539) — 남은 것: work-offline 7단계, update-lophn 5–8단계, install-lophn. 한 것: work-offline 6단계만. 연결이 돌아오면 확정된 읽기는 다시 실행하지 않고 붙든 판단 하나만 다시 부른다. 허락 뒤 시작만 되고 결과가 없는 앱 쓰기는 다시 보내지 않으며 불명확 효과·미실행·run 실패(effect_unknown)를 구별하고 뒤 판단을 시작하지 않는다. 이 과정은 사람에게 보이지 않는다.
+- 이 PR (#539)은 flow work-offline의 6단계만 했다. 7단계와 update-lophn, install-lophn은 남은 그대로다.
 - 완료: 아래 확인이 통과한다
   - `e2e/flows/install-lophn_test.ts`, `update-lophn_test.ts`, `backup-and-restore_test.ts`, `catch-up-notifications_test.ts`, `work-offline_test.ts`가 flow 문서의 단계·다른 갈래·끝을 그대로 돈다(Linux, fake provider와 fixture).
   - `deno task e2e`에서 operations slice의 다섯 flow가 모두 통과한다.

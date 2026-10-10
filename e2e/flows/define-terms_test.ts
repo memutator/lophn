@@ -3,7 +3,7 @@
 // 그 테스트의 후보는 사람 command의 고정 본문 근거로 준비한다. 2는 다음 테스트가 본다.
 // 3은 고정 action 없는 질문만 본다. 4는 마지막 테스트가 고정한 term.define 선택지를
 // 확인 창 없이 사람의 결정으로 접수한다. 접수된 결정의 machine 적용은 답 확정 경로
-// 결함(followups 49·55)으로 볼 수 없어 그 테스트 안에 표시해 두었다.
+// 결함(followups 49·55)으로 볼 수 없어 그 테스트 안의 ignore step으로 표시해 두었다.
 // 5의 변경 기록·목록 구별은 여기서 하지 않는다.
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 
@@ -2634,7 +2634,7 @@ Deno.test({
   ignore: !e2eEnabled(),
   sanitizeOps: false,
   sanitizeResources: false,
-  async fn() {
+  async fn(t) {
     const folder = await Deno.realPath(await copyFixture("korean-search"));
     await Deno.writeTextFile(
       `${folder}/${FIX_TITLE}.md`,
@@ -2910,31 +2910,47 @@ Deno.test({
       // term.define 선택지를 보내면 main이 정본을 다시 읽어 확인 창 없이
       // AnswerQuestionAction으로 접수한다. 고른 선택지가 그대로 사람의 결정이다.
       await shell.click(sendAnswer);
-      const appliedAt = Date.now() + 60_000;
+      const acceptedAt = Date.now() + 60_000;
       for (;;) {
         const answered = (await questionsOf(shell))[1];
         if (answered?.status === "answered") {
           assertEquals(answered.answer?.kind, "option");
           assertEquals(answered.answer?.option_key, "use");
-          // 볼 수 없는 것(이어보냄): 접수된 결정의 machine 적용은 답 확정 경로
-          // 결함(followups 49·55: ports.wait가 WaitRun의 질문 갈래를 부르지 않아
-          // 질문을 만든 run이 끝나고 해소기가 기다리는 run으로 돌리지 못한다)으로
-          // 볼 수 없다. 결정 접수와 적용 미완이 그 결함의 현재 결과이고, 이
-          // 결함이 풀리면 같은 결정의 적용까지 본다.
-          assertEquals(answered.applied, false);
           break;
         }
         assert(
-          Date.now() < appliedAt,
+          Date.now() < acceptedAt,
           `고른 선택지가 접수되지 않았다: ${
             JSON.stringify(answered ?? null)
-          } ` +
-            `failure=${provider.failure()} phase=${provider.phase()}`,
+          } failure=${provider.failure()} phase=${provider.phase()}`,
         );
         await delay(250);
       }
       await noWindow();
-      assertEquals(await definitionOf(shell, FIX_TERM), null);
+      // 접수된 결정의 machine 적용은 답 확정 경로 결함(followups 49·55)으로 볼 수
+      // 없다. ports.wait가 WaitRun의 질문 갈래를 부르지 않아 질문을 만든 run이 끝나
+      // 해소기가 기다리는 run으로 돌리지 못한다. 결함이 풀리면 ignore를 지운다.
+      await t.step({
+        name:
+          "접수된 고정 뜻이 정의로 적용된다 (followups 49·55: ports.wait가 question 갈래를 부르지 않는다)",
+        ignore: true,
+        async fn() {
+          const appliedAt = Date.now() + 60_000;
+          for (;;) {
+            const answered = (await questionsOf(shell))[1];
+            const meaning = await definitionOf(shell, FIX_TERM);
+            if (answered?.applied === true && meaning === FIX_MEANING) break;
+            assert(
+              Date.now() < appliedAt,
+              `고정 뜻이 적용되지 않았다: ${JSON.stringify(answered ?? null)} ${
+                String(meaning)
+              }`,
+            );
+            await delay(250);
+          }
+          await noWindow();
+        },
+      });
       provider.release();
       await untilFixDone(shell, provider, "둘째 질문이 끝나지 않았다");
       assertEquals(provider.callsNamed().includes("term.define"), false);

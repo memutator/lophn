@@ -33,6 +33,12 @@ import {
   READ,
   success,
 } from "./common.ts";
+import {
+  documentMoveAction,
+  fixedDocumentMove,
+  fixedSettingChange,
+  settingChangeAction,
+} from "./question-actions.ts";
 import type { ToolDefinition } from "../registry.ts";
 import type { RunCredential, ToolHandler } from "../work.ts";
 
@@ -63,7 +69,9 @@ function define(
 
 // 질문 선택지에 고정 action 객체는 모델이 싣지 않는다. 기존 후보의 정의만
 // `term_definition`으로 제안할 수 있고, handler가 읽은 후보의 이름·revision으로
-// term.define action을 고정한다. 뜻 글의 blob hash는 만들지 않는다.
+// term.define action을 고정한다. 뜻 글의 blob hash는 만들지 않는다. 설정 변경
+// (`setting_change`)과 문서 자리 이동(`document_move`)도 대상과 새 값만 제안하고 현재 값·
+// revision 같은 비교 기준은 handler가 읽어 고정한다(question-actions.ts).
 const fixedTermDefinition = z.strictObject({
   term: idSchema("trm"),
   name: questionTextSchema,
@@ -77,6 +85,8 @@ const questionOption = z.strictObject({
   adoption: fixedVersionReferenceSchema.nullable(),
   action: z.null(),
   term_definition: fixedTermDefinition.optional(),
+  setting_change: fixedSettingChange.optional(),
+  document_move: fixedDocumentMove.optional(),
 });
 
 export const questionSubmitInput = z.strictObject({
@@ -284,9 +294,30 @@ export function createAgentToolHandlers(
       const value = input as z.infer<typeof questionSubmitInput>;
       const facts = await ports.runFacts(credential.run);
       if (!facts.ok) return facts;
+      const id = ports.newId("qst");
       const options = [];
       for (const option of value.options) {
-        const { term_definition: proposed, ...rest } = option;
+        const {
+          term_definition: proposed,
+          setting_change: setting,
+          document_move: move,
+          ...rest
+        } = option;
+        if (setting !== undefined || move !== undefined) {
+          if (proposed !== undefined || (setting && move)) {
+            return err({
+              code: "invalid_input",
+              message: "an option fixes one action only",
+            });
+          }
+          const run = { ports, run: credential.run };
+          const action = setting !== undefined
+            ? await settingChangeAction(run, id, setting)
+            : await documentMoveAction(run, move!);
+          if (!action.ok) return action;
+          options.push({ ...rest, action: action.value });
+          continue;
+        }
         if (proposed === undefined) {
           options.push(rest);
           continue;
@@ -324,7 +355,6 @@ export function createAgentToolHandlers(
           }),
         });
       }
-      const id = ports.newId("qst");
       const created = await ports.call(
         "CreateQuestion",
         {

@@ -80,7 +80,14 @@ export type HintTab =
   | { kind: "document_editor"; key: string; document: string }
   | { kind: "document_viewer"; key: string; document: string; version: string }
   | { kind: "terminal"; key: string; project_folder: string }
-  | { kind: "app_panel"; key: string; app: string; surface: string };
+  | {
+    kind: "app_panel";
+    key: string;
+    app: string;
+    surface: string;
+    // 렌더러가 그 탭의 패널 view에서 얻은 식별자다. registry에 있는 view의 것일 때만 쓴다.
+    view_session?: string;
+  };
 
 export interface LayoutHint {
   window_ref: string;
@@ -112,6 +119,8 @@ export interface ViewRegistry {
     mode: "live" | "preview";
     view_generation: number;
   } | null;
+  // 이 창에 열린 그 앱·screen의 패널 view가 정말 이 view_session인지. 없으면 session을 싣지 않는다.
+  panelSession?(app: string, surface: string, view_session: string): boolean;
 }
 
 // 현재 scope. 힌트의 참조를 지금 허용 대상과 대조한다(shell/workspace#R10).
@@ -158,7 +167,7 @@ export function assembleCurrentView(input: {
       if (!tab || typeof tab !== "object") continue;
       const selected = typeof pane.selected === "string" &&
         pane.selected === tab.key;
-      const view = viewTabFor(tab, selected, input.scope);
+      const view = viewTabFor(tab, selected, input.scope, input.registry);
       if (view) tabs.push(view);
       else omissions.push({ reason: "target_out_of_scope", truncated: false });
       if (
@@ -209,6 +218,7 @@ function viewTabFor(
   tab: HintTab,
   selected: boolean,
   scope: ViewScope,
+  registry: ViewRegistry,
 ): ViewTab | null {
   if (tab.kind === "document_editor") {
     if (!refOk(tab.key) || !refOk(tab.document)) return null;
@@ -245,6 +255,11 @@ function viewTabFor(
       key: tab.key,
       app: tab.app,
       surface: truncate(tab.surface),
+      ...(typeof tab.view_session === "string" &&
+          registry.panelSession?.(tab.app, tab.surface, tab.view_session) ===
+            true
+        ? { view_session: tab.view_session }
+        : {}),
       selected,
     };
   }

@@ -310,3 +310,24 @@ Deno.test("lophn-agent/harness/prompt-assemble#R28: 실제 포함한 context와 
   assert(without.status === "ready");
   assertEquals(without.assembly.basis.turn_context, null);
 });
+
+Deno.test("lophn-agent/harness/prompt-assemble#R25 apps/agent-context#R2: 앱 패널 탭 줄은 그 패널 view의 session을 싣고 없으면 싣지 않는다", async () => {
+  const panel = (key: string, view_session?: string): ViewTab => ({
+    kind: "app_panel",
+    key,
+    selected: key === "a",
+    app: APP,
+    surface: "todos",
+    ...(view_session === undefined ? {} : { view_session }),
+  });
+  const { text } = await buildTurnContext(
+    deps,
+    current([panel("a", "view-session-7"), panel("b")]),
+  );
+  assert(text !== null);
+  assertStringIncludes(
+    text,
+    `- * app_panel a ${APP} todos view_session=view-session-7`,
+  );
+  assertStringIncludes(text, `- app_panel b ${APP} todos\n`);
+});

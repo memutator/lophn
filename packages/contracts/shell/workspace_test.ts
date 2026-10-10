@@ -340,3 +340,25 @@ Deno.test(
     assert(workspaceRead.input.safeParse({ session: SES, page: 0 }).success);
   },
 );
+
+Deno.test("apps/agent-context#R2 shell/workspace#R11: 앱 패널 탭의 view_session은 additive optional이고 다른 탭 종류에는 둘 수 없다", () => {
+  const base = {
+    kind: "app_panel",
+    key: "a",
+    selected: true,
+    app: APP,
+    surface: "todos",
+  };
+  assert(viewTabSchema.safeParse(base).success);
+  assert(viewTabSchema.safeParse({ ...base, view_session: "view-1" }).success);
+  assert(!viewTabSchema.safeParse({ ...base, view_session: "" }).success);
+  assert(
+    !viewTabSchema.safeParse({
+      kind: "terminal",
+      key: "t",
+      selected: false,
+      project_folder: "p",
+      view_session: "view-1",
+    }).success,
+  );
+});

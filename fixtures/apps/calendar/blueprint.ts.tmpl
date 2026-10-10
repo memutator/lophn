@@ -3,6 +3,7 @@ import {
   defineBlueprint,
   type InputSchema,
 } from "@lophn/blueprint";
+import { ADD_TODO, TODO_APP } from "./src/places.ts";
 import { en } from "./src/wording/en.ts";
 
 // blueprint가 정본이다. 코드를 바꾸기 전에 먼저 바꾼다.
@@ -101,6 +102,27 @@ export function makeBlueprint(text: Text = en): Blueprint {
         revert: { supported: false },
       },
       {
+        key: "send_to_todo",
+        label: text["events.label.send-to-todo"],
+        description: text["events.summary.send-to-todo"],
+        effect: "external",
+        confirm: false,
+        input: {
+          type: "object",
+          properties: {
+            title: {
+              type: "string",
+              description: text["events.summary.todo-title"],
+              minLength: 1,
+              maxLength: 200,
+            },
+          },
+          required: ["title"],
+          additionalProperties: false,
+        },
+        revert: { supported: false },
+      },
+      {
         key: "delete_all_events",
         label: text["events.label.delete-all-events"],
         description: text["events.summary.delete-all-events"],
@@ -164,7 +186,11 @@ export function makeBlueprint(text: Text = en): Blueprint {
     ],
     documents: [],
     agent_context: [],
-    app_connections: [],
+    app_connections: [{
+      app: TODO_APP,
+      commands: [ADD_TODO],
+      reason: text["common.reason.todo"],
+    }],
     // 정확한 version만 쓴다. deno.json의 import map과 같아야 한다(tests/blueprint_test.ts).
     sdk_dependencies: [
       { name: "@lophn/blueprint", version: "1.0.0" },

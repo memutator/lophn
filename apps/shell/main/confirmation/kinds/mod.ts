@@ -9,7 +9,13 @@ import type {
 import type { LiveHandle } from "../handle.ts";
 import type { ConfirmationIntent } from "../types.ts";
 import { appDecisions } from "./app-decisions.ts";
-import { GRANT, readApproval, submitApproval } from "./approval.ts";
+import {
+  CANCEL,
+  GRANT,
+  readApproval,
+  REJECT,
+  submitApproval,
+} from "./approval.ts";
 import {
   CONNECTION_CONCERN,
   CONNECTION_REVOKE,
@@ -43,6 +49,12 @@ export interface KindsOptions {
   clock: { now(): number };
   random(bytes: Uint8Array): Uint8Array;
 }
+
+/** 접수돼도 확정이 아닌 결정. 연 창이 허락을 기다리지 않도록 coordinator가 끝남으로 알린다. */
+export const REFUSALS = {
+  [REJECT]: "rejected",
+  [CANCEL]: "cancelled",
+} as const;
 
 const NOT_READY = failed("unavailable", "core가 준비되지 않았다");
 

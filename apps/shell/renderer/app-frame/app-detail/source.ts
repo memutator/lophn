@@ -268,8 +268,14 @@ export interface AppDetailSource {
     release: string,
   ): Promise<SourceResult<StartedPreview>>;
   stopPreview(app: string, preview: StartedPreview): Promise<void>;
-  /** 결정 창을 연다. 결정 자체는 그 창에서만 받는다. */
-  decide(decision: AppDecision): Promise<SourceResult<true>>;
+  /**
+   * 결정 창을 연다. 결정 자체는 그 창에서만 받는다. 창이 열린 뒤 확정되지 않고 끝나면
+   * (닫기·취소·만료·교체) onUnconfirmed를 한 번 부른다. 허락은 알리지 않는다.
+   */
+  decide(
+    decision: AppDecision,
+    onUnconfirmed?: () => void,
+  ): Promise<SourceResult<true>>;
   /** automation 끄기. 확인 창 없이 사람의 회수다. */
   turnOffAutomation(grant: string): Promise<SourceResult<true>>;
   /**

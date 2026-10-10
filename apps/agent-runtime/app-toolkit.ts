@@ -3,6 +3,7 @@ import {
   appAgentConfirmProof,
   appBlueprint,
   appRuntime,
+  appScreenContextSchema,
   grantsList,
   invocationAcceptConfirm,
   type InvocationAcceptConfirmInput,
@@ -21,23 +22,36 @@ import {
   routePath,
 } from "../../packages/contracts/platform/mod.ts";
 import {
+  workspaceRead,
+  workspaceReadOutputSchema,
+} from "../../packages/contracts/shell/mod.ts";
+import {
   createRuntimeClient,
   type DirectTransport,
 } from "../../packages/apps/runtime/client/mod.ts";
 import {
+  type AppContextJudgmentPorts,
   type AppJudgmentPorts,
+  createAnnotateBinding,
   createAppBinding,
+  createScreenContextBinding,
   type ToolBinding,
 } from "../../packages/lophn-agent/harness/tool-judgment/mod.ts";
 import {
+  appAnnotateTool,
   type AppBlueprintView,
   type AppCommandPorts,
+  type AppContextPorts,
   type AppGrant,
   type AppInvokeCall,
+  appScreenContextTool,
   type AppTool,
+  buildAppContextTools,
   buildAppTools,
+  createAppContextToolHandlers,
   createAppToolHandlers,
   revertCounterpart,
+  type ToolDefinition,
   type ToolHandler,
 } from "../../packages/lophn-agent/harness/tools/mod.ts";
 import {
@@ -68,9 +82,75 @@ export type AppToolkit = {
     agent: CoreCall,
   ): ReadonlyMap<string, ToolHandler>;
   lookups(tools: readonly AppTool[]): ReadonlyMap<string, ToolLookup>;
+  // 화면 context 조회(`app.screen_context`)와 주석 쓰기(`app.annotate`). 앱이 선언한 화면·주석 자리와
+  // 현재 허락, 역할·assignment 범위가 하나라도 열어 둔 것만 정의가 된다(tools R18).
+  defineContext(
+    scope: AgentAppScope,
+    loaded: AppLoad,
+  ): readonly ToolDefinition[];
+  // `session`은 이 run이 묶인 대화 session이다. 입력의 view_session은 그 session의 사람 창에 열린 그 앱의
+  // 패널 탭의 것일 때만 믿고, 아니면 없는 대상과 같은 답이다(apps/agent-context#R2).
+  contextBinding(
+    tool: ToolDefinition,
+    scope: AgentAppScope,
+    agent: CoreCall,
+    session: string | null,
+  ): ToolBinding | undefined;
+  contextHandlers(
+    scope: AgentAppScope,
+    agent: CoreCall,
+    session: string | null,
+  ): ReadonlyMap<string, ToolHandler>;
 };
 
 const PLACEHOLDER_SCREEN = "main";
+const WORKSPACE_PAGE_LIMIT = 10;
+
+const NOT_AVAILABLE = () =>
+  err({
+    code: "not_found" as const,
+    message: "the app command is not available",
+  });
+
+// agent가 준 view_session이 지금 이 run의 workspace(사람 창)에 열린 그 앱의 패널 탭의 것인지. 현재 보기를
+// 읽지 못하거나 끊겼거나 session이 없으면 아니다. 열린 탭은 식별일 뿐 허락이 아니다.
+async function panelOpen(
+  agent: CoreCall,
+  session: string | null,
+  app: string,
+  viewSession: string,
+): Promise<boolean> {
+  if (session === null) return false;
+  let page: number | undefined = 0;
+  for (
+    let read = 0;
+    page !== undefined && read < WORKSPACE_PAGE_LIMIT;
+    read++
+  ) {
+    const reply = await agent(routePath(workspaceRead), { session, page });
+    if (!reply.ok) return false;
+    const parsed = workspaceReadOutputSchema.safeParse(reply.value);
+    if (!parsed.success || parsed.data.availability !== "current") return false;
+    if (
+      parsed.data.tab_page?.some((tab) =>
+        tab.kind === "app_panel" && tab.app === app &&
+        tab.view_session === viewSession
+      )
+    ) return true;
+    page = parsed.data.next_page;
+  }
+  return false;
+}
+
+function claimed(
+  input: unknown,
+): { app: string; view_session: string } | undefined {
+  const value = input as { app?: unknown; view_session?: unknown } | null;
+  return typeof value?.app === "string" &&
+      typeof value.view_session === "string"
+    ? { app: value.app, view_session: value.view_session }
+    : undefined;
+}
 
 export function createAppToolkit(options: {
   // machine 자격의 loopback. 선언·허락·invocation 기록과 confirm 접수 proof를 다룬다.
@@ -319,6 +399,49 @@ export function createAppToolkit(options: {
     return ports;
   }
 
+  // 화면 context의 판정 근거와 실행 통로다. 조회·주석은 선언한 command를 같은 앱 direct 통로로 부른다.
+  function contextPorts(
+    agent: CoreCall,
+  ): AppContextPorts & AppContextJudgmentPorts {
+    const ports = commandPorts(agent);
+    return {
+      ...ports,
+      // 주석을 쓰기 직전의 현재 화면 revision이다. 선언한 read command에 지금 물어 얻고, 앱이 이 view의
+      // 화면을 모르거나 닫혔으면 null이다(옛 조회의 revision을 재사용하지 않는다).
+      async currentRevision(probe, call) {
+        const state = await current(probe.app);
+        if (!state.ok) return state;
+        const declaration = state.value.view.agent_context?.find((entry) =>
+          entry.screen === probe.screen
+        );
+        if (declaration === undefined) return ok(null);
+        const sent = await ports.invoke({
+          app: probe.app,
+          release: probe.release,
+          command: declaration.read_command,
+          input: {
+            screen: probe.screen,
+            view_session: probe.view_session,
+            detail: false,
+          },
+          requestKey: `${call.toolCall}:revision`,
+          run: call.run,
+          toolCall: call.toolCall,
+        });
+        if (!sent.ok) return sent;
+        if (sent.value.kind !== "result") return ok(null);
+        const parsed = appScreenContextSchema.safeParse(sent.value.result);
+        if (
+          !parsed.success || parsed.data.app !== probe.app ||
+          parsed.data.release !== probe.release ||
+          parsed.data.screen !== probe.screen ||
+          parsed.data.view_session !== probe.view_session
+        ) return ok(null);
+        return ok(parsed.data.revision);
+      },
+    };
+  }
+
   return {
     async load() {
       const listed = await apps();
@@ -369,6 +492,47 @@ export function createAppToolkit(options: {
         },
         ...commandPorts(agent),
       });
+    },
+    defineContext(scope, loaded) {
+      return buildAppContextTools({
+        scope,
+        views: loaded.views,
+        grants: loaded.grants,
+      });
+    },
+    contextBinding(tool, scope, agent, session) {
+      const inner = tool.name === appScreenContextTool.name
+        ? createScreenContextBinding(scope, contextPorts(agent))
+        : tool.name === appAnnotateTool.name
+        ? createAnnotateBinding(scope, contextPorts(agent))
+        : undefined;
+      if (inner === undefined) return undefined;
+      return {
+        async resolve(input, call) {
+          const asked = claimed(input);
+          if (
+            asked === undefined ||
+            !await panelOpen(agent, session, asked.app, asked.view_session)
+          ) return NOT_AVAILABLE();
+          return await inner.resolve(input, call);
+        },
+      };
+    },
+    contextHandlers(scope, agent, session) {
+      const inner = createAppContextToolHandlers(scope, contextPorts(agent));
+      return new Map(
+        [...inner].map(([name, handler]): [string, ToolHandler] => [
+          name,
+          async (input, credential) => {
+            const asked = claimed(input);
+            if (
+              asked === undefined ||
+              !await panelOpen(agent, session, asked.app, asked.view_session)
+            ) return NOT_AVAILABLE();
+            return await handler(input, credential);
+          },
+        ]),
+      );
     },
     lookups(tools) {
       return createAppToolLookups(

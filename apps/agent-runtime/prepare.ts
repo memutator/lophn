@@ -133,6 +133,9 @@ export type PreparerDeps = {
   product: string;
   rolePrompt(role: string): Promise<Result<string>>;
   instructions: InstructionDeps;
+  // run마다 그 run으로 지침 파일을 읽는 통로. 있으면 `instructions.files` 대신 쓴다(core가 run의 작업 자리와
+  // preset 첨부만 읽게 한다).
+  instructionFilesFor?(run: string): InstructionDeps["files"];
   // run 근거·결과와 model·tool 기록의 본문을 blob으로 먼저 저장하는 통로.
   blobs: BlobPort;
   skills?(): Promise<readonly SkillEntry[]>;
@@ -275,6 +278,11 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
         loaded === undefined || !loaded.ok
       ? []
       : await deps.apps.define(scope.value, loaded.value);
+    // 화면 context 조회·주석 쓰기도 같은 범위에서만 정의가 된다.
+    const contextTools: readonly ToolDefinition[] = deps.apps === undefined ||
+        loaded === undefined || !loaded.ok
+      ? []
+      : deps.apps.defineContext(scope.value, loaded.value);
 
     // 외부 MCP tool 등록이다(T37). 사람의 registry(mcp_servers 설정)와 preset 선택만이 출처이며,
     // 목록을 다시 읽지 못하면 그 server tool 정의가 없는 것과 같다(Q16: 재조회 실패는 옛 정의를
@@ -298,7 +306,10 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
     const listed = listTools(
       {
         builtin: deps.toolkit.definitions ?? BUILTIN_TOOLS,
-        app: appTools.map((tool) => tool.definition),
+        app: [
+          ...appTools.map((tool) => tool.definition),
+          ...contextTools,
+        ],
         external: external.map((tool) => tool.definition),
       },
       {
@@ -335,6 +346,7 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
       definition,
       listed,
       appTools,
+      contextTools,
       external,
       scope: scope.value,
       model: model.value,
@@ -373,10 +385,21 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
     const appByName = new Map(
       m.appTools.map((tool) => [tool.definition.name, tool]),
     );
+    const contextNames = new Set(m.contextTools.map((tool) => tool.name));
     for (const tool of listed) {
       const app = appByName.get(tool.name);
       if (app !== undefined && deps.apps !== undefined) {
         bindings.set(tool.name, deps.apps.binding(app, agent));
+        continue;
+      }
+      if (contextNames.has(tool.name) && deps.apps !== undefined) {
+        const bound = deps.apps.contextBinding(
+          tool,
+          m.scope,
+          agent,
+          seat.session,
+        );
+        if (bound !== undefined) bindings.set(tool.name, bound);
         continue;
       }
       const bound = toolkit.binding(tool, { agent, seat, reach }) ??
@@ -408,7 +431,11 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
         run_facts: null,
         continuation_summary: null,
         sources: await contextMaterials(agent, definition.context),
-        skills: (await deps.skills?.()) ?? [],
+        // 발견한 skill 중 preset이 고른 정확한 이름만 prompt에 오른다(extensions R4).
+        skills: ((await deps.skills?.()) ?? []).map((entry) => ({
+          ...entry,
+          selected: definition.skills.includes(entry.name),
+        })),
         timezone: deps.timezone?.() ?? null,
         limits: {
           context_limit: model.call.limits.context_limit,
@@ -436,6 +463,9 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
         handlers: new Map([
           ...toolkit.handlers(seat, agent),
           ...(deps.apps?.handlers(m.appTools, agent) ?? []),
+          ...(m.contextTools.length === 0
+            ? []
+            : deps.apps?.contextHandlers(m.scope, agent, seat.session) ?? []),
           ...(m.mcpKit === undefined ? [] : createMcpToolHandlers(
             external,
             m.mcpKit.call(assignment.id),
@@ -486,7 +516,12 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
       clock,
       wait: abortableWait,
       random: Math.random,
-      instructions: deps.instructions,
+      instructions: deps.instructionFilesFor === undefined
+        ? deps.instructions
+        : {
+          ...deps.instructions,
+          files: deps.instructionFilesFor(seat.run),
+        },
       ports: ported.ports,
     };
     return { ported, resolver, loopDeps };

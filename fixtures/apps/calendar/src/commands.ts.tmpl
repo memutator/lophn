@@ -17,6 +17,7 @@ import {
   saveExternal,
 } from "./events.ts";
 import { createExternalEvent, fetchExternalEvents } from "./external.ts";
+import { addTodoViaTodoApp } from "./todo.ts";
 
 export type Deps = {
   openStore: () => Store;
@@ -146,11 +147,25 @@ export function deleteAllEventsHandler(deps: Deps = defaults) {
     );
 }
 
+// 투두 앱에 할 일을 만든다. 앱 DB는 바꾸지 않는다. 호출은 사람이 허락한 앱 쌍 안에서만 가고, 투두 앱이 이
+// 앱을 부르다 온 호출이면 lophn이 거절한다.
+export function sendToTodoHandler() {
+  return async (input: unknown) => {
+    const title = String((input as { title?: unknown } | null)?.title ?? "")
+      .trim();
+    if (title === "") {
+      throw new CommandRejection("invalid_input", "the todo title is empty");
+    }
+    return { todo: await addTodoViaTodoApp(title) };
+  };
+}
+
 export function registerCommands(deps: Deps = defaults): void {
   command("list_events", listEventsHandler(deps));
   command("add_event", addEventHandler(deps));
   command("revert_event", revertEventHandler(deps));
   command("sync_events", syncEventsHandler(deps));
   command("create_external_event", createExternalEventHandler(deps));
+  command("send_to_todo", sendToTodoHandler());
   command("delete_all_events", deleteAllEventsHandler(deps));
 }

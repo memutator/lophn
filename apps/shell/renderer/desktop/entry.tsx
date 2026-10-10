@@ -22,6 +22,7 @@ import {
   type AppViewsDeps,
   AppViewsProvider,
   coreAppRead,
+  coreAppScreens,
 } from "../app-frame/app-views.tsx";
 import type { IntentApi, ShortcutApi } from "../../ipc/shortcuts.ts";
 import type { PaletteDeps } from "./palette/host.tsx";
@@ -46,6 +47,7 @@ import { coreSettingsSource } from "./lophn-space/settings/core-source.ts";
 import { coreBackupSource } from "./lophn-space/settings/backup/core-source.ts";
 import { coreNotificationsSource } from "./lophn-space/settings/notifications/core-source.ts";
 import { coreUpdateSource } from "./lophn-space/settings/update/core-source.ts";
+import { coreDiagnosticsSource } from "./lophn-space/settings/diagnostics/core-source.ts";
 import { coreAppDetailSource } from "../app-frame/app-detail/core-source.ts";
 import {
   coreCodingConnectionsSource,
@@ -85,6 +87,7 @@ const settingsPanels = {
   backup: coreBackupSource(core),
   update: coreUpdateSource(core),
   notifications: coreNotificationsSource(core),
+  diagnostics: coreDiagnosticsSource(core),
 };
 // coding agent 연결(settings)과 앱 공간 Tasks 탭. 감지·연결·[Start]는 main이 따로 검증하는 통로(`lophnCoding`)다.
 const codingApi = windowCodingApi();
@@ -186,10 +189,10 @@ const palette: PaletteDeps | undefined =
     }
     : undefined;
 
-// 앱 패널 탭과 세션 앱 카드의 view 통로. desktop 창 preload에만 있다. 화면 선언(blueprint) read와
-// 문제 알리기는 아직 core 통로가 없어 두지 않는다.
+// 앱 패널 탭과 세션 앱 카드의 view 통로. desktop 창 preload에만 있다. 화면 선언(blueprint) read로
+// 프로젝트 탭의 앱 패널 열기를 세우고, 문제 알리기는 아직 core 통로가 없어 두지 않는다.
 const appViews: AppViewsDeps | null = views
-  ? { views, app: coreAppRead(core) }
+  ? { views, app: coreAppRead(core), screens: coreAppScreens(core) }
   : null;
 
 mount(

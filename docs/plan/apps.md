@@ -1390,12 +1390,49 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
 
 ### T27 apps slice flow E2E
 
-- 상태: 진행 (#474, #489) — 완료: restore-app-release. new-app은 등록·source 연결·bundle
-  준비까지 e2e/flows/flow-new-app_test.ts를 썼으나 통과는 아직 확인하지 못했다(실행 대기열).
-  새 결함: release.prepare를 부르는 finalizer가 제품 코드에 없어 new-app의 app test 통과
-  이후(preview·적용·activation)는 돌 수 없다. #489 use-app-command: confirm 허락은 실행되고 거절은 다시 묻지 않는다. list의 성공한 일반 읽기는 invocation을 남기지 않는다(apps/invocations#R2, R18). 남은 것: new-app의 app test·preview·적용,
-  change-app, run-app-automation, manage-app-permissions, connect-apps,
-  ask-app-hint
+- 상태: 완료 (#474, #489, #546, #547, #548, #549, #550, #560, #561, #562, #563, #576, #580) — 주요 단계 통과: restore-app-release, use-app-command, manage-app-permissions(앞 단계), run-app-automation, connect-apps(1~5), ask-app-hint(1·2·3·6·패널 열기), new-app(등록·source·bundle·실제 runner app test) 넘김(사람 결정 2026-10-10): new-app 확정·preview·적용·activation(화면 있는 앱 app test가 test mode feedback·화면 검사 host 없어 pass 불가, followup 95), ask-app-hint 4·5(app.annotate 판정 deny, followup 100), change-app(미착수), manage-app-permissions secret 단계·net+file 경고(keychain 없음·fixture 없음), connect-apps 다른 갈래(반대 방향·사라진 command·재귀 상한), grant 재시작 뒤 열린 view conflict·읽기 not available(followup 83·99)
+  이전 상태: 진행 — 완료: restore-app-release. new-app은 등록·source 연결·bundle
+  준비까지 e2e/flows/flow-new-app_test.ts를 썼고 통과한다(#576).
+  #560: release.prepare finalizer를 core에 이었다(`apps/core/apps-release-finalizer.ts`: ticket claim을 가진 coding
+  agent의 prepare_bundle 접수가 완료됐고 같은 bundle hash의 통과한 app test가 기록돼 있으면 `release.preparation`을
+  읽을 때 봉인 사본의 blueprint·manifest·data_changes로 확정, 시험 `apps/core/release-finalizer_test.ts`). new-app의
+  preview·적용·activation 단계를 flow에서 돌리는 일은 남았다. #576 new-app 8단계: coding agent가 ticket claim으로 release_prepare한 bundle을 같은 hash로 실제 test-runner에 돌려
+  app_test Verification을 남기고 통과가 아니면 release가 서지 않음까지 돈다(e2e/flows/flow-new-app_test.ts 두 번째 테스트,
+  첫 테스트의 appSupervisor·show 단언 결함도 고쳤다). 막힘: core runner에 test mode feedback 접수 통로가 없고 화면 검사
+  host도 dev에 없어 화면 있는 앱의 app test는 pass가 될 수 없다 → 통과 뒤 prepared release 확정은 ignore, preview·적용·
+  activation(9~12)은 못 돌렸다(problems/tests#R7에서 넘어온 것). 이어보냄: `release_prepare` op의 답이
+  만든 release id를 보이지 않는다(contract 출력에 없음) → coding-agent. #489 use-app-command: confirm 허락은 실행되고 거절은 다시 묻지 않는다. list의 성공한 일반 읽기는 invocation을 남기지 않는다(apps/invocations#R2, R18). 남은 것: new-app의 app test·preview·적용,
+  change-app, manage-app-permissions(#548: fs 접근 허락·거절·창 닫기·회수와
+  새 nonce 재시작까지 돈다. 남은 것은 secret 단계 2·3·6(OS keychain 없음, SecretDelivery 미부착), command 허락 4,
+  보호 범위·조합 경고 갈래), connect-apps(#561: 선언은 허락이 아님·거절과 창 닫기·허락한 쌍의 호출이 대상 앱
+  handler로 가 일정을 만들고 caller 앱·release 근거가 남음·회수 뒤 새 호출 차단까지 돈다. 남은 것: confirm 필요
+  command 5단계, 반대 방향·command 사라짐·재귀/깊이 상한 갈래. #563: 거절·창 닫기 뒤 Connections 탭
+  등의 "기다리는 중" 고착을 고쳤다 — 확정 없이 끝난 확인을 main이 연 창에만 알리고 탭이 푼다),
+  command 5단계(#562로 닫음: todo가 보관 캘린더 앱의 delete_all_events를 부르면 사람 결정 전에는 실행되지 않고, 거절·창 닫기는 실행하지 않으며, 허락은 한 번만 쓰인다. fixture에 보관 캘린더 연결 추가), 반대 방향·command 사라짐·재귀/깊이 상한 갈래(하지 않기로 함: 사람 결정 2026-10-10. 해보다가 앱 view가 재시작 뒤 모든 command를 "command is not available"로 답하는 현상을 보았으나 원인은 가리지 못했다). 결함: 거절·창 닫기 뒤 Connections 탭의
+  [Review connection]이 탭을 다시 열기 전까지 막힘),
+  ask-app-hint. #549 run-app-automation(e2e/flows/run-app-automation_test.ts): fixture todo에 automation
+  셋(on_start 쓰기·on_start external·간격 60000ms 쓰기)을 더한 앱으로 시작 계기의 일, 사람이 켜기 전엔
+  external 일이 안 도는 것, 켠 뒤 접근 없는 거절, 접근 허락 뒤 재시작의 시작 계기, 간격 계기(자식 시계를
+  바꿀 통로가 없어 최소 60000ms를 실제로 기다린다), 끄기, 앱 실행 허용 끄기·다시 켜기, app-detail
+  Automations 탭까지 돈다. 남은 것은 secret grant 쓰기(flow 3, OS keychain 없음·SecretDelivery 미부착),
+  놓친 회차·진행 중 건너뜀(시계 주입이 없어 단위 시험이 맡는다), 실패의 문제 보고, timeout·결과 모름.
+  #546 ask-app-hint 1단계: 앱 패널 탭의 turn context(e2e/flows/ask-app-hint_test.ts).
+  #547 ask-app-hint 2단계: `app.screen_context`·`app.annotate`를 `apps/agent-runtime/app-toolkit.ts`
+  (`defineContext`·`contextBinding`·`contextHandlers`)와 `prepare.ts`의 tool 목록·binding·handler에 이었고,
+  desktop renderer 진입의 `appViews.screens`(`coreAppScreens`)를 이어 앱 패널 열기 단추가 선다. 2단계(선언된
+  read·주석 command만 tool)와 열기 단추 step이 e2e로 돈다. view_session 통로는 #550이 이었다: app_panel `ViewTab`에 optional
+  `view_session`(additive), 렌더러가 탭 key별 session을 힌트로 올리고 main이 이 창 패널 view와 대조해 싣는다.
+  앱 화면 첫 URL은 이 view의 session만 page query로 갖는다. agent가 tool 입력으로 준 view_session은 이 run의
+  workspace에 열린 그 앱 패널 탭의 것일 때만 믿는다(`app-toolkit.ts` `panelOpen`, 아니면 없는 대상과 같은 답).
+  #550 ask-app-hint 3·6단계(조회+민감한 칸 제거, 탭을 닫은 뒤)와 앱 패널 열기 step이 e2e로 돈다. 고친 것:
+  마지막 탭을 닫아도 publish가 없어 agent가 닫힌 탭을 열린 것으로 읽던 결함(`live-view.ts`), fixture todo의
+  민감 path가 `/summary`·`/data` 밖이라 요약·상세가 통째로 빠지던 것(`/data/todo/private_note`), `app.annotate`
+  가능성 probe의 빈 text가 앱의 `minLength`에 걸려 tool이 안 서던 것. 넘김: 4·5단계(주석 쓰기와 사람 허락, 옛
+  revision 충돌)는 ignore다. agent가 `app.annotate`를 부르면 판정이 approval 없이 deny("the tool or target is
+  not available", decision.contract_revision null)하는데 같은 run의 `app.screen_context`는 통과하고 원인(주석
+  판정 연결의 현재 revision 확인·입력 검사)을 닫지 못했다. 복원한 앱 패널은 앱이 쓰기 준비가 되기 전에 view를
+  열려다 실패하면 [Reload]를 눌러야 다시 열린다(flow가 그렇게 돈다)
+- 정한 것(사람, 2026-10-10 — plan 빨리 닫기): 이 task는 flow의 주요 단계가 실제 e2e로 통과하면 완료다. (1) 다른 갈래, (2) 이 기계에서 구조적으로 돌릴 수 없는 환경 의존 단계(실제 root 설치·실제 Ubuntu 설치 확인, OS keychain이 필요한 단계 — 활성 coding 연결과 그 뒤 [Start]·claim·보고·회수, manage-coding-access, 앱 secret 전달 — 와 node-pty 터미널 갈래), (3) followup으로 넘긴 제품 결함 때문에 ignore로 남은 단계는 이번 계획에서 뺀다. 뺀 것은 상태 줄에 "넘김"으로 적고 `.dev-data/followups.md`·handoff §7에 남긴다. 아직 돌지 않은 주요 단계는 최소로만 돌리고, 돌리다 만난 결함은 보안 경계 결함이나 flow 첫 단계 자체가 안 도는 경우가 아니면 고치지 않고 ignore + followup으로 넘긴다.
 - 등급: 기본
 - concern: apps
 - 요구: flow new-app(fixture 경로), change-app, restore-app-release,

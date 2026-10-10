@@ -83,6 +83,9 @@ export const viewTabSchema = z.discriminatedUnion("kind", [
     kind: z.literal("app_panel"),
     app: appIdSchema,
     surface: viewString,
+    // 그 패널 view의 불투명 session 식별자다. agent가 앱의 화면 context를 읽고 쓸 때 가리키는 view이며
+    // 허락이 아니다. 패널 view가 아직 서지 않았으면 없다(apps/agent-context).
+    view_session: viewString.optional(),
   }),
 ]);
 
@@ -113,6 +116,7 @@ const viewTabOutputSchema = z.discriminatedUnion("kind", [
     kind: z.literal("app_panel"),
     app: appIdSchema,
     surface: viewString,
+    view_session: viewString.optional(),
   }),
 ]);
 

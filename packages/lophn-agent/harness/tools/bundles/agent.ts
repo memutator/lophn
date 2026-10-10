@@ -16,6 +16,7 @@ import {
   readCursorSchema,
   roleKindSchema,
 } from "../../../../contracts/lophn-agent/mod.ts";
+import { appCreateInputSchema } from "../../../../contracts/apps/mod.ts";
 import { termGet } from "../../../../contracts/documents/mod.ts";
 import {
   type ApprovalAction,
@@ -24,7 +25,10 @@ import {
   idSchema,
 } from "../../../../contracts/platform/mod.ts";
 import { handoffBodyHash } from "../../../handoff/mod.ts";
-import { defineTermOptionAction } from "../../../questions/mod.ts";
+import {
+  appCreateOptionAction,
+  defineTermOptionAction,
+} from "../../../questions/mod.ts";
 import {
   type ContractCall,
   defineBuiltin,
@@ -33,6 +37,12 @@ import {
   READ,
   success,
 } from "./common.ts";
+import {
+  documentMoveAction,
+  fixedDocumentMove,
+  fixedSettingChange,
+  settingChangeAction,
+} from "./question-actions.ts";
 import type { ToolDefinition } from "../registry.ts";
 import type { RunCredential, ToolHandler } from "../work.ts";
 
@@ -61,9 +71,18 @@ function define(
   );
 }
 
-// 질문 선택지에 고정 action 객체는 모델이 싣지 않는다. 기존 후보의 정의만
-// `term_definition`으로 제안할 수 있고, handler가 읽은 후보의 이름·revision으로
-// term.define action을 고정한다. 뜻 글의 blob hash는 만들지 않는다.
+// 질문 선택지에 고정 action 객체는 모델이 싣지 않는다. 기존 후보의 정의는
+// `term_definition`으로, 새 앱 등록은 `app_registration`으로만 제안할 수 있고, handler가
+// 고정 action을 만든다. term.define은 읽은 후보의 이름·revision으로 고정하고(뜻 글의
+// blob hash는 만들지 않는다), app.create는 handler가 앱 ID를 미리 배정하고 선택지의 근거
+// 판(evidence 하나)을 등록 근거 판으로 고정한다. 설정 변경(`setting_change`)과 문서 자리
+// 이동(`document_move`)도 대상과 새 값만 제안하고 현재 값·revision 같은 비교 기준은 handler가
+// 읽어 고정한다(question-actions.ts).
+const fixedAppRegistration = appCreateInputSchema.pick({
+  slug: true,
+  name: true,
+  description: true,
+});
 const fixedTermDefinition = z.strictObject({
   term: idSchema("trm"),
   name: questionTextSchema,
@@ -77,6 +96,9 @@ const questionOption = z.strictObject({
   adoption: fixedVersionReferenceSchema.nullable(),
   action: z.null(),
   term_definition: fixedTermDefinition.optional(),
+  app_registration: fixedAppRegistration.optional(),
+  setting_change: fixedSettingChange.optional(),
+  document_move: fixedDocumentMove.optional(),
 });
 
 export const questionSubmitInput = z.strictObject({
@@ -251,7 +273,7 @@ export const AGENT_TOOLS: readonly ToolDefinition[] = [
 // handler가 소유 contract를 부르는 통로다. 실제 연결(core client)은 agent runtime 조립이
 // 넣는다. `call`은 contract 이름 하나와 그 입력 하나이고 여러 영역의 숨은 절차는 없다.
 export type AgentToolPorts = ContractCall & {
-  newId(prefix: "qst" | "run" | "msg" | "apr" | "asg"): string;
+  newId(prefix: "qst" | "run" | "msg" | "apr" | "asg" | "app"): string;
   // 호출 run이 이어진 사실. 질문의 session과 handoff의 보낸 역할·원래 사람 요청,
   // 초안 제출의 요청 assignment를 정한다.
   runFacts(run: string): Promise<
@@ -284,9 +306,56 @@ export function createAgentToolHandlers(
       const value = input as z.infer<typeof questionSubmitInput>;
       const facts = await ports.runFacts(credential.run);
       if (!facts.ok) return facts;
+      const id = ports.newId("qst");
       const options = [];
       for (const option of value.options) {
-        const { term_definition: proposed, ...rest } = option;
+        const {
+          term_definition: proposed,
+          app_registration: registration,
+          setting_change: setting,
+          document_move: move,
+          ...rest
+        } = option;
+        const fixes = [proposed, registration, setting, move].filter((
+          fixed,
+        ) => fixed !== undefined).length;
+        if (fixes > 1) {
+          return err({
+            code: "invalid_input",
+            message: "an option fixes one action",
+          });
+        }
+        if (setting !== undefined || move !== undefined) {
+          const run = { ports, run: credential.run };
+          const action = setting !== undefined
+            ? await settingChangeAction(run, id, setting)
+            : await documentMoveAction(run, move!);
+          if (!action.ok) return action;
+          options.push({ ...rest, action: action.value });
+          continue;
+        }
+        if (registration !== undefined) {
+          // 등록 근거 판은 선택지의 근거 하나다. 그 판이 실제 판인지는 질문 command가 확인한다.
+          const [plan, ...others] = rest.evidence;
+          if (
+            plan === undefined || others.length > 0 || plan.section !== null
+          ) {
+            return err({
+              code: "invalid_input",
+              message:
+                "a registration option names the plan it registers from as its one evidence",
+            });
+          }
+          options.push({
+            ...rest,
+            action: appCreateOptionAction({
+              id: ports.newId("app"),
+              ...registration,
+              planning_version: plan.version,
+            }),
+          });
+          continue;
+        }
         if (proposed === undefined) {
           options.push(rest);
           continue;
@@ -324,7 +393,6 @@ export function createAgentToolHandlers(
           }),
         });
       }
-      const id = ports.newId("qst");
       const created = await ports.call(
         "CreateQuestion",
         {

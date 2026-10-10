@@ -51,12 +51,18 @@ export function AutomationsTab({ app, source, now }: AutomationsTabProps) {
 
   async function turnOn(automation: BlueprintAutomation): Promise<void> {
     setProblem(null);
+    // 확인 창이 거절·닫힘 등으로 확정 없이 끝나면 기다림을 푼다.
     const reply = await source.decide({
       kind: "turn_on_automation",
       app,
       automation: automation.key,
-    });
-    if (reply.ok) setAsked(new Set(asked).add(automation.key));
+    }, () =>
+      setAsked((now) => {
+        const next = new Set(now);
+        next.delete(automation.key);
+        return next;
+      }));
+    if (reply.ok) setAsked((now) => new Set(now).add(automation.key));
     else setProblem({ automation: automation.key, kind: "decide" });
   }
 

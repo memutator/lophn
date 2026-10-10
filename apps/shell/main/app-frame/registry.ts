@@ -193,7 +193,9 @@ export function createAppFrame(deps: AppFrameDeps) {
     byToken.set(entry.token, entry);
     record(entry, "created");
     placement.mounted(entry);
-    void contents.load(appEntryUrl(label, screen)).catch(() => {}).then(() => {
+    void contents.load(appEntryUrl(label, screen, entry.view_session)).catch(
+      () => {},
+    ).then(() => {
       // 그 사이 닫히거나 다른 contents로 바뀌었으면 옛 load 결과로 붙이지 않는다.
       if (entries.get(entry.view_session) !== entry) return;
       if (entry.contents !== contents) return;

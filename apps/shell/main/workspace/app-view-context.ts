@@ -18,8 +18,14 @@ export interface AppViewSource {
 export function appViewContext(
   source: AppViewSource,
   window: string,
-): Pick<ViewRegistry, "appView"> {
+): Pick<ViewRegistry, "appView" | "panelSession"> {
   return {
+    panelSession(app, surface, view_session) {
+      return source.views(window).some((view) =>
+        view.view_session === view_session && view.size === "panel" &&
+        view.mode === "live" && view.app === app && view.screen === surface
+      );
+    },
     appView(app, surface) {
       let found: ViewListing | undefined;
       for (const view of source.views(window)) {

@@ -275,18 +275,28 @@ export function renameOptionAction(fixed: {
   });
 }
 
-// 새 앱 등록 선택지. 미리 배정한 app ID와 등록할 slug·이름·목적이 고정된다.
+// 새 앱 등록 선택지. 미리 배정한 app ID와 등록할 slug·이름·목적, 있으면 등록 근거 기획 판이
+// 고정된다.
 export function appCreateOptionAction(fixed: {
   id: string;
   slug: string;
   name: string;
   description: string;
+  planning_version?: string;
 }): OptionAction {
   return buildOptionAction({
     concern: "apps/registration",
     command: appCreate.name,
     targets: [fixed.id],
-    input: fixed,
+    input: {
+      id: fixed.id,
+      slug: fixed.slug,
+      name: fixed.name,
+      description: fixed.description,
+      ...(fixed.planning_version === undefined
+        ? {}
+        : { planning_version: fixed.planning_version }),
+    },
     comparison: {},
   });
 }

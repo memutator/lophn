@@ -43,7 +43,10 @@ import {
 import type { BlobPrepareCall } from "./core.ts";
 import type { BufferGauge, PreparedRelayResult } from "./blob-prepare.ts";
 import type { KnownSecretMatch } from "../../packages/platform/ledger/mod.ts";
-import { agentRuntimeLaunchSpec } from "./lophn-agent.ts";
+import {
+  agentRuntimeLaunchSpec,
+  readBundledSkillRoots,
+} from "./lophn-agent.ts";
 import type { McpServerConfig } from "../../packages/contracts/lophn-agent/mod.ts";
 import {
   allowNetList,
@@ -310,6 +313,7 @@ export async function startAgentRuntimeChild(
     list: readonly string[],
     roots: readonly string[],
     servers: readonly McpServerConfig[],
+    bundled: readonly string[],
   ): KindLaunchSpec =>
     agentRuntimeLaunchSpec({
       dataRoot: deps.dataRoot,
@@ -318,6 +322,7 @@ export async function startAgentRuntimeChild(
       hosts: list,
       mcpServers: servers,
       skillRoots: roots,
+      bundledSkillRoots: bundled,
     });
   // 읽지 못한 목록은 바꾸지 않은 것으로 본다. 권한은 읽은 목록으로만 정해진다.
   const readMcp = async (): Promise<readonly McpServerConfig[] | undefined> => {
@@ -330,7 +335,7 @@ export async function startAgentRuntimeChild(
   skillRoots = (await readSkillRoots()) ?? [];
   mcp = await readMcp() ?? [];
   const started = await deps.io.start(
-    specFor(hosts, skillRoots, mcp),
+    specFor(hosts, skillRoots, mcp, await readBundledSkillRoots()),
     hello,
     callbacks(),
   );
@@ -360,7 +365,7 @@ export async function startAgentRuntimeChild(
         same(allowRunList(servers), allowRunList(mcp))
       ) return;
       const restarted = await deps.io.updateSpec(
-        specFor(read.value, roots, servers),
+        specFor(read.value, roots, servers, await readBundledSkillRoots()),
         hello,
         callbacks(),
       );

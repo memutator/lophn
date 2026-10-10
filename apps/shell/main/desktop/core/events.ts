@@ -1,5 +1,6 @@
-// event는 seq cursor로 잇는다. 끊기면 마지막 확인 시각을 남기고, 다시 붙으면
-// epoch를 확인한 뒤 cursor 다음부터 따라잡는다. epoch가 바뀌면 옛 응답을 버린다.
+// event는 seq cursor로 잇는다. 끊기면 마지막 확인 시각을 남기고 backoff로 스스로 다시 붙는다.
+// 다시 붙으면 epoch를 확인한 뒤 cursor 다음부터 현재 기록으로 따라잡는다. epoch가 바뀌면 옛
+// 응답을 버린다.
 import {
   EVENT_SUBSCRIBE_PATH,
   EVENT_SUBSCRIBE_SUBPROTOCOL,
@@ -53,6 +54,33 @@ export interface SocketFactory {
   ): EventSocket;
 }
 
+/** 끊긴 구독을 다시 잇는 시각 정책. 주입하지 않으면 다시 잇지 않는다. */
+export interface ReconnectPolicy {
+  /** 0부터 세는 연속 실패 횟수에 대한 대기 ms. */
+  delay(attempt: number): number;
+  /** ms 뒤에 run을 부른다. 돌려받은 함수로 취소한다. */
+  after(ms: number, run: () => void): () => void;
+  /** 다시 붙을 만한가. core 프로세스가 끝났으면 false다. */
+  allowed?(): boolean;
+}
+
+const RECONNECT_DELAYS_MS = [1_000, 2_000, 4_000, 8_000, 15_000] as const;
+
+/** 1s에서 15s까지 두 배씩 늘리고 그 뒤로는 15s마다 시도한다. */
+export function backoffReconnect(
+  allowed?: () => boolean,
+): ReconnectPolicy {
+  return {
+    delay: (attempt) =>
+      RECONNECT_DELAYS_MS[Math.min(attempt, RECONNECT_DELAYS_MS.length - 1)]!,
+    after(ms, run) {
+      const timer = setTimeout(run, ms);
+      return () => clearTimeout(timer);
+    },
+    ...(allowed ? { allowed } : {}),
+  };
+}
+
 export interface Subscription {
   readonly cursor: string;
   readonly generation: number;
@@ -70,6 +98,8 @@ export interface SubscribeOptions {
   headers?: () => Record<string, string>;
   sink: EventSink;
   clock: Clock;
+  /** 끊기면 같은 epoch로 스스로 다시 붙는다. 없으면 reconnect()를 부를 때만 다시 붙는다. */
+  reconnectPolicy?: ReconnectPolicy;
   /** core를 다시 띄우면 올린다. 낮은 generation의 늦은 응답은 버린다. */
   generation?: number;
 }
@@ -86,9 +116,35 @@ export function subscribe(options: SubscribeOptions): Subscription {
   // 따라잡기 도중 도착한 더 낮은 generation의 응답을 거른다.
   let active = generation;
 
+  let attempts = 0;
+  let cancelRetry: (() => void) | undefined;
+
   const stale = () => {
     if (stopped) return;
     options.sink.stale({ state: "stale", confirmedAt });
+    scheduleRetry();
+  };
+
+  // 끊긴 구독을 같은 epoch로 다시 붙인다. 붙으면 cursor 다음부터 현재 기록으로 맞추고
+  // 끊긴 사이 진행은 재생하지 않는다(backlogThrough).
+  const scheduleRetry = () => {
+    const policy = options.reconnectPolicy;
+    if (stopped || policy === undefined || cancelRetry !== undefined) return;
+    const run = () => {
+      cancelRetry = undefined;
+      if (stopped || policy.allowed?.() === false) return;
+      socket?.close();
+      socket = undefined;
+      active += 1;
+      attach(options.epoch);
+    };
+    cancelRetry = policy.after(policy.delay(attempts), run);
+    attempts += 1;
+  };
+
+  const clearRetry = () => {
+    cancelRetry?.();
+    cancelRetry = undefined;
   };
 
   const attach = (epoch: string) => {
@@ -140,6 +196,8 @@ export function subscribe(options: SubscribeOptions): Subscription {
     socket = current;
     current.onOpen(() => {
       if (stopped || mine !== active) return;
+      // 붙었으니 다음에 끊기면 처음 대기부터 센다.
+      attempts = 0;
       // open되기 전에는 send하지 않는다. open 뒤에 구독을 보낸다.
       current.send(JSON.stringify({
         type: "subscribe",
@@ -180,6 +238,7 @@ export function subscribe(options: SubscribeOptions): Subscription {
     generation,
     reconnect(epoch) {
       if (stopped) return;
+      clearRetry();
       socket?.close();
       socket = undefined;
       if (epoch !== options.epoch) {
@@ -192,6 +251,7 @@ export function subscribe(options: SubscribeOptions): Subscription {
     },
     stop() {
       stopped = true;
+      clearRetry();
       active += 1;
       socket?.close();
     },

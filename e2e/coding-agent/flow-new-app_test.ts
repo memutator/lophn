@@ -4,13 +4,13 @@
 // - 1·2단계 테스트: 기존 앱·문서·공용 SDK를 먼저 읽고, 기획을 고정 판으로 남긴다.
 //   문서로 충분하면 앱을 만들지 않는다. 저장과 판 보존은 대화 화면에 보이지 않는다.
 // - 3단계 테스트: 아직 정하지 않은 취향만 설명·추천을 보고 답하고, 확인한 기획 판을
-//   채택한다. 등록은 채택과 별개 질문이고 그 판의 등록 내용만 보인다. 등록 적용
-//   단계는 question.submit이 action을 싣지 못하고 shell이 확인 창을 열어 ignore다(그
-//   단계 위 주석). 질문을 낸 run은 답을 기다리고(waiting_user) 답이 오면 같은 run이
-//   이어진다. 한 run의 두 번째 question.submit은 기본 idempotency key가 같아 conflict라
+//   채택한다. 등록은 채택과 별개 질문이고 그 판의 등록 내용만 보이며, 고르면 확인 창
+//   없이 그 판의 slug·이름·목적으로 앱이 등록된다(model은 app_registration 제안만 싣고
+//   고정 action과 앱 ID는 question.submit handler가 만든다). 질문을 낸 run은 답을
+//   기다리고(waiting_user) 답이 오면 같은 run이 이어진다. 한 run의 두 번째 question.submit은 기본 idempotency key가 같아 conflict라
 //   질문은 run을 나눠 하나씩 묻는다.
-// - 4단계 테스트: 3단계의 등록 적용이 ignore라 같은 등록을 사람 직접 경로(apps/create)로
-//   만들어 따로 본다. 등록 뒤 App Engineer 담당이 앱마다 하나 준비되고, lophn이 같은
+// - 4단계 테스트: 3단계의 등록과 같은 등록을 사람 직접 경로(apps/create)로 만들어 4단계를
+//   따로 본다. 등록 뒤 App Engineer 담당이 앱마다 하나 준비되고, lophn이 같은
 //   채택 판과 채택 답을 그 담당에게 맡기며 전달 사실만 남긴다.
 // 5~13(설계·ticket·[Start]·claim·release·preview·적용·acceptance)은 돌리지 않는다.
 import { assert, assertEquals } from "@std/assert";
@@ -776,6 +776,9 @@ type QuestionOption = {
   evidence: { document: string; version: string; section: null }[];
   adoption: { document: string; version: string; section: null } | null;
   action: null;
+  // model은 고정 action 객체를 싣지 않고 새 앱 등록 제안만 보낸다. 앱 ID·고정 action은
+  // question.submit handler가 만든다.
+  app_registration?: { slug: string; name: string; description: string };
 };
 
 function option(
@@ -784,8 +787,17 @@ function option(
   description: string,
   adoption: QuestionOption["adoption"] = null,
   evidence: QuestionOption["evidence"] = [],
+  app_registration?: QuestionOption["app_registration"],
 ): QuestionOption {
-  return { key, label, description, evidence, adoption, action: null };
+  return {
+    key,
+    label,
+    description,
+    evidence,
+    adoption,
+    action: null,
+    ...(app_registration === undefined ? {} : { app_registration }),
+  };
 }
 
 function ask(
@@ -896,7 +908,18 @@ Deno.test({
           REGISTER_PROMPT,
           REGISTER_REASON,
           [
-            option("register", "Register Spending", REGISTER_TEXT, null, [ref]),
+            option(
+              "register",
+              "Register Spending",
+              REGISTER_TEXT,
+              null,
+              [ref],
+              {
+                slug: "household-ledger",
+                name: "Spending",
+                description: "It records each spend and shows the month total.",
+              },
+            ),
             option("skip", "Do not register", "Do not register an app."),
           ],
           "register",
@@ -1274,15 +1297,9 @@ Deno.test({
         },
       );
 
-      // 등록 적용은 지금 제품에서 닿지 않는다. (1) question.submit이 선택지 action을 null로만
-      // 받아 model이 app.create 고정 action(appCreateOptionAction)을 실을 수 없다
-      // (lophn-agent tools). (2) shell은 term.define만 확인 창 없이 접수하고 그 밖 action은
-      // [Review]로 확인 창을 연다(shell). 둘이 풀리면 ignore를 지운다. 질문을 낸 run은 답을
-      // 기다리므로(followups 49·55) 위 질문은 waiting_user의 run이 쥐고 있다.
       await t.step({
         name:
-          "apps/registration#R3 lophn-agent/questions#R13: 3 고정 등록 선택지를 고르면 확인 창 없이 그 판의 slug·이름·목적으로만 앱이 등록된다 (question.submit action null·shell 확인 창)",
-        ignore: true,
+          "apps/registration#R3 lophn-agent/questions#R13: 3 고정 등록 선택지를 고르면 확인 창 없이 그 판의 slug·이름·목적으로만 앱이 등록된다",
         async fn() {
           const question = (await questions()).find((row) =>
             row.id === registration
@@ -1312,6 +1329,10 @@ Deno.test({
                 app.description,
                 "It records each spend and shows the month total.",
               );
+              assertEquals(
+                (app as { planning_version?: string }).planning_version,
+                saved!.version,
+              );
               break;
             }
             assert(
@@ -1326,14 +1347,10 @@ Deno.test({
       });
 
       await t.step(
-        "lophn-agent/questions#R1 lophn-agent/questions#R16: 3 등록하지 않기로 답해 run이 끝나도 앱은 없고 채택은 방금 확인한 판에 남으며 끝난 답에 안쪽 식별자가 없다",
+        "lophn-agent/questions#R1 lophn-agent/questions#R16: 3 등록을 적용해 run이 끝나도 채택은 방금 확인한 판에 남고 끝난 답에 안쪽 식별자가 없다",
         async () => {
-          await flow!.click("[data-option=skip]");
-          await flow!.click("[data-send-answer]");
-          const answered = await untilStatus(registration, "answered");
-          assertEquals(answered.answer?.option_key, "skip");
           await untilRuns(3);
-          assertEquals(await appsOf(flow!), []);
+          assertEquals((await appsOf(flow!)).length, 1);
           assertEquals(provider.calls(), 13);
           const again = (await questions()).find((row) => row.id === adopted);
           assertEquals(
@@ -1363,8 +1380,7 @@ Deno.test({
   },
 });
 
-// 4단계. 3단계의 등록 적용은 위 ignore(question.submit action·shell 확인 창·followups 49·55)라 이
-// 테스트는 그 결과를 기다리지 않는다. 같은 등록(slug·이름·한 줄 목적·채택한 판)을 사람 직접 경로
+// 4단계. 이 테스트는 3단계의 질문 적용을 기다리지 않는다. 같은 등록(slug·이름·한 줄 목적·채택한 판)을 사람 직접 경로
 // (사람 token의 apps/create)로 만들어 4단계를 따로 본다. 채택은 3단계처럼 화면에서 질문에 답한다.
 const HANDOFF_ASK =
   "The app is registered. Hand the adopted plan to its engineer.";

@@ -11,7 +11,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 
-import { sha256Hex } from "../../packages/base/mod.ts";
+import { fingerprint, sha256Hex } from "../../packages/base/mod.ts";
 import { canonicalJson } from "../../packages/apps/blueprint/mod.ts";
 import { appFlags } from "../../packages/apps/permissions/mod.ts";
 import { prepareFromSource } from "../../packages/apps/releases/prepare/from-source.ts";
@@ -3162,6 +3162,541 @@ Deno.test({
       await primary.close();
       await removeTree(home);
       await Deno.remove(folder, { recursive: true }).catch(() => undefined);
+    }
+  },
+});
+
+// flow work-offline 6단계. 사람에게는 보이지 않는다. 연결이 돌아오면(core를 다시 띄우고 provider가
+// 다시 답한다) lophn이 ledger의 확정 결과와 미완료 상태를 먼저 조회한다. 이미 확인된 call은 반복하지
+// 않고, 결과를 모르는 쓰기는 결과 조회나 중복 효과 없음이 확인되기 전 다시 부르지 않는다.
+// 7단계, update-lophn, install-lophn은 보지 않는다.
+// - 확정된 읽기 뒤 다음 판단이 붙들린 채 core가 죽으면 같은 run이 그 판단 하나만 다시 부르고 끝난다.
+// - 앱 쓰기가 시작만 되고 결과가 없으면 다시 보내지 않고, 뒤 call과 뒤 판단도 시작하지 않으며
+//   불명확 효과와 남은 일을 구별해 끝낸다.
+const RECOVER_PROVIDER = "pvd_01arz3ndektsv4rrffq69g5fe2";
+const RECOVER_GRANT = "grt_01h455vb4pex5v6nkc6gd5fdw2";
+const RECOVER_APPROVAL = "apr_01h455vb4pex5v6nkc6gd5fdw2";
+const RECOVER_GATE = "hold-recover";
+const RECOVER_ASK = "Check what is stored.";
+const RECOVER_WRITE = "Mark the kind once.";
+const RECOVER_DONE = "The stored facts were kept.";
+
+type ToolCallRow = {
+  response_key: string;
+  response_order: number;
+  tool: string;
+  state: string;
+  attempt: number;
+  outcome: { kind: string } | null;
+};
+
+type FinishedRun = RunRow & {
+  outcome: { kind: string; reason?: string } | null;
+};
+
+/** harness의 appToolName과 같다. harness가 이름을 export하지 않아 테스트가 같은 지문을 만든다. */
+async function recoverToolName(app: string, command: string): Promise<string> {
+  const appHash = (await fingerprint(app)).slice(0, 8);
+  const commandHash = (await fingerprint(command)).slice(0, 6);
+  const readable = command.replace(/[^A-Za-z0-9]+/g, "_").slice(0, 40);
+  return `app_${appHash}_${readable}_${commandHash}`;
+}
+
+function listProjects(id: string) {
+  return {
+    id,
+    protocol: "messages" as const,
+    reply: {
+      text: "I will look at what is stored.",
+      toolCalls: [{ id: `${id}-list`, name: "project.list", arguments: "{}" }],
+      usage: { input: 20, output: 8 },
+      stop: "tool_calls" as const,
+    },
+  };
+}
+
+/** 읽기, 앱 쓰기(돌아오지 않는다), 또 읽기를 한 응답에 낸다. */
+function writeThenRead(id: string, writeTool: string) {
+  return {
+    id,
+    protocol: "messages" as const,
+    reply: {
+      text: "I will read, mark the kind, and read again.",
+      toolCalls: [
+        { id: "toolu_before", name: "project.list", arguments: "{}" },
+        {
+          id: "toolu_write",
+          name: writeTool,
+          arguments: JSON.stringify({ kind: "once", view_session: "view-1" }),
+        },
+        { id: "toolu_after", name: "project.list", arguments: "{}" },
+      ],
+      usage: { input: 20, output: 8 },
+      stop: "tool_calls" as const,
+    },
+  };
+}
+
+/** 앱 쓰기가 돌아오지 않는 Hang 앱과 lophn의 command grant를 core를 멈춘 동안 심는다. */
+async function seedRecoverApp(home: string): Promise<void> {
+  const installed = await installedHome();
+  const parent = await Deno.makeTempDir({ prefix: "lophn-e2e-offline6-src-" });
+  try {
+    const source = await Deno.readTextFile(`${FIXTURE}/src/commands.ts.tmpl`);
+    assertEquals(source.split(MARK_KIND_BEFORE).length - 1, 1);
+    const patched = source.replace(MARK_KIND_BEFORE, MARK_KIND_AFTER);
+    const dir = await materialize(parent, "hang", installed.sdkRoot, patched);
+    const hang = await preparedBundle(
+      home,
+      HANG_APP,
+      dir,
+      await commitSource(dir),
+      installed.sdkRoot,
+    );
+    seedHang(home, hang);
+  } finally {
+    await removeTree(parent);
+    await installed.dispose();
+  }
+  const db = new DatabaseSync(`${home}/lophn.db`);
+  try {
+    db.prepare(
+      `INSERT INTO grants (id, app, kind, scope, approval, status, created_by, created_at, revoked_by, revoked_at)
+       VALUES (?, ?, 'agent.commands', ?, ?, 'active', 'user', ?, NULL, NULL)`,
+    ).run(
+      RECOVER_GRANT,
+      HANG_APP,
+      JSON.stringify({ kind: "agent.commands", commands: ["mark_kind"] }),
+      RECOVER_APPROVAL,
+      "2026-10-02T00:00:00.000Z",
+    );
+  } finally {
+    db.close();
+  }
+}
+
+Deno.test({
+  name:
+    "lophn-agent/harness/waiting-and-recovery#R8 lophn-agent/harness/waiting-and-recovery#R9 lophn-agent/harness/waiting-and-recovery#R10 apps/invocations#R12 flow work-offline 6: 연결이 돌아오면 확정 결과를 먼저 조회해 이어 가고 결과를 모르는 쓰기는 다시 보내지 않는다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn(t) {
+    const home = await Deno.makeTempDir({ prefix: "lophn-e2e-offline6-" });
+    await Deno.chmod(home, 0o700);
+    let flow: FlowShell | undefined;
+    const writeTool = await recoverToolName(HANG_APP, "mark_kind");
+    const provider = startFakeProvider({
+      script: {
+        steps: [
+          listProjects("read"),
+          heldAnswer("held", RECOVER_GATE, "Holding the answer."),
+          endTurn("done", RECOVER_DONE),
+          writeThenRead("write", writeTool),
+          endTurn("never", "This judgment must not start."),
+        ],
+      },
+      nowMs: () => Date.now(),
+      instant: true,
+    });
+    const shell = (): FlowShell => {
+      if (flow === undefined) throw new Error("shell이 없다");
+      return flow;
+    };
+    try {
+      flow = await openFlowShell({ home });
+      await flow.close();
+      flow = undefined;
+      await seedRecoverApp(home);
+      flow = await openFlowShell({ home, start: "lophn" });
+
+      await mustCall(shell(), {
+        kind: "command",
+        resource: "providers",
+        method: "register",
+        body: providerBody(RECOVER_PROVIDER, "Recover", provider.url),
+      });
+      let pointed = "";
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const defaults = await mustCall(shell(), {
+          kind: "read",
+          resource: "agent-model-defaults",
+          method: "read",
+          body: {},
+        });
+        const seq =
+          (defaults.defaults as { settings_seq: string }).settings_seq;
+        const reply = await shell().call({
+          kind: "command",
+          resource: "agent-model-defaults",
+          method: "change",
+          body: commandBody(
+            {
+              judgment: {
+                provider: RECOVER_PROVIDER,
+                credentials: [],
+                model_name: MODEL,
+                reasoning_level: "provider_default",
+                options: {},
+              },
+              organizing: null,
+              settings_seq: seq,
+            },
+            { settings_seq: seq },
+          ),
+        });
+        if (reply.ok) {
+          pointed = RECOVER_PROVIDER;
+          break;
+        }
+        pointed = JSON.stringify(reply);
+        if (reply.error?.code !== "conflict") break;
+      }
+      assertEquals(pointed, RECOVER_PROVIDER, pointed);
+      await untilRuntimeAllows(shell().shell.pid, [
+        new URL(provider.url).port,
+      ]);
+
+      const listed = await mustCall(shell(), {
+        kind: "read",
+        resource: "assignments",
+        method: "list",
+        body: { role: "lophn" },
+      });
+      const agent = (listed.assignments as { id: string }[])[0];
+      assert(agent !== undefined, "lophn assignment가 없다");
+      const runsOf = async (): Promise<FinishedRun[]> =>
+        (await mustCall(shell(), {
+          kind: "read",
+          resource: "runs",
+          method: "list",
+          body: { assignment: agent.id },
+        })).runs as FinishedRun[];
+      const toolCallsOf = async (run: string): Promise<ToolCallRow[]> =>
+        ((await mustCall(shell(), {
+          kind: "read",
+          resource: "tool-calls",
+          method: "list",
+          body: { run },
+        })).tool_calls as ToolCallRow[]).slice().sort((left, right) =>
+          left.response_order - right.response_order
+        );
+      const markKinds = async (): Promise<InvocationRow[]> =>
+        ((await mustCall(shell(), {
+          kind: "read",
+          resource: "invocations",
+          method: "list",
+          body: { app: HANG_APP, limit: 50 },
+        })).invocations as InvocationRow[]).filter((row) =>
+          row.operation.kind === "command" &&
+          row.operation.command === "mark_kind"
+        );
+      const untilTrue = async (
+        what: string,
+        check: () => Promise<boolean>,
+        timeoutMs = 120_000,
+      ) => {
+        const deadline = Date.now() + timeoutMs;
+        while (Date.now() < deadline) {
+          if (await check()) return;
+          await delay(300);
+        }
+        throw new Error(
+          `${what} runs=${
+            JSON.stringify(await runsOf())
+          } requests=${provider.requests().length}`,
+        );
+      };
+      const untilFinished = async (id: string): Promise<FinishedRun> => {
+        let found: FinishedRun | undefined;
+        await untilTrue("run이 끝나지 않았다", async () => {
+          found = (await runsOf()).find((row) => row.id === id);
+          return found?.state === "finished";
+        });
+        return found!;
+      };
+      const untilReady = async () => {
+        await untilTrue("Hang 앱이 쓰기 준비가 되지 않았다", async () => {
+          const got = await mustCall(shell(), {
+            kind: "read",
+            resource: "apps",
+            method: "runtime",
+            body: { app: HANG_APP },
+          });
+          const observation = got.observation as {
+            ready?: boolean;
+            mode?: string;
+            accepting?: boolean;
+          } | null;
+          return observation?.ready === true && observation.mode === "live" &&
+            observation.accepting === true;
+        });
+      };
+      const openDock = async () => {
+        await shell().until(
+          `document.querySelector("[data-dock-toggle]") !== null`,
+          "도크 토글이 없다",
+        );
+        if (await shell().count("[data-dock]") === 0) {
+          await shell().click("[data-dock-toggle]");
+        }
+        await shell().until(
+          `document.querySelector("[data-dock]") !== null`,
+          "대화 도크가 열리지 않았다",
+        );
+        await shell().until(
+          `document.querySelector("[data-new-session]") !== null || document.querySelector(${
+            JSON.stringify(INPUT)
+          }) !== null`,
+          "도크가 서지 않았다",
+        );
+        if (await shell().count(INPUT) === 0) {
+          await shell().click("[data-new-session]");
+        }
+        await shell().until(
+          `document.querySelector(${JSON.stringify(INPUT)}) !== null`,
+          "입력칸이 서지 않았다",
+        );
+      };
+      const sendText = async (text: string) => {
+        await openDock();
+        await shell().type(INPUT, text);
+        await shell().until(
+          `document.querySelector(${JSON.stringify(SEND)})?.disabled === false`,
+          "보내기가 켜지지 않았다",
+        );
+        await shell().click(SEND);
+      };
+      // core를 죽인다(연결이 끊긴다). 그 자손도 정리해 다시 열 때 ledger를 잡고 있지 않게 한다.
+      const killCore = async () => {
+        let corePid: number | undefined;
+        for (const pid of await descendantPids(shell().shell.pid)) {
+          try {
+            if ((await readCmdline(pid)).includes("apps/core/main.ts")) {
+              corePid = pid;
+              break;
+            }
+          } catch { /* 이미 끝남 */ }
+        }
+        assert(corePid !== undefined, "core pid를 찾지 못했다");
+        const children = (await descendantPids(corePid)).filter((pid) =>
+          pid !== corePid
+        );
+        signalPids([corePid], "SIGKILL");
+        const gone = Date.now() + 30_000;
+        while (processAlive(corePid)) {
+          assert(Date.now() < gone, "core가 끝나지 않았다");
+          await delay(200);
+        }
+        signalPids(children.filter((pid) => processAlive(pid)), "SIGKILL");
+        const childrenGone = Date.now() + 5_000;
+        while (children.some((pid) => processAlive(pid))) {
+          assert(Date.now() < childrenGone, "core 자손이 끝나지 않았다");
+          await delay(100);
+        }
+      };
+      // 연결이 돌아온다: 같은 데이터 root로 core를 다시 띄운다.
+      const reconnect = async () => {
+        const current = flow;
+        flow = undefined;
+        await current?.close();
+        flow = await openFlowShell({ home, start: "lophn" });
+        await untilRuntimeAllows(shell().shell.pid, [
+          new URL(provider.url).port,
+        ]);
+      };
+
+      // 확인 창은 단추가 있는 창을 매번 다시 찾아 누른다. 미리보기만으로는 결정이 아니다.
+      const inDecisionWindow = (decision: string, expression: string) =>
+        shell().shell.mainEvaluate(`(async () => {
+          const contents = electron.webContents.getAllWebContents().filter((c) =>
+            !c.isDestroyed() && c.getURL().startsWith("lophn-shell://confirmation/")
+          );
+          for (const contentsItem of contents) {
+            const open = await contentsItem.executeJavaScript(${
+          JSON.stringify(
+            `document.querySelector("[data-decision='${decision}']") !== null`,
+          )
+        });
+            if (open) {
+              return await contentsItem.executeJavaScript(${
+          JSON.stringify(expression)
+        });
+            }
+          }
+          return null;
+        })()`);
+      const grantPending = async () => {
+        await shell().click('[data-screen="things-to-confirm"]');
+        await shell().until(
+          `document.querySelector("[data-next='approval']:not([disabled])") !== null`,
+          "기다리는 결정이 없다",
+          60_000,
+        );
+        await shell().click("[data-next='approval']");
+        await shell().until(
+          `document.querySelector("[data-detail] [data-review]") !== null`,
+          "결정 상세에 확인 단추가 없다",
+        );
+        await shell().click("[data-detail] [data-review]");
+        await untilTrue("확인 창에 결정 단추가 없다", async () => {
+          try {
+            return await inDecisionWindow(
+              "grant_approval_request",
+              `document.querySelector("[data-decision='grant_approval_request']") !== null`,
+            ) === true;
+          } catch {
+            return false;
+          }
+        }, 30_000);
+        const shown = String(
+          await inDecisionWindow(
+            "grant_approval_request",
+            `document.querySelector("[data-layout='confirmation']")?.innerText ?? ""`,
+          ),
+        );
+        assert(
+          shown.includes("mark_kind") && shown.includes(HANG_APP),
+          `확인 창에 앱·command가 없다: ${shown.slice(0, 400)}`,
+        );
+        await inDecisionWindow(
+          "grant_approval_request",
+          `document.querySelector("[data-decision='grant_approval_request']").click()`,
+        );
+      };
+
+      await untilReady();
+      const hangMarker = `${home}/apps/${HANG_APP}/data/hang-once`;
+
+      await t.step(
+        "lophn-agent/harness/waiting-and-recovery#R8 lophn-agent/harness/waiting-and-recovery#R9: 확정된 읽기 뒤 다음 판단이 붙들린 채 연결이 끊겼다 돌아오면 같은 run이 그 판단 하나만 다시 부르고 끝난다",
+        async () => {
+          await sendText(RECOVER_ASK);
+          let run = "";
+          await untilTrue(
+            "읽기가 확정되고 다음 판단이 붙들리지 않았다",
+            async () => {
+              const runs = await runsOf();
+              const current = newest(runs);
+              if (current === null || provider.requests().length < 2) {
+                return false;
+              }
+              const calls = await toolCallsOf(current.id);
+              if (calls.length === 1 && calls[0]!.outcome?.kind === "success") {
+                run = current.id;
+                return true;
+              }
+              return false;
+            },
+          );
+          assertEquals(
+            (await runsOf()).find((row) => row.id === run)?.state,
+            "running",
+          );
+          await killCore();
+          await reconnect();
+
+          const finished = await untilFinished(run);
+          assertEquals(
+            finished.outcome?.kind,
+            "completed",
+            JSON.stringify(finished),
+          );
+          // 같은 run이다. 이어 가기가 run을 새로 만들지 않았다.
+          assertEquals((await runsOf()).length, 1);
+          // 확정된 읽기는 다시 실행하지 않았다: tool call은 key마다 한 번이다.
+          const calls = await toolCallsOf(run);
+          assertEquals(
+            calls.map((
+              row,
+            ) => [row.response_key, row.attempt, row.outcome?.kind]),
+            [["read-list", 0, "success"]],
+          );
+          // 붙들려 있던 판단 하나만 다시 불렀다: 읽기 판단 1, 붙든 판단 1, 다시 부른 판단 1.
+          assertEquals(provider.requests().length, 3);
+          // 다시 부른 판단은 저장된 읽기 결과를 이력으로 받았다.
+          const resumed = JSON.stringify(provider.requests()[2]!.body);
+          assert(
+            resumed.includes("read-list"),
+            "다시 부른 판단에 읽기 이력이 없다",
+          );
+          assertEquals(
+            await Deno.stat(hangMarker).then(() => true, () => false),
+            false,
+          );
+        },
+      );
+
+      await t.step(
+        "lophn-agent/harness/waiting-and-recovery#R10 apps/invocations#R12: 앱 쓰기가 시작만 되고 결과가 없으면 연결이 돌아와도 다시 보내지 않고 뒤 call과 뒤 판단 없이 불명확 효과와 남은 일을 구별해 끝낸다",
+        async () => {
+          const before = provider.requests().length;
+          await sendText(RECOVER_WRITE);
+          // 되돌리기를 선언하지 않은 쓰기는 사람이 허락해야 시작한다.
+          await untilTrue(
+            "허락을 기다리는 run이 없다",
+            async () => newest(await runsOf())?.state === "waiting_user",
+          );
+          await grantPending();
+          let run = "";
+          await untilTrue("앱 쓰기가 시작되지 않았다", async () => {
+            const current = newest(await runsOf());
+            if (current === null || current.state !== "running") return false;
+            const calls = await toolCallsOf(current.id);
+            const write = calls.find((row) =>
+              row.response_key === "toolu_write"
+            );
+            const marks = await markKinds();
+            const marked = await Deno.readTextFile(hangMarker).then(
+              (text) => text,
+              () => "",
+            );
+            if (
+              write?.state === "started" && marks.length === 1 &&
+              marks[0]?.status === "running" && marked === "once\n"
+            ) {
+              run = current.id;
+              return true;
+            }
+            return false;
+          });
+          assertEquals(provider.requests().length, before + 1);
+          await killCore();
+          await reconnect();
+
+          const finished = await untilFinished(run);
+          assertEquals(
+            finished.outcome?.kind,
+            "failed",
+            JSON.stringify(finished),
+          );
+          assertEquals(finished.outcome?.reason, "effect_unknown");
+          // 앞 읽기는 확정, 쓰기는 불명확, 뒤 call은 미실행으로 따로 남는다.
+          const calls = await toolCallsOf(run);
+          assertEquals(
+            calls.map((
+              row,
+            ) => [row.response_key, row.attempt, row.outcome?.kind]),
+            [
+              ["toolu_before", 0, "success"],
+              ["toolu_write", 0, "uncertain"],
+              ["toolu_after", 0, "not_executed"],
+            ],
+          );
+          // 쓰기는 다시 보내지 않았다: invocation은 하나이고 성공이나 실패로 추측하지 않는다.
+          const marks = await markKinds();
+          assertEquals(marks.length, 1, JSON.stringify(marks));
+          assertEquals(marks[0]?.status, "unknown", JSON.stringify(marks));
+          assertEquals(await Deno.readTextFile(hangMarker), "once\n");
+          // 뒤 판단은 시작하지 않았다. 새 run도 없다.
+          assertEquals(provider.requests().length, before + 1);
+          assertEquals((await runsOf()).length, 2);
+        },
+      );
+    } finally {
+      await flow?.close();
+      await provider.close();
+      await removeTree(home);
     }
   },
 });

@@ -141,7 +141,10 @@ import {
   skillFoldersSetting,
   TOOL_DOCUMENT_ROUTES,
 } from "../../packages/contracts/lophn-agent/mod.ts";
-import { allowRunList } from "../../packages/lophn-agent/extensions/mod.ts";
+import {
+  allowNetList,
+  allowRunList,
+} from "../../packages/lophn-agent/extensions/mod.ts";
 import { createMcpAuth } from "../../packages/lophn-agent/extensions/mod.ts";
 import { createMcpSecretRefSource } from "../../packages/lophn-agent/extensions/mod.ts";
 import type { HttpFetch } from "../../packages/lophn-agent/extensions/adapters/mcp-http.ts";
@@ -191,12 +194,14 @@ export function agentRuntimeLaunchSpec(input: {
     ],
     // derived만 쓴다. ledger·blob·원본은 쓰지 않는다. socket 쓰기는 연결에 필요한 허락이다.
     allow_write: [`${input.dataRoot}/derived/lophn-agent`, ...sockets],
-    // core loopback, 앱 direct socket, 등록된 provider 목적지. MCP host와 공개 models.dev는 등록될 때 더한다.
+    // core loopback, 앱 direct socket, 등록된 provider 목적지, enabled로 등록한 MCP HTTP server의 정확한
+    // `host:port`. 공개 models.dev는 등록될 때 더한다.
     allow_net: [
       `127.0.0.1:${input.apiPort}`,
       SOCKET_HOST,
       ...sockets.map((path) => `unix:${path}`),
       ...(input.hosts ?? []),
+      ...allowNetList(input.mcpServers ?? []),
     ],
     // 사람이 enabled로 등록한 MCP stdio executable만이다(architecture §2.3).
     allow_run: allowRunList(input.mcpServers ?? []),

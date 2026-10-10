@@ -20,14 +20,6 @@
 // 1의 skill 발견은 아래 별도 테스트가 본다: 등록 폴더·개인 보관소의 skill을 찾고 preset이 고른 이름만
 // 다음 run의 prompt에 이름·설명으로 오른다(형식이 틀린 꾸러미와 고르지 않은 skill은 오르지 않는다).
 // 제외 사유는 RunBasis에 자리가 없어 run에 남기지 않는다.
-// 결함 (6), 5단계와 approve-action 단계는 `ignore`: 제품 runtime이 외부 MCP server에 닿지 못한다.
-// stdio는 core가 runtime child를 띄울 때 `agentRuntimeLaunchSpec`에 `mcpServers`를 넘기지 않고
-// (apps/core/agent-runtime.ts `specFor`는 provider hosts만 넘긴다) 등록 뒤에도 다시 띄우지 않아
-// `--allow-run`이 빈 목록이라 child를 열지 못한다. HTTP는 제품 `mcpConnectionsDeps`
-// (apps/agent-runtime/product-driver.ts)에 `fetch`가 없어 "HTTP 연결 눈이 없다"이고 MCP host도
-// `--allow-net`에 더해지지 않는다. 그래서 다음 run에 고른 MCP tool이 실리지 않고, approval
-// request를 만드는 유일한 agent 통로(미분류 외부 tool)도 닿지 않는다. 해당 단계는 써 두되
-// 확인하지 못했다(미검증).
 import { assert, assertEquals } from "@std/assert";
 
 import { buildReply } from "../../tools/fake-provider/semantic.ts";
@@ -289,12 +281,22 @@ async function registerServer(
   });
 }
 
+// 확인 창은 결정마다 새로 열리고 닫힌다. harness의 `connect`는 같은 url 조각의 연결을 다시 쓰므로
+// (닫힌 창의 연결이 남는다) 결정마다 같은 창을 가리키는 다른 url 조각을 쓴다.
+const CONFIRMATION_PARTS = [
+  "lophn-shell://confirmation/",
+  "hn-shell://confirmation/",
+  "n-shell://confirmation/",
+  "-shell://confirmation/",
+];
+
 /** 확인 창 페이지를 잡는다. 창이 뜰 때까지 기다린다. */
-async function confirmationPage(flow: FlowShell) {
+async function confirmationPage(flow: FlowShell, nth: number) {
+  const part = CONFIRMATION_PARTS[nth]!;
   const deadline = Date.now() + 30_000;
   for (;;) {
     try {
-      return await flow.shell.connect("lophn-shell://confirmation/");
+      return await flow.shell.connect(part);
     } catch (error) {
       assert(Date.now() < deadline, `확인 창이 없다: ${error}`);
       await delay(250);
@@ -450,6 +452,7 @@ Deno.test({
         await flow.click(SEND);
       };
       /** things-to-confirm에서 기다리는 결정을 열고 확인 창에서 `decision`을 누른다. */
+      let decisions = 0;
       const decide = async (decision: string) => {
         await flow.click('[data-screen="things-to-confirm"]');
         await flow.until(
@@ -468,7 +471,7 @@ Deno.test({
           "미리보기만으로 결정이 바뀌었다",
         );
         await flow.click("[data-detail] [data-review]");
-        const page = await confirmationPage(flow);
+        const page = await confirmationPage(flow, decisions++);
         await pageUntil(
           page,
           `document.querySelector("[data-decision='${decision}']") !== null`,
@@ -620,8 +623,6 @@ Deno.test({
       await t.step({
         name:
           "lophn-agent/extensions#R5 lophn-agent/extensions#R29 lophn-agent/presets#R8: 5 다음 run은 고른 tool만 받고 분류·safe tool은 원래 이름·입력으로 server에 닿는다",
-        // 결함 (6): 제품 runtime이 외부 MCP server에 닿지 못한다(머리 주석).
-        ignore: true,
         fn: async () => {
           await openInput();
           await send("Read note n1.");
@@ -654,13 +655,11 @@ Deno.test({
       await t.step({
         name:
           "lophn-agent/extensions#R28 lophn-agent/harness/tool-judgment#R1 platform/approvals#R3 platform/approvals#R5 shell/confirmation-window#R4: approve-action 1~6 미분류 tool은 확인 창에서 허락한 뒤에만 한 번 실행되고 run이 이어 끝난다",
-        // 결함 (6): 제품 runtime이 외부 MCP server에 닿지 못한다(머리 주석).
-        ignore: true,
         fn: async () => {
           await send("Scan note n2.");
           const waiting = await untilRun(
             2,
-            (row) => row.state === "waiting",
+            (row) => row.state === "waiting_user",
             "run이 결정을 기다리지 않는다",
           );
           const [request] = await approvals();
@@ -701,14 +700,12 @@ Deno.test({
       await t.step({
         name:
           "platform/approvals#R14 platform/approvals#R15: approve-action 다른 갈래 4 거절한 호출은 미실행으로 남는다",
-        // 결함 (6): 제품 runtime이 외부 MCP server에 닿지 못한다(머리 주석).
-        ignore: true,
         fn: async () => {
           await openInput();
           await send("Scan note n3.");
           await untilRun(
             3,
-            (row) => row.state === "waiting",
+            (row) => row.state === "waiting_user",
             "run이 결정을 기다리지 않는다",
           );
           await decide("reject_approval_request");

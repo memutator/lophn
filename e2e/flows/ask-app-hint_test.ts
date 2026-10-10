@@ -3,19 +3,13 @@
 // tools/fake-provider다. 사람 데이터 root(~/.lophn)는 열지 않는다. HOME은 임시 폴더이고 Electron은
 // LOPHN_SHELL_HEADLESS=1이다.
 //
-// 이 파일이 지금 보는 것: flow 1(요청한 창의 탭·선택·관측 시각이 turn context로 model 입력에 실린다).
-// 남은 것은 아래 "막힌 단계"와 파일 끝 주석이다. flow 2~6(현재 화면 조회, redaction, 주석 쓰기, revision 충돌,
-// 탭을 닫은 뒤 unavailable)은 제품 결함 두 개가 막는다.
-// - 결함 (1): `app.screen_context`·`app.annotate`가 제품 agent runtime에 조립되지 않았다.
-//   `buildAppContextTools`·`createAppContextToolHandlers`·`createScreenContextBinding`·`createAnnotateBinding`은
-//   harness 단위 test에서만 쓰이고 `apps/agent-runtime/app-toolkit.ts`(define·binding·handlers·lookups)가
-//   부르지 않는다. 그래서 run이 받는 tool 목록에 이 둘이 없다.
+// 이 파일이 지금 보는 것: flow 1(요청한 창의 탭·선택·관측 시각이 turn context로 model 입력에 실린다), flow 2(선언된
+// 화면의 read command와 주석 자리 write command만 agent의 tool이 된다), 사람이 앱 패널 열기로 패널 탭을 연다.
+// flow 3~6(현재 화면 조회, redaction, 주석 쓰기, revision 충돌, 탭을 닫은 뒤 unavailable)은 제품 결함 하나가 막는다.
 // - 결함 (2): agent도 앱 화면도 자기 view_session을 알 길이 없다. turn context의 탭 줄에는 view_session이 없고
 //   (`tabLine`은 앱·화면만 쓴다), 앱 화면 URL의 query는 앱 socket 요청에만 붙어 fixture 화면의
 //   `?view_session=` 읽기(`editTodo`)는 늘 비어 있다. 그래서 앱은 어느 할 일을 고치는 중인지 알지 못한다.
-// - 결함 (3): 사람이 앱 패널을 여는 길이 없다. desktop renderer 진입(`apps/shell/renderer/desktop/entry.tsx`)의
-//   `appViews`가 `screens`를 주지 않아 `[data-open-app-panel]` 단추가 서지 않는다. 이 flow는 저장된 layout
-//   (`<home>/shell/layout.json`)에 app_panel 탭을 심어 작업대가 복원한 패널로 시작한다.
+// flow 1은 저장된 layout(`<home>/shell/layout.json`)의 app_panel 탭을 작업대가 복원한 패널로 시작한다.
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 
@@ -253,7 +247,7 @@ Deno.test({
       const first = await openFlowShell({ home });
       await registerProject(first, { folder, name: "hint", title: "Hint" });
       await first.close();
-      // 결함 (3) 때문에 앱 패널 탭을 저장된 layout으로 심는다. 복원한 선택 탭이 초점 탭이 된다.
+      // 앱 패널 탭을 저장된 layout으로 심는다. 복원한 선택 탭이 초점 탭이 된다.
       await Deno.mkdir(`${home}/shell`, { recursive: true, mode: 0o700 });
       await Deno.writeTextFile(
         `${home}/shell/layout.json`,
@@ -435,11 +429,9 @@ Deno.test({
         },
       );
 
-      // 막힌 단계(결함 (1)·(2), 머리 주석). 둘이 닫히면 이 단계가 flow 2~3의 첫 확인이다.
       await t.step({
         name:
           "apps/agent-context#R1 apps/agent-context#R2 lophn-agent/harness/tools#R18 flow ask-app-hint 2: 선언된 화면의 read command와 주석 자리 write command만 agent의 tool이 된다",
-        ignore: true,
         fn: async () => {
           const before = provider.requests().length;
           await send("한 번 더 보고 힌트를 줘.");
@@ -454,6 +446,31 @@ Deno.test({
           );
         },
       });
+      // 이 step은 새 앱 패널 탭을 더해 초점 탭을 바꾸므로 맨 뒤에 둔다.
+      await t.step(
+        "shell/workspace#R1 shell/workspace#R5 flow ask-app-hint: 사람이 프로젝트 탭의 앱 패널 열기로 앱의 패널 화면을 고르면 새 앱 패널 탭이 선다",
+        async () => {
+          const panels = () =>
+            flow.evaluate(
+              `document.querySelectorAll("[data-app-panel='${APP}']").length`,
+            );
+          assertEquals(await panels(), 1);
+          await flow.until(
+            `document.querySelector("[data-open-app-panel]") !== null`,
+            "앱 패널 열기 단추가 서지 않았다",
+          );
+          await flow.click("[data-open-app-panel]");
+          await flow.until(
+            `document.querySelector("[data-app-panel-picker] li button") !== null`,
+            "앱 패널 고르기에 화면이 없다",
+          );
+          await flow.click("[data-app-panel-picker] li button");
+          await flow.until(
+            `document.querySelectorAll("[data-app-panel='${APP}']").length === 2`,
+            "고른 앱 패널 탭이 서지 않았다",
+          );
+        },
+      );
     } finally {
       await provider.close();
       await opened?.close();

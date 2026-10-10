@@ -21,8 +21,12 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
   배치하지 말고 모두 완료되면 handoff 갱신까지만." 이 문서가 그 갱신이다. 지금 돌고 있는
   worker·검사·background job은 없다(PR watch script `~/.grok/long-running-background-tasks/
   lophn_pr_watch.sh`도 죽어 있다). `.dev-data/merge-queue.txt`는 비어 있다.
-- 다시 시작하면 §6을 본다. 사람이 배치를 다시 허용하기 전에는 worker를 띄우지 않는다. 죽은
-  worker가 남긴 dirty worktree 4개와 열린 PR #489가 이어갈 자리다.
+- 2026-10-10 ~14:2x Devin lead가 죽은 grok worker의 worktree 4개를 이어가는 devin subagent 4개를
+  띄웠다. 하나(t21-format)는 끝까지 가서 **PR #525**를 열었고, 나머지 셋은 devin free-model rate
+  limit(~14:25 UTC 05:25 reset)으로 중간에 죽었다. 셋의 작업은 전부 WIP commit·push로 보존했다
+  (§6 dirty 표). 이어갈 때는 WIP commit 위에서 같은 worktree·branch를 쓴다.
+- 다시 시작하면 §6을 본다. 사람이 배치를 다시 허용하기 전에는 worker를 띄우지 않는다. 열린 PR은
+  #489(merge 조건 있음)와 #525(리뷰·merge 대기)다.
 
 ## 1. 사람이 정한 운영 규칙
 
@@ -174,8 +178,9 @@ lead가 쓰는 사본은 `.dev-data/lead-tools/`(git 무시, 이 기계에 남�
 - 이 grok 세션(10-09 18:3x~10-10 13:22)에서 완료로 넘어간 task는 셋뿐이다: problems#T26(#485),
   coding-agent#T46(#481), coding-agent#T47(#487). 나머지 merge #480~#524는 전부 아래 10개 진행
   task의 단계 slice다.
-- main `1ea642a7`. 열린 PR은 **#489**(apps#T27 use-app-command)뿐 — merge 조건은 아래. merge-queue
-  비어 있음. 돌고 있는 worker·검사·background job 없음.
+- main `1ea642a7`. 열린 PR은 **#489**(apps#T27 use-app-command, merge 조건 아래)와 **#525**
+  (documents#T21 format 갈래, 리뷰·merge 대기)다. merge-queue 비어 있음. 돌고 있는 worker·검사·
+  background job 없음.
 - 사람 마지막 지시(10-10): 추가 sub agent 배치 금지, 전부 끝나면 handoff 갱신까지만. lophn-agent
   #T54·T55·T56 실제 model eval은 계속 미룸 — 시작 금지.
 - `.dev-data/lead-tools/next-spawns.md` 로그는 10-09 19:1x에서 멈춰 있다. 그 뒤 spawn·merge 기록은
@@ -213,24 +218,25 @@ lead가 쓰는 사본은 `.dev-data/lead-tools/`(git 무시, 이 기계에 남�
   `e2e/flows/use-app-command_test.ts`·`flow-new-app_test.ts`, `docs/plan/apps.md`. 이 파일이 필요한
   새 worker는 #489가 merge되기 전까지 띄우지 않는다.
 
-### 죽은 worker의 dirty worktree (commit·push 모두 안 됨 — main 기준으로 낡음)
+### 죽은 worker의 worktree — 전부 WIP commit·push로 보존됨 (main 기준으로 낡음)
 
-| worktree | branch | task 단계 | 남은 것 |
+devin 이어가기 worker가 14:2x rate limit으로 죽기 전까지 간 자리. WIP commit 위에서 이어간다.
+
+| worktree | branch | task 단계 | 어디까지 갔나 |
 |---|---|---|---|
-| `problems-t25-s4` | `problems/t25-app-broken-4` | app-broken 4단계(해석 문서) | worker failed. `e2e/flows/app-broken_test.ts`만 +1131. test가 쓰였는지 통과하는지 미확인 |
-| `problems-t24-s4` | `problems/t24-verify-4` | verify-app-repair 4단계(통과·실패 화면) | worker failed. 15파일 +893 — issues·versions 탭, contracts `problem-detail`, grouping detail·reads, `problem-tests`, wording 2키, e2e +384. 제품+test 미커밋 |
-| `documents-t21-format` | `documents/t21-format-fail` | first-project 지정 format 거절 | worker 완료 보고·PR 없음. unit 2개 통과(`observation_test` warning 유지, `work_test` 생략 저장 explicit 거절), e2e는 `documents/prepare` forbidden(§7-74)으로 실패. 5파일 +493 |
-| `documents-t27-terms4` | `documents/t27-define-terms-4` | define-terms 4(machine이 고정 선택지 적용) | worker 멈춤. `ports.wait`가 question을 기다리지 않아 확인 창 없는 적용까지 못 감(§7-49·55). 10파일 +728 + 신규 `apps/shell/ipc/term-definition.ts`·`apps/shell/main/confirmation/term-definition.ts` |
+| `documents-t21-format` | `documents/t21-format-fail` | first-project 지정 format 거절 | **끝남 → PR #525.** unit 2개 통과, e2e는 미지정 format 갈래만 돌고 지정 format 거절 단계는 §7-74로 `t.step(ignore)` 처리. handoff §7에 74 추가 |
+| `problems-t25-s4` | `problems/t25-app-broken-4` | app-broken 4단계(해석 문서) | grok worker의 test +1131만 `ce891ca7`(WIP)로 commit. 이어가기 worker는 commit 직후 죽음 — test 통과 여부 미확인, 거기서부터 |
+| `problems-t24-s4` | `problems/t24-verify-4` | verify-app-repair 4단계(통과·실패 화면) | grok worker의 15파일 +893은 `f7842bbc`(WIP). 이어가기 worker가 e2e 보강 중 죽음: `insertRelease`에 created_by 구분(machine/coding_agent), `linkReleaseTest` helper, before bundle 대상 실제 test 단언 추가 — 두 번째 WIP commit으로 보존 |
+| `documents-t27-terms4` | `documents/t27-define-terms-4` | define-terms 4(machine이 고정 선택지 적용) | grok worker의 10파일 +728·신규 2파일은 `d96f99da`(WIP). 이어가기 worker가 fixture 재구성 중 죽음: hold/release로 model 응답을 답 동안 미뤄 run을 살려두는 방식(§7-49·55를 test 쪽에서 우회 시도), `untilFix`·`untilFixDone` 추가 — 두 번째 WIP commit으로 보존. 미검증 |
 
 ### READY (배치가 다시 허용되면)
 
-1. dirty worktree 넷을 먼저 정리한다 — WIP commit·push로 보존하거나 이어가기 worker. t24-s4는 제품
-   변경이 커서 버리면 손실이다. t21-format은 §7-74(shell `documents/prepare` 사람 통로) 선행이
-   없으면 e2e가 또 막힌다.
-2. #489의 use-app-command e2e 재실행 뒤 merge.
-3. 그 뒤 slice: work-offline 5~7, update-lophn 5~8, app-broken 5~9(t25-s4 이어서), verify 5~7
+1. #525 리뷰·merge(unit은 통과, e2e 지정 format 단계는 §7-74로 ignore — 리뷰 기준에 걸리는 것 없는지 diff를 본다).
+2. 이어가기 worker 셋을 같은 worktree에서 다시 띄운다: t24-s4(e2e 보강 마무리·돌리기), t25-s4(test 확인·PR), t27-terms4(fixture 재구성 마무리·돌리기 — 49·55 우회가 안 되면 그 갈래를 ignore로 남기는 선에서).
+3. #489의 use-app-command e2e 재실행 뒤 merge.
+4. 그 뒤 slice: work-offline 5~7, update-lophn 5~8, app-broken 5~9(t25-s4 이어서), verify 5~7
    (t24-s4 이어서), define-terms 5~6, problems#T23 잔여, install-lophn.
-4. 여전히 띄우면 안 되는 것: new-app 등록 적용·4단계(#489·apps/agent-runtime 선행), lophn-agent
+5. 여전히 띄우면 안 되는 것: new-app 등록 적용·4단계(#489·apps/agent-runtime 선행), lophn-agent
    결함 (1)(4)(5)(6)(7)(8) 고침 worker, build-context 8, ClaimTicket 상한 변경, eval, find-documents
    5~6(coding-agent 몫이라도 제품 통로 없음).
 

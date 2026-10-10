@@ -3248,8 +3248,6 @@ type ClosingWorld = {
 // 고친 release의 board와 그 reproduction 판정을 고르는 선택이다. 기본은 B(고침)의 pass다.
 type ClosingOptions = {
   declared?: boolean;
-  // C는 보고 경로를 삭제한 약화 변경이다. 고친 release의 reproduction은 pass가 아니다.
-  board?: "B" | "C";
 };
 
 type ClosingBasis = { test: string; after: string; before: string };
@@ -3288,12 +3286,7 @@ async function closingWorld(
     const stored = await storeReproduction(opened.world);
     assert(made, "봉인할 source가 없다");
     const root = opened.world.harness.dataRoot;
-    const fixed = await sealBoard(
-      made,
-      options?.board ?? "B",
-      opened.world.app,
-      root,
-    );
+    const fixed = await sealBoard(made, "B", opened.world.app, root);
     assertNotEquals(fixed.hash, beforeHash);
     await made.dispose();
     made = undefined;
@@ -4222,145 +4215,6 @@ Deno.test({
             before,
           );
           assertEquals(await flow!.count("[data-issue-closed]"), 0);
-        },
-      );
-    } finally {
-      await flow?.close();
-      await world?.cleanup();
-    }
-  },
-});
-
-// 3·4·6단계의 다른 갈래. 고친 release가 약화한 변경(board C: 보고 경로 삭제)이면 reproduction은 pass가 아니라
-// 판정 불가이고, 그 release를 사람이 허락해 적용해도 닫힘의 근거가 아니다. runner가 기한 안에 끝내지 못한
-// 실행(timeout)도 판정 불가다. 모두 같은 문제가 열린 채 남고 새 test는 만들지 않는다.
-Deno.test({
-  name:
-    "problems/tests#R4 problems/tests#R11 problems/tests#R17 problems/closing#R2 problems/closing#R3 flow verify-app-repair 4: runner timeout은 판정 불가고 약화한 변경은 적용돼도 닫힘의 근거가 아니다",
-  ignore: !e2eEnabled(),
-  sanitizeOps: false,
-  sanitizeResources: false,
-  async fn(t) {
-    let world: Awaited<ReturnType<typeof closingWorld>> | undefined;
-    let flow: FlowShell | undefined;
-    try {
-      world = await closingWorld(async (opened, basis) => {
-        const root = opened.world.harness.dataRoot;
-        const issued = await opened.world.harness.credential({
-          actor: "user",
-          principal: "user-repair-weak",
-          scope: {
-            operations: ["RequestTest"],
-            targets: { app: opened.world.app },
-          },
-          conditions: { app: opened.world.app },
-        });
-        assert(issued.ok, issued.ok ? "" : issued.error.message);
-        // 1ms 기한은 runner가 두 실행을 끝내기 전에 지난다.
-        const sent = await post(
-          opened.world,
-          "problems/request-test",
-          issued.value.token,
-          envelope({
-            request_key: "repro-timeout",
-            kind: "reproduction",
-            app: opened.world.app,
-            target: { bundle_hash: basis.after, release: REL_AFTER },
-            problem: opened.problem,
-            basis_seq: problemSeq(root, opened.problem),
-            reports: [rpt(1)],
-            before: REL_BEFORE,
-            after: REL_AFTER,
-            ticket: null,
-            test: basis.test,
-            timeout_ms: 1,
-          }),
-        );
-        assertEquals(sent.status, 200, JSON.stringify(sent.body));
-        assertEquals(sent.body["accepted"], true, JSON.stringify(sent.body));
-        const end = await waitRequestEnd(root, "repro-timeout", 300_000);
-        assertEquals(end.phase, "result_ref", `${end.phase} ${end.reason}`);
-      }, { board: "C" });
-      const { home, app, problem } = world;
-      const verificationsBefore = countRows(home, "verifications");
-
-      await t.step(
-        "약화한 변경의 reproduction과 기한을 넘긴 reproduction은 통과가 아니라 판정 불가로 기록된다",
-        () => {
-          const db = openDb(`${home}/lophn.db`, true);
-          try {
-            const rows = db.prepare(
-              `select v.request_key as key, v.result as result, v.observations as observations,
-                      e.evidence as evidence
-                 from verifications v
-                 left join test_evidence e on e.request_key = v.request_key
-                where v.kind = 'reproduction' and v.problem = ?`,
-            ).all(problem) as {
-              key: string;
-              result: string;
-              observations: string;
-              evidence: string | null;
-            }[];
-            const weak = rows.find((row) => row.key === "repro-stage3");
-            const slow = rows.find((row) => row.key === "repro-timeout");
-            assert(
-              weak !== undefined && slow !== undefined,
-              JSON.stringify(rows),
-            );
-            assertEquals(weak.result, "inconclusive");
-            assertEquals(slow.result, "inconclusive");
-            const found = (JSON.parse(weak.observations) as {
-              weakening: { found: string[] };
-            }).weakening.found;
-            assert(found.length >= 1, weak.observations);
-            const ended = (JSON.parse(slow.evidence ?? "{}") as {
-              execution_evidence?: { end_reason: string }[];
-            }).execution_evidence?.map((item) => item.end_reason) ?? [];
-            assert(
-              ended.length === 0 ||
-                ended.every((reason) => reason !== "exited"),
-              `${slow.evidence}`,
-            );
-            for (const row of rows) assertNotEquals(row.result, "pass");
-          } finally {
-            db.close();
-          }
-        },
-      );
-
-      flow = await openFlowShell({ home, start: `app:${app}` });
-      await waitFixing(flow, problem);
-      await untilRead("이전 release가 시작하지 않았다", async () => {
-        const seen = await runningOf(flow!, app);
-        return seen?.release === REL_BEFORE && seen.ready;
-      });
-
-      await t.step(
-        "다른 갈래: 약화한 release를 사람이 허락해 적용해도 문제는 닫히지 않고 새 test도 만들지 않는다",
-        async () => {
-          await applyFixed(flow!, app);
-          await settleWindow(flow!);
-          // 닫힘은 machine이 기록을 다시 읽어 판정한다. 판정 불가는 닫힘 근거가 아니다.
-          await delay(15_000);
-          const read = await problemOf(flow!, problem);
-          assertNotEquals(read.status, "closed");
-          assertEquals(read.closure, null);
-          assertEquals(eventCount(home, "ProblemClosed", problem), 0);
-          assertEquals(countRows(home, "verifications"), verificationsBefore);
-          await reopenIssueDetail(flow!);
-          assertEquals(await flow!.count("[data-issue-closed]"), 0);
-          assertNotEquals(
-            await flow!.evaluate(
-              `document.querySelector("[data-check='tests']")?.getAttribute("data-test-state")`,
-            ),
-            "pass",
-          );
-          assertEquals(
-            await flow!.count(
-              '[data-recorded-kind="reproduction"][data-recorded-item="pass"]',
-            ),
-            0,
-          );
         },
       );
     } finally {

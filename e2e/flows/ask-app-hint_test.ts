@@ -369,6 +369,13 @@ Deno.test({
               arguments: JSON.stringify(readArgs),
             }]),
             reply("read-done", "읽었습니다."),
+            // 4·5단계가 ignore라 쓰이지 않는 응답은 뒤에 둔다. 4·5를 켜면 이 둘을 closed 앞으로 옮긴다.
+            reply("closed", "", [{
+              id: "closed1",
+              name: "app.screen_context",
+              arguments: JSON.stringify(readArgs),
+            }]),
+            reply("closed-done", "화면이 닫혀 읽지 못했습니다."),
             reply("write", "", [{
               id: "write1",
               name: "app.annotate",
@@ -388,12 +395,6 @@ Deno.test({
               }),
             }]),
             reply("stale-done", "화면을 다시 읽겠습니다."),
-            reply("closed", "", [{
-              id: "closed1",
-              name: "app.screen_context",
-              arguments: JSON.stringify(readArgs),
-            }]),
-            reply("closed-done", "화면이 닫혀 읽지 못했습니다."),
           ],
         },
         nowMs: () => Date.now(),

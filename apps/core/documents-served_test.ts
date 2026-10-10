@@ -10,6 +10,7 @@ import {
   type DerivedStore,
   openDerived,
 } from "../../packages/documents/outline-and-search/adapters/store.ts";
+import { BUILTIN_MODULE_HASH } from "../../packages/documents/formats/mod.ts";
 import { recordExtraction } from "../../packages/documents/outline-and-search/extraction.ts";
 import { type Core, startCore } from "./core.ts";
 import type { TeamModule } from "./registration.ts";
@@ -124,29 +125,35 @@ function post(
   });
 }
 
-function prepared(key: string) {
+type FileBlob = { hash: string; bytes: number; preparation: string };
+
+function prepared(key: string, blob?: FileBlob) {
   return {
     document: DOC,
     base_version: null,
     files_hash: HASH,
     file_count: 1,
     primary_path: "a.md",
-    content_hash: HASH,
+    content_hash: blob?.hash ?? HASH,
     preparation_ref: `prep-${key}`,
     files: [{
       path: "a.md",
-      blob_hash: HASH,
-      bytes: 10,
+      blob_hash: blob?.hash ?? HASH,
+      bytes: blob?.bytes ?? 10,
       media_type: "text/markdown",
       primary: true,
-      preparation_ref: `prep-file-${key}`,
+      preparation_ref: blob?.preparation ?? `prep-file-${key}`,
     }],
     idempotency_key: key,
     metadata: { title: "용어집", place: null, name: null },
-    format: { name: "document", module_hash: HASH, explicit: false },
+    format: {
+      name: "document",
+      module_hash: blob === undefined ? HASH : BUILTIN_MODULE_HASH,
+      explicit: false,
+    },
     validation: {
-      input_hash: HASH,
-      module_hash: HASH,
+      input_hash: blob?.hash ?? HASH,
+      module_hash: blob === undefined ? HASH : BUILTIN_MODULE_HASH,
       status: "passed",
       error_count: 0,
       warning_count: 0,
@@ -217,6 +224,57 @@ async function seed(
     ))
   );
   assert(cursor.ok);
+  return body;
+}
+
+const DIRECT_MARKDOWN = [
+  "# 직접 추출",
+  "",
+  "## 본문",
+  "",
+  "index가 아직 읽지 못한 판의 문장이다.",
+  "",
+].join("\n");
+
+// 실제 바이트(I/O worker의 blob)를 가진 판을 저장하고 derived에는 아무것도 심지 않는다:
+// index가 아직 그 판을 추출하지 못한 상태다.
+async function seedUnextracted(
+  opened: Opened,
+  text: string,
+): Promise<{ version: string; event_seq: string }> {
+  assert(opened.core.notePrepared);
+  const bytes = new TextEncoder().encode(text);
+  const blob = await opened.core.prepareBlob({
+    principal: "user-1",
+    purpose: "document_file",
+    bytes: new ReadableStream({
+      start(controller) {
+        controller.enqueue(bytes);
+        controller.close();
+      },
+    }),
+  });
+  assert(blob.ok, blob.ok ? "" : blob.error.message);
+  const noted = await opened.core.notePrepared({
+    preparation: "prep-direct-1",
+    principal: "user-1",
+    purpose: "document_files",
+    hash: HASH,
+    size_bytes: 10,
+  }, AT);
+  assert(noted.ok, noted.ok ? "" : noted.error.message);
+  const saved = await post(opened.core, "documents/save", {
+    input: prepared("direct-1", {
+      hash: blob.value.hash,
+      bytes: blob.value.size_bytes,
+      preparation: blob.value.preparation,
+    }),
+    idempotency_key: "direct-1",
+    compare: { base_version: null },
+    prepared: ["prep-direct-1"],
+  }, opened.token);
+  const body = await saved.json() as { version: string; event_seq: string };
+  assertEquals(saved.status, 200, JSON.stringify(body));
   return body;
 }
 
@@ -422,6 +480,101 @@ Deno.test("documents/versions#R13: 준비 route는 요청 자격으로 기준 �
       !visibleBody.error?.message?.includes("기준 판"),
       JSON.stringify(visibleBody),
     );
+  } finally {
+    await close(opened);
+  }
+});
+
+Deno.test("documents/outline-and-search#R15: index가 아직 추출하지 못한 고정 판도 본문과 outline을 직접 추출해 답하고 derived에는 쓰지 않는다", async () => {
+  const opened = await open(true);
+  try {
+    const saved = await seedUnextracted(opened, DIRECT_MARKDOWN);
+    const reference = { document: DOC, version: saved.version, section: null };
+    const read = await post(
+      opened.core,
+      "documents/read",
+      { reference },
+      opened.token,
+    );
+    const readBody = await read.json() as {
+      text?: string | null;
+      section_status?: string;
+    };
+    assertEquals(read.status, 200, JSON.stringify(readBody));
+    assertEquals(readBody.section_status, "whole");
+    assert(readBody.text?.includes("index가 아직 읽지 못한 판의 문장이다."));
+
+    const outline = await post(
+      opened.core,
+      "outline/document",
+      { reference, depth: 2 },
+      opened.token,
+    );
+    const outlineBody = await outline.json() as {
+      entries?: { title: string }[];
+      section_status?: string;
+    };
+    assertEquals(outline.status, 200, JSON.stringify(outlineBody));
+    assertEquals(
+      outlineBody.entries?.map((entry) => entry.title),
+      ["", "본문"],
+      JSON.stringify(outlineBody),
+    );
+
+    // 이번 응답에만 추출했다: derived에는 그 판의 행이 없다.
+    assertEquals(
+      opened.store.read.sql.get(
+        "SELECT version FROM derived_versions WHERE version = ?",
+        [saved.version],
+      ),
+      undefined,
+    );
+  } finally {
+    await close(opened);
+  }
+});
+
+Deno.test("documents/outline-and-search#R15: 이미 실패로 기록된 판은 다시 추출하지 않고, 권한 밖 자격은 없는 판과 같은 답이다", async () => {
+  const opened = await open(true);
+  try {
+    const saved = await seedUnextracted(opened, DIRECT_MARKDOWN);
+    const reference = { document: DOC, version: saved.version, section: null };
+    const hidden = await post(
+      opened.core,
+      "documents/read",
+      { reference },
+      opened.limited,
+    );
+    const absent = await post(opened.core, "documents/read", {
+      reference: { ...reference, document: "doc_01arz3ndektsv4rrffq69g5fb9" },
+    }, opened.limited);
+    assert(hidden.status >= 400);
+    assertEquals(hidden.status, absent.status);
+    assertEquals(await hidden.json(), await absent.json());
+
+    const recorded = recordExtraction(opened.store, {
+      document: DOC,
+      version: saved.version,
+      content_hash: HASH,
+      module_hash: HASH,
+      extraction: { status: "failed", failure_reason: "recorded failure" },
+    }, saved.event_seq);
+    assert(recorded.ok, recorded.ok ? "" : recorded.error.message);
+    const read = await post(
+      opened.core,
+      "documents/read",
+      { reference },
+      opened.token,
+    );
+    const body = await read.json() as {
+      text?: string | null;
+      section_status?: string;
+      failure_reason?: string | null;
+    };
+    assertEquals(read.status, 200, JSON.stringify(body));
+    assertEquals(body.section_status, "unverified");
+    assertEquals(body.text, null);
+    assertEquals(body.failure_reason, "recorded failure");
   } finally {
     await close(opened);
   }

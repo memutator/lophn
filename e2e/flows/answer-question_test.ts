@@ -3,14 +3,13 @@
 // tools/fake-provider(loopback fixture server)로 검증하며 실제 ~/.lophn은 열지 않는다.
 // - 2: 사람은 대화 도크의 질문 칸에서 질문 글·이유·설명 있는 선택지·추천 이유를 읽고, 고르기만
 //   해서는 답이 확정되지 않음을 본다(고른 뒤에도 질문은 답이 없다).
-// - 3·5: 선택 클릭만으로는 답이 아니다. 답을 확정하는 길은 아래 통로 없음 때문에 이 흐름에서
-//   볼 수 없다.
+// - 3: 선택 클릭만으로는 답이 아니다. 보내야 해당 질문의 답으로 접수되고 질문을 낸 run이
+//   같은 run으로 이어진다(questions#R7, waiting-and-recovery#R1).
 // - 6의 사람 쪽: 답을 정하지 못하면 미루기, 필요 없으면 이유와 함께 취소한다. 둘 다 답 없음으로
-//   남고, 같은 run에 답을 기다리는 질문은 하나뿐이라 질문마다 자기 요청(run)을 쓴다.
-// 통로가 없어 볼 수 없는 것: 답을 기다리는 run(questions#R7)은 제품 runtime이 질문을 만들 때
-// run을 멈추지 않으므로(WaitRun의 대기는 approval만 받는다) 이 흐름에서 볼 수 없다. 그래서
-// 질문을 만든 run은 곧바로 끝나고 답(questions/answer)은 "the run is finished"로 거절된다.
-// 답 접수와 실제 적용 결과를 나란히 보는 자리는 things-to-confirm 화면(shell#T29)이다.
+//   남고, 질문을 낸 run은 답 없음(stopped)으로 끝난다. 답 없음으로 끝난 run 뒤의 요청은 사람이
+//   계속하라고 확인해야 시작하므로 다음 질문의 요청은 그 확인을 거친다.
+// 질문을 낸 run은 답을 기다린다(WaitRun의 질문 갈래). 답 접수와 실제 적용 결과를 나란히 보는
+// 자리는 things-to-confirm 화면(shell#T29)이다.
 import { assert, assertEquals } from "@std/assert";
 
 import { startFakeProvider } from "../../tools/fake-provider/mod.ts";
@@ -80,25 +79,23 @@ function ask(prompt: string, recommended: boolean) {
   };
 }
 
-const END = {
+const NOTED = {
   protocol: "messages" as const,
   reply: {
-    text: "Tell me when you decide.",
+    text: "Thanks, I will keep the wording.",
     usage: { input: 40, output: 9 },
     stop: "end" as const,
   },
 };
 
-// 요청 하나(run 하나)마다 질문 하나. 같은 run에 답을 기다리는 질문은 하나만 두므로 질문 셋은
-// 사람이 보낸 요청 셋에서 나온다.
+// 요청 하나(run 하나)마다 질문 하나. 질문을 낸 run은 답을 기다리므로 미루기·취소로 끝난 run은
+// model을 다시 부르지 않고, 답으로 이어진 run만 한 번 더 부른다.
 const SCRIPT = {
   steps: [
     { id: "ask-first", ...ask(FIRST, true) },
-    { id: "end-first", ...END },
     { id: "ask-second", ...ask(SECOND, false) },
-    { id: "end-second", ...END },
     { id: "ask-third", ...ask(THIRD, false) },
-    { id: "end-third", ...END },
+    { id: "noted-third", ...NOTED },
   ],
 };
 
@@ -226,12 +223,51 @@ Deno.test({
           `(() => { const rows = [...document.querySelectorAll("[data-actor='user']")]; const last = rows.at(-1)?.querySelector("[data-delivery]")?.getAttribute("data-delivery"); return rows.length > 0 && last !== null && last !== undefined && last !== "sending"; })()`,
           "보낸 말이 접수로 확정되지 않았다",
         );
+      /** 답 없음으로 끝난 run 뒤의 요청을 사람이 계속하라고 확인한다(run-loop R6). */
+      const continueQueued = async () => {
+        const deadline = Date.now() + 60_000;
+        for (;;) {
+          const listed = await mustCall(flow, {
+            kind: "read",
+            resource: "runs",
+            method: "list",
+            body: {},
+          });
+          const runs = listed["runs"] as {
+            id: string;
+            state: string;
+            start_after: string | null;
+            accepted_seq: string;
+            state_seq: string;
+          }[];
+          const queued = runs.find((run) => run.state === "accepted");
+          const before = runs.find((run) => run.id === queued?.start_after);
+          if (
+            queued !== undefined && before !== undefined &&
+            before.state === "finished"
+          ) {
+            await mustCall(flow, {
+              kind: "command",
+              resource: "runs",
+              method: "confirm-next",
+              body: commandBody({ run: queued.id, predecessor: before.id }, {
+                accepted_seq: queued.accepted_seq,
+                predecessor_state_seq: before.state_seq,
+              }),
+            });
+            return;
+          }
+          assert(Date.now() < deadline, "이어 갈 요청이 접수되지 않았다");
+          await delay(250);
+        }
+      };
       /** 질문 하나를 만드는 요청을 보내고 그 질문이 칸에 설 때까지 기다린다. */
-      const askWith = async (text: string, want: string) => {
+      const askWith = async (text: string, want: string, after = false) => {
         const before = (await questions()).length;
         await flow.type(INPUT, text);
         await flow.click(SEND);
         await untilConfirmed();
+        if (after) await continueQueued();
         const deadline = Date.now() + 120_000;
         for (;;) {
           if ((await questions()).length > before) break;
@@ -340,7 +376,7 @@ Deno.test({
           );
 
           // 두 번째 질문: 취소는 이유를 적어야 확정된다.
-          await askWith("Change it later.", SECOND);
+          await askWith("Change it later.", SECOND, true);
           await flow.click("[data-cancel-question]");
           await untilStrip(
             `document.querySelector("[data-cancel-form]") !== null`,
@@ -369,9 +405,43 @@ Deno.test({
           );
           assertEquals(cancelled.answer, null);
 
-          // 세 번째 질문은 그대로 기다린다. 답을 확정하는 길은 위 통로 없음 때문이다.
-          await askWith("Rewrite it now.", THIRD);
+          // 세 번째 질문은 그대로 기다린다.
+          await askWith("Rewrite it now.", THIRD, true);
           assertEquals((await questions("pending")).length, 1);
+        },
+      );
+
+      await t.step(
+        "lophn-agent/questions#R7 lophn-agent/harness/waiting-and-recovery#R1: 3 고른 선택지를 보내면 해당 질문의 답으로 접수되고 질문을 낸 run이 이어진다",
+        async () => {
+          const [third] = await questions("pending");
+          assert(third !== undefined, "세 번째 질문이 없다");
+          await flow.click("[data-option='keep']");
+          await untilStrip(
+            `document.querySelector("[data-option='keep']")?.getAttribute("aria-checked") === "true"`,
+            "선택지가 골라지지 않았다",
+          );
+          assertEquals(
+            (await questions()).find((item) => item.id === third.id)?.status,
+            "pending",
+          );
+          await flow.click("[data-send-answer]");
+          const answered = await untilQuestion(
+            third.id,
+            (row) => row.status === "answered",
+            "답이 접수되지 않았다",
+          );
+          assertEquals(answered.answer?.kind, "option");
+          // 같은 run이 이어져 model을 한 번 더 부른다.
+          const deadline = Date.now() + 120_000;
+          while (
+            !provider.requests().some((entry) =>
+              entry.matchedStep === "noted-third"
+            )
+          ) {
+            assert(Date.now() < deadline, "질문을 낸 run이 이어지지 않았다");
+            await delay(250);
+          }
         },
       );
     } finally {

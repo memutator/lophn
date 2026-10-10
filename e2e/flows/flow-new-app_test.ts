@@ -7,11 +7,10 @@
 // stdio 자식은 쓰지 않는다: 연결 credential 발급은 coding-agent#T36이라 시험 credential을 core에 직접 넣는다).
 // 사람 데이터 root(~/.lophn)는 열지 않는다. 띄운 core 트리는 temp home 이름으로만 정리한다.
 //
-// 통로가 없어 볼 수 없는 것(T27 상태 줄에 적었다. 새 결함으로 리드가 따로 맡긴다):
-// - release.prepare를 부르는 쪽(finalizer)이 제품 코드에 없다. prepare_bundle 완료·같은 bundle의 app test 통과
-//   뒤 machine이 봉인 사본에서 blueprint·manifest·data_changes·tests를 모아 `release.prepare`를 부르는 길이
-//   core·supervisor 어디에도 없어(apps#T19 이어보냄 (1)) new-app의 9 이후(preview 확인 → 적용 허락 →
-//   activation → acceptance check)는 이 flow로 끝까지 돌 수 없다.
+// release.prepare를 부르는 쪽(finalizer)은 core가 쥔다(apps/core/apps-release-finalizer.ts). ticket claim을 가진
+// coding agent의 prepare_bundle 접수가 끝났고 같은 bundle hash의 app test가 통과로 기록돼 있으면 준비를 읽을 때
+// 확정된다(apps/core/release-finalizer_test.ts가 본다). 이 flow는 같은 bundle의 app test를 아직 돌리지 않아
+// new-app의 9 이후(preview 확인 → 적용 허락 → activation → acceptance check)는 남는다.
 // 이 flow가 아직 돌리지 않은 것(통로가 없는 것이 아니라 하지 않았다):
 // - 같은 bundle의 app test(RequestTest → Verification)와 preview. 둘 다 core 쪽 길은 있다.
 // - 템플릿 앱이 운영 자식으로 뜨는 흐름(entry·`@lophn/base` 해석·read 허락).

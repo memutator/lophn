@@ -3,7 +3,7 @@ type: guide
 concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell]
 ---
 
-# lead handoff (2026-10-10 Claude Code lead 마무리 기준)
+# lead handoff (2026-10-10 plan 359/359 완료 기준)
 
 다음 orchestrator(lead)가 이 팀을 이어 받을 때 알아야 하는 것. 무엇을 만들지는 `docs/plan/`이 정하고,
 여기는 운영 방법·현재 상태·함정만 적는다. 숫자와 PR 목록은 작성 시각 기준이니 시작할 때
@@ -35,6 +35,14 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
   [Merge Without Review]로 merge-nocheck를 거절해 사람이 `.claude/settings.local.json`에 allow
   rule `Bash(bash .dev-data/lead-tools/merge-nocheck.sh *)`를 넣었다. lead가 settings를 직접
   고치는 것은 [Self-Modification]으로 막힌다 — 사람에게 부탁한다.
+- 같은 날 사람이 "이후 plan 완성까지 계속 진행"을 지시해 배치를 다시 열었다(slot 제한 없음, worker는
+  일반 `sonnet-high`, 좁고 명확한 일은 haiku). 그 뒤 사람이 **"plan 빨리 닫기"를 결정**했다(#573, 남은
+  slice E2E 7개 블록의 "정한 것(사람, 2026-10-10 — plan 빨리 닫기)" 줄): flow 주요 단계 통과면 완료,
+  다른 갈래·환경 의존(실제 root 설치, OS keychain, node-pty)·followup 결함 ignore 단계는 넘김. app-broken
+  6~9단계도 사람 결정으로 제외. **2026-10-10 저녁 359/359 완료**(main `86c4736`). 열린 PR은 이 handoff
+  PR(#529)뿐. 돌고 있는 worker·검사 없음.
+- 넘긴 것은 전부 `.dev-data/followups.md` 76~100과 아래 §7에 있다. 다음 일은 plan이 아니라 followup
+  (제품 결함·미구현)과 실사용 피드백이다.
 - 다시 시작하면 §6을 본다. 사람이 배치를 다시 허용하기 전에는 worker를 띄우지 않는다.
 
 ## 1. 사람이 정한 운영 규칙
@@ -179,86 +187,30 @@ lead가 쓰는 사본은 `.dev-data/lead-tools/`(git 무시, 이 기계에 남�
 - `deno check`는 빠르다. 오래 걸리는 것은 apps/core `deno test`다(127개 파일이 startCore, 부하에서
   25초 per-test timeout에 무더기로 죽는 알려진 flaky). 둘을 헷갈려 보고하지 않는다.
 
-## 6. 현재 상태 (2026-10-10 Claude Code lead 마무리)
+## 6. 현재 상태 (2026-10-10 plan 완료)
 
-- 완료 349/359(97%, `plan-count.js now`). 이번 마무리의 merge는 전부 진행 task의 단계 slice라
-  완료 수는 그대로다. 분모 359는 전체 364에서 사람이 미룬 5개(coding-agent#T48, lophn-agent#T54·
-  T55·T56, platform#T49)를 뺀 값이다. `plan-count.js`는 각 task의 **첫** `- 상태:` 줄만 본다.
-- main `878088fc`. 열린 PR 없음. merge-queue 비어 있음. 돌고 있는 worker·검사·background job 없음.
-- 이번 마무리 merge(모두 merge-nocheck, squash, bundle deno test 안 돌림):
-  - #525 `a40320b` documents#T21 first-project 5 format 갈래. 지정 format 거절 e2e 단계는 §7-74로 ignore.
-  - #526 `fc00b05` documents#T27 define-terms 4(고정 term.define 선택지를 확인 창 없이 사람 결정으로
-    접수, shell main IPC `TERM_DEFINITION_CHANNEL`). machine 적용 확인 step은 §7-49·55로 ignore.
-  - #527 `da13ccf` problems#T25 app-broken 4(해석 문서). `problem.set_interpretation`의 절 확인을
-    `outline.document`(항상 whole)에서 `document.read`(section 지정)로 고친 제품 결함 수정 포함.
-  - #489 `937d136` apps#T27 use-app-command. main 충돌 해결 뒤 e2e 재실행 1 passed(3 steps).
-  - #528 `878088f` problems#T24 verify-app-repair 4(통과·실패·판정 불가·미실행 구별). Version test
-    결과 단언은 §7-76으로 ignore.
-- 사람 마지막 지시(10-10): 추가 sub agent 배치 금지. lophn-agent#T54·T55·T56 실제 model eval은
-  계속 미룸 — 시작 금지.
-- `.dev-data/lead-tools/next-spawns.md` 로그는 10-09 19:1x에서 멈춰 있다. 그 뒤 기록은 git 이력과
-  이 문서가 유일한 출처다.
-
-### 진행 task 10개 — merge된 slice와 남은 것
-
-| task | 이번 세션 merge | 남은 것 |
-|---|---|---|
-| platform#T54 | #484 catch-up-notifications, #504 notification 발생 시각·문서 링크, #494·#500·#521·#524 work-offline 1~4, #505·#510·#515·#523 update-lophn 1~4 | 진행. work-offline 5~7단계, update-lophn 5~8단계, install-lophn. catch-up 미본 갈래(끝난 question·approval 다시 열기, ticket 완료 보고·문제 닫힘, 끊긴 뒤 재생 없음, 창 닫은 뒤 실패 문구)와 #473의 전달 `unconfirmed`/`failed` 어긋남 |
-| problems#T25 | #503·#517·#519·#527·#536 1~5단계 | 진행. 6~9단계와 그에 기대는 갈래는 사람 결정(10-10)으로 이번 계획에서 뺐다(실제 앱으로 따로 테스트). 남은 것: process unhandled rejection |
-| problems#T24 | #509 1단계, #514 2단계, #522 3단계, #528 4단계 | 진행. 5~7단계(activation, 자동 닫힘·사람 확인, 재발). Versions 탭 test 결과 읽기는 §7-76 |
-| problems#T23 | #492 기존 문제 연결·시작 전 실패 | 진행. 응답 단절 뒤 재전송·최신 상태 확인, 수집 꺼짐·실패 이유, 두 번째 창 |
-| documents#T21 | #491 edit-doc 8 guard, #497 파일 없음 갈래, #502 run 근거, #506 옛 이름·자리, #508 검색 반영 대기, #513 보관·추적 중단, #518 판 확정 실패, #520 연결 끊김, #525 format 갈래 | 진행. 지정 format 거절 갈래는 shell `documents/prepare` 사람 통로가 닫혀 막힘(§7-74). project-workspace terminal(node-pty)은 범위 밖 |
-| documents#T27 | #486·#496(=#493 대체)·#498·#507 build-context 1~7, #511 define-terms 2, #516 define-terms 3, #526 define-terms 4 | 진행. build-context 8·다른 갈래, define-terms 5~6·다른 갈래. #526으로 define-terms 4 접수는 끝, machine 적용 확인은 `ports.wait` 결함(§7-49·55) 해소 뒤 ignore 해제 |
-| lophn-agent#T41 | #480 extension 폴더 등록, #483 등록 skill 폴더 검사, #488 organize-documents 고르기·미루기, #495 작업대 현재 보기·project-workspace 8 view | 진행. 남은 것 대부분 제품 결함: (1)·(5) ports.wait·draftSubmission 답 확정, (4) instruction-files stub, (6) 외부 MCP, (7) skill 발견 나머지(개인 보관소·동봉·e2e 단계·skip 사유 자리), (8) 결과 링크. find-documents 5~6은 coding-agent 몫 |
-| coding-agent#T41 | #490 일곱 adapter fixture, #499 new-app 1·2, #501 fake harness TUI, #512 new-app 3 질문·채택 | 진행. new-app 3 등록 적용은 `apps/agent-runtime` 고침이 필요(#489 merge로 이제 그 파일이 풀렸다). 호출마다 idempotency key는 lophn-agent 자리. 남은 것: 3 적용·4~13단계. keychain 연결 성공 갈래·claim·보고·회수는 통로 없음 |
-| coding-agent#T36 | (slice 없음) | 진행. CLI `skills list|install`·`session summary`·`session plan` unavailable, verify-linux-install(→platform#T48 Secret Service), `harness refresh` probe run 권한 없음, coding token ClaimTicket 403(상한 결정 필요 — 넓혀서 가짜 claim 금지) |
-| apps#T27 | #489 use-app-command | 진행. 남은 것: new-app app test·preview·적용(결함 §7-69 finalizer), change-app, run-app-automation, manage-app-permissions, connect-apps, ask-app-hint |
-
-### 이어가기 worktree (마무리됨)
-
-`problems-t25-s4`·`problems-t24-s4`·`documents-t27-terms4`·`documents-t21-format`·`apps-t27`은 PR
-merge와 함께 merge-nocheck가 remote branch·worktree를 정리했다. 다음 단계(app-broken 5, verify 5,
-define-terms 5)는 새 worktree로 띄운다.
-
-### READY (배치가 다시 허용되면)
-
-1. slice: work-offline 5~7, update-lophn 5~8, app-broken 5~9, verify-app-repair 5~7, define-terms 5~6,
-   problems#T23 잔여, install-lophn.
-2. #489가 merge돼 `apps/agent-runtime`이 풀렸다: coding-agent#T41 new-app 3 등록 적용·4단계를 띄울
-   수 있다(단 §7-69 finalizer 결함은 그대로).
-3. 여전히 띄우면 안 되는 것: lophn-agent 결함 (1)(4)(5)(6)(7)(8) 고침 worker, build-context 8,
-   ClaimTicket 상한 변경, eval, find-documents 5~6(제품 통로 없음).
-
-### batch 27 (10-09 18:1x, 끝남 — 아래 10개 task 상태는 위 표가 최신)
-
-통합 branch에서 light-check(fmt·lint·deps·coverage·deno check·docs·바뀐 폴더 deno test·shell npm check)를
-통과시킨 뒤 squash merge했다. `e2e/flow-support.ts`는 #473의 `osNotifyFails`, #479의 `pickFolder`,
-#478의 `env`를 같이 두었고, `organize-documents_test.ts`는 #466의 2·3과 #479의 1·6·7을 같이 두었다.
-
-| PR | task | merge | 상태 줄에 남은 것 |
-|---|---|---|---|
-| #473 | platform#T54 | `14cbe8e` | 진행. backup-and-restore 통과. 남은 flow: catch-up-notifications(전달 상태가 `failed`가 아니라 `unconfirmed`), work-offline, update-lophn, install-lophn |
-| #474 | apps#T27 | `7ae8666` | 진행. restore-app-release 통과. new-app은 `e2e/flows/flow-new-app_test.ts`까지 썼으나 통과 미확인. 남은 flow: new-app의 app test·preview·적용, change-app, run-app-automation, manage-app-permissions, use-app-command, connect-apps, ask-app-hint |
-| #479 | documents#T21 | `7200475` | 진행. first-project 1·2·4, organize-documents 1·6·7 통과. edit-document 8은 overlay dialog를 못 찾아 시험을 뺐다. restore-document 1의 agent run 근거·옛 이름·파일 없음 갈래는 미착수 |
-| #466 | lophn-agent#T41 | `72e74f6` | 진행. 끝낸 flow: connect-provider, manage-provider-accounts, steer-agent-work, answer-question(답 확정 제외), resume-agent-session, review-agent-work, ask-lophn-help(1~4·미루기), add-agent-extension 2~4, view-agent-visuals(앱 카드 제외). `ignore`인 미검증: organize-documents 2~3, find-documents 5~6, project-workspace 8, add-agent-extension 1 폴더 등록. 제품 결함으로 막힌 시험도 `ignore` |
-| #478 | coding-agent#T41 | `737d047` | 진행. connect-coding-agent, manage-tickets, start-coding-agent 통과. 남은 것: new-app, fake harness TUI, 일곱 adapter fixture. keychain 성공 갈래와 manage-coding-access는 통로가 없어 범위 밖 |
-| #477 | shell#T53 | `ae07c7b` | 완료. Issues 결정을 ApplyProblemDecision과 확인 창에 잇는다. `basis.versionKnown`은 `issueViewOf`의 last_release가 아니라 apps/get 활성 release로 덮어쓴다. text가 null인 문제는 unavailable |
-
-lead가 PR branch에 고친 것(lint·fmt·이름): #466 쓰지 않는 import·`SECRET_INTENT`, #474 `new-app_test.ts`가
-`new-` 접두라 `flow-new-app_test.ts`로 변경하고 쓰지 않는 `post` 삭제, #478 쓰지 않는 `dump`, #477
-`problem-decision_test.ts` fmt.
-
-이번 E2E가 같이 고친 제품 결함 5건은 위 PR에 들어갔다: backup 목록 read, restore cancel 뒤 plan 잔존,
-restore 뒤 reconnect, versions 탭 시작 확인 refresh, app decision `compare`.
-
-### 검사에서 본 것
-
-- 저장소 `deno fmt`은 통과했는데 shell npm check의 `deno fmt`은 `apps/shell/main` 기준으로 한 파일을
-  더 감싼다. shell 파일을 건드리면 그 fmt로 본다.
-- `docs/tmp/light-check.sh`의 deno test 한계는 900초로 박혀 있고 `LIGHT_TEST_TIMEOUT`을 무시한다.
-  이번 통합 시험은 그 값을 읽는 로컬 수정으로 2400초에 돌렸다(commit하지 않음). apps/core가 들어오면
-  900초를 넘길 수 있다.
-- 알려진 환경 실패·flaky는 §7의 60·61·65·70. 이번 로컬 light-check의 deno test와 shell check는 통과했다.
+- **완료 359/359**(`plan-count.js now`). 분모는 미룸 5개(coding-agent#T48, lophn-agent#T54·T55·T56,
+  platform#T49)를 뺀 값. main `86c4736`. 열린 PR #529(이 문서, 사람 merge 필요).
+- 이번 세션 merge(10-10, 모두 merge-nocheck squash, bundle deno test 안 돌림): #489 #525~#580 (번호가
+  빈 것은 없음 — #529만 열림). 완료로 바뀐 task: problems#T23(#541)·T25(#542)·T24(#565),
+  coding-agent#T36(#553)·T41(#578), platform#T54(#574), documents#T21(#577)·T27(#575),
+  lophn-agent#T41(#579), apps#T27(#580).
+- 이번 세션이 고친 큰 제품 결함: ports.wait 질문 대기(#535, followup 49·55), release.prepare 확정기
+  (#560, §7-69), 외부 MCP 연결·IPv6·HTTP 인증(#557·#564·#568), 지침 파일 model 입력(#559, run 기준
+  permit), 답 결과 링크(#555), skill 발견(#556·#570), 앱 context tool·view_session(#547·#550),
+  question 선택지 app_registration·setting_change·document_move(#569·#571), 확인 창 결과 opener 통보
+  (#563), shell event 재연결(#572), 오프라인 고정 판 직접 추출·검색 지연 해소(#552), settings 진단 탭
+  연결(#545), Q9 refresh probe run 허용(#554, 사람 결정).
+- merge 권한: 사람이 `.claude/settings.local.json`에 `Bash(bash .dev-data/lead-tools/merge-nocheck.sh *)`,
+  `gh pr ready` allow rule을 넣었다. lead가 settings를 직접 고치는 것은 [Self-Modification]으로 막힌다.
+- worker 평가 기록: `.dev-data/worker-eval.tsv`(+ `worker-eval-summary.py`). sonnet-high는 반려
+  거의 없음, haiku는 빠르고 싸지만 단독 완결률이 낮다 — 좁은 조사·재실행·문서 정리에 맞다.
+- 운영 함정(이번에 겪음): (1) keepboth merge가 plan 상태 줄을 둘로 갈라 첫 줄만 세는 plan-count를
+  어긋나게 한다(#564에서 합침) — 상태 줄 충돌은 손으로 하나로. (2) 끝난 worker의 Electron·core 잔여
+  process가 heavy.sh lock을 쥐어 다른 e2e가 2시간 대기 — `fuser .dev-data/heavy.*.lock`으로 보고
+  worktree가 사라진 쪽의 정확한 pid만 죽인다. (3) apps/core를 고친 worker가 core tripwire를 안 돌려
+  main이 깨졌다(#556 → #570) — worker 공통 규칙에 tripwire 필수 추가. (4) worker가 보고 뒤
+  background 작업을 쥐고 반복해서 깨어나면 TaskStop.
 
 ## 7. 알려진 남은 구멍
 
@@ -310,6 +262,20 @@ restore 뒤 reconnect, versions 탭 시작 확인 refresh, app decision `compare
   그 블록을 뺐다(scoped credential 전용 읽기). 76과 같은 축.
 - 75: update-lophn 2단계(#510) 이어보냄 둘: (a) 어떤 process 종료든 clean stop으로 본다. (b) 정지 뒤
   writeInstall이 실패하면 process는 죽었는데 화면은 아무 변화가 없다고 말한다.
+- 76~100 (10-10 Claude Code 세션): `.dev-data/followups.md`에 원문. 요약 —
+  76·78 사람 token이 GetVerification·list-verifications forbidden(Versions test 결과 못 읽음),
+  77 problems·apps/core가 다른 concern 표를 SQL로 직접 읽음, **79 [사람: followup으로 두고 패스]**
+  agent runtime·revert worker가 앱 socket 64자리 전부 권한(5.1.1보다 넓음, slot 배정이 supervisor
+  메모리 순서) — `agent-runtime-child_test` run-loop#R8이 main에서 실패 중, 80 headless 두 번째 창
+  close가 shell 종료, 81 응답만 잃은 보고 문구, 82 unhandled rejection 원래 메시지 유실, 83·99 grant
+  재시작 뒤 열린 앱 view conflict·읽기 not available, 84 DoctorSource 미조립(Q16·T48 선행),
+  85 settings 복구 안내 자리·사라진 문서 탭 자리표시, 86 SDK install machine 없음·packages.usage stub,
+  87 release 확정기 메모리 기억, 88 instruction read run 공용 자격·projectOf null, 89 automation 간격
+  flake, 90 secret 단계(keychain), 91 visual 저장 표시 재시작 뒤 사라짐, 93 죽은 core 재기동 감독 없음,
+  94 contexts 화면 revert 진입 없음, 95 화면 있는 앱 app test pass 불가(test mode feedback·화면 검사
+  host 없음 → new-app 확정·preview·적용 미검증), 96 파일에서 빼기 결정 창(shell), 97 files/status가
+  삭제·이동 뒤 tracked·lophn 공간 끊김 알림 없음, 98 handoff로 받은 App Engineer run이 model 호출 없이
+  configuration_unavailable, 100 app.annotate 판정 deny·복원 패널 view 열기 실패.
 - 아직 열린 큰 것: 33(coding agent hook 대상 사람 확인), 35·36(repair diff·이미지 redaction), 42(agent
   임시 글 streaming 통로 없음), 43(ReproductionScenario builder 없음), 44(launcher가 core 준비 뒤에도
   "getting ready"에 멈춤), 45(문제 알리기 dialog 시작 전 실패·재전송), 47~50(#448).

@@ -71,13 +71,19 @@ export function VersionsTab(
 
   async function choose(version: VersionRow): Promise<void> {
     setNotice(null);
+    // 확인 창이 거절·닫힘 등으로 확정 없이 끝나면 기다림을 푼다.
     const reply = await source.decide({
       kind: "use_version",
       app,
       release: version.id,
-    });
+    }, () =>
+      setRequested((now) => {
+        const next = new Map(now);
+        next.delete(version.id);
+        return next;
+      }));
     if (reply.ok) {
-      setRequested(new Map(requested).set(version.id, version.status));
+      setRequested((now) => new Map(now).set(version.id, version.status));
     } else setNotice({ version: version.id, kind: "decide-failed" });
   }
 

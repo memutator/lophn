@@ -209,6 +209,8 @@ export interface FakeOptions {
 
 export function fakeDetail(options: FakeOptions = {}) {
   const calls: unknown[][] = [];
+  // 결정 창이 확정 없이 끝났다고 알릴 때 부를 것들(창을 닫거나 취소한 경우).
+  const unconfirmed: (() => void)[] = [];
   const failing = new Set(options.failing ?? []);
   const reply = <T>(name: string, value: T): Promise<SourceResult<T>> => {
     calls.push([name]);
@@ -276,8 +278,11 @@ export function fakeDetail(options: FakeOptions = {}) {
       calls.push(["stopPreview", app, preview.nonce]);
       return Promise.resolve();
     },
-    decide: (decision: AppDecision) => {
+    decide: (decision: AppDecision, onUnconfirmed) => {
       calls.push(["decide", decision]);
+      if (onUnconfirmed !== undefined && !options.decideFails) {
+        unconfirmed.push(onUnconfirmed);
+      }
       return Promise.resolve(
         options.decideFails
           ? { ok: false, code: "unavailable" }
@@ -306,5 +311,9 @@ export function fakeDetail(options: FakeOptions = {}) {
       });
     },
   };
-  return { source, calls };
+  /** 열린 결정 창을 모두 거절·닫기로 끝낸다. */
+  const endDecisions = () => {
+    for (const end of unconfirmed.splice(0)) end();
+  };
+  return { source, calls, endDecisions };
 }

@@ -1,10 +1,13 @@
 export {
+  CONFIRMATION_ENDED_KINDS,
   CONFIRMATION_ERRORS,
   CONFIRMATION_IPC,
   CONFIRMATION_REQUEST_KINDS,
   confirmationCancelSchema,
   type ConfirmationDisplay,
   confirmationDisplaySchema,
+  type ConfirmationEnded,
+  confirmationEndedSchema,
   type ConfirmationIntent,
   type ConfirmationIpc,
   type ConfirmationOpenInput,

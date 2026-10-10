@@ -5,6 +5,7 @@ import {
   CONFIRMATION_IPC,
   CONFIRMATION_REQUEST_KINDS,
   confirmationDisplaySchema,
+  confirmationEndedSchema,
   confirmationOpenInputSchema,
   confirmationOpenIntentSchema,
   type ConfirmationOutcome,
@@ -154,6 +155,7 @@ Deno.test(
   () => {
     assertEquals(Object.keys(CONFIRMATION_IPC), [
       "shell:confirmation-open",
+      "shell:confirmation-ended",
       "confirmation:display",
       "confirmation:submit",
       "confirmation:cancel",
@@ -164,8 +166,12 @@ Deno.test(
     });
     const shell: LophnShell = {
       openConfirmation: () => Promise.reject(intent),
+      onConfirmationEnded: () => () => {},
     };
-    assertEquals(Object.keys(shell), ["openConfirmation"]);
+    assertEquals(Object.keys(shell), [
+      "openConfirmation",
+      "onConfirmationEnded",
+    ]);
     const confirmation: LophnConfirmation = {
       getDisplay: () => Promise.reject(new Error("x")),
       submit: () => Promise.reject(new Error("x")),
@@ -197,6 +203,45 @@ Deno.test(
         request: { kind: "approval_request", approval: APR, body: {} },
         parentWindow: "win-1",
       }).success,
+    );
+  },
+);
+
+Deno.test(
+  "shell/confirmation-window#R9: 끝남 알림은 어느 창의 확인인지와 끝난 종류만 싣고 내용·결정·proof는 싣지 않는다",
+  () => {
+    assert(
+      confirmationEndedSchema.safeParse({ windowId: "cfw_1", ended: "closed" })
+        .success,
+    );
+    assert(
+      confirmationEndedSchema.safeParse({
+        windowId: "cfw_1",
+        ended: "rejected",
+      }).success,
+    );
+    for (
+      const extra of [
+        { decision: "grant" },
+        { request: { kind: "approval_request", approval: APR } },
+        { handle: "raw" },
+      ]
+    ) {
+      assert(
+        !confirmationEndedSchema.safeParse({
+          windowId: "cfw_1",
+          ended: "closed",
+          ...extra,
+        }).success,
+      );
+    }
+    // 결정으로 끝난 것은 알리지 않는다. 허락은 실제 상태 변화로만 풀린다.
+    assert(
+      !confirmationEndedSchema.safeParse({
+        windowId: "cfw_1",
+        ended: "decided",
+      })
+        .success,
     );
   },
 );

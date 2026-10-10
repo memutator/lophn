@@ -1417,6 +1417,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
   충돌·탭을 닫은 뒤)는 제품 결함 하나가 막는다: agent·앱 화면 둘 다 자기 view_session을 알 길이 없다(turn context
   탭 줄에 없고 화면 page URL에 query가 없다). 잇는 길은 `ViewTab`(app_panel)에 view_session을 더하는 contract
   모양 변경이 필요해 lead 결정을 기다린다
+- 정한 것(사람, 2026-10-10 — plan 빨리 닫기): 이 task는 flow의 주요 단계가 실제 e2e로 통과하면 완료다. (1) 다른 갈래, (2) 이 기계에서 구조적으로 돌릴 수 없는 환경 의존 단계(실제 root 설치·실제 Ubuntu 설치 확인, OS keychain이 필요한 단계 — 활성 coding 연결과 그 뒤 [Start]·claim·보고·회수, manage-coding-access, 앱 secret 전달 — 와 node-pty 터미널 갈래), (3) followup으로 넘긴 제품 결함 때문에 ignore로 남은 단계는 이번 계획에서 뺀다. 뺀 것은 상태 줄에 "넘김"으로 적고 `.dev-data/followups.md`·handoff §7에 남긴다. 아직 돌지 않은 주요 단계는 최소로만 돌리고, 돌리다 만난 결함은 보안 경계 결함이나 flow 첫 단계 자체가 안 도는 경우가 아니면 고치지 않고 ignore + followup으로 넘긴다.
 - 등급: 기본
 - concern: apps
 - 요구: flow new-app(fixture 경로), change-app, restore-app-release,

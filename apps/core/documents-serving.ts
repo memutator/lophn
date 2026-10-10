@@ -33,6 +33,9 @@ import {
 } from "../../packages/contracts/documents/mod.ts";
 import type { FileStreamHandler } from "../../packages/platform/api/mod.ts";
 import {
+  DIRECT_ANSWER_ROUTE,
+  DIRECT_EXTRACT_ROUTES,
+  DIRECT_PLAN_ROUTE,
   internalRoute,
   SERVED_ROUTES,
   servedKey,
@@ -237,7 +240,92 @@ export type ServedDeps = {
   // credential_ref의 현재 context. 폐기·만료된 자격은 err다.
   current(credentialRef: string): Result<RequestContext>;
   observedAt(): string;
+  // 추출 안 된 고정 판의 대표 파일을 읽는 blob 통로(I/O worker). 없으면 직접 추출을 하지 않는다.
+  blob?: BlobReader;
 };
+
+// blob-store의 인가·hash 검사를 거치는 바이트 읽기와 그 통로가 떠 있는지.
+export type BlobReader = {
+  read(
+    hash: string,
+    offset: number,
+    length: number,
+  ): Promise<Result<{ hash: string; sizeBytes: number; bytes: Uint8Array }>>;
+  ready(): boolean;
+};
+
+const DIRECT_KEYS: ReadonlySet<string> = new Set(
+  DIRECT_EXTRACT_ROUTES.map(servedKey),
+);
+
+// 판의 대표 파일 바이트를 창 단위로 모은다. 한 파일은 직접 추출 한도(1 MiB) 안이다.
+async function readWhole(
+  blob: BlobReader,
+  file: { blob_hash: string; bytes: number },
+): Promise<Result<Uint8Array>> {
+  const whole = new Uint8Array(file.bytes);
+  let offset = 0;
+  while (offset < file.bytes) {
+    const read = await blob.read(
+      file.blob_hash,
+      offset,
+      Math.min(BLOB_READ_MAX_BYTES, file.bytes - offset),
+    );
+    if (
+      !read.ok || read.value.hash !== file.blob_hash ||
+      read.value.sizeBytes !== file.bytes || read.value.bytes.length === 0 ||
+      offset + read.value.bytes.length > file.bytes
+    ) {
+      return err({
+        code: "unavailable",
+        message: "file bytes were not readable",
+      });
+    }
+    whole.set(read.value.bytes, offset);
+    offset += read.value.bytes.length;
+  }
+  return ok(whole);
+}
+
+// documents/outline-and-search#R15: reader의 읽기가 추출 안 됨(unverified)으로 답한 고정 판은
+// 무관한 ledger 쓰기나 전체 index 반영을 기다리지 않고 그 판을 직접 추출해 답한다. reader가
+// 권한을 판정한 계획대로 core가 blob-store 인가·hash 검사를 거쳐 대표 파일 바이트를 읽고, reader가
+// 이번 응답에만 추출한다. 어디서든 막히면 처음의 unverified 답을 그대로 낸다(꾸미지 않는다).
+async function extractDirectly(
+  deps: Pick<ServedDeps, "readers" | "blob">,
+  ctx: RequestContext,
+  key: string,
+  request: unknown,
+  first: Result<unknown>,
+): Promise<Result<unknown>> {
+  if (!first.ok || !DIRECT_KEYS.has(key)) return first;
+  const blob = deps.blob;
+  if (blob === undefined || !blob.ready()) return first;
+  // 본문 읽기는 unverified로, outline은 추출 안 된 판에 항목 없는 답으로 나온다. 정말 추출이 필요한지는
+  // reader의 계획이 derived로 판정한다.
+  const answer = first.value as { section_status?: unknown; entries?: unknown };
+  const unextracted = answer.section_status === "unverified" ||
+    (Array.isArray(answer.entries) && answer.entries.length === 0);
+  if (!unextracted) return first;
+  const planned = await deps.readers.read(DIRECT_PLAN_ROUTE, ctx, {
+    route: key,
+    request,
+  });
+  if (!planned.ok) return first;
+  const file = (planned.value as {
+    file: { path: string; blob_hash: string; bytes: number } | null;
+  }).file;
+  if (file === null) return first;
+  const content = await readWhole(blob, file);
+  if (!content.ok) return first;
+  const answered = await deps.readers.read(DIRECT_ANSWER_ROUTE, ctx, {
+    route: key,
+    request,
+    path: file.path,
+    content: content.value,
+  });
+  return answered.ok ? answered : first;
+}
 
 // HTTP dispatch가 worker route 요청의 request_id를 `<credential_ref>/<시각>`으로
 // 만든다. 서빙은 그 credential의 현재 context를 ledger에서 다시 읽는다(platform/api).
@@ -288,10 +376,12 @@ export function servedWorkers(
           }
           const ctx = deps.current(ref);
           if (!ctx.ok) return failed("unauthorized", "credential이 없다");
-          const ran = await deps.readers.read(
-            internal,
+          const ran = await extractDirectly(
+            deps,
             ctx.value,
+            servedKey(route),
             request.payload,
+            await deps.readers.read(internal, ctx.value, request.payload),
           );
           if (!ran.ok) {
             return failed(workerCode(ran.error.code), ran.error.message);

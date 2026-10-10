@@ -1554,6 +1554,16 @@ async function open(
                   readers: runtime.readers,
                   current: (ref) => runtime!.current(ref),
                   observedAt: () => new Date().toISOString(),
+                  blob: {
+                    read: (hash, offset, length) =>
+                      validateWiring.readBlob
+                        ? validateWiring.readBlob(hash, offset, length)
+                        : Promise.resolve(err({
+                          code: "unavailable" as const,
+                          message: "blob 읽기 통로가 없다",
+                        })),
+                    ready: () => validateWiring.readBlob !== undefined,
+                  },
                 }),
                 // 문제 collector route의 view 출처는 binding 검증 뒤에만 worker로 닿는다(problems#T16).
                 withViewBinding(

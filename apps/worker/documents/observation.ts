@@ -91,6 +91,28 @@ function target(link: ObservationLink, path: string): FileTarget {
   return { kind: "project_file", project: link.project, path };
 }
 
+// 저장 warning(`code: message`)만 다음 대조에 남긴다. 실패 코드는 내용이 같아지면 지운다.
+function keptWarning(details: string | null): string | null {
+  if (details === null || !details.includes(": ")) return null;
+  return details;
+}
+
+// 저장 응답의 warning만 상태 설명으로 남긴다. 없으면 null이다.
+function savedWarning(value: unknown): string | null {
+  if (typeof value !== "object" || value === null) return null;
+  const warnings = (value as { warnings?: unknown }).warnings;
+  if (!Array.isArray(warnings) || warnings.length === 0) return null;
+  const first = warnings[0];
+  if (typeof first !== "object" || first === null) return null;
+  const code = (first as { code?: unknown }).code;
+  if (typeof code !== "string" || code.length === 0) return null;
+  const message = (first as { message?: unknown }).message;
+  const text = typeof message === "string" && message.length > 0
+    ? `${code}: ${message}`
+    : code;
+  return text.length > 240 ? text.slice(0, 240) : text;
+}
+
 function observation(
   base: Partial<StatusObservation>,
   at: string,
@@ -155,10 +177,15 @@ export function createObservationSubmit(
     // 최신 판의 원본 hash와 같은 내용이면 새 판이 없다. 주기 대조가 모든 파일을 다시
     // 읽어도 준비·저장 요청을 보내지 않는다(blob·저장 비용이 파일 수에 비례하지 않게).
     if (link.base_version !== null && link.latest_hash === read.hash) {
+      // 같은 내용의 다시 대조는 저장 warning을 지우지 않는다.
       ports.status.report(
         key,
         observation(
-          { observedHash: read.hash, latestHash: read.hash },
+          {
+            observedHash: read.hash,
+            latestHash: read.hash,
+            details: keptWarning(ports.status.get(key)?.details ?? null),
+          },
           at,
           link,
         ),
@@ -259,7 +286,16 @@ export function createObservationSubmit(
     }
     ports.status.report(
       key,
-      observation({ observedHash: read.hash, latestHash: read.hash }, at, link),
+      observation(
+        {
+          observedHash: read.hash,
+          latestHash: read.hash,
+          // warning은 판을 막지 않고 상태에 남긴다. 추출 가능 여부와 따로다.
+          details: savedWarning(saved.value),
+        },
+        at,
+        link,
+      ),
     );
     return ok(undefined);
   };

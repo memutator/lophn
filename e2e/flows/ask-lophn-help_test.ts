@@ -7,12 +7,11 @@
 //   설명을 들은 것만으로는 설정이 바뀌지 않는다.
 // - 4: 바꾸려면 lophn이 선택지와 추천 이유를 question으로 묻는다. 고르기만으로는 답이나 변경이
 //   아니고, 미루면 답 없음으로 남고 설정은 그대로다.
-// 볼 수 없는 것(이어보냄): 5~7 답 확정·machine 적용은 답 확정 경로 결함(followups 49: ports.wait가
-// WaitRun의 질문 갈래를 부르지 않아 질문을 만든 run이 끝나고 questions/answer가 "the run is
-// finished"로 거절된다) 때문에 볼 수 없다. 또 제품 `question.submit` tool은 선택지 action을
-// null로만 받고 `settingChangeQuestion`의 고정 action(ApplySettings)을 싣는 통로
+// 질문을 낸 run은 답을 기다리고(WaitRun의 질문 갈래) 미루면 답 없음으로 끝난다.
+// 볼 수 없는 것(이어보냄): 5~7 답 확정·machine 적용은 제품 `question.submit` tool이 선택지
+// action을 null로만 받고 `settingChangeQuestion`의 고정 action(ApplySettings)을 싣는 통로
 // (roles/lophn/question-submission.ts `draftSubmission`)가 runtime에 이어져 있지 않아, model이 낸
-// 설정 질문의 선택지에는 고정 변경이 실리지 않는다.
+// 설정 질문의 선택지에는 고정 변경이 실리지 않기 때문이다.
 import { assert, assertEquals } from "@std/assert";
 
 import { buildReply } from "../../tools/fake-provider/semantic.ts";
@@ -125,11 +124,7 @@ const STEPS: Step[] = [
       },
       expires_at: null,
     }),
-  () => ({
-    text: "Pick a width when you are ready.",
-    usage: { input: 40, output: 9 },
-    stop: "end",
-  }),
+  // 질문을 낸 run은 답을 기다리므로 model을 다시 부르지 않는다.
 ];
 
 type RunRow = { id: string; state: string; outcome: { kind: string } | null };
@@ -260,7 +255,9 @@ Deno.test({
           const rows = await runsOf();
           if (
             rows.length === count &&
-            rows.every((row) => row.outcome !== null)
+            rows.every((row) =>
+              row.outcome !== null || row.state === "waiting_user"
+            )
           ) return rows;
           if (Date.now() > deadline) {
             throw new Error(
@@ -343,13 +340,13 @@ Deno.test({
           await flow.type(INPUT, CHANGE);
           await flow.click(SEND);
           const rows = await untilRuns(2);
-          assertEquals(provider.calls(), 7);
+          assertEquals(provider.calls(), 6);
           assert(
             provider.body(5).includes("current_check"),
             "질문 전에 현재 설정을 읽지 않았다",
           );
-          // 질문 run은 답을 기다리지 않고 끝난다(답 확정 경로 결함, 머리 주석).
-          assert(rows.every((row) => row.outcome !== null));
+          // 질문을 낸 run은 답을 기다린다.
+          assertEquals(rows[1]?.state, "waiting_user");
           await flow.until(
             `document.querySelector(${
               JSON.stringify(READY)
@@ -401,6 +398,16 @@ Deno.test({
           assertEquals(row.closed_reason, "deferred");
           assertEquals(row.answer, null);
           assertEquals(await setting(), initial);
+          // 미루면 질문을 낸 run은 답 없음으로 끝난다.
+          for (;;) {
+            const second = (await runsOf())[1];
+            if (second?.outcome?.kind === "stopped") break;
+            assert(
+              Date.now() < deadline + 60_000,
+              "run이 답 없음으로 끝나지 않았다",
+            );
+            await delay(250);
+          }
         },
       );
     } finally {

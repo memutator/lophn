@@ -88,6 +88,7 @@ export {
   type ToolInfo,
   type ToolPort,
   type ToolWaiting,
+  type WaitTarget,
 } from "./ports.ts";
 export {
   abortableWait,

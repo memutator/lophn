@@ -16,17 +16,18 @@
 // - 다른 갈래 4: 거절한 호출은 미실행으로 남는다.
 // - 1: 사람이 settings 도구 탭의 [Add a skill folder]로 로컬 skill 폴더를 등록한다(headless 폴더
 //   선택은 openFlowShell의 pickFolder → LOPHN_SHELL_PICK_FOLDER). 등록은 설정 값의 정확한 절대
-//   경로 하나이고 폴더 이름이 탭에 선다. skill 발견은 보지 않는다(결함 (7)).
-// 결함 (7), 1의 발견 검사는 볼 수 없다: 제품 runtime 조립이 prepare deps의 `skills`를 주지 않고
-// (apps/agent-runtime/prepare.ts `deps.skills?.()`를 채우는 곳이 없다) `discoverSkills`
-// (packages/lophn-agent/extensions/skills.ts)를 부르는 제품 경로도 없어, 등록한 폴더가 검사되지
-// 않고 skill 목록·제외 사유를 보이는 화면도 없다. 그래서 폴더 등록까지만 보고 skill 선택 판은 돌지
-// 않는다.
+//   경로 하나이고 폴더 이름이 탭에 선다.
+// 1의 skill 발견은 아래 별도 테스트가 본다: 등록 폴더·개인 보관소의 skill을 찾고 preset이 고른 이름만
+// 다음 run의 prompt에 이름·설명으로 오른다(형식이 틀린 꾸러미와 고르지 않은 skill은 오르지 않는다).
+// 제외 사유는 RunBasis에 자리가 없어 run에 남기지 않는다.
 import { assert, assertEquals } from "@std/assert";
 
 import { buildReply } from "../../tools/fake-provider/semantic.ts";
 import type { SemanticReply } from "../../tools/fake-provider/types.ts";
-import { mcpServersSetting } from "../../packages/contracts/lophn-agent/mod.ts";
+import {
+  mcpServersSetting,
+  skillFoldersSetting,
+} from "../../packages/contracts/lophn-agent/mod.ts";
 import {
   mcpToolDefinitionHash,
   type McpToolEntry,
@@ -729,6 +730,181 @@ Deno.test({
       await removeHome(home);
       await provider.close();
       await Deno.remove(scratch, { recursive: true });
+      await Deno.remove(skills, { recursive: true });
+    }
+  },
+});
+
+Deno.test({
+  name:
+    "lophn-agent/extensions#R1 lophn-agent/extensions#R2 lophn-agent/extensions#R4 lophn-agent/extensions#R5 flow add-agent-extension: 1 등록한 폴더와 개인 보관소의 skill을 찾아 preset이 고른 이름과 설명만 다음 run의 prompt에 싣는다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn() {
+    const skills = await Deno.realPath(
+      await Deno.makeTempDir({ prefix: "lophn-e2e-skills-" }),
+    );
+    await Deno.mkdir(`${skills}/release-notes`);
+    await Deno.writeTextFile(
+      `${skills}/release-notes/SKILL.md`,
+      "---\nname: release-notes\ndescription: Write release notes from merged changes.\n---\n\nList each change once.\n",
+    );
+    await Deno.mkdir(`${skills}/Bad_Name`);
+    await Deno.writeTextFile(
+      `${skills}/Bad_Name/SKILL.md`,
+      "---\nname: Bad_Name\ndescription: Not a valid name.\n---\n",
+    );
+    await Deno.mkdir(`${skills}/unchosen-notes`);
+    await Deno.writeTextFile(
+      `${skills}/unchosen-notes/SKILL.md`,
+      "---\nname: unchosen-notes\ndescription: Found but not chosen.\n---\n",
+    );
+    const provider = startDynamicProvider([end("The skills are noted.")]);
+    const flow = await openFlowShell({ start: "lophn" });
+    const home = flow.home;
+    try {
+      // 개인 보관소는 data root의 skills 폴더다.
+      await Deno.mkdir(`${home}/skills/personal-notes`, { recursive: true });
+      await Deno.writeTextFile(
+        `${home}/skills/personal-notes/SKILL.md`,
+        "---\nname: personal-notes\ndescription: Keep personal notes tidy.\n---\n\nSecret body line.\n",
+      );
+      await setDefaults(flow, provider.url);
+      const current = await mustCall(flow, {
+        kind: "read",
+        resource: "settings",
+        method: "get",
+        body: { keys: [skillFoldersSetting.key] },
+      });
+      await mustCall(flow, {
+        kind: "command",
+        resource: "settings",
+        method: "apply",
+        body: {
+          input: {
+            changes: [{
+              layer: "common",
+              key: skillFoldersSetting.key,
+              action: "set",
+              value: [skills],
+            }],
+          },
+          idempotency_key: crypto.randomUUID(),
+          compare: {
+            revision: current.revision,
+            defaults_revision: current.defaults_revision,
+          },
+          prepared: [],
+        },
+      });
+      // 등록 폴더는 core가 runtime child의 읽기 허락에 더해 다시 띄운 뒤부터 읽힌다(점검 주기 1초).
+      await delay(3_000);
+      const assignments = (await mustCall(flow, {
+        kind: "read",
+        resource: "assignments",
+        method: "list",
+        body: {},
+      })).assignments as {
+        id: string;
+        role: string;
+        revision: number;
+        preset: string;
+        preset_revision: number;
+      }[];
+      const agent = assignments.find((row) => row.role === "lophn");
+      assert(agent !== undefined, "lophn assignment가 없다");
+      const base = await mustCall(flow, {
+        kind: "read",
+        resource: "presets",
+        method: "read",
+        body: { preset: agent.preset, revision: agent.preset_revision },
+      });
+      const definition =
+        (base.preset as { definition: Record<string, unknown> }).definition;
+      await mustCall(flow, {
+        kind: "command",
+        resource: "presets",
+        method: "create",
+        body: commandBody({
+          id: PRESET,
+          definition: {
+            ...definition,
+            name: "Skills",
+            origin: "user",
+            skills: ["personal-notes", "release-notes"],
+          },
+          copied_from: {
+            preset: agent.preset,
+            revision: agent.preset_revision,
+          },
+        }),
+      });
+      await mustCall(flow, {
+        kind: "command",
+        resource: "assignments",
+        method: "change-preset",
+        body: commandBody({
+          assignment: agent.id,
+          preset: PRESET,
+          preset_revision: 1,
+        }, { revision: agent.revision, role: "lophn" }),
+      });
+
+      await flow.click('[data-screen="documents"]');
+      await flow.until(
+        `document.querySelector("[data-dock-toggle]") !== null`,
+        "도크 토글이 없다",
+      );
+      const present = async (selector: string) =>
+        await flow.evaluate(
+          `document.querySelector(${JSON.stringify(selector)}) !== null`,
+        ) === true;
+      if (!await present(INPUT) && !await present("[data-new-session]")) {
+        await flow.click("[data-dock-toggle]");
+      }
+      await flow.until(
+        `document.querySelector("[data-new-session]") !== null || document.querySelector(${
+          JSON.stringify(INPUT)
+        }) !== null`,
+        "도크가 서지 않았다",
+      );
+      if (!await present(INPUT)) await flow.click("[data-new-session]");
+      await flow.until(
+        `document.querySelector(${JSON.stringify(INPUT)}) !== null`,
+        "입력칸이 서지 않았다",
+      );
+      await flow.type(INPUT, "Hello.");
+      await flow.click(SEND);
+      await flow.until(
+        `document.querySelector(${
+          JSON.stringify(DOCK)
+        })?.innerText.includes("The skills are noted.")`,
+        "도크에 답이 없다",
+        120_000,
+      );
+
+      const prompt = provider.body(0);
+      // 이름과 설명만, 고른 것만 오른다(R4, R5). 등록 폴더(release-notes)와 개인 보관소
+      // (personal-notes) 둘 다 발견됐다.
+      assert(
+        prompt.includes(
+          "release-notes: Write release notes from merged changes.",
+        ),
+        "등록 폴더의 skill이 prompt에 없다",
+      );
+      assert(
+        prompt.includes("personal-notes: Keep personal notes tidy."),
+        "개인 보관소의 skill이 prompt에 없다",
+      );
+      assert(!prompt.includes("unchosen-notes"), "고르지 않은 skill이 올랐다");
+      assert(!prompt.includes("Bad_Name"), "형식이 틀린 skill이 올랐다");
+      assert(!prompt.includes("List each change once."), "본문이 올랐다");
+      assert(!prompt.includes("Secret body line."), "본문이 올랐다");
+    } finally {
+      await flow.close();
+      await removeHome(home);
+      await provider.close();
       await Deno.remove(skills, { recursive: true });
     }
   },

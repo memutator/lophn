@@ -232,6 +232,37 @@ export function configureDerived(db: DatabaseSync): Result<void> {
   }
 }
 
+// 요청 하나의 직접 추출(R15)을 담는 메모리 derived. 파일에 쓰지 않고 요청이 끝나면 닫는다.
+// 같은 schema·같은 read 모양이라 읽기 handler는 파일 derived와 똑같이 읽는다.
+export type TransientDerived = {
+  readonly read: DerivedRead;
+  write(handle: (tx: DerivedTx) => void): void;
+  close(): void;
+};
+
+export function openTransientDerived(): Result<TransientDerived> {
+  let db: DatabaseSync;
+  try {
+    db = new DatabaseSync(":memory:");
+  } catch {
+    return err({ code: "unavailable", message: "임시 derived를 열 수 없다" });
+  }
+  const applied = applySchema(db, outlineAndSearchSchemaSteps);
+  if (!applied.ok) {
+    db.close();
+    return applied;
+  }
+  return ok({
+    read: { sql: sqlOf(db) },
+    write(handle) {
+      handle({ sql: sqlOf(db) });
+    },
+    close() {
+      db.close();
+    },
+  });
+}
+
 export function openDerivedRead(path: string): Result<DerivedRead> {
   let db: DatabaseSync;
   try {

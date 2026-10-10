@@ -5,6 +5,7 @@ import type {
   ToolDone,
   ToolInfo,
   ToolPort,
+  WaitTarget,
 } from "./ports.ts";
 import {
   TOOL_RETRY_MAX,
@@ -37,7 +38,7 @@ export type CallResult = {
 export type BatchOutcome = {
   results: CallResult[];
   // 사람의 결정을 기다리는 call. 있으면 run은 그 결정 전까지 진행하지 않는다.
-  waiting: { tool_call: string; approval: string } | null;
+  waiting: WaitTarget | null;
 };
 
 // 새 진입을 막아야 하는 이유(미실행 code). 없으면 null이다.
@@ -272,6 +273,10 @@ export async function runToolBatch(
         result: current.result,
         entries,
       };
+    }
+    if (current.asked !== undefined) {
+      // 질문을 만든 call은 끝났지만 run은 그 질문의 답 전까지 진행하지 않는다.
+      hold.waiting = { tool_call: current.tool_call, question: current.asked };
     }
     return toResult(request, current, entries);
   }

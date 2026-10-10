@@ -613,6 +613,12 @@ export function Dock(
     );
   })();
 
+  // 진행 중인 run의 일시 실패는 harness가 같은 입력으로 retry한다. 끝난 뒤에만 연결 실패다.
+  const visibleGuide = guide !== null &&
+      !(guide.kind === "connection-failed" && active !== null)
+    ? guide
+    : null;
+
   return (
     <aside
       className={`${styles.dock} ${
@@ -628,10 +634,10 @@ export function Dock(
     >
       {header}
       {stale}
-      {guide !== null
+      {visibleGuide !== null
         ? (
           <ExternalNotice
-            guide={guide}
+            guide={visibleGuide}
             onReconnect={onSettings}
             onCheck={() => void refresh()}
           />

@@ -1,4 +1,4 @@
-// flow update-lophn 1·2·3단계(docs/flows/update-lophn.md). 실제 ~/.lophn은 열지 않는다.
+// flow update-lophn 1·2·3·4단계(docs/flows/update-lophn.md). 실제 ~/.lophn은 열지 않는다.
 // 1·2단계는 실제 shell(headless)과 core를 임시 LOPHN_HOME으로 띄운다.
 // 1단계: settings에서 이 OS의 설치 패키지를 확인하고 사람이 고른 로컬 metadata로 수동 update를
 // 고른다. 자동 다운로드·자동 설치·사용 중 재시작은 없고, 검증하지 않은 배포를 사용 가능한
@@ -8,7 +8,10 @@
 // 끝나기 전에 받지 않고, 이미 끝난 짧은 쓰기와 데이터 폴더는 남긴다. 검증 backup 뒤에
 // 포함된 단계를 순서대로 적용하고, 실패한 단계는 rollback한 뒤 다음 기동이 그 단계부터
 // 다시 한다.
-// 4–8단계는 보지 않는다.
+// 4단계: 화면 없이 제품 core만 다시 띄운다. 설정·무결성·기존 고정 판과 참조·실행 자격·
+// 중단 작업을 확인한다. 모르는 schema나 손상 원본은 자동 초기화하거나 downgrade하지 않고
+// 보존한다. 검증 backup·단계 rollback·이력 hash 불일치는 3단계가 본다.
+// 5–8단계는 보지 않는다.
 import { assert, assertEquals, assertThrows } from "@std/assert";
 import { type ChildProcess, spawn } from "node:child_process";
 import { DatabaseSync } from "node:sqlite";
@@ -496,7 +499,11 @@ type Boot = {
   stop: () => Promise<number>;
 };
 
-function bootCore(home: string, sessionHome: string): Boot {
+function bootCore(
+  home: string,
+  sessionHome: string,
+  env: Record<string, string> = {},
+): Boot {
   const port = freePort();
   const launch = coreLaunch({
     repoRoot: UPDATE_REPO,
@@ -504,7 +511,7 @@ function bootCore(home: string, sessionHome: string): Boot {
     denoBinary: Deno.execPath(),
     packaged: false,
     port,
-    env: { HOME: sessionHome },
+    env: { HOME: sessionHome, ...env },
   });
   const child = spawn(launch.command, [...launch.args], {
     cwd: UPDATE_REPO,
@@ -900,6 +907,563 @@ end`);
         ledgerId,
       );
       assert((await Deno.stat(`${home}/lophn.db`)).isFile);
+    } finally {
+      await halt();
+      await Deno.remove(root, { recursive: true });
+    }
+  },
+});
+
+// 4단계는 화면이 없다. 저장한 원문과 그 hash만 고정 판 참조로 쓴다.
+const NOTE_DOC = "doc_01arz3ndektsv4rrffq69g5fav";
+const NOTE_PROJECT = "prj_01arz3ndektsv4rrffq69g5fb0";
+const NOTE_TEXT = "# Kept\n\nbody\n";
+const NOTE_PATH = "kept.md";
+const INTERRUPTED = "inv_01arz3ndektsv4rrffq69g5fav";
+const INTERRUPTED_APP = "app_01arz3ndektsv4rrffq69g5fav";
+const INTERRUPTED_RELEASE = "rel_01arz3ndektsv4rrffq69g5fav";
+const INTERRUPTED_AT = "2020-01-01T00:00:00.000Z";
+
+type EventFact = {
+  seq: string;
+  type: string;
+  subject: string | null;
+  actor: string;
+  payload: string;
+  at: string;
+};
+
+type VersionFact = {
+  id: string;
+  document: string;
+  number: number;
+  contentHash: string;
+  savedBy: string;
+  filesHash: string;
+  title: string;
+  latest: string;
+};
+
+function blobPath(home: string, hash: string): string {
+  return `${home}/blobs/sha256/${hash.slice(0, 2)}/${hash.slice(2)}`;
+}
+
+function eventsOf(home: string): EventFact[] {
+  const db = new DatabaseSync(`${home}/lophn.db`, { readOnly: true });
+  try {
+    return db.prepare(
+      "select seq, type, subject, actor, payload, at from events order by seq",
+    ).all().map((row) => ({
+      seq: String(row["seq"]),
+      type: String(row["type"]),
+      subject: row["subject"] === null ? null : String(row["subject"]),
+      actor: String(row["actor"]),
+      payload: String(row["payload"]),
+      at: String(row["at"]),
+    }));
+  } finally {
+    db.close();
+  }
+}
+
+function versionOf(home: string, id: string): VersionFact {
+  const db = new DatabaseSync(`${home}/lophn.db`, { readOnly: true });
+  try {
+    const row = db.prepare(
+      `select v.id, v.document, v.number, v.content_hash, v.saved_by, v.files_hash,
+              d.title, d.latest_version
+         from versions v
+         join documents d on d.id = v.document
+        where d.id = ?`,
+    ).get(id);
+    if (row === undefined) throw new Error("고정 판이 없다");
+    return {
+      id: String(row["id"]),
+      document: String(row["document"]),
+      number: Number(row["number"]),
+      contentHash: String(row["content_hash"]),
+      savedBy: String(row["saved_by"]),
+      filesHash: String(row["files_hash"]),
+      title: String(row["title"]),
+      latest: String(row["latest_version"]),
+    };
+  } finally {
+    db.close();
+  }
+}
+
+function fileRef(
+  home: string,
+  version: string,
+): { hash: string; size: number } {
+  const db = new DatabaseSync(`${home}/lophn.db`, { readOnly: true });
+  try {
+    const row = db.prepare(
+      `select hash, size_bytes from blob_refs
+        where owner_kind = 'document_version' and owner_key = ? and field = 'file'`,
+    ).get(`${version}/${NOTE_PATH}`);
+    if (row === undefined) throw new Error("판 파일 참조가 없다");
+    return {
+      hash: String(row["hash"]),
+      size: Number(row["size_bytes"]),
+    };
+  } finally {
+    db.close();
+  }
+}
+
+function invocationOf(
+  home: string,
+): { status: string; summary: string; started: string } {
+  const db = new DatabaseSync(`${home}/lophn.db`, { readOnly: true });
+  try {
+    const rows = db.prepare(
+      "select status, summary, started_at from invocations order by id",
+    ).all();
+    assertEquals(rows.length, 1);
+    return {
+      status: String(rows[0]["status"]),
+      summary: String(rows[0]["summary"]),
+      started: String(rows[0]["started_at"]),
+    };
+  } finally {
+    db.close();
+  }
+}
+
+function triggerNamed(home: string, name: string): boolean {
+  const db = new DatabaseSync(`${home}/lophn.db`, { readOnly: true });
+  try {
+    return db.prepare(
+      "select 1 as present from sqlite_master where type = 'trigger' and name = ?",
+    ).get(name) !== undefined;
+  } finally {
+    db.close();
+  }
+}
+
+async function copyHome(from: string, to: string): Promise<void> {
+  const copied = await new Deno.Command("cp", { args: ["-a", from, to] })
+    .output();
+  if (!copied.success) {
+    throw new Error(new TextDecoder().decode(copied.stderr));
+  }
+}
+
+function uploadInput(hash: string, size: number): string {
+  return btoa(JSON.stringify({ blob_hash: hash, bytes: size })).replaceAll(
+    "+",
+    "-",
+  ).replaceAll("/", "_").replaceAll("=", "");
+}
+
+async function untilReady(
+  hello: MainHello,
+  path: string,
+  body: unknown,
+): Promise<{ status: number; body: Record<string, unknown> }> {
+  let last: { status: number; body: Record<string, unknown> } = {
+    status: 503,
+    body: {},
+  };
+  const deadline = Date.now() + 60_000;
+  while (Date.now() < deadline) {
+    const response = await post(hello, path, body);
+    last = response;
+    if (response.status !== 503) return response;
+    await delay(200);
+  }
+  return last;
+}
+
+async function uploadNote(
+  hello: MainHello,
+  bytes: Uint8Array,
+  hash: string,
+): Promise<Record<string, unknown>> {
+  let last = "";
+  const deadline = Date.now() + 60_000;
+  while (Date.now() < deadline) {
+    const response = await fetch(
+      `http://127.0.0.1:${hello.api_port}/v1/documents/upload`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/octet-stream",
+          "x-lophn-input": uploadInput(hash, bytes.byteLength),
+          authorization: `Bearer ${hello.user_token}`,
+        },
+        body: bytes.slice(),
+        signal: AbortSignal.timeout(20_000),
+      },
+    );
+    const text = await response.text();
+    if (response.status === 200) {
+      return JSON.parse(text) as Record<string, unknown>;
+    }
+    last = `${response.status} ${text}`;
+    if (response.status !== 503) break;
+    await delay(200);
+  }
+  throw new Error(`원문 업로드가 되지 않았다: ${last}`);
+}
+
+async function versionFile(
+  hello: MainHello,
+  version: string,
+): Promise<{ status: number; bytes: Uint8Array }> {
+  const response = await fetch(
+    `http://127.0.0.1:${hello.api_port}/v1/documents/file`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${hello.user_token}`,
+      },
+      body: JSON.stringify({ version, path: NOTE_PATH }),
+    },
+  );
+  return {
+    status: response.status,
+    bytes: new Uint8Array(await response.arrayBuffer()),
+  };
+}
+
+Deno.test({
+  name:
+    "platform/install-and-update#R11 platform/backup-and-migration#R5 platform/backup-and-migration#R6 platform/identity#R7 flow update-lophn 4: 재시작이 설정·무결성·고정 판과 참조·실행 자격·중단 작업을 확인하고 모르는 schema와 손상 원본은 보존한다",
+  ignore: Deno.env.get("LOPHN_E2E") !== "1",
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn() {
+    const root = await Deno.realPath(
+      await Deno.makeTempDir({ prefix: "lophn-e2e-update-check-" }),
+    );
+    const home = `${root}/data`;
+    const sessionHome = `${root}/session`;
+    await Deno.mkdir(home, { mode: 0o700 });
+    await Deno.chmod(home, 0o700);
+    await Deno.mkdir(sessionHome, { mode: 0o700 });
+    // 세션 HOME에는 deno cache가 없다. documents worker는 --cached-only라
+    // 테스트 프로세스가 쓰는 cache를 DENO_DIR로 가리킨다.
+    const cacheDir = Deno.env.get("DENO_DIR") ??
+      `${Deno.env.get("HOME") ?? "/tmp"}/.cache/deno`;
+    const boot = (data: string) =>
+      bootCore(data, sessionHome, { DENO_DIR: cacheDir });
+    const note = new TextEncoder().encode(NOTE_TEXT);
+    const noteHash = await sha256Hex(note);
+    let running: Boot | undefined;
+    const halt = async () => {
+      const current = running;
+      running = undefined;
+      if (current !== undefined) {
+        killTree(current.child.pid);
+        await current.finished.catch(() => {});
+      }
+    };
+    try {
+      const first = boot(home);
+      running = first;
+      const hello = await first.hello;
+      const created = await post(
+        hello,
+        "projects/create",
+        projectBody(NOTE_PROJECT, "kept", "update-lophn-4-project"),
+      );
+      assertEquals(created.status, 200, JSON.stringify(created.body));
+      const settings = await post(hello, "settings/get", {
+        keys: ["shell.reading_width"],
+      });
+      assertEquals(settings.status, 200, JSON.stringify(settings.body));
+      const applied = await post(hello, "settings/apply", {
+        input: {
+          changes: [{
+            layer: "common",
+            key: "shell.reading_width",
+            action: "set",
+            value: "wide",
+          }],
+        },
+        idempotency_key: "update-lophn-4-width",
+        compare: {
+          revision: settings.body["revision"],
+          defaults_revision: settings.body["defaults_revision"],
+        },
+        prepared: [],
+      });
+      assertEquals(applied.status, 200, JSON.stringify(applied.body));
+      const uploaded = await uploadNote(hello, note, noteHash);
+      assertEquals(uploaded["hash"], noteHash);
+      assertEquals(uploaded["purpose"], "document_file");
+      const prepared = await untilReady(hello, "documents/prepare", {
+        document: NOTE_DOC,
+        base_version: null,
+        metadata: { title: "Kept note", place: null, name: null },
+        files: [{
+          path: NOTE_PATH,
+          blob_hash: noteHash,
+          bytes: note.byteLength,
+          media_type: "text/markdown",
+          primary: true,
+          content: { kind: "prepared", blob: uploaded },
+        }],
+        source: null,
+        idempotency_key: "update-lophn-4-prepare",
+      });
+      assertEquals(prepared.status, 200, JSON.stringify(prepared.body));
+      const preparedFiles = prepared.body["files"] as {
+        preparation_ref: string;
+      }[];
+      const saved = await post(hello, "documents/save", {
+        input: prepared.body,
+        idempotency_key: "update-lophn-4-prepare",
+        compare: { base_version: null },
+        prepared: [
+          String(prepared.body["preparation_ref"]),
+          ...preparedFiles.map((file) => file.preparation_ref),
+        ],
+      });
+      assertEquals(saved.status, 200, JSON.stringify(saved.body));
+      const versionId = String(saved.body["version"]);
+      const fixed = versionOf(home, NOTE_DOC);
+      assertEquals(fixed.id, versionId);
+      assertEquals(fixed.document, NOTE_DOC);
+      assertEquals(fixed.latest, versionId);
+      assertEquals(fixed.number, 1);
+      assertEquals(fixed.title, "Kept note");
+      assertEquals(fixed.savedBy, "user");
+      const ref = fileRef(home, versionId);
+      assertEquals(ref.hash, noteHash);
+      assertEquals(ref.size, note.byteLength);
+      assertEquals(await Deno.readFile(blobPath(home, noteHash)), note);
+      const ledgerId = (await Deno.readTextFile(`${home}/ledger-id`)).trim();
+      const history = readHistory(home);
+      const facts = eventsOf(home);
+      assert(
+        facts.some((row) => row.subject === NOTE_DOC && row.actor === "user"),
+      );
+      const status = await post(hello, "platform/status", {});
+      assertEquals(status.status, 200, JSON.stringify(status.body));
+      assertEquals(status.body["ready"], true);
+      const reportedSchema = status.body["schema"];
+      assert(typeof reportedSchema === "number" && reportedSchema > 0);
+      assert(reportedSchema <= history.length);
+      assertEquals(integrityOf(`${home}/lophn.db`), "ok");
+
+      const second = boot(home);
+      await assertRefused(second);
+      await second.stop();
+      const still = await post(hello, "documents/get", { document: NOTE_DOC });
+      assertEquals(still.status, 200, JSON.stringify(still.body));
+      assertEquals(await first.stop(), 0);
+      running = undefined;
+
+      writeLedger(home, (db) => {
+        db.exec("pragma foreign_keys = on");
+        assertThrows(() => db.exec("update events set payload = payload"));
+        assertThrows(() => db.exec("delete from events"));
+        assertThrows(() =>
+          db.exec("update schema_migrations set content_hash = content_hash")
+        );
+        const command = db.prepare(
+          "select principal, idempotency_key, fingerprint, result, first_seq, last_seq, at from command_results limit 1",
+        ).get();
+        assert(command !== undefined);
+        assertThrows(() =>
+          db.prepare(
+            "insert into command_results (principal, idempotency_key, fingerprint, result, first_seq, last_seq, at) values (?, ?, ?, ?, ?, ?, ?)",
+          ).run(
+            command["principal"],
+            command["idempotency_key"],
+            command["fingerprint"],
+            command["result"],
+            command["first_seq"],
+            command["last_seq"],
+            command["at"],
+          )
+        );
+        assertThrows(() =>
+          db.prepare(
+            "insert into blob_refs (owner_kind, owner_key, field, hash, size_bytes, registered_seq) values ('document_version', 'missing', 'file', ?, ?, 999999999)",
+          ).run(noteHash, note.byteLength)
+        );
+      });
+      writeLedger(home, (db) => {
+        db.prepare(
+          `insert into invocations (
+             id, app, release, mode, actor, caller, operation, trigger,
+             approval, input_hash, status, started_at, finished_at, summary, detail_hash
+           ) values (?, ?, ?, 'live', 'user', ?, ?, ?, null, null, 'running', ?, null, '{}', null)`,
+        ).run(
+          INTERRUPTED,
+          INTERRUPTED_APP,
+          INTERRUPTED_RELEASE,
+          JSON.stringify({ kind: "direct" }),
+          JSON.stringify({ kind: "command", command: "usage.sync" }),
+          JSON.stringify({ kind: "direct" }),
+          INTERRUPTED_AT,
+        );
+      });
+      await Deno.writeTextFile(`${home}/kept.txt`, "kept\n");
+
+      const again = boot(home);
+      running = again;
+      const restarted = await again.hello;
+      assert(restarted.user_token !== hello.user_token);
+      assert(restarted.core_epoch !== hello.core_epoch);
+      const stale = await post(
+        { ...restarted, user_token: hello.user_token },
+        "documents/get",
+        { document: NOTE_DOC },
+      );
+      assertEquals(stale.status, 401);
+      const read = await post(restarted, "documents/get", {
+        document: NOTE_DOC,
+      });
+      assertEquals(read.status, 200, JSON.stringify(read.body));
+      const readVersion = read.body["version"] as {
+        id: string;
+        document: string;
+        number: number;
+        content_hash: string;
+        saved_by: string;
+        files: { path: string; blob_hash: string; bytes: number }[];
+      };
+      assertEquals(readVersion.id, fixed.id);
+      assertEquals(readVersion.document, fixed.document);
+      assertEquals(readVersion.number, fixed.number);
+      assertEquals(readVersion.content_hash, fixed.contentHash);
+      assertEquals(readVersion.saved_by, fixed.savedBy);
+      assertEquals(readVersion.files[0].path, NOTE_PATH);
+      assertEquals(readVersion.files[0].blob_hash, noteHash);
+      assertEquals(readVersion.files[0].bytes, note.byteLength);
+      const readDocument = read.body["document"] as {
+        id: string;
+        title: string;
+        latest_version: string;
+      };
+      assertEquals(readDocument.id, NOTE_DOC);
+      assertEquals(readDocument.title, "Kept note");
+      assertEquals(readDocument.latest_version, versionId);
+      const file = await versionFile(restarted, versionId);
+      assertEquals(
+        file.status,
+        200,
+        new TextDecoder().decode(file.bytes),
+      );
+      assertEquals(file.bytes, note);
+      const width = await post(restarted, "settings/get", {
+        keys: ["shell.reading_width"],
+      });
+      assertEquals(width.status, 200, JSON.stringify(width.body));
+      const chosen = (width.body["settings"] as {
+        key: string;
+        value: unknown;
+      }[]).find((row) => row.key === "shell.reading_width");
+      assertEquals(chosen?.value, "wide");
+      const restartedStatus = await post(restarted, "platform/status", {});
+      assertEquals(
+        restartedStatus.status,
+        200,
+        JSON.stringify(restartedStatus.body),
+      );
+      assertEquals(restartedStatus.body["ready"], true);
+      assertEquals(restartedStatus.body["ledger_id"], ledgerId);
+      assertEquals(restartedStatus.body["schema"], reportedSchema);
+      assertEquals(integrityOf(`${home}/lophn.db`), "ok");
+      assertEquals(readHistory(home), history);
+      assertEquals(versionOf(home, NOTE_DOC), fixed);
+      assertEquals(fileRef(home, versionId), ref);
+      assertEquals(await Deno.readFile(blobPath(home, noteHash)), note);
+      const afterFacts = eventsOf(home);
+      assertEquals(afterFacts.slice(0, facts.length), facts);
+      const interrupted = invocationOf(home);
+      assertEquals(interrupted.status, "unknown");
+      assertEquals(interrupted.started, INTERRUPTED_AT);
+      assertEquals(
+        (JSON.parse(interrupted.summary) as { reason?: string }).reason,
+        "core_restarted",
+      );
+      assertEquals(await Deno.readTextFile(`${home}/kept.txt`), "kept\n");
+      assertEquals(projectTitle(home, NOTE_PROJECT), "kept");
+      assertEquals(await again.stop(), 0);
+      running = undefined;
+
+      const unknown = `${root}/unknown`;
+      await copyHome(home, unknown);
+      const unknownHistory = readHistory(unknown);
+      const futureHash = await sha256Hex("update-lophn-4-future-step");
+      writeLedger(unknown, (db) => {
+        db.prepare(
+          "insert into schema_migrations (version, step_id, content_hash, applied_at) values (?, 'future-step', ?, ?)",
+        ).run(
+          unknownHistory[unknownHistory.length - 1].version + 1,
+          futureHash,
+          "2026-10-09T00:00:00.000Z",
+        );
+      });
+      const unknownBefore = readHistory(unknown);
+      const higher = boot(unknown);
+      running = higher;
+      await assertRefused(higher);
+      await higher.stop();
+      running = undefined;
+      assertEquals(readHistory(unknown), unknownBefore);
+      assertEquals(
+        readHistory(unknown).slice(0, unknownHistory.length),
+        unknownHistory,
+      );
+      assertEquals(versionOf(unknown, NOTE_DOC), fixed);
+      assertEquals(await Deno.readFile(blobPath(unknown, noteHash)), note);
+      assertEquals(await Deno.readTextFile(`${unknown}/kept.txt`), "kept\n");
+      assertEquals(
+        (await Deno.readTextFile(`${unknown}/ledger-id`)).trim(),
+        ledgerId,
+      );
+      assertEquals(integrityOf(`${unknown}/lophn.db`), "ok");
+
+      const damaged = `${root}/damaged`;
+      await copyHome(home, damaged);
+      const marker = new TextEncoder().encode(
+        "damaged-original-not-a-sqlite\n",
+      );
+      await Deno.remove(`${damaged}/lophn.db-wal`).catch(() => {});
+      await Deno.remove(`${damaged}/lophn.db-shm`).catch(() => {});
+      await Deno.writeFile(`${damaged}/lophn.db`, marker);
+      const broken = boot(damaged);
+      running = broken;
+      await assertRefused(broken);
+      await broken.stop();
+      running = undefined;
+      assertEquals(await Deno.readFile(`${damaged}/lophn.db`), marker);
+      assertEquals(await Deno.readFile(blobPath(damaged, noteHash)), note);
+      assertEquals(await Deno.readTextFile(`${damaged}/kept.txt`), "kept\n");
+      assertEquals(
+        (await Deno.readTextFile(`${damaged}/ledger-id`)).trim(),
+        ledgerId,
+      );
+
+      const unprotected = `${root}/unprotected`;
+      await copyHome(home, unprotected);
+      const protectedFacts = eventsOf(unprotected);
+      writeLedger(unprotected, (db) => {
+        db.exec("drop trigger events_no_update");
+      });
+      assertEquals(triggerNamed(unprotected, "events_no_update"), false);
+      const open = boot(unprotected);
+      running = open;
+      await assertRefused(open);
+      await open.stop();
+      running = undefined;
+      assertEquals(triggerNamed(unprotected, "events_no_update"), false);
+      assertEquals(eventsOf(unprotected), protectedFacts);
+      assertEquals(versionOf(unprotected, NOTE_DOC), fixed);
+      assertEquals(await Deno.readFile(blobPath(unprotected, noteHash)), note);
+      assertEquals(readHistory(unprotected), history);
+      assertEquals(
+        (await Deno.readTextFile(`${unprotected}/ledger-id`)).trim(),
+        ledgerId,
+      );
     } finally {
       await halt();
       await Deno.remove(root, { recursive: true });

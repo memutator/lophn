@@ -204,7 +204,7 @@ lead가 쓰는 사본은 `.dev-data/lead-tools/`(git 무시, 이 기계에 남�
 | task | 이번 세션 merge | 남은 것 |
 |---|---|---|
 | platform#T54 | #484 catch-up-notifications, #504 notification 발생 시각·문서 링크, #494·#500·#521·#524 work-offline 1~4, #505·#510·#515·#523 update-lophn 1~4 | 진행. work-offline 5~7단계, update-lophn 5~8단계, install-lophn. catch-up 미본 갈래(끝난 question·approval 다시 열기, ticket 완료 보고·문제 닫힘, 끊긴 뒤 재생 없음, 창 닫은 뒤 실패 문구)와 #473의 전달 `unconfirmed`/`failed` 어긋남 |
-| problems#T25 | #503 1단계, #517 2단계, #519 3단계, #527 4단계 | 진행. 5~9단계(ticket·claim·reproduction·activation·자동 닫힘)와 process unhandled rejection |
+| problems#T25 | #503·#517·#519·#527·#536 1~5단계 | 진행. 6~9단계와 그에 기대는 갈래는 사람 결정(10-10)으로 이번 계획에서 뺐다(실제 앱으로 따로 테스트). 남은 것: process unhandled rejection |
 | problems#T24 | #509 1단계, #514 2단계, #522 3단계, #528 4단계 | 진행. 5~7단계(activation, 자동 닫힘·사람 확인, 재발). Versions 탭 test 결과 읽기는 §7-76 |
 | problems#T23 | #492 기존 문제 연결·시작 전 실패 | 진행. 응답 단절 뒤 재전송·최신 상태 확인, 수집 꺼짐·실패 이유, 두 번째 창 |
 | documents#T21 | #491 edit-doc 8 guard, #497 파일 없음 갈래, #502 run 근거, #506 옛 이름·자리, #508 검색 반영 대기, #513 보관·추적 중단, #518 판 확정 실패, #520 연결 끊김, #525 format 갈래 | 진행. 지정 format 거절 갈래는 shell `documents/prepare` 사람 통로가 닫혀 막힘(§7-74). project-workspace terminal(node-pty)은 범위 밖 |

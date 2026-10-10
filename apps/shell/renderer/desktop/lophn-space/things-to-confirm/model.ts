@@ -165,7 +165,15 @@ export function placeWaiting(
   ).length;
 }
 
-/** 이 선택지는 confirmation window에서만 답을 확정한다. term.define은 아니다. */
+/**
+ * 확인 창 없이 질문 답의 확정으로 적용하는 고정 action command. 사람이 질문에서 그 선택지를
+ * 고르는 것이 결정이다(flow new-app 3, documents/terms#R2). 그 밖 action은 확인 창을 연다.
+ */
+export function confirmsWithoutWindow(command: string | null | undefined) {
+  return command === "term.define" || command === "app.create";
+}
+
+/** 이 선택지는 confirmation window에서만 답을 확정한다. term.define·app.create는 아니다. */
 export function needsReview(
   question: QuestionRequest,
   option: string | null,
@@ -173,7 +181,7 @@ export function needsReview(
   if (option === null) return false;
   const chosen = question.options.find((item) => item.key === option);
   if (chosen === undefined || !chosen.action) return false;
-  return chosen.command !== "term.define";
+  return !confirmsWithoutWindow(chosen.command);
 }
 
 /** 보낼 수 있는 자유 답. 공백뿐인 글은 답이 아니다(questions#R6). */

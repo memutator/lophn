@@ -77,6 +77,25 @@ Deno.test("flow update-lophn: 진단 결과는 영향 한 문장과 다음 행�
   assert(raw.includes("broad_grant"));
 });
 
+Deno.test("flow update-lophn: 주의할 것이 0개면 주의 문구 없이 문제 없음만 말한다", async () => {
+  const clean = fakeDiagnostics({
+    view: {
+      rows: [
+        { check: "broad_grant", finding: null },
+        { check: "raw_key_pattern", finding: null },
+      ],
+      observedAt: "2026-10-06T00:00:00.000Z",
+    },
+  });
+  using view = render(<DiagnosticsPanel source={clean.source} />);
+  await flush();
+  click(find(view.container, "[data-action='check']"));
+  await flush();
+  const result = textOf(find(view.container, "[data-check-result='clean']"));
+  assertEquals(result, "No problems were found in the security check.");
+  assertEquals(view.container.querySelector("[data-finding]"), null);
+});
+
 Deno.test("flow update-lophn: 문제가 없으면 한 문장으로 말하고 검사를 돌리지 못하면 다시 시도를 보인다", async () => {
   const clean = fakeDiagnostics({
     view: {

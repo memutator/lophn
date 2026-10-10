@@ -71,12 +71,6 @@ export function DiagnosticsPanel({ source }: DiagnosticsPanelProps) {
               ? (
                 <p className={styles.notice} data-check-result="clean">
                   {t("settings.check.clean")}
-                  {loaded.state === "ready" &&
-                    ` ${
-                      t("settings.diagnostics.finding-at", {
-                        time: timeText(loaded.view.observedAt),
-                      })
-                    }`}
                 </p>
               )
               : (

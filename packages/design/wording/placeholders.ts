@@ -2144,6 +2144,9 @@ export type PlaceholderKinds = {
   "settings.check.raw-key-note": Record<never, never>;
   "settings.check.wide-grant-note": Record<never, never>;
   "settings.check.clean": Record<never, never>;
+  "settings.diagnostics.checked-at": {
+    time: "string";
+  };
   "settings.diagnostics.finding-at": {
     time: "string";
   };

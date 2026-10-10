@@ -186,6 +186,8 @@ export type RecoveryWorld = {
   assignment: { id: string; revision: number };
   effects: Effects;
   runtime(options?: RuntimeOptions): RecoveryRuntime;
+  // 같은 데이터 root로 core를 다시 띄운다(새 port, 시험 credential은 다시 받는다). 이전 runtime은 쓰지 않는다.
+  restartCore(): Promise<void>;
   post(
     path: string,
     token: string,
@@ -208,17 +210,20 @@ export async function openRecoveryWorld(
     nowMs: () => clock.nowMs(),
     instant: true,
   });
-  const started = await startCore({
-    lophnHome: home,
-    port: 0,
-    teams: [{ lophnAgentDefinitions, createLedgerRegistration }],
-    teamModules: [new URL("../lophn-agent.ts", import.meta.url).href],
-    clock,
-    random: seededRandom(61),
-    testCredentials: true,
-  });
-  assert(started.ok, started.ok ? "" : JSON.stringify(started.error));
-  const core = started.value;
+  const boot = async (seed: number) => {
+    const started = await startCore({
+      lophnHome: home,
+      port: 0,
+      teams: [{ lophnAgentDefinitions, createLedgerRegistration }],
+      teamModules: [new URL("../lophn-agent.ts", import.meta.url).href],
+      clock,
+      random: seededRandom(seed),
+      testCredentials: true,
+    });
+    assert(started.ok, started.ok ? "" : JSON.stringify(started.error));
+    return started.value;
+  };
+  let core = await boot(61);
   const server: Server = {
     port: core.port,
     dataRoot: core.dataRoot,
@@ -227,16 +232,28 @@ export async function openRecoveryWorld(
       core.confirmation?.(body) ??
         Promise.resolve({ ok: false as const, error: { message: "none" } }),
   };
-  const accept = async (ctx: AuthenticatedContext, token: string) => {
+  const accept = async (
+    ctx: AuthenticatedContext,
+    token: string,
+    recorded = true,
+  ) => {
     const accepted = await core.acceptTestCredential?.(ctx, token);
     assert(accepted?.ok, JSON.stringify(accepted));
-    assert((await core.record(ctx)).ok);
+    if (recorded) assert((await core.record(ctx)).ok);
   };
   const machineOperations = [
     ...new Set(RUNTIME_MACHINE_ROUTES.map((route) => route.name)),
   ];
-  await accept(context("machine", machineOperations), MACHINE_TOKEN);
-  await accept(context("user", USER_OPERATIONS), USER_TOKEN);
+  // 다시 뜬 core는 ledger에 남은 credential 기록을 그대로 두고 token만 새로 받는다.
+  const acceptBase = async (recorded: boolean) => {
+    await accept(
+      context("machine", machineOperations),
+      MACHINE_TOKEN,
+      recorded,
+    );
+    await accept(context("user", USER_OPERATIONS), USER_TOKEN, recorded);
+  };
+  await acceptBase(true);
   const post = (
     path: string,
     token: string,
@@ -296,6 +313,7 @@ export async function openRecoveryWorld(
   assertEquals(sent.status, 200, JSON.stringify(sent.body));
   const run = (sent.body as { message: { run: string } }).message.run;
 
+  let restarts = 0;
   const effects: Effects = { writes: [], reads: 0 };
   const model: CallModel = {
     provider: PVD,
@@ -525,7 +543,9 @@ export async function openRecoveryWorld(
   }
 
   return {
-    core,
+    get core() {
+      return core;
+    },
     server,
     clock,
     provider,
@@ -536,6 +556,13 @@ export async function openRecoveryWorld(
     runtime,
     post,
     read: (path, token, input) => call(server, path, token, input),
+    async restartCore() {
+      await core.shutdown();
+      restarts += 1;
+      core = await boot(61 + restarts);
+      server.port = core.port;
+      await acceptBase(false);
+    },
     async dispose() {
       await provider.close();
       await core.shutdown();

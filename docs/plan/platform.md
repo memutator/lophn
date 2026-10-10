@@ -1172,6 +1172,8 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 - 상태: 진행 (#523) — 남은 것: update-lophn 5–8단계, work-offline의 나머지, install-lophn. 한 것: 4단계는 설정·무결성·기존 고정 판과 참조·실행 자격·중단 작업을 확인한다. 모르는 schema나 손상 원본은 자동 초기화하거나 downgrade하지 않고 보존한다. 사람에게는 보이지 않는다.
 - 이 PR (#523)은 flow update-lophn의 4단계만 했다. 설정·무결성·기존 고정 판과 참조·실행 자격·중단 작업을 확인한다. 모르는 schema나 손상 원본은 자동 초기화하거나 downgrade하지 않고 보존한다. 사람에게는 보이지 않는다. 5–8단계와 work-offline의 나머지, install-lophn은 남은 그대로다.
 - 상태: 진행 (#524) — 남은 것: work-offline 5–7단계, update-lophn 5–8단계, install-lophn. 한 것: work-offline 4단계만. harness가 일시적인 provider 통신 실패만 정해진 횟수와 대기 안에서 retry한다. 불완전한 model 응답의 tool call은 시작하지 않는다. 다른 provider나 model로 바꾸지 않는다. 이 과정은 사람에게 보이지 않는다.
+- 이 PR은 flow update-lophn의 5단계만 했다. 새 SDK version만 더하고 기존 앱의 release가 고정한 SDK 의존과 봉인 bundle 사본은 그대로이며, 사람의 새 앱 변경 선택과 release approval 없이는 update가 앱 activation 결정을 대신하지 않는다. 사람에게는 보이지 않는다. 6–8단계와 work-offline의 나머지, install-lophn은 남은 그대로다.
+- 상태: 진행 (#PR) — 남은 것: work-offline 5–7단계, update-lophn 6–8단계, install-lophn. 한 것: update-lophn 5단계(`e2e/flows/update-lophn_test.ts`)는 제품 core(apps 팀)를 temp home으로 띄워 옛 lophn이 SDK 1.0.0을 설치하고 그 판을 고정한 앱의 active release를 둔 뒤, 같은 data root로 다시 시작한 lophn이 SDK 1.1.0과 새 패키지만 더한다. 같은 version을 다른 byte로 다시 공개하려는 update는 conflict로 거절되고, 기존 release 행·봉인 bundle 사본·설치 1.0.0 사본(byte·권한)과 이벤트 이력은 그대로이며 새로 생긴 이벤트는 SDK version 등록뿐이다. 설치 제품 경로에서 이 SDK 등록을 부르는 install machine이 core 조립에 아직 없어 테스트가 `installPackage`와 test credential로 대신 부른다.
 - 완료: 아래 확인이 통과한다
   - `e2e/flows/install-lophn_test.ts`, `update-lophn_test.ts`, `backup-and-restore_test.ts`, `catch-up-notifications_test.ts`, `work-offline_test.ts`가 flow 문서의 단계·다른 갈래·끝을 그대로 돈다(Linux, fake provider와 fixture).
   - `deno task e2e`에서 operations slice의 다섯 flow가 모두 통과한다.

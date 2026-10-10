@@ -326,7 +326,10 @@ import {
   messageBodyEnvironment,
   withMessageBody,
 } from "./message-body.ts";
-import { instructionFilesEnvironment } from "./instruction-files.ts";
+import {
+  instructionFilesEnvironment,
+  ledgerHead,
+} from "./instruction-files.ts";
 import type { InstructionFiles } from "../../packages/lophn-agent/instructions/mod.ts";
 import {
   createQuestionTextPreparer,
@@ -624,8 +627,17 @@ async function open(
     ledgerPath,
     read: (hash, offset, length) => blobRead.deps.read(hash, offset, length),
   });
+  // 사람 지침 파일의 확정 판 읽기. runtime에는 ReadInstructionFile 하나로만 닿는다.
+  const instructionFiles = instructionFilesEnvironment({
+    ledgerPath,
+    read: (hash, offset, length) => blobRead.deps.read(hash, offset, length),
+  });
   const assembled = withPlatform(
     assemble(options.teams, {
+      instructionFiles: {
+        files: instructionFiles,
+        asOfSeq: () => ledgerHead(ledgerPath),
+      },
       status: statusMemoryVia(documentsChannel),
       // problems의 GetSnapshotLogs 읽기 통로. 바이트 통로는 relay가 뜬 뒤 채워진다.
       snapshotLogs: snapshotLogsEnvironment({
@@ -2522,10 +2534,7 @@ async function open(
       ? { codingCredentials: coding, codingCredentialsReady: codingReady }
       : {}),
     record: (context) => runtime!.record(context),
-    instructionFiles: instructionFilesEnvironment({
-      ledgerPath,
-      read: (hash, offset, length) => blobRead.deps.read(hash, offset, length),
-    }),
+    instructionFiles,
     sweepTicketClaims: () => runtime!.sweepTicketClaims(),
     sweepTicketChecks: () =>
       checkerChannel.request(TICKET_CHECK_OP, {}, 30_000),

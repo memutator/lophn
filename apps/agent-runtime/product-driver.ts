@@ -7,13 +7,15 @@ import {
   systemClock,
 } from "../../packages/base/mod.ts";
 import { ALL_ROUTES } from "../../packages/contracts/mod.ts";
+import { instructionRead } from "../../packages/contracts/lophn-agent/mod.ts";
+import { instructionFilesOverCore } from "../../packages/lophn-agent/instructions/mod.ts";
 import { abortableWait } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
 import { spawnStdioMcp } from "../../packages/lophn-agent/extensions/mod.ts";
 import type { McpConnectionsDeps } from "../../packages/lophn-agent/extensions/mod.ts";
 import type { CoreCalls } from "./main.ts";
 import { createMcpToolkit } from "./mcp-toolkit.ts";
 import { createRunPreparer, type Toolkit } from "./prepare.ts";
-import type { CoreCall } from "./core-call.ts";
+import { type CoreCall, readOf } from "./core-call.ts";
 import { createModelResolver } from "./resolve-model.ts";
 import { PRODUCT_INSTRUCTIONS, rolePrompt } from "./role-prompts.ts";
 import type { RunDriver } from "./run-driver.ts";
@@ -41,8 +43,7 @@ export function productToolkit(options: {
 
 // 제품 runtime의 driver 재료(lophn-agent/harness/run-loop). core 연결을 받아 run 시작 재료, 복구 재료,
 // 기본 harness 묶음(내장 tool, 역할 prompt, model 선택 검증, 등록 skill 폴더)을 만든다. 아래는 소유
-// 작업이 채울 자리라 비어 있다: 쓰기·external tool의 결과 조회(`lookups`), 사람 지침 파일 읽기
-// (`InstructionFiles`).
+// 작업이 채울 자리라 비어 있다: 쓰기·external tool의 결과 조회(`lookups`).
 export function productDriver(options: { fetch?: typeof fetch } = {}) {
   return (
     calls: CoreCalls,
@@ -89,14 +90,10 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
       product: PRODUCT_INSTRUCTIONS,
       rolePrompt,
       instructions: {
-        files: {
-          registered: () => Promise.resolve(ok(null)),
-          attached: () =>
-            Promise.resolve(
-              err({ code: "unavailable", message: "no instruction files" }),
-            ),
-          projectOf: () => Promise.resolve(ok(null)),
-        },
+        // 저장한 지침의 확정 판은 core의 ReadInstructionFile로 매 call 직전에 읽는다(instructions R4, R5, R8).
+        files: instructionFilesOverCore((input) =>
+          readOf(calls.machine, instructionRead, input)
+        ),
         redact: calls.redact,
       },
       redact: calls.redact,

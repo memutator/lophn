@@ -134,3 +134,20 @@ function primary(
     size: main.bytes,
   });
 }
+
+// ReadInstructionFile이 답에 싣는 읽은 때의 ledger 위치다.
+export function ledgerHead(ledgerPath: string): Result<string> {
+  const opened = openConnection(ledgerPath);
+  if (!opened.ok) return unavailable("지침 문서를 읽지 못했다");
+  try {
+    const head = opened.value.sql.get(
+      "select coalesce(max(seq), 0) as seq from events",
+      [],
+    );
+    return ok(String(head?.["seq"] ?? 0));
+  } catch {
+    return unavailable("지침 문서를 읽지 못했다");
+  } finally {
+    opened.value.close();
+  }
+}

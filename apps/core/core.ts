@@ -1554,6 +1554,7 @@ async function open(
                   readers: runtime.readers,
                   current: (ref) => runtime!.current(ref),
                   observedAt: () => new Date().toISOString(),
+                  wakeSearch: () => void searchSync?.check(),
                   blob: {
                     read: (hash, offset, length) =>
                       validateWiring.readBlob

@@ -30,6 +30,8 @@ import { BLOB_READ_MAX_BYTES } from "../../packages/contracts/platform/mod.ts";
 import {
   DOCUMENT_UPLOAD_MAX_BYTES,
   documentFile,
+  searchQuery,
+  searchStatus,
 } from "../../packages/contracts/documents/mod.ts";
 import type { FileStreamHandler } from "../../packages/platform/api/mod.ts";
 import {
@@ -242,6 +244,8 @@ export type ServedDeps = {
   observedAt(): string;
   // 추출 안 된 고정 판의 대표 파일을 읽는 blob 통로(I/O worker). 없으면 직접 추출을 하지 않는다.
   blob?: BlobReader;
+  // search 답이 뒤처짐(lagging)이면 index가 자기 자리부터 따라잡게 한다.
+  wakeSearch?(): void;
 };
 
 // blob-store의 인가·hash 검사를 거치는 바이트 읽기와 그 통로가 떠 있는지.
@@ -253,6 +257,11 @@ export type BlobReader = {
   ): Promise<Result<{ hash: string; sizeBytes: number; bytes: Uint8Array }>>;
   ready(): boolean;
 };
+
+// 답에 index 반영 범위(coverage)를 싣는 search route.
+const COVERAGE_KEYS: ReadonlySet<string> = new Set(
+  [searchQuery, searchStatus].map(servedKey),
+);
 
 const DIRECT_KEYS: ReadonlySet<string> = new Set(
   DIRECT_EXTRACT_ROUTES.map(servedKey),
@@ -385,6 +394,16 @@ export function servedWorkers(
           );
           if (!ran.ok) {
             return failed(workerCode(ran.error.code), ran.error.message);
+          }
+          // documents/outline-and-search#R14: feed는 documents event만 받으므로, 그 밖의 ledger 쓰기로
+          // head가 앞서간 index는 다음 documents event까지 뒤처진 채 머문다. 뒤처진 답을 본 읽기가
+          // index를 깨워 자기 자리부터 head까지 따라잡게 한다(다음 읽기가 채워진 답을 본다).
+          const coverage = (ran.value as { coverage?: { lagging?: unknown } })
+            .coverage;
+          if (
+            COVERAGE_KEYS.has(servedKey(route)) && coverage?.lagging === true
+          ) {
+            deps.wakeSearch?.();
           }
           return ok({
             type: "worker_response",

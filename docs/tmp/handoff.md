@@ -229,6 +229,10 @@ restore 뒤 reconnect, versions 탭 시작 확인 refresh, app decision `compare
 - 71: 등록한 skill 폴더를 제품이 검사하지 않는다(`discoverSkills` 제품 경로 없음).
 - 72: answer 메시지가 run이 저장한 문서를 결과 링크로 싣지 않는다. review-agent-work의 결과 링크 단언은 결함 수정 뒤 다시 확인.
 - 73: edit-document 8 overlay dialog를 시험이 못 찾았다. 시험 구동인지 제품인지는 아직 모른다.
+- 74: 사람 통로로 지정 format 판을 만들 길이 없다. shell renderer 허용 목록이
+  `worker:documents/prepare`를 거절하고(shell/editor#R7) `window.lophnEditor.create`도
+  format을 받지 않아 첫 판이 implicit으로 저장된다. first-project format 갈래의 지정
+  format 거절 e2e 단계가 `ignore`로 꺼져 있다(`e2e/flows/first-project_test.ts`).
 - 아직 열린 큰 것: 33(coding agent hook 대상 사람 확인), 35·36(repair diff·이미지 redaction), 42(agent
   임시 글 streaming 통로 없음), 43(ReproductionScenario builder 없음), 44(launcher가 core 준비 뒤에도
   "getting ready"에 멈춤), 45(문제 알리기 dialog 시작 전 실패·재전송), 47~50(#448).

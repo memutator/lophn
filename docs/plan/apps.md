@@ -1390,16 +1390,23 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
 
 ### T27 apps slice flow E2E
 
-- 상태: 진행 (#474, #489, #546, #547, #548, #549, #560) — 완료: restore-app-release. new-app은 등록·source 연결·bundle
-  준비까지 e2e/flows/flow-new-app_test.ts를 썼으나 통과는 아직 확인하지 못했다(실행 대기열).
+- 상태: 진행 (#474, #489, #546, #547, #548, #549, #560, #561, #576) — 완료: restore-app-release. new-app은 등록·source 연결·bundle
+  준비까지 e2e/flows/flow-new-app_test.ts를 썼고 통과한다(#576).
   #560: release.prepare finalizer를 core에 이었다(`apps/core/apps-release-finalizer.ts`: ticket claim을 가진 coding
   agent의 prepare_bundle 접수가 완료됐고 같은 bundle hash의 통과한 app test가 기록돼 있으면 `release.preparation`을
   읽을 때 봉인 사본의 blueprint·manifest·data_changes로 확정, 시험 `apps/core/release-finalizer_test.ts`). new-app의
-  app test 실행·preview·적용·activation 단계를 flow에서 돌리는 일은 남았다. 이어보냄: `release_prepare` op의 답이
+  preview·적용·activation 단계를 flow에서 돌리는 일은 남았다. #576 new-app 8단계: coding agent가 ticket claim으로 release_prepare한 bundle을 같은 hash로 실제 test-runner에 돌려
+  app_test Verification을 남기고 통과가 아니면 release가 서지 않음까지 돈다(e2e/flows/flow-new-app_test.ts 두 번째 테스트,
+  첫 테스트의 appSupervisor·show 단언 결함도 고쳤다). 막힘: core runner에 test mode feedback 접수 통로가 없고 화면 검사
+  host도 dev에 없어 화면 있는 앱의 app test는 pass가 될 수 없다 → 통과 뒤 prepared release 확정은 ignore, preview·적용·
+  activation(9~12)은 못 돌렸다(problems/tests#R7에서 넘어온 것). 이어보냄: `release_prepare` op의 답이
   만든 release id를 보이지 않는다(contract 출력에 없음) → coding-agent. #489 use-app-command: confirm 허락은 실행되고 거절은 다시 묻지 않는다. list의 성공한 일반 읽기는 invocation을 남기지 않는다(apps/invocations#R2, R18). 남은 것: new-app의 app test·preview·적용,
   change-app, manage-app-permissions(#548: fs 접근 허락·거절·창 닫기·회수와
   새 nonce 재시작까지 돈다. 남은 것은 secret 단계 2·3·6(OS keychain 없음, SecretDelivery 미부착), command 허락 4,
-  보호 범위·조합 경고 갈래), connect-apps,
+  보호 범위·조합 경고 갈래), connect-apps(#561: 선언은 허락이 아님·거절과 창 닫기·허락한 쌍의 호출이 대상 앱
+  handler로 가 일정을 만들고 caller 앱·release 근거가 남음·회수 뒤 새 호출 차단까지 돈다. 남은 것: confirm 필요
+  command 5단계, 반대 방향·command 사라짐·재귀/깊이 상한 갈래. 결함: 거절·창 닫기 뒤 Connections 탭의
+  [Review connection]이 탭을 다시 열기 전까지 막힘),
   ask-app-hint. #549 run-app-automation(e2e/flows/run-app-automation_test.ts): fixture todo에 automation
   셋(on_start 쓰기·on_start external·간격 60000ms 쓰기)을 더한 앱으로 시작 계기의 일, 사람이 켜기 전엔
   external 일이 안 도는 것, 켠 뒤 접근 없는 거절, 접근 허락 뒤 재시작의 시작 계기, 간격 계기(자식 시계를
@@ -1414,6 +1421,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
   충돌·탭을 닫은 뒤)는 제품 결함 하나가 막는다: agent·앱 화면 둘 다 자기 view_session을 알 길이 없다(turn context
   탭 줄에 없고 화면 page URL에 query가 없다). 잇는 길은 `ViewTab`(app_panel)에 view_session을 더하는 contract
   모양 변경이 필요해 lead 결정을 기다린다
+- 정한 것(사람, 2026-10-10 — plan 빨리 닫기): 이 task는 flow의 주요 단계가 실제 e2e로 통과하면 완료다. (1) 다른 갈래, (2) 이 기계에서 구조적으로 돌릴 수 없는 환경 의존 단계(실제 root 설치·실제 Ubuntu 설치 확인, OS keychain이 필요한 단계 — 활성 coding 연결과 그 뒤 [Start]·claim·보고·회수, manage-coding-access, 앱 secret 전달 — 와 node-pty 터미널 갈래), (3) followup으로 넘긴 제품 결함 때문에 ignore로 남은 단계는 이번 계획에서 뺀다. 뺀 것은 상태 줄에 "넘김"으로 적고 `.dev-data/followups.md`·handoff §7에 남긴다. 아직 돌지 않은 주요 단계는 최소로만 돌리고, 돌리다 만난 결함은 보안 경계 결함이나 flow 첫 단계 자체가 안 도는 경우가 아니면 고치지 않고 ignore + followup으로 넘긴다.
 - 등급: 기본
 - concern: apps
 - 요구: flow new-app(fixture 경로), change-app, restore-app-release,

@@ -13,6 +13,7 @@ import { formatRelativeTime, t } from "@lophn/wording";
 
 import type { CardDraft } from "../../desktop/lophn-space/things-to-confirm/context.tsx";
 import {
+  confirmsWithoutWindow,
   needsReview,
   textTooLong,
   usableText,
@@ -320,7 +321,7 @@ function QuestionBody(
                     </span>
                   )
                   : null}
-                {option.action && option.command !== "term.define"
+                {option.action && !confirmsWithoutWindow(option.command)
                   ? (
                     <span className={styles.mark} data-opens-review="">
                       <Icon

@@ -9,10 +9,13 @@ import type { RpcFetch } from "../../../../../packages/contracts/platform/mod.ts
 
 import { type CoreSession, openSession, type StreamFetch } from "./client.ts";
 import {
+  backoffReconnect,
   type Clock,
   type EventSink,
+  type ReconnectPolicy,
   type SocketFactory,
   subscribe,
+  type Subscription,
 } from "./events.ts";
 import type { RestorePipe } from "./restore.ts";
 import { type IpcEvent } from "../ipc-guard.ts";
@@ -49,6 +52,8 @@ export interface ConnectionOptions {
   contentsRegistry?: {
     checkCaller(event: IpcEvent): { ok: true } | { ok: false };
   };
+  /** 끊긴 event 구독을 다시 잇는 시각. 테스트가 끼운다. 기본은 backoff다. */
+  reconnect?: ReconnectPolicy;
   /** 테스트가 가짜 core를 끼운다. */
   start?: (options: LaunchOptions) => CoreProcess;
   /** main이 직접 보는 지금 도착한 event(OS notification). renderer로 나가지 않는다. */
@@ -106,6 +111,7 @@ export function startCoreConnection(
 ): CoreConnection {
   const state: ConnectionState = { state: "starting", confirmedAt: null };
   let session: CoreSession | undefined;
+  let subscription: Subscription | undefined;
   // handle 등록은 한 번에 하나씩 보낸다.
   let registering: Promise<unknown> = Promise.resolve();
   const core = (options.start ?? spawnCore)(options.launch);
@@ -122,6 +128,8 @@ export function startCoreConnection(
     readonly api_port: number;
     readonly core_epoch: string;
   }) => {
+    // 새 hello(복원 뒤 새 epoch)가 오면 옛 구독은 더 이상 다시 붙지 않는다.
+    subscription?.stop();
     session = openSession({
       apiPort: hello.api_port,
       coreEpoch: hello.core_epoch,
@@ -131,9 +139,12 @@ export function startCoreConnection(
     });
     state.state = "ready";
     push();
-    subscribe({
+    subscription = subscribe({
       session,
       epoch: hello.core_epoch,
+      // core 프로세스가 끝났으면 다시 붙을 곳이 없다. 새 core는 새 hello로만 온다.
+      reconnectPolicy: options.reconnect ??
+        backoffReconnect(() => core.phase !== "stopped"),
       // token은 이 closure에만 묶여 URL·renderer로 나가지 않는다.
       // Node의 WebSocket(undici)은 headers 옵션으로 Bearer를 싣는다.
       headers: () => ({ Authorization: `Bearer ${hello.user_token}` }),

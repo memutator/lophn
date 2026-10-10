@@ -10,9 +10,8 @@
 // - 7: 저장한 고정 판을 읽고(실행 코드 없음), 창·core를 다시 띄운 뒤에도 원래 메시지·출처와
 //   저장 문서로 돌아온다.
 // 빠진 것: 앱 카드 갈래(2·4·6의 app-card)는 apps#T27이 돈다.
-// 결함 (8): 제품 답 메시지(apps/agent-runtime/core-ports.ts `answer`)는 model_call 링크만 싣고 run이
-// 만든·저장한 문서를 결과 링크로 싣지 않는다. 그래서 5의 블록 아래 고정 문서 링크와 7의 그 링크로
-// 열기는 볼 수 없고, 저장은 documents 목록과 그 고정 판 읽기로 본다.
+// 5의 블록 아래 고정 문서 링크는 답 메시지(apps/agent-runtime/core-ports.ts `answer`)가 run이 실제
+// 저장한 문서 판을 version 링크로 싣는 것에서 온다. 7은 그 링크로 저장 판을 연다.
 // 문서 ID·version과 메시지 ID는 실행 중에 정해지므로 model 응답은 앞 요청 본문에서 ID와 준비된
 // 본문을 읽어 내는 작은 loopback server(fake-provider의 응답 builder)로 낸다.
 import { assert, assertEquals } from "@std/assert";
@@ -465,9 +464,11 @@ Deno.test({
           assert(prepared.text.includes("Sales by quarter"));
           const saved = await documentTitled(flow, SAVED_TITLE);
           assertEquals(saved.status, "active");
-          // 블록 아래 고정 문서 링크는 결함 (8)로 서지 않는다(머리 주석): 저장 요청의 run이 끝나도
-          // 답 메시지에 저장한 문서 링크가 없어 블록은 "저장하지 않음"으로 남는다. 여기서는 그
-          // 링크를 보지 않는다.
+          // 블록 아래에 실제 저장한 고정 판의 링크가 선다.
+          await flow.until(
+            `document.querySelector("${DOCK} [data-visual-save='saved'] [data-visual-saved] [data-visual-document='${saved.id}@${saved.latest_version}']") !== null`,
+            `블록 아래 저장 링크가 서지 않았다: ${await dockText()}`,
+          );
           // 작성 중이던 글은 그대로다.
           assertEquals(
             await flow.evaluate(
@@ -482,7 +483,17 @@ Deno.test({
         "documents/versions#R5 documents/versions#R6 lophn-agent/conversation#R2 lophn-agent/conversation#R12: 7 저장한 고정 판을 열어 읽고 다시 띄운 뒤에도 원래 메시지·출처와 저장 문서로 돌아온다",
         async () => {
           const saved = await documentTitled(flow, SAVED_TITLE);
-          // 저장 링크가 없어(결함 (8)) 읽기 화면 대신 사람 token으로 그 고정 판을 읽는다.
+          const savedKey = `${saved.id}@${saved.latest_version}`;
+          // 블록 아래 저장 링크로 그 고정 판을 연다.
+          await flow.click(
+            `${DOCK} [data-visual-saved] [data-visual-document='${savedKey}']`,
+          );
+          await flow.until(
+            `document.querySelector("[data-reader='${saved.id}'] [data-reader-head]")?.innerText.includes(${
+              JSON.stringify(SAVED_TITLE)
+            })`,
+            "저장 링크로 고정 판이 열리지 않았다",
+          );
           await untilReadable(flow, saved.id, "저장한 문서를 읽을 수 없다");
           const read = await mustCall(flow, {
             kind: "worker",
@@ -521,6 +532,12 @@ Deno.test({
           assertEquals(
             await flow.count(`${DOCK} [data-visual-document='${sourceLink}']`),
             2,
+          );
+          // 블록 아래 저장 표시는 화면 안의 요청 기록이라 다시 열면 없다. 저장한 판은 그 답 메시지의
+          // 결과 링크로 돌아온다(conversation#R4).
+          await flow.until(
+            `document.querySelector("${DOCK} [data-result='${savedKey}']") !== null`,
+            "다시 연 도크에 저장 문서의 결과 링크가 없다",
           );
           const after = await listDocuments(flow);
           assert(

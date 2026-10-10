@@ -115,3 +115,77 @@ test("platform/backup-and-migration#R13: 복원 뒤 core가 같은 pipe로 보�
   assert.ok(urls.length > 0, "새 session으로 부르지 않았다");
   assert.ok(urls.every((url) => url.startsWith("http://127.0.0.1:2222/")));
 });
+
+test("shell/desktop#R7: 끊긴 구독은 스스로 다시 붙고 core 프로세스가 끝났거나 새 hello가 오면 옛 구독은 다시 붙지 않는다", async () => {
+  const listeners: ((payload: unknown) => void)[] = [];
+  const pushes: { state: string }[] = [];
+  const pending: (() => void)[] = [];
+  const waits: number[] = [];
+  const urls: string[] = [];
+  let ended = false;
+  const core = {
+    phase: "ready",
+    hello: Promise.resolve(
+      { api_port: 1111, core_epoch: "epoch-1", user_token: "token-1" },
+    ),
+    onMessage: (listener: (payload: unknown) => void) => {
+      listeners.push(listener);
+      return () => {};
+    },
+    stop() {},
+    diagnostic: () => false,
+    confirmation: () => false,
+    ended() {},
+  } as unknown as CoreProcess;
+  startCoreConnection({
+    launch: {} as never,
+    ipc: { handle: () => {} },
+    // core가 없는 것처럼 읽기가 실패한다.
+    fetch: ((url: string) => {
+      urls.push(url);
+      return Promise.reject(new Error("refused"));
+    }) as never,
+    sockets: { open: () => assert.fail("socket is not opened") },
+    clock: { now: () => 5000 },
+    targets: () => [{
+      send: (_channel, payload) => pushes.push(payload as { state: string }),
+      isDestroyed: () => false,
+    }],
+    reconnect: {
+      delay: (attempt) => 1000 * 2 ** attempt,
+      after(ms, run) {
+        waits.push(ms);
+        pending.push(run);
+        return () => {
+          const at = pending.indexOf(run);
+          if (at >= 0) pending.splice(at, 1);
+        };
+      },
+      allowed: () => !ended,
+    },
+    start: () => core,
+  });
+  await settle();
+  assert.deepEqual(pushes.map((push) => push.state), ["ready", "stale"]);
+  assert.equal(pending.length, 1);
+  // 대기가 끝나면 같은 core의 읽기를 다시 시도한다.
+  const reads = urls.length;
+  pending.shift()!();
+  await settle();
+  assert.ok(urls.length > reads, "다시 붙지 않았다");
+  assert.deepEqual(waits, [1000, 2000]);
+  assert.equal(pending.length, 1);
+  // 새 hello(복원 뒤 새 core)가 오면 옛 구독의 대기는 사라지고 새 구독만 시도한다.
+  for (const listener of listeners) {
+    listener({ api_port: 2222, core_epoch: "epoch-2", user_token: "token-2" });
+  }
+  await settle();
+  assert.equal(pending.length, 1);
+  assert.equal(waits.at(-1), 1000);
+  // core 프로세스가 끝났으면 대기가 끝나도 읽기를 보내지 않는다.
+  ended = true;
+  const before = urls.length;
+  pending.shift()!();
+  await settle();
+  assert.equal(urls.length, before);
+});

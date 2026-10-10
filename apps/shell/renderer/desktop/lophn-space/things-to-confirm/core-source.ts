@@ -5,6 +5,7 @@
 // 성공 응답은 route output 그대로다(envelope 없음, platform/api#R3).
 import type { CoreCall } from "../../../../ipc/core.ts";
 import type { CoreSource } from "../../connection/connection.ts";
+import { confirmsWithoutWindow } from "./model.ts";
 import type {
   ApprovalRequest,
   NotificationRow,
@@ -354,7 +355,7 @@ type ConfirmTerm = (input: {
   option_key: string;
 }) => Promise<{ ok: true } | { ok: false; code: string }>;
 
-/** term.define 확정. 확인 창을 열지 않는 main 통로다. 이 창에 없으면 undefined다. */
+/** term.define·app.create 확정. 확인 창을 열지 않는 main 통로다. 이 창에 없으면 undefined다. */
 function termConfirmation(): ConfirmTerm | undefined {
   const shell = (globalThis as {
     lophnShell?: { confirmTermDefinition?: ConfirmTerm };
@@ -583,13 +584,13 @@ export function coreRequestSource(
 
     async answer(question, answer) {
       // action 없는 답은 확인 handle 없이 일반 답 경로로 간다. 자유 답은 글을 값으로 싣고
-      // core가 redaction을 거쳐 blob으로 둔다(lophn-agent Q38). term.define만 확인 창 없이
+      // core가 redaction을 거쳐 blob으로 둔다(lophn-agent Q38). term.define·app.create만 확인 창 없이
       // main이 정본을 다시 읽어 접수한다. 그 밖 action은 [Review]로 보호 창을 연다.
       if (answer.kind === "option") {
         const chosen = question.options.find((option) =>
           option.key === answer.option
         );
-        if (chosen?.command === "term.define") {
+        if (confirmsWithoutWindow(chosen?.command)) {
           return await confirmTerm(question.id, answer.option);
         }
       }

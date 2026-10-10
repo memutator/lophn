@@ -784,11 +784,7 @@ const AGENT_STEPS: AgentStep[] = [
       },
       expires_at: null,
     }),
-  () => ({
-    text: "Pick a place when you are ready.",
-    usage: { input: 40, output: 9 },
-    stop: "end",
-  }),
+  // 질문을 낸 run은 답을 기다리므로 model을 다시 부르지 않는다.
 ];
 
 Deno.test({
@@ -865,13 +861,16 @@ Deno.test({
           resource: "runs",
           method: "list",
           body: { assignment: agent.id },
-        })).runs as { outcome: { kind: string } | null }[];
+        })).runs as { state: string; outcome: { kind: string } | null }[];
       const untilRuns = async (count: number) => {
         const deadline = Date.now() + 180_000;
         for (;;) {
           const rows = await runsOf();
           if (
-            rows.length === count && rows.every((row) => row.outcome !== null)
+            rows.length === count &&
+            rows.every((row) =>
+              row.outcome !== null || row.state === "waiting_user"
+            )
           ) return rows;
           assert(
             Date.now() < deadline,
@@ -936,8 +935,9 @@ Deno.test({
           await flow.type(COMPOSER, PLACE_ASK);
           await flow.click(SEND_BUTTON);
           const rows = await untilRuns(2);
-          assert(rows.every((row) => row.outcome !== null));
-          assertEquals(provider.calls(), 6);
+          // 질문을 낸 run은 답을 기다린다.
+          assertEquals(rows[1]?.state, "waiting_user");
+          assertEquals(provider.calls(), 5);
           // 자리 없는 문서 목록에 그 문서가 있고, 프로젝트 목록에 Alpha가 있다.
           assert(
             provider.body(3).includes(loose.id),
@@ -1001,6 +1001,16 @@ Deno.test({
           assertEquals(row.closed_reason, "deferred");
           assertEquals(row.answer, null);
           assertEquals(await placeOf(loose.id), null);
+          // 미루면 질문을 낸 run은 답 없음으로 끝난다.
+          for (;;) {
+            const second = (await runsOf())[1];
+            if (second?.outcome?.kind === "stopped") break;
+            assert(
+              Date.now() < deadline + 60_000,
+              "run이 답 없음으로 끝나지 않았다",
+            );
+            await new Promise((resolve) => setTimeout(resolve, 250));
+          }
           // 고르지 않은 추천이 나중에 적용되지 않는다: 다른 run도 이동도 없다.
           await new Promise((resolve) => setTimeout(resolve, 1_000));
           assertEquals((await runsOf()).length, 2);

@@ -6,7 +6,8 @@
 // 이 테스트는 기존 사람 command로 준비한 context에서 5의 화면·고정 section 읽기, 6~7의 실제 파일 관측·
 // watch·notification·전후 판 읽기, section 소실과 항목 제거·보관 갈래를 확인한다.
 // 마지막 테스트는 5의 agent 입력·권한 검사다. 초기 입력은 관점별 목차이고 본문은 요청한 section만이다.
-// 8의 contexts revert 진입은 아직 없다(shell#T36). 미확인·단절·범위 갈래는 T27의 남은 E2E다.
+// 8은 마지막 테스트다. contexts 화면에는 revert 진입이 없어 roles 화면의 끝난 일 검토에서 연다(그 테스트 머리 주석).
+// 미확인·단절·범위 갈래는 T27의 남은 E2E다.
 import { DatabaseSync } from "node:sqlite";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 
@@ -23,6 +24,7 @@ import {
   delay,
   documentTitled,
   type FlowShell,
+  listDocuments,
   mustCall,
   openFlowShell,
   registerTrackedProject,
@@ -3609,6 +3611,495 @@ Deno.test({
       await flow?.close();
       await provider?.close();
       await removeHome(home);
+      await Deno.remove(folder, { recursive: true });
+    }
+  },
+});
+
+// 8: Context Engineer가 끝낸 일(context 생성·항목 추가·설계 보고 문서)을 되돌린다.
+// 결함: shell#T36의 contexts 화면에는 revert 진입이 없다(Focus 상세에 되돌리기 단추가 없다). 진입은
+// roles 화면 역할의 끝난 일 검토 [되돌리기]뿐이라 그 진입으로 확인 창을 열고, 결과는 contexts 화면의
+// Focus(보관됨)와 reverts/list로 본다. 진입이 contexts 화면에 생기면 openRevert만 바꾼다.
+// 검사는 사람에게 보이지 않는다: reverts/preview가 지금의 event와 현재 판으로 만든 묶음을 먼저 읽고
+// (복원 가능: context·보고 문서, 유지: 대화 메시지의 감사 사실), 확인 창은 같은 묶음을 보인다.
+// 결정 전에는 아무것도 바뀌지 않는다. 불가·충돌 묶음과 후속 변경 갈래는 이 테스트가 만들지 않는다.
+const REVERT_CE = "context_engineer";
+
+type PreviewGroup = {
+  ordinal: number;
+  owner: string;
+  target: string | null;
+  capability: string;
+  reason: string | null;
+};
+
+Deno.test({
+  name:
+    "lophn-agent/revert#R1 lophn-agent/revert#R2 lophn-agent/revert#R3 lophn-agent/revert#R5 lophn-agent/revert#R6 lophn-agent/revert#R7 lophn-agent/revert#R9 shell/confirmation-window#R4 shell/confirmation-window#R5 flow build-context 8: 끝난 Context Engineer 일의 revert는 확인 창에서 결정하면 안전한 변경만 새 변경으로 복원하고 판단을 다시 시작하거나 기록을 지우지 않는다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn(t) {
+    const folder = await Deno.realPath(await copyFixture("korean-search"));
+    const provider = startDecisionScript();
+    let flow: FlowShell | undefined;
+    try {
+      flow = await openFlowShell({ start: "lophn" });
+      const shell = flow;
+      await mustCall(shell, {
+        kind: "command",
+        resource: "providers",
+        method: "register",
+        body: commandBody({
+          id: PROVIDER,
+          name: "fixture",
+          definition: {
+            key: "anthropic",
+            display_name: "Anthropic",
+            protocols: ["anthropic-messages"],
+            auth_kinds: ["none"],
+            models_endpoint: null,
+            oauth: null,
+            revision: "2026-01-01",
+          },
+          endpoint: provider.url,
+          protocol: "anthropic-messages",
+        }),
+      });
+      const defaults = await mustCall(shell, {
+        kind: "read",
+        resource: "agent-model-defaults",
+        method: "read",
+        body: {},
+      });
+      const seq = (defaults.defaults as { settings_seq: string }).settings_seq;
+      await mustCall(shell, {
+        kind: "command",
+        resource: "agent-model-defaults",
+        method: "change",
+        body: commandBody(
+          {
+            judgment: {
+              provider: PROVIDER,
+              credentials: [],
+              model_name: MODEL,
+              reasoning_level: "provider_default",
+              options: {},
+            },
+            organizing: null,
+            settings_seq: seq,
+          },
+          { settings_seq: seq },
+        ),
+      });
+      await registerTrackedProject(shell, { folder });
+      await untilDocuments(shell, ["glossary", "migration"], "문서 관측 대기");
+      await untilSearch(
+        shell,
+        "용어",
+        (page) => page.results.length > 0,
+        "목차 반영 대기",
+      );
+      const glossary = await documentTitled(shell, "glossary");
+      const migration = await documentTitled(shell, "migration");
+      const assignments = await mustCall(shell, {
+        kind: "read",
+        resource: "assignments",
+        method: "list",
+        body: {},
+      });
+      const engineer = (assignments.assignments as {
+        id: string;
+        role: string;
+      }[]).find((entry) => entry.role === REVERT_CE);
+      assert(engineer !== undefined, "Context Engineer assignment가 없다");
+      type RunRow = {
+        id: string;
+        state: string;
+        outcome: { kind: string } | null;
+      };
+      const runsOf = async (): Promise<RunRow[]> =>
+        (await mustCall(shell, {
+          kind: "read",
+          resource: "runs",
+          method: "list",
+          body: { assignment: engineer.id },
+        })).runs as RunRow[];
+      const previewOf = async (run: string): Promise<PreviewGroup[]> =>
+        (await mustCall(shell, {
+          kind: "read",
+          resource: "reverts",
+          method: "preview",
+          body: { run },
+        })).groups as PreviewGroup[];
+      type RevertRow = {
+        id: string;
+        run: string;
+        outcome: string;
+        changes: {
+          owner: string;
+          capability: string;
+          result: string;
+          source_seqs: string[];
+          restored_seqs: string[];
+        }[];
+      };
+      const revertsOf = async (run: string): Promise<RevertRow[]> =>
+        (await mustCall(shell, {
+          kind: "read",
+          resource: "reverts",
+          method: "list",
+          body: { run },
+        })).reverts as RevertRow[];
+
+      let run = "";
+      let context = "";
+      let before: PreviewGroup[] = [];
+
+      // 되돌리기 진입: roles 화면 Context Engineer 역할의 끝난 일 검토에서 [되돌리기]를 누른다.
+      const openRevert = async () => {
+        if (await shell.count(`[data-review='${run}']`) === 0) {
+          await shell.click('[data-screen="roles"]');
+          await shell.until(
+            `[...document.querySelectorAll("[data-role]")].some((el) => el.textContent?.includes("Context Engineer"))`,
+            "Context Engineer 담당이 없다",
+          );
+          const marked = await shell.evaluate(`(() => {
+            const row = [...document.querySelectorAll("[data-role]")].find((el) =>
+              el.textContent?.includes("Context Engineer")
+            );
+            if (!row) return false;
+            row.setAttribute("data-flow-ce", "");
+            return true;
+          })()`);
+          assertEquals(marked, true);
+          await shell.click("[data-flow-ce]");
+          await shell.mouseClickText("[role=tab]", "Work");
+          await shell.until(
+            `document.querySelector("[data-work='${run}'] [data-action='review']") !== null`,
+            "역할의 일 목록에 그 run이 없다",
+          );
+          await shell.click(`[data-work='${run}'] [data-action='review']`);
+          await shell.until(
+            `document.querySelector("[data-review='${run}'] [data-review-basic]") !== null`,
+            "검토가 서지 않았다",
+          );
+        }
+        await shell.click("[data-action='undo']");
+        await shell.until(
+          `document.querySelector("[data-undo='opened']") !== null || document.querySelector("[data-undo='failed']") !== null`,
+          "되돌리기 결과가 서지 않았다",
+        );
+        assertEquals(await shell.count("[data-undo='opened']"), 1);
+      };
+
+      await t.step(
+        "lophn-agent/revert#R1: 정할 수 없는 경계를 묻고 사람이 정한 구성·설계 보고를 남긴 일이 끝나야 revert 대상이 된다",
+        async () => {
+          await sendToEngineer(shell, OPEN_ASK);
+          // 질문을 낸 run은 답을 기다린다. 사람이 자기 말로 답하면 run이 이어져 끝난다.
+          await untilDecision(provider, "ask-result", "경계 질문");
+          const own = `${EMBEDDED} [data-own-answer]`;
+          const sendAnswer = `${EMBEDDED} [data-send-answer]`;
+          await shell.until(
+            `document.querySelector(${JSON.stringify(own)}) !== null`,
+            "질문 칸이 서지 않았다",
+            120_000,
+          );
+          await shell.type(own, FREE_TEXT);
+          await shell.until(
+            `(() => { const button = document.querySelector(${
+              JSON.stringify(sendAnswer)
+            }); return button !== null && button.disabled === false; })()`,
+            "자유 답을 보낼 수 없다",
+          );
+          await shell.click(sendAnswer);
+          await untilDecision(provider, "asked", "질문 답 뒤 이어짐");
+          await untilEngineerDone(shell, provider, "경계 질문이 끝나지 않았다");
+          await sendToEngineer(shell, DIRECT_ASK);
+          await untilDecision(provider, "done", "구성 기록");
+          await shell.until(
+            `document.querySelector(${
+              JSON.stringify(EMBEDDED)
+            })?.innerText.includes(${JSON.stringify(RECORDED)})`,
+            "구성 기록이 대화에 없다",
+            180_000,
+          );
+          context = provider.context();
+          const deadline = Date.now() + 60_000;
+          for (;;) {
+            const rows = await runsOf();
+            if (
+              rows.length >= 2 && rows.every((row) => row.state === "finished")
+            ) {
+              break;
+            }
+            assert(
+              Date.now() < deadline,
+              `일이 끝나지 않았다: ${JSON.stringify(rows)}`,
+            );
+            await delay(250);
+          }
+          // 구성을 남긴 일을 찾는다: context owner 묶음이 있는 run.
+          for (const row of await runsOf()) {
+            const groups = await previewOf(row.id);
+            if (groups.some((group) => group.owner === "documents/contexts")) {
+              run = row.id;
+              before = groups;
+            }
+          }
+          assert(run !== "", "context 변경을 가진 일이 없다");
+        },
+      );
+
+      await t.step(
+        "lophn-agent/revert#R2 lophn-agent/revert#R3 lophn-agent/revert#R9: 확정 변경 전체를 현재 판으로 검사해 복원 가능 묶음과 유지·불가·충돌 묶음을 이유와 함께 나눈다",
+        () => {
+          const reversible = before.filter((group) =>
+            group.capability === "reversible"
+          );
+          assertEquals(
+            reversible.map((group) => group.owner).sort(),
+            ["documents/contexts", "documents/versions"],
+            JSON.stringify(before),
+          );
+          // 대화 메시지는 감사 사실이라 복원하지 않고 남는다(남을 영향).
+          const retained = before.filter((group) =>
+            group.capability === "retained"
+          );
+          assertEquals(
+            retained.map((group) => [group.owner, group.reason]),
+            [["lophn-agent/conversation", "audit_fact"]],
+            JSON.stringify(before),
+          );
+          // 복원할 수 없거나 유지되는 묶음은 이유 코드를 단다. 이유 없는 묶음이 목록에서 빠지지도 않는다.
+          for (const group of before) {
+            if (group.capability !== "reversible") {
+              assert(group.reason !== null, JSON.stringify(group));
+            }
+          }
+        },
+      );
+
+      await t.step(
+        "shell/confirmation-window#R4 shell/confirmation-window#R5 lophn-agent/revert#R7: 되돌리기는 확인 창이 묶음을 먼저 보이고 닫기는 결정이 아니며 사람이 결정하기 전에는 아무것도 바뀌지 않는다",
+        async () => {
+          const callsBefore = provider.calls();
+          await openRevert();
+          let page: Awaited<ReturnType<FlowShell["shell"]["connect"]>> | null =
+            null;
+          const deadline = Date.now() + 30_000;
+          while (page === null) {
+            try {
+              page = await shell.shell.connect("lophn-shell://confirmation/");
+            } catch (error) {
+              assert(Date.now() < deadline, `확인 창이 없다: ${error}`);
+              await delay(250);
+            }
+          }
+          const confirmation = page;
+          const pageUntil = async (expression: string, what: string) => {
+            const limit = Date.now() + 30_000;
+            let last: unknown;
+            while (Date.now() < limit) {
+              try {
+                last = await confirmation.evaluate(expression);
+              } catch (error) {
+                last = String(error);
+              }
+              if (last) return last;
+              await delay(200);
+            }
+            throw new Error(`${what}: ${JSON.stringify(last)}`);
+          };
+          await pageUntil(
+            `document.querySelector("[data-groups='revert'] [data-capability]") !== null`,
+            "확인 창에 되돌릴 묶음이 없다",
+          );
+          const shown = JSON.parse(String(
+            await confirmation.evaluate(
+              `JSON.stringify([...document.querySelectorAll("[data-groups='revert'] [data-capability]")].map((el) => [el.getAttribute("data-capability"), el.getAttribute("data-included")]))`,
+            ),
+          )) as [string, string][];
+          // 확인 창의 묶음 수와 복원 가능 수는 방금 읽은 검사와 같다.
+          assertEquals(shown.length, before.length, JSON.stringify(shown));
+          assertEquals(
+            shown.filter(([capability]) => capability === "reversible").length,
+            before.filter((group) => group.capability === "reversible").length,
+          );
+          // 닫기(취소)는 적용 결정이 아니다. 아무 revert도 시작하지 않고 다시 열 수 있다.
+          await confirmation.evaluate(
+            `document.querySelector("[data-action='cancel']").click()`,
+          );
+          await delay(1500);
+          assertEquals(await revertsOf(run), []);
+          assertEquals(
+            (await mustCall(shell, {
+              kind: "read",
+              resource: "contexts",
+              method: "get",
+              body: { context },
+            })).context !== undefined,
+            true,
+          );
+          assertEquals(provider.calls(), callsBefore);
+        },
+      );
+
+      await t.step(
+        "lophn-agent/revert#R5 lophn-agent/revert#R6: 다시 열어 명시적으로 결정하면 안전한 복원 가능 변경만 새 변경으로 복원되고 같은 revert는 한 번만 적용된다",
+        async () => {
+          await openRevert();
+          let page: Awaited<ReturnType<FlowShell["shell"]["connect"]>> | null =
+            null;
+          const deadline = Date.now() + 30_000;
+          while (page === null) {
+            try {
+              // connect는 urlPart별로 연결을 캐시하므로 닫힌 첫 창의 연결을 다시 받지 않게 다른 urlPart로 잇는다.
+              page = await shell.shell.connect("lophn-shell://confirmation");
+            } catch (error) {
+              assert(Date.now() < deadline, `확인 창이 없다: ${error}`);
+              await delay(250);
+            }
+          }
+          const confirmation = page;
+          const limit = Date.now() + 30_000;
+          while (
+            await confirmation.evaluate(
+              `document.querySelector("[data-decision='RevertRun']") !== null`,
+            ) !== true
+          ) {
+            assert(Date.now() < limit, "결정 단추가 서지 않았다");
+            await delay(200);
+          }
+          // 결정하면 창이 닫혀 evaluate가 돌아오지 못하므로 click은 다음 turn에 맡기고 먼저 돌려준다.
+          await confirmation.evaluate(
+            `(() => { const button = document.querySelector("[data-decision='RevertRun']"); setTimeout(() => button.click(), 0); return true; })()`,
+          );
+          // 남는 영향이 섞이면 두 번째 확인 단계가 선다. 사람이 그 영향을 확인해야 나머지가 복원된다.
+          await delay(500);
+          try {
+            if (
+              await confirmation.evaluate(
+                `document.querySelector("[data-decision='RevertRun'][data-step='second']") !== null`,
+              ) === true
+            ) {
+              await confirmation.evaluate(
+                `(() => { const button = document.querySelector("[data-decision='RevertRun'][data-step='second']"); setTimeout(() => button.click(), 0); return true; })()`,
+              );
+            }
+          } catch { /* 결정 뒤 창이 이미 닫혔다 */ }
+          const until = Date.now() + 60_000;
+          let rows = await revertsOf(run);
+          while (!(rows.length > 0 && rows[0]!.outcome !== "applying")) {
+            assert(
+              Date.now() < until,
+              `revert가 끝나지 않았다: ${JSON.stringify(rows)}`,
+            );
+            await delay(250);
+            rows = await revertsOf(run);
+          }
+          assertEquals(rows.length, 1, JSON.stringify(rows));
+          assert(
+            ["applied", "partial"].includes(rows[0]!.outcome),
+            JSON.stringify(rows),
+          );
+          const restored = rows[0]!.changes.filter((change) =>
+            change.result === "restored"
+          );
+          assertEquals(
+            restored.length,
+            before.filter((group) => group.capability === "reversible").length,
+            JSON.stringify(rows),
+          );
+          // 복원은 원래 event를 지우지 않고 새 event로 남는다: 원본 seq와 복원 seq가 다르다.
+          for (const change of restored) {
+            assert(change.source_seqs.length > 0, JSON.stringify(change));
+            assert(change.restored_seqs.length > 0, JSON.stringify(change));
+            for (const seq of change.restored_seqs) {
+              assertEquals(change.source_seqs.includes(seq), false);
+            }
+          }
+          // 남는 영향은 복원됐다고 세지 않는다: 대화 메시지는 유지로 남고 복원 event가 없다.
+          const stays = rows[0]!.changes.filter((change) =>
+            change.capability === "retained"
+          );
+          assertEquals(
+            stays.map((change) => [change.owner, change.result]),
+            [["lophn-agent/conversation", "retained"]],
+          );
+          assertEquals(stays[0]!.restored_seqs, []);
+          // 복원되지 않은 변경은 복원됐다고 세지 않는다.
+          for (const change of rows[0]!.changes) {
+            if (change.result !== "restored") {
+              assert(
+                change.capability !== "reversible",
+                JSON.stringify(change),
+              );
+            }
+          }
+        },
+      );
+
+      await t.step(
+        "lophn-agent/revert#R5 documents/contexts#R7: 복원은 context와 만든 문서를 보관할 뿐 삭제하지 않고 원자료는 그대로이며 원래 판단은 다시 시작하지 않는다",
+        async () => {
+          const stored = await mustCall(shell, {
+            kind: "read",
+            resource: "contexts",
+            method: "get",
+            body: { context },
+          });
+          assertEquals(
+            (stored.context as { status?: string }).status,
+            "archived",
+            JSON.stringify(stored.context),
+          );
+          const archived = await listDocuments(shell, "archived");
+          assert(
+            archived.some((row) => row.title === DECISION_REPORT),
+            "설계 보고 문서가 보관되지 않았다",
+          );
+          assertEquals(
+            (await documentTitled(shell, "glossary")).latest_version,
+            glossary.latest_version,
+          );
+          assertEquals(
+            (await documentTitled(shell, "migration")).latest_version,
+            migration.latest_version,
+          );
+          // 원래 일과 질문은 그대로 읽히고 model은 다시 불리지 않았다.
+          const rows = await runsOf();
+          assertEquals(rows.length, 2);
+          assert(
+            rows.every((row) => row.outcome?.kind === "completed"),
+            JSON.stringify(rows),
+          );
+          assertEquals((await questionsOf(shell)).length, 1);
+          assertEquals(provider.failure(), "");
+          // contexts 화면은 같은 Focus를 보관됨으로 남겨 두고 사라지게 하지 않는다.
+          await shell.click('[data-screen="documents"]');
+          await shell.click('[data-screen="contexts"]');
+          await shell.until(
+            `document.querySelector("[data-focus-list]") !== null`,
+            "Focus 목록이 없다",
+          );
+          await shell.click('[data-focus-list] [role="checkbox"]');
+          await shell.until(
+            `document.querySelector('[data-focus="${context}"]') !== null`,
+            "보관된 Focus가 목록에 없다",
+          );
+          await shell.click(`[data-focus="${context}"]`);
+          await shell.until(
+            `document.querySelector("[data-focus-archived]") !== null`,
+            "Focus 보관 표시가 없다",
+          );
+        },
+      );
+    } finally {
+      await flow?.close();
+      await provider.close();
+      if (flow !== undefined) await removeHome(flow.home);
       await Deno.remove(folder, { recursive: true });
     }
   },

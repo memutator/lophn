@@ -643,10 +643,17 @@ Deno.test({
               throw new Error(`${error} 줄: ${row}`);
             }
           };
+          // 앞 step이 끝나면 패널이 닫혀 있을 수 있어 같은 탭을 연 채로 시작한다.
+          await openTab(flow, "Connections", "connections");
           await untilEnabled("[Review connection]이 다시 활성이 아니다");
           // 거절한 뒤.
           await click();
           await untilDecisionWindow(flow, "reject_approval_request");
+          assertEquals(
+            await flow.count(ROW),
+            1,
+            "확인 창이 열린 동안 Connections 줄이 사라졌다",
+          );
           await decide(flow, "reject_approval_request");
           await untilEnabled(
             "거절 뒤 같은 탭의 [Review connection]이 다시 활성이 되지 않았다",

@@ -708,3 +708,50 @@ Deno.test("coding-agent/cli#R40: 같은 권한의 process는 고른 파일·inte
     await Deno.remove(w.base, { recursive: true });
   }
 });
+
+Deno.test("coding-agent/cli#R8 coding-agent/harnesses#R2: harness refresh만 감지가 찾은 제품 실행 파일의 정확한 경로를 --allow-run으로 더하고 다른 command와 감지 없음에는 더하지 않는다", async () => {
+  // temp PATH에 가짜 claude 파일만 둔다. 실제 제품·실제 home은 열지 않는다(감지는 읽기만 한다).
+  const dir = await Deno.makeTempDir({ prefix: "lophn-refresh-run-" });
+  try {
+    await Deno.mkdir(`${dir}/bin`);
+    await Deno.mkdir(`${dir}/empty`);
+    const claude = `${dir}/bin/claude`;
+    await Deno.writeTextFile(claude, "#!/bin/sh\nexit 0\n");
+    await Deno.chmod(claude, 0o755);
+    const plan = (argv: string[], path: string) =>
+      planCliPermissions(argv, {
+        env: {
+          get: (name: string) =>
+            ({ PATH: path, HOME: dir, LOPHN_HOME: `${dir}/.lophn` })[name],
+        },
+        cwd: dir,
+        home: dir,
+      });
+    const onBin = `${dir}/bin`;
+    // refresh는 감지 경로 하나만 정확히 더한다. 일반 `--allow-run`·폴더 prefix는 없다.
+    assertEquals(await plan(["harness", "refresh"], onBin), [
+      `--allow-run=${claude}`,
+    ]);
+    // detect와 install은 제품 실행 파일을 더하지 않는다(install은 설정 파일 쓰기만 더한다).
+    assertEquals(await plan(["harness", "detect"], onBin), []);
+    const install = await plan(
+      [
+        "harness",
+        "install",
+        "--input",
+        JSON.stringify({
+          target: target("claude"),
+          components: ["mcp"],
+          operation_id: "op_refresh_run",
+        }),
+      ],
+      onBin,
+    );
+    assert(install.length > 0);
+    assertFalse(install.some((flag) => flag.startsWith("--allow-run")));
+    // 감지가 없으면(PATH에 제품이 없으면) refresh도 아무것도 더하지 않는다.
+    assertEquals(await plan(["harness", "refresh"], `${dir}/empty`), []);
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});

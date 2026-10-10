@@ -765,3 +765,480 @@ Deno.test({
     }
   },
 });
+
+// ---- flow 5: 사람 확인이 필요한 command ---------------------------------------------------------------------------
+// 부르는 앱(todo)이 보관 캘린더(calendar fixture를 따로 등록한 앱)의 delete_all_events(confirm=true)를 부른다.
+// 위 test의 앱 쌍과 선언은 그대로 두고 앱 하나(보관 캘린더)만 더한다. 반대 방향·대상 command가 사라지는 갈래·
+// 재귀·깊이 상한은 이 test가 돌리지 않는다(계획 T27 상태 줄).
+
+const ARCHIVE = "app_01h455vb4pex5v6nkc6gd5fdw8";
+const ARCHIVE_RELEASE = "rel_01h455vb4pex5v6nkc6gd5fdw9";
+const CALENDAR_PACKAGES = ["@lophn/cap-net", "@lophn/cap-secret"];
+
+/** core를 멈춘 동안 보관 캘린더의 앱 행과 active release 행을 심는다. */
+function seedArchive(home: string, bundle: Bundle): void {
+  seedLedger(home, [{
+    bundle,
+    slug: "archive",
+    name: "Archive calendar",
+    verification: "vrf_01h455vb4pex5v6nkc6gd5fdw8",
+  }]);
+}
+
+/** 앱 DB의 한 칸을 읽기 전용으로 읽는다. */
+function titlesOf(home: string, app: string, table: string): string[] {
+  const db = new DatabaseSync(`${home}/apps/${app}/data/app.sqlite`, {
+    readOnly: true,
+  });
+  try {
+    return (db.prepare(`select title from ${table} order by id`).all() as {
+      title: string;
+    }[]).map((row) => row.title);
+  } finally {
+    db.close();
+  }
+}
+
+/** 사람이 `hash` 공간으로 간다. 앱 공간이면 `[data-space="app"]`, lophn 공간이면 사이드바가 선다. */
+async function goTo(flow: FlowShell, hash: string): Promise<void> {
+  await flow.evaluate(
+    `(() => { location.hash = ${
+      JSON.stringify(hash)
+    }; location.reload(); return true; })()`,
+  );
+  await delay(500);
+  await flow.until(
+    hash.startsWith("#app=")
+      ? `document.querySelector('[data-space="app"]') !== null`
+      : `document.querySelector('[data-screen="things-to-confirm"]') !== null`,
+    `${hash} 공간이 서지 않았다`,
+  );
+}
+
+/** 사람이 `app`의 app-detail에서 `tab` 탭을 연다. */
+async function openTabOf(
+  flow: FlowShell,
+  app: string,
+  tab: string,
+  body: string,
+): Promise<void> {
+  const detail = `[data-app-detail="${app}"]`;
+  if (await flow.count(detail) === 0) {
+    await flow.click('[data-app-bar="app-details"]');
+    await flow.until(
+      `document.querySelector(${JSON.stringify(detail)}) !== null`,
+      "app-detail이 서지 않았다",
+    );
+  }
+  await flow.mouseClickText(`${detail} [role="tab"]`, tab);
+  await flow.until(
+    `document.querySelector('[data-tab-body="${body}"]') !== null`,
+    `${tab} 탭이 서지 않았다`,
+  );
+}
+
+/**
+ * 사람이 `app`의 Connections 탭에서 `target` 줄의 `button`을 눌러 보호 창을 열고, 창의 글을 돌려준다.
+ * 결정이 끝난 줄의 단추는 탭을 다시 열기 전까지 막혀 있어 Access 탭을 거쳐 돌아온다(위 press와 같다).
+ */
+async function openConnectionWindow(
+  flow: FlowShell,
+  app: string,
+  target: string,
+  button: string,
+): Promise<string> {
+  await openTabOf(flow, app, "Access", "access");
+  await openTabOf(flow, app, "Connections", "connections");
+  const row = `[data-connection="${target}"] ${button}`;
+  await flow.until(
+    `document.querySelector('${row}') !== null`,
+    `${button} 단추가 없다`,
+  );
+  await flow.evaluate(
+    `(() => { document.querySelector('${row}').click(); return true; })()`,
+  );
+  return await untilDecisionWindow(flow, "grant_approval_request");
+}
+
+/**
+ * 앱 화면이 command를 한 번만 부른다. 사람 확인을 기다리는 호출이라 결과를 기다리지 않고(화면을 옮기면
+ * 이 화면의 답은 사라진다) 호출 하나가 앱에 닿았는지는 호출한 앱의 invocation 기록으로 본다.
+ */
+async function fireCall(
+  flow: FlowShell,
+  command: string,
+  input: Record<string, string | number> | null,
+): Promise<void> {
+  const call = `window.__fired = "pending"; window.lophnApp.call(${
+    JSON.stringify(command)
+  }, ${
+    JSON.stringify(input)
+  }).then(() => { window.__fired = "ok"; }, (error) => { window.__fired = "failed:" + String(error && error.message || error); })`;
+  const deadline = Date.now() + 40_000;
+  let last = "";
+  while (Date.now() < deadline) {
+    last = String(
+      await flow.shell.mainEvaluate(
+        `(async () => { const view = ${APP_VIEW}; if (!view) return "no-view";
+          if (await view.executeJavaScript('typeof window.lophnApp?.call === "function"') !== true) return "no-bridge";
+          view.executeJavaScript(${
+          JSON.stringify(call)
+        }).catch(() => undefined);
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+          return await view.executeJavaScript("window.__fired"); })()`,
+      ),
+    );
+    // 사람 결정을 기다리는 호출은 아직 pending이다. 앱이 다시 뜨기 전에 열린 화면의 답은 사람이 앱 공간을 다시 연다.
+    if (last === "pending") return;
+    if (
+      last === "ok" ||
+      (last.startsWith("failed:") && !last.includes("the app view changed"))
+    ) {
+      throw new Error(`결정을 기다리지 않고 호출이 끝났다: ${last}`);
+    }
+    if (last.includes("the app view changed")) {
+      await goTo(
+        flow,
+        `#app=${
+          (await flow.evaluate("location.hash") as string).slice("#app=".length)
+        }`,
+      );
+    }
+    await delay(300);
+  }
+  throw new Error(`앱 화면이 호출을 받지 않았다: ${last}`);
+}
+
+async function countOf(
+  flow: FlowShell,
+  app: string,
+  command: string,
+): Promise<number> {
+  return (await invocationsOf(flow, app)).filter((row) =>
+    row.operation.kind === "command" && row.operation.command === command
+  ).length;
+}
+
+/** 호출한 앱의 `command` invocation이 `count`개 이상이고 모두 끝날 때까지 기다린다. */
+async function untilSettled(
+  flow: FlowShell,
+  app: string,
+  command: string,
+  count: number,
+  timeoutMs = 90_000,
+): Promise<InvocationRow[]> {
+  let rows: InvocationRow[] = [];
+  await untilTrue(`${command} 호출 기록이 끝나지 않았다`, async () => {
+    rows = (await invocationsOf(flow, app)).filter((row) =>
+      row.operation.kind === "command" && row.operation.command === command
+    );
+    return rows.length >= count &&
+      rows.every((row) =>
+        ["succeeded", "failed", "denied", "unknown"].includes(row.status)
+      );
+  }, timeoutMs);
+  return rows;
+}
+
+/**
+ * 사람이 things-to-confirm에서 기다리는 결정 하나를 열어 창의 글을 돌려준다. `decision`이 있으면 누르고,
+ * 없으면 결정하지 않고 창을 닫는다(창 닫기는 결정이 아니다).
+ */
+async function reviewPending(
+  flow: FlowShell,
+  decision: string | null,
+): Promise<string> {
+  await goTo(flow, "#lophn");
+  await flow.click('[data-screen="things-to-confirm"]');
+  try {
+    await flow.until(
+      `document.querySelector("[data-next='approval']:not([disabled])") !== null`,
+      "기다리는 결정이 없다",
+      60_000,
+    );
+  } catch (error) {
+    throw new Error(
+      `${error} ${JSON.stringify(await confirmApprovalsOf(flow))} ${
+        JSON.stringify(
+          (await invocationsOf(flow, CALLER)).map((row) => [
+            row.operation,
+            row.status,
+          ]),
+        )
+      } ${await flow.text("body")}`,
+    );
+  }
+  await flow.click("[data-next='approval']");
+  await flow.until(
+    `document.querySelector("[data-detail] [data-review]") !== null`,
+    "결정 상세에 확인 단추가 없다",
+  );
+  await flow.click("[data-detail] [data-review]");
+  const shown = await untilDecisionWindow(
+    flow,
+    decision ?? "grant_approval_request",
+  );
+  if (decision === null) await closeConfirmationWindows(flow);
+  else {
+    await decide(flow, decision);
+    await delay(1_500);
+    await closeConfirmationWindows(flow);
+  }
+  return shown;
+}
+
+type ApprovalRow = {
+  id: string;
+  status: string;
+  action?: { command?: string };
+};
+
+/** 사람 token의 approval 읽기. 앱 쌍 호출의 확인 요청만 모은다. */
+async function confirmApprovalsOf(flow: FlowShell): Promise<ApprovalRow[]> {
+  const got = await mustCall(flow, {
+    kind: "read",
+    resource: "approvals",
+    method: "list",
+    body: {},
+  });
+  return (got.requests as ApprovalRow[]).filter((row) =>
+    row.action?.command === "invocation.accept_confirm"
+  );
+}
+
+Deno.test({
+  name:
+    "apps/connections#R3 apps/invocations#R16 platform/approvals#R1 R3 flow connect-apps 5단계: 사람 확인이 필요한 command는 정확한 결정 뒤에만 실행되고 거절·창 닫기는 실행하지 않으며 허락은 한 번만 쓰인다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn(t) {
+    const home = await Deno.makeTempDir({ prefix: "lophn-e2e-connect2-" });
+    await Deno.chmod(home, 0o700);
+    const first = await openFlowShell({ home });
+    await first.close();
+    const caller = await prepareFixture(
+      home,
+      TODO_FIXTURE,
+      CALLER,
+      CALLER_RELEASE,
+      ["@lophn/cap-fs"],
+    );
+    const archive = await prepareFixture(
+      home,
+      CALENDAR_FIXTURE,
+      ARCHIVE,
+      ARCHIVE_RELEASE,
+      CALENDAR_PACKAGES,
+    );
+    seedLedger(home, [{
+      bundle: caller,
+      slug: "todos",
+      name: "Todo",
+      verification: "vrf_01h455vb4pex5v6nkc6gd5fdw6",
+    }]);
+    seedArchive(home, archive);
+    await seedAppData(home, caller);
+    await seedAppData(home, archive);
+    const flow = await openFlowShell({ home, start: `app:${CALLER}` });
+    const keep = `Archive keep ${crypto.randomUUID().slice(0, 8)}`;
+    const useArchive = (command: string, title?: string) =>
+      appCall(
+        flow,
+        "use_archive_calendar",
+        title === undefined ? { command } : { command, title },
+      );
+    const grants = async (app: string, status: string) =>
+      (await grantsOf(flow, app)).filter((grant) =>
+        grant.kind === "app.call" && grant.status === status
+      );
+    try {
+      let callerNonce = await untilReady(
+        flow,
+        CALLER,
+        CALLER_RELEASE,
+        "todo가 뜨지 않았다",
+      );
+      await untilReady(
+        flow,
+        ARCHIVE,
+        ARCHIVE_RELEASE,
+        "보관 캘린더가 뜨지 않았다",
+      );
+      // 보관 캘린더에 일정 하나를 사람이 직접 넣는다(지우기가 지울 것이 있어야 결과를 구별한다).
+      await goTo(flow, `#app=${ARCHIVE}`);
+      const seeded = await appCall(flow, "add_event", {
+        title: keep,
+        starts_at: STARTS_AT,
+      });
+      assert(seeded.startsWith("ok:"), `일정을 넣지 못했다: ${seeded}`);
+      assertEquals(titlesOf(home, ARCHIVE, "event"), [keep]);
+      await goTo(flow, `#app=${CALLER}`);
+
+      await t.step(
+        "flow 3 전제: 허락한 적 없는 보관 캘린더 호출은 지우기도 되돌아오는 호출도 열리지 않는다",
+        async () => {
+          for (const command of ["delete_all_events", "send_to_todo"]) {
+            const refused = await useArchive(command, "x");
+            assert(
+              refused.startsWith("failed:"),
+              `허락 없이 대상 앱을 불렀다: ${refused}`,
+            );
+          }
+          assertEquals(await grants(CALLER, "active"), []);
+          assertEquals(titlesOf(home, ARCHIVE, "event"), [keep]);
+        },
+      );
+
+      await t.step(
+        "flow 2: 사람이 todo의 보관 캘린더 연결을 허락하면 선언한 두 command 범위로 앱 쌍이 열린다",
+        async () => {
+          const shown = await openConnectionWindow(
+            flow,
+            CALLER,
+            ARCHIVE,
+            "[data-review-connection]",
+          );
+          assert(shown.includes("Todo"), `부르는 앱 이름이 없다: ${shown}`);
+          assert(
+            shown.includes("Archive calendar"),
+            `대상 앱 이름이 없다: ${shown}`,
+          );
+          assert(
+            shown.includes("delete_all_events") &&
+              shown.includes("send_to_todo"),
+            `command 범위가 없다: ${shown}`,
+          );
+          await decide(flow, "grant_approval_request");
+          await untilTrue(
+            "앱 쌍 grant가 생기지 않았다",
+            async () => (await grants(CALLER, "active")).length === 1,
+          );
+          callerNonce = await untilReady(
+            flow,
+            CALLER,
+            CALLER_RELEASE,
+            "todo가 넓어진 범위로 다시 뜨지 않았다",
+            callerNonce,
+          );
+          const [grant] = await grants(CALLER, "active");
+          assertEquals(grant.scope.app, ARCHIVE);
+          assertEquals(grant.scope.commands, [
+            "delete_all_events",
+            "send_to_todo",
+          ]);
+          await closeConfirmationWindows(flow);
+        },
+      );
+
+      await t.step(
+        "flow 5 거절: 연결 허락은 지우기의 approval을 대신하지 않고, 사람이 거절하면 지우기는 실행되지 않는다",
+        async () => {
+          await goTo(flow, `#app=${CALLER}`);
+          const before = await countOf(flow, CALLER, "use_archive_calendar");
+          await fireCall(flow, "use_archive_calendar", {
+            command: "delete_all_events",
+          });
+          const shown = await reviewPending(flow, "reject_approval_request");
+          // 실제 호출 주체와 정확한 대상 앱·command가 보인다.
+          assert(shown.includes("Todo"), `호출 주체가 없다: ${shown}`);
+          assert(
+            shown.includes("Archive calendar"),
+            `대상 앱 이름이 없다: ${shown}`,
+          );
+          assert(
+            shown.includes("Delete all events"),
+            `command가 없다: ${shown}`,
+          );
+          await goTo(flow, `#app=${CALLER}`);
+          const rows = await untilSettled(
+            flow,
+            CALLER,
+            "use_archive_calendar",
+            before + 1,
+          );
+          assert(
+            !rows.some((row) => row.status === "succeeded"),
+            `거절했는데 호출이 성공했다: ${JSON.stringify(rows)}`,
+          );
+          assertEquals(titlesOf(home, ARCHIVE, "event"), [keep]);
+          assertEquals(
+            (await invocationsOf(flow, ARCHIVE)).filter((row) =>
+              row.operation.kind === "command" &&
+              row.operation.command === "delete_all_events" &&
+              row.status === "succeeded"
+            ).length,
+            0,
+          );
+        },
+      );
+      await t.step(
+        "flow 5 허락: 사람이 정확한 호출을 허락하면 지우기가 한 번 실행되고 caller 근거가 남으며, 같은 호출을 다시 하면 새 결정을 기다린다",
+        async () => {
+          await goTo(flow, `#app=${CALLER}`);
+          const before = await countOf(flow, CALLER, "use_archive_calendar");
+          await fireCall(flow, "use_archive_calendar", {
+            command: "delete_all_events",
+          });
+          const shown = await reviewPending(flow, "grant_approval_request");
+          assert(shown.includes("Todo"), `호출 주체가 없다: ${shown}`);
+          assert(
+            shown.includes("Delete all events"),
+            `command가 없다: ${shown}`,
+          );
+          await untilSettled(flow, CALLER, "use_archive_calendar", before + 1);
+          await untilTrue(
+            "허락했는데 일정이 지워지지 않았다",
+            () =>
+              Promise.resolve(titlesOf(home, ARCHIVE, "event").length === 0),
+            60_000,
+          );
+          const deleted = () =>
+            invocationsOf(flow, ARCHIVE).then((rows) =>
+              rows.filter((row) =>
+                row.operation.kind === "command" &&
+                row.operation.command === "delete_all_events"
+              )
+            );
+          await untilTrue(
+            "지우기 호출 기록이 끝나지 않았다",
+            async () =>
+              (await deleted()).some((row) => row.status === "succeeded"),
+            60_000,
+          );
+          const rows = await deleted();
+          assertEquals(
+            rows.filter((row) => row.status === "succeeded").length,
+            1,
+          );
+          const caller = rows[0].caller as Record<string, unknown>;
+          assertEquals(caller.kind, "app");
+          assertEquals(caller.app, CALLER);
+          assertEquals(caller.release, CALLER_RELEASE);
+          // 같은 호출을 다시 하면 옛 approval이 아니라 새 결정을 기다린다. 사람이 창을 닫으면 결정이 아니라서
+          // 실행되지 않고 기다림이 끝난다.
+          const again = await countOf(flow, CALLER, "use_archive_calendar");
+          await fireCall(flow, "use_archive_calendar", {
+            command: "delete_all_events",
+          });
+          await reviewPending(flow, null);
+          const settled = await untilSettled(
+            flow,
+            CALLER,
+            "use_archive_calendar",
+            again + 1,
+          );
+          assert(settled.length >= again + 1);
+          assertEquals(
+            (await deleted()).filter((row) => row.status === "succeeded")
+              .length,
+            1,
+          );
+        },
+      );
+    } finally {
+      await flow.close();
+      await removeTree(home);
+    }
+  },
+});

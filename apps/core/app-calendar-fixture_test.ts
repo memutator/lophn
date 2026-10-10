@@ -203,6 +203,7 @@ Deno.test("apps/blueprint#R5 apps/blueprint#R6 apps/automations#R13 apps/permiss
       delete_all_events: ["write", true, false],
       list_events: ["read", false, false],
       revert_event: ["write", false, false],
+      send_to_todo: ["external", false, false],
       sync_events: ["write", false, false],
     });
     assertEquals(

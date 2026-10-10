@@ -12,6 +12,8 @@ export const en = {
     "Read events from the external calendar and create events on it.",
   "common.reason.external-token":
     "Sign in to the external calendar with its token.",
+  "common.reason.todo":
+    "Create a todo in the todo app from an event.",
   "common.summary.app": "Keep events and sync them with an external calendar.",
   "events.button.add": "Add",
   "events.button.reload": "Reload",
@@ -28,6 +30,7 @@ export const en = {
   "events.label.new-starts": "Starts",
   "events.label.new-title": "Title",
   "events.label.revert-event": "Undo add event",
+  "events.label.send-to-todo": "Send to todo",
   "events.label.sync-events": "Sync events",
   "events.summary.add-event":
     "Save one new event on this calendar. Returns the saved event with its id. Undo it with revert_event.",
@@ -44,8 +47,11 @@ export const en = {
     "Read the events saved in this app, earliest first. Reads only.",
   "events.summary.revert-event":
     "Undo add_event with its invocation, receipt, and expected revision. Refuses duplicate undo and changes made afterward.",
+  "events.summary.send-to-todo":
+    "Create one todo with the given title in the todo app. This changes the todo app and can't be undone from here; nothing is saved in this app.",
   "events.summary.sync-events":
     "Fetch events from the external calendar and save them in this app; events already fetched are updated. The external calendar is only read.",
+  "events.summary.todo-title": "The title of the todo to create.",
   "events.title.screen": "Events",
 } as const;
 

@@ -1659,7 +1659,13 @@ async function storeReproduction(world: Ledger): Promise<{
 async function runStageThree(
   opened: Opened,
   ticket: { ticket: string; revision: string },
-  hashes: { test: string; after: string; content?: SealedContent },
+  // basis는 테스트 요청 때 읽은 문제 기준(seq)이다. 없으면 이전 단계의 "1"이다.
+  hashes: {
+    test: string;
+    after: string;
+    content?: SealedContent;
+    basis?: string;
+  },
 ): Promise<RepairScriptResult> {
   const home = await Deno.makeTempDir({ prefix: "lophn-repair-home-" });
   try {
@@ -1687,7 +1693,7 @@ async function runStageThree(
       release: REL_AFTER,
       bundle_hash: hashes.after,
       reports: [rpt(1)],
-      basis_seq: "1",
+      basis_seq: hashes.basis ?? "1",
       test: hashes.test,
       summary: STAGE3_SUMMARY,
       commit: COMMIT,
@@ -3226,6 +3232,7 @@ async function closingWorld(
       test: stored.testHash,
       after: fixed.hash,
       content: await sealedContent(root, opened.world.app, fixed.hash),
+      basis: problemSeq(root, opened.problem),
     });
     assertEquals(script.halted_before, "release_prepare");
     assertEquals(step(script, "record_fix").isError, false);
@@ -3330,6 +3337,20 @@ async function closingWorld(
   } catch (error) {
     await cleanup();
     throw error;
+  }
+}
+
+// 테스트를 요청할 때 읽는 문제 기준(seq)이다. 이 뒤에 접수된 같은 문제의 live Report만 새 보고다.
+function problemSeq(root: string, problem: string): string {
+  const db = openDb(`${root}/lophn.db`, true);
+  try {
+    return String(
+      (db.prepare(
+        "select cast(max(seq) as text) as seq from events where subject = ?",
+      ).get(problem) as { seq: string }).seq,
+    );
+  } finally {
+    db.close();
   }
 }
 
@@ -3441,6 +3462,12 @@ function eventCount(home: string, type: string, problem: string): number {
   } finally {
     db.close();
   }
+}
+
+// 결정이 끝난 창을 닫고 닫힌 것을 확인한다. 창 닫기는 결정이 아니다.
+async function settleWindow(flow: FlowShell): Promise<void> {
+  await closeWindow(flow);
+  await untilWindow(flow, false);
 }
 
 Deno.test({
@@ -3561,7 +3588,7 @@ Deno.test({
             assertEquals(closed.closure?.confirmation, null);
             // 적용도 닫힘도 새 test를 만들지 않는다.
             assertEquals(countRows(home, "verifications"), verificationsBefore);
-            await untilWindow(flow, false);
+            await settleWindow(flow);
             await reopenIssueDetail(flow);
             await flow.until(
               `document.querySelector('[data-issue-closed="verified"]') !== null`,
@@ -3598,7 +3625,7 @@ Deno.test({
             assertEquals(reopened.closure, null);
             assertEquals(eventCount(home, "ProblemReopened", problem), 1);
             // 같은 release에 같은 확인을 되묻지 않고 옛 reproduction 통과로 다시 닫지도 않는다.
-            await untilWindow(flow, false);
+            await settleWindow(flow);
             await delay(5_000);
             await untilWindow(flow, false);
             assertNotEquals((await problemOf(flow, problem)).status, "closed");
@@ -3635,7 +3662,7 @@ Deno.test({
             assertEquals(confirmed.closure?.release, REL_AFTER);
             // 사람의 확인은 reproduction 통과를 만들지 않는다.
             assertEquals(countRows(home, "verifications"), verificationsBefore);
-            await untilWindow(flow, false);
+            await settleWindow(flow);
             await reopenIssueDetail(flow);
             await flow.until(
               `document.querySelector('[data-issue-closed="user_confirmed"]') !== null`,

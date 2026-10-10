@@ -101,7 +101,11 @@ interface AppListValue {
 }
 
 interface BlueprintValue {
-  screens: { key: string; label: string; sizes: ("full" | "panel" | "card")[] }[];
+  screens: {
+    key: string;
+    label: string;
+    sizes: ("full" | "panel" | "card")[];
+  }[];
 }
 
 /** 목록을 끝까지 읽는 page 상한. 넘으면 모은 앱까지만 고를 수 있다. */

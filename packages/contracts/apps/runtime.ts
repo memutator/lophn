@@ -185,7 +185,9 @@ export const appRuntime = defineRead({
     observation: runtimeObservationSchema.nullable(),
     observed_at: atSchema.nullable(),
   })),
-  actors: readActors,
+  // machine은 agent runtime이 사람 허락 뒤 재검사할 때 프로세스 nonce를 읽는다.
+  // 그 순간 run은 waiting_user라 agent credential이 없다.
+  actors: [...readActors, "machine"],
   errors: readErrors,
 });
 

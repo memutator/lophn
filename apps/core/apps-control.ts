@@ -11,6 +11,7 @@ import {
   type Result,
 } from "../../packages/base/mod.ts";
 import {
+  appAgentConfirmProof,
   appAutomations,
   appBlueprint,
   appConnect,
@@ -29,6 +30,7 @@ import {
   type Grant,
   grantsList,
   invocationAcceptConfirm,
+  type InvocationAcceptConfirmInput,
   invocationRecordDenied,
   invocationRecordFinished,
   invocationRecordStarted,
@@ -72,6 +74,7 @@ import {
   createTargetAuthorizer,
   openConnection,
 } from "../../packages/platform/ledger/mod.ts";
+import { existingAcceptance } from "../../packages/apps/invocations/confirm.ts";
 import { loadApp } from "../../packages/apps/registration/mod.ts";
 import type { Writer } from "../../packages/platform/ledger/mod.ts";
 import {
@@ -168,10 +171,6 @@ const SUPERVISOR_OPERATIONS = [
   appRecordStarted.name,
   appRecordStopped.name,
   appRecordUnavailable.name,
-  // 앱이 broker로 보낸 invocation 후행 기록이다(architecture/apps 7.1).
-  invocationRecordStarted.name,
-  invocationRecordFinished.name,
-  invocationRecordDenied.name,
   appConnect.name,
   // 앱 쌍 연결 준비와 confirm은 core만 쥔 서명 key로 한다. 앱 자식의 요청을 supervisor가 신원과 함께 보낸다.
   appPairPrepare.name,
@@ -181,6 +180,10 @@ const SUPERVISOR_OPERATIONS = [
   // broker가 요청마다 현재 release 선언과 active grant를 다시 읽는다(apps/permissions#R2, R14).
   appBlueprint.name,
   grantsList.name,
+  // 앱이 broker로 보낸 invocation 기록은 이 자격이 core command로 전달한다.
+  invocationRecordStarted.name,
+  invocationRecordFinished.name,
+  invocationRecordDenied.name,
   // activation을 진행하는 supervisor는 시도의 참조·결과를 확정하고 시도의 현재 상태를 읽는다
   // (apps/releases#R12–R15, apps/data#R4). 시작은 사람 approval의 적용(`apply_approved_action`)이다.
   releaseRecordBackup.name,
@@ -196,14 +199,7 @@ const APP_CHILD_OPERATIONS = [reportProblem.name, observeException.name];
 // registry 상한. 이 목록에 없는 operation은 그 actor에게 발급하지 못한다.
 export function appsOperationPolicies(): OperationPolicy[] {
   return [
-    ...[
-      appRecordStarted,
-      appRecordStopped,
-      appRecordUnavailable,
-      invocationRecordStarted,
-      invocationRecordFinished,
-      invocationRecordDenied,
-    ].map((
+    ...[appRecordStarted, appRecordStopped, appRecordUnavailable].map((
       route,
     ): OperationPolicy => ({
       name: route.name,
@@ -233,6 +229,16 @@ export function appsOperationPolicies(): OperationPolicy[] {
       kind: "command",
     })),
     { name: grantsList.name, actors: ["machine"], kind: "command" },
+    // supervisor가 앱의 invocation 후행 기록을 core에 전달한다.
+    ...[
+      invocationRecordStarted,
+      invocationRecordFinished,
+      invocationRecordDenied,
+    ].map((route): OperationPolicy => ({
+      name: route.name,
+      actors: ["machine"],
+      kind: "command",
+    })),
     ...[
       releaseRecordBackup,
       releaseRecordDataChange,
@@ -902,6 +908,35 @@ export async function createAppsControl(
 
   // 사람의 shell이 닫은 화면 view를 그 앱의 지금 live 자식에 중계한다. 앱 프로세스 nonce는
   // supervisor가 지금 쥔 자식에서 정하고 본문에서 받지 않는다. 범위 밖 앱은 없는 앱과 같다.
+  // agent caller의 confirm proof. apply_approved_action이 만든 접수를 core key로 서명해 돌려준다.
+  // 새 접수와 approval 사용은 여기 없다. 앱·direct caller는 이 길로 받지 않는다.
+  const agentConfirmProof: MemoryHandler = async (_ctx, value) => {
+    const input = value as InvocationAcceptConfirmInput;
+    if (input.caller.kind !== "agent") {
+      return err({
+        code: "forbidden",
+        message: "confirm caller is not an agent",
+      });
+    }
+    const opened = openConnection(deps.ledgerPath);
+    if (!opened.ok) {
+      return err({ code: "unavailable", message: "ledger is unavailable" });
+    }
+    try {
+      const found = existingAcceptance(opened.value.sql, input);
+      if (!found.ok) return found;
+      if (found.value === undefined) {
+        return err({ code: "not_found", message: "acceptance not found" });
+      }
+      const proof = await signer.signConfirmProof(found.value.proof);
+      return ok({ invocation: found.value.invocation, proof });
+    } catch {
+      return err({ code: "unavailable", message: "ledger is unavailable" });
+    } finally {
+      opened.value.close();
+    }
+  };
+
   const viewClosed: MemoryHandler = async (ctx, value) => {
     const input = value as AppViewClosedInput;
     if (!deps.revalidate(ctx.credential_ref).ok) {
@@ -938,6 +973,10 @@ export async function createAppsControl(
     memory: new Map<string, MemoryHandler>([
       [`${appConnect.resource}/${appConnect.method}`, connect],
       [`${appViewClosed.resource}/${appViewClosed.method}`, viewClosed],
+      [
+        `${appAgentConfirmProof.resource}/${appAgentConfirmProof.method}`,
+        agentConfirmProof,
+      ],
       [`${appPairPrepare.resource}/${appPairPrepare.method}`, pairPrepare],
       [
         `${appPairConfirmRequest.resource}/${appPairConfirmRequest.method}`,

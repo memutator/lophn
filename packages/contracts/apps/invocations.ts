@@ -4,6 +4,7 @@ import {
   atSchema,
   defineCommand,
   defineEvent,
+  defineMemory,
   defineRead,
   idempotencyKeySchema,
   jsonObjectSchema,
@@ -13,6 +14,7 @@ import {
 import {
   confirmExecutionProofSchema,
   invocationCallerSchema,
+  signedConfirmProofSchema,
 } from "./channel.ts";
 import {
   appIdSchema,
@@ -231,6 +233,27 @@ export const invocationAcceptConfirm = defineCommand({
   output: invocationAcceptConfirmOutputSchema,
   actors: recordActors,
   errors: ["forbidden", "conflict", "invalid_input", "unavailable"],
+});
+
+// agent caller가 이미 접수된 confirm을 앱에 보낼 때 붙이는 서명 proof.
+// 입력은 접수 입력 그대로이고, 출력 proof는 core 서명이다. 이 route는 접수나 approval 사용을 만들지 않는다.
+export const appAgentConfirmProof = defineMemory({
+  resource: "apps",
+  method: "agent_confirm_proof",
+  name: "app.agent_confirm_proof",
+  input: invocationAcceptConfirmInputSchema,
+  output: z.object({
+    invocation: invocationIdSchema,
+    proof: signedConfirmProofSchema,
+  }),
+  actors: ["machine"],
+  errors: [
+    "forbidden",
+    "not_found",
+    "conflict",
+    "invalid_input",
+    "unavailable",
+  ],
 });
 export const invocationRecordStarted = defineCommand({
   resource: "invocations",

@@ -2869,15 +2869,12 @@ Deno.test({
             "자유 답을 보낼 수 없다",
           );
           await shell.click(sendAnswer);
-          await shell.until(
-            `document.querySelector(${
-              JSON.stringify(`${EMBEDDED} [data-problem]`)
-            }) !== null || document.querySelector(${
-              JSON.stringify(`${EMBEDDED} [data-answer]`)
-            }) !== null`,
-            "자유 답이 접수도 거절도 되지 않았다",
-            30_000,
-          );
+          // 질문을 기다리는 run이 있으므로 자유 답은 해당 질문의 답으로 접수된다.
+          const answerBy = Date.now() + 30_000;
+          while ((await questionsOf(shell))[0]?.status !== "answered") {
+            assert(Date.now() < answerBy, "자유 답이 접수되지 않았다");
+            await delay(250);
+          }
           await sendToEngineer(shell, FREE_TEXT);
           await untilDecision(provider, "freed", "자유 답 보류");
           await shell.until(

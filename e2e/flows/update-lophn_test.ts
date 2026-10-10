@@ -1,4 +1,4 @@
-// flow update-lophn 1·2·3·4·5·6단계(docs/flows/update-lophn.md). 실제 ~/.lophn은 열지 않는다.
+// flow update-lophn 1·2·3·4·5·6·7·8단계(docs/flows/update-lophn.md). 실제 ~/.lophn은 열지 않는다.
 // 1·2단계는 실제 shell(headless)과 core를 임시 LOPHN_HOME으로 띄운다.
 // 1단계: settings에서 이 OS의 설치 패키지를 확인하고 사람이 고른 로컬 metadata로 수동 update를
 // 고른다. 자동 다운로드·자동 설치·사용 중 재시작은 없고, 검증하지 않은 배포를 사용 가능한
@@ -17,7 +17,13 @@
 // 중단 지점에 멈추고 같은 데이터 root로 core를 다시 띄운 뒤, 새 runtime이 끊긴 일을 저장된
 // 경계에서 복구한다. 완전 응답·확정 결과와 결과를 모르는 쓰기는 반복하지 않는다. provider는
 // fake provider다.
-// 7–8단계는 보지 않는다.
+// 7단계: 실제 shell(headless)과 core를 임시 LOPHN_HOME으로 띄워 프로젝트 탭(문서 둘·터미널)을
+// 열고, settings의 정상 정지로 update를 멈춘 뒤 같은 홈으로 shell을 다시 띄운다. 탭 순서·선택 탭·
+// 문서 읽던 위치를 이어 쓰고, 터미널은 종료된 자리표시로 남아 사람이 새로 시작하기 전에는 명령을
+// 다시 실행하지 않는다.
+// 8단계: 같은 흐름으로 update를 멈추고 같은 홈으로 shell을 다시 띄운 뒤, 사람 token의 health read가
+// 구성 요소별 현재 가용성과 읽는 시각의 관측 시각을 주는지, 중단된 앱 invocation이 성공으로
+// 채워지지 않고 확인 불가로 남는지, update 화면이 재기동만으로 완료·검증을 주장하지 않는지 본다.
 import { assert, assertEquals, assertThrows } from "@std/assert";
 import { type ChildProcess, spawn } from "node:child_process";
 import { DatabaseSync } from "node:sqlite";
@@ -61,10 +67,14 @@ import {
 } from "../../apps/core/testing/run-recovery-world.ts";
 import { e2eEnabled } from "../harness.ts";
 import {
+  documentTitled,
   type FlowShell,
   mustCall,
   openFlowShell,
+  PROJECT as WORKSPACE_PROJECT,
+  registerTrackedProject,
   removeHome,
+  untilDocuments,
 } from "../flow-support.ts";
 
 const OFFERED = "0.9.0";
@@ -2369,5 +2379,587 @@ Deno.test({
         }
       },
     );
+  },
+});
+
+// 7단계. 프로젝트 등록·추적은 화면이 없는 사람 조작이라 core 통로(사람 token)로 하고, 탭 열기·
+// 읽기 위치·터미널·settings의 정상 정지는 화면으로 한다.
+const GONE_DOCUMENT = "doc_01m4jarqepdwdcnxj75vykyd00";
+const LATER_TEXT = [
+  "# Later",
+  "",
+  "Keep this sentence.",
+  ...Array.from(
+    { length: 80 },
+    (_, index) => `\nParagraph ${index} stays in the first version.`,
+  ),
+  "",
+].join("\n");
+
+type StoredTab = {
+  kind: string;
+  key: string;
+  document?: string;
+  project_folder?: string;
+  read_position?: { scroll_offset?: number };
+};
+
+async function storedPanes(
+  home: string,
+): Promise<{ tabs: StoredTab[]; selected_tab: string | null }[] | null> {
+  try {
+    const parsed = JSON.parse(
+      await Deno.readTextFile(`${home}/shell/layout.json`),
+    ) as {
+      layout: { panes: { tabs: StoredTab[]; selected_tab: string | null }[] };
+    };
+    return parsed.layout.panes;
+  } catch {
+    return null;
+  }
+}
+
+async function untilStored(
+  home: string,
+  ready: (
+    panes: { tabs: StoredTab[]; selected_tab: string | null }[],
+  ) => boolean,
+  what: string,
+): Promise<void> {
+  const deadline = Date.now() + 60_000;
+  let last: unknown = null;
+  while (Date.now() < deadline) {
+    const panes = await storedPanes(home);
+    last = panes;
+    if (panes !== null && ready(panes)) return;
+    await delay(200);
+  }
+  throw new Error(`${what}: ${JSON.stringify(last)}`);
+}
+
+async function tabKeys(flow: FlowShell): Promise<string[]> {
+  return JSON.parse(
+    String(
+      await flow.evaluate(
+        `JSON.stringify([...document.querySelectorAll("[role=tab]")].map((el) => el.getAttribute("data-tab")))`,
+      ),
+    ),
+  ) as string[];
+}
+
+Deno.test({
+  name:
+    "shell/workspace#R6 shell/workspace#R7 documents/versions#R8 flow update-lophn 7: update 뒤 다시 연 프로젝트가 탭·선택 탭·읽던 위치를 이어 쓰고 터미널은 종료된 자리표시로 남는다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn(t) {
+    const os = Deno.build.os;
+    const home = await Deno.makeTempDir({ prefix: "lophn-e2e-update-ws-" });
+    await Deno.chmod(home, 0o700);
+    const pack = await Deno.realPath(
+      await Deno.makeTempDir({ prefix: "lophn-e2e-update-ws-pkg-" }),
+    );
+    const install = await Deno.realPath(
+      await Deno.makeTempDir({ prefix: "lophn-e2e-update-ws-install-" }),
+    );
+    const folder = await Deno.realPath(
+      await Deno.makeTempDir({ prefix: "lophn-e2e-update-ws-folder-" }),
+    );
+    const metadata = `${pack}/lophn-update.json`;
+    const ranFile = `${folder}/terminal-ran.txt`;
+    await Deno.writeTextFile(`${folder}/notes.md`, "# Notes\n\nShort note.\n");
+    await Deno.writeTextFile(`${folder}/later.md`, LATER_TEXT);
+    const env = { LOPHN_INSTALL_ROOT: install };
+    let opened: FlowShell | undefined;
+    try {
+      const flow = await openFlowShell({ home, env, pickFolder: metadata });
+      opened = flow;
+      await registerTrackedProject(flow, {
+        folder,
+        name: "alpha",
+        title: "Alpha",
+      });
+      await untilDocuments(
+        flow,
+        ["notes", "later"],
+        "추적한 파일이 문서가 되지 않았다",
+      );
+      const notesId = (await documentTitled(flow, "notes")).id;
+      const laterId = (await documentTitled(flow, "later")).id;
+      let terminalKey = "";
+
+      await t.step(
+        "shell/workspace#R6: 문서 둘과 터미널을 열고 읽던 위치를 남긴다",
+        async () => {
+          // launcher는 목록을 처음 한 번만 읽는다. 공간을 한 번 다녀와 등록한 프로젝트를 받는다.
+          await flow.click("[data-entry=lophn]");
+          await flow.until(
+            `document.querySelector("[data-space]")?.getAttribute("data-space") === "lophn"`,
+            "lophn 공간이 서지 않았다",
+          );
+          await flow.click("[data-launcher-back]");
+          await flow.until(
+            `document.querySelector('[data-card="project"][data-project="${WORKSPACE_PROJECT}"] button:not([data-details-toggle])') !== null`,
+            "프로젝트 카드가 없다",
+          );
+          await flow.click(
+            `[data-card="project"][data-project="${WORKSPACE_PROJECT}"] button:not([data-details-toggle])`,
+          );
+          await flow.until(
+            `document.querySelector("[data-space]")?.getAttribute("data-space") === "project"`,
+            "project 작업대가 서지 않았다",
+          );
+          await flow.until(
+            `document.querySelector('[data-document="${notesId}"]') !== null`,
+            "sidebar에 문서가 없다",
+          );
+          await flow.click(`[data-document="${notesId}"]`);
+          await flow.until(
+            `document.querySelector('[data-tab="${notesId}"]') !== null`,
+            "notes 탭이 열리지 않았다",
+          );
+          await flow.click("[data-open-terminal]");
+          await flow.until(
+            `document.querySelector('[data-terminal-tab][data-phase="live"]') !== null`,
+            "터미널이 시작되지 않았다",
+          );
+          terminalKey = String(
+            await flow.evaluate(
+              `document.querySelector('[data-terminal-tab]').getAttribute("data-terminal-tab")`,
+            ),
+          );
+          // 사람이 터미널에 명령을 쳤다. 이 명령은 update 뒤에 다시 실행되면 안 된다.
+          await flow.mouseClick(`[data-terminal-tab="${terminalKey}"] .xterm`);
+          await delay(1500);
+          const page = await flow.shell.connect("://desktop/");
+          await page.command("Input.insertText", {
+            text: `echo ran >> ${JSON.stringify(ranFile)}`,
+          });
+          for (const type of ["keyDown", "keyUp"]) {
+            await page.command("Input.dispatchKeyEvent", {
+              type,
+              key: "Enter",
+              code: "Enter",
+              windowsVirtualKeyCode: 13,
+              ...(type === "keyDown" ? { text: "\r" } : {}),
+            });
+          }
+          const deadline = Date.now() + 30_000;
+          while (Date.now() < deadline) {
+            try {
+              if ((await Deno.readTextFile(ranFile)) === "ran\n") break;
+            } catch {
+              // 아직 없다.
+            }
+            await delay(200);
+          }
+          assertEquals(await Deno.readTextFile(ranFile), "ran\n");
+
+          await flow.click(`[data-document="${laterId}"]`);
+          await flow.until(
+            `document.querySelector("[data-document-view]")?.getAttribute("data-document-view") === "read" && document.querySelector("[data-document-body]")?.textContent?.includes("Keep this sentence.")`,
+            "later 본문이 열리지 않았다",
+          );
+          await flow.until(
+            `(() => { const el = document.querySelector("[data-document-view]"); return !!el && el.scrollHeight > el.clientHeight + 40; })()`,
+            "본문이 스크롤되지 않는다",
+          );
+          const placed = await flow.evaluate(`(() => {
+            const el = document.querySelector("[data-document-view]");
+            el.scrollTop = Math.min(480, el.scrollHeight - el.clientHeight);
+            el.dispatchEvent(new Event("scroll"));
+            return el.scrollTop;
+          })()`);
+          assert(Number(placed) > 0, `scrollTop이 0이다: ${placed}`);
+          await untilStored(
+            home,
+            (panes) =>
+              panes.some((pane) =>
+                pane.selected_tab === laterId &&
+                pane.tabs.some((tab) =>
+                  tab.document === laterId &&
+                  (tab.read_position?.scroll_offset ?? 0) > 0
+                ) &&
+                pane.tabs.some((tab) => tab.kind === "terminal")
+              ),
+            "layout에 탭과 읽던 위치가 남지 않았다",
+          );
+          assertEquals(await tabKeys(flow), [notesId, terminalKey, laterId]);
+        },
+      );
+
+      await t.step(
+        "platform/install-and-update#R14: settings의 정상 정지로 update를 멈춘다",
+        async () => {
+          await flow.click("[data-entry=lophn]");
+          await flow.until(
+            `document.querySelector("[data-space]")?.getAttribute("data-space") === "lophn"`,
+            "lophn 공간이 서지 않았다",
+          );
+          await flow.click("[data-screen=settings]");
+          await openUpdate(flow);
+          const before = await platformStatus(flow);
+          await Deno.writeTextFile(
+            metadata,
+            JSON.stringify({
+              version: OFFERED,
+              os,
+              format: formatOf(os),
+              schema: before.schema,
+            }),
+          );
+          await flow.click("[data-action='choose-package']");
+          await flow.until(
+            `document.querySelector("[data-notice='ready']") !== null`,
+            "수동 update 안내가 오지 않았다",
+          );
+          await flow.click("[data-action='stop-and-update']");
+          await flow.until(
+            `document.querySelector("[data-stop='stopped'], [data-stop='failed']") !== null`,
+            "정상 정지가 끝나지 않았다",
+            90_000,
+          );
+          assertEquals(
+            (await flow.text("[data-stop='stopped']"))?.trim(),
+            "lophn stopped cleanly. Start lophn again.",
+          );
+          await flow.close();
+          opened = undefined;
+        },
+      );
+
+      // update로 멈춰 있는 동안 문서 하나가 사라졌다고 본다. 저장된 배치에 지금은 없는 문서의 탭을 둔다.
+      const stored = JSON.parse(
+        await Deno.readTextFile(`${home}/shell/layout.json`),
+      ) as { layout: { panes: { tabs: StoredTab[] }[] } };
+      stored.layout.panes[0]!.tabs.push({
+        kind: "document_editor",
+        key: GONE_DOCUMENT,
+        document: GONE_DOCUMENT,
+      });
+      await Deno.writeTextFile(
+        `${home}/shell/layout.json`,
+        JSON.stringify(stored),
+      );
+      const again = await openFlowShell({ home, env });
+      opened = again;
+
+      await t.step(
+        "shell/workspace#R6 documents/versions#R8: 다시 연 프로젝트가 탭 순서·선택 탭·읽던 위치를 이어 쓴다",
+        async () => {
+          await again.until(
+            `document.querySelector("[data-space]")?.getAttribute("data-space") === "launcher"`,
+            "다시 연 launcher가 서지 않았다",
+          );
+          await again.click(
+            `[data-card="project"][data-project="${WORKSPACE_PROJECT}"] button:not([data-details-toggle])`,
+          );
+          await again.until(
+            `document.querySelector("[data-space]")?.getAttribute("data-space") === "project"`,
+            "이어서 연 작업대가 서지 않았다",
+          );
+          await again.until(
+            `document.querySelector('[data-tab="${laterId}"]')?.getAttribute("aria-selected") === "true"`,
+            "선택 탭이 돌아오지 않았다",
+          );
+          // 사라진 문서의 탭도 다른 문서로 바뀌지 않고 그 자리에 남는다.
+          assertEquals(await tabKeys(again), [
+            notesId,
+            terminalKey,
+            laterId,
+            GONE_DOCUMENT,
+          ]);
+          await again.until(
+            `(() => { const el = document.querySelector("[data-document-view]"); return !!el && el.scrollTop > 0; })()`,
+            "읽던 위치가 돌아오지 않았다",
+          );
+          assert(
+            String(await again.text("[data-document-body]")).includes(
+              "Keep this sentence.",
+            ),
+          );
+        },
+      );
+
+      await t.step(
+        "shell/workspace#R7: 터미널은 종료된 자리표시로 남고 사람이 새로 시작하기 전에는 명령을 다시 실행하지 않는다",
+        async () => {
+          await again.click(`[data-tab="${terminalKey}"]`);
+          await again.until(
+            `document.querySelector('[data-terminal-tab="${terminalKey}"]')?.getAttribute("data-phase") === "idle"`,
+            "터미널이 시작 전 자리표시가 아니다",
+          );
+          assertEquals(
+            await again.count(
+              `[data-terminal-tab="${terminalKey}"] [data-restart]`,
+            ),
+            1,
+          );
+          assertEquals(
+            await again.count(
+              `[data-terminal-tab="${terminalKey}"] [data-exit-banner="not_started"]`,
+            ),
+            1,
+          );
+          assertEquals(
+            await again.evaluate(
+              `document.querySelector('[data-terminal-tab="${terminalKey}"] [data-terminal-screen]').hidden`,
+            ),
+            true,
+          );
+          await delay(1500);
+          assertEquals(await Deno.readTextFile(ranFile), "ran\n");
+          // 사람이 새로 시작하면 새 shell이다. 옛 명령은 다시 실행되지 않는다.
+          await again.click(
+            `[data-terminal-tab="${terminalKey}"] [data-restart]`,
+          );
+          await again.until(
+            `document.querySelector('[data-terminal-tab="${terminalKey}"]')?.getAttribute("data-phase") === "live"`,
+            "사람이 누른 뒤에도 터미널이 시작되지 않았다",
+          );
+          await delay(1500);
+          assertEquals(await Deno.readTextFile(ranFile), "ran\n");
+        },
+      );
+      // 제품 결함: shell main의 restoreLayout(없거나 못 쓰는 대상을 이유 있는 자리표시로 바꿈)은
+      // renderer 복원 길에 이어져 있지 않다. 지금은 일반 "Couldn't load this document."와 Reload만
+      // 보여 없는 문서라는 이유가 없다. 닫기는 탭 줄에서 된다. shell concern이 잇기 전까지 둔다.
+      await t.step({
+        name:
+          "shell/workspace#R7: 사라진 문서의 탭은 이유와 닫기를 가진 자리표시로 남는다",
+        ignore: true,
+        async fn() {
+          await again.click(`[data-tab="${GONE_DOCUMENT}"]`);
+          await again.until(
+            `document.querySelector("[data-pane-body]")?.textContent?.length > 0`,
+            "사라진 문서 탭 본문이 없다",
+          );
+          assertEquals(await again.count(`[data-document-view="failed"]`), 0);
+          assertEquals(
+            await again.count(`[data-tab="${GONE_DOCUMENT}"] [data-close]`),
+            1,
+          );
+        },
+      });
+    } finally {
+      await opened?.close();
+      await removeHome(home);
+      await Deno.remove(pack, { recursive: true });
+      await Deno.remove(install, { recursive: true });
+      await Deno.remove(folder, { recursive: true });
+    }
+  },
+});
+
+const UNCONFIRMED_APP = "app_01arz3ndektsv4rrffq69g5faw";
+
+async function healthOf(flow: FlowShell): Promise<{
+  observedAt: string;
+  observations: {
+    component: string;
+    available: boolean;
+    reason?: string;
+    observed_at: string;
+  }[];
+}> {
+  const health = await mustCall(flow, {
+    kind: "read",
+    resource: "platform",
+    method: "health",
+    body: {},
+  });
+  return {
+    observedAt: String(health.observed_at),
+    observations: health.observations as {
+      component: string;
+      available: boolean;
+      reason?: string;
+      observed_at: string;
+    }[],
+  };
+}
+
+Deno.test({
+  name:
+    "platform/diagnostics#R8 platform/backup-and-migration#R16 apps/runtime#R3 shell/wording#R10 flow update-lophn 8: update 뒤 현재 가용성과 실제 관측 시각을 보이고 확인하지 못한 일을 성공으로 채우지 않는다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn(t) {
+    const os = Deno.build.os;
+    const home = await Deno.makeTempDir({ prefix: "lophn-e2e-update-obs-" });
+    await Deno.chmod(home, 0o700);
+    const pack = await Deno.realPath(
+      await Deno.makeTempDir({ prefix: "lophn-e2e-update-obs-pkg-" }),
+    );
+    const install = await Deno.realPath(
+      await Deno.makeTempDir({ prefix: "lophn-e2e-update-obs-install-" }),
+    );
+    const metadata = `${pack}/lophn-update.json`;
+    const env = { LOPHN_INSTALL_ROOT: install };
+    let opened: FlowShell | undefined;
+    try {
+      const flow = await openFlowShell({
+        home,
+        start: "settings",
+        pickFolder: metadata,
+        env,
+      });
+      opened = flow;
+      await openUpdate(flow);
+      const before = await platformStatus(flow);
+      await Deno.writeTextFile(
+        metadata,
+        JSON.stringify({
+          version: OFFERED,
+          os,
+          format: formatOf(os),
+          schema: before.schema,
+        }),
+      );
+      await flow.click("[data-action='choose-package']");
+      await flow.until(
+        `document.querySelector("[data-notice='ready']") !== null`,
+        "수동 update 안내가 오지 않았다",
+      );
+      await flow.click("[data-action='stop-and-update']");
+      await flow.until(
+        `document.querySelector("[data-stop='stopped'], [data-stop='failed']") !== null`,
+        "정상 정지가 끝나지 않았다",
+        90_000,
+      );
+      assertEquals(await flow.count("[data-stop='stopped']"), 1);
+      await flow.close();
+      opened = undefined;
+
+      // update가 끊은 앱 동작 하나. 실행 중으로 남은 채 core가 멈췄다.
+      writeLedger(home, (db) => {
+        db.prepare(
+          `insert into invocations (
+             id, app, release, mode, actor, caller, operation, trigger,
+             approval, input_hash, status, started_at, finished_at, summary, detail_hash
+           ) values (?, ?, ?, 'live', 'user', ?, ?, ?, null, null, 'running', ?, null, '{}', null)`,
+        ).run(
+          INTERRUPTED,
+          UNCONFIRMED_APP,
+          INTERRUPTED_RELEASE,
+          JSON.stringify({ kind: "direct" }),
+          JSON.stringify({ kind: "command", command: "usage.sync" }),
+          JSON.stringify({ kind: "direct" }),
+          INTERRUPTED_AT,
+        );
+      });
+
+      const restartedAt = Date.now();
+      const again = await openFlowShell({
+        home,
+        start: "settings",
+        pickFolder: metadata,
+        env,
+      });
+      opened = again;
+      await openUpdate(again);
+
+      await t.step(
+        "platform/diagnostics#R8: 구성 요소별 현재 가용성은 다시 읽은 시각으로 관측하고 불가에는 안전한 이유가 있다",
+        async () => {
+          const after = await platformStatus(again);
+          assertEquals(after.ledgerId, before.ledgerId);
+          const first = await healthOf(again);
+          assert(first.observations.length > 0);
+          assert(
+            Date.parse(first.observedAt) >= restartedAt,
+            `관측 시각이 재기동보다 앞선다: ${first.observedAt}`,
+          );
+          for (const observation of first.observations) {
+            assertEquals(observation.observed_at, first.observedAt);
+            assertEquals(typeof observation.available, "boolean");
+            if (!observation.available) {
+              assert(
+                (observation.reason ?? "") !== "",
+                `${observation.component}: 불가인데 이유가 없다`,
+              );
+            }
+          }
+          const ledger = first.observations.find((o) =>
+            o.component === "ledger"
+          );
+          assertEquals(ledger?.available, true);
+          // 관측은 읽을 때마다 새로 한다. 이전 읽기의 시각을 재사용하지 않는다.
+          await delay(20);
+          const second = await healthOf(again);
+          assert(
+            Date.parse(second.observedAt) > Date.parse(first.observedAt),
+            `관측 시각이 새로워지지 않았다: ${first.observedAt} ${second.observedAt}`,
+          );
+        },
+      );
+
+      await t.step(
+        "platform/backup-and-migration#R16 apps/runtime#R3: 끊긴 앱 동작은 확인 불가로 남고 성공·미실행으로 채우지 않는다",
+        () => {
+          const interrupted = invocationOf(home);
+          assertEquals(interrupted.status, "unknown");
+          assertEquals(interrupted.started, INTERRUPTED_AT);
+          assertEquals(
+            (JSON.parse(interrupted.summary) as { reason?: string }).reason,
+            "core_restarted",
+          );
+        },
+      );
+
+      await t.step(
+        "shell/wording#R10 platform/install-and-update#R13: 재기동만으로 update 완료나 검증됨을 주장하지 않는다",
+        async () => {
+          assertEquals(await again.count("[data-stop]"), 0);
+          assertEquals(await again.count("[data-notice='ready']"), 0);
+          assertEquals(
+            (await again.text("[data-deployment]"))?.trim(),
+            UNVERIFIED,
+          );
+          const shown = String(await again.text("[data-update]"));
+          assert(!shown.includes("verified"));
+          assert(!shown.includes("Download"));
+        },
+      );
+
+      // 제품 결함(apps/core·worker 조립 몫): 진단 탭은 desktop entry에 이어졌지만 product core가
+      // DoctorSource(`runtime.ts`의 `doctor` 입력)를 받지 않아 `diagnostics/check` read가 등록되지
+      // 않는다. 그래서 탭의 [Check security]가 `failed`("The check couldn't start right now.")로 끝난다.
+      // worker의 observeDoctor는 core에 연결되어 있지 않다. shell settings 안에서 고칠 수 없어 둔다.
+      await t.step({
+        name:
+          "platform/diagnostics#R8 shell/wording#R10: settings 화면이 현재 가용성과 관측 시각을 보인다",
+        ignore: true,
+        async fn() {
+          await again.mouseClickText("[role=tab]", "Diagnose");
+          await again.click("[data-action='check']");
+          await again.until(
+            `document.querySelector("[data-check='ready']") !== null`,
+            "진단 결과가 서지 않았다",
+          );
+          const result = String(await again.text("[data-check-result]"));
+          assert(result.includes("Checked"), result);
+          assert(!result.includes("attention"), result);
+        },
+      });
+
+      // 제품 결함: 확인하지 못한 앱 동작(unknown invocation)을 사람에게 알리고 복구 행동을
+      // 안내하는 settings 자리가 없다. core가 ledger에 확인 불가로 남기는 데서 끝난다.
+      await t.step({
+        name:
+          "platform/backup-and-migration#R16 shell/wording#R10: settings 화면이 확인하지 못한 일과 필요한 복구 행동을 보인다",
+        ignore: true,
+        async fn() {
+          assertEquals(await again.count("[data-unconfirmed]"), 1);
+        },
+      });
+    } finally {
+      await opened?.close();
+      await removeHome(home);
+      await Deno.remove(pack, { recursive: true });
+      await Deno.remove(install, { recursive: true });
+    }
   },
 });

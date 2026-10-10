@@ -46,6 +46,7 @@ import { coreSettingsSource } from "./lophn-space/settings/core-source.ts";
 import { coreBackupSource } from "./lophn-space/settings/backup/core-source.ts";
 import { coreNotificationsSource } from "./lophn-space/settings/notifications/core-source.ts";
 import { coreUpdateSource } from "./lophn-space/settings/update/core-source.ts";
+import { coreDiagnosticsSource } from "./lophn-space/settings/diagnostics/core-source.ts";
 import { coreAppDetailSource } from "../app-frame/app-detail/core-source.ts";
 import {
   coreCodingConnectionsSource,
@@ -85,6 +86,7 @@ const settingsPanels = {
   backup: coreBackupSource(core),
   update: coreUpdateSource(core),
   notifications: coreNotificationsSource(core),
+  diagnostics: coreDiagnosticsSource(core),
 };
 // coding agent 연결(settings)과 앱 공간 Tasks 탭. 감지·연결·[Start]는 main이 따로 검증하는 통로(`lophnCoding`)다.
 const codingApi = windowCodingApi();

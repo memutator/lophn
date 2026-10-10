@@ -11,9 +11,14 @@
 // (problem-codes#R2, reporting#R1 R2 R5, snapshots#R1 R4 R6 R15)
 //
 // 2단계·3단계 테스트는 그 아래에 있다. 3단계는 app-detail에서 문제 열림 notification으로 증상·진행·
-// 다음 행동을 보고 봐 달라고 요청한다. 4단계 앞은 마지막 테스트다. App Engineer가 당시 snapshot·
+// 다음 행동을 보고 봐 달라고 요청한다. 4단계는 네 번째 테스트다. App Engineer가 당시 snapshot·
 // 설계·release·실제 테스트와 사실을 원인 가설과 구별한 해석 문서를 고정하고 problem에 연결한다.
-// 하지 않는 것: ticket, claim, reproduction, activation, 자동 닫힘. process의 unhandled rejection은
+// 5단계 테스트는 마지막이다. 사람이 채택한 설계 판으로 App Engineer가 repair ticket을 만들고, 사람은 Tasks에서
+// 그 ticket을 보고 맡길 길을 본다. 채택 답은 대화 화면이 없는 앱 공간이라 사람 token의 questions/answer로 한다.
+// 이 앱은 reproduction test를 만들 수 없어 ticket의 문제 기준은 human_confirmation이다(가짜 hash를 만들지
+// 않는다). [Start]를 실제로 누르는 것, 그 첫 prompt를 받은 coding agent의 claim, claim 없는 제출 거절은 활성
+// coding 연결(OS keychain)이 있어야 해서 이 E2E 통로가 없다. 첫 prompt는 순수 함수에 실제 ticket의 값을 넣어 본다.
+// 하지 않는 것: claim, reproduction, activation, 자동 닫힘. process의 unhandled rejection은
 // 앱 자식이 바로 끝나 이후 읽기를 막으므로 일으키지 않는다. 화면이 이미 root render에서 깨져 있어
 // 실패 command는 그 view의 lophnApp(화면이
 // command를 부르는 통로)으로 일으킨다. 1단계에는 사람 조작 화면이 없다.
@@ -27,6 +32,8 @@ import {
   installedHome,
   removeTree,
 } from "../../packages/apps/sdk/testing/mod.ts";
+import { codingFixture } from "../coding-agent/support.ts";
+import { firstPromptOf } from "../../packages/coding-agent/sessions/prompt.ts";
 import { e2eEnabled } from "../harness.ts";
 import {
   APP,
@@ -2120,7 +2127,7 @@ async function untilRunDone(
   flow: FlowShell,
   assignment: string,
   message: string,
-  script: InterpretScript,
+  script: Pick<InterpretScript, "failure" | "calls" | "body">,
   label: string,
 ): Promise<void> {
   const deadline = Date.now() + 180_000;
@@ -2552,6 +2559,698 @@ Deno.test({
       await script?.close();
       await opened?.close();
       await removeTree(home);
+    }
+  },
+});
+
+const TICKET_ASK = "이 앱의 설계를 채택해 두고 수리 ticket을 만들어 달라.";
+const TICKET_DONE = "수리 ticket을 만들었다.";
+const ADOPT_PROMPT = "이 설계 판을 채택할까?";
+const ADOPT_REASON = "수리 ticket은 사람이 채택한 설계 판만 근거로 삼는다.";
+const ADOPT_RECOMMEND = "방금 저장한 설계 판이다.";
+const SESSION_5 = "ses_01arz3ndektsv4rrffq69g5fb6";
+const ASK_MESSAGE = "msg_01arz3ndektsv4rrffq69g5fb6";
+const PROVIDER_5 = "pvd_01arz3ndektsv4rrffq69g5fb6";
+const TICKET_TITLE = "화면이 깨지는 오류를 고친다";
+const TICKET_WHAT = "앱 화면이 그려지기 전에 예외를 던지지 않게 고친다.";
+const TICKET_WHY = "화면이 깨지면 그 오류가 문제로 남는다고 설계가 적는다.";
+const INSPECT = ["src/screens"];
+
+type TicketFacts = {
+  designDocument: string;
+  designVersion: string;
+  question: string;
+  problem: string;
+  ticket: string;
+  readiness: string;
+  needs: unknown;
+};
+
+type TicketStep =
+  | "design"
+  | "design-saved"
+  | "ask"
+  | "list"
+  | "create"
+  | "read"
+  | "done";
+
+type TicketScript = {
+  url: string;
+  close: () => Promise<void>;
+  failure: () => string;
+  step: () => TicketStep;
+  callsNamed: () => readonly string[];
+  body: (index: number) => string;
+  calls: () => number;
+  facts: () => TicketFacts;
+  waiting: () => boolean;
+  release: () => void;
+};
+
+// 질문을 낸 뒤의 다음 model 요청을 사람이 답할 때까지 붙든다. 답은 run이 살아 있는 동안에만 접수된다.
+function startTicketScript(problemId: string): TicketScript {
+  const bodies: string[] = [];
+  const named: string[] = [];
+  const found = {
+    step: "design" as TicketStep,
+    failure: "",
+    facts: {
+      designDocument: "",
+      designVersion: "",
+      question: "",
+      problem: problemId,
+      ticket: "",
+      readiness: "",
+      needs: null,
+    } as TicketFacts,
+  };
+  let seq = 0;
+  let seen = 0;
+  let waiting = false;
+  let open: (() => void) | null = null;
+  const issue = (name: string, args: unknown): SemanticReply => {
+    named.push(name);
+    seq += 1;
+    return toolCall(`toolu_s5_${seq}`, name, args);
+  };
+  const fail = (message: string): never => {
+    throw new Error(message);
+  };
+
+  const server = Deno.serve(
+    { hostname: "127.0.0.1", port: 0, onListen: () => {} },
+    async (request) => {
+      const text = await request.text();
+      const path = new URL(request.url).pathname;
+      if (request.method !== "POST" || !path.endsWith("/messages")) {
+        return Response.json({ error: "unexpected" }, { status: 500 });
+      }
+      bodies.push(text);
+      let reply = said("");
+      try {
+        const turn = turnOf(text);
+        const results = toolResultCount(text);
+        if (found.step !== "design" && results <= seen) {
+          fail(`도구 결과 차례가 아니다: ${found.step}`);
+        }
+        seen = results;
+        if (found.step === "design") {
+          if (turn.kind !== "user" || !turn.text.includes(TICKET_ASK)) {
+            fail(`요청이 아니다: ${text.slice(-300)}`);
+          }
+          found.step = "design-saved";
+          reply = issue("document.create", {
+            title: "Broken app design",
+            place: { kind: "app", id: APP },
+            name: "broken-design",
+            text: DESIGN_TEXT,
+            media_type: "text/markdown",
+          });
+        } else if (found.step === "design-saved") {
+          const saved = toolContent(text);
+          found.facts.designDocument = textOf(saved["document"]);
+          found.facts.designVersion = textOf(saved["version"]);
+          assert(
+            found.facts.designDocument.startsWith("doc_"),
+            JSON.stringify(saved),
+          );
+          assert(
+            found.facts.designVersion.startsWith("ver_"),
+            JSON.stringify(saved),
+          );
+          const ref = {
+            document: found.facts.designDocument,
+            version: found.facts.designVersion,
+            section: null,
+          };
+          found.step = "ask";
+          reply = issue("question.submit", {
+            prompt: ADOPT_PROMPT,
+            reason: ADOPT_REASON,
+            options: [
+              {
+                key: "adopt",
+                label: "채택한다",
+                description: "방금 저장한 설계 판을 수리의 근거로 채택한다.",
+                evidence: [ref],
+                adoption: ref,
+                action: null,
+              },
+              {
+                key: "wait",
+                label: "아직 아니다",
+                description: "이 설계 판을 채택하지 않는다.",
+                evidence: [],
+                adoption: null,
+                action: null,
+              },
+            ],
+            recommendation: {
+              option_key: "adopt",
+              explanation: ADOPT_RECOMMEND,
+            },
+            expires_at: null,
+          });
+        } else if (found.step === "ask") {
+          const question = JSON.stringify(toolContent(text)).match(
+            /qst_[0-7][0-9a-hjkmnp-tv-z]{25}/,
+          )?.[0];
+          assert(question !== undefined, text.slice(-400));
+          found.facts.question = question;
+          waiting = true;
+          await new Promise<void>((resolve) => {
+            open = resolve;
+          });
+          open = null;
+          waiting = false;
+          found.step = "list";
+          reply = issue("problem.list", { app: APP });
+        } else if (found.step === "list") {
+          const problems = toolContent(text)["problems"] as {
+            id?: string;
+          }[];
+          assert(
+            problems.some((item) => item.id === found.facts.problem),
+            JSON.stringify(problems),
+          );
+          found.step = "create";
+          reply = issue("ticket.create", {
+            app: APP,
+            kind: "repair",
+            title: TICKET_TITLE,
+            what: TICKET_WHAT,
+            why: TICKET_WHY,
+            references: [
+              {
+                kind: "version",
+                target: found.facts.designVersion,
+                address: {
+                  place: "broken",
+                  document: "broken-design",
+                  section: null,
+                  version: 1,
+                },
+                section: null,
+              },
+              {
+                kind: "problem",
+                target: found.facts.problem,
+                address: null,
+                section: null,
+              },
+            ],
+            adoption_questions: [found.facts.question],
+            conditions: [
+              { kind: "app_test" },
+              {
+                kind: "test_command",
+                executable: "deno",
+                argv: ["task", "test"],
+                cwd: ".",
+                timeout_ms: 60_000,
+                expected_exit_code: 0,
+              },
+              { kind: "human_confirmation", problem: found.facts.problem },
+              { kind: "problems_closed" },
+            ],
+            inspect: INSPECT,
+            preserve: [],
+            problems: [found.facts.problem],
+            needs: [],
+          });
+        } else if (found.step === "create") {
+          const created = toolContent(text);
+          found.facts.ticket = textOf(created["ticket"]);
+          found.facts.readiness = textOf(created["readiness"]);
+          found.facts.needs = created["needs"] ?? null;
+          assert(
+            found.facts.ticket.startsWith("tkt_"),
+            JSON.stringify(created),
+          );
+          found.step = "read";
+          reply = issue("ticket.read", { ticket: found.facts.ticket });
+        } else if (found.step === "read") {
+          const ticket = asRecord(toolContent(text)["ticket"], "ticket");
+          assertEquals(textOf(ticket["id"]), found.facts.ticket);
+          found.step = "done";
+          reply = said(TICKET_DONE);
+        } else {
+          fail(`script가 끝났다: ${found.step}`);
+        }
+      } catch (error) {
+        found.failure = error instanceof Error ? error.message : String(error);
+        return Response.json({ error: found.failure }, { status: 500 });
+      }
+      const built = buildReply("messages", reply);
+      return new Response(built.body ?? "", {
+        status: built.status,
+        headers: built.headers,
+      });
+    },
+  );
+  return {
+    url: `http://127.0.0.1:${server.addr.port}`,
+    close: () => {
+      (open as (() => void) | null)?.();
+      return server.shutdown();
+    },
+    failure: () => found.failure,
+    step: () => found.step,
+    callsNamed: () => named,
+    body: (index) => bodies[index] ?? "",
+    calls: () => bodies.length,
+    facts: () => found.facts,
+    waiting: () => waiting,
+    release: () => (open as (() => void) | null)?.(),
+  };
+}
+
+type QuestionSeen = {
+  id: string;
+  status: string;
+  created_seq: string;
+  answer: { kind: string; option_key: string | null } | null;
+  applied: boolean;
+  options: {
+    key: string;
+    adoption:
+      | { document: string; version: string; section: string | null }
+      | null;
+  }[];
+};
+
+type TicketRead = {
+  id: string;
+  app: string;
+  kind: string;
+  state: string;
+  readiness: string;
+  needs: string[];
+  problems: string[];
+  claim: unknown;
+  inspect: string[];
+  conditions: { kind: string; input: { problem?: string } }[];
+  references: { kind: string; target: string }[];
+  adoption_questions: string[];
+};
+
+async function questionsSeen(flow: FlowShell): Promise<QuestionSeen[]> {
+  const body = await mustCall(flow, {
+    kind: "read",
+    resource: "questions",
+    method: "list",
+    body: {},
+  });
+  return body.questions as QuestionSeen[];
+}
+
+async function ticketRows(flow: FlowShell): Promise<{ id: string }[]> {
+  const body = await mustCall(flow, {
+    kind: "read",
+    resource: "tickets",
+    method: "list",
+    body: { app: APP },
+  });
+  return body.tickets as { id: string }[];
+}
+
+Deno.test({
+  name:
+    "coding-agent/sessions#R1 R3 R5 coding-agent/tickets#R3 R4 R9 R11 problems/repairs#R4 R5 flow app-broken 5: 채택한 설계 판으로 repair ticket이 만들어지고 맡기기 전까지 아무것도 시작하지 않는다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn() {
+    const home = await Deno.makeTempDir({ prefix: "lophn-e2e-app-broken-" });
+    const coding = await codingFixture();
+    let opened: FlowShell | undefined;
+    let script: TicketScript | undefined;
+    try {
+      await Deno.chmod(home, 0o700);
+      const first = await openFlowShell({ home, env: coding.env });
+      await first.close();
+      const bundle = await prepareBrokenApp(home, {
+        installedHome,
+        removeTree,
+      });
+      seedLedger(home, bundle);
+      recordAppCreated(home);
+      const flow = await openFlowShell({
+        home,
+        start: `app:${APP}`,
+        env: coding.env,
+      });
+      opened = flow;
+      await flow.until(
+        `document.querySelector("[data-space]")?.getAttribute("data-space") === "app"`,
+        "앱 공간이 서지 않았다",
+      );
+      const runningAt = Date.now() + 60_000;
+      for (;;) {
+        const runtime = await mustCall(flow, {
+          kind: "read",
+          resource: "apps",
+          method: "runtime",
+          body: { app: APP },
+        });
+        if ((runtime.state as { state: string }).state === "running") break;
+        assert(Date.now() < runningAt, "앱이 뜨지 않았다");
+        await delay(500);
+      }
+      await flow.until(
+        `document.querySelector('[data-phase="failed"] button') !== null || document.querySelector('[data-report-problem]:not([disabled])') !== null`,
+        "화면 상태가 오지 않았다",
+      );
+      if ((await flow.count('[data-phase="failed"] button')) > 0) {
+        await flow.click('[data-phase="failed"] button');
+      }
+      await flow.until(
+        `document.querySelector('[data-report-problem]:not([disabled])') !== null`,
+        "[Report a problem]이 켜지지 않았다",
+      );
+      const render = await waitRender(flow);
+      const problemId = render.report.problem;
+      assert(typeof problemId === "string", JSON.stringify(render.report));
+
+      script = startTicketScript(problemId);
+      await mustCall(flow, {
+        kind: "command",
+        resource: "providers",
+        method: "register",
+        body: commandBody({
+          id: PROVIDER_5,
+          name: "fixture",
+          definition: {
+            key: "anthropic",
+            display_name: "Anthropic",
+            protocols: ["anthropic-messages"],
+            auth_kinds: ["none"],
+            models_endpoint: null,
+            oauth: null,
+            revision: "2026-01-01",
+          },
+          endpoint: script.url,
+          protocol: "anthropic-messages",
+        }),
+      });
+      const defaults = await mustCall(flow, {
+        kind: "read",
+        resource: "agent-model-defaults",
+        method: "read",
+        body: {},
+      });
+      const settingsSeq = (defaults.defaults as { settings_seq: string })
+        .settings_seq;
+      await mustCall(flow, {
+        kind: "command",
+        resource: "agent-model-defaults",
+        method: "change",
+        body: commandBody(
+          {
+            judgment: {
+              provider: PROVIDER_5,
+              credentials: [],
+              model_name: MODEL_4,
+              reasoning_level: "provider_default",
+              options: {},
+            },
+            organizing: null,
+            settings_seq: settingsSeq,
+          },
+          { settings_seq: settingsSeq },
+        ),
+      });
+      let engineer: Engineer | undefined;
+      await waitFor("App Engineer assignment가 없다", async () => {
+        engineer = await engineerOf(flow);
+        return engineer?.state === "enabled";
+      });
+      assert(engineer !== undefined);
+      assertEquals(await ticketRows(flow), []);
+
+      const openedSession = await mustCall(flow, {
+        kind: "command",
+        resource: "sessions",
+        method: "open",
+        body: commandBody({
+          id: SESSION_5,
+          assignment: engineer.id,
+          role: "app_engineer",
+          work_place: { kind: "app", id: APP },
+          continued_from: null,
+        }, {
+          assignment_revision: engineer.revision,
+          assignment_state: "enabled",
+        }),
+      });
+      await mustCall(flow, {
+        kind: "command",
+        resource: "messages",
+        method: "receive",
+        body: commandBody({
+          id: ASK_MESSAGE,
+          session: SESSION_5,
+          content: {
+            schema_version: 1,
+            parts: [{ kind: "text", text: TICKET_ASK }],
+          },
+          mode: "request",
+        }, {
+          session_state: "open",
+          session_state_seq: String(
+            (openedSession as { state_seq: string }).state_seq,
+          ),
+          assignment_revision: engineer.revision,
+          assignment_state: "enabled",
+        }),
+      });
+
+      // 채택 질문이 서고 run이 그 답을 기다리는 동안에는 ticket이 없다.
+      await waitFor("채택 질문 뒤 model 요청이 멈추지 않았다", () => {
+        assert(script!.failure() === "", script!.failure());
+        return Promise.resolve(script!.waiting());
+      });
+      const facts = script.facts();
+      assertEquals(script.step(), "ask");
+      assertEquals(await ticketRows(flow), []);
+      const asked = (await questionsSeen(flow)).find((row) =>
+        row.id === facts.question
+      );
+      assert(asked !== undefined, facts.question);
+      assertEquals(asked.status, "pending");
+      assertEquals(asked.answer, null);
+      const adoptOption = asked.options.find((item) => item.key === "adopt");
+      assertEquals(adoptOption?.adoption, {
+        document: facts.designDocument,
+        version: facts.designVersion,
+        section: null,
+      });
+      await mustCall(flow, {
+        kind: "command",
+        resource: "questions",
+        method: "answer",
+        body: commandBody({
+          question: asked.id,
+          created_seq: asked.created_seq,
+          answer: { kind: "option", option_key: "adopt" },
+        }, { created_seq: asked.created_seq }),
+      });
+      const answered = (await questionsSeen(flow)).find((row) =>
+        row.id === asked.id
+      );
+      assertEquals(answered?.status, "answered");
+      assertEquals(answered?.answer?.option_key, "adopt");
+      assertEquals(await ticketRows(flow), []);
+      script.release();
+      await untilRunDone(flow, engineer.id, ASK_MESSAGE, script, "ticket run");
+      assertEquals(script.failure(), "");
+      assertEquals(script.step(), "done");
+
+      const named = script.callsNamed();
+      assertEquals(
+        named,
+        [
+          "document.create",
+          "question.submit",
+          "problem.list",
+          "ticket.create",
+          "ticket.read",
+        ],
+      );
+      assertEquals(facts.readiness, "ready");
+      assertEquals(facts.needs ?? [], []);
+
+      const listedTickets = await ticketRows(flow);
+      assertEquals(listedTickets.map((row) => row.id), [facts.ticket]);
+      const shown = await mustCall(flow, {
+        kind: "read",
+        resource: "tickets",
+        method: "show",
+        body: { ticket: facts.ticket },
+      });
+      const ticket = shown.ticket as TicketRead;
+      assertEquals(ticket.app, APP);
+      assertEquals(ticket.kind, "repair");
+      assertEquals(ticket.state, "open");
+      assertEquals(ticket.readiness, "ready");
+      assertEquals(ticket.needs, []);
+      assertEquals(ticket.problems, [problemId]);
+      assertEquals(ticket.claim, null);
+      assertEquals(ticket.inspect, INSPECT);
+      assertEquals(ticket.adoption_questions, [facts.question]);
+      assertEquals(
+        ticket.references.map((item) => `${item.kind}:${item.target}`).sort(),
+        [`problem:${problemId}`, `version:${facts.designVersion}`].sort(),
+      );
+      assertEquals(
+        ticket.conditions.map((item) => item.kind).sort(),
+        ["app_test", "human_confirmation", "problems_closed", "test_command"],
+      );
+      assertEquals(
+        ticket.conditions.find((item) => item.kind === "human_confirmation")
+          ?.input.problem,
+        problemId,
+      );
+      assert(
+        !ticket.conditions.some((item) => item.kind === "reproduction_test"),
+        "만들지 않은 reproduction 기준을 채웠다",
+      );
+
+      // ticket을 만들었다고 맡겨지지 않는다. 문제는 그 ticket을 가리키지만 열린 채이고 claim도 없다.
+      const readProblem = async () => {
+        const got = await mustCall(flow, {
+          kind: "read",
+          resource: "problems",
+          method: "get",
+          body: { problem: problemId },
+        });
+        return got as unknown as {
+          problem: { status: string; work: string | null; closure: unknown };
+          detail: { progress: { state: string } };
+        };
+      };
+      await waitFor("문제가 ticket을 가리키지 않는다", async () => {
+        const read = await readProblem();
+        return read.problem.work === facts.ticket;
+      });
+      const got = await readProblem();
+      assertEquals(got.problem.status, "open");
+      assertEquals(got.problem.work, facts.ticket);
+      assertEquals(got.problem.closure, null);
+      assertEquals(got.detail.progress.state, "open");
+      const runs = await runRows(flow, engineer.id);
+      assertEquals(runs.length, 1);
+      assertEquals(runs[0]?.outcome?.kind, "completed");
+      for (
+        const forbidden of [
+          "ticket.claim",
+          "ticket.start",
+          "ticket.report",
+          "ticket.cancel",
+          "problem.record_fix",
+        ]
+      ) {
+        assertEquals(named.includes(forbidden), false, named.join(","));
+      }
+      const sessions = String(
+        await flow.evaluate(
+          `window.lophnCoding.sessions().then((reply) => JSON.stringify(reply))`,
+        ),
+      );
+      assertEquals(sessions, '{"ok":true,"value":[]}');
+      assertEquals(await flow.count('[data-section="tui"]'), 0);
+      assertEquals(await ticketRows(flow).then((rows) => rows.length), 1);
+
+      // 사람은 App의 Tasks에서 그 ticket을 보고 맡길 길을 본다. 연결이 없으면 [Start]를 내지 않고
+      // 자기 터미널 문장은 그 ticket을 가리킨다.
+      await flow.until(
+        `document.querySelector('[data-app-bar="app-details"]') !== null`,
+        "앱 막대",
+      );
+      await flow.click('[data-app-bar="app-details"]');
+      await flow.until(
+        `document.querySelector("[data-ops-panel]") !== null`,
+        "운영 패널",
+      );
+      await flow.mouseClickText("[role=tab]", "Tasks");
+      await flow.until(
+        `document.querySelector('[data-tasks-list] [data-task="ready"]') !== null`,
+        "실행 준비가 끝난 ticket",
+      );
+      const listText = String(
+        await flow.evaluate(
+          `document.querySelector("[data-tasks-list]")?.innerText ?? ""`,
+        ),
+      );
+      assert(listText.includes(TICKET_TITLE), listText);
+      await flow.click("[data-task-open]");
+      try {
+        await flow.until(
+          `document.querySelector('[data-section="start"] [data-start-missing]') !== null`,
+          "시작 자리",
+        );
+      } catch (error) {
+        throw new Error(
+          `${(error as Error).message} ${
+            String(
+              await flow.evaluate(
+                `document.querySelector("[data-task-detail]")?.parentElement?.innerText ?? "(none)"`,
+              ),
+            )
+          }`,
+        );
+      }
+      assertEquals(
+        await flow.evaluate(
+          `document.querySelector("[data-task-detail]").dataset.taskDetail`,
+        ),
+        "ready",
+      );
+      assertEquals(
+        await flow.evaluate(
+          `document.querySelector("[data-task-next]").dataset.taskNext`,
+        ),
+        "start",
+      );
+      assertEquals(await flow.count('[data-action="start"]'), 0);
+      const sentence = (await flow.text("[data-request-sentence]")) ?? "";
+      assert(sentence.includes(facts.ticket), sentence);
+      const taskText = String(
+        await flow.evaluate(
+          `document.querySelector("[data-task-detail]")?.innerText ?? ""`,
+        ),
+      );
+      assertScreenHidesRaw(taskText);
+      assert(!taskText.includes("tok_"), taskText);
+      assertEquals(await flow.count('[data-section="tui"]'), 0);
+      assertEquals(
+        String(
+          await flow.evaluate(
+            `window.lophnCoding.sessions().then((reply) => JSON.stringify(reply))`,
+          ),
+        ),
+        '{"ok":true,"value":[]}',
+      );
+
+      // 첫 prompt는 ticket 읽기·claim·작업·보고를 지시하고 ticket 본문이나 원문을 싣지 않는다.
+      const prompt = firstPromptOf(ticket.id, {
+        problems: ticket.problems,
+        inspect: ticket.inspect,
+      });
+      assert(prompt.includes(ticket.id), prompt);
+      assert(prompt.includes("lophn_ticket의 show"), prompt);
+      assert(prompt.includes("lophn_ticket의 claim"), prompt);
+      assert(prompt.includes("lophn_ticket의 report"), prompt);
+      assert(prompt.includes(problemId), prompt);
+      assert(!prompt.includes(TICKET_WHAT), prompt);
+      assert(!prompt.includes(TICKET_WHY), prompt);
+      assert(!prompt.includes(RENDER_MESSAGE), prompt);
+    } finally {
+      await script?.close();
+      await opened?.close();
+      await removeTree(home);
+      await coding.remove();
     }
   },
 });

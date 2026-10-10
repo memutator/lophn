@@ -4,6 +4,7 @@
 // 동기라서, core 흐름과 documents coordinator를 붙잡지 않는다.
 // 이 모듈은 core가 정적으로 import하지 않는다(createReaderRegistration만 reader가 부른다).
 // derived store는 node:sqlite를 쓰므로 core graph 밖에서만 열린다(core_imports_test).
+import { createHash } from "node:crypto";
 import { err, ok, type Result } from "../../packages/base/mod.ts";
 import {
   contextExport,
@@ -12,6 +13,7 @@ import {
   documentExport,
   documentRead,
   documentSectionHistory,
+  FORMAT_CHECK_CONTENT_MAX_BYTES,
   guideGet,
   guideList,
   guideOutline,
@@ -39,7 +41,12 @@ import {
   derivedPath,
   type DerivedRead,
   openDerivedRead,
+  openTransientDerived,
 } from "../../packages/documents/outline-and-search/adapters/store.ts";
+import {
+  type ExtractionRecord,
+  writeExtraction,
+} from "../../packages/documents/outline-and-search/extraction.ts";
 import {
   createOutlineHandlers,
   createSearchHandlers,
@@ -85,12 +92,15 @@ import {
   storedFile,
 } from "../../packages/documents/versions/reads.ts";
 import {
+  DIRECT_ANSWER_ROUTE,
+  DIRECT_PLAN_ROUTE,
   FILE_PLACEMENT_ROUTE,
   internalRoute,
   OBSERVATION_BASIS_ROUTE,
   OBSERVATION_LINK_PAGE,
   PREPARE_BASE_ROUTE,
   SEARCH_VERSION_ROUTE,
+  servedKey,
   STORED_FILE_ROUTE,
   TERM_OCCURRENCE_ROUTE,
   WATCH_INPUT_ROUTE,
@@ -494,6 +504,193 @@ function termOccurrence(
   return ok({ checked: true, next_cursor: null });
 }
 
+// 읽기 handler 하나를 돌리는 함수. 공개 worker route와 직접 추출이 같은 함수를 쓴다.
+type WorkerRun = (
+  prepared: Prepared,
+  ctx: RequestContext,
+  input: unknown,
+) => Result<unknown>;
+
+const runOutlineDocument: WorkerRun = (ready, ctx, input) =>
+  outline(ready).document(ctx, input as never);
+const runDocumentRead: WorkerRun = (ready, ctx, input) =>
+  outline(ready).read(ctx, input as never);
+
+const DIRECT_RUNS = new Map<string, WorkerRun>([
+  [servedKey(outlineDocument), runOutlineDocument],
+  [servedKey(documentRead), runDocumentRead],
+]);
+
+type DirectTarget = {
+  document: string;
+  version: string;
+  content_hash: string;
+  file: { path: string; blob_hash: string; bytes: number; media_type: string };
+};
+
+// documents/outline-and-search#R15의 대상. 요청 자격으로 같은 읽기를 다시 돌려 권한을 판정하고
+// (거절·없음은 그 오류 그대로다), 그 판이 추출 안 됨(derived에 행이 없거나 미확인)이며, 내장
+// document module로 읽을 수 있는 한도 안의 대표 파일을 가질 때만 대상이다. 이미 실패·미지원으로 기록된 판과 다른 module로 저장된 판은
+// 대상이 아니다(최신 module로 대신하지 않는다).
+function directTarget(
+  snapshot: ReadSnapshot,
+  ready: Prepared,
+  ctx: RequestContext,
+  route: string,
+  request: unknown,
+): Result<DirectTarget | null> {
+  const run = DIRECT_RUNS.get(route);
+  if (run === undefined) {
+    return err({ code: "invalid_input", message: "route cannot extract" });
+  }
+  const first = run(ready, ctx, request);
+  if (!first.ok) return first;
+  const answer = first.value as Record<string, unknown>;
+  const document = answer["document"];
+  const version = answer["version"];
+  if (typeof document !== "string" || typeof version !== "string") {
+    return ok(null);
+  }
+  const recorded = ready.read.sql.get(
+    "SELECT extraction_status FROM derived_versions WHERE version = ?",
+    [version],
+  );
+  if (
+    recorded !== undefined && recorded["extraction_status"] !== "unverified"
+  ) {
+    return ok(null);
+  }
+  const row = loadVersion(snapshot.sql as never, version);
+  if (!row.ok) return row;
+  if (
+    row.value === null || row.value.document !== document ||
+    row.value.format.name !== "document" ||
+    row.value.format.module_hash !== BUILTIN_MODULE_HASH
+  ) return ok(null);
+  const files = loadFiles(snapshot.sql as never, version);
+  if (!files.ok) return files;
+  const primary = files.value.find((file) => file.primary);
+  if (primary === undefined || primary.bytes > FORMAT_CHECK_CONTENT_MAX_BYTES) {
+    return ok(null);
+  }
+  return ok({
+    document,
+    version,
+    content_hash: row.value.content_hash,
+    file: {
+      path: primary.path,
+      blob_hash: primary.blob_hash,
+      bytes: primary.bytes,
+      media_type: primary.media_type,
+    },
+  });
+}
+
+// 대표 파일 바이트를 내장 document module로 추출한다(순수 계산).
+function extractDirect(
+  target: DirectTarget,
+  content: Uint8Array,
+): ExtractionRecord["extraction"] {
+  const result = extractFormat("document", {
+    input_hash: target.file.blob_hash,
+    module_hash: BUILTIN_MODULE_HASH,
+    files: [{
+      path: target.file.path,
+      media_type: target.file.media_type,
+      primary: true,
+      content: Array.from(content),
+    }],
+  });
+  if (result.status === "ready") {
+    return {
+      status: "ready",
+      title: result.title,
+      text: result.text,
+      text_hash: result.text_hash,
+      sections: result.sections,
+    };
+  }
+  return result.status === "failed"
+    ? { status: "failed", failure_reason: result.failure_reason }
+    : { status: "unsupported" };
+}
+
+// 직접 추출의 두 route. 계획은 읽을 파일을 알리고, 답은 core가 읽어 온 그 파일의 바이트로 이번
+// 응답에만 추출해 같은 읽기 handler로 답한다. derived에는 쓰지 않는다(메모리 derived가
+// 요청과 함께 닫힌다). 바이트가 판의 행(크기·hash)과 다르면 답하지 않는다.
+function directReads(): ReadDefinition[] {
+  return [
+    {
+      route: DIRECT_PLAN_ROUTE,
+      handle(snapshot, ctx, input) {
+        const { route, request } = input as { route: string; request: unknown };
+        const ready = prepared(snapshot);
+        if (!ready.ok) return ready;
+        const target = directTarget(snapshot, ready.value, ctx, route, request);
+        if (!target.ok) return target;
+        return ok({
+          file: target.value === null ? null : {
+            path: target.value.file.path,
+            blob_hash: target.value.file.blob_hash,
+            bytes: target.value.file.bytes,
+          },
+          next_cursor: null,
+        });
+      },
+    },
+    {
+      route: DIRECT_ANSWER_ROUTE,
+      handle(snapshot, ctx, input) {
+        const { route, request, path, content } = input as {
+          route: string;
+          request: unknown;
+          path: string;
+          content: Uint8Array;
+        };
+        const ready = prepared(snapshot);
+        if (!ready.ok) return ready;
+        const target = directTarget(snapshot, ready.value, ctx, route, request);
+        if (!target.ok) return target;
+        if (target.value === null) {
+          return err({ code: "unavailable", message: "nothing to extract" });
+        }
+        const file = target.value.file;
+        if (
+          file.path !== path || content.length !== file.bytes ||
+          createHash("sha256").update(content).digest("hex") !== file.blob_hash
+        ) {
+          return err({
+            code: "unavailable",
+            message: "file bytes do not match the version",
+          });
+        }
+        const transient = openTransientDerived();
+        if (!transient.ok) return transient;
+        try {
+          transient.value.write((tx) =>
+            writeExtraction(tx, {
+              document: target.value!.document,
+              version: target.value!.version,
+              content_hash: target.value!.content_hash,
+              module_hash: BUILTIN_MODULE_HASH,
+              extraction: extractDirect(target.value!, content),
+            }, snapshot.as_of_seq)
+          );
+          const run = DIRECT_RUNS.get(route)!;
+          const answered = run(
+            { ...ready.value, read: transient.value.read },
+            ctx,
+            request,
+          );
+          return answered.ok ? paged(answered.value) : answered;
+        } finally {
+          transient.value.close();
+        }
+      },
+    },
+  ];
+}
+
 export function createReaderRegistration(): ReaderRegistration {
   const root: ReadDefinition<ReadRoute> = {
     route: outlineRoot,
@@ -516,14 +713,9 @@ export function createReaderRegistration(): ReaderRegistration {
         outlineContext,
         (ready, ctx, input) => outline(ready).context(ctx, input as never),
       ),
-      worker(
-        outlineDocument,
-        (ready, ctx, input) => outline(ready).document(ctx, input as never),
-      ),
-      worker(
-        documentRead,
-        (ready, ctx, input) => outline(ready).read(ctx, input as never),
-      ),
+      worker(outlineDocument, runOutlineDocument),
+      worker(documentRead, runDocumentRead),
+      ...directReads(),
       worker(
         documentSectionHistory,
         (ready, ctx, input) =>

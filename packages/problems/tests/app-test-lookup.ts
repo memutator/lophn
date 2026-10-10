@@ -30,3 +30,28 @@ export function findAppTestVerification(
     bundle_hash: String(row.target_bundle_hash),
   });
 }
+
+// 같은 앱·같은 완성 bundle hash로 실제 실행해 통과로 기록된 app test의 id다. 실패·판정 불가·다른 hash는
+// 근거가 아니다(apps/releases#R5). 여럿이면 id가 앞선 하나다.
+export function findPassedAppTest(
+  sql: Pick<Sql, "get">,
+  app: string,
+  bundleHash: string,
+): Result<string | undefined> {
+  let row;
+  try {
+    row = sql.get(
+      `select id from verifications
+        where app = ? and kind = 'app_test' and result = 'pass'
+          and target_bundle_hash = ?
+        order by id limit 1`,
+      [app, bundleHash],
+    );
+  } catch {
+    return err({
+      code: "unavailable",
+      message: "verification records are unavailable",
+    });
+  }
+  return ok(row === undefined ? undefined : String(row.id));
+}

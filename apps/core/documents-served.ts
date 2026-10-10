@@ -77,6 +77,63 @@ export const STORED_FILE_ROUTE: ReadRoute = {
   errors: documentFile.errors,
 };
 
+// 직접 추출(documents/outline-and-search#R15)을 받는 worker route. 읽기 handler는 동기·snapshot
+// 전용이라 바이트가 없다. 추출 안 된 고정 판에는 core가 두 단계로 부른다: 계획(어느 판의 어느
+// 파일을 읽을지, 요청 자격으로 같은 읽기를 다시 돌려 권한을 판정)과 답(core가 blob 인가·hash
+// 검사 뒤 읽은 바이트로 이번 응답에만 추출해 같은 handler로 답). 공개 route가 아니다.
+export const DIRECT_EXTRACT_ROUTES: readonly WorkerRoute[] = [
+  outlineDocument,
+  documentRead,
+];
+
+const DIRECT_ROUTE_NAMES = DIRECT_EXTRACT_ROUTES.map(servedKey) as [
+  string,
+  ...string[],
+];
+
+export const DIRECT_PLAN_ROUTE: ReadRoute = {
+  kind: "read",
+  resource: "documents-worker",
+  method: "direct_plan",
+  name: "document.direct_plan",
+  input: z.strictObject({
+    route: z.enum(DIRECT_ROUTE_NAMES),
+    request: z.unknown(),
+  }),
+  output: z.looseObject({}),
+  actors: ["user", "coding_agent", "agent", "app", "machine"],
+  errors: [
+    "invalid_input",
+    "not_found",
+    "forbidden",
+    "unavailable",
+    "internal",
+  ],
+};
+
+export const DIRECT_ANSWER_ROUTE: ReadRoute = {
+  kind: "read",
+  resource: "documents-worker",
+  method: "direct_answer",
+  name: "document.direct_answer",
+  input: z.strictObject({
+    route: z.enum(DIRECT_ROUTE_NAMES),
+    request: z.unknown(),
+    // 계획이 가리킨 대표 파일의 바이트.
+    path: z.string().min(1),
+    content: z.instanceof(Uint8Array),
+  }),
+  output: z.looseObject({}),
+  actors: ["user", "coding_agent", "agent", "app", "machine"],
+  errors: [
+    "invalid_input",
+    "not_found",
+    "forbidden",
+    "unavailable",
+    "internal",
+  ],
+};
+
 // 준비 route의 기준 판 읽기. 요청 자격으로 문서 접근을 판정하고, 권한 밖이나 없는 판은
 // 같은 null이다(존재를 새지 않는다). 공개 route가 아니라 core 안에서만 쓴다.
 export const PREPARE_BASE_ROUTE: ReadRoute = {

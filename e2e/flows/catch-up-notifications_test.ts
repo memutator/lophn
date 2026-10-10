@@ -6,7 +6,9 @@
 // 이 파일이 단정하지 않는 갈래:
 // - 끝난 question·approval의 오래된 notification, ticket 검사와 문제 닫힘. 이 준비로는
 //   그 결정을 만들지 않는다.
-// - 연결이 끊긴 뒤 놓친 진행을 재생하지 않음. harness가 socket만 끊지 못한다.
+// - core가 살아 있는 채 event socket만 끊겼다가 같은 core에 다시 붙는 경우. harness가 socket만
+//   끊지 못한다. core를 죽이면 shell main에는 core를 다시 띄우거나 구독을 다시 잇는 길이
+//   없어(`reconnect`를 부르는 곳이 없다) 앱을 다시 시작해야 붙는다. 그 경우만 아래 test가 본다.
 // - 이 test는 core를 다시 시작한 뒤 실패 이유를 확인하지 않는다. 실패 관측은 프로세스
 //   메모리라 재시작 뒤에는 성공으로 채우지 않을 뿐이다. 창만 닫았다 다시 연 뒤의 다음
 //   조회는 아래 맨 끝의 test가 본다.
@@ -16,7 +18,13 @@ import {
   copyFixture,
   editExternally,
 } from "../../fixtures/projects/scenarios.ts";
-import { e2eEnabled, READY_TIMEOUT_MS } from "../harness.ts";
+import {
+  descendantPids,
+  e2eEnabled,
+  processAlive,
+  READY_TIMEOUT_MS,
+  signalPids,
+} from "../harness.ts";
 import type { PageSession } from "../run.ts";
 import {
   commandBody,
@@ -779,7 +787,7 @@ Deno.test({
             );
             assertEquals(closed, 0, "창이 닫히지 않았다");
             assert(
-              processAliveNow(flow.shell.pid),
+              processAlive(flow.shell.pid),
               "창을 닫았는데 shell main이 끝났다",
             );
           },
@@ -849,14 +857,6 @@ Deno.test({
     }
   },
 });
-
-function processAliveNow(pid: number): boolean {
-  try {
-    return Deno.statSync(`/proc/${pid}`).isDirectory;
-  } catch {
-    return false;
-  }
-}
 
 /**
  * 같은 데이터 root로 shell을 한 번 더 시작한다. 두 번째 시작은 single instance lock에 막혀
@@ -962,3 +962,148 @@ function pageHelpers(page: PageSession) {
   };
   return { until, click, mouseClickText, read };
 }
+
+/** shell이 띄운 core process의 pid. cmdline에 core entry가 있는 자손이다. */
+async function corePid(shellPid: number): Promise<number> {
+  for (const pid of await descendantPids(shellPid)) {
+    try {
+      const cmdline = await Deno.readTextFile(`/proc/${pid}/cmdline`);
+      if (cmdline.includes("apps/core/main.ts")) return pid;
+    } catch {
+      // 그 사이 끝난 process다.
+    }
+  }
+  throw new Error("shell 아래에서 core process를 찾지 못했다");
+}
+
+Deno.test({
+  name:
+    "shell/desktop#R7 platform/notifications#R4 platform/notifications#R8 platform/notifications#R11 flow catch-up-notifications: core 연결이 끊기면 마지막 화면을 유지하고 다시 시작한 뒤 놓친 진행을 연속 재생하지 않는다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn(t) {
+    const folder = await Deno.realPath(await copyFixture("korean-search"));
+    try {
+      let flow = await openFlowShell({
+        start: "settings",
+        osNotifyFails: true,
+      });
+      const home = flow.home;
+      try {
+        let firstId = "";
+        await t.step(
+          "shell/desktop#R9: 연결된 동안 notification 하나가 things-to-confirm에 보인다",
+          async () => {
+            await enableOsNotifications(flow);
+            await watchGlossary(flow, folder);
+            await editExternally(folder, "glossary.md", FIRST_GLOSSARY);
+            const rows = await untilWatchNotifications(
+              flow,
+              1,
+              "watch notification 대기",
+            );
+            firstId = rows[0].notification.id;
+            await untilFailed(flow, firstId);
+            await flow.click('[data-screen="things-to-confirm"]');
+            await openNotificationsTab(flow);
+            await flow.until(
+              `document.querySelector("[data-notification='${firstId}'] [data-os-failed='show_failed']") !== null`,
+              "연결된 동안 notification 줄이 보이지 않는다",
+            );
+            assertEquals(await flow.count("[data-stale]"), 0);
+          },
+        );
+
+        await t.step(
+          "shell/desktop#R7: core 연결이 끊기면 마지막 화면을 유지하고 최신 확인 못함과 확인 시각을 보이며 새 notification을 지어내지 않는다",
+          async () => {
+            signalPids([await corePid(flow.shell.pid)], "SIGKILL");
+            await flow.until(
+              `document.querySelector("[data-stale]") !== null`,
+              "연결이 끊겼는데 최신 확인 못함 표시가 없다",
+            );
+            const stale = String(await flow.text("[data-stale]"));
+            assert(stale.trim().length > 0, "확인 시각 안내가 비었다");
+            assert(!showsInternalName(stale), stale);
+            // 마지막 화면 그대로: 같은 화면, 같은 탭, 같은 notification 줄.
+            assertEquals(await screenOf(flow), "things-to-confirm");
+            assertEquals(
+              await flow.count("[data-notification]"),
+              1,
+            );
+            assert(
+              (await flow.text(`[data-notification="${firstId}"]`))?.includes(
+                FOCUS_TITLE,
+              ),
+            );
+            // 끊긴 동안 읽음을 대신 처리하지 못한다.
+            assertEquals(
+              await flow.evaluate(
+                `document.querySelector("[data-notification='${firstId}'] [data-mark-read]")?.hasAttribute("disabled")`,
+              ),
+              true,
+            );
+            await delay(2_000);
+            assertEquals(await flow.count("[data-notification]"), 1);
+          },
+        );
+
+        let secondId = "";
+        await t.step(
+          "shell/desktop#R7 platform/notifications#R4 platform/notifications#R11: 다시 시작하면 현재 기록으로 맞추고 놓친 진행을 한 줄씩 다시 알리지 않는다",
+          async () => {
+            // 끊긴 동안 일어난 변화. core가 없으니 이 변화는 다시 시작해야 보인다.
+            await editExternally(folder, "glossary.md", SECOND_GLOSSARY);
+            await flow.close();
+            flow = await openFlowShell({
+              home,
+              start: "things-to-confirm",
+              osNotifyFails: true,
+            });
+            const rows = await untilWatchNotifications(
+              flow,
+              2,
+              "놓친 변화의 notification 대기",
+            );
+            secondId = rows.find((row) => row.notification.id !== firstId)
+              ?.notification.id ?? "";
+            assert(secondId);
+            await openNotificationsTab(flow);
+            // 두 사실 모두 개별 줄로 닿고 화면은 현재 기록 하나로 맞는다.
+            await flow.until(
+              `document.querySelectorAll("[data-notification]").length === 2`,
+              "다시 시작한 화면이 두 notification을 보이지 않는다",
+            );
+            // 읽지 않은 notification은 chip 하나에 모인다. 줄마다 chip을 다시 띄우지 않는다.
+            assertEquals(await flow.count("[data-notification-chip]"), 1);
+            assertEquals(await runCount(flow), 0);
+            assertEquals(await flow.count("[data-stale]"), 0);
+          },
+        );
+
+        await t.step(
+          "shell/desktop#R7 platform/notifications#R8: 다시 붙기 전에 있던 notification은 OS 표시를 다시 시도하지 않는다",
+          async () => {
+            // 다시 붙기 전에 이미 있던 첫 notification은 따라잡기 backlog라 지금 도착한
+            // event가 아니다. 표시를 다시 시도했다면 실패 관측이 생겨 failed로 바뀐다.
+            await delay(3_000);
+            const first = await notificationOf(flow, firstId);
+            assertEquals(first.delivery?.state, "unconfirmed");
+            assertEquals(first.delivery?.reason, undefined);
+            assertEquals(await runCount(flow), 0);
+          },
+        );
+      } finally {
+        try {
+          await flow.close();
+        } catch {
+          // 이미 닫았거나 기동이 실패한 경우다.
+        }
+        await removeHome(home);
+      }
+    } finally {
+      await Deno.remove(folder, { recursive: true });
+    }
+  },
+});

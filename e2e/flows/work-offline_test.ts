@@ -3700,3 +3700,541 @@ Deno.test({
     }
   },
 });
+
+// flow work-offline 7단계. 재시작까지 있었던 뒤 사람은 현재 확인된 결과·아직 끝나지 않은 일·확인 불가를
+// 구별하며 로컬 일을 이어 간다. 실제 shell(headless)·제품 core를 임시 LOPHN_HOME으로 띄운다.
+// - 앱 쓰기가 시작만 되고 core가 죽으면 같은 데이터 root로 다시 띄운 core는 그 호출을 성공이나 실패로 채우지
+//   않고 확인 불가로 둔다. 재시작 전에 끝난 호출은 확정으로 남고, 재시작 뒤 새로 시작한 호출은 끝나지 않은 일이다.
+//   app-space Activity가 이 셋을 서로 다른 문구로 보인다.
+// - 검색 index(derived)가 없는 채 재시작해 index가 다시 만들어지는 동안에도 고정 판 읽기는 index를 기다리지 않는다.
+//   빈 검색 결과를 원본 부재로 보이지 않는다.
+// update-lophn, install-lophn은 보지 않는다. 기록 자체가 없는 호출의 부재 표시는 report-app-problem이 본다.
+const SEVEN_NOTE = "A zebra waits in the offline note.";
+const SEVEN_QUERY = "zebra";
+const BULK = 45;
+
+/** 앱 쓰기가 돌아오지 않는 Hang 앱을 core를 멈춘 동안 심는다. */
+async function seedHangApp(home: string): Promise<void> {
+  const installed = await installedHome();
+  const parent = await Deno.makeTempDir({ prefix: "lophn-e2e-offline7-src-" });
+  try {
+    const source = await Deno.readTextFile(`${FIXTURE}/src/commands.ts.tmpl`);
+    assertEquals(source.split(MARK_KIND_BEFORE).length - 1, 1);
+    // kind가 hang으로 시작할 때만 돌아오지 않는다. 다른 kind는 바로 성공한다.
+    const hangOnly = MARK_KIND_AFTER.replace(
+      "    deps.log(`mark_kind ${kind}`);\n",
+      "    deps.log(`mark_kind ${kind}`);\n" +
+        '    if (!kind.startsWith("hang")) return { marked: kind };\n',
+    );
+    assert(hangOnly !== MARK_KIND_AFTER);
+    const dir = await materialize(
+      parent,
+      "hang",
+      installed.sdkRoot,
+      source.replace(MARK_KIND_BEFORE, hangOnly),
+    );
+    seedHang(
+      home,
+      await preparedBundle(
+        home,
+        HANG_APP,
+        dir,
+        await commitSource(dir),
+        installed.sdkRoot,
+      ),
+    );
+  } finally {
+    await removeTree(parent);
+    await installed.dispose();
+  }
+}
+
+/** shell 아래의 core를 SIGKILL하고 그 자손도 정리한다(다시 열 때 ledger를 잡고 있지 않게). */
+async function killCoreOf(shellPid: number): Promise<void> {
+  let corePid: number | undefined;
+  for (const pid of await descendantPids(shellPid)) {
+    try {
+      if ((await readCmdline(pid)).includes("apps/core/main.ts")) {
+        corePid = pid;
+        break;
+      }
+    } catch { /* 이미 끝남 */ }
+  }
+  assert(corePid !== undefined, "core pid를 찾지 못했다");
+  const children = (await descendantPids(corePid)).filter((pid) =>
+    pid !== corePid
+  );
+  signalPids([corePid], "SIGKILL");
+  const gone = Date.now() + 30_000;
+  while (processAlive(corePid)) {
+    assert(Date.now() < gone, "core가 끝나지 않았다");
+    await delay(200);
+  }
+  signalPids(children.filter((pid) => processAlive(pid)), "SIGKILL");
+  const childrenGone = Date.now() + 5_000;
+  while (children.some((pid) => processAlive(pid))) {
+    assert(Date.now() < childrenGone, "core 자손이 끝나지 않았다");
+    await delay(100);
+  }
+}
+
+Deno.test({
+  name:
+    "platform/backup-and-migration#R15 platform/backup-and-migration#R16 documents/outline-and-search#R14 documents/outline-and-search#R15 apps/invocations#R10 flow work-offline 7: 재시작 뒤 확정·끝나지 않음·확인 불가를 구별하고 검색을 다시 만드는 동안에도 고정 판 읽기는 기다리지 않는다",
+  ignore: !e2eEnabled(),
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn(t) {
+    const folder = await Deno.realPath(
+      await Deno.makeTempDir({ prefix: "lophn-e2e-offline7-folder-" }),
+    );
+    await Deno.writeTextFile(`${folder}/note.md`, `# note\n\n${SEVEN_NOTE}\n`);
+    for (let index = 0; index < BULK; index += 1) {
+      const name = `bulk-${String(index).padStart(3, "0")}`;
+      await Deno.writeTextFile(
+        `${folder}/${name}.md`,
+        `# ${name}\n\n${"Filler line for the index to read.\n".repeat(400)}`,
+      );
+    }
+    const home = await Deno.makeTempDir({ prefix: "lophn-e2e-offline7-" });
+    await Deno.chmod(home, 0o700);
+    let flow: FlowShell | undefined;
+    const shell = (): FlowShell => {
+      if (flow === undefined) throw new Error("shell이 없다");
+      return flow;
+    };
+    const closeFlow = async () => {
+      const current = flow;
+      flow = undefined;
+      await current?.close();
+    };
+    try {
+      flow = await openFlowShell({ home });
+      await registerTrackedProject(flow, {
+        folder,
+        name: "alpha",
+        title: "Alpha",
+      });
+      await untilDocuments(
+        flow,
+        ["note", `bulk-${String(BULK - 1).padStart(3, "0")}`],
+        "노트가 문서가 되지 않았다",
+      );
+      const noteId = (await documentTitled(flow, "note")).id;
+      const pinned = (await versionHistory(flow, noteId))[0];
+      assert(pinned !== undefined, "고정 판이 없다");
+      // index가 한 번 따라와 있어야 지운 뒤 다시 만들어지는 것을 본다.
+      await untilSearch(
+        flow,
+        SEVEN_QUERY,
+        (page) => page.results.some((row) => row.document === noteId),
+        "검색이 노트를 반영하지 않았다",
+      );
+      await closeFlow();
+      await seedHangApp(home);
+
+      flow = await openFlowShell({ home, start: "lophn" });
+      const invocationsOf = async (): Promise<
+        InvocationRow[]
+      > => ((await mustCall(shell(), {
+        kind: "read",
+        resource: "invocations",
+        method: "list",
+        body: { app: HANG_APP, limit: 50 },
+      })).invocations as InvocationRow[]);
+      const ofCommand = async (command: string): Promise<InvocationRow[]> =>
+        (await invocationsOf()).filter((row) =>
+          row.operation.kind === "command" &&
+          row.operation.command === command
+        );
+      const untilReady = async () => {
+        const deadline = Date.now() + 120_000;
+        let last = "";
+        while (Date.now() < deadline) {
+          const got = await mustCall(shell(), {
+            kind: "read",
+            resource: "apps",
+            method: "runtime",
+            body: { app: HANG_APP },
+          });
+          const observation = got.observation as {
+            ready?: boolean;
+            mode?: string;
+          } | null;
+          if (observation?.ready === true && observation.mode === "live") {
+            return;
+          }
+          last = JSON.stringify(observation);
+          await delay(400);
+        }
+        throw new Error(`Hang runtime이 준비되지 않았다: ${last}`);
+      };
+      const openHang = async () => {
+        // 앱이 뜨기 전에 열면 화면이 불러오지 못한다. 준비된 뒤에 연다.
+        await untilReady();
+        if (
+          await shell().evaluate(
+            `document.querySelector("[data-space]")?.getAttribute("data-space") ?? ""`,
+          ) !== "lophn"
+        ) {
+          await shell().click("[data-launcher-back]");
+          await shell().until(
+            `document.querySelector("[data-entry=lophn]") !== null`,
+            "launcher로 돌아오지 않았다",
+          );
+          await shell().click("[data-entry=lophn]");
+          await shell().until(
+            `document.querySelector("[data-space]")?.getAttribute("data-space") === "lophn"`,
+            "lophn 공간이 서지 않았다",
+          );
+        }
+        await shell().click("[data-screen=apps]");
+        await shell().until(
+          `document.querySelector("[data-app-row] [data-action=open]") !== null`,
+          "앱 목록이 서지 않았다",
+        );
+        const clicked = await shell().evaluate(`(() => {
+          const row = [...document.querySelectorAll("[data-app-row]")].find((item) => item.querySelector("span")?.textContent === "Hang");
+          const button = row?.querySelector("[data-action=open]");
+          if (!button) return false;
+          button.click();
+          return true;
+        })()`);
+        assertEquals(clicked, true, "Hang 앱 행이 없다");
+        await shell().until(
+          `document.querySelector("[data-space]")?.getAttribute("data-space") === "app"`,
+          "Hang 앱 공간이 서지 않았다",
+        );
+        await untilReady();
+        const deadline = Date.now() + 30_000;
+        let last = "";
+        for (;;) {
+          try {
+            const page = await shell().shell.connect(
+              `lophn-app://app-${HANG_APP.slice(4)}`,
+            );
+            if (
+              await page.evaluate(
+                `typeof window.lophnApp?.call === "function"`,
+              ) === true
+            ) return page;
+          } catch (error) {
+            last = String(error);
+          }
+          assert(Date.now() < deadline, `앱 bridge가 서지 않았다: ${last}`);
+          await delay(200);
+        }
+      };
+      const marker = `${home}/apps/${HANG_APP}/data/hang-once`;
+
+      // 재시작 전: 끝난 호출 하나와 시작만 되고 돌아오지 않는 쓰기 하나.
+      const before = await openHang();
+      const done = await before.evaluate(
+        `window.lophnApp.call("mark_kind", { kind: "done", view_session: "view-1" }).then((body) => "ok:" + JSON.stringify(body), (error) => "failed:" + String(error && error.message || error))`,
+      );
+      assert(String(done).startsWith("ok:"), `mark_kind done: ${String(done)}`);
+      const sent = await before.evaluate(`(() => {
+        const call = window.lophnApp.call("mark_kind", { kind: "hang", view_session: "view-1" });
+        const pending = new Promise((resolve) => setTimeout(() => resolve("pending"), 4000));
+        return Promise.race([
+          Promise.resolve(call).then(
+            (value) => "ok:" + JSON.stringify(value),
+            (error) => "failed:" + String(error && error.message),
+          ),
+          pending,
+        ]);
+      })()`);
+      assert(sent === "pending", `hang 쓰기가 돌아왔다: ${String(sent)}`);
+      const started = Date.now() + 30_000;
+      for (;;) {
+        const marks = await ofCommand("mark_kind");
+        const file = await Deno.readTextFile(marker).catch(() => "");
+        if (
+          marks.length === 2 && file === "hang\n" &&
+          marks.filter((row) => row.status === "succeeded").length === 1 &&
+          marks.filter((row) => row.status === "running").length === 1
+        ) break;
+        assert(
+          Date.now() < started,
+          `쓰기가 시작되지 않았다: ${JSON.stringify(marks)}`,
+        );
+        await delay(200);
+      }
+
+      // 연결이 끊기고(core 종료) 검색 index도 사라진 채 같은 데이터 root로 다시 시작한다.
+      await killCoreOf(shell().shell.pid);
+      await closeFlow();
+      await Deno.remove(`${home}/derived`, { recursive: true });
+      flow = await openFlowShell({ home, start: `project:${PROJECT}` });
+
+      // index가 사라진 채 다시 시작했다. 재시작은 정상 읽기를 열었고 index를 따라잡는 중이다.
+      const status = await within(
+        10_000,
+        mustCall(shell(), {
+          kind: "read",
+          resource: "platform",
+          method: "status",
+          body: {},
+        }),
+        "platform/status",
+      );
+      assertEquals(status.ready, true);
+      const behind = await within(
+        10_000,
+        searchOnce(shell(), SEVEN_QUERY),
+        "search/query",
+      );
+      // 따라오는 중인 index는 결과 없이 진실을 낸다. 빈 결과를 원본 부재로 보이지 않는다.
+      assert(
+        behind.coverage.lagging || behind.coverage.rebuilding,
+        `index가 이미 따라왔다: ${JSON.stringify(behind.coverage)}`,
+      );
+      assertEquals(behind.results.length, 0);
+      // 고정 판 읽기는 그 index를 기다리지 않는다.
+      const got = await within(
+        10_000,
+        mustCall(shell(), {
+          kind: "read",
+          resource: "documents",
+          method: "get",
+          body: { document: noteId, version: pinned.id },
+        }),
+        "documents/get",
+      );
+      assertEquals(
+        (got.version as { content_hash: string }).content_hash,
+        pinned.content_hash,
+      );
+      const pinnedReference = {
+        document: noteId,
+        version: pinned.id,
+        section: null,
+      };
+      const read = await within(
+        10_000,
+        shell().call({
+          kind: "worker",
+          resource: "documents",
+          method: "read",
+          body: { reference: pinnedReference },
+        }),
+        "documents/read",
+      );
+      assert(read.ok, `documents/read: ${JSON.stringify(read)}`);
+      const text = (read.value as { text: string | null }).text;
+      if (text !== null) assert(text.includes(SEVEN_NOTE), text);
+      const outline = await within(
+        10_000,
+        shell().call({
+          kind: "worker",
+          resource: "outline",
+          method: "document",
+          body: { reference: pinnedReference },
+        }),
+        "outline/document",
+      );
+      assert(outline.ok, `outline/document: ${JSON.stringify(outline)}`);
+      // index는 기다리는 쪽이 아니라 따라오는 쪽이다: 자리가 앞으로 간다.
+      const seqOf = (coverage: unknown): bigint =>
+        BigInt((coverage as { processed_seq: string }).processed_seq);
+      const progressDeadline = Date.now() + 60_000;
+      for (;;) {
+        const now = await searchOnce(shell(), SEVEN_QUERY);
+        if (seqOf(now.coverage) > seqOf(behind.coverage)) break;
+        assert(
+          Date.now() < progressDeadline,
+          `index가 따라오지 않는다: ${JSON.stringify(now.coverage)}`,
+        );
+        await delay(250);
+      }
+      assertEquals(
+        (await versionHistory(shell(), noteId))[0]?.id,
+        pinned.id,
+      );
+
+      // 로컬 문서는 그대로 이어 열린다.
+      await shell().until(
+        `document.querySelector('[data-document="${noteId}"]') !== null`,
+        "sidebar에 노트가 없다",
+      );
+      await shell().click(`[data-document="${noteId}"]`);
+      await shell().until(
+        `document.querySelector("[data-document-view]")?.getAttribute("data-document-view") === "read"`,
+        "노트 화면이 열리지 않았다",
+      );
+      assertEquals(
+        await shell().evaluate(
+          `document.querySelector("[data-save-status]")?.getAttribute("data-save-status") ?? ""`,
+        ) === "stale",
+        false,
+      );
+      assertEquals(
+        await shell().evaluate(
+          `document.querySelector("[data-document-view] [data-external]") === null`,
+        ),
+        true,
+      );
+
+      // 재시작이 모르는 쓰기를 성공이나 실패로 채우지 않았고 다시 보내지도 않았다.
+      const statuses = async () =>
+        (await ofCommand("mark_kind")).map((row) => row.status).toSorted();
+      const deadline = Date.now() + 60_000;
+      while (Date.now() < deadline) {
+        if ((await statuses()).includes("unknown")) break;
+        await delay(400);
+      }
+      assertEquals(await statuses(), ["succeeded", "unknown"]);
+      const unknown = (await ofCommand("mark_kind")).find((row) =>
+        row.status === "unknown"
+      );
+      assert(unknown?.summary.effects !== "none", JSON.stringify(unknown));
+      assertEquals(await Deno.readTextFile(marker), "hang\n");
+
+      // 재시작 뒤 사람이 새로 시작한 일은 끝나지 않은 일이다.
+      const after = await openHang();
+      const sentAgain = await after.evaluate(`(() => {
+        const call = window.lophnApp.call("mark_kind", { kind: "hang-again", view_session: "view-2" });
+        const pending = new Promise((resolve) => setTimeout(() => resolve("pending"), 4000));
+        return Promise.race([
+          Promise.resolve(call).then(
+            (value) => "ok:" + JSON.stringify(value),
+            (error) => "failed:" + String(error && error.message),
+          ),
+          pending,
+        ]);
+      })()`);
+      assertEquals(sentAgain, "pending");
+      const working = Date.now() + 30_000;
+      for (;;) {
+        const rows = await ofCommand("mark_kind");
+        if (rows.some((row) => row.status === "running")) break;
+        assert(
+          Date.now() < working,
+          `끝나지 않은 일이 없다: ${JSON.stringify(rows)}`,
+        );
+        await delay(200);
+      }
+
+      await shell().click('[data-app-bar="app-details"]');
+      await shell().until(
+        `document.querySelector("[data-ops-panel]") !== null`,
+        "앱 상세가 열리지 않았다",
+      );
+      await shell().until(
+        `document.querySelector('[role=tab][id$="trigger-activity"]') !== null`,
+        "활동 탭이 없다",
+      );
+      const picked = await shell().evaluate(`(() => {
+        const tab = document.querySelector('[role=tab][id$="trigger-activity"]');
+        if (!tab) return false;
+        tab.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0, buttons: 1 }));
+        tab.click();
+        return true;
+      })()`);
+      assertEquals(picked, true, "활동 탭이 없다");
+      await shell().until(
+        `document.querySelector("[data-activity-toggle]") !== null`,
+        "활동 탭이 서지 않았다",
+      );
+      await shell().click("[data-activity-toggle]");
+      await shell().until(
+        `document.querySelector("[data-activity='succeeded']") !== null && document.querySelector("[data-activity='running']") !== null && document.querySelector("[data-activity='unknown']") !== null`,
+        "확정·끝나지 않음·확인 불가 세 줄이 함께 보이지 않는다",
+      );
+      const doneText = await shell().text("[data-activity='succeeded']");
+      const workingText = await shell().text("[data-activity='running']");
+      const unknownText = await shell().text("[data-activity='unknown']");
+      assert(doneText?.includes("Done"), doneText ?? "");
+      assert(workingText?.includes("In progress"), workingText ?? "");
+      assert(unknownText?.includes("Result unknown"), unknownText ?? "");
+      assertEquals(unknownText?.includes("Done"), false);
+      assertEquals(workingText?.includes("Result unknown"), false);
+      assertEquals(doneText?.includes("Result unknown"), false);
+      // 확인 불가만 결과를 다시 확인하는 행동을 준다.
+      assertEquals(
+        await shell().count("[data-activity-action='check']"),
+        1,
+      );
+      assertEquals(
+        await shell().count(
+          "[data-activity='unknown'] [data-activity-action='check']",
+        ),
+        1,
+      );
+      // 다시 확인해도 근거 없이 성공이나 실패로 바뀌지 않는다.
+      await shell().click(
+        "[data-activity='unknown'] [data-activity-action='check']",
+      );
+      await delay(500);
+      const checked = (await ofCommand("mark_kind")).filter((row) =>
+        row.status === "unknown"
+      );
+      assertEquals(checked.length, 1, JSON.stringify(checked));
+      assertEquals(checked[0]?.summary.reason, unknown?.summary.reason);
+      assertEquals(await Deno.readTextFile(marker), "hang\n");
+
+      // 제품 결함: core가 outline 조립에 직접 추출(OutlineHandlerDeps.extract)을 넣지 않아 index가
+      // 아직 그 판을 추출하지 못했으면 documents/read가 본문 없이 section_status unverified로 답한다
+      // (apps/core/documents-reader.ts의 outline(), R15의 "필요하면 그 판을 직접 추출한다").
+      // 화면은 "text couldn't be read yet"을 보인다. documents 팀이 직접 추출을 이으면 이 단언을 켠다.
+      await t.step({
+        name:
+          "documents/outline-and-search#R15: index를 다시 만드는 동안에도 고정 판 본문이 읽힌다 (제품 결함: 직접 추출이 조립에 없어 본문 없이 unverified)",
+        ignore: true,
+        async fn() {
+          const direct = await shell().call({
+            kind: "worker",
+            resource: "documents",
+            method: "read",
+            body: {
+              reference: {
+                document: noteId,
+                version: pinned.id,
+                section: null,
+              },
+            },
+          });
+          assert(direct.ok, JSON.stringify(direct));
+          const value = direct.value as {
+            text: string | null;
+            section_status: string;
+          };
+          assertEquals(value.section_status, "whole");
+          assert(value.text?.includes(SEVEN_NOTE), String(value.text));
+          await shell().until(
+            `document.querySelector("[data-document-body]")?.textContent?.includes(${
+              JSON.stringify(SEVEN_NOTE)
+            })`,
+            "노트 본문이 열리지 않았다",
+          );
+        },
+      });
+
+      // 제품 결함: 따라잡기가 끝난 뒤 문서가 쓰지 않는 event(관측 근거 같은 것)가 ledger 끝에 붙으면
+      // documents feed가 그 event로는 index를 다시 확인하지 않아 cursor가 한 칸 뒤에 머문 채 검색이
+      // 계속 lagging이다(apps/core/documents-feed.ts는 SEARCH_CONSUMED_EVENTS에만 깨운다).
+      // documents 팀이 고치면 이 단언을 켠다.
+      await t.step({
+        name:
+          "documents/outline-and-search#R14: 다시 만든 index가 끝까지 따라와 노트를 돌려준다 (제품 결함: 끝에 붙은 비소비 event 뒤 cursor가 멈춘다)",
+        ignore: true,
+        async fn() {
+          await untilSearch(
+            shell(),
+            SEVEN_QUERY,
+            (found) => found.results.some((row) => row.document === noteId),
+            "다시 만든 검색이 노트를 돌려주지 않았다",
+          );
+          assertEquals(
+            (await searchOnce(shell(), SEVEN_QUERY)).coverage.rebuilding,
+            false,
+          );
+        },
+      });
+    } finally {
+      await closeFlow();
+      await removeTree(home);
+      await Deno.remove(folder, { recursive: true }).catch(() => undefined);
+    }
+  },
+});

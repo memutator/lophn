@@ -278,3 +278,28 @@ Deno.test("platform/install-and-update#R4: control은 Electron 실행 의존성�
   // Deno는 묶음에 있으므로 시스템 Deno에 의존하지 않는다.
   assertFalse(control.toLowerCase().includes("deno,"));
 });
+
+Deno.test("platform/install-and-update#R4, R5: 권한 계획 process도 PATH의 절대 폴더와 감지 bin 폴더를 읽기만 연다(refresh 실행 파일 감지)", async () => {
+  const run = await runCliLauncher(
+    ["harness", "refresh"],
+    "",
+    { PATH: "/usr/bin:relative/bin:/opt/a,b:/usr/local/bin" },
+  );
+  // 계획 process의 읽기 목록: 설치 묶음·run·cwd·proc 뒤에 PATH 절대 폴더와 home 기준 bin 폴더가 정확히 든다.
+  const plannerRead = run.planner.filter((a) => a.startsWith("--allow-read="));
+  assertEquals(plannerRead.length, 1);
+  const read = plannerRead[0].slice("--allow-read=".length).split(",");
+  assert(read.includes("/usr/bin"));
+  assert(read.includes("/usr/local/bin"));
+  assertFalse(read.includes("relative/bin"));
+  assertFalse(read.includes("/opt/a"));
+  for (const dir of [".local/bin", ".bun/bin", ".local/share/mise/shims"]) {
+    assert(read.includes(`<HOME>/${dir}`), dir);
+  }
+  // 계획 process는 쓰기 없이 helper 실행 하나뿐이다.
+  assertEquals(run.planner.filter((a) => a.startsWith("--allow-write")), []);
+  assertEquals(
+    run.planner.filter((a) => a.startsWith("--allow-run")),
+    ["--allow-run=<ROOT>/lophn-credential"],
+  );
+});

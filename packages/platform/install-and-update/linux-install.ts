@@ -157,7 +157,9 @@ export function cliLauncher(layout: LinuxInstallLayout): string {
     'if [ -n "${NEED:-}" ]; then',
     '  EXTRA=$("$ROOT/deno" run --cached-only --frozen --no-prompt \\',
     '    --config="$ROOT/platform/deno.json" \\',
-    '    --allow-read="$ROOT/platform,$DENO_DIR,$H/run,$PWD,/proc/self/stat" \\',
+    // 계획도 감지가 보는 PATH 폴더와 home 기준 bin 폴더를 읽어야 refresh의 실행 파일을 찾는다(읽기만).
+    '    --allow-read="$ROOT/platform,$DENO_DIR,$H/run,$PWD,/proc/self/stat,' +
+    CLI_FALLBACK_BINS + '${PATHDIRS:+,$PATHDIRS}" \\',
     '    --allow-env="$ENVNAMES" \\',
     `    --allow-net=${LOOPBACK} \\`,
     '    --allow-run="$ROOT/lophn-credential" \\',

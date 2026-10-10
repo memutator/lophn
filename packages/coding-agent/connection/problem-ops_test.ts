@@ -216,8 +216,8 @@ Deno.test("coding-agent/mcp-server#R25: test는 reproduction만 요청하고 현
   const body = sent.find((entry) => entry.route === "RequestTest")!.body as {
     input: Record<string, unknown>;
   };
-  // claim 근거는 owner 입력에 섞이지 않는다(ticket link는 reproduction에서 null이다).
-  assertEquals(body.input["ticket_source"], undefined);
+  // 현재 claim을 RequestTest에 실어 core가 접수 때 다시 확인한다. ticket link는 null이다.
+  assertEquals(body.input["ticket_source"], { ticket: TKT, claim_seq: "3" });
   assertEquals(body.input["ticket"], null);
   assertEquals((ran.data as { real_test?: boolean }).real_test, undefined);
 });

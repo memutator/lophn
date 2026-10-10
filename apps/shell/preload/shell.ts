@@ -17,6 +17,7 @@ import { createCoreApi } from "./core-api.ts";
 import { createAppWindowsApi } from "./app-window-api.ts";
 import { createCodingApi } from "./coding-api.ts";
 import { createConfirmationOpener } from "./confirmation-open.ts";
+import { createConfirmationEndedSubscriber } from "./confirmation-ended.ts";
 import { createEditorApi } from "./editor-api.ts";
 import { createInstructionsApi } from "./instructions-api.ts";
 import { createFeedbackBegin, createOverlayFeedback } from "./feedback-api.ts";
@@ -47,6 +48,8 @@ contextBridge.exposeInMainWorld(
     ? Object.freeze({
       ...createShellApi(ipcRenderer, role),
       openConfirmation: createConfirmationOpener(ipcRenderer),
+      // 연 확인이 확정되지 않고 끝났다는 알림. main이 연 창에만 보낸다.
+      onConfirmationEnded: createConfirmationEndedSubscriber(ipcRenderer),
       // term.define 선택지는 확인 창 없이 main이 정본을 다시 읽어 접수한다.
       async confirmTermDefinition(input: {
         question: string;

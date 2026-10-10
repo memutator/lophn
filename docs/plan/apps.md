@@ -1390,6 +1390,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
 
 ### T27 apps slice flow E2E
 
+- 상태: 진행 (#474, #489, #546, #547, #548, #549, #560, #561, #563, #576) — 완료: restore-app-release. new-app은 등록·source 연결·bundle
 - 상태: 진행 (#474, #489, #546, #547, #548, #549, #560, #561, #562, #576) — 완료: restore-app-release. new-app은 등록·source 연결·bundle
   준비까지 e2e/flows/flow-new-app_test.ts를 썼고 통과한다(#576).
   #560: release.prepare finalizer를 core에 이었다(`apps/core/apps-release-finalizer.ts`: ticket claim을 가진 coding
@@ -1405,6 +1406,8 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
   새 nonce 재시작까지 돈다. 남은 것은 secret 단계 2·3·6(OS keychain 없음, SecretDelivery 미부착), command 허락 4,
   보호 범위·조합 경고 갈래), connect-apps(#561: 선언은 허락이 아님·거절과 창 닫기·허락한 쌍의 호출이 대상 앱
   handler로 가 일정을 만들고 caller 앱·release 근거가 남음·회수 뒤 새 호출 차단까지 돈다. 남은 것: confirm 필요
+  command 5단계, 반대 방향·command 사라짐·재귀/깊이 상한 갈래. #563: 거절·창 닫기 뒤 Connections 탭
+  등의 "기다리는 중" 고착을 고쳤다 — 확정 없이 끝난 확인을 main이 연 창에만 알리고 탭이 푼다),
   command 5단계(#562로 닫음: todo가 보관 캘린더 앱의 delete_all_events를 부르면 사람 결정 전에는 실행되지 않고, 거절·창 닫기는 실행하지 않으며, 허락은 한 번만 쓰인다. fixture에 보관 캘린더 연결 추가), 반대 방향·command 사라짐·재귀/깊이 상한 갈래(하지 않기로 함: 사람 결정 2026-10-10. 해보다가 앱 view가 재시작 뒤 모든 command를 "command is not available"로 답하는 현상을 보았으나 원인은 가리지 못했다). 결함: 거절·창 닫기 뒤 Connections 탭의
   [Review connection]이 탭을 다시 열기 전까지 막힘),
   ask-app-hint. #549 run-app-automation(e2e/flows/run-app-automation_test.ts): fixture todo에 automation

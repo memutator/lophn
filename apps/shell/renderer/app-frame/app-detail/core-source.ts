@@ -2,6 +2,11 @@
 // schema로 이미 검사했다. 아래 모양은 그 schema에서 이 화면이 읽는 field만 옮긴 것이다.
 import type { CoreCall } from "../../../ipc/core.ts";
 import type { CoreSource } from "../../desktop/connection/connection.ts";
+import {
+  decisionEnds,
+  type SubscribeEnded,
+  windowEnded,
+} from "./decision-end.ts";
 import type {
   AccessKind,
   AccessView,
@@ -321,7 +326,9 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 export function coreAppDetailSource(
   core: CoreSource,
   openDecision: OpenDecision | undefined = windowDecision(),
+  subscribeEnded: SubscribeEnded | undefined = windowEnded(),
 ): AppDetailSource {
+  const ends = decisionEnds(subscribeEnded);
   const automationGrants = new Map<
     string,
     { app: string; automation: string; seq: string }
@@ -612,7 +619,7 @@ export function coreAppDetailSource(
       });
     },
 
-    async decide(decision) {
+    async decide(decision, onUnconfirmed) {
       if (openDecision === undefined) {
         return { ok: false, code: "unavailable" };
       }
@@ -621,9 +628,11 @@ export function coreAppDetailSource(
           request: { kind: "owner_decision", ...intentOf(decision) },
           parentWindow: PARENT_WINDOW,
         }) as { windowId?: string; code?: string };
-        return typeof opened?.windowId === "string"
-          ? { ok: true, value: true }
-          : { ok: false, code: opened?.code ?? "unavailable" };
+        if (typeof opened?.windowId !== "string") {
+          return { ok: false, code: opened?.code ?? "unavailable" };
+        }
+        ends.watch(opened.windowId, onUnconfirmed);
+        return { ok: true, value: true };
       } catch {
         return { ok: false, code: "unavailable" };
       }

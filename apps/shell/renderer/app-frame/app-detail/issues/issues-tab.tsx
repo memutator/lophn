@@ -149,7 +149,7 @@ function IssueDetail(
             source={source}
             now={now}
             asked={asked}
-            onAsked={() => setAsked(true)}
+            onAsked={setAsked}
           />
         )}
       </Loadable>
@@ -170,7 +170,7 @@ function IssueBody(
     source: IssuesSource;
     now: () => Date;
     asked: boolean;
-    onAsked: () => void;
+    onAsked: (asked: boolean) => void;
   },
 ) {
   const [failed, setFailed] = useState<"decision" | "tried" | null>(null);
@@ -184,12 +184,13 @@ function IssueBody(
       return;
     }
     setFailed(null);
+    // 확인 창이 거절·닫힘 등으로 확정 없이 끝나면 기다림을 푼다.
     const reply = await source.decide({
       problem: view.id,
       choice,
       note: choice === "dismiss" ? note.trim() : null,
-    });
-    if (reply.ok) onAsked();
+    }, () => onAsked(false));
+    if (reply.ok) onAsked(true);
     else setFailed("decision");
   }
 

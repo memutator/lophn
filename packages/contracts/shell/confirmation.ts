@@ -242,8 +242,28 @@ export const confirmationOutcomeSchema = z.union([
 
 export type ConfirmationOutcome = z.infer<typeof confirmationOutcomeSchema>;
 
+// 확인이 확정되지 않은 채 끝난 종류. 사람의 거절(rejected)과 닫기·취소, 만료·교체가 모두 여기 든다.
+export const CONFIRMATION_ENDED_KINDS = [
+  "cancelled",
+  "closed",
+  "crashed",
+  "expired",
+  "replaced",
+  "rejected",
+] as const;
+
+// main이 확인을 연 창에게만 보내는 끝남 알림. 어느 요청이었는지 알아보는 windowId(열기 결과로
+// 받은 값)와 끝난 종류만 있고 확인 내용·대상·proof는 싣지 않는다. 허락은 알리지 않는다.
+export const confirmationEndedSchema = z.strictObject({
+  windowId: z.string().min(1),
+  ended: z.enum(CONFIRMATION_ENDED_KINDS),
+});
+
+export type ConfirmationEnded = z.infer<typeof confirmationEndedSchema>;
+
 export const CONFIRMATION_IPC = {
   "shell:confirmation-open": confirmationOpenIntentSchema,
+  "shell:confirmation-ended": confirmationEndedSchema,
   "confirmation:display": confirmationDisplaySchema,
   "confirmation:submit": confirmationSubmitSchema,
   "confirmation:cancel": confirmationCancelSchema,
@@ -256,6 +276,8 @@ export type LophnShell = {
   openConfirmation(
     intent: ConfirmationOpenIntent,
   ): Promise<ConfirmationOpenResult>;
+  // 연 창만 자기가 연 확인이 확정되지 않고 끝났을 때 알림을 받는다.
+  onConfirmationEnded(listener: (ended: ConfirmationEnded) => void): () => void;
 };
 
 // 보호 preload. 이 창의 표시 읽기·결정 제출·취소만 있다.

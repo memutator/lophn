@@ -218,6 +218,10 @@ export function coordinator(
       },
       receipt: () => Promise.resolve(undefined),
     },
+    refusals: {
+      reject_approval_request: "rejected",
+      cancel_approval_request: "cancelled",
+    },
     clock: { now: () => env.clock.now },
     preload: "/preload-confirmation.cjs",
     packaged: true,

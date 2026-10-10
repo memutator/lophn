@@ -56,12 +56,18 @@ export function AccessTab({ app, source, now }: AccessTabProps) {
 
   async function remove(grant: GrantRow): Promise<void> {
     setFailed(false);
+    // 확인 창이 거절·닫힘 등으로 확정 없이 끝나면 기다림을 푼다.
     const reply = await source.decide({
       kind: "remove_access",
       app,
       grant: grant.id,
-    });
-    if (reply.ok) setRequested(new Set(requested).add(grant.id));
+    }, () =>
+      setRequested((now) => {
+        const next = new Set(now);
+        next.delete(grant.id);
+        return next;
+      }));
+    if (reply.ok) setRequested((now) => new Set(now).add(grant.id));
     else setFailed(true);
   }
 

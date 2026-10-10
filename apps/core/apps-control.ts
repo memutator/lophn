@@ -126,6 +126,10 @@ import {
   type ActivationDriver,
   createActivationDriver,
 } from "./apps-activation.ts";
+import {
+  createReleaseFinalizer,
+  FINALIZER_OPERATIONS,
+} from "./apps-release-finalizer.ts";
 import type { BlobPrepareCall } from "./core.ts";
 import type { PreparedRelayResult } from "./blob-prepare.ts";
 import { createFsPreviewArea } from "../../packages/apps/preview/area.ts";
@@ -159,6 +163,8 @@ export const APPS_CONTROL_CONTEXT: RequestContext = {
       releaseCompleteActivation.name,
       releaseFailActivation.name,
       appRecordUnavailable.name,
+      // 준비한 bundle의 같은 hash app test가 통과로 기록되면 release를 확정한다(release.prepare).
+      ...FINALIZER_OPERATIONS,
     ],
     targets: {},
   },
@@ -743,6 +749,7 @@ export async function createAppsControl(
       app: string;
       commit: string;
       request_key: string;
+      ticket_source?: { ticket: string; claim_seq: string };
     };
     const source = await releaseGate(
       ctx,
@@ -751,12 +758,20 @@ export async function createAppsControl(
       "forbidden",
     );
     if (!source.ok) return source;
-    return await client.releasePrepare({
+    const accepted = await client.releasePrepare({
       app: body.app,
       commit: body.commit,
       request_key: body.request_key,
       source_path: source.value,
     });
+    if (accepted.ok) {
+      finalizer?.watch(body.app, body.request_key, {
+        commit: body.commit,
+        actor: ctx.actor,
+        ticket_source: body.ticket_source,
+      });
+    }
+    return accepted;
   };
   const releasePreparationHandler: MemoryHandler = async (ctx, input) => {
     const body = input as { app: string; request_key: string };
@@ -767,7 +782,19 @@ export async function createAppsControl(
       "not_found",
     );
     if (!source.ok) return source;
-    return await client.releasePreparation(body.app, body.request_key);
+    const read = await client.releasePreparation(body.app, body.request_key);
+    if (!read.ok || finalizer === null) return read;
+    // 준비가 끝났고 같은 hash의 통과한 app test가 있으면 여기서 release가 확정된다(apps/releases#R5, R6).
+    const finalized = await finalizer.observe(read.value);
+    if (finalized.ok) return read;
+    // release.preparation이 내는 오류 코드만 쓴다. 확정이 거절한 이유(claim 변경 같은 conflict)는 숨기지 않는다.
+    const { code, message } = finalized.error;
+    return err({
+      code: code === "forbidden" || code === "invalid_input"
+        ? code
+        : "unavailable",
+      message,
+    });
   };
   const releaseCancelHandler: MemoryHandler = async (ctx, input) => {
     const body = input as { app: string; request_key: string };
@@ -781,6 +808,15 @@ export async function createAppsControl(
     const cancelled = await client.releaseCancel(body.app, body.request_key);
     return cancelled.ok ? ok({ accepted: true as const }) : cancelled;
   };
+
+  const finalizer = deps.activation === undefined
+    ? null
+    : createReleaseFinalizer({
+      ledgerPath: deps.ledgerPath,
+      dataRoot: deps.activation.dataRoot,
+      command: deps.activation.command,
+      machine: deps.activation.machine,
+    });
 
   async function reconcileApp(next: DesiredApp): Promise<Result<void>> {
     desired.set(next.app, next);

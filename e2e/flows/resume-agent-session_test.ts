@@ -196,7 +196,6 @@ Deno.test({
             heldAnswer("tidy-hold", "hold-tidy", "Working on the glossary."),
             end("tidy-answer", ANSWER),
             ask("ask-question"),
-            end("ask-end", "One decision is yours."),
             handoff("handoff-send", editor.id),
             end("handoff-end", "The context engineer has the glossary."),
           ],
@@ -500,8 +499,7 @@ Deno.test({
           await untilRuns(agent.id, 2, "두 번째 run이 접수되지 않았다");
           const asked = await latestRun(agent.id);
           assert(asked !== null, "두 번째 run이 없다");
-          // 질문을 만든 run은 답을 기다리는 상태가 아니라 끝난다(제품 loop는 approval만 건다).
-          // 질문 자체는 답을 기다린다.
+          // 질문을 만든 run은 그 질문의 답을 기다린다.
           const deadline = Date.now() + 120_000;
           while ((await questions()).length === 0) {
             assert(Date.now() < deadline, "질문이 만들어지지 않았다");
@@ -512,8 +510,8 @@ Deno.test({
           assertEquals(question.status, "pending");
           await untilRun(
             agent.id,
-            (row) => row.id === asked.id && row.state === "finished",
-            "질문을 만든 run이 끝나지 않았다",
+            (row) => row.id === asked.id && row.state === "waiting_user",
+            "질문을 만든 run이 답을 기다리지 않는다",
           );
           await flow.until(
             `document.querySelector("[data-question-text='ready']") !== null`,
@@ -547,10 +545,38 @@ Deno.test({
       await t.step(
         "lophn-agent/handoff#R5: 6 맡긴 일은 보낸 run의 전달 사실로 남고 받는 역할의 독립 run으로 시작한다",
         async () => {
+          // 앞 질문을 미뤄 그 run이 답 없음으로 끝나야 다음 요청이 시작한다.
+          const [waiting] = await questions();
+          assert(waiting !== undefined, "기다리는 질문이 없다");
+          await flow.click("[data-later]");
+          const closedBy = Date.now() + 60_000;
+          while ((await questions())[0]?.status !== "cancelled") {
+            assert(Date.now() < closedBy, "미루기가 접수되지 않았다");
+            await delay(250);
+          }
+          const stopped = await untilRun(
+            agent.id,
+            (row) =>
+              row.state === "finished" && row.outcome?.kind === "stopped",
+            "질문을 낸 run이 답 없음으로 끝나지 않았다",
+          );
           await flow.type(INPUT, THIRD);
           await flow.click(SEND);
           await untilConfirmed();
           await untilRuns(agent.id, 3, "세 번째 run이 접수되지 않았다");
+          // 답 없음으로 끝난 run 뒤의 요청은 사람이 계속하라고 확인해야 시작한다(run-loop R6).
+          const queued = await latestRun(agent.id);
+          assert(queued !== null, "세 번째 run이 없다");
+          await mustCall(flow, {
+            kind: "command",
+            resource: "runs",
+            method: "confirm-next",
+            body: commandBody({ run: queued.id, predecessor: stopped.id }, {
+              accepted_seq: queued.accepted_seq,
+              predecessor_state_seq: (stopped as RunRow & { state_seq: string })
+                .state_seq,
+            }),
+          });
           const sent = await latestRun(agent.id);
           assert(sent !== null, "세 번째 run이 없다");
           // 보낸 run: handoff tool call 하나를 내고 그 결과 뒤 답으로 끝난다.

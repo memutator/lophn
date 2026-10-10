@@ -2604,11 +2604,9 @@ type TicketScript = {
   body: (index: number) => string;
   calls: () => number;
   facts: () => TicketFacts;
-  waiting: () => boolean;
-  release: () => void;
 };
 
-// 질문을 낸 뒤의 다음 model 요청을 사람이 답할 때까지 붙든다. 답은 run이 살아 있는 동안에만 접수된다.
+// 질문을 낸 run은 답을 기다린다(WaitRun). 답으로 같은 run이 이어진 뒤의 model 요청이 ask 단계다.
 function startTicketScript(problemId: string): TicketScript {
   const bodies: string[] = [];
   const named: string[] = [];
@@ -2627,8 +2625,6 @@ function startTicketScript(problemId: string): TicketScript {
   };
   let seq = 0;
   let seen = 0;
-  let waiting = false;
-  let open: (() => void) | null = null;
   const issue = (name: string, args: unknown): SemanticReply => {
     named.push(name);
     seq += 1;
@@ -2718,12 +2714,6 @@ function startTicketScript(problemId: string): TicketScript {
           )?.[0];
           assert(question !== undefined, text.slice(-400));
           found.facts.question = question;
-          waiting = true;
-          await new Promise<void>((resolve) => {
-            open = resolve;
-          });
-          open = null;
-          waiting = false;
           found.step = "list";
           reply = issue("problem.list", { app: APP });
         } else if (found.step === "list") {
@@ -2811,18 +2801,13 @@ function startTicketScript(problemId: string): TicketScript {
   );
   return {
     url: `http://127.0.0.1:${server.addr.port}`,
-    close: () => {
-      (open as (() => void) | null)?.();
-      return server.shutdown();
-    },
+    close: () => server.shutdown(),
     failure: () => found.failure,
     step: () => found.step,
     callsNamed: () => named,
     body: (index) => bodies[index] ?? "",
     calls: () => bodies.length,
     facts: () => found.facts,
-    waiting: () => waiting,
-    release: () => (open as (() => void) | null)?.(),
   };
 }
 
@@ -3027,17 +3012,19 @@ Deno.test({
       });
 
       // 채택 질문이 서고 run이 그 답을 기다리는 동안에는 ticket이 없다.
-      await waitFor("채택 질문 뒤 model 요청이 멈추지 않았다", () => {
+      await waitFor("채택 질문이 서지 않았다", async () => {
         assert(script!.failure() === "", script!.failure());
-        return Promise.resolve(script!.waiting());
+        return (await questionsSeen(flow)).some((row) =>
+          row.status === "pending"
+        );
       });
       const facts = script.facts();
       assertEquals(script.step(), "ask");
       assertEquals(await ticketRows(flow), []);
       const asked = (await questionsSeen(flow)).find((row) =>
-        row.id === facts.question
+        row.status === "pending"
       );
-      assert(asked !== undefined, facts.question);
+      assert(asked !== undefined, "채택 질문이 없다");
       assertEquals(asked.status, "pending");
       assertEquals(asked.answer, null);
       const adoptOption = asked.options.find((item) => item.key === "adopt");
@@ -3062,7 +3049,13 @@ Deno.test({
       assertEquals(answered?.status, "answered");
       assertEquals(answered?.answer?.option_key, "adopt");
       assertEquals(await ticketRows(flow), []);
-      script.release();
+      // 답으로 같은 run이 이어진다. 해소기가 이을 때까지는 아직 기다리는 중이다.
+      await waitFor("답 뒤 run이 이어지지 않았다", async () => {
+        const run = (await runRows(flow, engineer!.id)).find((item) =>
+          item.source.message === ASK_MESSAGE
+        );
+        return run?.state !== "waiting_user";
+      });
       await untilRunDone(flow, engineer.id, ASK_MESSAGE, script, "ticket run");
       assertEquals(script.failure(), "");
       assertEquals(script.step(), "done");

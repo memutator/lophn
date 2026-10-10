@@ -12,7 +12,8 @@
 // - 4단계 테스트: 3단계의 등록 적용이 ignore라 같은 등록을 사람 직접 경로(apps/create)로
 //   만들어 따로 본다. 등록 뒤 App Engineer 담당이 앱마다 하나 준비되고, lophn이 같은
 //   채택 판과 채택 답을 그 담당에게 맡기며 전달 사실만 남긴다.
-// 5~13(설계·ticket·[Start]·claim·release·preview·적용·acceptance)은 돌리지 않는다.
+// - 5단계 테스트: App Engineer의 설계 판·직접 요청 ticket·설계 채택(위 결함 때문에 ignore).
+// 6~13([Start]·claim·release·preview·적용·acceptance)은 이 파일이 돌리지 않는다(plan T41 상태 줄).
 import { assert, assertEquals } from "@std/assert";
 
 import { buildReply } from "../../tools/fake-provider/semantic.ts";
@@ -1800,6 +1801,412 @@ Deno.test({
             assertEquals(shown.includes(word), false, `화면에 보인다: ${word}`);
           }
           assertEquals(await flow!.count("[data-review]"), 0);
+          await noWindow();
+        },
+      );
+    } finally {
+      await flow?.close();
+      if (home !== "") await removeHome(home);
+      await provider.close();
+    }
+  },
+});
+
+// 5단계. 4단계와 같은 등록·handoff 위에서 받은 App Engineer가 채택한 기획에서 설계를 이어 고정
+// 문서로 남기고, 사람은 확인한 설계 판을 채택한다. 직접 요청도 ticket으로 정리하되 ticket 생성은 묻지
+// 않고, 채택 판·조건이 없으면 실행 준비가 아닌 확인 필요로 남겨 시작을 보류한다. 두 담당이 한 model
+// 응답 server를 나눠 쓰므로 요청의 tool 목록(`ticket.make_ready`는 App Engineer에만 있다)으로 응답 줄을 고른다.
+const DESIGN_TITLE = "Spending app design";
+const DESIGN_BODY = [
+  "# Spending app design",
+  "",
+  "## Purpose",
+  "",
+  "The household ledger records each spend and shows the month total.",
+  "",
+  "## Out of scope",
+  "",
+  "Budgets and sharing between people are not part of this app.",
+  "",
+  "## What the person sees",
+  "",
+  "1. The person records a spend with an amount and a date.",
+  "2. The month total changes to include that spend.",
+  "",
+  "## Acceptance checks",
+  "",
+  "- The month total equals the sum of the recorded spends.",
+  "",
+].join("\n");
+const DESIGN_ASK = "Hand-off sent. Let the engineer design it.";
+const DESIGN_ADOPT_PROMPT = "Adopt the design the engineer saved?";
+const DESIGN_ADOPT_REASON = "The design is one decision.";
+const DESIGN_ADOPT_WHY = "This is the design saved from the adopted plan.";
+const ENGINEER_MARK = "ticket.make_ready";
+
+function startRoleProvider(lophn: Step[], engineer: Step[]) {
+  const bodies = { lophn: [] as string[], engineer: [] as string[] };
+  const server = Deno.serve(
+    { hostname: "127.0.0.1", port: 0, onListen: () => {} },
+    async (request) => {
+      const text = await request.text();
+      const path = new URL(request.url).pathname;
+      if (request.method !== "POST" || !path.endsWith("/messages")) {
+        return Response.json({ error: "unexpected" }, { status: 500 });
+      }
+      const role = text.includes(ENGINEER_MARK) ? "engineer" : "lophn";
+      const steps = role === "engineer" ? engineer : lophn;
+      const step = steps[bodies[role].length];
+      bodies[role].push(text);
+      if (step === undefined) {
+        return Response.json({ error: "exhausted" }, { status: 500 });
+      }
+      const built = buildReply("messages", step(text));
+      return new Response(built.body ?? "", {
+        status: built.status,
+        headers: built.headers,
+      });
+    },
+  );
+  return {
+    url: `http://127.0.0.1:${server.addr.port}`,
+    calls: (role: "lophn" | "engineer") => bodies[role].length,
+    body: (role: "lophn" | "engineer", index: number) =>
+      bodies[role][index] ?? "",
+    close: () => server.shutdown(),
+  };
+}
+
+Deno.test({
+  name:
+    "lophn-agent/roles/app-engineer#R8 lophn-agent/roles/app-engineer#R17 lophn-agent/presets#R14 coding-agent/tickets#R2 coding-agent/tickets#R3 coding-agent/tickets#R5 flow new-app 5: App Engineer가 채택한 기획에서 설계를 고정 문서로 남기고 사람이 설계 판을 채택하며, 직접 요청 ticket은 묻지 않고 만들되 채택 판·조건이 갖춰져야 실행 준비가 된다",
+  // 막힌 곳(제품 결함, 고치지 않는다): 등록 뒤 받은 App Engineer의 handoff run이 model을 한 번도 부르지
+  // 않고 configuration_unavailable로 끝난다(started→finished 약 50ms, 시도 0, provider 호출 0).
+  // core는 그 run의 credential 요청을 받았고 거절 지점(run·assignment·scope·operation) 어디서도 막지
+  // 않았다. 첫 turn 전에 run loop가 실패하는 원인은 lophn-agent harness 자리에서 가려야 한다.
+  // 그래서 설계 판 저장·직접 요청 ticket·설계 채택 질문 단계는 이 결함이 풀릴 때까지 ignore다.
+  ignore: true,
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn(t) {
+    let saved: SavedIds | null = null;
+    let design: SavedIds | null = null;
+    let adoptedPlan = "";
+    let app = "";
+    let engineer = "";
+    const planRef = () => ({
+      document: saved!.document,
+      version: saved!.version,
+      section: null,
+    });
+    const lophnSteps: Step[] = [
+      () => save(SAVE_ID, APP_TITLE, APP_BODY),
+      (body) => {
+        saved = savedIds(body, SAVE_ID);
+        const ref = planRef();
+        return ask(
+          "toolu_des_adopt_plan",
+          ADOPT_PROMPT,
+          ADOPT_REASON,
+          [
+            option(
+              "adopt",
+              "Adopt this plan",
+              "Keep the plan that was just saved for this ledger.",
+              ref,
+              [ref],
+            ),
+            option("wait", "Not yet", "Leave this plan unadopted."),
+          ],
+          "adopt",
+          ADOPT_WHY,
+        );
+      },
+      () => end(ADOPT_END),
+      () =>
+        toolCall("toolu_des_send", "handoff.submit", {
+          receiver_assignment: engineer,
+          to_role: "app_engineer",
+          ...HANDOFF_CONTENT,
+          references: [{ ...planRef(), question: adoptedPlan }],
+          dedup_key: "flow-new-app-design",
+        }),
+      () => end(HANDOFF_END),
+    ];
+    const engineerSteps: Step[] = [
+      // 받은 고정 판을 읽고 설계를 이어 문서로 남긴다. 판은 담당 앱 자리에 놓인다.
+      () =>
+        toolCall("toolu_eng_read", "document.read_version", {
+          reference: planRef(),
+        }),
+      () =>
+        toolCall("toolu_eng_save", "document.create", {
+          title: DESIGN_TITLE,
+          place: { kind: "app", id: app },
+          name: "design",
+          text: DESIGN_BODY,
+          media_type: "text/markdown",
+          evidence: {
+            relied_on: [{
+              document: saved!.document,
+              version: saved!.version,
+            }],
+            missing: [],
+          },
+        }),
+      // 설계가 채택되기 전의 직접 요청도 ticket으로 정리한다. 채택 판·조건이 없으면 비워 채우지 않는다.
+      (body) => {
+        design = savedIds(body, "toolu_eng_save");
+        return toolCall("toolu_eng_ticket", "ticket.create", {
+          app,
+          kind: "implementation",
+          title: "Build the spending ledger",
+          what: "Build the household ledger from the saved design.",
+          why: "The person wants each spend recorded with a month total.",
+          references: [],
+          adoption_questions: [],
+          conditions: [],
+          inspect: [],
+          preserve: [],
+          problems: [],
+          needs: [],
+        });
+      },
+      () => {
+        const ref = { ...design!, section: null };
+        return ask(
+          "toolu_eng_adopt_design",
+          DESIGN_ADOPT_PROMPT,
+          DESIGN_ADOPT_REASON,
+          [
+            option(
+              "adopt",
+              "Adopt this design",
+              "Keep the design that was just saved for this ledger.",
+              ref,
+              [ref],
+            ),
+            option("wait", "Not yet", "Leave this design unadopted."),
+          ],
+          "adopt",
+          DESIGN_ADOPT_WHY,
+        );
+      },
+    ];
+    const provider = startRoleProvider(lophnSteps, engineerSteps);
+    let flow: FlowShell | undefined;
+    let home = "";
+    try {
+      flow = await openFlowShell({ start: "conversation" });
+      home = flow.home;
+      await setDefaults(flow, provider.url);
+      const assignments = await mustCall(flow, {
+        kind: "read",
+        resource: "assignments",
+        method: "list",
+        body: {},
+      });
+      const lophn = (assignments.assignments as { id: string; role: string }[])
+        .filter((entry) => entry.role === "lophn");
+      assertEquals(lophn.length, 1);
+      const assignment = lophn[0]!.id;
+      const runsOf = async (id: string = assignment): Promise<RunRow[]> =>
+        (await mustCall(flow!, {
+          kind: "read",
+          resource: "runs",
+          method: "list",
+          body: { assignment: id },
+        })).runs as RunRow[];
+      const questionsOf = async (
+        id: string = assignment,
+      ): Promise<QuestionRecord[]> =>
+        (await mustCall(flow!, {
+          kind: "read",
+          resource: "questions",
+          method: "list",
+          body: { assignment: id },
+        })).questions as QuestionRecord[];
+      const tickets = async () => ((await mustCall(flow!, {
+        kind: "read",
+        resource: "tickets",
+        method: "screen_list",
+        body: { app },
+      })).tickets as {
+        id: string;
+        screen_state: string;
+        next_action: string | null;
+      }[]);
+      const diag = async () =>
+        `lophn=${provider.calls("lophn")} engineer=${
+          provider.calls("engineer")
+        } lophnRuns=${JSON.stringify(await runsOf())} engineerRuns=${
+          engineer === "" ? "[]" : JSON.stringify(await runsOf(engineer))
+        } dock=${JSON.stringify(await dockText(flow!))}`;
+      const noWindow = async () => {
+        assertEquals(
+          await flow!.shell.mainEvaluate(
+            `electron.webContents.getAllWebContents().some((c) => !c.isDestroyed() && c.getURL().startsWith("lophn-shell://confirmation/"))`,
+          ),
+          false,
+          "확인 창이 열렸다",
+        );
+      };
+
+      await flow.until(
+        `document.querySelector(${JSON.stringify(DOCK)}) !== null`,
+        "도크가 열리지 않았다",
+      );
+      await flow.until(
+        `document.querySelector("[data-new-session]") !== null || document.querySelector(${
+          JSON.stringify(INPUT)
+        }) !== null`,
+        "새 세션 단추가 서지 않았다",
+      );
+      if (
+        await flow.evaluate(
+          `document.querySelector(${JSON.stringify(INPUT)}) === null`,
+        ) === true
+      ) {
+        await flow.click("[data-new-session]");
+      }
+      await flow.until(
+        `document.querySelector(${JSON.stringify(INPUT)}) !== null`,
+        "입력칸이 서지 않았다",
+      );
+
+      // 앞 단계(기획 채택·등록·handoff)는 4단계와 같다.
+      await flow.type(INPUT, ADOPT4_ASK);
+      await flow.click(SEND);
+      await flow.until(
+        `document.querySelector("[data-question-text='ready']")?.textContent === ${
+          JSON.stringify(ADOPT_PROMPT)
+        }`,
+        "채택 질문이 칸에 서지 않았다",
+        120_000,
+      );
+      await flow.click("[data-option=adopt]");
+      await flow.click("[data-send-answer]");
+      const answerDeadline = Date.now() + 30_000;
+      for (;;) {
+        const row = (await questionsOf()).find((item) =>
+          item.status === "answered"
+        );
+        if (row !== undefined) {
+          adoptedPlan = row.id;
+          break;
+        }
+        assert(Date.now() < answerDeadline, "채택 답이 접수되지 않았다");
+        await delay(250);
+      }
+      const created = await mustCall(flow, {
+        kind: "command",
+        resource: "apps",
+        method: "create",
+        body: commandBody({
+          slug: "household-ledger",
+          name: "Spending",
+          description: HANDOFF_PURPOSE,
+          planning_version: saved!.version,
+        }),
+      });
+      app = ((created.app ?? created) as { id: string }).id;
+      const prepared = Date.now() + 60_000;
+      while (engineer === "") {
+        const found = ((await mustCall(flow, {
+          kind: "read",
+          resource: "assignments",
+          method: "list",
+          body: {},
+        })).assignments as {
+          id: string;
+          role: string;
+          scope: { id: string | null };
+        }[]).find((entry) =>
+          entry.role === "app_engineer" && entry.scope.id === app
+        );
+        if (found !== undefined) engineer = found.id;
+        else {
+          assert(Date.now() < prepared, "App Engineer 담당이 준비되지 않았다");
+          await delay(250);
+        }
+      }
+      await flow.type(INPUT, DESIGN_ASK);
+      await flow.click(SEND);
+
+      await t.step(
+        "lophn-agent/roles/app-engineer#R8: 5 받은 담당은 채택한 기획을 읽어 설계를 담당 앱 자리의 고정 판으로 남긴다",
+        async () => {
+          const deadline = Date.now() + 180_000;
+          while (design === null) {
+            assert(
+              Date.now() < deadline,
+              `설계 판이 저장되지 않았다 | ${await diag()}`,
+            );
+            await delay(250);
+          }
+          const plan = await readPlan(flow!, DESIGN_TITLE);
+          assertEquals(plan.version, design!.version);
+          assertEquals(plan.text, DESIGN_BODY);
+          assertEquals(plan.number, 1);
+          assertEquals(plan.savedBy, `agent:${engineer}`);
+          assertEquals(plan.place, { kind: "app", id: app });
+          assertEquals(plan.name, "design");
+          // 채택한 기획은 그대로고 설계는 따로 쌓인다.
+          assertEquals((await readPlan(flow!, APP_TITLE)).text, APP_BODY);
+          assert(
+            provider.body("engineer", 0).includes(planRef().version),
+            "받은 고정 판이 담당 입력에 없다",
+          );
+        },
+      );
+
+      await t.step(
+        "coding-agent/tickets#R2 coding-agent/tickets#R3 lophn-agent/roles/app-engineer#R17: 5 직접 요청 ticket은 묻지 않고 만들어지되 채택 판·조건이 없으면 확인 필요로 남아 시작되지 않는다",
+        async () => {
+          const deadline = Date.now() + 120_000;
+          for (;;) {
+            if ((await tickets()).length > 0) break;
+            assert(
+              Date.now() < deadline,
+              `ticket이 만들어지지 않았다 | ${await diag()}`,
+            );
+            await delay(250);
+          }
+          const rows = await tickets();
+          assertEquals(rows.length, 1);
+          assertEquals(rows[0]!.screen_state, "needs_confirmation");
+          assertEquals(rows[0]!.next_action, "needs_confirmation");
+          // 만든 것을 묻는 질문은 없다. 첫 질문은 설계 채택 하나다.
+          await noWindow();
+        },
+      );
+
+      await t.step(
+        "lophn-agent/questions#R16: 5 사람은 확인한 설계 판을 채택하고 채택 전에는 ticket이 실행 준비가 되지 않는다",
+        async () => {
+          const deadline = Date.now() + 120_000;
+          for (;;) {
+            const pending = (await questionsOf(engineer)).find((item) =>
+              item.status === "pending"
+            );
+            if (pending !== undefined) {
+              assertEquals(
+                pending.options.find((item) => item.key === "adopt")?.adoption
+                  ?.version,
+                design!.version,
+              );
+              break;
+            }
+            assert(
+              Date.now() < deadline,
+              `설계 채택 질문이 서지 않았다 | ${await diag()}`,
+            );
+            await delay(250);
+          }
+          assertEquals(
+            (await tickets())[0]!.screen_state,
+            "needs_confirmation",
+          );
           await noWindow();
         },
       );

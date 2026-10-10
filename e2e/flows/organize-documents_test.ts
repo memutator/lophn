@@ -680,11 +680,13 @@ Deno.test({
 // - 2: 사람이 자리를 물으면 lophn은 자리 없는 문서와 프로젝트를 읽기 tool로만 읽고 문서·현재
 //   자리·새 자리를 적은 선택지와 추천 이유를 question으로 묻는다. 묻는 것만으로는 옮기지 않는다.
 // - 3과 다른 갈래: 고르기만으로는 답도 이동도 아니고, 미루면 답 없음으로 남고 자리는 그대로다.
-// 볼 수 없는 것(이어보냄): 3의 답 확정·이동 적용은 답 확정 경로 결함(followups 49: ports.wait가
-// WaitRun의 질문 갈래를 부르지 않아 질문을 만든 run이 끝나고 questions/answer가 "the run is
-// finished"로 거절된다)과, 제품 `question.submit`이 선택지 action을 null로만 받고
-// `recommendPlaces`의 고정 이동 action을 싣는 `draftSubmission`(roles/lophn/question-submission.ts)이
-// runtime에 이어져 있지 않은 결함 때문에 볼 수 없다.
+// 볼 수 없는 것(이어보냄): 3의 답 확정·이동 적용. 제품 `question.submit`은 이제 `document_move`
+// 제안(문서·새 자리·이름)을 받아 handler가 읽은 문서 revision으로 document.move action을 고정한다
+// (harness/tools/bundles/question-actions.ts, 단위 테스트). 그러나 질문 칸과 shell main이 `term.define`만
+// 확인 창 없이 답으로 접수하고 그 밖의 고정 action은 모두 [Review] 확인 창으로 보내며 core의
+// AnswerQuestion도 action 선택지를 확인 handle 없이 받지 않는다(shell 결함, 이어보냄). 자리 이동은
+// 되돌릴 수 있는 안쪽 동작이라 확인 창 없이 확정돼야 한다(docs/flows/organize-documents.md 3).
+// 이 시험의 모델 응답은 아직 `document_move`를 쓰지 않아 선택지 action이 null이다.
 
 const AGENT_PROVIDER = "pvd_01arz3ndektsv4rrffq69g5fav";
 const AGENT_MODEL = "claude-sonnet-4-5";

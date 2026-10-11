@@ -14,7 +14,7 @@ concerns: [documents]
 - Context는 한 Project의 파일 위에 선 결정적 계약(type·kind·field·relation·check·public)과 선언 검색의 묶음이다. Project 하나에 여럿이 있고 자료의 소유자가 아니다. 계약과 그 판(Bundle)은 lophn ledger(+blob)가 갖고 Project 폴더에는 아무것도 쓰지 않는다(documents/contexts#Q11). index는 계약이 가리키는 현재 Project 파일을 훑어 만든 derived store이며 문서 Version이나 tracking에 기대지 않는다(documents/contexts#Q14).
 - ledger writer, transport, credential·scope·secret·redaction·blob GC·backup은 platform이 소유한다. 이 파일은 그 contract를 사용한다.
 - 편집 화면·충돌 화면·confirmation window는 shell, model 요약 생성과 prompt 조립은 lophn-agent, 앱 command·DB·source는 apps 및 coding-agent가 맡는다. 문서 worker는 앱 DB를 읽거나 앱 read command를 호출하지 않는다. Context의 app-data kind는 core가 꽂는 port로만 앱 read command를 읽는다(5.6).
-- 계약 위반 수가 늘면 `ContextViolationsIncreased`만 내고 notification은 platform의 notification contract가 만든다. 문서 변화·index 완료·위반으로 agent run을 시작하지 않는다. 위반을 Context Engineer에게 넘기는 것은 사람이 누르는 일이고 그 대화와 prompt 조립은 lophn-agent가 맡는다.
+- 계약 위반은 `ContextViolationsRecorded`로 기록하고, 수가 늘었을 때의 notification은 platform의 notification contract가 만든다. 문서 변화·index 완료·위반으로 agent run을 시작하지 않는다. 위반을 Context Engineer에게 넘기는 것은 사람이 누르는 일이고 그 대화와 prompt 조립은 lophn-agent가 맡는다.
 
 ## 2. 프로세스
 
@@ -43,7 +43,7 @@ core
 
 coordinator는 API 서버를 따로 열지 않는다. HTTP 요청의 작은 입력은 core가 비동기 IPC로 넘긴다. 결과를 기다리는 동안 core command queue나 JS 실행 흐름을 점유하지 않는다. stdio는 `request_id, operation, input_ref, basis`의 길이 prefix frame과 제한된 chunk frame을 쓴다. stderr는 diagnostics용이며 본문·token은 출력하지 않는다. IPC 종료는 진행 요청의 결과 불명 또는 이용 불가이지 성공이 아니다.
 
-worker가 쓰는 platform contract 호출은 coordinator가 중계한다. 원래 요청의 actor·run·scope와 대상·내용 참조를 인증된 요청 근거에 결합하여 전달한다. 자동 file 관측과 `file.record_result`에만 좁은 machine credential을 쓴다(context worker의 `context.record_check`·`context.record_violations`도 같다. 2.4). format guest에는 credential·확인 handle·원본 절대 경로를 전달하지 않는다. worker가 직접 `lophn.db`를 열지 않는다.
+worker가 쓰는 platform contract 호출은 coordinator가 중계한다. 원래 요청의 actor·run·scope와 대상·내용 참조를 인증된 요청 근거에 결합하여 전달한다. 자동 file 관측과 `file.record_result`에만 좁은 machine credential을 쓴다(context worker의 `bundle.finish_check`·`context.record_violations`도 같다. 2.4). format guest에는 credential·확인 handle·원본 절대 경로를 전달하지 않는다. worker가 직접 `lophn.db`를 열지 않는다.
 
 ### 2.2 실제 권한
 
@@ -73,13 +73,13 @@ context worker는 `apps/worker`의 kind `documents/contexts` 하나다. core가 
 | job | 입력 | 하는 일 | 내는 것 |
 |---|---|---|---|
 | `context.index` | context, 적용 Bundle의 contract(core가 blob을 읽어 IPC 요청에 싣는다), Project 루트 | 계약이 가리키는 경로만 stat(size·mtime)으로 훑어 바뀌었거나 새로 생긴 파일만 다시 extract하고, 사라진 파일의 개체를 지운 뒤 derived store를 한 transaction으로 갱신한다. 이어 `checks`로 위반 집합을 다시 계산한다 | scan 결과(훑은 수·바뀐 수·실패·omissions)와 위반 요약. 위반이 늘었으면 `context.record_violations`를 제출 |
-| `context.check` | context, 후보 Bundle(contract·선언 검색·예시), 그 context의 saved view 전부 | 계약이 가리키는 파일을 임시 snapshot 폴더로 복사해 고정하고 그 snapshot에 대해서만 `check` runner를 돌린 뒤 snapshot을 지운다 | 결정적 report(`bundle_hash, snapshot_hash`, 통과/실패와 이유, 위반 수). core에 `context.record_check`를 제출 |
+| `context.check` | context, 후보 Bundle(contract·선언 검색·예시), 그 context의 saved view 전부 | 계약이 가리키는 파일을 임시 snapshot 폴더로 복사해 고정하고 그 snapshot에 대해서만 `check` runner를 돌린 뒤 snapshot을 지운다 | 결정적 report(`bundle_hash, snapshot_hash`, 통과/실패와 이유, 위반 수). core에 `bundle.finish_check`를 제출 |
 
 - 권한: 등록 루트의 `--allow-read`, `~/.lophn/derived/contexts.sqlite`(와 WAL)와 `~/.lophn/documents/staging/context-check/`의 `--allow-write`만 준다. network·env·subprocess·FFI는 없고 `--no-prompt`로 시작한다. 루트 추가·해제 때 core가 새 권한으로 worker를 교체한다. 신뢰한 플랫폼 코드만 실행하며 사용자 script는 실행하지 않는다(선언형 query뿐, documents/contexts#Q10).
 - 경로 안전: 계약의 경로는 Project 루트 기준 `/` 상대 경로나 glob이다. 순회와 최종 열린 파일 검사에서 `.git`·lophn 데이터·루트 밖 symlink를 제외한다. 루트 밖을 가리키는 경로는 읽지 않고 계약 오류로 보고한다.
 - 직렬화: 한 context에는 job이 하나씩만 돈다. 같은 context의 같은 job 요청은 하나로 합쳐 같은 결과를 돌려준다.
 - 예산: 파일 수·바이트·시간 예산을 둔다(구현 조절값). 넘으면 거기서 멈추고 `omissions`를 결과에 싣는다. 일부만 훑고 전체를 훑은 것처럼 꾸미지 않는다.
-- 결과 제출: core와 같은 framed IPC를 쓰고 `context.record_check`·`context.record_violations`는 좁은 machine credential로 제출한다. 원래 요청의 context·bundle 근거를 결합하며 command가 현재 적용 판과 맞는지 다시 검사한다. worker가 직접 `lophn.db`를 열지 않는다.
+- 결과 제출: core와 같은 framed IPC를 쓰고 `bundle.finish_check`·`context.record_violations`는 좁은 machine credential로 제출한다. 원래 요청의 context·bundle 근거를 결합하며 command가 현재 적용 판과 맞는지 다시 검사한다. worker가 직접 `lophn.db`를 열지 않는다.
 - app-data: worker는 앱 read command를 부르지 않는다. `context.check`는 app-data kind의 모양(계약 안의 command 이름·결과 field)만 검사하고 앱 데이터는 읽지 않는다.
 
 ## 3. 저장
@@ -257,7 +257,7 @@ root 예산 1,500, place 3,000, document outline 2,000 estimated token·depth 2,
 
 root는 활동 순, place는 갱신 순으로 시작하고 seq·ID로 동점을 결정한다. 기본 목록·검색은 현재 ledger에서 보관 문서·보관 자리를 제거한다. 고정 판 직접 읽기는 유지한다. 권한 밖 ID는 후보 단계에서 제거한다. 제목·snippet·본문뿐 아니라 count·rank·pagination도 허용 집합에서만 계산한다. cache의 scope를 현재 허락처럼 쓰지 않는다. Context inclusion·옛 Address·blob hash만으로 범위를 넓히지 않는다. redaction 뒤에도 고정 판·원래 범위·redacted를 유지하며 안전한 출력이 불명이면 본문을 뺀다.
 
-**saved view.** saved view는 선언 검색 호출(검색 id와 고정 inputs)에 이름을 붙인 ledger 사실이며 context에 속한다(`saved_views`). 저장·변경·삭제는 `context.save_view`, `context.update_view`, `context.delete_view`다. 열 때마다 선언 검색을 다시 실행하고 결과를 저장하지 않는다. 사람이 검색 결과에서 저장하거나 Context Engineer가 미리 두며(저장·변경은 user와 Context Engineer, 삭제는 user), 삭제는 행만 지우고 그 before 값은 event에 남는다. 일반 조건(제목·본문·format·기간·보관 상태)으로 만드는 saved view는 없다. 그런 조건은 키워드 검색으로 그때그때 한다. 계약이 바뀌어 검색 id나 inputs 형식이 깨지면 그 saved view가 걸리도록, check는 후보 Bundle에 대해 모든 saved view의 검색 id·inputs를 검사한다(실패하면 적용이 막힌다).
+**saved view.** saved view는 선언 검색 호출(검색 id와 고정 inputs)에 이름을 붙인 ledger 사실이며 context에 속한다(`saved_views`). 저장·변경·삭제는 `view.save`, `view.update`, `view.delete`다. 열 때마다 선언 검색을 다시 실행하고 결과를 저장하지 않는다. 사람이 검색 결과에서 저장하거나 Context Engineer가 미리 두며(저장·변경은 user와 Context Engineer, 삭제는 user), 삭제는 행만 지우고 그 before 값은 event에 남는다. 일반 조건(제목·본문·format·기간·보관 상태)으로 만드는 saved view는 없다. 그런 조건은 키워드 검색으로 그때그때 한다. 계약이 바뀌어 검색 id나 inputs 형식이 깨지면 그 saved view가 걸리도록, check는 후보 Bundle에 대해 모든 saved view의 검색 id·inputs를 검사한다(실패하면 적용이 막힌다).
 
 **series 다음 계산.** `series.next`는 core read 모듈에서 scope·같은 snapshot의 가족 revision·멤버·예약 key·draft를 읽는다. 많은 멤버의 자연 정렬과 NextRule 계산은 준비 worker의 순수 `series-next`에 맡겨 write queue 밖에서 끝낸다. 화면과 MCP·CLI는 이 답을 쓰고 계산을 재구현하지 않는다. 표시 정렬·descending과 무관하게 key 자연 순의 마지막 확정 멤버(보관 멤버 포함)를 기준으로 한다. draft는 마지막 멤버가 아니다. 빈 가족·해석 불가 날짜 key·안전 정수 overflow는 빈 제안이다. 정수 ±step, major/minor/patch, 1~4자리 zero padding만 계산하며 from·taken·document_name·series_revision을 반환한다. 조회는 key·doc·파일을 예약하지 않고 가입 때 다시 CAS한다.
 
@@ -279,10 +279,10 @@ root는 활동 순, place는 갱신 순으로 시작하고 seq·ID로 동점을 
 | `/v1/projects/list`, `/get`, `/resolve`, `/resolve_cwd`, `/tracking_roots` | 저장 문서 중심 Project read; 사람만 폴더 경로·tracking 값 포함; resolve는 꺼진 중첩 폴더도 가장 깊은 등록 루트로 해석; resolve_cwd는 coding agent의 고정 cwd로 project ID만; tracking_roots는 machine의 활성·켠 root |
 | `/v1/documents/update`, `/set_source`, `/archive`, `/unarchive`, `/move`, `/rename` | `document.update`, `document.set_source`, `document.archive`, `document.unarchive`, `document.move`, `document.rename` |
 | `/v1/documents/list`, `/get`, `/resolve`, `/export` | 현재 metadata·고정 판·Address 예약 해석·사람의 Markdown/JSON 및 원문 export |
-| `/v1/contexts/create`, `/update`, `/archive`, `/unarchive` | `context.create`, `context.update`, `context.archive`, `context.unarchive`; context는 Project 하나에 속하고 Project마다 여럿이다 |
-| `/v1/contexts/submit_bundle`, `/rollback` | `context.submit_bundle`(후보 Bundle blob 참조를 새 판으로 기록하고 아직 적용하지 않음; user와 Context Engineer), `context.rollback`(이전 판을 다시 적용; user) |
-| `/v1/contexts/record_check`, `/record_violations` | `context.record_check`(check report 기록, 통과하면 같은 transaction에서 자동 적용), `context.record_violations`(위반 수의 마지막 기록); 둘 다 좁은 machine 내부 제출 |
-| `/v1/contexts/save_view`, `/update_view`, `/delete_view` | `context.save_view`, `context.update_view`, `context.delete_view` |
+| `/v1/contexts/create`, `/archive`, `/unarchive` | `context.create`, `context.archive`, `context.unarchive`; context는 Project 하나에 속하고 Project마다 여럿이다 |
+| `/v1/contexts/submit_bundle`, `/rollback` | `bundle.submit`(후보 Bundle blob 참조를 새 판으로 기록하고 아직 적용하지 않음; user와 Context Engineer), `bundle.rollback`(이전 판을 다시 적용; user) |
+| `/v1/contexts/record_check`, `/record_violations` | `bundle.finish_check`(check report 기록, 통과하면 같은 transaction에서 자동 적용), `context.record_violations`(위반 수의 마지막 기록); 둘 다 좁은 machine 내부 제출 |
+| `/v1/contexts/save_view`, `/update_view`, `/delete_view` | `view.save`, `view.update`, `view.delete` |
 | `/v1/contexts/list`, `/get`, `/search`, `/violations`, `/bundles`, `/saved_views`, `/containing` | 목록(목적·개수·적용 판·검사 결과·위반 수)·한 context의 Overview·선언 검색 실행(5.4)·위반 목록과 근거·Bundle 판과 check 이력·saved view 목록·Project 파일 경로가 속한 context 역조회(문서 Info›Contexts) |
 | `/v1/terms/define`, `/update`, `/archive`, `/unarchive` | 대응 `term.*` 이름; 용어 + 뜻 + 정한 사람(사람 또는 Context Engineer); 후보·근거 없음 |
 | `/v1/terms/list`, `/get` | context별 용어집 read |
@@ -290,14 +290,14 @@ root는 활동 순, place는 갱신 순으로 시작하고 seq·ID로 동점을 
 
 표의 `/update` 같은 짧은 표기는 그 행의 resource를 반복한 전체 경로다. project.create는 tracking.enabled=false만 허용하며, project.update로 folders를 바꾸는 경우도 project.set_tracking과 같은 미리보기의 정확한 folders·tracking·base_revision을 검사한다. Document 최초 save와 Series 첫 가입을 같이 요청하면 두 모듈의 검사를 같은 ledger transaction에 적용하고 일치 draft를 비운다. Series 구성·draft는 source 파일이나 Version 없는 Document가 아니다. 기존 멤버 수정은 같은 doc의 새 ver이며 멤버 추가가 아니다. Operator의 기존 출력 doc 범위를 Series 도입으로 넓히지 않는다.
 
-Bundle은 context마다 순번을 가진 판이고 상태와 전이는 domain model(documents/contexts)이 정한다. `context.submit_bundle`은 `base_bundle`을 CAS로 비교해 후보를 기록하고, 그 뒤 core가 `context.check` job을 보낸다. `context.record_check`는 report의 `bundle_hash`가 후보와 같고 그 context의 적용 판이 제출 때의 `base_bundle`과 같을 때만 받는다. 통과면 같은 transaction에서 그 판을 적용 판으로 올리고 이전 판을 남긴다. 사람 승인 단계는 없다(읽기만 하는 계약이라 바깥 효과가 없다). 실패는 이유를 남기고 적용을 막는다. 사람이 문서를 계약 밖으로 고친 것은 report의 위반 수로 셀 뿐 적용을 막지 않는다. Context Engineer가 계약을 망가뜨린 것(계약 검증·예시·saved view 실패)과 구별하는 것이 check의 일이다. `context.rollback`은 이미 check를 통과한 이전 판을 다시 적용하며 다시 check하지 않는다.
+Bundle은 context마다 순번을 가진 판이고 상태와 전이는 domain model(documents/contexts)이 정한다. `bundle.submit`은 `base_bundle`을 CAS로 비교해 후보를 기록하고, 그 뒤 core가 `context.check` job을 보낸다. `bundle.finish_check`는 report의 `bundle_hash`가 후보와 같고 그 context의 적용 판이 제출 때의 `base_bundle`과 같을 때만 받는다. 통과면 같은 transaction에서 그 판을 적용 판으로 올리고 이전 판을 남긴다. 사람 승인 단계는 없다(읽기만 하는 계약이라 바깥 효과가 없다). 실패는 이유를 남기고 적용을 막는다. 사람이 문서를 계약 밖으로 고친 것은 report의 위반 수로 셀 뿐 적용을 막지 않는다. Context Engineer가 계약을 망가뜨린 것(계약 검증·예시·saved view 실패)과 구별하는 것이 check의 일이다. `bundle.rollback`은 이미 check를 통과한 이전 판을 다시 적용하며 다시 check하지 않는다.
 
 문서 영역의 실제 event 이름은 다음과 같다. 목록 read·추출·index 재생성·series.next에는 변경 event가 없다.
 
 - Project: `ProjectCreated`, `ProjectUpdated`, `ProjectTrackingChanged`, `ProjectArchived`, `ProjectUnarchived`.
 - Document: `DocumentCreated`, `DocumentSaved`, `DocumentUpdated`, `DocumentSourceChanged`, `DocumentArchived`, `DocumentUnarchived`, `DocumentRestored`, `DocumentMoved`, `DocumentRenamed`.
 - 파일: `FileWritten`, `FileRenamed`, `FileDeleted`.
-- Context: `ContextCreated`, `ContextUpdated`, `ContextArchived`, `ContextUnarchived`, `ContextBundleSubmitted`, `ContextCheckRecorded`, `ContextBundleApplied`, `ContextRolledBack`, `ContextViolationsIncreased`.
+- Context: `ContextCreated`, `ContextArchived`, `ContextUnarchived`, `ContextBundleDraftSaved`, `ContextBundleDraftDiscarded`, `ContextBundleSubmitted`, `ContextBundleCheckFailed`, `ContextBundleApplied`, `ContextBundleRolledBack`, `ContextViolationsRecorded`, `ContextViolationsHandedOff`, `SavedViewCreated`, `SavedViewUpdated`, `SavedViewDeleted`(이름과 payload는 domain model documents/contexts).
 - Term: `TermDefined`, `TermUpdated`, `TermArchived`, `TermUnarchived`.
 - Series: `SeriesCreated`, `SeriesUpdated`, `SeriesDraftSet`, `SeriesDraftCleared`, `SeriesInstanceAdded`, `SeriesInstanceUpdated`, `SeriesInstanceRemoved`, `SeriesArchived`, `SeriesUnarchived`.
 - Saved view: `SavedViewCreated`, `SavedViewUpdated`, `SavedViewDeleted`.
@@ -314,7 +314,7 @@ Context의 app-data kind는 앱의 read command 자체다. 문서 쪽 코드는 
 | platform | read | 규칙·source·Version·Context·Bundle·Term·Series·saved view, 현재 후보 scope |
 | platform | command | 준비 Version 확정, 파일 결과 기록, Context Bundle 제출·check 결과 접수·자동 적용·위반 수 기록·중복 방지; 짧은 CAS transaction |
 | platform | event 구독 | 규칙·source 갱신; 마지막 처리 위치에서 재연결 |
-| platform | notification | `ContextViolationsIncreased`를 알림으로 바꾼다(platform이 소유한 trigger). documents는 event만 낸다 |
+| platform | notification | `ContextViolationsRecorded`에서 위반 수가 늘었을 때 알림으로 바꾼다(platform이 소유한 trigger). documents는 event만 낸다 |
 | platform | blob | 원문·목록·diagnostics·draft·정확한 module의 내구 설치·참조 등록·허용 읽기 |
 | platform | redaction | agent·model·외부 export로 나가는 제목·snippet·본문; 원문을 변경하지 않음 |
 | platform | approval | 정확한 위험 파일 작업의 승인 근거; worker가 자유 문장을 허락으로 해석하지 않음 |
@@ -414,7 +414,7 @@ outline 후 새 판이 생겨도 기존 cursor는 처음 ver를 읽고 latest_ve
 
 ```text
 Context Engineer(agent) 또는 user: contract·선언 검색·예시 초안을 blob으로 준비
- → core command: context.submit_bundle(base_bundle CAS) → ContextBundleSubmitted
+ → core command: bundle.submit(base_bundle CAS) → ContextBundleSubmitted
  → core dispatch: context worker에 context.check (후보 Bundle + 그 context의 saved view 전부)
  → context worker: 계약이 가리키는 파일을 임시 snapshot으로 복사
      · 계약 검증(kind·field·relation·public 규칙, 경로가 루트 안)
@@ -423,13 +423,13 @@ Context Engineer(agent) 또는 user: contract·선언 검색·예시 초안을 b
      · saved view의 검색 id·inputs 검사
      · 시간·크기 예산
  → snapshot 삭제 → report(bundle_hash, snapshot_hash, 결과)
- → core command: context.record_check — 후보와 base_bundle CAS
-     통과 → 같은 transaction에서 적용(이전 판 보존) → ContextCheckRecorded + ContextBundleApplied
-     실패 → ContextCheckRecorded(failed), 적용 없음
+ → core command: bundle.finish_check — 후보와 base_bundle CAS
+     통과 → 같은 transaction에서 적용(이전 판 보존) → ContextBundleApplied
+     실패 → ContextBundleCheckFailed, 적용 없음
  → 다음 context.index는 새 bundle_hash로 모든 파일을 다시 extract
 
 되돌리기
- → user: context.rollback(이전 판) → ContextRolledBack
+ → user: bundle.rollback(이전 판) → ContextBundleRolledBack
 ```
 
 고치는 동안 Operator는 지금 적용된 판을 계속 쓴다. snapshot은 check가 도는 동안만 쓰는 임시 폴더이며 문서 Version이나 ledger 사실이 아니다. 같은 후보를 같은 파일 상태로 check하면 report가 같다(hash 결정적).
@@ -440,7 +440,7 @@ Context Engineer(agent) 또는 user: contract·선언 검색·예시 초안을 b
 context.index(또는 적용 직후 첫 scan, 5분 예약 scan): checks → index_violations
  → 직전 기록(contexts.violation_count·violations_hash)과 비교
  → 늘었으면 context worker가 context.record_violations(context, bundle_hash, count, violations_hash, 새 위반 key 일부)
- → core command: 현재 적용 bundle_hash·직전 기록 CAS → ContextViolationsIncreased
+ → core command: 현재 적용 bundle_hash·직전 기록 CAS → ContextViolationsRecorded
  → platform notification contract: 알림(누르면 그 context의 Violations)
  → 사람: Send to Context Engineer — lophn-agent가 contexts.violations read의 근거(어느 파일이 어느 규칙을 어겼는지)를 붙여 대화를 만든다
 ```
@@ -465,7 +465,7 @@ context.index(또는 적용 직후 첫 scan, 5분 예약 scan): checks → index
 | 정확한 module·blob 누락 | ledger 고정 참조 유지 | unavailable 이유와 가능한 원문 참조; 같은 hash 복구만 허용, 새 module 대체 없음 |
 | context.index 중 worker 종료 | 직전 index 유지(한 scan은 한 transaction) | 같은 context의 다음 요청이 다시 훑음; 진행 중 요청은 `unavailable`이고 자동 재전송 없음 |
 | context.check 중 종료·snapshot 복사 실패 | 후보 Bundle은 submitted로 남음 | 결과 불명을 통과로 꾸미지 않음; 임시 snapshot은 시작 때 정리; 후보를 다시 check에 보냄 |
-| context.record_check 응답 유실 | 적용됐을 수 있음 | 같은 `(bundle, report_hash)`로 재제출; command 결과로 중복 방지 |
+| bundle.finish_check 응답 유실 | 적용됐을 수 있음 | 같은 `(bundle, report_hash)`로 재제출; command 결과로 중복 방지 |
 | check 통과 뒤 적용 전에 다른 판이 먼저 적용됨 | `base_bundle`이 달라짐 | `conflict`; 후보는 적용하지 않고 새 기준에서 다시 제출 |
 | context.record_violations 응답 유실 | event가 있을 수 있음 | 같은 `(context, bundle_hash, violations_hash)`로 재제출; event 중복 없음; notification은 소유 contract가 복구 |
 | 계약 경로가 루트 밖·symlink 탈출 | 읽지 않음 | 그 경로 제외; check에서는 계약 오류로 실패, 운영 중 index에서는 `failed` |

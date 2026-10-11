@@ -251,7 +251,7 @@ Deno.test("lophn-agent/questions#R4 [agent-I25]: 선택만으로는 보내지 �
   assert(
     contract.answerQuestionGroupInputSchema.safeParse({
       group: REPORT_GROUP.id,
-      created_seq: 1,
+      created_seq: "1",
       answers: calls.submitted[0],
     }).success,
   );

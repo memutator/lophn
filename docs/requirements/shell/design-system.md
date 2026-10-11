@@ -234,6 +234,11 @@ shell과 앱에서 함께 쓰는 색·글꼴·간격·크기·컴포넌트·load
 - 확인: menu·tooltip은 popover, dialog·palette는 dialog 그림자를 쓰고 카드에는 그림자가 없다.
 - 의도: shell#I3
 
+**[R46]** 모든 scroll 영역의 막대는 OS 기본이 아니라 base 스타일이 token으로 그려 얇고 트랙 없이 thumb만 보이며 light·dark가 token 값으로 바뀐다.
+- 이유: 막대도 우리 화면의 부품으로 보여 OS마다 다른 모양이 끼어들지 않게 한다.
+- 확인: base 스타일의 막대가 token 색·반경만 쓰고 개별 모듈은 막대를 따로 그리지 않는다.
+- 의도: shell#I3
+
 ## 열린 질문
 
 ## 버린 것

@@ -37,3 +37,28 @@ pre,
 .tabular {
   font-variant-numeric: var(--font-numeric);
 }
+
+/* 모든 scroll 영역의 막대는 OS 기본이 아니라 token으로 그린다. 얇고 트랙 없이 thumb만 보인다.
+   `scrollbar-width`·`scrollbar-color`를 쓰면 이 규칙이 무시되므로 어느 모듈도 그 둘을 쓰지 않는다. */
+::-webkit-scrollbar {
+  width: var(--space-4);
+  height: var(--space-4);
+  background: transparent;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  border: var(--space-1) solid transparent;
+  border-radius: var(--radius-full);
+  background: var(--color-border-strong);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+  background-clip: padding-box;
+}

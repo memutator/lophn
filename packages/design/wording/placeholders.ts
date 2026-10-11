@@ -535,6 +535,10 @@ export type PlaceholderKinds = {
     start: "string";
     end: "string";
   };
+  "common.label.window-close": Record<never, never>;
+  "common.label.window-maximize": Record<never, never>;
+  "common.label.window-minimize": Record<never, never>;
+  "common.label.window-restore": Record<never, never>;
   "common.notice.asks-first": Record<never, never>;
   "common.notice.core-down": Record<never, never>;
   "common.notice.waiting-confirmation": Record<never, never>;

@@ -108,7 +108,7 @@ shell/wording이 i18n의 지켜야 할 요구(en-only 시작, key 검사)를 정
 | 전역 | **report-problem** | 지금 화면의 이상을 글로 알린다 | app-panel/app-space의 [문제 알리기] |
 
 - **Instructions**는 화면이 아니라 진입점이다. 전역은 settings, project는 project-workspace, app은 app-detail의 [Instructions]에서 lophn 편집기(document)로 연다. **Preset**은 roles에서 고친다.
-- 모든 창은 launcher로 시작한다(shell/desktop#R24). lophn 공간의 일곱 화면은 형제이며 분류 전·거처 같은 중간 계층을 두지 않는다(shell/desktop#R28).
+- 모든 창은 launcher로 시작한다(shell/desktop#R24). lophn 공간(화면 이름은 Lophn Workspace)의 일곱 화면은 형제이며 분류 전·거처 같은 중간 계층을 두지 않는다(shell/desktop#R28).
 - **conversation**은 독립 공간이 아니라 모든 공간에서 토글하는 도크다. 닫아도 project-workspace·app-space의 탐색은 그대로다(shell/desktop#R1).
 - **confirmation-window**는 요청한 창 위의 child modal이다. 앱 view는 숨기지 않고 입력만 막는다(shell/confirmation-window#R6). 사람의 결정은 이 화면에서만 받는다.
 - **notification**은 화면이 아니라 창 오른쪽 아래 1칸의 chip이다(shell/desktop#R10). 클릭하면 things-to-confirm으로 이어지고, 그 자체로 읽음·승인·답이 되지 않는다.

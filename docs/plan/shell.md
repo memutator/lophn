@@ -1307,20 +1307,37 @@ concerns: [shell]
   - `workspace/workspace_test.tsx`(떠 있는 층·닫기·다시 열기), `desktop/notification-chip/notification-chip_test.tsx`(chip 줄), 기존 tracking·Operator 테스트가 통과한다.
 - T61 번호가 위쪽 overlay 작업과 겹쳐 T67로 적는다(lead 배정은 T61).
 
+### T60 window chrome: window controls, 텍스트 선택, scrollbar, Lophn Workspace 이름
+
+- 상태: 완료 (#586)
+- 등급: frontend
+- concern: shell/desktop, shell/design-system, shell/wording
+- 요구: shell/desktop#R23(창 단추), shell/desktop#R32(텍스트 선택), shell/design-system#R46(scrollbar), shell/desktop#R24(공간 이름)
+- 자리: apps/shell/renderer/desktop/top-bar/, apps/shell/renderer/chrome.css, apps/shell/main/desktop/window-controls.ts, apps/shell/preload/window-controls-api.ts, apps/shell/ipc/window-controls.ts, packages/design/base.css, packages/design/wording/en.ts
+- 쓰는 contract: 없음
+- 내놓는 contract: 없음
+- slice: desktop
+- 선행: shell#T3
+- 완료: 아래 확인이 통과한다
+  - frameless desktop 창의 상단 바(48px 끌기 영역)에 Windows·Linux는 최소화·최대화/되돌리기·닫기 단추를 그린다. 동작은 preload IPC로 main이 sender 창에만 보내고, 최대화·되돌림은 main이 알려 단추 모양이 따른다. 창 닫기는 기존 close guard를 지난다. 확인 창(modal)의 동작은 건드리지 않는다.
+  - 크롬 글자와 이미지·링크는 선택·drag되지 않는다. 읽기 본문·입력·contenteditable·terminal·code·대화 말·확인 화면 값은 선택된다.
+  - 모든 scrollbar는 base 스타일의 token 막대(얇은 thumb, light·dark)다. 탭 줄·팔레트가 막대 스타일을 따로 덮지 않는다.
+  - lophn 공간 sidebar 머리와 breadcrumb 뿌리는 "Lophn Workspace"다. 제품 이름·agent 이름·"Ask lophn" 같은 문구는 그대로다.
+
 ## 요구 덮기
 
-shell 최상위의 요구는 8개 leaf에 178개이고 모두 위 작업의 `요구:`에 들어 있다.
+shell 최상위의 요구는 8개 leaf에 180개이고 모두 위 작업의 `요구:`에 들어 있다.
 
 | concern | 요구 수 | 덮은 수 | 작업 |
 |---|---|---|---|
-| shell/desktop | 31 | 31 | T1–T3, T9, T13–T15, T19–T21, T27, T28, T30, T36, T37, T42, T47, T50, T51, T54–T57, T59, T61, T62 |
+| shell/desktop | 32 | 32 | T1–T3, T9, T13–T15, T19–T21, T27, T28, T30, T36, T37, T42, T47, T50, T51, T54–T57, T59–T62 |
 | shell/workspace | 13 | 13 | T13, T14, T25–T27, T35, T44 |
 | shell/terminal | 13 | 13 | T24, T25, T49 |
 | shell/confirmation-window | 10 | 10 | T22, T23, T29, T45 |
 | shell/app-frame | 36 | 36 | T2, T3, T10, T22, T31, T33, T37–T39, T42, T44, T47, T48, T52, T61 |
 | shell/editor | 17 | 17 | T14, T16–T18, T32, T36, T59 |
 | shell/wording | 14 | 14 | T6, T9, T15, T20, T23, T31, T36, T42, T43, T52, T53, T58 |
-| shell/design-system | 44 | 44 | T4, T5, T8, T10–T12, T14, T28, T34, T61 |
+| shell/design-system | 45 | 45 | T4, T5, T8, T10–T12, T14, T28, T34, T60, T61 |
 
 다른 최상위의 요구 가운데 소유 팀과 합의해 shell 작업이 구현하는 것:
 

@@ -10,13 +10,18 @@
 //   contexts.label.input-no-matches
 //   contexts.label.input-to
 //   contexts.note.input-unsupported
-import type { ReactNode } from "react";
+import { type ReactNode, useId } from "react";
+import { Button, Field, Input } from "@lophn/design/components";
+import { t } from "@lophn/wording";
 
+import { PickCombobox } from "./search-input-form-combobox.tsx";
+import styles from "./search-input-form.module.css";
 import type {
   DeclaredSearch,
   PickOption,
   SearchInputValues,
 } from "./source.ts";
+import type { RangeValue } from "./shared.ts";
 
 export interface SearchInputFormProps {
   readonly search: DeclaredSearch;
@@ -33,6 +38,161 @@ export interface SearchInputFormProps {
   readonly onAsk: () => void;
 }
 
-export function SearchInputForm(_props: SearchInputFormProps): ReactNode {
-  return null;
+type DeclaredInput = DeclaredSearch["inputs"][number];
+
+const DRAWABLE: readonly string[] = ["entity", "value", "range", "text"];
+
+export function SearchInputForm(props: SearchInputFormProps): ReactNode {
+  const { search, onAsk } = props;
+  const unsupported = search.inputs.find((input) =>
+    !DRAWABLE.includes(input.type)
+  );
+  if (unsupported) {
+    return (
+      <div className={styles.unsupported}>
+        <p className={styles.note} data-unsupported="">
+          {t("contexts.note.input-unsupported", { type: unsupported.type })}
+        </p>
+        <div className={styles.actions}>
+          <Button onClick={onAsk}>{t("contexts.button.input-ask")}</Button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className={styles.form}>
+      {search.inputs.map((input) => (
+        <InputField key={input.name} input={input} {...props} />
+      ))}
+      <div className={styles.actions}>
+        <Button variant="primary" onClick={props.onSearch}>
+          {t("contexts.button.input-search")}
+        </Button>
+        <Button onClick={props.onSaveView}>
+          {t("contexts.button.input-save-view")}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function InputField(
+  { input, values, options, onChange, onSearch }:
+    & SearchInputFormProps
+    & { readonly input: DeclaredInput },
+) {
+  const inputId = useId();
+  const value = values[input.name];
+  const candidates = options[input.name] ?? [];
+  const picks = input.type === "entity" || input.type === "value";
+
+  if (input.type === "range") {
+    const range = rangeOf(value);
+    return (
+      <div className={styles.group} role="group" data-input={input.name}>
+        <span className={styles.label} data-input-label="">{input.label}</span>
+        <div className={styles.rangeRow}>
+          <Field label={t("contexts.label.input-from")}>
+            <Input
+              value={range.from}
+              onChange={(event) =>
+                onChange(input.name, { ...range, from: event.target.value })}
+            />
+          </Field>
+          <Field label={t("contexts.label.input-to")}>
+            <Input
+              value={range.to}
+              onChange={(event) =>
+                onChange(input.name, { ...range, to: event.target.value })}
+            />
+          </Field>
+        </div>
+      </div>
+    );
+  }
+
+  if (picks && input.many) {
+    const chosen = listOf(value);
+    return (
+      <div className={styles.group} role="group" data-input={input.name}>
+        <span className={styles.label} data-input-label="">{input.label}</span>
+        <div className={styles.chips}>
+          {candidates.map((option) => {
+            const on = chosen.includes(option.value);
+            return (
+              <Button
+                key={option.value}
+                variant={on ? "secondary" : "ghost"}
+                size="sm"
+                aria-pressed={on}
+                onClick={() =>
+                  onChange(
+                    input.name,
+                    on
+                      ? chosen.filter((item) => item !== option.value)
+                      : [...chosen, option.value],
+                  )}
+              >
+                {on
+                  ? t("contexts.label.input-chip-on", { value: option.label })
+                  : option.label}
+              </Button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.group} data-input={input.name}>
+      <label
+        className={styles.label}
+        htmlFor={inputId}
+        data-input-label=""
+      >
+        {input.label}
+      </label>
+      {picks
+        ? (
+          <PickCombobox
+            inputId={inputId}
+            options={candidates}
+            value={typeof value === "string" ? value : ""}
+            onPick={(next) => onChange(input.name, next)}
+          />
+        )
+        : (
+          <input
+            id={inputId}
+            className={styles.control}
+            value={typeof value === "string"
+              ? value
+              : value == null
+              ? ""
+              : String(value)}
+            onChange={(event) => onChange(input.name, event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") onSearch();
+            }}
+          />
+        )}
+    </div>
+  );
+}
+
+function rangeOf(value: unknown): RangeValue {
+  if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+    const { from, to } = value as Record<string, unknown>;
+    return { from: textOf(from), to: textOf(to) };
+  }
+  return { from: "", to: "" };
+}
+
+function textOf(value: unknown): string {
+  return value === undefined || value === null ? "" : String(value);
+}
+
+function listOf(value: unknown): readonly string[] {
+  return Array.isArray(value) ? value.map(String) : [];
 }

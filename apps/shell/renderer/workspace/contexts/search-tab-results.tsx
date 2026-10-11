@@ -50,9 +50,7 @@ export function SearchTabResults(props: SearchTabResultsProps): ReactNode {
           rows={slot.value.rows}
           page={page}
           pageSize={pageSize}
-          total={slot.value.total ??
-            page * pageSize + slot.value.rows.length +
-              (slot.value.complete ? 0 : 1)}
+          total={slot.value.total}
           onPage={props.onPage}
           onOpenDocument={props.onOpenDocument}
         />

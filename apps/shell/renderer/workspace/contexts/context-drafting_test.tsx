@@ -44,7 +44,7 @@ Deno.test("shell/workspace#R30 [ctx-I41]: 진행 목록은 읽기·초안·검�
       norm(step).replace(/^[✓●○]\s*/, ""),
     ]),
     [
-      ["done", "✓", "Read 3 places (24 documents)"],
+      ["done", "✓", "Reading your folders"],
       ["now", "●", "Drafting overview and searches"],
       ["later", "○", "Check the draft"],
       ["later", "○", "Apply"],

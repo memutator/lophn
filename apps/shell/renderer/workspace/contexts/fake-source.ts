@@ -7,7 +7,9 @@ import type {
   BundleEntry,
   CommandResult,
   ContainingContext,
+  ContextContract,
   ContextDetail,
+  ContextDraft,
   ContextListItem,
   ContextOverview,
   ContextsSource,
@@ -17,6 +19,7 @@ import type {
   GlossarySetRequest,
   HandOffRequest,
   HandOffResult,
+  InputOptions,
   InputOptionsRequest,
   PickOption,
   ReadResult,
@@ -29,8 +32,9 @@ import type {
   SearchRequest,
   SearchRow,
   StoredViolation,
+  ViolationItem,
   ViolationKey,
-  ViolationsView,
+  ViolationsPage,
 } from "./source.ts";
 
 export function fakeId(prefix: string, seed: string): string {
@@ -751,6 +755,19 @@ const asList = (value: unknown): readonly string[] =>
     ? value.map(String)
     : [String(value)];
 
+const findingRef = (id: string): SearchRow["ref"] => ({
+  type: "Finding",
+  key: id,
+  path: `loop/findings/${id}.md`,
+  section: null,
+});
+const experimentRef = (id: string): SearchRow["ref"] => ({
+  type: "Experiment",
+  key: id,
+  path: experimentPath(id),
+  section: null,
+});
+
 function findingRows(inputs: Readonly<Record<string, unknown>>): SearchRow[] {
   const change = asList(inputs.change)[0];
   const kinds = asList(inputs.kind);
@@ -761,19 +778,28 @@ function findingRows(inputs: Readonly<Record<string, unknown>>): SearchRow[] {
       (kinds.length === 0 || kinds.includes(item.kind)) &&
       (metric === undefined || item.effect.startsWith(`${metric} `))
     )
-    .map((item) => ({
-      key: item.id,
-      path: `loop/findings/${item.id}.md`,
-      section: null,
-      values: {
-        "key": item.id,
-        "kind": item.kind,
-        "scenario.key": item.scenario,
-        "scenario.path": `eval/scenarios/${item.scenario}/r1.yaml`,
-        "effect": item.effect,
-        "experiment.key": item.experiment,
-        "experiment.path": experimentPath(item.experiment),
-      },
+    .map((item): SearchRow => ({
+      ref: findingRef(item.id),
+      cells: [
+        { path: "key", value: item.id, ref: findingRef(item.id) },
+        { path: "kind", value: item.kind, ref: null },
+        {
+          path: "scenario.key",
+          value: item.scenario,
+          ref: {
+            type: "Scenario",
+            key: item.scenario,
+            path: `eval/scenarios/${item.scenario}/r1.yaml`,
+            section: null,
+          },
+        },
+        { path: "effect", value: item.effect, ref: null },
+        {
+          path: "experiment.key",
+          value: item.experiment,
+          ref: experimentRef(item.experiment),
+        },
+      ],
     }));
 }
 
@@ -783,17 +809,15 @@ function experimentRows(
   const statuses = asList(inputs.status);
   return EXPERIMENTS
     .filter((item) => statuses.length === 0 || statuses.includes(item.status))
-    .map((item) => ({
-      key: item.id,
-      path: experimentPath(item.id),
-      section: null,
-      values: {
-        key: item.id,
-        title: EXPERIMENT_NAMES[item.id]!,
-        status: item.status,
-        scenario_count: item.scenarios,
-        finding_count: item.findings,
-      },
+    .map((item): SearchRow => ({
+      ref: experimentRef(item.id),
+      // 열 순서의 cell 뒤에 board_by(status)의 cell이 따른다.
+      cells: [
+        { path: "title", value: EXPERIMENT_NAMES[item.id]!, ref: null },
+        { path: "scenario_count", value: item.scenarios, ref: null },
+        { path: "finding_count", value: item.findings, ref: null },
+        { path: "status", value: item.status, ref: null },
+      ],
     }));
 }
 
@@ -854,14 +878,37 @@ const CONTAINING: Readonly<Record<string, readonly ContainingContext[]>> = {
 
 // ---------- 만드는 중 ----------
 
+// 초안 content는 submit 전이라 검사되지 않은 JSON 객체다: 개체 이름과 관계만 적었다.
 const DRAFT: DraftProgress = {
   step: 2,
-  read: { places: 3, documents: 24 },
-  types: ["Changelog entry", "Release", "Issue"],
-  relations: [
-    { from: "Changelog entry", label: "mentions", to: "Release" },
-    { from: "Release", label: "closes", to: "Issue" },
-  ],
+  bundle: {
+    id: fakeId("cbn", "rn0"),
+    context: RELEASE_NOTES,
+    number: null,
+    parent: null,
+    bundle_hash: null,
+    status: "draft",
+    check: null,
+    created_by: `agent:${fakeId("asg", "ce1")}`,
+    revision: "1",
+  },
+  content: {
+    schema: 1,
+    contract: {
+      types: [
+        {
+          name: "Changelog entry",
+          relations: [{ name: "release", label: "mentions", to: "Release" }],
+        },
+        {
+          name: "Release",
+          relations: [{ name: "issues", label: "closes", to: "Issue" }],
+        },
+        { name: "Issue", relations: [] },
+      ],
+    },
+  },
+  check: null,
 };
 
 // ---------- fake source ----------
@@ -962,9 +1009,22 @@ export function createFakeContextsSource(
         violation_count: item.violation_mark,
       }));
     },
-    contract: (context) => Promise.resolve(ok(CONTENT[context] ?? null)),
-    draft: (context) =>
-      Promise.resolve(ok(context === RELEASE_NOTES ? DRAFT : null)),
+    contract(context): Promise<ReadResult<ContextContract>> {
+      const applied = BUNDLES[context]?.[0]?.bundle;
+      const live = applied?.status === "applied" ? applied : undefined;
+      return Promise.resolve(ok({
+        context,
+        bundle: live?.id ?? null,
+        bundle_hash: live?.bundle_hash ?? null,
+        content: live === undefined ? null : CONTENT[context] ?? null,
+      }));
+    },
+    draft(context): Promise<ReadResult<ContextDraft>> {
+      return Promise.resolve(ok({
+        context,
+        draft: context === RELEASE_NOTES ? DRAFT : null,
+      }));
+    },
     bundles: (context) => Promise.resolve(ok(BUNDLES[context] ?? [])),
     search(request: SearchRequest): Promise<ReadResult<SearchPage>> {
       const declared = CONTENT[request.context]?.searches.find((search) =>
@@ -988,15 +1048,25 @@ export function createFakeContextsSource(
         total: rows.length,
       }));
     },
-    inputOptions(request: InputOptionsRequest) {
-      return Promise.resolve(
-        ok(OPTIONS[`${request.search}/${request.input}`] ?? []),
-      );
-    },
-    violations(context): Promise<ReadResult<ViolationsView>> {
+    inputOptions(
+      request: InputOptionsRequest,
+    ): Promise<ReadResult<InputOptions>> {
       return Promise.resolve(ok({
-        violations: VIOLATIONS[context] ?? [],
-        handed_off: handedOff.get(context) ?? [],
+        search: request.search,
+        input: request.input,
+        options: [...(OPTIONS[`${request.search}/${request.input}`] ?? [])],
+        complete: true,
+      }));
+    },
+    violations(context): Promise<ReadResult<ViolationsPage>> {
+      const known = new Set((handedOff.get(context) ?? []).map(keyOf));
+      return Promise.resolve(ok({
+        violations: (VIOLATIONS[context] ?? []).map((
+          violation,
+        ): ViolationItem => ({
+          ...violation,
+          handed_off: known.has(keyOf(violation)),
+        })),
         complete: true,
         next_cursor: null,
       }));

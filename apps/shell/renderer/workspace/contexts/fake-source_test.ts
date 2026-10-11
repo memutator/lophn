@@ -9,7 +9,7 @@ import {
   glossaryEntrySchema,
   savedViewListItemSchema,
   searchRowSchema,
-  storedViolationSchema,
+  violationItemSchema,
 } from "../../../../../packages/contracts/documents/context-api.ts";
 import { bundleContentSchema } from "../../../../../packages/contracts/documents/context-contract.ts";
 import {
@@ -37,10 +37,12 @@ Deno.test("shell/workspace#R16 [ctx-S17]: fake source의 값은 context API 계�
     }
     const contract = await source.contract(context);
     assert(contract.ok);
-    if (contract.value !== null) bundleContentSchema.parse(contract.value);
+    if (contract.value.content !== null) {
+      bundleContentSchema.parse(contract.value.content);
+    }
     const violations = await source.violations(context);
     assert(violations.ok);
-    violations.value.violations.forEach((v) => storedViolationSchema.parse(v));
+    violations.value.violations.forEach((v) => violationItemSchema.parse(v));
     const glossary = await source.glossary(context);
     assert(glossary.ok);
     glossary.value.forEach((entry) => glossaryEntrySchema.parse(entry));

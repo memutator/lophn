@@ -21,8 +21,12 @@ import {
 
 async function declared(name: string): Promise<DeclaredSearch> {
   const contract = await createFakeContextsSource().contract(EVAL);
-  if (!contract.ok || contract.value === null) throw new Error("no contract");
-  return contract.value.searches.find((search) => search.name === name)!;
+  if (!contract.ok || contract.value.content === null) {
+    throw new Error("no contract");
+  }
+  return contract.value.content.searches.find((search) =>
+    search.name === name
+  )!;
 }
 
 async function optionsOf(search: DeclaredSearch) {
@@ -34,7 +38,7 @@ async function optionsOf(search: DeclaredSearch) {
       search: search.name,
       input: input.name,
     });
-    if (result.ok) options[input.name] = result.value;
+    if (result.ok) options[input.name] = result.value.options;
   }
   return options;
 }

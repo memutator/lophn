@@ -20,7 +20,7 @@ import {
 } from "../../packages/contracts/lophn-agent/mod.ts";
 import { routePath } from "../../packages/contracts/platform/mod.ts";
 import type { ModelCallOutput } from "../../packages/lophn-agent/harness/provider/work.ts";
-import { COMPACT_BODY_MAX_TOKENS } from "../../packages/lophn-agent/harness/prompt-assemble/mod.ts";
+import { summaryOutputCap } from "../../packages/lophn-agent/harness/prompt-assemble/mod.ts";
 import { type Compactor, createCompactor } from "./compact.ts";
 import type { CoreCall } from "./core-call.ts";
 import type { ModelBinding } from "./model-binding.ts";
@@ -355,23 +355,51 @@ Deno.test("lophn-agent/harness/prompt-assemble#R19 [agent-I16b]: a second Compac
   assertEquals(r.named("CompactSession")[0]!["through_seq"], "13");
 });
 
-Deno.test("lophn-agent/harness/prompt-assemble#R20 [agent-I16b]: a summary over 400 tokens is shortened again, never cut, and the shortened call is the summary", async () => {
-  const long = "Decided something long. ".repeat(40);
-  assert(new TextEncoder().encode(long).length > COMPACT_BODY_MAX_TOKENS);
-  const r = await rig({ script: [answer(long), answer("Decided: short.")] });
+// 입력 예산 20,000이면 요약 상한은 2,000 token(UTF-8 byte)이다(R13·R20).
+const SMALL_INPUT: CallModel["limits"] = {
+  context_limit: 128000,
+  input_limit: 20000,
+  output_limit: 8000,
+  supports_tools: true,
+};
+const CAP = summaryOutputCap(20000);
+
+Deno.test("lophn-agent/harness/prompt-assemble#R20 [agent-I16b]: a summary exactly at the cap of 2,000 tokens is kept as it is in one call", async () => {
+  const exact = "a".repeat(CAP - 1) + ".";
+  assertEquals(new TextEncoder().encode(exact).length, CAP);
+  const r = await rig({ limits: SMALL_INPUT, script: [answer(exact)] });
+  const result = await r.compactor.next();
+  assertEquals(r.sent.length, 1);
+  assertEquals(result.kind, "compacted");
+  assertEquals(
+    r.named("CompactSession")[0]!["summary_call"],
+    started(r)[0]!["id"],
+  );
+});
+
+Deno.test("lophn-agent/harness/prompt-assemble#R20 [agent-I16b]: a summary one byte over the cap of 2,000 tokens is shortened again, never cut, and the shortened call is the summary", async () => {
+  const long = "a".repeat(CAP) + ".";
+  assertEquals(new TextEncoder().encode(long).length, CAP + 1);
+  const r = await rig({
+    limits: SMALL_INPUT,
+    script: [answer(long), answer("Decided: short.")],
+  });
   const result = await r.compactor.next();
   assertEquals(r.sent.length, 2);
   // 두 번째 요청은 첫 결과를 주고 줄이게 한다.
-  assert(JSON.stringify(r.sent[1]!.body).includes("Decided something long."));
+  assert(JSON.stringify(r.sent[1]!.body).includes("a".repeat(CAP)));
   const calls = started(r);
   assertEquals(calls.map((call) => call["attempt_order"]), [1, 2]);
   assertEquals(result.kind, "compacted");
   assertEquals(r.named("CompactSession")[0]!["summary_call"], calls[1]!["id"]);
 });
 
-Deno.test("lophn-agent/conversation#R10 [agent-I16b]: a summary that stays over 400 tokens fails the request and leaves the session alone", async () => {
-  const long = "Decided something long. ".repeat(40);
-  const r = await rig({ script: [answer(long), answer(long), answer(long)] });
+Deno.test("lophn-agent/conversation#R10 [agent-I16b]: a summary that stays over the cap of 2,000 tokens fails the request and leaves the session alone", async () => {
+  const long = "a".repeat(CAP) + ".";
+  const r = await rig({
+    limits: SMALL_INPUT,
+    script: [answer(long), answer(long), answer(long)],
+  });
   const result = await r.compactor.next();
   // 처음과 재축소 둘로 멈춘다.
   assertEquals(r.sent.length, 3);

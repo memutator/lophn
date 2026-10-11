@@ -30,7 +30,7 @@ concerns: [lophn-agent/presets]
 - 확인: 저장한 prompt 원문을 읽어 책임을 확인하고 관점·기대 결과를 별도 기계 값으로 복제하지 않는지 본다.
 - 의도: lophn-agent#I5
 
-**[R5]** preset의 context는 읽을 자료 선택이며 assignment의 담당 범위와 구별하고 실제 읽기는 선택한 자료·현재 접근 허락·제품이 고정한 역할별 읽기 상한의 교집합만 허용한다.
+**[R5]** preset의 context는 읽을 context와 자료의 선택이며 assignment의 담당 범위와 구별하고 실제 읽기는 선택한 자료·현재 접근 허락·제품이 고정한 역할별 읽기 상한의 교집합만 허용한다.
 - 이유: Operator를 문서 context에 붙이는 구조와 자료 읽기 선택을 분리한다.
 - 확인: project에 붙은 Operator 둘이 다른 context 자료를 선택하고 범위 밖 자료·주소 따라 읽기는 거절되는지 본다.
 - 의도: lophn-agent#I5
@@ -62,9 +62,9 @@ concerns: [lophn-agent/presets]
 - 확인: 새 assignment가 별도 대상과 승인을 요구하고 과거 세션을 상속하지 않는지 본다.
 - 의도: lophn-agent#I5
 
-**[R11]** preset 저장·적용 전에 역할 종류·필수 값·이름 중복·자료와 지침 참조·tool·확장·provider 계정과 model·제품 상한을 전체 검사하고 하나라도 잘못되면 항목별 설명과 함께 전체 적용을 거절한다.
+**[R11]** preset 저장·적용 전에 역할 종류·필수 값·이름 중복·자료와 지침 참조(context 선택이 실제 있는 context를 가리키는지 포함)·tool·확장·provider 계정과 model·제품 상한을 전체 검사하고 하나라도 잘못되면 항목별 설명과 함께 전체 적용을 거절한다.
 - 이유: 부분적으로 유효한 역할이 남지 않게 한다.
-- 확인: 유효한 프롬프트와 잘못된 tool을 함께 제출할 때 어느 일부도 바뀌지 않는지 본다.
+- 확인: 유효한 프롬프트와 잘못된 tool을 함께 제출할 때 어느 일부도 바뀌지 않으며, 없는 context나 보관된 context를 고른 선택이 어느 항목인지 설명하며 거절되는지 본다.
 - 의도: lophn-agent#I5, lophn-agent#I6
 
 **[R12]** preset 변경·기본값 개인화·과거 내용 복원은 전체 새 판으로 저장하고 실패하면 이전 판 전체를 유지하며 과거 판은 덮어쓰지 않는다.
@@ -90,6 +90,11 @@ concerns: [lophn-agent/presets]
 **[R16]** preset은 사람이 되돌림을 모르는 외부 MCP tool을 안전하다고 표시한 목록을 둘 수 있고 그 tool은 lophn-agent/harness/tool-judgment에서 묻지 않는다. 표시는 그 tool 하나에만 적용하고 제품이 고정한 역할 금지·상한·confirm=true는 넓히지 못한다.
 - 이유: 안전하다고 본 tool을 매번 묻지 않되 제품 경계를 preset으로 풀지 않는다.
 - 확인: 표시한 tool은 묻지 않고, 표시하지 않은 미분류 tool은 물으며, Operator의 제품 상한과 confirm=true는 표시로 풀리지 않는지 본다.
+- 의도: lophn-agent#I5
+
+**[R17]** context 선택 중 all과 project는 실행할 때 그 project(세션 작업 자리 또는 담당 범위)의 active context들로 풀리고 보관한 context는 빼며, project가 정해지지 않으면 context 자료 0개로 시작하되 이유를 밝힌다.
+- 이유: preset 판은 재사용되므로 선택에 context id를 적지 않아도 지금 project의 context를 읽게 하고, 선택이 아무 효과 없이 빈 채로 남지 않게 한다.
+- 확인: context 둘이 있는 project의 session에서 all 선택이 둘 모두 자료로 들어가고, 하나를 보관하면 다음 run부터 빠지며, 전역 session에서는 0개와 그 이유가 보이는지 본다. context 자료의 모양은 lophn-agent/harness/prompt-assemble을 따른다.
 - 의도: lophn-agent#I5
 
 ## 버린 것

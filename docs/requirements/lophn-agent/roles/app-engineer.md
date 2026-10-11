@@ -15,24 +15,24 @@ concerns: [lophn-agent/roles/app-engineer]
 - 확인: 문제 발생이나 release activation만으로 App Engineer run이 시작되지 않는지 본다.
 - 의도: lophn-agent#I2
 
-**[R2]** 읽기는 담당 앱 자리의 문서·blueprint·release·invocation·문제·티켓, 그 앱의 읽기 명령을 항목으로 가진 컨텍스트의 목적·용어·항목, 제품 SDK 계약과 이번 handoff의 고정 근거에 한정한다.
+**[R2]** 읽기는 담당 앱 자리의 문서·blueprint·release·invocation·문제·티켓, 그 앱의 read command를 app-data source로 쓰는 context의 overview·용어집, 제품 SDK 계약과 이번 handoff의 고정 근거에 한정한다.
 - 이유: lophn-agent/roles/app-engineer에 따라 앱 담당자의 판단 근거와 한시적 인계 근거를 구분한다.
-- 확인: handoff 고정 판은 해당 run 동안 읽지만 최신 판·연결 자료·관련 컨텍스트의 다른 자리 문서는 주소만으로 열지 못하는지 본다.
+- 확인: handoff 고정 판은 해당 run 동안 읽지만 최신 판·연결 자료·관련 context의 다른 자리 문서는 주소만으로 열지 못하는지 본다.
 - 의도: lophn-agent#I2
 
-**[R3]** App Engineer는 사람이 겪는 동작·도메인 불변식·실제 해결 근거로 설계와 티켓을 만들되 앱 채택·전체 재사용·컨텍스트 적용·코드·테스트·빌드·미리보기·앱 command 계약 밖 운영·Operator 업무·문제 상태 변경은 맡지 않는다.
+**[R3]** App Engineer는 사람이 겪는 동작·도메인 불변식·실제 해결 근거로 설계와 티켓을 만들되 앱 채택·전체 재사용·context 설계·코드·테스트·빌드·미리보기·앱 command 계약 밖 운영·Operator 업무·문제 상태 변경은 맡지 않는다.
 - 이유: 설계 해석을 구현이나 machine 확인으로 대신하지 않는다.
 - 확인: 산출물에 설계·해석·티켓만 남고 테스트 실행과 문제 닫힘은 problems/tests와 problems/closing의 책임인지 본다.
 - 의도: lophn-agent#I2
 
-**[R4]** 앱 목적과 재사용할 SDK는 lophn의 기획에서 시작하며 앱 통합·공용 SDK 판단은 lophn에, 용어 초안·기준 항목 적용 후보와 컨텍스트 간 용어 대응은 Context Engineer에 맡긴다.
+**[R4]** 앱 목적과 재사용할 SDK는 lophn의 기획에서 시작하며 앱 통합·공용 SDK 판단은 lophn에, 용어집 초안과 context 경계 설계는 Context Engineer에 맡긴다.
 - 이유: 앱별 설계가 전체 기획과 용어 적용을 바꾸지 않는다.
-- 확인: SDK 재사용 변경과 용어 후보에 고정 근거를 붙이고 실제 방향은 lophn-agent/handoff를 따르는지 본다.
+- 확인: SDK 재사용 변경과 용어집 초안에 고정 근거를 붙이고 실제 방향은 lophn-agent/handoff를 따르는지 본다.
 - 의도: lophn-agent#I2
 
-**[R5]** App Engineer의 tool은 담당 범위 문서·컨텍스트 metadata·프로젝트·형식·SDK·앱·문제·티켓·assignment의 조회와 검사, 요청 범위 문서 저장, 문제 해석 참조 설정, 티켓 생성·읽기, 담당 앱의 허락된 read·복원 가능한 write command, 시각 블록, 질문과 허용 handoff에 한정한다.
+**[R5]** App Engineer의 tool은 담당 범위 문서·context overview·용어집·프로젝트·형식·SDK·앱·문제·티켓·assignment의 조회와 검사, 요청 범위 문서 저장, 문제 해석 참조 설정, 티켓 생성·읽기, 담당 앱의 허락된 read·복원 가능한 write command, 시각 블록, 질문과 허용 handoff에 한정한다.
 - 이유: problems/grouping·lophn-agent/harness/tool-judgment의 필요한 변경만 주고 오래된 묶음 개수로 권한을 고정하지 않는다.
-- 확인: 담당 앱 command 실행은 역할·effect 경계를 지키고 blueprint 수정·문서 이동·이름 변경·삭제·컨텍스트 편집·assignment 변경·티켓 수정·공개·취소·claim·연장·release 연결 동작이 없는지 본다.
+- 확인: 담당 앱 command 실행은 역할·effect 경계를 지키고 blueprint 수정·문서 이동·이름 변경·삭제·context 편집·assignment 변경·티켓 수정·공개·취소·claim·연장·release 연결 동작이 없는지 본다.
 - 의도: lophn-agent#I2
 
 **[R6]** 담당 앱의 되돌릴 수 있는 설계 문서 저장과 티켓 생성은 매번 approval request를 묻지 않으며 티켓 tool은 생성·읽기·실행 준비 전환(make_ready)만 제공한다.

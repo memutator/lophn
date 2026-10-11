@@ -1,7 +1,7 @@
 // Context 탭의 틀: 머리(이름·Context 표시·목적·판 줄·단추)와 하위 탭 Overview · Search ·
 // Violations · Glossary · Contract(shell/workspace#R17, R21). 하위 탭 본문은 부른 쪽이
 // renderPanel로 넣는다. 만드는 중인 context는 ContextDrafting을 그린다. 구현은 ctx-I41.
-import { type ReactNode, useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import {
   Button,
   ErrorState,
@@ -22,6 +22,7 @@ import type {
   ContextDetail,
   ContextsSource,
 } from "./source.ts";
+import { useContextRead } from "./use-context-read.ts";
 import styles from "./context-frame.module.css";
 
 export interface ContextFrameProps {
@@ -39,6 +40,8 @@ export interface ContextFrameProps {
   readonly onHistory: () => void;
   /** "applied 2 hours ago"를 재는 지금. 기본은 현재 시각. */
   readonly now?: Date;
+  /** 작업대 watch가 알리는 이 context의 읽을 거리 표. 바뀌면 화면을 둔 채 다시 읽는다. */
+  readonly stamp?: string;
 }
 
 interface Loaded {
@@ -46,11 +49,6 @@ interface Loaded {
   /** 적용된 판의 검사 보고. 적용된 판이 없거나 만드는 중이면 null. */
   readonly check: CheckReport | null;
 }
-
-type Read =
-  | { readonly state: "loading" }
-  | { readonly state: "failed" }
-  | { readonly state: "ready"; readonly value: Loaded };
 
 function appliedCheck(
   detail: ContextDetail,
@@ -62,38 +60,21 @@ function appliedCheck(
     null;
 }
 
-function useFrameRead(source: ContextsSource, context: string) {
-  const [read, setRead] = useState<Read>({ state: "loading" });
-  const [attempt, setAttempt] = useState(0);
-  useEffect(() => {
-    let live = true;
-    setRead({ state: "loading" });
-    void (async () => {
-      const detail = await source.get(context);
-      if (!detail.ok) return { state: "failed" } as const;
-      if (detail.value.context.status === "drafting") {
-        return {
-          state: "ready",
-          value: { detail: detail.value, check: null },
-        } as const;
-      }
-      const bundles = await source.bundles(context);
-      if (!bundles.ok) return { state: "failed" } as const;
-      return {
-        state: "ready",
-        value: {
-          detail: detail.value,
-          check: appliedCheck(detail.value, bundles.value),
-        },
-      } as const;
-    })().then((next) => {
-      if (live) setRead(next);
-    });
-    return () => {
-      live = false;
-    };
-  }, [source, context, attempt]);
-  return { read, reload: () => setAttempt((count) => count + 1) };
+async function loadFrame(
+  source: ContextsSource,
+  context: string,
+): Promise<Loaded | null> {
+  const detail = await source.get(context);
+  if (!detail.ok) return null;
+  if (detail.value.context.status === "drafting") {
+    return { detail: detail.value, check: null };
+  }
+  const bundles = await source.bundles(context);
+  if (!bundles.ok) return null;
+  return {
+    detail: detail.value,
+    check: appliedCheck(detail.value, bundles.value),
+  };
 }
 
 function subLabel(sub: SubTab, violations: number): string {
@@ -140,7 +121,11 @@ function versionLine(
 
 export function ContextFrame(props: ContextFrameProps): ReactNode {
   const { source, context, sub, onSub, renderPanel, onAsk, onHistory } = props;
-  const { read, reload } = useFrameRead(source, context);
+  const { read, reload } = useContextRead(
+    () => loadFrame(source, context),
+    [source, context],
+    props.stamp,
+  );
   if (read.state === "loading") return <Skeleton lines={3} />;
   if (read.state === "failed") {
     return (
@@ -153,7 +138,13 @@ export function ContextFrame(props: ContextFrameProps): ReactNode {
   const loaded = read.value;
   const item = loaded.detail.context;
   if (item.status === "drafting") {
-    return <ContextDrafting source={source} context={context} />;
+    return (
+      <ContextDrafting
+        source={source}
+        context={context}
+        stamp={props.stamp}
+      />
+    );
   }
   // 판 줄과 [Ask Context Engineer]·[History]는 Contract에서만 보인다(shell/workspace#R21).
   const plain = sub !== "contract";

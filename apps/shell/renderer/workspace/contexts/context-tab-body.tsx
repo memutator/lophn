@@ -25,6 +25,8 @@ export interface ContextTabBodyProps {
   readonly onOpenSearch: (state: SearchTabState) => void;
   /** [Ask Context Engineer]와 [History]. */
   readonly onAsk: () => void;
+  /** 작업대 watch가 알리는 이 context의 읽을 거리 표(drafting에서 active로 넘어가는 것을 따른다). */
+  readonly stamp?: string;
 }
 
 export function ContextTabBody(props: ContextTabBodyProps): ReactNode {
@@ -81,6 +83,7 @@ export function ContextTabBody(props: ContextTabBodyProps): ReactNode {
       renderPanel={panel}
       onAsk={onAsk}
       onHistory={onAsk}
+      stamp={props.stamp}
     />
   );
 }

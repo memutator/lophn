@@ -130,6 +130,7 @@ function seededEditor(): Omit<EditorDeps, "menu"> {
         Promise.resolve({
           ok: true,
           value: Object.values(SEED_DOCUMENTS).map((seeded) => ({
+            folder: "/work/lophn",
             address: `lophn/${seeded.info.fileName.replace(/\.md$/, "")}`,
             title: seeded.info.title,
             name: seeded.info.fileName.replace(/\.md$/, ""),
@@ -181,6 +182,7 @@ const SEEDED: WorkspaceSource = {
     Promise.resolve({
       ok: true,
       value: Object.values(SEED_DOCUMENTS).map((seeded) => ({
+        folder: "/work/lophn",
         path: seeded.info.path ?? seeded.info.fileName,
         document: seeded.info.id,
         title: seeded.info.fileName.replace(/\.md$/, ""),

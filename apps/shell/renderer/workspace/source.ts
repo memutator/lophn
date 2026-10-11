@@ -17,6 +17,8 @@ export interface DocumentRow {
 
 /** 프로젝트 폴더에서 문서로 잡힌 파일. 경로는 등록 폴더 기준 상대 경로다. */
 export interface FileRow {
+  /** 이 파일이 속한 등록 폴더 경로. sidebar가 폴더 아래에 문서를 보일 때 쓴다. */
+  readonly folder?: string;
   readonly path: string;
   readonly document: string;
   readonly title: string;

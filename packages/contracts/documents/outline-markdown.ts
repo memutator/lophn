@@ -14,13 +14,13 @@ export type OutlineRange = {
 
 export type OutlineNode = {
   // 한 outline 안에서 유일. 명시 anchor 우선, 없으면 제목 slug, 같은 부모 아래 중복은 `-2`부터,
-  // 부모가 있으면 `부모key/자기slug`. 첫 heading 앞 본문은 `_preamble`.
+  // 부모가 있으면 `부모key/자기slug`. outline은 heading node만 담는다. 첫 heading 앞 본문과 title인 h1은 node가 아니며 줄 범위로 읽는다.
   key: string;
   title: string;
   parent: string | null;
-  // 원문 순서, 0부터. `_preamble`이 있으면 그것이 0.
+  // 원문 순서, 0부터.
   position: number;
-  // 1..6. `_preamble`만 0. 건너뛴 level은 그대로 두고 가장 가까운 낮은 level의 heading 아래에 둔다.
+  // 1..6. 건너뛴 level은 그대로 두고 가장 가까운 낮은 level의 heading 아래에 둔다.
   level: number;
   anchor: string | null;
   // heading 줄과 자식 section을 뺀 자체 본문. 한 줄도 없으면 null(빈 줄뿐인 본문은 null이 아니다).

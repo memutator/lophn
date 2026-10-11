@@ -70,7 +70,7 @@ const SMALL = [
 Deno.test("documents/outline-and-search#R3 [ctx-I60]: markdown media types are parsed and every other media type is unsupported, not empty", () => {
   for (const media of ["text/markdown", "text/x-markdown"]) {
     const outline = ready(SMALL, media);
-    assertEquals(keys(outline), ["_preamble", "a", "a/a1", "b"]);
+    assertEquals(keys(outline), ["a", "a/a1", "b"]);
   }
   for (const media of ["text/plain", "application/pdf", "text/html", ""]) {
     assertEquals(parseOutline(media, SMALL), {
@@ -101,14 +101,12 @@ Deno.test("documents/outline-and-search#R5 [ctx-I60]: each section carries title
       item.position,
     ]),
     [
-      ["_preamble", "", 0, null, 0],
-      ["a", "A", 2, null, 1],
-      ["a/a1", "A1", 3, "a", 2],
-      ["b", "B", 2, null, 3],
+      ["a", "A", 2, null, 0],
+      ["a/a1", "A1", 3, "a", 1],
+      ["b", "B", 2, null, 2],
     ],
   );
   assertEquals(outline.sections.map((item) => item.anchor), [
-    null,
     null,
     null,
     null,
@@ -116,21 +114,18 @@ Deno.test("documents/outline-and-search#R5 [ctx-I60]: each section carries title
   assertEquals(
     outline.sections.map((item) => [item.own_range, item.subtree_range]),
     [
-      [{ start_line: 1, end_line: 2 }, { start_line: 1, end_line: 2 }],
       [{ start_line: 4, end_line: 4 }, { start_line: 3, end_line: 7 }],
       [{ start_line: 6, end_line: 7 }, { start_line: 5, end_line: 7 }],
       [{ start_line: 9, end_line: 9 }, { start_line: 8, end_line: 9 }],
     ],
   );
   assertEquals(outline.sections.map((item) => item.children_count), [
-    0,
     1,
     0,
     0,
   ]);
-  assertEquals(outline.sections.map((item) => item.characters), [6, 2, 7, 2]);
+  assertEquals(outline.sections.map((item) => item.characters), [2, 7, 2]);
   assertEquals(outline.sections.map((item) => item.estimated_tokens), [
-    2,
     1,
     3,
     1,
@@ -223,7 +218,7 @@ Deno.test("documents/outline-and-search#R5 [ctx-I60]: setext headings give level
   ].join("\n");
   const outline = ready(text);
   assertEquals(outline.title, "Doc title");
-  assertEquals(keys(outline), ["_preamble", "part-one"]);
+  assertEquals(keys(outline), ["part-one"]);
   assertEquals(node(outline, "part-one").level, 2);
   assertEquals(node(outline, "part-one").subtree_range, {
     start_line: 5,
@@ -331,7 +326,6 @@ Deno.test("documents/outline-and-search#R5 [ctx-I60]: the heading tree of the sh
       item.subtree_range.end_line,
     ]),
     [
-      ["_preamble", null, 0, 1, 4],
       ["아웃라인", null, 2, 5, 22],
       ["아웃라인/첫-항목", "아웃라인", 3, 7, 22],
       ["아웃라인/첫-항목/첫-항목의-하위", "아웃라인/첫-항목", 4, 11, 22],
@@ -425,31 +419,41 @@ Deno.test("documents/outline-and-search#R5 [ctx-I60]: a sole h1 is the document 
   );
 });
 
-Deno.test("documents/outline-and-search#R5 [ctx-I60]: text before the first heading is the _preamble section at level 0, blank lines alone are not", async () => {
-  const text = await fixture("notes-basic/index.md");
-  const preamble = node(ready(text), "_preamble");
-  assertEquals(preamble.level, 0);
-  assertEquals(preamble.parent, null);
-  assertEquals(preamble.position, 0);
-  assertEquals(preamble.subtree_range, { start_line: 1, end_line: 4 });
-  assert(preamble.own_range !== null);
-  assert(preamble.characters > 0);
+Deno.test("documents/outline-and-search#R5 [ctx-I60]: the outline holds heading nodes only, so text before the first heading and a title h1 make no node", async () => {
+  const index = ready(await fixture("notes-basic/index.md"));
+  assertEquals(index.title, "프로젝트 노트");
+  assertEquals(index.sections[0]?.key, "아웃라인");
+  assertEquals(index.sections[0]?.position, 0);
+  assertEquals(index.line_count, 54);
 
-  assertEquals(keys(ready("\n\n## A\nbody")), ["a"]);
-  assertEquals(keys(ready("note without any heading")), ["_preamble"]);
-  const fenced = node(
-    ready(await fixture("notes-basic/fenced.md")),
-    "_preamble",
-  );
-  assertEquals(fenced.own_range?.start_line, 6);
-  assertEquals(fenced.subtree_range.end_line, 10);
+  const fenced = ready(await fixture("notes-basic/fenced.md"));
+  assertEquals(fenced.sections[0]?.key, "코드-블록");
+
+  for (const outline of [index, fenced, ready(SMALL)]) {
+    assert(outline.sections.length > 0);
+    assert(outline.sections.every((item) => item.level >= 1));
+    assertEquals(keys(outline).includes("_preamble"), false);
+  }
+  assertEquals(ready(SMALL).sections[0]?.subtree_range.start_line, 3);
 });
 
-Deno.test("documents/outline-and-search#R5 [ctx-I60]: the first heading on line 1 leaves no preamble", async () => {
+Deno.test("documents/outline-and-search#R5 [ctx-I60]: a document without headings is ready with an empty node list and still reports its size", () => {
+  const withHeading = ready("## A\nbody");
+  assertEquals(keys(withHeading), ["a"]);
+  for (const text of ["note without any heading", "\n\n"]) {
+    const outline = ready(text);
+    assertEquals(outline.sections, []);
+    assertEquals(outline.title, null);
+    assertEquals(outline.line_count, text.split("\n").length);
+    assertEquals(outline.characters, [...text].length);
+  }
+  assertEquals(keys(ready("\n\n## A\nbody")), ["a"]);
+});
+
+Deno.test("documents/outline-and-search#R5 [ctx-I60]: the first heading on line 1 is node 0", async () => {
   const outline = ready(await fixture("notes-basic/multi-h1.md"));
   assertEquals(outline.sections[0]?.key, "첫-번째-h1");
   assertEquals(outline.sections[0]?.position, 0);
-  assertEquals(keys(outline).includes("_preamble"), false);
 });
 
 Deno.test("documents/outline-and-search#R2 [ctx-I60]: a BOM and CRLF line ends give the same outline as the clean LF text", async () => {
@@ -471,7 +475,7 @@ Deno.test("documents/outline-and-search#R2 [ctx-I60]: a BOM and CRLF line ends g
   assertEquals(outline.title, "BOM과 CRLF");
   assertEquals(
     keys(outline),
-    ["_preamble", "두-번째-제목", "두-번째-제목/crlf"],
+    ["두-번째-제목", "두-번째-제목/crlf"],
   );
   assertEquals(
     ready(raw.replace(/^﻿/, "").replaceAll("\r\n", "\n")),
@@ -566,6 +570,6 @@ Deno.test("documents/outline-and-search#R2 [ctx-I60]: the same text always gives
 Deno.test("documents/outline-and-search#R4 [ctx-I60]: the editor list and the context outline kind both call parseOutline and see the same sections", () => {
   const forEditor = ready(SMALL);
   const forContext = ready(SMALL, "text/x-markdown");
-  assertEquals(forEditor.sections.length, 4);
+  assertEquals(forEditor.sections.length, 3);
   assertEquals(forContext.sections, forEditor.sections);
 });

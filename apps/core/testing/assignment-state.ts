@@ -26,3 +26,23 @@ export function setAssignmentState(
     ledger.close();
   }
 }
+
+// 시험이 자리(project·app)를 만들지 않고 그 자리의 Operator assignment를 바로 둔다. 자리 존재는
+// 생성 event로 보는데 이 시험들이 보는 것은 Operator run의 tool 판정이라 ledger 표에 행만 넣는다.
+export function insertOperatorAssignment(
+  dataRoot: string,
+  assignment: string,
+  scope: { kind: "project" | "app"; id: string },
+): void {
+  const ledger = new DatabaseSync(`${dataRoot}/lophn.db`);
+  try {
+    ledger.exec("pragma busy_timeout = 5000");
+    ledger.prepare(
+      `insert into assignments (id, role, scope_kind, scope_id, state,
+         pause_detail, pause_target, revision)
+       values (?, 'operator', ?, ?, 'enabled', null, null, 1)`,
+    ).run(assignment, scope.kind, scope.id);
+  } finally {
+    ledger.close();
+  }
+}

@@ -1,9 +1,4 @@
-export {
-  aborted,
-  runCheck,
-  runStages,
-  type StageResult,
-} from "./runner.ts";
+export { aborted, runCheck, runStages, type StageResult } from "./runner.ts";
 export { snapshotHash } from "./snapshot.ts";
 export {
   type CheckInput,

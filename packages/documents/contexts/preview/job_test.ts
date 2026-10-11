@@ -17,9 +17,9 @@ function project() {
   return inlineFiles(all);
 }
 
-Deno.test("documents/contexts#R19 [ctx-I64p]: the preview job snapshots only the contract's folders, previews the snapshot and removes it", async () => {
+Deno.test("documents/contexts#R19 [ctx-I64p]: the preview job snapshots only the contract's folders, previews the snapshot and removes it", () => {
   const snapshots = fakeSnapshots(project());
-  const done = await runPreviewJob({ snapshots }, {
+  const done = runPreviewJob({ snapshots }, {
     snapshot: SNAPSHOT,
     draft: fixtureRaw(),
     env: sampleEnv(),
@@ -35,9 +35,9 @@ Deno.test("documents/contexts#R19 [ctx-I64p]: the preview job snapshots only the
   assertEquals(snapshots.removed, [SNAPSHOT]);
 });
 
-Deno.test("documents/contexts#R19 [ctx-I64p]: a draft that fails the shape copies no folder, and a snapshot that cannot be made is unavailable", async () => {
+Deno.test("documents/contexts#R19 [ctx-I64p]: a draft that fails the shape copies no folder, and a snapshot that cannot be made is unavailable", () => {
   const snapshots = fakeSnapshots(project());
-  const broken = await runPreviewJob({ snapshots }, {
+  const broken = runPreviewJob({ snapshots }, {
     snapshot: SNAPSHOT,
     draft: { ...fixtureRaw(), schema: 2 },
     env: sampleEnv(),
@@ -50,7 +50,7 @@ Deno.test("documents/contexts#R19 [ctx-I64p]: a draft that fails the shape copie
   const failing = fakeSnapshots(project(), {
     failWith: { code: "unavailable", message: "over budget" },
   });
-  const failed = await runPreviewJob({ snapshots: failing }, {
+  const failed = runPreviewJob({ snapshots: failing }, {
     snapshot: SNAPSHOT,
     draft: fixtureRaw(),
     env: sampleEnv(),

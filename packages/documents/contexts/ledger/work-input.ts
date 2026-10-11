@@ -58,7 +58,9 @@ function draftInput(
   ]);
   return ok({
     context: context.id,
-    roots: project?.status === "archived" ? [] : foldersOf(sql, context.project),
+    roots: project?.status === "archived"
+      ? []
+      : foldersOf(sql, context.project),
     recorded_count: context.violation_mark,
     applied: null,
     candidate: null,

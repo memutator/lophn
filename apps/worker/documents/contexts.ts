@@ -258,20 +258,22 @@ export function createContextsWorker(
       appCommandEffect: (app, command) =>
         effects.get(`${app}\u0000${command}`) ?? "unknown",
     };
-    const run = runPreviewJob({
-      snapshots: {
-        create: (name, folders, roots = []) =>
-          createSnapshotPort(contextsPaths(dataRoot!).staging, {
-            exclude: exclude(),
-            ...options.files,
-          }).create(name, folders, roots),
-      },
-    }, {
-      snapshot: newSnapshotName(),
-      draft: input.draft,
-      env,
-      roots: input.roots,
-    }).then((done): Result<unknown> => {
+    const run = Promise.resolve().then(() =>
+      runPreviewJob({
+        snapshots: {
+          create: (name, folders, roots = []) =>
+            createSnapshotPort(contextsPaths(dataRoot!).staging, {
+              exclude: exclude(),
+              ...options.files,
+            }).create(name, folders, roots),
+        },
+      }, {
+        snapshot: newSnapshotName(),
+        draft: input.draft,
+        env,
+        roots: input.roots,
+      })
+    ).then((done): Result<unknown> => {
       if (!done.ok) return done;
       const response: ContextPreviewWorkResponse = {
         types: done.value.types,

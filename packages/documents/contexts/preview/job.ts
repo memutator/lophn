@@ -18,10 +18,10 @@ export type PreviewJobRequest = {
   roots?: readonly string[];
 };
 
-export async function runPreviewJob(
+export function runPreviewJob(
   deps: { snapshots: SnapshotPort },
   request: PreviewJobRequest,
-): Promise<Result<PreviewOutcome>> {
+): Result<PreviewOutcome> {
   const parsed = bundleContentSchema.safeParse(request.draft);
   const folders = parsed.success ? watchFolders(parsed.data.contract) : [];
   const snapshot = deps.snapshots.create(

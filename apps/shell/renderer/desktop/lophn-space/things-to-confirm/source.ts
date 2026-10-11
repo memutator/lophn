@@ -23,7 +23,7 @@ export interface QuestionOption {
   /** 고정 action이 있으면 보통 confirmation window에서만 확정한다. */
   readonly action: boolean;
   /**
-   * action의 command. term.define·app.create는 질문 답의 확정으로 적용하고 확인 창을 열지 않는다.
+   * action의 command. app.create는 질문 답의 확정으로 적용하고 확인 창을 열지 않는다.
    * action이 없으면 null이다.
    */
   readonly command?: string | null;

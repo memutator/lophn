@@ -853,90 +853,8 @@ export type PlaceholderKinds = {
     number: "number";
     app: "string";
   };
-  "contexts.button.archive": Record<never, never>;
-  "contexts.button.ask": Record<never, never>;
-  "contexts.button.change": Record<never, never>;
-  "contexts.button.decide": Record<never, never>;
-  "contexts.button.export": Record<never, never>;
-  "contexts.button.later": Record<never, never>;
-  "contexts.button.new-meaning": Record<never, never>;
-  "contexts.button.open": Record<never, never>;
-  "contexts.button.open-after": Record<never, never>;
-  "contexts.button.open-before": Record<never, never>;
-  "contexts.button.save-meaning": Record<never, never>;
-  "contexts.button.show-latest": Record<never, never>;
-  "contexts.button.unarchive": Record<never, never>;
-  "contexts.empty.candidates": Record<never, never>;
-  "contexts.empty.definitions": Record<never, never>;
-  "contexts.empty.no-focus": Record<never, never>;
-  "contexts.empty.perspective": Record<never, never>;
-  "contexts.empty.pick-focus": Record<never, never>;
-  "contexts.error.change-failed": Record<never, never>;
-  "contexts.error.changed": Record<never, never>;
-  "contexts.error.define-failed": Record<never, never>;
-  "contexts.error.export-failed": Record<never, never>;
-  "contexts.error.meaning-changed": Record<never, never>;
-  "contexts.heading.candidates": Record<never, never>;
-  "contexts.heading.definitions": Record<never, never>;
-  "contexts.label.archived": Record<never, never>;
-  "contexts.label.evidence": Record<never, never>;
-  "contexts.label.evidence-lines": {
-    start: "number";
-    end: "number";
-  };
-  "contexts.label.evidence-more": {
-    count: "plural";
-  };
-  "contexts.label.export-app": {
-    title: "string";
-  };
-  "contexts.label.export-section": {
-    title: "string";
-    section: "string";
-  };
-  "contexts.label.gaps": Record<never, never>;
-  "contexts.label.item-count": {
-    count: "plural";
-  };
-  "contexts.label.meaning": Record<never, never>;
-  "contexts.label.read-version": Record<never, never>;
-  "contexts.label.reason": Record<never, never>;
-  "contexts.label.section": {
-    section: "string";
-  };
-  "contexts.label.show-archived": Record<never, never>;
-  "contexts.label.tab-materials": Record<never, never>;
-  "contexts.label.tab-meanings": Record<never, never>;
   "contexts.label.target-focus": Record<never, never>;
   "contexts.label.target-list": Record<never, never>;
-  "contexts.label.target-meanings": Record<never, never>;
-  "contexts.label.untitled": Record<never, never>;
-  "contexts.label.watch-added": Record<never, never>;
-  "contexts.label.watch-changed": Record<never, never>;
-  "contexts.label.watch-missing": Record<never, never>;
-  "contexts.label.watch-quiet": Record<never, never>;
-  "contexts.label.watch-unread": Record<never, never>;
-  "contexts.label.watch-unverified": Record<never, never>;
-  "contexts.label.word": Record<never, never>;
-  "contexts.notice.archived": Record<never, never>;
-  "contexts.notice.deferred": Record<never, never>;
-  "contexts.notice.gap-no-version": Record<never, never>;
-  "contexts.notice.gap-section-missing": Record<never, never>;
-  "contexts.notice.gap-section-unverified": Record<never, never>;
-  "contexts.notice.gap-unreadable": Record<never, never>;
-  "contexts.notice.gap-unsupported": Record<never, never>;
-  "contexts.notice.partial": Record<never, never>;
-  "contexts.notice.watch-app": Record<never, never>;
-  "contexts.notice.watch-format": Record<never, never>;
-  "contexts.notice.watch-missing": Record<never, never>;
-  "contexts.notice.watch-other": Record<never, never>;
-  "contexts.notice.watch-pending": Record<never, never>;
-  "contexts.notice.watch-unavailable": Record<never, never>;
-  "contexts.notice.write-own": Record<never, never>;
-  "contexts.title.focus": {
-    title: "string";
-  };
-  "contexts.title.screen": Record<never, never>;
   "contexts.view.baseline": Record<never, never>;
   "contexts.view.follow-changes": Record<never, never>;
   "contexts.view.reference": Record<never, never>;
@@ -1507,10 +1425,8 @@ export type PlaceholderKinds = {
   "documents.button.archive-series": Record<never, never>;
   "documents.button.back-to-series": Record<never, never>;
   "documents.button.clear-conditions": Record<never, never>;
-  "documents.button.confirm-save-view": Record<never, never>;
   "documents.button.continue-draft": Record<never, never>;
   "documents.button.discard-draft": Record<never, never>;
-  "documents.button.go-search": Record<never, never>;
   "documents.button.include-archived": Record<never, never>;
   "documents.button.more-results": Record<never, never>;
   "documents.button.next-in-series": Record<never, never>;
@@ -1521,7 +1437,6 @@ export type PlaceholderKinds = {
   "documents.button.read-more": Record<never, never>;
   "documents.button.register": Record<never, never>;
   "documents.button.register-series": Record<never, never>;
-  "documents.button.save-view": Record<never, never>;
   "documents.button.search": Record<never, never>;
   "documents.button.search-again": Record<never, never>;
   "documents.button.unarchive-series": Record<never, never>;
@@ -1532,10 +1447,8 @@ export type PlaceholderKinds = {
   "documents.empty.no-matches-not-yet": Record<never, never>;
   "documents.empty.no-members": Record<never, never>;
   "documents.empty.no-series": Record<never, never>;
-  "documents.empty.no-views": Record<never, never>;
   "documents.empty.pick-document": Record<never, never>;
   "documents.empty.start": Record<never, never>;
-  "documents.empty.view-empty": Record<never, never>;
   "documents.error.change-failed": Record<never, never>;
   "documents.error.changed": Record<never, never>;
   "documents.error.key-taken": Record<never, never>;
@@ -1545,25 +1458,21 @@ export type PlaceholderKinds = {
   "documents.error.read-failed": Record<never, never>;
   "documents.error.register-failed": Record<never, never>;
   "documents.error.rule-invalid": Record<never, never>;
-  "documents.error.save-view-failed": Record<never, never>;
   "documents.error.section-missing": Record<never, never>;
   "documents.error.section-unsupported": Record<never, never>;
   "documents.error.section-unverified": Record<never, never>;
   "documents.error.series-taken": Record<never, never>;
   "documents.error.text-hidden": Record<never, never>;
   "documents.error.title-missing": Record<never, never>;
-  "documents.error.view-name-taken": Record<never, never>;
   "documents.heading.members": Record<never, never>;
   "documents.heading.next": Record<never, never>;
   "documents.heading.register-series": Record<never, never>;
-  "documents.label.any-focus": Record<never, never>;
   "documents.label.any-format": Record<never, never>;
   "documents.label.any-place": Record<never, never>;
   "documents.label.archived": Record<never, never>;
   "documents.label.archived-results": Record<never, never>;
   "documents.label.choose-document": Record<never, never>;
   "documents.label.choose-place": Record<never, never>;
-  "documents.label.focus": Record<never, never>;
   "documents.label.format": Record<never, never>;
   "documents.label.format-name": {
     format: "string";
@@ -1583,9 +1492,6 @@ export type PlaceholderKinds = {
   "documents.label.order-descending": Record<never, never>;
   "documents.label.place": Record<never, never>;
   "documents.label.query": Record<never, never>;
-  "documents.label.saved-when": {
-    when: "string";
-  };
   "documents.label.series-meta": {
     place: "string";
     count: "plural";
@@ -1599,16 +1505,10 @@ export type PlaceholderKinds = {
   "documents.label.show-archived-series": Record<never, never>;
   "documents.label.tab-search": Record<never, never>;
   "documents.label.tab-series": Record<never, never>;
-  "documents.label.tab-views": Record<never, never>;
   "documents.label.target-document": Record<never, never>;
   "documents.label.target-results": Record<never, never>;
   "documents.label.target-series": Record<never, never>;
   "documents.label.target-series-list": Record<never, never>;
-  "documents.label.target-view": {
-    name: "string";
-  };
-  "documents.label.target-views": Record<never, never>;
-  "documents.label.view-name": Record<never, never>;
   "documents.label.whole-document": Record<never, never>;
   "documents.notice.archived-document": Record<never, never>;
   "documents.notice.draft": {
@@ -1637,10 +1537,6 @@ export type PlaceholderKinds = {
     rule: "string";
   };
   "documents.notice.suggestion-taken": Record<never, never>;
-  "documents.notice.view-rebuilt": Record<never, never>;
-  "documents.notice.view-saved": {
-    name: "string";
-  };
   "documents.status.draft": Record<never, never>;
   "documents.status.draft-conflict": Record<never, never>;
   "documents.status.draft-failed": Record<never, never>;
@@ -2800,7 +2696,6 @@ export type PlaceholderKinds = {
   };
   "things-to-confirm.label.event-activation-failed": Record<never, never>;
   "things-to-confirm.label.event-decision": Record<never, never>;
-  "things-to-confirm.label.event-focus-changed": Record<never, never>;
   "things-to-confirm.label.event-issue-closed": Record<never, never>;
   "things-to-confirm.label.event-issue-opened": Record<never, never>;
   "things-to-confirm.label.event-issue-reopened": Record<never, never>;

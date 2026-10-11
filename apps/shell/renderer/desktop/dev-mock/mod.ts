@@ -15,7 +15,6 @@ import type { EditorDeps } from "../../editor/document-view.tsx";
 import type { CoreSource } from "../connection/connection.ts";
 import type { LauncherSource } from "../launcher/source.ts";
 import type { AppsSource } from "../lophn-space/apps/source.ts";
-import type { ContextsSource } from "../lophn-space/contexts/source.ts";
 import type { OrganizeSource } from "../lophn-space/organize/source.ts";
 import type { RolesSource } from "../lophn-space/roles/source.ts";
 import type { SettingsPanels } from "../lophn-space/settings/settings-screen.tsx";
@@ -42,7 +41,7 @@ import {
   mockViews,
 } from "./app-space.ts";
 import { mockConversation, mockCore, mockRequests } from "./conversation.ts";
-import { mockContexts, mockLophn, mockOrganize } from "./documents.ts";
+import { mockLophn, mockOrganize } from "./documents.ts";
 import { mockInstructions, mockLauncher } from "./launcher.ts";
 
 export interface DevMock {
@@ -52,7 +51,6 @@ export interface DevMock {
   /** 문서 탭 통로. 메뉴는 창의 overlay를 그대로 쓴다. */
   readonly editor: Omit<EditorDeps, "menu">;
   readonly lophn: LophnSource;
-  readonly contexts: ContextsSource;
   readonly organize: OrganizeSource;
   readonly apps: AppsSource;
   readonly roles: RolesSource;
@@ -114,7 +112,6 @@ export function devMock(
     },
     editor: bench.editor,
     lophn: mockLophn(),
-    contexts: mockContexts(),
     organize: mockOrganize(),
     apps: mockApps(),
     roles: mockRoles(),

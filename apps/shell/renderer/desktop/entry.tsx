@@ -13,7 +13,6 @@ import {
   type Route,
 } from "./router.ts";
 import { coreLophnSource } from "./lophn-space/core-source.ts";
-import { coreContextsSource } from "./lophn-space/contexts/core-source.ts";
 import { coreOrganizeSource } from "./lophn-space/organize/core-source.ts";
 import { windowTerminalDeps } from "../terminal/deps.ts";
 import { TerminalStore } from "../terminal/store.ts";
@@ -75,7 +74,6 @@ const bench = mock ? { source: mock.workspace, editor: mock.editor } : seed;
 const core = mock?.core ?? windowCoreSource();
 const editor = windowEditorDeps(core);
 const lophn = mock?.lophn ?? coreLophnSource(core);
-const contexts = mock?.contexts ?? coreContextsSource(core);
 // projects 화면의 정리(이름·보관·문서 이동·export·파일로 두기와 빼기).
 const organize = mock?.organize ?? coreOrganizeSource(core);
 // apps 화면과 앱 공간. 앱 view는 shell preload의 view 통로로 main이 붙인다.
@@ -126,8 +124,8 @@ const requests = {
 };
 // 개발 확인용 시작 자리. `#roles`면 roles 형제부터, `#settings`면 settings 형제부터 연다. `#lophn`이면 lophn 공간(documents)부터, `#conversation`이면
 // 거기에 대화 도크까지 열어 두고, `#things-to-confirm`이면 그 형제부터, `#project=<id>`면 그
-// 프로젝트 작업대부터, `#app=<id>`면 그 앱 공간부터, `#apps`면 apps 형제부터 연다. `#contexts`면 contexts
-// 형제부터, `#contexts=<id>`면 그 Focus까지 연다. `#instructions=global`·`#instructions=project:<id>`면
+// 프로젝트 작업대부터, `#app=<id>`면 그 앱 공간부터, `#apps`면 apps 형제부터 연다.
+// `#instructions=global`·`#instructions=project:<id>`면
 // 그 [Instructions] 편집기부터 연다. 기본은 런처다.
 const start: Route | undefined = seed
   ? openProject(seed.project)
@@ -135,13 +133,6 @@ const start: Route | undefined = seed
   ? openLophn()
   : location.hash === "#things-to-confirm"
   ? openLophn("things-to-confirm")
-  : location.hash === "#contexts"
-  ? openLophn("contexts")
-  : location.hash.startsWith("#contexts=")
-  ? {
-    ...openLophn("contexts"),
-    focus: location.hash.slice("#contexts=".length),
-  }
   : location.hash === "#projects"
   ? openLophn("projects")
   : location.hash.startsWith("#project=")
@@ -215,7 +206,6 @@ mount(
             windowWidth={seed ? 1440 : undefined}
             terminal={terminal}
             lophn={lophn}
-            contexts={contexts}
             organize={organize}
             palette={palette}
             projects={projects}

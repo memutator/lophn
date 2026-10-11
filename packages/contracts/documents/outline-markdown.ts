@@ -6,6 +6,8 @@
 // 줄 번호와 codepoint 수는 이 정규화한 텍스트 기준이다(`text.split("\n")`의 조각 하나가 한 줄이며,
 // 끝의 개행 뒤 빈 조각도 한 줄로 센다: documents/formats의 document module과 같다).
 
+import { sha256Hex } from "./outline-markdown-sha256.ts";
+
 export type OutlineRange = {
   // 1-based, inclusive.
   start_line: number;
@@ -52,16 +54,252 @@ export type OutlineUnsupported = {
 
 export type OutlineResult = OutlineReady | OutlineUnsupported;
 
+type Heading = {
+  title: string;
+  level: number;
+  anchor: string | null;
+  // heading 줄(setext면 글자 줄)과 끝 줄(setext면 밑줄 줄). 1-based.
+  start_line: number;
+  end_line: number;
+};
+
+const ATX = /^( {0,3})(#{1,6})([ \t]+(.*))?$/;
+const FENCE = /^( {0,3})(`{3,}|~{3,})(.*)$/;
+const SETEXT = /^( {0,3})(=+|-+)[ \t]*$/;
+const FRONT_START = /^---[ \t]*$/;
+const FRONT_END = /^(?:---|\.\.\.)[ \t]*$/;
+const PRE_OPEN = /^[ \t]*<pre(?:\s[^>]*)?>[ \t]*$/i;
+const PRE_CLOSE = /<\/pre>/i;
+const CONTROL = /\p{Cc}/u;
+const ANCHOR_TAIL = /[ \t]+\{#([^}\s]+)\}[ \t]*$/;
+
+function isBlank(line: string): boolean {
+  return /^[ \t]*$/.test(line);
+}
+
+function countCodepoints(value: string): number {
+  let count = 0;
+  for (const _ of value) count += 1;
+  return count;
+}
+
+// 뒤의 `{#anchor}`를 떼고 anchor를 돌려준다. 제어 문자가 든 anchor는 anchor로 보지 않는다.
+function splitAnchor(raw: string): { text: string; anchor: string | null } {
+  const match = ANCHOR_TAIL.exec(raw);
+  if (match === null || CONTROL.test(match[1] ?? "")) {
+    return { text: raw, anchor: null };
+  }
+  return { text: raw.slice(0, match.index), anchor: match[1] ?? null };
+}
+
+// ATX 닫는 `#` 열은 공백이 앞서야 떼고, 제목이 `#`뿐이면 빈 제목이다.
+function atxTitle(rest: string): { title: string; anchor: string | null } {
+  const { text, anchor } = splitAnchor(rest.trim());
+  const title = text.replace(/(^|[ \t]+)#+[ \t]*$/, "").trim();
+  return { title, anchor };
+}
+
+function atxHeading(line: string, lineNumber: number): Heading | null {
+  const match = ATX.exec(line);
+  if (match === null) return null;
+  const shown = atxTitle(match[4] ?? "");
+  return {
+    title: shown.title,
+    level: (match[2] ?? "").length,
+    anchor: shown.anchor,
+    start_line: lineNumber,
+    end_line: lineNumber,
+  };
+}
+
+function setextHeading(
+  lines: readonly string[],
+  index: number,
+): Heading | null {
+  if (index + 1 >= lines.length) return null;
+  const underline = SETEXT.exec(lines[index + 1] ?? "");
+  const text = lines[index] ?? "";
+  if (underline === null || isBlank(text) || text.startsWith("    ")) {
+    return null;
+  }
+  if (/^ {0,3}(```|~~~)/.test(text)) return null;
+  const shown = splitAnchor(text.trim());
+  return {
+    title: shown.text.trim(),
+    level: (underline[2] ?? "").startsWith("=") ? 1 : 2,
+    anchor: shown.anchor,
+    start_line: index + 1,
+    end_line: index + 2,
+  };
+}
+
+// 앞의 front matter 끝 줄 번호(없으면 0).
+function frontMatterEnd(lines: readonly string[]): number {
+  if (!FRONT_START.test(lines[0] ?? "")) return 0;
+  for (let index = 1; index < lines.length; index += 1) {
+    if (FRONT_END.test(lines[index] ?? "")) return index + 1;
+  }
+  return 0;
+}
+
+// ATX·setext heading만 뽑는다. front matter·fence·HTML pre 안은 heading으로 보지 않는다.
+function scanHeadings(lines: readonly string[]): Heading[] {
+  const headings: Heading[] = [];
+  let index = frontMatterEnd(lines);
+  let fence: { mark: string; length: number } | null = null;
+  let pre = false;
+  while (index < lines.length) {
+    const line = lines[index] ?? "";
+    if (fence !== null) {
+      const close = FENCE.exec(line);
+      const run = close?.[2] ?? "";
+      if (
+        close !== null && run.startsWith(fence.mark) &&
+        run.length >= fence.length && (close[3] ?? "").trim() === ""
+      ) fence = null;
+      index += 1;
+      continue;
+    }
+    if (pre) {
+      if (PRE_CLOSE.test(line)) pre = false;
+      index += 1;
+      continue;
+    }
+    const opened = FENCE.exec(line);
+    if (opened !== null) {
+      const run = opened[2] ?? "`";
+      fence = { mark: run.slice(0, 1), length: run.length };
+      index += 1;
+      continue;
+    }
+    if (PRE_OPEN.test(line)) {
+      pre = true;
+      index += 1;
+      continue;
+    }
+    const heading = atxHeading(line, index + 1) ?? setextHeading(lines, index);
+    if (heading !== null) {
+      headings.push(heading);
+      index += heading.end_line - heading.start_line + 1;
+      continue;
+    }
+    index += 1;
+  }
+  return headings;
+}
+
+// 문자·숫자·공백·하이픈만 남긴다. `&`는 버리고 남은 공백은 각각 하이픈이 되어 `A & B`는 `a--b`가 된다.
+function slugFromTitle(title: string): string {
+  let slug = "";
+  for (const character of title.toLowerCase()) {
+    if (character === " " || character === "\t") slug += "-";
+    else if (
+      character === "-" || /^\p{L}$/u.test(character) ||
+      /^\p{N}$/u.test(character)
+    ) slug += character;
+  }
+  return slug.length === 0 ? "section" : slug;
+}
+
+function normalize(text: string): string {
+  const withoutBom = text.startsWith("﻿") ? text.slice(1) : text;
+  return withoutBom.replaceAll("\r\n", "\n").replaceAll("\r", "\n")
+    .normalize("NFC");
+}
+
+function buildNodes(
+  lines: readonly string[],
+  headings: readonly Heading[],
+): OutlineNode[] {
+  const used = new Set<string>();
+  const siblingCounts = new Map<string, Map<string, number>>();
+  const stack: OutlineNode[] = [];
+  const nodes: OutlineNode[] = [];
+  for (const [position, heading] of headings.entries()) {
+    while (
+      stack.length > 0 && stack[stack.length - 1]!.level >= heading.level
+    ) stack.pop();
+    const parent = stack.length === 0 ? null : stack[stack.length - 1]!;
+    const slug = (heading.anchor ?? slugFromTitle(heading.title))
+      .normalize("NFC");
+    const base = parent === null ? slug : `${parent.key}/${slug}`;
+    const parentKey = parent?.key ?? "";
+    let counts = siblingCounts.get(parentKey);
+    if (counts === undefined) {
+      counts = new Map();
+      siblingCounts.set(parentKey, counts);
+    }
+    const count = (counts.get(slug) ?? 0) + 1;
+    counts.set(slug, count);
+    let key = count === 1 ? base : `${base}-${count}`;
+    for (let suffix = count + 1; used.has(key); suffix += 1) {
+      key = `${base}-${suffix}`;
+    }
+    used.add(key);
+
+    let next: Heading | undefined;
+    let subtreeEnd = lines.length;
+    for (let after = position + 1; after < headings.length; after += 1) {
+      const candidate = headings[after]!;
+      next ??= candidate;
+      if (candidate.level <= heading.level) {
+        subtreeEnd = candidate.start_line - 1;
+        break;
+      }
+    }
+    const ownStart = heading.end_line + 1;
+    const ownEnd = next === undefined ? lines.length : next.start_line - 1;
+    const own = ownStart <= ownEnd
+      ? { start_line: ownStart, end_line: ownEnd }
+      : null;
+    const body = own === null
+      ? ""
+      : lines.slice(own.start_line - 1, own.end_line).join("\n");
+    const characters = countCodepoints(body);
+    const node: OutlineNode = {
+      key,
+      title: heading.title,
+      parent: parent?.key ?? null,
+      position,
+      level: heading.level,
+      anchor: heading.anchor,
+      own_range: own,
+      subtree_range: { start_line: heading.start_line, end_line: subtreeEnd },
+      characters,
+      estimated_tokens: Math.ceil(characters / 3),
+      body_hash: sha256Hex(body),
+      children_count: 0,
+    };
+    if (parent !== null) parent.children_count += 1;
+    nodes.push(node);
+    stack.push(node);
+  }
+  return nodes;
+}
+
+function isMarkdown(mediaType: string): boolean {
+  const essence = (mediaType.split(";")[0] ?? "").trim().toLowerCase();
+  return essence === "text/markdown" || essence === "text/x-markdown";
+}
+
 // 형식마다 parser를 붙이는 자리는 이 함수 하나다. 지금은 text/markdown·text/x-markdown만 해석한다.
 export function parseOutline(
-  _mediaType: string,
-  _text: string,
+  mediaType: string,
+  text: string,
 ): OutlineResult {
+  if (!isMarkdown(mediaType)) {
+    return { status: "unsupported", media_type: mediaType };
+  }
+  const normalized = normalize(text);
+  const lines = normalized.split("\n");
+  const headings = scanHeadings(lines);
+  const sections = buildNodes(lines, headings);
+  const h1 = sections.filter((node) => node.level === 1);
   return {
     status: "ready",
-    title: null,
-    line_count: 0,
-    characters: 0,
-    sections: [],
+    title: h1.length === 1 ? h1[0]!.title : null,
+    line_count: lines.length,
+    characters: countCodepoints(normalized),
+    sections,
   };
 }

@@ -27,6 +27,7 @@ export { validateModelSelection } from "./capability.ts";
 export {
   BUILTIN_ROLES,
   type BuiltinRole,
+  CONTEXT_ENGINEER_BUNDLE,
   productPresetDefinition,
   type ProductRole,
 } from "./defaults.ts";

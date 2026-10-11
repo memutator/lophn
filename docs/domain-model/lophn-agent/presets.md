@@ -108,6 +108,14 @@ Preset 판 전체는 immutable blob이다. product 기본 preset은 역할별 �
 
 이 common 목록만의 독립 command·event·ledger 표는 없다. 공통 목록도 실제 호출 때 → lophn-agent/harness/tool-judgment를 적용한다.
 
+#### Context Engineer 기본 tool 묶음
+
+`context_engineer` 기본 preset은 아래 동작을 하나의 묶음으로 고르고, 나머지 공통 읽기·문서 결과·preset/assignment 읽기·승인 초안·시각·handoff 동작은 하나씩 고른다. 이 일곱 동작은 `context_engineer` 역할 상한에만 있어서 다른 역할의 preset은 이 묶음을 고를 수 없다.
+
+| 묶음 | 개별 동작 | 대상 계약 |
+|---|---|---|
+| context 설계 | `context.read_contract`, `context.draft`, `context.preview`, `context.submit`, `context.violations`, `context.glossary_read`, `context.glossary_write` | documents/contexts, documents/terms |
+
 #### 앱 command·시각 tool 선택 값
 
 | 역할 | 자동 앱 command 상한 | 현재 scope·허락 | 시각 tool |

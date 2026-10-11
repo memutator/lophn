@@ -1,5 +1,6 @@
 import type { ReactElement } from "react";
 import { Button, Popover } from "@lophn/design/components";
+import { t } from "@lophn/wording";
 
 import type { TaskState, TaskView } from "./model.ts";
 import styles from "./activity.module.css";
@@ -22,13 +23,22 @@ export function ProgressChip(
     <Popover
       placement="beside"
       trigger={
-        <Button size="sm" variant="secondary" aria-label="Tasks">
+        <Button
+          size="sm"
+          variant="secondary"
+          aria-label={t("conversation.label.tasks")}
+        >
           {`${done}/${tasks.length}`}
         </Button>
       }
     >
       <div className={styles.tasks}>
-        <p className={styles.tasksHead}>Tasks · {done} of {tasks.length}</p>
+        <p className={styles.tasksHead}>
+          {t("conversation.label.tasks-progress", {
+            done,
+            total: tasks.length,
+          })}
+        </p>
         <ol className={styles.taskList}>
           {tasks.map((task) => (
             <li

@@ -17,18 +17,19 @@ import {
   lophnSpaceIcons,
   paletteIcons,
 } from "@lophn/design/components";
+import { type MessageKey, t } from "@lophn/wording";
 
 import type { SessionGroup, SessionLine } from "./agent-header.tsx";
 import styles from "./session-popover.module.css";
 
-const GROUPS: readonly { group: SessionGroup; head: string }[] = [
-  { group: "today", head: "Today" },
-  { group: "earlier", head: "Earlier" },
+const GROUPS: readonly { group: SessionGroup; head: MessageKey }[] = [
+  { group: "today", head: "common.label.range-today" },
+  { group: "earlier", head: "conversation.label.group-earlier" },
 ];
 
 const STATUS_LABEL = {
-  waiting: "Waiting for you",
-  working: "Working",
+  waiting: "conversation.label.requests",
+  working: "conversation.label.status-working",
 } as const;
 
 const SECOND = 1000;
@@ -50,7 +51,7 @@ export function sinceLabel(activeAt: string, now: Date): string {
       return relative.format(-Math.floor(elapsed / size), unit);
     }
   }
-  return "now";
+  return t("conversation.label.since-now");
 }
 
 export interface SessionPopoverProps {
@@ -81,7 +82,7 @@ function StatusDot({ status }: { status: SessionLine["status"] }) {
     <span
       className={`${styles.dot} ${styles[status]}`}
       role="img"
-      aria-label={STATUS_LABEL[status]}
+      aria-label={t(STATUS_LABEL[status])}
     >
       {status === "waiting" ? "●" : "◐"}
     </span>
@@ -148,7 +149,9 @@ export function SessionPopover(props: SessionPopoverProps): ReactElement {
         <div key={line.id} className={styles.edit}>
           <input
             className={styles.renameInput}
-            aria-label={`Rename ${line.title}`}
+            aria-label={t("conversation.label.rename-session", {
+              title: line.title,
+            })}
             value={draft}
             autoFocus
             onFocus={(event) => event.currentTarget.select()}
@@ -167,9 +170,11 @@ export function SessionPopover(props: SessionPopoverProps): ReactElement {
             disabled={draft.trim() === ""}
             onClick={() => save(line)}
           >
-            Save
+            {t("conversation.button.save")}
           </Button>
-          <Button size="sm" onClick={() => setEditing(null)}>Cancel</Button>
+          <Button size="sm" onClick={() => setEditing(null)}>
+            {t("common.button.cancel")}
+          </Button>
         </div>
       );
     }
@@ -179,10 +184,12 @@ export function SessionPopover(props: SessionPopoverProps): ReactElement {
           key={line.id}
           className={styles.confirm}
           role="alertdialog"
-          aria-label={`Delete ${line.title}`}
+          aria-label={t("conversation.label.delete-session", {
+            title: line.title,
+          })}
         >
           <p className={styles.confirmText}>
-            Delete "{line.title}"? This can't be undone.
+            {t("conversation.body.delete-session", { title: line.title })}
           </p>
           <div className={styles.confirmActions}>
             <Button
@@ -194,9 +201,11 @@ export function SessionPopover(props: SessionPopoverProps): ReactElement {
                 setDeleting(null);
               }}
             >
-              Delete
+              {t("conversation.button.delete")}
             </Button>
-            <Button size="sm" onClick={() => setDeleting(null)}>Cancel</Button>
+            <Button size="sm" onClick={() => setDeleting(null)}>
+              {t("common.button.cancel")}
+            </Button>
           </div>
         </div>
       );
@@ -231,7 +240,7 @@ export function SessionPopover(props: SessionPopoverProps): ReactElement {
         <span className={styles.actions}>
           <IconButton
             icon={editorIcons.edit}
-            label="Rename"
+            label={t("conversation.button.rename")}
             size="sm"
             onClick={(event) => {
               event.stopPropagation();
@@ -240,7 +249,7 @@ export function SessionPopover(props: SessionPopoverProps): ReactElement {
           />
           <IconButton
             icon={lophnSpaceIcons.archive}
-            label="Archive"
+            label={t("conversation.button.archive")}
             size="sm"
             onClick={(event) => {
               event.stopPropagation();
@@ -249,7 +258,7 @@ export function SessionPopover(props: SessionPopoverProps): ReactElement {
           />
           <IconButton
             icon={launcherIcons.remove}
-            label="Delete"
+            label={t("conversation.button.delete")}
             size="sm"
             onClick={(event) => {
               event.stopPropagation();
@@ -268,8 +277,12 @@ export function SessionPopover(props: SessionPopoverProps): ReactElement {
         <Icon icon={paletteIcons.search} pixels={iconPixels("base")} />
         <input
           className={styles.searchInput}
-          aria-label={`Search ${agentName} sessions`}
-          placeholder={`Search ${agentName} sessions`}
+          aria-label={t("conversation.label.search-sessions", {
+            agent: agentName,
+          })}
+          placeholder={t("conversation.label.search-sessions", {
+            agent: agentName,
+          })}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
@@ -277,16 +290,20 @@ export function SessionPopover(props: SessionPopoverProps): ReactElement {
       <div
         className={styles.list}
         role="listbox"
-        aria-label={`${agentName} sessions`}
+        aria-label={t("conversation.label.session-list", { agent: agentName })}
       >
         {live.length === 0
-          ? <p className={styles.noMatch} data-no-match>No sessions match.</p>
+          ? (
+            <p className={styles.noMatch} data-no-match>
+              {t("conversation.notice.session-no-match")}
+            </p>
+          )
           : GROUPS.map(({ group, head }) => {
             const inGroup = live.filter((line) => line.group === group);
             if (inGroup.length === 0) return null;
             return (
-              <div key={group} role="group" aria-label={head}>
-                <p className={styles.groupHead} data-session-group>{head}</p>
+              <div key={group} role="group" aria-label={t(head)}>
+                <p className={styles.groupHead} data-session-group>{t(head)}</p>
                 {inGroup.map(row)}
               </div>
             );
@@ -306,7 +323,9 @@ export function SessionPopover(props: SessionPopoverProps): ReactElement {
                 : lophnSpaceIcons.expand}
               pixels={iconPixels("small")}
             />
-            Archived ({archived.length})
+            {t("conversation.button.archived-toggle", {
+              count: archived.length,
+            })}
           </button>
         )}
         {showArchived && (
@@ -325,14 +344,14 @@ export function SessionPopover(props: SessionPopoverProps): ReactElement {
                   variant="ghost"
                   onClick={() => props.onUnarchive(line.id)}
                 >
-                  Restore
+                  {t("conversation.button.restore")}
                 </Button>
               </li>
             ))}
           </ul>
         )}
         <Button size="sm" icon={lophnSpaceIcons.add} onClick={props.onNew}>
-          New session
+          {t("conversation.button.session-new")}
         </Button>
       </div>
     </div>

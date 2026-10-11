@@ -9,6 +9,7 @@ import {
   editorIcons,
   IconButton,
 } from "@lophn/design/components";
+import { t } from "@lophn/wording";
 
 import styles from "./turns.module.css";
 
@@ -146,13 +147,13 @@ function UserMessage(
           <span className={styles.actions}>
             <IconButton
               icon={editorIcons.restore}
-              label="Rewind to here"
+              label={t("conversation.button.rewind-here")}
               size="sm"
               onClick={() => onRewind(message.id)}
             />
             <IconButton
               icon={conversationIcons.newSession}
-              label="Fork from here"
+              label={t("conversation.button.fork-here")}
               size="sm"
               onClick={() => onFork(message.id)}
             />

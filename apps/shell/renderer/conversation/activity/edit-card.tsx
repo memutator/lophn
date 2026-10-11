@@ -1,5 +1,6 @@
 import type { ReactElement } from "react";
 import { Button, Card } from "@lophn/design/components";
+import { t } from "@lophn/wording";
 
 import type { EditView } from "./model.ts";
 import styles from "./activity.module.css";
@@ -27,8 +28,11 @@ export function EditCard(
     <Card>
       <div className={styles.editCard} data-edit-card={edit.id}>
         <span className={styles.editText} data-edit-summary="">
-          {undone ? "Undid the edit to " : "Edited "}
-          <span className={styles.mono}>{edit.path}</span>
+          {t(
+            undone
+              ? "conversation.label.edit-undone"
+              : "conversation.label.edit-made",
+          )} <span className={styles.mono}>{edit.path}</span>
           {undone ? null : (
             <>
               {" "}
@@ -38,14 +42,16 @@ export function EditCard(
           )}
         </span>
         <span className={styles.editActions}>
-          <Button size="sm" onClick={() => onOpen(edit)}>Open</Button>
+          <Button size="sm" onClick={() => onOpen(edit)}>
+            {t("conversation.button.edit-open")}
+          </Button>
           {!undone && (
             <Button
               size="sm"
               variant="ghost"
               onClick={() => onUndo(edit)}
             >
-              Undo
+              {t("conversation.button.edit-undo")}
             </Button>
           )}
           {undone && canRedo && (
@@ -54,7 +60,7 @@ export function EditCard(
               variant="ghost"
               onClick={() => onRedo(edit)}
             >
-              Redo
+              {t("conversation.button.edit-redo")}
             </Button>
           )}
         </span>

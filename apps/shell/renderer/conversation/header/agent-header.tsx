@@ -19,6 +19,7 @@ import {
   Menu,
   Popover,
 } from "@lophn/design/components";
+import { type MessageKey, t } from "@lophn/wording";
 
 import styles from "./agent-header.module.css";
 import { SessionPopover } from "./session-popover.tsx";
@@ -108,12 +109,12 @@ export interface AgentHeaderProps {
  */
 type MoreAction = "rename" | "fork" | "rewind" | "usage" | "close";
 
-const MORE_ITEMS: readonly { id: MoreAction; label: string }[] = [
-  { id: "rename", label: "Rename" },
-  { id: "fork", label: "Fork" },
-  { id: "rewind", label: "Rewind…" },
-  { id: "usage", label: "Usage" },
-  { id: "close", label: "Close tab" },
+const MORE_ITEMS: readonly { id: MoreAction; label: MessageKey }[] = [
+  { id: "rename", label: "conversation.button.rename" },
+  { id: "fork", label: "conversation.button.fork" },
+  { id: "rewind", label: "conversation.button.rewind" },
+  { id: "usage", label: "conversation.button.usage" },
+  { id: "close", label: "conversation.button.close-tab" },
 ];
 
 // closed session은 대화를 더 이을 수 없어 Usage·Close tab만 남는다.
@@ -181,7 +182,9 @@ export function AgentHeader(props: AgentHeaderProps): ReactElement {
               <input
                 className={styles.renameInput}
                 data-header-rename
-                aria-label={`Rename ${session.title}`}
+                aria-label={t("conversation.label.rename-session", {
+                  title: session.title,
+                })}
                 value={draft}
                 autoFocus
                 onFocus={(event) => event.currentTarget.select()}
@@ -238,12 +241,19 @@ export function AgentHeader(props: AgentHeaderProps): ReactElement {
       <div className={styles.tools}>
         {props.children}
         <Menu
-          items={sessionClosed ? CLOSED_ITEMS : MORE_ITEMS}
+          items={(sessionClosed ? CLOSED_ITEMS : MORE_ITEMS).map((item) => ({
+            id: item.id,
+            label: t(item.label),
+          }))}
           onSelect={onMore}
           placement="beside"
           returnFocus={!renaming}
           trigger={
-            <IconButton icon={editorIcons.menu} label="More" size="sm" />
+            <IconButton
+              icon={editorIcons.menu}
+              label={t("conversation.label.more-actions")}
+              size="sm"
+            />
           }
         />
       </div>

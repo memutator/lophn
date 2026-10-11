@@ -1323,6 +1323,15 @@ concerns: [shell]
   - 크롬 글자와 이미지·링크는 선택·drag되지 않는다. 읽기 본문·입력·contenteditable·terminal·code·대화 말·확인 화면 값은 선택된다.
   - 모든 scrollbar는 base 스타일의 token 막대(얇은 thumb, light·dark)다. 탭 줄·팔레트가 막대 스타일을 따로 덮지 않는다.
   - lophn 공간 sidebar 머리와 breadcrumb 뿌리는 "Lophn Workspace"다. 제품 이름·agent 이름·"Ask lophn" 같은 문구는 그대로다.
+### T65 화면 말 Focus → Context
+
+- 상태: 완료 (#587)
+- 등급: 좁은
+- concern: shell/wording
+- 요구: shell/wording#R2, R11
+- 자리: packages/design/wording/en.ts, docs/ui-ux/README.md
+- slice: desktop
+- 완료: 화면 말에 context를 뜻하는 "Focus"가 남지 않는다
 
 ## 요구 덮기
 

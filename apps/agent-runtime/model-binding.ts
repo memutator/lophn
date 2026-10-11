@@ -1,4 +1,5 @@
 import type { CallModel } from "../../packages/contracts/lophn-agent/mod.ts";
+import type { JsonObject } from "../../packages/contracts/platform/mod.ts";
 import {
   anthropicSystem,
   anthropicTools,
@@ -51,9 +52,11 @@ function anthropicMessages(messages: readonly PromptMessage[]): unknown[] {
 }
 
 // Anthropic Messages 번역. cache 표시는 system 층에 이미 있어 adapter의 경계 표시는 모두 끈다(T19).
+// model은 요청에 실을 이름(sent_model_name)이고 requestPatch는 option 값이 싣는 조각이다(harness/model#R22).
 export function anthropicPacker(input: {
   model: string;
   maxTokens: number;
+  requestPatch?: JsonObject;
 }): WirePacker {
   return (request: PromptRequest) => ({
     body: buildMessages({
@@ -63,6 +66,7 @@ export function anthropicPacker(input: {
       messages: anthropicMessages(request.messages),
       tools: anthropicTools(request),
       boundaries: { system: false, tools: false, final_user: false },
+      request_patch: input.requestPatch,
     }),
     opaque_bytes: 0,
   });
@@ -112,6 +116,7 @@ function responsesInput(messages: readonly PromptMessage[]): unknown[] {
 export function responsesPacker(input: {
   model: string;
   maxTokens: number;
+  requestPatch?: JsonObject;
 }): WirePacker {
   return (request: PromptRequest) => ({
     body: buildResponses({
@@ -125,6 +130,7 @@ export function responsesPacker(input: {
         parameters: tool.input_schema,
       })),
       max_output_tokens: input.maxTokens,
+      request_patch: input.requestPatch,
     }).body,
     opaque_bytes: 0,
   });
@@ -183,6 +189,7 @@ export function chatPacker(input: {
   maxTokens: number;
   // provider 정의 key. 정의가 요구하는 quirk를 고른다.
   provider: string;
+  requestPatch?: JsonObject;
 }): WirePacker {
   return (request: PromptRequest) => ({
     body: buildChat({
@@ -199,6 +206,7 @@ export function chatPacker(input: {
         },
       })),
       max_tokens: input.maxTokens,
+      request_patch: input.requestPatch,
     }),
     opaque_bytes: 0,
   });

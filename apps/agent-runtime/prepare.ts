@@ -120,8 +120,9 @@ export type PreparerDeps = {
   machine: CoreCall;
   // run의 agent credential token으로 부르는 loopback.
   agentCall(token: string): CoreCall;
-  // preset의 선택을 검증해 model 묶음으로 만든다(catalog·계정·adapter).
+  // role의 기본 model 선택을 검증해 model 묶음으로 만든다(catalog·계정·adapter).
   resolveModel(input: {
+    role: AssignmentRecord["role"];
     preset: { id: string; revision: number };
     definition: unknown;
   }): Promise<Result<ModelBinding>>;
@@ -324,6 +325,7 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
     );
 
     const model = await deps.resolveModel({
+      role: assignment.role,
       preset: { id: preset.id, revision: preset.revision },
       definition,
     });

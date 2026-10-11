@@ -1,12 +1,18 @@
 import { err, formatAt, ok, type Result } from "../../packages/base/mod.ts";
 import {
+  type AgentRole,
   type CallModel,
   type CatalogEntry,
+  effortValueSchema,
   modelDefaultsRead,
+  OPTION_AXIS_EFFORT,
   providerRead,
   type ProviderRecord,
 } from "../../packages/contracts/lophn-agent/mod.ts";
-import { resolveSelection } from "../../packages/lophn-agent/harness/model/mod.ts";
+import {
+  resolveSelection,
+  translateOptions,
+} from "../../packages/lophn-agent/harness/model/mod.ts";
 import {
   type AuthKind,
   type AuthTransport,
@@ -16,6 +22,7 @@ import {
   credentialUsable,
   providerSecretDestination,
   type SecretAttachLike,
+  withRequestHeaders,
 } from "../../packages/lophn-agent/harness/provider/mod.ts";
 import { type CoreCall, readOf } from "./core-call.ts";
 import {
@@ -25,20 +32,31 @@ import {
   responsesPacker,
 } from "./model-binding.ts";
 
-// preset의 model 선택을 현재 provider·catalog로 검증해 run이 쓸 model 묶음으로 만든다
-// (lophn-agent/harness/model R10~R13, harness/provider R10). preset에 선택이 없으면 사람이 정한 기본
-// 선택(judgment)을 쓴다. 닿는 protocol은 Anthropic Messages·OpenAI Responses·OpenAI Chat Completions다.
+// role의 Workspace 기본 model 선택을 현재 provider·catalog로 검증해 run이 쓸 model 묶음으로 만든다
+// (lophn-agent/harness/model R8~R13, R16, R22~R24, harness/provider R10). 고른 option 값은 default를
+// 채운 뒤 호출 형식의 표로 요청 body 조각·header·보낼 model 이름이 되고, catalog에 없는 값이면 요청을
+// 보내지 않고 실패한다. agent 정의·project·session 층은 아직 없고 Workspace 층만 쓴다. 계정은 provider의
+// 순서에서 첫 usable 계정이다. 닿는 protocol은 Anthropic Messages·OpenAI Responses·OpenAI Chat
+// Completions다.
 // 계정 없는 loopback provider는 붙일 값이 없고, API key 계정은 core가 감독 pipe로 건네는 값을 인증
 // transport가 전송 직전에만 붙인다(platform/secrets#R5). 값을 받지 못하면 요청을 보내지 않는다. OAuth는
 // 로그인·갱신(provider#R12~R18)이 runtime에 이어지기 전까지 `unavailable`이다.
 
 const MAX_OUTPUT_TOKENS = 4096;
 
-type Selection = NonNullable<
-  Awaited<
-    ReturnType<typeof modelDefaultsRead.output.parse>
-  >["defaults"]["judgment"]
->;
+// Anthropic은 thinking 예산보다 max_tokens가 커야 요청을 받는다. 예산이 있으면 답에 쓸 몫을 그 위에 더한다.
+function anthropicMaxTokens(
+  request_patch: { thinking?: unknown },
+  outputLimit: number,
+): number {
+  const thinking = request_patch.thinking as
+    | { budget_tokens?: unknown }
+    | undefined;
+  const budget = typeof thinking?.budget_tokens === "number"
+    ? thinking.budget_tokens
+    : 0;
+  return Math.min(outputLimit, MAX_OUTPUT_TOKENS + budget);
+}
 
 export type ModelResolverDeps = {
   machine: CoreCall;
@@ -56,20 +74,16 @@ export function createModelResolver(deps: ModelResolverDeps) {
   const fetching = createFetchTransport(deps.fetch);
 
   return async function resolveModel(input: {
+    role: AgentRole;
     preset: { id: string; revision: number };
-    definition: unknown;
   }): Promise<Result<ModelBinding>> {
-    const preset = input.definition as { model?: Selection | null };
-    let selection: Selection | null = preset.model ?? null;
-    if (selection === null) {
-      const defaults = await readOf(deps.machine, modelDefaultsRead, {});
-      if (!defaults.ok) return defaults;
-      selection = defaults.value.defaults.judgment;
-    }
+    const defaults = await readOf(deps.machine, modelDefaultsRead, {});
+    if (!defaults.ok) return defaults;
+    const selection = defaults.value.defaults[input.role];
     if (selection === null) {
       return err({
         code: "unavailable",
-        message: "no model is chosen for this preset",
+        message: "no model is chosen for this role",
       });
     }
     const read = await readOf(deps.machine, providerRead, {
@@ -83,20 +97,21 @@ export function createModelResolver(deps: ModelResolverDeps) {
         message: "the provider is turned off",
       });
     }
-    // 계정은 preset이 적은 순서의 첫 usable 계정이다. 적지 않았고 provider에도 없으면 계정 없이 간다.
+    // 계정은 provider가 고른다: provider의 순서에서 켜진 계정 가운데 첫 usable 계정이다. 계정이 없는
+    // 연결(loopback)만 계정 없이 간다.
     const at = nowMs();
-    const keys = selection.credentials;
+    const keys = [...provider.credentials]
+      .sort((a, b) => a.order - b.order)
+      .filter((entry) => entry.enabled)
+      .map((entry) => entry.key);
     const credential =
       keys.map((key) =>
         provider.credentials.find((entry) => entry.key === key) ?? null
       ).find((entry) =>
         credentialUsable(entry, { modelName: selection.model_name, nowMs: at })
       ) ?? null;
-    if (keys.length > 0 && credential === null) {
-      return err({ code: "unavailable", message: "no usable credential" });
-    }
     if (credential === null && provider.credentials.length > 0) {
-      return err({ code: "unavailable", message: "no credential is chosen" });
+      return err({ code: "unavailable", message: "no usable credential" });
     }
     // 값이 있는 계정의 전송: API key만 닿고 값은 전송 직전에만 붙는다.
     let transport: AuthTransport = { send: fetching };
@@ -128,7 +143,6 @@ export function createModelResolver(deps: ModelResolverDeps) {
           : { headerName: "authorization", kind: "bearer" as AuthKind }),
       });
     }
-    const invoke = createInvokeModelCall({ transport, nowMs, at: formatAt });
 
     const catalog = await deps.catalog();
     if (!catalog.ok) return catalog;
@@ -136,42 +150,73 @@ export function createModelResolver(deps: ModelResolverDeps) {
       candidate.provider_definition === provider.definition.key &&
       candidate.model_name === selection.model_name
     );
+    // catalog에 없는 model은 한계와 option 축을 알 수 없어 쓰지 않는다(R13). 명시 한계 보완은 아직 없다.
+    if (entry === undefined) {
+      return err({
+        code: "invalid_input",
+        message: "the model is not in the catalog, so its limits are unknown",
+      });
+    }
     const resolved = resolveSelection(
       {
         purpose: "judgment",
         provider: selection.provider,
-        credentials: selection.credentials,
+        credentials: keys,
         model_name: selection.model_name,
-        reasoning_level: selection.reasoning_level,
+        option_values: selection.option_values,
         needs_tools: true,
-        options: selection.options,
       },
       entry,
-      { modelListed: () => (entry === undefined ? null : true) },
+      { modelListed: () => true },
       undefined,
     );
     if (!resolved.ok) return resolved;
-    const limits = resolved.value;
+    // default를 채운 option 값을 호출 형식의 표로 옮긴다. 표에 없는 값은 가까운 값으로 바꾸지 않고 실패한다(R24).
+    const wire = translateOptions({
+      protocol: provider.protocol,
+      entry,
+      option_values: resolved.value.option_values,
+    });
+    if (!wire.ok) return wire;
+    const limits = { ...resolved.value, ...wire.value };
 
-    const maxTokens = Math.min(MAX_OUTPUT_TOKENS, limits.output_limit);
+    const invoke = createInvokeModelCall({
+      transport: withRequestHeaders(transport, limits.request_headers),
+      nowMs,
+      at: formatAt,
+    });
+    const requestPatch = limits.request_patch;
     const pack = provider.protocol === "anthropic-messages"
-      ? anthropicPacker({ model: selection.model_name, maxTokens })
+      ? anthropicPacker({
+        model: limits.sent_model_name,
+        maxTokens: anthropicMaxTokens(requestPatch, limits.output_limit),
+        requestPatch,
+      })
       : provider.protocol === "openai-responses"
-      ? responsesPacker({ model: selection.model_name, maxTokens })
+      ? responsesPacker({
+        model: limits.sent_model_name,
+        maxTokens: Math.min(MAX_OUTPUT_TOKENS, limits.output_limit),
+        requestPatch,
+      })
       : chatPacker({
-        model: selection.model_name,
-        maxTokens,
+        model: limits.sent_model_name,
+        maxTokens: Math.min(MAX_OUTPUT_TOKENS, limits.output_limit),
         provider: provider.definition.key,
+        requestPatch,
       });
 
+    const effort = effortValueSchema.safeParse(
+      limits.option_values[OPTION_AXIS_EFFORT],
+    );
     const call: CallModel = {
       provider: selection.provider,
       name: selection.model_name,
       protocol: provider.protocol,
       credential_key: credential?.key ?? null,
       credential_revision: credential?.revision ?? null,
-      options: selection.options,
-      requested_reasoning: limits.reasoning_level,
+      options: limits.option_values,
+      // 호출 기록의 reasoning 칸은 option 값 기록으로 바뀔 때까지 effort 값을 그대로 옮긴다.
+      requested_reasoning: effort.success ? effort.data : "provider_default",
       applied_reasoning: null,
       limits: {
         context_limit: limits.context_limit,

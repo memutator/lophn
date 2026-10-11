@@ -6,8 +6,10 @@
 // 처리를 여기다. 오류 코드의 HTTP·본문 분류는 failures.ts가 맡는다(T15).
 
 import type { TokenUsage } from "../../../../contracts/lophn-agent/mod.ts";
+import type { JsonObject } from "../../../../contracts/platform/mod.ts";
 import type { ToolCall } from "./messages.ts";
 import { quirksFor, verifiedJsonObject } from "./compat.ts";
+import { mergeRequestPatch } from "./request-patch.ts";
 import type { SseFrame } from "./stream.ts";
 
 // Chat 요청 message. Anthropic 블록을 Chat messages로 바꾼다.
@@ -118,6 +120,8 @@ export function buildRequest(input: {
   provider?: string;
   // 지시문은 system message 하나로 온다(prompt-assemble이 번역한다).
   system?: string;
+  // option 값이 싣는 조각이다(harness/model#R22). 만든 body에 깊게 합친다.
+  request_patch?: JsonObject;
 }): Record<string, unknown> {
   const messages = pairedMessages(input.messages, input.provider);
   const body: Record<string, unknown> = {
@@ -133,7 +137,7 @@ export function buildRequest(input: {
   if (input.tools?.length) {
     body.tools = input.tools;
   }
-  return body;
+  return mergeRequestPatch(body, input.request_patch);
 }
 
 // ── SSE 응답 번역 ─────────────────────────────────────────────────────────

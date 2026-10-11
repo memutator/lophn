@@ -6,6 +6,7 @@
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import { ERROR_BODY_MAX_BYTES } from "../failures.ts";
 import type {
+  AuthTransport,
   Transport,
   TransportRequest,
   TransportResponse,
@@ -49,6 +50,30 @@ function isEventStream(headers: Headers): boolean {
   return (headers.get("content-type") ?? "").toLowerCase().startsWith(
     "text/event-stream",
   );
+}
+
+// option 값이 요구하는 header(예: Anthropic fast mode의 beta header)를 요청에 더한다(harness/model#R22).
+// 호출 형식이 이미 정한 header는 같은 이름(대소문자 무시)이면 그대로 두고, 인증 header는 이 층 안쪽의
+// 인증 transport가 마지막에 붙이므로 option이 바꾸지 못한다.
+export function withRequestHeaders(
+  inner: AuthTransport,
+  headers: Readonly<Record<string, string>>,
+): AuthTransport {
+  const extra = Object.entries(headers);
+  if (extra.length === 0) return inner;
+  return {
+    send(request) {
+      const merged = { ...request.headers };
+      const have = new Set(
+        Object.keys(merged).map((name) => name.toLowerCase()),
+      );
+      for (const [name, value] of extra) {
+        if (have.has(name.toLowerCase())) continue;
+        merged[name] = value;
+      }
+      return inner.send({ ...request, headers: merged });
+    },
+  };
 }
 
 export function createFetchTransport(

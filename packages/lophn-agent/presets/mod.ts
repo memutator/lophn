@@ -18,6 +18,7 @@ export {
   ROLE_CAPS,
 } from "./role-caps.ts";
 export {
+  type ContextStatus,
   type ResolvedSelections,
   validateDefinition,
   type ValidateDeps,

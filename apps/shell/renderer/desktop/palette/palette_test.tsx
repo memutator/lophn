@@ -192,7 +192,7 @@ Deno.test("shell/desktop#R30: 작업대 팔레트는 열린 탭·문서·파일�
     "Open tabs",
     "Documents",
     "Files",
-    "Focus",
+    "Contexts",
     "Actions",
   ]);
   const rows = open.model.choices.map((choice) => [choice.label, choice.icon]);
@@ -298,10 +298,10 @@ Deno.test("shell/desktop#R30: lophn 공간 팔레트는 프로젝트·컨텍스�
   const first = win.opened[0]!.model;
   assertEquals(first.label, "Search lophn");
   // 검색어 전에는 문서 행이 없다. 문서는 documents 검색이 찾는다.
-  assertEquals(groups(first), ["Projects", "Focus", "Apps", "Actions"]);
+  assertEquals(groups(first), ["Projects", "Contexts", "Apps", "Actions"]);
   await win.type("rel");
   const searched = win.model();
-  assertEquals(groups(searched), ["Focus", "Documents"]);
+  assertEquals(groups(searched), ["Contexts", "Documents"]);
   const documents = searched.choices.filter((choice) =>
     choice.group === "Documents"
   );

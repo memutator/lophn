@@ -175,7 +175,7 @@ shell과 앱에서 함께 쓰는 색·글꼴·간격·크기·컴포넌트·load
 - 확인: error toast는 저절로 사라지지 않고 키보드 focus 중 시간 제한이 멈춘다.
 - 의도: shell#I3
 
-**[R34]** empty는 아이콘20px·한 문장·행동 하나와 삽화 없음, error는 영향과 다음 행동, stale는 마지막 갱신 나이, agent가 쓴 내용은 작은 작성자 표식으로 표현한다.
+**[R34]** empty는 아이콘20px·한 문장·행동 하나를 내용 자리 가운데에 모으고 삽화 없음, error는 영향과 다음 행동, stale는 마지막 갱신 나이, agent가 쓴 내용은 작은 작성자 표식으로 표현한다.
 - 이유: 데이터 없음·실패·오래된 값·agent 작성 사실을 구별한다.
 - 확인: 각 데이터의 상태는 소유 concern을 따르되 실제 화면의 E2E에서 네 상태와 작성자를 구별한다.
 - 의도: shell#I1
@@ -232,6 +232,11 @@ shell과 앱에서 함께 쓰는 색·글꼴·간격·크기·컴포넌트·load
 **[R45]** popover 그림자는 light에서 0 4px 16px rgba(26,26,24,0.08)과 0 0 0 1px rgba(26,26,24,0.06), dark에서 0 4px 16px rgba(0,0,0,0.32)와 0 0 0 1px #2c2c2a를 쓰고 dialog는 light에서 0 16px 48px rgba(26,26,24,0.16)과 같은 light 테두리, dark에서 0 16px 48px rgba(0,0,0,0.48)와 같은 dark 테두리를 쓴다.
 - 이유: 떠 있는 표면의 깊이와 경계를 theme별로 일관되게 드러낸다.
 - 확인: menu·tooltip은 popover, dialog·palette는 dialog 그림자를 쓰고 카드에는 그림자가 없다.
+- 의도: shell#I3
+
+**[R46]** 모든 scroll 영역의 막대는 OS 기본이 아니라 base 스타일이 token으로 그려 얇고 트랙 없이 thumb만 보이며 light·dark가 token 값으로 바뀐다.
+- 이유: 막대도 우리 화면의 부품으로 보여 OS마다 다른 모양이 끼어들지 않게 한다.
+- 확인: base 스타일의 막대가 token 색·반경만 쓰고 개별 모듈은 막대를 따로 그리지 않는다.
 - 의도: shell#I3
 
 ## 열린 질문

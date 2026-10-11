@@ -1,10 +1,16 @@
-// lophn 공간 settings 화면. backup·연결(계정 포함)·도구와 skill·일반·update·진단·notification
-// 자리다. 화면 하나에 주 행동 하나라서 자리마다 탭으로 나눈다. secret 값은 이 화면이 받지 않고
-// 보호 창이 받는다.
-import { Button, Tab, TabList, TabPanel, Tabs } from "@lophn/design/components";
+// lophn 공간 settings 화면. 연결(계정 포함)·coding agent·도구와 skill·일반·notification·update·진단
+// 자리다. 화면 하나에 주 행동 하나라서 왼쪽 세로 nav가 자리를 묶어 고르고, 고른 자리 하나만 가운데
+// column에 그린다. backup 자리는 nav에서 뺐다(backup 제거는 후속 작업). secret 값은 이 화면이 받지
+// 않고 보호 창이 받는다.
+import { useState } from "react";
+import {
+  Button,
+  Icon,
+  iconPixels,
+  settingsIcons,
+} from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
-import { BackupPanel } from "./backup/backup-panel.tsx";
 import type { BackupSource } from "./backup/source.ts";
 import { CodingConnectionsPanel } from "./connections/connections-panel.tsx";
 import type { CodingConnectionsSource } from "./connections/source.ts";
@@ -36,7 +42,7 @@ export interface SettingsScreenProps {
   coding?: CodingConnectionsSource;
   /** `lophn://things-to-confirm/<cac id>` 링크로 온 연결. 있으면 그 탭을 먼저 연다. */
   initialConnection?: string;
-  /** backup·복원 자리(shell#T58). 없으면 그 탭을 두지 않는다. */
+  /** backup·복원 자리(shell#T58). nav에서 뺐으므로 받아도 그리지 않는다(backup 제거는 후속 작업). */
   backup?: BackupSource;
   /** update 자리(shell#T58). 없으면 그 탭을 두지 않는다. */
   update?: UpdateSource;
@@ -46,6 +52,26 @@ export interface SettingsScreenProps {
   notifications?: NotificationsSource;
 }
 
+type SectionId =
+  | "connections"
+  | "coding"
+  | "extensions"
+  | "general"
+  | "notifications"
+  | "update"
+  | "diagnostics";
+
+interface Section {
+  readonly id: SectionId;
+  readonly label: string;
+}
+
+interface Group {
+  readonly id: string;
+  readonly label: string;
+  readonly sections: readonly Section[];
+}
+
 export function SettingsScreen(
   {
     source,
@@ -53,109 +79,146 @@ export function SettingsScreen(
     onAsk,
     coding,
     initialConnection,
-    backup,
     update,
     diagnostics,
     notifications,
   }: SettingsScreenProps,
 ) {
+  const [picked, setPicked] = useState<SectionId>(
+    coding && initialConnection ? "coding" : "connections",
+  );
+  const section = (id: SectionId, label: string): Section => ({ id, label });
+  // 통로가 없는 자리는 nav에 두지 않는다.
+  const groups: readonly Group[] = [
+    {
+      id: "integrations",
+      label: t("settings.label.group-integrations"),
+      sections: [
+        section("connections", t("settings.label.tab-connections")),
+        ...(coding === undefined
+          ? []
+          : [section("coding", t("settings.label.tab-coding"))]),
+        section("extensions", t("settings.label.tab-extensions")),
+      ],
+    },
+    {
+      id: "preferences",
+      label: t("settings.label.group-preferences"),
+      sections: [
+        section("general", t("settings.label.tab-general")),
+        ...(notifications === undefined ? [] : [
+          section("notifications", t("settings.label.tab-notifications")),
+        ]),
+      ],
+    },
+    {
+      id: "system",
+      label: t("settings.label.group-system"),
+      sections: [
+        ...(update === undefined
+          ? []
+          : [section("update", t("settings.label.tab-update"))]),
+        ...(diagnostics === undefined ? [] : [
+          section("diagnostics", t("settings.label.tab-diagnostics")),
+        ]),
+      ],
+    },
+  ].filter((group) => group.sections.length > 0);
+  const labels = groups.flatMap((group) => group.sections);
+  const active = labels.find((row) => row.id === picked) ?? labels[0]!;
+
   return (
     <section className={styles.screen} data-screen-body="settings">
-      <div className={styles.page}>
-        <div className={styles.head}>
-          <p className={styles.text}>{t("settings.intro.screen")}</p>
-          {onAsk === undefined ? null : (
-            <Button
-              size="sm"
-              variant="secondary"
-              data-action="ask-lophn"
-              onClick={onAsk}
+      <nav className={styles.nav} aria-label={t("settings.label.nav")}>
+        {groups.map((group) => (
+          <div key={group.id} className={styles.navGroup}>
+            <h2
+              id={`settings-group-${group.id}`}
+              className={styles.navHeading}
             >
-              {t("settings.button.ask-lophn")}
-            </Button>
-          )}
-        </div>
-        <Tabs
-          defaultValue={coding && initialConnection ? "coding" : "connections"}
-        >
-          <TabList>
-            {backup === undefined
-              ? null
-              : <Tab value="backup">{t("settings.label.tab-backup")}</Tab>}
-            <Tab value="connections">{t("settings.label.tab-connections")}</Tab>
-            {coding === undefined
-              ? null
-              : <Tab value="coding">{t("settings.label.tab-coding")}</Tab>}
-            <Tab value="extensions">{t("settings.label.tab-extensions")}</Tab>
-            <Tab value="general">{t("settings.label.tab-general")}</Tab>
-            {update === undefined
-              ? null
-              : <Tab value="update">{t("settings.label.tab-update")}</Tab>}
-            {diagnostics === undefined ? null : (
-              <Tab value="diagnostics">
-                {t("settings.label.tab-diagnostics")}
-              </Tab>
-            )}
-            {notifications === undefined ? null : (
-              <Tab value="notifications">
-                {t("settings.label.tab-notifications")}
-              </Tab>
-            )}
-          </TabList>
-          {backup === undefined ? null : (
-            <TabPanel value="backup">
-              <div className={styles.panel}>
-                <BackupPanel source={backup} />
-              </div>
-            </TabPanel>
-          )}
-          <TabPanel value="connections">
-            <div className={styles.panel}>
-              <ProvidersPanel source={source} />
+              {group.label}
+            </h2>
+            <div
+              className={styles.navList}
+              role="tablist"
+              aria-orientation="vertical"
+              aria-labelledby={`settings-group-${group.id}`}
+            >
+              {group.sections.map((row) => {
+                const current = row.id === active.id;
+                return (
+                  <button
+                    key={row.id}
+                    type="button"
+                    role="tab"
+                    id={`settings-tab-${row.id}`}
+                    aria-selected={current}
+                    aria-controls="settings-panel"
+                    data-state={current ? "active" : "inactive"}
+                    className={`${styles.navButton} ${
+                      current ? styles.navActive : ""
+                    }`}
+                    data-settings-nav={row.id}
+                    onClick={() => setPicked(row.id)}
+                  >
+                    <Icon
+                      icon={settingsIcons[row.id]}
+                      pixels={iconPixels("base")}
+                      className={styles.navIcon}
+                    />
+                    <span className={styles.navLabel}>{row.label}</span>
+                  </button>
+                );
+              })}
             </div>
-          </TabPanel>
-          {coding === undefined ? null : (
-            <TabPanel value="coding">
-              <div className={styles.panel}>
+          </div>
+        ))}
+      </nav>
+      <div className={styles.content}>
+        <div className={styles.page}>
+          <div className={styles.head}>
+            <h1 className={styles.title}>{active.label}</h1>
+            {onAsk === undefined ? null : (
+              <Button
+                size="sm"
+                variant="secondary"
+                data-action="ask-lophn"
+                onClick={onAsk}
+              >
+                {t("settings.button.ask-lophn")}
+              </Button>
+            )}
+          </div>
+          <p className={styles.text}>{t("settings.intro.screen")}</p>
+          <div
+            className={styles.panel}
+            id="settings-panel"
+            role="tabpanel"
+            aria-labelledby={`settings-tab-${active.id}`}
+            data-settings-panel={active.id}
+          >
+            {active.id === "connections"
+              ? <ProvidersPanel source={source} />
+              : active.id === "coding" && coding !== undefined
+              ? (
                 <CodingConnectionsPanel
                   source={coding}
                   focus={initialConnection}
                 />
-              </div>
-            </TabPanel>
-          )}
-          <TabPanel value="extensions">
-            <div className={styles.panel}>
-              <ExtensionsPanel source={source} />
-            </div>
-          </TabPanel>
-          <TabPanel value="general">
-            <div className={styles.panel}>
-              <GeneralPanel source={source} onInstructions={onInstructions} />
-            </div>
-          </TabPanel>
-          {update === undefined ? null : (
-            <TabPanel value="update">
-              <div className={styles.panel}>
-                <UpdatePanel source={update} />
-              </div>
-            </TabPanel>
-          )}
-          {diagnostics === undefined ? null : (
-            <TabPanel value="diagnostics">
-              <div className={styles.panel}>
-                <DiagnosticsPanel source={diagnostics} />
-              </div>
-            </TabPanel>
-          )}
-          {notifications === undefined ? null : (
-            <TabPanel value="notifications">
-              <div className={styles.panel}>
-                <NotificationsPanel source={notifications} />
-              </div>
-            </TabPanel>
-          )}
-        </Tabs>
+              )
+              : active.id === "extensions"
+              ? <ExtensionsPanel source={source} />
+              : active.id === "general"
+              ? <GeneralPanel source={source} onInstructions={onInstructions} />
+              : active.id === "notifications" && notifications !== undefined
+              ? <NotificationsPanel source={notifications} />
+              : active.id === "update" && update !== undefined
+              ? <UpdatePanel source={update} />
+              : active.id === "diagnostics" && diagnostics !== undefined
+              ? <DiagnosticsPanel source={diagnostics} />
+              : null}
+          </div>
+        </div>
       </div>
     </section>
   );

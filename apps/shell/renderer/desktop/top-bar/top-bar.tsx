@@ -4,6 +4,7 @@ import { IconButton, lophnEntryIcon, Tooltip } from "@lophn/design/components";
 
 import { currentPlatform, type WindowPlatform } from "./platform.ts";
 import styles from "./top-bar.module.css";
+import { WindowControls } from "./window-controls.tsx";
 
 export interface TopBarProps {
   /** 바 왼쪽 자리. 런처는 wordmark를 둔다. */
@@ -14,8 +15,8 @@ export interface TopBarProps {
   platform?: WindowPlatform;
 }
 
-// 48px 끌기 바. macOS 신호등 80px·Windows·Linux 창 버튼 138px를 비우고
-// 조작 요소만 끌기에서 뺀다(desktop#R23, R25).
+// 48px 끌기 바. macOS 신호등 80px을 비우고 Windows·Linux는 오른쪽 끝에 창 단추 셋(144px)을
+// 직접 그린다. 조작 요소만 끌기에서 뺀다(desktop#R23, R25).
 export function TopBar(
   { leading, trailing, platform = currentPlatform() }: TopBarProps,
 ) {
@@ -23,6 +24,7 @@ export function TopBar(
     <header className={styles.bar} data-platform={platform}>
       <div className={styles.leading}>{leading}</div>
       <div className={styles.trailing}>{trailing}</div>
+      {platform === "mac" ? null : <WindowControls />}
     </header>
   );
 }

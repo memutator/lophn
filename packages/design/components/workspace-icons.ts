@@ -1,5 +1,6 @@
 import {
   AppWindow,
+  Bell,
   BookOpen,
   Columns2,
   FileText,
@@ -27,4 +28,5 @@ export const workspaceIcons = {
   documentViewer: BookOpen,
   terminal: SquareTerminal,
   appPanel: AppWindow,
+  notices: Bell,
 } as const satisfies Record<string, LucideIcon>;

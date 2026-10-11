@@ -1,5 +1,10 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { useObservedSize } from "@lophn/design/components";
+import {
+  IconButton,
+  Tooltip,
+  useObservedSize,
+  workspaceIcons,
+} from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
 import { LophnEntry, TopBar } from "../desktop/top-bar/top-bar.tsx";
@@ -51,6 +56,7 @@ import { TerminalTab } from "../terminal/terminal-tab.tsx";
 import { TrackingStrip } from "./tracking/tracking.tsx";
 import type { TrackingSource } from "./tracking/source.ts";
 import { OperatorEntry, type OperatorEntrySource } from "./operator-entry.tsx";
+import { NoticeCard } from "./notice-card.tsx";
 import {
   DockSlot,
   DockToggle,
@@ -158,6 +164,12 @@ export function Workspace(
   });
   const [userChoseWidth, setUserChoseWidth] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
+  // 떠 있는 안내(추적 꺼짐·Operator·읽기 실패)를 닫은 상태. 상단 바의 안내 단추가 다시 연다.
+  const [noticesHidden, setNoticesHidden] = useState(false);
+  const hideNotices = () => setNoticesHidden(true);
+  const hasNotices = loaded.failed || tracking !== undefined ||
+    (operators !== undefined && onAttachOperator !== undefined &&
+      onOpenOperator !== undefined);
   const [infoTab, setInfoTab] = useState<InfoTab>("info");
   // 대화 도크. 정보 패널 자리를 임시로 쓰고 닫으면 정보 패널이 돌아온다(desktop#R2, R29).
   const conversation = useConversation();
@@ -660,6 +672,7 @@ export function Workspace(
           project={loaded.project}
           documents={loaded.documents}
           contexts={loaded.contexts}
+          files={loaded.files}
           current={focused?.selected ?? null}
           onLauncher={onLauncher}
           onToggle={() =>
@@ -668,6 +681,7 @@ export function Workspace(
               collapsedByUser: sidebarShown.mode !== "collapsed",
             }))}
           onOpenDocument={openDocument}
+          onOpenContext={onContext}
           onResizeStart={(event) => {
             const start = sidebar.chosenWidth;
             const startShown = sidebarShown.width;
@@ -702,6 +716,20 @@ export function Workspace(
                     place={{ kind: "project", id: projectId }}
                     onOpen={onThingsToConfirm ?? onLophn}
                   />
+                  {noticesHidden && hasNotices
+                    ? (
+                      <Tooltip
+                        content={t("project-workspace.button.show-notices")}
+                      >
+                        <IconButton
+                          icon={workspaceIcons.notices}
+                          label={t("project-workspace.button.show-notices")}
+                          data-show-notices=""
+                          onClick={() => setNoticesHidden(false)}
+                        />
+                      </Tooltip>
+                    )
+                    : null}
                   <PaletteButton />
                   {conversation
                     ? (
@@ -716,33 +744,44 @@ export function Workspace(
               }
             />
           </div>
-          {loaded.failed
-            ? (
-              <p className={styles.notice} data-load-failed="">
-                {t("project-workspace.error.load-failed")}
-              </p>
-            )
-            : null}
-          {tracking
-            ? (
-              <TrackingStrip
-                project={projectId}
-                source={tracking}
-                onTracking={() => void refreshDocuments()}
-              />
-            )
-            : null}
-          {operators && onAttachOperator && onOpenOperator
-            ? (
-              <OperatorEntry
-                project={projectId}
-                source={operators}
-                onAttach={onAttachOperator}
-                onOpen={onOpenOperator}
-              />
-            )
-            : null}
           <div className={styles.content} ref={mainRef}>
+            {noticesHidden
+              ? null
+              : (
+                <div className={styles.notices} data-notices="">
+                  {loaded.failed
+                    ? (
+                      <NoticeCard
+                        tone="error"
+                        data={{ "data-load-failed": "" }}
+                        text={t("project-workspace.error.load-failed")}
+                        onDismiss={hideNotices}
+                      />
+                    )
+                    : null}
+                  {tracking
+                    ? (
+                      <TrackingStrip
+                        project={projectId}
+                        source={tracking}
+                        onTracking={() => void refreshDocuments()}
+                        onDismiss={hideNotices}
+                      />
+                    )
+                    : null}
+                  {operators && onAttachOperator && onOpenOperator
+                    ? (
+                      <OperatorEntry
+                        project={projectId}
+                        source={operators}
+                        onAttach={onAttachOperator}
+                        onOpen={onOpenOperator}
+                        onDismiss={hideNotices}
+                      />
+                    )
+                    : null}
+                </div>
+              )}
             <Panes
               view={view}
               bodyWidth={panesWidth}

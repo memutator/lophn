@@ -35,6 +35,7 @@ import { createShellApi } from "./shell-api.ts";
 import { createIntentApi, createShortcutApi } from "./shortcut-api.ts";
 import { createTerminalApi } from "./terminal-api.ts";
 import { createViewsApi } from "./views-api.ts";
+import { createWindowControlsApi } from "./window-controls-api.ts";
 import { createWorkspaceHintApi } from "./workspace-api.ts";
 
 const location =
@@ -114,6 +115,11 @@ if (role === "shell") {
         },
       } satisfies FolderPickerApi,
     ),
+  );
+  // 상단 바의 최소화·최대화·닫기(shell/desktop#R23). 동작 이름만 보내고 창은 main이 정한다.
+  contextBridge.exposeInMainWorld(
+    "lophnWindow",
+    createWindowControlsApi(ipcRenderer),
   );
   contextBridge.exposeInMainWorld("lophnIntents", createIntentApi(ipcRenderer));
   // coding agent 연결과 [Start]. 고정 intent와 사람이 고른 값만 보내고 main이 다시 검사한다.

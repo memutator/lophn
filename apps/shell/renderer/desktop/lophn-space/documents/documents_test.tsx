@@ -119,7 +119,7 @@ Deno.test("shell/desktop#R1: 프로젝트·앱·focus·format 조건으로 좁�
   const byApp = of("search").at(-1)!.args[0] as SearchConditions;
   assertEquals(byApp.place, { kind: "app", id: "app_1" });
   assertEquals(byApp.query, "goals");
-  await choose(fieldTrigger(view.container, "Focus"), 1);
+  await choose(fieldTrigger(view.container, "Context"), 1);
   await choose(fieldTrigger(view.container, "Format"), 2);
   const narrowed = of("search").at(-1)!.args[0] as SearchConditions;
   assertEquals(narrowed.context, "ctx_1");

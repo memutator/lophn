@@ -112,18 +112,31 @@ function projectDocuments(
   );
 }
 
+/** 파일이 놓인 등록 폴더와 그 폴더 기준 상대 경로. 어느 폴더 안도 아니면 null이다. */
+export function locateInFolders(
+  path: string,
+  folders: readonly { path: string }[],
+): { folder: string; relative: string } | null {
+  // 가장 깊은 등록 폴더를 고른다(documents/projects#R10).
+  const roots = folders
+    .map((folder) => ({
+      folder: folder.path,
+      root: folder.path.replace(/\/+$/, ""),
+    }))
+    .filter((item) => path.startsWith(`${item.root}/`))
+    .sort((left, right) => right.root.length - left.root.length);
+  const hit = roots[0];
+  return hit === undefined
+    ? null
+    : { folder: hit.folder, relative: path.slice(hit.root.length + 1) };
+}
+
 /** 등록 폴더 기준 상대 경로. 어느 폴더 안도 아니면 null이다. */
 export function relativeToFolders(
   path: string,
   folders: readonly { path: string }[],
 ): string | null {
-  // 가장 깊은 등록 폴더를 고른다(documents/projects#R10).
-  const roots = folders
-    .map((folder) => folder.path.replace(/\/+$/, ""))
-    .filter((root) => path.startsWith(`${root}/`))
-    .sort((left, right) => right.length - left.length);
-  const root = roots[0];
-  return root === undefined ? null : path.slice(root.length + 1);
+  return locateInFolders(path, folders)?.relative ?? null;
 }
 
 const NO_LAYOUT: LayoutRead = { ok: false, message: "layout is unavailable" };
@@ -248,9 +261,14 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
       }
       const rows: FileRow[] = targets.value.flatMap((path) => {
         const document = byPath.get(path);
-        const relative = relativeToFolders(path, view.value.folders);
-        return document && relative !== null
-          ? [{ path: relative, document: document.id, title: document.title }]
+        const located = locateInFolders(path, view.value.folders);
+        return document && located !== null
+          ? [{
+            folder: located.folder,
+            path: located.relative,
+            document: document.id,
+            title: document.title,
+          }]
           : [];
       });
       return { ok: true, value: rows };

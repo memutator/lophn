@@ -1,0 +1,66 @@
+.screen {
+  max-width: var(--page-launcher);
+}
+
+.title {
+  margin: var(--space-0) var(--space-0) var(--space-5);
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-line);
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-5);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.name {
+  margin: var(--space-0);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+}
+
+.purpose {
+  margin: var(--space-3) var(--space-0) var(--space-4);
+  color: var(--color-text-secondary);
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-0);
+  padding: var(--space-0);
+  list-style: none;
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.warn {
+  color: var(--status-warning-text);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-4);
+  margin-top: var(--space-5);
+}
+
+.newContext {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  margin-top: var(--space-8);
+}
+
+.note {
+  margin: var(--space-0);
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+}

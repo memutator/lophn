@@ -10,6 +10,7 @@ export * from "./sections.ts";
 export * from "./formats.ts";
 
 export * from "./outline.ts";
+export * from "./outline-markdown.ts";
 export * from "./read.ts";
 export * from "./search.ts";
 export * from "./guides.ts";

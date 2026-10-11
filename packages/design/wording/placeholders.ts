@@ -2678,6 +2678,54 @@ export type PlaceholderKinds = {
   "settings.usage.loading": Record<never, never>;
   "settings.models.for-decisions": Record<never, never>;
   "settings.models.for-summaries": Record<never, never>;
+  "settings.button.disconnect": Record<never, never>;
+  "settings.heading.connected": Record<never, never>;
+  "settings.heading.add-provider": Record<never, never>;
+  "settings.title.connect-provider": {
+    name: "string";
+  };
+  "settings.title.custom-provider": Record<never, never>;
+  "settings.notice.provider-lead": Record<never, never>;
+  "settings.notice.next-run": Record<never, never>;
+  "settings.notice.none-connected": Record<never, never>;
+  "settings.error.reorder": Record<never, never>;
+  "settings.error.account-enabled": Record<never, never>;
+  "settings.label.available-target": Record<never, never>;
+  "settings.label.login-signed-in": Record<never, never>;
+  "settings.label.login-signed-in-plan": {
+    plan: "string";
+  };
+  "settings.label.move-account-up": {
+    name: "string";
+  };
+  "settings.label.move-account-down": {
+    name: "string";
+  };
+  "settings.label.use-account": {
+    name: "string";
+  };
+  "settings.label.sign-in-how": {
+    name: "string";
+  };
+  "settings.label.method-sign-in": {
+    product: "string";
+  };
+  "settings.label.method-opens-browser": Record<never, never>;
+  "settings.label.method-paste-key": Record<never, never>;
+  "settings.label.method-local": Record<never, never>;
+  "settings.label.method-local-hint": Record<never, never>;
+  "settings.notice.method-unverified": Record<never, never>;
+  "settings.error.connect-failed": Record<never, never>;
+  "settings.notice.custom-lead": Record<never, never>;
+  "settings.label.custom-id": Record<never, never>;
+  "settings.label.custom-name": Record<never, never>;
+  "settings.label.custom-url": Record<never, never>;
+  "settings.label.custom-key": Record<never, never>;
+  "settings.notice.custom-id-help": Record<never, never>;
+  "settings.error.custom-id": Record<never, never>;
+  "settings.error.custom-name": Record<never, never>;
+  "settings.error.custom-url": Record<never, never>;
+  "settings.notice.custom-key-help": Record<never, never>;
   "settings.title.screen": Record<never, never>;
   "settings.button.cancel": Record<never, never>;
   "settings.button.connect": Record<never, never>;

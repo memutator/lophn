@@ -782,8 +782,12 @@ Deno.test("platform/notifications#R1, R11: engine step은 계기와 계기 아�
     emitSource(
       connection,
       "QuestionCreated",
-      "qst_01arz3ndektsv4rrffq69g5fav",
-      { run: "run_01arz3ndektsv4rrffq69g5fav", session: null },
+      "qgr_01arz3ndektsv4rrffq69g5fav",
+      {
+        run: "run_01arz3ndektsv4rrffq69g5fav",
+        session: null,
+        questions: [{ id: "qst_01arz3ndektsv4rrffq69g5fav" }],
+      },
     );
     emitSource(
       connection,
@@ -865,8 +869,12 @@ Deno.test("platform/notifications#R2: engine step은 조건 밖 계기(사람이
     emitSource(
       connection,
       "QuestionCreated",
-      "qst_01arz3ndektsv4rrffq69g5fav",
-      { run: "run_01arz3ndektsv4rrffq69g5fav", session: null },
+      "qgr_01arz3ndektsv4rrffq69g5fav",
+      {
+        run: "run_01arz3ndektsv4rrffq69g5fav",
+        session: null,
+        questions: [{ id: "qst_01arz3ndektsv4rrffq69g5fav" }],
+      },
     );
     const engine = notificationsEngine({
       backend,
@@ -901,8 +909,12 @@ Deno.test("platform/notifications#R11: engine step이 중간에 멈추면 다음
     emitSource(
       connection,
       "QuestionCreated",
-      "qst_01arz3ndektsv4rrffq69g5fav",
-      { run: "run_01arz3ndektsv4rrffq69g5fav", session: null },
+      "qgr_01arz3ndektsv4rrffq69g5fav",
+      {
+        run: "run_01arz3ndektsv4rrffq69g5fav",
+        session: null,
+        questions: [{ id: "qst_01arz3ndektsv4rrffq69g5fav" }],
+      },
     );
     emitSource(
       connection,
@@ -1407,8 +1419,8 @@ Deno.test("platform/notifications#R1, R2: ticket 확인 완료·검사 실패만
   }
 });
 
-const QUESTION = "qst_01arz3ndektsv4rrffq69g5fav";
-const QUESTION_TWO = "qst_01arz3ndektsv4rrffq69g5fb0";
+const QUESTION = "qgr_01arz3ndektsv4rrffq69g5fav";
+const QUESTION_TWO = "qgr_01arz3ndektsv4rrffq69g5fb0";
 
 Deno.test("platform/notifications#R1, R11: batch가 작아도 cursor 바로 뒤 계기 event를 건너뛰지 않는다", async () => {
   const dir = await Deno.makeTempDir({ prefix: "ntf-engine-small-" });
@@ -1418,10 +1430,12 @@ Deno.test("platform/notifications#R1, R11: batch가 작아도 cursor 바로 뒤 
     emitSource(connection, "QuestionCreated", QUESTION, {
       run: "run_01arz3ndektsv4rrffq69g5fav",
       session: null,
+      questions: [{ id: "qst_01arz3ndektsv4rrffq69g5fav" }],
     });
     emitSource(connection, "QuestionCreated", QUESTION_TWO, {
       run: "run_01arz3ndektsv4rrffq69g5fav",
       session: null,
+      questions: [{ id: "qst_01arz3ndektsv4rrffq69g5fb0" }],
     });
     const engine = notificationsEngine({
       backend,
@@ -1485,6 +1499,7 @@ Deno.test("platform/notifications#R2: 공개 정책이 숨긴 event만 있는 �
     emitSource(connection, "QuestionCreated", QUESTION, {
       run: "run_01arz3ndektsv4rrffq69g5fav",
       session: null,
+      questions: [{ id: "qst_01arz3ndektsv4rrffq69g5fav" }],
     });
     const second = await engine.step();
     assert(second.ok, second.ok ? "" : JSON.stringify(second.error));

@@ -961,11 +961,15 @@ export const en = {
   "conversation.button.approval-deny": "Deny",
   "conversation.button.check-delivery": "Check whether it arrived",
   "conversation.button.check-result": "Check the result",
+  "conversation.button.attach": "Add attachment",
+  "conversation.button.change-defaults": "Change defaults…",
   "conversation.button.close": "Close conversation",
   "conversation.button.jump-latest": "Jump to newest messages",
   "conversation.button.mode-correction": "Send as a change to the current work",
   "conversation.button.mode-request": "Send as a new request",
   "conversation.button.new-session": "New conversation",
+  "conversation.button.favorite-add": "Add {model} to favorites",
+  "conversation.button.favorite-remove": "Remove {model} from favorites",
   "conversation.button.next-request": "Next request",
   "conversation.button.open": "Open conversation",
   "conversation.button.previous-request": "Previous request",
@@ -973,6 +977,7 @@ export const en = {
   "conversation.button.question-next": "Next",
   "conversation.button.question-skip": "Skip",
   "conversation.button.question-submit": "Submit",
+  "conversation.button.remove-context": "Remove context",
   "conversation.button.resend": "Send again",
   "conversation.button.save-visual": "Save as document",
   "conversation.button.send": "Send",
@@ -1001,6 +1006,7 @@ export const en = {
   "conversation.label.author-you": "You",
   "conversation.label.composer-correction": "Change to the current work",
   "conversation.label.composer-request": "New request",
+  "conversation.label.composer-message": "Message",
   "conversation.label.correction": "Change",
   "conversation.label.delivery-applied": "Taken into account",
   "conversation.label.delivery-not-sent": "Not sent",
@@ -1013,6 +1019,8 @@ export const en = {
   "conversation.label.duration-hours-minutes":
     "{hours, number}h {minutes, number}m",
   "conversation.label.duration-minutes": "{minutes, number}m",
+  "conversation.label.favorites": "Favorites",
+  "conversation.label.model-list": "Models",
   "conversation.label.more-results":
     "{count, plural, one {+# more} other {+# more}}",
   "conversation.label.question-answered":
@@ -1034,6 +1042,10 @@ export const en = {
   "conversation.label.request-position": "{current, number} of {total, number}",
   "conversation.label.requests": "Waiting for you",
   "conversation.label.results": "Results",
+  "conversation.label.search-models": "Search models",
+  "conversation.label.send-correction": "Change this work",
+  "conversation.label.send-mode": "Send as",
+  "conversation.label.send-request": "Next request",
   "conversation.label.session": "Conversation {number, number}",
   "conversation.label.session-ended": "Conversation {number, number}, ended",
   "conversation.label.sessions": "Conversations",
@@ -1067,6 +1079,12 @@ export const en = {
   "conversation.notice.external-waiting":
     "Waiting for {connection}. It has not answered.",
   "conversation.notice.message-loading": "Loading this message.",
+  "conversation.notice.model-session-only":
+    "Only this session. Default comes from the agent.",
+  "conversation.notice.model-value-fitted":
+    "{axis} set to {to}. {from} isn't available for {model}.",
+  "conversation.notice.no-model-options": "No options for this model.",
+  "conversation.notice.no-models": "No models match.",
   "conversation.notice.not-found":
     "lophn didn't find this message. Sending it again won't make a copy.",
   "conversation.notice.not-sent":

@@ -1,34 +1,45 @@
-// lophn-agent/presets#R11: preset 저장의 context 선택 검사는 documents/contexts가 소유한
-// contexts 표의 상태를 읽는다. 조립(apps/core)이 그 표를 읽는 조회를 실제 표로 본다.
+// lophn-agent/presets#R11: core가 preset 검사에 넣는 context 상태 조회는 documents/contexts의
+// 실제 표를 읽는다. 이 시험은 preset 저장이 보관·없는 context를 거절하는 통합을 본다.
 import { assertEquals } from "@std/assert";
 import { id, ids } from "../../packages/documents/contexts/api/testing.ts";
 import { ledgerFixture } from "../../packages/documents/contexts/ledger/testing.ts";
-import { contextStatusIn } from "./lophn-agent.ts";
+import { contextStatusOf } from "../../packages/documents/contexts/mod.ts";
+import { presetValidateDeps } from "../../packages/lophn-agent/presets/registration_test.ts";
+import {
+  productPresetDefinition,
+  validateDefinition,
+} from "../../packages/lophn-agent/presets/mod.ts";
 
-Deno.test("lophn-agent/presets#R11 [ctx-I58]: the context status lookup reads the real contexts table and fails closed for unknown ids", () => {
+Deno.test("lophn-agent/presets#R11 [ctx-I58]: validateDefinition with the real contexts lookup rejects archived and unknown contexts", () => {
   const ledger = ledgerFixture();
   try {
     ledger.seedProject(ids.project);
-    // active는 적용된 판이 있어야 한다. 판 표는 이 시험의 관심이 아니라 FK를 끄고 심는다.
+    const active = id("ctx", 12);
+    const archived = id("ctx", 13);
     ledger.db.exec("PRAGMA foreign_keys=OFF");
     const insert = ledger.db.prepare(
       `INSERT INTO contexts (id, project, title, purpose, status, applied_bundle, revision)
        VALUES (?, ?, ?, 'purpose', ?, ?, '101')`,
     );
-    const drafting = id("ctx", 11);
-    const active = id("ctx", 12);
-    const archived = id("ctx", 13);
-    insert.run(drafting, ids.project, "Drafting", "drafting", null);
     insert.run(active, ids.project, "Active", "active", id("cbn", 12));
     insert.run(archived, ids.project, "Archived", "archived", null);
-
-    assertEquals(contextStatusIn(ledger.sql, drafting), "drafting");
-    assertEquals(contextStatusIn(ledger.sql, active), "active");
-    assertEquals(contextStatusIn(ledger.sql, archived), "archived");
-    assertEquals(contextStatusIn(ledger.sql, id("ctx", 99)), undefined);
-    // 표를 읽지 못하면(없는 표) 없는 것으로 본다.
-    ledger.db.exec("DROP TABLE contexts");
-    assertEquals(contextStatusIn(ledger.sql, active), undefined);
+    const deps = {
+      ...presetValidateDeps(),
+      contextStatus: (context: string) => contextStatusOf(ledger.sql, context),
+    };
+    const base = productPresetDefinition("context_engineer", "a".repeat(64));
+    const check = (target: string) =>
+      validateDefinition(
+        { ...base, context: [{ kind: "context", target, section: null }] },
+        deps,
+      );
+    const item = (target: string) => {
+      const result = check(target);
+      return result.ok ? "ok" : result.error.details.item;
+    };
+    assertEquals(item(active), "ok");
+    assertEquals(item(archived), `context:${archived}`);
+    assertEquals(item(id("ctx", 99)), `context:${id("ctx", 99)}`);
   } finally {
     ledger.close();
   }

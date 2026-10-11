@@ -145,6 +145,7 @@ import {
   allowNetList,
   allowRunList,
 } from "../../packages/lophn-agent/extensions/mod.ts";
+import { contextStatusOf } from "../../packages/documents/contexts/mod.ts";
 import { createMcpAuth } from "../../packages/lophn-agent/extensions/mod.ts";
 import { createMcpSecretRefSource } from "../../packages/lophn-agent/extensions/mod.ts";
 import type { HttpFetch } from "../../packages/lophn-agent/extensions/adapters/mcp-http.ts";
@@ -320,24 +321,6 @@ const usageReads = createUsageReads();
 // 묶음 판이다(TOOL_BUNDLES). 역할 상한은 T8이 고정한 ROLE_CAPS 표다. catalog는 동봉 snapshot에서 읽고(T4,
 // harness/model R5), credential key와 provider 정의 key는 같은 Tx의 provider
 // 표·provider_credentials 표에서 읽는다(R6, R10).
-// context 선택의 현재 상태는 documents/contexts가 소유한 contexts 표에서 읽는다
-// (presets#R11). 없는 context와 읽기 실패는 undefined로 fail-closed다.
-export function contextStatusIn(
-  sql: Pick<Tx["sql"], "get">,
-  context: string,
-): "drafting" | "active" | "archived" | undefined {
-  try {
-    const row = sql.get("select status from contexts where id = ?", [context]);
-    const status = row === undefined ? undefined : row["status"];
-    return status === "drafting" || status === "active" ||
-        status === "archived"
-      ? status
-      : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
 function presetValidateDeps(sql: Pick<Tx["sql"], "get" | "all">) {
   // MCP server 설정은 setting_choices 행(platform/settings)에 있다. 형식 검사는
   // mcpServersSetting.value_type이 결정하고, 검사를 통과한 server만 deps에 온다.
@@ -379,7 +362,7 @@ function presetValidateDeps(sql: Pick<Tx["sql"], "get" | "all">) {
         return undefined;
       }
     },
-    contextStatus: (context: string) => contextStatusIn(sql, context),
+    contextStatus: (context: string) => contextStatusOf(sql, context),
     catalogEntry: (providerDefinition: string, modelName: string) =>
       snapshotCatalogEntry(providerDefinition, modelName),
     modelListed: (providerDefinition: string, modelName: string) =>

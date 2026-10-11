@@ -1,8 +1,10 @@
 // context worker: kind `documents/contexts`(docs/architecture/documents.md 2.4). core가 감독 pipe로
-// 보내는 두 일을 한다.
+// 보내는 세 일을 한다.
 // - `context.index`: 계약이 가리키는 파일을 stat으로 훑어 derived/contexts.sqlite를 갱신한다
 //   (이 worker가 그 파일의 유일한 writer다).
 // - `context.check`: 계약이 가리키는 파일을 임시 snapshot으로 복사해 그 snapshot에서만 판을 검사한다.
+// - `context.preview`: 만드는 중인 판을 같은 방식의 임시 snapshot에서 돌려 보기만 한다(index·ledger를 쓰지
+//   않고 낼 command도 없다).
 // 일은 packages/documents/contexts의 work-*.ts가 하고 여기는 IPC와 IO adapters를 잇는다. worker는
 // `lophn.db`를 열지 않고 core에도 닿지 않는다. 낼 command(`context.record_violations`,
 // `bundle.finish_check`)는 답에 실어 보내고 core가 좁은 machine 자격으로 낸다.
@@ -19,6 +21,8 @@ import {
   type ContextCheckResponse,
   contextIndexRequestSchema,
   type ContextIndexResponse,
+  contextPreviewWorkRequestSchema,
+  type ContextPreviewWorkResponse,
   type ContextSubmission,
 } from "../../../packages/contracts/documents/mod.ts";
 import type {
@@ -29,6 +33,7 @@ import {
   type IndexStore,
   openIndexStore,
 } from "../../../packages/documents/contexts/index/mod.ts";
+import { runPreviewJob } from "../../../packages/documents/contexts/preview/mod.ts";
 import type { ValidationEnv } from "../../../packages/documents/contexts/validate/mod.ts";
 import { createContextJobs } from "../../../packages/documents/contexts/work-jobs.ts";
 import type {
@@ -65,6 +70,17 @@ export type ContextsWorkerOptions = {
   // 시험이 파일 예산을 줄일 때 쓴다.
   files?: ContextFileOptions;
 };
+
+const NAME_ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyz";
+
+// 미리보기 snapshot 폴더 이름: `prv_` + 소문자·숫자 26자. 호출마다 다르다.
+function newSnapshotName(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(26));
+  return `prv_${
+    Array.from(bytes, (byte) => NAME_ALPHABET[byte % NAME_ALPHABET.length])
+      .join("")
+  }`;
+}
 
 function reply(
   request: WorkerRequest,
@@ -217,6 +233,60 @@ export function createContextsWorker(
     return ok(response);
   }
 
+  // 같은 draft(와 같은 환경·폴더)를 묻는 요청은 하나로 합친다. 끝난 요청은 기억하지 않는다.
+  const previews = new Map<string, Promise<Result<unknown>>>();
+
+  function preview(request: WorkerRequest): Promise<Result<unknown>> {
+    const parsed = contextPreviewWorkRequestSchema.safeParse(request.payload);
+    if (!parsed.success) {
+      return Promise.resolve(
+        err({ code: "invalid_input", message: "invalid preview request" }),
+      );
+    }
+    const input = parsed.data;
+    const key = JSON.stringify(input);
+    const joined = previews.get(key);
+    if (joined !== undefined) return joined;
+    const effects = new Map(
+      input.app_commands.map((entry) => [
+        `${entry.app}\u0000${entry.command}`,
+        entry.effect,
+      ]),
+    );
+    const env: ValidationEnv = {
+      externalTypes: input.external_types,
+      appCommandEffect: (app, command) =>
+        effects.get(`${app}\u0000${command}`) ?? "unknown",
+    };
+    const run = runPreviewJob({
+      snapshots: {
+        create: (name, folders, roots = []) =>
+          createSnapshotPort(contextsPaths(dataRoot!).staging, {
+            exclude: exclude(),
+            ...options.files,
+          }).create(name, folders, roots),
+      },
+    }, {
+      snapshot: newSnapshotName(),
+      draft: input.draft,
+      env,
+      roots: input.roots,
+    }).then((done): Result<unknown> => {
+      if (!done.ok) return done;
+      const response: ContextPreviewWorkResponse = {
+        types: done.value.types,
+        findings: done.value.findings,
+        violation_count: done.value.violation_count,
+        violations: done.value.violations,
+      };
+      return ok(response);
+    });
+    previews.set(key, run);
+    const done = () => previews.delete(key);
+    run.then(done, done);
+    return run;
+  }
+
   const session: ChildSession = startChild(options.streams, {
     onHello(hello) {
       if (hello.kind !== CONTEXTS_KIND) throw new Error("invalid worker kind");
@@ -243,6 +313,8 @@ export function createContextsWorker(
         ? index
         : message.op === CONTEXT_WORK_OPS.check
         ? check
+        : message.op === CONTEXT_WORK_OPS.preview
+        ? preview
         : undefined;
       if (run === undefined) {
         return session.send(

@@ -1,13 +1,18 @@
 // core가 context worker에 일을 보내기 전에 읽는 내부 read(`context.work_input`). 공개 route가 아니다.
 // 적용 판(또는 검사할 후보 판)의 content blob, 마지막으로 기록한 위반 수, 사람이 저장한 saved view,
 // Project 폴더를 한 snapshot에서 돌려준다. worker는 ledger를 열지 않으므로 core가 이것을 IPC 요청에 싣는다.
-import { err, ok } from "../../../base/mod.ts";
+import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   bundleContentSchema,
+  type ContextWorkInput,
   contextWorkInputRoute,
 } from "../../../contracts/documents/mod.ts";
 import { parseActor } from "../../../contracts/platform/mod.ts";
-import type { ReadDefinition, Sql } from "../../../contracts/platform/mod.ts";
+import type {
+  ReadDefinition,
+  ReadSnapshot,
+  Sql,
+} from "../../../contracts/platform/mod.ts";
 import type { ContextLedgerDeps } from "./adapter.ts";
 import { type LoadPlan, loadState } from "./adapter-load.ts";
 import { loadCheck } from "./rows.ts";
@@ -20,6 +25,49 @@ function foldersOf(sql: Reader, project: string): string[] {
     "SELECT path FROM project_folders WHERE project = ? ORDER BY position",
     [project],
   ).map((row) => String(row.path));
+}
+
+// context.preview가 읽는 draft 판 하나. 판 하나의 content blob만 읽는다.
+function draftInput(
+  deps: Pick<ContextLedgerDeps, "blobs" | "index">,
+  snapshot: ReadSnapshot,
+  contextId: string,
+  bundleId: string,
+): Result<ContextWorkInput> {
+  const sql = snapshot.sql;
+  const loaded = loadState(sql, deps, {
+    context: contextId,
+    bundles: true,
+    content: { bundle: bundleId },
+  }, Number(snapshot.as_of_seq));
+  if (!loaded.ok) return loaded;
+  const { state } = loaded.value;
+  const context = state.contexts.get(contextId);
+  if (context === undefined) {
+    return err({ code: "not_found", message: "no such context" });
+  }
+  const row = state.bundles.get(bundleId);
+  if (row === undefined || row.context !== context.id) {
+    return err({ code: "not_found", message: "no such bundle" });
+  }
+  if (row.status !== "draft") {
+    return err({ code: "conflict", message: "the bundle is not a draft" });
+  }
+  const project = sql.get("SELECT status FROM projects WHERE id = ?", [
+    context.project,
+  ]);
+  return ok({
+    context: context.id,
+    roots: project?.status === "archived" ? [] : foldersOf(sql, context.project),
+    recorded_count: context.violation_mark,
+    applied: null,
+    candidate: null,
+    draft: { bundle: row.id, content: row.content },
+    user_saved_views: [],
+    external_types: [],
+    as_of_seq: snapshot.as_of_seq,
+    next_cursor: null,
+  });
 }
 
 export function contextWorkInputRead(
@@ -35,6 +83,15 @@ export function contextWorkInputRead(
         });
       }
       const sql = snapshot.sql;
+      if (input.bundle !== undefined) {
+        if (input.check !== undefined) {
+          return err({
+            code: "invalid_input",
+            message: "ask for a check or a bundle, not both",
+          });
+        }
+        return draftInput(deps, snapshot, input.context, input.bundle);
+      }
       const check = input.check === undefined
         ? null
         : loadCheck(sql, input.check);
@@ -100,6 +157,7 @@ export function contextWorkInputRead(
         recorded_count: context.violation_mark,
         applied,
         candidate,
+        draft: null,
         user_saved_views: [...state.views.values()]
           .filter((view) => view.context === context.id)
           .map((view) => ({

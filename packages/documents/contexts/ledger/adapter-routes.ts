@@ -18,6 +18,7 @@ import {
   contextInputOptionsRoute,
   contextListRoute,
   contextOverviewRoute,
+  contextPreviewRoute,
   contextRecordViolationsRoute,
   contextSavedViewsRoute,
   contextSearchRoute,
@@ -254,6 +255,11 @@ export const READ_ENTRIES: readonly ReadEntry[] = [
       checks: true,
       content: "in-progress",
     }),
+  ),
+  read(
+    contextPreviewRoute,
+    (r) => r.contextPreview,
+    (_sql, input) => ({ context: input.context }),
   ),
   read(
     contextSearchRoute,

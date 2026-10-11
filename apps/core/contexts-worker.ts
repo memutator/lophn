@@ -23,12 +23,16 @@ import {
   contextIndexResponseSchema,
   contextInputOptionsRoute,
   contextOverviewRoute,
+  type ContextPreviewRead,
+  contextPreviewRoute,
+  contextPreviewWorkResponseSchema,
   contextSearchRoute,
   contextSeriesNextRoute,
   type ContextSubmission,
   contextViolationsRoute,
   type ContextWorkInput,
 } from "../../packages/contracts/documents/mod.ts";
+import { parseActor } from "../../packages/contracts/platform/mod.ts";
 import type {
   ChildMessage,
   KindLaunchSpec,
@@ -43,6 +47,7 @@ import type {
   ChildCallbacks,
   StartResult,
 } from "../../packages/platform/responsiveness/mod.ts";
+import { pagePreview } from "../../packages/documents/contexts/mod.ts";
 import { checkLaunchSpec } from "../../packages/platform/security/mod.ts";
 
 export const CONTEXTS_WORKER_KIND = "documents/contexts";
@@ -53,6 +58,7 @@ export const CONTEXT_INDEX_FRESH_MS = 2_000;
 // worker가 한 일을 끝내기를 core가 기다리는 한도.
 export const CONTEXT_INDEX_TIMEOUT_MS = 60_000;
 export const CONTEXT_CHECK_TIMEOUT_MS = 120_000;
+export const CONTEXT_PREVIEW_TIMEOUT_MS = 60_000;
 // 답이 오지 않은(결과 불명) check를 다시 보내는 간격. 마지막 시도가 실패하면 후보는 checking으로 남는다.
 export const CONTEXT_CHECK_RETRY_MS = [1_000, 3_000] as const;
 
@@ -236,7 +242,9 @@ export type ContextCheckEnvironment = {
 export type ContextsDispatchDeps = {
   process: ContextsProcess;
   // reader Worker의 내부 read `context.work_input`
-  readInput(input: { context: string; check?: string }): Promise<
+  readInput(
+    input: { context: string; check?: string; bundle?: string },
+  ): Promise<
     Result<ContextWorkInput>
   >;
   // 좁은 machine 자격으로 command를 낸다.
@@ -256,6 +264,11 @@ export type ContextsDispatcher = {
   ensureFresh(context: string): Promise<{ stale: boolean }>;
   // bundle.submit이 받아들인 검사를 worker에 보낸다. 끝날 때까지(재시도 포함) 기다린다.
   runCheck(input: { context: string; check: string }): Promise<boolean>;
+  // `context.preview`: 만드는 중인 판을 지금 파일에 돌려 한 page를 돌려준다. 결과를 온전히 만들지 못하면
+  // 부분 결과 없이 unavailable이다. 판단·파일·ledger·index는 바꾸지 않는다.
+  preview(
+    input: { context: string; bundle: string; cursor?: string },
+  ): Promise<Result<ContextPreviewRead>>;
 };
 
 const wait = (ms: number) =>
@@ -453,7 +466,70 @@ export function createContextsDispatcher(
     }
   }
 
-  return { ensureFresh, runCheck };
+  async function preview(
+    input: { context: string; bundle: string; cursor?: string },
+  ): Promise<Result<ContextPreviewRead>> {
+    const read = await deps.readInput({
+      context: input.context,
+      bundle: input.bundle,
+    });
+    if (!read.ok) return read;
+    const draft = read.value.draft;
+    if (draft === null) {
+      return err({ code: "internal", message: "the draft was not read" });
+    }
+    // 다른 판의 cursor는 worker를 부르기 전에 거절한다.
+    const probed = pagePreview({
+      ...input,
+      as_of_seq: read.value.as_of_seq,
+      outcome: { types: [], findings: [], violation_count: 0, violations: [] },
+    });
+    if (!probed.ok) return probed;
+    if (!(await deps.process.ensure(read.value.roots))) {
+      return err({ code: "unavailable", message: "context worker is down" });
+    }
+    const environment = await deps.environment?.() ??
+      { appCommands: [], externalTypes: [] };
+    const answered = await deps.process.request(
+      CONTEXT_WORK_OPS.preview,
+      {
+        context: input.context,
+        draft: draft.content,
+        roots: read.value.roots,
+        external_types: [
+          ...read.value.external_types,
+          ...environment.externalTypes,
+        ],
+        app_commands: environment.appCommands,
+      },
+      CONTEXT_PREVIEW_TIMEOUT_MS,
+    );
+    // 예산 초과, 파일을 읽을 수 없음, worker 중단은 모두 결과를 만들지 못한 것이다.
+    if (!answered.ok) {
+      return err({
+        code: "unavailable",
+        message: `the preview could not be made: ${answered.error.message}`,
+      });
+    }
+    const parsed = contextPreviewWorkResponseSchema.safeParse(answered.value);
+    if (!parsed.success) {
+      return err({ code: "internal", message: "invalid preview answer" });
+    }
+    return pagePreview({
+      ...input,
+      as_of_seq: read.value.as_of_seq,
+      outcome: parsed.data,
+    });
+  }
+
+  return {
+    ensureFresh,
+    runCheck,
+    preview: (input) =>
+      preview(input).catch((): Result<ContextPreviewRead> =>
+        err({ code: "unavailable", message: "preview dispatch failed" })
+      ),
+  };
 }
 
 // ── core 연결 ─────────────────────────────────────────────────────────
@@ -472,7 +548,7 @@ const INDEXED_READS = [
 // `attach`로 dispatcher를 붙이고, 붙기 전에는 읽기도 submit도 그대로 지나간다.
 export type ContextsHost = {
   attach(dispatcher: ContextsDispatcher): void;
-  // index를 읽는 읽기 앞에 따라잡기를 끼운다.
+  // index를 읽는 읽기 앞에 따라잡기를 끼우고, context.preview를 worker로 답하게 덮는다.
   overlayReads(reads: Map<string, ReadHandler>): void;
   // bundle.submit이 받아들여지면 검사를 worker에 보낸다.
   wrapWriter(writer: Writer): Writer;
@@ -501,6 +577,28 @@ export function createContextsHost(): ContextsHost {
           const context = contextOfInput(input);
           if (context !== undefined) await dispatcher?.ensureFresh(context);
           return await original(ctx, input, credential);
+        });
+      }
+      // context.preview는 ledger가 아니라 worker가 답한다. 덮기 전(worker가 없는 조립)은 ledger 쪽
+      // 자리가 unavailable로 답한다.
+      const previewKey =
+        `${contextPreviewRoute.resource}/${contextPreviewRoute.method}`;
+      const placeholder = reads.get(previewKey);
+      if (placeholder !== undefined) {
+        reads.set(previewKey, async (ctx, input, credential) => {
+          const asked = contextPreviewRoute.input.safeParse(input);
+          if (dispatcher === undefined || !asked.success) {
+            return await placeholder(ctx, input, credential);
+          }
+          // 읽는 쪽 검사(user와 lophn agent만)는 ledger 쪽 자리와 같다.
+          const kind = parseActor(ctx.actor)?.kind;
+          if (kind !== "user" && kind !== "agent") {
+            return err({
+              code: "forbidden",
+              message: `${kind ?? "unknown"} cannot read contexts`,
+            });
+          }
+          return await dispatcher.preview(asked.data);
         });
       }
     },

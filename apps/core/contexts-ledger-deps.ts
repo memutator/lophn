@@ -31,6 +31,7 @@ import {
   runSearch,
   type SearchEntity,
   type SearchExecutor,
+  violationMessage,
 } from "../../packages/documents/contexts/mod.ts";
 import {
   readEntities,
@@ -195,28 +196,6 @@ function openIndex(root: string): Sql | undefined {
   }
 }
 
-function messageOf(violation: {
-  kind: string;
-  rule: string | null;
-  path: string;
-  type: string | null;
-  target: string | null;
-}): string {
-  const at = violation.target === null ? "" : ` (${violation.target})`;
-  switch (violation.kind) {
-    case "rule":
-      return `${violation.rule ?? "rule"} is violated${at}`;
-    case "unreadable":
-      return `${violation.path} cannot be read${at}`;
-    case "path_mismatch":
-      return `${violation.path} does not match the ${
-        violation.type ?? "type"
-      } pattern`;
-    default:
-      return `the link to ${violation.target ?? "its target"} does not resolve`;
-  }
-}
-
 function parseContent(content: Record<string, unknown>): BundleContent | null {
   const parsed = bundleContentSchema.safeParse(content);
   return parsed.success ? parsed.data : null;
@@ -323,7 +302,7 @@ export function createContextsRuntime(): ContextsRuntime {
         section: violation.section,
         type: violation.type,
         target: violation.target,
-        message: messageOf(violation),
+        message: violationMessage(violation),
       }));
     },
     entities(context) {

@@ -38,7 +38,6 @@ import {
   questionCreated,
   runFinished,
 } from "../../contracts/lophn-agent/mod.ts";
-import { contextWatchedItemChanged } from "../../contracts/documents/mod.ts";
 import { releaseActivationFailed } from "../../contracts/apps/mod.ts";
 import {
   ticketCheckFailed,
@@ -719,7 +718,6 @@ function notificationEventsRead(
       runFinished,
       ticketConfirmed,
       ticketCheckFailed,
-      contextWatchedItemChanged,
       releaseActivationFailed,
     ],
     [
@@ -728,7 +726,6 @@ function notificationEventsRead(
       { event: runFinished, handle: () => ok(true) },
       { event: ticketConfirmed, handle: () => ok(true) },
       { event: ticketCheckFailed, handle: () => ok(true) },
-      { event: contextWatchedItemChanged, handle: () => ok(true) },
       { event: releaseActivationFailed, handle: () => ok(true) },
     ],
     () => ok(machine()),
@@ -970,7 +967,7 @@ Deno.test("platform/notifications#R11: engine step이 중간에 멈추면 다음
   }
 });
 
-Deno.test("platform/notifications#R1, R11: engine step은 ticket·context·release 계기를 실제 생성으로 만든다", async () => {
+Deno.test("platform/notifications#R1, R11: engine step은 ticket·release 계기를 실제 생성으로 만든다", async () => {
   const dir = await Deno.makeTempDir({ prefix: "ntf-engine-more-" });
   const connection = await schema(dir);
   const { path } = { path: `${dir}/ledger.db` };
@@ -1003,22 +1000,6 @@ Deno.test("platform/notifications#R1, R11: engine step은 ticket·context·relea
     );
     emitSource(
       connection,
-      "ContextWatchedItemChanged",
-      "ctx_01arz3ndektsv4rrffq69g5fav",
-      {
-        target: {
-          kind: "document",
-          document: "doc_01arz3ndektsv4rrffq69g5fav",
-          section: "설치",
-        },
-        before_version: "ver_01arz3ndektsv4rrffq69g5fav",
-        after_version: "ver_01arz3ndektsv4rrffq69g5fbv",
-        source_seq: "1",
-        change_kind: "section_missing",
-      },
-    );
-    emitSource(
-      connection,
       "ReleaseActivationFailed",
       "rel_01arz3ndektsv4rrffq69g5fav",
       {
@@ -1042,10 +1023,10 @@ Deno.test("platform/notifications#R1, R11: engine step은 ticket·context·relea
     });
     const scanned = await engine.step();
     assert(scanned.ok, scanned.ok ? "" : JSON.stringify(scanned.error));
-    // cursor는 batch 끝 event까지 움직이고, 네 계기 모두 notification이 된다.
+    // cursor는 batch 끝 event까지 움직이고, 세 계기 모두 notification이 된다.
     assertEquals(scanned.value, String(head["seq"]));
     assertEquals(storedCursor(connection), String(head["seq"]));
-    assertEquals(notificationCount(connection), 4n);
+    assertEquals(notificationCount(connection), 3n);
     const listed = connection.sql.all(
       `select e.type as type from notifications n
        join events e on e.seq = n.source_seq order by n.source_seq`,
@@ -1054,175 +1035,11 @@ Deno.test("platform/notifications#R1, R11: engine step은 ticket·context·relea
     assertEquals(listed.map((row) => row["type"]), [
       "TicketConfirmed",
       "TicketCheckFailed",
-      "ContextWatchedItemChanged",
       "ReleaseActivationFailed",
     ]);
     await engine.close();
   } finally {
     reader.close();
-    connection.close();
-    await Deno.remove(dir, { recursive: true });
-  }
-});
-
-// T53: machine watch 확정 변화·절 소실만 계기다(R1). unchanged·unverified는
-// conditionMet이 거절한다. record_watch_change(documents T24)가 이 event를 내지만 이 시험은
-// 계기 판정만 보므로 source event를 직접 적는다.
-Deno.test("platform/notifications#R1: machine watch 확정 변화만 계기다", async () => {
-  const dir = await Deno.makeTempDir({ prefix: "ntf-trigger-ctx-" });
-  const connection = await schema(dir);
-  const watchTarget = {
-    kind: "document",
-    document: "doc_01arz3ndektsv4rrffq69g5fav",
-    section: "설치",
-  };
-  try {
-    // 내용 변화, 절 추가, 절 소실은 계기다.
-    emitSource(
-      connection,
-      "ContextWatchedItemChanged",
-      "ctx_01arz3ndektsv4rrffq69g5fav",
-      {
-        target: watchTarget,
-        before_version: "ver_01arz3ndektsv4rrffq69g5fav",
-        after_version: "ver_01arz3ndektsv4rrffq69g5fbv",
-        source_seq: "1",
-        change_kind: "content_changed",
-      },
-    );
-    emitSource(
-      connection,
-      "ContextWatchedItemChanged",
-      "ctx_01arz3ndektsv4rrffq69g5fav",
-      {
-        target: watchTarget,
-        before_version: "ver_01arz3ndektsv4rrffq69g5fbv",
-        after_version: "ver_01arz3ndektsv4rrffq69g5fcv",
-        source_seq: "2",
-        change_kind: "section_added",
-      },
-    );
-    emitSource(
-      connection,
-      "ContextWatchedItemChanged",
-      "ctx_01arz3ndektsv4rrffq69g5fav",
-      {
-        target: watchTarget,
-        before_version: "ver_01arz3ndektsv4rrffq69g5fcv",
-        after_version: "ver_01arz3ndektsv4rrffq69g5fdv",
-        source_seq: "3",
-        change_kind: "section_missing",
-      },
-    );
-    // unchanged와 unverified는 계기가 아니다.
-    emitSource(
-      connection,
-      "ContextWatchedItemChanged",
-      "ctx_01arz3ndektsv4rrffq69g5fav",
-      {
-        target: watchTarget,
-        before_version: "ver_01arz3ndektsv4rrffq69g5fdv",
-        after_version: "ver_01arz3ndektsv4rrffq69g5fdv",
-        source_seq: "4",
-        change_kind: "unchanged",
-      },
-    );
-    emitSource(
-      connection,
-      "ContextWatchedItemChanged",
-      "ctx_01arz3ndektsv4rrffq69g5fav",
-      {
-        target: watchTarget,
-        before_version: "ver_01arz3ndektsv4rrffq69g5fdv",
-        after_version: "ver_01arz3ndektsv4rrffq69g5fdv",
-        source_seq: "5",
-        change_kind: "unverified",
-      },
-    );
-    const rows = connection.sql.all(
-      "select cast(seq as text) as seq from events where type = 'ContextWatchedItemChanged' order by seq",
-      [],
-    );
-    assertEquals(rows.length, 5);
-    for (const row of rows.slice(0, 3)) {
-      const seeded = await seedNotification(
-        connection,
-        {
-          seq: String(row["seq"]),
-          type: "ContextWatchedItemChanged",
-          subject: "ctx_01arz3ndektsv4rrffq69g5fav",
-        },
-        `create-ctx-${row["seq"]}`,
-      );
-      assert(seeded.ok, seeded.ok ? "" : JSON.stringify(seeded.error));
-    }
-    for (const row of rows.slice(3)) {
-      const rejected = await seedNotification(
-        connection,
-        {
-          seq: String(row["seq"]),
-          type: "ContextWatchedItemChanged",
-          subject: "ctx_01arz3ndektsv4rrffq69g5fav",
-        },
-        `create-ctx-${row["seq"]}`,
-      );
-      assert(!rejected.ok, JSON.stringify(rejected));
-      if (!rejected.ok) assertEquals(rejected.error.code, "forbidden");
-    }
-    assertEquals(notificationCount(connection), 3n);
-  } finally {
-    connection.close();
-    await Deno.remove(dir, { recursive: true });
-  }
-});
-
-// R7: notification 생성은 agent run을 새로 시작하지 않는다. watch 변화의
-// notification을 만들어도 run event가 생기지 않는다.
-Deno.test("platform/notifications#R7: watch 변화의 notification은 run을 새로 시작하지 않는다", async () => {
-  const dir = await Deno.makeTempDir({ prefix: "ntf-r7-ctx-" });
-  const connection = await schema(dir);
-  try {
-    emitSource(
-      connection,
-      "ContextWatchedItemChanged",
-      "ctx_01arz3ndektsv4rrffq69g5fav",
-      {
-        target: {
-          kind: "document",
-          document: "doc_01arz3ndektsv4rrffq69g5fav",
-          section: null,
-        },
-        before_version: "ver_01arz3ndektsv4rrffq69g5fav",
-        after_version: "ver_01arz3ndektsv4rrffq69g5fbv",
-        source_seq: "1",
-        change_kind: "content_changed",
-      },
-    );
-    const source = connection.sql.get(
-      "select cast(seq as text) as seq from events where type = 'ContextWatchedItemChanged'",
-      [],
-    );
-    assert(source);
-    const seeded = await seedNotification(
-      connection,
-      {
-        seq: String(source["seq"]),
-        type: "ContextWatchedItemChanged",
-        subject: "ctx_01arz3ndektsv4rrffq69g5fav",
-      },
-      "create-r7-ctx",
-    );
-    assert(seeded.ok, seeded.ok ? "" : JSON.stringify(seeded.error));
-    assertEquals(notificationCount(connection), 1n);
-    // run을 새로 시작하는 event는 없다.
-    assertEquals(
-      connection.sql.get(
-        "select count(*) as n from events where type like 'Run%'",
-        [],
-      )?.n,
-      0n,
-    );
-  } finally {
     connection.close();
     await Deno.remove(dir, { recursive: true });
   }

@@ -64,7 +64,6 @@ Deno.test("platform/notifications#R1, platform/notifications#R2: 계기 표는 s
       "TicketConfirmed",
       "TicketCheckFailed",
       "AssignmentPaused",
-      "ContextWatchedItemChanged",
       "ReleaseActivationFailed",
     ],
   );
@@ -185,7 +184,7 @@ Deno.test("platform/notifications#R10: delivery는 고정 상태 셋뿐이고 de
 });
 
 Deno.test("platform/notifications#R3: get·list의 당시 시각과 문서 참조는 선택이고 문서 id가 아니면 거절한다", () => {
-  const item = { notification, source_event: "ContextWatchedItemChanged" };
+  const item = { notification, source_event: "QuestionCreated" };
   const common = { as_of_seq: "42", next_cursor: null };
   const at = "2026-10-04T00:00:00.000Z";
   const document = "doc_01arz3ndektsv4rrffq69g5fav";

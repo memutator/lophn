@@ -47,8 +47,6 @@ const NOW_MS = Date.UTC(2024, 0, 1);
 const AT = "2024-01-01T00:00:00.000Z";
 const HASH = "a".repeat(64);
 const DOC_A = "doc_01arz3ndektsv4rrffq69g5fav";
-const DOC_B = "doc_01arz3ndektsv4rrffq69g5fb0";
-const CONTEXT = "ctx_01arz3ndektsv4rrffq69g5fav";
 
 const teams: TeamModule[] = [{ createLedgerRegistration }];
 
@@ -76,7 +74,7 @@ function post(
   });
 }
 
-// 저장 입력. contexts_test.ts와 같은 prepared 결과 모양이다.
+// 저장 입력.
 function prepared(key: string, document: string) {
   return {
     document,
@@ -126,18 +124,6 @@ function glossaryTextA(): string {
   ].join("\n");
 }
 
-// 문서 B 원문. R11 확인용 긴 합성어를 둔다.
-function glossaryTextB(): string {
-  return [
-    "# 마이그레이션",
-    "",
-    "## 마이그레이션 계획",
-    "",
-    "데이터베이스마이그레이션계획서는 미리 세운 물음이다.",
-    "두 판 사이 잇는 일곱 단계를 남긴다.",
-  ].join("\n");
-}
-
 function glossaryRecordA(version: string): ExtractionRecord {
   return {
     document: DOC_A,
@@ -172,35 +158,6 @@ function glossaryRecordA(version: string): ExtractionRecord {
           own_ranges: [{ start_line: 9, end_line: 10 }],
           subtree_range: { start_line: 9, end_line: 10 },
           characters: 31,
-          body_hash: HASH,
-        },
-      ],
-    },
-  };
-}
-
-function glossaryRecordB(version: string): ExtractionRecord {
-  return {
-    document: DOC_B,
-    version,
-    content_hash: HASH,
-    module_hash: HASH,
-    extraction: {
-      status: "ready",
-      title: "마이그레이션",
-      text: glossaryTextB(),
-      text_hash: HASH,
-      sections: [
-        {
-          key: "마이그레이션 계획",
-          title: "마이그레이션 계획",
-          parent: null,
-          position: 0,
-          level: 2,
-          anchor: null,
-          own_ranges: [{ start_line: 5, end_line: 6 }],
-          subtree_range: { start_line: 5, end_line: 6 },
-          characters: 35,
           body_hash: HASH,
         },
       ],
@@ -314,7 +271,6 @@ function handlerDeps(
   context: AuthenticatedContext,
   dataRoot: string,
   asOfSeq: string,
-  contexts?: SearchHandlerDeps["contexts"],
 ): { deps: SearchHandlerDeps; close(): void } {
   const read = openDerivedRead(derivedPath(dataRoot));
   assert(read.ok, read.ok ? "" : read.error.message);
@@ -331,7 +287,6 @@ function handlerDeps(
           return createTargetAuthorizer(context) as unknown as T;
         },
       },
-      ...(contexts === undefined ? {} : { contexts }),
     },
     close() {
       ledger.db.close();
@@ -459,7 +414,7 @@ async function openCore(
     lophnHome: home,
     port: 0,
     teams,
-    // writer worker가 document.save를 다시 조립한다. contexts_test.ts와 같은 모양이다.
+    // writer worker가 document.save를 다시 조립한다.
     teamModules: [new URL("./documents.ts", import.meta.url).href],
     clock: manualClock(NOW_MS),
     random: seededRandom(1),
@@ -482,7 +437,7 @@ async function openCore(
   return { core, token, context, home };
 }
 
-// 저장에 필요한 준비 참조를 writer 메모리에 심는다. contexts_test.ts와 같은 모양이다.
+// 저장에 필요한 준비 참조를 writer 메모리에 심는다.
 async function notePreparedFor(core: Core, key: string): Promise<void> {
   const noted = await core.notePrepared?.(
     {
@@ -641,136 +596,6 @@ Deno.test("documents/outline-and-search#R10 R12: 권한 밖 place 요청은 부�
         assertEquals(otherPage.coverage?.lagging, absentPage.coverage?.lagging);
       } finally {
         opened.close();
-      }
-    } finally {
-      seedStore.close();
-    }
-  } finally {
-    await core.shutdown();
-    await Deno.remove(home, { recursive: true });
-  }
-});
-
-Deno.test("documents/outline-and-search#R12: context filter는 items 목록 문서로 좁히고 없는 context는 전부 비운다", async () => {
-  const wrap = wrapperTarget();
-  const made = await openCore(wrap.target);
-  const { core, token, context, home } = made;
-  try {
-    // 파생 store를 한 번 연다. 두 시드가 같은 연결을 건선다.
-    const seedStore = openSeedStore(core.dataRoot);
-    try {
-      // 저장에 필요한 준비 참조를 심는다.
-      await notePreparedFor(core, "create-a");
-      await notePreparedFor(core, "create-b");
-      // 두 문서를 저장하고 파생에 심는다. leaf는 A만, 긴 합성어는 B만 둔다.
-      const seedA = await saveAndSeed(
-        core.port,
-        token,
-        DOC_A,
-        "create-a",
-        glossaryRecordA,
-        core.dataRoot,
-        seedStore,
-      );
-      const seedB = await saveAndSeed(
-        core.port,
-        token,
-        DOC_B,
-        "create-b",
-        glossaryRecordB,
-        core.dataRoot,
-        seedStore,
-      );
-
-      // snapshot은 최근 event_seq를 근원으로 둔다.
-      const asOf = BigInt(seedB.event_seq) >= BigInt(seedA.event_seq)
-        ? seedB.event_seq
-        : seedA.event_seq;
-      // 새 context 모델은 문서 항목을 두지 않는다. context filter의 근원은 주입하는 목록이라
-      // 여기서는 A만 든 목록을 준다.
-      const itemRows = (): SearchHandlerDeps["contexts"] => ({
-        items: (contextId: string) => {
-          if (contextId !== CONTEXT) {
-            return {
-              ok: false as const,
-              error: {
-                code: "not_found" as const,
-                message: "context not found",
-              },
-            };
-          }
-          return {
-            ok: true as const,
-            value: [{ kind: "document" as const, document: DOC_A }],
-          };
-        },
-      });
-
-      const ledger = ledgerSnapshot(core.dataRoot, asOf);
-      const read = openDerivedRead(derivedPath(core.dataRoot));
-      assert(read.ok, read.ok ? "" : read.error.message);
-      try {
-        const contexts = itemRows();
-        const deps: SearchHandlerDeps = {
-          read: read.value,
-          snapshot: ledger.snapshot,
-          ports: {
-            port<T>(key: unknown): T {
-              if (!Object.is(key, TargetAuthorization)) {
-                throw new Error("unregistered port");
-              }
-              return createTargetAuthorizer(context) as unknown as T;
-            },
-          },
-          contexts,
-        };
-        wrap.fill(createSearchHandlers(deps), context);
-
-        // filter 없이는 두 문서가 모두 나온다. 「판」은 두 원문에 모두 있다.
-        const unfiltered = await post(core.port, "search/query", {
-          query: "판",
-        }, token);
-        assertEquals(unfiltered.status, 200);
-        const unfilteredPage = await unfiltered.json() as PageBody;
-        assert(
-          unfilteredPage.results && unfilteredPage.results.length >= 1,
-          JSON.stringify(unfilteredPage),
-        );
-
-        // context filter는 A만 남긴다.
-        const filtered = await post(core.port, "search/query", {
-          query: "leaf",
-          context: CONTEXT,
-        }, token);
-        assertEquals(filtered.status, 200);
-        const filteredPage = await filtered.json() as PageBody;
-        assert(filteredPage.results);
-        assert(filteredPage.results.length >= 1);
-        assertEquals(
-          filteredPage.results.every((result) => result.document === DOC_A),
-          true,
-        );
-
-        // 긴 합성어는 B에만 있다. context filter로 A만 남으면 결과가 없다.
-        const narrowed = await post(core.port, "search/query", {
-          query: "데이터베이스마이그레이션계획서",
-          context: CONTEXT,
-        }, token);
-        assertEquals(narrowed.status, 200);
-        const narrowedPage = await narrowed.json() as PageBody;
-        assertEquals(narrowedPage.results?.length, 0);
-
-        // 없는 context는 fail-closed다. 후보를 전부 비운다(R12).
-        const unknown = await post(core.port, "search/query", {
-          query: "leaf",
-          context: "ctx_01arz3ndektsv4rrffq69g5fb9",
-        }, token);
-        assertEquals(unknown.status, 200);
-        const unknownPage = await unknown.json() as PageBody;
-        assertEquals(unknownPage.results?.length, 0);
-        assertEquals(unknownPage.complete, true);
-      } finally {
-        ledger.db.close();
       }
     } finally {
       seedStore.close();

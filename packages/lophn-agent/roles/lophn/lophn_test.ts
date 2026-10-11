@@ -87,7 +87,6 @@ Deno.test("lophn-agent/roles/lophn#R1: lophn's tool selection holds planning, re
       "project.read",
       "app.list",
       "document.list",
-      "context.read",
       "document.create",
       "question.submit",
       "preset.list",
@@ -101,6 +100,13 @@ Deno.test("lophn-agent/roles/lophn#R1: lophn's tool selection holds planning, re
       listed.some((tool) => tool.name === name),
       `lophn lists ${name}`,
     );
+  }
+  // context 읽기는 개체 읽기 하나가 상한에 있고(정의는 선택한 context가 있을 때 run마다 만들어진다) 옛
+  // context 조회 tool은 없다(harness/tools#R21, R22).
+  assert(lophn.tools.includes("context.read_entity"));
+  for (const old of ["context.read", "context.list", "context.items"]) {
+    assertEquals(lophn.tools.includes(old), false, old);
+    assertEquals(listed.some((tool) => tool.name === old), false, old);
   }
   // 앱 목적 묶음의 상세 조회는 상한 어디에도 정의가 없다(app.read는 상한
   // 선택이지만 내장 정의가 아직 없다 → 목록에는 없다).
@@ -183,7 +189,8 @@ Deno.test("lophn-agent/roles/lophn#R3: lophn reads project, app and SDK lists bu
   // 아직 없어 제공 목록 교집합에는 없다(R1의 테스트가 함께 본다).
   assert(lophnOffers("app.list", lophn.tools));
   assert(lophnOffers("project.list", lophn.tools));
-  assert(lophnOffers("context.list", lophn.tools));
+  // context 개체 읽기는 상한에 있고 정의는 run마다 만들어져 정적 제공 목록(lophnOffers)에는 없다.
+  assert(lophn.tools.includes("context.read_entity"));
   // 디스크·소스·업무 DB 직접 접근은 상한 어디에도 없다(R3, roles/common 금지).
   const outside = lophn.tools.filter((tool) =>
     tool.startsWith("shell") || tool.startsWith("file") ||

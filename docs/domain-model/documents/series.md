@@ -120,4 +120,5 @@ pattern은 context 계약의 series 자료 안에 값으로 산다. 따로 저�
 - **정본.** 정본은 프로젝트 폴더의 파일이다. 멤버·순서·다음 이름은 읽을 때 계산하는 값이며 ledger에도 derived store에도 두지 않는다.
 - **읽기.** 읽기는 변경 event를 만들지 않는다. 파일 목록을 읽는 비용 때문에 쓰는 캐시는 정본이 아니며, 지워도 결과가 같다.
 - **문서.** 멤버는 판 없는 프로젝트 파일이다. 새로 쓰기는 일반 파일 쓰기이며 이 concern의 command가 없다.
+- **읽는 길.** context 도구가 다음 이름을 읽는 길은 `context.series_next`이며 documents/contexts의 읽기다. 멤버는 그 context index에 있는 series type 개체의 경로이고 계산은 이 concern의 순수 함수가 한다.
 - **계약과의 경계.** series 자료가 어느 프로젝트 폴더를 가리키는지, 계약이 어떻게 판을 얻고 검사하는지는 → documents/contexts. 쓰는 쪽 도구의 모양은 lophn-agent 쪽 문서가 정한다.

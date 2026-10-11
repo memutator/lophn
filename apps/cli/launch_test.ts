@@ -410,6 +410,7 @@ async function world(): Promise<World> {
       "-r",
       `${REPO}/apps`,
       `${REPO}/packages`,
+      `${REPO}/tools`,
       `${REPO}/deno.json`,
       `${REPO}/deno.lock`,
       `${install}/platform/`,

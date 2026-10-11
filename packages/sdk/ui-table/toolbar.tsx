@@ -1,4 +1,3 @@
-import { type KeyboardEvent, useId, useRef, useState } from "react";
 import {
   ArrowDownWideNarrow,
   ArrowUpNarrowWide,
@@ -12,6 +11,7 @@ import {
   Checkbox,
   Field,
   IconButton,
+  Popover,
   Select,
   type TableColumn,
 } from "@lophn/design/components";
@@ -72,7 +72,8 @@ export function SortControl<Row>(
   );
 }
 
-// 인라인으로 펼치는 열 목록. Escape로 닫으면 focus는 연 버튼으로 돌아간다.
+// 열 목록은 Columns 버튼에 붙어 뜨는 popover다. 도구 줄 흐름을 밀지 않고,
+// 바깥 click·Escape로 닫히며 focus는 연 버튼으로 돌아온다.
 export function ColumnPicker<Row>(
   { columns, shown, onToggle }: {
     columns: readonly TableColumn<Row>[];
@@ -80,42 +81,27 @@ export function ColumnPicker<Row>(
     onToggle: (id: string, show: boolean) => void;
   },
 ) {
-  const [open, setOpen] = useState(false);
-  const trigger = useRef<HTMLButtonElement>(null);
-  const panel = useId();
-  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== "Escape") return;
-    event.preventDefault();
-    setOpen(false);
-    trigger.current?.focus();
-  };
   return (
-    <div className={styles.columns}>
-      <Button
-        ref={trigger}
-        size="sm"
-        icon={Columns3}
-        aria-expanded={open}
-        aria-controls={open ? panel : undefined}
-        onClick={() => setOpen(!open)}
-      >
-        {t("common.button.columns")}
-      </Button>
-      {open && (
-        <div id={panel} className={styles.columnList} onKeyDown={onKeyDown}>
-          {columns.map((column) => (
-            <Checkbox
-              key={column.id}
-              label={column.header}
-              checked={shown.has(column.id)}
-              // 마지막 남은 열은 끌 수 없다.
-              disabled={shown.has(column.id) && shown.size === 1}
-              onCheckedChange={(checked) => onToggle(column.id, checked)}
-            />
-          ))}
-        </div>
-      )}
-    </div>
+    <Popover
+      trigger={
+        <Button size="sm" icon={Columns3}>
+          {t("common.button.columns")}
+        </Button>
+      }
+    >
+      <div className={styles.columnList}>
+        {columns.map((column) => (
+          <Checkbox
+            key={column.id}
+            label={column.header}
+            checked={shown.has(column.id)}
+            // 마지막 남은 열은 끌 수 없다.
+            disabled={shown.has(column.id) && shown.size === 1}
+            onCheckedChange={(checked) => onToggle(column.id, checked)}
+          />
+        ))}
+      </div>
+    </Popover>
   );
 }
 

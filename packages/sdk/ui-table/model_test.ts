@@ -1,10 +1,11 @@
-import { assertEquals } from "@std/assert";
+import { assert, assertEquals } from "@std/assert";
 import type { ColumnShape } from "./model.ts";
 import {
   clampPage,
   pageCount,
   pageSlice,
   pickableColumns,
+  sortable,
   sortRows,
   toggleColumn,
   validPageSize,
@@ -194,4 +195,18 @@ Deno.test("apps/sdk#R16: 열 선택은 정의 순서를 지키고 마지막 열�
     "changed",
   ]);
   assertEquals(toggleColumn(pickable, ["size"], "size", false), ["size"]);
+});
+
+Deno.test("apps/sdk#R16 [ctx-I54]: 링크 열은 글 열처럼 collator로 정렬되고 정렬할 수 있다", () => {
+  const link = {
+    id: "name",
+    kind: "link" as const,
+    value: (row: { name: string }) => row.name,
+  };
+  const rows = [{ name: "exp-10" }, { name: "exp-9" }];
+  assert(sortable(link));
+  assertEquals(
+    sortRows(rows, [link], { columnId: "name", direction: "ascending" }, "en"),
+    [rows[1], rows[0]],
+  );
 });

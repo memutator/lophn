@@ -137,7 +137,7 @@ Context, 계약·검색 묶음의 판(ContextBundle)과 격리 검사(ContextChe
 | `index` | `document` path, `within` heading? | Markdown 문서; `within`이 있으면 그 section 안 링크만 | 문서가 링크한 같은 Project 문서 하나가 개체 하나(링크 순서) |
 | `section` | `documents` PathPattern[] 또는 `from_type` Type 이름, `level` 1~6, `title_pattern` glob? | | 맞는 heading의 section 하나가 개체 하나 |
 | `outline` | `documents` PathPattern[] 또는 `from_type` Type 이름, `format` `markdown`, `min_level`, `max_level` | format은 지금 `markdown`뿐; 확장은 parser 등록으로 | 제목 tree의 heading 노드 하나가 개체 하나(부모·level를 field로) |
-| `app-data` | `app` slug, `command` string, `result_path` string | command의 효과가 read → apps/blueprint; 호출 입력은 고정 값만 | command 결과 배열의 항목 하나가 개체 하나 |
+| `app-data` | `app` slug, `command` string, `result_path` string[](빈 배열이면 결과 자체가 배열) | command의 효과가 read → apps/blueprint; 호출 입력은 고정 값만 | command 결과 배열의 항목 하나가 개체 하나 |
 
 - `docs`·`series`·`section`·`outline`의 Markdown 해석은 documents/formats의 section 추출 규칙을 쓴다.
 - `index`는 링크 대상이 Project 밖이거나 없는 문서이면 그 개체를 만들지 않고 위반으로 센다.
@@ -168,8 +168,21 @@ Context, 계약·검색 묶음의 판(ContextBundle)과 격리 검사(ContextChe
 | `title` | | 문서의 첫 제목 또는 section heading |
 | `links` | `within` heading?, `to_type` Type 이름? | 문서 안 링크의 목록 |
 | `outline` | `max_level` | 문서의 제목 tree 목록 |
+| `item` | `key_path` | app-data 개체(결과 배열의 항목)의 key 경로 |
 
-`file`은 `folder` Source의 개체에서 어느 파일을 읽을지 정한다. 없으면 개체의 문서 자체다.
+`file`은 `folder` Source의 개체에서 어느 파일을 읽을지 정한다. folder에서는 필수이고 다른 Source에서는 쓰지 않는다(개체의 문서 자체를 읽는다).
+
+Source kind마다 쓸 수 있는 FieldFrom:
+
+| Source kind | FieldFrom |
+|---|---|
+| `folder` | `path`, `yaml`(`file` 필수) |
+| `docs`, `series`, `index` | `frontmatter`, `yaml`(`file` 없음), `section`, `path`, `title`, `links`, `outline` |
+| `section` | `path`, `title`, `section`, `links`, `outline` |
+| `outline` | `path`, `title` |
+| `app-data` | `item` |
+
+`path`의 capture 이름: series는 pattern의 번호 자리 이름(`n`, `major`, `minor`, `patch`), folder는 `folder`, 문서가 있는 개체는 `file`(확장자 뺀 파일 이름)과 `path`(Project 기준 경로). key field는 list가 아니다.
 
 ## Relation (값)
 
@@ -188,7 +201,7 @@ Context, 계약·검색 묶음의 판(ContextBundle)과 격리 검사(ContextChe
 |---|---|---|---|---|
 | `id` | string | 아니오 | Type 안 유일 | 위반이 가리키는 규칙 |
 | `kind` | `required_field \| unique_key \| relation_target_exists \| enum_value \| pattern \| count_range` | 아니오 | | 규칙 종류 |
-| `params` | JSON | 아니오 | kind별 스키마 | 필드 이름, 정규식, 범위 등 |
+| `params` | object | 아니오 | kind별: `required_field`·`enum_value` `{field}`, `unique_key` `{fields?}`, `relation_target_exists` `{relation}`, `pattern` `{field, regex}`(ECMAScript, u flag), `count_range` `{field?, min?, max?}`(field가 있으면 그 list 길이, 없으면 type의 개체 수) | |
 | `message` | string | 아니오 | 공백만 있는 문자열 금지 | 사람이 읽는 말 |
 
 ## DeclaredSearch (값)
@@ -225,8 +238,8 @@ Context, 계약·검색 묶음의 판(ContextBundle)과 격리 검사(ContextChe
 | `group` | `{by path}` | 예 | | 묶기 |
 
 - Condition은 `all`·`any`·`not` 조합과 비교 `{path, op, value}`다. op은 `eq, ne, in, lt, lte, gt, gte, contains, exists`이고 value는 literal 또는 입력 참조 `{input}`이다.
-- Follow는 `{relation, as, direction, where?}`다. direction은 `forward`(이 type의 relation을 따라감) 또는 `reverse`(이 type을 가리키는 쪽을 찾음)이고 `as`는 이후 path의 별칭이다.
-- path는 `별칭.field` 모양이며 따라간 관계의 field까지만 갈 수 있다.
+- Follow는 `{relation, as, from?, direction, where?}`다. `from`은 출발 별칭이고 없으면 시작 type이다. direction은 `forward`(이 type의 relation을 따라감) 또는 `reverse`(이 type을 가리키는 쪽을 찾음)이고 `as`는 이후 path의 별칭이다.
+- path는 시작 type의 `field` 또는 `별칭.field` 모양이며 따라간 관계의 field까지만 갈 수 있다. `key`와 `path`는 모든 개체가 가진 field다. 다른 context의 type은 public field만 읽는다.
 - 동점은 key와 경로 순으로 결정한다. locale에 의존하지 않는다.
 
 ### ResultView

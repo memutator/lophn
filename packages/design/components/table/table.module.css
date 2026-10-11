@@ -98,6 +98,28 @@
   color: var(--color-text-secondary);
 }
 
+/* 글처럼 보이는 버튼. 색은 link 토큰, 줄은 밑줄이다. */
+.link {
+  max-width: 100%;
+  margin: var(--space-0);
+  padding: var(--space-0);
+  border: none;
+  background: transparent;
+  color: var(--color-link);
+  font: inherit;
+  text-align: left;
+  text-decoration: underline;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.link:focus-visible {
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: var(--border-focus-offset);
+}
+
 .spacer > td {
   padding: var(--space-0);
   border: none;

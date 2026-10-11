@@ -11,6 +11,7 @@ import { type Clipboard, systemClipboard } from "../shared.ts";
 import {
   type CellFormat,
   IdCell,
+  LinkCell,
   NumberCell,
   TextCell,
   TimeCell,
@@ -36,6 +37,12 @@ export type TableColumn<Row> =
   | ColumnBase & { kind: "text"; value: (row: Row) => string | undefined }
   | ColumnBase & { kind: "number"; value: (row: Row) => number | undefined }
   | ColumnBase & { kind: "time"; value: (row: Row) => Date | undefined }
+  // 도메인 객체를 가리키는 글. 누르거나 Enter를 치면 행을 넘겨 onOpen을 부른다.
+  | ColumnBase & {
+    kind: "link";
+    value: (row: Row) => string | undefined;
+    onOpen: (row: Row) => void;
+  }
   // 내부 ID. diagnostics가 아니면 열 자체를 그리지 않는다.
   | ColumnBase & { kind: "id"; value: (row: Row) => string };
 
@@ -95,6 +102,14 @@ function cell<Row>(
     case "time":
       return (
         <TimeCell key={column.id} value={column.value(row)} format={format} />
+      );
+    case "link":
+      return (
+        <LinkCell
+          key={column.id}
+          value={column.value(row)}
+          onOpen={() => column.onOpen(row)}
+        />
       );
     case "id":
       return (

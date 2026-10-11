@@ -60,6 +60,11 @@ export const NOTIFICATION_TRIGGERS = [
     owner: "apps/releases",
     condition: "always",
   },
+  {
+    event: "ContextViolationsRecorded",
+    owner: "documents/contexts",
+    condition: "count_rose",
+  },
 ] as const;
 export type NotificationTrigger = (typeof NOTIFICATION_TRIGGERS)[number];
 

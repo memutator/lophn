@@ -87,6 +87,7 @@ const BODY_BY_KIND: Readonly<Record<string, PlainKey>> = {
   TicketCheckFailed: "things-to-confirm.label.event-task-check-failed",
   AssignmentPaused: "things-to-confirm.label.event-paused",
   ReleaseActivationFailed: "things-to-confirm.label.event-activation-failed",
+  ContextViolationsRecorded: "things-to-confirm.label.event-violations-rose",
 };
 
 /** OS에 올릴 문구. 제목은 늘 lophn이고 본문은 계기 종류의 고정 문구다. */

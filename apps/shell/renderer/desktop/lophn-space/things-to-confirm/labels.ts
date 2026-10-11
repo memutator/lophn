@@ -110,6 +110,8 @@ export function eventTitle(sourceEvent: string): string {
       return t("things-to-confirm.label.event-paused");
     case "ReleaseActivationFailed":
       return t("things-to-confirm.label.event-activation-failed");
+    case "ContextViolationsRecorded":
+      return t("things-to-confirm.label.event-violations-rose");
     default:
       return t("things-to-confirm.label.event-other");
   }

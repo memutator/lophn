@@ -136,3 +136,23 @@ Deno.test("documents/projects#R10: 상대 경로는 가장 깊은 등록 폴더�
   assertEquals(relativeToFolders("/elsewhere/c.md", folders), null);
   assertEquals(relativeToFolders("/workshop/d.md", folders), null);
 });
+
+Deno.test("shell/workspace#R16 [ctx-I39b]: 작업대 통로는 Context 화면용 contextsSource를 core로 이어 둔다", async () => {
+  const { core, calls } = routedCore({
+    "contexts/list": () => ({
+      ok: true,
+      value: { contexts: [], complete: true, next_cursor: null },
+    }),
+  });
+  const source = coreWorkspaceSource(core);
+  assertEquals(await source.contextsSource?.list(PROJECT), {
+    ok: true,
+    value: [],
+  });
+  assertEquals(
+    calls.map((call) => `${call.kind}:${call.resource}/${call.method}`),
+    [
+      "read:contexts/list",
+    ],
+  );
+});

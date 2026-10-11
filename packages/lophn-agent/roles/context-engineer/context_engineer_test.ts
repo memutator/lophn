@@ -994,13 +994,17 @@ function catalogEntryFixture(over: Partial<CatalogEntry> = {}): CatalogEntry {
     supports_tools: true,
     input_media: ["text"],
     output_media: ["text"],
-    reasoning: {
-      mode: "named",
-      levels: ["low", "medium", "high"],
-      minimum_budget: null,
-      maximum_budget: null,
-      default_level: "medium",
-    },
+    options: [{
+      id: "effort",
+      label: "Effort",
+      values: [
+        { value: "low", label: "Low", wire: null },
+        { value: "medium", label: "Medium", wire: null },
+        { value: "high", label: "High", wire: null },
+      ],
+      default_value: "medium",
+      budget: null,
+    }],
     preview: false,
     deprecated: false,
     source: "release_snapshot",
@@ -1057,8 +1061,15 @@ Deno.test("lophn-agent/roles/context-engineer#R14: 실제 model 선택은 preset
   assertEquals(both.value.model!.purpose, "judgment");
   assertEquals(both.value.organizing_model!.purpose, "organizing");
   // 두 용도는 서로 다른 선택으로 분리된다(R14).
-  assertEquals(both.value.model!.reasoning_level, "medium");
-  assertEquals(both.value.organizing_model!.reasoning_level, "low");
+  assertEquals(both.value.model!.option_values, { effort: "medium" });
+  assertEquals(both.value.organizing_model!.option_values, { effort: "low" });
+  // 그 model이 선언하지 않은 effort 값은 다른 값으로 바꾸지 않고 거절한다(harness/model#R24).
+  const undeclared = validateDefinition({
+    ...productPresetDefinition("context_engineer", HASH),
+    model: { ...selection, reasoning_level: "maximum" as const },
+    organizing_model: null,
+  }, deps);
+  assert(!undeclared.ok);
 });
 
 Deno.test("lophn-agent/roles/context-engineer#R14: 확인되지 않은 model은 저장을 거절하고 역할 상한은 model 호출 tool을 두지 않는다", () => {

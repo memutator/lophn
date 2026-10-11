@@ -687,13 +687,16 @@ Deno.test("lophn-agent/roles/lophn#R19: planning, reuse and guidance runs fix th
     supports_tools: true,
     input_media: ["text"],
     output_media: ["text"],
-    reasoning: {
-      mode: "toggle",
-      levels: ["off", "low"],
-      minimum_budget: 0,
-      maximum_budget: 8000,
-      default_level: "off",
-    },
+    options: [{
+      id: "effort",
+      label: "Effort",
+      values: [
+        { value: "off", label: "Off", wire: null },
+        { value: "low", label: "Low", wire: null },
+      ],
+      default_value: "off",
+      budget: null,
+    }],
     preview: null,
     deprecated: null,
     source: "user",

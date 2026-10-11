@@ -234,13 +234,16 @@ function fakeCalls(root: string, skills: readonly string[] = []): CoreCalls {
     supports_tools: true,
     input_media: ["text"],
     output_media: ["text"],
-    reasoning: {
-      mode: "named",
-      levels: ["low", "high"],
-      minimum_budget: null,
-      maximum_budget: null,
-      default_level: "low",
-    },
+    options: [{
+      id: "effort",
+      label: "Effort",
+      values: [
+        { value: "low", label: "Low", wire: null },
+        { value: "high", label: "High", wire: null },
+      ],
+      default_value: "low",
+      budget: null,
+    }],
     preview: false,
     deprecated: null,
     source: "models_dev",

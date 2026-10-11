@@ -43,6 +43,7 @@ import {
   targetIsActive,
   workPlaceOf,
 } from "./model.ts";
+import { checkSessionModel } from "./session-model.ts";
 import { renameSessionTitle } from "./session-title.ts";
 
 // 세션 command. 등록 순서와 transaction 규칙은 message-commands.ts와 같다.
@@ -334,6 +335,11 @@ export function createConversationCommands(deps: ConversationDeps): {
             model_selection: before,
             state_seq: session.state_seq,
           });
+        }
+        // null은 agent 기본값으로 돌아가는 것이라 검사할 선택이 없다.
+        if (input.model !== null) {
+          const checked = checkSessionModel(tx, input.model);
+          if (!checked.ok) return checked;
         }
         if (session.state_seq !== compare.state_seq) {
           return reject("conflict", "session changed");

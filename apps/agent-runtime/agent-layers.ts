@@ -13,6 +13,7 @@ import {
   runBody,
   runRead,
   sessionRead,
+  type SessionRecord,
 } from "../../packages/contracts/lophn-agent/mod.ts";
 import {
   productEnvironment,
@@ -65,22 +66,18 @@ function placeOfScope(
 
 // built-in agent의 자리는 session의 작업 자리다(R27). session 없는 run(handoff로 받은 일)은 보낸 run의
 // 자리를 따른다. Operator는 assignment의 scope다.
+// session은 run이 속한 session의 기록이다(run.session이 null이면 null).
 export async function placeOfRun(
   machine: CoreCall,
   run: RunRecord,
   assignment: AssignmentRecord,
+  session: SessionRecord | null,
   depth = 0,
 ): Promise<Result<AgentPlace | null>> {
   if (assignment.role === "operator") {
     return ok(placeOfScope(assignment.scope));
   }
-  if (run.session !== null) {
-    const session = await readOf(machine, sessionRead, {
-      session: run.session,
-    });
-    if (!session.ok) return session;
-    return ok(session.value.session.work_place);
-  }
+  if (session !== null) return ok(session.work_place);
   if (
     run.source.kind === "handoff" && run.source.sender_run !== undefined &&
     depth < MAX_HANDOFF_DEPTH
@@ -89,7 +86,20 @@ export async function placeOfRun(
       run: run.source.sender_run,
     });
     if (!sender.ok) return sender;
-    return await placeOfRun(machine, sender.value.run, assignment, depth + 1);
+    // 보낸 run의 session은 자리만 알려 주고 model 선택은 받는 run의 것이 아니다.
+    const sentFrom = sender.value.run.session === null
+      ? null
+      : await readOf(machine, sessionRead, {
+        session: sender.value.run.session,
+      });
+    if (sentFrom !== null && !sentFrom.ok) return sentFrom;
+    return await placeOfRun(
+      machine,
+      sender.value.run,
+      assignment,
+      sentFrom === null ? null : sentFrom.value.session,
+      depth + 1,
+    );
   }
   return ok(placeOfScope(assignment.scope));
 }
@@ -134,7 +144,14 @@ export async function resolveRunAgent(
   },
 ): Promise<Result<RunAgent>> {
   const { run, assignment } = input;
-  const found = await placeOfRun(machine, run, assignment);
+  // 이 run의 session이 고른 model은 가장 높은 층이다(R27). run을 준비하는 지금 읽은 값이 이 run에 고정되고,
+  // 그 뒤에 바뀐 선택은 다음 run부터 쓴다.
+  const sessionRecord = run.session === null
+    ? null
+    : await readOf(machine, sessionRead, { session: run.session });
+  if (sessionRecord !== null && !sessionRecord.ok) return sessionRecord;
+  const session = sessionRecord === null ? null : sessionRecord.value.session;
+  const found = await placeOfRun(machine, run, assignment, session);
   if (!found.ok) return found;
   const place = found.value;
   if (place === null) return cannot("target_unavailable", "no_place");
@@ -177,7 +194,7 @@ export async function resolveRunAgent(
     definition: read.value.definition,
     workspace,
     place_settings: placed.value.settings,
-    session_model: null,
+    session_model: session?.model_selection ?? null,
     environment: productEnvironment(assignment.role, {
       skills: input.skills,
       mcp: input.mcp,

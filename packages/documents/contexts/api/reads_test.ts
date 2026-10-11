@@ -6,7 +6,10 @@ import type { SearchRow } from "../../../contracts/documents/mod.ts";
 import {
   contextBundlesReadSchema,
   contextContainingReadSchema,
+  contextContractReadSchema,
+  contextDraftReadSchema,
   contextGetReadSchema,
+  contextInputOptionsReadSchema,
   contextListReadSchema,
   contextOverviewReadSchema,
   contextSavedViewsReadSchema,
@@ -14,6 +17,7 @@ import {
   contextViolationsReadSchema,
   glossaryListReadSchema,
 } from "../../../contracts/documents/mod.ts";
+import { createContextApiCommands } from "./commands.ts";
 import {
   type ContextApiReadDeps,
   createContextApiReads,
@@ -30,6 +34,7 @@ import {
   ids,
   minimalContent,
   newState,
+  optionsContent,
   seedActive,
   seedBundle,
   seedContext,
@@ -43,11 +48,18 @@ import {
 } from "./testing.ts";
 
 function row(key: string): SearchRow {
-  return {
+  const ref = {
+    type: "Experiment",
     key,
     path: `eval/experiments/exp-${key}-x.md`,
     section: null,
-    values: { status: "done" },
+  };
+  return {
+    ref,
+    cells: [
+      { path: "key", value: key, ref },
+      { path: "status", value: "done", ref: null },
+    ],
   };
 }
 
@@ -405,20 +417,20 @@ Deno.test("documents/contexts#R17 [ctx-I31]: context.search pages by the declare
   const { search } = searchFixture();
   // experiment_by_key는 page_size 2를 선언한다
   const first = shaped(contextSearchReadSchema, expectOk(search({})));
-  assertEquals(first.rows.map((entry) => entry.key), ["001", "002"]);
+  assertEquals(first.rows.map((entry) => entry.ref.key), ["001", "002"]);
   assertEquals(first.complete, false);
   assert(first.next_cursor !== null);
   const second = shaped(
     contextSearchReadSchema,
     expectOk(search({ cursor: first.next_cursor })),
   );
-  assertEquals(second.rows.map((entry) => entry.key), ["003", "004"]);
+  assertEquals(second.rows.map((entry) => entry.ref.key), ["003", "004"]);
   assert(second.next_cursor !== null);
   const third = shaped(
     contextSearchReadSchema,
     expectOk(search({ cursor: second.next_cursor })),
   );
-  assertEquals(third.rows.map((entry) => entry.key), ["005"]);
+  assertEquals(third.rows.map((entry) => entry.ref.key), ["005"]);
   assertEquals(third.complete, true);
   assertEquals(third.next_cursor, null);
   const all = [...first.rows, ...second.rows, ...third.rows];
@@ -437,7 +449,7 @@ Deno.test("documents/contexts#R17 [ctx-I31]: a page_size on the call replaces th
     contextSearchReadSchema,
     expectOk(search({ page_size: 1 })),
   );
-  assertEquals(small.rows.map((entry) => entry.key), ["001"]);
+  assertEquals(small.rows.map((entry) => entry.ref.key), ["001"]);
   assertEquals(small.complete, false);
   const none = setup([]);
   const active = seedActive(none.state, none.t);
@@ -981,4 +993,676 @@ Deno.test("documents/terms#R9 [ctx-I31]: glossary.list still reads an archived c
       actor.actor,
     );
   }
+});
+
+// ---------- ctx-S26: 화면이 읽는 것 ----------
+
+Deno.test("documents/contexts#R17 [ctx-S26]: context.search reports the total of all rows on every page", () => {
+  const { search } = searchFixture();
+  const first = shaped(contextSearchReadSchema, expectOk(search({})));
+  assertEquals(first.rows.length, 2);
+  assertEquals(first.total, 5);
+  const second = shaped(
+    contextSearchReadSchema,
+    expectOk(search({ cursor: first.next_cursor! })),
+  );
+  assertEquals(second.total, 5);
+  const last = shaped(
+    contextSearchReadSchema,
+    expectOk(search({ cursor: second.next_cursor! })),
+  );
+  assertEquals(last.rows.length, 1);
+  assertEquals(last.total, 5);
+  assertEquals(
+    shaped(contextSearchReadSchema, expectOk(search({ page_size: 5 })))
+      .total,
+    5,
+  );
+  assertEquals(expectOk(search({ page_size: 1 })).total, 5);
+  const none = searchFixture([]);
+  const page = shaped(contextSearchReadSchema, expectOk(none.search({})));
+  assertEquals(page.total, 0);
+  assertEquals(page.rows, []);
+});
+
+Deno.test("documents/contexts#R16 [ctx-S26]: context.search rows keep the runner's ref and cells, so an alias column links to its own entity", () => {
+  const ref = {
+    type: "Experiment",
+    key: "001",
+    path: "eval/experiments/exp-001-plan.md",
+    section: null,
+  };
+  const scenario = {
+    type: "Scenario",
+    key: "query-leave-still",
+    path: "eval/scenarios/query-leave-still/r1.yaml",
+    section: null,
+  };
+  const finding = {
+    type: "Finding",
+    key: "F-009",
+    path: "loop/findings/F-009.md",
+    section: "Effect",
+  };
+  const rows: SearchRow[] = [{
+    ref,
+    cells: [
+      { path: "key", value: "001", ref },
+      { path: "scenario.key", value: scenario.key, ref: scenario },
+      { path: "scenario.path", value: scenario.path, ref: null },
+      { path: "status", value: "done", ref: null },
+      { path: "tags", value: ["a", "b"], ref: null },
+      { path: "round", value: null, ref: null },
+    ],
+  }, {
+    ref: finding,
+    cells: [{ path: "key", value: "F-009", ref: finding }],
+  }];
+  const { search } = searchFixture(rows);
+  const page = shaped(contextSearchReadSchema, expectOk(search({})));
+  assertEquals(page.rows, rows);
+  assertEquals(page.total, 2);
+  assertEquals(page.rows[0].cells[1].ref, scenario);
+  assertEquals(page.rows[1].ref.section, "Effect");
+});
+
+Deno.test("documents/contexts#R16 [ctx-S26]: a board search carries refs and the total too", () => {
+  const { search } = searchFixture(manyRows);
+  const board = shaped(
+    contextSearchReadSchema,
+    expectOk(search({
+      search: "experiments_by_status",
+      inputs: { status: ["done"] },
+    })),
+  );
+  assertEquals(board.total, 5);
+  assertEquals(board.rows.map((entry) => entry.ref.key), [
+    "001",
+    "002",
+    "003",
+    "004",
+    "005",
+  ]);
+  assert(board.rows.every((entry) => entry.ref.type === "Experiment"));
+  assert(board.rows.every((entry) => entry.cells[0].ref !== null));
+});
+
+// ---------- context.contract ----------
+
+Deno.test("documents/contexts#R15 [ctx-S26]: context.contract returns the content of the applied bundle with its hash", () => {
+  const { state, t, reads } = setup();
+  const content = evalContent() as {
+    contract: unknown;
+    saved_views: unknown[];
+    examples: unknown[];
+  };
+  const { context, bundle } = seedActive(state, t, { content });
+  // 적용되지 않은 판은 보이지 않는다
+  seedBundle(state, {
+    id: ids.spareBundle,
+    parent: bundle.id,
+    content: minimalContent(),
+  });
+  const read = shaped(
+    contextContractReadSchema,
+    expectOk(
+      reads.contextContract({ actor: user, input: { context: context.id } }),
+    ),
+  );
+  assertEquals(read.context, context.id);
+  assertEquals(read.bundle, bundle.id);
+  assertEquals(read.bundle_hash, bundle.bundle_hash);
+  assertEquals(read.content?.contract, content.contract);
+  assertEquals(read.content?.searches.map((entry) => entry.name), [
+    "findings_for_experiment",
+    "experiments_by_status",
+    "experiments_on_scenario",
+  ]);
+  assertEquals(read.content?.saved_views.length, content.saved_views.length);
+  assertEquals(read.content?.examples.length, content.examples.length);
+  assertEquals(read.as_of_seq, String(state.seq));
+  assertEquals(read.next_cursor, null);
+});
+
+Deno.test("documents/contexts#R15 [ctx-S26]: context.contract is null for a context with no applied bundle and follows a rollback", () => {
+  const { state, reads } = setup();
+  const drafting = seedContext(state);
+  seedBundle(state);
+  const none = shaped(
+    contextContractReadSchema,
+    expectOk(
+      reads.contextContract({ actor: user, input: { context: drafting.id } }),
+    ),
+  );
+  assertEquals(none.bundle, null);
+  assertEquals(none.bundle_hash, null);
+  assertEquals(none.content, null);
+
+  const second = setup();
+  const first = seedNumbered(second.state, second.t, {
+    n: 1,
+    status: "superseded",
+  });
+  const current = seedNumbered(second.state, second.t, {
+    n: 2,
+    status: "applied",
+    content: minimalContent({ examples: [] }),
+  });
+  seedContext(second.state, { status: "active", applied_bundle: first.id });
+  const call = () =>
+    expectOk(second.reads.contextContract({
+      actor: user,
+      input: { context: ids.context },
+    }));
+  assertEquals(call().bundle, first.id);
+  second.state.contexts.set(ids.context, {
+    ...second.state.contexts.get(ids.context)!,
+    applied_bundle: current.id,
+  });
+  assertEquals(call().bundle, current.id);
+});
+
+Deno.test("documents/contexts#R15 [ctx-S26]: context.contract still reads an archived context and rejects missing contexts and other actors", () => {
+  const { state, t, reads } = setup();
+  const { context } = seedActive(state, t);
+  state.contexts.set(context.id, { ...context, status: "archived" });
+  const read = expectOk(
+    reads.contextContract({ actor: user, input: { context: context.id } }),
+  );
+  assert(read.content !== null);
+  expectOk(reads.contextContract({
+    actor: actors.otherAgent,
+    input: { context: context.id },
+  }));
+  assertEquals(
+    errorCode(reads.contextContract({
+      actor: user,
+      input: { context: ids.missingContext },
+    })),
+    "not_found",
+  );
+  for (const actor of [actors.codingAgent, actors.worker]) {
+    assertEquals(
+      errorCode(
+        reads.contextContract({ actor, input: { context: context.id } }),
+      ),
+      "forbidden",
+      actor.actor,
+    );
+  }
+});
+
+// ---------- context.draft ----------
+
+function draftOf(
+  reads: ReturnType<typeof setup>["reads"],
+  context: string = ids.context,
+) {
+  return shaped(
+    contextDraftReadSchema,
+    expectOk(reads.contextDraft({ actor: user, input: { context } })),
+  ).draft;
+}
+
+Deno.test("documents/contexts#R19 [ctx-S26]: context.draft is step 1 with nothing yet while a drafting context has no bundle", () => {
+  const { state, reads } = setup();
+  seedContext(state);
+  assertEquals(draftOf(reads), {
+    step: 1,
+    bundle: null,
+    content: null,
+    check: null,
+  });
+  // 버린 draft는 진행이 아니다
+  seedBundle(state, { status: "discarded" });
+  assertEquals(draftOf(reads)?.step, 1);
+});
+
+Deno.test("documents/contexts#R19 [ctx-S26]: context.draft is step 2 with the draft bundle and its content", () => {
+  const { state, reads } = setup();
+  seedContext(state);
+  const content = { schema: 1, contract: { types: [] }, note: "unfinished" };
+  const bundle = seedBundle(state, { content });
+  assertEquals(draftOf(reads), {
+    step: 2,
+    bundle: summaryOf(bundle),
+    content,
+    check: null,
+  });
+  // 검사에서 떨어진 판이 있어도 지금의 draft가 먼저다
+  const t = testDeps();
+  seedNumbered(state, t, {
+    n: 1,
+    slot: 7,
+    status: "failed",
+    content: minimalContent(),
+  });
+  const read = draftOf(reads)!;
+  assertEquals(read.step, 2);
+  assertEquals(read.bundle, summaryOf(bundle));
+  assertEquals(read.content, content);
+  assertEquals(read.check, null);
+});
+
+Deno.test("documents/contexts#R19 [ctx-S26]: context.draft is step 3 with the checking bundle and its running check", () => {
+  const { state, t, reads } = setup();
+  seedContext(state);
+  const bundle = seedNumbered(state, t, { n: 1, status: "checking" });
+  const read = draftOf(reads)!;
+  assertEquals(read.step, 3);
+  assertEquals(read.bundle, summaryOf(bundle));
+  assertEquals(read.content, bundle.content);
+  assertEquals(read.check?.status, "running");
+  assertEquals(read.check?.bundle, bundle.id);
+});
+
+Deno.test("documents/contexts#R19 [ctx-S26]: after a failed check the draft goes back to step 2 with the failed bundle and its findings, the latest failure first", () => {
+  const { state, t, reads } = setup();
+  seedContext(state);
+  const older = seedNumbered(state, t, { n: 1, status: "failed" });
+  const latest = seedNumbered(state, t, {
+    n: 2,
+    status: "failed",
+    content: minimalContent({ examples: [] }),
+    parent: older.id,
+  });
+  const read = draftOf(reads)!;
+  assertEquals(read.step, 2);
+  assertEquals(read.bundle, summaryOf(latest));
+  assertEquals(read.content, latest.content);
+  assertEquals(read.check?.status, "failed");
+  assertEquals(read.check?.findings.length, 1);
+});
+
+Deno.test("documents/contexts#R19 [ctx-S26]: context.draft is null for an active or archived context and rejects missing contexts and other actors", () => {
+  const { state, t, reads } = setup();
+  const { context } = seedActive(state, t);
+  seedBundle(state, { id: ids.spareBundle, parent: ids.bundle });
+  assertEquals(draftOf(reads, context.id), null);
+  state.contexts.set(context.id, { ...context, status: "archived" });
+  assertEquals(draftOf(reads, context.id), null);
+  assertEquals(
+    errorCode(reads.contextDraft({
+      actor: user,
+      input: { context: ids.missingContext },
+    })),
+    "not_found",
+  );
+  for (const actor of [actors.codingAgent, actors.worker]) {
+    assertEquals(
+      errorCode(reads.contextDraft({ actor, input: { context: context.id } })),
+      "forbidden",
+      actor.actor,
+    );
+  }
+});
+
+// ---------- context.input_options ----------
+
+function optionsFixture() {
+  const world = setup();
+  const { state, t } = world;
+  const { context } = seedActive(state, t, { content: optionsContent() });
+  state.entities.set(context.id, [
+    entity("Experiment", "003", {
+      title: "Third",
+      status: "weird",
+      round: 10,
+      tags: ["x", "y"],
+    }),
+    entity("Experiment", "001", {
+      title: "First",
+      status: "done",
+      round: 2,
+      tags: ["y", "a"],
+    }),
+    entity("Experiment", "002", { status: "running", round: 2 }),
+    entity("Scenario", "s-1", { title: "Not an experiment" }),
+  ]);
+  const options = (
+    input: Record<string, unknown>,
+    actor: ContextApiActor = user,
+  ) =>
+    world.reads.contextInputOptions({
+      actor,
+      input: {
+        context: context.id,
+        search: "experiment_picker",
+        input: "experiment",
+        ...input,
+      },
+    });
+  return { ...world, context, options };
+}
+
+const shapedOptions = (
+  result: ReturnType<ReturnType<typeof optionsFixture>["options"]>,
+) => shaped(contextInputOptionsReadSchema, expectOk(result));
+
+Deno.test("documents/contexts#R15 [ctx-S26]: an entity input offers the keys and titles of that type in key order", () => {
+  const { options, context } = optionsFixture();
+  const read = shapedOptions(options({}));
+  assertEquals(read.context, context.id);
+  assertEquals(read.search, "experiment_picker");
+  assertEquals(read.input, "experiment");
+  assertEquals(read.options, [
+    { value: "001", label: "First" },
+    { value: "002", label: "002" },
+    { value: "003", label: "Third" },
+  ]);
+  assertEquals(read.complete, true);
+});
+
+Deno.test("documents/contexts#R15 [ctx-S26]: a value input offers the enum values in declared order first and then the other values", () => {
+  const { options, state, context } = optionsFixture();
+  // 선언: planned, running, done. 행이 없는 값도 후보다. 선언 밖 값은 그 뒤다.
+  assertEquals(
+    shapedOptions(options({ input: "status" })).options.map((entry) =>
+      entry.value
+    ),
+    ["planned", "running", "done", "weird"],
+  );
+  state.entities.set(context.id, [
+    entity("Experiment", "001", { status: "done" }),
+    entity("Experiment", "002", { status: "aaa" }),
+    entity("Experiment", "003", { status: "bbb" }),
+  ]);
+  assertEquals(
+    shapedOptions(options({ input: "status" })).options.map((entry) =>
+      entry.value
+    ),
+    ["planned", "running", "done", "aaa", "bbb"],
+  );
+});
+
+Deno.test("documents/contexts#R15 [ctx-S26]: a value input offers the distinct values of the field: texts in code unit order, numbers by size, list items flattened", () => {
+  const { options } = optionsFixture();
+  assertEquals(shapedOptions(options({ input: "title" })).options, [
+    { value: "First", label: "First" },
+    { value: "Third", label: "Third" },
+  ]);
+  assertEquals(shapedOptions(options({ input: "round" })).options, [
+    { value: 2, label: "2" },
+    { value: 10, label: "10" },
+  ]);
+  assertEquals(
+    shapedOptions(options({ input: "tag" })).options.map((entry) =>
+      entry.value
+    ),
+    ["a", "x", "y"],
+  );
+});
+
+Deno.test("documents/contexts#R15 [ctx-S26]: the typed prefix filters on the value or the label without caring about ASCII case", () => {
+  const { options } = optionsFixture();
+  assertEquals(
+    shapedOptions(options({ prefix: "fi" })).options.map((entry) =>
+      entry.value
+    ),
+    ["001"],
+  );
+  assertEquals(
+    shapedOptions(options({ prefix: "00" })).options.map((entry) =>
+      entry.value
+    ),
+    ["001", "002", "003"],
+  );
+  assertEquals(
+    shapedOptions(options({ prefix: "TH" })).options.map((entry) =>
+      entry.value
+    ),
+    ["003"],
+  );
+  assertEquals(
+    shapedOptions(options({ input: "status", prefix: "RUN" })).options.map((
+      entry,
+    ) => entry.value),
+    ["running"],
+  );
+  assertEquals(
+    shapedOptions(options({ input: "round", prefix: "1" })).options.map((
+      entry,
+    ) => entry.value),
+    [10],
+  );
+  const none = shapedOptions(options({ prefix: "zzz" }));
+  assertEquals(none.options, []);
+  assertEquals(none.complete, true);
+  // 빈 prefix는 걸러내지 않는다
+  assertEquals(shapedOptions(options({ prefix: "" })).options.length, 3);
+});
+
+Deno.test("documents/contexts#R15 [ctx-S26]: the cap cuts the candidates and says the list is not complete", () => {
+  const { options, state, context } = optionsFixture();
+  const capped = shapedOptions(options({ limit: 2 }));
+  assertEquals(capped.options.map((entry) => entry.value), ["001", "002"]);
+  assertEquals(capped.complete, false);
+  assertEquals(shapedOptions(options({ limit: 3 })).complete, true);
+  assertEquals(
+    shapedOptions(options({ limit: 1, prefix: "zzz" })).complete,
+    true,
+  );
+  state.entities.set(
+    context.id,
+    Array.from(
+      { length: 60 },
+      (_, n) => entity("Experiment", String(n).padStart(3, "0")),
+    ),
+  );
+  const standard = shapedOptions(options({}));
+  assertEquals(standard.options.length, 50);
+  assertEquals(standard.complete, false);
+  assertEquals(standard.options[0].value, "000");
+  assertEquals(standard.options[49].value, "049");
+  assertEquals(shapedOptions(options({ limit: 200 })).options.length, 60);
+});
+
+Deno.test("documents/contexts#R15 [ctx-S26]: input_options only reads this context's entities of the declared type", () => {
+  const { options, state, context } = optionsFixture();
+  state.entities.set(ids.otherContext, [entity("Experiment", "other")]);
+  assertEquals(
+    shapedOptions(options({})).options.map((entry) => entry.value),
+    ["001", "002", "003"],
+  );
+  state.entities.set(context.id, []);
+  assertEquals(shapedOptions(options({})).options, []);
+});
+
+Deno.test("documents/contexts#R15 [ctx-S26]: input_options rejects inputs it cannot offer candidates for and contexts it cannot search", () => {
+  const { options, state, context } = optionsFixture();
+  for (
+    const input of [
+      { search: "no_such_search" },
+      { input: "no_such_input" },
+      { input: "note" },
+      { input: "window" },
+    ]
+  ) {
+    assertEquals(errorCode(options(input)), "invalid_input", String(input));
+  }
+  assertEquals(
+    errorCode(options({}, actors.otherAgent)),
+    "ok",
+  );
+  for (const actor of [actors.codingAgent, actors.worker]) {
+    assertEquals(errorCode(options({}, actor)), "forbidden", actor.actor);
+  }
+  assertEquals(
+    errorCode(options({ context: ids.missingContext })),
+    "not_found",
+  );
+  state.indexFailing.add(context.id);
+  assertEquals(errorCode(options({})), "unavailable");
+  state.indexFailing.clear();
+  state.contexts.set(context.id, {
+    ...state.contexts.get(context.id)!,
+    status: "archived",
+  });
+  assertEquals(errorCode(options({})), "not_found");
+  const drafting = seedContext(state, {
+    id: ids.otherContext,
+    title: "Other",
+  });
+  assertEquals(
+    errorCode(options({ context: drafting.id })),
+    "not_found",
+  );
+});
+
+// ---------- context.violations handed_off ----------
+
+function handOffEvent(
+  state: ReturnType<typeof setup>["state"],
+  context: string,
+  keys: {
+    kind: string;
+    rule: string | null;
+    path: string;
+    section: string | null;
+  }[],
+) {
+  state.events.push({
+    seq: String(state.events.length + 1),
+    type: "ContextViolationsHandedOff",
+    subject: context,
+    actor: "user",
+    at: "2026-10-12T00:00:00.000Z",
+    payload: {
+      violations: keys,
+      evidence: { hash: "e".repeat(64), size_bytes: 10 },
+      run: id("run", 5),
+    },
+  });
+}
+
+Deno.test("documents/contexts#R25 [ctx-S26]: context.violations marks the violations already handed to the Context Engineer", () => {
+  const { state, t, reads } = setup();
+  const { context } = seedActive(state, t);
+  seedViolations(state, [
+    violation({ path: "docs/a.md" }),
+    violation({ path: "docs/b.md" }),
+    violation({
+      kind: "broken_link",
+      rule: null,
+      type: "Guide",
+      path: "docs/c.md",
+      target: "docs/gone.md",
+      message: "Link target is missing",
+    }),
+    violation({ path: "docs/d.md", section: "Intro" }),
+  ]);
+  const handedOf = () =>
+    shaped(
+      contextViolationsReadSchema,
+      expectOk(
+        reads.contextViolations({
+          actor: user,
+          input: { context: context.id },
+        }),
+      ),
+    ).violations.map((item) => [item.path, item.handed_off]);
+  assertEquals(handedOf(), [
+    ["docs/a.md", false],
+    ["docs/b.md", false],
+    ["docs/c.md", false],
+    ["docs/d.md", false],
+  ]);
+  handOffEvent(state, context.id, [
+    {
+      kind: "rule",
+      rule: "Experiment.status-required",
+      path: "docs/a.md",
+      section: null,
+    },
+    { kind: "broken_link", rule: null, path: "docs/c.md", section: null },
+    // 같은 경로라도 section이 다르면 다른 위반이다
+    {
+      kind: "rule",
+      rule: "Experiment.status-required",
+      path: "docs/d.md",
+      section: null,
+    },
+  ]);
+  assertEquals(handedOf(), [
+    ["docs/a.md", true],
+    ["docs/b.md", false],
+    ["docs/c.md", true],
+    ["docs/d.md", false],
+  ]);
+  // 나중에 넘긴 것까지 합쳐서 본다
+  handOffEvent(state, context.id, [{
+    kind: "rule",
+    rule: "Experiment.status-required",
+    path: "docs/b.md",
+    section: null,
+  }, {
+    kind: "rule",
+    rule: "Experiment.status-required",
+    path: "docs/d.md",
+    section: "Intro",
+  }]);
+  assertEquals(handedOf(), [
+    ["docs/a.md", true],
+    ["docs/b.md", true],
+    ["docs/c.md", true],
+    ["docs/d.md", true],
+  ]);
+});
+
+Deno.test("documents/contexts#R25 [ctx-S26]: a hand-off of another context or another event type does not mark a violation", () => {
+  const { state, t, reads } = setup();
+  const { context } = seedActive(state, t);
+  seedViolations(state, [violation({ path: "docs/a.md" })]);
+  const key = {
+    kind: "rule",
+    rule: "Experiment.status-required",
+    path: "docs/a.md",
+    section: null,
+  };
+  handOffEvent(state, ids.otherContext, [key]);
+  state.events.push({
+    seq: "9",
+    type: "ContextViolationsRecorded",
+    subject: context.id,
+    actor: "machine",
+    at: "2026-10-12T00:00:00.000Z",
+    payload: { before: 0, after: 1, bundle_hash: "a".repeat(64) },
+  });
+  const read = () =>
+    expectOk(
+      reads.contextViolations({ actor: user, input: { context: context.id } }),
+    ).violations.map((item) => item.handed_off);
+  assertEquals(read(), [false]);
+  handOffEvent(state, context.id, [key]);
+  assertEquals(read(), [true]);
+});
+
+Deno.test("documents/contexts#R25 [ctx-S26]: the hand-off command marks exactly the violations it handed off", () => {
+  const { state, t, reads } = setup();
+  const { context } = seedActive(state, t);
+  seedViolations(state, [
+    violation({ path: "docs/a.md" }),
+    violation({ path: "docs/b.md" }),
+  ]);
+  const commands = createContextApiCommands(state, t.deps);
+  expectOk(commands.handOffViolations({
+    actor: user,
+    key: "k1",
+    input: {
+      context: context.id,
+      violations: [{
+        kind: "rule",
+        rule: "Experiment.status-required",
+        path: "docs/b.md",
+        section: null,
+      }],
+    },
+    compare: {},
+  }));
+  assertEquals(
+    expectOk(
+      reads.contextViolations({ actor: user, input: { context: context.id } }),
+    ).violations.map((item) => [item.path, item.handed_off]),
+    [["docs/a.md", false], ["docs/b.md", true]],
+  );
 });

@@ -5,6 +5,7 @@ import {
   bundleContentSchema,
   CONTEXT_PAGE_DEFAULT,
   CONTEXT_PAGE_MAX,
+  type ContextValue,
 } from "../../../contracts/documents/mod.ts";
 import type { BundleRow, ContextApiActor, ContextApiState } from "./state.ts";
 
@@ -142,4 +143,54 @@ export function parseContent(row: BundleRow): Result<BundleContent> {
     code: "unavailable",
     message: `bundle ${row.id} content cannot be read`,
   });
+}
+
+// 선언 검색을 돌리거나 후보를 낼 수 있는 context: 활성이고 판이 적용됐고 index를 읽을 수 있다.
+// 보관된 context와 아직 판이 없는 context는 닫혀 있고, 갱신하지 못한 index는 빈 결과로 꾸미지 않는다.
+export function searchableOf(
+  state: ContextApiState,
+  contextId: string,
+): Result<
+  { context: ContextValue; applied: BundleRow; content: BundleContent }
+> {
+  const context = state.contexts.get(contextId);
+  if (context === undefined || context.status !== "active") {
+    return notFound("context", contextId);
+  }
+  const applied = appliedBundleOf(state, context);
+  if (applied === null) return notFound("applied bundle of", context.id);
+  if (state.indexFailing.has(context.id)) {
+    return err({
+      code: "unavailable",
+      message: `index of ${context.id} is not available`,
+    });
+  }
+  const content = parseContent(applied);
+  if (!content.ok) return content;
+  return ok({ context, applied, content: content.value });
+}
+
+// ---------- 만드는 중인 판 ----------
+
+// drafting context의 지금 판: draft, 없으면 검사 중인 판, 없으면 번호가 가장 큰 failed 판.
+// 버린 판과 적용된 적 있는 판은 진행이 아니다.
+export function currentBundleOf<
+  T extends { status: string; number: number | null; id: string },
+>(bundles: Iterable<T>): T | null {
+  let draft: T | null = null;
+  let checking: T | null = null;
+  let failed: T | null = null;
+  for (const bundle of bundles) {
+    if (bundle.status === "draft") {
+      draft = bundle;
+    } else if (bundle.status === "checking") {
+      checking = bundle;
+    } else if (
+      bundle.status === "failed" &&
+      (failed === null || (bundle.number ?? 0) > (failed.number ?? 0))
+    ) {
+      failed = bundle;
+    }
+  }
+  return draft ?? checking ?? failed;
 }

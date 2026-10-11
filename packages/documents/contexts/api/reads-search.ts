@@ -17,6 +17,7 @@ import {
   invalidInput,
   notFound,
   parseContent,
+  searchableOf,
 } from "./reads-common.ts";
 import type { ContextApiState } from "./state.ts";
 
@@ -29,26 +30,13 @@ export function createSearchReads(
   const contextSearch: Handlers["contextSearch"] = ({ actor, input }) => {
     const allowed = checkReader(actor);
     if (!allowed.ok) return allowed;
-    const context = state.contexts.get(input.context);
-    // 보관된 context와 아직 판이 없는 context의 검색은 닫혀 있다.
-    if (
-      context === undefined || context.status !== "active"
-    ) {
-      return notFound("context", input.context);
-    }
-    const applied = appliedBundleOf(state, context);
-    if (applied === null) return notFound("applied bundle of", context.id);
-    // index를 갱신하지 못했으면 빈 결과로 꾸미지 않는다.
-    if (state.indexFailing.has(context.id)) {
-      return err({
-        code: "unavailable",
-        message: `index of ${context.id} is not available`,
-      });
-    }
-    const content = parseContent(applied);
-    if (!content.ok) return content;
+    // 보관된 context와 아직 판이 없는 context의 검색은 닫혀 있다. index를 갱신하지 못했으면 빈 결과로
+    // 꾸미지 않는다.
+    const target = searchableOf(state, input.context);
+    if (!target.ok) return target;
+    const { context, applied, content } = target.value;
 
-    const declared = content.value.searches.find((search) =>
+    const declared = content.searches.find((search) =>
       search.name === input.search
     );
     if (declared === undefined) {
@@ -105,6 +93,7 @@ export function createSearchReads(
       context: context.id,
       search: input.search,
       bundle_hash: applied.bundle_hash!,
+      total: all.length,
       rows: [...rows],
       as_of_seq: String(state.seq),
       complete,

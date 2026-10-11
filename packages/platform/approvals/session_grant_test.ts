@@ -3,10 +3,14 @@
 // lophn-agent/harness/tool-judgment가 맡고 여기는 허락 범위의 저장과 거절 규칙만 본다. run의 session은
 // lophn-agent가 채우는 사실이라 harness_test.ts의 고정 표가 대신한다.
 
-import { assertEquals } from "@std/assert";
+import { assert, assertEquals } from "@std/assert";
 import { sha256Hex } from "../../base/mod.ts";
 import type { InvocationAcceptConfirmInput } from "../../contracts/apps/mod.ts";
-import type { ApprovalRequest } from "../../contracts/platform/mod.ts";
+import {
+  type ApprovalRequest,
+  grantApprovalRequest,
+} from "../../contracts/platform/mod.ts";
+import { confirmationBinding } from "../identity/mod.ts";
 import { confirmAction } from "./confirm.ts";
 import {
   RUN_A,
@@ -28,6 +32,7 @@ import {
   issue,
   type LedgerHarness,
   machine,
+  NOW,
   openHarness,
   requestOf,
   statusOf,
@@ -197,7 +202,7 @@ Deno.test("platform/approvals#R18 [agent-I14]: Allow once는 그 request 하나�
   }
 });
 
-Deno.test("platform/approvals#R18 [agent-I14]: 범위는 once와 session뿐이고 빠지거나 계속 허락(always)이면 거절하며 request는 대기로 남는다", async () => {
+Deno.test("platform/approvals#R18 [agent-I14]: 범위는 once와 session뿐이고 계속 허락(always) 같은 값은 거절하며 request는 대기로 남는다", async () => {
   const harness = await openHarness([user, agent]);
   try {
     value(await create(harness, agent, { run: RUN_A, sessionGrantable: true }));
@@ -208,21 +213,53 @@ Deno.test("platform/approvals#R18 [agent-I14]: 범위는 once와 session뿐이�
         String(scope),
       );
     }
-    // 범위가 빠진 입력: 기본 선택이 없다(R4).
+    assertEquals(await statusOf(harness, APPROVAL), "pending");
+  } finally {
+    await harness.close();
+  }
+});
+
+Deno.test("platform/approvals#R18 [agent-I14]: 범위를 모르는 호출은 한 번 허락(once)이고 그 handle은 session 허락을 열지 않는다", async () => {
+  const harness = await openHarness([user, agent]);
+  try {
+    value(await create(harness, agent, { run: RUN_A, sessionGrantable: true }));
     const input = await decisionInput(harness, APPROVAL);
+    // scope 칸이 없는 입력으로 내용 기준을 만든 handle(범위를 모르는 기존 호출처)이다.
+    const route = grantApprovalRequest;
+    const binding = await confirmationBinding(route, input);
+    assert(binding);
+    const issued = value(
+      await harness.confirmation({
+        action: "issue",
+        request: {
+          type: "confirmation_handle_register",
+          window_id: "win-legacy",
+          target_ref: binding.target,
+          content_hash: binding.content,
+          allowed_decisions: [route.name],
+          expires_at: new Date(NOW + 120_000).toISOString(),
+        },
+      }),
+    ) as { confirmation: string };
+    const send = (extra: Record<string, unknown>, key: string) =>
+      harness.command(user, {
+        command: "grant_approval_request",
+        input: { ...input, ...extra },
+        idempotency_key: key,
+        compare: { created_seq: input["created_seq"] },
+        prepared: [],
+        confirmation: issued.confirmation,
+      });
+    // 같은 handle로 session을 허락하지 못한다.
     assertEquals(
-      failure(
-        await harness.command(user, {
-          command: "grant_approval_request",
-          input,
-          idempotency_key: "g-missing",
-          compare: { created_seq: input["created_seq"] },
-          prepared: [],
-        }),
-      ).code,
-      "invalid_input",
+      failure(await send({ scope: "session" }, "g-up")).code,
+      "forbidden",
     );
     assertEquals(await statusOf(harness, APPROVAL), "pending");
+    // scope가 없는 호출은 once다.
+    const granted = requestOf(value(await send({}, "g-default")));
+    assertEquals(granted["grant_scope"], "once");
+    assertEquals(granted["grant_session"], null);
   } finally {
     await harness.close();
   }

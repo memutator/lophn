@@ -19,6 +19,7 @@ import {
   approvalUseSchema,
   cancelApprovalRequest,
   createApprovalRequestInputSchema,
+  createApprovalRequestStoredSchema,
   grantApprovalRequest,
   rejectApprovalRequest,
 } from "./approvals.ts";
@@ -446,7 +447,7 @@ const granted = {
   closed_seq: "43",
 };
 
-Deno.test("platform/approvals#R18 [agent-I14]: 허락 결정은 scope(once|session)를 싣고 계속 허락(always)은 없다", () => {
+Deno.test("platform/approvals#R18 [agent-I14]: 허락 결정은 scope(once|session, 기본 once)를 싣고 계속 허락(always)은 없다", () => {
   const input = {
     approval: APR,
     created_seq: "42",
@@ -455,8 +456,10 @@ Deno.test("platform/approvals#R18 [agent-I14]: 허락 결정은 scope(once|sessi
   const schema = grantApprovalRequest.input;
   assert(schema.safeParse({ ...input, scope: "once" }).success);
   assert(schema.safeParse({ ...input, scope: "session" }).success);
-  // 범위는 기본 선택이 없다(R4): 빠지면 거절한다.
-  assert(!schema.safeParse(input).success);
+  // 범위가 빠지면 한 번 허락(once)이다: session 허락을 열지 않는 좁은 쪽이 기본이라 침묵이 넓은
+  // 허락이 되지 않는다(R4). 기본값을 쓰는 사례는 기존 호출처(scope를 모르는 shell·fixture)다.
+  const parsed = schema.parse(input);
+  assertEquals(parsed.scope, "once");
   for (const scope of ["always", "forever", "project", "", null]) {
     assert(!schema.safeParse({ ...input, scope }).success, String(scope));
   }
@@ -531,7 +534,7 @@ Deno.test("platform/approvals#R19 [agent-I14]: request는 session_grantable과 �
   );
 });
 
-Deno.test("platform/approvals#R20 [agent-I14]: 생성 입력은 session_grantable을 정하고 빠지면 거절한다", () => {
+Deno.test("platform/approvals#R20 [agent-I14]: 생성 입력은 session_grantable을 정하고 빠지면 false다", () => {
   assert(createApprovalRequestInputSchema.safeParse(createInput).success);
   assert(
     createApprovalRequestInputSchema.safeParse({
@@ -539,8 +542,11 @@ Deno.test("platform/approvals#R20 [agent-I14]: 생성 입력은 session_grantabl
       session_grantable: false,
     }).success,
   );
+  // 빠지면 false다: session 선택이 없는 request(앱 confirm·앱 permission·release 적용·복원 같은
+  // 기존 호출처)가 그대로 만들어진다. agent tool call의 ask만 true를 싣는다.
   const { session_grantable: _, ...rest } = createInput;
-  assert(!createApprovalRequestInputSchema.safeParse(rest).success);
+  const defaulted = createApprovalRequestInputSchema.parse(rest);
+  assertEquals(defaulted.session_grantable, false);
   assert(
     !createApprovalRequestInputSchema.safeParse({
       ...createInput,
@@ -596,4 +602,25 @@ Deno.test("platform/approvals#R19 [agent-I14]: ListApprovals는 허락 session�
       .success,
   );
   assert(!approvalsList.input.safeParse({ grant_session: RUN }).success);
+});
+
+Deno.test("platform/approvals#R18 [agent-I14]: 저장된 요청 모양은 session_grantable이 빠져도 false로 읽는다", () => {
+  const { session_grantable: _, ...rest } = createInput;
+  const stored = {
+    id: APR,
+    requester: action.caller,
+    run: null,
+    reason_blob: HASH,
+    effect,
+    action,
+    expires_at: null,
+  };
+  assert(createApprovalRequestStoredSchema.safeParse(stored).success);
+  assert(
+    createApprovalRequestStoredSchema.safeParse({
+      ...stored,
+      session_grantable: true,
+    }).success,
+  );
+  assert(createApprovalRequestInputSchema.safeParse(rest).success);
 });

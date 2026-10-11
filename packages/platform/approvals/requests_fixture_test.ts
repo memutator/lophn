@@ -25,6 +25,7 @@ export type CommandEnvelope = {
   compare: unknown;
   prepared: readonly string[];
   run?: string;
+  confirmation?: string;
 };
 
 export type LedgerHarness = {

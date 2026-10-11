@@ -272,7 +272,8 @@ export const createApprovalRequestStoredSchema = z.strictObject({
   effect: approvalEffectSchema,
   action: approvalActionSchema,
   expires_at: atSchema.nullable(),
-  session_grantable: z.boolean(),
+  // 빠지면 false다(입력의 기본값과 같다). 출력 모양이라 기본값을 채우지 않는다.
+  session_grantable: z.boolean().optional(),
 });
 
 export const createApprovalRequestInputSchema = z.strictObject({
@@ -283,9 +284,9 @@ export const createApprovalRequestInputSchema = z.strictObject({
   effect: approvalEffectInputSchema,
   action: approvalActionSchema,
   expires_at: atSchema.nullable(),
-  // agent tool call의 ask에서만 true다(platform/approvals#R20). 앱 command의 confirm·앱 permission·
-  // release 적용·복원 request는 false다.
-  session_grantable: z.boolean(),
+  // agent tool call의 ask만 true를 싣는다(platform/approvals#R20). 빠지면 false다: 앱 command의
+  // confirm·앱 permission·release 적용·복원 request는 session 선택이 없는 request다.
+  session_grantable: z.boolean().default(false),
 });
 export type CreateApprovalRequestInput = z.infer<
   typeof createApprovalRequestInputSchema
@@ -307,8 +308,9 @@ export const grantApprovalRequestInputSchema = z.strictObject({
   approval: idSchema("apr"),
   created_seq: seqSchema,
   binding_hash: sha256Schema,
-  // 사람이 고른 범위다. 기본 선택이 없고(R4) confirmation 내용에 묶인다.
-  scope: approvalGrantScopeSchema,
+  // 사람이 고른 범위이고 confirmation 내용에 묶인다. 빠지면 once다: 한 번 허락은 session 허락을 열지
+  // 않는 좁은 쪽이라 침묵이 넓은 허락이 되지 않는다(R4).
+  scope: approvalGrantScopeSchema.default("once"),
 });
 export const grantApprovalRequestOutputSchema = z.object({
   request: approvalRequestSchema,

@@ -20,6 +20,7 @@ export * from "./contexts.ts";
 export * from "./context-reads.ts";
 export * from "./context-routes.ts";
 export * from "./context-contract.ts";
+export * from "./context-api.ts";
 export * from "./terms.ts";
 export * from "./term-routes.ts";
 export * from "./series.ts";

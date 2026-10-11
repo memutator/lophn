@@ -429,23 +429,124 @@ Deno.test("lophn-agent/harness/run-loop#R2: acceptance is stored before the answ
   }
 });
 
-Deno.test("lophn-agent/harness/run-loop#R3: one live run per assignment and unrelated assignments never wait", async () => {
+Deno.test("lophn-agent/harness/run-loop#R3 [agent-I40]: two sessions of one assignment run at once while a second run in the same session waits", async () => {
   const h = await open();
   try {
     await seed(h);
-    value(await accept(h, { run: id("run", 1), message: id("msg", 1) }));
-    value(await accept(h, { run: id("run", 2), message: id("msg", 2) }));
+    const ses1 = id("ses", 1);
+    const ses2 = id("ses", 2);
+    value(
+      await accept(h, {
+        run: id("run", 1),
+        message: id("msg", 1),
+        session: ses1,
+      }),
+    );
+    value(
+      await accept(h, {
+        run: id("run", 2),
+        message: id("msg", 2),
+        session: ses1,
+      }),
+    );
+    value(
+      await accept(h, {
+        run: id("run", 3),
+        message: id("msg", 3),
+        session: ses2,
+      }),
+    );
+    value(
+      await accept(h, {
+        run: id("run", 4),
+        assignment: ASG_CE,
+        message: id("msg", 4),
+        session: ses1,
+      }),
+    );
+    value(await start(h, id("run", 1)));
+    // 같은 session의 둘째는 시작하지 못한다.
+    code(await start(h, id("run", 2)), "conflict");
+    // 같은 lophn assignment의 다른 session은 기다리지 않아 두 run이 함께 running이다.
+    value(await start(h, id("run", 3)));
+    assertEquals((await runOf(h, id("run", 1))).state, "running");
+    assertEquals((await runOf(h, id("run", 3))).state, "running");
+    // 무관한 assignment도 기다리지 않는다.
+    value(await start(h, id("run", 4), ASG_CE));
+    // 저장 계층의 partial unique도 session 단위로 같은 규칙을 지킨다.
+    const probe = await h.probeWrite(
+      "update runs set state = 'running', basis = ?, started_at = ?, limits = ? where id = ?",
+      [BASIS, "2026-01-01T00:00:00.000Z", JSON.stringify(LIMITS), id("run", 2)],
+    );
+    assert(!probe.ok);
+    // 끝난 session이 풀리면 그 session의 둘째가 시작한다. 다른 session은 영향이 없다.
+    value(await finish(h, id("run", 1), ok));
+    value(await start(h, id("run", 2)));
+    assertEquals((await runOf(h, id("run", 3))).state, "running");
+    // 진행 중인 run이 같은 assignment의 서로 다른 session임을 표에서도 확인한다.
+    const live = rows(
+      await h.inspect(
+        "select session from runs where assignment = ? and state = 'running' order by session",
+        [ASG_LOPHN],
+      ),
+    );
+    assertEquals(live.map((row) => row["session"]), [ses1, ses2]);
+    value(await finish(h, id("run", 2), ok));
+    // scope가 다른 assignment·role이면 시작하지 못한다.
+    value(
+      await accept(h, {
+        run: id("run", 5),
+        message: id("msg", 5),
+        session: ses1,
+      }),
+    );
+    code(
+      await h.command(
+        machineCred,
+        assignmentEnvelope("StartRun", {
+          run: id("run", 5),
+          basis: BASIS,
+          limits: LIMITS,
+          scope: scopeOf(ASG_CE, "context_engineer"),
+        }, { state_seq: await stateSeq(h, id("run", 5)) }),
+      ),
+      "forbidden",
+    );
+  } finally {
+    await h.close();
+  }
+});
+
+Deno.test("lophn-agent/harness/run-loop#R3 [agent-I40]: runs without a session are held to one live run per assignment", async () => {
+  const h = await open();
+  try {
+    await seed(h);
+    // session 없는 run(handoff로 받은 일 등) 둘은 assignment 단위로 막힌다.
+    value(
+      await accept(h, {
+        run: id("run", 1),
+        message: id("msg", 1),
+        session: null,
+      }),
+    );
+    value(
+      await accept(h, {
+        run: id("run", 2),
+        message: id("msg", 2),
+        session: null,
+      }),
+    );
     value(
       await accept(h, {
         run: id("run", 3),
         assignment: ASG_CE,
         message: id("msg", 3),
+        session: null,
       }),
     );
     value(await start(h, id("run", 1)));
-    // 같은 assignment의 둘째는 시작하지 못한다.
     code(await start(h, id("run", 2)), "conflict");
-    // 무관한 assignment는 기다리지 않는다.
+    // 다른 assignment의 session 없는 run은 기다리지 않는다.
     value(await start(h, id("run", 3), ASG_CE));
     // 저장 계층의 partial unique도 같은 규칙을 지킨다.
     const probe = await h.probeWrite(
@@ -455,21 +556,6 @@ Deno.test("lophn-agent/harness/run-loop#R3: one live run per assignment and unre
     assert(!probe.ok);
     value(await finish(h, id("run", 1), ok));
     value(await start(h, id("run", 2)));
-    // scope가 다른 assignment·role이면 시작하지 못한다.
-    value(await finish(h, id("run", 2), ok));
-    value(await accept(h, { run: id("run", 4), message: id("msg", 4) }));
-    code(
-      await h.command(
-        machineCred,
-        assignmentEnvelope("StartRun", {
-          run: id("run", 4),
-          basis: BASIS,
-          limits: LIMITS,
-          scope: scopeOf(ASG_CE, "context_engineer"),
-        }, { state_seq: await stateSeq(h, id("run", 4)) }),
-      ),
-      "forbidden",
-    );
   } finally {
     await h.close();
   }

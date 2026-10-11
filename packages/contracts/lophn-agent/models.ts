@@ -12,13 +12,13 @@ import {
 } from "../platform/mod.ts";
 import {
   EFFORT_LABELS,
-  EFFORT_VALUES,
   MODEL_MEDIA,
   priceBasisOutputSchema,
   priceBasisSchema,
   resolvedModelOutputSchema,
   resolvedModelSchema,
 } from "./resolved-model.ts";
+import { EFFORT_VALUES, OPTION_AXIS_EFFORT } from "./option-axes.ts";
 
 const nonblankSchema = z.string().refine((value) => value.trim().length > 0, {
   message: "expected nonblank text",
@@ -49,10 +49,6 @@ export const CATALOG_FAILURES = [
   "unavailable",
   "not_found",
 ] as const;
-
-// 축 이름은 catalog 자료가 정하고 코드는 effort만 이름으로 안다. effort 값만 호출 형식의 표가
-// 요청 필드로 옮기고(wire null), 나머지 축의 값은 자기 wire를 가진다.
-export const OPTION_AXIS_EFFORT = "effort";
 
 // token 예산으로 번역되는 effort 값의 기준 예산이다(R17). 확인된 최소·최대 안으로 제한해서 쓴다.
 export const EFFORT_BUDGET_TOKENS = {

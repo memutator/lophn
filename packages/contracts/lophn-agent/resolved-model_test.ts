@@ -1,7 +1,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { canonicalize } from "../../base/mod.ts";
+import { EFFORT_VALUES } from "./option-axes.ts";
 import {
-  EFFORT_VALUES,
   effortValueSchema,
   priceBasisOutputSchema,
   priceBasisSchema,

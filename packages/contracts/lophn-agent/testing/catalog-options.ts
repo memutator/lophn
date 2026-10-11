@@ -1,7 +1,4 @@
-import {
-  type CatalogEntry,
-  catalogEntrySchema,
-} from "../../../../contracts/lophn-agent/mod.ts";
+import { type CatalogEntry, catalogEntrySchema } from "../mod.ts";
 import catalogJson from "./catalog-options.json" with { type: "json" };
 
 // option 축 시험용 catalog다. anthropic(예산 방식·이름 방식), openai(effort + Speed service tier),

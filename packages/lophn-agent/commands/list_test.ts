@@ -1,11 +1,15 @@
 import { assertEquals } from "@std/assert";
-import type { AgentRole } from "../../contracts/lophn-agent/mod.ts";
+import {
+  type AgentRole,
+  type CommandGroup,
+  listCommands,
+} from "../../contracts/lophn-agent/mod.ts";
 import {
   buildRegistry,
   type CommandRegistry,
   type RegistrySkill,
 } from "./registry.ts";
-import { type CommandGroup, listCommands, resolveSubmission } from "./list.ts";
+import { resolveSubmission } from "./list.ts";
 
 const skill = (
   name: string,
@@ -80,42 +84,6 @@ Deno.test("lophn-agent/commands#R2 [agent-I6]: the first group is the same eight
   }
   assertEquals(lophn.length, 8);
   assertEquals(lophn.includes("feedback"), false);
-});
-
-Deno.test("lophn-agent/commands#R1 [agent-I6]: typed letters keep only commands whose name or description matches", () => {
-  const registry = registryOf("lophn", [
-    skill("code-review", { description: "Review a change" }),
-    skill("pdf-export", { description: "Export pages as a document" }),
-  ]);
-  // 이름 시작: Compact. 설명의 단어 시작: Fork("Copy ..."). 묶음은 registry 순서 그대로다.
-  // 이름의 단어 시작: code-review 의 code는 이름 시작이다.
-  assertEquals(shape(listCommands(registry, "lophn", "co")), [
-    ["Commands", ["compact", "fork"]],
-    ["Skills", ["code-review"]],
-  ]);
-  assertEquals(shape(listCommands(registry, "lophn", "comp")), [
-    ["Commands", ["compact"]],
-  ]);
-  // 대소문자를 가리지 않는다.
-  assertEquals(shape(listCommands(registry, "lophn", "COMP")), [
-    ["Commands", ["compact"]],
-  ]);
-  // 이름의 단어(`-` 뒤) 시작.
-  assertEquals(shape(listCommands(registry, "lophn", "review")), [
-    ["Skills", ["code-review"]],
-  ]);
-  // 설명의 단어 시작만으로 맞는다.
-  assertEquals(shape(listCommands(registry, "lophn", "pages")), [
-    ["Skills", ["pdf-export"]],
-  ]);
-});
-
-Deno.test("lophn-agent/commands#R1 [agent-I6]: a group with no match is hidden and no match at all gives an empty menu", () => {
-  const registry = registryOf("lophn", [skill("review")]);
-  assertEquals(shape(listCommands(registry, "lophn", "repair")), [
-    ["lophn", ["repair-app"]],
-  ]);
-  assertEquals(listCommands(registry, "lophn", "zzz"), []);
 });
 
 Deno.test("lophn-agent/commands#R3 [agent-I6]: another role's command is neither listed nor callable", () => {

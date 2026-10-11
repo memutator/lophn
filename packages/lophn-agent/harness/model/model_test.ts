@@ -139,7 +139,7 @@ async function registerProvider(
   );
 }
 
-// registration_test.ts의 catalog 자료(testdata/catalog-options)에 있는 anthropic model 둘이다.
+// registration_test.ts의 catalog 자료(contracts/lophn-agent/testing)에 있는 anthropic model 둘이다.
 // opus는 effort(low~maximum, 기본 high)와 speed(standard·fast) 축을 가지고 sonnet은 예산 방식 effort 축 하나다.
 function choice(overrides: Record<string, unknown> = {}) {
   return {

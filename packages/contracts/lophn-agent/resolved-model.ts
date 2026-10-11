@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { atSchema, idSchema, jsonObjectSchema } from "../platform/mod.ts";
+import { EFFORT_VALUES } from "./option-axes.ts";
 
 const nonblankSchema = z.string().refine((value) => value.trim().length > 0, {
   message: "expected nonblank text",
@@ -8,16 +9,6 @@ const positiveIntegerSchema = z.number().int().positive();
 const nonnegativeIntegerSchema = z.number().int().nonnegative();
 export const nonnegativeDecimalSchema = z.string().regex(/^\d+(?:\.\d+)?$/);
 
-// effort 축의 값 이름이다. 약한 값에서 강한 값 순서이고 model마다 이 가운데 지원하는 것만 선언한다(R15).
-export const EFFORT_VALUES = [
-  "off",
-  "minimal",
-  "low",
-  "medium",
-  "high",
-  "very_high",
-  "maximum",
-] as const;
 export const effortValueSchema = z.enum(EFFORT_VALUES);
 export type EffortValue = z.infer<typeof effortValueSchema>;
 // 화면에 보이는 이름이다. 문구 자체는 shell/wording의 영어 message key가 감싼다.

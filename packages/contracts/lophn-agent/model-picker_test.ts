@@ -3,7 +3,7 @@ import {
   orderPicker,
   type PickerModel,
   toggleFavorite,
-} from "./picker-order.ts";
+} from "./model-picker.ts";
 
 const ANTHROPIC = "pvd_01arz3ndektsv4rrffq69g5fa1";
 const OPENAI = "pvd_01arz3ndektsv4rrffq69g5fa2";

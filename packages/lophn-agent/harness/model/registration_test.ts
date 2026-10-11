@@ -11,10 +11,10 @@ import {
   type ModelCommandDeps,
   modelSchemaSteps,
 } from "./mod.ts";
-import { CATALOG_OPTIONS } from "./testdata/catalog-options.ts";
+import { CATALOG_OPTIONS } from "../../../contracts/lophn-agent/testing/mod.ts";
 
 // model 기본값·즐겨찾기 ledger 테스트 등록. provider 표와 같은 wire에 명령·읽기를 붙인다.
-// 목록과 catalog는 testdata/catalog-options의 model만 안다. 이름 하나는 목록을 확인하지 못한 경우(null),
+// 목록과 catalog는 contracts/lophn-agent/testing의 model만 안다. 이름 하나는 목록을 확인하지 못한 경우(null),
 // 하나는 목록에는 있지만 catalog 항목이 없는 경우다.
 const LISTED_WITHOUT_CATALOG = "listed-without-catalog";
 const LIST_UNCONFIRMED = "list-unconfirmed";

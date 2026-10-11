@@ -2,12 +2,13 @@ import {
   type CatalogEntry,
   EFFORT_VALUES,
   OPTION_AXIS_EFFORT,
+  type OptionValues,
   type ResolvedModel,
 } from "../../../contracts/lophn-agent/mod.ts";
 import type { Result } from "../../../base/mod.ts";
 import { err, ok } from "../../../base/mod.ts";
 import { confirmedSupport } from "./model.ts";
-import { type OptionValues, resolveOptionValues } from "./options.ts";
+import { resolveOptionValues } from "./options.ts";
 
 // ModelChoice를 catalog·provider의 현재 정보로 검증한다. 이 모듈은 검사 규칙이고 저장은
 // 선택을 가진 쪽의 몫이다. 임의 한계(128000·8192)나 tool 지원을 추측하지 않는다(R11, R13).

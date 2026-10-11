@@ -1,4 +1,4 @@
-// model picker test의 입력. model catalog(harness/model의 options·picker-order)가 낸 값을 그대로 옮겨 고정한
+// model picker test의 입력. model catalog(contracts/lophn-agent의 model-picker)가 낸 값을 그대로 옮겨 고정한
 // 순수 data다. 정렬·거르기·값 맞춤 규칙은 여기서 다시 만들지 않고 결과를 적어 둔다.
 import type {
   ModelPickerProps,

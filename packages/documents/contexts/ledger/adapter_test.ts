@@ -18,6 +18,7 @@ import {
   contextContractRoute,
   contextCreateRoute,
   contextDraftRoute,
+  contextEntityRoute,
   contextGetRoute,
   contextHandOffViolationsRoute,
   contextInputOptionsRoute,
@@ -70,7 +71,7 @@ import {
   mapActor,
 } from "./adapter.ts";
 import { contentReference } from "./content-blobs.ts";
-import { contextWorkListRead } from "./work-input.ts";
+import { contextWorkInputRead, contextWorkListRead } from "./work-input.ts";
 import {
   type LedgerFixture,
   ledgerFixture,
@@ -2557,5 +2558,331 @@ Deno.test("documents/contexts#R25 [ctx-I65]: the hand-off evidence and request t
     assertEquals(blobRefCount(sql), Number(refs) + 2);
   } finally {
     sql.ledger.close();
+  }
+});
+
+// ---------- 검사 환경: 다른 context의 type과 앱 command 효과 (ctx-I36) ----------
+
+// 문서 type 하나. field는 id 하나다.
+function docsType(name: string, visibility: "public" | "private") {
+  return {
+    name,
+    summary: `${name} documents`,
+    visibility,
+    source: { kind: "docs", paths: [`${name.toLowerCase()}/*.md`] },
+    key: "id",
+    fields: [{
+      name: "id",
+      from: { kind: "path", capture: "file" },
+      value_type: "string",
+      required: false,
+      visibility,
+    }, {
+      name: "weight",
+      from: { kind: "frontmatter", key: "weight" },
+      value_type: "number",
+      required: false,
+      visibility: "private",
+    }],
+    relations: [],
+    rules: [],
+  };
+}
+
+function appDataType(name: string, app: string, command: string) {
+  return {
+    name,
+    summary: `${name} from ${app}`,
+    visibility: "private",
+    source: { kind: "app-data", app, command, result_path: ["items"] },
+    key: "id",
+    fields: [{
+      name: "id",
+      from: { kind: "item", key_path: ["id"] },
+      value_type: "string",
+      required: false,
+      visibility: "private",
+    }],
+    relations: [],
+    rules: [],
+  };
+}
+
+const contentOf = (...types: unknown[]) => ({
+  schema: 1,
+  contract: { types },
+  searches: [],
+  saved_views: [],
+  examples: [],
+});
+
+const RUBRICS = id("ctx", 2);
+const DRAFTING = id("ctx", 3);
+const OLD = id("ctx", 4);
+const ELSEWHERE = id("ctx", 5);
+
+function environmentApi() {
+  const api = sqlApi({}, () => ({
+    appCommandEffect: (app, command) =>
+      app !== "calendar"
+        ? undefined
+        : ({ "events.list": "read", "events.create": "write" } as const)[
+          command as "events.list"
+        ],
+  }));
+  api.ledger.seedFolders(ids.project, ["/work/a"]);
+  createContext(api);
+  createContext(api, { id: RUBRICS, title: "rubrics" });
+  applyBundle(
+    api,
+    RUBRICS,
+    contentOf(docsType("Rubric", "public"), docsType("Draft", "private")),
+  );
+  createContext(api, { id: DRAFTING, title: "Drafting" });
+  value(api.command(bundleSaveDraftRoute, "engineer", {
+    context: DRAFTING,
+    content: contentOf(docsType("Notes", "public")),
+  }));
+  createContext(api, { id: OLD, title: "Old" });
+  applyBundle(api, OLD, contentOf(docsType("Legacy", "public")));
+  const old = value(api.read(contextGetRoute, "user", { context: OLD }))
+    .context;
+  value(api.command(contextArchiveRoute, "user", { context: OLD }, {
+    base_revision: old.revision,
+  }));
+  value(api.command(contextCreateRoute, "user", {
+    id: ELSEWHERE,
+    project: ids.otherProject,
+    title: "elsewhere",
+    purpose: "Another project",
+  }));
+  applyBundle(api, ELSEWHERE, contentOf(docsType("Stranger", "public")));
+  return api;
+}
+
+function workInput(
+  api: SqlApi,
+  input: { context: string; check?: string; bundle?: string },
+) {
+  return contextWorkInputRead(api.deps).handle(
+    api.ledger.snapshot(),
+    requestContext(actors.worker.actor),
+    input,
+  );
+}
+
+Deno.test("documents/contexts#R14 [ctx-I36]: context.work_input gives a check the types of the other active contexts of its project, private ones marked, and nobody else's", () => {
+  const api = environmentApi();
+  try {
+    applyBundle(api, ids.context, contentOf(docsType("Own", "public")));
+    const draft = value(api.command(bundleSaveDraftRoute, "engineer", {
+      context: ids.context,
+      content: contentOf(docsType("Own", "public")),
+    }));
+    const submitted = value(
+      api.command(bundleSubmitRoute, "engineer", { bundle: draft.id }),
+    );
+    const input = value(workInput(api, {
+      context: ids.context,
+      check: submitted.check!,
+    }));
+    // rubrics만이다: 자기 자신, drafting, archived, 다른 project의 context는 없다.
+    assertEquals(input.external_types, [
+      {
+        context: "rubrics",
+        name: "Rubric",
+        visibility: "public",
+        key: "id",
+        fields: [
+          { name: "id", visibility: "public", value_type: "string" },
+          { name: "weight", visibility: "private", value_type: "number" },
+        ],
+      },
+      {
+        context: "rubrics",
+        name: "Draft",
+        visibility: "private",
+        key: "id",
+        fields: [
+          { name: "id", visibility: "private", value_type: "string" },
+          { name: "weight", visibility: "private", value_type: "number" },
+        ],
+      },
+    ]);
+    assertEquals(input.app_commands, []);
+
+    // 적용 판만 묻는 입력(index)은 환경을 쓰지 않는다.
+    const applied = value(workInput(api, { context: ids.context }));
+    assertEquals(applied.external_types, []);
+    assertEquals(applied.app_commands, []);
+  } finally {
+    api.ledger.close();
+  }
+});
+
+Deno.test("documents/contexts#R12 [ctx-I36]: context.work_input gives a check and a preview the effect of each app command the contract reads, and leaves out the ones the app does not declare", () => {
+  const api = environmentApi();
+  try {
+    const reading = contentOf(
+      appDataType("Event", "calendar", "events.list"),
+      appDataType("Created", "calendar", "events.create"),
+      appDataType("Again", "calendar", "events.list"),
+      appDataType("Gone", "calendar", "events.drop"),
+      appDataType("Mail", "mail", "inbox"),
+    );
+    const draft = value(api.command(bundleSaveDraftRoute, "engineer", {
+      context: ids.context,
+      content: reading,
+    }));
+    // preview: draft 판
+    const previewed = value(workInput(api, {
+      context: ids.context,
+      bundle: draft.id,
+    }));
+    const expected = [
+      { app: "calendar", command: "events.create", effect: "write" },
+      { app: "calendar", command: "events.list", effect: "read" },
+    ];
+    assertEquals(previewed.app_commands, expected);
+    assertEquals(
+      previewed.external_types.map((type) => `${type.context}/${type.name}`),
+      ["rubrics/Rubric", "rubrics/Draft"],
+    );
+    // check: 후보 판
+    const submitted = value(
+      api.command(bundleSubmitRoute, "engineer", { bundle: draft.id }),
+    );
+    const checked = value(workInput(api, {
+      context: ids.context,
+      check: submitted.check!,
+    }));
+    assertEquals(checked.app_commands, expected);
+  } finally {
+    api.ledger.close();
+  }
+});
+
+Deno.test("documents/contexts#R12 [ctx-I36]: without an app registration no command effect is given and the check sees the command as unknown", () => {
+  const api = sqlApi();
+  try {
+    createContext(api);
+    const draft = value(api.command(bundleSaveDraftRoute, "engineer", {
+      context: ids.context,
+      content: contentOf(appDataType("Event", "calendar", "events.list")),
+    }));
+    const input = value(workInput(api, {
+      context: ids.context,
+      bundle: draft.id,
+    }));
+    assertEquals(input.app_commands, []);
+    assertEquals(input.external_types, []);
+  } finally {
+    api.ledger.close();
+  }
+});
+
+// ---------- context.entity가 다른 context의 관계 대상을 읽는다 (ctx-I36) ----------
+
+function gradedContent(to: string) {
+  const experiment = docsType("Experiment", "public");
+  return contentOf({
+    ...experiment,
+    fields: [
+      ...experiment.fields,
+      {
+        name: "rubric",
+        from: { kind: "frontmatter", key: "rubric" },
+        value_type: "string",
+        required: false,
+        visibility: "private",
+      },
+    ],
+    relations: [{
+      name: "graded_by",
+      label: "graded by",
+      to,
+      via: "rubric",
+      cardinality: "optional",
+      visibility: "private",
+    }],
+  });
+}
+
+const rubricRow = (key: string): EntityRow => ({
+  type: "Rubric",
+  key,
+  path: `rubric/${key}.md`,
+  section: null,
+  fields: { id: key },
+  links: [],
+});
+
+function entityWorld(to = "rubrics/Rubric") {
+  const api = environmentApi();
+  applyBundle(api, ids.context, gradedContent(to));
+  api.seedEntities(ids.context, [{
+    type: "Experiment",
+    key: "001",
+    path: "experiment/001.md",
+    section: null,
+    fields: { id: "001", rubric: "quality" },
+    links: [{ relation: "graded_by", target_key: "quality" }],
+  }]);
+  api.seedEntities(RUBRICS, [rubricRow("quality"), rubricRow("speed")]);
+  return api;
+}
+
+const gradedTargets = (api: SqlApi) => {
+  const read = value(api.read(contextEntityRoute, "user", {
+    context: ids.context,
+    type: "Experiment",
+    key: "001",
+  }));
+  return read.relations.find((relation) => relation.name === "graded_by")!
+    .targets;
+};
+
+Deno.test("documents/contexts#R14 #R16 [ctx-I36]: context.entity reads the target of a relation to another context from that context's index and names the context in the ref", () => {
+  const api = entityWorld();
+  try {
+    assertEquals(gradedTargets(api), [{
+      context: RUBRICS,
+      type: "Rubric",
+      key: "quality",
+      path: "rubric/quality.md",
+      section: null,
+    }]);
+  } finally {
+    api.ledger.close();
+  }
+});
+
+Deno.test("documents/contexts#R14 [ctx-I36]: a relation to a context that is missing, archived, in another project, drafting or has the type private or absent has no targets", () => {
+  for (
+    const to of [
+      "ghost/Rubric",
+      "Old/Legacy",
+      "elsewhere/Stranger",
+      "Drafting/Notes",
+      "rubrics/Draft",
+      "rubrics/Missing",
+    ]
+  ) {
+    const api = entityWorld(to);
+    try {
+      assertEquals(gradedTargets(api), [], to);
+    } finally {
+      api.ledger.close();
+    }
+  }
+});
+
+Deno.test("documents/contexts#R14 [ctx-I36]: a target the other context's index does not have is skipped", () => {
+  const api = entityWorld();
+  try {
+    api.seedEntities(RUBRICS, [rubricRow("speed")]);
+    assertEquals(gradedTargets(api), []);
+  } finally {
+    api.ledger.close();
   }
 });

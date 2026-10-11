@@ -3,6 +3,7 @@
 // Context Engineer가 fixture 계약을 제출하면 worker가 snapshot에서 검사해 적용하고, 읽기가 worker가 쓴
 // derived index로 답하고, 위반 수를 worker가 기록하는 흐름을 HTTP로 본다. 파일 끝은 같은 일을 보내는 core
 // 쪽 규칙(따라잡기의 합치기·2초·기한, 검사 재시도, 낼 command의 중계·거절, launch 권한)을 fake로 본다.
+import { DatabaseSync } from "node:sqlite";
 import { assert, assertEquals } from "@std/assert";
 import {
   err,
@@ -30,14 +31,23 @@ import {
   createContextsProcess,
 } from "./contexts-worker.ts";
 import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
-import { sampleEnv } from "../../packages/documents/contexts/validate/sample.ts";
 import { type Core, startCore } from "./core.ts";
+import { createLedgerRegistration as createAppsRegistration } from "./apps.ts";
 import { createLedgerRegistration } from "./documents.ts";
 import {
   createLedgerRegistration as createLophnAgentRegistration,
   lophnAgentDefinitions,
 } from "./lophn-agent.ts";
+import { seedLedger } from "./testing/app-export-fixtures.ts";
 import { closeUnlessKept } from "./testing/close-on-throw.ts";
+import {
+  CALENDAR_BLUEPRINT,
+  RUBRIC_PATH,
+  RUBRICS_CONTEXT,
+  RUBRICS_TITLE,
+  rubricsContract,
+  writeRubricFiles,
+} from "./contexts-testing.ts";
 
 const PROJECT = "prj_01kq12a1pha000000000000000";
 const CONTEXT = "ctx_01arz3ndektsv4rrffq69g5fav";
@@ -157,27 +167,18 @@ function coreOptions(home: string, worker = true, seed = 41) {
       { createLedgerRegistration },
       { lophnAgentDefinitions },
       { createLedgerRegistration: createLophnAgentRegistration },
+      // 앱 등록: 검사 환경의 앱 command 효과는 앱 registry(apps·releases 표)에서 읽는다.
+      { createLedgerRegistration: createAppsRegistration },
     ],
     teamModules: [
       new URL("./documents.ts", import.meta.url).href,
       new URL("./lophn-agent.ts", import.meta.url).href,
+      new URL("./apps.ts", import.meta.url).href,
     ],
     clock: manualClock(Date.UTC(2024, 0, 1)),
     random: seededRandom(seed),
     testCredentials: true,
     contextWorker: worker,
-    // 앱 쪽이 알려 주는 앱 read 명령의 효과(fixture 계약의 app-data type이 가리키는 명령)와 다른
-    // context의 public type(fixture 관계의 `rubrics/Rubric`).
-    contextCheckEnvironment: () =>
-      Promise.resolve({
-        appCommands: [
-          { app: "calendar", command: "events.list", effect: "read" as const },
-        ],
-        externalTypes: sampleEnv().externalTypes.map((type) => ({
-          ...type,
-          fields: [...type.fields],
-        })),
-      }),
   };
 }
 
@@ -274,8 +275,12 @@ async function withCore(
     await Deno.makeTempDir({ prefix: "lophn-contexts-worker-project-" }),
   );
   await copyFixture(folder);
+  await writeRubricFiles(folder);
   const core = await open(home, folder);
   try {
+    // fixture 계약이 기대는 환경을 진짜 데이터로 둔다: 같은 Project의 `rubrics` context와 앱 `calendar`.
+    seedLedger(home, CALENDAR_BLUEPRINT, "b".repeat(64), 0);
+    await applyRubrics(core);
     await run(core, home, folder);
   } finally {
     await core.shutdown();
@@ -299,24 +304,39 @@ async function until<T>(
 }
 
 // 초안 저장 → 제출. worker가 검사를 끝낼 때까지 기다리지 않는다.
-async function submit(core: Core, content: Json, key: string): Promise<Json> {
+async function submit(
+  core: Core,
+  content: Json,
+  key: string,
+  target = { id: CONTEXT, title: "Evaluation" },
+): Promise<Json> {
   const created = await post(
     core,
     "user",
     "contexts/create",
     command({
-      id: CONTEXT,
+      id: target.id,
       project: PROJECT,
-      title: "Evaluation",
+      title: target.title,
       purpose: "Experiments and their findings",
     }, `create-${key}`),
   );
   assertEquals(created.status, 200, JSON.stringify(created.body));
+  return await resubmit(core, content, key, target.id);
+}
+
+// 이미 있는 context에 새 초안을 저장해 제출한다.
+async function resubmit(
+  core: Core,
+  content: Json,
+  key: string,
+  context = CONTEXT,
+): Promise<Json> {
   const draft = await post(
     core,
     "engineer",
     "contexts/save_draft",
-    command({ context: CONTEXT, content }, `draft-${key}`),
+    command({ context, content }, `draft-${key}`),
   );
   assertEquals(draft.status, 200, JSON.stringify(draft.body));
   const submitted = await post(
@@ -330,15 +350,44 @@ async function submit(core: Core, content: Json, key: string): Promise<Json> {
   return submitted.body;
 }
 
+// 이 시험은 복구만 본다. 다른 context와 앱이 필요한 부분(`rubrics/Rubric` 관계, 앱 데이터 type)을 뺀다:
+// worker가 없는 첫 core에서는 `rubrics` context를 적용할 수 없다.
+function withoutEnvironment(content: Json): Json {
+  const copy = structuredClone(content) as {
+    contract: { types: { name: string; relations: { name: string }[] }[] };
+  };
+  copy.contract.types = copy.contract.types.filter((type) =>
+    type.name !== "Event"
+  );
+  for (const type of copy.contract.types) {
+    type.relations = type.relations.filter((relation) =>
+      relation.name !== "graded_by"
+    );
+  }
+  return copy as unknown as Json;
+}
+
 async function bundleStatus(
   core: Core,
+  context = CONTEXT,
 ): Promise<{ bundle: Json; check: Json } | undefined> {
-  const history = await post(core, "user", "contexts/bundles", {
-    context: CONTEXT,
-  });
+  const history = await post(core, "user", "contexts/bundles", { context });
   assertEquals(history.status, 200, JSON.stringify(history.body));
   const first = (history.body["bundles"] as { bundle: Json; check: Json }[])[0];
   return first?.bundle["status"] === "checking" ? undefined : first;
+}
+
+// 같은 Project의 `rubrics` context에 Rubric 계약을 적용한다. fixture의 `rubrics/Rubric` 관계가 가리킨다.
+async function applyRubrics(core: Core): Promise<void> {
+  await submit(core, rubricsContract(), "rubrics", {
+    id: RUBRICS_CONTEXT,
+    title: RUBRICS_TITLE,
+  });
+  const done = await until(
+    "the rubrics bundle",
+    () => bundleStatus(core, RUBRICS_CONTEXT),
+  );
+  assertEquals(done.bundle["status"], "applied", JSON.stringify(done));
 }
 
 async function expectedEntities(): Promise<
@@ -376,6 +425,111 @@ Deno.test("documents/contexts#R20 #R21 [ctx-T9b]: submitting the fixture contrac
     const left = [];
     for await (const entry of Deno.readDir(staging)) left.push(entry.name);
     assertEquals(left, []);
+  });
+});
+
+Deno.test("documents/contexts#R14 #R12 #R20 [ctx-I36]: the fixture contract passes the check with the real rubrics context and the calendar app, and context.entity reaches the rubric of another context", async () => {
+  await withCore(async (core) => {
+    await submit(core, await fixtureContract(), "environment");
+    const finished = await until("the check result", () => bundleStatus(core));
+    assertEquals(
+      finished.bundle["status"],
+      "applied",
+      JSON.stringify(finished),
+    );
+    assertEquals(finished.check["status"], "passed");
+    assertEquals(finished.check["findings"], []);
+
+    // 읽는 쪽 index: Evaluation은 읽기 전 따라잡기가, rubrics는 자기 읽기가 채운다.
+    const overview = await post(core, "user", "contexts/overview", {
+      context: RUBRICS_CONTEXT,
+    });
+    assertEquals(overview.status, 200, JSON.stringify(overview.body));
+    assertEquals(overview.body["types"], [{ type: "Rubric", count: 1 }]);
+
+    const entity = await post(core, "user", "contexts/entity", {
+      context: CONTEXT,
+      type: "Experiment",
+      key: "001",
+    });
+    assertEquals(entity.status, 200, JSON.stringify(entity.body));
+    const relations = entity.body["relations"] as {
+      name: string;
+      targets: Json[];
+    }[];
+    assertEquals(
+      relations.find((relation) => relation.name === "graded_by")!.targets,
+      [{
+        context: RUBRICS_CONTEXT,
+        type: "Rubric",
+        key: "schedule-quality",
+        path: RUBRIC_PATH,
+        section: null,
+      }],
+    );
+    // 같은 context의 관계 대상 ref에는 context가 없다.
+    const runsOn = relations.find((relation) => relation.name === "runs_on")!;
+    assert(runsOn.targets.length > 0);
+    for (const target of runsOn.targets) assert(!("context" in target));
+
+    // 대상 context를 읽어도 같은 개체다: ref로 그 context의 개체를 연다.
+    const rubric = await post(core, "user", "contexts/entity", {
+      context: RUBRICS_CONTEXT,
+      type: "Rubric",
+      key: "schedule-quality",
+    });
+    assertEquals(rubric.status, 200, JSON.stringify(rubric.body));
+    assertEquals((rubric.body["ref"] as Json)["path"], RUBRIC_PATH);
+  });
+});
+
+Deno.test("documents/contexts#R14 #R12 #R20 [ctx-I36]: a relation to a context that does not exist and an app command that is not read fail the check with the reason", async () => {
+  await withCore(async (core) => {
+    const ghost = await fixtureContract();
+    const experiment = (ghost["contract"] as {
+      types: { relations: { name: string; to: string }[] }[];
+    }).types[0]!;
+    experiment.relations.find((relation) => relation.name === "graded_by")!
+      .to = "ghost/Rubric";
+    await submit(core, ghost, "ghost");
+    const first = await until("the ghost check", () => bundleStatus(core));
+    assertEquals(first.bundle["status"], "failed", JSON.stringify(first));
+    assertEquals(
+      (first.check["findings"] as Json[]).map((finding) => [
+        finding["kind"],
+        finding["detail"],
+      ]),
+      [["contract_invalid", "relation_target_unknown"]],
+    );
+
+    const writes = await fixtureContract();
+    const event = (writes["contract"] as {
+      types: { name: string; source: { command?: string } }[];
+    }).types.find((type) => type.name === "Event")!;
+    event.source.command = "events.create";
+    await resubmit(core, writes, "writes");
+    const second = await until("the write check", async () => {
+      const history = await post(core, "user", "contexts/bundles", {
+        context: CONTEXT,
+      });
+      const bundles = history.body["bundles"] as {
+        bundle: Json;
+        check: Json;
+      }[];
+      const top = bundles[0];
+      return top?.bundle["status"] === "checking" ||
+          top?.bundle["id"] === first.bundle["id"]
+        ? undefined
+        : top;
+    });
+    assertEquals(second.bundle["status"], "failed", JSON.stringify(second));
+    assertEquals(
+      (second.check["findings"] as Json[]).map((finding) => [
+        finding["kind"],
+        finding["detail"],
+      ]),
+      [["contract_invalid", "app_command_not_read"]],
+    );
   });
 });
 
@@ -563,6 +717,26 @@ async function saveDraft(
   return String(draft.body["id"]);
 }
 
+// derived index에 그 context의 행이 몇 개 있는가. index 파일이 없으면 0이다.
+async function indexedRows(home: string, context: string): Promise<number> {
+  if (!(await exists(`${home}/derived/contexts.sqlite`))) return 0;
+  const db = new DatabaseSync(`${home}/derived/contexts.sqlite`, {
+    readOnly: true,
+  });
+  try {
+    let rows = 0;
+    for (const table of ["index_state", "index_files", "index_entities"]) {
+      const found = db.prepare(
+        `SELECT count(*) AS n FROM ${table} WHERE context = ?`,
+      ).get(context) as { n: number | bigint };
+      rows += Number(found.n);
+    }
+    return rows;
+  } finally {
+    db.close();
+  }
+}
+
 async function exists(path: string): Promise<boolean> {
   try {
     await Deno.stat(path);
@@ -634,8 +808,8 @@ Deno.test("documents/contexts#R19 #R24 [ctx-I64p]: previewing a drafting context
       ),
       ["draft"],
     );
-    // index는 건드리지 않았고 snapshot은 남지 않았다.
-    assertEquals(await exists(`${home}/derived/contexts.sqlite`), false);
+    // 이 context의 index는 건드리지 않았고(`rubrics`의 index는 있다) snapshot은 남지 않았다.
+    assertEquals(await indexedRows(home, CONTEXT), 0);
     const left = [];
     for await (
       const entry of Deno.readDir(`${home}/documents/staging/context-check`)
@@ -745,7 +919,11 @@ Deno.test("documents/contexts#R20 [ctx-I67]: a check whose answer was never rece
     // no worker is running: the submitted candidate stays checking
     const first = await open(home, folder, false);
     try {
-      await submit(first, await fixtureContract(), "recover");
+      await submit(
+        first,
+        withoutEnvironment(await fixtureContract()),
+        "recover",
+      );
       await new Promise((resolve) => setTimeout(resolve, 500));
       const history = await post(first, "user", "contexts/bundles", {
         context: CONTEXT,
@@ -818,6 +996,7 @@ function input(extra: Partial<ContextWorkInput> = {}): ContextWorkInput {
     draft: null,
     user_saved_views: [],
     external_types: [],
+    app_commands: [],
     as_of_seq: "1",
     next_cursor: null,
     ...extra,
@@ -1082,6 +1261,65 @@ Deno.test("documents/contexts#R20 [ctx-T9b]: a check sends the candidate with th
     "context.check",
     "context.index",
   ]);
+});
+
+Deno.test("documents/contexts#R14 #R12 [ctx-I36]: a check and a preview send the other contexts' types and the app command effects exactly as context.work_input read them", async () => {
+  const environment = {
+    external_types: [{
+      context: "rubrics",
+      name: "Rubric",
+      visibility: "public" as const,
+      key: "id",
+      fields: [{
+        name: "id",
+        visibility: "public" as const,
+        value_type: "string",
+      }],
+    }],
+    app_commands: [{
+      app: "calendar",
+      command: "events.list",
+      effect: "read" as const,
+    }],
+  };
+  const run = setup({
+    read: (request) =>
+      Promise.resolve(ok(
+        request.bundle !== undefined
+          ? { ...draftInput(), ...environment }
+          : request.check === undefined
+          ? input()
+          : { ...candidate(), ...environment },
+      )),
+    request: (op) =>
+      Promise.resolve(
+        ok(
+          op === "context.check"
+            ? checkAnswer([finish()])
+            : op === "context.preview"
+            ? previewAnswer(0)
+            : indexAnswer(),
+        ),
+      ),
+  });
+  assertEquals(
+    await run.dispatcher.runCheck({ context: DISPATCH_CONTEXT, check: CHECK }),
+    true,
+  );
+  const checked = run.requests.find((entry) => entry.op === "context.check")!;
+  const check = checked.payload as Record<string, unknown>;
+  assertEquals(check["external_types"], environment.external_types);
+  assertEquals(check["app_commands"], environment.app_commands);
+
+  const previewed = await run.dispatcher.preview({
+    context: DISPATCH_CONTEXT,
+    bundle: PREVIEW_BUNDLE,
+  });
+  assert(previewed.ok, JSON.stringify(previewed));
+  const preview = run.requests.find((entry) => entry.op === "context.preview")!
+    .payload as Record<string, unknown>;
+  assertEquals(preview["external_types"], environment.external_types);
+  assertEquals(preview["app_commands"], environment.app_commands);
 });
 
 Deno.test("documents/contexts#R20 [ctx-T9b]: a result for another check or bundle is refused, and a check with nothing to check sends nothing", async () => {

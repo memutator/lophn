@@ -27,10 +27,19 @@ export type ContractVisibility = z.infer<typeof contractVisibilitySchema>;
 export const contractTypeNameSchema = z.string().regex(/^[A-Z][A-Za-z0-9]*$/);
 // question, scenarios, status_date
 export const contractNameSchema = z.string().regex(/^[a-z][a-z0-9_]*$/);
-// 같은 project의 다른 context를 가리키는 이름(context slug)과 그 public type: eval/Scenario
+// 같은 project의 다른 context의 public type: `<context 제목>/<Type 이름>`(rubrics/Rubric).
+// 마지막 `/` 앞이 context의 title이다(documents/contexts "다른 context의 type 참조").
 export const externalTypeRefSchema = z.string().regex(
-  /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*\/[A-Z][A-Za-z0-9]*$/,
+  /^[\s\S]*\S[\s\S]*\/[A-Z][A-Za-z0-9]*$/,
 );
+// 외부 참조를 context 제목과 Type 이름으로 나눈다. 외부 참조가 아니면 undefined다.
+export function splitExternalRef(
+  ref: string,
+): { context: string; type: string } | undefined {
+  if (!externalTypeRefSchema.safeParse(ref).success) return undefined;
+  const slash = ref.lastIndexOf("/");
+  return { context: ref.slice(0, slash), type: ref.slice(slash + 1) };
+}
 export const typeRefSchema = z.union([
   contractTypeNameSchema,
   externalTypeRefSchema,

@@ -39,7 +39,8 @@ const savedViewSchema = z.strictObject({
   inputs: z.record(z.string(), z.unknown()),
 });
 
-// 같은 project의 다른 context가 내놓은 type(validate의 ExternalType).
+// 같은 project의 다른 active context가 적용한 판의 type(validate의 ExternalType). context는 그 context의
+// title이고 관계의 `<title>/<Type>` 참조가 이것으로 찾는다.
 const externalTypeSchema = z.strictObject({
   context: z.string().min(1),
   name: contractTypeNameSchema,
@@ -52,7 +53,7 @@ const externalTypeSchema = z.strictObject({
   })),
 });
 
-// 앱 read 명령의 효과. 앱 데이터는 읽지 않고 계약이 가리키는 명령의 효과만 검사한다.
+// 앱 command 선언의 효과(앱 등록의 active release). 앱 데이터는 읽지 않고 계약이 가리키는 command의 효과만 검사한다.
 const appCommandSchema = z.strictObject({
   app: z.string().min(1),
   command: z.string().min(1),
@@ -171,7 +172,9 @@ export const contextWorkInputReadSchema = withReadCommon(z.object({
     content: z.record(z.string(), z.unknown()),
   }).nullable(),
   user_saved_views: z.array(savedViewSchema),
+  // 검사할 판(후보 또는 draft)이 읽는 다른 context의 type과 앱 command 효과. 적용 판만 묻는 입력(index)은 비어 있다.
   external_types: z.array(externalTypeSchema),
+  app_commands: z.array(appCommandSchema),
 }));
 export type ContextWorkInput = z.infer<typeof contextWorkInputReadSchema>;
 

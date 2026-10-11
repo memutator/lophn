@@ -34,6 +34,7 @@ import {
   startRequest,
 } from "../../packages/lophn-agent/conversation/mod.ts";
 import { createRunCommands } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
+import { loadActiveBlueprint } from "../../packages/apps/releases/store.ts";
 import { ContextDepRefused, type ContextsRuntime } from "./contexts-api.ts";
 import { handOffContent } from "./contexts-handoff.ts";
 
@@ -305,6 +306,26 @@ export function createContextsRuntime(): ContextsRuntime {
         } catch {
           // apps 표가 없는 조립에서는 앱이 없다.
           return [];
+        }
+      },
+      // 검사 환경의 앱 command 효과: active 앱의 active release에 고정된 blueprint의 command 선언
+      // (`app.blueprint`가 읽어 주는 것과 같다). 앱을 부르지 않는다.
+      appCommandEffect(app, command) {
+        if (current === undefined) return undefined;
+        try {
+          const row = current.get(
+            "SELECT id FROM apps WHERE slug = ? AND status = 'active'",
+            [app],
+          );
+          if (row === undefined) return undefined;
+          const stored = loadActiveBlueprint(current, String(row["id"]));
+          if (!stored.ok || stored.value === null) return undefined;
+          return stored.value.blueprint.commands.find((declared) =>
+            declared.key === command
+          )?.effect;
+        } catch {
+          // apps·releases 표가 없는 조립에서는 앱 선언이 없다.
+          return undefined;
         }
       },
     },

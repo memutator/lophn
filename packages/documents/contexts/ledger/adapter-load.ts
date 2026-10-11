@@ -1,7 +1,11 @@
 // adapter의 적재다. command나 읽기 하나가 보는 행만 SQL에서 새 ContextApiState로 읽는다.
 // 어떤 행을 읽을지는 route마다 LoadPlan 하나로 정한다(adapter-routes.ts).
 import { ok, type Result } from "../../../base/mod.ts";
-import type { ContextValue } from "../../../contracts/documents/mod.ts";
+import {
+  bundleContentSchema,
+  type ContextValue,
+  splitExternalRef,
+} from "../../../contracts/documents/mod.ts";
 import type { Sql } from "../../../contracts/platform/mod.ts";
 import { currentBundleOf } from "../api/reads-common.ts";
 import type {
@@ -11,6 +15,7 @@ import type {
 } from "../api/state.ts";
 import type { ContextLedgerDeps } from "./adapter.ts";
 import {
+  loadBundle,
   loadContext,
   loadContextBundles,
   loadContextChecks,
@@ -185,7 +190,74 @@ export function loadState(
       if (deps.index.failing(context.id)) state.indexFailing.add(context.id);
     }
   }
+  if (plan.entity !== undefined) {
+    const crossed = loadCrossTargets(sql, deps, state, targets, plan.entity);
+    if (!crossed.ok) return crossed;
+  }
   return ok({ state, contentRefs });
+}
+
+// context.entity가 다른 context의 관계 대상을 읽도록, 그 개체의 `<제목>/<Type>` 관계 간선이 가리키는
+// 개체 행과 그 context·적용된 판을 state에 더한다(documents/contexts "다른 context의 type 참조").
+// 같은 Project의 다른 context 중 제목이 같고 active이며 적용된 판이 있는 것만 읽는다. 해석은 읽는 쪽
+// (api/reads-entity.ts)이 다시 한다. 이 함수는 필요한 행만 모은다.
+function loadCrossTargets(
+  sql: Reader,
+  deps: Pick<ContextLedgerDeps, "blobs" | "index">,
+  state: ContextApiState,
+  targets: readonly ContextValue[],
+  entity: { type: string; key: string },
+): Result<true> {
+  const owner = targets[0];
+  const applied = owner?.applied_bundle == null
+    ? undefined
+    : state.bundles.get(owner.applied_bundle);
+  const content = applied === undefined
+    ? undefined
+    : bundleContentSchema.safeParse(applied.content);
+  if (owner === undefined || !content?.success) return ok(true);
+  const type = content.data.contract.types.find((candidate) =>
+    candidate.name === entity.type
+  );
+  const row = state.entities.get(owner.id)?.find((candidate) =>
+    candidate.type === entity.type && candidate.key === entity.key
+  );
+  if (type === undefined || row === undefined) return ok(true);
+
+  const others = loadProjectContexts(sql, owner.project);
+  for (const relation of type.relations) {
+    const ref = splitExternalRef(relation.to);
+    if (ref === undefined) continue;
+    const target = others.find((candidate) =>
+      candidate.id !== owner.id && candidate.title === ref.context &&
+      candidate.status === "active" && candidate.applied_bundle !== null
+    );
+    if (target === undefined) continue;
+    if (!state.contexts.has(target.id)) {
+      const stored = loadBundle(sql, target.applied_bundle!);
+      if (stored === null) continue;
+      const read = deps.blobs.read(stored.content_ref);
+      if (!read.ok) return read;
+      const { content_ref: _, ...summary } = stored;
+      state.contexts.set(target.id, target);
+      state.bundles.set(stored.id, { ...summary, content: read.value });
+    }
+    if (deps.index.failing(target.id)) {
+      state.indexFailing.add(target.id);
+      continue;
+    }
+    const rows = state.entities.get(target.id) ?? [];
+    for (const link of row.links ?? []) {
+      if (link.relation !== relation.name) continue;
+      const found = deps.index.entity(target.id, ref.type, link.target_key)
+        .find((candidate) =>
+          candidate.type === ref.type && candidate.key === link.target_key
+        );
+      if (found !== undefined) rows.push(found);
+    }
+    state.entities.set(target.id, rows);
+  }
+  return ok(true);
 }
 
 function targetsOf(plan: LoadPlan, state: ContextApiState): ContextValue[] {

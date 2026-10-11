@@ -496,8 +496,10 @@ export const contextOverviewReadSchema = publicRead(z.object({
   violation_count: countSchema,
 }));
 
-// 개체를 가리키는 값. 이 ref로 그 파일(+ section)을 연다.
+// 개체를 가리키는 값. 이 ref로 그 파일(+ section)을 연다. context는 다른 context의 개체를 가리킬 때만 있고
+// (`context.entity`의 다른 context 관계 대상) 그 context의 ID다. 없으면 ref를 준 context의 개체다.
 export const entityRefSchema = z.strictObject({
+  context: ctxIdSchema.optional(),
   type: contractTypeNameSchema,
   key: nonblankSchema,
   path: relativePathSchema,

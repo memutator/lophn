@@ -1,6 +1,7 @@
-import type {
-  CheckRule,
-  ContractType,
+import {
+  type CheckRule,
+  type ContractType,
+  splitExternalRef,
 } from "../../../contracts/documents/mod.ts";
 import type {
   CheckEntity,
@@ -75,13 +76,10 @@ export function applyRule(rule: CheckRule, scope: RuleScope): RuleViolation[] {
         r.name === rule.params.relation
       );
       if (relation === undefined) return [];
-      const slash = relation.to.indexOf("/");
+      const ref = splitExternalRef(relation.to);
       let keys: ReadonlySet<string> | undefined;
-      if (slash >= 0) {
-        keys = scope.externalKeys(
-          relation.to.slice(0, slash),
-          relation.to.slice(slash + 1),
-        );
+      if (ref !== undefined) {
+        keys = scope.externalKeys(ref.context, ref.type);
       } else {
         keys = new Set(
           scope.allEntities.filter((e) => e.type === relation.to).map((e) =>

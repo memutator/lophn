@@ -21,17 +21,22 @@ workspace, or an app card to open an app. The Project workspace keeps documents,
 the terminal, and app panels in one tab row. The terminal is also where [Start]
 opens a coding agent for a Task.
 
-The top bar opens the lophn area: Projects, Documents, Focus, Apps, Things to
-confirm, Roles, and Settings. Conversation is the dock on the right of every
-area. Closing it does not change the project or the app you already have open. A
-notification chip is not a decision. Opening it goes to Things to confirm.
+The lophn area has Projects, Apps, Things to confirm, Roles, and Settings.
+Documents and Contexts belong to a project, so you open them inside the Project
+workspace. Conversation is the dock on the right of every area. Closing it does
+not change the project or the app you already have open. A notification chip is
+not a decision. Opening it goes to Things to confirm.
 
 ## Features
 
-Projects holds the projects you registered. Documents searches documents and
-opens saved views. Focus holds the focuses and meanings you name. Apps holds
-registered apps. App detail, inside an app, is where you look at the current
-version, access, connections, issues, and tasks for that one app.
+Projects holds the projects you registered. Inside a project, Documents opens
+documents as tabs and saved views open searches. Contexts lists the project's
+contexts. A Context tab shows its Overview, Search, Violations, Glossary, and
+Contract. Context Engineer keeps a context up to date, so to create or change
+one you start a conversation with Context Engineer instead of editing it
+yourself. Apps holds registered apps. App detail, inside an app, is where you
+look at the current version, access, connections, issues, and tasks for that one
+app.
 
 Roles is where you see what each role does and where you open a conversation
 with it. Settings is where you review and change product settings, including

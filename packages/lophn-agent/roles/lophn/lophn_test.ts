@@ -20,6 +20,7 @@ import { HANDOFF_DIRECTIONS } from "@lophn/contracts/lophn-agent";
 import {
   checkDraftSubmission,
   checkPlan,
+  CONTEXT_ENGINEER_ROLE,
   draftSubmission,
   intentQuestion,
   lophnOffers,
@@ -53,7 +54,7 @@ function target(n: number, over: Partial<PlaceTarget> = {}): PlaceTarget {
     title: `Note ${n}`,
     revision: String(10 + n),
     hasPlace: false,
-    contextCount: 0,
+    containing: [],
     candidates: [{
       place: { kind: "project", id: PROJECT },
       name: `note-${n}`,
@@ -352,7 +353,7 @@ Deno.test("lophn-agent/roles/lophn#R7: project planning orders options from exis
   assertEquals(checkPlan(withBoth), { ok: true });
 });
 
-Deno.test("lophn-agent/roles/lophn#R7: choosing the second option rejects only the first", () => {
+Deno.test("lophn-agent/roles/lophn#R7 [ctx-I58c]: choosing to widen a context rejects only the first option and needs a Context Engineer handoff", () => {
   const draft: PlanDraft = {
     purpose: "The Mahas launch notes live in one place.",
     chosen: "widen_context_boundary",
@@ -370,16 +371,47 @@ Deno.test("lophn-agent/roles/lophn#R7: choosing the second option rejects only t
     place_candidates: [{
       place: null,
       name: "launch-notes",
-      reason: "A shared place for the widened items.",
+      reason: "A shared place for the notes the widened context covers.",
     }],
     contexts: [{
       context: "ctx_01",
-      purpose: "It widens to cover launch notes.",
+      purpose: "Its sources widen to cover launch notes.",
     }],
-    handoffs: [],
+    handoffs: [{
+      role: CONTEXT_ENGINEER_ROLE,
+      what: "Widen the sources of ctx_01 to cover the launch notes folder.",
+    }],
   };
-  const checked = checkPlan(draft);
-  assert(!checked.ok); // handoffs가 빈 목록이면 R8 위반이다(아래 R8 테스트 참조).
+  assertEquals(checkPlan(draft), { ok: true });
+  // 경계 넓히기는 lophn이 context를 고치는 일이 아니라 Context Engineer에게 내주는 일이다(R7).
+  // 내줄 곳에 Context Engineer가 없으면 거절이다.
+  assertEquals(
+    checkPlan({
+      ...draft,
+      handoffs: [{ role: "app_engineer", what: "SDK examples." }],
+    }),
+    { ok: false, error: { code: "context_engineer_handoff_missing" } },
+  );
+  // 다른 방안은 Context Engineer handoff를 요구하지 않는다.
+  assertEquals(
+    checkPlan({
+      ...draft,
+      chosen: "within_existing_project",
+      rejected: [],
+      handoffs: [{ role: "app_engineer", what: "SDK examples." }],
+    }),
+    { ok: true },
+  );
+  // 방안의 뜻은 항목 추가가 아니라 Context Engineer가 context의 sources를 넓히는 것이다.
+  assert(PLAN_OPTION_WORDS.widen_context_boundary.includes("Context Engineer"));
+  assert(
+    !/item|focus|perspective/i.test(
+      Object.values(PLAN_OPTION_WORDS).join(" "),
+    ),
+  );
+  const body = planDocumentBody(draft);
+  assert(body.includes(PLAN_OPTION_WORDS.widen_context_boundary));
+  assert(body.includes("context_engineer: Widen the sources of ctx_01"));
 });
 
 Deno.test("lophn-agent/roles/lophn#R8: a plan records purpose, rejected reasons, materials, place candidates, contexts and handoffs or none", () => {
@@ -860,4 +892,43 @@ Deno.test("lophn-agent/roles/lophn#R11: request-scope reads via the lophn tool l
   for (const name of capOnly) {
     assertEquals(names.includes(name), false, name);
   }
+});
+
+Deno.test("lophn-agent/roles/lophn#R3 [ctx-I58c]: the prompt reads selected contexts through the prompt material and the context tools it has", async () => {
+  const prompt = await Deno.readTextFile(
+    new URL("./prompt.md", import.meta.url),
+  );
+  const lophn = ROLE_CAPS.get("lophn");
+  assert(lophn !== undefined);
+  // prompt가 부르는 context 읽기 tool은 모두 lophn 상한에 있다(R3, R4).
+  for (const tool of ["context.read_entity", "series.next_name"]) {
+    assert(prompt.includes(tool), tool);
+    assert(lophn.tools.includes(tool), tool);
+  }
+  // 고른 context의 overview와 용어집이 prompt 자료로 들어 있다고 말하고 context 변경은 Context
+  // Engineer에게 내준다고 말한다(R3, R7, R13).
+  assert(prompt.includes("overview"));
+  assert(prompt.includes("용어집"));
+  assert(prompt.includes("Context Engineer"));
+  assert(prompt.includes("context_engineer"));
+  // 옛 항목·관점·focus 모델의 말이 남아 있지 않다.
+  assert(!/focus|perspective|관점별|기준 컨텍스트|context 항목/i.test(prompt));
+  assert(!prompt.includes("context.items"));
+});
+
+Deno.test("lophn-agent/roles/lophn#R3 [ctx-I58c]: the bundled guides describe contexts as a project's Context tabs changed through Context Engineer", async () => {
+  const dir = new URL("./guides/", import.meta.url);
+  for (const name of ["features-and-screens.md", "roles-and-presets.md"]) {
+    const text = await Deno.readTextFile(new URL(name, dir));
+    assert(!/\bfocus(es)?\b/i.test(text), `${name} has no focus`);
+  }
+  const screens = await Deno.readTextFile(
+    new URL("features-and-screens.md", dir),
+  );
+  assert(screens.includes("Contexts"));
+  assert(screens.includes("Context Engineer"));
+  const roles = await Deno.readTextFile(
+    new URL("roles-and-presets.md", dir),
+  );
+  assert(roles.includes("A request to create a context"));
 });

@@ -75,7 +75,7 @@ Preset 판 전체는 immutable blob이다. product 기본 preset은 역할별 �
 
 | 역할 종류 | 이름 | 기본 context | 기본 capability | 기본 model | 기본 MCP·skill·지침 |
 |---|---|---|---|---|---|
-| lophn | lophn | all | 공통 읽기·문서 결과·제품 안내·공개 설정·앱·problem·ticket 읽기와 생성·preset/assignment 읽기·시각·handoff | judgment 기본값 복사; organizing 기본값은 선택 복사 | 모두 `[]` |
+| lophn | lophn | all | 공통 읽기·모든 project의 context 조회(`context.list`, `context.overview`, `context.containing`; 묶음 하나)·문서 결과·제품 안내·공개 설정·앱·problem·ticket 읽기와 생성·preset/assignment 읽기·시각·handoff | judgment 기본값 복사; organizing 기본값은 선택 복사 | 모두 `[]` |
 | app_engineer | App Engineer | assignment_scope, sdk | 담당 앱 읽기·문서 결과·problem 해석·ticket 생성·시각·handoff | 위와 같음 | 모두 `[]` |
 | context_engineer | Context Engineer | all | 공통 읽기·context 초안·미리보기·제출·위반·용어집·문서 결과·preset/assignment 읽기·승인 초안·시각·handoff | 위와 같음 | 모두 `[]` |
 | operator | Operator | assignment_scope; outputs는 별도 허용 읽기 | 담당 자료·format·승인 앱 read·기존 outputs 새 Version·question | 위와 같음 | 모두 `[]` |
@@ -135,7 +135,7 @@ Preset 판 전체는 immutable blob이다. product 기본 preset은 역할별 �
 | 대상 | 허용 값 | 참조 |
 |---|---|---|
 | 프로젝트·문서 | 목적·목차·검색·필요한 고정 Version의 본문·절·이력·차이 | documents/projects, documents/versions, documents/outline-and-search |
-| context | 선택한 context의 overview·용어집, 선언한 검색의 결과, 개체 하나 | documents/contexts, documents/terms |
+| context | 선택한 context의 overview·용어집, 선언한 검색의 결과, 개체 하나; 모든 project의 active context 목록·목적·overview·용어집과 문서 경로를 덮는 context(조회 tool) | documents/contexts, documents/terms |
 | 앱·SDK | 목적·목록·blueprint·명령 metadata·release·정상 신호·invocation·SDK 계약·예시 | apps/registration, apps/blueprint, apps/releases, apps/invocations, apps/sdk |
 | problem·ticket | 열린 problem·보고·snapshot·실제 test result·고친 기록·ticket 본문·현황·근거 | problems/grouping, problems/reporting, problems/snapshots, problems/tests, problems/repairs, coding-agent/tickets |
 | 역할·assignment·run | 정의·판·담당 범위·남길 문서·주기·상태·확정 결과 | lophn-agent/presets, lophn-agent/assignments, lophn-agent/harness/run-loop |
@@ -148,6 +148,7 @@ Preset 판 전체는 immutable blob이다. product 기본 preset은 역할별 �
 
 | 묶음 | 추가 개별 동작 | 제약 |
 |---|---|---|
+| context 조회 | `context.list`, `context.overview`, `context.containing` | 모든 project의 active context 목록·목적·overview·용어집과 문서 경로를 덮는 context; 변경 없음; 개체·검색 결과는 읽지 않음; 하나의 묶음(`context-lookup`)으로 고르고 lophn 역할 상한에만 있음; → lophn-agent/harness/tools |
 | 프로젝트·앱·SDK 읽기 | `project.list`, `project.read`, `app.list`, `app.read`, `app.blueprint`, `app.commands`, `app.releases`, `app.health`, `app.invocations`, `sdk.list`, `sdk.contract`, `sdk.examples` | 조회와 현재 허락된 앱 자동 command; 실행 판정은 harness/tool-judgment |
 | problem·ticket 읽기 | `problem.list`, `problem.read`, `report.read`, `snapshot.read`, `verification.read`, `repair.read`, `ticket.list`, `ticket.read` | 문제 해석 참조·상태·기존 ticket 변경 없음 |
 | coding 요청 | `ticket.create` | 직접 요청·피드백을 ticket으로 생성; 부족한 근거는 확인 필요·준비 상태로 표시; claim·시작·완료 처리 없음; → coding-agent/tickets |

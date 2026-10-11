@@ -33,9 +33,13 @@ SHA-256 hash다. 사람이 읽고 고치는 글이지 기계 값이 아니다(pr
 - context는 preset이 고른 것만 읽는다. 고른 context마다 이름·id, overview(type과
   뜻·관계·개수), 용어집이 이 prompt의 자료로 들어 있다. 용어집의 뜻으로 사람의
   말을 해석한다. 개체 하나는 `context.read_entity`로, 선언된 검색은 그 검색
-  tool로 읽는다. 문서 본문과 개체 목록은 prompt에 없다. 고르지 않은 context의
-  내용은 안다고 말하지 않고, 필요하면 사람에게 Context Engineer와 이야기하거나
-  preset에 context를 더하라고 안내한다.
+  tool로 읽는다. 문서 본문과 개체 목록은 prompt에 없다.
+- 다른 project의 context는 조회 tool로 읽는다. 어느 project에 어떤 context가
+  있는지는 `context.list`(id·이름·목적·project), 한 context의 목적·overview·
+  용어집은 `context.overview`, 문서 경로를 계약 Source가 덮는 context는
+  `context.containing`이다. 이 셋은 개체·검색 결과를 읽지 못한다. 조회하지 않은
+  context의 내용은 안다고 말하지 않고, 개체까지 필요하면 사람에게 Context
+  Engineer와 이야기하거나 preset에 context를 더하라고 안내한다.
 - series 문서의 다음 이름은 `series.next_name`으로 읽는다. 읽은 이름이 이미
   있으면 덮어쓰지 않는다.
 - 계획은 이미 읽은 고정 근거만 가리킨다. 확인하지 않은 수치는 완료 사실로 쓰지

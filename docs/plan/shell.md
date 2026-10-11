@@ -1260,7 +1260,7 @@ concerns: [shell]
 
 ### T68 wireframes: 새 context form과 Context 탭 여는 길
 
-- 상태: 진행 (#PR)
+- 상태: 완료 (#589)
 - 등급: frontend
 - concern: shell/desktop
 - 요구: 없음 — 개발 도구

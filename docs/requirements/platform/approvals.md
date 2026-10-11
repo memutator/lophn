@@ -57,9 +57,9 @@ approval request가 사람에게 무엇을 왜 허락받는지 고정하고, 정
 - 확인: 허락 후 적용 영역을 실패시켜 결정은 유지되지만 결과는 해당 영역의 실패로 보이는지 보고 제출 상태와 입력 보존은 shell/desktop을 따른다.
 - 의도: platform#I3
 
-**[R10]** 앱 permission과 Operator assignment를 허락한 결정은 요청에 나온 고정 범위만 허용하고 다른 동작이나 범위 확대를 대신 허락하지 않는다.
+**[R10]** 앱 permission을 허락한 결정은 요청에 나온 고정 범위만 허용하고 다른 동작이나 범위 확대를 대신 허락하지 않는다.
 - 이유: 지속되는 범위의 결정도 포괄 허락이 아니다.
-- 확인: 범위 밖 적용이 거절되고 확대에는 새 request가 필요한지 보며 실제 적용은 apps/permissions와 lophn-agent/assignments를 따른다.
+- 확인: 범위 밖 적용이 거절되고 확대에는 새 request가 필요한지 보며 실제 적용은 apps/permissions를 따른다.
 - 의도: platform#I3
 
 **[R11]** 허락 뒤에도 적용 직전에 현재 권한·대상·비교 기준·원래 일의 유효성을 다시 검사하며 금지된 동작이나 더는 맞지 않는 전제로는 시작하지 않는다.
@@ -101,13 +101,31 @@ approval request가 사람에게 무엇을 왜 허락받는지 고정하고, 정
 - 확인: 코드나 내부 식별자를 몰라도 효과와 위험을 읽고 결정할 수 있고 펼친 상세와 고정 action이 같으며 secret 원문은 나오지 않는지 본다; en·message key·배치·child modal과 앱 입력 차단은 shell/wording·shell/confirmation-window를 따른다.
 - 의도: platform#I3
 
+### 대화 안 승인 카드의 범위
+
+**[R18]** agent의 tool call 때문에 생긴 approval request를 대화 안 카드에서 결정할 때 사람은 Allow once, Allow for this session, Deny 셋 중 하나만 고를 수 있고 계속 허락(Always)은 카드에 없다.
+- 이유: 오래 가는 허락은 request 하나의 결정이 아니라 자리(project·app)의 권한 규칙이 맡는다; lophn-agent/harness/tool-judgment가 호출 approval에서 지속 허락을 일부러 없앤 결정과 맞춘다.
+- 확인: 카드의 선택이 세 가지뿐이고 Always가 없으며, Allow once는 그 request 하나만 허락하고 Deny는 R14·R15를 따르는지 본다; 오래 가는 허락이 자리의 권한 규칙(Agents 탭의 Permissions)에서만 생기는지는 lophn-agent/agents를 따르고 카드 모양과 결정 증거를 받는 통로는 shell/desktop·shell/confirmation-window를 따른다.
+- 의도: platform#I3, lophn-agent#I6
+
+**[R19]** Allow for this session은 그 request를 평소대로 한 번 허락하고 그 session 안에서 같은 tool(MCP 서버 포함)의 같은 동작을 이어서 묻지 않는 session 허락을 더하며, session 허락은 그 session이 닫히거나 archive·delete되면 사라지고 다시 열어도 되살아나지 않고 다른 session·run으로 넘어가지 않는다.
+- 이유: R7의 한 번 사용은 그대로 두고, 같은 일을 반복하는 session 안에서만 사람이 같은 질문을 되풀이해 받지 않게 한다.
+- 확인: session 허락 뒤 같은 session의 같은 tool·동작은 새 request 없이 시작되고, 다른 session·다른 tool·다른 동작은 새 request가 생기며, 그 request 자체는 한 번만 사용되고, session을 닫거나 archive·delete한 뒤에는 다시 묻는지 본다; 이어지는 호출의 판정은 lophn-agent/harness/tool-judgment를 따른다.
+- 의도: platform#I3
+
+**[R20]** session 허락은 agent tool call의 ask에만 있고 앱 command의 confirm·앱 permission·release 적용·복원처럼 정확한 대상 하나를 보고 결정해야 하는 request에는 없으며, session 허락 아래서도 호출 직전의 현재 권한·대상·계약 재검사(R11)와 사람이 거절한 같은 동작의 재질문 금지(R16)는 그대로 적용된다.
+- 이유: 반복 허락이 안전 검사나 사람이 이미 낸 거절을 면제하면 안 된다.
+- 확인: confirm 앱 command와 앱 permission request에는 session 선택이 없고, session 허락 뒤 tool 계약이나 연결이 바뀌거나 권한이 회수되면 새 request가 생기며, 같은 session에서 Deny한 같은 동작은 session 허락이 있어도 다시 묻지 않고 시작되지 않는지 본다.
+- 의도: platform#I3
+
 ## 열린 질문
 
 없음.
 
 ## 버린 것
 
-- 호출마다 한 번 허락과 계속 허락을 함께 제공하던 방식은 버린다: request는 고정 동작 하나의 한 번 사용이고 지속 범위는 apps/permissions와 lophn-agent/assignments가 맡는다.
+- 호출마다 한 번 허락과 계속 허락(Always)을 함께 제공하던 방식은 버린다: request는 고정 동작 하나의 한 번 사용이고 오래 가는 허락은 apps/permissions와 자리(project·app)의 권한 규칙(lophn-agent/agents)이 맡는다. 카드에서 범위를 넓히는 것은 session까지다(R19).
+- Operator assignment를 허락하던 approval request를 버린다: 사람이 Operator editor에서 직접 저장하고 agent가 Operator를 제안하는 길이 없어졌으므로 request가 생기지 않는다.
 - 창을 닫은 뒤 300초가 지나도 항상 결정할 수 있다는 약속은 버린다: 기한·취소·원래 일의 유효성이 우선한다.
 - 앱별 host journal과 approval permit으로 접수를 확정하던 v2 방식은 버린다: apps/invocations의 단일 ledger 접수와 한 번 사용을 따른다.
 - terminal에서 yes와 추가 grant 입력만으로 승인하던 방식은 현재 채택하지 않는다: H5 추천안인 shell/confirmation-window만 인정한다.

@@ -14,6 +14,8 @@ function liveTargets(): RestoreTargets {
     documentExists: () => Promise.resolve(true),
     app: () => Promise.resolve(true),
     canRead: () => Promise.resolve(true),
+    context: () => Promise.resolve(true),
+    declaredSearch: () => Promise.resolve(true),
   };
 }
 

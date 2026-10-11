@@ -4,14 +4,20 @@
 import { t } from "@lophn/wording";
 
 import { appPanelKind } from "./app-panel.tsx";
+import { contextKind } from "./context.tsx";
+import { contextsKind } from "./contexts.tsx";
 import { documentEditorKind } from "./document-editor.tsx";
 import type { TabKindDef } from "./kind.ts";
+import { searchKind } from "./search.tsx";
 import { terminalKind } from "./terminal.tsx";
 
 export const BUILT_IN_TAB_KINDS = [
   documentEditorKind,
   appPanelKind,
   terminalKind,
+  contextsKind,
+  contextKind,
+  searchKind,
 ] as const;
 
 const kinds = new Map<string, TabKindDef>();

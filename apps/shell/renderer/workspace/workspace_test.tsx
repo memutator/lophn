@@ -11,6 +11,7 @@ import type { WorkspaceSource } from "./source.ts";
 import type { EditorDeps } from "../editor/document-view.tsx";
 import { readingWidthStore } from "../editor/reading-width.ts";
 import type { TrackingSource } from "./tracking/source.ts";
+import { createFakeContextsSource } from "./contexts/fake-source.ts";
 
 function sourceOf(layout: unknown = null): {
   source: WorkspaceSource;
@@ -40,6 +41,7 @@ function sourceOf(layout: unknown = null): {
           value: [{ id: "ctx_1", title: "design" }],
         }),
       files: () => Promise.resolve({ ok: true, value: [] }),
+      contextsSource: createFakeContextsSource(),
       readLayout: () =>
         Promise.resolve(
           layout === null
@@ -60,7 +62,7 @@ async function flush(): Promise<void> {
   });
 }
 
-Deno.test("shell/desktop#R28: 작업대는 프로젝트의 폴더·문서·컨텍스트를 읽어 sidebar에 보인다", async () => {
+Deno.test("shell/desktop#R28: 작업대는 프로젝트의 폴더·문서를 읽어 sidebar에 보이고 Contexts는 한 행이다", async () => {
   const { source } = sourceOf();
   using view = render(
     <Workspace
@@ -86,12 +88,13 @@ Deno.test("shell/desktop#R28: 작업대는 프로젝트의 폴더·문서·컨�
     "notes",
   );
   assertEquals(
-    view.container.querySelector("[data-context]")?.textContent,
-    "design",
+    view.container.querySelector("[data-contexts-row]")?.textContent,
+    "Contexts",
   );
+  assertEquals(view.container.querySelectorAll("[data-context]").length, 0);
 });
 
-Deno.test("shell/desktop#R28: sidebar의 폴더 안 문서는 탭으로 열리고 컨텍스트 행은 onContext로 이어진다", async () => {
+Deno.test("shell/desktop#R28: sidebar의 폴더 안 문서는 탭으로 열리고 Contexts 행은 Contexts 탭을 연다", async () => {
   const { source } = sourceOf();
   const base = source.files;
   source.files = (project) =>
@@ -104,7 +107,6 @@ Deno.test("shell/desktop#R28: sidebar의 폴더 안 문서는 탭으로 열리�
         title: "notes",
       }],
     }));
-  const contexts: string[] = [];
   using view = render(
     <Workspace
       projectId="prj_1"
@@ -113,7 +115,6 @@ Deno.test("shell/desktop#R28: sidebar의 폴더 안 문서는 탭으로 열리�
       bodyWidth={1200}
       onLauncher={() => {}}
       onLophn={() => {}}
-      onContext={(context) => contexts.push(context)}
     />,
   );
   await flush();
@@ -129,9 +130,15 @@ Deno.test("shell/desktop#R28: sidebar의 폴더 안 문서는 탭으로 열리�
     "doc_1",
   );
   act(() =>
-    (view.container.querySelector("[data-context]") as HTMLElement).click()
+    (view.container.querySelector("[data-contexts-row]") as HTMLElement)
+      .click()
   );
-  assertEquals(contexts, ["ctx_1"]);
+  assertEquals(
+    [...view.container.querySelectorAll("[data-tab]")].map((tab) =>
+      tab.getAttribute("data-tab")
+    ),
+    ["doc_1", "contexts"],
+  );
 });
 
 Deno.test("shell/workspace#R6: 저장된 layout의 탭·칸·선택을 복원해 그린다", async () => {

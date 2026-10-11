@@ -7,6 +7,8 @@ import type {
 import type { TabItem, WorkspaceView } from "../model.ts";
 import type { DocumentRow } from "../source.ts";
 import type { WorkspaceProps } from "../workspace.tsx";
+import type { SearchTabState } from "../contexts/search-tab.tsx";
+import type { ContextsSource } from "../contexts/source.ts";
 import type { ReadPosition } from "./kind.ts";
 
 /** 문서 탭이 작업대와 나누는 상태. 정보 패널과 현재 보기 힌트가 같이 읽는다. */
@@ -33,6 +35,23 @@ export interface AppPanelSlice {
   noteSession(tab: string, session: string | null): void;
 }
 
+/** Contexts·Context·Search 탭이 작업대와 나누는 것. 통로(source)가 없으면 host.contexts는 null이다. */
+export interface ContextsSlice {
+  readonly source: ContextsSource;
+  /** 이 프로젝트의 context 목록. 작업대가 읽어 두고 바뀌면 갱신한다. */
+  readonly list: readonly { readonly id: string; readonly title: string }[];
+  /** 목록에 있는 context의 이름. */
+  titleOf(context: string): string | undefined;
+  /** 고른 검색이나 저장한 보기를 그 context의 Search 탭에서 연다. 열려 있으면 그 탭을 고른다(R22). */
+  openSearch(state: SearchTabState): void;
+  /** 검색 결과·Overview 예시의 도메인 객체를 그 문서 탭으로 연다(workspace#R26). */
+  openPath(path: string): void;
+  /** Context Engineer와 말하는 대화를 연다(오늘의 대화 도크). */
+  askContextEngineer(): void;
+  /** [New context]. 대화를 열고 만드는 중인 context가 생기면 그 탭을 남긴다(workspace#R30). */
+  newContext(): void;
+}
+
 export interface TabHost {
   readonly projectId: string;
   readonly projectTitle: string | undefined;
@@ -43,12 +62,17 @@ export interface TabHost {
   readonly view: WorkspaceView;
   /** focus 칸 끝에 붙이고 고른다. 같은 key가 그 칸에 있으면 고르기만 한다. */
   openTab(tab: TabItem): void;
-  /** key의 탭 필드를 바꾸고 저장한다. 함수를 주면 그 사이 바뀐 탭에서 계산한다. */
+  /**
+   * key의 탭 필드를 바꾸고 저장한다. 함수를 주면 그 사이 바뀐 탭에서 계산한다. 타이핑처럼 잦은
+   * 바뀜은 `later`로 저장을 잠깐 모은다.
+   */
   patchTab(
     key: string,
     patch: Partial<TabItem> | ((current: TabItem) => Partial<TabItem>),
+    options?: { readonly later?: boolean },
   ): void;
   removeTab(key: string): void;
   readonly document: DocumentSlice;
   readonly appPanel: AppPanelSlice;
+  readonly contexts: ContextsSlice | null;
 }

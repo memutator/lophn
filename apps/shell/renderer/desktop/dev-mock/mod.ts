@@ -23,7 +23,8 @@ import type { CodingConnectionsSource } from "../lophn-space/settings/connection
 import type { SettingsSource } from "../lophn-space/settings/source.ts";
 import type { LophnSource } from "../lophn-space/source.ts";
 import type { RequestSource } from "../lophn-space/things-to-confirm/source.ts";
-import { seedWorkbench } from "../dev-seed.ts";
+import { contextExampleFiles, seedWorkbench } from "../dev-seed.ts";
+import { createFakeContextsSource } from "../../workspace/contexts/fake-source.ts";
 import {
   mockApps,
   mockCoding,
@@ -41,7 +42,6 @@ import {
   mockViews,
 } from "./app-space.ts";
 import { mockConversation, mockCore, mockRequests } from "./conversation.ts";
-import { FOCUS_GROCERY } from "./ids.ts";
 import { mockContexts, mockLophn, mockOrganize } from "./documents.ts";
 import { mockInstructions, mockLauncher } from "./launcher.ts";
 
@@ -92,12 +92,15 @@ export function devMock(
     // 어느 카드를 열어도 같은 시드 작업대다. 제목만 카드의 것을 쓴다.
     workspace: {
       ...bench.source,
-      // 연관 컨텍스트는 contexts 화면 mock에 있는 Focus를 가리켜, 눌러 열면 그 화면이 나온다.
-      contexts: () =>
-        Promise.resolve({
-          ok: true,
-          value: [{ id: FOCUS_GROCERY, title: "Grocery budget" }],
-        }),
+      // Contexts·Context·Search 탭은 화면 시험이 쓰는 fake를 그대로 읽는다. 만드는 중인 context도 있다.
+      contextsSource: createFakeContextsSource({ drafting: true }),
+      // 검색 결과·Overview 예시가 가리키는 문서도 파일로 잡혀 탭으로 열린다.
+      files: async (project) => {
+        const read = await bench.source.files(project);
+        return read.ok
+          ? { ok: true, value: [...read.value, ...contextExampleFiles()] }
+          : read;
+      },
       project: async (id) => {
         const read = await bench.source.project(id);
         const cards = await launcher.projects();

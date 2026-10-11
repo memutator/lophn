@@ -19,11 +19,8 @@ import {
   optionWireSchema,
   runBasisModelSchema,
 } from "./models.ts";
-import {
-  EFFORT_LABELS,
-  EFFORT_VALUES,
-  resolvedModelSchema,
-} from "./resolved-model.ts";
+import { EFFORT_LABELS, resolvedModelSchema } from "./resolved-model.ts";
+import { EFFORT_VALUES } from "./option-axes.ts";
 
 const suffix = "01arz3ndektsv4rrffq69g5fav";
 const provider = `pvd_${suffix}`;

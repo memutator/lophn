@@ -61,20 +61,5 @@ export {
   snapshotCatalogEntry,
   snapshotModelListed,
 } from "./snapshot-catalog.ts";
-export {
-  type AxisView,
-  fitOptionValues,
-  type FitResult,
-  optionAxesOf,
-  type OptionNotice,
-  type OptionValues,
-  resolveOptionValues,
-  validateOptionValues,
-} from "./options.ts";
+export { resolveOptionValues, validateOptionValues } from "./options.ts";
 export { translateOptions, type WirePlan, type WireProtocol } from "./wire.ts";
-export {
-  orderPicker,
-  type PickerLayout,
-  type PickerModel,
-  toggleFavorite,
-} from "./picker-order.ts";

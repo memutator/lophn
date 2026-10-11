@@ -1,6 +1,6 @@
 // composer의 model 단추와 picker(shell/desktop#R44, lophn-agent/harness/model#R21·R25·R26). 화면 코드에는
 // model 이름도 option 값도 없다. 정렬·거르기·option 축·값 맞춤 알림은 model catalog 쪽 모듈
-// (harness/model의 options·picker-order)이 계산해 props로 주고, 이 component는 받은 순서대로 그린다.
+// (contracts/lophn-agent의 model-picker)이 계산해 props로 주고, 이 component는 받은 순서대로 그린다.
 // renderer는 contracts·design·sdk만 import하므로 그 모듈을 부르는 연결은 core source 쪽 몫이다.
 import type { KeyboardEvent, ReactNode } from "react";
 import {

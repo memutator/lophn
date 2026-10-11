@@ -1,5 +1,5 @@
 // agent-I23: composer의 model 단추와 picker. 값은 모두 props(model catalog가 계산한 결과)에서 오고 화면은
-// 받은 순서대로 그린다. 정렬·거르기·값 맞춤 규칙 자체는 harness/model의 picker-order·options test가 본다.
+// 받은 순서대로 그린다. 정렬·거르기·값 맞춤 규칙 자체는 contracts/lophn-agent의 model-picker test가 본다.
 import { assert, assertEquals } from "@std/assert";
 import { act } from "react";
 import {

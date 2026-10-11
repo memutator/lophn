@@ -7,12 +7,7 @@ export {
   createCommandQueue,
   runCommand,
 } from "./actions.ts";
-export {
-  type CommandGroup,
-  listCommands,
-  resolveSubmission,
-  type Submission,
-} from "./list.ts";
+export { resolveSubmission, type Submission } from "./list.ts";
 export {
   type CommandReadDeps,
   type CommandSessionPlace,

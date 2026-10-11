@@ -271,9 +271,9 @@ Operator의 자리는 project 또는 앱 하나이고 context는 자료 선택�
 
 | command | actor | 입력 | 비교 기준 | event | 거절(error code) |
 |---|---|---|---|---|---|
-| `SaveAgent` | user | 자리, assignment(없으면 새 Operator), 바꾼 칸, 본문, 파일 hash(고칠 때) | 전체 검사(칸 형식·이름·참조·권한 상한); 고칠 때 파일 hash CAS; 새 Operator면 assignment를 먼저 만들고 파일을 씀 | `AgentSaved` (새 Operator면 assignment의 `AssignmentCreated` 먼저) | `invalid_input`, `not_found`, `conflict`, `forbidden` |
+| `SaveAgent` | user | 자리, assignment(없으면 새 Operator), 바꾼 칸, 본문, 파일 hash(고칠 때) | 전체 검사(칸 형식·이름·참조·권한 상한); 고칠 때 파일 hash CAS; 새 Operator면 assignment를 먼저 만들고 파일을 씀; 파일을 쓴 뒤 저장한 profile이 가리키지 않는 `avatar.*`를 지운다(지우지 못한 것은 다음 저장이 다시 지운다) | `AgentSaved` (새 Operator면 assignment의 `AssignmentCreated` 먼저) | `invalid_input`, `not_found`, `conflict`, `forbidden` |
 | `DeleteAgent` | user | assignment | Operator만(built-in은 `forbidden`); assignment를 거두고 파일을 지움 | `AgentDeleted` (`AssignmentWithdrawn` 먼저) | `not_found`, `conflict`, `forbidden` |
-| `UploadAgentProfileImage` | user | assignment, 이미지 | png·jpg·webp, 1048576 byte 이하, svg 불가 | 없음(저장 때 `profile`로 연결). 새 파일을 원자적으로 쓴 뒤 같은 폴더의 다른 확장자 `avatar.*`를 지운다 | `invalid_input`, `not_found`, `unavailable` |
+| `UploadAgentProfileImage` | user | assignment, 이미지 | png·jpg·webp, 1048576 byte 이하, svg 불가 | 없음(저장 때 `profile`로 연결). 새 파일을 원자적으로 쓰고 다른 확장자의 옛 `avatar.*`는 남긴다(저장이 지운다) | `invalid_input`, `not_found`, `unavailable` |
 | `ChangePlaceAgentSettings` | user | 자리, 바꾼 칸 | 전체 검사; 파일 hash CAS; `permissions`는 Workspace 기본의 부분집합 | `PlaceAgentSettingsChanged` | `invalid_input`, `conflict`, `forbidden` |
 
 읽기: `ListAgents(자리)`는 그 자리에서 부를 수 있는 agent의 행(assignment ID, 역할, built-in/Operator, 이름, profile, model 요약, 상태, 켜진 skill·MCP 수, Operator의 context 수)을, `ReadAgent(자리, assignment)`는 정의와 칸별 값·출처를 돌려준다. built-in 행은 context 수가 없고, 파일이 틀려 resolve하지 못한 행은 수를 셋 다 비운다. `ResolveAgent`는 run 준비 때 쓰는 machine 읽기다. `ReadPlaceAgentSettings(자리)`는 그 자리 `settings.md`의 칸과 파일 hash, 칸을 비운 role의 실제 model과 출처(자리, Workspace, 기본값)를 돌려준다. agent 쪽 tool은 정의를 쓰지 않는다.

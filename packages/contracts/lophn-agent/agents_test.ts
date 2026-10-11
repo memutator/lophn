@@ -183,7 +183,7 @@ Deno.test("lophn-agent/agents#R13: a profile image upload takes png, jpg or webp
   assertEquals(agentProfilesRead.kind, "file");
 });
 
-Deno.test("lophn-agent/agents#R13 [agent-I17]: the upload route declares unavailable for a failed write or a failed removal of the old image", () => {
+Deno.test("lophn-agent/agents#R13 [agent-I17]: the upload route declares unavailable for a failed image write", () => {
   assertEquals(agentProfilesUpload.errors, [
     "invalid_input",
     "unauthorized",
@@ -311,6 +311,7 @@ Deno.test("lophn-agent/agents#R7 lophn-agent/agents#R12: list returns rows and s
     profile: { kind: "icon", icon: "dock" },
     model: null,
     state: "enabled",
+    counts: { contexts: null, skills: 0, mcp: 0 },
     issues: [],
   };
   assert(agentsList.output.safeParse({ ...meta, agents: [row] }).success);

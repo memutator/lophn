@@ -162,7 +162,7 @@ export const agentProfilesUpload = defineUpload({
   input: uploadAgentProfileInputSchema,
   output: z.object({ profile: profileImageOutputSchema }),
   actors: ["user"],
-  // 쓰기 실패와 옛 파일을 지우지 못한 실패는 unavailable이다.
+  // 이미지 파일을 쓰지 못하면 unavailable이다. 옛 확장자의 정리는 SaveAgent가 맡는다.
   errors: [
     "invalid_input",
     "unauthorized",

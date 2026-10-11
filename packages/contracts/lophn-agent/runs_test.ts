@@ -119,7 +119,7 @@ Deno.test("lophn-agent/harness/run-loop#R19: state fields stay coupled across th
       ...base,
       state: "finished",
       finished_at: at,
-      outcome: { kind: "completed", reason: "no_change" },
+      outcome: { kind: "completed", reason: "answer_completed" },
     }).success,
   );
   assert(
@@ -316,7 +316,7 @@ Deno.test("lophn-agent/handoff#R8: run result carries an immutable blob and cano
   const result = {
     run,
     state: "finished",
-    outcome: { kind: "completed", reason: "no_change", future: true },
+    outcome: { kind: "completed", reason: "answer_completed", future: true },
     result: hash,
     as_of_seq: "20",
     next_cursor: null,

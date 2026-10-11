@@ -246,17 +246,6 @@ export function createRunCommands(deps: RunLoopDeps = {}): {
           return reject("conflict", "assignment changed");
         }
         const source = input.source;
-        if (source.kind === "schedule") {
-          if (assignment.role !== "operator" || input.session !== null) {
-            return reject(
-              "invalid_input",
-              "scheduled runs belong to an operator without a session",
-            );
-          }
-          if (source.assignment_revision !== assignment.revision) {
-            return reject("conflict", "schedule used another revision");
-          }
-        }
         if (source.kind === "handoff") {
           if (assignment.role === "operator") {
             return reject("invalid_input", "operators take no handoff");
@@ -297,12 +286,6 @@ export function createRunCommands(deps: RunLoopDeps = {}): {
             `select ${RUN_COLUMNS} from runs where source_message = ?`,
             [source.message],
           )
-          : source.kind === "schedule"
-          ? tx.sql.get(
-            `select ${RUN_COLUMNS} from runs where assignment = ?
-               and source_assignment_revision = ? and source_scheduled_at = ?`,
-            [input.assignment, source.assignment_revision, source.scheduled_at],
-          )
           : tx.sql.get(
             `select ${RUN_COLUMNS} from runs
              where source_sender_run = ? and source_dedup_key = ?`,
@@ -332,10 +315,10 @@ export function createRunCommands(deps: RunLoopDeps = {}): {
         }
         tx.sql.run(
           `insert into runs (id, assignment, session, source, source_kind,
-             source_message, source_assignment_revision, source_scheduled_at,
-             source_sender_run, source_original_message, source_dedup_key,
-             continued_from, start_after, state, state_seq, accepted_seq)
-           values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'accepted', ?, ?)`,
+             source_message, source_sender_run, source_original_message,
+             source_dedup_key, continued_from, start_after, state, state_seq,
+             accepted_seq)
+           values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'accepted', ?, ?)`,
           [
             input.id,
             input.assignment,
@@ -343,8 +326,6 @@ export function createRunCommands(deps: RunLoopDeps = {}): {
             JSON.stringify(source),
             source.kind,
             columns.message,
-            columns.revision,
-            columns.scheduledAt,
             columns.sender,
             columns.originalMessage,
             columns.dedupKey,

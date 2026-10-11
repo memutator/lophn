@@ -15,14 +15,10 @@ import type {
   Proposed,
   ReadChoice,
   Settled,
-  SkippedPeriod,
 } from "./source.ts";
 
 const CONCERN = "lophn-agent/assignments";
 const COMMAND = "ApplyOperatorAssignment";
-/** 앞으로 며칠 전까지 건너뛴 회차를 보인다. */
-const SKIP_DAYS = 30;
-const DAY = 24 * 60 * 60 * 1000;
 /** 보고 문서 후보를 확인할 최대 개수(문서마다 독점 여부를 읽는다). */
 const OUTPUT_CANDIDATES = 60;
 
@@ -38,19 +34,6 @@ interface DocumentEntry {
 interface DocumentGot {
   document: { file_source?: unknown };
   version: { id: string };
-}
-
-interface RunState {
-  id: string;
-  state: string;
-}
-
-interface OccurrenceValue {
-  occurrence: {
-    due_at: string;
-    outcome: "accepted" | "skipped";
-    blocking_runs: string[];
-  };
 }
 
 interface ApprovalValue {
@@ -304,47 +287,6 @@ export function coreOperatorSource(
         key: `assignments-withdraw-${role.id}-${role.revision}`,
       });
       return sent.ok ? { ok: true, value: null } : sent;
-    },
-
-    async skipped(role) {
-      const after = new Date(deps.now() - SKIP_DAYS * DAY).toISOString();
-      const occurrences = await pages<
-        OccurrenceValue,
-        Page & { occurrences: OccurrenceValue[] }
-      >(
-        core,
-        "assignment-occurrences",
-        "list",
-        { assignment: role.id, after_due_at: after, limit: 100 },
-        (value) => value.occurrences,
-      );
-      if (!occurrences.ok) return occurrences;
-      const skipped = occurrences.value.filter((item) =>
-        item.occurrence.outcome === "skipped"
-      );
-      if (skipped.length === 0) return { ok: true, value: [] };
-      const runs = await pages<RunState, Page & { runs: RunState[] }>(
-        core,
-        "runs",
-        "list",
-        { assignment: role.id },
-        (value) => value.runs,
-      );
-      if (!runs.ok) return runs;
-      const waiting = new Set(
-        runs.value.filter((run) => run.state === "waiting_user").map((run) =>
-          run.id
-        ),
-      );
-      return {
-        ok: true,
-        value: skipped.slice(-5).reverse().map((item): SkippedPeriod => ({
-          dueAt: item.occurrence.due_at,
-          waitingForAnswer: item.occurrence.blocking_runs.some((run) =>
-            waiting.has(run)
-          ),
-        })),
-      };
     },
   };
 }

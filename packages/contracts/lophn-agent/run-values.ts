@@ -43,12 +43,6 @@ const messageSourceFields = {
   message: idSchema("msg"),
 };
 
-const scheduleSourceFields = {
-  kind: z.literal("schedule"),
-  assignment_revision: positiveRevisionSchema,
-  scheduled_at: atSchema,
-};
-
 const handoffSourceFields = {
   kind: z.literal("handoff"),
   sender_run: idSchema("run"),
@@ -66,13 +60,11 @@ const handoffSourceOutputFields = {
 // 다른 가지 필드는 strict object가 거절한다. 같은 assignment·self 검사는 runtime이다.
 export const runSourceSchema = z.discriminatedUnion("kind", [
   z.strictObject(messageSourceFields),
-  z.strictObject(scheduleSourceFields),
   z.strictObject(handoffSourceFields),
 ]);
 
 export const runSourceOutputSchema = z.discriminatedUnion("kind", [
   z.object(messageSourceFields),
-  z.object(scheduleSourceFields),
   z.object(handoffSourceOutputFields),
 ]);
 
@@ -186,7 +178,7 @@ export const runElapsedOutputSchema = z.object(elapsedFields);
 export type RunElapsed = z.infer<typeof runElapsedSchema>;
 
 export const RUN_OUTCOME_REASONS = {
-  completed: ["answer_completed", "no_change"],
+  completed: ["answer_completed"],
   failed: [
     "model_error",
     "tool_error",

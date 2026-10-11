@@ -10,13 +10,7 @@ import {
 } from "../../harness/tools/mod.ts";
 import { APP_COMMAND_EXPOSURE, ROLE_CAPS } from "../../agents/mod.ts";
 import { handoffAllowed, runSourceSchema } from "@lophn/contracts/lophn-agent";
-import {
-  noChange,
-  type OccurrenceOutcome,
-  outcomeOf,
-  type OutcomePoint,
-  update,
-} from "./mod.ts";
+import { type OccurrenceOutcome, type OutcomePoint, update } from "./mod.ts";
 import { operatorOffers, operatorTools } from "./mod.ts";
 
 // roles/operator의 시작 계기·범위·tool 선택·결과 판정 규칙(R1–R10)을 본다. 순수
@@ -35,14 +29,15 @@ const CALL = id("tcl", 1);
 
 // --- R1: 주기 또는 그 assignment 사람 요청으로만 일한다 ----------------------------
 
-Deno.test("lophn-agent/roles/operator#R1: 주기 회차와 사람 요청만 Operator를 시작하고 다른 계기는 run 출처가 아니다", () => {
-  // 주기 회차와 사람 요청은 run 출처 schema 그대로다(R1).
-  assert(
+Deno.test("lophn-agent/roles/operator#R1: 사람 요청만 Operator를 시작하고 다른 계기는 run 출처가 아니다", () => {
+  // 사람 요청은 run 출처 schema 그대로다(R1). 주기 회차는 보류라 출처가 아니다.
+  assertEquals(
     runSourceSchema.safeParse({
       kind: "schedule",
       assignment_revision: 1,
       scheduled_at: "2026-01-01T00:00:00.000Z",
     }).success,
+    false,
   );
   assert(
     runSourceSchema.safeParse({ kind: "message", message: id("msg", 1) })
@@ -301,52 +296,7 @@ Deno.test("lophn-agent/roles/operator#R6: 결과는 확인한 사실·판단·�
   );
 });
 
-Deno.test("lophn-agent/roles/operator#R6: 갱신 조건 미충족이면 근거와 함께 변화 없음으로 끝내고 새 version을 만들지 않는다", () => {
-  const produced = noChange({
-    points: point(),
-    evidence: evidence.slice(0, 1),
-    update_condition: "count gap exceeds the threshold",
-  });
-  assert(produced.ok);
-  assertEquals(produced.value.kind, "no_change");
-  assertEquals(
-    produced.value.update_condition,
-    "count gap exceeds the threshold",
-  );
-  assertEquals(produced.value.evidence, evidence.slice(0, 1));
-  // 근거 없는 무변화는 없다(없는 근거를 성공 보고로 채우지 않는다, R6 확인).
-  assertEquals(
-    noChange({
-      points: point(),
-      evidence: [],
-      update_condition: "the condition",
-    }).ok,
-    false,
-  );
-  // 갱신 조건이 비면 아니다.
-  assertEquals(
-    noChange({
-      points: point(),
-      evidence: evidence.slice(0, 1),
-      update_condition: "  ",
-    }).ok,
-    false,
-  );
-  // 무변화도 세 구분이 다 있어야 한다.
-  assertEquals(
-    noChange({
-      points: point({ fact: " " }),
-      evidence: evidence.slice(0, 1),
-      update_condition: "the condition",
-    }).ok,
-    false,
-  );
-  // 무변화는 실패가 아니고 Run 결과는 completed(no_change)다(R6 확인).
-  assertEquals(outcomeOf(produced.value), {
-    kind: "completed",
-    reason: "no_change",
-  });
-  // 갱신 결과도 정상 완료다(R6: 완료 결과가 없는 회차가 아니다).
+Deno.test("lophn-agent/roles/operator#R6: 갱신 결과는 사실·판단·불확실함 셋과 근거를 갖춰야 새 version이 된다", () => {
   const refreshed = update({
     points: point(),
     evidence,
@@ -354,10 +304,7 @@ Deno.test("lophn-agent/roles/operator#R6: 갱신 조건 미충족이면 근거�
     update_condition: "the condition",
   });
   assert(refreshed.ok);
-  assertEquals(outcomeOf(refreshed.value), {
-    kind: "completed",
-    reason: "answer_completed",
-  });
+  assertEquals(refreshed.value.kind, "update");
 });
 
 Deno.test("lophn-agent/roles/operator#R6: 부분 결과는 실제 저장된 문서와 실패 내용을 나눠 남긴다", () => {
@@ -484,18 +431,6 @@ Deno.test("lophn-agent/roles/operator#R7 [agent-R10]: 문서 새 version tool은
       `${outside} should stay out of the operator cap`,
     );
   }
-  // 승인 문서 새 version은 회차 결과의 몫이다: 무변화는 새 version 없이 끝낸다(R6·R7).
-  const unchanged = noChange({
-    points: { fact: "f", judgment: "j", uncertainty: "u" },
-    evidence: [{
-      document: id("doc", 1),
-      version: id("ver", 1),
-      section: null,
-    }],
-    update_condition: "the condition",
-  });
-  assert(unchanged.ok);
-  assertEquals(outcomeOf(unchanged.value).kind, "completed");
 });
 
 // --- R10: 반복 실패와 대기 중 회차 ----------------------------------------------

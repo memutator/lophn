@@ -79,7 +79,7 @@ Deno.test("lophn-agent/harness/tools#R10: assignment tool은 읽기만 있고 �
   const mutating = new Set(
     ROUTES.filter((route) =>
       route.kind === "command" &&
-      ["assignments", "assignment-occurrences", "runs"].includes(
+      ["assignments", "runs"].includes(
         route.resource,
       )
     ).map((route) => route.name),

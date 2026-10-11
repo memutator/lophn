@@ -5,7 +5,7 @@ import { routePath } from "../platform/mod.ts";
 import * as contracts from "./mod.ts";
 import { EVENTS, ROUTES } from "./mod.ts";
 
-Deno.test("lophn-agent/harness/run-loop#R2: public entry registers the exact run conversation and occurrence routes", () => {
+Deno.test("lophn-agent/harness/run-loop#R2: public entry registers the exact run conversation routes", () => {
   assertEquals(ROUTES.map(routePath), [
     "/v1/runs/accept",
     "/v1/runs/start",
@@ -39,8 +39,6 @@ Deno.test("lophn-agent/harness/run-loop#R2: public entry registers the exact run
     "/v1/messages/assign",
     "/v1/messages/list",
     "/v1/messages/body",
-    "/v1/assignment-occurrences/process",
-    "/v1/assignment-occurrences/list",
     "/v1/questions/create",
     "/v1/questions/answer",
     "/v1/questions/answer-action",
@@ -151,7 +149,6 @@ Deno.test("lophn-agent/harness/run-loop#R6: public events omit checkpoint and co
     "MessageRecorded",
     "MessageApplied",
     "MessageAssigned",
-    "AssignmentScheduleAdvanced",
     "QuestionCreated",
     "QuestionAnswered",
     "QuestionExpired",

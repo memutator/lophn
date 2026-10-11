@@ -29,7 +29,6 @@ import {
   role,
   VER_NOTES,
   VER_REPORT,
-  work,
 } from "../testdata/fake-roles.ts";
 import {
   OperatorEntry,
@@ -507,56 +506,6 @@ Deno.test("shell/desktop#R4: 회수된 Operator는 지난 대화만 읽고 입�
   await flush();
   click(find(view.container, `[data-result^='${DOC_REPORT}']`));
   assertEquals(opened.reads, [[DOC_REPORT, VER_REPORT]]);
-});
-
-Deno.test("lophn-agent/scheduling#R5: 사람의 답을 기다리느라 건너뛴 회차는 그 사실과 확인할 것으로 가는 길을 보이고 단순히 이전 확인이 안 끝나 건너뛴 것과 구별한다", async () => {
-  const fake = fakeRoles({
-    roles: [OPERATOR],
-    operator: {
-      skipped: {
-        [OPERATOR.id]: [
-          { dueAt: "2026-10-06T00:00:00.000Z", waitingForAnswer: true },
-          { dueAt: "2026-10-05T00:00:00.000Z", waitingForAnswer: false },
-        ],
-      },
-    },
-    works: {
-      [OPERATOR.id]: [
-        work(1, {
-          state: "waiting_user",
-          outcome: null,
-          finishedAt: null,
-          origin: "schedule",
-          requestMessage: null,
-        }),
-      ],
-    },
-  });
-  const { element, opened } = mount(fake, { initialRole: OPERATOR.id });
-  using view = render(element);
-  await flush();
-  const rows = [...view.container.querySelectorAll("[data-skipped]")];
-  assertEquals(rows.map((row) => row.getAttribute("data-skipped")), [
-    "waiting",
-    "busy",
-  ]);
-  assert(text(rows[0]!).includes("skipped while waiting for your answer"));
-  assert(
-    text(rows[1]!).includes("skipped because the last check hadn't finished"),
-  );
-  // 답이 필요한 질문만 things-to-confirm으로 간다. 지난 회차 줄에서도 같은 곳으로 간다.
-  click(find(rows[0]!, "[data-action='answer']"));
-  assertEquals(rows[1]!.querySelector("[data-action='answer']"), null);
-  click(
-    find(view.container, "[data-work-group='waiting'] [data-action='answer']"),
-  );
-  assertEquals(opened.confirms.length, 2);
-  // 정기 회차가 만든 일은 Repeating check로 구별된다.
-  assert(
-    text(find(view.container, "[data-work-group='waiting']")).includes(
-      "Repeating check",
-    ),
-  );
 });
 
 Deno.test("lophn-agent/assignments#R5: Operator의 Preset은 가장 새 판을 같은 구성(문서·읽는 앱·주기)과 함께 보호 승인으로만 바꾸고 거절하면 그대로다", async () => {

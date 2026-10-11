@@ -16,10 +16,8 @@ create table runs (
   assignment text not null references assignments (id) on delete restrict,
   session text,
   source text not null,
-  source_kind text not null check (source_kind in ('message', 'schedule', 'handoff')),
+  source_kind text not null check (source_kind in ('message', 'handoff')),
   source_message text,
-  source_assignment_revision integer,
-  source_scheduled_at text,
   source_sender_run text references runs (id) on delete restrict,
   source_original_message text,
   source_dedup_key text,
@@ -53,9 +51,8 @@ create table runs (
   check (start_confirmed_seq is null or start_after is not null),
   check (id != continued_from and id != start_after),
   check (
-    (source_kind = 'message' and source_message is not null and source_sender_run is null and source_scheduled_at is null)
-    or (source_kind = 'schedule' and source_assignment_revision is not null and source_scheduled_at is not null and source_message is null and source_sender_run is null)
-    or (source_kind = 'handoff' and source_sender_run is not null and source_original_message is not null and source_dedup_key is not null and source_message is null and source_scheduled_at is null)
+    (source_kind = 'message' and source_message is not null and source_sender_run is null)
+    or (source_kind = 'handoff' and source_sender_run is not null and source_original_message is not null and source_dedup_key is not null and source_message is null)
   )
 ) strict;
 create unique index runs_active_session
@@ -64,9 +61,6 @@ create unique index runs_active_assignment
   on runs (assignment) where session is null and state in ('running', 'waiting_user');
 create unique index runs_source_message
   on runs (source_message) where source_message is not null;
-create unique index runs_source_schedule
-  on runs (assignment, source_assignment_revision, source_scheduled_at)
-  where source_kind = 'schedule';
 create unique index runs_source_handoff
   on runs (source_sender_run, source_dedup_key) where source_kind = 'handoff';
 create index runs_assignment_state on runs (assignment, state, accepted_seq);
@@ -76,7 +70,7 @@ create index runs_sender on runs (source_sender_run);
 create index runs_start_after on runs (start_after);
 create trigger runs_identity_immutable
 before update of id, assignment, session, source, source_kind, source_message,
-  source_assignment_revision, source_scheduled_at, source_sender_run,
+  source_sender_run,
   source_original_message, source_dedup_key, continued_from, start_after,
   accepted_seq on runs
 begin

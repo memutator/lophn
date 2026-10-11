@@ -4,15 +4,11 @@ import { type MessageKey, t } from "@lophn/wording";
 
 import type { PauseFacts, RoleRow, RolesSource } from "../source.ts";
 import { everyLabel, when } from "./period.ts";
-import type { SkippedPeriod } from "./source.ts";
 import styles from "../roles.module.css";
 
 export interface OperatorPanelProps {
   source: RolesSource;
   role: RoleRow;
-  connected: number;
-  /** 답을 기다리는 질문은 확인할 것으로 간다. */
-  onConfirm?: () => void;
   /** 멈춤·회수 뒤 목록을 다시 읽는다. */
   onChanged: () => void;
 }
@@ -40,27 +36,14 @@ function DocumentName(
   return <span>{title ?? t("roles.label.target-document")}</span>;
 }
 
-// Operator에만 있는 상세. 맡은 반복(주기·보고할 문서·읽는 앱)과 멈춘 이유, 답을 기다리느라 건너뛴
-// 회차, 멈춤과 회수를 한 자리에 둔다(flow manage-operator, receive-operator-report).
+// Operator에만 있는 상세. 맡은 반복(주기·보고할 문서·읽는 앱)과 멈춘 이유, 멈춤과 회수를 한 자리에 둔다(flow manage-operator, receive-operator-report).
 // 회수한 Operator는 지난 대화와 만든 것만 남아 이 자리의 행동이 없다.
 export function OperatorPanel(
-  { source, role, connected, onConfirm, onChanged }: OperatorPanelProps,
+  { source, role, onChanged }: OperatorPanelProps,
 ) {
   const facts = role.operator ?? null;
-  const [skipped, setSkipped] = useState<readonly SkippedPeriod[]>([]);
   const [confirming, setConfirming] = useState(false);
   const [problem, setProblem] = useState<"pause" | "withdraw" | null>(null);
-
-  useEffect(() => {
-    if (role.state === "withdrawn") return;
-    let live = true;
-    void source.operator.skipped(role).then((result) => {
-      if (live) setSkipped(result.ok ? result.value : []);
-    });
-    return () => {
-      live = false;
-    };
-  }, [source, role.id, role.state, role.revision, connected]);
 
   const act = async (kind: "pause" | "withdraw") => {
     const sent = kind === "pause"
@@ -131,45 +114,6 @@ export function OperatorPanel(
           <p className={styles.muted} data-operator-reads="">
             {t("roles.label.operator-reads", { count: facts.readApps.length })}
           </p>
-        )}
-      {skipped.length === 0
-        ? null
-        : (
-          <section className={styles.group} data-operator-skipped="">
-            <h3 className={styles.groupHead}>
-              {t("roles.label.operator-skipped")}
-            </h3>
-            <ul className={styles.items}>
-              {skipped.map((item) => (
-                <li
-                  key={item.dueAt}
-                  className={styles.itemMain}
-                  data-skipped={item.waitingForAnswer ? "waiting" : "busy"}
-                >
-                  <span className={styles.itemText}>
-                    {t(
-                      item.waitingForAnswer
-                        ? "roles.label.operator-skipped-waiting"
-                        : "roles.label.operator-skipped-busy",
-                      { when: when(item.dueAt) },
-                    )}
-                  </span>
-                  {item.waitingForAnswer && onConfirm !== undefined
-                    ? (
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        data-action="answer"
-                        onClick={onConfirm}
-                      >
-                        {t("roles.button.answer")}
-                      </Button>
-                    )
-                    : null}
-                </li>
-              ))}
-            </ul>
-          </section>
         )}
       {problem === null
         ? null

@@ -137,10 +137,7 @@ function originOf(
   if (source.kind === "message") {
     return { id: source.message ?? null, kind: "human_request" };
   }
-  if (source.kind === "handoff") {
-    return { id: source.original_message ?? null, kind: "handoff" };
-  }
-  return { id: null, kind: "periodic" };
+  return { id: source.original_message ?? null, kind: "handoff" };
 }
 
 // confirm 접수의 같은 동작은 앱·release·command·입력 지문이다. approval·key·caller는

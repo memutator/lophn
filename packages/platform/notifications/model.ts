@@ -80,10 +80,7 @@ function targetOf(
 // machine이 멈춘 assignment만 계기다. 사람이 직접 멈춘 것은 소식이 아니다(R1).
 function assignmentTriggered(payload: Payload): boolean {
   const reason = payload["reason"];
-  return payloadIsObject(reason) &&
-    (reason["kind"] === "consecutive_failures" ||
-      reason["kind"] === "scope_archived" ||
-      reason["kind"] === "output_archived");
+  return payloadIsObject(reason) && reason["kind"] === "scope_archived";
 }
 
 // machine watch 확정 변화·절 소실만 계기다(R1). unchanged·unverified는 소식이 아니다.

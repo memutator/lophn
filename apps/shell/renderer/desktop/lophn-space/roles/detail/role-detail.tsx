@@ -104,8 +104,6 @@ export function RoleDetail(
           <OperatorPanel
             source={source}
             role={role}
-            connected={connected}
-            onConfirm={onConfirm}
             onChanged={onChanged}
           />
         )

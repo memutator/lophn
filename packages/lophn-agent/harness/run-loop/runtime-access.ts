@@ -24,7 +24,6 @@ import {
   modelCallList,
   modelDefaultsRead,
   placeAgentSettingsRead,
-  processAssignmentOccurrence,
   providerRead,
   questionRead,
   questionText,
@@ -114,7 +113,6 @@ export const RUNTIME_MACHINE_ROUTES = [
   questionText,
   cancelQuestionGroup,
   applyQuestionOption,
-  processAssignmentOccurrence,
   // 앱 command tool의 정의 재료(선언·허락)와 결과 조회(invocation 기록)를 읽는다.
   appBlueprint,
   grantsList,

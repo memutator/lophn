@@ -257,13 +257,12 @@ Deno.test("lophn-agent/handoff#R4: 내용은 정규 직렬화 bytes의 hash 하�
   assertEquals(field.general_read, false);
 });
 
-Deno.test("lophn-agent/handoff#R5: 사람 요청과 그 handoff로 이어진 run만 원래 요청이 있고 주기 run은 없다", () => {
+Deno.test("lophn-agent/handoff#R5: 사람 요청과 그 handoff로 이어진 run은 원래 요청이 있다", () => {
   assertEquals(humanOrigin({ kind: "message", message: MSG }), MSG);
   assertEquals(
     humanOrigin({ kind: "handoff", original_message: MSG }),
     MSG,
   );
-  assertEquals(humanOrigin({ kind: "schedule" }), null);
 });
 
 Deno.test("lophn-agent/handoff#R8: 끝난 run의 결과는 문서 고정 version 또는 산출물이 없는 이유 둘 중 하나이고 끝나기 전에는 비어 있다", () => {

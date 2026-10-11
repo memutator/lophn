@@ -9,7 +9,6 @@ export * from "./runs.ts";
 export * from "./sessions.ts";
 export * from "./messages.ts";
 export * from "./message-content.ts";
-export * from "./occurrences.ts";
 export * from "./decision-values.ts";
 export * from "./questions.ts";
 export * from "./handoffs.ts";

@@ -96,11 +96,6 @@ import {
   runSchemaSteps,
   sessionRunIds,
 } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
-import {
-  createSchedulingCommands,
-  createSchedulingReads,
-  schedulingSchemaSteps,
-} from "../../packages/lophn-agent/scheduling/mod.ts";
 import { createCommandReads } from "../../packages/lophn-agent/commands/mod.ts";
 import {
   conversationSchemaSteps,
@@ -392,15 +387,6 @@ const assignmentReads = createAssignmentReads();
 // 입력 표를 소유한 conversation의 messages 표를 같은 Tx에서 읽는다(run-loop R14).
 const runCommands = createRunCommands({ hasUnappliedSteering });
 const runReads = createRunReads();
-
-// Operator 주기 회차(concern scheduling). 회차 접수는 run-loop의 AcceptRun handler를
-// 같은 Tx에서 부르고, 접수·기록·last_due_at 이동이 한 transaction이다(scheduling R4).
-// AcceptRun은 machine 전용 기록이고 이 명령도 machine만 부르므로 자격은 그대로다.
-const schedulingCommands = createSchedulingCommands({
-  acceptRun: (tx, ctx, input, compare) =>
-    runCommands.accept.handle(tx, ctx, input, compare),
-});
-const schedulingReads = createSchedulingReads();
 
 // DeleteSession이 같은 Tx에서 지우는 그 세션의 run 기록이다(conversation#R20). run을 가리키는 표마다
 // 소유 concern이 지움을 내고 여기에 가리키는 쪽부터 놓는다: approval request, 기다림 결과(tool call을
@@ -861,7 +847,6 @@ export const lophnAgentDefinitions = {
     ...usageSchemaSteps,
     ...assignmentSchemaSteps,
     ...runSchemaSteps,
-    ...schedulingSchemaSteps,
     ...conversationSchemaSteps,
     ...toolsSchemaSteps,
     ...questionSchemaSteps,
@@ -901,7 +886,6 @@ export const lophnAgentDefinitions = {
     runCommands.finish,
     runCommands.stop,
     runCommands.confirmNext,
-    schedulingCommands.process,
     conversationCommands.open,
     conversationCommands.rename,
     conversationCommands.archive,
@@ -957,7 +941,6 @@ export const lophnAgentDefinitions = {
     runReads.read,
     runReads.list,
     runReads.result,
-    schedulingReads.list,
     conversationReads.session,
     conversationReads.sessions,
     conversationReads.messages,
@@ -1358,7 +1341,6 @@ export function createReaderRegistration(): ReaderRegistration {
       runReads.read,
       runReads.list,
       runReads.result,
-      schedulingReads.list,
       conversationReads.session,
       conversationReads.sessions,
       conversationReads.messages,

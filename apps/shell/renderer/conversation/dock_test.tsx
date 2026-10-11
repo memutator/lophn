@@ -1,4 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
+import { t } from "@lophn/wording";
 import { act } from "react";
 import {
   click,
@@ -17,6 +18,7 @@ import type { WorkspaceSource } from "../workspace/source.ts";
 import { LophnSpace } from "../desktop/lophn-space/lophn-space.tsx";
 import { fakeSource as fakeLophnSource } from "../desktop/lophn-space/testdata/fake-source.ts";
 import {
+  AGENT,
   agentMessage,
   fakeSource,
   manualTicks,
@@ -349,6 +351,30 @@ Deno.test("shell/workspace#R31 [ctx-I58i]: 열 길이 없는 대화의 context �
       .disabled,
     true,
   );
+});
+
+Deno.test("shell/workspace#R30 [ctx-I58j]: 비어 있는 Context Engineer 대화의 입력칸은 첫 안내를 보이고 말이 오가면 안내가 없다", async () => {
+  const engineer = { ...AGENT, role: "context_engineer" as const };
+  const empty = fakeSource({ agent: engineer });
+  using first = render(dockOf(empty));
+  await flush();
+  assertEquals(
+    composer(first.container).placeholder,
+    t("conversation.placeholder.new-context"),
+  );
+  const talked = fakeSource({
+    agent: engineer,
+    messages: { [sessionId(1)]: [agentMessage(1)] },
+  });
+  using second = render(dockOf(talked));
+  await flush();
+  assertEquals(composer(second.container).placeholder, "");
+});
+
+Deno.test("shell/workspace#R30 [ctx-I58j]: lophn 대화의 비어 있는 입력칸에는 첫 안내가 없다", async () => {
+  using view = render(dockOf(fakeSource()));
+  await flush();
+  assertEquals(composer(view.container).placeholder, "");
 });
 
 Deno.test("shell/desktop#R8: 작성 중 말·커서는 도크를 닫았다 열고 세션을 바꿔도 세션마다 남는다", async () => {

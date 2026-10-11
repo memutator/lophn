@@ -1,6 +1,7 @@
 // Contexts·Context·Search 탭 kind와 여는 길(shell/workspace#R14, R15, R26, R29~R32). 화면 하나하나는
 // 각자의 시험이 보고 여기서는 작업대에 올려 열리는 탭과 저장되는 layout을 본다.
 import { assert, assertEquals } from "@std/assert";
+import { t } from "@lophn/wording";
 import { act, type ReactNode } from "react";
 import {
   click,
@@ -896,6 +897,22 @@ Deno.test("shell/workspace#R30 [ctx-I58i]: [New context]는 Context Engineer와 
   assertEquals(drafts.selected(), chat.fake.state.opened[0]!.id);
   // 열린 세션의 입력칸이 바로 보인다.
   assert(view.container.querySelector("[data-composer-input]"));
+});
+
+Deno.test("shell/workspace#R30 [ctx-I58j]: [New context]가 연 대화의 입력칸은 Context Engineer의 첫 질문을 기다리지 않고 말할 거리를 안내한다", async () => {
+  const chat = engineerChat();
+  const { view } = mount({ chat: chat.source, conversation: true });
+  using _ = view;
+  await flush();
+  click(one(view.container, "[data-contexts-row]"));
+  await flush();
+  click(buttonNamed(view.container, "New context")!);
+  await flush();
+  const input = one(view.container, "[data-composer-input]");
+  assertEquals(
+    (input as HTMLTextAreaElement).placeholder,
+    t("conversation.placeholder.new-context"),
+  );
 });
 
 Deno.test("shell/workspace#R30 [ctx-I58i]: Context Engineer 담당이 없으면 세션을 열지 않고 대화만 열어 담당 없음을 보인다", async () => {

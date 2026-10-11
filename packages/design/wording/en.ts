@@ -1129,6 +1129,8 @@ export const en = {
     "This visual holds markup or a link, so it isn't shown.",
   "conversation.notice.visual-unavailable-shape":
     "This visual's data doesn't match what can be shown.",
+  "conversation.placeholder.new-context":
+    "Say what this context should cover. The Context Engineer will ask for whatever else it needs.",
   "conversation.title.dock": "Conversation",
   "document.button.back-to-editing": "Back to editing",
   "document.button.check-again": "Check again",

@@ -9,11 +9,6 @@ import {
 } from "./bundles/app.ts";
 import { SDK_TOOL_NAMES, SDK_TOOLS } from "./bundles/sdk.ts";
 import {
-  CONTEXT_READ_TOOL_NAMES,
-  CONTEXT_TOOLS,
-  CONTEXT_WRITE_TOOL_NAMES,
-} from "./bundles/context.ts";
-import {
   DOCUMENT_READ_TOOL_NAMES,
   DOCUMENT_TOOLS,
   DOCUMENT_WRITE_TOOL_NAMES,
@@ -68,7 +63,6 @@ export type ToolCatalog = {
 // 웹 검색·브라우저·코드 run·subagent·coding agent 시작은 정의 자체가 없다.
 export const BUILTIN_TOOLS: readonly ToolDefinition[] = [
   ...DOCUMENT_TOOLS,
-  ...CONTEXT_TOOLS,
   ...METADATA_TOOLS,
   ...APP_READ_TOOLS,
   ...PROBLEM_READ_TOOLS,
@@ -87,8 +81,6 @@ export const BUILTIN_TOOLS: readonly ToolDefinition[] = [
 export const TOOL_BUNDLES: ReadonlyMap<string, readonly string[]> = new Map([
   ["document-read", DOCUMENT_READ_TOOL_NAMES],
   ["document-write", DOCUMENT_WRITE_TOOL_NAMES],
-  ["context-read", CONTEXT_READ_TOOL_NAMES],
-  ["context-write", CONTEXT_WRITE_TOOL_NAMES],
   ["metadata-read", METADATA_TOOL_NAMES],
   ["app-read", APP_READ_TOOL_NAMES],
   ["problem-read", PROBLEM_READ_TOOL_NAMES],
@@ -182,10 +174,6 @@ const SUPPORTING_OPERATIONS: ReadonlyMap<string, readonly string[]> = new Map([
   // 제품 안내 읽기는 안내 목록과 설정 정의를 같은 읽기 자격으로 함께 읽는다.
   ["guide.read", ["guide.list"]],
   ["GetSettings", ["SettingsDefinitions"]],
-  // 항목 추가·변경과 후보 변경은 같은 revision의 현재 상태를 읽어 확인한다.
-  ["context.set_item", ["context.get"]],
-  ["term.update", ["term.get"]],
-  ["term.archive", ["term.get"]],
   // 시각 출처 검증은 이 run이 실행해 끝낸 앱 command의 ToolCall을 읽는다.
   ["RecordMessage", ["ReadToolCall"]],
   // 사람의 정의 답은 질문 정본(답·고정 action)을 읽은 뒤에만 전달한다(questions#R13).

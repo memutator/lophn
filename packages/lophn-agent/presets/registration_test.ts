@@ -25,7 +25,6 @@ export function presetValidateDeps(
   return {
     bundles: new Map([
       ["read-only", [...DOCUMENT_READ_TOOLS.slice(0, 2)]],
-      ["write-tools", ["context.add_item", "context.remove_item"]],
     ]),
     mcpServers: new Map<string, McpServerConfig>([
       [

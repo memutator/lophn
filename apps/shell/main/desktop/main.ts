@@ -1157,7 +1157,7 @@ ipcMain.handle(
   }),
 );
 
-// term.define 선택지의 확정. 확인 창을 열지 않고 정본의 그 command만 접수한다.
+// app.create·apply_settings 선택지의 확정. 확인 창을 열지 않고 정본의 그 command만 접수한다.
 ipcMain.handle(TERM_DEFINITION_CHANNEL, async (event, input) => {
   const body = input as { question?: unknown; option_key?: unknown };
   if (
@@ -1564,7 +1564,6 @@ function openDesktopWindow(): BrowserWindow | undefined {
     // `conversation`은 같은 자리에서 대화 도크까지 열어 둔다. `things-to-confirm`은
     // lophn 공간의 things-to-confirm 형제부터, `projects`는 projects 형제부터 연다. `project:<id>`는 그 프로젝트 작업대부터,
     // `apps`는 apps 형제부터, `settings`는 settings 형제부터, `app:<id>`는 그 앱 공간부터 연다.
-    // `contexts`·`contexts:<ctx id>`는 contexts 형제(와 그 Focus)부터 연다.
     // `instructions:global`·`instructions:project:<id>`는 그 [Instructions] 편집기부터 연다.
     url: process.env.LOPHN_DEV_SEED === "1"
       ? `${DESKTOP_URL}?dev-seed=1`
@@ -1574,10 +1573,6 @@ function openDesktopWindow(): BrowserWindow | undefined {
       ? `${desktopUrl}#conversation`
       : process.env.LOPHN_SHELL_START === "things-to-confirm"
       ? `${desktopUrl}#things-to-confirm`
-      : /^contexts(:ctx_[0-9a-z]{26})?$/.test(
-          process.env.LOPHN_SHELL_START ?? "",
-        )
-      ? `${desktopUrl}#${process.env.LOPHN_SHELL_START!.replace(":", "=")}`
       : process.env.LOPHN_SHELL_START === "projects"
       ? `${desktopUrl}#projects`
       : /^project:prj_[0-9a-z]{26}$/.test(process.env.LOPHN_SHELL_START ?? "")

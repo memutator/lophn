@@ -16,7 +16,6 @@ const BASIS_KEY = "ledger_id";
 // 이 store가 소유한 표 전부. 참조하는 표(search_rows → search_documents)가 앞선다. 요약 cache는
 // model 판단이라 같은 출력으로 다시 만들 수 있다고 보지 않으므로 옛 것을 옮기지 않고 비운다.
 const OWNED_TABLES = [
-  "watch_unverified",
   "derived_cursors",
   "summary_cache",
   "search_rows",

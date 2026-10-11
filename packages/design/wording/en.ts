@@ -410,6 +410,7 @@ export const en = {
   "common.activity.app": "App activity",
   "common.author.label": "Written by {author}",
   "common.button.apply": "Apply",
+  "common.button.ask-agent": "Ask {agent}",
   "common.button.back": "Back",
   "common.button.cancel": "Cancel",
   "common.button.clear": "Clear",

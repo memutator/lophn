@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import { Button } from "@lophn/design/components";
+import { t } from "@lophn/wording";
 
 import type { AskRequest, AskView } from "./ask-view.ts";
 
@@ -11,7 +13,15 @@ export interface NoticeAskProps {
 
 // NoticeCard의 actions 자리에 놓는 [Ask <agent 이름>] 단추(shell/desktop#R35). ask가 있을 때만
 // 단추를 그리고 아니면 아무것도 그리지 않는다. 단추는 `data-action="ask-agent"`다.
-// agent-I32
-export function NoticeAsk(_props: NoticeAskProps): ReactNode {
-  throw new Error("not implemented: agent-I32");
+export function NoticeAsk({ ask, onAsk }: NoticeAskProps): ReactNode {
+  if (ask === null) return null;
+  return (
+    <Button
+      size="sm"
+      data-action="ask-agent"
+      onClick={() => onAsk(ask.request)}
+    >
+      {t("common.button.ask-agent", { agent: ask.agentName })}
+    </Button>
+  );
 }

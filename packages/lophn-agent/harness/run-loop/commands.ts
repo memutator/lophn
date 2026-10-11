@@ -133,14 +133,23 @@ function sha256(value: unknown): string {
   return createHash("sha256").update(canonicalize(value), "utf8").digest("hex");
 }
 
-// 같은 assignment의 접수 순서상 먼저 시작할 수 있는 run이 있는지(R3, R6).
+// 같은 session(session 없는 run은 같은 assignment의 session 없는 run)의 접수 순서상
+// 먼저 시작할 수 있는 run이 있는지(R3, R6).
 function earlierStartable(tx: Tx, row: RunRow): boolean {
-  const earlier = tx.sql.all(
-    `select ${RUN_COLUMNS} from runs
-     where assignment = ? and state = 'accepted' and accepted_seq < ?
-     order by accepted_seq`,
-    [row.assignment, Number(row.accepted_seq)],
-  ).map(rowOf);
+  const earlier = (row.session === null
+    ? tx.sql.all(
+      `select ${RUN_COLUMNS} from runs
+       where assignment = ? and session is null and state = 'accepted'
+         and accepted_seq < ?
+       order by accepted_seq`,
+      [row.assignment, Number(row.accepted_seq)],
+    )
+    : tx.sql.all(
+      `select ${RUN_COLUMNS} from runs
+       where session = ? and state = 'accepted' and accepted_seq < ?
+       order by accepted_seq`,
+      [row.session, Number(row.accepted_seq)],
+    )).map(rowOf);
   return earlier.some((candidate) =>
     predecessorAllows(
       candidate,
@@ -384,13 +393,25 @@ export function createRunCommands(deps: RunLoopDeps = {}): {
             "limits do not match the current run limit settings",
           );
         }
-        const active = tx.sql.get(
-          `select id from runs where assignment = ?
-           and state in ('running', 'waiting_user')`,
-          [row.assignment],
-        );
+        // 진행 중·사람 기다림 run은 session마다 하나, session 없는 run은 assignment마다 하나다.
+        const active = row.session === null
+          ? tx.sql.get(
+            `select id from runs where assignment = ? and session is null
+             and state in ('running', 'waiting_user')`,
+            [row.assignment],
+          )
+          : tx.sql.get(
+            `select id from runs where session = ?
+             and state in ('running', 'waiting_user')`,
+            [row.session],
+          );
         if (active !== undefined) {
-          return reject("conflict", "the assignment already has a live run");
+          return reject(
+            "conflict",
+            row.session === null
+              ? "the assignment already has a live run without a session"
+              : "the session already has a live run",
+          );
         }
         const predecessor = row.start_after === null
           ? undefined

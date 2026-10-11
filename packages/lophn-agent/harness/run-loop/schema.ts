@@ -1,8 +1,8 @@
 import type { SchemaStep } from "../../../contracts/platform/mod.ts";
 
 // domain-model lophn-agent/harness/run-loop의 `runs` 표. assignment 뒤에 만든다.
-// assignment당 running·waiting_user는 partial unique 하나이고, 같은 출처 key는
-// 한 run이다. finished 행은 trigger가 다시 바꾸지 못하게 막아 결과를 한 번만
+// running·waiting_user는 session마다 하나, session 없는 run은 assignment마다 하나로
+// partial unique 둘이고, 같은 출처 key는 한 run이다. finished 행은 trigger가 다시 바꾸지 못하게 막아 결과를 한 번만
 // 확정한다(R18). session·message는 그 표를 소유한 concern이 생길 때까지
 // 참조 검사 없이 ID만 둔다. run은 지우지 않는다: 끝난 session의 run만 그 session을
 // delete할 때 함께 지운다(conversation#R20).
@@ -58,8 +58,10 @@ create table runs (
     or (source_kind = 'handoff' and source_sender_run is not null and source_original_message is not null and source_dedup_key is not null and source_message is null and source_scheduled_at is null)
   )
 ) strict;
+create unique index runs_active_session
+  on runs (session) where session is not null and state in ('running', 'waiting_user');
 create unique index runs_active_assignment
-  on runs (assignment) where state in ('running', 'waiting_user');
+  on runs (assignment) where session is null and state in ('running', 'waiting_user');
 create unique index runs_source_message
   on runs (source_message) where source_message is not null;
 create unique index runs_source_schedule

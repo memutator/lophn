@@ -16,14 +16,13 @@ import type { CoreRead } from "./startup.ts";
 
 // run selector(requirements lophn-agent/harness/run-loop R4). accepted run은
 // ledger가 정본이고 이 selector는 읽기만 한다. 고른 run의 시작은 StartRun이 다시
-// 검사한다(assignment당 하나, 선행 정책, 앞선 접수). 메모리에는 event cursor와 최근
+// 검사한다(session당 하나, session 없는 run은 assignment당 하나, 선행 정책, 앞선 접수). 메모리에는 event cursor와 최근
 // 시작 목록뿐이고 재시작하면 RunStarted event에서 다시 만든다. 새 queue entity는 없다.
 
-// 우선순위 칸. 숫자가 작을수록 먼저다.
+// 우선순위 칸. 숫자가 작을수록 먼저다. 주기 일의 칸은 없다(scheduling 보류).
 //   1 사람이 지금 기다리는 요청: 대화에서 사람이 입력한 요청(message 출처).
 //   2 사람의 한 번짜리 일: handoff, 보존했다가 사람이 다시 맡긴 요청(continued_from).
-//   3 주기 일: Operator 회차(schedule 출처).
-export type Tier = 1 | 2 | 3;
+export type Tier = 1 | 2;
 
 // 상위 일을 이만큼 연속으로 시작한 뒤에는 가장 오래 기다린 하위 후보에 자리를 준다.
 export const YIELD_AFTER = 8;
@@ -31,14 +30,23 @@ export const YIELD_AFTER = 8;
 export function tierOf(
   run: Pick<RunRecord, "source" | "continued_from">,
 ): Tier {
-  if (run.source.kind === "schedule") return 3;
-  if (run.source.kind === "handoff" || run.continued_from !== null) return 2;
-  return 1;
+  return run.source.kind === "message" && run.continued_from === null ? 1 : 2;
+}
+
+// run이 줄 서는 곳. session이 있으면 session, 없으면 assignment의 session 없는 run들이다.
+// 같은 곳에서는 진행 중·사람 기다림 run이 하나뿐이고 접수 순서로 시작한다(R3).
+export function queueKeyOf(
+  run: Pick<RunRecord, "assignment" | "session">,
+): string {
+  return run.session === null
+    ? `assignment:${run.assignment}`
+    : `session:${run.session}`;
 }
 
 export type Candidate = {
   run: string;
   assignment: string;
+  session: string | null;
   tier: Tier;
   acceptedSeq: bigint;
   stateSeq: string;
@@ -49,13 +57,14 @@ export type RecentStart = { seq: bigint; tier: Tier };
 export type Selection = {
   run: string;
   assignment: string;
+  session: string | null;
   // StartRun의 compare.state_seq.
   stateSeq: string;
   // priority는 우선순위 순서 그대로, yield는 8개 연속 뒤 하위에 준 자리다.
   reason: "priority" | "yield";
 };
 
-// 순수 선택. candidates는 assignment마다 시작 가능한 맨 앞 후보 하나씩이다.
+// 순수 선택. candidates는 줄(session)마다 시작 가능한 맨 앞 후보 하나씩이다.
 // recent는 RunStarted seq 오름차순이다.
 export function pickCandidate(
   candidates: readonly Candidate[],
@@ -71,33 +80,31 @@ export function pickCandidate(
   const select = (candidate: Candidate, reason: Selection["reason"]) => ({
     run: candidate.run,
     assignment: candidate.assignment,
+    session: candidate.session,
     stateSeq: candidate.stateSeq,
     reason,
   });
-  // 각 하위 칸의 가장 오래된 후보가 그 접수 뒤 상위 일 8개를 연속으로 기다렸는지 본다.
-  // 같은 칸이나 더 낮은 칸의 시작이 끼면 연속이 끊긴다. 후보가 없는 칸과 막힌
-  // assignment의 후보는 여기 오지 못하므로 양보를 쓰지 않는다.
-  let owed: Candidate | undefined;
-  for (const tier of [2, 3] as const) {
-    if (tier <= first.tier) continue;
-    const oldest = ordered.filter((item) => item.tier === tier).sort(byAge)[0];
-    if (oldest === undefined) continue;
-    let overtaken = 0;
-    for (let i = recent.length - 1; i >= 0; i--) {
-      const start = recent[i]!;
-      if (start.seq <= oldest.acceptedSeq || start.tier >= oldest.tier) break;
-      overtaken++;
+  // 하위 칸의 가장 오래된 후보가 그 접수 뒤 상위 일 8개를 연속으로 기다렸는지 본다.
+  // 하위 칸의 시작이 끼면 연속이 끊긴다. 후보가 없는 칸과 막힌 session의 후보는
+  // 여기 오지 못하므로 양보를 쓰지 않는다.
+  if (first.tier === 1) {
+    const oldest = ordered.filter((item) => item.tier === 2).sort(byAge)[0];
+    if (oldest !== undefined) {
+      let overtaken = 0;
+      for (let i = recent.length - 1; i >= 0; i--) {
+        const start = recent[i]!;
+        if (start.seq <= oldest.acceptedSeq || start.tier >= oldest.tier) break;
+        overtaken++;
+      }
+      if (overtaken >= YIELD_AFTER) return select(oldest, "yield");
     }
-    if (
-      overtaken >= YIELD_AFTER &&
-      (owed === undefined || byAge(oldest, owed) < 0)
-    ) owed = oldest;
   }
-  return owed === undefined ? select(first, "priority") : select(owed, "yield");
+  return select(first, "priority");
 }
 
-// 시작 가능한 맨 앞 후보를 assignment마다 하나 고른다. 멈춘·withdrawn assignment,
-// 진행·대기 run이 있는 assignment, 선행이 허락하지 않은 run은 후보가 아니다.
+// 시작 가능한 맨 앞 후보를 줄(session, session 없는 run은 assignment)마다 하나 고른다.
+// 멈춘·withdrawn assignment, 진행·대기 run이 있는 줄, 선행이 허락하지 않은 run은
+// 후보가 아니다. live는 진행·대기 run의 queueKeyOf 값이다.
 export function startableCandidates(input: {
   accepted: readonly RunRecord[];
   enabled: ReadonlySet<string>;
@@ -106,18 +113,17 @@ export function startableCandidates(input: {
     run: string,
   ) => Pick<RunRecord, "state" | "outcome"> | undefined;
 }): Candidate[] {
-  const byAssignment = new Map<string, RunRecord[]>();
+  const byQueue = new Map<string, RunRecord[]>();
   for (const run of input.accepted) {
     if (run.state !== "accepted") continue;
-    if (!input.enabled.has(run.assignment) || input.live.has(run.assignment)) {
-      continue;
-    }
-    const list = byAssignment.get(run.assignment) ?? [];
+    const key = queueKeyOf(run);
+    if (!input.enabled.has(run.assignment) || input.live.has(key)) continue;
+    const list = byQueue.get(key) ?? [];
     list.push(run);
-    byAssignment.set(run.assignment, list);
+    byQueue.set(key, list);
   }
   const result: Candidate[] = [];
-  for (const runs of byAssignment.values()) {
+  for (const runs of byQueue.values()) {
     runs.sort((a, b) =>
       BigInt(a.accepted_seq) < BigInt(b.accepted_seq) ? -1 : 1
     );
@@ -140,6 +146,7 @@ export function startableCandidates(input: {
     result.push({
       run: head.id,
       assignment: head.assignment,
+      session: head.session,
       tier: tierOf(head),
       acceptedSeq: BigInt(head.accepted_seq),
       stateSeq: head.state_seq,
@@ -272,7 +279,7 @@ export function createRunSelector(deps: { read: CoreRead }): RunSelector {
       for (const state of ["running", "waiting_user"] as const) {
         const active = await runs(state);
         if (!active.ok) return active;
-        for (const run of active.value) live.add(run.assignment);
+        for (const run of active.value) live.add(queueKeyOf(run));
       }
       // 선행이 accepted 목록에 없으면 따로 읽는다. 끝난 선행 결과는 바뀌지 않아 보관한다.
       const known = new Map(accepted.value.map((run) => [run.id, run]));

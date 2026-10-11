@@ -104,8 +104,14 @@ const SPECS: ReadonlyMap<string, Spec> = new Map<string, Spec>([
       input: (input) => ({ problem: input["problem"] }),
     },
   }],
-  // Context Engineer의 쓰기다(harness/tools#R23). 초안은 context가, 제출은 만든 판이, 용어집 항목은 항목(새
-  // 항목은 context)이 대상이다. 판과 항목 id만으로는 대상 읽기가 없어 소유 contract가 실행 때 자격으로 막는다.
+  // Context Engineer의 쓰기다(harness/tools#R23). context 생성은 project가, 초안은 context가, 제출은 만든 판이,
+  // 용어집 항목은 항목(새 항목은 context)이 대상이다. 판과 항목 id만으로는 대상 읽기가 없어 소유 contract가
+  // 실행 때 자격으로 막는다.
+  ["context.create", {
+    concern: "documents/contexts",
+    targets: (input) => [text(input["project"])],
+    changes: (input) => `creates a context titled ${text(input["title"])}`,
+  }],
   ["context.draft", {
     concern: "documents/contexts",
     targets: (input) => [text(input["context"])],

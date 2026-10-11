@@ -122,7 +122,8 @@ Deno.test("lophn-agent/roles/context-engineer#R6 [ctx-I58d]: 목록에 없는 �
   }
 });
 
-const CONTEXT_ENGINEER_TOOLS_SEVEN = [
+const CONTEXT_ENGINEER_TOOLS_ALL = [
+  "context.create",
   "context.read_contract",
   "context.draft",
   "context.preview",
@@ -132,9 +133,9 @@ const CONTEXT_ENGINEER_TOOLS_SEVEN = [
   "context.glossary_write",
 ];
 
-Deno.test("lophn-agent/roles/context-engineer#R14 [ctx-I58d]: 일곱 tool은 이 역할에게만 열리고 읽기 넷과 쓰기 셋으로 나뉜다", () => {
+Deno.test("lophn-agent/roles/context-engineer#R14 [ctx-I58d]: 여덟 tool은 이 역할에게만 열리고 읽기 넷과 쓰기 넷으로 나뉜다", () => {
   const listed = new Map(listedForRole().map((tool) => [tool.name, tool]));
-  for (const name of CONTEXT_ENGINEER_TOOLS_SEVEN) {
+  for (const name of CONTEXT_ENGINEER_TOOLS_ALL) {
     assert(listed.has(name), name);
   }
   for (
@@ -148,7 +149,12 @@ Deno.test("lophn-agent/roles/context-engineer#R14 [ctx-I58d]: 일곱 tool은 이
     assertEquals(listed.get(name)!.effect, "read", name);
   }
   for (
-    const name of ["context.draft", "context.submit", "context.glossary_write"]
+    const name of [
+      "context.create",
+      "context.draft",
+      "context.submit",
+      "context.glossary_write",
+    ]
   ) {
     assertEquals(listed.get(name)!.effect, "write", name);
   }
@@ -158,7 +164,7 @@ Deno.test("lophn-agent/roles/context-engineer#R14 [ctx-I58d]: 일곱 tool은 이
       assert(cap.tools.includes(name), `${role} ${name}`);
     }
     if (role === "context_engineer") continue;
-    for (const name of CONTEXT_ENGINEER_TOOLS_SEVEN) {
+    for (const name of CONTEXT_ENGINEER_TOOLS_ALL) {
       assert(!cap.tools.includes(name), `${role} ${name}`);
     }
   }
@@ -212,11 +218,11 @@ Deno.test("lophn-agent/roles/context-engineer#R15 [ctx-I58d]: 기본 preset은 c
   ]);
   assertEquals(
     TOOL_BUNDLES.get(CONTEXT_ENGINEER_BUNDLE),
-    CONTEXT_ENGINEER_TOOLS_SEVEN,
+    CONTEXT_ENGINEER_TOOLS_ALL,
   );
   // 묶음에 든 동작은 직접 고른 목록에 다시 들지 않는다.
   const direct = preset.capability.tools.map((tool) => tool.tool);
-  for (const name of CONTEXT_ENGINEER_TOOLS_SEVEN) {
+  for (const name of CONTEXT_ENGINEER_TOOLS_ALL) {
     assert(!direct.includes(name), name);
   }
   // 묶음 + 직접 고른 동작이 역할 상한과 정확히 같다.
@@ -229,7 +235,7 @@ Deno.test("lophn-agent/roles/context-engineer#R15 [ctx-I58d]: 기본 preset은 c
   const checked = validateDefinition(preset, validateDeps());
   assert(checked.ok, JSON.stringify(checked));
   assertEquals(preset.context, [{ kind: "all", target: null, section: null }]);
-  // 이 preset으로 이 run이 제공하는 목록에 일곱 tool이 모두 든다.
+  // 이 preset으로 이 run이 제공하는 목록에 여덟 tool이 모두 든다.
   const presetTools = [
     ...TOOL_BUNDLES.get(CONTEXT_ENGINEER_BUNDLE)!,
     ...direct,
@@ -238,7 +244,7 @@ Deno.test("lophn-agent/roles/context-engineer#R15 [ctx-I58d]: 기본 preset은 c
     { builtin: BUILTIN_TOOLS, app: [], external: [] },
     { presetTools, roleTools: cap.tools },
   ).map((tool) => tool.name);
-  for (const name of CONTEXT_ENGINEER_TOOLS_SEVEN) {
+  for (const name of CONTEXT_ENGINEER_TOOLS_ALL) {
     assert(listed.includes(name), name);
   }
 });
@@ -257,7 +263,7 @@ Deno.test("lophn-agent/roles/context-engineer#R15 [ctx-I58d]: 다른 역할의 p
   }
 });
 
-Deno.test("lophn-agent/roles/context-engineer#R8 [ctx-I58d]: prompt는 일곱 tool을 초안·미리보기·제출 순서로 이름 붙이고 없는 tool이나 옛 개념을 쓰지 않는다", () => {
+Deno.test("lophn-agent/roles/context-engineer#R8 [ctx-I58d]: prompt는 여덟 tool을 만들기·초안·미리보기·제출 순서로 이름 붙이고 없는 tool이나 옛 개념을 쓰지 않는다", () => {
   const prompt = Deno.readTextFileSync(new URL("./prompt.md", import.meta.url));
   // 개체 읽기와 다음 이름은 선택한 context로 run마다 만들어져 정적 목록에 없고 역할 상한에 있다.
   const listed = new Set(ROLE_CAPS.get("context_engineer")!.tools);
@@ -266,13 +272,14 @@ Deno.test("lophn-agent/roles/context-engineer#R8 [ctx-I58d]: prompt는 일곱 to
     m[1]!
   );
   for (const name of quoted) assert(listed.has(name), `unknown tool ${name}`);
-  for (const name of CONTEXT_ENGINEER_TOOLS_SEVEN) {
+  for (const name of CONTEXT_ENGINEER_TOOLS_ALL) {
     assert(quoted.includes(name), `missing ${name}`);
   }
   for (const name of ["context.read_entity", "series.next_name"]) {
     assert(quoted.includes(name), `missing ${name}`);
   }
   const at = (name: string) => prompt.indexOf(`\`${name}\``);
+  assert(at("context.create") < at("context.read_contract"));
   assert(at("context.read_contract") < at("context.draft"));
   assert(at("context.draft") < at("context.preview"));
   assert(at("context.preview") < at("context.submit"));
@@ -782,4 +789,15 @@ Deno.test("lophn-agent/roles/context-engineer#R20 [ctx-I58d]: 확인되지 않�
     cap.tools.some((tool) => tool.includes("claude") || tool.includes("gpt")),
     false,
   );
+});
+
+Deno.test("lophn-agent/roles/context-engineer#R8 [ctx-I58f]: prompt는 대상 context가 없으면 context.create로 먼저 만들라고 하고 만드는 tool이 없다는 옛 글은 없다", () => {
+  const prompt = Deno.readTextFileSync(new URL("./prompt.md", import.meta.url));
+  assert(prompt.includes("`context.create`"));
+  assert(!prompt.includes("새로 만드는 tool은 없다"));
+  const first = prompt.indexOf("`context.create`");
+  assert(first < prompt.indexOf("`context.read_contract`"));
+  // 만드는 일은 역할 상한에 있는 write 동작이다.
+  const listed = new Map(listedForRole().map((tool) => [tool.name, tool]));
+  assertEquals(listed.get("context.create")?.effect, "write");
 });

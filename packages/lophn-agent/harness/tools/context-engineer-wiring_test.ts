@@ -112,7 +112,7 @@ Deno.test("lophn-agent/harness/tools#R23 [ctx-I57]: 미리보기는 core가 30�
   ]);
 });
 
-Deno.test("lophn-agent/harness/tools#R24 [ctx-I58d]: 다음 이름 읽기는 읽기 묶음에 들고 Context Engineer 일곱 동작은 자기 묶음 하나에만 있다", () => {
+Deno.test("lophn-agent/harness/tools#R24 [ctx-I58d]: 다음 이름 읽기는 읽기 묶음에 들고 Context Engineer 여덟 동작은 자기 묶음 하나에만 있다", () => {
   assert(TOOL_BUNDLES.get("context-read")!.includes(SERIES_NEXT_TOOL));
   const names = Object.values(CONTEXT_ENGINEER_TOOL_NAMES);
   assertEquals(TOOL_BUNDLES.get("context-engineer"), names);

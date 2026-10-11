@@ -4,6 +4,7 @@ import { assert, assertEquals } from "@std/assert";
 import { err, ok, type Result } from "../../packages/base/mod.ts";
 import { ALL_ROUTES } from "../../packages/contracts/mod.ts";
 import {
+  contextCreateRoute,
   contextDraftRoute,
   contextPreviewRoute,
   contextSeriesNextRoute,
@@ -24,12 +25,14 @@ import { createBuiltinToolkit } from "./toolkit.ts";
 const CTX = "ctx_01arz3ndektsv4rrffq69g5fav";
 const BUNDLE = "cbn_01arz3ndektsv4rrffq69g5fav";
 const ENTRY = "trm_01arz3ndektsv4rrffq69g5fav";
+const PROJECT = "prj_01arz3ndektsv4rrffq69g5fav";
 const RUN = "run_01arz3ndektsv4rrffq69g5fav";
 const ASSIGNMENT = "asg_01arz3ndektsv4rrffq69g5fav";
 const CALL = "tcl_01arz3ndektsv4rrffq69g5fav";
 const N = CONTEXT_ENGINEER_TOOL_NAMES;
 
 const ENGINEER_ONLY = [
+  "context.create",
   "bundle.save_draft",
   "bundle.submit",
   "glossary.set",
@@ -51,7 +54,7 @@ function definitionOf(name: string) {
   return found;
 }
 
-Deno.test("lophn-agent/harness/tools#R23 [ctx-I57]: Context Engineer만 계약·초안·제출·용어집 contract를 operation에 가지고 네 역할 모두 다음 이름 contract를 가진다", () => {
+Deno.test("lophn-agent/harness/tools#R23 [ctx-I57]: Context Engineer만 context 생성·계약·초안·제출·용어집 contract를 operation에 가지고 네 역할 모두 다음 이름 contract를 가진다", () => {
   const engineer = roleOperations("context_engineer");
   for (const contract of ENGINEER_ONLY) {
     assert(engineer.includes(contract), contract);
@@ -103,6 +106,20 @@ Deno.test("lophn-agent/harness/tools#R23 [ctx-I57]: 쓰기 tool은 입력에서 
   const fresh = await resolve(N.draft, { context: CTX, content: {} });
   assert(fresh.ok);
   assertEquals(fresh.value.comparison, {});
+
+  // context 생성은 project가 대상이고 비교 기준이 없다.
+  reads.length = 0;
+  const create = await resolve(N.create, {
+    project: PROJECT,
+    title: "Recipes",
+    purpose: "Keep recipes",
+  });
+  assert(create.ok);
+  assertEquals(create.value.concern, "documents/contexts");
+  assertEquals(create.value.operation, "context.create");
+  assertEquals(create.value.targets.map((t) => t.id), [PROJECT]);
+  assertEquals(create.value.changes, "creates a context titled Recipes");
+  assertEquals(reads, []);
 
   const submit = await resolve(N.submit, { bundle: BUNDLE });
   assert(submit.ok);
@@ -210,7 +227,7 @@ Deno.test("lophn-agent/harness/tools#R23 [ctx-I57]: 제품 조립의 handler는 
     tool.name === SERIES_NEXT_TOOL ||
     Object.values(N).includes(tool.name as never)
   );
-  assertEquals(listed.length, 8);
+  assertEquals(listed.length, 9);
   const credential = {
     run: RUN,
     targets: new Set<string>(),
@@ -243,6 +260,27 @@ Deno.test("lophn-agent/harness/tools#R23 [ctx-I57]: 제품 조립의 handler는 
     compare: { base_revision: "3" },
     prepared: [],
   });
+
+  // context 생성은 command 몸통으로 가고 id는 최초 ToolCall ID에서 정해진다.
+  const created = await run(N.create, {
+    project: PROJECT,
+    title: "Recipes",
+    purpose: "Keep recipes",
+  });
+  assertEquals(created.outcome.kind, "success");
+  assertEquals(calls.at(-1)!.path, routePath(contextCreateRoute));
+  const sent = calls.at(-1)!.body as {
+    input: Record<string, string>;
+    idempotency_key: string;
+  };
+  assert(/^ctx_[0-9a-hjkmnp-tv-z]{26}$/.test(sent["input"]["id"]));
+  assertEquals(sent["input"], {
+    id: sent["input"]["id"],
+    project: PROJECT,
+    title: "Recipes",
+    purpose: "Keep recipes",
+  });
+  assertEquals(sent["idempotency_key"], CALL);
 
   // 미리보기 route는 core가 등록할 때까지 열리지 않아 agent 호출까지 가지 않는다.
   const before = calls.length;

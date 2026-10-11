@@ -130,6 +130,7 @@ fixtures/             예시 project 폴더, 예시 앱, 녹화한 model 응답
 | packages/documents/contexts/search/ | 선언 검색 실행기. inputs·where·relations·sort·page·board를 개체 집합에 적용하는 순수 함수. core의 context reader가 부른다 |
 | packages/documents/contexts/check/ | 판 check runner. 임시 snapshot에서 계약 검증·extract·checks·예시·saved view를 돌려 결정적 report를 낸다 |
 | packages/documents/contexts/series/ | series kind의 pattern에서 다음 경로를 계산한다(순수) |
+| packages/documents/contexts/ledger/ | context API를 platform ledger 위에 올린다. ledger 표(`schema.ts`), 표별 행 읽기·쓰기(`rows.ts`), 순수 handler(`api/`)를 `CommandDefinition`·`ReadDefinition`으로 감싸는 adapter(`adapter.ts`: 행 적재, actor 변환, `tx.emit` 연결, 달라진 행만 쓰기). derived 개체·위반은 `ContextIndexPort`로만 읽는다 |
 | packages/documents/contexts/testdata/ | fixture Project와 정답(`expected/`). extract·checks·search·check 시험이 함께 읽는다 |
 | packages/documents/contexts/work.ts · adapters/ | `context.index`·`context.check`의 일(stat scan, snapshot 복사, derived sqlite 읽기·쓰기). 순수 폴더를 부른다 |
 | apps/worker/documents/contexts.ts | worker kind `documents/contexts`의 entry. 등록만 하고 일은 `work.ts`가 한다 |

@@ -73,6 +73,14 @@ export type ContextApiDeps = {
   hash(value: unknown): string;
   // 값을 blob에 두고 참조를 돌려준다(event payload가 쓴다).
   putBlob(value: unknown): BlobReference;
+  // 있으면 event를 이 함수로 내고 돌려받은 실제 seq를 쓴다(ledger 위에서는 tx.emit이다). actor는
+  // 호출한 쪽의 자격에서 정해지므로 payload에 싣지 않는다. 없으면 상태의 seq를 하나 올려 정한다.
+  emit?(event: {
+    type: string;
+    subject: string;
+    actor: string;
+    payload: Record<string, unknown>;
+  }): string;
   // 위반을 Context Engineer에게 넘기는 Run을 만든다. 근거는 command가 만들어 넘긴다.
   startHandOffRun(request: {
     context: string;

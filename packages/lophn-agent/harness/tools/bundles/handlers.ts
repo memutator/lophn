@@ -10,6 +10,7 @@ import { createProblemInterpretationToolHandlers } from "./problem-interpretatio
 import { createSdkToolHandlers } from "./sdk.ts";
 import { createTicketToolHandlers } from "./ticket.ts";
 import { createVisualToolHandlers } from "./visual.ts";
+import { createContextEngineerToolHandlers } from "../context-engineer-tools.ts";
 
 // 내장 묶음 전부의 handler다. 이름이 겹치지 않는다. 묶음마다 필요한 통로는 `call` 하나로 같고
 // agent 일 묶음만 run 사실과 ID를 더 쓴다. 어느 handler도 blob을 준비하거나 hash를 만들지 않는다.
@@ -31,6 +32,7 @@ export function createBuiltinToolHandlers(
       createVisualToolHandlers(ports, reads),
       createGuideToolHandlers(ports),
       createAgentToolHandlers(ports),
+      createContextEngineerToolHandlers(ports),
     ]
   ) {
     for (const [name, handler] of group) {

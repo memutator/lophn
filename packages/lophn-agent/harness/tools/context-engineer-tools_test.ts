@@ -41,12 +41,11 @@ const AGENT = `agent:${id("asg", 1)}`;
 const N = CONTEXT_ENGINEER_TOOL_NAMES;
 const READ_NAMES = [
   N.readContract,
-  N.readDraft,
   N.preview,
   N.readViolations,
-  N.readGlossary,
+  N.glossaryRead,
 ];
-const WRITE_NAMES = [N.saveDraft, N.submit, N.setGlossary, N.removeGlossary];
+const WRITE_NAMES = [N.draft, N.submit, N.glossaryWrite];
 const ALL_NAMES = [...READ_NAMES, ...WRITE_NAMES];
 
 // 이 contract들은 Context Engineer 말고는 열리지 않는 쓰기·초안·미리보기다.
@@ -363,7 +362,7 @@ function listedFor(role: string): readonly ToolDefinition[] {
 
 // ---- R23: 정의와 분류 ----
 
-Deno.test("lophn-agent/harness/tools#R23 [ctx-I57]: Context Engineer tool은 읽기 다섯과 쓰기 넷이고 초안 쓰기·제출·용어집 쓰기만 write이며 매번 묻지 않는다", () => {
+Deno.test("lophn-agent/harness/tools#R23 [ctx-I57]: Context Engineer tool은 읽기 넷과 쓰기 셋이고 초안 쓰기·제출·용어집 쓰기만 write이며 매번 묻지 않는다", () => {
   assertEquals(
     CONTEXT_ENGINEER_TOOLS.map((d) => d.name).sort(),
     [...ALL_NAMES].sort(),
@@ -389,16 +388,18 @@ Deno.test("lophn-agent/harness/tools#R23 [ctx-I57]: Context Engineer tool은 읽
     Object.fromEntries(CONTEXT_ENGINEER_TOOLS.map((d) => [d.name, d.contract])),
     {
       [N.readContract]: "context.contract",
-      [N.readDraft]: "context.draft",
       [N.preview]: CONTEXT_PREVIEW_CONTRACT,
       [N.readViolations]: "context.violations",
-      [N.readGlossary]: "glossary.list",
-      [N.saveDraft]: "bundle.save_draft",
+      [N.glossaryRead]: "glossary.list",
+      [N.draft]: "bundle.save_draft",
       [N.submit]: "bundle.submit",
-      [N.setGlossary]: "glossary.set",
-      [N.removeGlossary]: "glossary.remove",
+      [N.glossaryWrite]: "glossary.set",
     },
   );
+  // 계약 읽기는 만드는 중인 판을, 용어집 쓰기는 항목 지우기를 같은 자격으로 함께 부른다.
+  const operations = runOperations(CONTEXT_ENGINEER_TOOLS);
+  assert(operations.includes("context.draft"));
+  assert(operations.includes("glossary.remove"));
 });
 
 Deno.test("lophn-agent/roles/context-engineer#R5 [ctx-I57]: Context Engineer tool에는 code·shell·파일 쓰기·앱 command 실행이 없고 계약은 선언으로만 쓴다", () => {
@@ -410,7 +411,7 @@ Deno.test("lophn-agent/roles/context-engineer#R5 [ctx-I57]: Context Engineer too
     assert(definition.effect !== "external");
   }
   // 초안의 content는 JSON 객체(선언)뿐이고 글 덩어리나 경로를 받지 않는다.
-  const save = CONTEXT_ENGINEER_TOOLS.find((d) => d.name === N.saveDraft)!;
+  const save = CONTEXT_ENGINEER_TOOLS.find((d) => d.name === N.draft)!;
   const schema = JSON.stringify(save.inputSchema ?? {});
   assert(schema.includes("content"));
   assertEquals(/command|shell|script|\"code\"/.test(schema), false);
@@ -502,7 +503,7 @@ Deno.test("lophn-agent/harness/tools#R23 [ctx-I57]: Context Engineer 목록이 �
 
 // ---- R14: 읽기 ----
 
-Deno.test("lophn-agent/roles/context-engineer#R14 [ctx-I57]: 계약·초안·용어집 읽기는 각자의 읽기 contract 하나만 부르고 쓰기 contract는 부르지 않는다", async () => {
+Deno.test("lophn-agent/roles/context-engineer#R14 [ctx-I57]: 계약 읽기는 적용된 판과 만드는 중인 판을 한 결과로 주고 용어집 읽기와 함께 읽기 contract만 부르며 쓰기 contract는 부르지 않는다", async () => {
   const box = engineer();
   box.core.state.draft = {
     bundle: BUNDLE,
@@ -514,18 +515,19 @@ Deno.test("lophn-agent/roles/context-engineer#R14 [ctx-I57]: 계약·초안·용
   const contract = await box.run(N.readContract, { context: CTX });
   assertEquals(contract.outcome.kind, "success");
   const content = contract.result.content as Record<string, any>;
-  assertEquals(content["bundle_hash"], HASH);
-  assertEquals(content["content"], CONTENT);
+  assertEquals(content["applied"]["bundle_hash"], HASH);
+  assertEquals(content["applied"]["bundle"], APPLIED);
+  assertEquals(content["applied"]["content"], CONTENT);
+  assertEquals(content["draft"]["content"], { draft: true });
+  assertEquals(content["draft"]["bundle"]["id"], BUNDLE);
 
-  const draft = await box.run(N.readDraft, { context: CTX });
-  assertEquals(draft.outcome.kind, "success");
-  assertEquals(
-    (draft.result.content as Record<string, any>)["draft"]["content"],
-    { draft: true },
-  );
+  // 만드는 중인 판이 없으면 draft는 null이다.
+  const idle = engineer();
+  const none = await idle.run(N.readContract, { context: CTX });
+  assertEquals((none.result.content as Record<string, any>)["draft"], null);
 
   assertEquals(
-    (await box.run(N.readGlossary, { context: CTX })).outcome.kind,
+    (await box.run(N.glossaryRead, { context: CTX })).outcome.kind,
     "success",
   );
 
@@ -564,7 +566,7 @@ Deno.test("lophn-agent/harness/tools#R23 [ctx-I57]: 위반 읽기는 한 번에 
 
 Deno.test("lophn-agent/roles/context-engineer#R8 [ctx-I57]: 새 초안은 context와 내용만으로 쓰고 이미 있는 초안을 덮으려면 읽은 revision을 비교 기준으로 쓴다", async () => {
   const box = engineer();
-  const first = await box.run(N.saveDraft, {
+  const first = await box.run(N.draft, {
     context: CTX,
     content: { contract: { types: [] } },
   });
@@ -585,7 +587,7 @@ Deno.test("lophn-agent/roles/context-engineer#R8 [ctx-I57]: 새 초안은 contex
   assertEquals(call.options?.idempotency_key, CALL);
 
   const overwrite = await box.run(
-    N.saveDraft,
+    N.draft,
     {
       context: CTX,
       bundle: BUNDLE,
@@ -603,7 +605,7 @@ Deno.test("lophn-agent/roles/context-engineer#R8 [ctx-I57]: 새 초안은 contex
 
   // 낡은 revision은 conflict로 끝나고 draft는 그대로다.
   const stale = await box.run(
-    N.saveDraft,
+    N.draft,
     { context: CTX, bundle: BUNDLE, base_revision: "1", content: { x: 1 } },
     id("tcl", 3),
   );
@@ -623,7 +625,7 @@ Deno.test("lophn-agent/roles/context-engineer#R8 [ctx-I57]: 초안 쓰기 입력
     { context: CTX, content: {}, stray: true },
   ];
   for (const input of bad) {
-    const outcome = await box.run(N.saveDraft, input);
+    const outcome = await box.run(N.draft, input);
     assertEquals(
       outcome.outcome,
       { kind: "failure", code: "invalid_input" },
@@ -680,7 +682,7 @@ Deno.test("lophn-agent/harness/tools#R23 [ctx-I57]: 미리보기는 초안을 �
 
 Deno.test("lophn-agent/roles/context-engineer#R8 [ctx-I57]: 제출은 만든 판 하나를 비교 기준 없이 제출하고 실패한 판은 적용되지 않으며 실패 항목을 읽어 고쳐 다시 제출한다", async () => {
   const box = engineer();
-  await box.run(N.saveDraft, { context: CTX, content: { bad: true } });
+  await box.run(N.draft, { context: CTX, content: { bad: true } });
 
   const failed = await box.run(N.submit, { bundle: BUNDLE }, id("tcl", 2));
   assertEquals(failed.outcome.kind, "success");
@@ -696,15 +698,15 @@ Deno.test("lophn-agent/roles/context-engineer#R8 [ctx-I57]: 제출은 만든 판
   // 적용된 판은 그대로다.
   assertEquals(box.core.state.applied.bundle, APPLIED);
 
-  // 실패한 항목은 초안 읽기의 검사 보고로 읽는다.
-  const draft = await box.run(N.readDraft, { context: CTX }, id("tcl", 3));
+  // 실패한 항목은 계약 읽기가 싣는 만드는 중인 판의 검사 보고로 읽는다.
+  const draft = await box.run(N.readContract, { context: CTX }, id("tcl", 3));
   const check = (draft.result.content as Record<string, any>)["draft"]["check"];
   assertEquals(check["status"], "failed");
   assertEquals(check["findings"][0]["kind"], "example_mismatch");
 
   // 읽은 revision으로 덮어 쓰고 다시 제출하면 검사 중으로 간다.
   const rewritten = await box.run(
-    N.saveDraft,
+    N.draft,
     {
       context: CTX,
       bundle: BUNDLE,
@@ -722,6 +724,7 @@ Deno.test("lophn-agent/roles/context-engineer#R8 [ctx-I57]: 제출은 만든 판
   assertEquals(box.core.seen.map((call) => call.contract), [
     "bundle.save_draft",
     "bundle.submit",
+    "context.contract",
     "context.draft",
     "bundle.save_draft",
     "bundle.submit",
@@ -730,7 +733,7 @@ Deno.test("lophn-agent/roles/context-engineer#R8 [ctx-I57]: 제출은 만든 판
   // 제출 입력도 선언 밖 값을 거절한다.
   const bad = await box.run(N.submit, { bundle: BUNDLE, apply: true });
   assertEquals(bad.outcome, { kind: "failure", code: "invalid_input" });
-  assertEquals(box.core.seen.length, 5);
+  assertEquals(box.core.seen.length, 6);
 });
 
 // ---- R11: 용어집 ----
@@ -738,7 +741,7 @@ Deno.test("lophn-agent/roles/context-engineer#R8 [ctx-I57]: 제출은 만든 판
 Deno.test("lophn-agent/roles/context-engineer#R11 [ctx-I57]: 새 용어집 항목의 id는 최초 ToolCall ID에서 정해져 재전송이 두 번째 항목을 만들지 않는다", async () => {
   const box = engineer();
   const input = { context: CTX, term: "pie", meaning: "a baked dish" };
-  const first = await box.run(N.setGlossary, input, id("tcl", 7));
+  const first = await box.run(N.glossaryWrite, input, id("tcl", 7));
   assertEquals(first.outcome.kind, "success");
   assertEquals(first.effect, "write");
   const call = box.core.seen[0]!;
@@ -749,12 +752,12 @@ Deno.test("lophn-agent/roles/context-engineer#R11 [ctx-I57]: 새 용어집 항�
   assertEquals(call.input["meaning"], "a baked dish");
   assertEquals(call.options?.idempotency_key, id("tcl", 7));
 
-  await box.run(N.setGlossary, input, id("tcl", 7));
+  await box.run(N.glossaryWrite, input, id("tcl", 7));
   assertEquals(box.core.seen[1]!.input["id"], call.input["id"]);
   assertEquals(box.core.state.glossary.length, 1);
 
   // 다른 호출은 다른 항목이다.
-  await box.run(N.setGlossary, input, id("tcl", 8));
+  await box.run(N.glossaryWrite, input, id("tcl", 8));
   assertNotEquals(box.core.seen[2]!.input["id"], call.input["id"]);
   assertEquals(box.core.state.glossary.length, 2);
 });
@@ -768,7 +771,7 @@ Deno.test("lophn-agent/roles/context-engineer#R11 [ctx-I57]: 이미 있는 항�
     revision: 4,
   });
 
-  const changed = await box.run(N.setGlossary, {
+  const changed = await box.run(N.glossaryWrite, {
     entry: ENTRY,
     meaning: "a baked dish with a crust",
     base_revision: "4",
@@ -782,16 +785,18 @@ Deno.test("lophn-agent/roles/context-engineer#R11 [ctx-I57]: 이미 있는 항�
   });
   assertEquals(set.options?.compare, { base_revision: "4" });
 
-  const stale = await box.run(N.removeGlossary, {
+  const stale = await box.run(N.glossaryWrite, {
     entry: ENTRY,
     base_revision: "4",
+    remove: true,
   });
   assertEquals(stale.outcome, { kind: "failure", code: "conflict" });
   assertEquals(box.core.state.glossary.length, 1);
 
-  const removed = await box.run(N.removeGlossary, {
+  const removed = await box.run(N.glossaryWrite, {
     entry: ENTRY,
     base_revision: "5",
+    remove: true,
   });
   assertEquals(removed.outcome.kind, "success");
   const remove = box.core.seen[2]!;
@@ -813,12 +818,24 @@ Deno.test("lophn-agent/roles/context-engineer#R11 [ctx-I57]: 이미 있는 항�
   // 수정은 항목 id와 바뀌는 값 하나 이상, 삭제는 항목 id가 필요하다.
   for (
     const [name, input] of [
-      [N.setGlossary, { entry: ENTRY, base_revision: "5" }],
-      [N.setGlossary, { entry: ENTRY, meaning: "x" }],
-      [N.setGlossary, { context: CTX, term: "x" }],
-      [N.setGlossary, { context: CTX, term: "x", meaning: "y", entry: ENTRY }],
-      [N.removeGlossary, { entry: ENTRY }],
-      [N.removeGlossary, { base_revision: "5" }],
+      [N.glossaryWrite, { entry: ENTRY, base_revision: "5" }],
+      [N.glossaryWrite, { entry: ENTRY, meaning: "x" }],
+      [N.glossaryWrite, { context: CTX, term: "x" }],
+      [N.glossaryWrite, {
+        context: CTX,
+        term: "x",
+        meaning: "y",
+        entry: ENTRY,
+      }],
+      [N.glossaryWrite, { entry: ENTRY, remove: true }],
+      [N.glossaryWrite, { base_revision: "5", remove: true }],
+      [N.glossaryWrite, { entry: ENTRY, base_revision: "5", remove: false }],
+      [N.glossaryWrite, {
+        entry: ENTRY,
+        base_revision: "5",
+        remove: true,
+        meaning: "x",
+      }],
     ] as [string, unknown][]
   ) {
     const outcome = await box.run(name, input);

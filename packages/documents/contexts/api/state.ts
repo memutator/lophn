@@ -42,6 +42,9 @@ export type EntityRow = {
   path: string;
   section: string | null;
   fields: Record<string, unknown>;
+  // 관계 간선: 관계 선언 순서대로, via 값(list면 항목 순서)마다 하나. index가 저장하고 `context.entity`가
+  // 관계 대상을 찾을 때 읽는다. 없으면 간선이 없는 것과 같다.
+  links?: readonly { relation: string; target_key: string }[];
 };
 
 export type ContextApiState = {

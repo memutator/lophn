@@ -129,8 +129,6 @@ Deno.test({
       assertEquals(facts.value.linked, true);
       assertEquals(facts.value.latestNumber, 2);
       assertEquals(facts.value.primaryPath, "plan.md");
-      const contexts = await versions.contexts(document);
-      assertEquals(contexts, { ok: true, value: [] });
 
       // 1번 판을 되살린다: 원본 파일에 1번 바이트를 쓰고 그 관측으로 새 최신 판이 선다.
       const restored = await versions.restore(

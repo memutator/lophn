@@ -56,7 +56,6 @@ import {
 import type { AppTool } from "../../packages/lophn-agent/harness/tools/mod.ts";
 import type { AppToolkit } from "./app-toolkit.ts";
 import { commandOf, type CoreCall, readOf } from "./core-call.ts";
-import { contextMaterials } from "./context-materials.ts";
 import { createCorePorts, type RunSeat } from "./core-ports.ts";
 import type { ModelBinding } from "./model-binding.ts";
 import { type BlobPort, type RedactText, storeValue } from "./run-blobs.ts";
@@ -430,7 +429,8 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
         purpose: null,
         run_facts: null,
         continuation_summary: null,
-        sources: await contextMaterials(agent, definition.context),
+        // context 자료는 새 context 모델의 loader(ctx-I55)가 채운다. 그 전에는 싣지 않는다.
+        sources: [],
         // 발견한 skill 중 preset이 고른 정확한 이름만 prompt에 오른다(extensions R4).
         skills: ((await deps.skills?.()) ?? []).map((entry) => ({
           ...entry,

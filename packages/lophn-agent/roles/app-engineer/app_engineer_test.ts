@@ -136,25 +136,13 @@ function scope(over: Partial<ReadScope> = {}): ReadScope {
   return {
     app: APP,
     run: RUN,
-    contexts: [{
-      id: id("ctx", 1),
-      items: [
-        { target: { kind: "app_command", app: APP, command: "read_items" } },
-        { target: { kind: "document", document: PLAN, section: null } },
-      ],
-    }, {
-      id: id("ctx", 2),
-      items: [
-        {
-          target: {
-            kind: "app_command",
-            app: OTHER_APP,
-            command: "read_other",
-          },
-        },
-        { target: { kind: "document", document: STORY, section: null } },
-      ],
-    }],
+    contexts: [
+      { id: id("ctx", 1), app_data: [{ app: APP, command: "read_items" }] },
+      {
+        id: id("ctx", 2),
+        app_data: [{ app: OTHER_APP, command: "read_other" }],
+      },
+    ],
     handoff: [{ run: RUN, document: PLAN, version: PLAN_V1 }],
     ...over,
   };
@@ -194,12 +182,12 @@ Deno.test("lophn-agent/roles/app-engineer#R2: 담당 앱 자리의 자료와 제
   }
 });
 
-Deno.test("lophn-agent/roles/app-engineer#R2: 컨텍스트는 담당 앱의 읽기 명령을 항목으로 가질 때만 읽고 그 안의 다른 자리 문서는 주소로 열지 못한다", () => {
+Deno.test("lophn-agent/roles/app-engineer#R2: 컨텍스트는 담당 앱의 읽기 명령을 app-data source로 가질 때만 읽고 그 컨텍스트의 다른 자리 문서는 주소로 열지 못한다", () => {
   assertEquals(
     readDecision(scope(), { kind: "context", context: id("ctx", 1) }),
     { allowed: true, via: "context" },
   );
-  // 다른 앱의 명령만 가진 컨텍스트와 없는 컨텍스트는 같은 결과다.
+  // 다른 앱의 명령만 source로 가진 컨텍스트와 없는 컨텍스트는 같은 결과다.
   const denied: ReadDecision = { allowed: false, code: "not_found" };
   assertEquals(
     readDecision(scope(), { kind: "context", context: id("ctx", 2) }),
@@ -209,7 +197,7 @@ Deno.test("lophn-agent/roles/app-engineer#R2: 컨텍스트는 담당 앱의 읽�
     readDecision(scope(), { kind: "context", context: id("ctx", 9) }),
     denied,
   );
-  // 허용된 컨텍스트가 담은 다른 자리 문서와 다른 컨텍스트의 문서는 주소만으로 열리지 않는다.
+  // 허용된 컨텍스트의 다른 자리 문서와 다른 컨텍스트의 문서는 주소만으로 열리지 않는다.
   assertEquals(
     readDecision(scope(), {
       kind: "document",

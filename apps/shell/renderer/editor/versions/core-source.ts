@@ -1,6 +1,6 @@
 // VersionSource를 main의 core 통로로 만든다. 응답은 main의 contract client가 route output
 // schema로 이미 검사했다. 아래 모양은 그 schema(documents.get·history·section_history·diff·
-// read, outline.document, contexts.list)에서 이 화면이 읽는 field만 옮긴 것이다. contracts를
+// read, outline.document)에서 이 화면이 읽는 field만 옮긴 것이다. contracts를
 // import하면 zod와 core 쪽 graph가 renderer bundle에 들어오므로 type도 들이지 않는다.
 // 복원은 renderer allowlist 밖(준비·파일 쓰기)이라 main의 편집 통로로 보낸다.
 import type { EditorFilesApi } from "../../../ipc/editor.ts";
@@ -9,7 +9,6 @@ import type { CoreCall } from "../../../ipc/core.ts";
 import type { EditorSource, SourceResult } from "../source.ts";
 import type {
   ChangeRun,
-  DocumentContext,
   DocumentFacts,
   SaverKind,
   SectionChange,
@@ -77,15 +76,6 @@ interface SectionHistoryPage {
   entries: { version: string; status: SectionChange }[];
   omissions: { version: string }[];
   complete: boolean;
-  next_cursor: string | null;
-}
-
-interface ContextListPage {
-  contexts: {
-    id: string;
-    title: string;
-    items: { target: { kind: string; document?: string } }[];
-  }[];
   next_cursor: string | null;
 }
 
@@ -304,28 +294,6 @@ export function coreVersionSource(
         },
       );
       return read.ok ? { ok: true, value: { rows, omitted } } : read;
-    },
-
-    async contexts(document) {
-      const found: DocumentContext[] = [];
-      const read = await pages<ContextListPage>(
-        core,
-        "read",
-        "contexts",
-        "list",
-        { status: "active" },
-        (page) => {
-          for (const context of page.contexts) {
-            if (
-              context.items.some((item) =>
-                item.target.kind === "document" &&
-                item.target.document === document
-              )
-            ) found.push({ id: context.id, title: context.title });
-          }
-        },
-      );
-      return read.ok ? { ok: true, value: found } : read;
     },
 
     async restore(document, version, base) {

@@ -34,7 +34,6 @@ import { createLedgerRegistration as createAppsRegistration } from "../apps.ts";
 import { codingAgentConnectionDefinitions } from "../coding-agent.ts";
 import { type Core, startCore } from "../core.ts";
 import { createLedgerRegistration } from "../documents.ts";
-import { createLedgerRegistration as createAppItemDocuments } from "./documents-app-command.ts";
 import {
   createLedgerRegistration as createLophnAgentRegistration,
   lophnAgentDefinitions,
@@ -99,13 +98,9 @@ const CONNECTIONS: Record<Who, string> = {
 
 // 제품 core의 조립(main.ts)과 같은 팀 목록이다. 금지 route가 실제 handler에 닿아야 거절이
 // 뜻을 가진다.
-function teamsFor(appItems: boolean): TeamModule[] {
+function teamsFor(): TeamModule[] {
   return [
-    {
-      createLedgerRegistration: appItems
-        ? createAppItemDocuments
-        : createLedgerRegistration,
-    },
+    { createLedgerRegistration },
     { createLedgerRegistration: createAppsRegistration },
     { problemsTestDefinitions },
     { problemsReportDefinitions },
@@ -162,10 +157,8 @@ export type ScopeWorld = {
 
 // operations는 두 통로 표에서 나온 route 이름이고, 범위(targets)가 앱 하나로 좁은
 // 연결은 그 앱 자리의 문서만 닿는다.
-// appItems가 true이면 context 항목에 앱 command를 담을 수 있는 시험용 documents 등록을 쓴다.
 export async function openScopeWorld(
   operations: readonly string[],
-  options: { appItems?: boolean } = {},
 ): Promise<ScopeWorld> {
   const home = await Deno.makeTempDir({ prefix: "lophn-scope-" });
   const work = await Deno.realPath(
@@ -174,14 +167,9 @@ export async function openScopeWorld(
   const started = await startCore({
     lophnHome: home,
     port: 0,
-    teams: teamsFor(options.appItems === true),
+    teams: teamsFor(),
     teamModules: [
-      new URL(
-        options.appItems === true
-          ? "./documents-app-command.ts"
-          : "../documents.ts",
-        import.meta.url,
-      ).href,
+      new URL("../documents.ts", import.meta.url).href,
       new URL("../apps.ts", import.meta.url).href,
       new URL("../problems.ts", import.meta.url).href,
       new URL("../coding-agent.ts", import.meta.url).href,

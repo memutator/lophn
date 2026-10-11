@@ -31,6 +31,9 @@ import {
   contextCreateRoute,
   contextDraftReadSchema,
   contextDraftRoute,
+  contextEntityReadSchema,
+  contextEntityRequestSchema,
+  contextEntityRoute,
   contextGetReadSchema,
   contextHandOffViolationsRoute,
   contextInputOptionsReadSchema,
@@ -39,10 +42,16 @@ import {
   contextListReadSchema,
   contextListRequestSchema,
   contextOverviewReadSchema,
+  contextPreviewReadSchema,
+  contextPreviewRequestSchema,
+  contextPreviewRoute,
   contextRecordViolationsRoute,
   contextSavedViewsReadSchema,
   contextSearchReadSchema,
   contextSearchRequestSchema,
+  contextSeriesNextReadSchema,
+  contextSeriesNextRequestSchema,
+  contextSeriesNextRoute,
   contextUnarchivedEvent,
   contextUnarchiveRoute,
   contextValueSchema,
@@ -1724,4 +1733,309 @@ Deno.test("documents/contexts#R15 [ctx-S26]: context.input_options returns candi
     ...read,
     options: Array.from({ length: 201 }, () => ({ value: "a", label: "a" })),
   });
+});
+
+// ---------- preview · entity · series_next [ctx-S21] ----------
+
+const previewMeta = { ...meta };
+const previewRead = {
+  ...previewMeta,
+  context: ctx,
+  bundle: cbn,
+  types: [{ type: "Experiment", count: 5 }, { type: "Event", count: 0 }],
+  violation_count: 1,
+  violations: [{
+    ...without(ruleViolation, "target"),
+    target: null,
+    message: "m",
+  }],
+  findings: [],
+};
+
+Deno.test("documents/contexts#R19 [ctx-S21]: context.preview takes a context, a draft bundle and an optional cursor", () => {
+  const schema = contextPreviewRequestSchema;
+  accepts(schema, { context: ctx, bundle: cbn });
+  accepts(schema, { context: ctx, bundle: cbn, cursor: "opaque" });
+  rejects(schema, { context: ctx });
+  rejects(schema, { bundle: cbn });
+  rejects(schema, { context: cbn, bundle: cbn });
+  rejects(schema, { context: ctx, bundle: ctx });
+  rejects(schema, { context: ctx, bundle: cbn, cursor: "" });
+  rejects(schema, { context: ctx, bundle: cbn, limit: 10 });
+});
+
+Deno.test("documents/contexts#R19 [ctx-S21]: a preview result carries counts in type order, a violation page and the findings", () => {
+  accepts(contextPreviewReadSchema, previewRead);
+  accepts(contextPreviewReadSchema, {
+    ...previewRead,
+    types: [],
+    violation_count: 0,
+    violations: [],
+    findings: [finding],
+  });
+  accepts(contextPreviewReadSchema, {
+    ...previewRead,
+    complete: false,
+    next_cursor: "opaque-2",
+  });
+  accepts(contextPreviewReadSchema, {
+    ...previewRead,
+    violations: Array.from({ length: 30 }, () => previewRead.violations[0]),
+  });
+  rejects(contextPreviewReadSchema, {
+    ...previewRead,
+    violations: Array.from({ length: 31 }, () => previewRead.violations[0]),
+  });
+  // a page is complete exactly when it has no cursor
+  rejects(contextPreviewReadSchema, { ...previewRead, complete: false });
+  rejects(contextPreviewReadSchema, {
+    ...previewRead,
+    next_cursor: "opaque-2",
+  });
+  rejects(contextPreviewReadSchema, without(previewRead, "bundle"));
+  rejects(contextPreviewReadSchema, without(previewRead, "types"));
+  rejects(contextPreviewReadSchema, without(previewRead, "violation_count"));
+  rejects(contextPreviewReadSchema, without(previewRead, "findings"));
+  rejects(contextPreviewReadSchema, {
+    ...previewRead,
+    types: [{ type: "Experiment", count: -1 }],
+  });
+  rejects(contextPreviewReadSchema, {
+    ...previewRead,
+    types: [{ type: "experiment", count: 1 }],
+  });
+  rejects(contextPreviewReadSchema, {
+    ...previewRead,
+    findings: [{ kind: "x" }],
+  });
+});
+
+Deno.test("documents/contexts#R22 [ctx-S21]: a preview violation drops the stored context and bundle hash and keeps the evidence and message", () => {
+  const line = previewRead.violations[0];
+  accepts(contextPreviewReadSchema, previewRead);
+  rejects(contextPreviewReadSchema, {
+    ...previewRead,
+    violations: [{ ...line, context: ctx }],
+  });
+  rejects(contextPreviewReadSchema, {
+    ...previewRead,
+    violations: [{ ...line, bundle_hash: hash }],
+  });
+  rejects(contextPreviewReadSchema, {
+    ...previewRead,
+    violations: [without(line, "message")],
+  });
+  rejects(contextPreviewReadSchema, {
+    ...previewRead,
+    violations: [{ ...line, message: " " }],
+  });
+  // the rule is set exactly when the kind is rule
+  rejects(contextPreviewReadSchema, {
+    ...previewRead,
+    violations: [{ ...line, rule: null }],
+  });
+  rejects(contextPreviewReadSchema, {
+    ...previewRead,
+    violations: [{ ...line, kind: "unreadable" }],
+  });
+  rejects(contextPreviewReadSchema, {
+    ...previewRead,
+    violations: [{ ...line, path: "/abs/x.md" }],
+  });
+});
+
+Deno.test("documents/contexts#R16 [ctx-S21]: context.entity takes a context, a type and a key", () => {
+  const schema = contextEntityRequestSchema;
+  accepts(schema, { context: ctx, type: "Experiment", key: "001" });
+  rejects(schema, { context: ctx, type: "Experiment" });
+  rejects(schema, { context: ctx, key: "001" });
+  rejects(schema, { type: "Experiment", key: "001" });
+  rejects(schema, { context: ctx, type: "experiment", key: "001" });
+  rejects(schema, { context: ctx, type: "Experiment", key: " " });
+  rejects(schema, { context: ctx, type: "Experiment", key: "001", extra: 1 });
+});
+
+const entityRead = {
+  ...meta,
+  context: ctx,
+  bundle_hash: hash,
+  ref,
+  fields: { id: "001", status: "done", scenarios: ["a", "b"], rubric: null },
+  relations: [{
+    name: "runs_on",
+    label: "runs on",
+    targets: [{
+      type: "Scenario",
+      key: "a",
+      path: "eval/scenarios/a.md",
+      section: null,
+    }],
+  }, { name: "graded_by", label: "graded by", targets: [] }],
+};
+
+Deno.test("documents/contexts#R16 [ctx-S21]: an entity result holds the ref, every field and every declared relation with its targets", () => {
+  accepts(contextEntityReadSchema, entityRead);
+  accepts(contextEntityReadSchema, {
+    ...entityRead,
+    fields: {},
+    relations: [],
+  });
+  rejects(contextEntityReadSchema, without(entityRead, "ref"));
+  rejects(contextEntityReadSchema, without(entityRead, "fields"));
+  rejects(contextEntityReadSchema, without(entityRead, "relations"));
+  rejects(contextEntityReadSchema, without(entityRead, "bundle_hash"));
+  rejects(contextEntityReadSchema, { ...entityRead, bundle_hash: "abc" });
+  rejects(contextEntityReadSchema, { ...entityRead, fields: ["id"] });
+  rejects(contextEntityReadSchema, {
+    ...entityRead,
+    relations: [{ name: "runs_on", label: "runs on" }],
+  });
+  rejects(contextEntityReadSchema, {
+    ...entityRead,
+    relations: [{ name: "Runs", label: "runs on", targets: [] }],
+  });
+  rejects(contextEntityReadSchema, {
+    ...entityRead,
+    relations: [{ name: "runs_on", label: " ", targets: [] }],
+  });
+  // targets are entity refs and never carry a document version
+  rejects(contextEntityReadSchema, {
+    ...entityRead,
+    relations: [{
+      name: "runs_on",
+      label: "runs on",
+      targets: [{ ...ref, version: "ver_x" }],
+    }],
+  });
+  // a single read has no next page
+  rejects(contextEntityReadSchema, {
+    ...entityRead,
+    complete: false,
+    next_cursor: "opaque",
+  });
+});
+
+Deno.test("documents/series#R5 [ctx-S21]: context.series_next takes a context and a type", () => {
+  const schema = contextSeriesNextRequestSchema;
+  accepts(schema, { context: ctx, type: "Experiment" });
+  rejects(schema, { context: ctx });
+  rejects(schema, { type: "Experiment" });
+  rejects(schema, { context: ctx, type: "experiment" });
+  rejects(schema, { context: ctx, type: "Experiment", pattern: "x-{n}.md" });
+});
+
+const seriesNextRead = {
+  ...meta,
+  context: ctx,
+  type: "Experiment",
+  pattern: "eval/experiments/exp-{n:03}-*.md",
+  next: {
+    key: "011",
+    path: "eval/experiments/exp-011-*.md",
+    from: "eval/experiments/exp-010-x.md",
+    complete: false,
+    taken: false,
+  },
+};
+
+Deno.test("documents/series#R5 [ctx-S21]: a series next result holds the pattern and the next name with its basis", () => {
+  accepts(contextSeriesNextReadSchema, seriesNextRead);
+  accepts(contextSeriesNextReadSchema, {
+    ...seriesNextRead,
+    next: {
+      key: "10",
+      path: "reports/weekly-10.md",
+      from: "reports/weekly-9.md",
+      complete: true,
+      taken: false,
+    },
+  });
+  accepts(contextSeriesNextReadSchema, {
+    ...seriesNextRead,
+    next: {
+      key: "10",
+      path: "reports/weekly-10.md",
+      from: "reports/weekly-10.md",
+      complete: true,
+      taken: true,
+    },
+  });
+  rejects(contextSeriesNextReadSchema, without(seriesNextRead, "pattern"));
+  rejects(contextSeriesNextReadSchema, without(seriesNextRead, "next"));
+  rejects(contextSeriesNextReadSchema, { ...seriesNextRead, pattern: " " });
+  rejects(contextSeriesNextReadSchema, {
+    ...seriesNextRead,
+    next: without(seriesNextRead.next, "taken"),
+  });
+  rejects(contextSeriesNextReadSchema, {
+    ...seriesNextRead,
+    next: { ...seriesNextRead.next, path: "/abs/exp-011.md" },
+  });
+});
+
+Deno.test("documents/series#R6 [ctx-S21]: a series next result with no members is the empty suggestion and an incomplete name cannot claim to be complete", () => {
+  const empty = {
+    key: "",
+    path: null,
+    from: null,
+    complete: false,
+    taken: false,
+  };
+  accepts(contextSeriesNextReadSchema, { ...seriesNextRead, next: empty });
+  // members exist but the next name cannot be computed
+  accepts(contextSeriesNextReadSchema, {
+    ...seriesNextRead,
+    next: { ...empty, from: "weekly-2026-09-28.md" },
+  });
+  // key and path are empty together
+  rejects(contextSeriesNextReadSchema, {
+    ...seriesNextRead,
+    next: { ...empty, key: "011" },
+  });
+  rejects(contextSeriesNextReadSchema, {
+    ...seriesNextRead,
+    next: { ...seriesNextRead.next, key: "" },
+  });
+  // a * place left in the path means it is not complete
+  rejects(contextSeriesNextReadSchema, {
+    ...seriesNextRead,
+    next: { ...seriesNextRead.next, complete: true },
+  });
+  rejects(contextSeriesNextReadSchema, {
+    ...seriesNextRead,
+    next: { ...seriesNextRead.next, path: "eval/exp-011.md", complete: false },
+  });
+  rejects(contextSeriesNextReadSchema, {
+    ...seriesNextRead,
+    next: { ...empty, complete: true },
+  });
+  // taken needs a computed name
+  rejects(contextSeriesNextReadSchema, {
+    ...seriesNextRead,
+    next: { ...empty, taken: true },
+  });
+});
+
+Deno.test("documents/contexts#R27 [ctx-S21]: the three new reads are read routes open to user and lophn agent only and are not registered yet", () => {
+  const routes = [
+    contextPreviewRoute,
+    contextEntityRoute,
+    contextSeriesNextRoute,
+  ];
+  assertEquals(routes.map(routePath), [
+    "/v1/contexts/preview",
+    "/v1/contexts/entity",
+    "/v1/contexts/series_next",
+  ]);
+  assertEquals(routes.map((route) => route.name), [
+    "context.preview",
+    "context.entity",
+    "context.series_next",
+  ]);
+  for (const route of routes) {
+    assertEquals(route.kind, "read");
+    assertEquals(route.actors, ["user", "agent"]);
+    // registered together with the core handlers (a route without a handler hangs)
+    assert(!CONTEXT_API_ROUTES.includes(route as never), route.name);
+  }
 });

@@ -32,16 +32,9 @@ import {
 
 // ---------- ID ----------
 
-// platform의 ID_PREFIXES에는 아직 cbn·chk가 없다(domain-model platform/ledger는 갖고 있다).
-// 같은 모양(접두사 + 소문자 Crockford base32 ULID 26자)으로 여기서 만든다.
-const ULID = "[0-7][0-9a-hjkmnp-tv-z]{25}";
-function prefixedId(prefix: string) {
-  return z.string().regex(new RegExp(`^${prefix}_${ULID}$`));
-}
-
 export const ctxIdSchema = idSchema("ctx");
-export const bundleIdSchema = prefixedId("cbn");
-export const checkIdSchema = prefixedId("chk");
+export const bundleIdSchema = idSchema("cbn");
+export const checkIdSchema = idSchema("chk");
 export const savedViewIdSchema = idSchema("viw");
 export const glossaryEntryIdSchema = idSchema("trm");
 

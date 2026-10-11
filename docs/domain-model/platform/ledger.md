@@ -24,6 +24,7 @@ ledger의 공통 envelope, 식별·시각·오류 값, 확정 command 결과와 
 | `cbn` | ContextBundle | → documents/contexts |
 | `chk` | ContextCheck | → documents/contexts |
 | `trm` | GlossaryEntry | → documents/terms |
+| `ser` | Series(옛 series 코드가 지워질 때까지만, ctx-R11) | → documents/series |
 | `viw` | SavedView | → documents/contexts |
 | `app` | App | → apps/registration |
 | `rel` | Release | → apps/releases |

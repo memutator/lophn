@@ -375,7 +375,7 @@ cache boundary는 최대 세 개: product 끝 → role_agent 끝 → user_instru
 - 여전히 50%를 넘으면 완료된 오래된 구간을 Workspace의 요약용 model(비면 같은 agent model)에 보낸다. 출력 상한은 `min(budget 10%, 4000 tokens)`다. organizing 입력 budget 절반 이하 chunk로 오래된 순서대로 나누며 쌍/보호 구간을 지킨다. 한 쌍이 그 입력에 들어가지 않으면 실패다.
 - summary는 목적 / 사람 결정·제약 / 확인된 진행·evidence / 미완료 / 실패·다음 단계 / 추정·불확실성 여섯 부분이다. complete·nonempty·모든 부분/구간·보호 원문·이전보다 작은 재조립·50% 이하를 모두 확인한 뒤 적용한다.
 - 실패하면 원문을 유지하고 같은 구간 자동 summary retry가 없다. 원문이 budget 안이면 실패 표시와 진행, 밖이면 context_limit 종료다. 원본 대화·tool result는 수정하지 않는다.
-- 완성 summary는 ModelCall output·context_basis의 source 구간으로 재구성한다. 자동 압축 summary는 같은 run에만 재사용한다. Compact는 사람이 부를 때만 같은 session의 앞 구간을 별도 organizing summary(최대 400 tokens)로 만들어 그 session의 이후 call이 쓰고 원문 메시지는 남긴다. 새 session·Fork한 session·handoff·다른 session에 자동 주입하지 않고 long-term memory가 아니다.
+- 완성 summary는 ModelCall output·context_basis의 source 구간으로 재구성한다. 자동 압축 summary는 같은 run에만 재사용한다. Compact는 사람이 부를 때만 같은 session의 앞 구간을 별도 organizing summary(상한은 요약 call 입력 budget의 10%와 4000 token 중 작은 값, prompt-assemble R20)로 만들어 그 session의 이후 call이 쓰고 원문 메시지는 남긴다. 새 session·Fork한 session·handoff·다른 session에 자동 주입하지 않고 long-term memory가 아니다.
 
 ### 5.5 extensions
 

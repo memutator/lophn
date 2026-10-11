@@ -26,8 +26,8 @@ export function evidenceEnough(
   return evidence.manual_runs_30d >= MANUAL_RUNS_MIN;
 }
 
-// 반복 판단의 설명 항목이다(R12). prompt에 판단·제외·필요 근거·비교 기준·갱신 조건을
-// 모두 적는다(R12, roles/operator R1).
+// 반복 판단의 설명 항목이다(R18). prompt에 판단·제외·필요 근거·비교 기준·갱신 조건을
+// 모두 적는다(R18, roles/operator R1).
 export type JudgmentTerms = {
   judgment: string;
   excludes: string[];
@@ -36,7 +36,7 @@ export type JudgmentTerms = {
   update_condition: string;
 };
 
-// 초안 조립 항목이다(R12). scope는 project 또는 app 하나다.
+// 초안 조립 항목이다(R18). scope는 project 또는 app 하나다.
 export type DraftScope =
   | { kind: "project"; id: string }
   | { kind: "app"; id: string };
@@ -44,15 +44,15 @@ export type DraftScope =
 export type OperatorDraft = {
   judgment: JudgmentTerms;
   scope: DraftScope;
-  // preset 전체 구성(고르는 context·읽을 자료)이다(R18, presets#R15).
+  // preset 전체 구성(고르는 실제 context·읽을 자료)이다(R18, presets#R15).
   preset: PresetDefinition;
-  // 기존 남길 문서 최소 1개(실제 첫 version이 있는)다(R12, assignments#R6).
+  // 기존 남길 문서 최소 1개(실제 첫 version이 있는)다(R18, assignments#R6).
   outputs: { document: string; content: string }[];
-  // 주기와 승인 앱 read다(R12, assignments#R8).
+  // 주기와 승인 앱 read다(R18, assignments#R8).
   schedule: { first_at: string; every_ms: number };
   read_apps: string[];
   read_commands: { app: string; command: string }[];
-  // 전후 판과 이유다(R12, presets#R15). 사람이 검토할 수 있게 남긴다.
+  // 전후 판과 이유다(R18, presets#R15). 사람이 검토할 수 있게 남긴다.
   before: string | null;
   after: string;
   reason: string;
@@ -60,11 +60,14 @@ export type OperatorDraft = {
 
 export const DRAFT_OUTPUT_MIN = 1;
 
-// 초안을 검사한다(R12). 판단 항목이 다 있고, 범위는 project 또는 app 하나,
-// 남길 문서는 최소 DRAFT_OUTPUT_MIN개, 읽을 자료는 승인 앱 안에 있는지 본다.
+// 초안을 검사한다(R18). 판단 항목이 다 있고, 범위는 project 또는 app 하나,
+// 남길 문서는 최소 DRAFT_OUTPUT_MIN개, 고르는 context는 그 project에 있는 context,
+// 읽을 자료는 승인 앱 안에 있는지 본다.
 export function checkDraft(
   draft: OperatorDraft,
   documentVersions: ReadonlyMap<string, number | undefined>,
+  // 초안의 project에 있는 context의 ID다. preset이 고르는 context가 여기 없으면 거절한다.
+  projectContexts: ReadonlySet<string>,
 ): { ok: boolean; problems: string[] } {
   const problems: string[] = [];
   const terms = draft.judgment;
@@ -84,9 +87,15 @@ export function checkDraft(
   }
   for (const output of draft.outputs) {
     const first = documentVersions.get(output.document);
-    // 기존 남길 문서는 실제 첫 version이 있어야 한다(R12, assignments#R6).
+    // 기존 남길 문서는 실제 첫 version이 있어야 한다(R18, assignments#R6).
     if (first === undefined || first < 1) {
       problems.push(`document without a first version: ${output.document}`);
+    }
+  }
+  for (const selection of draft.preset.context) {
+    if (selection.kind !== "context") continue;
+    if (selection.target === null || !projectContexts.has(selection.target)) {
+      problems.push(`context not in the project: ${selection.target}`);
     }
   }
   const commandApps = new Set(
@@ -101,7 +110,7 @@ export function checkDraft(
   return { ok: problems.length === 0, problems };
 }
 
-// 겹침이다(R13). 같은 project 또는 app에 책임이 겹치는 Operator를 비교한다.
+// 겹침이다(R19). 같은 project 또는 app에 책임이 겹치는 Operator를 비교한다.
 export type DraftOverlap = {
   assignment: string;
   scope: DraftScope;
@@ -113,7 +122,7 @@ export type DraftOverlap = {
 };
 
 // 겹치는 Operator가 있으면 새 assignment를 늘리지 않고 기존 preset 판·남길 문서
-// 변경을 제안한다(R13). 겹침 근거는 초안 reason에 남긴다.
+// 변경을 제안한다(R19). 겹침 근거는 초안 reason에 남긴다.
 export function overlapOf(
   draft: OperatorDraft,
   existing: readonly DraftOverlap[],
@@ -126,7 +135,7 @@ export function overlapOf(
   return undefined;
 }
 
-// 겹침 제안이다(R13). 기존 Operator의 assignment id와 겹친 근거를 붙인다.
+// 겹침 제안이다(R19). 기존 Operator의 assignment id와 겹친 근거를 붙인다.
 export function overlapRevision(input: {
   draft: OperatorDraft;
   overlap: DraftOverlap;
@@ -137,7 +146,7 @@ export function overlapRevision(input: {
     : " 같은 범위의 Operator가 이미 있다.";
   return {
     ...input.draft,
-    // 겹침 근거는 사람이 검토할 수 있게 reason에 남긴다(R13).
+    // 겹침 근거는 사람이 검토할 수 있게 reason에 남긴다(R19).
     reason: input.overlapping_reason.trim() === ""
       ? input.draft.reason
       : `${input.draft.reason} ${input.overlapping_reason.trim()}${shared}`,

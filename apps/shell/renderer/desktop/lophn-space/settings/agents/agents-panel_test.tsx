@@ -19,7 +19,7 @@ import {
   XAI,
 } from "./testdata/fake-agents.ts";
 
-const NEXT_RUN = "Changes apply from the next run.";
+const NEXT_RUN = "Changes apply to new work.";
 
 async function open(options: FakeAgentsOptions = {}) {
   const fake = fakeAgents(options);

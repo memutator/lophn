@@ -2441,7 +2441,6 @@ export const en = {
     "That didn't work. Nothing changed. Try again.",
   "settings.agents.intro":
     "These apply to every project unless a project or an Operator sets its own.",
-  "settings.agents.next-run": "Changes apply from the next run.",
   "settings.agents.no-instructions": "No instructions yet.",
   "settings.agents.no-options": "No options for this model.",
   "settings.agents.no-servers": "No MCP servers yet.",

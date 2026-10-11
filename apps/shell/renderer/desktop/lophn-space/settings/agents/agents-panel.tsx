@@ -215,7 +215,7 @@ export function AgentsPanel({ source }: AgentsPanelProps): ReactNode {
                 role="status"
                 data-note="next-run"
               >
-                {t("settings.agents.next-run")}
+                {t("settings.notice.next-run")}
               </p>
             )
             : (

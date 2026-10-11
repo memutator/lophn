@@ -44,6 +44,7 @@ import {
   recoverRunFromLedger,
   type ToolLookup,
 } from "../../packages/lophn-agent/harness/waiting-and-recovery/mod.ts";
+import type { MaterialSource } from "../../packages/lophn-agent/harness/prompt-assemble/mod.ts";
 import type { ToolBinding } from "../../packages/lophn-agent/harness/tool-judgment/mod.ts";
 import {
   BUILTIN_TOOLS,
@@ -55,7 +56,12 @@ import {
 } from "../../packages/lophn-agent/harness/tools/mod.ts";
 import type { AppTool } from "../../packages/lophn-agent/harness/tools/mod.ts";
 import type { AppToolkit } from "./app-toolkit.ts";
-import { contextReadToolsFor, type ContextToolkit } from "./context-search.ts";
+import {
+  contextReadToolsFor,
+  type ContextToolkit,
+  projectOf,
+} from "./context-search.ts";
+import { loadContextMaterials } from "./context-overview.ts";
 import { commandOf, type CoreCall, readOf } from "./core-call.ts";
 import { createCorePorts, type RunSeat } from "./core-ports.ts";
 import type { ModelBinding } from "./model-binding.ts";
@@ -427,6 +433,25 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
     for (const tool of external) {
       bindings.set(tool.definition.name, externalBinding(tool));
     }
+    // context 자료는 run을 시작할 때 한 번만 읽고 turn마다 같은 값을 쓴다(prompt-assemble R5). 선택 중
+    // `assignment_scope`·`work_place`는 아직 풀지 않는다(ctx-I58b).
+    let sourcesRead: Promise<MaterialSource[]> | undefined;
+    const contextSources = (): Promise<MaterialSource[]> =>
+      sourcesRead ??= loadContextMaterials(agent, {
+        // 선언 검색 tool과 같은 project 계산이라 prompt 자료와 tool이 같은 context를 가리킨다.
+        project: projectOf(place, assignment.scope),
+        selections: definition.context,
+      }).then((set) =>
+        set.materials.map((item) => ({
+          address: item.context,
+          title: item.title,
+          version: item.bundle_hash,
+          overview: item.overview,
+          type_names: item.type_names,
+          glossary: item.glossary,
+          has_glossary: !item.glossary_empty,
+        }))
+      );
     const context = async (): Promise<Result<RunContext>> => {
       const role = await deps.rolePrompt(assignment.role);
       if (!role.ok) return role;
@@ -447,8 +472,7 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
         purpose: null,
         run_facts: null,
         continuation_summary: null,
-        // context 자료는 새 context 모델의 loader(ctx-I55)가 채운다. 그 전에는 싣지 않는다.
-        sources: [],
+        sources: await contextSources(),
         // 발견한 skill 중 preset이 고른 정확한 이름만 prompt에 오른다(extensions R4).
         skills: ((await deps.skills?.()) ?? []).map((entry) => ({
           ...entry,

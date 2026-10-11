@@ -346,7 +346,7 @@ function readWorld() {
           warnings: [],
         });
       }
-      case "CreateQuestion": {
+      case "CreateQuestionGroup": {
         return ok({ id: body["id"], status: "open" });
       }
       case "SubmitHandoff": {
@@ -955,23 +955,26 @@ Deno.test("lophn-agent/roles/context-engineer#R10: 필요한 결정은 질문으
   const world = readWorld();
   const { run } = rig(world);
   const asked = await run("question.submit", {
-    prompt: "두 말의 뜻을 정해 주세요",
-    reason: "같은 문서에 두 뜻이 함께 나타난다",
-    options: [{
-      key: "keep-ledger",
-      label: "ledger로 정한다",
-      description: "ledger를 올바른 말로 쓴다.",
-      evidence: [{ document: DOC_A, version: VER_A, section: "usage" }],
-      adoption: null,
-      action: null,
+    questions: [{
+      prompt: "두 말의 뜻을 정해 주세요",
+      reason: "같은 문서에 두 뜻이 함께 나타난다",
+      options: [{
+        key: "keep-ledger",
+        label: "ledger로 정한다",
+        description: "ledger를 올바른 말로 쓴다.",
+        evidence: [{ document: DOC_A, version: VER_A, section: "usage" }],
+        adoption: null,
+        action: null,
+      }],
+      recommendation: null,
     }],
-    recommendation: null,
     expires_at: null,
   });
   assertEquals(kind(asked), "success");
-  // 질문은 소유 contract(CreateQuestion)로 넘어갔다.
+  // 질문은 소유 contract(CreateQuestionGroup)로 묶음 하나로 넘어갔다.
   assertEquals(
-    world.calls.filter((call) => call.contract === "CreateQuestion").length,
+    world.calls.filter((call) => call.contract === "CreateQuestionGroup")
+      .length,
     1,
   );
   // 답이 없으면 이 질문의 참조로 보류한다(R10).

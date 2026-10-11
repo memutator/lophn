@@ -1,14 +1,14 @@
 import { assert, assertEquals } from "@std/assert";
 import type { Result } from "../../base/mod.ts";
 import {
-  adoptionOf,
+  adoptionsOf,
   checkOptionAction,
   defineTermOptionAction,
   moveOptionAction,
   OPTION_ACTION_OPERATIONS,
   OPTION_ACTION_OWNERS,
   protectedSetting,
-  type QuestionRow,
+  type QuestionGroup,
   renameOptionAction,
   settingsOptionAction,
 } from "./mod.ts";
@@ -252,72 +252,99 @@ Deno.test("lophn-agent/questions#R13: 용어 정의의 고정 action은 대상·
   );
 });
 
-function row(over: Partial<QuestionRow>): QuestionRow {
+function group(
+  over: Partial<QuestionGroup> = {},
+  answer: unknown = { kind: "option", option_key: "adopt", text_blob: null },
+): QuestionGroup {
   return {
-    id: QUESTION,
+    id: "qgr_01arz3ndektsv4rrffq69g5fav",
     run: "run_01arz3ndektsv4rrffq69g5fav",
     session: null,
     created_by: "agent:asg_01arz3ndektsv4rrffq69g5fav",
-    prompt_blob: "a".repeat(64),
-    reason_blob: "b".repeat(64),
-    options: JSON.stringify([
-      {
-        key: "adopt",
-        adoption: { document: DOC, version: VER_ONE, section: null },
-      },
-      { key: "later", adoption: null },
-    ]),
-    recommendation: null,
     expires_at: null,
     status: "answered",
-    answer: JSON.stringify({
-      kind: "option",
-      option_key: "adopt",
-      text_blob: null,
-    }),
     binding_hash: null,
     closed_reason: null,
     closed_reason_blob: null,
     created_seq: "1",
     closed_seq: "2",
+    questions: [{
+      id: QUESTION,
+      group: "qgr_01arz3ndektsv4rrffq69g5fav",
+      position: 1,
+      prompt_blob: "a".repeat(64),
+      reason_blob: "b".repeat(64),
+      options: JSON.stringify([
+        {
+          key: "adopt",
+          adoption: { document: DOC, version: VER_ONE, section: null },
+        },
+        { key: "later", adoption: null },
+      ]),
+      recommendation: null,
+      answer: answer === null ? null : JSON.stringify(answer),
+    }],
     ...over,
   };
 }
 
-Deno.test("lophn-agent/questions#R16: 채택은 사람이 고른 선택지가 고정한 문서 version의 질문 답이고 새 version으로 옮겨지지 않는다", () => {
-  const adopted = adoptionOf(row({}));
-  assertEquals(adopted, {
+Deno.test("lophn-agent/questions#R16 [agent-I13]: 채택은 사람이 고른 선택지가 고정한 문서 version의 질문 답이고 새 version으로 옮겨지지 않는다", () => {
+  const adopted = adoptionsOf(group());
+  assertEquals(adopted, [{
     question: QUESTION,
     document: DOC,
     version: VER_ONE,
     section: null,
-  });
+  }]);
   // 같은 문서의 더 새 판(VER_TWO)이 생겨도 이 답은 처음 고정한 판만 가리킨다. 판 정보는 질문 안에
   // 고정되어 있고 최신 판을 읽어 바꾸지 않는다.
-  assert(adopted?.version !== VER_TWO);
+  assert(adopted[0]?.version !== VER_TWO);
   // 채택하지 않는 선택지·자유 답·답 없음은 채택이 아니다.
   assertEquals(
-    adoptionOf(row({
-      answer: JSON.stringify({
-        kind: "option",
-        option_key: "later",
-        text_blob: null,
-      }),
-    })),
-    null,
+    adoptionsOf(
+      group({}, { kind: "option", option_key: "later", text_blob: null }),
+    ),
+    [],
   );
   assertEquals(
-    adoptionOf(row({
-      answer: JSON.stringify({
-        kind: "text",
-        option_key: null,
-        text_blob: "c".repeat(64),
-      }),
-    })),
-    null,
+    adoptionsOf(
+      group({}, { kind: "text", option_key: null, text_blob: "c".repeat(64) }),
+    ),
+    [],
   );
   assertEquals(
-    adoptionOf(row({ status: "pending", answer: null, closed_seq: null })),
-    null,
+    adoptionsOf(group({ status: "pending", closed_seq: null }, null)),
+    [],
   );
+});
+
+Deno.test("lophn-agent/questions#R16 [agent-I13]: 답한 묶음의 질문마다 고른 선택지의 채택이 질문 ID와 함께 나온다", () => {
+  const first = group();
+  const second = group().questions[0]!;
+  const both: QuestionGroup = {
+    ...first,
+    questions: [first.questions[0]!, {
+      ...second,
+      id: "qst_01arz3ndektsv4rrffq69g5fb0",
+      position: 2,
+      options: JSON.stringify([
+        {
+          key: "adopt",
+          adoption: { document: OTHER_DOC, version: VER_TWO, section: "s1" },
+        },
+        { key: "later", adoption: null },
+      ]),
+    }],
+  };
+  assertEquals(adoptionsOf(both), [
+    { question: QUESTION, document: DOC, version: VER_ONE, section: null },
+    {
+      question: "qst_01arz3ndektsv4rrffq69g5fb0",
+      document: OTHER_DOC,
+      version: VER_TWO,
+      section: "s1",
+    },
+  ]);
+  // 묶음이 답 없이 끝났으면 질문마다 답이 없으므로 채택도 없다.
+  assertEquals(adoptionsOf({ ...both, status: "cancelled" }), []);
 });

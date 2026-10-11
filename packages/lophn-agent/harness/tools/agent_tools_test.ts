@@ -272,43 +272,133 @@ Deno.test("lophn-agent/handoff#R9: handoff 현황 tool은 호출 run을 보낸 r
   assertEquals(calls[1]?.contract, "ReadHandoffResult");
 });
 
-Deno.test("lophn-agent/harness/tools#R2: question.submit tool은 호출 run의 세션과 새 질문 ID로 CreateQuestion 하나를 부르고 선택지의 고정 action은 모델이 싣지 못한다", async () => {
+Deno.test("lophn-agent/harness/tools#R2 [agent-I13]: question.submit tool은 호출 run의 세션과 새 묶음 ID·질문 ID로 CreateQuestionGroup 하나를 부르고 선택지의 고정 action은 모델이 싣지 못한다", async () => {
   const calls: Call[] = [];
   const deps = {
     listed: listedAll(),
     handlers: createAgentToolHandlers(ports(calls)),
-    credential: credential(["CreateQuestion"]),
+    credential: credential(["CreateQuestionGroup"]),
   };
-  const input = {
+  const question = {
     prompt: "어느 쪽으로 갈까요",
     reason: "취향이 갈린다",
     options: [],
     recommendation: null,
+  };
+  const input = {
+    questions: [question, { ...question, prompt: "이름은 무엇으로 할까요" }],
     expires_at: null,
   };
   const asked = await executeTool(deps, "question.submit", input);
   assertEquals(asked.outcome.kind, "success");
-  const created = calls[0]!.input as Record<string, unknown>;
-  assertEquals(calls[0]!.contract, "CreateQuestion");
-  assertEquals(created["run"], RUN);
-  assertEquals(created["session"], null);
-  assert(/^qst_/.test(String(created["id"])));
+  // 질문 두 개가 묶음 하나로 한 번에 간다. 묶음 ID와 질문 ID는 모델이 정하지 않는다.
+  assertEquals(calls.length, 1);
+  const created = calls[0]!.input as {
+    id: string;
+    run: string;
+    session: string | null;
+    expires_at: string | null;
+    questions: { id: string; prompt: string }[];
+  };
+  assertEquals(calls[0]!.contract, "CreateQuestionGroup");
+  assertEquals(created.run, RUN);
+  assertEquals(created.session, null);
+  assertEquals(created.expires_at, null);
+  assert(/^qgr_/.test(created.id));
+  assertEquals(created.questions.map((one) => one.prompt), [
+    "어느 쪽으로 갈까요",
+    "이름은 무엇으로 할까요",
+  ]);
+  for (const one of created.questions) assert(/^qst_/.test(one.id));
+  assertEquals(
+    new Set(created.questions.map((one) => one.id)).size,
+    created.questions.length,
+  );
   const withAction = await executeTool(deps, "question.submit", {
     ...input,
-    options: [{
-      key: "a",
-      label: "A",
-      description: "A",
-      evidence: [],
-      adoption: null,
-      action: { concern: "platform/settings", command: "apply_settings" },
+    questions: [{
+      ...question,
+      options: [{
+        key: "a",
+        label: "A",
+        description: "A",
+        evidence: [],
+        adoption: null,
+        action: { concern: "platform/settings", command: "apply_settings" },
+      }],
     }],
   });
   assertEquals(withAction.outcome.code, "invalid_input");
   assertEquals(calls.length, 1);
 });
 
-Deno.test("documents/terms#R2 lophn-agent/questions#R13: question.submit은 읽은 후보의 이름·revision으로 term.define을 고정하고 모델의 action 객체는 거절한다", async () => {
+Deno.test("lophn-agent/harness/tools#R2 [agent-I13]: question.submit은 질문 1~4개 묶음만 받고 고정 action을 제안한 질문은 다른 질문과 한 묶음으로 내지 않는다", async () => {
+  const calls: Call[] = [];
+  const deps = {
+    listed: listedAll(),
+    handlers: createAgentToolHandlers(ports(calls)),
+    credential: credential(["CreateQuestionGroup"]),
+  };
+  const question = (n: number) => ({
+    prompt: `질문 ${n}`,
+    reason: `이유 ${n}`,
+    options: [],
+    recommendation: null,
+  });
+  const submit = (questions: unknown[]) =>
+    executeTool(deps, "question.submit", { questions, expires_at: null });
+  // 질문이 없는 묶음과 다섯 개 묶음은 도구 입력 검사에서 거절한다.
+  assertEquals((await submit([])).outcome.code, "invalid_input");
+  assertEquals(
+    (await submit([1, 2, 3, 4, 5].map(question))).outcome.code,
+    "invalid_input",
+  );
+  assertEquals(calls.length, 0);
+  // 네 개는 받는다.
+  assertEquals(
+    (await submit([1, 2, 3, 4].map(question))).outcome.kind,
+    "success",
+  );
+  assertEquals(calls.length, 1);
+  // 고정 action 제안(설정 변경)이 있는 질문은 다른 질문과 함께 낼 수 없다. 읽기도 부르지 않는다.
+  const proposing = {
+    ...question(5),
+    options: [{
+      key: "change",
+      label: "Change",
+      description: "Change the setting.",
+      evidence: [],
+      adoption: null,
+      action: null,
+      setting_change: { key: "shell.reading_width", value: 90 },
+    }],
+  };
+  const mixed = await submit([question(6), proposing]);
+  assertEquals(mixed.outcome.code, "invalid_input");
+  assertEquals(calls.length, 1);
+});
+
+Deno.test("lophn-agent/harness/tools#R2 [agent-I13]: question.read_decision은 묶음 ID로 ReadQuestionGroup 하나를 부른다", async () => {
+  const calls: Call[] = [];
+  const deps = {
+    listed: listedAll(),
+    handlers: createAgentToolHandlers(ports(calls)),
+    credential: credential(["ReadQuestionGroup"]),
+  };
+  const group = "qgr_01arz3ndektsv4rrffq69g5fav";
+  const read = await executeTool(deps, "question.read_decision", { group });
+  assertEquals(read.outcome.kind, "success");
+  assertEquals(calls[0]?.contract, "ReadQuestionGroup");
+  assertEquals(calls[0]?.input, { group });
+  // 옛 질문 하나의 ID는 묶음을 가리키지 않는다.
+  const old = await executeTool(deps, "question.read_decision", {
+    question: "qst_01arz3ndektsv4rrffq69g5fav",
+  });
+  assertEquals(old.outcome.code, "invalid_input");
+  assertEquals(calls.length, 1);
+});
+
+Deno.test("documents/terms#R2 lophn-agent/questions#R13 [agent-I13]: question.submit은 읽은 후보의 이름·revision으로 term.define을 고정하고 모델의 action 객체는 거절한다", async () => {
   const TERM = "trm_01arz3ndektsv4rrffq69g5fav";
   const calls: {
     contract: string;
@@ -336,45 +426,47 @@ Deno.test("documents/terms#R2 lophn-agent/questions#R13: question.submit은 읽�
     prompt: "정산주기의 뜻을 이 글로 고정할까요",
     reason: "후보 이름과 이 뜻을 선택지에 고정했다",
     recommendation: null,
-    expires_at: null,
   };
+  // 질문 하나짜리 묶음으로 낸다. 기한은 묶음이 가진다.
+  const group = (options: unknown[]) => ({
+    questions: [{ ...ask, options }],
+    expires_at: null,
+  });
   const fixed = await executeTool(
     {
       listed,
       handlers,
-      credential: { ...credential(["CreateQuestion"]), call: "tcl_fix" },
+      credential: { ...credential(["CreateQuestionGroup"]), call: "tcl_fix" },
     },
     "question.submit",
-    {
-      ...ask,
-      options: [{
-        key: "use",
-        label: "정산주기",
-        description: "한 달이 끝나는 날 맞추는 계산",
-        evidence: [],
-        adoption: null,
-        action: null,
-        term_definition: {
-          term: TERM,
-          name: "정산주기",
-          definition: "한 달이 끝나는 날 맞추는 계산",
-        },
-      }, {
-        key: "leave",
-        label: "지금은 정하지 않는다",
-        description: "이 선택지는 뜻을 고정하지 않는다",
-        evidence: [],
-        adoption: null,
-        action: null,
-      }],
-    },
+    group([{
+      key: "use",
+      label: "정산주기",
+      description: "한 달이 끝나는 날 맞추는 계산",
+      evidence: [],
+      adoption: null,
+      action: null,
+      term_definition: {
+        term: TERM,
+        name: "정산주기",
+        definition: "한 달이 끝나는 날 맞추는 계산",
+      },
+    }, {
+      key: "leave",
+      label: "지금은 정하지 않는다",
+      description: "이 선택지는 뜻을 고정하지 않는다",
+      evidence: [],
+      adoption: null,
+      action: null,
+    }]),
   );
   assertEquals(fixed.outcome.kind, "success", JSON.stringify(fixed.result));
-  const created = calls.find((call) => call.contract === "CreateQuestion");
+  const created = calls.find((call) => call.contract === "CreateQuestionGroup");
   assert(created !== undefined);
   assertEquals(created.options?.idempotency_key, "tcl_fix");
-  const options = (created.input as { options: Record<string, unknown>[] })
-    .options;
+  const options = (created.input as {
+    questions: { options: Record<string, unknown>[] }[];
+  }).questions[0]!.options;
   assertEquals("term_definition" in options[0]!, false);
   assertEquals(options[1]!["action"], null);
   const action = options[0]!["action"] as {
@@ -395,53 +487,53 @@ Deno.test("documents/terms#R2 lophn-agent/questions#R13: question.submit은 읽�
   calls.length = 0;
   term.definition = "이미 있는 뜻";
   const defined = await executeTool(
-    { listed, handlers, credential: credential(["CreateQuestion"]) },
+    { listed, handlers, credential: credential(["CreateQuestionGroup"]) },
     "question.submit",
-    {
-      ...ask,
-      options: [{
-        key: "use",
-        label: "정산주기",
-        description: "다른 뜻",
-        evidence: [],
-        adoption: null,
-        action: null,
-        term_definition: {
-          term: TERM,
-          name: "정산주기",
-          definition: "다른 뜻",
-        },
-      }],
-    },
+    group([{
+      key: "use",
+      label: "정산주기",
+      description: "다른 뜻",
+      evidence: [],
+      adoption: null,
+      action: null,
+      term_definition: {
+        term: TERM,
+        name: "정산주기",
+        definition: "다른 뜻",
+      },
+    }]),
   );
   assertEquals(defined.outcome.code, "invalid_input");
-  assertEquals(calls.some((call) => call.contract === "CreateQuestion"), false);
+  assertEquals(
+    calls.some((call) => call.contract === "CreateQuestionGroup"),
+    false,
+  );
   term.definition = null;
   const renamed = await executeTool(
-    { listed, handlers, credential: credential(["CreateQuestion"]) },
+    { listed, handlers, credential: credential(["CreateQuestionGroup"]) },
     "question.submit",
-    {
-      ...ask,
-      options: [{
-        key: "use",
-        label: "다른 이름",
-        description: "다른 뜻",
-        evidence: [],
-        adoption: null,
-        action: null,
-        term_definition: {
-          term: TERM,
-          name: "다른 이름",
-          definition: "다른 뜻",
-        },
-      }],
-    },
+    group([{
+      key: "use",
+      label: "다른 이름",
+      description: "다른 뜻",
+      evidence: [],
+      adoption: null,
+      action: null,
+      term_definition: {
+        term: TERM,
+        name: "다른 이름",
+        definition: "다른 뜻",
+      },
+    }]),
   );
   assertEquals(renamed.outcome.code, "invalid_input");
-  assertEquals(calls.some((call) => call.contract === "CreateQuestion"), false);
+  assertEquals(
+    calls.some((call) => call.contract === "CreateQuestionGroup"),
+    false,
+  );
 });
 
-Deno.test("apps/registration#R3 lophn-agent/questions#R13: question.submit은 등록 제안으로 app.create를 고정하고 근거 판 하나가 등록 근거가 되며 미리 배정한 앱 ID가 대상이다", async () => {
+Deno.test("apps/registration#R3 lophn-agent/questions#R13 [agent-I13]: question.submit은 등록 제안으로 app.create를 고정하고 근거 판 하나가 등록 근거가 되며 미리 배정한 앱 ID가 대상이다", async () => {
   const calls: Call[] = [];
   const handlers = createAgentToolHandlers({
     ...ports([]),
@@ -453,15 +545,19 @@ Deno.test("apps/registration#R3 lophn-agent/questions#R13: question.submit은 �
   const deps = {
     listed: listedAll(),
     handlers,
-    credential: credential(["CreateQuestion"]),
+    credential: credential(["CreateQuestionGroup"]),
   };
   const ref = { document: DOC, version: VER, section: null };
   const ask = {
     prompt: "이 계획으로 앱을 등록할까요",
     reason: "등록은 채택과 별개 결정이다",
     recommendation: null,
-    expires_at: null,
   };
+  // 질문 하나짜리 묶음으로 낸다. 기한은 묶음이 가진다.
+  const group = (options: unknown[]) => ({
+    questions: [{ ...ask, options }],
+    expires_at: null,
+  });
   const registration = {
     slug: "household-ledger",
     name: "Spending",
@@ -476,20 +572,22 @@ Deno.test("apps/registration#R3 lophn-agent/questions#R13: question.submit은 �
     action: null,
     app_registration: registration,
   };
-  const fixed = await executeTool(deps, "question.submit", {
-    ...ask,
-    options: [option, {
+  const fixed = await executeTool(
+    deps,
+    "question.submit",
+    group([option, {
       key: "skip",
       label: "Do not register",
       description: "Leave it.",
       evidence: [],
       adoption: null,
       action: null,
-    }],
-  });
+    }]),
+  );
   assertEquals(fixed.outcome.kind, "success", JSON.stringify(fixed.result));
-  const options = (calls[0]!.input as { options: Record<string, unknown>[] })
-    .options;
+  const options = (calls[0]!.input as {
+    questions: { options: Record<string, unknown>[] }[];
+  }).questions[0]!.options;
   assertEquals("app_registration" in options[0]!, false);
   assertEquals(options[1]!["action"], null);
   const action = options[0]!["action"] as {
@@ -527,10 +625,7 @@ Deno.test("apps/registration#R3 lophn-agent/questions#R13: question.submit은 �
       },
     ]
   ) {
-    const rejected = await executeTool(deps, "question.submit", {
-      ...ask,
-      options: [bad],
-    });
+    const rejected = await executeTool(deps, "question.submit", group([bad]));
     assertEquals(rejected.outcome.code, "invalid_input");
   }
   assertEquals(calls.length, 0);

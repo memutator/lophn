@@ -49,8 +49,11 @@ import {
 import {
   agentRun,
   cred,
+  groupOf,
   hashOf,
   id,
+  optionOf,
+  questionOf,
 } from "../../../packages/lophn-agent/questions/testing/mod.ts";
 
 // 질문의 파일 ledger 시험. 명령마다 새 connection으로 실행하고 commit 직후 닫아(kill과
@@ -206,7 +209,7 @@ async function fileLedger() {
     });
   };
   const handle = (
-    question: string,
+    group: string,
     createdSeq: string,
     answer: unknown,
     bindingHash: string,
@@ -214,9 +217,9 @@ async function fileLedger() {
     const issued = registry.issue({
       type: "confirmation_handle_register",
       window_id: "win-1",
-      target_ref: question,
+      target_ref: group,
       content_hash: hashOf({
-        question,
+        group,
         created_seq: createdSeq,
         answer,
         binding_hash: bindingHash,
@@ -227,15 +230,15 @@ async function fileLedger() {
     assert(issued.ok, "issue");
     return issued.value.confirmation;
   };
-  const read = (question: string) =>
+  const read = (group: string) =>
     reopen((snapshot) => {
       const found = createQuestionReads().read.handle(
         snapshot,
         cred("user"),
-        { question },
+        { group },
       );
       assert(found.ok, found.ok ? "" : JSON.stringify(found.error));
-      return found.value.question;
+      return found.value.group;
     });
   const machine = cred("machine");
   const definition = presetDefinitionJson("lophn");
@@ -287,17 +290,6 @@ async function fileLedger() {
   };
 }
 
-function option(key: string, action: unknown = null) {
-  return {
-    key,
-    label: `Option ${key}`,
-    description: `Description of ${key}`,
-    evidence: [],
-    adoption: null,
-    action,
-  };
-}
-
 function settingsAction(question: string) {
   return settingsOptionAction({
     question,
@@ -307,61 +299,48 @@ function settingsAction(question: string) {
   });
 }
 
-function questionInput(
-  n: number,
-  run: string,
-  extra: Record<string, unknown>,
-) {
-  return {
-    id: id("qst", n),
-    run,
-    session: null,
-    prompt: `Prompt ${n}`,
-    reason: `Reason ${n}`,
-    options: [],
-    recommendation: null,
-    expires_at: null,
-    ...extra,
-  };
-}
-
-Deno.test("lophn-agent/questions#R10: a waiting question, its deadline, the answer and the apply state survive a restart", async () => {
+Deno.test("lophn-agent/questions#R10 [agent-I13]: a waiting group, its deadline, the answer and the apply state survive a restart", async () => {
   const ledger = await fileLedger();
   try {
     await ledger.startRun(RUN);
     const agent = agentRun(ASG, RUN);
+    const group = id("qgr", 1);
     const question = id("qst", 1);
     const action = settingsAction(question);
     const deadline = new Date(NOW + 2 * HOUR).toISOString();
     const made = await ledger.must(
       agent,
-      "CreateQuestion",
-      questionInput(1, RUN, {
-        options: [option("apply", action), option("keep")],
-        expires_at: deadline,
-      }),
+      "CreateQuestionGroup",
+      groupOf(1, RUN, [
+        questionOf(1, {
+          options: [optionOf("apply", action), optionOf("keep")],
+        }),
+      ], { expires_at: deadline }),
       {},
     );
     const createdSeq = (made.value.result as { created_seq: string })
       .created_seq;
-    // 사람이 화면을 닫고 core가 재시작해도 질문은 ledger에서 그대로 기다린다.
+    // 사람이 화면을 닫고 core가 재시작해도 묶음은 ledger에서 그대로 기다린다.
     ledger.restart();
-    const pending = ledger.read(question);
+    const pending = ledger.read(group);
     assertEquals(pending.status, "pending");
     assertEquals(pending.expires_at, deadline);
-    assertEquals(pending.options.map((one) => one.key), ["apply", "keep"]);
-    assertEquals(pending.answer, null);
-    assertEquals(pending.applied, false);
+    assertEquals(
+      pending.questions[0]!.options.map((one) => one.key),
+      ["apply", "keep"],
+    );
+    assertEquals(pending.questions[0]!.answer, null);
+    assertEquals(pending.questions[0]!.applied, false);
     // 재시작 전에 발급한 사람 확인은 메모리와 함께 사라진다. 침묵도 답이 아니다.
     const stale = ledger.handle(
-      question,
+      group,
       createdSeq,
       { kind: "option", option_key: "apply" },
       action.binding_hash,
     );
     ledger.restart();
     const answerInput = {
-      question,
+      group,
       created_seq: createdSeq,
       answer: { kind: "option", option_key: "apply" },
       binding_hash: action.binding_hash,
@@ -375,7 +354,7 @@ Deno.test("lophn-agent/questions#R10: a waiting question, its deadline, the answ
       stale,
     );
     assert(!lost.ok);
-    assertEquals(ledger.read(question).status, "pending");
+    assertEquals(ledger.read(group).status, "pending");
     // 새 확인으로 답을 접수한다. 기한 안의 답이다(원래 기한은 늘어나지 않았다).
     await ledger.must(
       cred("user"),
@@ -383,7 +362,7 @@ Deno.test("lophn-agent/questions#R10: a waiting question, its deadline, the answ
       answerInput,
       { created_seq: createdSeq },
       ledger.handle(
-        question,
+        group,
         createdSeq,
         answerInput.answer,
         action.binding_hash,
@@ -391,15 +370,15 @@ Deno.test("lophn-agent/questions#R10: a waiting question, its deadline, the answ
     );
     // 답을 접수한 뒤 동작 적용 전에 죽는다. 답은 남고 적용 완료로 보이지 않는다.
     ledger.restart();
-    const answered = ledger.read(question);
+    const answered = ledger.read(group);
     assertEquals(answered.status, "answered");
-    assertEquals<unknown>(answered.answer, {
+    assertEquals<unknown>(answered.questions[0]!.answer, {
       kind: "option",
       option_key: "apply",
       text_blob: null,
     });
     assertEquals(answered.expires_at, deadline);
-    assertEquals(answered.applied, false);
+    assertEquals(answered.questions[0]!.applied, false);
     // 적용은 설정이 소유한다. 질문 쪽에는 적용 기록이 없다.
     assertEquals(
       Number(
@@ -420,17 +399,17 @@ Deno.test("lophn-agent/questions#R10: a waiting question, its deadline, the answ
   }
 });
 
-Deno.test("lophn-agent/questions#R7: a restart does not stretch an explicit deadline", async () => {
+Deno.test("lophn-agent/questions#R7 [agent-I13]: a restart does not stretch an explicit deadline of a group", async () => {
   const ledger = await fileLedger();
   try {
     await ledger.startRun(RUN);
     const agent = agentRun(ASG, RUN);
-    const question = id("qst", 1);
+    const group = id("qgr", 1);
     const deadline = new Date(NOW + HOUR).toISOString();
     const made = await ledger.must(
       agent,
-      "CreateQuestion",
-      questionInput(1, RUN, { expires_at: deadline }),
+      "CreateQuestionGroup",
+      groupOf(1, RUN, [questionOf(1), questionOf(2)], { expires_at: deadline }),
       {},
     );
     const createdSeq = (made.value.result as { created_seq: string })
@@ -438,33 +417,183 @@ Deno.test("lophn-agent/questions#R7: a restart does not stretch an explicit dead
     // 기한 직전에 재시작해도 기한은 그대로고, 경계에서 답은 받지 않는다.
     ledger.clock.advance(HOUR - 1);
     ledger.restart();
-    assertEquals(ledger.read(question).expires_at, deadline);
+    assertEquals(ledger.read(group).expires_at, deadline);
     ledger.clock.advance(1);
     ledger.restart();
     // 일반 답은 확인 handle 없이 받으므로 기한이 지난 답은 기한 때문에만 거절된다.
     const late = await ledger.execute(
       cred("user"),
-      "AnswerQuestion",
+      "AnswerQuestionGroup",
       {
-        question,
+        group,
         created_seq: createdSeq,
-        answer: { kind: "text", text: "Too late." },
+        answers: [
+          { question: id("qst", 1), answer: { kind: "text", text: "Late." } },
+          { question: id("qst", 2), answer: { kind: "text", text: "Late." } },
+        ],
       },
       { created_seq: createdSeq },
     );
     assert(!late.ok);
     if (!late.ok) assertEquals(late.error.code, "conflict");
-    assertEquals(ledger.read(question).status, "pending");
+    assertEquals(ledger.read(group).status, "pending");
     await ledger.must(
       ledger.machine,
-      "ExpireQuestion",
-      { question, created_seq: createdSeq },
+      "ExpireQuestionGroup",
+      { group, created_seq: createdSeq },
       { created_seq: createdSeq },
     );
     ledger.restart();
-    const closed = ledger.read(question);
+    const closed = ledger.read(group);
     assertEquals(closed.status, "expired");
-    assertEquals(closed.answer, null);
+    assertEquals(closed.questions.map((one) => one.answer), [null, null]);
+  } finally {
+    await ledger.close();
+  }
+});
+
+Deno.test("lophn-agent/questions#R4 [agent-I13]: a group answers once for all its questions, a partial submit stores nothing and the answers survive a restart", async () => {
+  const ledger = await fileLedger();
+  try {
+    await ledger.startRun(RUN);
+    const agent = agentRun(ASG, RUN);
+    const group = id("qgr", 1);
+    const [one, two, three] = [id("qst", 1), id("qst", 2), id("qst", 3)];
+    const made = await ledger.must(
+      agent,
+      "CreateQuestionGroup",
+      groupOf(1, RUN, [
+        questionOf(1, { options: [optionOf("a"), optionOf("b")] }),
+        questionOf(2),
+        questionOf(3, { options: [optionOf("x")] }),
+      ]),
+      {},
+    );
+    const createdSeq = (made.value.result as { created_seq: string })
+      .created_seq;
+    ledger.restart();
+    const pending = ledger.read(group);
+    assertEquals(pending.questions.map((question) => question.id), [
+      one,
+      two,
+      three,
+    ]);
+    assertEquals(pending.questions.map((question) => question.position), [
+      1,
+      2,
+      3,
+    ]);
+    // 일부 질문만 답한 Submit은 거절되고 아무것도 저장하지 않는다.
+    const partial = await ledger.execute(
+      cred("user"),
+      "AnswerQuestionGroup",
+      {
+        group,
+        created_seq: createdSeq,
+        answers: [{
+          question: one,
+          answer: { kind: "option", option_key: "a" },
+        }],
+      },
+      { created_seq: createdSeq },
+    );
+    assert(!partial.ok);
+    if (!partial.ok) assertEquals(partial.error.code, "invalid_input");
+    ledger.restart();
+    const still = ledger.read(group);
+    assertEquals(still.status, "pending");
+    assertEquals(still.questions.map((question) => question.answer), [
+      null,
+      null,
+      null,
+    ]);
+    assertEquals(
+      Number(
+        ledger.observe(
+          "select count(*) as n from events where type = 'QuestionAnswered'",
+        )!["n"],
+      ),
+      0,
+    );
+    // 모든 질문에 답한 Submit 한 번이 묶음 전체를 닫는다.
+    const submit = {
+      group,
+      created_seq: createdSeq,
+      answers: [
+        { question: three, answer: { kind: "option", option_key: "x" } },
+        { question: one, answer: { kind: "option", option_key: "b" } },
+        { question: two, answer: { kind: "text", text: "Free text." } },
+      ],
+    };
+    const done = await ledger.must(
+      cred("user"),
+      "AnswerQuestionGroup",
+      submit,
+      { created_seq: createdSeq },
+    );
+    ledger.restart();
+    const answered = ledger.read(group);
+    assertEquals(answered.status, "answered");
+    assertEquals(answered.questions.map((question) => question.answer?.kind), [
+      "option",
+      "text",
+      "option",
+    ]);
+    assertEquals(
+      answered.questions.map((question) => question.answer?.option_key ?? null),
+      ["b", null, "x"],
+    );
+    // 답 event는 묶음 하나에 한 번이고 질문마다의 답을 질문 순서로 싣는다.
+    const events = Number(
+      ledger.observe(
+        "select count(*) as n from events where type = 'QuestionAnswered'",
+      )!["n"],
+    );
+    assertEquals(events, 1);
+    const payload = JSON.parse(String(
+      ledger.observe(
+        "select payload from events where type = 'QuestionAnswered'",
+      )!["payload"],
+    )) as { answers: { question: string }[] };
+    assertEquals(payload.answers.map((entry) => entry.question), [
+      one,
+      two,
+      three,
+    ]);
+    // 같은 Submit의 재전송은 저장된 결과만 돌려주고 다른 답은 conflict다(R9).
+    const replay = await ledger.must(
+      cred("user"),
+      "AnswerQuestionGroup",
+      submit,
+      { created_seq: createdSeq },
+    );
+    assertEquals(
+      (replay.value.result as { replayed: boolean }).replayed,
+      true,
+    );
+    assertEquals(
+      (replay.value.result as { closed_seq: string }).closed_seq,
+      (done.value.result as { closed_seq: string }).closed_seq,
+    );
+    const other = await ledger.execute(
+      cred("user"),
+      "AnswerQuestionGroup",
+      {
+        ...submit,
+        answers: submit.answers.map((entry) =>
+          entry.question === one
+            ? { ...entry, answer: { kind: "option", option_key: "a" } }
+            : entry
+        ),
+      },
+      { created_seq: createdSeq },
+    );
+    assert(!other.ok);
+    if (!other.ok) assertEquals(other.error.code, "conflict");
+    assertEquals(
+      ledger.read(group).questions[0]!.answer?.option_key,
+      "b",
+    );
   } finally {
     await ledger.close();
   }

@@ -10,7 +10,7 @@ import { newId } from "../../desktop/lophn-space/model.ts";
 import { coreLauncherSource } from "../../desktop/launcher/core-source.ts";
 import { coreContextsSource } from "./core-source.ts";
 
-Deno.test("[ctx-I39b] 실제 core: context를 만들면 목록·get·contract·draft·bundles·overview·violations를 source로 읽는다", async () => {
+Deno.test("documents/contexts#R1 [ctx-I39b]: 실제 core: context를 만들면 목록·get·contract·draft·bundles·overview·violations를 source로 읽는다", async () => {
   const folder = await Deno.makeTempDir({ prefix: "lophn-ctx-project-" });
   const core = await startRealCore();
   try {
@@ -94,7 +94,7 @@ Deno.test("[ctx-I39b] 실제 core: context를 만들면 목록·get·contract·d
   }
 });
 
-Deno.test("[ctx-I39b] 실제 core: 용어는 새로 넣고 고치고 지우며, 낡은 revision은 conflict로 돌아온다", async () => {
+Deno.test("documents/contexts#R26 [ctx-I39b]: 실제 core: 용어는 새로 넣고 고치고 지우며, 낡은 revision은 conflict로 돌아온다", async () => {
   const folder = await Deno.makeTempDir({ prefix: "lophn-ctx-glossary-" });
   const core = await startRealCore();
   try {
@@ -167,7 +167,7 @@ Deno.test("[ctx-I39b] 실제 core: 용어는 새로 넣고 고치고 지우며, 
   }
 });
 
-Deno.test("[ctx-I39b] 실제 core: 적용된 판이 없는 context의 search·input_options·rollback·넘기기는 crash 없이 실패로 읽힌다", async () => {
+Deno.test("documents/contexts#R23 [ctx-I39b]: 실제 core: 적용된 판이 없는 context의 search·input_options·rollback·넘기기는 crash 없이 실패로 읽힌다", async () => {
   const folder = await Deno.makeTempDir({ prefix: "lophn-ctx-unavailable-" });
   const core = await startRealCore();
   try {

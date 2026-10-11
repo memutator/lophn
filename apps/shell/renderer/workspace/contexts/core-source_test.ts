@@ -48,7 +48,7 @@ const fail = (code: string): CoreReply => ({
   error: { code, message: `${code} message` },
 });
 
-Deno.test("[ctx-I39b] 목록은 cursor를 끝까지 따라가 모은다", async () => {
+Deno.test("shell/workspace#R16 [ctx-I39b]: 목록은 cursor를 끝까지 따라가 모은다", async () => {
   const pages = [
     { contexts: [{ ...CONTEXT, id: "a" }], ...META, next_cursor: "c1" },
     { contexts: [{ ...CONTEXT, id: "b" }], ...META },
@@ -68,7 +68,7 @@ Deno.test("[ctx-I39b] 목록은 cursor를 끝까지 따라가 모은다", async 
   ]);
 });
 
-Deno.test("[ctx-I39b] 판 이력과 위반도 page를 모으고 위반은 끝까지 읽었는지 알린다", async () => {
+Deno.test("shell/workspace#R19 [ctx-I39b]: 판 이력과 위반도 page를 모으고 위반은 끝까지 읽었는지 알린다", async () => {
   const violation = {
     context: CTX,
     bundle_hash: "a".repeat(64),
@@ -116,7 +116,7 @@ Deno.test("[ctx-I39b] 판 이력과 위반도 page를 모으고 위반은 끝까
   ]);
 });
 
-Deno.test("[ctx-I39b] 읽기는 계약 응답에서 화면이 쓰는 field만 옮긴다", async () => {
+Deno.test("shell/workspace#R17 [ctx-I39b]: 읽기는 계약 응답에서 화면이 쓰는 field만 옮긴다", async () => {
   const { core, calls } = routedCore({
     "read:contexts/get": () => ok({ context: CONTEXT, applied: null, ...META }),
     "read:contexts/overview": () =>
@@ -165,7 +165,7 @@ Deno.test("[ctx-I39b] 읽기는 계약 응답에서 화면이 쓰는 field만 �
   assertEquals(calls[4]!.body, { project: PROJECT, path: "a.md" });
 });
 
-Deno.test("[ctx-I39b] 검색은 요청을 그대로 보내고 page 모양으로 돌려준다", async () => {
+Deno.test("documents/contexts#R17 [ctx-I39b]: 검색은 요청을 그대로 보내고 page 모양으로 돌려준다", async () => {
   const { core, calls } = routedCore({
     "read:contexts/search": () =>
       ok({
@@ -192,7 +192,7 @@ Deno.test("[ctx-I39b] 검색은 요청을 그대로 보내고 page 모양으로 
   assertEquals(calls[0]!.body, request);
 });
 
-Deno.test("[ctx-I39b] 색인이 없어 core가 unavailable이면 search·overview·input_options는 그 code로 실패한다", async () => {
+Deno.test("documents/contexts#R23 [ctx-I39b]: 색인이 없어 core가 unavailable이면 search·overview·input_options는 그 code로 실패한다", async () => {
   const { core } = routedCore({
     "read:contexts/search": () => fail("unavailable"),
     "read:contexts/overview": () => fail("unavailable"),
@@ -211,7 +211,7 @@ Deno.test("[ctx-I39b] 색인이 없어 core가 unavailable이면 search·overvie
   );
 });
 
-Deno.test("[ctx-I39b] core 통로가 throw해도 읽기와 명령은 unavailable로 답한다", async () => {
+Deno.test("shell/workspace#R17 [ctx-I39b]: core 통로가 throw해도 읽기와 명령은 unavailable로 답한다", async () => {
   const core: CoreSource = {
     subscribe: () => () => {},
     call: () => Promise.reject(new Error("bridge gone")),
@@ -224,7 +224,7 @@ Deno.test("[ctx-I39b] core 통로가 throw해도 읽기와 명령은 unavailable
   });
 });
 
-Deno.test("[ctx-I39b] 명령은 input·idempotency_key·compare를 싣고 revision 비교는 호출자가 준 값을 쓴다", async () => {
+Deno.test("shell/workspace#R20 [ctx-I39b]: 명령은 input·idempotency_key·compare를 싣고 revision 비교는 호출자가 준 값을 쓴다", async () => {
   const entry = {
     id: "trm_01k6p0000000000000000000aa",
     context: CTX,
@@ -284,7 +284,7 @@ Deno.test("[ctx-I39b] 명령은 input·idempotency_key·compare를 싣고 revisi
   );
 });
 
-Deno.test("[ctx-I39b] rollback은 context의 지금 revision을 비교 기준으로 보낸다", async () => {
+Deno.test("documents/contexts#R21 [ctx-I39b]: rollback은 context의 지금 revision을 비교 기준으로 보낸다", async () => {
   const bundle = "cbn_01k6p0000000000000000000bb";
   const { core, calls } = routedCore({
     "read:contexts/get": () => ok({ context: CONTEXT, applied: null, ...META }),
@@ -306,7 +306,7 @@ Deno.test("[ctx-I39b] rollback은 context의 지금 revision을 비교 기준으
   });
 });
 
-Deno.test("[ctx-I39b] Operator 수는 Operator preset 중 이 context를 고른 것만 센다", async () => {
+Deno.test("documents/contexts#R27 [ctx-I39b]: Operator 수는 Operator preset 중 이 context를 고른 것만 센다", async () => {
   const preset = (
     context: readonly { kind: string; target: string | null }[],
   ) => ({ id: "pst", definition: { context } });

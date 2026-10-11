@@ -137,7 +137,7 @@ Deno.test("documents/projects#R10: 상대 경로는 가장 깊은 등록 폴더�
   assertEquals(relativeToFolders("/workshop/d.md", folders), null);
 });
 
-Deno.test("[ctx-I39b] shell/workspace#R16: 작업대 통로는 Context 화면용 contextsSource를 core로 이어 둔다", async () => {
+Deno.test("shell/workspace#R16 [ctx-I39b]: 작업대 통로는 Context 화면용 contextsSource를 core로 이어 둔다", async () => {
   const { core, calls } = routedCore({
     "contexts/list": () => ({
       ok: true,

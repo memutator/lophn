@@ -109,6 +109,7 @@ async function fileLedger() {
   const conversation = createConversationCommands({
     deleteSessionRecords: (tx, session) =>
       deleteSessionRuns(tx, session, eraseBlobRefs),
+    eraseBlobRefs,
     acceptRun: (tx, ctx, input, compare) =>
       runs.accept.handle(tx, { ...ctx, actor: "machine" }, input, compare),
   });

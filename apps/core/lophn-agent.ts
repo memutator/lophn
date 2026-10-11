@@ -482,6 +482,7 @@ const conversationCommands = createConversationCommands({
   acceptRun: (tx, ctx, input, compare) =>
     runCommands.accept.handle(tx, { ...ctx, actor: "machine" }, input, compare),
   deleteSessionRecords,
+  eraseBlobRefs,
 });
 const conversationReads = createConversationReads();
 

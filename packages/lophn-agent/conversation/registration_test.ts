@@ -125,6 +125,7 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
     // 지움은 platform 몫이고 core 시험(apps/core/testing)이 본다.
     deleteSessionRecords: (tx, session) =>
       deleteSessionRuns(tx, session, () => ok(undefined)),
+    eraseBlobRefs: () => ok(undefined),
     // 접수 실패 주입은 이 fixture 표 하나로만 켠다.
     acceptRun: (tx, ctx, input, compare) =>
       tx.sql.get("select 1 as found from fail_accept where fail = 1", []) !==

@@ -57,6 +57,7 @@ const ERASED = [
 ] as const;
 
 const BLOB_OWNERS = [
+  "message",
   "model_call",
   "tool_call",
   "run",
@@ -220,6 +221,7 @@ function seedSession(
   );
   // 이 run이 만든 문서의 version 본문 참조는 documents 소유라 session을 지워도 남는다.
   const owners: [string, string, string][] = [
+    ["message", id("msg", n), "body"],
     ["model_call", calls[0]!, "input"],
     ["model_call", calls[1]!, "output"],
     ["tool_call", tools[0]!, "input"],

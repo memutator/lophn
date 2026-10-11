@@ -95,6 +95,7 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
         ? deleteSessionRuns(tx, session, keepRefs)
         : questions;
     },
+    eraseBlobRefs: () => ok(undefined),
     acceptRun: (tx, ctx, input, compare) =>
       runCommands.accept.handle(
         tx,

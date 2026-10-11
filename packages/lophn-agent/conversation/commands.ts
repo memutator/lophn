@@ -8,6 +8,7 @@ import {
   type compactSession,
   deleteSession,
   type forkSession,
+  MESSAGE_BODY_OWNER_KIND,
   openSession,
   type receiveMessage,
   type recordMessage,
@@ -55,6 +56,12 @@ export type ConversationDeps = {
   // 세션을 지울 때 같은 Tx에서 그 세션의 run 기록을 지운다(R20). 기록을 가진 concern마다
   // 자기 몫을 지우고 조립이 그것들을 잇는다. 메시지는 이 함수를 부르기 전에 지워져 있다.
   deleteSessionRecords: (tx: Tx, session: string) => Result<void>;
+  // 메시지 본문의 blob 영구 참조를 지운다(platform/blob-store). 소유 행인 메시지보다 먼저 부른다.
+  eraseBlobRefs: (
+    tx: Tx,
+    ownerKind: string,
+    ownerKeys: readonly string[],
+  ) => Result<void>;
 };
 
 type PlaceInput = { kind: "project" | "app"; id: string };
@@ -305,6 +312,13 @@ export function createConversationCommands(deps: ConversationDeps): {
         if (session.state_seq !== compare.state_seq) {
           return reject("conflict", "session changed");
         }
+        const bodies = deps.eraseBlobRefs(
+          tx,
+          MESSAGE_BODY_OWNER_KIND,
+          tx.sql.all("select id from messages where session = ?", [session.id])
+            .map((row) => String(row["id"])),
+        );
+        if (!bodies.ok) return bodies;
         tx.sql.run("delete from messages where session = ?", [session.id]);
         const erased = deps.deleteSessionRecords(tx, session.id);
         if (!erased.ok) return erased;

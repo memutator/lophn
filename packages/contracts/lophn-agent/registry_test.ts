@@ -124,6 +124,8 @@ Deno.test("lophn-agent/harness/run-loop#R2: public entry registers the exact run
     "/v1/agent-traces/export",
     "/v1/agent-usage/read",
     "/v1/instructions/read",
+    "/v1/place-extension-settings/read",
+    "/v1/place-extension-settings/change",
     "/v1/agent-mcp-auth/begin",
     "/v1/agent-mcp-auth/complete",
   ]);
@@ -188,6 +190,7 @@ Deno.test("lophn-agent/harness/run-loop#R6: public events omit checkpoint and co
     "ToolCallStarted",
     "ToolCallFinished",
     "ToolCallSupplemented",
+    "PlaceExtensionSettingsChanged",
   ]);
   assertEquals(lophnAgent.EVENTS, EVENTS);
   for (const event of EVENTS) assert(ALL_EVENTS.includes(event));

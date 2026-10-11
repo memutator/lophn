@@ -25,7 +25,7 @@ export type SkillFilesPort = {
   executable(path: string): Promise<Result<boolean | null>>;
 };
 
-export type SkillScope = "registered" | "personal" | "bundled";
+export type SkillScope = "place" | "registered" | "personal" | "bundled";
 
 export type SkillSupplemental = {
   title: string;
@@ -203,6 +203,9 @@ type Candidate = {
 export type SkillDiscoveryInput = {
   port: SkillFilesPort;
   clock: Clock;
+  // 그 agent 자리(project·app)의 skill 폴더다. 가장 먼저 찾고(R1, R32) 폴더 자신은 꾸러미가 아니라
+  // 꾸러미를 담는 폴더다. 없으면 null이다.
+  place_store?: string | null;
   // 등록 root는 사람이 정한 등록 순서 그대로다(R1).
   registered_roots: readonly string[];
   // 개인 skill 보관소 폴더다. 없으면 null이다.
@@ -216,8 +219,8 @@ export type SkillDiscoveryInput = {
   selection: readonly string[] | null;
 };
 
-// 발견은 run 경계에서만 한다(R8). 등록 root 순서→개인→동봉 순서로 폴더 자신과
-// 바로 아래 skill 꾸러미만 본다(R1). 같은 이름은 먼저 발견한 것을 남기고(R3),
+// 발견은 run 경계에서만 한다(R8). 자리→등록 root 순서→개인→동봉 순서로 폴더 자신과
+// 바로 아래 skill 꾸러미만 본다(R1, R32). 같은 이름은 먼저 발견한 것을 남기고(R3),
 // selection은 정확한 이름 목록의 교집합이다(R4, R30).
 export async function discoverSkills(
   input: SkillDiscoveryInput,
@@ -227,6 +230,17 @@ export async function discoverSkills(
   const candidates: Candidate[] = [];
   const skipped: SkillSkipped[] = [];
   const listed: string[] = [];
+  if (input.place_store !== undefined && input.place_store !== null) {
+    await scanFoldersOnly(
+      input,
+      candidates,
+      skipped,
+      listed,
+      input.place_store,
+      "place",
+      null,
+    );
+  }
   for (const [order, root] of input.registered_roots.entries()) {
     await scanRoot(
       input,
@@ -356,7 +370,7 @@ export function skillPromptSection(
 
 // 폴더 경로를 붙인다. Windows drive root는 `\`를 쓴다(epresentation만, 읽기는
 // port가 한다).
-function joinPath(dir: string, name: string): string {
+export function joinPath(dir: string, name: string): string {
   if (dir.endsWith("/") || dir.endsWith("\\")) return `${dir}${name}`;
   const separator = dir.includes("\\") && !dir.includes("/") ? "\\" : "/";
   return `${dir}${separator}${name}`;
@@ -437,7 +451,9 @@ async function scanFoldersOnly(
   }
 }
 
-function folderSkipReason(kind: "file" | "dir" | "symlink" | null): string {
+export function folderSkipReason(
+  kind: "file" | "dir" | "symlink" | null,
+): string {
   switch (kind) {
     case "symlink":
       return "skill bundle folder is a symbolic link";

@@ -744,3 +744,63 @@ Deno.test("lophn-agent/extensions#R30: 선택은 정확한 이름만 받고 생�
   const unknown = validateSkillSelection([{ name: "one-skill" }], ["absent"]);
   assert(!unknown.ok);
 });
+
+Deno.test("lophn-agent/extensions#R1 lophn-agent/extensions#R33 [agent-I19b]: 자리 폴더가 등록 root보다 먼저고 같은 이름은 자리의 것을 쓰며 가려진 것을 알린다", async () => {
+  const home = await tempDir();
+  const place = `${home}/place/skills`;
+  const rootA = `${home}/roots/a`;
+  await Deno.mkdir(rootA, { recursive: true });
+  await writeSkill(place, "review", "review", "Place review");
+  await writeSkill(place, "only-place", "only-place", "Only place");
+  await writeSkill(rootA, "review", "review", "Registered review");
+  await writeSkill(rootA, "audit", "audit", "Registered audit");
+  // 자리 폴더 자신은 꾸러미가 아니다: 바로 아래 꾸러미만 본다.
+  await Deno.writeTextFile(
+    `${place}/${SKILL_MANIFEST}`,
+    manifestFile("place-root", "Not a bundle"),
+  );
+  const discovery = keep(
+    await discoverSkills(
+      baseInput(tempPort(), {
+        registered_roots: [rootA],
+        place_store: place,
+      }),
+    ),
+  );
+  assertEquals(
+    discovery.entries.map((entry) => [
+      entry.name,
+      entry.source_kind,
+      entry.folder_order,
+    ]),
+    [
+      ["only-place", "place", null],
+      ["review", "place", null],
+      ["audit", "registered", 0],
+    ],
+  );
+  assertEquals(entryOf(discovery, "review").description, "Place review");
+  assertEquals(
+    discovery.shadowing.map((shadow) => [shadow.name, shadow.dropped_bundle]),
+    [["review", `${rootA}/review`]],
+  );
+});
+
+Deno.test("lophn-agent/extensions#R4 [agent-I19b]: 자리 skill도 agent 정의가 끈 이름만 빼고 제공한다", async () => {
+  const home = await tempDir();
+  const place = `${home}/place/skills`;
+  await writeSkill(place, "keep-me", "keep-me", "Kept");
+  await writeSkill(place, "turn-off", "turn-off", "Turned off");
+  const discovery = keep(
+    await discoverSkills(
+      baseInput(tempPort(), {
+        place_store: place,
+        selection: ["keep-me"],
+      }),
+    ),
+  );
+  assertEquals(
+    discovery.entries.map((entry) => [entry.name, entry.selected]),
+    [["keep-me", true], ["turn-off", false]],
+  );
+});

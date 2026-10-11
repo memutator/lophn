@@ -4,6 +4,7 @@ import {
   agentsRead,
   modelDefaultsRead,
   placeAgentSettingsRead,
+  placeExtensionSettingsRead,
   providerRead,
   resolvedAgentSchema,
   runBody,
@@ -387,4 +388,44 @@ Deno.test("lophn-agent/agents#R26 [agent-I10a]: a fixed agent that is missing or
     {} as RunCredentials,
   );
   assert(!second.ok);
+});
+
+Deno.test("lophn-agent/extensions#R32 [agent-I19b]: a run asks for the MCP servers of the place it works in and no other place", async () => {
+  // 꺼 둔 서버라 연결은 일어나지 않는다. 어느 자리를 읽었는지만 본다.
+  const disabled = {
+    name: "scoped",
+    revision: 1,
+    enabled: false,
+    transport: "stdio",
+    call_timeout_ms: 60_000,
+    classifications: {},
+    stdio: { executable: "/usr/bin/scoped", args: [], cwd: null, env: {} },
+  };
+  const { world, prepared } = await prepare({
+    session: { kind: "project", id: OTHER_PRJ },
+    workspaceModels: { lophn: MODEL() },
+    placeMcpServers: [disabled],
+  });
+  assert(prepared.ok, prepared.ok ? "" : JSON.stringify(prepared.error));
+  assertEquals(world.bodiesOf(routePath(placeExtensionSettingsRead)), [{
+    place: { kind: "project", id: OTHER_PRJ },
+  }]);
+
+  // 앱 자리의 Operator는 자기 scope의 앱 자리를 읽는다. session이 없어도 같다.
+  const operator = await prepare({
+    role: "operator",
+    session: null,
+    workspaceModels: { operator: MODEL() },
+    definition: { name: "Reviewer", body: "Check." },
+    scope: { kind: "app", id: APP },
+    placeMcpServers: [disabled],
+  });
+  assert(
+    operator.prepared.ok,
+    operator.prepared.ok ? "" : JSON.stringify(operator.prepared.error),
+  );
+  assertEquals(
+    operator.world.bodiesOf(routePath(placeExtensionSettingsRead)),
+    [{ place: { kind: "app", id: APP } }],
+  );
 });

@@ -189,6 +189,7 @@ handoff는 Run.source, tool 판정은 ToolCall, safety 실패수는 확정 call,
 | DeleteAgent | `/v1/agents/delete` | user·Operator assignment; assignment를 거두고 파일을 지움(built-in은 forbidden) |
 | UploadAgentProfileImage | `/v1/agent-profiles/upload` | user·assignment·이미지(png·jpg·webp, 1 MB 이하, svg 불가); 저장 때 `profile`로 연결 |
 | ChangePlaceAgentSettings | `/v1/place-agent-settings/change` | user·자리·그 자리 파일의 새 내용(역할별 model·권한)·파일 hash CAS; 권한은 Workspace 기본의 부분집합. Workspace 층은 이 route가 아니다 |
+| ChangePlaceExtensionSettings | `/v1/place-extension-settings/change` | user·자리·그 자리 MCP 서버 목록 전체·파일 hash CAS; 전역 서버와 이름이 겹치면 거절. 자리 폴더의 `mcp-servers.json` 한 파일이다 |
 | CreateBuiltinAssignment | `/v1/assignments/create-builtin` | role(lophn 또는 context_engineer); 역할마다 거두지 않은 assignment 하나 |
 | CreateAppEngineerAssignment | `/v1/assignments/create-app-engineer` | AppCreated seq·app; 앱별 중복 없음; core 반응 구독자(`lophn-agent-assignments`)가 AppCreated마다 부르고 처리 cursor를 같은 transaction에 올림 |
 | PauseAssignment | `/v1/assignments/pause` | machine·revision·`scope_archived` 근거; 같은 구독자가 AppArchived(와 project 보관)마다 그 자리의 enabled assignment에 부르고 cursor를 같은 transaction에 올림 |
@@ -224,6 +225,7 @@ handoff는 Run.source, tool 판정은 ToolCall, safety 실패수는 확정 call,
 | run body | `/v1/runs/body` | machine·종류(run basis·model 응답·tool 결과)와 ID; blob hash를 확인한 저장 값. 복구가 이력을 다시 만드는 읽기다 |
 | run body view | `/v1/runs/body-view` | user·종류(run basis·tool 입력·tool 결과)와 ID; 저장된 값을 지금의 redaction으로 한 번 더 거친 것. 64KiB를 넘으면 JSON 글의 앞부분과 `truncated`. model 응답은 열지 않는다. 사람 화면의 도구 활동 자세히와 근거 읽기다 |
 | agent list/read | `/v1/agents/list`, `/v1/agents/read` | 자리(+assignment)·cursor; 그 자리에서 부를 수 있는 agent 행(역할·built-in/Operator·이름·profile·model 요약·상태), 정의(바꾼 칸+본문)와 칸별 값·출처; secret 값 없음. `ResolveAgent`는 run 준비의 machine 읽기 |
+| place extension settings read | `/v1/place-extension-settings/read` | 자리; 그 자리 MCP 서버 목록과 파일 hash, 그 자리에서 발견하는 skill·가려진 skill·제외한 꾸러미 |
 | place agent settings read | `/v1/place-agent-settings/read` | 자리; 그 자리 파일의 칸(역할별 model·option, 권한)과 파일 hash, 칸을 비운 role의 실제 model과 출처. Workspace 기본은 `agent-model-defaults`·platform/settings |
 | assignment read/list | `/v1/assignments/read`, `/v1/assignments/list` | ID 또는 역할/자리/상태·cursor; 역할·scope·상태·pause 근거 |
 | session read/list | `/v1/sessions/read`, `/v1/sessions/list` | ID 또는 assignment·cursor; 세션 출처·상태 |
@@ -235,7 +237,7 @@ handoff는 Run.source, tool 판정은 ToolCall, safety 실패수는 확정 call,
 | revert preview/list | `/v1/reverts/preview`, `/v1/reverts/list` | 종료 run·현재 snapshot; 전체 owner 묶음·binding 또는 과거 결과 |
 | trace/usage read | `/v1/agent-traces/read`, `/v1/agent-usage/read` | scope 안 run/session/역할/기간·cursor; call 참조·통화별 합계·모름/누락 |
 
-내놓는 event는 `AgentSaved`, `AgentDeleted`, `PlaceAgentSettingsChanged`, `AssignmentCreated`, `AssignmentPaused`, `AssignmentResumed`, `AssignmentWithdrawn`, `SessionOpened`, `SessionRenamed`, `SessionArchived`, `SessionUnarchived`, `SessionDeleted`, `SessionForked`, `SessionCompacted`, `SessionModelChanged`, `SessionClosed`, `MessageReceived`, `MessageRecorded`, `MessageApplied`, `MessageAssigned`, `RunAccepted`, `RunStarted`, `RunWaited`, `RunResumed`, `RunRecovered`, `RunFinished`, `QuestionCreated`, `QuestionAnswered`, `QuestionExpired`, `QuestionCancelled`, `RevertStarted`, `RevertApplied`, `RevertBlocked`, `RevertFinished`다. checkpoint·명시 계속 선택처럼 별도 event가 없는 command는 공통 command 결과에 근거가 남는다. question option의 업무 event는 action owner가 소유한다.
+내놓는 event는 `AgentSaved`, `AgentDeleted`, `PlaceAgentSettingsChanged`, `PlaceExtensionSettingsChanged`, `AssignmentCreated`, `AssignmentPaused`, `AssignmentResumed`, `AssignmentWithdrawn`, `SessionOpened`, `SessionRenamed`, `SessionArchived`, `SessionUnarchived`, `SessionDeleted`, `SessionForked`, `SessionCompacted`, `SessionModelChanged`, `SessionClosed`, `MessageReceived`, `MessageRecorded`, `MessageApplied`, `MessageAssigned`, `RunAccepted`, `RunStarted`, `RunWaited`, `RunResumed`, `RunRecovered`, `RunFinished`, `QuestionCreated`, `QuestionAnswered`, `QuestionExpired`, `QuestionCancelled`, `RevertStarted`, `RevertApplied`, `RevertBlocked`, `RevertFinished`다. checkpoint·명시 계속 선택처럼 별도 event가 없는 command는 공통 command 결과에 근거가 남는다. question option의 업무 event는 action owner가 소유한다.
 
 **보장**은 durable 접수, session당(session 없는 run은 assignment당) 진행/대기 하나, 원래 출처 중복 방지, 현재 scope 축소·멈춤 재검사, 같은 결정 한 번 반영, terminal run 재개 금지다. 시작 때 resolved agent(`Run.basis.agent`의 hash·출처)/assignment/tool/extensions/model/한도를 고정하고, LOPHN.md 층과 agent instructions는 call마다 현재 확정 판을 고정하며 정의를 고친 값은 다음 run부터다. 세션의 작업 자리는 열 때 정해 바뀌지 않는다. `completed` 정상 종료는 complete tool 없는 답·확정 call·미반영 correction 없음과 함께 확정한다. **보장하지 않는 것**은 즉시 시작, 판단 정답, 여러 tool 전체의 원자적 성공, app/file 최종 반영, 문제 해결, 외부 효과 revert다.
 
@@ -375,7 +377,7 @@ cache boundary는 최대 세 개: product 끝 → role_agent 끝 → user_instru
 
 ### 5.5 extensions
 
-skill 발견은 등록 folder 순서 → 개인 → 동봉 순, root 자체와 바로 아래 bundle만이다. Agent Skills UTF-8 Markdown/YAML `name/description`을 검사한다. name은 `[a-z0-9]+(-[a-z0-9]+)*`, 1~64자, description은 nonblank 1~1024자다. 같은 이름은 첫 발견, 같은 범위는 bundle lexical order다. invalid/shadowed/missing/선택 출처 진단을 남긴다. 등록된 것은 기본 전부 켜고 끈 것만 agent 정의에 저장하며 정확한 이름만 쓴다(wildcard/미래 선택 없음).
+skill 발견은 그 agent 자리의 `skills/` → 등록 folder 순서 → 개인 → 동봉 순, 등록 root 자체와 바로 아래 bundle만이다(자리 folder는 바로 아래 bundle만). 자리 층(`<data root>/{projects,apps}/<id>/`의 `skills/`와 `mcp-servers.json`)은 그 자리에서 여는 agent에만 보인다. agents read와 `/` 메뉴는 동기 handler라 reader Worker 안에서 같은 규칙을 동기 file 눈(`extensions/adapters/node-fs.ts`)으로 읽는 등록부(`createExtensionRegistry`)를 쓰고, run 준비는 비동기 발견(`discoverSkills`)으로 run 시작에 고정한다. agent-runtime child의 `--allow-run`·`--allow-net`은 전역 서버에 모든 자리 `mcp-servers.json`의 enabled 서버(전역과 이름이 겹치면 전역만, 틀린 파일은 그 자리만 빠짐)가 선언한 실행 파일과 host:port만 더해 만들고(`apps/core/mcp-snapshot.ts`), 그 목록이 바뀌면 core가 child를 다시 띄운다. MCP OAuth begin의 서버 조회도 같은 snapshot을 읽는다. Agent Skills UTF-8 Markdown/YAML `name/description`을 검사한다. name은 `[a-z0-9]+(-[a-z0-9]+)*`, 1~64자, description은 nonblank 1~1024자다. 같은 이름은 첫 발견, 같은 범위는 bundle lexical order다. invalid/shadowed/missing/선택 출처 진단을 남긴다. 등록된 것은 기본 전부 켜고 끈 것만 agent 정의에 저장하며 정확한 이름만 쓴다(wildcard/미래 선택 없음).
 
 `skill.read(name)`은 RunBasis에 고정한 hash와 현재 파일을 비교한 후 전체 body·보조 title 목록을 준다. `skill.read_supplemental(name,title)`만 지정 UTF-8 문서를 읽는다. 경로는 내부 resolved bundle-relative 값이며 `..`·절대 경로·symlink·실행 파일/script는 거절한다. 변경·삭제는 실패, 다음 run부터 새 판이다. 읽은 skill은 data이고 tool 추가·연결·권한·설치·자동 파일 쓰기를 하지 않는다.
 

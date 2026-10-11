@@ -13,6 +13,7 @@ import {
   mcpServersSetting,
   modelDefaultsRead,
   placeAgentSettingsRead,
+  placeExtensionSettingsRead,
   providerRead,
   runBody,
   runRead,
@@ -69,6 +70,8 @@ export type WorldOptions = {
   activeContexts?: string[];
   // 등록 skill 폴더 root. skill 이름은 그 폴더의 것이다.
   skillRoot?: string;
+  // 어느 자리를 읽어도 이 목록이 그 자리의 MCP 서버다(자리 층, extensions R32). 없으면 비어 있다.
+  placeMcpServers?: unknown[];
   // 이어 하기: run 기준과 resolved agent 본문.
   basisBody?: unknown;
   agentBody?: unknown;
@@ -205,6 +208,17 @@ export function openWorld(options: WorldOptions = {}): World {
           summaries: null,
           settings_seq: "1",
         },
+        ...readMeta(),
+      });
+    }
+    if (path === routePath(placeExtensionSettingsRead)) {
+      return reply(placeExtensionSettingsRead.output, {
+        place: (body as { place: Place }).place,
+        settings: { revision: 1, mcp_servers: options.placeMcpServers ?? [] },
+        hash: null,
+        skills: [],
+        shadowed: [],
+        skipped: [],
         ...readMeta(),
       });
     }

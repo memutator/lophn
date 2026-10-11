@@ -25,6 +25,7 @@ import {
   runOf,
   runStateSeq,
   seed,
+  seedProvider,
   sessionSeq,
   sql,
   startRun,
@@ -718,6 +719,7 @@ Deno.test("lophn-agent/conversation#R23 [agent-I12]: the model choice is stored 
   const h = await open();
   try {
     await seed(h);
+    await seedProvider(h);
     const a = await openLophn(h, id("ses", 1));
     const b = await openLophn(h, id("ses", 2));
     assertEquals((await readSession(h, a))["model_selection"], null);
@@ -816,6 +818,7 @@ Deno.test("lophn-agent/harness/model#R10 lophn-agent/conversation#R23 [agent-I11
   const h = await open();
   try {
     await seed(h);
+    await seedProvider(h);
     await seedUnlistedProvider(h);
     const a = await openLophn(h, id("ses", 1));
     // 목록을 아는 provider(ollama)에서 목록에 없는 이름은 거절하고 세션을 바꾸지 않는다.
@@ -858,6 +861,7 @@ Deno.test("lophn-agent/harness/model#R24 lophn-agent/conversation#R23 [agent-I11
   const h = await open();
   try {
     await seed(h);
+    await seedProvider(h);
     const a = await openLophn(h, id("ses", 1));
     // 이 model이 선언하지 않은 축.
     code(

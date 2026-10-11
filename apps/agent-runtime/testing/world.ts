@@ -279,7 +279,17 @@ export function openWorld(options: WorldOptions = {}): World {
     supports_tools: true,
     input_media: ["text"],
     output_media: ["text"],
-    options: [],
+    // 하나의 effort 축. session이 고른 option 값을 실어 나르는 시험이 쓴다.
+    options: [{
+      id: "effort",
+      label: "Effort",
+      values: [
+        { value: "low", label: "Low", wire: null },
+        { value: "high", label: "High", wire: null },
+      ],
+      default_value: null,
+      budget: null,
+    }],
     preview: false,
     deprecated: null,
     source: "models_dev",

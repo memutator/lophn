@@ -218,13 +218,13 @@ Deno.test("lophn-agent/agents#R24 [agent-I10a]: a wrong definition file or place
 
 Deno.test("lophn-agent/agents#R27 lophn-agent/harness/model#R27 [agent-I11]: the model the session chose is the highest layer and its source is the session", async () => {
   const chosen = {
-    ...MODEL(PVD2, "claude-sonnet-4-5"),
+    ...MODEL(PVD2),
     option_values: { effort: "high" },
   };
   const { world, prepared } = await prepare({
     sessionModel: chosen,
     workspaceModels: { lophn: MODEL() },
-    placeSettings: { models: { lophn: MODEL(PVD2) } },
+    placeSettings: { models: { lophn: MODEL(PVD) } },
   });
   assert(prepared.ok, prepared.ok ? "" : JSON.stringify(prepared.error));
   const agent = resolvedAgentSchema.parse(world.blob("run_agent"));

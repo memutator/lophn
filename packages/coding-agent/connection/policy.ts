@@ -27,7 +27,6 @@ export const FORBIDDEN_ACTIONS = [
   "connection.widen",
   "project.register",
   "project.tracking",
-  "context.define",
   "term.define",
   "assignment.change",
   "ticket.goal",
@@ -72,14 +71,6 @@ export const FORBIDDEN_ROUTES: Readonly<
     "project.set_tracking",
     "project.preview_tracking",
     "project.unarchive",
-  ],
-  "context.define": [
-    "context.create",
-    "context.update",
-    "context.set_item",
-    "context.remove_item",
-    "context.archive",
-    "context.unarchive",
   ],
   "term.define": [
     "term.propose",

@@ -15,13 +15,13 @@ export type SkillRelease = {
 export const SKILL_RELEASES: readonly SkillRelease[] = [
   {
     name: "lophn-build-app",
-    version: "1.0.0",
-    hash: "f893e85f08ab332f2607c35a7741efb3c26e643839d7488ceceda92a3f33900c",
+    version: "1.0.1",
+    hash: "60d366d72ea47ec2755ea06620ab9c4b6c3a5740b3bd692cda61c09089e29f52",
   },
   {
     name: "lophn-navigate",
-    version: "1.0.0",
-    hash: "efc77a0c8b50d1c2e4557f3f3462e892a178cd8f988b77354e151074f72b545a",
+    version: "1.0.1",
+    hash: "de7f295c9a797e4da15226627cd2645607313dadb51f247a63e455e059c35887",
   },
   {
     name: "lophn-repair",

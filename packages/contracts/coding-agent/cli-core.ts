@@ -57,10 +57,6 @@ export const cliIndexSchema = z.discriminatedUnion("op", [
   withCommon("index", outlinePlace.input.extend({ op: z.literal("place") })),
   withCommon(
     "index",
-    outlineContext.input.extend({ op: z.literal("context") }),
-  ),
-  withCommon(
-    "index",
     outlineDocument.input.extend({ op: z.literal("document") }),
   ),
   withCommon(

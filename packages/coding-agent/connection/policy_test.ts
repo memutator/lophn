@@ -38,7 +38,6 @@ Deno.test("coding-agent/connection#R7: coding agent cannot decide approvals, cha
     "connection.widen",
     "project.register",
     "project.tracking",
-    "context.define",
     "term.define",
     "assignment.change",
     "ticket.goal",

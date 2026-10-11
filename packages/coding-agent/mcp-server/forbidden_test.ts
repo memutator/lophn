@@ -168,8 +168,6 @@ Deno.test("coding-agent/mcp-server#R30 #R31: 금지 tool·op를 직접 요청해
     ["lophn_question", "answer"],
     ["lophn_project", "create"],
     ["lophn_project", "set_tracking"],
-    ["lophn_context", "define"],
-    ["lophn_context", "create"],
     ["lophn_ticket", "cancel"],
     ["lophn_ticket", "make_ready"],
     ["lophn_ticket", "confirm"],

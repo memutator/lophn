@@ -1,16 +1,7 @@
 import { z } from "zod";
-import {
-  contextGet,
-  contextList,
-  contextPerspectiveSchema,
-  contextRelated,
-  outlineContext,
-  termList,
-} from "../documents/mod.ts";
 import { approvalsGet, approvalsList } from "../platform/approvals.ts";
 import { questionList, questionRead } from "../lophn-agent/mod.ts";
 import { cliCommonSchema } from "./cli-core.ts";
-import { contextProposeFields } from "./mcp-decisions.ts";
 
 // 대기 위치는 사람이 결정하는 화면이다. 창을 직접 열거나 승인 입력을 받지 않는다.
 export { decisionLink } from "./mcp-decisions.ts";
@@ -22,36 +13,7 @@ const withCommon = <T extends z.ZodRawShape>(
 ) => input.extend({ command: z.literal(command), ...common });
 
 // CLI도 MCP가 고른 op 목록 밖의 command를 만들지 않는다. 위치 인자가 없고 선택값만 있다.
-export const cliContextListSchema = withCommon(
-  "context list",
-  contextList.input,
-);
-export const cliContextShowSchema = withCommon(
-  "context show",
-  contextGet.input,
-);
-export const cliContextItemsSchema = withCommon(
-  "context items",
-  outlineContext.input.extend({
-    perspective: contextPerspectiveSchema.optional(),
-  }),
-);
-export const cliContextGlossarySchema = withCommon(
-  "context glossary",
-  termList.input,
-);
-export const cliContextOfSchema = withCommon(
-  "context of",
-  contextRelated.input,
-);
-
 export const CLI_DECISION_NAMES = [
-  "context list",
-  "context show",
-  "context items",
-  "context glossary",
-  "context of",
-  "context propose",
   "question list",
   "question show",
   "question open",
@@ -87,12 +49,6 @@ export const cliApprovalOpenSchema = withCommon(
 );
 
 export const CLI_DECISION_COMMANDS = [
-  cliContextListSchema,
-  cliContextShowSchema,
-  cliContextItemsSchema,
-  cliContextGlossarySchema,
-  cliContextOfSchema,
-  withCommon("context propose", z.strictObject(contextProposeFields)),
   cliQuestionListSchema,
   cliQuestionShowSchema,
   cliQuestionOpenSchema,

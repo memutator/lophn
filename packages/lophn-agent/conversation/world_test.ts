@@ -1,18 +1,18 @@
 import { assert, assertEquals } from "@std/assert";
-import type { Result } from "../../../base/mod.ts";
+import type { Result } from "../../base/mod.ts";
 import type {
   AuthenticatedContext,
   SqlRow,
-} from "../../../contracts/platform/mod.ts";
+} from "../../contracts/platform/mod.ts";
 import {
   createLedgerHarness,
   type LedgerHarness,
-} from "../../../../apps/core/testing/ledger.ts";
+} from "../../../apps/core/testing/ledger.ts";
 import {
   envelope,
   presetDefinitionJson,
-} from "../../harness/run-loop/testing/mod.ts";
-import { BODY, cred, hashOf, id, textContent } from "./mod.ts";
+} from "../harness/run-loop/testing/mod.ts";
+import { BODY, cred, hashOf, id, textContent } from "./testing/mod.ts";
 
 // 세션·메시지 ledger 시험이 함께 쓰는 세계. 실제 등록 executor(harness)와 임시 ledger
 // 파일을 쓰고 run-loop의 FinishRun이 제품 core와 같은 hasUnappliedSteering(messages 표)을
@@ -66,11 +66,11 @@ export async function open(): Promise<LedgerHarness> {
   const opened = await createLedgerHarness({
     registrationModules: [
       new URL(
-        "../../harness/provider/registration_test.ts",
+        "../harness/provider/registration_test.ts",
         import.meta.url,
       ),
-      new URL("../../harness/usage/registration_test.ts", import.meta.url),
-      new URL("../registration_test.ts", import.meta.url),
+      new URL("../harness/usage/registration_test.ts", import.meta.url),
+      new URL("./registration_test.ts", import.meta.url),
     ],
     credentials: [
       userCred,
@@ -361,8 +361,9 @@ export async function runningRun(
   session: string,
   message: string,
   assignment = ASG_LOPHN,
+  text?: string,
 ): Promise<string> {
-  value(await receive(h, { message, session, mode: "request" }));
+  value(await receive(h, { message, session, mode: "request", text }));
   const run = await runOf(h, message);
   value(await startRun(h, run, assignment));
   return run;

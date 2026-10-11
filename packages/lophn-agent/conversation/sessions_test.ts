@@ -4,6 +4,7 @@ import { envelope } from "../harness/run-loop/testing/mod.ts";
 import { bodyHashOf, cred, id, textContent } from "./testing/mod.ts";
 import {
   agentOf,
+  ASG_AE,
   ASG_CE,
   ASG_LOPHN,
   code,
@@ -29,7 +30,7 @@ import {
   startRun,
   userCred,
   value,
-} from "./testing/world.ts";
+} from "./world_test.ts";
 
 // 세션 관리 ledger 테스트: 제목(R18)·archive(R19)·delete(R20)·목록(R21)·첫 context(R22)·
 // model 선택(R23). 실제 등록 executor(harness)와 임시 ledger 파일을 쓰고 실제 provider를
@@ -140,15 +141,22 @@ async function changeModel(
   );
 }
 
-// 담당 assignment 회수로 닫힌 session 하나.
+// 접수한 요청의 run을 시작해 끝낸다. 다음 요청은 앞선 run이 시작된 뒤에야 접수된다.
+async function settle(h: LedgerHarness, message: string) {
+  const run = await runOf(h, message);
+  value(await startRun(h, run, ASG_LOPHN));
+  value(await finishRun(h, run, DONE));
+}
+
+// 담당 assignment(App Engineer) 회수로 닫힌 session 하나.
 async function closedSession(h: LedgerHarness, session: string) {
-  value(await openSession(h, session, ASG_CE, PLACES.project));
-  const run = await runningRun(h, session, id("msg", 90), ASG_CE);
+  value(await openSession(h, session, ASG_AE, PLACES.app));
+  const run = await runningRun(h, session, id("msg", 90), ASG_AE);
   value(await finishRun(h, run, DONE));
   value(
     await h.command(
       userCred,
-      envelope("WithdrawAssignment", { assignment: ASG_CE }, {
+      envelope("WithdrawAssignment", { assignment: ASG_AE }, {
         revision: 1,
         state: "enabled",
       }),
@@ -182,6 +190,7 @@ Deno.test("lophn-agent/conversation#R18 [agent-I12]: the first person message se
         text: long,
       }),
     );
+    await settle(h, id("msg", 1));
     const title = String((await readSession(h, first))["title"]);
     assertEquals(title, `Plan the weekly report  ${"가".repeat(36)}`);
     assertEquals([...new Intl.Segmenter().segment(title)].length, 60);
@@ -195,6 +204,7 @@ Deno.test("lophn-agent/conversation#R18 [agent-I12]: the first person message se
       }),
     );
     assertEquals((await readSession(h, first))["title"], title);
+    await settle(h, id("msg", 2));
     // 수정(correction)은 제목을 정하지 않는다.
     const second = await openLophn(h, id("ses", 2));
     const run = await runningRun(h, second, id("msg", 3));

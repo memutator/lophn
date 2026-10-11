@@ -39,7 +39,7 @@ import {
   startRun,
   userCred,
   value,
-} from "./testing/world.ts";
+} from "./world_test.ts";
 
 // 세션·메시지 ledger 테스트. 실제 등록 executor(harness)와 임시 ledger 파일을 쓰고
 // run-loop의 FinishRun이 제품 core와 같은 hasUnappliedSteering(messages 표)을 본다.

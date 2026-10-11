@@ -1258,7 +1258,7 @@ concerns: [shell]
 
 ### T67 project notice를 toast로
 
-- 상태: 진행
+- 상태: 완료 (#585)
 - 등급: frontend
 - concern: shell/workspace, shell/desktop, shell/wording
 - 요구: shell/desktop#R27(관련 없는 크롬이 본문을 차지하지 않는다), shell/desktop#R10·shell/design-system#R35(notification은 오른쪽 아래 한 칸 chip), shell/design-system#R33(toast 폭 360px)

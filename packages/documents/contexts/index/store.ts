@@ -63,13 +63,10 @@ const textOrNull = (row: SqlRow, column: string): string | null =>
   row[column] === null ? null : String(row[column]);
 const integer = (row: SqlRow, column: string): number => Number(row[column]);
 
-// 개체는 추출 순서(ord)로 읽는다.
-export function readEntities(sql: Sql, context: string): IndexedEntity[] {
-  return sql.all(
-    `SELECT type, id, path, section, fields, links, source_kind
-     FROM index_entities WHERE context = ? ORDER BY ord`,
-    [context],
-  ).map((row) => ({
+const ENTITY_COLUMNS = "type, id, path, section, fields, links, source_kind";
+
+function entityOf(row: SqlRow): IndexedEntity {
+  return {
     type: text(row, "type"),
     key: text(row, "id"),
     path: text(row, "path"),
@@ -77,7 +74,54 @@ export function readEntities(sql: Sql, context: string): IndexedEntity[] {
     fields: JSON.parse(text(row, "fields")),
     links: JSON.parse(text(row, "links")),
     source_kind: text(row, "source_kind"),
-  }));
+  };
+}
+
+// 개체는 추출 순서(ord)로 읽는다.
+export function readEntities(sql: Sql, context: string): IndexedEntity[] {
+  return sql.all(
+    `SELECT ${ENTITY_COLUMNS} FROM index_entities WHERE context = ? ORDER BY ord`,
+    [context],
+  ).map(entityOf);
+}
+
+// 한 type의 개체를 추출 순서로 읽는다(series 다음 이름이 경로를 모을 때).
+export function readEntitiesOfType(
+  sql: Sql,
+  context: string,
+  type: string,
+): IndexedEntity[] {
+  return sql.all(
+    `SELECT ${ENTITY_COLUMNS} FROM index_entities
+     WHERE context = ? AND type = ? ORDER BY ord`,
+    [context, type],
+  ).map(entityOf);
+}
+
+// (type, key) 개체와, 그 개체의 관계 간선이 가리키는 key를 가진 개체를 추출 순서로 읽는다. 간선은
+// key만 갖고 대상 type은 계약의 관계 선언이 정하므로, 대상은 key가 같은 개체를 모두 싣고 거르는 일은
+// 읽는 쪽이 한다. 같은 (type, key)가 둘이면 추출 순서의 첫 개체의 간선만 따른다.
+export function readEntityWithLinks(
+  sql: Sql,
+  context: string,
+  type: string,
+  key: string,
+): IndexedEntity[] {
+  const own = sql.all(
+    `SELECT ${ENTITY_COLUMNS} FROM index_entities
+     WHERE context = ? AND type = ? AND id = ? ORDER BY ord LIMIT 1`,
+    [context, type, key],
+  ).map(entityOf);
+  if (own.length === 0) return [];
+  const targets = [...new Set(own[0]!.links.map((link) => link.target_key))];
+  if (targets.length === 0) return own;
+  const marks = targets.map(() => "?").join(", ");
+  return sql.all(
+    `SELECT ${ENTITY_COLUMNS} FROM index_entities
+     WHERE context = ? AND (id IN (${marks}) OR (type = ? AND id = ?))
+     ORDER BY ord`,
+    [context, ...targets, type, key],
+  ).map(entityOf);
 }
 
 // 위반은 scan이 정렬해 넣은 순서(ord)로 읽는다: path, kind, rule(null은 ""), section(null이 먼저).

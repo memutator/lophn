@@ -34,6 +34,8 @@ import {
 } from "../../packages/documents/contexts/mod.ts";
 import {
   readEntities,
+  readEntitiesOfType,
+  readEntityWithLinks,
   readIndexState,
   readViolations,
 } from "../../packages/documents/contexts/index/mod.ts";
@@ -329,6 +331,18 @@ export function createContextsRuntime(): ContextsRuntime {
       const sql = base.ok ? openIndex(base.value) : undefined;
       if (sql === undefined) return [];
       return readEntities(sql, context) as EntityRow[];
+    },
+    entity(context, type, key) {
+      const base = root();
+      const sql = base.ok ? openIndex(base.value) : undefined;
+      if (sql === undefined) return [];
+      return readEntityWithLinks(sql, context, type, key) as EntityRow[];
+    },
+    ofType(context, type) {
+      const base = root();
+      const sql = base.ok ? openIndex(base.value) : undefined;
+      if (sql === undefined) return [];
+      return readEntitiesOfType(sql, context, type) as EntityRow[];
     },
     // 아직 훑은 적이 없거나 마지막 훑기가 실패한 context는 빈 결과로 꾸미지 않는다.
     failing(context) {

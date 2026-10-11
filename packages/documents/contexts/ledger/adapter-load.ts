@@ -42,6 +42,10 @@ export type LoadPlan = {
   content?: "applied" | "active-applied" | "in-progress" | { bundle: string };
   // derived 저장소에서 가져올 것. entities를 고르면 index 갱신 실패도 같이 가져온다.
   index?: readonly ("violations" | "entities")[];
+  // 개체 하나와 그 관계 대상 행(context.entity), 한 type의 개체(context.series_next)만 가져온다. 둘 다
+  // entities처럼 index 갱신 실패도 같이 가져온다.
+  entity?: { type: string; key: string };
+  ofType?: string;
   // 위반을 넘긴 event(ContextViolationsHandedOff)를 ledger events 표에서 state.events로 읽는다.
   handedOff?: boolean;
 };
@@ -139,6 +143,18 @@ export function loadState(
     }
     if (plan.index?.includes("entities")) {
       state.entities.set(context.id, [...deps.index.entities(context.id)]);
+      if (deps.index.failing(context.id)) state.indexFailing.add(context.id);
+    }
+    if (plan.entity !== undefined) {
+      state.entities.set(context.id, [
+        ...deps.index.entity(context.id, plan.entity.type, plan.entity.key),
+      ]);
+      if (deps.index.failing(context.id)) state.indexFailing.add(context.id);
+    }
+    if (plan.ofType !== undefined) {
+      state.entities.set(context.id, [
+        ...deps.index.ofType(context.id, plan.ofType),
+      ]);
       if (deps.index.failing(context.id)) state.indexFailing.add(context.id);
     }
   }

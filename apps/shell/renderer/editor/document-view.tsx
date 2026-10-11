@@ -283,7 +283,7 @@ export function DocumentView(
     if (!(target > 0) || body.kind !== "text") return;
     let tries = 0;
     let stuckFor = 0;
-    let timer = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     let stopped = false;
     const tick = () => {
       if (stopped) return;

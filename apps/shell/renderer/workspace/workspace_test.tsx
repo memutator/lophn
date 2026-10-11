@@ -566,7 +566,6 @@ Deno.test("shell/editor#R6 shell/editor#R13: 버전 탭의 비교는 focus 칸 �
           },
         }),
       sectionHistory: () => Promise.resolve({ ok: false, code: "unavailable" }),
-      contexts: () => Promise.resolve({ ok: true, value: [] }),
       restore: () => Promise.resolve({ ok: false, code: "unavailable" }),
     },
   };

@@ -1,5 +1,5 @@
 // Violations 화면이 쓰는 순수 값: 줄 정렬, 넘긴 위반 대조, 파일 이름.
-import type { StoredViolation, ViolationKey } from "./source.ts";
+import type { ViolationItem, ViolationKey } from "./source.ts";
 
 /** 위반 하나를 가리키는 키(context 제외). */
 export function violationKey(violation: ViolationKey): ViolationKey {
@@ -17,9 +17,9 @@ export function keyText(key: ViolationKey): string {
 
 /** 경로 순, 같은 경로면 section·종류·규칙 순. */
 export function sortViolations(
-  violations: readonly StoredViolation[],
-): readonly StoredViolation[] {
-  const text = (violation: StoredViolation) =>
+  violations: readonly ViolationItem[],
+): readonly ViolationItem[] {
+  const text = (violation: ViolationItem) =>
     [
       violation.path,
       violation.section ?? "",

@@ -57,8 +57,11 @@
 //
 // 읽기도 같은 적재를 읽기 snapshot(`snapshot.sql`)으로 하고 state.seq = Number(snapshot.as_of_seq)다.
 // 읽기마다 적재 범위: context.list는 project와 그 context·판(content 없음), context.get·bundles·
-// glossary.list·violations는 대상 context의 것, context.saved_views(깨진 view 표시)·overview·search는
-// 적용된 판의 content, context.containing은 project의 active context들의 적용된 판 content다.
+// glossary.list는 대상 context의 것, context.violations는 위반(deps.index)과 위반을 넘긴 event
+// (ledger events 표의 ContextViolationsHandedOff, state.events로)다. context.saved_views(깨진 view
+// 표시)·overview·search·contract·input_options는 적용된 판의 content, context.draft는 판과 검사와
+// 만드는 중인 판 하나(draft, 없으면 검사 중인 판, 없으면 마지막 failed 판)의 content,
+// context.containing은 project의 active context들의 적용된 판 content다.
 // 위반·개체·index 갱신 실패는 deps.index가 준다.
 //
 // platform이 주지 않아 deps로 받는 것: blob 읽기·올리기, 위반 넘김 Run 만들기, Context Engineer 판별,

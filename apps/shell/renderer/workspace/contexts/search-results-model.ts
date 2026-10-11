@@ -1,6 +1,6 @@
 // 검색 결과 화면의 순수 규칙: 열 값 읽기, 개체 링크 경로, 개수 글, board 열 나누기, page 번호 줄임.
 // React와 DOM을 모른다.
-import type { DeclaredSearch, SearchRow } from "./source.ts";
+import type { DeclaredSearch, SearchCell, SearchRow } from "./source.ts";
 
 export type ResultColumn = DeclaredSearch["result"]["columns"][number];
 
@@ -12,8 +12,13 @@ export function cellText(value: unknown): string {
   return String(value);
 }
 
+/** 열 path의 cell. 행은 열마다 cell 하나를 가진다. */
+export function cellOf(row: SearchRow, path: string): SearchCell | undefined {
+  return row.cells.find((cell) => cell.path === path);
+}
+
 export function valueOf(row: SearchRow, path: string): string {
-  return path === "key" ? row.key : cellText(row.values[path]);
+  return cellText(cellOf(row, path)?.value);
 }
 
 /** `key`와 `별칭.key` 열은 개체 이름이다. 그 밖의 열은 값일 뿐이다. */
@@ -22,16 +27,14 @@ export function isObjectColumn(column: ResultColumn): boolean {
 }
 
 /**
- * 개체 이름 열이 가리키는 문서 경로(project 폴더 기준). `key`는 줄 자신의 path이고
- * `별칭.key`는 같은 줄의 `별칭.path` 값이다. 모르면 undefined.
+ * 개체 이름 열이 가리키는 문서 경로(project 폴더 기준). 열 cell의 ref가 그 개체(`key`는 줄 자신,
+ * `별칭.key`는 별칭 개체)이므로 ref의 path다. ref가 없으면 undefined.
  */
 export function documentPath(
   row: SearchRow,
   column: ResultColumn,
 ): string | undefined {
-  if (column.path === "key") return row.path;
-  const path = row.values[`${column.path.slice(0, -".key".length)}.path`];
-  return typeof path === "string" && path !== "" ? path : undefined;
+  return cellOf(row, column.path)?.ref?.path;
 }
 
 function plural(word: string): string {
@@ -113,7 +116,7 @@ export function capitalize(text: string): string {
 
 /** 카드 아래 줄의 한 조각: 숫자 값은 열 이름을 붙이고("6 scenarios") 글 값은 그대로 보인다. */
 export function metaPiece(row: SearchRow, column: ResultColumn): string {
-  const raw = row.values[column.path];
+  const raw = cellOf(row, column.path)?.value;
   const text = cellText(raw);
   if (text === "") return "";
   if (typeof raw !== "number") return text;
@@ -121,4 +124,9 @@ export function metaPiece(row: SearchRow, column: ResultColumn): string {
   return `${text} ${
     raw === 1 && label.endsWith("s") ? label.slice(0, -1) : label
   }`;
+}
+
+/** 줄 하나를 가리키는 key: 시작 개체의 path, section, key. */
+export function rowKey(row: SearchRow): string {
+  return `${row.ref.path}#${row.ref.section ?? ""}:${row.ref.key}`;
 }

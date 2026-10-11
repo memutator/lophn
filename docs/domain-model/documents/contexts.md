@@ -442,6 +442,31 @@ Source kind마다 쓸 수 있는 FieldFrom:
 
 `context.create`는 사람이 [New context]에서 Context Engineer와 대화한 뒤 Context Engineer가 부르는 것이 기본 경로다.
 
+## 읽기
+
+읽기는 `user`와 lophn `agent`(역할 무관)만 한다. coding agent와 `machine`에게는 통로가 없다. 결과는 모두 `as_of_seq`를 가진다.
+
+| 읽기 | 입력 | 결과 | 비고 |
+|---|---|---|---|
+| `context.list` | `project, status?, cursor?, limit?` | Context 줄(적용 판 번호, 진행 중인 판) | 보관 안 된 것 먼저, 제목 순 |
+| `context.get` | `context` | Context, 적용된 판 요약 | |
+| `context.overview` | `context` | 판 hash, type별 개체 수(계약의 type 순서), 위반 수 | |
+| `context.contract` | `context` | 적용된 판의 id·hash·content(계약, 검색, saved view 정의, 예) | 적용된 판이 없으면 셋 다 null. 보관된 context도 읽는다 |
+| `context.draft` | `context` | 만드는 중인 판의 진행 `{step, bundle, content, check}` | drafting이 아니면 null |
+| `context.search` | `context, search, inputs, cursor?, page_size?` | 행 page, 조건에 맞는 전체 행 수 `total` | 활성이고 판이 적용된 context만 |
+| `context.input_options` | `context, search, input, prefix?, limit?` | 후보 `{value, label}`[], `complete` | 같은 조건. entity·value 입력만 |
+| `context.violations` | `context, cursor?, limit?` | 위반 page. 줄마다 `handed_off` | |
+| `context.bundles` | `context, cursor?, limit?` | 판 이력과 검사 보고 | 번호 내림차순, draft가 맨 앞 |
+| `context.saved_views` | `context` | saved view와 `broken` | 이름 순 |
+| `context.containing` | `project, path` | 이 경로를 Source로 덮는 활성 context | 제목 순 |
+| `glossary.list` | `context` | 용어 항목 전부 | |
+
+- **검색 행.** `context.search`의 행은 실행 규칙의 결과 행과 같은 모양이다. 시작 개체의 `ref {type, key, path, section}`와 열마다 `cells {path, value, ref}`다. `key` 열은 `ref`로 그 개체(별칭 개체 포함)를 연다. board 결과도 같은 행이고 board_by 값을 가리키는 cell을 싣는다(board_by가 열이 아니면 열 뒤에 덧붙인다). `total`은 page와 상관없이 조건에 맞는 전체 행 수다.
+- **draft.** 만드는 중인 context의 `step`은 판의 상태로 정한다. 판이 없으면 1(읽기), draft 또는 검사에 떨어진 판이 있으면 2(초안), 검사 중인 판이 있으면 3(검사)이다. 지금 판은 draft, 없으면 검사 중인 판, 없으면 번호가 가장 큰 failed 판이다. 적용되면 context가 active가 되어 `draft`가 null이다. `content`는 submit 전에는 검사되지 않은 JSON 객체다.
+- **후보.** entity 입력은 그 type의 개체 key와 title(field `title`이 있으면 그 글, 아니면 key)을 key의 code unit 순으로 낸다. value 입력은 field의 서로 다른 값(list는 항목마다)이다. enum이면 선언한 값 순서가 앞이고(행이 없는 값도 둔다) 그다음 나머지 값을 수는 크기 순, 글은 code unit 순으로 낸다. `prefix`는 값의 글이나 label이 그것으로 시작하는 후보만 남긴다(ASCII 대소문자 무시). `limit`(기본 50, 최대 200)로 자르고 잘렸으면 `complete`가 false다.
+- **handed_off.** 위반의 키 `(kind, rule, path, section)`가 이 context의 `ContextViolationsHandedOff` event에 든 적이 있으면 true다. 위반이 해소된 뒤 같은 키로 다시 생겨도 true로 남는다.
+- Operator 수는 이 읽기들에 없다(→ lophn-agent/presets).
+
 ## event
 
 | event | subject | payload | 구독(concern) |

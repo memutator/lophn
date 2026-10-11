@@ -31,6 +31,7 @@ import {
   pageCount,
   pageNumbers,
   type ResultColumn,
+  rowKey,
   valueOf,
   visibleRange,
 } from "./search-results-model.ts";
@@ -133,7 +134,7 @@ function Table(
       <DataTable
         columns={tableColumns}
         rows={rows}
-        rowKey={(row) => `${row.path}#${row.section ?? ""}:${row.key}`}
+        rowKey={(row) => rowKey(row)}
         now={now}
         onRetry={onBack}
         empty={{
@@ -200,16 +201,16 @@ function Board(
               piece,
             ) => piece !== "");
             return (
-              <Card key={`${row.path}#${row.section ?? ""}:${row.key}`}>
+              <Card key={rowKey(row)}>
                 <div data-board-card>
                   <p className={styles.cardTitle} data-board-title-line>
                     <button
                       type="button"
                       className={styles.link}
                       data-open-document
-                      onClick={() => onOpenDocument(row.path)}
+                      onClick={() => onOpenDocument(row.ref.path)}
                     >
-                      {row.key}
+                      {row.ref.key}
                     </button>
                     {title !== "" && <Fragment>{` · ${title}`}</Fragment>}
                   </p>

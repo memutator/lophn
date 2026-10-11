@@ -25,10 +25,17 @@ import {
   contextBundlesReadSchema,
   contextContainingReadSchema,
   contextContainingRequestSchema,
+  contextContractReadSchema,
+  contextContractRoute,
   contextCreatedEvent,
   contextCreateRoute,
+  contextDraftReadSchema,
+  contextDraftRoute,
   contextGetReadSchema,
   contextHandOffViolationsRoute,
+  contextInputOptionsReadSchema,
+  contextInputOptionsRequestSchema,
+  contextInputOptionsRoute,
   contextListReadSchema,
   contextListRequestSchema,
   contextOverviewReadSchema,
@@ -46,6 +53,7 @@ import {
   glossaryEntrySchema,
   glossaryEntrySetEvent,
   glossaryListReadSchema,
+  glossaryListRoute,
   glossaryRemoveRoute,
   glossarySetRoute,
   savedViewCreatedEvent,
@@ -55,6 +63,7 @@ import {
   viewDeleteRoute,
   viewSaveRoute,
   viewUpdateRoute,
+  violationItemSchema,
   violationKeySchema,
   violationSchema,
 } from "./context-api.ts";
@@ -162,6 +171,12 @@ const stored = {
   ...ruleViolation,
   message: "Every experiment says its status",
 };
+const ref = {
+  type: "Experiment",
+  key: "001",
+  path: "eval/experiments/exp-001-plan.md",
+  section: null,
+};
 
 function accepts(schema: z.ZodType, value: unknown) {
   const result = schema.safeParse(value);
@@ -191,7 +206,7 @@ function without(value: object, key: string) {
 // deno-fmt-ignore
 const commandPaths = ["/v1/contexts/create", "/v1/contexts/archive", "/v1/contexts/unarchive", "/v1/contexts/save_draft", "/v1/contexts/discard_draft", "/v1/contexts/submit_bundle", "/v1/contexts/record_check", "/v1/contexts/rollback", "/v1/contexts/save_view", "/v1/contexts/update_view", "/v1/contexts/delete_view", "/v1/contexts/record_violations", "/v1/contexts/hand_off_violations", "/v1/terms/set", "/v1/terms/remove"];
 // deno-fmt-ignore
-const readPaths = ["/v1/contexts/list", "/v1/contexts/get", "/v1/contexts/overview", "/v1/contexts/search", "/v1/contexts/violations", "/v1/contexts/bundles", "/v1/contexts/saved_views", "/v1/contexts/containing", "/v1/terms/list"];
+const readPaths = ["/v1/contexts/list", "/v1/contexts/get", "/v1/contexts/overview", "/v1/contexts/contract", "/v1/contexts/draft", "/v1/contexts/search", "/v1/contexts/input_options", "/v1/contexts/violations", "/v1/contexts/bundles", "/v1/contexts/saved_views", "/v1/contexts/containing", "/v1/terms/list"];
 // deno-fmt-ignore
 const eventTypes = ["ContextCreated", "ContextArchived", "ContextUnarchived", "ContextBundleDraftSaved", "ContextBundleDraftDiscarded", "ContextBundleSubmitted", "ContextBundleCheckFailed", "ContextBundleApplied", "ContextBundleRolledBack", "SavedViewCreated", "SavedViewUpdated", "SavedViewDeleted", "ContextViolationsRecorded", "ContextViolationsHandedOff", "GlossaryEntrySet", "GlossaryEntryRemoved"];
 
@@ -351,20 +366,27 @@ Deno.test("documents/contexts#R22 [ctx-S15]: evidence carries paths and sections
     context: ctx,
     search: "running",
     bundle_hash: hash,
-    rows: [{ key: "001", path: "eval/e.md", section: null, values: {} }],
+    total: 1,
+    rows: [{ ref: { ...ref, path: "eval/e.md" }, cells: [] }],
   });
   rejects(contextSearchReadSchema, {
     ...meta,
     context: ctx,
     search: "running",
     bundle_hash: hash,
+    total: 1,
     rows: [{
-      key: "001",
-      path: "eval/e.md",
-      section: null,
-      values: {},
-      version: "ver_x",
+      ref: { ...ref, path: "eval/e.md", version: "ver_x" },
+      cells: [],
     }],
+  });
+  rejects(contextSearchReadSchema, {
+    ...meta,
+    context: ctx,
+    search: "running",
+    bundle_hash: hash,
+    total: 1,
+    rows: [{ ref: { ...ref, path: "eval/e.md" }, cells: [], version: "ver_x" }],
   });
 });
 
@@ -404,7 +426,7 @@ Deno.test("documents/contexts#R24 [ctx-S15]: a stored violation adds the context
   accepts(contextViolationsReadSchema, {
     ...meta,
     context: ctx,
-    violations: [stored],
+    violations: [{ ...stored, handed_off: false }],
   });
   rejects(contextViolationsReadSchema, {
     ...meta,
@@ -414,7 +436,32 @@ Deno.test("documents/contexts#R24 [ctx-S15]: a stored violation adds the context
   rejects(contextViolationsReadSchema, {
     ...meta,
     context: ctx,
-    violations: Array.from({ length: 101 }, () => stored),
+    violations: Array.from(
+      { length: 101 },
+      () => ({ ...stored, handed_off: false }),
+    ),
+  });
+});
+
+Deno.test("documents/contexts#R25 [ctx-S26]: a violation item says whether it was already handed to the Context Engineer", () => {
+  const item = { ...stored, handed_off: true };
+  accepts(violationItemSchema, item);
+  accepts(violationItemSchema, { ...stored, handed_off: false });
+  rejects(violationItemSchema, stored);
+  rejects(violationItemSchema, { ...item, handed_off: "yes" });
+  rejects(violationItemSchema, { ...item, handed_off: null });
+  rejects(violationItemSchema, { ...item, rule: null });
+  rejects(violationItemSchema, { ...item, extra: 1 });
+  rejects(violationItemSchema, without(item, "message"));
+  accepts(contextViolationsReadSchema, {
+    ...meta,
+    context: ctx,
+    violations: [item, { ...stored, handed_off: false }],
+  });
+  rejects(contextViolationsReadSchema, {
+    ...meta,
+    context: ctx,
+    violations: [stored],
   });
 });
 
@@ -695,20 +742,20 @@ Deno.test("documents/contexts#R17 [ctx-S15]: a search continues by cursor and pa
   rejects(contextSearchRequestSchema, { ...call, cursor: "" });
   rejects(contextSearchRequestSchema, { ...call, cursor: 3 });
   const row = {
-    key: "001",
-    path: "eval/experiments/exp-001-plan.md",
-    section: null,
-    values: {
-      status: "done",
-      "scenario.title": "Basic",
-      count: 2,
-      tags: ["a"],
-    },
+    ref,
+    cells: [
+      { path: "key", value: "001", ref },
+      { path: "status", value: "done", ref: null },
+      { path: "scenario.title", value: "Basic", ref: null },
+      { path: "count", value: 2, ref: null },
+      { path: "tags", value: ["a"], ref: null },
+    ],
   };
   const page = {
     context: ctx,
     search: "running",
     bundle_hash: hash,
+    total: 1,
     rows: [row],
   };
   accepts(contextSearchReadSchema, { ...meta, ...page });
@@ -736,25 +783,98 @@ Deno.test("documents/contexts#R17 [ctx-S15]: a search continues by cursor and pa
   });
 });
 
-Deno.test("documents/contexts#R16 [ctx-S15]: a result row holds the key, the file path, the section and the column values", () => {
+Deno.test("documents/contexts#R16 [ctx-S15]: a result row holds the entity ref and one cell per column", () => {
   const page = (row: unknown) => ({
     ...meta,
     context: ctx,
     search: "running",
     bundle_hash: hash,
+    total: 1,
     rows: [row],
   });
-  const row = { key: "001", path: "a/b.md", section: "질문", values: {} };
+  const section = { ...ref, section: "질문" };
+  const row = { ref: section, cells: [] };
   accepts(contextSearchReadSchema, page(row));
-  rejects(contextSearchReadSchema, page(without(row, "key")));
-  rejects(contextSearchReadSchema, page(without(row, "path")));
-  rejects(contextSearchReadSchema, page(without(row, "section")));
-  rejects(contextSearchReadSchema, page(without(row, "values")));
-  rejects(contextSearchReadSchema, page({ ...row, path: "/abs/b.md" }));
-  rejects(contextSearchReadSchema, page({ ...row, values: { "A.b": 1 } }));
-  rejects(contextSearchReadSchema, page({ ...row, values: ["x"] }));
-  rejects(contextSearchReadSchema, page({ ...row, key: "" }));
+  accepts(contextSearchReadSchema, page({ ref, cells: [] }));
+  rejects(contextSearchReadSchema, page(without(row, "ref")));
+  rejects(contextSearchReadSchema, page(without(row, "cells")));
+  rejects(contextSearchReadSchema, page({ ...row, ref: without(ref, "type") }));
+  rejects(contextSearchReadSchema, page({ ...row, ref: without(ref, "key") }));
+  rejects(contextSearchReadSchema, page({ ...row, ref: without(ref, "path") }));
+  rejects(
+    contextSearchReadSchema,
+    page({ ...row, ref: without(ref, "section") }),
+  );
+  rejects(
+    contextSearchReadSchema,
+    page({ ...row, ref: { ...ref, path: "/abs/b.md" } }),
+  );
+  rejects(contextSearchReadSchema, page({ ...row, ref: { ...ref, key: "" } }));
+  rejects(
+    contextSearchReadSchema,
+    page({ ...row, ref: { ...ref, type: "experiment" } }),
+  );
+  // 옛 모양(key, path, section, values)은 더 받지 않는다
+  rejects(
+    contextSearchReadSchema,
+    page({ key: "001", path: "a/b.md", section: null, values: {} }),
+  );
+  rejects(contextSearchReadSchema, page({ ...row, values: {} }));
   rejects(contextSearchReadSchema, without({ ...page(row) }, "bundle_hash"));
+});
+
+Deno.test("documents/contexts#R16 [ctx-S26]: a cell carries the column path, a value and the entity ref of a key column or null", () => {
+  const page = (cell: unknown) => ({
+    ...meta,
+    context: ctx,
+    search: "running",
+    bundle_hash: hash,
+    total: 1,
+    rows: [{ ref, cells: [cell] }],
+  });
+  const alias = { ...ref, type: "Scenario", key: "query-leave-still" };
+  accepts(contextSearchReadSchema, page({ path: "key", value: "001", ref }));
+  accepts(
+    contextSearchReadSchema,
+    page({ path: "scenario.key", value: alias.key, ref: alias }),
+  );
+  accepts(contextSearchReadSchema, page({ path: "x", value: null, ref: null }));
+  accepts(
+    contextSearchReadSchema,
+    page({ path: "tags", value: ["a", 1, null], ref: null }),
+  );
+  rejects(contextSearchReadSchema, page({ path: "x", value: 1 }));
+  rejects(contextSearchReadSchema, page({ value: 1, ref: null }));
+  rejects(contextSearchReadSchema, page({ path: "x", ref: null }));
+  rejects(contextSearchReadSchema, page({ path: "A.b", value: 1, ref: null }));
+  rejects(
+    contextSearchReadSchema,
+    page({ path: "a.b.c", value: 1, ref: null }),
+  );
+  rejects(
+    contextSearchReadSchema,
+    page({ path: "x", value: 1, ref: null, extra: 1 }),
+  );
+  rejects(
+    contextSearchReadSchema,
+    page({ path: "x", value: 1, ref: { ...ref, version: "ver_x" } }),
+  );
+});
+
+Deno.test("documents/contexts#R17 [ctx-S26]: a search page carries the total of all matching rows", () => {
+  const page = {
+    ...meta,
+    context: ctx,
+    search: "running",
+    bundle_hash: hash,
+    rows: [],
+  };
+  accepts(contextSearchReadSchema, { ...page, total: 0 });
+  accepts(contextSearchReadSchema, { ...page, total: 61 });
+  rejects(contextSearchReadSchema, page);
+  rejects(contextSearchReadSchema, { ...page, total: -1 });
+  rejects(contextSearchReadSchema, { ...page, total: 1.5 });
+  rejects(contextSearchReadSchema, { ...page, total: "61" });
 });
 
 Deno.test("documents/contexts#R18 [ctx-S15]: view.save takes a declared search call with fixed inputs", () => {
@@ -1346,17 +1466,17 @@ Deno.test("documents/terms#R8 [ctx-S15]: set and remove events record the term a
 });
 
 Deno.test("documents/terms#R10 [ctx-S15]: the glossary is one read of one context with no cursor and no page", () => {
-  assertEquals(routePath(CONTEXT_API_READ_ROUTES[8]), "/v1/terms/list");
-  assert(CONTEXT_API_READ_ROUTES[8].input.safeParse({ context: ctx }).success);
+  assertEquals(routePath(glossaryListRoute), "/v1/terms/list");
+  assert(glossaryListRoute.input.safeParse({ context: ctx }).success);
   assert(
-    !CONTEXT_API_READ_ROUTES[8].input.safeParse({ context: ctx, cursor: "x" })
+    !glossaryListRoute.input.safeParse({ context: ctx, cursor: "x" })
       .success,
   );
   assert(
-    !CONTEXT_API_READ_ROUTES[8].input.safeParse({ context: ctx, limit: 10 })
+    !glossaryListRoute.input.safeParse({ context: ctx, limit: 10 })
       .success,
   );
-  assert(!CONTEXT_API_READ_ROUTES[8].input.safeParse({}).success);
+  assert(!glossaryListRoute.input.safeParse({}).success);
   accepts(glossaryListReadSchema, { ...meta, context: ctx, entries: [entry] });
   accepts(glossaryListReadSchema, { ...meta, context: ctx, entries: [] });
   rejects(glossaryListReadSchema, {
@@ -1380,4 +1500,228 @@ Deno.test("documents/terms#R9 [ctx-S15]: archiving a context has no glossary fie
       base_revision: "5",
     }),
   );
+});
+
+// ---------- ctx-S26: 화면이 읽는 것 ----------
+
+const contractContent = {
+  schema: 1,
+  contract: {
+    types: [{
+      name: "Experiment",
+      summary: "One run comparing arms on scenarios",
+      visibility: "public",
+      source: {
+        kind: "series",
+        pattern: "eval/experiments/exp-{n:03}-*.md",
+        order: "natural",
+      },
+      key: "id",
+      fields: [{
+        name: "id",
+        from: { kind: "path", capture: "n" },
+        value_type: "string",
+      }],
+      relations: [],
+      rules: [],
+    }],
+  },
+  searches: [],
+  saved_views: [],
+  examples: [],
+};
+
+Deno.test("documents/contexts#R15 [ctx-S26]: context.contract returns the applied bundle's content or nulls when none is applied", () => {
+  const applied = {
+    ...meta,
+    context: ctx,
+    bundle: cbn,
+    bundle_hash: hash,
+    content: contractContent,
+  };
+  accepts(contextContractReadSchema, applied);
+  accepts(contextContractReadSchema, {
+    ...meta,
+    context: ctx,
+    bundle: null,
+    bundle_hash: null,
+    content: null,
+  });
+  // 비어 있는 선택 목록은 기본값으로 채워져 나온다
+  const parsed = contextContractReadSchema.parse({
+    ...applied,
+    content: {
+      schema: 1,
+      contract: contractContent.contract,
+    },
+  });
+  assertEquals(parsed.content?.searches, []);
+  assertEquals(parsed.content?.saved_views, []);
+  assertEquals(parsed.content?.examples, []);
+  rejects(contextContractReadSchema, without(applied, "content"));
+  rejects(contextContractReadSchema, without(applied, "bundle_hash"));
+  rejects(contextContractReadSchema, without(applied, "bundle"));
+  rejects(contextContractReadSchema, { ...applied, content: {} });
+  rejects(contextContractReadSchema, {
+    ...applied,
+    content: { ...contractContent, schema: 2 },
+  });
+  rejects(contextContractReadSchema, {
+    ...applied,
+    content: { ...contractContent, contract: { types: [] } },
+  });
+  rejects(contextContractReadSchema, { ...applied, bundle: "bad" });
+  assertEquals(
+    routePath(
+      CONTEXT_API_READ_ROUTES.find((route) =>
+        route.name === "context.contract"
+      )!,
+    ),
+    "/v1/contexts/contract",
+  );
+  assertEquals(contextContractRoute.actors, ["user", "agent"]);
+  accepts(contextContractRoute.input, { context: ctx });
+  rejects(contextContractRoute.input, {});
+  rejects(contextContractRoute.input, { context: ctx, bundle: cbn });
+});
+
+Deno.test("documents/contexts#R19 [ctx-S26]: context.draft returns the drafting step with the current bundle and its content, or null", () => {
+  const draft = {
+    step: 2,
+    bundle: draftBundle,
+    content: { schema: 1, contract: { types: [] } },
+    check: null,
+  };
+  const read = { ...meta, context: ctx, draft };
+  accepts(contextDraftReadSchema, read);
+  accepts(contextDraftReadSchema, { ...meta, context: ctx, draft: null });
+  accepts(contextDraftReadSchema, {
+    ...read,
+    draft: { step: 1, bundle: null, content: null, check: null },
+  });
+  accepts(contextDraftReadSchema, {
+    ...read,
+    draft: {
+      step: 3,
+      bundle: { ...appliedBundle, status: "checking" },
+      content: draft.content,
+      check: {
+        ...passedCheck,
+        status: "running",
+        snapshot_hash: null,
+        violation_count: null,
+        finished_at: null,
+      },
+    },
+  });
+  accepts(contextDraftReadSchema, {
+    ...read,
+    draft: {
+      step: 2,
+      bundle: { ...appliedBundle, status: "failed" },
+      content: draft.content,
+      check: failedCheck,
+    },
+  });
+  // 4단계(적용)는 없다: 적용되면 context가 active이고 draft는 null이다
+  rejects(contextDraftReadSchema, { ...read, draft: { ...draft, step: 4 } });
+  rejects(contextDraftReadSchema, { ...read, draft: { ...draft, step: 0 } });
+  rejects(contextDraftReadSchema, { ...read, draft: { ...draft, step: "2" } });
+  rejects(contextDraftReadSchema, { ...read, draft: without(draft, "step") });
+  rejects(contextDraftReadSchema, { ...read, draft: without(draft, "bundle") });
+  rejects(contextDraftReadSchema, {
+    ...read,
+    draft: without(draft, "content"),
+  });
+  rejects(contextDraftReadSchema, { ...read, draft: without(draft, "check") });
+  rejects(contextDraftReadSchema, {
+    ...read,
+    draft: { ...draft, content: [] },
+  });
+  rejects(contextDraftReadSchema, {
+    ...read,
+    draft: { ...draft, content: { f: () => 1 } },
+  });
+  rejects(contextDraftReadSchema, { ...read, draft: { ...draft, extra: 1 } });
+  rejects(contextDraftReadSchema, without(read, "draft"));
+  assertEquals(contextDraftRoute.actors, ["user", "agent"]);
+  accepts(contextDraftRoute.input, { context: ctx });
+  rejects(contextDraftRoute.input, {});
+});
+
+Deno.test("documents/contexts#R15 [ctx-S26]: context.input_options takes a declared search input with an optional prefix and a capped limit", () => {
+  const call = {
+    context: ctx,
+    search: "findings_about_change",
+    input: "change",
+  };
+  accepts(contextInputOptionsRequestSchema, call);
+  accepts(contextInputOptionsRequestSchema, { ...call, prefix: "" });
+  accepts(contextInputOptionsRequestSchema, { ...call, prefix: "C-04" });
+  accepts(contextInputOptionsRequestSchema, { ...call, limit: 1 });
+  accepts(contextInputOptionsRequestSchema, { ...call, limit: 200 });
+  rejects(contextInputOptionsRequestSchema, { ...call, limit: 0 });
+  rejects(contextInputOptionsRequestSchema, { ...call, limit: 201 });
+  rejects(contextInputOptionsRequestSchema, { ...call, limit: 1.5 });
+  rejects(contextInputOptionsRequestSchema, { ...call, limit: "5" });
+  rejects(contextInputOptionsRequestSchema, { ...call, prefix: 4 });
+  rejects(contextInputOptionsRequestSchema, {
+    ...call,
+    prefix: "x".repeat(201),
+  });
+  rejects(contextInputOptionsRequestSchema, without(call, "context"));
+  rejects(contextInputOptionsRequestSchema, without(call, "search"));
+  rejects(contextInputOptionsRequestSchema, without(call, "input"));
+  rejects(contextInputOptionsRequestSchema, { ...call, search: "Findings" });
+  rejects(contextInputOptionsRequestSchema, { ...call, input: "Change" });
+  rejects(contextInputOptionsRequestSchema, { ...call, cursor: "x" });
+  assertEquals(contextInputOptionsRoute.actors, ["user", "agent"]);
+});
+
+Deno.test("documents/contexts#R15 [ctx-S26]: context.input_options returns candidates with a value and a label and says whether it was cut", () => {
+  const read = {
+    ...meta,
+    context: ctx,
+    search: "findings_about_change",
+    input: "change",
+    options: [
+      { value: "c-049", label: "C-049 · load the world first" },
+      { value: 3, label: "3" },
+      { value: true, label: "true" },
+    ],
+    complete: true,
+  };
+  accepts(contextInputOptionsReadSchema, read);
+  accepts(contextInputOptionsReadSchema, {
+    ...read,
+    options: [],
+    complete: false,
+  });
+  rejects(contextInputOptionsReadSchema, without(read, "complete"));
+  rejects(contextInputOptionsReadSchema, without(read, "options"));
+  rejects(contextInputOptionsReadSchema, without(read, "input"));
+  rejects(contextInputOptionsReadSchema, {
+    ...read,
+    options: [{ value: null, label: "x" }],
+  });
+  rejects(contextInputOptionsReadSchema, {
+    ...read,
+    options: [{ value: ["a"], label: "x" }],
+  });
+  rejects(contextInputOptionsReadSchema, {
+    ...read,
+    options: [{ value: "a", label: " " }],
+  });
+  rejects(contextInputOptionsReadSchema, {
+    ...read,
+    options: [{ value: "a" }],
+  });
+  rejects(contextInputOptionsReadSchema, {
+    ...read,
+    options: [{ value: "a", label: "a", extra: 1 }],
+  });
+  rejects(contextInputOptionsReadSchema, {
+    ...read,
+    options: Array.from({ length: 201 }, () => ({ value: "a", label: "a" })),
+  });
 });

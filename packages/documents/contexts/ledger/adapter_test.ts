@@ -14,9 +14,12 @@ import {
   contextArchiveRoute,
   contextBundlesRoute,
   contextContainingRoute,
+  contextContractRoute,
   contextCreateRoute,
+  contextDraftRoute,
   contextGetRoute,
   contextHandOffViolationsRoute,
+  contextInputOptionsRoute,
   contextListRoute,
   contextOverviewRoute,
   contextRecordViolationsRoute,
@@ -44,10 +47,12 @@ import { createContextApiReads } from "../api/reads.ts";
 import type { ContextApiState, EntityRow } from "../api/state.ts";
 import {
   actors,
+  entity,
   id,
   ids,
   minimalContent,
   newState,
+  optionsContent,
   testDeps,
   violation,
 } from "../api/testing.ts";
@@ -95,6 +100,7 @@ interface Api {
   ): Result<Output<R>>;
   // derived 저장소(위반, 개체)에 심는다.
   seedViolations(context: string, rows: StoredViolation[]): void;
+  seedEntities(context: string, rows: EntityRow[]): void;
   seedProject(project: string, archived: boolean): void;
   readonly transcript: unknown[];
   events(): Seen[];
@@ -131,7 +137,10 @@ function memoryApi(): Api & { state: ContextApiState } {
     "context.list": reads.contextList,
     "context.get": reads.contextGet,
     "context.overview": reads.contextOverview,
+    "context.contract": reads.contextContract,
+    "context.draft": reads.contextDraft,
     "context.search": reads.contextSearch,
+    "context.input_options": reads.contextInputOptions,
     "context.violations": reads.contextViolations,
     "context.bundles": reads.contextBundles,
     "context.saved_views": reads.contextSavedViews,
@@ -163,6 +172,7 @@ function memoryApi(): Api & { state: ContextApiState } {
       return result;
     },
     seedViolations: (context, rows) => state.violations.set(context, rows),
+    seedEntities: (context, rows) => state.entities.set(context, rows),
     seedProject: (project, archived) =>
       state.projects.set(project, { id: project, archived }),
     events: () =>
@@ -259,6 +269,7 @@ function sqlApi(
       return result;
     },
     seedViolations: (context, rows) => violations.set(context, rows),
+    seedEntities: (context, rows) => entities.set(context, rows),
     seedProject: (project, archived) =>
       ledger.seedProject(project, archived ? "archived" : "active"),
     events: () =>
@@ -1464,6 +1475,289 @@ Deno.test("documents/contexts#R3 [ctx-I34a]: events another concern emits inside
       sql.ledger.sql.get("SELECT revision FROM contexts", []),
       { revision: applied[0] },
     );
+  } finally {
+    sql.ledger.close();
+  }
+});
+
+// ---------- ctx-S26: 화면이 읽는 것 ----------
+
+const FAILED_CHECK = [{
+  kind: "example_mismatch" as const,
+  target: "examples/0",
+  detail: "expected exp-001 first",
+}];
+
+// drafting context가 읽기 → 초안 → 검사 → 실패 → 다시 초안 → 적용까지 가는 동안 새 읽기들을 부른다.
+function screenReads(api: Api) {
+  const context = ids.context;
+  const draftRead = () => api.read(contextDraftRoute, "user", { context });
+  createContext(api);
+  draftRead();
+  api.read(contextContractRoute, "user", { context });
+  const first = value(api.command(bundleSaveDraftRoute, "engineer", {
+    context,
+    content: { schema: 1, contract: { types: [] }, note: "unfinished" },
+  }));
+  draftRead();
+  const content = minimalContent({ examples: [] });
+  const draft = value(api.command(bundleSaveDraftRoute, "engineer", {
+    context,
+    bundle: first.id,
+    content,
+  }, { base_revision: first.revision }));
+  draftRead();
+  const submitted = value(
+    api.command(bundleSubmitRoute, "engineer", { bundle: draft.id }),
+  );
+  draftRead();
+  value(api.command(bundleFinishCheckRoute, "worker", {
+    check: submitted.check!,
+    result: "failed",
+    bundle_hash: submitted.bundle_hash!,
+    snapshot_hash: SNAPSHOT,
+    findings: FAILED_CHECK,
+    violation_count: 0,
+  }));
+  draftRead();
+  applyBundle(api, context, optionsContent());
+  draftRead();
+  api.read(contextContractRoute, "user", { context });
+  api.read(contextContractRoute, "engineer", { context });
+  api.read(contextContractRoute, "codingAgent", { context });
+  api.read(contextDraftRoute, "user", { context: ids.missingContext });
+  api.read(contextContractRoute, "user", { context: ids.missingContext });
+
+  api.seedEntities(context, [
+    entity("Experiment", "003", {
+      title: "Third",
+      status: "weird",
+      round: 10,
+      tags: ["x", "y"],
+    }),
+    entity("Experiment", "001", {
+      title: "First",
+      status: "done",
+      round: 2,
+      tags: ["y", "a"],
+    }),
+    entity("Experiment", "002", { status: "running", round: 2 }),
+    entity("Scenario", "s-1", { title: "Not an experiment" }),
+  ]);
+  const options = (input: string, extra: Record<string, unknown> = {}) =>
+    api.read(contextInputOptionsRoute, "user", {
+      context,
+      search: "experiment_picker",
+      input,
+      ...extra,
+    });
+  options("experiment");
+  options("experiment", { prefix: "fi" });
+  options("experiment", { limit: 2 });
+  options("status");
+  options("status", { prefix: "RUN" });
+  options("title");
+  options("round");
+  options("tag");
+  options("note");
+  options("window");
+  options("nope");
+  api.read(contextInputOptionsRoute, "user", {
+    context,
+    search: "nope",
+    input: "status",
+  });
+  api.read(contextInputOptionsRoute, "codingAgent", {
+    context,
+    search: "experiment_picker",
+    input: "status",
+  });
+  api.read(contextInputOptionsRoute, "user", {
+    context: ids.missingContext,
+    search: "experiment_picker",
+    input: "status",
+  });
+
+  api.seedViolations(context, [
+    violation({ path: "docs/a.md" }),
+    violation({ path: "docs/b.md" }),
+    violation({ path: "docs/c.md", section: "Intro" }),
+  ]);
+  const violations = () =>
+    api.read(contextViolationsRoute, "user", { context });
+  violations();
+  value(api.command(contextHandOffViolationsRoute, "user", {
+    context,
+    violations: [
+      {
+        kind: "rule",
+        rule: "Experiment.status-required",
+        path: "docs/b.md",
+        section: null,
+      },
+      {
+        kind: "rule",
+        rule: "Experiment.status-required",
+        path: "docs/c.md",
+        section: "Intro",
+      },
+    ],
+  }));
+  violations();
+  api.read(contextViolationsRoute, "user", { context, limit: 1 });
+}
+
+Deno.test("documents/contexts#R15 [ctx-S26]: the context.contract, context.draft and context.input_options reads and the handed_off flag give the same results as the handlers", () => {
+  finished(screenReads, (sql) => {
+    type Logged = {
+      call: string;
+      result: {
+        ok: boolean;
+        value?: {
+          draft?: { step: number } | null;
+          content?: { searches: { name: string }[] } | null;
+          violations?: { handed_off: boolean }[];
+        };
+      };
+    };
+    const reads = sql.transcript as Logged[];
+    const of = (name: string) =>
+      reads.filter((entry) => entry.call === `${name} by user`);
+    // 적용 전 draft 읽기: 1 → 2 → 2 → 3 → 2(failed) → null(적용됨)
+    const steps = of("context.draft").map((entry) =>
+      entry.result.value?.draft?.step ?? entry.result.value?.draft ?? null
+    );
+    assertEquals(steps, [1, 2, 2, 3, 2, null, null]);
+    const contracts = of("context.contract");
+    assertEquals(contracts[0].result.value?.content, null);
+    assertEquals(
+      contracts[1].result.value?.content?.searches[0].name,
+      "experiment_picker",
+    );
+    const flags = of("context.violations").map((entry) =>
+      entry.result.value?.violations?.map((item) => item.handed_off)
+    );
+    assertEquals(flags, [[false, false, false], [false, true, true], [false]]);
+  });
+});
+
+Deno.test("documents/contexts#R16 [ctx-S26]: context.search gives the total and passes the executor's refs and cells through", () => {
+  const ref = {
+    type: "Experiment",
+    key: "001",
+    path: "eval/experiments/exp-001-plan.md",
+    section: null,
+  };
+  const rows = ["001", "002", "003"].map((key) => ({
+    ref: { ...ref, key },
+    cells: [{ path: "key", value: key, ref: { ...ref, key } }],
+  }));
+  const sql = sqlApi({}, () => ({ execute: () => rows }));
+  try {
+    createContext(sql);
+    applyBundle(sql, ids.context);
+    const read = value(sql.read(contextSearchRoute, "user", {
+      context: ids.context,
+      search: "experiment_by_key",
+      inputs: { experiment: "001" },
+    }));
+    assertEquals(read.total, 3);
+    assertEquals(read.rows, rows.slice(0, 2));
+    assertEquals(read.complete, false);
+  } finally {
+    sql.ledger.close();
+  }
+});
+
+Deno.test("documents/contexts#R19 [ctx-S26]: context.draft reads only the blob of the bundle in progress and context.contract only the applied one", () => {
+  const sql = sqlApi();
+  try {
+    createContext(sql);
+    const failed = value(sql.command(bundleSaveDraftRoute, "engineer", {
+      context: ids.context,
+      content: minimalContent(),
+    }));
+    const submitted = value(
+      sql.command(bundleSubmitRoute, "engineer", { bundle: failed.id }),
+    );
+    value(sql.command(bundleFinishCheckRoute, "worker", {
+      check: submitted.check!,
+      result: "failed",
+      bundle_hash: submitted.bundle_hash!,
+      snapshot_hash: SNAPSHOT,
+      findings: FAILED_CHECK,
+      violation_count: 0,
+    }));
+    const draft = value(sql.command(bundleSaveDraftRoute, "engineer", {
+      context: ids.context,
+      content: optionsContent(),
+    }));
+    // draft가 있으면 그것만, 없으면 마지막 failed 판 하나만 읽는다
+    let mark = sql.blobReads.length;
+    const withDraft = value(
+      sql.read(contextDraftRoute, "user", { context: ids.context }),
+    );
+    assertEquals(sql.blobReads.length - mark, 1);
+    assertEquals(withDraft.draft?.bundle?.id, draft.id);
+    assertEquals(withDraft.draft?.content, optionsContent());
+    value(sql.command(bundleDiscardDraftRoute, "engineer", {
+      bundle: draft.id,
+    }, { base_revision: draft.revision }));
+    mark = sql.blobReads.length;
+    const afterFailure = value(
+      sql.read(contextDraftRoute, "user", { context: ids.context }),
+    );
+    assertEquals(sql.blobReads.length - mark, 1);
+    assertEquals(afterFailure.draft?.bundle?.id, failed.id);
+    assertEquals(afterFailure.draft?.step, 2);
+    assertEquals(afterFailure.draft?.check?.status, "failed");
+    // 적용된 판이 없는 context의 contract는 blob을 읽지 않는다
+    mark = sql.blobReads.length;
+    const none = value(
+      sql.read(contextContractRoute, "user", { context: ids.context }),
+    );
+    assertEquals(none.content, null);
+    assertEquals(sql.blobReads.length - mark, 0);
+    applyBundle(sql, ids.context);
+    mark = sql.blobReads.length;
+    value(sql.read(contextContractRoute, "user", { context: ids.context }));
+    assertEquals(sql.blobReads.length - mark, 1);
+    // 적용되면 draft는 null이고 content blob도 읽지 않는다
+    mark = sql.blobReads.length;
+    assertEquals(
+      value(sql.read(contextDraftRoute, "user", { context: ids.context }))
+        .draft,
+      null,
+    );
+    assertEquals(sql.blobReads.length - mark, 0);
+  } finally {
+    sql.ledger.close();
+  }
+});
+
+Deno.test("documents/contexts#R25 [ctx-S26]: handed_off survives in the ledger events table and ignores other contexts' hand-offs", () => {
+  const sql = sqlApi();
+  try {
+    createContext(sql);
+    applyBundle(sql, ids.context);
+    createContext(sql, { id: ids.otherContext, title: "Other" });
+    applyBundle(sql, ids.otherContext);
+    sql.seedViolations(ids.context, [violation({ path: "docs/a.md" })]);
+    sql.seedViolations(ids.otherContext, [
+      violation({ path: "docs/a.md", context: ids.otherContext }),
+    ]);
+    value(sql.command(contextHandOffViolationsRoute, "user", {
+      context: ids.otherContext,
+    }));
+    const flagsOf = (context: string) =>
+      value(sql.read(contextViolationsRoute, "user", { context })).violations
+        .map((item) => item.handed_off);
+    assertEquals(flagsOf(ids.context), [false]);
+    assertEquals(flagsOf(ids.otherContext), [true]);
+    value(sql.command(contextHandOffViolationsRoute, "user", {
+      context: ids.context,
+    }));
+    assertEquals(flagsOf(ids.context), [true]);
   } finally {
     sql.ledger.close();
   }

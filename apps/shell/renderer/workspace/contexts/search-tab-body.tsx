@@ -56,7 +56,7 @@ export function SearchBody(props: SearchBodyProps): ReactNode {
       for (const [index, input] of pickInputs(search).entries()) {
         const read = reads[index]!;
         if (!read.ok) return read;
-        map[input.name] = read.value;
+        map[input.name] = read.value.options;
       }
       return { ok: true, value: map };
     },

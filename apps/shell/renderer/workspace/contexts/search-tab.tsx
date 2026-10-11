@@ -67,7 +67,9 @@ export function SearchTab(props: SearchTabProps): ReactNode {
     state.context,
     async () => {
       const read = await source.contract(state.context);
-      return read.ok ? { ok: true, value: read.value?.searches ?? [] } : read;
+      return read.ok
+        ? { ok: true, value: read.value.content?.searches ?? [] }
+        : read;
     },
   );
   const views = useRead(state.context, () => source.savedViews(state.context));

@@ -4,16 +4,17 @@ import { useId, useState } from "react";
 import { Icon, iconPixels, lophnSpaceIcons } from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
-import type { PickOption } from "./source.ts";
+import type { OptionValue, PickOption } from "./source.ts";
 import styles from "./search-input-form.module.css";
 
 export interface PickComboboxProps {
   /** label[for]가 가리키는 칸의 id. */
   readonly inputId: string;
   readonly options: readonly PickOption[];
-  /** 지금 고른 후보 value. 없으면 빈 글자. */
-  readonly value: string;
-  readonly onPick: (value: string) => void;
+  /** 지금 고른 후보 value(후보의 타입 그대로). 없으면 빈 글자. */
+  readonly value: OptionValue;
+  /** 고른 후보의 value를 타입 그대로 알린다. 칸을 비우면 빈 글자(""). */
+  readonly onPick: (value: OptionValue) => void;
 }
 
 export function PickCombobox(
@@ -26,7 +27,7 @@ export function PickCombobox(
   const [active, setActive] = useState(0);
 
   const selected = options.find((option) => option.value === value);
-  const text = draft ?? selected?.label ?? value;
+  const text = draft ?? selected?.label ?? String(value);
   const query = (draft ?? "").trim().toLowerCase();
   const shown = query === ""
     ? options
@@ -99,7 +100,7 @@ export function PickCombobox(
               )
               : shown.map((option, index) => (
                 <div
-                  key={option.value}
+                  key={`${typeof option.value}:${option.value}`}
                   id={`${listId}-${index}`}
                   role="option"
                   aria-selected={index === current}

@@ -20,7 +20,7 @@ import {
   violationKey,
 } from "./context-violations-model.ts";
 import styles from "./context-violations.module.css";
-import type { ContextsSource, StoredViolation } from "./source.ts";
+import type { ContextsSource, ViolationItem } from "./source.ts";
 import type { OpenDocument } from "./shared.ts";
 
 export interface ContextViolationsProps {
@@ -36,9 +36,10 @@ type Load =
   | { readonly state: "failed" }
   | {
     readonly state: "ready";
-    readonly violations: readonly StoredViolation[];
-    /** 이미 넘긴 위반의 keyText. */
-    readonly handedOff: ReadonlySet<string>;
+    /** 줄마다 handed_off를 가진다: 읽을 때 이미 넘긴 줄은 true다. */
+    readonly violations: readonly ViolationItem[];
+    /** 이 화면에서 방금 넘겨 읽은 값에 아직 반영되지 않은 위반의 keyText. */
+    readonly sent: ReadonlySet<string>;
   };
 
 export function ContextViolations(
@@ -60,7 +61,7 @@ export function ContextViolations(
             ? {
               state: "ready",
               violations: sortViolations(result.value.violations),
-              handedOff: new Set(result.value.handed_off.map(keyText)),
+              sent: new Set(),
             }
             : { state: "failed" },
         );
@@ -76,7 +77,7 @@ export function ContextViolations(
 
   // 넘긴 줄만 상태 글로 바꾼다. 실패하면 줄은 그대로고 오류 글만 보인다.
   const handOff = useCallback(
-    async (violations: readonly StoredViolation[] | null) => {
+    async (violations: readonly ViolationItem[] | null) => {
       setSending(true);
       setSendFailed(false);
       let succeeded = false;
@@ -97,11 +98,11 @@ export function ContextViolations(
       }
       setLoad((previous) => {
         if (previous.state !== "ready") return previous;
-        const handedOff = new Set(previous.handedOff);
+        const sent = new Set(previous.sent);
         for (const violation of violations ?? previous.violations) {
-          handedOff.add(keyText(violation));
+          sent.add(keyText(violation));
         }
-        return { ...previous, handedOff };
+        return { ...previous, sent };
       });
     },
     [source, context],
@@ -121,9 +122,9 @@ export function ContextViolations(
       <p className={styles.empty}>{t("contexts.empty.violations-none")}</p>
     );
   }
-  const pending = load.violations.some((violation) =>
-    !load.handedOff.has(keyText(violation))
-  );
+  const handedOff = (violation: ViolationItem) =>
+    violation.handed_off || load.sent.has(keyText(violation));
+  const pending = load.violations.some((violation) => !handedOff(violation));
   return (
     <div>
       {pending && (
@@ -169,7 +170,7 @@ export function ContextViolations(
                 </p>
               )}
             </div>
-            {load.handedOff.has(keyText(violation))
+            {handedOff(violation)
               ? (
                 <span className={styles.status} data-violation-status>
                   {t("contexts.label.violations-on-it")}

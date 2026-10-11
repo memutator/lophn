@@ -37,7 +37,6 @@ const OPERATIONS = [
   "outline.root",
   "search.query",
   "search.status",
-  "view.open",
 ];
 
 const TEXT = [

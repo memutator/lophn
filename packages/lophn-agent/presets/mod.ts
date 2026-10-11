@@ -28,6 +28,7 @@ export {
   BUILTIN_ROLES,
   type BuiltinRole,
   CONTEXT_ENGINEER_BUNDLE,
+  CONTEXT_LOOKUP_BUNDLE,
   productPresetDefinition,
   type ProductRole,
 } from "./defaults.ts";

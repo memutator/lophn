@@ -136,8 +136,9 @@ context의 계약·검색·위반·용어집의 값은 → documents/contexts, d
 | `context.list` | `read` | documents/contexts 목록 읽기(모든 project) | project(선택); active context의 id·이름·목적·project(최대 20개)·이어 읽기; project가 없으면 읽을 수 있는 모든 project를 `project.list`로 모아 project마다 `context.list`를 읽는다 | lophn |
 | `context.overview` | `read` | documents/contexts overview, documents/terms 용어집 읽기 | context; 목적과 prompt 자료와 같은 글(type·뜻·개수, type 사이 관계, 용어집); 적용된 판이 없으면 `not_found` | lophn |
 | `context.containing` | `read` | documents/contexts 문서 경로를 덮는 context | project·문서 경로; 적용된 판의 Source가 그 경로를 덮는 active context와 type 이름 | lophn |
+| `context.create` | `write` | documents/contexts context 생성 | project·title·purpose; 새 context의 id·project·title·purpose; context ID는 최초 ToolCall ID에서 정해져 재전송이 둘째 context를 만들지 않음; 계약은 만들지 않고 `context.draft`가 잇는다 | Context Engineer |
 | `context.read_contract` | `read` | documents/contexts 계약·초안 읽기 | context; 적용된 판과 초안 | Context Engineer |
-| `context.draft` | `write` | documents/contexts 초안 쓰기 | 계약·검색·예시·saved view 초안; 초안 기준(CAS) | Context Engineer |
+| `context.draft` | `write` | documents/contexts 초안 쓰기 | 계약·검색·예시·saved view 초안(입력 schema는 계약 값의 schema를 그대로 보인다); 초안 기준(CAS) | Context Engineer |
 | `context.preview` | `read` | documents/contexts 지금 파일로 추출·위반 확인 | 초안 기준; 개체 수·위반 목록·예시 결과; 적용하지 않음 | Context Engineer |
 | `context.submit` | `write` | documents/contexts 판 제출 | 초안 기준; 판 hash·check 결과·위반; 통과한 판의 적용은 documents/contexts | Context Engineer |
 | `context.violations` | `read` | documents/contexts 위반 읽기 | context; 위반 목록(문서 경로·규칙) | Context Engineer |

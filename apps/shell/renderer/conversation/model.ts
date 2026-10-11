@@ -228,10 +228,12 @@ export function visualSaveState(
       message.actor === "agent" && message.run === request.run
     )
     .flatMap((message) => message.results)
-    .map((link) => ({
-      document: link.document,
-      version: link.kind === "version" ? link.version : null,
-    }));
+    .flatMap((link) =>
+      link.kind === "context" ? [] : [{
+        document: link.document,
+        version: link.kind === "version" ? link.version : null,
+      }]
+    );
   if (links.length > 0) return { state: "saved", links };
   const run = runs.find((item) => item.id === request.run);
   return run?.state === "finished"

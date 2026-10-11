@@ -4,6 +4,7 @@
 // context 상태를 바꾸지 않는다. 구현은 ctx-I57이 한다. core는 `ContractCall` fake이고 네트워크·model은
 // 부르지 않는다.
 import { assert, assertEquals, assertNotEquals } from "@std/assert";
+import { z } from "zod";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   BUILTIN_TOOLS,
@@ -45,11 +46,12 @@ const READ_NAMES = [
   N.readViolations,
   N.glossaryRead,
 ];
-const WRITE_NAMES = [N.draft, N.submit, N.glossaryWrite];
+const WRITE_NAMES = [N.create, N.draft, N.submit, N.glossaryWrite];
 const ALL_NAMES = [...READ_NAMES, ...WRITE_NAMES];
 
 // 이 contract들은 Context Engineer 말고는 열리지 않는 쓰기·초안·미리보기다.
 const ENGINEER_ONLY_CONTRACTS = [
+  "context.create",
   "bundle.save_draft",
   "bundle.submit",
   "glossary.set",
@@ -59,6 +61,20 @@ const ENGINEER_ONLY_CONTRACTS = [
 ];
 
 // ---- fixture: fake core ----
+
+// schema 안에서 `command`라는 칸을 가진 object마다 그 object의 `kind` 상수를 모은다.
+function commandKeyOwners(node: unknown, owners: string[] = []): string[] {
+  if (Array.isArray(node)) {
+    for (const item of node) commandKeyOwners(item, owners);
+  } else if (typeof node === "object" && node !== null) {
+    const properties = (node as Record<string, any>)["properties"];
+    if (properties !== undefined && "command" in properties) {
+      owners.push(String(properties["kind"]?.["const"]));
+    }
+    for (const value of Object.values(node)) commandKeyOwners(value, owners);
+  }
+  return owners;
+}
 
 type Seen = {
   contract: string;
@@ -74,6 +90,7 @@ function world() {
   const state = {
     applied: { bundle: APPLIED, hash: HASH, content: CONTENT },
     files: ["recipes/pie.md", "recipes/stew.md"],
+    contexts: [] as { id: string; project: string }[],
     draft: null as null | {
       bundle: string;
       content: unknown;
@@ -114,6 +131,21 @@ function world() {
       seen.push({ contract, input: body, run, options });
       const reply = (value: unknown) => Promise.resolve(ok(value));
       switch (contract) {
+        case "context.create": {
+          const created = {
+            id: body["id"] as string,
+            project: body["project"] as string,
+            title: body["title"] as string,
+            purpose: body["purpose"] as string,
+            status: "drafting",
+            applied_bundle: null,
+            revision: "1",
+          };
+          if (!state.contexts.some((c) => c.id === created.id)) {
+            state.contexts.push(created);
+          }
+          return reply(created);
+        }
         case "context.contract":
           return reply({
             ...meta,
@@ -362,7 +394,7 @@ function listedFor(role: string): readonly ToolDefinition[] {
 
 // ---- R23: 정의와 분류 ----
 
-Deno.test("lophn-agent/harness/tools#R23 [ctx-I57]: Context Engineer tool은 읽기 넷과 쓰기 셋이고 초안 쓰기·제출·용어집 쓰기만 write이며 매번 묻지 않는다", () => {
+Deno.test("lophn-agent/harness/tools#R23 [ctx-I57]: Context Engineer tool은 읽기 넷과 쓰기 넷이고 context 생성·초안 쓰기·제출·용어집 쓰기만 write이며 매번 묻지 않는다", () => {
   assertEquals(
     CONTEXT_ENGINEER_TOOLS.map((d) => d.name).sort(),
     [...ALL_NAMES].sort(),
@@ -387,6 +419,7 @@ Deno.test("lophn-agent/harness/tools#R23 [ctx-I57]: Context Engineer tool은 읽
   assertEquals(
     Object.fromEntries(CONTEXT_ENGINEER_TOOLS.map((d) => [d.name, d.contract])),
     {
+      [N.create]: "context.create",
       [N.readContract]: "context.contract",
       [N.preview]: CONTEXT_PREVIEW_CONTRACT,
       [N.readViolations]: "context.violations",
@@ -414,7 +447,9 @@ Deno.test("lophn-agent/roles/context-engineer#R5 [ctx-I57]: Context Engineer too
   const save = CONTEXT_ENGINEER_TOOLS.find((d) => d.name === N.draft)!;
   const schema = JSON.stringify(save.inputSchema ?? {});
   assert(schema.includes("content"));
-  assertEquals(/command|shell|script|\"code\"/.test(schema), false);
+  assertEquals(/shell|script|\"code\"/.test(schema), false);
+  // `command`는 app-data Source가 읽을 앱 read command의 이름을 적는 선언 칸으로만 있다(실행 통로가 아니다).
+  assertEquals(commandKeyOwners(save.inputSchema ?? {}), ["app-data"]);
   // Context Engineer 목록 전체(공통 읽기 포함)에도 금지 통로나 앱 command 실행이 없다.
   const listed = listedFor("context_engineer");
   assert(listed.length > CONTEXT_ENGINEER_TOOLS.length);
@@ -846,4 +881,159 @@ Deno.test("lophn-agent/roles/context-engineer#R11 [ctx-I57]: 이미 있는 항�
     );
   }
   assertEquals(box.core.seen.length, 3);
+});
+
+// ---- R23: context 만들기 ----
+
+Deno.test("lophn-agent/harness/tools#R23 [ctx-I58f]: context 생성 tool은 Context Engineer에게만 열리는 write이고 입력은 project·title·purpose뿐이다", async () => {
+  const definition = CONTEXT_ENGINEER_TOOLS.find((d) => d.name === N.create)!;
+  assertEquals(definition.name, "context.create");
+  assertEquals(definition.effect, "write");
+  assertEquals(definition.contract, "context.create");
+  assertEquals(definition.confirm, false);
+  assertEquals(definition.origin, "builtin");
+  const schema = definition.inputSchema as Record<string, any>;
+  assertEquals(Object.keys(schema["properties"]).sort(), [
+    "project",
+    "purpose",
+    "title",
+  ]);
+  assertEquals([...schema["required"]].sort(), ["project", "purpose", "title"]);
+  // id는 model이 정하지 않는다.
+  assertEquals(
+    definition.input.safeParse({
+      id: CTX,
+      project: id("prj", 1),
+      title: "Recipes",
+      purpose: "p",
+    }).success,
+    false,
+  );
+  assertEquals(
+    definition.input.safeParse({
+      project: id("prj", 1),
+      title: "  ",
+      purpose: "p",
+    })
+      .success,
+    false,
+  );
+
+  // 역할 상한은 Context Engineer에게만 연다: 다른 세 역할의 상한·목록·operation에 없다.
+  assert(capNames("context_engineer").includes(N.create));
+  assert(
+    listedFor("context_engineer").some((d) => d.name === N.create),
+  );
+  for (const role of ["lophn", "app_engineer", "operator"]) {
+    assert(!capNames(role).includes(N.create), role);
+    assert(!listedFor(role).some((d) => d.name === N.create), role);
+    assert(!runOperations(listedFor(role)).includes("context.create"), role);
+  }
+  // 다른 역할의 run에서 불러도 core를 부르기 전에 막힌다.
+  const core = world();
+  const handlers = createContextEngineerToolHandlers(core.ports);
+  const blocked = await executeTool(
+    {
+      listed: CONTEXT_ENGINEER_TOOLS,
+      handlers,
+      credential: credential(listedFor("lophn")),
+    },
+    N.create,
+    { project: id("prj", 1), title: "Recipes", purpose: "p" },
+  );
+  assertEquals(blocked.executed, false);
+  assertEquals(core.seen, []);
+});
+
+Deno.test("lophn-agent/harness/tools#R23 [ctx-I58f]: context 생성 handler는 core의 context.create를 project·title·purpose와 최초 ToolCall ID에서 정한 id로 한 번 부르고 재전송이 둘째 context를 만들지 않는다", async () => {
+  const box = engineer();
+  const PROJECT = id("prj", 1);
+  const input = { project: PROJECT, title: "Recipes", purpose: "Keep recipes" };
+  const first = await box.run(N.create, input, id("tcl", 7));
+  assertEquals(first.outcome.kind, "success");
+  assertEquals(first.effect, "write");
+  assertEquals(box.core.seen.length, 1);
+  const call = box.core.seen[0]!;
+  assertEquals(call.contract, "context.create");
+  assertEquals(call.run, RUN);
+  assert(/^ctx_[0-9a-hjkmnp-tv-z]{26}$/.test(call.input["id"] as string));
+  const { id: _id, ...rest } = call.input;
+  assertEquals(rest, input);
+  assertEquals(call.options?.idempotency_key, id("tcl", 7));
+  // 결과에 새 context의 id가 있다.
+  assertEquals(
+    (first.result.content as Record<string, any>)["id"],
+    call.input["id"],
+  );
+
+  // 같은 ToolCall의 재전송은 같은 id이고 context는 하나다.
+  await box.run(N.create, input, id("tcl", 7));
+  assertEquals(box.core.seen[1]!.input["id"], call.input["id"]);
+  assertEquals(box.core.state.contexts.length, 1);
+
+  // 다른 호출은 다른 context다.
+  await box.run(N.create, input, id("tcl", 8));
+  assertNotEquals(box.core.seen[2]!.input["id"], call.input["id"]);
+  assertEquals(box.core.state.contexts.length, 2);
+
+  // 모르는 입력은 core를 부르기 전에 거절한다.
+  const bad = await box.run(N.create, { ...input, bundle: BUNDLE });
+  assertEquals(bad.outcome, { kind: "failure", code: "invalid_input" });
+  assertEquals(box.core.seen.length, 3);
+});
+
+// ---- R23: 초안 content의 계약 모양 ----
+
+function fixtureContract(): unknown {
+  return JSON.parse(Deno.readTextFileSync(
+    new URL(
+      "../../../documents/contexts/testdata/eval-project.contract.json",
+      import.meta.url,
+    ),
+  ));
+}
+
+Deno.test("lophn-agent/harness/tools#R23 [ctx-I58f]: 초안 content의 입력 schema는 계약 값(BundleContent)의 JSON Schema라 모양을 model이 짐작하지 않고 fixture 계약이 그 schema를 통과한다", () => {
+  const draft = CONTEXT_ENGINEER_TOOLS.find((d) => d.name === N.draft)!;
+  const schema = draft.inputSchema as Record<string, any>;
+  assertEquals(schema["required"], ["context", "content"]);
+  const content = schema["content"] ?? schema["properties"]["content"];
+  // 계약의 일곱 Source kind와 검색·saved view·예시 칸이 schema에 있다.
+  const text = JSON.stringify(content);
+  for (
+    const kind of [
+      "folder",
+      "docs",
+      "series",
+      "index",
+      "section",
+      "outline",
+      "app-data",
+    ]
+  ) {
+    assert(text.includes(`"const":"${kind}"`), kind);
+  }
+  assertEquals(
+    Object.keys(content["properties"]).sort(),
+    ["contract", "examples", "saved_views", "schema", "searches"],
+  );
+  // 재귀 조건의 참조는 입력 schema 뿌리의 $defs로 닿는다.
+  const refs = [...text.matchAll(/"\$ref":"#\/\$defs\/([^"]+)"/g)].map((m) =>
+    m[1]!
+  );
+  assert(refs.length > 0);
+  for (const ref of refs) assert(ref in schema["$defs"], ref);
+  assertEquals("$schema" in content, false);
+
+  // fixture 계약은 schema를 통과하고 모양이 틀린 계약은 통과하지 못한다(JSON Schema → zod 왕복).
+  const checker = z.fromJSONSchema(schema as never);
+  const input = { context: CTX, content: fixtureContract() };
+  assertEquals(checker.safeParse(input).success, true);
+  assertEquals(draft.input.safeParse(input).success, true);
+  const broken = structuredClone(input) as Record<string, any>;
+  broken["content"]["contract"]["types"][0]["source"]["kind"] = "script";
+  assertEquals(checker.safeParse(broken).success, false);
+  const noSchema = structuredClone(input) as Record<string, any>;
+  delete noSchema["content"]["schema"];
+  assertEquals(checker.safeParse(noSchema).success, false);
 });

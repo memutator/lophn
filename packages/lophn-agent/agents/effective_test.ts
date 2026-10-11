@@ -244,7 +244,7 @@ Deno.test("lophn-agent/agents#R9 [agent-I9]: for every combination of layers the
       }
     }
   }
-  assertEquals(compared, 40);
+  assertEquals(compared, 80);
 });
 
 Deno.test("lophn-agent/agents#R7 [agent-I9]: an Operator without a definition is not_found and a role outside its place is not allowed", () => {

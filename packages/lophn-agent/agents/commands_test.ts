@@ -218,9 +218,12 @@ Deno.test("lophn-agent/agents#R5 [agent-I9]: blank names and bodies, built-in na
     const attempt = (definition: Record<string, unknown>) =>
       save(ctx, { place: PROJECT, definition }, null);
     assertEquals(
-      issuesOf(await attempt({ name: "  ", body: "  " })),
-      ["body:required", "name:required"],
+      issuesOf(await attempt({ name: "Okay", body: "  " })),
+      ["body:required"],
     );
+    assertEquals(issuesOf(await attempt({ body: "x" })), ["name:required"]);
+    // 공백뿐인 이름은 route 입력 검사가 먼저 거절한다.
+    failure(await attempt({ name: "  ", body: "x" }), "invalid_input");
     for (const name of ["lophn", "Context Engineer", " app engineer "]) {
       assertEquals(
         issuesOf(await attempt({ name, body: "x" })),
@@ -699,7 +702,7 @@ Deno.test("lophn-agent/agents#R21 [agent-I9]: place permissions must be a subset
       OTHER,
       {
         permissions: {
-          tools: ["document.list", "not.in.workspace", "ticket.create"],
+          tools: ["document.list", "not.inworkspace", "ticket.create"],
         },
       },
       null,

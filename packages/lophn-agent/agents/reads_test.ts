@@ -333,13 +333,13 @@ Deno.test("lophn-agent/agents#R11 [agent-I9]: a built-in without a file reads as
       value: WORKSPACE.models["context_engineer"],
       source: workspace(),
     });
-    // 어느 층에도 권한 칸이 없으면 역할 상한이 그대로다.
+    // 정의에 권한 칸이 없으면 역할 상한을 Workspace 기본 권한으로 줄이고 출처는 Workspace다.
     const caps = fixture<{ role_caps: Record<string, string[]> }>(
       "environment.json",
     ).role_caps["context_engineer"];
     assertEquals(effective.permissions, {
       value: { tools: caps },
-      source: layerOf("default"),
+      source: workspace(),
     });
   });
 });

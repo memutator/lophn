@@ -75,7 +75,7 @@ export function shrinkResultText(text: string): string | null {
 }
 
 // R11. 이력을 보호 밖 오래된 것부터 요약 후보로 분할한다. 최근 이력 예산의
-// byte 상한 안에서 call·result 짝 경계에서 자른다. 보호(제품·역할·preset·사람 지침·현재
+// byte 상한 안에서 call·result 짝 경계에서 자른다. 보호(제품·역할·사람 지침·현재
 // 목적·요청 전문·steering)는 애초에 이력에 없다.
 export function historyCut(history: readonly HistoryMessage[]): number {
   // call(tool_use)과 result(tool_result)를 나누지 않는다: 자르는 index는

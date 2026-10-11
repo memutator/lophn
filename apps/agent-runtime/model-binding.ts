@@ -17,7 +17,6 @@ import type { InvokeModelCall } from "../../packages/lophn-agent/harness/provide
 
 export type ModelBinding = {
   call: CallModel;
-  preset: { id: string; revision: number };
   // provider API base. adapter가 path를 붙인다.
   endpoint: string;
   // token 사용량 정의 판(usage#R6).

@@ -216,8 +216,7 @@ function portFor(h: LedgerHarness, protocol: Protocol): ConnectionTestPort {
         credential_key: credential.key,
         credential_revision: credential.revision,
         options: {},
-        requested_reasoning: null,
-        applied_reasoning: null,
+        option_values: { requested: {}, applied: {} },
         limits: {
           context_limit: 1000,
           input_limit: 900,
@@ -393,6 +392,7 @@ for (const protocol of Object.keys(DEFINITIONS) as Protocol[]) {
         assertEquals(record.purpose, "connection_test");
         assertEquals(record.run, null);
         assertEquals(record.session, null);
+        assertEquals(record.agent_hash, null);
         assertEquals(record.test_request, {
           command_key: "test-1",
           test_kind: "text",

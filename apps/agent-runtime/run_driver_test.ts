@@ -121,7 +121,7 @@ function loopMaterial() {
     context: () =>
       Promise.resolve(ok({
         product: { instructions: "PRODUCT" },
-        role: { instructions: "ROLE", preset_prompt: null },
+        role: { instructions: "ROLE" },
         tools: [],
         work: {
           role: "lophn" as const,

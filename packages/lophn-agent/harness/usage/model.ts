@@ -21,7 +21,7 @@ create table model_calls (
   run text,
   session text,
   model_use text check (model_use in ('judgment', 'organizing')),
-  preset text check (preset is null or json_valid(preset)),
+  agent_hash text check (agent_hash is null or length(agent_hash) = 64),
   purpose text not null check (purpose in ('judgment', 'title_summary', 'conversation_compression', 'connection_test')),
   test_request text check (test_request is not null or json_valid(test_request)),
   attempt_kind text not null check (attempt_kind in ('initial', 'retry', 'credential_change')),
@@ -51,11 +51,11 @@ create table model_calls (
     references provider_credentials (provider, key) on delete restrict,
   check (
     (purpose = 'connection_test') =
-    (run is null and session is null and model_use is null and preset is null and test_request is not null)
+    (run is null and session is null and model_use is null and agent_hash is null and test_request is not null)
   ),
   check (
     (purpose <> 'connection_test') =
-    (run is not null and session is not null and model_use is not null and preset is not null and test_request is null)
+    (run is not null and session is not null and model_use is not null and agent_hash is not null and test_request is null)
   ),
   check (
     (attempt_kind = 'retry') = (retry_of is not null)
@@ -152,9 +152,7 @@ export function callFromRow(
     model_use: row["model_use"] === null
       ? null
       : row["model_use"] as ModelCallRecord["model_use"],
-    preset: row["preset"] === null
-      ? null
-      : parseJson(row["preset"]) as ModelCallRecord["preset"],
+    agent_hash: row["agent_hash"] === null ? null : String(row["agent_hash"]),
     purpose: row["purpose"] as ModelCallRecord["purpose"],
     test_request: row["test_request"] === null
       ? null

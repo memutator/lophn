@@ -73,7 +73,6 @@ export async function assemblePrompt(
   const system = systemBlocks({
     product: input.product.instructions,
     role: input.role.instructions,
-    preset: input.role.preset_prompt,
     instructions: instructionsText(resolution.layers),
   });
 
@@ -118,7 +117,7 @@ export async function assemblePrompt(
   const layers: PromptLayer[] = [];
   const contents: [PromptLayerKind, unknown][] = [
     ["product", { instructions: productLayer.text, tools }],
-    ["role_preset", { instructions: roleLayer.text }],
+    ["role_agent", { instructions: roleLayer.text }],
     ["user_instructions", { text: instructionLayer?.text ?? "" }],
     ["work_material", { messages: work }],
   ];

@@ -19,7 +19,6 @@ import { createModelResolver } from "./resolve-model.ts";
 const OPENAI = "pvd_01arz3ndektsv4rrffq69g5fav";
 const ANTHROPIC = "pvd_01arz3ndektsv4rrffq69g5faw";
 const XAI = "pvd_01arz3ndektsv4rrffq69g5fax";
-const PRESET = { id: "pst_01arz3ndektsv4rrffq69g5fav", revision: 1 };
 
 const PROVIDERS = {
   [OPENAI]: {
@@ -109,8 +108,8 @@ function setup(world: World) {
     catalog: () => Promise.resolve(ok(world.catalog ?? CATALOG_OPTIONS)),
     fetch: fakeFetch,
   });
-  const resolve = (input: { role: AgentRole; preset: typeof PRESET }) =>
-    resolver({ preset: input.preset, model: world.model });
+  const resolve = (_input: { role: AgentRole }) =>
+    resolver({ model: world.model });
   return { sent, resolve };
 }
 
@@ -145,7 +144,7 @@ async function bind(
   role: "lophn" | "context_engineer" | "app_engineer" | "operator" = "lophn",
 ) {
   const { sent, resolve } = setup(world);
-  const resolved = await resolve({ role, preset: PRESET });
+  const resolved = await resolve({ role });
   assert(resolved.ok, JSON.stringify(resolved));
   return { binding: resolved.value, sent };
 }
@@ -155,7 +154,7 @@ async function fails(
   role: "lophn" | "context_engineer" | "app_engineer" | "operator" = "lophn",
 ) {
   const { resolve } = setup(world);
-  const resolved = await resolve({ role, preset: PRESET });
+  const resolved = await resolve({ role });
   assert(!resolved.ok, "expected a failure");
   return resolved.error;
 }
@@ -178,6 +177,10 @@ Deno.test("lophn-agent/harness/model#R22 [agent-I15]: an OpenAI Speed Fast choic
     model: choice(OPENAI, "gpt-5-5", { effort: "very_high", speed: "fast" }),
   });
   assertEquals(binding.call.options, { effort: "very_high", speed: "fast" });
+  assertEquals(binding.call.option_values, {
+    requested: { effort: "very_high", speed: "fast" },
+    applied: { effort: "very_high", speed: "fast" },
+  });
   const body = await fire(binding);
   assertEquals(body.model, "gpt-5-5");
   assertEquals(body.reasoning, { effort: "xhigh" });
@@ -192,6 +195,11 @@ Deno.test("lophn-agent/harness/model#R16 [agent-I15]: an axis the choice leaves 
   });
   // effort는 확인된 기본값 medium이 채워지고 speed는 기본값이 없어 필드가 없다.
   assertEquals(binding.call.options, { effort: "medium" });
+  // 기록은 고른 값(없음)과 default를 채워 실제로 실은 값을 따로 남긴다.
+  assertEquals(binding.call.option_values, {
+    requested: {},
+    applied: { effort: "medium" },
+  });
   const body = await fire(binding);
   assertEquals(body.reasoning, { effort: "medium" });
   assertEquals("service_tier" in body, false);
@@ -200,6 +208,13 @@ Deno.test("lophn-agent/harness/model#R16 [agent-I15]: an axis the choice leaves 
     model: choice(OPENAI, "gpt-4-1"),
   });
   assertEquals(plain.binding.call.options, {});
+  assertEquals(plain.binding.call.option_values, {
+    requested: {},
+    applied: {},
+  });
+  // 기록에 옛 추론 수준 칸과 preset 칸은 없다.
+  assertEquals("requested_reasoning" in plain.binding.call, false);
+  assertEquals("preset" in plain.binding, false);
   const plainBody = await fire(plain.binding);
   assertEquals("reasoning" in plainBody, false);
   assertEquals("service_tier" in plainBody, false);
@@ -263,7 +278,7 @@ Deno.test("lophn-agent/harness/model#R24 [agent-I15]: a stored value the catalog
   const { sent, resolve } = setup({
     model: choice(OPENAI, "gpt-5-5", { effort: "maximum" }),
   });
-  const resolved = await resolve({ role: "lophn", preset: PRESET });
+  const resolved = await resolve({ role: "lophn" });
   assert(!resolved.ok);
   assertEquals(resolved.error.code, "invalid_input");
   assertEquals(sent.length, 0);

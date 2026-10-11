@@ -226,8 +226,8 @@ export type BasisSnapshot = {
   comparison: JsonObject;
   // 외부 MCP tool의 연결 설정 판. 그 밖에는 null이다.
   mcp_configuration_revision: number | null;
-  assignment_revision: number;
-  preset_revision: number;
+  // run 기준이 고정한 resolved agent의 hash. agent 정의가 바뀌면 달라진다.
+  agent_hash: string;
 };
 
 // 확인한 대상·입력·계약·연결·scope가 하나라도 달라지면 옛 판정과 허락을 쓰지 않는다.
@@ -240,7 +240,7 @@ export function sameBasis(
 }
 
 // session 허락이 가리키는 tool이 지금도 같은 tool인지의 기준이다. 허락 때 기록한 판정 기준과 지금
-// 기준에서 tool·동작과 그 계약·정의·연결·권한 판만 본다. 대상·입력·비교 기준은 session 허락이
+// 기준에서 tool·동작과 그 계약·정의·연결·agent hash만 본다. 대상·입력·비교 기준은 session 허락이
 // 묶지 않는 값이다(R14). 하나라도 달라지면 옛 허락으로 낮추지 않고 다시 묻는다.
 const TOOL_BASIS_KEYS = [
   "tool",
@@ -249,8 +249,7 @@ const TOOL_BASIS_KEYS = [
   "description_hash",
   "contract_revision",
   "mcp_configuration_revision",
-  "assignment_revision",
-  "preset_revision",
+  "agent_hash",
 ] as const;
 
 export function sameToolBasis(

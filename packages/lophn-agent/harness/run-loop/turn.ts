@@ -289,7 +289,6 @@ async function prepare(
         instructions: skills === null
           ? context.role.instructions
           : `${context.role.instructions}\n\n${skills}`,
-        preset_prompt: context.role.preset_prompt,
       },
       tools: context.tools,
       work: context.work,

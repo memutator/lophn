@@ -41,8 +41,7 @@ const model = {
   credential_key: "personal",
   credential_revision: 1,
   options: {},
-  requested_reasoning: "provider_default" as const,
-  applied_reasoning: null,
+  option_values: { requested: {}, applied: {} },
   limits: {
     context_limit: 128000,
     input_limit: 120000,
@@ -70,7 +69,7 @@ const started = {
   run,
   session,
   model_use: "judgment" as const,
-  preset: { id: `pst_${suffix}`, revision: 1 },
+  agent_hash: hash,
   purpose: "judgment" as const,
   test_request: null,
   attempt_kind: "initial" as const,
@@ -253,7 +252,7 @@ Deno.test("lophn-agent/harness/usage#R2: a connection test has no run and the fi
     run: null,
     session: null,
     model_use: null,
-    preset: null,
+    agent_hash: null,
     purpose: "connection_test" as const,
     test_request: { command_key: "test-1", test_kind: "tool_call" as const },
   };
@@ -279,4 +278,54 @@ Deno.test("lophn-agent/harness/usage#R2: a connection test has no run and the fi
 Deno.test("lophn-agent/harness/model#R7: a call reuses the resolved price basis", () => {
   assert(priceBasisSchema.safeParse(price).success);
   assert(!priceBasisSchema.safeParse({ ...price, currency: "KRW" }).success);
+});
+
+Deno.test("lophn-agent/harness/usage#R2 [agent-I10b]: a run call names the agent hash and a connection test has none", () => {
+  const start = (call: unknown) =>
+    startModelCallInputSchema.safeParse({
+      call,
+      applied_messages: [],
+      state_seq: "4",
+      timeout_ms: null,
+    }).success;
+  assert(start(started));
+  assert(!start({ ...started, agent_hash: null }));
+  assert(!start({ ...started, agent_hash: "not-a-hash" }));
+  // 옛 preset ref 칸은 기록에 없다.
+  assert(!start({ ...started, preset: { id: `pst_${suffix}`, revision: 1 } }));
+  const test = {
+    ...started,
+    run: null,
+    session: null,
+    model_use: null,
+    agent_hash: null,
+    purpose: "connection_test" as const,
+    test_request: { command_key: "test-1", test_kind: "text" as const },
+  };
+  assert(modelCallRecordSchema.safeParse(test).success);
+  assert(
+    !modelCallRecordSchema.safeParse({ ...test, agent_hash: hash }).success,
+  );
+});
+
+Deno.test("lophn-agent/harness/usage#R4 [agent-I10b]: a call keeps the requested and the applied option values", () => {
+  const withValues = (option_values: unknown) => ({
+    ...started,
+    model: { ...model, option_values },
+  });
+  const both = {
+    requested: { effort: "very_high" },
+    applied: { effort: "high", speed: "standard" },
+  };
+  const parsed = modelCallRecordSchema.safeParse(withValues(both));
+  assert(parsed.success);
+  assertEquals(parsed.data.model.option_values, both);
+  assert(
+    !modelCallRecordSchema.safeParse(withValues({ requested: {} })).success,
+  );
+  assert(
+    !modelCallRecordSchema.safeParse(
+      withValues({ requested: { effort: 3 }, applied: {} }),
+    ).success,
+  );
 });

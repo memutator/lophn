@@ -560,8 +560,7 @@ async function runScenario(scenario: Scenario): Promise<void> {
       credential_key: null,
       credential_revision: null,
       options: {},
-      requested_reasoning: null,
-      applied_reasoning: null,
+      option_values: { requested: {}, applied: {} },
       limits: {
         context_limit: 200000,
         input_limit: 150000,
@@ -614,10 +613,9 @@ async function runScenario(scenario: Scenario): Promise<void> {
         },
       },
       agentCall: (token) => agentCall({ port: core.port, token }),
-      resolveModel: ({ preset }) =>
+      resolveModel: () =>
         Promise.resolve(ok({
           call: model,
-          preset,
           endpoint: provider.url,
           usageRevision: "usage-1",
           timeoutMs: 20_000,

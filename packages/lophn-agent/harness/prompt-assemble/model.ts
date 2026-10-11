@@ -23,13 +23,13 @@ export const COUNT_METHOD = "wire-utf8-bytes.1";
 
 export type PromptLayerKind =
   | "product"
-  | "role_preset"
+  | "role_agent"
   | "user_instructions"
   | "work_material"
   | "turn_context";
 
 // system 쪽 세 층. 각 층의 끝이 cache 경계 하나다.
-export type SystemLayerKind = "product" | "role_preset" | "user_instructions";
+export type SystemLayerKind = "product" | "role_agent" | "user_instructions";
 
 export type PromptTool = {
   name: string;
@@ -136,7 +136,8 @@ export type PromptEvidence = {
 export type PromptInput = {
   product: { instructions: string } | null;
   tools: readonly PromptTool[];
-  role: { instructions: string; preset_prompt: string | null } | null;
+  // 제품 역할 지시와 켜진 skill 목록이다. agent 정의 본문은 여기 없고 사람 지침 층 끝에 온다.
+  role: { instructions: string } | null;
   // 지침 층을 고르는 작업 자리 근거. 탭은 여기 없다(R30).
   work: { role: AgentRole; session: WorkPlace; scope: AssignmentScope };
   material: WorkMaterial;

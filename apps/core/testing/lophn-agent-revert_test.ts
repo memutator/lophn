@@ -757,10 +757,11 @@ async function appWrite(h: LedgerHarness, run: string) {
       reason: "scope allows it",
       effect: "reversible_write",
       assignment_revision: 1,
-      preset_revision: 1,
+      agent_hash: "ab".repeat(32),
       contract_revision: "1",
       comparison_basis: null,
       approval: null,
+      session_grant: null,
     },
   }, { state_seq: "0" });
   await step("StartToolCall", {

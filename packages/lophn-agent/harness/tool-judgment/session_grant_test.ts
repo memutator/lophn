@@ -44,8 +44,7 @@ const BASIS: BasisSnapshot = {
   targets: [DOC],
   comparison: { seq: "41" },
   mcp_configuration_revision: null,
-  assignment_revision: 3,
-  preset_revision: 2,
+  agent_hash: "9f".repeat(32),
 };
 
 const QUERY: SessionGrantQuery = {
@@ -149,11 +148,12 @@ function toolCall(
       decision: "ask",
       reason: "this call cannot be reverted",
       effect: "irreversible",
-      assignment_revision: BASIS.assignment_revision,
-      preset_revision: BASIS.preset_revision,
+      assignment_revision: 3,
+      agent_hash: BASIS.agent_hash,
       contract_revision: BASIS.contract_revision,
       comparison_basis: basis === null ? null : { ...BASIS, ...basis },
       approval,
+      session_grant: null,
     },
     state: "requested",
     started_at: null,
@@ -321,14 +321,13 @@ Deno.test("lophn-agent/harness/tool-judgment#R14 [agent-I14]: 다른 tool이나 
   assertEquals(await find(mcpWorld, mcp), undefined);
 });
 
-Deno.test("lophn-agent/harness/tool-judgment#R14 [agent-I14]: 허락 뒤 tool 계약·정의·MCP 연결·assignment 판이 바뀌면 근거가 아니다", async () => {
+Deno.test("lophn-agent/harness/tool-judgment#R14 [agent-I14]: 허락 뒤 tool 계약·정의·MCP 연결·agent hash가 바뀌면 근거가 아니다", async () => {
   const changes: Partial<BasisSnapshot>[] = [
     { contract_revision: "documents-2" },
     { definition_revision: "tools-2" },
     { description_hash: "ef".repeat(32) },
     { mcp_configuration_revision: 5 },
-    { assignment_revision: 4 },
-    { preset_revision: 3 },
+    { agent_hash: "8e".repeat(32) },
   ];
   for (const change of changes) {
     // 허락할 때의 기준은 현재 기준과 같았고, 지금 기준이 한 칸 달라졌다.

@@ -201,8 +201,7 @@ function connectionTestPort(
           credential_key: credential.key,
           credential_revision: credential.revision,
           options: {},
-          requested_reasoning: null,
-          applied_reasoning: null,
+          option_values: { requested: {}, applied: {} },
           limits: {
             context_limit: entry.context_limit,
             input_limit: entry.input_limit,

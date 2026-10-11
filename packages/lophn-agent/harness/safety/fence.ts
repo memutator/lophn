@@ -128,7 +128,7 @@ function countUnescapedMarkers(wrapped: string): number {
 // 지정하고, 이 모듈은 자료 분류만 닫는다.
 export type PromptSourceKind =
   | "system_role"
-  | "preset_prompt"
+  | "agent_instructions"
   | "user_instruction"
   | "user_direct"
   | "machine_fact"

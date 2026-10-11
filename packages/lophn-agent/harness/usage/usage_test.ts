@@ -81,8 +81,7 @@ const model = {
   credential_key: null,
   credential_revision: null,
   options: {},
-  requested_reasoning: "provider_default" as const,
-  applied_reasoning: null,
+  option_values: { requested: {}, applied: {} },
   limits: {
     context_limit: 128000,
     input_limit: 120000,
@@ -118,7 +117,7 @@ const started = {
   run: RUN,
   session: SESSION,
   model_use: "judgment" as const,
-  preset: { id: "pst_01arz3ndektsv4rrffq69g5fav", revision: 1 },
+  agent_hash: "ab".repeat(32),
   purpose: "judgment" as const,
   test_request: null,
   attempt_kind: "initial" as const,
@@ -459,15 +458,22 @@ Deno.test("lophn-agent/harness/usage#R1: a start that fails to store sends nothi
   }
 });
 
-Deno.test("lophn-agent/harness/usage#R2: a call records use, choice, model and billing route", async () => {
+Deno.test("lophn-agent/harness/usage#R2 [agent-I10b]: a call records use, agent hash, choice, option values, model and billing route", async () => {
   const h = await open();
   try {
     await seedProvider(h);
+    const optionValues = {
+      requested: { effort: "very_high" },
+      applied: { effort: "high" },
+    };
     keep(
       await h.command(
         machineCred,
         envelope("StartModelCall", {
-          call: started,
+          call: {
+            ...started,
+            model: { ...model, option_values: optionValues },
+          },
           applied_messages: [],
           state_seq: "4",
           timeout_ms: null,
@@ -476,8 +482,14 @@ Deno.test("lophn-agent/harness/usage#R2: a call records use, choice, model and b
     );
     const record = await readCall(h, CALL);
     assertEquals(record["model_use"], "judgment");
+    assertEquals(record["agent_hash"], "ab".repeat(32));
+    assertEquals("preset" in record, false);
     assertEquals(record["purpose"], "judgment");
     assertEquals((record["model"] as Record<string, unknown>)["name"], "gpt");
+    assertEquals(
+      (record["model"] as Record<string, unknown>)["option_values"],
+      optionValues,
+    );
     assertEquals(
       (record["model"] as Record<string, unknown>)["billing_route"],
       "api",
@@ -1183,7 +1195,7 @@ type UsageTotalLike = {
 
 async function readRows(h: LedgerHarness): Promise<ModelCallRecord[]> {
   const rows = (await h.inspect(
-    `select id, run, session, model_use, preset, purpose, test_request,
+    `select id, run, session, model_use, agent_hash, purpose, test_request,
        attempt_kind, attempt_order, retry_of, credential_change_of,
        provider, credential_key, credential_revision, model_name, protocol,
        call_model, input, context_basis, output, state, state_seq,

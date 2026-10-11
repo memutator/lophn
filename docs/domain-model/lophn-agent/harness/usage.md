@@ -63,7 +63,7 @@ ModelCall의 실제 시도·입출력·사용량·당시 비용과 중복 없는
 | `name / protocol` | 문자열 / 호출 형식 | 아니오 | 실제 전송값 | 실제 model·adapter |
 | `credential_key / credential_revision` | 문자열 / 양의 정수 | 예 | 무인증 loopback만 둘 다 null; 그 외 전송 직전 확인값; secret 값 없음 | 실제 credential |
 | `options` | JSON object | 아니오 | 당시 agent model 선택 snapshot; connection_test는 명시 요청의 검증된 옵션 snapshot | sampling 등 |
-| `requested_reasoning / applied_reasoning` | 수준 또는 provider 옵션 | 예 | 미지원·미확인은 null; 값 구별 | 추론 선택 |
+| `option_values` | `{requested, applied}` | 아니오 | 각각 `{축 id: 값}`; `requested`는 agent가 고른 값, `applied`는 맞춤과 기본값을 채운 뒤 요청에 실제로 실은 값(= `options`); option 축이 없는 model은 둘 다 `{}`; → lophn-agent/harness/model | option 선택 |
 | `limits` | `{context_limit,input_limit,output_limit,supports_tools}` | 아니오 | 당시 확인·user 명시 한계 | 크기 검사 |
 | `catalog_basis / price_basis` | 출처 snapshot / PriceBasis | 아니오 / 예 | → lophn-agent/harness/model; 당시 값 | 한계·가격 근거 |
 | `billing_route` | `api / subscription / extra_usage / unknown` | 아니오 | provider 확인값 | 청구 경로 |

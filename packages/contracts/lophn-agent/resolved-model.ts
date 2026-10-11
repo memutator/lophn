@@ -22,7 +22,7 @@ export const EFFORT_LABELS = {
   maximum: "Max",
 } as const satisfies Record<EffortValue, string>;
 
-// 모델에 맡김은 순서 밖이다. model 호출 기록이 요청·적용 수준을 이 이름으로 남긴다.
+// 모델에 맡김은 순서 밖이다.
 export const REASONING_LEVELS = [...EFFORT_VALUES, "provider_default"] as const;
 export const reasoningLevelSchema = z.enum(REASONING_LEVELS);
 export const MODEL_MEDIA = ["text", "image", "audio", "video"] as const;

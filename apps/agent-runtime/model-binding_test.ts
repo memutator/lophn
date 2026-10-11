@@ -12,7 +12,7 @@ import {
 const REQUEST: PromptRequest = {
   system: [
     { layer: "product", text: "product rules" },
-    { layer: "role_preset", text: "role rules" },
+    { layer: "role_agent", text: "role rules" },
   ],
   tools: [{
     name: "project.list",

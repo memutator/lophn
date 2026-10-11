@@ -67,7 +67,7 @@ function loadRows(
   },
 ): Result<ModelCallRecord[]> {
   const rows = sql.all(
-    `select id, run, session, model_use, preset, purpose, test_request,
+    `select id, run, session, model_use, agent_hash, purpose, test_request,
        attempt_kind, attempt_order, retry_of, credential_change_of,
        provider, credential_key, credential_revision, model_name, protocol,
        call_model, input, context_basis, output, state, state_seq,
@@ -189,7 +189,7 @@ export function createUsageReads(): {
       route: modelCallRead,
       handle(snapshot, _ctx, input) {
         const row = snapshot.sql.get(
-          `select id, run, session, model_use, preset, purpose, test_request,
+          `select id, run, session, model_use, agent_hash, purpose, test_request,
              attempt_kind, attempt_order, retry_of, credential_change_of,
              provider, credential_key, credential_revision, model_name, protocol,
              call_model, input, context_basis, output, state, state_seq,
@@ -281,7 +281,7 @@ export function createUsageReads(): {
           params.push(input.currency);
         }
         const rows = snapshot.sql.all(
-          `select id, run, session, model_use, preset, purpose, test_request,
+          `select id, run, session, model_use, agent_hash, purpose, test_request,
              attempt_kind, attempt_order, retry_of, credential_change_of,
              provider, credential_key, credential_revision, model_name, protocol,
              call_model, input, context_basis, output, state, state_seq,

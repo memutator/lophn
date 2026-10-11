@@ -952,11 +952,19 @@ export type PlaceholderKinds = {
   "conversation.button.approval-deny": Record<never, never>;
   "conversation.button.check-delivery": Record<never, never>;
   "conversation.button.check-result": Record<never, never>;
+  "conversation.button.attach": Record<never, never>;
+  "conversation.button.change-defaults": Record<never, never>;
   "conversation.button.close": Record<never, never>;
   "conversation.button.jump-latest": Record<never, never>;
   "conversation.button.mode-correction": Record<never, never>;
   "conversation.button.mode-request": Record<never, never>;
   "conversation.button.new-session": Record<never, never>;
+  "conversation.button.favorite-add": {
+    model: "string";
+  };
+  "conversation.button.favorite-remove": {
+    model: "string";
+  };
   "conversation.button.next-request": Record<never, never>;
   "conversation.button.open": Record<never, never>;
   "conversation.button.previous-request": Record<never, never>;
@@ -964,6 +972,7 @@ export type PlaceholderKinds = {
   "conversation.button.question-next": Record<never, never>;
   "conversation.button.question-skip": Record<never, never>;
   "conversation.button.question-submit": Record<never, never>;
+  "conversation.button.remove-context": Record<never, never>;
   "conversation.button.resend": Record<never, never>;
   "conversation.button.save-visual": Record<never, never>;
   "conversation.button.send": Record<never, never>;
@@ -987,6 +996,7 @@ export type PlaceholderKinds = {
   "conversation.label.author-you": Record<never, never>;
   "conversation.label.composer-correction": Record<never, never>;
   "conversation.label.composer-request": Record<never, never>;
+  "conversation.label.composer-message": Record<never, never>;
   "conversation.label.correction": Record<never, never>;
   "conversation.label.delivery-applied": Record<never, never>;
   "conversation.label.delivery-not-sent": Record<never, never>;
@@ -1006,6 +1016,8 @@ export type PlaceholderKinds = {
   "conversation.label.duration-minutes": {
     minutes: "number";
   };
+  "conversation.label.favorites": Record<never, never>;
+  "conversation.label.model-list": Record<never, never>;
   "conversation.label.more-results": {
     count: "plural";
   };
@@ -1045,6 +1057,10 @@ export type PlaceholderKinds = {
   };
   "conversation.label.requests": Record<never, never>;
   "conversation.label.results": Record<never, never>;
+  "conversation.label.search-models": Record<never, never>;
+  "conversation.label.send-correction": Record<never, never>;
+  "conversation.label.send-mode": Record<never, never>;
+  "conversation.label.send-request": Record<never, never>;
   "conversation.label.session": {
     number: "number";
   };
@@ -1098,6 +1114,15 @@ export type PlaceholderKinds = {
     connection: "string";
   };
   "conversation.notice.message-loading": Record<never, never>;
+  "conversation.notice.model-session-only": Record<never, never>;
+  "conversation.notice.model-value-fitted": {
+    axis: "string";
+    to: "string";
+    from: "string";
+    model: "string";
+  };
+  "conversation.notice.no-model-options": Record<never, never>;
+  "conversation.notice.no-models": Record<never, never>;
   "conversation.notice.not-found": Record<never, never>;
   "conversation.notice.not-sent": Record<never, never>;
   "conversation.notice.offline": Record<never, never>;

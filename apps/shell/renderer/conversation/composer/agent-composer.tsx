@@ -2,11 +2,31 @@
 // 일하는 중에만 select(Change this work / Next request), 입력칸 밖 아래 줄에 자리 이름과 권한 요약 ▾, 입력칸
 // 위에 떼어 낼 수 있는 context chip 줄이 있다. agent를 고르는 칸은 없다. 기존 composer.tsx(dock용)는 R task가
 // 지울 때까지 그대로 두고, 이 파일이 Agent 탭 자리를 맡는다.
-import type { ReactNode } from "react";
+import {
+  type KeyboardEvent,
+  type ReactNode,
+  useLayoutEffect,
+  useRef,
+} from "react";
+import {
+  Button,
+  conversationIcons,
+  Field,
+  Icon,
+  IconButton,
+  iconPixels,
+  Select,
+  workspaceIcons,
+} from "@lophn/design/components";
+import { t } from "@lophn/wording";
 
 import type { SendMode } from "../delivery-state.ts";
 import type { Draft } from "../drafts.ts";
-import type { ModelPickerProps } from "../model-picker/model-picker.tsx";
+import {
+  ModelPicker,
+  type ModelPickerProps,
+} from "../model-picker/model-picker.tsx";
+import styles from "./agent-composer.module.css";
 
 /** 입력칸 위에 붙은 context chip 하나. notification의 [Ask]로 연 session은 첫 chip이 사건 대상이다. */
 export interface ContextChipView {
@@ -47,6 +67,181 @@ export interface AgentComposerProps {
   onStop: () => void;
 }
 
-export function AgentComposer(_props: AgentComposerProps): ReactNode {
-  throw new Error("not implemented: agent-I23");
+const SEND_MODES = [
+  { value: "correction", label: t("conversation.label.send-correction") },
+  { value: "request", label: t("conversation.label.send-request") },
+] as const;
+
+export function AgentComposer(props: AgentComposerProps): ReactNode {
+  const { draft, working, locked, tooLong, offline, contexts, picker } = props;
+  const input = useRef<HTMLTextAreaElement>(null);
+  // 쉬는 중에는 고칠 일이 없어 draft.mode가 correction으로 남아 있어도 새 요청으로 보낸다.
+  const mode: SendMode = working ? draft.mode : "request";
+  const canSend = !locked && !offline && !tooLong &&
+    (draft.text.trim().length > 0 || contexts.length > 0);
+
+  // 다시 열 때 커서를 돌려놓는다. focus는 옮기지 않는다(workspace#R13).
+  useLayoutEffect(() => {
+    const element = input.current;
+    if (!element) return;
+    const [start, end] = draft.selection;
+    const max = element.value.length;
+    element.setSelectionRange(Math.min(start, max), Math.min(end, max));
+    // 처음 그릴 때만 돌려놓는다. 그 뒤 커서는 사람이 움직인다.
+  }, []);
+
+  const keepSelection = () => {
+    const element = input.current;
+    if (!element) return;
+    props.onDraft({
+      selection: [element.selectionStart, element.selectionEnd],
+    });
+  };
+
+  const keyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (
+      event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing
+    ) {
+      return;
+    }
+    event.preventDefault();
+    if (canSend) props.onSend(mode);
+  };
+
+  return (
+    <div className={styles.composer} data-agent-composer="">
+      {offline
+        ? <p className={styles.note}>{t("conversation.notice.offline")}</p>
+        : null}
+      <div className={styles.boxWrap}>
+        {props.slashMenu === null
+          ? null
+          : <div className={styles.slash}>{props.slashMenu}</div>}
+        <div
+          className={styles.box}
+          data-composer-box=""
+          data-locked={locked || undefined}
+        >
+          {contexts.length === 0
+            ? null
+            : (
+              <div className={styles.chips} data-composer-contexts="">
+                {contexts.map((context) => (
+                  <span
+                    key={context.id}
+                    className={styles.chip}
+                    data-context-chip=""
+                  >
+                    <Icon
+                      icon={workspaceIcons.document}
+                      pixels={iconPixels("small")}
+                    />
+                    <span className={styles.chipText}>{context.label}</span>
+                    <IconButton
+                      icon={conversationIcons.removeContext}
+                      label={t("conversation.button.remove-context")}
+                      size="sm"
+                      onClick={() => props.onRemoveContext(context.id)}
+                    />
+                  </span>
+                ))}
+              </div>
+            )}
+          <textarea
+            ref={input}
+            className={styles.input}
+            rows={2}
+            aria-label={t("conversation.label.composer-message")}
+            value={draft.text}
+            readOnly={locked}
+            data-composer-input=""
+            onChange={(event) =>
+              props.onDraft({
+                text: event.currentTarget.value,
+                selection: [
+                  event.currentTarget.selectionStart,
+                  event.currentTarget.selectionEnd,
+                ],
+              })}
+            onSelect={keepSelection}
+            onKeyDown={keyDown}
+          />
+          {tooLong
+            ? (
+              <p className={styles.problem} data-too-long="" role="status">
+                {t("conversation.error.too-long")}
+              </p>
+            )
+            : null}
+          <div className={styles.row} data-composer-row="">
+            <IconButton
+              icon={conversationIcons.attach}
+              label={t("conversation.button.attach")}
+              size="sm"
+              onClick={props.onAttach}
+            />
+            <span className={styles.spacer} />
+            <ModelPicker {...picker} />
+            {working
+              ? (
+                <>
+                  <div className={styles.sendMode} data-send-mode="">
+                    <Field label={t("conversation.label.send-mode")}>
+                      <Select
+                        size="sm"
+                        options={SEND_MODES}
+                        value={draft.mode}
+                        onValueChange={(next) =>
+                          props.onDraft({ mode: next as SendMode })}
+                      />
+                    </Field>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    icon={conversationIcons.stop}
+                    data-stop=""
+                    disabled={offline}
+                    onClick={props.onStop}
+                  >
+                    {t("conversation.button.stop")}
+                  </Button>
+                </>
+              )
+              : (
+                <IconButton
+                  icon={conversationIcons.send}
+                  label={t("conversation.button.send")}
+                  variant="secondary"
+                  size="sm"
+                  data-send=""
+                  disabled={!canSend}
+                  onClick={() => props.onSend(mode)}
+                />
+              )}
+          </div>
+        </div>
+      </div>
+      <div className={styles.scope} data-composer-scope="">
+        <span className={styles.place} data-place-kind={props.place.kind}>
+          <Icon
+            icon={props.place.kind === "app"
+              ? workspaceIcons.appPanel
+              : workspaceIcons.folder}
+            pixels={iconPixels("small")}
+          />
+          {props.place.name}
+        </span>
+        <Button
+          size="sm"
+          variant="ghost"
+          data-composer-permissions=""
+          onClick={props.onOpenPermissions}
+        >
+          {props.permissionSummary}
+          <Icon icon={conversationIcons.expand} pixels={iconPixels("base")} />
+        </Button>
+      </div>
+    </div>
+  );
 }

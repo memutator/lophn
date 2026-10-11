@@ -160,8 +160,8 @@ export function inspectAgent(
     environment: {
       role_caps: deps.roleCaps(ref.role),
       default_profile: DEFAULT_PROFILES[ref.role],
-      skills: context.lookups.skills(),
-      mcp: context.lookups.mcp(),
+      skills: context.lookups.skills(place),
+      mcp: context.lookups.mcp(place),
       active_contexts: context.lookups.activeContexts(place),
     },
   });

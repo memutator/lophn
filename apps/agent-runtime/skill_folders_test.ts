@@ -223,8 +223,8 @@ Deno.test("extensions#R1 extensions#R33 [agent-I19b]: 자리 skill 폴더가 등
     assert(empty !== null);
     assertEquals(empty.skipped, []);
     assertEquals(empty.entries.map((entry) => entry.name), [
-      "review-notes",
       "audit",
+      "review-notes",
       "personal-notes",
     ]);
   } finally {

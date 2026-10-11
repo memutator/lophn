@@ -21,7 +21,7 @@ import { PRODUCT_INSTRUCTIONS, rolePrompt } from "./role-prompts.ts";
 import type { RunDriver } from "./run-driver.ts";
 import type { DriveDeps } from "./run-driver.ts";
 import { createAppToolkit } from "./app-toolkit.ts";
-import { registeredSkillEntries } from "./skill-folders.ts";
+import { productSkillStores, registeredSkillEntries } from "./skill-folders.ts";
 import { createBuiltinToolkit } from "./toolkit.ts";
 
 // 제품 runtime의 tool 묶음이다. 내장 tool의 정의·handler·소유 계약 연결(쓰기는 입력에서 정확한 대상을
@@ -107,8 +107,9 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
           (input) => readOf(calls.machine, instructionRead, input),
         ),
       redact: calls.redact,
-      // 등록한 skill 폴더만 검사한다(extensions R1). 설정이 없으면 빈 목록이다.
-      skills: () => registeredSkillEntries(calls.machine),
+      // 그 agent 자리의 skill 폴더와 등록한 skill 폴더만 검사한다(extensions R1, R32). 설정이 없으면 빈 목록이다.
+      skills: (place) =>
+        registeredSkillEntries(calls.machine, productSkillStores(place)),
     });
   };
 }

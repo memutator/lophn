@@ -140,7 +140,12 @@ export async function resolveRunAgent(
     run: RunRecord;
     assignment: AssignmentRecord;
     skills: readonly string[];
-    mcp: readonly McpTool[];
+    // 연결할 수 있는 MCP tool이다. 정의가 서버를 통째로 끈 이름을 먼저 알려 그 서버는 연결하지 않게 한다
+    // (extensions R18, R31). 어느 tool을 켜는지는 resolve가 정한다.
+    mcp(
+      off: ReadonlySet<string>,
+      place: AgentPlace,
+    ): Promise<readonly McpTool[]>;
   },
 ): Promise<Result<RunAgent>> {
   const { run, assignment } = input;
@@ -187,6 +192,13 @@ export async function resolveRunAgent(
   const contexts = await activeContexts(machine, place);
   if (!contexts.ok) return contexts;
 
+  const serversOff = new Set(
+    (read.value.definition?.mcp_off ?? [])
+      .filter((entry) => entry.original_tool === undefined)
+      .map((entry) => entry.server_name),
+  );
+  const mcp = await input.mcp(serversOff, place);
+
   const resolved = await resolveAgent({
     assignment: assignment.id,
     role: assignment.role,
@@ -197,7 +209,7 @@ export async function resolveRunAgent(
     session_model: session?.model_selection ?? null,
     environment: productEnvironment(assignment.role, {
       skills: input.skills,
-      mcp: input.mcp,
+      mcp,
       active_contexts: contexts.value,
     }),
   });

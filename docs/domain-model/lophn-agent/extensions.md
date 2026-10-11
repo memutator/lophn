@@ -39,7 +39,20 @@ ExtensionSettings는 공급·발견·서버 설정이며 agent별 선택 map이 
 | `revision` | 양의 정수 | 아니오 | 초기 1; 변경마다 1 증가 | 설정 판 |
 | `mcp_servers` | McpServerConfig 배열 | 아니오 | 기본 `[]`; name이 자기 안에서도, 전역 `mcp_servers`와도 겹치지 않음 | 이 자리 서버 |
 
-저장 위치와 변경 contract는 agent 정의와 같은 자리 규칙을 따른다.
+저장 위치는 agent 정의와 같은 자리 폴더 `<data root>/{projects,apps}/<id>/` 아래이되 `agents/`와 따로 둔다(open-issues extensions#Q8).
+
+| 무엇 | 자리 |
+|---|---|
+| skill 꾸러미 | `<자리 폴더>/skills/<꾸러미>/SKILL.md`: 바로 아래 꾸러미만 본다 |
+| MCP 서버 목록 | `<자리 폴더>/mcp-servers.json`: `revision`과 `mcp_servers` 두 칸의 JSON 한 파일 |
+
+파일은 사람이 손으로 고칠 수도 있어 읽을 때 다시 검사한다. 틀린 파일은 그 자리 서버가 없는 것과 같다. 전역 서버와 이름이 겹치는 자리 서버는 쓰지 않는다(전역이 이긴다).
+
+| command | actor | 입력 | 검사 | event | 오류 |
+|---|---|---|---|---|---|
+| `ChangePlaceExtensionSettings` | user | 자리, `mcp_servers` 새 목록 전체 | 파일 hash CAS(없는 파일은 null); 서버 이름이 자기 안에서도 전역과도 겹치지 않음; 서버 설정 검사(R12); 서버 `revision`은 바뀐 설정에 맞춰 올림 | `PlaceExtensionSettingsChanged`(자리, 전·후 파일 hash) | `invalid_input`, `conflict`, `not_found`, `forbidden` |
+
+읽기: `ReadPlaceExtensionSettings(자리)`는 그 자리 서버 목록과 파일 hash, 그리고 그 자리에서 발견하는 skill(이름·설명·`source_kind`)과 가려진 skill, 제외한 꾸러미를 돌려준다. 화면과 run 준비(machine)가 읽는다.
 
 ## agent 정의가 고르는 것
 

@@ -16,7 +16,12 @@ import { TOOL_CALL_EVENTS, TOOL_CALL_ROUTES } from "./tool-calls.ts";
 import { TOOL_DOCUMENT_ROUTES } from "./tool-documents.ts";
 import { TRACE_ROUTES } from "./traces.ts";
 import { INSTRUCTION_ROUTES } from "./instructions.ts";
-import { mcpAuthBegin, mcpAuthComplete } from "./mcp-settings.ts";
+import {
+  EXTENSION_EVENTS,
+  EXTENSION_ROUTES,
+  mcpAuthBegin,
+  mcpAuthComplete,
+} from "./mcp-settings.ts";
 
 export const ROUTES = [
   ...RUN_COMMANDS,
@@ -37,6 +42,7 @@ export const ROUTES = [
   ...TOOL_DOCUMENT_ROUTES,
   ...TRACE_ROUTES,
   ...INSTRUCTION_ROUTES,
+  ...EXTENSION_ROUTES,
   // MCP OAuth의 시작·완료 입구다(extensions R16). ledger queue를 거치지 않는
   // memory route다.
   mcpAuthBegin,
@@ -57,4 +63,5 @@ export const EVENTS = [
   ...MODEL_EVENTS,
   ...MODEL_CALL_EVENTS,
   ...TOOL_CALL_EVENTS,
+  ...EXTENSION_EVENTS,
 ] as const;

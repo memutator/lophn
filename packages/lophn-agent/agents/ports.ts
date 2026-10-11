@@ -39,9 +39,10 @@ export type AgentLookups = {
   contextStatus(id: string): "active" | "archived" | null;
   // 자리 project의 active context. project가 아니면 빈 목록.
   activeContexts(place: AgentPlace): string[];
-  // 이 자리에 등록된 skill 이름과 MCP tool(등록 순서).
-  skills(): string[];
-  mcp(): McpTool[];
+  // 이 자리의 agent가 쓸 수 있는 skill 이름과 MCP tool이다. 전역 층에 자리 층(그 자리에서 여는 agent에만 보인다,
+  // extensions R32)을 더한 것이고 발견·등록 순서다.
+  skills(place: AgentPlace): string[];
+  mcp(place: AgentPlace): McpTool[];
   // Workspace 층: 역할별 기본 model(agent-model-defaults)과 기본 권한(platform/settings).
   workspace(): AgentSettings;
 };

@@ -19,6 +19,37 @@ export {
   validateSkillSelection,
 } from "./skills.ts";
 export {
+  listSkillsSync,
+  type SkillListing,
+  type SkillSources,
+  type SyncSkillFiles,
+} from "./skills-sync.ts";
+export {
+  dataRootOf,
+  parsePlaceMcpFile,
+  PLACE_MCP_FILE,
+  PLACE_SKILLS_DIR,
+  type PlaceFiles,
+  placeFolderOf,
+  type PlaceMcpFile,
+  placeMcpPathOf,
+  placeSkillsOf,
+  serializePlaceMcpFile,
+} from "./place-store.ts";
+export {
+  createPlaceExtensionCommands,
+  createPlaceExtensionReads,
+  type PlaceExtensionDeps,
+  type PlaceExtensionLookups,
+} from "./place-settings.ts";
+export {
+  commandSkillsOf,
+  createExtensionRegistry,
+  type ExtensionRegistry,
+  type ExtensionRegistryDeps,
+  mcpToolsOf,
+} from "./registry.ts";
+export {
   readSkill,
   readSkillSupplemental,
   type SkillReadErrorCode,

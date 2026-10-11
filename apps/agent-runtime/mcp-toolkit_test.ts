@@ -390,3 +390,24 @@ Deno.test("lophn-agent/extensions#R18 lophn-agent/extensions#R31 [agent-I19b]: a
     await Deno.remove(childPath!, { recursive: true }).catch(() => {});
   }
 });
+
+Deno.test("lophn-agent/extensions#R18 [agent-I19b]: an agent that is resumed connects only the servers it has turned on", async () => {
+  childPath = await writeChild();
+  const kit = createMcpToolkit({
+    machine: routedCalls([named("notes")], {
+      [PRJ_PLACE.id]: [named("scoped")],
+    }),
+    connections: connectionsDeps(),
+  });
+  try {
+    const kept = await sourced(kit, "assignment-1", {
+      place: PRJ_PLACE,
+      only: new Set(["scoped"]),
+    });
+    assertEquals(kept.servers, ["scoped"]);
+    assertEquals(kept.tools, ["scoped"]);
+  } finally {
+    await kit.endAll();
+    await Deno.remove(childPath!, { recursive: true }).catch(() => {});
+  }
+});

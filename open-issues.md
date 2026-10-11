@@ -667,7 +667,7 @@
 | lophn-agent/assignments#Q7 | 사람 Resume이 없어진 뒤 대상(앱·project) 보관이 풀리면 멈춘 assignment는. | 추천대로 | machine이 멈춤을 푼다(옛 "자동 재개 없음"을 바꾼다 — paused는 scope_archived만 남았다). |
 | lophn-agent/commands#Q1 | 같은 이름 skill 둘이 메뉴에 오는 경우(commands R6)가 extensions R3·R33(같은 이름은 먼저 발견한 하나)과 겹친다. | 추천대로 | extensions R3 유지. commands R6은 registry 안전장치로 둔다. |
 | lophn-agent/commands#Q2 | 맞는 명령이 없는 `/…` 제출을 일반 메시지로 보내나. | 추천대로 | 보내지 않고 알 수 없는 명령으로 알린다. |
-| lophn-agent/extensions#Q8 | 자리 층의 skill 폴더·MCP 저장 위치와 contract. | 추천대로 | agent 정의와 같은 자리 폴더(`<data root>/{projects,apps}/<id>/`) 아래에 두되 `agents/settings.md`와 따로 둔다. 값 모양은 platform/settings. (고침, agent-S11 리뷰: settings.md는 model·권한 두 칸뿐이다 — agents#Q2.) |
+| lophn-agent/extensions#Q8 | 자리 층의 skill 폴더·MCP 저장 위치와 contract. | 추천대로 | agent 정의와 같은 자리 폴더(`<data root>/{projects,apps}/<id>/`) 아래에 두되 `agents/settings.md`와 따로 둔다. 값 모양은 platform/settings. (고침, agent-S11 리뷰: settings.md는 model·권한 두 칸뿐이다 — agents#Q2.) (agent-I19b: 자리 폴더 아래 `skills/`와 `mcp-servers.json`으로 정했다.) |
 | lophn-agent/harness/provider#Q11 | 계정을 agent별로 고정하고 싶을 때. | 추천대로 | 첫 판은 provider의 계정 순서와 계정 사용 끄기만. agent·기본값·session은 provider와 model만 고른다. |
 | lophn-agent/harness/model#Q13 | effort처럼 wire가 비어 있는 option 값. | 추천대로 | 호출 형식 표가 번역한다. |
 | lophn-agent/harness/model#Q14 | model을 바꿀 때 option 값 맞춤 규칙의 세부. | 추천대로 | 같은 축에서 요청값보다 약하면서 가장 가까운 지원 값, 없으면 가장 약한 지원 값. off는 맞춤 목표가 아니다. |

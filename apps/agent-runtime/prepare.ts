@@ -9,6 +9,7 @@ import {
   type Result,
 } from "../../packages/base/mod.ts";
 import {
+  type AgentPlace,
   assignmentRead,
   finishRun,
   type ModelChoice,
@@ -56,6 +57,7 @@ import type { AppToolkit } from "./app-toolkit.ts";
 import {
   type CannotStart,
   pinnedRunAgent,
+  placeOfRun,
   resolveRunAgent,
 } from "./agent-layers.ts";
 import { commandOf, type CoreCall, readOf } from "./core-call.ts";
@@ -82,9 +84,20 @@ import {
 
 // 이 run의 외부 MCP tool 등록이다(Q16, T37). 등록 화면은 현재 서버 설정과 연결 화면을 읽어
 // buildMcpTools로 정의를 만들고, Q16 재조회가 끝날 때까지 그 server tool 호출을 막는다.
+// 어느 서버를 연결하나. place는 그 agent가 여는 자리다(전역 서버에 그 자리 층의 서버를 더한다, extensions R32).
+// skip은 agent 정의가 통째로 끈 서버, only는 이미 고정한 agent가 켠 서버이고 둘 다 연결하지 않는다(R18, R31).
+export type McpSourceOptions = {
+  place?: AgentPlace | null;
+  skip?: ReadonlySet<string>;
+  only?: ReadonlySet<string>;
+};
+
 export type McpToolkit = {
   // 등록된 서버 설정과 검증을 지난 tool 목록을 읽는다. 설정은 사람의 registry 출처(R11)다.
-  source(assignment: string): Promise<Result<McpToolsSource>>;
+  source(
+    assignment: string,
+    options?: McpSourceOptions,
+  ): Promise<Result<McpToolsSource>>;
   // 고른 MCP(서버+현재 tool 정확한 쌍, R31)와 safe 표시를 골라낸다.
   selection(definition: unknown): McpSelection | null;
   // 도구 호출 통로다(Q16 재조회가 끝날 때까지 호출은 거절된다).
@@ -140,7 +153,8 @@ export type PreparerDeps = {
   instructionFilesFor?(run: string): InstructionDeps["files"];
   // run 근거·결과와 model·tool 기록의 본문을 blob으로 먼저 저장하는 통로.
   blobs: BlobPort;
-  skills?(): Promise<readonly SkillEntry[]>;
+  // 그 agent가 여는 자리에서 발견하는 skill이다: 전역 층에 그 자리 층을 더한다(extensions R32).
+  skills?(place: AgentPlace | null): Promise<readonly SkillEntry[]>;
   timezone?(): string | null;
   redact?: RedactText;
   approvalTtlMs?: number;
@@ -226,10 +240,13 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
   const { machine, clock, ids } = deps;
 
   // 등록된 외부 MCP tool이다(T37). 읽지 못하면 서버 자체가 없는 것과 같은 답이다(R11: fails closed).
-  async function loadMcp(assignment: string) {
+  async function loadMcp(
+    assignment: string,
+    options: McpSourceOptions = {},
+  ) {
     const kit = deps.toolkit.mcp?.(assignment);
     if (kit === undefined) return { kit, source: null };
-    const source = await kit.source(assignment);
+    const source = await kit.source(assignment, options);
     return { kit, source: source.ok ? source.value : null };
   }
   type LoadedMcp = Awaited<ReturnType<typeof loadMcp>>;
@@ -418,7 +435,7 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
           resolved.contexts.map((target) => ({ kind: "context", target })),
         ),
         // 발견한 skill 중 agent가 끄지 않은 이름만 prompt에 오른다(extensions R4, agents R18).
-        skills: ((await deps.skills?.()) ?? []).map((entry) => ({
+        skills: ((await deps.skills?.(place)) ?? []).map((entry) => ({
           ...entry,
           selected: resolved.skills.includes(entry.name),
         })),
@@ -558,16 +575,23 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
 
     // 이번 run의 resolved agent. 층을 합친 값을 run 기준에 고정한다. model이 어느 층에도 없거나 정의 파일이
     // 틀렸으면 run을 시작하지 않고 이유와 함께 끝낸다(agents R24, R25).
-    const mcp = await loadMcp(assignment.id);
-    const skills = (await deps.skills?.()) ?? [];
+    // 자리 층의 skill·MCP는 그 agent가 여는 자리의 것만이다(extensions R32). 켠 서버만 연결한다: 정의가 통째로
+    // 끈 서버는 resolve가 정의를 읽은 뒤에 알려 주고(R18, R31), 정의가 끈 skill은 resolve가 뺀다(R4).
+    const placed = await placeOfRun(machine, run.value.run, assignment);
+    if (!placed.ok) return placed;
+    const skills = (await deps.skills?.(placed.value)) ?? [];
+    let mcp: LoadedMcp | undefined;
     const made = await resolveRunAgent(machine, {
       run: run.value.run,
       assignment,
       skills: skills.map((entry) => entry.name),
-      mcp: (mcp.source?.tools ?? []).map((tool) => ({
-        server_name: tool.server,
-        original_tool: tool.original,
-      })),
+      mcp: async (off, place) => {
+        mcp = await loadMcp(assignment.id, { place, skip: off });
+        return (mcp.source?.tools ?? []).map((tool) => ({
+          server_name: tool.server,
+          original_tool: tool.original,
+        }));
+      },
     });
     if (!made.ok) return made;
     if (made.value.kind === "cannot_start") {
@@ -579,7 +603,12 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
     }
     const agent = made.value.agent;
 
-    const found = await material(run.value.run, assignment, agent, mcp);
+    const found = await material(
+      run.value.run,
+      assignment,
+      agent,
+      mcp ?? await loadMcp(assignment.id, { place: agent.place }),
+    );
     if (!found.ok) return found;
     const { listed, scope, model, place } = found.value;
 
@@ -694,11 +723,15 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
     const assignment = assigned.value.assignment;
     const pinned = await pinnedRunAgent(machine, runId, record.assignment);
     if (!pinned.ok) return pinned;
+    // 이어 하기는 고정한 agent가 켠 서버만 연결한다(R18).
     const found = await material(
       record,
       assignment,
       pinned.value,
-      await loadMcp(assignment.id),
+      await loadMcp(assignment.id, {
+        place: pinned.value.place,
+        only: new Set(pinned.value.mcp.map((tool) => tool.server_name)),
+      }),
     );
     if (!found.ok) return found;
     const holder: { agent?: CoreCall } = {};

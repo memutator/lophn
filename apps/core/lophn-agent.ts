@@ -75,11 +75,14 @@ import {
 } from "../../packages/lophn-agent/assignments/mod.ts";
 import {
   type AgentDeps,
+  agentFileName,
   type AgentFileSystem,
   type AgentLookups,
   type AssignmentRef,
   createAgentCommands,
   createAgentReads,
+  createAgentStore,
+  parseAgentFile,
   type ProfileAssetDeps,
   type ProfileFileHandler,
   profileImageFileHandler,
@@ -163,6 +166,8 @@ import {
   SOCKET_HOST,
 } from "../../packages/contracts/apps/mod.ts";
 import {
+  type AgentPlace,
+  type AgentRole,
   DEFAULT_RUN_LIMITS,
   mcpAuthBegin,
   mcpAuthBeginInputSchema,
@@ -170,13 +175,23 @@ import {
   mcpAuthCompleteInputSchema,
   type McpServerConfig,
   mcpServersSetting,
-  type McpTool,
   skillFoldersSetting,
   TOOL_DOCUMENT_ROUTES,
 } from "../../packages/contracts/lophn-agent/mod.ts";
 import {
   allowNetList,
   allowRunList,
+  commandSkillsOf,
+  createExtensionRegistry,
+  createPlaceExtensionCommands,
+  createPlaceExtensionReads,
+  dataRootOf,
+  type ExtensionRegistry,
+  mcpToolsOf,
+  type PlaceExtensionDeps,
+  type PlaceFiles,
+  type SkillSources,
+  type SyncSkillFiles,
 } from "../../packages/lophn-agent/extensions/mod.ts";
 import { createMcpAuth } from "../../packages/lophn-agent/extensions/mod.ts";
 import { createMcpSecretRefSource } from "../../packages/lophn-agent/extensions/mod.ts";
@@ -486,11 +501,6 @@ const conversationCommands = createConversationCommands({
 });
 const conversationReads = createConversationReads();
 
-// `/` 명령 목록(concern commands). 목록은 저장하지 않고 session의 agent에서 열 때마다 계산한다.
-// skill 발견은 폴더를 훑는 비동기 일이라 동기 read에서 셀 수 없다. agentLookups.skills와 같이 extensions가
-// 동기 등록부를 내놓을 때까지 빈 목록이다.
-const commandReads = createCommandReads({ skills: () => [] });
-
 // handoff(concern handoff). SubmitHandoff는 AcceptRun의 출처 검사 wrapper라서 run-loop의
 // AcceptRun handler를 같은 Tx에서 부른다. AcceptRun은 machine 전용 기록이라 이 접수에 한해
 // machine 자격으로 바꿔 넘기고(command 안에서 보낸 run·방향·원래 요청을 먼저 검사한다) 바깥
@@ -687,38 +697,105 @@ function agentAssignmentRef(row: SqlRow): AssignmentRef {
 const ASSIGNMENT_COLUMNS =
   "id, role, scope_kind, scope_id, state, revision from assignments";
 
-// 켜진 외부 MCP server의 tool(분류에 적힌 이름)을 등록 순서로 낸다. 읽지 못하면 빈 목록이다.
-function registeredMcpTools(sql: Pick<Tx["sql"], "all">): McpTool[] {
+// settings registry 값을 읽는다. 없거나 형식이 틀리면 undefined다(fail closed).
+function settingValue(
+  sql: Pick<Tx["sql"], "all">,
+  key: string,
+): unknown {
   try {
     const rows = sql.all(
       "select value from setting_choices where key = ?",
-      [mcpServersSetting.key],
+      [key],
     );
-    if (rows.length === 0) return [];
-    const shaped = mcpServersSetting.value_type.safeParse(
-      JSON.parse(String(rows[0]["value"])),
-    );
-    if (!shaped.success) return [];
-    return shaped.data.filter((server) => server.enabled).flatMap((server) =>
-      Object.keys(server.classifications).map((tool) => ({
-        server_name: server.name,
-        original_tool: tool,
-      }))
-    );
+    if (rows.length === 0) return undefined;
+    return JSON.parse(String(rows[0]["value"]));
   } catch {
-    return [];
+    return undefined;
   }
 }
 
-function agentLookups(sql: Pick<Tx["sql"], "get" | "all">): AgentLookups {
+// 전역(Workspace)에 등록된 외부 MCP server 전부다. 읽지 못하면 빈 목록이다.
+function registeredMcpServers(
+  sql: Pick<Tx["sql"], "all">,
+): McpServerConfig[] {
+  const shaped = mcpServersSetting.value_type.safeParse(
+    settingValue(sql, mcpServersSetting.key),
+  );
+  return shaped.success ? shaped.data : [];
+}
+
+function registeredSkillFolders(sql: Pick<Tx["sql"], "all">): string[] {
+  const shaped = skillFoldersSetting.value_type.safeParse(
+    settingValue(sql, skillFoldersSetting.key),
+  );
+  return shaped.success ? shaped.data : [];
+}
+
+// 전역 층의 skill 출처다: 사람이 등록한 폴더, data root의 개인 보관소, 설치 묶음의 동봉 폴더(extensions R1).
+function globalSkillSources(
+  sql: Pick<Tx["sql"], "get" | "all">,
+): Omit<SkillSources, "place"> {
+  const root = dataRootOf(sql, undefined);
   return {
-    placeExists: (place) =>
-      sql.get(
-        place.kind === "project"
-          ? "select 1 as found from projects where id = ?"
-          : "select 1 as found from apps where id = ?",
-        [place.id],
-      ) !== undefined,
+    registered: registeredSkillFolders(sql),
+    personal: root.ok ? `${root.value}/skills` : null,
+    bundled: BUNDLED_SKILLS_ROOT,
+  };
+}
+
+// 동기 file 읽기는 writer·reader Worker 안의 handler가 한다. core 프로세스의 module graph에는 동기 file API를
+// 두지 않으므로(platform/responsiveness#R1) adapter는 이 module이 올라올 때 URL로 연다.
+const NODE_EXTENSION_FILES = new URL(
+  "../../packages/lophn-agent/extensions/adapters/node-fs.ts",
+  import.meta.url,
+).href;
+const { createNodePlaceFiles, createNodeSkillFiles } = await import(
+  NODE_EXTENSION_FILES
+) as {
+  createNodePlaceFiles(): PlaceFiles;
+  createNodeSkillFiles(): SyncSkillFiles;
+};
+const placeFiles = createNodePlaceFiles();
+const skillFiles = createNodeSkillFiles();
+
+// 한 읽기에서 쓰는 동기 등록부다(extensions R32): 전역 층에 그 자리 층을 더한 skill·MCP 목록을 준다. data root를
+// 모르면 null이다.
+function extensionRegistry(
+  sql: Pick<Tx["sql"], "get" | "all">,
+): ExtensionRegistry | null {
+  const root = dataRootOf(sql, undefined);
+  if (!root.ok) return null;
+  return createExtensionRegistry({
+    root: root.value,
+    files: placeFiles,
+    skillFiles,
+    global: {
+      servers: registeredMcpServers(sql),
+      skills: globalSkillSources(sql),
+    },
+  });
+}
+
+function placeExists(
+  sql: Pick<Tx["sql"], "get">,
+  place: AgentPlace,
+): boolean {
+  return sql.get(
+    place.kind === "project"
+      ? "select 1 as found from projects where id = ?"
+      : "select 1 as found from apps where id = ?",
+    [place.id],
+  ) !== undefined;
+}
+
+function agentLookups(sql: Pick<Tx["sql"], "get" | "all">): AgentLookups {
+  let registry: ExtensionRegistry | null | undefined;
+  const registryOf = (): ExtensionRegistry | null => {
+    if (registry === undefined) registry = extensionRegistry(sql);
+    return registry;
+  };
+  return {
+    placeExists: (place) => placeExists(sql, place),
     assignments: (place) =>
       sql.all(
         `select ${ASSIGNMENT_COLUMNS} where state != 'withdrawn'
@@ -747,10 +824,14 @@ function agentLookups(sql: Pick<Tx["sql"], "get" | "all">): AgentLookups {
         )
           .map((row) => String(row["id"]))
         : [],
-    // 등록 skill은 폴더를 훑어야 알 수 있어(비동기) 동기 읽기에서 셀 수 없다. extensions가 동기 등록부를
-    // 내놓을 때까지 빈 목록이다.
-    skills: () => [],
-    mcp: () => registeredMcpTools(sql),
+    // 이 자리의 agent가 쓸 수 있는 skill·MCP다: 전역 층에 그 자리 층을 더한다(extensions R32). 한 읽기 안에서
+    // 같은 자리는 같은 목록이다.
+    skills: (place) =>
+      registryOf()?.skills(place).entries.map((entry) => entry.name) ?? [],
+    mcp: (place) =>
+      mcpToolsOf(
+        registryOf()?.mcpServers(place) ?? registeredMcpServers(sql),
+      ),
     // Workspace 층: 역할별 기본 model(agent_model_defaults의 role slot). 기본 권한 설정은 아직 없어
     // 권한 층은 비어 있다.
     workspace: () => ({ models: loadWorkspaceModels(sql) }),
@@ -806,6 +887,49 @@ const agentDeps: AgentDeps = {
 const agentCommands = createAgentCommands(agentDeps);
 const agentReads = createAgentReads(agentDeps);
 
+// skill·MCP의 자리 층(concern extensions R32, R33): 자리 data 폴더의 MCP 서버 목록을 저장하고 읽는다.
+// 사람이 전역에 등록한 서버와 이름이 겹치면 거절한다.
+const placeExtensionDeps: PlaceExtensionDeps = {
+  files: placeFiles,
+  skillFiles,
+  lookups: (sql) => ({
+    placeExists: (place) => placeExists(sql, place),
+    globalServers: () => registeredMcpServers(sql),
+    skillSources: () => globalSkillSources(sql),
+  }),
+};
+const placeExtensionCommands = createPlaceExtensionCommands(placeExtensionDeps);
+const placeExtensionReads = createPlaceExtensionReads(placeExtensionDeps);
+
+// 그 agent 정의가 끈 skill 이름이다(agents R18, extensions R30). 정의를 읽지 못하면 끈 것이 없다.
+function skillsOffOf(
+  sql: Pick<Tx["sql"], "get" | "all">,
+  session: { assignment: string; role: AgentRole; work_place: AgentPlace },
+): readonly string[] {
+  const root = dataRootOf(sql, undefined);
+  if (!root.ok) return [];
+  const file = createAgentStore(agentDeps.files, root.value).read(
+    session.work_place,
+    agentFileName(session.role, session.assignment),
+  );
+  if (!file.ok || file.value === null) return [];
+  const parsed = parseAgentFile(file.value.text, {
+    role: session.role,
+    place: session.work_place.kind,
+  });
+  return parsed.ok ? parsed.value.skills_off ?? [] : [];
+}
+
+// `/` 명령 목록(concern commands). 목록은 저장하지 않고 session의 agent에서 열 때마다 계산한다. skill은 그 session
+// 자리에서 그 agent가 쓸 수 있는 것이다: 전역 층에 자리 층을 더하고, agent 정의가 끈 것은 selected=false다(commands R7).
+const commandReads = createCommandReads({
+  skills: (sql, session) =>
+    commandSkillsOf(
+      extensionRegistry(sql)?.skills(session.work_place).entries ?? [],
+      skillsOffOf(sql, session),
+    ),
+});
+
 export const lophnAgentDefinitions = {
   // settings registry 출처의 항목이다(platform/settings#R31). core 조립의 settings.ts가 모은다.
   settings: [
@@ -860,6 +984,7 @@ export const lophnAgentDefinitions = {
     agentCommands.save,
     agentCommands.delete,
     agentCommands.changeSettings,
+    placeExtensionCommands.change,
     runCommands.accept,
     runCommands.start,
     runCommands.checkpoint,
@@ -922,6 +1047,7 @@ export const lophnAgentDefinitions = {
     agentReads.list,
     agentReads.read,
     agentReads.settings,
+    placeExtensionReads.read,
     runReads.read,
     runReads.list,
     runReads.result,
@@ -1328,6 +1454,7 @@ export function createReaderRegistration(): ReaderRegistration {
       agentReads.list,
       agentReads.read,
       agentReads.settings,
+      placeExtensionReads.read,
       runReads.read,
       runReads.list,
       runReads.result,

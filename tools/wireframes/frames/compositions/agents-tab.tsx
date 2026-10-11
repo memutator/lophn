@@ -1,24 +1,45 @@
-// project의 Agents 탭(A7)과 agent 편집 탭(A8). 카드 목록과 Instructions·Skills·MCP servers 세 section, 그리고
-// Operator 하나의 form. 정의는 project 폴더가 아니라 lophn에 저장된다.
+// project의 Agents 탭(A7)과 agent 편집 탭(A8). 카드 목록과 Instructions·Models for this project·Skills·MCP
+// servers section, 그리고 agent 하나의 form(Profile · Name · Instructions · Model · Contexts · Skills · MCP ·
+// Permissions). 정의는 project 폴더가 아니라 lophn에 저장된다.
+import { useState } from "react";
 import {
   Button,
   Card,
   Checkbox,
   Field,
+  Icon,
+  iconPixels,
   Input,
   lophnSpaceIcons,
+  Menu,
   Select,
   Switch,
   Textarea,
 } from "@lophn/design/components";
 
 import {
+  AVATAR_ICON_LABEL,
+  AVATAR_ICONS,
+  ProfileAvatar,
+} from "./agent-avatar.tsx";
+import {
+  type AgentProfile,
+  AVATAR_ICON_KEYS,
+  effectiveRoleModel,
   LOPHN_MD_PREVIEW,
+  operatorOf,
+  OPERATORS,
   operatorTab,
+  profileOf,
+  PROJECT_CONTEXTS,
   PROJECT_MCP,
   PROJECT_SKILLS,
+  ROLE_MODELS,
+  roleModel,
   type ToggleItem,
 } from "./agents-data.ts";
+import { type ModelSelection, selectionLabel } from "./model-options.ts";
+import { ModelField } from "./model-picker.tsx";
 import type { TabSpec } from "./project-window.tsx";
 import styles from "./compose.module.css";
 import a from "./agents.module.css";
@@ -58,48 +79,84 @@ export function ToggleList({ items }: { items: readonly ToggleItem[] }) {
   );
 }
 
+const count = (n: number, one: string, many = `${one}s`) =>
+  n === 0 ? `No ${many}` : `${n} ${n === 1 ? one : many}`;
+
 interface AgentCard {
   readonly id: string;
   readonly name: string;
   readonly kind: "Built in" | "Operator";
-  readonly text: string;
-  readonly facts: readonly { text: string; tone?: "good" | "critical" }[];
+  readonly text?: string;
+  readonly model: string;
+  readonly counts: string;
 }
 
-const CARDS: readonly AgentCard[] = [
-  {
-    id: "lophn",
-    name: "lophn",
-    kind: "Built in",
-    text: "Talks with you about this project.",
-    facts: [{ text: "Model: default (Sonnet 5.5)" }],
-  },
-  {
-    id: "engineer",
-    name: "Context Engineer",
-    kind: "Built in",
-    text: "Keeps contexts and searches in shape.",
-    facts: [{ text: "Model: default (Sonnet 5.5)" }],
-  },
-  {
-    id: "weekly-eval-report",
-    name: "Weekly eval report",
-    kind: "Operator",
-    text: "Every Monday 09:00",
-    facts: [
-      { text: "Last run 2 days ago ✓", tone: "good" },
-      { text: "Model: Sonnet 5.5" },
-      { text: "2 skills · 1 MCP" },
-    ],
-  },
-  {
-    id: "nightly-scenario-check",
-    name: "Nightly scenario check",
-    kind: "Operator",
-    text: "Every day 02:00",
-    facts: [{ text: "Last run failed ✕", tone: "critical" }],
-  },
-];
+const onCount = (items: readonly ToggleItem[]) =>
+  items.filter((item) => item.on).length;
+
+function cards(): readonly AgentCard[] {
+  const builtIn = (id: string, name: string, role: string, text: string) => {
+    const row = roleModel(role);
+    return {
+      id,
+      name,
+      kind: "Built in" as const,
+      text,
+      model: row.project === null
+        ? `Model: default (${selectionLabel(effectiveRoleModel(role))})`
+        : `Model: ${selectionLabel(row.project)} (project)`,
+      counts: `${count(onCount(PROJECT_SKILLS), "skill")} · ${
+        onCount(PROJECT_MCP)
+      } MCP`,
+    };
+  };
+  return [
+    builtIn("lophn", "lophn", "lophn", "Talks with you about this project."),
+    builtIn(
+      "engineer",
+      "Context Engineer",
+      "Context Engineer",
+      "Keeps contexts and searches in shape.",
+    ),
+    ...OPERATORS.map((operator) => ({
+      id: operator.id,
+      name: operator.name,
+      kind: "Operator" as const,
+      model: operator.model === null
+        ? `Model: default (${selectionLabel(effectiveRoleModel("Operators"))})`
+        : `Model: ${selectionLabel(operator.model)}`,
+      counts: `${count(operator.contexts.length, "context")} · ${
+        count(operator.skills.length, "skill")
+      } · ${
+        operator.mcp.length === 0 ? "No MCP" : `${operator.mcp.length} MCP`
+      }`,
+    })),
+  ];
+}
+
+/** project 한 층의 model 칸 셋(role별). 비우면 Workspace 기본값을 따른다. */
+function ProjectModels() {
+  const [chosen, setChosen] = useState<Record<string, ModelSelection | null>>(
+    Object.fromEntries(ROLE_MODELS.map((row) => [row.role, row.project])),
+  );
+  return (
+    <div className={a.projectModels}>
+      {ROLE_MODELS.map((row) => (
+        <ModelField
+          key={row.role}
+          label={row.role}
+          inheritLabel={`Use Workspace default (${
+            selectionLabel(row.workspace)
+          })`}
+          inherited={row.workspace}
+          value={chosen[row.role]}
+          onChange={(value) => setChosen({ ...chosen, [row.role]: value })}
+          overrideNote="Overrides Workspace"
+        />
+      ))}
+    </div>
+  );
+}
 
 /** A7: project의 Agents 탭. */
 export function AgentsBody({ open }: { open: Open }) {
@@ -107,26 +164,21 @@ export function AgentsBody({ open }: { open: Open }) {
     <div className={a.agentsPage}>
       <h1 className={styles.searchTitle}>Agents in phroner</h1>
       <div className={styles.cards}>
-        {CARDS.map((card) => (
+        {cards().map((card) => (
           <Card key={card.id}>
             <div className={styles.cardHead}>
-              <h3>{card.name}</h3>
+              <h3 className={a.cardTitle}>
+                <ProfileAvatar profile={profileOf(card.name)} size="md" />
+                {card.name}
+              </h3>
               <span className={styles.chip}>{card.kind}</span>
             </div>
-            <p className={styles.purpose}>{card.text}</p>
+            {card.text === undefined
+              ? null
+              : <p className={styles.purpose}>{card.text}</p>}
             <ul className={styles.rows}>
-              {card.facts.map((fact) => (
-                <li
-                  key={fact.text}
-                  className={fact.tone === "good"
-                    ? styles.good
-                    : fact.tone === "critical"
-                    ? styles.regression
-                    : undefined}
-                >
-                  {fact.text}
-                </li>
-              ))}
+              <li>{card.model}</li>
+              <li>{card.counts}</li>
             </ul>
             <div className={styles.actions}>
               <Button onClick={() => open(operatorTab(card.id))}>Open</Button>
@@ -148,11 +200,24 @@ export function AgentsBody({ open }: { open: Open }) {
           <h2 className={styles.sectionTitle}>Instructions</h2>
           <Button size="sm">Edit</Button>
         </div>
-        <p className={a.sectionLead}>LOPHN.md for agents in phroner</p>
-        <pre className={styles.code}>{LOPHN_MD_PREVIEW}</pre>
+        <p className={a.sectionLead}>
+          LOPHN.md · Shared by every agent in phroner
+        </p>
+        <pre className={styles.code}>
+          {LOPHN_MD_PREVIEW.split("\n").slice(0, 3).join("\n")}
+        </pre>
         <p className={styles.note}>
           Your project's AGENTS.md is for coding agents; lophn agents read
           LOPHN.md.
+        </p>
+      </section>
+      <section className={a.section}>
+        <div className={a.sectionHead}>
+          <h2 className={styles.sectionTitle}>Models for this project</h2>
+        </div>
+        <ProjectModels />
+        <p className={styles.note}>
+          Leave a row alone and it follows the Workspace default.
         </p>
       </section>
       <section className={a.section}>
@@ -176,181 +241,297 @@ export function AgentsBody({ open }: { open: Open }) {
   );
 }
 
-const DAYS = [
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-  "Sunday",
-].map((day) => ({ value: day, label: day }));
-
-const INSTRUCTIONS = `# Weekly eval report
-Write the report for the week that just ended.
-
-1. Read the findings added since last Monday.
-2. Group them as improvements and regressions.
-3. Write docs/reports/<year>-w<week>.md and link each finding.
-Keep it under one page. Name the scenario for every regression.`;
-
-const MODELS = [
-  { value: "default", label: "Use default (Sonnet 5.5)" },
-  { value: "sonnet", label: "Sonnet 5.5" },
-  { value: "opus", label: "Opus 5.5" },
-  { value: "haiku", label: "Haiku 5.5" },
+const PERMISSION_OPTIONS = [
+  { value: "ask", label: "Ask first" },
+  { value: "edits", label: "Allow document edits" },
 ];
-const EFFORTS = ["Low", "Medium", "High"].map((value) => ({
-  value,
-  label: value,
-}));
 
-/** A8: Operator 하나의 편집 탭. 내장 agent는 이름·하는 일·주기를 바꾸지 못한다. */
+const BUILT_IN_INSTRUCTIONS = {
+  lophn:
+    "You talk with the person about this project. You answer from its documents and contexts, and you ask before you change a document.",
+  engineer:
+    "You keep this project's contexts and searches in shape. You write contracts, check documents against them and explain what you find.",
+} as const;
+
+/** Profile 칸: avatar 미리보기, [Choose icon ▾]로 여는 icon grid, [Upload image…]. */
+function ProfileField(
+  { value, onChange }: {
+    value: AgentProfile;
+    onChange: (profile: AgentProfile) => void;
+  },
+) {
+  const [grid, setGrid] = useState(true);
+  return (
+    <fieldset className={a.group}>
+      <legend className={styles.legend}>Profile</legend>
+      <div className={a.profileRow}>
+        <ProfileAvatar profile={value} size="lg" label="Avatar preview" />
+        <div className={a.profileTools}>
+          <div className={a.profileButtons}>
+            <Button
+              size="sm"
+              aria-expanded={grid}
+              onClick={() => setGrid(!grid)}
+            >
+              Choose icon ▾
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => onChange({ ...value, image: true })}
+            >
+              Upload image…
+            </Button>
+            {value.image
+              ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => onChange({ ...value, image: false })}
+                >
+                  Remove image
+                </Button>
+              )
+              : null}
+          </div>
+          {grid
+            ? (
+              <div className={a.iconGrid} role="group" aria-label="Icons">
+                {AVATAR_ICON_KEYS.map((key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    className={a.iconCell}
+                    aria-label={AVATAR_ICON_LABEL[key]}
+                    aria-pressed={!value.image && value.icon === key}
+                    onClick={() => onChange({ icon: key })}
+                  >
+                    <Icon icon={AVATAR_ICONS[key]} pixels={18} />
+                  </button>
+                ))}
+              </div>
+            )
+            : null}
+          <p className={styles.note}>
+            An icon, or an image you upload. It shows next to the agent's
+            messages.
+          </p>
+        </div>
+      </div>
+    </fieldset>
+  );
+}
+
+/** Contexts 칸: 붙인 context chip과 [+ Add context ▾]. 0개도 된다. */
+function ContextsField(
+  { value, onChange }: {
+    value: readonly string[];
+    onChange: (value: readonly string[]) => void;
+  },
+) {
+  const rest = PROJECT_CONTEXTS.filter((name) => !value.includes(name));
+  return (
+    <fieldset className={a.group}>
+      <legend className={styles.legend}>Contexts</legend>
+      {value.length === 0
+        ? (
+          <p className={styles.note}>
+            No contexts. This operator works with project documents only.
+          </p>
+        )
+        : (
+          <div className={a.contextChips}>
+            {value.map((name) => (
+              <span key={name} className={a.contextChip}>
+                {name}
+                <button
+                  type="button"
+                  className={a.chipX}
+                  aria-label={`Remove ${name}`}
+                  onClick={() =>
+                    onChange(value.filter((item) => item !== name))}
+                >
+                  ✕
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+      <div>
+        <Menu
+          trigger={
+            <Button
+              size="sm"
+              icon={lophnSpaceIcons.add}
+              disabled={rest.length === 0}
+            >
+              Add context ▾
+            </Button>
+          }
+          items={rest.map((name) => ({ id: name, label: name }))}
+          onSelect={(name) => onChange([...value, name])}
+        />
+      </div>
+    </fieldset>
+  );
+}
+
+/** A8: agent 하나의 편집 탭. 내장 agent는 이름이 고정이고 Contexts 칸이 없다. */
 export function OperatorEditor(
   { id, onDone }: { id: string; onDone: () => void },
 ) {
   const builtIn = id === "lophn" || id === "engineer";
   const fresh = id === "new";
+  const operator = operatorOf(id);
   const name = fresh
     ? ""
     : id === "lophn"
     ? "lophn"
     : id === "engineer"
     ? "Context Engineer"
-    : id === "nightly-scenario-check"
-    ? "Nightly scenario check"
-    : "Weekly eval report";
-  const weekly = id === "weekly-eval-report";
+    : operator?.name ?? "";
+  const role = builtIn ? name : "Operators";
+  const roleRow = roleModel(role);
+  const inherited = effectiveRoleModel(role);
+  const [profile, setProfile] = useState<AgentProfile>(
+    fresh ? { icon: "roles" } : profileOf(name),
+  );
+  const [contexts, setContexts] = useState<readonly string[]>(
+    operator?.contexts ?? [],
+  );
+  const [model, setModel] = useState<ModelSelection | null>(
+    builtIn ? null : operator?.model ?? null,
+  );
+  const [showBuiltIn, setShowBuiltIn] = useState(false);
+  const source = roleRow.project === null ? "Workspace" : "project";
   return (
     <div className={a.editorPage}>
       <div className={a.editorHead}>
-        <h1 className={styles.searchTitle}>
+        <h1 className={`${styles.searchTitle} ${a.editorTitle}`}>
+          <ProfileAvatar profile={profile} size="md" />
           {fresh ? "New Operator" : name}
         </h1>
-        {fresh || builtIn ? null : (
-          <p className={a.lastRun}>
-            <span className={weekly ? styles.good : styles.regression}>
-              {weekly ? "Last run 2 days ago ✓" : "Last run failed ✕"}
-            </span>
-            {" · "}
-            <Button size="sm" variant="ghost">See runs</Button>
-          </p>
-        )}
       </div>
       <form
         className={styles.form}
         onSubmit={(event) => event.preventDefault()}
       >
+        <ProfileField value={profile} onChange={setProfile} />
         {builtIn
           ? (
-            <p className={styles.purpose}>
-              {id === "lophn"
-                ? "Built in. Talks with you about this project."
-                : "Built in. Keeps contexts and searches in shape."}{" "}
-              It reads LOPHN.md for phroner.
-            </p>
+            <fieldset className={a.group}>
+              <legend className={styles.legend}>Name</legend>
+              <p className={a.fixedName}>{name}</p>
+              <p className={styles.note}>
+                Built in. The name can't be changed.
+              </p>
+            </fieldset>
           )
           : (
-            <>
-              <Field label="Name">
-                <Input defaultValue={name} />
-              </Field>
-              <Field label="What it does">
-                <Input
-                  defaultValue={fresh
-                    ? ""
-                    : weekly
-                    ? "Writes the weekly eval report from the new findings."
-                    : "Runs every scenario overnight and lists what failed."}
-                />
-              </Field>
-              <Field
-                label="Instructions"
-                help="Markdown. These come after LOPHN.md."
-              >
-                <Textarea
-                  rows={8}
-                  defaultValue={fresh
-                    ? ""
-                    : weekly
-                    ? INSTRUCTIONS
-                    : "Run all scenarios in eval/scenarios. Write the failures to eval/runs/<date>.md."}
-                />
-              </Field>
-              <fieldset className={a.group}>
-                <legend className={styles.legend}>Schedule</legend>
-                <div className={a.scheduleRow}>
-                  <span className={a.scheduleText}>Every</span>
-                  <Field label="Day">
-                    <Select options={DAYS} defaultValue="Monday" />
-                  </Field>
-                  <span className={a.scheduleText}>at</span>
-                  <Field label="Time">
-                    <Input defaultValue={weekly ? "09:00" : "02:00"} />
-                  </Field>
-                  <Button>Run now</Button>
-                </div>
-              </fieldset>
-            </>
+            <Field label="Name">
+              <Input defaultValue={name} />
+            </Field>
           )}
-        <div className={a.pairRow}>
-          <Field label="Model">
-            <Select
-              options={MODELS}
-              defaultValue={weekly ? "sonnet" : "default"}
+        <fieldset className={a.group}>
+          <legend className={styles.legend}>Instructions</legend>
+          <div className={a.projectInstr}>
+            <div className={a.projectInstrHead}>
+              <span>
+                Project instructions · LOPHN.md — shared by every agent in
+                phroner
+              </span>
+              <Button size="sm">Edit LOPHN.md</Button>
+            </div>
+            <pre className={a.projectInstrBody}>{LOPHN_MD_PREVIEW}</pre>
+          </div>
+          {builtIn
+            ? (
+              <div className={a.builtInInstr}>
+                <button
+                  type="button"
+                  className={a.disclosure}
+                  aria-expanded={showBuiltIn}
+                  onClick={() => setShowBuiltIn(!showBuiltIn)}
+                >
+                  <Icon
+                    icon={showBuiltIn
+                      ? lophnSpaceIcons.collapse
+                      : lophnSpaceIcons.expand}
+                    pixels={iconPixels("small")}
+                  />
+                  Built-in instructions (read only)
+                </button>
+                {showBuiltIn
+                  ? (
+                    <p className={a.builtInText}>
+                      {BUILT_IN_INSTRUCTIONS[id as "lophn" | "engineer"]}
+                    </p>
+                  )
+                  : null}
+              </div>
+            )
+            : null}
+          <Field
+            label={builtIn
+              ? "Your instructions for this agent"
+              : "Instructions for this agent"}
+            help="The agent reads project instructions first, then these."
+          >
+            <Textarea
+              rows={8}
+              defaultValue={operator?.instructions ?? ""}
             />
           </Field>
-          <Field label="Effort">
-            <Select options={EFFORTS} defaultValue="Medium" />
-          </Field>
-        </div>
-        <fieldset className={a.group}>
-          <legend className={styles.legend}>Reads contexts</legend>
-          <div className={a.checks}>
-            <Checkbox label="eval" defaultChecked />
-            <Checkbox label="harness" />
-          </div>
         </fieldset>
+        <ModelField
+          label="Model"
+          inheritLabel={`Use project default — ${
+            selectionLabel(inherited)
+          } (from ${source})`}
+          inherited={inherited}
+          value={model}
+          onChange={setModel}
+        />
+        {builtIn
+          ? null
+          : <ContextsField value={contexts} onChange={setContexts} />}
         <fieldset className={a.group}>
           <legend className={styles.legend}>Skills</legend>
           <div className={a.checks}>
-            <Checkbox label="weekly-report" defaultChecked={weekly} />
-            <Checkbox label="eval-metrics" defaultChecked={weekly} />
-            <Checkbox label="scenario-authoring" />
+            {PROJECT_SKILLS.map((skill) => (
+              <Checkbox
+                key={skill.name}
+                label={skill.name}
+                defaultChecked={operator?.skills.includes(skill.name) ??
+                  false}
+              />
+            ))}
           </div>
         </fieldset>
         <fieldset className={a.group}>
           <legend className={styles.legend}>MCP servers</legend>
           <div className={a.checks}>
-            <Checkbox label="github" defaultChecked={weekly} />
-            <Checkbox label="linear" />
+            {PROJECT_MCP.map((server) => (
+              <Checkbox
+                key={server.name}
+                label={server.name}
+                defaultChecked={operator?.mcp.includes(server.name) ?? false}
+              />
+            ))}
           </div>
         </fieldset>
-        <div className={a.pairRow}>
-          <Field label="Permissions">
-            <Select
-              options={[
-                { value: "ask", label: "Ask first" },
-                { value: "edits", label: "Allow document edits" },
-              ]}
-              defaultValue="ask"
-            />
-          </Field>
-          <Field label="Can write in">
-            <Input defaultValue={fresh ? "" : "docs/reports/"} />
-          </Field>
-        </div>
-        {builtIn ? null : (
-          <Field label="Leaves documents in">
-            <Input defaultValue={fresh ? "" : "docs/reports/"} />
-          </Field>
-        )}
+        <Field
+          label="Permissions"
+          help="Can't be wider than the project's permissions."
+        >
+          <Select options={PERMISSION_OPTIONS} defaultValue="ask" />
+        </Field>
         <div className={styles.actions}>
           <Button variant="primary" onClick={onDone}>Save</Button>
           <Button onClick={onDone}>Cancel</Button>
         </div>
         <p className={styles.note}>
-          Stored in lophn, not in your project folder.
+          Only the fields you change are saved; the rest follow project and
+          Workspace defaults. Stored in lophn, not in your project folder.
         </p>
       </form>
     </div>

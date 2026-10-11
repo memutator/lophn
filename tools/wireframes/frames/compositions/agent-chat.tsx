@@ -1,6 +1,7 @@
-// 대화 탭의 틀과 부품. 탭 안 맨 위의 view bar, 대화 줄, composer 위에 붙는 질문·승인 dock, composer와
-// model picker, 접히는 tool 줄, 편집 카드, Rewind menu. 실제 Button·IconButton·Menu·Popover·Card·Kbd를 쓰고,
-// 입력칸(Field 없이 쓰는 textarea·검색 input)과 Rewind menu, 상태 점, context chip은 같은 token으로 짠 look-alike다.
+// Agent 탭의 틀과 부품. 탭 안 맨 위의 view bar(agent header), 대화 줄(내 메시지는 오른쪽 bubble, agent 메시지는
+// 왼쪽에 avatar·이름·시각), composer 위에 붙는 질문·승인 dock, composer와 `/` 명령 메뉴, 접히는 tool 줄,
+// 편집 카드, Rewind menu. 실제 Button·IconButton·Menu·Popover·Card·Kbd를 쓰고, 입력칸(Field 없이 쓰는
+// textarea·검색 input)과 Rewind menu, 상태 점, context chip은 같은 token으로 짠 look-alike다.
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import {
   Button,
@@ -13,20 +14,25 @@ import {
   Kbd,
   lophnSpaceIcons,
   Menu,
-  paletteIcons,
   Popover,
   workspaceIcons,
 } from "@lophn/design/components";
 
 import menuStyles from "../../../../packages/design/components/menu/menu.module.css";
+import { Avatar } from "./agent-avatar.tsx";
 import {
-  AGENT_ROWS,
   type ChatInit,
-  type Effort,
-  EFFORTS,
-  PROVIDER_MODELS,
+  DEMO_PICKER,
+  DEMO_SWITCH_FROM,
+  DEMO_SWITCH_TO,
+  SESSION_MODEL,
+  type SessionRow,
 } from "./agents-data.ts";
 import { ViewBar } from "./documents.tsx";
+import { type ModelSelection, switchModel } from "./model-options.ts";
+import { ModelPicker } from "./model-picker.tsx";
+import { SessionSwitcher } from "./session-switcher.tsx";
+import { SlashMenu, slashQuery } from "./slash-menu.tsx";
 import styles from "./compose.module.css";
 import a from "./agents.module.css";
 
@@ -87,123 +93,25 @@ function Chevron({ down }: { down: boolean }) {
   );
 }
 
-/** model picker. 검색칸, 연결된 provider별 model, effort, 이 대화에만 쓴다는 말, 기본값 바꾸기. */
-function ModelPicker(
-  { defaultOpen, model, effort, onModel, onEffort }: {
-    defaultOpen: boolean;
-    model: string;
-    effort: Effort;
-    onModel: (model: string) => void;
-    onEffort: (effort: Effort) => void;
-  },
-) {
-  const [open, setOpen] = useState(defaultOpen);
-  const [query, setQuery] = useState("");
-  const [stars, setStars] = useState<ReadonlySet<string>>(
-    new Set(["Sonnet 5.5"]),
-  );
-  const needle = query.trim().toLowerCase();
-  const groups = PROVIDER_MODELS.map((group) => ({
-    ...group,
-    models: group.models.filter((name) => name.toLowerCase().includes(needle)),
-  })).filter((group) => group.models.length > 0);
-  return (
-    <Popover
-      open={open}
-      onOpenChange={setOpen}
-      trigger={
-        <Button size="sm" variant="ghost">{`${model} · ${effort} ▾`}</Button>
-      }
-    >
-      <div className={a.modelMenu}>
-        <label className={a.modelSearch}>
-          <Icon icon={paletteIcons.search} pixels={iconPixels("base")} />
-          <input
-            className={a.bareInput}
-            aria-label="Search models"
-            placeholder="Search models"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        </label>
-        <div className={a.modelList} role="listbox" aria-label="Models">
-          {groups.length === 0
-            ? <p className={a.noMatch}>No models match.</p>
-            : groups.map((group) => (
-              <div key={group.provider} role="presentation">
-                <p className={a.modelGroup}>{group.provider}</p>
-                {group.models.map((name) => (
-                  <div
-                    key={name}
-                    role="option"
-                    aria-selected={name === model}
-                    className={`${menuStyles.item} ${a.modelRow}`}
-                    data-highlighted={name === model ? "" : undefined}
-                    onClick={() => onModel(name)}
-                  >
-                    <button
-                      type="button"
-                      className={a.star}
-                      aria-label={stars.has(name)
-                        ? `Remove ${name} from favorites`
-                        : `Add ${name} to favorites`}
-                      aria-pressed={stars.has(name)}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        const next = new Set(stars);
-                        if (!next.delete(name)) {
-                          next.add(name);
-                        }
-                        setStars(next);
-                      }}
-                    >
-                      {stars.has(name) ? "★" : "☆"}
-                    </button>
-                    <span className={a.modelName}>{name}</span>
-                    {name === model
-                      ? <span className={a.modelCheck}>✓</span>
-                      : null}
-                  </div>
-                ))}
-              </div>
-            ))}
-        </div>
-        <div className={a.effortRow}>
-          <span className={a.effortLabel}>Effort</span>
-          <div className={a.effort} role="group" aria-label="Effort">
-            {EFFORTS.map((item) => (
-              <Button
-                key={item}
-                size="sm"
-                variant={item === effort ? "secondary" : "ghost"}
-                aria-pressed={item === effort}
-                onClick={() => onEffort(item)}
-              >
-                {item}
-              </Button>
-            ))}
-          </div>
-        </div>
-        <p className={a.modelNote}>
-          Only this session. Default comes from the agent.
-        </p>
-        <div className={a.modelFoot}>
-          <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
-            Change defaults…
-          </Button>
-        </div>
-      </div>
-    </Popover>
-  );
-}
-
 const PERMISSIONS = [
   { id: "ask", label: "Ask first" },
   { id: "edits", label: "Allow document edits" },
   { id: "all", label: "Allow everything in phroner" },
 ] as const;
 
-/** composer. 입력칸 안 아래 줄에 [+] … [agent ▾] [model · effort ▾] [↑], 입력칸 밖 아래 줄에 [project] [Permissions ▾]. */
+/** 처음 model 상태. page가 picker를 연 채 시작하면 고정된 시연 값에서 시작한다. */
+function startModel(
+  demo: ChatInit["modelDemo"],
+): { selection: ModelSelection; notes: readonly string[] } {
+  if (demo === "picker") return { selection: DEMO_PICKER, notes: [] };
+  if (demo === "switched") return switchModel(DEMO_SWITCH_FROM, DEMO_SWITCH_TO);
+  return { selection: SESSION_MODEL, notes: [] };
+}
+
+/**
+ * composer. 입력칸 안 아래 줄에 [+] … [model · option ▾] [↑], 입력칸 밖 아래 줄에 [project] [Permissions ▾].
+ * agent를 고르는 칸은 없다(session 안에서 agent를 바꾸지 않는다). "/"를 치면 명령 메뉴가 위로 뜬다.
+ */
 function Composer(
   { agent, placeholder, running, chat, chip, onChip }: {
     agent: string;
@@ -214,78 +122,86 @@ function Composer(
     onChip?: () => void;
   },
 ) {
-  const [who, setWho] = useState(agent);
-  const [model, setModel] = useState("Sonnet 5.5");
-  const [effort, setEffort] = useState<Effort>("Medium");
+  const [start] = useState(() => startModel(chat.modelDemo));
+  const [notes, setNotes] = useState<readonly string[]>(start.notes);
+  const [selection, setSelection] = useState(start.selection);
   const [permission, setPermission] = useState<string>(PERMISSIONS[0].id);
+  const [text, setText] = useState(chat.slash ?? "");
   const permissionLabel = PERMISSIONS.find((item) => item.id === permission)
     ?.label;
+  const query = slashQuery(text);
   return (
     <div className={a.composerWrap}>
-      <div className={a.cBox}>
-        {chip === undefined ? null : (
-          <div className={a.chipRow}>
-            <span className={a.ctxChip}>
-              <Icon
-                icon={workspaceIcons.document}
-                pixels={iconPixels("small")}
-                className={a.ctxChipIcon}
-              />
-              <span className={a.ctxChipText}>{chip}</span>
-              <IconButton
-                icon={workspaceIcons.close}
-                label="Remove context"
-                size="sm"
-                onClick={onChip}
-              />
-            </span>
-          </div>
+      <div className={a.cBoxWrap}>
+        {query === null ? null : (
+          <SlashMenu
+            agent={agent}
+            query={query}
+            working={running}
+            onPick={(command, group) =>
+              setText(group === "Skills" ? `/${command.name} ` : "")}
+          />
         )}
-        <textarea
-          className={a.cInput}
-          rows={2}
-          aria-label="Message"
-          placeholder={placeholder}
-        />
-        <div className={a.cRow}>
-          <IconButton
-            icon={lophnSpaceIcons.add}
-            label="Add attachment"
-            size="sm"
+        <div className={a.cBox}>
+          {chip === undefined ? null : (
+            <div className={a.chipRow}>
+              <span className={a.ctxChip}>
+                <Icon
+                  icon={workspaceIcons.document}
+                  pixels={iconPixels("small")}
+                  className={a.ctxChipIcon}
+                />
+                <span className={a.ctxChipText}>{chip}</span>
+                <IconButton
+                  icon={workspaceIcons.close}
+                  label="Remove context"
+                  size="sm"
+                  onClick={onChip}
+                />
+              </span>
+            </div>
+          )}
+          <textarea
+            className={a.cInput}
+            rows={2}
+            aria-label="Message"
+            placeholder={placeholder}
+            value={text}
+            onChange={(event) => setText(event.target.value)}
           />
-          <span className={a.spacer} />
-          <Menu
-            trigger={<Button size="sm" variant="ghost">{`${who} ▾`}</Button>}
-            items={AGENT_ROWS.filter((row) => row.id !== "operators").map((
-              row,
-            ) => ({ id: row.name, label: row.name }))}
-            onSelect={setWho}
-          />
-          <ModelPicker
-            defaultOpen={chat.model === true}
-            model={model}
-            effort={effort}
-            onModel={setModel}
-            onEffort={setEffort}
-          />
-          {running
-            ? (
-              <Button
-                size="sm"
-                variant="secondary"
-                icon={conversationIcons.stop}
-              >
-                Stop
-              </Button>
-            )
-            : (
-              <IconButton
-                icon={conversationIcons.send}
-                label="Send"
-                variant="secondary"
-                size="sm"
-              />
-            )}
+          <div className={a.cRow}>
+            <IconButton
+              icon={lophnSpaceIcons.add}
+              label="Add attachment"
+              size="sm"
+            />
+            <span className={a.spacer} />
+            <ModelPicker
+              defaultOpen={chat.modelDemo !== undefined}
+              selection={selection}
+              notes={notes}
+              onSelection={setSelection}
+              onNotes={setNotes}
+            />
+            {running
+              ? (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon={conversationIcons.stop}
+                >
+                  Stop
+                </Button>
+              )
+              : (
+                <IconButton
+                  icon={conversationIcons.send}
+                  label="Send"
+                  variant="secondary"
+                  size="sm"
+                />
+              )}
+          </div>
         </div>
       </div>
       <div className={a.scopeRow}>
@@ -310,11 +226,11 @@ function Composer(
   );
 }
 
-/** 대화 탭의 틀: view bar, 대화, dock, composer. `children`은 보기 상세에 따라 대화를 그린다. */
+/** Agent 탭의 틀: agent header가 있는 view bar, 대화, dock, composer. `children`은 보기 상세에 따라 대화를 그린다. */
 export function ChatShell(
   {
-    title,
     agent,
+    session,
     chat = {},
     tasks = false,
     running = false,
@@ -323,10 +239,13 @@ export function ChatShell(
     chip,
     onChip,
     onRewind,
+    onSession,
+    onNewSession,
     children,
   }: {
-    title: string;
     agent: string;
+    /** 지금 session. 새 session이면 id가 없다. */
+    session: { id: string; title: string };
     chat?: ChatInit;
     tasks?: boolean;
     running?: boolean;
@@ -335,6 +254,8 @@ export function ChatShell(
     chip?: string;
     onChip?: () => void;
     onRewind?: () => void;
+    onSession?: (row: SessionRow) => void;
+    onNewSession?: (agent: string) => void;
     children: (detail: Detail) => ReactNode;
   },
 ) {
@@ -346,7 +267,20 @@ export function ChatShell(
   }, [dock !== undefined]);
   return (
     <div className={styles.chat}>
-      <ViewBar path={title}>
+      <ViewBar
+        path={`${agent} · ${session.title}`}
+        lead={
+          <SessionSwitcher
+            key={agent}
+            agent={agent}
+            currentId={session.id}
+            title={session.title}
+            demo={chat.switcher}
+            onPick={(row) => onSession?.(row)}
+            onNew={() => onNewSession?.(agent)}
+          />
+        }
+      >
         {tasks ? <ProgressChip open={chat.tasks === true} /> : null}
         <Menu
           trigger={
@@ -390,16 +324,37 @@ export function ChatShell(
   );
 }
 
-/** 말 한 덩어리. 누가 말했는지 이름이 위에 있다. */
-export function Said(
-  { who, children }: { who: string; children: ReactNode },
+/**
+ * agent의 말 한 덩어리. 왼쪽 열에 avatar(24px)·이름(굵게)·시각이 위에 한 번 있고, 이어지는 말과 tool 줄·카드는
+ * 같은 덩어리 안에서 그 아래에 이름 없이 이어진다. 카드는 이 열의 폭을 다 쓴다.
+ */
+export function AgentTurn(
+  { agent, time, children }: {
+    agent: string;
+    time: string;
+    children: ReactNode;
+  },
 ) {
   return (
-    <div className={styles.turn}>
-      <span className={styles.who}>{who}</span>
-      <div className={styles.said}>{children}</div>
+    <div className={a.agentTurn}>
+      <div className={a.agentHead}>
+        <Avatar agent={agent} />
+        <span className={a.agentName}>{agent}</span>
+        <span className={a.agentTime}>{time}</span>
+      </div>
+      <div className={a.agentBody}>{children}</div>
     </div>
   );
+}
+
+/** agent의 글. */
+export function Said({ children }: { children: ReactNode }) {
+  return <div className={a.said}>{children}</div>;
+}
+
+/** 내 메시지가 아닌 한 줄 안내(결정을 남기는 말 같은). */
+export function Quiet({ children }: { children: ReactNode }) {
+  return <p className={a.quiet}>{children}</p>;
 }
 
 const REWIND_ITEMS = [
@@ -408,31 +363,35 @@ const REWIND_ITEMS = [
   "Summarize from here",
 ] as const;
 
-/** 내 메시지. hover하면 Rewind 단추가 보이고, 누르면 Rewind menu가 열린다. */
+/** 내 메시지. 오른쪽 bubble이고 이름·avatar는 없다. hover하면 Rewind 단추가 보이고, 누르면 Rewind menu가 열린다. */
 export function UserMessage(
   { children, rewindOpen, onRewindOpen }: {
     children: ReactNode;
-    rewindOpen: boolean;
-    onRewindOpen: (open: boolean) => void;
+    rewindOpen?: boolean;
+    onRewindOpen?: (open: boolean) => void;
   },
 ) {
+  const rewindable = onRewindOpen !== undefined;
   return (
     <div
-      className={`${styles.turn} ${styles.mine} ${a.userMsg}`}
+      className={a.userTurn}
       data-open={rewindOpen ? "" : undefined}
     >
-      <span className={styles.who}>You</span>
       <div className={a.userRow}>
-        <div className={styles.said}>{children}</div>
-        <span className={a.msgActions}>
-          <IconButton
-            icon={editorIcons.restore}
-            label="Rewind to here"
-            size="sm"
-            aria-expanded={rewindOpen}
-            onClick={() => onRewindOpen(!rewindOpen)}
-          />
-        </span>
+        {rewindable
+          ? (
+            <span className={a.msgActions}>
+              <IconButton
+                icon={editorIcons.restore}
+                label="Rewind to here"
+                size="sm"
+                aria-expanded={rewindOpen}
+                onClick={() => onRewindOpen(!rewindOpen)}
+              />
+            </span>
+          )
+          : null}
+        <div className={a.bubble}>{children}</div>
       </div>
       {rewindOpen
         ? (
@@ -450,9 +409,9 @@ export function UserMessage(
                   tabIndex={0}
                   className={menuStyles.item}
                   data-highlighted={index === 0 ? "" : undefined}
-                  onClick={() => onRewindOpen(false)}
+                  onClick={() => onRewindOpen?.(false)}
                   onKeyDown={(event) => {
-                    if (event.key === "Enter") onRewindOpen(false);
+                    if (event.key === "Enter") onRewindOpen?.(false);
                   }}
                 >
                   {label}

@@ -1,21 +1,30 @@
-// Agent 탭 본문. 탭의 `sub`가 어느 대화인지 정한다: Weekly report(질문·승인·되돌리기가 동작하는 이야기), 새 대화
-// (sidebar의 agent나 toast의 [Ask lophn]이 연다), 최근 대화, 그리고 lophn·Context Engineer의 이전 대화.
-// 말 속의 context 이름과 객체 id는 링크라서 누르면 탭이 열린다.
-import { type ReactNode, useState } from "react";
+// Agent 탭 본문. 탭의 `sub`가 어느 session인지 정한다: Weekly report(질문·승인·되돌리기가 동작하는 이야기), 새 session
+// (sidebar의 agent나 toast의 [Ask Context Engineer]가 연다), 그리고 agent별 이전 session. 한 탭은 agent 하나에
+// 고정이고, 같은 agent의 다른 session은 agent header에서 바꾼다. 말 속의 context 이름과 객체 id는 링크라서
+// 누르면 탭이 열린다.
+import { type ReactNode, useEffect, useState } from "react";
 import { Button } from "@lophn/ui-control";
 
 import {
+  AgentTurn,
   AnsweredSummary,
   ApprovalDock,
   ChatShell,
   EditCard,
   QuestionDock,
+  Quiet,
   Said,
   ToolRow,
   UserMessage,
   WorkedFor,
 } from "./agent-chat.tsx";
-import { type ChatInit, CONVERSATIONS } from "./agents-data.ts";
+import {
+  type ChatInit,
+  sessionBySub,
+  type SessionRow,
+  SESSIONS,
+  type SessionState,
+} from "./agents-data.ts";
 import { Link } from "./link.tsx";
 import {
   contextTab,
@@ -28,9 +37,19 @@ import styles from "./compose.module.css";
 
 type Open = (tab: TabSpec) => void;
 
+/** 탭 줄의 상태 점에 알리는 session 상태(사람을 기다림·일하는 중). */
+export type TabState = "waiting" | "working" | null;
+
+/** 탭 안에서 session을 바꾸거나 새로 연다. */
+export interface SessionHandlers {
+  readonly onSession: (row: SessionRow) => void;
+  readonly onNewSession: (agent: string) => void;
+  readonly onState: (state: TabState) => void;
+}
+
 interface Turn {
-  readonly who: string;
   readonly mine?: boolean;
+  readonly time?: string;
   readonly text: ReactNode;
 }
 
@@ -43,15 +62,20 @@ export const CE_ANSWERS: readonly string[] = [
 ];
 
 const ASK_LOPHN = "Ask lophn… @ for documents and contexts, / for skills";
+const askPlaceholder = (agent: string) =>
+  `Ask ${agent}… @ for documents and contexts, / for skills`;
 
 function lophnTurns(open: Open): readonly Turn[] {
   const finding = (id: string) => (
     <Link onClick={() => open(findingTab(id))}>{id}</Link>
   );
   return [
-    { who: "You", mine: true, text: "Which findings are about C-049?" },
     {
-      who: "lophn",
+      mine: true,
+      text: "Which findings are about C-049?",
+    },
+    {
+      time: "10:12",
       text: (
         <>
           Three: {finding("F-009")}, {finding("F-010")} and{" "}
@@ -60,13 +84,9 @@ function lophnTurns(open: Open): readonly Turn[] {
         </>
       ),
     },
+    { mine: true, text: "Open the regression and compare it with exp-008." },
     {
-      who: "You",
-      mine: true,
-      text: "Open the regression and compare it with exp-008.",
-    },
-    {
-      who: "lophn",
+      time: "10:13",
       text: (
         <>
           Opened {finding("F-011")} next to{" "}
@@ -75,9 +95,9 @@ function lophnTurns(open: Open): readonly Turn[] {
         </>
       ),
     },
-    { who: "You", mine: true, text: "Which context are these findings in?" },
+    { mine: true, text: "Which context are these findings in?" },
     {
-      who: "lophn",
+      time: "10:14",
       text: (
         <>
           They are in the{" "}
@@ -95,7 +115,7 @@ function lophnTurns(open: Open): readonly Turn[] {
 
 const NEW_CONTEXT_TURNS: readonly Turn[] = [
   {
-    who: "Context Engineer",
+    time: "14:02",
     text:
       "What should the new context help with? Tell me which folders or files to look at, and what you want to find.",
   },
@@ -108,7 +128,7 @@ function engineerTurns(
 ): readonly Turn[] {
   const turns: Turn[] = [
     {
-      who: "Context Engineer",
+      time: "14:20",
       text: (
         <>
           I read the 3 places you picked for{" "}
@@ -120,7 +140,6 @@ function engineerTurns(
       ),
     },
     {
-      who: "Context Engineer",
       text: (
         <>
           <span>{CE_QUESTION}</span>
@@ -146,9 +165,9 @@ function engineerTurns(
   ];
   if (answer !== null) {
     turns.push(
-      { who: "You", mine: true, text: answer },
+      { mine: true, text: answer },
       {
-        who: "Context Engineer",
+        time: "14:23",
         text: answer === CE_ANSWERS[0]
           ? "Got it. I'll match titles to issues too and go on with the searches."
           : "Got it. Only issue numbers count. I'll go on with the searches.",
@@ -158,87 +177,155 @@ function engineerTurns(
   return turns;
 }
 
-// 최근 대화 중 Weekly report 말고는 짧은 이야기 하나씩이다.
+// Weekly report 말고는 session마다 짧은 이야기 하나씩이다.
 const PAST: Record<string, readonly Turn[]> = {
-  failing: [
-    { who: "You", mine: true, text: "Why did 3 scenarios fail last night?" },
+  harness: [
+    { mine: true, text: "Summarize this week's harness changes." },
     {
-      who: "Context Engineer",
+      time: "09:48",
+      text:
+        "I'm reading the 5 merged changes. So far: the recipe lookup is now one call, and the scheduler tests run faster.",
+    },
+  ],
+  "release-check": [
+    {
+      mine: true,
+      text: "Do the release notes mention every merged change?",
+    },
+    {
+      time: "07:20",
+      text:
+        "Yes, 12 of 12 changes are listed. One entry has no issue link: C-051.",
+    },
+  ],
+  "eval-questions": [
+    { mine: true, text: "What does pass rate mean in the eval context?" },
+    {
+      time: "Mon 16:40",
+      text:
+        "It is the share of scenarios that passed in one run, a number from 0 to 1.",
+    },
+  ],
+  failing: [
+    { mine: true, text: "Why did 3 scenarios fail last night?" },
+    {
+      time: "09:36",
       text:
         "I'm reading the three runs: query-recipe-gap, sched-edit and wake-plant. The first two fail on the same recipe lookup.",
     },
   ],
-  nightly: [
+  week41: [
+    { mine: true, text: "Summarize week 41 for me." },
     {
-      who: "Nightly scenario check",
+      time: "08:50",
       text:
-        "Ran 44 scenarios at 02:00. 3 failed: query-recipe-gap, sched-edit, wake-plant. I left the run notes in eval/runs/2026-10-10.md.",
+        "Pass rate went from 0.91 to 0.93. One regression: query-recipe-gap. I linked F-011 in the summary.",
     },
   ],
-  "release-notes": [
-    { who: "You", mine: true, text: "Is the release-notes context ready?" },
+  "recipe-gap": [
+    { mine: true, text: "Why did query-recipe-gap regress?" },
     {
-      who: "Context Engineer",
+      time: "Fri 11:05",
       text:
-        "Yes. It is applied as version r1 and its tests passed. Searches for releases, issues and changelog entries are ready to use.",
+        "It fails only when the answer needs a recipe lookup. exp-008 changed the lookup tool the week before.",
+    },
+  ],
+  "next-experiments": [
+    { mine: true, text: "What should we try next for the query tools?" },
+    {
+      time: "08:44",
+      text:
+        "Three ideas: retry the lookup once before answering, return only the top 3 recipes, and add the item name to the lookup result.",
+    },
+  ],
+  "exp-013": [
+    { mine: true, text: "Plan exp-013 so it isolates the recipe lookup." },
+    {
+      time: "Tue 15:30",
+      text:
+        "Run the 5 recipe scenarios with the old and the new tool, 10 times each, and compare pass rates.",
     },
   ],
 };
 
-function Turns({ turns }: { turns: readonly Turn[] }) {
-  return (
-    <>
-      {turns.map((turn, index) =>
-        turn.mine
-          ? (
-            <div key={index} className={`${styles.turn} ${styles.mine}`}>
-              <span className={styles.who}>{turn.who}</span>
-              <div className={styles.said}>{turn.text}</div>
-            </div>
-          )
-          : <Said key={index} who={turn.who}>{turn.text}</Said>
-      )}
-    </>
-  );
+/** 내 말은 오른쪽 bubble, 이어지는 agent 말은 한 덩어리로 묶어 avatar·이름·시각을 첫 말에만 단다. */
+function Turns({ agent, turns }: { agent: string; turns: readonly Turn[] }) {
+  const out: ReactNode[] = [];
+  let group: Turn[] = [];
+  const flush = () => {
+    if (group.length === 0) return;
+    out.push(
+      <AgentTurn key={out.length} agent={agent} time={group[0].time ?? "09:41"}>
+        {group.map((turn, index) => <Said key={index}>{turn.text}</Said>)}
+      </AgentTurn>,
+    );
+    group = [];
+  };
+  for (const turn of turns) {
+    if (turn.mine) {
+      flush();
+      out.push(<UserMessage key={out.length}>{turn.text}</UserMessage>);
+    } else group.push(turn);
+  }
+  flush();
+  return <>{out}</>;
 }
 
-/** lophn과 Context Engineer의 이전 대화와 최근 대화. */
+/** 탭 줄의 상태 점을 알린다. */
+function useTabState(onState: (state: TabState) => void, state: TabState) {
+  useEffect(() => onState(state), [state]);
+}
+
+const tabStateOf = (state: SessionState): TabState =>
+  state === "idle" ? null : state;
+
+/** lophn과 Context Engineer 등의 이전 session. */
 function PlainChat(
-  { agent, title, turns, running = false, placeholder }: {
+  { agent, row, title, turns, handlers, chat }: {
     agent: string;
+    row?: SessionRow;
     title: string;
     turns: readonly Turn[];
-    running?: boolean;
-    placeholder?: string;
+    handlers: SessionHandlers;
+    chat?: ChatInit;
   },
 ) {
+  const state = row === undefined ? null : tabStateOf(row.state);
+  useTabState(handlers.onState, state);
   return (
     <ChatShell
-      title={`${agent} · ${title}`}
       agent={agent}
-      running={running}
-      placeholder={placeholder ??
-        `Ask ${agent}… @ for documents and contexts, / for skills`}
+      session={{ id: row?.id ?? "", title }}
+      chat={chat}
+      running={state === "working"}
+      placeholder={askPlaceholder(agent)}
+      onSession={handlers.onSession}
+      onNewSession={handlers.onNewSession}
     >
-      {() => <Turns turns={turns} />}
+      {() => <Turns agent={agent} turns={turns} />}
     </ChatShell>
   );
 }
 
-/** 새 대화. sidebar의 agent나 toast의 [Ask lophn]이 연다. 첫 context가 붙어 있으면 chip으로 보인다. */
-function FreshChat({ chat }: { chat: ChatInit }) {
+/** 새 session. sidebar의 agent나 toast의 [Ask Context Engineer]가 연다. 첫 context가 붙어 있으면 chip으로 보인다. */
+function FreshChat(
+  { chat, handlers }: { chat: ChatInit; handlers: SessionHandlers },
+) {
   const agent = chat.agent ?? "lophn";
   const [chip, setChip] = useState(chat.chip);
+  useTabState(handlers.onState, null);
   return (
     <ChatShell
-      title={`${agent} · New session`}
       agent={agent}
+      session={{ id: "", title: "New session" }}
       chat={chat}
       chip={chip}
       onChip={() => setChip(undefined)}
       placeholder={chip === undefined
-        ? `Ask ${agent}… @ for documents and contexts, / for skills`
+        ? askPlaceholder(agent)
         : `What should ${agent} do about this?`}
+      onSession={handlers.onSession}
+      onNewSession={handlers.onNewSession}
     >
       {() => (
         <p className={styles.muted}>
@@ -252,10 +339,16 @@ function FreshChat({ chat }: { chat: ChatInit }) {
 }
 
 /**
- * Weekly report 대화. 이야기는 하나이고 진행(stage)만 다르다: 질문 카드 → 답한 뒤 → 일이 끝남, 그리고 승인 카드.
+ * Weekly report session. 이야기는 하나이고 진행(stage)만 다르다: 질문 카드 → 답한 뒤 → 일이 끝남, 그리고 승인 카드.
  * 질문은 [Submit]·[Skip]으로, 승인은 [Allow ▾]·[Deny]로 이어진다.
  */
-function WeeklyChat({ open, chat }: { open: Open; chat: ChatInit }) {
+function WeeklyChat(
+  { open, chat, handlers }: {
+    open: Open;
+    chat: ChatInit;
+    handlers: SessionHandlers;
+  },
+) {
   const [stage, setStage] = useState(chat.stage ?? "question");
   const [summary, setSummary] = useState(
     "Answered 2 questions: Report place → docs/reports/ · Include regressions → Yes",
@@ -270,6 +363,7 @@ function WeeklyChat({ open, chat }: { open: Open; chat: ChatInit }) {
   );
   const waiting = stage === "question" ||
     (stage === "approval" && decision === null);
+  useTabState(handlers.onState, waiting ? "waiting" : null);
   const dock = stage === "question"
     ? (
       <QuestionDock
@@ -294,8 +388,8 @@ function WeeklyChat({ open, chat }: { open: Open; chat: ChatInit }) {
   const toggle = (key: string) => setOpened({ ...opened, [key]: !opened[key] });
   return (
     <ChatShell
-      title="lophn · Weekly report"
       agent="lophn"
+      session={{ id: "weekly", title: "Weekly report" }}
       chat={chat}
       tasks
       running={waiting && stage === "approval"}
@@ -304,6 +398,8 @@ function WeeklyChat({ open, chat }: { open: Open; chat: ChatInit }) {
         : ASK_LOPHN}
       dock={dock}
       onRewind={() => setRewind(true)}
+      onSession={handlers.onSession}
+      onNewSession={handlers.onNewSession}
     >
       {(detail) => {
         const show = detail !== "messages";
@@ -313,90 +409,95 @@ function WeeklyChat({ open, chat }: { open: Open; chat: ChatInit }) {
             <UserMessage rewindOpen={rewind} onRewindOpen={setRewind}>
               Write this week's eval report from the new findings.
             </UserMessage>
-            {show
-              ? (
-                <>
-                  <ToolRow
-                    label="Read 3 documents"
-                    open={isOpen("read")}
-                    onToggle={() => toggle("read")}
-                  >
-                    <li>loop/findings/F-009.md</li>
-                    <li>loop/findings/F-011.md</li>
-                    <li>docs/reports/2026-w40.md</li>
-                  </ToolRow>
-                  <ToolRow
-                    label="Searched eval · Findings about a change"
-                    open={isOpen("search")}
-                    onToggle={() => toggle("search")}
-                  >
-                    <li>
-                      Findings about a change · kind: regression, metric: any
-                    </li>
-                    <li>3 findings found</li>
-                  </ToolRow>
-                </>
-              )
-              : null}
-            {stage === "report" || stage === "approval"
-              ? (
-                <>
-                  <Said who="lophn">
-                    Three new findings since last week: {finding("F-009")} and
-                    {" "}
-                    {finding("F-010")} are improvements, {finding("F-011")}{" "}
-                    is a regression on query-recipe-gap. I wrote the report and
-                    linked each finding to it.
+            <AgentTurn agent="lophn" time="09:41">
+              {show
+                ? (
+                  <>
+                    <ToolRow
+                      label="Read 3 documents"
+                      open={isOpen("read")}
+                      onToggle={() => toggle("read")}
+                    >
+                      <li>loop/findings/F-009.md</li>
+                      <li>loop/findings/F-011.md</li>
+                      <li>docs/reports/2026-w40.md</li>
+                    </ToolRow>
+                    <ToolRow
+                      label="Searched eval · Findings about a change"
+                      open={isOpen("search")}
+                      onToggle={() => toggle("search")}
+                    >
+                      <li>
+                        Findings about a change · kind: regression, metric: any
+                      </li>
+                      <li>3 findings found</li>
+                    </ToolRow>
+                  </>
+                )
+                : null}
+              {stage === "report" || stage === "approval"
+                ? (
+                  <>
+                    <Said>
+                      Three new findings since last week: {finding("F-009")} and
+                      {" "}
+                      {finding("F-010")} are improvements, {finding("F-011")}
+                      {" "}
+                      is a regression on query-recipe-gap. I wrote the report
+                      and linked each finding to it.
+                    </Said>
+                    <EditCard
+                      path="docs/reports/2026-w41.md"
+                      added={24}
+                      removed={3}
+                      onOpen={() =>
+                        open(documentTab("docs/reports/2026-w41.md"))}
+                    />
+                    {show ? <WorkedFor text="Worked for 18s" /> : null}
+                  </>
+                )
+                : (
+                  <Said>
+                    There are 3 new findings since last week. Before I write the
+                    report I need two answers.
                   </Said>
-                  <EditCard
-                    path="docs/reports/2026-w41.md"
-                    added={24}
-                    removed={3}
-                    onOpen={() => open(documentTab("docs/reports/2026-w41.md"))}
-                  />
-                  {show ? <WorkedFor text="Worked for 18s" /> : null}
-                </>
-              )
-              : (
-                <Said who="lophn">
-                  There are 3 new findings since last week. Before I write the
-                  report I need two answers.
-                </Said>
+                )}
+              {stage === "answered"
+                ? (
+                  <>
+                    <AnsweredSummary text={summary} />
+                    <Said>
+                      Thanks. Writing the report into docs/reports/ with a
+                      section for the regressions.
+                    </Said>
+                    <EditCard
+                      path="docs/reports/2026-w41.md"
+                      added={24}
+                      removed={3}
+                      onOpen={() =>
+                        open(documentTab("docs/reports/2026-w41.md"))}
+                    />
+                    {show ? <WorkedFor text="Worked for 18s" /> : null}
+                  </>
+                )
+                : null}
+              {stage === "approval"
+                ? (
+                  <Said>
+                    Last week's report counts the regressions wrong. I can fix
+                    it with the corrected numbers, but I need your OK to change
+                    a document I did not just write.
+                  </Said>
+                )
+                : null}
+              {decision === null ? null : (
+                <Quiet>
+                  {decision === "Denied"
+                    ? "Denied. docs/reports/2026-w40.md was left as it is."
+                    : `${decision}. Rewrote docs/reports/2026-w40.md.`}
+                </Quiet>
               )}
-            {stage === "answered"
-              ? (
-                <>
-                  <AnsweredSummary text={summary} />
-                  <Said who="lophn">
-                    Thanks. Writing the report into docs/reports/ with a section
-                    for the regressions.
-                  </Said>
-                  <EditCard
-                    path="docs/reports/2026-w41.md"
-                    added={24}
-                    removed={3}
-                    onOpen={() => open(documentTab("docs/reports/2026-w41.md"))}
-                  />
-                  {show ? <WorkedFor text="Worked for 18s" /> : null}
-                </>
-              )
-              : null}
-            {stage === "approval"
-              ? (
-                <Said who="lophn">
-                  Last week's report counts the regressions wrong. I can fix it
-                  with the corrected numbers, but I need your OK to change a
-                  document I did not just write.
-                </Said>
-              )
-              : null}
-            {decision === null ? null : (
-              <p className={styles.muted}>
-                {decision === "Denied"
-                  ? "Denied. docs/reports/2026-w40.md was left as it is."
-                  : `${decision}. Rewrote docs/reports/2026-w40.md.`}
-              </p>
-            )}
+            </AgentTurn>
           </>
         );
       }}
@@ -406,49 +507,46 @@ function WeeklyChat({ open, chat }: { open: Open; chat: ChatInit }) {
 
 /** Agent 탭. */
 export function Conversation(
-  { tab, open, answer = null, onAnswer = () => {} }: {
+  { tab, open, answer = null, onAnswer = () => {}, handlers }: {
     tab: TabSpec;
     open: Open;
     answer?: string | null;
     onAnswer?: (answer: string) => void;
+    handlers: SessionHandlers;
   },
 ) {
   const sub = tab.sub ?? "";
   const chat = tab.chat ?? {};
-  if (sub === "weekly") return <WeeklyChat open={open} chat={chat} />;
-  if (sub === "new") return <FreshChat chat={chat} />;
-  if (sub.startsWith("conv:")) {
-    const id = sub.slice("conv:".length);
-    const row = CONVERSATIONS.find((item) => item.id === id);
-    if (id === "c049") {
-      return (
-        <PlainChat
-          agent="lophn"
-          title="Findings about C-049"
-          turns={lophnTurns(open)}
-        />
-      );
-    }
-    const agent = row?.agent === "Operator" ? row.title : row?.agent ?? "lophn";
-    return (
-      <PlainChat
-        agent={agent}
-        title={row?.title ?? "Session"}
-        turns={PAST[id] ?? []}
-        running={row?.state === "working"}
-      />
-    );
+  if (sub === "weekly") {
+    return <WeeklyChat open={open} chat={chat} handlers={handlers} />;
   }
+  if (sub === "new") return <FreshChat chat={chat} handlers={handlers} />;
   if (sub.startsWith("engineer")) {
+    const fresh = sub === "engineer-new";
     return (
       <PlainChat
         agent="Context Engineer"
-        title={sub === "engineer-new" ? "New context" : "release-notes"}
-        turns={sub === "engineer-new"
+        row={fresh ? undefined : sessionBySub("Context Engineer", "engineer")}
+        title={fresh ? "New context" : "Release notes context"}
+        turns={fresh
           ? NEW_CONTEXT_TURNS
           : engineerTurns(open, answer, onAnswer)}
+        handlers={handlers}
+        chat={chat}
       />
     );
   }
-  return <PlainChat agent="lophn" title="Session" turns={lophnTurns(open)} />;
+  const id = sub.startsWith("conv:") ? sub.slice("conv:".length) : "c049";
+  const row = SESSIONS.find((item) => item.id === id) ??
+    SESSIONS.find((item) => item.id === "c049")!;
+  return (
+    <PlainChat
+      agent={row.agent}
+      row={row}
+      title={row.title}
+      turns={id === "c049" ? lophnTurns(open) : PAST[id] ?? []}
+      handlers={handlers}
+      chat={chat}
+    />
+  );
 }

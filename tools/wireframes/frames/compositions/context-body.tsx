@@ -296,31 +296,27 @@ function Contract() {
 function Violations() {
   return (
     <>
-      <div className={styles.bulk}>
-        <Button>Send all to Context Engineer</Button>
-      </div>
       <div className={styles.violation}>
         <div>
           <p>
-            <span className={styles.violationFile}>
-              exp-012-ftb-quests-021-q8.md
-            </span>{" "}
-            · <Mono>about</Mono> is missing
-          </p>
-          <p className={styles.rule}>rule: Experiment.about required</p>
-        </div>
-        <Button>Send to Context Engineer</Button>
-      </div>
-      <div className={styles.violation}>
-        <div>
-          <p>
-            <span className={styles.violationFile}>F-014.md</span> · scenario
+            <span className={styles.violationFile}>reports/weekly-12.md</span>
             {" "}
-            <Mono>sched-x</Mono> doesn't exist
+            · section <Mono>Findings</Mono> is missing
           </p>
-          <p className={styles.rule}>rule: Finding.scenarios → Scenario</p>
+          <p className={styles.rule}>rule: Report.sections requires Findings</p>
         </div>
-        <span className={styles.status}>Context Engineer is on it</span>
+      </div>
+      <div className={styles.violation}>
+        <div>
+          <p>
+            <span className={styles.violationFile}>reports/weekly-13.md</span>
+            {" "}
+            · name doesn't match <Mono>reports/weekly-{"{n}"}.md</Mono>
+          </p>
+          <p className={styles.rule}>
+            rule: Report.path = reports/weekly-{"{n}"}.md
+          </p>
+        </div>
       </div>
     </>
   );

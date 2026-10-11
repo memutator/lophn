@@ -1,10 +1,11 @@
 // Part 2: agent 부르기·대화·관리 화면. 모두 동작하는 ProjectApp(과 Workspace) 위에 고정 상태로 놓는다.
 import {
   AGENTS_TAB,
-  askLophnTab,
+  askEngineerTab,
   type ChatInit,
   operatorTab,
   weeklyTab,
+  workingTab,
 } from "./agents-data.ts";
 import { ProjectApp, type ProjectAppProps } from "./project-app.tsx";
 import { documentTab } from "./phroner-data.ts";
@@ -27,14 +28,14 @@ function withTab(tab: TabSpec, extra: Partial<ProjectAppProps> = {}) {
 
 const weekly = (chat: ChatInit) => withTab(weeklyTab(chat));
 
-/** A1: sidebar의 Agents 묶음과 최근 Sessions. 탭 줄에 Weekly report · lophn Agent 탭이 열려 있다. */
+/** A1: sidebar의 Agents 묶음(session 목록은 sidebar에 없다). 탭 줄에 Weekly report · lophn Agent 탭이 열려 있다. */
 export function AgentSidebar() {
   return withTab(weeklyTab({ stage: "question" }), {
     sidebar: { ...SIDEBAR, hoverAgent: "lophn", scrollToAgents: true },
   });
 }
 
-/** A2: program이 판정한 일을 알리는 toast. [Ask lophn]이 그 일을 첫 context로 붙여 대화를 연다. */
+/** A2: lophn이 가진 사건(context 계약 위반)을 알리는 toast. [Ask Context Engineer]가 그 사건을 첫 context로 붙여 Agent 탭을 연다. */
 export function AgentToast() {
   return (
     <ProjectApp
@@ -45,15 +46,30 @@ export function AgentToast() {
   );
 }
 
-/** A2b: [Ask lophn]을 누른 뒤. 새 대화에 context chip이 붙고 입력칸은 비어 있다. */
+/** A2b: [Ask Context Engineer]를 누른 뒤. 새 Agent 탭에 context chip이 붙고 입력칸은 비어 있다. */
 export function AgentToastOpened() {
-  return withTab(askLophnTab());
+  return withTab(askEngineerTab());
 }
 
 /** A3: 대화 탭. */
 export const AgentConversation = () => weekly({ stage: "report" });
-/** A3b: model picker를 펼친 상태. */
-export const AgentModelPicker = () => weekly({ stage: "report", model: true });
+/** A3b: model picker를 펼친 상태. Favorites 묶음이 맨 위이고 고른 model의 option 축만 보인다. */
+export const AgentModelPicker = () =>
+  weekly({ stage: "report", modelDemo: "picker" });
+/** A3c: model을 바꿔 없는 effort가 가까운 약한 값으로 맞춰진 직후. */
+export const AgentModelChanged = () =>
+  weekly({ stage: "report", modelDemo: "switched" });
+/** A11: agent header의 session switcher. */
+export const AgentSessions = () =>
+  weekly({ stage: "report", switcher: "open" });
+/** A11b: 이름 고치기 input과 삭제 확인. */
+export const AgentSessionsEdit = () =>
+  weekly({ stage: "report", switcher: "edit" });
+/** A12: 입력칸에 "/"를 친 명령 메뉴. */
+export const AgentCommands = () => weekly({ stage: "report", slash: "/" });
+/** A12b: "/co"로 걸러진 메뉴. 작업 중이라 Fork가 흐리다. */
+export const AgentCommandsFiltered = () =>
+  withTab(workingTab({ slash: "/co" }));
 /** A4: 질문 카드. */
 export const AgentQuestion = () => weekly({ stage: "question" });
 /** A4b: 질문에 답한 뒤. */
@@ -67,8 +83,7 @@ export const AgentRewind = () => weekly({ stage: "report", rewind: true });
 /** A7: project의 Agents 탭. */
 export const ProjectAgents = () => withTab(AGENTS_TAB);
 /** A8: Operator 편집 탭. */
-export const OperatorEditorPage = () =>
-  withTab(operatorTab("weekly-eval-report"));
+export const OperatorEditorPage = () => withTab(operatorTab("eval-analyst"));
 
 /** A9: Workspace › Settings › Providers. */
 export const SettingsProviders = () => (

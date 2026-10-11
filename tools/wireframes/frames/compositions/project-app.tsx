@@ -19,14 +19,14 @@ import {
 import { AgentsBody, OperatorEditor } from "./agents-tab.tsx";
 import {
   AGENTS_TAB,
-  askLophnTab,
-  conversationTab,
+  askEngineerTab,
   newConversationTab,
-  weeklyTab,
+  type SessionRow,
 } from "./agents-data.ts";
 import { ContextsBody, SearchBody, TerminalBody } from "./bodies.tsx";
 import { ContextBody, type SubTab } from "./context-body.tsx";
-import { Conversation } from "./conversation.tsx";
+import { Conversation, type TabState } from "./conversation.tsx";
+import { FAVORITE_START, FavoritesContext } from "./model-picker.tsx";
 import { DocumentPane, type InfoPanel } from "./documents.tsx";
 import { ContextDrafting } from "./context-drafting.tsx";
 import {
@@ -58,9 +58,9 @@ export interface ProjectAppProps {
   readonly overlay?: ReactNode;
   /** 창 위에 얹는 것(toast). */
   readonly children?: ReactNode;
-  /** 계약 위반 toast를 띄운 채 시작한다. [View]는 그 context의 Violations를 연다. */
+  /** 계약 위반 toast를 띄운 채 시작한다. [View]는 그 context의 Violations를, [Ask Context Engineer]는 그 사건을 첫 context로 붙인 새 Agent 탭을 연다. */
   readonly violationToast?: boolean;
-  /** program이 판정한 일을 알리는 toast("3 scenarios failed …")를 띄운 채 시작한다. [Ask lophn]은 그 일을 첫 context로 붙인 새 Agent 탭을 연다. */
+  /** violationToast와 같은 toast. 다른 탭이 열린 채로 보인다. */
   readonly askToast?: boolean;
   /** 이 문서 탭(key)의 info 칸을 이 panel로 연 채 시작한다. */
   readonly info?: { readonly tab: string; readonly panel: InfoPanel };
@@ -169,8 +169,11 @@ export function ProjectApp(
   );
   const [editing, setEditing] = useState<ReadonlySet<string>>(new Set());
   const [answer, setAnswer] = useState<string | null>(null);
-  const [toast, setToast] = useState(violationToast);
-  const [ask, setAsk] = useState(askToast);
+  const [toast, setToast] = useState(violationToast || askToast);
+  const [favorites, setFavorites] = useState<readonly string[]>(FAVORITE_START);
+  const [tabStates, setTabStates] = useState<
+    Readonly<Record<string, TabState>>
+  >({});
   const [palette, setPalette] = useState(false);
   const terminals = useRef(1);
 
@@ -227,6 +230,31 @@ export function ProjectApp(
           : (tabs[index] ?? tabs[index - 1])?.key ?? "";
         return { tabs, selected };
       })
+    );
+
+  // 같은 탭 안에서 session을 바꾼다(탭 key는 그대로, agent는 그대로). row가 없으면 새 session이다.
+  const swapSession = (key: string, agent: string, row?: SessionRow) =>
+    setPanes((current) =>
+      current.map((pane) => ({
+        ...pane,
+        tabs: pane.tabs.map((tab) =>
+          tab.key !== key ? tab : row === undefined
+            ? {
+              ...tab,
+              title: `New session · ${agent}`,
+              sub: "new",
+              chat: { agent },
+            }
+            : {
+              ...tab,
+              title: `${row.title} · ${row.agent}`,
+              sub: row.sub ?? `conv:${row.id}`,
+              chat: row.id === "weekly"
+                ? { stage: "question" as const }
+                : undefined,
+            }
+        ),
+      }))
     );
 
   const newTerminal = () => {
@@ -313,10 +341,19 @@ export function ProjectApp(
       case "agent":
         return (
           <Conversation
+            key={tab.sub}
             tab={tab}
             open={open}
             answer={answer}
             onAnswer={setAnswer}
+            handlers={{
+              onSession: (row) => swapSession(tab.key, row.agent, row),
+              onNewSession: (agent) => swapSession(tab.key, agent),
+              onState: (state) =>
+                setTabStates((now) =>
+                  now[tab.key] === state ? now : { ...now, [tab.key]: state }
+                ),
+            }}
           />
         );
       case "agents":
@@ -335,133 +372,119 @@ export function ProjectApp(
   const crumbs = crumbsOf(focusTab);
   const items: readonly PaletteItem[] = PALETTE;
   return (
-    <div className={styles.window}>
-      <ProjectSidebar
-        {...sidebar}
-        activeConversation={sidebar.activeConversation ??
-          (focusTab?.key.startsWith("conv:")
-            ? focusTab.key.slice(5)
-            : undefined)}
-        collapsed={collapsed}
-        onToggle={() => setCollapsed(!collapsed)}
-        onRail={rail}
-        onOpenFile={(id) => open(documentTab(id))}
-        onOpenContext={(name) => open(contextTab(name))}
-        onAgent={(id) => open(newConversationTab(id))}
-        onConversation={(row) =>
-          open(row.id === "weekly" ? weeklyTab() : conversationTab(row))}
-        onManage={() => open(AGENTS_TAB)}
-      />
-      <div className={styles.main}>
-        <div className={styles.topBar}>
-          <TopBar
-            platform="linux"
-            leading={
-              <div className={styles.leading}>
-                {collapsed ? <LauncherButton onLauncher={() => {}} /> : null}
-                <Breadcrumbs crumbs={crumbs.map((label) => ({ label }))} />
-              </div>
-            }
-            trailing={
-              <IconButton
-                icon={paletteIcons.search}
-                label="Search documents"
-                variant="secondary"
-                onClick={() => setPalette(true)}
+    <FavoritesContext.Provider
+      value={{
+        names: favorites,
+        toggle: (name) =>
+          setFavorites((now) =>
+            now.includes(name)
+              ? now.filter((item) => item !== name)
+              : [...now, name]
+          ),
+      }}
+    >
+      <div className={styles.window}>
+        <ProjectSidebar
+          {...sidebar}
+          collapsed={collapsed}
+          onToggle={() => setCollapsed(!collapsed)}
+          onRail={rail}
+          onOpenFile={(id) => open(documentTab(id))}
+          onOpenContext={(name) => open(contextTab(name))}
+          onAgent={(id) => open(newConversationTab(id))}
+          onManage={() => open(AGENTS_TAB)}
+        />
+        <div className={styles.main}>
+          <div className={styles.topBar}>
+            <TopBar
+              platform="linux"
+              leading={
+                <div className={styles.leading}>
+                  {collapsed ? <LauncherButton onLauncher={() => {}} /> : null}
+                  <Breadcrumbs crumbs={crumbs.map((label) => ({ label }))} />
+                </div>
+              }
+              trailing={
+                <IconButton
+                  icon={paletteIcons.search}
+                  label="Search documents"
+                  variant="secondary"
+                  onClick={() => setPalette(true)}
+                />
+              }
+            />
+          </div>
+          <div className={styles.panes}>
+            {panes.map((pane, index) => {
+              return (
+                <section key={index} className={styles.pane}>
+                  <TabBar
+                    tabs={pane.tabs}
+                    selected={pane.selected}
+                    focused={index === 0}
+                    states={tabStates}
+                    newTab={<TabMenu onPick={pick} />}
+                    onSelect={(key) =>
+                      setPanes((current) =>
+                        current.map((item, at) =>
+                          at === index ? { ...item, selected: key } : item
+                        )
+                      )}
+                    onClose={close}
+                  />
+                  {pane.tabs.map((tab) => (
+                    <div
+                      key={tab.key}
+                      hidden={tab.key !== pane.selected}
+                      className={`${styles.body} ${
+                        FLUSH.has(tab.kind) ? styles.flush : ""
+                      }`}
+                    >
+                      {body(tab)}
+                    </div>
+                  ))}
+                  {index === 0 ? overlay : null}
+                </section>
+              );
+            })}
+          </div>
+        </div>
+        {children}
+        {toast
+          ? (
+            <ToastStack>
+              <Toast
+                title="eval: 2 documents don't match the context"
+                actions={[
+                  { id: "ask", label: "Ask Context Engineer" },
+                  { id: "view", label: "View" },
+                ]}
+                onAction={(id) => {
+                  open(
+                    id === "ask"
+                      ? askEngineerTab()
+                      : contextTab("eval", "violations"),
+                  );
+                  setToast(false);
+                }}
+                onClose={() => setToast(false)}
+                timer={NO_TIMER}
               />
-            }
-          />
-        </div>
-        <div className={styles.panes}>
-          {panes.map((pane, index) => {
-            return (
-              <section key={index} className={styles.pane}>
-                <TabBar
-                  tabs={pane.tabs}
-                  selected={pane.selected}
-                  focused={index === 0}
-                  newTab={<TabMenu onPick={pick} />}
-                  onSelect={(key) =>
-                    setPanes((current) =>
-                      current.map((item, at) =>
-                        at === index ? { ...item, selected: key } : item
-                      )
-                    )}
-                  onClose={close}
-                />
-                {pane.tabs.map((tab) => (
-                  <div
-                    key={tab.key}
-                    hidden={tab.key !== pane.selected}
-                    className={`${styles.body} ${
-                      FLUSH.has(tab.kind) ? styles.flush : ""
-                    }`}
-                  >
-                    {body(tab)}
-                  </div>
-                ))}
-                {index === 0 ? overlay : null}
-              </section>
-            );
-          })}
-        </div>
+            </ToastStack>
+          )
+          : null}
+        <Palette
+          open={palette}
+          onOpenChange={setPalette}
+          title="Command palette"
+          items={items}
+          onSelect={(id) => {
+            const chosen = PALETTE.find((item) => item.id === id);
+            if (chosen) open(chosen.tab());
+            setPalette(false);
+          }}
+        />
       </div>
-      {children}
-      {toast || ask
-        ? (
-          <ToastStack>
-            {toast
-              ? (
-                <Toast
-                  title="eval: 2 documents don't match the contract"
-                  actions={[{ id: "view", label: "View" }]}
-                  onAction={() => {
-                    open(contextTab("eval", "violations"));
-                    setToast(false);
-                  }}
-                  onClose={() => setToast(false)}
-                  timer={NO_TIMER}
-                />
-              )
-              : null}
-            {ask
-              ? (
-                <Toast
-                  title="3 scenarios failed in last night's eval"
-                  actions={[
-                    { id: "ask", label: "Ask lophn" },
-                    { id: "view", label: "View" },
-                  ]}
-                  onAction={(id) => {
-                    open(
-                      id === "ask" ? askLophnTab() : {
-                        key: "search",
-                        kind: "search",
-                        title: "phroner",
-                        sub: "experiments",
-                      },
-                    );
-                    setAsk(false);
-                  }}
-                  onClose={() => setAsk(false)}
-                  timer={NO_TIMER}
-                />
-              )
-              : null}
-          </ToastStack>
-        )
-        : null}
-      <Palette
-        open={palette}
-        onOpenChange={setPalette}
-        title="Command palette"
-        items={items}
-        onSelect={(id) => {
-          const chosen = PALETTE.find((item) => item.id === id);
-          if (chosen) open(chosen.tab());
-          setPalette(false);
-        }}
-      />
-    </div>
+    </FavoritesContext.Provider>
   );
 }

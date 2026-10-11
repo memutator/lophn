@@ -233,11 +233,18 @@ function InfoColumn(
 
 /** 탭 안 맨 위의 얇은 view bar. 왼쪽에 project 안 경로, 오른쪽에 그 탭의 조작. 탭 줄에는 조작을 두지 않는다. */
 export function ViewBar(
-  { path, children }: { path: string; children?: ReactNode },
+  { path, lead, children }: {
+    path: string;
+    /** 경로 대신 왼쪽에 둘 것(Agent 탭의 agent header). */
+    lead?: ReactNode;
+    children?: ReactNode;
+  },
 ) {
   return (
     <div className={styles.viewBar}>
-      <span className={styles.viewPath}>{path.split("/").join(" / ")}</span>
+      {lead ?? (
+        <span className={styles.viewPath}>{path.split("/").join(" / ")}</span>
+      )}
       <div className={styles.viewActions}>{children}</div>
     </div>
   );

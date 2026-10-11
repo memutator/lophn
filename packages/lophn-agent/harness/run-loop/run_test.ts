@@ -461,7 +461,7 @@ Deno.test("lophn-agent/harness/run-loop#R3 [agent-I40]: two sessions of one assi
         run: id("run", 4),
         assignment: ASG_CE,
         message: id("msg", 4),
-        session: ses1,
+        session: id("ses", 3),
       }),
     );
     value(await start(h, id("run", 1)));

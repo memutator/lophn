@@ -313,6 +313,82 @@ Deno.test("platform/notifications#R10: get·list 출력의 delivery는 선택 �
   );
 });
 
+Deno.test("platform/notifications#R13, R14 [agent-I18b]: get·list 출력의 ask는 선택이고 role·agent 이름·앱 자리·대상 참조 모양이다", () => {
+  const item = { notification, source_event: "ProblemOpened" };
+  const common = { as_of_seq: "42", next_cursor: null };
+  const app = "app_01arz3ndektsv4rrffq69g5fav";
+  const ask = {
+    role: "app_engineer",
+    agent_name: "App Engineer",
+    first_context: {
+      work_place: { kind: "app", id: app },
+      target: { kind: "problem", id: "prb_01arz3ndektsv4rrffq69g5fav" },
+    },
+  };
+  const release = {
+    ...ask,
+    first_context: {
+      ...ask.first_context,
+      target: { kind: "release", id: "rel_01arz3ndektsv4rrffq69g5fav" },
+    },
+  };
+  // 없어도(다른 actor), null이어도(agent 없는 계기) 통과한다.
+  assert(notificationsGet.output.safeParse({ ...item, ...common }).success);
+  assert(
+    notificationsGet.output.safeParse({ ...item, ...common, ask }).success,
+  );
+  assert(
+    notificationsGet.output.safeParse({ ...item, ...common, ask: null })
+      .success,
+  );
+  assert(
+    notificationsList.output.safeParse({
+      notifications: [{ ...item, ask }, { ...item, ask: release }, {
+        ...item,
+        ask: null,
+      }, item],
+      ...common,
+    }).success,
+  );
+  const bad = (value: unknown) =>
+    !notificationsGet.output.safeParse({ ...item, ...common, ask: value })
+      .success;
+  // 모르는 role, 앱이 아닌 자리, 대상 종류와 맞지 않는 id, 모르는 field, 빈 이름은 거절한다.
+  assert(bad({ ...ask, role: "operator" }));
+  assert(bad({ ...ask, agent_name: "" }));
+  assert(bad({ ...ask, extra: 1 }));
+  assert(bad({
+    ...ask,
+    first_context: {
+      ...ask.first_context,
+      work_place: { kind: "project", id: app },
+    },
+  }));
+  assert(bad({
+    ...ask,
+    first_context: {
+      ...ask.first_context,
+      work_place: { kind: "app", id: "prj_01arz3ndektsv4rrffq69g5fav" },
+    },
+  }));
+  assert(bad({
+    ...ask,
+    first_context: {
+      ...ask.first_context,
+      target: { kind: "problem", id: "rel_01arz3ndektsv4rrffq69g5fav" },
+    },
+  }));
+  assert(bad({
+    ...ask,
+    first_context: {
+      ...ask.first_context,
+      target: { kind: "ticket", id: "tkt_01arz3ndektsv4rrffq69g5fav" },
+    },
+  }));
+  // 본문 복사본이나 run·message 같은 것은 실을 자리가 없다.
+  assert(bad({ ...ask, first_context: { ...ask.first_context, body: "x" } }));
+});
+
 Deno.test("platform/notifications#R9, R12: OS 표시 요청은 제목 종류와 열 곳뿐이고 이동 필드가 없다", () => {
   const display = {
     notification: NTF,

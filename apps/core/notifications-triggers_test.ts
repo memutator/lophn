@@ -86,8 +86,12 @@ const SOURCES: Record<string, { subject: string; payload: unknown }> = {
     payload: { previous_status: "open", closure: CLOSURE },
   },
   QuestionCreated: {
-    subject: id("qst", 1),
-    payload: { run: id("run", 1), session: null, options: [] },
+    subject: id("qgr", 1),
+    payload: {
+      run: id("run", 1),
+      session: null,
+      questions: [{ id: id("qst", 1) }],
+    },
   },
   AssignmentPaused: {
     subject: id("asg", 1),
@@ -335,5 +339,47 @@ Deno.test("platform/notifications#R1 platform/identity#R8: agent·app·coding ag
       ),
       JSON.stringify(visible.map((event) => event.type)),
     );
+  });
+});
+
+Deno.test("platform/notifications#R13, R14 [agent-I18b]: core의 list·get 행이 앱 문제의 Ask 값을 싣고 agent 없는 계기와 앱을 모르는 release는 null이다", async () => {
+  await withCore(async (harness) => {
+    const user = await login(harness, "user", "user-1", [
+      "notification_source.emit",
+      "ListNotifications",
+      "GetNotification",
+    ]);
+    const events = [
+      "ProblemOpened",
+      "ProblemReopened",
+      "QuestionCreated",
+      "ReleaseActivationFailed",
+    ];
+    for (const event of events) {
+      await emit(harness, user, event, SOURCES[event]);
+    }
+    const items = await listedEvents(
+      harness,
+      user,
+      events.length,
+    ) as (Listed & { ask?: unknown })[];
+    assertEquals(items.map((item) => item.source_event), events);
+    const problem = items[0];
+    assertEquals(problem.ask, {
+      role: "app_engineer",
+      agent_name: "App Engineer",
+      first_context: {
+        work_place: { kind: "app", id: id("app", 1) },
+        target: { kind: "problem", id: id("prb", 1) },
+      },
+    });
+    // 같은 값을 get도 준다.
+    const got = await call(harness, "notifications/get", user, {
+      notification: problem.notification.id,
+    });
+    assertEquals(got.status, 200, JSON.stringify(got.body));
+    assertEquals(got.body["ask"], problem.ask);
+    // 보기만 하는 계기와, 그 release를 만든 사실이 없어 앱을 모르는 release 실패는 null이다.
+    assertEquals(items.slice(1).map((item) => item.ask), [null, null, null]);
   });
 });

@@ -25,7 +25,20 @@ export {
   type UploadedProfile,
 } from "./profile-asset.ts";
 export { type Effective, effectiveAgent } from "./effective.ts";
-export { DEFAULT_PROFILES } from "./inspect.ts";
+export {
+  BUILTIN_AGENTS,
+  type BuiltinRole,
+  DEFAULT_PROFILES,
+  productEnvironment,
+  roleCapsOf,
+} from "./builtin.ts";
+export {
+  APP_COMMAND_EXPOSURE,
+  type AppCommandExposure,
+  DOCUMENT_READ_TOOLS,
+  ROLE_CAPS,
+  type RoleCap,
+} from "./role-caps.ts";
 export type {
   AgentDeps,
   AgentFileSystem,

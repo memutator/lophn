@@ -13,8 +13,8 @@ import {
   rejectOutsideRoleCap,
   rejectUnknownMcp,
   rejectUnsafeSafeTools,
-  type RoleCap,
 } from "./model.ts";
+import type { RoleCap } from "../agents/mod.ts";
 
 // Preset 저장·적용 전 역할 종류·필수 값·이름 중복·자료와 지침 참조·tool·확장·
 // provider 계정과 model·제품 상한을 전체 검사한다(R11). 하나라도 잘못되면

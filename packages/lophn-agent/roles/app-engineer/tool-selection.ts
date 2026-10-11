@@ -4,7 +4,7 @@ import type {
   CapabilityScope,
   ToolDefinition,
 } from "../../harness/tools/mod.ts";
-import { ROLE_CAPS } from "../../presets/mod.ts";
+import { ROLE_CAPS } from "../../agents/mod.ts";
 
 // app_engineer 역할의 tool 선택(roles/app-engineer#R5, R6, R21). 목록은 AE 상한
 // (ROLE_CAPS 표)과 AE 기본 preset 선택의 교집합으로, 실제 정의는 내장 묶음에서

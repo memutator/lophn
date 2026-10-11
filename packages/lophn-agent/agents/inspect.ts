@@ -4,10 +4,9 @@ import {
   type AgentIssue,
   type AgentPlace,
   agentPlaceAllowsRole,
-  type AgentRole,
   type AgentSettings,
-  type Profile,
 } from "../../contracts/lophn-agent/mod.ts";
+import { DEFAULT_PROFILES } from "./builtin.ts";
 import { parseAgentFile, parseSettingsFile } from "./definition-file.ts";
 import { type Effective, effectiveAgent } from "./effective.ts";
 import type {
@@ -28,14 +27,6 @@ import {
 // 읽기가 함께 쓰는 것: 한 자리의 정의 파일과 자리 설정을 읽어 검사하고 층을 합친다.
 // 읽을 때의 검사는 파일 모양 전체(R24)다. 권한 상한은 저장 때 보고, 읽을 때는 resolve가
 // 상한과 자리·Workspace 권한의 교집합으로 줄이므로 지금의 상한 밖 동작은 run에 제공되지 않는다(R20, R21).
-
-// 역할별 기본 icon은 제품이 정한다(R13).
-export const DEFAULT_PROFILES: Record<AgentRole, Profile> = {
-  lophn: { kind: "icon", icon: "dock" },
-  context_engineer: { kind: "icon", icon: "contexts" },
-  app_engineer: { kind: "icon", icon: "apps" },
-  operator: { kind: "icon", icon: "roles" },
-};
 
 export type AgentContext = { lookups: AgentLookups; store: AgentStore };
 

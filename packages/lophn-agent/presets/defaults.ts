@@ -1,5 +1,5 @@
 import type { PresetDefinition } from "../../contracts/lophn-agent/mod.ts";
-import { ROLE_CAPS } from "./role-caps.ts";
+import { ROLE_CAPS } from "../agents/mod.ts";
 
 // 내장 assignment(lophn·Context Engineer)가 쓰는 제품 기본 preset의 구성이다
 // (presets#R9, domain model 기본 preset 표). 읽을 자료는 전체, capability는 그

@@ -1,4 +1,4 @@
-import { APP_COMMAND_EXPOSURE, ROLE_CAPS } from "../../presets/mod.ts";
+import { APP_COMMAND_EXPOSURE, ROLE_CAPS } from "../../agents/mod.ts";
 import { OPTION_ACTION_OPERATIONS } from "../../questions/mod.ts";
 import {
   APP_TOOL_CONTRACT,
@@ -7,6 +7,7 @@ import {
 } from "../tools/mod.ts";
 import { EXTERNAL_TOOL_CONTRACT } from "../../extensions/mod.ts";
 import {
+  agentsRead,
   applyQuestionOption,
   assignmentList,
   assignmentRead,
@@ -22,7 +23,7 @@ import {
   messagesList,
   modelCallList,
   modelDefaultsRead,
-  presetRead,
+  placeAgentSettingsRead,
   processAssignmentOccurrence,
   providerRead,
   questionRead,
@@ -43,6 +44,7 @@ import {
   toolCallRead,
   waitRun,
 } from "../../../contracts/lophn-agent/mod.ts";
+import { contextList } from "../../../contracts/documents/mod.ts";
 import {
   appAgentConfirmProof,
   appBlueprint,
@@ -72,11 +74,14 @@ export const RUNTIME_MACHINE_ROUTES = [
   runRead,
   assignmentList,
   assignmentRead,
-  presetRead,
+  agentsRead,
+  placeAgentSettingsRead,
   providerRead,
   modelDefaultsRead,
   sessionRead,
   settingsGet,
+  // run 준비가 resolved agent의 층(정의 파일, 자리 설정, 자리의 active context)을 읽는다.
+  contextList,
   // 사람 지침(LOPHN.md) 확정 판. 매 model call 직전에 다시 읽는다(instructions R5, R8).
   instructionRead,
   startRun,

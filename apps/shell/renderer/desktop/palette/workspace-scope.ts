@@ -2,7 +2,8 @@
 // 고르면 작업대 안의 대상(탭 고르기, 문서 탭 열기, 정보 패널 컨텍스트, 행동)으로만 간다.
 import { t } from "@lophn/wording";
 
-import { TAB_KIND_LABEL, type WorkspaceView } from "../../workspace/model.ts";
+import { tabKindLabel, tabKindOf } from "../../workspace/kinds/registry.ts";
+import type { WorkspaceView } from "../../workspace/model.ts";
 import type {
   ContextRow,
   DocumentRow,
@@ -42,7 +43,7 @@ function tabs(view: WorkspaceView): PaletteEntry<WorkspaceTarget>[] {
   const split = view.panes.length > 1;
   return view.panes.flatMap((pane, index) =>
     pane.tabs.map((tab) => {
-      const kind = t(TAB_KIND_LABEL[tab.kind]);
+      const kind = tabKindLabel(tab.kind);
       const side = index === 0
         ? t("common.label.palette-left-pane")
         : t("common.label.palette-right-pane");
@@ -53,7 +54,7 @@ function tabs(view: WorkspaceView): PaletteEntry<WorkspaceTarget>[] {
         detail: split
           ? t("common.label.palette-tab-detail", { kind, pane: side })
           : kind,
-        icon: tab.kind === "terminal" ? "terminal" as const : "tab" as const,
+        icon: tabKindOf(tab.kind)?.paletteIcon ?? "tab" as const,
         target: { kind: "tab" as const, pane: index, key: tab.key },
       };
     })

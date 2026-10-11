@@ -4,32 +4,19 @@ import {
   normalizePane,
   type PaneState,
   type TabItem,
-  type TabKind,
   type WorkspaceView,
 } from "./model.ts";
+import { tabKindOf } from "./kinds/registry.ts";
 
 const TAB_KEY = /^[A-Za-z0-9._:-]+$/;
-const DOC_ID = /^doc_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
-const APP_ID = /^app_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
 
 const INFO_TABS = ["info", "versions", "contexts"] as const;
 type InfoTab = (typeof INFO_TABS)[number];
-
-const KINDS: readonly TabKind[] = [
-  "document_editor",
-  "document_viewer",
-  "terminal",
-  "app_panel",
-];
 
 export interface StoredLayoutView {
   readonly view: WorkspaceView | null;
   readonly infoOpen: boolean;
   readonly infoTab: InfoTab;
-}
-
-function isKind(value: unknown): value is TabKind {
-  return KINDS.some((kind) => kind === value);
 }
 
 function readPosition(value: unknown): TabItem["readPosition"] {
@@ -47,12 +34,14 @@ function readPosition(value: unknown): TabItem["readPosition"] {
   return { section, scroll_offset: offset };
 }
 
-/** 파일 탭 또는 옛 TabItem을 화면에 그린다. 맞출 수 없으면 null이다. */
+/** 파일 탭 또는 옛 TabItem을 화면에 그린다. 맞출 수 없거나 등록되지 않은 kind면 null이다. */
 export function tabFromStored(value: unknown): TabItem | null {
   if (typeof value !== "object" || value === null) return null;
   const tab = value as Record<string, unknown>;
+  const kind = tabKindOf(tab.kind);
   if (
-    typeof tab.key !== "string" || !TAB_KEY.test(tab.key) || !isKind(tab.kind)
+    typeof tab.key !== "string" || !TAB_KEY.test(tab.key) ||
+    kind === undefined
   ) {
     return null;
   }
@@ -61,7 +50,7 @@ export function tabFromStored(value: unknown): TabItem | null {
   if (typeof tab.title === "string") {
     return {
       key: tab.key,
-      kind: tab.kind,
+      kind: kind.kind,
       title: tab.title,
       ...(typeof tab.folder === "string" ? { folder: tab.folder } : {}),
       ...(typeof tab.app === "string" ? { app: tab.app } : {}),
@@ -70,74 +59,14 @@ export function tabFromStored(value: unknown): TabItem | null {
       ...(position === undefined ? {} : { readPosition: position }),
     };
   }
-  if (
-    tab.kind === "document_editor" && tab.document === tab.key &&
-    DOC_ID.test(tab.key)
-  ) {
-    return {
-      key: tab.key,
-      kind: tab.kind,
-      title: "",
-      ...(position === undefined ? {} : { readPosition: position }),
-    };
-  }
-  if (
-    tab.kind === "terminal" && typeof tab.project_folder === "string" &&
-    tab.project_folder.length >= 1
-  ) {
-    return {
-      key: tab.key,
-      kind: tab.kind,
-      title: "",
-      folder: tab.project_folder,
-    };
-  }
-  if (
-    tab.kind === "app_panel" && typeof tab.app === "string" &&
-    APP_ID.test(tab.app) && typeof tab.surface === "string" &&
-    tab.surface.length >= 1
-  ) {
-    return {
-      key: tab.key,
-      kind: tab.kind,
-      title: "",
-      app: tab.app,
-      screen: tab.surface,
-    };
-  }
-  return null;
+  return kind.fromStored(tab, { key: tab.key, position });
 }
 
 /** 화면 탭을 schema 필드로 줄인다. 맞출 수 없으면 그 탭만 빠진다. */
 export function toStoredTab(tab: TabItem): Record<string, unknown> | null {
-  const position = readPosition(tab.readPosition);
-  if (tab.kind === "document_editor" && DOC_ID.test(tab.key)) {
-    return {
-      kind: "document_editor",
-      key: tab.key,
-      document: tab.key,
-      ...(position === undefined ? {} : { read_position: position }),
-    };
-  }
-  if (
-    tab.kind === "terminal" && tab.folder !== undefined &&
-    tab.folder.length >= 1 && tab.folder.length <= 4096 && TAB_KEY.test(tab.key)
-  ) {
-    return { kind: "terminal", key: tab.key, project_folder: tab.folder };
-  }
-  if (
-    tab.kind === "app_panel" && tab.app !== undefined && APP_ID.test(tab.app) &&
-    tab.screen !== undefined && tab.screen.length >= 1 &&
-    tab.screen.length <= 128 && TAB_KEY.test(tab.key)
-  ) {
-    return {
-      kind: "app_panel",
-      key: tab.key,
-      app: tab.app,
-      surface: tab.screen,
-    };
-  }
-  return null;
+  return tabKindOf(tab.kind)?.toStored(tab, {
+    position: readPosition(tab.readPosition),
+  }) ?? null;
 }
 
 /** 저장된 layout에서 화면이 쓰는 부분만 꺼낸다. 검증은 main이 이미 했다. */

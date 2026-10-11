@@ -4,6 +4,9 @@
 // shell tsc는 packages를 보지 않으므로 값 모양은 contracts/shell/workspace.ts의
 // 값과 같아야 한다(confirmation/types.ts와 같은 이유다).
 
+import type { ViewContext, ViewRegistry, ViewScope } from "./kinds/kind.ts";
+import { type HintTab, tabKindOf, type ViewTab } from "./kinds/registry.ts";
+
 // 요약은 UTF-8 2048 bytes, 상세 탭은 한 page 20개다(shell/workspace#R10).
 export const SUMMARY_MAX_BYTES = 2048;
 export const TAB_PAGE_SIZE = 20;
@@ -13,29 +16,8 @@ export const VIEW_STRING_MAX_CHARS = 80;
 export type ViewAvailability = "current" | "disconnected" | "unavailable";
 
 // 허용 종류·대상 참조·선택 여부만이다. 본문·편집 초안·터미널 출력·DOM·screenshot은
-// field로도 받지 않는다(shell/workspace#R10, R11).
-export type ViewTab =
-  | {
-    kind: "document_editor";
-    key: string;
-    document: string;
-    selected: boolean;
-  }
-  | {
-    kind: "document_viewer";
-    key: string;
-    document: string;
-    version: string;
-    selected: boolean;
-  }
-  | { kind: "terminal"; key: string; project_folder: string; selected: boolean }
-  | {
-    kind: "app_panel";
-    key: string;
-    app: string;
-    surface: string;
-    selected: boolean;
-  };
+// field로도 받지 않는다(shell/workspace#R10, R11). 종류별 모양은 kinds/<kind>.ts가 정한다.
+export type { HintTab, ViewTab };
 
 // 문서 선택은 판·절·줄 범위만이다. 선택 본문은 없다(shell/workspace#R9).
 export type Selection = {
@@ -76,19 +58,6 @@ export interface CurrentViewState {
 
 // renderer가 보내는 layout 힌트. UI 참조만이고 무엇이 살아 있는지는 힌트가
 // 정하지 않는다 — main의 registry·scope가 확정한다(architecture/shell 5.3).
-export type HintTab =
-  | { kind: "document_editor"; key: string; document: string }
-  | { kind: "document_viewer"; key: string; document: string; version: string }
-  | { kind: "terminal"; key: string; project_folder: string }
-  | {
-    kind: "app_panel";
-    key: string;
-    app: string;
-    surface: string;
-    // 렌더러가 그 탭의 패널 view에서 얻은 식별자다. registry에 있는 view의 것일 때만 쓴다.
-    view_session?: string;
-  };
-
 export interface LayoutHint {
   window_ref: string;
   project: string | null;
@@ -109,27 +78,7 @@ export interface LayoutHint {
 }
 
 // main의 실제 view registry. 창·앱 view는 힌트가 아니라 여기서 확정한다.
-export interface ViewRegistry {
-  isLive(windowRef: string): boolean;
-  appView(
-    app: string,
-    surface: string,
-  ): {
-    release: string;
-    mode: "live" | "preview";
-    view_generation: number;
-  } | null;
-  // 이 창에 열린 그 앱·screen의 패널 view가 정말 이 view_session인지. 없으면 session을 싣지 않는다.
-  panelSession?(app: string, surface: string, view_session: string): boolean;
-}
-
-// 현재 scope. 힌트의 참조를 지금 허용 대상과 대조한다(shell/workspace#R10).
-export interface ViewScope {
-  project(id: string): boolean;
-  /** editor는 version null이다(viewer는 고정 판을 내야 한다). */
-  document(document: string, version: string | null): boolean;
-  app(app: string): boolean;
-}
+export type { ViewRegistry, ViewScope };
 
 export interface ViewClock {
   now(): string;
@@ -159,6 +108,12 @@ export function assembleCurrentView(input: {
     return { ok: false, reason: "unknown_window" };
   }
   const omissions: ViewOmission[] = [];
+  const ctx: ViewContext = {
+    scope: input.scope,
+    registry: input.registry,
+    truncate,
+    refOk,
+  };
   const tabs: ViewTab[] = [];
   let appView: AppView | null = null;
   for (const pane of input.hint.panes) {
@@ -167,7 +122,7 @@ export function assembleCurrentView(input: {
       if (!tab || typeof tab !== "object") continue;
       const selected = typeof pane.selected === "string" &&
         pane.selected === tab.key;
-      const view = viewTabFor(tab, selected, input.scope, input.registry);
+      const view = viewTabFor(tab, selected, ctx);
       if (view) tabs.push(view);
       else omissions.push({ reason: "target_out_of_scope", truncated: false });
       if (
@@ -213,57 +168,15 @@ function refOk(value: unknown): value is string {
     value.length <= REF_MAX_CHARS;
 }
 
-/** 힌트 탭을 허용 종류와 현재 scope로 좁혀 참조만 남긴다. */
+/** 힌트 탭을 허용 종류와 현재 scope로 좁혀 참조만 남긴다. 판단은 kind의 선언이 한다. */
 function viewTabFor(
   tab: HintTab,
   selected: boolean,
-  scope: ViewScope,
-  registry: ViewRegistry,
+  ctx: ViewContext,
 ): ViewTab | null {
-  if (tab.kind === "document_editor") {
-    if (!refOk(tab.key) || !refOk(tab.document)) return null;
-    if (!scope.document(tab.document, null)) return null;
-    return { kind: tab.kind, key: tab.key, document: tab.document, selected };
-  }
-  if (tab.kind === "document_viewer") {
-    if (!refOk(tab.key) || !refOk(tab.document) || !refOk(tab.version)) {
-      return null;
-    }
-    if (!scope.document(tab.document, tab.version)) return null;
-    return {
-      kind: tab.kind,
-      key: tab.key,
-      document: tab.document,
-      version: tab.version,
-      selected,
-    };
-  }
-  if (tab.kind === "terminal") {
-    if (!refOk(tab.key) || !refOk(tab.project_folder)) return null;
-    return {
-      kind: tab.kind,
-      key: tab.key,
-      project_folder: truncate(tab.project_folder),
-      selected,
-    };
-  }
-  if (tab.kind === "app_panel") {
-    if (!refOk(tab.key) || !refOk(tab.app) || !refOk(tab.surface)) return null;
-    if (!scope.app(tab.app)) return null;
-    return {
-      kind: tab.kind,
-      key: tab.key,
-      app: tab.app,
-      surface: truncate(tab.surface),
-      ...(typeof tab.view_session === "string" &&
-          registry.panelSession?.(tab.app, tab.surface, tab.view_session) ===
-            true
-        ? { view_session: tab.view_session }
-        : {}),
-      selected,
-    };
-  }
-  return null;
+  const kind = tabKindOf(tab.kind);
+  if (kind === undefined) return null;
+  return kind.view(tab, selected, ctx) as ViewTab | null;
 }
 
 /** app_view의 release·mode·view generation은 registry의 현재 값이다. */
@@ -272,20 +185,16 @@ function appViewFor(
   registry: ViewRegistry,
   omissions: ViewOmission[],
 ): AppView | null {
-  if (tab.kind !== "app_panel") {
-    omissions.push({ reason: "app_not_live", truncated: false });
-    return null;
-  }
-  const live = registry.appView(tab.app, tab.surface);
+  const live = tabKindOf(tab.kind)?.appView?.(tab, registry) ?? null;
   if (!live) {
     omissions.push({ reason: "app_not_live", truncated: false });
     return null;
   }
   return {
-    app: tab.app,
+    app: live.app,
     release: live.release,
     mode: live.mode,
-    surface: truncate(tab.surface),
+    surface: truncate(live.surface),
     view_generation: live.view_generation,
   };
 }
@@ -307,7 +216,7 @@ function selectionFor(
   if (
     !fields || !refOk(hinted.document) || !refOk(hinted.version) ||
     hinted.section === "" || hinted.section.length > VIEW_STRING_MAX_CHARS ||
-    !scope.document(hinted.document, hinted.version)
+    !scope.allows("document", hinted.document)
   ) {
     omissions.push({ reason: "selection_out_of_scope", truncated: false });
     return null;
@@ -382,10 +291,7 @@ export function buildPublishInput(state: CurrentViewState): PublishBuild {
 }
 
 function describeTab(tab: ViewTab): string {
-  if (tab.kind === "document_editor") return tab.document;
-  if (tab.kind === "document_viewer") return `${tab.document}@${tab.version}`;
-  if (tab.kind === "terminal") return tab.project_folder;
-  return `${tab.app}@${tab.surface}`;
+  return tabKindOf(tab.kind)?.describe(tab) ?? "";
 }
 
 /**

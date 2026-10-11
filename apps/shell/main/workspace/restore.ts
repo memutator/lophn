@@ -1,35 +1,15 @@
 // 복원은 현재 대상과 권한을 다시 읽는다(shell/workspace#R7). 저장된 참조를 그대로
 // 믿지 않는다. 없거나 못 쓰는 대상은 이유를 가진 자리표시로 남기고 terminal은
 // 종료된 자리표시다(PTY를 만들지 않는다).
+import { tabKindOf } from "./kinds/registry.ts";
+import type { RestoredTab, RestoreTargets } from "./kinds/kind.ts";
 import type { LayoutPane, LayoutTab } from "./schema.ts";
 
-export type PlaceholderReason =
-  | "document_missing"
-  | "version_missing"
-  | "app_unavailable"
-  | "no_permission";
-
-export type RestoredTab =
-  | { kind: "tab"; tab: LayoutTab }
-  | {
-    kind: "placeholder";
-    key: string;
-    origin: LayoutTab["kind"];
-    title: string;
-    reason: PlaceholderReason;
-  };
-
-/** 탭 대상을 지금 기준으로 검사하는 통로. 테스트가 가짜를 끼운다. */
-export interface RestoreTargets {
-  /** 문서가 살아 있고 이 판이 있는지. */
-  document(document: string, version: string): Promise<boolean>;
-  /** 문서가 살아 있는지(viewer가 아닌 editor용). */
-  documentExists(document: string): Promise<boolean>;
-  /** 앱이 살아 있고 실행 가능한지. */
-  app(app: string): Promise<boolean>;
-  /** 사람의 읽기 권한이 있는지. */
-  canRead(document: string): Promise<boolean>;
-}
+export type {
+  PlaceholderReason,
+  RestoredTab,
+  RestoreTargets,
+} from "./kinds/kind.ts";
 
 export type RestoredPane = {
   pane: number;
@@ -44,87 +24,18 @@ export type RestoreOutcome = {
   placeholders: number;
 };
 
-/** terminal은 종료된 자리표시다. 사람이 새로 시작하기 전까지 PTY를 만들지 않는다. */
-function terminalPlaceholder(tab: LayoutTab): RestoredTab {
-  return tab.kind === "terminal"
-    ? {
-      kind: "placeholder",
-      key: tab.key,
-      origin: "terminal",
-      title: tab.project_folder,
-      reason: "app_unavailable",
-    }
-    : {
-      kind: "placeholder",
-      key: tab.key,
-      origin: tab.kind,
-      title: tab.kind,
-      reason: "app_unavailable",
-    };
-}
-
 /**
- * 저장된 탭을 지금의 대상·권한으로 검사한다. terminal은 항상 종료 placeholder다.
- * 문서·viewer·app_panel은 통로의 현재 응답으로 판단한다.
+ * 저장된 탭을 지금의 대상·권한으로 검사한다. 대상 검사는 kind의 선언이 한다(shell/workspace#R14).
+ * registry에 없는 kind는 null이다 — 자리표시 없이 건너뛴다.
  */
-export async function restoreTab(
+export function restoreTab(
   tab: LayoutTab,
   targets: RestoreTargets,
-): Promise<RestoredTab> {
-  if (tab.kind === "terminal") return terminalPlaceholder(tab);
-  if (tab.kind === "document_editor") {
-    if (!(await targets.canRead(tab.document))) {
-      return {
-        kind: "placeholder",
-        key: tab.key,
-        origin: tab.kind,
-        title: tab.document,
-        reason: "no_permission",
-      };
-    }
-    if (!(await targets.documentExists(tab.document))) {
-      return {
-        kind: "placeholder",
-        key: tab.key,
-        origin: tab.kind,
-        title: tab.document,
-        reason: "document_missing",
-      };
-    }
-    return { kind: "tab", tab };
-  }
-  if (tab.kind === "document_viewer") {
-    if (!(await targets.canRead(tab.document))) {
-      return {
-        kind: "placeholder",
-        key: tab.key,
-        origin: tab.kind,
-        title: tab.document,
-        reason: "no_permission",
-      };
-    }
-    if (!(await targets.document(tab.document, tab.version))) {
-      return {
-        kind: "placeholder",
-        key: tab.key,
-        origin: tab.kind,
-        title: tab.document,
-        reason: "version_missing",
-      };
-    }
-    return { kind: "tab", tab };
-  }
-  // app_panel
-  if (!(await targets.app(tab.app))) {
-    return {
-      kind: "placeholder",
-      key: tab.key,
-      origin: tab.kind,
-      title: tab.app,
-      reason: "app_unavailable",
-    };
-  }
-  return { kind: "tab", tab };
+): Promise<RestoredTab | null> {
+  const kind = tabKindOf(tab.kind);
+  return kind === undefined
+    ? Promise.resolve(null)
+    : kind.restore(tab, targets);
 }
 
 /**
@@ -138,7 +49,8 @@ export async function restorePane(
 ): Promise<RestoredPane> {
   const tabs: RestoredTab[] = [];
   for (const tab of pane.tabs) {
-    tabs.push(await restoreTab(tab, targets));
+    const restored = await restoreTab(tab, targets);
+    if (restored !== null) tabs.push(restored);
   }
   const selected = pane.selected_tab;
   const firstAlive = tabs.find((restored) => restored.kind === "tab");

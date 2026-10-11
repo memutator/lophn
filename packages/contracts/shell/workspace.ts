@@ -26,7 +26,6 @@ export const VIEW_AVAILABILITY = [
 
 export const TAB_KINDS = [
   "document_editor",
-  "document_viewer",
   "terminal",
   "app_panel",
 ] as const;
@@ -69,12 +68,6 @@ export const viewTabSchema = z.discriminatedUnion("kind", [
   }),
   z.strictObject({
     ...tabBase,
-    kind: z.literal("document_viewer"),
-    document: documentIdSchema,
-    version: versionIdSchema,
-  }),
-  z.strictObject({
-    ...tabBase,
     kind: z.literal("terminal"),
     project_folder: viewString,
   }),
@@ -99,12 +92,6 @@ const viewTabOutputSchema = z.discriminatedUnion("kind", [
     ...tabBase,
     kind: z.literal("document_editor"),
     document: documentIdSchema,
-  }),
-  z.object({
-    ...tabBase,
-    kind: z.literal("document_viewer"),
-    document: documentIdSchema,
-    version: versionIdSchema,
   }),
   z.object({
     ...tabBase,

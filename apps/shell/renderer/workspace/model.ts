@@ -93,25 +93,8 @@ export function bodyPaddingX(windowWidth: number): number {
   return windowWidth < BREAKPOINT_MD ? BODY_PADDING_X_NARROW : BODY_PADDING_X;
 }
 
-export type TabKind =
-  | "document_editor"
-  | "document_viewer"
-  | "terminal"
-  | "app_panel";
-
-/** 탭 종류를 구별하는 글자 라벨의 wording key(workspace#R1). */
-export const TAB_KIND_LABEL: Record<
-  TabKind,
-  | "project-workspace.label.kind-document-editor"
-  | "project-workspace.label.kind-document-viewer"
-  | "project-workspace.label.kind-terminal"
-  | "project-workspace.label.kind-app-panel"
-> = {
-  document_editor: "project-workspace.label.kind-document-editor",
-  document_viewer: "project-workspace.label.kind-document-viewer",
-  terminal: "project-workspace.label.kind-terminal",
-  app_panel: "project-workspace.label.kind-app-panel",
-};
+/** 탭 종류의 이름. 등록된 kind는 kinds/registry.ts가 정한다(workspace#R14). */
+export type TabKind = string;
 
 export interface TabItem {
   readonly key: string;
@@ -124,6 +107,8 @@ export interface TabItem {
   /** 앱 패널 탭의 앱과 panel 크기를 선언한 화면. 고르기 전에는 없다(workspace#R5). */
   readonly app?: string;
   readonly screen?: string;
+  /** 위 필드에 없는 kind의 layout 값. 이 값이 무엇인지는 그 kind의 선언이 안다. */
+  readonly fields?: Readonly<Record<string, unknown>>;
   /** 문서 탭의 읽던 위치. 저장할 때 section key와 scroll offset만 남긴다. */
   readonly readPosition?: {
     readonly section: string;

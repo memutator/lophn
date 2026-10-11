@@ -392,8 +392,13 @@ Deno.test("shell/editor#R4: 문서 탭은 문서 읽기 화면을 그리고 탭 
   const title = view.container.querySelector("[data-tab='doc_1'] span")
     ?.textContent;
   assertEquals(title, "notes.md");
-  const last = saved.at(-1) as { panes: { tabs: { title: string }[] }[] };
-  assertEquals(last.panes[0]!.tabs[0]!.title, "notes.md");
+  // 파일에는 schema 필드만 남는다. 탭 제목은 저장하지 않고 열 때 다시 읽는다(workspace#R6).
+  const last = saved.at(-1) as { panes: { tabs: unknown[] }[] };
+  assertEquals(JSON.stringify(last).includes("notes.md"), false);
+  assertEquals(
+    last.panes[0]!.tabs.every((stored) => !("title" in (stored as object))),
+    true,
+  );
 });
 
 function ctrlAltB(): void {

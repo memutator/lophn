@@ -98,6 +98,11 @@ export interface WorkspaceProps {
   onLophn: () => void;
   /** 이 프로젝트의 결정 대기를 things-to-confirm에서 연다. */
   onThingsToConfirm?: () => void;
+  /**
+   * 옛 contexts 화면에서 Focus를 여는 길. 작업대는 더 부르지 않는다(Context 탭이 대신한다).
+   * 부르는 쪽(desktop/main.tsx)이 옛 화면과 함께 지울 때까지 남아 있다.
+   */
+  onContext?: (context: string) => void;
   /** 문서 탭의 읽기·편집 통로. 없으면 문서 탭은 자리표시다. */
   editor?: EditorDeps;
   /** 터미널 탭 통로. 없으면 터미널 열기 버튼을 두지 않는다. */

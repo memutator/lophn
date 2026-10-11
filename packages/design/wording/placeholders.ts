@@ -2500,7 +2500,6 @@ export type PlaceholderKinds = {
   "settings.error.window": Record<never, never>;
   "settings.agents.action-failed": Record<never, never>;
   "settings.agents.intro": Record<never, never>;
-  "settings.agents.next-run": Record<never, never>;
   "settings.agents.no-instructions": Record<never, never>;
   "settings.agents.no-options": Record<never, never>;
   "settings.agents.no-servers": Record<never, never>;

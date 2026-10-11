@@ -73,3 +73,13 @@ export {
   snapshotCatalogEntry,
   snapshotModelListed,
 } from "./snapshot-catalog.ts";
+export {
+  type AxisView,
+  fitOptionValues,
+  type FitResult,
+  optionAxesOf,
+  type OptionNotice,
+  type OptionValues,
+  resolveOptionValues,
+  validateOptionValues,
+} from "./options.ts";

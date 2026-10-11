@@ -139,9 +139,9 @@ function credential(listed: readonly ToolDefinition[]): RunCredential {
   };
 }
 
-function reader(core = world()) {
+function reader(core = world(), selected: readonly string[] = [CTX]) {
   const listed = SERIES_NEXT_TOOLS;
-  const handlers = createSeriesNextToolHandlers(core.ports);
+  const handlers = createSeriesNextToolHandlers(core.ports, selected);
   return {
     core,
     handlers,
@@ -193,7 +193,7 @@ Deno.test("lophn-agent/harness/tools#R24 [ctx-I58e]: 다음 이름 tool은 conte
     },
   );
   // handler는 이 tool 하나뿐이다. 문서를 만들거나 series를 등록하는 handler가 없다.
-  assertEquals([...createSeriesNextToolHandlers(world().ports).keys()], [
+  assertEquals([...createSeriesNextToolHandlers(world().ports, [CTX]).keys()], [
     SERIES_NEXT_TOOL,
   ]);
 });
@@ -297,9 +297,12 @@ Deno.test("lophn-agent/harness/tools#R24 [ctx-I58e]: series kind가 아닌 type�
   const notSeries = await box.run({ context: CTX, type: "Note" });
   assertEquals(notSeries.outcome, { kind: "failure", code: "invalid_input" });
 
-  const missing = await box.run({ context: OTHER_CTX, type: "Daily" });
+  // core가 모르는 context(선택에는 있다)와 선택 밖 context는 같은 not_found다.
+  const unknown = reader(world(), [CTX, OTHER_CTX]);
+  const missing = await unknown.run({ context: OTHER_CTX, type: "Daily" });
   assertEquals(missing.outcome, { kind: "failure", code: "not_found" });
   assertEquals(JSON.stringify(missing.result).includes(OTHER_CTX), false);
+  assertEquals(unknown.core.seen.length, 1);
   assertEquals(box.core.state.files.length, 3);
 });
 
@@ -326,4 +329,22 @@ Deno.test("lophn-agent/harness/tools#R24 [ctx-I58e]: 입력은 context id와 typ
     assertEquals(outcome.executed, false);
   }
   assertEquals(box.core.seen, []);
+});
+
+Deno.test("lophn-agent/harness/tools#R24 [ctx-I57]: preset 선택 밖 context와 선택이 빈 run은 core를 부르기 전에 not_found이고 존재를 드러내지 않는다", async () => {
+  const outside = reader();
+  const refused = await outside.run({ context: OTHER_CTX, type: "Daily" });
+  assertEquals(refused.outcome, { kind: "failure", code: "not_found" });
+  assertEquals(JSON.stringify(refused.result).includes(OTHER_CTX), false);
+  assertEquals(outside.core.seen, []);
+
+  const none = reader(world(), []);
+  const empty = await none.run({ context: CTX, type: "Daily" });
+  assertEquals(empty.outcome, { kind: "failure", code: "not_found" });
+  assertEquals(none.core.seen, []);
+
+  // 선택 안의 context는 core까지 간다.
+  const inside = await outside.run({ context: CTX, type: "Daily" });
+  assertEquals(inside.outcome.kind, "success");
+  assertEquals(outside.core.seen.length, 1);
 });

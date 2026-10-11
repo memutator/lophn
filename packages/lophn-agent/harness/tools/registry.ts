@@ -14,7 +14,9 @@ import {
   DOCUMENT_WRITE_TOOL_NAMES,
 } from "./bundles/document.ts";
 import { FORMAT_TOOL_NAMES, FORMAT_TOOLS } from "./bundles/format.ts";
+import { CONTEXT_ENGINEER_TOOLS } from "./context-engineer-tools.ts";
 import { CONTEXT_ENTITY_TOOL } from "./context-search-tools.ts";
+import { SERIES_NEXT_TOOL, SERIES_NEXT_TOOLS } from "./series-next-tool.ts";
 import { GUIDE_TOOL_NAMES, GUIDE_TOOLS } from "./bundles/guide.ts";
 import { METADATA_TOOL_NAMES, METADATA_TOOLS } from "./bundles/metadata.ts";
 import {
@@ -74,6 +76,10 @@ export const BUILTIN_TOOLS: readonly ToolDefinition[] = [
   ...VISUAL_TOOLS,
   ...GUIDE_TOOLS,
   ...AGENT_TOOLS,
+  // Context Engineer만의 계약·초안·미리보기·제출·위반·용어집 tool이다(R23). 역할 상한 이름 표가 그 역할에게만 연다.
+  ...CONTEXT_ENGINEER_TOOLS,
+  // 모든 역할이 쓰는 다음 이름 읽기다(R24).
+  ...SERIES_NEXT_TOOLS,
 ];
 
 // preset이 이름으로 고르는 tool 묶음이다(presets#R7). 저장 때 개별 동작으로 펼쳐 고정하므로 묶음에
@@ -92,9 +98,9 @@ export const TOOL_BUNDLES: ReadonlyMap<string, readonly string[]> = new Map([
   ["format", FORMAT_TOOL_NAMES],
   ["lophn-guide", GUIDE_TOOL_NAMES],
   ["visual", VISUAL_TOOL_NAMES],
-  // 개체 읽기 하나다. 정의는 선택한 context가 있을 때 run마다 만들어지고(`buildContextReadTools`) 선언 검색
-  // tool은 이름 묶음이 아니라 preset의 context 선택이 정한다.
-  ["context-read", [CONTEXT_ENTITY_TOOL]],
+  // 개체 읽기와 다음 이름 읽기다. 개체 읽기의 정의는 선택한 context가 있을 때 run마다 만들어지고
+  // (`buildContextReadTools`) 선언 검색 tool은 이름 묶음이 아니라 preset의 context 선택이 정한다.
+  ["context-read", [CONTEXT_ENTITY_TOOL, SERIES_NEXT_TOOL]],
 ]);
 
 // 금지 통로 이름. 내장·앱·외부 어디에도 이 이름이 있으면 목록에서 뺀다(R1).
@@ -199,6 +205,10 @@ const SUPPORTING_OPERATIONS: ReadonlyMap<string, readonly string[]> = new Map([
   ["RecordMessage", ["ReadToolCall"]],
   // 사람의 정의 답은 질문 정본(답·고정 action)을 읽은 뒤에만 전달한다(questions#R13).
   ["ApplyQuestionOption", ["ReadQuestion"]],
+  // Context Engineer의 계약 읽기는 같은 자격으로 만드는 중인 판(`context.draft`)을 함께 읽고, 용어집 쓰기는
+  // 항목을 지울 때 `glossary.remove`를 부른다(harness/tools#R23).
+  ["context.contract", ["context.draft"]],
+  ["glossary.set", ["glossary.remove"]],
 ]);
 
 // run의 agent 자격이 가져야 하는 operation 목록이다. 제공 목록의 소유 contract와 그 보조 operation의

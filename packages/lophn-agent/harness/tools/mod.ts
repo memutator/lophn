@@ -136,6 +136,20 @@ export {
   type ContextToolContext,
   createContextReadToolHandlers,
 } from "./context-search-tools.ts";
+export {
+  CONTEXT_ENGINEER_TOOL_NAMES,
+  CONTEXT_ENGINEER_TOOLS,
+  CONTEXT_PREVIEW_CONTRACT,
+  type ContextPreviewRead,
+  createContextEngineerToolHandlers,
+} from "./context-engineer-tools.ts";
+export {
+  createSeriesNextToolHandlers,
+  SERIES_NEXT_CONTRACT,
+  SERIES_NEXT_TOOL,
+  SERIES_NEXT_TOOLS,
+  type SeriesNextRead,
+} from "./series-next-tool.ts";
 export { createBuiltinToolHandlers } from "./bundles/handlers.ts";
 export {
   AGENT_TOOL_REVISION,

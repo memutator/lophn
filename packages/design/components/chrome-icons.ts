@@ -3,10 +3,14 @@
 import {
   CircleX,
   CloudOff,
+  Copy,
   FolderPlus,
   type LucideIcon,
+  Minus,
   RotateCw,
   Settings2,
+  Square,
+  X,
 } from "lucide-react";
 
 /** 런처 바 오른쪽의 lophn 관리 진입점. */
@@ -19,3 +23,9 @@ export const connectionFailedIcon: LucideIcon = CircleX;
 export const connectionStaleIcon: LucideIcon = CloudOff;
 /** 열 것이 없는 런처. */
 export const launcherEmptyIcon: LucideIcon = FolderPlus;
+/** 상단 바 창 단추(shell/desktop#R23). */
+export const windowMinimizeIcon: LucideIcon = Minus;
+export const windowMaximizeIcon: LucideIcon = Square;
+/** 최대화 상태에서 되돌리는 단추. */
+export const windowRestoreIcon: LucideIcon = Copy;
+export const windowCloseIcon: LucideIcon = X;

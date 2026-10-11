@@ -332,6 +332,8 @@ export function Desktop(
         onLophn={lophnSpace}
         projects={projects}
         onProject={(project) => setRoute(openProject(project))}
+        apps={apps}
+        onApp={appSpace}
       />
     );
   }

@@ -5,7 +5,7 @@ import {
   intervalTicks,
   useRequests,
 } from "../lophn-space/things-to-confirm/context.tsx";
-import { eventTitle } from "../lophn-space/things-to-confirm/labels.ts";
+import { noticeTitle } from "../lophn-space/things-to-confirm/labels.ts";
 import { chipQueue } from "../lophn-space/things-to-confirm/model.ts";
 import type { NotificationRow } from "../lophn-space/things-to-confirm/source.ts";
 import styles from "./notification-chip.module.css";
@@ -60,7 +60,7 @@ export function NotificationChip({ onView }: NotificationChipProps) {
       <Chip
         items={queue.map((row) => ({
           id: row.id,
-          title: eventTitle(row.sourceEvent),
+          title: noticeTitle(row, deps.now?.() ?? Date.now()),
         }))}
         onView={(id) => {
           hide(id);

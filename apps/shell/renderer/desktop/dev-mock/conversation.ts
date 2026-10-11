@@ -159,8 +159,17 @@ export function mockRequests(): RequestSource {
       approval(3, { status: "granted", closedAt: now - 120 * MINUTE }),
     ],
     notifications: [
-      notification(1, "question_created", "10"),
-      notification(2, "approval_requested", "20", "2026-10-09T09:00:00.000Z"),
+      {
+        ...notification(1, "QuestionCreated", "10"),
+        document: DOC_REPORT,
+        occurredAt: new Date(now - 4 * MINUTE).toISOString(),
+      },
+      notification(
+        2,
+        "ApprovalRequestCreated",
+        "20",
+        "2026-10-09T09:00:00.000Z",
+      ),
     ],
   }).source;
 }

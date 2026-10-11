@@ -13,6 +13,8 @@ import {
   runAdmission,
 } from "../../packages/platform/ledger/mod.ts";
 import {
+  agentProfilesRead,
+  agentProfilesUpload,
   assignmentPaused,
   InstructionAttachments,
   instructionRead,
@@ -909,6 +911,9 @@ export const lophnAgentDefinitions = {
   memoryRoutes: [runAppRevert, mcpAuthBegin, mcpAuthComplete],
   // 문서·format tool의 글 값 통로다. 서빙은 core 조립이 한다(apps/core/tool-documents.ts).
   workerRoutes: TOOL_DOCUMENT_ROUTES,
+  // profile 이미지의 바이트 입구(upload)와 읽기(file)다. 바이트를 붙이는 처리기는 core 조립(core.ts)이 route 이름으로 붙인다.
+  uploadRoutes: [agentProfilesUpload],
+  files: [agentProfilesRead],
   // MCP OAuth의 시작·완료 입구다(extensions R16). handler는 core 조립(apps/core)이
   // createMcpAuthControl로 붙인다. route만 등록한다.
 };

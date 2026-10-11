@@ -14,6 +14,16 @@ export {
 } from "./resolve.ts";
 export { createAgentCommands } from "./commands.ts";
 export { createAgentReads } from "./reads.ts";
+export {
+  type ProfileAssetDeps,
+  type ProfileImageFiles,
+  type ProfileImageRead,
+  type ProfileImageUpload,
+  type ReadProfileImage,
+  readProfileImage,
+  type UploadedProfile,
+  uploadProfileImage,
+} from "./profile-asset.ts";
 export { type Effective, effectiveAgent } from "./effective.ts";
 export { DEFAULT_PROFILES } from "./inspect.ts";
 export type {

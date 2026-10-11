@@ -1,8 +1,27 @@
 // Agent 화면 맨 위 머리와 그 session popover(shell/desktop#R38·R39).
 // 화면 값은 lophn-agent/sessions contract에서 만든 view 값이다. renderer는 contracts를 type check하지
 // 않으므로 id는 문자열로 받는다.
-import type { ReactElement, ReactNode } from "react";
-import type { AvatarProfile } from "@lophn/design/components";
+import {
+  type KeyboardEvent,
+  type ReactElement,
+  type ReactNode,
+  useRef,
+  useState,
+} from "react";
+import {
+  Avatar,
+  type AvatarProfile,
+  editorIcons,
+  Icon,
+  IconButton,
+  iconPixels,
+  lophnSpaceIcons,
+  Menu,
+  Popover,
+} from "@lophn/design/components";
+
+import styles from "./agent-header.module.css";
+import { SessionPopover } from "./session-popover.tsx";
 
 export type SessionStatus = "waiting" | "working" | "idle";
 export type SessionGroup = "today" | "earlier";
@@ -87,6 +106,147 @@ export interface AgentHeaderProps {
  * - 아래: `Archived (n)` 단추(aria-expanded), 펼치면 줄 `[data-archived-session=<id>]`마다
  *   `[data-session-title]`과 Restore. `New session` 단추.
  */
-export function AgentHeader(_props: AgentHeaderProps): ReactElement {
-  throw new Error("not implemented: agent-I21");
+type MoreAction = "rename" | "fork" | "rewind" | "usage" | "close";
+
+const MORE_ITEMS: readonly { id: MoreAction; label: string }[] = [
+  { id: "rename", label: "Rename" },
+  { id: "fork", label: "Fork" },
+  { id: "rewind", label: "Rewind…" },
+  { id: "usage", label: "Usage" },
+  { id: "close", label: "Close tab" },
+];
+
+// closed session은 대화를 더 이을 수 없어 Usage·Close tab만 남는다.
+const CLOSED_ITEMS = MORE_ITEMS.filter(({ id }) =>
+  id === "usage" || id === "close"
+);
+
+export function AgentHeader(props: AgentHeaderProps): ReactElement {
+  const { agent, session, sessionClosed } = props;
+  const [open, setOpen] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [draft, setDraft] = useState("");
+  // 열린 popover가 Escape·바깥 누름을 먼저 받아 안쪽 편집만 접게 한다.
+  const dismiss = useRef<(() => boolean) | null>(null);
+
+  const lines = props.sessions.filter((line) =>
+    line.assignment === agent.assignment
+  );
+
+  const startRename = () => {
+    setDraft(session.title);
+    setRenaming(true);
+  };
+  const saveRename = () => {
+    const title = draft.trim();
+    if (title === "") return;
+    props.onRename(session.id, title);
+    setRenaming(false);
+  };
+  const renameKeys = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Enter") saveRename();
+    if (event.key === "Escape") setRenaming(false);
+  };
+
+  const onMore = (id: string) => {
+    switch (id as MoreAction) {
+      case "rename":
+        return startRename();
+      case "fork":
+        return props.onForkSession();
+      case "rewind":
+        return props.onRewindMenu();
+      case "usage":
+        return props.onUsage();
+      case "close":
+        return props.onCloseTab();
+    }
+  };
+
+  const face = (
+    <>
+      <Avatar profile={agent.profile} size="md" />
+      <span className={styles.name}>{agent.name}</span>
+      <span className={styles.sep}>·</span>
+    </>
+  );
+
+  return (
+    <header className={styles.bar} data-agent-header>
+      <div className={styles.who}>
+        {renaming
+          ? (
+            <span className={styles.titleSlot}>
+              {face}
+              <input
+                className={styles.renameInput}
+                data-header-rename
+                aria-label={`Rename ${session.title}`}
+                value={draft}
+                autoFocus
+                onFocus={(event) => event.currentTarget.select()}
+                onChange={(event) => setDraft(event.target.value)}
+                onKeyDown={renameKeys}
+              />
+            </span>
+          )
+          : (
+            <Popover
+              open={open}
+              onOpenChange={(next) => {
+                if (!next && dismiss.current?.()) return;
+                setOpen(next);
+              }}
+              placement="beside"
+              trigger={
+                <button
+                  type="button"
+                  className={styles.trigger}
+                  data-session-trigger
+                >
+                  {face}
+                  <span className={styles.title}>{session.title}</span>
+                  <Icon
+                    icon={lophnSpaceIcons.collapse}
+                    pixels={iconPixels("small")}
+                  />
+                </button>
+              }
+            >
+              <SessionPopover
+                agentName={agent.name}
+                lines={lines}
+                currentId={session.id}
+                now={props.now}
+                dismiss={dismiss}
+                onSwitch={(id) => {
+                  props.onSwitch(id);
+                  setOpen(false);
+                }}
+                onNew={() => {
+                  props.onNew();
+                  setOpen(false);
+                }}
+                onRename={props.onRename}
+                onArchive={props.onArchive}
+                onUnarchive={props.onUnarchive}
+                onDelete={props.onDelete}
+              />
+            </Popover>
+          )}
+      </div>
+      <div className={styles.tools}>
+        {props.children}
+        <Menu
+          items={sessionClosed ? CLOSED_ITEMS : MORE_ITEMS}
+          onSelect={onMore}
+          placement="beside"
+          returnFocus={!renaming}
+          trigger={
+            <IconButton icon={editorIcons.menu} label="More" size="sm" />
+          }
+        />
+      </div>
+    </header>
+  );
 }

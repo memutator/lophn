@@ -598,8 +598,8 @@ export function ComponentsToast() {
         <div className={kit.column}>
           <Toast title="Saved" duration="brief" {...stop} />
           <Toast
-            title="Tracking is off for phroner"
-            actions={[{ id: "on", label: "Turn on" }]}
+            title="1 Operator repeats a check here"
+            actions={[{ id: "see", label: "See Operators" }]}
             {...stop}
           />
           <Toast

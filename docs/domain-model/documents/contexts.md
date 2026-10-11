@@ -242,6 +242,18 @@ Source kind마다 쓸 수 있는 FieldFrom:
 - path는 시작 type의 `field` 또는 `별칭.field` 모양이며 따라간 관계의 field까지만 갈 수 있다. `key`와 `path`는 모든 개체가 가진 field다. 다른 context의 type은 public field만 읽는다.
 - 동점은 key와 경로 순으로 결정한다. locale에 의존하지 않는다.
 
+### 실행 규칙
+
+선언 검색 실행기는 순수 함수다. 입력은 계약, 검색 이름, 입력 값, 개체 집합(추출 결과), cursor이고 같은 입력이면 같은 결과다. 정답 test는 `packages/documents/contexts/search/`가 eval-project fixture로 둔다.
+
+- **입력.** 입력 값은 이름 → 값이다. `entity`는 개체 key 문자열, `value`는 값, `range`는 `{from?, to?}`, `text`는 문자열이고 `many`면 배열이다. 선언에 없는 이름이나 모양이 틀린 값은 `input_invalid`, required가 빠지면 `input_required`다. 주지 않은 선택 입력을 가리키는 조건은 참으로 본다.
+- **follow.** 관계 간선(`links`)으로 별칭에 개체를 붙인다. forward는 출발 개체의 그 관계 간선이 가리키는 key의 개체, reverse는 그 관계 간선으로 출발 개체 key를 가리키는 개체다. 붙는 개체가 여럿이면 행이 그만큼 늘고(조합마다 한 행), 하나도 없거나 follow.where를 지나는 것이 없으면 그 행을 뺀다(inner join).
+- **조건.** path 값이 list면 항목 중 하나라도 맞으면 참이다. 비교 값이 배열(입력 `many` 포함)이면 `eq`는 `in`처럼 동작한다. `eq`·`ne`은 같은 값, `in`은 배열에 든 값, `lt`·`lte`·`gt`·`gte`는 number끼리는 수, 문자열(날짜는 ISO 문자열)끼리는 code unit 순으로 비교하고 `null`이면 거짓이다. `contains`는 문자열이면 부분 문자열(대소문자 구분), list면 항목이다. `exists`는 `null`도 `[]`도 아닐 때 참이다. `ne`는 `eq`의 부정이다. `range` 입력은 `{from, to}` 양 끝을 포함하는 `gte`·`lte`다.
+- **순서.** `sort`가 없으면 시작 type이 series면 추출 순서(번호 순), 아니면 key의 code unit 순이다. `sort`는 앞에서부터 비교하고 `null`은 방향과 상관없이 마지막이다. 다 같으면 시작 개체 key, 경로, 그 다음 별칭 개체의 추출 순서다. `group`이 있으면 group 값으로 먼저 묶는다(같은 규칙으로 비교).
+- **결과 행.** 행은 시작 개체의 `{type, key, path, section}`와 column마다 `{path, value, ref}`다. column path의 field가 `key`이면 `ref`가 그 개체(`{type, key, path, section}`)이고 아니면 `null`이다. 결과의 개체는 이 ref로 그 파일(+ section)을 연다.
+- **page.** table은 `page_size`씩 끊고 다음 page cursor와 전체 행 수를 준다. cursor는 다음 시작 위치와 (검색 이름, 입력)의 지문을 담는다. 다른 검색이나 입력의 cursor는 `cursor_mismatch`다.
+- **board.** `board_by` 값마다 lane 하나다. enum field면 선언한 값 순서(행이 없어도 lane을 둔다), 다음 선언 밖 값의 code unit 순, 마지막에 `null` lane(행이 있을 때만)이다. enum이 아니면 값의 code unit 순 다음 `null`이다. lane마다 `page_size`개까지 싣고 남은 수를 준다.
+
 ### ResultView
 
 | 필드 | 타입 | null | 제약 | 뜻 |
@@ -370,9 +382,10 @@ Source kind마다 쓸 수 있는 FieldFrom:
 | `type` | string | 예 | | 관련 type |
 | `path` | string | 아니오 | | 근거 파일 |
 | `section` | string | 예 | | 근거 section |
+| `target` | string | 예 | | `relation_target_exists`의 없는 대상 key, `broken_link`의 푼 경로 |
 | `message` | string | 아니오 | | 사람이 읽는 말 |
 
-`(context, kind, rule, path, section)`이 키다. 같은 파일 상태에서는 같은 위반 집합이 나온다. 위반은 ledger 밖 상태다. 위반 수만 `Context.violation_mark`로 ledger에 남는다.
+`(context, kind, rule, path, section, target)`이 키다(같은 개체가 없는 대상 둘을 가리키면 위반 둘이다). 같은 파일 상태에서는 같은 위반 집합이 나온다. 위반은 ledger 밖 상태다. 위반 수만 `Context.violation_mark`로 ledger에 남는다.
 
 ## 관계
 

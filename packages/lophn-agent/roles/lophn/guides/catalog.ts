@@ -40,7 +40,7 @@ export const GUIDE_SOURCES: readonly GuideSource[] = Object.freeze([
       "Features",
       "Projects",
       "Documents",
-      "Focus",
+      "Contexts",
       "Apps",
       "Roles",
       "Settings",

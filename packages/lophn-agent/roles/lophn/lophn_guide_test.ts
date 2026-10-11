@@ -41,7 +41,7 @@ function target(n: number, over: Partial<PlaceTarget> = {}): PlaceTarget {
     title: `Note ${n}`,
     revision: String(10 + n),
     hasPlace: false,
-    contextCount: 0,
+    containing: [],
     candidates: [{
       place: { kind: "project", id: PROJECT },
       name: `note-${n}`,
@@ -67,15 +67,25 @@ Deno.test("lophn-agent/roles/lophn#R14: six targets give at most five recommenda
   ]);
 });
 
-Deno.test("lophn-agent/roles/lophn#R14: only documents without a place or without a context are recommended", () => {
+const CTX_A = { context: "ctx_01arz3ndektsv4rrffq69g5fav", title: "Launch" };
+const CTX_B = { context: "ctx_01arz3ndektsv4rrffq69g5faw", title: "Billing" };
+
+Deno.test("lophn-agent/roles/lophn#R14 [ctx-I58c]: only documents without a place or that no context's sources cover are recommended", () => {
   const result = recommendPlaces([
-    target(0, { hasPlace: true, contextCount: 2 }),
-    target(1, { hasPlace: true, contextCount: 0 }),
+    target(0, { hasPlace: true, containing: [CTX_A, CTX_B] }),
+    target(1, { hasPlace: true, containing: [] }),
     target(2),
+    target(3, { hasPlace: true, containing: [CTX_A] }),
   ]);
-  assertEquals(result.notTargets, [doc(0)]);
+  assertEquals(result.notTargets, [doc(0), doc(3)]);
   assertEquals(result.drafts.map((draft) => draft.document), [doc(1), doc(2)]);
   assertEquals(result.skipped, 0);
+  // 이유는 옛 항목·관점 연결이 아니라 어느 context도 덮지 않는다고 말한다.
+  assertEquals(
+    result.drafts[0]!.reason,
+    '"Note 1" is not covered by any context.',
+  );
+  assertEquals(result.drafts[1]!.reason, '"Note 2" has no place yet.');
 });
 
 Deno.test("lophn-agent/roles/lophn#R14: each recommendation has a one-line reason and a leave option without an action", () => {
@@ -153,7 +163,7 @@ Deno.test("lophn-agent/roles/lophn#R14 questions#R13: every move option fixes th
   );
 });
 
-Deno.test("lophn-agent/roles/lophn#R15: a recommendation is supported when two of the three conditions are met", () => {
+Deno.test("lophn-agent/roles/lophn#R15 [ctx-I58c]: a recommendation is supported when two of the three conditions are met", () => {
   const cases: [number, number, number, boolean][] = [
     [0, 0, 0, false],
     [4, 0, 0, false],
@@ -168,7 +178,7 @@ Deno.test("lophn-agent/roles/lophn#R15: a recommendation is supported when two o
     const result = supportingEvidence({
       viewed_days_30d: days,
       backrefs,
-      base_contexts: contexts,
+      containing_contexts: contexts,
     });
     assertEquals(
       result.supported,
@@ -178,23 +188,28 @@ Deno.test("lophn-agent/roles/lophn#R15: a recommendation is supported when two o
   }
 });
 
-Deno.test("lophn-agent/roles/lophn#R15: the thresholds are four distinct days, two backrefs and two contexts", () => {
+Deno.test("lophn-agent/roles/lophn#R15 [ctx-I58c]: the thresholds are four distinct days, two backrefs and two containing contexts", () => {
   const met = (days: number, backrefs: number, contexts: number) =>
     supportingEvidence({
       viewed_days_30d: days,
       backrefs,
-      base_contexts: contexts,
+      containing_contexts: contexts,
     }).met;
   assertEquals(met(3, 2, 0), ["backrefs"]);
   assertEquals(met(4, 1, 0), ["viewed_days_30d"]);
-  assertEquals(met(0, 1, 2), ["base_contexts"]);
+  assertEquals(met(0, 1, 2), ["containing_contexts"]);
   // 근거가 충족되면 추천 이유에 인용한다.
   const draft = recommendPlaces([
-    target(0, {
-      signals: { viewed_days_30d: 4, backrefs: 2, base_contexts: 0 },
-    }),
+    target(0, { activity: { viewed_days_30d: 4, backrefs: 2 } }),
   ]).drafts[0]!;
   assert(draft.recommendation.explanation.includes("4 or more different days"));
+  assert(draft.recommendation.explanation.includes("linked from 2 or more"));
+  // 자료로 잡은 context 수는 넘긴 containing 목록에서 센다. 추천 대상은 목록이 비어 있어 하나만으로는
+  // 근거가 되지 않는다.
+  const one = recommendPlaces([
+    target(0, { activity: { viewed_days_30d: 4, backrefs: 0 } }),
+  ]).drafts[0]!;
+  assert(!one.recommendation.explanation.includes("different days"));
 });
 
 Deno.test("lophn-agent/roles/lophn#R15: the lophn preset and assignment carry no schedule, so dates and views start no run", () => {
@@ -209,7 +224,7 @@ Deno.test("lophn-agent/roles/lophn#R15: the lophn preset and assignment carry no
   }
   // 추천은 순수 함수다. 같은 입력은 같은 결과이고 시계를 읽지 않는다.
   const targets = [target(0, {
-    signals: { viewed_days_30d: 9, backrefs: 9, base_contexts: 9 },
+    activity: { viewed_days_30d: 9, backrefs: 9 },
   })];
   assertEquals(recommendPlaces(targets), recommendPlaces(targets));
 });

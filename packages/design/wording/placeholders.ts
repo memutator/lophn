@@ -1177,6 +1177,7 @@ export type PlaceholderKinds = {
     connection: "string";
   };
   "conversation.notice.message-loading": Record<never, never>;
+  "conversation.notice.model-definition": Record<never, never>;
   "conversation.notice.model-session-only": Record<never, never>;
   "conversation.notice.model-value-fitted": {
     axis: "string";
@@ -1663,6 +1664,54 @@ export type PlaceholderKinds = {
   "project-workspace.button.new-operator": Record<never, never>;
   "project-workspace.button.open-agent": Record<never, never>;
   "project-workspace.button.use-workspace-default": Record<never, never>;
+  "project-workspace.button.agent-editor-add-context": Record<never, never>;
+  "project-workspace.button.agent-editor-delete": Record<never, never>;
+  "project-workspace.button.agent-editor-delete-confirm": Record<never, never>;
+  "project-workspace.button.agent-editor-edit-project": Record<never, never>;
+  "project-workspace.button.agent-editor-reset-model": Record<never, never>;
+  "project-workspace.button.agent-editor-save": Record<never, never>;
+  "project-workspace.button.agent-editor-upload-image": Record<never, never>;
+  "project-workspace.empty.agent-editor-no-contexts": Record<never, never>;
+  "project-workspace.empty.agent-editor-no-mcp": Record<never, never>;
+  "project-workspace.empty.agent-editor-no-project": Record<never, never>;
+  "project-workspace.empty.agent-editor-no-skills": Record<never, never>;
+  "project-workspace.heading.agent-editor-contexts": Record<never, never>;
+  "project-workspace.heading.agent-editor-delete-title": {
+    name: "string";
+  };
+  "project-workspace.heading.agent-editor-mcp": Record<never, never>;
+  "project-workspace.heading.agent-editor-model": Record<never, never>;
+  "project-workspace.heading.agent-editor-permissions": Record<never, never>;
+  "project-workspace.heading.agent-editor-profile": Record<never, never>;
+  "project-workspace.heading.agent-editor-skills": Record<never, never>;
+  "project-workspace.label.agent-editor-built-in": Record<never, never>;
+  "project-workspace.label.agent-editor-icons": Record<never, never>;
+  "project-workspace.label.agent-editor-image-file": Record<never, never>;
+  "project-workspace.label.agent-editor-instructions": Record<never, never>;
+  "project-workspace.label.agent-editor-model-changed": Record<never, never>;
+  "project-workspace.label.agent-editor-model-inherit": {
+    model: "string";
+    source: "string";
+  };
+  "project-workspace.label.agent-editor-model-unset": Record<never, never>;
+  "project-workspace.label.agent-editor-name": Record<never, never>;
+  "project-workspace.label.agent-editor-project-instructions": {
+    project: "string";
+  };
+  "project-workspace.label.agent-editor-remove-context": {
+    name: "string";
+  };
+  "project-workspace.label.agent-editor-source": {
+    layer: "string";
+  };
+  "project-workspace.notice.agent-editor-delete-body": Record<never, never>;
+  "project-workspace.notice.agent-editor-body-help": Record<never, never>;
+  "project-workspace.notice.agent-editor-issue": {
+    code: "string";
+  };
+  "project-workspace.notice.agent-editor-model-help": Record<never, never>;
+  "project-workspace.notice.agent-editor-wider-help": Record<never, never>;
+  "project-workspace.notice.agent-editor-save-first": Record<never, never>;
   "project-workspace.empty.no-contexts": Record<never, never>;
   "project-workspace.empty.no-documents": Record<never, never>;
   "project-workspace.empty.no-folder-documents": Record<never, never>;

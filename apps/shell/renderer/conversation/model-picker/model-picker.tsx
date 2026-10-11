@@ -83,6 +83,11 @@ export interface ModelPickerProps {
   onOptionChange: (axis: string, value: string) => void;
   /** "Change defaults…" 를 눌렀다. Settings › Agents로 간다(R50). */
   onChangeDefaults: () => void;
+  /**
+   * 고른 값이 어디에 적용되는지. 기본 session은 이 session에만(composer)이고, definition은 agent 정의의 model을
+   * 정하는 editor 칸(shell/workspace#R41)이라 설명이 달라진다.
+   */
+  scope?: "session" | "definition";
 }
 
 function same(first: PickerModelRef, second: PickerModelRef): boolean {
@@ -296,7 +301,11 @@ export function ModelPicker(props: ModelPickerProps): ReactNode {
           </p>
         ))}
         <p className={styles.note} data-picker-section="scope">
-          {t("conversation.notice.model-session-only")}
+          {t(
+            props.scope === "definition"
+              ? "conversation.notice.model-definition"
+              : "conversation.notice.model-session-only",
+          )}
         </p>
         <div className={styles.foot} data-picker-section="defaults">
           <Button size="sm" variant="ghost" onClick={props.onChangeDefaults}>

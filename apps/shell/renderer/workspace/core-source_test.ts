@@ -135,7 +135,12 @@ Deno.test("shell/desktop#R30: 팔레트 파일 묶음은 files.list의 원본 �
   });
   assertEquals(await coreWorkspaceSource(core).files(PROJECT), {
     ok: true,
-    value: [{ path: "goals.md", document: DOC_A, title: "Goals" }],
+    value: [{
+      folder: "/work/plans",
+      path: "goals.md",
+      document: DOC_A,
+      title: "Goals",
+    }],
   });
 });
 

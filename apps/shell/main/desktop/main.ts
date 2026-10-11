@@ -30,6 +30,11 @@ import { CORE_STATE_CHANNEL } from "../../ipc/core.ts";
 import { EDITOR_CLOSE_REQUEST_CHANNEL } from "../../ipc/editor.ts";
 import { FOLDER_PICK_CHANNEL } from "../../ipc/folder-picker.ts";
 import {
+  WINDOW_CONTROL_CHANNEL,
+  WINDOW_STATE_CHANNEL,
+} from "../../ipc/window-controls.ts";
+import { createWindowControl, stateOf } from "./window-controls.ts";
+import {
   registerRestoreIpc,
   removeRestoreIpc,
   type RestoreIpcMain,
@@ -1131,6 +1136,15 @@ ipcMain.handle(
   }),
 );
 
+// 상단 바의 최소화·최대화·닫기(shell/desktop#R23). desktop 창 본문만 부르고 그 창에만 간다.
+ipcMain.handle(
+  WINDOW_CONTROL_CHANNEL,
+  createWindowControl({
+    registry: overlays.overlayRegistry(),
+    windowOf: (event) => shellWindowOf(event.sender),
+  }),
+);
+
 // shell 크롬의 외부 링크와 provider 공식 로그인 버튼. 확인 창 없이 OS browser로 연다(shell/app-frame#R7).
 // headless 확인에서는 사람 화면에 browser를 띄우지 않는다.
 ipcMain.handle(
@@ -1245,6 +1259,7 @@ function stopAll(): void {
   removeUpdateIpc(updateIpcMain);
   removeLayoutIpc(layoutIpcMain);
   ipcMain.removeHandler(FOLDER_PICK_CHANNEL);
+  ipcMain.removeHandler(WINDOW_CONTROL_CHANNEL);
   ipcMain.removeHandler(OPEN_EXTERNAL_CHANNEL);
   ipcMain.removeHandler(TERM_DEFINITION_CHANNEL);
   removeEditorIpc(editorIpc);
@@ -1644,6 +1659,21 @@ function openDesktopWindow(): BrowserWindow | undefined {
           windows.add(window);
         });
         window.on("closed", () => windows.delete(window));
+        // 최대화·되돌림은 상단 바가 단추 모양을 바꾸도록 그 창에 알린다(desktop#R23).
+        for (
+          const change of [
+            "maximize",
+            "unmaximize",
+            "enter-full-screen",
+            "leave-full-screen",
+          ] as const
+        ) {
+          window.on(change, () => {
+            if (!window.isDestroyed()) {
+              window.webContents.send(WINDOW_STATE_CHANNEL, stateOf(window));
+            }
+          });
+        }
         // 연결 전에 뜬 창은 지금 상태를 바로 받는다. 이후 변화는 targets가 민다.
         window.webContents.on("did-finish-load", () => {
           if (!window.isDestroyed()) {

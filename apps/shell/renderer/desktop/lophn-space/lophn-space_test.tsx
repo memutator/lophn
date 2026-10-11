@@ -27,7 +27,7 @@ Deno.test("shell/desktop#R28: lophn 공간 sidebar는 일곱 형제를 한 단�
   );
   await flush();
   const sidebar = find(view.container, "nav[data-sidebar='open']");
-  assertEquals(sidebar.getAttribute("aria-label"), "lophn");
+  assertEquals(sidebar.getAttribute("aria-label"), "Lophn Workspace");
   assertEquals(style(sidebar).width, "240px");
   const rows = [...sidebar.querySelectorAll("[data-screen]")];
   assertEquals(rows.map((row) => row.getAttribute("data-screen")), [
@@ -81,7 +81,7 @@ Deno.test("shell/desktop#R1: lophn 공간은 documents를 먼저 열고 형제�
     [...view.container.querySelectorAll("[data-crumb]")].map((crumb) =>
       crumb.textContent
     ),
-    ["lophn", "Documents"],
+    ["Lophn Workspace", "Documents"],
   );
   // 검색 조건 선택지는 전체 목차와 format 목록에서 온다.
   assertEquals(of("catalog").length, 1);
@@ -93,7 +93,7 @@ Deno.test("shell/desktop#R1: lophn 공간은 documents를 먼저 열고 형제�
     [...view.container.querySelectorAll("[data-crumb]")].map((crumb) =>
       crumb.textContent
     ),
-    ["lophn", "Roles"],
+    ["Lophn Workspace", "Roles"],
   );
   click(byLabel(view.container, "Launcher"));
   assertEquals(launcher, 1);

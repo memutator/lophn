@@ -14,7 +14,7 @@ import type { CoreSource } from "../../connection/connection.ts";
 import type { EditorDeps } from "../../../editor/document-view.tsx";
 import type { InstructionsSource } from "../../../editor/instructions-entry.tsx";
 import { fakeSource } from "../testdata/fake-source.ts";
-import { byText, find, flush, pressTab, typeInto } from "../testdata/dom.ts";
+import { byText, find, flush, typeInto } from "../testdata/dom.ts";
 import { fakeBackup } from "./backup/testdata/fake-source.ts";
 import { fakeDiagnostics } from "./diagnostics/testdata/fake-source.ts";
 import { fakeNotifications } from "./notifications/testdata/fake-source.ts";
@@ -36,6 +36,9 @@ const AT = "2026-10-06T15:40:00.000Z";
 function claude(accounts: readonly AccountRow[]): ProviderRow {
   return provider(CLAUDE, "Claude", { ways: ["api_key"], accounts });
 }
+
+// 왼쪽 nav 단추를 누른다.
+const pressTab = click;
 
 function textOf(root: Element): string {
   return root.textContent ?? "";
@@ -928,7 +931,7 @@ Deno.test("shell/wording#R10: 읽지 못한 자리는 대상과 다시 시도를
   using second = render(<SettingsScreen source={empty.source} />);
   await flush();
   assertEquals(
-    find(second.container, "[role='tabpanel']").textContent,
+    find(second.container, "[data-settings-panel]").textContent,
     "No connections are available yet. They appear here once lophn can set them up.",
   );
 });
@@ -1007,18 +1010,17 @@ Deno.test("shell/wording#R13: 단추가 없는 창은 [Instructions]·Ask lophn�
   assertEquals(opened, 1);
 });
 
-Deno.test("shell/wording#R10: settings의 backup·update·진단·notification 자리는 통로가 있을 때만 탭으로 보인다", async () => {
+Deno.test("shell/desktop#R31: settings는 왼쪽 세로 nav에 자리를 묶어 두고 통로가 있는 자리만 보이며 backup은 두지 않는다", async () => {
   const { source } = fakeSettings({ providers: [claude([])] });
   using bare = render(<SettingsScreen source={source} />);
   await flush();
-  // 통로가 없으면 그 자리의 탭을 두지 않는다. 탭 목록 자체는 늘 선다.
-  const bareTabs = [...bare.container.querySelectorAll("[role=tab]")].map(
-    (tab) => textOf(tab).trim(),
-  );
-  assert(bareTabs.includes("Connections"), bareTabs.join(" / "));
-  for (const label of ["Backup", "Update lophn", "Diagnose", "Notifications"]) {
-    assert(!bareTabs.includes(label), `${label}: ${bareTabs.join(" / ")}`);
-  }
+  // 통로가 없으면 그 자리를 두지 않는다. 연결·도구·일반 자리는 늘 선다.
+  const navLabels = (root: Element) =>
+    [...root.querySelectorAll("[data-settings-nav]")].map(
+      (item) => textOf(item).trim(),
+    );
+  const bareItems = navLabels(bare.container);
+  assertEquals(bareItems, ["Connections", "Tools and skills", "General"]);
 
   const update = fakeUpdate({ picked: null });
   const diag = fakeDiagnostics();
@@ -1034,13 +1036,36 @@ Deno.test("shell/wording#R10: settings의 backup·update·진단·notification �
     />,
   );
   await flush();
-  const tabs = [...wired.container.querySelectorAll("[role=tab]")].map(
-    (tab) => textOf(tab).trim(),
+  // backup 통로가 와도 nav에 backup 자리를 두지 않는다.
+  assertEquals(navLabels(wired.container), [
+    "Connections",
+    "Tools and skills",
+    "General",
+    "Notifications",
+    "Update lophn",
+    "Diagnose",
+  ]);
+  const groups = [...wired.container.querySelectorAll("nav h2")].map(
+    (heading) => textOf(heading).trim(),
   );
-  // 탭이 선다: 통로가 있는 자리만 이 화면의 탭에 온다.
-  assert(tabs.includes("Backup"), tabs.join(" / "));
-  assert(tabs.includes("Connections"), tabs.join(" / "));
-  assert(tabs.includes("Update lophn"), tabs.join(" / "));
-  assert(tabs.includes("Diagnose"), tabs.join(" / "));
-  assert(tabs.includes("Notifications"), tabs.join(" / "));
+  assertEquals(groups, ["Integrations", "Preferences", "System"]);
+  // 고른 자리는 aria-selected로 표시하고 그 자리 하나만 가운데 column에 그린다.
+  assertEquals(
+    find(wired.container, "[role=tab][aria-selected=true]").textContent,
+    "Connections",
+  );
+  assertEquals(wired.container.querySelector("[data-backup]"), null);
+  pressTab(byText(wired.container, "Diagnose"));
+  await flush();
+  assertEquals(
+    find(wired.container, "[role=tab][aria-selected=true]").textContent,
+    "Diagnose",
+  );
+  assertEquals(
+    find(wired.container, "[data-settings-panel]").getAttribute(
+      "data-settings-panel",
+    ),
+    "diagnostics",
+  );
+  assertEquals(wired.container.querySelector("h1")?.textContent, "Diagnose");
 });

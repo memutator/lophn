@@ -1,7 +1,7 @@
 // 역할·상태·notification 계기의 화면 말. 원시 enum을 화면에 내보이지 않는다(ui-ux 3절).
-import { t } from "@lophn/wording";
+import { formatRelativeTime, t } from "@lophn/wording";
 
-import type { Request, Role } from "./source.ts";
+import type { NotificationRow, Request, Role } from "./source.ts";
 
 export function roleLabel(role: Role): string {
   switch (role) {
@@ -115,4 +115,29 @@ export function eventTitle(sourceEvent: string): string {
     default:
       return t("things-to-confirm.label.event-other");
   }
+}
+
+/**
+ * chip의 한 줄. 무슨 일인지(계기), 언제인지(발생 시각이 있을 때)를 notification이 이미 가진
+ * 사실로만 말한다. 계기 표에 없는 계기는 문서가 있으면 문서 일이라고 말하고, 그것도 없을
+ * 때만 일반 안내다. 360px 한 줄이라 계기 이름이 이미 대상을 말하는 계기에는 문서를 덧붙이지 않는다.
+ */
+export function noticeTitle(
+  notification: NotificationRow,
+  nowMs: number,
+): string {
+  const title = eventTitle(notification.sourceEvent);
+  const generic = title === t("things-to-confirm.label.event-other");
+  const parts = [
+    generic && notification.document !== undefined
+      ? t("things-to-confirm.label.event-other-document")
+      : title,
+  ];
+  const when = notification.occurredAt === undefined
+    ? Number.NaN
+    : Date.parse(notification.occurredAt);
+  if (Number.isFinite(when)) {
+    parts.push(formatRelativeTime(new Date(when), new Date(nowMs)));
+  }
+  return parts.join(" · ");
 }

@@ -1,11 +1,16 @@
 import { assert, assertEquals } from "@std/assert";
 import { act } from "react";
-import { render } from "../../../../packages/design/components/testing.ts";
+import {
+  click,
+  render,
+  style,
+} from "../../../../packages/design/components/testing.ts";
 
 import { Workspace } from "./workspace.tsx";
 import type { WorkspaceSource } from "./source.ts";
 import type { EditorDeps } from "../editor/document-view.tsx";
 import { readingWidthStore } from "../editor/reading-width.ts";
+import type { TrackingSource } from "./tracking/source.ts";
 
 function sourceOf(layout: unknown = null): {
   source: WorkspaceSource;
@@ -84,6 +89,49 @@ Deno.test("shell/desktop#R28: 작업대는 프로젝트의 폴더·문서·컨�
     view.container.querySelector("[data-context]")?.textContent,
     "design",
   );
+});
+
+Deno.test("shell/desktop#R28: sidebar의 폴더 안 문서는 탭으로 열리고 컨텍스트 행은 onContext로 이어진다", async () => {
+  const { source } = sourceOf();
+  const base = source.files;
+  source.files = (project) =>
+    base(project).then(() => ({
+      ok: true as const,
+      value: [{
+        folder: "/work/lophn",
+        path: "docs/notes.md",
+        document: "doc_1",
+        title: "notes",
+      }],
+    }));
+  const contexts: string[] = [];
+  using view = render(
+    <Workspace
+      projectId="prj_1"
+      source={source}
+      windowWidth={1600}
+      bodyWidth={1200}
+      onLauncher={() => {}}
+      onLophn={() => {}}
+      onContext={(context) => contexts.push(context)}
+    />,
+  );
+  await flush();
+  act(() =>
+    (view.container.querySelector("[data-folder]") as HTMLElement).click()
+  );
+  act(() =>
+    (view.container.querySelector("[data-folder-document]") as HTMLElement)
+      .click()
+  );
+  assertEquals(
+    view.container.querySelector("[data-tab]")?.getAttribute("data-tab"),
+    "doc_1",
+  );
+  act(() =>
+    (view.container.querySelector("[data-context]") as HTMLElement).click()
+  );
+  assertEquals(contexts, ["ctx_1"]);
 });
 
 Deno.test("shell/workspace#R6: 저장된 layout의 탭·칸·선택을 복원해 그린다", async () => {
@@ -549,4 +597,55 @@ Deno.test("shell/editor#R6 shell/editor#R13: 버전 탭의 비교는 focus 칸 �
       ?.getAttribute("data-document-view"),
     "read",
   );
+});
+
+Deno.test("shell/desktop#R27: 추적 꺼짐·Operator 안내는 본문 위 줄이 아니라 떠 있는 카드이고 닫아도 상단 바 단추로 다시 연다", async () => {
+  const { source } = sourceOf();
+  const tracking: TrackingSource = {
+    project: () =>
+      Promise.resolve({
+        ok: true,
+        value: {
+          id: "prj_1",
+          title: "lophn",
+          revision: "1",
+          folders: [{ path: "/work/lophn", description: "" }],
+          tracking: { enabled: false, patterns: [], useGitignore: false },
+          proposal: { enabled: true, patterns: [], useGitignore: true },
+        },
+      }),
+    trackedRoots: () => Promise.resolve({ ok: true, value: [] }),
+    preview: () => Promise.resolve({ ok: false, code: "unavailable" }),
+    apply: () => Promise.resolve({ ok: false, code: "unavailable" }),
+  } as unknown as TrackingSource;
+  using view = render(
+    <Workspace
+      projectId="prj_1"
+      source={source}
+      windowWidth={1600}
+      bodyWidth={1200}
+      onLauncher={() => {}}
+      onLophn={() => {}}
+      tracking={tracking}
+      operators={{
+        operators: () => Promise.resolve({ ok: true, value: [] }),
+      }}
+      onAttachOperator={() => {}}
+      onOpenOperator={() => {}}
+    />,
+  );
+  await flush();
+  const layer = view.container.querySelector<HTMLElement>("[data-notices]")!;
+  assert(layer.querySelector("[data-tracking='off']"));
+  assert(layer.querySelector("[data-operator-entry]"));
+  // 본문 열의 높이를 쓰지 않는다: 층은 떠 있고 본문(content) 안에 있다.
+  assertEquals(style(layer).position, "absolute");
+  assert(layer.parentElement!.querySelector("[data-pane]") !== null);
+  click(layer.querySelector<HTMLElement>("[data-dismiss-notice]")!);
+  await flush();
+  assertEquals(view.container.querySelector("[data-notices]"), null);
+  click(view.container.querySelector<HTMLElement>("[data-show-notices]")!);
+  await flush();
+  assert(view.container.querySelector("[data-notices] [data-tracking='off']"));
+  assertEquals(view.container.querySelector("[data-show-notices]"), null);
 });

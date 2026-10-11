@@ -1,5 +1,6 @@
 import "@lophn/design/tokens.css";
 import "@lophn/design/base.css";
+import "../chrome.css";
 import { t } from "@lophn/wording";
 import type { LophnOverlayFeedback } from "../../ipc/feedback.ts";
 import type { OverlayApi } from "../../ipc/overlay.ts";

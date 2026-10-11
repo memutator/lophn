@@ -4,8 +4,8 @@
 `<concern id>#Q<n>`으로 여기에 올리고, 사람이 정해야 하는 것만 "사람이 정할
 것"에 둔다.
 
-- 모두 852건(재연결 뒤 8건 포함): 추천대로 685, 다르게 정함 34, 대체됨 93, 이미
-  정함 31, 사람이 정할 것 2
+- 모두 864건(재연결 뒤 8건 포함): 추천대로 703, 다르게 정함 34, 대체됨 93, 이미
+  정함 32, 사람이 정할 것 2
 - 사람이 정한 큰 결정은 아래 "정한 원칙"에 있다. 문서는 이 결정을 따른다.
 
 ## 사람이 정할 것
@@ -663,11 +663,11 @@
 | lophn-agent/assignments#Q6 | assignment의 `read_apps`·`read_commands`(Operator가 읽을 앱 명령)는 어디로 가나. | 추천대로 | 앱 Operator 정의의 `app_reads` 칸으로 옮긴다(앱에는 context가 없으니 editor의 Contexts 칸 대신 App data 칸). |
 | lophn-agent/harness/run-loop#Q9 | assignment마다 running·waiting_user run이 하나뿐인데 lophn은 전역 assignment 하나라 Agent 탭 둘에서 동시에 돌 수 없다. | 추천대로 | 동시 run 제한을 session 단위로 바꾼다(session마다 하나). session 없는 run(handoff 수신 등)은 지금처럼 assignment 단위다. run selector도 session 단위 후보로. |
 | lophn-agent/agents#Q1 | 남길 문서를 없앤 뒤 Operator가 문서를 쓸 수 있는 범위. | 추천대로 | 정의의 권한 안에서 자리의 문서에 쓰고, 쓰기마다 판정은 lophn-agent/harness/tool-judgment가 한다. |
-| lophn-agent/agents#Q2 | 자리(project·app) 층 설정을 어떤 모양으로 저장하나. | 추천대로 | `<자리>/agents/settings.md`(frontmatter만): role별 model·option, 자리 skill·MCP 등록, 권한 규칙. |
+| lophn-agent/agents#Q2 | 자리(project·app) 층 설정을 어떤 모양으로 저장하나. | 추천대로 | `<자리>/agents/settings.md`(frontmatter만): role별 model·option과 권한 규칙 두 칸. 파일 모양은 agent 정의 파일과 같다(domain-model agents "파일 모양"). (고침, agent-S11 리뷰: 자리 skill·MCP 등록은 settings.md에 넣지 않고 lophn-agent/extensions의 PlaceExtensionSettings가 맡는다 — extensions#Q8.) |
 | lophn-agent/assignments#Q7 | 사람 Resume이 없어진 뒤 대상(앱·project) 보관이 풀리면 멈춘 assignment는. | 추천대로 | machine이 멈춤을 푼다(옛 "자동 재개 없음"을 바꾼다 — paused는 scope_archived만 남았다). |
 | lophn-agent/commands#Q1 | 같은 이름 skill 둘이 메뉴에 오는 경우(commands R6)가 extensions R3·R33(같은 이름은 먼저 발견한 하나)과 겹친다. | 추천대로 | extensions R3 유지. commands R6은 registry 안전장치로 둔다. |
 | lophn-agent/commands#Q2 | 맞는 명령이 없는 `/…` 제출을 일반 메시지로 보내나. | 추천대로 | 보내지 않고 알 수 없는 명령으로 알린다. |
-| lophn-agent/extensions#Q8 | 자리 층의 skill 폴더·MCP 저장 위치와 contract. | 추천대로 | agent 정의와 같은 자리 규칙(agents#Q2의 `settings.md`), 값 모양은 platform/settings. |
+| lophn-agent/extensions#Q8 | 자리 층의 skill 폴더·MCP 저장 위치와 contract. | 추천대로 | agent 정의와 같은 자리 폴더(`<data root>/{projects,apps}/<id>/`) 아래에 두되 `agents/settings.md`와 따로 둔다. 값 모양은 platform/settings. (고침, agent-S11 리뷰: settings.md는 model·권한 두 칸뿐이다 — agents#Q2.) |
 | lophn-agent/harness/provider#Q11 | 계정을 agent별로 고정하고 싶을 때. | 추천대로 | 첫 판은 provider의 계정 순서와 계정 사용 끄기만. agent·기본값·session은 provider와 model만 고른다. |
 | lophn-agent/harness/model#Q13 | effort처럼 wire가 비어 있는 option 값. | 추천대로 | 호출 형식 표가 번역한다. |
 | lophn-agent/harness/model#Q14 | model을 바꿀 때 option 값 맞춤 규칙의 세부. | 추천대로 | 같은 축에서 요청값보다 약하면서 가장 가까운 지원 값, 없으면 가장 약한 지원 값. off는 맞춤 목표가 아니다. |
@@ -681,6 +681,14 @@
 | lophn-agent/questions#Q6 | 질문 묶음 도입에 따른 ID와 event. | 추천대로 | 새 `qgr`(QuestionGroup)이 상태·기한·종료를 갖고 `qst`는 id를 유지한다. Run.waiting_on은 `qgr`. event 이름은 그대로이고 subject가 묶음이다. |
 | lophn-agent/harness/run-loop#Q10 | scheduling 보류로 주기 일을 셋째 우선순위로 둔 selector 규칙은. | 추천대로 | 우선순위를 둘(사람이 지금 기다리는 일, 사람의 한 번짜리 일)로 줄이고 8개 연속 규칙은 그대로. 후보는 session마다 센다. |
 | lophn-agent/harness/provider#Q12 | provider 안의 계정 순서·사용 끄기(provider#R6·R8)를 Settings › Providers 어디서 하나. 화면 요구가 없었다. | 추천대로 | 연결된 provider를 펼치면 계정 목록이 보이고 순서를 바꾸고 계정마다 사용을 끈다(shell/desktop#R49). 바꾼 순서는 다음 run부터. |
+| lophn-agent/revert#Q5 | 사람이 바깥에서 고친 파일을 rewind가 만나면. | 추천대로 | 파일 단위로 건너뛰고 목록으로 알린다. "그래도 복원"은 없다. |
+| lophn-agent/revert#Q6 | rewind의 문서 파일 복원 쓰기는 누가 어떻게. | 추천대로 | 사람이 시작한 동작으로 lophn이 쓰기 직전 hash를 다시 비교하고 원자 교체로 쓴다. 문서 판·파일 추적은 쓰지 않는다(사람 결정으로 삭제). pre-image를 남기는 지점은 문서 tool과 harness 사이 contract 변경이 필요하다. |
+| lophn-agent/revert#Q7 | pre-image 한도를 넘는 쓰기. | 추천대로 | 쓰기는 허용하고 그 checkpoint를 "파일 복원 불가"로 표시한다. |
+| lophn-agent/revert#Q8 | redo를 두나. | 추천대로 | 다음 메시지 전까지만. 앱 write를 되돌린 rewind에는 redo가 없다. |
+| lophn-agent/revert#Q9 | 앱과 문서를 어떤 순서로 되돌리나. | 추천대로 | 앱 먼저, 문서 나중. 앱 효과가 부분·불명이면 문서 복원은 시작하지 않는다. |
+| lophn-agent/agents#Q3 | 새 Operator는 첫 저장 전에 assignment가 없어 profile 이미지를 올릴 수 없다(upload는 assignment 필수). | 추천대로 | [Upload image]는 첫 저장 뒤에 켜진다. 그 전에는 icon만 고르고 "Save first to upload an image"를 보인다. upload가 임시 자리를 받는 길은 두지 않는다. |
+| lophn-agent/agents#Q4 | Agents 탭 카드의 "n contexts · n skills · n MCP"(shell/workspace#R36)를 그릴 값이 목록 행에 없다. | 추천대로 | `AgentListRow`에 `counts`(contexts는 built-in이면 null, skills·mcp는 켜진 수, 파일이 틀린 행은 셋 다 null)를 더한다(agent-I9). |
+| lophn-agent/agents#Q5 | 값 출처의 정의 층 이름이 작업 지시(`agent`)와 domain model(`definition`)에서 다르다. | 추천대로 | contract·domain은 `definition`. 화면의 출처 문구는 shell/wording이 정한다. |
 
 ### coding-agent (87)
 

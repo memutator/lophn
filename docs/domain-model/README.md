@@ -25,10 +25,10 @@ ID를 가진 entity는 30개다. 나머지(blueprint, problem code, context item
 | [platform/notifications](platform/notifications.md) | Notification `ntf` | `notifications` |
 | [documents/projects](documents/projects.md) | Project `prj` | `projects`, `project_folders`, `project_tracking_patterns` |
 | [documents/versions](documents/versions.md) | Document `doc`, Version `ver` | `documents`, `versions` |
-| [documents/series](documents/series.md) | Series `ser` | `series`, `series_instances`, `series_keys` |
+| [documents/series](documents/series.md) | 없음(context 계약의 series pattern) | 없음 |
 | [documents/addressing](documents/addressing.md) | | `place_names`, `document_names` |
 | [documents/contexts](documents/contexts.md) | Context `ctx` | `contexts`, `context_items`, `context_watch_changes` |
-| [documents/terms](documents/terms.md) | Term `trm` | `terms`, `term_evidence` |
+| [documents/terms](documents/terms.md) | GlossaryEntry `trm` | `glossary_entries` |
 | [documents/outline-and-search](documents/outline-and-search.md) | SavedView `viw` | `saved_views` (그 밖은 ledger 밖 derived store 표 9개) |
 | [apps/registration](apps/registration.md) | App `app` | `apps` |
 | [apps/releases](apps/releases.md) | Release `rel` | `releases`, `release_tests` |

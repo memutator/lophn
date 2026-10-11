@@ -1,0 +1,167 @@
+.contract {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+/* 그림이 좁은 화면에서 넘치면 그림 안에서만 옆으로 민다. 페이지는 넘치지 않는다. */
+.scroll {
+  overflow-x: auto;
+}
+
+.diagram {
+  display: block;
+  color: var(--color-text-secondary);
+}
+
+.node {
+  fill: var(--color-surface-subtle);
+  stroke: var(--color-border-strong);
+  stroke-width: 1;
+}
+
+/* 다른 context의 type은 점선과 한 단계 가라앉은 바탕으로 따로 보인다. */
+.nodeOuter {
+  fill: var(--color-surface-base);
+  stroke: var(--color-border-strong);
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+}
+
+.nodeText {
+  fill: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--type-caption-size);
+}
+
+.line {
+  fill: none;
+  stroke: var(--color-text-muted);
+  stroke-width: 1;
+}
+
+.lineOuter {
+  fill: none;
+  stroke: var(--color-text-muted);
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+}
+
+.arrow {
+  fill: var(--color-text-muted);
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-5);
+}
+
+.cardHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.cardHead h3 {
+  margin: var(--space-0);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+}
+
+/* public 표시. 실제 design에 Badge가 없어 같은 token으로 짠 작은 알약이다. */
+.mark {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-0) var(--space-3);
+  border: var(--border-width) solid var(--status-good-marker);
+  border-radius: var(--radius-full);
+  color: var(--status-good-text);
+  font-family: var(--font-sans);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  font-weight: var(--font-weight-medium);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-0) var(--space-3);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface-muted);
+  color: var(--color-text-secondary);
+  font-size: var(--type-caption-size);
+}
+
+.muted {
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+}
+
+.path {
+  margin: var(--space-3) var(--space-0) var(--space-4);
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--type-small-size);
+}
+
+.label {
+  margin: var(--space-4) var(--space-0) var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  font-weight: var(--font-weight-medium);
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-0);
+  padding: var(--space-0);
+  list-style: none;
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.rows li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.searches {
+  display: flex;
+  flex-direction: column;
+}
+
+.sectionTitle {
+  margin: var(--space-0) var(--space-0) var(--space-3);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  font-weight: var(--font-weight-semibold);
+}
+
+.searchRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-6);
+  padding: var(--space-3) var(--space-0);
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: var(--type-small-size);
+}
+
+.good {
+  color: var(--status-good-text);
+}
+
+.bad {
+  color: var(--status-critical-text);
+}

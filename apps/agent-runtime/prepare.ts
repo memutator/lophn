@@ -125,12 +125,8 @@ export type PreparerDeps = {
   machine: CoreCall;
   // run의 agent credential token으로 부르는 loopback.
   agentCall(token: string): CoreCall;
-  // resolved agent의 model 선택을 검증해 model 묶음으로 만든다(catalog·계정·adapter). preset은 model call
-  // 기록의 preset 칸이 agent hash로 바뀔 때까지 기록에 싣는 값이다.
-  resolveModel(input: {
-    preset: { id: string; revision: number };
-    model: ModelChoice;
-  }): Promise<Result<ModelBinding>>;
+  // resolved agent의 model 선택을 검증해 model 묶음으로 만든다(catalog·계정·adapter).
+  resolveModel(input: { model: ModelChoice }): Promise<Result<ModelBinding>>;
   toolkit: Toolkit;
   // 앱 command 선언과 사람 허락. 없으면 앱 command 없는 scope다.
   offers?(assignment: { id: string }): Promise<readonly AppOffer[]>;
@@ -320,10 +316,7 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
       },
     );
 
-    const model = await deps.resolveModel({
-      preset: { id: assignment.preset, revision: assignment.preset_revision },
-      model: agent.model,
-    });
+    const model = await deps.resolveModel({ model: agent.model });
     if (!model.ok) return model;
 
     const place: WorkPlace = agent.place;
@@ -405,7 +398,7 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
       if (!role.ok) return role;
       return ok({
         product: { instructions: deps.product },
-        role: { instructions: role.value, preset_prompt: null },
+        role: { instructions: role.value },
         tools: listed.map((tool) => ({
           name: tool.name,
           description: tool.description,
@@ -449,6 +442,7 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
       agent,
       blobs: deps.blobs,
       redact: deps.instructions.redact,
+      agentHash: resolved.hash,
       model,
       tools: {
         listed,

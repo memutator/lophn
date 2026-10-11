@@ -71,7 +71,7 @@ function requireMachine(ctx: RequestContext): Result<void> {
 
 function loadCall(tx: Tx, id: string): Result<CallRow> {
   const row = tx.sql.get(
-    `select id, run, session, model_use, preset, purpose, test_request,
+    `select id, run, session, model_use, agent_hash, purpose, test_request,
        attempt_kind, attempt_order, retry_of, credential_change_of,
        provider, credential_key, credential_revision, model_name, protocol,
        call_model, input, context_basis, output, state, state_seq,
@@ -103,7 +103,7 @@ function checkRevision(
 function storeStart(tx: Tx, call: ModelCallRecord, stateSeq: number): void {
   tx.sql.run(
     `insert into model_calls (
-       id, run, session, model_use, preset, purpose, test_request,
+       id, run, session, model_use, agent_hash, purpose, test_request,
        attempt_kind, attempt_order, retry_of, credential_change_of,
        provider, credential_key, credential_revision, model_name, protocol,
        call_model, input, context_basis, output, state, state_seq,
@@ -115,7 +115,7 @@ function storeStart(tx: Tx, call: ModelCallRecord, stateSeq: number): void {
       call.run,
       call.session,
       call.model_use,
-      call.preset === null ? null : JSON.stringify(call.preset),
+      call.agent_hash,
       call.purpose,
       call.test_request === null ? null : JSON.stringify(call.test_request),
       call.attempt_kind,

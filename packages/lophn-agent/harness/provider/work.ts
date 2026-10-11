@@ -314,7 +314,7 @@ export async function runConnectionTest(
     run: null,
     session: null,
     model_use: null,
-    preset: null,
+    agent_hash: null,
     purpose: "connection_test",
     test_request: {
       command_key: input.command_key,

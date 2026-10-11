@@ -2,9 +2,7 @@ import { err, formatAt, ok, type Result } from "../../packages/base/mod.ts";
 import {
   type CallModel,
   type CatalogEntry,
-  effortValueSchema,
   type ModelChoice,
-  OPTION_AXIS_EFFORT,
   providerRead,
   type ProviderRecord,
 } from "../../packages/contracts/lophn-agent/mod.ts";
@@ -73,8 +71,6 @@ export function createModelResolver(deps: ModelResolverDeps) {
   const fetching = createFetchTransport(deps.fetch);
 
   return async function resolveModel(input: {
-    // model call 기록의 preset 칸이 agent hash로 바뀔 때까지 기록이 쓰는 값이다.
-    preset: { id: string; revision: number };
     model: ModelChoice;
   }): Promise<Result<ModelBinding>> {
     const selection = input.model;
@@ -197,9 +193,6 @@ export function createModelResolver(deps: ModelResolverDeps) {
         requestPatch,
       });
 
-    const effort = effortValueSchema.safeParse(
-      limits.option_values[OPTION_AXIS_EFFORT],
-    );
     const call: CallModel = {
       provider: selection.provider,
       name: selection.model_name,
@@ -207,9 +200,11 @@ export function createModelResolver(deps: ModelResolverDeps) {
       credential_key: credential?.key ?? null,
       credential_revision: credential?.revision ?? null,
       options: limits.option_values,
-      // 호출 기록의 reasoning 칸은 option 값 기록으로 바뀔 때까지 effort 값을 그대로 옮긴다.
-      requested_reasoning: effort.success ? effort.data : "provider_default",
-      applied_reasoning: null,
+      // 고른 값과 default를 채운 뒤 요청에 실제로 실은 값을 따로 남긴다.
+      option_values: {
+        requested: selection.option_values,
+        applied: limits.option_values,
+      },
       limits: {
         context_limit: limits.context_limit,
         input_limit: limits.input_limit,
@@ -223,7 +218,6 @@ export function createModelResolver(deps: ModelResolverDeps) {
     };
     return ok({
       call,
-      preset: input.preset,
       endpoint: provider.endpoint,
       usageRevision: limits.price_basis?.revision ?? "unknown",
       timeoutMs: deps.timeoutMs ?? null,

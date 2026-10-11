@@ -120,6 +120,8 @@ export type CorePortsDeps = {
   // 기록이 hash로 가리키는 본문을 먼저 저장하는 통로와 전송 전 redaction.
   blobs: BlobPort;
   redact: RedactText;
+  // run 기준이 고정한 resolved agent의 hash. model call·tool call 기록이 이 값을 가리킨다.
+  agentHash: string;
   model: ModelBinding;
   tools: ToolSetup;
   context(): Promise<Result<RunContext>>;
@@ -197,6 +199,7 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
     machine,
     agent,
     assignment: seat.assignment,
+    agentHash: deps.agentHash,
     credential: deps.tools.credential,
     listed: deps.tools.listed,
     bindings: deps.tools.bindings,
@@ -311,7 +314,7 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
       run: seat.run,
       session: seat.session,
       model_use: "judgment" as const,
-      preset: model.preset,
+      agent_hash: deps.agentHash,
       purpose: "judgment" as const,
       test_request: null,
       attempt_kind: request.kind,

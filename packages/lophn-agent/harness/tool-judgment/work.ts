@@ -91,6 +91,8 @@ export type JudgmentDeps = {
   // 이 run에 묶인 agent 자격. approval request만 이 자격으로 만든다(요청자는 자격과 같다).
   agent: CoreCall;
   assignment: string;
+  // run 기준이 고정한 resolved agent의 hash. 판정 기록과 같은 tool 비교(session 허락)의 기준이다.
+  agentHash: string;
   credential: RunCredential;
   // run이 고정한 제공 목록과 각 tool의 소유 계약 연결.
   listed: readonly ToolDefinition[];
@@ -116,7 +118,8 @@ type Gathered = {
   resolved: ResolvedAction | null;
   input: JsonObject | null;
   assignmentRevision: number | null;
-  presetRevision: number | null;
+  // run을 읽지 못했으면 null이다.
+  agentHash: string | null;
   runStateSeq: string | null;
   origin: { id: string | null; run: string } | null;
   // 이 run이 속한 session. session 허락을 찾는 범위다.
@@ -307,8 +310,7 @@ async function gather(
       targets: action.targets.map((target) => target.id),
       comparison: action.comparison,
       mcp_configuration_revision: connection?.revision ?? null,
-      assignment_revision: assignment.revision,
-      preset_revision: assignment.preset_revision,
+      agent_hash: deps.agentHash,
     };
   }
   return {
@@ -317,7 +319,7 @@ async function gather(
     resolved: action,
     input,
     assignmentRevision: assignment?.revision ?? null,
-    presetRevision: assignment?.preset_revision ?? null,
+    agentHash: record === undefined ? null : deps.agentHash,
     runStateSeq: record?.state_seq ?? null,
     origin: record === undefined || origin === null
       ? null
@@ -393,23 +395,26 @@ export function createToolJudgment(deps: JudgmentDeps) {
   }
 
   // 판정표 뒤에 session 허락 칸을 적용한다. ask로 판정된 호출만 같은 session의 같은 tool·동작에 대한
-  // 허락이 있을 때 allow로 낮아진다. confirm 앱 command는 낮추지 않는다(R14).
-  async function judgeWithSessionGrant(gathered: Gathered): Promise<Judgment> {
+  // 허락이 있을 때 allow로 낮아지고, 낮춘 근거 request를 함께 돌려준다. confirm 앱 command는 낮추지
+  // 않는다(R14).
+  async function judgeWithSessionGrant(
+    gathered: Gathered,
+  ): Promise<{ judgment: Judgment; grant: string | null }> {
     const judgment = judge(gathered.facts);
     const { resolved, basis, session } = gathered;
     if (
       judgment.decision !== "ask" || gathered.facts.confirm ||
       resolved === null || resolved.confirm !== undefined ||
       basis === null || session === null
-    ) return judgment;
+    ) return { judgment, grant: null };
     const grant = await findSessionGrant(deps.machine, {
       session,
       concern: resolved.concern,
       basis,
     });
     return grant === undefined
-      ? judgment
-      : lowerBySessionGrant(gathered.facts, judgment);
+      ? { judgment, grant: null }
+      : { judgment: lowerBySessionGrant(gathered.facts, judgment), grant };
   }
 
   // 설명은 이 call 하나를 가리킨다. 승인은 그 call 하나에만 쓰므로 같은 동작의 다른 call은 다른
@@ -502,7 +507,8 @@ export function createToolJudgment(deps: JudgmentDeps) {
   // approval request도 만들지 않는다(R1). 쓰기·승인 필요 호출의 시작은 이 기록 뒤에만 한다.
   async function decide(request: CallRequest): Promise<Result<Decided>> {
     const gathered = await gather(deps, request);
-    let judgment = await judgeWithSessionGrant(gathered);
+    const judged = await judgeWithSessionGrant(gathered);
+    let judgment = judged.judgment;
     let approval: string | null = null;
     if (judgment.decision === "ask") {
       if (gathered.resolved === null || gathered.input === null) {
@@ -522,10 +528,12 @@ export function createToolJudgment(deps: JudgmentDeps) {
       reason: judgment.reason,
       effect: judgment.effect,
       assignment_revision: gathered.assignmentRevision,
-      preset_revision: gathered.presetRevision,
+      agent_hash: gathered.agentHash,
       contract_revision: gathered.resolved?.contractRevision ?? null,
       comparison_basis: gathered.basis,
       approval: judgment.decision === "ask" ? approval : null,
+      // 낮춘 allow만 근거 request를 남긴다. 판정이 다시 계산돼 ask·deny가 되면 근거도 없다.
+      session_grant: judgment.code === "session_granted" ? judged.grant : null,
     };
     const recorded = await record(request, decision);
     if (!recorded.ok) return recorded;
@@ -604,7 +612,7 @@ export function createToolJudgment(deps: JudgmentDeps) {
     // 낮춘 allow의 재검사는 session 허락이 지금도 서 있어야 allow다. 사람의 한 번 허락을 기다린
     // 호출은 그 사이 생긴 session 허락으로 판정을 바꾸지 않는다.
     const current = recorded.decision === "allow"
-      ? await judgeWithSessionGrant(gathered)
+      ? (await judgeWithSessionGrant(gathered)).judgment
       : judge(gathered.facts);
     if (current.decision === "deny") {
       return ok({ kind: "denied", reason: current.reason });
@@ -612,7 +620,7 @@ export function createToolJudgment(deps: JudgmentDeps) {
     if (
       current.decision !== recorded.decision || gathered.basis === null ||
       gathered.assignmentRevision !== recorded.assignment_revision ||
-      gathered.presetRevision !== recorded.preset_revision ||
+      gathered.agentHash !== recorded.agent_hash ||
       !sameBasis(recorded.comparison_basis, gathered.basis)
     ) return ok({ kind: "changed" });
     if (approval === undefined || recorded.approval === null) {

@@ -25,7 +25,7 @@ concerns: [lophn-agent/harness/usage]
 - 확인: 성공·실패·취소·거절 기록에 시간·종류가 있고 측정하지 않은 첫 token 지연은 모름인지 확인한다.
 - 의도: lophn-agent/harness#I3
 
-**[R4]** 호출의 실제 입력·출력은 platform/redaction을 거친 blob 근거로 보존하여 조립 판·층별 근거·자료 version·원문 구간·문자 수·압축 여부·당시 model 한계·catalog와 보완·요청과 적용 추론 수준을 남기고 완료 기록은 덮지 않는다.
+**[R4]** 호출의 실제 입력·출력은 platform/redaction을 거친 blob 근거로 보존하여 조립 판·층별 근거·자료 version·원문 구간·문자 수·압축 여부·당시 model 한계·catalog와 보완·요청한 option 값과 실제 실은 값을 남기고 완료 기록은 덮지 않는다.
 - 이유: catalog·설정 변경 뒤에도 과거 호출 조건을 재현한다.
 - 확인: 설정·catalog 갱신 후 과거 입력·출력·근거·한계가 유지되고 내부 추론·secret이 없으며 보존 기간은 lophn-agent/observability를 따르는지 확인한다.
 - 의도: lophn-agent/harness#I3

@@ -2,6 +2,7 @@
 // 같은지 본다. 시각은 두 쪽의 시계가 달라 "<at>"으로 바꿔 견주고, 시각 자체는 따로 시험한다.
 import { assert, assertEquals } from "@std/assert";
 import { z } from "zod";
+import { AGENT_RUNTIME_PRINCIPAL } from "../../../contracts/lophn-agent/mod.ts";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   bundleDiscardDraftRoute,
@@ -2116,6 +2117,178 @@ Deno.test("documents/contexts#R3 lophn-agent/roles/app-engineer#R2 [ctx-I58b]: a
     }
     assertEquals(JSON.stringify(api.ledger.dump()), before);
     assertEquals(api.ledger.emitted.length, events);
+  } finally {
+    world.api.ledger.close();
+  }
+});
+
+// ---------- agent runtime의 재료 읽기 (ctx-I56b) ----------
+
+// core가 runtime child에 주는 machine 자격의 모양이다: principal이 `machine:agent-runtime`이고 scope는 runtime이
+// 부르는 route 전부다(context.list·get·contract는 그중 셋이다).
+function runtimeContext(principal = AGENT_RUNTIME_PRINCIPAL): RequestContext {
+  return {
+    ...requestContext("machine", [
+      "context.list",
+      "context.get",
+      "context.contract",
+      "context.overview",
+      "run.read",
+    ]),
+    principal,
+  } as RequestContext;
+}
+
+function runtimeWorld() {
+  const api = sqlApi({}, () => ({
+    appIds: (slugs) => slugs.flatMap((slug) => APP_IDS[slug] ?? []),
+  }));
+  createContext(api);
+  const first = applyBundle(api, ids.context, readingApps("calendar"));
+  const second = applyBundle(api, ids.context, readingApps("calendar", "mail"));
+  createContext(api, { id: OTHER_CONTEXT, title: "Other" });
+  applyBundle(api, OTHER_CONTEXT, readingApps("mail"));
+  createContext(api, { id: id("ctx", 3), title: "Plain" });
+  applyBundle(api, id("ctx", 3), minimalContent());
+  const reads = new Map(
+    contextLedgerReads(api.deps).map((def) => [def.route.name, def]),
+  );
+  const read = (ctx: RequestContext, name: string, input: unknown) =>
+    reads.get(name)!.handle(
+      api.ledger.snapshot(),
+      ctx,
+      input as never,
+    ) as Result<Record<string, unknown>>;
+  return { api, read, first, second };
+}
+
+Deno.test("documents/contexts#R27 [ctx-I56b]: mapActor takes only the agent-runtime principal as the runtime machine, whatever operations it has", () => {
+  const deps = { isContextEngineer: () => false };
+  const mapped = (principal: string) => {
+    const result = mapActor(runtimeContext(principal), deps);
+    return result.ok ? result.value : result.error.code;
+  };
+  assertEquals(mapped(AGENT_RUNTIME_PRINCIPAL), actors.runtime);
+  // 다른 machine principal은 같은 operation을 가져도 예외가 아니다.
+  assertEquals(mapped("machine:agent-runtime-hosts"), actors.otherMachine);
+  assertEquals(mapped("machine:context-worker"), actors.otherMachine);
+  // context worker의 좁은 자격은 그대로 context_worker다.
+  assertEquals(
+    mapActor(requestContext("machine", WORKER_OPERATIONS), deps),
+    ok(actors.worker),
+  );
+});
+
+Deno.test("documents/contexts#R19 [ctx-I56b]: the runtime machine reads context.list, get and contract from the ledger and every other read is forbidden", () => {
+  const world = runtimeWorld();
+  try {
+    const { read } = world;
+    const runtime = runtimeContext();
+    const listed = read(runtime, "context.list", { project: ids.project });
+    assert(listed.ok, JSON.stringify(listed));
+    assertEquals((listed.value["contexts"] as unknown[]).length, 3);
+    assert(read(runtime, "context.get", { context: ids.context }).ok);
+    const contract = read(runtime, "context.contract", {
+      context: ids.context,
+    });
+    assert(contract.ok);
+    assertEquals(contract.value["bundle"], world.second.bundle.id);
+    for (
+      const [name, input] of [
+        ["context.overview", { context: ids.context }],
+        ["context.draft", { context: ids.context }],
+        ["context.bundles", { context: ids.context }],
+        ["glossary.list", { context: ids.context }],
+        ["context.violations", { context: ids.context }],
+      ] as const
+    ) {
+      const reply = read(runtime, name, input);
+      assert(!reply.ok, name);
+      assertEquals(reply.error.code, "forbidden", name);
+    }
+    // 다른 machine principal은 list도 못 읽는다.
+    const other = read(
+      runtimeContext("machine:agent-runtime-hosts"),
+      "context.list",
+      { project: ids.project },
+    );
+    assert(!other.ok);
+    assertEquals(other.error.code, "forbidden");
+  } finally {
+    world.api.ledger.close();
+  }
+});
+
+Deno.test("documents/contexts#R15 [ctx-I56b]: context.contract with a bundle reads that submitted bundle from the ledger, including a superseded one", () => {
+  const world = runtimeWorld();
+  try {
+    const { read, api } = world;
+    const runtime = runtimeContext();
+    const old = world.first.bundle.id;
+    const before = api.blobReads.length;
+    const reply = read(runtime, "context.contract", {
+      context: ids.context,
+      bundle: old,
+    });
+    assert(reply.ok, JSON.stringify(reply));
+    assertEquals(reply.value["bundle"], old);
+    assertEquals(reply.value["bundle_hash"], world.first.bundle.bundle_hash);
+    // 지금 적용된 판과 다른 내용이다(읽은 앱 수가 다르다).
+    const types = (reply.value["content"] as {
+      contract: { types: unknown[] };
+    }).contract.types;
+    const applied = read(runtime, "context.contract", { context: ids.context });
+    assert(applied.ok);
+    assertEquals(
+      (applied.value["content"] as { contract: { types: unknown[] } })
+        .contract.types.length - types.length,
+      1,
+    );
+    assert(api.blobReads.length - before > 0);
+    // 다른 context의 판, 없는 판은 not_found다.
+    const foreign = String(
+      api.ledger.sql.get(
+        "SELECT applied_bundle AS id FROM contexts WHERE id = ?",
+        [OTHER_CONTEXT],
+      )!.id,
+    );
+    for (const bundle of [foreign, ids.missingBundle]) {
+      const refused = read(runtime, "context.contract", {
+        context: ids.context,
+        bundle,
+      });
+      assert(!refused.ok);
+      assertEquals(refused.error.code, "not_found");
+    }
+  } finally {
+    world.api.ledger.close();
+  }
+});
+
+Deno.test("documents/contexts#R1 [ctx-I56b]: context.list with app returns the active contexts whose applied bundle reads that app, from context_app_data", () => {
+  const world = runtimeWorld();
+  try {
+    const { read } = world;
+    const ids_ = (ctx: RequestContext, input: unknown) => {
+      const reply = read(ctx, "context.list", input);
+      assert(reply.ok, JSON.stringify(reply));
+      return (reply.value["contexts"] as { id: string }[]).map((c) => c.id);
+    };
+    const runtime = runtimeContext();
+    // 제목 순: Experiments, Other. 첫 context는 두 번째 판에서 calendar와 mail을 모두 읽는다.
+    assertEquals(ids_(runtime, { app: CALENDAR }), [ids.context]);
+    assertEquals(ids_(runtime, { app: MAIL }), [ids.context, OTHER_CONTEXT]);
+    assertEquals(ids_(runtime, { app: id("app", 9) }), []);
+    assertEquals(
+      ids_(requestContext(actors.otherAgent.actor), { app: MAIL }),
+      [ids.context, OTHER_CONTEXT],
+    );
+    // 앱 하나에 묶인 agent는 자기 앱을 읽는 줄만 본다(app-bound 걸러내기가 그대로다).
+    const bound = world.api.read(contextListRoute, "otherAgent", { app: MAIL });
+    assert(bound.ok);
+    assertEquals(bound.value.contexts.length, 2);
+    // project 거르기는 그대로다.
+    assertEquals(ids_(runtime, { project: ids.project }).length, 3);
   } finally {
     world.api.ledger.close();
   }

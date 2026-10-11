@@ -2,7 +2,7 @@
 // context 선택을 푸는 순수 함수와, App Engineer(앱 하나에 묶인 credential)의 prompt 자료가 담당 앱을
 // app-data로 읽는 context의 overview·용어집을 싣는지 본다. core는 `CoreCall` fake로 흉내 내고, 앱 하나에
 // 묶인 credential에는 그 앱을 읽는 context만 보이는 core의 답(목록은 그 줄만, 나머지는 not_found)을 따른다.
-import { assertEquals } from "@std/assert";
+import { assert, assertEquals } from "@std/assert";
 import { err, ok, type Result } from "../../packages/base/mod.ts";
 import {
   bundleContentSchema,
@@ -31,6 +31,11 @@ function id(prefix: string, n: number): string {
 
 const PROJECT = id("prj", 1);
 const APP = "notes";
+// 앱 slug가 가리키는 앱 ID다(core가 `context.list`의 app을 context_app_data의 slug와 이어 푼다).
+const APP_IDS: Record<string, string> = {
+  notes: id("app", 1),
+  mail: id("app", 2),
+};
 const CALENDAR_CTX = id("ctx", 1);
 const MAIL_CTX = id("ctx", 2);
 const PLAIN_CTX = id("ctx", 3);
@@ -68,8 +73,11 @@ Deno.test("lophn-agent/presets#R17 [ctx-I58b]: work_place는 작업 자리의 pr
   assertEquals(resolve(scoped, global, { kind: "project", id: PROJECT }), [
     { kind: "project", target: PROJECT },
   ]);
-  // 담당 범위가 앱이면 작업 자리 project 안에서 읽고, 어느 context가 보이는지는 core가 정한다.
-  assertEquals(resolve(scoped, project, app), [all]);
+  // 담당 범위가 앱이면 작업 자리와 상관없이 그 앱을 읽는 context들이다(`context.list`의 app 거르기).
+  const byApp = [{ kind: "app_readers", target: app.id }];
+  assertEquals(resolve(scoped, project, app), byApp);
+  assertEquals(resolve(scoped, global, app), byApp);
+  assertEquals(resolve(scoped, app, app), byApp);
   assertEquals(resolve(scoped, global, global), [all]);
 
   assertEquals(
@@ -157,9 +165,13 @@ function boundCore(bound: string | null) {
     seen.push({ path, body });
     const request = body as Record<string, unknown>;
     if (path === routePath(contextListRoute)) {
+      const byApp = request["app"];
       return Promise.resolve(ok(contextListReadSchema.parse({
         ...META,
-        contexts: ENTRIES.filter(visible).map((entry) => ({
+        contexts: ENTRIES.filter(visible).filter((entry) =>
+          byApp === undefined ||
+          (entry.reads !== null && APP_IDS[entry.reads] === byApp)
+        ).map((entry) => ({
           ...value(entry),
           applied_number: 1,
           draft_bundle: null,
@@ -234,6 +246,7 @@ Deno.test("lophn-agent/roles/app-engineer#R2 [ctx-I58b]: App Engineer의 assignm
     [{ kind: "assignment_scope", target: null }],
     { place: project, scope: app },
   );
+  assertEquals(selections, [{ kind: "app_readers", target: app.id }]);
   const set = await loadContextMaterials(core.call, {
     project: PROJECT,
     selections,
@@ -266,18 +279,31 @@ Deno.test("lophn-agent/roles/app-engineer#R2 [ctx-I58b]: App Engineer의 assignm
   );
 });
 
-Deno.test("lophn-agent/roles/app-engineer#R2 [ctx-I58b]: 작업 자리 project가 없으면 App Engineer의 자료는 없고 이유를 남긴다. 이름으로 고른 다른 앱의 context도 싣지 않는다", async () => {
+Deno.test("lophn-agent/roles/app-engineer#R2 [ctx-I56b]: 작업 자리가 project가 아니어도 App Engineer의 자료는 담당 앱을 읽는 context의 것이다. 이름으로 고른 다른 앱의 context는 싣지 않는다", async () => {
   const core = boundCore(APP);
-  const none = await loadContextMaterials(core.call, {
+  const selections = resolveContextSelections(
+    [{ kind: "assignment_scope", target: null }],
+    { place: global, scope: { kind: "app", id: APP_IDS[APP]! } },
+  );
+  const set = await loadContextMaterials(core.call, {
     project: null,
-    selections: resolveContextSelections(
-      [{ kind: "assignment_scope", target: null }],
-      { place: global, scope: app },
-    ),
+    selections,
+  });
+  assertEquals(set.materials.map((item) => item.context), [CALENDAR_CTX]);
+  assertEquals(set.reason, null);
+  // 첫 읽기는 app으로 거른 목록이다(project 없이).
+  const listed = core.seen.find((entry) =>
+    entry.path === routePath(contextListRoute)
+  );
+  assertEquals(listed?.body, { app: APP_IDS[APP], status: "active" });
+
+  // 앱 ID가 다른 앱이면 그 앱을 읽는 context가 없어 자료가 없고 이유도 없다.
+  const none = await loadContextMaterials(boundCore(null).call, {
+    project: null,
+    selections: [{ kind: "app_readers", target: id("app", 9) }],
   });
   assertEquals(none.materials, []);
-  assertEquals(none.reason !== null, true);
-  assertEquals(core.seen, []);
+  assertEquals(none.reason, null);
 
   const named = await loadContextMaterials(core.call, {
     project: PROJECT,
@@ -302,4 +328,58 @@ Deno.test("lophn-agent/presets#R17 [ctx-I58b]: 앱에 묶이지 않은 역할의
     MAIL_CTX,
     PLAIN_CTX,
   ]);
+});
+
+Deno.test("lophn-agent/presets#R17 [ctx-I56b]: 고른 context를 읽지 못하면 조용히 빼지 않고 context마다 이유를 남기고 보관·판 없는 context는 이유 없이 뺀다", async () => {
+  const core = boundCore(APP);
+  // 담당 앱이 읽지 않는 context(get이 not_found)와 없는 context는 이유가 남는다.
+  const set = await loadContextMaterials(core.call, {
+    project: PROJECT,
+    selections: [
+      { kind: "context", target: CALENDAR_CTX },
+      { kind: "context", target: MAIL_CTX },
+      { kind: "context", target: id("ctx", 99) },
+    ],
+  });
+  assertEquals(set.materials.map((item) => item.context), [CALENDAR_CTX]);
+  assertEquals(set.omitted.map((item) => item.context), [
+    MAIL_CTX,
+    id("ctx", 99),
+  ]);
+  for (const item of set.omitted) {
+    assertEquals(item.title, item.context);
+    assert(item.reason.includes("not_found"), item.reason);
+  }
+
+  // 계약이나 용어집 읽기가 실패한 context는 이름과 이유를 남긴다.
+  const failing: CoreCall = (path, body) =>
+    path === routePath(glossaryListRoute)
+      ? Promise.resolve(err({ code: "unavailable", message: "down" }))
+      : core.call(path, body);
+  const down = await loadContextMaterials(failing, {
+    project: PROJECT,
+    selections: [{ kind: "context", target: CALENDAR_CTX }],
+  });
+  assertEquals(down.materials, []);
+  assertEquals(down.omitted, [{
+    context: CALENDAR_CTX,
+    title: "Calendar",
+    reason: "용어집을 읽지 못했다(unavailable)",
+  }]);
+
+  // 보관된 context와 적용된 판이 없는 context는 읽지 못한 것이 아니다.
+  const inactive: CoreCall = (path, body) =>
+    core.call(path, body).then((reply) => {
+      if (!reply.ok || path !== routePath(contextGetRoute)) return reply;
+      const value = reply.value as { context: Record<string, unknown> };
+      return ok({
+        ...value,
+        context: { ...value.context, status: "archived" },
+      });
+    });
+  const quiet = await loadContextMaterials(inactive, {
+    project: PROJECT,
+    selections: [{ kind: "context", target: CALENDAR_CTX }],
+  });
+  assertEquals([quiet.materials, quiet.omitted], [[], []]);
 });

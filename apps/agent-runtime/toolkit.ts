@@ -17,7 +17,7 @@ import {
 import { type CoreCall, readOf } from "./core-call.ts";
 import { builtinBinding } from "./builtin-binding.ts";
 import { renderContextMaterial } from "./context-overview.ts";
-import { createContextToolkit } from "./context-search.ts";
+import { contextBundleReader, createContextToolkit } from "./context-search.ts";
 import type { Toolkit } from "./prepare.ts";
 import type { RunSeat } from "./core-ports.ts";
 
@@ -89,6 +89,7 @@ export function createBuiltinToolkit(options: {
     contexts: createContextToolkit({
       machine: options.machine,
       contract: (agent) => createContractCall(options.routes, agent),
+      bundle: contextBundleReader(options.machine),
     }),
     handlers(seat: RunSeat, agent: CoreCall): ReadonlyMap<string, ToolHandler> {
       const contract = createContractCall(options.routes, agent);

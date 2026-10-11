@@ -64,6 +64,12 @@ export const actors = {
     actor: "machine",
     scope: "context_worker",
   } as ContextApiActor,
+  // agent runtime의 machine 자격: run 시작 전 재료로 context.list·get·contract만 읽는다.
+  runtime: {
+    kind: "machine",
+    actor: "machine",
+    scope: "agent_runtime",
+  } as ContextApiActor,
   otherMachine: {
     kind: "machine",
     actor: "machine",
@@ -109,6 +115,7 @@ export function newState(): ContextApiState {
     violations: new Map(),
     entities: new Map(),
     indexFailing: new Set(),
+    appReaders: new Map(),
   };
 }
 

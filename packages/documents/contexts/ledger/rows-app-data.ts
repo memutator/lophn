@@ -28,6 +28,23 @@ export function loadAppData(sql: Reader, context: string): string[] {
   ).map((row) => String(row.app));
 }
 
+// 읽는 앱이 있는 모든 context와 그 앱 slug들. context id 순이고 slug는 code unit 순이다.
+export function loadAllAppData(sql: Reader): Map<string, string[]> {
+  const found = new Map<string, string[]>();
+  for (
+    const row of sql.all(
+      "SELECT context, app FROM context_app_data ORDER BY context, app",
+      [],
+    )
+  ) {
+    const context = String(row.context);
+    const slugs = found.get(context) ?? [];
+    slugs.push(String(row.app));
+    found.set(context, slugs);
+  }
+  return found;
+}
+
 // context의 행을 apps로 바꾼다.
 export function saveAppData(
   sql: Sql,

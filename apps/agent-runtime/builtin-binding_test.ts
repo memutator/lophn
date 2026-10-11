@@ -175,7 +175,7 @@ Deno.test("lophn-agent/harness/tools#R23 [ctx-I57]: 쓰기 tool은 입력에서 
   assertEquals(builtinBinding(definitionOf(SERIES_NEXT_TOOL), run), undefined);
 });
 
-Deno.test("lophn-agent/harness/tools#R23 [ctx-I57]: 제품 조립의 handler는 agent 자격의 열린 route로 보내고 아직 열리지 않은 미리보기는 not_found로 끝난다", async () => {
+Deno.test("lophn-agent/harness/tools#R23 [ctx-I57]: 제품 조립의 handler는 agent 자격의 열린 route로 보내고 미리보기도 열린 읽기로 보낸다", async () => {
   const calls: { path: string; body: Record<string, unknown> }[] = [];
   const agent: CoreCall = (path, body) => {
     calls.push({ path, body: body as Record<string, unknown> });
@@ -282,10 +282,9 @@ Deno.test("lophn-agent/harness/tools#R23 [ctx-I57]: 제품 조립의 handler는 
   });
   assertEquals(sent["idempotency_key"], CALL);
 
-  // 미리보기 route는 core가 등록할 때까지 열리지 않아 agent 호출까지 가지 않는다.
-  const before = calls.length;
+  // 미리보기 route는 core가 등록했으므로 열린 읽기로 agent 호출까지 간다.
   const preview = await run(N.preview, { context: CTX, bundle: BUNDLE });
-  assertEquals(preview.outcome, { kind: "failure", code: "not_found" });
-  assertEquals(calls.length, before);
+  assertEquals(preview.outcome.kind, "success");
+  assertEquals(calls.at(-1)!.path, routePath(contextPreviewRoute));
   assertEquals(contextPreviewRoute.name, "context.preview");
 });

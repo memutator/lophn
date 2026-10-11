@@ -263,6 +263,65 @@ export function minimalContent(
   };
 }
 
+// 후보를 시험하는 묶음: minimalContent의 type에 title·round·tags field를 더하고, 입력을 종류별로 가진
+// 검색 `experiment_picker`를 둔다(value: status·title·round·tag, entity: experiment, range·text).
+export function optionsContent(): Record<string, unknown> {
+  const base = minimalContent();
+  const [type] = (base.contract as { types: Record<string, unknown>[] }).types;
+  const input = (name: string, type: string, of?: string, many = false) => ({
+    name,
+    label: name,
+    type,
+    ...(of === undefined ? {} : { of }),
+    many,
+    required: false,
+  });
+  return minimalContent({
+    contract: {
+      types: [{
+        ...type,
+        fields: [
+          ...(type!.fields as unknown[]),
+          field("title", { kind: "frontmatter", key: "title" }),
+          field("round", { kind: "frontmatter", key: "round" }, {
+            value_type: "number",
+          }),
+          field("tags", { kind: "frontmatter", key: "tags" }, {
+            value_type: "list",
+            item_type: "string",
+          }),
+        ],
+      }],
+    },
+    searches: [{
+      name: "experiment_picker",
+      title: "Picker",
+      inputs: [
+        input("status", "value", "Experiment.status", true),
+        input("title", "value", "Experiment.title"),
+        input("round", "value", "Experiment.round"),
+        input("tag", "value", "Experiment.tags", true),
+        input("experiment", "entity", "Experiment"),
+        input("window", "range", "Experiment.round"),
+        input("note", "text"),
+      ],
+      query: {
+        from: "Experiment",
+        where: null,
+        follow: [],
+        sort: [],
+        group: null,
+      },
+      result: {
+        kind: "table",
+        columns: [{ label: "Status", path: "status" }],
+        page_size: 30,
+      },
+    }],
+    saved_views: [],
+  });
+}
+
 export function evalContent(): Record<string, unknown> {
   return JSON.parse(
     Deno.readTextFileSync(

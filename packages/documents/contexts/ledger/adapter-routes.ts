@@ -9,9 +9,12 @@ import {
   contextArchiveRoute,
   contextBundlesRoute,
   contextContainingRoute,
+  contextContractRoute,
   contextCreateRoute,
+  contextDraftRoute,
   contextGetRoute,
   contextHandOffViolationsRoute,
+  contextInputOptionsRoute,
   contextListRoute,
   contextOverviewRoute,
   contextRecordViolationsRoute,
@@ -232,6 +235,25 @@ export const READ_ENTRIES: readonly ReadEntry[] = [
     }),
   ),
   read(
+    contextContractRoute,
+    (r) => r.contextContract,
+    (_sql, input) => ({
+      context: input.context,
+      bundles: true,
+      content: "applied",
+    }),
+  ),
+  read(
+    contextDraftRoute,
+    (r) => r.contextDraft,
+    (_sql, input) => ({
+      context: input.context,
+      bundles: true,
+      checks: true,
+      content: "in-progress",
+    }),
+  ),
+  read(
     contextSearchRoute,
     (r) => r.contextSearch,
     (_sql, input) => ({
@@ -242,9 +264,23 @@ export const READ_ENTRIES: readonly ReadEntry[] = [
     }),
   ),
   read(
+    contextInputOptionsRoute,
+    (r) => r.contextInputOptions,
+    (_sql, input) => ({
+      context: input.context,
+      bundles: true,
+      content: "applied",
+      index: ["entities"],
+    }),
+  ),
+  read(
     contextViolationsRoute,
     (r) => r.contextViolations,
-    (_sql, input) => ({ context: input.context, index: ["violations"] }),
+    (_sql, input) => ({
+      context: input.context,
+      index: ["violations"],
+      handedOff: true,
+    }),
   ),
   read(
     contextBundlesRoute,

@@ -1,11 +1,15 @@
 // context API 읽기. 묶음마다 파일 하나다: reads-contexts(list·get·overview·containing),
-// reads-search(search·saved_views), reads-lists(violations·bundles·glossary). 검색은 주입된
+// reads-bundle(contract·draft), reads-search(search·saved_views), reads-options(input_options),
+// reads-lists(violations·bundles·glossary). 검색은 주입된
 // SearchExecutor가 돌리고 읽기는 입력 검사와 page 자르기를 한다.
 import type { Result } from "../../../base/mod.ts";
 import type {
   contextBundlesRoute,
   contextContainingRoute,
+  contextContractRoute,
+  contextDraftRoute,
   contextGetRoute,
+  contextInputOptionsRoute,
   contextListRoute,
   contextOverviewRoute,
   contextSavedViewsRoute,
@@ -19,8 +23,10 @@ import type {
   Output,
   ReadRoute,
 } from "../../../contracts/platform/mod.ts";
+import { createBundleReads } from "./reads-bundle.ts";
 import { createContextReads } from "./reads-contexts.ts";
 import { createListReads } from "./reads-lists.ts";
+import { createOptionReads } from "./reads-options.ts";
 import { createSearchReads } from "./reads-search.ts";
 import type { ContextApiActor, ContextApiState, EntityRow } from "./state.ts";
 
@@ -51,7 +57,10 @@ export type ContextApiReads = {
   contextList: ReadHandler<typeof contextListRoute>;
   contextGet: ReadHandler<typeof contextGetRoute>;
   contextOverview: ReadHandler<typeof contextOverviewRoute>;
+  contextContract: ReadHandler<typeof contextContractRoute>;
+  contextDraft: ReadHandler<typeof contextDraftRoute>;
   contextSearch: ReadHandler<typeof contextSearchRoute>;
+  contextInputOptions: ReadHandler<typeof contextInputOptionsRoute>;
   contextViolations: ReadHandler<typeof contextViolationsRoute>;
   contextBundles: ReadHandler<typeof contextBundlesRoute>;
   contextSavedViews: ReadHandler<typeof contextSavedViewsRoute>;
@@ -65,6 +74,8 @@ export function createContextApiReads(
 ): ContextApiReads {
   return {
     ...createContextReads(state),
+    ...createBundleReads(state),
+    ...createOptionReads(state),
     ...createSearchReads(state, deps),
     ...createListReads(state),
   };

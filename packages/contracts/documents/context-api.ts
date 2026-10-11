@@ -17,6 +17,7 @@ import {
   sha256Schema,
 } from "../platform/mod.ts";
 import {
+  bundleContentSchema,
   contractNameSchema,
   contractTypeNameSchema,
   SEARCH_PAGE_SIZE_MAX,
@@ -271,16 +272,25 @@ export const violationSchema = z.strictObject({
 }).refine(ruleOnlyForRuleKind, ruleMessage);
 export type Violation = z.infer<typeof violationSchema>;
 
-// ledger 밖 derived 표에 담기고 읽기가 돌려주는 모양: 순수 모양 + context, 감지한 판, 문구.
-export const storedViolationSchema = z.strictObject({
+// ledger 밖 derived 표에 담기는 모양: 순수 모양 + context, 감지한 판, 문구.
+const storedViolationFields = {
   context: ctxIdSchema,
   bundle_hash: sha256Schema,
   ...violationKeyFields,
   type: contractTypeNameSchema.nullable(),
   target: nonblankSchema.nullable(),
   message: nonblankSchema,
-}).refine(ruleOnlyForRuleKind, ruleMessage);
+};
+export const storedViolationSchema = z.strictObject(storedViolationFields)
+  .refine(ruleOnlyForRuleKind, ruleMessage);
 export type StoredViolation = z.infer<typeof storedViolationSchema>;
+
+// 읽기가 돌려주는 줄: 저장된 위반 + 이미 Context Engineer에게 넘겼는지(handed_off).
+export const violationItemSchema = z.strictObject({
+  ...storedViolationFields,
+  handed_off: z.boolean(),
+}).refine(ruleOnlyForRuleKind, ruleMessage);
+export type ViolationItem = z.infer<typeof violationItemSchema>;
 
 // `(context, kind, rule, path, section)` 중 context를 뺀 키. 넘길 위반을 가리킨다.
 export const violationKeySchema = z.strictObject(violationKeyFields).refine(
@@ -480,12 +490,28 @@ export const contextOverviewReadSchema = publicRead(z.object({
   violation_count: countSchema,
 }));
 
-export const searchRowSchema = z.strictObject({
+// 개체를 가리키는 값. 이 ref로 그 파일(+ section)을 연다.
+export const entityRefSchema = z.strictObject({
+  type: contractTypeNameSchema,
   key: nonblankSchema,
   path: relativePathSchema,
   section: nonblankSchema.nullable(),
-  // 열의 path(`field` 또는 `별칭.field`)를 키로 하는 값. 정렬·묶기·board_by의 path도 싣는다.
-  values: z.record(searchPathSchema, jsonValueSchema),
+});
+export type EntityRef = z.infer<typeof entityRefSchema>;
+
+// 열 하나의 값. path는 열의 path(`field` 또는 `별칭.field`)이고, field가 key이면 ref가 그 개체
+// (시작 개체 또는 별칭 개체)이고 아니면 null이다. 열이 아닌 묶기·board_by path도 값을 싣는다.
+export const searchCellSchema = z.strictObject({
+  path: searchPathSchema,
+  value: jsonValueSchema,
+  ref: entityRefSchema.nullable(),
+});
+export type SearchCell = z.infer<typeof searchCellSchema>;
+
+// 선언 검색 실행기의 결과 행과 같은 모양이다: 시작 개체의 ref와 열마다 하나의 cell(열 순서).
+export const searchRowSchema = z.strictObject({
+  ref: entityRefSchema,
+  cells: z.array(searchCellSchema),
 });
 export type SearchRow = z.infer<typeof searchRowSchema>;
 
@@ -501,7 +527,59 @@ export const contextSearchReadSchema = publicPage(z.object({
   context: ctxIdSchema,
   search: contractNameSchema,
   bundle_hash: sha256Schema,
+  // 조건에 맞는 행 전부의 수(page와 상관없이). board도 lane 자르기 전의 전체다.
+  total: countSchema,
   rows: z.array(searchRowSchema).max(SEARCH_PAGE_SIZE_MAX),
+}));
+
+// 적용된 판의 내용(계약, 검색, saved view 정의, 예). 적용된 판이 없으면 bundle, bundle_hash, content가 모두 null이다.
+export const contextContractReadSchema = publicRead(z.object({
+  context: ctxIdSchema,
+  bundle: bundleIdSchema.nullable(),
+  bundle_hash: sha256Schema.nullable(),
+  content: bundleContentSchema.nullable(),
+}));
+
+// 만드는 중(drafting) context의 진행이다. drafting이 아닌 context는 draft가 null이다. 단계는 1 읽기
+// (아직 판이 없다), 2 초안(draft 또는 failed 판), 3 검사(checking 판)다. 적용되면 context가 active가
+// 되므로 4는 이 읽기에 없다. bundle·content·check는 그 단계에 아직 없으면 null이다.
+export const contextDraftReadSchema = publicRead(z.object({
+  context: ctxIdSchema,
+  draft: z.strictObject({
+    step: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+    // 지금 보는 판: draft, 없으면 검사 중인 판, 없으면 마지막 failed 판.
+    bundle: bundleSummarySchema.nullable(),
+    // 그 판의 내용. BundleContent 검사는 submit이 하므로 draft 단계에서는 JSON 객체일 뿐이다.
+    content: draftContentSchema.nullable(),
+    check: checkReportSchema.nullable(),
+  }).nullable(),
+}));
+
+export const INPUT_OPTIONS_DEFAULT = 50;
+export const INPUT_OPTIONS_MAX = 200;
+export const INPUT_OPTIONS_PREFIX_MAX = 200;
+export const contextInputOptionsRequestSchema = z.strictObject({
+  context: ctxIdSchema,
+  search: contractNameSchema,
+  // 검색 선언의 입력 이름. entity 또는 value 입력이어야 한다.
+  input: contractNameSchema,
+  // 사람이 친 앞부분. 후보의 value 글이나 label이 이것으로 시작하는 것만(ASCII 대소문자 무시).
+  prefix: z.string().max(INPUT_OPTIONS_PREFIX_MAX).optional(),
+  limit: z.number().int().min(1).max(INPUT_OPTIONS_MAX).optional(),
+});
+const optionValueSchema = z.union([z.string(), z.number(), z.boolean()]);
+// entity: value는 개체 key, label은 title(없으면 key)이고 key의 code unit 순이다.
+// value: value는 field의 서로 다른 값이고 enum이면 선언한 값 순서가 앞, 그다음 나머지 값의 순서이며
+// label은 값을 글로 한 것이다. complete가 false이면 limit 때문에 뒤의 후보를 잘랐다.
+export const contextInputOptionsReadSchema = publicRead(z.object({
+  context: ctxIdSchema,
+  search: contractNameSchema,
+  input: contractNameSchema,
+  options: z.array(z.strictObject({
+    value: optionValueSchema,
+    label: nonblankSchema,
+  })).max(INPUT_OPTIONS_MAX),
+  complete: z.boolean(),
 }));
 
 export const contextViolationsRequestSchema = z.strictObject({
@@ -509,10 +587,11 @@ export const contextViolationsRequestSchema = z.strictObject({
   cursor: readCursorSchema.optional(),
   limit: pageLimitSchema.optional(),
 });
-// path, kind, rule, section의 code unit 순
+// path, kind, rule, section의 code unit 순. handed_off는 같은 키(kind, rule, path, section)의 위반을
+// 이미 context.hand_off_violations로 넘겼는지다.
 export const contextViolationsReadSchema = publicPage(z.object({
   context: ctxIdSchema,
-  violations: z.array(storedViolationSchema).max(CONTEXT_PAGE_MAX),
+  violations: z.array(violationItemSchema).max(CONTEXT_PAGE_MAX),
 }));
 
 export const contextBundlesRequestSchema = z.strictObject({
@@ -759,12 +838,39 @@ export const contextOverviewRoute = defineRead({
   actors: READ_ACTORS,
   errors: READ_ERRORS,
 });
+export const contextContractRoute = defineRead({
+  resource: "contexts",
+  method: "contract",
+  name: "context.contract",
+  input: contextTargetRequestSchema,
+  output: contextContractReadSchema,
+  actors: READ_ACTORS,
+  errors: READ_ERRORS,
+});
+export const contextDraftRoute = defineRead({
+  resource: "contexts",
+  method: "draft",
+  name: "context.draft",
+  input: contextTargetRequestSchema,
+  output: contextDraftReadSchema,
+  actors: READ_ACTORS,
+  errors: READ_ERRORS,
+});
 export const contextSearchRoute = defineRead({
   resource: "contexts",
   method: "search",
   name: "context.search",
   input: contextSearchRequestSchema,
   output: contextSearchReadSchema,
+  actors: READ_ACTORS,
+  errors: READ_ERRORS,
+});
+export const contextInputOptionsRoute = defineRead({
+  resource: "contexts",
+  method: "input_options",
+  name: "context.input_options",
+  input: contextInputOptionsRequestSchema,
+  output: contextInputOptionsReadSchema,
   actors: READ_ACTORS,
   errors: READ_ERRORS,
 });
@@ -835,7 +941,10 @@ export const CONTEXT_API_READ_ROUTES = [
   contextListRoute,
   contextGetRoute,
   contextOverviewRoute,
+  contextContractRoute,
+  contextDraftRoute,
   contextSearchRoute,
+  contextInputOptionsRoute,
   contextViolationsRoute,
   contextBundlesRoute,
   contextSavedViewsRoute,

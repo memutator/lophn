@@ -241,7 +241,7 @@ document module 자체가 UTF-8 decode → BOM 제거 → LF → NFC를 적용�
 | `/v1/guides/list`, `/v1/guides/get`, `/v1/guides/outline`, `/v1/guides/read` | 설치 manifest의 lophn_version·content_hash 고정 참조·section/범위/cursor → BundledGuide 목록·같은 설치 안내 판의 목차·본문; offline·읽기 전용 |
 | `/v1/documents/diff` | 두 고정 ver·section? → core 밖에서 계산한 줄 단위 diff·누락 |
 | `/v1/search/query` | 문자열·project·cursor → Project의 md 파일을 그때 훑은 path·줄 범위·snippet·omissions |
-| `/v1/contexts/search` | ctx·선언 검색 id·inputs·cursor → 선언 검색 결과(개체·field·path 링크)·bundle_hash·indexed_at·stale·omissions |
+| `/v1/contexts/search` | context·검색 이름·inputs·cursor·page_size → 선언 검색 결과(행의 개체 ref·cell·path 링크)·total·bundle_hash·complete |
 | `/v1/series/list`, `/v1/series/get`, `/v1/series/next` | place 또는 ser → 가족 구성·멤버·NextSuggestion |
 
 **읽기 처리.** 최신은 먼저 platform read로 선택해 고정 ver로 바꾼다. outline의 그 ver를 section·본문 cursor까지 유지하고 latest_version은 따로 표시한다. 목차는 저장도 cache도 없다. 준비 worker가 그 판의 원문 blob을 읽어 outline parser로 그때 파싱하고, 전체 scan을 기다리지 않는다. 같은 입력은 같은 tree이고 section key·범위·body_hash 규약은 parser 한 곳이다. 성공 파싱에 key가 없으면 `missing`, 미지원은 `unsupported`, 실패는 `unverified`다. 원문 파일은 blob contract로 저장한 MIME·바이트를 읽으며 agent 출력은 redaction을 우회하지 않는다.
@@ -278,13 +278,15 @@ root는 활동 순, place는 갱신 순으로 시작하고 seq·ID로 동점을 
 | `/v1/projects/list`, `/get`, `/resolve`, `/resolve_cwd`, `/tracking_roots` | 저장 문서 중심 Project read; 사람만 폴더 경로·tracking 값 포함; resolve는 꺼진 중첩 폴더도 가장 깊은 등록 루트로 해석; resolve_cwd는 coding agent의 고정 cwd로 project ID만; tracking_roots는 machine의 활성·켠 root |
 | `/v1/documents/update`, `/set_source`, `/archive`, `/unarchive`, `/move`, `/rename` | `document.update`, `document.set_source`, `document.archive`, `document.unarchive`, `document.move`, `document.rename` |
 | `/v1/documents/list`, `/get`, `/resolve`, `/export` | 현재 metadata·고정 판·Address 예약 해석·사람의 Markdown/JSON 및 원문 export |
-| `/v1/contexts/create`, `/archive`, `/unarchive` | `context.create`, `context.archive`, `context.unarchive`; context는 Project 하나에 속하고 Project마다 여럿이다 |
-| `/v1/contexts/submit_bundle`, `/rollback` | `bundle.submit`(후보 Bundle blob 참조를 새 판으로 기록하고 아직 적용하지 않음; user와 Context Engineer), `bundle.rollback`(이전 판을 다시 적용; user) |
-| `/v1/contexts/record_check`, `/record_violations` | `bundle.finish_check`(check report 기록, 통과하면 같은 transaction에서 자동 적용), `context.record_violations`(위반 수의 마지막 기록); 둘 다 좁은 machine 내부 제출 |
-| `/v1/contexts/save_view`, `/update_view`, `/delete_view` | `view.save`, `view.update`, `view.delete` |
-| `/v1/contexts/list`, `/get`, `/search`, `/violations`, `/bundles`, `/saved_views`, `/containing` | 목록(목적·개수·적용 판·검사 결과·위반 수)·한 context의 Overview·선언 검색 실행(5.4)·위반 목록과 근거·Bundle 판과 check 이력·saved view 목록·Project 파일 경로가 속한 context 역조회(문서 Info›Contexts) |
-| `/v1/terms/define`, `/update`, `/archive`, `/unarchive` | 대응 `term.*` 이름; 용어 + 뜻 + 정한 사람(사람 또는 Context Engineer); 후보·근거 없음 |
-| `/v1/terms/list`, `/get` | context별 용어집 read |
+| `/v1/contexts/create`, `/archive`, `/unarchive` | `context.create`(user와 Context Engineer), `context.archive`, `context.unarchive`(user); context는 Project 하나에 속하고 Project마다 여럿이다 |
+| `/v1/contexts/save_draft`, `/discard_draft`, `/submit_bundle` | `bundle.save_draft`(Context Engineer가 초안을 새로 쓰거나 덮어쓴다; 내용은 blob), `bundle.discard_draft`(user와 Context Engineer), `bundle.submit`(Context Engineer; 초안을 번호 있는 판으로 올리고 check를 시작) |
+| `/v1/contexts/record_check`, `/record_violations` | `bundle.finish_check`(check report 기록, 통과하면 같은 transaction에서 자동 적용), `context.record_violations`(위반 수의 마지막 기록); 둘 다 `CONTEXT_WORKER_OPERATIONS`만 가진 좁은 machine 내부 제출 |
+| `/v1/contexts/rollback` | `bundle.rollback`(이전 판을 다시 적용; user) |
+| `/v1/contexts/save_view`, `/update_view`, `/delete_view` | `view.save`, `view.update`, `view.delete`(user) |
+| `/v1/contexts/hand_off_violations` | `context.hand_off_violations`(위반 하나 또는 전부를 Context Engineer Run으로 넘김; user) |
+| `/v1/contexts/list`, `/get`, `/overview`, `/contract`, `/draft`, `/search`, `/input_options`, `/violations`, `/bundles`, `/saved_views`, `/containing` | 목록(적용·진행 중인 판 포함)·한 context와 적용 판 요약·type별 개체 수·적용 판의 계약·만드는 중인 판의 진행·선언 검색 실행(5.4)·검색 입력 후보·위반 목록과 근거·판 이력과 check 보고·saved view 목록(깨진 것 표시)·Project 파일 경로가 속한 context 역조회(문서 Info›Contexts); user와 Context Engineer가 읽는다 |
+| `/v1/terms/set`, `/remove` | `glossary.set`(용어 + 뜻; 새 항목은 id·context, 기존 항목은 entry; user와 Context Engineer), `glossary.remove` |
+| `/v1/terms/list` | `glossary.list`(context별 용어집 전부, 용어 순) |
 | `/v1/series/create`, `/update`, `/set_draft`, `/clear_draft`, `/add_instance`, `/update_instance`, `/remove_instance`, `/archive`, `/unarchive` | 대응 `series.*`; create·update·add_instance·update_instance는 user와 허용 coding_agent·app, 나머지 가족 변경은 user, lophn agent 가족 mutation 없음 |
 
 표의 `/update` 같은 짧은 표기는 그 행의 resource를 반복한 전체 경로다. project.create는 tracking.enabled=false만 허용하며, project.update로 folders를 바꾸는 경우도 project.set_tracking과 같은 미리보기의 정확한 folders·tracking·base_revision을 검사한다. Document 최초 save와 Series 첫 가입을 같이 요청하면 두 모듈의 검사를 같은 ledger transaction에 적용하고 일치 draft를 비운다. Series 구성·draft는 source 파일이나 Version 없는 Document가 아니다. 기존 멤버 수정은 같은 doc의 새 ver이며 멤버 추가가 아니다. Operator의 기존 출력 doc 범위를 Series 도입으로 넓히지 않는다.
@@ -297,9 +299,8 @@ Bundle은 context마다 순번을 가진 판이고 상태와 전이는 domain mo
 - Document: `DocumentCreated`, `DocumentSaved`, `DocumentUpdated`, `DocumentSourceChanged`, `DocumentArchived`, `DocumentUnarchived`, `DocumentRestored`, `DocumentMoved`, `DocumentRenamed`.
 - 파일: `FileWritten`, `FileRenamed`, `FileDeleted`.
 - Context: `ContextCreated`, `ContextArchived`, `ContextUnarchived`, `ContextBundleDraftSaved`, `ContextBundleDraftDiscarded`, `ContextBundleSubmitted`, `ContextBundleCheckFailed`, `ContextBundleApplied`, `ContextBundleRolledBack`, `ContextViolationsRecorded`, `ContextViolationsHandedOff`, `SavedViewCreated`, `SavedViewUpdated`, `SavedViewDeleted`(이름과 payload는 domain model documents/contexts).
-- Term: `TermDefined`, `TermUpdated`, `TermArchived`, `TermUnarchived`.
+- Glossary: `GlossaryEntrySet`, `GlossaryEntryRemoved`.
 - Series: `SeriesCreated`, `SeriesUpdated`, `SeriesDraftSet`, `SeriesDraftCleared`, `SeriesInstanceAdded`, `SeriesInstanceUpdated`, `SeriesInstanceRemoved`, `SeriesArchived`, `SeriesUnarchived`.
-- Saved view: `SavedViewCreated`, `SavedViewUpdated`, `SavedViewDeleted`.
 
 ### 5.6 app-data port
 

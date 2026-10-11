@@ -169,17 +169,15 @@ import {
   PREPARE_BASE_ROUTE,
   SEARCH_VERSION_ROUTE,
   STORED_FILE_ROUTE,
-  TERM_OCCURRENCE_ROUTE,
-  WATCH_INPUT_ROUTE,
   WORKING_COPY_ROUTE,
 } from "./documents-served.ts";
 import { type RootsWatch, watchTrackingRoots } from "./documents-roots.ts";
 import { type BasisSync, watchObservationBasis } from "./documents-basis.ts";
 import { createDocumentsRespawner } from "./documents-respawn.ts";
+import { CONTEXT_WORKER_OPERATIONS } from "./contexts-api.ts";
 import { DOCUMENTS_FEED_CONTEXT } from "./documents-events.ts";
 import { startDocumentsFeed } from "./documents-feed.ts";
 import type { PlacementRead } from "../../packages/documents/file-tracking/placement-read.ts";
-import { withTermOccurrence } from "./documents-term-check.ts";
 import {
   createPlacementReservations,
   withPlacementReservation,
@@ -189,11 +187,6 @@ import {
   type SearchVersion,
   watchSearchIndex,
 } from "./documents-search.ts";
-import {
-  watchContextChanges,
-  type WatchInput,
-  type WatchSync,
-} from "./documents-watch.ts";
 import { startNotifications } from "./notifications.ts";
 import { startAssignmentReactions } from "./assignment-reactions.ts";
 import {
@@ -747,12 +740,12 @@ async function open(
     { name: "document.prepare", actors: ["machine"], kind: "command" },
     // 파일 작업 결과 기록(documents#T12). 사람 요청에 결합해 받은 worker만 쓴다.
     { name: "file.record_result", actors: ["machine"], kind: "command" },
-    // 확인된 문서 watch 변화 기록(documents#T24). coordinator의 watch consumer만 쓴다.
-    {
-      name: "context.record_watch_change",
+    // context worker(machine)가 검사 결과와 위반 수를 기록한다(documents/contexts).
+    ...CONTEXT_WORKER_OPERATIONS.map((name): OperationPolicy => ({
+      name,
       actors: ["machine"],
       kind: "command",
-    },
+    })),
     // apps 관측 기록·제어 connection·자식 앱 credential이 닿는 operation(apps#T10).
     ...appsOperationPolicies(),
     // problems report collector(machine)가 보고를 제출한다.
@@ -862,8 +855,6 @@ async function open(
   let basisSync: BasisSync | undefined;
   // coordinator의 search consumer에 event와 저장 판 원문을 보내는 동기화(documents#T21).
   let searchSync: SearchSync | undefined;
-  // coordinator의 context watch consumer에 저장 event를 보내는 동기화(documents#T24).
-  let watchSync: WatchSync | undefined;
   // 종료 때 documents worker의 열린 blob 준비를 닫는다.
   let closeChildBlob: (() => void) | undefined;
   // 종료 때 감독이 포기한 documents worker를 다시 띄우는 일을 멈춘다.
@@ -1175,7 +1166,6 @@ async function open(
           "document.prepare",
           "document.save",
           "file.record_result",
-          "context.record_watch_change",
         ],
         targets: { task: "documents" },
       },
@@ -1302,37 +1292,30 @@ async function open(
             withConnectionTest(
               withReleasePreparation(
                 withPlacementReservation(
-                  withTermOccurrence(
-                    withApprovalText(
-                      withQuestionText(
-                        withHandoffBody(
-                          withMessageBody(
-                            runtime.writer,
-                            createMessageBodyPreparer({
-                              relay: () => bodyPrepare.current,
-                              // 알려진 secret 값도 pattern과 함께 가린다. 값을 다 모르는 동안은 막는다.
-                              known: () => runtime?.knownSecrets,
-                            }),
-                          ),
-                          createHandoffBodyPreparer({
+                  withApprovalText(
+                    withQuestionText(
+                      withHandoffBody(
+                        withMessageBody(
+                          runtime.writer,
+                          createMessageBodyPreparer({
                             relay: () => bodyPrepare.current,
+                            // 알려진 secret 값도 pattern과 함께 가린다. 값을 다 모르는 동안은 막는다.
                             known: () => runtime?.knownSecrets,
                           }),
                         ),
-                        createQuestionTextPreparer({
+                        createHandoffBodyPreparer({
                           relay: () => bodyPrepare.current,
+                          known: () => runtime?.knownSecrets,
                         }),
                       ),
-                      createApprovalTextPreparer({
+                      createQuestionTextPreparer({
                         relay: () => bodyPrepare.current,
-                        known: () => runtime?.knownSecrets,
                       }),
                     ),
-                    (ctx, command, input) =>
-                      runtime!.readers.read(TERM_OCCURRENCE_ROUTE, ctx, {
-                        command,
-                        input,
-                      }),
+                    createApprovalTextPreparer({
+                      relay: () => bodyPrepare.current,
+                      known: () => runtime?.knownSecrets,
+                    }),
                   ),
                   placementReservations,
                 ),
@@ -1923,25 +1906,6 @@ async function open(
       streamer: coordinatorStreamer,
       ledgerId: ledgerId.value,
       retryMs: DOCUMENTS_SEARCH_RETRY_MS,
-      // 추출이 끝나면 그 판의 미확인 watch 비교를 다시 확인할 수 있다.
-      onSettled: () => void watchSync?.check(),
-    });
-    watchSync = watchContextChanges({
-      events: runtime.events,
-      context: DOCUMENTS_FEED_CONTEXT,
-      request: (op, payload, timeoutMs) =>
-        documentsChannel.request(op, payload, timeoutMs),
-      inputOf: async (event): Promise<Result<WatchInput>> => {
-        const read = await runtime!.readers.read(
-          WATCH_INPUT_ROUTE,
-          watchReader,
-          event,
-        );
-        if (!read.ok) return read;
-        return ok(read.value as WatchInput);
-      },
-      ledgerId: ledgerId.value,
-      retryMs: DOCUMENTS_SEARCH_RETRY_MS,
     });
   }
   // problems/report-collector. 문제 보고 worker route(`/v1/problems/report` 등)를 받는 상시
@@ -2313,7 +2277,6 @@ async function open(
     roots: () => rootsWatch,
     basis: () => basisSync,
     search: () => searchSync,
-    watch: () => watchSync,
   });
   // 내장 lophn·Context Engineer assignment 준비. I/O 감독이 없는 기동은 prompt blob을
   // 준비할 수 없어 건너뛴다(lophn-agent/assignments#R2). 이미 있으면 아무것도 보내지 않는다.
@@ -2734,7 +2697,6 @@ async function open(
           agentRuntime?.stop();
           basisSync?.stop();
           searchSync?.stop();
-          watchSync?.stop();
           closeChildBlob?.();
           closeCollectorBlob?.();
           closeTestRunner?.();
@@ -3091,15 +3053,6 @@ const searchReader: RequestContext = {
   scope: { operations: [SEARCH_VERSION_ROUTE.name], targets: {} },
   conditions: {},
   credential_ref: "machine:documents-search",
-};
-
-// watch consumer가 저장 event의 비교 근거를 읽는 자격. core가 reader에 넘기는 context라 발급 자격이 아니다.
-const watchReader: RequestContext = {
-  principal: "machine:documents-watch",
-  actor: "machine",
-  scope: { operations: [WATCH_INPUT_ROUTE.name], targets: {} },
-  conditions: {},
-  credential_ref: "machine:documents-watch",
 };
 
 // tracking root 읽기의 자격. machine만 읽는 project.tracking_roots를 core가 직접 읽는다.

@@ -55,7 +55,7 @@ fixtures/             예시 project 폴더, 예시 앱, 녹화한 model 응답
 | documents/series | packages/documents/series/ |
 | documents/addressing | packages/documents/addressing/ |
 | documents/contexts | packages/documents/contexts/ (세부 자리는 아래 "documents/contexts 안") · worker job apps/worker/documents/contexts.ts |
-| documents/terms | packages/documents/terms/ |
+| documents/terms | packages/documents/contexts/ledger/ (용어집 표·command·read는 context ledger adapter가 함께 한다; 옛 `packages/documents/terms/`는 새 모델로 대체됐다) |
 | apps/registration | packages/apps/registration/ |
 | apps/blueprint | packages/apps/blueprint/ |
 | apps/releases | packages/apps/releases/ |
@@ -137,7 +137,8 @@ fixtures/             예시 project 폴더, 예시 앱, 녹화한 model 응답
 | packages/documents/contexts/work-*.ts | worker 일 `context.index`(`work-index.ts`), `context.check`(`work-check.ts`), context별 직렬화·합치기(`work-jobs.ts`). 파일 시스템·core 제출 port는 `work-types.ts` |
 | packages/documents/contexts/work.ts · adapters/ | `context.index`·`context.check`의 일(stat scan, snapshot 복사, derived sqlite 읽기·쓰기). 순수 폴더를 부른다 |
 | apps/worker/documents/contexts.ts | worker kind `documents/contexts`의 entry. 등록만 하고 일은 `work.ts`가 한다 |
-| apps/core/documents.ts | route 등록, context reader, app-data adapter(`packages/contracts/apps`의 read command로 port를 채운다) 조립 |
+| apps/core/documents.ts | route 등록과 팀 조립. app-data adapter(`packages/contracts/apps`의 read command로 port를 채운다)도 여기서 꽂는다 |
+| apps/core/contexts-api.ts · contexts-ledger-deps.ts | `contexts-api.ts`는 새 context API(ledger 표, command, read, content blob field)를 core 등록으로 묶는다. core module graph에 들어가므로 node:sqlite와 동기 file API를 쓰지 않는다. `contexts-ledger-deps.ts`는 content blob 파일, derived index 읽기 전용 연결, 선언 검색 실행기, hash, Context Engineer 판별의 실제 구현이고 writer·reader Worker 안에서만 동적으로 올린다 |
 
 ## 여러 최상위가 같이 쓰는 순수 함수
 

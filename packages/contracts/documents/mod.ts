@@ -29,7 +29,7 @@ export * from "./uploads.ts";
 
 import { DOCUMENT_EVENTS, DOCUMENT_ROUTES } from "./documents.ts";
 import { FORMAT_ROUTES } from "./formats.ts";
-import { OUTLINE_ROUTES, outlineContext } from "./outline.ts";
+import { OUTLINE_ROUTES } from "./outline.ts";
 import { READ_ROUTES } from "./read.ts";
 import { HISTORY_ROUTES } from "./history.ts";
 import { SEARCH_ROUTES } from "./search.ts";
@@ -40,8 +40,7 @@ import { SERIES_EVENTS, SERIES_ROUTES } from "./series.ts";
 import { UPLOAD_ROUTES } from "./uploads.ts";
 
 export const DOCUMENT_READ_ROUTES = [
-  // 옛 context 목차(outlineContext)는 새 context API(context.overview)가 대신한다.
-  ...OUTLINE_ROUTES.filter((route) => route !== outlineContext),
+  ...OUTLINE_ROUTES,
   ...READ_ROUTES,
   ...HISTORY_ROUTES,
   ...SEARCH_ROUTES,

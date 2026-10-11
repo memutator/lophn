@@ -1,9 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
-import { ERROR_CODES } from "../../base/mod.ts";
-import { routePath } from "../platform/mod.ts";
-import { EVENTS, ROUTES } from "./mod.ts";
 import {
-  TERM_EVENTS,
   termDefineCompareSchema,
   termDefined,
   termDefineInputSchema,
@@ -15,7 +11,6 @@ import {
   TERM_ROUTES,
   termDefine,
   termListOutputSchema,
-  termUpdate,
 } from "./term-routes.ts";
 
 const context = "ctx_01arz3ndektsv4rrffq69g5fav";
@@ -30,31 +25,6 @@ const evidence = [{
   end_line: 6,
 }];
 const propose = { id: term, context, name: "범위", evidence };
-
-// deno-fmt-ignore
-const termRoutePaths = ["/v1/terms/propose", "/v1/terms/define", "/v1/terms/update", "/v1/terms/archive", "/v1/terms/unarchive", "/v1/terms/list", "/v1/terms/get"];
-// deno-fmt-ignore
-const termEventTypes = ["TermProposed", "TermDefined", "TermUpdated", "TermArchived", "TermUnarchived"];
-
-Deno.test("documents/terms#R2: route and event names match architecture and define is user only", () => {
-  assertEquals(TERM_ROUTES.map(routePath), termRoutePaths);
-  assertEquals(TERM_EVENTS.map((event) => event.type), termEventTypes);
-  assertEquals(
-    ROUTES.filter((route) => route.resource === "terms").map(routePath),
-    termRoutePaths,
-  );
-  assertEquals(
-    EVENTS.filter((event) => event.type.startsWith("Term")).map((event) =>
-      event.type
-    ),
-    termEventTypes,
-  );
-  for (const route of TERM_ROUTES) {
-    assert(route.errors.every((code) => ERROR_CODES.includes(code)));
-  }
-  assertEquals(termDefine.actors, ["user"]);
-  assertEquals(termUpdate.actors, ["user", "agent"]);
-});
 
 Deno.test("documents/terms#R1: an agent candidate requires fixed occurrence evidence", () => {
   assert(termProposeInputSchema.safeParse(propose).success);

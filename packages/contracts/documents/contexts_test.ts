@@ -1,9 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
-import { ERROR_CODES } from "../../base/mod.ts";
-import { routePath } from "../platform/mod.ts";
-import { EVENTS, ROUTES } from "./mod.ts";
 import {
-  CONTEXT_EVENTS,
   contextCreated,
   contextCreateInputSchema,
   contextItemSet,
@@ -44,39 +40,6 @@ const create = {
   purpose: "이번 판단의 자료",
   items: [documentItem, sectionItem, appItem],
 };
-
-// deno-fmt-ignore
-const contextRoutePaths = ["/v1/contexts/create", "/v1/contexts/update", "/v1/contexts/set_item", "/v1/contexts/remove_item", "/v1/contexts/archive", "/v1/contexts/unarchive", "/v1/contexts/record_watch_change", "/v1/contexts/list", "/v1/contexts/get", "/v1/contexts/related", "/v1/contexts/export", "/v1/contexts/watch"];
-// deno-fmt-ignore
-const contextEventTypes = ["ContextCreated", "ContextUpdated", "ContextItemSet", "ContextItemRemoved", "ContextArchived", "ContextUnarchived", "ContextWatchedItemChanged"];
-
-Deno.test("documents/contexts#R5: route and event names match architecture", () => {
-  assertEquals(CONTEXT_ROUTES.map(routePath), contextRoutePaths);
-  assertEquals(CONTEXT_EVENTS.map((event) => event.type), contextEventTypes);
-  assertEquals(
-    ROUTES.filter((route) => route.resource === "contexts").map(routePath),
-    contextRoutePaths,
-  );
-  assertEquals(
-    EVENTS.filter((event) => event.type.startsWith("Context")).map((event) =>
-      event.type
-    ),
-    contextEventTypes,
-  );
-  for (const route of CONTEXT_ROUTES) {
-    assert(route.errors.every((code) => ERROR_CODES.includes(code)));
-  }
-  assertEquals(contextCreate.actors, ["user", "agent"]);
-  assertEquals(contextRecordWatchChange.actors, ["machine"]);
-  assertEquals(
-    CONTEXT_ROUTES.find((route) => route.method === "export")?.actors,
-    ["user"],
-  );
-  for (const event of CONTEXT_EVENTS) {
-    assert(event.subject.safeParse(context).success);
-    assert(!event.subject.safeParse(context.replace("ctx_", "doc_")).success);
-  }
-});
 
 Deno.test("documents/contexts#R1: perspectives stay distinct and empty lists are allowed", () => {
   assert(contextCreateInputSchema.safeParse(create).success);

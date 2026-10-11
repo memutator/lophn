@@ -36,7 +36,6 @@ Deno.test("documents/outline-and-search#R1 T18: fixed route literals and public 
   assertEquals(DOCUMENT_READ_ROUTES.map(routePath), [
     "/v1/outline/root",
     "/v1/outline/place",
-    "/v1/outline/context",
     "/v1/outline/document",
     "/v1/outline/series",
     "/v1/documents/read",
@@ -54,7 +53,6 @@ Deno.test("documents/outline-and-search#R1 T18: fixed route literals and public 
   assertEquals(DOCUMENT_READ_ROUTES.map((route) => route.name), [
     "outline.root",
     "outline.place",
-    "outline.context",
     "outline.document",
     "outline.series",
     "document.read",
@@ -71,7 +69,6 @@ Deno.test("documents/outline-and-search#R1 T18: fixed route literals and public 
   ]);
   assertEquals(DOCUMENT_READ_ROUTES.map((route) => route.kind), [
     "read",
-    "worker",
     "worker",
     "worker",
     "read",

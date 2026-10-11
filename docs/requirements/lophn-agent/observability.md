@@ -62,6 +62,11 @@ concerns: [lophn-agent/observability]
 
 ### 범위
 
+**[R12]** 관측 기록은 platform/ledger·platform/blob-store가 관리하는 로컬 원본을 이용하며 관측 기록을 네트워크로 보내거나 제삼자 사용량 분석으로 전송하지 않는다.
+- 이유: 과거 판단과 실제 동작을 당시 근거로 되짚되 원본을 중복하거나 성공을 추정하지 않고, 관측 기록이 기기 밖으로 나가지 않게 한다.
+- 확인: 실행할 때 관측용 외부 요청은 없으며, 인터넷 없이도 trace와 비용을 조회할 수 있다.
+- 의도: lophn-agent#I7
+
 **[R18]** trace 조회는 호출 수·차단 수·오류·시간·근거의 사실만 계산하고 사용량·비용은 lophn-agent/harness/usage, 품질 점수·통과 기준은 lophn-agent/evaluation을 가리킨다.
 - 이유: 과거 판단과 실제 동작을 당시 근거로 되짚되 원본을 중복하거나 성공을 추정하지 않는다.
 - 확인: 평가 기준을 바꾸어도 trace의 실패 사실, 호출 수와 비용은 같고, 관측 기록만으로 run에 품질 점수나 합격 표시가 붙지 않는다.
@@ -116,4 +121,4 @@ concerns: [lophn-agent/observability]
 - 다섯 종류별 local 본문 기록 opt-in — 복구·Compact에 필요한 세션·호출 본문을 보호 처리하여 기본 저장한다.
 - subagent trace와 자동 대체 model trace 예시 — subagent와 자동 model 대체를 새 설계에서 제공하지 않는다.
 - 자동 만료를 두지 않고 181일 상세·15일 본문을 그대로 둔다는 보존 — 큰 자료는 용량 상한을 넘으면 오래된 것부터 정리한다.
-- 로컬 파일 export 전부(옛 R10 내용 상한·R12 외부 전송 없음·R14 NDJSON·R16 포함 종류 선택·R17 실패 수 구별)와 네트워크 export·OTLP·OpenTelemetry 변환 — 사람이 정했다: backup과 export 기능은 완전히 제거한다. trace는 앱 안에서 조회만 한다.
+- 로컬 파일 export 전부(옛 R10 내용 상한·R14 NDJSON·R16 포함 종류 선택·R17 실패 수 구별; R12의 "외부로 보내지 않는다"는 export와 상관없는 성질이라 남겼다)와 네트워크 export·OTLP·OpenTelemetry 변환 — 사람이 정했다: backup과 export 기능은 완전히 제거한다. trace는 앱 안에서 조회만 한다.

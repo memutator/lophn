@@ -55,6 +55,7 @@ import {
 } from "../../packages/lophn-agent/harness/tools/mod.ts";
 import type { AppTool } from "../../packages/lophn-agent/harness/tools/mod.ts";
 import type { AppToolkit } from "./app-toolkit.ts";
+import { contextReadToolsFor, type ContextToolkit } from "./context-search.ts";
 import { commandOf, type CoreCall, readOf } from "./core-call.ts";
 import { createCorePorts, type RunSeat } from "./core-ports.ts";
 import type { ModelBinding } from "./model-binding.ts";
@@ -107,6 +108,9 @@ export type Toolkit = {
   ): string[];
   // 외부 MCP tool 등록이다. 없으면 external 정의가 없다.
   mcp?(assignment: string): McpToolkit | undefined;
+  // 선택한 context의 선언 검색 tool과 개체 읽기 tool의 재료·handler다(harness/tools R21, R22). 없으면
+  // context tool이 없다.
+  contexts?: ContextToolkit;
   // 결과를 모르는 쓰기·external의 저장된 결과를 소유 계약에서 조회한다(tool 이름 → 조회). 없는 tool은
   // 결과를 확인할 수 없는 것으로 다룬다.
   lookups?(seat: RunSeat, agent: CoreCall): ReadonlyMap<string, ToolLookup>;
@@ -302,13 +306,32 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
       }
     }
 
+    // 선언 검색 tool과 개체 읽기 tool은 preset이 고른 context의 적용된 판에서 만든다(R21, R22). 판은
+    // 시작 전에 한 번 읽고 정의 hash가 Run.basis에 고정된다.
+    let place: WorkPlace = placeOf(assignment.scope);
+    if (run.session !== null) {
+      const session = await readOf(machine, sessionRead, {
+        session: run.session,
+      });
+      if (session.ok) place = session.value.session.work_place as WorkPlace;
+    }
+    const contextRead = await contextReadToolsFor(deps.toolkit.contexts, {
+      place,
+      scope: assignment.scope,
+      selections: definition.context,
+    });
+
     const listed = listTools(
       {
-        builtin: deps.toolkit.definitions ?? BUILTIN_TOOLS,
+        builtin: [
+          ...(deps.toolkit.definitions ?? BUILTIN_TOOLS),
+          ...(contextRead.entity === null ? [] : [contextRead.entity]),
+        ],
         app: [
           ...appTools.map((tool) => tool.definition),
           ...contextTools,
         ],
+        context: contextRead.search.map((tool) => tool.definition),
         external: external.map((tool) => tool.definition),
       },
       {
@@ -319,6 +342,7 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
           ...roleTools,
           ...external.map((tool) => tool.definition.name),
         ],
+        contexts: contextRead.contexts,
       },
     );
 
@@ -328,13 +352,6 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
     });
     if (!model.ok) return model;
 
-    let place: WorkPlace = placeOf(assignment.scope);
-    if (run.session !== null) {
-      const session = await readOf(machine, sessionRead, {
-        session: run.session,
-      });
-      if (session.ok) place = session.value.session.work_place as WorkPlace;
-    }
     const seat: RunSeat = {
       run: run.id,
       assignment: assignment.id,
@@ -346,6 +363,7 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
       listed,
       appTools,
       contextTools,
+      contextRead,
       external,
       scope: scope.value,
       model: model.value,
@@ -463,6 +481,7 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
         handlers: new Map([
           ...toolkit.handlers(seat, agent),
           ...(deps.apps?.handlers(m.appTools, agent) ?? []),
+          ...(deps.toolkit.contexts?.handlers(m.contextRead, agent) ?? []),
           ...(m.contextTools.length === 0
             ? []
             : deps.apps?.contextHandlers(m.scope, agent, seat.session) ?? []),

@@ -14,6 +14,7 @@ import {
   DOCUMENT_WRITE_TOOL_NAMES,
 } from "./bundles/document.ts";
 import { FORMAT_TOOL_NAMES, FORMAT_TOOLS } from "./bundles/format.ts";
+import { CONTEXT_ENTITY_TOOL } from "./context-search-tools.ts";
 import { GUIDE_TOOL_NAMES, GUIDE_TOOLS } from "./bundles/guide.ts";
 import { METADATA_TOOL_NAMES, METADATA_TOOLS } from "./bundles/metadata.ts";
 import {
@@ -91,6 +92,9 @@ export const TOOL_BUNDLES: ReadonlyMap<string, readonly string[]> = new Map([
   ["format", FORMAT_TOOL_NAMES],
   ["lophn-guide", GUIDE_TOOL_NAMES],
   ["visual", VISUAL_TOOL_NAMES],
+  // 개체 읽기 하나다. 정의는 선택한 context가 있을 때 run마다 만들어지고(`buildContextReadTools`) 선언 검색
+  // tool은 이름 묶음이 아니라 preset의 context 선택이 정한다.
+  ["context-read", [CONTEXT_ENTITY_TOOL]],
 ]);
 
 // 금지 통로 이름. 내장·앱·외부 어디에도 이 이름이 있으면 목록에서 뺀다(R1).
@@ -128,7 +132,7 @@ export type CapabilityScope = {
   contexts?: readonly string[] | null;
 };
 
-// 목록은 preset capability와 역할 상한의 교집합이고 순서는 내장→앱→외부다(R5).
+// 목록은 preset capability와 역할 상한의 교집합이고 순서는 내장→앱→context→외부다(R5).
 // 같은 판의 같은 bytes를 유지하려고 입력 순서를 그대로 두고 이름 중복은 먼저 온
 // 정의를 남긴다. 금지 이름은 어느 출처든 빠진다.
 export function listTools(
@@ -143,10 +147,27 @@ export function listTools(
   const role = new Set(scope.roleTools);
   const seen = new Set<string>();
   const listed: ToolDefinition[] = [];
+  const covered = new Set(scope.contexts ?? []);
   for (
-    const definition of [...source.builtin, ...source.app, ...source.external]
+    const definition of [
+      ...source.builtin,
+      ...source.app,
+      ...(source.context ?? []),
+      ...source.external,
+    ]
   ) {
     if (FORBIDDEN.has(definition.name)) continue;
+    // 선언 검색 정의도 이름이 동적이다. preset의 context 선택이 그 context를 덮을 때만 들어온다. 선택이
+    // 비었거나 없으면 하나도 없다(fail closed). 역할·assignment 범위는 정의를 만들 때 이미 적용했다(R21).
+    if (definition.origin === "context") {
+      if (
+        definition.context === undefined || !covered.has(definition.context)
+      ) continue;
+      if (seen.has(definition.name)) continue;
+      seen.add(definition.name);
+      listed.push(definition);
+      continue;
+    }
     // 앱 command 정의는 이름이 동적이라 preset·역할 이름 목록에 없다. 역할·현재 허락·assignment의
     // 교집합(AgentAppScope)이 이미 고른 것만 들어오므로 이름 검사를 건너뛴다(R17).
     if (

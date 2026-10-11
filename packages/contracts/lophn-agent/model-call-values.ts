@@ -14,7 +14,6 @@ import {
   nonnegativeDecimalSchema,
   priceBasisOutputSchema,
   priceBasisSchema,
-  reasoningLevelSchema,
 } from "./resolved-model.ts";
 
 const nonblankSchema = z.string().refine((value) => value.trim().length > 0, {
@@ -56,13 +55,6 @@ export const BILLING_ROUTES = [
   "extra_usage",
   "unknown",
 ] as const;
-
-const presetRefFields = {
-  id: idSchema("pst"),
-  revision: positiveIntegerSchema,
-};
-export const modelCallPresetRefSchema = z.strictObject(presetRefFields);
-export const modelCallPresetRefOutputSchema = z.object(presetRefFields);
 
 const testRequestFields = {
   command_key: nonblankSchema,
@@ -158,6 +150,16 @@ const limitFields = {
 export const callModelLimitsSchema = z.strictObject(limitFields);
 export const callModelLimitsOutputSchema = z.object(limitFields);
 
+// option 축 id마다 고른 값이다. requested는 agent가 고른 값이고 applied는 맞춤과 기본값을 채운 뒤 요청에
+// 실제로 실은 값이다. 둘이 다르면 맞춘 것이 기록에 남는다.
+const optionMapSchema = z.record(nonblankSchema, nonblankSchema);
+const callOptionValuesFields = {
+  requested: optionMapSchema,
+  applied: optionMapSchema,
+};
+export const callOptionValuesSchema = z.strictObject(callOptionValuesFields);
+export const callOptionValuesOutputSchema = z.object(callOptionValuesFields);
+
 const callModelFields = {
   provider: idSchema("pvd"),
   name: nonblankSchema,
@@ -165,8 +167,7 @@ const callModelFields = {
   credential_key: nonblankSchema.nullable(),
   credential_revision: positiveIntegerSchema.nullable(),
   options: jsonObjectSchema,
-  requested_reasoning: reasoningLevelSchema.nullable(),
-  applied_reasoning: reasoningLevelSchema.nullable(),
+  option_values: callOptionValuesSchema,
   limits: callModelLimitsSchema,
   catalog_basis: jsonObjectSchema,
   price_basis: priceBasisSchema.nullable(),
@@ -187,6 +188,7 @@ export const callModelSchema = z.strictObject(callModelFields).refine(
 );
 export const callModelOutputSchema = z.object({
   ...callModelFields,
+  option_values: callOptionValuesOutputSchema,
   limits: callModelLimitsOutputSchema,
   price_basis: priceBasisOutputSchema.nullable(),
 }).refine(callModelShape, {
@@ -199,7 +201,7 @@ const modelCallFields = {
   run: idSchema("run").nullable(),
   session: idSchema("ses").nullable(),
   model_use: z.enum(MODEL_USE_KINDS).nullable(),
-  preset: modelCallPresetRefSchema.nullable(),
+  agent_hash: sha256Schema.nullable(),
   purpose: z.enum(MODEL_PURPOSES),
   test_request: modelCallTestRequestSchema.nullable(),
   attempt_kind: z.enum(ATTEMPT_KINDS),
@@ -224,7 +226,7 @@ function modelCallShape(value: {
   run: string | null;
   session: string | null;
   model_use: string | null;
-  preset: unknown;
+  agent_hash: string | null;
   purpose: (typeof MODEL_PURPOSES)[number];
   test_request: unknown;
   attempt_kind: (typeof ATTEMPT_KINDS)[number];
@@ -237,10 +239,10 @@ function modelCallShape(value: {
 }): boolean {
   const test = value.purpose === "connection_test";
   const attached = value.run !== null && value.session !== null &&
-    value.model_use !== null && value.preset !== null &&
+    value.model_use !== null && value.agent_hash !== null &&
     value.test_request === null;
   const detached = value.run === null && value.model_use === null &&
-    value.preset === null && value.test_request !== null;
+    value.agent_hash === null && value.test_request !== null;
   const finished = value.state === "finished";
   return (test ? detached : attached) &&
     (value.attempt_kind === "retry") === (value.retry_of !== null) &&
@@ -253,7 +255,6 @@ function modelCallShape(value: {
 
 export const modelCallRecordSchema = z.object({
   ...modelCallFields,
-  preset: modelCallPresetRefOutputSchema.nullable(),
   test_request: modelCallTestRequestOutputSchema.nullable(),
   model: callModelOutputSchema,
   outcome: modelOutcomeOutputSchema.nullable(),

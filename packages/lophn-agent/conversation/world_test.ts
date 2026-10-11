@@ -425,7 +425,7 @@ export function startCall(
     run,
     session,
     model_use: summary ? "organizing" : "judgment",
-    preset: { id: id("pst", 1), revision: 1 },
+    agent_hash: "ab".repeat(32),
     purpose: summary ? "conversation_compression" : "judgment",
     test_request: null,
     attempt_kind: "initial",
@@ -439,8 +439,7 @@ export function startCall(
       credential_key: null,
       credential_revision: null,
       options: {},
-      requested_reasoning: "provider_default",
-      applied_reasoning: null,
+      option_values: { requested: {}, applied: {} },
       limits: {
         context_limit: 128000,
         input_limit: 120000,

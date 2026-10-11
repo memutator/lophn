@@ -871,10 +871,11 @@ Deno.test("lophn-agent/harness/waiting-and-recovery#R2: WaitRun이 approval 요�
         reason: "needs a person",
         effect: "irreversible",
         assignment_revision: seat.assignment.revision,
-        preset_revision: 1,
+        agent_hash: "ab".repeat(32),
         contract_revision: "1",
         comparison_basis: { basis: "current" },
         approval,
+        session_grant: null,
       },
     }, { state_seq: "0" });
     assertEquals(decided.status, 200, JSON.stringify(decided.body));

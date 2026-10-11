@@ -421,6 +421,7 @@ export function judgmentFor(
     bindings: new Map(
       tools.map((item) => [item.definition.name, item.binding]),
     ),
+    agentHash: "ab".repeat(32),
     mcpConnection: () => ({ revision: 1 }),
     approvalTtlMs: 600_000,
     ...over,

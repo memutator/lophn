@@ -52,10 +52,11 @@ const decision = {
   reason: "in scope read",
   effect: "read",
   assignment_revision: 1,
-  preset_revision: 1,
+  agent_hash: "ab".repeat(32),
   contract_revision: "documents-1",
   comparison_basis: null,
   approval: null,
+  session_grant: null,
 };
 
 const finished = {
@@ -185,6 +186,26 @@ Deno.test("lophn-agent/harness/tools#R3: request rejects an unknown field and a 
       },
     }).success,
   );
+});
+
+Deno.test("lophn-agent/harness/tool-judgment#R14 [agent-I10b]: a decision names the run's agent hash and the session grant that lowered an ask", () => {
+  const apr = "apr_01arz3ndektsv4rrffq69g5fav";
+  const decide = (over: Record<string, unknown>) =>
+    decideToolCallInputSchema.safeParse({
+      tool_call: tcl,
+      decision: { ...decision, ...over },
+    }).success;
+  assert(decide({}));
+  // 기준은 run이 고정한 agent hash이고 옛 preset 판 칸은 없다.
+  assert(decide({ agent_hash: null }));
+  assert(!decide({ agent_hash: "not-a-hash" }));
+  assert(!decide({ preset_revision: 1 }));
+  // session 허락으로 낮춘 allow만 근거 request를 남기고 새 approval은 없다.
+  assert(decide({ session_grant: apr }));
+  assert(!decide({ session_grant: tcl }));
+  assert(!decide({ session_grant: apr, approval: apr }));
+  assert(!decide({ decision: "ask", session_grant: apr }));
+  assert(!decide({ decision: "deny", session_grant: apr }));
 });
 
 Deno.test("lophn-agent/harness/tools#R15: a confirm-false read is one trailing record", () => {

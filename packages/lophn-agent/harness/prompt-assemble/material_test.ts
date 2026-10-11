@@ -201,7 +201,7 @@ function promptWith(materials: string[], contextLimit: number): PromptInput {
   return {
     product: { instructions: "PRODUCT" },
     tools: [],
-    role: { instructions: "ROLE", preset_prompt: null },
+    role: { instructions: "ROLE" },
     work: {
       role: "lophn",
       session: { kind: "project", id: "prj_01arz3ndektsv4rrffq69g5fav" },

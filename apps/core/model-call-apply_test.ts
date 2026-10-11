@@ -19,7 +19,7 @@ function modelCall(run: string, session: string, id: string) {
     run,
     session,
     model_use: "judgment",
-    preset: { id: "pst_01arz3ndektsv4rrffq69g5fav", revision: 1 },
+    agent_hash: "ab".repeat(32),
     purpose: "judgment",
     test_request: null,
     attempt_kind: "initial",
@@ -33,8 +33,7 @@ function modelCall(run: string, session: string, id: string) {
       credential_key: null,
       credential_revision: null,
       options: {},
-      requested_reasoning: null,
-      applied_reasoning: null,
+      option_values: { requested: {}, applied: {} },
       limits: {
         context_limit: 1000,
         input_limit: 900,

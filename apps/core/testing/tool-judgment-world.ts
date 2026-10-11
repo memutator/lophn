@@ -67,6 +67,8 @@ export const APPROVALS = "select count(*) as n from approval_requests";
 export const NOTES =
   "select count(*) as n from events where type = 'OwnedNoteRecorded'";
 export const USES = "select count(*) as n from approval_uses";
+// run 기준이 고정한 resolved agent의 지문 자리다. 판정 기록과 session 허락 비교가 이 값을 쓴다.
+export const AGENT_HASH = "ab".repeat(32);
 export const QUESTIONS = "select count(*) as n from questions";
 
 const MACHINE_OPERATIONS = [
@@ -338,6 +340,7 @@ export function kit(
     bindings: new Map(
       tools.map((item) => [item.definition.name, item.binding]),
     ),
+    agentHash: AGENT_HASH,
     mcpConnection: () => ({ revision: 1 }),
     approvalTtlMs: 600_000,
     ...over,
@@ -456,8 +459,7 @@ export async function modelAsks(
       credential_key: "key-a",
       credential_revision: 1,
       options: {},
-      requested_reasoning: null,
-      applied_reasoning: null,
+      option_values: { requested: {}, applied: {} },
       limits: {
         context_limit: 1000,
         input_limit: 900,

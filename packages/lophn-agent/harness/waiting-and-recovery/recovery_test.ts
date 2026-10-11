@@ -159,7 +159,7 @@ function rig(
     context: () =>
       Promise.resolve(ok({
         product: { instructions: "PRODUCT" },
-        role: { instructions: "ROLE", preset_prompt: null },
+        role: { instructions: "ROLE" },
         tools: [{
           name: "doc.write",
           description: "write",

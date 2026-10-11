@@ -248,16 +248,14 @@ Deno.test("lophn-agent/harness/tool-judgment#R6: 확인한 기준이 하나라�
     targets: ["doc_a"],
     comparison: { basis: "current", doc: { v: 1 } },
     mcp_configuration_revision: null,
-    assignment_revision: 2,
-    preset_revision: 3,
+    agent_hash: "a".repeat(64),
   };
   const recorded = JSON.parse(JSON.stringify(basis));
   assert(sameBasis(recorded, basis));
   assert(
     sameBasis(
       {
-        preset_revision: 3,
-        assignment_revision: 2,
+        agent_hash: "a".repeat(64),
         mcp_configuration_revision: null,
         comparison: { doc: { v: 1 }, basis: "current" },
         targets: ["doc_a"],
@@ -281,8 +279,7 @@ Deno.test("lophn-agent/harness/tool-judgment#R6: 확인한 기준이 하나라�
     { targets: ["doc_a", "doc_b"] },
     { comparison: { basis: "stale" } },
     { mcp_configuration_revision: 4 },
-    { assignment_revision: 3 },
-    { preset_revision: 4 },
+    { agent_hash: "b".repeat(64) },
   ];
   for (const over of changed) {
     assert(!sameBasis(recorded, { ...basis, ...over }), JSON.stringify(over));
@@ -359,7 +356,7 @@ Deno.test("lophn-agent/harness/tool-judgment#R14 [agent-I14]: ask가 아닌 판�
   }
 });
 
-Deno.test("lophn-agent/harness/tool-judgment#R14 [agent-I14]: 같은 tool의 비교는 계약·정의·연결·assignment 판만 보고 대상·입력은 보지 않는다", () => {
+Deno.test("lophn-agent/harness/tool-judgment#R14 [agent-I14]: 같은 tool의 비교는 계약·정의·연결·agent hash만 보고 대상·입력은 보지 않는다", () => {
   const recorded: BasisSnapshot = {
     tool: "document.remove",
     definition_revision: "tools-1",
@@ -370,8 +367,7 @@ Deno.test("lophn-agent/harness/tool-judgment#R14 [agent-I14]: 같은 tool의 비
     targets: ["doc_01h455vb4pex5v6nkc6gd5fdw1"],
     comparison: { seq: "41" },
     mcp_configuration_revision: 4,
-    assignment_revision: 3,
-    preset_revision: 2,
+    agent_hash: "a".repeat(64),
   };
   assert(sameToolBasis(recorded, recorded));
   // 대상·입력·비교 기준이 달라도 같은 tool이다.
@@ -389,8 +385,7 @@ Deno.test("lophn-agent/harness/tool-judgment#R14 [agent-I14]: 같은 tool의 비
     { contract_revision: "documents-2" },
     { mcp_configuration_revision: 5 },
     { mcp_configuration_revision: null },
-    { assignment_revision: 4 },
-    { preset_revision: 3 },
+    { agent_hash: "b".repeat(64) },
   ];
   for (const change of changes) {
     assert(
@@ -401,4 +396,13 @@ Deno.test("lophn-agent/harness/tool-judgment#R14 [agent-I14]: 같은 tool의 비
   for (const broken of [null, undefined, "x", 1, [], {}]) {
     assert(!sameToolBasis(broken, recorded));
   }
+  // 옛 assignment·preset 판 칸은 기준에서 빠졌다. 있어도 비교하지 않고, agent hash가 없으면 같은 tool이 아니다.
+  assert(
+    sameToolBasis(
+      { ...recorded, assignment_revision: 9, preset_revision: 9 },
+      recorded,
+    ),
+  );
+  const { agent_hash: _dropped, ...withoutAgent } = recorded;
+  assert(!sameToolBasis(withoutAgent, recorded));
 });

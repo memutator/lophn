@@ -39,8 +39,7 @@ function modelFor(protocol: Protocol): ModelCallInput["model"] {
     credential_key: "key-a",
     credential_revision: 1,
     options: {},
-    requested_reasoning: null,
-    applied_reasoning: null,
+    option_values: { requested: {}, applied: {} },
     limits: {
       context_limit: 1000,
       input_limit: 900,

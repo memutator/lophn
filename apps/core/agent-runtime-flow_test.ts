@@ -285,8 +285,7 @@ Deno.test("lophn-agent/harness/run-loop#R8: 접수된 run이 selector 선택부�
       credential_key: null,
       credential_revision: null,
       options: {},
-      requested_reasoning: null,
-      applied_reasoning: null,
+      option_values: { requested: {}, applied: {} },
       limits: {
         context_limit: 200000,
         input_limit: 150000,
@@ -340,10 +339,9 @@ Deno.test("lophn-agent/harness/run-loop#R8: 접수된 run이 selector 선택부�
         },
       },
       agentCall: (token) => agentCall({ port: core.port, token }),
-      resolveModel: ({ preset }) =>
+      resolveModel: () =>
         Promise.resolve(ok({
           call: model,
-          preset,
           endpoint: provider.url,
           usageRevision: "usage-1",
           timeoutMs: 20_000,
@@ -417,6 +415,36 @@ Deno.test("lophn-agent/harness/run-loop#R8: 접수된 run이 selector 선택부�
     assertEquals(tools[0]!["tool"], "project.list");
     assertEquals(tools[0]!["verdict"], "allow");
     assertEquals(tools[0]!["kind"], "success");
+
+    // 기록은 preset이 아니라 run 기준이 고정한 agent hash를 가리킨다.
+    const basisHash = String(
+      inspect(server, "select basis from runs where id = ?", [run])[0]![
+        "basis"
+      ],
+    );
+    const basisBytes = await Deno.readFile(
+      `${core.dataRoot}/blobs/sha256/${basisHash.slice(0, 2)}/${
+        basisHash.slice(2)
+      }`,
+    );
+    const pinned = (JSON.parse(new TextDecoder().decode(basisBytes)) as {
+      agent: { hash: string };
+    }).agent.hash;
+    assertEquals(pinned.length, 64);
+    const calls = inspect(
+      server,
+      "select agent_hash from model_calls where run = ?",
+      [run],
+    );
+    assertEquals(calls.map((call) => call["agent_hash"]), [pinned, pinned]);
+    assertEquals(
+      inspect(
+        server,
+        "select json_extract(decision, '$.agent_hash') as hash, json_extract(decision, '$.session_grant') as grant from tool_calls where run = ?",
+        [run],
+      ),
+      [{ hash: pinned, grant: null }],
+    );
     assertEquals(
       count(
         server,

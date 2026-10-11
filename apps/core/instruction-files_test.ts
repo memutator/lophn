@@ -176,7 +176,7 @@ Deno.test("lophn-agent/instructions#R1 R4 R5 [agent-I19]: project 세션 run은 
     // 읽기 답은 as_of_seq를 싣고 경로나 문서·판 id를 싣지 않는다.
     const reply = f.read(RUN_SESSION, "global");
     assert(reply.ok);
-    assertEquals(reply.value.as_of_seq, "9");
+    assertEquals((reply.value as { as_of_seq: string }).as_of_seq, "9");
     assert(!JSON.stringify(reply.value).includes(f.root));
     assert(!JSON.stringify(reply.value).includes("doc_"));
   } finally {

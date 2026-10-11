@@ -124,10 +124,11 @@ concerns:
     - saved view(context가 선언한 검색의 저장된 호출) -> documents/contexts
 
 - id: documents/series
-  summary: series. 같은 가족 문서(예: 주간 보고)를 묶는 규칙, key, 정렬, 다음 문서 이름 계산. Operator가 주기마다 남기는 문서가 쌓이는 모양.
-  entities: [Series]
+  summary: series. 이어 쓰는 문서(예: 주간 보고)를 context 계약의 series 자료가 가진 경로 pattern으로 정의, pattern에 맞는 프로젝트 파일의 key 순서, 다음 이름 계산. 저장하는 것이 없다.
+  entities: []
   excludes:
-    - 문서와 version 자체 -> documents/versions
+    - pattern을 담는 context 계약 -> documents/contexts
+    - 프로젝트 폴더와 파일 -> documents/projects
 
 - id: documents/addressing
   summary: address 문법(<place>/<doc>#<section>@<version>), place(project나 앱 slug), place 없는 문서, rename·move와 옛 address 안내, ID로 부르기.
@@ -137,8 +138,8 @@ concerns:
   entities: [Context]
 
 - id: documents/terms
-  summary: Term(용어)과 정의, 후보, 사람이 정의를 정한다.
-  entities: [Term]
+  summary: context별 용어집(glossary). 용어와 뜻과 정한 쪽(사람 또는 Context Engineer), agent prompt 자료로 쓴다.
+  entities: [GlossaryEntry]
 
 # ───────────────────────── apps ─────────────────────────
 

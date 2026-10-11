@@ -26,10 +26,23 @@ concerns: [platform/settings]
 | `default` | 해당 타입 값 | 예 | default_present=false면 없음; true/null은 nullable 기본값; secret 원문 불가 | 내장 기본값 |
 | `required` | boolean | 아니오 | required이고 default_present=false면 사람 선택 필수 | 필수 여부 |
 | `constraints` | JSON object | 아니오 | enum·숫자 범위·단위·대상 참조·관계 검사 선언 | 값 제약 |
-| `layers` | `common`의 집합 | 아니오 | 일반 설정은 common만; preset 구성은 소유 concern의 별도 원본 | 허용 사용자 층 |
+| `layers` | `common`의 집합 | 아니오 | 일반 설정은 common만(화면의 Workspace 선택); 자리·Operator·session의 agent 설정은 → lophn-agent/agents의 별도 원본 | 허용 사용자 층 |
 | `apply_at` | `next_run` / `current_check` / `next_call` | 아니오 | 소유 concern이 정한 적용 시점 | 효력 |
 
-provider 정의·credential은 → lophn-agent/harness/provider, model catalog·slot은 → lophn-agent/harness/model이다. provider 계정·model·context·capability·MCP·skill·prompt·지침 연결은 → lophn-agent/presets의 고정 판이다. 공통 judgment·organizing 선택은 새 preset 생성 후보이며 기존 판을 덮어쓰지 않는다. eval 설정은 제품 일반 설정에 등록하지 않는다.
+provider 정의·credential은 → lophn-agent/harness/provider, model catalog·option·즐겨찾기·요약 model의 뜻은 → lophn-agent/harness/model이다. agent 정의·project/app 자리별 설정·Operator·session 선택·skill·MCP·prompt·지침 연결은 → lophn-agent/agents의 원본이다. eval 설정은 제품 일반 설정에 등록하지 않는다.
+
+### agent 기본값 항목
+
+Workspace 전역 agent 기본값은 아래 항목이며 모두 common 층 하나에만 있다. 항목마다 SettingDefinition을 소유 concern이 등록한다. project·app 자리, Operator, session은 이 값 위에 바꾼 칸만 덮고(→ lophn-agent/agents) 일반 설정에 되저장하지 않는다.
+
+| 항목 | 값 | 소유 | null | 적용 시점 |
+|---|---|---|---|---|
+| role별 model과 option | role 넷(lophn·Context Engineer·App Engineer·Operator)마다 model 참조와 option 값 목록 | → lophn-agent/harness/model | role마다 필수 선택; 비어 있으면 그 role의 agent 작업을 시작하지 않음(→ platform/settings#R4) | `next_run` |
+| Model for summaries | 요약에 쓰는 model 참조 하나(role마다 아님) | → lophn-agent/harness/model | 예; 미선택의 뜻은 소유 concern | `next_run` |
+| 즐겨찾기 | 순서 있는 model 참조 목록; 높은 층 전체 교체(목록 병합 규칙) | → lophn-agent/harness/model | 빈 목록 허용 | `current_check` |
+| 기본 권한 | 자리 권한 규칙이 없을 때의 기본 규칙 | → lophn-agent/agents | 아니오 | `current_check` |
+
+기본값 변경은 `SettingsChanged`로 알리며 이미 시작한 run의 resolve 값을 바꾸지 않는다. 즐겨찾기는 선택지 표시에만 쓰고 run에 고정하지 않는다. → platform/settings#R7
 
 ## SettingChoice (값)
 
@@ -123,15 +136,15 @@ TOML parse·큰 검증 준비는 command 밖에서 한다. command는 현재 판
 
 ## 정책
 
-- **층.** `builtin < common` 두 층만 있다. Preset 구성은 일반 설정 층이 아니며 preset revision에만 저장한다. 작업 디렉터리·앱 문서·세션·환경 변수·CLI 일회 인자·외부 응답·assignment override는 일반 설정 층이 아니다.
+- **층.** `builtin < common` 두 층만 있다. project·app 자리, Operator, session의 agent 설정은 일반 설정 층이 아니며 → lophn-agent/agents의 원본에만 저장한다. 작업 디렉터리·앱 문서·세션·환경 변수·CLI 일회 인자·외부 응답·assignment override는 일반 설정 층이 아니다.
 - **병합.** object는 항목별 병합, scalar는 높은 층 값으로 교체, array는 높은 층 전체로 교체한다. 목록 연결·중복 제거·문자열 숫자 변환·오타 자동 수정은 하지 않는다.
 - **공개 설명.** SettingDefinition의 이름·설명·선택과 기본값의 뜻·영향·위험·되돌림·적용 시점은 화면과 lophn 역할이 같은 registry에서 읽는다. 필수 설명이 없는 항목은 등록하지 않는다. message key·en 문구·formatting은 → shell/wording을 따른다. 기본 화면에는 지금 필요한 선택과 영향만 보이고 층·판·전체 목록은 펼쳐 조회한다. → platform/settings#R27, platform/settings#R28, shell#I8, shell#I9
 - **교환 format.** 일반 설정 import·export는 format version 1의 UTF-8 TOML 1.0만 쓴다. 미지원 version은 전체 거절하며 실제 항목 변경이 있는 update에서만 옛 key의 명시 변환을 제공한다. 환경 변수 치환·include·command 실행·원격 URL은 불가다. TOML 파일은 두 번째 원본이나 자동 감시 대상이 아니다.
 - **검증.** 각 층의 문법·알려진 key·타입·범위·허용 층을 검사하고, 병합 뒤 필수값·항목 관계·참조를 검사한다. offline 미확인은 소유 concern이 허용한 때만 표시하고 받는다.
-- **참조.** provider·catalog 보정과 새 preset 생성용 judgment·organizing 기본값은 common만이다. 실제 model·계정은 preset마다 고정하고 임의 provider·model·credential로 빈 필수값을 메우지 않는다.
+- **참조.** provider·catalog에 대한 사람 보완과 agent 기본값(role별 model·option, Model for summaries, 즐겨찾기, 기본 권한)은 common만이다. 임의 provider·model·credential로 빈 필수값을 메우지 않는다.
 - **변경.** 사람의 명시적 apply만 선택을 바꾼다. agent 제안·대화의 동의 추측·외부 문서 변경은 적용 요청이 아니다.
 - **실패.** 적용·reload 실패는 마지막 유효 적용값과 판을 유지한다. 일부 항목만 적용하거나 default로 돌아가지 않는다. 첫 시작에 유효 판이 없으면 agent 작업은 막고 설정 수정·무관한 앱·문서 읽기는 허용한다.
-- **run 판.** Preset model·prompt·tool·자료 선택과 run 한도는 다음 run부터 명시 적용한 판을 쓴다. 사람 지침·세션 작업 자리·현재 보기의 snapshot은 call마다 → lophn-agent/instructions·lophn-agent/harness/prompt-assemble로 resolve한다. 권한·안전은 매 호출 현재 제한을 검사한다.
+- **run 판.** agent의 model·option·prompt·tool·자료 선택과 run 한도는 run을 시작할 때 resolve한 값으로 그 run에 고정하고, Workspace 기본값의 명시 적용은 다음 run부터 쓴다. 사람 지침·세션 작업 자리·현재 보기의 snapshot은 call마다 → lophn-agent/instructions·lophn-agent/harness/prompt-assemble로 resolve한다. 권한·안전은 매 호출 현재 제한을 검사한다. → platform/settings#R24
 - **안전.** secret 원문·API key·OAuth token·password·인증 header는 일반 설정으로 받지 않는다. 허용된 보호 참조만 가능하다. 어떤 층도 안전 금지·사람 결정·credential·외부 MCP의 경계를 해제하지 못한다.
 - **연결.** 바뀌지 않은 provider·extension 연결을 reload 때문에 재연결하거나 lophn 전체를 재시작하지 않는다.
 

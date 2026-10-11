@@ -4,7 +4,7 @@ concerns: [platform/settings]
 ---
 # platform/settings
 
-공개한 lophn 설정을 내장 기본값·사람의 선택으로 합치고 검증하며, 한 번의 적용과 다시 읽기를 일관된 판으로 남기는 일을 맡는다; 각 항목의 값과 의미는 소유 concern이 정하고 provider와 model은 lophn-agent/harness/provider와 lophn-agent/harness/model을 따른다.
+공개한 lophn 설정을 내장 기본값·사람의 선택으로 합치고 검증하며, 한 번의 적용과 다시 읽기를 일관된 판으로 남기는 일을 맡는다; 각 항목의 값과 의미는 소유 concern이 정하고 provider와 model은 lophn-agent/harness/provider와 lophn-agent/harness/model을, 자리(project·app)별 agent 설정은 lophn-agent/agents를 따른다.
 
 ## 요구
 
@@ -32,20 +32,20 @@ concerns: [platform/settings]
 
 ### 층과 병합
 
-**[R5]** 일반 설정은 내장 기본값과 사람의 공통 선택 두 층만 병합하며 agent별 구성은 lophn-agent/presets의 고정 판에 두고 별도 역할·assignment override 층이나 복제 원본을 만들지 않는다.
-- 이유: Preset과 일반 설정이 같은 선택의 서로 다른 원본이 되면 안 된다.
-- 확인: 공통 선택이 내장 기본값보다 우선하고 preset 구성이 일반 설정의 역할별 항목으로 저장되지 않는지 본다.
-- 의도: platform#I2
+**[R5]** 일반 설정은 내장 기본값과 사람의 공통(Workspace) 선택 두 층만 병합하며 project·app 자리별 agent 설정과 Operator·session 선택은 lophn-agent/agents의 원본에 두고 일반 설정의 층이나 복제 원본으로 만들지 않는다.
+- 이유: 자리별 agent 설정이 일반 설정에도 저장되면 같은 선택의 원본이 둘이 된다.
+- 확인: 공통 선택이 내장 기본값보다 우선하고 project·app·Operator·session의 agent 설정이 일반 설정 항목으로 저장되지 않는지 본다.
+- 의도: platform#I2, lophn-agent#I5
 
 **[R6]** 작업 디렉터리·앱 문서·세션·환경 변수·CLI 일회 인자·외부 서버 응답은 일반 설정을 덮어쓰는 층으로 해석하지 않는다.
 - 이유: 작업의 데이터가 플랫폼 정책을 바꾸면 안 된다.
 - 확인: 각 출처에 같은 항목을 넣어도 적용값과 판이 바뀌지 않는지 본다; 설치 위치 선택은 platform/install-and-update를 따른다.
 - 의도: platform#I4
 
-**[R7]** provider·model catalog 보정과 새 preset 생성용 judgment·organizing 기본값은 공통 설정에 두되 실제 계정·model 선택은 preset마다 저장하고 기본값 변경으로 기존 preset·run을 바꾸지 않는다.
-- 이유: 공통 기본값은 구성의 시작 후보이지 모든 역할의 고정 model slot이 아니다.
-- 확인: 서로 다른 계정·model의 preset 두 개를 사용한 뒤 기본값을 바꿔도 기존 판은 유지되고 organizing 미선택 해석은 lophn-agent/harness/model을 따르는지 본다.
-- 의도: platform#I2
+**[R7]** provider·model catalog에 대한 사람 보완과 agent 기본값(lophn·Context Engineer·App Engineer·Operator 네 role 각각의 model과 option, 요약에 쓰는 Model for summaries 한 칸, 순서 있는 즐겨찾기 model 목록, 기본 권한)은 Workspace 전역 설정인 공통 층에 두고, project·app 자리와 Operator·session이 바꾸지 않은 칸은 이 기본값을 따르며 기본값을 바꿔도 이미 시작한 run은 바뀌지 않는다.
+- 이유: agent 설정은 전역에서 정한 기본값을 따르고 자리·agent마다 바꾼 것만 따로 둔다. 요약용 model은 role마다가 아니라 전역 한 칸이고 즐겨찾기는 사람 하나의 목록이다.
+- 확인: role별 기본값과 즐겨찾기를 저장한 뒤 바꾸지 않은 자리의 agent가 그 값을 쓰는지 보고, 기본값을 바꿔도 진행 중인 run은 그대로이며 다음 run부터 새 값을 쓰는지 본다; 자리별 설정의 층과 출처는 lophn-agent/agents, option·즐겨찾기·요약 model의 뜻과 미선택 해석은 lophn-agent/harness/model을 따른다.
+- 의도: platform#I2, lophn-agent#I5
 
 **[R8]** object는 항목별로 병합하고 문자열·숫자·참거짓은 높은 층의 값으로 교체하며 목록은 연결하거나 중복 제거하지 않고 높은 층의 전체 목록으로 교체한다.
 - 이유: 병합이 입력하지 않은 값이나 순서를 만들어서는 안 된다.
@@ -131,9 +131,9 @@ concerns: [platform/settings]
 - 확인: 초기 설정 오류 상태에서 agent는 시작되지 않지만 수정 화면과 기존 앱·문서는 열리는지 본다.
 - 의도: platform#I5
 
-**[R24]** Preset model·추론 수준·prompt·tool·자료 선택과 run 한도는 다음 run부터 명시 적용한 판을 쓰되 사람 지침·세션 작업 자리·현재 보기 snapshot은 call마다 다시 resolve하고 현재 권한·안전 제한도 매 호출 검사한다.
+**[R24]** agent의 model·추론 수준·option·prompt·tool·자료 선택과 run 한도는 run을 시작할 때 resolve한 값으로 그 run에 고정해 Workspace 기본값의 명시 적용을 다음 run부터 쓰되 사람 지침·session 작업 자리·현재 보기 snapshot은 call마다 다시 resolve하고 현재 권한·안전 제한도 매 호출 검사한다.
 - 이유: 고정 구성과 call마다 바뀌는 사람 지침·현재 context를 구별한다.
-- 확인: 공통 생성 기본값 변경으로 기존 Preset 판은 바뀌지 않고 명시 적용은 다음 run, 지침 저장은 다음 call에 반영되며 현재 권한 회수는 즉시 호출을 막는지 본다.
+- 확인: Workspace 기본 model 변경을 명시 적용해도 진행 중인 run은 바뀌지 않고 다음 run부터 새 값을 쓰며, 지침 저장은 다음 call에 반영되고 현재 권한 회수는 즉시 호출을 막는지 본다.
 - 의도: platform#I2
 
 **[R25]** 적용 결과는 새 판·즉시 효력이 난 항목·다음 run부터 효력이 나는 항목을 구별하고 바뀌지 않은 provider·extension을 재연결하거나 lophn 전체를 재시작하지 않는다.
@@ -181,5 +181,6 @@ concerns: [platform/settings]
 
 - 설정 TOML 파일을 별도의 원본으로 읽거나 감시하던 방식은 버린다: ledger의 명시 선택만 원본이다.
 - 모르는 항목을 경고하고 무시하던 storage 규칙은 버린다: 새 domain model과 엄격한 검증 요구에 따라 거절한다.
-- 공통 model slot을 모든 역할의 실제 실행 model로 강제하던 방식은 버린다: 계정·model은 Preset 판에 두고 공통 값은 생성 후보만 제공한다. subagent 깊이 1 설정은 제품의 subagent 없음 규칙에 따라 두지 않는다.
+- 새 preset을 만들 때 복사하는 judgment·organizing 공통 기본값은 버린다: preset이 없어졌다(lophn-agent/presets는 lophn-agent/agents로 바뀌었다). role별 기본값이 agent가 실제로 따르는 값이고(R7) 계정과 model을 판으로 고정하지 않는다.
+- subagent 깊이 1 설정은 제품의 subagent 없음 규칙에 따라 두지 않는다.
 - evaluation 설정을 제품 설정 목록에 포함하던 방식은 버린다: lophn-agent/evaluation은 개발 도구다.

@@ -20,6 +20,7 @@ import {
 } from "./mod.ts";
 
 const PROJECT = "prj_01arz3ndektsv4rrffq69g5fav";
+const APP = "app_01arz3ndektsv4rrffq69g5fav";
 const GLOBAL_DOC = "doc_01arz3ndektsv4rrffq69g5fav";
 const PROJECT_DOC = "doc_01arz3ndektsv4rrffq69g5faw";
 
@@ -386,21 +387,22 @@ Deno.test("lophn-agent/harness/prompt-assemble#R30: 지침은 작업 자리로 r
   // basis에는 지침 본문이 없다.
   assert(!bytesOf(first.basis).includes("GLOBAL SECRET RULE"));
   assert(!bytesOf(first.basis).includes("PROJECT RULE"));
-  // 명시 자리 변경은 다음 call에서 다른 층을 읽는다.
-  const global = ready(
+  // 자리가 다른 session은 다른 층을 읽는다.
+  const app = ready(
     await assemblePrompt(
       depsOf(source),
       inputOf({
         work: {
           role: "lophn",
-          session: { kind: "global", id: null },
+          session: { kind: "app", id: APP },
           scope: { kind: "all", id: null },
         },
       }),
     ),
   );
-  assertEquals(global.basis.instructions.layers.map((layer) => layer.kind), [
+  assertEquals(app.basis.instructions.layers.map((layer) => layer.kind), [
     "global",
+    "app",
   ]);
 });
 

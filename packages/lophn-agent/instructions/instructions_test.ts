@@ -136,11 +136,11 @@ Deno.test("lophn-agent/instructions#R1: 전역·project·app 층은 정해진 LO
     resolution.layers.map((layer) => layer.text),
     ["global rules\n", "project rules\n", "app rules\n"],
   );
-  // 전역 자리만 있는 작업은 project·app 층을 묻지 않는다.
+  // project 자리의 작업은 app 층을 묻지 않는다.
   const wide = fake({ registered: { "global:global": global } });
-  const globalOnly = await resolve(wide, { kind: "global", id: null });
-  assertEquals(layerKinds(globalOnly), ["global"]);
-  assertEquals(wide.asked, ["global:global"]);
+  const projectOnly = await resolve(wide, { kind: "project", id: PROJECT });
+  assertEquals(layerKinds(projectOnly), ["global", "project"]);
+  assertEquals(wide.asked, ["global:global", `project:${PROJECT}`]);
 });
 
 Deno.test("lophn-agent/instructions#R2: 없는 파일은 부재로 기록하고 빈 파일과 구별하며 읽기 통로에 쓰기가 없다", async () => {
@@ -171,8 +171,8 @@ Deno.test("lophn-agent/instructions#R2: 없는 파일은 부재로 기록하고 
 
 Deno.test("lophn-agent/instructions#R3: agent는 지침을 저장하지 않으므로 읽은 판은 그대로이고 호출 뒤에도 판이 늘지 않는다", async () => {
   const source = fake({ registered: { "global:global": global } });
-  const before = await resolve(source, { kind: "global", id: null });
-  const after = await resolve(source, { kind: "global", id: null });
+  const before = await resolve(source, { kind: "project", id: PROJECT });
+  const after = await resolve(source, { kind: "project", id: PROJECT });
   assertEquals(after.layers[0].version, "ver_g1");
   assertEquals(after.layers, before.layers);
   assertEquals(source.registered["global:global"], global);
@@ -381,7 +381,7 @@ Deno.test("lophn-agent/instructions#R7: 파일 32 KiB·합계 128 KiB를 넘거�
       },
     },
   });
-  const invalid = await resolve(broken, { kind: "global", id: null });
+  const invalid = await resolve(broken, { kind: "project", id: PROJECT });
   assertEquals(invalid.status, "blocked");
   assertEquals(invalid.layers[0].status, "invalid");
 
@@ -398,12 +398,12 @@ Deno.test("lophn-agent/instructions#R7: 파일 32 KiB·합계 128 KiB를 넘거�
   // 붙인 지침 문서가 없어졌으면 부재가 아니라 unavailable이다.
   const gone = await resolve(
     fake({ registered: { "global:global": global } }),
-    { kind: "global", id: null },
+    { kind: "project", id: PROJECT },
     [{ document: PRESET_DOC, order: 0 }],
   );
   assertEquals(gone.status, "blocked");
-  assertEquals(gone.layers[1].status, "unavailable");
-  assertEquals(gone.layers[1].document, PRESET_DOC);
+  assertEquals(gone.layers[2].status, "unavailable");
+  assertEquals(gone.layers[2].document, PRESET_DOC);
 });
 
 Deno.test("lophn-agent/instructions#R8: call마다 확정 판을 다시 읽어 자리·층·원본과 전송 hash를 남기고 편집은 다음 call부터 보인다", async () => {

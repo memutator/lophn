@@ -45,7 +45,7 @@ export type ScanInput = {
   bundle_hash: string;
   files: IndexFiles;
   clock: Clock;
-  // ledger가 마지막으로 기록한 위반 수(contexts.violation_mark). `rose`는 이것과 비교한다.
+  // ledger가 마지막으로 기록한 위반 수(contexts.violation_mark). `rose`는 이것과 비교하고, 제출 여부는 job이 이것과의 같고 다름으로 정한다.
   recorded_count: number;
 };
 

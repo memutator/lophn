@@ -54,15 +54,49 @@ Deno.test("documents/contexts#R23 [ctx-I33]: context.index scans the contract's 
   assert(readEntities(deps.store.sql, CONTEXT).length > 0);
 });
 
-Deno.test("documents/contexts#R25 [ctx-I33]: context.index submits nothing when the count is not above the recorded one", async () => {
-  for (const recorded of [7, 12]) {
+Deno.test("documents/contexts#R25 [ctx-I33]: context.index submits when the count differs from the recorded one, a rise or a fall, and not when it is equal", async () => {
+  for (
+    const [recorded, submitted] of [[0, true], [6, true], [7, false], [
+      12,
+      true,
+    ]] as const
+  ) {
     const { deps, submit } = setup();
     const result = await runIndexJob(deps, request(recorded));
     assert(result.ok);
-    assertEquals(result.value.rose, false);
-    assertEquals(result.value.recorded, false);
-    assertEquals(submit.calls, []);
+    assertEquals(result.value.violation_count, 7);
+    assertEquals(result.value.recorded, submitted, `recorded ${recorded}`);
+    assertEquals(
+      submit.calls,
+      submitted
+        ? [{
+          command: "context.record_violations",
+          input: { context: CONTEXT, count: 7, bundle_hash: BUNDLE_HASH },
+        }]
+        : [],
+      `recorded ${recorded}`,
+    );
   }
+});
+
+Deno.test("documents/contexts#R25 [ctx-I33]: fixing a file lowers the count and the lower count is submitted", async () => {
+  const { deps, submit, files } = setup();
+  await runIndexJob(deps, request(0));
+  submit.calls.length = 0;
+  const path = "eval/experiments/exp-003-paused.md";
+  files.write(
+    path,
+    files.read(path)!.replace("status: paused", "status: done"),
+  );
+  const result = await runIndexJob(deps, request(7));
+  assert(result.ok);
+  assertEquals(result.value.rose, false);
+  assertEquals(result.value.violation_count, 6);
+  assertEquals(result.value.recorded, true);
+  assertEquals(submit.calls, [{
+    command: "context.record_violations",
+    input: { context: CONTEXT, count: 6, bundle_hash: BUNDLE_HASH },
+  }]);
 });
 
 Deno.test("documents/contexts#R25 [ctx-I33]: a second job with no file change extracts nothing and submits only if the count is still unrecorded", async () => {

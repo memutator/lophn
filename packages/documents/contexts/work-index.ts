@@ -27,8 +27,9 @@ export type IndexJobResult = ScanResult & {
 };
 
 // context.index: watchFolders(bundle.contract)로 files를 얻어 scanContext를 돌린다.
-// scan이 rose를 내면 `context.record_violations({ context, count: violation_count, bundle_hash })`를
-// 한 번 제출한다. rose가 아니면 제출하지 않는다(위반이 줄거나 그대로면 기록하지 않는다).
+// 위반 수(violation_count)가 recorded_count와 다르면 늘었든 줄었든
+// `context.record_violations({ context, count: violation_count, bundle_hash })`를 한 번 제출한다.
+// 같으면 제출하지 않는다. notification은 늘었을 때만 만들어지며 그 판단은 platform 쪽이다.
 // - files나 scan이 실패하면 그 오류(`unavailable`)를 돌려주고 제출하지 않는다.
 // - 제출이 오류를 내면 그 오류를 그대로 돌려준다. index는 이미 갱신되어 있고, 다음 job은 ledger의
 //   recorded_count와 비교하므로 같은 제출을 다시 시도한다. 오류를 삼켜 recorded를 꾸미지 않는다.

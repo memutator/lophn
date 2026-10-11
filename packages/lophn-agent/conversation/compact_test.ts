@@ -268,7 +268,7 @@ Deno.test("lophn-agent/conversation#R10 [agent-I16]: a stale state or a missing 
     const { session, run } = await world(h);
     await summarize(h, CALL, run, session, 1);
     code(await compact(h, session, { seq: "1" }), "conflict");
-    code(await compact(h, id("ses", 40)), "not_found");
+    code(await compact(h, id("ses", 40), { seq: "1" }), "not_found");
     assertEquals((await readSession(h, session))["compaction"], null);
   } finally {
     await h.close();
@@ -280,11 +280,12 @@ Deno.test("lophn-agent/conversation#R10 [agent-I16]: a summary needs the Model f
   try {
     const { session, run } = await world(h);
     value(
-      await h.probeWrite(
-        `insert into agent_model_defaults
-           (slot, provider, model_name, option_values, settings_seq)
-         values ('summaries', ?, 'summary-model', '{}', '1')`,
-        [PVDR],
+      await h.command(
+        machineCred,
+        envelope("SeedSummariesModel", {
+          provider: PVDR,
+          model_name: "summary-model",
+        }),
       ),
     );
     await summarize(h, CALL, run, session, 1);

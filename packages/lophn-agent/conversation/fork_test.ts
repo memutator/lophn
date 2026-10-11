@@ -273,21 +273,27 @@ Deno.test("lophn-agent/conversation#R9 [agent-I16]: a session with an unfinished
   const h = await open();
   try {
     await seed(h);
-    const source = await openLophn(h);
     // 접수만 된 run도 끝나지 않은 run이다.
+    const accepted = await openLophn(h, id("ses", 1));
     value(
       await receive(h, {
         message: SOURCE_FIRST,
-        session: source,
+        session: accepted,
         mode: "request",
       }),
     );
-    const through = await seqOf(h, SOURCE_FIRST);
-    code(await fork(h, id("ses", 2), source, through), "conflict");
+    code(
+      await fork(h, id("ses", 9), accepted, await seqOf(h, SOURCE_FIRST)),
+      "conflict",
+    );
     // 시작해 진행 중인 run도 같다.
-    await runningRun(h, source, SOURCE_SECOND);
-    code(await fork(h, id("ses", 2), source, through), "conflict");
-    assertEquals(await count(h, "sessions"), 1);
+    const running = await openLophn(h, id("ses", 2));
+    await runningRun(h, running, SOURCE_SECOND);
+    code(
+      await fork(h, id("ses", 9), running, await seqOf(h, SOURCE_SECOND)),
+      "conflict",
+    );
+    assertEquals(await count(h, "sessions"), 2);
     assertEquals((await eventsOf(h, "SessionForked")).length, 0);
     assertEquals(await count(h, "messages"), 2);
   } finally {

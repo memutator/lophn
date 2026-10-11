@@ -53,6 +53,7 @@ export const OPERATIONS = [
   "SeedTargetFixture",
   "SeedOperatorFixture",
   "SeedAcceptFailure",
+  "SeedSummariesModel",
   "SeedUnpreparedBody",
   "CommandResult",
 ];

@@ -63,12 +63,14 @@ const USER_OPERATIONS = [
   "context.search",
   "context.entity",
   "context.violations",
+  "context.preview",
 ];
 const ENGINEER_OPERATIONS = [
   "bundle.save_draft",
   "bundle.submit",
   "context.get",
   "context.draft",
+  "context.preview",
 ];
 
 function contextOf(
@@ -522,6 +524,206 @@ Deno.test("documents/contexts#R20 [ctx-T9b]: a bundle whose example no longer ho
   });
 });
 
+// 맥락을 만들고 초안만 저장한다(제출하지 않는다). 초안 판의 id를 돌려준다.
+async function saveDraft(
+  core: Core,
+  content: Json,
+  key: string,
+): Promise<string> {
+  const created = await post(
+    core,
+    "user",
+    "contexts/create",
+    command({
+      id: CONTEXT,
+      project: PROJECT,
+      title: "Evaluation",
+      purpose: "Experiments and their findings",
+    }, `create-${key}`),
+  );
+  assertEquals(created.status, 200, JSON.stringify(created.body));
+  const draft = await post(
+    core,
+    "engineer",
+    "contexts/save_draft",
+    command({ context: CONTEXT, content }, `draft-${key}`),
+  );
+  assertEquals(draft.status, 200, JSON.stringify(draft.body));
+  return String(draft.body["id"]);
+}
+
+async function exists(path: string): Promise<boolean> {
+  try {
+    await Deno.stat(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+Deno.test("documents/contexts#R19 #R24 [ctx-I64p]: previewing a drafting context's draft counts the entities and lists the violations from the project files, and applies and indexes nothing", async () => {
+  await withCore(async (core, home, folder) => {
+    const bundle = await saveDraft(core, await fixtureContract(), "preview");
+    const before = await post(core, "user", "contexts/get", {
+      context: CONTEXT,
+    });
+
+    const shown = await post(core, "engineer", "contexts/preview", {
+      context: CONTEXT,
+      bundle,
+    });
+    assertEquals(shown.status, 200, JSON.stringify(shown.body));
+    assertEquals(shown.body["context"], CONTEXT);
+    assertEquals(shown.body["bundle"], bundle);
+    // 앱 데이터는 읽지 않으므로 Event는 0이고 나머지는 정답 개체 수다.
+    const expected = await expectedEntities();
+    const counted = (type: string) =>
+      expected.filter((entity) => entity.type === type).length;
+    assertEquals(shown.body["types"], [
+      { type: "Experiment", count: counted("Experiment") },
+      { type: "Scenario", count: counted("Scenario") },
+      { type: "Finding", count: counted("Finding") },
+      { type: "Decision", count: counted("Decision") },
+      { type: "Guide", count: counted("Guide") },
+      { type: "GuideHeading", count: counted("GuideHeading") },
+      { type: "Event", count: 0 },
+    ]);
+    assertEquals(shown.body["findings"], []);
+    assertEquals(shown.body["violation_count"], 7);
+    const violations = shown.body["violations"] as Json[];
+    assertEquals(violations.length, 7);
+    assert(violations.every((violation) => violation["message"] !== ""));
+    assertEquals(
+      violations.map((violation) => violation["path"]),
+      [...violations.map((violation) => String(violation["path"]))].sort(),
+    );
+    assertEquals(shown.body["complete"], true);
+    assertEquals(shown.body["next_cursor"], null);
+
+    // 사람도 읽는다.
+    const byUser = await post(core, "user", "contexts/preview", {
+      context: CONTEXT,
+      bundle,
+    });
+    assertEquals(byUser.status, 200, JSON.stringify(byUser.body));
+    assertEquals(byUser.body["violations"], shown.body["violations"]);
+
+    // 아무것도 적용하거나 쓰지 않았다: 판은 draft이고 context는 만드는 중이며 revision이 그대로다.
+    const after = await post(core, "user", "contexts/get", {
+      context: CONTEXT,
+    });
+    assertEquals(after.body, before.body);
+    assertEquals((after.body["context"] as Json)["status"], "drafting");
+    const history = await post(core, "user", "contexts/bundles", {
+      context: CONTEXT,
+    });
+    assertEquals(
+      (history.body["bundles"] as { bundle: Json }[]).map((entry) =>
+        entry.bundle["status"]
+      ),
+      ["draft"],
+    );
+    // index는 건드리지 않았고 snapshot은 남지 않았다.
+    assertEquals(await exists(`${home}/derived/contexts.sqlite`), false);
+    const left = [];
+    for await (
+      const entry of Deno.readDir(`${home}/documents/staging/context-check`)
+    ) left.push(entry.name);
+    assertEquals(left, []);
+
+    // 호출마다 지금 파일을 읽는다: 새 파일은 새 개체이고 그 위반이다.
+    await Deno.copyFile(
+      `${folder}/eval/experiments/exp-004-nostatus.md`,
+      `${folder}/eval/experiments/exp-011-new.md`,
+    );
+    const again = await post(core, "user", "contexts/preview", {
+      context: CONTEXT,
+      bundle,
+    });
+    assertEquals(again.status, 200, JSON.stringify(again.body));
+    assertEquals((again.body["types"] as Json[])[0], {
+      type: "Experiment",
+      count: counted("Experiment") + 1,
+    });
+    assertEquals(again.body["violation_count"], 8);
+  });
+});
+
+Deno.test("documents/contexts#R19 [ctx-I64p]: a failing example of the draft is shown as a finding while the counts and violations stay", async () => {
+  await withCore(async (core) => {
+    const content = await fixtureContract();
+    (content["examples"] as { expect?: { fields: Json } }[])[1]!.expect!
+      .fields["status"] = "done";
+    const bundle = await saveDraft(core, content, "example");
+    const shown = await post(core, "user", "contexts/preview", {
+      context: CONTEXT,
+      bundle,
+    });
+    assertEquals(shown.status, 200, JSON.stringify(shown.body));
+    assertEquals(
+      (shown.body["findings"] as Json[]).map((finding) => [
+        finding["kind"],
+        finding["target"],
+      ]),
+      [["example_mismatch", "examples.1"]],
+    );
+    assertEquals((shown.body["types"] as Json[]).length, 7);
+    assertEquals(shown.body["violation_count"], 7);
+  });
+});
+
+Deno.test("documents/contexts#R19 [ctx-I64p]: a bundle that is not the context's draft is conflict, an unknown or another context's bundle is not_found, and a cursor from another bundle is invalid_input", async () => {
+  await withCore(async (core) => {
+    const content = await fixtureContract();
+    await submit(core, content, "conflict");
+    const finished = await until("the check result", () => bundleStatus(core));
+    const bundle = String(finished.bundle["id"]);
+    assertEquals(finished.bundle["status"], "applied");
+
+    // 적용된 판은 draft가 아니다.
+    const applied = await post(core, "user", "contexts/preview", {
+      context: CONTEXT,
+      bundle,
+    });
+    assertEquals(applied.status, 409, JSON.stringify(applied.body));
+
+    const unknown = await post(core, "user", "contexts/preview", {
+      context: CONTEXT,
+      bundle: "cbn_00000000000000000000000001",
+    });
+    assertEquals(unknown.status, 404, JSON.stringify(unknown.body));
+
+    const other = await post(core, "user", "contexts/preview", {
+      context: "ctx_00000000000000000000000001",
+      bundle,
+    });
+    assertEquals(other.status, 404, JSON.stringify(other.body));
+
+    // 적용된 context에 새 draft를 저장해 그 판에 다른 판의 cursor를 물린다.
+    const draft = await post(
+      core,
+      "engineer",
+      "contexts/save_draft",
+      command({ context: CONTEXT, content }, "draft-next"),
+    );
+    assertEquals(draft.status, 200, JSON.stringify(draft.body));
+    const foreign = await post(core, "user", "contexts/preview", {
+      context: CONTEXT,
+      bundle: draft.body["id"],
+      cursor: btoa(encodeURIComponent(JSON.stringify({
+        scope: `context.preview:${bundle}`,
+        after: ["a"],
+      }))),
+    });
+    assertEquals(foreign.status, 400, JSON.stringify(foreign.body));
+    const fine = await post(core, "user", "contexts/preview", {
+      context: CONTEXT,
+      bundle: draft.body["id"],
+    });
+    assertEquals(fine.status, 200, JSON.stringify(fine.body));
+  });
+});
+
 // ---------- core가 worker에 일을 보내는 규칙(worker와 ledger는 fake) ----------
 
 const DISPATCH_CONTEXT = "ctx_00000000000000000000000001";
@@ -539,6 +741,7 @@ function input(extra: Partial<ContextWorkInput> = {}): ContextWorkInput {
       content: { schema: 1 } as never,
     },
     candidate: null,
+    draft: null,
     user_saved_views: [],
     external_types: [],
     as_of_seq: "1",
@@ -575,7 +778,7 @@ const finish = (extra: Record<string, unknown> = {}) => ({
 
 function setup(options: {
   read?: (
-    request: { context: string; check?: string },
+    request: { context: string; check?: string; bundle?: string },
   ) => Promise<Result<ContextWorkInput>>;
   request?: (op: string, payload: unknown) => Promise<Result<unknown>>;
   ensure?: () => Promise<boolean>;
@@ -862,6 +1065,144 @@ Deno.test("documents/contexts#R20 [ctx-T9b]: a check whose answer is lost is sen
   assertEquals(refusals, 1);
 });
 
+const PREVIEW_BUNDLE = "cbn_00000000000000000000000001";
+const draftInput = () =>
+  input({
+    applied: null,
+    draft: { bundle: PREVIEW_BUNDLE, content: { schema: 1 } },
+  });
+const violation = (path: string) => ({
+  kind: "unreadable",
+  rule: null,
+  type: "Experiment",
+  path,
+  section: null,
+  target: null,
+});
+const previewAnswer = (count = 3) => ({
+  types: [{ type: "Experiment", count }],
+  findings: [],
+  violation_count: count,
+  violations: Array.from(
+    { length: count },
+    (_, index) => violation(`a/${String(index).padStart(3, "0")}.md`),
+  ),
+});
+
+Deno.test("documents/contexts#R19 [ctx-I64p]: a preview sends the draft with the folders and the environment, pages the violations by 30 with messages and binds the cursor to the bundle", async () => {
+  const run = setup({
+    read: () => Promise.resolve(ok(draftInput())),
+    request: () => Promise.resolve(ok(previewAnswer(65))),
+  });
+  const first = await run.dispatcher.preview({
+    context: DISPATCH_CONTEXT,
+    bundle: PREVIEW_BUNDLE,
+  });
+  assert(first.ok, JSON.stringify(first));
+  assertEquals(run.reads, [{
+    context: DISPATCH_CONTEXT,
+    bundle: PREVIEW_BUNDLE,
+  }]);
+  assertEquals(run.requests.length, 1);
+  assertEquals(run.requests[0]!.op, "context.preview");
+  assertEquals(run.requests[0]!.payload, {
+    context: DISPATCH_CONTEXT,
+    draft: { schema: 1 },
+    roots: ["/work/project"],
+    external_types: [],
+    app_commands: [],
+  });
+  assertEquals(first.value.violation_count, 65);
+  assertEquals(first.value.violations.length, 30);
+  assertEquals(first.value.complete, false);
+  assertEquals(first.value.types, [{ type: "Experiment", count: 65 }]);
+  assertEquals(
+    first.value.violations[0]!.message,
+    "a/000.md cannot be read",
+  );
+
+  const second = await run.dispatcher.preview({
+    context: DISPATCH_CONTEXT,
+    bundle: PREVIEW_BUNDLE,
+    cursor: first.value.next_cursor!,
+  });
+  assert(second.ok);
+  assertEquals(second.value.violations[0]!.path, "a/030.md");
+  const third = await run.dispatcher.preview({
+    context: DISPATCH_CONTEXT,
+    bundle: PREVIEW_BUNDLE,
+    cursor: second.value.next_cursor!,
+  });
+  assert(third.ok);
+  assertEquals(third.value.violations.length, 5);
+  assertEquals(third.value.complete, true);
+  assertEquals(third.value.next_cursor, null);
+  // 호출마다 worker가 새로 추출한다.
+  assertEquals(run.requests.length, 3);
+  // preview는 command를 내지 않는다.
+  assertEquals(run.commands, []);
+
+  // 다른 판의 cursor는 worker를 부르기 전에 invalid_input이다.
+  const other = await run.dispatcher.preview({
+    context: DISPATCH_CONTEXT,
+    bundle: "cbn_00000000000000000000000002",
+    cursor: first.value.next_cursor!,
+  });
+  assert(!other.ok);
+  assertEquals(other.error.code, "invalid_input");
+  assertEquals(run.requests.length, 3);
+});
+
+Deno.test("documents/contexts#R19 [ctx-I64p]: a preview that cannot be made is unavailable, never a partial result, and the ledger's not_found and conflict pass through", async () => {
+  const stopped = setup({
+    read: () => Promise.resolve(ok(draftInput())),
+    request: () =>
+      Promise.resolve(err({ code: "unavailable", message: "over budget" })),
+  });
+  const failed = await stopped.dispatcher.preview({
+    context: DISPATCH_CONTEXT,
+    bundle: PREVIEW_BUNDLE,
+  });
+  assert(!failed.ok);
+  assertEquals(failed.error.code, "unavailable");
+
+  const down = setup({
+    read: () => Promise.resolve(ok(draftInput())),
+    ensure: () => Promise.resolve(false),
+  });
+  const notRun = await down.dispatcher.preview({
+    context: DISPATCH_CONTEXT,
+    bundle: PREVIEW_BUNDLE,
+  });
+  assert(!notRun.ok);
+  assertEquals(notRun.error.code, "unavailable");
+  assertEquals(down.requests, []);
+
+  for (const code of ["not_found", "conflict"] as const) {
+    const refused = setup({
+      read: () => Promise.resolve(err({ code, message: code })),
+    });
+    const result = await refused.dispatcher.preview({
+      context: DISPATCH_CONTEXT,
+      bundle: PREVIEW_BUNDLE,
+    });
+    assert(!result.ok);
+    assertEquals(result.error.code, code);
+    assertEquals(refused.requests, []);
+  }
+
+  const bad = setup({
+    read: () => Promise.resolve(ok(draftInput())),
+    request: () => Promise.resolve(ok({ nope: true })),
+  });
+  const invalid = await bad.dispatcher.preview({
+    context: DISPATCH_CONTEXT,
+    bundle: PREVIEW_BUNDLE,
+  });
+  assert(!invalid.ok);
+  assertEquals(invalid.error.code, "internal");
+});
+
 Deno.test("documents/contexts#R20 [ctx-T9b]: the worker is asked to run only when a bundle.submit was accepted, and the caller does not wait for the check", async () => {
   const host = createContextsHost();
   const seen: { context: string; check: string }[] = [];
@@ -871,6 +1212,7 @@ Deno.test("documents/contexts#R20 [ctx-T9b]: the worker is asked to run only whe
       seen.push(request);
       return new Promise(() => {});
     },
+    preview: () => Promise.resolve(err({ code: "unavailable", message: "x" })),
   });
   const inner: Writer = {
     command: (_ctx, envelope) =>
@@ -938,6 +1280,7 @@ Deno.test("documents/contexts#R23 [ctx-T9b]: only the reads that use the index c
       return Promise.resolve({ stale: false });
     },
     runCheck: () => Promise.resolve(true),
+    preview: () => Promise.resolve(err({ code: "unavailable", message: "x" })),
   });
   for (const key of reads.keys()) {
     await reads.get(key)!(ctx, { context: DISPATCH_CONTEXT });

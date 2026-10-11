@@ -7,7 +7,9 @@
 import { z } from "zod";
 import { ok, type Result } from "../../../base/mod.ts";
 import {
+  bundleContentSchema,
   bundleIdSchema,
+  contextCreateRequestSchema,
   ctxIdSchema,
   draftContentSchema,
   glossaryEntryIdSchema,
@@ -34,9 +36,11 @@ import { decodeWindowCursor, fitJson, PAGE_SIZE } from "./result.ts";
 import type { ToolDefinition } from "./registry.ts";
 import type { RunCredential, ToolHandler } from "./work.ts";
 
-// 읽기 tool 넷(계약·초안, 미리보기, 위반, 용어집 읽기), 쓰기 tool 셋(초안, 제출, 용어집 쓰기). 이름은
-// docs의 "context·series tool 계약" 표와 같다.
+// 읽기 tool 넷(계약·초안, 미리보기, 위반, 용어집 읽기), 쓰기 tool 넷(context 생성, 초안, 제출, 용어집 쓰기).
+// 이름은 docs의 "context·series tool 계약" 표와 같다.
 export const CONTEXT_ENGINEER_TOOL_NAMES = {
+  // context 만들기 (`context.create`, write). 계약은 비어 있고 초안·제출이 채운다
+  create: "context.create",
   // 적용된 판의 계약과 만드는 중인 판(draft, 검사 중, 마지막 failed)·그 검사 보고를 한 번에 읽는다
   // (`context.contract`와 보조 `context.draft`)
   readContract: "context.read_contract",
@@ -61,6 +65,7 @@ export const CONTEXT_ENGINEER_TOOL_REVISION = "context-engineer-1";
 
 // 소유 contract 이름이다. 미리보기는 `CONTEXT_PREVIEW_CONTRACT`다.
 const CONTRACT = {
+  create: "context.create",
   contract: "context.contract",
   // 계약·초안 읽기가 같은 자격으로 함께 읽는 route다(`SUPPORTING_OPERATIONS`).
   draft: "context.draft",
@@ -78,6 +83,8 @@ const N = CONTEXT_ENGINEER_TOOL_NAMES;
 // ---- 입력 ----
 
 const contextOnly = z.strictObject({ context: ctxIdSchema });
+// 새 context의 id는 최초 ToolCall ID에서 정해지므로 입력에 없다.
+const createInput = contextCreateRequestSchema.omit({ id: true });
 const previewInput = z.strictObject({
   context: ctxIdSchema,
   bundle: bundleIdSchema,
@@ -156,6 +163,21 @@ const REVISION_PROP = {
   description: "the revision you read last; a stale one is a conflict",
 };
 
+// ---- 초안 content의 schema ----
+
+// 초안 content는 계약 값(`bundleContentSchema`)의 JSON Schema를 그대로 model에 보인다. 실행 입력 검사는
+// 초안 그릇(`draftContentSchema`)이 하고 계약의 뜻 검사는 core(`bundle.save_draft`)가 하므로, 이 schema는 model이
+// 모양을 추측하지 않게 하는 안내다. 재귀 조건(`$defs`)은 입력 schema의 뿌리로 올려 `#/$defs/…` 참조가 그대로 닿게 한다.
+function draftContentJsonSchema(): { content: Json; defs: Json } {
+  const { $schema: _draft, $defs, ...content } = z.toJSONSchema(
+    bundleContentSchema,
+    { io: "input" },
+  ) as Json;
+  return { content, defs: ($defs ?? {}) as Json };
+}
+
+const DRAFT_CONTENT = draftContentJsonSchema();
+
 // ---- 정의 ----
 
 const SCOPE = "contexts the Context Engineer may work on";
@@ -191,6 +213,23 @@ function define(
 
 export const CONTEXT_ENGINEER_TOOLS: readonly ToolDefinition[] = [
   define(
+    N.create,
+    "Create a new, empty context in a project: its title and purpose. It has no contract yet; write one with " +
+      "context.draft and submit it. Use this first when the person's context does not exist. The new context's id " +
+      "is in the result",
+    createInput,
+    objectSchema({
+      project: { type: "string", description: "the id of the project" },
+      title: { type: "string", description: "the name of the context" },
+      purpose: {
+        type: "string",
+        description: "what the context is for, in one or two sentences",
+      },
+    }, ["project", "title", "purpose"]),
+    CONTRACT.create,
+    "write",
+  ),
+  define(
     N.readContract,
     "Read a context: the applied contract (types, searches, saved views, examples, bundle id and hash) and the " +
       "bundle being made (draft, being checked, or the last failed one) with its check report and the revision " +
@@ -204,15 +243,19 @@ export const CONTEXT_ENGINEER_TOOLS: readonly ToolDefinition[] = [
     N.draft,
     "Write the draft bundle of a context as a JSON declaration (contract, searches, saved views, examples). " +
       "Without bundle it starts a new draft; to overwrite the draft you read, give its bundle id and the base_revision you read " +
-      "(a stale one is a conflict). content is a JSON object. Nothing is applied until you submit the bundle",
+      "(a stale one is a conflict). content is a JSON object in the shape of the schema below, with schema: 1. " +
+      "Nothing is applied until you submit the bundle",
     saveDraftInput,
-    // 이 schema에는 설명 글(`description`)을 두지 않는다. 쓰는 법은 tool 설명에 있다.
-    objectSchema({
-      context: { type: "string" },
-      bundle: { type: "string" },
-      base_revision: { type: "string" },
-      content: { type: "object" },
-    }, ["context", "content"]),
+    // 쓰는 법은 tool 설명에 있고, content의 모양은 계약 값의 schema다.
+    {
+      ...objectSchema({
+        context: { type: "string" },
+        bundle: { type: "string" },
+        base_revision: { type: "string" },
+        content: DRAFT_CONTENT.content,
+      }, ["context", "content"]),
+      $defs: DRAFT_CONTENT.defs,
+    },
     CONTRACT.saveDraft,
     "write",
   ),
@@ -442,6 +485,30 @@ export function createContextEngineerToolHandlers(
   const handlers = new Map<string, ToolHandler>();
 
   handlers.set(N.readContract, readContractHandler(ports));
+
+  handlers.set(N.create, async (input, credential) => {
+    const request = input as {
+      project: string;
+      title: string;
+      purpose: string;
+    };
+    // 새 context의 id는 최초 ToolCall ID에서 정해져 재전송이 두 번째 context를 만들지 않는다.
+    const key = await toolIdempotencyKey(N.create, input, credential);
+    const id = await idFromKey("ctx", key);
+    const sent = await ports.call(
+      CONTRACT.create,
+      {
+        id,
+        project: request.project,
+        title: request.title,
+        purpose: request.purpose,
+      },
+      credential.run,
+      { idempotency_key: key },
+    );
+    if (!sent.ok) return sent;
+    return ok(resultOf("context created", sent.value));
+  });
   handlers.set(
     N.readViolations,
     read(

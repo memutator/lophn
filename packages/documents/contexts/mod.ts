@@ -16,6 +16,8 @@ export {
 export { contextWorkInputRead } from "./ledger/work-input.ts";
 export type { SearchExecutor } from "./api/reads.ts";
 export type { BlobReference, ContextApiActor, EntityRow } from "./api/state.ts";
+export { violationMessage } from "./api/violation-message.ts";
 export { runSearch } from "./search/run.ts";
 export type { SearchEntity, SearchResult, TablePage } from "./search/types.ts";
 export type { IndexedEntity, IndexState } from "./index/types.ts";
+export { pagePreview } from "./preview/page.ts";

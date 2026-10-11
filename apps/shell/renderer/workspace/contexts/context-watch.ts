@@ -8,6 +8,8 @@ import type { ContextListItem, ContextsSource } from "./source.ts";
 
 /** 목록을 다시 읽는 간격. */
 export const CONTEXT_WATCH_MS = 30_000;
+/** [New context] 뒤 만드는 중인 context를 기다릴 때의 간격. */
+export const CONTEXT_WATCH_FAST_MS = 3_000;
 
 export interface ContextWatchEvents {
   /** 위반이 늘어난 context. count는 지금 어긋난 문서 수다. */
@@ -29,6 +31,7 @@ export function useContextWatch(
   project: string,
   events: ContextWatchEvents,
   timer: Timer = systemTimer,
+  fast = false,
 ): ContextWatch {
   const [list, setList] = useState<readonly ContextListItem[]>(NONE);
   const known = useRef<ReadonlyMap<string, ContextListItem> | null>(null);
@@ -66,14 +69,19 @@ export function useContextWatch(
           }
         }
       }
-      if (live) handle = timer.set(() => void read(), CONTEXT_WATCH_MS);
+      if (live) {
+        handle = timer.set(
+          () => void read(),
+          fast ? CONTEXT_WATCH_FAST_MS : CONTEXT_WATCH_MS,
+        );
+      }
     };
     void read();
     return () => {
       live = false;
       if (handle !== undefined) timer.clear(handle);
     };
-  }, [source, project, timer, tick]);
+  }, [source, project, timer, tick, fast]);
 
   return { list, refresh };
 }

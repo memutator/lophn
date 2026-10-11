@@ -7,8 +7,11 @@ import { z } from "zod";
 import { defineRead, sha256Schema, withReadCommon } from "../platform/mod.ts";
 import {
   bundleFinishCheckRequestSchema,
+  bundleIdSchema,
+  checkFindingSchema,
   checkIdSchema,
   ctxIdSchema,
+  violationSchema,
   violationsRecordRequestSchema,
 } from "./context-api.ts";
 import {
@@ -21,6 +24,7 @@ import {
 export const CONTEXT_WORK_OPS = {
   index: "context.index",
   check: "context.check",
+  preview: "context.preview",
 } as const;
 
 const count = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
@@ -109,12 +113,40 @@ export const contextCheckResponseSchema = z.strictObject({
 });
 export type ContextCheckResponse = z.infer<typeof contextCheckResponseSchema>;
 
+// context.preview: 만드는 중인 판을 지금 파일에 돌려 본다. 낼 command가 없고, 위반은 문구 없이 전부 돌려준다.
+export const contextPreviewWorkRequestSchema = z.strictObject({
+  context: ctxIdSchema,
+  // draft content JSON 그대로. 모양 검사는 worker의 check runner가 한다.
+  draft: z.record(z.string(), z.unknown()),
+  roots: rootsSchema,
+  external_types: z.array(externalTypeSchema),
+  app_commands: z.array(appCommandSchema),
+});
+export type ContextPreviewWorkRequest = z.infer<
+  typeof contextPreviewWorkRequestSchema
+>;
+
+export const contextPreviewWorkResponseSchema = z.strictObject({
+  types: z.array(z.strictObject({
+    type: contractTypeNameSchema,
+    count,
+  })),
+  findings: z.array(checkFindingSchema),
+  violation_count: count,
+  violations: z.array(violationSchema),
+});
+export type ContextPreviewWorkResponse = z.infer<
+  typeof contextPreviewWorkResponseSchema
+>;
+
 // ---------- core가 reader Worker에서 읽는 내부 read ----------
 
 export const contextWorkInputRequestSchema = z.strictObject({
   context: ctxIdSchema,
   // 있으면 이 검사의 후보 판과 saved view도 읽는다.
   check: checkIdSchema.optional(),
+  // 있으면 이 context의 draft 판 content를 읽는다(context.preview). check와 함께 쓰지 않는다.
+  bundle: bundleIdSchema.optional(),
 });
 export const contextWorkInputReadSchema = withReadCommon(z.object({
   context: ctxIdSchema,
@@ -131,6 +163,12 @@ export const contextWorkInputReadSchema = withReadCommon(z.object({
     bundle_hash: sha256Schema,
     content: z.record(z.string(), z.unknown()),
   }).nullable(),
+  // bundle을 물었을 때만 있다. 그 context의 draft 상태 판. 없는 판·다른 context의 판은 not_found, draft가
+  // 아니면 conflict로 읽기가 실패한다.
+  draft: z.strictObject({
+    bundle: bundleIdSchema,
+    content: z.record(z.string(), z.unknown()),
+  }).nullable(),
   user_saved_views: z.array(savedViewSchema),
   external_types: z.array(externalTypeSchema),
 }));
@@ -144,5 +182,11 @@ export const contextWorkInputRoute = defineRead({
   input: contextWorkInputRequestSchema,
   output: contextWorkInputReadSchema,
   actors: ["machine"],
-  errors: ["invalid_input", "not_found", "unavailable", "internal"],
+  errors: [
+    "invalid_input",
+    "not_found",
+    "conflict",
+    "unavailable",
+    "internal",
+  ],
 });

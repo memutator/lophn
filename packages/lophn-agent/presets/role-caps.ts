@@ -46,6 +46,15 @@ export const CONTEXT_ENGINEER_ONLY_TOOLS: readonly string[] = Object.freeze([
   "context.glossary_write",
 ]);
 
+// lophn만의 모든 project context 조회 tool이다(roles/lophn#R3). prompt 자료는 project 안에 머물고(presets#R17)
+// 이 셋이 모든 project의 context 목록·overview·용어집과 문서 경로를 덮는 context를 읽는다. 이름은
+// `harness/tools/context-lookup-tools.ts`가 정한 값과 같다.
+export const CONTEXT_LOOKUP_ONLY_TOOLS: readonly string[] = Object.freeze([
+  "context.list",
+  "context.overview",
+  "context.containing",
+]);
+
 const ASK_TOOLS: readonly string[] = Object.freeze([
   "question.submit",
   "question.read_decision",
@@ -75,6 +84,7 @@ export const ROLE_CAPS: ReadonlyMap<string, RoleCap> = new Map<string, RoleCap>(
       "lophn",
       cap([
         ...COMMON_READ_TOOLS,
+        ...CONTEXT_LOOKUP_ONLY_TOOLS,
         "project.list",
         "project.read",
         "app.list",

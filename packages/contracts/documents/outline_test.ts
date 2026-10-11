@@ -3,12 +3,9 @@ import { ERROR_CODES } from "../../base/mod.ts";
 import { routePath } from "../platform/mod.ts";
 import { DOCUMENT_READ_ROUTES, ROUTES } from "./mod.ts";
 import {
-  CONTEXT_ESTIMATED_TOKEN_BUDGET,
-  contextOutlinePageSchema,
   DOCUMENT_ESTIMATED_TOKEN_BUDGET,
   DOCUMENT_OUTLINE_DEPTH,
   documentOutlinePageSchema,
-  GLOSSARY_FIRST_PAGE_LIMIT,
   outlineDocument,
   outlineRoot,
   PLACE_ESTIMATED_TOKEN_BUDGET,
@@ -19,15 +16,12 @@ import {
   sectionSchema,
 } from "./outline.ts";
 import {
-  coverage,
-  ctx,
   doc,
   format,
   hash,
   meta,
   previous,
   section,
-  term,
   version,
 } from "./read-fixtures.ts";
 import { at, place } from "./document-fixtures.ts";
@@ -133,71 +127,14 @@ Deno.test("documents/outline-and-search#R3 T18: agent projections exclude path a
   );
   assert(!outlineRoot.input.safeParse({ path: "/private" }).success);
 });
-Deno.test("documents/outline-and-search#R4 T18: context keeps empty perspectives and definitions separate from candidates", () => {
-  const item = {
-    kind: "document",
-    perspective: "basis",
-    reason: "판단 기준",
-    title: "Report",
-    readable: true,
-    target: { kind: "document", document: doc, section: null },
-    version,
-    latest_version: previous,
-    format,
-    module_hash: hash,
-    section_status: "whole",
-  };
-  const value = {
-    ...meta,
-    kind: "context",
-    basis_seq: "9",
-    context: ctx,
-    title: "목적",
-    purpose: "검토",
-    entries: [item],
-    perspectives: { basis: [item], reference: [], watch: [] },
-    glossary: [{
-      id: term,
-      context: ctx,
-      name: "용어",
-      definition: "정의",
-      evidence: [],
-      revision: "1",
-      status: "active",
-    }],
-    candidates: [],
-    coverage,
-  };
-  assert(contextOutlinePageSchema.safeParse(value).success);
-  assert(
-    !contextOutlinePageSchema.safeParse({
-      ...value,
-      glossary: [{ ...value.glossary[0], definition: null }],
-    }).success,
-  );
-  assert(
-    !contextOutlinePageSchema.safeParse({
-      ...value,
-      perspectives: { basis: [item], reference: [] },
-    }).success,
-  );
-  assert(
-    !contextOutlinePageSchema.safeParse({
-      ...value,
-      entries: [{ ...item, version: null }],
-    }).success,
-  );
-});
 Deno.test("documents/outline-and-search#R5 T18: budget defaults and complete cursor coupling survive read common", () => {
   assertEquals([
     ROOT_ESTIMATED_TOKEN_BUDGET,
     PLACE_ESTIMATED_TOKEN_BUDGET,
-    CONTEXT_ESTIMATED_TOKEN_BUDGET,
     DOCUMENT_ESTIMATED_TOKEN_BUDGET,
     DOCUMENT_OUTLINE_DEPTH,
     READ_CODEPOINT_BUDGET,
-    GLOSSARY_FIRST_PAGE_LIMIT,
-  ], [1500, 3000, 3000, 2000, 2, 12000, 30]);
+  ], [1500, 3000, 2000, 2, 12000]);
   assertEquals(outlineRoot.input.parse({}).estimated_token_budget, 1500);
   assertEquals(
     outlineDocument.input.parse({

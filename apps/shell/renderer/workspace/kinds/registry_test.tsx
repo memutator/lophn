@@ -180,7 +180,6 @@ Deno.test("shell/workspace#R14 [ctx-I37]: 작업대는 가짜 kind의 본문을 
           value: { id: "prj_1", title: "lophn", folders: [] },
         }),
       documents: () => Promise.resolve({ ok: true, value: [] }),
-      contexts: () => Promise.resolve({ ok: true, value: [] }),
       files: () => Promise.resolve({ ok: true, value: [] }),
       readLayout: () =>
         Promise.resolve({

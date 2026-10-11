@@ -33,8 +33,8 @@ import {
 } from "./mod.ts";
 
 // roles/context-engineer의 충돌 handoff·해석 질문·보류(순수 규칙)와 역할 tool 선택,
-// 문서 읽기 흐름을 본다. 실제 provider·사람 데이터 root는 열지 않는다. 정의 확정
-// (term.define)과 assignment 적용은 소유 concern의 시험이 본다.
+// 문서 읽기 흐름을 본다. 실제 provider·사람 데이터 root는 열지 않는다. assignment 적용은
+// 소유 concern의 시험이 본다.
 
 const ALPHA = "0123456789abcdefghjkmnpqrstvwxyz";
 function id(prefix: string, n: number): string {

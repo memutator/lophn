@@ -3,11 +3,9 @@ import {
   actorSchema,
   archiveStateSchema,
   atSchema,
-  idSchema,
   seqSchema,
   sha256Schema,
 } from "../platform/mod.ts";
-import { SECTION_STATUSES } from "./address.ts";
 import {
   appIdSchema,
   documentIdSchema,
@@ -17,11 +15,7 @@ import {
   versionIdSchema,
 } from "./values.ts";
 import { formatRefOutputSchema } from "./versions.ts";
-import {
-  type ExtractedSection,
-  extractedSectionSchema,
-  lineRangeOutputSchema,
-} from "./sections.ts";
+import { type ExtractedSection, extractedSectionSchema } from "./sections.ts";
 import {
   countSchema,
   EXCERPT_CODEPOINT_LIMIT,
@@ -76,81 +70,9 @@ export const rootOutlineEntrySchema = z.discriminatedUnion("kind", [
     ...rootFields,
     document_count: countSchema,
   }),
-  z.object({
-    kind: z.literal("context"),
-    id: idSchema("ctx"),
-    ...rootFields,
-    basis_count: countSchema,
-    reference_app_count: countSchema,
-  }),
   z.object({ kind: z.literal("unplaced"), document_count: countSchema }),
 ]);
 export type RootOutlineEntry = z.infer<typeof rootOutlineEntrySchema>;
-
-export const contextTargetOutputSchema = z.discriminatedUnion("kind", [
-  z.object({
-    kind: z.literal("document"),
-    document: documentIdSchema,
-    section: sectionKeySchema.nullable(),
-  }),
-  z.object({
-    kind: z.literal("app_command"),
-    app: appIdSchema,
-    command: nonblankSchema,
-  }),
-]);
-const contextItemFields = {
-  perspective: z.enum(["basis", "reference", "watch"]),
-  reason: nonblankSchema,
-  title: z.string(),
-  readable: z.boolean(),
-};
-export const contextOutlineEntrySchema = z.discriminatedUnion("kind", [
-  z.object({
-    kind: z.literal("document"),
-    ...contextItemFields,
-    target: contextTargetOutputSchema.options[0],
-    version: versionIdSchema.nullable(),
-    latest_version: versionIdSchema.nullable(),
-    format: formatRefOutputSchema.nullable(),
-    module_hash: sha256Schema.nullable(),
-    section_status: z.enum(SECTION_STATUSES),
-  }).refine((value) =>
-    (!value.readable ||
-      (value.version !== null && value.latest_version !== null)) &&
-    ((value.version === null) === (value.format === null)) &&
-    ((value.format === null) === (value.module_hash === null)) &&
-    (value.format === null || value.format.module_hash === value.module_hash)
-  ),
-  z.object({
-    kind: z.literal("app_command"),
-    ...contextItemFields,
-    target: contextTargetOutputSchema.options[1],
-  }),
-]);
-export type ContextOutlineEntry = z.infer<typeof contextOutlineEntrySchema>;
-export const termEvidenceOutputSchema = z.object({
-  document: documentIdSchema,
-  version: versionIdSchema,
-  section: sectionKeySchema.nullable(),
-  range: lineRangeOutputSchema.nullable(),
-});
-const termFields = {
-  id: idSchema("trm"),
-  context: idSchema("ctx"),
-  name: nonblankSchema,
-  evidence: z.array(termEvidenceOutputSchema),
-  revision: seqSchema,
-  status: archiveStateSchema,
-};
-export const definedTermOutputSchema = z.object({
-  ...termFields,
-  definition: nonblankSchema,
-});
-export const candidateTermOutputSchema = z.object({
-  ...termFields,
-  definition: z.null(),
-});
 
 // SectionExtraction과 같은 key/range 규약을 재사용하되 문서 고정 판 통계를 더한다.
 export const sectionSchema = z.object({

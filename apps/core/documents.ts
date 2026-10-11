@@ -139,9 +139,6 @@ function projectDocuments(
 // 없는 것이다: 추적 안 함으로 꾸미지 않고 unavailable이다.
 export type DocumentsEnvironment = {
   status?: StatusMemory;
-  // 옛 context 모델의 앱 항목 검사였다. 새 context API는 앱 command를 부르지 않아 읽지 않는다.
-  // 옛 시험 조립(testing/documents-app-command.ts)이 지워질 때 함께 지운다.
-  contextAppCommand?: (app: string, command: string) => boolean;
 };
 
 const UNATTACHED_STATUS: StatusMemory = {

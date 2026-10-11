@@ -357,8 +357,13 @@ Deno.test("shell/desktop#R6: 칸의 요청은 그 세션의 것만이고 run이 
   const first = pending.value[0]!;
   assert(first.kind === "question");
   assertEquals(first.options, [
-    { key: "keep", label: "Keep both files", action: false },
-    { key: "move", label: "Move it", action: true },
+    { key: "keep", label: "Keep both files", action: false, command: null },
+    {
+      key: "move",
+      label: "Move it",
+      action: true,
+      command: "apply_settings",
+    },
   ]);
   assertEquals(first.recommended, "keep");
   const bodies = Object.fromEntries(

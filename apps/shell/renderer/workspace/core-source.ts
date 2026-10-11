@@ -9,7 +9,6 @@ import type {
 } from "../../ipc/workspace.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
 import type {
-  ContextRow,
   DocumentRow,
   FileRow,
   LayoutRead,
@@ -40,11 +39,6 @@ interface DocumentGetValue {
       | { kind: "instruction_file"; path: string }
       | null;
   };
-}
-
-interface ContextListValue {
-  contexts: { id: string; title: string }[];
-  next_cursor: string | null;
 }
 
 interface FileListValue {
@@ -177,25 +171,6 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
     project,
 
     documents: (id) => projectDocuments(core, id),
-
-    // 이 프로젝트의 활성 context(context.list). context는 project 안에만 있다.
-    contexts: (id) =>
-      collect<ContextRow>(
-        core,
-        "contexts",
-        "list",
-        { project: id, status: "active" },
-        (value) => {
-          const page = value as ContextListValue;
-          return {
-            items: page.contexts.map((context) => ({
-              id: context.id,
-              title: context.title,
-            })),
-            next: page.next_cursor,
-          };
-        },
-      ),
 
     // 팔레트 파일 묶음. files.list의 원본 파일 중 문서로 잡힌 것만 탭으로 열 수 있다.
     async files(id) {

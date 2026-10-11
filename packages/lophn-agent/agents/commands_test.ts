@@ -738,3 +738,75 @@ Deno.test("lophn-agent/agents#R7 [agent-I9]: settings of a place that does not e
     );
   });
 });
+
+// Operator 폴더의 avatar.* 이름을 정렬해 돌려준다.
+function avatarsIn(folder: string): string[] {
+  return [...Deno.readDirSync(folder)]
+    .map((entry) => entry.name)
+    .filter((name) => name.startsWith("avatar."))
+    .sort();
+}
+
+function reviewerFolder(root: string): string {
+  return `${placeDir(root, PROJECT)}/${ASG.reviewer}`;
+}
+
+function reviewerBody(profile: Record<string, unknown>) {
+  return {
+    place: PROJECT,
+    assignment: ASG.reviewer,
+    definition: { name: "Reviewer", profile, body: "Review drafts." },
+  };
+}
+
+Deno.test("lophn-agent/agents#R13 [agent-I17]: saving removes the avatar files the saved profile does not name, and an icon removes them all", async () => {
+  await withAgents(async (ctx) => {
+    const folder = reviewerFolder(ctx.root);
+    Deno.mkdirSync(folder, { recursive: true });
+    for (const ext of ["png", "jpg", "webp"]) {
+      Deno.writeFileSync(`${folder}/avatar.${ext}`, new Uint8Array([1, 2, 3]));
+    }
+    // 올린 파일은 저장 전까지 남는다. 저장이 profile이 가리키는 jpg만 남긴다.
+    saved(
+      await save(
+        ctx,
+        reviewerBody({ kind: "image", image: "avatar.jpg" }),
+        sha256(readAgentFile(ctx.root, PROJECT, REVIEWER_FILE)!),
+      ),
+    );
+    assertEquals(avatarsIn(folder), ["avatar.jpg"]);
+    // icon으로 저장하면 이미지 파일을 모두 지운다.
+    saved(
+      await save(
+        ctx,
+        reviewerBody({ kind: "icon", icon: "roles" }),
+        sha256(readAgentFile(ctx.root, PROJECT, REVIEWER_FILE)!),
+      ),
+    );
+    assertEquals(avatarsIn(folder), []);
+  });
+});
+
+Deno.test("lophn-agent/agents#R13 [agent-I17]: when an old avatar cannot be removed the save still succeeds and the definition is whole", async () => {
+  await withAgents(async (ctx) => {
+    const folder = reviewerFolder(ctx.root);
+    Deno.mkdirSync(folder, { recursive: true });
+    // 지우기가 실패하도록 시험 disk가 이 글을 가진 파일의 삭제를 던진다.
+    Deno.writeTextFileSync(`${folder}/avatar.png`, FAIL_MARKER);
+    const result = saved(
+      await save(
+        ctx,
+        reviewerBody({ kind: "image", image: "avatar.jpg" }),
+        sha256(readAgentFile(ctx.root, PROJECT, REVIEWER_FILE)!),
+      ),
+    );
+    assertEquals(result.assignment, ASG.reviewer);
+    const text = readAgentFile(ctx.root, PROJECT, REVIEWER_FILE)!;
+    assert(
+      text.includes("avatar.jpg"),
+      "the definition should name the new profile",
+    );
+    // 지우지 못한 파일은 정의가 가리키지 않아 그대로 남고, 다음 저장이 다시 지운다.
+    assertEquals(avatarsIn(folder), ["avatar.png"]);
+  });
+});

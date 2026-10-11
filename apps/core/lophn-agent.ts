@@ -13,6 +13,8 @@ import {
   runAdmission,
 } from "../../packages/platform/ledger/mod.ts";
 import {
+  agentProfilesRead,
+  agentProfilesUpload,
   assignmentPaused,
   InstructionAttachments,
   instructionRead,
@@ -75,6 +77,13 @@ import {
   type AssignmentRef,
   createAgentCommands,
   createAgentReads,
+  type ProfileAssetDeps,
+  type ProfileFileHandler,
+  profileImageFileHandler,
+  type ProfileImageFiles,
+  profileImageUploadHandler,
+  type ProfileReaders,
+  type ProfileUploadHandler,
 } from "../../packages/lophn-agent/agents/mod.ts";
 import {
   createRunCommands,
@@ -736,9 +745,29 @@ const NODE_AGENT_FILES = new URL(
   "../../packages/lophn-agent/agents/adapters/node-fs.ts",
   import.meta.url,
 ).href;
-const { createNodeAgentFiles } = await import(NODE_AGENT_FILES) as {
+const { createNodeAgentFiles, createNodeProfileImageFiles } = await import(
+  NODE_AGENT_FILES
+) as {
   createNodeAgentFiles(): AgentFileSystem;
+  createNodeProfileImageFiles(): ProfileImageFiles;
 };
+
+// profile 이미지 바이트의 upload·file 처리기다. core.ts가 route 이름으로 붙인다. 자리·역할의 판정은
+// runtime의 reader가 하고, 파일은 이 adapter로 core 프로세스에서 비동기로 읽고 쓴다.
+export function agentProfileHandlers(
+  readers: ProfileReaders,
+  dataRoot: string,
+): { upload: ProfileUploadHandler; file: ProfileFileHandler } {
+  const deps: ProfileAssetDeps = {
+    root: dataRoot,
+    files: createNodeProfileImageFiles(),
+    readers,
+  };
+  return {
+    upload: profileImageUploadHandler(deps),
+    file: profileImageFileHandler(deps),
+  };
+}
 
 const agentDeps: AgentDeps = {
   files: createNodeAgentFiles(),
@@ -909,6 +938,9 @@ export const lophnAgentDefinitions = {
   memoryRoutes: [runAppRevert, mcpAuthBegin, mcpAuthComplete],
   // 문서·format tool의 글 값 통로다. 서빙은 core 조립이 한다(apps/core/tool-documents.ts).
   workerRoutes: TOOL_DOCUMENT_ROUTES,
+  // profile 이미지의 바이트 입구(upload)와 읽기(file)다. 바이트를 붙이는 처리기는 core 조립(core.ts)이 route 이름으로 붙인다.
+  uploadRoutes: [agentProfilesUpload],
+  files: [agentProfilesRead],
   // MCP OAuth의 시작·완료 입구다(extensions R16). handler는 core 조립(apps/core)이
   // createMcpAuthControl로 붙인다. route만 등록한다.
 };

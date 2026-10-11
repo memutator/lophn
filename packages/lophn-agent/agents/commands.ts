@@ -8,6 +8,7 @@ import {
   agentsSave,
   placeAgentSettingsChange,
   placeAgentSettingsChanged,
+  type Profile,
 } from "../../contracts/lophn-agent/mod.ts";
 import type {
   CommandDefinition,
@@ -20,7 +21,8 @@ import type {
 import { serializeSettingsFile } from "./definition-file.ts";
 import { callableIn, openPlaceView, type PlaceView } from "./inspect.ts";
 import type { AgentDeps } from "./ports.ts";
-import { agentFileName, fileHash, SETTINGS_FILE } from "./store.ts";
+import { staleImagePaths } from "./profile-asset.ts";
+import { agentFileName, dataRootOf, fileHash, SETTINGS_FILE } from "./store.ts";
 import { checkSave, checkSettings } from "./validate.ts";
 
 // 정의와 자리 설정의 저장·삭제는 사람만 한다(route actors, R8). 순서는 입력 검사 → CAS 비교 → 쓰기 → event다.
@@ -33,6 +35,30 @@ function notFound(what: string): Result<never> {
 
 function conflict(what: string): Result<never> {
   return err({ code: "conflict", message: `${what} hash changed` });
+}
+
+// 정의를 쓴 뒤 저장한 profile이 가리키지 않는 `avatar.*`를 지운다(R13). 정의 파일은 이미 바뀌었으므로
+// 여기서 실패해도 저장을 되돌리지 않는다(되돌리면 파일과 ledger가 어긋난다). 지우지 못한 파일은 정의가
+// 가리키지 않아 agent의 답을 바꾸지 않고, 다음 저장이 목록을 다시 보고 지운다.
+function removeStaleImages(
+  deps: AgentDeps,
+  tx: Tx,
+  place: AgentPlace,
+  role: AgentRole,
+  assignment: string,
+  profile: Profile | undefined,
+): void {
+  const root = dataRootOf(tx.sql, deps.dataRoot);
+  if (!root.ok) return;
+  for (
+    const path of staleImagePaths(root.value, place, role, assignment, profile)
+  ) {
+    try {
+      deps.files.remove(path);
+    } catch {
+      // 다음 저장이 다시 지운다.
+    }
+  }
 }
 
 function placeView(
@@ -113,6 +139,7 @@ export function createAgentCommands(deps: AgentDeps): {
         });
         const written = store.write(place, agentFileName(role, id), text);
         if (!written.ok) return written;
+        removeStaleImages(deps, tx, place, role, id, definition.profile);
         return ok({ assignment: id, role, hash: after });
       },
     },

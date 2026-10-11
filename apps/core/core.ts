@@ -336,11 +336,14 @@ import { appExportWorkers } from "./apps-export.ts";
 import { ticketClaimSweepIntervalMs } from "./tickets.ts";
 import { testCredentialFront } from "./test-credentials.ts";
 import {
+  agentProfileHandlers,
   createMcpAuthControl,
   openMcpCallbackListener,
 } from "./lophn-agent.ts";
 import type { McpServerConfig } from "../../packages/contracts/lophn-agent/mod.ts";
 import {
+  agentProfilesRead,
+  agentProfilesUpload,
   mcpServersSetting,
   skillFoldersSetting,
 } from "../../packages/contracts/lophn-agent/mod.ts";
@@ -1420,6 +1423,10 @@ async function open(
         // 사람의 보호 입력 값: core는 해석·보관 없이 I/O worker의 keychain adapter로 흘린다.
         `${secretInput.resource}/${secretInput.method}`,
         secretInputHandler(secretInputRelay),
+      ], [
+        // profile 이미지 올리기: 자리·역할은 reader가 보고 파일은 core가 비동기로 쓴다(agents#R13).
+        `${agentProfilesUpload.resource}/${agentProfilesUpload.method}`,
+        agentProfileHandlers(runtime.readers, root.path).upload,
       ]]),
       // 큰 파일을 core 메모리에 모으지 않고 창 단위로 흘리는 file route.
       fileStreams: new Map([
@@ -1449,6 +1456,11 @@ async function open(
               operation: filesRead.name,
             }) as ReturnType<FilesRouteDeps["copyCheck"]>,
         }),
+        // profile 이미지 읽기: 정의의 profile이 가리키는 파일을 실제 형식의 Content-Type으로 흘린다.
+        [
+          `${agentProfilesRead.resource}/${agentProfilesRead.method}`,
+          agentProfileHandlers(runtime.readers, root.path).file,
+        ],
       ]),
       workers: mergedWorkers(
         fileWorkers({

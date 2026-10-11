@@ -63,3 +63,24 @@ Deno.test("lophn-agent/instructions#R7 [agent-I19]: 읽기 응답은 파일이 �
     }).success,
   );
 });
+
+Deno.test("lophn-agent/agents#Q1 [agent-R10]: documents가 같은 Tx에서 묻는 지침 첨부·Operator 출력 port와 그 값 schema는 contract에 없다", async () => {
+  const exported = await import("./mod.ts");
+  for (
+    const name of [
+      "InstructionAttachments",
+      "OperatorOutput",
+      "instructionAttachmentSchema",
+      "instructionAttachmentRefSchema",
+      "operatorOutputRefSchema",
+      "operatorOutputRefOutputSchema",
+    ]
+  ) {
+    assertEquals(name in exported, false, name);
+  }
+  // 상태 이름 목록은 assignment가 계속 쓴다.
+  assertEquals(
+    [...exported.ASSIGNMENT_STATES],
+    ["enabled", "paused", "withdrawn"],
+  );
+});

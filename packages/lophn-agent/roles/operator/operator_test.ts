@@ -178,7 +178,7 @@ Deno.test("lophn-agent/roles/operator#R3: 기획·설계·티켓·코드·컨텍
 
 const OPERATOR_CAP_TOOL_NAMES = ROLE_CAPS.get("operator")?.tools ?? [];
 
-Deno.test("lophn-agent/roles/operator#R4: Operator 상한은 preset context 읽기와 승인된 앱 read·outputs 새 version·질문으로 한정된다", () => {
+Deno.test("lophn-agent/roles/operator#R4: Operator 상한은 preset context 읽기와 승인된 앱 read·문서 새 version·질문으로 한정된다", () => {
   const cap = ROLE_CAPS.get("operator");
   assert(cap !== undefined);
   const listed = operatorTools(cap.tools);
@@ -203,13 +203,13 @@ Deno.test("lophn-agent/roles/operator#R4: Operator 상한은 preset context 읽�
   // 승인된 앱 read의 결과는 app.call_read_command·app.command_metadata다(R4).
   assert(OPERATOR_CAP_TOOL_NAMES.includes("app.call_read_command"));
   assert(OPERATOR_CAP_TOOL_NAMES.includes("app.command_metadata"));
-  // outputs 새 version과 질문·승인 read도 있다(R5).
+  // 문서 새 version과 질문·승인 read도 있다(R5).
   assert(OPERATOR_CAP_TOOL_NAMES.includes("document.save_version"));
   assert(OPERATOR_CAP_TOOL_NAMES.includes("question.submit"));
   assert(OPERATOR_CAP_TOOL_NAMES.includes("approval.read_decision"));
 });
 
-Deno.test("lophn-agent/roles/operator#R5: 새 문서 생성·선언 밖 쓰기·write·external·confirm은 상한과 정의 어디에도 없다", () => {
+Deno.test("lophn-agent/roles/operator#R5: 새 문서 생성·앱 write·external·confirm은 상한과 정의 어디에도 없다", () => {
   const cap = ROLE_CAPS.get("operator");
   assert(cap !== undefined);
   const listed = operatorTools(cap.tools);
@@ -436,20 +436,37 @@ Deno.test("lophn-agent/roles/operator#R9: Operator 상한은 model 이름을 고
 
 // --- R7: 승인한 기존 문서의 새 version -----------------------------------------------
 
-Deno.test("lophn-agent/roles/operator#R7: outputs 새 version은 회차마다 승인을 다시 묻지 않고 자리·형식 변경·선언 밖 문서 쓰기가 없다", () => {
-  // save_version은 builtin definition 그대로다: 회차마다 approval을 다시 묻는
-  // confirm이 없고(R7), 저장 범위는 선언된 남길 문서뿐이다.
+Deno.test("lophn-agent/roles/operator#R7 [agent-R10]: 문서 새 version tool은 회차마다 승인을 다시 묻지 않고 정의의 권한에 있을 때만 제공되며 출력 선언 같은 별도 제한은 없다", () => {
+  // save_version은 builtin definition 그대로다: 회차마다 approval을 다시 묻는 confirm이 없다(R7).
+  // 쓸 수 있는 자리는 담당 자리이고 쓰기마다의 판정은 tool-judgment가 한다.
   const defined = BUILTIN_TOOLS.find((tool) =>
     tool.name === "document.save_version"
   );
   assert(defined !== undefined);
   assertEquals(defined.confirm, false);
-  // 저장 범위는 documents/versions의 operator-output이 정한다. 자리·형식·선언
-  // 밖 문서는 scopeCheck 문장의 범위밖이고 역할 상한 어디에도 format·place 쓰기
-  // tool이 없다(R7).
+  assertEquals(defined.effect, "write");
+  assertEquals(defined.reversible, true);
+  // 정의의 권한에 있으면 제공된다.
+  const granted = ROLE_CAPS.get("operator")!.tools;
+  assert(operatorOffers("document.save_version", granted));
+  // 정의의 권한에서 뺀 Operator에는 제공되지 않는다. 읽기 tool은 그대로다.
+  const withheld = granted.filter((name) => name !== "document.save_version");
+  assertEquals(operatorOffers("document.save_version", withheld), false);
   assertEquals(
-    defined.scopeCheck,
-    "documents this run's request covers",
+    operatorTools(withheld).some((tool) =>
+      tool.name === "document.save_version"
+    ),
+    false,
+  );
+  assert(operatorOffers("document.read_version", withheld));
+  // 읽기만 고른 정의는 문서에 쓰는 tool을 하나도 받지 않는다.
+  const readOnly = granted.filter((name) =>
+    !["document.save_version", "document.create"].includes(name)
+  );
+  assertEquals(
+    operatorTools(readOnly).filter((tool) => tool.effect !== "read")
+      .map((tool) => tool.name),
+    ["question.submit"],
   );
   const cap = ROLE_CAPS.get("operator");
   assert(cap !== undefined);

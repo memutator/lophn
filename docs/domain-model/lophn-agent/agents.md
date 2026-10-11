@@ -296,7 +296,7 @@ Operator의 자리는 project 또는 앱 하나이고 context는 자료 선택�
 
 ## 정할 것
 
-- Operator가 문서를 쓸 수 있는 범위(남길 문서를 없앤 뒤): lophn-agent/agents#Q1.
+- Operator가 문서를 쓸 수 있는 범위(남길 문서를 없앤 뒤)는 추천안으로 진행한다: 정의의 권한 안에서 담당 자리의 문서에 쓰고 쓰기마다의 판정은 lophn-agent/harness/tool-judgment가 한다. lophn-agent/agents#Q1.
 
 ## 파일 모양
 

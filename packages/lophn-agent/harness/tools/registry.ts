@@ -164,7 +164,9 @@ export function listTools(
 // 받는 저장은 core가 같은 자격으로 `document.prepare`·`document.save`를 부른다(documents의
 // 저장 범위와 기준 판 비교를 그대로 적용하려고 요청한 agent의 자격으로 부른다).
 const SUPPORTING_OPERATIONS: ReadonlyMap<string, readonly string[]> = new Map([
-  ["SaveToolDocument", ["document.prepare", "document.save"]],
+  // 판정이 Operator의 쓰기 대상 문서가 담당 자리에 있는지 같은 자격으로 `document.get`을 읽어 본다
+  // (harness/tool-judgment, roles/operator#R7).
+  ["SaveToolDocument", ["document.prepare", "document.save", "document.get"]],
   // 문제 해석 연결은 command 전에 같은 자격으로 해석 문서의 고정 version·절과 문제의 현재
   // 참조를 읽어 확인한다(problems#T19, problems/grouping#R13).
   [

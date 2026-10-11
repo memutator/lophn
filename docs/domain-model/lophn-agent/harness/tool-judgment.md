@@ -48,6 +48,7 @@ approval 결정과 Run.source를 조회해 계산하는 값이다. 영구 허락
 |---|---|---|
 | 인증 실패, Assignment paused·withdrawn, Run 종료·호출 진입 불가, 모르는 동작·효과, 잘못된 입력 | `deny` | 미실행; approval request 없음 |
 | RunBasis.tools의 고정 제공 목록 밖(capability·선택 MCP·skill 읽기 동작의 검증된 합집합), 현재 Assignment 자리(scope) 밖 또는 resolved agent의 context 선택 밖의 일반 자료 읽기, 앱 Operator 정의의 `app_reads`·개별 confirm=false read command 밖 | `deny` | 미실행; 한 번 승인으로 범위 확장 불가 |
+| Operator의 문서 쓰기 대상이 그 Operator 담당 자리(project 또는 앱)의 문서가 아님(다른 자리·자리 없음·읽을 수 없음) | `deny` | 미실행; 정의의 권한에 그 tool이 있어도 한 번 승인으로 열지 않음; 자리 안 문서는 아래 쓰기 판정을 평소처럼 따름 |
 | 같은 Run 또는 원래 사람 요청의 handoff 계보에서 이미 사람이 거절한 같은 동작·대상·입력 | `deny` | 다시 묻지 않음; 사람의 새 독립 요청은 별도 |
 | 지침 파일·그 문서 Version의 agent 변경, CE가 사람 질문의 미답을 추천 수락으로 보고 한 용어·경계 확정, agent의 agent 정의 저장·Operator 만들기·Assignment 변경, 문제 닫기·test result 작성·문서 이동·앱 등록·사람 대신 결정 | `deny` | 책임 밖; 대상 concern의 사람·machine 계약만 사용 |
 | 유효한 앱 command이며 confirm=true | `ask` | read·undo 여부와 무관하게 apps/invocations·platform/approvals의 정확한 approval 사용 |

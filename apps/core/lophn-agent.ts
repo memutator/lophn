@@ -17,9 +17,7 @@ import {
   agentProfilesUpload,
   assignmentPaused,
   createOperatorAssignment,
-  InstructionAttachments,
   instructionRead,
-  OperatorOutput,
   questionCreated,
   runAccepted,
   runAppRevert,
@@ -573,28 +571,6 @@ const approvalLineagePort = defineTxPort(approvalRunLineage, (tx) => ({
   },
 }));
 
-// documents가 document.save·update의 같은 Tx에서 묻는 지침 문서 판정이다(documents/versions#R20).
-// 지침 첨부를 가진 preset이 없어져 지침으로 묶인 문서가 없다. 이 port와 documents의 검사는
-// 다음 정리에서 함께 지운다.
-const instructionAttachmentsPort = defineTxPort(
-  InstructionAttachments,
-  () => ({ attachments: () => ok([]) }),
-);
-
-// documents가 document.save의 같은 Tx에서 묻는 Operator 출력 판정이다(documents/versions#R14).
-// 남길 문서 선언이 없어져 어떤 문서도 Operator의 출력이 아니다. 이 제한은 Operator output
-// 정리(agent-R10)가 port째 지운다. 그때까지 Operator의 문서 저장은 닫힌 채다.
-const operatorOutputPort = defineTxPort(OperatorOutput, (tx) => ({
-  output: () => ok(null),
-  isOperator: (assignment: string) =>
-    ok(
-      tx.sql.get(
-        "select 1 as found from assignments where id = ? and role = 'operator'",
-        [assignment],
-      ) !== undefined,
-    ),
-}));
-
 // agent 정의 저장소(concern lophn-agent/agents)가 다른 concern에서 읽는 값이다. 읽기는 snapshot과 Tx가
 // 같은 sql 모양이라 한 factory를 함께 쓴다. data root는 ledger 파일이 있는 폴더다.
 function agentAssignmentRef(row: SqlRow): AssignmentRef {
@@ -1010,8 +986,6 @@ export const lophnAgentDefinitions = {
   ports: [
     runAdmissionPort,
     approvalLineagePort,
-    instructionAttachmentsPort,
-    operatorOutputPort,
     questionOptionPort,
   ],
   workers: [],

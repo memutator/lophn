@@ -18,7 +18,6 @@ import {
 const TARGET: TargetFact = {
   id: "doc_01h455vb4pex5v6nkc6gd5fdw1",
   inScope: true,
-  declared: true,
   reversibility: "reversible",
 };
 
@@ -108,22 +107,22 @@ Deno.test("lophn-agent/harness/tool-judgment#R3: 범위 안 읽기와 사람 요
   assertEquals(judge(facts({ roleAllows: false })).decision, "deny");
 });
 
-Deno.test("lophn-agent/harness/tool-judgment#R4: 주기 run은 선언된 남길 문서의 새 version만 allow로 저장하고 선언 밖 쓰기는 approval request 없이 거절된다", () => {
-  // 선언된 남길 문서의 쓰기는 재확인 없이 allow다(R4).
-  assertEquals(judge(facts({ origin: "periodic" })).decision, "allow");
+Deno.test("lophn-agent/harness/tool-judgment#R3 lophn-agent/roles/operator#R7 [agent-R10]: 남길 문서 선언이 없으므로 문서 쓰기는 출처가 사람 요청이면 일반 판정을 따르고 선언 여부는 판정에 들어가지 않는다", () => {
+  // 대상 사실에 선언 칸이 없다: 되돌릴 수 있는 쓰기는 allow, 보장 없는 쓰기는 ask, 범위 밖은 deny다.
+  assert(!("declared" in TARGET));
+  assertEquals(judge(facts()).decision, "allow");
+  assertEquals(judge(facts()).effect, "reversible_write");
   assertEquals(
-    judge(facts({ origin: "periodic" })).effect,
-    "reversible_write",
+    judge(facts({ targets: [target("1", { reversibility: "unknown" })] }))
+      .decision,
+    "ask",
   );
-  // 선언 밖 문서 쓰기는 ask가 아니라 deny다(R4).
   assertEquals(
-    judge(facts({
-      origin: "periodic",
-      targets: [target("2", { declared: false })],
-    })).decision,
+    judge(facts({ targets: [target("1", { inScope: false })] })).decision,
     "deny",
   );
-  // 주기 run의 읽기는 여전히 allow다(R4).
+  // 주기 출처는 받을 선언이 없어 쓰기를 열지 않는다. 읽기는 그대로 allow다.
+  assertEquals(judge(facts({ origin: "periodic" })).decision, "deny");
   assertEquals(
     judge(facts({ origin: "periodic", effect: "read" })).decision,
     "allow",
@@ -142,14 +141,6 @@ Deno.test("lophn-agent/harness/tool-judgment#R5: 대상 여러 개는 deny 하�
     "deny",
   );
   assertEquals(judge(facts({ targets: [outside, asks] })).decision, "deny");
-  // 되돌릴 수 있는 쓰기와 주기 run의 deny가 섞이지 않게: 선언 안 된 대상이 섞이면 deny다.
-  assertEquals(
-    judge(facts({
-      origin: "periodic",
-      targets: [target("1", { declared: false })],
-    })).decision,
-    "deny",
-  );
 });
 
 Deno.test("lophn-agent/harness/tool-judgment#R7: 판정은 사실만 입력으로 받고 어떤 조합에서도 되돌릴 수 없는 call·confirm을 allow로 낮추는 모드가 없다", () => {

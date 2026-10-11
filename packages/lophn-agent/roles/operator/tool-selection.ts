@@ -14,9 +14,9 @@ import { ROLE_CAPS } from "../../agents/mod.ts";
 // 아니라 blueprint 정의와 AgentAppScope(harness/run-loop/scope.ts)의 교집합이라
 // 여기에 없다(R4, R5). 노출 상한은 APP_COMMAND_EXPOSURE 표가 둔다(presets/role-caps.ts).
 //
-// outputs 새 version(`document.save_version`)은 상한 교집합의 내장 tool이지만 저장
-// 범위(선언된 남길 문서만, 새 문서·자리·format 변경 금지)는 documents/versions의
-// operator-output이 정하고 이 모듈은 그 규칙을 다시 만들지 않다(R6, R7).
+// 문서 새 version(`document.save_version`)은 정의의 권한에 있을 때만 제공되는 내장 tool이다.
+// 어느 문서에 쓸 수 있는지(담당 자리)와 되돌림·ask 판정은 쓰기마다 harness/tool-judgment가
+// 하고 이 모듈은 그 규칙을 다시 만들지 않는다(R5, R7).
 
 // operator의 현재 제공 목록이다. Operator의 preset 선택이 고정돼 있으면 상한
 // 교집합의 내장 tool이고, 아니면 빈 목록이다.

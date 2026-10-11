@@ -20,7 +20,7 @@ import { createLedgerRegistration as createDocumentsRegistration } from "./docum
 import { createLedgerRegistration as createAppsRegistration } from "./apps.ts";
 import { lophnAgentDefinitions } from "./lophn-agent.ts";
 
-// 지침 첨부 판정 port(InstructionAttachments)는 lophn-agent가 등록한다. 제품 기동처럼 함께 띄운다.
+// lophn-agent 정의와 documents·apps를 제품 기동처럼 함께 띄운다.
 const teams: TeamModule[] = [
   { lophnAgentDefinitions },
   { createLedgerRegistration: createDocumentsRegistration },

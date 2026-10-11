@@ -1031,11 +1031,13 @@ Deno.test("lophn-agent/harness/tools#R6: run 자격의 operation은 제공 목�
   assertEquals(reading.includes("document.prepare"), false);
   assertEquals(reading.includes("SaveToolDocument"), false);
   assert(reading.includes("document.read"));
+  // 저장 tool은 판정이 Operator의 대상 문서 자리를 읽는 `document.get`도 같은 자격에 더한다.
   const writing = runOperations(byName(["document.save_version"]));
   assertEquals(writing, [
     "SaveToolDocument",
     "document.prepare",
     "document.save",
+    "document.get",
   ]);
   // 이동·이름 변경·보관 같은 직접 관리 operation은 어느 목록에서도 나오지 않는다.
   const all = runOperations(BUILTIN_TOOLS);

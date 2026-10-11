@@ -393,7 +393,7 @@ Deno.test("lophn-agent/agents#R2 [agent-I9]: a built-in saves into the place wit
       ),
       ["contexts:not_allowed", "name:not_allowed"],
     );
-    // Context Engineer는 앱에, App Engineer는 project에 놓이지 않는다.
+    // Context Engineer는 project에서만 부른다. 전역 assignment라 앱 자리로 와도 자리가 허락하지 않는다.
     assertEquals(
       issuesOf(
         await save(ctx, {
@@ -404,15 +404,14 @@ Deno.test("lophn-agent/agents#R2 [agent-I9]: a built-in saves into the place wit
       ),
       ["place:not_allowed"],
     );
-    assertEquals(
-      issuesOf(
-        await save(ctx, {
-          place: PROJECT,
-          assignment: ASG.app_engineer,
-          definition: { body: "x" },
-        }, null),
-      ),
-      ["place:not_allowed"],
+    // App Engineer는 그 앱의 assignment라 project에서는 이 자리의 agent가 아니다.
+    failure(
+      await save(ctx, {
+        place: PROJECT,
+        assignment: ASG.app_engineer,
+        definition: { body: "x" },
+      }, null),
+      "not_found",
     );
   });
 });

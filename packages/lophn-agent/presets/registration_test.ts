@@ -19,10 +19,21 @@ import type { ValidateDeps } from "./validate.ts";
 // 검증 deps는 테스트 값 대체다(R10, R13). catalog 대체는 T4 파생 파일 read 자리로
 // reader worker 등록 경로다(plan/lophn-agent Q28).
 
+export const TEST_CONTEXTS: ReadonlyMap<
+  string,
+  "drafting" | "active" | "archived"
+> = new Map([
+  ["ctx_01arz3ndektsv4rrffq69g5fa1", "active"],
+  ["ctx_01arz3ndektsv4rrffq69g5fa2", "drafting"],
+  ["ctx_01arz3ndektsv4rrffq69g5fa3", "archived"],
+]);
+
 export function presetValidateDeps(
   overrides?: Partial<ValidateDeps>,
 ): ValidateDeps {
   return {
+    // 시험용 context 상태 표다. documents/contexts 표 대신 고정 ID로 세 상태를 낸다.
+    contextStatus: (context: string) => TEST_CONTEXTS.get(context),
     bundles: new Map([
       ["read-only", [...DOCUMENT_READ_TOOLS.slice(0, 2)]],
     ]),

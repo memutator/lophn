@@ -416,6 +416,101 @@ Deno.test("lophn-agent/presets#R11: unknown bundle, MCP server and safe tool are
   }
 });
 
+const CTX_ACTIVE = "ctx_01arz3ndektsv4rrffq69g5fa1";
+const CTX_DRAFTING = "ctx_01arz3ndektsv4rrffq69g5fa2";
+const CTX_ARCHIVED = "ctx_01arz3ndektsv4rrffq69g5fa3";
+const CTX_MISSING = "ctx_01arz3ndektsv4rrffq69g5fa4";
+
+const select = (target: string) => ({ kind: "context", target, section: null });
+
+function itemOf(result: Result<unknown>): string | undefined {
+  return (result as { error?: { details?: { item?: string } } }).error
+    ?.details?.item;
+}
+
+async function presetCount(h: LedgerHarness): Promise<unknown> {
+  return rows(await h.inspect("select count(*) as n from presets", []))[0]![
+    "n"
+  ];
+}
+
+Deno.test("lophn-agent/presets#R11 [ctx-I58]: a context selection naming an unknown context is rejected with the selection as the item", async () => {
+  const h = await open();
+  try {
+    // 정상 선택(active, drafting)과 없는 context를 함께 내면 전체가 거절이다.
+    const rejected = await create(h, "Review", {
+      context: [select(CTX_ACTIVE), select(CTX_MISSING)],
+    });
+    code(rejected, "not_found");
+    assertEquals(itemOf(rejected), `context:${CTX_MISSING}`);
+    // 어느 일부도 남지 않는다.
+    assertEquals(await presetCount(h), 0n);
+  } finally {
+    await h.close();
+  }
+});
+
+Deno.test("lophn-agent/presets#R11 [ctx-I58]: a context selection naming an archived context is rejected on create and revise", async () => {
+  const h = await open();
+  try {
+    const rejected = await create(h, "Review", {
+      context: [select(CTX_ARCHIVED)],
+    });
+    code(rejected, "conflict");
+    assertEquals(itemOf(rejected), `context:${CTX_ARCHIVED}`);
+    assertEquals(await presetCount(h), 0n);
+
+    // 유효한 선택으로 저장한 뒤 보관한 context로 판을 고치면 거절이고 현재 판이 그대로다.
+    value(await create(h, "Review", { context: [select(CTX_ACTIVE)] }));
+    const revised = await h.command(
+      userCred,
+      envelope(
+        "RevisePreset",
+        {
+          preset: "pst_01arz3ndektsv4rrffq69g5fav",
+          definition: definitionJson({
+            name: "Review",
+            context: [select(CTX_ARCHIVED)],
+          }),
+          reason: "pick archived",
+        },
+        { revision: 1 },
+      ),
+    );
+    code(revised, "conflict");
+    assertEquals(itemOf(revised), `context:${CTX_ARCHIVED}`);
+    assertEquals(
+      rows(await h.inspect("select revision from presets", []))[0]!["revision"],
+      1n,
+    );
+  } finally {
+    await h.close();
+  }
+});
+
+Deno.test("lophn-agent/presets#R11 [ctx-I58]: active and drafting contexts are accepted and all/project selections are not checked here", async () => {
+  const h = await open();
+  try {
+    value(
+      await create(h, "Review", {
+        context: [
+          select(CTX_ACTIVE),
+          select(CTX_DRAFTING),
+          { kind: "all", target: null, section: null },
+          {
+            kind: "project",
+            target: "prj_01arz3ndektsv4rrffq69g5fav",
+            section: null,
+          },
+        ],
+      }),
+    );
+    assertEquals(await presetCount(h), 1n);
+  } finally {
+    await h.close();
+  }
+});
+
 Deno.test("lophn-agent/presets#R12: revision failure keeps the previous revision and past revisions stay", async () => {
   const h = await open();
   try {

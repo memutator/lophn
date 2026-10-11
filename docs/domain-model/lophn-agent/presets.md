@@ -46,7 +46,7 @@ Preset 판 전체는 immutable blob이다. product 기본 preset은 역할별 �
 
 `work_place`는 세션 작업 자리, `assignment_scope`는 담당 범위에서 resolve한다. 선택 자료가 다른 project/app의 것이면 읽기 상한을 넘을 수 없으며 context의 계약·주소가 무제한 파일 접근을 만들지 않는다. 매 call 현재 접근 허락을 검사한다. 담당 범위와 읽을 자료의 scope는 같은 필드가 아니다.
 
-`kind=context`의 `target`은 실제 있고 보관되지 않은 context ID여야 하며 저장·적용 때 검사한다. `all`과 `project`는 실행 때 세션 작업 자리 또는 담당 범위가 가리키는 project의 active context들로 풀리고 보관한 context는 빼며, project가 정해지지 않으면 context 자료 0개다. 풀린 context마다 자료 하나가 prompt에 들어간다. → lophn-agent/harness/prompt-assemble.
+`kind=context`의 `target`은 실제 있고 보관되지 않은 context ID여야 하며 저장·적용 때 검사한다. 만드는 중(drafting)인 context도 보관되지 않았으므로 고를 수 있다. 없는 context는 `not_found`, 보관한 context는 `conflict`로 거절하고 어느 선택인지 항목(`context:<ID>`)에 밝힌다. 저장 뒤 선택한 context가 보관되어도 저장한 판은 바뀌지 않고 실행 때 자료에서 빠지며, 그 판을 다시 저장하려면 선택을 고쳐야 한다. `all`과 `project`는 실행 때 세션 작업 자리 또는 담당 범위가 가리키는 project의 active context들로 풀리고 보관한 context는 빼며, project가 정해지지 않으면 context 자료 0개다. 풀린 context마다 자료 하나가 prompt에 들어간다. → lophn-agent/harness/prompt-assemble.
 
 ## McpSelection (값)
 

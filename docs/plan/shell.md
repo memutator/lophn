@@ -1238,6 +1238,24 @@ concerns: [shell]
   - core 끊김에서는 초안·마지막 read·터미널을 유지하고 새 파일 쓰기·결정 제출 gate를 닫으며 "최신 확인 못함"과 확인 시각을 보인다.
   - flow work-offline, install-lophn(실패 갈래) 화면에서 두 끊김 상태의 동작을 테스트한다.
 
+### T64 project sidebar: folder·context item 선택
+
+- 상태: 완료 (#582)
+- 등급: frontend
+- concern: shell/desktop, shell/workspace
+- 요구: shell/desktop#R28
+- 자리: apps/shell/renderer/workspace/sidebar/, apps/shell/renderer/workspace/(source·core-source·workspace), apps/shell/renderer/desktop/dev-seed.ts, apps/shell/renderer/desktop/dev-mock/mod.ts
+- 쓰는 contract: 없음(documents.list·files.list·contexts.list 읽기 그대로)
+- 내놓는 contract: 없음
+- slice: workspace
+- 선행: shell#T14
+- 완료: 아래 확인이 통과한다
+  - 원인: sidebar의 folder 행과 context 행은 `onClick` 없이 누를 수 없는 `<span>`으로만 그려졌고, 작업대도 context를 여는 `onContext`를 sidebar에 잇지 않았다(문서 행만 연결됐다). 화면 오류가 아니라 처음부터 동작이 없었다. mock의 연관 context id(`ctx_design`)도 contexts 화면 mock에 없는 id였다.
+  - folder 행은 눌러 고르고 펼치고 접으며(`aria-expanded`, 고른 행 표시) 펼치면 그 폴더 안 문서가 들여 쓴 행으로 나와 눌러 탭으로 연다. 폴더에 문서가 없으면 안내 글 한 줄이다. 폴더와 문서의 소속은 `files.list`에서 얻은 `FileRow.folder`(등록 폴더 경로)로 정하고 core 통로와 dev 시드가 모두 채운다.
+  - context 행은 눌러 기존 contexts 화면의 그 컨텍스트를 연다(`onContext`, 정보 패널·팔레트와 같은 통로). context 모델과 화면은 새로 만들지 않는다.
+  - mock 모드(`deno task dev:mock`)의 연관 context는 contexts 화면 mock의 Focus를 가리켜 눌러 열면 그 화면이 나온다.
+  - `workspace/sidebar/sidebar_test.tsx`, `workspace/workspace_test.tsx`의 shell/desktop#R28 테스트가 통과한다.
+
 ## 요구 덮기
 
 shell 최상위의 요구는 8개 leaf에 177개이고 모두 위 작업의 `요구:`에 들어 있다.

@@ -1488,6 +1488,7 @@ export const en = {
   "project-workspace.button.turn-on-tracking": "Turn on tracking",
   "project-workspace.empty.no-contexts": "No related contexts.",
   "project-workspace.empty.no-documents": "No documents yet.",
+  "project-workspace.empty.no-folder-documents": "No documents in this folder.",
   "project-workspace.empty.no-folders": "No project folder.",
   "project-workspace.empty.no-tabs": "Nothing open in this pane.",
   "project-workspace.error.load-failed": "Couldn't load this project.",

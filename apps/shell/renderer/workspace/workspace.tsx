@@ -672,6 +672,7 @@ export function Workspace(
           project={loaded.project}
           documents={loaded.documents}
           contexts={loaded.contexts}
+          files={loaded.files}
           current={focused?.selected ?? null}
           onLauncher={onLauncher}
           onToggle={() =>
@@ -680,6 +681,7 @@ export function Workspace(
               collapsedByUser: sidebarShown.mode !== "collapsed",
             }))}
           onOpenDocument={openDocument}
+          onOpenContext={onContext}
           onResizeStart={(event) => {
             const start = sidebar.chosenWidth;
             const startShown = sidebarShown.width;

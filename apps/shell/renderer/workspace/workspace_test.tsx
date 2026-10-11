@@ -91,6 +91,49 @@ Deno.test("shell/desktop#R28: 작업대는 프로젝트의 폴더·문서·컨�
   );
 });
 
+Deno.test("shell/desktop#R28: sidebar의 폴더 안 문서는 탭으로 열리고 컨텍스트 행은 onContext로 이어진다", async () => {
+  const { source } = sourceOf();
+  const base = source.files;
+  source.files = (project) =>
+    base(project).then(() => ({
+      ok: true as const,
+      value: [{
+        folder: "/work/lophn",
+        path: "docs/notes.md",
+        document: "doc_1",
+        title: "notes",
+      }],
+    }));
+  const contexts: string[] = [];
+  using view = render(
+    <Workspace
+      projectId="prj_1"
+      source={source}
+      windowWidth={1600}
+      bodyWidth={1200}
+      onLauncher={() => {}}
+      onLophn={() => {}}
+      onContext={(context) => contexts.push(context)}
+    />,
+  );
+  await flush();
+  act(() =>
+    (view.container.querySelector("[data-folder]") as HTMLElement).click()
+  );
+  act(() =>
+    (view.container.querySelector("[data-folder-document]") as HTMLElement)
+      .click()
+  );
+  assertEquals(
+    view.container.querySelector("[data-tab]")?.getAttribute("data-tab"),
+    "doc_1",
+  );
+  act(() =>
+    (view.container.querySelector("[data-context]") as HTMLElement).click()
+  );
+  assertEquals(contexts, ["ctx_1"]);
+});
+
 Deno.test("shell/workspace#R6: 저장된 layout의 탭·칸·선택을 복원해 그린다", async () => {
   const { source } = sourceOf({
     panes: [

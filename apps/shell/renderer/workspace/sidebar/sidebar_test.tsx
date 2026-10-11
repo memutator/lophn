@@ -122,3 +122,47 @@ Deno.test("shell/desktop#R22: 접힘 버튼이 사람의 접힘을 바꾼다", (
   act(() => toggle.click());
   assertEquals(toggled, [1]);
 });
+
+Deno.test("shell/desktop#R28: 폴더 행은 눌러 펼치고 그 아래 문서를 열며 컨텍스트 행은 컨텍스트를 연다", () => {
+  const opened: string[] = [];
+  const contexts: string[] = [];
+  using view = render(
+    <Sidebar
+      mode="open"
+      width={240}
+      project={project}
+      documents={[{ id: "doc_1", title: "notes" }]}
+      contexts={[{ id: "ctx_1", title: "design" }]}
+      files={[
+        {
+          folder: "/work/lophn",
+          path: "docs/notes.md",
+          document: "doc_1",
+          title: "notes",
+        },
+      ]}
+      onLauncher={() => {}}
+      onToggle={() => {}}
+      onOpenDocument={(document) => opened.push(document.id)}
+      onOpenContext={(context) => contexts.push(context)}
+    />,
+  );
+  const folder = view.container.querySelector("[data-folder]") as HTMLElement;
+  assertEquals(folder.getAttribute("aria-expanded"), "false");
+  assertEquals(view.container.querySelector("[data-folder-document]"), null);
+  act(() => folder.click());
+  assertEquals(folder.getAttribute("aria-expanded"), "true");
+  assertEquals(folder.getAttribute("aria-current"), "page");
+  const inside = view.container.querySelector(
+    "[data-folder-document]",
+  ) as HTMLElement;
+  act(() => inside.click());
+  assertEquals(opened, ["doc_1"]);
+  act(() => folder.click());
+  assertEquals(folder.getAttribute("aria-expanded"), "false");
+  assertEquals(view.container.querySelector("[data-folder-document]"), null);
+
+  const context = view.container.querySelector("[data-context]") as HTMLElement;
+  act(() => context.click());
+  assertEquals(contexts, ["ctx_1"]);
+});

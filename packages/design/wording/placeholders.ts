@@ -1497,6 +1497,7 @@ export type PlaceholderKinds = {
   "project-workspace.button.turn-on-tracking": Record<never, never>;
   "project-workspace.empty.no-contexts": Record<never, never>;
   "project-workspace.empty.no-documents": Record<never, never>;
+  "project-workspace.empty.no-folder-documents": Record<never, never>;
   "project-workspace.empty.no-folders": Record<never, never>;
   "project-workspace.empty.no-tabs": Record<never, never>;
   "project-workspace.error.load-failed": Record<never, never>;

@@ -47,7 +47,7 @@ const left = (selected: TabSpec, ...others: TabSpec[]): PaneInit => ({
 // toast가 화면에 남은 채로 보이도록 시간이 가지 않는 timer를 준다.
 const NO_TIMER = { set: () => 0, clear: () => {} };
 
-/** C1: 탭 kind 확장. 문서·Context·Search·Terminal 탭과 오른쪽 칸의 대화 탭. */
+/** C1: 탭 kind 확장. 문서·Context·Search·Terminal 탭과 오른쪽 칸의 Agent 탭. */
 export function TabKinds() {
   return (
     <ProjectApp
@@ -57,7 +57,7 @@ export function TabKinds() {
   );
 }
 
-/** C1b: + 메뉴를 펼친 상태. New tab → Document, Terminal, Conversation ▸, Context, Search, App panel. */
+/** C1b: + 메뉴를 펼친 상태. New tab → Document, Terminal, Agent ▸, Context, Search, App panel. */
 export function NewTabMenu() {
   return (
     <ProjectApp
@@ -67,18 +67,18 @@ export function NewTabMenu() {
         <div className={styles.menus}>
           <StaticMenu
             head="New tab"
-            highlighted="Conversation"
+            highlighted="Agent"
             items={[
               { label: "Document" },
               { label: "Terminal" },
-              { label: "Conversation", more: true },
+              { label: "Agent", more: true },
               { label: "Context" },
               { label: "Search" },
               { label: "App panel" },
             ]}
           />
           <StaticMenu
-            head="Conversation with"
+            head="Agent"
             width={180}
             items={[
               { label: "lophn" },

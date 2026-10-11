@@ -16,6 +16,14 @@ import {
   workspaceIcons,
 } from "@lophn/design/components";
 
+import { AgentsBody, OperatorEditor } from "./agents-tab.tsx";
+import {
+  AGENTS_TAB,
+  askLophnTab,
+  conversationTab,
+  newConversationTab,
+  weeklyTab,
+} from "./agents-data.ts";
 import { ContextsBody, SearchBody, TerminalBody } from "./bodies.tsx";
 import { ContextBody, type SubTab } from "./context-body.tsx";
 import { Conversation } from "./conversation.tsx";
@@ -52,23 +60,25 @@ export interface ProjectAppProps {
   readonly children?: ReactNode;
   /** 계약 위반 toast를 띄운 채 시작한다. [View]는 그 context의 Violations를 연다. */
   readonly violationToast?: boolean;
+  /** program이 판정한 일을 알리는 toast("3 scenarios failed …")를 띄운 채 시작한다. [Ask lophn]은 그 일을 첫 context로 붙인 새 Agent 탭을 연다. */
+  readonly askToast?: boolean;
   /** 이 문서 탭(key)의 info 칸을 이 panel로 연 채 시작한다. */
   readonly info?: { readonly tab: string; readonly panel: InfoPanel };
 }
 
-const FLUSH = new Set(["search", "conversation", "terminal", "document"]);
+const FLUSH = new Set(["search", "agent", "terminal", "document"]);
 
 // toast가 화면에 남은 채로 보이도록 시간이 가지 않는 timer를 준다.
 const NO_TIMER = { set: () => 0, clear: () => {} };
 
 export const CHAT_TAB: TabSpec = {
   key: "chat",
-  kind: "conversation",
+  kind: "agent",
   title: "lophn",
 };
 export const ENGINEER_TAB: TabSpec = {
   key: "chat:engineer",
-  kind: "conversation",
+  kind: "agent",
   title: "Context Engineer",
   sub: "engineer",
 };
@@ -86,8 +96,12 @@ function crumbsOf(tab: TabSpec | undefined): string[] {
       return ["phroner", "Search"];
     case "terminal":
       return ["phroner", "Terminal"];
-    case "conversation":
+    case "agent":
       return ["phroner", tab.title];
+    case "agents":
+      return ["phroner", "Agents"];
+    case "operator":
+      return ["phroner", "Agents", tab.title];
   }
 }
 
@@ -142,6 +156,7 @@ export function ProjectApp(
     overlay,
     children,
     violationToast = false,
+    askToast = false,
     info: initialInfo,
   }: ProjectAppProps,
 ) {
@@ -155,6 +170,7 @@ export function ProjectApp(
   const [editing, setEditing] = useState<ReadonlySet<string>>(new Set());
   const [answer, setAnswer] = useState<string | null>(null);
   const [toast, setToast] = useState(violationToast);
+  const [ask, setAsk] = useState(askToast);
   const [palette, setPalette] = useState(false);
   const terminals = useRef(1);
 
@@ -232,15 +248,16 @@ export function ProjectApp(
     else if (action === "search" || action === "saved") open(searchTab);
     else if (action === "contexts") {
       open({ key: "contexts", kind: "contexts", title: "phroner" });
-    } else open(CHAT_TAB);
+    } else open(newConversationTab("lophn"));
   };
 
   const pick = (choice: string) => {
     if (choice === "document") open(documentTab("docs/notes.md"));
     else if (choice === "terminal") newTerminal();
-    else if (choice === "chat-lophn") open(CHAT_TAB);
-    else if (choice === "chat-engineer") open(ENGINEER_TAB);
+    else if (choice === "agent-lophn") open(CHAT_TAB);
+    else if (choice === "agent-engineer") open(ENGINEER_TAB);
     else if (choice === "search") open(searchTab);
+    else if (choice === "agents") open(AGENTS_TAB);
     else if (choice === "new-context") open(NEW_CONTEXT_CHAT, true);
     else if (choice.startsWith("context:")) {
       open(contextTab(choice.slice("context:".length)));
@@ -293,14 +310,22 @@ export function ProjectApp(
         );
       case "terminal":
         return <TerminalBody />;
-      case "conversation":
+      case "agent":
         return (
           <Conversation
-            who={tab.sub?.startsWith("engineer") ? "Context Engineer" : "lophn"}
-            fresh={tab.sub === "engineer-new"}
+            tab={tab}
             open={open}
             answer={answer}
             onAnswer={setAnswer}
+          />
+        );
+      case "agents":
+        return <AgentsBody open={open} />;
+      case "operator":
+        return (
+          <OperatorEditor
+            id={tab.sub ?? "new"}
+            onDone={() => close(tab.key)}
           />
         );
     }
@@ -313,11 +338,19 @@ export function ProjectApp(
     <div className={styles.window}>
       <ProjectSidebar
         {...sidebar}
+        activeConversation={sidebar.activeConversation ??
+          (focusTab?.key.startsWith("conv:")
+            ? focusTab.key.slice(5)
+            : undefined)}
         collapsed={collapsed}
         onToggle={() => setCollapsed(!collapsed)}
         onRail={rail}
         onOpenFile={(id) => open(documentTab(id))}
         onOpenContext={(name) => open(contextTab(name))}
+        onAgent={(id) => open(newConversationTab(id))}
+        onConversation={(row) =>
+          open(row.id === "weekly" ? weeklyTab() : conversationTab(row))}
+        onManage={() => open(AGENTS_TAB)}
       />
       <div className={styles.main}>
         <div className={styles.topBar}>
@@ -374,19 +407,47 @@ export function ProjectApp(
         </div>
       </div>
       {children}
-      {toast
+      {toast || ask
         ? (
           <ToastStack>
-            <Toast
-              title="eval: 2 documents don't match the contract"
-              actions={[{ id: "view", label: "View" }]}
-              onAction={() => {
-                open(contextTab("eval", "violations"));
-                setToast(false);
-              }}
-              onClose={() => setToast(false)}
-              timer={NO_TIMER}
-            />
+            {toast
+              ? (
+                <Toast
+                  title="eval: 2 documents don't match the contract"
+                  actions={[{ id: "view", label: "View" }]}
+                  onAction={() => {
+                    open(contextTab("eval", "violations"));
+                    setToast(false);
+                  }}
+                  onClose={() => setToast(false)}
+                  timer={NO_TIMER}
+                />
+              )
+              : null}
+            {ask
+              ? (
+                <Toast
+                  title="3 scenarios failed in last night's eval"
+                  actions={[
+                    { id: "ask", label: "Ask lophn" },
+                    { id: "view", label: "View" },
+                  ]}
+                  onAction={(id) => {
+                    open(
+                      id === "ask" ? askLophnTab() : {
+                        key: "search",
+                        kind: "search",
+                        title: "phroner",
+                        sub: "experiments",
+                      },
+                    );
+                    setAsk(false);
+                  }}
+                  onClose={() => setAsk(false)}
+                  timer={NO_TIMER}
+                />
+              )
+              : null}
           </ToastStack>
         )
         : null}

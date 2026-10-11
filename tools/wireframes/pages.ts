@@ -105,7 +105,21 @@ export type ScreenId =
   | "new-context-drafting"
   | "new-ways-to-open"
   | "new-document-tab"
-  | "new-document-tab-info";
+  | "new-document-tab-info"
+  | "new-agent-sidebar"
+  | "new-agent-toast"
+  | "new-agent-toast-opened"
+  | "new-agent-conversation"
+  | "new-agent-model-picker"
+  | "new-agent-question"
+  | "new-agent-question-answered"
+  | "new-agent-approval"
+  | "new-agent-rewind"
+  | "new-project-agents"
+  | "new-operator-editor"
+  | "new-settings-providers"
+  | "new-settings-connect"
+  | "new-settings-agents";
 
 export interface WireframePage {
   /** 주소 `#/<id>`와 frame의 `?frame=<id>`에 쓴다. */
@@ -463,37 +477,37 @@ export const PAGES: readonly WireframePage[] = [
   fresh(
     "new-project-tabs",
     "Project · tab kinds",
-    "프로젝트 화면의 칸에 띄우는 탭 종류를 늘려 대부분의 화면을 탭으로 연다. 문서·터미널·앱 패널에 더해 대화·context·검색이 탭이 된다.",
+    "프로젝트 화면의 칸에 띄우는 탭 종류를 늘려 대부분의 화면을 탭으로 연다. 문서·터미널·앱 패널에 더해 Agent·context·검색이 탭이 된다.",
     "new-tab-kinds",
   ),
   fresh(
     "new-project-tab-menu",
     "Project · new tab menu",
-    "탭 줄 끝의 + 메뉴를 펼친 상태. New tab 아래에 문서·터미널·대화(lophn·Context Engineer·Operator)·context·검색·앱 패널이 있다.",
+    "탭 줄 끝의 + 메뉴를 펼친 상태. New tab 아래에 문서·터미널·Agent(lophn·Context Engineer·Operator)·context·검색·앱 패널이 있다.",
     "new-tab-menu",
   ),
   fresh(
     "new-sidebar-collapsed",
     "Project · sidebar collapsed",
-    "접은 sidebar는 바로 가기 rail이 된다. 펼치기·Terminal·Search·Contexts·Saved views·Conversation 단추가 위에서부터 있고, 누르면 그 탭이 탭 줄에 열린다. 단추에 올리면 tooltip이 뜬다.",
+    "접은 sidebar는 바로 가기 rail이 된다. 펼치기·Terminal·Contexts·Saved views·Search·Agent 단추가 위에서부터 있고, 누르면 그 탭이 탭 줄에 열린다. 단추에 올리면 tooltip이 뜬다.",
     "new-sidebar-collapsed",
   ),
   fresh(
     "new-contexts",
     "Contexts tab",
-    "project의 context 목록을 여는 새 탭 종류. context마다 목적, 다루는 것의 종류 수, 버전, 위반, 쓰는 Operator를 보이고 [Open]은 그 context의 탭(Overview)을 열고, [New context]는 다른 칸에 Context Engineer 대화를 열어 무엇을 위한 context인지 묻는 것으로 시작한다. form은 없다.",
+    "project의 context 목록을 여는 새 탭 종류. context마다 목적, 다루는 것의 종류 수, 버전, 위반, 쓰는 Operator를 보이고 [Open]은 그 context의 탭(Overview)을 열고, [New context]는 다른 칸에 Context Engineer Agent 탭을 열어 무엇을 위한 context인지 묻는 것으로 시작한다. form은 없다.",
     "new-contexts",
   ),
   fresh(
     "new-context-drafting",
     "New context · drafting",
-    "Context Engineer와 대화한 뒤 Context Engineer가 짜기 시작하면 새 context의 Context 탭이 이 모양으로 열려 진행 상태와 아직 확정 아닌 초안을 보인다. 막히면 오른쪽 칸 대화로 묻고, 대화의 답 단추를 눌러 볼 수 있다.",
+    "Context Engineer와 대화한 뒤 Context Engineer가 짜기 시작하면 새 context의 Context 탭이 이 모양으로 열려 진행 상태와 아직 확정 아닌 초안을 보인다. 막히면 오른쪽 칸 Agent 탭에서 묻고, 대화의 답 단추를 눌러 볼 수 있다.",
     "new-context-drafting",
   ),
   fresh(
     "new-ways-to-open",
     "Context tab · ways to open",
-    "Context 탭은 sidebar, 바로 가기, 새 탭 메뉴, 검색, 문서의 info, 위반 알림, 상단 검색, 대화, 새 context 대화에서 연다. 길마다 try it을 누르면 그 길을 눌러 볼 수 있는 page로 간다.",
+    "Context 탭은 sidebar, 바로 가기, 새 탭 메뉴, 검색, 문서의 info, 위반 알림, 상단 검색, Agent 탭, 새 context Agent 탭에서 연다. 길마다 try it을 누르면 그 길을 눌러 볼 수 있는 page로 간다.",
     "new-ways-to-open",
   ),
   fresh(
@@ -555,6 +569,90 @@ export const PAGES: readonly WireframePage[] = [
     "Project · organize documents",
     "문서 보관·이동·폴더 연결 해제는 Workspace가 아니라 project 화면에서 한다. sidebar의 문서 행과 폴더 행을 오른쪽 클릭해 연다.",
     "new-organize",
+  ),
+  fresh(
+    "new-agent-sidebar",
+    "Agent · sidebar",
+    "agent는 project sidebar의 Agents 묶음에서만 부른다. agent를 누르면 새 Agent 탭이 열리고, 최근 session은 상태(Waiting for you·Working·Done)와 함께 그 아래 Sessions에 있다. 접힌 바로 가기 막대의 Agent 단추를 누르면 lophn의 새 Agent 탭이 열린다.",
+    "new-agent-sidebar",
+  ),
+  fresh(
+    "new-agent-toast",
+    "Agent · toast with context",
+    '사람 대신 program이 "agent를 불러야 할 일"을 판정하면 toast로 알린다. [Ask lophn]을 누르면 그 일을 첫 context로 붙인 Agent 탭이 열린다. [View]는 검색 탭을 연다.',
+    "new-agent-toast",
+  ),
+  fresh(
+    "new-agent-toast-opened",
+    "Agent · tab from toast",
+    "[Ask lophn]을 누른 결과. 새 Agent 탭의 composer 위에 toast가 가리킨 일이 context chip으로 붙고, 입력칸은 비어 있다. chip의 ✕로 뗄 수 있다.",
+    "new-agent-toast-opened",
+  ),
+  fresh(
+    "new-agent-conversation",
+    "Agent · tab",
+    "agent와는 Agent 탭에서 이야기한다. tool 호출은 한 줄로 접고, 바꾼 문서는 카드로, 진행은 view bar의 chip 한 자리에 보인다. composer 안 아래 줄에 agent·model, 입력칸 밖 아래 줄에 project·권한을 둔다.",
+    "new-agent-conversation",
+  ),
+  fresh(
+    "new-agent-model-picker",
+    "Agent · model picker",
+    "composer의 model을 누르면 연결된 provider별 model과 effort를 고른다. 바꾼 값은 이 session에만 쓰이고 기본값은 agent 정의에서 온다. 기본값은 Workspace › Settings › Agents에서 바꾼다.",
+    "new-agent-model-picker",
+  ),
+  fresh(
+    "new-agent-question",
+    "Agent · question card",
+    "agent가 사람에게 물을 때는 대화 안 카드로 묻는다. 질문이 둘이면 한 카드에 다 펼쳐 답하고 한 번에 보낸다(셋을 넘으면 1 of N으로 넘긴다). 답을 기다리는 동안 일은 멈춘다.",
+    "new-agent-question",
+  ),
+  fresh(
+    "new-agent-question-answered",
+    "Agent · question answered",
+    "답을 보내면 카드가 접혀 한 줄 요약으로 대화에 남고, agent의 일이 이어진다.",
+    "new-agent-question-answered",
+  ),
+  fresh(
+    "new-agent-approval",
+    "Agent · approval card",
+    "agent가 사람 확인이 필요한 일을 하기 전에 composer 바로 위에 붙는 카드로 허락을 구한다. 범위는 [Allow ▾]를 펼쳐 고르고, 거절([Deny])과 일을 멈추는 것(composer의 Stop)은 다르다.",
+    "new-agent-approval",
+  ),
+  fresh(
+    "new-agent-rewind",
+    "Agent · rewind",
+    "되돌리기는 session이 살아 있는 동안만 한다. 내 메시지에서 그 시점으로 되돌리고, 되돌릴 수 없는 것은 미리 말한다.",
+    "new-agent-rewind",
+  ),
+  fresh(
+    "new-project-agents",
+    "Project · Agents tab",
+    "project의 agent를 한곳에서 본다. 기본 agent와 이 project의 Operator, 이 project에서 agent가 쓰는 지침(LOPHN.md)·skill·MCP가 여기 있다. sidebar Agents 묶음 머리의 Manage와 + 메뉴로 연다.",
+    "new-project-agents",
+  ),
+  fresh(
+    "new-operator-editor",
+    "Project · Operator editor",
+    "Operator 하나는 이름·하는 일·지침·주기·model·읽을 context·skill·MCP·권한으로 이루어진다. 정의는 project 폴더가 아니라 lophn에 저장된다.",
+    "new-operator-editor",
+  ),
+  fresh(
+    "new-settings-providers",
+    "Workspace · Settings › Providers",
+    "provider는 계정과 인증만 다룬다. model은 여기서 고르지 않는다. 연결된 provider는 끊고, 다른 provider는 [+ Connect]로 연결한다.",
+    "new-settings-providers",
+  ),
+  fresh(
+    "new-settings-connect",
+    "Workspace · Connect a provider",
+    "provider를 연결하는 창. 로그인 방법을 고르거나(왼쪽), 직접 만든 OpenAI 호환 provider를 ID·이름·Base URL로 등록한다(오른쪽).",
+    "new-settings-connect",
+  ),
+  fresh(
+    "new-settings-agents",
+    "Workspace · Settings › Agents",
+    "모든 project에 적용되는 agent 기본값은 Workspace에서 정한다. 역할별 기본 model, 전역 지침(LOPHN.md), 전역 skill과 MCP, 기본 권한이 여기 있다.",
+    "new-settings-agents",
   ),
 ];
 

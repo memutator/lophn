@@ -1,6 +1,6 @@
 // 새 설계 page들이 같이 쓰는 project 화면 조각. 실제 TopBar·Breadcrumbs·LauncherButton·Tooltip과 design
 // component를 그대로 쓰고, 실제 sidebar·tab strip·menu는 source 없이 그릴 수 없거나 새 설계의
-// 항목(Saved views, Context·Search·Conversation 탭 종류, 바로 가기 rail)이 없어서 같은 CSS Module로 같은
+// 항목(Saved views, Context·Search·Agent 탭 종류, 바로 가기 rail)이 없어서 같은 CSS Module로 같은
 // 모양의 마크업을 다시 짠 look-alike다. 앱 코드는 고치지 않는다.
 import { type ReactNode, useLayoutEffect, useRef, useState } from "react";
 import {
@@ -23,7 +23,14 @@ import { TAB_MIN } from "../../../../apps/shell/renderer/workspace/model.ts";
 import tabStyles from "../../../../apps/shell/renderer/workspace/tab-strip/tab-strip.module.css";
 import sideStyles from "../../../../apps/shell/renderer/workspace/sidebar/sidebar.module.css";
 import menuStyles from "../../../../packages/design/components/menu/menu.module.css";
+import {
+  AGENT_ROWS,
+  type ChatInit,
+  type ConversationRow,
+  CONVERSATIONS,
+} from "./agents-data.ts";
 import styles from "./compose.module.css";
+import agentStyles from "./agents.module.css";
 
 /** `public`으로 내놓는 type·field·relation 표시. */
 export function Mark({ children }: { children: ReactNode }) {
@@ -40,7 +47,9 @@ export type TabKind =
   | "contexts"
   | "search"
   | "terminal"
-  | "conversation";
+  | "agent"
+  | "agents"
+  | "operator";
 
 const KIND_ICON: Record<TabKind, IconProps["icon"]> = {
   document: workspaceIcons.documentEditor,
@@ -48,7 +57,9 @@ const KIND_ICON: Record<TabKind, IconProps["icon"]> = {
   contexts: workspaceIcons.context,
   search: paletteIcons.search,
   terminal: workspaceIcons.terminal,
-  conversation: conversationIcons.dock,
+  agent: conversationIcons.dock,
+  agents: lophnSpaceIcons.roles,
+  operator: lophnSpaceIcons.roles,
 };
 
 const KIND_LABEL: Record<TabKind, string> = {
@@ -57,7 +68,9 @@ const KIND_LABEL: Record<TabKind, string> = {
   contexts: "Contexts",
   search: "Search",
   terminal: "Terminal",
-  conversation: "Conversation",
+  agent: "Agent",
+  agents: "Agents",
+  operator: "Operator",
 };
 
 export interface TabSpec {
@@ -70,6 +83,8 @@ export interface TabSpec {
   readonly sub?: string;
   /** 이미 열린 Context 탭을 다른 하위 탭으로 다시 열 때 올린다. 본문이 새로 그려진다. */
   readonly rev?: number;
+  /** 대화 탭의 시작 상태(어느 대화인지, 열린 menu, 붙은 context chip). */
+  readonly chat?: ChatInit;
   /** Context Engineer가 짜는 중인 context. 이 탭은 만드는 중 상태로 그려진다. */
   readonly draft?: {
     readonly purpose: string;
@@ -196,6 +211,7 @@ export const FOLDER_TREE: readonly TreeNode[] = [
 ];
 
 const OPEN_BRANCHES = new Set(["eval", "eval/experiments"]);
+const NO_BRANCHES = new Set<string>();
 
 function SidebarRow(
   { icon, label, active = false, onClick }: {
@@ -235,7 +251,7 @@ export type RailAction =
   | "search"
   | "contexts"
   | "saved"
-  | "conversation";
+  | "agent";
 
 const RAIL: readonly {
   action: RailAction;
@@ -243,14 +259,10 @@ const RAIL: readonly {
   icon: IconProps["icon"];
 }[] = [
   { action: "terminal", label: "Terminal", icon: workspaceIcons.terminal },
-  { action: "search", label: "Search", icon: paletteIcons.search },
   { action: "contexts", label: "Contexts", icon: workspaceIcons.context },
   { action: "saved", label: "Saved views", icon: lophnSpaceIcons.savedView },
-  {
-    action: "conversation",
-    label: "Conversation",
-    icon: conversationIcons.dock,
-  },
+  { action: "search", label: "Search", icon: paletteIcons.search },
+  { action: "agent", label: "Agent", icon: conversationIcons.dock },
 ];
 
 export interface SidebarSpec {
@@ -265,6 +277,14 @@ export interface SidebarSpec {
   readonly collapsed?: boolean;
   /** rail의 이 단추 tooltip을 열어 둔 채로 그린다. */
   readonly railTooltip?: RailAction;
+  /** 이 agent 줄에 hover한 것처럼 "+"를 보인다. */
+  readonly hoverAgent?: string;
+  /** Folders를 모두 접어 그린다(Agents 묶음이 한 화면에 들어오게). */
+  readonly foldersClosed?: boolean;
+  /** sidebar 본문을 맨 아래로 scroll해 Agents·Sessions가 보이게 한다. */
+  readonly scrollToAgents?: boolean;
+  /** 이 대화 행을 열린 것으로 표시한다. */
+  readonly activeConversation?: string;
 }
 
 export interface SidebarProps extends SidebarSpec {
@@ -273,11 +293,14 @@ export interface SidebarProps extends SidebarSpec {
   readonly onRail: (action: RailAction) => void;
   readonly onOpenFile: (id: string) => void;
   readonly onOpenContext: (name: string) => void;
+  readonly onAgent: (agent: string) => void;
+  readonly onConversation: (row: ConversationRow) => void;
+  readonly onManage: () => void;
 }
 
 /**
- * project sidebar: Folders(tree), Contexts, Saved views. 접으면 바로 가기 rail이 된다: 펼치기 · Terminal ·
- * Search · Contexts · Saved views · Conversation.
+ * project sidebar: Folders(tree), Contexts, Saved views, Agents(+ 최근 Sessions). 접으면 바로 가기 rail이
+ * 된다: 펼치기 · Terminal · Contexts · Saved views · Search · Agent.
  */
 export function ProjectSidebar(
   {
@@ -291,9 +314,22 @@ export function ProjectSidebar(
     onRail,
     onOpenFile,
     onOpenContext,
+    hoverAgent,
+    foldersClosed = false,
+    scrollToAgents = false,
+    activeConversation,
+    onAgent,
+    onConversation,
+    onManage,
   }: SidebarProps,
 ) {
   const toggleLabel = collapsed ? "Expand sidebar" : "Collapse sidebar";
+  const body = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (scrollToAgents && body.current) {
+      body.current.scrollTop = body.current.scrollHeight;
+    }
+  }, [scrollToAgents, collapsed]);
   return (
     <nav
       className={`${sideStyles.sidebar} ${
@@ -336,13 +372,13 @@ export function ProjectSidebar(
           </div>
         )
         : (
-          <div className={sideStyles.body}>
+          <div ref={body} className={sideStyles.body}>
             <section className={sideStyles.section}>
               <h2 className={sideStyles.sectionLabel}>Folders</h2>
               <div className={styles.treeBox}>
                 <Tree
                   nodes={FOLDER_TREE}
-                  expanded={OPEN_BRANCHES}
+                  expanded={foldersClosed ? NO_BRANCHES : OPEN_BRANCHES}
                   onExpandedChange={() => {}}
                   currentId={current}
                   selectedIds={menuFor === undefined
@@ -386,11 +422,103 @@ export function ProjectSidebar(
                 />
               </ul>
             </section>
+            <section className={sideStyles.section}>
+              <h2
+                className={`${sideStyles.sectionLabel} ${agentStyles.agentsHead}`}
+              >
+                <span>Agents</span>
+                <button
+                  type="button"
+                  className={agentStyles.manage}
+                  onClick={onManage}
+                >
+                  Manage
+                </button>
+              </h2>
+              <ul className={sideStyles.list} role="list">
+                {AGENT_ROWS.map((agent) =>
+                  agent.id === "operators"
+                    ? (
+                      <li key={agent.id} className={agentStyles.subLabel}>
+                        Operators
+                      </li>
+                    )
+                    : (
+                      <li
+                        key={agent.id}
+                        className={`${sideStyles.li} ${agentStyles.agentRow}`}
+                        data-hover={hoverAgent === agent.id ? "" : undefined}
+                      >
+                        <button
+                          type="button"
+                          className={sideStyles.item}
+                          onClick={() => onAgent(agent.id)}
+                        >
+                          <Icon
+                            icon={agent.operator
+                              ? lophnSpaceIcons.roles
+                              : conversationIcons.dock}
+                            pixels={iconPixels("base")}
+                            className={sideStyles.icon}
+                          />
+                          <span className={sideStyles.label}>{agent.name}</span>
+                        </button>
+                        <span className={agentStyles.plus}>
+                          <IconButton
+                            icon={lophnSpaceIcons.add}
+                            label={`New session with ${agent.name}`}
+                            size="sm"
+                            onClick={() => onAgent(agent.id)}
+                          />
+                        </span>
+                      </li>
+                    )
+                )}
+              </ul>
+            </section>
+            <section className={sideStyles.section}>
+              <h2 className={sideStyles.sectionLabel}>Sessions</h2>
+              <ul className={sideStyles.list} role="list">
+                {CONVERSATIONS.map((row) => (
+                  <li key={row.id} className={sideStyles.li}>
+                    <button
+                      type="button"
+                      className={`${sideStyles.item} ${agentStyles.convItem} ${
+                        activeConversation === row.id ? sideStyles.active : ""
+                      }`}
+                      onClick={() =>
+                        onConversation(row)}
+                    >
+                      <span
+                        className={`${agentStyles.stateDot} ${
+                          agentStyles[`state_${row.state}`]
+                        }`}
+                        role="img"
+                        aria-label={STATE_LABEL[row.state]}
+                        title={STATE_LABEL[row.state]}
+                      />
+                      <span className={agentStyles.convText}>
+                        <span className={sideStyles.label}>{row.title}</span>
+                        <span className={agentStyles.convMeta}>
+                          {row.agent} · {row.when}
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
           </div>
         )}
     </nav>
   );
 }
+
+const STATE_LABEL = {
+  waiting: "Waiting for you",
+  working: "Working",
+  done: "Done",
+} as const;
 
 /** 오른쪽 클릭·+ 메뉴의 정적 모양. 실제 Menu(Radix)와 같은 CSS Module을 쓴다. */
 export function StaticMenu(
@@ -428,9 +556,10 @@ export function StaticMenu(
 export type NewTabPick =
   | "document"
   | "terminal"
-  | "chat-lophn"
-  | "chat-engineer"
+  | "agent-lophn"
+  | "agent-engineer"
   | "search"
+  | "agents"
   | `context:${string}`
   | "new-context";
 
@@ -446,10 +575,11 @@ export function TabMenu({ onPick }: { onPick: (pick: NewTabPick) => void }) {
     ? [
       { id: "document", label: "Document" },
       { id: "terminal", label: "Terminal" },
-      { id: "chat-lophn", label: "Conversation · lophn" },
-      { id: "chat-engineer", label: "Conversation · Context Engineer" },
+      { id: "agent-lophn", label: "Agent · lophn" },
+      { id: "agent-engineer", label: "Agent · Context Engineer" },
       { id: "context", label: "Context ›" },
       { id: "search", label: "Search" },
+      { id: "agents", label: "Agents" },
     ]
     : [
       { id: "context:eval", label: "Context · eval" },

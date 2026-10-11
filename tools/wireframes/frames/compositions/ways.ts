@@ -53,7 +53,7 @@ export const WAYS: readonly Way[] = [
     tryIt: "new-project-tabs",
   },
   {
-    title: "Conversation",
+    title: "Agent tab",
     steps: ["lophn or Context Engineer says “eval”", "name link"],
     result: "eval · Overview",
     tryIt: "new-project-tabs",
@@ -62,7 +62,7 @@ export const WAYS: readonly Way[] = [
     title: "New context",
     steps: [
       "Contexts tab [New context]",
-      "Context Engineer conversation",
+      "Agent tab · Context Engineer",
     ],
     result: "release-notes · drafting",
     tryIt: "new-contexts",

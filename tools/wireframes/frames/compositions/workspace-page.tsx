@@ -20,6 +20,12 @@ import {
 } from "../../../../apps/shell/renderer/desktop/lophn-space/screens.ts";
 import sideStyles from "../../../../apps/shell/renderer/desktop/lophn-space/sidebar/sidebar.module.css";
 import { Mono } from "./project-window.tsx";
+import {
+  ConnectDialog,
+  ConnectDialogsStatic,
+  type SettingsPane,
+  SettingsScreen,
+} from "./workspace-settings.tsx";
 import styles from "./compose.module.css";
 
 const SCREENS: readonly LophnScreen[] = [
@@ -30,8 +36,26 @@ const SCREENS: readonly LophnScreen[] = [
   "settings",
 ];
 
-export function WorkspaceWithoutProject() {
+export interface WorkspaceProps {
+  /** 처음에 보이는 화면. 기본은 Projects. */
+  readonly screen?: LophnScreen;
+  /** Settings의 처음 항목. */
+  readonly pane?: SettingsPane;
+  /** provider 연결 창 둘을 정적으로 올린 채 시작한다. */
+  readonly connectStatic?: boolean;
+}
+
+export function WorkspaceWithoutProject(
+  {
+    screen: initial = "projects",
+    pane: initialPane = "general",
+    connectStatic = false,
+  }: WorkspaceProps = {},
+) {
   const [collapsed, setCollapsed] = useState(false);
+  const [screen, setScreen] = useState<LophnScreen>(initial);
+  const [pane, setPane] = useState<SettingsPane>(initialPane);
+  const [connect, setConnect] = useState<string | null>(null);
   return (
     <div className={styles.window}>
       <nav
@@ -56,26 +80,29 @@ export function WorkspaceWithoutProject() {
           />
         </div>
         <ul className={sideStyles.list} role="list">
-          {SCREENS.map((screen) => (
-            <li key={screen} className={sideStyles.li}>
-              <span
+          {SCREENS.map((item) => (
+            <li key={item} className={sideStyles.li}>
+              <button
+                type="button"
                 className={`${sideStyles.item} ${
-                  screen === "projects" ? sideStyles.active : ""
+                  item === screen ? sideStyles.active : ""
                 }`}
-                aria-label={collapsed ? screenLabel(screen) : undefined}
-                title={screenLabel(screen)}
+                aria-label={collapsed ? screenLabel(item) : undefined}
+                aria-current={item === screen ? "page" : undefined}
+                title={screenLabel(item)}
+                onClick={() => setScreen(item)}
               >
                 <Icon
-                  icon={screenIcon(screen)}
+                  icon={screenIcon(item)}
                   pixels={iconPixels("base")}
                   className={sideStyles.icon}
                 />
                 {collapsed ? null : (
                   <span className={sideStyles.label}>
-                    {screenLabel(screen)}
+                    {screenLabel(item)}
                   </span>
                 )}
-              </span>
+              </button>
             </li>
           ))}
         </ul>
@@ -87,46 +114,68 @@ export function WorkspaceWithoutProject() {
             leading={
               <div className={styles.leading}>
                 {collapsed ? <LauncherButton onLauncher={() => {}} /> : null}
-                <span className={styles.projectName}>Projects</span>
+                <span className={styles.projectName}>
+                  {screenLabel(screen)}
+                </span>
               </div>
             }
           />
         </div>
-        <div className={styles.wsBody}>
-          <div className={styles.wsList}>
-            <div className={styles.selected}>
-              <Card>
-                <span className={styles.projectName}>phroner</span>
-                <p className={styles.muted}>
-                  Evaluate and improve the harness loop.
-                </p>
-              </Card>
-            </div>
-            <Card>
-              <span className={styles.projectName}>grocery-budget</span>
+        {screen === "settings"
+          ? (
+            <SettingsScreen
+              pane={pane}
+              onPane={setPane}
+              onConnect={setConnect}
+            />
+          )
+          : screen !== "projects"
+          ? (
+            <div className={styles.wsBody}>
               <p className={styles.muted}>
-                Keep the monthly food spending under the plan.
+                {screenLabel(screen)} is not part of this wireframe.
               </p>
-            </Card>
-          </div>
-          <section className={styles.wsDetail}>
-            <h1>phroner</h1>
-            <dl className={styles.facts}>
-              <dt>Purpose</dt>
-              <dd>Evaluate and improve the harness loop.</dd>
-              <dt>Folder</dt>
-              <dd>
-                <Mono>/home/mina/work/phroner</Mono>
-              </dd>
-            </dl>
-            <div className={styles.actions}>
-              <Button variant="primary">Open project</Button>
-              <Button>Rename</Button>
-              <Button variant="danger">Archive</Button>
             </div>
-          </section>
-        </div>
+          )
+          : (
+            <div className={styles.wsBody}>
+              <div className={styles.wsList}>
+                <div className={styles.selected}>
+                  <Card>
+                    <span className={styles.projectName}>phroner</span>
+                    <p className={styles.muted}>
+                      Evaluate and improve the harness loop.
+                    </p>
+                  </Card>
+                </div>
+                <Card>
+                  <span className={styles.projectName}>grocery-budget</span>
+                  <p className={styles.muted}>
+                    Keep the monthly food spending under the plan.
+                  </p>
+                </Card>
+              </div>
+              <section className={styles.wsDetail}>
+                <h1>phroner</h1>
+                <dl className={styles.facts}>
+                  <dt>Purpose</dt>
+                  <dd>Evaluate and improve the harness loop.</dd>
+                  <dt>Folder</dt>
+                  <dd>
+                    <Mono>/home/mina/work/phroner</Mono>
+                  </dd>
+                </dl>
+                <div className={styles.actions}>
+                  <Button variant="primary">Open project</Button>
+                  <Button>Rename</Button>
+                  <Button variant="danger">Archive</Button>
+                </div>
+              </section>
+            </div>
+          )}
       </div>
+      <ConnectDialog provider={connect} onClose={() => setConnect(null)} />
+      {connectStatic ? <ConnectDialogsStatic /> : null}
     </div>
   );
 }

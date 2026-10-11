@@ -82,7 +82,8 @@ export type ContextApiDeps = {
   newId(prefix: "cbn" | "chk" | "viw" | "run"): string;
   // 정규 JSON의 sha256(hex)이다. submit이 bundle_hash를 이 함수로 계산한다.
   hash(value: unknown): string;
-  // 값을 blob에 두고 참조를 돌려준다(event payload가 쓴다).
+  // 값의 blob 참조(hash와 크기)를 돌려준다(event payload가 쓴다). 파일을 쓰지 않는다: 바이트는 호출 경계가
+  // 이미 준비했고, 참조 등록은 adapter가 같은 transaction에서 한다.
   putBlob(value: unknown): BlobReference;
   // 있으면 event를 이 함수로 내고 돌려받은 실제 seq를 쓴다(ledger 위에서는 tx.emit이다). actor는
   // 호출한 쪽의 자격에서 정해지므로 payload에 싣지 않는다. 없으면 상태의 seq를 하나 올려 정한다.
@@ -96,6 +97,8 @@ export type ContextApiDeps = {
   startHandOffRun(request: {
     context: string;
     evidence: BlobReference;
+    // 근거 blob의 값. 요청 글을 이 값에서 만든다(blob을 다시 읽지 않는다).
+    evidenceValue: Record<string, unknown>;
     violations: readonly StoredViolation[];
   }): string;
 };

@@ -1,49 +1,54 @@
 // start-failure_test: shell#T57 launcher failure screen rendering
 
-import { strict as assert } from "node:assert";
-import { test } from "node:test";
-import React from "react";
+import { assert, assertEquals } from "@std/assert";
+import {
+  click,
+  render,
+} from "../../../../../../packages/design/components/testing.ts";
 
 import { sandboxFailure, schemaFailure, startFailure } from "./model.ts";
 import { StartFailureScreen } from "./start-failure.tsx";
 
-test("shell/desktop#R11: start failure shows without normal launcher appearance", () => {
-  const failure = startFailure();
-  const element = React.createElement(StartFailureScreen, { failure });
+function raw(text: string): void {
+  for (const code of ["app-", "retry-start-app", "check-"]) {
+    assert(!text.includes(code), `raw code ${code} is visible: ${text}`);
+  }
+}
 
-  assert.ok(element, "should render start failure screen");
-  assert.equal(
-    element.type,
-    StartFailureScreen,
-    "should be the failure component",
+Deno.test("shell/desktop#R12, shell/wording#R10: 시작 실패는 사람 말 제목·문장과 다시 시도 하나를 보이고 안쪽 code는 펼친 상세에만 둔다", () => {
+  let retried = 0;
+  using view = render(
+    <StartFailureScreen failure={startFailure()} onRetry={() => retried++} />,
   );
-  assert.equal(
-    element.props.failure.kind,
-    "start",
-    "should pass start failure",
+  const text = view.container.textContent ?? "";
+  assertEquals(
+    view.container.querySelector("h1")?.textContent,
+    "lophn didn't start",
+  );
+  assert(text.includes("couldn't start in the background"));
+  raw(text);
+  const retry = view.container.querySelector("[data-action='retry']")!;
+  assertEquals(retry.textContent, "Try again");
+  click(retry);
+  assertEquals(retried, 1);
+
+  click(view.container.querySelector("[data-details-toggle]")!);
+  assertEquals(
+    view.container.querySelector("[data-details]")?.textContent,
+    "app-start-failed · retry-start-app",
   );
 });
 
-test("shell/desktop#R12: sandbox failure shows distinct message", () => {
-  const failure = sandboxFailure();
-  const element = React.createElement(StartFailureScreen, { failure });
-
-  assert.ok(element, "should render sandbox failure screen");
-  assert.equal(
-    element.props.failure.kind,
-    "sandbox",
-    "should pass sandbox failure",
-  );
-});
-
-test("shell/desktop#R20: schema failure shows distinct message for incompatibility", () => {
-  const failure = schemaFailure();
-  const element = React.createElement(StartFailureScreen, { failure });
-
-  assert.ok(element, "should render schema failure screen");
-  assert.equal(
-    element.props.failure.kind,
-    "schema",
-    "should pass schema failure",
-  );
+Deno.test("shell/desktop#R12, R20: sandbox 실패와 schema 비호환은 서로 다른 사람 말 제목을 보인다", () => {
+  const titles = [sandboxFailure(), schemaFailure()].map((failure) => {
+    using view = render(
+      <StartFailureScreen failure={failure} onRetry={() => {}} />,
+    );
+    raw(view.container.textContent ?? "");
+    return view.container.querySelector("h1")?.textContent;
+  });
+  assertEquals(titles, [
+    "lophn is blocked by your system",
+    "lophn needs an update",
+  ]);
 });

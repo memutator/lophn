@@ -996,3 +996,134 @@ Deno.test("shell/workspace#R31 [ctx-I58i]: 여덟째 길 — 대화 속 context 
   await flush();
   assertEquals(tabKeys(view.container), [contextKey(HARNESS)]);
 });
+
+// 만드는 중인 release-notes가 core에서 바뀌는 것을 흉내 낸다. 단계는 draft 판이, 상태는 active 전환이 바꾼다.
+function evolvingNotes() {
+  const base = createFakeContextsSource({ drafting: true });
+  const state: { step: 1 | 2 | 3; active: boolean } = {
+    step: 2,
+    active: false,
+  };
+  const item = () =>
+    state.active
+      ? {
+        ...RELEASE_NOTES_ITEM,
+        status: "active" as const,
+        revision: "9",
+        applied_bundle: fakeId("cbn", "rn1"),
+        applied_number: 1,
+        draft_bundle: null,
+      }
+      : {
+        ...RELEASE_NOTES_ITEM,
+        revision: String(state.step),
+        draft_bundle: fakeId("cbn", `rn${state.step}`),
+      };
+  const source: ContextsSource = {
+    ...base,
+    list: async (project) => {
+      const read = await base.list(project);
+      return read.ok
+        ? {
+          ok: true,
+          value: read.value.map((row) =>
+            row.id === RELEASE_NOTES ? item() : row
+          ),
+        }
+        : read;
+    },
+    get: async (context) => {
+      const read = await base.get(context);
+      if (!read.ok || context !== RELEASE_NOTES) return read;
+      const { id, project, title, purpose, status, revision } = item();
+      return {
+        ok: true,
+        value: {
+          ...read.value,
+          context: {
+            ...read.value.context,
+            id,
+            project,
+            title,
+            purpose,
+            status,
+            revision,
+            applied_bundle: item().applied_bundle,
+          },
+        },
+      };
+    },
+    draft: async (context) => {
+      const read = await base.draft(context);
+      return read.ok && read.value.draft !== null
+        ? {
+          ok: true,
+          value: {
+            ...read.value,
+            draft: { ...read.value.draft, step: state.step },
+          },
+        }
+        : read;
+    },
+  };
+  return { source, state };
+}
+
+Deno.test("shell/workspace#R30 [ctx-I39c]: 열려 있는 drafting 탭은 목록을 다시 읽을 때 draft 단계를 따라 step n of 4가 앞서 간다", async () => {
+  const { source, state } = evolvingNotes();
+  const timer = manualTimer();
+  const { view } = mount({
+    contexts: source,
+    timer,
+    layout: layoutOf({
+      ...CONTEXT_TAB,
+      key: contextKey(RELEASE_NOTES),
+      context: RELEASE_NOTES,
+      sub_tab: "overview",
+    }),
+  });
+  using _ = view;
+  await flush();
+  assertEquals(
+    norm(one(view.container, "[data-drafting]")),
+    "Context Engineer is drafting · step 2 of 4",
+  );
+  state.step = 3;
+  timer.advance(30_000);
+  await flush();
+  assertEquals(
+    norm(one(view.container, "[data-drafting]")),
+    "Context Engineer is drafting · step 3 of 4",
+  );
+});
+
+Deno.test("shell/workspace#R30 [ctx-I39c]: 열려 있는 drafting 탭은 context가 active가 되면 새로 열지 않아도 보통의 Context 보기가 된다", async () => {
+  const { source, state } = evolvingNotes();
+  const timer = manualTimer();
+  const { view } = mount({
+    contexts: source,
+    timer,
+    layout: layoutOf({
+      ...CONTEXT_TAB,
+      key: contextKey(RELEASE_NOTES),
+      context: RELEASE_NOTES,
+      sub_tab: "overview",
+    }),
+  });
+  using _ = view;
+  await flush();
+  assert(view.container.querySelector("[data-drafting]") !== null);
+  state.active = true;
+  timer.advance(30_000);
+  await flush();
+  assert(view.container.querySelector("[data-drafting]") === null);
+  assert(view.container.querySelector("[data-kept-up-to-date]") !== null);
+  assertEquals(
+    all(view.container, "[role=tab]").map((tab) => norm(tab)).filter((name) =>
+      ["Overview", "Search", "Violations", "Glossary", "Contract"].includes(
+        name,
+      )
+    ),
+    ["Overview", "Search", "Violations", "Glossary", "Contract"],
+  );
+});

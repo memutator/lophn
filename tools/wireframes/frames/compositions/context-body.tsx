@@ -1,5 +1,5 @@
-// Part 2: Context 탭(C2 Contract, C3 Violations). 예시 context는 eval이고 harness는 관계로만 나온다.
-import type { ReactNode } from "react";
+// Part 2: Context 탭 본문(Overview·Contract·Violations 하위 탭). 예시 context는 eval이고 harness는 관계로만 나온다.
+import { type ReactNode, useState } from "react";
 import {
   Button,
   Card,
@@ -11,24 +11,16 @@ import {
   type TreeNode,
 } from "@lophn/design/components";
 
-import { Mark, Mono, ProjectWindow, type TabSpec } from "./project-window.tsx";
+import { Mark, Mono } from "./project-window.tsx";
 import styles from "./compose.module.css";
 
-const TABS: readonly TabSpec[] = [
-  { key: "doc", kind: "document", title: "exp-008-query-tools.md" },
-  { key: "eval", kind: "context", title: "eval" },
-  { key: "search", kind: "search", title: "phroner" },
-];
-
-type SubTab = "overview" | "search" | "violations" | "glossary" | "contract";
-
-function Header({ tab }: { tab: SubTab }) {
+function Header({ tab, name }: { tab: SubTab; name: string }) {
   const detail = tab === "contract";
   return (
     <div className={styles.ctxHead}>
       <div>
         <div className={styles.ctxTitle}>
-          <h1>eval</h1>
+          <h1>{name}</h1>
           <span className={styles.chip}>Context</span>
         </div>
         <p className={styles.purpose}>
@@ -550,55 +542,81 @@ function Overview() {
   );
 }
 
-function ContextWindow({ tab }: { tab: SubTab }) {
+export type SubTab =
+  | "overview"
+  | "search"
+  | "violations"
+  | "glossary"
+  | "contract";
+
+/** harness context의 Overview: 개체 둘만 있어 그림 없이 카드로 보인다. */
+function HarnessOverview() {
   return (
-    <ProjectWindow
-      sidebar={{}}
-      crumbs={["phroner", "eval", "Context"]}
-      left={{
-        tabs: TABS,
-        selected: "eval",
-        children: (
-          <>
-            <Header tab={tab} />
-            <Tabs defaultValue={tab}>
-              <TabList>
-                <Tab value="overview">Overview</Tab>
-                <Tab value="search">Search</Tab>
-                <Tab value="violations">Violations (2)</Tab>
-                <Tab value="glossary">Glossary</Tab>
-                <Tab value="contract">Contract</Tab>
-              </TabList>
-              <TabPanel value="overview">
-                <Overview />
-              </TabPanel>
-              <TabPanel value="search">{null}</TabPanel>
-              <TabPanel value="violations">
-                <Violations />
-              </TabPanel>
-              <TabPanel value="glossary">{null}</TabPanel>
-              <TabPanel value="contract">
-                <Contract />
-              </TabPanel>
-            </Tabs>
-          </>
-        ),
-      }}
-    />
+    <div className={styles.cards}>
+      {[
+        {
+          name: "Change",
+          meaning: "A change to the harness being evaluated.",
+          count: 52,
+          example: "e.g. C-049",
+        },
+        {
+          name: "Component",
+          meaning: "A part of the harness a change touches.",
+          count: 18,
+          example: "e.g. world loader",
+        },
+      ].map((entity) => (
+        <Card key={entity.name}>
+          <div className={styles.cardHead}>
+            <h3>{entity.name}</h3>
+            <span className={styles.muted}>{entity.count}</span>
+          </div>
+          <p className={styles.note}>{entity.meaning}</p>
+          <p className={styles.note}>{entity.example}</p>
+        </Card>
+      ))}
+    </div>
   );
 }
 
-/** C2: Context 탭 · Overview(기본 탭). */
-export function ContextOverview() {
-  return <ContextWindow tab="overview" />;
-}
-
-/** C2b: Context 탭 · Contract(세부, 뒤쪽 탭). */
-export function ContextContract() {
-  return <ContextWindow tab="contract" />;
-}
-
-/** C3: Context 탭 · Violations. */
-export function ContextViolations() {
-  return <ContextWindow tab="violations" />;
+/** Context 탭 본문. 하위 탭을 누르면 머리와 본문이 바뀐다. */
+export function ContextBody(
+  { name = "eval", initial = "overview" }: { name?: string; initial?: SubTab },
+) {
+  const [tab, setTab] = useState<SubTab>(initial);
+  const harness = name === "harness";
+  return (
+    <>
+      <Header tab={tab} name={name} />
+      <Tabs value={tab} onValueChange={(value) => setTab(value as SubTab)}>
+        <TabList>
+          <Tab value="overview">Overview</Tab>
+          <Tab value="search">Search</Tab>
+          <Tab value="violations">
+            {harness ? "Violations" : "Violations (2)"}
+          </Tab>
+          <Tab value="glossary">Glossary</Tab>
+          <Tab value="contract">Contract</Tab>
+        </TabList>
+        <TabPanel value="overview">
+          {harness ? <HarnessOverview /> : <Overview />}
+        </TabPanel>
+        <TabPanel value="search">
+          <p className={styles.note}>
+            Searches declared in this context open in the Search tab.
+          </p>
+        </TabPanel>
+        <TabPanel value="violations">
+          {harness
+            ? <p className={styles.note}>No violations.</p>
+            : <Violations />}
+        </TabPanel>
+        <TabPanel value="glossary">{null}</TabPanel>
+        <TabPanel value="contract">
+          <Contract />
+        </TabPanel>
+      </Tabs>
+    </>
+  );
 }

@@ -1,113 +1,47 @@
-// Part 2: project 화면 위의 새 설계(C1, C1b, C4, C5, C5b, C7). 고정 data만 쓴다.
-import { type ReactNode, useState } from "react";
-import {
-  Card,
-  conversationIcons,
-  Icon,
-  IconButton,
-  iconPixels,
-  Input,
-  lophnSpaceIcons,
-  Textarea,
-  Toast,
-  ToastStack,
-} from "@lophn/design/components";
-import { Button, Field, Select } from "@lophn/ui-control";
-import { DataTable, type TableColumn } from "@lophn/ui-table";
+// Part 2: project 화면 위의 새 설계. 모두 동작하는 ProjectApp 위에 고정 data로 놓는다.
+import { Toast, ToastStack } from "@lophn/design/components";
 
-import menuStyles from "../../../../packages/design/components/menu/menu.module.css";
-import fieldStyles from "../../../../packages/design/components/field/field.module.css";
-
-import {
-  CHAT,
-  DocumentBody,
-  type PaneSpec,
-  ProjectWindow,
-  StaticMenu,
-  type TabSpec,
-} from "./project-window.tsx";
+import { documentTab, objectTab } from "./bodies.tsx";
+import { type PaneInit, ProjectApp } from "./project-app.tsx";
+import { StaticMenu, type TabSpec } from "./project-window.tsx";
 import styles from "./compose.module.css";
 
-const NOW = new Date("2026-10-11T12:00:00Z");
-const DOC: TabSpec = {
-  key: "exp-008",
-  kind: "document",
-  title: "exp-008-query-tools.md",
-};
-const CONTEXT: TabSpec = { key: "eval", kind: "context", title: "eval" };
-const SEARCH: TabSpec = { key: "search", kind: "search", title: "phroner" };
+const DOC_PATH = "eval/experiments/exp-008-query-tools.md";
+const DOC = documentTab(DOC_PATH);
+const context = (sub: string): TabSpec => ({
+  key: "context:eval",
+  kind: "context",
+  title: "eval",
+  sub,
+});
+const SEARCH = (sub?: string): TabSpec => ({
+  key: "search",
+  kind: "search",
+  title: "phroner",
+  sub,
+});
 const TERMINAL: TabSpec = {
-  key: "terminal",
+  key: "terminal:1",
   kind: "terminal",
   title: "phroner",
 };
-const LEFT_TABS = [DOC, CONTEXT, SEARCH, TERMINAL] as const;
-const CHAT_TAB: TabSpec = {
-  key: "chat",
-  kind: "conversation",
-  title: "lophn",
-};
+const CHAT_TAB: TabSpec = { key: "chat", kind: "conversation", title: "lophn" };
 
-function Conversation() {
-  return (
-    <div className={styles.chat}>
-      <div className={styles.turns}>
-        {CHAT.map((turn, index) => (
-          <div
-            key={index}
-            className={`${styles.turn} ${
-              turn.who === "You" ? styles.mine : ""
-            }`}
-          >
-            <span className={styles.who}>{turn.who}</span>
-            <p className={styles.said}>{turn.text}</p>
-          </div>
-        ))}
-      </div>
-      <div className={styles.composer}>
-        <Field label="Message">
-          <Textarea rows={2} placeholder="Message lophn" />
-        </Field>
-        <IconButton
-          icon={conversationIcons.send}
-          label="Send"
-          variant="secondary"
-        />
-      </div>
-    </div>
-  );
-}
+const chat: PaneInit = { tabs: [CHAT_TAB], selected: CHAT_TAB.key };
+const left = (selected: TabSpec, ...others: TabSpec[]): PaneInit => ({
+  tabs: [DOC, ...others],
+  selected: selected.key,
+});
 
-const CRUMBS = ["phroner", "eval", "experiments", "exp-008-query-tools.md"];
-const DOC_SELECTED = "eval/experiments/exp-008-query-tools.md";
-
-function chatPane(): PaneSpec {
-  return {
-    tabs: [CHAT_TAB],
-    selected: CHAT_TAB.key,
-    focused: false,
-    flush: true,
-    children: <Conversation />,
-  };
-}
-
-function documentPane(overlay?: PaneSpec["overlay"]): PaneSpec {
-  return {
-    tabs: LEFT_TABS,
-    selected: DOC.key,
-    children: <DocumentBody />,
-    overlay,
-  };
-}
+// toast가 화면에 남은 채로 보이도록 시간이 가지 않는 timer를 준다.
+const NO_TIMER = { set: () => 0, clear: () => {} };
 
 /** C1: 탭 kind 확장. 문서·Context·Search·Terminal 탭과 오른쪽 칸의 대화 탭. */
 export function TabKinds() {
   return (
-    <ProjectWindow
-      sidebar={{ current: DOC_SELECTED }}
-      crumbs={CRUMBS}
-      left={documentPane()}
-      right={chatPane()}
+    <ProjectApp
+      sidebar={{ current: DOC_PATH }}
+      panes={[left(DOC, context("overview"), SEARCH(), TERMINAL), chat]}
     >
       <ToastStack>
         <Toast
@@ -117,20 +51,17 @@ export function TabKinds() {
           timer={NO_TIMER}
         />
       </ToastStack>
-    </ProjectWindow>
+    </ProjectApp>
   );
 }
-
-// toast가 화면에 남은 채로 보이도록 시간이 가지 않는 timer를 준다.
-const NO_TIMER = { set: () => 0, clear: () => {} };
 
 /** C1b: + 메뉴를 펼친 상태. New tab → Document, Terminal, Conversation ▸, Context, Search, App panel. */
 export function NewTabMenu() {
   return (
-    <ProjectWindow
-      sidebar={{ current: DOC_SELECTED }}
-      crumbs={CRUMBS}
-      left={documentPane(
+    <ProjectApp
+      sidebar={{ current: DOC_PATH }}
+      panes={[left(DOC, context("overview"), SEARCH(), TERMINAL), chat]}
+      overlay={
         <div className={styles.menus}>
           <StaticMenu
             head="New tab"
@@ -153,21 +84,36 @@ export function NewTabMenu() {
               { label: "Operator…" },
             ]}
           />
-        </div>,
-      )}
-      right={chatPane()}
+        </div>
+      }
     />
   );
+}
+
+/** C2: Context 탭 · Overview(기본 탭). */
+export function ContextOverview() {
+  const tab = context("overview");
+  return <ProjectApp panes={[left(tab, tab, SEARCH())]} />;
+}
+
+/** C2b: Context 탭 · Contract(세부, 뒤쪽 탭). */
+export function ContextContract() {
+  const tab = context("contract");
+  return <ProjectApp panes={[left(tab, tab, SEARCH())]} />;
+}
+
+/** C3: Context 탭 · Violations. */
+export function ContextViolations() {
+  const tab = context("violations");
+  return <ProjectApp panes={[left(tab, tab, SEARCH())]} />;
 }
 
 /** C4: 계약 위반 toast. */
 export function ViolationToast() {
   return (
-    <ProjectWindow
-      sidebar={{ current: DOC_SELECTED }}
-      crumbs={CRUMBS}
-      left={documentPane()}
-      right={chatPane()}
+    <ProjectApp
+      sidebar={{ current: DOC_PATH }}
+      panes={[left(DOC, context("overview"), SEARCH(), TERMINAL), chat]}
     >
       <ToastStack>
         <Toast
@@ -177,416 +123,66 @@ export function ViolationToast() {
           timer={NO_TIMER}
         />
       </ToastStack>
-    </ProjectWindow>
+    </ProjectApp>
   );
 }
 
-const SEARCHES = [
-  "Findings about a change",
-  "Experiments by status",
-  "Scenarios using a rubric",
-] as const;
-
-// 왼쪽 칸: context 고르기, 선언된 검색 이름들, saved view.
-function SearchSide({ active }: { active: (typeof SEARCHES)[number] }) {
-  const row = (
-    label: string,
-    selected: boolean,
-    icon?: typeof lophnSpaceIcons.savedView,
-  ) => (
-    <li key={label} className={selected ? styles.selected : undefined}>
-      <Button variant="ghost" size="sm" icon={icon}>
-        {label}
-      </Button>
-    </li>
-  );
+function searchPage(search: TabSpec) {
   return (
-    <aside className={styles.searchSide}>
-      <Field label="Context">
-        <Select
-          options={[{ value: "eval", label: "eval" }, {
-            value: "harness",
-            label: "harness",
-          }]}
-          defaultValue="eval"
-        />
-      </Field>
-      <div>
-        <p className={styles.groupLabel}>Searches</p>
-        <ul className={styles.rows}>
-          {SEARCHES.map((name) => row(name, name === active))}
-        </ul>
-      </div>
-      <div>
-        <p className={styles.groupLabel}>Saved views</p>
-        <ul className={styles.rows}>
-          {row("Findings for C-049", false, lophnSpaceIcons.savedView)}
-          {row("Running experiments", false, lophnSpaceIcons.savedView)}
-        </ul>
-      </div>
-    </aside>
+    <ProjectApp
+      panes={[left(search, context("overview"), search, TERMINAL)]}
+    />
   );
 }
 
-function searchPane(body: ReactNode): PaneSpec {
-  return {
-    tabs: LEFT_TABS,
-    selected: SEARCH.key,
-    flush: true,
-    children: <div className={styles.search}>{body}</div>,
-  };
-}
-
-// 입력 칸 한 줄의 이름. 실제 Field와 같은 label 모양이다.
-function Legend({ children }: { children: ReactNode }) {
-  return <span className={fieldStyles.label}>{children}</span>;
-}
-
-interface Finding {
-  id: string;
-  title: string;
-  kind: string;
-  scenario: string;
-  effect: string;
-  experiment: string;
-}
-
-const FINDINGS: readonly Finding[] = [
-  {
-    id: "F-009",
-    title: "읽고 멈추는 과제에서 월드 행동 시도가 사라진다",
-    kind: "improvement",
-    scenario: "query-leave-still",
-    effect: "world_actions 3 → 0",
-    experiment: "exp-008",
-  },
-  {
-    id: "F-010",
-    title: "상자 이름을 묻는 과제에서 불필요한 열기 호출이 줄었다",
-    kind: "improvement",
-    scenario: "query-chest-name",
-    effect: "tool_calls 5 → 2",
-    experiment: "exp-008",
-  },
-  {
-    id: "F-011",
-    title: "레시피 빈틈을 묻는 과제에서 오답이 늘었다",
-    kind: "regression",
-    scenario: "query-recipe-gap",
-    effect: "answer_match 0.8 → 0.6",
-    experiment: "exp-008",
-  },
-];
-
-// 선언된 table 결과. DataTable은 text·number·time 열만 그려서 링크와 상태 pill은 글자로 둔다.
-const FINDING_COLUMNS: readonly TableColumn<Finding>[] = [
-  {
-    id: "finding",
-    header: "Finding",
-    kind: "text",
-    value: (row) => `${row.id} · ${row.title}`,
-  },
-  { id: "kind", header: "Kind", kind: "text", value: (row) => row.kind },
-  {
-    id: "scenario",
-    header: "Scenario",
-    kind: "text",
-    value: (row) => row.scenario,
-  },
-  { id: "effect", header: "Effect", kind: "text", value: (row) => row.effect },
-  {
-    id: "experiment",
-    header: "Experiment",
-    kind: "text",
-    value: (row) => row.experiment,
-  },
-];
-
-const DECLARATION = `search: findings-about-change
-title: Findings about a change
-inputs:
-  change: { type: pick, of: harness.Change }
-  kind:   { type: choose-many, of: Finding.kind }
-  metric: { type: choose-one, of: Finding.effects.metric, optional: true }
-result:
-  view: table
-  columns: [finding, kind, scenario, effect, experiment]`;
-
-function Kind({ label, on }: { label: string; on: boolean }) {
-  return (
-    <Button
-      variant={on ? "secondary" : "ghost"}
-      size="sm"
-      aria-pressed={on}
-    >
-      {on ? `✓ ${label}` : label}
-    </Button>
-  );
-}
-
-// 고르는 입력은 타이핑을 받는 combobox다. 쓰면 맞는 후보만 아래에 걸러진다(ui-control에 combobox가 없어
-// Field·Input에 menu CSS Module로 후보 목록을 붙여 만든 look-alike다).
-interface Pick {
-  value: string;
-  label: string;
-}
-
-const CHANGES: readonly Pick[] = [
-  {
-    value: "c-049",
-    label: "C-049 · 행동 전에 로드된 월드와 등록 정보를 조회한다",
-  },
-  { value: "c-041", label: "C-041 · 상자 이름 조회를 한 번에 묶는다" },
-  { value: "c-040", label: "C-040 · 레시피 조회 결과를 캐시한다" },
-  { value: "c-050", label: "C-050 · 읽기 전용 과제에서 월드 행동을 막는다" },
-  { value: "c-038", label: "C-038 · 일정 도구의 재시도를 줄인다" },
-];
-
-const METRICS: readonly Pick[] = [
-  { value: "any", label: "Any metric" },
-  { value: "world_actions", label: "world_actions" },
-  { value: "tool_calls", label: "tool_calls" },
-  { value: "answer_match", label: "answer_match" },
-];
-
-const SCENARIOS: readonly Pick[] = [
-  { value: "any", label: "Any" },
-  { value: "query-leave-still", label: "query-leave-still" },
-  { value: "query-chest-name", label: "query-chest-name" },
-  { value: "query-recipe-gap", label: "query-recipe-gap" },
-];
-
-function Combo(
-  { label, options, defaultText, typed = false }: {
-    label: string;
-    options: readonly Pick[];
-    defaultText: string;
-    /** true면 쓰는 중이고 후보가 펼쳐진 상태로 시작한다. */
-    typed?: boolean;
-  },
-) {
-  const [text, setText] = useState(defaultText);
-  const [open, setOpen] = useState(typed);
-  const [filtering, setFiltering] = useState(typed);
-  const query = text.trim().toLowerCase();
-  const shown = filtering && query !== ""
-    ? options.filter((option) => option.label.toLowerCase().includes(query))
-    : options;
-  return (
-    <Field label={label}>
-      <div className={styles.combo}>
-        <Input
-          role="combobox"
-          aria-expanded={open}
-          aria-autocomplete="list"
-          value={text}
-          onChange={(event) => {
-            setText(event.target.value);
-            setFiltering(true);
-            setOpen(true);
-          }}
-          onFocus={() => setOpen(true)}
-          onBlur={() => setOpen(false)}
-        />
-        <span className={styles.comboCaret}>
-          <Icon icon={lophnSpaceIcons.collapse} pixels={iconPixels("base")} />
-        </span>
-        {open
-          ? (
-            <div
-              className={`${menuStyles.menu} ${styles.comboList}`}
-              role="listbox"
-            >
-              {shown.length === 0
-                ? <div className={styles.comboEmpty}>No matches</div>
-                : shown.map((option, index) => (
-                  <div
-                    key={option.value}
-                    role="option"
-                    aria-selected={index === 0}
-                    className={menuStyles.item}
-                    data-highlighted={index === 0 ? "" : undefined}
-                    onMouseDown={(event) => {
-                      event.preventDefault();
-                      setText(option.label);
-                      setFiltering(false);
-                      setOpen(false);
-                    }}
-                  >
-                    {option.label}
-                  </div>
-                ))}
-            </div>
-          )
-          : null}
-      </div>
-    </Field>
-  );
-}
-
-/** C5: 선언된 검색 · table 결과. 입력 form과 table은 SDK ui-control·ui-table로 그린다. */
+/** C5: 선언된 검색 · table 결과(14 findings, page 이동, 링크는 객체 탭을 연다). */
 export function DeclaredSearchTable() {
-  return <SearchTablePage />;
+  return searchPage(SEARCH());
+}
+
+/** C5b: 선언된 검색 · board 결과. */
+export function DeclaredSearchBoard() {
+  return searchPage(SEARCH("experiments"));
 }
 
 /** C5c: Change 입력에 "C-04"를 쓰는 중. 맞는 후보가 걸러져 펼쳐진다. */
 export function DeclaredSearchCombobox() {
-  return <SearchTablePage typed />;
+  return searchPage(SEARCH("typed"));
 }
 
-function SearchTablePage({ typed = false }: { typed?: boolean }) {
+/** C8: 접힌 sidebar = 바로 가기 rail. Contexts 단추의 tooltip이 보인다. */
+export function SidebarCollapsed() {
   return (
-    <ProjectWindow
-      sidebar={{}}
-      crumbs={["phroner", "Search", "Findings about a change"]}
-      left={searchPane(
-        <>
-          <SearchSide active="Findings about a change" />
-          <div className={styles.results}>
-            <h1 className={styles.searchTitle}>Findings about a change</h1>
-            <div className={styles.form}>
-              <Combo
-                label="Change"
-                options={CHANGES}
-                defaultText={typed ? "C-04" : CHANGES[0].label}
-                typed={typed}
-              />
-              <div className={styles.formGroup}>
-                <Legend>Kind</Legend>
-                <div className={styles.chips}>
-                  <Kind label="improvement" on />
-                  <Kind label="regression" on />
-                  <Kind label="neutral" on={false} />
-                </div>
-              </div>
-              <Combo
-                label="Metric"
-                options={METRICS}
-                defaultText="Any metric"
-              />
-              <div className={styles.actions}>
-                <Button variant="primary">Search</Button>
-                <Button>Save as view</Button>
-              </div>
-            </div>
-            <p className={styles.resultCount}>3 findings</p>
-            <DataTable
-              columns={FINDING_COLUMNS}
-              rows={FINDINGS}
-              rowKey={(row) => row.id}
-              now={NOW}
-              loading={false}
-              onRetry={() => {}}
-              empty={{
-                message: "No findings.",
-                action: { label: "Reset", onSelect: () => {} },
-              }}
-            />
-            <div className={styles.declaration}>
-              <span className={styles.declarationHead}>Show declaration ▾</span>
-              <pre className={styles.code}>{DECLARATION}</pre>
-              <p className={styles.note}>
-                Written by Context Engineer. lophn draws the form and the table
-                from it with the shared parts.
-              </p>
-            </div>
-          </div>
-        </>,
-      )}
+    <ProjectApp
+      sidebar={{ collapsed: true, railTooltip: "contexts" }}
+      panes={[left(DOC), chat]}
     />
   );
 }
 
-const BOARD = [
-  {
-    title: "Draft",
-    cards: [
-      { id: "exp-013", name: "ftb quests 2", meta: "4 scenarios" },
-      { id: "exp-014", name: "route planner", meta: "2 scenarios" },
-    ],
-  },
-  {
-    title: "Running",
-    cards: [
-      { id: "exp-008", name: "query tools", meta: "6 scenarios · 3 findings" },
-      { id: "exp-011", name: "chest names", meta: "3 scenarios" },
-      { id: "exp-012", name: "ftb quests 021 q8", meta: "5 scenarios" },
-    ],
-  },
-  {
-    title: "Reported",
-    count: 8,
-    cards: [
-      {
-        id: "exp-007",
-        name: "recipe lookup",
-        meta: "5 scenarios · 4 findings",
-      },
-      {
-        id: "exp-006",
-        name: "inventory read",
-        meta: "6 scenarios · 2 findings",
-      },
-      {
-        id: "exp-005",
-        name: "schedule tools",
-        meta: "4 scenarios · 1 finding",
-      },
-    ],
-  },
-] as const;
+/** C9: Contexts 탭. 이 project의 context 목록. */
+export function ContextsTab() {
+  const contexts: TabSpec = {
+    key: "contexts",
+    kind: "contexts",
+    title: "phroner",
+  };
+  return <ProjectApp panes={[left(contexts, contexts)]} />;
+}
 
-/** C5b: 선언된 검색 · board 결과. 입력은 개체 고르기 둘이다. */
-export function DeclaredSearchBoard() {
-  return (
-    <ProjectWindow
-      sidebar={{}}
-      crumbs={["phroner", "Search", "Experiments by status"]}
-      left={searchPane(
-        <>
-          <SearchSide active="Experiments by status" />
-          <div className={styles.results}>
-            <h1 className={styles.searchTitle}>Experiments by status</h1>
-            <div className={styles.formRow}>
-              <Combo label="Scenario" options={SCENARIOS} defaultText="Any" />
-              <Combo
-                label="About change"
-                options={[{ value: "any", label: "Any" }, ...CHANGES]}
-                defaultText="Any"
-              />
-            </div>
-            <div className={styles.board}>
-              {BOARD.map((column) => (
-                <section key={column.title} className={styles.boardColumn}>
-                  <h2 className={styles.boardHead}>
-                    {column.title}{" "}
-                    <span className={styles.muted}>
-                      {"count" in column ? column.count : column.cards.length}
-                    </span>
-                  </h2>
-                  {column.cards.map((card) => (
-                    <Card key={card.id}>
-                      <strong>{card.id}</strong> · {card.name}
-                      <p className={styles.note}>{card.meta}</p>
-                    </Card>
-                  ))}
-                </section>
-              ))}
-            </div>
-          </div>
-        </>,
-      )}
-    />
-  );
+/** C10: 객체 탭. 검색 결과의 Finding을 눌러 새로 열린 "F-009 · Finding". */
+export function ObjectTab() {
+  const finding = objectTab("finding", "F-009");
+  return <ProjectApp panes={[left(finding, SEARCH(), finding)]} />;
 }
 
 /** C7: 문서 정리. 문서 행의 오른쪽 클릭 메뉴와 폴더 행의 메뉴. */
 export function DocumentOrganize() {
   const menuFor = "eval/experiments/exp-012-ftb-quests-021-q8.md";
   return (
-    <ProjectWindow
+    <ProjectApp
       sidebar={{
-        current: DOC_SELECTED,
+        current: DOC_PATH,
         menuFor,
         menu: (
           <div
@@ -611,14 +207,13 @@ export function DocumentOrganize() {
           </div>
         ),
       }}
-      crumbs={CRUMBS}
-      left={documentPane(
+      panes={[left(DOC, context("overview"), SEARCH(), TERMINAL), chat]}
+      overlay={
         <div className={styles.folderMenu}>
           <p className={styles.sectionTitle}>Right-click a folder row</p>
           <StaticMenu width={180} items={[{ label: "Unlink folder" }]} />
-        </div>,
-      )}
-      right={chatPane()}
+        </div>
+      }
     />
   );
 }

@@ -100,7 +100,10 @@ export type ScreenId =
   | "new-search-board"
   | "new-search-combobox"
   | "new-workspace"
-  | "new-organize";
+  | "new-organize"
+  | "new-sidebar-collapsed"
+  | "new-contexts"
+  | "new-object";
 
 export interface WireframePage {
   /** 주소 `#/<id>`와 frame의 `?frame=<id>`에 쓴다. */
@@ -468,6 +471,18 @@ export const PAGES: readonly WireframePage[] = [
     "new-tab-menu",
   ),
   fresh(
+    "new-sidebar-collapsed",
+    "Project · sidebar collapsed",
+    "접은 sidebar는 바로 가기 rail이 된다. 펼치기·Terminal·Search·Contexts·Saved views·Conversation 단추가 위에서부터 있고, 누르면 그 탭이 탭 줄에 열린다. 단추에 올리면 tooltip이 뜬다.",
+    "new-sidebar-collapsed",
+  ),
+  fresh(
+    "new-contexts",
+    "Contexts tab",
+    "project의 context 목록을 여는 새 탭 종류. context마다 목적, 다루는 것의 종류 수, 버전, 위반, 쓰는 Operator를 보이고 [Open]은 그 context의 탭(Overview)을 연다.",
+    "new-contexts",
+  ),
+  fresh(
     "new-context-overview",
     "Context tab · Overview",
     "context를 열면 먼저 Overview가 보인다. 어떤 것들이 있고 각각 무엇이며 서로 어떻게 이어지는지를 그림으로, 무엇으로 이루어졌는지를 Composition 트리로 사람 말로 보인다. 타입 같은 계약 세부는 Contract 탭에 있다.",
@@ -494,7 +509,7 @@ export const PAGES: readonly WireframePage[] = [
   fresh(
     "new-search-table",
     "Search tab · table result",
-    "검색 화면은 Context Engineer가 계약에 선언한 검색으로 그려진다. 입력 칸의 종류와 결과 보기도 선언에서 나온다. saved view는 입력을 채워 저장한 것이다.",
+    "검색 화면은 Context Engineer가 계약에 선언한 검색으로 그려진다. 입력 칸의 종류와 결과 보기도 선언에서 나온다. 결과는 page로 나뉘고, Finding·Scenario·Experiment 칸은 링크라서 누르면 객체 탭이 열린다.",
     "new-search-table",
   ),
   fresh(
@@ -508,6 +523,12 @@ export const PAGES: readonly WireframePage[] = [
     "Search tab · typing a pick",
     '고르는 입력(Change, Metric, Scenario, About change)은 타이핑을 받는 combobox다. 입력칸에 "C-04"를 쓰면 맞는 후보(C-049·C-041·C-040)가 아래에 걸러져 펼쳐진다.',
     "new-search-combobox",
+  ),
+  fresh(
+    "new-object",
+    "Object tab · Finding",
+    "검색 결과의 Finding·Scenario·Experiment는 링크이고 누르면 객체 탭이 새로 열린다. 선언된 field를 사람 말로, 관계를 링크로, 맨 아래에 원본 문서를 보인다.",
+    "new-object",
   ),
   fresh(
     "new-workspace",

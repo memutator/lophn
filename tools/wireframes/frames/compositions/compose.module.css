@@ -790,3 +790,118 @@
   padding: var(--space-3) var(--space-4);
   color: var(--color-text-muted);
 }
+
+/* 접힌 sidebar rail */
+.rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-0);
+}
+
+.railRule {
+  width: var(--control-md-height);
+  height: var(--border-width);
+  margin: var(--space-2) var(--space-0);
+  border: var(--space-0);
+  background: var(--color-border-base);
+}
+
+/* 링크 */
+.link {
+  color: var(--color-link);
+  text-decoration: none;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  font-size: var(--type-small-size);
+}
+
+.pager > :first-child {
+  margin-right: var(--space-3);
+}
+
+.legend {
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  font-weight: var(--font-weight-medium);
+}
+
+/* 터미널 탭 */
+.terminal {
+  box-sizing: border-box;
+  height: 100%;
+  margin: var(--space-0);
+  padding: var(--space-6);
+  background: var(--color-surface-base);
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--type-small-size);
+  line-height: var(--type-body-line);
+}
+
+/* 객체 탭 */
+.object {
+  max-width: var(--page-reading-default);
+}
+
+.object h1 {
+  margin: var(--space-0);
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-line);
+}
+
+.objHead {
+  margin: var(--space-8) var(--space-0) var(--space-3);
+  font-size: var(--type-body-size);
+  font-weight: var(--font-weight-semibold);
+}
+
+.objField {
+  display: grid;
+  grid-template-columns: var(--layout-container-card) 1fr;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-0);
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+}
+
+.objName {
+  color: var(--color-text-muted);
+}
+
+.objLink + .objLink::before {
+  content: " · ";
+  color: var(--color-text-muted);
+}
+
+.objSource {
+  margin: var(--space-8) var(--space-0) var(--space-0);
+  color: var(--color-text-secondary);
+}
+
+/* Contexts 탭 */
+.contexts {
+  max-width: var(--page-launcher);
+}
+
+.newContext {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  margin-top: var(--space-8);
+}
+
+.warnText {
+  color: var(--status-warning-text);
+}

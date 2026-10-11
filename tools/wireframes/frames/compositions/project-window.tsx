@@ -1,8 +1,8 @@
-// 새 설계 page들이 같이 쓰는 project 화면 틀. 실제 TopBar·Breadcrumbs·LauncherButton과 design
+// 새 설계 page들이 같이 쓰는 project 화면 조각. 실제 TopBar·Breadcrumbs·LauncherButton·Tooltip과 design
 // component를 그대로 쓰고, 실제 sidebar·tab strip·menu는 source 없이 그릴 수 없거나 새 설계의
-// 항목(Saved views, Context·Search·Conversation 탭 종류)이 없어서 같은 CSS Module로 같은 모양의
-// 마크업을 다시 짠 look-alike다. 앱 코드는 고치지 않는다.
-import { type ReactNode, useState } from "react";
+// 항목(Saved views, Context·Search·Conversation 탭 종류, 바로 가기 rail)이 없어서 같은 CSS Module로 같은
+// 모양의 마크업을 다시 짠 look-alike다. 앱 코드는 고치지 않는다.
+import { type ReactNode, useLayoutEffect, useRef } from "react";
 import {
   conversationIcons,
   Icon,
@@ -11,13 +11,12 @@ import {
   type IconProps,
   lophnSpaceIcons,
   paletteIcons,
+  Tooltip,
   Tree,
   type TreeNode,
   workspaceIcons,
 } from "@lophn/design/components";
 
-import { TopBar } from "../../../../apps/shell/renderer/desktop/top-bar/top-bar.tsx";
-import { Breadcrumbs } from "../../../../apps/shell/renderer/workspace/top-path/breadcrumbs.tsx";
 import { LauncherButton } from "../../../../apps/shell/renderer/workspace/launcher-button.tsx";
 import { TAB_MIN } from "../../../../apps/shell/renderer/workspace/model.ts";
 import tabStyles from "../../../../apps/shell/renderer/workspace/tab-strip/tab-strip.module.css";
@@ -37,44 +36,69 @@ export function Mono({ children }: { children: ReactNode }) {
 export type TabKind =
   | "document"
   | "context"
+  | "contexts"
   | "search"
   | "terminal"
-  | "conversation";
+  | "conversation"
+  | "object";
 
 const KIND_ICON: Record<TabKind, IconProps["icon"]> = {
   document: workspaceIcons.documentEditor,
   context: workspaceIcons.context,
+  contexts: workspaceIcons.context,
   search: paletteIcons.search,
   terminal: workspaceIcons.terminal,
   conversation: conversationIcons.dock,
+  object: lophnSpaceIcons.series,
 };
 
 const KIND_LABEL: Record<TabKind, string> = {
   document: "Document editor",
   context: "Context",
+  contexts: "Contexts",
   search: "Search",
   terminal: "Terminal",
   conversation: "Conversation",
+  object: "Object",
 };
 
 export interface TabSpec {
   readonly key: string;
   readonly kind: TabKind;
   readonly title: string;
+  /** 종류 글자를 바꾼다(객체 탭은 Finding·Scenario·Experiment). */
+  readonly label?: string;
+  /** Context 탭이 처음 여는 하위 탭, 객체 탭의 대상 같은 탭 하나의 설정. */
+  readonly sub?: string;
 }
 
-/** 탭 줄. 종류는 아이콘과 글자로 구별한다(실제 TabStrip과 같은 마크업·CSS). */
+/** 탭 줄. 종류는 아이콘과 글자로 구별한다(실제 TabStrip과 같은 마크업·CSS). 누르면 고르고 ×로 닫는다. */
 export function TabBar(
-  { tabs, selected, focused = true, end }: {
+  { tabs, selected, focused = true, end, onSelect, onClose }: {
     tabs: readonly TabSpec[];
     selected: string;
     focused?: boolean;
     end?: ReactNode;
+    onSelect?: (key: string) => void;
+    onClose?: (key: string) => void;
   },
 ) {
+  const list = useRef<HTMLDivElement>(null);
+  // 새로 열린 탭이 줄 밖이면 줄 안에서만 scroll해 보이게 한다.
+  useLayoutEffect(() => {
+    const element = list.current;
+    const tab = element?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (!element || !tab) return;
+    const right = tab.offsetLeft + tab.offsetWidth;
+    if (right > element.scrollLeft + element.clientWidth) {
+      element.scrollLeft = right - element.clientWidth;
+    } else if (tab.offsetLeft < element.scrollLeft) {
+      element.scrollLeft = tab.offsetLeft;
+    }
+  }, [selected, tabs.length]);
   return (
     <div className={tabStyles.bar}>
-      <div className={tabStyles.list} role="tablist">
+      <div ref={list} className={tabStyles.list} role="tablist">
         {tabs.map((tab) => {
           const active = tab.key === selected;
           return (
@@ -88,6 +112,7 @@ export function TabBar(
               role="tab"
               aria-selected={active}
               style={{ minWidth: `${TAB_MIN}px`, maxWidth: "300px" }}
+              onClick={() => onSelect?.(tab.key)}
             >
               <Icon
                 icon={KIND_ICON[tab.kind]}
@@ -95,13 +120,23 @@ export function TabBar(
                 className={tabStyles.icon}
               />
               <span className={tabStyles.title}>{tab.title}</span>
-              <span className={tabStyles.kind}>{KIND_LABEL[tab.kind]}</span>
-              <span className={tabStyles.close}>
+              <span className={tabStyles.kind}>
+                {tab.label ?? KIND_LABEL[tab.kind]}
+              </span>
+              <button
+                type="button"
+                className={tabStyles.close}
+                aria-label="Close tab"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onClose?.(tab.key);
+                }}
+              >
                 <Icon
                   icon={workspaceIcons.close}
                   pixels={iconPixels("small")}
                 />
-              </span>
+              </button>
             </div>
           );
         })}
@@ -111,29 +146,6 @@ export function TabBar(
         <IconButton icon={lophnSpaceIcons.add} label="New tab" size="sm" />
       </div>
     </div>
-  );
-}
-
-export interface PaneSpec {
-  readonly tabs: readonly TabSpec[];
-  readonly selected: string;
-  readonly focused?: boolean;
-  readonly children: ReactNode;
-  /** 본문 여백 없이 칸을 스스로 채우는 탭(Search, Conversation). */
-  readonly flush?: boolean;
-  /** 이 칸 위에 얹는 것(열린 메뉴). */
-  readonly overlay?: ReactNode;
-}
-
-function Pane({ tabs, selected, focused, children, flush, overlay }: PaneSpec) {
-  return (
-    <section className={styles.pane}>
-      <TabBar tabs={tabs} selected={selected} focused={focused} />
-      <div className={`${styles.body} ${flush ? styles.flush : ""}`}>
-        {children}
-      </div>
-      {overlay}
-    </section>
   );
 }
 
@@ -178,30 +190,60 @@ export const FOLDER_TREE: readonly TreeNode[] = [
 const OPEN_BRANCHES = new Set(["eval", "eval/experiments"]);
 
 function SidebarRow(
-  { icon, label, active = false, collapsed = false }: {
+  { icon, label, active = false, onClick }: {
     icon: IconProps["icon"];
     label: string;
     active?: boolean;
-    collapsed?: boolean;
+    onClick?: () => void;
   },
 ) {
+  const className = `${sideStyles.item} ${active ? sideStyles.active : ""}`;
+  const inner = (
+    <>
+      <Icon
+        icon={icon}
+        pixels={iconPixels("base")}
+        className={sideStyles.icon}
+      />
+      <span className={sideStyles.label}>{label}</span>
+    </>
+  );
   return (
     <li className={sideStyles.li}>
-      <span
-        className={`${sideStyles.item} ${active ? sideStyles.active : ""}`}
-        aria-label={collapsed ? label : undefined}
-        title={label}
-      >
-        <Icon
-          icon={icon}
-          pixels={iconPixels("base")}
-          className={sideStyles.icon}
-        />
-        {collapsed ? null : <span className={sideStyles.label}>{label}</span>}
-      </span>
+      {onClick
+        ? (
+          <button type="button" className={className} onClick={onClick}>
+            {inner}
+          </button>
+        )
+        : <span className={className}>{inner}</span>}
     </li>
   );
 }
+
+/** 접힌 sidebar rail의 바로 가기. 누르면 그 탭을 연다. */
+export type RailAction =
+  | "terminal"
+  | "search"
+  | "contexts"
+  | "saved"
+  | "conversation";
+
+const RAIL: readonly {
+  action: RailAction;
+  label: string;
+  icon: IconProps["icon"];
+}[] = [
+  { action: "terminal", label: "Terminal", icon: workspaceIcons.terminal },
+  { action: "search", label: "Search", icon: paletteIcons.search },
+  { action: "contexts", label: "Contexts", icon: workspaceIcons.context },
+  { action: "saved", label: "Saved views", icon: lophnSpaceIcons.savedView },
+  {
+    action: "conversation",
+    label: "Conversation",
+    icon: conversationIcons.dock,
+  },
+];
 
 export interface SidebarSpec {
   /** 고른 문서 행(트리 id). */
@@ -211,15 +253,37 @@ export interface SidebarSpec {
   /** 트리 아래에 얹는 메뉴. */
   readonly menu?: ReactNode;
   readonly savedActive?: string;
-  /** 접힌 sidebar. 폭 56px에 아이콘만 둔다(실제 sidebarView의 collapsed). */
+  /** 접힌 sidebar로 시작한다. */
   readonly collapsed?: boolean;
-  readonly onToggle?: () => void;
+  /** rail의 이 단추 tooltip을 열어 둔 채로 그린다. */
+  readonly railTooltip?: RailAction;
 }
 
-/** project sidebar: Folders(tree), Contexts, Saved views. 접으면 실제 sidebar처럼 아이콘 줄만 남는다. */
+export interface SidebarProps extends SidebarSpec {
+  readonly collapsed: boolean;
+  readonly onToggle: () => void;
+  readonly onRail: (action: RailAction) => void;
+  readonly onOpenFile: (id: string) => void;
+  readonly onOpenContext: (name: string) => void;
+}
+
+/**
+ * project sidebar: Folders(tree), Contexts, Saved views. 접으면 바로 가기 rail이 된다: 펼치기 · Terminal ·
+ * Search · Contexts · Saved views · Conversation.
+ */
 export function ProjectSidebar(
-  { current, menuFor, menu, savedActive, collapsed = false, onToggle }:
-    SidebarSpec,
+  {
+    current,
+    menuFor,
+    menu,
+    savedActive,
+    collapsed,
+    railTooltip,
+    onToggle,
+    onRail,
+    onOpenFile,
+    onOpenContext,
+  }: SidebarProps,
 ) {
   const toggleLabel = collapsed ? "Expand sidebar" : "Collapse sidebar";
   return (
@@ -244,25 +308,29 @@ export function ProjectSidebar(
           onClick={onToggle}
         />
       </div>
-      <div className={sideStyles.body}>
-        <section className={sideStyles.section}>
-          {collapsed
-            ? null
-            : <h2 className={sideStyles.sectionLabel}>Folders</h2>}
-          {collapsed
-            ? (
-              <ul className={sideStyles.list} role="list">
-                {FOLDER_TREE.map((node) => (
-                  <SidebarRow
-                    key={node.id}
-                    icon={workspaceIcons.folder}
-                    label={node.label}
-                    collapsed
-                  />
-                ))}
-              </ul>
-            )
-            : (
+      {collapsed
+        ? (
+          <div className={styles.rail} role="toolbar" aria-label="Shortcuts">
+            <hr className={styles.railRule} />
+            {RAIL.map((item) => (
+              <Tooltip
+                key={item.action}
+                content={item.label}
+                open={railTooltip === item.action ? true : undefined}
+              >
+                <IconButton
+                  icon={item.icon}
+                  label={item.label}
+                  onClick={() => onRail(item.action)}
+                />
+              </Tooltip>
+            ))}
+          </div>
+        )
+        : (
+          <div className={sideStyles.body}>
+            <section className={sideStyles.section}>
+              <h2 className={sideStyles.sectionLabel}>Folders</h2>
               <div className={styles.treeBox}>
                 <Tree
                   nodes={FOLDER_TREE}
@@ -272,49 +340,46 @@ export function ProjectSidebar(
                   selectedIds={menuFor === undefined
                     ? undefined
                     : new Set([menuFor])}
+                  onOpen={(id) => id.endsWith(".md") && onOpenFile(id)}
                   label="Folders"
                 />
                 {menu}
               </div>
-            )}
-        </section>
-        <section className={sideStyles.section}>
-          {collapsed
-            ? null
-            : <h2 className={sideStyles.sectionLabel}>Contexts</h2>}
-          <ul className={sideStyles.list} role="list">
-            <SidebarRow
-              icon={workspaceIcons.context}
-              label="eval"
-              collapsed={collapsed}
-            />
-            <SidebarRow
-              icon={workspaceIcons.context}
-              label="harness"
-              collapsed={collapsed}
-            />
-          </ul>
-        </section>
-        <section className={sideStyles.section}>
-          {collapsed
-            ? null
-            : <h2 className={sideStyles.sectionLabel}>Saved views</h2>}
-          <ul className={sideStyles.list} role="list">
-            <SidebarRow
-              icon={lophnSpaceIcons.savedView}
-              label="Running experiments"
-              active={savedActive === "running"}
-              collapsed={collapsed}
-            />
-            <SidebarRow
-              icon={lophnSpaceIcons.savedView}
-              label="Findings for C-049"
-              active={savedActive === "c-049"}
-              collapsed={collapsed}
-            />
-          </ul>
-        </section>
-      </div>
+            </section>
+            <section className={sideStyles.section}>
+              <h2 className={sideStyles.sectionLabel}>Contexts</h2>
+              <ul className={sideStyles.list} role="list">
+                <SidebarRow
+                  icon={workspaceIcons.context}
+                  label="eval"
+                  onClick={() => onOpenContext("eval")}
+                />
+                <SidebarRow
+                  icon={workspaceIcons.context}
+                  label="harness"
+                  onClick={() => onOpenContext("harness")}
+                />
+              </ul>
+            </section>
+            <section className={sideStyles.section}>
+              <h2 className={sideStyles.sectionLabel}>Saved views</h2>
+              <ul className={sideStyles.list} role="list">
+                <SidebarRow
+                  icon={lophnSpaceIcons.savedView}
+                  label="Running experiments"
+                  active={savedActive === "running"}
+                  onClick={() => onRail("saved")}
+                />
+                <SidebarRow
+                  icon={lophnSpaceIcons.savedView}
+                  label="Findings for C-049"
+                  active={savedActive === "c-049"}
+                  onClick={() => onRail("saved")}
+                />
+              </ul>
+            </section>
+          </div>
+        )}
     </nav>
   );
 }
@@ -352,61 +417,16 @@ export function StaticMenu(
   );
 }
 
-export interface ProjectWindowProps {
-  readonly sidebar?: SidebarSpec;
-  readonly crumbs: readonly string[];
-  readonly left: PaneSpec;
-  readonly right?: PaneSpec;
-  /** 창 위에 얹는 것(toast). */
-  readonly children?: ReactNode;
-}
-
-export function ProjectWindow(
-  { sidebar = {}, crumbs, left, right, children }: ProjectWindowProps,
-) {
-  const [collapsed, setCollapsed] = useState(sidebar.collapsed ?? false);
-  return (
-    <div className={styles.window}>
-      <ProjectSidebar
-        {...sidebar}
-        collapsed={collapsed}
-        onToggle={() => setCollapsed(!collapsed)}
-      />
-      <div className={styles.main}>
-        <div className={styles.topBar}>
-          <TopBar
-            platform="linux"
-            leading={
-              <div className={styles.leading}>
-                {collapsed ? <LauncherButton onLauncher={() => {}} /> : null}
-                <Breadcrumbs crumbs={crumbs.map((label) => ({ label }))} />
-              </div>
-            }
-            trailing={
-              <IconButton
-                icon={paletteIcons.search}
-                label="Search documents"
-                variant="secondary"
-              />
-            }
-          />
-        </div>
-        <div className={styles.panes}>
-          <Pane {...left} />
-          {right === undefined ? null : <Pane {...right} />}
-        </div>
-      </div>
-      {children}
-    </div>
-  );
-}
-
 // 칸 본문 조각
 
-export function DocumentBody() {
+/** 문서 탭 본문. 제목은 파일 이름에서 온다. */
+export function DocumentBody(
+  { name = "exp-008-query-tools.md" }: { name?: string },
+) {
+  const title = name.replace(/\.md$/, "").replace(/-/g, " ");
   return (
     <article className={styles.reading}>
-      <h1>exp-008 · query tools</h1>
+      <h1>{title}</h1>
       <div className={styles.docMeta}>
         <span>status: running</span>
         <span>about: harness C-049</span>

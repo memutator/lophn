@@ -46,14 +46,15 @@ import {
 import {
   ContextContract,
   ContextOverview,
+  ContextsTab,
   ContextViolations,
-} from "./compositions/context-pages.tsx";
-import {
   DeclaredSearchBoard,
   DeclaredSearchCombobox,
   DeclaredSearchTable,
   DocumentOrganize,
   NewTabMenu,
+  ObjectTab,
+  SidebarCollapsed,
   TabKinds,
   ViolationToast,
 } from "./compositions/project-pages.tsx";
@@ -207,4 +208,7 @@ export const SCREENS: Record<ScreenId, () => ReactNode> = {
   "new-search-combobox": () => <DeclaredSearchCombobox />,
   "new-workspace": () => <WorkspaceWithoutProject />,
   "new-organize": () => <DocumentOrganize />,
+  "new-sidebar-collapsed": () => <SidebarCollapsed />,
+  "new-contexts": () => <ContextsTab />,
+  "new-object": () => <ObjectTab />,
 };

@@ -1,9 +1,12 @@
 import { assert, assertEquals } from "@std/assert";
 import { canonicalize } from "../../base/mod.ts";
 import {
+  EFFORT_VALUES,
+  effortValueSchema,
   priceBasisOutputSchema,
   priceBasisSchema,
   priceRateSchema,
+  REASONING_LEVELS,
   resolvedModelOutputSchema,
   resolvedModelSchema,
 } from "./resolved-model.ts";
@@ -35,8 +38,9 @@ const model = {
   provider: `pvd_${suffix}`,
   model_name: "model",
   verification: "unverified",
-  options: { temperature: 0 },
-  reasoning_level: "provider_default",
+  sent_model_name: "model-fast",
+  option_values: { effort: "high", speed: "fast" },
+  request_patch: { reasoning: { effort: "high" }, service_tier: "priority" },
   context_limit: 32768,
   input_limit: 16000,
   output_limit: 8192,
@@ -83,7 +87,10 @@ Deno.test("lophn-agent/harness/run-loop#R7: RunBasis pins full resolved models a
       { ...model, input_limit: 1.5 },
       { ...model, input_media: ["image"] },
       { ...model, output_media: ["text", "text"] },
-      { ...model, options: [] },
+      { ...model, request_patch: [] },
+      { ...model, option_values: { effort: 1 } },
+      { ...model, sent_model_name: " " },
+      { ...model, options: {}, reasoning_level: "provider_default" },
       { ...model, basis: null },
       { ...model, extra: true },
     ]
@@ -185,15 +192,20 @@ Deno.test("lophn-agent/harness/model#R5: price values preserve decimal strings a
   );
 });
 
-Deno.test("lophn-agent/harness/run-loop#R7: model options and basis preserve exact own and nested JSON keys", () => {
+Deno.test("lophn-agent/harness/run-loop#R7: request patch and basis preserve exact own and nested JSON keys", () => {
   const exact = JSON.parse(
     '{"__proto__":{"own":true},"nested":{"__proto__":{"value":1}}}',
   );
-  const value = { ...model, options: exact, basis: exact };
+  const value = { ...model, request_patch: exact, basis: exact };
   for (const schema of [resolvedModelSchema, resolvedModelOutputSchema]) {
     const parsed = schema.parse(value);
     assertEquals(canonicalize(parsed), canonicalize(value));
-    assert(Object.hasOwn(parsed.options, "__proto__"));
+    assert(Object.hasOwn(parsed.request_patch, "__proto__"));
     assert(Object.hasOwn(parsed.basis, "__proto__"));
   }
+});
+
+Deno.test("lophn-agent/harness/model#R15: a call record names the seven effort values plus leaving it to the model", () => {
+  assertEquals([...REASONING_LEVELS], [...EFFORT_VALUES, "provider_default"]);
+  assert(!effortValueSchema.safeParse("provider_default").success);
 });

@@ -4,7 +4,7 @@ concerns: [lophn-agent/instructions]
 ---
 # lophn-agent/instructions
 
-사람이 파일로 쓰는 lophn 지침의 층·작업 자리·편집·상한과 agent 설정 화면에서 보이는 방식을 맡는다. agent instructions(agent 정의 본문)의 저장은 lophn-agent/presets, prompt 위치는 lophn-agent/harness/prompt-assemble, coding agent 지침은 coding-agent/guides다.
+사람이 파일로 쓰는 lophn 지침의 층·작업 자리·편집·상한과 agent 설정 화면에서 보이는 방식을 맡는다. agent instructions(agent 정의 본문)의 저장은 lophn-agent/agents, prompt 위치는 lophn-agent/harness/prompt-assemble, coding agent 지침은 coding-agent/guides다.
 
 ## 요구
 

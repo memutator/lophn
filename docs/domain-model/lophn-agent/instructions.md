@@ -4,7 +4,7 @@ concerns: [lophn-agent/instructions]
 ---
 # lophn-agent/instructions
 
-LOPHN.md의 파일 자리·층과 매 call 읽은 값을 정의한다. LOPHN.md는 document·version을 쓰지 않는 그냥 파일이다. 새 entity·ledger 표를 만들지 않고 agent instructions(agent 정의 본문)의 저장은 → lophn-agent/presets다.
+LOPHN.md의 파일 자리·층과 매 call 읽은 값을 정의한다. LOPHN.md는 document·version을 쓰지 않는 그냥 파일이다. 새 entity·ledger 표를 만들지 않고 agent instructions(agent 정의 본문)의 저장은 → lophn-agent/agents다.
 
 ## InstructionLocation (값)
 
@@ -15,7 +15,7 @@ LOPHN.md의 파일 자리·층과 매 call 읽은 값을 정의한다. LOPHN.md�
 | app | `<앱 자리>/LOPHN.md` | 작업 자리가 app |
 | agent | agent 정의 파일 본문 | 그 agent로 도는 call (agent instructions) |
 
-앞 셋은 파일이고 마지막은 agent 정의의 본문이다. 앱 자리와 project 관계는 → apps/registration, documents/projects, agent 정의 파일은 → lophn-agent/presets다. agent runtime이 cwd로 추측하거나 부모 폴더를 순회하지 않는다. LOPHN.md와 coding-agent/guides의 AGENTS.md는 별개이며 lophn agent는 AGENTS.md를 읽지 않는다. 파일 부재는 지침 없음이며 빈 파일을 machine이 만들지 않는다. 파일 생성은 사람이 문서 editor에서 처음 저장하는 일이다. 이 파일들은 document·Version 정본이 아니며 저장 이력이나 판 id를 만들지 않는다.
+앞 셋은 파일이고 마지막은 agent 정의의 본문이다. 앱 자리와 project 관계는 → apps/registration, documents/projects, agent 정의 파일은 → lophn-agent/agents다. agent runtime이 cwd로 추측하거나 부모 폴더를 순회하지 않는다. LOPHN.md와 coding-agent/guides의 AGENTS.md는 별개이며 lophn agent는 AGENTS.md를 읽지 않는다. 파일 부재는 지침 없음이며 빈 파일을 machine이 만들지 않는다. 파일 생성은 사람이 문서 editor에서 처음 저장하는 일이다. 이 파일들은 document·Version 정본이 아니며 저장 이력이나 판 id를 만들지 않는다.
 
 ## InstructionLayer (값)
 
@@ -38,7 +38,7 @@ LOPHN.md의 파일 자리·층과 매 call 읽은 값을 정의한다. LOPHN.md�
 
 ## 편집과 권한
 
-- 전역·project·app의 [Instructions]는 shell/editor의 문서 editor로 해당 LOPHN.md를 연다. 저장은 파일에 쓰는 일이며 lophn이 따로 이력을 만들지 않는다. agent instructions는 agent 정의를 저장하는 일(→ lophn-agent/presets)이다.
+- 전역·project·app의 [Instructions]는 shell/editor의 문서 editor로 해당 LOPHN.md를 연다. 저장은 파일에 쓰는 일이며 lophn이 따로 이력을 만들지 않는다. agent instructions는 agent 정의를 저장하는 일(→ lophn-agent/agents)이다.
 - agent는 LOPHN.md 파일과 agent 정의 본문을 직접 바꾸지 않고 question으로 초안만 제안한다. 사람의 명시 편집·저장 또는 선택으로 적용하며 actor=user다. 지침 파일은 agent 문서 write 대상에서 제외한다. 이 contract의 지침 읽기만은 역할의 일반 자료 선택과 별도 허용하지만 같은 파일의 주소·연결 자료를 따라 읽는 권한을 만들지 않는다.
 - 지침 파일에 secret을 넣지 않도록 안내하고 실제 전송은 platform redaction을 통과한다. 지침 편집 자체가 tool 권한이나 approval 사용을 만들지 않는다.
 

@@ -200,7 +200,9 @@ handoff는 Run.source, tool 판정은 ToolCall, safety 실패수는 확정 call,
 | ArchiveSession / UnarchiveSession | `/v1/sessions/archive`, `/v1/sessions/unarchive` | user·세션·상태 seq; 목록에서 숨기거나 풀기만 |
 | DeleteSession | `/v1/sessions/delete` | user·진행 중·대기 중 run 없음; 메시지·run 기록·질문·approval request를 같은 transaction에서 지움(문서·앱 변경은 지우지 않음) |
 | ForkSession | `/v1/sessions/fork` | user·새 세션 ID·출처 세션·through_seq; 확정 메시지만 복사, `compaction`은 이어받지 않음 |
-| CompactSession | `/v1/sessions/compact` | user·open 세션·미종료 run 없음·완전 성공한 요약 call 하나; 실패하면 세션을 바꾸지 않음 |
+| RequestSessionCompact | `/v1/sessions/request-compact` | user·open 세션·미종료 run 없음·덮은 구간 뒤에 확정 메시지 있음·상태 seq; 세션 행은 바꾸지 않고 요청만 남김 |
+| CompactSession | `/v1/sessions/compact` | machine·열린 요청 seq·open 세션·미종료 run 없음·이 세션에 묶인 완전 성공 요약 call 하나와 덮는 마지막 메시지 seq; 실패하면 세션을 바꾸지 않음 |
+| FailSessionCompact | `/v1/sessions/fail-compact` | machine·열린 요청 seq·안전한 이유 코드; 세션·원문은 바꾸지 않고 요청만 닫음 |
 | ChangeSessionModel | `/v1/sessions/change-model` | user·open 세션·catalog의 model과 option 값 또는 null; 다음 run부터 |
 | CloseSession | `/v1/sessions/close` | machine·assignment withdrawn·open state_seq·미종료 run 없음 |
 | ReceiveMessage | `/v1/messages/receive` | user·ID·세션 open·현재 assignment revision·본문 값(글 part, 64KiB)·mode·대상 run; enabled request는 AcceptRun과 함께, paused·withdrawn은 새 입력 거절; 첫 request면 제목 자동 설정 |
@@ -237,7 +239,7 @@ handoff는 Run.source, tool 판정은 ToolCall, safety 실패수는 확정 call,
 | revert preview/list | `/v1/reverts/preview`, `/v1/reverts/list` | 종료 run·현재 snapshot; 전체 owner 묶음·binding 또는 과거 결과 |
 | trace/usage read | `/v1/agent-traces/read`, `/v1/agent-usage/read` | scope 안 run/session/역할/기간·cursor; call 참조·통화별 합계·모름/누락 |
 
-내놓는 event는 `AgentSaved`, `AgentDeleted`, `PlaceAgentSettingsChanged`, `PlaceExtensionSettingsChanged`, `AssignmentCreated`, `AssignmentPaused`, `AssignmentResumed`, `AssignmentWithdrawn`, `SessionOpened`, `SessionRenamed`, `SessionArchived`, `SessionUnarchived`, `SessionDeleted`, `SessionForked`, `SessionCompacted`, `SessionModelChanged`, `SessionClosed`, `MessageReceived`, `MessageRecorded`, `MessageApplied`, `MessageAssigned`, `RunAccepted`, `RunStarted`, `RunWaited`, `RunResumed`, `RunRecovered`, `RunFinished`, `QuestionCreated`, `QuestionAnswered`, `QuestionExpired`, `QuestionCancelled`, `RevertStarted`, `RevertApplied`, `RevertBlocked`, `RevertFinished`다. checkpoint·명시 계속 선택처럼 별도 event가 없는 command는 공통 command 결과에 근거가 남는다. question option의 업무 event는 action owner가 소유한다.
+내놓는 event는 `AgentSaved`, `AgentDeleted`, `PlaceAgentSettingsChanged`, `PlaceExtensionSettingsChanged`, `AssignmentCreated`, `AssignmentPaused`, `AssignmentResumed`, `AssignmentWithdrawn`, `SessionOpened`, `SessionRenamed`, `SessionArchived`, `SessionUnarchived`, `SessionDeleted`, `SessionForked`, `SessionCompactRequested`, `SessionCompacted`, `SessionCompactFailed`, `SessionModelChanged`, `SessionClosed`, `MessageReceived`, `MessageRecorded`, `MessageApplied`, `MessageAssigned`, `RunAccepted`, `RunStarted`, `RunWaited`, `RunResumed`, `RunRecovered`, `RunFinished`, `QuestionCreated`, `QuestionAnswered`, `QuestionExpired`, `QuestionCancelled`, `RevertStarted`, `RevertApplied`, `RevertBlocked`, `RevertFinished`다. checkpoint·명시 계속 선택처럼 별도 event가 없는 command는 공통 command 결과에 근거가 남는다. question option의 업무 event는 action owner가 소유한다.
 
 **보장**은 durable 접수, session당(session 없는 run은 assignment당) 진행/대기 하나, 원래 출처 중복 방지, 현재 scope 축소·멈춤 재검사, 같은 결정 한 번 반영, terminal run 재개 금지다. 시작 때 resolved agent(`Run.basis.agent`의 hash·출처)/assignment/tool/extensions/model/한도를 고정하고, LOPHN.md 층과 agent instructions는 call마다 현재 확정 판을 고정하며 정의를 고친 값은 다음 run부터다. 세션의 작업 자리는 열 때 정해 바뀌지 않는다. `completed` 정상 종료는 complete tool 없는 답·확정 call·미반영 correction 없음과 함께 확정한다. **보장하지 않는 것**은 즉시 시작, 판단 정답, 여러 tool 전체의 원자적 성공, app/file 최종 반영, 문제 해결, 외부 효과 revert다.
 
@@ -473,8 +475,10 @@ model 응답 중 correction이 오면 응답은 보존하되 옛 응답의 미�
    → [runtime selector] session 맨 앞 후보 선택 → ResolveAgent(assignment, 세션 자리, session model)
        층: 기본값 < Workspace < 자리 설정 < 정의 파일 < session → ResolvedAgent(값마다 출처)
    → [core command] StartRun: basis에 agent{hash, sources}를 고정(전체 값은 blob)
-   → (긴 session) 사람이 /compact → CompactSession: 앞 구간 요약 call 하나가 완전 성공해야
-       session.compaction 교체, 이후 call은 그 구간 앞 원문 대신 summary를 쓴다
+   → (긴 session) 사람이 /compact → RequestSessionCompact(끝나지 않은 run이 있으면 그 run이 끝난 뒤 한 번)
+       → [runtime] 앞 구간을 요약하는 model call(Model for summaries, 비면 session agent의 model; run 없는
+         session도 가능) → CompactSession: call 하나가 완전 성공해야 session.compaction 교체
+         (실패하면 FailSessionCompact로 요청만 닫고 session은 그대로), 이후 call은 그 구간 앞 원문 대신 summary를 쓴다
 ```
 
 정의 파일은 resolve할 때마다 읽고 전체 검사한다. 틀린 파일의 agent는 시작하지 않고 어느 칸이 틀렸는지 목록에 보인다. 정의를 고쳐도 시작한 run은 바뀌지 않고 다음 run부터 새 값을 쓴다. 같은 lophn assignment라도 session의 자리가 다르면 그 자리의 설정을 쓴다.

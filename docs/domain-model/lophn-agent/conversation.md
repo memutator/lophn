@@ -153,6 +153,7 @@ MessagePart는 `{kind: text, text: string}` 또는 `{kind: visual, block: Visual
 | 표 | 담는 것 | 키 | unique | index | 참조 |
 |---|---|---|---|---|---|
 | `sessions` | Session 및 생성·최근 상태 seq | PK `id` | 없음 | `(assignment,work_place_kind,work_place_id,archived)`, `(assignment,state)` | `assignment` FK; `forked_from_session`은 FK 아님; DeleteSession만 행을 지운다 |
+| `session_compact_requests` | Compact 요청 하나(요청 event seq, 세션, `requested`·`compacted`·`failed`, 실패 이유) | PK `request_seq` | 세션마다 `requested` 하나(partial) | 없음 | `session` FK; DeleteSession이 함께 지운다. 요청의 진행은 `sessions` 행(상태 seq)을 바꾸지 않는다 |
 | `messages` | Message 및 생성 seq | PK `id` | `created_seq` | `(session,created_seq)`, `(run,created_seq)`, `(run,applied_at_call)` | `session` FK; `run` FK; `applied_at_call` FK; blob 참조 등록; `copied_from`은 FK 아님 |
 
 ## command
@@ -165,13 +166,17 @@ MessagePart는 `{kind: text, text: string}` 또는 `{kind: visual, block: Visual
 | `UnarchiveSession` | user | 세션, 상태 seq | 세션 존재; 이미 풀렸으면 기존 결과 | `SessionUnarchived` | `not_found`, `conflict` |
 | `DeleteSession` | user | 세션, 상태 seq | 세션 존재; 진행 중·대기 중 run 없음; 같은 transaction에서 메시지·그 세션의 run 기록·질문·approval request를 지움; 문서·앱 변경은 지우지 않음 | `SessionDeleted` | `not_found`, `conflict`, `forbidden` |
 | `ForkSession` | user | 새 세션 ID, 출처 세션, through_seq | 출처 세션 존재·같은 assignment enabled; 미종료 run 없음; through_seq는 출처의 확정 메시지 seq; ID 내용 일치 | `SessionForked` | `invalid_input`, `not_found`, `conflict`, `forbidden` |
-| `CompactSession` | user | 세션, 상태 seq | 세션 open·미종료 run 없음; 완전 성공한 organizing 요약 call 하나가 있어야 반영; 실패하면 세션을 바꾸지 않음 | `SessionCompacted` | `conflict`, `forbidden`, `unavailable` |
+| `RequestSessionCompact` | user | 세션, 상태 seq | 세션 open·미종료 run 없음; 이미 덮은 구간 뒤에 확정 메시지가 있음; 끝나지 않은 요청이 있으면 그 요청 | `SessionCompactRequested` | `conflict`, `forbidden`, `not_found` |
+| `CompactSession` | machine | 세션, 요약 call, 덮는 마지막 메시지 seq, 열린 요청 seq | 세션 open·미종료 run 없음; 열린 요청 하나; 이 세션에 묶인(run 없는) 요청 뒤에 시작한 완전 성공 organizing 요약 call; Model for summaries가 있으면 그 model; 구간 끝은 세션의 확정 메시지이고 앞서 덮은 구간 뒤 | `SessionCompacted` | `conflict`, `forbidden`, `invalid_input`, `not_found`, `unavailable` |
+| `FailSessionCompact` | machine | 세션, 이유(`nothing_to_summarize`·`model_unavailable`·`model_failed`·`too_large`·`summary_too_long`·`session_changed`), 열린 요청 seq | 열린 요청 하나; 세션·원문·상태 seq는 바꾸지 않음 | `SessionCompactFailed` | `conflict`, `forbidden`, `not_found` |
 | `ChangeSessionModel` | user | 세션, ModelChoice 또는 null, 상태 seq | 세션 open; catalog에 있는 model과 그 model의 option 값만; null은 기본값으로 돌아감 | `SessionModelChanged` | `invalid_input`, `not_found`, `conflict` |
 | `CloseSession` | machine | 세션, 이유 | 예상 `open`, 상태 seq; assignment withdrawn; 미종료 run 없음 | `SessionClosed` | `conflict`, `forbidden` |
 | `ReceiveMessage` | user | ID, 세션, 본문 값(MessageContent 글 part), mode, 대상 run? | 세션 open·상태 seq; assignment enabled·revision; correction은 같은 세션의 담당 run 검사 및 종료 경계 정책; ID 내용 일치; 첫 request면 title 자동 설정 | `MessageReceived`; run 접수는 → lophn-agent/harness/run-loop | `invalid_input`, `conflict`, `forbidden` |
 | `RecordMessage` | agent / machine | ID, 세션, run?, 본문 값(MessageContent), links | run·세션 연결; ID 내용 일치 | `MessageRecorded` | `invalid_input`, `conflict`, `forbidden` |
 | `ApplyMessages` | machine | 메시지 ID 목록, call | 모두 미반영; call 시작 transaction | `MessageApplied` | `conflict` |
 | `AssignMessage` | machine | 메시지, 새 run | 미반영, 이전 담당 run 및 상태 seq | `MessageAssigned` | `conflict`, `invalid_input` |
+
+Compact는 세 걸음이다. 사람이 요청하고(`RequestSessionCompact`), agent runtime이 끝나지 않은 run이 없는 세션의 열린 요청을 읽어(`ListSessionCompactRequests`) 앞 구간(앞서 덮은 구간의 요약과 그 뒤 확정 메시지)을 prompt-assemble의 요약 규칙으로 요약하는 model call을 한 뒤(Workspace의 Model for summaries, 비면 그 세션 agent의 model; run과 agent 대신 세션에 묶인 call이라 run이 한 번도 없는 세션도 요약한다), 끝까지 성공한 call을 `CompactSession`으로 잇거나 `FailSessionCompact`로 요청만 닫는다. 요약 본문은 그 call의 출력 blob이고 `ReadSessionSummary`가 읽는다. 끝나지 않은 run이 있을 때 부른 `/compact`는 commands의 줄이 그 run이 끝난 뒤 한 번 요청한다.
 
 세션 목록은 read다: 입력 `(assignment, work_place)`(필수)와 `archived` 거름. 제목 검색은 목록 결과에서 제목만 대상으로 한다(메시지 본문을 읽지 않는다).
 
@@ -184,7 +189,9 @@ MessagePart는 `{kind: text, text: string}` 또는 `{kind: visual, block: Visual
 | `SessionArchived` / `SessionUnarchived` | 세션 | 없음 | shell/desktop |
 | `SessionDeleted` | 세션 | assignment, deleted_at(지운 내용은 싣지 않는다) | shell/desktop |
 | `SessionForked` | 새 세션 | 출처 세션, through_seq, 복사한 메시지 수 | shell/desktop |
+| `SessionCompactRequested` | 세션 | 없음(event seq가 요청 이름) | shell/desktop |
 | `SessionCompacted` | 세션 | 전후 Compaction | lophn-agent/harness/prompt-assemble, shell/desktop |
+| `SessionCompactFailed` | 세션 | 요청 seq, 이유 | shell/desktop |
 | `SessionModelChanged` | 세션 | 전후 ModelChoice | shell/desktop |
 | `SessionClosed` | 세션 | 이유, closed_at | shell/desktop, lophn-agent/harness/prompt-assemble |
 | `MessageReceived` | 메시지 | 세션, 담당 run, mode, body | lophn-agent/harness/run-loop, shell/desktop |

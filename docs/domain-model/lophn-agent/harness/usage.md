@@ -14,7 +14,7 @@ ModelCall의 실제 시도·입출력·사용량·당시 비용과 중복 없는
 | `run` | `run` ID | 예 | 판단·run 안 정리에는 필수; → lophn-agent/harness/run-loop | 원인 run |
 | `session` | `ses` ID | 예 | run에 있으면 같은 session; run 밖 Compact 요약에는 필수; → lophn-agent/conversation | 관련 세션 |
 | `model_use` | `judgment / organizing` | 예 | connection_test만 null; judgment는 judgment, 제목·압축은 organizing | agent model·요약용 model 호출 용도 |
-| `agent_hash` | sha256 | 예 | run·Compact 요약에는 필수(Compact는 부른 시점에 resolve한 agent); connection_test는 null; → lophn-agent/agents | 선택 구성 근거 |
+| `agent_hash` | sha256 | 예 | run 안 call에는 필수; connection_test와 run 밖 Compact 요약은 null(요약 call은 run과 agent 대신 session을 가리킨다); → lophn-agent/agents | 선택 구성 근거 |
 | `purpose` | `judgment / title_summary / conversation_compression / connection_test` | 아니오 | connection_test는 명시 user test이며 run/session null; 가짜 run·세션 없음 | 별도 용도 |
 | `test_request` | `{command_key,test_kind}` | 예 | connection_test에만 필수; 인증된 user 요청 key·`text / tool_call` 고정; provider·model·credential은 CallModel과 같은 요청 기준 | 명시 test 근거 |
 | `attempt_kind` | `initial / retry / credential_change` | 아니오 | 실제 시도 구별; model fallback 없음 | 시도 종류 |
@@ -110,7 +110,7 @@ ModelCall의 실제 시도·입출력·사용량·당시 비용과 중복 없는
 
 | 표 | 담는 것 | 키 | unique | index | 참조 |
 |---|---|---|---|---|---|
-| `model_calls` | ModelCall 및 상태 seq | PK `id` | partial `(run,attempt_order)` WHERE run IS NOT NULL; partial `(test_command_key,attempt_order)` WHERE purpose=connection_test | `(run,state)`, `(session,started_at)`, `(model_use,purpose,started_at)`, `(provider,model_name,started_at)`, `retry_of` | run·session·provider FK; credential `(provider,key)` FK; retry·이동 self FK; blob 영구 참조; 삭제 RESTRICT |
+| `model_calls` | ModelCall 및 상태 seq | PK `id` | partial `(run,attempt_order)` WHERE run IS NOT NULL; partial `(session,attempt_order)` WHERE run IS NULL AND session IS NOT NULL(Compact 요약 call); partial `(test_command_key,attempt_order)` WHERE purpose=connection_test | `(run,state)`, `(session,started_at)`, `(model_use,purpose,started_at)`, `(provider,model_name,started_at)`, `retry_of` | run·session·provider FK; credential `(provider,key)` FK; retry·이동 self FK; blob 영구 참조; 삭제 RESTRICT |
 | `model_call_supplements` | 보완 근거·usage·cost·결과 참조 | PK `(call,supplement_key)` | PK; event_seq | `(call,event_seq)` | call FK; event FK; blob 참조; 삭제 RESTRICT |
 
 UsageTotal은 호출 원본에서 재계산하는 derived store이며 독립 ledger 표가 없다.

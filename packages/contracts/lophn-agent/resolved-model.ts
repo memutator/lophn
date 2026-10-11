@@ -22,9 +22,6 @@ export const EFFORT_LABELS = {
   maximum: "Max",
 } as const satisfies Record<EffortValue, string>;
 
-// 모델에 맡김은 순서 밖이다.
-export const REASONING_LEVELS = [...EFFORT_VALUES, "provider_default"] as const;
-export const reasoningLevelSchema = z.enum(REASONING_LEVELS);
 export const MODEL_MEDIA = ["text", "image", "audio", "video"] as const;
 const mediaSchema = z.array(z.enum(MODEL_MEDIA)).refine(
   (values) => values.includes("text") && new Set(values).size === values.length,

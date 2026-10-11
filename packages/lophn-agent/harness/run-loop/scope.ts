@@ -3,7 +3,6 @@ import {
   type AgentAppScope,
   agentAppScopeSchema,
   type AgentRole,
-  type ReadCommand,
 } from "../../../contracts/lophn-agent/mod.ts";
 
 // StartRun이 agent credential에 싣는 AgentAppScope 계산(requirements
@@ -26,6 +25,8 @@ export type AppOffer = {
   commands: readonly OfferedCommand[];
   granted: readonly string[];
 };
+
+type ReadCommand = { app: string; command: string };
 
 export type ScopeInput = {
   role: AgentRole;

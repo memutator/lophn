@@ -199,7 +199,6 @@ export function createModelResolver(deps: ModelResolverDeps) {
       protocol: provider.protocol,
       credential_key: credential?.key ?? null,
       credential_revision: credential?.revision ?? null,
-      options: limits.option_values,
       // 고른 값과 default를 채운 뒤 요청에 실제로 실은 값을 따로 남긴다.
       option_values: {
         requested: selection.option_values,

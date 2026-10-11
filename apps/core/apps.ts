@@ -72,6 +72,7 @@ import { createPlaceNameReservation } from "../../packages/documents/addressing/
 import {
   appArchived,
   appCreated,
+  appUnarchived,
   packagesGuideBody,
   releaseActivated,
   releaseActivationFailed,
@@ -280,9 +281,10 @@ export function createEventRegistration(): EventRegistration {
       // 다른 자격이 보는 것은 그대로 숨김이다.
       visibleToProblemsClosing(ticketCheckFeedVisibility(releaseActivated)),
       visibleToProblemsClosing(ticketCheckFeedVisibility(releaseSuperseded)),
-      // 앱 만들기·보관은 assignments 반응 구독자(machine:lophn-agent-assignments)만 읽는다.
+      // 앱 만들기·보관·보관 해제는 assignments 반응 구독자(machine:lophn-agent-assignments)만 읽는다.
       assignmentReactionsOnlyVisibility(appCreated),
       assignmentReactionsOnlyVisibility(appArchived),
+      assignmentReactionsOnlyVisibility(appUnarchived),
     ],
   };
 }

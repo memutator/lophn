@@ -80,9 +80,7 @@ export const FORBIDDEN_ROUTES: Readonly<
     "term.unarchive",
   ],
   "assignment.change": [
-    "CreatePreset",
-    "RevisePreset",
-    "ChangeAssignmentPreset",
+    "CreateOperatorAssignment",
     "PauseAssignment",
     "ResumeAssignment",
     "WithdrawAssignment",

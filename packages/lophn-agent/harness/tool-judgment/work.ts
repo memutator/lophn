@@ -236,11 +236,8 @@ async function gather(
   const connection = definition?.origin === "external"
     ? deps.mcpConnection(definition)
     : undefined;
-  // R4: 주기 run은 assignment가 선언한 남길 문서·읽을 자료의 쓰기만 열린다. 선언은
-  // assignment 읽기의 outputs와 읽기 선언 표에서 읽는다.
-  const declaredOutputs = assignment === undefined
-    ? new Set<string>()
-    : new Set(assignment.outputs.map((output) => output.document));
+  // 남길 문서 선언이 없어졌다. 이 판정은 Operator output 정리(agent-R10)가 지운다.
+  const declaredOutputs = new Set<string>();
   const targets = (action?.targets ?? []).map((target) => ({
     id: target.id,
     inScope: deps.credential.targets.has(target.id),

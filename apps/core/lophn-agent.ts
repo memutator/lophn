@@ -16,6 +16,7 @@ import {
   agentProfilesRead,
   agentProfilesUpload,
   assignmentPaused,
+  createOperatorAssignment,
   InstructionAttachments,
   instructionRead,
   OperatorOutput,
@@ -24,6 +25,7 @@ import {
   runAppRevert,
   runFinished,
   runStarted,
+  withdrawAssignment,
 } from "../../packages/contracts/lophn-agent/mod.ts";
 import { notificationsOnlyVisibility } from "./platform.ts";
 import type {
@@ -63,12 +65,6 @@ import {
   usageSchemaSteps,
 } from "../../packages/lophn-agent/harness/usage/mod.ts";
 import {
-  createPresetCommands,
-  createPresetReads,
-  instructionAttachmentsOf,
-  presetSchemaSteps,
-} from "../../packages/lophn-agent/presets/mod.ts";
-import {
   assignmentSchemaSteps,
   createAssignmentCommands,
   createAssignmentReads,
@@ -79,6 +75,7 @@ import {
   type AgentFileSystem,
   type AgentLookups,
   type AssignmentRef,
+  type AssignmentWriter,
   createAgentCommands,
   createAgentReads,
   createAgentStore,
@@ -90,7 +87,6 @@ import {
   profileImageUploadHandler,
   type ProfileReaders,
   type ProfileUploadHandler,
-  ROLE_CAPS,
   roleCapsOf,
 } from "../../packages/lophn-agent/agents/mod.ts";
 import {
@@ -150,7 +146,6 @@ import {
   createToolCommands,
   createToolReads,
   deleteSessionToolCalls,
-  TOOL_BUNDLES,
   toolCallBodyFields,
   toolsSchemaSteps,
 } from "../../packages/lophn-agent/harness/tools/mod.ts";
@@ -350,8 +345,7 @@ export const runActiveSetting = runLimitSetting(
 
 // provider·credential ledger. 값은 OS keychain에만 있고 이곳에는 참조만 남는다.
 // model 기본값(concern harness/model)과 model call 기록·사용량 읽기(concern
-// harness/usage). 시작·마침·보완은 machine 전용이다. preset ledger는 같은
-// wire에 더한다.
+// harness/usage). 시작·마침·보완은 machine 전용이다.
 const commands = createProviderCommands();
 const modelCommands = createModelCommands(modelCommandDeps);
 // 수정 입력의 처음 반영은 ModelCall 시작과 같은 transaction이다(Q30).
@@ -392,64 +386,6 @@ function modelCommandDeps(tx: Tx): ModelCommandDeps {
   };
 }
 
-// preset 구성 검증 deps(R11). MCP server 설정은 extensions의 settings registry
-// 값이므로 setting_choices 행을 펼친다(contracts#T24). tool 묶음은 T23이 정한 문서·format
-// 묶음 판이다(TOOL_BUNDLES). 역할 상한은 T8이 고정한 ROLE_CAPS 표다. catalog는 동봉 snapshot에서 읽고(T4,
-// harness/model R5), credential key와 provider 정의 key는 같은 Tx의 provider
-// 표·provider_credentials 표에서 읽는다(R6, R10).
-function presetValidateDeps(sql: Pick<Tx["sql"], "get" | "all">) {
-  // MCP server 설정은 setting_choices 행(platform/settings)에 있다. 형식 검사는
-  // mcpServersSetting.value_type이 결정하고, 검사를 통과한 server만 deps에 온다.
-  // 없거나 형식 검사를 통과하지 못한 server는 presets이 그 server를 거절한다(R11).
-  const mcpServers = new Map<string, McpServerConfig>();
-  try {
-    const rows = sql.all(
-      "select layer, key, value from setting_choices where key = ?",
-      [mcpServersSetting.key],
-    );
-    if (rows.length > 0) {
-      const parsed: unknown = JSON.parse(String(rows[0]["value"]));
-      const shaped = mcpServersSetting.value_type.safeParse(parsed);
-      if (shaped.success) {
-        // value_type은 server 목록의 배열이다. 배열을 그대로 펼쳐 이름으로 둔다.
-        for (const config of shaped.data) {
-          mcpServers.set(config.name, config);
-        }
-      }
-    }
-  } catch {
-    // 읽지 못하면 빈 목록으로 fail-closed다. 그 server는 presets이 거절한다.
-  }
-  return {
-    bundles: TOOL_BUNDLES,
-    mcpServers,
-    roleCaps: ROLE_CAPS,
-    // provider 정의 key는 provider 표 definition_key다. 기록이 없으면
-    // undefined로 fail-closed다(R6).
-    definitionKey: (provider: string) => providerDefinitionKey(sql, provider),
-    catalogEntry: (providerDefinition: string, modelName: string) =>
-      snapshotCatalogEntry(providerDefinition, modelName),
-    modelListed: (providerDefinition: string, modelName: string) =>
-      snapshotModelListed(providerDefinition, modelName),
-    // credential은 provider_credentials 표의 현재 key 목록이다. 조회에 실패한
-    // provider는 빈 목록으로 not_found다(R6).
-    credentialKeys: (provider: string) => {
-      try {
-        return sql
-          .all(
-            "select key from provider_credentials where provider = ? order by order_index",
-            [provider],
-          )
-          .map((row) => String(row["key"]));
-      } catch {
-        return [] as const;
-      }
-    },
-  } as const;
-}
-
-const presetCommands = createPresetCommands((tx) => presetValidateDeps(tx.sql));
-const presetReads = createPresetReads();
 const assignmentCommands = createAssignmentCommands();
 const assignmentReads = createAssignmentReads();
 
@@ -638,38 +574,18 @@ const approvalLineagePort = defineTxPort(approvalRunLineage, (tx) => ({
 }));
 
 // documents가 document.save·update의 같은 Tx에서 묻는 지침 문서 판정이다(documents/versions#R20).
-// 지금 preset 판의 지침 첨부가 그 문서를 가리키면 비어 있지 않은 목록이다. 분류는 현재 상태로만 한다.
+// 지침 첨부를 가진 preset이 없어져 지침으로 묶인 문서가 없다. 이 port와 documents의 검사는
+// 다음 정리에서 함께 지운다.
 const instructionAttachmentsPort = defineTxPort(
   InstructionAttachments,
-  (tx) => ({
-    attachments: (document: string) => {
-      const found = instructionAttachmentsOf(tx.sql, document);
-      return found.ok
-        ? ok(found.value.map(({ preset, revision }) => ({ preset, revision })))
-        : found;
-    },
-  }),
+  () => ({ attachments: () => ok([]) }),
 );
 
 // documents가 document.save의 같은 Tx에서 묻는 Operator 출력 판정이다(documents/versions#R14).
-// 그 문서를 남길 문서로 선언한 assignment의 지금 판이다. 선언 표는 적용마다 통째로 다시 쓰이므로
-// 지금 선언만 남아 있다. 없으면 null이고 withdrawn도 그대로 돌려준다.
+// 남길 문서 선언이 없어져 어떤 문서도 Operator의 출력이 아니다. 이 제한은 Operator output
+// 정리(agent-R10)가 port째 지운다. 그때까지 Operator의 문서 저장은 닫힌 채다.
 const operatorOutputPort = defineTxPort(OperatorOutput, (tx) => ({
-  output: (document: string) => {
-    const row = tx.sql.get(
-      `select a.id, a.revision, a.state from assignments a
-         join assignment_outputs o on o.assignment_id = a.id
-         where o.document_id = ? and o.owns_output = 1
-         order by a.id limit 1`,
-      [document],
-    );
-    if (row === undefined) return ok(null);
-    return ok({
-      assignment: String(row["id"]),
-      revision: Number(row["revision"]),
-      state: String(row["state"]) as "enabled" | "paused" | "withdrawn",
-    });
-  },
+  output: () => ok(null),
   isOperator: (assignment: string) =>
     ok(
       tx.sql.get(
@@ -838,13 +754,6 @@ function agentLookups(sql: Pick<Tx["sql"], "get" | "all">): AgentLookups {
   };
 }
 
-// Operator assignment를 만들고 거두는 길은 assignments가 preset 없는 모양으로 바뀔 때 붙는다.
-// 그 전에는 새 Operator 저장과 Operator 삭제가 unavailable로 끝나 아무것도 바꾸지 않는다.
-const AGENT_ASSIGNMENT_PENDING = {
-  code: "unavailable" as const,
-  message: "operator assignment lifecycle is not wired yet",
-};
-
 // 정의 파일의 동기 읽기·쓰기는 writer·reader Worker 안의 handler가 한다. core 프로세스의 module graph에는
 // 동기 file API를 두지 않으므로(platform/responsiveness#R1) adapter는 이 module이 올라올 때 URL로 연다.
 const NODE_AGENT_FILES = new URL(
@@ -875,13 +784,43 @@ export function agentProfileHandlers(
   };
 }
 
+// 새 Operator 저장(SaveAgent)과 Operator 삭제(DeleteAgent)가 같은 transaction에서 assignment command를
+// 부른다(lophn-agent/assignments#R4, R9). 파일 쓰기가 실패하면 SaveAgent가 err를 돌려 방금 만든
+// assignment와 event까지 되돌아간다.
+function operatorAssignmentWriter(tx: Tx): AssignmentWriter {
+  return {
+    createOperator(place) {
+      const id = tx.newId("asg");
+      const created = tx.call(
+        createOperatorAssignment,
+        { id, scope: place },
+        {},
+      );
+      return created.ok ? ok(id) : created;
+    },
+    withdraw(assignment) {
+      const row = tx.sql.get(
+        `select ${ASSIGNMENT_COLUMNS} where id = ?`,
+        [assignment],
+      );
+      if (row === undefined) {
+        return err({ code: "not_found", message: "assignment not found" });
+      }
+      const ref = agentAssignmentRef(row);
+      const withdrawn = tx.call(
+        withdrawAssignment,
+        { assignment },
+        { revision: ref.revision, state: ref.state as "enabled" | "paused" },
+      );
+      return withdrawn.ok ? ok(undefined) : withdrawn;
+    },
+  };
+}
+
 const agentDeps: AgentDeps = {
   files: createNodeAgentFiles(),
   lookups: agentLookups,
-  assignmentWriter: () => ({
-    createOperator: () => err(AGENT_ASSIGNMENT_PENDING),
-    withdraw: () => err(AGENT_ASSIGNMENT_PENDING),
-  }),
+  assignmentWriter: operatorAssignmentWriter,
   roleCaps: roleCapsOf,
 };
 const agentCommands = createAgentCommands(agentDeps);
@@ -944,7 +883,6 @@ export const lophnAgentDefinitions = {
     ...providerSchemaSteps,
     ...modelSchemaSteps,
     ...usageSchemaSteps,
-    ...presetSchemaSteps,
     ...assignmentSchemaSteps,
     ...runSchemaSteps,
     ...schedulingSchemaSteps,
@@ -971,13 +909,9 @@ export const lophnAgentDefinitions = {
     usage.start,
     usage.finish,
     usage.supplement,
-    presetCommands.registerDefault,
-    presetCommands.create,
-    presetCommands.revise,
     assignmentCommands.createBuiltin,
     assignmentCommands.createAppEngineer,
-    assignmentCommands.applyOperator,
-    assignmentCommands.changePreset,
+    assignmentCommands.createOperator,
     assignmentCommands.pause,
     assignmentCommands.resume,
     assignmentCommands.withdraw,
@@ -1038,12 +972,8 @@ export const lophnAgentDefinitions = {
     usageReads.read,
     usageReads.list,
     usageReads.usage,
-    presetReads.read,
-    presetReads.list,
-    presetReads.instructionAttachments,
     assignmentReads.read,
     assignmentReads.list,
-    assignmentReads.outputs,
     agentReads.list,
     agentReads.read,
     agentReads.settings,
@@ -1445,12 +1375,8 @@ export function createReaderRegistration(): ReaderRegistration {
       usageReads.read,
       usageReads.list,
       usageReads.usage,
-      presetReads.read,
-      presetReads.list,
-      presetReads.instructionAttachments,
       assignmentReads.read,
       assignmentReads.list,
-      assignmentReads.outputs,
       agentReads.list,
       agentReads.read,
       agentReads.settings,

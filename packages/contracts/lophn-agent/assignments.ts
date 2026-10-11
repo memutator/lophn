@@ -5,7 +5,6 @@ import {
   defineRead,
   idSchema,
   seqSchema,
-  sha256Schema,
   withReadCommon,
 } from "../platform/mod.ts";
 import {
@@ -13,12 +12,11 @@ import {
   assignmentScopeOutputSchema,
   assignmentScopeSchema,
   assignmentStateSchema,
-  operatorApprovalBundleSchema,
+  operatorScopeSchema,
   pauseReasonOutputSchema,
   pauseReasonSchema,
   scopeMatchesRole,
 } from "./assignment-values.ts";
-import { operatorOutputRefOutputSchema } from "./instructions.ts";
 import { positiveRevisionSchema, readCursorSchema } from "./run-values.ts";
 import { agentRoleSchema } from "./scope.ts";
 
@@ -42,23 +40,19 @@ const builtinRoles = z.enum(["lophn", "context_engineer"]);
 
 export const createBuiltinAssignmentInputSchema = z.strictObject({
   id: idSchema("asg"),
-  preset: idSchema("pst"),
-  preset_revision: positiveRevisionSchema,
   role: builtinRoles,
   scope: assignmentScopeSchema,
 }).refine((value) => scopeMatchesRole(value.role, value.scope), {
   message: "builtin assignment scope is not all",
 });
 
-// AppCreated 반응 구독자다. notification 구독자와 같은 등록 규칙을 쓴다(R1).
+// 자리(project·app)의 보관·보관 해제 반응 구독자다. notification 구독자와 같은 등록 규칙을 쓴다(R1).
 export const ASSIGNMENT_SUBSCRIBER = "lophn-agent-assignments";
 
 export const createAppEngineerAssignmentInputSchema = z.strictObject({
   id: idSchema("asg"),
   app_created_seq: seqSchema,
   app: idSchema("app"),
-  preset: idSchema("pst"),
-  preset_revision: positiveRevisionSchema,
   // AppCreated 반응(assignment 생성)과 cursor 전진을 같은 transaction에 확정한다
   // (architecture 5.10, createNotification과 같은 모양). 반응 없이 직접 내는
   // 등록은 이 둘을 비워 둔다.
@@ -67,36 +61,17 @@ export const createAppEngineerAssignmentInputSchema = z.strictObject({
   subscriber: z.literal(ASSIGNMENT_SUBSCRIBER).optional(),
 });
 
-export const applyOperatorAssignmentInputSchema = z.strictObject({
-  approval: idSchema("apr"),
-  // 허락이 확정한 결정 seq다. 적용 전에는 알 수 없는 값이라 생략할 수 있고,
-  // handler가 승인 기록의 결정 seq로 맞춘다(lophn-agent#T53, shell#T54에서
-  // 넘어온 것). 제공되면 승인 기록과 일치해야 한다.
-  decision_seq: seqSchema.optional(),
+// 사람이 새 Operator 정의를 저장할 때 SaveAgent가 같은 transaction에서 부른다(R4).
+export const createOperatorAssignmentInputSchema = z.strictObject({
   id: idSchema("asg"),
-  bundle: operatorApprovalBundleSchema,
-}).refine(
-  (value) =>
-    value.bundle.assignment === null || value.bundle.assignment === value.id,
-  { message: "bundle assignment does not match the applied id" },
-);
-
-export const changeAssignmentPresetInputSchema = z.strictObject({
-  assignment: idSchema("asg"),
-  preset: idSchema("pst"),
-  preset_revision: positiveRevisionSchema,
-});
-
-export const changeAssignmentPresetCompareSchema = z.strictObject({
-  revision: positiveRevisionSchema,
-  role: z.enum(["lophn", "app_engineer", "context_engineer"]),
+  scope: operatorScopeSchema,
 });
 
 export const pauseAssignmentInputSchema = z.strictObject({
   assignment: idSchema("asg"),
   reason: pauseReasonSchema,
-  // AppArchived 반응의 멈춤과 cursor 전진을 같은 transaction에 확정한다(R1).
-  // 반응 없이 내는 멈춤은 이 둘을 비워 둔다.
+  // 자리 보관 반응의 멈춤과 cursor 전진을 같은 transaction에 확정한다(R1).
+  // 마지막 반응만 이 둘을 싣는다. 반응 없이 내는 멈춤은 비워 둔다.
   processed_through_seq: seqSchema.optional(),
   subscriber: z.literal(ASSIGNMENT_SUBSCRIBER).optional(),
 });
@@ -109,11 +84,14 @@ export const pauseAssignmentCompareSchema = z.strictObject({
 
 export const resumeAssignmentInputSchema = z.strictObject({
   assignment: idSchema("asg"),
+  processed_through_seq: seqSchema.optional(),
+  subscriber: z.literal(ASSIGNMENT_SUBSCRIBER).optional(),
 });
 
 export const resumeAssignmentCompareSchema = z.strictObject({
   revision: positiveRevisionSchema,
   state: z.literal("paused"),
+  processed_through_seq: seqSchema.optional(),
 });
 
 export const withdrawAssignmentInputSchema = z.strictObject({
@@ -153,31 +131,12 @@ export const createAppEngineerAssignment = defineCommand({
   errors: [...errors],
 });
 
-export const applyOperatorAssignment = defineCommand({
+export const createOperatorAssignment = defineCommand({
   resource: "assignments",
-  method: "apply-operator",
-  name: "ApplyOperatorAssignment",
-  input: applyOperatorAssignmentInputSchema,
+  method: "create-operator",
+  name: "CreateOperatorAssignment",
+  input: createOperatorAssignmentInputSchema,
   output: assignmentResult,
-  // 적용은 machine 또는 승인 경유의 user 자격이다. user는 이 command를 직접
-  // 부르지 않고 approvals/apply의 dispatch로만 부른다(lophn-agent#T53,
-  // shell#T54에서 넘어온 것). 승인 상태는 handler가 승인 기록으로 다시 검사한다.
-  actors: ["machine", "user"],
-  errors: [...errors],
-  confirmation: "required",
-  // 사람이 본 구성은 bundle이고 결정 seq는 허락이 확정하는 것이라 본 내용이
-  // 아니다. 결정은 이 둘에 묶인다.
-  binding: ["approval", "bundle"],
-  display_read: "/v1/assignments/read",
-});
-
-export const changeAssignmentPreset = defineCommand({
-  resource: "assignments",
-  method: "change-preset",
-  name: "ChangeAssignmentPreset",
-  input: changeAssignmentPresetInputSchema,
-  output: assignmentResult,
-  compare: changeAssignmentPresetCompareSchema,
   actors: ["user"],
   errors: [...errors],
 });
@@ -189,7 +148,7 @@ export const pauseAssignment = defineCommand({
   input: pauseAssignmentInputSchema,
   output: assignmentResult,
   compare: pauseAssignmentCompareSchema,
-  actors: ["user", "machine"],
+  actors: ["machine"],
   errors: [...errors],
 });
 
@@ -200,7 +159,7 @@ export const resumeAssignment = defineCommand({
   input: resumeAssignmentInputSchema,
   output: assignmentResult,
   compare: resumeAssignmentCompareSchema,
-  actors: ["user"],
+  actors: ["machine"],
   errors: [...errors],
 });
 
@@ -219,10 +178,7 @@ export const assignmentRead = defineRead({
   resource: "assignments",
   method: "read",
   name: "ReadAssignment",
-  input: z.strictObject({
-    assignment: idSchema("asg"),
-    revision: positiveRevisionSchema.optional(),
-  }),
+  input: z.strictObject({ assignment: idSchema("asg") }),
   output: withReadCommon(assignmentResult),
   actors: ["user", "agent", "machine", "coding_agent"],
   errors: [...readErrors],
@@ -244,19 +200,6 @@ export const assignmentList = defineRead({
   errors: [...readErrors],
 });
 
-// 그 문서를 출력으로 가진 Operator. 없으면 null이고 withdrawn도 그대로 돌려준다.
-export const assignmentOutputs = defineRead({
-  resource: "assignments",
-  method: "outputs",
-  name: "ReadAssignmentOutput",
-  input: z.strictObject({ document: idSchema("doc") }),
-  output: withReadCommon(z.object({
-    output: operatorOutputRefOutputSchema.nullable(),
-  })),
-  actors: ["user", "agent", "machine", "coding_agent"],
-  errors: [...readErrors],
-});
-
 const subject = idSchema("asg");
 const revisionPair = {
   before: positiveRevisionSchema,
@@ -267,24 +210,8 @@ export const assignmentCreated = defineEvent("AssignmentCreated", {
   subject,
   payload: z.object({
     revision: positiveRevisionSchema,
-    definition_hash: sha256Schema,
-    preset: idSchema("pst"),
-    preset_revision: positiveRevisionSchema,
+    role: agentRoleSchema,
     scope: assignmentScopeOutputSchema,
-    approval: idSchema("apr").nullable(),
-  }),
-});
-
-export const assignmentChanged = defineEvent("AssignmentChanged", {
-  subject,
-  payload: z.object({
-    ...revisionPair,
-    before_hash: sha256Schema,
-    after_hash: sha256Schema,
-    preset: idSchema("pst"),
-    preset_revision: positiveRevisionSchema,
-    approval: idSchema("apr").nullable(),
-    schedule_changed: z.boolean(),
   }),
 });
 
@@ -293,42 +220,32 @@ export const assignmentPaused = defineEvent("AssignmentPaused", {
   payload: z.object({
     ...revisionPair,
     reason: pauseReasonOutputSchema,
-    definition_hash: sha256Schema,
   }),
 });
 
 export const assignmentResumed = defineEvent("AssignmentResumed", {
   subject,
-  payload: z.object({
-    ...revisionPair,
-    definition_hash: sha256Schema,
-  }),
+  payload: z.object(revisionPair),
 });
 
 export const assignmentWithdrawn = defineEvent("AssignmentWithdrawn", {
   subject,
-  payload: z.object({
-    ...revisionPair,
-    definition_hash: sha256Schema,
-  }),
+  payload: z.object(revisionPair),
 });
 
 export const ASSIGNMENT_ROUTES = [
   createBuiltinAssignment,
   createAppEngineerAssignment,
-  applyOperatorAssignment,
-  changeAssignmentPreset,
+  createOperatorAssignment,
   pauseAssignment,
   resumeAssignment,
   withdrawAssignment,
   assignmentRead,
   assignmentList,
-  assignmentOutputs,
 ] as const;
 
 export const ASSIGNMENT_EVENTS = [
   assignmentCreated,
-  assignmentChanged,
   assignmentPaused,
   assignmentResumed,
   assignmentWithdrawn,

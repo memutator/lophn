@@ -311,9 +311,7 @@ import {
   BOOTSTRAP_RETRY_MS,
   bootstrapBuiltinAssignments,
   noteBootstrapFailure,
-  readRoleAsset,
 } from "./lophn-agent-bootstrap.ts";
-import type { ProductRole } from "../../packages/lophn-agent/presets/mod.ts";
 import {
   createApprovalTextPreparer,
   withApprovalText,
@@ -389,9 +387,7 @@ export type CoreOptions = {
   maintenanceTimeoutMs?: number;
   // restore 프로세스 시간 제한. 없으면 10분. 테스트가 줄인다.
   restoreTimeoutMs?: number;
-  // 내장 assignment 준비의 역할 prompt 자산과 재시도 대기(ms). 제품 기동은 소스 배치의
-  // prompt 자산을 읽고 60초 뒤 한 번 다시 시도한다. 테스트가 대신한다.
-  roleAsset?: (role: ProductRole) => Promise<Result<Uint8Array>>;
+  // 내장 assignment 준비의 재시도 대기(ms). 제품 기동은 60초 뒤 한 번 다시 시도한다.
   bootstrapRetryMs?: number;
   // secret store가 값을 읽는 keychain adapter. 없으면 제품 adapter(Linux Secret Service)다.
   // 테스트는 fake를 주어 사람의 실제 keychain에 닿지 않게 한다.
@@ -2280,8 +2276,8 @@ async function open(
     search: () => searchSync,
     watch: () => watchSync,
   });
-  // 내장 lophn·Context Engineer assignment 준비. I/O 감독이 없는 기동은 prompt blob을
-  // 준비할 수 없어 건너뛴다(lophn-agent/assignments#R2). 이미 있으면 아무것도 보내지 않는다.
+  // 내장 lophn·Context Engineer assignment 준비(lophn-agent/assignments#R2). 이미 있으면 아무것도
+  // 보내지 않는다.
   // 준비하지 못해도 core는 선다: 실패는 diagnostics 기록만 남기고(lophn이 아직 준비되지
   // 않았다는 대화 쪽 표시는 그대로), 대기 뒤 한 번 다시 시도하며 다음 기동도 다시 한다.
   const bootstrapState: {
@@ -2299,8 +2295,6 @@ async function open(
           record: (context) => runtime!.record(context),
           read: (route, context, input) =>
             runtime!.readers.read(route, context as RequestContext, input),
-          asset: options.roleAsset ?? readRoleAsset,
-          prepare: blobRelay ? (call) => blobRelay.prepare(call) : undefined,
           ids: createIdSource({ clock, random }),
         });
       } catch {

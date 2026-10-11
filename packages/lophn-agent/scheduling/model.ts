@@ -1,9 +1,9 @@
 import { dueTimes, formatAt, ok, type Result } from "../../base/mod.ts";
-import type {
-  Schedule,
-  ScheduleOccurrence,
-} from "../../contracts/lophn-agent/mod.ts";
+import type { ScheduleOccurrence } from "../../contracts/lophn-agent/mod.ts";
 import type { SqlParams, SqlRow } from "../../contracts/platform/mod.ts";
+
+// assignment에서 빠진 주기 선언의 모양이다. scheduling을 지우는 정리(agent-R3)가 이 module과 함께 지운다.
+export type Schedule = { first_at: string; every_ms: number };
 
 // 회차 계산과 기록 row의 화면 값. 순수 함수와 읽기 조회만 있다. 예정 시점 산술은
 // 앱 runtime scheduler와 같은 packages/base의 dueTimes 하나를 쓴다(R2).

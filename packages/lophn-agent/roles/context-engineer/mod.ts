@@ -23,20 +23,3 @@ export {
   scopeLine,
   type TermRelation,
 } from "./report.ts";
-export {
-  checkDraft,
-  DRAFT_OUTPUT_MIN,
-  type DraftOverlap,
-  type DraftScope,
-  evidenceEnough,
-  type JudgmentTerms,
-  MANUAL_RUNS_MIN,
-  MANUAL_WINDOW_DAYS,
-  type OperatorBundle,
-  type OperatorDraft,
-  type OperatorEvidence,
-  overlapOf,
-  overlapRevision,
-  WATCH_CHANGE_MIN,
-  WATCH_WINDOW_DAYS,
-} from "./operator.ts";

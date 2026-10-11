@@ -1,0 +1,8 @@
+{
+  "calendar events.list": {
+    "items": [
+      { "id": "ev-1", "summary": "Standup" },
+      { "id": "ev-2", "summary": "Review" }
+    ]
+  }
+}

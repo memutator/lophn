@@ -341,6 +341,24 @@ Source kind마다 쓸 수 있는 FieldFrom:
 
 `outline` source의 개체와 outline field는 저장하지 않는다. `app-data` 개체도 저장하지 않는다.
 
+### 추출 규칙
+
+같은 파일 상태와 같은 계약이면 같은 개체·순서·값이 나온다. fixture와 정답은 `packages/documents/contexts/testdata/`(eval-project)에 있다.
+
+- **순서.** 계약의 type 순서대로, type 안에서는 series는 번호 capture의 수 순(같으면 경로 순), docs·folder는 경로의 code unit 순, index는 링크 순, section은 문서 경로 순 다음 문서 안 순서, outline은 `from_type` 개체 순 다음 문서 안 순서, app-data는 결과 순서다.
+- **key.** key field의 값을 문자열로 쓴다(`exp-001-plan.md`의 `{n:03}` capture는 `"001"`).
+- **field 값.** 선언한 field는 모두 싣고 값이 없으면 `null`이다. list는 없으면 `null`, 빈 목록이면 `[]`이다. frontmatter·YAML 값은 `@std/yaml`로 읽고 string field의 scalar는 문자열로 바꾼다. enum은 허용 값 밖이어도 그대로 싣는다(검사가 위반으로 센다).
+- **title.** 문서 개체는 첫 H1 글, section·outline 개체는 그 heading 글이다.
+- **section field.** 개체의 범위(문서 개체는 문서 전체, section 개체는 그 section) 안에서 이름이 같은 첫 heading의 본문이다. heading 줄은 빼고 앞뒤 빈 줄을 자른다. `include_children`이 false면 다음 heading 앞까지다.
+- **path capture.** series 번호 자리 이름, folder의 `folder`, 문서가 있는 개체의 `file`(확장자 뺀 파일 이름)과 `path`.
+- **links(관계 간선).** 관계 선언 순서대로, via 값(list면 항목 순서)마다 `{relation, target_key}` 하나. via가 `null`이면 간선이 없다. 대상이 있는지는 보지 않는다(검사 `relation_target_exists`가 본다).
+- **index.** 문서의 Markdown 링크 `[글](경로)`를 그 문서 폴더 기준으로 풀어 순서대로 개체로 삼는다. 대상 문서가 없거나 Project 밖이면 개체를 만들지 않고 `broken_link` 위반(근거 path는 index 문서, `target`은 푼 경로)이다.
+- **series.** pattern에 맞는 파일이 개체다. pattern의 폴더에서 같은 확장자인데 pattern에 맞지 않는 파일은 `path_mismatch` 위반이다.
+- **읽기 실패.** frontmatter YAML을 읽지 못하는 등 개체로 읽을 수 없는 파일은 개체를 만들지 않고 `unreadable` 위반이다.
+- **app-data.** port가 돌려준 결과에서 `result_path`를 따라간 배열의 항목 하나가 개체 하나다. path는 `app:<app>/<command>`, section은 `null`이다.
+
+순수 함수가 내는 위반은 `{kind, rule, type, path, section, target}`이다. 문구(message)는 읽기 쪽이 붙인다(rule이면 CheckRule.message, 나머지는 wording). 추출이 `unreadable`·`path_mismatch`·`broken_link`를, 검사(checks)가 `rule`을 낸다. 위반 순서는 path, kind, rule, section의 code unit 순이다.
+
 ## Violation (derived)
 
 | 필드 | 타입 | null | 제약 | 뜻 |

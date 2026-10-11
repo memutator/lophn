@@ -3,11 +3,13 @@
 // 다루고 결정하지 않는다: 답·허락·거절·사용은 이 파일에 없다.
 import { decisionLink } from "../../contracts/coding-agent/mod.ts";
 
+// 질문 묶음(qgr) 하나의 읽기 결과다. 적용은 질문마다 기록되고, 고정 action이 있는
+// 질문은 질문 하나짜리 묶음이므로 질문 하나라도 적용됐으면 묶음은 적용된 것이다.
 export type QuestionRecord = {
   id: string;
   status: "pending" | "answered" | "expired" | "cancelled";
   closed_reason: "deferred" | "cancelled" | "superseded" | "expired" | null;
-  applied: boolean;
+  questions: ({ applied: boolean } & Record<string, unknown>)[];
 } & Record<string, unknown>;
 
 // 대기와 적용을 한 이름으로 섞지 않는다. 답 접수는 적용 완료가 아니다.
@@ -25,7 +27,9 @@ export function questionState(record: QuestionRecord): QuestionState {
     case "pending":
       return "waiting";
     case "answered":
-      return record.applied ? "applied" : "answered";
+      return record.questions.some((question) => question.applied)
+        ? "applied"
+        : "answered";
     case "expired":
       return "expired";
     default:
@@ -51,7 +55,7 @@ export function questionStateText(state: QuestionState): string {
   return QUESTION_TEXT[state];
 }
 
-// 질문 하나의 읽기 모양이다. 대기 중이면 사람이 결정하는 화면 링크가 붙는다.
+// 질문 묶음 하나의 읽기 모양이다. 대기 중이면 사람이 결정하는 화면 링크가 붙는다.
 export function questionView(record: QuestionRecord) {
   const state = questionState(record);
   return {

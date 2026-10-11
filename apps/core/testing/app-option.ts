@@ -52,6 +52,7 @@ export async function askRegister(
   seat: "lophn" | "editor" = "lophn",
 ) {
   counter += 1;
+  const group = id("qgr", 100 + counter);
   const question = id("qst", 100 + counter);
   const action = appCreateOptionAction(app);
   const run = world[seat].run;
@@ -61,31 +62,34 @@ export async function askRegister(
     request: {
       kind: "question",
       input: {
-        id: question,
+        id: group,
         run,
         session: null,
-        prompt: `Register this app? (${question})`,
-        reason: "The work looks like a new app.",
-        options: [
-          {
-            key: "register",
-            label: "Register",
-            description: "Register it as a new app.",
-            evidence: [],
-            adoption: null,
-            action,
-          },
-          {
-            key: "leave",
-            label: "Leave it",
-            description: "Do not register it.",
-            evidence: [],
-            adoption: null,
-            action: null,
-          },
-        ],
-        recommendation: { option_key: "register", explanation: "New work." },
         expires_at: null,
+        questions: [{
+          id: question,
+          prompt: `Register this app? (${question})`,
+          reason: "The work looks like a new app.",
+          options: [
+            {
+              key: "register",
+              label: "Register",
+              description: "Register it as a new app.",
+              evidence: [],
+              adoption: null,
+              action,
+            },
+            {
+              key: "leave",
+              label: "Leave it",
+              description: "Do not register it.",
+              evidence: [],
+              adoption: null,
+              action: null,
+            },
+          ],
+          recommendation: { option_key: "register", explanation: "New work." },
+        }],
       },
     },
     call: null,
@@ -93,16 +97,16 @@ export async function askRegister(
     state_seq: (state.body["run"] as { state_seq: string }).state_seq,
   });
   assertEquals(waited.status, 200, JSON.stringify(waited.body));
-  const read = await world.read("questions/read", MACHINE_TOKEN, { question });
-  const created = (read.body["question"] as { created_seq: string })
-    .created_seq;
-  return { question, action, created };
+  const read = await world.read("questions/read", MACHINE_TOKEN, { group });
+  const created = (read.body["group"] as { created_seq: string }).created_seq;
+  return { group, question, action, created };
 }
 
 // 사람이 고른 선택지로 답한다(사람 확인이 필요한 AnswerQuestionAction).
 export async function chooseOption(
   world: WaitingWorld,
   asked: {
+    group: string;
     question: string;
     created: string;
     action: { binding_hash: string };
@@ -110,7 +114,7 @@ export async function chooseOption(
   option = "register",
 ) {
   const input = {
-    question: asked.question,
+    group: asked.group,
     created_seq: asked.created,
     answer: { kind: "option", option_key: option },
     binding_hash: asked.action.binding_hash,
@@ -131,16 +135,16 @@ export async function chooseOption(
 // 사람이 선택지가 아닌 자유 글로 답한다.
 export async function answerFree(
   world: WaitingWorld,
-  asked: { question: string; created: string },
+  asked: { group: string; question: string; created: string },
   text: string,
 ) {
   const reply = await world.post(
     "questions/answer",
     USER_TOKEN,
     {
-      question: asked.question,
+      group: asked.group,
       created_seq: asked.created,
-      answer: { kind: "text", text },
+      answers: [{ question: asked.question, answer: { kind: "text", text } }],
     },
     { created_seq: asked.created },
   );
@@ -156,7 +160,8 @@ export function applyRegister(
   const closed = String(
     inspect(
       world.server,
-      "select closed_seq as s from questions where id = ?",
+      `select g.closed_seq as s from questions q
+       join question_groups g on g.id = q."group" where q.id = ?`,
       [question],
     )[0]!["s"],
   );

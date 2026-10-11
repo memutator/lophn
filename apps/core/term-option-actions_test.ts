@@ -32,7 +32,7 @@ function termRows(world: Server, term: string) {
 }
 
 async function open(): Promise<WaitingWorld> {
-  const world = await openWaitingWorld({ documents: true });
+  const world = await openWaitingWorld();
   // 뜻을 정리할 자료와 목적은 사람이 정한다(contexts/create는 사람 몫이다). machine에게는
   // 없는 동작이다.
   const created = await world.post("contexts/create", USER_TOKEN, {
@@ -55,6 +55,7 @@ async function askTerm(
   seat: "lophn" | "editor" = "lophn",
 ) {
   counter += 1;
+  const group = id("qgr", 100 + counter);
   const question = id("qst", 100 + counter);
   const action = defineTermOptionAction({ context: CONTEXT, ...fixed });
   const run = world[seat].run;
@@ -64,34 +65,37 @@ async function askTerm(
     request: {
       kind: "question",
       input: {
-        id: question,
+        id: group,
         run,
         session: null,
-        prompt: `Define this term? (${question})`,
-        reason: "The person decides what their word means.",
-        options: [
-          {
-            key: "define",
-            label: "이 뜻으로 정의",
-            description: "이 이름과 뜻으로 용어를 정의한다.",
-            evidence: [],
-            adoption: null,
-            action,
-          },
-          {
-            key: "leave",
-            label: "남겨 둔다",
-            description: "정의하지 않고 후보로 남긴다.",
-            evidence: [],
-            adoption: null,
-            action: null,
-          },
-        ],
-        recommendation: {
-          option_key: "define",
-          explanation: "사람이 고른 뜻이다.",
-        },
         expires_at: null,
+        questions: [{
+          id: question,
+          prompt: `Define this term? (${question})`,
+          reason: "The person decides what their word means.",
+          options: [
+            {
+              key: "define",
+              label: "이 뜻으로 정의",
+              description: "이 이름과 뜻으로 용어를 정의한다.",
+              evidence: [],
+              adoption: null,
+              action,
+            },
+            {
+              key: "leave",
+              label: "남겨 둔다",
+              description: "정의하지 않고 후보로 남긴다.",
+              evidence: [],
+              adoption: null,
+              action: null,
+            },
+          ],
+          recommendation: {
+            option_key: "define",
+            explanation: "사람이 고른 뜻이다.",
+          },
+        }],
       },
     },
     call: null,
@@ -99,23 +103,23 @@ async function askTerm(
     state_seq: (state.body["run"] as { state_seq: string }).state_seq,
   });
   assertEquals(waited.status, 200, JSON.stringify(waited.body));
-  const read = await world.read("questions/read", MACHINE_TOKEN, { question });
-  const created =
-    (read.body["question"] as { created_seq: string }).created_seq;
-  return { question, action, created };
+  const read = await world.read("questions/read", MACHINE_TOKEN, { group });
+  const created = (read.body["group"] as { created_seq: string }).created_seq;
+  return { group, question, action, created };
 }
 
 // 사람이 고른 선택지로 답한다(사람 확인이 필요한 AnswerQuestionAction).
 async function choose(
   world: WaitingWorld,
   asked: {
+    group: string;
     question: string;
     created: string;
     action: { binding_hash: string };
   },
 ) {
   const input = {
-    question: asked.question,
+    group: asked.group,
     created_seq: asked.created,
     answer: { kind: "option", option_key: "define" },
     binding_hash: asked.action.binding_hash,
@@ -136,15 +140,18 @@ async function choose(
 // 사람이 action 없는 다른 선택지를 고른다. 사람 확인이 필요 없는 AnswerQuestion이다.
 async function chooseLeave(
   world: WaitingWorld,
-  asked: { question: string; created: string },
+  asked: { group: string; question: string; created: string },
 ) {
   const left = await world.post(
     "questions/answer",
     USER_TOKEN,
     {
-      question: asked.question,
+      group: asked.group,
       created_seq: asked.created,
-      answer: { kind: "option", option_key: "leave" },
+      answers: [{
+        question: asked.question,
+        answer: { kind: "option", option_key: "leave" },
+      }],
     },
     { created_seq: asked.created },
   );
@@ -160,7 +167,8 @@ function applyDefine(
   const closed = String(
     inspect(
       world.server,
-      "select closed_seq as s from questions where id = ?",
+      `select g.closed_seq as s from questions q
+       join question_groups g on g.id = q."group" where q.id = ?`,
       [question],
     )[0]!["s"],
   );
@@ -295,16 +303,15 @@ Deno.test("lophn-agent/questions#R14: 질문 뒤 같은 이름이 이미 정의�
     assertEquals(count(world.server, EVIDENCE), 0);
     // 답은 그대로다.
     const read = await world.read("questions/read", MACHINE_TOKEN, {
-      question: asked.question,
+      group: asked.group,
     });
-    const record = read.body["question"] as {
+    const record = read.body["group"] as {
       status: string;
-      applied: boolean;
-      answer: { option_key: string };
+      questions: { applied: boolean; answer: { option_key: string } }[];
     };
     assertEquals(record.status, "answered");
-    assertEquals(record.answer.option_key, "define");
-    assertEquals(record.applied, false);
+    assertEquals(record.questions[0].answer.option_key, "define");
+    assertEquals(record.questions[0].applied, false);
   } finally {
     await world.dispose();
   }

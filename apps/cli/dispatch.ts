@@ -563,7 +563,7 @@ export async function runCliCommand(
     return saved.ok ? ok(saved.value) : saved;
   }
   if (name === "question open") {
-    const opened = await runQuestionOpen(input as { question: string }, {
+    const opened = await runQuestionOpen(input as { group: string }, {
       client,
     });
     return opened.ok ? ok(opened.value) : opened;

@@ -57,7 +57,7 @@ import { createReadLog } from "./read-log.ts";
 // 경로(lophn-agent/questions의 option action)만 한다. 이 묶음은 그 규칙을 다시 만들지 않는다.
 // 새 context·term ID와 idempotency key는 호출 내용에서 정하고 본문 hash·blob은 만들지 않는다.
 
-export const CONTEXT_TOOL_REVISION = "2026-10-06";
+export const CONTEXT_TOOL_REVISION = "2026-10-12";
 
 function define(
   name: string,
@@ -161,10 +161,14 @@ const updateCandidateInput = z.strictObject({
 );
 const removeCandidateInput = z.strictObject({ term: termIdSchema, ...base });
 
-// 사람의 정의 답 전달(roles/context-engineer#R8, T29 받은 것). 입력은 질문 참조 하나다. 답변
-// 내용(이름·뜻·고정 action)은 모델이 정하지 않는다: 사람이 고른 선택지의 고정 action을 질문
-// 정본에서 읽어 그대로 ApplyQuestionOption에 전한다. questions#R13의 적용은 machine이 한다.
-const questionRefInput = z.strictObject({ question: idSchema("qst") });
+// 사람의 정의 답 전달(roles/context-engineer#R8, T29 받은 것). 입력은 질문 참조 하나다:
+// 질문이 든 묶음과 그 묶음 안의 질문이다. 답변 내용(이름·뜻·고정 action)은 모델이 정하지
+// 않는다: 사람이 고른 선택지의 고정 action을 질문 묶음 정본에서 읽어 그대로
+// ApplyQuestionOption에 전한다. questions#R13의 적용은 machine이 한다.
+const questionRefInput = z.strictObject({
+  group: idSchema("qgr"),
+  question: idSchema("qst"),
+});
 
 export const contextListTool = define(
   "context.list",
@@ -885,7 +889,7 @@ export function createContextToolHandlers(
   );
 
   // 사람의 정의 답 전달. 입력은 질문 참조 하나이고 답변 내용은 모델이 정하지 않는다: 질문
-  // 정본(ReadQuestion)에서 사람이 고른 option의 고정 action을 읽어 그대로 전한다. 답이
+  // 정본(ReadQuestionGroup)에서 사람이 고른 option의 고정 action을 읽어 그대로 전한다. 답이
   // 없거나(미답·미루기·만료) action이 없는 선택지를 골랐으면 사람의 정의 답이 아니다(questions#R8,
   // R15). 이미 적용된 답(spec 상 apply 한 번)은 ApplyQuestionOption이 conflict로 막는다.
   handlers.set(
@@ -893,31 +897,43 @@ export function createContextToolHandlers(
     async (input, credential) => {
       const value = input as z.infer<typeof questionRefInput>;
       const read = await ports.call(
-        "ReadQuestion",
-        { question: value.question },
+        "ReadQuestionGroup",
+        { group: value.group },
         credential.run,
       );
       if (!read.ok) return read;
-      const question = bodyOf(read.value)["question"] as {
+      const group = bodyOf(read.value)["group"] as {
         status: string;
         closed_seq: string | null;
-        answer: { kind: string; option_key: string | null } | null;
-        options: {
-          key: string;
-          action: {
-            concern: string;
-            command: string;
-            targets: string[];
-            input: { kind: string; value?: Record<string, unknown> };
-            comparison?: unknown;
-            binding_hash: string;
-          } | null;
+        questions: {
+          id: string;
+          answer: { kind: string; option_key: string | null } | null;
+          options: {
+            key: string;
+            action: {
+              concern: string;
+              command: string;
+              targets: string[];
+              input: { kind: string; value?: Record<string, unknown> };
+              comparison?: unknown;
+              binding_hash: string;
+            } | null;
+          }[];
         }[];
       };
+      const question = group.questions.find((entry) =>
+        entry.id === value.question
+      );
+      if (question === undefined) {
+        return err({
+          code: "not_found",
+          message: "the group has no such question",
+        });
+      }
       // 답이 없으면(미답·미루기·만료·취소) 사람의 정의 답이 아니다. 추천·일반 메시지를
       // 답으로 읽지 않는다(questions#R6, R8).
       if (
-        question.status !== "answered" || question.answer === null ||
+        group.status !== "answered" || question.answer === null ||
         question.answer.kind !== "option" || question.answer.option_key === null
       ) {
         return err({
@@ -925,9 +941,8 @@ export function createContextToolHandlers(
           message: "the person has not chosen an option",
         });
       }
-      const option = question.options.find((entry) =>
-        entry.key === question.answer!.option_key
-      );
+      const chosen = question.answer.option_key;
+      const option = question.options.find((entry) => entry.key === chosen);
       // action이 없는 선택지(자유 답·설명 요청)의 답은 정의로 해석하지 않는다(questions#R15).
       if (option === undefined || option.action === null) {
         return err({
@@ -939,13 +954,10 @@ export function createContextToolHandlers(
         "ApplyQuestionOption",
         {
           question: value.question,
-          answered_seq: question.closed_seq,
-          option_key: question.answer!.option_key,
+          answered_seq: group.closed_seq,
+          option_key: chosen,
           action: option.action,
-          evidence: {
-            question: value.question,
-            option: question.answer.option_key,
-          },
+          evidence: { question: value.question, option: chosen },
         },
         credential.run,
       );

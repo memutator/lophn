@@ -144,7 +144,7 @@ const AGENT_OPERATIONS = [
   "ReadHandoffStatus",
   "ReadHandoffResult",
   "ReadRun",
-  "CreateQuestion",
+  "CreateQuestionGroup",
   "create_approval_request",
 ];
 
@@ -218,7 +218,7 @@ async function open(): Promise<World> {
       "grant_approval_request",
       "GetApproval",
       "ListApprovals",
-      "AnswerQuestion",
+      "AnswerQuestionGroup",
       "PauseAssignment",
       "ResumeAssignment",
       "StopRun",
@@ -517,23 +517,27 @@ Deno.test("lophn-agent/handoff#R3: 설명과 고정 근거가 빠진 전달은 �
     assertEquals(codeOf(extra), "invalid_input");
 
     // 답이 없는 질문과 다른 판을 채택한 질문은 근거가 될 수 없다.
+    const group = id("qgr", 1);
     const question = id("qst", 1);
     const created = await send(world, "questions/create", sender, {
-      id: question,
+      id: group,
       run: RUN_A,
       session: null,
-      prompt: "어느 정리 방안으로 갈까요",
-      reason: "두 방안 중 하나를 채택해야 한다",
-      options: [{
-        key: "one",
-        label: "첫째",
-        description: "첫째 방안",
-        evidence: [],
-        adoption: { document: DOC, version: VER_ONE, section: null },
-        action: null,
-      }],
-      recommendation: null,
       expires_at: null,
+      questions: [{
+        id: question,
+        prompt: "어느 정리 방안으로 갈까요",
+        reason: "두 방안 중 하나를 채택해야 한다",
+        options: [{
+          key: "one",
+          label: "첫째",
+          description: "첫째 방안",
+          evidence: [],
+          adoption: { document: DOC, version: VER_ONE, section: null },
+          action: null,
+        }],
+        recommendation: null,
+      }],
     });
     assertEquals(created.status, 200, JSON.stringify(created.body));
     const adopting = [{ ...REFERENCE, question }];
@@ -552,9 +556,12 @@ Deno.test("lophn-agent/handoff#R3: 설명과 고정 근거가 빠진 전달은 �
       "questions/answer",
       world.user,
       {
-        question,
+        group,
         created_seq: createdSeq,
-        answer: { kind: "option", option_key: "one" },
+        answers: [{
+          question,
+          answer: { kind: "option", option_key: "one" },
+        }],
       },
       { created_seq: createdSeq },
     );

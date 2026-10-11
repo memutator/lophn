@@ -138,7 +138,12 @@ Deno.test("coding-agent/cli#R21: command 입력은 owner route 입력을 그대�
     fields(cliQuestionShowSchema),
     Object.keys(questionRead.input.shape).sort(),
   );
-  assertEquals(fields(cliApprovalListSchema), ["limit", "run", "status"]);
+  assertEquals(fields(cliApprovalListSchema), [
+    "grant_session",
+    "limit",
+    "run",
+    "status",
+  ]);
   assertEquals(
     fields(cliApprovalListSchema),
     Object.keys(approvalsList.input.shape).sort(),

@@ -65,6 +65,7 @@ const OPERATIONS = [
   "RegisterProvider",
   "RegisterProviderCredential",
   "ChangeProviderCredentials",
+  "project.create",
 ];
 
 const ANTHROPIC = {
@@ -402,13 +403,27 @@ class Conversation {
     assertEquals(listed.status, 200, JSON.stringify(body));
     const lophn = body.assignments.find((entry) => entry.role === "lophn")!;
     const session = id("ses", number);
+    // 세션은 쓸 수 있는 project 하나를 자리로 받는다. 같은 key라 다시 만들어도 같은 결과다.
+    const place = await post(core, "projects/create", {
+      input: {
+        id: id("prj", 1),
+        name: "alpha",
+        title: "alpha",
+        purpose: "",
+        folders: [],
+        tracking: { enabled: false, patterns: [], use_gitignore: false },
+      },
+      idempotency_key: "place-secret-input",
+      compare: {},
+      prepared: [],
+    });
+    assertEquals(place.status, 200, await place.text());
     const opened = await post(core, "sessions/open", {
       input: {
         id: session,
         assignment: lophn.id,
-        role: lophn.role,
-        work_place: { kind: "global", id: null },
-        continued_from: null,
+        work_place: { kind: "project", id: id("prj", 1) },
+        opening_context: null,
       },
       idempotency_key: `open-secret-input-${number}`,
       compare: {

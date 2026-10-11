@@ -421,7 +421,9 @@ function sessionTarget(
   id: string,
 ): Result<{ trace: RunTrace; next: string | null }> {
   const session = lookup.sql.get(
-    "select assignment, role from sessions where id = ?",
+    `select s.assignment as assignment, a.role as role
+       from sessions s join assignments a on a.id = s.assignment
+       where s.id = ?`,
     [id],
   );
   if (

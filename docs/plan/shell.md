@@ -1243,7 +1243,7 @@ concerns: [shell]
 - 상태: 완료 (#586)
 - 등급: frontend
 - concern: shell/desktop, shell/design-system, shell/wording
-- 요구: shell/desktop#R23(창 단추), shell/desktop#R31(텍스트 선택), shell/design-system#R46(scrollbar), shell/desktop#R24(공간 이름)
+- 요구: shell/desktop#R23(창 단추), shell/desktop#R32(텍스트 선택), shell/design-system#R46(scrollbar), shell/desktop#R24(공간 이름)
 - 자리: apps/shell/renderer/desktop/top-bar/, apps/shell/renderer/chrome.css, apps/shell/main/desktop/window-controls.ts, apps/shell/preload/window-controls-api.ts, apps/shell/ipc/window-controls.ts, packages/design/base.css, packages/design/wording/en.ts
 - 쓰는 contract: 없음
 - 내놓는 contract: 없음

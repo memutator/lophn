@@ -133,12 +133,17 @@ context의 계약·검색·위반·용어집의 값은 → documents/contexts, d
 | 선언 검색 tool(검색마다 하나) | `read` | documents/contexts 적용된 판의 검색 실행 | 선언한 입력 schema; 결과는 개체 요약 목록(최대 20개)·이어 읽기; 이름은 `ctx_<ctx ULID>_<검색 slug>_<hash8>` | preset이 고른 context의 검색만; 모든 역할 |
 | `context.read_entity` | `read` | documents/contexts 개체 읽기 | context·type·개체 id; field·관계·원문 위치(파일 경로·section 범위) | 모든 역할 |
 | `series.next_name` | `read` | documents/series 다음 이름 계산 | context·series kind의 type; 다음 문서 이름; 문서·context 상태는 바뀌지 않음 | 모든 역할 |
+| `context.list` | `read` | documents/contexts 목록 읽기(모든 project) | project(선택); active context의 id·이름·목적·project(최대 20개)·이어 읽기; project가 없으면 읽을 수 있는 모든 project를 `project.list`로 모아 project마다 `context.list`를 읽는다 | lophn |
+| `context.overview` | `read` | documents/contexts overview, documents/terms 용어집 읽기 | context; 목적과 prompt 자료와 같은 글(type·뜻·개수, type 사이 관계, 용어집); 적용된 판이 없으면 `not_found` | lophn |
+| `context.containing` | `read` | documents/contexts 문서 경로를 덮는 context | project·문서 경로; 적용된 판의 Source가 그 경로를 덮는 active context와 type 이름 | lophn |
 | `context.read_contract` | `read` | documents/contexts 계약·초안 읽기 | context; 적용된 판과 초안 | Context Engineer |
 | `context.draft` | `write` | documents/contexts 초안 쓰기 | 계약·검색·예시·saved view 초안; 초안 기준(CAS) | Context Engineer |
 | `context.preview` | `read` | documents/contexts 지금 파일로 추출·위반 확인 | 초안 기준; 개체 수·위반 목록·예시 결과; 적용하지 않음 | Context Engineer |
 | `context.submit` | `write` | documents/contexts 판 제출 | 초안 기준; 판 hash·check 결과·위반; 통과한 판의 적용은 documents/contexts | Context Engineer |
 | `context.violations` | `read` | documents/contexts 위반 읽기 | context; 위반 목록(문서 경로·규칙) | Context Engineer |
 | `context.glossary_read`, `context.glossary_write` | `read`, `write` | documents/terms 용어집 읽기·쓰기 | context; 용어·뜻·정한 사람 | Context Engineer |
+
+`context.list`·`context.overview`·`context.containing`은 prompt 자료의 project 범위(→ lophn-agent/presets 컨텍스트 선택)와 따로 lophn에게만 모든 project의 context를 읽게 한다. 개체·검색 결과·문서 본문은 읽지 못하고 그것은 선택한 context의 검색·개체 tool이 맡는다. `context.containing`의 결과는 문서 자리 추천이 문서를 덮는 context로 세는 값이다(→ lophn-agent/roles/lophn). 결과는 다른 읽기 tool과 같은 상한(목록 20개, 글 24576 UTF-8 bytes)을 따른다.
 
 선언 검색 tool은 앱 tool처럼 ToolDefinition을 선언에서 만들고, 고정 Preset 선택·제품 역할 상한·assignment 범위의 교집합 안에서만 제공하며 Run.basis에 정의 hash를 고정한다. 판이 바뀌어도 진행 중인 run은 옛 정의로 계속하고 새 정의는 다음 run에서 만든다. 이름 충돌은 앱 tool과 같이 전체 목록 검증을 실패시킨다. `context.preview`는 read이며 판·파일·ledger의 context 상태를 바꾸지 않는다. 자료 검색 결과와 용어집의 문자열은 untrusted data이며 권한 주장으로 쓰지 않는다.
 

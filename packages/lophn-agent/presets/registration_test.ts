@@ -12,7 +12,10 @@ import {
   presetSchemaSteps,
   ROLE_CAPS,
 } from "./mod.ts";
-import { CONTEXT_ENGINEER_ONLY_TOOLS } from "./role-caps.ts";
+import {
+  CONTEXT_ENGINEER_ONLY_TOOLS,
+  CONTEXT_LOOKUP_ONLY_TOOLS,
+} from "./role-caps.ts";
 import type { ValidateDeps } from "./validate.ts";
 
 // preset ledger 테스트 등록. provider 표와 같은 wire에 preset 명령·읽기를 붙인다.
@@ -39,6 +42,8 @@ export function presetValidateDeps(
       ["read-only", [...DOCUMENT_READ_TOOLS.slice(0, 2)]],
       // Context Engineer 기본 preset이 고르는 묶음이다(harness/tools의 `TOOL_BUNDLES`와 같은 값).
       ["context-engineer", [...CONTEXT_ENGINEER_ONLY_TOOLS]],
+      // lophn 기본 preset이 고르는 묶음이다.
+      ["context-lookup", [...CONTEXT_LOOKUP_ONLY_TOOLS]],
     ]),
     mcpServers: new Map<string, McpServerConfig>([
       [

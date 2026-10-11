@@ -8,6 +8,14 @@ import {
 import { createBuiltinAssignmentInputSchema } from "@lophn/contracts/lophn-agent";
 import { productPresetDefinition } from "../../presets/mod.ts";
 import {
+  CONTEXT_LOOKUP_TOOL_NAMES,
+  CONTEXT_LOOKUP_TOOLS,
+  createContextLookupToolHandlers,
+  executeTool,
+  runOperations,
+} from "../../harness/tools/mod.ts";
+import { ok } from "../../../base/mod.ts";
+import {
   checkOptionAction,
   optionBindingHash,
   protectedSetting,
@@ -478,4 +486,41 @@ Deno.test("lophn-agent/roles/lophn#R22: credential, app permission and MCP serve
     assertEquals(protectedGuidance(def)?.screen, screen);
   }
   assertEquals(protectedGuidance(definition()), null);
+});
+
+Deno.test("lophn-agent/roles/lophn#R14 [ctx-I58g]: the covering contexts that context.containing reads decide which documents are recommended", async () => {
+  // 경로마다 덮는 context가 다른 core다. covered.md만 계약의 Source가 덮는다.
+  const handlers = createContextLookupToolHandlers({
+    call: (_contract, input) =>
+      Promise.resolve(ok({
+        contexts: (input as { path: string }).path === "docs/covered.md"
+          ? [{ context: CTX_A.context, title: CTX_A.title, types: ["Note"] }]
+          : [],
+      })),
+  }, () => "");
+  const credential = {
+    run: "run_01arz3ndektsv4rrffq69g5fav",
+    targets: new Set<string>(),
+    operations: new Set(runOperations(CONTEXT_LOOKUP_TOOLS)),
+  };
+  const containingOf = async (path: string) => {
+    const outcome = await executeTool(
+      { listed: CONTEXT_LOOKUP_TOOLS, handlers, credential },
+      CONTEXT_LOOKUP_TOOL_NAMES.containing,
+      { project: "prj_01arz3ndektsv4rrffq69g5fav", path },
+    );
+    assertEquals(outcome.outcome.kind, "success");
+    return (outcome.result.content as {
+      contexts: { context: string; title: string }[];
+    }).contexts;
+  };
+  const covered = await containingOf("docs/covered.md");
+  const uncovered = await containingOf("docs/loose.md");
+  // 도구 결과가 그대로 자리 추천의 `containing`이 된다.
+  const result = recommendPlaces([
+    target(0, { hasPlace: true, containing: covered }),
+    target(1, { hasPlace: true, containing: uncovered }),
+  ]);
+  assertEquals(result.notTargets, [doc(0)]);
+  assertEquals(result.drafts.map((draft) => draft.document), [doc(1)]);
 });

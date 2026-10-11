@@ -14,6 +14,7 @@ import {
   executeTool,
   listTools,
   type RunCredential,
+  TOOL_BUNDLES,
 } from "../../harness/tools/mod.ts";
 import { createAgentToolHandlers } from "../../harness/tools/mod.ts";
 import { HANDOFF_DIRECTIONS } from "@lophn/contracts/lophn-agent";
@@ -102,10 +103,10 @@ Deno.test("lophn-agent/roles/lophn#R1: lophn's tool selection holds planning, re
       `lophn lists ${name}`,
     );
   }
-  // context 읽기는 개체 읽기 하나가 상한에 있고(정의는 선택한 context가 있을 때 run마다 만들어진다) 옛
-  // context 조회 tool은 없다(harness/tools#R21, R22).
+  // context 읽기는 개체 읽기 하나가 상한에 있고(정의는 선택한 context가 있을 때 run마다 만들어진다) 모든
+  // project의 조회 셋이 따로 있다. 옛 항목·관점 모델의 조회 tool은 없다(harness/tools#R21, R22).
   assert(lophn.tools.includes("context.read_entity"));
-  for (const old of ["context.read", "context.list", "context.items"]) {
+  for (const old of ["context.read", "context.items"]) {
     assertEquals(lophn.tools.includes(old), false, old);
     assertEquals(listed.some((tool) => tool.name === old), false, old);
   }
@@ -931,4 +932,46 @@ Deno.test("lophn-agent/roles/lophn#R3 [ctx-I58c]: the bundled guides describe co
     new URL("roles-and-presets.md", dir),
   );
   assert(roles.includes("A request to create a context"));
+});
+
+Deno.test("lophn-agent/roles/lophn#R3 [ctx-I58g]: the prompt tells when to use the three context lookup tools and lophn's default preset selects them as one bundle", async () => {
+  const prompt = await Deno.readTextFile(
+    new URL("./prompt.md", import.meta.url),
+  );
+  const lophn = ROLE_CAPS.get("lophn");
+  assert(lophn !== undefined);
+  for (
+    const tool of ["context.list", "context.overview", "context.containing"]
+  ) {
+    assert(prompt.includes(tool), tool);
+    assert(lophn.tools.includes(tool), tool);
+    // 정의가 있고 제공 목록에 든다.
+    assert(lophnOffers(tool), tool);
+  }
+  // prompt 자료는 고른 context에 머물고 조회 tool은 개체·검색 결과를 읽지 못한다고 말한다.
+  assert(prompt.includes("다른 project의 context는 조회 tool로"));
+  // 기본 preset은 이 셋을 묶음 하나로 고르고 나머지 상한 동작은 하나씩 고른다.
+  const preset = productPresetDefinition("lophn", "sha256:prompt");
+  assertEquals(preset.capability.bundles, [
+    { name: "context-lookup", revision: 1 },
+  ]);
+  const single = preset.capability.tools.map((entry) => entry.tool);
+  for (const tool of TOOL_BUNDLES.get("context-lookup")!) {
+    assertEquals(single.includes(tool), false, tool);
+  }
+  assertEquals(
+    [...single, ...TOOL_BUNDLES.get("context-lookup")!].sort(),
+    [...lophn.tools].sort(),
+  );
+  // 다른 역할의 기본 preset은 이 묶음을 고르지 않는다.
+  for (const role of ["app_engineer", "context_engineer"] as const) {
+    const other = productPresetDefinition(role, "sha256:prompt");
+    assertEquals(
+      other.capability.bundles.map((bundle) => bundle.name).includes(
+        "context-lookup",
+      ),
+      false,
+      role,
+    );
+  }
 });

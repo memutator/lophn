@@ -11,10 +11,12 @@ import {
 import { routePath } from "../../packages/contracts/platform/mod.ts";
 import {
   createBuiltinToolHandlers,
+  createContextLookupToolHandlers,
   type ToolHandler,
 } from "../../packages/lophn-agent/harness/tools/mod.ts";
 import { type CoreCall, readOf } from "./core-call.ts";
 import { builtinBinding } from "./builtin-binding.ts";
+import { renderContextMaterial } from "./context-overview.ts";
 import { createContextToolkit } from "./context-search.ts";
 import type { Toolkit } from "./prepare.ts";
 import type { RunSeat } from "./core-ports.ts";
@@ -89,8 +91,9 @@ export function createBuiltinToolkit(options: {
       contract: (agent) => createContractCall(options.routes, agent),
     }),
     handlers(seat: RunSeat, agent: CoreCall): ReadonlyMap<string, ToolHandler> {
-      return createBuiltinToolHandlers({
-        ...createContractCall(options.routes, agent),
+      const contract = createContractCall(options.routes, agent);
+      const builtin = createBuiltinToolHandlers({
+        ...contract,
         newId: (prefix) => options.ids.newId(prefix),
         async runFacts(run) {
           const read = await readOf(options.machine, runRead, { run });
@@ -112,6 +115,11 @@ export function createBuiltinToolkit(options: {
           });
         },
       });
+      // lophn의 모든 project context 조회(roles/lophn R3). overview 글은 prompt 자료와 같은 함수로 만든다.
+      return new Map([
+        ...builtin,
+        ...createContextLookupToolHandlers(contract, renderContextMaterial),
+      ]);
     },
   };
 }

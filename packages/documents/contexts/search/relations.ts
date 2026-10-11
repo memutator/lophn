@@ -4,8 +4,8 @@ import type {
   SearchFollow,
   SearchQuery,
 } from "../../../contracts/documents/mod.ts";
-import { passes } from "./relations-condition.ts";
 import type { InputValues, Row, SearchEntity } from "./types.ts";
+import { evaluate } from "./where.ts";
 
 type Hit = { entity: SearchEntity; index: number };
 
@@ -85,7 +85,8 @@ export function expandFollows(
           aliases: { ...row.aliases, [follow.as]: hit },
         };
         if (
-          follow.where === undefined || passes(follow.where, candidate, inputs)
+          follow.where === undefined ||
+          evaluate(follow.where, candidate, inputs)
         ) {
           next.push(candidate);
         }

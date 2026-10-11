@@ -138,8 +138,8 @@ concerns:
   entities: [Context]
 
 - id: documents/terms
-  summary: Term(용어)과 정의, 후보, 사람이 정의를 정한다.
-  entities: [Term]
+  summary: context별 용어집(glossary). 용어와 뜻과 정한 쪽(사람 또는 Context Engineer), agent prompt 자료로 쓴다.
+  entities: [GlossaryEntry]
 
 # ───────────────────────── apps ─────────────────────────
 

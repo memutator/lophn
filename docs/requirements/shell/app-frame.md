@@ -4,7 +4,7 @@ concerns: [shell/app-frame]
 ---
 # shell/app-frame
 
-앱 view를 감싸는 플랫폼 크롬·분리된 view session·native view 표시, 앱이 깨져도 동작하는 문제 알리기, 앱 공간에서 agent를 부르는 title bar select와 앱 화면 옆 Agent 칸의 자리를 맡는다; 호출의 의미·권한은 apps/invocations·apps/permissions, 피드백 내용과 수집은 problems/feedback, Agent component의 화면은 shell/desktop과 lophn-agent/conversation, agent 정의와 관리는 lophn-agent/roles가 맡는다.
+앱 view를 감싸는 플랫폼 크롬·분리된 view session·native view 표시, 앱이 깨져도 동작하는 문제 알리기, 앱 공간에서 agent를 부르는 title bar select와 앱 화면 옆 Agent 칸의 자리를 맡는다; 호출의 의미·권한은 apps/invocations·apps/permissions, 피드백 내용과 수집은 problems/feedback, Agent component의 화면은 shell/desktop과 lophn-agent/conversation, agent 정의와 관리는 lophn-agent/agents가 맡는다.
 
 ## 요구
 

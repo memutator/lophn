@@ -410,20 +410,23 @@ export async function seedProvider(h: LedgerHarness) {
   );
 }
 
+// summary는 Compact가 쓰는 정리(organizing) 요약 call이다. model을 주면 그 model로 부른다.
 export function startCall(
   h: LedgerHarness,
   call: string,
   run: string,
   session: string,
   attempt = 1,
+  use: { kind?: "judgment" | "summary"; model_name?: string } = {},
 ) {
+  const summary = use.kind === "summary";
   const started = {
     id: call,
     run,
     session,
-    model_use: "judgment",
+    model_use: summary ? "organizing" : "judgment",
     preset: { id: id("pst", 1), revision: 1 },
-    purpose: "judgment",
+    purpose: summary ? "conversation_compression" : "judgment",
     test_request: null,
     attempt_kind: "initial",
     attempt_order: attempt,
@@ -431,7 +434,7 @@ export function startCall(
     credential_change_of: null,
     model: {
       provider: PVDR,
-      name: "gpt",
+      name: use.model_name ?? "gpt",
       protocol: "openai-responses",
       credential_key: null,
       credential_revision: null,
@@ -486,6 +489,50 @@ export function startCall(
   );
 }
 
+// 시작한 call을 끝낸다. 시작 기록의 판 순번이 "4"이므로 그 기준으로 비교한다.
+export function finishCall(
+  h: LedgerHarness,
+  call: string,
+  outcome: { kind: string; code?: string | null } = { kind: "complete" },
+  output: string | null = RESULT,
+) {
+  return h.command(
+    machineCred,
+    envelope("FinishModelCall", {
+      call,
+      output: outcome.kind === "complete" ? output : null,
+      outcome: {
+        kind: outcome.kind,
+        code: outcome.code ?? null,
+        retry_at: null,
+        finish_reason: null,
+        http_status: null,
+        provider_code: null,
+      },
+      usage: {
+        input: 100,
+        output: 20,
+        cache_read: null,
+        cache_write: null,
+        reasoning: null,
+        cache_in_input: null,
+        reasoning_in_output: null,
+        definition_revision: "2026-10",
+      },
+      cost: {
+        kind: "unknown",
+        amount: null,
+        currency: null,
+        basis: null,
+        confirmed_at: null,
+      },
+      duration_ms: 10,
+      first_output_ms: 5,
+      state_seq: "5",
+    }, { state_seq: "4" }),
+  );
+}
+
 export function applyMessages(
   h: LedgerHarness,
   messages: string[],
@@ -495,4 +542,62 @@ export function applyMessages(
     machineCred,
     envelope("ApplyMessages", { messages, call }, { applied_at_call: null }),
   );
+}
+
+// Fork·Compact 시험이 함께 쓰는 대화다. 메시지 ID는 아래 상수로 고정한다.
+export const SOURCE_FIRST = id("msg", 1);
+export const SOURCE_ANSWER = id("msg", 2);
+export const SOURCE_SECOND = id("msg", 3);
+export const SOURCE_LAST = id("msg", 4);
+
+// 사람 요청 → 답 → 사람 요청 → 답, 두 run이 모두 끝난 session이다.
+export async function finishedConversation(h: LedgerHarness): Promise<string> {
+  const session = await openLophn(h);
+  const first = await runningRun(h, session, SOURCE_FIRST, ASG_LOPHN, "first");
+  value(
+    await h.command(
+      machineCred,
+      envelope("RecordMessage", {
+        id: SOURCE_ANSWER,
+        session,
+        run: first,
+        content: textContent("answer one"),
+        links: [],
+      }),
+    ),
+  );
+  value(await finishRun(h, first, DONE));
+  const second = await runningRun(
+    h,
+    session,
+    SOURCE_SECOND,
+    ASG_LOPHN,
+    "second",
+  );
+  value(
+    await h.command(
+      machineCred,
+      envelope("RecordMessage", {
+        id: SOURCE_LAST,
+        session,
+        run: second,
+        content: textContent("answer two"),
+        links: [],
+      }),
+    ),
+  );
+  value(await finishRun(h, second, DONE));
+  return session;
+}
+
+export async function seqOf(
+  h: LedgerHarness,
+  message: string,
+): Promise<string> {
+  const rows = await sql(
+    h,
+    "select cast(created_seq as text) as seq from messages where id = ?",
+    [message],
+  );
+  return String(rows[0]!["seq"]);
 }

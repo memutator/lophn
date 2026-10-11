@@ -20,6 +20,7 @@ import {
   runSchemaSteps,
 } from "../harness/run-loop/mod.ts";
 import { presetValidateDeps } from "../harness/run-loop/testing/mod.ts";
+import { modelSchemaSteps } from "../harness/model/mod.ts";
 import {
   conversationSchemaSteps,
   createConversationCommands,
@@ -136,6 +137,8 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
       ...presetSchemaSteps,
       ...assignmentSchemaSteps,
       ...runSchemaSteps,
+      // Compact가 Workspace의 Model for summaries(agent_model_defaults)를 읽는다.
+      ...modelSchemaSteps,
       ...conversationSchemaSteps,
       {
         id: "conversation.test.fail-accept",
@@ -175,6 +178,8 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
       commands.unarchive,
       commands.delete,
       commands.changeModel,
+      commands.fork,
+      commands.compact,
       commands.close,
       commands.receive,
       commands.record,

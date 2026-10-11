@@ -134,8 +134,8 @@ concerns:
   summary: address 문법(<place>/<doc>#<section>@<version>), place(project나 앱 slug), place 없는 문서, rename·move와 옛 address 안내, ID로 부르기.
 
 - id: documents/contexts
-  summary: Context와 item, 관점(기준 / 참고 / watch), item 대상(문서, section, 앱 read command), watch 변화 감지와 ContextWatchedItemChanged.
-  entities: [Context]
+  summary: 한 project 파일 위의 결정적 계약(type, source kind 일곱, field, 관계, 검사 규칙, public/private)과 선언된 검색, saved view, 계약·검색 묶음의 판과 격리 검사, 위반 감지와 index.
+  entities: [Context, ContextBundle, ContextCheck, SavedView]
 
 - id: documents/terms
   summary: context별 용어집(glossary). 용어와 뜻과 정한 쪽(사람 또는 Context Engineer), agent prompt 자료로 쓴다.

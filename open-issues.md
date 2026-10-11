@@ -4,7 +4,7 @@
 `<concern id>#Q<n>`으로 여기에 올리고, 사람이 정해야 하는 것만 "사람이 정할
 것"에 둔다.
 
-- 모두 850건(재연결 뒤 8건 포함): 추천대로 683, 다르게 정함 34, 대체됨 93, 이미
+- 모두 852건(재연결 뒤 8건 포함): 추천대로 685, 다르게 정함 34, 대체됨 93, 이미
   정함 31, 사람이 정할 것 2
 - 사람이 정한 큰 결정은 아래 "정한 원칙"에 있다. 문서는 이 결정을 따른다.
 
@@ -777,7 +777,7 @@
 | redesign/propagate#Q4          | reproduction 없는 코드 수리의 ticket 준비와 보호된 사람 문제 확인을 어떻게 맞출까?                                              | 추천대로    | ticket 없는 direct repair는 금지; 보호된 사람 확인을 유지하되 ticket owner의 reproduction 조건을 별도 결정                                           |
 | redesign/propagate#Q7          | 새 앱의 [Start]는 source→project 연결을 요구하지만 source 연결은 첫 coding 작업에서 준비한다. 최초 연결을 어느 단계에서 만들까? | 추천대로    | 사람의 기존 project/source 연결이 있으면 Start; 없으면 추측 없이 준비 차단·직접 터미널 안내. sessions owner가 bootstrap 계약 확정                    |
 
-### shell (58)
+### shell (60)
 
 | id                           | 질문                                                                                                                        | 판정      | 결정                                                                                                                                                          |
 | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -842,6 +842,8 @@
 | shell/workspace#Q9 | Violations의 [Send to Context Engineer]와 Search 탭의 [Ask Context Engineer]도 "부르는 곳은 sidebar와 toast뿐"에 걸린다. | 추천대로 | 둘 다 지운다. 위반은 계약 위반 toast의 [Ask Context Engineer]로 넘기고, 그 session은 첫 context chip만으로 글 없이 보낼 수 있다(shell/desktop#R43). |
 | shell/desktop#Q9 | 일하는 중 보내는 말의 "현재 일 수정 / 다음 요청" 구분이 새 composer에서 어떻게 보이나. | 추천대로 | 일하는 중에만 send 옆에 작은 select(Change this work / Next request). |
 | shell/desktop#Q10 | 질문 묶음 카드는 사람 결정상 대화 안 카드인데 wireframe은 composer 위 dock이다. | 추천대로 | 대화 안 카드(R46), 답하면 접힌 요약으로 그 자리에 남는다. composer 위에 붙는 것은 승인 카드뿐. |
+| shell/desktop#Q11 | Fork가 복사할 "고른 지점"을 어디서 고르나. | 추천대로 | 내 메시지 hover의 "Fork from here"(그 메시지까지). header ⋯ 메뉴와 `/`의 Fork는 마지막 확정 메시지까지(shell/desktop#R48). |
+| shell/desktop#Q12 | header ⋯ 메뉴의 Close는 무엇을 닫나(사람이 session을 끝내는 길은 없다). | 추천대로 | Close tab — 탭·칸만 닫고 session은 남는다(shell/desktop#R38). |
 
 ### domain model 사이 (14)
 

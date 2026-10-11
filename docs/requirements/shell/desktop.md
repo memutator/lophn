@@ -169,7 +169,7 @@ Electron main과 창별 shell 화면의 분리, 창 구성·탐색·tray·OS 통
 - 확인: Agent 탭을 열고 닫아도 다른 탭의 배치와 정보 패널 상태가 그대로이고, 프로젝트와 앱 공간에서 header·대화·composer의 모양과 조작이 같다.
 - 의도: shell#I1
 
-**[R38]** Agent 화면 맨 위 header는 [avatar] agent 이름 · session 제목 ▾로 그 agent와 session을 고정해 보이고 오른쪽에 진행 chip·보기 상세·⋯ 메뉴(Rename, Rewind…, Usage, Close)를 두며, session 안에서 agent를 바꾸는 칸은 두지 않고 다른 agent는 다른 탭·칸으로 연다.
+**[R38]** Agent 화면 맨 위 header는 [avatar] agent 이름 · session 제목 ▾로 그 agent와 session을 고정해 보이고 오른쪽에 진행 chip·보기 상세·⋯ 메뉴(Rename, Fork, Rewind…, Usage, Close tab — 탭·칸만 닫고 session은 그대로 남는다)를 두며, session 안에서 agent를 바꾸는 칸은 두지 않고 다른 agent는 다른 탭·칸으로 연다.
 - 이유: agent마다 tool과 prompt 조립이 달라 한 session 안에서 agent를 바꿀 수 없다.
 - 확인: header에서 agent를 고르는 길이 없고 다른 agent를 열면 새 탭·칸이 생기며, ⋯ 메뉴의 Rename은 지금 session의 이름을 고친다. 진행 chip·보기 상세는 R42를 따른다.
 - 의도: shell#I1
@@ -194,7 +194,7 @@ Electron main과 창별 shell 화면의 분리, 창 구성·탐색·tray·OS 통
 - 확인: 보기 상세를 바꿔도 메시지와 카드는 그대로이고 tool 줄만 숨김·접힘·펼침으로 바뀐다. Stop은 일을 멈출 뿐 거절이 아니며, 멈춘 일의 이어가기와 새 요청은 서로 다른 행동으로 한 단추에 합치지 않는다(lophn-agent/harness/run-loop).
 - 의도: shell#I1
 
-**[R43]** composer는 입력칸 안 아래 줄에 [+]·[model · option ▾]·[send / 일하는 중이면 Stop]을, 입력칸 밖 아래 줄에 자리 이름(프로젝트 또는 앱)과 권한 요약 ▾를 두고, 입력칸 위에 떼어 낼 수 있는 context chip 줄을 두고 notification의 [Ask]로 연 session은 첫 context chip만으로 글 없이 보낼 수 있게 하며, 권한 요약은 그 session의 실제 권한(자리 권한 규칙과 이 session에서 Allow한 것)을 보이고 누르면 Agents 화면의 Permissions로 간다.
+**[R43]** composer는 입력칸 안 아래 줄에 [+]·[model · option ▾]·[send / 일하는 중이면 Stop]을 두고 일하는 중에만 send 옆에 작은 select(Change this work / Next request — lophn-agent/conversation의 진행 중 수정과 다음 요청)를 두며, 입력칸 밖 아래 줄에 자리 이름(프로젝트 또는 앱)과 권한 요약 ▾를 두고, 입력칸 위에 떼어 낼 수 있는 context chip 줄을 두고 notification의 [Ask]로 연 session은 첫 context chip만으로 글 없이 보낼 수 있게 하며, 권한 요약은 그 session의 실제 권한(자리 권한 규칙과 이 session에서 Allow한 것)을 보이고 누르면 Agents 화면의 Permissions로 간다.
 - 이유: 새 권한 모드를 만들지 않고 지금 이 session이 무엇을 할 수 있는지 입력 곁에서 읽게 하며, 사건을 알린 notification에서 연 session은 사람이 설명을 쓰지 않아도 단추 하나로 agent에게 넘긴다(documents/contexts).
 - 확인: 입력칸 옆에 agent 고르기가 없고, 일하는 중에는 send 자리가 Stop이며, 권한 요약은 규칙이나 session의 Allow가 바뀌면 따라 바뀐다. [Ask]로 연 session은 입력칸이 비어 있어도 첫 context chip만으로 보낼 수 있고, chip을 떼고 글도 없으면 보낼 수 없고 chip이 남아 있어도 사람이 보내기 전에는 아무것도 보내지 않으며, 입력 중 말·커서는 R8을 따른다.
 - 의도: shell#I1
@@ -219,7 +219,7 @@ Electron main과 창별 shell 화면의 분리, 창 구성·탐색·tray·OS 통
 - 확인: 카드가 대화를 스크롤해도 composer 위에 남고, [Allow]·[Deny]를 눌러도 confirmation window를 거치기 전에는 request가 결정 대기로 남으며, 창이 고른 범위(once 또는 session)를 미리 골라 열린다. Allow ▾에 "Always allow" 항목이 없고(platform/approvals#R18~R20; 오래 가는 허락은 Agents 화면의 권한 규칙에서만), Deny 옆에 Esc 안내가 있다.
 - 의도: shell#I1
 
-**[R48]** 내 메시지에 올리면 "Rewind to here" 단추가 나타나고 누르면 되돌리기 menu를 여는 자리를 두며, header ⋯ 메뉴의 Rewind…도 같은 menu를 연다.
+**[R48]** 내 메시지에 올리면 "Rewind to here"와 "Fork from here" 단추가 나타나며, Rewind는 되돌리기 menu를 여는 자리이고(header ⋯ 메뉴의 Rewind…도 같은 menu), Fork는 그 메시지까지의 확정 메시지를 복사한 새 session을 같은 agent의 새 탭(앱 공간에서는 같은 칸)으로 연다; header ⋯ 메뉴와 `/`의 Fork는 마지막 확정 메시지까지 복사한다.
 - 이유: 되돌리기는 session이 살아 있는 동안 내 메시지를 기준으로 시작한다.
 - 확인: 내 메시지에서 menu가 열리고 닫힌 session에는 단추가 없다. menu의 항목·복원 범위·알림 문구는 lophn-agent/revert를 따른다.
 - 의도: shell#I1, lophn-agent#I7

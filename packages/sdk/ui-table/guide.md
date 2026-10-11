@@ -22,6 +22,23 @@ import { DataState, DataTable } from "@lophn/ui-table";
 - type: `DataTableProps`, `DataStateProps`, `EmptySpec`, `SortState`,
   `SortDirection`, `PageSlice`, `Density`, `TableColumn`
 
+## 링크 칸
+
+도메인 객체(예: `exp-008`, `F-009`)를 여는 열은 `kind: "link"`로 정의한다.
+`value`는 칸 글을, `onOpen`은 누른 행을 받는다. 칸은 링크 색의 버튼이며 click과
+Enter에 `onOpen(row)`를 부른다. 값이 없으면 버튼 없는 빈 칸이다. 무엇을 여는지는
+`onOpen`을 준 쪽(shell 등)이 정한다. 정렬은 글 열과 같다.
+
+```tsx
+const columns: TableColumn<Hit>[] = [{
+  id: "ref",
+  header: "Object",
+  kind: "link",
+  value: (hit) => hit.ref,
+  onOpen: (hit) => openDocument(hit.ref),
+}];
+```
+
 ## 요구 permission
 
 없다. 그리기는 React의 일이다.

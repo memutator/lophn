@@ -305,3 +305,35 @@ Deno.test("apps/sdk#R38: 칸과 머리의 신뢰할 수 없는 글은 HTML로 �
   assertEquals(one(rendered.container, "tbody td").textContent, hostile);
   assertEquals((globalThis as { owned?: number }).owned, undefined);
 });
+
+Deno.test("apps/sdk#R16 [ctx-I54]: link column passes through DataTable, sorts as text and opens the row", () => {
+  const opened: Item[] = [];
+  const rows = [
+    { id: "b", name: "exp-010", size: 1 },
+    { id: "a", name: "exp-009", size: 2 },
+  ];
+  using rendered = render(
+    <DataTable
+      columns={[{
+        id: "name",
+        header: "Name",
+        kind: "link",
+        value: (row: Item) => row.name,
+        onOpen: (row: Item) => opened.push(row),
+      }]}
+      rows={rows}
+      rowKey={(row) => row.id}
+      now={now}
+      defaultSort={{ columnId: "name", direction: "ascending" }}
+      onRetry={() => {}}
+      empty={{
+        message: "Nothing here.",
+        action: { label: "Add", onSelect: () => {} },
+      }}
+    />,
+  );
+  const links = [...rendered.container.querySelectorAll("td button")];
+  assertEquals(links.map((item) => item.textContent), ["exp-009", "exp-010"]);
+  click(links[0]);
+  assertEquals(opened, [rows[1]]);
+});

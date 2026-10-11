@@ -354,8 +354,8 @@ concerns:
   entities: [QuestionGroup, Question]
 
 - id: lophn-agent/revert
-  summary: Revert. agent run 하나가 만든 변경 전체를 되돌리기, 영역별 되돌림 가능 여부, 부분 되돌림.
-  entities: [Revert]
+  summary: Revert. session이 살아 있는 동안 사람 메시지 시점(checkpoint)으로 대화와 문서·앱 data를 되돌리는 rewind, 편집 카드 Undo, pre-image 기록과 그 한도·수명.
+  entities: [Checkpoint, RewindFile, Revert]
 
 - id: lophn-agent/visuals
   summary: agent가 세션에 띄우는 시각 블록. 선언형 차트·표·도표, 앱 카드 끼우기, 크기 상한, 문서로 남기기.

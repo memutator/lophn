@@ -4,7 +4,7 @@ concerns: [lophn-agent/conversation]
 ---
 # lophn-agent/conversation
 
-agent 하나와 자리 하나에 고정된 session과 그 제목·archive·delete·목록·검색, 확정 메시지, 진행 중 수정과 다음 요청의 구분, 입력 접수·반영 표시, toast에서 연 session의 첫 context, session 단위 model 선택, Fork(session 복사)와 Compact(사람이 부르는 요약)를 맡는다; 요약 생성 방법은 lophn-agent/harness/prompt-assemble, `/` 명령의 목록·이름·실행 조건은 lophn-agent/commands가 맡는다.
+agent 하나와 자리 하나에 고정된 session과 그 제목·archive·delete·목록·검색, 확정 메시지, 진행 중 수정과 다음 요청의 구분, 입력 접수·반영 표시, toast에서 연 session의 첫 context, session 단위 model 선택, Fork(session 복사)와 Compact(사람이 부르는 요약), rewind가 session에 남기는 숨긴 구간을 맡는다; 요약 생성 방법은 lophn-agent/harness/prompt-assemble, `/` 명령의 목록·이름·실행 조건은 lophn-agent/commands가 맡는다.
 
 ## 요구
 
@@ -105,6 +105,11 @@ agent 하나와 자리 하나에 고정된 session과 그 제목·archive·delet
 - 이유: 변화를 새 답이나 새 적용처럼 보이지 않는다.
 - 확인: 늦은 변화 뒤 session이 archive·닫힘 그대로이고 notification 선정·보존은 platform/notifications를 따르는지 본다.
 - 의도: lophn-agent#I1
+
+**[R25]** rewind한 session은 고른 메시지 뒤의 메시지를 지우지 않고 숨긴 구간으로 표시해 이후 model 입력에서 빼고 그 메시지의 원문을 입력창에 채우며, 숨긴 구간은 다음 사람 메시지를 보내기 전까지만 redo로 다시 보이고, closed session에서는 rewind하지 않으며 Fork는 숨긴 메시지를 복사하지 않는다. 무엇을 되돌리고 어떻게 복원하는지는 lophn-agent/revert가 정한다.
+- 이유: 되돌려도 대화 기록은 사실로 남고, 마음이 바뀌면 다음 말을 하기 전까지는 되돌릴 수 있다.
+- 확인: rewind 뒤 숨긴 구간 표시가 보이고 숨긴 메시지가 이후 call의 입력에 들지 않으며, 새 메시지를 보내면 redo가 사라지고, 숨긴 메시지는 Fork 복사본에 없으며 closed session에는 rewind가 없는지 본다.
+- 의도: lophn-agent#I7
 
 ### 새 기능
 

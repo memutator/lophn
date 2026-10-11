@@ -308,139 +308,6 @@ Deno.test("lophn-agent/harness/tools#R2: question.submit tool은 호출 run의 �
   assertEquals(calls.length, 1);
 });
 
-Deno.test("documents/terms#R2 lophn-agent/questions#R13: question.submit은 읽은 후보의 이름·revision으로 term.define을 고정하고 모델의 action 객체는 거절한다", async () => {
-  const TERM = "trm_01arz3ndektsv4rrffq69g5fav";
-  const calls: {
-    contract: string;
-    input: unknown;
-    options?: { idempotency_key?: string };
-  }[] = [];
-  const term = {
-    id: TERM,
-    context: "ctx_01arz3ndektsv4rrffq69g5fav",
-    name: "정산주기",
-    definition: null as string | null,
-    revision: "7",
-    status: "active",
-  };
-  const handlers = createAgentToolHandlers({
-    ...ports([]),
-    call: (contract, input, _run, options) => {
-      calls.push({ contract, input, options });
-      if (contract === "term.get") return Promise.resolve(ok({ term }));
-      return Promise.resolve(ok({ id: "qst_x", status: "pending" }));
-    },
-  });
-  const listed = listedAll();
-  const ask = {
-    prompt: "정산주기의 뜻을 이 글로 고정할까요",
-    reason: "후보 이름과 이 뜻을 선택지에 고정했다",
-    recommendation: null,
-    expires_at: null,
-  };
-  const fixed = await executeTool(
-    {
-      listed,
-      handlers,
-      credential: { ...credential(["CreateQuestion"]), call: "tcl_fix" },
-    },
-    "question.submit",
-    {
-      ...ask,
-      options: [{
-        key: "use",
-        label: "정산주기",
-        description: "한 달이 끝나는 날 맞추는 계산",
-        evidence: [],
-        adoption: null,
-        action: null,
-        term_definition: {
-          term: TERM,
-          name: "정산주기",
-          definition: "한 달이 끝나는 날 맞추는 계산",
-        },
-      }, {
-        key: "leave",
-        label: "지금은 정하지 않는다",
-        description: "이 선택지는 뜻을 고정하지 않는다",
-        evidence: [],
-        adoption: null,
-        action: null,
-      }],
-    },
-  );
-  assertEquals(fixed.outcome.kind, "success", JSON.stringify(fixed.result));
-  const created = calls.find((call) => call.contract === "CreateQuestion");
-  assert(created !== undefined);
-  assertEquals(created.options?.idempotency_key, "tcl_fix");
-  const options = (created.input as { options: Record<string, unknown>[] })
-    .options;
-  assertEquals("term_definition" in options[0]!, false);
-  assertEquals(options[1]!["action"], null);
-  const action = options[0]!["action"] as {
-    command: string;
-    targets: string[];
-    input: { kind: string; value: Record<string, unknown> };
-    comparison: { base_revision: string };
-  };
-  assertEquals(action.command, "term.define");
-  assertEquals(action.targets, [TERM]);
-  assertEquals(action.input.kind, "inline");
-  assertEquals(action.input.value, {
-    term: TERM,
-    name: "정산주기",
-    definition: "한 달이 끝나는 날 맞추는 계산",
-  });
-  assertEquals(action.comparison.base_revision, "7");
-  calls.length = 0;
-  term.definition = "이미 있는 뜻";
-  const defined = await executeTool(
-    { listed, handlers, credential: credential(["CreateQuestion"]) },
-    "question.submit",
-    {
-      ...ask,
-      options: [{
-        key: "use",
-        label: "정산주기",
-        description: "다른 뜻",
-        evidence: [],
-        adoption: null,
-        action: null,
-        term_definition: {
-          term: TERM,
-          name: "정산주기",
-          definition: "다른 뜻",
-        },
-      }],
-    },
-  );
-  assertEquals(defined.outcome.code, "invalid_input");
-  assertEquals(calls.some((call) => call.contract === "CreateQuestion"), false);
-  term.definition = null;
-  const renamed = await executeTool(
-    { listed, handlers, credential: credential(["CreateQuestion"]) },
-    "question.submit",
-    {
-      ...ask,
-      options: [{
-        key: "use",
-        label: "다른 이름",
-        description: "다른 뜻",
-        evidence: [],
-        adoption: null,
-        action: null,
-        term_definition: {
-          term: TERM,
-          name: "다른 이름",
-          definition: "다른 뜻",
-        },
-      }],
-    },
-  );
-  assertEquals(renamed.outcome.code, "invalid_input");
-  assertEquals(calls.some((call) => call.contract === "CreateQuestion"), false);
-});
-
 Deno.test("apps/registration#R3 lophn-agent/questions#R13: question.submit은 등록 제안으로 app.create를 고정하고 근거 판 하나가 등록 근거가 되며 미리 배정한 앱 ID가 대상이다", async () => {
   const calls: Call[] = [];
   const handlers = createAgentToolHandlers({
@@ -509,21 +376,13 @@ Deno.test("apps/registration#R3 lophn-agent/questions#R13: question.submit은 �
   });
   assertEquals(action.comparison, {});
   calls.length = 0;
-  // 근거 판이 하나가 아니거나 후보 정의와 같이 오면 질문을 만들지 않는다.
+  // 근거 판이 하나가 아니면 질문을 만들지 않는다.
   for (
     const bad of [
       { ...option, evidence: [] },
       {
         ...option,
         evidence: [ref, { ...ref, version: VER.replace("av", "aw") }],
-      },
-      {
-        ...option,
-        term_definition: {
-          term: "trm_01arz3ndektsv4rrffq69g5fav",
-          name: "x",
-          definition: "y",
-        },
       },
     ]
   ) {

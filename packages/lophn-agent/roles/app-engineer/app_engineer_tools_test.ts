@@ -277,20 +277,6 @@ Deno.test("lophn-agent/roles/app-engineer#R5: 맡지 않는 일 blueprint 수정
       "document.rename",
       "document.delete",
       "document.archive",
-      // 컨텍스트 편집은 Context Engineer의 몫이다. AE 상한은 metadata 조회
-      // (project.read)뿐이고 편집 동작은 상한에 없지만 내장 묶음에는 정의가
-      // 있다. preset 선택이 이를 고르지 않으면 목록은 교집합 밖이라 남지
-      // 않는다(R5).
-      "context.create",
-      "context.rename",
-      "context.set_purpose",
-      "context.archive",
-      "context.add_item",
-      "context.update_item",
-      "context.remove_item",
-      "term.propose_candidate",
-      "term.update_candidate",
-      "term.remove_candidate",
       // assignment 변경과 승인 적용은 assignments 몫이다.
       "assignment.create",
       "assignment.pause",

@@ -3,7 +3,7 @@
 // lophn-agent/harness/tool-judgment가 맡고 여기는 허락 범위의 저장과 거절 규칙만 본다. run의 session은
 // lophn-agent가 채우는 사실이라 harness_test.ts의 고정 표가 대신한다.
 
-import { assert, assertEquals } from "@std/assert";
+import { assertEquals } from "@std/assert";
 import { sha256Hex } from "../../base/mod.ts";
 import type { InvocationAcceptConfirmInput } from "../../contracts/apps/mod.ts";
 import type { ApprovalRequest } from "../../contracts/platform/mod.ts";

@@ -20,7 +20,7 @@ const core: CoreSource = {
   call: () => Promise.resolve({ ok: true, value: {} }),
 };
 
-Deno.test("shell/desktop#R28: lophn 공간 sidebar는 일곱 형제를 한 단으로 두고 분류 전·거처 같은 중간 계층이 없다", async () => {
+Deno.test("shell/desktop#R28: lophn 공간 sidebar는 여섯 형제를 한 단으로 두고 분류 전·거처 같은 중간 계층이 없다", async () => {
   const { source } = fakeSource();
   using view = render(
     <LophnSpace source={source} windowWidth={1440} onLauncher={() => {}} />,
@@ -33,7 +33,6 @@ Deno.test("shell/desktop#R28: lophn 공간 sidebar는 일곱 형제를 한 단�
   assertEquals(rows.map((row) => row.getAttribute("data-screen")), [
     "projects",
     "documents",
-    "contexts",
     "apps",
     "things-to-confirm",
     "roles",
@@ -42,7 +41,6 @@ Deno.test("shell/desktop#R28: lophn 공간 sidebar는 일곱 형제를 한 단�
   assertEquals(rows.map((row) => row.textContent), [
     "Projects",
     "Documents",
-    "Contexts",
     "Apps",
     "Things to confirm",
     "Roles",

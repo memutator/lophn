@@ -33,8 +33,6 @@ import { ThingsToConfirm } from "./things-to-confirm/things-to-confirm.tsx";
 import { ProjectsScreen } from "./projects/projects-screen.tsx";
 import type { OrganizeSource } from "./organize/source.ts";
 import { useRequests } from "./things-to-confirm/context.tsx";
-import { ContextsScreen } from "./contexts/contexts-screen.tsx";
-import type { ContextsSource } from "./contexts/source.ts";
 import { AppsScreen } from "./apps/apps-screen.tsx";
 import type { AppsSource } from "./apps/source.ts";
 import { RolesScreen } from "./roles/roles-screen.tsx";
@@ -66,11 +64,7 @@ export interface LophnSpaceProps {
   initialRequest?: string;
   /** 창의 편집 session 묶음. documents 화면의 series 새 멤버 쓰기가 쓴다. */
   sessions?: EditorSessions;
-  /** contexts 화면 통로. 없으면 contexts는 준비 전 안내다. */
-  contexts?: ContextsSource;
-  /** contexts 화면에서 처음 열 Focus(팔레트·정보 패널의 컨텍스트 탭). */
-  initialFocus?: string;
-  /** core 연결이 (다시) 준비될 때마다 오른다. contexts가 현재 기록을 다시 읽는다. */
+  /** core 연결이 (다시) 준비될 때마다 오른다. roles가 현재 기록을 다시 읽는다. */
   connected?: number;
   /** apps 화면 통로. 없으면 apps는 준비 전 안내다. */
   apps?: AppsSource;
@@ -94,9 +88,9 @@ export interface LophnSpaceProps {
   settingsPanels?: SettingsPanels;
 }
 
-const EMPTY_CATALOG: Catalog = { projects: [], apps: [], contexts: [] };
+const EMPTY_CATALOG: Catalog = { projects: [], apps: [] };
 
-// lophn 공간. 왼쪽 sidebar의 일곱 형제 중 하나를 본문에 연다. 대화는 이 화면에 기대지 않는다.
+// lophn 공간. 왼쪽 sidebar의 여섯 형제 중 하나를 본문에 연다. 대화는 이 화면에 기대지 않는다.
 export function LophnSpace(
   {
     source,
@@ -109,8 +103,6 @@ export function LophnSpace(
     initialRead,
     initialRequest,
     sessions,
-    contexts,
-    initialFocus,
     connected = 0,
     apps,
     onApp,
@@ -159,11 +151,7 @@ export function LophnSpace(
       : null,
   );
 
-  // 팔레트에서 고른 Focus. 바뀔 때마다 contexts 화면을 그 Focus로 다시 연다.
-  const [focusing, setFocusing] = useState<
-    { readonly id: string; readonly count: number } | null
-  >(initialFocus ? { id: initialFocus, count: 1 } : null);
-  // 문서를 documents 화면에서 읽는다(contexts의 항목·근거·바뀐 판).
+  // 문서를 documents 화면에서 읽는다(things-to-confirm의 문서 링크).
   const readDocument = (
     document: string,
     version: string | null,
@@ -182,7 +170,7 @@ export function LophnSpace(
   // 질문·approval 통로. 없으면(통로 없는 테스트) things-to-confirm은 준비 전 안내다.
   const requests = useRequests();
 
-  // 창 팔레트의 프로젝트·컨텍스트·앱 행. 팔레트가 있는 창만 읽고, 읽지 못하면 그 묶음만 빈다.
+  // 창 팔레트의 프로젝트·앱 행. 팔레트가 있는 창만 읽고, 읽지 못하면 그 묶음만 빈다.
   const palette = usePaletteEnv();
   useEffect(() => {
     if (!palette.available) return;
@@ -207,13 +195,7 @@ export function LophnSpace(
         if (target.kind === "launcher") onLauncher();
         else if (target.kind === "project") onProject?.(target.id);
         else if (target.kind === "screen") setCurrent(target.screen);
-        else if (target.kind === "context") {
-          setCurrent("contexts");
-          setFocusing((last) => ({
-            id: target.id,
-            count: (last?.count ?? 0) + 1,
-          }));
-        } else if (target.kind === "app") {
+        else if (target.kind === "app") {
           if (onApp) onApp(target.id);
           else setCurrent("apps");
         } else {
@@ -290,17 +272,6 @@ export function LophnSpace(
                 now={now}
                 initialRead={reading?.target}
                 {...(sessions ? { sessions } : {})}
-              />
-            )
-            : current === "contexts" && contexts
-            ? (
-              <ContextsScreen
-                key={focusing?.count ?? 0}
-                source={contexts}
-                initialFocus={focusing?.id}
-                connected={connected}
-                onRead={readDocument}
-                onAsk={conversation ? () => setDockOpen(true) : undefined}
               />
             )
             : current === "apps" && apps && onApp

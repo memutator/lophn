@@ -108,8 +108,6 @@ export function eventTitle(sourceEvent: string): string {
       return t("things-to-confirm.label.event-task-check-failed");
     case "AssignmentPaused":
       return t("things-to-confirm.label.event-paused");
-    case "ContextWatchedItemChanged":
-      return t("things-to-confirm.label.event-focus-changed");
     case "ReleaseActivationFailed":
       return t("things-to-confirm.label.event-activation-failed");
     default:

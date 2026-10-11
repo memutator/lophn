@@ -3,8 +3,16 @@ import { OPTION_ACTION_OPERATIONS } from "../../questions/mod.ts";
 import {
   APP_TOOL_CONTRACT,
   BUILTIN_TOOLS,
+  CONTEXT_ENTITY_CONTRACT,
+  CONTEXT_ENTITY_TOOL,
+  CONTEXT_SEARCH_CONTRACT,
   runOperations,
 } from "../tools/mod.ts";
+import {
+  contextContractRoute,
+  contextGetRoute,
+  contextListRoute,
+} from "../../../contracts/documents/mod.ts";
 import { EXTERNAL_TOOL_CONTRACT } from "../../extensions/mod.ts";
 import {
   applyQuestionOption,
@@ -110,6 +118,11 @@ export const RUNTIME_MACHINE_ROUTES = [
   cancelQuestion,
   applyQuestionOption,
   processAssignmentOccurrence,
+  // 선언 검색 tool의 정의 재료다. 고른 context의 적용된 판(계약·검색)을 run을 시작하기 전에 읽는다
+  // (lophn-agent/harness/tools#R21).
+  contextListRoute,
+  contextGetRoute,
+  contextContractRoute,
   // 앱 command tool의 정의 재료(선언·허락)와 결과 조회(invocation 기록)를 읽는다.
   appBlueprint,
   grantsList,
@@ -147,9 +160,15 @@ export function roleOperations(role: string): readonly string[] {
   const cap = ROLE_CAPS.get(role);
   if (cap === undefined) return [];
   const names = new Set(cap.tools);
-  const own = runOperations(
-    BUILTIN_TOOLS.filter((tool) => names.has(tool.name)),
-  );
+  // context 읽기다. 선언 검색 tool(origin context)은 이름이 동적이라 상한 이름에 없고, 개체 읽기를 가진 역할이
+  // 선택한 context의 검색과 개체를 읽는다(harness/tools#R21, R22).
+  const contextRead = names.has(CONTEXT_ENTITY_TOOL)
+    ? [CONTEXT_SEARCH_CONTRACT, CONTEXT_ENTITY_CONTRACT]
+    : [];
+  const own = [
+    ...runOperations(BUILTIN_TOOLS.filter((tool) => names.has(tool.name))),
+    ...contextRead,
+  ];
   // 외부 MCP tool의 소유 contract다(T37). 확장 선택은 상한 항목이 아니라 preset의
   // 선택 항목이라(presets role-caps R5) 상한 이름에 넣지 않고 contract만 더한다.
   // run이 실제로 제공하는 external 정의는 runOperations(listed)가 더한다.

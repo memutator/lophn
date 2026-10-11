@@ -27,6 +27,12 @@ const FORMAT_TOOLS: readonly string[] = Object.freeze([
   "format.validate",
 ]);
 
+// context 개체 읽기다. 선언 검색 tool은 이름이 동적이라 이 표에 없고 preset의 context 선택이 정한다
+// (harness/tools#R21). 개체 읽기는 선택한 context 안에서만 읽힌다.
+const CONTEXT_READ_TOOLS: readonly string[] = Object.freeze([
+  "context.read_entity",
+]);
+
 const ASK_TOOLS: readonly string[] = Object.freeze([
   "question.submit",
   "question.read_decision",
@@ -37,6 +43,7 @@ const ASK_TOOLS: readonly string[] = Object.freeze([
 // 추가 동작을 더한 교집합이다.
 const COMMON_READ_TOOLS: readonly string[] = Object.freeze([
   ...DOCUMENT_READ_TOOLS,
+  ...CONTEXT_READ_TOOLS,
   ...FORMAT_TOOLS,
   ...ASK_TOOLS,
 ]);
@@ -166,6 +173,7 @@ export const ROLE_CAPS: ReadonlyMap<string, RoleCap> = new Map<string, RoleCap>(
         "document.read_range",
         "document.history",
         "document.diff",
+        ...CONTEXT_READ_TOOLS,
         "format.list",
         "format.rules",
         "format.examples",

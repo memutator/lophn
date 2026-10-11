@@ -122,6 +122,20 @@ export {
   VISUAL_TOOLS,
   type VisualToolPorts,
 } from "./bundles/visual.ts";
+export {
+  buildContextReadTools,
+  CONTEXT_ENTITY_CONTRACT,
+  CONTEXT_ENTITY_TOOL,
+  CONTEXT_SEARCH_CONTRACT,
+  CONTEXT_TOOL_PREFIX,
+  type ContextEntityRead,
+  contextReadDefinitions,
+  type ContextReadTools,
+  type ContextSearchTool,
+  type ContextSearchToolSource,
+  type ContextToolContext,
+  createContextReadToolHandlers,
+} from "./context-search-tools.ts";
 export { createBuiltinToolHandlers } from "./bundles/handlers.ts";
 export {
   AGENT_TOOL_REVISION,

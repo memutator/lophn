@@ -19,10 +19,6 @@ import {
   runCommand,
 } from "../../../packages/platform/ledger/mod.ts";
 import {
-  createPresetCommands,
-  presetSchemaSteps,
-} from "../../../packages/lophn-agent/presets/mod.ts";
-import {
   assignmentSchemaSteps,
   createAssignmentCommands,
 } from "../../../packages/lophn-agent/assignments/mod.ts";
@@ -31,10 +27,7 @@ import {
   deleteSessionRuns,
   runSchemaSteps,
 } from "../../../packages/lophn-agent/harness/run-loop/mod.ts";
-import {
-  presetDefinitionJson,
-  presetValidateDeps,
-} from "../../../packages/lophn-agent/harness/run-loop/testing/mod.ts";
+import {} from "../../../packages/lophn-agent/harness/run-loop/testing/mod.ts";
 import { providerSchemaSteps } from "../../../packages/lophn-agent/harness/provider/mod.ts";
 import { usageSchemaSteps } from "../../../packages/lophn-agent/harness/usage/mod.ts";
 import {
@@ -45,7 +38,6 @@ import {
 import {
   agentRun,
   cred,
-  hashOf,
   id,
   textContent,
 } from "../../../packages/lophn-agent/conversation/testing/mod.ts";
@@ -75,7 +67,6 @@ async function fileLedger() {
       ...LEDGER_SCHEMA_STEPS,
       ...providerSchemaSteps,
       ...usageSchemaSteps,
-      ...presetSchemaSteps,
       ...assignmentSchemaSteps,
       ...runSchemaSteps,
       ...conversationSchemaSteps,
@@ -103,7 +94,6 @@ async function fileLedger() {
       err<LophnError>({ code: "unavailable", message: "dispatch 없음" }),
     checkCredential: (ctx: AuthenticatedContext) => ok(ctx),
   };
-  const presets = createPresetCommands(presetValidateDeps());
   const assignments = createAssignmentCommands();
   const runs = createRunCommands({ hasUnappliedSteering });
   const conversation = createConversationCommands({
@@ -114,7 +104,6 @@ async function fileLedger() {
       runs.accept.handle(tx, { ...ctx, actor: "machine" }, input, compare),
   });
   const registry = [
-    presets.registerDefault,
     assignments.createBuiltin,
     assignments.pause,
     assignments.resume,
@@ -180,16 +169,8 @@ async function fileLedger() {
     assert(result.ok, result.ok ? "" : JSON.stringify(result.error));
     return result;
   };
-  const definition = presetDefinitionJson("lophn");
-  await must("machine", "RegisterDefaultPreset", {
-    id: id("pst", 1),
-    definition,
-    definition_hash: hashOf(definition),
-  }, {});
   await must("machine", "CreateBuiltinAssignment", {
     id: ASG_LOPHN,
-    preset: id("pst", 1),
-    preset_revision: 1,
     role: "lophn",
     scope: { kind: "all", id: null },
   }, {});
@@ -213,6 +194,22 @@ async function fileLedger() {
       assignment_revision: revision,
       assignment_state: "enabled",
     });
+  // 멈춤은 자리 보관 반응이 낼 뿐이라 전역 lophn은 그 길로 멈출 수 없다. 이 시험은 멈춘 assignment를
+  // 만난 세션의 동작을 보므로 표를 바로 고친다(event 없이 revision만 command처럼 올린다).
+  const pause = (assignment: string) => {
+    const opened = openConnection(path);
+    assert(opened.ok, "open");
+    try {
+      opened.value.sql.run(
+        `update assignments set state = 'paused', revision = revision + 1,
+           pause_detail = 'The place was archived.', pause_target = ?
+         where id = ?`,
+        [PLACE.id, assignment],
+      );
+    } finally {
+      opened.value.close();
+    }
+  };
   return {
     clock,
     execute,
@@ -220,6 +217,7 @@ async function fileLedger() {
     observe,
     count,
     receive,
+    pause,
     close: () => Deno.remove(dir, { recursive: true }),
   };
 }
@@ -273,10 +271,7 @@ Deno.test("lophn-agent/conversation#R8 [agent-I12]: a session idle for 31 days a
     });
     ledger.clock.advance(31 * DAY);
     // 일시 멈춤도 세션을 닫지 않는다. 멈춘 동안 온 말은 받지 않는다.
-    await ledger.must("user", "PauseAssignment", {
-      assignment: ASG_LOPHN,
-      reason: { kind: "user", detail: "잠시", runs: [], target: null },
-    }, { revision: 1, state: "enabled" });
+    ledger.pause(ASG_LOPHN);
     const refused = await ledger.receive(id("msg", 2), 2);
     assert(!refused.ok && refused.error.code === "forbidden");
     const state = ledger.observe((db) => ({
@@ -340,16 +335,8 @@ Deno.test("lophn-agent/conversation#R4: an agent answer is the role's judgment b
         [ASG_CE, "context_engineer"],
       ] as const
     ) {
-      const definition = presetDefinitionJson(kind);
-      await must(machine, "RegisterDefaultPreset", {
-        id: id("pst", kind.length),
-        definition,
-        definition_hash: hashOf(definition),
-      });
       await must(machine, "CreateBuiltinAssignment", {
         id: assignment,
-        preset: id("pst", kind.length),
-        preset_revision: 1,
         role: kind,
         scope: { kind: "all", id: null },
       });

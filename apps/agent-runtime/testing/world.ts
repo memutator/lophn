@@ -35,7 +35,6 @@ import type { CoreCalls } from "../main.ts";
 export const SUFFIX = "01arz3ndektsv4rrffq69g5fav";
 export const RUN = `run_${SUFFIX}`;
 export const ASG = `asg_${SUFFIX}`;
-export const PST = `pst_${SUFFIX}`;
 export const PVD = `pvd_${SUFFIX}`;
 export const PVD2 = `pvd_${SUFFIX.slice(0, -1)}w`;
 export const MSG = `msg_${SUFFIX}`;
@@ -432,25 +431,13 @@ function assignmentRecord(
   role: AgentRole,
   scope: { kind: string; id: string | null },
 ) {
-  const operator = role === "operator";
   return {
     assignment: {
       id: ASG,
       role,
-      preset: PST,
-      preset_revision: 1,
       scope,
-      // 구성 칸은 assignment 정리가 끝나면 사라진다. 그 전의 모양 검사를 지나도록 Operator만 채운다.
-      outputs: operator
-        ? [{ document: "doc_01arz3ndektsv4rrffq69g5fav", content: "notes" }]
-        : [],
-      read_apps: [],
-      read_commands: [],
-      schedule: operator ? { first_at: AT, every_ms: 60_000 } : null,
-      approval: operator ? `apr_${SUFFIX}` : null,
       state: "enabled",
       pause_reason: null,
-      last_due_at: null,
       revision: 1,
     },
     ...readMeta(),

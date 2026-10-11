@@ -200,7 +200,6 @@ function connectionTestPort(
           protocol: provider.protocol,
           credential_key: credential.key,
           credential_revision: credential.revision,
-          options: {},
           option_values: { requested: {}, applied: {} },
           limits: {
             context_limit: entry.context_limit,

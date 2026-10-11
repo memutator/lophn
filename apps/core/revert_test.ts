@@ -666,7 +666,7 @@ Deno.test("lophn-agent/revert#R3: 끝난 run의 문서 변경은 복원 가능�
     assertEquals(new Set(covered).size, covered.length);
     const events = inspect(
       world.server,
-      "select cast(seq as text) as seq from events where run = ? order by seq",
+      "select cast(seq as text) as seq from events where run = ? order by events.seq",
       [RUN_A],
     ).map((row) => String(row["seq"]));
     assertEquals(covered.slice().sort((a, b) => Number(a) - Number(b)), events);

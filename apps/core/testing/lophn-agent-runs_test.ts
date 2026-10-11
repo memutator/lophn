@@ -1,7 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
-import { createHash } from "node:crypto";
 import {
-  canonicalize,
   createIdSource,
   err,
   type LophnError,
@@ -18,11 +16,6 @@ import {
   runCommand,
 } from "../../../packages/platform/ledger/mod.ts";
 import {
-  createPresetCommands,
-  presetSchemaSteps,
-} from "../../../packages/lophn-agent/presets/mod.ts";
-import { presetValidateDeps } from "../../../packages/lophn-agent/assignments/registration_test.ts";
-import {
   assignmentSchemaSteps,
   createAssignmentCommands,
 } from "../../../packages/lophn-agent/assignments/mod.ts";
@@ -36,8 +29,6 @@ import {
 // 열 수 없고 operator 등록은 승인 흐름이라, 그 두 가지를 이 파일이 맡는다.
 
 const NOW = Date.UTC(2026, 0, 1);
-const PRESET_LOPHN = "pst_01arz3ndektsv4rrffq69g5fav";
-const PRESET_OPERATOR = "pst_01arz3ndektsv4rrffq69g5fbw";
 const ASG = "asg_01arz3ndektsv4rrffq69g5fav";
 const ASG_OPERATOR = "asg_01arz3ndektsv4rrffq69g5fbw";
 const RUN = "run_01arz3ndektsv4rrffq69g5fav";
@@ -45,7 +36,6 @@ const RUN_B = "run_01arz3ndektsv4rrffq69g5fbw";
 const RUN_C = "run_01arz3ndektsv4rrffq69g5fbx";
 const MSG = "msg_01arz3ndektsv4rrffq69g5fav";
 const PROJECT = "prj_01arz3ndektsv4rrffq69g5fav";
-const DOC = "doc_01arz3ndektsv4rrffq69g5fav";
 
 const machineCtx: AuthenticatedContext = {
   actor: "machine",
@@ -53,7 +43,6 @@ const machineCtx: AuthenticatedContext = {
   credential_ref: "cred-m",
   scope: {
     operations: [
-      "RegisterDefaultPreset",
       "CreateBuiltinAssignment",
       "AcceptRun",
       "StartRun",
@@ -64,35 +53,6 @@ const machineCtx: AuthenticatedContext = {
   conditions: {},
 };
 
-function hashOf(definition: Record<string, unknown>): string {
-  return createHash("sha256").update(canonicalize(definition), "utf8").digest(
-    "hex",
-  );
-}
-
-function presetDefinition(kind: string) {
-  return {
-    kind,
-    name: "Review",
-    origin: "product",
-    prompt: "a".repeat(64),
-    capability: { bundles: [{ name: "read-only", revision: 1 }], tools: [] },
-    context: [{ kind: "document", target: DOC, section: null }],
-    mcp: { servers: [], tools: [] },
-    safe_tools: [],
-    skills: [],
-    model: {
-      provider: "pvd_01arz3ndektsv4rrffq69g5fav",
-      credentials: ["key-main"],
-      model_name: "claude-haiku-4-5",
-      reasoning_level: "medium",
-      options: {},
-    },
-    organizing_model: null,
-    instructions: [],
-  };
-}
-
 Deno.test("lophn-agent/harness/run-loop#R2: an accepted run survives a kill right after each commit and a resend after restart returns the earlier result", async () => {
   const dir = await Deno.makeTempDir({ prefix: "run-r2-" });
   const path = `${dir}/ledger.db`;
@@ -102,7 +62,6 @@ Deno.test("lophn-agent/harness/run-loop#R2: an accepted run survives a kill righ
       path,
       [
         ...LEDGER_SCHEMA_STEPS,
-        ...presetSchemaSteps,
         ...assignmentSchemaSteps,
         ...runSchemaSteps,
         ...SETTINGS_SCHEMA_STEPS,
@@ -120,11 +79,9 @@ Deno.test("lophn-agent/harness/run-loop#R2: an accepted run survives a kill righ
         err<LophnError>({ code: "unavailable", message: "dispatch 없음" }),
       checkCredential: (ctx: AuthenticatedContext) => ok(ctx),
     };
-    const presets = createPresetCommands(presetValidateDeps());
     const assignments = createAssignmentCommands();
     const runs = createRunCommands();
     const registry = [
-      presets.registerDefault,
       assignments.createBuiltin,
       runs.accept,
       runs.start,
@@ -165,25 +122,12 @@ Deno.test("lophn-agent/harness/run-loop#R2: an accepted run survives a kill righ
       }
     };
 
-    const definition = presetDefinition("lophn");
     for (
       const result of [
-        await execute(
-          "RegisterDefaultPreset",
-          {
-            id: PRESET_LOPHN,
-            definition,
-            definition_hash: hashOf(definition),
-          },
-          {},
-          "k-preset",
-        ),
         await execute(
           "CreateBuiltinAssignment",
           {
             id: ASG,
-            preset: PRESET_LOPHN,
-            preset_revision: 1,
             role: "lophn",
             scope: { kind: "all", id: null },
           },
@@ -310,7 +254,6 @@ Deno.test("lophn-agent/harness/run-loop#R1 #R2: an operator round makes one run 
       path,
       [
         ...LEDGER_SCHEMA_STEPS,
-        ...presetSchemaSteps,
         ...assignmentSchemaSteps,
         ...runSchemaSteps,
         ...SETTINGS_SCHEMA_STEPS,
@@ -331,7 +274,6 @@ Deno.test("lophn-agent/harness/run-loop#R1 #R2: an operator round makes one run 
         err<LophnError>({ code: "unavailable", message: "dispatch 없음" }),
       checkCredential: (ctx: AuthenticatedContext) => ok(ctx),
     };
-    const presets = createPresetCommands(presetValidateDeps());
     const runs = createRunCommands();
     let key = 0;
     const run = (
@@ -348,31 +290,12 @@ Deno.test("lophn-agent/harness/run-loop#R1 #R2: an operator round makes one run 
         prepared: [],
       });
     try {
-      const definition = presetDefinition("operator");
-      const seeded = await runCommand(
-        connection,
-        deps,
-        [presets.registerDefault],
-        machineCtx,
-        {
-          command: "RegisterDefaultPreset",
-          input: {
-            id: PRESET_OPERATOR,
-            definition,
-            definition_hash: hashOf(definition),
-          },
-          idempotency_key: "k-preset",
-          compare: {},
-          prepared: [],
-        },
-      );
-      assert(seeded.ok, seeded.ok ? "" : JSON.stringify(seeded.error));
-      // operator 등록은 승인 흐름이므로 이 시험은 행을 직접 놓는다.
+      // 이 시험은 Operator 행을 직접 놓는다.
       connection.sql.run(
-        `insert into assignments (id, preset_id, preset_revision, role,
-           scope_kind, scope_id, state, revision)
-         values (?, ?, 1, 'operator', 'project', ?, 'enabled', 1)`,
-        [ASG_OPERATOR, PRESET_OPERATOR, PROJECT],
+        `insert into assignments (id, role, scope_kind, scope_id, state,
+           revision)
+         values (?, 'operator', 'project', ?, 'enabled', 1)`,
+        [ASG_OPERATOR, PROJECT],
       );
       const schedule = (id: string, scheduledAt: string, revision = 1) => ({
         id,

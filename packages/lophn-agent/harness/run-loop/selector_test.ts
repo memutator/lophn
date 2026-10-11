@@ -17,6 +17,7 @@ import {
   finishRunFixture,
   ledgerRead,
   must,
+  pauseAssignmentFixture,
   readRunRecord,
   runId,
   seedAssignments,
@@ -417,15 +418,7 @@ Deno.test("lophn-agent/harness/run-loop#R4: 진행 중·멈춘 assignment와 선
     assertEquals(picked?.run, runId("run", 3));
     assertEquals(picked?.reason, "priority");
     // CE를 멈추면 후보는 없다. 막힌 lophn 요청도 시작 가능하지 않다.
-    must(
-      await h.command(
-        userCredential,
-        envelope("PauseAssignment", {
-          assignment: ASG_CE,
-          reason: { kind: "user", detail: "잠시", runs: [], target: null },
-        }, { revision: 1, state: "enabled" }),
-      ),
-    );
+    await pauseAssignmentFixture(h, ASG_CE);
     assertEquals(must(await selector.next()), null);
     // lophn의 진행 run이 실패하면 다음 요청은 사람이 확인하기 전 후보가 아니다.
     must(

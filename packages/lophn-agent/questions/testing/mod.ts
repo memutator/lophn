@@ -18,7 +18,6 @@ import {
 // 실제 provider를 부르지 않는다.
 
 export const OPERATIONS = [
-  "RegisterDefaultPreset",
   "CreateBuiltinAssignment",
   "PauseAssignment",
   "WithdrawAssignment",

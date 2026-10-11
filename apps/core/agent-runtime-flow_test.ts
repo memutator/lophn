@@ -331,7 +331,6 @@ Deno.test("lophn-agent/harness/run-loop#R8: 접수된 run이 selector 선택부�
       protocol: "anthropic-messages",
       credential_key: null,
       credential_revision: null,
-      options: {},
       option_values: { requested: {}, applied: {} },
       limits: {
         context_limit: 200000,

@@ -33,6 +33,7 @@ import {
   seed,
   seedProvider,
   sessionSeq,
+  setAssignmentState,
   type Snapshot,
   sql,
   startCall,
@@ -186,7 +187,7 @@ Deno.test("lophn-agent/conversation#R1 [agent-I12]: a withdrawn or paused assign
     value(
       await h.command(
         userCred,
-        envelope("WithdrawAssignment", { assignment: ASG_AE }, {
+        envelope("WithdrawAssignment", { assignment: ASG_OP }, {
           revision: 1,
           state: "enabled",
         }),
@@ -198,23 +199,15 @@ Deno.test("lophn-agent/conversation#R1 [agent-I12]: a withdrawn or paused assign
         userCred,
         envelope("OpenSession", {
           id: id("ses", 1),
-          assignment: ASG_AE,
-          work_place: PLACES.app,
+          assignment: ASG_OP,
+          work_place: PLACES.project,
           opening_context: null,
         }, { assignment_revision: 2, assignment_state: "enabled" }),
       ),
       "forbidden",
     );
     // 멈춘 assignment도 새 세션을 받지 않는다(대상 보관).
-    value(
-      await h.command(
-        userCred,
-        envelope("PauseAssignment", {
-          assignment: ASG_CE,
-          reason: { kind: "user", detail: "잠시", runs: [], target: null },
-        }, { revision: 1, state: "enabled" }),
-      ),
-    );
+    await setAssignmentState(h, ASG_CE, "paused");
     code(
       await openSession(h, id("ses", 1), ASG_CE, PLACES.project),
       "forbidden",
@@ -894,15 +887,7 @@ Deno.test("lophn-agent/conversation#R8 [agent-I12]: a paused assignment keeps th
     await seed(h);
     const session = await openLophn(h);
     const run = await runningRun(h, session, id("msg", 1));
-    value(
-      await h.command(
-        userCred,
-        envelope("PauseAssignment", {
-          assignment: ASG_LOPHN,
-          reason: { kind: "user", detail: "잠시", runs: [], target: null },
-        }, { revision: 1, state: "enabled" }),
-      ),
-    );
+    await setAssignmentState(h, ASG_LOPHN, "paused");
     // 일시 멈춤은 닫지 않는다. 원문은 계속 읽고 세션은 열려 있다.
     const read = () =>
       h.read({ resource: "messages", method: "list" }, userCred, { session });
@@ -935,15 +920,7 @@ Deno.test("lophn-agent/conversation#R8 [agent-I12]: a paused assignment keeps th
     assertEquals(await count(h, "messages"), 1);
     assertEquals(await count(h, "runs"), 1);
     // 재개하면 같은 세션이 다시 입력을 받는다.
-    value(
-      await h.command(
-        userCred,
-        envelope("ResumeAssignment", { assignment: ASG_LOPHN }, {
-          revision: 2,
-          state: "paused",
-        }),
-      ),
-    );
+    await setAssignmentState(h, ASG_LOPHN, "enabled");
     value(
       await receive(h, { message: id("msg", 2), session, mode: "request" }),
     );
@@ -971,12 +948,12 @@ Deno.test("lophn-agent/conversation#R8 [agent-I12]: a withdrawn assignment rejec
   try {
     await seed(h);
     const session = id("ses", 1);
-    value(await openSession(h, session, ASG_AE, PLACES.app));
-    const run = await runningRun(h, session, id("msg", 1), ASG_AE);
+    value(await openSession(h, session, ASG_OP, PLACES.project));
+    const run = await runningRun(h, session, id("msg", 1), ASG_OP);
     value(
       await h.command(
         userCred,
-        envelope("WithdrawAssignment", { assignment: ASG_AE }, {
+        envelope("WithdrawAssignment", { assignment: ASG_OP }, {
           revision: 1,
           state: "enabled",
         }),

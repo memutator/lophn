@@ -25,10 +25,6 @@ import {
   ConfirmationRegistry,
 } from "../../../packages/platform/identity/mod.ts";
 import {
-  createPresetCommands,
-  presetSchemaSteps,
-} from "../../../packages/lophn-agent/presets/mod.ts";
-import {
   assignmentSchemaSteps,
   createAssignmentCommands,
 } from "../../../packages/lophn-agent/assignments/mod.ts";
@@ -36,10 +32,7 @@ import {
   createRunCommands,
   runSchemaSteps,
 } from "../../../packages/lophn-agent/harness/run-loop/mod.ts";
-import {
-  presetDefinitionJson,
-  presetValidateDeps,
-} from "../../../packages/lophn-agent/harness/run-loop/testing/mod.ts";
+import {} from "../../../packages/lophn-agent/harness/run-loop/testing/mod.ts";
 import {
   createQuestionCommands,
   createQuestionReads,
@@ -83,7 +76,6 @@ async function fileLedger() {
     path,
     [
       ...LEDGER_SCHEMA_STEPS,
-      ...presetSchemaSteps,
       ...assignmentSchemaSteps,
       ...runSchemaSteps,
       ...questionSchemaSteps,
@@ -102,12 +94,10 @@ async function fileLedger() {
     random: (bytes) => seededRandom(7).fill(bytes),
   });
   let epoch = 0;
-  const presets = createPresetCommands(presetValidateDeps());
   const assignments = createAssignmentCommands();
   const runs = createRunCommands({ hasUnappliedSteering: () => false });
   const questions = createQuestionCommands();
   const commands = [
-    presets.registerDefault,
     assignments.createBuiltin,
     runs.accept,
     runs.start,
@@ -241,16 +231,8 @@ async function fileLedger() {
       return found.value.group;
     });
   const machine = cred("machine");
-  const definition = presetDefinitionJson("lophn");
-  await must(machine, "RegisterDefaultPreset", {
-    id: id("pst", 1),
-    definition,
-    definition_hash: hashOf(definition),
-  }, {});
   await must(machine, "CreateBuiltinAssignment", {
     id: ASG,
-    preset: id("pst", 1),
-    preset_revision: 1,
     role: "lophn",
     scope: { kind: "all", id: null },
   }, {});

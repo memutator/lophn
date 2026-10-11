@@ -176,7 +176,10 @@ Deno.test("lophn-agent/harness/model#R22 [agent-I15]: an OpenAI Speed Fast choic
   const { binding, sent } = await bind({
     model: choice(OPENAI, "gpt-5-5", { effort: "very_high", speed: "fast" }),
   });
-  assertEquals(binding.call.options, { effort: "very_high", speed: "fast" });
+  assertEquals(binding.call.option_values.applied, {
+    effort: "very_high",
+    speed: "fast",
+  });
   assertEquals(binding.call.option_values, {
     requested: { effort: "very_high", speed: "fast" },
     applied: { effort: "very_high", speed: "fast" },
@@ -194,7 +197,7 @@ Deno.test("lophn-agent/harness/model#R16 [agent-I15]: an axis the choice leaves 
     model: choice(OPENAI, "gpt-5-5"),
   });
   // effort는 확인된 기본값 medium이 채워지고 speed는 기본값이 없어 필드가 없다.
-  assertEquals(binding.call.options, { effort: "medium" });
+  assertEquals(binding.call.option_values.applied, { effort: "medium" });
   // 기록은 고른 값(없음)과 default를 채워 실제로 실은 값을 따로 남긴다.
   assertEquals(binding.call.option_values, {
     requested: {},
@@ -207,7 +210,7 @@ Deno.test("lophn-agent/harness/model#R16 [agent-I15]: an axis the choice leaves 
   const plain = await bind({
     model: choice(OPENAI, "gpt-4-1"),
   });
-  assertEquals(plain.binding.call.options, {});
+  assertEquals(plain.binding.call.option_values.applied, {});
   assertEquals(plain.binding.call.option_values, {
     requested: {},
     applied: {},

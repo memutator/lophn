@@ -18,11 +18,9 @@ import {
 // 않는다. 실제 provider를 부르지 않는다.
 
 export const OPERATIONS = [
-  "RegisterDefaultPreset",
   "CreateBuiltinAssignment",
   "CreateAppEngineerAssignment",
-  "PauseAssignment",
-  "ResumeAssignment",
+  "SeedAssignmentState",
   "WithdrawAssignment",
   "AcceptRun",
   "StartRun",

@@ -4,9 +4,9 @@ import { envelope } from "../harness/run-loop/testing/mod.ts";
 import { bodyHashOf, cred, id, textContent } from "./testing/mod.ts";
 import {
   agentOf,
-  ASG_AE,
   ASG_CE,
   ASG_LOPHN,
+  ASG_OP,
   code,
   count,
   DONE,
@@ -150,15 +150,15 @@ async function settle(h: LedgerHarness, message: string) {
   value(await finishRun(h, run, DONE));
 }
 
-// 담당 assignment(App Engineer) 회수로 닫힌 session 하나.
+// 담당 assignment(Operator) 회수로 닫힌 session 하나.
 async function closedSession(h: LedgerHarness, session: string) {
-  value(await openSession(h, session, ASG_AE, PLACES.app));
-  const run = await runningRun(h, session, id("msg", 90), ASG_AE);
+  value(await openSession(h, session, ASG_OP, PLACES.project));
+  const run = await runningRun(h, session, id("msg", 90), ASG_OP);
   value(await finishRun(h, run, DONE));
   value(
     await h.command(
       userCred,
-      envelope("WithdrawAssignment", { assignment: ASG_AE }, {
+      envelope("WithdrawAssignment", { assignment: ASG_OP }, {
         revision: 1,
         state: "enabled",
       }),

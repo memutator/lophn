@@ -458,7 +458,6 @@ export async function modelAsks(
       protocol,
       credential_key: "key-a",
       credential_revision: 1,
-      options: {},
       option_values: { requested: {}, applied: {} },
       limits: {
         context_limit: 1000,

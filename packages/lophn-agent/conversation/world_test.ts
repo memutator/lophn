@@ -8,11 +8,8 @@ import {
   createLedgerHarness,
   type LedgerHarness,
 } from "../../../apps/core/testing/ledger.ts";
-import {
-  envelope,
-  presetDefinitionJson,
-} from "../harness/run-loop/testing/mod.ts";
-import { BODY, cred, hashOf, id, textContent } from "./testing/mod.ts";
+import { envelope } from "../harness/run-loop/testing/mod.ts";
+import { BODY, cred, id, textContent } from "./testing/mod.ts";
 
 // 세션·메시지 ledger 시험이 함께 쓰는 세계. 실제 등록 executor(harness)와 임시 ledger
 // 파일을 쓰고 run-loop의 FinishRun이 제품 core와 같은 hasUnappliedSteering(messages 표)을
@@ -104,21 +101,6 @@ export async function count(h: LedgerHarness, table: string, where = "1 = 1") {
 
 export async function seed(h: LedgerHarness) {
   for (
-    const kind of ["lophn", "context_engineer", "app_engineer", "operator"]
-  ) {
-    const definition = presetDefinitionJson(kind);
-    value(
-      await h.command(
-        machineCred,
-        envelope("RegisterDefaultPreset", {
-          id: id("pst", kind.length),
-          definition,
-          definition_hash: hashOf(definition),
-        }),
-      ),
-    );
-  }
-  for (
     const [assignment, kind] of [
       [ASG_LOPHN, "lophn"],
       [ASG_CE, "context_engineer"],
@@ -129,8 +111,6 @@ export async function seed(h: LedgerHarness) {
         machineCred,
         envelope("CreateBuiltinAssignment", {
           id: assignment,
-          preset: id("pst", kind.length),
-          preset_revision: 1,
           role: kind,
           scope: { kind: "all", id: null },
         }),
@@ -150,8 +130,6 @@ export async function seed(h: LedgerHarness) {
         id: ASG_AE,
         app_created_seq: appCreated.seq,
         app: APP,
-        preset: id("pst", "app_engineer".length),
-        preset_revision: 1,
       }),
     ),
   );
@@ -160,7 +138,6 @@ export async function seed(h: LedgerHarness) {
       machineCred,
       envelope("SeedOperatorFixture", {
         id: ASG_OP,
-        preset: id("pst", "operator".length),
         scope_kind: "project",
         scope_id: PROJECT,
       }),
@@ -180,6 +157,20 @@ export async function seed(h: LedgerHarness) {
       ),
     );
   }
+}
+
+// assignment를 멈추거나 되돌린다. 멈춤을 낳는 자리 보관 event는 이 leaf의 관심이 아니다.
+export async function setAssignmentState(
+  h: LedgerHarness,
+  assignment: string,
+  state: "enabled" | "paused",
+) {
+  return value(
+    await h.command(
+      machineCred,
+      envelope("SeedAssignmentState", { assignment, state }),
+    ),
+  );
 }
 
 export async function assignmentOf(h: LedgerHarness, assignment: string) {
@@ -292,6 +283,8 @@ export async function startRun(
     ? "lophn"
     : assignment === ASG_CE
     ? "context_engineer"
+    : assignment === ASG_OP
+    ? "operator"
     : "app_engineer";
   return h.command(
     machineCred,

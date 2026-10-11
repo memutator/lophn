@@ -1,12 +1,9 @@
 import { assert, assertEquals } from "@std/assert";
 import { canonicalize } from "../../base/mod.ts";
-import { EFFORT_VALUES } from "./option-axes.ts";
 import {
-  effortValueSchema,
   priceBasisOutputSchema,
   priceBasisSchema,
   priceRateSchema,
-  REASONING_LEVELS,
   resolvedModelOutputSchema,
   resolvedModelSchema,
 } from "./resolved-model.ts";
@@ -268,9 +265,4 @@ Deno.test("lophn-agent/harness/run-loop#R7: request patch and basis preserve exa
     assert(Object.hasOwn(parsed.request_patch, "__proto__"));
     assert(Object.hasOwn(parsed.basis, "__proto__"));
   }
-});
-
-Deno.test("lophn-agent/harness/model#R15: a call record names the seven effort values plus leaving it to the model", () => {
-  assertEquals([...REASONING_LEVELS], [...EFFORT_VALUES, "provider_default"]);
-  assert(!effortValueSchema.safeParse("provider_default").success);
 });

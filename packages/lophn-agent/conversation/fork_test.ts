@@ -21,6 +21,7 @@ import {
   seed,
   seqOf,
   sessionSeq,
+  setAssignmentState,
   SOURCE_ANSWER,
   SOURCE_FIRST,
   SOURCE_LAST,
@@ -348,15 +349,7 @@ Deno.test("lophn-agent/conversation#R9 [agent-I16]: only a person forks and a pa
       await fork(h, id("ses", 2), source, through, cred(`agent:${ASG_LOPHN}`)),
       "forbidden",
     );
-    value(
-      await h.command(
-        userCred,
-        envelope("PauseAssignment", {
-          assignment: ASG_LOPHN,
-          reason: { kind: "user", detail: "잠시", runs: [], target: null },
-        }, { revision: 1, state: "enabled" }),
-      ),
-    );
+    await setAssignmentState(h, ASG_LOPHN, "paused");
     code(await fork(h, id("ses", 2), source, through), "forbidden");
     assertEquals(await count(h, "sessions"), 1);
   } finally {

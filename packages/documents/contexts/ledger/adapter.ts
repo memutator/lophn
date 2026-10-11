@@ -86,6 +86,7 @@ import type {
   EntityRow,
 } from "../api/state.ts";
 import { COMMAND_ENTRIES, READ_ENTRIES } from "./adapter-routes.ts";
+import { contextWorkListRead } from "./work-input.ts";
 import {
   APP_BOUND_LIST,
   authorizeRead,
@@ -206,11 +207,12 @@ export function contextLedgerCommands(
   }));
 }
 
-// CONTEXT_API_READ_ROUTES의 route마다 ReadDefinition 하나.
+// CONTEXT_API_READ_ROUTES의 route마다 ReadDefinition 하나, 그리고 core가 소유자로 읽는 내부 read
+// `context.work_list`(공개 route가 아니다).
 export function contextLedgerReads(
   deps: ContextLedgerDeps,
 ): readonly ReadDefinition[] {
-  return READ_ENTRIES.map((entry): ReadDefinition => ({
+  const publicReads = READ_ENTRIES.map((entry): ReadDefinition => ({
     route: entry.route,
     handle(snapshot, ctx, input) {
       const bound = isAppBound(ctx);
@@ -238,4 +240,5 @@ export function contextLedgerReads(
       }) as typeof read;
     },
   }));
+  return [...publicReads, contextWorkListRead()];
 }

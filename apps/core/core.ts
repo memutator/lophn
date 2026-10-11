@@ -79,7 +79,6 @@ import {
 import {
   type KnownSecretMatch,
   LEDGER_SCHEMA_STEPS,
-  type ReaderPool,
 } from "../../packages/platform/ledger/mod.ts";
 import {
   createSupervisor,
@@ -224,10 +223,10 @@ import { createStreamer, createValidatePort } from "./documents-validate.ts";
 import type { ValidatePort } from "../../packages/documents/versions/work.ts";
 import { DOCUMENT_OPS } from "../../packages/documents/file-tracking/mod.ts";
 import {
-  contextListRoute,
   contextWorkInputReadSchema,
   contextWorkInputRoute,
-  projectList,
+  contextWorkListReadSchema,
+  contextWorkListRoute,
   projectTrackingRoots,
 } from "../../packages/contracts/documents/mod.ts";
 import {
@@ -1985,8 +1984,35 @@ async function open(
           message: "the context worker input is not valid",
         });
       };
+      // 활성 context와 도는 검사의 목록. 읽을 때마다 worker가 읽을 폴더 전체를 맞춘다(빠진 폴더는 다음에
+      // 다시 띄울 때 권한에서 빠진다).
+      const listContextWork: NonNullable<ContextsDispatchDeps["list"]> =
+        async () => {
+          const read = await runtime!.readers.read(
+            contextWorkListRoute,
+            contextsInputReader,
+            {},
+          );
+          if (!read.ok) return read;
+          const parsed = contextWorkListReadSchema.safeParse(read.value);
+          if (!parsed.success) {
+            return err({
+              code: "internal" as const,
+              message: "the context work list is not valid",
+            });
+          }
+          contextsProcess.retain([
+            ...new Set([
+              ...parsed.data.contexts.flatMap((entry) => entry.roots),
+              ...parsed.data.checks.flatMap((entry) => entry.roots),
+            ]),
+          ]).catch((error) =>
+            console.error(`context worker: ${String(error)}`)
+          );
+          return ok(parsed.data);
+        };
       const contextsWatchHandle = createContextsWatch({
-        listActive: () => listActiveContexts(runtime!.readers),
+        list: listContextWork,
         readInput: readContextInput,
         catchUp: (context) => dispatcher.ensureFresh(context, { force: true }),
         watchFs: denoWatchFs,
@@ -1998,6 +2024,7 @@ async function open(
         process: contextsProcess,
         readInput: readContextInput,
         observed: (input) => contextsWatchHandle.observe(input),
+        list: listContextWork,
         command: (envelope) => {
           const ctx = runtime!.current(credentialRef);
           return ctx.ok
@@ -2012,6 +2039,8 @@ async function open(
       });
       contextsHost.attach(dispatcher);
       void contextsWatchHandle.start();
+      // 이전 실행에서 결과를 받지 못한 검사는 checking으로 남아 있다. 다시 보낸다.
+      void dispatcher.recover();
     }
   }
   // problems/report-collector. 문제 보고 worker route(`/v1/problems/report` 등)를 받는 상시
@@ -3153,66 +3182,15 @@ const basisReader: RequestContext = {
   credential_ref: "machine:documents-basis",
 };
 
-// 활성 context 목록을 읽는 자격. context 목록 읽기는 사람과 agent의 것이라, core가 감시할 폴더를 정하려고
-// 소유자로 읽는다. core 안에서만 reader에 넘기는 context라 발급 자격이 아니다.
-const contextsWatchReader: RequestContext = {
-  principal: "machine:contexts-watch",
-  actor: "user",
-  scope: { operations: [projectList.name, contextListRoute.name], targets: {} },
-  conditions: {},
-  credential_ref: "machine:contexts-watch",
-};
-
-// 보관되지 않은 project의 활성 context id 전체.
-async function listActiveContexts(
-  readers: { read: ReaderPool["read"] },
-): Promise<Result<string[]>> {
-  const found: string[] = [];
-  let projectCursor: string | undefined;
-  do {
-    const projects = await readers.read(projectList, contextsWatchReader, {
-      status: "active",
-      limit: 100,
-      ...(projectCursor ? { cursor: projectCursor } : {}),
-    });
-    if (!projects.ok) return projects;
-    const page = projects.value as {
-      projects?: { id: string }[];
-      next_cursor?: string | null;
-    };
-    for (const project of page.projects ?? []) {
-      let cursor: string | undefined;
-      do {
-        const listed = await readers.read(
-          contextListRoute,
-          contextsWatchReader,
-          {
-            project: project.id,
-            status: "active",
-            limit: 100,
-            ...(cursor ? { cursor } : {}),
-          },
-        );
-        if (!listed.ok) return listed;
-        const contexts = listed.value as {
-          contexts?: { id: string }[];
-          next_cursor?: string | null;
-        };
-        for (const context of contexts.contexts ?? []) found.push(context.id);
-        cursor = contexts.next_cursor ?? undefined;
-      } while (cursor !== undefined);
-    }
-    projectCursor = page.next_cursor ?? undefined;
-  } while (projectCursor !== undefined);
-  return ok(found);
-}
-
-// context worker 일의 입력(적용 판·검사할 후보 판)을 reader에서 읽는 자격. core가 reader에 넘기는
-// context라 발급 자격이 아니다.
+// context worker 일의 입력(적용 판·검사할 후보 판)과 활성 context 목록을 reader에서 읽는 자격. core가
+// reader에 넘기는 context라 발급 자격이 아니다. 둘 다 machine 전용 내부 read다.
 const contextsInputReader: RequestContext = {
   principal: "machine:contexts-dispatch",
   actor: "machine",
-  scope: { operations: [contextWorkInputRoute.name], targets: {} },
+  scope: {
+    operations: [contextWorkInputRoute.name, contextWorkListRoute.name],
+    targets: {},
+  },
   conditions: {},
   credential_ref: "machine:contexts-dispatch",
 };

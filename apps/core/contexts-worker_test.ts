@@ -11,7 +11,10 @@ import {
   type Result,
   seededRandom,
 } from "../../packages/base/mod.ts";
-import type { ContextWorkInput } from "../../packages/contracts/documents/mod.ts";
+import type {
+  ContextWorkInput,
+  ContextWorkList,
+} from "../../packages/contracts/documents/mod.ts";
 import type {
   CommandEnvelope,
   Writer,
@@ -24,6 +27,7 @@ import {
   contextsWorkerSpec,
   createContextsDispatcher,
   createContextsHost,
+  createContextsProcess,
 } from "./contexts-worker.ts";
 import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
 import { sampleEnv } from "../../packages/documents/contexts/validate/sample.ts";
@@ -144,11 +148,9 @@ async function fixtureContract(): Promise<Json> {
   ) as Json;
 }
 
-async function open(
-  home: string,
-  folder: string,
-): Promise<Core> {
-  const started = await startCore({
+// 제품 core의 기동 옵션. `worker`가 false면 context worker를 띄우지 않아 제출한 판이 checking으로 남는다.
+function coreOptions(home: string, worker = true, seed = 41) {
+  return {
     lophnHome: home,
     port: 0,
     teams: [
@@ -161,8 +163,9 @@ async function open(
       new URL("./lophn-agent.ts", import.meta.url).href,
     ],
     clock: manualClock(Date.UTC(2024, 0, 1)),
-    random: seededRandom(41),
+    random: seededRandom(seed),
     testCredentials: true,
+    contextWorker: worker,
     // 앱 쪽이 알려 주는 앱 read 명령의 효과(fixture 계약의 app-data type이 가리키는 명령)와 다른
     // context의 public type(fixture 관계의 `rubrics/Rubric`).
     contextCheckEnvironment: () =>
@@ -175,7 +178,15 @@ async function open(
           fields: [...type.fields],
         })),
       }),
-  });
+  };
+}
+
+async function open(
+  home: string,
+  folder: string,
+  worker = true,
+): Promise<Core> {
+  const started = await startCore(coreOptions(home, worker));
   assert(started.ok, started.ok ? "" : JSON.stringify(started.error));
   await using guard = closeUnlessKept(async () => {
     await started.value.shutdown();
@@ -724,6 +735,69 @@ Deno.test("documents/contexts#R19 [ctx-I64p]: a bundle that is not the context's
   });
 });
 
+Deno.test("documents/contexts#R20 [ctx-I67]: a check whose answer was never received stays checking until the next core start, which sends it to the worker and applies the bundle", async () => {
+  const home = await Deno.makeTempDir({ prefix: "lophn-contexts-worker-" });
+  const folder = await Deno.realPath(
+    await Deno.makeTempDir({ prefix: "lophn-contexts-worker-project-" }),
+  );
+  await copyFixture(folder);
+  try {
+    // no worker is running: the submitted candidate stays checking
+    const first = await open(home, folder, false);
+    try {
+      await submit(first, await fixtureContract(), "recover");
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      const history = await post(first, "user", "contexts/bundles", {
+        context: CONTEXT,
+      });
+      const bundles = history.body["bundles"] as { bundle: Json }[];
+      assertEquals(bundles[0]!.bundle["status"], "checking");
+    } finally {
+      await first.shutdown();
+    }
+
+    // the next start sweeps the running check and the worker finishes it
+    const started = await startCore(coreOptions(home, true, 42));
+    assert(started.ok, started.ok ? "" : JSON.stringify(started.error));
+    const second = started.value;
+    try {
+      const login = contextOf(
+        "user",
+        "user",
+        USER_OPERATIONS,
+        "user-contexts-worker",
+      );
+      const accepted = await second.acceptTestCredential!(login, TOKENS.user);
+      assert(accepted.ok, accepted.ok ? "" : accepted.error.message);
+      // the credential record of the first start is still in the ledger
+      const done = await until(
+        "the recovered check",
+        () => bundleStatus(second),
+      );
+      assertEquals(done.bundle["status"], "applied");
+      assertEquals(done.check["status"], "passed");
+    } finally {
+      await second.shutdown();
+    }
+  } finally {
+    await Deno.remove(home, { recursive: true });
+    await Deno.remove(folder, { recursive: true });
+  }
+});
+
+Deno.test("documents/contexts#R23 [ctx-I67]: core reads the active context list with a machine reader and never builds a reader that acts as the user", async () => {
+  const source = await Deno.readTextFile(new URL("./core.ts", import.meta.url));
+  // every reader context core builds for the context worker and the watch is a machine
+  const readers = [...source.matchAll(
+    /principal: "(machine:contexts-[a-z-]+)",\s+actor: "([a-z]+)"/g,
+  )];
+  assertEquals(readers.map((match) => match[1]), ["machine:contexts-dispatch"]);
+  assertEquals(readers.map((match) => match[2]), ["machine"]);
+  assert(!source.includes("machine:contexts-watch"));
+  assert(!source.includes("contextListRoute"));
+  assert(source.includes("contextWorkListRoute"));
+});
+
 // ---------- core가 worker에 일을 보내는 규칙(worker와 ledger는 fake) ----------
 
 const DISPATCH_CONTEXT = "ctx_00000000000000000000000001";
@@ -783,6 +857,7 @@ function setup(options: {
   request?: (op: string, payload: unknown) => Promise<Result<unknown>>;
   ensure?: () => Promise<boolean>;
   command?: (envelope: CommandEnvelope) => Promise<Result<unknown>>;
+  list?: () => Promise<Result<ContextWorkList>>;
 } = {}) {
   const requests: { op: string; payload: unknown }[] = [];
   const commands: CommandEnvelope[] = [];
@@ -796,6 +871,7 @@ function setup(options: {
       ensured.push(roots);
       return options.ensure?.() ?? Promise.resolve(true);
     },
+    retain: () => Promise.resolve(),
     request: (op, payload) => {
       requests.push({ op, payload });
       return options.request?.(op, payload) ??
@@ -812,6 +888,7 @@ function setup(options: {
       commands.push(envelope);
       return options.command?.(envelope) ?? Promise.resolve(ok({}));
     },
+    ...(options.list ? { list: options.list } : {}),
     nowMs: () => now,
     sleep: (ms) => {
       sleeps.push(ms);
@@ -1212,6 +1289,7 @@ Deno.test("documents/contexts#R20 [ctx-T9b]: the worker is asked to run only whe
       seen.push(request);
       return new Promise(() => {});
     },
+    recover: () => Promise.resolve(0),
     preview: () => Promise.resolve(err({ code: "unavailable", message: "x" })),
   });
   const inner: Writer = {
@@ -1280,6 +1358,7 @@ Deno.test("documents/contexts#R23 [ctx-T9b]: only the reads that use the index c
       return Promise.resolve({ stale: false });
     },
     runCheck: () => Promise.resolve(true),
+    recover: () => Promise.resolve(0),
     preview: () => Promise.resolve(err({ code: "unavailable", message: "x" })),
   });
   for (const key of reads.keys()) {
@@ -1337,4 +1416,195 @@ Deno.test("documents/contexts#R20 [ctx-T9b]: the worker may read the project fol
     contextsWorkerSpec({ dataRoot: "/data/lophn", roots: ["/work/a,/"] }),
     undefined,
   );
+});
+
+// ---------- 시작 때 다시 보내기 · 읽을 폴더 맞추기 · preview와 다른 일 ----------
+
+const listOf = (
+  checks: { context: string; check: string; roots?: string[] }[],
+): ContextWorkList => ({
+  contexts: [],
+  checks: checks.map((entry) => ({ roots: ["/work/project"], ...entry })),
+  as_of_seq: "1",
+  next_cursor: null,
+});
+
+Deno.test("documents/contexts#R20 [ctx-I67]: recover sends again a check that is still running, relays its result, and sends nothing when the list is empty or unreadable", async () => {
+  const run = setup({
+    list: () =>
+      Promise.resolve(
+        ok(listOf([{ context: DISPATCH_CONTEXT, check: CHECK }])),
+      ),
+    read: (request) =>
+      Promise.resolve(ok(request.check === undefined ? input() : candidate())),
+    request: (op) =>
+      Promise.resolve(
+        ok(op === "context.check" ? checkAnswer([finish()]) : indexAnswer()),
+      ),
+  });
+  assertEquals(await run.dispatcher.recover(), 1);
+  assertEquals(run.requests[0]!.op, "context.check");
+  assertEquals(run.commands.map((entry) => entry.command), [
+    "bundle.finish_check",
+  ]);
+
+  const empty = setup({
+    list: () => Promise.resolve(ok(listOf([]))),
+  });
+  assertEquals(await empty.dispatcher.recover(), 0);
+  assertEquals(empty.requests, []);
+
+  const broken = setup({
+    list: () =>
+      Promise.resolve(err({ code: "unavailable", message: "ledger is busy" })),
+  });
+  assertEquals(await broken.dispatcher.recover(), 0);
+  assertEquals(broken.requests, []);
+  assert(broken.logs.some((line) => line.includes("ledger is busy")));
+
+  // a core assembled without the list has nothing to recover
+  assertEquals(await setup().dispatcher.recover(), 0);
+});
+
+Deno.test("documents/contexts#R20 [ctx-I67]: a check that is already being sent is not sent a second time by recover, and a recovered check whose answer is lost again stays checking", async () => {
+  const release: (() => void)[] = [];
+  const held = setup({
+    list: () =>
+      Promise.resolve(
+        ok(listOf([{ context: DISPATCH_CONTEXT, check: CHECK }])),
+      ),
+    read: () => Promise.resolve(ok(candidate())),
+    request: () =>
+      new Promise((resolve) =>
+        release.push(() => resolve(ok(checkAnswer([finish()]))))
+      ),
+  });
+  const first = held.dispatcher.runCheck({
+    context: DISPATCH_CONTEXT,
+    check: CHECK,
+  });
+  const recovered = held.dispatcher.recover();
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  assertEquals(held.requests.length, 1);
+  release[0]!();
+  assertEquals(await first, true);
+  assertEquals(await recovered, 1);
+  assertEquals(held.commands.length, 1);
+
+  // three lost answers in a row: nothing is reported, the next start tries again
+  const lost = setup({
+    list: () =>
+      Promise.resolve(
+        ok(listOf([{ context: DISPATCH_CONTEXT, check: CHECK }])),
+      ),
+    read: () => Promise.resolve(ok(candidate())),
+    request: () =>
+      Promise.resolve(err({ code: "unavailable", message: "gone" })),
+  });
+  assertEquals(await lost.dispatcher.recover(), 1);
+  assertEquals(lost.requests.length, 3);
+  assertEquals(lost.commands, []);
+});
+
+Deno.test("documents/contexts#R20 [ctx-I67]: a preview does not wait for the index scan or the check of its context", async () => {
+  // The preview reads copy the files into a snapshot of their own and write neither the index nor the ledger, so
+  // core sends it at once even while another job of the same context is running in the worker.
+  let release!: () => void;
+  const run = setup({
+    read: (request) =>
+      Promise.resolve(
+        ok(request.bundle !== undefined ? draftInput() : input()),
+      ),
+    request: (op) =>
+      op === "context.index"
+        ? new Promise((resolve) => release = () => resolve(ok(indexAnswer())))
+        : Promise.resolve(ok(previewAnswer(1))),
+  });
+  const scanning = run.dispatcher.ensureFresh(DISPATCH_CONTEXT);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  assertEquals(run.requests.map((entry) => entry.op), ["context.index"]);
+  const previewed = await run.dispatcher.preview({
+    context: DISPATCH_CONTEXT,
+    bundle: PREVIEW_BUNDLE,
+  });
+  assert(previewed.ok, JSON.stringify(previewed));
+  assertEquals(run.requests.map((entry) => entry.op), [
+    "context.index",
+    "context.preview",
+  ]);
+  release();
+  assertEquals(await scanning, { stale: false });
+});
+
+// ---------- worker가 읽을 폴더 집합 ----------
+
+function fakeSupervisor() {
+  const launches: { how: "start" | "update"; read: string[] }[] = [];
+  const spec = (value: unknown) =>
+    (value as { allow_read: string[] }).allow_read;
+  const supervisor = {
+    start(value: unknown) {
+      launches.push({ how: "start", read: spec(value) });
+      return Promise.resolve({ ok: true as const, value: undefined });
+    },
+    updateSpec(value: unknown) {
+      launches.push({ how: "update", read: spec(value) });
+      return Promise.resolve({ ok: true as const, value: undefined });
+    },
+    send: () => Promise.resolve({ ok: true as const, value: undefined }),
+  };
+  return { supervisor, launches };
+}
+
+function processOf() {
+  const { supervisor, launches } = fakeSupervisor();
+  const process = createContextsProcess({
+    supervisor: supervisor as never,
+    channel: {
+      request: () => Promise.resolve(ok({})),
+      onMessage: () => {},
+      bind: () => {},
+      failPending: () => {},
+    },
+    dataRoot: "/data/lophn",
+    epoch: "epoch",
+    apiPort: 1,
+    prepare: () => Promise.resolve(),
+  });
+  const projects = () =>
+    launches.map((launch) =>
+      launch.read.filter((path) => path.startsWith("/work/"))
+    );
+  return { process, launches, projects };
+}
+
+Deno.test("documents/contexts#R20 [ctx-I67]: the worker is launched again without the folders core no longer lists, and a list with no folder removed leaves the launch alone", async () => {
+  const { process, launches, projects } = processOf();
+
+  // no worker yet: nothing to shrink
+  await process.retain(["/work/a"]);
+  assertEquals(launches, []);
+
+  await process.ensure(["/work/a", "/work/b"]);
+  await process.ensure(["/work/c"]);
+  assertEquals(projects(), [["/work/a", "/work/b"], [
+    "/work/a",
+    "/work/b",
+    "/work/c",
+  ]]);
+  assertEquals(launches.map((launch) => launch.how), ["start", "update"]);
+
+  // a folder was removed from its project: the launch drops it
+  await process.retain(["/work/a", "/work/c"]);
+  assertEquals(projects()[2], ["/work/a", "/work/c"]);
+  assertEquals(launches[2]!.how, "update");
+
+  // nothing removed, or folders core does not know yet: no launch
+  await process.retain(["/work/a", "/work/c"]);
+  await process.retain(["/work/a", "/work/c", "/work/z"]);
+  assertEquals(launches.length, 3);
+
+  // a context of the removed folder asks again and brings it back
+  await process.ensure(["/work/b"]);
+  assertEquals(projects()[3], ["/work/a", "/work/b", "/work/c"]);
 });

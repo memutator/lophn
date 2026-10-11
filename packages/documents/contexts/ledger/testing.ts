@@ -223,6 +223,21 @@ export function ledgerFixture(options: LedgerFixtureOptions = {}) {
       ).run(projectId, `name-${projectId}`, "Project", status);
     },
 
+    // project의 폴더를 등록 순서대로 심는다.
+    seedFolders(projectId: string, paths: readonly string[]) {
+      const insert = db.prepare(
+        `INSERT INTO project_folders (project, position, path, description)
+         VALUES (?, ?, ?, '')`,
+      );
+      paths.forEach((path, position) => insert.run(projectId, position, path));
+    },
+
+    // project를 보관한 것으로 바꾼다(test는 project command를 거치지 않는다).
+    archiveProject(projectId: string) {
+      db.prepare("UPDATE projects SET status = 'archived' WHERE id = ?")
+        .run(projectId);
+    },
+
     // 다섯 표의 모든 행을 id 순으로 돌려준다. 거절한 command 앞뒤를 견준다.
     dump(): Record<string, SqlRow[]> {
       const out: Record<string, SqlRow[]> = {};

@@ -6,6 +6,7 @@ import {
   bundleContentSchema,
   type ContextWorkInput,
   contextWorkInputRoute,
+  contextWorkListRoute,
 } from "../../../contracts/documents/mod.ts";
 import { parseActor } from "../../../contracts/platform/mod.ts";
 import type {
@@ -169,6 +170,70 @@ export function contextWorkInputRead(
           })),
         // 다른 context의 public type을 쓰는 참조는 아직 해석하지 않는다.
         external_types: [],
+        as_of_seq: snapshot.as_of_seq,
+        next_cursor: null,
+      });
+    },
+  };
+}
+
+// core가 시작할 때와 변화 감시가 감시 집합을 정할 때 읽는 목록(`context.work_list`). 활성 context와 도는
+// 검사만 담고 blob은 열지 않는다. 폴더는 project마다 한 번 읽는다.
+export function contextWorkListRead(): ReadDefinition<
+  typeof contextWorkListRoute
+> {
+  return {
+    route: contextWorkListRoute,
+    handle(snapshot, ctx) {
+      if (parseActor(ctx.actor)?.kind !== "machine") {
+        return err({
+          code: "forbidden",
+          message: "only a machine reads the context work list",
+        });
+      }
+      const sql = snapshot.sql;
+      const folders = new Map<string, string[]>();
+      const rootsOf = (project: string, archived = false): string[] => {
+        if (archived) return [];
+        let roots = folders.get(project);
+        if (roots === undefined) {
+          roots = foldersOf(sql, project);
+          folders.set(project, roots);
+        }
+        return roots;
+      };
+      const contexts = sql.all(
+        `SELECT c.id AS context, c.project AS project, b.bundle_hash AS bundle_hash
+           FROM contexts c
+           JOIN context_bundles b ON b.id = c.applied_bundle
+           JOIN projects p ON p.id = c.project
+          WHERE c.status = 'active' AND p.status <> 'archived'
+            AND b.bundle_hash IS NOT NULL
+          ORDER BY c.id`,
+        [],
+      ).map((row) => ({
+        context: String(row.context),
+        roots: rootsOf(String(row.project)),
+        bundle_hash: String(row.bundle_hash),
+      }));
+      const checks = sql.all(
+        `SELECT k.id AS "check", k.context AS context, c.project AS project,
+                p.status AS project_status
+           FROM context_checks k
+           JOIN context_bundles b ON b.id = k.bundle
+           JOIN contexts c ON c.id = k.context
+           JOIN projects p ON p.id = c.project
+          WHERE k.status = 'running' AND b.status = 'checking'
+          ORDER BY k.started_at, k.id`,
+        [],
+      ).map((row) => ({
+        context: String(row.context),
+        check: String(row.check),
+        roots: rootsOf(String(row.project), row.project_status === "archived"),
+      }));
+      return ok({
+        contexts,
+        checks,
         as_of_seq: snapshot.as_of_seq,
         next_cursor: null,
       });

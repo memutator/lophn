@@ -27,6 +27,7 @@ import {
   contextSearchRoute,
   contextUnarchiveRoute,
   contextViolationsRoute,
+  contextWorkListRoute,
   glossaryListRoute,
   glossaryRemoveRoute,
   glossarySetRoute,
@@ -1802,7 +1803,9 @@ Deno.test("documents/contexts#R3 [ctx-I34a]: every context command and read rout
   );
   assertEquals(
     contextLedgerReads(deps).map((def) => def.route.name).sort(),
-    CONTEXT_API_READ_ROUTES.map((route) => route.name).sort(),
+    // plus the machine-only internal list core reads (not a public route)
+    [...CONTEXT_API_READ_ROUTES.map((route) => route.name), "context.work_list"]
+      .sort(),
   );
 });
 
@@ -2118,5 +2121,104 @@ Deno.test("documents/contexts#R3 lophn-agent/roles/app-engineer#R2 [ctx-I58b]: a
     assertEquals(api.ledger.emitted.length, events);
   } finally {
     world.api.ledger.close();
+  }
+});
+
+Deno.test("documents/contexts#R23 [ctx-I67]: context.work_list names the active contexts with their folders and applied hash, and the checks still running, for a machine only", () => {
+  const api = sqlApi();
+  try {
+    api.ledger.seedFolders(ids.project, ["/work/a", "/work/b"]);
+    api.ledger.seedFolders(ids.otherProject, ["/work/other"]);
+    // active, applied
+    const applied = createContext(api);
+    const active = applyBundle(api, ids.context);
+    // drafting: nothing applied, nothing running
+    createContext(api, { id: id("ctx", 3), title: "Drafting" });
+    value(api.command(bundleSaveDraftRoute, "engineer", {
+      context: id("ctx", 3),
+      content: minimalContent(),
+    }));
+    // a candidate still being checked (no result yet)
+    const waiting = createContext(api, { id: id("ctx", 4), title: "Waiting" });
+    const draft = value(api.command(bundleSaveDraftRoute, "engineer", {
+      context: waiting.id,
+      content: minimalContent(),
+    }));
+    const submitted = value(
+      api.command(bundleSubmitRoute, "engineer", { bundle: draft.id }),
+    );
+    assert(applied.id === ids.context);
+
+    const listed = value(api.read(contextWorkListRoute, "worker", {}));
+    assertEquals(listed.contexts, [{
+      context: ids.context,
+      roots: ["/work/a", "/work/b"],
+      bundle_hash: active.submitted.bundle_hash,
+    }]);
+    assertEquals(listed.checks, [{
+      context: waiting.id,
+      check: submitted.check,
+      roots: ["/work/a", "/work/b"],
+    }]);
+    assertEquals(listed.next_cursor, null);
+
+    // a finished check leaves the list and the context joins the active ones
+    value(api.command(bundleFinishCheckRoute, "worker", {
+      check: submitted.check!,
+      result: "passed",
+      bundle_hash: submitted.bundle_hash!,
+      snapshot_hash: SNAPSHOT,
+      findings: [],
+      violation_count: 0,
+    }));
+    const after = value(api.read(contextWorkListRoute, "worker", {}));
+    assertEquals(after.checks, []);
+    assertEquals(after.contexts.map((entry) => entry.context), [
+      ids.context,
+      waiting.id,
+    ]);
+
+    // not a machine
+    for (const who of ["user", "engineer"] as const) {
+      const refused = api.read(contextWorkListRoute, who, {});
+      assertEquals(code(refused), "forbidden");
+    }
+  } finally {
+    api.ledger.close();
+  }
+});
+
+Deno.test("documents/contexts#R23 [ctx-I67]: context.work_list leaves out the contexts of an archived project and gives a running check of one no folders", () => {
+  const api = sqlApi();
+  try {
+    api.ledger.seedFolders(ids.project, ["/work/a"]);
+    value(api.command(contextCreateRoute, "user", {
+      id: ids.otherContext,
+      project: ids.otherProject,
+      title: "Other",
+      purpose: "Another project",
+    }));
+    applyBundle(api, ids.otherContext);
+    api.ledger.seedFolders(ids.otherProject, ["/work/other"]);
+    createContext(api);
+    const draft = value(api.command(bundleSaveDraftRoute, "engineer", {
+      context: ids.context,
+      content: minimalContent(),
+    }));
+    value(api.command(bundleSubmitRoute, "engineer", { bundle: draft.id }));
+    assertEquals(
+      value(api.read(contextWorkListRoute, "worker", {})).contexts.map((
+        entry,
+      ) => entry.context),
+      [ids.otherContext],
+    );
+
+    api.ledger.archiveProject(ids.otherProject);
+    api.ledger.archiveProject(ids.project);
+    const listed = value(api.read(contextWorkListRoute, "worker", {}));
+    assertEquals(listed.contexts, []);
+    assertEquals(listed.checks.map((entry) => entry.roots), [[]]);
+  } finally {
+    api.ledger.close();
   }
 });

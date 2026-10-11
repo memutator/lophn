@@ -608,6 +608,9 @@ export function Dock(
                 offline={offline}
                 canCorrect={active !== null && agent.state === "enabled"}
                 canStop={active !== null}
+                hint={agent.role === "context_engineer" && shown.length === 0
+                  ? t("conversation.placeholder.new-context")
+                  : undefined}
                 onDraft={(patch) => drafts.save(current, patch)}
                 onSend={() => void send()}
                 onStop={() => void stop()}

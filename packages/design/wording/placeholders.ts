@@ -1194,6 +1194,7 @@ export type PlaceholderKinds = {
   "conversation.notice.visual-unavailable-kind": Record<never, never>;
   "conversation.notice.visual-unavailable-markup": Record<never, never>;
   "conversation.notice.visual-unavailable-shape": Record<never, never>;
+  "conversation.placeholder.new-context": Record<never, never>;
   "conversation.title.dock": Record<never, never>;
   "document.button.back-to-editing": Record<never, never>;
   "document.button.check-again": Record<never, never>;

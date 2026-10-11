@@ -53,6 +53,7 @@ const seedTargetRoute = defineCommand({
       "DocumentCreated",
       "DocumentSaved",
       "QuestionCreated",
+      "ContextCreated",
     ]),
     subject: z.string(),
     payload: z.record(z.string(), z.string()).default({}),

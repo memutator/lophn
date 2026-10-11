@@ -13,6 +13,7 @@ export {
   contextLedgerReads,
   mapActor,
 } from "./ledger/adapter.ts";
+export { contextWorkInputRead } from "./ledger/work-input.ts";
 export type { SearchExecutor } from "./api/reads.ts";
 export type { BlobReference, ContextApiActor, EntityRow } from "./api/state.ts";
 export { runSearch } from "./search/run.ts";

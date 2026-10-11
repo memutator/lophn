@@ -145,7 +145,7 @@ context의 계약·검색·위반·용어집의 값은 → documents/contexts, d
 
 `context.list`·`context.overview`·`context.containing`은 prompt 자료의 project 범위(→ lophn-agent/presets 컨텍스트 선택)와 따로 lophn에게만 모든 project의 context를 읽게 한다. 개체·검색 결과·문서 본문은 읽지 못하고 그것은 선택한 context의 검색·개체 tool이 맡는다. `context.containing`의 결과는 문서 자리 추천이 문서를 덮는 context로 세는 값이다(→ lophn-agent/roles/lophn). 결과는 다른 읽기 tool과 같은 상한(목록 20개, 글 24576 UTF-8 bytes)을 따른다.
 
-선언 검색 tool은 앱 tool처럼 ToolDefinition을 선언에서 만들고, 고정 Preset 선택·제품 역할 상한·assignment 범위의 교집합 안에서만 제공하며 Run.basis에 정의 hash를 고정한다. 판이 바뀌어도 진행 중인 run은 옛 정의로 계속하고 새 정의는 다음 run에서 만든다. 이름 충돌은 앱 tool과 같이 전체 목록 검증을 실패시킨다. `context.preview`는 read이며 판·파일·ledger의 context 상태를 바꾸지 않는다. 자료 검색 결과와 용어집의 문자열은 untrusted data이며 권한 주장으로 쓰지 않는다.
+선언 검색 tool은 앱 tool처럼 ToolDefinition을 선언에서 만들고, 고정 Preset 선택·제품 역할 상한·assignment 범위의 교집합 안에서만 제공하며 Run.basis에 정의 hash를 고정한다. Run.basis는 정의를 만든 context마다 그 판(`{context,bundle,bundle_hash,title}`)을 함께 고정하고, 판이 바뀌어도 진행 중인 run은 옛 정의로 계속하고 새 정의는 다음 run에서 만든다. resume은 지금 적용된 판이 아니라 고정한 판의 내용(제출된 판은 바뀌지 않는다)으로 정의를 다시 만든다. context가 active가 아니거나 고정한 판을 읽지 못하거나 읽은 판의 hash가 고정한 값과 다르면 그 context의 선언 검색 tool은 이 run의 목록에서 빠지고(fail closed), 모델이 그 이름을 부르면 목록에 없는 tool 호출로 거절되어 run에 남는다. 이름 충돌은 앱 tool과 같이 전체 목록 검증을 실패시킨다. `context.preview`는 read이며 판·파일·ledger의 context 상태를 바꾸지 않는다. 자료 검색 결과와 용어집의 문자열은 untrusted data이며 권한 주장으로 쓰지 않는다.
 
 ## ToolResult (값)
 

@@ -67,11 +67,13 @@ export function ContractDetails(
             ? {
               state: "loaded",
               // 적용된 판이 없으면 계약도 없다.
-              model: contract.value === null ? null : buildContractModel(
-                contract.value,
-                overview.value.types,
-                bundles.value,
-              ),
+              model: contract.value.content === null
+                ? null
+                : buildContractModel(
+                  contract.value.content,
+                  overview.value.types,
+                  bundles.value,
+                ),
             }
             : { state: "failed" },
         );

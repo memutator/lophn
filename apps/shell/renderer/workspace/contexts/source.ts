@@ -11,19 +11,27 @@ import type {
   bundleRollbackResultSchema,
   BundleSummary,
   CheckReport,
+  contextContractReadSchema,
+  contextDraftReadSchema,
   contextGetReadSchema,
+  contextInputOptionsReadSchema,
+  contextInputOptionsRequestSchema,
   contextListItemSchema,
   contextOverviewReadSchema,
+  contextSearchReadSchema,
   contextSearchRequestSchema,
   ContextValue,
+  contextViolationsReadSchema,
   GlossaryEntry,
   glossaryRemoveRequestSchema,
   glossarySetRequestSchema,
   savedViewListItemSchema,
   SavedViewValue,
+  SearchCell,
   SearchRow,
   StoredViolation,
   viewSaveRequestSchema,
+  ViolationItem,
   ViolationKey,
   violationsHandOffRequestSchema,
   violationsHandOffResultSchema,
@@ -40,8 +48,10 @@ export type {
   DeclaredSearch,
   GlossaryEntry,
   SavedViewValue,
+  SearchCell,
   SearchRow,
   StoredViolation,
+  ViolationItem,
   ViolationKey,
 };
 export type ContextListItem = z.infer<typeof contextListItemSchema>;
@@ -73,59 +83,54 @@ export interface BundleEntry {
 
 export type SearchRequest = z.infer<typeof contextSearchRequestSchema>;
 
+/** context.search의 한 page: 줄(ref와 cells), 이어 읽을 cursor, 조건에 맞는 전체 줄 수(`total`). */
+export type SearchPage = Pick<
+  z.infer<typeof contextSearchReadSchema>,
+  "rows" | "complete" | "next_cursor" | "total"
+>;
+
+/** context.contract: 적용된 판의 계약 내용. 적용된 판이 없으면 bundle, bundle_hash, content가 null이다. */
+export type ContextContract = Pick<
+  z.infer<typeof contextContractReadSchema>,
+  "context" | "bundle" | "bundle_hash" | "content"
+>;
+
 /**
- * contexts.search의 한 page. cursor로 다음 page를 읽는다. `total`은 계약의 읽기 결과에 없는
- * 값이다: 화면이 "1–25 of 61"과 page 번호를 그리려고 source가 채운다(모르면 null).
+ * context.draft: 만드는 중(drafting) context의 진행(단계 1~3, 지금 판, 검사되지 않은 content,
+ * 검사 보고). drafting이 아니면 draft가 null이다.
  */
-export interface SearchPage {
-  readonly rows: readonly SearchRow[];
-  readonly complete: boolean;
-  readonly next_cursor: string | null;
-  readonly total: number | null;
-}
+export type ContextDraft = Pick<
+  z.infer<typeof contextDraftReadSchema>,
+  "context" | "draft"
+>;
+export type DraftProgress = NonNullable<ContextDraft["draft"]>;
 
-/** 입력 form의 combobox가 보이는 후보 하나. 후보에 없는 값은 고를 수 없다. */
-export interface PickOption {
-  readonly value: string;
-  readonly label: string;
-}
+/**
+ * context.input_options: 입력 form의 combobox와 chip이 보이는 후보. value는 문자열·숫자·불리언이고
+ * 질의에는 그 타입 그대로 보낸다. 화면에는 label을 보인다.
+ */
+export type InputOptions = Pick<
+  z.infer<typeof contextInputOptionsReadSchema>,
+  "search" | "input" | "options" | "complete"
+>;
+export type PickOption = InputOptions["options"][number];
+export type OptionValue = PickOption["value"];
 
-export interface InputOptionsRequest {
-  readonly context: string;
-  readonly search: string;
-  /** DeclaredSearch.inputs[].name */
-  readonly input: string;
-}
+export type InputOptionsRequest = Pick<
+  z.infer<typeof contextInputOptionsRequestSchema>,
+  "context" | "search" | "input"
+>;
 
-/** contexts.violations 한 page와, 이미 Context Engineer에게 넘긴 위반의 키. */
-export interface ViolationsView {
-  readonly violations: readonly StoredViolation[];
-  readonly handed_off: readonly ViolationKey[];
-  readonly complete: boolean;
-  readonly next_cursor: string | null;
-}
+/** context.violations 한 page. 줄마다 이미 Context Engineer에게 넘겼는지(handed_off)를 가진다. */
+export type ViolationsPage = Pick<
+  z.infer<typeof contextViolationsReadSchema>,
+  "violations" | "complete" | "next_cursor"
+>;
 
 export interface ContainingContext {
   readonly context: string;
   readonly title: string;
   readonly types: readonly string[];
-}
-
-/** 만드는 중(drafting) context의 진행. 단계는 1~4(읽기·초안·검사·적용). */
-export interface DraftProgress {
-  readonly step: 1 | 2 | 3 | 4;
-  /** 읽은 자리와 문서 수. 아직 읽지 않았으면 null. */
-  readonly read: {
-    readonly places: number;
-    readonly documents: number;
-  } | null;
-  /** 흐린 초안 개체와 그 사이 관계. */
-  readonly types: readonly string[];
-  readonly relations: readonly {
-    readonly from: string;
-    readonly label: string;
-    readonly to: string;
-  }[];
 }
 
 export type SaveViewRequest = z.infer<typeof viewSaveRequestSchema>;
@@ -152,17 +157,17 @@ export interface ContextsSource {
   list(project: string): Promise<ReadResult<readonly ContextListItem[]>>;
   get(context: string): Promise<ReadResult<ContextDetail>>;
   overview(context: string): Promise<ReadResult<ContextOverview>>;
-  /** 적용된 판의 계약 내용(BundleContent). 적용된 판이 없으면 null. */
-  contract(context: string): Promise<ReadResult<BundleContent | null>>;
-  /** drafting context의 진행. 만드는 중이 아니면 null. */
-  draft(context: string): Promise<ReadResult<DraftProgress | null>>;
+  /** 적용된 판의 계약 내용. 적용된 판이 없으면 content가 null이다. */
+  contract(context: string): Promise<ReadResult<ContextContract>>;
+  /** drafting context의 진행. 만드는 중이 아니면 draft가 null이다. */
+  draft(context: string): Promise<ReadResult<ContextDraft>>;
   bundles(context: string): Promise<ReadResult<readonly BundleEntry[]>>;
   search(request: SearchRequest): Promise<ReadResult<SearchPage>>;
   /** 선언된 검색의 고르는 입력(entity·value)에 보일 후보. */
   inputOptions(
     request: InputOptionsRequest,
-  ): Promise<ReadResult<readonly PickOption[]>>;
-  violations(context: string): Promise<ReadResult<ViolationsView>>;
+  ): Promise<ReadResult<InputOptions>>;
+  violations(context: string): Promise<ReadResult<ViolationsPage>>;
   glossary(context: string): Promise<ReadResult<readonly GlossaryEntry[]>>;
   savedViews(
     context: string,

@@ -18,6 +18,7 @@ import { PickCombobox } from "./search-input-form-combobox.tsx";
 import styles from "./search-input-form.module.css";
 import type {
   DeclaredSearch,
+  OptionValue,
   PickOption,
   SearchInputValues,
 } from "./source.ts";
@@ -121,7 +122,7 @@ function InputField(
             const on = chosen.includes(option.value);
             return (
               <Button
-                key={option.value}
+                key={`${typeof option.value}:${option.value}`}
                 variant={on ? "secondary" : "ghost"}
                 size="sm"
                 aria-pressed={on}
@@ -158,7 +159,7 @@ function InputField(
           <PickCombobox
             inputId={inputId}
             options={candidates}
-            value={typeof value === "string" ? value : ""}
+            value={optionValueOf(value)}
             onPick={(next) => onChange(input.name, next)}
           />
         )
@@ -193,6 +194,14 @@ function textOf(value: unknown): string {
   return value === undefined || value === null ? "" : String(value);
 }
 
-function listOf(value: unknown): readonly string[] {
-  return Array.isArray(value) ? value.map(String) : [];
+/** 고른 후보의 value. 문자열·숫자·불리언이 아니면 고른 것이 없는 빈 글자다. */
+function optionValueOf(value: unknown): OptionValue {
+  return typeof value === "string" || typeof value === "number" ||
+      typeof value === "boolean"
+    ? value
+    : "";
+}
+
+function listOf(value: unknown): readonly unknown[] {
+  return Array.isArray(value) ? value : [];
 }

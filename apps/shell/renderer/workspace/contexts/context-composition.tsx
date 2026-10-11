@@ -46,7 +46,7 @@ async function load(
   if (!overview.ok || !contract.ok) return null;
   return compositionTree(
     overview.value.context,
-    contract.value,
+    contract.value.content,
     overview.value,
   );
 }

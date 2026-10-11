@@ -322,6 +322,13 @@ export function ProjectWindow(
                 <Breadcrumbs crumbs={crumbs.map((label) => ({ label }))} />
               </div>
             }
+            trailing={
+              <IconButton
+                icon={paletteIcons.search}
+                label="Search documents"
+                variant="secondary"
+              />
+            }
           />
         </div>
         <div className={styles.panes}>

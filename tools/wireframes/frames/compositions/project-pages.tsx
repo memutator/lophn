@@ -1,21 +1,22 @@
 // Part 2: project 화면 위의 새 설계(C1, C1b, C4, C5, C5b, C7). 고정 data만 쓴다.
 import type { ReactNode } from "react";
 import {
-  Button,
+  Card,
   conversationIcons,
-  Field,
   IconButton,
-  Input,
   lophnSpaceIcons,
   Textarea,
   Toast,
   ToastStack,
 } from "@lophn/design/components";
+import { Button, Field, Select } from "@lophn/ui-control";
+import { DataTable, type TableColumn } from "@lophn/ui-table";
+
+import fieldStyles from "../../../../packages/design/components/field/field.module.css";
 
 import {
   CHAT,
   DocumentBody,
-  Mono,
   type PaneSpec,
   ProjectWindow,
   StaticMenu,
@@ -23,6 +24,7 @@ import {
 } from "./project-window.tsx";
 import styles from "./compose.module.css";
 
+const NOW = new Date("2026-10-11T12:00:00Z");
 const DOC: TabSpec = {
   key: "exp-008",
   kind: "document",
@@ -175,61 +177,52 @@ export function ViolationToast() {
   );
 }
 
-function SavedViews({ active }: { active?: string }) {
-  const row = (label: string, selected = false) => (
+const SEARCHES = [
+  "Findings about a change",
+  "Experiments by status",
+  "Scenarios using a rubric",
+] as const;
+
+// 왼쪽 칸: context 고르기, 선언된 검색 이름들, saved view.
+function SearchSide({ active }: { active: (typeof SEARCHES)[number] }) {
+  const row = (
+    label: string,
+    selected: boolean,
+    icon?: typeof lophnSpaceIcons.savedView,
+  ) => (
     <li key={label} className={selected ? styles.selected : undefined}>
-      <Button variant="ghost" size="sm" icon={lophnSpaceIcons.savedView}>
+      <Button variant="ghost" size="sm" icon={icon}>
         {label}
       </Button>
     </li>
   );
   return (
-    <div>
-      <p className={styles.groupLabel}>eval</p>
-      <ul className={styles.rows}>
-        {row("Running experiments")}
-        {row("Findings for C-049", active === "c-049")}
-      </ul>
-      <p className={styles.groupLabel}>harness</p>
-      <ul className={styles.rows}>{row("Changes this week")}</ul>
-    </div>
-  );
-}
-
-function SearchSide({ query, active }: { query?: string; active?: string }) {
-  return (
     <aside className={styles.searchSide}>
-      <Field label="Search">
-        <Input placeholder="Search phroner" defaultValue={query} />
+      <Field label="Context">
+        <Select
+          options={[{ value: "eval", label: "eval" }, {
+            value: "harness",
+            label: "harness",
+          }]}
+          defaultValue="eval"
+        />
       </Field>
-      <SavedViews active={active} />
+      <div>
+        <p className={styles.groupLabel}>Searches</p>
+        <ul className={styles.rows}>
+          {SEARCHES.map((name) => row(name, name === active))}
+        </ul>
+      </div>
+      <div>
+        <p className={styles.groupLabel}>Saved views</p>
+        <ul className={styles.rows}>
+          {row("Findings for C-049", false, lophnSpaceIcons.savedView)}
+          {row("Running experiments", false, lophnSpaceIcons.savedView)}
+        </ul>
+      </div>
     </aside>
   );
 }
-
-const FINDINGS = [
-  {
-    id: "F-009",
-    title: "읽고 멈추는 과제에서 월드 행동 시도가 사라진다",
-    kind: "improvement",
-    scenario: "query-leave-still",
-    metric: "world_actions 3 → 0",
-  },
-  {
-    id: "F-010",
-    title: "상자 이름을 묻는 과제에서 불필요한 열기 호출이 줄었다",
-    kind: "improvement",
-    scenario: "query-chest-name",
-    metric: "tool_calls 5 → 2",
-  },
-  {
-    id: "F-011",
-    title: "레시피 빈틈을 묻는 과제에서 오답이 늘었다",
-    kind: "regression",
-    scenario: "query-recipe-gap",
-    metric: "answer_match 0.8 → 0.6",
-  },
-] as const;
 
 function searchPane(body: ReactNode): PaneSpec {
   return {
@@ -240,35 +233,161 @@ function searchPane(body: ReactNode): PaneSpec {
   };
 }
 
-/** C5: Search 탭에서 연 saved view. */
-export function SavedViewResults() {
+// 입력 칸 한 줄의 이름. 실제 Field와 같은 label 모양이다.
+function Legend({ children }: { children: ReactNode }) {
+  return <span className={fieldStyles.label}>{children}</span>;
+}
+
+interface Finding {
+  id: string;
+  title: string;
+  kind: string;
+  scenario: string;
+  effect: string;
+  experiment: string;
+}
+
+const FINDINGS: readonly Finding[] = [
+  {
+    id: "F-009",
+    title: "읽고 멈추는 과제에서 월드 행동 시도가 사라진다",
+    kind: "improvement",
+    scenario: "query-leave-still",
+    effect: "world_actions 3 → 0",
+    experiment: "exp-008",
+  },
+  {
+    id: "F-010",
+    title: "상자 이름을 묻는 과제에서 불필요한 열기 호출이 줄었다",
+    kind: "improvement",
+    scenario: "query-chest-name",
+    effect: "tool_calls 5 → 2",
+    experiment: "exp-008",
+  },
+  {
+    id: "F-011",
+    title: "레시피 빈틈을 묻는 과제에서 오답이 늘었다",
+    kind: "regression",
+    scenario: "query-recipe-gap",
+    effect: "answer_match 0.8 → 0.6",
+    experiment: "exp-008",
+  },
+];
+
+// 선언된 table 결과. DataTable은 text·number·time 열만 그려서 링크와 상태 pill은 글자로 둔다.
+const FINDING_COLUMNS: readonly TableColumn<Finding>[] = [
+  {
+    id: "finding",
+    header: "Finding",
+    kind: "text",
+    value: (row) => `${row.id} · ${row.title}`,
+  },
+  { id: "kind", header: "Kind", kind: "text", value: (row) => row.kind },
+  {
+    id: "scenario",
+    header: "Scenario",
+    kind: "text",
+    value: (row) => row.scenario,
+  },
+  { id: "effect", header: "Effect", kind: "text", value: (row) => row.effect },
+  {
+    id: "experiment",
+    header: "Experiment",
+    kind: "text",
+    value: (row) => row.experiment,
+  },
+];
+
+const DECLARATION = `search: findings-about-change
+title: Findings about a change
+inputs:
+  change: { type: pick, of: harness.Change }
+  kind:   { type: choose-many, of: Finding.kind }
+  metric: { type: choose-one, of: Finding.effects.metric, optional: true }
+result:
+  view: table
+  columns: [finding, kind, scenario, effect, experiment]`;
+
+function Kind({ label, on }: { label: string; on: boolean }) {
+  return (
+    <Button
+      variant={on ? "secondary" : "ghost"}
+      size="sm"
+      aria-pressed={on}
+    >
+      {on ? `✓ ${label}` : label}
+    </Button>
+  );
+}
+
+const CHANGES = [
+  {
+    value: "c-049",
+    label: "C-049 · 행동 전에 로드된 월드와 등록 정보를 조회한다",
+  },
+  { value: "c-050", label: "C-050 · 읽기 전용 과제에서 월드 행동을 막는다" },
+];
+
+/** C5: 선언된 검색 · table 결과. 입력 form과 table은 SDK ui-control·ui-table로 그린다. */
+export function DeclaredSearchTable() {
   return (
     <ProjectWindow
-      sidebar={{ savedActive: "c-049" }}
-      crumbs={["phroner", "Search", "Findings for C-049"]}
+      sidebar={{}}
+      crumbs={["phroner", "Search", "Findings about a change"]}
       left={searchPane(
         <>
-          <SearchSide active="c-049" />
+          <SearchSide active="Findings about a change" />
           <div className={styles.results}>
-            <div className={styles.call}>
-              <code>eval.findings.find({'{ about: "C-049" }'})</code>
-              <span className={styles.muted}>3 results</span>
-              <span className={styles.callSpacer} />
-              <Button size="sm">Open as tab per row</Button>
-            </div>
-            {FINDINGS.map((finding) => (
-              <div key={finding.id} className={styles.hit}>
-                <div className={styles.hitHead}>
-                  <Mono>{finding.id}</Mono>
-                  <span className={styles.hitTitle}>{finding.title}</span>
-                </div>
-                <div className={styles.hitMeta}>
-                  <span className={styles[finding.kind]}>{finding.kind}</span>
-                  <Mono>{finding.scenario}</Mono>
-                  <Mono>{finding.metric}</Mono>
+            <h1 className={styles.searchTitle}>Findings about a change</h1>
+            <div className={styles.form}>
+              <Field label="Change">
+                <Select options={CHANGES} defaultValue="c-049" />
+              </Field>
+              <div className={styles.formGroup}>
+                <Legend>Kind</Legend>
+                <div className={styles.chips}>
+                  <Kind label="improvement" on />
+                  <Kind label="regression" on />
+                  <Kind label="neutral" on={false} />
                 </div>
               </div>
-            ))}
+              <Field label="Metric">
+                <Select
+                  options={[
+                    { value: "any", label: "Any metric" },
+                    { value: "world_actions", label: "world_actions" },
+                    { value: "tool_calls", label: "tool_calls" },
+                    { value: "answer_match", label: "answer_match" },
+                  ]}
+                  defaultValue="any"
+                />
+              </Field>
+              <div className={styles.actions}>
+                <Button variant="primary">Search</Button>
+                <Button>Save as view</Button>
+              </div>
+            </div>
+            <p className={styles.resultCount}>3 findings</p>
+            <DataTable
+              columns={FINDING_COLUMNS}
+              rows={FINDINGS}
+              rowKey={(row) => row.id}
+              now={NOW}
+              loading={false}
+              onRetry={() => {}}
+              empty={{
+                message: "No findings.",
+                action: { label: "Reset", onSelect: () => {} },
+              }}
+            />
+            <div className={styles.declaration}>
+              <span className={styles.declarationHead}>Show declaration ▾</span>
+              <pre className={styles.code}>{DECLARATION}</pre>
+              <p className={styles.note}>
+                Written by Context Engineer. lophn draws the form and the table
+                from it with the shared parts.
+              </p>
+            </div>
           </div>
         </>,
       )}
@@ -276,56 +395,89 @@ export function SavedViewResults() {
   );
 }
 
-const HITS = [
+const BOARD = [
   {
-    path: "eval/experiments/exp-008-query-tools.md",
-    before: "…scored with the query-hygiene ",
-    after: " r2, criteria “no world action on read-only tasks”…",
+    title: "Draft",
+    cards: [
+      { id: "exp-013", name: "ftb quests 2", meta: "4 scenarios" },
+      { id: "exp-014", name: "route planner", meta: "2 scenarios" },
+    ],
   },
   {
-    path: "eval/rubrics/query-hygiene/r2.yaml",
-    before: "# ",
-    after:
-      " for read-and-stop scenarios; criteria: no_world_action, answer_match",
+    title: "Running",
+    cards: [
+      { id: "exp-008", name: "query tools", meta: "6 scenarios · 3 findings" },
+      { id: "exp-011", name: "chest names", meta: "3 scenarios" },
+      { id: "exp-012", name: "ftb quests 021 q8", meta: "5 scenarios" },
+    ],
   },
   {
-    path: "loop/findings/F-009.md",
-    before: "…the ",
-    after: " flagged world_actions in 3 of 6 runs before the change…",
-  },
-  {
-    path: "eval/experiments/exp-012-ftb-quests-021-q8.md",
-    before: "…no ",
-    after: " is attached yet; the scenario set is still being picked…",
+    title: "Reported",
+    count: 8,
+    cards: [
+      {
+        id: "exp-007",
+        name: "recipe lookup",
+        meta: "5 scenarios · 4 findings",
+      },
+      {
+        id: "exp-006",
+        name: "inventory read",
+        meta: "6 scenarios · 2 findings",
+      },
+      {
+        id: "exp-005",
+        name: "schedule tools",
+        meta: "4 scenarios · 1 finding",
+      },
+    ],
   },
 ] as const;
 
-/** C5b: 일반 검색어 "rubric". 일반 검색에는 [Save as view]가 없다. */
-export function PlainSearchResults() {
+/** C5b: 선언된 검색 · board 결과. 입력은 개체 고르기 둘이다. */
+export function DeclaredSearchBoard() {
+  const any = [{ value: "any", label: "Any" }, {
+    value: "q",
+    label: "query-leave-still",
+  }];
   return (
     <ProjectWindow
-      crumbs={["phroner", "Search"]}
+      sidebar={{}}
+      crumbs={["phroner", "Search", "Experiments by status"]}
       left={searchPane(
         <>
-          <SearchSide query="rubric" />
+          <SearchSide active="Experiments by status" />
           <div className={styles.results}>
-            <div className={styles.call}>
-              <span>4 documents match “rubric”</span>
-              <span className={styles.callSpacer} />
-              <span className={styles.muted}>
-                A plain search runs each time you type.
-              </span>
+            <h1 className={styles.searchTitle}>Experiments by status</h1>
+            <div className={styles.formRow}>
+              <Field label="Scenario">
+                <Select options={any} defaultValue="any" />
+              </Field>
+              <Field label="About change">
+                <Select
+                  options={[{ value: "any", label: "Any" }, ...CHANGES]}
+                  defaultValue="any"
+                />
+              </Field>
             </div>
-            {HITS.map((hit) => (
-              <div key={hit.path} className={styles.hit}>
-                <Mono>{hit.path}</Mono>
-                <p className={styles.snippet}>
-                  {hit.before}
-                  <mark>rubric</mark>
-                  {hit.after}
-                </p>
-              </div>
-            ))}
+            <div className={styles.board}>
+              {BOARD.map((column) => (
+                <section key={column.title} className={styles.boardColumn}>
+                  <h2 className={styles.boardHead}>
+                    {column.title}{" "}
+                    <span className={styles.muted}>
+                      {"count" in column ? column.count : column.cards.length}
+                    </span>
+                  </h2>
+                  {column.cards.map((card) => (
+                    <Card key={card.id}>
+                      <strong>{card.id}</strong> · {card.name}
+                      <p className={styles.note}>{card.meta}</p>
+                    </Card>
+                  ))}
+                </section>
+              ))}
+            </div>
           </div>
         </>,
       )}

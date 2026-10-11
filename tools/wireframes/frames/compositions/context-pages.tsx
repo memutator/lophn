@@ -18,7 +18,10 @@ const TABS: readonly TabSpec[] = [
   { key: "search", kind: "search", title: "phroner" },
 ];
 
-function Header({ tab }: { tab: "contract" | "violations" }) {
+type SubTab = "domain" | "search" | "violations" | "glossary" | "contract";
+
+function Header({ tab }: { tab: SubTab }) {
+  const detail = tab === "contract";
   return (
     <div className={styles.ctxHead}>
       <div>
@@ -30,17 +33,34 @@ function Header({ tab }: { tab: "contract" | "violations" }) {
           Keep experiments, scenarios, rubrics and findings of the eval loop
           findable.
         </p>
-        <p className={styles.applied}>
-          <Mono>Version r3</Mono>
-          <span>· applied 2 hours ago ·</span>
-          <span className={styles.good}>tests passed</span>
-        </p>
-        <div className={styles.actions}>
-          <Button variant="primary">Ask Context Engineer</Button>
-          <Button>History</Button>
-        </div>
+        {tab === "domain"
+          ? (
+            <p className={styles.applied}>
+              Kept up to date by Context Engineer
+            </p>
+          )
+          : (
+            <>
+              <p className={styles.applied}>
+                <Mono>Version r3</Mono>
+                <span>· applied 2 hours ago ·</span>
+                <span className={styles.good}>tests passed</span>
+              </p>
+              <div className={styles.actions}>
+                <Button variant="primary">Ask Context Engineer</Button>
+                <Button>History</Button>
+              </div>
+            </>
+          )}
+        {detail
+          ? (
+            <p className={styles.note}>
+              Details for Context Engineer and the curious
+            </p>
+          )
+          : null}
       </div>
-      {tab === "contract" ? <RelationDiagram /> : null}
+      {detail ? <RelationDiagram /> : null}
     </div>
   );
 }
@@ -155,10 +175,10 @@ function TypeCard(
   );
 }
 
-const FUNCTIONS = [
-  "experiments.find(status?, about?, scenario?)",
-  "findings.find(about?, metric?)",
-  "scenarios.byRubric(rubric)",
+const DECLARED = [
+  { id: "findings-about-change", title: "Findings about a change" },
+  { id: "experiments-by-status", title: "Experiments by status" },
+  { id: "scenarios-by-rubric", title: "Scenarios using a rubric" },
 ] as const;
 
 function Contract() {
@@ -263,10 +283,12 @@ function Contract() {
         />
       </div>
       <section className={styles.fns}>
-        <h2>Search functions</h2>
-        {FUNCTIONS.map((signature) => (
-          <div key={signature} className={styles.fnRow}>
-            <Mono>{signature}</Mono>
+        <h2>Declared searches</h2>
+        {DECLARED.map((search) => (
+          <div key={search.id} className={styles.fnRow}>
+            <span>
+              {search.title} <Mono>{search.id}</Mono>
+            </span>
             <span className={styles.good}>✓ 6 examples pass</span>
           </div>
         ))}
@@ -308,7 +330,147 @@ function Violations() {
   );
 }
 
-function ContextWindow({ tab }: { tab: "contract" | "violations" }) {
+const ENTITIES: readonly {
+  key: string;
+  name: string;
+  from?: string;
+  meaning: string;
+  count?: number;
+  has?: string;
+  example: string;
+  x: number;
+  y: number;
+}[] = [
+  {
+    key: "experiment",
+    name: "Experiment",
+    meaning: "Tests whether one change helps, on a set of scenarios.",
+    count: 13,
+    has: "has a status (draft, running, reported), a question, a baseline",
+    example: "e.g. exp-008 · query tools · running",
+    x: 0,
+    y: 165,
+  },
+  {
+    key: "scenario",
+    name: "Scenario",
+    meaning: "One task the agent is asked to do, with stages that score it.",
+    count: 34,
+    has: "has tags, stages",
+    example: "e.g. query-leave-still",
+    x: 360,
+    y: 0,
+  },
+  {
+    key: "rubric",
+    name: "Rubric",
+    meaning: "How a judge scores the work.",
+    count: 2,
+    has: "has criteria",
+    example: "e.g. schedule-quality",
+    x: 720,
+    y: 0,
+  },
+  {
+    key: "finding",
+    name: "Finding",
+    meaning: "What an experiment showed about a change.",
+    count: 14,
+    has: "has a kind (improvement, regression), effects on metrics",
+    example: "e.g. F-009 · world actions dropped on read-only tasks",
+    x: 360,
+    y: 330,
+  },
+  {
+    key: "change",
+    name: "Change",
+    from: "from harness",
+    meaning: "A change to the harness being evaluated.",
+    example: "e.g. C-049",
+    x: 720,
+    y: 330,
+  },
+];
+
+const W = 240;
+const H = 210;
+
+// 화살표 라벨은 선 위에 바탕 사각형을 깔아 읽히게 한다.
+function Edge(
+  { d, label, at }: { d: string; label: string; at: [number, number] },
+) {
+  const width = label.length * 8 + 16;
+  return (
+    <g>
+      <path className={styles.edge} d={d} markerEnd="url(#domain-arrow)" />
+      <rect
+        className={styles.edgeLabelBox}
+        x={at[0] - width / 2}
+        y={at[1] - 11}
+        width={width}
+        height={22}
+        rx={4}
+      />
+      <text className={styles.edgeLabel} x={at[0]} y={at[1]}>{label}</text>
+    </g>
+  );
+}
+
+function DomainModel() {
+  return (
+    <div className={styles.domain}>
+      <svg width={960} height={580} viewBox="0 0 960 580" aria-hidden="true">
+        <defs>
+          <marker
+            id="domain-arrow"
+            markerWidth="9"
+            markerHeight="9"
+            refX="8"
+            refY="4.5"
+            orient="auto"
+          >
+            <path className={styles.arrow} d="M0,0 L9,4.5 L0,9 z" />
+          </marker>
+        </defs>
+        <Edge d="M240,230 L358,105" label="runs on" at={[299, 168]} />
+        <Edge d="M600,105 L718,105" label="graded by" at={[660, 105]} />
+        <Edge d="M240,310 L358,435" label="produces" at={[299, 372]} />
+        <Edge d="M600,435 L718,435" label="about" at={[660, 435]} />
+        <Edge
+          d="M120,375 L120,562 L840,562 L840,542"
+          label="checks"
+          at={[480, 562]}
+        />
+      </svg>
+      {ENTITIES.map((entity) => (
+        <div
+          key={entity.key}
+          className={`${styles.entity} ${
+            entity.from ? styles.entityOuter : ""
+          }`}
+          style={{ left: entity.x, top: entity.y, width: W, height: H }}
+        >
+          <div className={styles.entityHead}>
+            <h3>{entity.name}</h3>
+            {entity.count === undefined
+              ? <span className={styles.from}>{entity.from}</span>
+              : <span className={styles.muted}>{entity.count}</span>}
+          </div>
+          <p>{entity.meaning}</p>
+          {entity.has === undefined
+            ? null
+            : <p className={styles.entityHas}>{entity.has}</p>}
+          <p className={styles.entityEg}>{entity.example}</p>
+          {entity.count === undefined
+            ? null
+            : <p className={styles.entityLink}>See all {entity.count} →</p>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ContextWindow({ tab }: { tab: SubTab }) {
   return (
     <ProjectWindow
       sidebar={{}}
@@ -321,19 +483,23 @@ function ContextWindow({ tab }: { tab: "contract" | "violations" }) {
             <Header tab={tab} />
             <Tabs defaultValue={tab}>
               <TabList>
-                <Tab value="contract">Contract</Tab>
+                <Tab value="domain">Domain model</Tab>
+                <Tab value="search">Search</Tab>
                 <Tab value="violations">Violations (2)</Tab>
-                <Tab value="views">Saved views</Tab>
                 <Tab value="glossary">Glossary</Tab>
+                <Tab value="contract">Contract</Tab>
               </TabList>
-              <TabPanel value="contract">
-                <Contract />
+              <TabPanel value="domain">
+                <DomainModel />
               </TabPanel>
+              <TabPanel value="search">{null}</TabPanel>
               <TabPanel value="violations">
                 <Violations />
               </TabPanel>
-              <TabPanel value="views">{null}</TabPanel>
               <TabPanel value="glossary">{null}</TabPanel>
+              <TabPanel value="contract">
+                <Contract />
+              </TabPanel>
             </Tabs>
           </>
         ),
@@ -342,7 +508,12 @@ function ContextWindow({ tab }: { tab: "contract" | "violations" }) {
   );
 }
 
-/** C2: Context 탭 · 계약. */
+/** C2: Context 탭 · Domain model(기본 탭). */
+export function ContextDomain() {
+  return <ContextWindow tab="domain" />;
+}
+
+/** C2b: Context 탭 · Contract(세부, 뒤쪽 탭). */
 export function ContextContract() {
   return <ContextWindow tab="contract" />;
 }

@@ -92,11 +92,12 @@ export type ScreenId =
   | "conversation-dock"
   | "new-tab-kinds"
   | "new-tab-menu"
+  | "new-context-domain"
   | "new-context-contract"
   | "new-context-violations"
   | "new-violation-toast"
-  | "new-saved-view"
-  | "new-plain-search"
+  | "new-search-table"
+  | "new-search-board"
   | "new-workspace"
   | "new-organize";
 
@@ -466,9 +467,15 @@ export const PAGES: readonly WireframePage[] = [
     "new-tab-menu",
   ),
   fresh(
+    "new-context-domain",
+    "Context tab · Domain model",
+    "context를 열면 먼저 도메인 모델이 보인다. 어떤 것들이 있고 각각 무엇이며 서로 어떻게 이어지는지를 사람 말로 보인다. 경로·타입 같은 계약 세부는 Contract 탭에 있다.",
+    "new-context-domain",
+  ),
+  fresh(
     "new-context-contract",
     "Context tab · Contract",
-    "context는 project 문서 위의 결정적 계약과 검색 함수다. type마다 자료가 놓인 모양(kind)·field·관계를 적고, 다른 context에는 public만 내놓는다. Context Engineer가 만들고 test를 통과하면 자동 적용된다.",
+    "계약 세부는 뒤쪽 탭에 있다. 자료가 놓인 곳·field 타입·다른 context에 내놓는 것·선언된 검색·test 결과다. 보통은 열 일이 없다.",
     "new-context-contract",
   ),
   fresh(
@@ -484,16 +491,16 @@ export const PAGES: readonly WireframePage[] = [
     "new-violation-toast",
   ),
   fresh(
-    "new-saved-view",
-    "Search tab · saved view",
-    "saved view는 context 검색 함수 호출을 저장한 것이다. 열 때마다 다시 계산한다. 일반 검색은 그때그때 한다.",
-    "new-saved-view",
+    "new-search-table",
+    "Search tab · table result",
+    "검색 화면은 Context Engineer가 계약에 선언한 검색으로 그려진다. 입력 칸의 종류와 결과 보기도 선언에서 나온다. saved view는 입력을 채워 저장한 것이다.",
+    "new-search-table",
   ),
   fresh(
-    "new-plain-search",
-    "Search tab · plain search",
-    "일반 검색어의 결과는 문서별 snippet 목록이다. 일반 검색에는 [Save as view]가 없다. 저장하려면 context 검색 함수 호출로 한다.",
-    "new-plain-search",
+    "new-search-board",
+    "Search tab · board result",
+    "같은 선언 방식으로 결과 보기를 바꿀 수 있다. 상태별 묶음(board)으로 보이는 검색의 예다. 일반 검색어 검색은 위 막대의 돋보기로만 남는다.",
+    "new-search-board",
   ),
   fresh(
     "new-workspace",

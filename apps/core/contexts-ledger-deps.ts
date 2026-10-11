@@ -46,6 +46,7 @@ import {
 import { createRunCommands } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
 import {
   contextContentField,
+  ContextDepRefused,
   ContextDepUnavailable,
   type ContextsRuntime,
 } from "./contexts-api.ts";
@@ -386,7 +387,7 @@ export function createContextsRuntime(): ContextsRuntime {
           request.context,
         ]);
         if (owner === undefined) {
-          throw new ContextDepUnavailable("the context is not in the ledger");
+          throw new ContextDepRefused("not_found", "context not found");
         }
         const evidence = blobs.read(request.evidence);
         if (!evidence.ok) {
@@ -413,10 +414,9 @@ export function createContextsRuntime(): ContextsRuntime {
           },
         });
         if (started.ok) return started.value.run;
-        if (started.error.code === "unavailable") {
-          throw new ContextDepUnavailable(started.error.message);
-        }
-        throw new Error(started.error.message);
+        // 세션·Run 접수가 거절한 코드 그대로 답한다(없는 project는 not_found, 받을 assignment가 없으면
+        // unavailable). 접수 쪽은 internal 말고 문서가 정한 코드만 낸다.
+        throw new ContextDepRefused(started.error.code, started.error.message);
       },
       isContextEngineer(assignment) {
         if (current === undefined) return false;

@@ -45,6 +45,7 @@ const USER_OPERATIONS = [
   "ListSessions",
   "ReadMessageBody",
   "project.create",
+  "project.archive",
   "context.create",
   "context.hand_off_violations",
   "context.violations",
@@ -73,6 +74,7 @@ function contextOf(
 }
 
 type Engineer = { id: string; revision: number };
+let projectRevision: unknown;
 
 async function open(
   home: string,
@@ -177,6 +179,7 @@ async function open(
     prepared: [],
   });
   assertEquals(created.status, 200, JSON.stringify(created.body));
+  projectRevision = created.body["revision"];
   guard.keep();
   return { core, engineer };
 }
@@ -507,4 +510,39 @@ Deno.test("documents/contexts#R25 [ctx-I58h]: the request text names each violat
   assert(cut.includes("eval/experiments/exp-0.md"));
   assert(!cut.includes("exp-1999.md"));
   assertEquals(cut.split("\n").at(-1)?.startsWith("... and "), true);
+});
+
+Deno.test("documents/contexts#R25 [ctx-I58h]: when the project can no longer take a session the hand-off answers not_found and leaves nothing", async () => {
+  await withCore(async (core) => {
+    await seedViolations(core);
+    const archived = await post(
+      core,
+      "user",
+      "projects/archive",
+      command({ project: PROJECT }, "archive-project", {
+        base_revision: projectRevision,
+      }),
+    );
+    assertEquals(archived.status, 200, JSON.stringify(archived.body));
+    const runsBefore = await post(core, "user", "runs/list", {});
+    const handed = await post(
+      core,
+      "user",
+      "contexts/hand_off_violations",
+      command({ context: CONTEXT }, "hand-off-archived-project"),
+    );
+    assertEquals(handed.status, 404, JSON.stringify(handed.body));
+    assertEquals(
+      (await violationsOf(core)).map((item) => item["handed_off"]),
+      [false, false],
+    );
+    assertEquals(
+      (await post(core, "user", "runs/list", {})).body["runs"],
+      runsBefore.body["runs"],
+    );
+    assertEquals(
+      (await post(core, "user", "sessions/list", {})).body["sessions"],
+      [],
+    );
+  });
 });

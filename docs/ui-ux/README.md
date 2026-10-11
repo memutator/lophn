@@ -48,15 +48,22 @@ lophn 화면 전체에 걸치는 UI/UX 전역 규칙이다. 화면마다의 정�
 | problem | **Issue** | |
 | report | 보이지 않음(Problem으로 묶여 Issue로만 보인다) | |
 | verification(test result) | **Test result** | 이미 바이브코딩 사용자가 아는 말 |
-| context | **Context**(사람이 지은 이름과 함께, 예: "Context: Grocery budget") | |
-| term | **Meaning** | |
+| context | **Context**(사람이 지은 이름과 함께, 예: "Context: Grocery budget"). 프로젝트 안에만 있고 Lophn Workspace에는 없다 | 쓰지 않는 말: Focus, Materials, Meanings. 목록 탭은 **Contexts**, 하나를 여는 탭은 **Context** |
+| context 계약 위반 | **Violations**(탭 이름에 개수, 예: "Violations (2)") | 줄마다 [Send to Context Engineer]. 계약·rule 말은 Contract 탭과 줄의 "rule:" 한 줄에만 둔다 |
+| context 개요 | **Overview**(Context 탭의 기본 하위 탭) | 개체 카드·사람 말 화살표·**Composition** 트리. kind·public 같은 계약 말은 쓰지 않는다 |
+| context 계약 | **Contract**(Context 탭의 맨 뒤 하위 탭) | "Details for Context Engineer and the curious". kind·public·판 번호는 여기서만 보인다 |
+| term(용어집) | **Glossary**(Context 탭의 하위 탭) | agent가 사람 말을 알아듣는 자료. 항목은 말과 뜻으로 보이고 별도 이름을 두지 않는다 |
+| saved view | **Saved views**(Search 탭 왼쪽 목록, sidebar 행, 접힌 rail 단추). 하나는 사람이 붙인 이름으로 보인다 | 선언된 검색에 입력을 채워 이름 붙여 저장한 것. [Save as view] |
+| 선언된 검색 | **Search**(탭, Context 탭의 하위 탭) | 입력 form은 선언한 입력 이름을 그대로 쓴다. 검색어 일치는 상단 검색 |
+| 대화 탭, 접힌 rail 단추 | **Agent**(Conversation 아님) | lophn·Context Engineer·Operator와 나누는 대화를 여는 탭 종류 이름 |
+| 새 context 시작 | **[New context]** | 폼이 아니라 Context Engineer와의 Agent 탭을 연다. 만드는 동안 Context 탭은 "drafting" |
 | preset | **Preset**(예: "Preset: Grocery helper") | agent 구성 하나. 역할마다 기본 Preset이 있고 사람이 고치거나 새로 만든다. 내부 구성(prompt, capability, MCP 목록)은 펼쳐 보는 자리에만 둔다 |
 | 사람 지침(LOPHN.md) | **Instructions** | 버튼 [Instructions]로 lophn 편집기에서 연다. 파일 경로와 안쪽 version 식별자는 기본에서 숨긴다 |
 | Operator 구성 | **Operator** + 붙은 project나 app 이름 | 같은 자리에 여럿 둘 수 있다. 반복 주기는 **Repeating check** |
 | coding agent 연결 | **Connection**(고른 harness 이름, 예: "Claude Code") | 감지·설치 기록·MCP·skill 위치는 숨긴다. 사람은 harness를 고르기만 한다 |
 | 시작 | **[Start]** | Task에서 coding agent를 터미널 탭에 연다. 누르는 것이 허락이라 확인 창을 따로 두지 않는다 |
 | session | 보이지 않음; 터미널 탭과 Task 상태로만 비친다 | |
-| series | **Series**(documents 화면의 탭과 등록 화면에서만) | sidebar 목적지가 아니다. 그 밖에서는 문서 목록의 정렬 결과로만 비친다(plan/shell Q14) |
+| series | 보이지 않음(기본); Contract 탭의 자료 위치 종류로만 **series** | 따로 등록하는 화면이 없다. 반복 문서는 context 계약이 정한다 |
 
 이 표에 없는 개념을 화면에 써야 하면 docs/README.md의 말 규칙으로 안쪽 이름을 먼저 확인하고, 이 표에 줄을 더한다. 문서·코드의 말 규칙(docs/README.md#말)과 이 표는 서로 다른 목적이라 같은 말이 양쪽에 다르게 적힐 수 있다.
 
@@ -89,15 +96,17 @@ shell/wording이 i18n의 지켜야 할 요구(en-only 시작, key 검사)를 정
 | 공간 | 화면(이름) | 하는 일 한 줄 | 들어가는 길 |
 |---|---|---|---|
 | 첫 창 | **launcher** | 프로젝트·앱을 열거나 등록하고 이어서 쓴다 | 새 기본 창의 시작, `Ctrl+Shift+L` |
-| 프로젝트 | **project-workspace** | 문서·터미널·앱 패널을 같은 탭 줄에 놓고 오간다 | launcher의 프로젝트 카드 |
+| 프로젝트 | **project-workspace** | 문서·터미널·앱 패널·Agent·Contexts·Context·Search를 같은 탭 줄에 놓고 오간다. sidebar를 접으면 바로 가기 rail(Terminal · Contexts · Saved views · Search · Agent)이 된다 | launcher의 프로젝트 카드 |
 | 〃 탭 내용 | **document** | 문서 하나를 읽거나 고치고 판 이력을 본다 | project-workspace의 문서 탭 |
 | 〃 탭 내용 | **terminal** | 프로젝트 폴더에서 명령을 실행하고, Task의 [Start]로 coding agent를 연다 | project-workspace의 터미널 탭, Task의 [Start] |
 | 〃 탭 내용 | **app-panel** | 문서 옆 탭에서 앱 화면을 쓴다 | project-workspace의 앱 패널 탭 |
+| 〃 탭 내용 | **agent** | agent와 나누는 대화 한 건을 탭으로 연다(화면은 conversation이 정한다) | 탭 줄 `+` › Agent, rail의 Agent, Context Engineer 대화로 시작하는 [New context] |
+| 〃 탭 내용 | **contexts** | 이 프로젝트의 context를 카드로 보고 열거나 [New context]로 만든다 | sidebar의 Contexts 행, rail의 Contexts |
+| 〃 탭 내용 | **context** | context 하나를 Overview · Search · Violations · Glossary · Contract 하위 탭으로 본다 | contexts의 [Open], 탭 줄 `+` › Context, 상단 검색, 문서 Info › Contexts의 [Open], 위반 toast의 [View], search의 "Open context", 대화 속 이름 링크 |
+| 〃 탭 내용 | **search** | context가 선언한 검색의 입력 form으로 찾고 표나 board로 결과를 읽는다 | rail의 Search · Saved views, 탭 줄 `+` › Search, context의 Search 하위 탭 |
 | 앱 | **app-space** | 앱 화면 전체를 쓰고 문제를 알린다 | launcher의 앱 카드, OS 바로가기 |
 | 〃 패널 | **app-detail** | 한 앱의 version·access·연결·issue·task를 보고 결정한다 | app-space의 운영 패널 진입점 |
 | lophn | **projects** | 등록한 프로젝트를 찾고 정리한다 | 상단 바 고정 진입점 → lophn 공간 |
-| 〃 | **documents** | 문서를 검색하고 저장한 보기를 연다 | 〃 |
-| 〃 | **contexts** | context와 meaning을 만들고 정한다 | 〃 |
 | 〃 | **apps** | 등록한 앱을 찾고 정리한다 | 〃 |
 | 〃 | **things-to-confirm** | 기다리는 결정과 지난 결과를 모아 본다 | 〃, notification 클릭 |
 | 〃 | **roles** | 역할이 하는 일과 만든 것을 보고 대화를 연다 | 〃 |
@@ -108,7 +117,8 @@ shell/wording이 i18n의 지켜야 할 요구(en-only 시작, key 검사)를 정
 | 전역 | **report-problem** | 지금 화면의 이상을 글로 알린다 | app-panel/app-space의 [문제 알리기] |
 
 - **Instructions**는 화면이 아니라 진입점이다. 전역은 settings, project는 project-workspace, app은 app-detail의 [Instructions]에서 lophn 편집기(document)로 연다. **Preset**은 roles에서 고친다.
-- 모든 창은 launcher로 시작한다(shell/desktop#R24). lophn 공간(화면 이름은 Lophn Workspace)의 일곱 화면은 형제이며 분류 전·거처 같은 중간 계층을 두지 않는다(shell/desktop#R28).
+- 모든 창은 launcher로 시작한다(shell/desktop#R24). lophn 공간(화면 이름은 Lophn Workspace)의 화면은 형제이며 분류 전·거처 같은 중간 계층을 두지 않는다(shell/desktop#R28).
+- 문서와 context는 프로젝트 하나에 속하므로 Lophn Workspace에 화면이 없고 project-workspace의 탭으로만 연다. Lophn Workspace는 칸·탭이 없는 따로인 페이지다(shell/desktop#R33). 프로젝트 화면의 대부분 화면은 탭 kind이며 kind는 등록 구조로 늘린다(shell/workspace#R14).
 - **conversation**은 독립 공간이 아니라 모든 공간에서 토글하는 도크다. 닫아도 project-workspace·app-space의 탐색은 그대로다(shell/desktop#R1).
 - **confirmation-window**는 요청한 창 위의 child modal이다. 앱 view는 숨기지 않고 입력만 막는다(shell/confirmation-window#R6). 사람의 결정은 이 화면에서만 받는다.
 - **notification**은 화면이 아니라 창 오른쪽 아래 1칸의 chip이다(shell/desktop#R10). 클릭하면 things-to-confirm으로 이어지고, 그 자체로 읽음·승인·답이 되지 않는다.

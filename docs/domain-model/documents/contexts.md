@@ -4,149 +4,435 @@ concerns: [documents/contexts]
 ---
 # documents/contexts
 
-Context의 목적·항목·관점과 문서 watch의 확인된 변화 기록을 정의한다.
+Context, 계약·검색 묶음의 판(ContextBundle)과 격리 검사(ContextCheck), SavedView, 그리고 계약에서 계산하는 Entity·Violation(derived)을 정의한다.
 
 ## Context (`ctx`)
 
 | 필드 | 타입 | null | 제약 | 뜻 |
 |---|---|---|---|---|
 | `id` | `ctx` ID | 아니오 | PK, 불변 | |
-| `title` | string | 아니오 | 빈 문자열 금지 | |
-| `purpose` | string | 아니오 | 공백만 있는 문자열 금지 | |
-| `items` | ContextItem[] | 아니오 | 같은 target 중복 금지; 빈 목록 허용 | |
-| `revision` | event seq | 아니오 | 마지막 제목·목적·항목·보관 변경 seq | CAS 기준 |
-| `status` | `active \| archived` | 아니오 | 생성은 active | |
+| `project` | `prj` ID | 아니오 | → documents/projects; 생성 뒤 불변 | 소속. Workspace에는 context가 없다 |
+| `title` | string | 아니오 | 공백만 있는 문자열 금지; `(project, title)` 유일 | |
+| `purpose` | string | 아니오 | 공백만 있는 문자열 금지 | 한 줄 목적 |
+| `status` | `drafting \| active \| archived` | 아니오 | 생성은 drafting | |
+| `applied_bundle` | `cbn` ID | 예 | 같은 Context의 applied 상태 ContextBundle; drafting이면 null | 지금 쓰는 판 |
+| `violation_mark` | 0 이상 정수 | 아니오 | 마지막으로 기록한 위반 수; 생성은 0 | 위반 수가 늘었는지 비교하는 기준 |
+| `revision` | event seq | 아니오 | 마지막 제목·목적·상태·적용 판·violation_mark 변경 seq | CAS 기준 |
 
 ### 상태
 
 | 상태 | 뜻 |
 |---|---|
-| `active` | 문서 watch 검사의 구성 대상 |
-| `archived` | 문서 watch 검사 중단; 대상 Document·App은 바뀌지 않음 |
+| `drafting` | 적용된 판이 아직 없다; 검색·위반 감지·preset 선택 대상이 아님 |
+| `active` | 적용된 판이 있다; 검색·위반 감지·preset 선택 대상 |
+| `archived` | 검색·위반 감지·알림·preset 선택 후보에서 빠짐; 계약·판·saved view는 남음 |
 
 | 전 | 후 | actor | 조건 | event |
 |---|---|---|---|---|
-| 없음 | `active` | `user`, 허용된 Context Engineer의 `agent` | 목적·항목 유효 | `ContextCreated` |
-| `active` | `archived` | `user`, 허용된 Context Engineer의 `agent` | base_revision 일치 | `ContextArchived` |
-| `archived` | `active` | `user`, 허용된 Context Engineer의 `agent` | base_revision 일치 | `ContextUnarchived` |
+| 없음 | `drafting` | `user`, Context Engineer의 `agent` | 목적·제목 유효 | `ContextCreated` |
+| `drafting` | `active` | `machine` | 첫 ContextBundle이 검사를 통과해 적용됨(같은 transaction) | `ContextBundleApplied` |
+| `drafting` / `active` | `archived` | `user` | base_revision 일치 | `ContextArchived` |
+| `archived` | 보관 직전 상태(applied_bundle이 있으면 `active`, 없으면 `drafting`) | `user` | base_revision 일치 | `ContextUnarchived` |
 
 ### 불변 조건
 
-- Context는 Document·App을 소유하지 않는다. 항목 제거·보관이 target을 변경하지 않는다.
-- 같은 Document는 Context마다 다른 관점이 가능하다. Context 안에서는 target당 하나의 항목만 있다. 문서 전체와 section 하나는 다른 target이다.
-- 문서 항목은 최신 Version을 따른다. item별 고정 version 옵션은 없다. 실제 읽기·근거 전달은 응답의 고정 ver를 사용한다.
-- 상위 Context·용어 상속·Context 간 관계·depth·View는 없다. 읽기량은 → documents/outline-and-search의 요청 값이다.
-- item 추가가 읽기 권한을 주지 않는다(→ platform/identity). App Engineer가 관련 Context 목적·용어·항목을 읽더라도 다른 place 문서 본문 권한은 생기지 않는다(→ lophn-agent/roles/app-engineer).
-- 구성 변경 event는 이전 값을 작은 payload 또는 blob 참조로 남긴다. run revert는 이후 revision이 그대로일 때만 보상한다(→ lophn-agent/revert).
+- Context는 Document·App을 소유하지 않는다. 보관·판 되돌리기는 project 파일을 바꾸지 않는다(→ documents/projects).
+- Context는 자기 Project의 파일과 App의 read 명령만 읽는다. 다른 Project의 경로는 어디에도 쓸 수 없다.
+- 계약과 판은 ledger(와 blob)에 둔다. project 폴더에 쓰지 않는다.
+- 한 Context에 draft 판은 최대 하나, checking 판은 최대 하나이고, applied 판은 `applied_bundle`이 가리키는 하나다.
+- 근거는 파일 경로와 section으로만 가리킨다. 문서 판(version)·`doc@ver` 주소는 쓰지 않는다.
 
-## ContextItem (값)
+## ContextBundle (`cbn`)
+
+계약, 선언된 검색, saved view 정의, 예(examples)를 한 번에 묶은 판이다. 문서의 판이 아니다.
 
 | 필드 | 타입 | null | 제약 | 뜻 |
 |---|---|---|---|---|
-| `target` | ContextTarget | 아니오 | canonical target가 항목 키; 별도 ID 없음 | |
-| `perspective` | `basis \| reference \| watch` | 아니오 | 아래 관점 표 | |
-| `reason` | string | 아니오 | 공백만 있는 문자열 금지 | 목적에 대한 선택 이유 |
+| `id` | `cbn` ID | 아니오 | PK, 불변 | |
+| `context` | `ctx` ID | 아니오 | → Context; 불변 | |
+| `number` | 양의 정수 | 예 | 검사에 낼 때 부여; `(context, number)` 유일; Context 안에서 증가; draft면 null | 판 번호(화면에는 r1, r2 …) |
+| `parent` | `cbn` ID | 예 | 같은 Context의 판; 처음이면 null | 이 초안을 시작한 판 |
+| `content` | blob 참조 | 아니오 | → platform/blob-store; BundleContent JSON; submit 뒤 불변 | 묶음 내용 |
+| `bundle_hash` | sha256 | 예 | submit 때 정규 JSON으로 계산; draft면 null | 검사·적용한 정확한 byte |
+| `status` | `draft \| checking \| failed \| applied \| superseded \| discarded` | 아니오 | 아래 전이만 | |
+| `check` | `chk` ID | 예 | checking 이후 필수 | 이 판의 검사 |
+| `created_by` | actor | 아니오 | → platform/identity | 초안을 연 주체 |
+| `revision` | event seq | 아니오 | 마지막 draft 저장·상태 변경 seq | CAS 기준 |
 
-| perspective | 표시 | 의미 제약 |
+### 상태
+
+| 상태 | 뜻 |
+|---|---|
+| `draft` | Context Engineer가 쓰는 초안; 번호 없음; 적용된 판에 영향 없음 |
+| `checking` | 번호를 받고 격리 검사 중; 내용 불변 |
+| `failed` | 검사가 실패함; 적용되지 않음; 내용 보존 |
+| `applied` | 지금 Context가 쓰는 판 |
+| `superseded` | 다른 판이 적용되어 물러남; 되돌릴 수 있음 |
+| `discarded` | 쓰지 않고 버린 draft |
+
+| 전 | 후 | actor | 조건 | event |
+|---|---|---|---|---|
+| 없음 | `draft` | Context Engineer의 `agent` | Context가 archived가 아님; 기존 draft 없음 | `ContextBundleDraftSaved` |
+| `draft` | `draft` | Context Engineer의 `agent` | base_revision 일치; content 유효한 JSON | `ContextBundleDraftSaved` |
+| `draft` | `discarded` | Context Engineer의 `agent`, `user` | base_revision 일치 | `ContextBundleDraftDiscarded` |
+| `draft` | `checking` | Context Engineer의 `agent` | checking 판 없음; content가 BundleContent 스키마를 만족; 번호·hash 부여 | `ContextBundleSubmitted` |
+| `checking` | `failed` | `machine` | ContextCheck가 failed | `ContextBundleCheckFailed` |
+| `checking` | `applied` | `machine` | ContextCheck가 passed; 같은 transaction에서 Context.applied_bundle 변경, 이전 applied는 superseded, saved view 반영 | `ContextBundleApplied` |
+| `superseded` | `applied` | `user` | base_revision 일치; 지금 applied 판은 superseded로 | `ContextBundleRolledBack` |
+
+### 불변 조건
+
+- submit 뒤 content·hash·번호는 바뀌지 않는다. 고치려면 새 draft를 연다(parent = 이 판).
+- 같은 Context 안에서 applied는 많아야 하나이며 적용과 물러남은 한 transaction이다.
+- 되돌리기는 이전 판을 다시 검사하지 않는다. 판 번호를 새로 만들지 않고 그 판이 다시 applied가 된다. 되돌린 판의 saved view 정의를 반영한다.
+- 적용된 판은 직접 고칠 수 없다. 계약 변경은 draft → checking → applied 경로로만 들어온다.
+- Context.status가 archived이면 draft·submit·되돌리기가 거절된다.
+
+## BundleContent (값)
+
+판의 content blob의 JSON이다.
+
+| 필드 | 타입 | null | 제약 | 뜻 |
+|---|---|---|---|---|
+| `schema` | 양의 정수 | 아니오 | 알려진 값 | BundleContent 스키마 번호 |
+| `contract` | Contract | 아니오 | | 개체의 계약 |
+| `searches` | DeclaredSearch[] | 아니오 | 이름 유일; 빈 목록 허용 | 선언된 검색 |
+| `saved_views` | SavedViewDef[] | 아니오 | 이름 유일; 빈 목록 허용 | 이 판이 두는 saved view |
+| `examples` | Example[] | 아니오 | 빈 목록 허용 | 검사가 맞춰 볼 예 |
+
+## Contract (값)
+
+| 필드 | 타입 | null | 제약 | 뜻 |
+|---|---|---|---|---|
+| `types` | Type[] | 아니오 | 1개 이상; `name` 유일 | 도메인 개체의 type |
+
+### 불변 조건
+
+- 계약은 정적 데이터다. 시간·난수·model 호출·외부 입출력을 쓰는 항목이 없다. 같은 파일 상태에서 개체·field·관계·위반이 같다.
+- 관계의 `to`와 참조 type은 같은 Contract 안에 있거나 다른 Context의 public type이어야 한다(Type.visibility 참조).
+- 다른 Project의 경로는 어떤 필드에도 쓸 수 없다.
+
+## Type (값)
+
+| 필드 | 타입 | null | 제약 | 뜻 |
+|---|---|---|---|---|
+| `name` | string | 아니오 | 대문자로 시작하는 식별자(Experiment, Finding); Contract 안 유일 | |
+| `summary` | string | 아니오 | 공백만 있는 문자열 금지 | 사람이 읽는 한 줄 뜻 |
+| `visibility` | `public \| private` | 아니오 | 기본 private | 다른 context가 가리킬 수 있는지 |
+| `source` | Source | 아니오 | kind 일곱 가지 중 하나 | 개체가 있는 자료 |
+| `key` | string | 아니오 | `fields`의 이름; 값은 type 안 유일 | 개체를 구별하는 field |
+| `fields` | Field[] | 아니오 | 이름 유일; `key` field 포함 | |
+| `relations` | Relation[] | 아니오 | 이름 유일; 빈 목록 허용 | 다른 type과의 관계 |
+| `rules` | CheckRule[] | 아니오 | id 유일; 빈 목록 허용 | 이 type의 검사 규칙 |
+
+## Source (값)
+
+`kind`로 구별하는 tagged union이다. 다른 가지의 필드는 금지한다. 경로는 모두 Project 폴더 기준 상대 경로이며 Project 밖을 가리킬 수 없다.
+
+| kind | 필드 | 제약 | 개체 |
+|---|---|---|---|
+| `folder` | `root` path, `child_pattern` glob(기본 `*`), `depth` 1 | 폴더 이름이 pattern에 맞는 것 | 하위 폴더 하나가 개체 하나(폴더 이름이 path capture 값) |
+| `docs` | `paths` PathPattern[] | 1개 이상; 경로 또는 glob | 맞는 문서 하나가 개체 하나 |
+| `series` | `pattern` string, `order` `natural` | `{n}` 같은 이름 있는 capture 하나 이상과 `*` 허용; 같은 pattern이 두 type에 겹치지 않음 | 맞는 문서 하나가 개체 하나; 번호 capture를 수로 비교한 자연 순서 |
+| `index` | `document` path, `within` heading? | Markdown 문서; `within`이 있으면 그 section 안 링크만 | 문서가 링크한 같은 Project 문서 하나가 개체 하나(링크 순서) |
+| `section` | `documents` PathPattern[] 또는 `from_type` Type 이름, `level` 1~6, `title_pattern` glob? | | 맞는 heading의 section 하나가 개체 하나 |
+| `outline` | `documents` PathPattern[] 또는 `from_type` Type 이름, `format` `markdown`, `min_level`, `max_level` | format은 지금 `markdown`뿐; 확장은 parser 등록으로 | 제목 tree의 heading 노드 하나가 개체 하나(부모·level를 field로) |
+| `app-data` | `app` slug, `command` string, `result_path` string | command의 효과가 read → apps/blueprint; 호출 입력은 고정 값만 | command 결과 배열의 항목 하나가 개체 하나 |
+
+- `docs`·`series`·`section`·`outline`의 Markdown 해석은 documents/formats의 section 추출 규칙을 쓴다.
+- `index`는 링크 대상이 Project 밖이거나 없는 문서이면 그 개체를 만들지 않고 위반으로 센다.
+- `series`의 다음 이름 계산은 → documents/series가 정의한다. 이 파일은 pattern과 순서만 쓴다.
+- `outline`은 저장하거나 index에 넣지 않는다. 쓸 때마다 문서 editor와 같은 parser(→ documents/formats, documents/outline-and-search)로 읽는다.
+- `app-data`의 입력·결과는 계약과 index에 저장하지 않는다. 검색할 때 명령을 불러 얻는다.
+
+## Field (값)
+
+| 필드 | 타입 | null | 제약 | 뜻 |
+|---|---|---|---|---|
+| `name` | string | 아니오 | 소문자 식별자; Type 안 유일 | |
+| `from` | FieldFrom | 아니오 | tagged union | 값을 꺼낼 곳 |
+| `value_type` | `string \| number \| boolean \| date \| enum \| list` | 아니오 | enum이면 `values`, list면 `item_type` 필수 | |
+| `values` | string[] | 조건부 | enum에서 필수 | 허용 값 |
+| `item_type` | 위 타입 중 list 제외 | 조건부 | list에서 필수 | |
+| `required` | boolean | 아니오 | 기본 false | 규칙 `required_field`의 지름길 |
+| `visibility` | `public \| private` | 아니오 | Type이 private이면 private | 다른 context가 가리킬 수 있는지 |
+
+### FieldFrom
+
+| kind | 필드 | 뜻 |
 |---|---|---|
-| `basis` | 기준 | 해당 판단이 따르는 자료 |
-| `reference` | 참고 | 기준을 대체하지 않는 배경 |
-| `watch` | watch | 변화 확인 자료; notification 상태가 아님 |
+| `frontmatter` | `key` | 개체 문서의 frontmatter 키 |
+| `yaml` | `file`, `key_path` | YAML 문서의 키 경로(`@std/yaml`로 읽음) |
+| `section` | `heading`, `include_children` | 개체 문서의 section 본문 |
+| `path` | `capture` | Source pattern에서 잡은 값(번호, 폴더 이름) |
+| `title` | | 문서의 첫 제목 또는 section heading |
+| `links` | `within` heading?, `to_type` Type 이름? | 문서 안 링크의 목록 |
+| `outline` | `max_level` | 문서의 제목 tree 목록 |
 
-## ContextTarget (값)
+`file`은 `folder` Source의 개체에서 어느 파일을 읽을지 정한다. 없으면 개체의 문서 자체다.
 
-| 필드 | 타입 | null | 제약 | 뜻 |
-|---|---|---|---|---|
-| `kind` | `document \| app_command` | 아니오 | tagged union | |
-| `document` | `doc` ID | 조건부 | document 가지에 필수 → documents/versions | |
-| `section` | string | 예 | document 가지에서만 허용; null이면 전체; Format key → documents/formats | |
-| `app` | `app` ID | 조건부 | app_command 가지에 필수 → apps/registration | |
-| `command` | string | 조건부 | app_command 가지에 필수; 실제 blueprint command effect가 read → apps/blueprint | |
-
-다른 가지의 필드는 금지한다. 공개 입력 `{document, section?}` 또는 `{app, command}`는 이 tagged union으로 정규화한다. 앱 입력·응답 데이터를 Context item에 저장하지 않는다. Query entity는 없다. App item의 watch는 자동 호출·자동 변화 event를 만들지 않는다.
-
-## WatchedItemComparison (값)
-
-ledger 밖 계산 결과의 제출 값이다.
+## Relation (값)
 
 | 필드 | 타입 | null | 제약 | 뜻 |
 |---|---|---|---|---|
-| `context` | `ctx` ID | 아니오 | 활성 Context | |
-| `context_revision` | event seq | 아니오 | 비교 구성 기준 | |
-| `target` | ContextTarget | 아니오 | document 가지의 현재 watch item | |
-| `source_seq` | event seq | 아니오 | 원래 DocumentSaved seq → documents/versions | |
-| `before_version` | `ver` ID | 예 | 첫 판이면 null; 해당 Document 판 | |
-| `after_version` | `ver` ID | 아니오 | 해당 source_seq가 확정한 Document 판 | |
-| `result` | `content_changed \| section_added \| section_missing \| unchanged \| unverified` | 아니오 | 아래 판정 정책 | |
-| `before_hash` | sha256 | 예 | 전후 전체 content_hash 또는 같은 key body_hash | |
-| `after_hash` | sha256 | 예 | section_missing이면 null | |
-| `module_hashes` | `{before: sha256?, after: sha256}` | 아니오 | 비교 규약 확인의 근거 | |
-| `unverified_reason` | string | 조건부 | unverified면 필수 | |
+| `name` | string | 아니오 | Type 안 유일 | 관계 이름(about, scenarios) |
+| `label` | string | 아니오 | 공백만 있는 문자열 금지 | 사람이 읽는 말("runs on") |
+| `to` | string | 아니오 | Type 이름 또는 `context/type` 외부 참조(public만) | 대상 type |
+| `via` | string | 아니오 | 이 Type의 field 이름; 그 field의 값(`list`면 항목들)이 대상의 key | 연결 field |
+| `cardinality` | `one \| optional \| many` | 아니오 | | 다중도 |
+| `visibility` | `public \| private` | 아니오 | | 다른 context가 따라갈 수 있는지 |
+
+## CheckRule (값)
+
+| 필드 | 타입 | null | 제약 | 뜻 |
+|---|---|---|---|---|
+| `id` | string | 아니오 | Type 안 유일 | 위반이 가리키는 규칙 |
+| `kind` | `required_field \| unique_key \| relation_target_exists \| enum_value \| pattern \| count_range` | 아니오 | | 규칙 종류 |
+| `params` | JSON | 아니오 | kind별 스키마 | 필드 이름, 정규식, 범위 등 |
+| `message` | string | 아니오 | 공백만 있는 문자열 금지 | 사람이 읽는 말 |
+
+## DeclaredSearch (값)
+
+| 필드 | 타입 | null | 제약 | 뜻 |
+|---|---|---|---|---|
+| `name` | string | 아니오 | 소문자 식별자; Contract 안 유일 | |
+| `title` | string | 아니오 | 공백만 있는 문자열 금지 | 사람이 읽는 이름 |
+| `inputs` | SearchInput[] | 아니오 | 이름 유일; 빈 목록 허용 | |
+| `query` | Query | 아니오 | Contract의 type·field·relation만 참조 | |
+| `result` | ResultView | 아니오 | | |
+
+### SearchInput
+
+| 필드 | 타입 | null | 제약 | 뜻 |
+|---|---|---|---|---|
+| `name` | string | 아니오 | 검색 안 유일 | |
+| `label` | string | 아니오 | | 화면 이름 |
+| `type` | `entity \| value \| range \| text` | 아니오 | | 다른 개체 고르기 / 값 고르기 / 범위 / 자유 입력 |
+| `of` | string | 조건부 | entity면 Type 이름, value면 `Type.field`, range면 number·date field | 후보의 출처 |
+| `many` | boolean | 아니오 | 기본 false | 여럿 고르기 |
+| `required` | boolean | 아니오 | 기본 false | |
+
+### Query
+
+선언형이다. 실행기는 순수 함수이고 같은 파일 상태와 입력이면 같은 결과를 낸다.
+
+| 필드 | 타입 | null | 제약 | 뜻 |
+|---|---|---|---|---|
+| `from` | string | 아니오 | Type 이름 | 시작 type |
+| `where` | Condition | 예 | | 조건 |
+| `follow` | Follow[] | 아니오 | 빈 목록 허용 | 관계 따라가기 |
+| `sort` | `{path, dir}`[] | 아니오 | 빈 목록이면 Type의 자연 순서(series면 번호 순, 아니면 key 순) | 정렬 |
+| `group` | `{by path}` | 예 | | 묶기 |
+
+- Condition은 `all`·`any`·`not` 조합과 비교 `{path, op, value}`다. op은 `eq, ne, in, lt, lte, gt, gte, contains, exists`이고 value는 literal 또는 입력 참조 `{input}`이다.
+- Follow는 `{relation, as, direction, where?}`다. direction은 `forward`(이 type의 relation을 따라감) 또는 `reverse`(이 type을 가리키는 쪽을 찾음)이고 `as`는 이후 path의 별칭이다.
+- path는 `별칭.field` 모양이며 따라간 관계의 field까지만 갈 수 있다.
+- 동점은 key와 경로 순으로 결정한다. locale에 의존하지 않는다.
+
+### ResultView
+
+| 필드 | 타입 | null | 제약 | 뜻 |
+|---|---|---|---|---|
+| `kind` | `table \| board` | 아니오 | | |
+| `columns` | `{label, path}`[] | 아니오 | table이면 1개 이상 | 보여 줄 값 |
+| `board_by` | path | 조건부 | board에서 필수 | 열을 나누는 값 |
+| `page_size` | 양의 정수 | 아니오 | 기본 30, 최대 100 | cursor로 이어 봄 |
+
+결과의 개체는 그 개체의 파일 경로(+ section)를 연다. 결과 행에 개체 key와 경로를 항상 담는다.
+
+## Example (값)
+
+| 필드 | 타입 | null | 제약 | 뜻 |
+|---|---|---|---|---|
+| `kind` | `search \| entity` | 아니오 | tagged union | |
+| `search` | string | 조건부 | search 가지에서 필수; BundleContent.searches의 이름 | 부를 검색 |
+| `inputs` | JSON | 조건부 | search 가지; 검색 입력과 맞음 | |
+| `expect_keys` | string[] | 조건부 | search 가지; 결과의 key를 순서대로 | 맞아야 하는 결과 |
+| `path` | string | 조건부 | entity 가지에서 필수 | 개체로 읽혀야 할 파일 |
+| `section` | string | 예 | entity 가지 | |
+| `expect` | `{type, key, fields?}` | 조건부 | entity 가지; fields는 일부만 | 읽힌 개체 |
+
+## SavedViewDef (값)
+
+| 필드 | 타입 | null | 제약 | 뜻 |
+|---|---|---|---|---|
+| `name` | string | 아니오 | 공백만 있는 문자열 금지; 판 안 유일 | |
+| `search` | string | 아니오 | BundleContent.searches의 이름 | |
+| `inputs` | JSON | 아니오 | 검색의 입력과 맞음; 고정 값 | 고정 입력 |
+
+## SavedView (`viw`)
+
+선언된 검색의 호출을 고정 입력으로 저장해 이름 붙인 것이다. 열 때마다 검색을 다시 계산한다.
+
+| 필드 | 타입 | null | 제약 | 뜻 |
+|---|---|---|---|---|
+| `id` | `viw` ID | 아니오 | PK, 불변 | |
+| `context` | `ctx` ID | 아니오 | → Context | |
+| `name` | string | 아니오 | 공백만 있는 문자열 금지; `(context, name)` 유일 | |
+| `search` | string | 아니오 | 적용된 판의 검색 이름 | |
+| `inputs` | JSON | 아니오 | 검색 입력과 맞음 | 고정 입력 |
+| `origin` | `user \| engineer` | 아니오 | user는 사람이 검색 결과에서 저장; engineer는 판 적용에서 반영 | |
+| `revision` | event seq | 아니오 | 마지막 변경 seq | CAS 기준 |
 
 ### 불변 조건
 
-- source_seq 당시의 항목 구성 근거와 현재의 같은 target·perspective·Context revision을 함께 검사한다. 현재 추가된 item을 과거부터 있던 item으로 취급하지 않는다.
-- 최신 판이 더 생겨도 제출한 before→after의 고정 판 변화만 기록한다.
-- `content_changed`, `section_added`, `section_missing`만 확인된 변화 event가 된다. unchanged·unverified는 event가 아니다.
-- `(context, canonical target, after_version)`은 중복키다. 동일 재전달에는 event 하나만 있다.
-- 변화 event는 구성 변경이 아니며 Context revision을 바꾸지 않는다.
+- 일반 조건(제목에 든 말·본문 검색어·형식·바뀐 기간·보관 상태)으로 만든 saved view는 없다. `search`는 BundleContent에 선언된 검색이어야 한다.
+- 새 판의 격리 검사는 지금 모든 SavedView와 판의 `saved_views` 정의를 함께 호출해 본다. 호출이 깨지면 그 판은 failed다.
+- 판이 적용되면 `saved_views` 정의를 이름 기준으로 반영한다(같은 이름은 갱신, 없는 이름은 `engineer` origin으로 생성). 정의에 없는 기존 SavedView는 지우지 않는다.
+- 열린 saved view는 적용된 판으로 계산한다. 적용된 판에서 호출이 깨진 SavedView는 깨졌다고 표시하고 지우지 않는다.
+
+## ContextCheck (`chk`)
+
+| 필드 | 타입 | null | 제약 | 뜻 |
+|---|---|---|---|---|
+| `id` | `chk` ID | 아니오 | PK, 불변 | |
+| `context` | `ctx` ID | 아니오 | → Context | |
+| `bundle` | `cbn` ID | 아니오 | `bundle` 유일 | 검사한 판 |
+| `status` | `running \| passed \| failed` | 아니오 | 아래 전이만 | |
+| `snapshot_hash` | sha256 | 아니오 | 임시 snapshot의 (경로, 내용 hash) 목록의 hash | 검사한 파일 상태 |
+| `findings` | CheckFinding[] | 아니오 | failed면 1개 이상 | 실패 이유 |
+| `violation_count` | 0 이상 정수 | 조건부 | passed·failed에서 필수 | snapshot에서 센 위반 수 |
+| `started_at` | UTC 시각 | 아니오 | | |
+| `finished_at` | UTC 시각 | 예 | running이면 null | |
+
+| 전 | 후 | actor | 조건 | event |
+|---|---|---|---|---|
+| 없음 | `running` | `machine` | Bundle이 checking | `ContextBundleSubmitted` |
+| `running` | `passed` | `machine` | 아래 정책의 모든 단계 통과 | `ContextBundleApplied` |
+| `running` | `failed` | `machine` | 어느 단계라도 실패 또는 검사 프로세스 중단 | `ContextBundleCheckFailed` |
+
+### CheckFinding (값)
+
+| 필드 | 타입 | null | 제약 | 뜻 |
+|---|---|---|---|---|
+| `kind` | `contract_invalid \| cross_project_path \| private_reference \| example_mismatch \| saved_view_broken \| aborted` | 아니오 | | 실패 종류 |
+| `target` | string | 예 | 판 안 위치(type, 검색, 예, saved view 이름) | |
+| `detail` | string | 아니오 | redaction 대상; 큰 내용은 blob 참조 | 사람이 읽는 이유 |
+
+임시 snapshot은 검사 동안만 쓰는 읽기 전용 파일 사본이다. 검사가 끝나면 지운다. 문서의 판이 아니다.
+
+## Entity (derived)
+
+적용된 판이 index에서 계산해 두는 개체이다. ledger에 두지 않는다.
+
+| 필드 | 타입 | null | 제약 | 뜻 |
+|---|---|---|---|---|
+| `context` | `ctx` ID | 아니오 | | |
+| `bundle_hash` | sha256 | 아니오 | 계산한 판 | 판이 바뀌면 다시 계산 |
+| `type` | string | 아니오 | Contract의 Type 이름 | |
+| `key` | string | 아니오 | `(context, type, key)` 유일 | |
+| `path` | string | 아니오 | Project 기준 상대 경로 | 개체의 파일 |
+| `section` | string | 예 | section·outline 개체에서 heading | |
+| `fields` | JSON | 아니오 | Field 이름 → 값 | |
+| `links` | `{relation, target_key}`[] | 아니오 | 관계 간선 | |
+
+`outline` source의 개체와 outline field는 저장하지 않는다. `app-data` 개체도 저장하지 않는다.
+
+## Violation (derived)
+
+| 필드 | 타입 | null | 제약 | 뜻 |
+|---|---|---|---|---|
+| `context` | `ctx` ID | 아니오 | | |
+| `bundle_hash` | sha256 | 아니오 | 감지한 판 | |
+| `kind` | `rule \| unreadable \| path_mismatch \| broken_link` | 아니오 | | 위반 종류 |
+| `rule` | string | 조건부 | `rule`이면 `Type.rule id` | 어긴 규칙 |
+| `type` | string | 예 | | 관련 type |
+| `path` | string | 아니오 | | 근거 파일 |
+| `section` | string | 예 | | 근거 section |
+| `message` | string | 아니오 | | 사람이 읽는 말 |
+
+`(context, kind, rule, path, section)`이 키다. 같은 파일 상태에서는 같은 위반 집합이 나온다. 위반은 ledger 밖 상태다. 위반 수만 `Context.violation_mark`로 ledger에 남는다.
 
 ## 관계
 
 | from | 관계 | to | 다중도 | 대상이 사라지면 |
 |---|---|---|---|---|
-| Context | 항목 참조 | Document → documents/versions 또는 App → apps/registration | N:N | 자동 item 제거 없음; 읽기 실패 표시 |
-| Context | 용어 범위 | Term → documents/terms | 1:N | Context 보관은 Term 정의 변경 없음 |
-| ContextItem | section 선택 | section → documents/outline-and-search | N:0..1 | missing 표시; 자동 대응 없음 |
+| Context | 소속 | Project → documents/projects | N:1 | Project 보관은 Context를 같이 보관하지 않지만 검색은 읽기 실패로 표시 |
+| Context | 판 | ContextBundle | 1:N | 판은 지우지 않는다 |
+| ContextBundle | 검사 | ContextCheck | 1:0..1 | |
+| Context | saved view | SavedView | 1:N | |
+| Context | 용어집 | Term → documents/terms | 1:N | Context 보관은 Term을 바꾸지 않음 |
+| Context | 쓰는 preset | Preset → lophn-agent/presets | N:N | 보관은 preset 후보에서만 뺌 |
+| Type | 개체 위치 | project 파일 · App read 명령 → apps/blueprint | N:N | 파일이 없으면 개체가 없다; 규칙이 요구하면 위반 |
+| Type | 참조 | 다른 Context의 public Type | N:N | 참조 대상이 private으로 바뀌면 다음 검사에서 실패 |
 
 ## ledger 표
 
 | 표 | 담는 것 | 키 | unique | index | 참조 |
 |---|---|---|---|---|---|
-| `contexts` | `id, title, purpose, revision, status` | PK `id` | 없음 | `(status, id)` | revision → platform/ledger |
-| `context_items` | `context, target_key, position, target_kind, document, section, app, command, perspective, reason` | PK `(context, target_key)` | `(context, position)` | `(document, perspective)`, `(app, command)`, `(context, perspective)` | context → `contexts.id`; document → documents/versions; app·command → apps/registration, apps/blueprint |
-| `context_watch_changes` | `context, target_key, after_version, source_seq, before_version, event_seq, comparison` | PK `(context, target_key, after_version)` | `event_seq` | `(source_seq)`, `(context, event_seq)` | context → `contexts.id`; before·after → documents/versions; source_seq·event_seq → platform/ledger |
+| `contexts` | `id, project, title, purpose, status, applied_bundle, violation_mark, revision` | PK `id` | `(project, title)` | `(project, status)` | project → documents/projects; applied_bundle → `context_bundles.id`; revision → platform/ledger |
+| `context_bundles` | `id, context, number, parent, content, bundle_hash, status, check, created_by, revision` | PK `id` | `(context, number)` | `(context, status)` | context → `contexts.id`; content → platform/blob-store; check → `context_checks.id` |
+| `context_checks` | `id, context, bundle, status, snapshot_hash, findings, violation_count, started_at, finished_at` | PK `id` | `bundle` | `(context, status)` | bundle → `context_bundles.id`; findings의 큰 내용 → platform/blob-store |
+| `saved_views` | `id, context, name, search, inputs, origin, revision` | PK `id` | `(context, name)` | `(context)` | context → `contexts.id` |
 
-`position`은 0부터 연속인 정수다. `target_key`는 tagged target의 canonical encoding이며 전체 문서 null section과 app 가지를 구분한다. nullable 가지는 ContextTarget 조건을 지킨다. watch_changes는 확인된 변화의 중복 방지 근거이며 현재 context_items에 FK를 걸어 제거 때 이력을 잃지 않는다.
+### derived store 표
+
+지우고 다시 만들 수 있다. 계약이 가리키는 경로의 크기·수정 시각으로만 최신을 판단한다.
+
+| 표 | 담는 것 | 키 |
+|---|---|---|
+| `context_scan_stats` | `context, path, size, mtime, bundle_hash, scanned_at` | `(context, path)` |
+| `context_entities` | Entity | `(context, type, key)` |
+| `context_entity_links` | `context, type, key, relation, target_key` | `(context, type, key, relation, target_key)` |
+| `context_violations` | Violation | `(context, kind, rule, path, section)` |
 
 ## command
 
 | command | actor | 입력 | 비교 기준 | event | 거절(error code) |
 |---|---|---|---|---|---|
-| `context.create` | `user`, 허용된 CE `agent` | `id, title, purpose, items`, idempotency key | ID 미존재; target 유효; app command effect read | `ContextCreated` | `invalid_input`, `conflict`, `forbidden` |
-| `context.update` | `user`, 허용된 CE `agent` | `context, title?, purpose?` | base_revision; 종료 run 금지 | `ContextUpdated` | `invalid_input`, `not_found`, `conflict`, `forbidden` |
-| `context.set_item` | `user`, 허용된 CE `agent` | `context, item, position?` | base_revision; target·read command 유효 | `ContextItemSet` | `invalid_input`, `not_found`, `conflict`, `forbidden` |
-| `context.remove_item` | `user`, 허용된 CE `agent` | `context, target` | base_revision; item 존재 | `ContextItemRemoved` | `not_found`, `conflict`, `forbidden` |
-| `context.archive` | `user`, 허용된 CE `agent` | `context` | base_revision, active | `ContextArchived` | `not_found`, `conflict`, `forbidden` |
-| `context.unarchive` | `user`, 허용된 CE `agent` | `context` | base_revision, archived | `ContextUnarchived` | `not_found`, `conflict`, `forbidden` |
-| `context.record_watch_change` | 좁은 범위 `machine` | WatchedItemComparison | source_seq 구성 근거·현재 revision·active·동일 watch target; 중복키 | `ContextWatchedItemChanged` | `invalid_input`, `not_found`, `conflict`, `forbidden` |
+| `context.create` | `user`, Context Engineer의 `agent` | `id, project, title, purpose`, idempotency key | project 존재·활성; ID 미존재 | `ContextCreated` | `invalid_input`, `conflict`, `forbidden` |
+| `context.archive` | `user` | `context` | base_revision; drafting·active | `ContextArchived` | `not_found`, `conflict`, `forbidden` |
+| `context.unarchive` | `user` | `context` | base_revision; archived | `ContextUnarchived` | `not_found`, `conflict`, `forbidden` |
+| `bundle.save_draft` | Context Engineer의 `agent` | `context, bundle?, content` | draft 없거나 base_revision; Context archived 아님 | `ContextBundleDraftSaved` | `invalid_input`, `not_found`, `conflict`, `forbidden` |
+| `bundle.discard_draft` | Context Engineer의 `agent`, `user` | `bundle` | base_revision; draft | `ContextBundleDraftDiscarded` | `not_found`, `conflict`, `forbidden` |
+| `bundle.submit` | Context Engineer의 `agent` | `bundle` | draft; 다른 checking 없음; 스키마 유효 | `ContextBundleSubmitted` | `invalid_input`, `not_found`, `conflict`, `forbidden` |
+| `bundle.finish_check` | 좁은 범위 `machine` | `check, result, findings, violation_count` | checking 판; running 검사; 결과 중복 없음 | `ContextBundleApplied` 또는 `ContextBundleCheckFailed` | `invalid_input`, `not_found`, `conflict`, `forbidden` |
+| `bundle.rollback` | `user` | `context, bundle` | base_revision; 대상이 superseded | `ContextBundleRolledBack` | `not_found`, `conflict`, `forbidden` |
+| `view.save` | `user` | `context, name, search, inputs` | 이름 유일; 검색 존재; 입력 유효 | `SavedViewCreated` | `invalid_input`, `conflict`, `forbidden` |
+| `view.update` | `user` | `view`, 바꿀 필드 | base_revision | `SavedViewUpdated` | `invalid_input`, `not_found`, `conflict`, `forbidden` |
+| `view.delete` | `user` | `view` | base_revision | `SavedViewDeleted` | `not_found`, `conflict`, `forbidden` |
+| `context.record_violations` | 좁은 범위 `machine` | `context, count, bundle_hash` | active; count가 violation_mark와 다름 | `ContextViolationsRecorded` | `not_found`, `conflict`, `forbidden` |
+| `context.hand_off_violations` | `user` | `context, violations?`(없으면 전부), idempotency key | active; 위반 존재; 근거는 서버가 붙임 | `ContextViolationsHandedOff` | `invalid_input`, `not_found`, `forbidden` |
+
+`context.create`는 사람이 [New context]에서 Context Engineer와 대화한 뒤 Context Engineer가 부르는 것이 기본 경로다.
 
 ## event
 
 | event | subject | payload | 구독(concern) |
 |---|---|---|---|
-| `ContextCreated` | `ctx` | `title, purpose, items` 또는 blob 참조 | documents/outline-and-search, lophn-agent/harness/prompt-assemble |
-| `ContextUpdated` | `ctx` | 변경 필드의 before·after, before_revision | documents/outline-and-search, lophn-agent/revert |
-| `ContextItemSet` | `ctx` | `target, before_item, item, before_position, position, before_revision` | documents/outline-and-search, documents/contexts, lophn-agent/revert |
-| `ContextItemRemoved` | `ctx` | `target, before_item, before_position, before_revision` | documents/outline-and-search, documents/contexts, lophn-agent/revert |
-| `ContextArchived` | `ctx` | `before_revision` | documents/contexts, documents/outline-and-search |
-| `ContextUnarchived` | `ctx` | `before_revision` | documents/contexts, documents/outline-and-search |
-| `ContextWatchedItemChanged` | `ctx` | `target, before_version, after_version, source_seq, change_kind` | platform/notifications |
+| `ContextCreated` | `ctx` | `project, title, purpose` | shell |
+| `ContextArchived` | `ctx` | `before_revision` | lophn-agent/presets, shell |
+| `ContextUnarchived` | `ctx` | `before_revision` | lophn-agent/presets, shell |
+| `ContextBundleDraftSaved` | `cbn` | `context, parent, content` blob 참조 | shell |
+| `ContextBundleDraftDiscarded` | `cbn` | `context` | shell |
+| `ContextBundleSubmitted` | `cbn` | `context, number, bundle_hash, check` | documents 검사 worker |
+| `ContextBundleCheckFailed` | `cbn` | `context, number, check, findings` | shell |
+| `ContextBundleApplied` | `cbn` | `context, number, previous_applied, check, violation_count` | documents index, lophn-agent/harness/prompt-assemble, shell |
+| `ContextBundleRolledBack` | `cbn` | `context, number, previous_applied, before_revision` | documents index, lophn-agent/harness/prompt-assemble, shell |
+| `SavedViewCreated` | `viw` | `context, name, search, inputs, origin` | shell |
+| `SavedViewUpdated` | `viw` | 바뀐 필드의 before·after, before_revision | shell |
+| `SavedViewDeleted` | `viw` | `before_view, before_revision` | shell |
+| `ContextViolationsRecorded` | `ctx` | `before, after, bundle_hash` | platform/notifications |
+| `ContextViolationsHandedOff` | `ctx` | `violations`(Violation 키 목록), `evidence` blob 참조, 만든 Run | lophn-agent/harness/run-loop |
 
 ## 정책
 
-- **문서 전체 watch.** 전후 content_hash가 다르면 content_changed다. format만 바뀐 저장을 내용 변화로 알리지 않는다.
-- **section watch.** 같은 key의 body_hash를 비교한다. 성공 추출 뒤 전에는 있고 새 판에는 없으면 section_missing, 전에는 없고 새 판에 있으면 section_added다. 추출 미완료·실패·비교 의미를 확인할 수 없는 module 변경은 unverified다.
-- **key 소실.** item은 그대로 두고 missing 또는 unverified를 구분한다. 마지막 key 존재 판을 제시할 수 있으나 최신 section으로 꾸미지 않는다. 비슷한 제목·본문으로 item을 변경하지 않는다.
-- **계산 보관.** 미확인 비교·별도 watch event cursor는 ledger 밖 derived store에 보관하고 같은 worker가 재추출 후 재확인한다. item 변경·보관 뒤에는 과거 계산을 적용하지 않는다.
-- **notification.** 이 concern은 notification을 직접 생성하지 않는다. platform/notifications가 ContextWatchedItemChanged seq로 생성하며 이 event·notification은 agent run 계기가 아니다.
+- **index 갱신.** 검색을 하거나 context를 열기 전에 계약이 가리키는 경로만 `stat`(크기·수정 시각)으로 훑는다. 이전 `context_scan_stats`와 같으면 건너뛰고 다르면 그 파일만 다시 읽어 Entity를 갱신한다. watch·tracking·파일 시스템 감시자는 쓰지 않는다. 판이 바뀌면(bundle_hash 다름) 전부 다시 계산한다. 이 표를 지워도 같은 결과로 다시 만든다.
+- **outline·app-data.** outline은 저장하거나 index에 넣지 않고 쓸 때 파싱한다. app-data는 검색할 때 명령을 부르고 결과를 저장하지 않는다. 첫 구현은 명령 호출 port와 fake까지이며 실제 앱 read 명령 연결은 마지막에 한다.
+- **추출.** frontmatter와 YAML은 `@std/yaml`로, Markdown section·제목·링크는 documents/formats의 추출을 쓴다. 읽을 수 없는 파일은 개체를 만들지 않고 `unreadable` 위반이다. 개체가 읽혔지만 규칙을 어기면 개체는 index에 두고 `rule` 위반을 남긴다.
+- **위반 감지.** index를 갱신한 뒤 규칙과 pattern을 판정한다. `path_mismatch`는 계약 pattern에서 벗어난 이름·자리, `broken_link`는 index의 링크 대상이 없을 때다. 위반은 근거 파일·section·규칙을 모두 담는다. 위반이 있어도 나머지 개체의 검색은 막지 않는다.
+- **위반 수 기록.** 위반 수가 `Context.violation_mark`와 다르면 `context.record_violations`로 기록한다. 늘었을 때(after > before)만 platform/notifications가 notification을 만든다. 줄거나 같으면 notification이 없다. 보관된 Context의 위반은 기록하지 않는다.
+- **위반 넘기기.** `context.hand_off_violations`는 사람의 요청에서 이어진 Context Engineer의 Run 하나를 만든다. 근거(파일 경로·section·규칙·현재 규칙 정의)는 서버가 붙이고 사람이 설명을 쓰지 않는다. 같은 위반 집합의 중복 요청은 idempotency key로 하나다(→ lophn-agent/harness/run-loop, lophn-agent/handoff).
+- **격리 검사.** submit한 판의 내용을 쓰기 불가 프로세스에서 임시 snapshot에 대해 실행한다. 순서는 (1) 스키마·계약 유효성(type·관계·field·규칙 참조, 다른 Project 경로 거절), (2) 다른 context 참조가 public인 것만인지, (3) 모든 개체 계산과 위반 수 집계, (4) 예(examples)가 모두 맞는지, (5) 모든 SavedView와 판의 saved view 정의가 호출되는지다. (1)(2)(4)(5) 중 하나라도 실패하면 failed다. (3)의 위반 수는 실패 사유가 아니라 기록이다. 검사 프로세스가 중단되면 `aborted` finding으로 failed다. 시간 예산은 spec에서 정한다.
+- **자동 적용.** 통과하면 사람 승인 없이 같은 transaction에서 applied가 된다. 이전 applied는 superseded가 된다. 앱 release의 approval·activation 경로를 쓰지 않는다. 읽기만 하며 바깥 효과가 없기 때문이다.
+- **되돌리기.** 사람이 superseded 판을 고르면 그 판을 다시 applied로 한다. 다시 검사하지 않으며 현재 파일과 어긋나는 위반은 다음 갱신에서 센다.
+- **public/private 검사.** 다른 Context의 `context/type`을 가리킬 때 그 type·field·relation이 지금 applied 판에서 public이어야 한다. 검사 시점의 applied 판으로 확인한다. 참조된 context의 판이 바뀌어 참조가 깨지면 그 context의 다음 검사에서 실패로 알리고 자동으로 고치지 않는다.
+- **권한.** Context Engineer의 `agent`는 draft를 쓰고 submit만 한다. 적용된 판을 직접 고치거나 되돌리지 못한다. 되돌리기·보관은 `user`만 한다. coding agent에게는 context command·읽기 통로가 없다.
+- **저장.** 계약 내용은 content blob에, 참조·상태는 ledger 표에 둔다. project 폴더에는 아무것도 쓰지 않는다.
+- **근거.** 위반·검색 결과·용어집 근거는 Project 기준 상대 경로와 section(heading)만 담는다. 문서 판이나 `doc@ver` 주소를 담지 않는다.
 
 ## 정할 것
 
-- source_seq 시점 구성은 작은 before·after 또는 blob 참조를 그 seq까지 재생해 얻고, 현재 CAS는 그 결과와 지금 revision을 함께 본다.
-- context 분할·병합은 두지 않는다. 상위 Context·용어 상속도 없고 편집은 평면이다.
-- target_key는 읽기·watch 중복 처리와 같은 canonical encoding으로 고정한다.
-
-## agent 구성과의 경계
-
-Context는 읽을 자료의 묶음이며 Operator의 담당 대상이나 assignment scope가 아니다. Operator는 → lophn-agent/assignments의 Project 또는 App에 붙고 → lophn-agent/presets의 고정 판에서 Context를 0개 이상 선택한다. 같은 Project/App의 여러 Operator가 다른 Context를 읽을 수 있다. Context 보관·항목 제거가 assignment scope를 자동 변경하거나 새 run을 시작하지 않는다.
+- 검사 시간 예산과 검사 한 번의 최대 파일 수·개체 수는 spec에서 정한다.
+- 문서 Info의 Contexts 목록은 문서 경로가 어느 Type의 Source에 맞는지를 index에서 계산한다.
+- 선언형 query로 표현이 안 되는 검색이 실제로 나오면 QuickJS script를 더한다(→ open-issues documents/contexts#Q10).

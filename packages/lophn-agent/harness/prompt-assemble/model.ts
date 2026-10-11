@@ -89,12 +89,13 @@ export type ModelLimits = {
 export type MaterialReference = {
   address: string;
   version: string | null;
-  depth: "full" | "address_only";
+  // full은 overview와 용어집, overview_only는 용어집을 뺀 것, names_only는 type 이름만 남긴 것이다(R18).
+  depth: "full" | "overview_only" | "names_only";
 };
 
 export type MaterialOmission = {
   source: string;
-  level: "material";
+  level: "glossary" | "overview";
   reason: "input_over_budget";
 };
 

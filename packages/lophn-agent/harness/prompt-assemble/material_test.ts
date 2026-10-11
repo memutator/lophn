@@ -29,7 +29,10 @@ function source(overrides: Partial<MaterialSource>): MaterialSource {
     address: CTX_A,
     title: "TITLE",
     version: HASH_1,
-    text: "OVERVIEW A",
+    overview: "OVERVIEW A",
+    type_names: ["Alpha", "Beta"],
+    glossary: "GLOSSARY A",
+    has_glossary: true,
     ...overrides,
   };
 }
@@ -41,8 +44,8 @@ function joined(rendered: RenderedMaterial): string {
 Deno.test("lophn-agent/harness/prompt-assemble#R4: context마다 자료 하나이고 머리에 이름·id·판 hash가 있으며 본문은 data 포장 안에 있다", async () => {
   const rendered = await renderMaterial(
     [
-      source({ title: "Experiments", text: "OVERVIEW A" }),
-      source({ address: CTX_B, title: "Recipes", text: "OVERVIEW B" }),
+      source({ title: "Experiments", overview: "OVERVIEW A" }),
+      source({ address: CTX_B, title: "Recipes", overview: "OVERVIEW B" }),
     ],
     { collected_at: AT },
   );
@@ -63,8 +66,8 @@ Deno.test("lophn-agent/harness/prompt-assemble#R4: context마다 자료 하나�
 Deno.test("lophn-agent/harness/prompt-assemble#R5: 같은 context·판은 한 번만 넣고 판이 다르면 합치지 않으며 같은 입력은 같은 byte다", async () => {
   const input = [
     source({}),
-    source({ text: "DUPLICATE" }),
-    source({ version: HASH_2, text: "OTHER VERSION" }),
+    source({ overview: "DUPLICATE" }),
+    source({ version: HASH_2, overview: "OTHER VERSION" }),
   ];
   const rendered = await renderMaterial(input, { collected_at: AT });
   assertEquals(rendered.references.length, 2);
@@ -160,28 +163,74 @@ function promptWith(materials: string[], contextLimit: number): PromptInput {
 }
 
 const big = (label: string) => `${label} ${"x".repeat(600)}`;
+// 용어집이 큰 context 셋. 이름 CTX-n, type 이름 TYPE-n.
+function shrinkSource(address: string, label: string): MaterialSource {
+  return source({
+    address,
+    overview: big(`OV-${label}`),
+    type_names: [`TYPE-${label}`],
+    glossary: big(`GL-${label}`),
+  });
+}
 const SHRINK_SOURCES: MaterialSource[] = [
-  source({ address: CTX_A, text: big("CTX-ONE") }),
-  source({ address: CTX_B, text: big("CTX-TWO") }),
-  source({ address: CTX_C, text: big("CTX-THREE") }),
+  shrinkSource(CTX_A, "ONE"),
+  shrinkSource(CTX_B, "TWO"),
+  shrinkSource(CTX_C, "THREE"),
 ];
 
-Deno.test("lophn-agent/harness/prompt-assemble#R18: 초기 자료 초과는 뒤 context부터 주소만 남기고 생략 수를 밝힌다", async () => {
+Deno.test("lophn-agent/harness/prompt-assemble#R18: 초기 자료 초과는 용어집을 뒤 context부터 먼저 줄이고 그다음 overview를 뒤 context부터 type 이름만 남기며 생략 수를 밝힌다", async () => {
   const stages: RenderedMaterial[] = [];
   await shrinkMaterial(SHRINK_SOURCES, { collected_at: AT }, (rendered) => {
     stages.push(rendered);
     return Promise.resolve(false);
   });
-  assertEquals(stages.length, 4);
-  assertEquals(stages[0].omissions, []);
-  assertEquals(stages.map((s) => s.omissions.map((o) => o.source)), [
-    [],
-    [CTX_C],
-    [CTX_C, CTX_B],
-    [CTX_C, CTX_B, CTX_A],
-  ]);
+  assertEquals(stages.length, 7);
+  assertEquals(
+    stages.map((s) => s.omissions.map((o) => `${o.level}:${o.source}`)),
+    [
+      [],
+      [`glossary:${CTX_C}`],
+      [`glossary:${CTX_C}`, `glossary:${CTX_B}`],
+      [`glossary:${CTX_C}`, `glossary:${CTX_B}`, `glossary:${CTX_A}`],
+      [
+        `glossary:${CTX_C}`,
+        `glossary:${CTX_B}`,
+        `glossary:${CTX_A}`,
+        `overview:${CTX_C}`,
+      ],
+      [
+        `glossary:${CTX_C}`,
+        `glossary:${CTX_B}`,
+        `glossary:${CTX_A}`,
+        `overview:${CTX_C}`,
+        `overview:${CTX_B}`,
+      ],
+      [
+        `glossary:${CTX_C}`,
+        `glossary:${CTX_B}`,
+        `glossary:${CTX_A}`,
+        `overview:${CTX_C}`,
+        `overview:${CTX_B}`,
+        `overview:${CTX_A}`,
+      ],
+    ],
+  );
+  // 용어집을 다 줄인 단계에서도 overview는 모두 남아 있다.
+  const glossaryDone = joined(stages[3]);
+  assert(!glossaryDone.includes("GL-"));
+  assertStringIncludes(glossaryDone, "OV-THREE");
+  // 마지막 단계는 context 이름·id와 type 이름만 남는다.
+  const last = stages[6];
+  const lastText = joined(last);
+  assert(!lastText.includes("OV-") && !lastText.includes("GL-"));
+  assertStringIncludes(lastText, "TYPE-ONE");
+  assertStringIncludes(lastText, `| ${CTX_C} |`);
+  assertEquals(
+    last.references.map((r) => r.depth),
+    ["names_only", "names_only", "names_only"],
+  );
 
-  // 한 context를 줄인 크기에 맞춰 assemblePrompt의 input_over_budget에 반응해 다시 조립한다.
+  // 용어집 하나를 줄인 크기에 맞춰 assemblePrompt의 input_over_budget에 반응해 다시 조립한다.
   const stageBytes = encoder.encode(stages[1].materials.join("")).byteLength;
   const probe = await assemblePrompt(deps, promptWith([], 1_000_000));
   assert(probe.status === "ready");
@@ -205,13 +254,34 @@ Deno.test("lophn-agent/harness/prompt-assemble#R18: 초기 자료 초과는 뒤 
   assert(result.fits);
   assert(blockedCount >= 1);
   const text = joined(result);
-  assert(!text.includes("CTX-THREE"));
-  assertStringIncludes(text, "CTX-ONE");
+  assert(!text.includes("GL-THREE"));
+  assertStringIncludes(text, "OV-THREE");
+  assertStringIncludes(text, "GL-ONE");
   assertStringIncludes(text, "[자료 생략]");
-  assertStringIncludes(text, CTX_C);
 });
 
-Deno.test("lophn-agent/harness/prompt-assemble#R18: 자료를 모두 주소만으로 줄여도 필수 입력이 넘으면 fits가 거짓이라 호출하지 않는다", async () => {
+Deno.test("lophn-agent/harness/prompt-assemble#R18: 용어집이 없는 context는 용어집 단계에서 건너뛰고 생략으로 세지 않는다", async () => {
+  const sources = [
+    shrinkSource(CTX_A, "ONE"),
+    { ...shrinkSource(CTX_B, "TWO"), has_glossary: false },
+  ];
+  const stages: RenderedMaterial[] = [];
+  await shrinkMaterial(sources, { collected_at: AT }, (rendered) => {
+    stages.push(rendered);
+    return Promise.resolve(false);
+  });
+  assertEquals(
+    stages.map((s) => s.omissions.map((o) => `${o.level}:${o.source}`)),
+    [
+      [],
+      [`glossary:${CTX_A}`],
+      [`glossary:${CTX_A}`, `overview:${CTX_B}`],
+      [`glossary:${CTX_A}`, `overview:${CTX_B}`, `overview:${CTX_A}`],
+    ],
+  );
+});
+
+Deno.test("lophn-agent/harness/prompt-assemble#R18: 자료를 모두 type 이름만으로 줄여도 필수 입력이 넘으면 fits가 거짓이라 호출하지 않는다", async () => {
   const probe = await assemblePrompt(deps, promptWith([], 1_000_000));
   assert(probe.status === "ready");
   // 필수 입력(지시·현재 요청)만 겨우 들어가는 창이다.
@@ -228,9 +298,9 @@ Deno.test("lophn-agent/harness/prompt-assemble#R18: 자료를 모두 주소만�
     },
   );
   assertEquals(result.fits, false);
-  assertEquals(result.omissions.length, 3);
+  assertEquals(result.omissions.length, 6);
   assertEquals(
-    result.references.every((r) => r.depth === "address_only"),
+    result.references.every((r) => r.depth === "names_only"),
     true,
   );
   // 필수 입력만으로 초과하는 창에서는 조립이 호출 자체를 막는다.

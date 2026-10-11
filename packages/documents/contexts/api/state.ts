@@ -17,8 +17,13 @@ export type ContextApiActor =
   | { kind: "user"; actor: string }
   // Context Engineer는 assignment의 역할이다. 다른 agent는 읽기만 한다.
   | { kind: "agent"; actor: string; role: "context_engineer" | "other" }
-  // 좁은 범위 credential은 context worker의 제출 두 가지만 낸다.
-  | { kind: "machine"; actor: string; scope: "context_worker" | "other" }
+  // 좁은 범위 credential은 context worker의 제출 두 가지만 낸다. agent_runtime은 agent runtime의 machine
+  // 자격이고 run 시작 전 재료 읽기(context.list·get·contract)만 한다.
+  | {
+    kind: "machine";
+    actor: string;
+    scope: "context_worker" | "agent_runtime" | "other";
+  }
   | { kind: "coding_agent"; actor: string };
 
 export type EmittedEvent = {
@@ -64,6 +69,9 @@ export type ContextApiState = {
   entities: Map<string, EntityRow[]>;
   // 읽기 전 index 갱신이 실패하는 context. 읽기는 빈 결과로 꾸미지 않고 unavailable이다.
   indexFailing: Set<string>;
+  // context.list의 app 거르기가 쓰는, context별로 적용된 판이 app-data로 읽는 앱 ID들(context_app_data).
+  // 읽는 앱이 있는 context만 들어 있다.
+  appReaders: Map<string, readonly string[]>;
 };
 
 export type BlobReference = { hash: string; size_bytes: number };

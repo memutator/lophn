@@ -21,6 +21,7 @@ import {
   loadProjectBundles,
   loadProjectContexts,
 } from "./rows.ts";
+import { loadAllAppData } from "./rows-app-data.ts";
 import { loadHandedOffEvents } from "./rows-events.ts";
 
 export type LoadPlan = {
@@ -29,6 +30,9 @@ export type LoadPlan = {
   // 대상 context 하나. 있으면 이 context만 아래 표들을 읽고, 없으면 project의 context 전부가 대상이다.
   // null은 입력에서 대상을 찾지 못한 것이다. 아무것도 읽지 않으면 handler가 not_found를 낸다.
   context?: string | null;
+  // 적용된 판이 이 앱(ID)을 app-data로 읽는 context 전부가 대상이다(context.list의 app 거르기). project는
+  // 읽지 않는다.
+  app?: string;
   // 대상과 상관없이 이 id의 context를 읽는다(다른 project의 같은 id를 conflict로 막으려고).
   extraContext?: string;
   // 대상과 상관없이 이 id의 용어 항목을 읽는다(다른 context가 쓰는 id를 conflict로 막으려고).
@@ -61,7 +65,10 @@ type Reader = Pick<Sql, "get" | "all">;
 // seq는 읽기의 as_of_seq다. command는 event를 낼 때 ledger가 정한 seq로 갱신하므로 0으로 시작한다.
 export function loadState(
   sql: Reader,
-  deps: Pick<ContextLedgerDeps, "blobs" | "index">,
+  // appIds는 plan.app을 쓰는 읽기만 필요하다. 없으면 앱을 읽는 context가 없는 것과 같다.
+  deps:
+    & Pick<ContextLedgerDeps, "blobs" | "index">
+    & Partial<Pick<ContextLedgerDeps, "appIds">>,
   plan: LoadPlan,
   seq: number,
 ): Result<Loaded> {
@@ -78,6 +85,7 @@ export function loadState(
     violations: new Map(),
     entities: new Map(),
     indexFailing: new Set(),
+    appReaders: new Map(),
   };
   const contentRefs = new Map<string, BlobReference>();
 
@@ -86,6 +94,25 @@ export function loadState(
     if (project !== null) state.projects.set(project.id, project);
     for (const context of loadProjectContexts(sql, plan.project)) {
       state.contexts.set(context.id, context);
+    }
+  }
+  if (plan.app !== undefined) {
+    // context_app_data는 slug를 담으므로 slug마다 앱 ID로 바꿔 그 앱을 읽는 context를 고른다.
+    const ids = new Map<string, readonly string[]>();
+    for (const [id, slugs] of loadAllAppData(sql)) {
+      const apps = slugs.flatMap((slug) => {
+        let resolved = ids.get(slug);
+        if (resolved === undefined) {
+          resolved = deps.appIds?.([slug]) ?? [];
+          ids.set(slug, resolved);
+        }
+        return [...resolved];
+      });
+      if (!apps.includes(plan.app)) continue;
+      const context = loadContext(sql, id);
+      if (context === null) continue;
+      state.contexts.set(context.id, context);
+      state.appReaders.set(context.id, [...new Set(apps)]);
     }
   }
   for (const id of [plan.context, plan.extraContext]) {

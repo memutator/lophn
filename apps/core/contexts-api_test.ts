@@ -517,7 +517,7 @@ Deno.test("documents/contexts#R1 [ctx-T9a]: the old context, term, saved view an
   });
 });
 
-Deno.test("documents/contexts#R23 #R24 #R25 [ctx-T9a]: entities and violations come from the derived index, and handing violations off is unavailable until a Run can be started", async () => {
+Deno.test("documents/contexts#R23 #R24 #R25 [ctx-T9a]: entities and violations come from the derived index", async () => {
   await withCore(async (core) => {
     await create(core);
     const { hash } = await apply(core);
@@ -583,22 +583,6 @@ Deno.test("documents/contexts#R23 #R24 #R25 [ctx-T9a]: entities and violations c
       "status-required",
       false,
     ]]);
-
-    // Run을 시작하는 port가 아직 없다. 가짜 Run을 만들지 않고 unavailable로 답해 아무것도 남기지 않는다.
-    const handed = await post(
-      core,
-      "user",
-      "contexts/hand_off_violations",
-      command({ context: CONTEXT }, "hand-off"),
-    );
-    assertEquals(handed.status, 503, JSON.stringify(handed.body));
-    const after = await post(core, "user", "contexts/violations", {
-      context: CONTEXT,
-    });
-    assertEquals(
-      (after.body["violations"] as Json[]).map((item) => item["handed_off"]),
-      [false],
-    );
   });
 });
 

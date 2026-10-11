@@ -13,6 +13,8 @@ import {
   bundleContentSchema,
   contextContractRoute,
   contextGetRoute,
+  contextOverviewRoute,
+  glossaryListRoute,
 } from "../../packages/contracts/documents/mod.ts";
 import {
   assignmentRead,
@@ -32,6 +34,7 @@ import { RUN_LIMIT_SETTING_KEYS } from "../../packages/lophn-agent/harness/run-l
 import type { CoreCall } from "./core-call.ts";
 import {
   type ContextBundleReader,
+  contextBundleReader,
   createContextToolkit,
 } from "./context-search.ts";
 import { createRunPreparer } from "./prepare.ts";
@@ -53,13 +56,13 @@ const HASH_2 = "a2".repeat(32);
 const AT = "2026-10-05T00:00:00.000Z";
 const META = { as_of_seq: "5", next_cursor: null };
 
-function content(searchTitle: string) {
+function content(searchTitle: string, summary = "요리 하나") {
   return bundleContentSchema.parse({
     schema: 1,
     contract: {
       types: [{
         name: "Recipe",
-        summary: "요리 하나",
+        summary,
         source: { kind: "docs", paths: ["recipes/*.md"] },
         key: "slug",
         fields: [{
@@ -92,6 +95,10 @@ function scene() {
     } as Applied,
     runState: "running" as "accepted" | "running",
     startScope: null as unknown,
+    // 적용된 판이 바뀐 뒤에도 id로 읽는 제출된 판들이다(`context.contract {bundle}`).
+    history: new Map<string, { hash: string; content: unknown }>(),
+    // `context.contract`를 부른 입력 기록이다.
+    contractCalls: [] as Record<string, unknown>[],
   };
   const blobs = new Map<string, unknown>();
   const reply = (schema: z.ZodType, value: unknown) => {
@@ -241,6 +248,21 @@ function scene() {
       });
     }
     if (path === routePath(contextContractRoute)) {
+      state.contractCalls.push(input);
+      if (input["bundle"] !== undefined) {
+        const row = state.applied?.bundle === input["bundle"]
+          ? { hash: state.applied.hash, content: state.applied.content }
+          : state.history.get(String(input["bundle"]));
+        return row === undefined
+          ? Promise.resolve(err({ code: "not_found", message: "no bundle" }))
+          : reply(contextContractRoute.output, {
+            ...META,
+            context: CTX,
+            bundle: input["bundle"],
+            bundle_hash: row.hash,
+            content: row.content,
+          });
+      }
       const applied = state.applied;
       return reply(contextContractRoute.output, {
         ...META,
@@ -248,6 +270,22 @@ function scene() {
         bundle: applied?.bundle ?? null,
         bundle_hash: applied?.hash ?? null,
         content: applied?.content ?? null,
+      });
+    }
+    if (path === routePath(contextOverviewRoute)) {
+      return reply(contextOverviewRoute.output, {
+        ...META,
+        context: contextValue(),
+        bundle_hash: state.applied?.hash ?? null,
+        types: [{ type: "Recipe", count: 7 }],
+        violation_count: 0,
+      });
+    }
+    if (path === routePath(glossaryListRoute)) {
+      return reply(glossaryListRoute.output, {
+        ...META,
+        context: CTX,
+        entries: [],
       });
     }
     if (path === routePath(modelCallList)) {
@@ -295,17 +333,22 @@ const HISTORY: ContextBundleReader = (_context, bundle) =>
       : err({ code: "not_found", message: "no such bundle" }),
   );
 
+// "core"는 운영과 같은 길이다: runtime의 machine 호출로 `context.contract {bundle}`을 부른다.
+type BundleSource = ContextBundleReader | undefined | "core";
+
 function preparer(
   world: ReturnType<typeof scene>,
-  bundle: ContextBundleReader | undefined,
+  source: BundleSource,
 ) {
+  const bundle = source === "core"
+    ? contextBundleReader(world.machine)
+    : source;
   const ids = createIdSource({ clock: systemClock, random: cryptoRandom });
   return createRunPreparer({
     clock: systemClock,
     ids,
     machine: world.machine,
-    agentCall: () => () =>
-      Promise.resolve(err({ code: "unavailable", message: "no agent call" })),
+    agentCall: () => world.machine,
     blobs: {
       async prepare(_purpose, bytes) {
         const digest = new Uint8Array(
@@ -368,9 +411,9 @@ const CREDENTIALS = {
 } as never;
 
 // run을 시작해 basis를 고정하고 tool 목록을 돌려준다.
-async function start(
+async function startContext(
   world: ReturnType<typeof scene>,
-  bundle: ContextBundleReader | undefined,
+  bundle: BundleSource,
 ) {
   world.state.runState = "accepted";
   const prepared = await preparer(world, bundle).prepare({
@@ -387,13 +430,20 @@ async function start(
   );
   const context = await loop.deps.ports.context();
   assert(context.ok, context.ok ? "" : JSON.stringify(context.error));
-  return toolsOf(context.value.tools);
+  return context.value;
 }
 
-// 같은 run을 저장된 경계에서 잇고 이어진 loop가 쓰는 tool 목록을 돌려준다.
-async function resume(
+async function start(
   world: ReturnType<typeof scene>,
-  bundle: ContextBundleReader | undefined,
+  bundle: BundleSource,
+) {
+  return toolsOf((await startContext(world, bundle)).tools);
+}
+
+// 같은 run을 저장된 경계에서 잇고 이어진 loop가 쓰는 prompt 재료다.
+async function resumeContext(
+  world: ReturnType<typeof scene>,
+  bundle: BundleSource,
 ) {
   world.state.runState = "running";
   const prepared = await preparer(world, bundle).prepareResume!(
@@ -407,7 +457,14 @@ async function resume(
   if (recovered.value.kind !== "resumed") throw new Error("not resumed");
   const context = await recovered.value.deps.ports.context();
   assert(context.ok, context.ok ? "" : JSON.stringify(context.error));
-  return toolsOf(context.value.tools);
+  return context.value;
+}
+
+async function resume(
+  world: ReturnType<typeof scene>,
+  bundle: BundleSource,
+) {
+  return toolsOf((await resumeContext(world, bundle)).tools);
 }
 
 function toolsOf(
@@ -490,4 +547,90 @@ Deno.test("lophn-agent/harness/tools#R21 [ctx-I56c]: 고정한 판을 읽지 못
   // 보관된 context의 tool은 빠진다.
   world.state.status = "archived";
   assertEquals(await resume(world, HISTORY), []);
+});
+
+function sourcesOf(context: { sources: readonly unknown[] }) {
+  return context.sources as {
+    address: string;
+    version: string;
+    overview: string;
+  }[];
+}
+
+Deno.test("lophn-agent/harness/tools#R21 [ctx-I56b]: resume은 고정한 판을 core의 context.contract {bundle}로 읽어 tool 정의와 prompt 자료를 같은 판으로 다시 만든다", async () => {
+  const world = scene();
+  world.state.history.set(BUNDLE_1, {
+    hash: HASH_1,
+    content: content("First", "요리 하나"),
+  });
+  const first = await startContext(world, "core");
+  assertEquals(toolsOf(first.tools).length, 1);
+  assertEquals(sourcesOf(first).map((item) => item.version), [HASH_1]);
+  assert(sourcesOf(first)[0].overview.includes("요리 하나 (7개)"));
+
+  // 시작한 뒤 새 판이 적용된다. 지금 적용된 판의 overview 개수는 새 판의 것이다.
+  world.state.history.set(BUNDLE_2, {
+    hash: HASH_2,
+    content: content("Second", "레시피 하나"),
+  });
+  world.state.applied = {
+    bundle: BUNDLE_2,
+    hash: HASH_2,
+    content: content("Second", "레시피 하나"),
+  };
+  world.state.contractCalls.length = 0;
+
+  const resumed = await resumeContext(world, "core");
+  // tool 정의는 시작할 때와 같다.
+  assertEquals(toolsOf(resumed.tools), toolsOf(first.tools));
+  // prompt 자료도 고정한 판이다: 판 hash와 type 뜻이 옛 판의 것이고, 개수는 새 판의 것이라 싣지 않는다.
+  const [material] = sourcesOf(resumed);
+  assertEquals(sourcesOf(resumed).length, 1);
+  assertEquals(material.version, HASH_1);
+  assert(material.overview.includes("- Recipe: 요리 하나"));
+  assert(!material.overview.includes("레시피 하나"));
+  assert(!material.overview.includes("개)"));
+  // 고정한 판은 판 id를 지정한 context.contract로 읽었다(tool 재료와 자료 둘 다).
+  assert(
+    world.state.contractCalls.some((call) => call["bundle"] === BUNDLE_1),
+  );
+
+  // 다음 run은 지금 적용된 판으로 자료를 만들고 개수를 싣는다.
+  const next = await startContext(world, "core");
+  assertEquals(sourcesOf(next).map((item) => item.version), [HASH_2]);
+  assert(sourcesOf(next)[0].overview.includes("레시피 하나 (7개)"));
+});
+
+Deno.test("lophn-agent/harness/tools#R21 [ctx-I56b]: 고정한 판이 아직 적용된 판이면 resume한 자료는 개수를 싣고, 판을 읽지 못하면 tool과 자료가 함께 빠진다", async () => {
+  const world = scene();
+  const first = await startContext(world, "core");
+  // 판이 그대로면 시작할 때와 같다.
+  const same = await resumeContext(world, "core");
+  assertEquals(sourcesOf(same), sourcesOf(first));
+  assert(sourcesOf(same)[0].overview.includes("요리 하나 (7개)"));
+
+  // 새 판이 적용됐고 옛 판을 core가 읽어 주지 않으면(history가 없다) 지금 판으로 대신하지 않는다.
+  world.state.applied = {
+    bundle: BUNDLE_2,
+    hash: HASH_2,
+    content: content("Second", "레시피 하나"),
+  };
+  const gone = await resumeContext(world, "core");
+  assertEquals(toolsOf(gone.tools), []);
+  // 자료는 조용히 빠지지 않고 읽지 못한 이유를 남긴 자리가 된다.
+  assertEquals(sourcesOf(gone).map((item) => [item.address, item.version]), [
+    [CTX, null],
+  ]);
+  assert(sourcesOf(gone)[0].overview.includes("[자료 없음]"));
+  assert(sourcesOf(gone)[0].overview.includes("not_found"));
+
+  // core가 읽어 준 판의 hash가 고정한 값과 다르면 같다.
+  world.state.history.set(BUNDLE_1, {
+    hash: HASH_2,
+    content: content("First"),
+  });
+  const mismatch = await resumeContext(world, "core");
+  assertEquals(toolsOf(mismatch.tools), []);
+  assert(sourcesOf(mismatch)[0].overview.includes("[자료 없음]"));
+  assertEquals(sourcesOf(mismatch)[0].version, null);
 });

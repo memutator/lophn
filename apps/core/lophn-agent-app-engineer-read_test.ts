@@ -19,7 +19,10 @@ import {
   glossaryListRoute,
   glossarySetRoute,
 } from "../../packages/contracts/documents/mod.ts";
+import { AGENT_RUNTIME_PRINCIPAL } from "../../packages/contracts/lophn-agent/mod.ts";
 import { routePath } from "../../packages/contracts/platform/mod.ts";
+import { operationCeiling } from "../../packages/platform/identity/mod.ts";
+import { agentRuntimePolicies } from "./agent-runtime.ts";
 import { evalContent } from "../../packages/documents/contexts/api/testing.ts";
 import { openIndexStore } from "../../packages/documents/contexts/index/mod.ts";
 import { contextWorkerCredential } from "./contexts-api.ts";
@@ -979,5 +982,167 @@ Deno.test("lophn-agent/roles/app-engineer#R2 [ctx-I58b]: 판을 새로 적용하
     assertEquals((await overview(appB)).status, 200);
   } finally {
     await world.dispose();
+  }
+});
+
+// agent runtime의 machine 자격이다. core가 hello에 싣는 모양 그대로(principal `machine:agent-runtime`,
+// scope는 RUNTIME_MACHINE_OPERATIONS)이고 시험은 context 읽기 operation만 올린다.
+function runtimeCredential(principal: string): AuthenticatedContext {
+  return {
+    principal,
+    actor: "machine",
+    scope: {
+      operations: [...new Set([...CONTEXT_OPERATIONS, "ListAssignments"])],
+      targets: { task: "lophn-agent" },
+    },
+    conditions: { task: "lophn-agent", process: "lophn-agent/runtime" },
+    credential_ref: `cred-${principal}`,
+  } as AuthenticatedContext;
+}
+
+Deno.test("documents/contexts#R19 lophn-agent/harness/tools#R21 [ctx-I56b]: 실제 core에서 runtime machine 자격은 context.list·get·contract만 읽고 판을 지정해 읽으며 다른 읽기와 다른 machine 자격은 거절된다", async () => {
+  const world = await openScopeWorld(DOCUMENT_OPERATIONS);
+  try {
+    const tokens = await acceptContextActors(world);
+    await applyContext(world, tokens, CTX_NOTES, "Notes data", "notes");
+    const runtime = "r".repeat(43);
+    const hosts = "h".repeat(43);
+    await accept(world, runtimeCredential(AGENT_RUNTIME_PRINCIPAL), runtime);
+    await accept(
+      world,
+      runtimeCredential("machine:agent-runtime-hosts"),
+      hosts,
+    );
+
+    const first = await post(
+      world,
+      ROUTES.contract,
+      { context: CTX_NOTES },
+      runtime,
+    );
+    assertEquals(first.status, 200, JSON.stringify(first.body));
+    const pinned = first.body as { bundle: string; bundle_hash: string };
+
+    // 같은 context의 다음 판이 적용돼 지금 적용된 판이 바뀐다.
+    await applyContext(world, tokens, CTX_NOTES, "Notes data", "ledger", false);
+    const current = await post(
+      world,
+      ROUTES.contract,
+      { context: CTX_NOTES },
+      runtime,
+    );
+    assertEquals(current.status, 200);
+    assertEquals(
+      (current.body as { bundle: string }).bundle !== pinned.bundle,
+      true,
+    );
+    // 판을 지정하면 지금 적용된 판이 아니라 그 판(superseded)의 id·hash·content다.
+    const old = await post(
+      world,
+      ROUTES.contract,
+      { context: CTX_NOTES, bundle: pinned.bundle },
+      runtime,
+    );
+    assertEquals(old.status, 200, JSON.stringify(old.body));
+    const oldBody = old.body as {
+      bundle: string;
+      bundle_hash: string;
+      content: {
+        contract: { types: { name: string; source: { app?: string } }[] };
+      };
+    };
+    assertEquals(oldBody.bundle, pinned.bundle);
+    assertEquals(oldBody.bundle_hash, pinned.bundle_hash);
+    assertEquals(
+      oldBody.content.contract.types.find((type) => type.name === "Event")
+        ?.source.app,
+      "notes",
+    );
+
+    // 없는 판과 다른 context의 판은 없는 것과 같다.
+    const missing = await post(
+      world,
+      ROUTES.contract,
+      { context: CTX_NOTES, bundle: "cbn_01arz3ndektsv4rrffq69g5fa9" },
+      runtime,
+    );
+    assertEquals(missing.status, 404, JSON.stringify(missing.body));
+
+    // list는 project와 app으로 읽는다. app은 그 앱을 읽는 active context다.
+    const byProject = await post(
+      world,
+      ROUTES.list,
+      { project: world.project },
+      runtime,
+    );
+    assertEquals(byProject.status, 200, JSON.stringify(byProject.body));
+    const idsOf = (reply: { body: unknown }) =>
+      (reply.body as { contexts: { id: string }[] }).contexts.map((c) => c.id);
+    assertEquals(idsOf(byProject), [CTX_NOTES]);
+    // 지금 판은 ledger를 읽는다.
+    assertEquals(
+      idsOf(await post(world, ROUTES.list, { app: world.appA }, runtime)),
+      [],
+    );
+    assertEquals(
+      idsOf(await post(world, ROUTES.list, { app: world.appB }, runtime)),
+      [CTX_NOTES],
+    );
+    assertEquals(
+      (await post(world, ROUTES.list, {
+        app: world.appB,
+        project: world.project,
+      }, runtime)).status,
+      400,
+    );
+    const get = await post(world, ROUTES.get, { context: CTX_NOTES }, runtime);
+    assertEquals(get.status, 200, JSON.stringify(get.body));
+
+    // 다른 읽기는 이 자격에 열려 있지 않다(route의 actor 상한 또는 handler가 막는다).
+    for (
+      const [path, body] of [
+        [ROUTES.overview, { context: CTX_NOTES }],
+        [ROUTES.glossary, { context: CTX_NOTES }],
+        [ROUTES.draft, { context: CTX_NOTES }],
+        [ROUTES.search, { context: CTX_NOTES, search: "none", inputs: {} }],
+      ] as const
+    ) {
+      const reply = await post(world, path, body, runtime);
+      assertEquals(reply.status, 403, `${path} ${JSON.stringify(reply.body)}`);
+    }
+    // 다른 machine 자격은 같은 operation을 가져도 list·get·contract를 읽지 못한다.
+    for (
+      const [path, body] of [
+        [ROUTES.list, { project: world.project }],
+        [ROUTES.get, { context: CTX_NOTES }],
+        [ROUTES.contract, { context: CTX_NOTES }],
+      ] as const
+    ) {
+      const reply = await post(world, path, body, hosts);
+      assertEquals(reply.status, 403, `${path} ${JSON.stringify(reply.body)}`);
+    }
+  } finally {
+    await world.dispose();
+  }
+});
+
+Deno.test("documents/contexts#R19 lophn-agent/harness/tools#R21 [ctx-I56b]: runtime machine의 발급 상한에 context.list·get·contract가 들고 overview·search는 없다", () => {
+  const ceiling = operationCeiling(
+    "machine",
+    agentRuntimePolicies(
+      [
+        contextListRoute,
+        contextGetRoute,
+        contextContractRoute,
+        contextOverviewRoute,
+        contextSearchRoute,
+      ],
+    ),
+  );
+  for (
+    const route of [contextListRoute, contextGetRoute, contextContractRoute]
+  ) assert(ceiling.includes(route.name), route.name);
+  for (const route of [contextOverviewRoute, contextSearchRoute]) {
+    assert(!ceiling.includes(route.name), route.name);
   }
 });

@@ -96,7 +96,7 @@ Deno `--allow-run`은 **자식 executable 자체의 OS 파일·네트워크 권�
 | `presets/` | `presets`, `preset_revisions` | 사람이 저장한 preset 판; Operator assignment는 검토 판을 참조해 별도 승인 적용 |
 | `assignments/` | `assignments`, `assignment_revisions`, `assignment_outputs`, `assignment_read_apps`, `assignment_read_commands` | outputs 독점·승인 사용·preset 판; 실제 시작한 실패 3회 pause |
 | `scheduling/` | `assignment_schedule_occurrences` | 회차·last_due_at·accepted run 또는 skip |
-| `conversation/` | `sessions`, `messages` | 사람 메시지와 담당 run 접수; model 시작과 message 반영 |
+| `conversation/` | `sessions`, `messages` | 사람 메시지와 담당 run 접수; model 시작과 message 반영; 다른 concern의 사람 단추 한 번(context 위반 넘기기)을 새 세션·사람 요청·run으로 접수하는 `startRequest`(같은 transaction 안에서만 호출) |
 | `harness/run-loop/` | `runs` | 진행 하나, 고정 basis, 정상 종료와 correction 순서 |
 | `harness/waiting-and-recovery/` | `run_wait_resolutions` | 요청 생성·waiting 연결; `(run,request,decision_seq)` 한 번 반영 |
 | `harness/provider/` | `providers`, `provider_credentials`, `provider_credential_model_blocks` | secret 참조 판·순서·대기 시각·credential/model별 제한 |

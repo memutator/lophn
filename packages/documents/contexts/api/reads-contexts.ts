@@ -4,6 +4,7 @@ import type { ContextApiReads } from "./reads.ts";
 import {
   appliedBundleOf,
   checkReader,
+  checkRuntimeReader,
   common,
   compareText,
   notFound,
@@ -25,14 +26,20 @@ function summaryOf(row: BundleRow) {
 
 export function createContextReads(state: ContextApiState): Handlers {
   const contextList: Handlers["contextList"] = ({ actor, input }) => {
-    const allowed = checkReader(actor);
+    const allowed = checkRuntimeReader(actor);
     if (!allowed.ok) return allowed;
-    if (!state.projects.has(input.project)) {
-      return notFound("project", input.project);
+    // project와 app 중 정확히 하나다(route 입력이 검사한다). app이면 적용된 판이 그 앱을 읽는 context만이고
+    // 없는 앱은 빈 목록이다.
+    const { project, app } = input;
+    if (project !== undefined && !state.projects.has(project)) {
+      return notFound("project", project);
     }
     const status = input.status;
     const matching = [...state.contexts.values()].filter((context) =>
-      context.project === input.project &&
+      (project !== undefined
+        ? context.project === project
+        : app !== undefined &&
+          (state.appReaders.get(context.id) ?? []).includes(app)) &&
       (status === undefined
         ? context.status !== "archived"
         : status === "all" || context.status === status)
@@ -57,7 +64,7 @@ export function createContextReads(state: ContextApiState): Handlers {
         context.title,
         context.id,
       ],
-      `context.list ${input.project} ${status ?? ""}`,
+      `context.list ${project ?? `app ${app}`} ${status ?? ""}`,
       input,
     );
     if (!page.ok) return page;
@@ -75,7 +82,7 @@ export function createContextReads(state: ContextApiState): Handlers {
   };
 
   const contextGet: Handlers["contextGet"] = ({ actor, input }) => {
-    const allowed = checkReader(actor);
+    const allowed = checkRuntimeReader(actor);
     if (!allowed.ok) return allowed;
     const context = state.contexts.get(input.context);
     if (context === undefined) return notFound("context", input.context);

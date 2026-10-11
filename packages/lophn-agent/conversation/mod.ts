@@ -16,3 +16,8 @@ export {
   messageBodyRead,
   readBodyBytes,
 } from "./body-read.ts";
+export {
+  type StartedRequest,
+  startRequest,
+  type StartRequestInput,
+} from "./request.ts";

@@ -441,20 +441,20 @@ Source kind마다 쓸 수 있는 FieldFrom:
 | `view.update` | `user` | `view`, 바꿀 필드 | base_revision | `SavedViewUpdated` | `invalid_input`, `not_found`, `conflict`, `forbidden` |
 | `view.delete` | `user` | `view` | base_revision | `SavedViewDeleted` | `not_found`, `conflict`, `forbidden` |
 | `context.record_violations` | 좁은 범위 `machine` | `context, count, bundle_hash` | active; count가 violation_mark와 다름 | `ContextViolationsRecorded` | `not_found`, `conflict`, `forbidden` |
-| `context.hand_off_violations` | `user` | `context, violations?`(없으면 전부), idempotency key | active; 위반 존재; 근거는 서버가 붙임 | `ContextViolationsHandedOff` | `invalid_input`, `not_found`, `forbidden` |
+| `context.hand_off_violations` | `user` | `context, violations?`(없으면 전부), idempotency key | active; 위반 존재; 받을 Context Engineer assignment가 enabled; 근거는 서버가 붙임 | `ContextViolationsHandedOff` | `invalid_input`, `not_found`, `forbidden`, `unavailable` |
 
 `context.create`는 사람이 [New context]에서 Context Engineer와 대화한 뒤 Context Engineer가 부르는 것이 기본 경로다.
 
 ## 읽기
 
-읽기는 `user`와 lophn `agent`(역할 무관)만 한다. coding agent와 `machine`에게는 통로가 없다. 결과는 모두 `as_of_seq`를 가진다.
+읽기는 `user`와 lophn `agent`(역할 무관)만 한다. coding agent와 `machine`에게는 통로가 없다. 단 하나의 예외가 있다: agent runtime의 machine 자격(`machine:agent-runtime`)은 run을 시작하기 전에 선언 검색 tool 정의와 prompt 자료를 만들 재료로 `context.list`·`context.get`·`context.contract`만 읽는다(→ lophn-agent/harness/tools). 다른 읽기, 모든 command, 다른 machine 자격은 예외가 아니다. 결과는 모두 `as_of_seq`를 가진다.
 
 | 읽기 | 입력 | 결과 | 비고 |
 |---|---|---|---|
-| `context.list` | `project, status?, cursor?, limit?` | Context 줄(적용 판 번호, 진행 중인 판) | 보관 안 된 것 먼저, 제목 순 |
+| `context.list` | `project` 또는 `app`(정확히 하나), `status?, cursor?, limit?` | Context 줄(적용 판 번호, 진행 중인 판) | 보관 안 된 것 먼저, 제목 순. `app`이면 적용된 판이 그 앱(ID)을 app-data Source로 읽는 context만(`context_app_data`); 없는 앱은 빈 목록 |
 | `context.get` | `context` | Context, 적용된 판 요약 | |
 | `context.overview` | `context` | 판 hash, type별 개체 수(계약의 type 순서), 위반 수 | |
-| `context.contract` | `context` | 적용된 판의 id·hash·content(계약, 검색, saved view 정의, 예) | 적용된 판이 없으면 셋 다 null. 보관된 context도 읽는다 |
+| `context.contract` | `context, bundle?` | 적용된 판의 id·hash·content(계약, 검색, saved view 정의, 예) | 적용된 판이 없으면 셋 다 null. 보관된 context도 읽는다. `bundle`이 있으면 적용된 판이 아니라 그 판을 읽는다: 그 context의 submit된 이후 판(checking·failed·applied·superseded)만이고, 없는 판·다른 context의 판·draft·discarded 판은 `not_found`다 |
 | `context.draft` | `context` | 만드는 중인 판의 진행 `{step, bundle, content, check}` | drafting이 아니면 null |
 | `context.search` | `context, search, inputs, cursor?, page_size?` | 행 page, 조건에 맞는 전체 행 수 `total` | 활성이고 판이 적용된 context만 |
 | `context.input_options` | `context, search, input, prefix?, limit?` | 후보 `{value, label}`[], `complete` | 같은 조건. entity·value 입력만 |
@@ -475,6 +475,7 @@ Source kind마다 쓸 수 있는 FieldFrom:
 - **series_next.** `context.series_next`는 series kind type의 `source.pattern`과 index에 있는 그 type 개체의 `path`들로 다음 이름을 계산한다(계산 규칙·빈 제안·`*`·`taken`은 → documents/series). 파일 목록을 따로 읽지 않으므로 index를 갱신한 뒤 읽으며, 읽기는 파일·ledger·index를 바꾸지 않는다. series kind가 아닌 type이나 계약에 없는 type은 `invalid_input`이다.
 - **preview.** `context.preview`는 Context Engineer가 draft를 submit하기 전에 지금 project 파일에서 무엇이 나올지 본다. `bundle`은 그 context의 `draft` 상태 판이어야 한다(없는 판이나 다른 context의 판은 `not_found`, draft가 아닌 판은 `conflict`). draft content를 격리 검사와 같은 추출·위반 감지로 지금 파일에 돌린다. 판·파일·ledger·index·violation_mark를 바꾸지 않고 event도 없다. `types`는 계약의 type 순서로 지금 파일에서 뽑은 개체 수다(app-data kind는 앱 read 명령을 부르지 않으므로 0). `findings`는 격리 검사의 (1)(2)(3)(4)(5)단계 결과이고(사람이 저장한 saved view는 부르지 않는다), (1)(2)(3)에서 멈추면 `types`는 비고 `violation_count`는 0이다. 위반은 path, kind, rule, section의 code unit 순이고 한 page는 30개며 `cursor`는 그 판(`bundle`)에 묶인다(다른 판의 cursor는 `invalid_input`). 호출마다 새로 추출하므로 page 사이에 파일이 바뀌면 보이는 위반이 달라질 수 있다. 결과를 온전히 만들지 못하면 부분 결과로 꾸미지 않고 `unavailable`이다(파일 수·바이트·시간 예산 초과, 파일을 읽을 수 없음, worker 중단).
 - **앱 하나에 묶인 agent.** App Engineer의 credential은 담당 앱 하나에 묶인다(→ lophn-agent/roles/app-engineer). 이 agent는 담당 앱을 `app-data` Source로 읽는 context(`context_app_data`의 slug가 담당 앱을 가리키는 context)의 `context.get`·`context.overview`·`context.contract`·`glossary.list`만 읽는다. `context.contract`는 overview 자료의 type 뜻·관계를 그리는 데 쓴다. `context.list`는 그 context의 줄만 남긴다. 그 밖의 읽기와 모든 command, 그 앱을 읽지 않는 context, 없는 context는 모두 같은 `not_found`다.
+- **판 지정.** `context.contract`의 `bundle`은 run이 시작할 때 고정한 판으로 정의와 자료를 다시 만들 때 쓴다. 제출된 판의 내용은 바뀌지 않으므로 적용된 판이 바뀐 뒤에도 같은 값이다.
 - Operator 수는 이 읽기들에 없다(→ lophn-agent/presets).
 
 ## event
@@ -503,7 +504,7 @@ Source kind마다 쓸 수 있는 FieldFrom:
 - **추출.** frontmatter와 YAML은 `@std/yaml`로, Markdown section·제목·링크는 documents/formats의 추출을 쓴다. 읽을 수 없는 파일은 개체를 만들지 않고 `unreadable` 위반이다. 개체가 읽혔지만 규칙을 어기면 개체는 index에 두고 `rule` 위반을 남긴다.
 - **위반 감지.** index를 갱신한 뒤 규칙과 pattern을 판정한다. `path_mismatch`는 계약 pattern에서 벗어난 이름·자리, `broken_link`는 index의 링크 대상이 없을 때다. 위반은 근거 파일·section·규칙을 모두 담는다. 위반이 있어도 나머지 개체의 검색은 막지 않는다.
 - **위반 수 기록.** 위반 수가 `Context.violation_mark`와 다르면 `context.record_violations`로 기록한다. 늘었을 때(after > before)만 platform/notifications가 notification을 만든다. 줄거나 같으면 notification이 없다. 보관된 Context의 위반은 기록하지 않는다.
-- **위반 넘기기.** `context.hand_off_violations`는 사람의 요청에서 이어진 Context Engineer의 Run 하나를 만든다. 근거(파일 경로·section·규칙·현재 규칙 정의)는 서버가 붙이고 사람이 설명을 쓰지 않는다. 같은 위반 집합의 중복 요청은 idempotency key로 하나다(→ lophn-agent/harness/run-loop, lophn-agent/handoff).
+- **위반 넘기기.** `context.hand_off_violations`는 사람의 요청에서 이어진 Context Engineer의 Run 하나를 만든다. 근거(파일 경로·section·규칙·현재 규칙 정의)는 서버가 붙이고 사람이 설명을 쓰지 않는다. 같은 위반 집합의 중복 요청은 idempotency key로 하나다. 새 Run 출처나 handoff는 아니다: agent의 handoff가 아니라 사람 한 번의 요청이므로, 이 command가 같은 transaction에서 그 context의 project를 작업 자리로 하는 enabled Context Engineer의 새 세션을 열고, 근거를 글로 옮긴 사용자 `request` Message를 두고, 그 Message 출처(`message`)의 Run 하나를 접수한다. `ContextViolationsHandedOff`의 `run`은 이 Run이다. 근거 blob 하나를 Context의 영구 참조와 Message 본문이 나눠 쓴다. enabled Context Engineer assignment가 없으면(없거나 paused) `unavailable`이고 세션·Message·Run·event를 남기지 않는다(→ lophn-agent/conversation, lophn-agent/harness/run-loop).
 - **격리 검사.** submit한 판의 내용을 쓰기 불가 프로세스에서 임시 snapshot에 대해 실행한다. 순서는 (1) 스키마·계약 유효성(type·관계·field·규칙 참조, 다른 Project 경로 거절), (2) 다른 context 참조가 public인 것만인지, (3) 모든 개체 계산과 위반 수 집계, (4) 예(examples)가 모두 맞는지, (5) 모든 SavedView와 판의 saved view 정의가 호출되는지다. (1)(2)(4)(5) 중 하나라도 실패하면 failed다. (3)의 위반 수는 실패 사유가 아니라 기록이다. 검사 프로세스가 중단되면 `aborted` finding으로 failed다. 시간 예산은 spec에서 정한다.
 - **자동 적용.** 통과하면 사람 승인 없이 같은 transaction에서 applied가 된다. 이전 applied는 superseded가 된다. 앱 release의 approval·activation 경로를 쓰지 않는다. 읽기만 하며 바깥 효과가 없기 때문이다.
 - **되돌리기.** 사람이 superseded 판을 고르면 그 판을 다시 applied로 한다. 다시 검사하지 않으며 현재 파일과 어긋나는 위반은 다음 갱신에서 센다.

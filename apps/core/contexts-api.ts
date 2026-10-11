@@ -7,7 +7,7 @@
 // contexts-ledger-deps.ts에 있고, command를 실행하는 writer Worker와 read를 실행하는 reader Worker
 // 안에서만 동적으로 올린다(loadContextsRuntime). core 본체가 부르는 등록은 route를 registry에 올리는
 // 데만 쓰이고 handler는 실행되지 않는다.
-import { err, type Result } from "../../packages/base/mod.ts";
+import { err, type ErrorCode, type Result } from "../../packages/base/mod.ts";
 import { defineBlobField } from "../../packages/contracts/platform/mod.ts";
 import type {
   CommandDefinition,
@@ -22,6 +22,7 @@ import {
   contextLedgerReads,
   contextsLedgerSchemaSteps,
   contextWorkInputRead,
+  contextWorkListRead,
 } from "../../packages/documents/contexts/mod.ts";
 
 // content blob(BundleContent JSON, 위반 넘김 근거)의 영구 참조. owner_key는 blob의 hash다: 내용으로
@@ -94,7 +95,18 @@ export async function loadContextsRuntime(): Promise<ContextsRuntime> {
 // transaction을 되돌리고 unavailable로 답한다.
 export class ContextDepUnavailable extends Error {}
 
+// 같은 자리에서 문서가 정한 다른 명령 오류(not_found 등)로 답해야 하는 실패다. 세션·Run 접수가 낸
+// 오류의 코드를 그대로 싣는다.
+export class ContextDepRefused extends Error {
+  constructor(readonly code: ErrorCode, message: string) {
+    super(message);
+  }
+}
+
 function unavailable(error: unknown): Result<never> | undefined {
+  if (error instanceof ContextDepRefused) {
+    return err({ code: error.code, message: error.message });
+  }
   return error instanceof ContextDepUnavailable
     ? err({ code: "unavailable", message: error.message })
     : undefined;
@@ -128,6 +140,7 @@ export function createContextsRegistration(
     reads: [
       ...contextLedgerReads(runtime.deps),
       contextWorkInputRead(runtime.deps),
+      contextWorkListRead(),
     ].map((read) => ({
       ...read,
       handle(snapshot, ctx, input) {

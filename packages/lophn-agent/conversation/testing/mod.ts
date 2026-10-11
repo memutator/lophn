@@ -48,6 +48,7 @@ export const OPERATIONS = [
   "SeedOperatorFixture",
   "SeedAcceptFailure",
   "SeedUnpreparedBody",
+  "StartRequestFixture",
   "CommandResult",
 ];
 
@@ -127,8 +128,36 @@ export function registerMessageBodyRef(
   ) {
     return err({ code: "forbidden", message: "field is not defined" });
   }
-  if (value.source.kind !== "prepared") {
-    return err({ code: "forbidden", message: "prepared blob only" });
+  if (value.source.kind === "existing") {
+    // 이미 다른 owner가 참조한 blob을 가리키는 등록이다. 그 참조 행이 있어야 한다.
+    const held = value.source.reference;
+    const row = tx.sql.get(
+      `select size_bytes from blob_refs
+       where owner_kind = ? and owner_key = ? and field = ? and hash = ?`,
+      [held.owner_kind, held.owner_key, held.field, held.hash],
+    );
+    if (row === undefined) {
+      return err({ code: "forbidden", message: "no existing blob reference" });
+    }
+    tx.sql.run(
+      `insert into blob_refs (owner_kind, owner_key, field, hash, size_bytes,
+         registered_seq) values (?, ?, ?, ?, ?, ?)`,
+      [
+        value.owner_kind,
+        value.owner_key,
+        value.field,
+        held.hash,
+        row["size_bytes"] as number,
+        BigInt(value.registered_seq),
+      ],
+    );
+    return ok({
+      owner_kind: value.owner_kind,
+      owner_key: value.owner_key,
+      field: value.field,
+      hash: held.hash,
+      registered_seq: value.registered_seq,
+    });
   }
   const blob = value.source.blob;
   if (

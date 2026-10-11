@@ -73,7 +73,12 @@ type Entry = {
   bundle_hash: string | null;
   title: string;
   searchTitle?: string;
+  // 적용된 판이 app-data로 읽는 앱(`context.list {app}`가 거른다).
+  app?: string;
 };
+
+const OLD_BUNDLE = "cbn_01arz3ndektsv4rrffq69g5fa1";
+const OLD_HASH = "0".repeat(64);
 
 function world(entries: Entry[]) {
   const seen: string[] = [];
@@ -98,9 +103,11 @@ function world(entries: Entry[]) {
         as_of_seq: "5",
         complete: true,
         next_cursor: null,
-        contexts: entries.filter((e) => e.project === input["project"]).map((
-          e,
-        ) => ({
+        contexts: entries.filter((e) =>
+          input["project"] !== undefined
+            ? e.project === input["project"]
+            : e.app === input["app"]
+        ).map((e) => ({
           ...value(e),
           applied_number: e.status === "active" ? 1 : null,
           draft_bundle: null,
@@ -121,6 +128,20 @@ function world(entries: Entry[]) {
       }));
     }
     if (path === routePath(contextContractRoute)) {
+      // 판을 지정한 읽기는 제출된 옛 판의 내용이다(적용된 판과 다르다).
+      if (input["bundle"] === OLD_BUNDLE) {
+        return Promise.resolve(ok({
+          as_of_seq: "5",
+          next_cursor: null,
+          context: entry.id,
+          bundle: OLD_BUNDLE,
+          bundle_hash: OLD_HASH,
+          content: content("Old"),
+        }));
+      }
+      if (input["bundle"] !== undefined) {
+        return Promise.resolve(err({ code: "not_found", message: "none" }));
+      }
       return Promise.resolve(ok({
         as_of_seq: "5",
         next_cursor: null,
@@ -464,4 +485,71 @@ Deno.test("lophn-agent/harness/tools#R21 [ctx-I56]: handler는 agent 자격의 �
   // 열리지 않은 route는 agent 호출까지 가지 않는다.
   assertEquals(calls.length, 1);
   assertEquals(contextEntityRoute.name, "context.entity");
+});
+
+Deno.test("lophn-agent/harness/tools#R21 lophn-agent/roles/app-engineer#R2 [ctx-I56b]: 담당 범위가 앱이면 assignment_scope 선택은 작업 자리 project와 상관없이 그 앱을 읽는 active context로 풀린다", async () => {
+  const entries: Entry[] = [
+    ...ENTRIES.map((entry) =>
+      entry.id === CTX_A || entry.id === CTX_ELSEWHERE
+        ? { ...entry, app: "app_01arz3ndektsv4rrffq69g5fav" }
+        : entry
+    ),
+  ];
+  const toolkit = kit(entries);
+  const loaded = await toolkit.load({
+    project: null,
+    app: "app_01arz3ndektsv4rrffq69g5fav",
+    selections: [{ kind: "assignment_scope", target: null }],
+  });
+  // 작업 자리 project가 없어도, 다른 project에 있는 context도 앱이 읽으면 든다.
+  assertEquals(loaded.map((c) => c.id), [CTX_A, CTX_ELSEWHERE]);
+
+  const tools = await contextReadToolsFor(toolkit, {
+    place: { kind: "global", id: null },
+    scope: { kind: "app", id: "app_01arz3ndektsv4rrffq69g5fav" },
+    selections: [{ kind: "assignment_scope", target: null }],
+  });
+  assertEquals(tools.contexts, [CTX_A, CTX_ELSEWHERE]);
+
+  // 앱에 묶이지 않은 담당 범위는 그대로 project로 푼다.
+  const byProject = await toolkit.load({
+    project: PRJ,
+    selections: [{ kind: "assignment_scope", target: null }],
+  });
+  assertEquals(byProject.map((c) => c.id), [CTX_A, CTX_B]);
+});
+
+Deno.test("lophn-agent/harness/tools#R21 [ctx-I56b]: 제품 toolkit은 고정한 판을 machine 자격의 context.contract {bundle}로 읽어 지금 적용된 판이 아니어도 정의를 다시 만든다", async () => {
+  const core = world(ENTRIES);
+  const product = createBuiltinToolkit({
+    routes: [],
+    machine: core.machine,
+    ids: { newId: () => "x" } as never,
+  });
+  const pin = {
+    context: CTX_A,
+    bundle: OLD_BUNDLE,
+    bundle_hash: OLD_HASH,
+    title: "Recipes",
+  };
+  const loaded = await product.contexts!.loadPinned([pin]);
+  assertEquals(loaded.map((c) => [c.id, c.bundle, c.bundle_hash]), [
+    [CTX_A, OLD_BUNDLE, OLD_HASH],
+  ]);
+  assertEquals(loaded[0]!.content.searches[0]!.title, "Old");
+  // 읽은 판의 hash가 고정한 값과 다르거나 읽을 수 없는 판이면 빠진다.
+  assertEquals(
+    await product.contexts!.loadPinned([{
+      ...pin,
+      bundle_hash: "f".repeat(64),
+    }]),
+    [],
+  );
+  assertEquals(
+    await product.contexts!.loadPinned([{
+      ...pin,
+      bundle: "cbn_01arz3ndektsv4rrffq69g5fa9",
+    }]),
+    [],
+  );
 });

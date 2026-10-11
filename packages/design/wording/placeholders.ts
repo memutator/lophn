@@ -960,6 +960,10 @@ export type PlaceholderKinds = {
   "conversation.button.next-request": Record<never, never>;
   "conversation.button.open": Record<never, never>;
   "conversation.button.previous-request": Record<never, never>;
+  "conversation.button.question-details": Record<never, never>;
+  "conversation.button.question-next": Record<never, never>;
+  "conversation.button.question-skip": Record<never, never>;
+  "conversation.button.question-submit": Record<never, never>;
   "conversation.button.resend": Record<never, never>;
   "conversation.button.save-visual": Record<never, never>;
   "conversation.button.send": Record<never, never>;
@@ -991,9 +995,50 @@ export type PlaceholderKinds = {
   "conversation.label.delivery-sending": Record<never, never>;
   "conversation.label.delivery-unconfirmed": Record<never, never>;
   "conversation.label.document": Record<never, never>;
+  "conversation.label.duration-days-hours": {
+    days: "number";
+    hours: "number";
+  };
+  "conversation.label.duration-hours-minutes": {
+    hours: "number";
+    minutes: "number";
+  };
+  "conversation.label.duration-minutes": {
+    minutes: "number";
+  };
   "conversation.label.more-results": {
     count: "plural";
   };
+  "conversation.label.question-answered": {
+    count: "plural";
+    answers: "string";
+  };
+  "conversation.label.question-apply-failed": {
+    answers: "string";
+  };
+  "conversation.label.question-applied": {
+    answers: "string";
+  };
+  "conversation.label.question-applying": {
+    answers: "string";
+  };
+  "conversation.label.question-asking": {
+    agent: "string";
+    count: "plural";
+  };
+  "conversation.label.question-cancelled": Record<never, never>;
+  "conversation.label.question-expired": Record<never, never>;
+  "conversation.label.question-expires": {
+    remaining: "string";
+  };
+  "conversation.label.question-expires-now": Record<never, never>;
+  "conversation.label.question-own-answer": {
+    prompt: "string";
+  };
+  "conversation.label.question-own-answer-placeholder": Record<never, never>;
+  "conversation.label.question-paused": Record<never, never>;
+  "conversation.label.question-recommended": Record<never, never>;
+  "conversation.label.question-skipped": Record<never, never>;
   "conversation.label.request-position": {
     current: "number";
     total: "number";

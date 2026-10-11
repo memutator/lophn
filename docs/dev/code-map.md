@@ -132,6 +132,9 @@ fixtures/             예시 project 폴더, 예시 앱, 녹화한 model 응답
 | packages/documents/contexts/series/ | series kind의 pattern에서 다음 경로를 계산한다(순수) |
 | packages/documents/contexts/ledger/ | context API를 platform ledger 위에 올린다. ledger 표(`schema.ts`), 표별 행 읽기·쓰기(`rows.ts`), 순수 handler(`api/`)를 `CommandDefinition`·`ReadDefinition`으로 감싸는 adapter(`adapter.ts`: 행 적재, actor 변환, `tx.emit` 연결, 달라진 행만 쓰기). derived 개체·위반은 `ContextIndexPort`로만 읽는다 |
 | packages/documents/contexts/testdata/ | fixture Project와 정답(`expected/`). extract·checks·search·check 시험이 함께 읽는다 |
+| packages/documents/contexts/index/ | context index(derived sqlite)의 표(`schema.ts`), 읽기·쓰기(`store.ts`), 계약 폴더의 파일을 (경로, size, mtime)으로 훑어 바뀐 것이 있으면 개체·위반을 다시 계산하는 `scan.ts`. 순수 계산은 `extract`·`checks`가 한다 |
+| packages/documents/contexts/watch/ | 활성 context의 계약 폴더 집합(`folders.ts`), 신호를 context로 바꾸고 500ms 동안 합치는 순수 core(`detector.ts`), 얇은 `Deno.watchFs` 어댑터(`fs.ts`). 변화 이력·event를 남기지 않는다 |
+| packages/documents/contexts/work-*.ts | worker 일 `context.index`(`work-index.ts`), `context.check`(`work-check.ts`), context별 직렬화·합치기(`work-jobs.ts`). 파일 시스템·core 제출 port는 `work-types.ts` |
 | packages/documents/contexts/work.ts · adapters/ | `context.index`·`context.check`의 일(stat scan, snapshot 복사, derived sqlite 읽기·쓰기). 순수 폴더를 부른다 |
 | apps/worker/documents/contexts.ts | worker kind `documents/contexts`의 entry. 등록만 하고 일은 `work.ts`가 한다 |
 | apps/core/documents.ts | route 등록, context reader, app-data adapter(`packages/contracts/apps`의 read command로 port를 채운다) 조립 |

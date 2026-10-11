@@ -4,6 +4,7 @@ import {
   defineCommand,
   defineEvent,
   defineRead,
+  idSchema,
   seqSchema,
   sha256Schema,
   withReadCommon,
@@ -24,6 +25,17 @@ const nonblankSchema = z.string().refine((value) => value.trim().length > 0, {
 const positiveIntegerSchema = z.number().int().positive().max(
   Number.MAX_SAFE_INTEGER,
 );
+
+// agent 정의·Workspace 기본값·session이 가지는 model 선택 하나(harness/model domain의 ModelChoice).
+// 계정은 provider가 고르므로 여기 없다. option_values는 축 id → 값이고 비면 모델에 맡긴다.
+const modelChoiceFields = {
+  provider: idSchema("pvd"),
+  model_name: nonblankSchema,
+  option_values: z.record(nonblankSchema, nonblankSchema),
+};
+export const modelChoiceSchema = z.strictObject(modelChoiceFields);
+export const modelChoiceOutputSchema = z.object(modelChoiceFields);
+export type ModelChoice = z.infer<typeof modelChoiceSchema>;
 
 export const CATALOG_SOURCES = [
   "release_snapshot",

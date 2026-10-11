@@ -1240,7 +1240,7 @@ concerns: [shell]
 
 ### T63 가운데 정렬, 앱 시작 실패 문구, launcher Apps section
 
-- 상태: 진행 (#PR)
+- 상태: 완료 (#583)
 - 등급: frontend
 - concern: shell/desktop, shell/design-system, shell/wording
 - 요구: shell/desktop#R25(런처의 앱 section), R12·R20(시작·sandbox·schema 실패 화면), shell/design-system#R21(최대폭 기둥 가운데), R34(empty·error 가운데), shell/wording#R10(실패의 사람 말)

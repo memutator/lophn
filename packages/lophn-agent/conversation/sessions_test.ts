@@ -119,9 +119,10 @@ async function deleteSession(
   );
 }
 
+// PVDR은 ollama 정의이고 동봉 catalog에서 이 model은 effort 축에 off·high만 선언한다.
 const CHOICE = {
   provider: PVDR,
-  model_name: "claude-haiku-4-5",
+  model_name: "qwen3:8b",
   option_values: { effort: "high" },
 };
 
@@ -744,7 +745,7 @@ Deno.test("lophn-agent/conversation#R23 [agent-I12]: the model choice is stored 
       "select basis, limits, state_seq from runs where id = ?",
       [run],
     ))[0]!;
-    const next = { ...CHOICE, option_values: { effort: "low" } };
+    const next = { ...CHOICE, option_values: { effort: "off" } };
     value(await changeModel(h, a, next));
     assertEquals(
       (await sql(h, "select basis, limits, state_seq from runs where id = ?", [
@@ -771,6 +772,122 @@ Deno.test("lophn-agent/conversation#R23 [agent-I12]: the model choice is stored 
     // 닫힌 세션은 model을 바꾸지 못한다.
     await closedSession(h, id("ses", 3));
     code(await changeModel(h, id("ses", 3), CHOICE), "conflict");
+  } finally {
+    await h.close();
+  }
+});
+
+// 동봉 catalog에 정의 자체가 없는 provider다. 그 provider의 model 목록은 확인할 수 없다.
+const UNLISTED_PVDR = id("pvd", 2);
+
+async function seedUnlistedProvider(h: LedgerHarness) {
+  value(
+    await h.command(
+      userCred,
+      envelope("RegisterProvider", {
+        id: UNLISTED_PVDR,
+        name: "Unlisted provider",
+        definition: {
+          key: "unlisted-endpoint",
+          display_name: "Unlisted",
+          protocols: ["openai-responses"],
+          auth_kinds: ["none"],
+          models_endpoint: null,
+          oauth: null,
+          revision: "2026-01-01",
+        },
+        endpoint: "http://127.0.0.1:8081/v1",
+        protocol: "openai-responses",
+      }),
+    ),
+  );
+}
+
+async function assertUnchanged(
+  h: LedgerHarness,
+  session: string,
+  was: unknown,
+) {
+  assertEquals((await readSession(h, session))["model_selection"], was);
+  assertEquals((await eventsOf(h, "SessionModelChanged", session)).length, 0);
+}
+
+Deno.test("lophn-agent/harness/model#R10 lophn-agent/conversation#R23 [agent-I11]: a model name that is not in the provider's current list is refused and an unknown list saves the choice", async () => {
+  const h = await open();
+  try {
+    await seed(h);
+    await seedUnlistedProvider(h);
+    const a = await openLophn(h, id("ses", 1));
+    // 목록을 아는 provider(ollama)에서 목록에 없는 이름은 거절하고 세션을 바꾸지 않는다.
+    code(
+      await changeModel(h, a, { ...CHOICE, model_name: "no-such-model" }),
+      "invalid_input",
+    );
+    await assertUnchanged(h, a, null);
+    // provider 기록이 없으면 not_found다.
+    code(
+      await changeModel(h, a, { ...CHOICE, provider: id("pvd", 9) }),
+      "not_found",
+    );
+    await assertUnchanged(h, a, null);
+    // 목록을 확인하지 못하는 provider의 이름은 미확인으로 저장한다(option 없이).
+    const unknown = {
+      provider: UNLISTED_PVDR,
+      model_name: "anything-the-user-typed",
+      option_values: {},
+    };
+    value(await changeModel(h, a, unknown));
+    assertEquals((await readSession(h, a))["model_selection"], unknown);
+    // catalog에 없어 축을 모르는 model에는 option 값을 고를 수 없다(R24).
+    code(
+      await changeModel(h, a, {
+        ...unknown,
+        option_values: { effort: "high" },
+      }),
+      "invalid_input",
+    );
+    assertEquals((await readSession(h, a))["model_selection"], unknown);
+    // 거절한 요청은 event를 남기지 않는다. 저장한 것은 미확인 선택 하나뿐이다.
+    assertEquals((await eventsOf(h, "SessionModelChanged", a)).length, 1);
+  } finally {
+    await h.close();
+  }
+});
+
+Deno.test("lophn-agent/harness/model#R24 lophn-agent/conversation#R23 [agent-I11]: an option axis or value the model does not declare is invalid_input and null needs no check", async () => {
+  const h = await open();
+  try {
+    await seed(h);
+    const a = await openLophn(h, id("ses", 1));
+    // 이 model이 선언하지 않은 축.
+    code(
+      await changeModel(h, a, { ...CHOICE, option_values: { speed: "fast" } }),
+      "invalid_input",
+    );
+    // 선언한 축의 선언하지 않은 값(이 model의 effort는 off·high뿐이다). 다른 값으로 바꿔 저장하지 않는다.
+    code(
+      await changeModel(h, a, { ...CHOICE, option_values: { effort: "low" } }),
+      "invalid_input",
+    );
+    // 맞는 축과 틀린 축이 섞이면 전체를 거절한다.
+    code(
+      await changeModel(h, a, {
+        ...CHOICE,
+        option_values: { effort: "high", speed: "fast" },
+      }),
+      "invalid_input",
+    );
+    await assertUnchanged(h, a, null);
+    // 값을 고르지 않은 선택(모델에 맡김)과 선언한 값은 저장한다.
+    const leftOpen = { ...CHOICE, option_values: {} };
+    value(await changeModel(h, a, leftOpen));
+    assertEquals((await readSession(h, a))["model_selection"], leftOpen);
+    value(await changeModel(h, a, CHOICE));
+    assertEquals((await readSession(h, a))["model_selection"], CHOICE);
+    // null은 검사 없이 agent 기본값으로 돌아간다.
+    value(await changeModel(h, a, null));
+    assertEquals((await readSession(h, a))["model_selection"], null);
+    assertEquals((await eventsOf(h, "SessionModelChanged", a)).length, 3);
   } finally {
     await h.close();
   }

@@ -106,7 +106,7 @@ function ModelDefaultRow(
     providers.find((row) => row.id === id)?.name ??
       t("settings.label.unavailable-connection");
   return (
-    <div className={styles.section} data-model-use={use}>
+    <div className={styles.block} data-model-use={use}>
       <h3 className={styles.subheading}>{useLabel(use)}</h3>
       <p className={styles.muted}>{useHelp(use)}</p>
       <p className={styles.text} data-model-current="">

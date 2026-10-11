@@ -1,36 +1,3 @@
-/* 이전 lophn 작업대의 추적 꺼짐 줄: 본문 위 muted 띠, 왼쪽 안내, 오른쪽 주 행동. */
-.strip {
-  display: flex;
-  align-items: center;
-  gap: var(--space-5);
-  margin: var(--space-6) var(--layout-pane-padding-wide) var(--space-0);
-  padding: var(--space-4) var(--space-6);
-  border: var(--border-width) solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-subtle);
-}
-
-@media (width < 1024px) {
-  .strip {
-    margin-right: var(--layout-pane-padding-narrow);
-    margin-left: var(--layout-pane-padding-narrow);
-  }
-}
-
-.stripIcon {
-  flex: none;
-  color: var(--color-text-muted);
-}
-
-.stripText {
-  flex: 1;
-  min-width: var(--space-0);
-  margin: var(--space-0);
-  color: var(--color-text-primary);
-  font-size: var(--type-small-size);
-  line-height: var(--type-small-line);
-}
-
 .body {
   display: flex;
   flex-direction: column;

@@ -1238,6 +1238,100 @@ concerns: [shell]
   - core 끊김에서는 초안·마지막 read·터미널을 유지하고 새 파일 쓰기·결정 제출 gate를 닫으며 "최신 확인 못함"과 확인 시각을 보인다.
   - flow work-offline, install-lophn(실패 갈래) 화면에서 두 끊김 상태의 동작을 테스트한다.
 
+### T64 project sidebar: folder·context item 선택
+
+- 상태: 완료 (#582)
+- 등급: frontend
+- concern: shell/desktop, shell/workspace
+- 요구: shell/desktop#R28
+- 자리: apps/shell/renderer/workspace/sidebar/, apps/shell/renderer/workspace/(source·core-source·workspace), apps/shell/renderer/desktop/dev-seed.ts, apps/shell/renderer/desktop/dev-mock/mod.ts
+- 쓰는 contract: 없음(documents.list·files.list·contexts.list 읽기 그대로)
+- 내놓는 contract: 없음
+- slice: workspace
+- 선행: shell#T14
+- 완료: 아래 확인이 통과한다
+  - 원인: sidebar의 folder 행과 context 행은 `onClick` 없이 누를 수 없는 `<span>`으로만 그려졌고, 작업대도 context를 여는 `onContext`를 sidebar에 잇지 않았다(문서 행만 연결됐다). 화면 오류가 아니라 처음부터 동작이 없었다. mock의 연관 context id(`ctx_design`)도 contexts 화면 mock에 없는 id였다.
+  - folder 행은 눌러 고르고 펼치고 접으며(`aria-expanded`, 고른 행 표시) 펼치면 그 폴더 안 문서가 들여 쓴 행으로 나와 눌러 탭으로 연다. 폴더에 문서가 없으면 안내 글 한 줄이다. 폴더와 문서의 소속은 `files.list`에서 얻은 `FileRow.folder`(등록 폴더 경로)로 정하고 core 통로와 dev 시드가 모두 채운다.
+  - context 행은 눌러 기존 contexts 화면의 그 컨텍스트를 연다(`onContext`, 정보 패널·팔레트와 같은 통로). context 모델과 화면은 새로 만들지 않는다.
+  - mock 모드(`deno task dev:mock`)의 연관 context는 contexts 화면 mock의 Focus를 가리켜 눌러 열면 그 화면이 나온다.
+  - `workspace/sidebar/sidebar_test.tsx`, `workspace/workspace_test.tsx`의 shell/desktop#R28 테스트가 통과한다.
+### T63 가운데 정렬, 앱 시작 실패 문구, launcher Apps section
+
+- 상태: 완료 (#583)
+- 등급: frontend
+- concern: shell/desktop, shell/design-system, shell/wording
+- 요구: shell/desktop#R25(런처의 앱 section), R12·R20(시작·sandbox·schema 실패 화면), shell/design-system#R21(최대폭 기둥 가운데), R34(empty·error 가운데), shell/wording#R10(실패의 사람 말)
+- 자리: packages/design/components/(state.module.css, empty-state/), apps/shell/renderer/desktop/launcher/(apps-section.tsx, launcher.tsx, start-failure/), apps/shell/renderer/desktop/lophn-space/(apps, roles, things-to-confirm의 CSS), apps/shell/renderer/desktop/main.tsx, packages/design/wording/en.ts
+- 쓰는 contract: 없음(lophn 공간 apps 화면의 AppsSource를 그대로 쓴다)
+- 내놓는 contract: 없음
+- slice: desktop
+- 선행: shell#T61
+- 완료: 아래 확인이 통과한다
+  - empty·error의 아이콘·문장·행동이 내용 자리 가운데에 모인다(`state.module.css`). 틀을 거치지 않던 lophn 공간 apps·things-to-confirm 상세·roles 상세의 기둥이 칸 가운데에 놓인다. Settings(T62)와 프로젝트 작업대 탭은 건드리지 않는다.
+  - 시작 실패·sandbox 실패·schema 비호환은 wording catalog의 제목과 한 문장, design-system Button의 다시 시도를 가운데에 보인다. 안쪽 code(`app-start-failed`·`retry-start-app` 등)는 [Show details]를 연 뒤에만 보인다. 원인은 화면이 model의 안쪽 code를 `t()` 없이 그대로 그리고 `start-failure-*`가 정의 없는 class 이름이었기 때문이다. model이 wording key를 들고 화면이 `t()`로 그린다.
+  - 런처가 프로젝트 section 아래에 앱 section을 두고 보관하지 않은 앱을 카드(이름·실행 상태)로 보인다. 카드를 누르면 lophn 공간 apps 화면의 [Open]과 같은 길(`Desktop.appSpace`)로 그 앱 공간이 열린다. 앱이 없으면 비었음 상태와 [lophn] 행동 하나를 보인다. 목록·실행 상태는 `AppsSource`를 그대로 읽어 dev:mock에서도 보인다.
+  - `launcher-apps_test`, `start-failure_test`, `empty-state_test`에 위 요구 테스트.
+### T62 settings: 세로 nav, section 분류, 가운데 column
+
+- 상태: 완료 (#584)
+- 등급: frontend
+- concern: shell/desktop
+- 요구: shell/desktop#R31, shell/design-system#R21(form 폭 기둥을 가운데 둔다)
+- 자리: apps/shell/renderer/desktop/lophn-space/settings/(settings-screen.tsx, settings.module.css, general/, notifications/), packages/design/components/settings-icons.ts
+- 쓰는 contract: 없음
+- 내놓는 contract: 없음
+- slice: operations
+- 선행: shell#T31, shell#T58
+- 완료: 아래 확인이 통과한다
+  - 가로 탭 줄(Diagnose가 잘리고 scrollbar가 나오던 것)을 왼쪽 세로 nav로 바꾼다. 묶음은 Integrations(Connections·Coding agents·Tools and skills)·Preferences(General·Notifications)·System(Update lophn·Diagnose)이고 항목마다 아이콘과 이름, 고른 항목 강조. 통로가 없는 자리는 nav에 두지 않는다.
+  - 고른 자리 하나를 nav 오른쪽 자리의 가운데 column(form 폭)에 제목·section·카드(왼쪽 이름·설명, 오른쪽 조작)로 그린다. 모든 기존 조작과 동작은 그대로다. [Ask lophn]은 column 머리에 둔다.
+  - backup 자리는 nav에서 뺐다(사람 결정: backup 제거). `backup` 통로 prop과 panel 코드는 남겨 두고 제거는 후속 작업이다. e2e flow backup-and-restore는 그때까지 건너뛴다.
+  - 화면 테스트: nav 묶음·통로 없는 자리 생략·backup 없음·고른 자리 하나만 그림.
+
+### T67 project notice를 toast로
+
+- 상태: 완료 (#585)
+- 등급: frontend
+- concern: shell/workspace, shell/desktop, shell/wording
+- 요구: shell/desktop#R27(관련 없는 크롬이 본문을 차지하지 않는다), shell/desktop#R10·shell/design-system#R35(notification은 오른쪽 아래 한 칸 chip), shell/design-system#R33(toast 폭 360px)
+- 자리: apps/shell/renderer/workspace/(notice-card·operator-entry·tracking·workspace), apps/shell/renderer/desktop/notification-chip/, apps/shell/renderer/desktop/lophn-space/things-to-confirm/labels.ts, packages/design/wording/en.ts, docs/ui-ux/README.md
+- 쓰는 contract: 없음
+- 내놓는 contract: 없음
+- slice: workspace
+- 선행: shell#T14, shell#T15, shell#T54
+- 완료: 아래 확인이 통과한다
+  - 원인: 추적 꺼짐 줄("This project isn't tracking files yet…"), Operator 줄("1 Operator repeats a check here"), 읽기 실패 줄이 본문 열 안의 가로 띠라 터미널 탭을 포함한 모든 탭에서 탭 줄을 아래로 밀었다.
+  - 세 안내는 toast와 같은 폭·표면의 떠 있는 카드(`workspace/notice-card.tsx`)로 `content` 안 왼쪽 아래에 absolute로 뜬다. 오른쪽 아래는 notification chip 한 칸의 자리라 겹치지 않는다. 카드는 본문 높이를 쓰지 않고 행동(Turn on tracking, See Operators, Attach an Operator)을 그대로 둔다. 시간으로 사라지지 않고 닫기 단추만 있다.
+  - 닫은 안내는 상단 바의 "Show notices" 단추(벨 아이콘)로 다시 연다. 안내가 없는 작업대에는 단추가 없다. 닫기는 이 창의 표시일 뿐 추적·Operator 상태를 바꾸지 않는다.
+  - notification chip의 일반 안내 "Something needs your attention"은 계기 표에 없는 계기에 문서도 없을 때만 남는다. 그 밖에는 notification이 가진 사실로 무슨 일인지(계기), 언제인지(발생 시각의 상대 시간)를 한 줄에 말한다. 계기 표에 없는 계기는 문서가 있으면 "Something in a document needs your attention"으로 어디인지 말한다(360px 한 줄이라 계기 이름이 대상을 말하는 계기에는 문서를 덧붙이지 않는다). 원인: mock이 core 계기 이름이 아닌 `question_created` 같은 이름을 써서 항상 일반 안내로 떨어졌다. mock은 실제 계기 이름과 문서·시각을 쓴다.
+  - `workspace/workspace_test.tsx`(떠 있는 층·닫기·다시 열기), `desktop/notification-chip/notification-chip_test.tsx`(chip 줄), 기존 tracking·Operator 테스트가 통과한다.
+- T61 번호가 위쪽 overlay 작업과 겹쳐 T67로 적는다(lead 배정은 T61).
+
+### T60 window chrome: window controls, 텍스트 선택, scrollbar, Lophn Workspace 이름
+
+- 상태: 완료 (#586)
+- 등급: frontend
+- concern: shell/desktop, shell/design-system, shell/wording
+- 요구: shell/desktop#R23(창 단추), shell/desktop#R32(텍스트 선택), shell/design-system#R46(scrollbar), shell/desktop#R24(공간 이름)
+- 자리: apps/shell/renderer/desktop/top-bar/, apps/shell/renderer/chrome.css, apps/shell/main/desktop/window-controls.ts, apps/shell/preload/window-controls-api.ts, apps/shell/ipc/window-controls.ts, packages/design/base.css, packages/design/wording/en.ts
+- 쓰는 contract: 없음
+- 내놓는 contract: 없음
+- slice: desktop
+- 선행: shell#T3
+- 완료: 아래 확인이 통과한다
+  - frameless desktop 창의 상단 바(48px 끌기 영역)에 Windows·Linux는 최소화·최대화/되돌리기·닫기 단추를 그린다. 동작은 preload IPC로 main이 sender 창에만 보내고, 최대화·되돌림은 main이 알려 단추 모양이 따른다. 창 닫기는 기존 close guard를 지난다. 확인 창(modal)의 동작은 건드리지 않는다.
+  - 크롬 글자와 이미지·링크는 선택·drag되지 않는다. 읽기 본문·입력·contenteditable·terminal·code·대화 말·확인 화면 값은 선택된다.
+  - 모든 scrollbar는 base 스타일의 token 막대(얇은 thumb, light·dark)다. 탭 줄·팔레트가 막대 스타일을 따로 덮지 않는다.
+  - lophn 공간 sidebar 머리와 breadcrumb 뿌리는 "Lophn Workspace"다. 제품 이름·agent 이름·"Ask lophn" 같은 문구는 그대로다.
+### T65 화면 말 Focus → Context
+
+- 상태: 완료 (#587)
+- 등급: 좁은
+- concern: shell/wording
+- 요구: shell/wording#R2, R11
+- 자리: packages/design/wording/en.ts, docs/ui-ux/README.md
+- slice: desktop
+- 완료: 화면 말에 context를 뜻하는 "Focus"가 남지 않는다
 ### T66 wireframes gallery
 
 - 상태: 완료 (#588)
@@ -1260,18 +1354,18 @@ concerns: [shell]
 
 ## 요구 덮기
 
-shell 최상위의 요구는 8개 leaf에 177개이고 모두 위 작업의 `요구:`에 들어 있다.
+shell 최상위의 요구는 8개 leaf에 180개이고 모두 위 작업의 `요구:`에 들어 있다.
 
 | concern | 요구 수 | 덮은 수 | 작업 |
 |---|---|---|---|
-| shell/desktop | 30 | 30 | T1–T3, T9, T13–T15, T19–T21, T27, T28, T30, T36, T37, T42, T47, T50, T51, T54–T57, T59, T61 |
+| shell/desktop | 32 | 32 | T1–T3, T9, T13–T15, T19–T21, T27, T28, T30, T36, T37, T42, T47, T50, T51, T54–T57, T59–T62 |
 | shell/workspace | 13 | 13 | T13, T14, T25–T27, T35, T44 |
 | shell/terminal | 13 | 13 | T24, T25, T49 |
 | shell/confirmation-window | 10 | 10 | T22, T23, T29, T45 |
 | shell/app-frame | 36 | 36 | T2, T3, T10, T22, T31, T33, T37–T39, T42, T44, T47, T48, T52, T61 |
 | shell/editor | 17 | 17 | T14, T16–T18, T32, T36, T59 |
 | shell/wording | 14 | 14 | T6, T9, T15, T20, T23, T31, T36, T42, T43, T52, T53, T58 |
-| shell/design-system | 44 | 44 | T4, T5, T8, T10–T12, T14, T28, T34, T61 |
+| shell/design-system | 45 | 45 | T4, T5, T8, T10–T12, T14, T28, T34, T60, T61 |
 
 다른 최상위의 요구 가운데 소유 팀과 합의해 shell 작업이 구현하는 것:
 

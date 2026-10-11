@@ -80,25 +80,27 @@ export function NotificationsPanel({ source }: NotificationsPanelProps) {
                 {t("settings.notifications.heading")}
               </h2>
               <p className={styles.text}>{t("settings.notifications.intro")}</p>
-              <div
-                className={styles.row}
-                data-notifications-row=""
-                data-action="os-notifications"
-              >
-                <span className={styles.rowText}>
-                  <span className={styles.subheading}>
-                    {t("settings.notifications.label")}
+              <div className={styles.rows}>
+                <div
+                  className={styles.row}
+                  data-notifications-row=""
+                  data-action="os-notifications"
+                >
+                  <span className={styles.rowText}>
+                    <span className={styles.subheading}>
+                      {t("settings.notifications.label")}
+                    </span>
+                    <p className={styles.muted}>
+                      {t("settings.notifications.help")}
+                    </p>
                   </span>
-                  <p className={styles.muted}>
-                    {t("settings.notifications.help")}
-                  </p>
-                </span>
-                <Switch
-                  label={t("settings.notifications.label")}
-                  checked={enabled}
-                  disabled={loaded.state !== "ready"}
-                  onCheckedChange={(value) => void change(value)}
-                />
+                  <Switch
+                    label={t("settings.notifications.label")}
+                    checked={enabled}
+                    disabled={loaded.state !== "ready"}
+                    onCheckedChange={(value) => void change(value)}
+                  />
+                </div>
               </div>
               {notice === null ? null : (
                 <p

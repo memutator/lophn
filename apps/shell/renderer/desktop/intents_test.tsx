@@ -171,7 +171,7 @@ Deno.test("shell/desktop#R18: 전역 팔레트는 런처에서도 lophn 전체 �
   assertEquals(model.label, "Search lophn");
   assertEquals(
     [...new Set(model.choices.map((choice) => choice.group))],
-    ["Projects", "Focus", "Apps", "Actions"],
+    ["Projects", "Contexts", "Apps", "Actions"],
   );
   // 이미 열려 있으면 그대로 둔다.
   await win.send("global-palette");

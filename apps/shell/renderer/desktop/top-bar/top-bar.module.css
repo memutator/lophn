@@ -19,11 +19,25 @@
   padding-left: calc(var(--space-12) + var(--space-6));
 }
 
-/* Windows·Linux 창 버튼 자리 138px. 전용 token이 없어 space token 합으로 쓴다. */
+/* Windows·Linux는 오른쪽 끝에 창 단추가 붙으므로 바 오른쪽 여백을 단추 묶음이 대신한다. */
 .bar:is([data-platform="windows"], [data-platform="linux"]) {
-  padding-right: calc(
-    var(--space-12) + var(--space-12) + var(--space-4) + var(--space-1)
-  );
+  padding-right: var(--space-0);
+}
+
+/* 창 단추 셋. 바 높이를 채우고 끌기에서 빠진다. 단추 묶음은 144px(48px 셋)다. */
+.controls {
+  display: flex;
+  flex: none;
+  align-items: center;
+  align-self: stretch;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+.controls > button[data-window-action] {
+  width: var(--space-11);
+  height: 100%;
+  border-radius: var(--space-0);
 }
 
 .bar :is(button, a, input, [role="button"], [tabindex]) {

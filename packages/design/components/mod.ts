@@ -71,6 +71,7 @@ export { workspaceIcons } from "./workspace-icons.ts";
 export { launcherIcons } from "./launcher-icons.ts";
 export { editorIcons } from "./editor-icons.ts";
 export { lophnSpaceIcons } from "./lophn-space-icons.ts";
+export { settingsIcons } from "./settings-icons.ts";
 export { appSpaceIcons } from "./app-space-icons.ts";
 export { paletteIcons } from "./palette-icons.ts";
 export { conversationIcons } from "./conversation-icons.ts";
@@ -164,4 +165,8 @@ export {
   launcherEmptyIcon,
   lophnEntryIcon,
   retryIcon,
+  windowCloseIcon,
+  windowMaximizeIcon,
+  windowMinimizeIcon,
+  windowRestoreIcon,
 } from "./chrome-icons.ts";

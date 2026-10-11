@@ -1,5 +1,5 @@
 // 창 하나의 모양. 시스템 제목 표시줄 없이 상단 바를 쓰고, 제목은 main이
-// 검증한 공간 이름에만 붙인다.
+// 검증한 공간 이름에만 붙인다. Windows·Linux 창 단추는 OS가 아니라 상단 바가 그린다.
 import { type WebPreferences, webPreferences } from "./security.ts";
 
 export const MIN_WINDOW_WIDTH = 960;
@@ -7,9 +7,9 @@ export const MIN_WINDOW_HEIGHT = 600;
 
 /** macOS 신호등 자리. 이 폭만큼 상단 바 왼쪽을 비운다. */
 export const TRAFFIC_LIGHT_WIDTH = 80;
-/** Windows·Linux 창 버튼 자리. */
-export const WINDOW_CONTROLS_WIDTH = 138;
-/** 상단 바 높이. titleBarOverlay가 창 버튼 자리를 이 높이로 남긴다. */
+/** Windows·Linux 창 단추(최소화·최대화·닫기) 자리. 상단 바가 단추 셋을 이 폭으로 그린다. */
+export const WINDOW_CONTROLS_WIDTH = 144;
+/** 상단 바 높이. */
 export const TOP_BAR_HEIGHT = 48;
 
 const TITLE_SUFFIX = " — lophn";
@@ -40,7 +40,6 @@ export interface WindowConfig {
   title: string;
   autoHideMenuBar: true;
   trafficLightPosition?: { x: number; y: number };
-  titleBarOverlay?: { height: number };
   webPreferences: WebPreferences & { preload: string };
 }
 
@@ -54,9 +53,7 @@ export function windowConfig(options: WindowOptions): WindowConfig {
     frame: false,
     title: windowTitle(options.spaceName),
     autoHideMenuBar: true,
-    ...(mac
-      ? { trafficLightPosition: { x: 16, y: 16 } }
-      : { titleBarOverlay: { height: TOP_BAR_HEIGHT } }),
+    ...(mac ? { trafficLightPosition: { x: 16, y: 16 } } : {}),
     webPreferences: {
       ...webPreferences(options.packaged),
       preload: options.preload,

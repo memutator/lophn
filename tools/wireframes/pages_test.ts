@@ -35,9 +35,9 @@ Deno.test("shell#T66: 모든 page에 제목·badge·설명이 있고 id는 겹�
   }
 });
 
-Deno.test("shell#T66: 새 설계 page 열네 개는 모두 새 설계 badge와 한국어 설명을 갖는다", () => {
+Deno.test("shell#T66: 새 설계 page 열세 개는 모두 새 설계 badge와 한국어 설명을 갖는다", () => {
   const fresh = PAGES.filter((page) => page.part === "new");
-  assertEquals(fresh.length, 14);
+  assertEquals(fresh.length, 13);
   // 지금은 Domain model이 아니라 Overview다.
   assert(fresh.every((page) => !/Domain model/.test(page.title)));
   assert(fresh.some((page) => page.title === "Context tab · Overview"));

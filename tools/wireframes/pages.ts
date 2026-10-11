@@ -98,7 +98,6 @@ export type ScreenId =
   | "new-violation-toast"
   | "new-search-table"
   | "new-search-board"
-  | "new-search-combobox"
   | "new-workspace"
   | "new-organize"
   | "new-sidebar-collapsed"
@@ -517,12 +516,6 @@ export const PAGES: readonly WireframePage[] = [
     "Search tab · board result",
     "같은 선언 방식으로 결과 보기를 바꿀 수 있다. 상태별 묶음(board)으로 보이는 검색의 예다. 일반 검색어 검색은 위 막대의 돋보기로만 남는다.",
     "new-search-board",
-  ),
-  fresh(
-    "new-search-combobox",
-    "Search tab · typing a pick",
-    '고르는 입력(Change, Metric, Scenario, About change)은 타이핑을 받는 combobox다. 입력칸에 "C-04"를 쓰면 맞는 후보(C-049·C-041·C-040)가 아래에 걸러져 펼쳐진다.',
-    "new-search-combobox",
   ),
   fresh(
     "new-object",

@@ -145,11 +145,6 @@ export function DeclaredSearchBoard() {
   return searchPage(SEARCH("experiments"));
 }
 
-/** C5c: Change 입력에 "C-04"를 쓰는 중. 맞는 후보가 걸러져 펼쳐진다. */
-export function DeclaredSearchCombobox() {
-  return searchPage(SEARCH("typed"));
-}
-
 /** C8: 접힌 sidebar = 바로 가기 rail. Contexts 단추의 tooltip이 보인다. */
 export function SidebarCollapsed() {
   return (

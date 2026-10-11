@@ -16,6 +16,7 @@ import { openConnection, openLedger } from "./mod.ts";
 import { openReaderConnection } from "./reader-connection.ts";
 import { executeRead } from "./reads.ts";
 import { LEDGER_SCHEMA_STEPS } from "./schema.ts";
+import type { AuthorizationTarget } from "../../contracts/platform/mod.ts";
 import { createTargetAuthorizer } from "./target-authorization.ts";
 
 function code(result: Result<unknown>): string {
@@ -242,4 +243,41 @@ Deno.test("platform/identity#R3, coding-agent/connection#R5: 앱 하나 범위 c
   );
   // 앱을 말하지 않은 target(project 문서·project 읽기)은 자기 앱으로 통과하지 않는다.
   assertEquals(code(authorize(ctx, "doc.get", { document: "d" })), "forbidden");
+});
+
+Deno.test("platform/identity#R3, lophn-agent/roles/app-engineer#R2 [ctx-I58b]: 앱 하나에 묶인 agent는 owner가 context가 읽는 앱(`apps`)에 담당 앱이 있다고 준 context target만 열고 나머지는 없는 대상과 같은 not_found다", () => {
+  const A = "app_00000000000000000000000000";
+  const B = "app_00000000000000000000000001";
+  const CONTEXT = "ctx_01arz3ndektsv4rrffq69g5fav";
+  const ctx = {
+    ...user("owner-1"),
+    actor: "agent:asg_01arz3ndektsv4rrffq69g5fav" as const,
+    scope: { operations: ["context.get"], targets: {} },
+    conditions: { app: A },
+  };
+  const authorize = createTargetAuthorizer(ctx);
+  assert(authorize(ctx, "context.get", { context: CONTEXT, apps: [A] }).ok);
+  assert(
+    authorize(ctx, "context.get", { context: CONTEXT, apps: [B, A] }).ok,
+  );
+  // owner가 앱을 말하지 않거나, 다른 앱만 말하거나, 앱이 없거나, 모양이 틀리면 닫힌다.
+  const closed: AuthorizationTarget[] = [
+    { context: CONTEXT },
+    { context: CONTEXT, apps: [] },
+    { context: CONTEXT, apps: [B] },
+    { context: CONTEXT, apps: A },
+    { context: CONTEXT, apps: [1] },
+  ];
+  for (const target of closed) {
+    assertEquals(
+      code(authorize(ctx, "context.get", target)),
+      "not_found",
+      JSON.stringify(target),
+    );
+  }
+  // 앱에 묶이지 않은 agent는 context target에 앱 사실을 요구하지 않는다.
+  const free = { ...ctx, conditions: {} };
+  assert(
+    createTargetAuthorizer(free)(free, "context.get", { context: CONTEXT }).ok,
+  );
 });

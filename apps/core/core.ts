@@ -79,6 +79,7 @@ import {
 import {
   type KnownSecretMatch,
   LEDGER_SCHEMA_STEPS,
+  type ReaderPool,
 } from "../../packages/platform/ledger/mod.ts";
 import {
   createSupervisor,
@@ -185,6 +186,11 @@ import {
   createContextsHost,
   createContextsProcess,
 } from "./contexts-worker.ts";
+import {
+  type ContextsWatch,
+  createContextsWatch,
+  denoWatchFs,
+} from "./contexts-watch.ts";
 import { DOCUMENTS_FEED_CONTEXT } from "./documents-events.ts";
 import { startDocumentsFeed } from "./documents-feed.ts";
 import type { PlacementRead } from "../../packages/documents/file-tracking/placement-read.ts";
@@ -218,8 +224,10 @@ import { createStreamer, createValidatePort } from "./documents-validate.ts";
 import type { ValidatePort } from "../../packages/documents/versions/work.ts";
 import { DOCUMENT_OPS } from "../../packages/documents/file-tracking/mod.ts";
 import {
+  contextListRoute,
   contextWorkInputReadSchema,
   contextWorkInputRoute,
+  projectList,
   projectTrackingRoots,
 } from "../../packages/contracts/documents/mod.ts";
 import {
@@ -872,6 +880,8 @@ async function open(
   } = {};
   // 활성 tracking root 변화를 보는 확인. documents worker를 띄운 뒤에만 있다.
   let rootsWatch: RootsWatch | undefined;
+  // 활성 context의 계약 경로 폴더를 보고 바뀌면 index를 따라잡게 하는 감시(documents/contexts#R23).
+  let contextsWatch: ContextsWatch | undefined;
   // coordinator에 관측 근거(규칙·경로→문서 연결)를 보내는 동기화(Q15).
   let basisSync: BasisSync | undefined;
   // coordinator의 search consumer에 event와 저장 판 원문을 보내는 동기화(documents#T21).
@@ -1960,21 +1970,34 @@ async function open(
           await Deno.mkdir(contextsStagingPath(root.path), { recursive: true });
         },
       });
-      contextsHost.attach(createContextsDispatcher({
+      const readContextInput: ContextsDispatchDeps["readInput"] = async (
+        input,
+      ) => {
+        const read = await runtime!.readers.read(
+          contextWorkInputRoute,
+          contextsInputReader,
+          input,
+        );
+        if (!read.ok) return read;
+        const parsed = contextWorkInputReadSchema.safeParse(read.value);
+        return parsed.success ? ok(parsed.data) : err({
+          code: "internal" as const,
+          message: "the context worker input is not valid",
+        });
+      };
+      const contextsWatchHandle = createContextsWatch({
+        listActive: () => listActiveContexts(runtime!.readers),
+        readInput: readContextInput,
+        catchUp: (context) => dispatcher.ensureFresh(context, { force: true }),
+        watchFs: denoWatchFs,
+        log: (message) => console.error(message),
+      });
+      contextsWatch = contextsWatchHandle;
+      contextsHost.onAccepted(contextsWatchHandle.onCommand);
+      const dispatcher = createContextsDispatcher({
         process: contextsProcess,
-        readInput: async (input) => {
-          const read = await runtime!.readers.read(
-            contextWorkInputRoute,
-            contextsInputReader,
-            input,
-          );
-          if (!read.ok) return read;
-          const parsed = contextWorkInputReadSchema.safeParse(read.value);
-          return parsed.success ? ok(parsed.data) : err({
-            code: "internal" as const,
-            message: "the context worker input is not valid",
-          });
-        },
+        readInput: readContextInput,
+        observed: (input) => contextsWatchHandle.observe(input),
         command: (envelope) => {
           const ctx = runtime!.current(credentialRef);
           return ctx.ok
@@ -1986,7 +2009,9 @@ async function open(
           : {}),
         nowMs: () => performance.now(),
         log: (message) => console.error(`context worker: ${message}`),
-      }));
+      });
+      contextsHost.attach(dispatcher);
+      void contextsWatchHandle.start();
     }
   }
   // problems/report-collector. 문제 보고 worker route(`/v1/problems/report` 등)를 받는 상시
@@ -2774,6 +2799,7 @@ async function open(
           // 진행 중인 assignment 반응도 writer가 닫히기 전에 끝난다.
           await assignmentReactions?.stop();
           rootsWatch?.stop();
+          contextsWatch?.stop();
           respawnStop?.();
           agentRuntime?.stop();
           basisSync?.stop();
@@ -3126,6 +3152,60 @@ const basisReader: RequestContext = {
   conditions: {},
   credential_ref: "machine:documents-basis",
 };
+
+// 활성 context 목록을 읽는 자격. context 목록 읽기는 사람과 agent의 것이라, core가 감시할 폴더를 정하려고
+// 소유자로 읽는다. core 안에서만 reader에 넘기는 context라 발급 자격이 아니다.
+const contextsWatchReader: RequestContext = {
+  principal: "machine:contexts-watch",
+  actor: "user",
+  scope: { operations: [projectList.name, contextListRoute.name], targets: {} },
+  conditions: {},
+  credential_ref: "machine:contexts-watch",
+};
+
+// 보관되지 않은 project의 활성 context id 전체.
+async function listActiveContexts(
+  readers: { read: ReaderPool["read"] },
+): Promise<Result<string[]>> {
+  const found: string[] = [];
+  let projectCursor: string | undefined;
+  do {
+    const projects = await readers.read(projectList, contextsWatchReader, {
+      status: "active",
+      limit: 100,
+      ...(projectCursor ? { cursor: projectCursor } : {}),
+    });
+    if (!projects.ok) return projects;
+    const page = projects.value as {
+      projects?: { id: string }[];
+      next_cursor?: string | null;
+    };
+    for (const project of page.projects ?? []) {
+      let cursor: string | undefined;
+      do {
+        const listed = await readers.read(
+          contextListRoute,
+          contextsWatchReader,
+          {
+            project: project.id,
+            status: "active",
+            limit: 100,
+            ...(cursor ? { cursor } : {}),
+          },
+        );
+        if (!listed.ok) return listed;
+        const contexts = listed.value as {
+          contexts?: { id: string }[];
+          next_cursor?: string | null;
+        };
+        for (const context of contexts.contexts ?? []) found.push(context.id);
+        cursor = contexts.next_cursor ?? undefined;
+      } while (cursor !== undefined);
+    }
+    projectCursor = page.next_cursor ?? undefined;
+  } while (projectCursor !== undefined);
+  return ok(found);
+}
 
 // context worker 일의 입력(적용 판·검사할 후보 판)을 reader에서 읽는 자격. core가 reader에 넘기는
 // context라 발급 자격이 아니다.

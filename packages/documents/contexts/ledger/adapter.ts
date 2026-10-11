@@ -15,6 +15,9 @@
 //        - state.violations / entities / indexFailing = deps.index(derived 저장소). ledger에 없다.
 //      대상 context는 입력에서 찾는다: context 입력은 그대로, bundle·check·view·entry 입력은
 //      contextOf(sql, kind, id)로. 대상이 없으면 적재를 비우고 handler가 not_found를 낸다.
+//   1.5. 앱 하나에 묶인 agent(`conditions.app`)는 app-bound.ts가 먼저 막는다: command는 모두, 읽기는
+//        get·contract·overview·glossary.list 중 그 앱을 app-data로 읽는 context만, 목록은 그 줄만 남긴다.
+//        읽는 앱은 context_app_data 표(판을 적용할 때 채운다)에서 낸다. 막힌 것은 없는 대상과 같은 not_found다.
 //   2. actor. mapActor(ctx, deps)로 platform ctx를 ContextApiActor로 바꾼다.
 //   3. 실행. createContextApiCommands(state, handlerDeps)의 handler를 부른다.
 //        handlerDeps.now = command를 시작할 때 부른 tx.now()의 값(platform 시계는 부를 때마다 달라질 수
@@ -83,6 +86,13 @@ import type {
   EntityRow,
 } from "../api/state.ts";
 import { COMMAND_ENTRIES, READ_ENTRIES } from "./adapter-routes.ts";
+import {
+  APP_BOUND_LIST,
+  authorizeRead,
+  denyCommand,
+  filterList,
+  isAppBound,
+} from "./app-bound.ts";
 
 // content blob을 읽고 올린다. platform/blob-store가 구현한다.
 export interface ContextBlobs {
@@ -126,6 +136,9 @@ export type ContextLedgerDeps = {
   ): string;
   // `agent:asg_…`의 assignment가 Context Engineer 역할인가.
   isContextEngineer(assignment: string): boolean;
+  // app-data source의 앱 slug들이 가리키는 앱 ID들이다. 앱 하나에 묶인 agent의 읽기 권한이 쓴다.
+  // 등록되지 않은 slug는 빠지고, 앱 등록이 없는 조립에서는 빈 목록이다.
+  appIds(slugs: readonly string[]): readonly string[];
 };
 
 // context worker의 좁은 machine 자격이 가지는 operation이다(credential scope.operations).
@@ -180,6 +193,11 @@ export function contextLedgerCommands(
   return COMMAND_ENTRIES.map((entry): CommandDefinition => ({
     route: entry.route,
     handle(tx, ctx, input, compare) {
+      // 앱 하나에 묶인 agent에게 context command는 없는 대상과 같은 답이다(app-bound.ts).
+      if (isAppBound(ctx)) {
+        const denied = denyCommand(tx, ctx, entry.route.name);
+        if (!denied.ok) return denied;
+      }
       const actor = mapActor(ctx, deps);
       return actor.ok
         ? entry.run(deps, tx, actor.value, input, compare)
@@ -195,8 +213,29 @@ export function contextLedgerReads(
   return READ_ENTRIES.map((entry): ReadDefinition => ({
     route: entry.route,
     handle(snapshot, ctx, input) {
+      const bound = isAppBound(ctx);
+      const operation = entry.route.name;
+      if (bound && operation !== APP_BOUND_LIST) {
+        const context = (input as { context?: unknown }).context;
+        const allowed = authorizeRead(
+          snapshot,
+          deps,
+          ctx,
+          operation,
+          typeof context === "string" ? context : undefined,
+        );
+        if (!allowed.ok) return allowed;
+      }
       const actor = mapActor(ctx, deps);
-      return actor.ok ? entry.run(deps, snapshot, actor.value, input) : actor;
+      if (!actor.ok) return actor;
+      const read = entry.run(deps, snapshot, actor.value, input);
+      if (!bound || !read.ok || operation !== APP_BOUND_LIST) return read;
+      // 목록은 열리는 context의 줄만 남긴다.
+      const page = read.value as { contexts: { id: string }[] };
+      return ok({
+        ...page,
+        contexts: filterList(snapshot, deps, ctx, page.contexts),
+      }) as typeof read;
     },
   }));
 }

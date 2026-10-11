@@ -36,7 +36,8 @@ export function createTargetAuthorizer(
 // - 문서·자리: owner는 문서 자리가 앱일 때만 target의 앱을 준다. 앱을 말하지 않은 문서는 범위 밖이다.
 //   예외는 handoff 고정 근거다. owner가 판 주소(`version`)를 준 읽기에서 (문서, 판)이
 //   `conditions.evidence`에 있을 때만 열린다.
-// - context: owner가 담당 앱과 이어진 사실을 아직 주지 않으므로 context target은 범위 밖이다.
+// - context: owner가 그 context의 계약이 app-data로 읽는 앱의 ID들을 `apps`로 주고 담당 앱이 거기 있을 때만
+//   열린다(roles/app-engineer#R2). owner가 앱을 말하지 않으면 context target은 범위 밖이다.
 function outsideBoundApp(
   ctx: RequestContext,
   target: AuthorizationTarget,
@@ -44,11 +45,16 @@ function outsideBoundApp(
   if (parseActor(ctx.actor)?.kind !== "agent") return false;
   const bound = ctx.conditions.app;
   if (bound === undefined) return false;
-  if (target["context"] !== undefined) return true;
+  if (target["context"] !== undefined) return !readsBoundApp(target, bound);
   const addressed = target["document"] !== undefined ||
     target["place_kind"] !== undefined;
   if (!addressed || target["app"] !== undefined) return false;
   return !pinnedEvidence(ctx, target);
+}
+
+function readsBoundApp(target: AuthorizationTarget, bound: string): boolean {
+  const apps = target["apps"];
+  return Array.isArray(apps) && apps.includes(bound);
 }
 
 function pinnedEvidence(

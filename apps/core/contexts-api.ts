@@ -69,6 +69,7 @@ function unattached(): ContextsRuntime {
         throw new ContextDepUnavailable(UNATTACHED);
       },
       isContextEngineer: () => false,
+      appIds: () => [],
     },
   };
 }

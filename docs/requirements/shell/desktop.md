@@ -226,9 +226,9 @@ Electron main과 창별 shell 화면의 분리, 창 구성·탐색·tray·OS 통
 
 ### Lophn Workspace settings
 
-**[R49]** Settings의 Providers는 provider의 계정과 인증만 다뤄 연결된 provider(이름·로그인 방법·[Disconnect])와 Add a provider 목록([+ Connect])을 보이고, Connect dialog는 로그인 방법을 고르게 하거나 OpenAI 호환 custom provider(ID, Display name, Base URL, API key 선택)를 등록하게 하며 model은 여기서 고르지 않는다.
+**[R49]** Settings의 Providers는 provider의 계정과 인증만 다뤄 연결된 provider(이름·로그인 방법·[Disconnect], 펼치면 그 provider의 계정 목록 — 위아래로 쓰는 순서를 바꾸고 계정마다 사용을 끄고 켠다)와 Add a provider 목록([+ Connect])을 보이고, Connect dialog는 로그인 방법을 고르게 하거나 OpenAI 호환 custom provider(ID, Display name, Base URL, API key 선택)를 등록하게 하며 model은 여기서 고르지 않는다.
 - 이유: provider는 계정이고 model 선택은 agent의 일이다.
-- 확인: Providers에 model 선택 칸이 없고, Connect dialog는 방법 고르기와 custom form 둘을 보이며, 연결 방법·계정의 규칙은 lophn-agent/harness/provider를 따른다.
+- 확인: Providers에 model 선택 칸이 없고, 연결된 provider를 펼치면 계정 순서를 바꾸고 계정 사용을 끌 수 있으며(바꾼 순서는 다음 run부터), Connect dialog는 방법 고르기와 custom form 둘을 보이고, 연결 방법·계정 순서·끄기의 규칙은 lophn-agent/harness/provider(R6·R8·R10)를 따른다.
 - 의도: shell#I1, lophn-agent#I5
 
 **[R50]** Settings의 Agents는 모든 project에 적용되는 기본값을 Default models(lophn·Context Engineer·App Engineer·Operators 넷의 model과 option)·Model for summaries·모든 project의 LOPHN.md(미리보기와 [Edit])·전역 skill([Add skill])·MCP servers([Add server])·기본 권한 순으로 보이고, General에는 Models와 Instructions 칸을 두지 않는다.

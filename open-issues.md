@@ -4,7 +4,7 @@
 `<concern id>#Q<n>`으로 여기에 올리고, 사람이 정해야 하는 것만 "사람이 정할
 것"에 둔다.
 
-- 모두 849건(재연결 뒤 8건 포함): 추천대로 682, 다르게 정함 34, 대체됨 93, 이미
+- 모두 850건(재연결 뒤 8건 포함): 추천대로 683, 다르게 정함 34, 대체됨 93, 이미
   정함 31, 사람이 정할 것 2
 - 사람이 정한 큰 결정은 아래 "정한 원칙"에 있다. 문서는 이 결정을 따른다.
 
@@ -426,7 +426,7 @@
 | problems/tests#Q5         | cgroup이 없는 macOS에서 Deno test 자식을 어떻게 둘까. Q8의 soft 상한과 #193의 Deno soft 거절이 부딪힌다.                          | 미정        | 사람이 정할 것. 추천은 macOS Deno test 자식을 시작 전 `unavailable`로 거절(#193, R20)                                                                                 |
 | problems/tests#Q6         | app test의 정적 code 사용 검사가 literal이 아닌(계산한) code의 `reportProblem` 자리를 어떻게 다룰까.                          | 추천대로    | 선언 안 되었거나 예약된 code를 literal로 보고하는 자리는 정적 fail이다. 정적으로 code를 알 수 없는 자리는 세어 observations에 적고(`dynamic_sites`), 필수 dynamic guard 검사(`code_usage_dynamic`)가 선언 밖·예약 code의 직접 보고를 실제 보고 통로의 guard가 거절하는 것을 보였을 때만 app test가 통과한다(problems#T12) |
 
-### lophn-agent (249)
+### lophn-agent (250)
 
 | id                                          | 질문                                                                                                                                      | 판정        | 결정                                                                                                                                                                  |
 | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -680,6 +680,7 @@
 | lophn-agent/questions#Q5 | 질문 묶음에서 고정 동작(option action) 선택지와 일부만 답한 Submit. | 추천대로 | 고정 동작 선택지가 있는 질문은 1개짜리 묶음으로만 낸다. Submit은 모든 질문에 답해야 하고 일부 답은 저장하지 않는다. |
 | lophn-agent/questions#Q6 | 질문 묶음 도입에 따른 ID와 event. | 추천대로 | 새 `qgr`(QuestionGroup)이 상태·기한·종료를 갖고 `qst`는 id를 유지한다. Run.waiting_on은 `qgr`. event 이름은 그대로이고 subject가 묶음이다. |
 | lophn-agent/harness/run-loop#Q10 | scheduling 보류로 주기 일을 셋째 우선순위로 둔 selector 규칙은. | 추천대로 | 우선순위를 둘(사람이 지금 기다리는 일, 사람의 한 번짜리 일)로 줄이고 8개 연속 규칙은 그대로. 후보는 session마다 센다. |
+| lophn-agent/harness/provider#Q12 | provider 안의 계정 순서·사용 끄기(provider#R6·R8)를 Settings › Providers 어디서 하나. 화면 요구가 없었다. | 추천대로 | 연결된 provider를 펼치면 계정 목록이 보이고 순서를 바꾸고 계정마다 사용을 끈다(shell/desktop#R49). 바꾼 순서는 다음 run부터. |
 
 ### coding-agent (87)
 

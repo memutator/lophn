@@ -11,6 +11,8 @@ import {
   PanelLeft,
   PanelRight,
   SquareTerminal,
+  Trash2,
+  Upload,
   X,
 } from "lucide-react";
 
@@ -29,4 +31,7 @@ export const workspaceIcons = {
   terminal: SquareTerminal,
   appPanel: AppWindow,
   notices: Bell,
+  // Operator editor의 [Delete Operator]와 [Upload image](shell/workspace#R38, R39).
+  trash: Trash2,
+  upload: Upload,
 } as const satisfies Record<string, LucideIcon>;

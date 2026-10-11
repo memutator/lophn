@@ -1121,6 +1121,8 @@ export const en = {
   "conversation.notice.external-waiting":
     "Waiting for {connection}. It has not answered.",
   "conversation.notice.message-loading": "Loading this message.",
+  "conversation.notice.model-definition":
+    "This agent's model. Clear it to use the project default.",
   "conversation.notice.model-session-only":
     "Only this session. Default comes from the agent.",
   "conversation.notice.model-value-fitted":
@@ -1611,6 +1613,56 @@ export const en = {
   "project-workspace.button.new-operator": "New Operator",
   "project-workspace.button.open-agent": "Open",
   "project-workspace.button.use-workspace-default": "Use Workspace default",
+  "project-workspace.button.agent-editor-add-context": "Add context",
+  "project-workspace.button.agent-editor-delete": "Delete Operator",
+  "project-workspace.button.agent-editor-delete-confirm": "Delete",
+  "project-workspace.button.agent-editor-edit-project": "Edit LOPHN.md",
+  "project-workspace.button.agent-editor-reset-model": "Reset",
+  "project-workspace.button.agent-editor-save": "Save",
+  "project-workspace.button.agent-editor-upload-image": "Upload image",
+  "project-workspace.empty.agent-editor-no-contexts":
+    "No contexts. This operator works with project documents only.",
+  "project-workspace.empty.agent-editor-no-mcp":
+    "This project has no MCP servers yet.",
+  "project-workspace.empty.agent-editor-no-project":
+    "This project has no instructions yet.",
+  "project-workspace.empty.agent-editor-no-skills":
+    "This project has no skills yet.",
+  "project-workspace.heading.agent-editor-contexts": "Contexts",
+  "project-workspace.heading.agent-editor-delete-title": "Delete {name}?",
+  "project-workspace.heading.agent-editor-mcp": "MCP servers",
+  "project-workspace.heading.agent-editor-model": "Model",
+  "project-workspace.heading.agent-editor-permissions": "Permissions",
+  "project-workspace.heading.agent-editor-profile": "Profile",
+  "project-workspace.heading.agent-editor-skills": "Skills",
+  "project-workspace.label.agent-editor-built-in":
+    "Built-in instructions (read only)",
+  "project-workspace.label.agent-editor-icons": "Icon",
+  "project-workspace.label.agent-editor-image-file": "Image file",
+  "project-workspace.label.agent-editor-instructions": "Instructions",
+  "project-workspace.label.agent-editor-model-changed": "Changed",
+  "project-workspace.label.agent-editor-model-inherit":
+    "Use project default — {model} (from {source})",
+  "project-workspace.label.agent-editor-model-unset":
+    "Use project default — none chosen yet",
+  "project-workspace.label.agent-editor-name": "Name",
+  "project-workspace.label.agent-editor-project-instructions":
+    "Project instructions · LOPHN.md — shared by every agent in {project}",
+  "project-workspace.label.agent-editor-remove-context": "Remove {name}",
+  "project-workspace.label.agent-editor-source":
+    "{layer, select, workspace {Workspace} project {project} app {app} agent {this agent} other {lophn}}",
+  "project-workspace.notice.agent-editor-delete-body":
+    "Its open sessions close. The conversations stay.",
+  "project-workspace.notice.agent-editor-body-help":
+    "The agent reads project instructions first, then these.",
+  "project-workspace.notice.agent-editor-issue":
+    "{code, select, malformed {This part couldn't be read} unknownField {This field isn't recognized} invalidValue {This value isn't allowed} required {This is required} notAllowed {This isn't allowed here} reservedName {This name is reserved} duplicate {This is already in use} tooLarge {This is too large} missingReference {Something this refers to no longer exists} overCap {This is wider than the project allows} other {This couldn't be saved}}.",
+  "project-workspace.notice.agent-editor-model-help":
+    "Only the fields you change are saved; the rest follow project and Workspace defaults.",
+  "project-workspace.notice.agent-editor-wider-help":
+    "Can't be wider than the project's permissions.",
+  "project-workspace.notice.agent-editor-save-first":
+    "Save first to upload an image.",
   "project-workspace.empty.no-contexts": "No related contexts.",
   "project-workspace.empty.no-documents": "No documents yet.",
   "project-workspace.empty.no-folder-documents": "No documents in this folder.",

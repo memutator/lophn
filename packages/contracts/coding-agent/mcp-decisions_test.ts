@@ -142,6 +142,7 @@ Deno.test("coding-agent/mcp-server#R18: op 입력은 owner route 입력을 그�
     ...Object.keys(questionList.input.shape).sort(),
   ]);
   assertEquals(branchFields(tool("lophn_approval").input, "list"), [
+    "grant_session",
     "limit",
     "run",
     "status",

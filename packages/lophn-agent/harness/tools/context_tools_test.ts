@@ -86,16 +86,25 @@ function ledgerWorld() {
   const contexts = new Map<string, Ctx>();
   const terms = new Map<string, Term>();
   const calls: Call[] = [];
-  // 사람이 답한 질문(정의 답 전달의 질문 정본). 답이 없거나 action이 없는 선택지는 거절 소스다.
-  const questions = new Map<string, {
-    status: string;
-    closed_seq: string | null;
+  // 사람이 답한 질문 묶음(정의 답 전달의 질문 정본). 답이 없거나 action이 없는 선택지는 거절 소스다.
+  type SeededQuestion = {
+    id: string;
     answer: { kind: string; option_key: string | null } | null;
     options: {
       key: string;
       action: Record<string, unknown> | null;
     }[];
+  };
+  const groups = new Map<string, {
+    id: string;
+    status: string;
+    closed_seq: string | null;
+    questions: SeededQuestion[];
   }>();
+  const groupOf = (question: string) =>
+    [...groups.values()].find((group) =>
+      group.questions.some((entry) => entry.id === question)
+    );
   // 범위 밖 context. 읽기도 변경도 없는 것과 같은 not_found다.
   const hidden = new Set<string>();
   let seq = 10;
@@ -120,7 +129,7 @@ function ledgerWorld() {
   const world = {
     contexts,
     terms,
-    questions,
+    groups,
     calls,
     hidden,
     setUnavailable(value: boolean) {
@@ -169,16 +178,20 @@ function ledgerWorld() {
       } = {},
     ) {
       const option = over.option ?? { key: "apply", action: null };
-      const question = {
+      const group = {
+        id: id("qgr", n),
         status: over.status ?? "answered",
         closed_seq: (over.status ?? "answered") === "answered" ? next() : null,
-        answer: over.answer === undefined
-          ? { kind: "option", option_key: option.key }
-          : over.answer,
-        options: [option],
+        questions: [{
+          id: id("qst", n),
+          answer: over.answer === undefined
+            ? { kind: "option", option_key: option.key }
+            : over.answer,
+          options: [option],
+        }],
       };
-      questions.set(id("qst", n), question);
-      return question;
+      groups.set(group.id, group);
+      return group;
     },
     seedApplyAction(n: number): Record<string, unknown> {
       return {
@@ -461,17 +474,19 @@ function ledgerWorld() {
         }
         case "CreateQuestionGroup":
           return ok({ id: body["id"], status: "open" });
-        case "ReadQuestion": {
-          const question = questions.get(String(body["question"]));
-          return question === undefined ? notFound() : ok({
+        case "ReadQuestionGroup": {
+          const group = groups.get(String(body["group"]));
+          return group === undefined ? notFound() : ok({
             as_of_seq: "1",
-            question,
+            group,
             next_cursor: null,
           });
         }
         case "ApplyQuestionOption": {
           // 전달된 질문·option·action은 질문 정본과 같아야 한다. 시험은 호출 내용을 본다.
-          const question = questions.get(String(body["question"]));
+          const question = groupOf(String(body["question"]))?.questions.find((
+            entry,
+          ) => entry.id === body["question"]);
           if (question === undefined) return notFound();
           const option = question.options.find((entry) =>
             entry.key === body["option_key"]
@@ -1354,6 +1369,7 @@ Deno.test("lophn-agent/roles/context-engineer#R5: 정의 답 전달 tool은 Cont
   const action = world.seedApplyAction(1);
   world.seedQuestion(10, { option: { key: "apply", action } });
   const answered = await run("term.submit_definition_answer", {
+    group: id("qgr", 10),
     question: id("qst", 10),
   }, id("tcl", 40));
   assertEquals(
@@ -1361,9 +1377,11 @@ Deno.test("lophn-agent/roles/context-engineer#R5: 정의 답 전달 tool은 Cont
     "success",
     JSON.stringify(answered.result),
   );
-  const read = world.calls.find((call) => call.contract === "ReadQuestion");
+  const read = world.calls.find((call) =>
+    call.contract === "ReadQuestionGroup"
+  );
   assert(read !== undefined);
-  assertEquals(read.input, { question: id("qst", 10) });
+  assertEquals(read.input, { group: id("qgr", 10) });
   const applied = world.calls.find(
     (call) => call.contract === "ApplyQuestionOption",
   );
@@ -1384,6 +1402,7 @@ Deno.test("lophn-agent/roles/context-engineer#R5: 정의 답 전달 tool은 Cont
     option: { key: "apply", action: world.seedApplyAction(2) },
   });
   const none = await run("term.submit_definition_answer", {
+    group: id("qgr", 11),
     question: id("qst", 11),
   }, id("tcl", 41));
   assertEquals(none.outcome.code, "invalid_input");
@@ -1392,6 +1411,7 @@ Deno.test("lophn-agent/roles/context-engineer#R5: 정의 답 전달 tool은 Cont
     option: { key: "apply", action: null },
   });
   const plain = await run("term.submit_definition_answer", {
+    group: id("qgr", 12),
     question: id("qst", 12),
   }, id("tcl", 42));
   assertEquals(plain.outcome.code, "invalid_input");
@@ -1402,6 +1422,7 @@ Deno.test("lophn-agent/roles/context-engineer#R5: 정의 답 전달 tool은 Cont
   );
   // 없는 질문과 범위 밖 질문은 같은 결과다.
   const absent = await run("term.submit_definition_answer", {
+    group: id("qgr", 90),
     question: id("qst", 90),
   }, id("tcl", 43));
   assertEquals(absent.outcome.code, "not_found");

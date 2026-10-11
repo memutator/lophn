@@ -129,15 +129,16 @@ function seedSession(
   for (const [i, call] of calls.entries()) {
     const kind = ["initial", "retry", "credential_change"][i]!;
     db.sql.run(
-      `insert into model_calls (id, run, session, model_use, preset, purpose, attempt_kind,
+      `insert into model_calls (id, run, session, model_use, agent_hash, purpose, attempt_kind,
          attempt_order, retry_of, credential_change_of, provider, model_name, protocol,
          call_model, input, context_basis, state, state_seq, started_at, usage, cost)
-       values (?, ?, ?, 'judgment', '{}', 'judgment', ?, ?, ?, ?, ?, 'model',
+       values (?, ?, ?, 'judgment', ?, 'judgment', ?, ?, ?, ?, ?, 'model',
          'anthropic-messages', '{}', ?, ?, 'started', 1, ?, '{}', '{}')`,
       [
         call,
         run1,
         session,
+        hex(n),
         kind,
         i + 1,
         kind === "retry" ? calls[0]! : null,

@@ -83,7 +83,7 @@ function failure<T>(result: Result<T>): { code: string; message: string } {
   return { code: result.error.code, message: result.error.message };
 }
 
-// lophn-agent의 QuestionCreated option action(settings 변경 목록 모양)과
+// lophn-agent의 QuestionCreated 질문 묶음 선택지 action(settings 변경 목록 모양)과
 // QuestionAnswered 사람 답 모양이다.
 const WIDTH_CHANGES = [
   {
@@ -137,6 +137,7 @@ async function seedQuestion(
   harness: LedgerHarness,
   options: {
     question: string;
+    group?: string;
     optionKey: string;
     changes: unknown;
     withAnswer?: boolean;
@@ -151,6 +152,7 @@ async function seedQuestion(
       {
         command: "settings.tests.seed_question",
         input: {
+          group: options.group ?? `qgr_${options.question.slice(4)}`,
           question: options.question,
           option_key: options.optionKey,
           changes: options.changes,

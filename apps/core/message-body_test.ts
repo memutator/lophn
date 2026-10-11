@@ -21,6 +21,7 @@ import {
 import { tableBlock } from "../../packages/contracts/lophn-agent/message-fixtures.ts";
 import { id } from "../../packages/lophn-agent/conversation/testing/mod.ts";
 import { type Core, startCore } from "./core.ts";
+import { createLedgerRegistration as documentsRegistration } from "./documents.ts";
 import {
   createLedgerRegistration,
   lophnAgentDefinitions,
@@ -30,6 +31,7 @@ const NOW = Date.UTC(2024, 0, 1);
 const MINUTE = 60_000;
 const DAY = 24 * 60 * MINUTE;
 const SECRET = "ghp_abcdefghijklmnopqrstuvwxyz0123";
+const PLACE = id("prj", 1);
 
 type Fixture = {
   home: string;
@@ -51,8 +53,15 @@ async function start(f: Fixture): Promise<Core> {
   const started = await startCore({
     lophnHome: f.home,
     port: 0,
-    teams: [{ lophnAgentDefinitions }, { createLedgerRegistration }],
-    teamModules: [new URL("./lophn-agent.ts", import.meta.url).href],
+    teams: [
+      { lophnAgentDefinitions },
+      { createLedgerRegistration },
+      { createLedgerRegistration: documentsRegistration },
+    ],
+    teamModules: [
+      new URL("./lophn-agent.ts", import.meta.url).href,
+      new URL("./documents.ts", import.meta.url).href,
+    ],
     clock: f.clock,
     // 시작마다 다른 seed다. 같은 seed는 같은 credential ref를 만든다.
     random: seededRandom(100 + ++f.starts),
@@ -65,6 +74,7 @@ async function start(f: Fixture): Promise<Core> {
 const OPERATIONS = [
   "ListAssignments",
   "OpenSession",
+  "project.create",
   "ReadSession",
   "ReceiveMessage",
   "RecordMessage",
@@ -134,6 +144,25 @@ async function openSession(
   assignment: Assignment,
   session: string,
 ) {
+  // 세션은 쓸 수 있는 project 하나를 자리로 받는다. 같은 key라 다시 만들어도 같은 결과다.
+  const place = await post(
+    core.port,
+    "projects/create",
+    command(
+      {
+        id: PLACE,
+        name: "alpha",
+        title: "alpha",
+        purpose: "",
+        folders: [],
+        tracking: { enabled: false, patterns: [], use_gitignore: false },
+      },
+      "session-place",
+      {},
+    ),
+    token,
+  );
+  assertEquals(place.status, 200, JSON.stringify(place.body));
   const opened = await post(
     core.port,
     "sessions/open",
@@ -141,9 +170,8 @@ async function openSession(
       {
         id: session,
         assignment: assignment.id,
-        role: assignment.role,
-        work_place: { kind: "global", id: null },
-        continued_from: null,
+        work_place: { kind: "project", id: PLACE },
+        opening_context: null,
       },
       `open-${session}`,
       {

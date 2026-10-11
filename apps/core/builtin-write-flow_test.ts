@@ -71,6 +71,7 @@ const ABSENT_VERSION = "ver_01arz3ndektsv4rrffq69g5fb9";
 
 const QUESTION_TOKEN = "q".repeat(43);
 const QUESTION = "qst_01arz3ndektsv4rrffq69g5fav";
+const QUESTION_GROUP = "qgr_01arz3ndektsv4rrffq69g5fav";
 
 const USER_OPERATIONS = [
   "ListAssignments",
@@ -78,6 +79,8 @@ const USER_OPERATIONS = [
   "ReadSession",
   "ReceiveMessage",
   "RegisterProvider",
+  "ReadModelDefaults",
+  "ChangeModelDefaults",
   "ReadRun",
   "grant_approval_request",
   "reject_approval_request",
@@ -86,7 +89,7 @@ const USER_OPERATIONS = [
   "ReadApprovalText",
   "project.create",
   "app.create",
-  "AnswerQuestion",
+  "AnswerQuestionGroup",
 ];
 // run이 제공하는 내장 tool의 소유 contract와, 판정이 읽는 것·ask가 쓰는 approval request 생성이다.
 const AGENT_OPERATIONS = [
@@ -201,6 +204,23 @@ async function openWorld(options: Options) {
     protocol: "anthropic-messages",
   });
   assertEquals(registered.status, 200, JSON.stringify(registered.body));
+  // lophn이 쓸 model은 Workspace의 role slot이 정한다(catalog에 있는 이름이어야 한다).
+  const defaults = await call(
+    server,
+    "agent-model-defaults/read",
+    USER_TOKEN,
+    {},
+  );
+  const seq = (defaults.body["defaults"] as { settings_seq: string })
+    .settings_seq;
+  const chosen = await user("agent-model-defaults/change", {
+    lophn: {
+      provider: PVD,
+      model_name: "claude-sonnet-4-5",
+      option_values: {},
+    },
+  }, { settings_seq: seq });
+  assertEquals(chosen.status, 200, JSON.stringify(chosen.body));
   // 문서를 둘 project 하나와 ticket을 둘 app 하나.
   const project = await user("projects/create", {
     id: PROJECT,
@@ -239,9 +259,8 @@ async function openWorld(options: Options) {
   const opened = await user("sessions/open", {
     id: SES,
     assignment: lophn.id,
-    role: "lophn",
-    work_place: { kind: "global", id: null },
-    continued_from: null,
+    work_place: { kind: "project", id: PROJECT },
+    opening_context: null,
   }, { assignment_revision: lophn.revision, assignment_state: "enabled" });
   assertEquals(opened.status, 200, JSON.stringify(opened.body));
   // 사람 요청 하나를 보내고 접수된 run을 돌려준다.
@@ -433,10 +452,15 @@ async function openWorld(options: Options) {
       providers.push(active);
     },
     // 진행 중인 run에 묶인 agent 자격으로 질문을 만들고 사람이 채택 답을 고른다.
-    async adoptedQuestion(question: string, document: string, version: string) {
+    async adoptedQuestion(
+      group: string,
+      question: string,
+      document: string,
+      version: string,
+    ) {
       await accept(
         {
-          ...context(`agent:${lophn.id}`, ["CreateQuestion"], {
+          ...context(`agent:${lophn.id}`, ["CreateQuestionGroup"], {
             assignment: lophn.id,
             run,
           }, "question"),
@@ -449,21 +473,24 @@ async function openWorld(options: Options) {
         "questions/create",
         QUESTION_TOKEN,
         command({
-          id: question,
+          id: group,
           run,
           session: SES,
-          prompt: "Which plan do we take?",
-          reason: "One of two plans has to be adopted.",
-          options: [{
-            key: "one",
-            label: "First",
-            description: "The first plan.",
-            evidence: [],
-            adoption: { document, version, section: null },
-            action: null,
-          }],
-          recommendation: null,
           expires_at: null,
+          questions: [{
+            id: question,
+            prompt: "Which plan do we take?",
+            reason: "One of two plans has to be adopted.",
+            options: [{
+              key: "one",
+              label: "First",
+              description: "The first plan.",
+              evidence: [],
+              adoption: { document, version, section: null },
+              action: null,
+            }],
+            recommendation: null,
+          }],
         }),
       );
       assertEquals(created.status, 200, JSON.stringify(created.body));
@@ -472,9 +499,9 @@ async function openWorld(options: Options) {
           .created_seq,
       );
       const answered = await user("questions/answer", {
-        question,
+        group,
         created_seq: seq,
-        answer: { kind: "option", option_key: "one" },
+        answers: [{ question, answer: { kind: "option", option_key: "one" } }],
       }, { created_seq: seq });
       assertEquals(answered.status, 200, JSON.stringify(answered.body));
     },
@@ -694,7 +721,12 @@ Deno.test("coding-agent/tickets#R3: 제품 core의 QuestionAdoptions port로 run
     )[0]!;
     assert(typeof saved["version"] === "string", JSON.stringify(saved));
     const version = String(saved["version"]);
-    await world.adoptedQuestion(QUESTION, String(saved["document"]), version);
+    await world.adoptedQuestion(
+      QUESTION_GROUP,
+      QUESTION,
+      String(saved["document"]),
+      version,
+    );
     world.nextScript([
       step("ticket", "ticket.create", {
         ...TICKET,

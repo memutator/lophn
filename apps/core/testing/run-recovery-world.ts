@@ -57,6 +57,7 @@ import {
   type RunDriver,
 } from "../../agent-runtime/run-driver.ts";
 import { createAgentCredentialLink } from "../agent-credentials.ts";
+import { createLedgerRegistration as documentsRegistration } from "../documents.ts";
 import { type Core, startCore } from "../core.ts";
 import {
   createLedgerRegistration,
@@ -74,6 +75,7 @@ import { MACHINE_TOKEN, USER_TOKEN } from "./tool-judgment-world.ts";
 export { count, inspect, MACHINE_TOKEN, USER_TOKEN };
 
 const PVD = "pvd_01arz3ndektsv4rrffq69g5fav";
+const PROJECT = "prj_01arz3ndektsv4rrffq69g5fav";
 const SES = "ses_01arz3ndektsv4rrffq69g5fav";
 const MSG = "msg_01arz3ndektsv4rrffq69g5fav";
 const TARGET = "doc_01h455vb4pex5v6nkc6gd5fdw1";
@@ -84,6 +86,8 @@ const USER_OPERATIONS = [
   "ReadSession",
   "ReceiveMessage",
   "RegisterProvider",
+  "ReadModelDefaults",
+  "ChangeModelDefaults",
   "ReadRun",
   "StopRun",
   "PauseAssignment",
@@ -93,6 +97,7 @@ const USER_OPERATIONS = [
   "GetApproval",
   "ListApprovals",
   "ReadApprovalText",
+  "project.create",
 ];
 const AGENT_OPERATIONS = [
   "RecordMessage",
@@ -214,8 +219,14 @@ export async function openRecoveryWorld(
     const started = await startCore({
       lophnHome: home,
       port: 0,
-      teams: [{ lophnAgentDefinitions, createLedgerRegistration }],
-      teamModules: [new URL("../lophn-agent.ts", import.meta.url).href],
+      teams: [
+        { lophnAgentDefinitions, createLedgerRegistration },
+        { createLedgerRegistration: documentsRegistration },
+      ],
+      teamModules: [
+        new URL("../lophn-agent.ts", import.meta.url).href,
+        new URL("../documents.ts", import.meta.url).href,
+      ],
       clock,
       random: seededRandom(seed),
       testCredentials: true,
@@ -277,6 +288,24 @@ export async function openRecoveryWorld(
     protocol: "anthropic-messages",
   });
   assertEquals(registered.status, 200, JSON.stringify(registered.body));
+  // lophn이 쓸 model은 Workspace의 role slot이 정한다(catalog에 있는 이름이어야 한다).
+  const defaults = await call(
+    server,
+    "agent-model-defaults/read",
+    USER_TOKEN,
+    {},
+  );
+  const chosen = await post("agent-model-defaults/change", USER_TOKEN, {
+    lophn: {
+      provider: PVD,
+      model_name: "claude-sonnet-4-5",
+      option_values: {},
+    },
+  }, {
+    settings_seq: (defaults.body["defaults"] as { settings_seq: string })
+      .settings_seq,
+  });
+  assertEquals(chosen.status, 200, JSON.stringify(chosen.body));
   const listed = await call(server, "assignments/list", MACHINE_TOKEN, {});
   const lophn = (listed.body["assignments"] as {
     id: string;
@@ -284,12 +313,21 @@ export async function openRecoveryWorld(
     revision: number;
   }[]).find((entry) => entry.role === "lophn");
   assert(lophn !== undefined);
+  // 세션은 쓸 수 있는 project 하나를 자리로 받는다.
+  const project = await post("projects/create", USER_TOKEN, {
+    id: PROJECT,
+    name: "alpha",
+    title: "alpha",
+    purpose: "",
+    folders: [],
+    tracking: { enabled: false, patterns: [], use_gitignore: false },
+  });
+  assertEquals(project.status, 200, JSON.stringify(project.body));
   const opened = await post("sessions/open", USER_TOKEN, {
     id: SES,
     assignment: lophn.id,
-    role: "lophn",
-    work_place: { kind: "global", id: null },
-    continued_from: null,
+    work_place: { kind: "project", id: PROJECT },
+    opening_context: null,
   }, { assignment_revision: lophn.revision, assignment_state: "enabled" });
   assertEquals(opened.status, 200, JSON.stringify(opened.body));
   const session = await call(server, "sessions/read", USER_TOKEN, {

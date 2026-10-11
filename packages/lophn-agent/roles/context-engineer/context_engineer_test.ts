@@ -939,14 +939,14 @@ Deno.test("lophn-agent/roles/context-engineer#R9: 해석 질문의 선택지는 
 // --- 보류(R10) --------------------------------------------------------
 
 Deno.test("lophn-agent/roles/context-engineer#R10: 답이 없으면 변경을 보류하고 정의로 적용하지 않는다", () => {
-  const hold = holdWithoutAnswer("ledger", id("qst", 3), [
+  const hold = holdWithoutAnswer("ledger", id("qgr", 3), [
     "term.propose_candidate",
     "candidate merge",
   ]);
   assertEquals(hold, {
     name: "ledger",
     reason: "no_answer",
-    question: id("qst", 3),
+    group: id("qgr", 3),
     held_changes: ["term.propose_candidate", "candidate merge"],
   });
 });
@@ -977,11 +977,11 @@ Deno.test("lophn-agent/roles/context-engineer#R10: 필요한 결정은 질문으
       .length,
     1,
   );
-  // 답이 없으면 이 질문의 참조로 보류한다(R10).
-  const hold = holdWithoutAnswer("ledger", id("qst", 9), [
+  // 답이 없으면 이 질문 묶음의 참조로 보류한다(R10).
+  const hold = holdWithoutAnswer("ledger", id("qgr", 9), [
     "term.propose_candidate",
   ]);
-  assertEquals(hold.question, id("qst", 9));
+  assertEquals(hold.group, id("qgr", 9));
   assertEquals(hold.reason, "no_answer");
 });
 

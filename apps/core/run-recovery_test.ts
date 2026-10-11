@@ -612,10 +612,10 @@ Deno.test("lophn-agent/harness/waiting-and-recovery#R8: ReadRunBody는 machine�
     );
     const basis = await body("run_basis", world.run);
     assertEquals(basis.status, 200);
-    assert(
-      (basis.body["value"] as { preset: { id: string } }).preset.id.startsWith(
-        "pst_",
-      ),
+    // 기준은 고정한 resolved agent의 hash를 담는다.
+    assertEquals(
+      (basis.body["value"] as { agent: { hash: string } }).agent.hash.length,
+      64,
     );
     // 없는 대상, 다른 자격, 종류와 맞지 않는 ID는 값을 주지 않는다.
     assertEquals(

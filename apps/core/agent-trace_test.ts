@@ -36,6 +36,7 @@ import { createRunPreparer } from "../agent-runtime/prepare.ts";
 import { createRunDriver } from "../agent-runtime/run-driver.ts";
 import { createAgentCredentialLink } from "./agent-credentials.ts";
 import { startCore } from "./core.ts";
+import { createLedgerRegistration as documentsRegistration } from "./documents.ts";
 import {
   createLedgerRegistration,
   lophnAgentDefinitions,
@@ -50,6 +51,7 @@ import {
 import { MACHINE_TOKEN, USER_TOKEN } from "./testing/tool-judgment-world.ts";
 
 const PVD = "pvd_01arz3ndektsv4rrffq69g5fav";
+const PROJECT = "prj_01arz3ndektsv4rrffq69g5fav";
 const SES = "ses_01arz3ndektsv4rrffq69g5fav";
 const MSG = "msg_01arz3ndektsv4rrffq69g5fav";
 
@@ -59,6 +61,9 @@ const USER_OPERATIONS = [
   "ReadSession",
   "ReceiveMessage",
   "RegisterProvider",
+  "ReadModelDefaults",
+  "ChangeModelDefaults",
+  "project.create",
   "ReadRun",
   "ReadAgentTrace",
 ];
@@ -123,8 +128,14 @@ Deno.test("lophn-agent/observability#R1: 실제 core에서 돌린 agent turn의 
   const started = await startCore({
     lophnHome: home,
     port: 0,
-    teams: [{ lophnAgentDefinitions, createLedgerRegistration }],
-    teamModules: [new URL("./lophn-agent.ts", import.meta.url).href],
+    teams: [
+      { lophnAgentDefinitions, createLedgerRegistration },
+      { createLedgerRegistration: documentsRegistration },
+    ],
+    teamModules: [
+      new URL("./lophn-agent.ts", import.meta.url).href,
+      new URL("./documents.ts", import.meta.url).href,
+    ],
     clock,
     random: seededRandom(61),
     testCredentials: true,
@@ -172,6 +183,28 @@ Deno.test("lophn-agent/observability#R1: 실제 core에서 돌린 agent turn의 
       }),
     );
     assertEquals(registered.status, 200, JSON.stringify(registered.body));
+    // lophn이 쓸 model은 Workspace의 role slot이 정한다(catalog에 있는 이름이어야 한다).
+    const defaults = await call(
+      server,
+      "agent-model-defaults/read",
+      USER_TOKEN,
+      {},
+    );
+    const seq = (defaults.body["defaults"] as { settings_seq: string })
+      .settings_seq;
+    const chosen = await call(
+      server,
+      "agent-model-defaults/change",
+      USER_TOKEN,
+      command({
+        lophn: {
+          provider: PVD,
+          model_name: "claude-sonnet-4-5",
+          option_values: {},
+        },
+      }, { compare: { settings_seq: seq } }),
+    );
+    assertEquals(chosen.status, 200, JSON.stringify(chosen.body));
     const listed = await call(server, "assignments/list", MACHINE_TOKEN, {});
     const lophn = (listed.body["assignments"] as {
       id: string;
@@ -179,6 +212,21 @@ Deno.test("lophn-agent/observability#R1: 실제 core에서 돌린 agent turn의 
       revision: number;
     }[]).find((entry) => entry.role === "lophn");
     assert(lophn !== undefined);
+    // 세션은 쓸 수 있는 project 하나를 자리로 받는다.
+    const project = await call(
+      server,
+      "projects/create",
+      USER_TOKEN,
+      command({
+        id: PROJECT,
+        name: "alpha",
+        title: "alpha",
+        purpose: "",
+        folders: [],
+        tracking: { enabled: false, patterns: [], use_gitignore: false },
+      }),
+    );
+    assertEquals(project.status, 200, JSON.stringify(project.body));
     const opened = await call(
       server,
       "sessions/open",
@@ -186,9 +234,8 @@ Deno.test("lophn-agent/observability#R1: 실제 core에서 돌린 agent turn의 
       command({
         id: SES,
         assignment: lophn.id,
-        role: "lophn",
-        work_place: { kind: "global", id: null },
-        continued_from: null,
+        work_place: { kind: "project", id: PROJECT },
+        opening_context: null,
       }, {
         compare: {
           assignment_revision: lophn.revision,

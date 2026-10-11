@@ -6,26 +6,32 @@ import { fail, scriptedFlow } from "../../connection/testing/mod.ts";
 import { COMMANDS, findCommand } from "../registry.ts";
 import { QUESTION_COMMANDS, runQuestionOpen } from "./question.ts";
 
+const GROUP = "qgr_01arz3ndektsv4rrffq69g5fav";
 const QUESTION = "qst_01arz3ndektsv4rrffq69g5fav";
 const HASH = "a".repeat(64);
 
 function record(over: Record<string, unknown> = {}) {
   return {
-    id: QUESTION,
+    id: GROUP,
     run: "run_01arz3ndektsv4rrffq69g5fav",
     session: null,
-    prompt_blob: HASH,
-    reason_blob: HASH,
-    options: [],
-    recommendation: null,
     expires_at: null,
     status: "pending",
-    answer: null,
     closed_reason: null,
     closed_reason_blob: null,
     created_seq: "3",
     closed_seq: null,
-    applied: false,
+    questions: [{
+      id: QUESTION,
+      group: GROUP,
+      position: 1,
+      prompt_blob: HASH,
+      reason_blob: HASH,
+      options: [],
+      recommendation: null,
+      answer: null,
+      applied: false,
+    }],
     ...over,
   };
 }
@@ -53,11 +59,11 @@ Deno.test("coding-agent/cli#R21: question 표는 list·show·open뿐이고 답·
     COMMANDS.filter((entry) => entry.name.startsWith("question ")).length,
     3,
   );
-  // open은 질문 id만 받는다. 답·옵션·yes 입력은 받지 않는다.
+  // open은 묶음 id만 받는다. 답·옵션·yes 입력은 받지 않는다.
   const open = findCommand("question open");
   assert(open);
   assert(
-    open.input.safeParse({ command: "question open", question: QUESTION })
+    open.input.safeParse({ command: "question open", group: GROUP })
       .success,
   );
   for (
@@ -71,7 +77,7 @@ Deno.test("coding-agent/cli#R21: question 표는 list·show·open뿐이고 답·
     assert(
       !open.input.safeParse({
         command: "question open",
-        question: QUESTION,
+        group: GROUP,
         ...extra,
       }).success,
     );
@@ -80,30 +86,30 @@ Deno.test("coding-agent/cli#R21: question 표는 list·show·open뿐이고 답·
 
 Deno.test("coding-agent/cli#R7: question open은 대기 사실과 결정 화면 링크만 내고 읽기 외 호출이 없다", async () => {
   const flow = scriptedFlow({
-    ReadQuestion: { question: record(), as_of_seq: "9", next_cursor: null },
+    ReadQuestionGroup: { group: record(), as_of_seq: "9", next_cursor: null },
   });
-  const opened = await runQuestionOpen({ question: QUESTION }, {
+  const opened = await runQuestionOpen({ group: GROUP }, {
     client: flow.client,
   });
   assert(opened.ok);
   assertEquals(opened.value.data, {
-    question: QUESTION,
+    group: GROUP,
     state: "waiting",
     waiting: true,
-    decision_link: `lophn://things-to-confirm/${QUESTION}`,
+    decision_link: `lophn://things-to-confirm/${GROUP}`,
     window_opened: false,
   });
   assert(opened.value.next[0].includes("그대로다"));
   assertEquals(flow.sent.map((call) => [call.kind, call.name]), [[
     "read",
-    "ReadQuestion",
+    "ReadQuestionGroup",
   ]]);
 });
 
 Deno.test("coding-agent/cli#R7: 닫힌 질문은 링크 없이 열 결정이 없다고 알리고 core 오류는 그대로 낸다", async () => {
   const expired = scriptedFlow({
-    ReadQuestion: {
-      question: record({
+    ReadQuestionGroup: {
+      group: record({
         status: "expired",
         closed_reason: "expired",
         closed_seq: "4",
@@ -112,7 +118,7 @@ Deno.test("coding-agent/cli#R7: 닫힌 질문은 링크 없이 열 결정이 없
       next_cursor: null,
     },
   });
-  const closed = await runQuestionOpen({ question: QUESTION }, {
+  const closed = await runQuestionOpen({ group: GROUP }, {
     client: expired.client,
   });
   assert(closed.ok);
@@ -120,9 +126,9 @@ Deno.test("coding-agent/cli#R7: 닫힌 질문은 링크 없이 열 결정이 없
   assertEquals(closed.value.data.decision_link, null);
   assertEquals(closed.value.data.waiting, false);
   const absent = scriptedFlow({
-    ReadQuestion: fail("not_found", "question not found"),
+    ReadQuestionGroup: fail("not_found", "question group not found"),
   });
-  const missing = await runQuestionOpen({ question: QUESTION }, {
+  const missing = await runQuestionOpen({ group: GROUP }, {
     client: absent.client,
   });
   assert(!missing.ok);

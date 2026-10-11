@@ -277,19 +277,20 @@ export function conflictHandoff(input: {
 export type HoldRecord = {
   name: string;
   reason: "no_answer";
-  question: string;
+  // 답을 기다리는 질문 묶음이다. 답이 없으면 묶음 전체가 보류의 근거다.
+  group: string;
   held_changes: string[];
 };
 
 export function holdWithoutAnswer(
   name: string,
-  question: string,
+  group: string,
   heldChanges: readonly string[],
 ): HoldRecord {
   return {
     name,
     reason: "no_answer",
-    question,
+    group,
     held_changes: [...heldChanges],
   };
 }

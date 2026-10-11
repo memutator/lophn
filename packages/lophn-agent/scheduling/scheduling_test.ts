@@ -21,7 +21,6 @@ import {
   envelope,
   presetDefinitionJson,
 } from "../harness/run-loop/testing/mod.ts";
-import { createRunSelector, tierOf } from "../harness/run-loop/mod.ts";
 import {
   createOccurrenceClock,
   MAX_IDLE_MS,
@@ -936,32 +935,6 @@ Deno.test("lophn-agent/scheduling#R5: an unfinished run (accepted, running, wait
         entry.occurrence.blocking_runs.length === 1
       ),
     );
-  } finally {
-    await f.h.close();
-  }
-});
-
-Deno.test("lophn-agent/scheduling#R5: a scheduled run is a tier 3 candidate for the run selector", async () => {
-  const f = await open();
-  try {
-    await seedOperator(f);
-    await seedLophn(f);
-    const clock = occurrenceClock(f);
-    await goto(f, FIRST + 1);
-    const round = must(await clock.tick()).advanced[0]!.occurrence;
-    const read = ledgerRead(f.h as unknown as LedgerHarness);
-    const selector = createRunSelector({ read });
-    const alone = must(await selector.next());
-    assertEquals(alone?.run, round.run);
-    const scheduled = await runRecord(f, round.run!);
-    assertEquals(tierOf(scheduled as never), 3);
-
-    // 사람이 기다리는 요청(1칸)이 있으면 그것이 먼저다.
-    const human = id("run", 7);
-    must(await acceptHumanRequest(f, human, ASG_LOPHN));
-    const picked = must(await selector.next());
-    assertEquals(picked?.run, human);
-    assertEquals(tierOf((await runRecord(f, human)) as never), 1);
   } finally {
     await f.h.close();
   }

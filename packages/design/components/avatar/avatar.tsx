@@ -1,6 +1,15 @@
 // agent의 얼굴. icon 하나, 사람이 올린 이미지, 이니셜 중 하나를 둥글게 그린다.
 // sidebar·Agent 화면 머리·메시지·Agents 탭 카드·편집 form이 같은 component를 쓴다(shell/desktop#R40).
 import type { ReactElement } from "react";
+import { tokens } from "../../tokens.ts";
+import { Icon } from "../icon.tsx";
+import { iconPixels, pixels } from "../shared.ts";
+import {
+  AVATAR_ICONS,
+  DEFAULT_AVATAR_ICON,
+  isAvatarIconId,
+} from "./avatar-icons.ts";
+import styles from "./avatar.module.css";
 
 export const AVATAR_SIZES = ["sm", "md", "lg"] as const;
 /** sm 20px, md 24px(메시지·머리), lg 48px(편집 form). */
@@ -25,11 +34,46 @@ export interface AvatarProps {
   label?: string;
 }
 
+// 원 안에서 icon이 차지하는 크기. token 값만 쓴다.
+const ICON_PIXELS: Record<AvatarSize, number> = {
+  sm: iconPixels("small"),
+  md: iconPixels("base"),
+  lg: pixels(tokens.space[9]),
+};
+
 /**
  * 약속하는 DOM(test가 단언): 바깥 요소 `data-avatar`, `data-kind`(icon|image|initial),
  * `data-size`(sm|md|lg). icon이면 `data-icon`에 id와 안에 svg 하나, image면 `<img src>` 하나,
- * initial이면 글자 그대로.
+ * initial이면 글자 그대로. 모르는 icon id는 `data-icon="default"`로 기본 icon을 그린다.
  */
-export function Avatar(_props: AvatarProps): ReactElement {
-  throw new Error("not implemented: agent-I20");
+export function Avatar(
+  { profile, size = "md", label }: AvatarProps,
+): ReactElement {
+  const knownIcon = profile.kind === "icon" && isAvatarIconId(profile.icon)
+    ? profile.icon
+    : undefined;
+  return (
+    <span
+      className={styles.avatar}
+      data-avatar=""
+      data-kind={profile.kind}
+      data-size={size}
+      data-icon={profile.kind === "icon" ? (knownIcon ?? "default") : undefined}
+      role={label === undefined ? undefined : "img"}
+      aria-label={label}
+      aria-hidden={label === undefined ? true : undefined}
+    >
+      {profile.kind === "icon" && (
+        <Icon
+          icon={knownIcon ? AVATAR_ICONS[knownIcon] : DEFAULT_AVATAR_ICON}
+          pixels={ICON_PIXELS[size]}
+        />
+      )}
+      {/* 이름은 바깥 요소가 붙이므로 이미지는 장식이다. */}
+      {profile.kind === "image" && (
+        <img className={styles.image} src={profile.src} alt="" />
+      )}
+      {profile.kind === "initial" && profile.text}
+    </span>
+  );
 }

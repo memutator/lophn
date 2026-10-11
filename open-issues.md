@@ -4,7 +4,7 @@
 `<concern id>#Q<n>`으로 여기에 올리고, 사람이 정해야 하는 것만 "사람이 정할
 것"에 둔다.
 
-- 모두 864건(재연결 뒤 8건 포함): 추천대로 703, 다르게 정함 34, 대체됨 93, 이미
+- 모두 887건(재연결 뒤 8건 포함): 추천대로 726, 다르게 정함 34, 대체됨 93, 이미
   정함 32, 사람이 정할 것 2
 - 사람이 정한 큰 결정은 아래 "정한 원칙"에 있다. 문서는 이 결정을 따른다.
 
@@ -689,6 +689,29 @@
 | lophn-agent/agents#Q3 | 새 Operator는 첫 저장 전에 assignment가 없어 profile 이미지를 올릴 수 없다(upload는 assignment 필수). | 추천대로 | [Upload image]는 첫 저장 뒤에 켜진다. 그 전에는 icon만 고르고 "Save first to upload an image"를 보인다. upload가 임시 자리를 받는 길은 두지 않는다. |
 | lophn-agent/agents#Q4 | Agents 탭 카드의 "n contexts · n skills · n MCP"(shell/workspace#R36)를 그릴 값이 목록 행에 없다. | 추천대로 | `AgentListRow`에 `counts`(contexts는 built-in이면 null, skills·mcp는 켜진 수, 파일이 틀린 행은 셋 다 null)를 더한다(agent-I9). |
 | lophn-agent/agents#Q5 | 값 출처의 정의 층 이름이 작업 지시(`agent`)와 domain model(`definition`)에서 다르다. | 추천대로 | contract·domain은 `definition`. 화면의 출처 문구는 shell/wording이 정한다. |
+| shell/desktop#Q13 | 승인 카드에 Stop을 두나(lead 지시가 R47과 달랐다). | 추천대로 | 두지 않는다. 일을 멈추는 것은 composer의 Stop이고 거절과 다르다(R47). Deny 옆 Esc 안내는 둔다. |
+| shell/desktop#Q14 | 질문 카드의 "상세"(자세한 이유·관련 일, questions#R4)와 기한을 어디에 두나. | 추천대로 | 기본 화면에 기한이 있으면 남은 시간과 무응답 결과, 카드 머리의 "Details" 펼침에 자세한 이유(와 contract에 있으면 역할·관련 일). |
+| shell/desktop#Q15 | 접힌 질문 요약이 고정 action 적용·Skip·만료·취소와 답 접수/적용 완료(questions#R10)를 어떻게 보이나. | 추천대로 | 상태별 문구: Answered / Applying / Applied / Couldn't apply / Skipped / Expired / Cancelled. 접수와 적용 완료를 같은 모양으로 보이지 않는다. |
+| shell/desktop#Q16 | 편집 카드 [Undo] 뒤 모습(R41에 없음). | 추천대로 | "Undid the edit to <path>"와 redo가 가능한 동안(다음 메시지 전, revert#Q8)만 [Redo]. |
+| shell/desktop#Q17 | 머리 ⋯ 메뉴(R38)와 메시지 묶음 안 tool 줄·카드 자리(R40)를 어느 task가 그리나. | 추천대로 | 둘 다 agent-I21·I22(머리·메시지 배치). 보기 상세 select(R42)는 agent-I27. |
+| shell/desktop#Q18 | renderer는 contracts·design·sdk만 import해서 `orderPicker`·`fitOptionValues`·`listCommands`·`resolveSubmission`을 못 부른다. picker 정렬·값 맞춤·`/` 거르기는 어디서 계산하나. | 추천대로 | 화면 component는 계산 결과를 props로 받는다. 화면과 core가 같이 쓰는 순수 규칙(picker 정렬, 즐겨찾기 토글, option 값 맞춤 알림, `/` 거르기)은 `packages/contracts/lophn-agent/`로 옮겨 core와 renderer source가 같은 함수를 쓴다(agent-I41). 제출 해석(알 수 없는 명령)은 core에 남는다. |
+| shell/desktop#Q19 | R43이 "일하는 중 send 자리가 Stop"과 "send 옆 select"를 함께 말한다. | 추천대로 | 일하는 중에는 Stop이 send 자리를 차지하고 select(Change this work / Next request)는 Stop 옆에 둔다. 글은 Enter로 보낸다. |
+| lophn-agent/commands#Q3 | 같은 이름 skill 둘(commands R6 안전장치)이 `/`에 보일 때 출처를 어떤 글로 보이나. | 추천대로 | 이름 오른쪽 회색 작은 글로 자리 이름("Project"·"App") 또는 "Workspace". |
+| lophn-agent/agents#Q6 | agent 정의·settings.md 파일 쓰기가 writer의 command 안에서 동기로 돈다(platform/responsiveness#R1은 file 일을 command 흐름 밖에 두라고 한다). | 추천대로 | 파일은 32KB 이하 하나라 지금은 writer 안에서 쓴다. file adapter는 documents-reader처럼 core가 정적으로 import하지 않고 Worker가 URL로 연다. writer 지연 test에 걸리면 저장을 event+blob 뒤 projector 쓰기로 옮긴다. |
+| lophn-agent/agents#Q7 | contexts 표에 project 열이 없어 "그 project의 context인지"를 검사할 수 없다. | 추천대로 | 지금은 존재만 본다(없는 id만 missing_reference). CTX track과 합칠 때 context의 자리 열로 좁힌다(W2). |
+| shell/workspace#Q10 | sidebar Agents 묶음의 agent 줄에 답을 기다리는 session 점을 두나(R34에 없음, R35는 탭 줄만). | 추천대로 | 둔다. 그 agent에 기다리는 session이 있으면 줄 안에 점과 "Waiting for you" 접근 이름. session 목록은 여전히 sidebar에 없다. |
+| shell/workspace#Q11 | sidebar Manage 자리: R34는 묶음 마지막 줄, wireframe은 제목 줄 오른쪽. | 추천대로 | 요구대로 마지막 줄. |
+| shell/workspace#Q12 | Agents 탭·editor의 권한 고르기 단위와 목록의 출처. | 추천대로 | 개별 동작 이름 하나마다 switch. 고를 수 있는 동작 목록은 role 상한, 켜짐은 자리 `settings.permissions`, 오래 가는 허락(platform/approvals)도 같은 규칙 목록의 한 줄로 보인다. 자리보다 넓은 것은 비활성. |
+| shell/workspace#Q13 | project 자리의 role model 줄을 비우는 단추 이름·자리(R37에 없음). | 추천대로 | 값을 고른 줄에만 "Use Workspace default". |
+| shell/workspace#Q14 | editor Model 칸이 composer의 model picker를 다시 쓰면 "Only this session" 설명이 틀린다. | 추천대로 | picker에 scope(session·definition)를 두고 정의용 설명을 쓴다(agent-I29). |
+| shell/desktop#Q20 | 알림의 [Ask <agent>]를 붙일지와 첫 context를 화면이 계기 표로 계산하나. | 추천대로 | core가 `platform/notifications/ask-agent.ts`로 계산해 알림 행에 `ask`(agent·role·첫 context)를 싣고 화면은 그 값만 그린다(agent-I18b). 표를 renderer에 두 벌 두지 않는다. |
+| shell/desktop#Q21 | Settings › Agents의 기본 권한 칸(R50)의 값 contract가 없다. | 추천대로 | platform/settings의 Workspace 설정에 `agent_permissions`(개별 동작 이름 목록)를 둔다. 화면은 그 contract가 생긴 뒤(별도 task). |
+| shell/desktop#Q22 | 전역 skill·MCP의 켜고 끄기 단위. | 추천대로 | 전역 등록 목록에서 skill 하나·MCP 서버 하나 단위로 켜고 끈다(lophn-agent/extensions의 ExtensionSettings). agent 정의의 `skills_off`·`mcp_off`와 따로다. |
+| shell/desktop#Q23 | 알림 chip(목록)에도 [Ask]를 두나. | 추천대로 | 두지 않는다. [Ask]는 toast와 알림 카드에만(R35). |
+| platform/notifications#Q6 | `ContextWatchedItemChanged`의 `ask_agent`가 null이라 계약 위반 → Context Engineer를 단언할 수 없다. | 추천대로 | CTX track과 합칠 때 그 행에 `context_engineer`와 계약 종류 첫 context를 채운다(W3). |
+| lophn-agent/extensions#Q9 | agent-runtime child의 `--allow-run`·`--allow-net`이 모든 자리 MCP 서버를 합친 목록이다. | 추천대로 | child가 하나라 합친다. 어느 자리에서 쓸지는 run 준비가 자리별로 고르고, 서버가 선언한 실행 파일·host:port만 더하며 와일드카드는 없다. |
+| lophn-agent/extensions#Q10 | 다른 자리에 같은 이름 MCP 서버가 있으면 OAuth begin이 어느 서버인지 모른다(입력에 자리가 없다). | 추천대로 | begin 입력에 자리(place)를 더한다(후속 작은 task). 그 전까지는 자리 id 순 첫 서버. |
+| shell/design-system#Q7 | Avatar icon id 집합의 정본과 모르는 id의 대체 icon. | 추천대로 | design system이 icon 집합의 정본을 갖고, 모르는 id는 기본 agent icon으로 그린다(이니셜 아님). contract는 id 모양만 본다. |
 
 ### coding-agent (87)
 

@@ -19,6 +19,7 @@ export const ID_PREFIXES = {
   snp: "Snapshot",
   vrf: "Verification",
   apr: "ApprovalRequest",
+  qgr: "QuestionGroup",
   qst: "Question",
   ntf: "Notification",
   rvt: "Revert",

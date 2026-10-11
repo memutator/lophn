@@ -18,8 +18,8 @@ import {
   createApprovalRequestStoredSchema,
 } from "../platform/mod.ts";
 import {
-  createQuestionInputSchema,
-  createQuestionSubmissionOutputSchema,
+  createQuestionGroupInputSchema,
+  createQuestionGroupSubmissionOutputSchema,
 } from "./question-submission.ts";
 
 // 제출 결과는 저장된 모양이다(설명 글은 blob hash).
@@ -50,7 +50,7 @@ export const safeReasonSchema = z.string().min(1).max(64).regex(
 
 const resolutionFields = {
   run: idSchema("run"),
-  request: z.union([idSchema("qst"), idSchema("apr")]),
+  request: z.union([idSchema("qgr"), idSchema("apr")]),
   decision_seq: seqSchema,
   tool_call: idSchema("tcl").nullable(),
   result: z.enum(WAIT_RESULTS),
@@ -65,7 +65,7 @@ function resolutionShape(value: {
   if (value.request.startsWith("apr_") && value.tool_call === null) {
     return false;
   }
-  if (value.request.startsWith("qst_") && value.result === "call_started") {
+  if (value.request.startsWith("qgr_") && value.result === "call_started") {
     return false;
   }
   if (
@@ -75,7 +75,7 @@ function resolutionShape(value: {
     return false;
   }
   if (
-    value.request.startsWith("qst_") && value.result === "call_not_executed"
+    value.request.startsWith("qgr_") && value.result === "call_not_executed"
   ) return false;
   return true;
 }
@@ -96,7 +96,7 @@ export type WaitResolution = z.infer<typeof waitResolutionSchema>;
 export const submittedWaitRequestSchema = z.discriminatedUnion("kind", [
   z.strictObject({
     kind: z.literal("question"),
-    input: createQuestionInputSchema,
+    input: createQuestionGroupInputSchema,
   }),
   z.strictObject({
     kind: z.literal("approval"),
@@ -107,7 +107,7 @@ export const submittedWaitRequestSchema = z.discriminatedUnion("kind", [
 export const submittedWaitRequestOutputSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("question"),
-    input: createQuestionSubmissionOutputSchema,
+    input: createQuestionGroupSubmissionOutputSchema,
   }),
   z.object({
     kind: z.literal("approval"),
@@ -200,24 +200,24 @@ export const waitRunCompareSchema = z.strictObject(stateSeq);
 
 export const resolveRunWaitInputSchema = z.strictObject({
   ...runRef,
-  request: z.union([idSchema("qst"), idSchema("apr")]),
+  request: z.union([idSchema("qgr"), idSchema("apr")]),
   decision_seq: seqSchema,
 });
 
 export const resolveRunWaitCompareSchema = z.strictObject({
   ...stateSeq,
-  waiting_on: z.union([idSchema("qst"), idSchema("apr")]),
+  waiting_on: z.union([idSchema("qgr"), idSchema("apr")]),
 });
 
 export const correctWaitingRunInputSchema = z.strictObject({
   ...runRef,
   message: idSchema("msg"),
-  request: z.union([idSchema("qst"), idSchema("apr")]),
+  request: z.union([idSchema("qgr"), idSchema("apr")]),
 });
 
 export const correctWaitingRunCompareSchema = z.strictObject({
   ...stateSeq,
-  waiting_on: z.union([idSchema("qst"), idSchema("apr")]),
+  waiting_on: z.union([idSchema("qgr"), idSchema("apr")]),
 });
 
 export const recoverRunInputSchema = recoveryBasisSchema;
@@ -242,7 +242,7 @@ export const waitRun = defineCommand({
     run: idSchema("run"),
     state: z.literal("waiting_user"),
     state_seq: seqSchema,
-    waiting_on: z.union([idSchema("qst"), idSchema("apr")]),
+    waiting_on: z.union([idSchema("qgr"), idSchema("apr")]),
     request: submittedWaitRequestOutputSchema,
   }).refine((value) =>
     value.run === value.request.input.run &&
@@ -302,7 +302,7 @@ export const correctWaitingRun = defineCommand({
     run: idSchema("run"),
     state: z.enum(["running", "finished"]),
     state_seq: seqSchema,
-    request: z.union([idSchema("qst"), idSchema("apr")]),
+    request: z.union([idSchema("qgr"), idSchema("apr")]),
   }),
   compare: correctWaitingRunCompareSchema,
   actors: ["user", "machine"],
@@ -342,7 +342,7 @@ const runSubject = idSchema("run");
 export const runWaited = defineEvent("RunWaited", {
   subject: runSubject,
   payload: z.object({
-    request: z.union([idSchema("qst"), idSchema("apr")]),
+    request: z.union([idSchema("qgr"), idSchema("apr")]),
     call: idSchema("tcl").nullable(),
     waited_at: atSchema,
   }),
@@ -351,7 +351,7 @@ export const runWaited = defineEvent("RunWaited", {
 export const runResumed = defineEvent("RunResumed", {
   subject: runSubject,
   payload: z.object({
-    request: z.union([idSchema("qst"), idSchema("apr")]),
+    request: z.union([idSchema("qgr"), idSchema("apr")]),
     decision_seq: seqSchema,
     resolution: waitResolutionOutputSchema,
   }).refine((value) =>

@@ -54,8 +54,9 @@ export type QuestionActionEvidence = z.infer<
   typeof questionActionEvidenceSchema
 >;
 
-export const questionRefSchema = z.strictObject({
-  question: idSchema("qst"),
+// 묶음 전체가 명시 Submit·Skip·취소·만료의 대상이다(questions#R6). 질문 하나만 따로 닫지 않는다.
+export const questionGroupRefSchema = z.strictObject({
+  group: idSchema("qgr"),
   created_seq: seqSchema,
 });
 

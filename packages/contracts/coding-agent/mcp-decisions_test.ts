@@ -46,7 +46,7 @@ Deno.test("coding-agent/mcp-server#R18: 질문과 approval은 list·show만 있�
   question.input.parse({ op: "list", status: "pending" });
   question.input.parse({
     op: "show",
-    question: "qst_01arz3ndektsv4rrffq69g5fav",
+    group: "qgr_01arz3ndektsv4rrffq69g5fav",
   });
   for (
     const op of [
@@ -65,7 +65,7 @@ Deno.test("coding-agent/mcp-server#R18: 질문과 approval은 list·show만 있�
     assertEquals(
       question.input.safeParse({
         op,
-        question: "qst_01arz3ndektsv4rrffq69g5fav",
+        group: "qgr_01arz3ndektsv4rrffq69g5fav",
       })
         .success,
       false,
@@ -115,8 +115,14 @@ Deno.test("coding-agent/mcp-server#R18: 질문과 approval은 list·show만 있�
 });
 
 Deno.test("coding-agent/mcp-server#R18: op는 owner read route를 가리킨다", () => {
-  assertEquals(MCP_DECISION_ROUTES.lophn_question.list.name, "ListQuestions");
-  assertEquals(MCP_DECISION_ROUTES.lophn_question.show.name, "ReadQuestion");
+  assertEquals(
+    MCP_DECISION_ROUTES.lophn_question.list.name,
+    "ListQuestionGroups",
+  );
+  assertEquals(
+    MCP_DECISION_ROUTES.lophn_question.show.name,
+    "ReadQuestionGroup",
+  );
   assertEquals(MCP_DECISION_ROUTES.lophn_approval.list.name, "ListApprovals");
   assertEquals(MCP_DECISION_ROUTES.lophn_approval.show.name, "GetApproval");
   assert(mcpDecisionTool("lophn_save") === undefined);
@@ -129,6 +135,7 @@ Deno.test("coding-agent/mcp-server#R18: op 입력은 owner route 입력을 그�
     "assignment",
     "cursor",
     "run",
+    "session",
     "status",
   ]);
   assertEquals(branchFields(tool("lophn_question").input, "list"), [
@@ -156,7 +163,7 @@ Deno.test("coding-agent/mcp-server#R18: op 입력은 owner route 입력을 그�
     );
   }
   assertEquals(
-    tool("lophn_question").input.safeParse({ op: "show", question: CTX })
+    tool("lophn_question").input.safeParse({ op: "show", group: CTX })
       .success,
     false,
   );

@@ -48,9 +48,14 @@ export const messageSchema = z.object({
   mode: messageModeSchema.nullable(),
   applied_at_call: idSchema("mcl").nullable(),
   links: z.array(messageLinkSchema),
+  // Fork로 복사한 메시지에만 있는 원래 메시지. 지난 발언이라 run·mode·반영 연결이 없다.
+  copied_from: idSchema("msg").nullable(),
 }).refine(
   (value) =>
-    value.actor === "user"
+    value.copied_from !== null
+      ? value.mode === null && value.run === null &&
+        value.applied_at_call === null
+      : value.actor === "user"
       ? value.mode !== null
       : (value.actor === "machine" || value.actor.startsWith("agent:")) &&
         value.mode === null,
@@ -106,7 +111,8 @@ export const receiveMessageCompareSchema = z.strictObject({
   session_state: z.literal("open"),
   session_state_seq: seqSchema,
   assignment_revision: revision,
-  assignment_state: z.enum(["enabled", "paused"]),
+  // paused·withdrawn은 새 입력을 거절한다(conversation#R8).
+  assignment_state: z.literal("enabled"),
 });
 export const receiveMessage = defineCommand({
   resource: "messages",
@@ -114,31 +120,6 @@ export const receiveMessage = defineCommand({
   name: "ReceiveMessage",
   input: receiveMessageInputSchema,
   compare: receiveMessageCompareSchema,
-  output: messageCommandOutputSchema,
-  actors: ["user"],
-  errors: commandErrors,
-});
-export const executeStoredRequestInputSchema = z.strictObject({
-  message: idSchema("msg"),
-});
-// resume와 recovery는 이 비교를 만족해도 사람의 실행 선택을 대신하지 않는다.
-export const executeStoredRequestCompareSchema = z.strictObject({
-  assignment_revision: revision,
-  assignment_state: z.literal("enabled"),
-  session_state: z.literal("open"),
-  session_state_seq: seqSchema,
-  message_state_seq: seqSchema,
-  actor: z.literal("user"),
-  mode: z.literal("request"),
-  run: z.null(),
-  applied_at_call: z.null(),
-});
-export const executeStoredRequest = defineCommand({
-  resource: "messages",
-  method: "execute-stored",
-  name: "ExecuteStoredRequest",
-  input: executeStoredRequestInputSchema,
-  compare: executeStoredRequestCompareSchema,
   output: messageCommandOutputSchema,
   actors: ["user"],
   errors: commandErrors,
@@ -275,7 +256,6 @@ export const messageBody = defineRead({
 });
 export const MESSAGE_ROUTES = [
   receiveMessage,
-  executeStoredRequest,
   recordMessage,
   applyMessages,
   assignMessage,

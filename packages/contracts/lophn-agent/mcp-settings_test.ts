@@ -1,10 +1,18 @@
-import { assert } from "@std/assert";
-import { settingDefinitionSchema } from "../platform/mod.ts";
+import { assert, assertEquals } from "@std/assert";
+import { ERROR_CODES } from "../../base/mod.ts";
+import { routePath, settingDefinitionSchema } from "../platform/mod.ts";
 import {
+  changePlaceExtensionSettingsInputSchema,
+  EXTENSION_EVENTS,
+  EXTENSION_ROUTES,
   extensionSettingsSchema,
   mcpAuthSchema,
   mcpServerConfigSchema,
   mcpServersSetting,
+  placeExtensionSettingsChange,
+  placeExtensionSettingsChanged,
+  placeExtensionSettingsRead,
+  readPlaceExtensionSettingsInputSchema,
 } from "./mcp-settings.ts";
 
 const hash = "ab".repeat(32);
@@ -161,6 +169,143 @@ Deno.test("lophn-agent/extensions#R12: the server list is one setting definition
           grant: "ses_01arz3ndektsv4rrffq69g5fav",
         },
       },
+    }).success,
+  );
+});
+
+const prj = "prj_01arz3ndektsv4rrffq69g5fav";
+const app = "app_01arz3ndektsv4rrffq69g5fav";
+const asg = "asg_01arz3ndektsv4rrffq69g5fav";
+const projectPlace = { kind: "project", id: prj };
+const appPlace = { kind: "app", id: app };
+
+Deno.test("lophn-agent/extensions#R32 [agent-I19b]: two routes read and change the MCP servers of one place, and a person alone changes them", () => {
+  assertEquals(EXTENSION_ROUTES.map(routePath), [
+    "/v1/place-extension-settings/read",
+    "/v1/place-extension-settings/change",
+  ]);
+  assertEquals(EXTENSION_ROUTES.map((route) => route.kind), [
+    "read",
+    "command",
+  ]);
+  assertEquals(placeExtensionSettingsRead.name, "ReadPlaceExtensionSettings");
+  assertEquals(
+    placeExtensionSettingsChange.name,
+    "ChangePlaceExtensionSettings",
+  );
+  // 서버 등록은 사람만 정한다(R11): 변경은 user 하나, 읽기는 화면과 run 준비(machine)가 한다.
+  assertEquals([...placeExtensionSettingsChange.actors], ["user"]);
+  assert(placeExtensionSettingsRead.actors.includes("user"));
+  assert(placeExtensionSettingsRead.actors.includes("machine"));
+  for (const route of EXTENSION_ROUTES) {
+    assert(route.errors.every((code) => ERROR_CODES.includes(code)));
+    assert(!route.errors.includes("internal"));
+  }
+  assert(
+    placeExtensionSettingsChange.compare?.safeParse({ hash: null }).success,
+  );
+  assert(
+    placeExtensionSettingsChange.compare?.safeParse({ hash: "ab".repeat(32) })
+      .success,
+  );
+  assert(!placeExtensionSettingsChange.compare?.safeParse({}).success);
+});
+
+Deno.test("lophn-agent/extensions#R32 [agent-I19b]: the place is a project or an app and nothing else", () => {
+  for (const place of [projectPlace, appPlace]) {
+    assert(readPlaceExtensionSettingsInputSchema.safeParse({ place }).success);
+    assert(
+      changePlaceExtensionSettingsInputSchema.safeParse({
+        place,
+        mcp_servers: [],
+      }).success,
+    );
+  }
+  // 전역(Workspace)은 이 route가 아니라 platform/settings가 맡는다.
+  assert(
+    !readPlaceExtensionSettingsInputSchema.safeParse({
+      place: { kind: "workspace" },
+    }).success,
+  );
+  assert(!readPlaceExtensionSettingsInputSchema.safeParse({}).success);
+  assert(
+    !readPlaceExtensionSettingsInputSchema.safeParse({
+      place: { kind: "project", id: asg },
+    }).success,
+  );
+});
+
+Deno.test("lophn-agent/extensions#R33 [agent-I19b]: a place list holds each server name once and nothing but servers", () => {
+  const change = (mcp_servers: unknown, extra: Record<string, unknown> = {}) =>
+    changePlaceExtensionSettingsInputSchema.safeParse({
+      place: projectPlace,
+      mcp_servers,
+      ...extra,
+    }).success;
+  assert(change([stdio]));
+  assert(!change([stdio, { ...stdio, revision: 2 }]));
+  assert(!change([{ ...stdio, token: "raw" }]));
+  // 선택은 agent 정의가 한다: 이 목록에 끈 서버나 tool 칸은 없다.
+  assert(!change([stdio], { mcp_servers_off: [] }));
+  assert(!change([stdio], { skills: [] }));
+  assert(
+    !change(
+      Array.from({ length: 33 }, (_, index) => ({
+        ...stdio,
+        name: `server${index}`,
+      })),
+    ),
+  );
+});
+
+Deno.test("lophn-agent/extensions#R32 [agent-I19b]: a change leaves a hash-only event on the place", () => {
+  assertEquals(EXTENSION_EVENTS.map((event) => event.type), [
+    "PlaceExtensionSettingsChanged",
+  ]);
+  assert(placeExtensionSettingsChanged.subject.safeParse(prj).success);
+  assert(placeExtensionSettingsChanged.subject.safeParse(app).success);
+  assert(!placeExtensionSettingsChanged.subject.safeParse(asg).success);
+  const payload = placeExtensionSettingsChanged.payload.parse({
+    place: projectPlace,
+    before_hash: null,
+    after_hash: hash,
+    mcp_servers: [stdio],
+  });
+  // 서버 설정(경로·헤더·secret 참조)은 event에 싣지 않는다. 전후는 hash뿐이다.
+  assertEquals(Object.keys(payload).sort(), [
+    "after_hash",
+    "before_hash",
+    "place",
+  ]);
+});
+
+Deno.test("lophn-agent/extensions#R32 [agent-I19b]: the read answers the servers, the file hash and the skills a place sees with the ones it hides", () => {
+  const output = placeExtensionSettingsRead.output;
+  const base = {
+    place: projectPlace,
+    settings: { revision: 1, mcp_servers: [stdio] },
+    hash,
+    skills: [
+      { name: "review", description: "Review", source_kind: "place" },
+      { name: "audit", description: "Audit", source_kind: "bundled" },
+    ],
+    shadowed: [{ name: "review", kept: "place", hidden: "registered" }],
+    skipped: [{ path: "/data/projects/x/skills/Bad", reason: "bad name" }],
+    as_of_seq: "1",
+    next_cursor: null,
+  };
+  assert(output.safeParse(base).success);
+  assert(output.safeParse({ ...base, hash: null }).success);
+  assert(
+    !output.safeParse({
+      ...base,
+      skills: [{ name: "x", description: "x", source_kind: "workspace" }],
+    }).success,
+  );
+  assert(
+    !output.safeParse({
+      ...base,
+      settings: { revision: 0, mcp_servers: [] },
     }).success,
   );
 });

@@ -2,8 +2,19 @@ import { assert, assertEquals } from "@std/assert";
 import type { AgentDefinition } from "../../packages/contracts/lophn-agent/mod.ts";
 import type { CoreCalls } from "./main.ts";
 import { productDriver } from "./product-driver.ts";
-import { discoverProductSkills } from "./skill-folders.ts";
-import { ASG, HASH, MODEL, openWorld, RUN, SES } from "./testing/world.ts";
+import { discoverProductSkills, productSkillStores } from "./skill-folders.ts";
+import {
+  APP,
+  ASG,
+  HASH,
+  MODEL,
+  openWorld,
+  OTHER_PRJ,
+  PRJ,
+  RUN,
+  SES,
+  type WorldOptions,
+} from "./testing/world.ts";
 
 Deno.test("extensions#R1: 등록 폴더의 유효한 SKILL.md만 run context skills에 남고 잘못된 이름은 빠진다", async () => {
   const home = await Deno.makeTempDir({ prefix: "lophn-skill-scan-" });
@@ -162,6 +173,165 @@ Deno.test("extensions#R1 extensions#R4 lophn-agent/agents#R18: 제품 run은 dat
   } finally {
     if (previous === undefined) Deno.env.delete("LOPHN_HOME");
     else Deno.env.set("LOPHN_HOME", previous);
+    await Deno.remove(home, { recursive: true });
+  }
+});
+
+Deno.test("extensions#R1 extensions#R33 [agent-I19b]: 자리 skill 폴더가 등록 폴더보다 먼저고 같은 이름은 자리의 것을 쓰며 자리 밖 폴더는 찾지 않는다", async () => {
+  const home = await Deno.makeTempDir({ prefix: "lophn-skill-place-" });
+  const registered = `${home}/registered`;
+  const personal = `${home}/data/skills`;
+  const place = `${home}/data/projects/${PRJ}/skills`;
+  try {
+    await writeSkill(place, "review-notes", "Place review notes");
+    await writeSkill(place, "phroner-style", "Only this project");
+    await writeSkill(registered, "review-notes", "Registered review notes");
+    await writeSkill(registered, "audit", "Registered audit");
+    await writeSkill(personal, "personal-notes", "Personal notes");
+    // 다른 project의 skill 폴더는 이 자리의 stores에 없으므로 찾지 않는다.
+    await writeSkill(
+      `${home}/data/projects/${OTHER_PRJ}/skills`,
+      "other-project",
+      "Another project",
+    );
+
+    const found = await discoverProductSkills(
+      fakeCalls(registered).machine,
+      { place, personal, bundled: null },
+    );
+    assert(found !== null);
+    assertEquals(
+      found.entries.map((entry) => [entry.name, entry.source_kind]),
+      [
+        ["phroner-style", "place"],
+        ["review-notes", "place"],
+        ["audit", "registered"],
+        ["personal-notes", "personal"],
+      ],
+    );
+    assertEquals(found.entries[1].description, "Place review notes");
+    assertEquals(
+      found.shadowing.map((each) => [each.name, each.dropped_bundle]),
+      [["review-notes", `${registered}/review-notes`]],
+    );
+
+    // 아직 만들지 않은 자리 폴더는 그 출처가 비어 있을 뿐 제외 진단이 아니다.
+    const empty = await discoverProductSkills(
+      fakeCalls(registered).machine,
+      { place: `${home}/data/projects/none/skills`, personal, bundled: null },
+    );
+    assert(empty !== null);
+    assertEquals(empty.skipped, []);
+    assertEquals(empty.entries.map((entry) => entry.name), [
+      "review-notes",
+      "audit",
+      "personal-notes",
+    ]);
+  } finally {
+    await Deno.remove(home, { recursive: true });
+  }
+});
+
+Deno.test("extensions#R32 [agent-I19b]: 자리의 skill 폴더는 data root 아래 그 자리의 폴더이고 자리가 없으면 없다", () => {
+  const previous = Deno.env.get("LOPHN_HOME");
+  try {
+    Deno.env.set("LOPHN_HOME", "/data/home/");
+    assertEquals(
+      productSkillStores({ kind: "project", id: PRJ }).place,
+      `/data/home/projects/${PRJ}/skills`,
+    );
+    assertEquals(
+      productSkillStores({ kind: "app", id: APP }).place,
+      `/data/home/apps/${APP}/skills`,
+    );
+    assertEquals(productSkillStores(null).place, null);
+  } finally {
+    if (previous === undefined) Deno.env.delete("LOPHN_HOME");
+    else Deno.env.set("LOPHN_HOME", previous);
+  }
+});
+
+type PreparedWorld = {
+  names: [string, boolean][];
+};
+
+// LOPHN_HOME 아래에 자리 skill을 놓고 run을 준비해 run context가 싣는 skill 목록을 본다.
+async function skillsOfRun(
+  home: string,
+  options: WorldOptions,
+): Promise<PreparedWorld> {
+  const previous = Deno.env.get("LOPHN_HOME");
+  try {
+    Deno.env.set("LOPHN_HOME", home);
+    const world = openWorld({
+      workspaceModels: { lophn: MODEL(), operator: MODEL() },
+      ...options,
+    });
+    const prepared = await productDriver()(world.calls).prepare({
+      run: RUN,
+      assignment: ASG,
+      stateSeq: "1",
+      session: options.session === null ? null : SES,
+      reason: "priority",
+    });
+    assert(prepared.ok, prepared.ok ? "" : JSON.stringify(prepared.error));
+    const loop = prepared.value.loop(
+      { run: RUN, assignment: ASG, token: "token", credential_ref: "cred" },
+      { run: RUN, state_seq: "1", basis: HASH },
+    );
+    const context = await loop.deps.ports.context();
+    assert(context.ok, context.ok ? "" : JSON.stringify(context.error));
+    return {
+      names: context.value.skills.map((
+        skill,
+      ) => [skill.name, skill.selected]),
+    };
+  } finally {
+    if (previous === undefined) Deno.env.delete("LOPHN_HOME");
+    else Deno.env.set("LOPHN_HOME", previous);
+  }
+}
+
+Deno.test("extensions#R32 extensions#R4 lophn-agent/agents#R18 [agent-I19b]: 한 자리에서 여는 agent는 그 자리의 skill만 더 받고 agent 정의가 끈 것은 꺼진 채 싣는다", async () => {
+  const home = await Deno.makeTempDir({ prefix: "lophn-skill-run-place-" });
+  try {
+    await writeSkill(`${home}/skills`, "personal-notes", "Personal");
+    await writeSkill(`${home}/projects/${PRJ}/skills`, "here-only", "Here");
+    await writeSkill(`${home}/projects/${PRJ}/skills`, "turn-off", "Off");
+    await writeSkill(
+      `${home}/projects/${OTHER_PRJ}/skills`,
+      "there-only",
+      "There",
+    );
+    await writeSkill(`${home}/apps/${APP}/skills`, "app-only", "App");
+
+    // project 자리의 session: 그 자리의 skill과 전역의 skill이다.
+    const inProject = await skillsOfRun(home, {
+      session: { kind: "project", id: PRJ },
+      definition: { skills_off: ["turn-off"], body: "" },
+    });
+    assertEquals(inProject.names, [
+      ["here-only", true],
+      ["turn-off", false],
+      ["personal-notes", true],
+    ]);
+
+    // 다른 project와 앱에서 여는 같은 built-in agent는 이 자리의 skill을 받지 않는다.
+    const inOther = await skillsOfRun(home, {
+      session: { kind: "project", id: OTHER_PRJ },
+    });
+    assertEquals(inOther.names, [
+      ["there-only", true],
+      ["personal-notes", true],
+    ]);
+    const inApp = await skillsOfRun(home, {
+      session: { kind: "app", id: APP },
+    });
+    assertEquals(inApp.names, [
+      ["app-only", true],
+      ["personal-notes", true],
+    ]);
+  } finally {
     await Deno.remove(home, { recursive: true });
   }
 });

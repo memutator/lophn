@@ -5,7 +5,7 @@
 import { ok, parseSeq, type Result } from "../../base/mod.ts";
 import type { DerivedRead, DerivedStore } from "./adapters/store.ts";
 import type { ConsumerEvent } from "./ipc.ts";
-import { SEARCH_CONSUMER, WATCH_CONSUMER } from "./work-consumers.ts";
+import { SEARCH_CONSUMER } from "./work-consumers.ts";
 
 export type SearchConsumerDeps = {
   store: DerivedStore;
@@ -32,7 +32,7 @@ export const EVENT_PAGE_LIMIT = 200;
 export const OMISSION_FAILED = "extraction failed";
 export const OMISSION_UNSUPPORTED = "extraction unsupported";
 export const OMISSION_UNVERIFIED = "extraction unverified";
-export { SEARCH_CONSUMER, WATCH_CONSUMER };
+export { SEARCH_CONSUMER };
 
 export type SearchCoverage = {
   processed_seq: string;
@@ -349,7 +349,7 @@ export function coverageOf(
   };
 }
 
-// 재생성 시작. rebuilding flag를 양 consumer에 심는다. 파일 생성은 rebuild 흐름 몫이다.
+// 재생성 시작. rebuilding flag를 search consumer에 심는다. 파일 생성은 rebuild 흐름 몫이다.
 export function startRebuild(
   store: DerivedStore,
   asOfSeq: string,
@@ -360,12 +360,6 @@ export function startRebuild(
          (consumer, processed_seq, rebuilding, rebuild_basis_seq)
        VALUES (?, ?, 1, ?)`,
       [SEARCH_CONSUMER, asOfSeq, asOfSeq],
-    );
-    tx.sql.run(
-      `INSERT OR REPLACE INTO derived_cursors
-         (consumer, processed_seq, rebuilding, rebuild_basis_seq)
-       VALUES (?, ?, 1, ?)`,
-      [WATCH_CONSUMER, asOfSeq, asOfSeq],
     );
     return ok(undefined);
   });

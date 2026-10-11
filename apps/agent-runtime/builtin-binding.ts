@@ -42,29 +42,6 @@ const place = (input: Input): { kind: string; id: string } | null =>
     ? null
     : input["place"] as { kind: string; id: string };
 
-const baseRevision = (input: Input): JsonObject => ({
-  base_revision: text(input["base_revision"]),
-});
-
-const contextWrite = (changes: string): Spec => ({
-  concern: "documents/contexts",
-  targets: (input) => [text(input["context"])],
-  comparison: baseRevision,
-  changes: () => changes,
-  verify: {
-    contract: "context.get",
-    input: (input) => ({ context: input["context"] }),
-  },
-});
-
-const termWrite = (changes: string): Spec => ({
-  concern: "documents/terms",
-  targets: (input) => [text(input["term"])],
-  comparison: baseRevision,
-  changes: () => changes,
-  verify: { contract: "term.get", input: (input) => ({ term: input["term"] }) },
-});
-
 const SPECS: ReadonlyMap<string, Spec> = new Map<string, Spec>([
   ["document.create", {
     concern: "documents/versions",
@@ -91,33 +68,6 @@ const SPECS: ReadonlyMap<string, Spec> = new Map<string, Spec>([
       contract: "document.history",
       input: (input) => ({ document: input["document"] }),
     },
-  }],
-  ["context.create", {
-    concern: "documents/contexts",
-    targets: (_input, run) => [run.run],
-    changes: (input) => `creates a context titled ${text(input["title"])}`,
-  }],
-  ["context.rename", contextWrite("renames the context")],
-  ["context.set_purpose", contextWrite("changes the purpose of the context")],
-  ["context.archive", contextWrite("archives the context")],
-  ["context.add_item", contextWrite("adds an item to the context")],
-  ["context.update_item", contextWrite("changes an item of the context")],
-  ["context.remove_item", contextWrite("removes an item from the context")],
-  ["term.propose_candidate", {
-    concern: "documents/terms",
-    targets: (input) => [text(input["context"])],
-    changes: (input) => `proposes the term candidate ${text(input["name"])}`,
-    verify: {
-      contract: "context.get",
-      input: (input) => ({ context: input["context"] }),
-    },
-  }],
-  ["term.update_candidate", termWrite("changes a term candidate")],
-  ["term.remove_candidate", termWrite("removes a term candidate")],
-  ["term.submit_definition_answer", {
-    concern: "lophn-agent/questions",
-    targets: (input) => [text(input["question"])],
-    changes: () => "applies the definition a person chose in the question",
   }],
   ["ticket.create", {
     concern: "coding-agent/tickets",

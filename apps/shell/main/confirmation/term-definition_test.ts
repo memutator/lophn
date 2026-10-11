@@ -11,8 +11,6 @@ function action(command: string) {
   return {
     concern: command === "app.create"
       ? "apps/registration"
-      : command === "term.define"
-      ? "documents/terms"
       : "documents/addressing",
     command,
     targets: [id("app", 1)],
@@ -72,7 +70,7 @@ async function confirm(command: string) {
   return { result, registered, calls: fake.calls };
 }
 
-for (const command of ["term.define", "app.create"]) {
+for (const command of ["app.create", "apply_settings"]) {
   test(`shell/confirmation-window#R5, lophn-agent/questions#R13: ${command} 선택지는 확인 창 없이 정본을 다시 읽어 답으로 접수한다`, async () => {
     const { result, calls } = await confirm(command);
     assert.deepEqual(result, { ok: true });

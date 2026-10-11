@@ -1,6 +1,6 @@
-// 고정 term.define·app.create 선택지. 사람이 질문에서 그 선택지를 확정하면 확인 창을 열지 않고
+// 고정 app.create·apply_settings 선택지. 사람이 질문에서 그 선택지를 확정하면 확인 창을 열지 않고
 // 정본을 다시 읽어 AnswerQuestionAction으로 접수한다. 적용은 machine이 그 답으로 한다.
-// 이 두 command만 확인 창 없이 접수하고(flow new-app 3, documents/terms#R2), 그 밖 action은
+// 이 command만 확인 창 없이 접수하고(flow new-app 3), 그 밖 action은
 // 읽은 정본의 command가 allowlist에 없으면 forbidden이다.
 import { contentBasis, earlierDeadline, type LiveHandle } from "./handle.ts";
 import type { ConfirmationHandleRegister } from "./types.ts";
@@ -8,7 +8,6 @@ import type { KindCore } from "./kinds/core.ts";
 import { readOptionAction, submitOptionAction } from "./kinds/option-action.ts";
 
 const WITHOUT_WINDOW = new Set([
-  "term.define",
   "app.create",
   "apply_settings",
 ]);

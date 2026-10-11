@@ -139,7 +139,6 @@ export function validRangesFormat(ranges: unknown): ranges is LineRange[] {
 const cursorQuerySchema = z.strictObject({ query: z.string() });
 const cursorFiltersSchema = z.strictObject({
   place: z.unknown().optional(),
-  context: z.string().optional(),
   formats: z.array(z.string()).optional(),
 });
 const cursorPageSchema = z.object({
@@ -162,7 +161,6 @@ type Cursor = z.infer<typeof cursorSchema>;
 export type SearchPageBasis = {
   query: string;
   place?: unknown;
-  context?: string;
   formats?: string[];
   coverage: { processed_seq: string; rebuilding: boolean };
   credential: string;
@@ -171,13 +169,12 @@ export type SearchPageBasis = {
 export function searchBasis(
   ctx: RequestContext,
   query: string,
-  filters: { place?: unknown; context?: string; formats?: string[] },
+  filters: { place?: unknown; formats?: string[] },
   coverage: { processed_seq: string; rebuilding: boolean },
 ): SearchPageBasis {
   return {
     query,
     place: filters.place,
-    context: filters.context,
     formats: filters.formats,
     coverage,
     credential: ctx.credential_ref,
@@ -193,7 +190,6 @@ export function encodeSearchCursor(
     query: { query: basis.query },
     filters: {
       place: basis.place,
-      context: basis.context,
       formats: basis.formats,
     },
     coverage: basis.coverage,
@@ -220,7 +216,6 @@ export function decodeSearchCursor(
       canonicalize(parsed.data.filters) !==
         canonicalize({
           place: current.place,
-          context: current.context,
           formats: current.formats,
         }) ||
       parsed.data.coverage.processed_seq !== current.coverage.processed_seq ||
@@ -487,7 +482,7 @@ export function bodyChunk(
 export const SEARCH_QUIET_MS = 500;
 
 // section-comparison: 같은 module의 section key와 body_hash만 비교하는 순수 규칙이다.
-// section 이력·diff(documents#T16)와 context watch(documents#T24)가 같은 함수를 쓴다.
+// section 이력·diff(documents#T16)가 쓴다.
 // 이름 변경·유사도·hash 일치로 의미상의 대응을 추측하지 않는다: 이름이 바뀌면 옛 key는
 // 소실이고 새 key는 추가다(outline-and-search#R19). body_hash 규약은 format module 묶음
 // 한 곳에 있으므로 module_hash가 다른 두 판은 비교하지 않는다.

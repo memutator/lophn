@@ -174,7 +174,17 @@ import {
 import { type RootsWatch, watchTrackingRoots } from "./documents-roots.ts";
 import { type BasisSync, watchObservationBasis } from "./documents-basis.ts";
 import { createDocumentsRespawner } from "./documents-respawn.ts";
-import { CONTEXT_WORKER_OPERATIONS } from "./contexts-api.ts";
+import {
+  CONTEXT_WORKER_OPERATIONS,
+  contextWorkerCredential,
+} from "./contexts-api.ts";
+import {
+  type ContextsDispatchDeps,
+  contextsStagingPath,
+  createContextsDispatcher,
+  createContextsHost,
+  createContextsProcess,
+} from "./contexts-worker.ts";
 import { DOCUMENTS_FEED_CONTEXT } from "./documents-events.ts";
 import { startDocumentsFeed } from "./documents-feed.ts";
 import type { PlacementRead } from "../../packages/documents/file-tracking/placement-read.ts";
@@ -207,7 +217,11 @@ import type { InternalSubscription } from "./internal-subscription.ts";
 import { createStreamer, createValidatePort } from "./documents-validate.ts";
 import type { ValidatePort } from "../../packages/documents/versions/work.ts";
 import { DOCUMENT_OPS } from "../../packages/documents/file-tracking/mod.ts";
-import { projectTrackingRoots } from "../../packages/contracts/documents/mod.ts";
+import {
+  contextWorkInputReadSchema,
+  contextWorkInputRoute,
+  projectTrackingRoots,
+} from "../../packages/contracts/documents/mod.ts";
 import {
   greet,
   type ParentPipe,
@@ -429,6 +443,13 @@ export type CoreOptions = {
   // 테스트가 감독 child를 실제 process 대신 같은 process 안의 것으로 바꿔 끼운다(예: fake keychain을
   // 쥔 I/O worker). 제품 기동에는 없다.
   spawn?: (request: SpawnRequest) => Spawned;
+  // 테스트가 context worker를 띄우지 않을 때만 끈다(worker의 결과를 손으로 내는 시험). 제품 기동은 항상
+  // 띄운다.
+  contextWorker?: boolean;
+  // `context.check`의 계약 검사가 쓰는, core가 스스로 모르는 환경(앱 read 명령의 효과, 다른 context의
+  // public type)을 알려 주는 입구다. 없으면 알려 줄 것이 없는 것이라 앱 데이터 type이나 다른 context
+  // 참조가 든 판은 검사를 통과하지 못한다.
+  contextCheckEnvironment?: ContextsDispatchDeps["environment"];
   // 테스트가 worker route serving을 붙이는 입구(T8·T13 통합). 제품 기동에는 없다.
   workers?: ReadonlyMap<string, WorkerRouteTarget>;
   // 앱 supervisor(앱 프로세스 감독)를 띄운다. 제품 기동만 true다. runtimeDir은 앱 socket을 두는
@@ -1146,6 +1167,10 @@ async function open(
       : { sweepMs: options.appsSweepMs }),
   });
   appsControl.overlayReads(runtime.reads);
+  // context index를 읽는 읽기는 읽기 전에 index를 따라잡고, bundle.submit은 검사를 worker에 보낸다.
+  // worker를 띄울 수 있는 조립(io 감독이 있는 core)에서만 아래에서 dispatcher가 붙는다.
+  const contextsHost = createContextsHost();
+  contextsHost.overlayReads(runtime.reads);
   // documents 구독자(machine:documents-feed)의 자격 기록. token이 없는 core 내부 자격이라
   // HTTP로는 이 principal이 될 수 없고, reader가 이 ledger 기록으로 event 공개를 판단한다.
   const feedCredential = await runtime.record(DOCUMENTS_FEED_CONTEXT);
@@ -1296,7 +1321,7 @@ async function open(
                     withQuestionText(
                       withHandoffBody(
                         withMessageBody(
-                          runtime.writer,
+                          contextsHost.wrapWriter(runtime.writer),
                           createMessageBodyPreparer({
                             relay: () => bodyPrepare.current,
                             // 알려진 secret 값도 pattern과 함께 가린다. 값을 다 모르는 동안은 막는다.
@@ -1907,6 +1932,62 @@ async function open(
       ledgerId: ledgerId.value,
       retryMs: DOCUMENTS_SEARCH_RETRY_MS,
     });
+  }
+  // documents/contexts. index를 갱신하고 판을 검사하는 context worker(documents 2.4)다. 첫 요청에서 띄우고
+  // 상주한다. 감독이 없는 harness는 띄우지 않는다. 띄우지 못해도 core는 계속 선다: 읽기는 있던
+  // index로 답하고(없으면 unavailable) 제출된 판은 checking으로 남는다.
+  if (io && options.contextWorker !== false) {
+    const issued = await productRegistry.issue(contextWorkerCredential());
+    const current = issued.ok
+      ? productRegistry.revalidate({
+        credential_ref: issued.value.credential_ref,
+      })
+      : issued;
+    const recorded = issued.ok && current.ok
+      ? await runtime.record(current.value)
+      : current;
+    if (issued.ok && recorded.ok) {
+      const credentialRef = issued.value.credential_ref;
+      const contextsChannel = createDocumentsChannel();
+      const contextsProcess = createContextsProcess({
+        supervisor: io,
+        channel: contextsChannel,
+        dataRoot: root.path,
+        epoch,
+        apiPort: server.port,
+        prepare: async () => {
+          await Deno.mkdir(`${root.path}/derived`, { recursive: true });
+          await Deno.mkdir(contextsStagingPath(root.path), { recursive: true });
+        },
+      });
+      contextsHost.attach(createContextsDispatcher({
+        process: contextsProcess,
+        readInput: async (input) => {
+          const read = await runtime!.readers.read(
+            contextWorkInputRoute,
+            contextsInputReader,
+            input,
+          );
+          if (!read.ok) return read;
+          const parsed = contextWorkInputReadSchema.safeParse(read.value);
+          return parsed.success ? ok(parsed.data) : err({
+            code: "internal" as const,
+            message: "the context worker input is not valid",
+          });
+        },
+        command: (envelope) => {
+          const ctx = runtime!.current(credentialRef);
+          return ctx.ok
+            ? runtime!.writer.command(ctx.value as never, envelope)
+            : Promise.resolve(ctx);
+        },
+        ...(options.contextCheckEnvironment
+          ? { environment: options.contextCheckEnvironment }
+          : {}),
+        nowMs: () => performance.now(),
+        log: (message) => console.error(`context worker: ${message}`),
+      }));
+    }
   }
   // problems/report-collector. 문제 보고 worker route(`/v1/problems/report` 등)를 받는 상시
   // worker다. 감독이 없는 harness와 problems를 등록하지 않은 조립은 띄우지 않는다. 띄우지
@@ -3044,6 +3125,16 @@ const basisReader: RequestContext = {
   scope: { operations: [OBSERVATION_BASIS_ROUTE.name], targets: {} },
   conditions: {},
   credential_ref: "machine:documents-basis",
+};
+
+// context worker 일의 입력(적용 판·검사할 후보 판)을 reader에서 읽는 자격. core가 reader에 넘기는
+// context라 발급 자격이 아니다.
+const contextsInputReader: RequestContext = {
+  principal: "machine:contexts-dispatch",
+  actor: "machine",
+  scope: { operations: [contextWorkInputRoute.name], targets: {} },
+  conditions: {},
+  credential_ref: "machine:contexts-dispatch",
 };
 
 // search consumer가 저장 판 행을 읽는 자격. core가 reader에 넘기는 context라 발급 자격이 아니다.

@@ -80,7 +80,8 @@ context worker는 `apps/worker`의 kind `documents/contexts` 하나다. core가 
 - 경로 안전: 계약의 경로는 Project 루트 기준 `/` 상대 경로나 glob이다. 순회와 최종 열린 파일 검사에서 `.git`·lophn 데이터·루트 밖 symlink를 제외한다. 루트 밖을 가리키는 경로는 읽지 않고 계약 오류로 보고한다.
 - 직렬화: 한 context에는 job이 하나씩만 돈다. 같은 context의 같은 job 요청은 하나로 합쳐 같은 결과를 돌려준다. `context.preview`는 draft content hash까지 같은 요청만 합친다.
 - 예산: 파일 수·바이트·시간 예산을 둔다(구현 조절값). 넘으면 거기서 멈추고 `omissions`를 결과에 싣는다. 일부만 훑고 전체를 훑은 것처럼 꾸미지 않는다. 예외로 `context.preview`는 `omissions` 자리가 없는 읽기이므로 넘으면 `unavailable`이다(개체 수를 일부만 센 채 돌려주지 않는다).
-- 결과 제출: core와 같은 framed IPC를 쓰고 `bundle.finish_check`·`context.record_violations`는 좁은 machine credential로 제출한다. 원래 요청의 context·bundle 근거를 결합하며 command가 현재 적용 판과 맞는지 다시 검사한다. worker가 직접 `lophn.db`를 열지 않는다.
+- 결과 제출: worker는 core의 API에 닿지 않는다(network가 없다). `bundle.finish_check`·`context.record_violations`는 worker가 job의 답에 실어 보내고, core가 요청에 쓴 context·bundle(check) 근거와 맞는지 다시 본 뒤 자기가 쥔 좁은 machine credential로 낸다(token은 worker에 주지 않는다). command는 현재 적용 판과 맞는지 다시 검사한다. worker가 직접 `lophn.db`를 열지 않는다.
+- 입력과 환경: core는 job을 보내기 전에 reader Worker의 내부 read `context.work_input`으로 적용 판(또는 후보 판)의 content, `recorded_count`, 사람이 저장한 saved view, Project 폴더를 한 snapshot에서 읽어 요청에 싣는다. 폴더가 여럿이면 앞 폴더의 파일이 같은 상대 경로를 이긴다. worker는 data root를 hello의 scope targets로 받으므로 env 권한이 없다. 읽을 폴더가 늘면 core가 새 권한으로 worker를 교체한다. 앱 read 명령의 효과와 다른 context의 public type은 core가 스스로 알지 못해 core가 받는 입구(`contextCheckEnvironment`)로 알린다.
 - app-data: worker는 앱 read command를 부르지 않는다. `context.check`와 `context.preview`는 app-data kind의 모양(계약 안의 command 이름·결과 field)만 검사하고 앱 데이터는 읽지 않는다.
 
 ## 3. 저장

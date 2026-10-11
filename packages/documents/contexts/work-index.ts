@@ -16,12 +16,17 @@ export type IndexJobRequest = {
   bundle_hash: string;
   // ledger가 마지막으로 기록한 위반 수(contexts.violation_mark)
   recorded_count: number;
+  // Project 폴더의 절대 경로. `files`가 이것으로 파일을 연다. 어댑터가 따로 알면 비워도 된다.
+  roots?: readonly string[];
 };
 
 export type IndexJobDeps = {
   store: IndexStore;
   // 계약 폴더 아래 Project 파일의 보기. 폴더 밖은 담지 않는다.
-  files(folders: readonly WatchFolder[]): IndexFiles;
+  files(
+    folders: readonly WatchFolder[],
+    roots?: readonly string[],
+  ): IndexFiles;
   clock: Clock;
   submit: Pick<SubmitPort, "recordViolations">;
 };
@@ -44,7 +49,7 @@ export async function runIndexJob(
 ): Promise<Result<IndexJobResult>> {
   let files: IndexFiles;
   try {
-    files = deps.files(watchFolders(request.bundle.contract));
+    files = deps.files(watchFolders(request.bundle.contract), request.roots);
   } catch (error) {
     return err({
       code: "unavailable",

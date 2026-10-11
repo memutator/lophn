@@ -33,5 +33,10 @@ export type Snapshot = {
 
 export type SnapshotPort = {
   // folders 아래 파일만 `staging/context-check/<check>/`로 복사한다. 복사하지 못하면 `unavailable`.
-  create(check: string, folders: readonly WatchFolder[]): Result<Snapshot>;
+  // roots는 Project 폴더의 절대 경로다(앞 폴더가 이긴다). 어댑터가 따로 알면 비워도 된다.
+  create(
+    check: string,
+    folders: readonly WatchFolder[],
+    roots?: readonly string[],
+  ): Result<Snapshot>;
 };

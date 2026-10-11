@@ -1,5 +1,6 @@
 import { runPlatformIo } from "./platform/io.ts";
 import { runCoordinator } from "./documents/coordinator.ts";
+import { CONTEXTS_KIND, runContextsWorker } from "./documents/contexts.ts";
 import { runPreparation } from "./documents/preparation.ts";
 import { runReleaseWorker } from "./apps/release.ts";
 import { runnerReady, TEST_RUNNER_KIND } from "./problems/test-runner.ts";
@@ -26,6 +27,7 @@ const WORKER_ENTRIES: Readonly<
   "platform/io": runPlatformIo,
   "documents/worker": runCoordinator,
   "documents/preparation": runPreparation,
+  [CONTEXTS_KIND]: runContextsWorker,
   "apps/release": runReleaseWorker,
   [TEST_RUNNER_KIND]: async () => {
     const ready = runnerReady(TEST_RUNNER_KIND);

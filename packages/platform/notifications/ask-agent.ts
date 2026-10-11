@@ -1,7 +1,10 @@
-import type {
-  NotificationAskRole,
-  NotificationFirstContext,
-  Seq,
+import { BUILTIN_AGENT_NAMES } from "../../contracts/lophn-agent/mod.ts";
+import {
+  type NotificationAsk,
+  type NotificationAskRole,
+  notificationAskSchema,
+  type NotificationFirstContext,
+  type Seq,
 } from "../../contracts/platform/mod.ts";
 import { triggerOf } from "./model.ts";
 
@@ -56,4 +59,26 @@ export function askTab(source: AskSource): AskTab | null {
       target: { kind: agent.first_context.target, id: source.subject },
     },
   };
+}
+
+// 알림 행에 싣는 [Ask <agent 이름>] 값(platform/notifications#R13, R14). 계기 표가 부를 agent와
+// 첫 context 모양을 정하고 source 사실이 앱과 대상 id를 채운다. agent가 없는 계기, 앱이나 대상
+// id를 알 수 없는 사실, 모양이 맞지 않는 id는 null이다(보기만). 열 자리를 짐작하지 않는다.
+// agent_name은 그 role의 built-in 이름이다: 부를 수 있는 role은 built-in뿐이다.
+export function notificationAsk(
+  event: string,
+  subject: string,
+  app: string | null,
+): NotificationAsk | null {
+  const agent = askAgentOf(event);
+  if (agent === null || app === null) return null;
+  const parsed = notificationAskSchema.safeParse({
+    role: agent.role,
+    agent_name: BUILTIN_AGENT_NAMES[agent.role],
+    first_context: {
+      work_place: { kind: agent.first_context.work_place, id: app },
+      target: { kind: agent.first_context.target, id: subject },
+    },
+  });
+  return parsed.success ? parsed.data : null;
 }

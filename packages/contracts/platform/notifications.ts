@@ -156,9 +156,28 @@ export const notificationsGetInputSchema = z.strictObject({
 });
 // 사람 줄이 source event에서 읽는 당시 시각과 문서 참조다(platform/notifications#R3).
 // 문서 참조가 없으면 null이다. payload 자체는 없다.
+//
+// ask는 [Ask <agent 이름>]이 쓰는 값이다(platform/notifications#R13, R14). core가 계기 표와
+// source 사실로 계산해 싣고 화면은 받은 값만 그린다. 부를 agent가 없는 계기는 null이다.
+// first_context는 Ask가 연 Agent 탭에 첫 context로 붙는 참조뿐이다: 앱 자리와 문제 또는
+// release 대상의 id. notification 본문 복사본·run·message는 실을 자리가 없다.
+export const notificationAskSchema = z.strictObject({
+  role: z.enum(NOTIFICATION_ASK_ROLES),
+  agent_name: z.string().min(1),
+  first_context: z.strictObject({
+    work_place: z.strictObject({ kind: z.literal("app"), id: idSchema("app") }),
+    target: z.discriminatedUnion("kind", [
+      z.strictObject({ kind: z.literal("problem"), id: idSchema("prb") }),
+      z.strictObject({ kind: z.literal("release"), id: idSchema("rel") }),
+    ]),
+  }),
+});
+export type NotificationAsk = z.infer<typeof notificationAskSchema>;
+
 const notificationLineSchema = {
   occurred_at: atSchema.optional(),
   document: idSchema("doc").nullable().optional(),
+  ask: notificationAskSchema.nullable().optional(),
 };
 
 export const notificationsGetOutputSchema = withReadCommon(z.object({

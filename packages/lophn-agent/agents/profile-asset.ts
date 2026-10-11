@@ -1,50 +1,78 @@
+import { z } from "zod";
 import { err, ok, type Result } from "../../base/mod.ts";
 import {
   AGENT_PROFILE_IMAGE_MAX_BYTES,
   AGENT_PROFILE_IMAGE_TYPES,
   type AgentPlace,
   type AgentRole,
+  agentRoleSchema,
+  agentsRead,
+  profileOutputSchema,
+  readAgentProfileInputSchema,
+  uploadAgentProfileInputSchema,
 } from "../../contracts/lophn-agent/mod.ts";
-import { parseAgentFile } from "./definition-file.ts";
-import type { AgentLookups, AssignmentRef } from "./ports.ts";
-import { agentFileName, agentsDirectory, type AgentStore } from "./store.ts";
+import type {
+  AuthenticatedContext,
+  ReadRoute,
+} from "../../contracts/platform/mod.ts";
+import { agentFileName, agentsDirectory } from "./store.ts";
 
 // 사람이 올린 profile 이미지(R13)다. 받는 형식은 png·jpg·webp뿐이고 형식은 내용의 첫 byte로 확인한다.
-// Content-Type 선언과 맞지 않으면 거절한다. 파일 IO는 port로 받고 바이트는 글과 달리 UTF-8로 바꾸지 않는다.
-// 정의의 profile에 이미지 이름을 잇는 것은 SaveAgent가 한다. 이 길은 파일만 다룬다.
+// Content-Type 선언과 맞지 않으면 거절한다. 바이트는 글과 달리 UTF-8로 바꾸지 않는다.
+// 자리와 assignment의 판정(있는지, 어느 역할인지, 정의의 profile)은 읽기 concern이 맡고 여기서는 파일만 다룬다.
+// 정의의 profile에 이미지 이름을 잇는 것은 SaveAgent가 한다.
 
 export type ProfileImageType = keyof typeof AGENT_PROFILE_IMAGE_TYPES;
 
-// 한 파일의 바이트 읽기·원자 쓰기. 없는 파일 읽기는 null이고 그 밖의 IO 실패는 던진다.
+const IMAGE_EXTENSIONS = Object.values(AGENT_PROFILE_IMAGE_TYPES);
+
+// 한 파일의 바이트 읽기·원자 쓰기·지우기. 없는 파일 읽기는 null이고 그 밖의 IO 실패는 던진다.
 export interface ProfileImageFiles {
-  read(path: string): Uint8Array | null;
-  writeAtomic(path: string, bytes: Uint8Array): void;
+  read(path: string): Promise<Uint8Array | null>;
+  writeAtomic(path: string, bytes: Uint8Array): Promise<void>;
+  remove(path: string): Promise<void>;
 }
+
+// 읽기 concern의 값을 읽는 길이다. 자리 밖이거나 없는 assignment는 not_found로 온다.
+export type ProfileReaders = {
+  read(
+    route: Pick<ReadRoute, "resource" | "method">,
+    ctx: AuthenticatedContext,
+    input: unknown,
+  ): Promise<Result<unknown>>;
+};
 
 export type ProfileAssetDeps = {
   root: string;
   files: ProfileImageFiles;
-  // 이미지를 읽을 때 정의 글에서 profile 칸을 찾는다.
-  store: AgentStore;
+  readers: ProfileReaders;
 };
-
-export type ProfileImageUpload = {
-  place: AgentPlace;
-  assignment: string;
-  content_type: string;
-  // upload header의 bytes(보내겠다고 한 크기)다. 실제 body 길이와 같아야 한다.
-  declared_bytes: number;
-  body: Uint8Array;
-};
-
-export type ProfileImageRead = { place: AgentPlace; assignment: string };
 
 export type UploadedProfile = { profile: { kind: "image"; image: string } };
 
-export type ReadProfileImage = {
-  bytes: Uint8Array;
-  content_type: ProfileImageType;
+export type ProfileImageBody = {
+  bytes: ReadableStream<Uint8Array>;
+  length: number | undefined;
 };
+
+export type ProfileUploadHandler = (
+  ctx: AuthenticatedContext,
+  input: unknown,
+  body: ProfileImageBody,
+) => Promise<Result<UploadedProfile>>;
+
+export type ProfileFileHandler = (
+  ctx: AuthenticatedContext,
+  input: unknown,
+) => Promise<
+  Result<
+    {
+      contentType: ProfileImageType;
+      length: number;
+      body: ReadableStream<Uint8Array>;
+    }
+  >
+>;
 
 const PNG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 const JPEG = [0xff, 0xd8, 0xff];
@@ -82,115 +110,188 @@ function unavailable(message: string): Result<never> {
   return err({ code: "unavailable", message });
 }
 
-function checkUpload(
-  input: ProfileImageUpload,
+// 선언한 형식·크기·길이와 첫 byte가 모두 맞아야 받는다.
+export function checkProfileImage(
+  content_type: string,
+  declared: number,
+  body: Uint8Array,
 ): Result<{ type: ProfileImageType; ext: string }> {
-  if (!Object.hasOwn(AGENT_PROFILE_IMAGE_TYPES, input.content_type)) {
+  if (!Object.hasOwn(AGENT_PROFILE_IMAGE_TYPES, content_type)) {
     return invalid("profile image must be png, jpg or webp");
   }
-  const type = input.content_type as ProfileImageType;
-  const size = input.body.length;
+  const type = content_type as ProfileImageType;
+  const size = body.length;
   if (size === 0 || size > AGENT_PROFILE_IMAGE_MAX_BYTES) {
     return invalid(
       `profile image must be 1 to ${AGENT_PROFILE_IMAGE_MAX_BYTES} bytes`,
     );
   }
-  if (input.declared_bytes !== size) {
+  if (declared !== size) {
     return invalid("profile image length differs from the declared bytes");
   }
-  if (sniffProfileImage(input.body) !== type) {
+  if (sniffProfileImage(body) !== type) {
     return invalid("profile image bytes do not match the content type");
   }
   return ok({ type, ext: AGENT_PROFILE_IMAGE_TYPES[type] });
 }
 
-// 자리 안의 assignment만 본다. 거둔 것과 다른 자리의 것은 없는 것과 같다.
-function visibleAssignment(
-  lookups: AgentLookups,
-  place: AgentPlace,
-  id: string,
-): Result<AssignmentRef> {
-  if (!lookups.placeExists(place)) return notFound("place not found");
-  const found = lookups.assignments(place).find((ref) => ref.id === id);
-  return found === undefined ? notFound("agent not found") : ok(found);
-}
-
-// `<자리>/agents/<정의 파일 이름에서 .md를 뺀 것>/<이미지 이름>`. 이름이 assignment ID라 정의와 같은 폴더를 쓴다.
-function imagePath(
+// `<자리>/agents/<정의 파일 이름에서 .md를 뺀 것>/`. 이름이 assignment ID라 정의와 같은 폴더를 쓴다.
+function imageFolder(
   root: string,
   place: AgentPlace,
   role: AgentRole,
   assignment: string,
-  image: string,
 ): string {
   const stem = agentFileName(role, assignment).replace(/\.md$/, "");
-  return `${agentsDirectory(root, place)}/${stem}/${image}`;
+  return `${agentsDirectory(root, place)}/${stem}`;
 }
 
-export function uploadProfileImage(
+// 새 파일을 원자적으로 쓴 뒤 다른 확장자의 옛 avatar를 지운다. 옛 파일을 지우지 못하면 unavailable이다.
+async function storeImage(
   deps: ProfileAssetDeps,
-  lookups: AgentLookups,
-  input: ProfileImageUpload,
-): Result<UploadedProfile> {
-  const checked = checkUpload(input);
-  if (!checked.ok) return checked;
-  const found = visibleAssignment(lookups, input.place, input.assignment);
-  if (!found.ok) return found;
-  const image = `avatar.${checked.value.ext}`;
-  const path = imagePath(
+  target: { place: AgentPlace; role: AgentRole; assignment: string },
+  image: { ext: string; body: Uint8Array },
+): Promise<Result<UploadedProfile>> {
+  const folder = imageFolder(
     deps.root,
-    input.place,
-    found.value.role,
-    input.assignment,
-    image,
+    target.place,
+    target.role,
+    target.assignment,
   );
+  const name = `avatar.${image.ext}`;
   try {
-    deps.files.writeAtomic(path, input.body);
+    await deps.files.writeAtomic(`${folder}/${name}`, image.body);
   } catch {
     return unavailable("profile image could not be written");
   }
-  return ok({ profile: { kind: "image", image } });
+  try {
+    for (const other of IMAGE_EXTENSIONS.filter((ext) => ext !== image.ext)) {
+      await deps.files.remove(`${folder}/avatar.${other}`);
+    }
+  } catch {
+    return unavailable("old profile image could not be removed");
+  }
+  return ok({ profile: { kind: "image", image: name } });
 }
 
-// 정의의 profile이 가리키는 이미지를 읽는다. Content-Type은 파일 바이트의 실제 형식이다.
-export function readProfileImage(
+const judgedSchema = z.object({
+  role: agentRoleSchema,
+  definition: z.object({ profile: profileOutputSchema.optional() }).nullable(),
+});
+
+// 읽기 concern이 자리와 assignment를 보고 역할과 정의의 profile을 준다. 모양이 틀리면 우리 코드의 결함이다.
+async function judge(
   deps: ProfileAssetDeps,
-  lookups: AgentLookups,
-  input: ProfileImageRead,
-): Result<ReadProfileImage> {
-  const found = visibleAssignment(lookups, input.place, input.assignment);
-  if (!found.ok) return found;
-  const { role } = found.value;
-  const file = deps.store.read(
-    input.place,
-    agentFileName(role, input.assignment),
-  );
-  if (!file.ok) return file;
-  if (file.value === null) return notFound("agent definition not found");
-  const parsed = parseAgentFile(file.value.text, {
-    role,
-    place: input.place.kind,
+  ctx: AuthenticatedContext,
+  place: AgentPlace,
+  assignment: string,
+): Promise<Result<z.infer<typeof judgedSchema>>> {
+  const read = await deps.readers.read(agentsRead, ctx, { place, assignment });
+  if (!read.ok) return read;
+  const parsed = judgedSchema.safeParse(read.value);
+  return parsed.success
+    ? ok(parsed.data)
+    : err({ code: "internal", message: "agent read has an unexpected shape" });
+}
+
+function streamOf(bytes: Uint8Array): ReadableStream<Uint8Array> {
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(bytes);
+      controller.close();
+    },
   });
-  if (!parsed.ok) return notFound("agent definition is not readable");
-  const profile = parsed.value.profile;
-  if (profile?.kind !== "image") return notFound("profile image not found");
-  const path = imagePath(
-    deps.root,
-    input.place,
-    role,
-    input.assignment,
-    profile.image,
-  );
-  let bytes: Uint8Array | null;
+}
+
+async function readAll(
+  stream: ReadableStream<Uint8Array>,
+): Promise<Result<Uint8Array>> {
   try {
-    bytes = deps.files.read(path);
+    return ok(new Uint8Array(await new Response(stream).arrayBuffer()));
   } catch {
-    return unavailable("profile image could not be read");
+    return invalid("upload body could not be read");
   }
-  if (bytes === null) return notFound("profile image not found");
-  const type = sniffProfileImage(bytes);
-  if (type === null) {
-    return unavailable("stored profile image is not a supported image");
-  }
-  return ok({ bytes, content_type: type });
+}
+
+// upload route의 처리기다. 입력의 형식·크기·선언 길이를 먼저 보고, 통과한 바이트만 읽어 쓴다.
+export function profileImageUploadHandler(
+  deps: ProfileAssetDeps,
+): ProfileUploadHandler {
+  return async (ctx, rawInput, body) => {
+    const input = uploadAgentProfileInputSchema.safeParse(rawInput);
+    if (
+      !input.success ||
+      (body.length !== undefined && input.data.bytes !== body.length)
+    ) {
+      body.bytes.cancel().catch(() => {});
+      return invalid("upload input does not match the body");
+    }
+    const read = await readAll(body.bytes);
+    if (!read.ok) return read;
+    const checked = checkProfileImage(
+      input.data.content_type,
+      input.data.bytes,
+      read.value,
+    );
+    if (!checked.ok) return checked;
+    const judged = await judge(
+      deps,
+      ctx,
+      input.data.place,
+      input.data.assignment,
+    );
+    if (!judged.ok) return judged;
+    return storeImage(
+      deps,
+      {
+        place: input.data.place,
+        role: judged.value.role,
+        assignment: input.data.assignment,
+      },
+      { ext: checked.value.ext, body: read.value },
+    );
+  };
+}
+
+// file route의 처리기다. 정의의 profile이 가리키는 이미지를 읽고 Content-Type은 파일의 실제 형식이다.
+export function profileImageFileHandler(
+  deps: ProfileAssetDeps,
+): ProfileFileHandler {
+  return async (ctx, rawInput) => {
+    const input = readAgentProfileInputSchema.safeParse(rawInput);
+    if (!input.success) return invalid("read input is not valid");
+    const judged = await judge(
+      deps,
+      ctx,
+      input.data.place,
+      input.data.assignment,
+    );
+    if (!judged.ok) return judged;
+    const profile = judged.value.definition?.profile;
+    if (profile?.kind !== "image") return notFound("profile image not found");
+    const path = `${
+      imageFolder(
+        deps.root,
+        input.data.place,
+        judged.value.role,
+        input.data.assignment,
+      )
+    }/${profile.image}`;
+    let bytes: Uint8Array | null;
+    try {
+      bytes = await deps.files.read(path);
+    } catch {
+      return unavailable("profile image could not be read");
+    }
+    if (bytes === null) return notFound("profile image not found");
+    const contentType = sniffProfileImage(bytes);
+    if (contentType === null) {
+      return unavailable("stored profile image is not a supported image");
+    }
+    return ok({
+      contentType,
+      length: bytes.length,
+      body: streamOf(bytes),
+    });
+  };
 }

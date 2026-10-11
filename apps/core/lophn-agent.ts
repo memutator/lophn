@@ -77,6 +77,13 @@ import {
   type AssignmentRef,
   createAgentCommands,
   createAgentReads,
+  type ProfileAssetDeps,
+  type ProfileFileHandler,
+  profileImageFileHandler,
+  type ProfileImageFiles,
+  profileImageUploadHandler,
+  type ProfileReaders,
+  type ProfileUploadHandler,
 } from "../../packages/lophn-agent/agents/mod.ts";
 import {
   createRunCommands,
@@ -738,9 +745,29 @@ const NODE_AGENT_FILES = new URL(
   "../../packages/lophn-agent/agents/adapters/node-fs.ts",
   import.meta.url,
 ).href;
-const { createNodeAgentFiles } = await import(NODE_AGENT_FILES) as {
+const { createNodeAgentFiles, createNodeProfileImageFiles } = await import(
+  NODE_AGENT_FILES
+) as {
   createNodeAgentFiles(): AgentFileSystem;
+  createNodeProfileImageFiles(): ProfileImageFiles;
 };
+
+// profile 이미지 바이트의 upload·file 처리기다. core.ts가 route 이름으로 붙인다. 자리·역할의 판정은
+// runtime의 reader가 하고, 파일은 이 adapter로 core 프로세스에서 비동기로 읽고 쓴다.
+export function agentProfileHandlers(
+  readers: ProfileReaders,
+  dataRoot: string,
+): { upload: ProfileUploadHandler; file: ProfileFileHandler } {
+  const deps: ProfileAssetDeps = {
+    root: dataRoot,
+    files: createNodeProfileImageFiles(),
+    readers,
+  };
+  return {
+    upload: profileImageUploadHandler(deps),
+    file: profileImageFileHandler(deps),
+  };
+}
 
 const agentDeps: AgentDeps = {
   files: createNodeAgentFiles(),

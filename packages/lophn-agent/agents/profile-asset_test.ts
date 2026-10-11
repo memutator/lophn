@@ -4,26 +4,19 @@ import type {
   AgentRole,
   Profile,
 } from "../../contracts/lophn-agent/mod.ts";
+import type { AuthenticatedContext } from "../../contracts/platform/mod.ts";
 import { createNodeProfileImageFiles } from "./adapters/node-fs.ts";
 import {
-  type AgentFileSystem,
-  type AgentLookups,
-  type AgentStore,
-  type AssignmentRef,
-  createAgentStore,
-  parseAgentFile,
-  serializeAgentFile,
-} from "./mod.ts";
-import {
   type ProfileAssetDeps,
+  profileImageFileHandler,
   type ProfileImageFiles,
-  readProfileImage,
+  profileImageUploadHandler,
+  type ProfileReaders,
   sniffProfileImage,
-  uploadProfileImage,
 } from "./profile-asset.ts";
 
-// 이미지 바이트를 메모리 disk에 쓰고 읽는다. 글 파일(정의)은 같은 disk를 store로 읽는다.
-// 쓰기 실패를 켜면 쓰기가 던지고 disk는 그대로다.
+// 이미지 바이트는 메모리 disk에 둔다. 자리와 assignment의 판정은 읽기 concern을 흉내 낸 reader가 한다
+// (있는 assignment와 그 역할, 정의의 profile). 쓰기·지우기 실패를 켜면 그 호출이 던진다.
 
 const ROOT = "/data";
 const PRJ: AgentPlace = {
@@ -34,19 +27,16 @@ const APP: AgentPlace = { kind: "app", id: "app_01arz3ndektsv4rrffq69g5fa2" };
 const LOPHN = "asg_01arz3ndektsv4rrffq69g5fa3";
 const OP = "asg_01arz3ndektsv4rrffq69g5fa6";
 const OTHER_OP = "asg_01arz3ndektsv4rrffq69g5fb5";
-const WITHDRAWN = "asg_01arz3ndektsv4rrffq69g5fb6";
 const UNKNOWN = "asg_01arz3ndektsv4rrffq69g5fz9";
+const OP_FOLDER = `${ROOT}/projects/${PRJ.id}/agents/${OP}`;
 
 const PNG_MAGIC = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 const JPEG_MAGIC = [0xff, 0xd8, 0xff, 0xe0];
 const WEBP_MAGIC = [0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50];
-const FIXTURE = new URL(
-  "./testdata/projects/prj_01arz3ndektsv4rrffq69g5fa1/agents/asg_01arz3ndektsv4rrffq69g5fa6.md",
-  import.meta.url,
-);
-const OPERATOR = { role: "operator", place: "project" } as const;
 
-// magic으로 시작하고 나머지는 0으로 채운 바이트. 크기를 정해 1 MiB 경계를 시험한다.
+const CTX = {} as AuthenticatedContext;
+
+// magic으로 시작하고 나머지는 0으로 채운 바이트다. 크기를 정해 1 MiB 경계를 시험한다.
 function imageOf(magic: number[], size = magic.length): Uint8Array {
   const out = new Uint8Array(size);
   out.set(magic);
@@ -55,91 +45,108 @@ function imageOf(magic: number[], size = magic.length): Uint8Array {
 
 function memoryFiles(): {
   disk: Map<string, Uint8Array>;
-  failing: { writes: boolean };
+  failing: { write: boolean; remove: boolean; read: boolean };
   files: ProfileImageFiles;
-  store: AgentStore;
 } {
   const disk = new Map<string, Uint8Array>();
-  const failing = { writes: false };
+  const failing = { write: false, remove: false, read: false };
   const files: ProfileImageFiles = {
-    read: (path) => disk.get(path) ?? null,
-    writeAtomic(path, bytes) {
-      if (failing.writes) throw new Error("write failure");
-      disk.set(path, bytes);
-    },
-  };
-  const text: AgentFileSystem = {
     read(path) {
-      const bytes = disk.get(path);
-      return bytes === undefined ? null : new TextDecoder().decode(bytes);
+      if (failing.read) return Promise.reject(new Error("read failure"));
+      return Promise.resolve(disk.get(path) ?? null);
     },
-    writeAtomic(path, value) {
-      if (failing.writes) throw new Error("write failure");
-      disk.set(path, new TextEncoder().encode(value));
+    writeAtomic(path, bytes) {
+      if (failing.write) return Promise.reject(new Error("write failure"));
+      disk.set(path, bytes);
+      return Promise.resolve();
     },
     remove(path) {
+      if (failing.remove) return Promise.reject(new Error("remove failure"));
       disk.delete(path);
+      return Promise.resolve();
     },
   };
-  return { disk, failing, files, store: createAgentStore(text, ROOT) };
+  return { disk, failing, files };
 }
 
-function assignment(
-  id: string,
-  role: AgentRole,
-  scope: AssignmentRef["scope"],
-  state: AssignmentRef["state"] = "enabled",
-): AssignmentRef {
-  return { id, role, scope, state, revision: 1 };
-}
-
-const REFS: AssignmentRef[] = [
-  assignment(LOPHN, "lophn", { kind: "all" }),
-  assignment(OP, "operator", { kind: "project", id: PRJ.id }),
-  assignment(OTHER_OP, "operator", {
-    kind: "project",
-    id: "prj_01arz3ndektsv4rrffq69g5fa9",
-  }),
-  assignment(
-    WITHDRAWN,
-    "operator",
-    { kind: "project", id: PRJ.id },
-    "withdrawn",
-  ),
-];
-
-// 시험에 필요한 자리·assignment 표만 가진 lookups다. 나머지 값은 비어 있다.
-function lookups(): AgentLookups {
+// 자리 PRJ의 LOPHN(built-in)과 OP(Operator)만 보인다. profile이 undefined면 정의가 없다.
+function readersWith(state: { profile: Profile | undefined }): ProfileReaders {
+  const visible: Record<string, AgentRole> = {
+    [`${PRJ.id}/${LOPHN}`]: "lophn",
+    [`${PRJ.id}/${OP}`]: "operator",
+  };
   return {
-    placeExists: (place) => place.id === PRJ.id,
-    assignments: (place) =>
-      REFS.filter((ref) =>
-        ref.state !== "withdrawn" &&
-        (ref.scope.kind === "all" ||
-          (ref.scope.kind === place.kind && ref.scope.id === place.id))
-      ),
-    assignment: (id) => REFS.find((ref) => ref.id === id) ?? null,
-    contextStatus: () => null,
-    activeContexts: () => [],
-    skills: () => [],
-    mcp: () => [],
-    workspace: () => ({}),
+    read(_route, _ctx, input) {
+      const { place, assignment } = input as {
+        place: AgentPlace;
+        assignment: string;
+      };
+      const role = visible[`${place.id}/${assignment}`];
+      if (role === undefined) {
+        return Promise.resolve({
+          ok: false,
+          error: { code: "not_found", message: "agent not found" },
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        value: {
+          role,
+          definition: state.profile === undefined
+            ? null
+            : { profile: state.profile },
+        },
+      });
+    },
   };
 }
 
-// 시험 정의 글에 profile만 바꿔 넣은 글이다. profile이 undefined면 칸을 뺀다.
-function definitionWith(profile: Profile | undefined): string {
-  const parsed = parseAgentFile(Deno.readTextFileSync(FIXTURE), OPERATOR);
-  assert(parsed.ok, "fixture should parse");
-  const written = serializeAgentFile(
-    { ...parsed.value, profile },
-    OPERATOR,
-  );
-  assert(written.ok, "definition should serialize");
-  return written.value;
+function deps(
+  files: ProfileImageFiles,
+  profile: Profile | undefined = undefined,
+): ProfileAssetDeps {
+  return { root: ROOT, files, readers: readersWith({ profile }) };
 }
 
-const OP_FOLDER = `${ROOT}/projects/${PRJ.id}/agents/${OP}`;
+// upload 요청 하나다. input의 bytes는 선언한 크기, length는 Content-Length(없으면 chunked)다.
+function upload(
+  body: Uint8Array,
+  options: {
+    place?: AgentPlace;
+    assignment?: string;
+    content_type?: string;
+    declared?: number;
+    length?: number | undefined;
+  } = {},
+) {
+  return {
+    input: {
+      place: options.place ?? PRJ,
+      assignment: options.assignment ?? OP,
+      content_type: options.content_type ?? "image/png",
+      bytes: options.declared ?? body.length,
+    },
+    body: {
+      bytes: streamOf(body),
+      length: "length" in options ? options.length : body.length,
+    },
+  };
+}
+
+function streamOf(bytes: Uint8Array): ReadableStream<Uint8Array> {
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(bytes);
+      controller.close();
+    },
+  });
+}
+
+async function bytesOf(
+  stream: ReadableStream<Uint8Array>,
+): Promise<Uint8Array> {
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
 
 Deno.test("lophn-agent/agents#R13 [agent-I17]: the first bytes name the format, and only png, jpeg and webp are recognised", () => {
   assertEquals(sniffProfileImage(imageOf(PNG_MAGIC, 16)), "image/png");
@@ -162,9 +169,9 @@ Deno.test("lophn-agent/agents#R13 [agent-I17]: the first bytes name the format, 
   assertEquals(sniffProfileImage(new Uint8Array()), null);
 });
 
-Deno.test("lophn-agent/agents#R13 [agent-I17]: a png, jpg or webp upload is stored as avatar.<ext> in the Operator's folder and the profile names that file", () => {
-  const { disk, files, store } = memoryFiles();
-  const deps: ProfileAssetDeps = { root: ROOT, files, store };
+Deno.test("lophn-agent/agents#R13 [agent-I17]: a png, jpg or webp upload is stored as avatar.<ext> in the Operator's folder and the profile names that file", async () => {
+  const { disk, files } = memoryFiles();
+  const handler = profileImageUploadHandler(deps(files));
   const cases = [
     { type: "image/png", magic: PNG_MAGIC, ext: "png" },
     { type: "image/jpeg", magic: JPEG_MAGIC, ext: "jpg" },
@@ -172,79 +179,60 @@ Deno.test("lophn-agent/agents#R13 [agent-I17]: a png, jpg or webp upload is stor
   ];
   for (const { type, magic, ext } of cases) {
     const body = imageOf(magic, 64);
-    const result = uploadProfileImage(deps, lookups(), {
-      place: PRJ,
-      assignment: OP,
-      content_type: type,
-      declared_bytes: body.length,
-      body,
-    });
+    const { input, body: stream } = upload(body, { content_type: type });
+    const result = await handler(CTX, input, stream);
     assert(result.ok, `${type} should be accepted`);
     assertEquals(result.value, {
       profile: { kind: "image", image: `avatar.${ext}` },
     });
     assertEquals(disk.get(`${OP_FOLDER}/avatar.${ext}`), body);
+    // 같은 폴더에는 지금 올린 확장자 하나만 남는다.
+    assertEquals(
+      [...disk.keys()].filter((path) => path.startsWith(OP_FOLDER)),
+      [`${OP_FOLDER}/avatar.${ext}`],
+    );
   }
-  assertEquals(disk.size, 3);
 });
 
-Deno.test("lophn-agent/agents#R13 [agent-I17]: an svg is refused whatever the declared type, and a refused upload writes nothing", () => {
-  const { disk, files, store } = memoryFiles();
-  const deps: ProfileAssetDeps = { root: ROOT, files, store };
+Deno.test("lophn-agent/agents#R13 [agent-I17]: an svg is refused whatever the declared type, and a refused upload writes nothing", async () => {
+  const { disk, files } = memoryFiles();
+  const handler = profileImageUploadHandler(deps(files));
   const svg = new TextEncoder().encode(
     '<svg xmlns="http://www.w3.org/2000/svg"></svg>',
   );
-  const byType = uploadProfileImage(deps, lookups(), {
-    place: PRJ,
-    assignment: OP,
-    content_type: "image/svg+xml",
-    declared_bytes: svg.length,
-    body: svg,
-  });
+  const bySvgType = upload(svg, { content_type: "image/svg+xml" });
+  const byType = await handler(CTX, bySvgType.input, bySvgType.body);
   assertEquals(byType.ok, false);
   if (!byType.ok) assertEquals(byType.error.code, "invalid_input");
-  const byBody = uploadProfileImage(deps, lookups(), {
-    place: PRJ,
-    assignment: OP,
-    content_type: "image/png",
-    declared_bytes: svg.length,
-    body: svg,
-  });
-  assertEquals(byBody.ok, false);
-  if (!byBody.ok) assertEquals(byBody.error.code, "invalid_input");
+  const byBody = upload(svg, { content_type: "image/png" });
+  const refused = await handler(CTX, byBody.input, byBody.body);
+  assertEquals(refused.ok, false);
+  if (!refused.ok) assertEquals(refused.error.code, "invalid_input");
   assertEquals(disk.size, 0);
 });
 
-Deno.test("lophn-agent/agents#R13 [agent-I17]: 1048576 bytes is the largest image, and an empty or larger body is invalid_input", () => {
-  const { disk, files, store } = memoryFiles();
-  const deps: ProfileAssetDeps = { root: ROOT, files, store };
+Deno.test("lophn-agent/agents#R13 [agent-I17]: 1048576 bytes is the largest image, and an empty or larger body is invalid_input", async () => {
+  const { disk, files } = memoryFiles();
+  const handler = profileImageUploadHandler(deps(files));
   const largest = imageOf(PNG_MAGIC, 1_048_576);
-  const accepted = uploadProfileImage(deps, lookups(), {
-    place: PRJ,
-    assignment: OP,
-    content_type: "image/png",
-    declared_bytes: largest.length,
-    body: largest,
-  });
-  assert(accepted.ok, "1048576 bytes should be accepted");
+  const accepted = upload(largest);
+  assert(
+    (await handler(CTX, accepted.input, accepted.body)).ok,
+    "1048576 bytes should be accepted",
+  );
   for (const size of [0, 1_048_577]) {
     const body = size === 0 ? new Uint8Array() : imageOf(PNG_MAGIC, size);
-    const refused = uploadProfileImage(deps, lookups(), {
-      place: PRJ,
-      assignment: OP,
-      content_type: "image/png",
-      declared_bytes: body.length,
-      body,
-    });
-    assertEquals(refused.ok, false);
-    if (!refused.ok) assertEquals(refused.error.code, "invalid_input");
+    const refused = upload(body, { declared: size });
+    const result = await handler(CTX, refused.input, refused.body);
+    assertEquals(result.ok, false);
+    if (!result.ok) assertEquals(result.error.code, "invalid_input");
   }
   assertEquals(disk.get(`${OP_FOLDER}/avatar.png`), largest);
 });
 
-Deno.test("lophn-agent/agents#R13 [agent-I17]: the bytes must start with the magic of the declared type and match the declared size", () => {
-  const { disk, files, store } = memoryFiles();
-  const deps: ProfileAssetDeps = { root: ROOT, files, store };
+Deno.test("lophn-agent/agents#R13 [agent-I17]: the bytes must start with the magic of the declared type and match the declared size", async () => {
+  const { disk, files } = memoryFiles();
+  const handler = profileImageUploadHandler(deps(files));
   const mismatched = [
     { type: "image/jpeg", body: imageOf(PNG_MAGIC, 32) },
     {
@@ -267,66 +255,51 @@ Deno.test("lophn-agent/agents#R13 [agent-I17]: the bytes must start with the mag
     { type: "image/png", body: imageOf([0x89, 0x50, 0x4e], 32) },
   ];
   for (const { type, body } of mismatched) {
-    const refused = uploadProfileImage(deps, lookups(), {
-      place: PRJ,
-      assignment: OP,
-      content_type: type,
-      declared_bytes: body.length,
-      body,
-    });
-    assertEquals(refused.ok, false);
-    if (!refused.ok) assertEquals(refused.error.code, "invalid_input");
+    const refused = upload(body, { content_type: type });
+    const result = await handler(CTX, refused.input, refused.body);
+    assertEquals(result.ok, false);
+    if (!result.ok) assertEquals(result.error.code, "invalid_input");
   }
+  // 선언한 크기와 Content-Length가 다르면 바이트를 읽기 전에 거절한다.
   const sized = imageOf(PNG_MAGIC, 32);
-  const wrongDeclared = uploadProfileImage(deps, lookups(), {
-    place: PRJ,
-    assignment: OP,
-    content_type: "image/png",
-    declared_bytes: 33,
-    body: sized,
-  });
-  assertEquals(wrongDeclared.ok, false);
-  if (!wrongDeclared.ok) {
-    assertEquals(wrongDeclared.error.code, "invalid_input");
-  }
+  const wrongLength = upload(sized, { declared: 33 });
+  const byLength = await handler(CTX, wrongLength.input, wrongLength.body);
+  assertEquals(byLength.ok, false);
+  if (!byLength.ok) assertEquals(byLength.error.code, "invalid_input");
+  // Content-Length가 없어도 실제 크기가 선언과 다르면 거절한다.
+  const chunked = upload(sized, { declared: 33, length: undefined });
+  const byChunk = await handler(CTX, chunked.input, chunked.body);
+  assertEquals(byChunk.ok, false);
+  if (!byChunk.ok) assertEquals(byChunk.error.code, "invalid_input");
   assertEquals(disk.size, 0);
 });
 
-Deno.test("lophn-agent/agents#R7 [agent-I17]: an Operator that is not an agent of the place, is withdrawn or does not exist is not_found and writes nothing", () => {
-  const { disk, files, store } = memoryFiles();
-  const deps: ProfileAssetDeps = { root: ROOT, files, store };
-  const body = imageOf(PNG_MAGIC, 32);
+Deno.test("lophn-agent/agents#R7 [agent-I17]: an assignment that is not an agent of the place is not_found and writes nothing", async () => {
+  const { disk, files } = memoryFiles();
+  const handler = profileImageUploadHandler(deps(files));
   const cases: { place: AgentPlace; assignment: string }[] = [
     { place: PRJ, assignment: UNKNOWN },
     { place: PRJ, assignment: OTHER_OP },
-    { place: PRJ, assignment: WITHDRAWN },
     { place: APP, assignment: OP },
   ];
   for (const { place, assignment } of cases) {
-    const refused = uploadProfileImage(deps, lookups(), {
-      place,
-      assignment,
-      content_type: "image/png",
-      declared_bytes: body.length,
-      body,
-    });
-    assertEquals(refused.ok, false);
-    if (!refused.ok) assertEquals(refused.error.code, "not_found");
+    const refused = upload(imageOf(PNG_MAGIC, 32), { place, assignment });
+    const result = await handler(CTX, refused.input, refused.body);
+    assertEquals(result.ok, false);
+    if (!result.ok) assertEquals(result.error.code, "not_found");
   }
   assertEquals(disk.size, 0);
 });
 
-Deno.test("lophn-agent/agents#R13 [agent-I17]: a built-in agent's image goes in the folder named after its file, such as lophn", () => {
-  const { disk, files, store } = memoryFiles();
-  const deps: ProfileAssetDeps = { root: ROOT, files, store };
+Deno.test("lophn-agent/agents#R13 [agent-I17]: a built-in agent's image goes in the folder named after its file, such as lophn", async () => {
+  const { disk, files } = memoryFiles();
+  const handler = profileImageUploadHandler(deps(files));
   const body = imageOf(WEBP_MAGIC, 32);
-  const result = uploadProfileImage(deps, lookups(), {
-    place: PRJ,
+  const request = upload(body, {
     assignment: LOPHN,
     content_type: "image/webp",
-    declared_bytes: body.length,
-    body,
   });
+  const result = await handler(CTX, request.input, request.body);
   assert(result.ok, "a built-in agent may take an image");
   assertEquals(result.value.profile.image, "avatar.webp");
   assertEquals(
@@ -335,146 +308,114 @@ Deno.test("lophn-agent/agents#R13 [agent-I17]: a built-in agent's image goes in 
   );
 });
 
-Deno.test("lophn-agent/agents#R13 [agent-I17]: a failed image write is unavailable and leaves the previous image whole", () => {
-  const { disk, failing, files, store } = memoryFiles();
-  const deps: ProfileAssetDeps = { root: ROOT, files, store };
+Deno.test("lophn-agent/agents#R13 [agent-I17]: a failed image write is unavailable and leaves the previous image whole", async () => {
+  const { disk, failing, files } = memoryFiles();
+  const handler = profileImageUploadHandler(deps(files));
   const first = imageOf(PNG_MAGIC, 32);
-  assert(
-    uploadProfileImage(deps, lookups(), {
-      place: PRJ,
-      assignment: OP,
-      content_type: "image/png",
-      declared_bytes: first.length,
-      body: first,
-    }).ok,
-  );
-  failing.writes = true;
+  const ok1 = upload(first);
+  assert((await handler(CTX, ok1.input, ok1.body)).ok);
+  failing.write = true;
   const second = imageOf(PNG_MAGIC, 48);
-  const refused = uploadProfileImage(deps, lookups(), {
-    place: PRJ,
-    assignment: OP,
-    content_type: "image/png",
-    declared_bytes: second.length,
-    body: second,
-  });
-  assertEquals(refused.ok, false);
-  if (!refused.ok) assertEquals(refused.error.code, "unavailable");
+  const refused = upload(second);
+  const result = await handler(CTX, refused.input, refused.body);
+  assertEquals(result.ok, false);
+  if (!result.ok) assertEquals(result.error.code, "unavailable");
   assertEquals(disk.get(`${OP_FOLDER}/avatar.png`), first);
 });
 
-Deno.test("lophn-agent/agents#R13 [agent-I17]: reading returns the stored image with the Content-Type of its real format, not the declared one", () => {
-  const { files, store } = memoryFiles();
-  const deps: ProfileAssetDeps = { root: ROOT, files, store };
+Deno.test("lophn-agent/agents#R13 [agent-I17]: a new format replaces the old avatar, so only the new avatar.<ext> is left in the folder", async () => {
+  const { disk, files } = memoryFiles();
+  const handler = profileImageUploadHandler(deps(files));
+  const png = upload(imageOf(PNG_MAGIC, 32));
+  assert((await handler(CTX, png.input, png.body)).ok);
+  const jpeg = imageOf(JPEG_MAGIC, 40);
+  const next = upload(jpeg, { content_type: "image/jpeg" });
+  assert((await handler(CTX, next.input, next.body)).ok);
+  assertEquals(disk.has(`${OP_FOLDER}/avatar.png`), false);
+  assertEquals(disk.get(`${OP_FOLDER}/avatar.jpg`), jpeg);
+});
+
+Deno.test("lophn-agent/agents#R13 [agent-I17]: when the old avatar cannot be removed the upload is unavailable, and the new file is already whole", async () => {
+  const { disk, failing, files } = memoryFiles();
+  const handler = profileImageUploadHandler(deps(files));
+  const old = imageOf(JPEG_MAGIC, 32);
+  disk.set(`${OP_FOLDER}/avatar.jpg`, old);
+  failing.remove = true;
+  const png = imageOf(PNG_MAGIC, 40);
+  const request = upload(png);
+  const result = await handler(CTX, request.input, request.body);
+  assertEquals(result.ok, false);
+  if (!result.ok) assertEquals(result.error.code, "unavailable");
+  assertEquals(disk.get(`${OP_FOLDER}/avatar.png`), png);
+});
+
+Deno.test("lophn-agent/agents#R13 [agent-I17]: reading returns the stored image with the Content-Type of its real format, not the declared one", async () => {
+  const { files } = memoryFiles();
   const body = imageOf(WEBP_MAGIC, 40);
-  assert(
-    uploadProfileImage(deps, lookups(), {
-      place: PRJ,
-      assignment: OP,
-      content_type: "image/webp",
-      declared_bytes: body.length,
-      body,
-    }).ok,
+  const uploader = profileImageUploadHandler(deps(files));
+  const request = upload(body, { content_type: "image/webp" });
+  assert((await uploader(CTX, request.input, request.body)).ok);
+  const reader = profileImageFileHandler(
+    deps(files, { kind: "image", image: "avatar.webp" }),
   );
-  const written = store.write(
-    PRJ,
-    `${OP}.md`,
-    definitionWith({ kind: "image", image: "avatar.webp" }),
-  );
-  assert(written.ok, "the definition should be written");
-  const read = readProfileImage(deps, lookups(), {
-    place: PRJ,
-    assignment: OP,
-  });
+  const read = await reader(CTX, { place: PRJ, assignment: OP });
   assert(read.ok, "the image should be read");
-  assertEquals(read.value.content_type, "image/webp");
-  assertEquals(read.value.bytes, body);
+  assertEquals(read.value.contentType, "image/webp");
+  assertEquals(read.value.length, body.length);
+  assertEquals(await bytesOf(read.value.body), body);
 });
 
-Deno.test("lophn-agent/agents#R13 [agent-I17]: reading is not_found when the profile is an icon, the definition or the file is missing, or the assignment is outside the place", () => {
-  const { files, store } = memoryFiles();
-  const deps: ProfileAssetDeps = { root: ROOT, files, store };
-  const body = imageOf(PNG_MAGIC, 32);
+Deno.test("lophn-agent/agents#R13 [agent-I17]: reading is not_found when the profile is an icon, the definition or the file is missing, or the assignment is outside the place", async () => {
+  const { files } = memoryFiles();
   const input = { place: PRJ, assignment: OP };
-  // 정의가 없다.
-  const noDefinition = readProfileImage(deps, lookups(), input);
-  assertEquals(noDefinition.ok, false);
-  if (!noDefinition.ok) assertEquals(noDefinition.error.code, "not_found");
-  // profile이 icon이다.
-  assert(
-    store.write(
-      PRJ,
-      `${OP}.md`,
-      definitionWith({ kind: "icon", icon: "roles" }),
-    ).ok,
-  );
-  const iconOnly = readProfileImage(deps, lookups(), input);
-  assertEquals(iconOnly.ok, false);
-  if (!iconOnly.ok) assertEquals(iconOnly.error.code, "not_found");
-  // profile은 image인데 파일이 없다.
-  assert(
-    store.write(
-      PRJ,
-      `${OP}.md`,
-      definitionWith({ kind: "image", image: "avatar.png" }),
-    ).ok,
-  );
-  const fileMissing = readProfileImage(deps, lookups(), input);
-  assertEquals(fileMissing.ok, false);
-  if (!fileMissing.ok) assertEquals(fileMissing.error.code, "not_found");
-  // 자리 밖의 assignment는 파일이 있어도 보이지 않는다.
-  assert(
-    uploadProfileImage(deps, lookups(), {
-      place: PRJ,
-      assignment: OP,
-      content_type: "image/png",
-      declared_bytes: body.length,
-      body,
-    }).ok,
-  );
-  const outside = readProfileImage(deps, lookups(), {
-    place: PRJ,
-    assignment: OTHER_OP,
-  });
-  assertEquals(outside.ok, false);
-  if (!outside.ok) assertEquals(outside.error.code, "not_found");
+  const cases: { profile: Profile | undefined; assignment?: string }[] = [
+    { profile: undefined },
+    { profile: { kind: "icon", icon: "roles" } },
+    { profile: { kind: "image", image: "avatar.png" } },
+    { profile: { kind: "image", image: "avatar.png" }, assignment: OTHER_OP },
+  ];
+  for (const { profile, assignment } of cases) {
+    const reader = profileImageFileHandler(deps(files, profile));
+    const result = await reader(CTX, {
+      ...input,
+      assignment: assignment ?? OP,
+    });
+    assertEquals(result.ok, false);
+    if (!result.ok) assertEquals(result.error.code, "not_found");
+  }
 });
 
-Deno.test("lophn-agent/agents#R13 [agent-I17]: a stored file that is not a supported image is unavailable and is never sent as another type", () => {
-  const { disk, files, store } = memoryFiles();
-  const deps: ProfileAssetDeps = { root: ROOT, files, store };
-  assert(
-    store.write(
-      PRJ,
-      `${OP}.md`,
-      definitionWith({ kind: "image", image: "avatar.png" }),
-    ).ok,
-  );
+Deno.test("lophn-agent/agents#R13 [agent-I17]: a stored file that is not a supported image is unavailable and is never sent as another type", async () => {
+  const { disk, files } = memoryFiles();
   disk.set(`${OP_FOLDER}/avatar.png`, new TextEncoder().encode("<svg></svg>"));
-  const read = readProfileImage(deps, lookups(), {
-    place: PRJ,
-    assignment: OP,
-  });
-  assertEquals(read.ok, false);
-  if (!read.ok) assertEquals(read.error.code, "unavailable");
+  const reader = profileImageFileHandler(
+    deps(files, { kind: "image", image: "avatar.png" }),
+  );
+  const result = await reader(CTX, { place: PRJ, assignment: OP });
+  assertEquals(result.ok, false);
+  if (!result.ok) assertEquals(result.error.code, "unavailable");
 });
 
-Deno.test("lophn-agent/agents#R13 [agent-I17]: the node adapter writes image bytes through a temp file, reads them back whole, and a missing image is null", async () => {
+Deno.test("lophn-agent/agents#R13 [agent-I17]: the node adapter writes image bytes through a temp file, reads them back whole, removes them, and a missing image is null", async () => {
   const dir = await Deno.makeTempDir();
   try {
     const files = createNodeProfileImageFiles();
-    const path = `${dir}/projects/${PRJ.id}/agents/${OP}/avatar.png`;
-    assertEquals(files.read(path), null);
+    const folder = `${dir}/projects/${PRJ.id}/agents/${OP}`;
+    const path = `${folder}/avatar.png`;
+    assertEquals(await files.read(path), null);
     const first = imageOf(PNG_MAGIC, 64);
-    files.writeAtomic(path, first);
-    assertEquals(files.read(path), first);
+    await files.writeAtomic(path, first);
+    assertEquals(await files.read(path), first);
     const second = imageOf(PNG_MAGIC, 128);
-    files.writeAtomic(path, second);
-    assertEquals(files.read(path), second);
-    const leftovers = [
-      ...Deno.readDirSync(`${dir}/projects/${PRJ.id}/agents/${OP}`),
-    ]
-      .filter((entry) => entry.name !== "avatar.png");
+    await files.writeAtomic(path, second);
+    assertEquals(await files.read(path), second);
+    const leftovers = [...Deno.readDirSync(folder)].filter((entry) =>
+      entry.name !== "avatar.png"
+    );
     assertEquals(leftovers, []);
+    await files.remove(path);
+    assertEquals(await files.read(path), null);
+    await files.remove(path);
   } finally {
     await Deno.remove(dir, { recursive: true });
   }

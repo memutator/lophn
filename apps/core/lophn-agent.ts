@@ -69,6 +69,7 @@ import {
 import {
   createRunCommands,
   createRunReads,
+  deleteSessionRuns,
   RUN_LIMIT_SETTING_KEYS,
   runBodyFields,
   runSchemaSteps,
@@ -425,9 +426,12 @@ const schedulingReads = createSchedulingReads();
 // transaction이므로 run-loop의 AcceptRun handler를 같은 Tx에서 부른다. AcceptRun은
 // machine 전용 기록이라 이 접수에 한해 machine 자격으로 바꿔 넘기고, 입력은 항상
 // message 출처의 run이다. 바깥 command의 actor·event 기록은 그대로다.
+// DeleteSession은 같은 Tx에서 그 세션의 run 기록도 지운다. 그 밖에 run을 가리키는 기록(질문·
+// call·되돌리기 등)은 각 concern이 자기 지움을 이 목록에 더한다.
 const conversationCommands = createConversationCommands({
   acceptRun: (tx, ctx, input, compare) =>
     runCommands.accept.handle(tx, { ...ctx, actor: "machine" }, input, compare),
+  deleteSessionRecords: (tx, session) => deleteSessionRuns(tx, session),
 });
 const conversationReads = createConversationReads();
 
@@ -661,10 +665,13 @@ export const lophnAgentDefinitions = {
     runCommands.confirmNext,
     schedulingCommands.process,
     conversationCommands.open,
-    conversationCommands.changeWorkPlace,
+    conversationCommands.rename,
+    conversationCommands.archive,
+    conversationCommands.unarchive,
+    conversationCommands.delete,
+    conversationCommands.changeModel,
     conversationCommands.close,
     conversationCommands.receive,
-    conversationCommands.executeStored,
     conversationCommands.record,
     conversationCommands.apply,
     conversationCommands.assign,

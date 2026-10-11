@@ -27,6 +27,7 @@ import {
 } from "../../../packages/lophn-agent/assignments/mod.ts";
 import {
   createRunCommands,
+  deleteSessionRuns,
   runSchemaSteps,
 } from "../../../packages/lophn-agent/harness/run-loop/mod.ts";
 import {
@@ -61,7 +62,7 @@ const DAY = 24 * 60 * 60 * 1000;
 const ASG_LOPHN = id("asg", 1);
 const ASG_CE = id("asg", 2);
 const SESSION = id("ses", 1);
-const PLACE_GLOBAL = { kind: "global", id: null };
+const PLACE = { kind: "project", id: id("prj", 1) };
 
 async function fileLedger() {
   const dir = await Deno.makeTempDir({ prefix: "conversation-file-" });
@@ -105,6 +106,7 @@ async function fileLedger() {
   const assignments = createAssignmentCommands();
   const runs = createRunCommands({ hasUnappliedSteering });
   const conversation = createConversationCommands({
+    deleteSessionRecords: (tx, session) => deleteSessionRuns(tx, session),
     acceptRun: (tx, ctx, input, compare) =>
       runs.accept.handle(tx, { ...ctx, actor: "machine" }, input, compare),
   });
@@ -120,6 +122,18 @@ async function fileLedger() {
     conversation.receive,
     conversation.close,
   ];
+  // OpenSession은 쓸 수 있는 project만 자리로 받는다.
+  const seeded = openConnection(path);
+  assert(seeded.ok, "seed");
+  try {
+    seeded.value.sql.run(
+      `insert into events (type, subject, actor, run, payload, at)
+       values ('ProjectCreated', ?, 'machine', null, '{}', ?)`,
+      [PLACE.id, new Date(NOW).toISOString()],
+    );
+  } finally {
+    seeded.value.close();
+  }
   let key = 0;
   const execute = async (
     actor: string,
@@ -179,15 +193,10 @@ async function fileLedger() {
   await must("user", "OpenSession", {
     id: SESSION,
     assignment: ASG_LOPHN,
-    role: "lophn",
-    work_place: PLACE_GLOBAL,
-    continued_from: null,
+    work_place: PLACE,
+    opening_context: null,
   }, { assignment_revision: 1, assignment_state: "enabled" });
-  const receive = (
-    message: string,
-    revision: number,
-    state: "enabled" | "paused",
-  ) =>
+  const receive = (message: string, revision: number) =>
     execute("user", "ReceiveMessage", {
       id: message,
       session: SESSION,
@@ -199,7 +208,7 @@ async function fileLedger() {
         String(db.get("select state_seq as s from sessions", [])!["s"])
       ),
       assignment_revision: revision,
-      assignment_state: state,
+      assignment_state: "enabled",
     });
   return {
     clock,
@@ -215,7 +224,7 @@ async function fileLedger() {
 Deno.test("lophn-agent/conversation#R2: confirmed messages and their runs stay after reopening the ledger file, with no midnight or idle expiry", async () => {
   const ledger = await fileLedger();
   try {
-    const accepted = await ledger.receive(id("msg", 1), 1, "enabled");
+    const accepted = await ledger.receive(id("msg", 1), 1);
     assert(accepted.ok, accepted.ok ? "" : JSON.stringify(accepted.error));
     // 자정과 31일 유휴가 지나도 세션은 열려 있고 미처리 말과 담당 run이 그대로다.
     ledger.clock.advance(31 * DAY);
@@ -232,7 +241,7 @@ Deno.test("lophn-agent/conversation#R2: confirmed messages and their runs stay a
     assert(after.message !== undefined && after.message["run"] !== null);
     assertEquals(after.message["applied_at_call"], null);
     // 다시 연 뒤 같은 말을 다시 입력시키지 않는다. 같은 id 재전송은 이전 결과다.
-    const replay = await ledger.receive(id("msg", 1), 1, "enabled");
+    const replay = await ledger.receive(id("msg", 1), 1);
     assert(replay.ok, replay.ok ? "" : JSON.stringify(replay.error));
     assertEquals(ledger.count("runs"), 1);
     assertEquals(ledger.count("messages"), 1);
@@ -243,7 +252,7 @@ Deno.test("lophn-agent/conversation#R2: confirmed messages and their runs stay a
   }
 });
 
-Deno.test("lophn-agent/conversation#R8: a session idle for 31 days and a paused assignment keep it open and readable", async () => {
+Deno.test("lophn-agent/conversation#R8 [agent-I12]: a session idle for 31 days and a paused assignment keep it open and readable but a paused assignment takes no new input", async () => {
   const ledger = await fileLedger();
   try {
     await ledger.must("user", "ReceiveMessage", {
@@ -260,22 +269,22 @@ Deno.test("lophn-agent/conversation#R8: a session idle for 31 days and a paused 
       assignment_state: "enabled",
     });
     ledger.clock.advance(31 * DAY);
-    // 일시 멈춤도 세션을 닫지 않는다. 멈춘 동안 온 다음 요청은 원문만 보존한다.
+    // 일시 멈춤도 세션을 닫지 않는다. 멈춘 동안 온 말은 받지 않는다.
     await ledger.must("user", "PauseAssignment", {
       assignment: ASG_LOPHN,
       reason: { kind: "user", detail: "잠시", runs: [], target: null },
     }, { revision: 1, state: "enabled" });
-    const kept = await ledger.receive(id("msg", 2), 2, "paused");
-    assert(kept.ok, kept.ok ? "" : JSON.stringify(kept.error));
+    const refused = await ledger.receive(id("msg", 2), 2);
+    assert(!refused.ok && refused.error.code === "forbidden");
     const state = ledger.observe((db) => ({
       session: db.get("select state from sessions", []),
-      kept: db.get("select run from messages where id = ?", [
-        id("msg", 2),
+      first: db.get("select run from messages where id = ?", [
+        id("msg", 1),
       ] as never),
     }));
     assertEquals(state.session, { state: "open" });
-    assertEquals(state.kept, { run: null });
-    assertEquals(ledger.count("messages"), 2);
+    assert(state.first !== undefined && state.first["run"] !== null);
+    assertEquals(ledger.count("messages"), 1);
     assertEquals(ledger.count("runs"), 1);
   } finally {
     await ledger.close();
@@ -352,19 +361,19 @@ Deno.test("lophn-agent/conversation#R4: an agent answer is the role's judgment b
     };
     // 두 assignment 모두 세션 하나와 시작한 run 하나를 만든다.
     const runs: Record<string, string> = {};
+    await must(machine, "SeedTargetFixture", {
+      type: "ProjectCreated",
+      subject: PLACE.id,
+    });
     for (
-      const [n, assignment, role] of [
-        [1, ASG_LOPHN, "lophn"],
-        [2, ASG_CE, "context_engineer"],
-      ] as const
+      const [n, assignment] of [[1, ASG_LOPHN], [2, ASG_CE]] as const
     ) {
       const session = id("ses", n);
       await must(user, "OpenSession", {
         id: session,
         assignment,
-        role,
-        work_place: PLACE_GLOBAL,
-        continued_from: null,
+        work_place: PLACE,
+        opening_context: null,
       }, { assignment_revision: 1, assignment_state: "enabled" });
       const received = await must(user, "ReceiveMessage", {
         id: id("msg", n),

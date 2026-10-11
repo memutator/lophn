@@ -12,7 +12,7 @@ import {
   BLOB_READ_MAX_BYTES,
   type Sql,
 } from "../../contracts/platform/mod.ts";
-import { sessionVisible } from "./reads.ts";
+import { sessionVisible } from "./guards.ts";
 import { loadMessage, loadSession } from "./model.ts";
 
 // ReadMessageBody. 참조 행 판정은 ledger snapshot에서 짧게 하고, blob 바이트는 그 뒤에

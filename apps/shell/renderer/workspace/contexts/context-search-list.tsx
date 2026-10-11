@@ -29,7 +29,9 @@ export function ContextSearchList(
 ): ReactNode {
   const contract = useRead(context, async () => {
     const read = await source.contract(context);
-    return read.ok ? { ok: true, value: read.value?.searches ?? [] } : read;
+    return read.ok
+      ? { ok: true, value: read.value?.content?.searches ?? [] }
+      : read;
   });
   const views = useRead(context, () => source.savedViews(context));
   const searches = contract.slot;

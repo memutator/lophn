@@ -1,18 +1,13 @@
-// mock 모드의 lophn 공간 documents·contexts·projects 정리 통로. 글과 검색은 메모리 표에서 읽고,
-// series·contexts·organize의 나머지는 화면 테스트의 가짜 통로에 대표 값만 채운다.
+// mock 모드의 lophn 공간 documents·projects 정리 통로. 글과 검색은 메모리 표에서 읽고,
+// series·organize의 나머지는 화면 테스트의 가짜 통로에 대표 값만 채운다.
 import {
   type FakeData,
   fakeSource,
 } from "../lophn-space/testdata/fake-source.ts";
-import { fakeContexts } from "../lophn-space/contexts/testdata/fake-source.ts";
 import {
   fakeOrganize,
   PROJECT,
 } from "../lophn-space/organize/testdata/fake-organize.ts";
-import {
-  FOCUS,
-  MEANINGS,
-} from "../lophn-space/contexts/testdata/fake-source.ts";
 import type {
   Catalog,
   LophnSource,
@@ -33,7 +28,6 @@ import {
   DOC_WEEK_1,
   DOC_WEEK_2,
   DOC_WEEK_3,
-  FOCUS_GROCERY,
   PROJECT_GROCERY,
   PROJECT_OFFICE,
   PROJECT_TRIP,
@@ -189,7 +183,6 @@ export const CATALOG: Catalog = {
     { id: PROJECT_OFFICE, title: "Home office" },
   ],
   apps: [{ id: APP_PLANNER, title: "Meal planner" }],
-  contexts: [{ id: FOCUS_GROCERY, title: "Grocery budget" }],
 };
 
 const SERIES = {
@@ -210,32 +203,6 @@ export function mockLophn(): LophnSource {
   const data: FakeData = {
     catalog: CATALOG,
     formats: ["document", "pdf", "data"],
-    views: [
-      {
-        id: "viw_1",
-        name: "Budget documents",
-        place: { kind: "project", id: PROJECT_GROCERY },
-        filter: {
-          text: "budget",
-          context: null,
-          format: null,
-          status: "active",
-        },
-        revision: "2",
-      },
-      {
-        id: "viw_2",
-        name: "Receipts",
-        place: null,
-        filter: {
-          text: "receipt",
-          context: null,
-          format: "data",
-          status: "active",
-        },
-        revision: "1",
-      },
-    ],
     seriesList: [{ ...SERIES, members: 3 }],
     series: () =>
       ok({
@@ -290,21 +257,6 @@ export function mockLophn(): LophnSource {
           format: doc.format,
         })),
       )),
-    openView: (view) =>
-      Promise.resolve(ok({
-        entries: documents.filter((doc) =>
-          view === "viw_2" ? doc.format === "data" : doc.format === "document"
-        ).map((doc) => ({
-          document: doc.id,
-          title: doc.title,
-          version: `ver_${doc.version}`,
-          latestVersion: `ver_${doc.latest}`,
-          savedAt: Date.now() - doc.savedAgo,
-          excerpt: doc.intro,
-        })),
-        coverage: null,
-        nextCursor: null,
-      })),
     head: (document) => {
       const doc = DOCUMENTS.find((item) => item.id === document);
       return Promise.resolve(
@@ -368,10 +320,6 @@ export function mockLophn(): LophnSource {
   };
 }
 
-export function mockContexts() {
-  return fakeContexts({ meanings: ok(MEANINGS) }).source;
-}
-
 function placed(doc: MockDocument): PlacedDocument {
   return {
     id: doc.id,
@@ -390,7 +338,7 @@ export function mockOrganize(): OrganizeSource {
         id: PROJECT_GROCERY,
         name: "grocery-budget",
         title: "Grocery budget",
-        purpose: FOCUS.purpose,
+        purpose: "Keep the monthly food spending under the plan.",
         folders: ["/home/mina/Documents/grocery"],
       },
       {

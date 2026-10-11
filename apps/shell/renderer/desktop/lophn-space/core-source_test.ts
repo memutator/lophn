@@ -15,7 +15,6 @@ const VER1 = `ver_01k6aaaaaaaaaaaaaaaaaaaaa1`;
 const VER2 = `ver_01k6aaaaaaaaaaaaaaaaaaaaa2`;
 const PRJ = `prj_${ULID}`;
 const SER = `ser_${ULID}`;
-const VIW = `viw_${ULID}`;
 
 type Answer = (call: CoreCall) => CoreReply;
 
@@ -137,68 +136,6 @@ Deno.test("shell/desktop#R1: 보관 포함은 보관 문서 목록에서 제목�
   assertEquals(result.value.map((hit) => hit.document), [DOC]);
 });
 
-Deno.test("shell/desktop#R1: saved view 저장은 user command 하나이고 열기는 매번 worker views/open을 부른다", async () => {
-  const { core, calls } = coreOf((call) => {
-    if (call.kind === "command") {
-      return {
-        ok: true,
-        value: {
-          id: VIW,
-          name: "Plans",
-          place: null,
-          filter: { text: "plan", document_status: "all" },
-          sort: "updated_desc",
-          revision: "3",
-        },
-      };
-    }
-    if (call.resource === "views" && call.method === "list") {
-      return { ok: true, value: { views: [], next_cursor: null } };
-    }
-    return {
-      ok: true,
-      value: {
-        entries: [{
-          document: DOC,
-          title: "Plan",
-          version: VER1,
-          latest_version: VER1,
-          saved_at: "2026-10-01T00:00:00.000Z",
-          excerpt: null,
-        }],
-        coverage: null,
-        next_cursor: null,
-      },
-    };
-  });
-  const source = coreLophnSource(core, (prefix) => `${prefix}_${ULID}`);
-  const saved = await source.saveView("Plans", {
-    ...EMPTY_CONDITIONS,
-    query: "plan",
-    includeArchived: true,
-  });
-  assertEquals(name(calls[0]!), "command:views/save");
-  const request = calls[0]!.body as {
-    input: unknown;
-    compare: unknown;
-    prepared: unknown;
-  };
-  assertEquals(request.input, {
-    id: VIW,
-    name: "Plans",
-    filter: { text: "plan", document_status: "all" },
-  });
-  assertEquals(request.compare, {});
-  assertEquals(request.prepared, []);
-  assert(saved.ok);
-  assertEquals(saved.value.filter.status, "all");
-  await source.views();
-  await source.openView(VIW);
-  await source.openView(VIW);
-  const opens = calls.filter((call) => name(call) === "worker:views/open");
-  assertEquals(opens.length, 2);
-});
-
 Deno.test("shell/desktop#R1: 목차의 다음 page와 본문 이어 읽기는 처음 고정한 판을 그대로 쓴다", async () => {
   const { core, calls } = coreOf((call) => {
     if (call.resource === "outline") {
@@ -287,14 +224,13 @@ Deno.test("shell/desktop#R1: 옛 링크는 documents/resolve로 풀고 옮겨짐
   assertEquals(calls.length, 1);
 });
 
-Deno.test("shell/desktop#R28: lophn 공간 조건의 자리·focus는 전체 목차(outline/root)에서 읽는다", async () => {
+Deno.test("shell/desktop#R28: lophn 공간 조건의 자리는 전체 목차(outline/root)에서 읽는다", async () => {
   const { core, calls } = coreOf(() => ({
     ok: true,
     value: {
       entries: [
         { kind: "project", id: PRJ, title: "lophn" },
         { kind: "app", id: `app_${ULID}`, title: "Groceries" },
-        { kind: "context", id: `ctx_${ULID}`, title: "Release" },
         { kind: "unplaced", document_count: 2 },
       ],
       complete: true,
@@ -307,7 +243,6 @@ Deno.test("shell/desktop#R28: lophn 공간 조건의 자리·focus는 전체 목
   assert(catalog.ok);
   assertEquals(catalog.value.projects, [{ id: PRJ, title: "lophn" }]);
   assertEquals(catalog.value.apps.length, 1);
-  assertEquals(catalog.value.contexts.length, 1);
 });
 
 Deno.test("shell/desktop#R1: series 목록·상세·다음 key는 읽기만 하고 다음 key 조회는 command를 보내지 않는다", async () => {

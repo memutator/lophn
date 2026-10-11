@@ -58,35 +58,10 @@ function sourceOf(over: Partial<VersionSource> = {}): VersionSource {
     sections: () => Promise.resolve({ ok: false, code: "unavailable" }),
     diff: () => Promise.resolve({ ok: false, code: "unavailable" }),
     sectionHistory: () => Promise.resolve({ ok: false, code: "unavailable" }),
-    contexts: () =>
-      Promise.resolve({
-        ok: true,
-        value: [{ id: "ctx_1", title: "Launch review" }],
-      }),
     restore: () => Promise.resolve({ ok: false, code: "unavailable" }),
     ...over,
   };
 }
-
-Deno.test("shell/editor#R6: 컨텍스트 탭에서 고른 Focus는 그 Focus를 연다", async () => {
-  const opened: string[] = [];
-  using view = render(
-    <DocumentInfoPanel
-      tab="contexts"
-      document="doc_plan"
-      source={sourceOf()}
-      onCompare={() => {}}
-      onOpenContext={(context) => opened.push(context)}
-      now={() => NOW}
-    />,
-  );
-  await settle();
-  const row = one(view.container, "[data-open-context='ctx_1']");
-  assertEquals(row.textContent, "Launch review");
-  assertEquals(style(row.closest("li")!).height, "32px");
-  click(row);
-  assertEquals(opened, ["ctx_1"]);
-});
 
 function panel(
   tab: InfoTabId,
@@ -199,12 +174,13 @@ Deno.test("shell/editor#R6: 버전 이력을 읽지 못하면 다시 시도를 �
   assert(view.container.textContent!.includes("Whole document"));
 });
 
-Deno.test("shell/editor#R6: 컨텍스트 탭은 이 문서를 담은 컨텍스트를 32px 행으로 보이고, 문서가 아니면 안내한다", async () => {
+Deno.test("shell/editor#R6: 컨텍스트 탭은 작업대가 context.containing으로 채우고, 그 통로가 없으면 비었음 글을 보이며, 문서가 아니면 안내한다", async () => {
   using view = panel("contexts");
   await settle();
-  const list = one(view.container, "[data-info-contexts]");
-  assertEquals(list.textContent, "Launch review");
-  assertEquals(style(list.querySelector("li")!).height, "32px");
+  assertEquals(
+    view.container.textContent,
+    "This document isn't in any context yet.",
+  );
   using empty = panel("versions", { document: null });
   await settle();
   assertEquals(

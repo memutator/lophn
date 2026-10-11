@@ -62,7 +62,6 @@ export function RolesScreen(
   const [named, setNamed] = useState<Catalog>({
     projects: [],
     apps: [],
-    contexts: [],
   });
 
   const reload = useCallback(() => setAttempt((value) => value + 1), []);

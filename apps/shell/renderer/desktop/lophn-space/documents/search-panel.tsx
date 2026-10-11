@@ -32,7 +32,6 @@ import type {
 } from "../source.ts";
 import { CoverageNotices, formatLabel } from "./notices.tsx";
 import type { ReaderTarget } from "./reader.tsx";
-import { SaveView } from "./save-view.tsx";
 import styles from "./documents.module.css";
 
 const ANY = "any";
@@ -44,8 +43,6 @@ export interface SearchPanelProps {
   /** 지금 상세에서 읽는 문서. */
   current: string | null;
   onRead: (target: ReaderTarget) => void;
-  /** 지금 조건을 saved view로 저장했다. */
-  onViewSaved: () => void;
 }
 
 type Outcome =
@@ -58,9 +55,9 @@ type Outcome =
     readonly archived: readonly ArchivedHit[];
   };
 
-// 검색어와 자리·focus·format 조건, 보관 포함. 결과는 제목과 짧은 근거만 보이고 본문은 열 때 읽는다.
+// 검색어와 자리·format 조건, 보관 포함. 결과는 제목과 짧은 근거만 보이고 본문은 열 때 읽는다.
 export function SearchPanel(
-  { source, catalog, formats, current, onRead, onViewSaved }: SearchPanelProps,
+  { source, catalog, formats, current, onRead }: SearchPanelProps,
 ) {
   const [conditions, setConditions] = useState<SearchConditions>(
     EMPTY_CONDITIONS,
@@ -122,10 +119,6 @@ export function SearchPanel(
       label: item.title,
     })),
   ];
-  const focusOptions: SelectOption[] = [
-    { value: ANY, label: t("documents.label.any-focus") },
-    ...catalog.contexts.map((item) => ({ value: item.id, label: item.title })),
-  ];
   const formatOptions: SelectOption[] = [
     { value: ANY, label: t("documents.label.any-format") },
     ...formats.map((name) => ({ value: name, label: formatLabel(name) })),
@@ -170,18 +163,6 @@ export function SearchPanel(
                 void run({ ...conditions, place: placeOf(value) })}
             />
           </Field>
-          <Field label={t("documents.label.focus")}>
-            <Select
-              size="sm"
-              options={focusOptions}
-              value={conditions.context ?? ANY}
-              onValueChange={(value) =>
-                void run({
-                  ...conditions,
-                  context: value === ANY ? null : value,
-                })}
-            />
-          </Field>
           <Field label={t("documents.label.format")}>
             <Select
               size="sm"
@@ -212,11 +193,6 @@ export function SearchPanel(
                 onClick={() => setLinkOpen(!linkOpen)}
               />
             </Tooltip>
-            <SaveView
-              source={source}
-              conditions={conditions}
-              onSaved={onViewSaved}
-            />
           </span>
         </div>
       </form>

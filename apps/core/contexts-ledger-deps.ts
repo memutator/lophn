@@ -40,10 +40,16 @@ import {
   readViolations,
 } from "../../packages/documents/contexts/index/mod.ts";
 import {
+  type ConversationDeps,
+  startRequest,
+} from "../../packages/lophn-agent/conversation/mod.ts";
+import { createRunCommands } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
+import {
   contextContentField,
   ContextDepUnavailable,
   type ContextsRuntime,
 } from "./contexts-api.ts";
+import { violationRequestText } from "./contexts-handoff.ts";
 
 // blob을 올릴 때 준비 주체와 purpose. 준비 중계를 거치지 않고 writer가 직접 쓰는 값이라 이름을
 // 고정한다. 등록 함수의 검사(주체 일치, field 정의)는 그대로 지난다.
@@ -267,6 +273,14 @@ function flatten(
   })) as ReturnType<SearchExecutor>[number][];
 }
 
+// 요청 접수는 run-loop의 AcceptRun을 같은 transaction에서 부른다. AcceptRun은 machine 전용 기록이라
+// 이 접수에 한해 machine 자격으로 바꿔 넘긴다(apps/core/lophn-agent.ts의 조립과 같다).
+const runCommands = createRunCommands();
+const conversationDeps: ConversationDeps = {
+  acceptRun: (tx, ctx, input, compare) =>
+    runCommands.accept.handle(tx, { ...ctx, actor: "machine" }, input, compare),
+};
+
 export function createContextsRuntime(): ContextsRuntime {
   let current: Reader | undefined;
   const root = (): Result<string> =>
@@ -363,13 +377,46 @@ export function createContextsRuntime(): ContextsRuntime {
       index,
       execute,
       hash: (value) => sha256(canonicalize(value)),
-      // 위반 넘김 Run을 만드는 port가 lophn-agent에 아직 없다. run-loop의 AcceptRun은 보낸 run과
-      // 사람 요청 message가 있는 source만 받고, 위반 근거에서 출발하는 source가 없다. 가짜 run id를
-      // 만들지 않고 unavailable로 답한다(context.hand_off_violations만 이 길을 지난다).
-      startHandOffRun() {
-        throw new ContextDepUnavailable(
-          "the hand-off run cannot be started yet",
-        );
+      // 위반 넘김은 사람 한 번의 요청이다: 그 context의 project를 작업 자리로 하는 Context Engineer의
+      // 새 세션에 서버가 붙인 근거를 글로 옮긴 사람 요청 message를 두고, 담당 Run 하나를 접수한다
+      // (lophn-agent/conversation의 startRequest). 세션·message·Run이 이 transaction 안이라 enabled
+      // Context Engineer가 없으면 unavailable로 전부 되돌아간다.
+      startHandOffRun(tx, request) {
+        const owner = tx.sql.get("SELECT project FROM contexts WHERE id = ?", [
+          request.context,
+        ]);
+        if (owner === undefined) {
+          throw new ContextDepUnavailable("the context is not in the ledger");
+        }
+        const evidence = blobs.read(request.evidence);
+        if (!evidence.ok) {
+          throw new ContextDepUnavailable(evidence.error.message);
+        }
+        const content = {
+          schema_version: 1 as const,
+          parts: [{
+            kind: "text" as const,
+            text: violationRequestText(evidence.value),
+          }],
+        };
+        const body = blobs.put(tx, content);
+        const started = startRequest(conversationDeps, tx, {
+          role: "context_engineer",
+          work_place: { kind: "project", id: String(owner["project"]) },
+          content,
+          body: {
+            owner_kind: contextContentField.owner_kind,
+            owner_key: body.hash,
+            field: contextContentField.field,
+            hash: body.hash,
+            registered_seq: "1",
+          },
+        });
+        if (started.ok) return started.value.run;
+        if (started.error.code === "unavailable") {
+          throw new ContextDepUnavailable(started.error.message);
+        }
+        throw new Error(started.error.message);
       },
       isContextEngineer(assignment) {
         if (current === undefined) return false;

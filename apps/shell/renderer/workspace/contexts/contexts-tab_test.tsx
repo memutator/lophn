@@ -13,7 +13,6 @@ import {
   HARNESS,
   PROJECT,
 } from "./fake-source.ts";
-import type { ContextsSource } from "./source.ts";
 import { all, buttonNamed, norm } from "./testing.tsx";
 
 function tab(
@@ -119,10 +118,12 @@ Deno.test("shell/workspace#R16 [ctx-I40]: context가 없으면 카드 없이 비
 
 Deno.test("shell/workspace#R16 [ctx-I39b]: 색인이나 Operator 수를 읽지 못해도 카드는 그 줄만 빼고 보인다", async () => {
   const fake = createFakeContextsSource();
-  const source: ContextsSource = {
+  const source = {
     ...fake,
-    overview: () => Promise.resolve({ ok: false, message: "unavailable" }),
-    operatorCount: () => Promise.resolve({ ok: false, message: "unavailable" }),
+    overview: () =>
+      Promise.resolve({ ok: false as const, message: "unavailable" }),
+    operatorCount: () =>
+      Promise.resolve({ ok: false as const, message: "unavailable" }),
   };
   using view = tab({}, source);
   await settle();

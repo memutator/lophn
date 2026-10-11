@@ -110,11 +110,11 @@ Preset 판 전체는 immutable blob이다. product 기본 preset은 역할별 �
 
 #### Context Engineer 기본 tool 묶음
 
-`context_engineer` 기본 preset은 아래 동작을 하나의 묶음으로 고르고, 나머지 공통 읽기·문서 결과·preset/assignment 읽기·승인 초안·시각·handoff 동작은 하나씩 고른다. 이 일곱 동작은 `context_engineer` 역할 상한에만 있어서 다른 역할의 preset은 이 묶음을 고를 수 없다.
+`context_engineer` 기본 preset은 아래 동작을 하나의 묶음으로 고르고, 나머지 공통 읽기·문서 결과·preset/assignment 읽기·승인 초안·시각·handoff 동작은 하나씩 고른다. 이 여덟 동작은 `context_engineer` 역할 상한에만 있어서 다른 역할의 preset은 이 묶음을 고를 수 없다.
 
 | 묶음 | 개별 동작 | 대상 계약 |
 |---|---|---|
-| context 설계 | `context.read_contract`, `context.draft`, `context.preview`, `context.submit`, `context.violations`, `context.glossary_read`, `context.glossary_write` | documents/contexts, documents/terms |
+| context 설계 | `context.create`, `context.read_contract`, `context.draft`, `context.preview`, `context.submit`, `context.violations`, `context.glossary_read`, `context.glossary_write` | documents/contexts, documents/terms |
 
 #### 앱 command·시각 tool 선택 값
 
@@ -214,7 +214,7 @@ Preset 판 전체는 immutable blob이다. product 기본 preset은 역할별 �
 | 묶음 | 추가 개별 동작 | 제약 |
 |---|---|---|
 | 프로젝트·앱 metadata | `project.list`, `project.read`, `app.list`, `app.read_purpose`, `app.commands` | 앱 명령 호출 없음 |
-| context 설계 | `context.read_contract`, `context.draft`, `context.preview`, `context.submit`, `context.violations` | 초안 쓰기·제출은 write; 미리보기는 지금 파일로 추출·위반만 보이고 적용 없음; 제출한 판의 적용은 → documents/contexts |
+| context 설계 | `context.create`, `context.read_contract`, `context.draft`, `context.preview`, `context.submit`, `context.violations` | context 생성·초안 쓰기·제출은 write; 미리보기는 지금 파일로 추출·위반만 보이고 적용 없음; 제출한 판의 적용은 → documents/contexts |
 | 용어집 | `context.glossary_read`, `context.glossary_write` | 뜻은 Context Engineer와 사람이 정함; → documents/terms |
 | 문서 결과 | `document.create`, `document.save_version` | Run 요청 범위; 기준 Version 필수 |
 | 역할·assignment 읽기 | `preset.list`, `preset.read`, `assignment.list`, `assignment.read`, `run.read_result` | 실제 Preset·Assignment 적용 없음 |

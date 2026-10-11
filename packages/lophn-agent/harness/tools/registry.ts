@@ -111,7 +111,7 @@ export const TOOL_BUNDLES: ReadonlyMap<string, readonly string[]> = new Map([
   // 개체 읽기와 다음 이름 읽기다. 개체 읽기의 정의는 선택한 context가 있을 때 run마다 만들어지고
   // (`buildContextReadTools`) 선언 검색 tool은 이름 묶음이 아니라 preset의 context 선택이 정한다.
   ["context-read", [CONTEXT_ENTITY_TOOL, SERIES_NEXT_TOOL]],
-  // Context Engineer의 계약·초안·미리보기·제출·위반·용어집 일곱 동작이다(R23). 역할 상한이 그 역할에게만
+  // Context Engineer의 context 생성·계약·초안·미리보기·제출·위반·용어집 여덟 동작이다(R23). 역할 상한이 그 역할에게만
   // 열어서 다른 역할의 preset이 이 묶음을 고르면 저장이 거절된다.
   ["context-engineer", Object.values(CONTEXT_ENGINEER_TOOL_NAMES)],
   // lophn의 모든 project context 조회 셋이다(roles/lophn#R3). 역할 상한이 lophn에게만 열어서 다른 역할의 preset이

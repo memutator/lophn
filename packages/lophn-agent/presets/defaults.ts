@@ -57,7 +57,7 @@ export function productPresetDefinition(
 ): PresetDefinition {
   const cap = ROLE_CAPS.get(role);
   if (cap === undefined) throw new Error(`no role cap for ${role}`);
-  // Context Engineer는 자기만의 일곱 동작을, lophn은 context 조회 셋을 묶음으로 고르고 나머지 상한 동작을
+  // Context Engineer는 자기만의 여덟 동작을, lophn은 context 조회 셋을 묶음으로 고르고 나머지 상한 동작을
   // 하나씩 고른다.
   const bundle = bundledTools(role);
   const bundled = new Set(bundle?.tools ?? []);

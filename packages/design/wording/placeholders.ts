@@ -1635,6 +1635,7 @@ export type PlaceholderKinds = {
   "launcher.title.schema-incompatible": Record<never, never>;
   "launcher.title.start-failed": Record<never, never>;
   "project-workspace.button.add-rule": Record<never, never>;
+  "project-workspace.button.agent": Record<never, never>;
   "project-workspace.button.attach-operator": Record<never, never>;
   "project-workspace.button.see-operators": Record<never, never>;
   "project-workspace.button.close-tab": Record<never, never>;
@@ -1643,6 +1644,7 @@ export type PlaceholderKinds = {
   "project-workspace.button.expand-sidebar": Record<never, never>;
   "project-workspace.button.info-panel": Record<never, never>;
   "project-workspace.button.launcher": Record<never, never>;
+  "project-workspace.button.manage-agents": Record<never, never>;
   "project-workspace.button.open-app-panel": Record<never, never>;
   "project-workspace.button.open-terminal": Record<never, never>;
   "project-workspace.button.preview-again": Record<never, never>;
@@ -1656,6 +1658,7 @@ export type PlaceholderKinds = {
   "project-workspace.empty.no-folders": Record<never, never>;
   "project-workspace.empty.no-tabs": Record<never, never>;
   "project-workspace.error.load-failed": Record<never, never>;
+  "project-workspace.heading.agents": Record<never, never>;
   "project-workspace.heading.contexts": Record<never, never>;
   "project-workspace.heading.documents": Record<never, never>;
   "project-workspace.heading.folders": Record<never, never>;
@@ -1666,6 +1669,7 @@ export type PlaceholderKinds = {
     count: "plural";
   };
   "project-workspace.label.operators-none": Record<never, never>;
+  "project-workspace.label.agent-waiting": Record<never, never>;
   "project-workspace.label.choose-app": Record<never, never>;
   "project-workspace.label.drop-here": Record<never, never>;
   "project-workspace.label.drop-side": Record<never, never>;

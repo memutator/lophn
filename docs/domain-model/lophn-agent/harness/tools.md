@@ -126,7 +126,7 @@ ToolCall과 tool 정의·결과의 구조 및 선행·후행 기록 제약을 �
 
 ### context·series tool 계약
 
-context의 계약·검색·위반·용어집의 값은 → documents/contexts, documents/terms가 정본이고 이 문서는 tool 정의의 모양만 정한다. 옛 context·term tool 17개(`context.list`, `context.read`, `context.items`, `context.terms`, `context.document_membership`, `term.read`, `context.create`, `context.rename`, `context.set_purpose`, `context.archive`, `context.add_item`, `context.update_item`, `context.remove_item`, `term.propose_candidate`, `term.update_candidate`, `term.remove_candidate`, `term.submit_definition_answer`)는 없다.
+context의 계약·검색·위반·용어집의 값은 → documents/contexts, documents/terms가 정본이고 이 문서는 tool 정의의 모양만 정한다.
 
 | tool | effect | 소유 contract 한 번 | 입력·출력 | 제공 역할 |
 |---|---|---|---|---|

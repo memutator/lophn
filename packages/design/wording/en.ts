@@ -2590,7 +2590,6 @@ export const en = {
   "things-to-confirm.button.keep-question": "Keep the question",
   "things-to-confirm.button.later": "Answer later",
   "things-to-confirm.button.mark-read": "Mark as read",
-  "things-to-confirm.button.open-document": "Open the document",
   "things-to-confirm.button.review": "Review",
   "things-to-confirm.button.review-next": "Review the next decision",
   "things-to-confirm.button.send-answer": "Send answer",
@@ -2636,8 +2635,6 @@ export const en = {
   "things-to-confirm.label.event-issue-opened": "An issue was reported",
   "things-to-confirm.label.event-issue-reopened": "An issue came back",
   "things-to-confirm.label.event-other": "Something needs your attention",
-  "things-to-confirm.label.event-other-document":
-    "Something in a document needs your attention",
   "things-to-confirm.label.event-paused": "A role was paused",
   "things-to-confirm.label.event-question": "A question is waiting",
   "things-to-confirm.label.event-task-check-failed": "A task's check failed",

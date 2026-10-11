@@ -346,26 +346,26 @@ async function eventTimes(
   return times;
 }
 
-type ConfirmTerm = (input: {
+type ConfirmWithoutWindow = (input: {
   question: string;
   option_key: string;
 }) => Promise<{ ok: true } | { ok: false; code: string }>;
 
 /** app.create 확정. 확인 창을 열지 않는 main 통로다. 이 창에 없으면 undefined다. */
-function termConfirmation(): ConfirmTerm | undefined {
+function windowlessConfirmation(): ConfirmWithoutWindow | undefined {
   const shell = (globalThis as {
-    lophnShell?: { confirmTermDefinition?: ConfirmTerm };
+    lophnShell?: { confirmWithoutWindow?: ConfirmWithoutWindow };
   }).lophnShell;
-  return typeof shell?.confirmTermDefinition === "function"
-    ? (input) => shell.confirmTermDefinition!(input)
+  return typeof shell?.confirmWithoutWindow === "function"
+    ? (input) => shell.confirmWithoutWindow!(input)
     : undefined;
 }
 
-async function confirmTerm(
+async function confirmWithoutWindow(
   question: string,
   option: string,
 ): Promise<SourceResult<void>> {
-  const confirm = termConfirmation();
+  const confirm = windowlessConfirmation();
   if (confirm === undefined) return { ok: false, code: "unavailable" };
   try {
     const sent = await confirm({ question, option_key: option });
@@ -587,7 +587,7 @@ export function coreRequestSource(
           option.key === answer.option
         );
         if (confirmsWithoutWindow(chosen?.command)) {
-          return await confirmTerm(question.id, answer.option);
+          return await confirmWithoutWindow(question.id, answer.option);
         }
       }
       const value = answer.kind === "option"

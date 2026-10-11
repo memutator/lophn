@@ -51,8 +51,8 @@ import {
 } from "./core/layout-ipc.ts";
 import { createLayoutStore } from "../workspace/layout-store.ts";
 import { OPEN_EXTERNAL_CHANNEL } from "../../ipc/open-external.ts";
-import { TERM_DEFINITION_CHANNEL } from "../../ipc/term-definition.ts";
-import { confirmTermDefinition } from "../confirmation/term-definition.ts";
+import { WINDOWLESS_CONFIRMATION_CHANNEL } from "../../ipc/windowless-confirmation.ts";
+import { confirmWithoutWindow } from "../confirmation/windowless-confirmation.ts";
 import {
   DESKTOP_INTENT_CHANNEL,
   type DesktopIntent,
@@ -1158,7 +1158,7 @@ ipcMain.handle(
 );
 
 // app.create·apply_settings 선택지의 확정. 확인 창을 열지 않고 정본의 그 command만 접수한다.
-ipcMain.handle(TERM_DEFINITION_CHANNEL, async (event, input) => {
+ipcMain.handle(WINDOWLESS_CONFIRMATION_CHANNEL, async (event, input) => {
   const body = input as { question?: unknown; option_key?: unknown };
   if (
     typeof body?.question !== "string" || typeof body.option_key !== "string"
@@ -1172,7 +1172,7 @@ ipcMain.handle(TERM_DEFINITION_CHANNEL, async (event, input) => {
   if (window === undefined || session === null) {
     return { ok: false, code: "unavailable" };
   }
-  return await confirmTermDefinition({
+  return await confirmWithoutWindow({
     core: session,
     register: (request) => core.registerConfirmation(request),
     windowId: windowRef(window),
@@ -1261,7 +1261,7 @@ function stopAll(): void {
   ipcMain.removeHandler(FOLDER_PICK_CHANNEL);
   ipcMain.removeHandler(WINDOW_CONTROL_CHANNEL);
   ipcMain.removeHandler(OPEN_EXTERNAL_CHANNEL);
-  ipcMain.removeHandler(TERM_DEFINITION_CHANNEL);
+  ipcMain.removeHandler(WINDOWLESS_CONFIRMATION_CHANNEL);
   removeEditorIpc(editorIpc);
   removeViewIpc(viewIpcMain);
   removeAppWindowIpc(appWindowIpcMain);

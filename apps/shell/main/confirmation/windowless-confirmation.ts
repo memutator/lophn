@@ -23,7 +23,10 @@ type Registered =
   | { ok: true; confirmation: string; expiresAt: string }
   | { ok: false; error: { code: string; message: string } };
 
-export type TermDefinitionResult = { ok: true } | { ok: false; code: Code };
+export type WindowlessConfirmationResult = { ok: true } | {
+  ok: false;
+  code: Code;
+};
 
 function codeOf(value: string): Code {
   if (
@@ -33,14 +36,14 @@ function codeOf(value: string): Code {
   return "unavailable";
 }
 
-export async function confirmTermDefinition(input: {
+export async function confirmWithoutWindow(input: {
   core: KindCore;
   register: (request: ConfirmationHandleRegister) => Promise<Registered>;
   windowId: string;
   question: string;
   optionKey: string;
   nowMs: number;
-}): Promise<TermDefinitionResult> {
+}): Promise<WindowlessConfirmationResult> {
   const read = await readOptionAction(
     input.core,
     input.question,

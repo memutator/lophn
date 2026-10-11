@@ -25,7 +25,7 @@ ID를 가진 entity는 30개다. 나머지(blueprint, problem code, context item
 | [platform/notifications](platform/notifications.md) | Notification `ntf` | `notifications` |
 | [documents/projects](documents/projects.md) | Project `prj` | `projects`, `project_folders`, `project_tracking_patterns` |
 | [documents/versions](documents/versions.md) | Document `doc`, Version `ver` | `documents`, `versions` |
-| [documents/series](documents/series.md) | Series `ser` | `series`, `series_instances`, `series_keys` |
+| [documents/series](documents/series.md) | 없음(context 계약의 series pattern) | 없음 |
 | [documents/addressing](documents/addressing.md) | | `place_names`, `document_names` |
 | [documents/contexts](documents/contexts.md) | Context `ctx` | `contexts`, `context_items`, `context_watch_changes` |
 | [documents/terms](documents/terms.md) | GlossaryEntry `trm` | `glossary_entries` |

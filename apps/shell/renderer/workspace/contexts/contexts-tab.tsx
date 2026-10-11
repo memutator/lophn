@@ -16,8 +16,22 @@
 //   contexts.note.tab-new-context
 //   contexts.title.tab-screen
 //   common.error.load-failed
+import { useCallback, useEffect, useState } from "react";
 import type { ReactNode } from "react";
+import {
+  Button,
+  Card,
+  EmptyState,
+  ErrorState,
+  Loading,
+  lophnSpaceIcons,
+  Skeleton,
+} from "@lophn/design/components";
+import { t } from "@lophn/wording";
 
+import styles from "./contexts-tab.module.css";
+import { type CardData, loadCards } from "./contexts-tab-load.ts";
+import { cardRows } from "./contexts-tab-rows.ts";
 import type { ContextsSource } from "./source.ts";
 
 export interface ContextsTabProps {
@@ -31,6 +45,126 @@ export interface ContextsTabProps {
   readonly onNewContext: () => void;
 }
 
-export function ContextsTab(_props: ContextsTabProps): ReactNode {
-  return null;
+type Load =
+  | { readonly state: "loading" }
+  | { readonly state: "failed" }
+  | { readonly state: "loaded"; readonly cards: readonly CardData[] };
+
+export function ContextsTab(
+  { projectTitle, project, source, onOpenContext, onNewContext }:
+    ContextsTabProps,
+): ReactNode {
+  const [load, setLoad] = useState<Load>({ state: "loading" });
+  const [attempt, setAttempt] = useState(0);
+  const retry = useCallback(() => {
+    setLoad({ state: "loading" });
+    setAttempt((count) => count + 1);
+  }, []);
+
+  useEffect(() => {
+    let current = true;
+    loadCards(source, project).then(
+      (cards) => {
+        if (current) {
+          setLoad(
+            cards === null ? { state: "failed" } : { state: "loaded", cards },
+          );
+        }
+      },
+      () => {
+        if (current) setLoad({ state: "failed" });
+      },
+    );
+    return () => {
+      current = false;
+    };
+  }, [source, project, attempt]);
+
+  return (
+    <div className={styles.screen}>
+      <h1 className={styles.title}>
+        {t("contexts.title.tab-screen", { project: projectTitle })}
+      </h1>
+      <Loading
+        loading={load.state === "loading"}
+        placeholder={<Skeleton lines={4} />}
+      >
+        {load.state === "failed" && (
+          <ErrorState
+            target={t("contexts.title.tab-screen", { project: projectTitle })}
+            onRetry={retry}
+          />
+        )}
+        {load.state === "loaded" && load.cards.length === 0 && (
+          <EmptyState
+            icon={lophnSpaceIcons.add}
+            message={t("contexts.empty.tab-none")}
+            action={{
+              label: t("contexts.button.tab-new-context"),
+              onSelect: onNewContext,
+            }}
+          />
+        )}
+        {load.state === "loaded" && load.cards.length > 0 && (
+          <>
+            <div className={styles.cards}>
+              {load.cards.map((card) => (
+                <ContextCard
+                  key={card.item.id}
+                  card={card}
+                  onOpen={onOpenContext}
+                />
+              ))}
+            </div>
+            <div className={styles.newContext}>
+              <Button
+                variant="primary"
+                icon={lophnSpaceIcons.add}
+                onClick={onNewContext}
+              >
+                {t("contexts.button.tab-new-context")}
+              </Button>
+              <p className={styles.note} data-new-context-note>
+                {t("contexts.note.tab-new-context")}
+              </p>
+            </div>
+          </>
+        )}
+      </Loading>
+    </div>
+  );
+}
+
+function ContextCard(
+  { card, onOpen }: {
+    readonly card: CardData;
+    readonly onOpen: (context: string) => void;
+  },
+): ReactNode {
+  const { item } = card;
+  return (
+    <Card>
+      <div data-context-card={item.id} className={styles.card}>
+        <h3 className={styles.name}>{item.title}</h3>
+        <p className={styles.purpose} data-purpose>{item.purpose}</p>
+        <ul className={styles.rows}>
+          {cardRows(card).map((row) => (
+            <li
+              key={row.key}
+              className={row.warn ? styles.warn : undefined}
+              data-violations={row.key === "violations" ? "" : undefined}
+              data-warn={row.warn ? "true" : undefined}
+            >
+              {row.text}
+            </li>
+          ))}
+        </ul>
+        <div className={styles.actions}>
+          <Button onClick={() => onOpen(item.id)}>
+            {t("contexts.button.tab-open")}
+          </Button>
+        </div>
+      </div>
+    </Card>
+  );
 }

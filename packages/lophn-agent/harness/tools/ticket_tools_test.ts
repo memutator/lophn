@@ -445,7 +445,6 @@ function factsOf(tool: string): CallFacts {
       id: TICKET,
       inScope: true,
       reversibility: definition.reversible ? "reversible" : "unknown",
-      declared: false,
     }],
   };
 }

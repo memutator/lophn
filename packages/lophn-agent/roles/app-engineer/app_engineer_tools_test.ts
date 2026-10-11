@@ -461,7 +461,6 @@ Deno.test("lophn-agent/roles/app-engineer#R21: AE에게 제공된 command의 판
         id: target.id,
         inScope: true,
         reversibility: target.reversibility,
-        declared: false,
       })),
     };
     return { judgment: judge(facts), action: resolved.value };

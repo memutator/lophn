@@ -170,7 +170,7 @@ Deno.test("lophn-agent/roles/lophn#R3 [ctx-I58g]: context.overview text is the p
   assertEquals(content.purpose, "Cook well");
 });
 
-Deno.test("lophn-agent/roles/lophn#R14 [ctx-I58g]: context.containing goes to the agent route and only lophn's run access holds the lookup routes", async () => {
+Deno.test("lophn-agent/roles/lophn#R14 [ctx-I58g]: context.containing goes to the agent route and only lophn's run access holds context.containing", async () => {
   const box = setup();
   const outcome = await box.run(N.containing, {
     project: PRJ,
@@ -181,8 +181,9 @@ Deno.test("lophn-agent/roles/lophn#R14 [ctx-I58g]: context.containing goes to th
     name: "context.containing",
     body: { project: PRJ, path: "recipes/pie.md" },
   });
-  // lophn만 이 route들을 열고, 다른 역할은 context 목록·overview·용어집·containing을 열지 않는다.
-  const lookupOnly = [
+  // lophn만 `context.containing`을 열고 조회 tool 셋을 가진다. 목록·get·overview·용어집은 모든 역할이
+  // prompt의 context 자료를 읽는 읽기로 가진다(prompt-assemble#R4). 어느 context가 보이는지는 core가 정한다.
+  const lookup = [
     "context.list",
     "context.overview",
     "context.containing",
@@ -190,11 +191,12 @@ Deno.test("lophn-agent/roles/lophn#R14 [ctx-I58g]: context.containing goes to th
     "glossary.list",
   ];
   const lophn = roleOperations("lophn");
-  for (const name of lookupOnly) assert(lophn.includes(name), name);
-  for (const role of ["app_engineer", "operator"]) {
+  for (const name of lookup) assert(lophn.includes(name), name);
+  for (const role of ["app_engineer", "operator", "context_engineer"]) {
     const ops = roleOperations(role);
-    for (const name of lookupOnly) {
-      assertEquals(ops.includes(name), false, `${role} ${name}`);
+    assertEquals(ops.includes("context.containing"), false, role);
+    for (const name of lookup.filter((n) => n !== "context.containing")) {
+      assert(ops.includes(name), `${role} ${name}`);
     }
   }
 });

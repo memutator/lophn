@@ -43,6 +43,11 @@ export {
   type PlaceExtensionLookups,
 } from "./place-settings.ts";
 export {
+  collectPlaceMcpServers,
+  mergeMcpServers,
+  type PlaceServerSource,
+} from "./place-servers.ts";
+export {
   commandSkillsOf,
   createExtensionRegistry,
   type ExtensionRegistry,

@@ -17,6 +17,7 @@ import {
   RUN_BLOB_PURPOSES,
   runList,
   runRead,
+  sessionRead,
   startRun,
   type WorkPlace,
 } from "../../packages/contracts/lophn-agent/mod.ts";
@@ -577,7 +578,16 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
     // 틀렸으면 run을 시작하지 않고 이유와 함께 끝낸다(agents R24, R25).
     // 자리 층의 skill·MCP는 그 agent가 여는 자리의 것만이다(extensions R32). 켠 서버만 연결한다: 정의가 통째로
     // 끈 서버는 resolve가 정의를 읽은 뒤에 알려 주고(R18, R31), 정의가 끈 skill은 resolve가 뺀다(R4).
-    const placed = await placeOfRun(machine, run.value.run, assignment);
+    const sessionRecord = run.value.run.session === null
+      ? null
+      : await readOf(machine, sessionRead, { session: run.value.run.session });
+    if (sessionRecord !== null && !sessionRecord.ok) return sessionRecord;
+    const placed = await placeOfRun(
+      machine,
+      run.value.run,
+      assignment,
+      sessionRecord === null ? null : sessionRecord.value.session,
+    );
     if (!placed.ok) return placed;
     const skills = (await deps.skills?.(placed.value)) ?? [];
     let mcp: LoadedMcp | undefined;

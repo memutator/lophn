@@ -331,6 +331,7 @@ import {
   withQuestionText,
 } from "./question-text.ts";
 import { assemble, type TeamModule } from "./registration.ts";
+import { mcpServerSnapshot } from "./mcp-snapshot.ts";
 import { type CoreRuntime, openRuntime } from "./runtime.ts";
 import { appExportWorkers } from "./apps-export.ts";
 import { ticketClaimSweepIntervalMs } from "./tickets.ts";
@@ -340,42 +341,12 @@ import {
   createMcpAuthControl,
   openMcpCallbackListener,
 } from "./lophn-agent.ts";
-import type { McpServerConfig } from "../../packages/contracts/lophn-agent/mod.ts";
 import {
   agentProfilesRead,
   agentProfilesUpload,
-  mcpServersSetting,
   skillFoldersSetting,
 } from "../../packages/contracts/lophn-agent/mod.ts";
 import { settingsGet } from "../../packages/contracts/platform/mod.ts";
-import { openConnection } from "../../packages/platform/ledger/mod.ts";
-
-// 등록한 MCP server 설정의 snapshot 재료다(extensions R11). ledger 경로의 setting_choices
-// 행을 readOnly로 열어 형식 검사를 지난 server 목록으로 옮긴다(credentials 열기와 별개다).
-// credentials 열림이 실패해도 설정 읽기는 readOnly라 그대로 온다.
-function mcpServerSnapshot(
-  ledgerPath: string,
-): Promise<Result<McpServerConfig[]>> {
-  const opened = openConnection(ledgerPath);
-  if (!opened.ok) return Promise.resolve(opened);
-  try {
-    const rows = opened.value.sql.all(
-      "select layer, key, value from setting_choices where key = ?",
-      [mcpServersSetting.key],
-    );
-    if (rows.length === 0) return Promise.resolve(ok([]));
-    const parsed: unknown = JSON.parse(String(rows[0]["value"]));
-    const shaped = mcpServersSetting.value_type.safeParse(parsed);
-    if (!shaped.success) {
-      return Promise.resolve(ok([]));
-    }
-    return Promise.resolve(ok(shaped.data));
-  } catch {
-    return Promise.resolve(ok([]));
-  } finally {
-    opened.value.close();
-  }
-}
 
 // approval 만료 정리 간격. ticket claim 정리와 같은 60초다(platform Q25).
 const APPROVAL_EXPIRY_SWEEP_INTERVAL_MS = 60_000;

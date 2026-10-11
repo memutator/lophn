@@ -639,6 +639,95 @@ export const glossaryListReadSchema = publicRead(z.object({
   entries: z.array(glossaryEntrySchema).max(GLOSSARY_ENTRY_MAX),
 }));
 
+// ---------- 읽기: preview · entity · series_next ----------
+//
+// 이 셋은 route와 schema만 있고 아직 CONTEXT_API_ROUTES에 넣지 않았다. core handler와 같이 등록한다
+// (handler 없는 route는 응답하지 못하고 매달린다). 값의 뜻은 contexts.md "읽기"의 preview·entity·
+// series_next다.
+
+export const CONTEXT_PREVIEW_PAGE = 30;
+export const contextPreviewRequestSchema = z.strictObject({
+  context: ctxIdSchema,
+  // 만드는 중인(draft 상태) 판
+  bundle: bundleIdSchema,
+  cursor: readCursorSchema.optional(),
+});
+// 위반 한 줄. 저장된 위반에서 context·감지한 판(bundle_hash)만 뺀 것이다.
+export const previewViolationSchema = z.strictObject({
+  ...violationKeyFields,
+  type: contractTypeNameSchema.nullable(),
+  target: nonblankSchema.nullable(),
+  message: nonblankSchema,
+}).refine(ruleOnlyForRuleKind, ruleMessage);
+export type PreviewViolation = z.infer<typeof previewViolationSchema>;
+// types는 지금 파일에서 뽑은 type별 개체 수(계약의 type 순서). 모양·의미 검사에서 멈추면 비어 있고
+// violation_count는 0이다. 위반은 path, kind, rule, section의 code unit 순이고 page는 30개다.
+// findings는 매 page에 같다.
+export const contextPreviewReadSchema = publicPage(z.object({
+  context: ctxIdSchema,
+  bundle: bundleIdSchema,
+  types: z.array(z.strictObject({
+    type: contractTypeNameSchema,
+    count: countSchema,
+  })),
+  violation_count: countSchema,
+  violations: z.array(previewViolationSchema).max(CONTEXT_PREVIEW_PAGE),
+  findings: z.array(checkFindingSchema),
+}));
+export type ContextPreviewRead = z.infer<typeof contextPreviewReadSchema>;
+
+export const contextEntityRequestSchema = z.strictObject({
+  context: ctxIdSchema,
+  type: contractTypeNameSchema,
+  key: nonblankSchema,
+});
+// 적용된 판의 index에서 읽은 개체 하나. fields는 선언한 field 전부(값이 없으면 null, list는 배열)이고
+// relations는 type이 선언한 관계 전부를 선언 순서로 싣는다. targets는 간선 순서이고 닿는 개체가 없으면 비어 있다.
+export const contextEntityReadSchema = publicRead(z.object({
+  context: ctxIdSchema,
+  bundle_hash: sha256Schema,
+  ref: entityRefSchema,
+  fields: z.record(z.string(), jsonValueSchema),
+  relations: z.array(z.strictObject({
+    name: contractNameSchema,
+    label: nonblankSchema,
+    targets: z.array(entityRefSchema),
+  })),
+}));
+export type ContextEntityRead = z.infer<typeof contextEntityReadSchema>;
+
+export const contextSeriesNextRequestSchema = z.strictObject({
+  context: ctxIdSchema,
+  type: contractTypeNameSchema,
+});
+// documents/series의 다음 이름. key가 빈 문자열이면 path가 null(계산 불가), path에 `*`가 남아 있으면
+// complete가 false다. taken은 계산한 key를 가진 멤버가 이미 있다는 뜻이다.
+export const seriesNextSchema = z.strictObject({
+  key: z.string(),
+  path: relativePathSchema.nullable(),
+  from: relativePathSchema.nullable(),
+  complete: z.boolean(),
+  taken: z.boolean(),
+}).refine((next) => (next.key === "") === (next.path === null), {
+  message: "key is empty exactly when there is no path",
+}).refine(
+  (next) => next.complete === (next.path !== null && !next.path.includes("*")),
+  { message: "complete means a path without a * place" },
+).refine((next) => !next.taken || next.path !== null, {
+  message: "taken needs a computed name",
+});
+export type SeriesNext = z.infer<typeof seriesNextSchema>;
+export const contextSeriesNextReadSchema = publicRead(z.object({
+  context: ctxIdSchema,
+  type: contractTypeNameSchema,
+  // type의 series pattern
+  pattern: nonblankSchema,
+  next: seriesNextSchema,
+}));
+export type ContextSeriesNextRead = z.infer<
+  typeof contextSeriesNextReadSchema
+>;
+
 // ---------- route ----------
 
 const AGENT_AND_USER = ["user", "agent"] as const;
@@ -916,6 +1005,35 @@ export const glossaryListRoute = defineRead({
   name: "glossary.list",
   input: glossaryListRequestSchema,
   output: glossaryListReadSchema,
+  actors: READ_ACTORS,
+  errors: READ_ERRORS,
+});
+
+// 아래 셋은 handler와 같이 등록할 때까지 CONTEXT_API_ROUTES에 넣지 않는다.
+export const contextPreviewRoute = defineRead({
+  resource: "contexts",
+  method: "preview",
+  name: "context.preview",
+  input: contextPreviewRequestSchema,
+  output: contextPreviewReadSchema,
+  actors: READ_ACTORS,
+  errors: READ_ERRORS,
+});
+export const contextEntityRoute = defineRead({
+  resource: "contexts",
+  method: "entity",
+  name: "context.entity",
+  input: contextEntityRequestSchema,
+  output: contextEntityReadSchema,
+  actors: READ_ACTORS,
+  errors: READ_ERRORS,
+});
+export const contextSeriesNextRoute = defineRead({
+  resource: "contexts",
+  method: "series_next",
+  name: "context.series_next",
+  input: contextSeriesNextRequestSchema,
+  output: contextSeriesNextReadSchema,
   actors: READ_ACTORS,
   errors: READ_ERRORS,
 });

@@ -31,7 +31,7 @@ core
    ├ platform read·인증·blob·event 구독 contract
    ├ context reader ── 선언 검색 = 순수 함수 ── derived/contexts.sqlite (read 연결)
    ├ 비동기 dispatch ── stdio framed IPC ── context worker (1)
-   │                                         └ context.index (stat scan + extract) · context.check (임시 snapshot)
+   │                                         └ context.index (stat scan + extract) · context.check (임시 snapshot) · context.preview (draft 추출 보기)
    └ 비동기 dispatch ── stdio framed IPC ── documents coordinator (1)
                                            ├ Deno.watchFs / scan cursor / 폴더별 공정 큐
                                            ├ framed IPC ── 준비 worker (2)
@@ -74,13 +74,14 @@ context worker는 `apps/worker`의 kind `documents/contexts` 하나다. core가 
 |---|---|---|---|
 | `context.index` | context, 적용 Bundle의 contract(core가 blob을 읽어 IPC 요청에 싣는다), Project 루트 | 계약이 가리키는 경로만 stat(size·mtime)으로 훑어 바뀌었거나 새로 생긴 파일만 다시 extract하고, 사라진 파일의 개체를 지운 뒤 derived store를 한 transaction으로 갱신한다. 이어 `checks`로 위반 집합을 다시 계산한다 | scan 결과(훑은 수·바뀐 수·실패·omissions)와 위반 요약. 위반 수가 ledger의 마지막 기록(`recorded_count`, core가 요청에 싣는다)과 다르면 `context.record_violations`를 제출 |
 | `context.check` | context, 후보 Bundle(contract·선언 검색·예시), 그 context의 saved view 전부 | 계약이 가리키는 파일을 임시 snapshot 폴더로 복사해 고정하고 그 snapshot에 대해서만 `check` runner를 돌린 뒤 snapshot을 지운다 | 결정적 report(`bundle_hash, snapshot_hash`, 통과/실패와 이유, 위반 수). core에 `bundle.finish_check`를 제출 |
+| `context.preview` | context, draft Bundle의 content(core가 draft blob을 읽어 IPC 요청에 싣는다), Project 루트, 다른 context의 public type(`context.check`와 같은 환경) | 계약이 가리키는 파일을 `context.check`와 같은 임시 snapshot으로 복사해 고정하고 그 snapshot에 대해 `check` runner의 모양·의미·추출·예·saved view 단계를 돌린다. index와 ledger는 쓰지 않고 판을 적용하지도 않으며 사람이 저장한 saved view는 부르지 않는다. 파일 수·바이트·시간은 `context.check`와 같은 예산이고 넘으면 부분 결과 없이 실패한다 | type별 개체 수(계약의 type 순서), 위반 전부(canonical 순서, 문구 없음), 판 단계 finding. 제출하는 command가 없다. 결과를 core의 `context.preview` 읽기가 문구를 붙이고 page(30개)로 잘라 돌려준다 |
 
 - 권한: 등록 루트의 `--allow-read`, `~/.lophn/derived/contexts.sqlite`(와 WAL)와 `~/.lophn/documents/staging/context-check/`의 `--allow-write`만 준다. network·env·subprocess·FFI는 없고 `--no-prompt`로 시작한다. 루트 추가·해제 때 core가 새 권한으로 worker를 교체한다. 신뢰한 플랫폼 코드만 실행하며 사용자 script는 실행하지 않는다(선언형 query뿐, documents/contexts#Q10).
 - 경로 안전: 계약의 경로는 Project 루트 기준 `/` 상대 경로나 glob이다. 순회와 최종 열린 파일 검사에서 `.git`·lophn 데이터·루트 밖 symlink를 제외한다. 루트 밖을 가리키는 경로는 읽지 않고 계약 오류로 보고한다.
-- 직렬화: 한 context에는 job이 하나씩만 돈다. 같은 context의 같은 job 요청은 하나로 합쳐 같은 결과를 돌려준다.
-- 예산: 파일 수·바이트·시간 예산을 둔다(구현 조절값). 넘으면 거기서 멈추고 `omissions`를 결과에 싣는다. 일부만 훑고 전체를 훑은 것처럼 꾸미지 않는다.
+- 직렬화: 한 context에는 job이 하나씩만 돈다. 같은 context의 같은 job 요청은 하나로 합쳐 같은 결과를 돌려준다. `context.preview`는 draft content hash까지 같은 요청만 합친다.
+- 예산: 파일 수·바이트·시간 예산을 둔다(구현 조절값). 넘으면 거기서 멈추고 `omissions`를 결과에 싣는다. 일부만 훑고 전체를 훑은 것처럼 꾸미지 않는다. 예외로 `context.preview`는 `omissions` 자리가 없는 읽기이므로 넘으면 `unavailable`이다(개체 수를 일부만 센 채 돌려주지 않는다).
 - 결과 제출: core와 같은 framed IPC를 쓰고 `bundle.finish_check`·`context.record_violations`는 좁은 machine credential로 제출한다. 원래 요청의 context·bundle 근거를 결합하며 command가 현재 적용 판과 맞는지 다시 검사한다. worker가 직접 `lophn.db`를 열지 않는다.
-- app-data: worker는 앱 read command를 부르지 않는다. `context.check`는 app-data kind의 모양(계약 안의 command 이름·결과 field)만 검사하고 앱 데이터는 읽지 않는다.
+- app-data: worker는 앱 read command를 부르지 않는다. `context.check`와 `context.preview`는 app-data kind의 모양(계약 안의 command 이름·결과 field)만 검사하고 앱 데이터는 읽지 않는다.
 
 ## 3. 저장
 
@@ -127,6 +128,8 @@ ContentFile은 상대 경로의 Unicode codepoint 순으로 정렬하고 `path, 
 한 scan의 결과는 한 SQLite transaction에 쓴다. 같은 파일 내용과 같은 Bundle은 같은 행을 낳고 순서는 canonical이다. SQLite FTS5를 쓰지 않는다. 선언 검색은 index 행을 읽어 순수 함수로 평가하고, 표의 SQL index는 `(context, type, id)`와 `(context, path)` 같은 조회 열에만 둔다. `index_entities`의 기본키가 `(context, type, id)`가 아니라 `(context, ord)`인 것은 같은 type에 같은 key의 개체가 둘일 수 있어서다(unique 규칙이 그것을 위반으로 센다). 관계 간선은 별도 표 없이 개체 행의 `links`에 두므로 `index_relations` 표는 없다. 해석하지 못한 참조는 위반(`broken_link`, `relation_target_exists`)으로 센다. app-data kind의 개체는 index에 저장하지 않는다(검색할 때 port로 읽는다, 5.6).
 
 **따라잡기.** tracking도 event 구독도 없다. 검색·context 열기·Overview 개수를 읽기 전에 reader가 `context.index`를 요청해 계약 경로를 싸게 다시 훑는다. `(path, size, mtime)`이 `index_files`와 같은 파일은 건너뛴다. 같은 context에 이미 도는 scan이 있으면 그 결과를 기다리고, 직전 scan이 끝난 지 2초 안이면 새로 요청하지 않는다. 기한 2초 안에 끝나지 않으면 있던 index로 답하고 결과에 `indexed_at`과 `stale: true`를 싣는다(초기 구현값. 파일 수에 맞춰 조절한다). 적용 Bundle이 바뀌면 다음 scan은 모든 파일을 다시 extract한다. 같은 size·mtime으로 내용만 바뀐 편집은 다음 변경 때까지 index에 안 보일 수 있다. stat만 쓰는 선택의 대가이고 hash 비교로 막지 않는다(documents/contexts#Q14). 사람이 열지 않아도 위반을 알리려고 context worker가 활성 context의 계약 경로가 든 폴더만 `Deno.watchFs`로 본다. 신호는 "그 context를 다시 훑으라"는 힌트로만 쓰고(500ms 동안 합침), 변화 비교·기록·event·화면 상태는 만들지 않는다. 신호를 놓쳐도 다음 검색·열기의 훑기가 따라잡는다. 계약이 바뀌거나 context가 보관되면 감시 폴더를 다시 정한다(documents/contexts#R23, 7.7).
+
+**index를 읽는 읽기.** `context.entity`와 `context.series_next`는 `context.search`와 같이 core의 context reader가 `derived/contexts.sqlite`를 별도 read 연결로 읽고, 읽기 전에 위 따라잡기를 한다. `context.entity`는 `index_entities`에서 `(context, type, key)` 행을 `(context, type, id)` 조회 index로 찾고 그 행의 `links`로 관계 대상 행을 찾는다. `context.series_next`는 같은 type의 `index_entities` 경로 목록만 `series-next` 순수 함수에 넘기고 project 폴더를 따로 훑지 않는다. 둘 다 worker job을 더하지 않고 index를 갱신하지 못했으면 빈 결과로 꾸미지 않고 `unavailable`이다(다른 context 읽기와 같다). `context.preview`만 파일을 읽으므로 worker job이다(2.4).
 
 **삭제·손상.** index 파일을 지워도 Bundle·saved view·용어·위반 수의 마지막 기록은 그대로다. 다음 요청이 전체를 다시 훑어 채우고, 기한 안에 첫 scan이 끝나지 않으면 빈 결과를 성공으로 꾸미지 않고 `unavailable`을 돌려준다. 사라진 파일의 개체는 다음 scan에서 지운다. 파일을 읽는 사이 identity·size·mtime이 바뀌면 그 파일은 이번 scan에서 `failed`로 두고 다음 scan에서 다시 읽는다.
 

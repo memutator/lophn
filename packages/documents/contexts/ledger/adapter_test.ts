@@ -222,6 +222,12 @@ function sqlApi(
     index: {
       violations: (context) => violations.get(context) ?? [],
       entities: (context) => entities.get(context) ?? [],
+      entity: (context, type, key) =>
+        (entities.get(context) ?? []).filter((row) =>
+          row.type === type && row.key === key
+        ),
+      ofType: (context, type) =>
+        (entities.get(context) ?? []).filter((row) => row.type === type),
       failing: () => false,
     },
     execute: () => [],

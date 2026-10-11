@@ -10,13 +10,11 @@ import type {
   PlaceDocument,
   ReadPage,
   Resolved,
-  SavedView,
   SearchPage,
   Series,
   SeriesDetail,
   SeriesRow,
   SourceResult,
-  ViewPage,
 } from "../source.ts";
 
 export interface Call {
@@ -29,9 +27,6 @@ export interface FakeData {
   formats?: readonly string[];
   search?: (cursor?: string) => SourceResult<SearchPage>;
   archived?: readonly ArchivedHit[];
-  views?: readonly SavedView[];
-  saveView?: SourceResult<SavedView>;
-  openView?: (cursor?: string) => SourceResult<ViewPage>;
   outline?: (version: string | null) => SourceResult<DocumentOutline>;
   head?: DocumentHead;
   read?: (
@@ -54,7 +49,6 @@ export interface FakeData {
 export const CATALOG: Catalog = {
   projects: [{ id: "prj_1", title: "lophn" }],
   apps: [{ id: "app_1", title: "Groceries" }],
-  contexts: [{ id: "ctx_1", title: "Release" }],
 };
 
 export const OUTLINE: DocumentOutline = {
@@ -118,31 +112,6 @@ export function fakeSource(data: FakeData = {}): {
       ),
     archived: (conditions) =>
       log("archived", [conditions], ok(data.archived ?? [])),
-    views: () => log("views", [], ok(data.views ?? [])),
-    saveView: (name, conditions) =>
-      log(
-        "saveView",
-        [name, conditions],
-        data.saveView ?? ok({
-          id: "viw_1",
-          name,
-          place: conditions.place,
-          filter: {
-            text: conditions.query,
-            context: null,
-            format: null,
-            status: "active" as const,
-          },
-          revision: "1",
-        }),
-      ),
-    openView: (view, cursor) =>
-      log(
-        "openView",
-        [view, cursor],
-        data.openView?.(cursor) ??
-          ok({ entries: [], coverage: null, nextCursor: null }),
-      ),
     head: (document, version) =>
       log("head", [document, version], ok(data.head ?? HEAD)),
     outline: (document, version) =>

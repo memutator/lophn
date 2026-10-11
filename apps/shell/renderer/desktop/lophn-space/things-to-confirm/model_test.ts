@@ -181,16 +181,14 @@ Deno.test("lophn-agent/questions#R6: 공백뿐인 글은 답이 아니고 action
   assertEquals(needsReview(withAction, "move"), true);
   assertEquals(needsReview(withAction, "stay"), false);
   assertEquals(needsReview(withAction, null), false);
-  const term = question(2, {
+  const inner = question(2, {
     options: [
-      { key: "use", label: "정산주기", action: true, command: "term.define" },
       { key: "move", label: "Move it", action: true, command: "document.move" },
       { key: "app", label: "Register", action: true, command: "app.create" },
       { key: "set", label: "Change", action: true, command: "apply_settings" },
     ],
   });
-  assertEquals(needsReview(term, "set"), false);
-  assertEquals(needsReview(term, "use"), false);
-  assertEquals(needsReview(term, "app"), false);
-  assertEquals(needsReview(term, "move"), true);
+  assertEquals(needsReview(inner, "set"), false);
+  assertEquals(needsReview(inner, "app"), false);
+  assertEquals(needsReview(inner, "move"), true);
 });

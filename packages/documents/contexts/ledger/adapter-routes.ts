@@ -12,6 +12,7 @@ import {
   contextContractRoute,
   contextCreateRoute,
   contextDraftRoute,
+  contextEntityRoute,
   contextGetRoute,
   contextHandOffViolationsRoute,
   contextInputOptionsRoute,
@@ -20,6 +21,7 @@ import {
   contextRecordViolationsRoute,
   contextSavedViewsRoute,
   contextSearchRoute,
+  contextSeriesNextRoute,
   contextUnarchiveRoute,
   contextViolationsRoute,
   glossaryListRoute,
@@ -271,6 +273,26 @@ export const READ_ENTRIES: readonly ReadEntry[] = [
       bundles: true,
       content: "applied",
       index: ["entities"],
+    }),
+  ),
+  read(
+    contextEntityRoute,
+    (r) => r.contextEntity,
+    (_sql, input) => ({
+      context: input.context,
+      bundles: true,
+      content: "applied",
+      entity: { type: input.type, key: input.key },
+    }),
+  ),
+  read(
+    contextSeriesNextRoute,
+    (r) => r.contextSeriesNext,
+    (_sql, input) => ({
+      context: input.context,
+      bundles: true,
+      content: "applied",
+      ofType: input.type,
     }),
   ),
   read(

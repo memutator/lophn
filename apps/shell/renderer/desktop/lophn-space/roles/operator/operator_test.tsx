@@ -67,7 +67,6 @@ const catalog = () =>
     value: {
       projects: [{ id: PRJ, title: "Home" }],
       apps: [{ id: APP, title: "Groceries" }],
-      contexts: [],
     },
   });
 

@@ -91,8 +91,8 @@ concerns: [lophn-agent/revert]
 
 ### 문서 파일 복원
 
-**[R17]** 문서 파일은 지금 hash가 agent가 마지막으로 쓴 내용(`after`)과 같을 때만 복원하고, 사람이 그 뒤에 고친 파일·그 파일을 쓴 중간 기록이 끊긴 파일·pre-image가 없는 파일·symlink와 hard link는 건너뛰고 목록으로 알리며, 복원 쓰기는 사람이 시작한 동작으로 documents/file-tracking의 수정 전 hash 비교와 원자 교체를 따른다.
-- 이유: 사람이 고친 내용을 덮는 일이 가장 해롭고, 건너뛰어 목록으로 알리면 사람이 판단할 수 있다. 사람의 원본 파일 통로는 file-tracking이 정한다.
+**[R17]** 문서 파일은 지금 hash가 agent가 마지막으로 쓴 내용(`after`)과 같을 때만 복원하고, 사람이 그 뒤에 고친 파일·그 파일을 쓴 중간 기록이 끊긴 파일·pre-image가 없는 파일·symlink와 hard link는 건너뛰고 목록으로 알리며, 복원 쓰기는 사람이 시작한 동작으로 lophn이 쓰기 직전에 hash를 다시 비교하고 원자 교체로 그 파일을 쓴다(문서 판·파일 추적 없음).
+- 이유: 사람이 고친 내용을 덮는 일이 가장 해롭고, 건너뛰어 목록으로 알리면 사람이 판단할 수 있다. 문서 판과 파일 추적은 없어졌으므로(사람 결정) 쓰기 직전 hash 재비교와 원자 교체만으로 사람의 변경을 덮지 않는다.
 - 확인: agent가 쓴 파일을 사람이 고친 뒤 rewind하면 그 파일은 그대로이고 건너뜀 목록에 "Changes made outside this session are not restored." 아래 나오며, agent가 만든 새 파일을 사람이 고쳤으면 지우지 않는지 본다.
 - 의도: lophn-agent#I7
 

@@ -250,7 +250,7 @@ preview는 인증된 읽기이며 command나 domain event를 만들지 않는다
 
 - **session 수명.** Revert·RewindFile·pre-image는 session이 열려 있는 동안만 의미가 있다. 닫힘(assignment 회수)·delete 때 전부 지운다. archive는 session 안 일을 바꾸지 않으므로 남긴다. Fork는 확정 메시지만 복사하며 Checkpoint·RewindFile·Revert를 옮기지 않는다. 복사본의 메시지에서는 checkpoint가 생기지 않는다(`copied_from`이 있는 메시지). → lophn-agent/conversation
 - **판정 규칙 (문서 파일).** 대상 경로마다 선택한 checkpoint 이후의 `reverted_by`가 없는 RewindFile을 `seq` 순서로 모아 사슬을 확인한다. 현재 파일 hash가 마지막 기록의 `after`와 같고 사슬이 이어져 있으면 복원: 첫 기록의 `before`로 교체하고 `before.exists=false`면 지운다. 현재 파일이 없고 마지막 `after.exists=true`면 첫 `before`로 되살린다. 위가 아니면 건너뜀 이유 코드를 단다. `before.exists=false`인데 현재 hash가 다르면 지우지 않는다(`created_edited`). 이름 변경은 옛 경로에 `before`를 쓰고 새 경로를 지운다. 옛 경로에 다른 파일이 있으면 건너뜀(`rename_blocked`). symlink·hard link 경로는 모두 건너뛴다.
-- **복원 쓰기.** 사람이 시작한 동작이며 documents/file-tracking의 수정 전 hash 비교와 원자 교체를 따른다. agent·앱에는 이 통로가 없다. 복원은 watch에는 안정된 외부 변경으로 보인다.
+- **복원 쓰기.** 사람이 시작한 동작이다. 쓰기 직전에 지금 hash가 `after`와 같은지 다시 비교하고 임시 파일 + 원자 교체로 쓴다. 문서 판·파일 추적(documents/versions·file-tracking — 사람 결정으로 삭제)은 쓰지 않는다. agent·앱에는 이 통로가 없다.
 - **복원이 남기는 것.** 복원한 RewindFile에 `reverted_by`를 설정한다. 복원은 새 기록이며 원래 tool call·메시지·답은 그대로다. 다음에 같은 경로를 agent가 쓰면 새 기록이 새 사슬을 시작한다.
 - **Undo.** `kind=undo`는 같은 기록을 `(tool_call, path)` 하나 단위로 읽는다. 지금 hash == 그 call의 `after`이고 같은 경로에 더 최근 기록이 없을 때만 한다. 복원하면 `reverted_by`가 설정되어 이후 rewind에서는 `already_reverted`(unchanged)다. Undo를 다시 되돌리는 기능은 없다.
 - **분류 근거.** 대상은 checkpoint 이후의 RewindFile(문서 파일)과 같은 session의 ToolCall에서 읽은 성공 앱 write(앱)다. Invocation 후행 기록이 아직 없으면 확인 불가로 표시하고 안전한 복원으로 가정하지 않는다. actor·시각 범위로 추정하지 않는다. 앱 write인데 `command.revert.supported`가 아니거나 receipt가 없으면 `remain`이다(→ lophn-agent/harness/tool-judgment).

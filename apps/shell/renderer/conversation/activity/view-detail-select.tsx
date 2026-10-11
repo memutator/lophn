@@ -1,5 +1,6 @@
 import type { ReactElement } from "react";
-import { Field, Select, type SelectOption } from "@lophn/design/components";
+import { Field, Select } from "@lophn/design/components";
+import { type MessageKey, t } from "@lophn/wording";
 
 import type { ViewDetail } from "./model.ts";
 import styles from "./activity.module.css";
@@ -9,10 +10,10 @@ export interface ViewDetailSelectProps {
   onChange: (value: ViewDetail) => void;
 }
 
-const OPTIONS: readonly (SelectOption & { value: ViewDetail })[] = [
-  { value: "messages", label: "Messages" },
-  { value: "compact", label: "Compact" },
-  { value: "everything", label: "Everything" },
+const OPTIONS: readonly { value: ViewDetail; label: MessageKey }[] = [
+  { value: "messages", label: "conversation.label.view-messages" },
+  { value: "compact", label: "conversation.label.view-compact" },
+  { value: "everything", label: "conversation.label.view-everything" },
 ];
 
 // header의 보기 상세 select. Messages·Compact·Everything을 이 순서로 고른다(shell/desktop#R42).
@@ -23,9 +24,12 @@ export function ViewDetailSelect(
 ): ReactElement {
   return (
     <span className={styles.viewDetail} data-view-detail-select="">
-      <Field label="View detail">
+      <Field label={t("conversation.label.view-detail")}>
         <Select
-          options={OPTIONS}
+          options={OPTIONS.map((option) => ({
+            value: option.value,
+            label: t(option.label),
+          }))}
           value={value}
           size="sm"
           onValueChange={(next) => onChange(next as ViewDetail)}

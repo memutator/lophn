@@ -940,6 +940,9 @@ export type PlaceholderKinds = {
   "contexts.view.baseline": Record<never, never>;
   "contexts.view.follow-changes": Record<never, never>;
   "contexts.view.reference": Record<never, never>;
+  "conversation.body.delete-session": {
+    title: "string";
+  };
   "conversation.body.save-visual-request": {
     title: "string";
     block: "string";
@@ -950,11 +953,22 @@ export type PlaceholderKinds = {
   "conversation.button.approval-allow-scope": Record<never, never>;
   "conversation.button.approval-allow-session": Record<never, never>;
   "conversation.button.approval-deny": Record<never, never>;
+  "conversation.button.archive": Record<never, never>;
+  "conversation.button.archived-toggle": {
+    count: "number";
+  };
   "conversation.button.check-delivery": Record<never, never>;
   "conversation.button.check-result": Record<never, never>;
   "conversation.button.attach": Record<never, never>;
   "conversation.button.change-defaults": Record<never, never>;
   "conversation.button.close": Record<never, never>;
+  "conversation.button.close-tab": Record<never, never>;
+  "conversation.button.delete": Record<never, never>;
+  "conversation.button.edit-open": Record<never, never>;
+  "conversation.button.edit-redo": Record<never, never>;
+  "conversation.button.edit-undo": Record<never, never>;
+  "conversation.button.fork": Record<never, never>;
+  "conversation.button.fork-here": Record<never, never>;
   "conversation.button.jump-latest": Record<never, never>;
   "conversation.button.mode-correction": Record<never, never>;
   "conversation.button.mode-request": Record<never, never>;
@@ -973,11 +987,18 @@ export type PlaceholderKinds = {
   "conversation.button.question-skip": Record<never, never>;
   "conversation.button.question-submit": Record<never, never>;
   "conversation.button.remove-context": Record<never, never>;
+  "conversation.button.rename": Record<never, never>;
   "conversation.button.resend": Record<never, never>;
+  "conversation.button.restore": Record<never, never>;
+  "conversation.button.rewind": Record<never, never>;
+  "conversation.button.rewind-here": Record<never, never>;
+  "conversation.button.save": Record<never, never>;
   "conversation.button.save-visual": Record<never, never>;
   "conversation.button.send": Record<never, never>;
+  "conversation.button.session-new": Record<never, never>;
   "conversation.button.show-all-results": Record<never, never>;
   "conversation.button.stop": Record<never, never>;
+  "conversation.button.usage": Record<never, never>;
   "conversation.button.visual-read-description": Record<never, never>;
   "conversation.empty.no-agent": Record<never, never>;
   "conversation.empty.no-messages": Record<never, never>;
@@ -998,6 +1019,9 @@ export type PlaceholderKinds = {
   "conversation.label.composer-request": Record<never, never>;
   "conversation.label.composer-message": Record<never, never>;
   "conversation.label.correction": Record<never, never>;
+  "conversation.label.delete-session": {
+    title: "string";
+  };
   "conversation.label.delivery-applied": Record<never, never>;
   "conversation.label.delivery-not-sent": Record<never, never>;
   "conversation.label.delivery-received": Record<never, never>;
@@ -1016,8 +1040,19 @@ export type PlaceholderKinds = {
   "conversation.label.duration-minutes": {
     minutes: "number";
   };
+  "conversation.label.duration-minutes-seconds": {
+    minutes: "number";
+    seconds: "number";
+  };
+  "conversation.label.duration-seconds": {
+    seconds: "number";
+  };
+  "conversation.label.edit-made": Record<never, never>;
+  "conversation.label.edit-undone": Record<never, never>;
   "conversation.label.favorites": Record<never, never>;
+  "conversation.label.group-earlier": Record<never, never>;
   "conversation.label.model-list": Record<never, never>;
+  "conversation.label.more-actions": Record<never, never>;
   "conversation.label.more-results": {
     count: "plural";
   };
@@ -1051,6 +1086,9 @@ export type PlaceholderKinds = {
   "conversation.label.question-paused": Record<never, never>;
   "conversation.label.question-recommended": Record<never, never>;
   "conversation.label.question-skipped": Record<never, never>;
+  "conversation.label.rename-session": {
+    title: "string";
+  };
   "conversation.label.request-position": {
     current: "number";
     total: "number";
@@ -1058,6 +1096,9 @@ export type PlaceholderKinds = {
   "conversation.label.requests": Record<never, never>;
   "conversation.label.results": Record<never, never>;
   "conversation.label.search-models": Record<never, never>;
+  "conversation.label.search-sessions": {
+    agent: "string";
+  };
   "conversation.label.send-correction": Record<never, never>;
   "conversation.label.send-mode": Record<never, never>;
   "conversation.label.send-request": Record<never, never>;
@@ -1067,7 +1108,11 @@ export type PlaceholderKinds = {
   "conversation.label.session-ended": {
     number: "number";
   };
+  "conversation.label.session-list": {
+    agent: "string";
+  };
   "conversation.label.sessions": Record<never, never>;
+  "conversation.label.since-now": Record<never, never>;
   "conversation.label.slash-blocked": {
     agent: "string";
   };
@@ -1081,6 +1126,16 @@ export type PlaceholderKinds = {
   "conversation.label.status-in-progress": Record<never, never>;
   "conversation.label.status-stopped": Record<never, never>;
   "conversation.label.status-waiting": Record<never, never>;
+  "conversation.label.status-working": Record<never, never>;
+  "conversation.label.tasks": Record<never, never>;
+  "conversation.label.tasks-progress": {
+    done: "number";
+    total: "number";
+  };
+  "conversation.label.view-compact": Record<never, never>;
+  "conversation.label.view-detail": Record<never, never>;
+  "conversation.label.view-everything": Record<never, never>;
+  "conversation.label.view-messages": Record<never, never>;
   "conversation.label.visual-axes": {
     y: "string";
     x: "string";
@@ -1100,6 +1155,9 @@ export type PlaceholderKinds = {
   "conversation.label.visual-sources": Record<never, never>;
   "conversation.label.visual-untitled": Record<never, never>;
   "conversation.label.visual-yes": Record<never, never>;
+  "conversation.label.worked-for": {
+    duration: "string";
+  };
   "conversation.notice.ended": Record<never, never>;
   "conversation.notice.external-failed": {
     connection: "string";
@@ -1128,6 +1186,7 @@ export type PlaceholderKinds = {
   "conversation.notice.offline": Record<never, never>;
   "conversation.notice.provider-lost": Record<never, never>;
   "conversation.notice.paused": Record<never, never>;
+  "conversation.notice.session-no-match": Record<never, never>;
   "conversation.notice.slash-choose": {
     name: "string";
   };

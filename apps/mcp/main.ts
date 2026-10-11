@@ -59,7 +59,6 @@ import {
   appBlueprintSourceOf,
   createAppCommandTools,
 } from "../../packages/coding-agent/mcp-server/tools/app-commands.ts";
-import { createContextTool } from "../../packages/coding-agent/mcp-server/tools/context.ts";
 import { createDocumentTool } from "../../packages/coding-agent/mcp-server/tools/document.ts";
 import { createIndexTool } from "../../packages/coding-agent/mcp-server/tools/index.ts";
 import { createProblemTool } from "../../packages/coding-agent/mcp-server/tools/problem.ts";
@@ -295,7 +294,7 @@ export function startMcpServer(
         })),
     })
     : undefined;
-  // 문서 저장·format·series·context tool의 실행이다(T14·T17). 같은 core client로 소유 route만 부른다.
+  // 문서 저장·format·series tool의 실행이다(T14). 같은 core client로 소유 route만 부른다.
   const submission = {
     // 운영 data root는 제출 파일이 될 수 없다. 앱 source와 이어진 symlink도 실제 경로로 푼 뒤 같이
     // 거절된다(connection#R10).
@@ -318,11 +317,6 @@ export function startMcpServer(
         prepareBytes: submission.prepareBytes,
       }),
       lophn_series: createSeriesTool({ client: caller }),
-      // 읽기는 소유 route, propose는 변경안 문서 저장뿐이다(T17).
-      lophn_context: createContextTool({
-        client: caller,
-        prepareBytes: submission.prepareBytes,
-      }),
     }
     : undefined;
   // 문서 읽기 tool의 실행이다(T13): 목차·검색·project·목록·이력·본문. 소유 읽기 route만 부른다.

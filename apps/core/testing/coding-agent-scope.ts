@@ -68,7 +68,6 @@ export const DOCUMENT_OPERATIONS: readonly string[] = [
   "document.diff",
   "outline.root",
   "outline.place",
-  "outline.context",
   "outline.document",
   "search.query",
   "search.status",

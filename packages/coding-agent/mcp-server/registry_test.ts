@@ -123,7 +123,6 @@ Deno.test(
       ["lophn_index", [
         "root",
         "place",
-        "context",
         "document",
         "section",
         "search",
@@ -148,5 +147,26 @@ Deno.test(
     // 저장·복원·등록 같은 op는 표에 없다.
     assertEquals(resolveRoute("lophn_document", "restore"), undefined);
     assertEquals(resolveRoute("lophn_project", "register"), undefined);
+  },
+);
+
+Deno.test(
+  "coding-agent/mcp-server#R38 [ctx-R7]: the MCP tool list has no context tool",
+  () => {
+    const names = STATIC_TOOLS.map((tool) => tool.name);
+    assertEquals(names.some((name) => name.includes("context")), false);
+    assertEquals(findTool("lophn_context"), undefined);
+    assertEquals(resolveRoute("lophn_context", "list"), undefined);
+    assertEquals(resolveRoute("lophn_context", "glossary"), undefined);
+    assertEquals(resolveRoute("lophn_context", "propose"), undefined);
+    // 목차는 context 관점을 읽지 않고 discovery 어디에도 context·용어 동작이 없다.
+    assertEquals(findTool("lophn_index")?.ops.includes("context"), false);
+    assertEquals(resolveRoute("lophn_index", "context"), undefined);
+    const discovery = JSON.stringify(toolEntries(["core", "app"]));
+    for (
+      const word of ["glossary", "term_propose", "term_update", "perspective"]
+    ) {
+      assertEquals(discovery.includes(word), false, word);
+    }
   },
 );

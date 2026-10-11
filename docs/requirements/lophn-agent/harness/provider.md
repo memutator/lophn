@@ -4,7 +4,7 @@ concerns: [lophn-agent/harness/provider]
 ---
 # lophn-agent/harness/provider
 
-지원 provider와 인증, OAuth 로그인·갱신, 호출 형식과 응답 번역, credential 순서·이동 및 실패를 맡는다. secret 보관은 platform/secrets, model 목록·가격은 lophn-agent/harness/model, 비용 계산은 lophn-agent/harness/usage를 따른다.
+지원 provider와 인증, OAuth 로그인·갱신, 호출 형식과 응답 번역, credential 순서·이동 및 실패를 맡는다. provider는 계정·인증·endpoint만 다루고 어떤 model을 쓸지는 정하지 않는다. secret 보관은 platform/secrets, model 선택과 목록·가격은 lophn-agent/harness/model, agent가 쓰는 설정 층은 lophn-agent/agents, 비용 계산은 lophn-agent/harness/usage를 따른다.
 
 ## 요구
 
@@ -35,6 +35,11 @@ concerns: [lophn-agent/harness/provider]
 - 확인: LAN·공개 주소의 HTTP와 무인증, 로컬에서 원격으로 향하는 무인증 리다이렉트를 거절한다.
 - 의도: lophn-agent/harness#I1
 
+**[R31]** 사람은 provider를 연결할 때 그 provider가 지원하는 인증 방식 중 하나를 고르고(OpenAI는 Sign in with ChatGPT 또는 API key), 목록에 없는 제공처는 ID·표시 이름·기본 URL과 선택 항목인 API key로 OpenAI 호환 provider를 직접 추가한다.
+- 이유: 같은 제공처도 인증 방식이 여럿이고, 목록에 없는 OpenAI 호환 서버도 코드 변경 없이 연결해야 한다.
+- 확인: OpenAI 연결에서 두 방식 중 고른 쪽의 인증만 진행되고, 직접 추가한 provider는 R3의 Chat Completions 요청이 나가며 R5의 HTTPS·loopback 규칙에 걸리면 거절되는지 확인한다.
+- 의도: lophn-agent/harness#I1
+
 ### credential 관리
 
 **[R6]** credential 등록·교체·삭제·순서 변경과 OAuth 로그인 시작은 사람만 결정하고 갱신·사용 가능 상태의 영속 변경은 platform/ledger를 따르며 Claude Code·Codex·Gemini CLI의 로그인·keychain 항목·인증 조회를 가져오지 않는다.
@@ -47,9 +52,9 @@ concerns: [lophn-agent/harness/provider]
 - 확인: 환경 변수만 채운 경우 credential이 없고 평문 설정의 key가 거절되며 로그인·갱신·호출 실패 출력에 token 일부도 없는지 확인한다.
 - 의도: lophn-agent/harness#I1
 
-**[R8]** 한 provider에 API key·OAuth credential 여러 개를 등록할 수 있으나 실제 호출 계정은 preset의 정확한 선택 목록과 사람 순서 안에서만 고르고 종류 우선·돌려 쓰기·최소 사용·무작위 선택은 하지 않는다.
+**[R8]** 한 provider에 API key·OAuth credential 여러 개를 등록할 수 있으나 실제 호출 계정은 그 provider에 사람이 정한 순서에서 사용을 끄지 않은 첫 사용 가능 credential이며 종류 우선·돌려 쓰기·최소 사용·무작위 선택은 하지 않는다.
 - 이유: 돈과 계정 선택은 사람이 정한다.
-- 확인: 같은 provider의 서로 다른 계정을 고른 preset 둘이 각 목록에서만 선택하고 다른 등록 계정은 자동 후보가 되지 않는지 본다.
+- 확인: 순서를 바꾸면 다음 호출 계정이 그에 따라 바뀌고, 사용을 끈 계정과 다른 provider의 계정은 후보가 되지 않으며 종류·사용량에 따른 자동 선택이 없는지 본다.
 - 의도: lophn-agent/harness#I1
 
 **[R9]** credential은 사람의 이름표와 확인된 계정·조직·요금제로 구별하고 같은 provider의 같은 API key 또는 같은 계정·조직 OAuth 중복 등록은 거절하며 미확인 계정 정보는 추측하지 않는다.
@@ -57,9 +62,9 @@ concerns: [lophn-agent/harness/provider]
 - 확인: 같은 key·계정·조직은 중복 등록되지 않고 같은 이메일의 다른 조직은 구별되는지 확인한다.
 - 의도: lophn-agent/harness#I1
 
-**[R10]** run은 처음 선택한 credential을 유지하고 거절·사용량 대기·해당 model 불가 때도 preset이 명시한 같은 provider·model의 뒤 계정만 허용하며 목록이 하나이거나 모두 불가면 멈추고 다른 계정·provider·model로 자동 이동하지 않는다.
+**[R10]** run은 처음 선택한 credential을 유지하고 거절·사용량 대기·해당 model 불가 때도 같은 provider에서 사람이 정한 순서의 뒤 계정만 허용하며 계정이 하나이거나 모두 불가면 멈추고 다른 provider·model로 자동 이동하지 않는다.
 - 이유: cache 재사용을 지키면서 사람이 선택하지 않은 제공처에 내용을 보내지 않는다.
-- 확인: 목록 하나의 계정이 막히면 다른 등록 계정으로 이동하지 않고 명시한 두 계정만 뒤로 이동하며 앞 계정 회복에 돌아가지 않는지 본다.
+- 확인: 계정이 하나인 provider가 막히면 다른 provider로 이동하지 않고, 계정이 둘이면 순서대로 뒤 계정으로만 이동하며 앞 계정 회복에 돌아가지 않는지 본다.
 - 의도: lophn-agent/harness#I1
 
 ### OAuth 로그인
@@ -152,14 +157,14 @@ concerns: [lophn-agent/harness/provider]
 - 확인: 같은 OpenAI model의 key·ChatGPT 호출 경로가 구별되고 비용 계산은 lophn-agent/harness/usage에서 확인한다.
 - 의도: lophn-agent/harness#I3
 
-**[R28]** 첫 설치는 provider 로그인·API key 등록 또는 무인증 loopback 연결 뒤 preset의 provider 계정·model을 준비해야 그 구성이 일할 수 있고 공통 기본값 선택은 선택 사항이며 미준비 preset은 비활성으로 남는다.
-- 이유: 인증과 model이 준비되지 않은 첫 요청이 조용히 실패하지 않게 한다.
-- 확인: 공통 기본값 없이 직접 준비한 preset은 시작되고 미준비 preset만 막히며 무인증 local 선택도 허용되는지 본다.
+**[R28]** 첫 설치는 provider 로그인·API key 등록 또는 무인증 loopback 연결을 해야 그 provider를 쓸 수 있고 연결이 없거나 쓸 수 있는 계정이 없는 provider를 고른 agent는 일을 시작하지 않으며, provider를 연결하는 일에는 model 고르기가 들어 있지 않다.
+- 이유: 인증이 준비되지 않은 첫 요청이 조용히 실패하지 않게 하되, model 선택은 agent의 일(lophn-agent/harness/model#R8)로 둔다.
+- 확인: provider만 연결하고 model을 고르지 않아도 연결이 끝나고, 연결이 없는 provider를 고른 agent만 이유와 함께 막히며 무인증 local 연결도 허용되는지 본다.
 - 의도: lophn-agent/harness#I1
 
 ### 연결 확인
 
-**[R29]** 사람은 provider 목적지·사용 여부를 확인하고 별도의 test 재료로 텍스트·tool call 연결 테스트를 명시적으로 요청할 수 있으며 설정 조회만으로 테스트하거나 세션·문서를 test 재료로 보내지 않는다.
+**[R29]** 사람은 provider 목적지·사용 여부를 확인하고 시험할 model을 정한 별도의 test 재료로 텍스트·tool call 연결 테스트를 명시적으로 요청할 수 있으며 설정 조회만으로 테스트하거나 세션·문서를 test 재료로 보내지 않는다.
 - 이유: 연결 확인 때문에 사적인 실제 자료가 전송되지 않게 한다.
 - 확인: 설정 조회에는 model call이 없고 명시 테스트의 목적지·credential·텍스트·tool 지원·실패 분류가 보이는지 확인한다.
 - 의도: lophn-agent/harness#I1
@@ -171,4 +176,5 @@ concerns: [lophn-agent/harness/provider]
 
 ## 버린 것
 
-없음.
+- preset의 정확한 계정 선택 목록 안에서만 고르는 규칙(옛 R8·R10) — preset이 없고 provider는 계정·인증만 다루므로, 호출 계정은 그 provider에 사람이 정한 순서 하나로 정한다(R8·R10).
+- 첫 설치 뒤 preset의 provider 계정·model을 준비해야 일할 수 있다는 규칙(옛 R28) — model 준비는 agent 설정 쪽 일이므로 provider 연결에는 model 고르기를 넣지 않는다(R28).

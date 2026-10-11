@@ -1,4 +1,6 @@
-// context API 읽기의 구현 자리다. 아직 구현하지 않았다(spec 단계). 구현 작업: ctx-I31.
+// context API 읽기. 묶음마다 파일 하나다: reads-contexts(list·get·overview·containing),
+// reads-search(search·saved_views), reads-lists(violations·bundles·glossary). 검색은 주입된
+// SearchExecutor가 돌리고 읽기는 입력 검사와 page 자르기를 한다.
 import type { Result } from "../../../base/mod.ts";
 import type {
   contextBundlesRoute,
@@ -17,6 +19,9 @@ import type {
   Output,
   ReadRoute,
 } from "../../../contracts/platform/mod.ts";
+import { createContextReads } from "./reads-contexts.ts";
+import { createListReads } from "./reads-lists.ts";
+import { createSearchReads } from "./reads-search.ts";
 import type { ContextApiActor, ContextApiState, EntityRow } from "./state.ts";
 
 export type ReadCall<R extends ReadRoute> = {
@@ -55,8 +60,12 @@ export type ContextApiReads = {
 };
 
 export function createContextApiReads(
-  _state: ContextApiState,
-  _deps: ContextApiReadDeps,
+  state: ContextApiState,
+  deps: ContextApiReadDeps,
 ): ContextApiReads {
-  throw new Error("not implemented");
+  return {
+    ...createContextReads(state),
+    ...createSearchReads(state, deps),
+    ...createListReads(state),
+  };
 }

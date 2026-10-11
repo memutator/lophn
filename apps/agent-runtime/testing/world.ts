@@ -73,6 +73,8 @@ export type WorldOptions = {
   basisBody?: unknown;
   agentBody?: unknown;
   runSession?: boolean;
+  // session에 저장된 model 선택(composer에서 고른 것). 없으면 null이다.
+  sessionModel?: ReturnType<typeof MODEL> | null;
 };
 
 export type World = {
@@ -151,7 +153,7 @@ export function openWorld(options: WorldOptions = {}): World {
         return Promise.resolve(err({ code: "not_found", message: "none" }));
       }
       return reply(sessionRead.output, {
-        session: sessionRecord(session),
+        session: sessionRecord(session, options.sessionModel ?? null),
         ...readMeta(),
       });
     }
@@ -277,7 +279,17 @@ export function openWorld(options: WorldOptions = {}): World {
     supports_tools: true,
     input_media: ["text"],
     output_media: ["text"],
-    options: [],
+    // 하나의 effort 축. session이 고른 option 값을 실어 나르는 시험이 쓴다.
+    options: [{
+      id: "effort",
+      label: "Effort",
+      values: [
+        { value: "low", label: "Low", wire: null },
+        { value: "high", label: "High", wire: null },
+      ],
+      default_value: null,
+      budget: null,
+    }],
     preview: false,
     deprecated: null,
     source: "models_dev",
@@ -381,7 +393,10 @@ function runRecord(hasSession: boolean) {
   };
 }
 
-function sessionRecord(place: Place) {
+function sessionRecord(
+  place: Place,
+  modelSelection: ReturnType<typeof MODEL> | null,
+) {
   return {
     id: SES,
     assignment: ASG,
@@ -391,7 +406,7 @@ function sessionRecord(place: Place) {
     state: "open",
     forked_from: null,
     opening_context: null,
-    model_selection: null,
+    model_selection: modelSelection,
     compaction: null,
     closed_reason: null,
     closed_at: null,

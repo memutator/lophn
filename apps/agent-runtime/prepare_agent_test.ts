@@ -7,6 +7,7 @@ import {
   providerRead,
   resolvedAgentSchema,
   runBody,
+  sessionRead,
 } from "../../packages/contracts/lophn-agent/mod.ts";
 import { contextList as documentContextList } from "../../packages/contracts/documents/mod.ts";
 import { routePath } from "../../packages/contracts/platform/mod.ts";
@@ -213,6 +214,92 @@ Deno.test("lophn-agent/agents#R24 [agent-I10a]: a wrong definition file or place
     run: RUN,
     why: "agent_invalid",
   });
+});
+
+Deno.test("lophn-agent/agents#R27 lophn-agent/harness/model#R27 [agent-I11]: the model the session chose is the highest layer and its source is the session", async () => {
+  const chosen = {
+    ...MODEL(PVD2),
+    option_values: { effort: "high" },
+  };
+  const { world, prepared } = await prepare({
+    sessionModel: chosen,
+    workspaceModels: { lophn: MODEL() },
+    placeSettings: { models: { lophn: MODEL(PVD) } },
+  });
+  assert(prepared.ok, prepared.ok ? "" : JSON.stringify(prepared.error));
+  const agent = resolvedAgentSchema.parse(world.blob("run_agent"));
+  assertEquals(agent.model, chosen);
+  assertEquals(agent.sources.model, { layer: "session", place: null });
+  const basis = world.blob("run_basis") as Basis;
+  assertEquals(basis.agent.sources["model"]?.layer, "session");
+  // 선택한 session만 바뀐다: 층의 다른 값은 그대로 합쳐진다.
+  assertEquals(agent.place, { kind: "project", id: PRJ });
+});
+
+Deno.test("lophn-agent/agents#R27 lophn-agent/harness/model#R27 [agent-I11]: a session without a choice falls back to the lower layers, and a run without a session reads none", async () => {
+  const fallback = await prepare({
+    sessionModel: null,
+    workspaceModels: { lophn: MODEL() },
+  });
+  assert(fallback.prepared.ok);
+  const agent = resolvedAgentSchema.parse(fallback.world.blob("run_agent"));
+  assertEquals(agent.sources.model?.layer, "workspace");
+  // session 없는 run(Operator가 받은 일)은 session을 읽지 않고 선택도 없다.
+  const none = await prepare({
+    role: "operator",
+    session: null,
+    workspaceModels: { operator: MODEL() },
+    definition: { name: "Reviewer", body: "Check the notes." },
+  });
+  assert(none.prepared.ok);
+  assertEquals(none.world.bodiesOf(routePath(sessionRead)), []);
+  assertEquals(
+    resolvedAgentSchema.parse(none.world.blob("run_agent")).sources.model
+      ?.layer,
+    "workspace",
+  );
+});
+
+Deno.test("lophn-agent/harness/model#R18 lophn-agent/harness/model#R27 [agent-I11]: resuming uses the model the run fixed even after the session chose another one", async () => {
+  const fixed = MODEL(PVD2);
+  const resolved = await resolveAgent({
+    assignment: ASG,
+    role: "lophn" as AgentRole,
+    place: { kind: "project", id: PRJ },
+    definition: null,
+    workspace: { models: { lophn: MODEL(PVD) } },
+    place_settings: {},
+    session_model: fixed,
+    environment: productEnvironment("lophn", {
+      skills: [],
+      mcp: [],
+      active_contexts: [],
+    }),
+  });
+  assert(resolved.ok);
+  assertEquals(resolved.value.sources.model?.layer, "session");
+  const basis = {
+    agent: { hash: resolved.value.hash, sources: resolved.value.sources },
+    initial_work_place: { kind: "project", id: PRJ },
+  };
+  // 그 사이 session은 다른 model을 골랐다. 다음 run부터 쓰고 이 run은 고정한 값으로 이어 간다.
+  const world = openWorld({
+    sessionModel: MODEL(PVD, "other"),
+    basisBody: basis,
+    agentBody: resolved.value,
+  });
+  const resumed = await productDriver()(world.calls).prepareResume!(
+    RUN,
+    {} as RunCredentials,
+  );
+  assert(resumed.ok, resumed.ok ? "" : JSON.stringify(resumed.error));
+  assertEquals(world.bodiesOf(routePath(sessionRead)), []);
+  assertEquals(
+    world.bodiesOf(routePath(providerRead)).map((body) =>
+      (body as { provider: string }).provider
+    ),
+    [PVD2],
+  );
 });
 
 Deno.test("lophn-agent/agents#R26 [agent-I10a]: resuming uses the resolved agent the run fixed and reads no definition or setting again", async () => {

@@ -9,16 +9,16 @@ import {
   agentProfilesUpload,
   agentSaved,
   agentsDelete,
-  agentSettingsChange,
-  agentSettingsRead,
   agentsList,
   agentsRead,
   agentsSave,
-  changeAgentSettingsInputSchema,
+  changePlaceAgentSettingsInputSchema,
   deleteAgentInputSchema,
+  placeAgentSettingsChange,
   placeAgentSettingsChanged,
+  placeAgentSettingsRead,
   readAgentInputSchema,
-  readAgentSettingsInputSchema,
+  readPlaceAgentSettingsInputSchema,
   saveAgentInputSchema,
   uploadAgentProfileInputSchema,
 } from "./agents.ts";
@@ -31,7 +31,7 @@ const hash = "ab".repeat(32);
 const place = { kind: "project", id: prj };
 const model = { provider: pvd, model_name: "gpt-5", option_values: {} };
 
-Deno.test("lophn-agent/agents#R3: eight routes list, read, save and delete agents, handle profile images and layer settings", () => {
+Deno.test("lophn-agent/agents#R3: eight routes list, read, save and delete agents, handle profile images and place settings", () => {
   assertEquals(AGENT_ROUTES.map(routePath), [
     "/v1/agents/list",
     "/v1/agents/read",
@@ -39,8 +39,8 @@ Deno.test("lophn-agent/agents#R3: eight routes list, read, save and delete agent
     "/v1/agents/delete",
     "/v1/agent-profiles/upload",
     "/v1/agent-profiles/read",
-    "/v1/agent-settings/read",
-    "/v1/agent-settings/change",
+    "/v1/place-agent-settings/read",
+    "/v1/place-agent-settings/change",
   ]);
   assertEquals(AGENT_ROUTES.map((route) => route.kind), [
     "read",
@@ -64,7 +64,7 @@ Deno.test("lophn-agent/agents#R8: only the user writes or deletes a definition, 
       agentsSave,
       agentsDelete,
       agentProfilesUpload,
-      agentSettingsChange,
+      placeAgentSettingsChange,
     ]
   ) {
     assertEquals(route.actors, ["user"]);
@@ -183,32 +183,29 @@ Deno.test("lophn-agent/agents#R13: a profile image upload takes png, jpg or webp
   assertEquals(agentProfilesRead.kind, "file");
 });
 
-Deno.test("lophn-agent/agents#R10: a settings layer is the Workspace or one place and carries only models and permissions", () => {
-  for (
-    const layer of [{ kind: "workspace" }, place, { kind: "app", id: app }]
-  ) {
-    assert(readAgentSettingsInputSchema.safeParse({ layer }).success);
+Deno.test("lophn-agent/agents#R10: place settings belong to one project or app and carry only models and permissions", () => {
+  for (const target of [place, { kind: "app", id: app }]) {
+    assert(
+      readPlaceAgentSettingsInputSchema.safeParse({ place: target }).success,
+    );
   }
+  // Workspace 층은 agent-model-defaults와 platform/settings가 맡는다.
   assert(
-    !readAgentSettingsInputSchema.safeParse({ layer: { kind: "session" } })
-      .success,
-  );
-  assert(
-    !readAgentSettingsInputSchema.safeParse({
-      layer: { kind: "workspace", id: prj },
+    !readPlaceAgentSettingsInputSchema.safeParse({
+      place: { kind: "workspace" },
     }).success,
   );
+  assert(!readPlaceAgentSettingsInputSchema.safeParse({}).success);
   const change = (settings: unknown) =>
-    changeAgentSettingsInputSchema.safeParse({ layer: place, settings })
+    changePlaceAgentSettingsInputSchema.safeParse({ place, settings })
       .success;
   assert(change({}));
   assert(change({ models: { operator: model }, permissions: { tools: [] } }));
   assert(!change({ contexts: [] }));
   assert(!change({ profile: { kind: "icon", icon: "dock" } }));
-  assert(agentSettingsChange.compare?.safeParse({ hash: null }).success);
-  assert(
-    agentSettingsRead.input.safeParse({ layer: { kind: "workspace" } }).success,
-  );
+  assert(placeAgentSettingsChange.compare?.safeParse({ hash: null }).success);
+  assertEquals(placeAgentSettingsRead.name, "ReadPlaceAgentSettings");
+  assertEquals(placeAgentSettingsChange.name, "ChangePlaceAgentSettings");
 });
 
 Deno.test("lophn-agent/agents#R28: save, delete and settings change leave a hash-only event", () => {
@@ -243,11 +240,11 @@ Deno.test("lophn-agent/agents#R28: save, delete and settings change leave a hash
   assert(!agentSaved.subject.safeParse(prj).success);
   assert(placeAgentSettingsChanged.subject.safeParse(prj).success);
   assert(placeAgentSettingsChanged.subject.safeParse(app).success);
-  assert(placeAgentSettingsChanged.subject.safeParse(null).success);
+  assert(!placeAgentSettingsChanged.subject.safeParse(null).success);
   assert(!placeAgentSettingsChanged.subject.safeParse(asg).success);
   assert(
     placeAgentSettingsChanged.payload.safeParse({
-      layer: { kind: "workspace" },
+      place,
       before_hash: hash,
       after_hash: hash,
     }).success,
@@ -295,7 +292,7 @@ Deno.test("lophn-agent/agents#R12 lophn-agent/agents#R24: read returns the defin
   assert(!agentIssuesDetailsSchema.safeParse({ issues: [] }).success);
 });
 
-Deno.test("lophn-agent/agents#R7 lophn-agent/agents#R12: list returns rows and settings read returns the layer, its fields and the model each role really uses", () => {
+Deno.test("lophn-agent/agents#R7 lophn-agent/agents#R12: list returns rows and settings read returns the place, its fields and the model each role really uses", () => {
   const row = {
     assignment: asg,
     role: "lophn",
@@ -316,7 +313,7 @@ Deno.test("lophn-agent/agents#R7 lophn-agent/agents#R12: list returns rows and s
   );
   const settings = {
     ...meta,
-    layer: place,
+    place,
     settings: { models: { operator: model } },
     hash,
     effective_models: {
@@ -324,9 +321,9 @@ Deno.test("lophn-agent/agents#R7 lophn-agent/agents#R12: list returns rows and s
       operator: { value: model, source: { layer: "place", place } },
     },
   };
-  assert(agentSettingsRead.output.safeParse(settings).success);
+  assert(placeAgentSettingsRead.output.safeParse(settings).success);
   assert(
-    !agentSettingsRead.output.safeParse({
+    !placeAgentSettingsRead.output.safeParse({
       ...settings,
       effective_models: { boss: { value: model, source: workspace } },
     }).success,

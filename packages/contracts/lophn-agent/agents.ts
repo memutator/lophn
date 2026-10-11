@@ -21,8 +21,6 @@ import {
   agentPlaceOutputSchema,
   agentPlaceSchema,
   agentProfileImageTypeSchema,
-  agentSettingsLayerOutputSchema,
-  agentSettingsLayerSchema,
   agentSettingsOutputSchema,
   agentSettingsSchema,
   profileImageOutputSchema,
@@ -85,12 +83,12 @@ export const uploadAgentProfileInputSchema = z.strictObject({
 
 export const readAgentProfileInputSchema = readAgentInputSchema;
 
-export const readAgentSettingsInputSchema = z.strictObject({
-  layer: agentSettingsLayerSchema,
+export const readPlaceAgentSettingsInputSchema = z.strictObject({
+  place: agentPlaceSchema,
 });
 
-export const changeAgentSettingsInputSchema = z.strictObject({
-  layer: agentSettingsLayerSchema,
+export const changePlaceAgentSettingsInputSchema = z.strictObject({
+  place: agentPlaceSchema,
   settings: agentSettingsSchema,
 });
 
@@ -179,15 +177,16 @@ export const agentProfilesRead = defineFile({
   errors: [...readErrors],
 });
 
-// 이 층이 가진 칸과, 칸을 비운 role의 실제 model과 그 출처를 돌려준다(R12). hash는 이 층의 내용 hash이고
-// 아직 아무 칸도 없으면 null이다.
-export const agentSettingsRead = defineRead({
-  resource: "agent-settings",
+// 자리 층만 다룬다. Workspace의 역할별 기본 model은 `agent-model-defaults`, 기본 권한은 platform/settings가 맡는다.
+// 이 자리가 가진 칸과, 칸을 비운 role의 실제 model과 그 출처(자리·Workspace·기본값)를 돌려준다(R12).
+// hash는 이 파일의 내용 hash이고 파일이 없으면 null이다.
+export const placeAgentSettingsRead = defineRead({
+  resource: "place-agent-settings",
   method: "read",
-  name: "ReadAgentSettings",
-  input: readAgentSettingsInputSchema,
+  name: "ReadPlaceAgentSettings",
+  input: readPlaceAgentSettingsInputSchema,
   output: withReadCommon(z.object({
-    layer: agentSettingsLayerOutputSchema,
+    place: agentPlaceOutputSchema,
     settings: agentSettingsOutputSchema,
     hash: sha256Schema.nullable(),
     effective_models: z.partialRecord(
@@ -199,14 +198,14 @@ export const agentSettingsRead = defineRead({
   errors: [...readErrors],
 });
 
-// settings는 이 층의 새 내용 전체다: 없는 칸은 지워진다(R11).
-export const agentSettingsChange = defineCommand({
-  resource: "agent-settings",
+// settings는 이 자리 파일의 새 내용 전체다: 없는 칸은 지워진다(R11).
+export const placeAgentSettingsChange = defineCommand({
+  resource: "place-agent-settings",
   method: "change",
-  name: "ChangeAgentSettings",
-  input: changeAgentSettingsInputSchema,
+  name: "ChangePlaceAgentSettings",
+  input: changePlaceAgentSettingsInputSchema,
   output: z.object({
-    layer: agentSettingsLayerOutputSchema,
+    place: agentPlaceOutputSchema,
     hash: sha256Schema,
   }),
   compare: saveCompareSchema,
@@ -234,13 +233,12 @@ export const agentDeleted = defineEvent("AgentDeleted", {
   }),
 });
 
-// Workspace 층의 변경은 자리가 없어 subject가 null이다.
 export const placeAgentSettingsChanged = defineEvent(
   "PlaceAgentSettingsChanged",
   {
-    subject: z.union([idSchema("prj"), idSchema("app"), z.null()]),
+    subject: z.union([idSchema("prj"), idSchema("app")]),
     payload: z.object({
-      layer: agentSettingsLayerOutputSchema,
+      place: agentPlaceOutputSchema,
       before_hash: sha256Schema.nullable(),
       after_hash: sha256Schema,
     }),
@@ -254,8 +252,8 @@ export const AGENT_ROUTES = [
   agentsDelete,
   agentProfilesUpload,
   agentProfilesRead,
-  agentSettingsRead,
-  agentSettingsChange,
+  placeAgentSettingsRead,
+  placeAgentSettingsChange,
 ] as const;
 
 export const AGENT_EVENTS = [

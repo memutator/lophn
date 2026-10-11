@@ -76,19 +76,6 @@ export function agentPlaceAllowsRole(
   return true;
 }
 
-// settings 층 route가 가리키는 층. Workspace는 자리가 없다.
-export const agentSettingsLayerSchema = z.discriminatedUnion("kind", [
-  z.strictObject({ kind: z.literal("workspace") }),
-  z.strictObject({ kind: z.literal("project"), id: idSchema("prj") }),
-  z.strictObject({ kind: z.literal("app"), id: idSchema("app") }),
-]);
-export const agentSettingsLayerOutputSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("workspace") }),
-  z.object({ kind: z.literal("project"), id: idSchema("prj") }),
-  z.object({ kind: z.literal("app"), id: idSchema("app") }),
-]);
-export type AgentSettingsLayer = z.infer<typeof agentSettingsLayerSchema>;
-
 // Profile: design system의 icon 하나이거나 사람이 올린 이미지(R13). icon id의 존재는 design system이 판정하고
 // 여기서는 모양만 본다. 이미지 이름은 `avatar.<ext>` 하나뿐이라 경로를 실을 수 없고 svg는 받지 않는다.
 export const AGENT_PROFILE_IMAGE_MAX_BYTES = 1_048_576;
@@ -257,7 +244,8 @@ export const agentDefinitionOutputSchema = z.object({
 });
 export type AgentDefinition = z.infer<typeof agentDefinitionSchema>;
 
-// 자리 층 설정(`settings.md`)이자 Workspace 층의 agent 설정이다. 두 층이 가질 수 있는 칸은 같다: 역할별 model과 권한.
+// 자리 층 설정(`settings.md`): 역할별 model과 권한. Workspace 층의 같은 모양 값(역할별 기본 model은
+// `agent-model-defaults`, 기본 권한은 platform/settings)은 이 route들이 아니라 resolve하는 쪽이 이 모양으로 넘긴다.
 const settingsFields = {
   models: z.partialRecord(agentRoleSchema, modelChoiceSchema).optional(),
   permissions: agentPermissionsSchema.optional(),

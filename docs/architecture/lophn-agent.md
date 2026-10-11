@@ -188,7 +188,7 @@ handoff는 Run.source, tool 판정은 ToolCall, safety 실패수는 확정 call,
 | SaveAgent | `/v1/agents/save` | user·자리·assignment(없으면 새 Operator)·바꾼 칸·본문·고칠 때 파일 hash CAS; 전체 검사 뒤 새 Operator는 assignment를 먼저 만들고 파일을 쓰며 정의는 판 없이 전체를 덮어씀 |
 | DeleteAgent | `/v1/agents/delete` | user·Operator assignment; assignment를 거두고 파일을 지움(built-in은 forbidden) |
 | UploadAgentProfileImage | `/v1/agent-profiles/upload` | user·assignment·이미지(png·jpg·webp, 1 MB 이하, svg 불가); 저장 때 `profile`로 연결 |
-| ChangePlaceAgentSettings | `/v1/agent-settings/change` | user·자리·바꾼 칸(역할별 model·권한)·파일 hash CAS; 권한은 Workspace 기본의 부분집합 |
+| ChangePlaceAgentSettings | `/v1/place-agent-settings/change` | user·자리·그 자리 파일의 새 내용(역할별 model·권한)·파일 hash CAS; 권한은 Workspace 기본의 부분집합. Workspace 층은 이 route가 아니다 |
 | CreateBuiltinAssignment | `/v1/assignments/create-builtin` | role(lophn 또는 context_engineer); 역할마다 거두지 않은 assignment 하나 |
 | CreateAppEngineerAssignment | `/v1/assignments/create-app-engineer` | AppCreated seq·app; 앱별 중복 없음; core 반응 구독자(`lophn-agent-assignments`)가 AppCreated마다 부르고 처리 cursor를 같은 transaction에 올림 |
 | PauseAssignment | `/v1/assignments/pause` | machine·revision·`scope_archived` 근거; 같은 구독자가 AppArchived(와 project 보관)마다 그 자리의 enabled assignment에 부르고 cursor를 같은 transaction에 올림 |
@@ -224,7 +224,7 @@ handoff는 Run.source, tool 판정은 ToolCall, safety 실패수는 확정 call,
 | run body | `/v1/runs/body` | machine·종류(run basis·model 응답·tool 결과)와 ID; blob hash를 확인한 저장 값. 복구가 이력을 다시 만드는 읽기다 |
 | run body view | `/v1/runs/body-view` | user·종류(run basis·tool 입력·tool 결과)와 ID; 저장된 값을 지금의 redaction으로 한 번 더 거친 것. 64KiB를 넘으면 JSON 글의 앞부분과 `truncated`. model 응답은 열지 않는다. 사람 화면의 도구 활동 자세히와 근거 읽기다 |
 | agent list/read | `/v1/agents/list`, `/v1/agents/read` | 자리(+assignment)·cursor; 그 자리에서 부를 수 있는 agent 행(역할·built-in/Operator·이름·profile·model 요약·상태), 정의(바꾼 칸+본문)와 칸별 값·출처; secret 값 없음. `ResolveAgent`는 run 준비의 machine 읽기 |
-| agent settings read | `/v1/agent-settings/read` | Workspace 또는 자리 층; 역할별 model·option, 요약용 model(Workspace만), 기본 권한 |
+| place agent settings read | `/v1/place-agent-settings/read` | 자리; 그 자리 파일의 칸(역할별 model·option, 권한)과 파일 hash, 칸을 비운 role의 실제 model과 출처. Workspace 기본은 `agent-model-defaults`·platform/settings |
 | assignment read/list | `/v1/assignments/read`, `/v1/assignments/list` | ID 또는 역할/자리/상태·cursor; 역할·scope·상태·pause 근거 |
 | session read/list | `/v1/sessions/read`, `/v1/sessions/list` | ID 또는 assignment·cursor; 세션 출처·상태 |
 | message list | `/v1/messages/list` | 세션·seq 구간·cursor; 담당/반영 call·본문 참조 |

@@ -289,7 +289,7 @@ Deno.test("lophn-agent/agents#R16 lophn-agent/agents#R17: a resolved agent keeps
   );
 });
 
-Deno.test("lophn-agent/agents#R7: a list row shows the assignment, kind, name, profile, model summary and state", () => {
+Deno.test("lophn-agent/agents#R7: a list row shows the assignment, kind, name, profile, model summary, state and counts", () => {
   const row = {
     assignment: asg,
     role: "operator",
@@ -303,15 +303,111 @@ Deno.test("lophn-agent/agents#R7: a list row shows the assignment, kind, name, p
     },
     state: "enabled",
     issues: [],
+    counts: { contexts: 2, skills: 1, mcp: 3 },
   };
   assert(agentListRowSchema.safeParse(row).success);
   assert(agentListRowSchema.safeParse({ ...row, model: null }).success);
-  assert(
-    agentListRowSchema.safeParse({
-      ...row,
-      issues: [{ field: "body", code: "required" }],
-    }).success,
-  );
   assert(!agentListRowSchema.safeParse({ ...row, kind: "built_in" }).success);
   assert(!agentListRowSchema.safeParse({ ...row, state: "withdrawn" }).success);
+  const { counts: _counts, ...withoutCounts } = row;
+  assert(!agentListRowSchema.safeParse(withoutCounts).success);
+});
+
+Deno.test("shell/workspace#R36: a list row counts contexts, skills and MCP; a built-in has no context count", () => {
+  const operator = {
+    assignment: asg,
+    role: "operator",
+    kind: "operator",
+    name: "Reviewer",
+    profile: { kind: "icon", icon: "roles" },
+    model: null,
+    state: "enabled",
+    issues: [],
+    counts: { contexts: 0, skills: 0, mcp: 0 },
+  };
+  // 0개는 셀 수 있는 값이다.
+  assert(agentListRowSchema.safeParse(operator).success);
+  const builtin = {
+    ...operator,
+    role: "lophn",
+    kind: "built_in",
+    counts: { contexts: null, skills: 2, mcp: 1 },
+  };
+  assert(agentListRowSchema.safeParse(builtin).success);
+  // built-in 카드는 Contexts 수를 보이지 않고, Operator는 센 값이 있어야 한다.
+  assert(
+    !agentListRowSchema.safeParse({
+      ...builtin,
+      counts: { contexts: 1, skills: 2, mcp: 1 },
+    }).success,
+  );
+  assert(
+    !agentListRowSchema.safeParse({
+      ...operator,
+      counts: { contexts: null, skills: 0, mcp: 0 },
+    }).success,
+  );
+  // 음수와 소수와 문자열은 개수가 아니다.
+  for (const bad of [-1, 1.5, "2"]) {
+    assert(
+      !agentListRowSchema.safeParse({
+        ...operator,
+        counts: { contexts: 0, skills: bad, mcp: 0 },
+      }).success,
+    );
+    assert(
+      !agentListRowSchema.safeParse({
+        ...operator,
+        counts: { contexts: 0, skills: 0, mcp: bad },
+      }).success,
+    );
+  }
+  // skills·mcp는 resolve한 행에서는 null이 아니다.
+  assert(
+    !agentListRowSchema.safeParse({
+      ...operator,
+      counts: { contexts: 0, skills: null, mcp: 0 },
+    }).success,
+  );
+  assert(
+    !agentListRowSchema.safeParse({
+      ...operator,
+      counts: { contexts: 0, skills: 0 },
+    }).success,
+  );
+});
+
+Deno.test("lophn-agent/agents#R24: a row whose file is wrong lists the reasons and counts nothing", () => {
+  const broken = {
+    assignment: asg,
+    role: "operator",
+    kind: "operator",
+    name: "Reviewer",
+    profile: { kind: "icon", icon: "roles" },
+    model: null,
+    state: "enabled",
+    issues: [{ field: "body", code: "required" }],
+    counts: { contexts: null, skills: null, mcp: null },
+  };
+  assert(agentListRowSchema.safeParse(broken).success);
+  // resolve하지 못한 행은 셋 다 null이고 일부만 센 값을 섞지 않는다.
+  assert(
+    !agentListRowSchema.safeParse({
+      ...broken,
+      counts: { contexts: 0, skills: 1, mcp: 1 },
+    }).success,
+  );
+  assert(
+    !agentListRowSchema.safeParse({
+      ...broken,
+      counts: { contexts: null, skills: 1, mcp: null },
+    }).success,
+  );
+  assert(
+    agentListRowSchema.safeParse({
+      ...broken,
+      role: "lophn",
+      kind: "built_in",
+    }).success,
+  );
 });

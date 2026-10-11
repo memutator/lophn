@@ -114,8 +114,14 @@ function tocGroups(
 
 // 왼쪽 목차. 묶음마다 page를 늘어놓고 지금 page를 표시한다.
 function Toc({ current }: { current: WireframePage | undefined }) {
+  const nav = useRef<HTMLElement>(null);
+  useEffect(() => {
+    nav.current?.querySelector('[aria-current="page"]')?.scrollIntoView({
+      block: "nearest",
+    });
+  }, [current]);
   return (
-    <nav className={styles.toc} aria-label="Pages">
+    <nav ref={nav} className={styles.toc} aria-label="Pages">
       <a
         className={styles.tocHome}
         href="#/"

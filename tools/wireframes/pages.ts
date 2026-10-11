@@ -105,7 +105,21 @@ export type ScreenId =
   | "new-context-drafting"
   | "new-ways-to-open"
   | "new-document-tab"
-  | "new-document-tab-info";
+  | "new-document-tab-info"
+  | "new-agent-sidebar"
+  | "new-agent-toast"
+  | "new-agent-toast-opened"
+  | "new-agent-conversation"
+  | "new-agent-model-picker"
+  | "new-agent-question"
+  | "new-agent-question-answered"
+  | "new-agent-approval"
+  | "new-agent-rewind"
+  | "new-project-agents"
+  | "new-operator-editor"
+  | "new-settings-providers"
+  | "new-settings-connect"
+  | "new-settings-agents";
 
 export interface WireframePage {
   /** 주소 `#/<id>`와 frame의 `?frame=<id>`에 쓴다. */
@@ -475,7 +489,7 @@ export const PAGES: readonly WireframePage[] = [
   fresh(
     "new-sidebar-collapsed",
     "Project · sidebar collapsed",
-    "접은 sidebar는 바로 가기 rail이 된다. 펼치기·Terminal·Search·Contexts·Saved views·Conversation 단추가 위에서부터 있고, 누르면 그 탭이 탭 줄에 열린다. 단추에 올리면 tooltip이 뜬다.",
+    "접은 sidebar는 바로 가기 rail이 된다. 펼치기·Terminal·Search·Contexts·Saved views·Agents 단추가 위에서부터 있고, 누르면 그 탭이 탭 줄에 열린다. 단추에 올리면 tooltip이 뜬다.",
     "new-sidebar-collapsed",
   ),
   fresh(
@@ -555,6 +569,90 @@ export const PAGES: readonly WireframePage[] = [
     "Project · organize documents",
     "문서 보관·이동·폴더 연결 해제는 Workspace가 아니라 project 화면에서 한다. sidebar의 문서 행과 폴더 행을 오른쪽 클릭해 연다.",
     "new-organize",
+  ),
+  fresh(
+    "new-agent-sidebar",
+    "Agent · sidebar",
+    "agent는 project sidebar의 Agents 묶음에서만 부른다. agent를 누르면 새 대화가 탭으로 열리고, 최근 대화는 상태(Waiting for you·Working·Done)와 함께 그 아래에 있다. 접힌 바로 가기 막대의 Conversation 단추는 Agents 단추가 되어 누르면 lophn 새 대화 탭이 열린다.",
+    "new-agent-sidebar",
+  ),
+  fresh(
+    "new-agent-toast",
+    "Agent · toast with context",
+    '사람 대신 program이 "agent를 불러야 할 일"을 판정하면 toast로 알린다. [Ask lophn]을 누르면 그 일을 첫 context로 붙인 대화가 열린다. [View]는 검색 탭을 연다.',
+    "new-agent-toast",
+  ),
+  fresh(
+    "new-agent-toast-opened",
+    "Agent · conversation from toast",
+    "[Ask lophn]을 누른 결과. 새 Conversation 탭의 composer 위에 toast가 가리킨 일이 context chip으로 붙고, 입력칸은 비어 있다. chip의 ✕로 뗄 수 있다.",
+    "new-agent-toast-opened",
+  ),
+  fresh(
+    "new-agent-conversation",
+    "Agent · conversation",
+    "대화는 탭에서 한다. tool 호출은 한 줄로 접고, 바꾼 문서는 카드로, 진행은 view bar의 chip 한 자리에 보인다. composer 안 아래 줄에 agent·model, 입력칸 밖 아래 줄에 project·권한을 둔다.",
+    "new-agent-conversation",
+  ),
+  fresh(
+    "new-agent-model-picker",
+    "Agent · model picker",
+    "composer의 model을 누르면 연결된 provider별 model과 effort를 고른다. 바꾼 값은 이 대화에만 쓰이고 기본값은 agent 정의에서 온다. 기본값은 Workspace › Settings › Agents에서 바꾼다.",
+    "new-agent-model-picker",
+  ),
+  fresh(
+    "new-agent-question",
+    "Agent · question card",
+    "agent가 사람에게 물을 때는 대화 안 카드로 묻는다. 질문이 둘이면 한 카드에 다 펼쳐 답하고 한 번에 보낸다(셋을 넘으면 1 of N으로 넘긴다). 답을 기다리는 동안 일은 멈춘다.",
+    "new-agent-question",
+  ),
+  fresh(
+    "new-agent-question-answered",
+    "Agent · question answered",
+    "답을 보내면 카드가 접혀 한 줄 요약으로 대화에 남고, agent의 일이 이어진다.",
+    "new-agent-question-answered",
+  ),
+  fresh(
+    "new-agent-approval",
+    "Agent · approval card",
+    "agent가 사람 확인이 필요한 일을 하기 전에 composer 바로 위에 붙는 카드로 허락을 구한다. 범위는 [Allow ▾]를 펼쳐 고르고, 거절([Deny])과 일을 멈추는 것(composer의 Stop)은 다르다.",
+    "new-agent-approval",
+  ),
+  fresh(
+    "new-agent-rewind",
+    "Agent · rewind",
+    "되돌리기는 대화가 살아 있는 동안만 한다. 내 메시지에서 그 시점으로 되돌리고, 되돌릴 수 없는 것은 미리 말한다.",
+    "new-agent-rewind",
+  ),
+  fresh(
+    "new-project-agents",
+    "Project · Agents tab",
+    "project의 agent를 한곳에서 본다. 기본 agent와 이 project의 Operator, 이 project에서 agent가 쓰는 지침(LOPHN.md)·skill·MCP가 여기 있다. sidebar Agents 묶음 머리의 Manage와 + 메뉴로 연다.",
+    "new-project-agents",
+  ),
+  fresh(
+    "new-operator-editor",
+    "Project · Operator editor",
+    "Operator 하나는 이름·하는 일·지침·주기·model·읽을 context·skill·MCP·권한으로 이루어진다. 정의는 project 폴더가 아니라 lophn에 저장된다.",
+    "new-operator-editor",
+  ),
+  fresh(
+    "new-settings-providers",
+    "Workspace · Settings › Providers",
+    "provider는 계정과 인증만 다룬다. model은 여기서 고르지 않는다. 연결된 provider는 끊고, 다른 provider는 [+ Connect]로 연결한다.",
+    "new-settings-providers",
+  ),
+  fresh(
+    "new-settings-connect",
+    "Workspace · Connect a provider",
+    "provider를 연결하는 창. 로그인 방법을 고르거나(왼쪽), 직접 만든 OpenAI 호환 provider를 ID·이름·Base URL로 등록한다(오른쪽).",
+    "new-settings-connect",
+  ),
+  fresh(
+    "new-settings-agents",
+    "Workspace · Settings › Agents",
+    "모든 project에 적용되는 agent 기본값은 Workspace에서 정한다. 역할별 기본 model, 전역 지침(LOPHN.md), 전역 skill과 MCP, 기본 권한이 여기 있다.",
+    "new-settings-agents",
   ),
 ];
 

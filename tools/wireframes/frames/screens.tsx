@@ -59,6 +59,22 @@ import {
   TabKinds,
   ViolationToast,
 } from "./compositions/project-pages.tsx";
+import {
+  AgentApproval,
+  AgentConversation,
+  AgentModelPicker,
+  AgentQuestion,
+  AgentQuestionAnswered,
+  AgentRewind,
+  AgentSidebar,
+  AgentToast,
+  AgentToastOpened,
+  OperatorEditorPage,
+  ProjectAgents,
+  SettingsAgents,
+  SettingsConnect,
+  SettingsProviders,
+} from "./compositions/agent-pages.tsx";
 import { ContextWays } from "./compositions/ways-page.tsx";
 import { WorkspaceWithoutProject } from "./compositions/workspace-page.tsx";
 import {
@@ -215,4 +231,18 @@ export const SCREENS: Record<ScreenId, () => ReactNode> = {
   "new-ways-to-open": () => <ContextWays />,
   "new-document-tab": () => <DocumentTabPage />,
   "new-document-tab-info": () => <DocumentTabInfo />,
+  "new-agent-sidebar": () => <AgentSidebar />,
+  "new-agent-toast": () => <AgentToast />,
+  "new-agent-toast-opened": () => <AgentToastOpened />,
+  "new-agent-conversation": () => <AgentConversation />,
+  "new-agent-model-picker": () => <AgentModelPicker />,
+  "new-agent-question": () => <AgentQuestion />,
+  "new-agent-question-answered": () => <AgentQuestionAnswered />,
+  "new-agent-approval": () => <AgentApproval />,
+  "new-agent-rewind": () => <AgentRewind />,
+  "new-project-agents": () => <ProjectAgents />,
+  "new-operator-editor": () => <OperatorEditorPage />,
+  "new-settings-providers": () => <SettingsProviders />,
+  "new-settings-connect": () => <SettingsConnect />,
+  "new-settings-agents": () => <SettingsAgents />,
 };

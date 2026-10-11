@@ -36,9 +36,9 @@ Deno.test("shell#T66: 모든 page에 제목·badge·설명이 있고 id는 겹�
   }
 });
 
-Deno.test("shell#T66: 새 설계 page 열여섯 개는 모두 새 설계 badge와 한국어 설명을 갖는다", () => {
+Deno.test("shell#T66: 새 설계 page 서른 개는 모두 새 설계 badge와 한국어 설명을 갖는다", () => {
   const fresh = PAGES.filter((page) => page.part === "new");
-  assertEquals(fresh.length, 16);
+  assertEquals(fresh.length, 30);
   // 지금은 Domain model이 아니라 Overview다.
   assert(fresh.every((page) => !/Domain model/.test(page.title)));
   assert(fresh.some((page) => page.title === "Context tab · Overview"));
@@ -91,4 +91,40 @@ Deno.test("shell#T68: Context 탭 여는 길마다 try it이 가리키는 page�
   for (const way of WAYS) {
     assert(ids.has(way.tryIt), `${way.title}: ${way.tryIt} page 없음`);
   }
+});
+
+Deno.test("shell#T69: Agent·Project Agents·Workspace Settings page가 있고 대화 dock page는 새 설계에 없다", () => {
+  const fresh = PAGES.filter((page) => page.part === "new");
+  const titles = fresh.map((page) => page.title);
+  for (
+    const title of [
+      "Agent · sidebar",
+      "Agent · toast with context",
+      "Agent · conversation",
+      "Agent · model picker",
+      "Agent · question card",
+      "Agent · question answered",
+      "Agent · approval card",
+      "Agent · rewind",
+      "Project · Agents tab",
+      "Project · Operator editor",
+      "Workspace · Settings › Providers",
+      "Workspace · Connect a provider",
+      "Workspace · Settings › Agents",
+    ]
+  ) {
+    assert(titles.includes(title), `${title}: page 없음`);
+  }
+  // 묶음 이름(" · " 앞)이 Agent · Project · Workspace로 목차에서 묶인다.
+  const groups = new Set(
+    fresh.filter((page) => /^(Agent|Workspace) · /.test(page.title)).map((
+      page,
+    ) => page.title.split(" · ")[0]),
+  );
+  assertEquals(groups, new Set(["Agent", "Workspace"]));
+  assert(fresh.every((page) => page.screen !== "conversation-dock"));
+  // 내보내기 기능은 없다.
+  assert(
+    !fresh.some((page) => /export/i.test(`${page.title} ${page.description}`)),
+  );
 });

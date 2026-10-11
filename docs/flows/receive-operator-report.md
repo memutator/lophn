@@ -1,6 +1,6 @@
 ---
 type: flow
-concerns: [lophn-agent/scheduling, lophn-agent/assignments, lophn-agent/roles/operator, lophn-agent/roles/common, lophn-agent/harness/run-loop, lophn-agent/harness/prompt-assemble, lophn-agent/harness/waiting-and-recovery, lophn-agent/questions, documents/contexts, documents/versions, apps/runtime, apps/permissions, apps/invocations, problems/grouping, platform/notifications, shell/desktop, lophn-agent/presets]
+concerns: [lophn-agent/scheduling, lophn-agent/assignments, lophn-agent/roles/operator, lophn-agent/roles/common, lophn-agent/harness/run-loop, lophn-agent/harness/prompt-assemble, lophn-agent/harness/waiting-and-recovery, lophn-agent/questions, documents/contexts, documents/versions, apps/runtime, apps/permissions, apps/invocations, problems/grouping, platform/notifications, shell/desktop, lophn-agent/agents]
 ---
 # 정해 둔 판단 결과와 새 이상을 확인한다
 

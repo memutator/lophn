@@ -1,6 +1,6 @@
 ---
 type: research
-concerns: [lophn-agent/presets, lophn-agent/assignments, lophn-agent/roles]
+concerns: [lophn-agent/agents, lophn-agent/assignments, lophn-agent/roles]
 ---
 # preset과 agent 구성
 

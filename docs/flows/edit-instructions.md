@@ -1,6 +1,6 @@
 ---
 type: flow
-concerns: [lophn-agent/instructions, lophn-agent/presets, lophn-agent/conversation, documents/file-tracking, documents/versions, shell/editor]
+concerns: [lophn-agent/instructions, lophn-agent/agents, lophn-agent/conversation, documents/file-tracking, documents/versions, shell/editor]
 ---
 # agent가 읽을 지침을 쓰고 고친다
 

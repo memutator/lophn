@@ -1,6 +1,6 @@
 ---
 type: flow
-concerns: [lophn-agent/roles/context-engineer, lophn-agent/roles/operator, lophn-agent/presets, lophn-agent/instructions, lophn-agent/assignments, lophn-agent/scheduling, lophn-agent/questions, documents/contexts, documents/versions, apps/permissions, platform/approvals, shell/confirmation-window]
+concerns: [lophn-agent/roles/context-engineer, lophn-agent/roles/operator, lophn-agent/agents, lophn-agent/instructions, lophn-agent/assignments, lophn-agent/scheduling, lophn-agent/questions, documents/contexts, documents/versions, apps/permissions, platform/approvals, shell/confirmation-window]
 ---
 # 반복해서 맡길 일을 구성한다
 

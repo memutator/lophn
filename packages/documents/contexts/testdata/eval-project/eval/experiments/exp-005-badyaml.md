@@ -1,5 +1,4 @@
 ---
 status: [done
 ---
-
 # Bad frontmatter

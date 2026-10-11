@@ -3,7 +3,6 @@ status: done
 scenarios: [schedule-basic]
 rubric: schedule-quality
 ---
-
 # Plan arm against baseline
 
 ## 질문

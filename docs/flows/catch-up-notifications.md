@@ -1,6 +1,6 @@
 ---
 type: flow
-concerns: [platform/notifications, platform/approvals, lophn-agent/questions, lophn-agent/conversation, coding-agent/tickets, problems/grouping, shell/desktop, shell/workspace, shell/wording]
+concerns: [platform/notifications, platform/approvals, documents/contexts, lophn-agent/questions, lophn-agent/conversation, coding-agent/tickets, problems/grouping, shell/desktop, shell/workspace, shell/wording]
 ---
 # 놓친 결과와 할 일을 다시 찾는다
 
@@ -10,7 +10,7 @@ concerns: [platform/notifications, platform/approvals, lophn-agent/questions, lo
 
 ## 흐름
 
-1. machine이 정해진 계기 표에 있는 문제의 변화·필요한 결정·ticket 검사 결과 등에서만 notification을 만든다. 같은 사실의 재전달은 새 notification을 만들지 않고, 일반 문서 저장이나 run 종료만으로 사람을 부르지 않는다. 사람에게는 보이지 않는다. (platform/notifications#R1, platform/notifications#R2, platform/notifications#R4)
+1. machine이 정해진 계기 표에 있는 문제의 변화·필요한 결정·ticket 검사 결과·context의 계약 위반 증가 등에서만 notification을 만든다. 같은 사실의 재전달은 새 notification을 만들지 않고, 일반 문서 저장이나 run 종료만으로 사람을 부르지 않는다. 사람에게는 보이지 않는다. (platform/notifications#R1, platform/notifications#R2, platform/notifications#R4, documents/contexts#R25)
 2. 사람은 현재 탭과 입력 focus를 유지한 채 notification을 받는다. OS notification은 사람이 켠 경우에만 최소 제목과 대상 열기 경로를 제공하며, 내용을 보기 전 다른 문서나 탭으로 강제로 이동시키지 않는다. (shell/desktop#R10, platform/notifications#R9)
 3. things-to-confirm 화면 사람이 notification의 보기 경로를 열거나, 돌아온 뒤 확인할 것을 연다. 지금 기다리는 결정과 이미 생긴 지난 결과를 구별하고, 필요한 사람 행동과 당시 발생 시각을 확인한다. (shell/desktop#R9, platform/notifications#R3)
 4. lophn이 원래 사실에서 현재 결정의 유효성과 실제 결과를 확인한다. 이미 답하거나 끝난 question·approval request를 새 결정으로 되살리지 않고, ticket 완료 보고와 실제 검사 결과·문제 닫힘을 섞지 않는다. 사람에게는 보이지 않는다. (lophn-agent/questions#R9, platform/approvals#R13, coding-agent/tickets#R18, coding-agent/tickets#R21)
@@ -23,6 +23,7 @@ concerns: [platform/notifications, platform/approvals, lophn-agent/questions, lo
 - 오래된 notification을 열었을 때 결정이 이미 끝났으면 당시 사실과 현재 결과만 확인한다. 끝난 세션을 다시 활성화하거나 외부 효과를 다시 실행하지 않는다. (platform/notifications#R7, lophn-agent/conversation#R11, lophn-agent/questions#R9, platform/approvals#R7)
 - 실제 답이나 허락이 필요하면 해당 원래 요청의 결정 경로로 이동한다. notification 클릭과 결과 열기만으로 결정하지 않는다. 이 flow는 결정 제출 전까지다. (platform/notifications#R6, lophn-agent/questions#R6, platform/approvals#R3)
 - 연결이 끊기면 마지막 화면과 최신 상태를 확인하지 못한 시각을 유지한다. 연결이 돌아오면 현재 기록으로 맞추고 놓친 진행 notification을 연속 재생하지 않는다. (shell/desktop#R7)
+- 계약 위반이 늘었다는 notification은 toast의 [View]나 지난 결과 목록에서 그 context의 Context 탭을 Violations 하위 탭으로 연다. 위반을 보는 것은 결정이 아니고, 위반을 Context Engineer에게 넘기는 일은 flow/build-context의 11에서 사람이 단추로 한다. (documents/contexts#R25, shell/workspace#R29, platform/notifications#R6)
 - 놓친 항목이 많아도 원래 사실을 임의의 종류나 고정 개수로 버리지 않는다. 지난 결과 목록에서 계속 찾아 읽고 각 항목의 개별 근거에 닿는다. (platform/notifications#R11, shell/desktop#R9)
 
 ## 끝

@@ -10,7 +10,7 @@ concerns: [shell/desktop, shell/workspace, shell/terminal, shell/app-frame, shel
 
 ## 흐름
 
-1. project-workspace 화면 사람이 프로젝트를 열어 목적과 필요한 상태를 확인하고 같은 탭 줄에서 문서 편집기·뷰어·터미널·패널 지원 앱을 고른다. 프로젝트 폴더·문서·관련 자료 탐색을 유지하며 대화는 작업을 돕는 용도로 연다. (documents/projects#R8, shell/desktop#R1, shell/desktop#R28, shell/workspace#R1)
+1. project-workspace 화면 사람이 프로젝트를 열어 목적과 필요한 상태를 확인하고 같은 탭 줄에서 문서 편집기·터미널·패널 지원 앱·Agent·Contexts·Context·Search 탭을 고른다. 지금 탭 종류는 이 일곱이고 읽기 전용 viewer 탭은 없다. 프로젝트 폴더·Contexts·Saved views 탐색을 유지하며 Agent 탭의 대화는 작업을 돕는 용도로 연다. 접은 sidebar는 Terminal · Contexts · Saved views · Search · Agent 단추의 바로 가기 rail이 되어 누르면 그 종류의 탭을 바로 연다. (documents/projects#R8, shell/desktop#R28, shell/workspace#R1, shell/workspace#R14, shell/workspace#R15, shell/workspace#R32, shell/workspace#R33)
 2. document 화면 사람이 문서를 읽거나 고친다. lophn은 저장 흐름과 고정 판을 처리하고 디스크 저장·판 확정·형식 검사 실패는 서로 다른 결과로 보여 준다. 문서의 이전 고정 판도 다시 읽을 수 있다. (shell/editor#R1, shell/editor#R2, shell/editor#R12, documents/versions#R2, documents/versions#R8)
 3. terminal 화면 사람이 등록 프로젝트 폴더에서 터미널을 연다. 폴더가 여러 개이면 먼저 하나를 고르고, lophn은 다른 위치로 조용히 대신 시작하지 않는다. OS 사용자 shell과 권한에서 동작하며 앱 sandbox가 아니라는 것을 확인한다. (documents/projects#R2, shell/terminal#R1, shell/terminal#R2, shell/terminal#R4, shell/terminal#R6)
 4. app-panel 화면 사람이 패널 표시를 지원하는 앱을 문서 옆 탭에 연다. 예를 들어 MaHas rate limit 패널과 문서·터미널을 나란히 두고 작업한다. 전체 화면만 지원하는 앱은 app-space 화면로 연다. 패널 지원 여부는 앱이 실제 만들고 테스트한 blueprint 선언에서 확인한다. (shell/workspace#R3, shell/workspace#R5, shell/app-frame#R27, apps/blueprint#R19, apps/sdk#R37)
@@ -18,7 +18,7 @@ concerns: [shell/desktop, shell/workspace, shell/terminal, shell/app-frame, shel
 6. lophn은 앱 화면과 일반 command를 앱으로 직접 보내고, 무거운 준비·모델 호출·테스트·기록 처리나 한 앱의 정체가 무관한 다른 탭을 기다리게 하지 않는다. 탭 사이의 앱 view·문서·터미널 신원과 입력 초점은 구별하며 앱의 권한도 그대로 강제한다. 사람에게는 보이지 않는다. (platform/responsiveness#R1, platform/responsiveness#R2, platform/responsiveness#R5, apps/runtime#R10, apps/permissions#R2, shell/app-frame#R28, shell/app-frame#R33)
 7. project-workspace 화면 사람이 지금 대상의 이름·내용·필요한 상태와 행동을 본다. 상세 설정과 복잡한 처리 과정은 기본으로 숨기고, lophn과 앱의 공용 모양·영어 문구를 일관되게 쓴다. 문서 본문이나 사람이 지은 제목을 UI 문구처럼 바꾸지는 않는다. (documents/projects#R8, apps/runtime#R13, shell/design-system#R3, shell/design-system#R5, shell/wording#R1, shell/wording#R2, shell/wording#R3, shell/wording#R4, apps/sdk#R20, apps/sdk#R21)
 8. 사람이 현재 자료를 놓고 agent에게 일을 요청하면 lophn이 그 창의 프로젝트·열린 탭·선택·초점·허용 대상과 관측 시각을 짧은 현재 보기 상태로 조립한다. 열린 탭이 권한을 넓히거나 터미널 출력을 자동으로 agent에게 넘기지 않으며, 수집 실패를 이전 화면으로 대신하지 않는다. 사람에게는 보이지 않는다. (shell/workspace#R9, shell/workspace#R10, shell/workspace#R11, shell/terminal#R8, lophn-agent/harness/prompt-assemble#R25, lophn-agent/harness/prompt-assemble#R26, lophn-agent/harness/prompt-assemble#R27, lophn-agent/harness/prompt-assemble#R28)
-9. project-workspace 화면 사람이 프로젝트를 다시 열면 lophn이 마지막 탭 순서·선택·나란히 둔 배치·분할 비율·문서 읽던 위치를 복원한다. 대상과 현재 권한의 재검사는 사람에게는 보이지 않는다. 터미널은 종료된 자리로만 복원하고 terminal 화면에서 사람이 새로 시작한다. 배치 복원을 문서 초안·터미널 출력·승인·앱 업무 상태의 복구로 표시하지 않는다. (shell/workspace#R6, shell/workspace#R7, shell/workspace#R8, shell/terminal#R9)
+9. project-workspace 화면 사람이 프로젝트를 다시 열면 lophn이 마지막 탭 순서·선택·나란히 둔 배치·분할 비율·문서 읽던 위치와 Context 탭의 하위 탭, Search 탭의 선택한 검색과 채운 입력을 복원한다. 검색 결과는 저장하지 않고 다시 계산한다. 대상과 현재 권한의 재검사는 사람에게는 보이지 않는다. 터미널은 종료된 자리로만 복원하고 terminal 화면에서 사람이 새로 시작한다. 배치 복원을 문서 초안·터미널 출력·승인·앱 업무 상태의 복구로 표시하지 않는다. (shell/workspace#R6, shell/workspace#R7, shell/workspace#R8, shell/terminal#R9)
 
 ## 다른 갈래
 

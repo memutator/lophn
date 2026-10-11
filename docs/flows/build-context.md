@@ -1,38 +1,42 @@
 ---
 type: flow
-concerns: [documents/contexts, documents/outline-and-search, documents/versions, apps/blueprint, apps/permissions, apps/runtime, lophn-agent/roles/context-engineer, lophn-agent/roles/common, lophn-agent/questions, lophn-agent/assignments, lophn-agent/handoff, lophn-agent/harness/prompt-assemble, lophn-agent/revert, platform/identity, platform/notifications, shell/desktop, shell/confirmation-window, lophn-agent/presets]
+concerns: [documents/contexts, documents/terms, documents/outline-and-search, lophn-agent/roles/context-engineer, lophn-agent/questions, platform/notifications, shell/workspace, shell/desktop]
 ---
-# 함께 볼 자료와 관점을 정한다
+# 내 폴더의 도메인 구조를 context로 만들어 찾고 지킨다
 
-사람이 여러 문서나 앱 자료를 같은 목적 아래 묶어 agent와 함께 보고 싶다. 목적과 필요한 판단만 사람이 정하고, 자료 찾기와 작은 범위 읽기는 lophn이 맡는다.
+실험·시나리오·결과처럼 폴더 안에 쌓인 자료에 사람 나름의 구조가 있는데, 그 구조를 매번 직접 찾아다니거나 agent가 추측하게 두기 싫을 때 시작한다. 사람은 무엇을 도와야 하는지, 어느 폴더나 파일을 보는지, 무엇을 찾고 싶은지만 말한다. 파일을 읽고 계약과 선언된 검색을 쓰는 일은 Context Engineer가 맡고, 이후 개체를 계산하고 검색하고 위반을 찾는 일은 program이 같은 규칙으로 한다.
 
-지키는 약속: documents#I4, lophn-agent#I1, lophn-agent#I6, lophn-agent/harness#I3.
+지키는 약속: documents#I3, documents#I4, documents#I6, lophn-agent#I1, lophn-agent#I6, shell#I1.
 
 ## 흐름
 
-1. contexts 화면에서 사람이 함께 볼 목적을 말하거나 기존 context를 고치려 한다. conversation 화면에서 Context Engineer와 필요한 의도·경계를 정한다. 대화가 아닌 context와 자료를 작업 대상으로 유지한다. (documents/contexts#R1, documents/contexts#R5, lophn-agent/roles/context-engineer#R1, shell/desktop#R1)
-2. Context Engineer는 목차·검색에서 이번 목적에 필요한 고정 문서의 section과 본문 범위만 읽고, 앱 자료 후보는 blueprint의 읽기 command 이름·설명·입력·효과를 조회한다. 직접 앱 command를 실행하거나 코드·원본 파일·웹을 읽지 않는다. 사람에게는 보이지 않는다. (lophn-agent/roles/context-engineer#R2, lophn-agent/roles/context-engineer#R3, lophn-agent/roles/context-engineer#R4, lophn-agent/roles/common#R1, lophn-agent/roles/common#R3, lophn-agent/roles/common#R11, apps/blueprint#R4, apps/blueprint#R20)
-3. conversation 화면에서 Context Engineer가 목적에 대한 책임 근거는 기준, 배경 자료는 참고, 변화만 따라갈 자료는 watch로 제안한다. 사람은 지금 필요한 항목과 읽을 수 있는지를 먼저 확인하고, 선택 이유·읽은 고정 근거·자료가 부족한 부분은 필요할 때 살핀다. 근거와 추정을 섞지 않는다. (lophn-agent/roles/context-engineer#R6, lophn-agent/roles/context-engineer#R7, lophn-agent/roles/common#R10, documents/contexts#R1, documents/outline-and-search#R4)
-4. conversation 화면에서 기존 요청과 자료만으로 정할 수 없는 목적·경계가 있으면 사람에게 필요한 결정만 묻는다. 사람은 의도와 범위를 정하고, Context Engineer는 허용된 context 구성 변경과 설계 보고를 남긴다. 자유 답을 정확한 변경 동작으로 자동 해석하지 않는다. (lophn-agent/roles/context-engineer#R5, lophn-agent/roles/context-engineer#R10, documents/contexts#R5, lophn-agent/questions#R1, lophn-agent/questions#R15)
-5. contexts 화면에서 사람이 남은 context의 목적과 필요한 항목을 확인한다. lophn은 항목마다 현재 허용 범위를 다시 검사하며 context 이름이나 연결된 자료만으로 agent의 읽기·앱 command 범위를 넓히지 않는다. 초기 model 입력은 관점별 목차·요약으로 시작하고 본문은 요청한 section만 읽는다. 범위 검사와 입력 조립은 사람에게는 보이지 않는다. (documents/contexts#R2, documents/contexts#R4, platform/identity#R8, platform/identity#R9, apps/permissions#R28, apps/runtime#R32, lophn-agent/harness/prompt-assemble#R4)
-6. 문서 watch 항목의 최신 판이 바뀌면 machine이 전후 고정 판과 대상 부분을 비교하고 확인된 변화만 한 번 남긴다. section 소실도 같은 key로 확인하며, 추출 실패는 변화가 아니라 미확인으로 남긴다. 앱 read command를 watch 항목으로 두었다는 이유만으로 자동 호출하지 않는다. 사람에게는 보이지 않는다. (documents/contexts#R9, documents/contexts#R10, documents/contexts#R11, documents/contexts#R12, documents/contexts#R13)
-7. contexts 화면에서 사람은 watch 변화의 대상과 근거를 열고 바뀐 부분만 확인한다. notification이나 자료 변화만으로 agent 판단을 시작하지 않으며, 필요하면 conversation 화면에서 판단을 요청한다. 이미 승인된 Operator가 있으면 승인된 목적·자료·주기 안에서 다음 판단을 한다. (platform/notifications#R1, platform/notifications#R3, platform/notifications#R7, documents/outline-and-search#R21, lophn-agent/assignments#R4, lophn-agent/assignments#R5, lophn-agent/assignments#R15)
-8. contexts 화면에서 사람이 끝난 agent 일의 revert를 요청하면 lophn은 그 일의 확정 변경 전체와 현재 판·관계·권한·후속 충돌을 검사한다. 사람은 confirmation-window 화면에서 복원 가능·불가·충돌·남을 영향을 확인하고 명시적으로 결정한다. 복원 불가 업무 변경이 섞이면 기본으로 막고, 사람이 남을 영향을 확인한 경우에도 안전하고 독립적인 복원 가능 변경 전체만 새 변경으로 복원한다. 실제 복원과 남은 영향을 구별하며 원래 판단을 다시 시작하거나 변경 기록을 지우지 않는다. 검사는 사람에게는 보이지 않는다. (lophn-agent/revert#R1, lophn-agent/revert#R2, lophn-agent/revert#R3, lophn-agent/revert#R4, lophn-agent/revert#R5, lophn-agent/revert#R6, lophn-agent/revert#R7, lophn-agent/revert#R9, shell/confirmation-window#R4, shell/confirmation-window#R5)
+1. 사람이 project의 Contexts 탭에서 [New context]를 누른다. 폼은 열리지 않고 Context Engineer와의 Agent 탭이 열려, 첫 메시지가 무엇을 도와야 하는지·어느 폴더나 파일을 보는지·무엇을 찾고 싶은지를 묻는다. 사람이 세 가지를 말한다. context는 이 project 안에만 두며 Lophn Workspace에는 context 목록도 만들기도 없다. (shell/workspace#R16, shell/workspace#R30, documents/contexts#R1, shell/desktop#R33)
+2. Context Engineer가 사람이 말한 폴더와 파일을 읽는다. 목차와 keyword 검색으로 어디를 볼지 고르고 필요한 section이나 줄 범위만 읽으며, 읽기만 하고 project 폴더에는 아무것도 쓰지 않는다. 다른 project의 파일은 읽지도 가리키지도 않는다. 이 읽기는 사람에게는 보이지 않고 3의 "read" 단계로만 드러난다. (lophn-agent/roles/context-engineer, documents/outline-and-search#R1, documents/outline-and-search#R8, documents/outline-and-search#R12, documents/contexts#R2, documents/contexts#R3)
+3. 대화를 시작하면 drafting 상태의 Context 탭이 남는다. 탭은 "drafting · step n of 4"(read ✓ · draft ● · check ○ · apply ○)와 흐린 초안 개체를 보인다. Context Engineer는 초안에 계약(개체 type마다 자료 위치 kind, field, 관계, 검사 규칙, public/private), 선언된 검색, 그 saved view, 예(examples)를 한 묶음으로 쓴다. 정할 수 없는 것이 있어 막히면 Agent 탭에서 사람에게 묻고, 사람이 답할 때까지 그 부분을 정하지 않는다. 초안을 쓰는 동안 이 context에 이미 적용된 판이 있으면 Operator와 사람은 그 판을 계속 쓴다. (shell/workspace#R30, documents/contexts#R5, documents/contexts#R6, documents/contexts#R13, documents/contexts#R15, documents/contexts#R18, documents/contexts#R19, documents/contexts#R28, lophn-agent/questions#R1)
+4. Context Engineer가 묶음을 판(r1, r2 …)으로 제출하면 lophn이 그 순간 project 파일의 임시 snapshot에 대해 격리 검사를 한다. 계약이 돌아가는지, 예가 모두 맞는지, 다른 context 참조가 public뿐인지, 모든 saved view가 호출되는지 본다. snapshot에서 나온 위반은 세어서 남기고 사람 파일은 건드리지 않는다. 사람에게는 3의 탭에서 "check" 단계로만 보인다. (documents/contexts#R20, documents/contexts#R22, documents/contexts#R3)
+5. 검사를 통과한 묶음은 사람 승인 없이 자동으로 적용된다. 확인 창은 열리지 않고, 이전 판은 남으며 사람이 이전 판으로 되돌릴 수 있다. 탭이 drafting에서 보통 Context 탭이 되고 Contexts 탭의 카드에 이름·목적·다루는 것의 종류 수·적용된 판과 검사 결과·위반 수가 나온다. (documents/contexts#R21, documents/contexts#R22, shell/workspace#R16)
+6. 사람이 Context 탭의 Overview에서 context가 다루는 것을 카드(이름·한 줄 뜻·개수·예시 문서)와 "runs on", "graded by" 같은 사람 말 화살표, 아래 Composition 트리로 읽고 맞는지 확인한다. Glossary에서는 Context Engineer가 적은 용어와 뜻을 보고 누가 언제 정했는지 확인하며 뜻을 고치거나 지울 수 있고, Context Engineer는 사람이 정한 항목을 고치지 않는다. Contract는 맨 뒤 하위 탭에 두어 필요할 때만 연다. (shell/workspace#R17, shell/workspace#R18, shell/workspace#R20, shell/workspace#R21, documents/terms#R5, documents/terms#R6, documents/terms#R11)
+7. 사람이 Context 탭의 Search에서 선언된 검색 하나를 고르면 Search 탭이 열린다. 입력 form은 선언에서 그려지고(고르는 입력은 타이핑으로 후보를 거르는 combobox, 여럿 고르는 입력은 chip), 결과는 선언대로 표나 board로 나온다. 같은 파일 상태와 입력이면 결과가 같고 25줄 넘으면 page로 이동한다. 결과의 exp-008 같은 도메인 객체는 링크이고 누르면 그 문서를 새 탭으로 연다. (shell/workspace#R22, shell/workspace#R23, shell/workspace#R24, shell/workspace#R25, shell/workspace#R26, documents/contexts#R16, documents/contexts#R17)
+8. 사람이 자주 쓰는 입력이면 결과에서 [Save as view]를 눌러 이름을 붙인다. 이후 Search 탭의 Saved views나 접힌 바로 가기 rail의 Saved views에서 고르면 그 입력을 채운 Search 탭이 열리고 결과를 다시 계산한다. 옛 결과의 사본은 남기지 않는다. (shell/workspace#R27, shell/workspace#R32, documents/contexts#R18)
+9. 얼마 뒤 사람이든 Operator든 파일을 고쳐서 계약을 어기는 문서가 생긴다. 예를 들어 필수 field가 빠지거나 이름이 pattern에서 벗어난다. lophn은 검색하거나 context를 열기 전에 계약이 가리키는 경로만 다시 가볍게 훑어 개체로 읽을 수 없는 파일과 규칙을 어긴 개체를 위반으로 센다. 파일 변화를 계속 지켜보지는 않는다. 사람에게는 보이지 않는다. (documents/contexts#R23, documents/contexts#R24)
+10. 위반 수가 늘면 사람이 notification으로 받는다. toast의 [View]는 그 context의 Context 탭을 Violations 하위 탭으로 연다. 현재 탭과 입력 focus는 뺏기지 않으며, notification만으로 agent의 run이 시작되지 않는다. (documents/contexts#R25, shell/workspace#R29, platform/notifications#R1, platform/notifications#R7, platform/notifications#R12)
+11. Violations에서 사람은 줄마다 파일 이름·무엇이 어긋났는지·어긴 규칙 한 줄을 읽고, 한 줄은 [Send to Context Engineer]로, 전부는 [Send all to Context Engineer]로 넘긴다. 근거가 자동으로 붙어 사람이 설명을 쓸 필요가 없고, 넘긴 줄은 "Context Engineer is on it"으로 바뀐다. (shell/workspace#R19, documents/contexts#R24, documents/contexts#R25)
+12. Context Engineer가 위반의 근거를 읽고 계약이 현실과 어긋난 것이면 계약을 고친 묶음을 새 판으로 제출한다. 그 판도 4의 격리 검사를 통과해야 5처럼 자동으로 적용된다. 파일이 잘못된 것이면 계약을 바꾸지 않고 어느 파일을 어떻게 고쳐야 하는지 Agent 탭에서 사람에게 알린다. 사람이 파일을 직접 고쳐도 되고, 다음에 검색하거나 context를 열 때 다시 훑어 위반이 줄어든다. (documents/contexts#R19, documents/contexts#R20, documents/contexts#R21, documents/contexts#R24, documents/contexts#R28)
 
 ## 다른 갈래
 
-- 사람 요청을 다른 역할에서 넘겨받는 경우 유효한 Context Engineer 담당과 필요한 고정 근거를 확인한다. 담당이 없거나 멈췄으면 대기열을 만들지 않고 맡길 수 없다고 알린다. 발신 역할의 권한이나 세션 전체를 가져오지 않는다. 사람에게는 보이지 않는다. (lophn-agent/handoff#R1, lophn-agent/handoff#R2, lophn-agent/handoff#R3, lophn-agent/handoff#R4, lophn-agent/handoff#R6)
-- 사람의 목적 결정이 없으면 conversation 화면에서 관련 변경을 보류하고 미정인 보고를 남긴다. 대화를 닫거나 답이 없다는 이유로 추천을 확정하지 않는다. (lophn-agent/roles/context-engineer#R10, lophn-agent/questions#R8)
-- 최신 판에서 section이 사라지면 contexts 화면에서 소실을 알리고 사람이 대상을 다시 고르게 한다. 비슷한 제목·본문으로 몰래 바꾸지 않는다. 추출 실패나 format 변경 때문에 비교할 수 없으면 미확인으로 구별한다. (documents/contexts#R9, documents/contexts#R11)
-- 자료가 허용 범위 밖이면 제목·존재·근거까지 제외한다. 허용 앱 read 항목이 있더라도 Context Engineer는 계약만 조회하며 실제 호출은 허락된 역할과 현재 command 범위를 다시 확인한다. 사람에게는 보이지 않는다. (platform/identity#R8, lophn-agent/roles/common#R11, apps/permissions#R28, apps/runtime#R32)
-- context에서 항목을 빼거나 보관하면 대상 문서·앱·용어는 변경하지 않는다. 보관 중 문서 watch 검사는 멈추고 이전 구성의 늦은 비교를 적용하지 않는다. (documents/contexts#R7, documents/contexts#R12)
-- revert 전에 후속 변경이나 안전하게 복원할 수 없는 관계가 있으면 아무 변경도 시작하지 않는다. contexts 화면에서 현재 영향과 충돌 이유를 확인하며 복원 가능 부분만 복원됐다고 전체 복원으로 표시하지 않는다. confirmation-window 화면에서 닫기·Escape는 적용 결정이 아니고, 확인 중 대상 변경이나 조회 실패가 있으면 옛 행동을 제거해 최신 내용을 다시 확인하게 한다. 실제 적용과 부분 결과 확인은 flow/review-agent-work와 같은 계약을 따른다. (lophn-agent/revert#R3, lophn-agent/revert#R4, lophn-agent/revert#R6, shell/confirmation-window#R4, shell/confirmation-window#R5)
-- 연결이 끊기면 contexts 화면의 마지막 확인 자료와 conversation 화면의 작성 중 요청을 유지한다. 최신 구성·watch 결과를 확인하지 못했음을 알리고 재연결 뒤 현재 기록을 다시 읽는다. (shell/desktop#R7, shell/desktop#R8)
+- 1에서 사람이 폴더나 목적을 말하지 못하면 Context Engineer가 필요한 만큼만 되묻고 정해지지 않은 채로는 초안을 적용하지 않는다. 대화를 닫거나 답이 없다는 이유로 추천을 확정하지 않는다. (lophn-agent/roles/context-engineer, lophn-agent/questions#R8)
+- 4의 검사에서 계약이 돌지 않거나 예가 틀리거나 다른 context의 private를 가리키거나 호출되지 않는 saved view가 있거나 다른 project의 경로가 있으면 그 묶음은 적용되지 않는다. 이미 적용된 판이 있으면 그대로 쓰이고, 없으면 context는 drafting에 남는다. Context Engineer가 이유를 보고 고쳐 새 판을 제출한다. (documents/contexts#R2, documents/contexts#R14, documents/contexts#R19, documents/contexts#R20)
+- 4의 snapshot에서 나온 위반은 적용을 막지 않고 세어서 남긴다. 적용 뒤 Violations에서 같은 근거로 본다. (documents/contexts#R20, documents/contexts#R24)
+- 계약에 읽기 효과가 아닌 앱 명령이 자료로 들어 있으면 검사에서 거절한다. 앱 명령의 입력과 결과는 계약에도 index에도 저장하지 않는다. (documents/contexts#R12)
+- 7에서 선언이 그릴 수 없는 입력 타입을 쓰면 그 검색은 열리지 않고 이유와 [Ask Context Engineer]가 나온다. 개체로 읽을 수 없는 파일이 있어도 나머지 개체의 검색은 그대로 된다. (shell/workspace#R24, documents/contexts#R24)
+- 10에서 위반이 이미 있던 것이면 새 notification을 만들지 않는다. 새로 늘어난 위반만 알린다. 알림을 놓쳤으면 사람이 Contexts 탭의 위반 수나 Violations에서 직접 본다. (documents/contexts#R25, platform/notifications#R4, shell/workspace#R16)
+- 12에서 새 판이 마음에 들지 않으면 사람이 Contract의 [History]에서 이전 판으로 되돌린다. 계약의 판일 뿐 project 파일은 바뀌지 않는다. (documents/contexts#R21, documents/contexts#R22, shell/workspace#R21)
+- context를 보관하면 검색·위반 알림·Operator preset의 선택 후보에서 빠지고 계약과 판, 용어집은 남는다. 해제하면 이전 계약 그대로 돌아온다. (documents/contexts#R4, documents/terms#R9)
+- Context 탭을 여는 길은 하나가 아니다. 사이드바의 Contexts 행, 접힌 바로 가기 rail의 Contexts, 탭 줄 `+`의 Context, Search 탭의 "Open context", 문서 Info의 Contexts, 위반 toast, 상단 검색(Ctrl+K)의 context 이름, Agent 탭 대화 속 context 이름 링크, 1의 drafting 탭이 모두 같은 Context 탭을 연다. (shell/workspace#R15, shell/workspace#R28, shell/workspace#R31, shell/workspace#R32, shell/desktop#R34)
+- Operator나 다른 lophn agent는 preset에서 이 context를 읽을 자료로 고른다. context가 Operator의 담당 범위를 만들지는 않고 coding agent는 context에 접근하지 않는다. (documents/contexts#R27, coding-agent/mcp-server#R38)
+- 연결이 끊기면 Context 탭과 Search 탭은 마지막 화면과 확인 못한 시각을 유지하고, 작성하던 답과 입력은 보존한다. 재연결 뒤 현재 판과 위반을 다시 읽는다. (shell/desktop#R7, shell/desktop#R8, shell/workspace#R6)
 
 ## 끝
 
-사람이 같은 목적 아래 필요한 자료와 관점을 다시 열 수 있다. 읽은 근거는 고정 판으로 남고, watch의 확인된 변화와 미확인이 구별되며 판단은 사람 요청 또는 승인된 Operator 주기에서만 시작한다. (documents/contexts#R1, documents/contexts#R4, documents/contexts#R10, documents/contexts#R11, platform/notifications#R7, lophn-agent/assignments#R15)
-
-## Operator와 자료의 경계
-
-Operator는 project/app의 책임이며 Context에 붙지 않는다. 이 flow에서 읽을 자료는 고정 Preset 판이 선택한 Context와 현재 허용 범위의 교집합이다. 같은 project/app의 여러 Operator가 다른 자료를 쓰고 별도 기존 출력 문서를 가진다. Context watch가 run을 자동 시작하지 않으며 맡기는 변경은 exact preset·범위·출력·주기의 사람 승인으로 적용한다. (lophn-agent/presets#R5, lophn-agent/assignments#R2, lophn-agent/assignments#R5, documents/contexts#R15)
+사람은 자기 폴더의 구조를 Overview로 읽고, 선언된 검색과 saved view로 필요한 개체를 바로 찾으며, 파일이 계약에서 벗어나면 알림을 받아 Violations에서 한 번에 Context Engineer에게 넘긴다. 계약과 그 판은 lophn에 있고 project 폴더의 파일은 늘거나 바뀌지 않았다. (documents/contexts#R3, documents/contexts#R16, documents/contexts#R21, documents/contexts#R25)

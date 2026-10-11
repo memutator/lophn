@@ -1,32 +1,32 @@
 ---
 type: flow
-concerns: [documents/series, documents/versions, documents/formats, documents/outline-and-search, platform/ledger, shell/editor, shell/desktop]
+concerns: [documents/series, documents/contexts, lophn-agent/roles/operator, lophn-agent/assignments, shell/workspace]
 ---
 # 반복 문서의 다음 편을 이어서 쓴다
 
-사람이 매주 쓰는 보고처럼 같은 틀의 문서를 이어서 쓰려 할 때 시작한다. 가족 규칙과 다음 이름은 lophn이 계산하고, 사람은 첫 key와 내용을 정한다. Operator는 기존 문서의 새 판만 쓰며 가족의 다음 문서를 만들지 않는다.
+매주 쓰는 보고나 번호 붙은 실험 기록처럼 같은 틀의 문서를 이어 쓰려 할 때 시작한다. 반복 문서는 따로 등록하지 않는다. context 계약의 series 자료가 가진 파일 이름 pattern이 정의이고, 다음 이름은 그 pattern과 지금 있는 파일로 lophn이 계산한다. 쓰는 쪽은 Operator나 다른 lophn agent, 또는 사람이다.
 
-지키는 약속: documents#I5, documents#I2, documents#I1.
+지키는 약속: documents#I5, documents#I1, documents#I6.
 
 ## 흐름
 
-1. documents 화면 사람이 프로젝트나 앱 자리에서 series를 등록하고 이름·제목·문서 format·정렬 기준·다음 이름 규칙을 정한다. 가족은 문서 간 관계 대신 멤버십으로 이어지며 lophn agent의 가족 등록은 받지 않는다. (documents/series#R1, documents/series#R12)
-2. documents 화면 사람이 첫 멤버의 key를 직접 정하고 내용을 쓴다. 빈 가족이나 규칙으로 읽을 수 없는 key에서는 다음 이름을 자동으로 꾸미지 않는다. 저장은 가족과 비어 있지 않은 key를 함께 정하고, key는 문서 이름과 별개이며 그 가족 안에서 유일하다. (documents/series#R2, documents/series#R7, shell/editor#R1)
-3. lophn은 멤버를 같은 자리와 정한 format의 고정 판으로 확정하고 확인된 주체의 변경 기록을 남긴다. 멤버를 고쳐도 같은 문서의 새 판이 생길 뿐 새 멤버가 되지 않는다. 사람에게는 보이지 않는다. (documents/series#R3, documents/series#R14, documents/versions#R2, platform/ledger#R3)
-4. documents 화면 사람이 다음 편을 쓰려 하면 lophn이 마지막 key와 저장한 규칙으로 다음 key를 제안하고 계산 근거 key와 이미 쓰인 이름 여부를 함께 보여 준다. 제안은 저장하지 않으며 문서를 만들지 않는다. 지원 규칙은 정수 증가·감소와 major·minor·patch 변경, 최대 4자리 0 채움이다. 계산은 사람에게는 보이지 않는다. (documents/series#R6, documents/series#R8)
-5. documents 화면 사람이 제안이나 직접 고친 key로 다음 멤버를 저장한다. 작성 중 값은 가족의 draft 하나로 보존하고 확정 전에는 문서나 context 대상으로 읽히지 않는다. 저장 상태와 판 확정은 서로 다른 결과로 보여 준다. (documents/series#R2, documents/series#R11, shell/editor#R2)
-6. documents 화면 사람이 가족 목록과 목차에서 같은 순서의 key·제목·고정 최신 판·보관 상태를 본다. 순서는 format의 정렬 값이 있으면 그 값으로, 없으면 key로 정하고 key의 숫자 부분은 수로 비교한다. (documents/series#R4, documents/series#R5, documents/outline-and-search#R1)
-7. documents 화면 사람이 가족을 보관하거나 해제한다. 가족 보관은 멤버 문서의 보관이 아니며 가족 삭제는 제공하지 않는다. 보관 뒤에도 멤버 구성과 key, 확정 판을 읽는다. (documents/series#R10, documents/series#R13, documents/versions#R11, documents/versions#R12)
+1. 사람이 flow/build-context에서 Context Engineer와 함께 계약에 series 자료를 둔다. 자료는 프로젝트 폴더 기준 상대 경로 pattern 하나다(예: `reports/weekly-{n}.md`). pattern에는 번호 자리 `{n}`·`{major}`·`{minor}`·`{patch}` 중 정확히 하나가 있고 `*`는 파일 이름 칸에서만 쓴다. 이름·제목·정렬 기준 같은 별도 등록은 없다. (documents/series#R1, documents/series#R2, documents/contexts#R11)
+2. 첫 회차는 사람이 key를 직접 정해 평범한 파일 하나를 만든다. 이름이 pattern에 맞는 프로젝트 파일은 모두 멤버이고 번호 자리가 잡은 글자가 key다. 파일을 만들거나 지우거나 옮기면 멤버가 따라 바뀐다. 멤버가 없을 때는 다음 이름이 빈 제안이다. (documents/series#R3, documents/series#R6, documents/series#R10)
+3. 다음 회차를 쓸 때가 되면 Operator가 주기에 맞춰 일하거나 사람이 Agent 탭에서 이어 쓰라고 요청한다. 쓰는 쪽이 context 도구로 다음 이름을 읽는다. lophn은 pattern과 지금 있는 파일 목록만으로 이름을 계산하고, 계산의 근거가 된 마지막 멤버와 그 이름이 이미 멤버에 있는지를 함께 알려 준다. 이 읽기는 파일을 만들지 않고 변경 기록도 남기지 않는다. 사람에게는 보이지 않는다. (documents/series#R5, documents/series#R9, documents/series#R10)
+4. 계산은 정수 증가·감소, major·minor·patch 변경, 최대 4자리 0 채움을 지원한다. P001은 P002로, 0.2는 0.3 또는 1.0으로, 0.2.1은 0.2.2로, v1은 v2로 같은 결과를 낸다. 0 채움을 적지 않으면 마지막 멤버의 자리 수를 따르고, 멤버의 순서는 key의 숫자를 수로 비교한 자연 순서다. 사람에게는 보이지 않는다. (documents/series#R4, documents/series#R7)
+5. 쓰는 쪽이 그 이름으로 평범한 프로젝트 파일을 하나 쓴다. 새 파일이 곧 새 멤버가 되며 문서마다 판이 따로 남지 않는다. Operator는 사람이 승인한 범위와 주기 안에서만 쓴다. (documents/series#R3, documents/series#R9, lophn-agent/assignments)
+6. 사람이 프로젝트 폴더에서 새 파일을 문서 탭으로 열어 읽고 고친다. 고쳐도 멤버는 그대로 하나다. 선언된 검색이 series 자료를 쓰면 Search 탭에서 같은 자연 순서로 이전 회차와 나란히 본다. (shell/workspace#R1, shell/workspace#R25, documents/series#R4, documents/contexts#R11, documents/contexts#R17)
 
 ## 다른 갈래
 
-- 1에서 해석할 수 없는 규칙이나 5자리 이상 0 채움을 등록하려 하면 거절하고 다시 고르게 한다. 날짜 key는 사람이 직접 정한다. (documents/series#R8, documents/series#R7)
-- 2·5에서 key 없이 가족만 지정하거나 이미 쓴 key를 다시 쓰면 저장하지 않는다. 멤버에서 뺀 key도 다른 문서에 재사용하지 않는다. (documents/series#R2)
-- 3에서 format이나 자리가 가족의 규칙과 다르면 멤버로 받지 않는다. 저장 중 기준 판이 바뀌면 충돌로 멈추고 사람의 판을 덮지 않는다. (documents/series#R3, documents/versions#R4)
-- 4에서 다음 제안을 여러 번 읽어도 문서가 늘지 않는다. 목록 읽기와 재조회는 변경 기록을 만들지 않는다. (documents/series#R6, documents/series#R14)
-- lophn agent는 가족 목록·상세·다음 제안만 읽고 가족 등록·구성 변경·멤버 추가·보관·draft 변경을 하지 못한다. 허용된 앱과 coding agent의 등록·멤버 저장은 받는다. (documents/series#R9)
-- 연결이 끊기면 documents 화면에서 마지막 확인 상태와 작성 중 draft를 유지하고, 재연결 뒤 실제 저장된 판을 확인한다. 확인하지 못한 저장을 성공으로 채우지 않는다. (documents/series#R11, shell/editor#R2)
+- 처음에는 멤버가 없으므로 다음 이름이 빈 제안이다. pattern의 `*` 자리는 계산하지 않고 `*`로 남겨, 쓰는 쪽이 채우게 한다. (documents/series#R6)
+- 마지막 멤버로 규칙을 계산할 수 없거나 이름에 날짜가 들어 있으면 오류 대신 빈 제안을 돌려준다. 날짜가 든 이름은 번호 pattern의 멤버가 아니므로 번호를 꾸며 내지 않고, 이름은 사람이 직접 정한다. (documents/series#R8)
+- 계산한 이름이 이미 멤버에 있다고 알려 오면 그 사실만 알려 줄 뿐 lophn이 막거나 다른 이름을 대신 고르지 않는다. 쓰는 쪽이 이를 보고 사람에게 알린다. (documents/series#R5)
+- 1에서 pattern이 번호 자리를 둘 이상 갖거나 하나도 없으면, 또는 5자리 이상 0 채움을 적으면 계약이 돌지 않으므로 묶음을 적용하는 격리 검사가 막는다. Context Engineer가 고쳐 다시 제출한다. (documents/series#R2, documents/series#R7, documents/contexts#R20)
+- pattern과 어긋난 이름으로 둔 파일은 멤버가 아니다. 계약의 경로 pattern과 어긋난 이름이나 자리는 위반으로 세어져 Violations에 나온다. (documents/series#R3, documents/contexts#R24)
+- series 등록, 가족 보관, draft, series 화면은 없다. 반복 문서를 정리하려면 파일을 직접 옮기거나 지우고, 계약의 pattern을 고치려면 Context Engineer에게 말한다. coding agent는 context에 접근하지 않으므로 이 흐름의 쓰는 쪽이 아니다. (documents/series#R1, documents/contexts#R27, coding-agent/mcp-server#R38)
+- 연결이 끊기면 Agent 탭과 문서 탭의 마지막 화면과 작성 중 내용을 유지한다. 이름을 읽기만 한 것은 파일이 아니므로 재연결 뒤 다시 읽고 계산한다. (shell/desktop#R7, documents/series#R10)
 
 ## 끝
 
-사람은 같은 가족의 멤버를 정한 순서로 읽고, 다음 편의 이름과 자리가 규칙대로 정해진 것을 확인한다. 제안만 본 것은 저장과 구별되고, 가족을 정리해도 멤버 문서와 옛 판은 남는다. (documents/series#R4, documents/series#R6, documents/series#R13)
+사람은 같은 pattern의 파일이 정한 순서로 쌓인 것을 보고, 다음 편의 이름이 규칙대로 정해진 것을 확인한다. 이름을 읽은 것만으로는 파일이 생기지 않았고, 멤버·순서·다음 이름은 파일 목록 말고 어디에도 따로 기억되지 않는다. (documents/series#R5, documents/series#R10)

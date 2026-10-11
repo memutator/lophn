@@ -52,6 +52,10 @@ import type {
 import { layoutHint, type TabPresentation } from "./view-hint.ts";
 import type { ContextsSlice, TabHost } from "./kinds/host.ts";
 import type { RailAction } from "./contexts/shortcut-rail.tsx";
+import {
+  contextEngineerSource,
+  startContextEngineerSession,
+} from "./contexts/context-engineer-conversation.ts";
 import { useContextWatch } from "./contexts/context-watch.ts";
 import { DocumentContexts } from "./contexts/document-contexts.tsx";
 import { settleContextTabs } from "./contexts/settle-tabs.ts";
@@ -187,19 +191,31 @@ export function Workspace(props: WorkspaceProps) {
   >([]);
   // [New context]를 누른 뒤 생기는 만드는 중인 context의 탭을 남기려는 표시(workspace#R30).
   const expectDraft = useRef(false);
+  const [expectingDraft, setExpectingDraft] = useState(false);
+  // 도크가 누구와 말하는지. [New context]와 [Ask Context Engineer]는 Context Engineer다(R30).
+  const [dockRole, setDockRole] = useState<"lophn" | "context_engineer">(
+    "lophn",
+  );
   const leaveDraft = useRef<(context: string, title: string) => void>(() => {});
-  const watch = useContextWatch(contextsSource, projectId, {
-    onViolations: (item, count) =>
-      setToasts((current) => [
-        ...current.filter((toast) => toast.context !== item.id),
-        { context: item.id, title: item.title, count },
-      ]),
-    onDrafting: (item) => {
-      if (!expectDraft.current) return;
-      expectDraft.current = false;
-      leaveDraft.current(item.id, item.title);
+  const watch = useContextWatch(
+    contextsSource,
+    projectId,
+    {
+      onViolations: (item, count) =>
+        setToasts((current) => [
+          ...current.filter((toast) => toast.context !== item.id),
+          { context: item.id, title: item.title, count },
+        ]),
+      onDrafting: (item) => {
+        if (!expectDraft.current) return;
+        expectDraft.current = false;
+        setExpectingDraft(false);
+        leaveDraft.current(item.id, item.title);
+      },
     },
-  }, timer);
+    timer,
+    expectingDraft && dockOpen && dockRole === "context_engineer",
+  );
   // 문서 탭의 파일 이름·제목·상대 경로. 편집기가 문서를 읽으면 채운다(editor#R4).
   const [tabMeta, setTabMeta] = useState<
     Readonly<Record<string, DocumentTabMeta>>
@@ -528,6 +544,28 @@ export function Workspace(props: WorkspaceProps) {
   // 대화를 연다. Agent 탭은 다른 일이 맡고 지금은 오늘의 대화 도크가 들어가는 길이다(workspace#R33).
   const openConversation = () => {
     if (conversation === null) return;
+    setDockRole("lophn");
+    setDockOpen(true);
+  };
+
+  // Context Engineer와의 대화를 연다. 새 context를 시작하면 이 프로젝트를 작업 자리로 하는 새 세션을
+  // 먼저 열어 고른다(workspace#R30). 세션을 못 열어도 대화는 열려 그 이유를 대화 화면이 보인다.
+  const engineerSource = useMemo(
+    () =>
+      conversation === null ? null : contextEngineerSource(conversation.source),
+    [conversation],
+  );
+  const openEngineer = async (fresh: boolean) => {
+    if (conversation === null || engineerSource === null) return;
+    if (fresh) {
+      await startContextEngineerSession(
+        engineerSource,
+        conversation.drafts,
+        projectId,
+        conversation.now ?? Date.now,
+      );
+    }
+    setDockRole("context_engineer");
     setDockOpen(true);
   };
 
@@ -546,10 +584,11 @@ export function Workspace(props: WorkspaceProps) {
     titleOf: (id) => watch.list.find((item) => item.id === id)?.title,
     openPath,
     openSearch: (state) => openSearchFor(host, state),
-    askContextEngineer: openConversation,
+    askContextEngineer: () => void openEngineer(false),
     newContext: () => {
       expectDraft.current = true;
-      openConversation();
+      setExpectingDraft(true);
+      void openEngineer(true);
     },
   };
 
@@ -734,7 +773,10 @@ export function Workspace(props: WorkspaceProps) {
                     ? (
                       <DockToggle
                         open={dockOpen}
-                        onToggle={() => setDockOpen(!dockOpen)}
+                        onToggle={() => {
+                          if (!dockOpen) setDockRole("lophn");
+                          setDockOpen(!dockOpen);
+                        }}
                       />
                     )
                     : null}
@@ -868,8 +910,17 @@ export function Workspace(props: WorkspaceProps) {
               )
               : null}
             <DockSlot
+              key={dockRole}
               placement={dock}
               workPlace={{ kind: "project", id: projectId }}
+              source={dockRole === "context_engineer"
+                ? engineerSource ?? undefined
+                : undefined}
+              contexts={contextsSource === undefined ? undefined : {
+                open: (id) => openContext(host, id),
+                titleOf: (id) =>
+                  watch.list.find((item) => item.id === id)?.title,
+              }}
               onClose={() => setDockOpen(false)}
               onOpenResult={(id) => {
                 const row = loaded.documents.find((item) => item.id === id);

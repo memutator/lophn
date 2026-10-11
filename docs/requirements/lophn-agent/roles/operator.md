@@ -42,7 +42,7 @@ project 또는 app에 붙어 preset context로 읽을 자료를 고르는 assign
 - 확인: 변화 없는 회차에서 문서 수가 0이고 정상 완료로 남으며 다른 회차는 승인 문서 수 안에서 여러 결과를 저장할 수 있는지 본다.
 - 의도: lophn-agent#I4, lophn-agent#I7
 
-**[R7]** 승인한 기존 문서의 새 version은 회차마다 approval request를 다시 묻지 않되 문서 자리·형식을 바꾸거나 선언 밖 문서에 쓰는 것은 허용하지 않는다.
+**[R7]** 승인한 기존 문서의 새 version과 담당 context의 series 다음 이름으로 이어 쓰는 새 문서는 회차마다 approval request를 다시 묻지 않되 문서 자리·형식을 바꾸거나 선언 밖 문서에 쓰는 것은 허용하지 않는다.
 - 이유: lophn-agent/roles/operator에 따라 assignment 승인으로 범위를 고정한다.
 - 확인: 남길 문서 저장은 진행되지만 다른 문서 저장은 approval request로 우회하지 않고 거절되는지 본다.
 - 의도: lophn-agent#I4

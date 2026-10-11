@@ -127,7 +127,7 @@ ContentFile은 상대 경로의 Unicode codepoint 순으로 정렬하고 `path, 
 
 한 scan의 결과는 한 SQLite transaction에 쓴다. 같은 파일 내용과 같은 Bundle은 같은 행을 낳고 순서는 canonical이다. SQLite FTS5를 쓰지 않는다. 선언 검색은 index 행을 읽어 순수 함수로 평가하고, 표의 SQL index는 `(context, type, id)`와 `(context, path)` 같은 조회 열에만 둔다. app-data kind의 개체는 index에 저장하지 않는다(검색할 때 port로 읽는다, 5.6).
 
-**따라잡기.** tracking도 watch도 event 구독도 없다. 검색·context 열기·Overview 개수를 읽기 전에 reader가 `context.index`를 요청해 계약 경로를 싸게 다시 훑는다. `(path, size, mtime)`이 `index_files`와 같은 파일은 건너뛴다. 같은 context에 이미 도는 scan이 있으면 그 결과를 기다리고, 직전 scan이 끝난 지 2초 안이면 새로 요청하지 않는다. 기한 2초 안에 끝나지 않으면 있던 index로 답하고 결과에 `indexed_at`과 `stale: true`를 싣는다(초기 구현값. 파일 수에 맞춰 조절한다). 적용 Bundle이 바뀌면 다음 scan은 모든 파일을 다시 extract한다. 같은 size·mtime으로 내용만 바뀐 편집은 다음 변경 때까지 index에 안 보일 수 있다. stat만 쓰는 선택의 대가이고 hash 비교로 막지 않는다(documents/contexts#Q14). 사람이 열지 않아도 위반을 알리려고 활성 context마다 5분에 한 번 같은 scan을 예약한다(초기 구현값, 7.7).
+**따라잡기.** tracking도 event 구독도 없다. 검색·context 열기·Overview 개수를 읽기 전에 reader가 `context.index`를 요청해 계약 경로를 싸게 다시 훑는다. `(path, size, mtime)`이 `index_files`와 같은 파일은 건너뛴다. 같은 context에 이미 도는 scan이 있으면 그 결과를 기다리고, 직전 scan이 끝난 지 2초 안이면 새로 요청하지 않는다. 기한 2초 안에 끝나지 않으면 있던 index로 답하고 결과에 `indexed_at`과 `stale: true`를 싣는다(초기 구현값. 파일 수에 맞춰 조절한다). 적용 Bundle이 바뀌면 다음 scan은 모든 파일을 다시 extract한다. 같은 size·mtime으로 내용만 바뀐 편집은 다음 변경 때까지 index에 안 보일 수 있다. stat만 쓰는 선택의 대가이고 hash 비교로 막지 않는다(documents/contexts#Q14). 사람이 열지 않아도 위반을 알리려고 context worker가 활성 context의 계약 경로가 든 폴더만 `Deno.watchFs`로 본다. 신호는 "그 context를 다시 훑으라"는 힌트로만 쓰고(500ms 동안 합침), 변화 비교·기록·event·화면 상태는 만들지 않는다. 신호를 놓쳐도 다음 검색·열기의 훑기가 따라잡는다. 계약이 바뀌거나 context가 보관되면 감시 폴더를 다시 정한다(documents/contexts#R23, 7.7).
 
 **삭제·손상.** index 파일을 지워도 Bundle·saved view·용어·위반 수의 마지막 기록은 그대로다. 다음 요청이 전체를 다시 훑어 채우고, 기한 안에 첫 scan이 끝나지 않으면 빈 결과를 성공으로 꾸미지 않고 `unavailable`을 돌려준다. 사라진 파일의 개체는 다음 scan에서 지운다. 파일을 읽는 사이 identity·size·mtime이 바뀌면 그 파일은 이번 scan에서 `failed`로 두고 다음 scan에서 다시 읽는다.
 
@@ -437,7 +437,7 @@ Context Engineer(agent) 또는 user: contract·선언 검색·예시 초안을 b
 ### 7.7 계약 위반 감지 → 알림 → Context Engineer
 
 ```text
-context.index(또는 적용 직후 첫 scan, 5분 예약 scan): checks → index_violations
+context.index(검색·열기 전, 적용 직후 첫 scan, 계약 경로 파일 변경 신호): checks → index_violations
  → 직전 기록(contexts.violation_count·violations_hash)과 비교
  → 늘었으면 context worker가 context.record_violations(context, bundle_hash, count, violations_hash, 새 위반 key 일부)
  → core command: 현재 적용 bundle_hash·직전 기록 CAS → ContextViolationsRecorded

@@ -10,7 +10,7 @@ concerns: [platform/notifications]
 
 ### 계기와 사실
 
-**[R1]** notification은 운영 보고 문제의 열림·재발·닫힘, approval request 생성, question 생성, ticket 확인 완료·검사 실패, 반복 실패나 대상 보관으로 machine이 멈춘 assignment, watch 항목 변화·절 소실, release activation 실패에서만 생긴다.
+**[R1]** notification은 운영 보고 문제의 열림·재발·닫힘, approval request 생성, question 생성, ticket 확인 완료·검사 실패, 반복 실패나 대상 보관으로 machine이 멈춘 assignment, context 계약 위반 수 증가, release activation 실패에서만 생긴다.
 - 이유: platform/notifications의 한 계기 표만 쓰면 필요하지 않은 소식이 늘거나 영역별 정책이 어긋나지 않는다.
 - 확인: problems/grouping·problems/closing, platform/approvals, lophn-agent/questions, coding-agent/tickets, lophn-agent/assignments, documents/contexts, apps/releases에서 각 조건을 일으켜 하나씩 생기고 운영 보고가 아닌 문제와 사람이 직접 멈춘 assignment에서는 생기지 않는지 본다.
 - 의도: platform#I6

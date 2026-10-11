@@ -32,7 +32,7 @@ concerns: [lophn-agent/handoff]
 
 **[R5]** handoff는 원래 사람 요청에서 이어진 run에서만 보내고 보낸 run은 전달 사실을 남겨 끝내며 받은 결과·티켓·문제 변화가 새 후속 판단을 자동 시작하지 않는다.
 - 이유: lophn-agent/handoff에 따라 handoff를 부모·자식 실행이나 event 깨움으로 만들지 않는다.
-- 확인: 주기 run의 handoff가 거절되고 수신 run 종료 뒤 발신 역할이 자동 실행되지 않는지 본다.
+- 확인: 사람 요청에서 이어지지 않은 run(시각·자료 변화 등)의 handoff가 거절되고 수신 run 종료 뒤 발신 역할이 자동 실행되지 않는지 본다.
 - 의도: lophn-agent#I2
 
 **[R6]** handoff는 발신 권한·approval request 결정을 옮기지 않고 수신 역할의 범위와 tool 판정을 다시 적용하며 한시적 고정 근거 읽기는 lophn-agent/roles/app-engineer의 계약만 따른다.

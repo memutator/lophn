@@ -23,9 +23,9 @@ concerns: [lophn-agent/instructions]
 - 확인: agent의 파일·문서 저장 tool로 지침을 고칠 수 없고 사람이 제안을 선택해 저장해야 다음 call부터 바뀐 내용을 읽는지 본다.
 - 의도: lophn-agent#I8, lophn-agent#I6
 
-**[R4]** 읽을 전역·project·app 지침은 세션 작업 자리로 고르며 App Engineer와 Operator는 담당 범위로 고정하고 lophn·Context Engineer는 세션을 연 곳을 사람이 명시적으로 바꿀 때만 바꾼다.
+**[R4]** 읽을 전역·project·app 지침은 세션 작업 자리로 고르며 App Engineer와 Operator는 담당 범위로 고정하고 lophn·Context Engineer는 세션을 연 자리로 고정한다(session 안에서 자리를 바꾸지 않는다 — lophn-agent/conversation#R16).
 - 이유: 탭을 옮겼다고 지침과 책임이 몰래 바뀌지 않는다.
-- 확인: 탭 이동 후 같은 지침 층을 읽고 명시 작업 자리 변경 뒤 다음 call만 새 층을 읽는지 본다.
+- 확인: 탭 이동 후에도 같은 지침 층을 읽고, 다른 자리의 지침은 그 자리에서 연 session만 읽는지 본다.
 - 의도: lophn-agent#I8
 
 **[R5]** 사람 지침은 전역→project→app→agent instructions 순으로 읽고 뒤의 더 좁은 지침은 제품 규칙과 현재 사람 요청 안에서 앞의 지침을 구체화한다.

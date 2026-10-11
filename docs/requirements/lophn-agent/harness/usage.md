@@ -15,7 +15,7 @@ concerns: [lophn-agent/harness/usage]
 - 확인: retry·이동·요약·test의 실제 시도 수와 기록 수가 같고 시작 저장 실패에는 전송 0개인지 확인한다.
 - 의도: lophn-agent/harness#I3
 
-**[R2]** 호출마다 주체·역할·run·세션·순서·시도·provider·secret 없는 credential 참조·원래 선택·전송 model·응답 model·과금 경로·judgment 또는 preset organizing 선택과 판단·제목과 요약·세션 압축·연결 test 용도를 각각 확인할 수 있다.
+**[R2]** 호출마다 주체·역할·run·세션·순서·시도·provider·secret 없는 credential 참조·원래 선택·전송 model·응답 model·과금 경로·judgment(agent model) 또는 organizing(Model for summaries) 선택과 판단·제목과 요약·세션 압축·연결 test 용도를 각각 확인할 수 있다.
 - 이유: 같은 model을 왜 누구의 계정으로 불렀는지 되짚는다.
 - 확인: model 용도와 작업 용도가 별도로 보이고 credential 이동 전후 계정·과금 경로가 기록되는지 확인한다.
 - 의도: lophn-agent/harness#I3

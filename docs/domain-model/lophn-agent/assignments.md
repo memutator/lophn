@@ -102,7 +102,7 @@ Operator assignment를 만드는 것은 → lophn-agent/agents의 `SaveAgent`가
 ## 정책
 
 - **일시적 접근 실패.** 현재 대상 unavailable은 새 호출을 막는다. 자동 pause의 확정 사유는 자리 archived뿐이다.
-- **대화 자격.** enabled·paused는 새 세션을 열 수 있고 withdrawn은 과거 세션 읽기만 가능하다. paused의 새 request는 → lophn-agent/conversation에서 담당 run 없이 보존하며 실행 접수·후속 호출은 허용하지 않는다. Operator를 거두면 열린 session은 `assignment_withdrawn`으로 닫힌다.
+- **대화 자격.** enabled는 새 세션을 열고 입력을 받는다. paused(`scope_archived`)는 과거 세션을 읽기만 하고 새 세션·새 입력을 거절한다(→ lophn-agent/conversation). withdrawn은 과거 세션 읽기만 가능하다. Operator를 거두면 열린 session은 `assignment_withdrawn`으로 닫힌다.
 - **멈춤 적용.** pause·withdraw 커밋 뒤 새 Run 접수와 후속 호출을 막는다. 접수·진행 Run의 안전한 stopped 처리는 → lophn-agent/harness/run-loop다. 이미 일어난 효과는 취소됐다고 하지 않는다.
 - **겹침.** run의 동시 실행 제한은 session 단위(session마다 running·waiting_user 하나)이고 session이 없는 run은 assignment 단위다. 규칙은 → lophn-agent/harness/run-loop가 소유한다.
 - **정의와 수명.** Operator를 거두면 정의 파일도 지운다(`DeleteAgent`). 정의 파일이 없는 assignment는 시작하지 않는다.

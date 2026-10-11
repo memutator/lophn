@@ -143,7 +143,7 @@ CatalogEntry·CatalogState는 ledger 밖 derived store다. 당시 가격·한계
 
 ## 정책
 
-- **선택 적용.** Run 시작에 resolved agent(→ lophn-agent/agents)의 ModelChoice를 resolve한다. 새 판단·본문은 judgment, 제목·요약·세션 압축은 organizing이며 후자는 Workspace의 `summaries`가 null이면 judgment와 같은 model·option 값을 쓴다. 독립 이어가기 summary도 같은 방식으로 resolve한다. 기본값 변경과 catalog 누락은 이미 고른 구성이나 진행 중 Run을 바꾸지 않는다. 어느 층에도 model이 없거나 provider에 쓸 수 있는 계정이 없으면 Run을 시작하지 않는다.
+- **선택 적용.** Run 시작에 resolved agent(→ lophn-agent/agents)의 ModelChoice를 resolve한다. 새 판단·본문은 judgment, 제목·요약·세션 압축은 organizing이며 후자는 Workspace의 `summaries`가 null이면 judgment와 같은 model·option 값을 쓴다. 사람이 부른 Compact 요약도 같은 방식으로 resolve한다. 기본값 변경과 catalog 누락은 이미 고른 구성이나 진행 중 Run을 바꾸지 않는다. 어느 층에도 model이 없거나 provider에 쓸 수 있는 계정이 없으면 Run을 시작하지 않는다.
 - **session override.** composer가 고른 ModelChoice는 그 session의 다음 Run부터 resolve에 들어가며 agent 정의·기본값·다른 session을 바꾸지 않는다. 저장은 → lophn-agent/conversation.
 - **호출 gate.** 빈 model, 확인·user 명시 한계 없음, 필요한 text·tool 미지원, 입력·예약 출력·전체 창 초과, catalog에 없는 option 축 또는 값이면 call하지 않는다. 이름 미확인을 큰 한계나 tool 지원으로 대신하지 않는다.
 - **catalog 우선순위.** models.dev release snapshot → 새 정상 갱신본 → 좁은 lophn 보정 → user 명시 보완. 명시된 필드만 덮는다.

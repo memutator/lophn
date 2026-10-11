@@ -185,7 +185,7 @@ changes는 시도 결과와 event 연결이며 원래 내용 복사본이 아니
 | context 계약 판·용어집 | → documents/contexts, documents/terms | retained; 이 revert의 owner가 아님; 이전 판 적용은 소유 concern의 판 이력으로만 하고 복원했다고 표시하지 않음 |
 | agent run이 생성한 미claim ticket | → coding-agent/tickets | reversible: ticket 취소; claim 이후는 owner 판정 없이는 복원 불가 |
 | pending approval request | → platform/approvals | 유효한 미결정 동작 차단은 owner의 cancellation 규칙; 이미 저장된 결정은 retained |
-| assignment·preset·설정 변경 | → lophn-agent/assignments, lophn-agent/presets, platform/settings | owner가 현재 승인 범위·참조·판을 검사; 이전 값 근거 없이는 reversible 아님 |
+| assignment·agent 정의·설정 변경 | → lophn-agent/assignments, lophn-agent/agents, platform/settings | owner가 현재 범위·참조를 검사; 정의는 판이 없어 이전 내용 근거 없이는 reversible 아님 |
 | report·관측·snapshot·test result | → problems/reporting, problems/snapshots, problems/tests | retained; 관측 사실을 지우거나 problem을 닫지 않음 |
 | run·tool/model call·질문 답·승인 결정·invocation 결과 | → lophn-agent/harness/run-loop, lophn-agent/harness/tools, lophn-agent/harness/usage, lophn-agent/questions, platform/approvals, apps/invocations | retained; 과거 사실·사용량·결정은 불변 |
 | activation·secret 사용·외부 전송 등 실제 외부 효과 | → apps/releases, platform/secrets, 실제 호출 소유 concern | irreversible; 기존 효과를 취소됐다고 간주하지 않음 |

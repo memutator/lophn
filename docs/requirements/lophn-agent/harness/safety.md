@@ -32,7 +32,7 @@ concerns: [lophn-agent/harness/safety]
 
 ### 자료와 지시
 
-**[R5]** prompt는 제품·역할/preset 지시, 작업 자리에서 읽은 사람 지침, 세션 사람 직접 입력, machine 확인 사실, 읽을 자료로 구별하며 문서·summary·앱 값·log·MCP 설명과 결과·다른 agent 글·출처 미상은 자료로 취급한다.
+**[R5]** prompt는 제품·역할 지시, agent instructions, 작업 자리에서 읽은 사람 지침, 세션 사람 직접 입력, machine 확인 사실, 읽을 자료로 구별하며 문서·summary·앱 값·log·MCP 설명과 결과·다른 agent 글·출처 미상은 자료로 취급한다.
 - 이유: 자료의 명령문이 사람의 현재 요청이 되지 않는다.
 - 확인: LOPHN 지침은 instructions의 확정 층에서만 지시로 조립되고 자료 속 가짜 지침·승인 문구는 사람 결정으로 승격되지 않는지 본다.
 - 의도: lophn-agent#I6

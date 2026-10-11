@@ -916,6 +916,53 @@ Deno.test("lophn-agent/conversation#R4: speakers stay distinct and a message lin
   }
 });
 
+Deno.test("lophn-agent/conversation#R4 [ctx-I58j]: a context link needs a context that was created", async () => {
+  const h = await open();
+  try {
+    await seed(h);
+    const session = await openLophn(h);
+    const run = await runningRun(h, session, id("msg", 1));
+    const ctx = id("ctx", 1);
+    const record = (message: string, links: unknown[]) =>
+      h.command(
+        machineCred,
+        envelope("RecordMessage", {
+          id: message,
+          session,
+          run,
+          content: textContent("a context to look at"),
+          links,
+        }),
+      );
+    // 아직 없는 context는 링크가 될 수 없다.
+    code(
+      await record(id("msg", 2), [{ kind: "context", context: ctx }]),
+      "invalid_input",
+    );
+    value(
+      await h.command(
+        machineCred,
+        envelope("SeedTargetFixture", {
+          type: "ContextCreated",
+          subject: ctx,
+          payload: {},
+        }),
+      ),
+    );
+    const linked = output<Snapshot>(
+      await record(id("msg", 2), [{ kind: "context", context: ctx }]),
+    );
+    assertEquals(linked.message["links"], [{ kind: "context", context: ctx }]);
+    // 다른 context의 링크는 이 context의 것이 아니다.
+    code(
+      await record(id("msg", 3), [{ kind: "context", context: id("ctx", 2) }]),
+      "invalid_input",
+    );
+  } finally {
+    await h.close();
+  }
+});
+
 Deno.test("lophn-agent/conversation#R5: corrections keep their receipt order and a correction differs from a next request", async () => {
   const h = await open();
   try {

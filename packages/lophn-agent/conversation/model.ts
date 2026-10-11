@@ -393,6 +393,12 @@ export function linkExists(lookup: Lookup, link: MessageLink): boolean {
         "select 1 from events where subject = ? and type = 'ApprovalRequestCreated'",
         [link.approval_request],
       );
+    case "context":
+      return exists(
+        lookup,
+        "select 1 from events where subject = ? and type = 'ContextCreated'",
+        [link.context],
+      );
     case "model_call":
       return exists(
         lookup,

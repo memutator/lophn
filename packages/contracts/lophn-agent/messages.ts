@@ -32,6 +32,7 @@ function links(strict: boolean) {
       kind: z.literal("approval_request"),
       approval_request: idSchema("apr"),
     }),
+    object({ kind: z.literal("context"), context: idSchema("ctx") }),
     object({ kind: z.literal("model_call"), call: idSchema("mcl") }),
     object({ kind: z.literal("tool_call"), call: idSchema("tcl") }),
   ]);

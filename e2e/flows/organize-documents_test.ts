@@ -682,7 +682,7 @@ Deno.test({
 // - 3과 다른 갈래: 고르기만으로는 답도 이동도 아니고, 미루면 답 없음으로 남고 자리는 그대로다.
 // 볼 수 없는 것(이어보냄): 3의 답 확정·이동 적용. 제품 `question.submit`은 이제 `document_move`
 // 제안(문서·새 자리·이름)을 받아 handler가 읽은 문서 revision으로 document.move action을 고정한다
-// (harness/tools/bundles/question-actions.ts, 단위 테스트). 그러나 질문 칸과 shell main이 `term.define`만
+// (harness/tools/bundles/question-actions.ts, 단위 테스트). 그러나 질문 칸과 shell main이 `app.create`·`apply_settings`만
 // 확인 창 없이 답으로 접수하고 그 밖의 고정 action은 모두 [Review] 확인 창으로 보내며 core의
 // AnswerQuestion도 action 선택지를 확인 handle 없이 받지 않는다(shell 결함, 이어보냄). 자리 이동은
 // 되돌릴 수 있는 안쪽 동작이라 확인 창 없이 확정돼야 한다(docs/flows/organize-documents.md 3).

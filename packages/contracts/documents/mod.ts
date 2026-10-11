@@ -16,15 +16,9 @@ export * from "./search.ts";
 export * from "./guides.ts";
 export * from "./file-values.ts";
 export * from "./files.ts";
-export * from "./contexts.ts";
-export * from "./context-reads.ts";
-export * from "./context-routes.ts";
 export * from "./context-contract.ts";
 export * from "./context-api.ts";
-export * from "./terms.ts";
-export * from "./term-routes.ts";
 export * from "./series.ts";
-export * from "./views.ts";
 export * from "./uploads.ts";
 
 import { DOCUMENT_EVENTS, DOCUMENT_ROUTES } from "./documents.ts";

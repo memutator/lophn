@@ -77,7 +77,6 @@ Deno.test("shell/desktop#R25, documents/projects#R1, R3, R6, R7: 실제 core에 
       value: { id, title: "Quarter plan", folders: [{ path: folder }] },
     });
     assertEquals(await workspace.documents(id), { ok: true, value: [] });
-    assertEquals(await workspace.contexts(id), { ok: true, value: [] });
 
     const tracking = coreTrackingSource(core.source);
     const project = await tracking.project(id);

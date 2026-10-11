@@ -223,11 +223,6 @@ const SEEDED: WorkspaceSource = {
         { id: "doc_plan", title: "plan" },
       ],
     }),
-  contexts: () =>
-    Promise.resolve({
-      ok: true,
-      value: [{ id: "ctx_design", title: "design" }],
-    }),
   files: () =>
     Promise.resolve({
       ok: true,

@@ -389,7 +389,6 @@ QuestionActionEvidence는 lophn-agent/questions 소유 정본에서 실제 사�
 | `ApprovalRequestCreated`, `QuestionCreated` | 항상 |
 | `TicketConfirmed`, `TicketCheckFailed` | 항상 |
 | `AssignmentPaused` | actor=machine, 반복 실패 또는 대상 보관 |
-| `ContextWatchedItemChanged` | machine이 watch 변화·section 소실을 확정 |
 | `ReleaseActivationFailed` | 항상 |
 
 `create_notification`은 실제 source·조건을 transaction에서 재검사하여 notification·`NotificationCreated`·cursor를 함께 commit한다. `source_seq UNIQUE`와 `(notifications,source_seq,create)`로 중복을 막는다. 계기 없는 구간은 cursor만 전진한다. `mark_notification_read`는 최초 read_at·`NotificationRead`를 한 번 남기고 반복은 unchanged다. 본문·Message·업무 상태·OS 배달 상태를 복제하지 않는다.

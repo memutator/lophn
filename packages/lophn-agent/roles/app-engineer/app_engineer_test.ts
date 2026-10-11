@@ -275,7 +275,6 @@ const NOT_OWNED_TOOLS = [
   "app.adopt",
   "sdk.plan_reuse",
   "context.apply",
-  "term.define",
   // 앱 command 계약 밖 운영과 Operator 업무.
   "app.run",
   "operator.create",

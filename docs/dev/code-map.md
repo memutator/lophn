@@ -55,7 +55,7 @@ fixtures/             예시 project 폴더, 예시 앱, 녹화한 model 응답
 | documents/series | packages/documents/series/ |
 | documents/addressing | packages/documents/addressing/ |
 | documents/contexts | packages/documents/contexts/ (세부 자리는 아래 "documents/contexts 안") · worker job apps/worker/documents/contexts.ts |
-| documents/terms | packages/documents/contexts/ledger/ (용어집 표·command·read는 context ledger adapter가 함께 한다; 옛 `packages/documents/terms/`는 새 모델로 대체됐다) |
+| documents/terms | packages/documents/contexts/ledger/ (용어집 표·command·read는 context ledger adapter가 함께 한다) |
 | apps/registration | packages/apps/registration/ |
 | apps/blueprint | packages/apps/blueprint/ |
 | apps/releases | packages/apps/releases/ |

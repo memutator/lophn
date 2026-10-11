@@ -91,7 +91,7 @@ Deno.test("lophn-agent/agents#R27 [agent-I10a]: a built-in agent takes the setti
     placeSettings: { models: { lophn: MODEL(PVD2) } },
   });
   assert(prepared.ok, prepared.ok ? "" : JSON.stringify(prepared.error));
-  const place = { kind: "project", id: OTHER_PRJ };
+  const place = { kind: "project" as const, id: OTHER_PRJ };
   assertEquals(world.bodiesOf(routePath(agentsRead)), [{
     place,
     assignment: ASG,
@@ -130,7 +130,7 @@ Deno.test("lophn-agent/agents#R9 lophn-agent/agents#R15 [agent-I10a]: an Operato
     activeContexts: [CTX1, CTX2],
   });
   assert(prepared.ok, prepared.ok ? "" : JSON.stringify(prepared.error));
-  const place = { kind: "project", id: PRJ };
+  const place = { kind: "project" as const, id: PRJ };
   assertEquals(world.bodiesOf(routePath(agentsRead)), [{
     place,
     assignment: ASG,

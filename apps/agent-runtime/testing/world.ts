@@ -213,7 +213,7 @@ export function openWorld(options: WorldOptions = {}): World {
           title: "context",
           purpose: "why",
           items: [],
-          revision: 1,
+          revision: "1",
           status: "active",
         })),
         complete: true,
@@ -403,6 +403,7 @@ function assignmentRecord(
   role: AgentRole,
   scope: { kind: string; id: string | null },
 ) {
+  const operator = role === "operator";
   return {
     assignment: {
       id: ASG,
@@ -410,11 +411,14 @@ function assignmentRecord(
       preset: PST,
       preset_revision: 1,
       scope,
-      outputs: [],
+      // 구성 칸은 assignment 정리가 끝나면 사라진다. 그 전의 모양 검사를 지나도록 Operator만 채운다.
+      outputs: operator
+        ? [{ document: "doc_01arz3ndektsv4rrffq69g5fav", content: "notes" }]
+        : [],
       read_apps: [],
       read_commands: [],
-      schedule: null,
-      approval: null,
+      schedule: operator ? { first_at: AT, every_ms: 60_000 } : null,
+      approval: operator ? `apr_${SUFFIX}` : null,
       state: "enabled",
       pause_reason: null,
       last_due_at: null,

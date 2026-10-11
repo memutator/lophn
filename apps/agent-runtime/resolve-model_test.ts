@@ -110,7 +110,7 @@ function setup(world: World) {
     fetch: fakeFetch,
   });
   const resolve = (input: { role: AgentRole; preset: typeof PRESET }) =>
-    resolver({ ...input, model: world.model });
+    resolver({ preset: input.preset, model: world.model });
   return { sent, resolve };
 }
 

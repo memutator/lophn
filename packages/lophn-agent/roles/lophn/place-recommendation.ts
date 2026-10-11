@@ -5,26 +5,31 @@ import { moveOptionAction } from "../../questions/mod.ts";
 // lophn의 문서 자리 추천(roles/lophn#R14, R15). 순수 함수다: IO·시계·model 호출이 없다.
 // 문서를 열람한 날짜나 역참조가 바뀐다고 run이 생기지 않는다. 사람이 요청한 run이 이 함수에
 // 그 순간의 사실을 넘길 때만 추천이 만들어진다(자동 주기 검토·보고 run 없음).
+// 어느 context의 자료로도 잡히지 않은 문서는 호출자가 core의 `context.containing` 읽기(project + path)로
+// 얻은 목록을 `containing`에 넘겨 알린다. 이 함수는 읽지 않는다.
 // 이동은 선택지의 고정 action이고(questions#R13), 사람이 고르기 전에는 아무것도 바뀌지 않는다.
 
 // run당 추천 문서 수 상한(R14).
 export const RECOMMENDATION_LIMIT = 5;
 
-// 보조 근거(R15): 최근 30일 서로 다른 날 열람, 역참조, 기준 컨텍스트 수의 하한.
+// 보조 근거(R15): 최근 30일 서로 다른 날 열람, 역참조, 자료로 잡은 context 수의 하한.
 export const SUPPORT_THRESHOLDS = {
   viewed_days_30d: 4,
   backrefs: 2,
-  base_contexts: 2,
+  containing_contexts: 2,
 } as const;
 
 export type SupportSignals = {
   viewed_days_30d: number;
   backrefs: number;
-  base_contexts: number;
+  containing_contexts: number;
 };
 
+// 호출자가 읽어 넘기는 열람·역참조 수다. context 수는 `containing`에서 센다.
+export type PlaceActivity = Omit<SupportSignals, "containing_contexts">;
+
 export type SupportingEvidence = {
-  met: ("viewed_days_30d" | "backrefs" | "base_contexts")[];
+  met: ("viewed_days_30d" | "backrefs" | "containing_contexts")[];
   supported: boolean;
 };
 
@@ -40,7 +45,7 @@ export function supportingEvidence(
 const SUPPORT_WORDS: Record<SupportingEvidence["met"][number], string> = {
   viewed_days_30d: "opened on 4 or more different days in the last 30 days",
   backrefs: "linked from 2 or more documents",
-  base_contexts: "used by 2 or more contexts",
+  containing_contexts: "covered by 2 or more contexts",
 };
 
 export type PlaceCandidate = {
@@ -53,16 +58,22 @@ export type PlaceCandidate = {
   label: string;
 };
 
+// 문서의 경로를 계약의 Source로 덮는 활성 context 하나다. core의 `context.containing` 읽기
+// (project + path)가 돌려주는 항목의 일부다. 옛 항목·관점 연결이 아니라 계약이 덮는지로 센다.
+export type ContainingContext = { context: string; title: string };
+
 export type PlaceTarget = {
   document: string;
   title: string;
   // 선택지를 만든 때 읽은 문서 revision. 이동의 비교 기준이다.
   revision: string;
   hasPlace: boolean;
-  contextCount: number;
+  // 이 문서의 경로를 Source로 덮는 context들(R14: 어느 context의 자료로도 잡히지 않으면 빈 목록).
+  // 자리가 없는 문서는 경로가 없어 빈 목록이다.
+  containing: readonly ContainingContext[];
   // 앞에 있을수록 좋은 후보다. 비면 이동 선택지를 만들지 않는다.
   candidates: readonly PlaceCandidate[];
-  signals?: SupportSignals;
+  activity?: PlaceActivity;
 };
 
 export type QuestionDraft = {
@@ -79,7 +90,7 @@ export type PlaceRecommendations = {
   noCandidate: string[];
   // 상한 때문에 이번 run에서 다루지 않은 문서 수.
   skipped: number;
-  // 자리가 있고 컨텍스트에도 연결된 문서는 추천 대상이 아니다.
+  // 자리가 있고 어느 context가 덮는 문서는 추천 대상이 아니다.
   notTargets: string[];
 };
 
@@ -88,7 +99,7 @@ export function oneLine(text: string): string {
 }
 
 function isTarget(target: PlaceTarget): boolean {
-  return !target.hasPlace || target.contextCount === 0;
+  return !target.hasPlace || target.containing.length === 0;
 }
 
 function draftOf(target: PlaceTarget): QuestionDraft | undefined {
@@ -119,9 +130,12 @@ function draftOf(target: PlaceTarget): QuestionDraft | undefined {
     adoption: null,
     action: null,
   });
-  const support = target.signals === undefined
+  const support = target.activity === undefined
     ? undefined
-    : supportingEvidence(target.signals);
+    : supportingEvidence({
+      ...target.activity,
+      containing_contexts: target.containing.length,
+    });
   const cited = support?.supported
     ? ` It is ${support.met.map((key) => SUPPORT_WORDS[key]).join(" and ")}.`
     : "";
@@ -129,7 +143,7 @@ function draftOf(target: PlaceTarget): QuestionDraft | undefined {
     document: target.document,
     prompt: `Where should "${target.title}" live?`,
     reason: target.hasPlace
-      ? `"${target.title}" is not connected to any context.`
+      ? `"${target.title}" is not covered by any context.`
       : `"${target.title}" has no place yet.`,
     options,
     recommendation: {

@@ -215,7 +215,7 @@ function without(value: object, key: string) {
 // deno-fmt-ignore
 const commandPaths = ["/v1/contexts/create", "/v1/contexts/archive", "/v1/contexts/unarchive", "/v1/contexts/save_draft", "/v1/contexts/discard_draft", "/v1/contexts/submit_bundle", "/v1/contexts/record_check", "/v1/contexts/rollback", "/v1/contexts/save_view", "/v1/contexts/update_view", "/v1/contexts/delete_view", "/v1/contexts/record_violations", "/v1/contexts/hand_off_violations", "/v1/terms/set", "/v1/terms/remove"];
 // deno-fmt-ignore
-const readPaths = ["/v1/contexts/list", "/v1/contexts/get", "/v1/contexts/overview", "/v1/contexts/contract", "/v1/contexts/draft", "/v1/contexts/search", "/v1/contexts/input_options", "/v1/contexts/violations", "/v1/contexts/bundles", "/v1/contexts/saved_views", "/v1/contexts/containing", "/v1/terms/list"];
+const readPaths = ["/v1/contexts/list", "/v1/contexts/get", "/v1/contexts/overview", "/v1/contexts/contract", "/v1/contexts/draft", "/v1/contexts/search", "/v1/contexts/input_options", "/v1/contexts/violations", "/v1/contexts/bundles", "/v1/contexts/saved_views", "/v1/contexts/entity", "/v1/contexts/series_next", "/v1/contexts/containing", "/v1/terms/list"];
 // deno-fmt-ignore
 const eventTypes = ["ContextCreated", "ContextArchived", "ContextUnarchived", "ContextBundleDraftSaved", "ContextBundleDraftDiscarded", "ContextBundleSubmitted", "ContextBundleCheckFailed", "ContextBundleApplied", "ContextBundleRolledBack", "SavedViewCreated", "SavedViewUpdated", "SavedViewDeleted", "ContextViolationsRecorded", "ContextViolationsHandedOff", "GlossaryEntrySet", "GlossaryEntryRemoved"];
 
@@ -2016,7 +2016,7 @@ Deno.test("documents/series#R6 [ctx-S21]: a series next result with no members i
   });
 });
 
-Deno.test("documents/contexts#R27 [ctx-S21]: the three new reads are read routes open to user and lophn agent only and are not registered yet", () => {
+Deno.test("documents/contexts#R27 [ctx-S21]: the three new reads are read routes open to user and lophn agent only, and only preview is not registered yet", () => {
   const routes = [
     contextPreviewRoute,
     contextEntityRoute,
@@ -2035,7 +2035,10 @@ Deno.test("documents/contexts#R27 [ctx-S21]: the three new reads are read routes
   for (const route of routes) {
     assertEquals(route.kind, "read");
     assertEquals(route.actors, ["user", "agent"]);
-    // registered together with the core handlers (a route without a handler hangs)
-    assert(!CONTEXT_API_ROUTES.includes(route as never), route.name);
   }
+  // entity and series_next are registered with their core handlers; preview waits for the context worker
+  // (a route without a handler hangs)
+  assert(CONTEXT_API_ROUTES.includes(contextEntityRoute as never));
+  assert(CONTEXT_API_ROUTES.includes(contextSeriesNextRoute as never));
+  assert(!CONTEXT_API_ROUTES.includes(contextPreviewRoute as never));
 });

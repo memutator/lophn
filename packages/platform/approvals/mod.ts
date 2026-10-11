@@ -1,5 +1,6 @@
 export { APPROVAL_BLOB_FIELDS, APPROVAL_OWNER_KIND } from "./blobs.ts";
 export { createApplyCommand } from "./apply.ts";
+export { eraseApprovalRequests } from "./erase.ts";
 export {
   checkConfirmAction,
   CONFIRM_COMMAND,

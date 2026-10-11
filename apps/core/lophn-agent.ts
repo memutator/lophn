@@ -36,7 +36,9 @@ import type {
 import {
   approvalRunLineage,
   createApprovalCommands,
+  eraseApprovalRequests,
 } from "../../packages/platform/approvals/mod.ts";
+import { eraseBlobRefs } from "../../packages/platform/blob-store/mod.ts";
 import {
   createModelCommands,
   createModelReads,
@@ -56,6 +58,7 @@ import {
 import {
   createUsageCommands,
   createUsageReads,
+  deleteSessionModelCalls,
   modelCallBodyFields,
   usageSchemaSteps,
 } from "../../packages/lophn-agent/harness/usage/mod.ts";
@@ -94,6 +97,7 @@ import {
   RUN_LIMIT_SETTING_KEYS,
   runBodyFields,
   runSchemaSteps,
+  sessionRunIds,
 } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
 import {
   createSchedulingCommands,
@@ -136,17 +140,20 @@ import {
   createRevertEventVisibility,
   createRevertReads,
   defaultRevertOwners,
+  deleteSessionReverts,
   revertSchemaSteps,
 } from "../../packages/lophn-agent/revert/mod.ts";
 import {
   createToolCommands,
   createToolReads,
+  deleteSessionToolCalls,
   TOOL_BUNDLES,
   toolCallBodyFields,
   toolsSchemaSteps,
 } from "../../packages/lophn-agent/harness/tools/mod.ts";
 import {
   createWaitCommands,
+  deleteSessionWaitResolutions,
   runBodyRead,
   runBodyViewRead,
   waitSchemaSteps,
@@ -446,20 +453,35 @@ const schedulingCommands = createSchedulingCommands({
 });
 const schedulingReads = createSchedulingReads();
 
+// DeleteSession이 같은 Tx에서 지우는 그 세션의 run 기록이다(conversation#R20). run을 가리키는 표마다
+// 소유 concern이 지움을 내고 여기에 가리키는 쪽부터 놓는다: approval request, 기다림 결과(tool call을
+// 가리킨다), 되돌리기, 질문 묶음, tool call, model 호출, 마지막으로 run. 본문 참조는 소유 행보다
+// 먼저 지워야 소유 ID를 찾는다. 문서·release·앱 변경은 이 목록에 없어 그대로 남는다.
+function deleteSessionRecords(tx: Tx, session: string): Result<void> {
+  const steps: (() => Result<void>)[] = [
+    () => eraseApprovalRequests(tx, sessionRunIds(tx, session)),
+    () => deleteSessionWaitResolutions(tx, session),
+    () => deleteSessionReverts(tx, session),
+    () => deleteSessionQuestions(tx, session, eraseBlobRefs),
+    () => deleteSessionToolCalls(tx, session, eraseBlobRefs),
+    () => deleteSessionModelCalls(tx, session, eraseBlobRefs),
+    () => deleteSessionRuns(tx, session, eraseBlobRefs),
+  ];
+  for (const step of steps) {
+    const erased = step();
+    if (!erased.ok) return erased;
+  }
+  return ok(undefined);
+}
+
 // 세션과 메시지(concern conversation). 사람 입력 접수는 담당 run 접수와 한
 // transaction이므로 run-loop의 AcceptRun handler를 같은 Tx에서 부른다. AcceptRun은
 // machine 전용 기록이라 이 접수에 한해 machine 자격으로 바꿔 넘기고, 입력은 항상
 // message 출처의 run이다. 바깥 command의 actor·event 기록은 그대로다.
-// DeleteSession은 같은 Tx에서 그 세션의 run 기록도 지운다. 그 밖에 run을 가리키는 기록(질문·
-// call·되돌리기 등)은 각 concern이 자기 지움을 이 목록에 더한다.
 const conversationCommands = createConversationCommands({
   acceptRun: (tx, ctx, input, compare) =>
     runCommands.accept.handle(tx, { ...ctx, actor: "machine" }, input, compare),
-  // 질문 묶음은 run을 가리키므로 run 기록보다 먼저 지운다.
-  deleteSessionRecords: (tx, session) => {
-    const questions = deleteSessionQuestions(tx, session);
-    return questions.ok ? deleteSessionRuns(tx, session) : questions;
-  },
+  deleteSessionRecords,
 });
 const conversationReads = createConversationReads();
 

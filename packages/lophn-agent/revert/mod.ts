@@ -1,4 +1,5 @@
 export { revertSchemaSteps } from "./schema.ts";
+export { deleteSessionReverts } from "./erase.ts";
 export { createRevertCommands, type RevertDeps } from "./commands.ts";
 export { createRevertReads, type RevertReadDeps } from "./reads.ts";
 export { createRevertEventVisibility } from "./visibility.ts";

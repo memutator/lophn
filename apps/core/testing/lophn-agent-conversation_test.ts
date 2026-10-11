@@ -11,6 +11,7 @@ import type {
   AuthenticatedContext,
   BlobRefRegistration,
 } from "../../../packages/contracts/platform/mod.ts";
+import { eraseBlobRefs } from "../../../packages/platform/blob-store/mod.ts";
 import { applyMigrations } from "../../../packages/platform/backup-and-migration/mod.ts";
 import {
   LEDGER_SCHEMA_STEPS,
@@ -106,7 +107,8 @@ async function fileLedger() {
   const assignments = createAssignmentCommands();
   const runs = createRunCommands({ hasUnappliedSteering });
   const conversation = createConversationCommands({
-    deleteSessionRecords: (tx, session) => deleteSessionRuns(tx, session),
+    deleteSessionRecords: (tx, session) =>
+      deleteSessionRuns(tx, session, eraseBlobRefs),
     acceptRun: (tx, ctx, input, compare) =>
       runs.accept.handle(tx, { ...ctx, actor: "machine" }, input, compare),
   });

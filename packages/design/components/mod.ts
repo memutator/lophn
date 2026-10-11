@@ -164,4 +164,8 @@ export {
   launcherEmptyIcon,
   lophnEntryIcon,
   retryIcon,
+  windowCloseIcon,
+  windowMaximizeIcon,
+  windowMinimizeIcon,
+  windowRestoreIcon,
 } from "./chrome-icons.ts";

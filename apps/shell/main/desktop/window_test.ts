@@ -147,7 +147,6 @@ test("shell/desktop#R23: 시스템 제목 표시줄이 없고 OS별 창 조작 �
   assert.equal(mac.frame, false);
   assert.deepEqual(mac.trafficLightPosition, { x: 16, y: 16 });
   assert.equal(TRAFFIC_LIGHT_WIDTH, 80);
-  assert.equal(mac.titleBarOverlay, undefined);
 
   const linux = windowConfig({
     platform: "linux",
@@ -155,8 +154,9 @@ test("shell/desktop#R23: 시스템 제목 표시줄이 없고 OS별 창 조작 �
     preload: "preload.js",
   });
   assert.equal(linux.frame, false);
-  assert.equal(linux.titleBarOverlay?.height, TOP_BAR_HEIGHT);
-  assert.equal(WINDOW_CONTROLS_WIDTH, 138);
+  assert.equal("titleBarOverlay" in linux, false);
+  assert.equal(TOP_BAR_HEIGHT, 48);
+  assert.equal(WINDOW_CONTROLS_WIDTH, 144);
   assert.equal(linux.trafficLightPosition, undefined);
 });
 

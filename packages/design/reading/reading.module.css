@@ -6,6 +6,8 @@
   line-height: var(--type-reading-line);
   letter-spacing: var(--type-tracking-normal);
   overflow-wrap: break-word;
+  /* 읽는 본문은 화면 기본(선택 안 됨)과 달리 긁어 복사할 수 있다. */
+  user-select: text;
 }
 
 .markdown > :first-child {
@@ -174,11 +176,13 @@
   font-size: var(--type-small-size);
   line-height: var(--type-small-line);
   white-space: pre;
+  user-select: text;
 }
 
 /* diff 글자는 중립 primary이고 색 없이도 +/− 기호로 읽는다(R14, R2). */
 .diff {
   width: 100%;
+  user-select: text;
   border-collapse: collapse;
   color: var(--color-text-primary);
   font-family: var(--font-mono);

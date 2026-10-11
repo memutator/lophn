@@ -81,12 +81,12 @@ Deno.test("shell/desktop#R25: 런처는 1040px 기둥, 48px 끌기 바, 바 오�
   assertEquals(cards?.querySelectorAll("[data-card]").length, 0);
 });
 
-Deno.test("shell/desktop#R23: 상단 바는 macOS 신호등 80px, Windows·Linux 창 버튼 138px를 비운다", () => {
+Deno.test("shell/desktop#R23: 상단 바는 macOS 신호등 80px를 비우고 Windows·Linux는 오른쪽 여백을 창 단추 묶음에 넘긴다", () => {
   for (
     const [platform, side, pixels] of [
       ["mac", "paddingLeft", "80px"],
-      ["windows", "paddingRight", "138px"],
-      ["linux", "paddingRight", "138px"],
+      ["windows", "paddingRight", "0px"],
+      ["linux", "paddingRight", "0px"],
     ] as const
   ) {
     using view = render(

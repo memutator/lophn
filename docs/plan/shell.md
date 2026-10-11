@@ -1240,7 +1240,7 @@ concerns: [shell]
 
 ### T60 window chrome: window controls, 텍스트 선택, scrollbar, Lophn Workspace 이름
 
-- 상태: 진행 (PR 열기 전)
+- 상태: 완료 (#586)
 - 등급: frontend
 - concern: shell/desktop, shell/design-system, shell/wording
 - 요구: shell/desktop#R23(창 단추), shell/desktop#R31(텍스트 선택), shell/design-system#R46(scrollbar), shell/desktop#R24(공간 이름)

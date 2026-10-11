@@ -285,7 +285,7 @@ Deno.test("shell/workspace#R31 [ctx-I53]: 일곱째 길 — 상단 검색의 Con
   assertEquals(view.container.querySelector("[data-info-panel]"), null);
 });
 
-Deno.test("shell/desktop#R30: lophn 공간 팔레트는 프로젝트·컨텍스트·문서·앱·행동 순서이고 문서는 검색으로 찾는다", async () => {
+Deno.test("shell/desktop#R30: lophn 공간 팔레트는 프로젝트·문서·앱·행동 순서이고 문서는 검색으로 찾는다", async () => {
   const win = fakeWindow();
   const { source, of } = fakeSource({
     search: () => ({
@@ -331,10 +331,10 @@ Deno.test("shell/desktop#R30: lophn 공간 팔레트는 프로젝트·컨텍스�
   const first = win.opened[0]!.model;
   assertEquals(first.label, "Search lophn");
   // 검색어 전에는 문서 행이 없다. 문서는 documents 검색이 찾는다.
-  assertEquals(groups(first), ["Projects", "Contexts", "Apps", "Actions"]);
+  assertEquals(groups(first), ["Projects", "Apps", "Actions"]);
   await win.type("rel");
   const searched = win.model();
-  assertEquals(groups(searched), ["Contexts", "Documents"]);
+  assertEquals(groups(searched), ["Documents"]);
   const documents = searched.choices.filter((choice) =>
     choice.group === "Documents"
   );
@@ -353,7 +353,7 @@ Deno.test("shell/desktop#R30: lophn 공간 팔레트는 프로젝트·컨텍스�
   assert(view.container.querySelector("[data-reader='doc_9']"));
 });
 
-Deno.test("shell/desktop#R30: lophn 공간 팔레트의 컨텍스트·앱·행동은 지금 형제 화면으로 가고 거처·분류 전·시리즈 목적지가 없다", async () => {
+Deno.test("shell/desktop#R30: lophn 공간 팔레트의 앱·행동은 지금 형제 화면으로 가고 거처·분류 전·시리즈 목적지가 없다", async () => {
   const win = fakeWindow();
   const { source } = fakeSource();
   using view = render(
@@ -374,9 +374,6 @@ Deno.test("shell/desktop#R30: lophn 공간 팔레트의 컨텍스트·앱·행�
     find(view.container, "[data-space='lophn']").getAttribute(
       "data-current-screen",
     );
-  await win.choose("Release");
-  assertEquals(space(), "contexts");
-  await win.press("palette");
   await win.choose("Groceries");
   assertEquals(space(), "apps");
   await win.press("palette");

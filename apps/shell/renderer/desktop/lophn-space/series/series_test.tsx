@@ -126,7 +126,7 @@ Deno.test("shell/desktop#R1: 빈 가족은 다음 이름을 꾸미지 않고 첫
   const key = find(view.container, "[data-member-key]") as HTMLInputElement;
   assertEquals(key.value, "");
   // 제안을 읽었을 뿐 아무것도 만들지 않았다.
-  const writes = ["createSeries", "addMember", "setArchived", "saveView"];
+  const writes = ["createSeries", "addMember", "setArchived"];
   assertEquals(calls.filter((call) => writes.includes(call.method)).length, 0);
   typeInto(key, "week-1");
   // 같은 format의 문서만 후보다.
@@ -168,7 +168,7 @@ Deno.test("shell/desktop#R1: 다음 key 제안은 계산 근거와 이미 쓰인
     ["week-1", "week-2"],
   );
   assertEquals(of("nextKey").length >= 1, true);
-  const writes = ["createSeries", "addMember", "setArchived", "saveView"];
+  const writes = ["createSeries", "addMember", "setArchived"];
   assertEquals(calls.filter((call) => writes.includes(call.method)).length, 0);
   await unmountSettled(view);
 });

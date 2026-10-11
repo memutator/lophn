@@ -1,10 +1,10 @@
 // LophnSource를 main의 core 통로로 만든다. token·port는 main에 있고 이 쪽은 route 이름과
 // 입력만 보낸다. 응답은 main의 contract client가 route output schema로 이미 검사했다.
-// 아래 응답 모양은 그 schema(outline.root·document, search.query, views, series,
+// 아래 응답 모양은 그 schema(outline.root·document, search.query, series,
 // documents.get·list·resolve, formats.list)에서 이 화면이 읽는 field만 옮긴 것이다.
 import type { CoreCall } from "../../../ipc/core.ts";
 import type { CoreSource } from "../connection/connection.ts";
-import { newId, searchBody, viewFilterOf } from "./model.ts";
+import { newId, searchBody } from "./model.ts";
 import type {
   ArchivedHit,
   Catalog,
@@ -15,19 +15,17 @@ import type {
   OutlineSection,
   PlaceDocument,
   PlaceRef,
-  SavedView,
   SearchHit,
   Series,
   SeriesMember,
   SeriesOrder,
   SeriesRow,
   SourceResult,
-  ViewEntry,
 } from "./source.ts";
 
 interface RootPage {
   entries: (
-    | { kind: "project" | "app" | "context"; id: string; title: string }
+    | { kind: "project" | "app"; id: string; title: string }
     | { kind: "unplaced" }
   )[];
   complete: boolean;
@@ -60,32 +58,6 @@ interface DocumentListValue {
     document: { id: string; title: string; status: "active" | "archived" };
     latest_version: { id: string; format: { name: string } };
   }[];
-  next_cursor: string | null;
-}
-
-interface ViewValue {
-  id: string;
-  name: string;
-  place: PlaceRef | null;
-  filter: {
-    text?: string;
-    context?: string;
-    formats?: string[];
-    document_status: "active" | "archived" | "all";
-  };
-  revision: string;
-}
-
-interface ViewOpenValue {
-  entries: {
-    document: string;
-    title: string;
-    version: string;
-    latest_version: string;
-    saved_at: string;
-    excerpt: string | null;
-  }[];
-  coverage: CoverageValue | null;
   next_cursor: string | null;
 }
 
@@ -217,23 +189,6 @@ function seriesOf(value: SeriesValue): Series {
   };
 }
 
-function viewOf(value: ViewValue): SavedView {
-  return {
-    id: value.id,
-    name: value.name,
-    place: value.place === null
-      ? null
-      : { kind: value.place.kind, id: value.place.id },
-    filter: {
-      text: value.filter.text ?? null,
-      context: value.filter.context ?? null,
-      format: value.filter.formats?.[0] ?? null,
-      status: value.filter.document_status,
-    },
-    revision: value.revision,
-  };
-}
-
 function parseLink(link: string) {
   const match = /^([^/#@]+)\/([^/#@]+)(?:#([^#@]+))?(?:@([1-9][0-9]*))?$/.exec(
     link.trim(),
@@ -261,7 +216,6 @@ export function coreLophnSource(
     async catalog() {
       const projects: Named[] = [];
       const apps: Named[] = [];
-      const contexts: Named[] = [];
       let cursor: string | undefined;
       for (let page = 0; page < PAGE_LIMIT; page += 1) {
         const result: SourceResult<RootPage> = await call<RootPage>(
@@ -276,13 +230,12 @@ export function coreLophnSource(
           if (entry.kind === "unplaced") continue;
           const item = { id: entry.id, title: entry.title };
           if (entry.kind === "project") projects.push(item);
-          else if (entry.kind === "app") apps.push(item);
-          else contexts.push(item);
+          else apps.push(item);
         }
         if (result.value.complete || result.value.next_cursor === null) break;
         cursor = result.value.next_cursor;
       }
-      const catalog: Catalog = { projects, apps, contexts };
+      const catalog: Catalog = { projects, apps };
       return { ok: true, value: catalog };
     },
 
@@ -360,72 +313,6 @@ export function coreLophnSource(
         cursor = result.value.next_cursor;
       }
       return { ok: true, value: found };
-    },
-
-    async views() {
-      const views: SavedView[] = [];
-      let cursor: string | undefined;
-      for (let page = 0; page < PAGE_LIMIT; page += 1) {
-        const result: SourceResult<
-          { views: ViewValue[]; next_cursor: string | null }
-        > = await call(
-          core,
-          "read",
-          "views",
-          "list",
-          cursor === undefined ? {} : { cursor },
-        );
-        if (!result.ok) return result;
-        views.push(...result.value.views.map(viewOf));
-        if (result.value.next_cursor === null) break;
-        cursor = result.value.next_cursor;
-      }
-      return { ok: true, value: views };
-    },
-
-    async saveView(name, conditions) {
-      const filter = viewFilterOf(conditions);
-      const result = await command<ViewValue>(core, "views", "save", {
-        id: idOf("viw"),
-        name: name.trim(),
-        ...(conditions.place === null ? {} : { place: conditions.place }),
-        filter: {
-          ...(filter.text === null ? {} : { text: filter.text }),
-          ...(filter.context === null ? {} : { context: filter.context }),
-          ...(filter.format === null ? {} : { formats: [filter.format] }),
-          document_status: filter.status,
-        },
-      }, {});
-      return result.ok ? { ok: true, value: viewOf(result.value) } : result;
-    },
-
-    async openView(view, cursor) {
-      const result = await call<ViewOpenValue>(
-        core,
-        "worker",
-        "views",
-        "open",
-        { view, ...(cursor === undefined ? {} : { cursor }) },
-      );
-      if (!result.ok) return result;
-      const entries: ViewEntry[] = result.value.entries.map((entry) => ({
-        document: entry.document,
-        title: entry.title,
-        version: entry.version,
-        latestVersion: entry.latest_version,
-        savedAt: Date.parse(entry.saved_at),
-        excerpt: entry.excerpt,
-      }));
-      return {
-        ok: true,
-        value: {
-          entries,
-          coverage: result.value.coverage === null
-            ? null
-            : coverageOf(result.value.coverage),
-          nextCursor: result.value.next_cursor,
-        },
-      };
     },
 
     async head(document, version) {

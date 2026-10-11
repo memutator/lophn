@@ -30,6 +30,23 @@ function routedCore(
   };
 }
 
+// context.list의 한 줄(contextListItemSchema). active라 적용된 판이 있다.
+function contextRow(id: string, title: string) {
+  return {
+    id,
+    project: PROJECT,
+    title,
+    purpose: "Keep the plan honest",
+    status: "active",
+    applied_bundle: "cbn_01k6p0000000000000000000aa",
+    applied_number: 1,
+    draft_bundle: null,
+    checking_bundle: null,
+    violation_mark: 0,
+    revision: 1,
+  };
+}
+
 const routes = {
   "projects/get": () => ({
     ok: true,
@@ -55,23 +72,15 @@ const routes = {
     ok: true,
     value: {
       contexts: [
-        {
-          id: "ctx_01k6p0000000000000000000aa",
-          title: "Planning",
-          items: [{ target: { kind: "document", document: DOC_A } }],
-        },
-        {
-          id: "ctx_01k6p0000000000000000000bb",
-          title: "Elsewhere",
-          items: [{ target: { kind: "app_command", app: "app_x" } }],
-        },
+        contextRow("ctx_01k6p0000000000000000000aa", "Planning"),
+        contextRow("ctx_01k6p0000000000000000000bb", "Research"),
       ],
       next_cursor: null,
     },
   }),
 };
 
-Deno.test("shell/desktop#R28: 작업대는 projects.get·documents.list와 그 문서를 담은 컨텍스트로 연다", async () => {
+Deno.test("shell/desktop#R28: 작업대는 projects.get·documents.list와 이 프로젝트의 활성 context(context.list)로 연다", async () => {
   const { core, calls } = routedCore(routes);
   const source = coreWorkspaceSource(core);
   assertEquals(await source.project(PROJECT), {
@@ -88,8 +97,15 @@ Deno.test("shell/desktop#R28: 작업대는 projects.get·documents.list와 그 �
   );
   assertEquals(await source.contexts(PROJECT), {
     ok: true,
-    value: [{ id: "ctx_01k6p0000000000000000000aa", title: "Planning" }],
+    value: [
+      { id: "ctx_01k6p0000000000000000000aa", title: "Planning" },
+      { id: "ctx_01k6p0000000000000000000bb", title: "Research" },
+    ],
   });
+  assertEquals(
+    calls.find((call) => call.resource === "contexts")?.body,
+    { project: PROJECT, status: "active" },
+  );
   // 이 단위 테스트에는 layout bridge(lophnLayout)가 없다. 통로가 없으면 읽지 못함으로 답한다.
   assertEquals((await source.readLayout(PROJECT)).ok, false);
 });

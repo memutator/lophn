@@ -18,8 +18,6 @@ export interface Route {
   readonly read?: { readonly document: string; readonly version: string };
   /** things-to-confirm에서 처음 고를 요청. `lophn://things-to-confirm/<id>` 링크가 쓴다. */
   readonly request?: string;
-  /** contexts에서 처음 열 Focus. 팔레트·정보 패널의 컨텍스트 탭이 쓴다. */
-  readonly focus?: string;
   /** roles에서 처음 열 역할(작업대의 붙은 Operator). */
   readonly role?: string;
   /** roles에서 Operator를 붙이는 화면으로 연다(작업대의 [Attach an Operator]). */

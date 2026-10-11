@@ -51,10 +51,10 @@ fixtures/             예시 project 폴더, 예시 앱, 녹화한 model 응답
 | documents/file-tracking | packages/documents/file-tracking/ |
 | documents/versions | packages/documents/versions/ |
 | documents/formats | packages/documents/formats/ |
-| documents/outline-and-search | packages/documents/outline-and-search/ |
+| documents/outline-and-search | packages/documents/outline-and-search/ · md outline parser는 packages/contracts/documents/outline-markdown.ts (아래 "여러 최상위가 같이 쓰는 순수 함수") |
 | documents/series | packages/documents/series/ |
 | documents/addressing | packages/documents/addressing/ |
-| documents/contexts | packages/documents/contexts/ |
+| documents/contexts | packages/documents/contexts/ (세부 자리는 아래 "documents/contexts 안") · worker job apps/worker/documents/contexts.ts |
 | documents/terms | packages/documents/terms/ |
 | apps/registration | packages/apps/registration/ |
 | apps/blueprint | packages/apps/blueprint/ |
@@ -118,6 +118,29 @@ fixtures/             예시 project 폴더, 예시 앱, 녹화한 model 응답
 | shell/editor | apps/shell/main/editor/ · apps/shell/renderer/editor/ |
 | shell/wording | packages/design/wording/ (en catalog, key 타입) |
 | shell/design-system | packages/design/ (token, 컴포넌트; shell renderer와 SDK UI가 함께 씀) |
+
+## documents/contexts 안
+
+순수 함수 묶음(IO 없음, 입력과 기대 출력을 고정한 fixture로 시험한다)과 IO를 가진 층을 나눈다. 모양은 [architecture.md](architecture.md)의 concern 모듈을 따르고, 아래 폴더는 `commands.ts`·`reads.ts`·`work.ts` 옆에 둔다.
+
+| 자리 | 무엇 |
+|---|---|
+| packages/documents/contexts/extract/ | 계약(kind·field)으로 Project 파일에서 개체를 뽑는다. kind별 파일(`folder`, `docs`, `series`, `index`, `section`, `outline`, `app-data`), field별 `fields/`(frontmatter, yaml-key, section-body, path-capture, title, links), 전체를 도는 `run.ts`. YAML은 `@std/yaml`([stack.md](stack.md)). `outline`·`section`은 contracts의 outline parser를 부른다. `app-data`는 port(`AppDataReader`)만 부른다 |
+| packages/documents/contexts/checks/ | 개체 집합과 계약의 check 규칙에서 위반 목록을 계산한다(`run.ts`) |
+| packages/documents/contexts/search/ | 선언 검색 실행기. inputs·where·relations·sort·page·board를 개체 집합에 적용하는 순수 함수. core의 context reader가 부른다 |
+| packages/documents/contexts/check/ | 판 check runner. 임시 snapshot에서 계약 검증·extract·checks·예시·saved view를 돌려 결정적 report를 낸다 |
+| packages/documents/contexts/series/ | series kind의 pattern에서 다음 경로를 계산한다(순수) |
+| packages/documents/contexts/testdata/ | fixture Project와 정답(`expected/`). extract·checks·search·check 시험이 함께 읽는다 |
+| packages/documents/contexts/work.ts · adapters/ | `context.index`·`context.check`의 일(stat scan, snapshot 복사, derived sqlite 읽기·쓰기). 순수 폴더를 부른다 |
+| apps/worker/documents/contexts.ts | worker kind `documents/contexts`의 entry. 등록만 하고 일은 `work.ts`가 한다 |
+| apps/core/documents.ts | route 등록, context reader, app-data adapter(`packages/contracts/apps`의 read command로 port를 채운다) 조립 |
+
+## 여러 최상위가 같이 쓰는 순수 함수
+
+최상위 사이는 `packages/contracts`로만 부른다. 두 최상위가 같은 결정적 순수 함수를 써야 하면(예: shell editor의 Outline 탭과 `documents/contexts`가 같은 md 목차 parser를 써서 같은 입력에 같은 tree를 얻는다) 그 함수를 한 곳에 두고 contracts로 내보낸다. shell은 contracts·design·sdk만 import할 수 있고 documents는 자기 최상위의 contracts를 import할 수 있기 때문이다.
+
+- md outline parser: `packages/contracts/documents/outline-markdown.ts`의 `parseOutline(mediaType, text)`. 의존성·시각·무작위·IO가 없는 순수 TS이고 `packages/contracts/documents/mod.ts`로 내보낸다. [stack.md](stack.md)가 적은 blueprint 검증기(`packages/contracts/apps/blueprint.ts`)와 같은 예외다. 형식마다 parser를 붙일 자리만 두고 지금은 md만 해석한다.
+- 이 예외는 함수가 순수하고 의존성이 없을 때만 쓴다. IO나 외부 라이브러리가 필요한 것은 contracts에 두지 않는다.
 
 ## 의존 규칙
 

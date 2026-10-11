@@ -17,6 +17,14 @@
 - 작업은 [tasks.md](docs/dev/tasks.md)의 완료 기준을 모두 채워야 끝난다. 테스트 이름은 요구 번호로 시작한다.
 - 끝내기 전에 `deno task check`를 돌린다.
 
+## 호환성
+
+MVP 이전이다. 호환성보다 뒤에 헷갈리지 않는 깔끔함이 먼저다.
+
+- 설계가 바뀌면 옛 표·event·route·schema step·contract·flow를 고치거나 지운다. migration, 옛 경로 남기기, 옛 이름 읽기 같은 호환 장치를 만들지 않는다.
+- 틀린 옛 test(e2e 포함)는 옮기거나 고쳐 살리지 않는다. 지우고 새 설계에 맞춰 다시 쓴다.
+- 개발 데이터는 schema가 바뀌면 지우고 새로 만든다.
+
 ## worker
 
 일을 worker(subagent)에게 맡길 때 model은 이렇게 고른다.

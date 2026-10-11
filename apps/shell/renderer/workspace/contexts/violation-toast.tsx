@@ -4,7 +4,8 @@
 //   contexts.title.toast-violations
 //   common.button.view
 import type { ReactNode } from "react";
-import type { Clock, Timer } from "@lophn/design/components";
+import { type Clock, type Timer, Toast } from "@lophn/design/components";
+import { t } from "@lophn/wording";
 
 export interface ViolationToastProps {
   /** context 이름. "eval: 2 documents don't match the contract"의 앞부분. */
@@ -16,6 +17,17 @@ export interface ViolationToastProps {
   readonly timer?: Timer & Clock;
 }
 
-export function ViolationToast(_props: ViolationToastProps): ReactNode {
-  return null;
+export function ViolationToast(
+  { title, count, onView, onClose, timer }: ViolationToastProps,
+): ReactNode {
+  return (
+    <Toast
+      title={t("contexts.title.toast-violations", { title, count })}
+      actions={[{ id: "view", label: t("common.button.view") }]}
+      onAction={() => onView()}
+      onClose={onClose}
+      timer={timer}
+      clock={timer}
+    />
+  );
 }

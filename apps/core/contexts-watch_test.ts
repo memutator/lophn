@@ -12,6 +12,7 @@ import {
 import {
   bundleContentSchema,
   type ContextWorkInput,
+  type ContextWorkList,
 } from "../../packages/contracts/documents/mod.ts";
 import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
 import {
@@ -395,9 +396,24 @@ function setup(
   const caught: string[] = [];
   const opened: string[] = [];
   let active = [...inputs.keys()];
+  const reads: string[] = [];
   const watch = createContextsWatch({
-    listActive: () => Promise.resolve(ok(active)),
+    list: () =>
+      Promise.resolve(ok({
+        contexts: active.map((context) => {
+          const input = inputs.get(context);
+          return {
+            context,
+            roots: input?.roots ?? ["/p"],
+            bundle_hash: input?.applied?.bundle_hash ?? "a".repeat(64),
+          };
+        }),
+        checks: [],
+        as_of_seq: "1",
+        next_cursor: null,
+      } as ContextWorkList)),
     readInput: ({ context }): Promise<Result<ContextWorkInput>> => {
+      reads.push(context);
       const input = inputs.get(context);
       return Promise.resolve(
         input === undefined
@@ -421,6 +437,7 @@ function setup(
     watchFs,
     caught,
     opened,
+    reads,
     inputs,
     setActive: (next: string[]) => active = next,
   };
@@ -556,6 +573,7 @@ Deno.test("documents/contexts#R23 [ctx-T9d]: a project command re-reads the acti
   );
   const { watch, watchFs } = state;
   await watch.start();
+  assertEquals(state.reads.sort(), [CTX_A, CTX_B]);
 
   state.setActive([CTX_A]);
   watch.onCommand("project.archive", { project: "prj_x" });
@@ -564,6 +582,8 @@ Deno.test("documents/contexts#R23 [ctx-T9d]: a project command re-reads the acti
     watchFs.watchers.map((w) => [w.path, w.closed]),
     [["/p/docs", false], ["/p/plans", true]],
   );
+  // the list already says the remaining context's folders and bundle are the same: its contract is not read again
+  assertEquals(state.reads.length, 2);
 
   // 관계없는 command는 아무것도 읽지 않는다.
   watch.onCommand("document.create", {});
@@ -590,4 +610,32 @@ Deno.test("documents/contexts#R23 [ctx-T9d]: stopping closes every watcher and l
   watch.observe(inputOf(CTX_A, ["docs/*.md"]));
   await flush();
   assertEquals(watchFs.watchers.length, 1);
+});
+
+Deno.test("documents/contexts#R23 [ctx-I67]: the watch asks for the list, reads a contract only when its context's folders or bundle changed, and a context without folders is not watched", async () => {
+  const state = setup(
+    new Map([
+      [CTX_A, inputOf(CTX_A, ["docs/*.md"])],
+      [CTX_B, inputOf(CTX_B, ["plans/*.md"], [])],
+    ]),
+  );
+  await state.watch.start();
+  assertEquals(state.reads, [CTX_A]);
+  assertEquals([...state.watch.watching().keys()], [CTX_A]);
+
+  // a project command with the same list reads nothing
+  state.watch.onCommand("project.update", { project: "prj_x" });
+  await flush();
+  assertEquals(state.reads, [CTX_A]);
+
+  // another folder or another bundle reads that context again
+  state.inputs.set(CTX_A, inputOf(CTX_A, ["docs/*.md"], ["/p", "/q"]));
+  state.watch.onCommand("project.update", { project: "prj_x" });
+  await flush();
+  assertEquals(state.reads, [CTX_A, CTX_A]);
+  assertEquals(
+    state.watchFs.watchers.filter((w) => !w.closed).map((w) => w.path).sort(),
+    ["/p/docs", "/q/docs"],
+  );
+  state.watch.stop();
 });

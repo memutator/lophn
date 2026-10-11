@@ -26,6 +26,7 @@ import {
   contextLedgerReads,
   contextsLedgerSchemaSteps,
   contextWorkInputRead,
+  contextWorkListRead,
 } from "../../packages/documents/contexts/mod.ts";
 
 // content blob(BundleContent JSON, 위반 넘김 근거와 그 요청 글)의 영구 참조. owner_key는 blob의 hash다:
@@ -141,6 +142,7 @@ export function createContextsRegistration(
     reads: [
       ...contextLedgerReads(runtime.deps),
       contextWorkInputRead(runtime.deps),
+      contextWorkListRead(),
     ].map((read) => ({
       ...read,
       handle(snapshot, ctx, input) {

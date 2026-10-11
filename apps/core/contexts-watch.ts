@@ -3,7 +3,7 @@
 // 늘면 알리려는 것이 전부라 신호는 힌트일 뿐이다: 변화 목록·이력·event·화면 상태를 만들지 않고, 놓쳐도 다음
 // 검색·열기의 훑기가 따라잡는다.
 //
-// - 감시 대상: 활성 context(적용 판이 있는 것)마다 그 판의 계약이 가리키는 폴더(watch 모듈의
+// - 감시 대상: 활성 context(적용 판이 있는 것, `context.work_list`가 돌려준다)마다 그 판의 계약이 가리키는 폴더(watch 모듈의
 //   `watchFolders`)를 Project의 모든 폴더 아래에서 본다. 보관된 context와 보관된 project의 폴더는 보지 않는다.
 // - 합침: 모듈의 detector가 500ms 동안 합친다. 창이 닫히면 `catchUp(context)`를 한 번 부른다.
 // - 다시 정하기: 감시 집합은 context의 입력(적용 판 hash와 Project 폴더)이 바뀔 때 그 context 것만 다시 연다.
@@ -14,7 +14,10 @@
 // 이 모듈은 core의 module graph에 들어간다. node:sqlite와 동기 file API는 쓰지 않는다. 감시는 async
 // `Deno.watchFs`뿐이다.
 import type { Result } from "../../packages/base/mod.ts";
-import type { ContextWorkInput } from "../../packages/contracts/documents/mod.ts";
+import type {
+  ContextWorkInput,
+  ContextWorkList,
+} from "../../packages/contracts/documents/mod.ts";
 import {
   type ChangeDetector,
   createChangeDetector,
@@ -25,8 +28,8 @@ import {
 } from "../../packages/documents/contexts/watch/mod.ts";
 
 export type ContextsWatchDeps = {
-  // 활성 context 전체의 id. 읽지 못하면 err다.
-  listActive(): Promise<Result<readonly string[]>>;
+  // 활성 context 전체와 그 폴더·적용 판 hash(`context.work_list`). 읽지 못하면 err다.
+  list(): Promise<Result<ContextWorkList>>;
   readInput(input: { context: string }): Promise<Result<ContextWorkInput>>;
   // 그 context의 index를 따라잡게 한다(2초 규칙과 도는 scan을 건너뛴다). 기다리지 않는다.
   catchUp(context: string): void | Promise<unknown>;
@@ -70,6 +73,11 @@ const realTimer: Timer = {
 // 제품의 watchFs. 폴더가 없으면 던진다(어댑터가 건너뛴다).
 export const denoWatchFs: WatchFs = (path, options) =>
   Deno.watchFs(path, options);
+
+// 감시 집합이 같은지 가르는 입력: 적용 판 hash와 Project 폴더.
+function keyOf(bundleHash: string, roots: readonly string[]): string {
+  return `${bundleHash}\n${roots.join("\n")}`;
+}
 
 const PROJECT_COMMANDS = new Set([
   "project.archive",
@@ -119,7 +127,7 @@ export function createContextsWatch(deps: ContextsWatchDeps): ContextsWatch {
       drop(context);
       return false;
     }
-    const key = `${input.applied.bundle_hash}\n${input.roots.join("\n")}`;
+    const key = keyOf(input.applied.bundle_hash, input.roots);
     if (
       existing !== undefined && existing.key === key && !existing.incomplete
     ) {
@@ -176,17 +184,34 @@ export function createContextsWatch(deps: ContextsWatchDeps): ContextsWatch {
   }
 
   async function refreshAll() {
-    const listed = await deps.listActive();
+    const listed = await deps.list();
     if (stopped) return;
     if (!listed.ok) {
       deps.log?.(`context watch: ${listed.error.message}`);
       return;
     }
-    const active = new Set(listed.value);
+    const active = new Map(
+      listed.value.contexts.map((entry) => [entry.context, entry]),
+    );
     for (const context of [...entries.keys()]) {
       if (!active.has(context)) drop(context);
     }
-    for (const context of active) await refreshOne(context);
+    for (const [context, entry] of active) {
+      const existing = entries.get(context);
+      // 목록의 입력이 열려 있는 감시와 같으면 계약을 다시 읽지 않는다.
+      if (
+        existing !== undefined && !existing.incomplete &&
+        existing.key === keyOf(entry.bundle_hash, entry.roots)
+      ) {
+        continue;
+      }
+      // 폴더가 없는 context는 감시하지 않는다.
+      if (entry.roots.length === 0) {
+        drop(context);
+        continue;
+      }
+      await refreshOne(context);
+    }
   }
 
   function contextOf(input: unknown): string | undefined {

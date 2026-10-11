@@ -70,6 +70,7 @@ import {
   mapActor,
 } from "./adapter.ts";
 import { contentReference } from "./content-blobs.ts";
+import { contextWorkListRead } from "./work-input.ts";
 import {
   type LedgerFixture,
   ledgerFixture,
@@ -2121,6 +2122,114 @@ Deno.test("documents/contexts#R3 lophn-agent/roles/app-engineer#R2 [ctx-I58b]: a
     assertEquals(api.ledger.emitted.length, events);
   } finally {
     world.api.ledger.close();
+  }
+});
+
+// context.work_list is an internal read core registers beside context.work_input, not a public route
+function workList(api: SqlApi, who: Who) {
+  return contextWorkListRead().handle(
+    api.ledger.snapshot(),
+    requestContext(actors[who].actor),
+    {},
+  );
+}
+
+Deno.test("documents/contexts#R23 [ctx-I67]: context.work_list names the active contexts with their folders and applied hash, and the checks still running, for a machine only", () => {
+  const api = sqlApi();
+  try {
+    api.ledger.seedFolders(ids.project, ["/work/a", "/work/b"]);
+    api.ledger.seedFolders(ids.otherProject, ["/work/other"]);
+    // active, applied
+    const applied = createContext(api);
+    const active = applyBundle(api, ids.context);
+    // drafting: nothing applied, nothing running
+    createContext(api, { id: id("ctx", 3), title: "Drafting" });
+    value(api.command(bundleSaveDraftRoute, "engineer", {
+      context: id("ctx", 3),
+      content: minimalContent(),
+    }));
+    // a candidate still being checked (no result yet)
+    const waiting = createContext(api, { id: id("ctx", 4), title: "Waiting" });
+    const draft = value(api.command(bundleSaveDraftRoute, "engineer", {
+      context: waiting.id,
+      content: minimalContent(),
+    }));
+    const submitted = value(
+      api.command(bundleSubmitRoute, "engineer", { bundle: draft.id }),
+    );
+    assert(applied.id === ids.context);
+
+    const listed = value(workList(api, "worker"));
+    assertEquals(listed.contexts, [{
+      context: ids.context,
+      roots: ["/work/a", "/work/b"],
+      bundle_hash: active.submitted.bundle_hash,
+    }]);
+    assertEquals(listed.checks, [{
+      context: waiting.id,
+      check: submitted.check,
+      roots: ["/work/a", "/work/b"],
+    }]);
+    assertEquals(listed.next_cursor, null);
+
+    // a finished check leaves the list and the context joins the active ones
+    value(api.command(bundleFinishCheckRoute, "worker", {
+      check: submitted.check!,
+      result: "passed",
+      bundle_hash: submitted.bundle_hash!,
+      snapshot_hash: SNAPSHOT,
+      findings: [],
+      violation_count: 0,
+    }));
+    const after = value(workList(api, "worker"));
+    assertEquals(after.checks, []);
+    assertEquals(after.contexts.map((entry) => entry.context), [
+      ids.context,
+      waiting.id,
+    ]);
+
+    // not a machine
+    for (const who of ["user", "engineer"] as const) {
+      const refused = workList(api, who);
+      assertEquals(code(refused), "forbidden");
+    }
+  } finally {
+    api.ledger.close();
+  }
+});
+
+Deno.test("documents/contexts#R23 [ctx-I67]: context.work_list leaves out the contexts of an archived project and gives a running check of one no folders", () => {
+  const api = sqlApi();
+  try {
+    api.ledger.seedFolders(ids.project, ["/work/a"]);
+    value(api.command(contextCreateRoute, "user", {
+      id: ids.otherContext,
+      project: ids.otherProject,
+      title: "Other",
+      purpose: "Another project",
+    }));
+    applyBundle(api, ids.otherContext);
+    api.ledger.seedFolders(ids.otherProject, ["/work/other"]);
+    createContext(api);
+    const draft = value(api.command(bundleSaveDraftRoute, "engineer", {
+      context: ids.context,
+      content: minimalContent(),
+    }));
+    value(api.command(bundleSubmitRoute, "engineer", { bundle: draft.id }));
+    assertEquals(
+      value(workList(api, "worker")).contexts.map((
+        entry,
+      ) => entry.context),
+      [ids.otherContext],
+    );
+
+    api.ledger.archiveProject(ids.otherProject);
+    api.ledger.archiveProject(ids.project);
+    const listed = value(workList(api, "worker"));
+    assertEquals(listed.contexts, []);
+    assertEquals(listed.checks.map((entry) => entry.roots), [[]]);
+  } finally {
+    api.ledger.close();
   }
 });
 

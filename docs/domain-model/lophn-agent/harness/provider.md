@@ -4,7 +4,7 @@ concerns: [lophn-agent/harness/provider]
 ---
 # lophn-agent/harness/provider
 
-Provider의 호출 목적지·형식과 credential 참조·선택 상태를 정의한다.
+Provider의 호출 목적지·형식과 credential 참조·선택 상태를 정의한다. provider는 계정·인증·endpoint만 가지며 model과 option은 고르지 않는다(→ lophn-agent/harness/model).
 
 ## Provider (`pvd`)
 
@@ -16,7 +16,7 @@ Provider의 호출 목적지·형식과 credential 참조·선택 상태를 정�
 | `endpoint` | URL | 아니오 | 목적지 불변; remote HTTPS; HTTP·무인증은 loopback만 | model 전송 목적지 |
 | `protocol` | `anthropic-messages / openai-responses / openai-chat-completions` | 아니오 | 정의의 지원 형식 중 하나; 이름으로 추측 안 함 | adapter |
 | `enabled` | boolean | 아니오 | false면 다음 call부터 금지 | 새 call 가능 여부 |
-| `credentials` | ProviderCredential 배열 | 아니오 | 등록 순서 기본; API key·OAuth 여러 개 가능; 서로 다른 key | 사용자가 정한 선택 순서 |
+| `credentials` | ProviderCredential 배열 | 아니오 | 등록 순서 기본; API key·OAuth 여러 개 가능; 서로 다른 key | 사용자가 정한 선택 순서(호출 계정 순서의 정본) |
 | `last_check` | ProviderCheck | 예 | 명시적 user test만 갱신 | 안전한 연결 test result |
 
 ### 상태
@@ -153,7 +153,7 @@ Provider에 속하는 구조값이며 독립 entity·ID 접두사는 없다.
 
 | command | actor | 입력 | 비교 기준 | event | 거절(error code) |
 |---|---|---|---|---|---|
-| `RegisterProvider` | user | ID, name, definition, endpoint, protocol | 지원 형식·목적지·ID 내용 일치 | `ProviderRegistered` | `invalid_input`, `conflict`, `unavailable` |
+| `RegisterProvider` | user | ID, name, definition 또는 OpenAI 호환 직접 추가(표시 이름·기본 URL·선택 API key), endpoint, protocol | 지원 형식·목적지·ID 내용 일치 | `ProviderRegistered` | `invalid_input`, `conflict`, `unavailable` |
 | `ChangeProvider` | user | 이름·enabled | provider revision | `ProviderChanged` | `conflict`, `invalid_input` |
 | `RegisterProviderCredential` | user | provider, Credential 값 | provider revision; 보관 성공; 중복 fingerprint·계정 검사 | `ProviderChanged` | `conflict`, `invalid_input`, `unavailable` |
 | `ChangeProviderCredentials` | user | 교체·회수·enabled·순서 | provider revision, credential revision; 순서 전체 unique | `ProviderChanged` | `conflict`, `invalid_input` |
@@ -173,8 +173,8 @@ Provider에 속하는 구조값이며 독립 entity·ID 접두사는 없다.
 
 - **미검증 provider.** OAuth 제품별 lophn 사용 허용·endpoint·client 식별·실제 호출 contract가 검증되지 않은 정의는 활성화하지 않는다.
 
-- **credential 선택.** 실제 목록은 → lophn-agent/presets의 PresetModelSelection.credentials다. provider의 등록 순서는 화면 후보의 기본 순서일 뿐 실행 후보가 아니다. preset 목록 안 enabled·현재 usable 첫 항목만 고르고 목록 밖 계정은 선택하지 않는다. 무인증 loopback만 빈 목록을 허용한다.
-- **run affinity.** 처음 고른 credential을 유지하며 rejected·usage_wait·model 불가 때도 고정 preset 목록 안 같은 provider·model의 뒤 계정만 가능하다. 목록이 하나면 이동하지 않는다. 앞 계정 회복에도 돌아가지 않고 실제 선택·판·이동은 ModelCall에 남긴다. 다른 provider·model·목록 밖 계정 자동 fallback은 없다.
+- **credential 선택.** 호출 계정의 정본은 이 provider의 `credentials` 순서다. 사용자가 정한 `order`에서 `enabled`이며 현재 usable인 첫 항목만 고르고 다른 provider의 계정은 후보가 아니다. agent 정의·기본값·session override는 provider만 고르고 계정은 고르지 않는다. 무인증 loopback만 빈 목록을 허용한다.
+- **run affinity.** 처음 고른 credential을 유지하며 rejected·usage_wait·model 불가 때도 같은 provider에서 `order`상 뒤의 usable 계정만 가능하다. 계정이 하나면 이동하지 않는다. 앞 계정 회복에도 돌아가지 않고 실제 선택·판·이동은 ModelCall에 남긴다. 다른 provider·model 자동 fallback은 없다. Run 시작에 고정하는 후보 순서는 → lophn-agent/harness/model의 ResolvedModel.credentials다.
 - **OAuth 갱신.** 만료 60000ms 전부터 credential별 단일 갱신, 최대 15000ms. secret 재조회·새 token 안전 보관 뒤 사용하며 새 refresh token 없으면 이전 것을 유지한다. OAuth 401은 갱신 한 번·동일 요청 재전송 한 번만; 실제 재전송은 별도 ModelCall이며 run 한도에 센다.
 - **device code.** 서버 interval·expiry 우선; interval 없으면 5000ms. xAI slow_down마다 5000ms 증가. ChatGPT 최대 900000ms, xAI expiry 없으면 최대 300000ms. 거절·만료·user 취소 즉시 중단한다. code·PKCE verifier·state 원문은 ledger에 저장하지 않는다.
 - **사용량 대기.** 확인된 reset까지, 모르면 3600000ms. 그 전 test call은 금지다. plan 접근 제한은 인증 폐기와 구별한다.

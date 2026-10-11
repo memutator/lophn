@@ -10,9 +10,9 @@ concerns: [platform/notifications]
 
 ### 계기와 사실
 
-**[R1]** notification은 운영 보고 문제의 열림·재발·닫힘, approval request 생성, question 생성, ticket 확인 완료·검사 실패, 반복 실패나 대상 보관으로 machine이 멈춘 assignment, context 계약 위반 수 증가, release activation 실패에서만 생긴다.
+**[R1]** notification은 운영 보고 문제의 열림·재발·닫힘, approval request 생성, question 생성, ticket 확인 완료·검사 실패, 대상 보관으로 machine이 멈춘 assignment, context 계약 위반 수 증가, release activation 실패에서만 생긴다.
 - 이유: platform/notifications의 한 계기 표만 쓰면 필요하지 않은 소식이 늘거나 영역별 정책이 어긋나지 않는다.
-- 확인: problems/grouping·problems/closing, platform/approvals, lophn-agent/questions, coding-agent/tickets, lophn-agent/assignments, documents/contexts, apps/releases에서 각 조건을 일으켜 하나씩 생기고 운영 보고가 아닌 문제와 사람이 직접 멈춘 assignment에서는 생기지 않는지 본다.
+- 확인: problems/grouping·problems/closing, platform/approvals, lophn-agent/questions, coding-agent/tickets, lophn-agent/assignments, documents/contexts, apps/releases에서 각 조건을 일으켜 하나씩 생기고 운영 보고가 아닌 문제와 대상 보관 아닌 이유로 멈춘 assignment에서는 생기지 않는지 본다.
 - 의도: platform#I6
 
 **[R2]** 표 밖의 추가 report·ticket 생성·claim·claim 해제·완료 보고·취소·handoff 종료·run 종료·일반 문서 저장·앱의 직접 발송 요청은 notification을 만들지 않는다.
@@ -72,6 +72,18 @@ concerns: [platform/notifications]
 - 확인: 문서 입력과 앱 조작 중 창 안·OS notification을 표시해 focus와 현재 화면이 유지되고 사람이 Open을 선택한 뒤에만 이동하는지 본다; 배치·OS 동작은 shell/desktop을 따른다.
 - 의도: platform#I6
 
+### agent 부르기
+
+**[R13]** 계기 표는 계기마다 notification에서 부를 agent를 미리 정하며 context 계약 위반은 Context Engineer, 앱 문제(운영 보고 문제의 열림과 release activation 실패)는 App Engineer이고 나머지 계기는 agent 없이 보기만 둔다.
+- 이유: lophn은 문서 내용을 이해하지 못하므로 어떤 agent를 부를지는 lophn이 가진 사건의 종류로만 정하고 문서나 오류의 내용을 읽어 판단하지 않는다. 수신자는 계속 사람 한 명이고 정해진 agent는 Ask로 부를 대상일 뿐이다.
+- 확인: 계약 위반 계기에는 Context Engineer가, 앱 문제 계기에는 App Engineer가 정해지고 나머지 계기에는 agent가 없는지 보며, 같은 종류의 계기가 대상 문서의 내용과 상관없이 같은 agent로 정해지는지 본다.
+- 의도: platform#I6, lophn-agent#I1
+
+**[R14]** agent가 정해진 notification에서 사람이 Ask를 고르면 그 agent의 Agent 탭이 열리고 notification이 가리키는 대상(위반된 context의 계약, 문제와 앱, release)이 첫 context로만 붙으며, 탭이 열리는 것만으로 run이나 메시지가 생기지 않고 notification의 본문 복사본은 붙지 않는다.
+- 이유: notification은 알림일 뿐이고 agent를 부르는 일은 사람이 말을 시작할 때 시작한다; 대상의 참조만 붙이면 R3의 복사본 금지와 R7의 agent 비기동을 지킨다.
+- 확인: Ask 뒤 탭은 열리되 run·메시지 수와 notification 읽음 상태는 그대로이고 붙은 첫 context가 대상의 식별자로 읽히는지 본다; 버튼·탭·첫 context chip의 모양은 shell/desktop과 lophn-agent/conversation을 따른다.
+- 의도: platform#I6, lophn-agent#I1
+
 ## 열린 질문
 
 없음.
@@ -82,3 +94,5 @@ concerns: [platform/notifications]
 - handoff와 모든 ticket 전이를 소식으로 보내던 정책을 버린다: platform/notifications의 ticket 확인 완료와 검사 실패만 계기다.
 - 앱과 사람의 임의 직접 notification 발송을 버린다: platform/notifications 밖의 발송을 지원하지 않는다.
 - notification을 정한 일에서만 만든다는 추상적인 이전 요구는 별도로 두지 않는다: R1과 R2의 정확한 목록으로 대체한다.
+- 반복 실패로 assignment가 멈춘 것을 알리던 계기를 버린다: 연속 실패 pause가 없어졌고 대상 보관으로 machine이 멈춘 경우만 남는다.
+- 문서 watch의 변화·소실을 알리던 계기를 버린다: 문서 내용의 변화가 아니라 계약 위반 수 증가만 계기이고, 프로그램은 문서 내용을 판단하지 않는다.

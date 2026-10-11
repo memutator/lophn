@@ -4,7 +4,7 @@ concerns: [shell/app-frame]
 ---
 # shell/app-frame
 
-앱 view를 감싸는 플랫폼 크롬·분리된 view session·native view 표시 및 앱이 깨져도 동작하는 문제 알리기를 맡는다; 호출의 의미·권한은 apps/invocations·apps/permissions, 피드백 내용과 수집은 problems/feedback이 맡는다.
+앱 view를 감싸는 플랫폼 크롬·분리된 view session·native view 표시, 앱이 깨져도 동작하는 문제 알리기, 앱 공간에서 agent를 부르는 title bar select와 앱 화면 옆 Agent 칸의 자리를 맡는다; 호출의 의미·권한은 apps/invocations·apps/permissions, 피드백 내용과 수집은 problems/feedback, Agent component의 화면은 shell/desktop과 lophn-agent/conversation, agent 정의와 관리는 lophn-agent/agents가 맡는다.
 
 ## 요구
 
@@ -187,15 +187,38 @@ concerns: [shell/app-frame]
 - 확인: 카드 스크롤·두 패널 resize에서 view가 경계 밖에 보이는 frame이 없다.
 - 의도: shell#I2
 
-**[R36]** 좁은 창에서 대화·정보 패널이 본문을 덮을 때는 앱 view를 숨기지 않고 bounds를 패널이 덮지 않는 영역으로 줄인다.
-- 이유: 패널을 여는 동안에도 남은 자리에서 앱 화면을 보이게 한다.
-- 확인: 1,024px 미만 창에서 대화 패널을 열면 앱 view가 패널 옆 남은 폭으로 줄고 사라지지 않으며 닫으면 원래 bounds로 돌아온다.
+**[R36]** Agent 칸이 열려 있거나 좁은 창에서 운영 패널이 본문을 덮을 때는 앱 view를 숨기지 않고 bounds를 칸과 패널이 차지하지 않는 영역으로 줄인다.
+- 이유: 칸과 패널을 여는 동안에도 남은 자리에서 앱 화면을 보이게 한다.
+- 확인: Agent 칸을 열면 앱 view가 칸 옆 남은 폭으로 줄고 사라지지 않으며, 1,024px 미만 창에서 운영 패널을 열어도 앱 view가 패널이 덮지 않는 폭으로 줄고 사라지지 않고, 칸과 패널을 닫으면 원래 bounds로 돌아온다.
 - 의도: shell#I4
+
+### 앱 공간의 agent
+
+**[R37]** 앱 공간은 lophn sidebar를 쓰지 않고 title bar의 window controls 바로 옆에 agent select 하나를 두며, 펼치면 lophn · 그 앱의 App Engineer · 그 앱의 Operator들 · Manage를 각 줄 avatar와 이름으로 보이고 Context Engineer는 보이지 않는다.
+- 이유: 앱은 project 안이 아니라 project와 나란한 자리이므로 앱 공간에서도 lophn·App Engineer·그 앱의 Operator를 부를 수 있어야 하고, context는 project에 속하므로 앱 공간에는 Context Engineer가 없다.
+- 확인: 앱 공간에 sidebar가 없고 agent select가 window controls 바로 옆에 하나 있으며, 펼친 목록이 lophn·App Engineer·Operator들·Manage 순으로 각 줄에 avatar와 이름을 보이고 Context Engineer 줄이 없고 Operator가 없는 앱에서는 Operator 묶음이 비며, 앱 view가 crash하거나 멈춘 뒤에도 select가 열린다.
+- 의도: lophn-agent#I4
+
+**[R38]** agent select에서 lophn·App Engineer·Operator 하나를 고르면 앱 화면 옆 칸에 project Agent 탭과 같은 Agent component(shell/desktop)가 그 agent로 열리고 칸을 닫을 수 있으며, 앱 화면은 덮이지 않고 줄어든다.
+- 이유: 앱 공간에서도 project와 같은 대화·카드·composer로 agent를 쓰고 쓰던 앱 화면을 계속 본다.
+- 확인: agent를 고르면 앱 view가 칸 폭만큼 줄고 그 옆 칸에 Agent component가 열리며 그 세션의 자리는 이 앱이고, 칸의 닫기 단추로 닫으면 앱 view가 원래 bounds로 돌아오며, 칸이 열려 있는 동안 앱 view는 사라지거나 가려지지 않는다.
+- 의도: shell#I4
+
+**[R39]** agent select의 Manage는 같은 칸에 앱 자리의 agent 관리를 열고 그 화면은 project Agents 탭과 같은 component이며 App Engineer · 앱 Operator · 앱 LOPHN.md · skill · MCP · model을 다룬다.
+- 이유: 앱 공간에서도 project와 같은 방식으로 agent를 관리하고, 따로 만든 화면이 project 화면과 달라지지 않게 한다.
+- 확인: Manage가 앱 화면 옆 칸에 열리고 project Agents 탭과 같은 component이며 앱 자리의 App Engineer·Operator·LOPHN.md·skill·MCP·model이 보이고 Context Engineer나 project 전용 항목이 보이지 않는다.
+- 의도: lophn-agent#I5
+
+**[R40]** 앱 문제 사건 toast의 [Ask App Engineer](platform/notifications)를 앱 공간에서 누르면 agent select를 거치지 않고 같은 Agent component 칸에 App Engineer의 새 세션을 그 사건을 첫 context로 붙여 연다.
+- 이유: 앱을 보다가 만난 문제를 그 자리에서 담당 agent에게 바로 묻는다.
+- 확인: 앱 공간에서 앱 문제 toast의 [Ask App Engineer]를 누르면 앱 화면 옆 칸에 App Engineer 세션이 열리고 첫 context에 그 사건이 붙어 있으며 앱 view가 가려지지 않는다.
+- 의도: lophn-agent#I4
 
 ## 열린 질문
 
 ## 버린 것
 
+- 앱 공간의 대화 dock(DockToggle·DockCover·본문 오른쪽 DockSlot, dock이 앱 view를 덮거나 미는 요구) — 앱 공간도 project와 같은 Agent component를 앱 화면 옆 칸으로 열기로 정해 dock은 두지 않는다(R36, R37, R38).
 - 앱 외부 링크를 열기 전 확인 — 되돌릴 수 없는 일이 아니라 링크 열기이므로 묻지 않고 형식 검사만 통과하면 OS browser로 연다(R5).
 - 떠 있는 UI를 열 때·경계 drag 중 native view 숨김 — 앱 화면이 사라지는 UX 손해가 커서 버리고 shell overlay view로 대신한다(R24, R29, R31).
 - lophn sidebar 안 앱 view와 M1 이후 새 창 버튼 — 같은 원문의 후반 결정이 얇은 바 앱 공간으로 대체하고 milestone 조건은 폐기했다.

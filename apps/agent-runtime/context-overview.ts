@@ -1,6 +1,6 @@
 // context 자료(lophn-agent/harness/prompt-assemble#R4, R5, presets#R17)다. 선택한 context마다 overview(type·뜻·
 // 개수, type 사이 관계)와 용어집을 core 읽기로 모아 prompt 자료 글로 만든다. 선택 중 `assignment_scope`·
-// `work_place`는 호출하는 쪽이 풀어서 `all`·`project`로 넘긴다(ctx-I58b).
+// `work_place`는 `resolveContextSelections`가 풀어서 `all`·`project`로 넘긴다(ctx-I58b).
 import {
   contextContractRoute,
   contextGetRoute,
@@ -95,6 +95,40 @@ export type ContextMaterial = {
 };
 
 export type ContextMaterialSelection = { kind: string; target: string | null };
+
+// preset의 context 선택 중 `work_place`·`assignment_scope`를 loadContextMaterials가 읽는 선택으로 푼다
+// (presets: `work_place`는 세션 작업 자리, `assignment_scope`는 담당 범위에서 resolve한다).
+// - `work_place`: 작업 자리가 project면 그 project, 아니면 자료가 없다.
+// - `assignment_scope`: 담당 범위가 project면 그 project다. 담당 범위가 앱(App Engineer)이면 작업 자리의
+//   project 안에서 `all`로 읽는다. 어느 context가 보이는지는 core가 정한다: 앱 하나에 묶인 agent의
+//   목록과 읽기는 그 앱을 app-data source로 읽는 context만 낸다(roles/app-engineer#R2).
+//   그 밖의 담당 범위도 작업 자리의 project 안에서 읽는다.
+// 다른 선택은 그대로 둔다.
+export function resolveContextSelections(
+  selections: readonly ContextMaterialSelection[],
+  input: {
+    place: { kind: string; id: string | null };
+    scope: { kind: string; id: string | null };
+  },
+): ContextMaterialSelection[] {
+  const resolved: ContextMaterialSelection[] = [];
+  for (const selection of selections) {
+    if (selection.kind === "work_place") {
+      if (input.place.kind === "project" && input.place.id !== null) {
+        resolved.push({ kind: "project", target: input.place.id });
+      }
+    } else if (selection.kind === "assignment_scope") {
+      resolved.push(
+        input.scope.kind === "project" && input.scope.id !== null
+          ? { kind: "project", target: input.scope.id }
+          : { kind: "all", target: null },
+      );
+    } else {
+      resolved.push(selection);
+    }
+  }
+  return resolved;
+}
 
 export type ContextMaterialSet = {
   // 중복 없이, 선택 순서 다음 `context.list` 순서(제목, id)로.

@@ -26,7 +26,7 @@ pattern은 context 계약의 series 자료 안에 값으로 산다. 따로 저�
 | 파일 이름 칸 | literal 글자와 `*`(0글자 이상, `/` 제외)와 번호 자리 정확히 하나 |
 | 번호 자리 | `{(n\|major\|minor\|patch)(([+-])(\d+))?(:(\d+))?}` |
 | step | 생략은 `+1`; 명시한 부호와 정수는 안전한 정수 범위(2^53-1 이하); 0 허용 |
-| width | 생략은 채움 없음; 지정하면 정수 값이 1~4; `:03`은 3 |
+| width | 생략하면 마지막 멤버 key에서 바꾸는 성분의 글자 수를 따른다(exp-009 → exp-010); 지정하면 정수 값이 1~4; `:03`은 3 |
 | 번호 자리의 이웃 | 앞뒤 글자가 숫자·`*` 금지; 바로 뒤가 `.`이면 그 다음 글자가 숫자 금지 |
 
 위반은 `invalid_input`이며 계약을 저장할 때 검사한다. 바깥 공백은 문법에 들어가지 않는다(앞뒤 공백이 있으면 위반).
@@ -101,6 +101,7 @@ pattern은 context 계약의 series 자료 안에 값으로 산다. 따로 저�
 | `weekly-{patch}.md` | `weekly-0.2.1.md` | `weekly-0.2.2.md` | true |
 | `v{n+1}.md` | `v1.md` | `v2.md` | true |
 | `reports/weekly-{n}.md` | `reports/weekly-9.md` | `reports/weekly-10.md` | true |
+| `eval/experiments/exp-{n}-*.md` | `eval/experiments/exp-009-x.md` | `eval/experiments/exp-010-*.md` | false |
 | `eval/experiments/exp-{n+1:03}-*.md` | `eval/experiments/exp-010-x.md` | `eval/experiments/exp-011-*.md` | false |
 | `weekly-{n-1}.md` | `weekly-5.md` | `weekly-4.md` | true |
 | `weekly-{n}.md` | `weekly-2026-09-28.md`만 있음 | 없음(빈 제안) | false |

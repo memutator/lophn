@@ -22,7 +22,6 @@ ledger의 공통 envelope, 식별·시각·오류 값, 확정 command 결과와 
 | `ver` | Version | → documents/versions |
 | `ctx` | Context | → documents/contexts |
 | `trm` | Term | → documents/terms |
-| `ser` | Series | → documents/series |
 | `viw` | SavedView | → documents/outline-and-search |
 | `app` | App | → apps/registration |
 | `rel` | Release | → apps/releases |

@@ -69,11 +69,11 @@ import {
 } from "../../packages/lophn-agent/assignments/mod.ts";
 import {
   type AgentDeps,
+  type AgentFileSystem,
   type AgentLookups,
   type AssignmentRef,
   createAgentCommands,
   createAgentReads,
-  createNodeAgentFiles,
 } from "../../packages/lophn-agent/agents/mod.ts";
 import {
   createRunCommands,
@@ -709,6 +709,16 @@ function agentLookups(sql: Pick<Tx["sql"], "get" | "all">): AgentLookups {
 const AGENT_ASSIGNMENT_PENDING = {
   code: "unavailable" as const,
   message: "operator assignment lifecycle is not wired yet",
+};
+
+// 정의 파일의 동기 읽기·쓰기는 writer·reader Worker 안의 handler가 한다. core 프로세스의 module graph에는
+// 동기 file API를 두지 않으므로(platform/responsiveness#R1) adapter는 이 module이 올라올 때 URL로 연다.
+const NODE_AGENT_FILES = new URL(
+  "../../packages/lophn-agent/agents/adapters/node-fs.ts",
+  import.meta.url,
+).href;
+const { createNodeAgentFiles } = await import(NODE_AGENT_FILES) as {
+  createNodeAgentFiles(): AgentFileSystem;
 };
 
 const agentDeps: AgentDeps = {

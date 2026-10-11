@@ -14,7 +14,6 @@ export {
 } from "./resolve.ts";
 export { createAgentCommands } from "./commands.ts";
 export { createAgentReads } from "./reads.ts";
-export { createNodeAgentFiles } from "./adapters/node-fs.ts";
 export { type Effective, effectiveAgent } from "./effective.ts";
 export { DEFAULT_PROFILES } from "./inspect.ts";
 export type {

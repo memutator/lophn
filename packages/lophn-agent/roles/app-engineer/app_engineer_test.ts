@@ -89,15 +89,7 @@ Deno.test("lophn-agent/roles/app-engineer#R1: 사람 요청과 그 요청을 잇
     }),
     true,
   );
-  // 주기 회차는 operator의 것이고, 문제 발생·release activation은 시작 계기가 아니다.
-  assertEquals(
-    mayStart({
-      kind: "schedule",
-      assignment_revision: 1,
-      scheduled_at: "2026-01-01T00:00:00.000Z",
-    }),
-    false,
-  );
+  // 문제 발생·release activation은 시작 계기가 아니다.
   for (
     const kind of ["problem_opened", "release_activated", "ticket_changed"]
   ) {

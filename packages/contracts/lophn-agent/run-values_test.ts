@@ -14,13 +14,6 @@ Deno.test("lophn-agent/harness/run-loop#R1: source is a strict tagged union", ()
   assert(runSourceSchema.safeParse({ kind: "message", message }).success);
   assert(
     runSourceSchema.safeParse({
-      kind: "schedule",
-      assignment_revision: 3,
-      scheduled_at: "2026-10-04T00:00:00.000Z",
-    }).success,
-  );
-  assert(
-    runSourceSchema.safeParse({
       kind: "handoff",
       sender_run: run,
       original_message: message,
@@ -52,7 +45,7 @@ Deno.test("lophn-agent/harness/run-loop#R18: outcome reasons stay inside the can
   assert(
     runOutcomeSchema.safeParse({
       kind: "completed",
-      reason: "no_change",
+      reason: "answer_completed",
     }).success,
   );
   assert(
@@ -97,15 +90,4 @@ Deno.test("lophn-agent/harness/run-loop#R20: limits are positive safe integers w
       { ...DEFAULT_RUN_LIMITS, model_attempts: Number.MAX_SAFE_INTEGER + 1 },
     ]
   ) assert(!runLimitsSchema.safeParse(limits).success);
-});
-
-Deno.test("lophn-agent/roles/operator#R6: completed no_change is a canonical result pair, not a failure", () => {
-  assert(
-    runOutcomeSchema.safeParse({ kind: "completed", reason: "no_change" })
-      .success,
-  );
-  assert(
-    !runOutcomeSchema.safeParse({ kind: "failed", reason: "no_change" })
-      .success,
-  );
 });

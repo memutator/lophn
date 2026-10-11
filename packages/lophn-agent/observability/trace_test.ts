@@ -433,7 +433,7 @@ Deno.test("lophn-agent/observability#R8: model input, output and context basis a
   addRun(db, {
     id: run,
     assignment: LOPHN,
-    outcome: ["completed", "no_change"],
+    outcome: ["completed", "answer_completed"],
   });
   addModel(db, { id: id("mcl", 1), run, order: 1 });
   addModel(db, {

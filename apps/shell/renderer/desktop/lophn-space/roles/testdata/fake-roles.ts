@@ -11,7 +11,6 @@ import type {
   Proposed,
   ReadChoice,
   Settled,
-  SkippedPeriod,
 } from "../operator/source.ts";
 import type {
   BodyKind,
@@ -211,7 +210,6 @@ export interface FakeOperatorData {
   proposeFails?: string;
   pauseFails?: boolean;
   withdrawFails?: boolean;
-  skipped?: Record<string, readonly SkippedPeriod[]>;
 }
 
 export interface FakeRolesData {
@@ -299,7 +297,6 @@ export function fakeRoles(data: FakeRolesData = {}) {
           : { ok: true, value: null },
       );
     },
-    skipped: (item) => read(() => operatorData.skipped?.[item.id] ?? []),
   };
 
   const source: RolesSource = {

@@ -18,8 +18,6 @@ const APP = "app_01h455vb4pex5v6nkc6gd5fd01";
 const DOC = "doc_01h455vb4pex5v6nkc6gd5fd01";
 const VER = "ver_01h455vb4pex5v6nkc6gd5fd01";
 const APR = "apr_01h455vb4pex5v6nkc6gd5fd01";
-const RUN = "run_01h455vb4pex5v6nkc6gd5fd01";
-const RUN_DONE = "run_01h455vb4pex5v6nkc6gd5fd02";
 const NOW = Date.parse("2026-10-07T00:00:00.000Z");
 const HASH = "c".repeat(64);
 
@@ -253,58 +251,6 @@ Deno.test("lophn-agent/assignments#R4: 허락된 승인만 적용하고(한 번�
     }),
     { ok: false, code: "forbidden" },
   );
-});
-
-Deno.test("lophn-agent/scheduling#R5: 건너뛴 회차는 막은 일이 사람의 답을 기다리는지로 구별하고 건너뛰지 않은 회차는 말하지 않는다", async () => {
-  const occurrence = (
-    due: string,
-    outcome: "accepted" | "skipped",
-    blocking: string[],
-  ) => ({
-    occurrence: {
-      due_at: due,
-      outcome,
-      blocking_runs: blocking,
-    },
-  });
-  const fake = fakeCore({
-    "read:assignment-occurrences/list": () =>
-      ok({
-        occurrences: [
-          occurrence("2026-10-04T00:00:00.000Z", "accepted", []),
-          occurrence("2026-10-05T00:00:00.000Z", "skipped", [RUN_DONE]),
-          occurrence("2026-10-06T00:00:00.000Z", "skipped", [RUN]),
-        ],
-        next_cursor: null,
-      }),
-    "read:runs/list": () =>
-      ok({
-        runs: [
-          { id: RUN, state: "waiting_user" },
-          { id: RUN_DONE, state: "finished" },
-        ],
-        next_cursor: null,
-      }),
-  });
-  const skipped = await sourceOf(fake, undefined).skipped(role());
-  assertValid(fake.calls);
-  assertEquals(skipped, {
-    ok: true,
-    value: [
-      { dueAt: "2026-10-06T00:00:00.000Z", waitingForAnswer: true },
-      { dueAt: "2026-10-05T00:00:00.000Z", waitingForAnswer: false },
-    ],
-  });
-  // 건너뛴 회차가 없으면 일 목록을 읽지 않는다.
-  const none = fakeCore({
-    "read:assignment-occurrences/list": () =>
-      ok({ occurrences: [], next_cursor: null }),
-  });
-  assertEquals(await sourceOf(none, undefined).skipped(role()), {
-    ok: true,
-    value: [],
-  });
-  assertEquals(none.calls.length, 1);
 });
 
 Deno.test("shell/desktop#R5: 역할 목록은 Operator의 주기·읽는 앱·멈춘 이유를 담고 다른 역할에는 담지 않는다", () => {

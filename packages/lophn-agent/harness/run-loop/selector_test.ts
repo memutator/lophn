@@ -80,11 +80,10 @@ Deno.test("lophn-agent/harness/run-loop#R4 [agent-I40]: 사람이 기다리는 �
   assertEquals(YIELD_AFTER, 8);
 });
 
-Deno.test("lophn-agent/harness/run-loop#R4 [agent-I40]: 우선순위는 둘뿐이라 어떤 계기의 run도 1이나 2이고 주기 계기가 셋째 칸을 만들지 않는다", () => {
+Deno.test("lophn-agent/harness/run-loop#R4 [agent-I40]: 우선순위는 둘뿐이라 어떤 계기의 run도 1이나 2이고 셋째 칸이 없다", () => {
   const kinds = [
     { kind: "message", message: "m" },
     { kind: "handoff" },
-    { kind: "schedule" },
   ];
   for (const source of kinds) {
     const tier = tierOf({ source: source as never, continued_from: null });

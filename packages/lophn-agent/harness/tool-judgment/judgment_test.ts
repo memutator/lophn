@@ -121,12 +121,6 @@ Deno.test("lophn-agent/harness/tool-judgment#R3 lophn-agent/roles/operator#R7 [a
     judge(facts({ targets: [target("1", { inScope: false })] })).decision,
     "deny",
   );
-  // 주기 출처는 받을 선언이 없어 쓰기를 열지 않는다. 읽기는 그대로 allow다.
-  assertEquals(judge(facts({ origin: "periodic" })).decision, "deny");
-  assertEquals(
-    judge(facts({ origin: "periodic", effect: "read" })).decision,
-    "allow",
-  );
 });
 
 Deno.test("lophn-agent/harness/tool-judgment#R5: 대상 여러 개는 deny 하나면 전체 deny, deny 없이 ask가 있으면 전체 ask, 모두 allow일 때만 allow다", () => {
@@ -144,7 +138,7 @@ Deno.test("lophn-agent/harness/tool-judgment#R5: 대상 여러 개는 deny 하�
 });
 
 Deno.test("lophn-agent/harness/tool-judgment#R7: 판정은 사실만 입력으로 받고 어떤 조합에서도 되돌릴 수 없는 call·confirm을 allow로 낮추는 모드가 없다", () => {
-  const origins: Origin[] = ["human_request", "handoff", "periodic"];
+  const origins: Origin[] = ["human_request", "handoff"];
   const reversibility: Reversibility[] = [
     "reversible",
     "irreversible",
@@ -169,7 +163,7 @@ Deno.test("lophn-agent/harness/tool-judgment#R7: 판정은 사실만 입력으�
       }
     }
   }
-  assertEquals(checked, 54);
+  assertEquals(checked, 36);
   // confirm=true는 read여도 호출 전에 ask다.
   assertEquals(judge(facts({ effect: "read", confirm: true })).decision, "ask");
 });

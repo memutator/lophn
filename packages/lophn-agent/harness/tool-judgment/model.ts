@@ -16,7 +16,7 @@ export type DecisionEffect = NonNullable<ToolDecision["effect"]>;
 export type Reversibility = "reversible" | "irreversible" | "unknown";
 
 // run이 이어진 출처. 사람 요청과 그 handoff만 되돌릴 수 있는 쓰기의 allow 근거가 된다(R3).
-export type Origin = "human_request" | "handoff" | "periodic";
+export type Origin = "human_request" | "handoff";
 
 export type TargetFact = {
   id: string;
@@ -125,8 +125,7 @@ function callDenial(facts: CallFacts): Judgment | undefined {
 }
 
 // 대상 하나의 칸. 읽기는 allow, 책임이 유효한 되돌릴 수 있는 쓰기는 사람 요청 계보에서만
-// allow, 보장 없는 쓰기와 외부 효과는 ask다. 주기 run은 남길 문서 선언이 없어 쓰기를 열 근거가
-// 없으므로 승인으로도 열지 않고 deny다. 표에 없는 조합은 추측하지 않고 deny다.
+// allow, 보장 없는 쓰기와 외부 효과는 ask다. 표에 없는 조합은 추측하지 않고 deny다.
 function targetJudgment(facts: CallFacts, target: TargetFact): Judgment {
   if (facts.confirm) {
     return verdict(
@@ -143,9 +142,6 @@ function targetJudgment(facts: CallFacts, target: TargetFact): Judgment {
   }
   if (target.reversibility !== "reversible") {
     return verdict("ask", "not_reversible", "irreversible");
-  }
-  if (facts.origin === "periodic") {
-    return verdict("deny", "outside_responsibility", "reversible_write");
   }
   return verdict("allow", "reversible_write", "reversible_write");
 }

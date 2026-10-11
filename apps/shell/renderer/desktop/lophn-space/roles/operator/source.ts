@@ -1,5 +1,5 @@
 // Operator 붙이기·바꾸기·멈춤·회수가 읽고 쓰는 통로. 화면은 이 interface만 보고 core route 이름은
-// core-source.ts만 안다. 모양은 contracts(assignments·approvals·assignment-occurrences·documents)에서
+// core-source.ts만 안다. 모양은 contracts(assignments·approvals·documents)에서
 // 이 화면이 쓰는 field만 옮긴 것이다(contracts를 들이면 zod가 renderer bundle에 들어간다).
 import type {
   PresetEntry,
@@ -70,12 +70,6 @@ export interface Proposed {
  */
 export type Settled = "waiting" | "attached" | "declined";
 
-/** 건너뛴 회차. 앞선 일이 사람의 답을 기다리고 있었는지 가른다. */
-export interface SkippedPeriod {
-  readonly dueAt: string;
-  readonly waitingForAnswer: boolean;
-}
-
 export interface OperatorSource {
   /** Operator Preset 목록(기본과 사람이 만든 것, 각 판 hash 포함). */
   presets(): Promise<SourceResult<readonly PresetEntry[]>>;
@@ -95,6 +89,4 @@ export interface OperatorSource {
   pause(role: RoleRow): Promise<SourceResult<null>>;
   /** 회수. 지난 대화만 남는다. */
   withdraw(role: RoleRow): Promise<SourceResult<null>>;
-  /** 최근에 건너뛴 주기 일. */
-  skipped(role: RoleRow): Promise<SourceResult<readonly SkippedPeriod[]>>;
 }

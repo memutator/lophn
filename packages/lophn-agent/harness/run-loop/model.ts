@@ -122,16 +122,12 @@ export function recordOf(row: RunRow): RunRecord {
 
 export function sourceColumns(source: RunSource): {
   message: string | null;
-  revision: number | null;
-  scheduledAt: string | null;
   sender: string | null;
   originalMessage: string | null;
   dedupKey: string | null;
 } {
   return {
     message: source.kind === "message" ? source.message : null,
-    revision: source.kind === "schedule" ? source.assignment_revision : null,
-    scheduledAt: source.kind === "schedule" ? source.scheduled_at : null,
     sender: source.kind === "handoff" ? source.sender_run : null,
     originalMessage: source.kind === "handoff" ? source.original_message : null,
     dedupKey: source.kind === "handoff" ? source.dedup_key : null,

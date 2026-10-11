@@ -239,19 +239,6 @@ Deno.test("lophn-agent/harness/run-loop#R1: only a person request, an operator r
       await accept(h, { run: id("run", 9), message: id("msg", 9) }, userCred),
       "forbidden",
     );
-    // 주기 회차는 operator만, session 없이 받는다.
-    code(
-      await accept(h, {
-        run: id("run", 9),
-        session: null,
-        source: {
-          kind: "schedule",
-          assignment_revision: 1,
-          scheduled_at: "2026-01-01T00:00:00.000Z",
-        },
-      }),
-      "invalid_input",
-    );
     // 원래 사람 요청에서 이어진 handoff 하나.
     const handoff = (run: string, original: string, key: string) =>
       accept(h, {

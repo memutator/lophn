@@ -420,7 +420,6 @@ Deno.test("lophn-agent/questions#R13: runtime machine credentialì˜ operation ê¸
   for (
     const operation of [
       "StartRun",
-      "ProcessAssignmentOccurrence",
       "ApplyQuestionOption",
     ]
   ) {

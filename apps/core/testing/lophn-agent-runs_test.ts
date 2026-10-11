@@ -32,8 +32,6 @@ const NOW = Date.UTC(2026, 0, 1);
 const ASG = "asg_01arz3ndektsv4rrffq69g5fav";
 const ASG_OPERATOR = "asg_01arz3ndektsv4rrffq69g5fbw";
 const RUN = "run_01arz3ndektsv4rrffq69g5fav";
-const RUN_B = "run_01arz3ndektsv4rrffq69g5fbw";
-const RUN_C = "run_01arz3ndektsv4rrffq69g5fbx";
 const MSG = "msg_01arz3ndektsv4rrffq69g5fav";
 const PROJECT = "prj_01arz3ndektsv4rrffq69g5fav";
 
@@ -245,7 +243,7 @@ Deno.test("lophn-agent/harness/run-loop#R2: an accepted run survives a kill righ
   }
 });
 
-Deno.test("lophn-agent/harness/run-loop#R1 #R2: an operator round makes one run per scheduled time and a stale revision is refused", async () => {
+Deno.test("lophn-agent/harness/run-loop#R1 #R2: an operator takes no handoff run", async () => {
   const dir = await Deno.makeTempDir({ prefix: "run-r1-" });
   const path = `${dir}/ledger.db`;
   try {
@@ -297,54 +295,6 @@ Deno.test("lophn-agent/harness/run-loop#R1 #R2: an operator round makes one run 
          values (?, 'operator', 'project', ?, 'enabled', 1)`,
         [ASG_OPERATOR, PROJECT],
       );
-      const schedule = (id: string, scheduledAt: string, revision = 1) => ({
-        id,
-        assignment: ASG_OPERATOR,
-        session: null,
-        source: {
-          kind: "schedule",
-          assignment_revision: revision,
-          scheduled_at: scheduledAt,
-        },
-        continued_from: null,
-        start_after: null,
-      });
-      const first = await run(
-        runs.accept,
-        "AcceptRun",
-        schedule(RUN, "2026-01-01T09:00:00.000Z"),
-        { assignment_revision: 1 },
-      );
-      assert(first.ok, first.ok ? "" : JSON.stringify(first.error));
-      // 같은 회차는 다른 run id로 와도 기존 run이다.
-      const again = await run(
-        runs.accept,
-        "AcceptRun",
-        schedule(RUN_B, "2026-01-01T09:00:00.000Z"),
-        { assignment_revision: 1 },
-      );
-      assert(again.ok, again.ok ? "" : JSON.stringify(again.error));
-      assertEquals((again.value.result as { id: string }).id, RUN);
-      // 다음 회차는 새 run이다.
-      const next = await run(
-        runs.accept,
-        "AcceptRun",
-        schedule(RUN_C, "2026-01-01T10:00:00.000Z"),
-        { assignment_revision: 1 },
-      );
-      assert(next.ok, next.ok ? "" : JSON.stringify(next.error));
-      // 낡은 assignment 판의 회차는 거절된다.
-      const stale = await run(
-        runs.accept,
-        "AcceptRun",
-        schedule(
-          "run_01arz3ndektsv4rrffq69g5fby",
-          "2026-01-01T11:00:00.000Z",
-          2,
-        ),
-        { assignment_revision: 1 },
-      );
-      assert(!stale.ok && stale.error.code === "conflict");
       // operator는 handoff를 받지 않는다.
       const handoff = await run(runs.accept, "AcceptRun", {
         id: "run_01arz3ndektsv4rrffq69g5fbz",
@@ -364,7 +314,7 @@ Deno.test("lophn-agent/harness/run-loop#R1 #R2: an operator round makes one run 
       assert(!handoff.ok && handoff.error.code === "invalid_input");
       assertEquals(
         connection.sql.get("select count(*) as n from runs", [])?.["n"],
-        2n,
+        0n,
       );
     } finally {
       connection.close();

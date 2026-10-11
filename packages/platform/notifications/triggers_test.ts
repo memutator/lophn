@@ -382,27 +382,6 @@ Deno.test("platform/notifications#R1: machine이 멈춘 assignment만 계기다"
   const dir = await Deno.makeTempDir({ prefix: "ntf-trigger-asg-" });
   const connection = await schema(dir);
   try {
-    // 반복 실패로 machine이 멈춘다.
-    emitSource(
-      connection,
-      "AssignmentPaused",
-      "asg_01arz3ndektsv4rrffq69g5fav",
-      {
-        revision: 1,
-        previous_revision: 0,
-        reason: {
-          kind: "consecutive_failures",
-          detail: "3번 연속 실패했다",
-          runs: [
-            "run_01arz3ndektsv4rrffq69g5fav",
-            "run_01arz3ndektsv4rrffq69g5fbv",
-            "run_01arz3ndektsv4rrffq69g5fcv",
-          ],
-          target: null,
-        },
-        definition_hash: "a".repeat(64),
-      },
-    );
     // 대상 보관으로 machine이 멈춘다.
     emitSource(
       connection,
@@ -416,23 +395,6 @@ Deno.test("platform/notifications#R1: machine이 멈춘 assignment만 계기다"
           detail: "앱을 보관했다",
           runs: [],
           target: APP,
-        },
-        definition_hash: "a".repeat(64),
-      },
-    );
-    // 출력 보관으로 machine이 멈춘다.
-    emitSource(
-      connection,
-      "AssignmentPaused",
-      "asg_01arz3ndektsv4rrffq69g5fcv",
-      {
-        revision: 1,
-        previous_revision: 0,
-        reason: {
-          kind: "output_archived",
-          detail: "출력을 보관했다",
-          runs: [],
-          target: "doc_01arz3ndektsv4rrffq69g5fav",
         },
         definition_hash: "a".repeat(64),
       },
@@ -458,8 +420,8 @@ Deno.test("platform/notifications#R1: machine이 멈춘 assignment만 계기다"
       "select cast(seq as text) as seq from events where type = 'AssignmentPaused' order by seq",
       [],
     );
-    assertEquals(rows.length, 4);
-    for (const row of rows.slice(0, 3)) {
+    assertEquals(rows.length, 2);
+    for (const row of rows.slice(0, 1)) {
       const seeded = await seedNotification(
         connection,
         {
@@ -474,7 +436,7 @@ Deno.test("platform/notifications#R1: machine이 멈춘 assignment만 계기다"
     const rejected = await seedNotification(
       connection,
       {
-        seq: String(rows[3]["seq"]),
+        seq: String(rows[1]["seq"]),
         type: "AssignmentPaused",
         subject: "asg_01arz3ndektsv4rrffq69g5fdv",
       },
@@ -482,7 +444,7 @@ Deno.test("platform/notifications#R1: machine이 멈춘 assignment만 계기다"
     );
     assert(!rejected.ok);
     if (!rejected.ok) assertEquals(rejected.error.code, "forbidden");
-    assertEquals(notificationCount(connection), 3n);
+    assertEquals(notificationCount(connection), 1n);
   } finally {
     connection.close();
     await Deno.remove(dir, { recursive: true });

@@ -105,7 +105,6 @@ Deno.test("lophn-agent/harness/run-loop#R4: runtime은 selector를 주고 select
       headers: { "content-type": "application/json" },
     });
   const started = await startAgentRuntime({
-    occurrences: false,
     streams: {
       stdin: io.toChild.readable,
       stdout: io.fromChild.writable,
@@ -290,7 +289,6 @@ Deno.test("lophn-agent/harness/waiting-and-recovery#R9: runtime 기동은 새 ru
   const written = parent.write(HELLO);
   const RUN = "run_01arz3ndektsv4rrffq69g5fav";
   const started = await startAgentRuntime({
-    occurrences: false,
     streams: {
       stdin: io.toChild.readable,
       stdout: io.fromChild.writable,

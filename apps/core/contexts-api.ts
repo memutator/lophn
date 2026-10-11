@@ -56,6 +56,8 @@ function unattached(): ContextsRuntime {
       index: {
         violations: () => [],
         entities: () => [],
+        entity: () => [],
+        ofType: () => [],
         failing: () => true,
       },
       execute: () => [],

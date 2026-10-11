@@ -7,6 +7,8 @@ import { scanContext } from "./scan.ts";
 import {
   openIndexStore,
   readEntities,
+  readEntitiesOfType,
+  readEntityWithLinks,
   readIndexedFiles,
   readIndexState,
   readViolations,
@@ -403,4 +405,56 @@ Deno.test("documents/contexts#R23 [ctx-I32]: a file system failure while scannin
   assertEquals(result.error.code, "unavailable");
   assertEquals(dump(store), before);
   assertEquals(readIndexState(store.sql, CONTEXT), stateBefore);
+});
+
+Deno.test("documents/contexts#R16 [ctx-I63]: readEntityWithLinks gives the entity first in extraction order and the rows its edges point at, and nothing for an unknown entity", () => {
+  const store = openIndexStore(":memory:");
+  must(scanContext(store, scanInput(memoryFiles())));
+  const all = readEntities(store.sql, CONTEXT);
+
+  const rows = readEntityWithLinks(store.sql, CONTEXT, "Experiment", "002");
+  assertEquals(rows[0]?.path, "eval/experiments/exp-002-sight.md");
+  const wanted = new Set(["schedule-basic", "travel", "schedule-quality"]);
+  const picked = all.filter((row) =>
+    wanted.has(row.key) || (row.type === "Experiment" && row.key === "002")
+  );
+  assertEquals(
+    rows.map((row) => [row.type, row.key, row.path]).sort(),
+    picked.map((row) => [row.type, row.key, row.path]).sort(),
+  );
+  // no edge, no other rows
+  const alone = readEntityWithLinks(store.sql, CONTEXT, "Experiment", "003");
+  assertEquals(alone.map((row) => row.key), ["003"]);
+  assertEquals(
+    readEntityWithLinks(store.sql, CONTEXT, "Experiment", "999"),
+    [],
+  );
+  assertEquals(
+    readEntityWithLinks(
+      store.sql,
+      "ctx_00000000000000000000000002",
+      "Experiment",
+      "002",
+    ),
+    [],
+  );
+});
+
+Deno.test("documents/series#R5 [ctx-I63]: readEntitiesOfType gives that type's entities in extraction order and only that context's", () => {
+  const store = openIndexStore(":memory:");
+  must(scanContext(store, scanInput(memoryFiles())));
+  const all = readEntities(store.sql, CONTEXT);
+  assertEquals(
+    readEntitiesOfType(store.sql, CONTEXT, "Experiment"),
+    all.filter((row) => row.type === "Experiment"),
+  );
+  assertEquals(readEntitiesOfType(store.sql, CONTEXT, "Nothing"), []);
+  assertEquals(
+    readEntitiesOfType(
+      store.sql,
+      "ctx_00000000000000000000000002",
+      "Experiment",
+    ),
+    [],
+  );
 });

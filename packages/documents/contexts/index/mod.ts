@@ -4,6 +4,8 @@ export {
   type IndexStore,
   openIndexStore,
   readEntities,
+  readEntitiesOfType,
+  readEntityWithLinks,
   readIndexedFiles,
   readIndexState,
   readViolations,

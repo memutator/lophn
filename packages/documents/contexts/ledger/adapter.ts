@@ -56,7 +56,8 @@
 // | glossary.set (기존)·remove    | contextOf(entry)       | context, 용어 항목            | no      |
 //
 // 읽기도 같은 적재를 읽기 snapshot(`snapshot.sql`)으로 하고 state.seq = Number(snapshot.as_of_seq)다.
-// 읽기마다 적재 범위: context.list는 project와 그 context·판(content 없음), context.get·bundles·
+// 읽기마다 적재 범위: context.entity는 (type, key) 개체와 그 관계 대상 행, context.series_next는 그 type의
+// 개체(둘 다 적용된 판의 content와 index 갱신 실패 여부), context.list는 project와 그 context·판(content 없음), context.get·bundles·
 // glossary.list는 대상 context의 것, context.violations는 위반(deps.index)과 위반을 넘긴 event
 // (ledger events 표의 ContextViolationsHandedOff, state.events로)다. context.saved_views(깨진 view
 // 표시)·overview·search·contract·input_options는 적용된 판의 content, context.draft는 판과 검사와
@@ -98,6 +99,11 @@ export interface ContextIndexPort {
   violations(context: string): readonly StoredViolation[];
   // 적용된 판의 개체. 검색과 overview가 쓴다.
   entities(context: string): readonly EntityRow[];
+  // context.entity가 읽는 행: (type, key) 개체(같은 쌍이 둘이면 추출 순서의 첫 개체)와, 그 개체의 관계
+  // 간선이 가리키는 key를 가진 개체들. 추출 순서다. 개체가 없으면 빈 목록이다.
+  entity(context: string, type: string, key: string): readonly EntityRow[];
+  // context.series_next가 읽는 행: 그 type의 개체 전부(추출 순서).
+  ofType(context: string, type: string): readonly EntityRow[];
   // 읽기 전 index 갱신이 실패한 context다. 읽기는 빈 결과로 꾸미지 않고 unavailable을 낸다.
   failing(context: string): boolean;
 }

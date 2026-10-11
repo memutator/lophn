@@ -4,7 +4,7 @@
 `<concern id>#Q<n>`으로 여기에 올리고, 사람이 정해야 하는 것만 "사람이 정할
 것"에 둔다.
 
-- 모두 819건(재연결 뒤 8건 포함): 추천대로 652, 다르게 정함 34, 대체됨 93, 이미
+- 모두 823건(재연결 뒤 8건 포함): 추천대로 656, 다르게 정함 34, 대체됨 93, 이미
   정함 31, 사람이 정할 것 2
 - 사람이 정한 큰 결정은 아래 "정한 원칙"에 있다. 문서는 이 결정을 따른다.
 
@@ -423,7 +423,7 @@
 | problems/tests#Q5         | cgroup이 없는 macOS에서 Deno test 자식을 어떻게 둘까. Q8의 soft 상한과 #193의 Deno soft 거절이 부딪힌다.                          | 미정        | 사람이 정할 것. 추천은 macOS Deno test 자식을 시작 전 `unavailable`로 거절(#193, R20)                                                                                 |
 | problems/tests#Q6         | app test의 정적 code 사용 검사가 literal이 아닌(계산한) code의 `reportProblem` 자리를 어떻게 다룰까.                          | 추천대로    | 선언 안 되었거나 예약된 code를 literal로 보고하는 자리는 정적 fail이다. 정적으로 code를 알 수 없는 자리는 세어 observations에 적고(`dynamic_sites`), 필수 dynamic guard 검사(`code_usage_dynamic`)가 선언 밖·예약 code의 직접 보고를 실제 보고 통로의 guard가 거절하는 것을 보였을 때만 app test가 통과한다(problems#T12) |
 
-### lophn-agent (227)
+### lophn-agent (231)
 
 | id                                          | 질문                                                                                                                                      | 판정        | 결정                                                                                                                                                                  |
 | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -646,7 +646,7 @@
 | lophn-agent/presets#Q2 | agent 재설계(2026-10-12)에서 agent 정의를 어떤 모양으로 어디에 두나. 사람은 "app data의 project별 폴더"로 정했다. | 추천대로 | 정의 하나 = Markdown + frontmatter 파일 하나(`<data root>/{projects,apps}/<place-id>/agents/<agent-id>.md`, 본문 = 그 agent instructions). built-in(lophn·Context Engineer·App Engineer)은 코드가 정의하고 사람이 바꾼 칸만 override 파일로 둔다. 판(version)은 없고 저장은 덮어쓰기다. |
 | lophn-agent/presets#Q3 | agent 설정을 어느 층에 두고 어떻게 합치나. | 추천대로 | 기본값 < 전역(Workspace) < 자리(project 또는 app) < Operator < session. 칸마다 둘 수 있는 층을 정하고, Operator는 바꾼 칸만 저장해 나머지는 위 층을 따른다. Operator 권한은 자리 권한보다 넓힐 수 없다. 화면은 값의 출처를 한 줄로 보인다. |
 | lophn-agent/presets#Q4 | agent profile(icon 또는 사용자가 올린 이미지)을 어떻게 저장하나. | 추천대로 | icon은 design icon id, image는 png·jpg·webp 1 MB 이하(svg는 받지 않음)를 agent 정의 옆 `avatar.<ext>`로 둔다. design system에 `Avatar` component를 새로 둔다. |
-| lophn-agent/assignments#Q3 | preset(판)·assignment·scheduling을 새 agent 모델에서 어떻게 하나. | 추천대로 | preset(판·제품 preset·명시 적용)과 assignment를 없앤다. built-in agent는 자리마다 있고(App Engineer는 앱마다 하나), Operator는 정의 파일이 있으면 있다. schedule은 보류라 scheduling 코드와 요구를 지우고 다시 할 때 agent 정의 위에 만든다. 사람이 editor에서 만들고 고치는 것은 바로 저장하고, agent가 Operator를 제안할 때만 질문·승인 카드를 쓴다. |
+| lophn-agent/assignments#Q3 | preset(판)·assignment·scheduling을 새 agent 모델에서 어떻게 하나. | 추천대로 | (agent-S1 설계 pass, `.dev-data/agent-design.md`) preset(판·제품 preset·명시 적용)은 없앤다. assignment는 "자리에 놓인 agent 하나"의 실행 정체(id·role·scope·state·revision)로 남기고 preset 판·주기·남길 문서·읽을 앱·승인 칸만 뗀다 — run·session·question·credential 등 81파일이 쓰는 id는 그대로다(없애면 바꿀 소스 178파일, 남기면 97파일). built-in은 지금처럼 lophn·Context Engineer 전역 하나, App Engineer 앱마다 하나이고 자리별 설정은 session의 work_place로 고른다. Operator는 정의 파일 하나(이름 = assignment id) = assignment 하나. schedule은 보류라 scheduling 코드와 요구를 지운다. 사람이 editor에서 만들고 고치는 것은 바로 저장한다. |
 | lophn-agent/harness/model#Q10 | 기본 model을 무엇마다 두나. 지금은 용도 둘(decisions·summaries)이다. | 추천대로 | role 넷(lophn·Context Engineer·App Engineer·Operators)마다 model + option 값. summaries는 Workspace의 "Model for summaries" 한 칸(전역)으로 남긴다. |
 | lophn-agent/harness/model#Q11 | model마다 다른 effort와 effort 밖 option(OpenAI service_tier priority, xAI grok fast)을 하드코딩 없이 어떻게 두나. | 추천대로 | catalog 항목에 `options: [{id, label, values: [{value, label, wire}]}]`를 둔다. `wire`는 요청 body patch 또는 보낼 model id 바꾸기다. 지금 reasoning levels는 effort 축으로 옮긴다. 코드에는 protocol마다 option → 요청 필드 표 하나만 두고 model id 분기는 두지 않는다. 지원 안 되는 값은 실패로 보이고, model을 바꿔 값이 없으면 가까운 약한 값으로 맞추고 알린다. 표시 이름은 very_high → XHigh, maximum → Max. |
 | lophn-agent/harness/model#Q12 | 별표한 model을 picker 어디에 두나. | 추천대로 | Workspace(사람 전역)에 순서 있는 즐겨찾기 목록을 둔다. picker 맨 위 Favorites 묶음에 별표 순서 그대로(provider로 다시 묶지 않음) 보이고, 검색 중에도 먼저 보인다. 최근 사용 묶음은 첫 판에 없다. |
@@ -655,6 +655,10 @@
 | lophn-agent/questions#Q4 | 여러 질문을 한 카드로 묻게 하면(사람 결정) 지금의 run당 대기 질문 하나 제약은 어떻게 하나. | 추천대로 | 질문 tool 한 번 = 묶음 하나(질문 1~4), run당 대기 묶음 하나. Submit 한 번에 답을 모두 보내고, Skip은 묶음을 미룬다. 선택지·Other·추천 표시는 그대로다. |
 | lophn-agent/instructions#Q1 | LOPHN.md를 어디 두나(agent 정의는 app data). | 다르게 정함 | 추천은 app data였으나 사람이 "project 경로에다 둬, 그게 너무 일반적인 규격이라서"로 정했다. 전역 `~/.lophn/LOPHN.md`, project LOPHN.md는 project 폴더, app LOPHN.md는 앱 자리. document·판을 쓰지 않고 매 call 직전 파일을 읽는다. |
 | lophn-agent/extensions#Q7 | skill·MCP를 어느 층에 등록하고 어떻게 고르나. | 추천대로 | 등록은 전역(Workspace)과 자리(project·app)에 한다. 고르기는 agent 정의에서 한다(기본 전부 켬, 끈 것만 저장). `/` 메뉴 Skills는 그 agent가 쓸 수 있는 skill 전부를 출처 구분 없이 보인다. |
+| lophn-agent/assignments#Q4 | 새 화면에 멈춤·다시 시작이 없고, 연속 실패·output 보관 pause는 production에서 내는 곳이 없다. assignment 상태를 어떻게 하나. | 추천대로 | 사람 Pause·Resume 명령과 연속 실패·output_archived pause(근거 검사 포함)를 지운다. paused는 앱·project 보관에 따른 `scope_archived`만 남는다. Operator를 그만 쓰려면 지운다(withdraw). |
+| lophn-agent/assignments#Q5 | agent가 Operator를 제안하는 길(`approval.submit_assignment`, Context Engineer의 Operator 초안)을 어떻게 하나. | 추천대로 | 첫 판에서 지운다. Operator는 사람이 Agents 탭 editor에서 만든다. 필요해지면 질문 카드 → 사람이 editor에서 확인하는 길로 다시 만든다. |
+| lophn-agent/assignments#Q6 | assignment의 `read_apps`·`read_commands`(Operator가 읽을 앱 명령)는 어디로 가나. | 추천대로 | 앱 Operator 정의의 `app_reads` 칸으로 옮긴다(앱에는 context가 없으니 editor의 Contexts 칸 대신 App data 칸). |
+| lophn-agent/harness/run-loop#Q9 | assignment마다 running·waiting_user run이 하나뿐인데 lophn은 전역 assignment 하나라 Agent 탭 둘에서 동시에 돌 수 없다. | 추천대로 | 동시 run 제한을 session 단위로 바꾼다(session마다 하나). session 없는 run(handoff 수신 등)은 지금처럼 assignment 단위다. run selector도 session 단위 후보로. |
 
 ### coding-agent (87)
 

@@ -23,7 +23,7 @@ concerns: [documents/outline-and-search, documents/contexts, documents/versions,
 - 단어 검색이 비어 있으면 검색어나 좁힌 폴더를 바꿔 본다. `.gitignore`가 제외한 경로와 숨은 폴더는 훑지 않으므로 거기 있는 파일은 나오지 않고, 건너뛴 파일의 수와 이유가 있으면 그것부터 본다. 검색은 md 파일만 훑고 부분 문자열 일치이며 대소문자를 구분하지 않는다. (documents/outline-and-search#R12, documents/outline-and-search#R13, documents/outline-and-search#R14, documents/outline-and-search#R18)
 - 선택한 section이 없는지, 파일을 읽지 못하는지, 형식이 section을 지원하지 않는지를 서로 다르게 알린다. 비슷한 section으로 대신 가지 않는다. (documents/outline-and-search#R3, documents/outline-and-search#R9, documents/formats#R20)
 - 이어 읽기 중 파일이 바뀌었거나 조건이 다르면 이어 읽기를 거절하고 다시 읽게 한다. 바뀐 파일의 일부와 옛 내용의 일부를 같은 근거처럼 이어 붙이지 않는다. (documents/outline-and-search#R10)
-- 선언된 검색이 그릴 수 없는 입력 타입을 쓰면 Search 탭은 그 검색을 열지 않고 이유와 [Ask Context Engineer]를 보인다. 결과는 같은 파일 상태와 입력이면 같고, 개체로 읽을 수 없는 파일이 있어도 나머지 개체의 검색은 그대로 된다. (shell/workspace#R24, documents/contexts#R17, documents/contexts#R24)
+- 선언된 검색이 그릴 수 없는 입력 타입을 쓰면 Search 탭은 그 검색을 열지 않고 이유를 보인다(고치려면 sidebar의 Context Engineer를 연다). 결과는 같은 파일 상태와 입력이면 같고, 개체로 읽을 수 없는 파일이 있어도 나머지 개체의 검색은 그대로 된다. (shell/workspace#R24, documents/contexts#R17, documents/contexts#R24)
 - 보관한 context의 선언된 검색은 목록에서 빠진다. 해제하면 이전 계약 그대로 돌아온다. (documents/contexts#R4)
 - project 폴더 밖을 가리키는 경로나 symlink는 목차와 부분 읽기에서 거절한다. agent에게 허용되지 않은 자료는 제목·존재·개수까지 결과에서 제외하고, 다른 앱 범위 대상은 안전한 부재 응답으로 처리한다. 사람에게는 보이지 않는다. (documents/outline-and-search#R11, platform/identity#R8, platform/identity#R10)
 - redaction에 실패하면 원문 반환을 중단하고 빠진 범위와 안전한 이유만 전달한다. 부족한 근거를 성공한 읽기로 채우지 않는다. 사람에게는 보이지 않는다. (platform/redaction#R14)

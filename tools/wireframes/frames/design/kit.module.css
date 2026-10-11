@@ -1,0 +1,271 @@
+/* 디자인 시스템 page 공통: 구역 제목, 줄, 열린 overlay를 담는 stage. */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-10);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.sectionTitle {
+  margin: var(--space-0);
+  padding-bottom: var(--space-3);
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+  font-size: var(--type-title-small-size);
+  line-height: var(--type-title-small-line);
+  font-weight: var(--font-weight-semibold);
+}
+
+.note {
+  margin: var(--space-0);
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-5);
+}
+
+.label {
+  flex: none;
+  width: var(--layout-container-panel);
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.value {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-5);
+  min-width: var(--space-0);
+}
+
+.sub {
+  margin: var(--space-4) var(--space-0) var(--space-0);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  font-weight: var(--font-weight-medium);
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+.muted {
+  color: var(--color-text-muted);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--layout-container-card),
+    1fr));
+  gap: var(--space-5);
+}
+
+.panel {
+  box-sizing: border-box;
+  padding: var(--space-6);
+  border: var(--border-width) solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-subtle);
+}
+
+/* transform이 fixed 배치의 기준이 되어 portal로 그린 overlay가 이 상자 안에 머문다. */
+.stage {
+  position: relative;
+  overflow: hidden;
+  transform: translateZ(0);
+  border: var(--border-width) solid var(--color-border-base);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-floor);
+}
+
+.stageCenter {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: var(--space-8);
+}
+
+/* 색 견본 */
+.swatchRow {
+  display: grid;
+  grid-template-columns: minmax(var(--layout-container-panel), 1fr) 1fr 1fr;
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-2) var(--space-0);
+}
+
+.swatchHead {
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  font-weight: var(--font-weight-medium);
+}
+
+.swatch {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.chipColor {
+  flex: none;
+  box-sizing: border-box;
+  width: var(--space-10);
+  height: var(--space-8);
+  border: var(--border-width) solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+}
+
+.hex {
+  font-family: var(--font-mono);
+  font-size: var(--type-caption-size);
+  color: var(--color-text-secondary);
+}
+
+/* type */
+.typeSample {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-0);
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+}
+
+.typeMeta {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.typeText {
+  margin: var(--space-0);
+}
+
+/* space·layout */
+.bar {
+  height: var(--space-6);
+  border-radius: var(--radius-xs);
+  background: var(--chart-series-0);
+}
+
+.barWide {
+  height: var(--space-5);
+  background: var(--color-border-strong);
+}
+
+.box {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-12);
+  height: var(--space-12);
+  border: var(--border-width) solid var(--color-border-strong);
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+}
+
+.elevated {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--layout-container-card);
+  height: var(--space-12);
+  border-radius: var(--radius-md);
+  background: var(--floating-surface);
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+}
+
+/* icons */
+.iconCell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: var(--border-width) solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-base);
+  color: var(--color-text-primary);
+  text-align: center;
+}
+
+.iconName {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--type-caption-size);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.colTwo {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-8);
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  align-items: flex-start;
+}
+
+.field {
+  width: var(--page-form);
+  max-width: 100%;
+}
+
+.frameBox {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--space-12);
+  padding: var(--space-5);
+  border: var(--border-width) dashed var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+}
+
+.frameStage {
+  border: var(--border-width) solid var(--color-border-base);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-base);
+  overflow: hidden;
+}
+
+.sdkHead {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+}
+
+.sdkStage {
+  position: relative;
+  overflow: hidden;
+  transform: translateZ(0);
+  border: var(--border-width) solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-base);
+}

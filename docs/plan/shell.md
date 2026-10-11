@@ -1332,6 +1332,25 @@ concerns: [shell]
 - 자리: packages/design/wording/en.ts, docs/ui-ux/README.md
 - slice: desktop
 - 완료: 화면 말에 context를 뜻하는 "Focus"가 남지 않는다
+### T66 wireframes gallery
+
+- 상태: 완료 (#588)
+- 등급: frontend
+- concern: shell/desktop
+- 요구: 없음 — 개발 도구
+- 자리: tools/wireframes/ (Deno workspace member `@lophn/wireframes`). 실행 `deno task wireframes`, 출력은 git이 무시하는 `tools/wireframes/dist/`
+- 쓰는 contract: 없음
+- 내놓는 contract: 없음
+- slice: desktop
+- 선행: 없음
+- 완료: 아래 확인이 통과한다
+  - `deno task wireframes`가 index.html·main.js·main.css·글꼴 두 개를 정적 bundle로 만든다. 렌더러의 `build()`(import map, CSS Modules, woff2)를 그대로 쓰고, 주소는 모두 상대 경로이며 바깥 요청이 없다. 하위 경로에 올려도 맞다.
+  - 목록은 part별로 page를 묶고, page는 제목·badge·한국어 설명·고정 1280x800 frame(칸 폭에 맞춰 줄임)·이전/다음을 갖는다. frame은 iframe이라 화면이 자기 viewport를 갖는다. light·dark는 design token을 따르고 Auto·Light·Dark로 고른다.
+  - 디자인 시스템 part(첫째, badge "디자인 시스템"): Tokens(색 light·dark 나란히, 글자, 간격·폭, 아이콘), Components(`@lophn/design` 실제 component 열 개 page), SDK(`packages/sdk/*/examples` 열한 개를 고치지 않고 그대로). frame 없이 본문에 바로 그리고 테마 선택을 따른다. modal인 Menu·Dialog·Sheet·Palette는 열어 두면 page가 잠겨 같은 CSS Module로 짠 정적 모양이다. build는 SDK ui-* 전체를 import map에 올리려고 렌더러 build()와 같은 방식으로 `tools/wireframes/build.ts`가 직접 짠다.
+  - 지금 화면(구현됨): 진짜 Desktop을 `apps/shell/renderer/desktop/dev-mock/`의 메모리 데이터로 그린다. 런처(빈 것·카드 있음·시작 실패 셋), lophn 공간(Projects·Apps·Things to confirm·Roles), Settings의 각 탭(Backup 제외), 프로젝트 작업대(문서·터미널·앱 panel), 앱 공간, 대화 도크. 터미널은 preload 통로 자리에 gallery의 가짜 통로가 PTY 없이 출력을 준다. 앱 코드는 고치지 않았다.
+  - 버린 화면은 올리지 않는다: Settings › Backup, 프로젝트 Export panel, lophn 공간 Documents·Contexts(Focus) 화면, context Materials의 Baseline·Reference·Follow-changes 묶음. 테스트 `tools/wireframes/pages_test.ts`가 page 목록에 이것이 없고 모든 page에 제목·badge·설명이 있음을 본다(맞는 shell 요구가 없어 이름이 `shell#T66`으로 시작한다).
+  - 새 설계(새 설계 badge) part의 page 열네 개: project 탭 kind 확장과 + 메뉴, 접은 sidebar의 바로 가기 rail, Contexts 탭, 객체 탭(Finding), Context 탭의 Overview(기본, 그림과 Composition 트리)·Contract(세부)·Violations, 계약 위반 toast, 선언된 검색(table 결과는 14 findings와 page 이동, 링크가 객체 탭을 연다·board 결과·combobox 타이핑). project 화면 pages는 동작한다: rail·sidebar·검색 결과 링크가 탭 줄에 탭을 열고 고르며 ×로 닫는다, project 관심사를 뺀 Lophn Workspace, project 화면의 문서 정리. `@lophn/design` component와 고정 데이터(project phroner, context eval·harness)만으로 짠 정적 구성이다. 선언된 검색의 입력 form과 결과 table은 SDK(`@lophn/ui-control`, `@lophn/ui-table`)로 그린다. 실제 TopBar·Breadcrumbs·Toast·Tree·Card·Tabs를 쓰며 sidebar·tab strip·menu는 같은 CSS Module로 다시 짠 look-alike다. page를 더하는 법은 `tools/wireframes/pages.ts` 머리 주석에 있다.
+  - 한계: 지금 화면 part는 main이 가진 화면을 그대로 그리므로 main이 바뀌면 다시 build한다. 사이드바에는 main에 아직 있는 Documents·Focus 항목이 보일 수 있다.
 
 ## 요구 덮기
 

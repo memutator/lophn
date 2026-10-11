@@ -2,7 +2,16 @@
 // 화면 값은 lophn-agent/agents의 목록 줄과 lophn-agent/sessions의 상태에서 부르는 쪽이 만든 view 값이다.
 // renderer는 contracts를 type check하지 않으므로 id는 문자열로 받는다.
 import type { ReactElement } from "react";
-import type { AvatarProfile } from "@lophn/design/components";
+import {
+  Avatar,
+  type AvatarProfile,
+  conversationIcons,
+  IconButton,
+  Tooltip,
+} from "@lophn/design/components";
+import { t } from "@lophn/wording";
+
+import styles from "./agents-section.module.css";
 
 /** project sidebar에 보이는 역할. App Engineer는 앱 공간의 agent라 여기에 없다. */
 export type SidebarAgentRole = "lophn" | "context_engineer" | "operator";
@@ -40,8 +49,62 @@ export interface AgentsSectionProps {
  * - 마지막에 `button[data-agents-manage]` "Manage". 줄을 누르면 `onOpenAgent(assignment)`, Manage는 `onManage()`만 부른다.
  * - session 목록·`+` 단추·"New session" 같은 session 말은 이 묶음에 없다.
  */
-export function AgentsSection(_props: AgentsSectionProps): ReactElement {
-  throw new Error("not implemented: agent-I31");
+export function AgentsSection(
+  { agents, onOpenAgent, onManage }: AgentsSectionProps,
+): ReactElement {
+  return (
+    <section className={styles.section} data-agents="">
+      <h2 className={styles.heading}>
+        {t("project-workspace.heading.agents")}
+      </h2>
+      <ul className={styles.list} role="list">
+        {inOrder(agents).map((agent) => (
+          <li key={agent.assignment} className={styles.li}>
+            <button
+              type="button"
+              className={styles.item}
+              data-agent={agent.assignment}
+              onClick={() =>
+                onOpenAgent(agent.assignment)}
+            >
+              <Avatar profile={agent.profile} size="sm" />
+              <span className={styles.name} data-agent-name="">
+                {agent.name}
+              </span>
+              {agent.waiting
+                ? (
+                  <span
+                    className={styles.dot}
+                    role="img"
+                    aria-label={t("project-workspace.label.agent-waiting")}
+                  />
+                )
+                : null}
+            </button>
+          </li>
+        ))}
+      </ul>
+      <button
+        type="button"
+        className={styles.manage}
+        data-agents-manage=""
+        onClick={onManage}
+      >
+        {t("project-workspace.button.manage-agents")}
+      </button>
+    </section>
+  );
+}
+
+const ROLE_ORDER: Record<SidebarAgentRole, number> = {
+  lophn: 0,
+  context_engineer: 1,
+  operator: 2,
+};
+
+// lophn, Context Engineer, Operator들 순서. 같은 역할 안에서는 들어온 순서를 지킨다(sort는 stable).
+function inOrder(agents: readonly SidebarAgent[]): SidebarAgent[] {
+  return [...agents].sort((a, b) => ROLE_ORDER[a.role] - ROLE_ORDER[b.role]);
 }
 
 export interface AgentRailButtonProps {
@@ -53,6 +116,18 @@ export interface AgentRailButtonProps {
  * 접힌 sidebar의 바로 가기 rail에 놓는 단추(R32). `button[aria-label="Agent"][data-rail="agent"]` 하나이고
  * 누르면 `onOpenLophn()`을 한 번 부른다. rail의 다른 단추와 줄은 이 component 밖이다.
  */
-export function AgentRailButton(_props: AgentRailButtonProps): ReactElement {
-  throw new Error("not implemented: agent-I31");
+export function AgentRailButton(
+  { onOpenLophn }: AgentRailButtonProps,
+): ReactElement {
+  const label = t("project-workspace.button.agent");
+  return (
+    <Tooltip content={label}>
+      <IconButton
+        icon={conversationIcons.dock}
+        label={label}
+        data-rail="agent"
+        onClick={onOpenLophn}
+      />
+    </Tooltip>
+  );
 }

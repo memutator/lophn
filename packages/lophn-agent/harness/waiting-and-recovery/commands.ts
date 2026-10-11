@@ -22,9 +22,13 @@ import {
   type Tx,
 } from "../../../contracts/platform/mod.ts";
 import { loadMessage } from "../../conversation/mod.ts";
-import { createQuestionCommands, loadQuestion } from "../../questions/mod.ts";
-import type { QuestionRow } from "../../questions/mod.ts";
-import { appliedOf } from "../../questions/mod.ts";
+import {
+  appliedOf,
+  chosenActionOf,
+  createQuestionCommands,
+  loadGroup,
+  type QuestionGroup,
+} from "../../questions/mod.ts";
 import { finishRunRow, loadRun, type RunRow } from "../run-loop/mod.ts";
 import { loadToolCall } from "../tools/mod.ts";
 import {
@@ -102,18 +106,24 @@ function callFactsOf(tx: Tx, id: string): CallFacts | undefined {
   };
 }
 
-function questionSubmission(row: QuestionRow) {
+// 저장된 묶음을 WaitRun 결과의 제출 모양으로 되돌린다. 질문은 position 순서다.
+function questionSubmission(group: QuestionGroup) {
   return {
-    id: row.id,
-    run: row.run,
-    session: row.session,
-    expires_at: row.expires_at,
-    prompt_blob: row.prompt_blob,
-    reason_blob: row.reason_blob,
-    options: JSON.parse(row.options),
-    recommendation: row.recommendation === null
-      ? null
-      : JSON.parse(row.recommendation),
+    id: group.id,
+    run: group.run,
+    session: group.session,
+    expires_at: group.expires_at,
+    questions: group.questions.map((question) => ({
+      id: question.id,
+      group: question.group,
+      position: question.position,
+      prompt_blob: question.prompt_blob,
+      reason_blob: question.reason_blob,
+      options: JSON.parse(question.options),
+      recommendation: question.recommendation === null
+        ? null
+        : JSON.parse(question.recommendation),
+    })),
   };
 }
 
@@ -218,7 +228,7 @@ function loadAssignmentState(
 
 // 질문 소유 영역의 결정 사실. 보이지 않거나 다른 run의 것은 없는 것과 같다.
 type Decision =
-  | { kind: "question"; row: QuestionRow }
+  | { kind: "question"; row: QuestionGroup }
   | { kind: "approval"; row: ApprovalFacts };
 
 function loadDecision(
@@ -227,7 +237,7 @@ function loadDecision(
   run: string,
 ): Decision | undefined {
   if (kindOf(request) === "question") {
-    const row = loadQuestion(tx, request);
+    const row = loadGroup(tx, request);
     return row === undefined || row.run !== run
       ? undefined
       : { kind: "question", row };
@@ -240,21 +250,6 @@ function loadDecision(
 
 function closedSeqOf(decision: Decision): string | null {
   return decision.row.closed_seq;
-}
-
-function chosenHasAction(row: QuestionRow): boolean {
-  if (row.answer === null) return false;
-  const answer = JSON.parse(row.answer) as {
-    kind: string;
-    option_key: string | null;
-  };
-  if (answer.kind !== "option") return false;
-  const options = JSON.parse(row.options) as {
-    key: string;
-    action: unknown;
-  }[];
-  const chosen = options.find((option) => option.key === answer.option_key);
-  return chosen !== undefined && chosen.action !== null;
 }
 
 type Base = {
@@ -409,7 +404,7 @@ export function createWaitCommands(deps: WaitDeps): {
         let waitingOn: string;
         let submitted: Output<typeof waitRun>["request"];
         if (request.kind === "question") {
-          // 질문은 run의 assignment가 만든다. 이미 같은 내용으로 있으면 그것을 잇는다.
+          // 질문 묶음은 run의 assignment가 만든다. 이미 같은 내용으로 있으면 그것을 잇는다.
           const created = questions.create.handle(
             tx,
             acting,
@@ -417,12 +412,12 @@ export function createWaitCommands(deps: WaitDeps): {
             {},
           );
           if (!created.ok) return created;
-          const stored = loadQuestion(tx, request.input.id);
+          const stored = loadGroup(tx, request.input.id);
           if (stored === undefined) {
-            return reject("conflict", "the question was not stored");
+            return reject("conflict", "the question group was not stored");
           }
           if (stored.status !== "pending") {
-            return reject("conflict", "the question is already closed");
+            return reject("conflict", "the question group is already closed");
           }
           waitingOn = stored.id;
           submitted = { kind: "question", input: questionSubmission(stored) };
@@ -560,10 +555,12 @@ export function createWaitCommands(deps: WaitDeps): {
         const assignment = loadAssignmentState(tx, run.assignment);
         if (assignment === undefined) return notFound();
         if (decision.kind === "question") {
+          const chosen = chosenActionOf(decision.row);
           const verdict = questionVerdict({
             status: decision.row.status,
-            chosenHasAction: chosenHasAction(decision.row),
-            applied: appliedOf(tx, decision.row),
+            chosenHasAction: chosen !== undefined,
+            applied: chosen !== undefined &&
+              appliedOf(tx, decision.row, chosen.question),
           });
           if (verdict.kind === "pending") {
             return reject("conflict", "the request has no decision yet");

@@ -5,9 +5,9 @@
 // 같은 환경으로 붙인다.
 import { ok, type Result } from "../../packages/base/mod.ts";
 import {
-  answerQuestion,
-  cancelQuestion,
-  createQuestion,
+  answerQuestionGroup,
+  cancelQuestionGroup,
+  createQuestionGroup,
   QUESTION_TEXT_PURPOSE,
   questionTextBytes,
   questionTextSchema,
@@ -61,29 +61,45 @@ function slotsOf(command: string, input: Record<string, unknown>): Slot[] {
       owner[key] = text;
     },
   });
-  if (command === answerQuestion.name) {
-    const answer = input["answer"];
-    return isRecord(answer) && answer["kind"] === "text"
-      ? [slot(answer, "text", true)]
-      : [];
+  if (command === answerQuestionGroup.name) {
+    // 묶음의 답은 질문마다 하나이고, 자유 답만 글을 싣는다.
+    const answers = input["answers"];
+    const slots: Slot[] = [];
+    if (Array.isArray(answers)) {
+      for (const entry of answers) {
+        const answer = isRecord(entry) ? entry["answer"] : undefined;
+        if (isRecord(answer) && answer["kind"] === "text") {
+          slots.push(slot(answer, "text", true));
+        }
+      }
+    }
+    return slots;
   }
-  if (command === cancelQuestion.name) {
+  if (command === cancelQuestionGroup.name) {
     return [slot(input, "closed_reason_text")];
   }
-  const slots = [slot(input, "prompt"), slot(input, "reason")];
-  const options = input["options"];
-  if (Array.isArray(options)) {
-    for (const option of options) {
-      if (isRecord(option)) slots.push(slot(option, "description"));
+  const slots: Slot[] = [];
+  const questions = input["questions"];
+  if (!Array.isArray(questions)) return slots;
+  for (const question of questions) {
+    if (!isRecord(question)) continue;
+    slots.push(slot(question, "prompt"), slot(question, "reason"));
+    const options = question["options"];
+    if (Array.isArray(options)) {
+      for (const option of options) {
+        if (isRecord(option)) slots.push(slot(option, "description"));
+      }
+    }
+    const recommendation = question["recommendation"];
+    if (isRecord(recommendation)) {
+      slots.push(slot(recommendation, "explanation"));
     }
   }
-  const recommendation = input["recommendation"];
-  if (isRecord(recommendation)) slots.push(slot(recommendation, "explanation"));
   return slots;
 }
 
-// 사람 기다림(WaitRun)의 질문 제출은 질문 생성 입력을 그대로 싣는다. 글 자리는 같고 한 단계
-// 안(`request.input`)에 있다. approval 제출이나 모양이 틀린 요청은 건드리지 않고 지나간다.
+// 사람 기다림(WaitRun)의 질문 제출은 질문 묶음 생성 입력을 그대로 싣는다. 글 자리는 같고 한
+// 단계 안(`request.input`)에 있다. approval 제출이나 모양이 틀린 요청은 건드리지 않고 지나간다.
 function waitQuestionInput(
   input: Record<string, unknown>,
 ): Record<string, unknown> | undefined {
@@ -114,16 +130,16 @@ export function createQuestionTextPreparer(deps: {
     const waiting = envelope.command === waitRun.name;
     if (
       !waiting &&
-      envelope.command !== createQuestion.name &&
-      envelope.command !== answerQuestion.name &&
-      envelope.command !== cancelQuestion.name
+      envelope.command !== createQuestionGroup.name &&
+      envelope.command !== answerQuestionGroup.name &&
+      envelope.command !== cancelQuestionGroup.name
     ) return ok(envelope);
     if (!isRecord(envelope.input)) return ok(envelope);
     const input = structuredClone(envelope.input);
     const target = waiting ? waitQuestionInput(input) : input;
     if (target === undefined) return ok(envelope);
     const slots = slotsOf(
-      waiting ? createQuestion.name : envelope.command,
+      waiting ? createQuestionGroup.name : envelope.command,
       target,
     ).filter((slot) => typeof slot.read() === "string");
     if (slots.length === 0) return ok(envelope);

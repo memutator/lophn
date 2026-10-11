@@ -459,7 +459,7 @@ function ledgerWorld() {
           term.revision = next();
           return ok(term);
         }
-        case "CreateQuestion":
+        case "CreateQuestionGroup":
           return ok({ id: body["id"], status: "open" });
         case "ReadQuestion": {
           const question = questions.get(String(body["question"]));
@@ -954,7 +954,10 @@ Deno.test("lophn-agent/roles/context-engineer#R5: Context Engineer의 쓰기 선
     defined.get("document.save_version")!.contract,
     "SaveToolDocument",
   );
-  assertEquals(defined.get("question.submit")!.contract, "CreateQuestion");
+  assertEquals(
+    defined.get("question.submit")!.contract,
+    "CreateQuestionGroup",
+  );
   assertEquals(defined.get("handoff.submit")!.contract, "SubmitHandoff");
   // 역할 상한의 쓰기 선택은 모두 정의를 가진다. 정의가 없는 submit·apply·approve 선택은 남지 않는다.
   // 실제 assignment 적용·권한 예외·사람 대신 승인 tool은 선택에도 정의에도 없다.
@@ -1279,39 +1282,44 @@ Deno.test("lophn-agent/roles/context-engineer#R5: 사람의 정의 답은 질문
   // 질문 tool은 선택지에 고정 action을 싣는 입력이 없다: action은 사람이 열람한 owner 동작을 고정하는
   // 별도 경로(lophn-agent/questions의 option action)가 정한다.
   const withAction = await run("question.submit", {
-    prompt: "정산 주기를 어떻게 정의할까요",
-    reason: "문서마다 뜻이 다르다",
-    options: [{
-      key: "monthly",
-      label: "월 단위",
-      description: "매월 말 정산",
-      evidence: [],
-      adoption: null,
-      action: { concern: "documents/terms", command: "term.define" },
+    questions: [{
+      prompt: "정산 주기를 어떻게 정의할까요",
+      reason: "문서마다 뜻이 다르다",
+      options: [{
+        key: "monthly",
+        label: "월 단위",
+        description: "매월 말 정산",
+        evidence: [],
+        adoption: null,
+        action: { concern: "documents/terms", command: "term.define" },
+      }],
+      recommendation: null,
     }],
-    recommendation: null,
     expires_at: null,
   });
   assertEquals(withAction.outcome.code, "invalid_input");
   assertEquals(withAction.executed, false);
   // 정의 확정이 아닌 질문(action 없음)은 그대로 제출된다. 답을 정의로 적용하는 일은 tool 밖이다.
   const plain = await run("question.submit", {
-    prompt: "정산 주기를 어떻게 정의할까요",
-    reason: "문서마다 뜻이 다르다",
-    options: [{
-      key: "monthly",
-      label: "월 단위",
-      description: "매월 말 정산",
-      evidence: [],
-      adoption: null,
-      action: null,
+    questions: [{
+      prompt: "정산 주기를 어떻게 정의할까요",
+      reason: "문서마다 뜻이 다르다",
+      options: [{
+        key: "monthly",
+        label: "월 단위",
+        description: "매월 말 정산",
+        evidence: [],
+        adoption: null,
+        action: null,
+      }],
+      recommendation: null,
     }],
-    recommendation: null,
     expires_at: null,
   });
   assertEquals(plain.outcome.kind, "success", JSON.stringify(plain.result));
   assertEquals(
-    world.calls.filter((call) => call.contract === "CreateQuestion").length,
+    world.calls.filter((call) => call.contract === "CreateQuestionGroup")
+      .length,
     1,
   );
   // term.define은 contract의 user actor만 받고 agent 호출 이름도 제공 목록에 없다.

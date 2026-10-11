@@ -15,6 +15,7 @@ import {
 import {
   createRunCommands,
   createRunReads,
+  deleteSessionRuns,
   runSchemaSteps,
 } from "../harness/run-loop/mod.ts";
 import {
@@ -29,6 +30,7 @@ import { registerQuestionTextRef } from "./testing/mod.ts";
 import {
   createQuestionCommands,
   createQuestionReads,
+  deleteSessionQuestions,
   questionSchemaSteps,
 } from "./mod.ts";
 
@@ -45,6 +47,18 @@ const advanceClockRoute = defineCommand({
   name: "AdvanceQuestionClock",
   input: z.strictObject({ ms: z.number().int().min(0) }),
   output: z.strictObject({ now: z.string() }),
+  compare: z.strictObject({}),
+  actors: ACTOR_KINDS,
+  errors: ["conflict"],
+});
+
+// 세션을 여는 자리(project)는 그 concern이 남긴 생성 event로 확인한다. 이 시험은 그 event만 심는다.
+const seedProjectRoute = defineCommand({
+  resource: "project-fixture",
+  method: "seed",
+  name: "SeedProject",
+  input: z.strictObject({ id: z.string() }),
+  output: z.strictObject({ id: z.string() }),
   compare: z.strictObject({}),
   actors: ACTOR_KINDS,
   errors: ["conflict"],
@@ -72,6 +86,11 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
   // 세션·메시지는 일반 사람 말이 질문의 답이 되지 않는지 보는 데 쓴다(R6). 접수는 제품
   // 조립과 같이 run-loop의 AcceptRun을 같은 Tx에서 부른다.
   const conversationCommands = createConversationCommands({
+    // 제품 조립과 같다. 질문 묶음은 run을 가리키므로 run 기록보다 먼저 지운다.
+    deleteSessionRecords: (tx, session) => {
+      const questions = deleteSessionQuestions(tx, session);
+      return questions.ok ? deleteSessionRuns(tx, session) : questions;
+    },
     acceptRun: (tx, ctx, input, compare) =>
       runCommands.accept.handle(
         tx,
@@ -135,6 +154,18 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
         handle(_tx, _ctx, input) {
           clock.advance((input as { ms: number }).ms);
           return ok({ now: clock.now() });
+        },
+      },
+      {
+        route: seedProjectRoute,
+        handle(tx, _ctx, input) {
+          const seeded = input as { id: string };
+          tx.sql.run(
+            `insert into events (type, subject, actor, run, payload, at)
+             values ('ProjectCreated', ?, 'machine', null, '{}', ?)`,
+            [seeded.id, tx.now()],
+          );
+          return ok({ id: seeded.id });
         },
       },
       {

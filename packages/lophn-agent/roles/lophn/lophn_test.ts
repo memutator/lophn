@@ -512,13 +512,13 @@ Deno.test("lophn-agent/roles/lophn#R11: the chosen and rejected options become t
   assert(body.includes(NO_HANDOFF_WORD) === false);
 });
 
-Deno.test("lophn-agent/roles/lophn#R13: the handoff content the lophn role submits is bounded to app-outside reuse, project planning and place choices", () => {
-  const submission = draftSubmission({
+Deno.test("lophn-agent/roles/lophn#R13 [agent-I13]: the handoff content the lophn role submits is bounded to app-outside reuse, project planning and place choices", () => {
+  const submission = draftSubmission([{
     prompt: "App Engineer에게 SDK 예제를 넘길까요",
     reason: "새 앱 기획에서 SDK 재사용이 필요하다",
     options: [],
     recommendation: null,
-  });
+  }]);
   assertEquals(submission.expires_at, null);
   // handoff 방향은 lophn-agent/handoff의 현재 집합이다. lophn은 App Engineer와
   // Context Engineer로만 내주고 Operator 방향은 없다(R13).
@@ -567,7 +567,7 @@ Deno.test("lophn-agent/roles/lophn#R13: the handoff content the lophn role submi
   );
 });
 
-Deno.test("lophn-agent/roles/lophn#R16: the intent and taste question asks and keeps the plan undecided when no answer comes", () => {
+Deno.test("lophn-agent/roles/lophn#R16 [agent-I13]: the intent and taste question asks and keeps the plan undecided when no answer comes", () => {
   const draft = intentQuestion("collect the Mahas launch notes", [
     "existing project first",
     "widen the reading context",
@@ -586,12 +586,12 @@ Deno.test("lophn-agent/roles/lophn#R16: the intent and taste question asks and k
     draft.options.some((option) => option.key === "decide-later"),
   );
   // 제출 값이 question.submit의 모양과 맞는다(R16).
-  const submission = draftSubmission(draft, "2026-10-07T00:00:00Z");
+  const submission = draftSubmission([draft], "2026-10-07T00:00:00Z");
   assertEquals(submission.expires_at, "2026-10-07T00:00:00Z");
   assertEquals(checkDraftSubmission(submission), { ok: true });
 });
 
-Deno.test("lophn-agent/roles/lophn#R16: a place recommendation draft keeps its fixed move action through submission", () => {
+Deno.test("lophn-agent/roles/lophn#R16 [agent-I13]: a place recommendation draft keeps its fixed move action through submission", () => {
   const recommendations = recommendPlaces([target(0)]);
   assert(recommendations.drafts.length === 1);
   const draft = recommendations.drafts[0]!;
@@ -601,19 +601,46 @@ Deno.test("lophn-agent/roles/lophn#R16: a place recommendation draft keeps its f
   assert(move.action !== null);
   const bindingBefore = move.action.binding_hash;
   // 제출은 대상·값 후보와 설명만 옮기고 고정 action은 그대로 실린다(T29).
-  const submission = draftSubmission(draft);
-  const moved = submission.options.find((option) => option.key === "move-1");
+  const submission = draftSubmission([draft]);
+  const moved = submission.questions[0]!.options.find((option) =>
+    option.key === "move-1"
+  );
   assert(moved !== undefined);
   assertEquals(moved.action, move.action);
   assertEquals(moved.action?.binding_hash, bindingBefore);
   assertEquals(checkDraftSubmission(submission), { ok: true });
   // 유지 선택지는 action이 null이다(R5, R16).
-  const keep = submission.options.find((option) => option.key === "leave-it");
+  const keep = submission.questions[0]!.options.find((option) =>
+    option.key === "leave-it"
+  );
   assert(keep !== undefined);
   assertEquals(keep.action, null);
 });
 
-Deno.test("lophn-agent/roles/lophn#R5: a setting change question keeps its fixed apply_settings action through submission", () => {
+Deno.test("lophn-agent/roles/lophn#R16 [agent-I13]: independent draft questions go as one group of up to four and a fixed-action draft goes alone", () => {
+  const first = intentQuestion("collect the notes", ["existing project first"]);
+  const second = intentQuestion("name the plan", ["short name"]);
+  // 독립 질문은 한 묶음에 순서대로 실린다.
+  const group = draftSubmission([first, second]);
+  assertEquals(group.questions.map((question) => question.prompt), [
+    first.prompt,
+    second.prompt,
+  ]);
+  assertEquals(checkDraftSubmission(group), { ok: true });
+  // 고정 action이 있는 draft는 다른 질문과 한 묶음으로 낼 수 없다(questions#R13).
+  const moving = recommendPlaces([target(0)]).drafts[0]!;
+  assertEquals(checkDraftSubmission(draftSubmission([moving])), { ok: true });
+  const mixed = checkDraftSubmission(draftSubmission([first, moving]));
+  assertEquals(mixed.ok, false);
+  // 묶음은 질문 1~4개다(questions#R1).
+  const five = checkDraftSubmission(
+    draftSubmission([first, second, first, second, first]),
+  );
+  assertEquals(five.ok, false);
+  assertEquals(checkDraftSubmission(draftSubmission([])).ok, false);
+});
+
+Deno.test("lophn-agent/roles/lophn#R5 [agent-I13]: a setting change question keeps its fixed apply_settings action through submission", () => {
   const definition = {
     key: "platform.reads.page",
     owner: "platform/settings",
@@ -658,8 +685,8 @@ Deno.test("lophn-agent/roles/lophn#R5: a setting change question keeps its fixed
   assert(change !== undefined);
   assert(change.action !== null);
   // settingsOptionAction이 고정한 action이 그대로 실린다(T29). hash는 바뀌지 않는다.
-  const submission = draftSubmission(proposal.draft);
-  const submitted = submission.options.find((option) =>
+  const submission = draftSubmission([proposal.draft]);
+  const submitted = submission.questions[0]!.options.find((option) =>
     option.key === "change"
   );
   assert(submitted !== undefined);
@@ -741,7 +768,7 @@ Deno.test("lophn-agent/roles/lophn#R19: planning, reuse and guidance runs fix th
   assertEquals(listed.ok, false);
 });
 
-Deno.test("lophn-agent/roles/lophn#R19: the question submit tool rejects a model-fixed action", async () => {
+Deno.test("lophn-agent/roles/lophn#R19 [agent-I13]: the question submit tool rejects a model-fixed action", async () => {
   // question.submit tool은 선택지 action을 null로만 받는다(T29). 모델이 고정
   // action을 싣는 값은 거절이다 → roles/lophn의 수집 통로(draftSubmission)만
   // 고정 action을 실는다.
@@ -772,15 +799,15 @@ Deno.test("lophn-agent/roles/lophn#R19: the question submit tool rejects a model
   const credential: RunCredential = {
     run: RUN,
     targets: new Set(),
-    operations: new Set(["CreateQuestion"]),
+    operations: new Set(["CreateQuestionGroup"]),
   };
-  const base = {
+  const question = {
     prompt: "어느 쪽으로 갈까요",
     reason: "취향이 갈린다",
     options: [],
     recommendation: null,
-    expires_at: null,
   };
+  const base = { questions: [question], expires_at: null };
   const asked = await executeTool(
     { listed, handlers: createAgentToolHandlers(ports), credential },
     "question.submit",
@@ -792,18 +819,21 @@ Deno.test("lophn-agent/roles/lophn#R19: the question submit tool rejects a model
     "question.submit",
     {
       ...base,
-      options: [{
-        key: "move-1",
-        label: "Move to the Mahas project",
-        description: "Move the note.",
-        evidence: [],
-        adoption: null,
-        action: moveOptionAction({
-          document: DOC,
-          place: { kind: "project", id: PROJECT },
-          name: "moved",
-          base_revision: "1",
-        }),
+      questions: [{
+        ...question,
+        options: [{
+          key: "move-1",
+          label: "Move to the Mahas project",
+          description: "Move the note.",
+          evidence: [],
+          adoption: null,
+          action: moveOptionAction({
+            document: DOC,
+            place: { kind: "project", id: PROJECT },
+            name: "moved",
+            base_revision: "1",
+          }),
+        }],
       }],
     },
   );

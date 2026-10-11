@@ -14,7 +14,7 @@ import {
 // 판정표와 보이는 기다림·retry 대기는 순수 함수다. 실제 core를 띄운 흐름(질문 답으로 재개, approval
 // 허락으로 재개, 수정, 재시작)은 apps/core/waiting-and-recovery_test.ts가 본다.
 
-Deno.test("lophn-agent/harness/waiting-and-recovery#R1: 질문 답이면 재개, 만료·미루기·취소는 답 없음 종료, 미결정은 기다림", () => {
+Deno.test("lophn-agent/harness/waiting-and-recovery#R1 [agent-I13]: 질문 묶음의 답이면 재개, 만료·미루기·취소는 답 없음 종료, 미결정은 기다림", () => {
   const plain = { chosenHasAction: false, applied: false };
   assertEquals(questionVerdict({ ...plain, status: "pending" }), {
     kind: "pending",
@@ -31,11 +31,12 @@ Deno.test("lophn-agent/harness/waiting-and-recovery#R1: 질문 답이면 재개,
       reason: "no_answer",
     });
   }
-  assertEquals(kindOf("qst_01arz3ndektsv4rrffq69g5faa"), "question");
+  // 기다림의 요청은 질문 묶음(qgr)이나 approval request(apr)다.
+  assertEquals(kindOf("qgr_01arz3ndektsv4rrffq69g5faa"), "question");
   assertEquals(kindOf("apr_01arz3ndektsv4rrffq69g5faa"), "approval");
 });
 
-Deno.test("lophn-agent/harness/waiting-and-recovery#R5: 고정 action이 있는 선택지의 답은 적용을 확인하기 전에는 재개하지 않는다", () => {
+Deno.test("lophn-agent/harness/waiting-and-recovery#R5 [agent-I13]: 고정 action이 있는 선택지의 묶음 답은 적용을 확인하기 전에는 재개하지 않는다", () => {
   const answered = { status: "answered" as const, chosenHasAction: true };
   assertEquals(questionVerdict({ ...answered, applied: false }), {
     kind: "action_pending",
@@ -120,7 +121,7 @@ Deno.test("lophn-agent/harness/waiting-and-recovery#R3: 규칙 금지·사람 �
   assertEquals(endOfApproval("granted"), null);
 });
 
-Deno.test("lophn-agent/harness/waiting-and-recovery#R6: 대기는 대상·이유를 주고 확인된 시각·횟수에만 countdown·횟수를 붙이며 사람이 풀어야 하는 대기에만 행동이 있다", () => {
+Deno.test("lophn-agent/harness/waiting-and-recovery#R6 [agent-I13]: 대기는 대상·이유를 주고 확인된 시각·횟수에만 countdown·횟수를 붙이며 사람이 풀어야 하는 대기에만 행동이 있다", () => {
   const turn = waitView({ kind: "assignment_turn", assignment: "asg_1" });
   assertEquals(turn, {
     target: "asg_1",
@@ -132,9 +133,10 @@ Deno.test("lophn-agent/harness/waiting-and-recovery#R6: 대기는 대상·이유
   // 기한 없는 질문은 countdown이 없고, 기한이 있으면 그 시각이다.
   const open = waitView({
     kind: "question",
-    question: "qst_1",
+    group: "qgr_1",
     expires_at: null,
   });
+  assertEquals(open.target, "qgr_1");
   assertEquals(open.countdown_to, null);
   assertEquals(open.action, "answer_question");
   assertEquals(

@@ -10,7 +10,7 @@ import {
   applyQuestionOption,
   assignmentList,
   assignmentRead,
-  cancelQuestion,
+  cancelQuestionGroup,
   checkpointRun,
   correctWaitingRun,
   decideToolCall,
@@ -107,7 +107,7 @@ export const RUNTIME_MACHINE_ROUTES = [
   cancelApprovalRequest,
   questionRead,
   questionText,
-  cancelQuestion,
+  cancelQuestionGroup,
   applyQuestionOption,
   processAssignmentOccurrence,
   // 앱 command tool의 정의 재료(선언·허락)와 결과 조회(invocation 기록)를 읽는다.

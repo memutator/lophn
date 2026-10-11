@@ -60,7 +60,7 @@ function setup(options: {
         }
         return Promise.resolve(ok({ id: "qst_x", status: "pending" }));
       },
-      newId: () => "qst_01arz3ndektsv4rrffq69g5fav",
+      newId: (prefix) => `${prefix}_01arz3ndektsv4rrffq69g5fav`,
       runFacts: () =>
         Promise.resolve(ok({
           session: null,
@@ -78,41 +78,48 @@ function setup(options: {
   const credential: RunCredential = {
     run: RUN,
     targets: new Set(),
-    operations: new Set(["CreateQuestion"]),
+    operations: new Set(["CreateQuestionGroup"]),
   };
   const submit = (extra: Record<string, unknown>) =>
     executeTool({ listed, handlers, credential }, "question.submit", {
-      prompt: "Which one?",
-      reason: "because",
-      options: [{
-        key: "a",
-        label: "A",
-        description: "A",
-        evidence: [],
-        adoption: null,
-        action: null,
-        ...extra,
-      }, {
-        key: "keep",
-        label: "Keep",
-        description: "Nothing changes.",
-        evidence: [],
-        adoption: null,
-        action: null,
+      questions: [{
+        prompt: "Which one?",
+        reason: "because",
+        options: [{
+          key: "a",
+          label: "A",
+          description: "A",
+          evidence: [],
+          adoption: null,
+          action: null,
+          ...extra,
+        }, {
+          key: "keep",
+          label: "Keep",
+          description: "Nothing changes.",
+          evidence: [],
+          adoption: null,
+          action: null,
+        }],
+        recommendation: null,
       }],
-      recommendation: null,
       expires_at: null,
     });
   return { calls, submit };
 }
 
+// 질문 하나짜리 묶음의 그 질문. 고정 action이 있는 질문은 묶음 하나뿐이다(questions#R13).
 function created(calls: Call[]): { options: Record<string, unknown>[] } {
-  const call = calls.find((entry) => entry.contract === "CreateQuestion");
-  assert(call !== undefined, "CreateQuestion이 불리지 않았다");
-  return call.input as { options: Record<string, unknown>[] };
+  const call = calls.find((entry) => entry.contract === "CreateQuestionGroup");
+  assert(call !== undefined, "CreateQuestionGroup이 불리지 않았다");
+  const group = call.input as {
+    questions: { options: Record<string, unknown>[] }[];
+  };
+  assertEquals(group.questions.length, 1);
+  return group.questions[0]!;
 }
 
-Deno.test("lophn-agent/roles/lophn#R21 lophn-agent/questions#R13: setting_change는 읽은 현재 값의 revision과 registry 판으로 ApplySettings action을 고정한다", async () => {
+Deno.test("lophn-agent/roles/lophn#R21 lophn-agent/questions#R13 [agent-I13]: setting_change는 읽은 현재 값의 revision과 registry 판으로 ApplySettings action을 고정한다", async () => {
   const { calls, submit } = setup();
   const outcome = await submit({
     setting_change: { key: KEY, value: "narrow" },
@@ -147,7 +154,7 @@ Deno.test("lophn-agent/roles/lophn#R21 lophn-agent/questions#R13: setting_change
   assert(checked.ok, JSON.stringify(checked));
 });
 
-Deno.test("lophn-agent/roles/lophn#R21 lophn-agent/roles/lophn#R22: setting_change는 같은 값·없는 설정·값 없는 설정·보호 설정을 질문으로 만들지 않는다", async () => {
+Deno.test("lophn-agent/roles/lophn#R21 lophn-agent/roles/lophn#R22 [agent-I13]: setting_change는 같은 값·없는 설정·값 없는 설정·보호 설정을 질문으로 만들지 않는다", async () => {
   for (
     const [setup_, input] of [
       [setup({ current: "narrow" }), { key: KEY, value: "narrow" }],
@@ -163,13 +170,13 @@ Deno.test("lophn-agent/roles/lophn#R21 lophn-agent/roles/lophn#R22: setting_chan
       JSON.stringify(outcome),
     );
     assertEquals(
-      setup_.calls.some((call) => call.contract === "CreateQuestion"),
+      setup_.calls.some((call) => call.contract === "CreateQuestionGroup"),
       false,
     );
   }
 });
 
-Deno.test("lophn-agent/questions#R13 documents/addressing#R3: document_move는 읽은 문서 revision을 비교 기준으로 document.move action을 고정한다", async () => {
+Deno.test("lophn-agent/questions#R13 documents/addressing#R3 [agent-I13]: document_move는 읽은 문서 revision을 비교 기준으로 document.move action을 고정한다", async () => {
   const place = { kind: "project", id: PRJ };
   const { calls, submit } = setup();
   const outcome = await submit({

@@ -18,8 +18,12 @@ import { all, buttonNamed, norm } from "./testing.tsx";
 async function load(name: string, cursor?: string) {
   const source = createFakeContextsSource();
   const contract = await source.contract(EVAL);
-  if (!contract.ok || contract.value === null) throw new Error("no contract");
-  const search = contract.value.searches.find((item) => item.name === name)!;
+  if (!contract.ok || contract.value.content === null) {
+    throw new Error("no contract");
+  }
+  const search = contract.value.content.searches.find((item) =>
+    item.name === name
+  )!;
   const page = await source.search({
     context: EVAL,
     search: name,
@@ -45,7 +49,7 @@ function results(
       rows={page.rows}
       page={state.page}
       pageSize={state.pageSize}
-      total={page.total ?? page.rows.length}
+      total={page.total}
       onPage={handlers.onPage ?? (() => {})}
       onOpenDocument={handlers.onOpenDocument ?? (() => {})}
     />,

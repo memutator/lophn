@@ -12,6 +12,7 @@ import {
 } from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
+import { draftSketch } from "./context-drafting-model.ts";
 import { ContextTitle } from "./context-frame-title.tsx";
 import { SUB_TABS, type SubTab } from "./shared.ts";
 import type { ContextDetail, ContextsSource, DraftProgress } from "./source.ts";
@@ -51,11 +52,10 @@ function subLabel(sub: SubTab): string {
 const STEP_MARKS = { done: "✓", now: "●", later: "○" } as const;
 type StepState = keyof typeof STEP_MARKS;
 
-function stepTexts(progress: DraftProgress): readonly string[] {
+// context.draft는 읽은 자리와 문서 수를 주지 않아 첫 단계는 하나의 글이다.
+function stepTexts(): readonly string[] {
   return [
-    progress.read === null
-      ? t("contexts.label.drafting-reading")
-      : t("contexts.label.drafting-read", progress.read),
+    t("contexts.label.drafting-reading"),
     t("contexts.label.drafting-draft"),
     t("contexts.label.drafting-checks"),
     t("contexts.label.drafting-apply"),
@@ -68,7 +68,7 @@ function Steps({ progress }: { progress: DraftProgress }): ReactNode {
       className={styles.steps}
       aria-label={t("contexts.label.drafting-progress")}
     >
-      {stepTexts(progress).map((text, index) => {
+      {stepTexts().map((text, index) => {
         const number = index + 1;
         const state: StepState = number < progress.step
           ? "done"
@@ -102,7 +102,7 @@ function DraftChip(): ReactNode {
 }
 
 function DraftOverview({ progress }: { progress: DraftProgress }): ReactNode {
-  const { types, relations } = progress;
+  const { types, relations } = draftSketch(progress);
   // 이웃한 두 개체 사이의 관계는 화살표로 잇고, 그 밖의 관계는 목록으로 보인다.
   const between = types.slice(0, -1).map((from, index) =>
     relations.filter((relation) =>
@@ -169,10 +169,10 @@ export function ContextDrafting(
       ([detail, progress]) => {
         if (!live) return;
         setRead(
-          detail.ok && progress.ok && progress.value !== null
+          detail.ok && progress.ok && progress.value.draft !== null
             ? {
               state: "ready",
-              value: { detail: detail.value, progress: progress.value },
+              value: { detail: detail.value, progress: progress.value.draft },
             }
             : { state: "failed" },
         );

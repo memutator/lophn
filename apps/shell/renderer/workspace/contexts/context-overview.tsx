@@ -59,7 +59,7 @@ export function ContextOverview(props: ContextOverviewProps): ReactNode {
           overview.ok && contract.ok
             ? {
               state: "ready",
-              model: buildOverviewModel(contract.value, overview.value),
+              model: buildOverviewModel(contract.value.content, overview.value),
             }
             : { state: "failed" },
         );

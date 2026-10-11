@@ -37,7 +37,6 @@ const APP = "app_01kq12a1pha000000000000000";
 const SES = "ses_01arz3ndektsv4rrffq69g5fav";
 const MSG = "msg_01arz3ndektsv4rrffq69g5fav";
 const OPERATOR = "asg_01kq12a1pha000000000000000";
-const BUILTIN = "asg_01kq12a1phb000000000000000";
 const RUN_SESSION = "run_01kq12a1pha000000000000000";
 const RUN_OPERATOR = "run_01kq12a1phb000000000000000";
 const RUN_ALL = "run_01kq12a1phc000000000000000";

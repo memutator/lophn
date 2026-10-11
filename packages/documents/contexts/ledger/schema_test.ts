@@ -873,3 +873,33 @@ Deno.test("documents/contexts#R26 [ctx-I24]: a context holds at most 200 glossar
     );
   });
 });
+
+Deno.test("documents/contexts#R3 lophn-agent/roles/app-engineer#R2 [ctx-I58b]: context_app_data is a STRICT table that takes one slug per context and rejects bad slugs and unknown contexts", () => {
+  withLedger((_ledger, db) => {
+    const strict = db.prepare(
+      "SELECT strict FROM pragma_table_list WHERE name = 'context_app_data'",
+    ).get() as { strict: number };
+    assertEquals(strict.strict, 1);
+    insert(db, "contexts", contextRow());
+    insert(db, "context_app_data", { context: ids.context, app: "calendar" });
+    insert(db, "context_app_data", { context: ids.context, app: "my-mail2" });
+    const bad: Row[] = [
+      { context: ids.context, app: "calendar" },
+      { context: id("ctx", 9), app: "calendar" },
+      { context: "ctx_short", app: "mail" },
+      { context: ids.context, app: "" },
+      { context: ids.context, app: "Mail" },
+      { context: ids.context, app: "2mail" },
+      { context: ids.context, app: "ma il" },
+      { context: ids.context, app: "a".repeat(64) },
+    ];
+    for (const row of bad) {
+      assertThrows(
+        () => insert(db, "context_app_data", row),
+        Error,
+        undefined,
+        `should reject ${JSON.stringify(row)}`,
+      );
+    }
+  });
+});

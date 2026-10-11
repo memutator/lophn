@@ -253,6 +253,8 @@ export type ContextsDispatchDeps = {
   // type(그 참조 형식은 아직 정해지지 않았다). 없으면 알려 줄 것이 없는 것이라 앱 데이터 type이나 다른
   // context 참조가 든 판은 검사를 통과하지 못한다.
   environment?(): Promise<ContextCheckEnvironment>;
+  // scan을 위해 읽은 입력을 알린다. 변화 감시(contexts-watch.ts)가 감시 폴더를 이 입력에 맞춘다.
+  observed?(input: ContextWorkInput): void;
   // 단조 시계(ms). 기한과 2초 규칙만 쓴다.
   nowMs(): number;
   sleep?(ms: number): Promise<void>;
@@ -261,7 +263,11 @@ export type ContextsDispatchDeps = {
 
 export type ContextsDispatcher = {
   // 읽기 전에 부른다. stale이 true면 기한 안에 따라잡지 못해 있던 index로 답한다.
-  ensureFresh(context: string): Promise<{ stale: boolean }>;
+  // `force`는 2초 규칙과 이미 도는 scan을 건너뛴다(변화 신호는 도는 scan이 시작된 뒤의 변화일 수 있다).
+  ensureFresh(
+    context: string,
+    options?: { force?: boolean },
+  ): Promise<{ stale: boolean }>;
   // bundle.submit이 받아들인 검사를 worker에 보낸다. 끝날 때까지(재시도 포함) 기다린다.
   runCheck(input: { context: string; check: string }): Promise<boolean>;
   // `context.preview`: 만드는 중인 판을 지금 파일에 돌려 한 page를 돌려준다. 결과를 온전히 만들지 못하면
@@ -330,6 +336,7 @@ export function createContextsDispatcher(
     const read = await deps.readInput({ context });
     if (!read.ok) return false;
     const input = read.value;
+    deps.observed?.(input);
     // 만드는 중이거나 보관된 context는 훑지 않는다.
     if (input.applied === null) return true;
     if (!(await deps.process.ensure(input.roots))) return false;
@@ -362,7 +369,15 @@ export function createContextsDispatcher(
     return true;
   }
 
-  async function ensureFresh(context: string): Promise<{ stale: boolean }> {
+  async function ensureFresh(
+    context: string,
+    options?: { force?: boolean },
+  ): Promise<{ stale: boolean }> {
+    if (options?.force) {
+      finished.delete(context);
+      const running = inflight.get(context);
+      if (running !== undefined) await running;
+    }
     const last = finished.get(context);
     if (last !== undefined && deps.nowMs() - last < CONTEXT_INDEX_FRESH_MS) {
       return { stale: false };
@@ -552,6 +567,8 @@ export type ContextsHost = {
   overlayReads(reads: Map<string, ReadHandler>): void;
   // bundle.submit이 받아들여지면 검사를 worker에 보낸다.
   wrapWriter(writer: Writer): Writer;
+  // 받아들여진 command마다 부른다(변화 감시가 감시 폴더를 다시 정하는 계기). 돌려받은 함수로 뺀다.
+  onAccepted(listener: (command: string, input: unknown) => void): () => void;
 };
 
 function contextOfInput(input: unknown): string | undefined {
@@ -564,9 +581,14 @@ function contextOfInput(input: unknown): string | undefined {
 
 export function createContextsHost(): ContextsHost {
   let dispatcher: ContextsDispatcher | undefined;
+  const listeners = new Set<(command: string, input: unknown) => void>();
   return {
     attach(next) {
       dispatcher = next;
+    },
+    onAccepted(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
     },
     overlayReads(reads) {
       for (const route of INDEXED_READS) {
@@ -607,6 +629,13 @@ export function createContextsHost(): ContextsHost {
         ...writer,
         async command(ctx, envelope) {
           const result = await writer.command(ctx, envelope);
+          if (result.ok) {
+            for (const listener of [...listeners]) {
+              try {
+                listener(envelope.command, envelope.input);
+              } catch { /* 듣는 쪽의 오류가 command 결과를 바꾸지 않는다 */ }
+            }
+          }
           if (result.ok && envelope.command === bundleSubmitRoute.name) {
             const summary = result.value.result as
               | { context?: unknown; check?: unknown }

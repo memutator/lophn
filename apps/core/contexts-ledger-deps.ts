@@ -363,6 +363,20 @@ export function createContextsRuntime(): ContextsRuntime {
           return false;
         }
       },
+      appIds(slugs) {
+        if (current === undefined || slugs.length === 0) return [];
+        try {
+          return current.all(
+            `SELECT id FROM apps WHERE slug IN (${
+              slugs.map(() => "?").join(", ")
+            })`,
+            [...slugs],
+          ).map((row) => String(row["id"]));
+        } catch {
+          // apps 표가 없는 조립에서는 앱이 없다.
+          return [];
+        }
+      },
     },
   };
 }

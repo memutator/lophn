@@ -40,7 +40,7 @@ export interface WorkspaceSource {
   documents(project: string): Promise<ReadResult<readonly DocumentRow[]>>;
   /**
    * Contexts·Context·Search 탭의 통로(shell/workspace#R14~R31). 없으면 그 탭과 여는 길을 두지
-   * 않는다. core 통로는 아직 없고 mock 모드가 fake를 넣는다.
+   * 않는다. coreWorkspaceSource가 core 통로를 넣고 mock 모드는 fake를 넣는다.
    */
   readonly contextsSource?: ContextsSource;
   /** 팔레트 파일 묶음. 문서로 잡힌 파일만 탭으로 열 수 있다. */

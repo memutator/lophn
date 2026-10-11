@@ -265,7 +265,7 @@ concerns:
   summary: 앱 하나를 맡는 역할. 인터뷰로 설계, problem 해석, 구현·repair ticket 작성, 새 release 검토. 주기 없음.
 
 - id: lophn-agent/roles/context-engineer
-  summary: context와 term을 짜고 다듬고, Operator assignment를 제안하는 역할.
+  summary: 전체에 하나. context의 경계를 설계하고 계약·선언 검색·예·용어집·saved view 초안을 짜서 판으로 내고, 위반을 넘겨받아 고치고, Operator assignment를 제안하는 역할.
 
 - id: lophn-agent/roles/operator
   summary: project나 app에 붙어 정한 반복 판단을 주기로 하고 남길 문서에 결과를 쓰는 역할.

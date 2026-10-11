@@ -52,7 +52,7 @@ concerns: [lophn-agent/revert]
 
 **[R9]** 대상별 복원 가능성과 충돌은 그 대상 concern의 현재 판·관계·권한 검사를 따르며 분류되지 않은 영향을 목록에서 누락하거나 안전하다고 가정하지 않는다.
 - 이유: revert가 다른 영역의 안전 규칙을 대신 정하지 않는다.
-- 확인: 문서는 documents/versions와 documents/addressing, 컨텍스트·용어는 documents/contexts와 documents/terms, 티켓은 coding-agent/tickets의 실제 판정을 사용하는지 본다.
+- 확인: 문서는 documents/versions와 documents/addressing, 티켓은 coding-agent/tickets의 실제 판정을 사용하는지 본다.
 - 의도: lophn-agent#I7
 
 **[R10]** run에서 되돌리기 지원 앱 write가 성공했으면 저장한 invocation·receipt·현재 revision을 검증하여 앱의 선언된 revert command를 원래 호출 역순으로 직접 부르고 실제 복원 결과를 run revert에 포함한다.
@@ -67,3 +67,4 @@ concerns: [lophn-agent/revert]
 
 ## 버린 것
 - run 하나에 원본 커밋 하나를 두고 종료 때 확정하는 구조는 P4·lophn-agent/harness/run-loop의 짧은 변경 기록과 run 전체 조회로 바꿨다.
+- context와 용어집(옛 항목 set/remove event와 용어 후보 owner)의 run 단위 복원: 항목과 후보가 없어지고 context는 계약 판으로 바뀌어 이 revert의 owner에서 뺐다. context 판의 이전 판 적용은 documents/contexts가 맡고, 이 revert는 context 변경을 복원했다고 표시하지 않으며 retained로 둔다. 이 문서의 나머지는 session 안 rewind 작업이 다시 쓴다.

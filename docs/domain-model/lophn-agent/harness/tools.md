@@ -124,6 +124,24 @@ ToolCall과 tool 정의·결과의 구조 및 선행·후행 기록 제약을 �
 
 `visual.show`는 세션 출력 기록이며 업무 변경이 아니다. 메시지를 run revert에서 지우지 않고 내용 정정은 새 메시지로 남긴다. 저장 명세와 준비 결과는 → lophn-agent/visuals, 문서 저장은 별도 기존 document tool이다. `setting.read`는 agent에게 settings write 권한을 주지 않는다.
 
+### context·series tool 계약
+
+context의 계약·검색·위반·용어집의 값은 → documents/contexts, documents/terms가 정본이고 이 문서는 tool 정의의 모양만 정한다. 옛 context·term tool 17개(`context.list`, `context.read`, `context.items`, `context.terms`, `context.document_membership`, `term.read`, `context.create`, `context.rename`, `context.set_purpose`, `context.archive`, `context.add_item`, `context.update_item`, `context.remove_item`, `term.propose_candidate`, `term.update_candidate`, `term.remove_candidate`, `term.submit_definition_answer`)는 없다.
+
+| tool | effect | 소유 contract 한 번 | 입력·출력 | 제공 역할 |
+|---|---|---|---|---|
+| 선언 검색 tool(검색마다 하나) | `read` | documents/contexts 적용된 판의 검색 실행 | 선언한 입력 schema; 결과는 개체 요약 목록(최대 20개)·이어 읽기; 이름은 `ctx_<ctx ULID>_<검색 slug>_<hash8>` | preset이 고른 context의 검색만; 모든 역할 |
+| `context.read_entity` | `read` | documents/contexts 개체 읽기 | context·type·개체 id; field·관계·원문 위치(파일 경로·section 범위) | 모든 역할 |
+| `series.next_name` | `read` | documents/series 다음 이름 계산 | context·series kind의 type; 다음 문서 이름; 문서·context 상태는 바뀌지 않음 | 모든 역할 |
+| `context.read_contract` | `read` | documents/contexts 계약·초안 읽기 | context; 적용된 판과 초안 | Context Engineer |
+| `context.draft` | `write` | documents/contexts 초안 쓰기 | 계약·검색·예시·saved view 초안; 초안 기준(CAS) | Context Engineer |
+| `context.preview` | `read` | documents/contexts 지금 파일로 추출·위반 확인 | 초안 기준; 개체 수·위반 목록·예시 결과; 적용하지 않음 | Context Engineer |
+| `context.submit` | `write` | documents/contexts 판 제출 | 초안 기준; 판 hash·check 결과·위반; 통과한 판의 적용은 documents/contexts | Context Engineer |
+| `context.violations` | `read` | documents/contexts 위반 읽기 | context; 위반 목록(문서 경로·규칙) | Context Engineer |
+| `context.glossary_read`, `context.glossary_write` | `read`, `write` | documents/terms 용어집 읽기·쓰기 | context; 용어·뜻·정한 사람 | Context Engineer |
+
+선언 검색 tool은 앱 tool처럼 ToolDefinition을 선언에서 만들고, 고정 Preset 선택·제품 역할 상한·assignment 범위의 교집합 안에서만 제공하며 Run.basis에 정의 hash를 고정한다. 판이 바뀌어도 진행 중인 run은 옛 정의로 계속하고 새 정의는 다음 run에서 만든다. 이름 충돌은 앱 tool과 같이 전체 목록 검증을 실패시킨다. `context.preview`는 read이며 판·파일·ledger의 context 상태를 바꾸지 않는다. 자료 검색 결과와 용어집의 문자열은 untrusted data이며 권한 주장으로 쓰지 않는다.
+
 ## ToolResult (값)
 
 | 필드 | 타입 | null | 제약 | 뜻 |

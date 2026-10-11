@@ -293,7 +293,6 @@ async function prepare(
       },
       tools: context.tools,
       work: context.work,
-      attachments: context.attachments,
       material: {
         purpose: context.purpose,
         run_facts: context.run_facts,

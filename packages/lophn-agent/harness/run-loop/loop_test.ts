@@ -208,7 +208,6 @@ function rig(setup: Setup) {
       session: { kind: "project", id: PROJECT },
       scope: { kind: "all", id: null },
     },
-    attachments: [],
     purpose: null,
     run_facts: null,
     continuation_summary: null,
@@ -332,10 +331,7 @@ function rig(setup: Setup) {
     random: setup.random ?? (() => 0.5),
     instructions: {
       files: {
-        registered: () => Promise.resolve(ok(null)),
-        attached: () =>
-          Promise.resolve(err({ code: "not_found", message: "none" })),
-        projectOf: () => Promise.resolve(ok(null)),
+        read: () => Promise.resolve(ok(null)),
       },
       redact: (text) => text,
     },

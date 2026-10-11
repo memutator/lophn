@@ -77,6 +77,7 @@ Deno.test("extensions#R1: 등록 폴더의 유효한 SKILL.md만 run context ski
     const prepared = await driver.prepare({
       run: RUN,
       assignment: ASG,
+      session: null,
       stateSeq: "1",
       reason: "priority",
     });
@@ -181,6 +182,7 @@ Deno.test("extensions#R1 extensions#R4: 제품 run은 data root의 개인 보관
     const prepared = await driver.prepare({
       run: RUN,
       assignment: ASG,
+      session: null,
       stateSeq: "1",
       reason: "priority",
     });

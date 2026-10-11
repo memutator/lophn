@@ -170,7 +170,6 @@ function rig(
           session: { kind: "project", id: "prj_01arz3ndektsv4rrffq69g5fav" },
           scope: { kind: "all", id: null },
         },
-        attachments: [],
         purpose: null,
         run_facts: null,
         continuation_summary: null,
@@ -248,10 +247,7 @@ function rig(
     random: () => 0.5,
     instructions: {
       files: {
-        registered: () => Promise.resolve(ok(null)),
-        attached: () =>
-          Promise.resolve(err({ code: "not_found", message: "none" })),
-        projectOf: () => Promise.resolve(ok(null)),
+        read: () => Promise.resolve(ok(null)),
       },
       redact: (text) => text,
     },

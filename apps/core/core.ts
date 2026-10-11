@@ -327,12 +327,6 @@ import {
   withMessageBody,
 } from "./message-body.ts";
 import {
-  instructionAccess,
-  instructionFilesEnvironment,
-  ledgerHead,
-} from "./instruction-files.ts";
-import type { InstructionFiles } from "../../packages/lophn-agent/instructions/mod.ts";
-import {
   createQuestionTextPreparer,
   withQuestionText,
 } from "./question-text.ts";
@@ -504,8 +498,6 @@ export type Core = {
   // 원하는 앱 프로세스 상태를 apps supervisor에 알린다. 마지막 상태를 기억해 supervisor가
   // 다시 떠도 같은 상태로 맞춘다. releases 조립이 활성 release를 보고 부른다.
   reconcileApp(desired: DesiredApp): Promise<Result<void>>;
-  // lophn agent runtime이 model call 직전에 사람 지침(LOPHN.md)의 확정 판을 읽는 통로다. 읽기만 있다.
-  instructionFiles: InstructionFiles;
   // testCredentials일 때만 있다. apps 제어(connect 어댑터·supervisor 질의)다.
   appsControl?: AppsControl;
   // testCredentials일 때만 있다. 제품 발급이 막는 actor의 테스트 기록이다.
@@ -612,7 +604,7 @@ async function open(
   const ledgerPath = `${root.path}/lophn.db`;
   // writer·reader가 import하는 팀 module. 문서 worker route를 서빙하는 reader는 항상 붙는다.
   const modules = withPlatformModule(
-    withDocumentsReader(options.teamModules ?? []),
+    withInstructionReader(withDocumentsReader(options.teamModules ?? [])),
   );
   const eventNames = await eventOperations(modules);
   // approvals·notifications는 contract ROUTES가 route를 고정하므로 team 조립 뒤에 한 번만 더한다.
@@ -632,18 +624,8 @@ async function open(
     ledgerPath,
     read: (hash, offset, length) => blobRead.deps.read(hash, offset, length),
   });
-  // 사람 지침 파일의 확정 판 읽기. runtime에는 ReadInstructionFile 하나로만 닿는다.
-  const instructionFiles = instructionFilesEnvironment({
-    ledgerPath,
-    read: (hash, offset, length) => blobRead.deps.read(hash, offset, length),
-  });
   const assembled = withPlatform(
     assemble(options.teams, {
-      instructionFiles: {
-        files: instructionFiles,
-        permit: instructionAccess(ledgerPath),
-        asOfSeq: () => ledgerHead(ledgerPath),
-      },
       status: statusMemoryVia(documentsChannel),
       // problems의 GetSnapshotLogs 읽기 통로. 바이트 통로는 relay가 뜬 뒤 채워진다.
       snapshotLogs: snapshotLogsEnvironment({
@@ -2565,7 +2547,6 @@ async function open(
       ? { codingCredentials: coding, codingCredentialsReady: codingReady }
       : {}),
     record: (context) => runtime!.record(context),
-    instructionFiles,
     sweepTicketClaims: () => runtime!.sweepTicketClaims(),
     sweepTicketChecks: () =>
       checkerChannel.request(TICKET_CHECK_OP, {}, 30_000),
@@ -3065,6 +3046,13 @@ function withPlatformModule(modules: readonly string[]): string[] {
 
 function withDocumentsReader(modules: readonly string[]): string[] {
   const reader = new URL("./documents-reader.ts", import.meta.url).href;
+  return modules.includes(reader) ? [...modules] : [...modules, reader];
+}
+
+// LOPHN.md와 agent 정의 본문을 파일에서 읽는 ReadInstructionFile의 reader 등록도 항상 붙는다
+// (instruction-files.ts). 동기 file API는 reader Worker 안에서만 쓰므로 core가 정적으로 import하지 않는다.
+function withInstructionReader(modules: readonly string[]): string[] {
+  const reader = new URL("./instruction-files.ts", import.meta.url).href;
   return modules.includes(reader) ? [...modules] : [...modules, reader];
 }
 

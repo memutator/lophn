@@ -1,12 +1,11 @@
 export {
-  attachmentOrder,
   INSTRUCTION_FILE_MAX_BYTES,
   INSTRUCTION_TOTAL_MAX_BYTES,
   type InstructionFile,
   type InstructionFiles,
   type InstructionLayer,
   type InstructionLayerKind,
-  instructionLocations,
+  instructionLayers,
   instructionPlace,
   type InstructionResolution,
   type InstructionStatus,
@@ -16,5 +15,4 @@ export {
   decodeInstructionFile,
   encodeInstructionFile,
   instructionFilesOverCore,
-  instructionReadApi,
 } from "./read.ts";

@@ -6,7 +6,6 @@
 import { assert, assertEquals } from "@std/assert";
 import {
   createIdSource,
-  err,
   formatAt,
   manualClock,
   ok,
@@ -406,10 +405,7 @@ async function openWorld(options: Options) {
     rolePrompt: () => Promise.resolve(ok("ROLE RULES")),
     instructions: {
       files: {
-        registered: () => Promise.resolve(ok(null)),
-        attached: () =>
-          Promise.resolve(err({ code: "not_found", message: "none" })),
-        projectOf: () => Promise.resolve(ok(null)),
+        read: () => Promise.resolve(ok(null)),
       },
       redact: (text) => text,
     },

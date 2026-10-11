@@ -4,7 +4,6 @@
 import { assert, assertEquals } from "@std/assert";
 import {
   createIdSource,
-  err,
   formatAt,
   manualClock,
   ok,
@@ -373,10 +372,7 @@ Deno.test("lophn-agent/observability#R1: 실제 core에서 돌린 agent turn의 
       rolePrompt: () => Promise.resolve(ok("ROLE RULES")),
       instructions: {
         files: {
-          registered: () => Promise.resolve(ok(null)),
-          attached: () =>
-            Promise.resolve(err({ code: "not_found", message: "none" })),
-          projectOf: () => Promise.resolve(ok(null)),
+          read: () => Promise.resolve(ok(null)),
         },
         redact: (text) => text,
       },

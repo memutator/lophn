@@ -4,6 +4,7 @@ import {
   defineSetting,
   type KindLaunchSpec,
   questionOption,
+  type ReadDefinition,
 } from "../../packages/contracts/platform/mod.ts";
 import {
   defineTxPort,
@@ -14,6 +15,7 @@ import {
 import {
   assignmentPaused,
   InstructionAttachments,
+  instructionRead,
   OperatorOutput,
   questionCreated,
   runAccepted,
@@ -21,7 +23,6 @@ import {
   runFinished,
   runStarted,
 } from "../../packages/contracts/lophn-agent/mod.ts";
-import { instructionReadApi } from "../../packages/lophn-agent/instructions/mod.ts";
 import { notificationsOnlyVisibility } from "./platform.ts";
 import type {
   CommandDefinition,
@@ -884,6 +885,7 @@ export const lophnAgentDefinitions = {
     revertReads.preview,
     revertReads.list,
     traceReads.read,
+    instructionReadRoute(),
   ],
   // model.call 본문은 blob 참조만 남는다(R4). tool call 입력·출력도 같은 종류다.
   // 메시지 본문은 영구 참조다(conversation#R2).
@@ -1178,44 +1180,30 @@ const UNATTACHED_MESSAGE_BODY: MessageBodyEnvironment = {
 // 기동 뒤에야 알려지므로 core가 늦게 채우는 함수로 준다. 붙이지 않은 등록은 끝내지 못한 것으로 답한다.
 const UNATTACHED_REDACT = (): string | null => null;
 
-// ReadInstructionFile은 등록 지침 파일의 확정 판을 core가 읽어 runtime에 주는 통로다. 붙이지 않은
-// 등록(harness)은 unavailable이다.
-const UNATTACHED_INSTRUCTION_FILES = {
-  files: {
-    registered: () =>
-      Promise.resolve(
-        err({
-          code: "unavailable" as const,
-          message: "지침 읽기 통로가 붙어 있지 않다",
-        }),
-      ),
-    attached: () =>
-      Promise.resolve(
-        err({
-          code: "unavailable" as const,
-          message: "지침 읽기 통로가 붙어 있지 않다",
-        }),
-      ),
-    projectOf: () => Promise.resolve(ok(null)),
-  },
-  permit: () =>
-    err({ code: "not_found" as const, message: "instruction not found" }),
-  asOfSeq: () => ok("0"),
-};
+// ReadInstructionFile은 LOPHN.md와 agent 정의 본문을 파일에서 읽는 reader Worker의 read다. 동기 file API는
+// core module graph에 들일 수 없어 서빙은 instruction-files.ts의 reader 등록이 한다(core.ts가 reader module로
+// 붙인다). 여기 handler는 route를 registry에 올리는 자리이고 실행되지 않는다.
+function instructionReadRoute(): ReadDefinition<typeof instructionRead> {
+  return {
+    route: instructionRead,
+    handle() {
+      return err({
+        code: "unavailable" as const,
+        message: "지침 읽기는 reader Worker가 서빙한다",
+      });
+    },
+  };
+}
 
 export function createLedgerRegistration(
   environment: {
     messageBody?: MessageBodyEnvironment;
-    instructionFiles?: Parameters<typeof instructionReadApi>[0];
     redactBody?: (text: string) => string | null;
   } = {},
 ) {
   return {
     // ReadQuestionText도 같은 읽기 통로(ledger snapshot과 blob 바이트)를 쓴다.
     apiReads: [
-      instructionReadApi(
-        environment.instructionFiles ?? UNATTACHED_INSTRUCTION_FILES,
-      ),
       messageBodyRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
       questionTextRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
       // 복구가 저장된 run basis·model 응답·tool 결과를 다시 읽는 같은 길이다(machine만).

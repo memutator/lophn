@@ -139,7 +139,6 @@ export type PromptInput = {
   role: { instructions: string; preset_prompt: string | null } | null;
   // 지침 층을 고르는 작업 자리 근거. 탭은 여기 없다(R30).
   work: { role: AgentRole; session: WorkPlace; scope: AssignmentScope };
-  attachments: readonly { document: string; order: number }[];
   material: WorkMaterial;
   // 이번 judgment turn의 동적 context(포장 끝). 없으면 null.
   turn_context: string | null;
@@ -165,8 +164,6 @@ export type CacheBoundary = {
 export type InstructionBasis = {
   kind: InstructionLayerKind;
   place: string | null;
-  document: string | null;
-  version: string | null;
   source_hash: string | null;
   transmitted_hash: string | null;
   status: InstructionStatus;

@@ -21,23 +21,28 @@ export const instructionLocationOutputSchema = z.object(locationFields);
 
 export type InstructionLocation = z.infer<typeof instructionLocationSchema>;
 
-// agent runtime이 model call 직전마다 읽는 사람 지침의 확정 판이다(R4, R5, R8). machine만 읽는다.
-// 읽는 대상은 정해진 등록 자리(`location`)나 preset 판에 붙은 문서(`document`) 둘뿐이고, 경로·부모 폴더를
-// 거슬러 찾지 않는다. 본문은 core가 blob에서 읽어 base64로 준다. 파일이 상한(32 KiB)을 넘으면 본문은
-// 처음 32 KiB까지만 주고 `size_bytes`는 실제 크기다(읽는 쪽이 상한 초과로 call을 멈춘다). 등록 자리에
-// 연결된 문서가 없으면 `file`이 null(부재)이고, 읽지 못하면 unavailable이다. 로컬 경로는 어느 칸에도 없다.
+// agent runtime이 model call 직전마다 읽는 사람 지침의 한 층이다(R4, R5, R8). machine만 읽는다.
+// 어느 자리의 파일인지는 입력에 없다. core가 `run`의 작업 자리로 정한다: global은 `~/.lophn/LOPHN.md`,
+// project는 그 project 폴더의 LOPHN.md, app은 그 앱 자리의 LOPHN.md, agent는 그 run의 agent 정의 본문이다.
+// 작업 자리에 없는 층(project 자리 run의 app 층 등)은 없는 대상과 같은 not_found다. 본문은 core가 파일에서
+// 읽어 base64로 준다. 파일이 상한(32 KiB)을 넘으면 본문은 처음 32 KiB까지만 주고 `size_bytes`는 실제
+// 크기다(읽는 쪽이 상한 초과로 call을 멈춘다). 파일이 없으면 `file`이 null(부재)이고, 있는데 읽지 못하면
+// unavailable이다. 로컬 경로는 어느 칸에도 없다.
 export const INSTRUCTION_READ_MAX_BASE64 = 43_700;
 
-// 읽는 쪽은 어느 run을 위해 읽는지 `run`으로 밝힌다. core는 그 run의 작업 자리(전역과 그 run의 project·app)
-// 와 그 run의 preset에 붙은 지침 문서만 읽게 하고, 그 밖은 없는 대상과 똑같이 not_found다.
-export const instructionReadInputSchema = z.union([
-  z.strictObject({ run: idSchema("run"), location: instructionLocationSchema }),
-  z.strictObject({ run: idSchema("run"), document: idSchema("doc") }),
-]);
+export const INSTRUCTION_READ_LAYERS = [
+  "global",
+  "project",
+  "app",
+  "agent",
+] as const;
+
+export const instructionReadInputSchema = z.strictObject({
+  run: idSchema("run"),
+  layer: z.enum(INSTRUCTION_READ_LAYERS),
+});
 
 export const instructionReadFileSchema = z.object({
-  document: idSchema("doc"),
-  version: idSchema("ver"),
   size_bytes: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
   content_base64: z.string().max(INSTRUCTION_READ_MAX_BASE64),
 });

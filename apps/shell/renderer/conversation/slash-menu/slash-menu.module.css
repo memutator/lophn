@@ -1,0 +1,86 @@
+/* composer 위로 뜨는 명령 메뉴. 위치는 부모가 정하고 여기서는 상자와 줄만 그린다. */
+.menu {
+  box-sizing: border-box;
+  max-height: calc(var(--menu-row) * 10);
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--floating-surface);
+  box-shadow: var(--shadow-popover);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  overflow: auto;
+}
+
+.heading {
+  margin: var(--space-3) var(--space-0) var(--space-1);
+  padding: var(--space-0) var(--space-4);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.notice {
+  margin: var(--space-0);
+  padding: var(--space-3) var(--space-4);
+  color: var(--color-text-muted);
+}
+
+.row {
+  box-sizing: border-box;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-5);
+  height: var(--menu-row);
+  padding: var(--space-0) var(--space-4);
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+}
+
+.row[aria-selected="true"] {
+  background: var(--floating-hover);
+}
+
+/* 못 쓰는 줄은 흐리게 하고 이유는 그대로 읽히게 둔다. */
+.row[data-blocked] {
+  cursor: not-allowed;
+}
+
+.row[data-blocked] .label,
+.row[data-blocked] .description {
+  color: var(--color-text-disabled);
+}
+
+.label {
+  flex: none;
+  min-width: calc(var(--menu-row) * 4);
+  font-weight: var(--font-weight-medium);
+}
+
+.origin {
+  flex: none;
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+}
+
+.description {
+  flex: 1;
+  min-width: var(--space-0);
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reason {
+  flex: none;
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+}
+
+.hit {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+}

@@ -1052,6 +1052,15 @@ export type PlaceholderKinds = {
     number: "number";
   };
   "conversation.label.sessions": Record<never, never>;
+  "conversation.label.slash-blocked": {
+    agent: "string";
+  };
+  "conversation.label.slash-menu": Record<never, never>;
+  "conversation.label.slash-origin-place": Record<never, never>;
+  "conversation.label.slash-origin-workspace": Record<never, never>;
+  "conversation.label.slash-unknown": {
+    name: "string";
+  };
   "conversation.label.status-done": Record<never, never>;
   "conversation.label.status-in-progress": Record<never, never>;
   "conversation.label.status-stopped": Record<never, never>;
@@ -1094,6 +1103,10 @@ export type PlaceholderKinds = {
   "conversation.notice.offline": Record<never, never>;
   "conversation.notice.provider-lost": Record<never, never>;
   "conversation.notice.paused": Record<never, never>;
+  "conversation.notice.slash-choose": {
+    name: "string";
+  };
+  "conversation.notice.slash-no-match": Record<never, never>;
   "conversation.notice.stale": {
     age: "string";
   };

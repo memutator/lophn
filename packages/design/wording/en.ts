@@ -1037,6 +1037,11 @@ export const en = {
   "conversation.label.session": "Conversation {number, number}",
   "conversation.label.session-ended": "Conversation {number, number}, ended",
   "conversation.label.sessions": "Conversations",
+  "conversation.label.slash-blocked": "Not while {agent} is working",
+  "conversation.label.slash-menu": "Commands",
+  "conversation.label.slash-origin-place": "Project",
+  "conversation.label.slash-origin-workspace": "Workspace",
+  "conversation.label.slash-unknown": "Unknown command: /{name}",
   "conversation.label.status-done": "Done",
   "conversation.label.status-in-progress": "In progress",
   "conversation.label.status-stopped": "Stopped",
@@ -1071,6 +1076,9 @@ export const en = {
     "The agent can't reach its account right now. Your work stays open, and you can check the account in Settings.",
   "conversation.notice.paused":
     "This role is paused. New requests are kept and start only after you resume it.",
+  "conversation.notice.slash-choose":
+    "More than one skill is named /{name}. Choose which one to use.",
+  "conversation.notice.slash-no-match": "No commands match.",
   "conversation.notice.stale":
     "Couldn't check for new messages. Last checked {age}.",
   "conversation.notice.stale-never": "Couldn't check for new messages yet.",

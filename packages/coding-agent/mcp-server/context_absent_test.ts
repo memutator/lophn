@@ -2,7 +2,7 @@
 // MCP tool·CLI command·변경 제안·contract 항목·skill 안내 어디에도 context가 남지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import { findTool, STATIC_TOOLS } from "./registry.ts";
-import { COMMANDS } from "../cli/registry.ts";
+import { COMMANDS } from "../cli/mod.ts";
 
 const ROOT = new URL("../../../", import.meta.url);
 

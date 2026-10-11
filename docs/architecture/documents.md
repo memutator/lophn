@@ -287,7 +287,7 @@ root는 활동 순, place는 갱신 순으로 시작하고 seq·ID로 동점을 
 | `/v1/contexts/rollback` | `bundle.rollback`(이전 판을 다시 적용; user) |
 | `/v1/contexts/save_view`, `/update_view`, `/delete_view` | `view.save`, `view.update`, `view.delete`(user) |
 | `/v1/contexts/hand_off_violations` | `context.hand_off_violations`(위반 하나 또는 전부를 Context Engineer Run으로 넘김; user) |
-| `/v1/contexts/list`, `/get`, `/overview`, `/contract`, `/draft`, `/search`, `/input_options`, `/violations`, `/bundles`, `/saved_views`, `/containing` | 목록(적용·진행 중인 판 포함)·한 context와 적용 판 요약·type별 개체 수·적용 판의 계약·만드는 중인 판의 진행·선언 검색 실행(5.4)·검색 입력 후보·위반 목록과 근거·판 이력과 check 보고·saved view 목록(깨진 것 표시)·Project 파일 경로가 속한 context 역조회(문서 Info›Contexts); user와 Context Engineer가 읽는다 |
+| `/v1/contexts/list`, `/get`, `/overview`, `/contract`, `/draft`, `/search`, `/input_options`, `/violations`, `/bundles`, `/saved_views`, `/entity`, `/series_next`, `/containing` | 목록(적용·진행 중인 판 포함)·한 context와 적용 판 요약·type별 개체 수·적용 판의 계약·만드는 중인 판의 진행·선언 검색 실행(5.4)·검색 입력 후보·위반 목록과 근거·판 이력과 check 보고·saved view 목록(깨진 것 표시)·개체 하나의 field와 관계 대상·series type의 다음 이름·Project 파일 경로가 속한 context 역조회(문서 Info›Contexts); user와 Context Engineer가 읽는다 |
 | `/v1/terms/set`, `/remove` | `glossary.set`(용어 + 뜻; 새 항목은 id·context, 기존 항목은 entry; user와 Context Engineer), `glossary.remove` |
 | `/v1/terms/list` | `glossary.list`(context별 용어집 전부, 용어 순) |
 | `/v1/series/create`, `/update`, `/set_draft`, `/clear_draft`, `/add_instance`, `/update_instance`, `/remove_instance`, `/archive`, `/unarchive` | 대응 `series.*`; create·update·add_instance·update_instance는 user와 허용 coding_agent·app, 나머지 가족 변경은 user, lophn agent 가족 mutation 없음 |

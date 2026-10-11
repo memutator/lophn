@@ -5,8 +5,19 @@
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
 import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
-import { openIndexStore } from "../../packages/documents/contexts/index/mod.ts";
-import { minimalContent } from "../../packages/documents/contexts/api/testing.ts";
+import {
+  openIndexStore,
+  scanContext,
+} from "../../packages/documents/contexts/index/mod.ts";
+import {
+  evalContent,
+  minimalContent,
+} from "../../packages/documents/contexts/api/testing.ts";
+import {
+  fixtureBundle,
+  memoryFiles,
+  scanInput,
+} from "../../packages/documents/contexts/index/testing.ts";
 import { type Core, startCore } from "./core.ts";
 import { contextWorkerCredential } from "./contexts-api.ts";
 import { createLedgerRegistration } from "./documents.ts";
@@ -52,6 +63,8 @@ const USER_OPERATIONS = [
   "context.hand_off_violations",
   "context.overview",
   "context.search",
+  "context.entity",
+  "context.series_next",
   "context.violations",
   "glossary.set",
   "glossary.list",
@@ -273,12 +286,15 @@ async function create(core: Core): Promise<Json> {
 }
 
 // 초안 저장 → 제출 → worker 자격의 통과 보고로 판 하나를 적용하고 그 판의 id와 hash를 돌려준다.
-async function apply(core: Core): Promise<{ bundle: string; hash: string }> {
+async function apply(
+  core: Core,
+  content: Record<string, unknown> = minimalContent(),
+): Promise<{ bundle: string; hash: string }> {
   const draft = await post(
     core,
     "engineer",
     "contexts/save_draft",
-    command({ context: CONTEXT, content: minimalContent() }, "draft-apply"),
+    command({ context: CONTEXT, content }, "draft-apply"),
   );
   assertEquals(draft.status, 200, JSON.stringify(draft.body));
   const submitted = await post(
@@ -579,6 +595,106 @@ Deno.test("documents/contexts#R23 #R24 #R25 [ctx-T9a]: entities and violations c
     assertEquals(
       (after.body["violations"] as Json[]).map((item) => item["handed_off"]),
       [false],
+    );
+  });
+});
+
+// eval-project 계약을 적용하고 그 fixture 파일을 context worker와 같은 scan으로 index에 채운다.
+async function applyScanned(core: Core): Promise<void> {
+  const { hash } = await apply(core, evalContent());
+  await Deno.mkdir(`${core.dataRoot}/derived`, { recursive: true });
+  const store = openIndexStore(`${core.dataRoot}/derived/contexts.sqlite`);
+  try {
+    const scanned = scanContext(
+      store,
+      scanInput(memoryFiles(), {
+        context: CONTEXT,
+        bundle: fixtureBundle(),
+        bundle_hash: hash,
+      }),
+    );
+    assert(scanned.ok, JSON.stringify(scanned));
+  } finally {
+    store.close();
+  }
+}
+
+Deno.test("documents/contexts#R16 [ctx-I63]: context.entity reads one entity of the scanned index with its fields and relation targets, and refuses what it cannot read", async () => {
+  await withCore(async (core) => {
+    await create(core);
+    await applyScanned(core);
+    const read = (type: string, key: string, context = CONTEXT) =>
+      post(core, "user", "contexts/entity", { context, type, key });
+
+    const one = await read("Experiment", "002");
+    assertEquals(one.status, 200, JSON.stringify(one.body));
+    assertEquals(one.body["ref"], {
+      type: "Experiment",
+      key: "002",
+      path: "eval/experiments/exp-002-sight.md",
+      section: null,
+    });
+    const relations = one.body["relations"] as {
+      name: string;
+      targets: Json[];
+    }[];
+    assertEquals(relations.map((relation) => relation.name), [
+      "runs_on",
+      "graded_by",
+    ]);
+    assertEquals(
+      relations[0]!.targets.map((target) => target["key"]),
+      ["schedule-basic", "travel"],
+    );
+    assertEquals(relations[1]!.targets, []);
+
+    // a relation target opens by its own ref
+    const target = relations[0]!.targets[0]!;
+    const opened = await read(String(target["type"]), String(target["key"]));
+    assertEquals(opened.status, 200, JSON.stringify(opened.body));
+    assertEquals(opened.body["ref"], target);
+
+    assertEquals((await read("Experiment", "999")).status, 404);
+    assertEquals((await read("Nothing", "001")).status, 400);
+    assertEquals(
+      (await read("Experiment", "001", "ctx_01arz3ndektsv4rrffq69g5faw"))
+        .status,
+      404,
+    );
+  });
+});
+
+Deno.test("documents/series#R5 [ctx-I63]: context.series_next gives the next name from the scanned index, and invalid_input for a type that is not a series", async () => {
+  await withCore(async (core) => {
+    await create(core);
+    await applyScanned(core);
+    const next = (type: string, context = CONTEXT) =>
+      post(core, "user", "contexts/series_next", { context, type });
+
+    const experiment = await next("Experiment");
+    assertEquals(experiment.status, 200, JSON.stringify(experiment.body));
+    assertEquals(
+      experiment.body["pattern"],
+      "eval/experiments/exp-{n:03}-*.md",
+    );
+    assertEquals(experiment.body["next"], {
+      key: "011",
+      path: "eval/experiments/exp-011-*.md",
+      from: "eval/experiments/exp-010-tiller.md",
+      complete: false,
+      taken: false,
+    });
+    const finding = await next("Finding");
+    assertEquals(
+      (finding.body["next"] as Json)["path"],
+      "loop/findings/F-004.md",
+    );
+
+    assertEquals((await next("Scenario")).status, 400);
+    assertEquals((await next("Nothing")).status, 400);
+    assertEquals(
+      (await next("Experiment", "ctx_01arz3ndektsv4rrffq69g5faw")).status,
+      404,
     );
   });
 });

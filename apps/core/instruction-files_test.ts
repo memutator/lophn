@@ -427,9 +427,8 @@ Deno.test("lophn-agent/instructions#R4 R5 R8 [agent-I19]: 실제 core에서 runt
       envelope({
         id: SES,
         assignment: lophn.id,
-        role: "lophn",
         work_place: { kind: "project", id: PROJECT },
-        continued_from: null,
+        opening_context: null,
       }, {
         assignment_revision: lophn.revision,
         assignment_state: "enabled",

@@ -4,13 +4,14 @@
 // 보호 창이 받고 이 통로는 그 창을 여는 일만 한다(platform/secrets#R2).
 // 연결된 provider와 그 계정은 기존 settings의 ProviderRow·AccountRow를 그대로 쓴다.
 import type {
+  AccountRow,
   AuthWay,
   ProviderRow,
   SourceResult,
   WindowOutcome,
 } from "../source.ts";
 
-export type { AuthWay, ProviderRow, SourceResult, WindowOutcome };
+export type { AccountRow, AuthWay, ProviderRow, SourceResult, WindowOutcome };
 
 /** Add a provider 목록의 한 줄(아직 연결하지 않은 내장 정의 또는 Custom provider). */
 export interface ProviderDefinitionRow {

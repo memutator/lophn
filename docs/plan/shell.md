@@ -1240,7 +1240,7 @@ concerns: [shell]
 
 ### T64 project sidebar: folder·context item 선택
 
-- 상태: 진행 (#PR)
+- 상태: 완료 (#582)
 - 등급: frontend
 - concern: shell/desktop, shell/workspace
 - 요구: shell/desktop#R28

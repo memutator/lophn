@@ -27,6 +27,7 @@ Deno.test("lophn-agent/harness/model#R21: the fixture axes differ by model", () 
   ]);
   assertEquals(axes("anthropic", "claude-opus-4-8"), [
     "effort:low,medium,high,very_high,maximum",
+    "speed:standard,fast",
   ]);
   assertEquals(axes("openai", "gpt-5-5"), [
     "effort:minimal,low,medium,high,very_high",
@@ -35,4 +36,15 @@ Deno.test("lophn-agent/harness/model#R21: the fixture axes differ by model", () 
   assertEquals(axes("openai", "gpt-4-1"), []);
   assertEquals(axes("xai", "grok-3-mini"), ["effort:low,high"]);
   assertEquals(axes("xai", "grok-4"), ["speed:standard,fast"]);
+});
+
+Deno.test("lophn-agent/harness/model#R22: Anthropic Speed Fast carries a body piece and a beta header", () => {
+  const speed = catalogEntry("anthropic", "claude-opus-4-8").options?.find((
+    axis,
+  ) => axis.id === "speed");
+  assertEquals(speed?.values.find((value) => value.value === "fast")?.wire, {
+    kind: "body_patch",
+    patch: { speed: "fast" },
+    headers: { "anthropic-beta": "fast-mode-2026-02-01" },
+  });
 });

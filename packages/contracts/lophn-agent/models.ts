@@ -70,9 +70,13 @@ const BUDGET_EFFORT_VALUES: readonly string[] = [
 // 요청에 싣는 방법은 둘뿐이다(R22). 화면은 wire를 모르고 축·값의 표시 이름만 쓴다.
 const bodyPatchWireFields = {
   kind: z.literal("body_patch"),
-  patch: jsonObjectSchema.refine((patch) => Object.keys(patch).length > 0, {
-    message: "body patch is empty",
-  }),
+  // 빈 조각은 "요청에 더할 것이 없다"는 명시 값이다(예: Standard).
+  patch: jsonObjectSchema,
+  // 같은 값이 요청 header도 요구할 때만 싣는다(예: Anthropic fast mode의 beta header).
+  headers: z.record(nonblankSchema, nonblankSchema).refine(
+    (headers) => Object.keys(headers).length > 0,
+    { message: "headers are empty" },
+  ).optional(),
 };
 const modelIdWireFields = {
   kind: z.literal("model_id"),

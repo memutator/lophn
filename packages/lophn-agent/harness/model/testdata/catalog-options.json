@@ -106,6 +106,35 @@
         ],
         "default_value": "high",
         "budget": null
+      },
+      {
+        "id": "speed",
+        "label": "Speed",
+        "values": [
+          {
+            "value": "standard",
+            "label": "Standard",
+            "wire": {
+              "kind": "body_patch",
+              "patch": {}
+            }
+          },
+          {
+            "value": "fast",
+            "label": "Fast",
+            "wire": {
+              "kind": "body_patch",
+              "patch": {
+                "speed": "fast"
+              },
+              "headers": {
+                "anthropic-beta": "fast-mode-2026-02-01"
+              }
+            }
+          }
+        ],
+        "default_value": null,
+        "budget": null
       }
     ],
     "preview": false,

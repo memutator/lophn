@@ -300,10 +300,22 @@ Deno.test("lophn-agent/harness/model#R22: an option value reaches the request by
   const patch = { kind: "body_patch", patch: { service_tier: "priority" } };
   assert(optionWireSchema.safeParse(patch).success);
   assert(optionWireSchema.safeParse(swap).success);
+  // 빈 조각은 더할 것이 없다는 명시 값이고, header는 조각과 함께 싣는다.
+  assert(optionWireSchema.safeParse({ kind: "body_patch", patch: {} }).success);
+  assert(
+    optionWireSchema.safeParse({
+      kind: "body_patch",
+      patch: { speed: "fast" },
+      headers: { "anthropic-beta": "fast-mode-2026-02-01" },
+    }).success,
+  );
   for (
     const value of [
-      { kind: "body_patch", patch: {} },
       { kind: "body_patch", patch: [] },
+      { ...patch, headers: {} },
+      { ...patch, headers: { "x-tier": "" } },
+      { ...patch, headers: { "x-tier": 1 } },
+      { ...swap, headers: { "x-tier": "1" } },
       { kind: "model_id", model_name: " " },
       { kind: "header", name: "x-tier" },
       { ...swap, patch: {} },
@@ -330,6 +342,7 @@ Deno.test("lophn-agent/harness/model#R13: a run basis reuses the resolved model 
     verification: "unverified",
     option_values: { speed: "fast" },
     request_patch: {},
+    request_headers: {},
     context_limit: 1,
     input_limit: 1,
     output_limit: 1,
@@ -345,6 +358,8 @@ Deno.test("lophn-agent/harness/model#R13: a run basis reuses the resolved model 
       { ...resolved, provider: `ses_${suffix}` },
       { ...resolved, sent_model_name: undefined },
       { ...resolved, option_values: { speed: "" } },
+      { ...resolved, request_headers: undefined },
+      { ...resolved, request_headers: { "anthropic-beta": 1 } },
       { ...resolved, options: {}, reasoning_level: "provider_default" },
     ]
   ) assert(!runBasisModelSchema.safeParse(value).success);

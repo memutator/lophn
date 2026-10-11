@@ -114,6 +114,7 @@ const resolvedModelFields = {
   verification: z.enum(["verified", "unverified"]),
   option_values: z.record(nonblankSchema, nonblankSchema),
   request_patch: jsonObjectSchema,
+  request_headers: z.record(nonblankSchema, nonblankSchema),
   context_limit: positiveIntegerSchema,
   input_limit: positiveIntegerSchema,
   output_limit: positiveIntegerSchema,

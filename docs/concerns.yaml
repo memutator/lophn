@@ -117,16 +117,18 @@ concerns:
   summary: 지원 format 목록, format 검사, section 추출, format module의 격리 실행, 최신 version이 정하는 저장 계약.
 
 - id: documents/outline-and-search
-  summary: outline과 full-text search(derived, 지우고 다시 만들 수 있음), 단계적 읽기(outline → section → 본문)로 적은 token에 닿기, index 반영 지연 표시. saved view는 documents/contexts가 맡는다.
+  summary: project 폴더 문서의 outline(제목 tree, 저장·색인 없이 쓸 때마다 결정적으로 파싱)과 단계적 읽기(outline → section → 본문)로 적은 token에 닿기, 색인 없이 파일을 훑는 keyword search.
   excludes:
     - 읽는 쪽의 범위 검사 -> platform/identity
     - 출력 redaction -> platform/redaction
+    - saved view(context가 선언한 검색의 저장된 호출) -> documents/contexts
 
 - id: documents/series
-  summary: series. 같은 가족 문서(예: 주간 보고)를 묶는 규칙, key, 정렬, 다음 문서 이름 계산. Operator가 주기마다 남기는 문서가 쌓이는 모양.
-  entities: [Series]
+  summary: series. 이어 쓰는 문서(예: 주간 보고)를 context 계약의 series 자료가 가진 경로 pattern으로 정의, pattern에 맞는 프로젝트 파일의 key 순서, 다음 이름 계산. 저장하는 것이 없다.
+  entities: []
   excludes:
-    - 문서와 version 자체 -> documents/versions
+    - pattern을 담는 context 계약 -> documents/contexts
+    - 프로젝트 폴더와 파일 -> documents/projects
 
 - id: documents/addressing
   summary: address 문법(<place>/<doc>#<section>@<version>), place(project나 앱 slug), place 없는 문서, rename·move와 옛 address 안내, ID로 부르기.
@@ -136,8 +138,8 @@ concerns:
   entities: [Context, ContextBundle, ContextCheck, SavedView]
 
 - id: documents/terms
-  summary: Term(용어)과 정의, 후보, 사람이 정의를 정한다.
-  entities: [Term]
+  summary: context별 용어집(glossary). 용어와 뜻과 정한 쪽(사람 또는 Context Engineer), agent prompt 자료로 쓴다.
+  entities: [GlossaryEntry]
 
 # ───────────────────────── apps ─────────────────────────
 
@@ -410,7 +412,7 @@ concerns:
   summary: Electron main과 화면 분리, 창, 화면 구성과 탐색, OS 통합(tray, OS 알림 표시), 사람 token 보관.
 
 - id: shell/workspace
-  summary: 프로젝트 화면의 탭 줄. 탭 종류(문서 편집기, 뷰어, 터미널, 앱 패널), 배치, 다시 열 때 복원, agent에게 넘기는 현재 보기 상태(열린 탭, 초점, 선택 영역), 세션의 시각 블록을 그리는 틀.
+  summary: 프로젝트 화면의 탭 줄. 탭 종류(문서 편집기, 터미널, 앱 패널, Agent, Contexts, Context, Search)와 kind 등록 구조, 배치, 다시 열 때 복원, agent에게 넘기는 현재 보기 상태(열린 탭, 초점, 선택 영역), 세션의 시각 블록을 그리는 틀.
 
 - id: shell/terminal
   summary: 프로젝트 폴더에서 여는 터미널 탭. 시작 폴더, 환경, 출력 보존.

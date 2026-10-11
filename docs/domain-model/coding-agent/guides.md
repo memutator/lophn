@@ -24,7 +24,7 @@ lophn 설치 자원의 배포 값이다. ledger entity·ID·실행 상태는 없
 - 시작 발견에서는 name·description만 읽고 선택한 skill의 본문·직접 보조 자료만 추가로 읽는다.
 - 문자 상한은 Unicode code point로 세고 줄 상한은 CRLF를 LF로 정규화한 logical line으로 센다(→ redesign/coding-agent#Q21).
 - 필요한 tool과 권한을 harness 전용 metadata에만 적지 않는다. 제품별 설치 위치·receipt는 → coding-agent/harnesses, tool·command 대응은 → coding-agent/mcp-server, coding-agent/cli이다.
-- 배포 안내는 탐색·저장·앱 제작·수리의 네 묶음을 제공한다. 이름은 `lophn-navigate`, `lophn-save`, `lophn-build-app`, `lophn-repair`이며 추후 skill 수를 entity 제약으로 고정하지 않는다.
+- 배포 안내는 앱 제작·수리의 두 묶음을 제공한다. 이름은 `lophn-build-app`, `lophn-repair`이며 추후 skill 수를 entity 제약으로 고정하지 않는다. 탐색·문서 저장 skill은 없고 본문은 문서·context·용어·series를 가리키지 않는다.
 
 ## CodingAgentSessionSummary (값)
 
@@ -47,12 +47,11 @@ lophn 설치 자원의 배포 값이다. ledger entity·ID·실행 상태는 없
 
 ## AppManagedGuide (값)
 
-앱 루트 `AGENTS.md`의 lophn 관리 구간에 담는 로컬 안내 값이다. 추적 문서 Version의 저장 계약과 별개이며 ledger 정본은 없다.
+앱 루트 `AGENTS.md`의 lophn 관리 구간에 담는 로컬 안내 값이다. ledger 정본은 없다.
 
 | 필드 | 타입 | null | 제약 | 뜻 |
 |---|---|---|---|---|
 | `app` | 앱 ID | 아니오 | → apps/registration | |
-| `design_references` | 고정 version 주소[] | 아니오 | → documents/addressing, documents/versions; 빈 목록 허용 | 설계 읽을 곳 |
 | `skills` | string[] | 아니오 | 배포 skill name; 중복 금지 | 필요한 안내 |
 | `body` | UTF-8 Markdown | 아니오 | 시작 summary 읽기·사람 지시 claim·설계/blueprint/구현/machine test 구별·SDK 확인·문제 보고·테스트/preview/결과 반환·금지 작업 안내 포함 | 규칙의 정본은 해당 concern 참조 |
 

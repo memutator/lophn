@@ -86,7 +86,7 @@ concerns: [lophn-agent/assignments]
 
 **[R15]** Operator의 실제 진행과 사람 기다림 실행은 lophn-agent/harness/run-loop의 겹침 규칙을 따르며 주기·사람 요청 외 앱 업무 단계나 event 변화로 책임을 자동 접수하지 않는다.
 - 이유: 범위·주기·실패 정책을 역할 밖 경로로 우회하지 않는다.
-- 확인: 앱 문제나 watch 변화가 assignment의 새 run을 만들지 않는지 확인한다.
+- 확인: 앱 문제나 context 위반이 assignment의 새 run을 만들지 않는지 확인한다.
 - 의도: lophn-agent#I4
 
 **[R16]** enabled·paused assignment는 대화를 열 수 있고 회수된 assignment는 지난 대화만 읽으며 새 대화·입력을 받지 않는다. paused의 입력 보존은 lophn-agent/conversation을 따르고 실행 접수·model·tool 호출이나 자동 재개를 허용하지 않는다.

@@ -20,12 +20,12 @@ project 또는 app에 붙어 preset context로 읽을 자료를 고르는 assign
 - 확인: 구체적 Operator가 독립 run으로만 쓰이고 승인 전 실행할 assignment가 생기지 않는지 본다.
 - 의도: lophn-agent#I4, lophn-agent#I5
 
-**[R3]** Operator는 기획·앱 설계·수리 티켓·코드, 컨텍스트 목적·항목·용어·색인 변경, 자기 역할·assignment 변경과 개별 앱 작업의 판단 담당을 겸하지 않는다.
+**[R3]** Operator는 기획·앱 설계·수리 티켓·코드, context 계약·검색·용어집 변경, 자기 역할·assignment 변경과 개별 앱 작업의 판단 담당을 겸하지 않는다.
 - 이유: 여러 앱을 읽어도 반복 책임 밖의 변경은 하지 않는다.
 - 확인: 여러 앱 자료를 함께 판단한 문서만 남고 프로젝트·SDK·문제·티켓·역할·assignment 관리 tool이 제공되지 않는지 본다.
 - 의도: lophn-agent#I4, lophn-agent#I6
 
-**[R4]** Operator는 preset context로 선택한 담당 project/app 안의 자료와 승인한 앱별 read 명령 결과를 읽고 자료의 목적·term·기준·참고·watch 관점과 prompt의 비교 기준으로 변화의 의미를 판단한다.
+**[R4]** Operator는 preset이 고른 담당 project/app의 context에서 overview·용어집을 알고 선언한 검색과 개체 읽기로 찾은 자료, 승인한 앱별 read 명령 결과를 읽어 prompt의 비교 기준으로 변화의 의미를 판단한다.
 - 이유: 읽을 자료 선택은 담당 scope와 다르며 주소가 scope를 확대하지 않는다.
 - 확인: 같은 project의 Operator 둘이 서로 다른 자료를 읽고 scope 밖 자료·미승인 명령은 거절되는지 본다.
 - 의도: lophn-agent#I4, lophn-agent#I5
@@ -64,7 +64,7 @@ project 또는 app에 붙어 preset context로 읽을 자료를 고르는 assign
 
 ### prompt의 관점·기대 결과
 
-담당 project/app에서 선택한 자료의 목적·term·기준·참고·watch와 구체적 비교 기준으로 판단한다. 반복할 판단, 필요한 근거, 비교 기준, 갱신 조건은 prompt 글에 모두 명시한다. 실제 확인한 사실·판단·불확실함·근거 주소 또는 갱신할 내용 없음의 근거를 기대한다.
+담당 project/app에서 고른 context의 type·뜻·관계·용어집과 구체적 비교 기준으로 판단한다. 반복할 판단, 필요한 근거, 비교 기준, 갱신 조건은 prompt 글에 모두 명시한다. 실제 확인한 사실·판단·불확실함·근거 주소 또는 갱신할 내용 없음의 근거를 기대한다.
 
 | 결과 종류 | 필수 내용 | 제약 |
 |---|---|---|
@@ -79,3 +79,4 @@ project 또는 app에 붙어 preset context로 읽을 자료를 고르는 assign
 - run당 결과 최대 1개·시리즈 새 문서·문서 동적 이름은 lophn-agent/roles/operator에 따라 승인한 실제 문서의 필요한 새 version으로 바꿨다.
 - 앱 write·external과 선언 밖 쓰기를 approval request로 우회하는 경로는 금지한다. provider·model 고정 공통 설정은 preset별 선택으로 바꿨다.
 - 외부 MCP·skill 0개 상한은 I5에 맞게 없앴고 제품 금지·scope 검사는 유지한다.
+- context의 기준·참고·watch 관점과 watch 변화로 판단하는 읽기는 perspective와 watch가 없어져 뺐다. Operator는 context의 overview·용어집과 검색으로 자료를 찾는다.

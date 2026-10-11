@@ -122,6 +122,30 @@ tool 정의·목록·입력 검사·효과 분류·결과와 크기·읽기 후�
 - 확인: 설정 조회에 secret 값이 없고 변경은 lophn-agent/questions의 option action으로만 적용되는지 본다.
 - 의도: lophn-agent#I3
 
+### context와 series tool
+
+**[R21]** context가 선언한 검색마다 읽기 tool 하나를 그 context의 적용된 판에서 자동으로 만들고 이름·설명·입력의 JSON Schema·결과 모양을 선언에서 가져오며, 역할 상한·assignment 범위·preset이 고른 context의 교집합인 검색만 제공한다.
+- 이유: agent가 context의 도메인 지식을 쓰려고 검색 방법을 추측하거나 파일을 훑지 않게 하고, 계약이 바뀌면 tool도 같이 바뀌게 한다.
+- 확인: 검색 두 개를 선언한 context에서 tool이 둘 만들어지고 입력 검사가 선언과 같으며, preset이 고르지 않은 context의 검색은 목록에 없고, 판이 바뀌어도 진행 중인 run은 옛 정의로 계속되며 새 정의는 다음 run부터 제공되는지 본다.
+- 의도: lophn-agent#I1, lophn-agent#I5
+
+**[R22]** 개체 하나 읽기 tool은 context·type·개체 id를 받아 그 개체의 field와 관계를 돌려주고 원문이 필요하면 파일 경로와 section 범위로 이어 읽게 하며, 검색 결과와 개체 읽기 결과는 R13의 20개 요약과 이어 보기를 따른다.
+- 이유: 검색 결과로 찾은 개체를 같은 계약의 눈으로 읽게 하되 큰 결과로 prompt 예산을 소모하지 않는다.
+- 확인: 검색 결과의 개체 id로 읽으면 field와 관계가 선언대로 나오고, 없는 개체나 다른 project의 개체는 존재를 노출하지 않고 거절되는지 본다.
+- 의도: lophn-agent#I1
+
+**[R23]** Context Engineer에게만 계약·초안 읽기, 초안 쓰기, 미리보기, 판 제출, 위반 읽기, 용어집 읽기와 쓰기 tool을 제공하며, 미리보기는 지금 project 파일로 개체를 뽑고 위반을 보이기만 하고 판·파일·ledger의 context 상태를 바꾸지 않는다.
+- 이유: 설계를 적용하기 전에 결과를 보게 하되 미리보기가 적용으로 바뀌지 않게 한다.
+- 확인: 미리보기 전후에 적용된 판과 파일이 같고, 다른 세 역할의 목록에는 이 tool이 없으며, 초안 쓰기·제출·용어집 쓰기는 write로 분류되는지 본다. 초안·제출·검사의 계약은 documents/contexts, 용어집은 documents/terms를 따른다.
+- 의도: lophn-agent#I1, lophn-agent#I6
+
+**[R24]** series의 다음 이름을 읽는 tool은 context와 series kind의 type을 받아 pattern에서 다음 문서 이름을 계산해 돌려주기만 하며, 문서를 만들거나 series를 등록·변경하지 않는다.
+- 이유: 반복 문서를 이어 쓸 때 이름과 자리가 저절로 정해지게 하되 agent에게 새 관리 권한을 주지 않는다.
+- 확인: 호출 뒤 문서와 context 상태가 그대로이고, 같은 입력에 같은 이름이 나오며, 문서를 실제로 저장하는 일은 각 역할의 문서 저장 범위를 따르는지 본다. 다음 이름 규칙은 documents/series를 따른다.
+- 의도: lophn-agent#I1
+
 ## 버린 것
 
 - 웹 검색·읽기는 자체 tool 비목표지만 필요하면 외부 MCP로 열지 논의한다. — 유지 결정의 웹 검색·읽기 제외: 외부 MCP를 통한 lophn agent 웹 검색·읽기도 없음.
+- 옛 context·용어 tool 17개(context 목록·읽기·항목·소속·용어 읽기, 생성·이름·목적·보관, 항목 추가·바꾸기·빼기, 용어 후보 제안·바꾸기·빼기, 정의 답 전달)는 선언한 검색마다 tool과 개체 하나 읽기 tool, Context Engineer의 초안·미리보기·제출·위반·용어집 tool로 바꿨다. 항목과 관점이 없어지고 용어 후보와 정의 답 전달도 없어졌다.
+- 옛 series 가족 목록·상세·다음 제안 읽기 통로(documents/series#R9)는 series kind pattern의 다음 이름 읽기 tool 하나로 바꿨다.

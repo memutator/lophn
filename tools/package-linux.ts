@@ -90,11 +90,11 @@ async function stagePlatform(pkg: string, work: string): Promise<void> {
     `${repo}/packages`,
     `${platform}/`,
   ]);
-  // desktop 화면 build 전용 member(apps/shell/renderer)는 묶음에 없으므로 workspace에서 뺀다.
+  // desktop 화면 build 전용 member(apps/shell/renderer)와 개발 도구 member(tools/*)는 묶음에 없으므로 workspace에서 뺀다.
   // vendor와 node_modules를 설치 안에 두어 시작이 의존성을 받지 않는다.
   const config = JSON.parse(await Deno.readTextFile(`${repo}/deno.json`));
   config.workspace = config.workspace.filter((member: string) =>
-    !member.startsWith("./apps/shell")
+    !member.startsWith("./apps/shell") && !member.startsWith("./tools/")
   );
   for (const key of ["tasks", "fmt", "lint", "test", "exclude"]) {
     delete config[key];

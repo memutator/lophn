@@ -101,7 +101,9 @@ function checkRule(
       const path = [...params, "field"];
       const target = findField(type, rule.params.field);
       if (target === undefined) return [issue("rule_field_unknown", path)];
-      return target.value_type === "enum"
+      // enum field와 enum 목록 field(항목마다 검사)만 받는다.
+      return target.value_type === "enum" ||
+          (target.value_type === "list" && target.item_type === "enum")
         ? []
         : [issue("rule_field_not_enum", path)];
     }

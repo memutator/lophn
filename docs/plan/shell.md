@@ -1240,7 +1240,7 @@ concerns: [shell]
 
 ### T66 wireframes gallery
 
-- 상태: 진행 (#PR)
+- 상태: 완료 (#588)
 - 등급: frontend
 - concern: shell/desktop
 - 요구: 없음 — 개발 도구

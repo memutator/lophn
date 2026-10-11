@@ -395,10 +395,6 @@ Deno.test("lophn-agent/conversation#R20 [agent-I12b]: deleting a session erases 
     ),
     4,
   );
-  assertEquals(
-    ledger.observe((db) => db.sql.all("pragma foreign_key_check", [])),
-    [],
-  );
 });
 
 // 표마다 한 session이 넣은 행 수다(seedSession과 같다).

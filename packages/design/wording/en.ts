@@ -954,6 +954,11 @@ export const en = {
   "contexts.view.reference": "Reference",
   "conversation.body.save-visual-request":
     "Save the visual “{title}” (block {block} in message {message}) as a document.",
+  "conversation.button.approval-allow": "Allow",
+  "conversation.button.approval-allow-once": "Allow once",
+  "conversation.button.approval-allow-scope": "Allow scope",
+  "conversation.button.approval-allow-session": "Allow for this session",
+  "conversation.button.approval-deny": "Deny",
   "conversation.button.check-delivery": "Check whether it arrived",
   "conversation.button.check-result": "Check the result",
   "conversation.button.close": "Close conversation",
@@ -984,6 +989,9 @@ export const en = {
   "conversation.error.stop-failed": "Couldn't stop this work. Try again.",
   "conversation.error.too-long":
     "This message is too long to send. Shorten it, or split it into parts.",
+  "conversation.label.approval": "Approval",
+  "conversation.label.approval-esc": "Esc",
+  "conversation.label.approval-preview": "Preview",
   "conversation.label.author-check": "Checked by lophn",
   "conversation.label.author-lophn": "lophn",
   "conversation.label.author-you": "You",

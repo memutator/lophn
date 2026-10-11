@@ -23,6 +23,31 @@ export function TextCell({ value }: { value: string | undefined }) {
   </td>;
 }
 
+// 값이 없으면 버튼 없는 빈 칸이다. Enter는 직접 받아 합성 click이 한 번 더 열지 않게 막는다.
+export function LinkCell(
+  { value, onOpen }: { value: string | undefined; onOpen: () => void },
+) {
+  if (value === undefined || value === "") {
+    return <td className={styles.text} data-kind="link" />;
+  }
+  return (
+    <td className={styles.text} data-kind="link" title={value}>
+      <button
+        type="button"
+        className={styles.link}
+        onClick={onOpen}
+        onKeyDown={(event) => {
+          if (event.key !== "Enter") return;
+          event.preventDefault();
+          onOpen();
+        }}
+      >
+        {value}
+      </button>
+    </td>
+  );
+}
+
 export function NumberCell(
   { value, format }: { value: number | undefined; format: CellFormat },
 ) {

@@ -3,7 +3,7 @@
 // bytes 그대로 둔다(managed-files). 각 body는 특정 몫이다:
 // - `app_guide`: 앱 root 정본 `AGENTS.md`의 lophn 관리 구간이다(R13·R14). 본문은 앱
 //   설명·필요 skill·시작 summary·사람 지시 claim·설계와 blueprint와 구현·machine 생성물
-//   구별·수정 주의·용어·SDK 확인·문제 보고·테스트·preview·결과 반환만 담는다(R14). 변하는
+//   구별·수정 주의·SDK 확인·문제 보고·테스트·preview·결과 반환만 담는다(R14). 변하는
 //   ticket 본문·수리 묶음·token 원문은 없다.
 // - `thin_claude`: Claude Code의 얇은 import 안내다(R13). 규칙 본문을 복제하지 않고
 //   `@AGENTS.md`로만 정본을 가리킨다.

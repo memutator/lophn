@@ -441,7 +441,7 @@ Source kind마다 쓸 수 있는 FieldFrom:
 | `view.update` | `user` | `view`, 바꿀 필드 | base_revision | `SavedViewUpdated` | `invalid_input`, `not_found`, `conflict`, `forbidden` |
 | `view.delete` | `user` | `view` | base_revision | `SavedViewDeleted` | `not_found`, `conflict`, `forbidden` |
 | `context.record_violations` | 좁은 범위 `machine` | `context, count, bundle_hash` | active; count가 violation_mark와 다름 | `ContextViolationsRecorded` | `not_found`, `conflict`, `forbidden` |
-| `context.hand_off_violations` | `user` | `context, violations?`(없으면 전부), idempotency key | active; 위반 존재; 근거는 서버가 붙임 | `ContextViolationsHandedOff` | `invalid_input`, `not_found`, `forbidden` |
+| `context.hand_off_violations` | `user` | `context, violations?`(없으면 전부), idempotency key | active; 위반 존재; 받을 Context Engineer assignment가 enabled; 근거는 서버가 붙임 | `ContextViolationsHandedOff` | `invalid_input`, `not_found`, `forbidden`, `unavailable` |
 
 `context.create`는 사람이 [New context]에서 Context Engineer와 대화한 뒤 Context Engineer가 부르는 것이 기본 경로다.
 
@@ -503,7 +503,7 @@ Source kind마다 쓸 수 있는 FieldFrom:
 - **추출.** frontmatter와 YAML은 `@std/yaml`로, Markdown section·제목·링크는 documents/formats의 추출을 쓴다. 읽을 수 없는 파일은 개체를 만들지 않고 `unreadable` 위반이다. 개체가 읽혔지만 규칙을 어기면 개체는 index에 두고 `rule` 위반을 남긴다.
 - **위반 감지.** index를 갱신한 뒤 규칙과 pattern을 판정한다. `path_mismatch`는 계약 pattern에서 벗어난 이름·자리, `broken_link`는 index의 링크 대상이 없을 때다. 위반은 근거 파일·section·규칙을 모두 담는다. 위반이 있어도 나머지 개체의 검색은 막지 않는다.
 - **위반 수 기록.** 위반 수가 `Context.violation_mark`와 다르면 `context.record_violations`로 기록한다. 늘었을 때(after > before)만 platform/notifications가 notification을 만든다. 줄거나 같으면 notification이 없다. 보관된 Context의 위반은 기록하지 않는다.
-- **위반 넘기기.** `context.hand_off_violations`는 사람의 요청에서 이어진 Context Engineer의 Run 하나를 만든다. 근거(파일 경로·section·규칙·현재 규칙 정의)는 서버가 붙이고 사람이 설명을 쓰지 않는다. 같은 위반 집합의 중복 요청은 idempotency key로 하나다(→ lophn-agent/harness/run-loop, lophn-agent/handoff).
+- **위반 넘기기.** `context.hand_off_violations`는 사람의 요청에서 이어진 Context Engineer의 Run 하나를 만든다. 근거(파일 경로·section·규칙·현재 규칙 정의)는 서버가 붙이고 사람이 설명을 쓰지 않는다. 같은 위반 집합의 중복 요청은 idempotency key로 하나다. 새 Run 출처나 handoff는 아니다: agent의 handoff가 아니라 사람 한 번의 요청이므로, 이 command가 같은 transaction에서 그 context의 project를 작업 자리로 하는 enabled Context Engineer의 새 세션을 열고, 근거를 글로 옮긴 사용자 `request` Message를 두고, 그 Message 출처(`message`)의 Run 하나를 접수한다. `ContextViolationsHandedOff`의 `run`은 이 Run이다. 근거 blob 하나를 Context의 영구 참조와 Message 본문이 나눠 쓴다. enabled Context Engineer assignment가 없으면(없거나 paused) `unavailable`이고 세션·Message·Run·event를 남기지 않는다(→ lophn-agent/conversation, lophn-agent/harness/run-loop).
 - **격리 검사.** submit한 판의 내용을 쓰기 불가 프로세스에서 임시 snapshot에 대해 실행한다. 순서는 (1) 스키마·계약 유효성(type·관계·field·규칙 참조, 다른 Project 경로 거절), (2) 다른 context 참조가 public인 것만인지, (3) 모든 개체 계산과 위반 수 집계, (4) 예(examples)가 모두 맞는지, (5) 모든 SavedView와 판의 saved view 정의가 호출되는지다. (1)(2)(4)(5) 중 하나라도 실패하면 failed다. (3)의 위반 수는 실패 사유가 아니라 기록이다. 검사 프로세스가 중단되면 `aborted` finding으로 failed다. 시간 예산은 spec에서 정한다.
 - **자동 적용.** 통과하면 사람 승인 없이 같은 transaction에서 applied가 된다. 이전 applied는 superseded가 된다. 앱 release의 approval·activation 경로를 쓰지 않는다. 읽기만 하며 바깥 효과가 없기 때문이다.
 - **되돌리기.** 사람이 superseded 판을 고르면 그 판을 다시 applied로 한다. 다시 검사하지 않으며 현재 파일과 어긋나는 위반은 다음 갱신에서 센다.

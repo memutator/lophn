@@ -48,13 +48,6 @@ function runKind(type: ContractType, context: KindContext): KindResult {
   }
 }
 
-function fromTypeOf(type: ContractType): string | undefined {
-  const source = type.source;
-  return source.kind === "section" || source.kind === "outline"
-    ? source.from_type
-    : undefined;
-}
-
 function hasDocument(anchor: EntityAnchor): boolean {
   return anchor.scope.kind === "document" || anchor.scope.kind === "section";
 }

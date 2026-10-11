@@ -2622,7 +2622,7 @@ export const en = {
   "settings.title.custom-provider": "Custom provider",
   "settings.notice.provider-lead":
     "A provider is an account and how you sign in to it. You choose models per agent and per session, not here.",
-  "settings.notice.next-run": "Changes apply from the next run.",
+  "settings.notice.next-run": "Changes apply to new work.",
   "settings.notice.none-connected": "No providers are connected yet.",
   "settings.error.reorder": "Couldn't change the order. Try again.",
   "settings.error.account-enabled": "Couldn't change this account. Try again.",

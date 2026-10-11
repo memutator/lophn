@@ -42,7 +42,7 @@ function accounts(row: ParentNode): string[] {
   return rows(row, "data-account");
 }
 
-const NEXT_RUN = "Changes apply from the next run.";
+const NEXT_RUN = "Changes apply to new work.";
 
 Deno.test("shell/desktop#R49 [agent-I30]: Providers는 연결된 provider의 이름·로그인 방법·[Disconnect]와 Add a provider 목록의 [+ Connect]를 이 순서로 보이고 model 고르기가 없다", async () => {
   const { view } = await open();

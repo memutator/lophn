@@ -8,7 +8,8 @@ const positiveIntegerSchema = z.number().int().positive();
 const nonnegativeIntegerSchema = z.number().int().nonnegative();
 export const nonnegativeDecimalSchema = z.string().regex(/^\d+(?:\.\d+)?$/);
 
-export const REASONING_LEVELS = [
+// effort 축의 값 이름이다. 약한 값에서 강한 값 순서이고 model마다 이 가운데 지원하는 것만 선언한다(R15).
+export const EFFORT_VALUES = [
   "off",
   "minimal",
   "low",
@@ -16,8 +17,22 @@ export const REASONING_LEVELS = [
   "high",
   "very_high",
   "maximum",
-  "provider_default",
 ] as const;
+export const effortValueSchema = z.enum(EFFORT_VALUES);
+export type EffortValue = z.infer<typeof effortValueSchema>;
+// 화면에 보이는 이름이다. 문구 자체는 shell/wording의 영어 message key가 감싼다.
+export const EFFORT_LABELS = {
+  off: "Off",
+  minimal: "Minimal",
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+  very_high: "XHigh",
+  maximum: "Max",
+} as const satisfies Record<EffortValue, string>;
+
+// 모델에 맡김은 순서 밖이다. model 호출 기록이 요청·적용 수준을 이 이름으로 남긴다.
+export const REASONING_LEVELS = [...EFFORT_VALUES, "provider_default"] as const;
 export const reasoningLevelSchema = z.enum(REASONING_LEVELS);
 export const MODEL_MEDIA = ["text", "image", "audio", "video"] as const;
 const mediaSchema = z.array(z.enum(MODEL_MEDIA)).refine(
@@ -95,9 +110,11 @@ const resolvedModelFields = {
   credentials: credentialsSchema,
   provider: idSchema("pvd"),
   model_name: nonblankSchema,
+  sent_model_name: nonblankSchema,
   verification: z.enum(["verified", "unverified"]),
-  options: jsonObjectSchema,
-  reasoning_level: reasoningLevelSchema,
+  option_values: z.record(nonblankSchema, nonblankSchema),
+  request_patch: jsonObjectSchema,
+  request_headers: z.record(nonblankSchema, nonblankSchema),
   context_limit: positiveIntegerSchema,
   input_limit: positiveIntegerSchema,
   output_limit: positiveIntegerSchema,

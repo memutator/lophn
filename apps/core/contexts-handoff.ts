@@ -72,3 +72,12 @@ export function violationRequestText(evidence: Entry): string {
   }
   return parts.join("\n");
 }
+
+// 요청 message의 본문 값이다(글 하나). 호출 경계(contexts-blob.ts)가 이 값의 bytes를 미리 준비하고,
+// command가 같은 값에서 같은 hash를 만들어 등록한다.
+export function handOffContent(evidence: Entry) {
+  return {
+    schema_version: 1 as const,
+    parts: [{ kind: "text" as const, text: violationRequestText(evidence) }],
+  };
+}

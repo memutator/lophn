@@ -3,12 +3,16 @@
 // root에서 core를 띄우고(사람 데이터 root는 열지 않는다) 위반은 context worker의 좁은 자격으로 기록한다
 // (실제 worker는 띄우지 않는다: CoreOptions.contextWorker false).
 import { assert, assertEquals } from "@std/assert";
+import { DatabaseSync } from "node:sqlite";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
 import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
 import { openIndexStore } from "../../packages/documents/contexts/index/mod.ts";
+import { contextContentBytes } from "../../packages/contracts/documents/mod.ts";
+import { objectPathFor } from "../../packages/platform/blob-store/mod.ts";
 import { minimalContent } from "../../packages/documents/contexts/api/testing.ts";
 import { type Core, startCore } from "./core.ts";
 import { contextWorkerCredential } from "./contexts-api.ts";
+import { createContextsRuntime } from "./contexts-ledger-deps.ts";
 import {
   REQUEST_TEXT_MAX_BYTES,
   violationRequestText,
@@ -545,4 +549,126 @@ Deno.test("documents/contexts#R25 [ctx-I58h]: when the project can no longer tak
       [],
     );
   });
+});
+
+// ledger의 context content 참조(소유 hash 순). 읽기 전용으로 짧게 연다.
+function contentRefs(
+  core: Core,
+): { owner_key: string; registered_seq: number }[] {
+  const db = new DatabaseSync(`${core.dataRoot}/lophn.db`, { readOnly: true });
+  try {
+    return db.prepare(
+      `SELECT owner_key, registered_seq FROM blob_refs
+       WHERE owner_kind = 'context_content' AND field = 'content'
+       ORDER BY owner_key`,
+    ).all() as { owner_key: string; registered_seq: number }[];
+  } finally {
+    db.close();
+  }
+}
+
+async function sha256(bytes: Uint8Array): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", bytes as BufferSource);
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+Deno.test("documents/contexts#R25 [ctx-I65]: a hand-off registers the evidence and the request text as content refs prepared outside the transaction, and the bytes are on disk", async () => {
+  await withCore(async (core) => {
+    await seedViolations(core);
+    const before = contentRefs(core);
+    assertEquals(before.length, 1); // 초안 content
+    const handed = await post(
+      core,
+      "user",
+      "contexts/hand_off_violations",
+      command({ context: CONTEXT }, "hand-off-refs"),
+    );
+    assertEquals(handed.status, 200, JSON.stringify(handed.body));
+    const after = contentRefs(core);
+    assertEquals(after.length, before.length + 2);
+    // 요청 글의 bytes는 요청 message 본문과 같다(같은 hash의 blob 하나를 두 참조가 나눠 쓴다).
+    const run = await post(core, "user", "runs/read", {
+      run: handed.body["run"],
+    });
+    const message = (run.body["run"] as Json)["source"] as Json;
+    const body = await post(core, "user", "messages/body", {
+      message: message["message"],
+    });
+    assertEquals(body.status, 200, JSON.stringify(body.body));
+    const textHash = await sha256(contextContentBytes(body.body["content"]));
+    assert(after.some((ref) => ref.owner_key === textHash));
+    // 준비가 설치한 bytes가 등록 전에 이미 디스크에 있고 hash가 맞다.
+    for (const ref of after) {
+      const stored = await Deno.readFile(
+        objectPathFor(core.dataRoot, ref.owner_key),
+      );
+      assertEquals(await sha256(stored), ref.owner_key);
+    }
+    // 같은 요청의 재전송은 참조를 더 만들지 않는다.
+    const again = await post(
+      core,
+      "user",
+      "contexts/hand_off_violations",
+      command({ context: CONTEXT }, "hand-off-refs"),
+    );
+    assertEquals(again.status, 200, JSON.stringify(again.body));
+    assertEquals(contentRefs(core), after);
+  });
+});
+
+Deno.test("documents/contexts#R25 [ctx-I65]: a rolled-back hand-off leaves no content reference and a draft refused by the handler registers none", async () => {
+  await withCore(async (core, engineer) => {
+    await seedViolations(core);
+    const before = contentRefs(core);
+    const paused = await post(
+      core,
+      "user",
+      "assignments/pause",
+      command(
+        {
+          assignment: engineer.id,
+          reason: { kind: "user", detail: "pause", runs: [], target: null },
+        },
+        "pause-engineer-refs",
+        { revision: engineer.revision, state: "enabled" },
+      ),
+    );
+    assertEquals(paused.status, 200, JSON.stringify(paused.body));
+    const handed = await post(
+      core,
+      "user",
+      "contexts/hand_off_violations",
+      command({ context: CONTEXT }, "hand-off-rolled-back"),
+    );
+    assertEquals(handed.status, 503, JSON.stringify(handed.body));
+    // 준비한 bytes는 남아 있어도(수명이 지나면 사라진다) 참조는 transaction과 함께 되돌아갔다.
+    assertEquals(contentRefs(core), before);
+
+    // 새 초안은 받아들이고, 이미 다른 초안이 있는 context에 또 저장하면 handler가 거절해 참조가 없다.
+    const second = await post(
+      core,
+      "engineer",
+      "contexts/save_draft",
+      command({ context: CONTEXT, content: { note: "second" } }, "draft-2"),
+    );
+    assertEquals(second.status, 200, JSON.stringify(second.body));
+    const accepted = contentRefs(core);
+    assertEquals(accepted.length, before.length + 1);
+    const third = await post(
+      core,
+      "engineer",
+      "contexts/save_draft",
+      command({ context: CONTEXT, content: { note: "third" } }, "draft-3"),
+    );
+    assertEquals(third.status, 409, JSON.stringify(third.body));
+    assertEquals(contentRefs(core), accepted);
+    const thirdHash = await sha256(contextContentBytes({ note: "third" }));
+    assert(!contentRefs(core).some((ref) => ref.owner_key === thirdHash));
+  });
+});
+
+Deno.test("documents/contexts#R19 [ctx-I65]: the real blob deps only read; nothing in the transaction path writes a blob file", () => {
+  const { deps } = createContextsRuntime();
+  assertEquals(Object.keys(deps.blobs), ["read"]);
 });

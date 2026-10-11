@@ -69,6 +69,7 @@ import {
   contextLedgerReads,
   mapActor,
 } from "./adapter.ts";
+import { contentReference } from "./content-blobs.ts";
 import {
   type LedgerFixture,
   ledgerFixture,
@@ -224,7 +225,6 @@ function sqlApi(
           ? err({ code: "internal", message: "blob is missing" })
           : ok(value as Record<string, unknown>);
       },
-      put: (_tx, value) => t.deps.putBlob(value),
     },
     index: {
       violations: (context) => violations.get(context) ?? [],
@@ -239,7 +239,12 @@ function sqlApi(
     },
     execute: () => [],
     hash: t.hash,
-    startHandOffRun: (_tx, request) => t.deps.startHandOffRun(request),
+    startHandOffRun: (_tx, request) => {
+      // 근거 blob은 호출 경계가 미리 준비한 것으로 본다(시험의 blob 저장소가 그 바이트다).
+      t.blobs.set(request.evidence.hash, request.evidenceValue);
+      const { registerContent: _register, ...plain } = request;
+      return t.deps.startHandOffRun(plain);
+    },
     isContextEngineer: (assignment) => assignment === id("asg", 1),
     appIds: () => [],
   };
@@ -269,6 +274,11 @@ function sqlApi(
         (tx) => def.handle(tx, ctx, input as never, (compare ?? {}) as never),
         ctx.actor,
       ) as Result<Output<typeof route>>;
+      // 초안 내용의 바이트도 호출 경계가 command 앞에 준비한다. 받아들여진 초안만 저장소에 둔다.
+      if (result.ok && route.name === bundleSaveDraftRoute.name) {
+        const content = (input as { content: unknown }).content;
+        t.blobs.set(contentReference(content).hash, content);
+      }
       transcript.push(plain({ call: `${route.name} by ${who}`, result }));
       return result;
     },
@@ -1413,26 +1423,19 @@ Deno.test("documents/contexts#R19 [ctx-I34a]: bundle content blobs are read only
   }
 });
 
-Deno.test("documents/contexts#R3 [ctx-I34a]: events another concern emits inside the same transaction (the hand-off Run, a blob registration) take their own seqs, and the context events and row revisions get the real next seqs", () => {
+Deno.test("documents/contexts#R3 [ctx-I34a]: events another concern emits inside the same transaction (the hand-off Run) take their own seqs, and the context events and row revisions get the real next seqs", () => {
   const foreign = { type: "ForeignEvent", payload: z.object({}) };
-  const sql = sqlApi({}, (base) => ({
+  const sql = sqlApi({}, () => ({
     startHandOffRun: (tx, request) => {
       const run = id("run", 500);
       tx.emit(foreign, run, {});
       assert(request.violations.length > 0);
       return run;
     },
-    blobs: {
-      read: (reference) => base.blobs.read(reference),
-      put: (tx, value) => {
-        tx.emit(foreign, "blob", {});
-        return base.blobs.put(tx, value);
-      },
-    },
   }));
   try {
     createContext(sql);
-    // save_draft: blob 등록 event가 먼저 나가고 DraftSaved가 그 다음 seq를 받는다
+    // save_draft: blob 등록은 event를 내지 않아 DraftSaved가 바로 다음 seq를 받는다
     const draft = value(sql.command(bundleSaveDraftRoute, "engineer", {
       context: ids.context,
       content: minimalContent(),
@@ -1443,14 +1446,13 @@ Deno.test("documents/contexts#R3 [ctx-I34a]: events another concern emits inside
       );
     assertEquals(sql.events().map((event) => event.type), [
       "ContextCreated",
-      "ForeignEvent",
       "ContextBundleDraftSaved",
     ]);
-    assertEquals(seqOf("ContextBundleDraftSaved"), ["103"]);
-    assertEquals(draft.revision, "103");
+    assertEquals(seqOf("ContextBundleDraftSaved"), ["102"]);
+    assertEquals(draft.revision, "102");
     assertEquals(
       sql.ledger.sql.get("SELECT revision FROM context_bundles", []),
-      { revision: "103" },
+      { revision: "102" },
     );
     // 판을 적용하고 위반을 넘긴다
     const submitted = value(
@@ -2291,5 +2293,160 @@ Deno.test("documents/contexts#R1 [ctx-I56b]: context.list with app returns the a
     assertEquals(ids_(runtime, { project: ids.project }).length, 3);
   } finally {
     world.api.ledger.close();
+  }
+});
+
+// ---------- content blob: 호출 경계가 준비하고 adapter는 등록만 한다 [ctx-I65] ----------
+
+const blobRefCount = (api: SqlApi) =>
+  api.ledger.sql.get("SELECT count(*) AS n FROM blob_refs", [])?.["n"];
+
+Deno.test("documents/contexts#R19 [ctx-I65]: save_draft registers the content ref as prepared by the caller, at the DraftSaved seq, and the deps have no put", () => {
+  const sql = sqlApi();
+  try {
+    createContext(sql);
+    const content = minimalContent();
+    const draft = value(sql.command(bundleSaveDraftRoute, "engineer", {
+      context: ids.context,
+      content,
+    }));
+    const reference = contentReference(content);
+    // 준비 증거의 주체가 요청 자격이고(platform이 현재 자격과 맞춘다) 목적은 context content다.
+    assertEquals(sql.ledger.registrations, [{
+      owner_kind: "context_content",
+      owner_key: reference.hash,
+      field: "content",
+      registered_seq: draft.revision,
+      source: {
+        kind: "prepared",
+        blob: {
+          preparation: reference.hash,
+          principal: actors.engineer.actor,
+          purpose: "context_content",
+          hash: reference.hash,
+          size_bytes: reference.size_bytes,
+        },
+      },
+    }]);
+    assertEquals(blobRefCount(sql), 1);
+    // 쓰는 길 자체가 없다: transaction 안에서 파일을 쓸 수 없다.
+    assertEquals("put" in sql.deps.blobs, false);
+    // 내용으로 주소를 정하므로 같은 값은 같은 hash다.
+    assertEquals(
+      contentReference({ b: 1, a: [2] }),
+      contentReference({ a: [2], b: 1 }),
+    );
+  } finally {
+    sql.ledger.close();
+  }
+});
+
+Deno.test("documents/contexts#R19 [ctx-I65]: saving the same content again re-registers nothing new", () => {
+  const sql = sqlApi();
+  try {
+    createContext(sql);
+    const content = minimalContent();
+    const first = value(sql.command(bundleSaveDraftRoute, "engineer", {
+      context: ids.context,
+      content,
+    }));
+    value(
+      sql.command(bundleDiscardDraftRoute, "engineer", { bundle: first.id }, {
+        base_revision: first.revision,
+      }),
+    );
+    value(sql.command(bundleSaveDraftRoute, "engineer", {
+      context: ids.context,
+      content,
+    }));
+    assertEquals(sql.ledger.registrations.length, 1);
+    assertEquals(blobRefCount(sql), 1);
+  } finally {
+    sql.ledger.close();
+  }
+});
+
+Deno.test("documents/contexts#R19 [ctx-I65]: content the caller did not prepare is refused and leaves no event, row or reference", () => {
+  const sql = sqlApi();
+  try {
+    createContext(sql);
+    const before = sql.ledger.dump();
+    const eventsBefore = sql.events().length;
+    sql.ledger.unprepared.value = true;
+    const refused = sql.command(bundleSaveDraftRoute, "engineer", {
+      context: ids.context,
+      content: minimalContent(),
+    });
+    assertEquals(code(refused), "invalid_input");
+    assertEquals(sql.ledger.dump(), before);
+    assertEquals(sql.events().length, eventsBefore);
+    assertEquals(sql.ledger.registrations.length, 0);
+    assertEquals(blobRefCount(sql), 0);
+  } finally {
+    sql.ledger.close();
+  }
+});
+
+Deno.test("documents/contexts#R25 [ctx-I65]: the hand-off evidence and request text are registered as the user prepared them, and a rolled-back hand-off leaves no reference", () => {
+  const body = { schema_version: 1, parts: [{ kind: "text", text: "go" }] };
+  let fail = false;
+  const sql = sqlApi({}, () => ({
+    startHandOffRun: (_tx, request) => {
+      const registered = request.registerContent(body);
+      assert(registered.ok);
+      // 같은 값을 다시 등록해도 새 참조를 만들지 않고 이미 있는 참조를 돌려준다.
+      const again = request.registerContent(body);
+      assertEquals(again, registered);
+      if (fail) throw new Error("no enabled Context Engineer");
+      return id("run", 700);
+    },
+  }));
+  try {
+    createContext(sql);
+    applyBundle(sql, ids.context);
+    sql.seedViolations(ids.context, [violation()]);
+    const refs = blobRefCount(sql);
+    const registered = sql.ledger.registrations.length;
+
+    fail = true;
+    let thrown = false;
+    try {
+      sql.command(contextHandOffViolationsRoute, "user", {
+        context: ids.context,
+      });
+    } catch {
+      thrown = true;
+    }
+    assert(thrown);
+    assertEquals(blobRefCount(sql), refs);
+    assertEquals(sql.ledger.registrations.length, registered);
+    assert(
+      !sql.events().some((event) =>
+        event.type === "ContextViolationsHandedOff"
+      ),
+    );
+
+    fail = false;
+    const handed = value(sql.command(contextHandOffViolationsRoute, "user", {
+      context: ids.context,
+    }));
+    assertEquals(handed.run, id("run", 700));
+    const added = sql.ledger.registrations.slice(registered);
+    // 근거(adapter가 handler 뒤에 등록)와 요청 글(deps가 요청 중에 등록)이 모두 user가 준비한 바이트다.
+    assertEquals(added.length, 2);
+    for (const reference of added) {
+      assert(reference.source.kind === "prepared");
+      assertEquals(reference.source.blob.principal, "person");
+      assertEquals(reference.source.blob.purpose, "context_content");
+    }
+    assertEquals(
+      added.map((reference) => reference.owner_key).includes(
+        contentReference(body).hash,
+      ),
+      true,
+    );
+    assertEquals(blobRefCount(sql), Number(refs) + 2);
+  } finally {
+    sql.ledger.close();
   }
 });

@@ -1245,3 +1245,4 @@ export const CONTEXT_API_EVENTS = [
   glossaryEntrySetEvent,
   glossaryEntryRemovedEvent,
 ] as const;
+export * from "./context-api-content.ts";

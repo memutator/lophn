@@ -180,6 +180,10 @@ import {
   contextWorkerCredential,
 } from "./contexts-api.ts";
 import {
+  createContextBlobPreparer,
+  withContextBlobs,
+} from "./contexts-blob.ts";
+import {
   type ContextsDispatchDeps,
   contextsStagingPath,
   createContextsDispatcher,
@@ -1331,7 +1335,14 @@ async function open(
                     withQuestionText(
                       withHandoffBody(
                         withMessageBody(
-                          contextsHost.wrapWriter(runtime.writer),
+                          // context의 초안·위반 넘김 근거는 호출자 자격으로 command 앞에 준비한다.
+                          withContextBlobs(
+                            contextsHost.wrapWriter(runtime.writer),
+                            createContextBlobPreparer({
+                              relay: () => bodyPrepare.current,
+                              reads: () => runtime?.reads,
+                            }),
+                          ),
                           createMessageBodyPreparer({
                             relay: () => bodyPrepare.current,
                             // 알려진 secret 값도 pattern과 함께 가린다. 값을 다 모르는 동안은 막는다.

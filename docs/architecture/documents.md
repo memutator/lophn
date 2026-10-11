@@ -83,6 +83,7 @@ context worker는 `apps/worker`의 kind `documents/contexts` 하나다. core가 
 - 결과 제출: worker는 core의 API에 닿지 않는다(network가 없다). `bundle.finish_check`·`context.record_violations`는 worker가 job의 답에 실어 보내고, core가 요청에 쓴 context·bundle(check) 근거와 맞는지 다시 본 뒤 자기가 쥔 좁은 machine credential로 낸다(token은 worker에 주지 않는다). command는 현재 적용 판과 맞는지 다시 검사한다. worker가 직접 `lophn.db`를 열지 않는다.
 - 입력과 환경: core는 job을 보내기 전에 reader Worker의 내부 read `context.work_input`으로 적용 판(또는 후보 판)의 content, `recorded_count`, 사람이 저장한 saved view, Project 폴더를 한 snapshot에서 읽어 요청에 싣는다. 폴더가 여럿이면 앞 폴더의 파일이 같은 상대 경로를 이긴다. worker는 data root를 hello의 scope targets로 받으므로 env 권한이 없다. 읽을 폴더가 늘면 core가 새 권한으로 worker를 교체한다. 앱 read 명령의 효과와 다른 context의 public type은 core가 스스로 알지 못해 core가 받는 입구(`contextCheckEnvironment`)로 알린다.
 - app-data: worker는 앱 read command를 부르지 않는다. `context.check`와 `context.preview`는 app-data kind의 모양(계약 안의 command 이름·결과 field)만 검사하고 앱 데이터는 읽지 않는다.
+- blob 준비: context command가 싣는 bytes(`bundle.save_draft`의 content, `context.hand_off_violations`의 근거와 요청 글)는 command가 파일을 쓰지 않는다. core가 command 앞에서 정규 JSON bytes를 요청 자격의 이름으로 blob 준비 통로에 준비하고(위반 넘김은 위반과 적용 판의 계약을 읽어 command와 같은 함수로 근거를 만든다), command는 같은 값에서 같은 hash를 만들어 소유 변경과 같은 transaction에서 `tx.registerBlobRef`로 영구 참조만 등록한다. 같은 내용은 이미 있는 참조를 다시 등록하지 않는다. 준비가 없거나 준비한 뒤 값이 달라졌으면 등록이 실패해 command 전체가 되돌아가고, 등록되지 않은 준비는 platform의 준비 수명 규칙대로 사라진다.
 
 ## 3. 저장
 

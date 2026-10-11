@@ -23,12 +23,8 @@ import { TAB_MIN } from "../../../../apps/shell/renderer/workspace/model.ts";
 import tabStyles from "../../../../apps/shell/renderer/workspace/tab-strip/tab-strip.module.css";
 import sideStyles from "../../../../apps/shell/renderer/workspace/sidebar/sidebar.module.css";
 import menuStyles from "../../../../packages/design/components/menu/menu.module.css";
-import {
-  AGENT_ROWS,
-  type ChatInit,
-  type ConversationRow,
-  CONVERSATIONS,
-} from "./agents-data.ts";
+import { Avatar } from "./agent-avatar.tsx";
+import { AGENT_ROWS, type ChatInit } from "./agents-data.ts";
 import styles from "./compose.module.css";
 import agentStyles from "./agents.module.css";
 
@@ -95,10 +91,12 @@ export interface TabSpec {
 
 /** 탭 줄. 종류는 아이콘과 글자로 구별한다(실제 TabStrip과 같은 마크업·CSS). 누르면 고르고 ×로 닫는다. */
 export function TabBar(
-  { tabs, selected, focused = true, newTab, onSelect, onClose }: {
+  { tabs, selected, focused = true, states, newTab, onSelect, onClose }: {
     tabs: readonly TabSpec[];
     selected: string;
     focused?: boolean;
+    /** Agent 탭의 상태 점(사람을 기다림·일하는 중). 탭 key → 상태. */
+    states?: Readonly<Record<string, "waiting" | "working" | null>>;
     /** 탭 줄 끝의 새 탭 단추 자리. 없으면 누를 수 없는 + 단추다. */
     newTab?: ReactNode;
     onSelect?: (key: string) => void;
@@ -141,6 +139,22 @@ export function TabBar(
                 pixels={iconPixels("small")}
                 className={tabStyles.icon}
               />
+              {states?.[tab.key]
+                ? (
+                  <span
+                    className={`${agentStyles.tabDot} ${
+                      agentStyles[`state_${states[tab.key]}`]
+                    }`}
+                    role="img"
+                    aria-label={states[tab.key] === "waiting"
+                      ? "Waiting for you"
+                      : "Working"}
+                    title={states[tab.key] === "waiting"
+                      ? "Waiting for you"
+                      : "Working"}
+                  />
+                )
+                : null}
               <span className={tabStyles.title}>{tab.title}</span>
               <span className={tabStyles.kind}>
                 {tab.label ?? KIND_LABEL[tab.kind]}
@@ -281,10 +295,8 @@ export interface SidebarSpec {
   readonly hoverAgent?: string;
   /** Folders를 모두 접어 그린다(Agents 묶음이 한 화면에 들어오게). */
   readonly foldersClosed?: boolean;
-  /** sidebar 본문을 맨 아래로 scroll해 Agents·Sessions가 보이게 한다. */
+  /** sidebar 본문을 맨 아래로 scroll해 Agents가 보이게 한다. */
   readonly scrollToAgents?: boolean;
-  /** 이 대화 행을 열린 것으로 표시한다. */
-  readonly activeConversation?: string;
 }
 
 export interface SidebarProps extends SidebarSpec {
@@ -294,12 +306,11 @@ export interface SidebarProps extends SidebarSpec {
   readonly onOpenFile: (id: string) => void;
   readonly onOpenContext: (name: string) => void;
   readonly onAgent: (agent: string) => void;
-  readonly onConversation: (row: ConversationRow) => void;
   readonly onManage: () => void;
 }
 
 /**
- * project sidebar: Folders(tree), Contexts, Saved views, Agents(+ 최근 Sessions). 접으면 바로 가기 rail이
+ * project sidebar: Folders(tree), Contexts, Saved views, Agents. 접으면 바로 가기 rail이
  * 된다: 펼치기 · Terminal · Contexts · Saved views · Search · Agent.
  */
 export function ProjectSidebar(
@@ -317,9 +328,7 @@ export function ProjectSidebar(
     hoverAgent,
     foldersClosed = false,
     scrollToAgents = false,
-    activeConversation,
     onAgent,
-    onConversation,
     onManage,
   }: SidebarProps,
 ) {
@@ -454,13 +463,7 @@ export function ProjectSidebar(
                           className={sideStyles.item}
                           onClick={() => onAgent(agent.id)}
                         >
-                          <Icon
-                            icon={agent.operator
-                              ? lophnSpaceIcons.roles
-                              : conversationIcons.dock}
-                            pixels={iconPixels("base")}
-                            className={sideStyles.icon}
-                          />
+                          <Avatar agent={agent.name} size="sm" />
                           <span className={sideStyles.label}>{agent.name}</span>
                         </button>
                         <span className={agentStyles.plus}>
@@ -476,49 +479,11 @@ export function ProjectSidebar(
                 )}
               </ul>
             </section>
-            <section className={sideStyles.section}>
-              <h2 className={sideStyles.sectionLabel}>Sessions</h2>
-              <ul className={sideStyles.list} role="list">
-                {CONVERSATIONS.map((row) => (
-                  <li key={row.id} className={sideStyles.li}>
-                    <button
-                      type="button"
-                      className={`${sideStyles.item} ${agentStyles.convItem} ${
-                        activeConversation === row.id ? sideStyles.active : ""
-                      }`}
-                      onClick={() =>
-                        onConversation(row)}
-                    >
-                      <span
-                        className={`${agentStyles.stateDot} ${
-                          agentStyles[`state_${row.state}`]
-                        }`}
-                        role="img"
-                        aria-label={STATE_LABEL[row.state]}
-                        title={STATE_LABEL[row.state]}
-                      />
-                      <span className={agentStyles.convText}>
-                        <span className={sideStyles.label}>{row.title}</span>
-                        <span className={agentStyles.convMeta}>
-                          {row.agent} · {row.when}
-                        </span>
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </section>
           </div>
         )}
     </nav>
   );
 }
-
-const STATE_LABEL = {
-  waiting: "Waiting for you",
-  working: "Working",
-  done: "Done",
-} as const;
 
 /** 오른쪽 클릭·+ 메뉴의 정적 모양. 실제 Menu(Radix)와 같은 CSS Module을 쓴다. */
 export function StaticMenu(

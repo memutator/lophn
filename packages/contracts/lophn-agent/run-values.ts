@@ -136,7 +136,7 @@ export const runBasisSchema = z.strictObject({
   tools: z.strictObject({
     revision: positiveRevisionSchema,
     definitions_hash: sha256Schema,
-    contexts: z.array(z.strictObject(toolContextPinFields)).default([]),
+    contexts: z.array(z.strictObject(toolContextPinFields)),
   }),
   extensions: z.strictObject({
     settings_revision: positiveRevisionSchema,
@@ -162,7 +162,7 @@ export const runBasisOutputSchema = z.object({
   tools: z.object({
     revision: positiveRevisionSchema,
     definitions_hash: sha256Schema,
-    contexts: z.array(z.object(toolContextPinFields)).default([]),
+    contexts: z.array(z.object(toolContextPinFields)),
   }),
   extensions: z.object({
     settings_revision: positiveRevisionSchema,

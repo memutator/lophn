@@ -567,7 +567,6 @@ async function runScenario(scenario: Scenario): Promise<void> {
       protocol: "anthropic-messages",
       credential_key: null,
       credential_revision: null,
-      options: {},
       option_values: { requested: {}, applied: {} },
       limits: {
         context_limit: 200000,

@@ -3,97 +3,68 @@ import { ERROR_CODES } from "../../base/mod.ts";
 import { routePath } from "../platform/mod.ts";
 import {
   assignmentRecordSchema,
-  operatorApprovalBundleSchema,
-  outputDeclarationSchema,
   pauseReasonSchema,
-  scheduleSchema,
 } from "./assignment-values.ts";
 import {
-  applyOperatorAssignment,
-  applyOperatorAssignmentInputSchema,
   ASSIGNMENT_EVENTS,
   ASSIGNMENT_ROUTES,
-  assignmentOutputs,
   assignmentRead,
-  changeAssignmentPreset,
-  changeAssignmentPresetCompareSchema,
-  changeAssignmentPresetInputSchema,
   createAppEngineerAssignment,
+  createAppEngineerAssignmentInputSchema,
   createBuiltinAssignment,
   createBuiltinAssignmentInputSchema,
+  createOperatorAssignment,
+  createOperatorAssignmentInputSchema,
   pauseAssignment,
   pauseAssignmentInputSchema,
+  resumeAssignment,
+  resumeAssignmentCompareSchema,
   withdrawAssignment,
   withdrawAssignmentCompareSchema,
 } from "./assignments.ts";
-import { OperatorOutput } from "./instructions.ts";
 
 const asg = "asg_01arz3ndektsv4rrffq69g5fav";
-const pst = "pst_01arz3ndektsv4rrffq69g5fav";
 const app = "app_01arz3ndektsv4rrffq69g5fav";
-const doc = "doc_01arz3ndektsv4rrffq69g5fav";
-const ver = "ver_01arz3ndektsv4rrffq69g5fav";
-const apr = "apr_01arz3ndektsv4rrffq69g5fav";
-const run = "run_01arz3ndektsv4rrffq69g5fav";
-const hash = "cd".repeat(32);
+const prj = "prj_01arz3ndektsv4rrffq69g5fav";
 
 const builtin = {
   id: asg,
   role: "lophn",
-  preset: pst,
-  preset_revision: 1,
   scope: { kind: "all", id: null },
-  outputs: [],
-  read_apps: [],
-  read_commands: [],
-  schedule: null,
-  approval: null,
   state: "enabled",
   pause_reason: null,
-  last_due_at: null,
   revision: 1,
 };
 
-const bundle = {
-  draft_version: ver,
-  assignment: null,
-  expected_assignment_revision: null,
-  preset: pst,
-  preset_revision: 2,
-  preset_definition: hash,
-  scope: { kind: "app", id: app },
-  outputs: [{ document: doc, content: "weekly status" }],
-  read_apps: [app],
-  read_commands: [{ app, command: "status" }],
-  schedule: { first_at: "2026-10-06T00:00:00.000Z", every_ms: 86_400_000 },
-  reason: "start the weekly review",
-};
+const archived = (target: string) => ({
+  kind: "scope_archived",
+  detail: "The place was archived.",
+  target,
+});
 
-Deno.test("lophn-agent/assignments#R2: ten assignment routes and five assignment events", () => {
+Deno.test("lophn-agent/assignments#R2 [agent-R12]: eight assignment routes and four assignment events, with every removed route and event gone", () => {
   assertEquals(ASSIGNMENT_ROUTES.map(routePath), [
     "/v1/assignments/create-builtin",
     "/v1/assignments/create-app-engineer",
-    "/v1/assignments/apply-operator",
-    "/v1/assignments/change-preset",
+    "/v1/assignments/create-operator",
     "/v1/assignments/pause",
     "/v1/assignments/resume",
     "/v1/assignments/withdraw",
     "/v1/assignments/read",
     "/v1/assignments/list",
-    "/v1/assignments/outputs",
   ]);
   assertEquals(ASSIGNMENT_EVENTS.map((event) => event.type), [
     "AssignmentCreated",
-    "AssignmentChanged",
     "AssignmentPaused",
     "AssignmentResumed",
     "AssignmentWithdrawn",
   ]);
-  assertEquals(createBuiltinAssignment.actors, ["machine"]);
-  assertEquals(createAppEngineerAssignment.actors, ["machine"]);
   for (const route of ASSIGNMENT_ROUTES) {
     assert(route.errors.every((code) => ERROR_CODES.includes(code)));
   }
+});
+
+Deno.test("lophn-agent/assignments#R3 [agent-R12]: a record has identity, role, scope, state, pause reason and revision only", () => {
   assert(assignmentRecordSchema.safeParse(builtin).success);
   assert(
     assignmentRecordSchema.safeParse({
@@ -102,109 +73,100 @@ Deno.test("lophn-agent/assignments#R2: ten assignment routes and five assignment
       scope: { kind: "app", id: app },
     }).success,
   );
-});
-
-Deno.test("lophn-agent/assignments#R4: applying an operator pairs the approval with the assignment read", () => {
-  // 적용은 machine 또는 승인 경유의 user 자격이다(lophn-agent#T53, shell#T54에서
-  // 넘어온 것). user는 approvals/apply의 dispatch로만 부르고 승인 없는 직접
-  // 호출은 handler의 승인 검사가 막는다.
-  assertEquals(applyOperatorAssignment.actors, ["machine", "user"]);
-  assertEquals(applyOperatorAssignment.confirmation, "required");
-  // 사람이 본 구성은 bundle이고 결정 seq는 허락이 확정하는 것이라 본 내용이 아니다.
-  assertEquals(applyOperatorAssignment.binding, ["approval", "bundle"]);
-  assertEquals(applyOperatorAssignment.display_read, "/v1/assignments/read");
-  assert(
-    operatorApprovalBundleSchema.safeParse(bundle).success,
+  // 설정 칸은 더 이상 읽히지 않는 값이라 record가 싣지 않는다.
+  assertEquals(
+    Object.keys(assignmentRecordSchema.parse({ ...builtin, preset: "x" })),
+    ["id", "role", "scope", "state", "pause_reason", "revision"],
   );
+  // 역할과 자리가 맞아야 한다: lophn은 all만, App Engineer는 app만.
   assert(
-    !operatorApprovalBundleSchema.safeParse({
-      ...bundle,
-      preset_definition: pst,
-    }).success,
-  );
-  // 결정 seq는 생략할 수 있고(lophn-agent#T53의 입력 모양 맞춤), 제공되면
-  // handler가 승인 기록과 일치하는지 본다.
-  assert(
-    applyOperatorAssignmentInputSchema.safeParse({
-      approval: apr,
-      id: asg,
-      bundle,
-    }).success,
-  );
-  assert(
-    applyOperatorAssignmentInputSchema.safeParse({
-      approval: apr,
-      decision_seq: "3",
-      id: asg,
-      bundle,
-    }).success,
-  );
-});
-
-Deno.test("lophn-agent/assignments#R5: a changed bundle field or a mismatched previous revision is rejected", () => {
-  assert(
-    !operatorApprovalBundleSchema.safeParse({
-      ...bundle,
-      assignment: asg,
-      expected_assignment_revision: null,
-    }).success,
-  );
-  assert(
-    !operatorApprovalBundleSchema.safeParse({ ...bundle, extra_tool: "shell" })
-      .success,
-  );
-  assert(
-    !operatorApprovalBundleSchema.safeParse({
-      ...bundle,
-      scope: { kind: "all", id: null },
-    }).success,
-  );
-});
-
-Deno.test("lophn-agent/assignments#R6: an operator output names an existing document and a judgment", () => {
-  assert(
-    outputDeclarationSchema.safeParse({ document: doc, content: "status" })
-      .success,
-  );
-  assert(
-    !outputDeclarationSchema.safeParse({ document: doc, content: "  " })
-      .success,
-  );
-  assert(
-    !outputDeclarationSchema.safeParse({
-      document: "ser_01arz3ndektsv4rrffq69g5fav",
-      content: "status",
+    !assignmentRecordSchema.safeParse({
+      ...builtin,
+      scope: { kind: "app", id: app },
     }).success,
   );
   assert(
     !assignmentRecordSchema.safeParse({
       ...builtin,
+      role: "app_engineer",
+      scope: { kind: "all", id: null },
+    }).success,
+  );
+  // 멈춤 근거는 paused일 때만 있다.
+  assert(
+    assignmentRecordSchema.safeParse({
+      ...builtin,
+      scope: { kind: "app", id: app },
       role: "operator",
-      scope: { kind: "project", id: "prj_01arz3ndektsv4rrffq69g5fav" },
-      outputs: [],
-      schedule: bundle.schedule,
-      approval: apr,
+      state: "paused",
+      pause_reason: archived(app),
+    }).success,
+  );
+  assert(
+    !assignmentRecordSchema.safeParse({ ...builtin, state: "paused" }).success,
+  );
+  assert(
+    !assignmentRecordSchema.safeParse({
+      ...builtin,
+      pause_reason: archived(app),
+    }).success,
+  );
+  assertEquals(assignmentRead.actors, [
+    "user",
+    "agent",
+    "machine",
+    "coding_agent",
+  ]);
+});
+
+Deno.test("lophn-agent/assignments#R4 [agent-R12]: only a person creates an Operator assignment, in a project or app and without any preset", () => {
+  assertEquals(createOperatorAssignment.actors, ["user"]);
+  assert(
+    createOperatorAssignmentInputSchema.safeParse({
+      id: asg,
+      scope: { kind: "project", id: prj },
+    }).success,
+  );
+  assert(
+    createOperatorAssignmentInputSchema.safeParse({
+      id: asg,
+      scope: { kind: "app", id: app },
+    }).success,
+  );
+  assert(
+    !createOperatorAssignmentInputSchema.safeParse({
+      id: asg,
+      scope: { kind: "all", id: null },
+    }).success,
+  );
+  assert(
+    !createOperatorAssignmentInputSchema.safeParse({
+      id: asg,
+      scope: { kind: "app", id: prj },
+    }).success,
+  );
+  assert(
+    !createOperatorAssignmentInputSchema.safeParse({
+      id: asg,
+      scope: { kind: "app", id: app },
+      preset: "pst_01arz3ndektsv4rrffq69g5fav",
     }).success,
   );
 });
 
-Deno.test("lophn-agent/assignments#R9: withdraw compares an open state and builtin scope stays all", () => {
+Deno.test("lophn-agent/assignments#R2 [agent-R12]: built-in and App Engineer creation are machine only and take no preset", () => {
+  assertEquals(createBuiltinAssignment.actors, ["machine"]);
+  assertEquals(createAppEngineerAssignment.actors, ["machine"]);
   assert(
-    withdrawAssignmentCompareSchema.safeParse({ revision: 4, state: "paused" })
-      .success,
-  );
-  assert(
-    !withdrawAssignmentCompareSchema.safeParse({
-      revision: 4,
-      state: "withdrawn",
+    createBuiltinAssignmentInputSchema.safeParse({
+      id: asg,
+      role: "context_engineer",
+      scope: { kind: "all", id: null },
     }).success,
   );
-  assertEquals(withdrawAssignment.actors, ["user"]);
   assert(
     !createBuiltinAssignmentInputSchema.safeParse({
       id: asg,
-      preset: pst,
-      preset_revision: 1,
       role: "lophn",
       scope: { kind: "app", id: app },
     }).success,
@@ -212,188 +174,80 @@ Deno.test("lophn-agent/assignments#R9: withdraw compares an open state and built
   assert(
     !createBuiltinAssignmentInputSchema.safeParse({
       id: asg,
-      preset: pst,
-      preset_revision: 1,
-      role: "operator",
+      role: "lophn",
       scope: { kind: "all", id: null },
+      preset: "pst_01arz3ndektsv4rrffq69g5fav",
+      preset_revision: 1,
+    }).success,
+  );
+  assert(
+    createAppEngineerAssignmentInputSchema.safeParse({
+      id: asg,
+      app_created_seq: "12",
+      app,
+    }).success,
+  );
+  assert(
+    !createAppEngineerAssignmentInputSchema.safeParse({
+      id: asg,
+      app_created_seq: "12",
+      app,
+      preset: "pst_01arz3ndektsv4rrffq69g5fav",
+      preset_revision: 1,
+    }).success,
+  );
+  assert(
+    !createAppEngineerAssignmentInputSchema.safeParse({
+      id: asg,
+      app_created_seq: "12",
+      app: prj,
     }).success,
   );
 });
 
-Deno.test("lophn-agent/assignments#R10: a machine pause carries exactly three failed runs", () => {
-  const runs = [
-    run,
-    "run_01arz3ndektsv4rrffq69g5faw",
-    "run_01arz3ndektsv4rrffq69g5fax",
-  ];
+Deno.test("lophn-agent/assignments#R9 [agent-R12]: withdraw is a person's and compares an open state", () => {
+  assertEquals(withdrawAssignment.actors, ["user"]);
   assert(
-    pauseReasonSchema.safeParse({
-      kind: "consecutive_failures",
-      detail: "three failed runs",
-      runs,
-      target: null,
+    withdrawAssignmentCompareSchema.safeParse({
+      revision: 2,
+      state: "paused",
     }).success,
   );
   assert(
-    !pauseReasonSchema.safeParse({
-      kind: "consecutive_failures",
-      detail: "two",
-      runs: runs.slice(0, 2),
-      target: null,
+    !withdrawAssignmentCompareSchema.safeParse({
+      revision: 2,
+      state: "withdrawn",
     }).success,
+  );
+});
+
+Deno.test("lophn-agent/assignments#R14 [agent-R12]: pause and resume are the machine's, pause carries only a scope_archived reason", () => {
+  assertEquals(pauseAssignment.actors, ["machine"]);
+  assertEquals(resumeAssignment.actors, ["machine"]);
+  assert(pauseReasonSchema.safeParse(archived(app)).success);
+  assert(pauseReasonSchema.safeParse(archived(prj)).success);
+  // 옛 근거(사람·연속 실패·output 보관)와 run·target 없는 모양은 없다.
+  for (const kind of ["user", "consecutive_failures", "output_archived"]) {
+    assert(!pauseReasonSchema.safeParse({ ...archived(app), kind }).success);
+  }
+  assert(
+    !pauseReasonSchema.safeParse({ ...archived(app), runs: [] }).success,
+  );
+  assert(
+    !pauseReasonSchema.safeParse({ ...archived(app), target: null }).success,
   );
   assert(
     pauseAssignmentInputSchema.safeParse({
       assignment: asg,
-      reason: {
-        kind: "user",
-        detail: "hold",
-        runs: [],
-        target: null,
-      },
-    }).success,
-  );
-  assertEquals(pauseAssignment.actors, ["user", "machine"]);
-  assert(
-    !pauseAssignmentInputSchema.safeParse({
-      assignment: asg,
-      reason: { kind: "user", detail: "hold", runs: [], target: null },
-      actor: "machine",
-    }).success,
-  );
-});
-
-Deno.test("lophn-agent/assignments#R16: read keeps enabled, paused and withdrawn apart from a run", () => {
-  assert(
-    assignmentRead.output.safeParse({
-      assignment: {
-        ...builtin,
-        state: "paused",
-        pause_reason: {
-          kind: "user",
-          detail: "hold",
-          runs: [],
-          target: null,
-        },
-        revision: 2,
-      },
-      as_of_seq: "8",
-      next_cursor: null,
+      reason: archived(app),
     }).success,
   );
   assert(
-    !assignmentRecordSchema.safeParse({ ...builtin, state: "running" }).success,
-  );
-  assert(
-    !assignmentRecordSchema.safeParse({
-      ...builtin,
-      state: "paused",
-      pause_reason: null,
-    }).success,
-  );
-});
-
-Deno.test("lophn-agent/assignments#R17: changing a preset compares the current revision and same-kind role", () => {
-  assert(
-    changeAssignmentPresetInputSchema.safeParse({
-      assignment: asg,
-      preset: pst,
-      preset_revision: 4,
-    }).success,
-  );
-  assert(
-    changeAssignmentPresetCompareSchema.safeParse({
-      revision: 3,
-      role: "context_engineer",
-    }).success,
-  );
-  assert(
-    !changeAssignmentPresetCompareSchema.safeParse({
-      revision: 3,
-      role: "operator",
-    }).success,
-  );
-  assertEquals(changeAssignmentPreset.actors, ["user"]);
-  assert(
-    !changeAssignmentPresetInputSchema.safeParse({
-      assignment: "pst_01arz3ndektsv4rrffq69g5fav",
-      preset: pst,
-      preset_revision: 4,
-    }).success,
-  );
-});
-
-Deno.test("lophn-agent/scheduling#R1: a schedule is operator-only and has no default interval", () => {
-  assert(
-    scheduleSchema.safeParse({
-      first_at: "2026-10-06T00:00:00.000Z",
-      every_ms: 1,
-    }).success,
-  );
-  assert(
-    !scheduleSchema.safeParse({
-      first_at: "2026-10-06T00:00:00.000Z",
-      every_ms: 0,
-    }).success,
-  );
-  assert(
-    !assignmentRecordSchema.safeParse({
-      ...builtin,
-      schedule: bundle.schedule,
-    }).success,
-  );
-});
-
-Deno.test("lophn-agent/scheduling#R3: an interval is a positive millisecond count in UTC", () => {
-  assert(
-    !scheduleSchema.safeParse({
-      first_at: "2026-10-06T00:00:00.000Z",
-      every_ms: -1,
-      cron: "0 * * * *",
-    }).success,
-  );
-  assert(
-    !scheduleSchema.safeParse({
-      first_at: "2026-10-06 00:00",
-      every_ms: 1000,
-    }).success,
-  );
-});
-
-Deno.test("lophn-agent/harness/provider#R8: operator approval pins the preset hash, not a credential secret", () => {
-  assert(
-    !operatorApprovalBundleSchema.safeParse({
-      ...bundle,
-      credentials: ["raw-token"],
-    }).success,
-  );
-});
-
-Deno.test("lophn-agent/harness/tools#R10: agent is not an actor of apply or change", () => {
-  assert(!applyOperatorAssignment.actors.includes("agent"));
-  assert(!changeAssignmentPreset.actors.includes("agent"));
-  assert(!createBuiltinAssignment.actors.includes("agent"));
-});
-
-Deno.test("lophn-agent/roles/context-engineer#R12: outputs read returns the owning operator or none", () => {
-  assertEquals(routePath(assignmentOutputs), "/v1/assignments/outputs");
-  assert(
-    assignmentOutputs.output.safeParse({
-      output: { assignment: asg, revision: 2, state: "paused" },
-      as_of_seq: "3",
-      next_cursor: null,
-    }).success,
-  );
-  assert(
-    assignmentOutputs.output.safeParse({
-      output: null,
-      as_of_seq: "3",
-      next_cursor: null,
-    }).success,
-  );
-  assert(
-    !assignmentOutputs.input.safeParse({ document: doc, assignment: asg })
+    resumeAssignmentCompareSchema.safeParse({ revision: 3, state: "paused" })
       .success,
   );
-  assert(OperatorOutput.name === "OperatorOutput");
+  assert(
+    !resumeAssignmentCompareSchema.safeParse({ revision: 3, state: "enabled" })
+      .success,
+  );
 });

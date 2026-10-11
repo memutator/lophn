@@ -7,7 +7,6 @@ import {
   runSourceSchema,
   saveToolDocumentInputSchema,
 } from "@lophn/contracts/lophn-agent";
-import type { CatalogEntry } from "@lophn/contracts/lophn-agent";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   BUILTIN_TOOLS,
@@ -16,13 +15,7 @@ import {
   listTools,
   type RunCredential,
   runOperations,
-  TOOL_BUNDLES,
 } from "../../harness/tools/mod.ts";
-import {
-  productPresetDefinition,
-  validateDefinition,
-  type ValidateDeps,
-} from "../../presets/mod.ts";
 import { ROLE_CAPS } from "../../agents/mod.ts";
 import {
   ASSUMPTION_MAX,
@@ -260,15 +253,6 @@ Deno.test("lophn-agent/roles/app-engineer#R2: handoff 고정 판은 그 run 동�
     }),
     denied,
   );
-});
-
-Deno.test("lophn-agent/roles/app-engineer#R2: AE 기본 preset은 담당 assignment 범위만 읽는다", () => {
-  const preset = productPresetDefinition("app_engineer", HASH);
-  assertEquals(preset.context, [{
-    kind: "assignment_scope",
-    target: null,
-    section: null,
-  }]);
 });
 
 // --- R3: 맡지 않는 일 ----------------------------------------------------------
@@ -1092,37 +1076,6 @@ Deno.test("lophn-agent/roles/app-engineer#R12: blueprint 원본 수정과 같은
 
 // --- R20: judgment·organizing 용도 ------------------------------------------------
 
-function catalogEntry(): CatalogEntry {
-  return {
-    provider_definition: "anthropic",
-    model_name: "claude-haiku-4-5",
-    context_limit: 200_000,
-    input_limit: 190_000,
-    output_limit: 8_000,
-    supports_tools: true,
-    input_media: ["text"],
-    output_media: ["text"],
-    options: [{
-      id: "effort",
-      label: "Effort",
-      values: [
-        { value: "low", label: "Low", wire: null },
-        { value: "medium", label: "Medium", wire: null },
-        { value: "high", label: "High", wire: null },
-      ],
-      default_value: "medium",
-      budget: null,
-    }],
-    preview: false,
-    deprecated: false,
-    source: "release_snapshot",
-    source_revision: "2026-10",
-    checked_at: "2026-10-07T00:00:00.000Z",
-    received_at: "2026-10-07T00:00:00.000Z",
-    price_basis: null,
-  };
-}
-
 Deno.test("lophn-agent/roles/app-engineer#R20: 인터뷰 해석·설계·가설·ticket 범위·release 의미·handoff 판단은 judgment이고 제목·요약은 organizing이다", () => {
   for (
     const call of [
@@ -1143,48 +1096,4 @@ Deno.test("lophn-agent/roles/app-engineer#R20: 인터뷰 해석·설계·가설�
   }
   // ticket 범위 선택은 본문 판단이라 제목 정리와 구별된다.
   assert(purposeOf("ticket_scope") !== purposeOf("ticket_title"));
-});
-
-Deno.test("lophn-agent/roles/app-engineer#R20: 실제 provider·model·계정은 preset 선택의 두 용도로 정해지고 역할 상한은 model 이름을 고정하지 않는다", () => {
-  const deps: ValidateDeps = {
-    bundles: TOOL_BUNDLES,
-    mcpServers: new Map(),
-    roleCaps: ROLE_CAPS,
-    definitionKey: (provider) =>
-      provider === id("pvd", 1) ? "anthropic" : undefined,
-    modelListed: (_definition, name) => name === "claude-haiku-4-5",
-    credentialKeys: (provider) => provider === id("pvd", 1) ? ["key-main"] : [],
-    catalogEntry: (_definition, name) =>
-      name === "claude-haiku-4-5" ? catalogEntry() : undefined,
-  };
-  const selection = {
-    provider: id("pvd", 1),
-    credentials: ["key-main"],
-    model_name: "claude-haiku-4-5",
-    reasoning_level: "medium" as const,
-    options: {},
-  };
-  const both = validateDefinition({
-    ...productPresetDefinition("app_engineer", HASH),
-    model: selection,
-    organizing_model: { ...selection, reasoning_level: "low" as const },
-  }, deps);
-  assert(both.ok, JSON.stringify(both));
-  assertEquals(both.value.model!.purpose, "judgment");
-  assertEquals(both.value.organizing_model!.purpose, "organizing");
-  // 확인되지 않은 model은 저장을 거절한다.
-  const unverified = validateDefinition({
-    ...productPresetDefinition("app_engineer", HASH),
-    model: selection,
-    organizing_model: null,
-  }, { ...deps, catalogEntry: () => undefined });
-  assert(!unverified.ok);
-  const cap = ROLE_CAPS.get("app_engineer")!;
-  assertEquals(
-    cap.tools.some((tool) =>
-      tool.startsWith("model.") || tool.startsWith("provider.") ||
-      tool.includes("claude") || tool.includes("gpt")
-    ),
-    false,
-  );
 });

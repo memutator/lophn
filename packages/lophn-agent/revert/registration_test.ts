@@ -8,11 +8,6 @@ import {
 } from "../../contracts/platform/mod.ts";
 import type { LedgerTestRegistration } from "../../../apps/core/testing/ledger.ts";
 import {
-  createPresetCommands,
-  createPresetReads,
-  presetSchemaSteps,
-} from "../presets/mod.ts";
-import {
   assignmentSchemaSteps,
   createAssignmentCommands,
   createAssignmentReads,
@@ -22,7 +17,6 @@ import {
   createRunReads,
   runSchemaSteps,
 } from "../harness/run-loop/mod.ts";
-import { presetValidateDeps } from "../harness/run-loop/testing/mod.ts";
 import { createToolCommands, toolsSchemaSteps } from "../harness/tools/mod.ts";
 import { createAuditOwners } from "./audit-owners.ts";
 import { createAppRevertOwner } from "./app-revert.ts";
@@ -308,8 +302,6 @@ const recordStranger: CommandDefinition<typeof recordStrangerRoute> = {
 };
 
 export function createLedgerTestRegistration(): LedgerTestRegistration {
-  const presetCommands = createPresetCommands(presetValidateDeps());
-  const presetReads = createPresetReads();
   const assignmentCommands = createAssignmentCommands();
   const assignmentReads = createAssignmentReads();
   // 미반영 steering을 담는 입력 표는 conversation의 것이다. 이 시험에는 사람 입력이 없다.
@@ -326,7 +318,6 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
   const reads = createRevertReads({ owners });
   return {
     schemaSteps: [
-      ...presetSchemaSteps,
       ...assignmentSchemaSteps,
       ...runSchemaSteps,
       ...toolsSchemaSteps,
@@ -343,13 +334,9 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
       },
     ],
     commands: [
-      presetCommands.registerDefault,
-      presetCommands.create,
-      presetCommands.revise,
       assignmentCommands.createBuiltin,
       assignmentCommands.createAppEngineer,
-      assignmentCommands.applyOperator,
-      assignmentCommands.changePreset,
+      assignmentCommands.createOperator,
       assignmentCommands.pause,
       assignmentCommands.resume,
       assignmentCommands.withdraw,
@@ -376,12 +363,8 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
       recordStranger,
     ],
     reads: [
-      presetReads.read,
-      presetReads.list,
-      presetReads.instructionAttachments,
       assignmentReads.read,
       assignmentReads.list,
-      assignmentReads.outputs,
       runReads.read,
       runReads.list,
       runReads.result,

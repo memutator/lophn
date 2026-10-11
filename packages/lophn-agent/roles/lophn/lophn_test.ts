@@ -1,10 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
-import type { CatalogEntry } from "@lophn/contracts/lophn-agent";
 import { ok } from "../../../base/mod.ts";
-import {
-  productPresetDefinition,
-  validateModelSelection,
-} from "../../presets/mod.ts";
 import { ROLE_CAPS } from "../../agents/mod.ts";
 import { checkOptionAction, moveOptionAction } from "../../questions/mod.ts";
 import {
@@ -90,7 +85,6 @@ Deno.test("lophn-agent/roles/lophn#R1: lophn's tool selection holds planning, re
       "context.read",
       "document.create",
       "question.submit",
-      "preset.list",
       "visual.show",
       "lophn.guide",
       "setting.read",
@@ -225,11 +219,9 @@ Deno.test("lophn-agent/roles/lophn#R4: requests in lophn scope list preset reads
       `lophn must not list ${name}`,
     );
   }
-  // preset·assignment 조회, 질문·ticket 생성이 상한에 있고 정의가 있어 모두 목록에 있다(R4).
+  // assignment 조회, 질문·ticket 생성이 상한에 있고 정의가 있어 모두 목록에 있다(R4).
   for (
     const name of [
-      "preset.list",
-      "preset.read",
       "assignment.list",
       "assignment.read",
       "question.submit",
@@ -694,78 +686,6 @@ Deno.test("lophn-agent/roles/lophn#R5 [agent-I13]: a setting change question kee
   assertEquals(checkDraftSubmission(submission), { ok: true });
   // 소유 owner 검사도 통과다(platform/settings apply_settings).
   assertEquals(checkOptionAction(QUESTION, change.action).ok, true);
-});
-
-Deno.test("lophn-agent/roles/lophn#R19: planning, reuse and guidance runs fix their judgment and organizing model through the preset selection", () => {
-  // 판 용도는 judgment·organizing 둘이고 preset 선택으로 고정한다(R19). 제품
-  // 기본 preset은 사람이 provider를 고르기 전까지 model·organizing_model이
-  // null(미준비)이다.
-  const preset = productPresetDefinition("lophn", "sha256:prompt");
-  assert(preset !== undefined);
-  assertEquals(preset.model, null);
-  assertEquals(preset.organizing_model, null);
-  // organizing이 비면 같은 판의 model을 쓴다(presets#R13, harness/model#R19).
-  const entry: CatalogEntry = {
-    provider_definition: "pd_1",
-    model_name: "claude-haiku-4-5",
-    context_limit: 200000,
-    input_limit: 190000,
-    output_limit: 8000,
-    supports_tools: true,
-    input_media: ["text"],
-    output_media: ["text"],
-    options: [{
-      id: "effort",
-      label: "Effort",
-      values: [
-        { value: "off", label: "Off", wire: null },
-        { value: "low", label: "Low", wire: null },
-      ],
-      default_value: "off",
-      budget: null,
-    }],
-    preview: null,
-    deprecated: null,
-    source: "user",
-    source_revision: "r1",
-    checked_at: null,
-    received_at: null,
-    price_basis: null,
-  };
-  const deps = {
-    definitionKey: (_provider: string) => "pd_1",
-    modelListed: () => true,
-    credentialKeys: (_provider: string) => ["main"] as const,
-    catalogEntry: () => entry,
-  };
-  const judgment = validateModelSelection("model", {
-    provider: "anthropic",
-    credentials: ["main"],
-    model_name: "claude-haiku-4-5",
-    reasoning_level: "off",
-    options: {},
-  }, deps);
-  assert(judgment.ok);
-  assertEquals(judgment.value?.purpose, "judgment");
-  // organizing_model은 같은 selection 입력으로 organizing 용도로 고정된다(R19).
-  const organizing = validateModelSelection("organizing_model", {
-    provider: "anthropic",
-    credentials: ["main"],
-    model_name: "claude-haiku-4-5",
-    reasoning_level: "off",
-    options: {},
-  }, deps);
-  assert(organizing.ok);
-  assertEquals(organizing.value?.purpose, "organizing");
-  // 목록에 없는 model은 저장 거절이다(presets#R10).
-  const listed = validateModelSelection("model", {
-    provider: "anthropic",
-    credentials: ["main"],
-    model_name: "no-such-model",
-    reasoning_level: "off",
-    options: {},
-  }, { ...deps, modelListed: () => false });
-  assertEquals(listed.ok, false);
 });
 
 Deno.test("lophn-agent/roles/lophn#R19 [agent-I13]: the question submit tool rejects a model-fixed action", async () => {

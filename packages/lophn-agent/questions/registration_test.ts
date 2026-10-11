@@ -3,11 +3,6 @@ import { manualClock, ok } from "../../base/mod.ts";
 import { ACTOR_KINDS, defineCommand } from "../../contracts/platform/mod.ts";
 import type { LedgerTestRegistration } from "../../../apps/core/testing/ledger.ts";
 import {
-  createPresetCommands,
-  createPresetReads,
-  presetSchemaSteps,
-} from "../presets/mod.ts";
-import {
   assignmentSchemaSteps,
   createAssignmentCommands,
   createAssignmentReads,
@@ -24,7 +19,6 @@ import {
   createConversationReads,
   hasUnappliedSteering,
 } from "../conversation/mod.ts";
-import { presetValidateDeps } from "../harness/run-loop/testing/mod.ts";
 import { registerMessageBodyRef } from "../conversation/testing/mod.ts";
 import { registerQuestionTextRef } from "./testing/mod.ts";
 import {
@@ -77,8 +71,6 @@ const seedSettingChoiceRoute = defineCommand({
 
 export function createLedgerTestRegistration(): LedgerTestRegistration {
   const clock = manualClock(CLOCK_START);
-  const presetCommands = createPresetCommands(presetValidateDeps());
-  const presetReads = createPresetReads();
   const assignmentCommands = createAssignmentCommands();
   const assignmentReads = createAssignmentReads();
   const runCommands = createRunCommands({ hasUnappliedSteering });
@@ -115,7 +107,6 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
         ? registerQuestionTextRef(tx, ctx, reference)
         : registerMessageBodyRef(tx, ctx, reference),
     schemaSteps: [
-      ...presetSchemaSteps,
       ...assignmentSchemaSteps,
       ...runSchemaSteps,
       ...conversationSchemaSteps,
@@ -127,13 +118,9 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
       },
     ],
     commands: [
-      presetCommands.registerDefault,
-      presetCommands.create,
-      presetCommands.revise,
       assignmentCommands.createBuiltin,
       assignmentCommands.createAppEngineer,
-      assignmentCommands.applyOperator,
-      assignmentCommands.changePreset,
+      assignmentCommands.createOperator,
       assignmentCommands.pause,
       assignmentCommands.resume,
       assignmentCommands.withdraw,
@@ -186,12 +173,8 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
       },
     ],
     reads: [
-      presetReads.read,
-      presetReads.list,
-      presetReads.instructionAttachments,
       assignmentReads.read,
       assignmentReads.list,
-      assignmentReads.outputs,
       runReads.read,
       runReads.list,
       runReads.result,

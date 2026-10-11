@@ -17,6 +17,7 @@ import {
   type ToolDecision,
 } from "../../packages/contracts/lophn-agent/mod.ts";
 import type { CoreCall } from "../../packages/lophn-agent/harness/tool-judgment/mod.ts";
+import { setAssignmentState } from "./testing/assignment-state.ts";
 import { codeOf, decide as humanDecide } from "./testing/approvals-fixture.ts";
 import {
   AGENT_HASH,
@@ -360,16 +361,7 @@ Deno.test("lophn-agent/harness/tool-judgment#R2: 확인 못 한 인증·효과·
     assertEquals(count(world.server, APPROVALS), 0);
 
     // assignment가 멈추면 같은 호출이 deny다(회수도 같은 칸이다).
-    const paused = await world.post("assignments/pause", USER_TOKEN, {
-      assignment: world.lophn.id,
-      reason: {
-        kind: "user",
-        detail: "paused for test",
-        runs: [],
-        target: null,
-      },
-    }, { revision: world.lophn.revision, state: "enabled" });
-    assertEquals(paused.status, 200, JSON.stringify(paused.body));
+    setAssignmentState(world.server.dataRoot, world.lophn.id, "paused");
     const decision = await record({});
     assertEquals(decision.decision, "deny");
     assertEquals(count(world.server, APPROVALS), 0);
@@ -596,16 +588,7 @@ Deno.test("lophn-agent/harness/tool-judgment#R6: 승인 대기 중 입력·scope
     assertEquals(same.value.kind, "enter");
 
     // assignment가 멈추면 허락이 있어도 진입하지 않는다.
-    const paused = await world.post("assignments/pause", USER_TOKEN, {
-      assignment: world.lophn.id,
-      reason: {
-        kind: "user",
-        detail: "paused for test",
-        runs: [],
-        target: null,
-      },
-    }, { revision: world.lophn.revision, state: "enabled" });
-    assertEquals(paused.status, 200, JSON.stringify(paused.body));
+    setAssignmentState(world.server.dataRoot, world.lophn.id, "paused");
     assertEquals(await admit({}), "denied");
     assertEquals(count(world.server, NOTES), 0);
   } finally {

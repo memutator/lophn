@@ -2,6 +2,7 @@ import { assert, assertEquals } from "@std/assert";
 import { ERROR_CODES } from "../../base/mod.ts";
 import { ALL_EVENTS, ALL_ROUTES, lophnAgent } from "../mod.ts";
 import { routePath } from "../platform/mod.ts";
+import * as contracts from "./mod.ts";
 import { EVENTS, ROUTES } from "./mod.ts";
 
 Deno.test("lophn-agent/harness/run-loop#R2: public entry registers the exact run conversation and occurrence routes", () => {
@@ -59,22 +60,14 @@ Deno.test("lophn-agent/harness/run-loop#R2: public entry registers the exact run
     "/v1/reverts/apply",
     "/v1/reverts/preview",
     "/v1/reverts/list",
-    "/v1/presets/register-default",
-    "/v1/presets/create",
-    "/v1/presets/revise",
-    "/v1/presets/read",
-    "/v1/presets/list",
-    "/v1/presets/instruction-attachments",
     "/v1/assignments/create-builtin",
     "/v1/assignments/create-app-engineer",
-    "/v1/assignments/apply-operator",
-    "/v1/assignments/change-preset",
+    "/v1/assignments/create-operator",
     "/v1/assignments/pause",
     "/v1/assignments/resume",
     "/v1/assignments/withdraw",
     "/v1/assignments/read",
     "/v1/assignments/list",
-    "/v1/assignments/outputs",
     "/v1/agents/list",
     "/v1/agents/read",
     "/v1/agents/save",
@@ -167,10 +160,7 @@ Deno.test("lophn-agent/harness/run-loop#R6: public events omit checkpoint and co
     "RevertApplied",
     "RevertBlocked",
     "RevertFinished",
-    "PresetCreated",
-    "PresetRevised",
     "AssignmentCreated",
-    "AssignmentChanged",
     "AssignmentPaused",
     "AssignmentResumed",
     "AssignmentWithdrawn",
@@ -194,4 +184,29 @@ Deno.test("lophn-agent/harness/run-loop#R6: public events omit checkpoint and co
   ]);
   assertEquals(lophnAgent.EVENTS, EVENTS);
   for (const event of EVENTS) assert(ALL_EVENTS.includes(event));
+});
+
+Deno.test("lophn-agent/agents#R1 [agent-R12]: the preset routes, events, values and reasoning levels are gone from the public entry", () => {
+  assertEquals(
+    ROUTES.filter((route) => route.resource === "presets").length,
+    0,
+  );
+  assertEquals(
+    EVENTS.filter((event) => event.type.startsWith("Preset")).length,
+    0,
+  );
+  const exported = Object.keys(contracts);
+  for (
+    const name of [
+      "presetList",
+      "createPreset",
+      "registerDefaultPreset",
+      "PRESET_ROUTES",
+      "capabilitySelectionSchema",
+      "REASONING_LEVELS",
+      "reasoningLevelSchema",
+    ]
+  ) {
+    assertEquals(exported.includes(name), false, name);
+  }
 });

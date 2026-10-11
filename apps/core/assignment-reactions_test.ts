@@ -1,5 +1,6 @@
 // lophn-agent/assignments#R1: 제품 core 경로에서 AppCreated가 거두지 않은 App Engineer
-// assignment 하나를 만들고, AppArchived가 그것을 멈추며, AppUnarchived가 자동으로 켜지 않는다.
+// assignment 하나를 만들고, AppArchived가 그 앱의 켜진 assignment(Operator 포함)를 멈추며,
+// AppUnarchived가 다시 켠다.
 // 실제 core·실제 ledger·temp 데이터 root에서 본다(사람 데이터 root는 열지 않는다). 반응은
 // 주입이 아니라 core 기동이 연 구독자(machine:lophn-agent-assignments)가 낸다.
 import { assert, assertEquals } from "@std/assert";
@@ -16,7 +17,6 @@ type Assignment = {
   id: string;
   role: string;
   state: string;
-  preset: string;
   scope: { kind: string; id: string | null };
   pause_reason?: { kind: string; target: string | null } | null;
 };
@@ -64,7 +64,7 @@ async function until<T>(
   throw new Error(`timed out waiting for ${what}`);
 }
 
-Deno.test("lophn-agent/assignments#R1: core의 AppCreated 반응이 앱마다 거두지 않은 AE 하나를 만들고 보관은 멈추며 보관 해제는 켜지 않는다", async () => {
+Deno.test("lophn-agent/assignments#R1 [agent-R12]: core의 AppCreated 반응이 앱마다 거두지 않은 AE 하나를 만들고 보관은 그 앱의 AE와 Operator를 멈추며 보관 해제는 다시 켠다", async () => {
   const harness = await createCoreHarness({
     io: true,
     teams: [
@@ -92,7 +92,7 @@ Deno.test("lophn-agent/assignments#R1: core의 AppCreated 반응이 앱마다 �
             "app.archive",
             "app.unarchive",
             "ListAssignments",
-            "ListPresets",
+            "CreateOperatorAssignment",
           ],
           targets: {},
         },
@@ -109,16 +109,6 @@ Deno.test("lophn-agent/assignments#R1: core의 AppCreated 반응이 앱마다 �
       assertEquals(listed.status, 200, JSON.stringify(listed.body));
       return listed.body["assignments"] as Assignment[];
     };
-    // core 기동의 준비가 AE product preset을 등록할 때까지 기다린다.
-    const preset = await until(async () => {
-      const listed = await post(core.port, "/v1/presets/list", user, {
-        kind: "app_engineer",
-        origin: "product",
-      });
-      const presets = listed.body["presets"] as { id: string }[] | undefined;
-      return presets?.[0];
-    }, "the App Engineer product preset");
-
     const created = await post(
       core.port,
       "/v1/apps/create",
@@ -136,7 +126,7 @@ Deno.test("lophn-agent/assignments#R1: core의 AppCreated 반응이 앱마다 �
     assertEquals(other.status, 200, JSON.stringify(other.body));
     const otherApp = other.body["id"] as string;
 
-    // 앱마다 거두지 않은 AE 하나가 enabled로 생기고 그 product preset을 쓴다.
+    // 앱마다 거두지 않은 AE 하나가 enabled로 생긴다.
     const made = await until(async () => {
       const list = await engineers();
       return list.length === 2 ? list : undefined;
@@ -145,12 +135,29 @@ Deno.test("lophn-agent/assignments#R1: core의 AppCreated 반응이 앱마다 �
       const mine = made.filter((entry) => entry.scope.id === id);
       assertEquals(mine.length, 1, id);
       assertEquals(
-        [mine[0]!.role, mine[0]!.state, mine[0]!.preset, mine[0]!.scope.kind],
-        ["app_engineer", "enabled", preset.id, "app"],
+        [mine[0]!.role, mine[0]!.state, mine[0]!.scope.kind],
+        ["app_engineer", "enabled", "app"],
       );
     }
 
-    // 담당 앱 보관은 그 AE만 멈춘다(scope_archived). 다른 앱의 AE는 그대로다.
+    // 사람이 앱에 Operator를 만든다.
+    const operator = "asg_01arz3ndektsv4rrffq69g5fav";
+    const madeOperator = await post(
+      core.port,
+      "/v1/assignments/create-operator",
+      user,
+      command({ id: operator, scope: { kind: "app", id: app } }),
+    );
+    assertEquals(madeOperator.status, 200, JSON.stringify(madeOperator.body));
+    const everyone = async (): Promise<Assignment[]> => {
+      const listed = await post(core.port, "/v1/assignments/list", user, {});
+      assertEquals(listed.status, 200, JSON.stringify(listed.body));
+      return (listed.body["assignments"] as Assignment[]).filter((entry) =>
+        entry.scope.id === app
+      );
+    };
+
+    // 담당 앱 보관은 그 앱의 AE와 Operator를 멈춘다(scope_archived). 다른 앱의 AE는 그대로다.
     const archived = await post(
       core.port,
       "/v1/apps/archive",
@@ -162,17 +169,22 @@ Deno.test("lophn-agent/assignments#R1: core의 AppCreated 반응이 앱마다 �
     );
     assertEquals(archived.status, 200, JSON.stringify(archived.body));
     const paused = await until(async () => {
-      const mine = (await engineers()).find((entry) => entry.scope.id === app);
-      return mine?.state === "paused" ? mine : undefined;
-    }, "the archived app's assignment to pause");
-    assertEquals(paused.pause_reason?.kind, "scope_archived");
-    assertEquals(paused.pause_reason?.target, app);
+      const mine = await everyone();
+      return mine.length === 2 &&
+          mine.every((entry) => entry.state === "paused")
+        ? mine
+        : undefined;
+    }, "the archived app's assignments to pause");
+    for (const entry of paused) {
+      assertEquals(entry.pause_reason?.kind, "scope_archived");
+      assertEquals(entry.pause_reason?.target, app);
+    }
     assertEquals(
       (await engineers()).find((entry) => entry.scope.id === otherApp)?.state,
       "enabled",
     );
 
-    // 보관 해제는 자동으로 켜지 않는다. 재개는 사람의 ResumeAssignment뿐이다.
+    // 보관을 풀면 machine이 둘을 다시 켠다. 사람이 재개하는 길은 없다.
     const unarchived = await post(
       core.port,
       "/v1/apps/unarchive",
@@ -183,9 +195,23 @@ Deno.test("lophn-agent/assignments#R1: core의 AppCreated 반응이 앱마다 �
       ),
     );
     assertEquals(unarchived.status, 200, JSON.stringify(unarchived.body));
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    const after = (await engineers()).filter((entry) => entry.scope.id === app);
-    assertEquals(after.map((entry) => entry.state), ["paused"]);
+    const resumed = await until(async () => {
+      const mine = await everyone();
+      return mine.every((entry) => entry.state === "enabled")
+        ? mine
+        : undefined;
+    }, "the unarchived app's assignments to resume");
+    assertEquals(resumed.length, 2);
+    for (const entry of resumed) assertEquals(entry.pause_reason, null);
+    assertEquals(
+      (await post(
+        core.port,
+        "/v1/assignments/resume",
+        user,
+        command({ assignment: operator }, { revision: 3, state: "paused" }),
+      )).status,
+      403,
+    );
   } finally {
     await core.close();
   }

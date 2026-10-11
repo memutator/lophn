@@ -166,7 +166,6 @@ const callModelFields = {
   protocol: providerProtocolSchema,
   credential_key: nonblankSchema.nullable(),
   credential_revision: positiveIntegerSchema.nullable(),
-  options: jsonObjectSchema,
   option_values: callOptionValuesSchema,
   limits: callModelLimitsSchema,
   catalog_basis: jsonObjectSchema,

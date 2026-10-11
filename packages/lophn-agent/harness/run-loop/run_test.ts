@@ -1,6 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
-import { createHash } from "node:crypto";
-import { canonicalize, type Result } from "../../../base/mod.ts";
+import type { Result } from "../../../base/mod.ts";
 import type {
   AuthenticatedContext,
   SqlRow,
@@ -9,10 +8,7 @@ import {
   createLedgerHarness,
   type LedgerHarness,
 } from "../../../../apps/core/testing/ledger.ts";
-import {
-  envelope as assignmentEnvelope,
-  presetDefinitionJson,
-} from "./testing/mod.ts";
+import { envelope as assignmentEnvelope } from "./testing/mod.ts";
 
 // run ledger 테스트. 실제 등록 executor(harness)와 임시 ledger 파일을 쓴다.
 // 재시작·kill 시험과 operator 회차는 apps/core/testing/lophn-agent-runs_test.ts에 있다.
@@ -20,11 +16,8 @@ import {
 const NOW = Date.UTC(2026, 0, 1);
 
 const OPERATIONS = [
-  "RegisterDefaultPreset",
   "CreateBuiltinAssignment",
-  "PauseAssignment",
-  "ResumeAssignment",
-  "WithdrawAssignment",
+  "SeedAssignmentState",
   "AcceptRun",
   "StartRun",
   "CheckpointRun",
@@ -60,8 +53,6 @@ function id(prefix: string, n: number): string {
   return `${prefix}_01arz3ndektsv4rrffq69g5f${ALPHA[n >> 5]}${ALPHA[n & 31]}`;
 }
 
-const PRESET_LOPHN = id("pst", 1);
-const PRESET_CE = id("pst", 2);
 const ASG_LOPHN = id("asg", 1);
 const ASG_CE = id("asg", 2);
 const BASIS = "b".repeat(64);
@@ -80,12 +71,6 @@ function agentCred(assignment: string): AuthenticatedContext {
 
 function scopeOf(assignment: string, role: string) {
   return { role, assignment, apps: [] };
-}
-
-function hashOf(definition: Record<string, unknown>): string {
-  return createHash("sha256").update(canonicalize(definition), "utf8").digest(
-    "hex",
-  );
 }
 
 function value<T>(result: Result<T>): T {
@@ -117,35 +102,29 @@ async function open(): Promise<LedgerHarness> {
 
 async function seed(h: LedgerHarness) {
   for (
-    const [preset, kind, assignment] of [
-      [PRESET_LOPHN, "lophn", ASG_LOPHN],
-      [PRESET_CE, "context_engineer", ASG_CE],
+    const [role, assignment] of [
+      ["lophn", ASG_LOPHN],
+      ["context_engineer", ASG_CE],
     ] as const
   ) {
-    const definition = presetDefinitionJson(kind);
-    value(
-      await h.command(
-        machineCred,
-        assignmentEnvelope("RegisterDefaultPreset", {
-          id: preset,
-          definition,
-          definition_hash: hashOf(definition),
-        }),
-      ),
-    );
     value(
       await h.command(
         machineCred,
         assignmentEnvelope("CreateBuiltinAssignment", {
           id: assignment,
-          preset,
-          preset_revision: 1,
-          role: kind,
+          role,
           scope: { kind: "all", id: null },
         }),
       ),
     );
   }
+}
+
+function pauseAssignment(h: LedgerHarness, assignment: string) {
+  return h.command(
+    machineCred,
+    assignmentEnvelope("SeedAssignmentState", { assignment, state: "paused" }),
+  );
 }
 
 type Accept = {
@@ -313,15 +292,7 @@ Deno.test("lophn-agent/harness/run-loop#R1: only a person request, an operator r
     assertEquals(source.body, "d".repeat(64));
     assertEquals(await runCount(h), 2n);
     // assignment 변경이나 결과 도착은 새 run을 만들지 않는다.
-    value(
-      await h.command(
-        userCred,
-        assignmentEnvelope("PauseAssignment", {
-          assignment: ASG_CE,
-          reason: { kind: "user", detail: "잠시", runs: [], target: null },
-        }, { revision: 1, state: "enabled" }),
-      ),
-    );
+    value(await pauseAssignment(h, ASG_CE));
     value(await start(h, id("run", 1)));
     value(await finish(h, id("run", 1), ok));
     assertEquals(await runCount(h), 2n);
@@ -852,15 +823,7 @@ Deno.test("lophn-agent/harness/run-loop#R17: a stopped run is never resumed and 
       await stop(h, id("run", 2), "stop-m", machineCred, "assignment_paused"),
       "forbidden",
     );
-    value(
-      await h.command(
-        userCred,
-        assignmentEnvelope("PauseAssignment", {
-          assignment: ASG_LOPHN,
-          reason: { kind: "user", detail: "잠시", runs: [], target: null },
-        }, { revision: 1, state: "enabled" }),
-      ),
-    );
+    value(await pauseAssignment(h, ASG_LOPHN));
     value(
       await stop(h, id("run", 2), "stop-m", machineCred, "assignment_paused"),
     );
@@ -933,61 +896,6 @@ Deno.test("lophn-agent/harness/run-loop#R18: outcome kinds, reasons and the star
     }
     // 이미 저장한 변경은 되돌리지 않는다: 실패·멈춤 뒤에도 run 행만 확정된다.
     assertEquals((await runOf(h, id("run", 2))).state, "finished");
-  } finally {
-    await h.close();
-  }
-});
-
-Deno.test("lophn-agent/harness/run-loop#R18 lophn-agent/assignments#R10: three started final failures from real FinishRun let the machine pause pass", async () => {
-  const h = await open();
-  try {
-    await seed(h);
-    const pause = async (runs: string[]) =>
-      await h.command(
-        machineCred,
-        assignmentEnvelope("PauseAssignment", {
-          assignment: ASG_LOPHN,
-          reason: {
-            kind: "consecutive_failures",
-            detail: "최종 실패 3회",
-            runs,
-            target: null,
-          },
-        }, { revision: 1, state: "enabled" }),
-      );
-    // 시작한 최종 실패 두 번과 시작 못 한 실패 하나는 세 번이 아니다.
-    for (const n of [1, 2]) {
-      value(await accept(h, { run: id("run", n), message: id("msg", n) }));
-      value(await start(h, id("run", n)));
-      value(await finish(h, id("run", n), failed));
-    }
-    value(await accept(h, { run: id("run", 3), message: id("msg", 3) }));
-    value(
-      await finish(h, id("run", 3), {
-        kind: "failed",
-        reason: "target_unavailable",
-      }),
-    );
-    code(await pause([id("run", 1), id("run", 2), id("run", 3)]), "forbidden");
-    // 세 번째 시작한 최종 실패가 실제 command로 쌓이면 근거가 통과한다.
-    value(await accept(h, { run: id("run", 4), message: id("msg", 4) }));
-    value(await start(h, id("run", 4)));
-    value(
-      await finish(h, id("run", 4), { kind: "failed", reason: "tool_error" }),
-    );
-    // 근거로 신고한 run이 실제 묶음과 다르면 거절이다.
-    code(await pause([id("run", 1), id("run", 2), id("run", 3)]), "forbidden");
-    value(await pause([id("run", 1), id("run", 2), id("run", 4)]));
-    const assignment = value(
-      await h.read({ resource: "assignments", method: "read" }, userCred, {
-        assignment: ASG_LOPHN,
-      }),
-    ) as { assignment: { state: string; pause_reason: { kind: string } } };
-    assertEquals(assignment.assignment.state, "paused");
-    assertEquals(
-      assignment.assignment.pause_reason.kind,
-      "consecutive_failures",
-    );
   } finally {
     await h.close();
   }

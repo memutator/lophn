@@ -7,7 +7,12 @@ import {
   startModelCallInputSchema,
   supplementModelCallInputSchema,
 } from "./model-calls.ts";
-import { callCostSchema, modelCallRecordSchema } from "./model-call-values.ts";
+import {
+  callCostSchema,
+  callModelOutputSchema,
+  callModelSchema,
+  modelCallRecordSchema,
+} from "./model-call-values.ts";
 import { priceBasisSchema } from "./resolved-model.ts";
 
 const suffix = "01arz3ndektsv4rrffq69g5fav";
@@ -40,7 +45,6 @@ const model = {
   protocol: "openai-responses" as const,
   credential_key: "personal",
   credential_revision: 1,
-  options: {},
   option_values: { requested: {}, applied: {} },
   limits: {
     context_limit: 128000,
@@ -328,4 +332,11 @@ Deno.test("lophn-agent/harness/usage#R4 [agent-I10b]: a call keeps the requested
       withValues({ requested: { effort: 3 }, applied: {} }),
     ).success,
   );
+});
+
+Deno.test("lophn-agent/harness/usage#R4 [agent-R12]: a call keeps its option values in option_values only, with no second options field", () => {
+  assert(callModelSchema.safeParse(model).success);
+  assert(!callModelSchema.safeParse({ ...model, options: {} }).success);
+  const parsed = callModelOutputSchema.parse({ ...model, options: { a: "b" } });
+  assert(!("options" in parsed));
 });

@@ -4,8 +4,6 @@
 import { assert, assertEquals } from "@std/assert";
 
 import { ALL_ROUTES } from "../../../../../../../packages/contracts/mod.ts";
-import { approvalBindingHash } from "../../../../../../../packages/contracts/platform/approvals.ts";
-import { confirmationOpenIntentSchema } from "../../../../../../../packages/contracts/shell/confirmation.ts";
 import type { CoreCall } from "../../../../../ipc/core.ts";
 import type { CoreReply } from "../../../../../ipc/core-api.ts";
 import type { CoreSource } from "../../../connection/connection.ts";
@@ -13,21 +11,11 @@ import { coreRolesSource, factsOf, presetOf } from "../core-source.ts";
 import type { PresetEntry, RoleRow } from "../source.ts";
 import type { OperatorDraft } from "./source.ts";
 
-// 승인 요청의 지문은 platform의 canonical JSON 규칙이다. shell은 packages/base를 import하지 않으므로
-// 그 규칙의 정본을 시험에서만 경로로 불러 비교한다.
-const base = await import(
-  new URL("../../../../../../../packages/base/mod.ts", import.meta.url).href
-) as { fingerprint(value: unknown): Promise<string> };
-const fingerprint = base.fingerprint;
-
 const ASG = "asg_01h455vb4pex5v6nkc6gd5fd04";
 const PST = "pst_01h455vb4pex5v6nkc6gd5fd03";
 const PRJ = "prj_01h455vb4pex5v6nkc6gd5fd01";
 const APP = "app_01h455vb4pex5v6nkc6gd5fd01";
 const DOC = "doc_01h455vb4pex5v6nkc6gd5fd01";
-const DOC_TWO = "doc_01h455vb4pex5v6nkc6gd5fd02";
-const DOC_THREE = "doc_01h455vb4pex5v6nkc6gd5fd03";
-const DOC_FOUR = "doc_01h455vb4pex5v6nkc6gd5fd04";
 const VER = "ver_01h455vb4pex5v6nkc6gd5fd01";
 const APR = "apr_01h455vb4pex5v6nkc6gd5fd01";
 const RUN = "run_01h455vb4pex5v6nkc6gd5fd01";
@@ -159,71 +147,6 @@ const created = (body: unknown) => {
   return ok({ request: { id: input.id, created_seq: "7" } });
 };
 
-Deno.test("lophn-agent/assignments#R5: 붙이기는 구성 전체를 승인 요청으로 고정하고(적용 command의 입력 schema·platform의 지문 규칙을 그대로 통과) 보호 확인 창을 approval_request로 연다", async () => {
-  const fake = fakeCore({ "command:approvals/create": created });
-  const intents: unknown[] = [];
-  const operator = sourceOf(fake, (intent) => {
-    intents.push(intent);
-    return Promise.resolve({ windowId: "win-1" });
-  });
-  const proposed = await operator.propose(draft());
-  assert(proposed.ok);
-  assertValid(fake.calls);
-  const input = (fake.calls[0]!.body as {
-    input: {
-      id: string;
-      requester: string;
-      action: {
-        concern: string;
-        command: string;
-        caller: string;
-        input: { kind: string; value: Record<string, unknown> };
-        input_hash: string;
-        binding_hash: string;
-        targets: string[];
-        comparison: object;
-      };
-    };
-  }).input;
-  const action = input.action;
-  assertEquals(action.concern, "lophn-agent/assignments");
-  assertEquals(action.command, "ApplyOperatorAssignment");
-  assertEquals(action.caller, "user");
-  // 적용 command가 받는 입력 그대로이고 approval·대상이 이 요청과 맞는다.
-  assert(
-    route("command", "assignments", "apply-operator").input.safeParse(
-      action.input.value,
-    ).success,
-  );
-  assertEquals(action.input.value.approval, input.id);
-  assertEquals(proposed.value.approval, input.id);
-  assertEquals(action.targets, [proposed.value.assignment]);
-  assertEquals(action.input.value.id, proposed.value.assignment);
-  assertEquals(action.input_hash, await fingerprint(action.input.value));
-  assertEquals(
-    action.binding_hash,
-    await approvalBindingHash({ ...action, binding_hash: "0" } as never),
-  );
-  const bundle = action.input.value.bundle as Record<string, unknown>;
-  assertEquals(bundle.assignment, null);
-  assertEquals(bundle.expected_assignment_revision, null);
-  assertEquals(bundle.preset_definition, HASH);
-  assertEquals(bundle.preset_revision, 2);
-  assertEquals(bundle.draft_version, VER);
-  assertEquals(bundle.read_apps, [APP]);
-  assertEquals(bundle.schedule, {
-    first_at: "2026-10-08T00:00:00.000Z",
-    every_ms: 86_400_000,
-  });
-  // 창은 승인 요청 하나를 가리킨다. 본문·구성은 창으로 가지 않는다.
-  assertEquals(intents.length, 1);
-  assert(confirmationOpenIntentSchema.safeParse(intents[0]).success);
-  assertEquals(
-    (intents[0] as { request: unknown }).request,
-    { kind: "approval_request", approval: input.id },
-  );
-});
-
 Deno.test("lophn-agent/assignments#R5: 이미 붙은 Operator를 바꾸는 승인은 그 assignment와 읽은 revision에 묶이고 창을 열지 못하면 만든 요청을 취소한다", async () => {
   const fake = fakeCore({
     "command:approvals/create": created,
@@ -332,38 +255,6 @@ Deno.test("lophn-agent/assignments#R4: 허락된 승인만 적용하고(한 번�
   );
 });
 
-Deno.test("shell/desktop#R5: 멈춤은 켜진 역할의 revision에 묶이고 회수는 켜짐·멈춤 어느 쪽이든 읽은 상태에 묶이며 회수된 것은 다시 회수하지 않는다", async () => {
-  const fake = fakeCore({
-    "command:assignments/pause": () => ok({ assignment: {} }),
-    "command:assignments/withdraw": () => ok({ assignment: {} }),
-  });
-  const operator = sourceOf(fake, undefined);
-  assertEquals(await operator.pause(role()), { ok: true, value: null });
-  assertEquals(await operator.withdraw(role()), { ok: true, value: null });
-  assertEquals(
-    await operator.withdraw(role({ state: "paused" })),
-    { ok: true, value: null },
-  );
-  assertEquals(
-    await operator.withdraw(role({ state: "withdrawn" })),
-    { ok: false, code: "conflict" },
-  );
-  assertValid(fake.calls);
-  assertEquals(fake.calls.map((call) => call.method), [
-    "pause",
-    "withdraw",
-    "withdraw",
-  ]);
-  assertEquals((fake.calls[0]!.body as { compare: unknown }).compare, {
-    revision: 4,
-    state: "enabled",
-  });
-  assertEquals((fake.calls[2]!.body as { compare: unknown }).compare, {
-    revision: 4,
-    state: "paused",
-  });
-});
-
 Deno.test("lophn-agent/scheduling#R5: 건너뛴 회차는 막은 일이 사람의 답을 기다리는지로 구별하고 건너뛰지 않은 회차는 말하지 않는다", async () => {
   const occurrence = (
     due: string,
@@ -414,98 +305,6 @@ Deno.test("lophn-agent/scheduling#R5: 건너뛴 회차는 막은 일이 사람�
     value: [],
   });
   assertEquals(none.calls.length, 1);
-});
-
-Deno.test("lophn-agent/assignments#R6: 보고할 문서 후보는 원본 파일에 연결된 문서와 다른 Operator가 쓰는 문서를 빼고 회수된 Operator가 쓰던 문서는 다시 쓸 수 있다", async () => {
-  const listed = [DOC, DOC_TWO, DOC_THREE, DOC_FOUR].map((id, index) => ({
-    document: { id, title: `Doc ${index}`, status: "active" },
-    latest_version: { id: VER },
-  }));
-  const fake = fakeCore({
-    "read:documents/list": () => ok({ documents: listed, next_cursor: null }),
-    "read:documents/get": (body) => {
-      const id = (body as { document: string }).document;
-      return ok({
-        document: id === DOC_TWO ? { file_source: { path: "a.md" } } : {},
-        version: { id: VER },
-      });
-    },
-    "read:assignments/outputs": (body) => {
-      const id = (body as { document: string }).document;
-      return ok({
-        output: id === DOC_THREE
-          ? { assignment: ASG, revision: 1, state: "enabled" }
-          : id === DOC_FOUR
-          ? { assignment: ASG, revision: 3, state: "withdrawn" }
-          : null,
-      });
-    },
-  });
-  const choices = await sourceOf(fake, undefined).outputChoices({
-    kind: "project",
-    id: PRJ,
-  });
-  assertValid(fake.calls);
-  assertEquals(choices, {
-    ok: true,
-    value: [
-      { id: DOC, title: "Doc 0", version: VER },
-      { id: DOC_FOUR, title: "Doc 3", version: VER },
-    ],
-  });
-});
-
-Deno.test("lophn-agent/assignments#R5: 읽게 할 수 있는 앱 명령은 확인이 필요 없는 읽기뿐이고 문서의 지금 판을 읽는다", async () => {
-  const fake = fakeCore({
-    "read:apps/blueprint": () =>
-      ok({
-        commands: [
-          {
-            key: "list_items",
-            label: "List items",
-            effect: "read",
-            confirm: false,
-          },
-          {
-            key: "add_item",
-            label: "Add item",
-            effect: "write",
-            confirm: false,
-          },
-          {
-            key: "export_all",
-            label: "Export all",
-            effect: "read",
-            confirm: true,
-          },
-        ],
-      }),
-    "read:documents/get": () => ok({ document: {}, version: { id: VER } }),
-    "read:presets/list": () =>
-      ok({
-        presets: [{
-          id: PST,
-          revision: 2,
-          definition_hash: HASH,
-          definition: entry.definition.raw,
-        }],
-        next_cursor: null,
-      }),
-  });
-  const operator = sourceOf(fake, undefined);
-  assertEquals(await operator.readChoices(APP), {
-    ok: true,
-    value: [{ app: APP, command: "list_items", label: "List items" }],
-  });
-  assertEquals(await operator.versionOf(DOC), { ok: true, value: VER });
-  const presets = await operator.presets();
-  assert(presets.ok);
-  assertEquals(presets.value[0]!.hash, HASH);
-  assertValid(fake.calls);
-  assertEquals(
-    (fake.calls[2]!.body as { kind: string }).kind,
-    "operator",
-  );
 });
 
 Deno.test("shell/desktop#R5: 역할 목록은 Operator의 주기·읽는 앱·멈춘 이유를 담고 다른 역할에는 담지 않는다", () => {

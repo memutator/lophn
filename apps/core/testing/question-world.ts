@@ -412,13 +412,18 @@ export async function blobBytes(home: string, hash: string): Promise<string> {
 
 export async function blobHashes(home: string): Promise<string[]> {
   const found: string[] = [];
-  for await (const prefix of Deno.readDir(`${home}/blobs/sha256`)) {
-    if (!prefix.isDirectory) continue;
-    for await (
-      const name of Deno.readDir(`${home}/blobs/sha256/${prefix.name}`)
-    ) {
-      if (name.isFile) found.push(`${prefix.name}${name.name}`);
+  try {
+    for await (const prefix of Deno.readDir(`${home}/blobs/sha256`)) {
+      if (!prefix.isDirectory) continue;
+      for await (
+        const name of Deno.readDir(`${home}/blobs/sha256/${prefix.name}`)
+      ) {
+        if (name.isFile) found.push(`${prefix.name}${name.name}`);
+      }
     }
+  } catch (error) {
+    // blob을 한 번도 저장하지 않은 data root에는 폴더가 없다.
+    if (!(error instanceof Deno.errors.NotFound)) throw error;
   }
   return found;
 }

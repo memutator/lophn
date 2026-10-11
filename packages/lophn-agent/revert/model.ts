@@ -86,10 +86,11 @@ function eventOf(row: SqlRow): RunEvent {
 const EVENT_COLUMNS =
   "cast(seq as text) as seq, type, subject, actor, run, payload";
 
+// seq 열 이름이 text 별칭으로 가려지므로 정렬은 events.seq(정수)로 한다. 별칭으로 정렬하면 "10"이 "9"보다 앞선다.
 // 원래 run의 event 전체. envelope의 run으로만 고르고 actor·시각으로 추정하지 않는다.
 export function loadRunEvents(lookup: Lookup, run: string): RunEvent[] {
   return lookup.sql.all(
-    `select ${EVENT_COLUMNS} from events where run = ? order by seq`,
+    `select ${EVENT_COLUMNS} from events where run = ? order by events.seq`,
     [run],
   ).map(eventOf);
 }
@@ -97,7 +98,7 @@ export function loadRunEvents(lookup: Lookup, run: string): RunEvent[] {
 // 한 대상에 대한 모든 event. run이 아닌 주체의 변경이 끼었는지 보는 근거다.
 export function subjectEvents(lookup: Lookup, subject: string): RunEvent[] {
   return lookup.sql.all(
-    `select ${EVENT_COLUMNS} from events where subject = ? order by seq`,
+    `select ${EVENT_COLUMNS} from events where subject = ? order by events.seq`,
     [subject],
   ).map(eventOf);
 }
@@ -453,7 +454,7 @@ export function seqsBetween(
   after: string,
 ): string[] {
   return sql.all(
-    "select cast(seq as text) as seq from events where seq > ? order by seq",
+    "select cast(seq as text) as seq from events where seq > ? order by events.seq",
     [BigInt(after)],
   ).map((row) => String(row["seq"]));
 }

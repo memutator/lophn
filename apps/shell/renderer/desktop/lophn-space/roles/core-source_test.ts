@@ -6,12 +6,11 @@ import { ALL_ROUTES } from "../../../../../../packages/contracts/mod.ts";
 import type { CoreCall } from "../../../../ipc/core.ts";
 import type { CoreReply } from "../../../../ipc/core-api.ts";
 import type { CoreSource } from "../../connection/connection.ts";
-import { coreRolesSource, definitionOf, presetOf } from "./core-source.ts";
-import type { PresetDefinition, RoleRow, WorkRow } from "./source.ts";
+import { coreRolesSource } from "./core-source.ts";
+import type { RoleRow, WorkRow } from "./source.ts";
 
 const ASG = "asg_01h455vb4pex5v6nkc6gd5fd01";
 const PST = "pst_01h455vb4pex5v6nkc6gd5fd01";
-const PVD = "pvd_01h455vb4pex5v6nkc6gd5fd01";
 const APP = "app_01h455vb4pex5v6nkc6gd5fd01";
 const SES = "ses_01h455vb4pex5v6nkc6gd5fd01";
 const MSG = "msg_01h455vb4pex5v6nkc6gd5fd01";
@@ -92,50 +91,6 @@ const OPTIONS = {
   random: () => "r1",
 };
 
-function assignment(over: object = {}) {
-  return {
-    id: ASG,
-    role: "app_engineer",
-    scope: { kind: "app", id: APP },
-    state: "enabled",
-    preset: PST,
-    preset_revision: 2,
-    outputs: [],
-    revision: 5,
-    ...over,
-  };
-}
-
-function presetValue(over: object = {}, definition: object = {}) {
-  return {
-    id: PST,
-    revision: 2,
-    definition_hash: "d".repeat(64),
-    definition: {
-      kind: "app_engineer",
-      name: "App Engineer",
-      origin: "product",
-      prompt: "a".repeat(64),
-      capability: { bundles: [{ name: "documents", revision: 1 }], tools: [] },
-      context: [{ kind: "all", target: null, section: null }],
-      mcp: { servers: [], tools: [] },
-      safe_tools: [],
-      skills: [],
-      model: {
-        provider: PVD,
-        credentials: ["main"],
-        model_name: "claude-a",
-        reasoning_level: "medium",
-        options: {},
-      },
-      organizing_model: null,
-      instructions: [],
-      ...definition,
-    },
-    ...over,
-  };
-}
-
 function runValue(id: string, over: object = {}) {
   return {
     id,
@@ -163,33 +118,6 @@ const ROLE: RoleRow = {
   presetName: "App Engineer",
   outputs: [],
 };
-
-Deno.test("shell/desktop#R4: 역할 목록은 assignments와 presets를 읽어 역할·범위·Preset 이름으로 옮기고 읽기 입력은 route schema를 통과한다", async () => {
-  const { core, calls } = fakeCore({
-    "read:assignments/list": () =>
-      ok({
-        assignments: [assignment({ outputs: [{ document: "doc_x" }] })],
-        next_cursor: null,
-      }),
-    "read:presets/list": () =>
-      ok({ presets: [presetValue()], next_cursor: null }),
-  });
-  const source = coreRolesSource(core, OPTIONS);
-  const roles = await source.roles();
-  assert(roles.ok);
-  assertEquals(roles.value, [{
-    id: ASG,
-    role: "app_engineer",
-    state: "enabled",
-    revision: 5,
-    scope: { kind: "app", id: APP },
-    preset: { id: PST, revision: 2 },
-    presetName: "App Engineer",
-    outputs: ["doc_x"],
-    operator: null,
-  }]);
-  assertValid(calls);
-});
 
 Deno.test("shell/desktop#R5: 하는 일은 담당의 일을 읽고 앞선 일이 멈춘 일만 다시 시작 대상으로 만들며 다시 시작·멈추기·재개의 입력과 비교 기준이 route schema를 통과한다", async () => {
   const { core, calls } = fakeCore({
@@ -452,147 +380,6 @@ Deno.test("lophn-agent/revert#R6: 되돌리기는 확인 창에 RevertRun과 그
   }]);
   const closed = coreRolesSource(core, { ...OPTIONS, openDecision: undefined });
   assertEquals(await closed.undo(RUN), { ok: false, code: "unavailable" });
-});
-
-Deno.test("lophn-agent/presets#R11: Preset 저장은 기본이면 사본 만들기, 사람이 만든 것이면 같은 Preset의 새 판이고 적용은 따로이며 입력과 비교 기준이 route schema를 통과한다", async () => {
-  const product = presetOf(presetValue() as never);
-  const mine = presetOf(
-    presetValue({ id: "pst_01h455vb4pex5v6nkc6gd5fd02", revision: 4 }, {
-      origin: "user",
-    }) as never,
-  );
-  const { core, calls } = fakeCore({
-    "command:presets/create": (body) => {
-      const input =
-        (body as { input: { id: string; definition: object } }).input;
-      return ok({
-        preset: {
-          ...presetValue({ id: input.id, revision: 1 }),
-          definition: input.definition,
-        },
-      });
-    },
-    "command:presets/revise": () =>
-      ok({ preset: presetValue({ revision: 5 }, { origin: "user" }) }),
-    "command:assignments/change-preset": () => ok({ assignment: {} }),
-  });
-  const source = coreRolesSource(core, OPTIONS);
-  const edited: PresetDefinition = {
-    ...product.definition,
-    name: "Careful",
-    skills: ["pdf-tools"],
-    servers: ["files"],
-    tools: [{ server: "files", tool: "read_file" }, {
-      server: "other",
-      tool: "x",
-    }],
-    decisions: {
-      ...product.definition.decisions!,
-      accounts: ["spare", "main"],
-    },
-  };
-  const copied = await source.savePreset(ROLE, product, edited, "ignored");
-  assert(copied.ok);
-  assertEquals(copied.value.revision, 1);
-  const create = calls.find((call) => call.method === "create")!;
-  const created = (create.body as {
-    input: { definition: Record<string, unknown>; copied_from: unknown };
-  }).input;
-  // 사본이다: 사람 Preset이고 원본 판을 가리킨다. 고치지 않은 prompt·capability는 원본 그대로다.
-  assertEquals(created.definition["origin"], "user");
-  assertEquals(created.copied_from, { preset: PST, revision: 2 });
-  assertEquals(created.definition["prompt"], "a".repeat(64));
-  assertEquals(created.definition["skills"], ["pdf-tools"]);
-  assertEquals(created.definition["mcp"], {
-    servers: ["files"],
-    tools: [{ server_name: "files", original_tool: "read_file" }],
-  });
-  assertEquals(
-    (created.definition["model"] as {
-      credentials: string[];
-      reasoning_level: string;
-    }).credentials,
-    ["spare", "main"],
-  );
-  assertEquals(
-    (created.definition["model"] as { reasoning_level: string })
-      .reasoning_level,
-    "medium",
-  );
-  const revised = await source.savePreset(ROLE, mine, {
-    ...mine.definition,
-    name: "Mine v5",
-  }, "Tidied");
-  assert(revised.ok);
-  assertEquals(revised.value.revision, 5);
-  const revise = calls.find((call) => call.method === "revise")!;
-  assertEquals((revise.body as { compare: unknown }).compare, { revision: 4 });
-  assert((await source.applyPreset(ROLE, PST, 2)).ok);
-  const applied = calls.find((call) => call.method === "change-preset")!;
-  assertEquals((applied.body as { compare: unknown }).compare, {
-    revision: 5,
-    role: "app_engineer",
-  });
-  assertValid(calls);
-  // 정의로 되돌려도 고치지 않은 자리가 그대로다.
-  assertEquals(definitionOf(product.definition).prompt, "a".repeat(64));
-});
-
-Deno.test("lophn-agent/extensions#R27: 선택지는 연결의 계정을 순서대로, MCP server의 분류된 tool만 읽고 model 이름은 catalog에서 읽는다", async () => {
-  const { core, calls } = fakeCore({
-    "read:providers/list": () =>
-      ok({
-        providers: [{
-          id: PVD,
-          name: "Claude",
-          definition: { key: "anthropic" },
-          credentials: [
-            { key: "spare", label: "Spare", order: 1 },
-            { key: "main", label: "Main", order: 0 },
-          ],
-        }],
-        next_cursor: null,
-      }),
-    "read:settings/get": () =>
-      ok({
-        settings: [{
-          key: "lophn-agent.extensions.mcp_servers",
-          value: [{
-            name: "files",
-            enabled: true,
-            classifications: { write_file: {}, read_file: {} },
-          }],
-        }],
-      }),
-    "read:agent-model-catalog/read": () =>
-      ok({
-        entries: [{ model_name: "b" }, { model_name: "a" }, {
-          model_name: "a",
-        }],
-      }),
-    "read:presets/list": () =>
-      ok({ presets: [presetValue()], next_cursor: null }),
-  });
-  const source = coreRolesSource(core, OPTIONS);
-  const choices = await source.choices();
-  assert(choices.ok);
-  assertEquals(choices.value.connections[0]!.accounts.map((item) => item.key), [
-    "main",
-    "spare",
-  ]);
-  assertEquals(choices.value.servers, [{
-    name: "files",
-    enabled: true,
-    tools: ["read_file", "write_file"],
-  }]);
-  assertEquals(await source.models("anthropic"), {
-    ok: true,
-    value: ["a", "b"],
-  });
-  const presets = await source.presets(ROLE);
-  assert(presets.ok);
-  assertEquals(presets.value[0]!.definition.decisions?.accounts, ["main"]);
-  assertValid(calls);
 });
 
 Deno.test("shell/desktop#R4: 대화 통로는 역할의 담당을 가리키고 새 대화는 그 역할로 열며 회수된 담당의 상태를 그대로 넘긴다", async () => {

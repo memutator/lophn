@@ -2247,51 +2247,6 @@ Deno.test({
     );
 
     await t.step(
-      "사람이 이미 멈춘 일은 update 복구가 다시 시작하지 않는다",
-      async () => {
-        const world = await openRecoveryWorld(AGENT_PLAN);
-        try {
-          await runUntilStopped(world, {
-            when: "after",
-            path: "/v1/tool-calls/finish",
-            nth: 2,
-          });
-          await world.restartCore();
-          const paused = await world.post("assignments/pause", USER_TOKEN, {
-            assignment: world.assignment.id,
-            reason: {
-              kind: "user",
-              detail: "paused while lophn was updating",
-              runs: [],
-              target: null,
-            },
-          }, { revision: world.assignment.revision, state: "enabled" });
-          assertEquals(paused.status, 200, JSON.stringify(paused.body));
-
-          const report = await world.runtime().driver.recover();
-          assert(report.ok);
-          assertEquals(report.value.map((entry) => entry.result), ["stopped"]);
-          const run = agentRun(world);
-          assertEquals(
-            [run["state"], run["outcome_kind"], run["outcome_reason"]],
-            ["finished", "stopped", "assignment_paused"],
-          );
-          // 새 model call도 새 효과도 없고 확정한 결과와 사람의 입력은 그대로다.
-          assertEquals(world.provider.requests().length, 1);
-          assertEquals(world.effects.writes, ["one"]);
-          assertEquals(agentToolRows(world).length, 2);
-          assertNothingAskedOfPerson(world);
-          await world.restartCore();
-          const again = await world.runtime().driver.recover();
-          assert(again.ok);
-          assertEquals(again.value, []);
-        } finally {
-          await world.dispose();
-        }
-      },
-    );
-
-    await t.step(
       "update가 오래 걸려도 누적 한도는 초기화되지 않아 한도를 넘으면 새 진입 없이 확정 결과를 남기고 끝낸다",
       async () => {
         const world = await openRecoveryWorld(AGENT_PLAN);

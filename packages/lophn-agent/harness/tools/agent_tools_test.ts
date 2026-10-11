@@ -1,11 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
-import type { z } from "zod";
 import { err, ok, type Result } from "../../../base/mod.ts";
-import {
-  applyOperatorAssignmentInputSchema,
-  operatorApprovalBundleSchema,
-  ROUTES,
-} from "../../../contracts/lophn-agent/mod.ts";
+import { ROUTES } from "../../../contracts/lophn-agent/mod.ts";
 import { approvalsGet } from "../../../contracts/platform/mod.ts";
 import {
   AGENT_TOOLS,
@@ -17,7 +12,7 @@ import {
   type RunCredential,
 } from "./mod.ts";
 
-// agent 일 tool 묶음(question·approval·preset·assignment·run·handoff)의 정의와 handler를 본다.
+// agent 일 tool 묶음(question·approval·assignment·run·handoff)의 정의와 handler를 본다.
 // 실제 core를 거친 handoff 계보는 apps/core/handoff_test.ts가 본다.
 
 const RUN = "run_01arz3ndektsv4rrffq69g5fav";
@@ -68,25 +63,23 @@ function listedAll() {
   );
 }
 
-Deno.test("lophn-agent/harness/tools#R10: preset·assignment tool은 읽기만 있고 소유 contract의 변경 command를 부르는 tool이 없다", () => {
+Deno.test("lophn-agent/harness/tools#R10: assignment tool은 읽기만 있고 소유 contract의 변경 command를 부르는 tool이 없다", () => {
   const owned = AGENT_TOOLS.filter((tool) =>
-    tool.name.startsWith("preset.") || tool.name.startsWith("assignment.")
+    tool.name.startsWith("assignment.")
   );
   assertEquals(owned.map((tool) => tool.name).sort(), [
     "assignment.list",
     "assignment.read",
-    "preset.list",
-    "preset.read",
   ]);
   for (const tool of owned) {
     assertEquals(tool.effect, "read", tool.name);
     assertEquals(tool.confirm, false, tool.name);
   }
-  // 어떤 tool도 preset·assignment·run ledger의 변경 command를 소유 contract로 갖지 않는다.
+  // 어떤 tool도 assignment·run ledger의 변경 command를 소유 contract로 갖지 않는다.
   const mutating = new Set(
     ROUTES.filter((route) =>
       route.kind === "command" &&
-      ["presets", "assignments", "assignment-occurrences", "runs"].includes(
+      ["assignments", "assignment-occurrences", "runs"].includes(
         route.resource,
       )
     ).map((route) => route.name),
@@ -107,12 +100,9 @@ Deno.test("lophn-agent/harness/tools#R10: preset·assignment tool은 읽기만 �
   // 적용·변경 동작은 이름 자체가 없어 실행기가 소유 contract를 부르기 전에 없는 tool로 답한다.
   const calls: Call[] = [];
   const names = [
-    "preset.create",
-    "preset.revise",
     "assignment.create",
     "assignment.apply",
     "assignment.pause",
-    "assignment.change_preset",
   ];
   for (const name of names) {
     assertEquals(listedAll().some((tool) => tool.name === name), false, name);
@@ -122,7 +112,7 @@ Deno.test("lophn-agent/harness/tools#R10: preset·assignment tool은 읽기만 �
       {
         listed: listedAll(),
         handlers: createAgentToolHandlers(ports(calls)),
-        credential: credential(["CreateAssignment", "ApplyOperatorAssignment"]),
+        credential: credential(["CreateOperatorAssignment", "PauseAssignment"]),
       },
       name,
       { assignment: ASG },
@@ -650,125 +640,25 @@ Deno.test("lophn-agent/harness/tools#R12: 소유 contract가 거절한 오류 �
   assertEquals(outcome.result.summary.includes(ASG), false);
 });
 
-// 승인에 묶일 bundle 초안이다. 모델은 bundle 모양 그대로만 쓰고 id·요청자·run·기한은
-// handler가 채운다(P9, assignments#R4).
-function bundle(
-  over: Partial<z.infer<typeof operatorApprovalBundleSchema>> = {},
-): z.infer<typeof operatorApprovalBundleSchema> {
-  return operatorApprovalBundleSchema.parse({
-    draft_version: VER,
-    assignment: null,
-    expected_assignment_revision: null,
-    preset: "pst_01arz3ndektsv4rrffq69g5fav",
-    preset_revision: 1,
-    preset_definition: "a".repeat(64),
-    scope: { kind: "project", id: "prj_01arz3ndektsv4rrffq69g5fav" },
-    outputs: [{ document: DOC, content: "주간 변화" }],
-    read_apps: [],
-    read_commands: [],
-    schedule: {
-      first_at: "2026-02-01T00:00:00.000Z",
-      every_ms: 3_600_000,
+Deno.test("lophn-agent/harness/tools#R10 lophn-agent/assignments#R4 [agent-R12]: preset tools and the Operator proposal tool are gone, so an agent has no way to create or change an assignment", async () => {
+  const defined = new Set(AGENT_TOOLS.map((tool) => tool.name));
+  for (
+    const name of ["preset.list", "preset.read", "approval.submit_assignment"]
+  ) {
+    assertEquals(defined.has(name), false, name);
+    assertEquals(listedAll().some((tool) => tool.name === name), false, name);
+  }
+  const calls: Call[] = [];
+  const outcome = await executeTool(
+    {
+      listed: listedAll(),
+      handlers: createAgentToolHandlers(ports(calls)),
+      credential: credential(["CreateOperatorAssignment"]),
     },
-    reason: "watch 변화가 반복된다",
-    ...over,
-  });
-}
-
-Deno.test("lophn-agent/harness/tools#R4: approval.submit_assignment는 create_approval_request 하나에 정확한 action을 싣고 대리 결정·직접 apply는 없다", async () => {
-  const calls: Call[] = [];
-  const deps = {
-    listed: listedAll(),
-    handlers: createAgentToolHandlers(ports(calls)),
-    credential: credential(["create_approval_request"]),
-  };
-  const sent = await executeTool(
-    deps,
     "approval.submit_assignment",
-    bundle(),
+    {},
   );
-  assertEquals(sent.outcome.kind, "success");
-  assertEquals(calls.length, 1);
-  assertEquals(calls[0]!.contract, "create_approval_request");
-  const created = calls[0]!.input as Record<string, unknown>;
-  // id·요청자·run·기한은 모델이 정하지 않는다(P9).
-  const aprId = String(created["id"]);
-  assert(/^apr_/.test(aprId));
-  assertEquals(created["requester"], `agent:${ASG}`);
-  assertEquals(created["run"], RUN);
-  assertEquals(created["expires_at"], null);
-  assertEquals(created["reason"], "watch 변화가 반복된다");
-  // action은 적용 command 하나에 묶인다(lophn-agent#T53의 입력 모양 맞춤).
-  const action = created["action"] as Record<string, unknown>;
-  assertEquals(action["concern"], "lophn-agent/assignments");
-  assertEquals(action["command"], "ApplyOperatorAssignment");
-  assertEquals(action["caller"], `agent:${ASG}`);
-  // 대상은 승인이 묶을 assignment 하나다: creating 초안은 새로 만들 id다.
-  assertEquals(
-    (action["targets"] as string[])[0],
-    applyInputValue(action)["id"],
-  );
-  assert(action["binding_hash"] !== action["input_hash"]);
-  // 입력은 apply가 받는 모양 그대로다(lophn-agent#T53): 접수 필드
-  // (approval·id)를 handler가 채우고, 결정 seq는 허락이 확정하는 것이라 생략하고
-  // apply handler가 승인 기록으로 맞춘다. 초안 번들은 사람이 검토한 모양 그대로다.
-  const applyInput = applyInputValue(action);
-  assertEquals(applyInput["approval"], aprId);
-  assertEquals("decision_seq" in applyInput, false);
-  assertEquals(applyInput["bundle"], bundle());
-  // action.input.value는 apply contract의 입력 schema를 그대로 통과한다.
-  assert(
-    applyOperatorAssignmentInputSchema.safeParse(applyInput).success,
-  );
-});
-
-function applyInputValue(
-  action: Record<string, unknown>,
-): Record<string, unknown> {
-  return (action["input"] as { value: Record<string, unknown> })["value"]!;
-}
-
-Deno.test("lophn-agent/harness/tools#R4: 같은 bundle 초안은 같은 binding hash를 내고 정의 밖 자유 입력은 거절된다", async () => {
-  const calls: Call[] = [];
-  const deps = {
-    listed: listedAll(),
-    handlers: createAgentToolHandlers(ports(calls)),
-    credential: credential(["create_approval_request"]),
-  };
-  const first = await executeTool(deps, "approval.submit_assignment", bundle());
-  assertEquals(first.outcome.kind, "success");
-  const hashOne =
-    (calls[0]!.input as Record<string, unknown>)["action"] as Record<
-      string,
-      unknown
-    >;
-  const second = await executeTool(
-    deps,
-    "approval.submit_assignment",
-    bundle(),
-  );
-  assertEquals(second.outcome.kind, "success");
-  const hashTwo =
-    (calls[1]!.input as Record<string, unknown>)["action"] as Record<
-      string,
-      unknown
-    >;
-  assertEquals(hashOne["binding_hash"], hashTwo["binding_hash"]);
-  assertEquals(hashOne["input_hash"], hashTwo["input_hash"]);
-  assertEquals(calls.length, 2);
-  // 정의 schema가 거절하는 자유 입력은 소유 contract에 닿기 전에 막힌다.
-  const smuggled = await executeTool(deps, "approval.submit_assignment", {
-    ...bundle(),
-    tool: "doc.write",
-  });
-  assertEquals(smuggled.outcome.code, "invalid_input");
-  // 비어 있는 이유는 bundle 모양이 거절한다. parse가 아니라 실행 입력으로 거절된다.
-  const raw = { ...bundle(), reason: " " };
-  const blank = await executeTool(
-    deps,
-    "approval.submit_assignment",
-    raw as unknown,
-  );
-  assertEquals(blank.outcome.code, "invalid_input");
-  assertEquals(calls.length, 2);
+  assertEquals(outcome.executed, false);
+  assertEquals(outcome.outcome.code, "not_found");
+  assertEquals(calls, []);
 });

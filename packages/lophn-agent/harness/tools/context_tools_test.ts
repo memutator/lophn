@@ -1,10 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
 import { err, ok, type Result } from "../../../base/mod.ts";
-import {
-  productPresetDefinition,
-  validateDefinition,
-  type ValidateDeps,
-} from "../../presets/mod.ts";
 import { ROLE_CAPS } from "../../agents/mod.ts";
 import {
   BUILTIN_TOOLS,
@@ -747,8 +742,6 @@ Deno.test("lophn-agent/roles/context-engineer#R4: Context Engineer의 읽기 선
     "format.validate",
     "handoff.read_result",
     "handoff.read_status",
-    "preset.list",
-    "preset.read",
     "project.list",
     "project.read",
     "question.read_decision",
@@ -770,7 +763,7 @@ Deno.test("lophn-agent/roles/context-engineer#R4: Context Engineer의 읽기 선
   assertEquals(undefinedYet, []);
 });
 
-Deno.test("lophn-agent/roles/context-engineer#R4: 목록은 20개씩 이어 읽고 조건이 다른 cursor는 거절하며 읽기 묶음은 역할 상한 안이다", async () => {
+Deno.test("lophn-agent/roles/context-engineer#R4: 목록은 20개씩 이어 읽고 조건이 다른 cursor는 거절하며 읽기 묶음은 읽기만 담는다", async () => {
   const { world, run } = rig();
   for (let n = 1; n <= 45; n += 1) world.seedContext(n);
   const first = await run("context.list", {});
@@ -794,7 +787,7 @@ Deno.test("lophn-agent/roles/context-engineer#R4: 목록은 20개씩 이어 읽�
   });
   assertEquals(other.outcome.kind, "failure");
   assertEquals(other.outcome.code, "invalid_input");
-  // 읽기 묶음은 읽기만 담고 쓰기 묶음과 따로 고르며, 역할 상한은 묶음 뒤에도 적용된다.
+  // 읽기 묶음은 읽기만 담고 쓰기 묶음과 따로 고른다.
   const defined = new Map(BUILTIN_TOOLS.map((tool) => [tool.name, tool]));
   for (const name of TOOL_BUNDLES.get("context-read")!) {
     assertEquals(defined.get(name)!.effect, "read", name);
@@ -803,47 +796,6 @@ Deno.test("lophn-agent/roles/context-engineer#R4: 목록은 20개씩 이어 읽�
     assertEquals(defined.get(name)!.effect, "read", name);
   }
   assertEquals(TOOL_BUNDLES.get("context-write"), CONTEXT_WRITE_TOOL_NAMES);
-  const validate: ValidateDeps = {
-    bundles: TOOL_BUNDLES,
-    mcpServers: new Map(),
-    roleCaps: ROLE_CAPS,
-    definitionKey: () => undefined,
-    catalogEntry: () => undefined,
-    modelListed: () => null,
-    credentialKeys: () => [],
-  };
-  const selecting = (
-    kind: "context_engineer" | "operator",
-    names: string[],
-  ) => ({
-    ...productPresetDefinition("context_engineer", "a".repeat(64)),
-    kind,
-    capability: {
-      bundles: names.map((name) => ({ name, revision: 1 })),
-      tools: [],
-    },
-  });
-  const engineer = validateDefinition(
-    selecting("context_engineer", [
-      "context-read",
-      "context-write",
-      "metadata-read",
-    ]),
-    validate,
-  );
-  assert(engineer.ok, JSON.stringify(engineer));
-  // Operator 상한에는 context 변경이 없고 읽기도 일부만이라 두 묶음 모두 거절된다.
-  const operatorWrite = validateDefinition(
-    selecting("operator", ["context-write"]),
-    validate,
-  );
-  assertEquals(operatorWrite.ok, false);
-  assertEquals(!operatorWrite.ok && operatorWrite.error.code, "forbidden");
-  const operatorRead = validateDefinition(
-    selecting("operator", ["context-read"]),
-    validate,
-  );
-  assertEquals(operatorRead.ok, false);
 });
 
 Deno.test("lophn-agent/roles/context-engineer#R4: 범위 밖 context와 없는 context의 읽기는 같은 결과이고 이름이나 원문 오류를 싣지 않는다", async () => {
@@ -947,7 +899,7 @@ Deno.test("lophn-agent/roles/context-engineer#R5: 쓰기 tool은 context 생성�
   );
 });
 
-Deno.test("lophn-agent/roles/context-engineer#R5: Context Engineer의 쓰기 선택은 context·용어 변경, 요청 범위 보고 저장, 질문과 허용 handoff, Operator 초안 제출뿐이다", () => {
+Deno.test("lophn-agent/roles/context-engineer#R5: Context Engineer의 쓰기 선택은 context·용어 변경, 요청 범위 보고 저장, 질문과 허용 handoff뿐이다", () => {
   const caps = ROLE_CAPS.get("context_engineer")!.tools;
   const defined = new Map(BUILTIN_TOOLS.map((tool) => [tool.name, tool]));
   const writes = caps.filter((name) => defined.get(name)?.effect === "write");
@@ -955,7 +907,6 @@ Deno.test("lophn-agent/roles/context-engineer#R5: Context Engineer의 쓰기 선
     writes.slice().sort(),
     [
       ...CONTEXT_WRITE_TOOL_NAMES,
-      "approval.submit_assignment",
       "document.create",
       "document.save_version",
       "handoff.submit",
@@ -981,11 +932,6 @@ Deno.test("lophn-agent/roles/context-engineer#R5: Context Engineer의 쓰기 선
       /submit|apply|approve/.test(name)
     ).sort(),
     [],
-  );
-  // 초안 제출은 platform/approvals의 소유 contract로 person 결정을 연다(P9).
-  assertEquals(
-    defined.get("approval.submit_assignment")!.contract,
-    "create_approval_request",
   );
   for (const name of defined.keys()) {
     assertEquals(

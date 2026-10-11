@@ -156,7 +156,8 @@ Deno.test("T3-integration: registered loopback provider serves read, rejects age
     const registeredBody = await registered.json() as {
       provider?: { revision?: number };
     };
-    assertEquals(registeredBody.provider?.revision, 1);
+    // revision은 등록 event의 seq다. core 기동이 내장 assignment 둘을 먼저 만들어 1이 아니다.
+    assert((registeredBody.provider?.revision ?? 0) >= 1);
 
     // user read는 200이다. read body는 등록된 인자 객체 그대로다.
     const read = await post(

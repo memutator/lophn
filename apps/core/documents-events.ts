@@ -32,7 +32,10 @@ import type {
 } from "../../packages/contracts/platform/mod.ts";
 import { createProjectEventVisibility } from "../../packages/documents/projects/mod.ts";
 import type { EventRegistration } from "../../packages/platform/ledger/mod.ts";
-import { notificationsOnlyVisibility } from "./platform.ts";
+import {
+  isAssignmentReactions,
+  notificationsOnlyVisibility,
+} from "./platform.ts";
 
 export const DOCUMENTS_FEED_PRINCIPAL = "machine:documents-feed";
 
@@ -101,6 +104,26 @@ function withFeed<D extends EventDefinition>(
   return policy as unknown as EventVisibilityDefinition;
 }
 
+// project 보관·보관 해제는 assignments 반응 구독자도 읽는다. 그 자리의 켜진 assignment를 멈추고
+// 다시 켜는 계기다(lophn-agent/assignments#R14). 다른 자격은 feed와 owner 정책 그대로다.
+function withFeedAndAssignments<D extends EventDefinition>(
+  event: D,
+  owner: Handle<D>,
+): EventVisibilityDefinition {
+  const base = withFeed(event, owner) as unknown as EventVisibilityDefinition<
+    D
+  >;
+  const policy: EventVisibilityDefinition<D> = {
+    event,
+    handle(snapshot, ctx, envelope) {
+      return isAssignmentReactions(ctx)
+        ? ok(true)
+        : base.handle(snapshot, ctx, envelope);
+    },
+  };
+  return policy as unknown as EventVisibilityDefinition;
+}
+
 export function createDocumentsEventRegistration(): EventRegistration {
   const projects = createProjectEventVisibility();
   return {
@@ -110,8 +133,8 @@ export function createDocumentsEventRegistration(): EventRegistration {
       withFeed(projectUpdated, projects.updated.handle),
       // 규칙 변경의 사람 공개는 owner가 아직 정하지 않았다. feed에만 연다.
       withFeed(projectTrackingChanged),
-      withFeed(projectArchived, projects.archived.handle),
-      withFeed(projectUnarchived, projects.unarchived.handle),
+      withFeedAndAssignments(projectArchived, projects.archived.handle),
+      withFeedAndAssignments(projectUnarchived, projects.unarchived.handle),
       withFeed(documentCreated),
       withFeed(documentSaved),
       withFeed(documentSourceChanged),

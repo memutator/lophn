@@ -235,7 +235,6 @@ Deno.test("lophn-agent/roles/app-engineer#R5: AE 목록은 담당 범위 조회�
       "snapshot.read",
       "verification.read",
       "repair.read",
-      "preset.read",
       "assignment.read",
       "run.read_result",
       "handoff.read_status",

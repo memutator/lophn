@@ -8,7 +8,6 @@ import {
   type RunCredential,
   runOperations,
 } from "../../harness/tools/mod.ts";
-import { productPresetDefinition } from "../../presets/mod.ts";
 import { APP_COMMAND_EXPOSURE, ROLE_CAPS } from "../../agents/mod.ts";
 import { handoffAllowed, runSourceSchema } from "@lophn/contracts/lophn-agent";
 import {
@@ -33,7 +32,6 @@ function id(prefix: string, n: number): string {
 const RUN = id("run", 1);
 const ASSIGNMENT = id("asg", 1);
 const CALL = id("tcl", 1);
-const HASH = "a".repeat(64);
 
 // --- R1: 주기 또는 그 assignment 사람 요청으로만 일한다 ----------------------------
 
@@ -80,27 +78,6 @@ Deno.test("lophn-agent/roles/operator#R1: Operator 상한에는 주기 접수 to
 });
 
 // --- R2: 사람이 고른 preset 하나의 고정 판 ---------------------------------------
-
-Deno.test("lophn-agent/roles/operator#R2: Operator는 사람이 고른 preset 하나의 고정 판을 쓰고 제품 preset 자산이 준비돼 있다", () => {
-  // 제품 기본 preset은 Operator 역할 자산을 가리키고(presets#R9) 사람이 고른
-  // 판 하나로 고정된다(R2). prompt 값은 역할 prompt 자산의 hash다.
-  const preset = productPresetDefinition("context_engineer", `sha256:${HASH}`);
-  assert(preset !== undefined);
-  assertEquals(preset.origin, "product");
-  assertEquals(preset.prompt, `sha256:${HASH}`);
-  // preset 편집·복사·재사용은 presets의 몫이라 Operator 상한에는 preset 쓰기
-  // tool이 없다(R2). 읽기만 있다.
-  const cap = ROLE_CAPS.get("operator");
-  assert(cap !== undefined);
-  assertEquals(cap.tools.includes("preset.read"), false);
-  assertEquals(
-    cap.tools.filter((tool) =>
-      tool.startsWith("preset.create") || tool.startsWith("preset.revise") ||
-      tool.startsWith("preset.copy")
-    ),
-    [],
-  );
-});
 
 Deno.test("lophn-agent/roles/operator#R2: 승인 전 실행할 assignment 등록은 없고 등록은 approval 경유의 Assignments 몫이다", () => {
   // assignment 등록(approvals/apply 경유)은 assignments의 몫이다(R2). Operator
@@ -445,22 +422,6 @@ Deno.test("lophn-agent/roles/operator#R8: T53의 receiver roles 화면은 사람
 });
 
 // --- R9: 해석·판단·본문·제목은 preset model과 organizing 선택 ---------------------
-
-Deno.test("lophn-agent/roles/operator#R9: 판 용도는 judgment·organizing 둘이고 organizing 선택이 없으면 같은 판의 model을 쓴다", () => {
-  // 제품 preset은 사람이 provider를 고르기 전까지 model·organizing_model이
-  // null(미준비)이다(presets#R13, R9).
-  const preset = productPresetDefinition("context_engineer", `sha256:${HASH}`);
-  assertEquals(preset.model, null);
-  assertEquals(preset.organizing_model, null);
-  // 판 용도 구별은 preset의 model·organizing_model 두 선택 항목이다(R9, roles/common#R8).
-  const cap = ROLE_CAPS.get("operator");
-  assert(cap !== undefined);
-  const modelTools = cap.tools.filter((tool) =>
-    tool.startsWith("model.") || tool.startsWith("claude") ||
-    tool.startsWith("gpt")
-  );
-  assertEquals(modelTools, []);
-});
 
 Deno.test("lophn-agent/roles/operator#R9: Operator 상한은 model 이름을 고정하지 않고 실제 provider 계정·model은 판이 고른다", () => {
   // 상한은 model 이름을 고정하지 않는다(roles/common#R8). 계정·model은 판(preset

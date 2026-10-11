@@ -14,7 +14,6 @@ import type {
 } from "../../../packages/contracts/platform/mod.ts";
 import { textContent } from "../../../packages/lophn-agent/conversation/testing/mod.ts";
 import { createLedgerHarness, type LedgerHarness } from "./ledger.ts";
-import { presetDefinitionJson } from "../../../packages/lophn-agent/harness/run-loop/testing/mod.ts";
 import {
   agentRun,
   cred,
@@ -143,29 +142,16 @@ async function sql(
 
 async function seedAssignments(h: LedgerHarness) {
   for (
-    const [kind, assignment, n] of [
-      ["lophn", ASG_LOPHN, 1],
-      ["context_engineer", ASG_CE, 2],
+    const [kind, assignment] of [
+      ["lophn", ASG_LOPHN],
+      ["context_engineer", ASG_CE],
     ] as const
   ) {
-    const definition = presetDefinitionJson(kind);
-    value(
-      await h.command(
-        machineCred,
-        env("RegisterDefaultPreset", {
-          id: id("pst", n),
-          definition,
-          definition_hash: hashOf(definition),
-        }),
-      ),
-    );
     value(
       await h.command(
         machineCred,
         env("CreateBuiltinAssignment", {
           id: assignment,
-          preset: id("pst", n),
-          preset_revision: 1,
           role: kind,
           scope: { kind: "all", id: null },
         }),

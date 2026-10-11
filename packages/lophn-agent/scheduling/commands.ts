@@ -3,7 +3,6 @@ import {
   type acceptRun,
   assignmentScheduleAdvanced,
   processAssignmentOccurrence,
-  type Schedule,
 } from "../../contracts/lophn-agent/mod.ts";
 import {
   type CommandDefinition,
@@ -21,6 +20,7 @@ import {
   type Round,
   roundFor,
   sameRound,
+  type Schedule,
   UNFINISHED_RUN_STATES,
 } from "./model.ts";
 

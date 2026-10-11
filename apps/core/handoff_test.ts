@@ -44,6 +44,7 @@ import {
   type Reply,
   type Server,
 } from "./testing/approvals-fixture.ts";
+import { setAssignmentState } from "./testing/assignment-state.ts";
 import { closeUnlessKept } from "./testing/close-on-throw.ts";
 
 const ALPHA = "0123456789abcdefghjkmnpqrstvwxyz";
@@ -467,17 +468,7 @@ Deno.test("lophn-agent/handoff#R2: 받을 assignment가 없거나 멈췄으면 �
     assertEquals(codeOf(self), "invalid_input");
 
     // 사람이 받는 assignment를 멈추면 새 handoff는 시작되지 않는다.
-    const paused = await send(
-      world,
-      "assignments/pause",
-      world.user,
-      {
-        assignment: world.editor.id,
-        reason: { kind: "user", detail: "잠시 멈춘다", runs: [], target: null },
-      },
-      { revision: world.editor.revision, state: "enabled" },
-    );
-    assertEquals(paused.status, 200, JSON.stringify(paused.body));
+    setAssignmentState(world.server.dataRoot, world.editor.id, "paused");
     const stopped = await submit(
       world,
       sender,
@@ -978,30 +969,13 @@ Deno.test("lophn-agent/handoff#R9: 같은 handoff 재전송은 수신 run 하나
     assertEquals(runsCount(world), runs);
 
     // 받는 assignment가 멈춰도 같은 요청의 replay는 저장된 결과를 준다(새 run은 없다).
-    const paused = await send(
-      world,
-      "assignments/pause",
-      world.user,
-      {
-        assignment: world.editor.id,
-        reason: { kind: "user", detail: "잠시 멈춘다", runs: [], target: null },
-      },
-      { revision: world.editor.revision, state: "enabled" },
-    );
-    assertEquals(paused.status, 200, JSON.stringify(paused.body));
+    setAssignmentState(world.server.dataRoot, world.editor.id, "paused");
     const afterPause = await submit(world, sender, submission(world));
     assertEquals(afterPause.status, 200, JSON.stringify(afterPause.body));
     assertEquals(runsCount(world), runs);
 
     // 끝난 수신 run에 대한 멈춤은 기존 결과를 돌려주고 바꾸지 않는다(run-loop 규칙).
-    const resumed = await send(
-      world,
-      "assignments/resume",
-      world.user,
-      { assignment: world.editor.id },
-      { revision: world.editor.revision + 1, state: "paused" },
-    );
-    assertEquals(resumed.status, 200, JSON.stringify(resumed.body));
+    setAssignmentState(world.server.dataRoot, world.editor.id, "enabled");
     await startRun(world, RUN_B, world.editor);
     const done = await finishRun(world, RUN_B);
     assertEquals(done.status, 200, JSON.stringify(done.body));

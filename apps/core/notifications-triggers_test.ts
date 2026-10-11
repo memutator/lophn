@@ -38,7 +38,6 @@ function id(prefix: string, n: number): string {
   return `${prefix}_${"0".repeat(25)}${n}`;
 }
 
-const HASH = "ab".repeat(32);
 const CLOSURE = {
   reason: "verified",
   basis_seq: "1",
@@ -48,11 +47,10 @@ const CLOSURE = {
   last_report: null,
   note: null,
 };
-const PAUSED_BY_FAILURES = {
-  kind: "consecutive_failures",
-  detail: "연속 세 번 실패했다",
-  runs: [id("run", 1), id("run", 2), id("run", 3)],
-  target: null,
+const PAUSED_BY_ARCHIVE = {
+  kind: "scope_archived",
+  detail: "The app was archived.",
+  target: id("app", 1),
 };
 const TICKET_BASE = {
   app: id("app", 1),
@@ -98,8 +96,7 @@ const SOURCES: Record<string, { subject: string; payload: unknown }> = {
     payload: {
       before: 1,
       after: 2,
-      reason: PAUSED_BY_FAILURES,
-      definition_hash: HASH,
+      reason: PAUSED_BY_ARCHIVE,
     },
   },
   TicketConfirmed: { subject: id("tkt", 1), payload: TICKET_BASE },
@@ -230,31 +227,6 @@ Deno.test("platform/notifications#R1: 소유 concern 계기 event 아홉 중 pla
       notification: items[0].notification.id,
     });
     assertEquals(got.status, 200, JSON.stringify(got.body));
-  });
-});
-
-Deno.test("platform/notifications#R2: 사람이 직접 멈춘 assignment는 같은 정책을 지나도 notification이 되지 않는다", async () => {
-  await withCore(async (harness) => {
-    const user = await login(harness, "user", "user-1", [
-      "notification_source.emit",
-      "ListNotifications",
-    ]);
-    await emit(harness, user, "AssignmentPaused", {
-      subject: id("asg", 2),
-      payload: {
-        before: 1,
-        after: 2,
-        reason: { kind: "user", detail: "잠시 멈춤", runs: [], target: null },
-        definition_hash: HASH,
-      },
-    });
-    // 뒤따르는 계기가 notification이 되면 앞의 비계기 event는 읽고 지나간 것이다.
-    await emit(harness, user, "QuestionCreated", SOURCES.QuestionCreated);
-    const items = await listedEvents(harness, user, 1);
-    await new Promise((resolve) => setTimeout(resolve, 600));
-    const again = await listedEvents(harness, user, 1);
-    assertEquals(items.map((item) => item.source_event), ["QuestionCreated"]);
-    assertEquals(again.map((item) => item.source_event), ["QuestionCreated"]);
   });
 });
 

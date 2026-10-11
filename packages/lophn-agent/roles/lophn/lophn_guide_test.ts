@@ -5,8 +5,6 @@ import {
   type SettingDefinitionOutput,
   settingDefinitionSchema,
 } from "@lophn/contracts/platform";
-import { createBuiltinAssignmentInputSchema } from "@lophn/contracts/lophn-agent";
-import { productPresetDefinition } from "../../presets/mod.ts";
 import {
   checkOptionAction,
   optionBindingHash,
@@ -195,23 +193,6 @@ Deno.test("lophn-agent/roles/lophn#R15: the thresholds are four distinct days, t
     }),
   ]).drafts[0]!;
   assert(draft.recommendation.explanation.includes("4 or more different days"));
-});
-
-Deno.test("lophn-agent/roles/lophn#R15: the lophn preset and assignment carry no schedule, so dates and views start no run", () => {
-  const preset = productPresetDefinition("lophn", "a".repeat(64));
-  const words = ["schedule", "occurrence", "cron", "every_ms", "interval"];
-  const keys = [
-    ...Object.keys(preset),
-    ...Object.keys(createBuiltinAssignmentInputSchema.shape),
-  ];
-  for (const word of words) {
-    assert(!keys.some((key) => key.includes(word)), word);
-  }
-  // 추천은 순수 함수다. 같은 입력은 같은 결과이고 시계를 읽지 않는다.
-  const targets = [target(0, {
-    signals: { viewed_days_30d: 9, backrefs: 9, base_contexts: 9 },
-  })];
-  assertEquals(recommendPlaces(targets), recommendPlaces(targets));
 });
 
 const GUIDES: GuideText[] = [

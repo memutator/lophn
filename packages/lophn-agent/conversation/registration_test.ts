@@ -4,11 +4,6 @@ import { ACTOR_KINDS, defineCommand } from "../../contracts/platform/mod.ts";
 import { registerMessageBodyRef } from "./testing/mod.ts";
 import type { LedgerTestRegistration } from "../../../apps/core/testing/ledger.ts";
 import {
-  createPresetCommands,
-  createPresetReads,
-  presetSchemaSteps,
-} from "../presets/mod.ts";
-import {
   assignmentSchemaSteps,
   createAssignmentCommands,
   createAssignmentReads,
@@ -19,7 +14,6 @@ import {
   deleteSessionRuns,
   runSchemaSteps,
 } from "../harness/run-loop/mod.ts";
-import { presetValidateDeps } from "../harness/run-loop/testing/mod.ts";
 import { modelSchemaSteps } from "../harness/model/mod.ts";
 import {
   conversationSchemaSteps,
@@ -65,11 +59,25 @@ const seedOperatorRoute = defineCommand({
   name: "SeedOperatorFixture",
   input: z.strictObject({
     id: z.string(),
-    preset: z.string(),
     scope_kind: z.enum(["project", "app"]),
     scope_id: z.string(),
   }),
   output: z.strictObject({ id: z.string() }),
+  compare: z.strictObject({}),
+  actors: ACTOR_KINDS,
+  errors: ["conflict"],
+});
+
+// assignment를 멈추거나 되돌린다. 멈춤을 낳는 자리 보관 event는 이 시험의 관심이 아니다.
+const seedAssignmentStateRoute = defineCommand({
+  resource: "conversation-fixture",
+  method: "seed-assignment-state",
+  name: "SeedAssignmentState",
+  input: z.strictObject({
+    assignment: z.string(),
+    state: z.enum(["enabled", "paused"]),
+  }),
+  output: z.strictObject({ assignment: z.string() }),
   compare: z.strictObject({}),
   actors: ACTOR_KINDS,
   errors: ["conflict"],
@@ -114,8 +122,6 @@ const unpreparedRoute = defineCommand({
 });
 
 export function createLedgerTestRegistration(): LedgerTestRegistration {
-  const presetCommands = createPresetCommands(presetValidateDeps());
-  const presetReads = createPresetReads();
   const assignmentCommands = createAssignmentCommands();
   const assignmentReads = createAssignmentReads();
   const runCommands = createRunCommands({ hasUnappliedSteering });
@@ -150,7 +156,6 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
             undefined,
       ),
     schemaSteps: [
-      ...presetSchemaSteps,
       ...assignmentSchemaSteps,
       ...runSchemaSteps,
       // Compact가 Workspace의 Model for summaries(agent_model_defaults)를 읽는다.
@@ -172,13 +177,9 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
       },
     ],
     commands: [
-      presetCommands.registerDefault,
-      presetCommands.create,
-      presetCommands.revise,
       assignmentCommands.createBuiltin,
       assignmentCommands.createAppEngineer,
-      assignmentCommands.applyOperator,
-      assignmentCommands.changePreset,
+      assignmentCommands.createOperator,
       assignmentCommands.pause,
       assignmentCommands.resume,
       assignmentCommands.withdraw,
@@ -233,17 +234,34 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
         handle(tx, _ctx, input) {
           const seeded = input as {
             id: string;
-            preset: string;
             scope_kind: string;
             scope_id: string;
           };
           tx.sql.run(
-            `insert into assignments (id, preset_id, preset_revision, role,
-               scope_kind, scope_id, state, revision)
-             values (?, ?, 1, 'operator', ?, ?, 'enabled', 1)`,
-            [seeded.id, seeded.preset, seeded.scope_kind, seeded.scope_id],
+            `insert into assignments (id, role, scope_kind, scope_id, state,
+               revision)
+             values (?, 'operator', ?, ?, 'enabled', 1)`,
+            [seeded.id, seeded.scope_kind, seeded.scope_id],
           );
           return ok({ id: seeded.id });
+        },
+      },
+      {
+        route: seedAssignmentStateRoute,
+        handle(tx, _ctx, input) {
+          const seeded = input as { assignment: string; state: string };
+          const paused = seeded.state === "paused";
+          tx.sql.run(
+            `update assignments set state = ?, revision = revision + 1,
+               pause_detail = ?, pause_target = ? where id = ?`,
+            [
+              seeded.state,
+              paused ? "The place was archived." : null,
+              paused ? "prj_01arz3ndektsv4rrffq69g5fav" : null,
+              seeded.assignment,
+            ],
+          );
+          return ok({ assignment: seeded.assignment });
         },
       },
       {
@@ -283,12 +301,8 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
       },
     ],
     reads: [
-      presetReads.read,
-      presetReads.list,
-      presetReads.instructionAttachments,
       assignmentReads.read,
       assignmentReads.list,
-      assignmentReads.outputs,
       runReads.read,
       runReads.list,
       runReads.result,

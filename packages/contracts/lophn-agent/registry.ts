@@ -5,7 +5,6 @@ import { OCCURRENCE_EVENTS, OCCURRENCE_ROUTES } from "./occurrences.ts";
 import { QUESTION_COMMANDS, QUESTION_EVENTS } from "./questions.ts";
 import { HANDOFF_ROUTES } from "./handoffs.ts";
 import { REVERT_EVENTS, REVERT_ROUTES } from "./reverts.ts";
-import { PRESET_EVENTS, PRESET_ROUTES } from "./presets.ts";
 import { ASSIGNMENT_EVENTS, ASSIGNMENT_ROUTES } from "./assignments.ts";
 import { AGENT_EVENTS, AGENT_ROUTES } from "./agents.ts";
 import { COMMAND_ROUTES } from "./commands.ts";
@@ -31,7 +30,6 @@ export const ROUTES = [
   ...QUESTION_COMMANDS,
   ...HANDOFF_ROUTES,
   ...REVERT_ROUTES,
-  ...PRESET_ROUTES,
   ...ASSIGNMENT_ROUTES,
   ...AGENT_ROUTES,
   ...COMMAND_ROUTES,
@@ -56,7 +54,6 @@ export const EVENTS = [
   ...OCCURRENCE_EVENTS,
   ...QUESTION_EVENTS,
   ...REVERT_EVENTS,
-  ...PRESET_EVENTS,
   ...ASSIGNMENT_EVENTS,
   ...AGENT_EVENTS,
   ...PROVIDER_EVENTS,

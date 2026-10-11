@@ -3,7 +3,6 @@ import {
   contextItemSchema,
   contextPerspectiveSchema,
 } from "@lophn/contracts/documents";
-import type { CatalogEntry } from "@lophn/contracts/lophn-agent";
 import {
   fixedVersionReferenceSchema,
   handoffAllowed,
@@ -21,14 +20,8 @@ import {
   METADATA_TOOL_NAMES,
   type RunCredential,
   runOperations,
-  TOOL_BUNDLES,
   type ToolDefinition,
 } from "../../harness/tools/mod.ts";
-import {
-  productPresetDefinition,
-  validateDefinition,
-  type ValidateDeps,
-} from "../../presets/mod.ts";
 import { ROLE_CAPS } from "../../agents/mod.ts";
 import {
   CANDIDATE_DOCUMENT_MIN,
@@ -987,38 +980,6 @@ Deno.test("lophn-agent/roles/context-engineer#R10: 필요한 결정은 질문으
 
 // --- judgment·organizing 용도(R14) --------------------------------------------------------
 
-function catalogEntryFixture(over: Partial<CatalogEntry> = {}): CatalogEntry {
-  return {
-    provider_definition: "anthropic",
-    model_name: "claude-haiku-4-5",
-    context_limit: 200_000,
-    input_limit: 190_000,
-    output_limit: 8_000,
-    supports_tools: true,
-    input_media: ["text"],
-    output_media: ["text"],
-    options: [{
-      id: "effort",
-      label: "Effort",
-      values: [
-        { value: "low", label: "Low", wire: null },
-        { value: "medium", label: "Medium", wire: null },
-        { value: "high", label: "High", wire: null },
-      ],
-      default_value: "medium",
-      budget: null,
-    }],
-    preview: false,
-    deprecated: false,
-    source: "release_snapshot",
-    source_revision: "2026-10",
-    checked_at: "2026-10-07T00:00:00.000Z",
-    received_at: "2026-10-07T00:00:00.000Z",
-    price_basis: null,
-    ...over,
-  };
-}
-
 Deno.test("lophn-agent/roles/context-engineer#R14: 판단의 본문은 judgment, 정해진 보고 제목·요약은 organizing이다", () => {
   // 목적·경계·관점·term 해석의 본문은 judgment 용도다(R14).
   assertEquals(purposeOf("design_body"), "judgment");
@@ -1026,92 +987,6 @@ Deno.test("lophn-agent/roles/context-engineer#R14: 판단의 본문은 judgment,
   // 이미 정한 보고 제목·요약은 organizing 용도다(R14).
   assertEquals(purposeOf("report_title"), "organizing");
   assertEquals(purposeOf("report_summary"), "organizing");
-});
-
-Deno.test("lophn-agent/roles/context-engineer#R14: 실제 model 선택은 preset의 두 용도로 검증된다", () => {
-  const deps: ValidateDeps = {
-    bundles: TOOL_BUNDLES,
-    mcpServers: new Map(),
-    roleCaps: ROLE_CAPS,
-    definitionKey: (provider) =>
-      provider === id("pvd", 1) ? "anthropic" : undefined,
-    modelListed: (_definition, modelName) => modelName === "claude-haiku-4-5",
-    credentialKeys: (provider) => provider === id("pvd", 1) ? ["key-main"] : [],
-    catalogEntry: (_definition, modelName) =>
-      modelName === "claude-haiku-4-5" ? catalogEntryFixture() : undefined,
-  };
-  const selection = {
-    provider: id("pvd", 1),
-    credentials: ["key-main"],
-    model_name: "claude-haiku-4-5",
-    reasoning_level: "medium" as const,
-    options: {},
-  };
-  const judgment = validateDefinition({
-    ...productPresetDefinition("context_engineer", HASH),
-    model: selection,
-    organizing_model: null,
-  }, deps);
-  assert(judgment.ok, JSON.stringify(judgment));
-  assertEquals(judgment.value.model!.purpose, "judgment");
-  assertEquals(judgment.value.organizing_model, null);
-  const both = validateDefinition({
-    ...productPresetDefinition("context_engineer", HASH),
-    model: selection,
-    organizing_model: { ...selection, reasoning_level: "low" as const },
-  }, deps);
-  assert(both.ok, JSON.stringify(both));
-  assertEquals(both.value.model!.purpose, "judgment");
-  assertEquals(both.value.organizing_model!.purpose, "organizing");
-  // 두 용도는 서로 다른 선택으로 분리된다(R14).
-  assertEquals(both.value.model!.option_values, { effort: "medium" });
-  assertEquals(both.value.organizing_model!.option_values, { effort: "low" });
-  // 그 model이 선언하지 않은 effort 값은 다른 값으로 바꾸지 않고 거절한다(harness/model#R24).
-  const undeclared = validateDefinition({
-    ...productPresetDefinition("context_engineer", HASH),
-    model: { ...selection, reasoning_level: "maximum" as const },
-    organizing_model: null,
-  }, deps);
-  assert(!undeclared.ok);
-});
-
-Deno.test("lophn-agent/roles/context-engineer#R14: 확인되지 않은 model은 저장을 거절하고 역할 상한은 model 호출 tool을 두지 않는다", () => {
-  // 확인된 항목이 없으면 사용할 수 없다(R6, R14의 preset 경로).
-  const deps: ValidateDeps = {
-    bundles: TOOL_BUNDLES,
-    mcpServers: new Map(),
-    roleCaps: ROLE_CAPS,
-    definitionKey: () => "anthropic",
-    modelListed: () => true,
-    credentialKeys: () => ["key-main"],
-    catalogEntry: () => undefined,
-  };
-  const result = validateDefinition({
-    ...productPresetDefinition("context_engineer", HASH),
-    model: {
-      provider: id("pvd", 1),
-      credentials: ["key-main"],
-      model_name: "claude-haiku-4-5",
-      reasoning_level: "medium",
-      options: {},
-    },
-    organizing_model: null,
-  }, deps);
-  assert(!result.ok);
-  assertEquals(result.error.code, "invalid_input");
-  // 실제 model·계정은 preset 선택의 몫이다. 역할 상한은 model 호출 tool을 두지 않는다(R14).
-  const cap = ROLE_CAPS.get("context_engineer")!;
-  assertEquals(
-    cap.tools.some((tool) =>
-      tool.startsWith("model.") || tool.startsWith("provider.")
-    ),
-    false,
-  );
-  // 역할 상한도 model 이름을 고정하지 않는다(R14).
-  assertEquals(
-    cap.tools.some((tool) => tool.includes("claude") || tool.includes("gpt")),
-    false,
-  );
 });
 
 // --- 설계 보고와 근거 자리(R1) --------------------------------------------------------

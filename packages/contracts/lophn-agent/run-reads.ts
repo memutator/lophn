@@ -94,9 +94,10 @@ export const runResult = defineRead({
 // 복구가 저장된 본문(run basis, model 응답, tool 결과)을 다시 읽는 길이다. 값은 core가 blob 바이트를
 // 읽고 hash를 확인한 JSON 값이다. machine만 읽고 그 밖은 없는 대상과 똑같이 답한다.
 // `handoff_content`는 handoff로 시작한 받는 run이 맡긴 내용(무엇·왜·제외·기대 결과)을 자기 요청으로
-// 읽는 길이다. id는 받는 run이다.
+// 읽는 길이다. id는 받는 run이다. `run_agent`는 run 기준이 hash로 가리키는 resolved agent의 전체 값이다.
 export const RUN_BODY_KINDS = [
   "run_basis",
+  "run_agent",
   "model_call_output",
   "tool_call_output",
   "handoff_content",
@@ -104,6 +105,7 @@ export const RUN_BODY_KINDS = [
 
 const BODY_ID_PREFIX = {
   run_basis: "run_",
+  run_agent: "run_",
   model_call_output: "mcl_",
   tool_call_output: "tcl_",
   handoff_content: "run_",

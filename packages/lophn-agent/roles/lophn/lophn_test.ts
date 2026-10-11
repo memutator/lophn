@@ -5,7 +5,7 @@ import {
   productPresetDefinition,
   validateModelSelection,
 } from "../../presets/mod.ts";
-import { ROLE_CAPS } from "../../presets/mod.ts";
+import { ROLE_CAPS } from "../../agents/mod.ts";
 import { checkOptionAction, moveOptionAction } from "../../questions/mod.ts";
 import {
   AGENT_TOOLS,

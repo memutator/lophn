@@ -33,7 +33,7 @@ import {
   createAppBinding,
   judge,
 } from "../../harness/tool-judgment/mod.ts";
-import { APP_COMMAND_EXPOSURE, ROLE_CAPS } from "../../presets/mod.ts";
+import { APP_COMMAND_EXPOSURE, ROLE_CAPS } from "../../agents/mod.ts";
 import { appEngineerOffers, appEngineerTools } from "./mod.ts";
 
 const APP = "app_01h455vb4pex5v6nkc6gd5fdw1";

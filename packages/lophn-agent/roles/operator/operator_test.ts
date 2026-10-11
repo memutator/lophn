@@ -8,11 +8,8 @@ import {
   type RunCredential,
   runOperations,
 } from "../../harness/tools/mod.ts";
-import {
-  APP_COMMAND_EXPOSURE,
-  productPresetDefinition,
-  ROLE_CAPS,
-} from "../../presets/mod.ts";
+import { productPresetDefinition } from "../../presets/mod.ts";
+import { APP_COMMAND_EXPOSURE, ROLE_CAPS } from "../../agents/mod.ts";
 import { handoffAllowed, runSourceSchema } from "@lophn/contracts/lophn-agent";
 import {
   noChange,

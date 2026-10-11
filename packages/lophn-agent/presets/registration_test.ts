@@ -5,12 +5,11 @@ import {
   providerSchemaSteps,
 } from "../harness/provider/mod.ts";
 import type { McpServerConfig } from "../../contracts/lophn-agent/mod.ts";
+import { DOCUMENT_READ_TOOLS, ROLE_CAPS } from "../agents/mod.ts";
 import {
   createPresetCommands,
   createPresetReads,
-  DOCUMENT_READ_TOOLS,
   presetSchemaSteps,
-  ROLE_CAPS,
 } from "./mod.ts";
 import type { ValidateDeps } from "./validate.ts";
 

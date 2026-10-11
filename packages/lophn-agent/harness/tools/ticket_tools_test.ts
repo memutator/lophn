@@ -5,7 +5,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { type CallFacts, judge } from "../tool-judgment/mod.ts";
-import { ROLE_CAPS } from "../../presets/mod.ts";
+import { ROLE_CAPS } from "../../agents/mod.ts";
 import {
   BUILTIN_TOOLS,
   createBuiltinToolHandlers,

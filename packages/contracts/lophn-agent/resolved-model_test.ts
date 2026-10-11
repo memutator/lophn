@@ -51,13 +51,28 @@ const model = {
   price_basis: price,
   basis: { context_limit: { source: "user" } },
 };
+const place = { kind: "project", id: "prj_01arz3ndektsv4rrffq69g5fav" };
+const agentSources = Object.fromEntries(
+  [
+    "name",
+    "profile",
+    "agent_instructions",
+    "model",
+    "tools",
+    "skills",
+    "mcp",
+    "contexts",
+    "app_reads",
+    "safe_tools",
+  ].map((field) => [
+    field,
+    field === "model"
+      ? { layer: "place", place }
+      : { layer: "default", place: null },
+  ]),
+);
 const basis = {
-  preset: {
-    id: `pst_${suffix}`,
-    revision: 1,
-    snapshot_hash: hash,
-    basis_seq: "1",
-  },
+  agent: { hash, sources: agentSources },
   assignment: {
     id: `asg_${suffix}`,
     revision: 2,
@@ -67,7 +82,6 @@ const basis = {
   tools: { revision: 3, definitions_hash: hash },
   extensions: {
     settings_revision: 1,
-    preset_selection: hash,
     skill_hashes: [],
     mcp_config_revisions: [2],
     mcp_tool_definition_hashes: [],
@@ -77,6 +91,54 @@ const basis = {
   limits: { model_attempts: 30, stall_ms: 300000, active_ms: 1800000 },
   tool_result_limits: { bytes: 24576, lines: 300, list: 20 },
 };
+
+Deno.test("lophn-agent/harness/run-loop#R7 lophn-agent/agents#R25: RunBasis pins the resolved agent by hash and sources, not a preset", () => {
+  assert(runBasisSchema.safeParse(basis).success);
+  assert(runBasisOutputSchema.safeParse(basis).success);
+  // 옛 preset 칸은 받지 않고 agent 칸은 필수다.
+  const { agent: _agent, ...withoutAgent } = basis;
+  assert(!runBasisSchema.safeParse(withoutAgent).success);
+  assert(
+    !runBasisSchema.safeParse({
+      ...basis,
+      preset: {
+        id: `pst_${suffix}`,
+        revision: 1,
+        snapshot_hash: hash,
+        basis_seq: "1",
+      },
+    }).success,
+  );
+  assert(
+    !runBasisSchema.safeParse({
+      ...basis,
+      extensions: { ...basis.extensions, preset_selection: hash },
+    }).success,
+  );
+  // 전체 값은 blob이라 기준에는 hash와 칸별 출처만 있다.
+  assert(
+    !runBasisSchema.safeParse({
+      ...basis,
+      agent: { hash, sources: agentSources, model: {} },
+    }).success,
+  );
+  assert(!runBasisSchema.safeParse({ ...basis, agent: { hash } }).success);
+  assert(
+    !runBasisSchema.safeParse({
+      ...basis,
+      agent: { hash: "short", sources: agentSources },
+    }).success,
+  );
+  assert(
+    !runBasisSchema.safeParse({
+      ...basis,
+      agent: {
+        hash,
+        sources: { ...agentSources, model: { layer: "boss", place: null } },
+      },
+    }).success,
+  );
+});
 
 Deno.test("lophn-agent/harness/run-loop#R7: RunBasis pins full resolved models and numeric revisions", () => {
   assert(runBasisSchema.safeParse(basis).success);

@@ -7,6 +7,7 @@ import {
   type LedgerHarness,
 } from "../../../../apps/core/testing/ledger.ts";
 import { nonTextTokenBound, textTokenUpperBound } from "./token-bound.ts";
+import { workspaceModels } from "./store.ts";
 import {
   requestOptionsWithinRun,
   resolveSelection,
@@ -1020,4 +1021,34 @@ Deno.test("lophn-agent/harness/model#R12 [agent-I15]: a favorite the catalog or 
   } finally {
     await h.close();
   }
+});
+
+Deno.test("lophn-agent/agents#R9 lophn-agent/harness/model#R8 [agent-I10a]: the Workspace layer of an agent is the role slots of the defaults, without empty slots and the summaries slot", () => {
+  const choice = {
+    provider: "pvd_01arz3ndektsv4rrffq69g5fav",
+    model_name: "gpt-5",
+    option_values: { effort: "high" },
+  };
+  assertEquals(
+    workspaceModels({
+      lophn: choice,
+      context_engineer: null,
+      app_engineer: null,
+      operator: choice,
+      summaries: { ...choice, model_name: "mini" },
+      settings_seq: "4",
+    }),
+    { lophn: choice, operator: choice },
+  );
+  assertEquals(
+    workspaceModels({
+      lophn: null,
+      context_engineer: null,
+      app_engineer: null,
+      operator: null,
+      summaries: null,
+      settings_seq: "0",
+    }),
+    {},
+  );
 });

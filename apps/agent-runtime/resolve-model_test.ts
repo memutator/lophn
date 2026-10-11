@@ -1,20 +1,19 @@
 import { assert, assertEquals } from "@std/assert";
 import { err, ok, type Result } from "../../packages/base/mod.ts";
 import type {
+  AgentRole,
   CatalogEntry,
-  ModelDefaults,
+  ModelChoice,
 } from "../../packages/contracts/lophn-agent/mod.ts";
-import {
-  modelDefaultsRead,
-  providerRead,
-} from "../../packages/contracts/lophn-agent/mod.ts";
+import { providerRead } from "../../packages/contracts/lophn-agent/mod.ts";
 import { routePath } from "../../packages/contracts/platform/mod.ts";
 import { CATALOG_OPTIONS } from "../../packages/lophn-agent/harness/model/testdata/catalog-options.ts";
 import type { PromptRequest } from "../../packages/lophn-agent/harness/prompt-assemble/mod.ts";
 import type { ModelBinding } from "./model-binding.ts";
 import { createModelResolver } from "./resolve-model.ts";
 
-// harness/model#R8~R9, R16, R22~R24: run 준비가 role slot 기본값에서 model 선택을 고르고, option 값을 요청에 싣는다.
+// harness/model#R9, R16, R22~R24: resolved agent가 정한 model 선택을 provider·catalog로 검증하고 option 값을 요청에 싣는다.
+// 어느 층의 선택을 쓰는지(Workspace role slot, 자리, 정의, session)는 agents가 정하고 여기는 받은 선택만 본다.
 // core 호출과 provider 전송은 fake다. 네트워크를 쓰지 않는다.
 
 const OPENAI = "pvd_01arz3ndektsv4rrffq69g5fav";
@@ -71,20 +70,8 @@ function choice(
   return { provider, model_name: model, option_values };
 }
 
-function defaults(over: Partial<ModelDefaults> = {}): ModelDefaults {
-  return {
-    lophn: null,
-    context_engineer: null,
-    app_engineer: null,
-    operator: null,
-    summaries: null,
-    settings_seq: "3",
-    ...over,
-  };
-}
-
 type World = {
-  defaults: ModelDefaults;
+  model: ModelChoice;
   providers?: Partial<Record<keyof typeof PROVIDERS, boolean>>;
   catalog?: readonly CatalogEntry[];
 };
@@ -104,11 +91,6 @@ function setup(world: World) {
     return Promise.resolve(new Response("{}", { status: 500 }));
   };
   const machine = (path: string, body: unknown): Promise<Result<unknown>> => {
-    if (path === routePath(modelDefaultsRead)) {
-      return Promise.resolve(
-        ok({ defaults: world.defaults, as_of_seq: "3", next_cursor: null }),
-      );
-    }
     if (path === routePath(providerRead)) {
       const id = (body as { provider: keyof typeof PROVIDERS }).provider;
       if (!(id in PROVIDERS)) {
@@ -122,11 +104,13 @@ function setup(world: World) {
     }
     return Promise.resolve(err({ code: "not_found", message: path }));
   };
-  const resolve = createModelResolver({
+  const resolver = createModelResolver({
     machine,
     catalog: () => Promise.resolve(ok(world.catalog ?? CATALOG_OPTIONS)),
     fetch: fakeFetch,
   });
+  const resolve = (input: { role: AgentRole; preset: typeof PRESET }) =>
+    resolver({ ...input, model: world.model });
   return { sent, resolve };
 }
 
@@ -176,30 +160,22 @@ async function fails(
   return resolved.error;
 }
 
-Deno.test("lophn-agent/harness/model#R8 [agent-I15]: the run takes the Workspace default of its own role", async () => {
-  const world: World = {
-    defaults: defaults({
-      lophn: choice(OPENAI, "gpt-4-1"),
-      operator: choice(ANTHROPIC, "claude-sonnet-4-5"),
-    }),
-  };
-  const lophn = await bind(world, "lophn");
+Deno.test("lophn-agent/harness/model#R9 [agent-I10a]: the run takes the model choice the resolved agent gives, whatever the provider protocol", async () => {
+  const lophn = await bind({ model: choice(OPENAI, "gpt-4-1") }, "lophn");
   assertEquals(lophn.binding.call.provider, OPENAI);
   assertEquals(lophn.binding.call.name, "gpt-4-1");
-  const operator = await bind(world, "operator");
+  const operator = await bind(
+    { model: choice(ANTHROPIC, "claude-sonnet-4-5") },
+    "operator",
+  );
   assertEquals(operator.binding.call.provider, ANTHROPIC);
   assertEquals(operator.binding.call.protocol, "anthropic-messages");
   assertEquals(operator.binding.call.name, "claude-sonnet-4-5");
-  // 한 role의 칸이 비어 있어도 다른 role의 값을 빌려 쓰지 않는다(R9).
-  const empty = await fails(world, "app_engineer");
-  assertEquals(empty.code, "unavailable");
 });
 
 Deno.test("lophn-agent/harness/model#R22 [agent-I15]: an OpenAI Speed Fast choice puts the priority tier and the effort in the request body", async () => {
   const { binding, sent } = await bind({
-    defaults: defaults({
-      lophn: choice(OPENAI, "gpt-5-5", { effort: "very_high", speed: "fast" }),
-    }),
+    model: choice(OPENAI, "gpt-5-5", { effort: "very_high", speed: "fast" }),
   });
   assertEquals(binding.call.options, { effort: "very_high", speed: "fast" });
   const body = await fire(binding);
@@ -212,7 +188,7 @@ Deno.test("lophn-agent/harness/model#R22 [agent-I15]: an OpenAI Speed Fast choic
 
 Deno.test("lophn-agent/harness/model#R16 [agent-I15]: an axis the choice leaves out takes the catalog default and an unknown default sends nothing", async () => {
   const { binding } = await bind({
-    defaults: defaults({ lophn: choice(OPENAI, "gpt-5-5") }),
+    model: choice(OPENAI, "gpt-5-5"),
   });
   // effort는 확인된 기본값 medium이 채워지고 speed는 기본값이 없어 필드가 없다.
   assertEquals(binding.call.options, { effort: "medium" });
@@ -221,7 +197,7 @@ Deno.test("lophn-agent/harness/model#R16 [agent-I15]: an axis the choice leaves 
   assertEquals("service_tier" in body, false);
   // option 축이 없는 model은 option 필드가 하나도 없다.
   const plain = await bind({
-    defaults: defaults({ lophn: choice(OPENAI, "gpt-4-1") }),
+    model: choice(OPENAI, "gpt-4-1"),
   });
   assertEquals(plain.binding.call.options, {});
   const plainBody = await fire(plain.binding);
@@ -231,11 +207,9 @@ Deno.test("lophn-agent/harness/model#R16 [agent-I15]: an axis the choice leaves 
 
 Deno.test("lophn-agent/harness/model#R22 [agent-I15]: Anthropic Speed Fast carries the body piece and the beta header", async () => {
   const { binding, sent } = await bind({
-    defaults: defaults({
-      app_engineer: choice(ANTHROPIC, "claude-opus-4-8", {
-        effort: "high",
-        speed: "fast",
-      }),
+    model: choice(ANTHROPIC, "claude-opus-4-8", {
+      effort: "high",
+      speed: "fast",
     }),
   }, "app_engineer");
   const body = await fire(binding);
@@ -246,11 +220,9 @@ Deno.test("lophn-agent/harness/model#R22 [agent-I15]: Anthropic Speed Fast carri
   assertEquals(sent[0].url, "http://127.0.0.1:9/v1/messages");
   // 같은 model의 Standard는 요청에 더할 것이 없고 header도 없다.
   const standard = await bind({
-    defaults: defaults({
-      app_engineer: choice(ANTHROPIC, "claude-opus-4-8", {
-        effort: "high",
-        speed: "standard",
-      }),
+    model: choice(ANTHROPIC, "claude-opus-4-8", {
+      effort: "high",
+      speed: "standard",
     }),
   }, "app_engineer");
   const standardBody = await fire(standard.binding);
@@ -260,9 +232,7 @@ Deno.test("lophn-agent/harness/model#R22 [agent-I15]: Anthropic Speed Fast carri
 
 Deno.test("lophn-agent/harness/model#R22 [agent-I15]: a model id wire changes only the name that is sent", async () => {
   const { binding, sent } = await bind({
-    defaults: defaults({
-      context_engineer: choice(XAI, "grok-4", { speed: "fast" }),
-    }),
+    model: choice(XAI, "grok-4", { speed: "fast" }),
   }, "context_engineer");
   // 기록하는 model 이름은 고른 이름 그대로고 요청에 가는 이름만 바뀐다.
   assertEquals(binding.call.name, "grok-4");
@@ -273,9 +243,7 @@ Deno.test("lophn-agent/harness/model#R22 [agent-I15]: a model id wire changes on
 
 Deno.test("lophn-agent/harness/model#R17 [agent-I15]: a budget effort is clamped to the confirmed range and leaves room for the answer", async () => {
   const { binding } = await bind({
-    defaults: defaults({
-      lophn: choice(ANTHROPIC, "claude-sonnet-4-5", { effort: "maximum" }),
-    }),
+    model: choice(ANTHROPIC, "claude-sonnet-4-5", { effort: "maximum" }),
   });
   const body = await fire(binding);
   // 기준 예산 32768이 확인된 최대 24000 안으로 줄어든다.
@@ -284,9 +252,7 @@ Deno.test("lophn-agent/harness/model#R17 [agent-I15]: a budget effort is clamped
   assert((body.max_tokens as number) > 24000);
   assert((body.max_tokens as number) <= 64000);
   const off = await bind({
-    defaults: defaults({
-      lophn: choice(ANTHROPIC, "claude-sonnet-4-5", { effort: "off" }),
-    }),
+    model: choice(ANTHROPIC, "claude-sonnet-4-5", { effort: "off" }),
   });
   const offBody = await fire(off.binding);
   assertEquals(offBody.thinking, { type: "disabled" });
@@ -295,9 +261,7 @@ Deno.test("lophn-agent/harness/model#R17 [agent-I15]: a budget effort is clamped
 
 Deno.test("lophn-agent/harness/model#R24 [agent-I15]: a stored value the catalog no longer declares fails before any request and is not replaced", async () => {
   const { sent, resolve } = setup({
-    defaults: defaults({
-      lophn: choice(OPENAI, "gpt-5-5", { effort: "maximum" }),
-    }),
+    model: choice(OPENAI, "gpt-5-5", { effort: "maximum" }),
   });
   const resolved = await resolve({ role: "lophn", preset: PRESET });
   assert(!resolved.ok);
@@ -305,16 +269,14 @@ Deno.test("lophn-agent/harness/model#R24 [agent-I15]: a stored value the catalog
   assertEquals(sent.length, 0);
 });
 
-Deno.test("lophn-agent/harness/model#R9 [agent-I15]: a role with no chosen model, a model without catalog facts or a turned-off provider does not start", async () => {
-  const none = await fails({ defaults: defaults() });
-  assertEquals(none.code, "unavailable");
+Deno.test("lophn-agent/harness/model#R9 [agent-I15]: a model without catalog facts or a turned-off provider does not start", async () => {
   // catalog에 없는 model은 확인된 한계가 없어 쓸 수 없다(R13).
   const missing = await fails({
-    defaults: defaults({ lophn: choice(OPENAI, "gpt-9") }),
+    model: choice(OPENAI, "gpt-9"),
   });
   assertEquals(missing.code, "invalid_input");
   const off = await fails({
-    defaults: defaults({ lophn: choice(OPENAI, "gpt-4-1") }),
+    model: choice(OPENAI, "gpt-4-1"),
     providers: { [OPENAI]: false },
   });
   assertEquals(off.code, "unavailable");

@@ -20,10 +20,10 @@ import {
 } from "../../harness/tools/mod.ts";
 import {
   productPresetDefinition,
-  ROLE_CAPS,
   validateDefinition,
   type ValidateDeps,
 } from "../../presets/mod.ts";
+import { ROLE_CAPS } from "../../agents/mod.ts";
 import {
   ASSUMPTION_MAX,
   canStartStep,

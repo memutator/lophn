@@ -2,7 +2,6 @@
 // 쓰지 않는다. [Create with Context Engineer]를 누르면 그 탭이 새 context의 탭(만드는 중)으로 바뀐다.
 import { useState } from "react";
 import {
-  Card,
   IconButton,
   Input,
   lophnSpaceIcons,
@@ -373,30 +372,24 @@ export function ContextDrafting(
               Draft overview <span className={styles.chip}>Draft</span>
             </h2>
             <div className={styles.draftRow}>
-              <Card>
-                <div className={`${styles.draftCard}`}>
-                  <h3>Changelog entry</h3>
-                  <span className={styles.chip}>Draft</span>
-                </div>
-              </Card>
+              <div className={styles.draftCard}>
+                <h3>Changelog entry</h3>
+                <span className={styles.chip}>Draft</span>
+              </div>
               <span className={styles.draftArrow}>
                 <span>mentions</span>→
               </span>
-              <Card>
-                <div className={`${styles.draftCard}`}>
-                  <h3>Release</h3>
-                  <span className={styles.chip}>Draft</span>
-                </div>
-              </Card>
+              <div className={styles.draftCard}>
+                <h3>Release</h3>
+                <span className={styles.chip}>Draft</span>
+              </div>
               <span className={styles.draftArrow}>
                 <span>closes</span>→
               </span>
-              <Card>
-                <div className={`${styles.draftCard}`}>
-                  <h3>Issue</h3>
-                  <span className={styles.chip}>Draft</span>
-                </div>
-              </Card>
+              <div className={styles.draftCard}>
+                <h3>Issue</h3>
+                <span className={styles.chip}>Draft</span>
+              </div>
             </div>
             <p className={styles.note}>
               Not final. Context Engineer applies it when the checks pass.

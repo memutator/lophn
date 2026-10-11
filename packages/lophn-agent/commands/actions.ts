@@ -1,7 +1,7 @@
 import type { LophnError, Result } from "../../base/mod.ts";
-import {
+import type {
   BUILTIN_COMMAND_IDS,
-  type CommandEntry,
+  CommandEntry,
 } from "../../contracts/lophn-agent/mod.ts";
 import { resolveSubmission } from "./list.ts";
 import type { CommandRegistry } from "./registry.ts";

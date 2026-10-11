@@ -251,6 +251,9 @@ async function opened(
   return (result as { ok: true; value: { view_session: string } }).value;
 }
 
+// view마다 자기 view_session을 entry URL에 싣는다(apps#T27). 같은 화면인지는 그것을 뺀 주소로 본다.
+const withoutViewSession = (url: string) => url.split("?")[0];
+
 test("shell/app-frame#R12, shell/app-frame#R20: view 신원은 main이 얻은 연결에서 오고 페이지·renderer가 주장한 값은 받을 자리가 없다", async () => {
   const w = world();
   for (
@@ -334,8 +337,13 @@ test("shell/app-frame#R18, shell/desktop#R13: 다른 창에 연 같은 앱 view�
   await opened(w, { parentWindow: "window-2" });
   const [first, second] = w.contents;
   assert.equal(first!.partition, second!.partition);
-  assert.deepEqual(first!.loaded, second!.loaded);
-  assert.deepEqual(first!.loaded, [`lophn-app://${LABEL_A}/main/index.html`]);
+  assert.deepEqual(
+    first!.loaded.map(withoutViewSession),
+    second!.loaded.map(withoutViewSession),
+  );
+  assert.deepEqual(first!.loaded.map(withoutViewSession), [
+    `lophn-app://${LABEL_A}/main/index.html`,
+  ]);
   for (
     const url of [
       `lophn-app://${LABEL_A}/main/next.html`,
@@ -608,7 +616,10 @@ test("shell/app-frame#R33: 패널·카드는 전체 view와 같은 앱·release�
   const [full, panel, card] = w.contents;
   for (const small of [panel!, card!]) {
     assert.equal(small.partition, full!.partition);
-    assert.deepEqual(small.loaded, full!.loaded);
+    assert.deepEqual(
+      small.loaded.map(withoutViewSession),
+      full!.loaded.map(withoutViewSession),
+    );
     for (
       const url of [
         `lophn-app://${LABEL_A}/main/next.html`,

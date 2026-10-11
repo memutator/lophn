@@ -760,7 +760,7 @@ export function SearchBody(
           </div>
         </div>
         <p className={styles.resultCount}>{rows.length} findings</p>
-        <div className={tableStyles.scroller}>
+        <div className={`${tableStyles.scroller} ${styles.resultTable}`}>
           <table className={tableStyles.table} data-density="compact">
             <colgroup>
               <col style={{ width: "40%" }} />

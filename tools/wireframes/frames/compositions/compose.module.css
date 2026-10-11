@@ -452,7 +452,13 @@
 .results {
   flex: 1;
   min-width: var(--space-0);
+  overflow-y: auto;
   padding: var(--space-6) var(--space-8);
+}
+
+/* design Table의 scroller는 남은 높이를 다 차지한다(height: 100%). 결과 표는 줄 수만큼만 차지해서 아래 page 이동과 선언이 보이게 한다. */
+.resultTable {
+  height: auto;
 }
 
 .call {

@@ -154,6 +154,9 @@ export async function create(
     expiresAt?: string | null;
     key?: string;
     run?: string | null;
+    sessionGrantable?: boolean;
+    // 기본은 harness의 고정 action이다. confirm 같은 다른 동작을 고정할 때 준다.
+    action?: ApprovalAction;
   } = {},
 ): Promise<Result<{ result: unknown; replayed: boolean }>> {
   return await harness.command(ctx, {
@@ -164,8 +167,9 @@ export async function create(
       run: options.run ?? null,
       reason: REASON_TEXT,
       effect: effect(options.external),
-      action: await action(),
+      action: options.action ?? await action(),
       expires_at: options.expiresAt ?? null,
+      session_grantable: options.sessionGrantable ?? false,
     },
     idempotency_key: options.key ?? `create-${options.id ?? APPROVAL}`,
     compare: {},
@@ -203,7 +207,7 @@ export async function issue(
   const route = decision === "grant"
     ? grantApprovalRequest
     : rejectApprovalRequest;
-  const binding = await confirmationBinding(route, input);
+  const binding = await confirmationBinding(route, shaped(decision, input));
   assert(binding);
   const issued = value(
     await harness.confirmation({
@@ -221,15 +225,16 @@ export async function issue(
   return issued.confirmation;
 }
 
-// 거절 입력은 이유 칸이 항상 있고(없으면 null) 허락 입력에는 이유 칸이 없다.
+// 거절 입력은 이유 칸이 항상 있고(없으면 null) 범위 칸이 없다. 허락 입력은 범위 칸이 항상 있고(기본
+// once) 이유 칸이 없다.
 export function shaped(
   decision: Decision,
   input: Record<string, unknown>,
 ): Record<string, unknown> {
-  const { closed_reason: reason, ...rest } = input;
+  const { closed_reason: reason, scope, ...rest } = input;
   return decision === "reject"
     ? { ...rest, closed_reason: reason ?? null }
-    : rest;
+    : { ...rest, scope: scope ?? "once" };
 }
 
 export function decide(

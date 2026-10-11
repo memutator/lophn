@@ -10,7 +10,9 @@ import {
   deadlineReached,
   descriptionPresent,
   externalDescribed,
+  grantScopeAllowed,
   repairDescribed,
+  sessionGrantableValid,
 } from "./model.ts";
 
 const NOW = "2026-10-05T00:00:00.000Z";
@@ -117,4 +119,64 @@ Deno.test("platform/approvals#R13: 취소는 사람·원래 요청자·machine�
   );
   assert(!other.ok);
   if (!other.ok) assertEquals(other.error.code, "forbidden");
+});
+
+const AGENT = "agent:asg_01h455vb4pex5v6nkc6gd5fdw1" as const;
+const RUN = "run_01h455vb4pex5v6nkc6gd5fdw1";
+const SESSION = "ses_01h455vb4pex5v6nkc6gd5fdw1";
+
+function grantable(
+  over: Partial<Parameters<typeof sessionGrantableValid>[0]> = {},
+) {
+  return sessionGrantableValid({
+    sessionGrantable: true,
+    requester: AGENT,
+    run: RUN,
+    session: SESSION,
+    action: { ...action, caller: AGENT },
+    ...over,
+  });
+}
+
+Deno.test("platform/approvals#R20 [agent-I14]: session_grantable은 session 있는 run의 agent tool call ask에만 켠다", () => {
+  assert(grantable().ok);
+  // 켜지 않는 request는 어떤 요청자·동작이든 이 규칙이 건드리지 않는다.
+  assert(
+    grantable({
+      sessionGrantable: false,
+      requester: "user",
+      run: null,
+      session: null,
+    }).ok,
+  );
+  const refused: Partial<Parameters<typeof sessionGrantableValid>[0]>[] = [
+    { requester: "user" },
+    { requester: "machine" },
+    { requester: "app:app_01h455vb4pex5v6nkc6gd5fdw1" },
+    { run: null },
+    { session: null },
+    {
+      // 사람이 확인하는 앱 command의 접수(confirm)는 session 선택이 없다.
+      action: {
+        ...action,
+        caller: AGENT,
+        concern: "apps/invocations",
+        command: "invocation.accept_confirm",
+      },
+    },
+  ];
+  for (const over of refused) {
+    const result = grantable(over);
+    assert(!result.ok, JSON.stringify(over));
+    if (!result.ok) assertEquals(result.error.code, "invalid_input");
+  }
+});
+
+Deno.test("platform/approvals#R18 #R20 [agent-I14]: 허락 범위는 once와 session이고 session은 session_grantable일 때만 고른다", () => {
+  assert(grantScopeAllowed(true, "once").ok);
+  assert(grantScopeAllowed(true, "session").ok);
+  assert(grantScopeAllowed(false, "once").ok);
+  const refused = grantScopeAllowed(false, "session");
+  assert(!refused.ok);
+  if (!refused.ok) assertEquals(refused.error.code, "invalid_input");
 });

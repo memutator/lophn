@@ -81,6 +81,7 @@ async function create(
       effect: effect("kim@example.com 으로 송장 전송"),
       action: fixed,
       expires_at: null,
+      session_grantable: false,
     },
     idempotency_key: key,
     compare: {},

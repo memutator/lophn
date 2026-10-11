@@ -5,11 +5,13 @@ import {
   type BasisSnapshot,
   type CallFacts,
   judge,
+  lowerBySessionGrant,
   type Origin,
   refusalKey,
   type Reversibility,
   sameBasis,
   sameLineage,
+  sameToolBasis,
   type TargetFact,
 } from "./mod.ts";
 
@@ -288,4 +290,115 @@ Deno.test("lophn-agent/harness/tool-judgment#R6: 확인한 기준이 하나라�
   // 기록이 없거나 모양이 다르면 옛 허락을 쓰지 않는다.
   assert(!sameBasis(null, basis));
   assert(!sameBasis("basis", basis));
+});
+
+// session 허락은 ask를 allow로 낮추는 한 칸이다. 그 밖의 칸은 그대로다(R14).
+function lowered(over: Partial<CallFacts> = {}) {
+  const input = facts(over);
+  return lowerBySessionGrant(input, judge(input));
+}
+
+Deno.test("lophn-agent/harness/tool-judgment#R14 [agent-I14]: session 허락은 ask로 판정될 호출을 새 approval request 없이 allow로 낮춘다", () => {
+  const asking: Partial<CallFacts>[] = [
+    { targets: [target("1", { reversibility: "irreversible" })] },
+    { targets: [target("1", { reversibility: "unknown" })] },
+    { effect: "external" },
+    // 대상 여러 개: ask가 하나라도 있으면 전체가 ask였다가 전체가 allow로 낮아진다.
+    {
+      targets: [target("1"), target("2", { reversibility: "irreversible" })],
+    },
+  ];
+  for (const over of asking) {
+    assertEquals(judge(facts(over)).decision, "ask");
+    const result = lowered(over);
+    assertEquals(result.decision, "allow");
+    assertEquals(result.code, "session_granted");
+    assert(result.reason.trim().length > 0);
+    // 효과 판정은 그대로다: 되돌릴 수 없는 호출이 되돌릴 수 있는 호출이 되지 않는다.
+    assertEquals(result.effect, judge(facts(over)).effect);
+  }
+});
+
+Deno.test("lophn-agent/harness/tool-judgment#R14 [agent-I14]: deny와 거절 억제와 confirm 앱 command는 session 허락으로 낮아지지 않는다", () => {
+  const irreversible = [target("1", { reversibility: "irreversible" })];
+  // 거절은 session 허락보다 앞선다: 같은 동작을 Deny한 뒤에는 허락이 있어도 deny다.
+  const refused = lowered({ targets: irreversible, refused: true });
+  assertEquals(refused.decision, "deny");
+  assertEquals(refused.code, "refused_before");
+  const denied: Partial<CallFacts>[] = [
+    { identity: false },
+    { assignment: "paused" },
+    { run: "ended" },
+    { listed: false },
+    { roleAllows: false },
+    { connection: "lost", effect: "external" },
+    { targets: [target("1", { inScope: false })] },
+    {
+      targets: [
+        target("1", { reversibility: "irreversible" }),
+        target("2", { inScope: false }),
+      ],
+    },
+  ];
+  for (const over of denied) {
+    assertEquals(lowered(over).decision, "deny", JSON.stringify(over));
+  }
+  // confirm=true는 read여도 호출마다 사람이 정한다.
+  for (const effect of ["read", "write", "external"] as const) {
+    const result = lowered({ effect, confirm: true });
+    assertEquals(result.decision, "ask", effect);
+    assertEquals(result.code, "confirm_required");
+  }
+});
+
+Deno.test("lophn-agent/harness/tool-judgment#R14 [agent-I14]: ask가 아닌 판정은 그대로 둔다", () => {
+  for (const over of [{ effect: "read" as const }, {}]) {
+    const before = judge(facts(over));
+    assertEquals(before.decision, "allow");
+    assertEquals(lowered(over), before);
+  }
+});
+
+Deno.test("lophn-agent/harness/tool-judgment#R14 [agent-I14]: 같은 tool의 비교는 계약·정의·연결·assignment 판만 보고 대상·입력은 보지 않는다", () => {
+  const recorded: BasisSnapshot = {
+    tool: "document.remove",
+    definition_revision: "tools-1",
+    description_hash: "aa".repeat(32),
+    contract_revision: "documents-1",
+    operation: "document.remove",
+    input_hash: "bb".repeat(32),
+    targets: ["doc_01h455vb4pex5v6nkc6gd5fdw1"],
+    comparison: { seq: "41" },
+    mcp_configuration_revision: 4,
+    assignment_revision: 3,
+    preset_revision: 2,
+  };
+  assert(sameToolBasis(recorded, recorded));
+  // 대상·입력·비교 기준이 달라도 같은 tool이다.
+  assert(sameToolBasis(recorded, {
+    ...recorded,
+    input_hash: "cc".repeat(32),
+    targets: ["doc_01h455vb4pex5v6nkc6gd5fdw2"],
+    comparison: { seq: "99" },
+  }));
+  const changes: Partial<BasisSnapshot>[] = [
+    { tool: "document.archive" },
+    { operation: "document.move" },
+    { definition_revision: "tools-2" },
+    { description_hash: "dd".repeat(32) },
+    { contract_revision: "documents-2" },
+    { mcp_configuration_revision: 5 },
+    { mcp_configuration_revision: null },
+    { assignment_revision: 4 },
+    { preset_revision: 3 },
+  ];
+  for (const change of changes) {
+    assert(
+      !sameToolBasis(recorded, { ...recorded, ...change }),
+      JSON.stringify(change),
+    );
+  }
+  for (const broken of [null, undefined, "x", 1, [], {}]) {
+    assert(!sameToolBasis(broken, recorded));
+  }
 });

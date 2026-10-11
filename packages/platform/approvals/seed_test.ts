@@ -56,8 +56,9 @@ export const seedApprovalRequestCommand: CommandDefinition<
     tx.sql.run(
       `insert into approval_requests
          (id, requester, run, reason_blob, effect, action, action_binding_hash,
-          expires_at, status, closed_reason_blob, created_seq, closed_seq)
-       values (?, 'machine', null, ?, ?, ?, ?, ?, 'pending', null, ?, null)`,
+          expires_at, session_grantable, status, grant_scope, grant_session,
+          closed_reason_blob, created_seq, closed_seq)
+       values (?, 'machine', null, ?, ?, ?, ?, ?, 0, 'pending', null, null, null, ?, null)`,
       [
         input.id,
         HASH,

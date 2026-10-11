@@ -16,7 +16,8 @@ import {
 
 const REQUEST_COLUMNS =
   `id, requester, run, reason_blob, effect, action, expires_at,
-  status, closed_reason_blob, created_seq, closed_seq`;
+  session_grantable, status, grant_scope, grant_session, closed_reason_blob,
+  created_seq, closed_seq`;
 
 type StoredRow = Record<string, unknown>;
 
@@ -56,7 +57,14 @@ function requestOf(row: StoredRow): Result<ApprovalRequest> {
     effect,
     action,
     expires_at: row["expires_at"] === null ? null : String(row["expires_at"]),
+    session_grantable: Number(row["session_grantable"]) === 1,
     status: String(row["status"]),
+    grant_scope: row["grant_scope"] === null
+      ? null
+      : String(row["grant_scope"]),
+    grant_session: row["grant_session"] === null
+      ? null
+      : String(row["grant_session"]),
     closed_reason_blob: row["closed_reason_blob"] === null
       ? null
       : String(row["closed_reason_blob"]),
@@ -163,6 +171,10 @@ export function approvalsListRead(): ReadDefinition<typeof approvalsList> {
       if (input.run !== undefined) {
         filters.push("run = ?");
         params.push(input.run);
+      }
+      if (input.grant_session !== undefined) {
+        filters.push("grant_scope = 'session' and grant_session = ?");
+        params.push(input.grant_session);
       }
       const where = filters.length === 0
         ? ""

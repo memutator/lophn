@@ -33,6 +33,10 @@ Deno.test("platform/approvals#R1 #R17: 생성은 설명 hash를 저장하고 조
     const request = requestOf(created);
     assertEquals(request["status"], "pending");
     assertEquals(request["expires_at"], null);
+    // 대기 request는 허락 범위도 허락 session도 없다. 카드가 session 선택을 보이는지는 생성 때 정한다.
+    assertEquals(request["session_grantable"], false);
+    assertEquals(request["grant_scope"], null);
+    assertEquals(request["grant_session"], null);
     assertEquals(
       request["reason_blob"],
       await sha256Hex("배포 전 확인이 필요하다"),
@@ -98,6 +102,7 @@ Deno.test("platform/approvals#R1 #R2: 설명 글마다 영구 참조 하나가 �
         },
         action: await action(),
         expires_at: null,
+        session_grantable: false,
       };
       const rejected = await harness.command(user, {
         command: "create_approval_request",
@@ -130,6 +135,7 @@ Deno.test("platform/approvals#R1: 다른 actor를 대신 요청하거나 기한�
         effect: effect(undefined),
         action: await action(),
         expires_at: null,
+        session_grantable: false,
       },
       idempotency_key: "create-impersonate",
       compare: {},

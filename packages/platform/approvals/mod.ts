@@ -21,9 +21,11 @@ export {
   deadlineValid,
   descriptionPresent,
   externalDescribed,
+  grantScopeAllowed,
   immutableFields,
   isClosed,
   repairDescribed,
+  sessionGrantableValid,
 } from "./model.ts";
 export { type ApprovalRunLineage, approvalRunLineage } from "./lineage.ts";
 export { observeApprovals, RESTART_GRANTED_LIMIT } from "./restart.ts";

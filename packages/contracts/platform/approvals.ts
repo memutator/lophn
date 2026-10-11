@@ -132,6 +132,12 @@ export const APPROVAL_STATUSES = [
 export const approvalStatusSchema = z.enum(APPROVAL_STATUSES);
 export type ApprovalStatus = z.infer<typeof approvalStatusSchema>;
 
+// 허락 범위(platform/approvals#R18). 대화 안 승인 카드의 선택은 Allow once(once)·Allow for this
+// session(session)·Deny 셋이고 계속 허락(Always)은 없다. 오래 가는 허락은 자리의 권한 규칙이 맡는다.
+export const APPROVAL_GRANT_SCOPES = ["once", "session"] as const;
+export const approvalGrantScopeSchema = z.enum(APPROVAL_GRANT_SCOPES);
+export type ApprovalGrantScope = z.infer<typeof approvalGrantScopeSchema>;
+
 export const approvalRequestSchema = z.object({
   id: idSchema("apr"),
   requester: actorSchema,
@@ -140,7 +146,13 @@ export const approvalRequestSchema = z.object({
   effect: approvalEffectSchema,
   action: approvalActionSchema,
   expires_at: atSchema.nullable(),
+  // 카드가 session 선택을 보일 수 있나. 생성 뒤 바꾸지 않는다(platform/approvals#R20).
+  session_grantable: z.boolean(),
   status: approvalStatusSchema,
+  // 허락한 범위와 session 허락이 사는 session. granted일 때만 범위가 있고, session 범위일 때만
+  // session이 있다(platform/approvals#R19).
+  grant_scope: approvalGrantScopeSchema.nullable(),
+  grant_session: idSchema("ses").nullable(),
   closed_reason_blob: sha256Schema.nullable(),
   created_seq: seqSchema,
   closed_seq: seqSchema.nullable(),
@@ -155,6 +167,15 @@ export const approvalRequestSchema = z.object({
 ).refine(
   (value) => (value.status === "pending") === (value.closed_seq === null),
   { message: "closed_seq presence does not match status" },
+).refine(
+  (value) => (value.grant_scope !== null) === (value.status === "granted"),
+  { message: "grant scope presence does not match status" },
+).refine(
+  (value) =>
+    value.grant_scope === "session"
+      ? value.session_grantable && value.grant_session !== null
+      : value.grant_session === null,
+  { message: "grant session does not match grant scope" },
 );
 export type ApprovalRequest = z.infer<typeof approvalRequestSchema>;
 
@@ -200,6 +221,8 @@ export const approvalsGet = defineRead({
 export const approvalsListInputSchema = z.strictObject({
   status: approvalStatusSchema.optional(),
   run: idSchema("run").optional(),
+  // session 허락이 사는 session으로 거른다. tool-judgment가 그 session의 허락을 찾는다.
+  grant_session: idSchema("ses").optional(),
   limit: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).optional(),
 });
 export const approvalsListOutputSchema = withReadCommon(z.object({
@@ -249,6 +272,8 @@ export const createApprovalRequestStoredSchema = z.strictObject({
   effect: approvalEffectSchema,
   action: approvalActionSchema,
   expires_at: atSchema.nullable(),
+  // 빠지면 false다(입력의 기본값과 같다). 출력 모양이라 기본값을 채우지 않는다.
+  session_grantable: z.boolean().optional(),
 });
 
 export const createApprovalRequestInputSchema = z.strictObject({
@@ -259,6 +284,9 @@ export const createApprovalRequestInputSchema = z.strictObject({
   effect: approvalEffectInputSchema,
   action: approvalActionSchema,
   expires_at: atSchema.nullable(),
+  // agent tool call의 ask만 true를 싣는다(platform/approvals#R20). 빠지면 false다: 앱 command의
+  // confirm·앱 permission·release 적용·복원 request는 session 선택이 없는 request다.
+  session_grantable: z.boolean().default(false),
 });
 export type CreateApprovalRequestInput = z.infer<
   typeof createApprovalRequestInputSchema
@@ -280,6 +308,9 @@ export const grantApprovalRequestInputSchema = z.strictObject({
   approval: idSchema("apr"),
   created_seq: seqSchema,
   binding_hash: sha256Schema,
+  // 사람이 고른 범위이고 confirmation 내용에 묶인다. 빠지면 once다: 한 번 허락은 session 허락을 열지
+  // 않는 좁은 쪽이라 침묵이 넓은 허락이 되지 않는다(R4).
+  scope: approvalGrantScopeSchema.default("once"),
 });
 export const grantApprovalRequestOutputSchema = z.object({
   request: approvalRequestSchema,
@@ -293,9 +324,9 @@ export const grantApprovalRequest = defineCommand({
   output: grantApprovalRequestOutputSchema,
   compare: contentCompareSchema,
   actors: ["user"],
-  errors: ["forbidden", "not_found", "conflict"],
+  errors: ["invalid_input", "forbidden", "not_found", "conflict"],
   confirmation: "required",
-  binding: ["approval", "created_seq", "binding_hash"],
+  binding: ["approval", "created_seq", "binding_hash", "scope"],
   display_read: "approvals/get",
 });
 
@@ -402,7 +433,12 @@ export const approvalRequestCreatedPayloadSchema = z.object({
 export const approvalRequestGrantedPayloadSchema = z.object({
   created_seq: seqSchema,
   binding_hash: sha256Schema,
-});
+  scope: approvalGrantScopeSchema,
+  session: idSchema("ses").nullable(),
+}).refine(
+  (value) => (value.scope === "session") === (value.session !== null),
+  { message: "session presence does not match scope" },
+);
 export const approvalRequestRejectedPayloadSchema = z.object({
   created_seq: seqSchema,
   closed_reason_blob: sha256Schema.nullable(),

@@ -8,9 +8,11 @@ import {
   approvalActionSchema,
   type ApprovalEffect,
   approvalEffectSchema,
+  type ApprovalGrantScope,
   type ApprovalStatus,
   approvalStatusSchema,
 } from "../../contracts/platform/mod.ts";
+import { CONFIRM_COMMAND, CONFIRM_CONCERN } from "./confirm.ts";
 
 // 종료 상태는 불변이다. 다시 열기·결정 수정은 없다(domain model 불변 조건).
 const CLOSED: readonly ApprovalStatus[] = [
@@ -159,4 +161,53 @@ export function cancelActorAllowed(
     code: "forbidden",
     message: "취소는 사람·원래 요청자·machine만 한다",
   });
+}
+
+// session 허락을 고를 수 있는 request는 session 있는 run의 agent tool call ask뿐이다(R20). 앱 command의
+// confirm·앱 permission·release 적용·복원처럼 정확한 대상 하나를 보고 결정해야 하는 request는
+// agent tool call의 ask가 아니거나(요청자가 agent가 아님) confirm 접수 동작이라 켜지 못한다.
+export function sessionGrantableValid(input: {
+  sessionGrantable: boolean;
+  requester: Actor;
+  run: string | null;
+  session: string | null;
+  action: ApprovalAction;
+}): Result<void> {
+  if (!input.sessionGrantable) return ok(undefined);
+  if (!input.requester.startsWith("agent:") || input.run === null) {
+    return err({
+      code: "invalid_input",
+      message: "session 허락은 agent tool call의 ask에만 있다",
+    });
+  }
+  if (
+    input.action.concern === CONFIRM_CONCERN &&
+    input.action.command === CONFIRM_COMMAND
+  ) {
+    return err({
+      code: "invalid_input",
+      message: "사람이 확인하는 앱 command에는 session 허락이 없다",
+    });
+  }
+  if (input.session === null) {
+    return err({
+      code: "invalid_input",
+      message: "session이 없는 run의 ask에는 session 허락이 없다",
+    });
+  }
+  return ok(undefined);
+}
+
+// 허락 범위는 once와 session이고 session은 session_grantable인 request만 고른다(R18, R20).
+export function grantScopeAllowed(
+  sessionGrantable: boolean,
+  scope: ApprovalGrantScope,
+): Result<void> {
+  if (scope === "session" && !sessionGrantable) {
+    return err({
+      code: "invalid_input",
+      message: "이 request에는 session 허락이 없다",
+    });
+  }
+  return ok(undefined);
 }

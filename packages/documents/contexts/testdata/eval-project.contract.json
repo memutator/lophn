@@ -516,21 +516,21 @@
       "kind": "search",
       "search": "findings_for_experiment",
       "inputs": {
-        "experiment": "008"
+        "experiment": "001"
       },
       "expect_keys": [
-        "009"
+        "001"
       ]
     },
     {
       "kind": "entity",
-      "path": "eval/experiments/exp-008-sight.md",
+      "path": "eval/experiments/exp-002-sight.md",
       "section": null,
       "expect": {
         "type": "Experiment",
-        "key": "008",
+        "key": "002",
         "fields": {
-          "status": "done"
+          "status": "running"
         }
       }
     }

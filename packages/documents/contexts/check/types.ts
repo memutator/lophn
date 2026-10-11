@@ -17,6 +17,12 @@ export type CheckInput = {
   appData: AppDataReader;
   // 같은 project의 다른 context가 내놓은 type과 앱 명령의 effect
   env: ValidationEnv;
+  // 사람이 저장해 둔 saved view(ledger 행). 판에 든 saved view와 함께 모두 불러 본다(R20).
+  user_saved_views: readonly {
+    name: string;
+    search: string;
+    inputs: Record<string, unknown>;
+  }[];
 };
 
 // 기록하는 위반 하나: extract가 낸 것과 규칙이 낸 것.

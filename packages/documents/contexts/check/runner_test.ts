@@ -238,6 +238,35 @@ Deno.test("documents/contexts#R20 [ctx-I23]: a saved view whose inputs no longer
   assertEquals(outcome.violation_count, FIXTURE_EXPECTED_VIOLATIONS);
 });
 
+Deno.test("documents/contexts#R18 #R20 [ctx-I23]: saved views people saved are called too, and one the new bundle breaks fails the check", () => {
+  const input = inputOf();
+  const outcome = runCheck({
+    ...input,
+    user_saved_views: [
+      { name: "Mine", search: "findings_for_experiment", inputs: {} },
+      { name: "Old", search: "gone", inputs: {} },
+      {
+        name: "Fine",
+        search: "findings_for_experiment",
+        inputs: { experiment: "002" },
+      },
+    ],
+  });
+  assertEquals(outcome.status, "failed");
+  assertEquals(outcome.findings, [
+    {
+      kind: "saved_view_broken",
+      target: "saved_views.Mine",
+      detail: "input_required: experiment",
+    },
+    {
+      kind: "saved_view_broken",
+      target: "saved_views.Old",
+      detail: "search_unknown",
+    },
+  ]);
+});
+
 Deno.test("documents/contexts#R20 [ctx-I23]: a saved view that names a search the bundle no longer has is a meaning issue, not a run", () => {
   const outcome = runCheck(
     inputOf((raw) => raw.saved_views[0].search = "gone"),

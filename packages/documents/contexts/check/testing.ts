@@ -8,28 +8,12 @@ const testdata = new URL("../testdata/", import.meta.url);
 
 export const FIXTURE_EXPECTED_VIOLATIONS = 7;
 
-// fixture 계약 JSON. fixture 파일에 맞는 예 둘로 바꿔 둔다: 계약 파일의 `examples`는 sampleBundle에서 옮겨 온
-// 008·009를 가리키는데 eval-project에는 그 실험이 없다.
+// fixture 계약 JSON(예 둘은 eval-project 파일에 맞는다).
 // deno-lint-ignore no-explicit-any
 export function fixtureRaw(): any {
-  const raw = JSON.parse(
+  return JSON.parse(
     Deno.readTextFileSync(new URL("eval-project.contract.json", testdata)),
   );
-  raw.examples = [
-    {
-      kind: "search",
-      search: "findings_for_experiment",
-      inputs: { experiment: "001" },
-      expect_keys: ["001"],
-    },
-    {
-      kind: "entity",
-      path: "eval/experiments/exp-002-sight.md",
-      section: null,
-      expect: { type: "Experiment", key: "002", fields: { status: "running" } },
-    },
-  ];
-  return raw;
 }
 
 export function fixtureExpected(): unknown[] {
@@ -56,6 +40,7 @@ export function inputOf(
     files,
     appData: loadAppData("eval-project"),
     env: sampleEnv(),
+    user_saved_views: [],
   };
 }
 

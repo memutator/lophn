@@ -33,7 +33,7 @@ export const cliQuestionShowSchema = withCommon(
 );
 export const cliQuestionOpenSchema = withCommon(
   "question open",
-  z.strictObject({ question: questionRead.input.shape.question }),
+  z.strictObject({ group: questionRead.input.shape.group }),
 );
 export const cliApprovalListSchema = withCommon(
   "approval list",

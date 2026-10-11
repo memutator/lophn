@@ -251,7 +251,8 @@ export const RUN_STATES = [
 
 export const runStateSchema = z.enum(RUN_STATES);
 
-export const waitingOnSchema = z.union([idSchema("qst"), idSchema("apr")]);
+// 기다리는 요청은 질문 묶음(qgr) 또는 approval request(apr) 하나다.
+export const waitingOnSchema = z.union([idSchema("qgr"), idSchema("apr")]);
 
 export function nonSelfRunLinks(value: {
   id: string;

@@ -82,21 +82,22 @@ export const recommendationSchema = z.strictObject({
 });
 export const recommendationOutputSchema = z.object(recommendationFields);
 
-const createQuestionBase = {
+// 묶음은 질문 1~4개다(questions#R1). 질문 하나는 독립 결정 하나만 담는다.
+export const QUESTION_GROUP_MIN_QUESTIONS = 1;
+export const QUESTION_GROUP_MAX_QUESTIONS = 4;
+
+const questionInputFields = {
   id: idSchema("qst"),
-  run: idSchema("run"),
-  session: idSchema("ses").nullable(),
-  expires_at: atSchema.nullable(),
-};
-const createQuestionInputFields = {
-  ...createQuestionBase,
   prompt: questionTextSchema,
   reason: questionTextSchema,
   options: z.array(questionOptionSchema),
   recommendation: recommendationSchema.nullable(),
 };
-const createQuestionFields = {
-  ...createQuestionBase,
+// 저장된 질문. 묶음 안 순서(position)는 1부터 연속이다.
+const questionFields = {
+  id: idSchema("qst"),
+  group: idSchema("qgr"),
+  position: z.number().int().min(1).max(QUESTION_GROUP_MAX_QUESTIONS),
   prompt_blob: sha256Schema,
   reason_blob: sha256Schema,
   options: z.array(questionOptionOutputSchema),
@@ -116,19 +117,76 @@ function questionShape(value: {
       keys.includes(value.recommendation.option_key);
 }
 
-export const createQuestionInputSchema = z.strictObject(
-  createQuestionInputFields,
-).refine(questionShape, {
-  message: "question options and recommendation disagree",
+export const questionInputSchema = z.strictObject(questionInputFields).refine(
+  questionShape,
+  { message: "question options and recommendation disagree" },
+);
+export const questionOutputSchema = z.object(questionFields).refine(
+  questionShape,
+  { message: "question options and recommendation disagree" },
+);
+
+type FixedActionQuestion = {
+  options: readonly { action: unknown }[];
+};
+
+// 고정 action이 있는 선택지를 가진 질문은 질문 하나짜리 묶음으로만 낸다(questions#R13).
+// 다른 질문의 답과 한 Submit에 섞으면 무엇을 확정했는지 흐려진다.
+export function groupAgreesWithFixedActions(
+  questions: readonly FixedActionQuestion[],
+): boolean {
+  return questions.length === 1 ||
+    questions.every((question) =>
+      question.options.every((option) => option.action === null)
+    );
+}
+
+const questionGroupBase = {
+  id: idSchema("qgr"),
+  run: idSchema("run"),
+  session: idSchema("ses").nullable(),
+  expires_at: atSchema.nullable(),
+};
+
+function uniqueIds(questions: readonly { id: string }[]): boolean {
+  return new Set(questions.map((question) => question.id)).size ===
+    questions.length;
+}
+
+export const createQuestionGroupInputSchema = z.strictObject({
+  ...questionGroupBase,
+  questions: z.array(questionInputSchema)
+    .min(QUESTION_GROUP_MIN_QUESTIONS)
+    .max(QUESTION_GROUP_MAX_QUESTIONS),
+}).refine((value) => uniqueIds(value.questions), {
+  message: "duplicate question id in the group",
+}).refine((value) => groupAgreesWithFixedActions(value.questions), {
+  message: "a question with a fixed action must be a group of one",
 });
-export const createQuestionSubmissionOutputSchema = z.object(
-  createQuestionFields,
-).refine(questionShape, {
-  message: "question options and recommendation disagree",
+
+// 저장된 묶음 제출. 질문마다 설명 글은 blob hash이고 position은 1부터 연속이다.
+export const createQuestionGroupSubmissionOutputSchema = z.object({
+  ...questionGroupBase,
+  questions: z.array(questionOutputSchema)
+    .min(QUESTION_GROUP_MIN_QUESTIONS)
+    .max(QUESTION_GROUP_MAX_QUESTIONS),
+}).refine((value) => uniqueIds(value.questions), {
+  message: "duplicate question id in the group",
+}).refine(
+  (value) =>
+    value.questions.every((question, index) =>
+      question.position === index + 1 && question.group === value.id
+    ),
+  { message: "question positions must be consecutive from 1 in the group" },
+).refine((value) => groupAgreesWithFixedActions(value.questions), {
+  message: "a question with a fixed action must be a group of one",
 });
 
 export type FixedVersionReference = z.infer<typeof fixedVersionReferenceSchema>;
 export type OptionAction = z.infer<typeof optionActionSchema>;
 export type QuestionOption = z.infer<typeof questionOptionSchema>;
 export type Recommendation = z.infer<typeof recommendationSchema>;
-export type CreateQuestionInput = z.infer<typeof createQuestionInputSchema>;
+export type QuestionInput = z.infer<typeof questionInputSchema>;
+export type CreateQuestionGroupInput = z.infer<
+  typeof createQuestionGroupInputSchema
+>;

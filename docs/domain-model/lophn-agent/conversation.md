@@ -18,7 +18,7 @@ Session(agent·자리 고정, 제목, archive, 복사, 요약)과 Message, 입�
 | `state` | `open / closed` | 아니오 | 초기 `open` | 새 입력 접수 가능 여부 |
 | `forked_from` | ForkOrigin | 예 | 같은 assignment; 불변; FK 아님 | Fork 출처 |
 | `opening_context` | OpeningContext | 예 | 불변; OpenSession에서만 설정 | toast에서 연 첫 context |
-| `model_selection` | SessionModel | 예 | null이면 agent 기본값을 따름 | 이 session의 model·option |
+| `model_selection` | ModelChoice | 예 | null이면 agent 기본값을 따름 | 이 session의 model·option |
 | `compaction` | Compaction | 예 | 없으면 null; Compact마다 새 값으로 교체 | 사람이 부른 요약의 마지막 구간 |
 | `closed_reason` | `assignment_withdrawn` | 예 | `closed`일 때만 필수 | 닫힘 이유 |
 | `closed_at` | 시각 | 예 | `closed`일 때만 필수 | 닫힘 확정 시각 |
@@ -78,10 +78,7 @@ App Engineer는 Assignment.scope app, Operator는 scope의 project/app으로 고
 
 ## SessionModel (값)
 
-| 필드 | 타입 | null | 제약 | 뜻 |
-|---|---|---|---|---|
-| `provider_definition / model_name` | 문자열 각각 | 아니오 | catalog 항목; → lophn-agent/harness/model | model identity |
-| `options` | `{option id: value}` | 아니오 | 그 model이 가진 축과 값만; 빈 객체 허용 | effort·speed 등 |
+이 session의 model 선택은 → lophn-agent/harness/model의 **ModelChoice**(`provider`(`pvd`), `model_name`, `option_values` — 그 model이 가진 축과 값만, 빈 객체 허용) 그대로다. 따로 모양을 두지 않는다.
 
 null은 agent 기본값을 따른다. 이 값은 Run 시작 때 resolve해 RunBasis에 고정한다. 진행 중 run에는 영향이 없다.
 
@@ -169,7 +166,7 @@ MessagePart는 `{kind: text, text: string}` 또는 `{kind: visual, block: Visual
 | `DeleteSession` | user | 세션, 상태 seq | 세션 존재; 진행 중·대기 중 run 없음; 같은 transaction에서 메시지·그 세션의 run 기록·질문·approval request를 지움; 문서·앱 변경은 지우지 않음 | `SessionDeleted` | `not_found`, `conflict`, `forbidden` |
 | `ForkSession` | user | 새 세션 ID, 출처 세션, through_seq | 출처 세션 존재·같은 assignment enabled; 미종료 run 없음; through_seq는 출처의 확정 메시지 seq; ID 내용 일치 | `SessionForked` | `invalid_input`, `not_found`, `conflict`, `forbidden` |
 | `CompactSession` | user | 세션, 상태 seq | 세션 open·미종료 run 없음; 완전 성공한 organizing 요약 call 하나가 있어야 반영; 실패하면 세션을 바꾸지 않음 | `SessionCompacted` | `conflict`, `forbidden`, `unavailable` |
-| `ChangeSessionModel` | user | 세션, SessionModel 또는 null, 상태 seq | 세션 open; catalog에 있는 model과 그 model의 option 값만; null은 기본값으로 돌아감 | `SessionModelChanged` | `invalid_input`, `not_found`, `conflict` |
+| `ChangeSessionModel` | user | 세션, ModelChoice 또는 null, 상태 seq | 세션 open; catalog에 있는 model과 그 model의 option 값만; null은 기본값으로 돌아감 | `SessionModelChanged` | `invalid_input`, `not_found`, `conflict` |
 | `CloseSession` | machine | 세션, 이유 | 예상 `open`, 상태 seq; assignment withdrawn; 미종료 run 없음 | `SessionClosed` | `conflict`, `forbidden` |
 | `ReceiveMessage` | user | ID, 세션, 본문 값(MessageContent 글 part), mode, 대상 run? | 세션 open·상태 seq; assignment enabled·revision; correction은 같은 세션의 담당 run 검사 및 종료 경계 정책; ID 내용 일치; 첫 request면 title 자동 설정 | `MessageReceived`; run 접수는 → lophn-agent/harness/run-loop | `invalid_input`, `conflict`, `forbidden` |
 | `RecordMessage` | agent / machine | ID, 세션, run?, 본문 값(MessageContent), links | run·세션 연결; ID 내용 일치 | `MessageRecorded` | `invalid_input`, `conflict`, `forbidden` |
@@ -188,7 +185,7 @@ MessagePart는 `{kind: text, text: string}` 또는 `{kind: visual, block: Visual
 | `SessionDeleted` | 세션 | assignment, deleted_at(지운 내용은 싣지 않는다) | shell/desktop |
 | `SessionForked` | 새 세션 | 출처 세션, through_seq, 복사한 메시지 수 | shell/desktop |
 | `SessionCompacted` | 세션 | 전후 Compaction | lophn-agent/harness/prompt-assemble, shell/desktop |
-| `SessionModelChanged` | 세션 | 전후 SessionModel | shell/desktop |
+| `SessionModelChanged` | 세션 | 전후 ModelChoice | shell/desktop |
 | `SessionClosed` | 세션 | 이유, closed_at | shell/desktop, lophn-agent/harness/prompt-assemble |
 | `MessageReceived` | 메시지 | 세션, 담당 run, mode, body | lophn-agent/harness/run-loop, shell/desktop |
 | `MessageRecorded` | 메시지 | 세션, run?, body, links | shell/desktop |

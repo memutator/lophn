@@ -24,7 +24,8 @@ Deno.test("lophn-agent/roles/common#R1: role enum is the four canonical roles", 
     "context_engineer",
     "operator",
   ]);
-  assert(workPlaceSchema.safeParse({ kind: "global", id: null }).success);
+  // Lophn Workspace에는 session이 없다: 전역 자리가 없다(conversation#R16).
+  assert(!workPlaceSchema.safeParse({ kind: "global", id: null }).success);
   assert(!workPlaceSchema.safeParse({ kind: "global", id: app }).success);
   assert(!workPlaceSchema.safeParse({ kind: "app", id: null }).success);
   const project = "prj_01arz3ndektsv4rrffq69g5fav";

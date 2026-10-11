@@ -92,7 +92,7 @@ Deno.test("lophn-agent/harness/run-loop#R19: state fields stay coupled across th
       state: "waiting_user",
       basis: hash,
       started_at: at,
-      waiting_on: "qst_01arz3ndektsv4rrffq69g5fav",
+      waiting_on: "qgr_01arz3ndektsv4rrffq69g5fav",
     }).success,
   );
   assert(
@@ -200,7 +200,7 @@ Deno.test("lophn-agent/harness/run-loop#R19: terminal unstarted runs keep null b
       { ...terminal, start_confirmed_seq: "1" },
       { ...terminal, continued_from: run },
       { ...terminal, start_after: run },
-      { ...terminal, waiting_on: "qst_01arz3ndektsv4rrffq69g5fav" },
+      { ...terminal, waiting_on: "qgr_01arz3ndektsv4rrffq69g5fav" },
     ]
   ) assert(!runRecordSchema.safeParse(value).success);
   assert(

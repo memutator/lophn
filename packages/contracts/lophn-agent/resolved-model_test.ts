@@ -68,7 +68,7 @@ const basis = {
     mcp_tool_definition_hashes: [],
   },
   models: { judgment: model, organizing: { ...model, purpose: "organizing" } },
-  initial_work_place: { kind: "global", id: null },
+  initial_work_place: { kind: "project", id: "prj_01arz3ndektsv4rrffq69g5fav" },
   limits: { model_attempts: 30, stall_ms: 300000, active_ms: 1800000 },
   tool_result_limits: { bytes: 24576, lines: 300, list: 20 },
 };

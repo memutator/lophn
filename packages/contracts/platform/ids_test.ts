@@ -23,6 +23,7 @@ Deno.test(
       "prj",
       "pst",
       "pvd",
+      "qgr",
       "qst",
       "rel",
       "rpt",
@@ -38,7 +39,7 @@ Deno.test(
       "viw",
       "vrf",
     ]);
-    assertEquals(Object.keys(ID_PREFIXES).length, 30);
+    assertEquals(Object.keys(ID_PREFIXES).length, 31);
     assertEquals(ID_PREFIXES.run, "Run");
   },
 );

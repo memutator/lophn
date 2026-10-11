@@ -27,7 +27,7 @@ function withTab(tab: TabSpec, extra: Partial<ProjectAppProps> = {}) {
 
 const weekly = (chat: ChatInit) => withTab(weeklyTab(chat));
 
-/** A1: sidebar의 Agents 묶음과 최근 Conversations. 탭 줄에 Weekly report · lophn 대화가 열려 있다. */
+/** A1: sidebar의 Agents 묶음과 최근 Sessions. 탭 줄에 Weekly report · lophn Agent 탭이 열려 있다. */
 export function AgentSidebar() {
   return withTab(weeklyTab({ stage: "question" }), {
     sidebar: { ...SIDEBAR, hoverAgent: "lophn", scrollToAgents: true },

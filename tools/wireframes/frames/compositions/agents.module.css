@@ -1,6 +1,6 @@
-/* agent 화면(sidebar의 Agents·Conversations, 대화 탭, Agents 탭, Workspace Settings). 같은 token만 쓴다. */
+/* agent 화면(sidebar의 Agents·Sessions, Agent 탭, Agents 탭, Workspace Settings). 같은 token만 쓴다. */
 
-/* sidebar: Agents · Conversations */
+/* sidebar: Agents · Sessions */
 .agentsHead {
   justify-content: space-between;
 }

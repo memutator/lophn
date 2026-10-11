@@ -184,7 +184,7 @@ export function contextOf(path: string): string | null {
 /** [New context]·+ 메뉴의 New context…가 다른 칸에 여는 Context Engineer 대화. form은 없다. */
 export const NEW_CONTEXT_CHAT: TabSpec = {
   key: "chat:new-context",
-  kind: "conversation",
+  kind: "agent",
   title: "Context Engineer",
   sub: "engineer-new",
 };

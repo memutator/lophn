@@ -100,7 +100,7 @@ Deno.test("shell#T69: Agent·Project Agents·Workspace Settings page가 있고 �
     const title of [
       "Agent · sidebar",
       "Agent · toast with context",
-      "Agent · conversation",
+      "Agent · tab",
       "Agent · model picker",
       "Agent · question card",
       "Agent · question answered",
@@ -123,6 +123,12 @@ Deno.test("shell#T69: Agent·Project Agents·Workspace Settings page가 있고 �
   );
   assertEquals(groups, new Set(["Agent", "Workspace"]));
   assert(fresh.every((page) => page.screen !== "conversation-dock"));
+  // agent 대화 탭 kind의 이름은 Agent다(Conversation이 아니다).
+  assert(
+    !fresh.some((page) =>
+      /conversation/i.test(`${page.title} ${page.description}`)
+    ),
+  );
   // 내보내기 기능은 없다.
   assert(
     !fresh.some((page) => /export/i.test(`${page.title} ${page.description}`)),

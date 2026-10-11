@@ -185,7 +185,7 @@ function ModelPicker(
           </div>
         </div>
         <p className={a.modelNote}>
-          Only this conversation. Default comes from the agent.
+          Only this session. Default comes from the agent.
         </p>
         <div className={a.modelFoot}>
           <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
@@ -403,8 +403,8 @@ export function Said(
 }
 
 const REWIND_ITEMS = [
-  "Restore conversation and documents",
-  "Restore conversation only",
+  "Restore messages and documents",
+  "Restore messages only",
   "Summarize from here",
 ] as const;
 
@@ -459,7 +459,7 @@ export function UserMessage(
                 </div>
               ))}
               <p className={a.rewindNote}>
-                Changes made outside this conversation are not restored.
+                Changes made outside this session are not restored.
               </p>
             </div>
           </div>
@@ -720,7 +720,7 @@ export function AnsweredSummary({ text }: { text: string }) {
 
 const ALLOW_ITEMS = [
   "Allow once",
-  "Allow for this conversation",
+  "Allow for this session",
   "Always allow in phroner",
 ] as const;
 

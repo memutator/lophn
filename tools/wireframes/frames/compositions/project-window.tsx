@@ -1,6 +1,6 @@
 // 새 설계 page들이 같이 쓰는 project 화면 조각. 실제 TopBar·Breadcrumbs·LauncherButton·Tooltip과 design
 // component를 그대로 쓰고, 실제 sidebar·tab strip·menu는 source 없이 그릴 수 없거나 새 설계의
-// 항목(Saved views, Context·Search·Conversation 탭 종류, 바로 가기 rail)이 없어서 같은 CSS Module로 같은
+// 항목(Saved views, Context·Search·Agent 탭 종류, 바로 가기 rail)이 없어서 같은 CSS Module로 같은
 // 모양의 마크업을 다시 짠 look-alike다. 앱 코드는 고치지 않는다.
 import { type ReactNode, useLayoutEffect, useRef, useState } from "react";
 import {
@@ -47,7 +47,7 @@ export type TabKind =
   | "contexts"
   | "search"
   | "terminal"
-  | "conversation"
+  | "agent"
   | "agents"
   | "operator";
 
@@ -57,7 +57,7 @@ const KIND_ICON: Record<TabKind, IconProps["icon"]> = {
   contexts: workspaceIcons.context,
   search: paletteIcons.search,
   terminal: workspaceIcons.terminal,
-  conversation: conversationIcons.dock,
+  agent: conversationIcons.dock,
   agents: lophnSpaceIcons.roles,
   operator: lophnSpaceIcons.roles,
 };
@@ -68,7 +68,7 @@ const KIND_LABEL: Record<TabKind, string> = {
   contexts: "Contexts",
   search: "Search",
   terminal: "Terminal",
-  conversation: "Conversation",
+  agent: "Agent",
   agents: "Agents",
   operator: "Operator",
 };
@@ -251,7 +251,7 @@ export type RailAction =
   | "search"
   | "contexts"
   | "saved"
-  | "agents";
+  | "agent";
 
 const RAIL: readonly {
   action: RailAction;
@@ -259,10 +259,10 @@ const RAIL: readonly {
   icon: IconProps["icon"];
 }[] = [
   { action: "terminal", label: "Terminal", icon: workspaceIcons.terminal },
-  { action: "search", label: "Search", icon: paletteIcons.search },
   { action: "contexts", label: "Contexts", icon: workspaceIcons.context },
   { action: "saved", label: "Saved views", icon: lophnSpaceIcons.savedView },
-  { action: "agents", label: "Agents", icon: lophnSpaceIcons.roles },
+  { action: "search", label: "Search", icon: paletteIcons.search },
+  { action: "agent", label: "Agent", icon: conversationIcons.dock },
 ];
 
 export interface SidebarSpec {
@@ -281,7 +281,7 @@ export interface SidebarSpec {
   readonly hoverAgent?: string;
   /** Folders를 모두 접어 그린다(Agents 묶음이 한 화면에 들어오게). */
   readonly foldersClosed?: boolean;
-  /** sidebar 본문을 맨 아래로 scroll해 Agents·Conversations가 보이게 한다. */
+  /** sidebar 본문을 맨 아래로 scroll해 Agents·Sessions가 보이게 한다. */
   readonly scrollToAgents?: boolean;
   /** 이 대화 행을 열린 것으로 표시한다. */
   readonly activeConversation?: string;
@@ -299,8 +299,8 @@ export interface SidebarProps extends SidebarSpec {
 }
 
 /**
- * project sidebar: Folders(tree), Contexts, Saved views, Agents(+ 최근 Conversations). 접으면 바로 가기 rail이
- * 된다: 펼치기 · Terminal · Search · Contexts · Saved views · Agents.
+ * project sidebar: Folders(tree), Contexts, Saved views, Agents(+ 최근 Sessions). 접으면 바로 가기 rail이
+ * 된다: 펼치기 · Terminal · Contexts · Saved views · Search · Agent.
  */
 export function ProjectSidebar(
   {
@@ -466,7 +466,7 @@ export function ProjectSidebar(
                         <span className={agentStyles.plus}>
                           <IconButton
                             icon={lophnSpaceIcons.add}
-                            label={`New conversation with ${agent.name}`}
+                            label={`New session with ${agent.name}`}
                             size="sm"
                             onClick={() => onAgent(agent.id)}
                           />
@@ -477,7 +477,7 @@ export function ProjectSidebar(
               </ul>
             </section>
             <section className={sideStyles.section}>
-              <h2 className={sideStyles.sectionLabel}>Conversations</h2>
+              <h2 className={sideStyles.sectionLabel}>Sessions</h2>
               <ul className={sideStyles.list} role="list">
                 {CONVERSATIONS.map((row) => (
                   <li key={row.id} className={sideStyles.li}>
@@ -556,8 +556,8 @@ export function StaticMenu(
 export type NewTabPick =
   | "document"
   | "terminal"
-  | "chat-lophn"
-  | "chat-engineer"
+  | "agent-lophn"
+  | "agent-engineer"
   | "search"
   | "agents"
   | `context:${string}`
@@ -575,8 +575,8 @@ export function TabMenu({ onPick }: { onPick: (pick: NewTabPick) => void }) {
     ? [
       { id: "document", label: "Document" },
       { id: "terminal", label: "Terminal" },
-      { id: "chat-lophn", label: "Conversation · lophn" },
-      { id: "chat-engineer", label: "Conversation · Context Engineer" },
+      { id: "agent-lophn", label: "Agent · lophn" },
+      { id: "agent-engineer", label: "Agent · Context Engineer" },
       { id: "context", label: "Context ›" },
       { id: "search", label: "Search" },
       { id: "agents", label: "Agents" },

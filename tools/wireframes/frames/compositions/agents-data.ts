@@ -95,7 +95,7 @@ const nameOf = (id: string) =>
 
 let fresh = 0;
 
-/** sidebar에서 agent를 눌러 여는 새 대화 탭. 누를 때마다 새 탭이다. */
+/** sidebar에서 agent를 눌러 여는 새 Agent 탭. 누를 때마다 새 탭이다. */
 export function newConversationTab(
   agent: string,
   chat: Pick<ChatInit, "chip"> = {},
@@ -105,8 +105,8 @@ export function newConversationTab(
   const name = nameOf(agent);
   return {
     key: key ?? `agent:${agent}:${fresh}`,
-    kind: "conversation",
-    title: `New conversation · ${name}`,
+    kind: "agent",
+    title: `New session · ${name}`,
     sub: "new",
     chat: { agent: name, ...chat },
   };
@@ -119,7 +119,7 @@ export function conversationTab(
 ): TabSpec {
   return {
     key: `conv:${row.id}`,
-    kind: "conversation",
+    kind: "agent",
     title: row.agent === "Operator" ? row.title : `${row.title} · ${row.agent}`,
     sub: row.id === "weekly" ? "weekly" : `conv:${row.id}`,
     chat: chat ?? (row.id === "weekly" ? { stage: "question" } : undefined),
@@ -129,7 +129,7 @@ export function conversationTab(
 export const WEEKLY: ConversationRow = CONVERSATIONS[0];
 export const weeklyTab = (chat?: ChatInit): TabSpec => ({
   key: "conv:weekly",
-  kind: "conversation",
+  kind: "agent",
   title: "Weekly report · lophn",
   sub: "weekly",
   chat: chat ?? { stage: "question" },
@@ -140,8 +140,8 @@ export const FAILED_RUN_CHIP =
   "Failed in eval run 2026-10-10: query-recipe-gap, sched-edit, wake-plant";
 export const askLophnTab = (): TabSpec => ({
   key: "agent:lophn:toast",
-  kind: "conversation",
-  title: "New conversation · lophn",
+  kind: "agent",
+  title: "New session · lophn",
   sub: "new",
   chat: { agent: "lophn", chip: FAILED_RUN_CHIP },
 });

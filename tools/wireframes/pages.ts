@@ -477,37 +477,37 @@ export const PAGES: readonly WireframePage[] = [
   fresh(
     "new-project-tabs",
     "Project · tab kinds",
-    "프로젝트 화면의 칸에 띄우는 탭 종류를 늘려 대부분의 화면을 탭으로 연다. 문서·터미널·앱 패널에 더해 대화·context·검색이 탭이 된다.",
+    "프로젝트 화면의 칸에 띄우는 탭 종류를 늘려 대부분의 화면을 탭으로 연다. 문서·터미널·앱 패널에 더해 Agent·context·검색이 탭이 된다.",
     "new-tab-kinds",
   ),
   fresh(
     "new-project-tab-menu",
     "Project · new tab menu",
-    "탭 줄 끝의 + 메뉴를 펼친 상태. New tab 아래에 문서·터미널·대화(lophn·Context Engineer·Operator)·context·검색·앱 패널이 있다.",
+    "탭 줄 끝의 + 메뉴를 펼친 상태. New tab 아래에 문서·터미널·Agent(lophn·Context Engineer·Operator)·context·검색·앱 패널이 있다.",
     "new-tab-menu",
   ),
   fresh(
     "new-sidebar-collapsed",
     "Project · sidebar collapsed",
-    "접은 sidebar는 바로 가기 rail이 된다. 펼치기·Terminal·Search·Contexts·Saved views·Agents 단추가 위에서부터 있고, 누르면 그 탭이 탭 줄에 열린다. 단추에 올리면 tooltip이 뜬다.",
+    "접은 sidebar는 바로 가기 rail이 된다. 펼치기·Terminal·Contexts·Saved views·Search·Agent 단추가 위에서부터 있고, 누르면 그 탭이 탭 줄에 열린다. 단추에 올리면 tooltip이 뜬다.",
     "new-sidebar-collapsed",
   ),
   fresh(
     "new-contexts",
     "Contexts tab",
-    "project의 context 목록을 여는 새 탭 종류. context마다 목적, 다루는 것의 종류 수, 버전, 위반, 쓰는 Operator를 보이고 [Open]은 그 context의 탭(Overview)을 열고, [New context]는 다른 칸에 Context Engineer 대화를 열어 무엇을 위한 context인지 묻는 것으로 시작한다. form은 없다.",
+    "project의 context 목록을 여는 새 탭 종류. context마다 목적, 다루는 것의 종류 수, 버전, 위반, 쓰는 Operator를 보이고 [Open]은 그 context의 탭(Overview)을 열고, [New context]는 다른 칸에 Context Engineer Agent 탭을 열어 무엇을 위한 context인지 묻는 것으로 시작한다. form은 없다.",
     "new-contexts",
   ),
   fresh(
     "new-context-drafting",
     "New context · drafting",
-    "Context Engineer와 대화한 뒤 Context Engineer가 짜기 시작하면 새 context의 Context 탭이 이 모양으로 열려 진행 상태와 아직 확정 아닌 초안을 보인다. 막히면 오른쪽 칸 대화로 묻고, 대화의 답 단추를 눌러 볼 수 있다.",
+    "Context Engineer와 대화한 뒤 Context Engineer가 짜기 시작하면 새 context의 Context 탭이 이 모양으로 열려 진행 상태와 아직 확정 아닌 초안을 보인다. 막히면 오른쪽 칸 Agent 탭에서 묻고, 대화의 답 단추를 눌러 볼 수 있다.",
     "new-context-drafting",
   ),
   fresh(
     "new-ways-to-open",
     "Context tab · ways to open",
-    "Context 탭은 sidebar, 바로 가기, 새 탭 메뉴, 검색, 문서의 info, 위반 알림, 상단 검색, 대화, 새 context 대화에서 연다. 길마다 try it을 누르면 그 길을 눌러 볼 수 있는 page로 간다.",
+    "Context 탭은 sidebar, 바로 가기, 새 탭 메뉴, 검색, 문서의 info, 위반 알림, 상단 검색, Agent 탭, 새 context Agent 탭에서 연다. 길마다 try it을 누르면 그 길을 눌러 볼 수 있는 page로 간다.",
     "new-ways-to-open",
   ),
   fresh(
@@ -573,31 +573,31 @@ export const PAGES: readonly WireframePage[] = [
   fresh(
     "new-agent-sidebar",
     "Agent · sidebar",
-    "agent는 project sidebar의 Agents 묶음에서만 부른다. agent를 누르면 새 대화가 탭으로 열리고, 최근 대화는 상태(Waiting for you·Working·Done)와 함께 그 아래에 있다. 접힌 바로 가기 막대의 Conversation 단추는 Agents 단추가 되어 누르면 lophn 새 대화 탭이 열린다.",
+    "agent는 project sidebar의 Agents 묶음에서만 부른다. agent를 누르면 새 Agent 탭이 열리고, 최근 session은 상태(Waiting for you·Working·Done)와 함께 그 아래 Sessions에 있다. 접힌 바로 가기 막대의 Agent 단추를 누르면 lophn의 새 Agent 탭이 열린다.",
     "new-agent-sidebar",
   ),
   fresh(
     "new-agent-toast",
     "Agent · toast with context",
-    '사람 대신 program이 "agent를 불러야 할 일"을 판정하면 toast로 알린다. [Ask lophn]을 누르면 그 일을 첫 context로 붙인 대화가 열린다. [View]는 검색 탭을 연다.',
+    '사람 대신 program이 "agent를 불러야 할 일"을 판정하면 toast로 알린다. [Ask lophn]을 누르면 그 일을 첫 context로 붙인 Agent 탭이 열린다. [View]는 검색 탭을 연다.',
     "new-agent-toast",
   ),
   fresh(
     "new-agent-toast-opened",
-    "Agent · conversation from toast",
-    "[Ask lophn]을 누른 결과. 새 Conversation 탭의 composer 위에 toast가 가리킨 일이 context chip으로 붙고, 입력칸은 비어 있다. chip의 ✕로 뗄 수 있다.",
+    "Agent · tab from toast",
+    "[Ask lophn]을 누른 결과. 새 Agent 탭의 composer 위에 toast가 가리킨 일이 context chip으로 붙고, 입력칸은 비어 있다. chip의 ✕로 뗄 수 있다.",
     "new-agent-toast-opened",
   ),
   fresh(
     "new-agent-conversation",
-    "Agent · conversation",
-    "대화는 탭에서 한다. tool 호출은 한 줄로 접고, 바꾼 문서는 카드로, 진행은 view bar의 chip 한 자리에 보인다. composer 안 아래 줄에 agent·model, 입력칸 밖 아래 줄에 project·권한을 둔다.",
+    "Agent · tab",
+    "agent와는 Agent 탭에서 이야기한다. tool 호출은 한 줄로 접고, 바꾼 문서는 카드로, 진행은 view bar의 chip 한 자리에 보인다. composer 안 아래 줄에 agent·model, 입력칸 밖 아래 줄에 project·권한을 둔다.",
     "new-agent-conversation",
   ),
   fresh(
     "new-agent-model-picker",
     "Agent · model picker",
-    "composer의 model을 누르면 연결된 provider별 model과 effort를 고른다. 바꾼 값은 이 대화에만 쓰이고 기본값은 agent 정의에서 온다. 기본값은 Workspace › Settings › Agents에서 바꾼다.",
+    "composer의 model을 누르면 연결된 provider별 model과 effort를 고른다. 바꾼 값은 이 session에만 쓰이고 기본값은 agent 정의에서 온다. 기본값은 Workspace › Settings › Agents에서 바꾼다.",
     "new-agent-model-picker",
   ),
   fresh(
@@ -621,7 +621,7 @@ export const PAGES: readonly WireframePage[] = [
   fresh(
     "new-agent-rewind",
     "Agent · rewind",
-    "되돌리기는 대화가 살아 있는 동안만 한다. 내 메시지에서 그 시점으로 되돌리고, 되돌릴 수 없는 것은 미리 말한다.",
+    "되돌리기는 session이 살아 있는 동안만 한다. 내 메시지에서 그 시점으로 되돌리고, 되돌릴 수 없는 것은 미리 말한다.",
     "new-agent-rewind",
   ),
   fresh(

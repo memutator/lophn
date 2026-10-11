@@ -116,7 +116,7 @@ export function ContextsBody({ open }: { open: Open }) {
           New context
         </Button>
         <p className={styles.note}>
-          Context Engineer sets it up with you in a conversation.
+          Context Engineer sets it up with you in an Agent tab.
         </p>
       </div>
     </div>

@@ -169,7 +169,7 @@ export function ProvidersPane(
       <h1 className={styles.searchTitle}>Providers</h1>
       <p className={a.setLead}>
         A provider is an account and how you sign in to it. You choose models
-        per agent and per conversation, not here.
+        per agent and per session, not here.
       </p>
       <section>
         <h2 className={a.setSectionTitle}>Connected</h2>

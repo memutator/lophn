@@ -1376,17 +1376,18 @@ concerns: [shell]
 - 등급: frontend
 - concern: shell/desktop
 - 요구: 없음 — 개발 도구
-- 자리: tools/wireframes/ (T68 위에 쌓는다. #589 위)
+- 자리: tools/wireframes/ (T68 위에 쌓는다. #589 위, main에 #583~#590이 들어간 뒤 main을 합침)
 - 쓰는 contract: 없음
 - 내놓는 contract: 없음
 - slice: desktop
 - 선행: T66, T68
 - 완료: 아래 확인이 통과한다
-  - 새 설계 part에 Agent 묶음 page 열한 개(sidebar, toast with context, toast에서 연 대화, conversation, model picker, question card, question answered, approval card, rewind), Project 둘(Agents 탭, Operator editor), Workspace 셋(Settings › Providers, Connect a provider, Settings › Agents)이 있다. 화면 말은 영어, 설명은 한국어다. 목차는 제목 앞부분(Agent·Project·Workspace)으로 묶는다.
-  - agent는 project sidebar의 Agents 묶음(lophn·Context Engineer·Operator 둘)에서만 부르고, 그 밖의 길은 program이 판정한 toast의 [Ask lophn] 하나다(그 일을 첫 context chip으로 붙인 새 대화 탭이 열린다). 대화 dock과 화면마다의 Ask 단추는 없다. 접힌 바로 가기 막대의 Conversation 단추는 Agents 단추가 되었다.
-  - ProjectApp에서 동작한다: sidebar의 agent·최근 대화(상태 점, Waiting for you이 맨 위)·Manage, 새 Agents 탭과 Operator editor 탭(카드 [Open]·[+ New Operator]), toast [Ask lophn], 질문 카드(둘을 한 카드에 펼침, Submit → 답한 요약, Skip), 승인 카드([Allow ▾] 범위 menu, Deny), composer의 model picker(검색·즐겨찾기·effort)·agent·권한 menu, 진행 chip의 Tasks popover, 보기 상세(Messages·Compact·Everything), 내 메시지의 Rewind menu. Workspace Settings는 세로 nav(General · Providers · Agents · Coding agents · Notifications · Update lophn · Diagnose)로 바뀌고 provider [+ Connect]는 실제 Dialog를 연다.
+  - 새 설계 part에 Agent 묶음 page 열한 개(sidebar, toast with context, tab from toast, tab, model picker, question card, question answered, approval card, rewind), Project 둘(Agents 탭, Operator editor), Workspace 셋(Settings › Providers, Connect a provider, Settings › Agents)이 있다. 화면 말은 영어, 설명은 한국어다. 목차는 제목 앞부분(Agent·Project·Workspace)으로 묶는다.
+  - agent는 project sidebar의 Agents 묶음(lophn·Context Engineer·Operator 둘)에서만 부르고, 그 밖의 길은 program이 판정한 toast의 [Ask lophn] 하나다(그 일을 첫 context chip으로 붙인 새 Agent 탭이 열린다). 대화 dock과 화면마다의 Ask 단추는 없다.
+  - 이름(사람 결정 2026-10-11): agent 대화 탭 kind와 바로 가기 단추의 이름은 Agent다. 탭 kind 이름·+ 메뉴(Agent · lophn, Agent · Context Engineer)·page 제목과 설명에 Conversation이 남지 않는다. 접힌 바로 가기 막대는 위에서부터 Terminal · Contexts · Saved views · Search · Agent다. sidebar의 최근 목록은 Sessions, 범위 말은 "this session"이다.
+  - ProjectApp에서 동작한다: sidebar의 agent·최근 session(상태 점, Waiting for you이 맨 위)·Manage, 새 Agents 탭과 Operator editor 탭(카드 [Open]·[+ New Operator]), toast [Ask lophn], 질문 카드(둘을 한 카드에 펼침, Submit → 답한 요약, Skip), 승인 카드([Allow ▾] 범위 menu, Deny), composer의 model picker(검색·즐겨찾기·effort)·agent·권한 menu, 진행 chip의 Tasks popover, 보기 상세(Messages·Compact·Everything), 내 메시지의 Rewind menu. Workspace Settings는 세로 nav(General · Providers · Agents · Coding agents · Notifications · Update lophn · Diagnose)로 바뀌고 provider [+ Connect]는 실제 Dialog를 연다.
   - 사람 결정을 따른다: provider는 계정·인증만이고 model은 agent 정의와 대화 composer에서 고른다. lophn agent 지침은 LOPHN.md이고 agent 정의는 project 폴더가 아니라 lophn에 저장된다. 내보내기 기능은 그리지 않는다.
-  - `tools/wireframes/pages_test.ts`가 새 설계 page 수와 Agent 묶음 page 존재, 대화 dock page 없음, 내보내기 문구 없음을 본다(맞는 shell 요구가 없어 이름이 `shell#T69`로 시작한다).
+  - `tools/wireframes/pages_test.ts`가 새 설계 page 수와 Agent 묶음 page 존재, 대화 dock page 없음, 새 설계 page 제목·설명에 conversation 없음, 내보내기 문구 없음을 본다(맞는 shell 요구가 없어 이름이 `shell#T69`로 시작한다).
 
 ## 요구 덮기
 

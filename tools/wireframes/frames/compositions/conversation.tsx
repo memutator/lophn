@@ -1,4 +1,4 @@
-// 대화 탭 본문. 탭의 `sub`가 어느 대화인지 정한다: Weekly report(질문·승인·되돌리기가 동작하는 이야기), 새 대화
+// Agent 탭 본문. 탭의 `sub`가 어느 대화인지 정한다: Weekly report(질문·승인·되돌리기가 동작하는 이야기), 새 대화
 // (sidebar의 agent나 toast의 [Ask lophn]이 연다), 최근 대화, 그리고 lophn·Context Engineer의 이전 대화.
 // 말 속의 context 이름과 객체 id는 링크라서 누르면 탭이 열린다.
 import { type ReactNode, useState } from "react";
@@ -231,7 +231,7 @@ function FreshChat({ chat }: { chat: ChatInit }) {
   const [chip, setChip] = useState(chat.chip);
   return (
     <ChatShell
-      title={`${agent} · New conversation`}
+      title={`${agent} · New session`}
       agent={agent}
       chat={chat}
       chip={chip}
@@ -243,7 +243,7 @@ function FreshChat({ chat }: { chat: ChatInit }) {
       {() => (
         <p className={styles.muted}>
           {chip === undefined
-            ? `New conversation with ${agent}.`
+            ? `New session with ${agent}.`
             : `${agent} will see the context below with your first message.`}
         </p>
       )}
@@ -404,7 +404,7 @@ function WeeklyChat({ open, chat }: { open: Open; chat: ChatInit }) {
   );
 }
 
-/** 대화 탭. */
+/** Agent 탭. */
 export function Conversation(
   { tab, open, answer = null, onAnswer = () => {} }: {
     tab: TabSpec;
@@ -433,7 +433,7 @@ export function Conversation(
     return (
       <PlainChat
         agent={agent}
-        title={row?.title ?? "Conversation"}
+        title={row?.title ?? "Session"}
         turns={PAST[id] ?? []}
         running={row?.state === "working"}
       />
@@ -450,7 +450,5 @@ export function Conversation(
       />
     );
   }
-  return (
-    <PlainChat agent="lophn" title="Conversation" turns={lophnTurns(open)} />
-  );
+  return <PlainChat agent="lophn" title="Session" turns={lophnTurns(open)} />;
 }

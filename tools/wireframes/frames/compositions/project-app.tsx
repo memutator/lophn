@@ -60,25 +60,25 @@ export interface ProjectAppProps {
   readonly children?: ReactNode;
   /** 계약 위반 toast를 띄운 채 시작한다. [View]는 그 context의 Violations를 연다. */
   readonly violationToast?: boolean;
-  /** program이 판정한 일을 알리는 toast("3 scenarios failed …")를 띄운 채 시작한다. [Ask lophn]은 그 일을 첫 context로 붙인 새 대화를 연다. */
+  /** program이 판정한 일을 알리는 toast("3 scenarios failed …")를 띄운 채 시작한다. [Ask lophn]은 그 일을 첫 context로 붙인 새 Agent 탭을 연다. */
   readonly askToast?: boolean;
   /** 이 문서 탭(key)의 info 칸을 이 panel로 연 채 시작한다. */
   readonly info?: { readonly tab: string; readonly panel: InfoPanel };
 }
 
-const FLUSH = new Set(["search", "conversation", "terminal", "document"]);
+const FLUSH = new Set(["search", "agent", "terminal", "document"]);
 
 // toast가 화면에 남은 채로 보이도록 시간이 가지 않는 timer를 준다.
 const NO_TIMER = { set: () => 0, clear: () => {} };
 
 export const CHAT_TAB: TabSpec = {
   key: "chat",
-  kind: "conversation",
+  kind: "agent",
   title: "lophn",
 };
 export const ENGINEER_TAB: TabSpec = {
   key: "chat:engineer",
-  kind: "conversation",
+  kind: "agent",
   title: "Context Engineer",
   sub: "engineer",
 };
@@ -96,7 +96,7 @@ function crumbsOf(tab: TabSpec | undefined): string[] {
       return ["phroner", "Search"];
     case "terminal":
       return ["phroner", "Terminal"];
-    case "conversation":
+    case "agent":
       return ["phroner", tab.title];
     case "agents":
       return ["phroner", "Agents"];
@@ -254,8 +254,8 @@ export function ProjectApp(
   const pick = (choice: string) => {
     if (choice === "document") open(documentTab("docs/notes.md"));
     else if (choice === "terminal") newTerminal();
-    else if (choice === "chat-lophn") open(CHAT_TAB);
-    else if (choice === "chat-engineer") open(ENGINEER_TAB);
+    else if (choice === "agent-lophn") open(CHAT_TAB);
+    else if (choice === "agent-engineer") open(ENGINEER_TAB);
     else if (choice === "search") open(searchTab);
     else if (choice === "agents") open(AGENTS_TAB);
     else if (choice === "new-context") open(NEW_CONTEXT_CHAT, true);
@@ -310,7 +310,7 @@ export function ProjectApp(
         );
       case "terminal":
         return <TerminalBody />;
-      case "conversation":
+      case "agent":
         return (
           <Conversation
             tab={tab}

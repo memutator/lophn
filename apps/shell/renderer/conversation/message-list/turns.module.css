@@ -1,0 +1,85 @@
+/* 대화 줄의 배치. 내 메시지는 오른쪽 bubble, agent 묶음은 왼쪽에 avatar·이름·시각을 위에 한 번 둔다. */
+.turns {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.userTurn {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  align-self: flex-end;
+  max-width: 78%;
+}
+
+.userRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.bubble {
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-muted);
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+/* hover나 키보드 focus가 오면 보인다. */
+.actions {
+  display: inline-flex;
+  gap: var(--space-1);
+  opacity: 0;
+  transition: opacity var(--motion-duration-short) var(--motion-ease);
+}
+
+.userTurn:hover .actions,
+.actions:focus-within {
+  opacity: 1;
+}
+
+.agentTurn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-self: stretch;
+}
+
+.agentHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.agentName {
+  font-weight: var(--font-weight-semibold);
+}
+
+.agentTime {
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.agentBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: var(--space-0);
+}
+
+.said {
+  margin: var(--space-0);
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+/* tool 줄·카드는 왼쪽 열의 폭을 다 쓴다. */
+.block {
+  min-width: var(--space-0);
+}

@@ -2,7 +2,15 @@
 // 한 번 두고 이어지는 메시지는 그 아래에 묶는다. 기존 message-list.tsx는 그대로 두고 이 파일이 새 배치를 맡는다.
 // renderer는 contracts를 type check하지 않으므로 id는 문자열이다.
 import type { ReactElement, ReactNode } from "react";
-import type { AvatarProfile } from "@lophn/design/components";
+import {
+  Avatar,
+  type AvatarProfile,
+  conversationIcons,
+  editorIcons,
+  IconButton,
+} from "@lophn/design/components";
+
+import styles from "./turns.module.css";
 
 export type TurnActor = "user" | "agent";
 
@@ -65,6 +73,136 @@ export interface MessageTurnsProps {
  * - `[data-message]` 요소의 내용은 `body`뿐이다(이름·시각은 묶음 위에 있다).
  * - 이름은 `agent.name`뿐이다.
  */
-export function MessageTurns(_props: MessageTurnsProps): ReactElement {
-  throw new Error("not implemented: agent-I22");
+export function MessageTurns(
+  { agent, items, sessionClosed, onRewind, onFork }: MessageTurnsProps,
+): ReactElement {
+  return (
+    <div className={styles.turns}>
+      {group(items).map((entry) =>
+        entry.kind === "user"
+          ? (
+            <UserMessage
+              key={entry.message.id}
+              message={entry.message}
+              sessionClosed={sessionClosed}
+              onRewind={onRewind}
+              onFork={onFork}
+            />
+          )
+          : (
+            <AgentTurn
+              key={entry.items[0].id}
+              agent={agent}
+              items={entry.items}
+            />
+          )
+      )}
+    </div>
+  );
+}
+
+type AgentItem = TurnMessage | TurnBlock;
+
+type Entry =
+  | { readonly kind: "user"; readonly message: TurnMessage }
+  | { readonly kind: "agent"; readonly items: AgentItem[] };
+
+/** 내 메시지는 따로 서고, 사이에 내 메시지가 없는 agent 메시지와 block은 한 묶음이다. */
+function group(items: readonly TurnItem[]): Entry[] {
+  const entries: Entry[] = [];
+  let current: AgentItem[] | undefined;
+  for (const item of items) {
+    if (item.kind === "message" && item.actor === "user") {
+      current = undefined;
+      entries.push({ kind: "user", message: item });
+      continue;
+    }
+    if (current === undefined) {
+      current = [];
+      entries.push({ kind: "agent", items: current });
+    }
+    current.push(item);
+  }
+  return entries;
+}
+
+function UserMessage(
+  { message, sessionClosed, onRewind, onFork }: {
+    message: TurnMessage;
+    sessionClosed: boolean;
+    onRewind: (message: string) => void;
+    onFork: (message: string) => void;
+  },
+): ReactElement {
+  return (
+    <div
+      className={styles.userTurn}
+      data-message={message.id}
+      data-actor="user"
+      data-side="end"
+    >
+      <div className={styles.userRow}>
+        {sessionClosed ? null : (
+          <span className={styles.actions}>
+            <IconButton
+              icon={editorIcons.restore}
+              label="Rewind to here"
+              size="sm"
+              onClick={() => onRewind(message.id)}
+            />
+            <IconButton
+              icon={conversationIcons.newSession}
+              label="Fork from here"
+              size="sm"
+              onClick={() => onFork(message.id)}
+            />
+          </span>
+        )}
+        <div className={styles.bubble}>{message.body}</div>
+      </div>
+    </div>
+  );
+}
+
+function AgentTurn(
+  { agent, items }: { agent: TurnAgent; items: readonly AgentItem[] },
+): ReactElement {
+  const first = items[0];
+  return (
+    <div className={styles.agentTurn} data-agent-turn="" data-side="start">
+      <div className={styles.agentHead}>
+        <Avatar profile={agent.profile} size="md" />
+        <span className={styles.agentName} data-agent-name="">
+          {agent.name}
+        </span>
+        <span className={styles.agentTime} data-turn-time="">
+          {first.time ?? ""}
+        </span>
+      </div>
+      <div className={styles.agentBody}>
+        {items.map((item) =>
+          item.kind === "message"
+            ? (
+              <div
+                key={item.id}
+                className={styles.said}
+                data-message={item.id}
+                data-actor="agent"
+              >
+                {item.body}
+              </div>
+            )
+            : (
+              <div
+                key={item.id}
+                className={styles.block}
+                data-turn-block={item.id}
+              >
+                {item.node}
+              </div>
+            )
+        )}
+      </div>
+    </div>
+  );
 }

@@ -1604,11 +1604,21 @@ export const en = {
   "project-workspace.button.show-notices": "Show notices",
   "project-workspace.button.split-pane": "Open in side pane",
   "project-workspace.button.turn-on-tracking": "Turn on tracking",
+  "project-workspace.button.add-server": "Add server",
+  "project-workspace.button.add-skill": "Add skill",
+  "project-workspace.button.edit-instructions": "Edit",
+  "project-workspace.button.new-operator": "New Operator",
+  "project-workspace.button.open-agent": "Open",
+  "project-workspace.button.use-workspace-default": "Use Workspace default",
   "project-workspace.empty.no-contexts": "No related contexts.",
   "project-workspace.empty.no-documents": "No documents yet.",
   "project-workspace.empty.no-folder-documents": "No documents in this folder.",
   "project-workspace.empty.no-folders": "No project folder.",
   "project-workspace.empty.no-tabs": "Nothing open in this pane.",
+  "project-workspace.empty.no-instructions": "LOPHN.md is empty.",
+  "project-workspace.empty.no-mcp-servers": "No MCP servers registered yet.",
+  "project-workspace.empty.no-permission-rules": "No permission rules yet.",
+  "project-workspace.empty.no-skills": "No skills registered yet.",
   "project-workspace.error.load-failed": "Couldn't load this project.",
   "project-workspace.heading.agents": "Agents",
   "project-workspace.heading.contexts": "Contexts",
@@ -1616,7 +1626,21 @@ export const en = {
   "project-workspace.heading.folders": "Folders",
   "project-workspace.heading.left-out": "Left out",
   "project-workspace.heading.tracked": "Will be tracked",
+  "project-workspace.heading.agents-in-project": "Agents in {project}",
+  "project-workspace.heading.instructions": "Instructions",
+  "project-workspace.heading.mcp-servers": "MCP servers",
+  "project-workspace.heading.models-for-project": "Models for this project",
+  "project-workspace.heading.permissions": "Permissions",
+  "project-workspace.heading.skills": "Skills",
   "project-workspace.info.empty": "Nothing to show yet.",
+  "project-workspace.info.instructions-file":
+    "Your project's AGENTS.md is for coding agents. lophn agents read LOPHN.md.",
+  "project-workspace.info.models-follow-default":
+    "Leave a row alone and it follows the Workspace default.",
+  "project-workspace.info.permissions-lead":
+    "Permissions that last are decided only here.",
+  "project-workspace.info.stored-in-lophn":
+    "Agent definitions are stored in lophn, not in your project folder.",
   "project-workspace.label.operators":
     "{count, plural, one {# Operator repeats a check here} other {# Operators repeat checks here}}",
   "project-workspace.label.operators-none":
@@ -1650,6 +1674,27 @@ export const en = {
   "project-workspace.label.rule-include": "Track",
   "project-workspace.label.rule-pattern": "Pattern",
   "project-workspace.label.tabs": "Tabs",
+  "project-workspace.label.agent-counts-built-in":
+    "{skills, plural, one {# skill} other {# skills}} · {mcp, number} MCP",
+  "project-workspace.label.agent-counts-operator":
+    "{contexts, plural, one {# context} other {# contexts}} · {skills, plural, one {# skill} other {# skills}} · {mcp, number} MCP",
+  "project-workspace.label.agent-counts-unknown":
+    "Can't count until its file is fixed",
+  "project-workspace.label.agent-kind-built-in": "Built in",
+  "project-workspace.label.agent-kind-operator": "Operator",
+  "project-workspace.label.agent-no-model": "No model",
+  "project-workspace.label.instructions-shared":
+    "Shared by every agent in {project}",
+  "project-workspace.label.model-default": "Use Workspace default ({model})",
+  "project-workspace.label.model-default-none": "No model chosen yet",
+  "project-workspace.label.model-overrides": "{model} · overrides Workspace",
+  "project-workspace.label.open-agent-named": "Open {name}",
+  "project-workspace.label.reset-model-named":
+    "Use Workspace default for {role}",
+  "project-workspace.label.role-app-engineer": "App Engineer",
+  "project-workspace.label.role-context-engineer": "Context Engineer",
+  "project-workspace.label.role-lophn": "lophn",
+  "project-workspace.label.role-operators": "Operators",
   "project-workspace.sidebar.label": "Project",
   "project-workspace.title.tracking": "Track files in {project}",
   "project-workspace.tracking.apply-failed":

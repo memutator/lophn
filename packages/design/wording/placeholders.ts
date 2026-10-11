@@ -1654,11 +1654,21 @@ export type PlaceholderKinds = {
   "project-workspace.button.show-notices": Record<never, never>;
   "project-workspace.button.split-pane": Record<never, never>;
   "project-workspace.button.turn-on-tracking": Record<never, never>;
+  "project-workspace.button.add-server": Record<never, never>;
+  "project-workspace.button.add-skill": Record<never, never>;
+  "project-workspace.button.edit-instructions": Record<never, never>;
+  "project-workspace.button.new-operator": Record<never, never>;
+  "project-workspace.button.open-agent": Record<never, never>;
+  "project-workspace.button.use-workspace-default": Record<never, never>;
   "project-workspace.empty.no-contexts": Record<never, never>;
   "project-workspace.empty.no-documents": Record<never, never>;
   "project-workspace.empty.no-folder-documents": Record<never, never>;
   "project-workspace.empty.no-folders": Record<never, never>;
   "project-workspace.empty.no-tabs": Record<never, never>;
+  "project-workspace.empty.no-instructions": Record<never, never>;
+  "project-workspace.empty.no-mcp-servers": Record<never, never>;
+  "project-workspace.empty.no-permission-rules": Record<never, never>;
+  "project-workspace.empty.no-skills": Record<never, never>;
   "project-workspace.error.load-failed": Record<never, never>;
   "project-workspace.heading.agents": Record<never, never>;
   "project-workspace.heading.contexts": Record<never, never>;
@@ -1666,7 +1676,19 @@ export type PlaceholderKinds = {
   "project-workspace.heading.folders": Record<never, never>;
   "project-workspace.heading.left-out": Record<never, never>;
   "project-workspace.heading.tracked": Record<never, never>;
+  "project-workspace.heading.agents-in-project": {
+    project: "string";
+  };
+  "project-workspace.heading.instructions": Record<never, never>;
+  "project-workspace.heading.mcp-servers": Record<never, never>;
+  "project-workspace.heading.models-for-project": Record<never, never>;
+  "project-workspace.heading.permissions": Record<never, never>;
+  "project-workspace.heading.skills": Record<never, never>;
   "project-workspace.info.empty": Record<never, never>;
+  "project-workspace.info.instructions-file": Record<never, never>;
+  "project-workspace.info.models-follow-default": Record<never, never>;
+  "project-workspace.info.permissions-lead": Record<never, never>;
+  "project-workspace.info.stored-in-lophn": Record<never, never>;
   "project-workspace.label.operators": {
     count: "plural";
   };
@@ -1705,6 +1727,39 @@ export type PlaceholderKinds = {
   "project-workspace.label.rule-include": Record<never, never>;
   "project-workspace.label.rule-pattern": Record<never, never>;
   "project-workspace.label.tabs": Record<never, never>;
+  "project-workspace.label.agent-counts-built-in": {
+    skills: "plural";
+    mcp: "number";
+  };
+  "project-workspace.label.agent-counts-operator": {
+    contexts: "plural";
+    skills: "plural";
+    mcp: "number";
+  };
+  "project-workspace.label.agent-counts-unknown": Record<never, never>;
+  "project-workspace.label.agent-kind-built-in": Record<never, never>;
+  "project-workspace.label.agent-kind-operator": Record<never, never>;
+  "project-workspace.label.agent-no-model": Record<never, never>;
+  "project-workspace.label.instructions-shared": {
+    project: "string";
+  };
+  "project-workspace.label.model-default": {
+    model: "string";
+  };
+  "project-workspace.label.model-default-none": Record<never, never>;
+  "project-workspace.label.model-overrides": {
+    model: "string";
+  };
+  "project-workspace.label.open-agent-named": {
+    name: "string";
+  };
+  "project-workspace.label.reset-model-named": {
+    role: "string";
+  };
+  "project-workspace.label.role-app-engineer": Record<never, never>;
+  "project-workspace.label.role-context-engineer": Record<never, never>;
+  "project-workspace.label.role-lophn": Record<never, never>;
+  "project-workspace.label.role-operators": Record<never, never>;
   "project-workspace.sidebar.label": Record<never, never>;
   "project-workspace.title.tracking": {
     project: "string";

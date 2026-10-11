@@ -16,6 +16,7 @@ import {
   executeTool,
   listTools,
   runOperations,
+  SERIES_NEXT_TOOL,
   TOOL_BUNDLES,
 } from "../../packages/lophn-agent/harness/tools/mod.ts";
 import { roleOperations } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
@@ -387,7 +388,10 @@ Deno.test("lophn-agent/harness/tools#R21 [ctx-I56]: 판이 바뀌면 Run.basis�
 });
 
 Deno.test("lophn-agent/harness/tools#R22 [ctx-I56]: 네 역할 모두 개체 읽기를 상한에 두고 검색·개체 읽기 contract를 operation에 가진다", () => {
-  assertEquals(TOOL_BUNDLES.get("context-read"), [CONTEXT_ENTITY_TOOL]);
+  assertEquals(TOOL_BUNDLES.get("context-read"), [
+    CONTEXT_ENTITY_TOOL,
+    SERIES_NEXT_TOOL,
+  ]);
   for (
     const role of ["lophn", "app_engineer", "context_engineer", "operator"]
   ) {

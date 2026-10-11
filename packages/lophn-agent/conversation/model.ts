@@ -116,7 +116,16 @@ before update of applied_at_call, run on messages
 when old.applied_at_call is not null
 begin
   select raise(abort, 'the first application of a message is fixed');
-end;`,
+end;
+create table session_compact_requests (
+  request_seq integer primary key check (request_seq >= 1),
+  session text not null references sessions (id) on delete restrict,
+  state text not null check (state in ('requested', 'compacted', 'failed')),
+  failure text,
+  check ((state = 'failed') = (failure is not null))
+) strict;
+create unique index session_compact_requests_open
+  on session_compact_requests (session) where state = 'requested';`,
   },
 ];
 
@@ -343,6 +352,22 @@ export function hasPersonRequest(lookup: Lookup, session: string): boolean {
      where session = ? and actor = 'user' and mode = 'request' limit 1`,
     [session],
   ) !== undefined;
+}
+
+// Compact 요청(conversation#R10). 요청 event의 순번이 요청의 이름이다. session마다 끝나지 않은 요청은 하나다.
+// 요청의 진행은 session 행을 바꾸지 않으므로 사람의 입력 접수(session의 state_seq)에 닿지 않는다.
+export function openCompactRequest(
+  lookup: Lookup,
+  session: string,
+): { request_seq: string } | undefined {
+  const row = lookup.sql.get(
+    `select cast(request_seq as text) as request_seq from session_compact_requests
+     where session = ? and state = 'requested'`,
+    [session],
+  );
+  return row === undefined
+    ? undefined
+    : { request_seq: String(row["request_seq"]) };
 }
 
 // 끝나지 않은 run(접수만 된 것, 진행 중, 사람을 기다리는 것)이 있는지.

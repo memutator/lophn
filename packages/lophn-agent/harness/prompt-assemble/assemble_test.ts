@@ -116,7 +116,7 @@ function inputOf(overrides: Partial<PromptInput> = {}): PromptInput {
     material: {
       purpose: "PURPOSE",
       run_facts: "RUN FACTS",
-      continuation_summary: "CONTINUATION",
+      compact_summary: "COMPACT SUMMARY",
       materials: ["MATERIAL A", "MATERIAL B"],
       compaction_summary: "COMPACTION",
       history: [
@@ -269,7 +269,7 @@ Deno.test("lophn-agent/harness/prompt-assemble#R2: 필수 제품·역할·지침
   );
 });
 
-Deno.test("lophn-agent/harness/prompt-assemble#R3: 작업 재료는 목적·run 사실 → 이어가기 summary → 자료 → 압축 summary → 이력 → 현재 요청·steering 순이고 요청·steering은 빠짐없다", async () => {
+Deno.test("lophn-agent/harness/prompt-assemble#R3 [agent-I16b]: 작업 재료는 목적·run 사실 → Compact summary → 자료 → 압축 summary → 이력 → 현재 요청·steering 순이고 요청·steering은 빠짐없다", async () => {
   const source = instructionSource({});
   const assembly = ready(await assemblePrompt(depsOf(source), inputOf()));
   const text = assembly.request.messages.map((message) =>
@@ -279,10 +279,12 @@ Deno.test("lophn-agent/harness/prompt-assemble#R3: 작업 재료는 목적·run 
         : part.name
     ).join("\n")
   ).join("\n");
+  // Compact가 만든 요약은 사람의 말이나 agent의 답이 아니라 요약이라고 머리에 밝힌다.
+  assert(text.includes("## Compact summary\nCOMPACT SUMMARY"));
   const order = [
     "PURPOSE",
     "RUN FACTS",
-    "CONTINUATION",
+    "COMPACT SUMMARY",
     "MATERIAL A",
     "MATERIAL B",
     "COMPACTION",
@@ -314,7 +316,7 @@ Deno.test("lophn-agent/harness/prompt-assemble#R3: 작업 재료는 목적·run 
         material: {
           purpose: null,
           run_facts: null,
-          continuation_summary: null,
+          compact_summary: null,
           materials: [],
           compaction_summary: null,
           history: [],

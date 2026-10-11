@@ -33,6 +33,7 @@ import type { SecretAttachLike } from "../../packages/lophn-agent/harness/provid
 import { redact } from "./redact.ts";
 import { roleOperations } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
 export { redact };
+import type { Compactor } from "./compact.ts";
 import { productDriver, startRunPump } from "./product-driver.ts";
 import {
   createRunDriver,
@@ -93,10 +94,13 @@ export async function startAgentRuntime(input: {
   // agent 자격 호출)을 받아 `createRunPreparer` 같은 것을 돌려준다.
   driver?: (
     calls: CoreCalls,
-  ) => Pick<
-    DriveDeps,
-    "prepare" | "closeUnusable" | "liveRuns" | "prepareResume"
-  >;
+  ) =>
+    & Pick<
+      DriveDeps,
+      "prepare" | "closeUnusable" | "liveRuns" | "prepareResume"
+    >
+    // 사람이 요청한 Compact의 요약을 끝내는 일. 없으면 요약을 하지 않는다.
+    & { compactor?: Compactor };
 }): Promise<Result<Runtime>> {
   const streams = input.streams ?? {
     stdin: Deno.stdin.readable,
@@ -240,7 +244,7 @@ export async function startAgentRuntime(input: {
   let recovered: RecoverReport[] = [];
   let pumping: Promise<void> = Promise.resolve();
   if (input.driver !== undefined) {
-    const driverDeps = input.driver(calls!);
+    const { compactor, ...driverDeps } = input.driver(calls!);
     driver = createRunDriver({ selector, credentials, ...driverDeps });
     const report = await driver.recover();
     if (report.ok) recovered = report.value;
@@ -251,6 +255,7 @@ export async function startAgentRuntime(input: {
         ...(driverDeps.liveRuns === undefined
           ? {}
           : { liveRuns: driverDeps.liveRuns }),
+        ...(compactor === undefined ? {} : { compactor }),
         signal: pumpStop.signal,
       });
     }

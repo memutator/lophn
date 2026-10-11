@@ -11,6 +11,8 @@ import {
   type CatalogEntry,
   finishRun,
   mcpServersSetting,
+  messageBody,
+  messagesList,
   modelDefaultsRead,
   placeAgentSettingsRead,
   placeExtensionSettingsRead,
@@ -18,6 +20,7 @@ import {
   runBody,
   runRead,
   sessionRead,
+  sessionSummary,
   skillFoldersSetting,
 } from "../../../packages/contracts/lophn-agent/mod.ts";
 import {
@@ -77,7 +80,29 @@ export type WorldOptions = {
   runSession?: boolean;
   // session에 저장된 model 선택(composer에서 고른 것). 없으면 null이다.
   sessionModel?: ReturnType<typeof MODEL> | null;
+  // Workspace의 Model for summaries. 없으면 비어 있다.
+  summariesModel?: ReturnType<typeof MODEL> | null;
+  // session의 확정 메시지(created_seq 오름차순). actor는 user나 agent다. 이 run의 요청 메시지(MSG)와 그 뒤에
+  // 접수된 메시지도 들어 있다.
+  sessionMessages?: SessionMessageFixture[];
+  // Compact가 session에 이은 요약. text는 요약 call의 출력 본문이다.
+  compaction?:
+    | { through_seq: string; summary_call: string; text: string }
+    | null;
 };
+
+export type SessionMessageFixture = {
+  id: string;
+  seq: string;
+  actor: "user" | "agent";
+  text: string;
+  // 이 메시지가 속한 run. 없으면 null이다.
+  run?: string | null;
+};
+
+// 테스트가 고른 id의 앞 글자만 바꿔 쓰는 메시지 id.
+export const MSGS = (n: number) =>
+  `msg_${SUFFIX.slice(0, -1)}${"abcdefghjk"[n]}`;
 
 export type World = {
   calls: CoreCalls;
@@ -155,7 +180,80 @@ export function openWorld(options: WorldOptions = {}): World {
         return Promise.resolve(err({ code: "not_found", message: "none" }));
       }
       return reply(sessionRead.output, {
-        session: sessionRecord(session, options.sessionModel ?? null),
+        session: sessionRecord(
+          session,
+          options.sessionModel ?? null,
+          options.compaction ?? null,
+        ),
+        ...readMeta(),
+      });
+    }
+    if (path === routePath(sessionSummary)) {
+      const compaction = options.compaction;
+      if (compaction == null) {
+        return Promise.resolve(err({ code: "not_found", message: "none" }));
+      }
+      return reply(sessionSummary.output, {
+        session: SES,
+        compaction: {
+          through_seq: compaction.through_seq,
+          summary_call: compaction.summary_call,
+        },
+        text: compaction.text,
+        ...readMeta(),
+      });
+    }
+    if (path === routePath(messagesList)) {
+      const input = body as {
+        after_seq?: string;
+        through_seq?: string;
+        run?: string;
+      };
+      const listed = (options.sessionMessages ?? []).filter((message) =>
+        (input.after_seq === undefined ||
+          BigInt(message.seq) > BigInt(input.after_seq)) &&
+        (input.through_seq === undefined ||
+          BigInt(message.seq) <= BigInt(input.through_seq)) &&
+        (input.run === undefined || message.run === input.run)
+      );
+      return reply(messagesList.output, {
+        messages: listed.map((message) => ({
+          message: {
+            id: message.id,
+            session: SES,
+            actor: message.actor === "user" ? "user" : `agent:${ASG}`,
+            body: HASH,
+            run: message.run ?? null,
+            mode: message.actor === "user" ? "request" : null,
+            applied_at_call: null,
+            links: [],
+            copied_from: null,
+          },
+          created_seq: message.seq,
+          state_seq: message.seq,
+        })),
+        // 메시지의 순번은 읽기 시점(as_of_seq)을 넘지 못한다.
+        as_of_seq: "100",
+        next_cursor: null,
+      });
+    }
+    if (path === routePath(messageBody)) {
+      const id = (body as { message: string }).message;
+      const found = (options.sessionMessages ?? []).find((message) =>
+        message.id === id
+      );
+      if (found === undefined) {
+        return Promise.resolve(err({ code: "not_found", message: "none" }));
+      }
+      return reply(messageBody.output, {
+        message: id,
+        session: SES,
+        body: HASH,
+        size_bytes: found.text.length || 1,
+        content: {
+          schema_version: 1,
+          parts: [{ kind: "text", text: found.text }],
+        },
         ...readMeta(),
       });
     }
@@ -204,7 +302,7 @@ export function openWorld(options: WorldOptions = {}): World {
           context_engineer: models.context_engineer ?? null,
           app_engineer: models.app_engineer ?? null,
           operator: models.operator ?? null,
-          summaries: null,
+          summaries: options.summariesModel ?? null,
           settings_seq: "1",
         },
         ...readMeta(),
@@ -409,6 +507,7 @@ function runRecord(hasSession: boolean) {
 function sessionRecord(
   place: Place,
   modelSelection: ReturnType<typeof MODEL> | null,
+  compaction: { through_seq: string; summary_call: string } | null = null,
 ) {
   return {
     id: SES,
@@ -420,7 +519,10 @@ function sessionRecord(
     forked_from: null,
     opening_context: null,
     model_selection: modelSelection,
-    compaction: null,
+    compaction: compaction === null ? null : {
+      through_seq: compaction.through_seq,
+      summary_call: compaction.summary_call,
+    },
     closed_reason: null,
     closed_at: null,
     state_seq: "1",

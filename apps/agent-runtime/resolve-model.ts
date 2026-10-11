@@ -72,6 +72,8 @@ export function createModelResolver(deps: ModelResolverDeps) {
 
   return async function resolveModel(input: {
     model: ModelChoice;
+    // 판단이 아니라 정리(제목·요약·압축)에 쓰는 model이면 organizing이다. 검증 규칙은 같다.
+    purpose?: "judgment" | "organizing";
   }): Promise<Result<ModelBinding>> {
     const selection = input.model;
     const read = await readOf(deps.machine, providerRead, {
@@ -147,7 +149,7 @@ export function createModelResolver(deps: ModelResolverDeps) {
     }
     const resolved = resolveSelection(
       {
-        purpose: "judgment",
+        purpose: input.purpose ?? "judgment",
         provider: selection.provider,
         credentials: keys,
         model_name: selection.model_name,

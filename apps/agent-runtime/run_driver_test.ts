@@ -133,7 +133,7 @@ function loopMaterial() {
         },
         purpose: null,
         run_facts: null,
-        continuation_summary: null,
+        session: { compaction: null, messages: [] },
         sources: [],
         skills: [],
         timezone: null,

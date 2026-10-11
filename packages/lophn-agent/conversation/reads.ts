@@ -1,6 +1,7 @@
 import { err, ok, type Result } from "../../base/mod.ts";
 import {
   messagesList,
+  sessionCompactRequests,
   sessionList,
   sessionRead,
 } from "../../contracts/lophn-agent/mod.ts";
@@ -52,6 +53,7 @@ export function createConversationReads(): {
   session: ReadDefinition<typeof sessionRead>;
   sessions: ReadDefinition<typeof sessionList>;
   messages: ReadDefinition<typeof messagesList>;
+  compactRequests: ReadDefinition<typeof sessionCompactRequests>;
 } {
   return {
     session: {
@@ -111,6 +113,37 @@ export function createConversationReads(): {
           next_cursor: rows.length > PAGE && last !== undefined
             ? cursorOf(last.created_seq)
             : null,
+        });
+      },
+    },
+    // runtime이 요약을 시작할 Compact 요청이다. 끝나지 않은 run이 있는 session의 요청은 그 run이 끝날 때까지
+    // 나오지 않고(그 사이에 요약을 시작하지 않는다) 가장 오래된 요청부터 나온다.
+    compactRequests: {
+      route: sessionCompactRequests,
+      handle(snapshot) {
+        const rows = snapshot.sql.all(
+          `select cast(r.request_seq as text) as request_seq, s.id as id,
+             s.assignment as assignment, s.work_place_kind as kind,
+             s.work_place_id as place
+           from session_compact_requests r join sessions s on s.id = r.session
+           where r.state = 'requested' and s.state = 'open'
+             and not exists (
+               select 1 from runs where session = s.id and state != 'finished')
+           order by r.request_seq limit ?`,
+          [PAGE],
+        );
+        return ok({
+          requests: rows.map((row) => ({
+            session: String(row["id"]),
+            assignment: String(row["assignment"]),
+            work_place: {
+              kind: String(row["kind"]),
+              id: String(row["place"]),
+            } as never,
+            request_seq: String(row["request_seq"]),
+          })),
+          as_of_seq: snapshot.as_of_seq,
+          next_cursor: null,
         });
       },
     },

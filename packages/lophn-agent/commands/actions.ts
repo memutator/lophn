@@ -9,14 +9,15 @@ import { skillPrompt, withArgument } from "./role-prompts.ts";
 
 // `/` 명령 실행(concern lophn-agent/commands). 명령이 session에 일으키는 일은 모두 port로
 // 부른다: port는 사람의 자격으로 conversation command(OpenSession·RenameSession·ArchiveSession·
-// ForkSession·CompactSession)와 ReceiveMessage를 부르는 얇은 연결이라, 명령이 일반 입력과 다른
+// ForkSession·RequestSessionCompact)와 ReceiveMessage를 부르는 얇은 연결이라, 명령이 일반 입력과 다른
 // 권한을 갖지 않는다(R9, R10). 이 모듈은 어느 명령이 무엇을 부를지만 정한다.
 
 export type CommandPorts = {
   newSession(): Promise<Result<{ session: string }>>;
   renameSession(title: string): Promise<Result<unknown>>;
   archiveSession(): Promise<Result<unknown>>;
-  compactSession(): Promise<Result<unknown>>;
+  // Compact는 요청만 한다. 요약은 agent runtime이 하고 CompactSession으로 끝난다(conversation#R10).
+  requestCompact(): Promise<Result<unknown>>;
   forkSession(): Promise<Result<{ session: string }>>;
   // 사람이 보낸 다음 요청 메시지로 접수한다. 일이 도는 중이면 conversation이 그 일 뒤에 새 run으로
   // 처리한다(conversation#R6).
@@ -39,6 +40,8 @@ export type CommandOutcome =
   | { kind: "queued"; command: string }
   | { kind: "open_screen"; screen: CommandScreen }
   | { kind: "done"; command: string }
+  // 요청을 접수했다. 요약은 runtime이 이어서 하고 끝나면 session에 남는다.
+  | { kind: "requested"; command: string }
   | { kind: "opened_session"; command: string; session: string }
   // role·skill 명령을 사람의 메시지로 접수했다. queued는 일이 도는 중이라 그 일 뒤로 간 경우다.
   | { kind: "sent"; command: string; queued: boolean }
@@ -61,7 +64,7 @@ export function createCommandQueue(): CommandQueue {
     },
     async drain(session, ports) {
       if (!compacts.delete(session)) return [];
-      return [await settle("compact", ports.compactSession())];
+      return [await requested("compact", ports.requestCompact())];
     },
   };
 }
@@ -80,6 +83,16 @@ async function settle(
   const result = await pending;
   return result.ok
     ? { kind: "done", command }
+    : { kind: "failed", command, error: result.error };
+}
+
+async function requested(
+  command: string,
+  pending: Promise<Result<unknown>>,
+): Promise<CommandOutcome> {
+  const result = await pending;
+  return result.ok
+    ? { kind: "requested", command }
     : { kind: "failed", command, error: result.error };
 }
 
@@ -115,7 +128,7 @@ function runBuiltin(
         deps.queue.hold(deps.session);
         return { kind: "queued", command: id };
       }
-      return settle(id, ports.compactSession());
+      return requested(id, ports.requestCompact());
     case "fork":
       return opened(id, ports.forkSession());
     // 화면을 열 뿐이다. 명령 자체로 권한이나 설정을 바꾸지 않는다(R10).

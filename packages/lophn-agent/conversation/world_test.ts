@@ -403,22 +403,27 @@ export async function seedProvider(h: LedgerHarness) {
   );
 }
 
-// summary는 Compact가 쓰는 정리(organizing) 요약 call이다. model을 주면 그 model로 부른다.
+// summary는 run 안의 압축 call이고 session_summary는 Compact가 쓰는 정리(organizing) 요약 call이다.
+// 뒤의 것은 run과 agent 대신 session을 가리킨다. model을 주면 그 model로 부른다.
 export function startCall(
   h: LedgerHarness,
   call: string,
-  run: string,
+  run: string | null,
   session: string,
   attempt = 1,
-  use: { kind?: "judgment" | "summary"; model_name?: string } = {},
+  use: {
+    kind?: "judgment" | "summary" | "session_summary";
+    model_name?: string;
+  } = {},
 ) {
-  const summary = use.kind === "summary";
+  const summary = use.kind === "summary" || use.kind === "session_summary";
+  const bound = use.kind === "session_summary";
   const started = {
     id: call,
-    run,
+    run: bound ? null : run,
     session,
     model_use: summary ? "organizing" : "judgment",
-    agent_hash: "ab".repeat(32),
+    agent_hash: bound ? null : "ab".repeat(32),
     purpose: summary ? "conversation_compression" : "judgment",
     test_request: null,
     attempt_kind: "initial",

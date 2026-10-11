@@ -29,6 +29,14 @@ export function requireUser(ctx: RequestContext): Result<void> {
   );
 }
 
+// Compact의 요약을 끝내는 일은 runtime(machine)이 한다. 요청만 사람이 한다.
+export function requireMachine(ctx: RequestContext): Result<void> {
+  return parseActor(ctx.actor)?.kind === "machine" ? ok(undefined) : reject(
+    "forbidden",
+    "only the runtime does this",
+  );
+}
+
 // null은 제한 없음, 문자열은 그 assignment만, undefined는 아무것도 보지 못함. user·machine은
 // 모든 세션을 보고 agent는 자기 assignment의 세션만 본다. 그 밖(coding_agent, app)은 없는
 // 세션과 똑같이 답한다.

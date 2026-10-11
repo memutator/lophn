@@ -203,6 +203,17 @@ export function createUsageCommands(deps: UsageDeps = {}): {
         if (existing !== undefined) {
           return conflict("model call attempt already recorded");
         }
+        // run이 없는 요약 call은 session마다 시도 순번이 하나다.
+        if (call.value.run === null && call.value.session !== null) {
+          const sameAttempt = tx.sql.get(
+            `select id from model_calls
+             where session = ? and run is null and attempt_order = ?`,
+            [call.value.session, call.value.attempt_order],
+          );
+          if (sameAttempt !== undefined) {
+            return conflict("model call attempt already recorded");
+          }
+        }
         const seq = tx.emit(modelCallStarted, call.value.id, {
           run: call.value.run,
           session: call.value.session,

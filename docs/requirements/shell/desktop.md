@@ -214,9 +214,9 @@ Electron main과 창별 shell 화면의 분리, 창 구성·탐색·tray·OS 통
 - 확인: 머리에 "n of N answered"가 보이고 모두 답해야 [Submit]이 켜지며 한 번에 답 전부를 보낸다. [Skip]은 묶음을 미루고 답으로 세지 않는다. 요약은 질문별 답을 보이고 다시 펼치지 않는다. 질문의 내용·기한·미루기 규칙은 lophn-agent/questions를 따르고 composer 위에 질문 칸을 따로 두지 않는다.
 - 의도: shell#I1
 
-**[R47]** agent가 사람의 확인이 필요한 일을 하기 전의 승인 카드는 composer 바로 위에 붙여 제목(대상)·한 줄 이유·작은 변경 미리보기와 [Allow ▾](Allow once, Allow for this session)·[Deny]를 보이고, 거절은 일을 멈추는 composer의 Stop과 다르다.
-- 이유: 허락할 일을 대화 끝에서 늘 보이게 하고, 허락 범위를 고르며 거절과 멈춤을 혼동하지 않게 한다.
-- 확인: 카드가 대화를 스크롤해도 composer 위에 남고, Allow ▾에 "Always allow" 항목이 없으며(오래 가는 허락은 Agents 화면의 권한 규칙에서만), Deny 옆에 Esc 안내가 있다. 결정을 제출하는 방식과 보호 규칙은 shell/confirmation-window와 platform/approvals를 따른다.
+**[R47]** agent가 사람의 확인이 필요한 일을 하기 전의 승인 카드는 composer 바로 위에 붙여 요청 요약(제목·한 줄 이유·작은 변경 미리보기)과 [Allow ▾](Allow once, Allow for this session)·[Deny]를 보이되, 단추는 결정을 제출하지 않고 고른 범위를 미리 고른 채 shell/confirmation-window를 열며 결정은 그 창에서만 제출하고, 거절은 일을 멈추는 composer의 Stop과 다르다.
+- 이유: 허락할 일을 대화 끝에서 늘 보이게 하고 허락 범위를 고르게 하되, 사람의 직접 결정은 보호 화면에서만 받고 거절과 멈춤을 혼동하지 않게 한다.
+- 확인: 카드가 대화를 스크롤해도 composer 위에 남고, [Allow]·[Deny]를 눌러도 confirmation window를 거치기 전에는 request가 결정 대기로 남으며, 창이 고른 범위(once 또는 session)를 미리 골라 열린다. Allow ▾에 "Always allow" 항목이 없고(platform/approvals#R18~R20; 오래 가는 허락은 Agents 화면의 권한 규칙에서만), Deny 옆에 Esc 안내가 있다.
 - 의도: shell#I1
 
 **[R48]** 내 메시지에 올리면 "Rewind to here" 단추가 나타나고 누르면 되돌리기 menu를 여는 자리를 두며, header ⋯ 메뉴의 Rewind…도 같은 menu를 연다.

@@ -126,7 +126,7 @@ shell/wording이 i18n의 지켜야 할 요구(en-only 시작, key 검사)를 정
 - 모든 창은 launcher로 시작한다(shell/desktop#R24). lophn 공간(화면 이름은 Lophn Workspace)의 화면은 형제이며 분류 전·거처 같은 중간 계층을 두지 않는다(shell/desktop#R28).
 - 문서와 context는 프로젝트 하나에 속하므로 Lophn Workspace에 화면이 없고 project-workspace의 탭으로만 연다. Lophn Workspace는 칸·탭이 없는 따로인 페이지다(shell/desktop#R33). 프로젝트 화면의 대부분 화면은 탭 kind이며 kind는 등록 구조로 늘린다(shell/workspace#R14).
 - **agent**는 독립 공간도 도크도 아니다. project-workspace의 탭이거나 app-space 옆 칸이며, 같은 Agent component다(shell/desktop#R37). 닫아도 탐색은 그대로다. agent를 부르는 길은 sidebar Agents 묶음 · 앱 공간 agent select · notification의 [Ask]뿐이고 다른 화면에는 Ask 단추를 두지 않는다(shell/desktop#R36). Lophn Workspace에는 agent가 없다.
-- **confirmation-window**는 요청한 창 위의 child modal이다. 앱 view는 숨기지 않고 입력만 막는다(shell/confirmation-window#R6). 사람의 결정은 이 화면에서 받는다. agent 화면의 승인 카드도 이 규칙을 따른다(shell/desktop#R47).
+- **confirmation-window**는 요청한 창 위의 child modal이다. 앱 view는 숨기지 않고 입력만 막는다(shell/confirmation-window#R6). 사람의 결정은 이 화면에서 받는다. agent 화면의 승인 카드도 요약과 범위만 보이고 결정은 이 창에서 제출한다(shell/desktop#R47).
 - **notification**은 화면이 아니라 창 오른쪽 아래 1칸의 chip이다(shell/desktop#R10). [View]는 그 계기가 가리키는 대상(질문·approval은 things-to-confirm, context 계약 위반은 Violations)으로 이어지고, lophn이 가진 사건에는 [Ask <agent>]가 더 있다(shell/desktop#R35). 단추를 누르는 것만으로 읽음·승인·답이 되지 않는다.
 - 프로젝트 작업대의 안내(추적 꺼짐, 읽기 실패)는 본문 위 줄이 아니라 toast와 같은 폭의 떠 있는 카드다. 본문 높이를 쓰지 않고 저절로 사라지지 않으며, 닫아도 상단 바의 [Show notices]로 다시 연다(shell/desktop#R27). 사람을 부르는 notification chip의 오른쪽 아래 한 칸과 겹치지 않게 왼쪽 아래에 둔다.
 - **app-panel**과 **app-card**는 app-space와 같은 앱·release 신원·격리 규칙을 쓰는 더 작은 틀이다(shell/app-frame#R33). 틀이 작다고 권한이나 확인 규칙이 줄지 않는다.

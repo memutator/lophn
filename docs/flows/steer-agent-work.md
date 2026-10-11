@@ -16,7 +16,7 @@ agent가 일하는 동안 방향을 고치거나 다음 일을 맡기거나 중�
 4. 멈춤이 접수되면 harness는 새 model·tool·retry·후속 요청을 즉시 막고 진행 중 호출에 중단을 요청한다. 확정 변경·미실행·결과 불명·미반영 입력을 실제 사실대로 남기며, 이미 생긴 변경을 중단만으로 되돌리지 않는다. 사람에게는 보이지 않는다. (lophn-agent/harness/run-loop#R15, lophn-agent/harness/run-loop#R16, lophn-agent/harness/run-loop#R18)
 5. 별도 다음 요청은 현재 일의 정상 종료 뒤 접수 순서대로 새 run에서 시작한다. 실패·멈춤 뒤에는 입력을 보존하되 자동 시작하지 않는다. 사람에게는 보이지 않는다. (lophn-agent/conversation#R6, lophn-agent/harness/run-loop#R6)
 6. 같은 tool·대상·입력이 계속 실패하면 harness는 정해진 반복 실패 경계에서 다음 같은 요청을 미실행으로 막는다. 차단 뒤 같은 요청을 다시 요구하거나 안전 중단이 확정되면 일을 끝내고 복구·retry로 차단을 풀지 않는다. 사람에게는 보이지 않는다. (lophn-agent/harness/safety#R1, lophn-agent/harness/safety#R2, lophn-agent/harness/safety#R3, lophn-agent/harness/safety#R4)
-7. conversation 화면 사람은 끝난 결과와 멈춘 이유·이미 완료한 변경·남은 입력을 확인한다. 실패·중단 뒤 남은 일을 계속 맡길지 고르며, 사람이 멈춘 일은 다시 맡길 때 이전 결과와 남은 입력을 참조하는 새 run으로 시작한다. (lophn-agent/harness/run-loop#R6, lophn-agent/harness/run-loop#R17, lophn-agent/harness/run-loop#R18, shell/desktop#R5)
+7. conversation 화면 사람은 끝난 결과와 멈춘 이유·이미 완료한 변경·남은 입력을 확인한다. 실패·중단 뒤 남은 일을 계속 맡길지 고르며, 사람이 멈춘 일은 다시 맡길 때 이전 결과와 남은 입력을 참조하는 새 run으로 시작한다. (lophn-agent/harness/run-loop#R6, lophn-agent/harness/run-loop#R17, lophn-agent/harness/run-loop#R18, shell/desktop#R42)
 
 ## 다른 갈래
 

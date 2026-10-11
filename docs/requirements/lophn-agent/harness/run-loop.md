@@ -4,33 +4,33 @@ concerns: [lophn-agent/harness/run-loop]
 ---
 # lophn-agent/harness/run-loop
 
-run의 영속 접수·시작·turn·retry·유한한 한도·멈춤·최종 결과와 assignment 겹침·늦은 결과 경계를 맡는다. 기다림·복구는 lophn-agent/harness/waiting-and-recovery, assignment 연속 실패는 lophn-agent/assignments를 따른다.
+run의 영속 접수·시작·turn·retry·유한한 한도·멈춤·최종 결과와 session 단위 동시 실행 제한·늦은 결과 경계를 맡는다. 기다림·복구는 lophn-agent/harness/waiting-and-recovery, assignment 연속 실패는 lophn-agent/assignments를 따른다.
 
 ## 요구
 
 ### 접수와 시작
 
-**[R1]** 새 run은 사람 요청 하나·lophn-agent/scheduling이 허용한 Operator 회차 하나·lophn-agent/handoff로 이어진 원래 사람 요청 하나에 대응하며 자료 변경·결과 도착·notification만으로 새 run을 만들지 않는다.
-- 이유: 판단의 시작은 사람의 의도나 승인된 주기에서 온다.
-- 확인: 세 계기를 각각 접수하고 문서 변경·결과 도착·notification은 새 run을 만들지 않는지 확인한다.
+**[R1]** 새 run은 사람 요청 하나·lophn-agent/handoff로 이어진 원래 사람 요청 하나에 대응하며 자료 변경·결과 도착·notification만으로 새 run을 만들지 않는다.
+- 이유: 판단의 시작은 사람의 의도에서 온다.
+- 확인: 두 계기를 각각 접수하고 문서 변경·결과 도착·notification은 새 run을 만들지 않는지 확인한다.
 - 의도: lophn-agent/harness#I2
 
-**[R2]** 입력과 run은 시작 전에 영속 접수하고 저장 성공 뒤 접수 완료를 답하며 같은 요청·회차·handoff 재전달은 platform/ledger의 중복 규칙으로 이전 결과를 반환한다.
+**[R2]** 입력과 run은 시작 전에 영속 접수하고 저장 성공 뒤 접수 완료를 답하며 같은 요청·handoff 재전달은 platform/ledger의 중복 규칙으로 이전 결과를 반환한다.
 - 이유: 재시작·재전송으로 입력 유실과 중복 작업이 생기지 않는다.
 - 확인: 접수 직후 중단·재전송에도 하나의 run과 원문·순서·담당이 남는지 확인한다.
 - 의도: lophn-agent/harness#I2
 
-**[R3]** 같은 assignment의 사람 요청은 여러 개 접수하되 진행 중 또는 사람을 기다리는 run은 하나만 두고 무관한 assignment는 기다리게 하지 않으며 실제 변경 충돌은 platform/ledger로 처리한다.
-- 이유: 긴 대상 lock 없이 겹침과 무관한 일의 응답성을 함께 지킨다.
-- 확인: 한 assignment의 두 run은 겹치지 않고 다른 assignment와 사람 편집은 진행되며 충돌은 자동 병합되지 않는지 확인한다.
+**[R3]** 같은 session의 사람 요청은 여러 개 접수하되 진행 중 또는 사람을 기다리는 run은 session마다 하나만 두고(session 없는 run은 assignment마다 하나) 같은 assignment의 다른 session과 다른 assignment는 기다리게 하지 않으며 실제 변경 충돌은 platform/ledger로 처리한다.
+- 이유: 같은 agent를 Agent 탭 둘에서 동시에 쓸 수 있어야 하고, 긴 대상 lock 없이 겹침과 무관한 일의 응답성을 함께 지킨다.
+- 확인: 한 session의 두 run은 겹치지 않고 같은 agent의 다른 session·다른 assignment와 사람 편집은 진행되며 충돌은 자동 병합되지 않는지 확인한다.
 - 의도: lophn-agent/harness#I2
 
-**[R4]** 시작 가능한 접수는 사람이 지금 기다리는 일·사람의 한 번짜리 일·주기 일 세 우선순위에서 FIFO로 선택하되 상위 일을 8개 연속 시작한 뒤 가장 오래 기다린 시작 가능한 하위 일에 다음 자리를 준다.
-- 이유: 사람 응답을 우선하면서 주기 일의 영구 밀림을 막는다.
-- 확인: 상위 8개 뒤 하위 최오래 접수가 시작되고 막힌 assignment가 무관한 후보를 막지 않는지 확인한다.
+**[R4]** 시작 가능한 접수는 사람이 지금 기다리는 일·사람의 한 번짜리 일(handoff로 받은 일과 다시 맡긴 일) 두 우선순위에서 FIFO로 선택하되 상위 일을 8개 연속 시작한 뒤 가장 오래 기다린 시작 가능한 하위 일에 다음 자리를 준다.
+- 이유: 사람 응답을 우선하면서 하위 일의 영구 밀림을 막는다.
+- 확인: 상위 8개 뒤 하위 최오래 접수가 시작되고 막힌 session이 무관한 후보를 막지 않는지 확인한다.
 - 의도: lophn-agent/harness#I2
 
-**[R5]** assignment 자리 대기는 접수 순서를 보존하여 10분이 넘어도 폐기하지 않고 시작 필수 설정·역할·대상이 영구히 없으면 이유와 함께 끝내며 대기 중 사람 멈춤을 받는다.
+**[R5]** session(session 없는 run은 assignment) 자리 대기는 접수 순서를 보존하여 10분이 넘어도 폐기하지 않고 시작 필수 설정·역할·대상이 영구히 없으면 이유와 함께 끝내며 대기 중 사람 멈춤을 받는다.
 - 이유: 오래 기다렸다는 이유로 받은 일을 잃지 않는다.
 - 확인: 10분 넘는 단순 대기와 영구 불가능을 구별하고 접수 상태에서 멈춤이 되는지 확인한다.
 - 의도: lophn-agent/harness#I2
@@ -47,7 +47,7 @@ run의 영속 접수·시작·turn·retry·유한한 한도·멈춤·최종 결�
 
 ### turn과 tool 묶음
 
-**[R8]** 사람 요청과 주기 일은 provider에 독립적인 하나의 agent loop를 쓰며 model call·tool 동작·시간 대기는 platform/ledger의 쓰기 흐름을 점유하지 않고 platform/responsiveness를 따른다.
+**[R8]** 사람 요청과 handoff로 받은 일은 provider에 독립적인 하나의 agent loop를 쓰며 model call·tool 동작·시간 대기는 platform/ledger의 쓰기 흐름을 점유하지 않고 platform/responsiveness를 따른다.
 - 이유: 느린 호출이 무관한 상태 변경을 막지 않는다.
 - 확인: model·tool·retry 대기 중 무관한 읽기·쓰기 응답을 확인한다.
 - 의도: lophn-agent/harness#I2
@@ -79,7 +79,7 @@ run의 영속 접수·시작·turn·retry·유한한 한도·멈춤·최종 결�
 
 ### 끝남과 멈춤
 
-**[R14]** 정상 종료는 완전 응답에 tool call과 미반영 steering이 모두 없을 때 입력 접수와 원자적으로 확정하며 enabled에서 뒤에 도착한 steering은 새 run에 보존하고 다음 일 요청은 정상 종료를 막지 않는다. paused의 입력 보존은 lophn-agent/conversation을 따르고 새 run을 접수하지 않는다.
+**[R14]** 정상 종료는 완전 응답에 tool call과 미반영 steering이 모두 없을 때 입력 접수와 원자적으로 확정하며 enabled에서 뒤에 도착한 steering은 새 run에 보존하고 다음 일 요청은 정상 종료를 막지 않는다.
 - 이유: 종료 경계에서 마지막 수정이 잃어버려지지 않는다.
 - 확인: 종료 직전·직후 steering을 넣어 현재 반영 또는 새 담당이 반드시 남는지 확인한다.
 - 의도: lophn-agent/harness#I2
@@ -94,7 +94,7 @@ run의 영속 접수·시작·turn·retry·유한한 한도·멈춤·최종 결�
 - 확인: 중단 불가 호출의 1분 뒤 응답이 기록만 보완하고 대상·최종 결과·진행 상태를 바꾸지 않는지 확인한다.
 - 의도: lophn-agent/harness#I2
 
-**[R17]** 사람이 멈춘 run과 남은 입력은 재시작·연결 회복·주기로 자동 재개하지 않고 사람이 다시 맡기면 이전 확정 결과·남은 입력을 참조하는 새 run으로 진행한다.
+**[R17]** 사람이 멈춘 run과 남은 입력은 재시작·연결 회복으로 자동 재개하지 않고 사람이 다시 맡기면 이전 확정 결과·남은 입력을 참조하는 새 run으로 진행한다.
 - 이유: 사람 멈춤을 복구가 무효화하지 않는다.
 - 확인: 재시작 뒤 미시작 상태를 확인하고 명시 다시 맡김만 새 run을 만드는지 확인한다.
 - 의도: lophn-agent/harness#I2
@@ -152,3 +152,4 @@ run의 영속 접수·시작·turn·retry·유한한 한도·멈춤·최종 결�
 - 부모 일의 종료·멈춤·취소 때 생성 중·대기 중 자식을 모두 막고 멈춤을 요청하며 실제 종료 전 자리를 재사용하거나 부모 없이 계속하게 하지 않는다. — 유지 결정의 subagent 제외·lophn-agent/handoff: subagent 생애 없음; handoff 수신 run은 독립 역할 run.
 - 실패·멈춤·취소 subagent를 다시 시키면 이전 시도를 근거로 새 시도를 만들고 이전 종료·결과를 덮지 않으며 늦은 옛 결과를 새 시도로 넣지 않는다. — 유지 결정의 subagent 제외: subagent 재시도 통로 없음; 일반 사람이 다시 맡긴 새 run은 run-loop에서 따로 유지.
 - 문서 저장 event를 받은 lophn agent가 비동기로 summary Annotation을 만든다. — 공용 틀 8.4 event-trigger agent 없음; derived summary를 문서로 저장하지 않음.
+- Operator 회차(lophn-agent/scheduling이 허용한 주기 run)를 새 run의 계기로 접수하는 것(옛 R1의 한 갈래)과 주기 일을 셋째 우선순위로 두는 것(옛 R4): 주기(scheduling)는 보류라 코드와 요구를 지운다. 다시 할 때 agent 정의 위에 새로 쓴다.

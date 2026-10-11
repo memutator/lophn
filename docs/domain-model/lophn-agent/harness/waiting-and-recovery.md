@@ -13,7 +13,7 @@ Run의 기다림 결정 반영과 확인된 경계의 복구 기록을 정의한
 | 필드 | 타입 | null | 제약 | 뜻 |
 |---|---|---|---|---|
 | `run` | `run` ID | 아니오 | waiting_on의 요청과 일치 | 재개 또는 종료 대상 |
-| `request` | `qst / apr` ID | 아니오 | Run.waiting_on과 같음 | 결정 대상 |
+| `request` | `qgr / apr` ID | 아니오 | Run.waiting_on과 같음 | 결정 대상 |
 | `decision_seq` | seq | 아니오 | Question.closed_seq 또는 ApprovalRequest.closed_seq와 일치; 요청 소유 영역의 확정 결정 event | 중복 반영 key |
 | `tool_call` | `tcl` ID | 예 | approval에 필수; 요청의 고정 call; → lophn-agent/harness/tools | 재검사 대상 |
 | `result` | `resumed / stopped_no_answer / call_started / call_not_executed / ignored_finished` | 아니오 | 아래 표와 일치 | 적용 결과 |

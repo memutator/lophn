@@ -100,6 +100,7 @@ fixtures/             예시 project 폴더, 예시 앱, 녹화한 model 응답
 | lophn-agent/revert | packages/lophn-agent/revert/ |
 | lophn-agent/visuals | packages/lophn-agent/visuals/ |
 | lophn-agent/extensions | packages/lophn-agent/extensions/ |
+| lophn-agent/commands | packages/lophn-agent/commands/ |
 | lophn-agent/observability | packages/lophn-agent/observability/ |
 | lophn-agent/evaluation | packages/lophn-agent/evaluation/ |
 | coding-agent/connection | packages/coding-agent/connection/ |

@@ -57,7 +57,7 @@ built-in은 `name`·`contexts`·`app_reads`를 쓰지 않는다. 이름은 제�
 |---|---|---|---|---|
 | `provider` | `pvd` ID | 아니오 | 존재하는 Provider → lophn-agent/harness/provider | 호출 연결 |
 | `model_name` | string | 아니오 | nonempty; catalog와 사용 가능 검사 → lophn-agent/harness/model | model |
-| `options` | map(축 id → 값) | 아니오 | 기본 `{}`; 그 model이 가진 축과 값만 → lophn-agent/harness/model | effort 같은 option 값 |
+| `option_values` | map(축 id → 값) | 아니오 | 기본 `{}`; 그 model이 가진 축과 값만 → lophn-agent/harness/model | effort 같은 option 값 |
 
 ModelChoice는 통째로 고른다. 층마다 option을 따로 합치지 않고 가장 높은 층의 ModelChoice 하나를 쓴다. credential 값·가격·한계는 넣지 않는다. 계정 선택과 이동은 → lophn-agent/harness/provider다.
 
@@ -121,11 +121,13 @@ run을 준비할 때 한 번 만들어 run 기준(→ lophn-agent/harness/run-lo
 | `role` | enum | 아니오 | assignment의 역할 | 역할 |
 | `place` | `{kind: project/app, id}` | 아니오 | Operator는 assignment의 scope; built-in은 session의 작업 자리 → lophn-agent/conversation | 어느 자리의 설정을 썼나 |
 | `name`, `profile` | string, Profile | 아니오 | built-in은 제품 이름과 기본 icon | 표시 |
-| `agent_instructions` | sha256 | 아니오 | 정의 본문(+ 제품 역할 지침)의 blob; LOPHN.md 층은 call마다 읽으므로 고정하지 않음 | agent 층 지침 |
+| `agent_instructions` | sha256 | 아니오 | 정의 본문의 sha256(blob); 제품 역할 지침은 prompt-assemble의 role 층이라 넣지 않음; LOPHN.md 층은 call마다 읽으므로 고정하지 않음 | agent 층 지침 |
 | `model` | ModelChoice | 아니오 | 모든 층을 합친 결과; 없으면 run을 시작하지 않음 | model |
 | `tools` | string 배열 | 아니오 | RoleCaps ∩ 자리 ∩ 정의 | 제공 tool |
-| `skills`, `mcp` | 이름 배열 | 아니오 | 켜진 것 | 확장 |
+| `skills` | 이름 배열 | 아니오 | 등록된 것 가운데 `skills_off`에 없는 것(등록 순서) | 켜진 skill |
+| `mcp` | `{server_name, original_tool}` 배열 | 아니오 | 등록된 MCP tool 가운데 `mcp_off`에 없는 것(등록 순서) | 켜진 MCP tool |
 | `contexts` | `ctx` ID 배열 | 아니오 | Operator는 고른 것 중 active; built-in은 자리 project의 active 전부(없으면 `[]`와 이유) | 읽을 context |
+| `contexts_reason` | `no_project` | 예 | 비어 있는 이유; built-in이 앱 자리에서 열렸을 때만 `no_project`, 아니면 null | context 0개의 이유 |
 | `app_reads` | AppRead 배열 | 아니오 | 앱 Operator만 | 읽을 앱 command |
 | `safe_tools` | 배열 | 아니오 | | 묻지 않을 tool |
 | `sources` | map(칸 → ValueSource) | 아니오 | 위 칸마다 하나 | 값의 출처 |
@@ -274,7 +276,7 @@ Operator의 자리는 project 또는 앱 하나이고 context는 자료 선택�
 | `UploadAgentProfileImage` | user | assignment, 이미지 | png·jpg·webp, 1048576 byte 이하, svg 불가 | 없음(저장 때 `profile`로 연결) | `invalid_input`, `not_found` |
 | `ChangePlaceAgentSettings` | user | 자리, 바꾼 칸 | 전체 검사; 파일 hash CAS; `permissions`는 Workspace 기본의 부분집합 | `PlaceAgentSettingsChanged` | `invalid_input`, `conflict`, `forbidden` |
 
-읽기: `ListAgents(자리)`는 그 자리에서 부를 수 있는 agent의 행(assignment ID, 역할, built-in/Operator, 이름, profile, model 요약, 상태)을, `ReadAgent(자리, assignment)`는 정의와 칸별 값·출처를 돌려준다. `ResolveAgent`는 run 준비 때 쓰는 machine 읽기다. agent 쪽 tool은 정의를 쓰지 않는다.
+읽기: `ListAgents(자리)`는 그 자리에서 부를 수 있는 agent의 행(assignment ID, 역할, built-in/Operator, 이름, profile, model 요약, 상태)을, `ReadAgent(자리, assignment)`는 정의와 칸별 값·출처를 돌려준다. `ResolveAgent`는 run 준비 때 쓰는 machine 읽기다. `ReadPlaceAgentSettings(자리)`는 그 자리 `settings.md`의 칸과 파일 hash, 칸을 비운 role의 실제 model과 출처(자리, Workspace, 기본값)를 돌려준다. agent 쪽 tool은 정의를 쓰지 않는다.
 
 ## event
 
@@ -295,4 +297,13 @@ Operator의 자리는 project 또는 앱 하나이고 context는 자료 선택�
 ## 정할 것
 
 - Operator가 문서를 쓸 수 있는 범위(남길 문서를 없앤 뒤): lophn-agent/agents#Q1.
-- 자리 설정 파일의 모양(`settings.md`): lophn-agent/agents#Q2.
+
+## 파일 모양
+
+정의 파일과 `settings.md`는 같은 모양이다.
+
+- 첫 줄이 `---`이면 다음 `---` 줄까지가 frontmatter(YAML map)이고 나머지가 본문이다. 닫는 줄이 없거나 YAML이 깨졌거나 map이 아니면 파일이 틀린 것이다. 첫 줄이 `---`가 아니면 파일 전체가 본문이다. 본문 안의 `---` 줄은 본문이다.
+- 파일에는 바꾼 칸만 있다. 비운 칸과 빈 기본 목록(`contexts`, `app_reads`, `skills_off`, `mcp_off`, `safe_tools`)은 쓰지 않고, 칸이 하나도 없으면 frontmatter 없이 본문만 쓴다. 쓰는 칸 순서는 고정이다(표의 순서). 같은 값은 항상 같은 글이다.
+- 본문은 앞쪽 빈 줄과 뒤쪽 공백을 뺀 글이고, 쓸 때 끝에 줄바꿈 하나를 붙인다. 크기는 지침 파일 상한(32768 UTF-8 bytes)을 따른다(→ lophn-agent/instructions).
+- `settings.md`는 본문이 없고 칸은 `models`와 `permissions`뿐이다.
+- 읽을 때와 쓸 때 같은 전체 검사를 하고, 틀린 칸마다 `field`(점 경로)와 이유 code(`malformed`, `unknown_field`, `invalid_value`, `required`, `not_allowed`, `reserved_name`, `duplicate`, `too_large`, `missing_reference`, `over_cap`)를 알린다.

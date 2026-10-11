@@ -1,0 +1,121 @@
+{
+  "assignment": "asg_01arz3ndektsv4rrffq69g5fa6",
+  "role": "operator",
+  "place": {
+    "kind": "project",
+    "id": "prj_01arz3ndektsv4rrffq69g5fa1"
+  },
+  "name": "Reviewer",
+  "profile": {
+    "kind": "image",
+    "image": "avatar.png"
+  },
+  "agent_instructions": "185ad0ba706f8a2c4994e05f891a081c5c1f4fe3edc3f7806aacd4d69864de4f",
+  "model": {
+    "provider": "pvd_01arz3ndektsv4rrffq69g5fc1",
+    "model_name": "gpt-5",
+    "option_values": {
+      "effort": "high"
+    }
+  },
+  "tools": [
+    "document.list",
+    "document.search",
+    "document.read_section",
+    "question.submit"
+  ],
+  "skills": [
+    "slides"
+  ],
+  "mcp": [
+    {
+      "server_name": "web",
+      "original_tool": "search"
+    },
+    {
+      "server_name": "files",
+      "original_tool": "read"
+    }
+  ],
+  "contexts": [
+    "ctx_01arz3ndektsv4rrffq69g5fb1"
+  ],
+  "contexts_reason": null,
+  "app_reads": [],
+  "safe_tools": [
+    {
+      "server_name": "files",
+      "original_tool": "read"
+    }
+  ],
+  "sources": {
+    "name": {
+      "layer": "definition",
+      "place": {
+        "kind": "project",
+        "id": "prj_01arz3ndektsv4rrffq69g5fa1"
+      }
+    },
+    "profile": {
+      "layer": "definition",
+      "place": {
+        "kind": "project",
+        "id": "prj_01arz3ndektsv4rrffq69g5fa1"
+      }
+    },
+    "agent_instructions": {
+      "layer": "definition",
+      "place": {
+        "kind": "project",
+        "id": "prj_01arz3ndektsv4rrffq69g5fa1"
+      }
+    },
+    "model": {
+      "layer": "definition",
+      "place": {
+        "kind": "project",
+        "id": "prj_01arz3ndektsv4rrffq69g5fa1"
+      }
+    },
+    "tools": {
+      "layer": "definition",
+      "place": {
+        "kind": "project",
+        "id": "prj_01arz3ndektsv4rrffq69g5fa1"
+      }
+    },
+    "skills": {
+      "layer": "definition",
+      "place": {
+        "kind": "project",
+        "id": "prj_01arz3ndektsv4rrffq69g5fa1"
+      }
+    },
+    "mcp": {
+      "layer": "definition",
+      "place": {
+        "kind": "project",
+        "id": "prj_01arz3ndektsv4rrffq69g5fa1"
+      }
+    },
+    "contexts": {
+      "layer": "definition",
+      "place": {
+        "kind": "project",
+        "id": "prj_01arz3ndektsv4rrffq69g5fa1"
+      }
+    },
+    "app_reads": {
+      "layer": "default",
+      "place": null
+    },
+    "safe_tools": {
+      "layer": "definition",
+      "place": {
+        "kind": "project",
+        "id": "prj_01arz3ndektsv4rrffq69g5fa1"
+      }
+    }
+  },
+  "hash": "c6c9a04f43912caf248149db89c08dcb4dbaddded67395c06624d645897289c1"
+}

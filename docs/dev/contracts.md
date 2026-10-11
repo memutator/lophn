@@ -16,7 +16,7 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
 - tool·MCP tool·CLI command의 이름과 입력
 - 그 contract의 오류 코드(공통 오류 코드 안에서)
 
-구현은 두지 않는다. 타입, schema, 상수, 작은 client 생성 함수만 둔다. schema는 한 가지 도구로 쓴다([stack.md](stack.md)).
+구현은 두지 않는다. 타입, schema, 상수, 작은 client 생성 함수만 둔다. 예외: 의존 없는 순수 함수를 여러 최상위가 같이 써야 하고 다른 자리가 없을 때만 둔다(apps blueprint 검사, 문서 outline parser — code-map "여러 최상위가 같이 쓰는 순수 함수"). schema는 한 가지 도구로 쓴다([stack.md](stack.md)).
 
 ## 누가 고치나
 

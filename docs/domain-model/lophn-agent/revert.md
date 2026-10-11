@@ -182,7 +182,7 @@ changes는 시도 결과와 event 연결이며 원래 내용 복사본이 아니
 | 대상 종류 | 판정 concern | 기본 분류·조건 |
 |---|---|---|
 | 문서 내용·metadata·자리 | → documents/versions, documents/addressing | reversible: 소유 CAS·참조 검사 통과; 내용은 이전 내용의 새 version; 파일 반영 완료와 ledger 복원은 별도 |
-| context·item·term 후보 | → documents/contexts, documents/terms | reversible: 이전 값·현재 판 근거와 복원 후 관계 검사 필요 |
+| context 계약 판·용어집 | → documents/contexts, documents/terms | retained; 이 revert의 owner가 아님; 이전 판 적용은 소유 concern의 판 이력으로만 하고 복원했다고 표시하지 않음 |
 | agent run이 생성한 미claim ticket | → coding-agent/tickets | reversible: ticket 취소; claim 이후는 owner 판정 없이는 복원 불가 |
 | pending approval request | → platform/approvals | 유효한 미결정 동작 차단은 owner의 cancellation 규칙; 이미 저장된 결정은 retained |
 | assignment·preset·설정 변경 | → lophn-agent/assignments, lophn-agent/presets, platform/settings | owner가 현재 승인 범위·참조·판을 검사; 이전 값 근거 없이는 reversible 아님 |

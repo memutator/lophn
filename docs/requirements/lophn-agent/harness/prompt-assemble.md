@@ -20,21 +20,21 @@ concerns: [lophn-agent/harness/prompt-assemble]
 - 확인: 다섯 층 순서와 지침 판이 맞고 마지막 동적 context 앞의 이력이 같은 turn들에서 cache prefix로 유지되는지 본다.
 - 의도: lophn-agent/harness#I3, lophn-agent#I8
 
-**[R3]** 작업 재료는 목적·대상과 현재 run 사실 뒤에 명시 이어가기 summary·자료 목차와 요약·압축 summary·이후 세션과 tool 이력을 원래 순서로 넣고 현재 사람 요청과 미반영 steering을 빠짐없이 포함하며 없는 부분은 가짜 세션 없이 생략한다.
+**[R3]** 작업 재료는 목적·대상과 현재 run 사실 뒤에 명시 이어가기 summary·context 자료·압축 summary·이후 세션과 tool 이력을 원래 순서로 넣고 현재 사람 요청과 미반영 steering을 빠짐없이 포함하며 없는 부분은 가짜 세션 없이 생략한다.
 - 이유: 원문 시점과 지금의 수정 의도를 혼동하지 않는다.
 - 확인: 요약 이전·이후 구간과 tool 짝 순서가 보존되고 미반영 steering·현재 요청 전문이 있는지 확인한다.
 - 의도: lophn-agent/harness#I3
 
 ### 자료 선택
 
-**[R4]** 초기 기준 자료는 주소·읽은 version·summary·최상위 outline, 참고는 주소·summary, watch는 변경 자료 주소·summary·변경 표시와 미변경 주소만 넣고 본문은 요청한 section만 펼친다.
-- 이유: 모든 본문을 미리 보내지 않고 필요한 깊이만 읽는다.
-- 확인: 세 관점별 초기 입력과 section 요청 후 본문 포함을 확인하며 관점은 documents/contexts·outline은 documents/outline-and-search를 따른다.
+**[R4]** context 자료는 preset이 고른 context마다 하나이며 머리에 context 이름과 id를 두고, 내용은 그 context의 overview(type과 뜻·type 사이 관계·type별 개수)와 용어집이고, 검색 결과·개체 목록·문서 본문은 넣지 않아 검색 tool과 개체 읽기 tool로 읽게 한다.
+- 이유: 모든 본문을 미리 보내지 않고, agent가 context id와 type 이름을 알아 검색 tool을 바로 고르게 한다.
+- 확인: context 둘을 고른 preset의 자료에 각각 이름·id·overview·용어집이 있고 검색 결과·개체 field·문서 본문이 없으며, 기준·참고·watch 같은 관점 표시와 "변경됨" 표시가 없는지 본다. context의 계약과 용어집은 documents/contexts·documents/terms를 따른다.
 - 의도: lophn-agent/harness#I3
 
-**[R5]** 같은 대상·version·관점은 처음 한 번만 넣고 tool 이력 본문을 초기 자료에 다시 붙이지 않으며 version·관점이 다르면 제목이 같아도 합치지 않는다.
-- 이유: 중복 token을 줄이되 서로 다른 근거를 잃지 않는다.
-- 확인: 동일 근거 중복과 같은 제목의 다른 version을 넣어 각각 한 번·별도로 포함되는지 확인한다.
+**[R5]** context 자료는 같은 context 판 hash와 run을 시작할 때 센 개수에서 byte가 같고, run 안에서는 파일이 바뀌어도 바뀌지 않으며, 같은 context를 여러 선택이 가리켜도 한 번만 넣고 tool 이력 본문을 초기 자료에 다시 붙이지 않는다.
+- 이유: 자료가 call마다 달라지면 cache prefix가 깨지고, 중복 token은 낭비다.
+- 확인: 같은 판의 두 call에서 자료 byte가 같고, 선택 두 개(all과 project)가 같은 context를 가리켜도 자료가 한 번이며, 새 판이 적용되면 다음 run부터 새 hash의 자료가 쓰이는지 본다.
 - 의도: lophn-agent/harness#I3
 
 **[R6]** skill 이름·설명은 preset의 선택 목록에서만 지시에 넣고 lophn-agent/extensions로 읽은 본문은 tool 이력에만 넣으며 압축으로 잃으면 다시 읽도록 안내한다.
@@ -107,9 +107,9 @@ concerns: [lophn-agent/harness/prompt-assemble]
 
 ### 크기와 보호
 
-**[R18]** 초기 자료 초과는 참고 summary→기준 outline→남은 선택 자료 순으로 줄여 오래된 변경부터 주소만 남기고 생략 범위·수를 밝히되 제품·역할·preset·사람 지침과 현재 요청·필수 근거는 보호한다.
-- 이유: 줄이는 순서와 남기는 근거를 알 수 있게 한다.
-- 확인: 작은 창에서 축소 순서·주소·생략 수가 보이고 필수 전문 초과는 호출되지 않는지 확인한다.
+**[R18]** 초기 자료 초과는 용어집, 그다음 overview 순으로 뒤에서부터 줄이되 context 이름·id·type 이름과 생략 범위·수를 남기고, 제품·역할·preset·사람 지침과 현재 요청·필수 근거는 보호한다.
+- 이유: 줄이는 순서와 남기는 근거를 알 수 있게 하고 context를 찾을 길은 끊지 않는다.
+- 확인: 작은 창에서 축소 순서·이름·id·생략 수가 보이고 같은 입력에서 같은 byte가 나오며 필수 전문 초과는 호출되지 않는지 확인한다.
 - 의도: lophn-agent/harness#I3
 
 ### 이어가기 summary
@@ -178,3 +178,4 @@ concerns: [lophn-agent/harness/prompt-assemble]
 ## 버린 것
 
 - subagent 문맥은 공통·자기 역할·부모가 명시한 일·허용 자료만 새로 조립하고 부모 대화·세션 summary·압축 summary는 상속하지 않는다. — 유지 결정의 subagent 제외: 네 역할 모두 subagent 없음; 역할 handoff의 이력 비복사는 별도 handoff 규칙.
+- 기준·참고·watch 관점별 초기 자료(주소·version·summary·최상위 outline·변경 표시)와 같은 대상·version·관점 중복 규칙(옛 R4·R5)은 관점과 watch가 없어져 context 자료(overview·용어집)와 판 hash별 byte 고정으로 바꿨다. 문서 본문과 개체 목록은 검색 tool로 읽는다.

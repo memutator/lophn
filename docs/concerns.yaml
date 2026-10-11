@@ -117,8 +117,7 @@ concerns:
   summary: 지원 format 목록, format 검사, section 추출, format module의 격리 실행, 최신 version이 정하는 저장 계약.
 
 - id: documents/outline-and-search
-  summary: outline과 full-text search(derived, 지우고 다시 만들 수 있음), 단계적 읽기(outline → section → 본문)로 적은 token에 닿기, index 반영 지연 표시, saved view(조건을 이름 붙여 저장하고 열 때마다 목록을 다시 만드는 것).
-  entities: [SavedView]
+  summary: outline과 full-text search(derived, 지우고 다시 만들 수 있음), 단계적 읽기(outline → section → 본문)로 적은 token에 닿기, index 반영 지연 표시. saved view는 documents/contexts가 맡는다.
   excludes:
     - 읽는 쪽의 범위 검사 -> platform/identity
     - 출력 redaction -> platform/redaction
@@ -133,8 +132,8 @@ concerns:
   summary: address 문법(<place>/<doc>#<section>@<version>), place(project나 앱 slug), place 없는 문서, rename·move와 옛 address 안내, ID로 부르기.
 
 - id: documents/contexts
-  summary: Context와 item, 관점(기준 / 참고 / watch), item 대상(문서, section, 앱 read command), watch 변화 감지와 ContextWatchedItemChanged.
-  entities: [Context]
+  summary: 한 project 파일 위의 결정적 계약(type, source kind 일곱, field, 관계, 검사 규칙, public/private)과 선언된 검색, saved view, 계약·검색 묶음의 판과 격리 검사, 위반 감지와 index.
+  entities: [Context, ContextBundle, ContextCheck, SavedView]
 
 - id: documents/terms
   summary: Term(용어)과 정의, 후보, 사람이 정의를 정한다.

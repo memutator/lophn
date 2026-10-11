@@ -45,6 +45,7 @@ import {
   recoverRunFromLedger,
   type ToolLookup,
 } from "../../packages/lophn-agent/harness/waiting-and-recovery/mod.ts";
+import type { SessionConversation } from "../../packages/lophn-agent/harness/prompt-assemble/mod.ts";
 import type { ToolBinding } from "../../packages/lophn-agent/harness/tool-judgment/mod.ts";
 import {
   BUILTIN_TOOLS,
@@ -64,6 +65,7 @@ import {
 import { commandOf, type CoreCall, readOf } from "./core-call.ts";
 import { contextMaterials } from "./context-materials.ts";
 import { createCorePorts, type RunSeat } from "./core-ports.ts";
+import { readSessionConversation } from "./session-history.ts";
 import type { ModelBinding } from "./model-binding.ts";
 import { type BlobPort, type RedactText, storeValue } from "./run-blobs.ts";
 import type { DriveDeps, PreparedResume, PreparedRun } from "./run-driver.ts";
@@ -140,7 +142,9 @@ export type PreparerDeps = {
   // run의 agent credential token으로 부르는 loopback.
   agentCall(token: string): CoreCall;
   // resolved agent의 model 선택을 검증해 model 묶음으로 만든다(catalog·계정·adapter).
-  resolveModel(input: { model: ModelChoice }): Promise<Result<ModelBinding>>;
+  resolveModel(
+    input: { model: ModelChoice; purpose?: "judgment" | "organizing" },
+  ): Promise<Result<ModelBinding>>;
   toolkit: Toolkit;
   // 앱 command 선언과 사람 허락. 없으면 앱 command 없는 scope다.
   offers?(assignment: { id: string }): Promise<readonly AppOffer[]>;
@@ -353,6 +357,8 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
       model: model.value,
       place,
       seat,
+      // 이 run의 요청 메시지. 이전 대화는 이 메시지 앞까지다.
+      request: run.source.kind === "message" ? run.source.message : null,
       mcpKit,
     });
   }
@@ -411,9 +417,20 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
     for (const tool of external) {
       bindings.set(tool.definition.name, externalBinding(tool));
     }
+    // session의 이전 대화는 run마다 한 번 읽는다. 일하는 run이 있는 session은 Compact하지 않으므로 run 안에서
+    // 바뀌지 않는다.
+    let conversation: SessionConversation | undefined;
     const context = async (): Promise<Result<RunContext>> => {
       const role = await deps.rolePrompt(assignment.role);
       if (!role.ok) return role;
+      if (conversation === undefined) {
+        const read = await readSessionConversation(machine, {
+          session: seat.session,
+          request: m.request,
+        });
+        if (!read.ok) return read;
+        conversation = read.value;
+      }
       return ok({
         product: { instructions: deps.product },
         role: { instructions: role.value },
@@ -430,7 +447,7 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
         attachments: [],
         purpose: null,
         run_facts: null,
-        continuation_summary: null,
+        session: conversation,
         sources: await contextMaterials(
           agent,
           resolved.contexts.map((target) => ({ kind: "context", target })),

@@ -143,12 +143,46 @@ export const forkSessionInputSchema = z.strictObject({
   message: "a session cannot fork from itself",
 });
 
+// Compact는 두 걸음이다. 사람이 요청하면(RequestSessionCompact) runtime이 앞 구간을 요약하는 model
+// call을 하고, 끝까지 성공한 그 call을 구간과 함께 session에 이어(CompactSession) 요청을 끝낸다.
+// 실패하면 이유와 함께 요청만 닫는다(FailSessionCompact). 어느 쪽이든 원문과 session의 나머지는
+// 바뀌지 않는다(conversation#R10).
+export const COMPACT_FAILURE_REASONS = [
+  "nothing_to_summarize",
+  "model_unavailable",
+  "model_failed",
+  "too_large",
+  "summary_too_long",
+  "session_changed",
+] as const;
+export const compactFailureReasonSchema = z.enum(COMPACT_FAILURE_REASONS);
+export type CompactFailureReason = (typeof COMPACT_FAILURE_REASONS)[number];
+
+export const requestSessionCompactInputSchema = z.strictObject({
+  session: idSchema("ses"),
+});
+export const requestSessionCompactCompareSchema = z.strictObject({
+  state: z.literal("open"),
+  state_seq: seqSchema,
+});
+
 export const compactSessionInputSchema = z.strictObject({
   session: idSchema("ses"),
+  summary_call: idSchema("mcl"),
+  // 요약이 덮는 마지막 메시지의 순번. runtime이 요약 재료를 모은 때의 마지막 메시지다.
+  through_seq: seqSchema,
 });
 export const compactSessionCompareSchema = z.strictObject({
   state: z.literal("open"),
-  state_seq: seqSchema,
+  request_seq: seqSchema,
+});
+
+export const failSessionCompactInputSchema = z.strictObject({
+  session: idSchema("ses"),
+  reason: compactFailureReasonSchema,
+});
+export const failSessionCompactCompareSchema = z.strictObject({
+  request_seq: seqSchema,
 });
 
 // null은 agent 기본값으로 돌아간다.
@@ -279,6 +313,21 @@ export const forkSession = defineCommand({
   errors: [...errors],
 });
 
+export const requestSessionCompact = defineCommand({
+  resource: "sessions",
+  method: "request-compact",
+  name: "RequestSessionCompact",
+  input: requestSessionCompactInputSchema,
+  output: z.object({
+    id: idSchema("ses"),
+    // 요청 event의 순번이 요청의 이름이다.
+    request_seq: seqSchema,
+  }),
+  compare: requestSessionCompactCompareSchema,
+  actors: ["user"],
+  errors: [...errors],
+});
+
 export const compactSession = defineCommand({
   resource: "sessions",
   method: "compact",
@@ -290,8 +339,23 @@ export const compactSession = defineCommand({
     state_seq: seqSchema,
   }),
   compare: compactSessionCompareSchema,
-  actors: ["user"],
+  actors: ["machine"],
   errors: [...errors, "unavailable"],
+});
+
+export const failSessionCompact = defineCommand({
+  resource: "sessions",
+  method: "fail-compact",
+  name: "FailSessionCompact",
+  input: failSessionCompactInputSchema,
+  output: z.object({
+    id: idSchema("ses"),
+    request_seq: seqSchema,
+    reason: compactFailureReasonSchema,
+  }),
+  compare: failSessionCompactCompareSchema,
+  actors: ["machine"],
+  errors: [...errors],
 });
 
 export const changeSessionModel = defineCommand({
@@ -387,6 +451,41 @@ export const sessionList = defineRead({
   errors: [...readErrors],
 });
 
+// runtime이 요약을 시작할 요청을 읽는다. 끝나지 않은 run이 있는 session의 요청은 그 run이 끝날 때까지
+// 나오지 않는다. 가장 오래된 요청부터 나온다.
+export const sessionCompactRequests = defineRead({
+  resource: "sessions",
+  method: "compact-requests",
+  name: "ListSessionCompactRequests",
+  input: z.strictObject({}),
+  output: withReadCommon(z.object({
+    requests: z.array(z.object({
+      session: idSchema("ses"),
+      assignment: idSchema("asg"),
+      work_place: workPlaceOutputSchema,
+      request_seq: seqSchema,
+    })),
+  })),
+  actors: ["machine"],
+  errors: [...readErrors],
+});
+
+// Compact가 session에 이은 요약의 본문이다. 요약은 원문을 대체하지 않는 derived라 호출의 출력이
+// 정본이고, 사람 화면은 이 본문을 일반 agent 답과 구별해 보인다(conversation#R10).
+export const sessionSummary = defineRead({
+  resource: "sessions",
+  method: "summary",
+  name: "ReadSessionSummary",
+  input: z.strictObject({ session: idSchema("ses") }),
+  output: withReadCommon(z.object({
+    session: idSchema("ses"),
+    compaction: compactionOutputSchema,
+    text: z.string(),
+  })),
+  actors: ["user", "agent", "machine"],
+  errors: [...readErrors],
+});
+
 const sessionSubject = idSchema("ses");
 
 export const sessionOpened = defineEvent("SessionOpened", {
@@ -436,6 +535,20 @@ export const sessionForked = defineEvent("SessionForked", {
   }),
 });
 
+// 요청한 순간의 사실이다. subject가 session이고 event 순번이 요청의 이름이다.
+export const sessionCompactRequested = defineEvent("SessionCompactRequested", {
+  subject: sessionSubject,
+  payload: z.object({}),
+});
+
+export const sessionCompactFailed = defineEvent("SessionCompactFailed", {
+  subject: sessionSubject,
+  payload: z.object({
+    request: seqSchema,
+    reason: compactFailureReasonSchema,
+  }),
+});
+
 export const sessionCompacted = defineEvent("SessionCompacted", {
   subject: sessionSubject,
   payload: z.object({
@@ -467,11 +580,15 @@ export const SESSION_COMMANDS = [
   unarchiveSession,
   deleteSession,
   forkSession,
+  requestSessionCompact,
   compactSession,
+  failSessionCompact,
   changeSessionModel,
   closeSession,
   sessionRead,
   sessionList,
+  sessionCompactRequests,
+  sessionSummary,
 ] as const;
 
 export const SESSION_EVENTS = [
@@ -481,7 +598,9 @@ export const SESSION_EVENTS = [
   sessionUnarchived,
   sessionDeleted,
   sessionForked,
+  sessionCompactRequested,
   sessionCompacted,
+  sessionCompactFailed,
   sessionModelChanged,
   sessionClosed,
 ] as const;

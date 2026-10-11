@@ -14,6 +14,7 @@ import type {
   PromptAssembly,
   PromptInput,
   PromptTool,
+  SessionConversation,
   WirePacker,
 } from "../prompt-assemble/mod.ts";
 import type { ConfirmedFacts, RunLimits } from "./limits.ts";
@@ -50,7 +51,9 @@ export type RunContext = {
   work: PromptInput["work"];
   purpose: string | null;
   run_facts: string | null;
-  continuation_summary: string | null;
+  // 이 run의 요청 앞에 있던 session의 대화다. Compact한 session이면 요약과 그것이 덮은 구간 뒤의 원문이고,
+  // 덮은 구간의 원문은 이후 call의 입력에 넣지 않는다(prompt-assemble R3, R23).
+  session: SessionConversation;
   sources: readonly MaterialSource[];
   skills: readonly SkillEntry[];
   timezone: string | null;

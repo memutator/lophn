@@ -11,6 +11,8 @@ import type { SchemaStep, SqlParam } from "../../../contracts/platform/mod.ts";
 // 한 행이고, model_call_supplements는 보완 근거의 append 표다. credential 값은
 // 열에 없고 참조만 남는다. run·session FK는 runs·sessions 표가 생길 때 더한다
 // (platform ledger schema와 같은 근원). 삭제는 RESTRICT로 사실을 남긴다.
+// run이 없는 call은 연결 시험과 Compact의 요약 call이다. 요약 call은 run과 agent 대신 session을 가리키고
+// session을 지울 때 함께 지운다.
 
 export const usageSchemaSteps: readonly SchemaStep[] = [
   {
@@ -54,8 +56,9 @@ create table model_calls (
     (run is null and session is null and model_use is null and agent_hash is null and test_request is not null)
   ),
   check (
-    (purpose <> 'connection_test') =
-    (run is not null and session is not null and model_use is not null and agent_hash is not null and test_request is null)
+    purpose = 'connection_test' or
+    (run is not null and session is not null and model_use is not null and agent_hash is not null and test_request is null) or
+    (run is null and session is not null and model_use is 'organizing' and agent_hash is null and test_request is null and purpose = 'conversation_compression')
   ),
   check (
     (attempt_kind = 'retry') = (retry_of is not null)
@@ -77,6 +80,8 @@ create table model_calls (
 ) strict;
 create unique index model_calls_run_attempt
   on model_calls (run, attempt_order) where run is not null;
+create unique index model_calls_session_attempt
+  on model_calls (session, attempt_order) where run is null and session is not null;
 create unique index model_calls_test_attempt
   on model_calls (test_request, attempt_order) where purpose = 'connection_test';
 create index model_calls_run_state on model_calls (run, state);
@@ -90,6 +95,9 @@ create trigger model_calls_no_delete
 before delete on model_calls
 when not exists (
   select 1 from runs where id = old.run and session is not null and state = 'finished'
+) and not (
+  old.run is null and old.session is not null and
+  not exists (select 1 from runs where session = old.session and state <> 'finished')
 )
 begin
   select raise(abort, 'model call records are kept');

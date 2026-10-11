@@ -105,6 +105,7 @@ import {
   type MessageBodyEnvironment,
   messageBodyFields,
   messageBodyRead,
+  sessionSummaryRead,
 } from "../../packages/lophn-agent/conversation/mod.ts";
 import {
   chosenOptionCall,
@@ -893,7 +894,9 @@ export const lophnAgentDefinitions = {
     conversationCommands.delete,
     conversationCommands.changeModel,
     conversationCommands.fork,
+    conversationCommands.requestCompact,
     conversationCommands.compact,
+    conversationCommands.failCompact,
     conversationCommands.close,
     conversationCommands.receive,
     conversationCommands.record,
@@ -944,6 +947,7 @@ export const lophnAgentDefinitions = {
     conversationReads.session,
     conversationReads.sessions,
     conversationReads.messages,
+    conversationReads.compactRequests,
     commandReads.list,
     handoffReads.status,
     handoffReads.result,
@@ -1275,6 +1279,8 @@ export function createLedgerRegistration(
     // ReadQuestionText도 같은 읽기 통로(ledger snapshot과 blob 바이트)를 쓴다.
     apiReads: [
       messageBodyRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
+      // Compact가 session에 이은 요약의 본문도 같은 읽기 통로로 읽는다.
+      sessionSummaryRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
       questionTextRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
       // 복구가 저장된 run basis·model 응답·tool 결과를 다시 읽는 같은 길이다(machine만).
       runBodyRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
@@ -1344,6 +1350,7 @@ export function createReaderRegistration(): ReaderRegistration {
       conversationReads.session,
       conversationReads.sessions,
       conversationReads.messages,
+      conversationReads.compactRequests,
       commandReads.list,
       handoffReads.status,
       handoffReads.result,

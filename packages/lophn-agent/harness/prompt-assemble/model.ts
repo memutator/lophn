@@ -70,7 +70,8 @@ export type WorkMaterial = {
   // 목적·대상, 현재 run 사실
   purpose: string | null;
   run_facts: string | null;
-  continuation_summary: string | null;
+  // 사람이 부른 Compact가 만든 요약. 요약이 덮은 구간의 원문은 이력에 없다(R23).
+  compact_summary: string | null;
   // 이미 포장된 자료 목록(목차·요약)
   materials: readonly string[];
   compaction_summary: string | null;
@@ -116,7 +117,7 @@ export type TurnContextBasis = {
   bytes: number;
 };
 
-// 실제 포함한 원문 세션·구간 근거다(T28 이어가기·압축). 명시 세션만 쓰고 원래
+// 실제 포함한 원문 세션·구간 근거다(T28 압축). 명시 세션만 쓰고 원래
 // 순서·구간을 보존한다.
 export type MessageRange = {
   session: string;
@@ -128,7 +129,7 @@ export type PromptEvidence = {
   references: readonly MaterialReference[];
   omissions: readonly MaterialOmission[];
   turn_context: TurnContextBasis | null;
-  // compaction·continuation이 더한 원문 구간과 summary 근거다. 없으면 비운다.
+  // compaction이 더한 원문 구간과 summary 근거다. 없으면 비운다.
   message_ranges?: readonly MessageRange[];
   summaries?: readonly SummaryRef[];
 };
@@ -180,7 +181,7 @@ export type ContextBasis = {
   references: MaterialReference[];
   omissions: MaterialOmission[];
   turn_context: TurnContextBasis | null;
-  // T28 compaction·continuation이 더한 원문 구간과 summary 근거다. 기본 []다.
+  // T28 compaction이 더한 원문 구간과 summary 근거다. 기본 []다.
   message_ranges: MessageRange[];
   summaries: SummaryRef[];
   tool_names: string[];

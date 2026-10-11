@@ -7,12 +7,14 @@ import {
   closeSession,
   type compactSession,
   deleteSession,
+  type failSessionCompact,
   type forkSession,
   MESSAGE_BODY_OWNER_KIND,
   openSession,
   type receiveMessage,
   type recordMessage,
   renameSession,
+  type requestSessionCompact,
   sessionArchived,
   sessionClosed,
   sessionDeleted,
@@ -29,7 +31,7 @@ import {
   type RequestContext,
   type Tx,
 } from "../../contracts/platform/mod.ts";
-import { createCompactCommand } from "./compact.ts";
+import { createCompactCommands } from "./compact.ts";
 import { createForkCommand } from "./fork.ts";
 import { reject, requireUser, sessionNotFound } from "./guards.ts";
 import { type AcceptRun, createMessageCommands } from "./message-commands.ts";
@@ -149,7 +151,9 @@ export function createConversationCommands(deps: ConversationDeps): {
   delete: CommandDefinition<typeof deleteSession>;
   changeModel: CommandDefinition<typeof changeSessionModel>;
   fork: CommandDefinition<typeof forkSession>;
+  requestCompact: CommandDefinition<typeof requestSessionCompact>;
   compact: CommandDefinition<typeof compactSession>;
+  failCompact: CommandDefinition<typeof failSessionCompact>;
   close: CommandDefinition<typeof closeSession>;
   receive: CommandDefinition<typeof receiveMessage>;
   record: CommandDefinition<typeof recordMessage>;
@@ -159,7 +163,7 @@ export function createConversationCommands(deps: ConversationDeps): {
   return {
     ...createMessageCommands(deps.acceptRun),
     fork: createForkCommand(),
-    compact: createCompactCommand(),
+    ...createCompactCommands(),
     open: {
       route: openSession,
       handle(
@@ -322,6 +326,9 @@ export function createConversationCommands(deps: ConversationDeps): {
         tx.sql.run("delete from messages where session = ?", [session.id]);
         const erased = deps.deleteSessionRecords(tx, session.id);
         if (!erased.ok) return erased;
+        tx.sql.run("delete from session_compact_requests where session = ?", [
+          session.id,
+        ]);
         tx.sql.run("delete from sessions where id = ?", [session.id]);
         const deletedAt = tx.now();
         tx.emit(sessionDeleted, session.id, {

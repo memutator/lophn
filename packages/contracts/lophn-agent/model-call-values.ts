@@ -242,8 +242,13 @@ function modelCallShape(value: {
     value.test_request === null;
   const detached = value.run === null && value.model_use === null &&
     value.agent_hash === null && value.test_request !== null;
+  // Compact의 요약 call은 run과 agent 대신 session을 가리킨다. run이 없는 session도 요약한다.
+  const summary = value.run === null && value.session !== null &&
+    value.model_use === "organizing" && value.agent_hash === null &&
+    value.test_request === null &&
+    value.purpose === "conversation_compression";
   const finished = value.state === "finished";
-  return (test ? detached : attached) &&
+  return (test ? detached : attached || summary) &&
     (value.attempt_kind === "retry") === (value.retry_of !== null) &&
     (value.attempt_kind === "credential_change") ===
       (value.credential_change_of !== null) &&

@@ -24,6 +24,8 @@ export interface ComposerProps {
   canCorrect: boolean;
   /** 멈출 수 있는 지금 일이 있는지. */
   canStop: boolean;
+  /** 글이 비어 있을 때 보이는 짧은 안내. 없으면 안내를 두지 않는다. */
+  hint?: string;
   onDraft: (patch: Partial<Draft>) => void;
   onSend: () => void;
   onStop: () => void;
@@ -48,6 +50,7 @@ export function Composer(
     offline,
     canCorrect,
     canStop,
+    hint,
     onDraft,
     onSend,
     onStop,
@@ -100,6 +103,7 @@ export function Composer(
           ref={input}
           rows={3}
           value={draft.text}
+          placeholder={hint}
           readOnly={locked}
           data-composer-input=""
           onChange={(event) =>

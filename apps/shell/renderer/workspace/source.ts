@@ -1,6 +1,7 @@
 // 작업대가 읽는 통로. documents#T7(projects get)·documents#T6(문서 목록)·
 // documents/contexts(연관 컨텍스트)의 read 결과와 T13 layout 저장·복원만 담는다.
 // core를 직접 부르지 않고 화면이 주입한 통로만 쓴다.
+import type { ContextsSource } from "./contexts/source.ts";
 
 /** projects.get 결과에서 작업대가 쓰는 부분. 폴더 경로만 sidebar에 보인다. */
 export interface ProjectView {
@@ -43,7 +44,13 @@ export type LayoutRead =
 export interface WorkspaceSource {
   project(id: string): Promise<ReadResult<ProjectView>>;
   documents(project: string): Promise<ReadResult<readonly DocumentRow[]>>;
+  /** 옛 연관 컨텍스트 읽기. 작업대 화면은 더 읽지 않는다. 옛 contexts 화면을 지우는 일에서 함께 지운다. */
   contexts(project: string): Promise<ReadResult<readonly ContextRow[]>>;
+  /**
+   * Contexts·Context·Search 탭의 통로(shell/workspace#R14~R31). 없으면 그 탭과 여는 길을 두지
+   * 않는다. core 통로는 아직 없고 mock 모드가 fake를 넣는다.
+   */
+  readonly contextsSource?: ContextsSource;
   /** 팔레트 파일 묶음. 문서로 잡힌 파일만 탭으로 열 수 있다. */
   files(project: string): Promise<ReadResult<readonly FileRow[]>>;
   readLayout(project: string): Promise<LayoutRead>;

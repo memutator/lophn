@@ -133,14 +133,6 @@ button.active:hover {
   font-weight: var(--font-weight-medium);
 }
 
-.collapsed .item {
-  flex: none;
-  justify-content: center;
-  width: var(--control-md-height);
-  margin: var(--space-0) auto;
-  padding: var(--space-0);
-}
-
 .icon {
   flex: none;
   color: var(--color-text-muted);

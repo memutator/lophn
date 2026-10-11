@@ -6,7 +6,9 @@ import type { z } from "zod";
 export type PlaceholderReason =
   | "document_missing"
   | "app_unavailable"
-  | "no_permission";
+  | "no_permission"
+  | "context_missing"
+  | "search_missing";
 
 export type RestoredTab =
   | { kind: "tab"; tab: { kind: string; key: string } }
@@ -26,6 +28,10 @@ export interface RestoreTargets {
   app(app: string): Promise<boolean>;
   /** 사람의 읽기 권한이 있는지. */
   canRead(document: string): Promise<boolean>;
+  /** 이 프로젝트에 속한 보관되지 않은 context가 있는지. */
+  context(context: string): Promise<boolean>;
+  /** context의 적용된 계약이 그 이름의 검색을 아직 선언하는지. */
+  declaredSearch(context: string, search: string): Promise<boolean>;
 }
 
 /** 힌트의 참조를 현재 허용 대상과 대조하는 통로(shell/workspace#R10). */

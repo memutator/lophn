@@ -68,3 +68,15 @@
   color: var(--color-text-muted);
   font-family: var(--font-mono);
 }
+
+/* 계약 위반 toast. 왼쪽 아래 안내 층과 오른쪽 아래 chip 자리를 피해 오른쪽 위에 쌓는다. */
+.toasts {
+  position: absolute;
+  top: var(--space-6);
+  right: var(--space-6);
+  z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: calc(100% - var(--space-6) - var(--space-6));
+}

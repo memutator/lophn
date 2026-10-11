@@ -7,6 +7,7 @@ import {
 
 import { Sidebar } from "./sidebar.tsx";
 import type { ProjectView } from "../source.ts";
+import type { RailAction } from "../contexts/shortcut-rail.tsx";
 
 const project: ProjectView = {
   id: "prj_1",
@@ -17,7 +18,12 @@ const project: ProjectView = {
 function renderSidebar(
   mode: "open" | "collapsed" | "hidden",
   width: number,
-  handlers: { onLauncher?: () => void; onToggle?: () => void } = {},
+  handlers: {
+    onLauncher?: () => void;
+    onToggle?: () => void;
+    onOpenContexts?: () => void;
+    onRail?: (action: RailAction) => void;
+  } = {},
 ) {
   return render(
     <Sidebar
@@ -25,10 +31,11 @@ function renderSidebar(
       width={width}
       project={project}
       documents={[{ id: "doc_1", title: "notes" }]}
-      contexts={[{ id: "ctx_1", title: "design" }]}
       onLauncher={handlers.onLauncher ?? (() => {})}
       onToggle={handlers.onToggle ?? (() => {})}
       onOpenDocument={() => {}}
+      onOpenContexts={handlers.onOpenContexts ?? (() => {})}
+      onRail={handlers.onRail ?? (() => {})}
     />,
   );
 }
@@ -49,13 +56,15 @@ Deno.test("shell/desktop#R22: sidebar는 240px, 접힘 56px, 탐색 행은 32px�
     "[data-sidebar]",
   ) as HTMLElement;
   assertEquals(style(folded).width, "56px");
-  // 접히면 이름 없이 아이콘 행만 남는다.
-  const foldedRow = collapsed.container.querySelector(
-    "[data-document]",
-  ) as HTMLElement;
-  assertEquals(foldedRow.textContent, "");
-  assertEquals(foldedRow.getAttribute("aria-label"), "notes");
-  assertEquals(style(foldedRow).width, "32px");
+  // 접히면 문서·폴더 행 없이 바로 가기 rail만 남는다(workspace#R32).
+  assertEquals(collapsed.container.querySelector("[data-document]"), null);
+  assertEquals(collapsed.container.querySelector("[data-folder]"), null);
+  assertEquals(
+    [...collapsed.container.querySelectorAll("[data-rail-action]")].map((
+      button,
+    ) => button.getAttribute("data-rail-action")),
+    ["terminal", "contexts", "saved", "search", "agent"],
+  );
 });
 
 Deno.test("shell/design-system#R24: 640px 미만에서는 sidebar를 그리지 않는다", () => {
@@ -80,7 +89,7 @@ Deno.test("shell/desktop#R26: 런처 복귀는 sidebar가 열렸을 때만 sideb
   assertEquals(collapsed.container.querySelector("[data-launcher-back]"), null);
 });
 
-Deno.test("shell/desktop#R28: sidebar는 프로젝트 폴더·문서·연관 컨텍스트만 보인다", () => {
+Deno.test("shell/desktop#R28: sidebar는 프로젝트 폴더·문서·Contexts 행만 보인다", () => {
   using view = renderSidebar("open", 240);
   const sections = [
     ...view.container.querySelectorAll("[data-section]"),
@@ -95,8 +104,8 @@ Deno.test("shell/desktop#R28: sidebar는 프로젝트 폴더·문서·연관 컨
     "notes",
   );
   assertEquals(
-    view.container.querySelector("[data-context]")?.textContent,
-    "design",
+    view.container.querySelector("[data-contexts-row]")?.textContent,
+    "Contexts",
   );
   const text = view.container.textContent ?? "";
   for (const gone of ["Inbox", "Unsorted", "Uncategorized"]) {
@@ -123,7 +132,7 @@ Deno.test("shell/desktop#R22: 접힘 버튼이 사람의 접힘을 바꾼다", (
   assertEquals(toggled, [1]);
 });
 
-Deno.test("shell/desktop#R28: 폴더 행은 눌러 펼치고 그 아래 문서를 열며 컨텍스트 행은 컨텍스트를 연다", () => {
+Deno.test("shell/desktop#R28: 폴더 행은 눌러 펼치고 그 아래 문서를 열며 Contexts 행은 Contexts 탭을 연다", () => {
   const opened: string[] = [];
   const contexts: string[] = [];
   using view = render(
@@ -132,7 +141,6 @@ Deno.test("shell/desktop#R28: 폴더 행은 눌러 펼치고 그 아래 문서�
       width={240}
       project={project}
       documents={[{ id: "doc_1", title: "notes" }]}
-      contexts={[{ id: "ctx_1", title: "design" }]}
       files={[
         {
           folder: "/work/lophn",
@@ -144,7 +152,7 @@ Deno.test("shell/desktop#R28: 폴더 행은 눌러 펼치고 그 아래 문서�
       onLauncher={() => {}}
       onToggle={() => {}}
       onOpenDocument={(document) => opened.push(document.id)}
-      onOpenContext={(context) => contexts.push(context)}
+      onOpenContexts={() => contexts.push("contexts")}
     />,
   );
   const folder = view.container.querySelector("[data-folder]") as HTMLElement;
@@ -162,7 +170,9 @@ Deno.test("shell/desktop#R28: 폴더 행은 눌러 펼치고 그 아래 문서�
   assertEquals(folder.getAttribute("aria-expanded"), "false");
   assertEquals(view.container.querySelector("[data-folder-document]"), null);
 
-  const context = view.container.querySelector("[data-context]") as HTMLElement;
-  act(() => context.click());
-  assertEquals(contexts, ["ctx_1"]);
+  const row = view.container.querySelector(
+    "[data-contexts-row]",
+  ) as HTMLElement;
+  act(() => row.click());
+  assertEquals(contexts, ["contexts"]);
 });

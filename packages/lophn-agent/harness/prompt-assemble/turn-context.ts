@@ -58,6 +58,12 @@ const TAB_TARGET: TabTarget = {
     `${tab.app} ${tab.surface}${
       tab.view_session === undefined ? "" : ` view_session=${tab.view_session}`
     }`,
+  contexts: () => "list",
+  context: (tab) => `${tab.context} ${tab.sub_tab}`,
+  search: (tab) =>
+    `${tab.context}${
+      tab.declared_search === undefined ? "" : ` search=${tab.declared_search}`
+    }`,
 };
 
 function tabLine(tab: ViewTab): string {

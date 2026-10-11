@@ -3,14 +3,20 @@
 import type { z } from "zod";
 
 import { appPanelKind } from "./app-panel.ts";
+import { contextKind } from "./context.ts";
+import { contextsKind } from "./contexts.ts";
 import { documentEditorKind } from "./document-editor.ts";
 import { registerTabKind } from "./kind.ts";
+import { searchKind } from "./search.ts";
 import { terminalKind } from "./terminal.ts";
 
 export const BUILT_IN_TAB_KINDS = [
   documentEditorKind,
   terminalKind,
   appPanelKind,
+  contextsKind,
+  contextKind,
+  searchKind,
 ] as const;
 
 for (const kind of BUILT_IN_TAB_KINDS) registerTabKind(kind);

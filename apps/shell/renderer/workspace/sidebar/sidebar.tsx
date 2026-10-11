@@ -13,13 +13,10 @@ import {
 } from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
-import type {
-  ContextRow,
-  DocumentRow,
-  FileRow,
-  ProjectView,
-} from "../source.ts";
+import type { DocumentRow, FileRow, ProjectView } from "../source.ts";
 import { LauncherButton } from "../launcher-button.tsx";
+import { CONTEXTS_TAB_KEY } from "../kinds/contexts.tsx";
+import { type RailAction, ShortcutRail } from "../contexts/shortcut-rail.tsx";
 import styles from "./sidebar.module.css";
 
 export interface SidebarProps {
@@ -28,7 +25,6 @@ export interface SidebarProps {
   width: number;
   project: ProjectView | null;
   documents: readonly DocumentRow[];
-  contexts: readonly ContextRow[];
   /** 문서로 잡힌 파일. 폴더 행을 펼치면 그 폴더 아래 문서로 보인다. */
   files?: readonly FileRow[];
   /** focus 칸의 활성 탭. 그 문서 행을 고른 행으로 보인다. */
@@ -39,8 +35,10 @@ export interface SidebarProps {
   onToggle: () => void;
   /** 문서 행을 눌러 탭을 연다. */
   onOpenDocument: (document: DocumentRow) => void;
-  /** 컨텍스트 행을 눌러 그 컨텍스트를 기존 contexts 화면에서 연다. 없으면 행은 누를 수 없다. */
-  onOpenContext?: (context: string) => void;
+  /** Contexts 행을 눌러 Contexts 탭을 연다(workspace#R31). 없으면 행을 두지 않는다. */
+  onOpenContexts?: () => void;
+  /** 접힌 sidebar의 바로 가기 rail 단추(workspace#R32). 없으면 접힌 sidebar에는 접기 단추만 있다. */
+  onRail?: (action: RailAction) => void;
   /** 오른쪽 가장자리 drag로 폭을 바꾼다. 열렸을 때만 준다. */
   onResizeStart?: (event: ReactPointerEvent<HTMLElement>) => void;
 }
@@ -52,13 +50,13 @@ export function Sidebar(
     width,
     project,
     documents,
-    contexts,
     files = [],
     current = null,
     onLauncher,
     onToggle,
     onOpenDocument,
-    onOpenContext,
+    onOpenContexts,
+    onRail,
     onResizeStart,
   }: SidebarProps,
 ) {
@@ -96,103 +94,103 @@ export function Sidebar(
           />
         </Tooltip>
       </div>
-      <div className={styles.body}>
-        <Section
-          id="folders"
-          label={t("project-workspace.heading.folders")}
-          collapsed={collapsed}
-          empty={t("project-workspace.empty.no-folders")}
-        >
-          {(project?.folders ?? []).flatMap((folder) => {
-            const open = expanded.has(folder.path);
-            const inside = files.filter((file) => file.folder === folder.path);
-            const rows = [
-              <Row
-                key={folder.path}
-                data={{ "data-folder": "" }}
-                icon={workspaceIcons.folder}
-                label={folderName(folder.path)}
-                hint={folder.path}
-                collapsed={collapsed}
-                active={folder.path === selectedFolder}
-                expanded={collapsed ? undefined : open}
-                onClick={() => {
-                  setSelectedFolder(folder.path);
-                  setExpanded((current) => {
-                    const next = new Set(current);
-                    if (!next.delete(folder.path)) next.add(folder.path);
-                    return next;
-                  });
-                }}
-              />,
-            ];
-            if (!open || collapsed) return rows;
-            if (inside.length === 0) {
-              rows.push(
-                <li key={`${folder.path}:empty`} className={styles.li}>
-                  <p className={`${styles.empty} ${styles.nested}`}>
-                    {t("project-workspace.empty.no-folder-documents")}
-                  </p>
-                </li>,
-              );
-            }
-            for (const file of inside) {
-              rows.push(
+      {collapsed
+        ? onRail ? <ShortcutRail onOpen={onRail} /> : null
+        : (
+          <div className={styles.body}>
+            <Section
+              id="folders"
+              label={t("project-workspace.heading.folders")}
+              empty={t("project-workspace.empty.no-folders")}
+            >
+              {(project?.folders ?? []).flatMap((folder) => {
+                const open = expanded.has(folder.path);
+                const inside = files.filter((file) =>
+                  file.folder === folder.path
+                );
+                const rows = [
+                  <Row
+                    key={folder.path}
+                    data={{ "data-folder": "" }}
+                    icon={workspaceIcons.folder}
+                    label={folderName(folder.path)}
+                    hint={folder.path}
+                    active={folder.path === selectedFolder}
+                    expanded={open}
+                    onClick={() => {
+                      setSelectedFolder(folder.path);
+                      setExpanded((current) => {
+                        const next = new Set(current);
+                        if (!next.delete(folder.path)) next.add(folder.path);
+                        return next;
+                      });
+                    }}
+                  />,
+                ];
+                if (!open) return rows;
+                if (inside.length === 0) {
+                  rows.push(
+                    <li key={`${folder.path}:empty`} className={styles.li}>
+                      <p className={`${styles.empty} ${styles.nested}`}>
+                        {t("project-workspace.empty.no-folder-documents")}
+                      </p>
+                    </li>,
+                  );
+                }
+                for (const file of inside) {
+                  rows.push(
+                    <Row
+                      key={`${folder.path}:${file.document}`}
+                      data={{ "data-folder-document": file.document }}
+                      icon={workspaceIcons.document}
+                      label={file.title}
+                      hint={file.path}
+                      nested
+                      active={file.document === current}
+                      onClick={() =>
+                        onOpenDocument({
+                          id: file.document,
+                          title: file.title,
+                        })}
+                    />,
+                  );
+                }
+                return rows;
+              })}
+            </Section>
+            <Section
+              id="documents"
+              label={t("project-workspace.heading.documents")}
+              empty={t("project-workspace.empty.no-documents")}
+            >
+              {documents.map((document) => (
                 <Row
-                  key={`${folder.path}:${file.document}`}
-                  data={{ "data-folder-document": file.document }}
+                  key={document.id}
+                  data={{ "data-document": document.id }}
                   icon={workspaceIcons.document}
-                  label={file.title}
-                  hint={file.path}
-                  collapsed={collapsed}
-                  nested
-                  active={file.document === current}
-                  onClick={() =>
-                    onOpenDocument({ id: file.document, title: file.title })}
-                />,
-              );
-            }
-            return rows;
-          })}
-        </Section>
-        <Section
-          id="documents"
-          label={t("project-workspace.heading.documents")}
-          collapsed={collapsed}
-          empty={t("project-workspace.empty.no-documents")}
-        >
-          {documents.map((document) => (
-            <Row
-              key={document.id}
-              data={{ "data-document": document.id }}
-              icon={workspaceIcons.document}
-              label={document.title}
-              collapsed={collapsed}
-              active={document.id === current}
-              onClick={() => onOpenDocument(document)}
-            />
-          ))}
-        </Section>
-        <Section
-          id="contexts"
-          label={t("project-workspace.heading.contexts")}
-          collapsed={collapsed}
-          empty={t("project-workspace.empty.no-contexts")}
-        >
-          {contexts.map((context) => (
-            <Row
-              key={context.id}
-              data={{ "data-context": context.id }}
-              icon={workspaceIcons.context}
-              label={context.title}
-              collapsed={collapsed}
-              onClick={onOpenContext
-                ? () => onOpenContext(context.id)
-                : undefined}
-            />
-          ))}
-        </Section>
-      </div>
+                  label={document.title}
+                  active={document.id === current}
+                  onClick={() => onOpenDocument(document)}
+                />
+              ))}
+            </Section>
+            {onOpenContexts
+              ? (
+                <section className={styles.section} data-section="contexts">
+                  <ul className={styles.list} role="list">
+                    <Row
+                      data={{ "data-contexts-row": "" }}
+                      icon={workspaceIcons.context}
+                      label={t("contexts.label.rail-contexts")}
+                      active={current === CONTEXTS_TAB_KEY}
+                      onClick={onOpenContexts}
+                    />
+                  </ul>
+                </section>
+              )
+              : null}
+          </div>
+        )}
       {onResizeStart && !collapsed
         ? (
           <div
@@ -217,19 +215,16 @@ function folderName(path: string): string {
 interface SectionProps {
   id: string;
   label: string;
-  collapsed: boolean;
   empty: string;
   children: ReactNode[];
 }
 
-function Section({ id, label, collapsed, empty, children }: SectionProps) {
+function Section({ id, label, empty, children }: SectionProps) {
   return (
     <section className={styles.section} data-section={id}>
-      {collapsed ? null : <h2 className={styles.sectionLabel}>{label}</h2>}
+      <h2 className={styles.sectionLabel}>{label}</h2>
       {children.length > 0
         ? <ul className={styles.list} role="list">{children}</ul>
-        : collapsed
-        ? null
         : <p className={styles.empty}>{empty}</p>}
     </section>
   );
@@ -239,7 +234,6 @@ interface RowProps {
   icon: IconProps["icon"];
   label: string;
   hint?: string;
-  collapsed: boolean;
   active?: boolean;
   /** 폴더 행의 펼침. 값이 있으면 aria-expanded로 알린다. */
   expanded?: boolean;
@@ -249,13 +243,12 @@ interface RowProps {
   onClick?: () => void;
 }
 
-// 32px 행: 16px 아이콘, 8px 간격, 이름. 접힘 때는 아이콘만 두고 이름은 tooltip으로 보인다.
+// 32px 행: 16px 아이콘, 8px 간격, 이름.
 function Row(
   {
     icon,
     label,
     hint,
-    collapsed,
     active = false,
     expanded,
     nested = false,
@@ -270,7 +263,7 @@ function Row(
         pixels={iconPixels("base")}
         className={styles.icon}
       />
-      {collapsed ? null : <span className={styles.label}>{label}</span>}
+      <span className={styles.label}>{label}</span>
     </>
   );
   const className = `${styles.item} ${active ? styles.active : ""} ${
@@ -282,7 +275,6 @@ function Row(
         type="button"
         {...data}
         className={className}
-        aria-label={collapsed ? label : undefined}
         aria-current={active ? "page" : undefined}
         aria-expanded={expanded}
         title={hint}
@@ -295,15 +287,10 @@ function Row(
       <span
         {...data}
         className={className}
-        aria-label={collapsed ? label : undefined}
         title={hint}
       >
         {inner}
       </span>
     );
-  return (
-    <li className={styles.li}>
-      {collapsed ? <Tooltip content={label}>{row}</Tooltip> : row}
-    </li>
-  );
+  return <li className={styles.li}>{row}</li>;
 }

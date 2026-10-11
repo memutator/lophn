@@ -1,6 +1,8 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
+  type Clock,
   IconButton,
+  type Timer,
   Tooltip,
   useObservedSize,
   workspaceIcons,
@@ -30,7 +32,6 @@ import { Sidebar } from "./sidebar/sidebar.tsx";
 import { Panes } from "./panes/panes.tsx";
 import { InfoPanel, type InfoTab } from "./info-panel-slot/info-panel.tsx";
 import type {
-  ContextRow,
   DocumentRow,
   FileRow,
   ProjectView,
@@ -49,7 +50,15 @@ import type {
   EditorDeps,
 } from "../editor/document-view.tsx";
 import { layoutHint, type TabPresentation } from "./view-hint.ts";
-import type { TabHost } from "./kinds/host.ts";
+import type { ContextsSlice, TabHost } from "./kinds/host.ts";
+import type { RailAction } from "./contexts/shortcut-rail.tsx";
+import { useContextWatch } from "./contexts/context-watch.ts";
+import { DocumentContexts } from "./contexts/document-contexts.tsx";
+import { settleContextTabs } from "./contexts/settle-tabs.ts";
+import { ViolationToast } from "./contexts/violation-toast.tsx";
+import { openContext } from "./kinds/context.tsx";
+import { openContexts } from "./kinds/contexts.tsx";
+import { openSearchShortcut } from "./kinds/search.tsx";
 import { tabKindOf, tabKinds } from "./kinds/registry.ts";
 import { openDocument as openDocumentTab } from "./kinds/document-editor.tsx";
 import { openTerminal as openTerminalTab } from "./kinds/terminal.tsx";
@@ -89,7 +98,10 @@ export interface WorkspaceProps {
   onLophn: () => void;
   /** 이 프로젝트의 결정 대기를 things-to-confirm에서 연다. */
   onThingsToConfirm?: () => void;
-  /** 정보 패널의 컨텍스트 탭에서 고른 Focus를 contexts 화면에서 연다. */
+  /**
+   * 옛 contexts 화면에서 Focus를 여는 길. 작업대는 더 부르지 않는다(Context 탭이 대신한다).
+   * 부르는 쪽(desktop/main.tsx)이 옛 화면과 함께 지울 때까지 남아 있다.
+   */
   onContext?: (context: string) => void;
   /** 문서 탭의 읽기·편집 통로. 없으면 문서 탭은 자리표시다. */
   editor?: EditorDeps;
@@ -105,13 +117,14 @@ export interface WorkspaceProps {
   onOpenOperator?: (operator: string) => void;
   /** 앱 공간으로 연다. 없으면 패널을 못 여는 앱에는 안내 글만 둔다. */
   onOpenApp?: (app: string) => void;
+  /** context 목록을 다시 읽고 toast가 닫히는 시간을 재는 timer. 시험이 시간을 세우려고 준다. */
+  timer?: Timer & Clock;
 }
 
 interface Loaded {
   readonly project: ProjectView | null;
   readonly documents: readonly DocumentRow[];
   readonly files: readonly FileRow[];
-  readonly contexts: readonly ContextRow[];
   readonly failed: boolean;
 }
 
@@ -119,7 +132,6 @@ const EMPTY_LOADED: Loaded = {
   project: null,
   documents: [],
   files: [],
-  contexts: [],
   failed: false,
 };
 
@@ -141,14 +153,16 @@ export function Workspace(props: WorkspaceProps) {
     onLauncher,
     onLophn,
     onThingsToConfirm,
-    onContext,
     terminal,
     editor,
     tracking,
     operators,
     onAttachOperator,
     onOpenOperator,
+    timer,
   } = props;
+  // Contexts·Context·Search 탭의 통로. 없으면 그 탭과 여는 길을 두지 않는다.
+  const contextsSource = source.contextsSource;
   // 앱 패널 view와 본문을 덮는 패널(정보 패널·대화 도크 overlay)이 같이 보는 목록.
   const covers = useMemo(createViewCovers, []);
   const appViews = useAppViews();
@@ -172,6 +186,25 @@ export function Workspace(props: WorkspaceProps) {
   const [dockOpen, setDockOpen] = useState(
     conversation?.startOpen === true,
   );
+  // 위반이 늘어 알리는 toast. context마다 하나이고 닫거나 [View]를 누르면 빠진다(workspace#R29).
+  const [toasts, setToasts] = useState<
+    readonly { context: string; title: string; count: number }[]
+  >([]);
+  // [New context]를 누른 뒤 생기는 만드는 중인 context의 탭을 남기려는 표시(workspace#R30).
+  const expectDraft = useRef(false);
+  const leaveDraft = useRef<(context: string, title: string) => void>(() => {});
+  const watch = useContextWatch(contextsSource, projectId, {
+    onViolations: (item, count) =>
+      setToasts((current) => [
+        ...current.filter((toast) => toast.context !== item.id),
+        { context: item.id, title: item.title, count },
+      ]),
+    onDrafting: (item) => {
+      if (!expectDraft.current) return;
+      expectDraft.current = false;
+      leaveDraft.current(item.id, item.title);
+    },
+  }, timer);
   // 문서 탭의 파일 이름·제목·상대 경로. 편집기가 문서를 읽으면 채운다(editor#R4).
   const [tabMeta, setTabMeta] = useState<
     Readonly<Record<string, DocumentTabMeta>>
@@ -199,25 +232,31 @@ export function Workspace(props: WorkspaceProps) {
   useEffect(() => {
     let live = true;
     const load = async () => {
-      const [project, documents, contexts, layout, files] = await Promise.all([
+      const [project, documents, layout, files, contexts] = await Promise.all([
         source.project(projectId),
         source.documents(projectId),
-        source.contexts(projectId),
         source.readLayout(projectId),
         source.files(projectId),
+        contextsSource?.list(projectId),
       ]);
       if (!live) return;
       setLoaded({
         project: project.ok ? project.value : null,
         documents: documents.ok ? documents.value : [],
-        // 파일 목록은 팔레트만 쓴다. 읽지 못해도 작업대는 그대로 연다.
+        // 파일 목록은 팔레트와 검색 결과 링크만 쓴다. 읽지 못해도 작업대는 그대로 연다.
         files: files.ok ? files.value : [],
-        contexts: contexts.ok ? contexts.value : [],
-        failed: !project.ok || !documents.ok || !contexts.ok,
+        failed: !project.ok || !documents.ok,
       });
       if (layout.ok && layout.available) {
         const restored = viewFromStored(layout.layout);
-        if (restored.view) setView(restored.view);
+        // 없어진 context의 탭은 다른 없는 대상처럼 빠진다. 목록을 못 읽으면 그대로 둔다(R6).
+        if (restored.view) {
+          setView(
+            contexts?.ok
+              ? settleContextTabs(restored.view, contexts.value)
+              : restored.view,
+          );
+        }
         setInfoOpen(restored.infoOpen);
         setInfoTab(restored.infoTab);
       }
@@ -226,7 +265,7 @@ export function Workspace(props: WorkspaceProps) {
     return () => {
       live = false;
     };
-  }, [projectId, source]);
+  }, [projectId, source, contextsSource]);
 
   // 작업대 힌트. 통로가 없는 화면 테스트는 보내지 않는다. 창 신원은 main이 정한다.
   useEffect(() => {
@@ -307,11 +346,8 @@ export function Workspace(props: WorkspaceProps) {
   const persistRef = useRef(persist);
   persistRef.current = persist;
 
-  const notePosition = (
-    key: string,
-    position: { section: string; scroll_offset: number },
-  ) => {
-    positions.current[key] = position;
+  // 잦은 바뀜(scroll, 입력)은 저장만 늦춰 한 번에 쓴다.
+  const persistLater = () => {
     if (positionTimer.current !== null) {
       clearTimeout(positionTimer.current);
     }
@@ -319,6 +355,14 @@ export function Workspace(props: WorkspaceProps) {
       positionTimer.current = null;
       persistRef.current(latest.current);
     }, 200);
+  };
+
+  const notePosition = (
+    key: string,
+    position: { section: string; scroll_offset: number },
+  ) => {
+    positions.current[key] = position;
+    persistLater();
   };
 
   useEffect(() => () => {
@@ -343,17 +387,21 @@ export function Workspace(props: WorkspaceProps) {
     if (at >= 0) update(closeTab(current, at, key));
   };
 
-  // focus 칸 끝에 붙이고 고른다. 그 칸에 같은 key가 있으면 고르기만 한다.
+  // focus 칸 끝에 붙이고 고른다. 같은 key가 어느 칸에 있으면 새로 붙이지 않고 그 칸에서 고른다
+  // (탭 key는 작업대 안에서 유일하다).
   const openTab = (tab: TabItem) => {
-    const pane = view.focusedPane;
+    const current = latest.current;
+    const holder = current.panes.findIndex((pane) =>
+      pane.tabs.some((candidate) => candidate.key === tab.key)
+    );
+    const target = holder >= 0 ? holder : current.focusedPane;
     update({
-      ...view,
-      panes: view.panes.map((item, index) =>
-        index === pane
+      ...current,
+      focusedPane: target,
+      panes: current.panes.map((item, index) =>
+        index === target
           ? {
-            tabs: item.tabs.some((candidate) => candidate.key === tab.key)
-              ? item.tabs
-              : [...item.tabs, tab],
+            tabs: holder >= 0 ? item.tabs : [...item.tabs, tab],
             selected: tab.key,
           }
           : item
@@ -362,9 +410,9 @@ export function Workspace(props: WorkspaceProps) {
   };
 
   // 그 사이 바뀐 배치의 탭 필드를 바꾼다.
-  const patchTab: TabHost["patchTab"] = (key, patch) => {
+  const patchTab: TabHost["patchTab"] = (key, patch, options) => {
     const current = latest.current;
-    update({
+    const next: WorkspaceView = {
       ...current,
       panes: current.panes.map((pane) => ({
         ...pane,
@@ -374,7 +422,12 @@ export function Workspace(props: WorkspaceProps) {
             : tab
         ),
       })),
-    });
+    };
+    if (options?.later === true) {
+      latest.current = next;
+      setView(next);
+      persistLater();
+    } else update(next);
   };
 
   const noteSession = (key: string, session: string | null) => {
@@ -449,6 +502,10 @@ export function Workspace(props: WorkspaceProps) {
   const infoDocument = focusedTab?.kind === "document_editor"
     ? focusedTab.key
     : null;
+  // 문서의 등록 폴더 기준 경로. 편집기가 문서를 읽기 전에는 모른다.
+  const infoPath = infoDocument === null
+    ? null
+    : tabMeta[infoDocument]?.path ?? null;
 
   // CommandOrControl+Alt+B는 정보 패널을 여닫는다(editor#R6).
   const toggleInfo = useRef(() => {});
@@ -471,6 +528,33 @@ export function Workspace(props: WorkspaceProps) {
     setInfoOpen(open);
     setInfoTab(tab);
     persist(view, { open, tab });
+  };
+
+  // 대화를 연다. Agent 탭은 다른 일이 맡고 지금은 오늘의 대화 도크가 들어가는 길이다(workspace#R33).
+  const openConversation = () => {
+    if (conversation === null) return;
+    setDockOpen(true);
+  };
+
+  // 검색 결과·Overview 예시의 도메인 객체는 그 문서 탭으로 간다(workspace#R26). 경로는 등록 폴더
+  // 기준 상대 경로이고 문서로 잡힌 파일만 탭이 된다.
+  const openPath = (path: string) => {
+    const file = loaded.files.find((item) => item.path === path) ??
+      loaded.files.find((item) => item.path.endsWith(`/${path}`));
+    if (file === undefined) return;
+    openDocumentTab(host, { id: file.document, title: file.title });
+  };
+
+  const contexts: ContextsSlice | null = contextsSource === undefined ? null : {
+    source: contextsSource,
+    list: watch.list,
+    titleOf: (id) => watch.list.find((item) => item.id === id)?.title,
+    openPath,
+    askContextEngineer: openConversation,
+    newContext: () => {
+      expectDraft.current = true;
+      openConversation();
+    },
   };
 
   // kind 선언이 배치와 통로를 건드리는 유일한 길이다(workspace#R14). 본문·열기·닫기 확인·열기 단추는
@@ -497,7 +581,10 @@ export function Workspace(props: WorkspaceProps) {
       noteReadPosition: notePosition,
     },
     appPanel: { noteSession },
+    contexts,
   };
+  leaveDraft.current = (context, title) =>
+    openContext(host, context, "overview", title);
 
   const renderTab = (tab: TabItem, active: boolean): ReactNode | null =>
     tabKindOf(tab.kind)?.render?.(tab, active, host) ?? null;
@@ -527,10 +614,23 @@ export function Workspace(props: WorkspaceProps) {
         kind: kind.kind,
         label: t(kind.launcher.labelKey),
         icon: kind.icon,
-        onOpen: () => kind.launcher!.open(host),
+        ...(kind.launcher.choices === undefined ? {} : {
+          choices: kind.launcher.choices(host),
+          emptyLabel: t("contexts.empty.tab-none"),
+        }),
+        onOpen: (choice?: string) => kind.launcher!.open(host, choice),
       }]
       : []
   );
+
+  // 접힌 sidebar의 바로 가기 rail(workspace#R32). 통로가 없는 단추는 열 탭이 없어 아무것도 하지 않는다.
+  const onRail = (action: RailAction) => {
+    if (action === "terminal") openTerminalTab(host);
+    else if (action === "agent") openConversation();
+    else if (contexts === null) return;
+    else if (action === "contexts") openContexts(host);
+    else openSearchShortcut(host);
+  };
 
   // 창 팔레트의 작업대 행(desktop#R30). 고르면 이 작업대 안의 대상으로만 간다.
   const palette = usePaletteEnv();
@@ -539,7 +639,7 @@ export function Workspace(props: WorkspaceProps) {
       view,
       documents: loaded.documents,
       files: loaded.files,
-      contexts: loaded.contexts,
+      contexts: watch.list,
       terminal: terminal !== undefined,
       platform: palette.platform,
       search: palette.search
@@ -555,7 +655,7 @@ export function Workspace(props: WorkspaceProps) {
             ),
           });
         } else if (target.kind === "document") openDocument(target.document);
-        else if (target.kind === "context") setInfo(true, "contexts");
+        else if (target.kind === "context") openContext(host, target.id);
         else if (target.action === "launcher") onLauncher();
         else if (target.action === "lophn") onLophn();
         else if (target.action === "terminal") openTerminalTab(host);
@@ -572,7 +672,6 @@ export function Workspace(props: WorkspaceProps) {
           width={sidebarShown.width}
           project={loaded.project}
           documents={loaded.documents}
-          contexts={loaded.contexts}
           files={loaded.files}
           current={focused?.selected ?? null}
           onLauncher={onLauncher}
@@ -582,7 +681,10 @@ export function Workspace(props: WorkspaceProps) {
               collapsedByUser: sidebarShown.mode !== "collapsed",
             }))}
           onOpenDocument={openDocument}
-          onOpenContext={onContext}
+          onOpenContexts={contexts === null
+            ? undefined
+            : () => openContexts(host)}
+          onRail={onRail}
           onResizeStart={(event) => {
             const start = sidebar.chosenWidth;
             const startShown = sidebarShown.width;
@@ -712,7 +814,20 @@ export function Workspace(props: WorkspaceProps) {
               onTab={(tab) => setInfo(infoOpen, tab)}
               onClose={() => setInfo(false, infoTab)}
             >
-              {editor?.versions
+              {infoTab === "contexts" && contexts !== null &&
+                  infoDocument !== null
+                ? (
+                  // 이 문서가 든 context는 새 통로가 읽고 [Open]은 그 Context 탭을 연다(workspace#R28).
+                  infoPath === null ? null : (
+                    <DocumentContexts
+                      source={contexts.source}
+                      project={projectId}
+                      path={infoPath}
+                      onOpenContext={(context) => openContext(host, context)}
+                    />
+                  )
+                )
+                : editor?.versions
                 ? (
                   <DocumentInfoPanel
                     tab={infoTab}
@@ -724,11 +839,38 @@ export function Workspace(props: WorkspaceProps) {
                     refresh={versionsTick}
                     onCompare={(document, before, after) =>
                       showCompare(document, { before, after })}
-                    onOpenContext={onContext}
                   />
                 )
                 : undefined}
             </InfoPanel>
+            {toasts.length > 0
+              ? (
+                <div className={styles.toasts} data-violation-toasts="">
+                  {toasts.map((toast) => (
+                    <ViolationToast
+                      key={toast.context}
+                      title={toast.title}
+                      count={toast.count}
+                      timer={timer}
+                      onView={() => {
+                        openContext(host, toast.context, "violations");
+                        setToasts((current) =>
+                          current.filter((item) =>
+                            item.context !== toast.context
+                          )
+                        );
+                      }}
+                      onClose={() =>
+                        setToasts((current) =>
+                          current.filter((item) =>
+                            item.context !== toast.context
+                          )
+                        )}
+                    />
+                  ))}
+                </div>
+              )
+              : null}
             <DockSlot
               placement={dock}
               workPlace={{ kind: "project", id: projectId }}

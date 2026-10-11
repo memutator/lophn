@@ -4,6 +4,7 @@ import {
   IconButton,
   iconPixels,
   type IconProps,
+  Menu,
   Tooltip,
   workspaceIcons,
 } from "@lophn/design/components";
@@ -67,7 +68,11 @@ export interface PaneLauncher {
   readonly kind: string;
   readonly label: string;
   readonly icon: IconProps["icon"];
-  readonly onOpen: () => void;
+  /** 열 대상을 하나 골라야 하는 단추의 메뉴 항목. 주면 단추는 이 메뉴를 열고 고른 id로 onOpen을 부른다. */
+  readonly choices?: readonly { readonly id: string; readonly label: string }[];
+  /** 메뉴 단추 안내 글. 항목이 하나도 없을 때 보인다. */
+  readonly emptyLabel?: string;
+  readonly onOpen: (choice?: string) => void;
 }
 
 interface Dragging {
@@ -128,18 +133,42 @@ export function Panes(
     const infoLabel = t("project-workspace.button.info-panel");
     return (
       <>
-        {launchers.map((launcher) => (
-          <Tooltip key={launcher.kind} content={launcher.label}>
-            <IconButton
-              icon={launcher.icon}
-              label={launcher.label}
-              {...{
-                [`data-open-${launcher.kind.replaceAll("_", "-")}`]: "",
-              }}
-              onClick={launcher.onOpen}
-            />
-          </Tooltip>
-        ))}
+        {launchers.map((launcher) => {
+          const opener = {
+            [`data-open-${launcher.kind.replaceAll("_", "-")}`]: "",
+          };
+          if (launcher.choices !== undefined) {
+            return (
+              <Menu
+                key={launcher.kind}
+                trigger={
+                  <IconButton
+                    icon={launcher.icon}
+                    label={launcher.label}
+                    {...opener}
+                  />
+                }
+                items={launcher.choices.length > 0 ? launcher.choices : [{
+                  id: "",
+                  label: launcher.emptyLabel ?? launcher.label,
+                  disabled: true,
+                }]}
+                onSelect={(id) => launcher.onOpen(id)}
+                placement="corner"
+              />
+            );
+          }
+          return (
+            <Tooltip key={launcher.kind} content={launcher.label}>
+              <IconButton
+                icon={launcher.icon}
+                label={launcher.label}
+                {...opener}
+                onClick={() => launcher.onOpen()}
+              />
+            </Tooltip>
+          );
+        })}
         {single
           ? (
             <Tooltip content={splitLabel}>

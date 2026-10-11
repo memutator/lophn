@@ -34,12 +34,23 @@ export interface HintContext {
   readonly sessions: Readonly<Record<string, string>>;
 }
 
+/** 열기 단추가 메뉴로 보이는 목록의 한 항목. */
+export interface LauncherChoice {
+  readonly id: string;
+  readonly label: string;
+}
+
 /** 탭 줄 오른쪽 끝의 열기 단추. 통로가 있는 kind만 낸다. */
 export interface TabLauncher {
   readonly labelKey: MessageKey;
   /** 지금 열 수 있는지. 통로가 없으면 단추를 두지 않는다. */
   available(host: TabHost): boolean;
-  open(host: TabHost): void;
+  /**
+   * 열 대상을 하나 골라야 하는 kind(Context)가 준다. 주면 단추는 이 목록의 메뉴를 열고 고른 항목
+   * 의 id로 open을 부른다(workspace#R15).
+   */
+  choices?(host: TabHost): readonly LauncherChoice[];
+  open(host: TabHost, choice?: string): void;
 }
 
 export interface TabKindDef {

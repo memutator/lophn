@@ -10,14 +10,14 @@ concerns: [coding-agent/cli]
 
 ### 통로와 출력
 
-**[R1]** CLI는 호출마다 얇은 daemon API client 하나로 동작하고 MCP가 없거나 꺼져도 같은 credential·입력으로 coding-agent/mcp-server의 허용 조회·저장·보고를 제공하되 coding 작업의 claim은 MCP 연결을 안내한다.
+**[R1]** CLI는 호출마다 얇은 daemon API client 하나로 동작하고 MCP가 없거나 꺼져도 같은 credential·입력으로 coding-agent/mcp-server의 허용 조회·보고를 제공하되 coding 작업의 claim은 MCP 연결을 안내한다.
 - 이유: 제품이나 transport를 바꾸지 않고 같은 일을 할 수 있어야 한다.
-- 확인: 일곱 제품의 MCP 비활성 세션에서 허용 조회·저장·보고가 동작하고 domain 쓰기가 API로만 남으며 양쪽에 제공하는 기능의 허용·거절이 같다. 신규 claim은 MCP 연결 안내로 끝난다.
+- 확인: 일곱 제품의 MCP 비활성 세션에서 허용 조회·보고가 동작하고 domain 쓰기가 API로만 남으며 양쪽에 제공하는 기능의 허용·거절이 같다. 신규 claim은 MCP 연결 안내로 끝난다.
 - 의도: coding-agent#I1
 
 **[R2]** 모든 command는 JSON 출력을 지원하고 대응 MCP의 구조화 data와 같은 사실을 반환하며 성공은 종료 값 0, 입력·권한·실행 실패와 효과 확인 불가는 0이 아닌 값으로 구별한다.
 - 이유: 사람 출력과 script 판독을 함께 제공한다.
-- 확인: 도움말·설치·daemon·본문·테스트·승인 대기까지 JSON으로 읽히고 실패와 결과 불명을 성공으로 표시하지 않는다.
+- 확인: 도움말·설치·daemon·테스트·승인 대기까지 JSON으로 읽히고 실패와 결과 불명을 성공으로 표시하지 않는다.
 - 의도: coding-agent#I1
 
 **[R3]** 기계 출력과 진단은 분리하고 JSON을 고른 경우 stdout에 한 완전한 결과만 쓰며 stderr에는 안전한 오류·추가 안내만 보내고 raw secret을 어느 쪽에도 쓰지 않는다.
@@ -30,15 +30,15 @@ concerns: [coding-agent/cli]
 - 확인: 양쪽 JSON 입력을 함께 주거나 깨진 JSON·빈 필수 값·폐지 별칭을 주면 실행 전 거절하고 공백 위치·인자를 그대로 전달한다.
 - 의도: coding-agent#I1
 
-**[R5]** 변경 뒤 응답 단절로 결과를 모르면 실제 오류와 효과 불명을 구별하고 자동 새 실행 대신 현재 문서·ticket·release·invocation을 다시 읽도록 안내한다.
+**[R5]** 변경 뒤 응답 단절로 결과를 모르면 실제 오류와 효과 불명을 구별하고 자동 새 실행 대신 현재 ticket·release·invocation을 다시 읽도록 안내한다.
 - 이유: CLI timeout은 daemon 변경 실패를 증명하지 않는다.
 - 확인: 기록 직후 연결을 끊어도 중복 새 결과가 생기지 않고 platform/ledger의 같은 요청 확인으로 실제 결과를 찾는다.
 - 의도: coding-agent#I4
 
 ### 권한과 사람 결정
 
-**[R6]** coding credential에는 daemon 시작·중지, 승인 결정·grant·secret 값, 프로젝트·tracking·context·term·assignment 관리, 원본 파일·앱 DB 직접 접근, 문제 닫힘·무시·사람 확인을 허용하지 않는다.
-- 이유: 사람용 command도 있는 CLI를 쓰는 것만으로 사람 권한을 얻으면 안 된다. secret·project·context·series 관리는 화면에서 하고 CLI의 사람 관리 command는 MVP에서 뺀다.
+**[R6]** coding credential에는 daemon 시작·중지, 승인 결정·grant·secret 값, 프로젝트·assignment 관리, 원본 파일·앱 DB 직접 접근, 문제 닫힘·무시·사람 확인을 허용하지 않는다.
+- 이유: 사람용 command도 있는 CLI를 쓰는 것만으로 사람 권한을 얻으면 안 된다. secret·project 관리는 화면에서 하고 CLI의 사람 관리 command는 MVP에서 뺀다.
 - 확인: coding-agent/connection의 scope를 모든 목록·검색·본문·첨부·추가 읽기에 적용하고 금지 요청은 CLI와 daemon 모두에서 거절하며 user credential로 fallback하지 않는다.
 - 의도: coding-agent#I1
 
@@ -64,82 +64,12 @@ concerns: [coding-agent/cli]
 - 확인: coding-agent/guides의 보존·충돌·서명·위치 규칙대로 설치되고 doctor 결과에 성공·실패·확인 못함과 다음 확인 방법이 있다.
 - 의도: coding-agent#I1
 
-### 목차·검색·본문
+### 승인 대기
 
-**[R11]** 탐색 command는 전체·context 관점·프로젝트와 앱 자리·문서와 하위 절 목차·keyword 검색·정본 주소별 라우팅을 깊이·cursor·자리·종류 선택으로 제공한다.
-- 이유: 옛 Home 대신 실제 프로젝트·앱과 관점에서 필요한 만큼 읽게 한다.
-- 확인: documents/outline-and-search와 documents/contexts의 목차·반영 지연·누락을 읽고 검색은 허용 결과만 반환하며 옛 소속 context 필터는 거절한다.
-- 의도: coding-agent#I3
-
-**[R12]** 본문 읽기는 고정 판·선택 절·줄 시작과 길이로 정확한 본문을 반환하고 남은 범위·새 판 존재·부재와 추출 한계를 알려 준다.
-- 이유: 긴 본문과 과거 근거를 안정되게 이어 읽는다.
-- 확인: 새 판 생성 사이에도 같은 판을 읽고 다음 범위는 coding-agent/mcp-server와 같은 구조화 결과이며 읽기 진단이 본문을 오염시키지 않는다.
-- 의도: coding-agent#I3
-
-**[R13]** 판 이력은 시작·끝 판과 선택 절에 대해 추가·소실·변경·변경 없음을, diff는 두 고정 판과 선택 절의 줄 단위 차이를 제공한다.
-- 이유: 옛 의미 rename 추정 대신 실제 고정 본문 비교를 유지한다.
-- 확인: 복원 불가 부분을 누락으로 표시하고 documents/outline-and-search와 같은 결과를 반환하며 이름이 비슷한 절을 임의 연결하지 않는다.
-- 의도: coding-agent#I3
-
-**[R14]** 문서 목록은 프로젝트·앱·자리 없음과 active·archived를 선택하고 1~500의 요청 한도·현재 반환 수·허용된 남은 수·이어 읽기를 제공한다.
-- 이유: 미분류와 보관 문서도 사람과 coding agent가 찾을 수 있어야 한다.
-- 확인: 허용된 수백 문서가 빠짐·중복 없이 읽히고 범위 밖 존재가 건수에 새지 않는다.
-- 의도: coding-agent#I3
-
-### 문서 저장과 format
-
-**[R15]** 저장은 파일 묶음의 primary와 첨부·제목·format·자리·series와 key를 받아 고정 주소·판·동일 내용 무변경·검사 경고를 반환하고 format 목록·선언·파일 bytes 검사를 별도로 제공한다.
-- 이유: MCP에만 있는 검사나 저장 기능으로 CLI 사용자가 손해 보지 않게 한다.
-- 확인: documents/formats·documents/versions 계약대로 명시 format 부적합은 거절하고 추론 format 경고·series key 누락·첫 파일 primary를 두 통로에서 비교한다.
-- 의도: coding-agent#I3
-
-### 문서와 원본 관리
-
-**[R16]** CLI는 문서의 자리 놓기·원본 제거·보관 복귀를 제공하지 않고 그 사람 관리는 화면에서 하며 coding agent의 문서 저장은 정본 저장만 제공한다.
-- 이유: CLI의 사람 관리 command는 MVP에서 빼고 secret·project·context·series와 함께 화면에서 한다.
-- 확인: place·unplace·unarchive에 해당하는 command가 없고 coding credential의 원본 파일 이동·제거가 거절되며 문서 정본 저장은 그대로 동작한다.
-- 의도: coding-agent#I3
-
-**[R17]** CLI는 원본 파일의 추적 규칙·편집 세션·판 복원을 제공하지 않고 그 사람 관리는 화면의 documents/file-tracking에서 하며 coding agent에게 임의 원본 파일 API를 주지 않는다.
-- 이유: CLI의 사람 관리 command는 MVP에서 뺀다.
-- 확인: file show·track·edit·restore에 해당하는 command가 없고 coding credential의 등록 밖 파일 접근이 거절된다.
-- 의도: coding-agent#I3
-
-### context와 series
-
-**[R18]** context 읽기는 보관 포함 목록·상세·기준과 참고와 watch 항목·glossary·문서를 참조하는 context를 제공하고 생성·항목 추가·제거는 CLI에서 하지 않으며 화면에서 한다.
-- 이유: 읽기와 사람의 관점 정의를 분리하고 CLI의 사람 관리 command는 MVP에서 뺀다.
-- 확인: 폴더나 untracked 파일 항목은 거절하고 context의 자리와 관점이 문서 소속으로 오인되지 않으며 CLI에 context 생성·항목 변경 command가 없다.
-- 의도: coding-agent#I3
-
-**[R19]** context 변경 제안은 고정 변경안·이유 문서의 접수를 제공하고 사람이 변경안 주소를 Context Engineer에게 맡기면 그 agent가 lophn-agent/questions의 사람의 고정 action 질문으로 연결하게 하며 제안만으로 적용하지 않고 run이나 질문을 만들지 않는다.
-- 이유: 옛 Proposal 기능 목적을 lophn-agent/questions과 현재 질문 생성 권한에 맞춘다.
-- 확인: 생성·이름 변경·항목 추가와 제거·관점 변경·용어 추가와 채택 변경안이 보존되고 사람 답 전에는 무변경이며 coding agent가 run이나 질문을 직접 만들지 않는다.
-- 의도: coding-agent#I3
-
-**[R20]** series는 자리별 목록·규칙·정렬된 인스턴스·다음 key와 title 제안을 읽고 새 series 등록은 CLI에서 하지 않으며 화면에서 한다.
-- 이유: 정의와 계산·저장을 나누고 CLI의 사람 관리 command는 MVP에서 뺀다.
-- 확인: documents/series의 첫 key 직접 지정·규칙 불일치·이미 사용한 key를 표시하고 다음 읽기만으로 인스턴스를 저장하지 않으며 CLI에 series 생성 command가 없다.
-- 의도: coding-agent#I3
-
-### 질문과 approval request
-
-**[R21]** 질문과 approval request는 별도 목록·상세·상태·대상·이유·영향 읽기와 허용된 제안·작업 요청에서 생긴 대기를 제공하고 사람 선택·허락·거절은 되돌릴 수 없거나 심각한 일만 shell/confirmation-window로 연결한다.
-- 이유: 가역 질문은 lophn-agent/questions, 되돌릴 수 없는 승인은 platform/approvals이며 나머지는 묻지 않는다.
-- 확인: 대기·허락·적용·실패가 각각 나오고 옛 통합 Proposal 또는 approve·reject 별칭 없이 사람 원래 질문과 작업을 찾으며 ticket 취소는 이 창을 열지 않는다.
+**[R21]** approval 대기는 release 준비·invocation·ticket 완료 결과에 대기 사실·정확한 대상과 영향·사람이 열 확인 링크로만 출력하고 질문과 approval request의 목록·상세 command는 두지 않으며 사람 선택·허락·거절은 되돌릴 수 없거나 심각한 일만 shell/confirmation-window로 연결한다.
+- 이유: 앱을 만들고 고치는 일에는 자기 작업이 대기 중인지와 사람이 어디서 결정하는지만 필요하다. 가역 질문은 lophn-agent/questions, 되돌릴 수 없는 승인은 platform/approvals이며 나머지는 묻지 않는다.
+- 확인: 대기·허락·적용·실패가 각각 나오고 옛 통합 Proposal 또는 approve·reject 별칭 없이 원래 작업을 찾으며 질문·approval request 목록 command가 거절되고 ticket 취소는 이 창을 열지 않는다.
 - 의도: coding-agent#I4
-
-### 프로젝트 관리
-
-**[R22]** 프로젝트는 보관 포함 목록·상세·현재 작업 위치 일치를 읽고 등록·보관·context 연결은 CLI에서 하지 않으며 화면에서 한다.
-- 이유: 위치와 역할 관점의 연결을 보존하되 CLI의 사람 관리 command는 MVP에서 빼고 coding agent 권한으로 만들지 않는다.
-- 확인: documents/projects 응답의 이름·목적·문서 수·읽을 자료 참조를 읽고 절대 경로·폴더 목록·tracking 규칙은 나오지 않으며 scope 밖 프로젝트는 내용 없이 거절되고 CLI에 프로젝트 등록·보관·연결 command가 없다.
-- 의도: coding-agent#I3
-
-**[R23]** CLI는 프로젝트 폴더의 추가·수정·등록 제거를 제공하지 않고 그 사람 관리는 화면에서 하며 등록 제거를 실제 파일 삭제로 하지 않는다.
-- 이유: CLI의 사람 관리 command는 MVP에서 뺀다.
-- 확인: folder add·update·remove에 해당하는 command가 없고 coding credential의 폴더 등록 변경이 거절된다.
-- 의도: coding-agent#I3
 
 ### 앱 개발과 SDK
 
@@ -230,7 +160,7 @@ concerns: [coding-agent/cli]
 
 **[R39]** 도움말은 지원 command별 목적·필수와 선택 입력·JSON 출력·읽기와 변경 구분·사람 전용과 confirmation window 필요 여부·다음 조회를 제공한다.
 - 이유: 이전 구현 유무와 상관없이 실제 제공 capability를 발견하게 한다.
-- 확인: 목록에서 저장·test·blueprint·SDK·diff·file·ticket·daemon log를 찾고 폐지 별칭과 미확정 앱 간 연결 기능이 지원된 것처럼 나오지 않는다.
+- 확인: 목록에서 test·blueprint·SDK·ticket·daemon log를 찾고 폐지 별칭과 미확정 앱 간 연결 기능이 지원된 것처럼 나오지 않는다.
 - 의도: coding-agent#I1
 
 ### harness와 시작 경계
@@ -245,14 +175,22 @@ concerns: [coding-agent/cli]
 - 확인: CLI claim 시도는 MCP 연결·지정 ticket 안내로 끝나며 MCP 미지원 session은 자료 조회는 가능해도 claim 없이 code 작업하지 않는다.
 - 의도: coding-agent#I4
 
+### coding agent command의 경계
+
+**[R42]** CLI는 coding agent에게 앱 개발·고치기 command 말고 다른 command를 주지 않는다: 문서·project·context·용어·series 읽기와 저장, 목차·검색, 질문·approval request 읽기, 원본 파일 관리 command가 없다.
+- 이유: coding agent가 lophn에서 하는 일은 앱 개발과 앱 고치기뿐이다. MCP와 같은 경계를 CLI에도 둔다.
+- 확인: 도움말과 직접 호출 양쪽에서 위 command가 지원 밖으로 거절되고 MCP와 CLI가 같은 허용·거절을 낸다(→ coding-agent/mcp-server#R38).
+- 의도: coding-agent#I3
+
 ## 열린 질문
 
 없음.
 
 ## 버린 것
 
-- Home의 목록·상세·생성·보관·이동·수정·이름 변경 별칭과 별도 개발 실행 허가는 현재 자리와 apps/registration에 맞지 않아 버리고 프로젝트·앱·문서의 관련 기능은 별도 제공한다.
+- Home의 목록·상세·생성·보관·이동·수정·이름 변경 별칭과 별도 개발 실행 허가는 현재 자리와 apps/registration에 맞지 않아 버리고 앱 기능은 앱 개발 command로 제공한다.
 - 통합 Proposal 승인 별칭·직접 문제 claim·sample 별칭·v2 독립 host journal와 receipt·repair attempt/workflow는 그대로 유지하지 않고 질문·approval request·ticket·invocation·고친 기록·실제 테스트로 기능 목적만 옮긴다.
-- secret·project·context·series의 사람 관리 command, document place·unplace·unarchive, file tracking·편집 세션·version 복원은 MVP에서 CLI에 두지 않고 화면에서 한다.
+- secret·project의 사람 관리 command는 MVP에서 CLI에 두지 않고 화면에서 한다.
 - CLI secret lock·password unlock과 평문 token 파일은 두지 않는다. secret은 OS keychain만 쓴다.
 - ticket 생성·취소, [Start], harness 설치를 confirmation window에 넣지 않는다. 개인 SDK는 첫 판에 없다.
+- coding agent의 탐색·검색·본문과 판 이력·diff·문서 목록·저장·format 검사·document와 file 관리·context·series·project·질문과 approval request 목록 command(R11~R20, R22, R23, R21 일부)는 coding agent가 하는 일이 앱 개발과 고치기뿐이라는 사람의 결정으로 버린다. 문서는 project 폴더의 파일이므로 coding agent는 자기 파일 도구로 읽는다.

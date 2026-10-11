@@ -10,9 +10,9 @@ coding agent가 발견하고 필요할 때 읽는 배포 skill, 요청 시 만�
 
 ### skill 발견과 형식
 
-**[R1]** 탐색·문서 저장·앱 제작·수리의 네 절차를 Agent Skills로 제공하되 skill 수를 고정하지 않고 처음에는 이름과 설명만 발견하게 한다.
-- 이유: 절차 본문을 매번 읽히지 않고 필요한 일을 쉽게 찾게 한다.
-- 확인: 네 절차를 찾을 수 있고 시작 입력에 모든 본문이 복사되지 않으며 선택한 skill만 추가로 읽힌다.
+**[R1]** 앱 제작·수리의 두 절차를 Agent Skills로 제공하되 skill 수를 고정하지 않고 처음에는 이름과 설명만 발견하게 한다.
+- 이유: coding agent가 lophn에서 하는 일은 앱 개발과 고치기뿐이다. 절차 본문을 매번 읽히지 않고 필요한 일을 쉽게 찾게 한다.
+- 확인: 두 절차를 찾을 수 있고 탐색·문서 저장 skill은 배포되지 않으며 시작 입력에 모든 본문이 복사되지 않고 선택한 skill만 추가로 읽힌다.
 - 의도: coding-agent#I3
 
 **[R2]** 배포 skill은 YAML frontmatter와 UTF-8 Markdown을 사용하고 이름은 소문자 영문·숫자·단일 하이픈으로 1~64자, 설명은 비어 있지 않은 1~1,024자, 본문은 500줄 미만으로 배포 전에 검사한다.
@@ -37,17 +37,7 @@ coding agent가 발견하고 필요할 때 읽는 배포 skill, 요청 시 만�
 
 ### 작업 절차
 
-**[R6]** 탐색 안내는 전체 목차에서 컨텍스트·문서·절로 필요한 만큼 펼치고 기준은 전체, 참고와 watch는 요약부터 읽게 한다.
-- 이유: documents/contexts의 관점과 읽기 깊이를 보존한다.
-- 확인: 같은 자료를 기준·참고·watch에 넣어 시작 읽기 깊이가 달라지고 필요 본문은 documents/outline-and-search로 이어 읽힌다.
-- 의도: coding-agent#I3
-
-**[R7]** 문서 저장 안내는 documents/formats 확인과 검사, 허용된 프로젝트·앱 또는 자리 없음 선택, 저장, 고정 주소 보고 순서로 수행하고 사람 원본 파일의 직접 편집 통로를 안내하지 않는다.
-- 이유: agent 문서 저장과 사람 원본 파일 편집을 구별한다.
-- 확인: 형식 검사·자리·저장·주소 보고가 순서대로 있고 coding agent에게 원본 파일 API를 쓰라고 하지 않는다.
-- 의도: coding-agent#I3
-
-**[R8]** 앱 제작 안내는 지정 ticket 읽기·MCP claim 뒤 채택 설계와 유지 제약 읽기, 설치 SDK와 재사용 재료 찾기, 필요하면 전체 연결의 가벼운 앱 등록, 구현 시작 source 연결·템플릿, blueprint를 먼저 수정한 뒤 구현, 실제 테스트, preview, release 준비, 결과 반환 순서를 따른다.
+**[R8]** 앱 제작 안내는 지정 ticket 읽기·MCP claim 뒤 ticket에 적힌 유지 제약과 볼 곳 읽기, 설치 SDK와 재사용 재료 찾기, 필요하면 전체 연결의 가벼운 앱 등록, 구현 시작 source 연결·템플릿, blueprint를 먼저 수정한 뒤 구현, 실제 테스트, preview, release 준비, 결과 반환 순서를 따른다.
 - 이유: apps/registration와 problems/tests를 유지하고 새 code 전에 재사용을 검토한다.
 - 확인: SDK 탐색이 구현 전에 나오고 앱 하나 연결은 등록 대신 등록된 앱을 사용하며 app test 실패 뒤 release 준비를 시도하지 않는다.
 - 의도: coding-agent#I3
@@ -79,7 +69,7 @@ coding agent가 발견하고 필요할 때 읽는 배포 skill, 요청 시 만�
 - 확인: 한 정본 변경이 새 세션에 반영되고 Claude Code의 기존 안내와 Gemini CLI의 기존 목록이 보존되며 제품별 실제 loading은 별도로 검사된다.
 - 의도: coding-agent#I3
 
-**[R14]** 공통 안내에는 lophn 앱 설명·필요 skill·시작 summary·사람 지시 claim·설계와 blueprint와 구현 및 machine 생성물의 구별·수정 주의·용어·SDK 확인·문제 보고·테스트·preview·결과 반환만 담는다.
+**[R14]** 공통 안내에는 lophn 앱 설명·필요 skill·시작 summary·사람 지시 claim·설계와 blueprint와 구현 및 machine 생성물의 구별·수정 주의·SDK 확인·문제 보고·테스트·preview·결과 반환만 담는다.
 - 이유: 오래 유지되는 절차와 매 작업 바뀌는 자료를 분리한다.
 - 확인: ticket 본문·수리 묶음 전체·역할 판단 값·token 원문이 없고 생성물 수정 주의와 해당 concern 참조가 있다.
 - 의도: coding-agent#I3
@@ -150,6 +140,11 @@ coding agent가 발견하고 필요할 때 읽는 배포 skill, 요청 시 만�
 - 확인: 조사 예제에서 당시 고정 근거와 현재 가설이 구별되고 별도 수리 시도 상태를 만들지 않는다.
 - 의도: coding-agent#I3
 
+**[R27]** 앱 제작·수리 skill과 공통 안내는 문서·context·용어·series를 읽거나 저장하라고 안내하지 않고 coding agent가 쓰는 lophn tool을 앱 toolset(→ coding-agent/mcp-server#R3)으로만 가리킨다.
+- 이유: 앱 toolset 말고 다른 tool이 없는데 절차가 없는 tool을 가리키면 coding agent가 막힌다.
+- 확인: 배포 skill과 공통 안내 본문에 탐색·문서 저장·context·glossary·series tool 이름이 없고 가리키는 모든 tool이 앱 toolset discovery에서 발견된다.
+- 의도: coding-agent#I3
+
 ## 열린 질문
 
 없음.
@@ -158,3 +153,4 @@ coding agent가 발견하고 필요할 때 읽는 배포 skill, 요청 시 만�
 
 - 개인 SDK는 첫 판에 두지 않고 설치 SDK를 먼저 쓴다.
 - Codex 앱 단위 TOML과, 사람이 Codex를 고르지 않은 사용자 config 수정은 두지 않는다.
+- 탐색 안내(R6)와 문서 저장 안내(R7), 그 skill `lophn-navigate`·`lophn-save`는 coding agent가 하는 일이 앱 개발과 고치기뿐이라는 사람의 결정으로 버린다.

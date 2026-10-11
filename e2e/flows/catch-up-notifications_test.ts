@@ -86,8 +86,7 @@ function showsInternalName(text: string | null): boolean {
   const value = text ?? "";
   return value.includes(RAW_OS_ERROR) ||
     value.includes("show_failed") ||
-    value.includes("unconfirmed") ||
-    value.includes("ContextWatchedItemChanged");
+    value.includes("unconfirmed");
 }
 
 const PROVIDER = "pvd_01arz3ndektsv4rrffq69g5fav";

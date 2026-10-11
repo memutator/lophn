@@ -74,7 +74,6 @@ interface NotificationValue {
   notification: { id: string; source_seq: string; read_at: string | null };
   source_event: string;
   occurred_at?: string;
-  document?: string | null;
   delivery?: { state: string; reason?: string };
 }
 
@@ -283,13 +282,10 @@ function notificationOf(value: NotificationValue): NotificationRow {
 
 function lineOf(
   value: NotificationValue,
-): Pick<NotificationRow, "occurredAt" | "document"> {
-  const facts: { occurredAt?: string; document?: string } = {};
+): Pick<NotificationRow, "occurredAt"> {
+  const facts: { occurredAt?: string } = {};
   if (typeof value.occurred_at === "string" && value.occurred_at.length > 0) {
     facts.occurredAt = value.occurred_at;
-  }
-  if (typeof value.document === "string" && value.document.length > 0) {
-    facts.document = value.document;
   }
   return facts;
 }

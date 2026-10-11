@@ -80,7 +80,6 @@ function mount(options: Options = {}) {
         ok: true,
         value: [{ id: NOTES_DOC, title: "notes" }],
       }),
-    contexts: () => Promise.resolve({ ok: true, value: [] }),
     files: () => Promise.resolve({ ok: true, value: FILES }),
     readLayout: () =>
       Promise.resolve(

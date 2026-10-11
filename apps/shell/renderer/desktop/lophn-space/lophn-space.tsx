@@ -151,19 +151,6 @@ export function LophnSpace(
       : null,
   );
 
-  // 문서를 documents 화면에서 읽는다(things-to-confirm의 문서 링크).
-  const readDocument = (
-    document: string,
-    version: string | null,
-    section: string | null,
-  ) => {
-    setCurrent("documents");
-    setReading((last) => ({
-      target: { document, version, section },
-      count: (last?.count ?? 0) + 1,
-    }));
-  };
-
   const [catalog, setCatalog] = useState<Catalog>(EMPTY_CATALOG);
   // roles 화면이 담당 범위의 이름을 읽는 통로. source가 같으면 같은 함수다.
   const catalogOf = useCallback(() => source.catalog(), [source]);
@@ -312,8 +299,6 @@ export function LophnSpace(
               <ThingsToConfirm
                 deps={requests}
                 initialSelected={initialRequest}
-                onOpenDocument={(document) =>
-                  readDocument(document, null, null)}
               />
             )
             : current === "projects" && organize !== undefined

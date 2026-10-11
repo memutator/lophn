@@ -8,7 +8,6 @@ import {
 } from "./document-fixtures.ts";
 export { doc, file, format, hash, previous, version };
 export const ctx = "ctx_01arz3ndektsv4rrffq69g5fav";
-export const term = "trm_01arz3ndektsv4rrffq69g5fav";
 export const meta = { as_of_seq: "9", complete: true, next_cursor: null };
 export const range = { start_line: 1, end_line: 3 };
 export const section = {

@@ -35,11 +35,6 @@ function sourceOf(layout: unknown = null): {
           ok: true,
           value: [{ id: "doc_1", title: "notes" }],
         }),
-      contexts: () =>
-        Promise.resolve({
-          ok: true,
-          value: [{ id: "ctx_1", title: "design" }],
-        }),
       files: () => Promise.resolve({ ok: true, value: [] }),
       contextsSource: createFakeContextsSource(),
       readLayout: () =>

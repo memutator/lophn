@@ -144,7 +144,6 @@ const workspaceSource: WorkspaceSource = {
       ok: true,
       value: [{ id: "doc_1", title: "notes" }, { id: "doc_2", title: "plan" }],
     }),
-  contexts: () => Promise.resolve({ ok: true, value: [] }),
   contextsSource: createFakeContextsSource(),
   files: () =>
     Promise.resolve({

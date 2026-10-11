@@ -93,10 +93,6 @@ export interface NotificationRow {
    */
   readonly occurredAt?: string;
   /**
-   * source event에 저장된 문서. 없으면 링크를 그리지 않는다.
-   */
-  readonly document?: string;
-  /**
    * OS notification으로 올리지 못한 이유. core가 이번 실행에서 본 것만 온다
    * (platform/notifications#R10). 없으면 실패를 본 적이 없다.
    */

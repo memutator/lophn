@@ -52,7 +52,6 @@ const teams: TeamModule[] = [{ createLedgerRegistration }];
 
 const OPERATIONS = [
   "document.save",
-  "context.create",
   "search.query",
   "search.status",
 ];

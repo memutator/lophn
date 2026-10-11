@@ -25,12 +25,6 @@ export interface FileRow {
   readonly title: string;
 }
 
-/** context.list 결과의 한 활성 context. */
-export interface ContextRow {
-  readonly id: string;
-  readonly title: string;
-}
-
 export type ReadResult<T> =
   | { ok: true; value: T }
   | { ok: false; message: string };
@@ -44,8 +38,6 @@ export type LayoutRead =
 export interface WorkspaceSource {
   project(id: string): Promise<ReadResult<ProjectView>>;
   documents(project: string): Promise<ReadResult<readonly DocumentRow[]>>;
-  /** 프로젝트의 활성 context(context.list). 작업대 화면은 contextsSource를 쓰고 이 읽기는 더 부르지 않는다. */
-  contexts(project: string): Promise<ReadResult<readonly ContextRow[]>>;
   /**
    * Contexts·Context·Search 탭의 통로(shell/workspace#R14~R31). 없으면 그 탭과 여는 길을 두지
    * 않는다. core 통로는 아직 없고 mock 모드가 fake를 넣는다.

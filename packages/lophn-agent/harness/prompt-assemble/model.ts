@@ -1,4 +1,3 @@
-import type { ContextItem } from "../../../contracts/documents/mod.ts";
 import type {
   AgentRole,
   AssignmentScope,
@@ -86,18 +85,16 @@ export type ModelLimits = {
   output_limit: number;
 };
 
-// 실제로 넣은 자료 근거와 생략(R4, R18). 본문 없이 주소·version·관점·깊이만 남긴다.
+// 실제로 넣은 자료 근거와 생략(R4, R18). 본문 없이 context id·판 hash·깊이만 남긴다.
 export type MaterialReference = {
   address: string;
   version: string | null;
-  perspective: ContextItem["perspective"];
   depth: "full" | "address_only";
-  sections: string[];
 };
 
 export type MaterialOmission = {
   source: string;
-  level: "reference_summary" | "basis_outline" | "selected_material";
+  level: "material";
   reason: "input_over_budget";
 };
 

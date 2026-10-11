@@ -149,20 +149,6 @@ export function loadActiveBlueprint(
   return row === undefined ? ok(null) : storedOf(sql, row);
 }
 
-// context 항목이 받을 수 있는 앱 command인지. active release blueprint에서 effect가
-// read인 선언만 참이다. release가 없거나 저장이 깨졌거나 write·external이면 거절이다.
-export function isActiveReadCommand(
-  sql: Query,
-  app: string,
-  command: string,
-): boolean {
-  const stored = loadActiveBlueprint(sql, app);
-  if (!stored.ok || stored.value === null) return false;
-  return stored.value.blueprint.commands.some((item) =>
-    item.key === command && item.effect === "read"
-  );
-}
-
 export function nextReleaseNumber(sql: Query, app: string): number {
   const row = sql.get(
     "SELECT COALESCE(MAX(number), 0) + 1 AS next FROM releases WHERE app = ?",

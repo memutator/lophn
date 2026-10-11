@@ -251,9 +251,9 @@ concerns:
   summary: lophn 안의 agent. 코드를 짜지 않는다. 역할, assignment, 세션, 사람에게 묻는 question, handoff, revert, 그리고 harness.
 
 - id: lophn-agent/roles
-  summary: 역할 넷(lophn, App Engineer, Context Engineer, Operator)이 하는 일과 하지 않는 일, 판단 규칙. 구성 값은 역할마다의 기본 preset이다.
+  summary: 역할 넷(lophn, App Engineer, Context Engineer, Operator)이 하는 일과 하지 않는 일, 판단 규칙. 역할마다의 설정 값은 agent 정의의 기본값이다.
   excludes:
-    - agent 구성 값(capability, context, MCP, skill, provider, model) -> lophn-agent/presets
+    - agent 정의와 설정 값(profile, model, context, skill, MCP, 권한, 지침)의 층과 저장 -> lophn-agent/agents
 
 - id: lophn-agent/roles/common
   summary: 역할 넷에 공통인 규칙. 제품이 고정한 금지(코드를 짜지 않음 등), 공통 문서 저장 규칙, 공통 tool.
@@ -265,17 +265,27 @@ concerns:
   summary: 앱 하나를 맡는 역할. 인터뷰로 설계, problem 해석, 구현·repair ticket 작성, 새 release 검토. 주기 없음.
 
 - id: lophn-agent/roles/context-engineer
-  summary: 전체에 하나. context의 경계를 설계하고 계약·선언 검색·예·용어집·saved view 초안을 짜서 판으로 내고, 위반을 넘겨받아 고치고, Operator assignment를 제안하는 역할.
+  summary: 전체에 하나. context의 경계를 설계하고 계약·선언 검색·예·용어집·saved view 초안을 짜서 판으로 내고, 위반을 넘겨받아 고치는 역할. Operator를 제안하지 않는다(Operator는 사람이 만든다).
 
 - id: lophn-agent/roles/operator
-  summary: project나 app에 붙어 정한 반복 판단을 주기로 하고 남길 문서에 결과를 쓰는 역할.
+  summary: project나 app 하나에 붙어 그 자리의 context(앱은 읽을 앱 command)를 가지고 사람이 맡긴 일을 하는 agent. 사람이 Agents 탭 editor에서 만들고 고친다. schedule 작업이 아니다(주기는 보류).
 
 - id: lophn-agent/role-definition
-  moved_to: lophn-agent/presets
+  moved_to: lophn-agent/agents
 
 - id: lophn-agent/presets
-  summary: Preset. agent 구성 하나. 맡을 역할 종류, prompt, capability(tool 묶음), context(읽을 자료), MCP, skill, provider와 model, 붙일 지침. 역할마다 제품 기본 preset이 있고, 사람이 고치거나 새로 만들어 다시 쓴다. 제품이 고정한 금지와 상한은 preset으로 바꾸지 못한다.
-  entities: [Preset]
+  moved_to: lophn-agent/agents
+
+- id: lophn-agent/agents
+  summary: AgentDefinition. agent 정의와 설정 층. built-in(lophn·Context Engineer·App Engineer)과 Operator, 자리(project 또는 app)마다 app data에 두는 정의 파일, 층(기본값 < Workspace < 자리 < agent 정의 < session)과 바꾼 칸만 저장, 값의 출처, profile, context(Operator와 N:M, 0개 허용)와 앱 Operator가 읽을 앱 command, skill·MCP 고르기, 권한 상한과 역할별 tool 상한, run마다 고정하는 resolved agent.
+  entities: [AgentDefinition]
+  excludes:
+    - agent의 실행 정체, 역할별 개수, Operator 정의 저장·삭제에 따른 만들기와 회수 -> lophn-agent/assignments
+    - LOPHN.md 지침 -> lophn-agent/instructions
+    - model catalog, option 축, role별 기본 model -> lophn-agent/harness/model
+    - provider 계정과 인증 -> lophn-agent/harness/provider
+    - skill·MCP 서버의 등록과 연결 -> lophn-agent/extensions
+    - session과 message -> lophn-agent/conversation
 
 - id: lophn-agent/instructions
   summary: 사람이 쓰는 lophn agent 지침 파일(LOPHN.md). 층(전역, project, app), 파일 자리, 작업 자리에 따라 어느 층을 읽나, prompt 어디에 넣나, 크기 상한, 편집과 이력.
@@ -283,11 +293,11 @@ concerns:
     - coding agent에게 주는 앱 AGENTS.md -> coding-agent/guides
 
 - id: lophn-agent/assignments
-  summary: Assignment. preset을 범위에 붙인 agent 하나. 역할별 개수(lophn 전역 하나, App Engineer 앱마다 하나, Context Engineer 전역 하나, Operator는 project나 app마다 원하는 만큼), Operator의 남길 문서, 멈춤·재개, 반복 실패 멈춤(M-9), AppCreated에 App Engineer assignment 생성, Operator 구성 변경 승인.
+  summary: Assignment. 자리에 놓인 agent 하나의 실행 정체(id, 역할, 자리, 상태). 역할별 개수(lophn 전역 하나, Context Engineer 전역 하나, App Engineer 앱마다 하나, Operator는 project나 app마다 원하는 만큼), 자리(project나 app) 보관에 따른 machine 멈춤(scope_archived), AppCreated에 App Engineer assignment 생성, Operator 정의 저장·삭제에 따른 assignment 만들기와 회수. run·session·question·approval이 "누가"를 이것으로 가리킨다.
   entities: [Assignment]
 
 - id: lophn-agent/scheduling
-  summary: Operator 주기와 회차 접수(M-7), 끝나지 않은 run이 있으면 건너뛰기, 사람의 답을 기다리는 동안의 처리.
+  summary: 보류. Operator 주기와 회차 접수는 첫 판에 없다. 다시 할 때 agent 정의(lophn-agent/agents) 위에 새로 정한다.
 
 - id: lophn-agent/conversation
   summary: Session과 Message. 사람의 요청, 진행 중 수정(steering), 다음 일 맡기기, 세션 이어가기.
@@ -317,7 +327,7 @@ concerns:
 - id: lophn-agent/harness/model
   summary: model catalog(목록, 한계, 가격의 수집과 검증), 기본 model, model 한계(입력·출력·tool 지원), 고른 model을 쓸 수 없을 때.
   excludes:
-    - agent가 어느 provider와 model을 쓰나 -> lophn-agent/presets
+    - agent가 어느 provider와 model을 쓰나 -> lophn-agent/agents
 
 - id: lophn-agent/harness/prompt-assemble
   summary: context 조립 순서(제품 지시, 역할과 preset, 사람 지침, 이력, 이번 turn의 동적 context), prompt cache, compaction, 이어가기 summary(M-19), 무엇을 넣고 무엇을 빼나.
@@ -355,7 +365,7 @@ concerns:
 - id: lophn-agent/extensions
   summary: lophn agent의 확장. skill(찾기, 목록에 넣기, 읽기)과 외부 MCP 서버 연결(설정, 수명, 인증, tool 이름).
   excludes:
-    - 어느 agent가 어느 skill과 MCP를 쓰나 -> lophn-agent/presets
+    - 어느 agent가 어느 skill과 MCP를 쓰나 -> lophn-agent/agents
 
 - id: lophn-agent/observability
   summary: run trace. agent가 무엇을 했고 왜 그랬나를 되짚기(U-21), trace 내보내기, 기록 보존 기간 정책(실제 삭제는 platform/blob-store와 platform/ledger가 한다).

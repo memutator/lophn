@@ -1,6 +1,6 @@
 ---
 type: flow
-concerns: [lophn-agent/roles/lophn, lophn-agent/conversation, lophn-agent/questions, lophn-agent/harness/tools, lophn-agent/harness/provider, documents/versions, documents/outline-and-search, platform/settings, platform/ledger, platform/approvals, platform/secrets, shell/desktop, shell/wording, shell/confirmation-window, lophn-agent/presets, lophn-agent/instructions, coding-agent/sessions]
+concerns: [lophn-agent/roles/lophn, lophn-agent/conversation, lophn-agent/questions, lophn-agent/harness/tools, lophn-agent/harness/provider, documents/versions, documents/outline-and-search, platform/settings, platform/ledger, platform/approvals, platform/secrets, shell/desktop, shell/wording, shell/confirmation-window, lophn-agent/agents, lophn-agent/instructions, coding-agent/sessions]
 ---
 # 설정의 뜻을 묻고 원하는 선택을 적용한다
 

@@ -1,6 +1,6 @@
 ---
 type: flow
-concerns: [lophn-agent/assignments, lophn-agent/presets, lophn-agent/instructions, lophn-agent/scheduling, lophn-agent/roles/operator, lophn-agent/roles/context-engineer, lophn-agent/harness/run-loop, lophn-agent/harness/waiting-and-recovery, lophn-agent/conversation, platform/approvals, shell/confirmation-window]
+concerns: [lophn-agent/assignments, lophn-agent/agents, lophn-agent/instructions, lophn-agent/scheduling, lophn-agent/roles/operator, lophn-agent/roles/context-engineer, lophn-agent/harness/run-loop, lophn-agent/harness/waiting-and-recovery, lophn-agent/conversation, platform/approvals, shell/confirmation-window]
 ---
 # 맡긴 일을 바꾸거나 멈춘다
 

@@ -1,6 +1,6 @@
 ---
 type: flow
-concerns: [lophn-agent/extensions, lophn-agent/presets, lophn-agent/assignments, lophn-agent/harness/tools, lophn-agent/harness/tool-judgment, platform/settings, platform/identity, platform/secrets, platform/approvals, shell/confirmation-window]
+concerns: [lophn-agent/extensions, lophn-agent/agents, lophn-agent/assignments, lophn-agent/harness/tools, lophn-agent/harness/tool-judgment, platform/settings, platform/identity, platform/secrets, platform/approvals, shell/confirmation-window]
 ---
 # agent가 쓸 skill과 MCP를 고른다
 

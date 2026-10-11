@@ -1,6 +1,6 @@
 ---
 type: flow
-concerns: [lophn-agent/harness/provider, lophn-agent/harness/model, lophn-agent/harness/usage, platform/secrets, platform/settings, platform/redaction, platform/approvals, shell/confirmation-window, shell/desktop, shell/wording, lophn-agent/presets]
+concerns: [lophn-agent/harness/provider, lophn-agent/harness/model, lophn-agent/harness/usage, platform/secrets, platform/settings, platform/redaction, platform/approvals, shell/confirmation-window, shell/desktop, shell/wording, lophn-agent/agents]
 ---
 # 쓰던 구독이나 API key로 agent를 연결한다
 

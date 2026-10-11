@@ -234,7 +234,7 @@ export function shaped(
   const { closed_reason: reason, scope, ...rest } = input;
   return decision === "reject"
     ? { ...rest, closed_reason: reason ?? null }
-    : { ...rest, scope: scope ?? "once" };
+    : { ...rest, scope: scope === undefined ? "once" : scope };
 }
 
 export function decide(

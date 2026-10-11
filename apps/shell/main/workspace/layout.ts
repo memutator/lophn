@@ -10,6 +10,7 @@ import {
   type WorkspaceLayout,
   workspaceLayoutSchema,
 } from "./schema.ts";
+import { tabKindOf } from "./kinds/registry.ts";
 
 export type {
   InformationPanel,
@@ -40,9 +41,46 @@ export function parseLayoutFile(value: unknown): LayoutResult {
       return { ok: false, reason: "unsupported_schema" };
     }
   }
-  const parsed = layoutFileSchema.safeParse(value);
+  const parsed = layoutFileSchema.safeParse(skipUnregisteredTabs(value));
   if (!parsed.success) return { ok: false, reason: "corrupt" };
   return { ok: true, layout: parsed.data.layout };
+}
+
+/**
+ * registry에 없는 kind(지운 옛 kind 포함)의 탭은 자리표시 없이 건너뛰고 나머지 탭의 순서·선택을
+ * 지킨다(domain-model TabKind registry). 선택 탭이 건너뛴 탭이면 첫 남은 탭으로 옮긴다. 그 밖의
+ * 모양 오류는 손대지 않고 schema 검증이 손상으로 판단한다.
+ */
+function skipUnregisteredTabs(value: unknown): unknown {
+  const layout = (value as { layout?: unknown } | null)?.layout as
+    | { panes?: unknown }
+    | null
+    | undefined;
+  if (typeof layout !== "object" || layout === null) return value;
+  if (!Array.isArray(layout.panes)) return value;
+  let changed = false;
+  const panes = layout.panes.map((pane: unknown) => {
+    const tabs = (pane as { tabs?: unknown } | null)?.tabs;
+    if (!Array.isArray(tabs)) return pane;
+    const kept = tabs.filter((tab: unknown) => {
+      const kind = (tab as { kind?: unknown } | null)?.kind;
+      return typeof kind !== "string" || tabKindOf(kind) !== undefined;
+    });
+    if (kept.length === tabs.length) return pane;
+    changed = true;
+    const selected = (pane as { selected_tab?: unknown }).selected_tab;
+    const stillThere = kept.some((tab: unknown) =>
+      (tab as { key?: unknown } | null)?.key === selected
+    );
+    const first = (kept[0] as { key?: unknown } | undefined)?.key ?? null;
+    return {
+      ...(pane as object),
+      tabs: kept,
+      selected_tab: selected === null || stillThere ? selected : first,
+    };
+  });
+  if (!changed) return value;
+  return { ...(value as object), layout: { ...layout, panes } };
 }
 
 /** file schema의 layout을 감싼다. */
@@ -88,13 +126,10 @@ export function fitsTwoPanes(windowWidth: number): boolean {
   return windowWidth >= MIN_PANE_WIDTH * 2 + 1;
 }
 
-/** 읽던 위치는 문서 탭에서만 온다. 다른 kind는 위치를 버린다. */
+/** 읽던 위치는 그것을 가진 kind의 선언에서만 온다. 다른 kind는 위치를 버린다. */
 export function readPositionOf(tab: LayoutTab): {
   section: string;
   scroll_offset: number;
 } | undefined {
-  if (tab.kind !== "document_editor" && tab.kind !== "document_viewer") {
-    return undefined;
-  }
-  return tab.read_position;
+  return tabKindOf(tab.kind)?.readPosition?.(tab);
 }

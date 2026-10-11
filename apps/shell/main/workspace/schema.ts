@@ -3,50 +3,31 @@
 // schema 원본과 검증·기본값의 순수 동작만 둔다.
 import { z } from "zod";
 
+import { type LayoutTab, tabKindOf } from "./kinds/registry.ts";
+import { tabKey } from "./kinds/values.ts";
+
 export const LAYOUT_SCHEMA_VERSION = 1;
 
-// 로컬 탭 참조. credential이 아니라 workspace 안 유일 key다(domain-model 제약).
-const tabKey = z.string().min(1).max(128).regex(/^[A-Za-z0-9._:-]+$/);
+// 탭 값은 등록된 kind의 schema가 정한다(kinds/registry.ts). tagged union이고 preview(mode)는 복원 파일에서
+// 제외된다(domain-model TabLayout). 등록되지 않은 kind는 이 schema가 거절하고, 파일을 읽는
+// parseLayoutFile이 먼저 그런 탭을 건너뛴다.
+export const layoutTabSchema: z.ZodType<LayoutTab> = z.unknown().transform(
+  (value, ctx) => {
+    const kind = tabKindOf((value as { kind?: unknown } | null)?.kind);
+    if (kind === undefined) {
+      ctx.addIssue({ code: "custom", message: "unknown tab kind" });
+      return z.NEVER;
+    }
+    const parsed = kind.layout.safeParse(value);
+    if (!parsed.success) {
+      ctx.addIssue({ code: "custom", message: "invalid tab value" });
+      return z.NEVER;
+    }
+    return parsed.data as LayoutTab;
+  },
+) as unknown as z.ZodType<LayoutTab>;
 
-// 읽던 위치는 section key와 0 이상 scroll offset뿐이다. 본문은 없다(shell/workspace#R8).
-const readPosition = z.strictObject({
-  section: z.string().min(1).max(128),
-  scroll_offset: z.number().min(0).max(Number.MAX_SAFE_INTEGER),
-});
-
-const documentId = z.string().regex(/^doc_[0-7][0-9a-hjkmnp-tv-z]{25}$/);
-const versionId = z.string().regex(/^ver_[0-7][0-9a-hjkmnp-tv-z]{25}$/);
-const appId = z.string().regex(/^app_[0-7][0-9a-hjkmnp-tv-z]{25}$/);
-
-// tagged union. preview(mode)는 복원 파일에서 제외된다(domain-model TabLayout).
-export const layoutTabSchema = z.discriminatedUnion("kind", [
-  z.strictObject({
-    kind: z.literal("document_editor"),
-    key: tabKey,
-    document: documentId,
-    read_position: readPosition.optional(),
-  }),
-  z.strictObject({
-    kind: z.literal("document_viewer"),
-    key: tabKey,
-    document: documentId,
-    version: versionId,
-    read_position: readPosition.optional(),
-  }),
-  z.strictObject({
-    kind: z.literal("terminal"),
-    key: tabKey,
-    project_folder: z.string().min(1).max(4096),
-  }),
-  z.strictObject({
-    kind: z.literal("app_panel"),
-    key: tabKey,
-    app: appId,
-    surface: z.string().min(1).max(128),
-  }),
-]);
-
-export type LayoutTab = z.infer<typeof layoutTabSchema>;
+export type { LayoutTab };
 
 // 칸은 탭 목록과 그 안의 선택뿐이다.
 export const layoutPaneSchema = z.strictObject({

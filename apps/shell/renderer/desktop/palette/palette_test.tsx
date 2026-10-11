@@ -154,7 +154,7 @@ const workspaceSource: WorkspaceSource = {
       layout: {
         panes: [
           {
-            tabs: [{ key: "doc_1", kind: "document_viewer", title: "notes" }],
+            tabs: [{ key: "doc_1", kind: "document_editor", title: "notes" }],
             selected_tab: "doc_1",
           },
           {

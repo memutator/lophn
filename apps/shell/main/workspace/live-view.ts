@@ -7,15 +7,16 @@ import {
   type CurrentViewState,
   type HintTab,
   type LayoutHint,
-  type ViewScope,
 } from "./current-view.ts";
+import type { ScopeReads, ViewScope } from "./kinds/kind.ts";
+import { tabKindOf } from "./kinds/registry.ts";
+import { idOf } from "./kinds/values.ts";
 import {
   type CoreSessionLike,
   createViewPublisher,
   type ViewPublisher,
 } from "./view-publish.ts";
 
-const ULID = /^[0-7][0-9a-hjkmnp-tv-z]{25}$/;
 const MAX_PANES = 2;
 const MAX_TABS = 200;
 /** 판을 모르는 문서 탭이 있으면 메시지 bind 전에 이만큼 기다린다. */
@@ -162,12 +163,10 @@ async function scopeFor(
   hint: LayoutHint,
 ): Promise<ViewScope> {
   const projects = new Set<string>();
-  const editors = new Set<string>();
-  const viewers = new Set<string>();
-  const apps = new Set<string>();
+  const granted = new Map<string, Set<string>>();
   const reads: Promise<void>[] = [];
   const seen = new Set<string>();
-  const allow = (
+  const read = (
     key: string,
     resource: string,
     body: unknown,
@@ -186,40 +185,27 @@ async function scopeFor(
   };
   if (hint.project !== null) {
     const project = hint.project;
-    allow(`prj:${project}`, "projects", { project }, () => {
+    read(`prj:${project}`, "projects", { project }, () => {
       projects.add(project);
     });
   }
+  // 어떤 대상을 읽을지는 kind의 선언이 정한다(shell/workspace#R14).
+  const reader: ScopeReads = {
+    allow(group, ref, resource, body) {
+      read(`${group}:${ref}`, resource, body, () => {
+        const refs = granted.get(group) ?? new Set<string>();
+        refs.add(ref);
+        granted.set(group, refs);
+      });
+    },
+  };
   for (const pane of hint.panes) {
-    for (const tab of pane.tabs) {
-      if (tab.kind === "document_editor") {
-        const document = tab.document;
-        allow(`doc:${document}`, "documents", { document }, () => {
-          editors.add(document);
-        });
-      } else if (tab.kind === "document_viewer") {
-        const document = tab.document;
-        const version = tab.version;
-        allow(
-          `ver:${document}:${version}`,
-          "documents",
-          { document, version },
-          () => viewers.add(`${document}\0${version}`),
-        );
-      } else if (tab.kind === "app_panel") {
-        const app = tab.app;
-        allow(`app:${app}`, "apps", { app }, () => apps.add(app));
-      }
-    }
+    for (const tab of pane.tabs) tabKindOf(tab.kind)?.scope(tab, reader);
   }
   await Promise.all(reads);
   return {
     project: (id) => projects.has(id),
-    document: (document, version) =>
-      version === null
-        ? editors.has(document)
-        : viewers.has(`${document}\0${version}`),
-    app: (id) => apps.has(id),
+    allows: (group, ref) => granted.get(group)?.has(ref) === true,
   };
 }
 
@@ -258,7 +244,7 @@ function parseHint(
     const selected = typeof value.selected === "string" ? value.selected : null;
     panes.push({ tabs, selected });
   }
-  const project = id("prj", raw.project);
+  const project = idOf("prj", raw.project);
   const focused = typeof raw.focused_pane === "number" &&
       Number.isSafeInteger(raw.focused_pane) && raw.focused_pane >= 0
     ? raw.focused_pane
@@ -284,57 +270,15 @@ function parseTab(value: unknown): HintTab | null {
   ) {
     return null;
   }
-  const key = tab.key;
-  if (tab.kind === "document_editor") {
-    const document = id("doc", tab.document);
-    if (document === null) return null;
-    return { kind: "document_editor", key, document };
-  }
-  if (tab.kind === "document_viewer") {
-    const document = id("doc", tab.document);
-    const version = id("ver", tab.version);
-    if (document === null || version === null) return null;
-    return { kind: "document_viewer", key, document, version };
-  }
-  if (tab.kind === "terminal") {
-    const folder = tab.project_folder;
-    if (
-      typeof folder !== "string" || folder.length === 0 || folder.length > 80 ||
-      folder.includes("/") || folder.includes("\\")
-    ) return null;
-    return { kind: "terminal", key, project_folder: folder };
-  }
-  if (tab.kind === "app_panel") {
-    const app = id("app", tab.app);
-    if (
-      app === null || typeof tab.surface !== "string" ||
-      tab.surface.length === 0 || tab.surface.length > 80
-    ) return null;
-    const session = typeof tab.view_session === "string" &&
-        tab.view_session.length > 0 && tab.view_session.length <= 80
-      ? tab.view_session
-      : undefined;
-    return {
-      kind: "app_panel",
-      key,
-      app,
-      surface: tab.surface,
-      ...(session === undefined ? {} : { view_session: session }),
-    };
-  }
-  return null;
-}
-
-function id(prefix: string, value: unknown): string | null {
-  if (typeof value !== "string" || !value.startsWith(`${prefix}_`)) return null;
-  return ULID.test(value.slice(prefix.length + 1)) ? value : null;
+  // 힌트 읽기는 kind의 선언이 한다. 등록되지 않은 kind는 건너뛴다.
+  return (tabKindOf(tab.kind)?.hint(tab, tab.key) ?? null) as HintTab | null;
 }
 
 function receiveSession(body: unknown): string | null {
   if (body === null || typeof body !== "object") return null;
   const input = (body as { input?: unknown }).input;
   if (input === null || typeof input !== "object") return null;
-  return id("ses", (input as { session?: unknown }).session);
+  return idOf("ses", (input as { session?: unknown }).session);
 }
 
 function enqueue<T>(

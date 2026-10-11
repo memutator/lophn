@@ -83,3 +83,4 @@ export {
   resolveOptionValues,
   validateOptionValues,
 } from "./options.ts";
+export { translateOptions, type WirePlan, type WireProtocol } from "./wire.ts";

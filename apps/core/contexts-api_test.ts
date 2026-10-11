@@ -113,6 +113,9 @@ async function open(
     clock: manualClock(Date.UTC(2024, 0, 1)),
     random: seededRandom(31),
     testCredentials: true,
+    // 이 시험은 worker의 결과를 직접 낸다(worker 자격의 HTTP 보고, 손으로 채운 index). 실제 context worker는
+    // contexts-worker_test.ts가 본다.
+    contextWorker: false,
   });
   assert(started.ok, started.ok ? "" : JSON.stringify(started.error));
   await using guard = closeUnlessKept(async () => {

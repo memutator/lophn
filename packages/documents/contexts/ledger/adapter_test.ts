@@ -188,7 +188,8 @@ type SqlApi = Api & {
 
 function sqlApi(
   options: LedgerFixtureOptions = {},
-  overrides: Partial<ContextLedgerDeps> = {},
+  overrides: (base: ContextLedgerDeps) => Partial<ContextLedgerDeps> =
+    () => ({}),
 ): SqlApi {
   const ledger = ledgerFixture(options);
   ledger.seedProject(ids.project);
@@ -217,8 +218,8 @@ function sqlApi(
     hash: t.hash,
     startHandOffRun: (_tx, request) => t.deps.startHandOffRun(request),
     isContextEngineer: (assignment) => assignment === id("asg", 1),
-    ...overrides,
   };
+  Object.assign(deps, overrides({ ...deps }));
   const commands = new Map(
     contextLedgerCommands(deps).map((def) => [def.route.name, def]),
   );
@@ -1198,25 +1199,6 @@ Deno.test("documents/contexts#R3 [ctx-I34a]: a rejected command performs no writ
   });
 });
 
-Deno.test("documents/contexts#R3 [ctx-I34a]: a seq the ledger assigns that differs from the handler's makes the command fail with internal and writes nothing", () => {
-  const sql = sqlApi({ emitGap: true });
-  try {
-    const before = sql.ledger.dump();
-    const result = sql.command(contextCreateRoute, "user", {
-      id: ids.context,
-      project: ids.project,
-      title: "Experiments",
-      purpose: "x",
-    });
-    assertEquals(code(result), "internal");
-    assertEquals(sql.ledger.dump(), before);
-    assertEquals(sql.ledger.emitted, []);
-    assertEquals(sql.ledger.head(), 100);
-  } finally {
-    sql.ledger.close();
-  }
-});
-
 Deno.test("documents/contexts#R3 [ctx-I34a]: revisions are the seqs of the events that changed the rows", () => {
   finished((api) => {
     createContext(api);
@@ -1278,10 +1260,11 @@ Deno.test("documents/contexts#R3 [ctx-I34a]: revisions are the seqs of the event
   });
 });
 
-Deno.test("documents/contexts#R26 [ctx-I34a]: a glossary entry's updated_at is the time of the event that set it, even when the clock moves between the handler and the emit", () => {
+Deno.test("documents/contexts#R26 [ctx-I34a]: a glossary entry's updated_at is the transaction time, the same as the time of the event that set it", () => {
   const sql = sqlApi();
   try {
     createContext(sql);
+    // 앞선 transaction이 시계를 움직였어도 이번 transaction의 시각 하나가 쓰인다
     const set = value(sql.command(glossarySetRoute, "user", {
       id: id("trm", 1),
       context: ids.context,
@@ -1404,33 +1387,82 @@ Deno.test("documents/contexts#R19 [ctx-I34a]: bundle content blobs are read only
   }
 });
 
-Deno.test("documents/contexts#R25 [ctx-I34a]: events another concern emits while a handler runs (the hand-off Run) move the ledger head, and the adapter still aligns its own seqs", () => {
-  const started = { type: "RunStarted", payload: z.object({}) };
-  const sql = sqlApi({}, {
+Deno.test("documents/contexts#R3 [ctx-I34a]: events another concern emits inside the same transaction (the hand-off Run, a blob registration) take their own seqs, and the context events and row revisions get the real next seqs", () => {
+  const foreign = { type: "ForeignEvent", payload: z.object({}) };
+  const sql = sqlApi({}, (base) => ({
     startHandOffRun: (tx, request) => {
       const run = id("run", 500);
-      tx.emit(started, run, {});
+      tx.emit(foreign, run, {});
       assert(request.violations.length > 0);
       return run;
     },
-  });
+    blobs: {
+      read: (reference) => base.blobs.read(reference),
+      put: (tx, value) => {
+        tx.emit(foreign, "blob", {});
+        return base.blobs.put(tx, value);
+      },
+    },
+  }));
   try {
     createContext(sql);
-    const applied = applyBundle(sql, ids.context);
+    // save_draft: blob 등록 event가 먼저 나가고 DraftSaved가 그 다음 seq를 받는다
+    const draft = value(sql.command(bundleSaveDraftRoute, "engineer", {
+      context: ids.context,
+      content: minimalContent(),
+    }));
+    const seqOf = (type: string) =>
+      sql.events().filter((event) => event.type === type).map((event) =>
+        event.seq
+      );
+    assertEquals(sql.events().map((event) => event.type), [
+      "ContextCreated",
+      "ForeignEvent",
+      "ContextBundleDraftSaved",
+    ]);
+    assertEquals(seqOf("ContextBundleDraftSaved"), ["103"]);
+    assertEquals(draft.revision, "103");
+    assertEquals(
+      sql.ledger.sql.get("SELECT revision FROM context_bundles", []),
+      { revision: "103" },
+    );
+    // 판을 적용하고 위반을 넘긴다
+    const submitted = value(
+      sql.command(bundleSubmitRoute, "engineer", { bundle: draft.id }),
+    );
+    value(sql.command(bundleFinishCheckRoute, "worker", {
+      check: submitted.check!,
+      result: "passed",
+      bundle_hash: submitted.bundle_hash!,
+      snapshot_hash: SNAPSHOT,
+      findings: [],
+      violation_count: 0,
+    }));
     sql.seedViolations(ids.context, [violation()]);
-    assert(applied.bundle.bundle_hash !== null);
-    const before = sql.ledger.head();
     const handed = sql.command(contextHandOffViolationsRoute, "user", {
       context: ids.context,
     });
     assertEquals(code(handed), "ok");
-    assertEquals(sql.events().slice(-2).map((event) => event.type), [
-      "RunStarted",
+    const last = sql.events().slice(-2);
+    assertEquals(last.map((event) => event.type), [
+      "ForeignEvent",
       "ContextViolationsHandedOff",
     ]);
+    assertEquals(Number(last[1]!.seq), Number(last[0]!.seq) + 1);
+    assertEquals(Number(last[1]!.seq), sql.ledger.head());
+    // 모든 행의 revision은 실제로 나간 event의 seq다
+    const emitted = new Set(sql.events().map((event) => event.seq));
+    for (const table of ["contexts", "context_bundles"]) {
+      for (
+        const row of sql.ledger.sql.all(`SELECT revision FROM ${table}`, [])
+      ) {
+        assert(emitted.has(String(row.revision)), `${table} ${row.revision}`);
+      }
+    }
+    const applied = seqOf("ContextBundleApplied");
     assertEquals(
-      sql.events().slice(-2).map((event) => event.seq),
-      [String(before + 1), String(before + 2)],
+      sql.ledger.sql.get("SELECT revision FROM contexts", []),
+      { revision: applied[0] },
     );
   } finally {
     sql.ledger.close();

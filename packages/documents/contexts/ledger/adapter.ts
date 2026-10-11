@@ -2,7 +2,8 @@
 // handler는 다시 쓰지 않는다. 각 command는 이 흐름으로 감싼다.
 //
 //   1. 적재. 이 command가 보는 행만 SQL에서 새 ContextApiState로 읽는다.
-//        - state.seq = ledgerHead(tx.sql). state.replays는 비운다(멱등은 platform envelope가 한다).
+//        - state.seq는 0, state.replays는 비운다. seq는 미리 읽거나 짐작하지 않는다: event는 handler가
+//          deps.emit으로 내고 ledger가 정한 실제 seq를 돌려받는다. 멱등은 platform envelope가 한다.
 //        - state.projects = 입력의 project (context.create). 없거나 보관됐으면 handler가 invalid_input.
 //        - state.contexts = 대상 context (+ context.create는 그 project의 context 전부: 제목 유일 검사,
 //          그리고 입력 id의 context: 다른 project의 같은 id를 conflict로 막으려면 필요하다).
@@ -17,21 +18,21 @@
 //   3. 실행. createContextApiCommands(state, handlerDeps)의 handler를 부른다.
 //        handlerDeps.now = tx.now, newId = tx.newId, hash = deps.hash,
 //        putBlob = (value) => deps.blobs.put(tx, value) (같은 value는 한 번만 올린다),
-//        startHandOffRun = (request) => deps.startHandOffRun(tx, request) 한 뒤
-//        state.seq = ledgerHead(tx.sql). Run을 만들면서 다른 concern이 낸 event가 head를 밀기 때문에,
-//        이어서 낼 ContextViolationsHandedOff의 seq를 그 뒤로 맞춘다.
-//   4. 실패(Result err)면 아무것도 쓰지 않고 emit하지 않고 그 err를 돌려준다.
-//   5. 성공이면 state.events를 순서대로 tx.emit(정의, subject, payload)로 낸다.
-//        정의는 CONTEXT_API_EVENTS에서 type으로 찾는다. 없으면 internal.
-//        tx.emit이 돌려준 seq가 handler가 그 event에 매긴 seq와 다르면 internal이다
-//        (revision이 seq라서 어긋난 채 두면 CAS가 깨진다). transaction은 rollback된다.
+//        startHandOffRun = (request) => deps.startHandOffRun(tx, request),
+//        emit = (event) => tx.emit(CONTEXT_API_EVENTS에서 type으로 찾은 정의, event.subject, event.payload).
+//        없는 type이면 던진다(internal). actor는 tx의 자격에서 정해지므로 넘기지 않는다.
+//        handler는 돌려받은 seq를 revision으로 쓴다. 그래서 같은 transaction에서 다른 concern이 낸 event
+//        (hand-off Run, blob 등록)가 사이에 끼어도 seq가 어긋나지 않는다. head를 읽거나 맞추는 일이 없다.
+//   4. 실패(Result err)면 아무것도 쓰지 않고 그 err를 돌려준다. handler는 거절을 낼 때까지 emit하지
+//      않는다(검사가 emit 앞이다).
+//   5. 성공이면 event는 이미 냈다(3). 이 단계에서 할 일은 없다. 실패하면 platform이 transaction을
+//        rollback하므로 낸 event도 사라진다.
 //   6. 쓰기. 적재한 값과 handler가 남긴 값을 표마다 비교해 달라진 행만 쓴다
 //        (변경 행 한도 1000에 event 행이 든다). 순서: 검사, 물러나는 판(applied가 아니게 된 것),
 //        applied가 된 판, context, saved view, 용어 항목, 지운 saved view·항목 순. 물러나는 판을 먼저
 //        쓰는 까닭은 context당 applied가 하나라는 partial unique index가 문장마다 검사되기 때문이다.
-//        새 content는 handler가 올린 blob 참조(content_ref)를 쓴다.
-//        그리고 handler가 돌려준 값의 시각과 ledger event 시각이 갈라지면(용어 updated_at) event의
-//        at으로 맞춘다.
+//        새 content는 handler가 올린 blob 참조(content_ref)를 쓴다. 용어 updated_at은 handler가 본
+//        tx.now()이고 ledger가 한 transaction에 하나의 시각을 주므로 event의 at과 같다.
 //
 // command마다 적재하는 범위:
 //

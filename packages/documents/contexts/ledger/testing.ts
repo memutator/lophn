@@ -5,7 +5,7 @@
 // 같은 시나리오를 메모리 handler(api/testing.ts)와 돌려 값을 견줄 수 있게 맞춘 것:
 //   - seq는 head(기본 100)에서 시작한다. api/testing.ts의 newState().seq와 같다.
 //   - newId는 api/testing.ts의 testDeps와 같은 ID를 낸다(접두사마다 100번부터 센다).
-//   - now와 event 시각은 같은 시계 하나를 쓴다. 호출마다 1초 늘어난다(platform의 deps.clock과 같다).
+//   - 시계는 transaction마다 1초 늘어나고 한 transaction 안에서는 tx.now()와 event의 at이 같다.
 //   - emit은 platform처럼 event의 payload schema로 검사한다. 어긋나면 던진다.
 import { DatabaseSync } from "node:sqlite";
 import type { Result } from "../../../base/mod.ts";
@@ -33,8 +33,6 @@ export type Emitted = {
 export type LedgerFixtureOptions = {
   // 시작할 때 마지막 event의 seq. 기본 100.
   head?: number;
-  // emit마다 seq 하나를 건너뛴다. adapter가 seq 어긋남을 internal로 거절하는지 보려는 것이다.
-  emitGap?: boolean;
 };
 
 export const LEDGER_TABLES = [
@@ -123,6 +121,8 @@ export function ledgerFixture(options: LedgerFixtureOptions = {}) {
         if (!open) throw new Error("transaction is closed");
       };
       const mark = emitted.length;
+      // 시각은 transaction 하나에 하나다. tx.now()와 event의 at이 같다(핸들러가 본 시각이 event 시각이다).
+      const txNow = now();
       db.exec("BEGIN IMMEDIATE");
       // 거절된 command가 어떤 문장을 시도했는지는 writes에 남겨 둔다(시험이 본다). 시계와 ID 발급은
       // platform처럼 되돌리지 않는다.
@@ -141,12 +141,7 @@ export function ledgerFixture(options: LedgerFixtureOptions = {}) {
           if (!parsed.success) {
             throw new Error(`event payload differs from schema: ${event.type}`);
           }
-          if (options.emitGap) {
-            db.prepare(
-              "INSERT INTO events (type, subject, actor, payload, at) VALUES ('Gap', NULL, 'machine', '{}', ?)",
-            ).run(now());
-          }
-          const at = now();
+          const at = txNow;
           const inserted = db.prepare(
             "INSERT INTO events (type, subject, actor, payload, at) VALUES (?, ?, ?, ?, ?)",
           ).run(
@@ -169,7 +164,7 @@ export function ledgerFixture(options: LedgerFixtureOptions = {}) {
         },
         now: () => {
           guard();
-          return now();
+          return txNow;
         },
         // api/testing.ts의 testDeps와 같은 ID를 낸다.
         newId: (prefix: string) => {

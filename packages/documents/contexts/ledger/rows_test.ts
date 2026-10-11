@@ -14,7 +14,6 @@ import {
   contextOf,
   deleteEntry,
   deleteView,
-  ledgerHead,
   loadBundle,
   loadCheck,
   loadContext,
@@ -501,15 +500,5 @@ Deno.test("documents/contexts#R1 [ctx-I24]: loadProject tells active, archived a
       archived: true,
     });
     assertEquals(loadProject(ledger.sql, id("prj", 99)), null);
-  });
-});
-
-Deno.test("documents/contexts#R3 [ctx-I24]: ledgerHead is the seq of the last event", () => {
-  withLedger((ledger) => {
-    assertEquals(ledgerHead(ledger.sql), 100);
-    ledger.db.prepare(
-      "INSERT INTO events (type, subject, actor, payload, at) VALUES ('X', NULL, 'user', '{}', ?)",
-    ).run(T0);
-    assertEquals(ledgerHead(ledger.sql), 101);
   });
 });

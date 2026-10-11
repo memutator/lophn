@@ -27,11 +27,6 @@ export type StoredBundle = BundleSummary & { content_ref: BlobReference };
 
 export type ProjectRef = { id: string; archived: boolean };
 
-// 마지막으로 낸 event의 seq다. 없으면 0이다.
-export function ledgerHead(_sql: Reader): number {
-  throw new Error("not implemented");
-}
-
 // documents/projects의 projects 표에서 읽는다. 없으면 null이다.
 export function loadProject(_sql: Reader, _id: string): ProjectRef | null {
   throw new Error("not implemented");

@@ -8,7 +8,7 @@ concerns: [lophn-agent/evaluation]
 
 ## EvalFixture (값)
 
-제품 ledger entity가 아닌 versioned 개발 자료다. 제품의 Preset·Run·Message를 재정의하지 않는다.
+제품 ledger entity가 아닌 versioned 개발 자료다. 제품의 agent 정의·Run·Message를 재정의하지 않는다.
 
 | 필드 | 타입 | null | 제약 | 뜻 |
 |---|---|---|---|---|
@@ -17,7 +17,7 @@ concerns: [lophn-agent/evaluation]
 | `suite` | `regression / capability` | 아니오 | user 채택·이동만 | 사례 묶음 |
 | `initial_materials` | 고정 자료 참조·복사본 manifest | 아니오 | 문서·앱·세션 및 version 빠짐 금지 | 초기 자료 |
 | `intent` | 비어 있지 않은 문자열 | 아니오 | 비밀 없는 최소 입력 | 요청 |
-| `preset / tools / permissions` | 고정 정의·목록·정책 snapshot | 아니오 | 제품 contract 및 판 고정; → lophn-agent/presets, lophn-agent/harness/tools, lophn-agent/harness/tool-judgment | 평가 조건 |
+| `agent / tools / permissions` | 고정 정의·목록·정책 snapshot | 아니오 | 제품 contract 및 판 고정; agent는 resolved agent의 `hash`; → lophn-agent/agents, lophn-agent/harness/tools, lophn-agent/harness/tool-judgment | 평가 조건 |
 | `human_answers` | 질문·approval 조건→명시 답 map | 아니오 | fixture 값만 사용; 기본 `{}` | 모의 사람 결정 |
 | `expected` | 검사 predicate 배열 | 아니오 | 비어 있지 않음; 실제 산출물·상태 기준 | 필수 결과 |
 | `forbidden_changes` | 검사 predicate 배열 | 아니오 | 부작용 항목 명시; 기본 `[]` | 금지 변경 |
@@ -31,7 +31,7 @@ concerns: [lophn-agent/evaluation]
 |---|---|---|---|---|
 | `fixture_versions / initial_material_hashes` | 참조 배열 각각 | 아니오 | 시작 snapshot 불변 | 자료 조건 |
 | `product_version` | 비어 있지 않은 문자열 | 아니오 | 실제 빌드 판 | 제품 |
-| `preset_prompt_skill_tool_permission_versions` | 이름→판 map | 아니오 | 전부 실제 적용 판 | harness 조건 |
+| `agent_prompt_skill_tool_permission_versions` | 이름→판 map | 아니오 | 전부 실제 적용 판 | harness 조건 |
 | `provider / model / sampling` | 정의 참조 / 이름 / JSON object | 아니오 | 실제 model 명시; 운영 credential 복제 금지 | 대상 model |
 | `judging_model / judging_rule_versions` | model 선택 / 판 배열 | 예 / 아니오 | 내용 판단 필요면 calibrated model 필수 | 판정 조건 |
 | `repetitions` | 양의 정수 | 아니오 | regression 3, capability 5 | 반복 |
@@ -106,5 +106,5 @@ concerns: [lophn-agent/evaluation]
 - **최초 결과.** 장애를 통과로 만들거나 성공할 때까지 재시행하여 첫 실패·오류를 지우지 않는다. 오류·부족·누락 하나라도 있으면 전체 비율·전후 차이를 숫자로 내지 않는다.
 - **전후 비교.** 조건 하나만 변경하고 같은 fixture·자료·반복·기준을 별도 fresh workspace에서 실제 model로 시행한다. 홀수 반복은 전 먼저, 짝수는 후 먼저다.
 - **공통 fixture.** 이름 같은 문서 2개·이미 적용된 변경·후보 2개·대소문자 검색·접힌 section·잘린 output·문서 2개 일·scope 밖 변경·큰 문서의 9가지 함정에 필수·금지 결과를 각각 둔다. 권한 거절·approval 대기 취소·응답 중 취소·steering·MCP injection은 별도 regression이다. subagent 사례는 없다.
-- **변경 검증.** prompt·model·preset·skill·tool·권한·조립 변경은 user 지시의 실제 model regression 근거를 요구한다. 결과 없음·실패·불완전은 품질 유지 증거가 아니다. 운영 실패·거절은 user가 비밀 없는 최소 사례로 채택한 뒤 capability에 넣는다.
+- **변경 검증.** prompt·model·agent 정의·skill·tool·권한·조립 변경은 user 지시의 실제 model regression 근거를 요구한다. 결과 없음·실패·불완전은 품질 유지 증거가 아니다. 운영 실패·거절은 user가 비밀 없는 최소 사례로 채택한 뒤 capability에 넣는다.
 

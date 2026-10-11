@@ -32,7 +32,7 @@ tool 정의·목록·입력 검사·효과 분류·결과와 크기·읽기 후�
 - 확인: 조회 기록·내부 변경·외부 조회·외부 조회 후 저장·외부 상태 변경의 분류와 분류 누락 거절을 확인한다.
 - 의도: lophn-agent#I1
 
-**[R5]** tool 목록은 assignment가 고정한 preset capability·MCP 선택과 제품 역할 상한의 교집합만 제공해 내장·앱·외부 순서를 유지하고 노출은 lophn-agent/harness/tool-judgment의 실행 허용과 구별한다.
+**[R5]** tool 목록은 run에 고정한 resolved agent의 권한·MCP·skill 선택과 제품 역할 상한의 교집합만 제공해 내장·앱·외부 순서를 유지하고 노출은 lophn-agent/harness/tool-judgment의 실행 허용과 구별한다.
 - 이유: cache 때문에 권한 밖 tool을 보태지 않는다.
 - 확인: 목록 안정성·역할별 제외를 확인하고 보이는 tool도 현재 scope 밖이면 거절되는지 확인한다.
 - 의도: lophn-agent#I5, lophn-agent#I6
@@ -59,9 +59,9 @@ tool 정의·목록·입력 검사·효과 분류·결과와 크기·읽기 후�
 - 확인: agent 목록에는 읽기·생성·make_ready만 있고 claim·완료·release 연결·취소·시작이 없는지 확인한다.
 - 의도: lophn-agent#I2
 
-**[R10]** preset·assignment tool은 구성·판·담당 현황 읽기와 초안·approval request 제출만 제공하고 실제 생성·변경·적용은 사람 결정의 owner command로만 하며 agent가 직접 적용하지 못한다.
-- 이유: 제안과 사람의 실제 적용을 구별한다.
-- 확인: 초안·승인 제출 뒤 실제 assignment 적용은 해당 소유 계약의 사람 결정으로만 이루어지는지 확인한다.
+**[R10]** assignment tool은 담당 현황 읽기만 제공하고 agent 정의와 assignment의 생성·변경·거둠은 사람의 owner command로만 하며 agent가 직접 적용하거나 제안 제출로 대신하지 못한다.
+- 이유: 판단과 제안은 agent가, 결정과 허락은 사람이 하며 정의는 agent가 하는 일의 범위를 정하는 값이다(lophn-agent/agents#R8).
+- 확인: agent의 tool 목록에 정의 저장·assignment 변경·Operator 제안 제출이 없고 담당 현황은 읽히는지 확인한다.
 - 의도: lophn-agent#I5, lophn-agent#I6
 
 ### 결과
@@ -124,9 +124,9 @@ tool 정의·목록·입력 검사·효과 분류·결과와 크기·읽기 후�
 
 ### context와 series tool
 
-**[R21]** context가 선언한 검색마다 읽기 tool 하나를 그 context의 적용된 판에서 자동으로 만들고 이름·설명·입력의 JSON Schema·결과 모양을 선언에서 가져오며, 역할 상한·assignment 범위·preset이 고른 context의 교집합인 검색만 제공한다.
+**[R21]** context가 선언한 검색마다 읽기 tool 하나를 그 context의 적용된 판에서 자동으로 만들고 이름·설명·입력의 JSON Schema·결과 모양을 선언에서 가져오며, 역할 상한·assignment 범위·resolved agent의 context의 교집합인 검색만 제공한다.
 - 이유: agent가 context의 도메인 지식을 쓰려고 검색 방법을 추측하거나 파일을 훑지 않게 하고, 계약이 바뀌면 tool도 같이 바뀌게 한다.
-- 확인: 검색 두 개를 선언한 context에서 tool이 둘 만들어지고 입력 검사가 선언과 같으며, preset이 고르지 않은 context의 검색은 목록에 없고, 판이 바뀌어도 진행 중인 run은 옛 정의로 계속되며 새 정의는 다음 run부터 제공되는지 본다.
+- 확인: 검색 두 개를 선언한 context에서 tool이 둘 만들어지고 입력 검사가 선언과 같으며, agent가 고르지 않은 context의 검색은 목록에 없고, 판이 바뀌어도 진행 중인 run은 옛 정의로 계속되며 새 정의는 다음 run부터 제공되는지 본다.
 - 의도: lophn-agent#I1, lophn-agent#I5
 
 **[R22]** 개체 하나 읽기 tool은 context·type·개체 id를 받아 그 개체의 field와 관계를 돌려주고 원문이 필요하면 파일 경로와 section 범위로 이어 읽게 하며, 검색 결과와 개체 읽기 결과는 R13의 20개 요약과 이어 보기를 따른다.
@@ -149,3 +149,4 @@ tool 정의·목록·입력 검사·효과 분류·결과와 크기·읽기 후�
 - 웹 검색·읽기는 자체 tool 비목표지만 필요하면 외부 MCP로 열지 논의한다. — 유지 결정의 웹 검색·읽기 제외: 외부 MCP를 통한 lophn agent 웹 검색·읽기도 없음.
 - 옛 context·용어 tool 17개(context 목록·읽기·항목·소속·용어 읽기, 생성·이름·목적·보관, 항목 추가·바꾸기·빼기, 용어 후보 제안·바꾸기·빼기, 정의 답 전달)는 선언한 검색마다 tool과 개체 하나 읽기 tool, Context Engineer의 초안·미리보기·제출·위반·용어집 tool로 바꿨다. 항목과 관점이 없어지고 용어 후보와 정의 답 전달도 없어졌다.
 - 옛 series 가족 목록·상세·다음 제안 읽기 통로(documents/series#R9)는 series kind pattern의 다음 이름 읽기 tool 하나로 바꿨다.
+- preset 읽기 tool과 Operator·preset 초안의 approval request 제출 tool(옛 R10)은 preset·Operator 제안 길을 없애면서 지웠다(lophn-agent/agents, lophn-agent/assignments#Q5).

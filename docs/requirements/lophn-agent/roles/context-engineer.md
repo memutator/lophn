@@ -4,7 +4,7 @@ concerns: [lophn-agent/roles/context-engineer]
 ---
 # lophn-agent/roles/context-engineer
 
-project 문서 위의 context(결정적 계약과 선언한 검색)의 경계를 설계하고 계약·검색·예시·용어집·saved view를 짜서 판으로 제출하며, 계약 위반을 넘겨받아 고치고, 반복 판단이 필요할 때 Operator 초안을 제안하는 Context Engineer를 맡는다. 계약과 검색의 모양·검사·적용은 documents/contexts, 용어집의 모양은 documents/terms가 맡는다.
+project 문서 위의 context(결정적 계약과 선언한 검색)의 경계를 설계하고 계약·검색·예시·용어집·saved view를 짜서 판으로 제출하며, 계약 위반을 넘겨받아 고치는 Context Engineer를 맡는다. 계약과 검색의 모양·검사·적용은 documents/contexts, 용어집의 모양은 documents/terms가 맡는다.
 
 ## 요구
 
@@ -86,9 +86,9 @@ project 문서 위의 context(결정적 계약과 선언한 검색)의 경계를
 - 확인: 앱 command metadata는 읽히지만 호출은 제공 목록에 없는지 본다. tool 이름과 입력은 lophn-agent/harness/tools를 따른다.
 - 의도: lophn-agent#I1
 
-**[R15]** 쓰기 tool은 context 초안(계약·검색·예시·용어집·saved view) 쓰기와 미리보기, 판 제출, 요청 범위 설계 보고 저장, Operator 승인 초안 제출, 질문과 허용 handoff만 제공한다.
-- 이유: 초안과 제출은 판을 적용하는 것이 아니고 적용은 검사를 통과한 뒤에 정해지므로 매번 사람에게 묻지 않는다. 그러나 실제 assignment 적용과 권한 예외는 두지 않는다.
-- 확인: 초안·미리보기·제출은 매번 묻지 않고 제출한 판의 적용은 documents/contexts, assignment 적용은 lophn-agent/assignments를 따르는지 본다.
+**[R15]** 쓰기 tool은 context 초안(계약·검색·예시·용어집·saved view) 쓰기와 미리보기, 판 제출, 요청 범위 설계 보고 저장, 질문과 허용 handoff만 제공한다.
+- 이유: 초안과 제출은 판을 적용하는 것이 아니고 적용은 검사를 통과한 뒤에 정해지므로 매번 사람에게 묻지 않는다. 그러나 agent 정의 저장·assignment 변경과 권한 예외는 두지 않는다.
+- 확인: 초안·미리보기·제출은 매번 묻지 않고 제출한 판의 적용은 documents/contexts를 따르고 정의·assignment를 바꾸는 tool이 없는지 본다.
 - 의도: lophn-agent#I1, lophn-agent#I6
 
 ### 설계 보고
@@ -98,31 +98,16 @@ project 문서 위의 context(결정적 계약과 선언한 검색)의 경계를
 - 확인: 보고의 일곱 부분이 있고 미정 용어가 확정 용어에 섞이지 않으며, 확정 용어는 용어집과 같은지 본다.
 - 의도: lophn-agent#I1, lophn-agent#I7
 
-### Operator 제안과 model 선택
+### model 선택
 
-**[R17]** Operator 후보 검토는 최근 30일 같은 수동 업무 4회 이상의 근거가 있거나 사람이 직접 요청할 때 시작하되 단순 합계나 자료 수집만 있는 일은 제안하지 않고, 파일이 바뀐 것이나 위반이 생긴 것만으로 새 Context Engineer run을 만들지 않는다.
-- 이유: 반복 모델 판단과 machine 계산을 분리한다.
-- 확인: 근거 횟수와 판단 필요성이 설명되고 위반·변화 자체로는 run이 생기지 않는지 본다.
-- 의도: lophn-agent#I4, lophn-agent#I5
-
-**[R18]** Operator 초안은 prompt의 판단·제외·필요 근거·비교 기준·갱신 조건, project 또는 app 범위, preset 전체 구성과 그 preset이 고르는 실제 context, 기존 남길 문서 최소 1개·주기·승인 앱 read와 전후 내용·이유를 담는다.
-- 이유: 실제 쓰기 대상과 책임을 승인 전 확인하게 하고, Operator가 읽을 자료가 실제 context를 가리키게 한다.
-- 확인: 초안의 context가 그 project에 있는 context이고, 필요하면 최초 양식을 실제 문서로 남기되 주기 결과로 표시하지 않으며 적용은 lophn-agent/assignments로만 진행되는지 본다.
-- 의도: lophn-agent#I4, lophn-agent#I5
-
-**[R19]** 같은 project 또는 app에 책임이 겹치는 Operator가 있으면 새 assignment를 늘리기보다 기존 preset 변경·남길 문서 변경을 제안하고 겹침 근거를 붙인다.
-- 이유: 중복 판단과 결과 문서 경쟁을 줄인다.
-- 확인: 겹친 후보에서 기존 assignment 변경 초안이 나오며 승인 없이 자동 변경되지 않는지 본다.
-- 의도: lophn-agent#I5, lophn-agent#I6
-
-**[R20]** 경계·계약·검색·용어 해석·Operator 설계는 judgment 용도, 이미 정한 보고의 제목·요약은 organizing 용도로 분리하고 실제 model·계정은 preset 선택을 쓴다.
+**[R20]** 경계·계약·검색·용어 해석은 judgment 용도, 이미 정한 보고의 제목·요약은 organizing 용도로 분리하고 judgment는 resolved agent의 model·계정, organizing은 Workspace의 Model for summaries(비면 agent model)를 쓴다.
 - 이유: 경계나 용어 뜻을 단순 정리 호출로 만들지 않는다.
-- 확인: 본문과 정리의 용도가 기록되고 실제 호출이 해당 preset의 provider·model·계정으로 가는지 본다.
+- 확인: 본문과 정리의 용도가 기록되고 judgment 호출이 run에 고정된 agent의 provider·model·계정으로 가고 제목·요약 호출이 Model for summaries(비면 같은 model)로 가는지 본다.
 - 의도: lophn-agent#I5
 
 ### prompt의 관점·기대 결과
 
-context의 경계를 먼저 생각하고, 계약은 declarative하게 쓰며, 사람이 정한 뜻과 Context Engineer가 쓴 초안을 섞지 않는다. 경계의 이유가 있는 설계 보고, 예시가 붙은 검색, 검사를 통과한 판, 근거가 붙은 위반 처리 보고와 Operator 초안을 기대한다.
+context의 경계를 먼저 생각하고, 계약은 declarative하게 쓰며, 사람이 정한 뜻과 Context Engineer가 쓴 초안을 섞지 않는다. 경계의 이유가 있는 설계 보고, 예시가 붙은 검색, 검사를 통과한 판, 근거가 붙은 위반 처리 보고를 기대한다.
 
 | 결과 종류 | 필수 내용 | 제약 |
 |---|---|---|
@@ -131,7 +116,6 @@ context의 경계를 먼저 생각하고, 계약은 declarative하게 쓰며, �
 | 검색 선언 | 이름·입력과 입력 종류·결과 보기·예시 | 예시가 하나 이상; 같은 입력에 같은 결과 |
 | 용어집 항목 | 용어·뜻·정한 사람 | 사람이 정하지 않은 뜻은 Context Engineer가 정한 것으로 표시; 미답 뜻은 확정하지 않음; → documents/terms |
 | 위반 처리 보고 | 위반별 문서 경로·규칙, 계약을 고칠 것 또는 문서를 고칠 것, 사람이 정할 일 | 문서를 직접 고치지 않음 |
-| Operator 초안 | 이름·목적·상황·prompt의 책임·제외·기대 결과·반복 질문·근거·비교 기준·갱신 조건·책임 밖·project 또는 app 하나·고르는 context·읽을 앱/명령·실제 남길 문서·주기·tool 선택·전후 내용·변경 설명 | 적용 내용은 OperatorApprovalBundle → lophn-agent/assignments; preset의 provider·model·skill·MCP·context·지침 연결; 제품 run 한도·권한 예외는 없음 |
 
 ## 버린 것
 - 기준·참고·watch 관점 선택, 항목 추가·제거·관점 변경과 context 생성·이름·목적·보관의 개별 쓰기(옛 R5·R6): perspective와 flat 항목이 없어지고 context는 계약으로 짜므로 계약·검색·용어집 초안과 판 제출로 바꿨다.
@@ -140,4 +124,5 @@ context의 경계를 먼저 생각하고, 계약은 declarative하게 쓰며, �
 - watch 변화 4회 이상·기준 자료 뒤처짐 14일 이상 근거(옛 R11): watch와 기준 자료 개념이 없어졌다. 수동 업무 4회 근거만 남겼다.
 - context 간 같은 뜻의 다른 말을 짝짓는 대응 후보(옛 R9): context 사이는 public로 내놓은 type·field로 잇고 용어 대응 보고로 풀지 않는다. 같은 말 다른 뜻의 충돌만 R12로 남겼다.
 - 시스템 자리의 단일 보고 선언·시리즈 조회와 자동 일일 용어 탐색·변화 event run은 lophn-agent/roles/operator 및 사람 요청만 받는 결정으로 제거했다.
-- model·skill·MCP·context 선택은 preset으로 모았다. run 한도·권한 예외는 사람이 고칠 preset 필드가 아니다.
+- model·skill·MCP·context 선택은 agent 정의의 칸이다(lophn-agent/agents). run 한도·권한 예외는 사람이 고칠 정의의 칸이 아니다.
+- Operator 후보 검토(수동 업무 4회 근거)·Operator 초안(범위·고르는 context·읽을 앱 command·남길 문서·주기·tool 선택)·겹치는 Operator의 변경 제안(옛 R17~R19)은 agent가 Operator를 제안하는 길을 첫 판에서 지우면서 없앴다(lophn-agent/assignments#Q5). Operator는 사람이 Agents 탭 editor에서 만든다(lophn-agent/agents#R8).

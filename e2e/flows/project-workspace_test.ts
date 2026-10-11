@@ -686,7 +686,7 @@ Deno.test({
             const word of [
               "[turn context]",
               "화면 관측:",
-              `* document_viewer`,
+              `* document_editor`,
               documentId,
             ]
           ) {

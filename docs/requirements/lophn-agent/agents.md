@@ -172,6 +172,10 @@ lophn-agent/agents#Q4
 
 lophn-agent/agents#Q5
 
+lophn-agent/agents#Q6
+
+lophn-agent/agents#Q7
+
 ## 버린 것
 
 이전 lophn-agent/presets 요구를 옮기지 않은 것과 그 이유.

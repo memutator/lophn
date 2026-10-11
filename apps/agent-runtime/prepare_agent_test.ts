@@ -505,7 +505,14 @@ Deno.test("lophn-agent/harness/prompt-assemble#R23 [agent-I16b]: a session that 
   );
   assertEquals(plain.world.bodiesOf(routePath(sessionSummary)), []);
 
-  const none = await contextOf({ session: null, sessionMessages: [...TALK] });
+  // session 없는 run은 Operator의 주기 일 같은 것이다.
+  const none = await contextOf({
+    role: "operator",
+    session: null,
+    workspaceModels: { operator: MODEL() },
+    definition: { name: "Reviewer", body: "Check the notes." },
+    sessionMessages: [...TALK],
+  });
   assertEquals(none.first.session, { compaction: null, messages: [] });
   assertEquals(none.world.bodiesOf(routePath(messagesList)), []);
 });

@@ -232,7 +232,9 @@ export function openWorld(options: WorldOptions = {}): World {
           created_seq: message.seq,
           state_seq: message.seq,
         })),
-        ...readMeta(),
+        // 메시지의 순번은 읽기 시점(as_of_seq)을 넘지 못한다.
+        as_of_seq: "100",
+        next_cursor: null,
       });
     }
     if (path === routePath(messageBody)) {

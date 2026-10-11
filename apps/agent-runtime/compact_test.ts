@@ -1,5 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import {
+  canonicalize,
   createIdSource,
   err,
   manualClock,
@@ -127,7 +128,7 @@ const BIG = {
   supports_tools: true,
 };
 
-async function rig(
+function rig(
   options: WorldOptions & {
     script: ModelCallOutput[];
     limits?: CallModel["limits"];
@@ -556,7 +557,8 @@ Deno.test("platform/redaction [agent-I16b]: the messages are made safe before th
     blob.purpose === "model_call_input"
   );
   assertEquals(stored.length, 1);
-  assertEquals(JSON.stringify(stored[0]!.value), input);
+  // 저장은 정규 JSON이라 키 순서만 다르다.
+  assertEquals(canonicalize(stored[0]!.value), canonicalize(r.sent[0]!.body));
 });
 
 Deno.test("lophn-agent/conversation#R10 [agent-I16b]: the pump asks the compactor for the next request each round and one failure does not end it", async () => {

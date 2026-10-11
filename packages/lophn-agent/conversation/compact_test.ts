@@ -71,10 +71,17 @@ async function pending(h: LedgerHarness) {
       machineCred,
       {},
     ),
-  ) as { requests: { session: string; request_seq: string }[] }).requests;
+  ) as {
+    requests: {
+      session: string;
+      assignment: string;
+      work_place: { kind: string; id: string };
+      request_seq: string;
+    }[];
+  }).requests;
 }
 
-async function compact(
+function compact(
   h: LedgerHarness,
   session: string,
   input: { request_seq: string; summary_call: string; through_seq: string },
@@ -90,7 +97,7 @@ async function compact(
   );
 }
 
-async function fail(
+function fail(
   h: LedgerHarness,
   session: string,
   request_seq: string,
@@ -415,7 +422,12 @@ Deno.test("lophn-agent/conversation#R10 [agent-I16b]: Compact ends only the requ
     );
     code(await compact(h, session, input), "conflict");
     assertEquals((await readSession(h, session))["compaction"], null);
-    assertEquals((await pending(h)).length, 1);
+    // 요청은 남아 있지만 일하는 session의 요청은 그 run이 끝날 때까지 runtime에 나오지 않는다.
+    assertEquals(
+      await count(h, "session_compact_requests", "state = 'requested'"),
+      1,
+    );
+    assertEquals(await pending(h), []);
   } finally {
     await h.close();
   }

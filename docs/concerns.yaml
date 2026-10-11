@@ -357,6 +357,13 @@ concerns:
   excludes:
     - 어느 agent가 어느 skill과 MCP를 쓰나 -> lophn-agent/presets
 
+- id: lophn-agent/commands
+  summary: Agent composer의 `/` 명령. 전역 built-in, role별 built-in, skill 세 종류를 한 registry에 두고(이름, 설명, 출처, 작업 중 사용 가능 여부, 실행 kind), built-in 이름 예약, 같은 이름 skill의 구분, 메뉴 묶음, 실행을 맡는다.
+  excludes:
+    - skill을 찾고 읽는 일과 MCP 연결 -> lophn-agent/extensions
+    - 명령 하나가 부르는 session 동작(이름 바꾸기, 보관, 복사) -> lophn-agent/conversation
+    - 메뉴의 모양과 배치 -> shell/desktop
+
 - id: lophn-agent/observability
   summary: run trace. agent가 무엇을 했고 왜 그랬나를 되짚기(U-21), trace 내보내기, 기록 보존 기간 정책(실제 삭제는 platform/blob-store와 platform/ledger가 한다).
   excludes:

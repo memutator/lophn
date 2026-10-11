@@ -102,7 +102,7 @@ Deno.test("lophn-agent/extensions#R32 [agent-I19b]: the folder of a place is und
   assertEquals(placeFolderOf("/data", APP), `/data/apps/${APP.id}`);
   assert(PLACE_MCP_FILE.length > 0 && !PLACE_MCP_FILE.includes("/"));
   // agents/settings.md와 이름도 자리도 겹치지 않는다.
-  assert(PLACE_MCP_FILE !== "settings.md");
+  assert(String(PLACE_MCP_FILE) !== "settings.md");
 });
 
 Deno.test("lophn-agent/extensions#R32 [agent-I19b]: an agent of a place sees that place's skills with the global ones, and another place does not", async () => {

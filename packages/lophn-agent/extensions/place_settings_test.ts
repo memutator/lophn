@@ -515,6 +515,8 @@ Deno.test("lophn-agent/extensions#R33 [agent-I19b]: a place skill hides the glob
 Deno.test("lophn-agent/extensions#R2 [agent-I19b]: a place skill with a wrong name is left out and reported with the reason, never renamed", async () => {
   await withExtensions(async (ctx) => {
     const folder = `${placeFolder(ctx, PROJECT)}/skills`;
+    // 사람이 등록한 폴더가 없으면 그것도 알리므로, 이 시험은 등록 폴더를 만들어 둔다.
+    Deno.mkdirSync(`${ctx.root}/registered`, { recursive: true });
     writeSkill(folder, "good-one", "Fine");
     writeSkill(folder, "Bad_Name", "Wrong name", "bad-folder");
     Deno.mkdirSync(`${folder}/good-one/nested`, { recursive: true });

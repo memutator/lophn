@@ -98,6 +98,7 @@ export const contextKind: TabKindDef = {
         onOpenDocument={contexts.openPath}
         onOpenSearch={contexts.openSearch}
         onAsk={contexts.askContextEngineer}
+        stamp={contexts.stampOf(context)}
       />
     );
   },

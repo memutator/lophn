@@ -162,7 +162,7 @@ Deno.test("lophn-agent/agents#R13 [agent-I17]: the first bytes name the format, 
   assertEquals(sniffProfileImage(new Uint8Array()), null);
 });
 
-Deno.test("lophn-agent/agents#R13 [agent-I17]: a png, jpg or webp upload is stored as avatar.<ext> in the Operator's folder and the profile names that file", async () => {
+Deno.test("lophn-agent/agents#R13 [agent-I17]: a png, jpg or webp upload is stored as avatar.<ext> in the Operator's folder and the profile names that file", () => {
   const { disk, files, store } = memoryFiles();
   const deps: ProfileAssetDeps = { root: ROOT, files, store };
   const cases = [

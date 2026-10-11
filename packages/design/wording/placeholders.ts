@@ -2564,7 +2564,6 @@ export type PlaceholderKinds = {
   "things-to-confirm.label.event-activation-failed": Record<never, never>;
   "things-to-confirm.label.event-decision": Record<never, never>;
   "things-to-confirm.label.event-focus-changed": Record<never, never>;
-  "things-to-confirm.label.event-in-document": Record<never, never>;
   "things-to-confirm.label.event-issue-closed": Record<never, never>;
   "things-to-confirm.label.event-issue-opened": Record<never, never>;
   "things-to-confirm.label.event-issue-reopened": Record<never, never>;

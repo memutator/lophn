@@ -2563,7 +2563,6 @@ export const en = {
     "An app version couldn't start",
   "things-to-confirm.label.event-decision": "A decision is waiting",
   "things-to-confirm.label.event-focus-changed": "Something you follow changed",
-  "things-to-confirm.label.event-in-document": "In a document",
   "things-to-confirm.label.event-issue-closed": "An issue was closed",
   "things-to-confirm.label.event-issue-opened": "An issue was reported",
   "things-to-confirm.label.event-issue-reopened": "An issue came back",

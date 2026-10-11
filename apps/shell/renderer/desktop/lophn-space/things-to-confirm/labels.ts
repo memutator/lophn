@@ -117,37 +117,22 @@ export function eventTitle(sourceEvent: string): string {
   }
 }
 
-const KNOWN_EVENTS: ReadonlySet<string> = new Set([
-  "QuestionCreated",
-  "ApprovalRequestCreated",
-  "ProblemOpened",
-  "ProblemReopened",
-  "ProblemClosed",
-  "TicketConfirmed",
-  "TicketCheckFailed",
-  "AssignmentPaused",
-  "ContextWatchedItemChanged",
-  "ReleaseActivationFailed",
-]);
-
 /**
- * chip의 한 줄. 무슨 일인지(계기), 어디서인지(문서가 있을 때), 언제인지(발생 시각이 있을 때)를
- * notification이 이미 가진 사실로만 말한다. 계기 표에 없는 계기에 문서도 없을 때만 일반 안내다.
+ * chip의 한 줄. 무슨 일인지(계기), 언제인지(발생 시각이 있을 때)를 notification이 이미 가진
+ * 사실로만 말한다. 계기 표에 없는 계기는 문서가 있으면 문서 일이라고 말하고, 그것도 없을
+ * 때만 일반 안내다. 360px 한 줄이라 계기 이름이 이미 대상을 말하는 계기에는 문서를 덧붙이지 않는다.
  */
 export function noticeTitle(
   notification: NotificationRow,
   nowMs: number,
 ): string {
-  const known = KNOWN_EVENTS.has(notification.sourceEvent);
-  const hasDocument = notification.document !== undefined;
+  const title = eventTitle(notification.sourceEvent);
+  const generic = title === t("things-to-confirm.label.event-other");
   const parts = [
-    !known && hasDocument
+    generic && notification.document !== undefined
       ? t("things-to-confirm.label.event-other-document")
-      : eventTitle(notification.sourceEvent),
+      : title,
   ];
-  if (known && hasDocument) {
-    parts.push(t("things-to-confirm.label.event-in-document"));
-  }
   const when = notification.occurredAt === undefined
     ? Number.NaN
     : Date.parse(notification.occurredAt);

@@ -1256,6 +1256,25 @@ concerns: [shell]
   - mock 모드(`deno task dev:mock`)의 연관 context는 contexts 화면 mock의 Focus를 가리켜 눌러 열면 그 화면이 나온다.
   - `workspace/sidebar/sidebar_test.tsx`, `workspace/workspace_test.tsx`의 shell/desktop#R28 테스트가 통과한다.
 
+### T67 project notice를 toast로
+
+- 상태: 진행
+- 등급: frontend
+- concern: shell/workspace, shell/desktop, shell/wording
+- 요구: shell/desktop#R27(관련 없는 크롬이 본문을 차지하지 않는다), shell/desktop#R10·shell/design-system#R35(notification은 오른쪽 아래 한 칸 chip), shell/design-system#R33(toast 폭 360px)
+- 자리: apps/shell/renderer/workspace/(notice-card·operator-entry·tracking·workspace), apps/shell/renderer/desktop/notification-chip/, apps/shell/renderer/desktop/lophn-space/things-to-confirm/labels.ts, packages/design/wording/en.ts, docs/ui-ux/README.md
+- 쓰는 contract: 없음
+- 내놓는 contract: 없음
+- slice: workspace
+- 선행: shell#T14, shell#T15, shell#T54
+- 완료: 아래 확인이 통과한다
+  - 원인: 추적 꺼짐 줄("This project isn't tracking files yet…"), Operator 줄("1 Operator repeats a check here"), 읽기 실패 줄이 본문 열 안의 가로 띠라 터미널 탭을 포함한 모든 탭에서 탭 줄을 아래로 밀었다.
+  - 세 안내는 toast와 같은 폭·표면의 떠 있는 카드(`workspace/notice-card.tsx`)로 `content` 안 왼쪽 아래에 absolute로 뜬다. 오른쪽 아래는 notification chip 한 칸의 자리라 겹치지 않는다. 카드는 본문 높이를 쓰지 않고 행동(Turn on tracking, See Operators, Attach an Operator)을 그대로 둔다. 시간으로 사라지지 않고 닫기 단추만 있다.
+  - 닫은 안내는 상단 바의 "Show notices" 단추(벨 아이콘)로 다시 연다. 안내가 없는 작업대에는 단추가 없다. 닫기는 이 창의 표시일 뿐 추적·Operator 상태를 바꾸지 않는다.
+  - notification chip의 일반 안내 "Something needs your attention"은 계기 표에 없는 계기에 문서도 없을 때만 남는다. 그 밖에는 notification이 가진 사실로 무슨 일인지(계기), 언제인지(발생 시각의 상대 시간)를 한 줄에 말한다. 계기 표에 없는 계기는 문서가 있으면 "Something in a document needs your attention"으로 어디인지 말한다(360px 한 줄이라 계기 이름이 대상을 말하는 계기에는 문서를 덧붙이지 않는다). 원인: mock이 core 계기 이름이 아닌 `question_created` 같은 이름을 써서 항상 일반 안내로 떨어졌다. mock은 실제 계기 이름과 문서·시각을 쓴다.
+  - `workspace/workspace_test.tsx`(떠 있는 층·닫기·다시 열기), `desktop/notification-chip/notification-chip_test.tsx`(chip 줄), 기존 tracking·Operator 테스트가 통과한다.
+- T61 번호가 위쪽 overlay 작업과 겹쳐 T67로 적는다(lead 배정은 T61).
+
 ## 요구 덮기
 
 shell 최상위의 요구는 8개 leaf에 177개이고 모두 위 작업의 `요구:`에 들어 있다.

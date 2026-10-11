@@ -102,7 +102,7 @@ Deno.test("shell/desktop#R10: chip은 무슨 일이 어디서 언제 있었는�
       .textContent;
   assertEquals(
     title(),
-    "A question is waiting · In a document · 4 minutes ago",
+    "A question is waiting · 4 minutes ago",
   );
   click(
     find(view.container, "[data-notification-chip]").querySelectorAll(

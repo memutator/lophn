@@ -14,7 +14,14 @@ if (theme === "light" || theme === "dark") {
   document.documentElement.dataset.theme = theme;
 }
 const frame = params.get("frame");
-if (frame !== null) document.documentElement.style.overflow = "hidden";
+if (frame !== null) {
+  // 화면 root는 position:absolute; inset:0이라 viewport를 채운다. Radix modal(Select 등)이 열리면 scroll lock이
+  // body에 `position: relative !important`를 걸어 기준이 body로 바뀌는데, body 높이가 0이면 화면이 접혀 비어 보인다.
+  const { documentElement: html, body } = document;
+  html.style.overflow = "hidden";
+  html.style.height = "100%";
+  body.style.height = "100%";
+}
 
 const root = document.getElementById("root");
 if (root) {

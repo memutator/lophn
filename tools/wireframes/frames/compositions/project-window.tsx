@@ -2,7 +2,7 @@
 // component를 그대로 쓰고, 실제 sidebar·tab strip·menu는 source 없이 그릴 수 없거나 새 설계의
 // 항목(Saved views, Context·Search·Conversation 탭 종류)이 없어서 같은 CSS Module로 같은 모양의
 // 마크업을 다시 짠 look-alike다. 앱 코드는 고치지 않는다.
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import {
   conversationIcons,
   Icon,
@@ -178,21 +178,26 @@ export const FOLDER_TREE: readonly TreeNode[] = [
 const OPEN_BRANCHES = new Set(["eval", "eval/experiments"]);
 
 function SidebarRow(
-  { icon, label, active = false }: {
+  { icon, label, active = false, collapsed = false }: {
     icon: IconProps["icon"];
     label: string;
     active?: boolean;
+    collapsed?: boolean;
   },
 ) {
   return (
     <li className={sideStyles.li}>
-      <span className={`${sideStyles.item} ${active ? sideStyles.active : ""}`}>
+      <span
+        className={`${sideStyles.item} ${active ? sideStyles.active : ""}`}
+        aria-label={collapsed ? label : undefined}
+        title={label}
+      >
         <Icon
           icon={icon}
           pixels={iconPixels("base")}
           className={sideStyles.icon}
         />
-        <span className={sideStyles.label}>{label}</span>
+        {collapsed ? null : <span className={sideStyles.label}>{label}</span>}
       </span>
     </li>
   );
@@ -206,57 +211,106 @@ export interface SidebarSpec {
   /** 트리 아래에 얹는 메뉴. */
   readonly menu?: ReactNode;
   readonly savedActive?: string;
+  /** 접힌 sidebar. 폭 56px에 아이콘만 둔다(실제 sidebarView의 collapsed). */
+  readonly collapsed?: boolean;
+  readonly onToggle?: () => void;
 }
 
-/** project sidebar: Folders(tree), Contexts, Saved views. */
+/** project sidebar: Folders(tree), Contexts, Saved views. 접으면 실제 sidebar처럼 아이콘 줄만 남는다. */
 export function ProjectSidebar(
-  { current, menuFor, menu, savedActive }: SidebarSpec,
+  { current, menuFor, menu, savedActive, collapsed = false, onToggle }:
+    SidebarSpec,
 ) {
+  const toggleLabel = collapsed ? "Expand sidebar" : "Collapse sidebar";
   return (
-    <nav className={sideStyles.sidebar} style={{ width: "240px" }}>
+    <nav
+      className={`${sideStyles.sidebar} ${
+        collapsed ? sideStyles.collapsed : ""
+      }`}
+      style={{ width: collapsed ? "56px" : "240px" }}
+      data-sidebar={collapsed ? "collapsed" : "open"}
+    >
       <div className={sideStyles.header}>
-        <span className={sideStyles.headerContent}>
-          <LauncherButton onLauncher={() => {}} />
-          <span className={sideStyles.title}>phroner</span>
-        </span>
-        <IconButton icon={workspaceIcons.sidebar} label="Collapse sidebar" />
+        {collapsed ? null : (
+          <span className={sideStyles.headerContent}>
+            <LauncherButton onLauncher={() => {}} />
+            <span className={sideStyles.title}>phroner</span>
+          </span>
+        )}
+        <IconButton
+          icon={workspaceIcons.sidebar}
+          label={toggleLabel}
+          aria-expanded={!collapsed}
+          onClick={onToggle}
+        />
       </div>
       <div className={sideStyles.body}>
         <section className={sideStyles.section}>
-          <h2 className={sideStyles.sectionLabel}>Folders</h2>
-          <div className={styles.treeBox}>
-            <Tree
-              nodes={FOLDER_TREE}
-              expanded={OPEN_BRANCHES}
-              onExpandedChange={() => {}}
-              currentId={current}
-              selectedIds={menuFor === undefined
-                ? undefined
-                : new Set([menuFor])}
-              label="Folders"
-            />
-            {menu}
-          </div>
+          {collapsed
+            ? null
+            : <h2 className={sideStyles.sectionLabel}>Folders</h2>}
+          {collapsed
+            ? (
+              <ul className={sideStyles.list} role="list">
+                {FOLDER_TREE.map((node) => (
+                  <SidebarRow
+                    key={node.id}
+                    icon={workspaceIcons.folder}
+                    label={node.label}
+                    collapsed
+                  />
+                ))}
+              </ul>
+            )
+            : (
+              <div className={styles.treeBox}>
+                <Tree
+                  nodes={FOLDER_TREE}
+                  expanded={OPEN_BRANCHES}
+                  onExpandedChange={() => {}}
+                  currentId={current}
+                  selectedIds={menuFor === undefined
+                    ? undefined
+                    : new Set([menuFor])}
+                  label="Folders"
+                />
+                {menu}
+              </div>
+            )}
         </section>
         <section className={sideStyles.section}>
-          <h2 className={sideStyles.sectionLabel}>Contexts</h2>
+          {collapsed
+            ? null
+            : <h2 className={sideStyles.sectionLabel}>Contexts</h2>}
           <ul className={sideStyles.list} role="list">
-            <SidebarRow icon={workspaceIcons.context} label="eval" />
-            <SidebarRow icon={workspaceIcons.context} label="harness" />
+            <SidebarRow
+              icon={workspaceIcons.context}
+              label="eval"
+              collapsed={collapsed}
+            />
+            <SidebarRow
+              icon={workspaceIcons.context}
+              label="harness"
+              collapsed={collapsed}
+            />
           </ul>
         </section>
         <section className={sideStyles.section}>
-          <h2 className={sideStyles.sectionLabel}>Saved views</h2>
+          {collapsed
+            ? null
+            : <h2 className={sideStyles.sectionLabel}>Saved views</h2>}
           <ul className={sideStyles.list} role="list">
             <SidebarRow
               icon={lophnSpaceIcons.savedView}
               label="Running experiments"
               active={savedActive === "running"}
+              collapsed={collapsed}
             />
             <SidebarRow
               icon={lophnSpaceIcons.savedView}
               label="Findings for C-049"
               active={savedActive === "c-049"}
+              collapsed={collapsed}
             />
           </ul>
         </section>
@@ -310,15 +364,21 @@ export interface ProjectWindowProps {
 export function ProjectWindow(
   { sidebar = {}, crumbs, left, right, children }: ProjectWindowProps,
 ) {
+  const [collapsed, setCollapsed] = useState(sidebar.collapsed ?? false);
   return (
     <div className={styles.window}>
-      <ProjectSidebar {...sidebar} />
+      <ProjectSidebar
+        {...sidebar}
+        collapsed={collapsed}
+        onToggle={() => setCollapsed(!collapsed)}
+      />
       <div className={styles.main}>
         <div className={styles.topBar}>
           <TopBar
             platform="linux"
             leading={
               <div className={styles.leading}>
+                {collapsed ? <LauncherButton onLauncher={() => {}} /> : null}
                 <Breadcrumbs crumbs={crumbs.map((label) => ({ label }))} />
               </div>
             }

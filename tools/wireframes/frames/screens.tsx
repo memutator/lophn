@@ -45,11 +45,12 @@ import {
 } from "./design/tokens-pages.tsx";
 import {
   ContextContract,
-  ContextDomain,
+  ContextOverview,
   ContextViolations,
 } from "./compositions/context-pages.tsx";
 import {
   DeclaredSearchBoard,
+  DeclaredSearchCombobox,
   DeclaredSearchTable,
   DocumentOrganize,
   NewTabMenu,
@@ -197,12 +198,13 @@ export const SCREENS: Record<ScreenId, () => ReactNode> = {
   ),
   "new-tab-kinds": () => <TabKinds />,
   "new-tab-menu": () => <NewTabMenu />,
-  "new-context-domain": () => <ContextDomain />,
+  "new-context-overview": () => <ContextOverview />,
   "new-context-contract": () => <ContextContract />,
   "new-context-violations": () => <ContextViolations />,
   "new-violation-toast": () => <ViolationToast />,
   "new-search-table": () => <DeclaredSearchTable />,
   "new-search-board": () => <DeclaredSearchBoard />,
+  "new-search-combobox": () => <DeclaredSearchCombobox />,
   "new-workspace": () => <WorkspaceWithoutProject />,
   "new-organize": () => <DocumentOrganize />,
 };

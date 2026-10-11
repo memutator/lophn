@@ -1,6 +1,7 @@
 // Part 2 C6: project 관심사를 뺀 Lophn Workspace. sidebar에는 Documents·Contexts가 없고 Projects 상세에는
 // project 자체 관리만 남는다. 실제 LophnSidebar는 일곱 형제를 고정으로 그려서 같은 CSS Module로 다섯
 // 항목만 그린 look-alike를 쓴다.
+import { useState } from "react";
 import {
   Button,
   Card,
@@ -30,15 +31,29 @@ const SCREENS: readonly LophnScreen[] = [
 ];
 
 export function WorkspaceWithoutProject() {
+  const [collapsed, setCollapsed] = useState(false);
   return (
     <div className={styles.window}>
-      <nav className={sideStyles.sidebar} style={{ width: "240px" }}>
+      <nav
+        className={`${sideStyles.sidebar} ${
+          collapsed ? sideStyles.collapsed : ""
+        }`}
+        style={{ width: collapsed ? "56px" : "240px" }}
+        data-sidebar={collapsed ? "collapsed" : "open"}
+      >
         <div className={sideStyles.header}>
-          <span className={sideStyles.headerContent}>
-            <LauncherButton onLauncher={() => {}} />
-            <span className={sideStyles.title}>Lophn Workspace</span>
-          </span>
-          <IconButton icon={workspaceIcons.sidebar} label="Collapse sidebar" />
+          {collapsed ? null : (
+            <span className={sideStyles.headerContent}>
+              <LauncherButton onLauncher={() => {}} />
+              <span className={sideStyles.title}>Lophn Workspace</span>
+            </span>
+          )}
+          <IconButton
+            icon={workspaceIcons.sidebar}
+            label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-expanded={!collapsed}
+            onClick={() => setCollapsed(!collapsed)}
+          />
         </div>
         <ul className={sideStyles.list} role="list">
           {SCREENS.map((screen) => (
@@ -47,13 +62,19 @@ export function WorkspaceWithoutProject() {
                 className={`${sideStyles.item} ${
                   screen === "projects" ? sideStyles.active : ""
                 }`}
+                aria-label={collapsed ? screenLabel(screen) : undefined}
+                title={screenLabel(screen)}
               >
                 <Icon
                   icon={screenIcon(screen)}
                   pixels={iconPixels("base")}
                   className={sideStyles.icon}
                 />
-                <span className={sideStyles.label}>{screenLabel(screen)}</span>
+                {collapsed ? null : (
+                  <span className={sideStyles.label}>
+                    {screenLabel(screen)}
+                  </span>
+                )}
               </span>
             </li>
           ))}
@@ -63,7 +84,12 @@ export function WorkspaceWithoutProject() {
         <div className={styles.topBar}>
           <TopBar
             platform="linux"
-            leading={<span className={styles.projectName}>Projects</span>}
+            leading={
+              <div className={styles.leading}>
+                {collapsed ? <LauncherButton onLauncher={() => {}} /> : null}
+                <span className={styles.projectName}>Projects</span>
+              </div>
+            }
           />
         </div>
         <div className={styles.wsBody}>

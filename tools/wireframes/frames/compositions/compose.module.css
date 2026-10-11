@@ -762,3 +762,31 @@
 .subTabs {
   margin-top: var(--space-4);
 }
+
+/* combobox look-alike */
+.combo {
+  position: relative;
+}
+
+.comboCaret {
+  position: absolute;
+  top: 50%;
+  right: var(--space-4);
+  display: inline-flex;
+  color: var(--color-text-muted);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.comboList {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  right: var(--space-0);
+  left: var(--space-0);
+  min-width: var(--space-0);
+}
+
+.comboEmpty {
+  padding: var(--space-3) var(--space-4);
+  color: var(--color-text-muted);
+}

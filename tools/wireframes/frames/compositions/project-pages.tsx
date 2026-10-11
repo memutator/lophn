@@ -1,9 +1,12 @@
 // Part 2: project 화면 위의 새 설계(C1, C1b, C4, C5, C5b, C7). 고정 data만 쓴다.
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import {
   Card,
   conversationIcons,
+  Icon,
   IconButton,
+  iconPixels,
+  Input,
   lophnSpaceIcons,
   Textarea,
   Toast,
@@ -12,6 +15,7 @@ import {
 import { Button, Field, Select } from "@lophn/ui-control";
 import { DataTable, type TableColumn } from "@lophn/ui-table";
 
+import menuStyles from "../../../../packages/design/components/menu/menu.module.css";
 import fieldStyles from "../../../../packages/design/components/field/field.module.css";
 
 import {
@@ -320,16 +324,117 @@ function Kind({ label, on }: { label: string; on: boolean }) {
   );
 }
 
-const CHANGES = [
+// 고르는 입력은 타이핑을 받는 combobox다. 쓰면 맞는 후보만 아래에 걸러진다(ui-control에 combobox가 없어
+// Field·Input에 menu CSS Module로 후보 목록을 붙여 만든 look-alike다).
+interface Pick {
+  value: string;
+  label: string;
+}
+
+const CHANGES: readonly Pick[] = [
   {
     value: "c-049",
     label: "C-049 · 행동 전에 로드된 월드와 등록 정보를 조회한다",
   },
+  { value: "c-041", label: "C-041 · 상자 이름 조회를 한 번에 묶는다" },
+  { value: "c-040", label: "C-040 · 레시피 조회 결과를 캐시한다" },
   { value: "c-050", label: "C-050 · 읽기 전용 과제에서 월드 행동을 막는다" },
+  { value: "c-038", label: "C-038 · 일정 도구의 재시도를 줄인다" },
 ];
+
+const METRICS: readonly Pick[] = [
+  { value: "any", label: "Any metric" },
+  { value: "world_actions", label: "world_actions" },
+  { value: "tool_calls", label: "tool_calls" },
+  { value: "answer_match", label: "answer_match" },
+];
+
+const SCENARIOS: readonly Pick[] = [
+  { value: "any", label: "Any" },
+  { value: "query-leave-still", label: "query-leave-still" },
+  { value: "query-chest-name", label: "query-chest-name" },
+  { value: "query-recipe-gap", label: "query-recipe-gap" },
+];
+
+function Combo(
+  { label, options, defaultText, typed = false }: {
+    label: string;
+    options: readonly Pick[];
+    defaultText: string;
+    /** true면 쓰는 중이고 후보가 펼쳐진 상태로 시작한다. */
+    typed?: boolean;
+  },
+) {
+  const [text, setText] = useState(defaultText);
+  const [open, setOpen] = useState(typed);
+  const [filtering, setFiltering] = useState(typed);
+  const query = text.trim().toLowerCase();
+  const shown = filtering && query !== ""
+    ? options.filter((option) => option.label.toLowerCase().includes(query))
+    : options;
+  return (
+    <Field label={label}>
+      <div className={styles.combo}>
+        <Input
+          role="combobox"
+          aria-expanded={open}
+          aria-autocomplete="list"
+          value={text}
+          onChange={(event) => {
+            setText(event.target.value);
+            setFiltering(true);
+            setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setOpen(false)}
+        />
+        <span className={styles.comboCaret}>
+          <Icon icon={lophnSpaceIcons.collapse} pixels={iconPixels("base")} />
+        </span>
+        {open
+          ? (
+            <div
+              className={`${menuStyles.menu} ${styles.comboList}`}
+              role="listbox"
+            >
+              {shown.length === 0
+                ? <div className={styles.comboEmpty}>No matches</div>
+                : shown.map((option, index) => (
+                  <div
+                    key={option.value}
+                    role="option"
+                    aria-selected={index === 0}
+                    className={menuStyles.item}
+                    data-highlighted={index === 0 ? "" : undefined}
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      setText(option.label);
+                      setFiltering(false);
+                      setOpen(false);
+                    }}
+                  >
+                    {option.label}
+                  </div>
+                ))}
+            </div>
+          )
+          : null}
+      </div>
+    </Field>
+  );
+}
 
 /** C5: 선언된 검색 · table 결과. 입력 form과 table은 SDK ui-control·ui-table로 그린다. */
 export function DeclaredSearchTable() {
+  return <SearchTablePage />;
+}
+
+/** C5c: Change 입력에 "C-04"를 쓰는 중. 맞는 후보가 걸러져 펼쳐진다. */
+export function DeclaredSearchCombobox() {
+  return <SearchTablePage typed />;
+}
+
+function SearchTablePage({ typed = false }: { typed?: boolean }) {
   return (
     <ProjectWindow
       sidebar={{}}
@@ -340,9 +445,12 @@ export function DeclaredSearchTable() {
           <div className={styles.results}>
             <h1 className={styles.searchTitle}>Findings about a change</h1>
             <div className={styles.form}>
-              <Field label="Change">
-                <Select options={CHANGES} defaultValue="c-049" />
-              </Field>
+              <Combo
+                label="Change"
+                options={CHANGES}
+                defaultText={typed ? "C-04" : CHANGES[0].label}
+                typed={typed}
+              />
               <div className={styles.formGroup}>
                 <Legend>Kind</Legend>
                 <div className={styles.chips}>
@@ -351,17 +459,11 @@ export function DeclaredSearchTable() {
                   <Kind label="neutral" on={false} />
                 </div>
               </div>
-              <Field label="Metric">
-                <Select
-                  options={[
-                    { value: "any", label: "Any metric" },
-                    { value: "world_actions", label: "world_actions" },
-                    { value: "tool_calls", label: "tool_calls" },
-                    { value: "answer_match", label: "answer_match" },
-                  ]}
-                  defaultValue="any"
-                />
-              </Field>
+              <Combo
+                label="Metric"
+                options={METRICS}
+                defaultText="Any metric"
+              />
               <div className={styles.actions}>
                 <Button variant="primary">Search</Button>
                 <Button>Save as view</Button>
@@ -436,10 +538,6 @@ const BOARD = [
 
 /** C5b: 선언된 검색 · board 결과. 입력은 개체 고르기 둘이다. */
 export function DeclaredSearchBoard() {
-  const any = [{ value: "any", label: "Any" }, {
-    value: "q",
-    label: "query-leave-still",
-  }];
   return (
     <ProjectWindow
       sidebar={{}}
@@ -450,15 +548,12 @@ export function DeclaredSearchBoard() {
           <div className={styles.results}>
             <h1 className={styles.searchTitle}>Experiments by status</h1>
             <div className={styles.formRow}>
-              <Field label="Scenario">
-                <Select options={any} defaultValue="any" />
-              </Field>
-              <Field label="About change">
-                <Select
-                  options={[{ value: "any", label: "Any" }, ...CHANGES]}
-                  defaultValue="any"
-                />
-              </Field>
+              <Combo label="Scenario" options={SCENARIOS} defaultText="Any" />
+              <Combo
+                label="About change"
+                options={[{ value: "any", label: "Any" }, ...CHANGES]}
+                defaultText="Any"
+              />
             </div>
             <div className={styles.board}>
               {BOARD.map((column) => (

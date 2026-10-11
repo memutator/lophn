@@ -7,6 +7,8 @@ import {
   TabList,
   TabPanel,
   Tabs,
+  Tree,
+  type TreeNode,
 } from "@lophn/design/components";
 
 import { Mark, Mono, ProjectWindow, type TabSpec } from "./project-window.tsx";
@@ -18,7 +20,7 @@ const TABS: readonly TabSpec[] = [
   { key: "search", kind: "search", title: "phroner" },
 ];
 
-type SubTab = "domain" | "search" | "violations" | "glossary" | "contract";
+type SubTab = "overview" | "search" | "violations" | "glossary" | "contract";
 
 function Header({ tab }: { tab: SubTab }) {
   const detail = tab === "contract";
@@ -33,7 +35,7 @@ function Header({ tab }: { tab: SubTab }) {
           Keep experiments, scenarios, rubrics and findings of the eval loop
           findable.
         </p>
-        {tab === "domain"
+        {tab === "overview"
           ? (
             <p className={styles.applied}>
               Kept up to date by Context Engineer
@@ -416,7 +418,7 @@ function Edge(
   );
 }
 
-function DomainModel() {
+function DomainDiagram() {
   return (
     <div className={styles.domain}>
       <svg width={960} height={580} viewBox="0 0 960 580" aria-hidden="true">
@@ -470,6 +472,84 @@ function DomainModel() {
   );
 }
 
+// 그림 아래 Composition: context가 무엇으로 이루어졌는지 트리로. 경로는 보이고 계약 말(kind·public·함수)은 쓰지 않는다.
+const COMPOSITION: readonly TreeNode[] = [
+  {
+    id: "eval",
+    label: "eval",
+    children: [
+      {
+        id: "experiment",
+        label:
+          "Experiment — 13 documents in eval/experiments, numbered (exp-001 …)",
+        children: [
+          {
+            id: "experiment/has",
+            label:
+              "has: status · question (from section “질문”) · baseline (from section “기준선”)",
+          },
+          {
+            id: "experiment/links",
+            label:
+              "links: checks → Change (harness) · runs on → Scenario · produces → Finding",
+          },
+        ],
+      },
+      {
+        id: "scenario",
+        label:
+          "Scenario — 34 folders in eval/scenarios, one per scenario, with versions (r1, r2 …)",
+        children: [
+          { id: "scenario/has", label: "has: tags · stages" },
+          { id: "scenario/links", label: "links: graded by → Rubric" },
+        ],
+      },
+      {
+        id: "rubric",
+        label: "Rubric — 2 folders in eval/rubrics, with versions",
+        children: [{ id: "rubric/has", label: "has: criteria" }],
+      },
+      {
+        id: "finding",
+        label: "Finding — 14 documents in loop/findings, numbered (F-001 …)",
+        children: [
+          { id: "finding/has", label: "has: kind · effects" },
+          {
+            id: "finding/links",
+            label: "links: about → Change (harness) · from → Scenario",
+          },
+        ],
+      },
+      { id: "harness", label: "uses from harness: Change" },
+    ],
+  },
+];
+
+const COMPOSITION_OPEN = new Set([
+  "eval",
+  "experiment",
+  "scenario",
+  "rubric",
+  "finding",
+]);
+
+function Overview() {
+  return (
+    <>
+      <DomainDiagram />
+      <section className={styles.fns}>
+        <h2>Composition</h2>
+        <Tree
+          nodes={COMPOSITION}
+          expanded={COMPOSITION_OPEN}
+          onExpandedChange={() => {}}
+          label="Composition"
+        />
+      </section>
+    </>
+  );
+}
+
 function ContextWindow({ tab }: { tab: SubTab }) {
   return (
     <ProjectWindow
@@ -483,14 +563,14 @@ function ContextWindow({ tab }: { tab: SubTab }) {
             <Header tab={tab} />
             <Tabs defaultValue={tab}>
               <TabList>
-                <Tab value="domain">Domain model</Tab>
+                <Tab value="overview">Overview</Tab>
                 <Tab value="search">Search</Tab>
                 <Tab value="violations">Violations (2)</Tab>
                 <Tab value="glossary">Glossary</Tab>
                 <Tab value="contract">Contract</Tab>
               </TabList>
-              <TabPanel value="domain">
-                <DomainModel />
+              <TabPanel value="overview">
+                <Overview />
               </TabPanel>
               <TabPanel value="search">{null}</TabPanel>
               <TabPanel value="violations">
@@ -508,9 +588,9 @@ function ContextWindow({ tab }: { tab: SubTab }) {
   );
 }
 
-/** C2: Context 탭 · Domain model(기본 탭). */
-export function ContextDomain() {
-  return <ContextWindow tab="domain" />;
+/** C2: Context 탭 · Overview(기본 탭). */
+export function ContextOverview() {
+  return <ContextWindow tab="overview" />;
 }
 
 /** C2b: Context 탭 · Contract(세부, 뒤쪽 탭). */

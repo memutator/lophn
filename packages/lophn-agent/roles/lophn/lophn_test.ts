@@ -297,7 +297,7 @@ Deno.test("lophn-agent/roles/lophn#R5: document moves and new app registration a
 Deno.test("lophn-agent/roles/lophn#R7: project planning orders options from existing project, context widening, new project", () => {
   assertEquals(PLAN_OPTIONS, [
     "within_existing_project",
-    "widen_context_items",
+    "widen_context_boundary",
     "new_project",
   ]);
   // 앞선 방안이 맞으면 새 프로젝트를 추천하지 않는다(R7).
@@ -337,8 +337,8 @@ Deno.test("lophn-agent/roles/lophn#R7: project planning orders options from exis
         reason: "No existing project holds this purpose.",
       },
       {
-        option: "widen_context_items",
-        reason: "No context item covers this work.",
+        option: "widen_context_boundary",
+        reason: "No existing context covers this work.",
       },
     ],
   };
@@ -348,7 +348,7 @@ Deno.test("lophn-agent/roles/lophn#R7: project planning orders options from exis
 Deno.test("lophn-agent/roles/lophn#R7: choosing the second option rejects only the first", () => {
   const draft: PlanDraft = {
     purpose: "The Mahas launch notes live in one place.",
-    chosen: "widen_context_items",
+    chosen: "widen_context_boundary",
     rejected: [
       {
         option: "within_existing_project",
@@ -386,8 +386,8 @@ Deno.test("lophn-agent/roles/lophn#R8: a plan records purpose, rejected reasons,
         reason: "No existing project holds this purpose.",
       },
       {
-        option: "widen_context_items",
-        reason: "No context item covers this work.",
+        option: "widen_context_boundary",
+        reason: "No existing context covers this work.",
       },
     ],
     materials: [
@@ -443,8 +443,8 @@ Deno.test("lophn-agent/roles/lophn#R8: a plan's plan document body carries the h
     chosen: "within_existing_project",
     rejected: [
       {
-        option: "widen_context_items",
-        reason: "No context item covers this work.",
+        option: "widen_context_boundary",
+        reason: "No existing context covers this work.",
       },
     ],
     materials: [{
@@ -474,8 +474,8 @@ Deno.test("lophn-agent/roles/lophn#R11: the chosen and rejected options become t
         reason: "No existing project holds this purpose.",
       },
       {
-        option: "widen_context_items",
-        reason: "No context item covers this work.",
+        option: "widen_context_boundary",
+        reason: "No existing context covers this work.",
       },
     ],
     materials: [{
@@ -496,7 +496,7 @@ Deno.test("lophn-agent/roles/lophn#R11: the chosen and rejected options become t
   assert(body.includes("# Plan"));
   assert(body.includes("Purpose: The Mahas launch notes live in one place."));
   assert(body.includes(PLAN_OPTION_WORDS.within_existing_project));
-  assert(body.includes(PLAN_OPTION_WORDS.widen_context_items));
+  assert(body.includes(PLAN_OPTION_WORDS.widen_context_boundary));
   assert(body.includes(PLAN_OPTION_WORDS.new_project));
   assert(body.includes("rejected because"));
   assert(body.includes("doc_a"));

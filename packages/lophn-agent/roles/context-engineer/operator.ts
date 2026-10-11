@@ -3,38 +3,27 @@ import type {
   PresetDefinition,
 } from "../../../contracts/lophn-agent/mod.ts";
 
-// Operator 초안 제안(roles/context-engineer R11–R13). 순수 함수다: IO·시계·model 호출이
-// 없다. watch 변화·기준 자료 수준·수동 업무 관측은 harness/tools 묶음의 몫이고, 이 모듈은
+// Operator 초안 제안(roles/context-engineer R17–R19). 순수 함수다: IO·시계·model 호출이
+// 없다. 수동 업무 관측은 harness/tools 묶음의 몫이고, 이 모듈은
 // 그 관측으로 제안할 판단의 모양만 정한다. 사람 결정은 승인으로 묻고 초안은 승인 전에
 // 적용하지 않는다(P9): 승인 후의 실제 적용은 lophn-agent/assignments의 몫이다.
 
 export type OperatorBundle = OperatorApprovalBundle;
 
-// Operator 후보 근거(R11). 세 근거 중 하나만 있어도 시작한다.
+// Operator 후보 근거(R17). 최근 30일 같은 수동 업무 횟수다.
 export type OperatorEvidence = {
-  // 최근 30일 watch 변화 횟수다.
-  watch_changes_30d: number;
-  // 기준 자료가 뒤처진 일수다.
-  basis_lag_days: number;
-  // 최근 30일 같은 수동 업무 횟수다.
   manual_runs_30d: number;
 };
 
-export const WATCH_CHANGE_MIN = 4;
-export const BASIS_LAG_DAYS_MIN = 14;
 export const MANUAL_RUNS_MIN = 4;
-export const WATCH_WINDOW_DAYS = 30;
 export const MANUAL_WINDOW_DAYS = 30;
 
-// 후보 근거가 시작 충분한지 본다(R11). 세 근거 중 하나라도 요구 횟수·기간을 넘으면
-// 시작한다. 단순 합계나 자료 수집만 있는 일(모든 근거가 요구에 못 미침)은 제안하지
-// 않는다: false는 제안 없음이다.
+// 후보 근거가 시작 충분한지 본다(R17). 수동 업무가 요구 횟수를 넘을 때만 시작한다.
+// 단순 합계나 자료 수집만 있는 일은 제안하지 않는다: false는 제안 없음이다.
 export function evidenceEnough(
   evidence: OperatorEvidence,
 ): boolean {
-  return evidence.watch_changes_30d >= WATCH_CHANGE_MIN ||
-    evidence.basis_lag_days >= BASIS_LAG_DAYS_MIN ||
-    evidence.manual_runs_30d >= MANUAL_RUNS_MIN;
+  return evidence.manual_runs_30d >= MANUAL_RUNS_MIN;
 }
 
 // 반복 판단의 설명 항목이다(R12). prompt에 판단·제외·필요 근거·비교 기준·갱신 조건을
@@ -55,7 +44,7 @@ export type DraftScope =
 export type OperatorDraft = {
   judgment: JudgmentTerms;
   scope: DraftScope;
-  // preset 전체 구성(watch·읽을 자료)이다(R12, presets#R15).
+  // preset 전체 구성(고르는 context·읽을 자료)이다(R18, presets#R15).
   preset: PresetDefinition;
   // 기존 남길 문서 최소 1개(실제 첫 version이 있는)다(R12, assignments#R6).
   outputs: { document: string; content: string }[];

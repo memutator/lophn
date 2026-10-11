@@ -6,7 +6,6 @@ import {
   anthropicSystem,
   anthropicTools,
   assemblePrompt,
-  historySectionKey,
   type MaterialSource,
   type PromptDeps,
   type PromptInput,
@@ -18,133 +17,62 @@ import {
   type WirePacker,
 } from "./mod.ts";
 
-const DOC_A = "doc_01arz3ndektsv4rrffq69g5fav";
-const DOC_B = "doc_01arz3ndektsv4rrffq69g5faw";
-const DOC_C = "doc_01arz3ndektsv4rrffq69g5fax";
-const APP = "app_01arz3ndektsv4rrffq69g5fav";
-const VER_1 = "ver_01arz3ndektsv4rrffq69g5fav";
-const VER_2 = "ver_01arz3ndektsv4rrffq69g5faw";
+const CTX_A = "ctx_01arz3ndektsv4rrffq69g5fav";
+const CTX_B = "ctx_01arz3ndektsv4rrffq69g5faw";
+const CTX_C = "ctx_01arz3ndektsv4rrffq69g5fax";
+const HASH_1 = "h1";
+const HASH_2 = "h2";
 const AT = "2026-10-06T01:02:03Z";
 
 function source(overrides: Partial<MaterialSource>): MaterialSource {
   return {
-    target: { kind: "document", document: DOC_A, section: null },
-    perspective: "basis",
+    address: CTX_A,
     title: "TITLE",
-    version: VER_1,
-    summary: null,
-    outline: [],
-    changed: false,
-    change_seq: null,
-    sections: [],
+    version: HASH_1,
+    text: "OVERVIEW A",
     ...overrides,
   };
 }
-
-const BASIS = source({
-  summary: "BASIS SUMMARY",
-  outline: [
-    { key: "intro", title: "Intro", parent: null },
-    { key: "intro.detail", title: "Detail", parent: "intro" },
-  ],
-  sections: [{ key: "intro", text: "INTRO BODY" }],
-});
-const REFERENCE = source({
-  target: { kind: "document", document: DOC_B, section: null },
-  perspective: "reference",
-  title: "REF TITLE",
-  summary: "REF SUMMARY",
-  outline: [{ key: "ref-top", title: "Ref Top", parent: null }],
-  sections: [{ key: "ref-top", text: "REF BODY" }],
-});
-const WATCH_CHANGED = source({
-  target: { kind: "document", document: DOC_C, section: null },
-  perspective: "watch",
-  title: "WATCH TITLE",
-  summary: "WATCH SUMMARY",
-  changed: true,
-  change_seq: 7,
-});
-const WATCH_SAME = source({
-  target: { kind: "app_command", app: APP, command: "list" },
-  perspective: "watch",
-  title: "SAME TITLE",
-  summary: "SAME SUMMARY",
-  changed: false,
-});
 
 function joined(rendered: RenderedMaterial): string {
   return rendered.materials.join("\n\n");
 }
 
-Deno.test("lophn-agent/harness/prompt-assemble#R4: 기준은 주소·version·summary·최상위 outline, 참고는 주소·summary, watch는 변경 자료만 summary와 변경 표시이고 미변경은 주소만 넣는다", async () => {
+Deno.test("lophn-agent/harness/prompt-assemble#R4: context마다 자료 하나이고 머리에 이름·id·판 hash가 있으며 본문은 data 포장 안에 있다", async () => {
   const rendered = await renderMaterial(
     [
-      { ...BASIS, sections: [] },
-      { ...REFERENCE, sections: [] },
-      WATCH_CHANGED,
-      WATCH_SAME,
+      source({ title: "Experiments", text: "OVERVIEW A" }),
+      source({ address: CTX_B, title: "Recipes", text: "OVERVIEW B" }),
     ],
     { collected_at: AT },
   );
-  const [basis, reference, changed, same] = rendered.materials;
-  assertStringIncludes(basis, `document ${DOC_A}`);
-  assertStringIncludes(basis, `version ${VER_1}`);
-  assertStringIncludes(basis, "BASIS SUMMARY");
-  assertStringIncludes(basis, "- intro Intro");
-  assert(!basis.includes("Detail"), "하위 section은 outline에 없다");
-  assertStringIncludes(reference, "REF SUMMARY");
-  assert(!reference.includes("Ref Top"), "참고는 outline이 없다");
-  assertStringIncludes(changed, "변경됨");
-  assertStringIncludes(changed, "WATCH SUMMARY");
-  assertStringIncludes(same, `app_command ${APP} list`);
-  assertStringIncludes(same, "미변경");
-  assert(!same.includes("SAME SUMMARY") && !same.includes("SAME TITLE"));
-  // 자료에서 온 글은 모두 포장 안에 있다.
-  assertStringIncludes(basis, DATA_START_MARKER);
+  assertEquals(rendered.materials.length, 2);
+  const [first, second] = rendered.materials;
+  assertStringIncludes(first, `[context] Experiments | ${CTX_A}`);
+  assertStringIncludes(first, `version ${HASH_1}`);
+  assertStringIncludes(first, DATA_START_MARKER);
+  assertStringIncludes(first, "OVERVIEW A");
+  assertStringIncludes(second, `[context] Recipes | ${CTX_B}`);
+  assert(!/기준|참고|watch|변경됨/.test(joined(rendered)));
   assertEquals(
-    rendered.references.map((r) => [r.perspective, r.depth]),
-    [
-      ["basis", "full"],
-      ["reference", "full"],
-      ["watch", "full"],
-      ["watch", "address_only"],
-    ],
+    rendered.references.map((r) => [r.address, r.version, r.depth]),
+    [[CTX_A, HASH_1, "full"], [CTX_B, HASH_1, "full"]],
   );
 });
 
-Deno.test("lophn-agent/harness/prompt-assemble#R4: 본문은 요청한 section만 펼친다", async () => {
-  const none = await renderMaterial([{ ...BASIS, sections: [] }], {
-    collected_at: AT,
-  });
-  assert(!joined(none).includes("INTRO BODY"));
-  const asked = await renderMaterial([BASIS], { collected_at: AT });
-  assertStringIncludes(joined(asked), "INTRO BODY");
-  assertEquals(asked.references[0].sections, ["intro"]);
-});
-
-Deno.test("lophn-agent/harness/prompt-assemble#R5: 같은 대상·version·관점은 한 번만, 다르면 제목이 같아도 합치지 않고 tool 이력에 있는 본문은 다시 붙이지 않는다", async () => {
-  const rendered = await renderMaterial(
-    [
-      BASIS,
-      { ...BASIS, summary: "DUPLICATE" },
-      { ...BASIS, version: VER_2, summary: "OTHER VERSION" },
-      { ...BASIS, perspective: "reference", summary: "OTHER PERSPECTIVE" },
-    ],
-    { collected_at: AT },
-  );
-  assertEquals(rendered.references.length, 3);
+Deno.test("lophn-agent/harness/prompt-assemble#R5: 같은 context·판은 한 번만 넣고 판이 다르면 합치지 않으며 같은 입력은 같은 byte다", async () => {
+  const input = [
+    source({}),
+    source({ text: "DUPLICATE" }),
+    source({ version: HASH_2, text: "OTHER VERSION" }),
+  ];
+  const rendered = await renderMaterial(input, { collected_at: AT });
+  assertEquals(rendered.references.length, 2);
   const text = joined(rendered);
   assert(!text.includes("DUPLICATE"));
   assertStringIncludes(text, "OTHER VERSION");
-  assertStringIncludes(text, "OTHER PERSPECTIVE");
-
-  const inHistory = await renderMaterial([BASIS], {
-    collected_at: AT,
-    in_history: new Set([historySectionKey(DOC_A, VER_1, "intro")]),
-  });
-  assert(!joined(inHistory).includes("INTRO BODY"));
-  assertEquals(inHistory.references[0].sections, []);
+  const again = await renderMaterial(input, { collected_at: AT });
+  assertEquals(again.materials, rendered.materials);
 });
 
 function skill(name: string, selected: boolean): SkillEntry {
@@ -233,60 +161,31 @@ function promptWith(materials: string[], contextLimit: number): PromptInput {
 
 const big = (label: string) => `${label} ${"x".repeat(600)}`;
 const SHRINK_SOURCES: MaterialSource[] = [
-  source({
-    perspective: "reference",
-    target: { kind: "document", document: DOC_B, section: null },
-    summary: big("REF-ONE"),
-  }),
-  source({
-    perspective: "reference",
-    target: { kind: "document", document: DOC_C, section: null },
-    summary: big("REF-TWO"),
-  }),
-  source({
-    summary: big("BASIS-SUMMARY"),
-    outline: [{ key: "top", title: big("BASIS-OUTLINE"), parent: null }],
-  }),
-  source({
-    perspective: "watch",
-    target: { kind: "document", document: DOC_C, section: "late" },
-    summary: big("WATCH-NEW"),
-    changed: true,
-    change_seq: 9,
-  }),
-  source({
-    perspective: "watch",
-    target: { kind: "document", document: DOC_C, section: "early" },
-    summary: big("WATCH-OLD"),
-    changed: true,
-    change_seq: 2,
-  }),
+  source({ address: CTX_A, text: big("CTX-ONE") }),
+  source({ address: CTX_B, text: big("CTX-TWO") }),
+  source({ address: CTX_C, text: big("CTX-THREE") }),
 ];
 
-Deno.test("lophn-agent/harness/prompt-assemble#R18: 초기 자료 초과는 참고 summary → 기준 outline → 선택 자료(오래된 변경부터) 순으로 주소만 남기고 생략 수를 밝힌다", async () => {
-  // 단계마다 조립한 입력을 모은다.
+Deno.test("lophn-agent/harness/prompt-assemble#R18: 초기 자료 초과는 뒤 context부터 주소만 남기고 생략 수를 밝힌다", async () => {
   const stages: RenderedMaterial[] = [];
   await shrinkMaterial(SHRINK_SOURCES, { collected_at: AT }, (rendered) => {
     stages.push(rendered);
     return Promise.resolve(false);
   });
-  const levels = stages.map((s) => s.omissions.map((o) => o.level));
-  assertEquals(levels[0], []);
-  assertEquals(levels[1], ["reference_summary"]);
-  assertEquals(levels[2], ["reference_summary", "reference_summary"]);
-  assertEquals(levels[3].at(-1), "basis_outline");
-  assertEquals(
-    stages[4].omissions.at(-1)?.source,
-    `document ${DOC_C}#early`,
-    "오래된 변경부터",
-  );
-  assertEquals(stages[5].omissions.at(-1)?.source, `document ${DOC_C}#late`);
+  assertEquals(stages.length, 4);
+  assertEquals(stages[0].omissions, []);
+  assertEquals(stages.map((s) => s.omissions.map((o) => o.source)), [
+    [],
+    [CTX_C],
+    [CTX_C, CTX_B],
+    [CTX_C, CTX_B, CTX_A],
+  ]);
 
-  // 기준 outline까지 줄인 크기에 맞춰 assemblePrompt의 input_over_budget에 반응해 다시 조립한다.
-  const stageBytes = encoder.encode(stages[3].materials.join("")).byteLength;
+  // 한 context를 줄인 크기에 맞춰 assemblePrompt의 input_over_budget에 반응해 다시 조립한다.
+  const stageBytes = encoder.encode(stages[1].materials.join("")).byteLength;
   const probe = await assemblePrompt(deps, promptWith([], 1_000_000));
   assert(probe.status === "ready");
-  const limit = probe.assembly.measured_tokens + stageBytes + 700;
+  const limit = probe.assembly.measured_tokens + stageBytes + 100;
   let blockedCount = 0;
   const result = await shrinkMaterial(
     SHRINK_SOURCES,
@@ -306,13 +205,10 @@ Deno.test("lophn-agent/harness/prompt-assemble#R18: 초기 자료 초과는 참�
   assert(result.fits);
   assert(blockedCount >= 1);
   const text = joined(result);
-  assert(!text.includes("REF-ONE") && !text.includes("REF-TWO"));
-  assertStringIncludes(text, "WATCH-OLD");
-  assert(result.omissions.every((o) => o.level !== "selected_material"));
-  // 생략 범위와 수가 자료에 보인다.
+  assert(!text.includes("CTX-THREE"));
+  assertStringIncludes(text, "CTX-ONE");
   assertStringIncludes(text, "[자료 생략]");
-  assertStringIncludes(text, "참고 summary 2개");
-  assertStringIncludes(text, `document ${DOC_B}`);
+  assertStringIncludes(text, CTX_C);
 });
 
 Deno.test("lophn-agent/harness/prompt-assemble#R18: 자료를 모두 주소만으로 줄여도 필수 입력이 넘으면 fits가 거짓이라 호출하지 않는다", async () => {
@@ -332,10 +228,7 @@ Deno.test("lophn-agent/harness/prompt-assemble#R18: 자료를 모두 주소만�
     },
   );
   assertEquals(result.fits, false);
-  assertEquals(
-    result.omissions.filter((o) => o.level === "selected_material").length,
-    3,
-  );
+  assertEquals(result.omissions.length, 3);
   assertEquals(
     result.references.every((r) => r.depth === "address_only"),
     true,

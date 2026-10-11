@@ -1,7 +1,7 @@
 import type { PlaceRef } from "@lophn/contracts/documents";
 
 // lophn의 프로젝트 기획 문서 검사(roles/lophn#R7, R8). 순수 함수다. 기획은 기존
-// 프로젝트 목적 안에 두기 → 기존 컨텍스트의 항목 범위 넓히기 → 새 프로젝트 순서로
+// 프로젝트 목적 안에 두기 → 기존 context의 경계 넓히기(변경은 Context Engineer가 설계) → 새 프로젝트 순서로
 // 판단하며 앞선 방안이 맞으면 새 프로젝트를 추천하지 않는다(R7). 기획 문서는 다섯
 // 내용(목적 한 문장, 앞선 두 방안을 버린 이유, 둘 자료와 자리 후보, 연결할
 // 컨텍스트와 목적, 다른 프로젝트·앱에 내줄 것 또는 없음)을 모두 적는다(R8) — 이
@@ -11,14 +11,15 @@ import type { PlaceRef } from "@lophn/contracts/documents";
 // 프로젝트 기획 순서의 방안이다(R7).
 export const PLAN_OPTIONS = [
   "within_existing_project",
-  "widen_context_items",
+  "widen_context_boundary",
   "new_project",
 ] as const;
 export type PlanOption = (typeof PLAN_OPTIONS)[number];
 
 export const PLAN_OPTION_WORDS: Record<PlanOption, string> = {
   within_existing_project: "an existing project holds this work",
-  widen_context_items: "existing context items widen to cover this work",
+  widen_context_boundary:
+    "the boundary of an existing context widens to cover this work",
   new_project: "a new project holds this work",
 };
 

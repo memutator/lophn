@@ -249,14 +249,28 @@ function InfoColumn(
   );
 }
 
+/** 탭 안 맨 위의 얇은 view bar. 왼쪽에 project 안 경로, 오른쪽에 그 탭의 조작. 탭 줄에는 조작을 두지 않는다. */
+export function ViewBar(
+  { path, children }: { path: string; children?: ReactNode },
+) {
+  return (
+    <div className={styles.viewBar}>
+      <span className={styles.viewPath}>{path.split("/").join(" / ")}</span>
+      <div className={styles.viewActions}>{children}</div>
+    </div>
+  );
+}
+
 /** 문서 칸 본문. `info`가 있으면 오른쪽에 info 칸이 붙어 본문이 좁아진다. 다른 칸은 덮지 않는다. */
 export function DocumentPane(
-  { path, open, info, onInfo, editing }: {
+  { path, open, info, onInfo, onToggleInfo, editing, onEditing }: {
     path: string;
     open: Open;
     info: InfoPanel | null;
     onInfo: (panel: InfoPanel) => void;
+    onToggleInfo: () => void;
     editing: boolean;
+    onEditing: () => void;
   },
 ) {
   const page = pageFor(path, open);
@@ -272,33 +286,43 @@ export function DocumentPane(
     setCurrent(heading);
   };
   return (
-    <div className={styles.docPane}>
-      <div ref={main} className={styles.docMain}>
-        <article
-          className={`${styles.reading} ${editing ? styles.editing : ""}`}
-          contentEditable={editing}
-          suppressContentEditableWarning
-        >
-          <h1>{page.title}</h1>
-          {page.body}
-        </article>
-      </div>
-      {info === null ? null : (
-        <InfoColumn
-          path={path}
-          outline={page.outline}
-          current={current}
-          panel={info}
-          onPanel={onInfo}
-          open={open}
-          jump={jump}
+    <div className={styles.docTab}>
+      <ViewBar path={path}>
+        <DocActions
+          editing={editing}
+          infoOpen={info !== null}
+          onEditing={onEditing}
+          onInfo={onToggleInfo}
         />
-      )}
+      </ViewBar>
+      <div className={styles.docPane}>
+        <div ref={main} className={styles.docMain}>
+          <article
+            className={`${styles.reading} ${editing ? styles.editing : ""}`}
+            contentEditable={editing}
+            suppressContentEditableWarning
+          >
+            <h1>{page.title}</h1>
+            {page.body}
+          </article>
+        </div>
+        {info === null ? null : (
+          <InfoColumn
+            path={path}
+            outline={page.outline}
+            current={current}
+            panel={info}
+            onPanel={onInfo}
+            open={open}
+            jump={jump}
+          />
+        )}
+      </div>
     </div>
   );
 }
 
-/** 문서 탭의 탭 줄 오른쪽 끝 조작: Edit/Read 바꾸기, Info, …. */
+/** 문서 탭 안 view bar의 오른쪽 조작: Edit/Read 바꾸기, Info, …. */
 export function DocActions(
   { editing, infoOpen, onEditing, onInfo }: {
     editing: boolean;

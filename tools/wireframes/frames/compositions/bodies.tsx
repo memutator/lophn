@@ -2,15 +2,19 @@
 import { useState } from "react";
 import {
   Card,
+  editorIcons,
   Icon,
+  IconButton,
   iconPixels,
   Input,
   lophnSpaceIcons,
+  Menu,
 } from "@lophn/design/components";
 import { Button, Field, Select } from "@lophn/ui-control";
 
 import menuStyles from "../../../../packages/design/components/menu/menu.module.css";
 import tableStyles from "../../../../packages/design/components/table/table.module.css";
+import { ViewBar } from "./documents.tsx";
 import { Link } from "./link.tsx";
 import {
   contextTab,
@@ -31,9 +35,24 @@ const PROMPT = "mina@lophn:~/work/phroner$ ";
 /** 새 터미널 탭. PTY 없이 고정된 출력만 보인다. */
 export function TerminalBody() {
   return (
-    <pre className={styles.terminal}>
-      {`${PROMPT}ls\ndocs  eval  loop\n${PROMPT}git status --short\n M eval/experiments/exp-008-query-tools.md\n${PROMPT}`}
-    </pre>
+    <div className={styles.docTab}>
+      <ViewBar path="phroner">
+        <Menu
+          trigger={
+            <IconButton icon={editorIcons.menu} label="More" size="sm" />
+          }
+          items={[
+            { id: "clear", label: "Clear" },
+            { id: "rename", label: "Rename" },
+            { id: "split", label: "Split" },
+          ]}
+          onSelect={() => {}}
+        />
+      </ViewBar>
+      <pre className={styles.terminal}>
+        {`${PROMPT}ls\ndocs  eval  loop\n${PROMPT}git status --short\n M eval/experiments/exp-008-query-tools.md\n${PROMPT}`}
+      </pre>
+    </div>
   );
 }
 

@@ -80,12 +80,10 @@ export interface TabSpec {
 
 /** 탭 줄. 종류는 아이콘과 글자로 구별한다(실제 TabStrip과 같은 마크업·CSS). 누르면 고르고 ×로 닫는다. */
 export function TabBar(
-  { tabs, selected, focused = true, actions, newTab, onSelect, onClose }: {
+  { tabs, selected, focused = true, newTab, onSelect, onClose }: {
     tabs: readonly TabSpec[];
     selected: string;
     focused?: boolean;
-    /** 고른 탭의 조작 icon(문서 탭의 Edit/Read·Info·…). 탭 줄 오른쪽 끝에 놓인다. */
-    actions?: ReactNode;
     /** 탭 줄 끝의 새 탭 단추 자리. 없으면 누를 수 없는 + 단추다. */
     newTab?: ReactNode;
     onSelect?: (key: string) => void;
@@ -151,7 +149,6 @@ export function TabBar(
         })}
       </div>
       <div className={tabStyles.end}>
-        {actions}
         {newTab ?? (
           <IconButton icon={lophnSpaceIcons.add} label="New tab" size="sm" />
         )}

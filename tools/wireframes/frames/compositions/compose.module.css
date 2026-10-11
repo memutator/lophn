@@ -847,7 +847,8 @@
 /* 터미널 탭 */
 .terminal {
   box-sizing: border-box;
-  height: 100%;
+  flex: 1;
+  min-height: var(--space-0);
   margin: var(--space-0);
   padding: var(--space-6);
   background: var(--color-surface-base);
@@ -953,9 +954,45 @@
 }
 
 /* 문서 탭과 info 칸 */
+.docTab {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: var(--space-0);
+}
+
+/* 탭 안 맨 위의 얇은 view bar */
+.viewBar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  box-sizing: border-box;
+  height: var(--control-md-height);
+  padding: var(--space-0) var(--space-4) var(--space-0)
+    var(--layout-pane-padding-wide);
+}
+
+.viewPath {
+  min-width: var(--space-0);
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viewActions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+}
+
 .docPane {
   display: flex;
-  height: 100%;
+  flex: 1;
   min-height: var(--space-0);
 }
 

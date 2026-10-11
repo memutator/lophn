@@ -535,7 +535,7 @@ export const PAGES: readonly WireframePage[] = [
   fresh(
     "new-document-tab",
     "Project · document tab",
-    "문서 탭은 본문이 맨 위부터 시작한다. 제목은 탭 이름으로 충분하고, 판·저장 시각·목차·context 같은 정보는 그 탭 안에서 여는 info 칸에 있다. 조작(Edit/Read, Info, …)은 탭 줄 오른쪽 끝 icon이고 오류는 toast로 알린다.",
+    "문서 탭은 본문이 맨 위부터 시작한다. 제목은 탭 이름으로 충분하고, 판·저장 시각·목차·context 같은 정보는 그 탭 안에서 여는 info 칸에 있다. 탭 줄에는 탭과 +만 있고, 조작은 각 탭 맨 위의 얇은 view bar(왼쪽 project 안 경로, 오른쪽 Read/Edit 바꾸기·Info·…)에 있다. 오류는 toast로 알린다.",
     "new-document-tab",
   ),
   fresh(

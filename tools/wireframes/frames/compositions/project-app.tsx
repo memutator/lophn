@@ -19,7 +19,7 @@ import {
 import { ContextsBody, SearchBody, TerminalBody } from "./bodies.tsx";
 import { ContextBody, type SubTab } from "./context-body.tsx";
 import { Conversation } from "./conversation.tsx";
-import { DocActions, DocumentPane, type InfoPanel } from "./documents.tsx";
+import { DocumentPane, type InfoPanel } from "./documents.tsx";
 import { ContextDrafting } from "./context-drafting.tsx";
 import {
   contextTab,
@@ -256,7 +256,18 @@ export function ProjectApp(
             open={open}
             info={info[tab.key] ?? null}
             onInfo={(panel) => setInfo({ ...info, [tab.key]: panel })}
+            onToggleInfo={() => {
+              const next = { ...info };
+              if (next[tab.key] === undefined) next[tab.key] = "info";
+              else delete next[tab.key];
+              setInfo(next);
+            }}
             editing={editing.has(tab.key)}
+            onEditing={() => {
+              const next = new Set(editing);
+              if (!next.delete(tab.key)) next.add(tab.key);
+              setEditing(next);
+            }}
           />
         );
       case "context":
@@ -330,35 +341,12 @@ export function ProjectApp(
         </div>
         <div className={styles.panes}>
           {panes.map((pane, index) => {
-            const selected = pane.tabs.find((tab) => tab.key === pane.selected);
             return (
               <section key={index} className={styles.pane}>
                 <TabBar
                   tabs={pane.tabs}
                   selected={pane.selected}
                   focused={index === 0}
-                  actions={selected?.kind === "document"
-                    ? (
-                      <DocActions
-                        editing={editing.has(selected.key)}
-                        infoOpen={info[selected.key] !== undefined}
-                        onEditing={() => {
-                          const next = new Set(editing);
-                          if (!next.delete(selected.key)) {
-                            next.add(selected.key);
-                          }
-                          setEditing(next);
-                        }}
-                        onInfo={() => {
-                          const next = { ...info };
-                          if (next[selected.key] === undefined) {
-                            next[selected.key] = "info";
-                          } else delete next[selected.key];
-                          setInfo(next);
-                        }}
-                      />
-                    )
-                    : undefined}
                   newTab={<TabMenu onPick={pick} />}
                   onSelect={(key) =>
                     setPanes((current) =>

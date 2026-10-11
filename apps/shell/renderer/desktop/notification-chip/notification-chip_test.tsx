@@ -78,6 +78,48 @@ Deno.test("shell/desktop#R10, shell/design-system#R35: 3건은 오른쪽 아래 
   assert(!corner.textContent?.includes("A decision is waiting"));
 });
 
+Deno.test("shell/desktop#R10: chip은 무슨 일이 어디서 언제 있었는지 notification이 가진 사실로 말하고 일반 안내는 마지막 수단이다", async () => {
+  const DOC = "doc_01h455vb4pex5v6nkc6gd5fd01";
+  const at = new Date(NOW - 4 * 60 * 1000).toISOString();
+  const fake = fakeRequests({
+    notifications: [
+      {
+        ...notification(1, "QuestionCreated", "10"),
+        document: DOC,
+        occurredAt: at,
+      },
+      { ...notification(2, "FutureEvent", "20"), document: DOC },
+      notification(3, "FutureEvent", "30"),
+    ],
+  });
+  const ticks = manualTicks();
+  using view = render(
+    provide(fake, ticks, <NotificationChip onView={() => {}} />),
+  );
+  await flush();
+  const title = () =>
+    find(view.container, "[data-notification-chip]").querySelector("p")!
+      .textContent;
+  assertEquals(
+    title(),
+    "A question is waiting · 4 minutes ago",
+  );
+  click(
+    find(view.container, "[data-notification-chip]").querySelectorAll(
+      "button",
+    )[1]!,
+  );
+  await flush();
+  assertEquals(title(), "Something in a document needs your attention");
+  click(
+    find(view.container, "[data-notification-chip]").querySelectorAll(
+      "button",
+    )[1]!,
+  );
+  await flush();
+  assertEquals(title(), "Something needs your attention");
+});
+
 Deno.test("shell/desktop#R10: 보기는 things-to-confirm으로 갈 뿐이고 닫기는 이 창에서 감출 뿐 읽음·결정이 아니다", async () => {
   const fake = fakeRequests({ notifications: [...THREE] });
   let viewed = 0;

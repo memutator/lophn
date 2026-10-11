@@ -1495,6 +1495,7 @@ export const en = {
   "project-workspace.button.open-terminal": "Open terminal",
   "project-workspace.button.preview-again": "Preview again",
   "project-workspace.button.remove-rule": "Remove rule",
+  "project-workspace.button.show-notices": "Show notices",
   "project-workspace.button.split-pane": "Open in side pane",
   "project-workspace.button.turn-on-tracking": "Turn on tracking",
   "project-workspace.empty.no-contexts": "No related contexts.",
@@ -2582,6 +2583,8 @@ export const en = {
   "things-to-confirm.label.event-issue-opened": "An issue was reported",
   "things-to-confirm.label.event-issue-reopened": "An issue came back",
   "things-to-confirm.label.event-other": "Something needs your attention",
+  "things-to-confirm.label.event-other-document":
+    "Something in a document needs your attention",
   "things-to-confirm.label.event-paused": "A role was paused",
   "things-to-confirm.label.event-question": "A question is waiting",
   "things-to-confirm.label.event-task-check-failed": "A task's check failed",

@@ -1493,6 +1493,7 @@ export type PlaceholderKinds = {
   "project-workspace.button.open-terminal": Record<never, never>;
   "project-workspace.button.preview-again": Record<never, never>;
   "project-workspace.button.remove-rule": Record<never, never>;
+  "project-workspace.button.show-notices": Record<never, never>;
   "project-workspace.button.split-pane": Record<never, never>;
   "project-workspace.button.turn-on-tracking": Record<never, never>;
   "project-workspace.empty.no-contexts": Record<never, never>;
@@ -2580,6 +2581,7 @@ export type PlaceholderKinds = {
   "things-to-confirm.label.event-issue-opened": Record<never, never>;
   "things-to-confirm.label.event-issue-reopened": Record<never, never>;
   "things-to-confirm.label.event-other": Record<never, never>;
+  "things-to-confirm.label.event-other-document": Record<never, never>;
   "things-to-confirm.label.event-paused": Record<never, never>;
   "things-to-confirm.label.event-question": Record<never, never>;
   "things-to-confirm.label.event-task-check-failed": Record<never, never>;

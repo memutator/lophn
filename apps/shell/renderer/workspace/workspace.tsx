@@ -282,7 +282,7 @@ export function Workspace(
   const positions = useRef<
     Record<string, { section: string; scroll_offset: number }>
   >({});
-  const positionTimer = useRef<number | null>(null);
+  const positionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const withPositions = (next: WorkspaceView): WorkspaceView => ({
     ...next,

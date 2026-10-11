@@ -272,7 +272,12 @@ Deno.test("apps/preview#R8: preview 보고는 mode=preview와 release 없음으�
       report(request) {
         calls.push(request);
         return Promise.resolve(
-          ok({ report_id: "rpt_01h455vb4pex5v6nkc6gd5fdw1" }),
+          ok({
+            report: "rpt_01h455vb4pex5v6nkc6gd5fdw1",
+            snapshot: "snp_01h455vb4pex5v6nkc6gd5fdw1",
+            problem: "prb_01h455vb4pex5v6nkc6gd5fdw1",
+            diagnostic_scope: null,
+          }),
         );
       },
     },

@@ -54,9 +54,6 @@ export type SearchSyncDeps = {
   // 읽기·보내기가 실패했을 때 다시 확인하기까지의 대기. 성공이면 timer를 두지 않는다.
   retryMs: number;
   pageLimit?: number;
-  // 한 번 따라잡기를 끝냈을 때(추출이 반영됐을 수 있다) 부른다. watch consumer가 추출 미완료로
-  // 미확인이던 비교를 다시 확인한다.
-  onSettled?(): void;
 };
 
 export type SearchSync = {
@@ -273,7 +270,6 @@ export function watchSearchIndex(deps: SearchSyncDeps): SearchSync {
           retryLater();
         }
       } while (again && !stopped);
-      if (!stopped) deps.onSettled?.();
     })().finally(() => {
       running = undefined;
     });

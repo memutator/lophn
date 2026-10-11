@@ -56,11 +56,6 @@ export const NOTIFICATION_TRIGGERS = [
     condition: "machine_repeated_failure_or_archived_target",
   },
   {
-    event: "ContextWatchedItemChanged",
-    owner: "documents/contexts",
-    condition: "machine_watch_change_or_section_loss",
-  },
-  {
     event: "ReleaseActivationFailed",
     owner: "apps/releases",
     condition: "always",

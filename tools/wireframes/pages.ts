@@ -58,7 +58,15 @@ export type ScreenId =
   | "project-app-panel"
   | "app-space"
   | "conversation-dock"
-  | "new-placeholder";
+  | "new-tab-kinds"
+  | "new-tab-menu"
+  | "new-context-contract"
+  | "new-context-violations"
+  | "new-violation-toast"
+  | "new-saved-view"
+  | "new-plain-search"
+  | "new-workspace"
+  | "new-organize";
 
 export interface WireframePage {
   /** 주소 `#/<id>`와 frame의 `?frame=<id>`에 쓴다. */
@@ -88,6 +96,15 @@ function now(
     description,
     screen,
   };
+}
+
+function fresh(
+  id: string,
+  title: string,
+  description: string,
+  screen: ScreenId,
+): WireframePage {
+  return { id, part: "new", title, badges: [BADGE_NEW], description, screen };
 }
 
 export const PAGES: readonly WireframePage[] = [
@@ -238,15 +255,60 @@ export const PAGES: readonly WireframePage[] = [
     "공간 오른쪽에 여는 대화 도크. lophn과 나눈 말, 시각 블록(표·차트), 결과 문서 링크가 보인다.",
     "conversation-dock",
   ),
-  {
-    id: "new-placeholder",
-    part: "new",
-    title: "새 설계 · 준비 중",
-    badges: [BADGE_NEW],
-    description:
-      "새 설계 wireframe 자리. 명세가 오는 대로 page를 더한다(project tab 종류, context 탭, contract 위반 toast, 저장한 view가 있는 project 검색, project 걱정 없는 Workspace). 사람이 이 page들을 확인한 뒤에 구현한다.",
-    screen: "new-placeholder",
-  },
+  fresh(
+    "new-project-tabs",
+    "Project · tab kinds",
+    "프로젝트 화면의 칸에 띄우는 탭 종류를 늘려 대부분의 화면을 탭으로 연다. 문서·터미널·앱 패널에 더해 대화·context·검색이 탭이 된다.",
+    "new-tab-kinds",
+  ),
+  fresh(
+    "new-project-tab-menu",
+    "Project · new tab menu",
+    "탭 줄 끝의 + 메뉴를 펼친 상태. New tab 아래에 문서·터미널·대화(lophn·Context Engineer·Operator)·context·검색·앱 패널이 있다.",
+    "new-tab-menu",
+  ),
+  fresh(
+    "new-context-contract",
+    "Context tab · Contract",
+    "context는 project 문서 위의 결정적 계약과 검색 함수다. type마다 자료가 놓인 모양(kind)·field·관계를 적고, 다른 context에는 public만 내놓는다. Context Engineer가 만들고 test를 통과하면 자동 적용된다.",
+    "new-context-contract",
+  ),
+  fresh(
+    "new-context-violations",
+    "Context tab · Violations",
+    "문서가 계약을 어기면 program이 찾아 알리고, 단추 하나로 Context Engineer에게 넘긴다. 근거는 자동으로 붙는다.",
+    "new-context-violations",
+  ),
+  fresh(
+    "new-violation-toast",
+    "Contract violation toast",
+    "위반이 생기면 오른쪽 아래 toast로 알린다. 누르면 그 context의 Violations가 열린다.",
+    "new-violation-toast",
+  ),
+  fresh(
+    "new-saved-view",
+    "Search tab · saved view",
+    "saved view는 context 검색 함수 호출을 저장한 것이다. 열 때마다 다시 계산한다. 일반 검색은 그때그때 한다.",
+    "new-saved-view",
+  ),
+  fresh(
+    "new-plain-search",
+    "Search tab · plain search",
+    "일반 검색어의 결과는 문서별 snippet 목록이다. 일반 검색에는 [Save as view]가 없다. 저장하려면 context 검색 함수 호출로 한다.",
+    "new-plain-search",
+  ),
+  fresh(
+    "new-workspace",
+    "Lophn Workspace · without project concerns",
+    "Lophn Workspace는 따로인 페이지로 남고, project 관심사(Documents, Context)는 뺀다. project 상세에는 project 자체 관리만 남는다.",
+    "new-workspace",
+  ),
+  fresh(
+    "new-organize",
+    "Project · organize documents",
+    "문서 보관·이동·추적 중단·폴더 연결 해제는 Workspace가 아니라 project 화면에서 한다. sidebar의 문서 행과 폴더 행을 오른쪽 클릭해 연다.",
+    "new-organize",
+  ),
 ];
 
 /** 이 화면들은 버렸다. 목록에 올리지 않는다. */

@@ -33,5 +33,14 @@ Deno.test("shell#T66: 모든 page에 제목·badge·설명이 있고 id는 겹�
   for (const part of partIds) {
     assert(PAGES.some((page) => page.part === part), `${part}: page 없음`);
   }
-  assertEquals(PAGES.find((page) => page.part === "new")?.badges, ["새 설계"]);
+});
+
+Deno.test("shell#T66: 새 설계 page 아홉 개는 모두 새 설계 badge와 한국어 설명을 갖는다", () => {
+  const fresh = PAGES.filter((page) => page.part === "new");
+  assertEquals(fresh.length, 9);
+  for (const page of fresh) {
+    assertEquals(page.badges, ["새 설계"], page.id);
+    assert(/[가-힣]/.test(page.description), `${page.id}: 한국어 설명`);
+    assert(page.title.trim() !== "", `${page.id}: title`);
+  }
 });

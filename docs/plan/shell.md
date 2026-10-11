@@ -1254,7 +1254,7 @@ concerns: [shell]
   - 목록은 part별로 page를 묶고, page는 제목·badge·한국어 설명·고정 1280x800 frame(칸 폭에 맞춰 줄임)·이전/다음을 갖는다. frame은 iframe이라 화면이 자기 viewport를 갖는다. light·dark는 design token을 따르고 Auto·Light·Dark로 고른다.
   - 지금 화면(구현됨): 진짜 Desktop을 `apps/shell/renderer/desktop/dev-mock/`의 메모리 데이터로 그린다. 런처(빈 것·카드 있음·시작 실패 셋), lophn 공간(Projects·Apps·Things to confirm·Roles), Settings의 각 탭(Backup 제외), 프로젝트 작업대(문서·터미널·앱 panel), 앱 공간, 대화 도크. 터미널은 preload 통로 자리에 gallery의 가짜 통로가 PTY 없이 출력을 준다. 앱 코드는 고치지 않았다.
   - 버린 화면은 올리지 않는다: Settings › Backup, 프로젝트 Export panel, lophn 공간 Documents·Contexts(Focus) 화면, context Materials의 Baseline·Reference·Follow-changes 묶음. 테스트 `tools/wireframes/pages_test.ts`가 page 목록에 이것이 없고 모든 page에 제목·badge·설명이 있음을 본다(맞는 shell 요구가 없어 이름이 `shell#T66`으로 시작한다).
-  - 새 설계(새 설계 badge) part와 자리표시 page 하나. page를 더하는 법은 `tools/wireframes/pages.ts` 머리 주석에 있다: 목록에 한 줄, `frames/screens.tsx`에 `@lophn/design` component와 고정 데이터만으로 짠 구성 하나.
+  - 새 설계(새 설계 badge) part의 page 아홉 개: project 탭 kind 확장과 + 메뉴, Context 탭의 Contract·Violations, 계약 위반 toast, saved view와 일반 검색, project 관심사를 뺀 Lophn Workspace, project 화면의 문서 정리. `@lophn/design` component와 고정 데이터(project phroner, context eval·harness)만으로 짠 정적 구성이고, 실제 TopBar·Breadcrumbs·Toast·Tree·Card·Tabs를 쓰며 sidebar·tab strip·menu는 같은 CSS Module로 다시 짠 look-alike다. page를 더하는 법은 `tools/wireframes/pages.ts` 머리 주석에 있다.
   - 한계: 지금 화면 part는 main이 가진 화면을 그대로 그리므로 main이 바뀌면 다시 build한다. 사이드바에는 main에 아직 있는 Documents·Focus 항목이 보일 수 있다.
 
 ## 요구 덮기

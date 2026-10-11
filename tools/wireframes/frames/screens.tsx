@@ -12,7 +12,19 @@ import {
   openLophn,
   openProject,
 } from "../../../apps/shell/renderer/desktop/router.ts";
-import { PlaceholderComposition } from "./compositions/placeholder.tsx";
+import {
+  ContextContract,
+  ContextViolations,
+} from "./compositions/context-pages.tsx";
+import {
+  DocumentOrganize,
+  NewTabMenu,
+  PlainSearchResults,
+  SavedViewResults,
+  TabKinds,
+  ViolationToast,
+} from "./compositions/project-pages.tsx";
+import { WorkspaceWithoutProject } from "./compositions/workspace-page.tsx";
 import {
   MockDesktop,
   type PaneSpec,
@@ -126,5 +138,13 @@ export const SCREENS: Record<ScreenId, () => ReactNode> = {
   "conversation-dock": () => (
     <MockDesktop route={openLophn("projects")} dockOpen />
   ),
-  "new-placeholder": () => <PlaceholderComposition />,
+  "new-tab-kinds": () => <TabKinds />,
+  "new-tab-menu": () => <NewTabMenu />,
+  "new-context-contract": () => <ContextContract />,
+  "new-context-violations": () => <ContextViolations />,
+  "new-violation-toast": () => <ViolationToast />,
+  "new-saved-view": () => <SavedViewResults />,
+  "new-plain-search": () => <PlainSearchResults />,
+  "new-workspace": () => <WorkspaceWithoutProject />,
+  "new-organize": () => <DocumentOrganize />,
 };

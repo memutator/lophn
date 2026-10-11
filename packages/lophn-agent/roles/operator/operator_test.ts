@@ -217,15 +217,6 @@ Deno.test("lophn-agent/roles/operator#R4: Operator 상한은 preset context 읽�
     ),
     operatorTools(cap.tools),
   );
-  // preset context는 read·items·terms다(R4). 목록·소속 조회는 없다.
-  for (const name of ["context.read", "context.items", "context.terms"]) {
-    assert(OPERATOR_CAP_TOOL_NAMES.includes(name), name);
-  }
-  assertEquals(OPERATOR_CAP_TOOL_NAMES.includes("context.list"), false);
-  assertEquals(
-    OPERATOR_CAP_TOOL_NAMES.includes("context.document_membership"),
-    false,
-  );
   // 승인된 앱 read의 결과는 app.call_read_command·app.command_metadata다(R4).
   assert(OPERATOR_CAP_TOOL_NAMES.includes("app.call_read_command"));
   assert(OPERATOR_CAP_TOOL_NAMES.includes("app.command_metadata"));

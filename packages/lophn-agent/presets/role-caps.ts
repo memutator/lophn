@@ -20,15 +20,6 @@ export const DOCUMENT_READ_TOOLS: readonly string[] = Object.freeze([
   "document.diff",
 ]);
 
-const CONTEXT_TERM_READ_TOOLS: readonly string[] = Object.freeze([
-  "context.list",
-  "context.read",
-  "context.items",
-  "context.terms",
-  "context.document_membership",
-  "term.read",
-]);
-
 const FORMAT_TOOLS: readonly string[] = Object.freeze([
   "format.list",
   "format.rules",
@@ -46,7 +37,6 @@ const ASK_TOOLS: readonly string[] = Object.freeze([
 // 추가 동작을 더한 교집합이다.
 const COMMON_READ_TOOLS: readonly string[] = Object.freeze([
   ...DOCUMENT_READ_TOOLS,
-  ...CONTEXT_TERM_READ_TOOLS,
   ...FORMAT_TOOLS,
   ...ASK_TOOLS,
 ]);
@@ -57,7 +47,7 @@ function cap(tools: readonly string[]): RoleCap {
 
 // 역할 상한 표다(presets#R9). lophn은 전체 범위 조회·coding 요청·제품 안내·run
 // 결과 저장을, App Engineer는 담당 앱 하나의 설계 참조·해석 연결·ticket 생성을,
-// Context Engineer는 전체 context·term 관리와 앱 metadata 조회·승인 초안을,
+// Context Engineer는 앱 metadata 조회·승인 초안을,
 // Operator는 승인된 앱 read command와 승인한 남길 문서만 상한에 둔다(R11).
 export const ROLE_CAPS: ReadonlyMap<string, RoleCap> = new Map<string, RoleCap>(
   [
@@ -149,17 +139,6 @@ export const ROLE_CAPS: ReadonlyMap<string, RoleCap> = new Map<string, RoleCap>(
         "app.list",
         "app.read_purpose",
         "app.commands",
-        "context.create",
-        "context.rename",
-        "context.set_purpose",
-        "context.archive",
-        "context.add_item",
-        "context.update_item",
-        "context.remove_item",
-        "term.propose_candidate",
-        "term.update_candidate",
-        "term.remove_candidate",
-        "term.submit_definition_answer",
         "document.create",
         "document.save_version",
         "preset.list",
@@ -187,10 +166,6 @@ export const ROLE_CAPS: ReadonlyMap<string, RoleCap> = new Map<string, RoleCap>(
         "document.read_range",
         "document.history",
         "document.diff",
-        "context.read",
-        "context.items",
-        "context.terms",
-        "term.read",
         "format.list",
         "format.rules",
         "format.examples",

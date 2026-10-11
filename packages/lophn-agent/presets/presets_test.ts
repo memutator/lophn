@@ -912,7 +912,6 @@ Deno.test("lophn-agent/presets#R8: in-cap tool requests are allowed", async () =
               bundles: [],
               tools: [
                 { tool: "app.commands", app_command: null },
-                { tool: "context.create", app_command: null },
               ],
             },
           }),

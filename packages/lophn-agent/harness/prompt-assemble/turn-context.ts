@@ -45,17 +45,24 @@ function byteLength(text: string): number {
   return encoder.encode(text).byteLength;
 }
 
-function tabLine(tab: ViewTab): string {
-  const target = tab.kind === "document_editor"
-    ? tab.document
-    : tab.kind === "document_viewer"
-    ? `${tab.document} ${tab.version}`
-    : tab.kind === "terminal"
-    ? tab.project_folder
-    : `${tab.app} ${tab.surface}${
+// 탭 종류마다 줄에 쓰는 대상 문자열이다. 종류를 더하면 contracts의 ViewTab과 함께 여기에 한 줄을 더해야
+// 컴파일된다(shell/workspace#R14).
+type TabTarget = {
+  [K in ViewTab["kind"]]: (tab: Extract<ViewTab, { kind: K }>) => string;
+};
+
+const TAB_TARGET: TabTarget = {
+  document_editor: (tab) => tab.document,
+  terminal: (tab) => tab.project_folder,
+  app_panel: (tab) =>
+    `${tab.app} ${tab.surface}${
       tab.view_session === undefined ? "" : ` view_session=${tab.view_session}`
-    }`;
-  return `- ${tab.selected ? "* " : ""}${tab.kind} ${tab.key} ${target}`;
+    }`,
+};
+
+function tabLine(tab: ViewTab): string {
+  const describe = TAB_TARGET[tab.kind] as (tab: ViewTab) => string;
+  return `- ${tab.selected ? "* " : ""}${tab.kind} ${tab.key} ${describe(tab)}`;
 }
 
 type Plan = {

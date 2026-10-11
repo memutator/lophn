@@ -43,16 +43,18 @@ import {
   usePaletteScope,
 } from "../desktop/palette/host.tsx";
 import { workspaceScope } from "../desktop/palette/workspace-scope.ts";
-import {
-  type CompareTarget,
-  type DocumentTabMeta,
-  DocumentView,
-  type EditorDeps,
+import type {
+  CompareTarget,
+  DocumentTabMeta,
+  EditorDeps,
 } from "../editor/document-view.tsx";
 import { layoutHint, type TabPresentation } from "./view-hint.ts";
+import type { TabHost } from "./kinds/host.ts";
+import { tabKindOf, tabKinds } from "./kinds/registry.ts";
+import { openDocument as openDocumentTab } from "./kinds/document-editor.tsx";
+import { openTerminal as openTerminalTab } from "./kinds/terminal.tsx";
 import { DocumentInfoPanel } from "../editor/info-panel/info-panel.tsx";
-import { closeTerminalTab, type TerminalDeps } from "../terminal/deps.ts";
-import { TerminalTab } from "../terminal/terminal-tab.tsx";
+import type { TerminalDeps } from "../terminal/deps.ts";
 import { TrackingStrip } from "./tracking/tracking.tsx";
 import type { TrackingSource } from "./tracking/source.ts";
 import { OperatorEntry, type OperatorEntrySource } from "./operator-entry.tsx";
@@ -67,7 +69,6 @@ import {
   dockPlacement,
   infoPanelShown,
 } from "../conversation/model.ts";
-import { AppPanelPicker, AppPanelTab } from "./app-panel-tab.tsx";
 import { useAppViews } from "../app-frame/app-views.tsx";
 import {
   createViewCovers,
@@ -122,9 +123,6 @@ const EMPTY_LOADED: Loaded = {
   failed: false,
 };
 
-let terminalCount = 0;
-let appPanelCount = 0;
-
 function freshView(): WorkspaceView {
   return {
     panes: [{ tabs: [], selected: null }],
@@ -134,8 +132,8 @@ function freshView(): WorkspaceView {
 }
 
 // 프로젝트 작업대. sidebar·상단 경로·탭 줄·두 칸을 한 화면에 모은다.
-export function Workspace(
-  {
+export function Workspace(props: WorkspaceProps) {
+  const {
     projectId,
     source,
     windowWidth,
@@ -150,9 +148,7 @@ export function Workspace(
     operators,
     onAttachOperator,
     onOpenOperator,
-    onOpenApp,
-  }: WorkspaceProps,
-) {
+  } = props;
   // 앱 패널 view와 본문을 덮는 패널(정보 패널·대화 도크 overlay)이 같이 보는 목록.
   const covers = useMemo(createViewCovers, []);
   const appViews = useAppViews();
@@ -338,107 +334,6 @@ export function Workspace(
     persist(next);
   };
 
-  // 사람이 누른 터미널 열기. 시작 폴더는 탭 화면이 main에 묻는다(shell/terminal#R1).
-  const openTerminal = () => {
-    if (!terminal) return;
-    const key = `terminal-${Date.now().toString(36)}-${++terminalCount}`;
-    terminal.store.request(key);
-    const pane = view.focusedPane;
-    const tab: TabItem = {
-      key,
-      kind: "terminal",
-      title: loaded.project?.title ??
-        t("project-workspace.label.kind-terminal"),
-    };
-    update({
-      ...view,
-      panes: view.panes.map((item, index) =>
-        index === pane ? { tabs: [...item.tabs, tab], selected: key } : item
-      ),
-    });
-  };
-
-  // 사람이 누른 앱 패널 열기. 탭은 앱을 고르는 자리로 시작한다(workspace#R5).
-  const openAppPanel = () => {
-    const key = `app-panel-${Date.now().toString(36)}-${++appPanelCount}`;
-    const pane = view.focusedPane;
-    const tab: TabItem = {
-      key,
-      kind: "app_panel",
-      title: t("project-workspace.label.kind-app-panel"),
-    };
-    update({
-      ...view,
-      panes: view.panes.map((item, index) =>
-        index === pane ? { tabs: [...item.tabs, tab], selected: key } : item
-      ),
-    });
-  };
-
-  const chooseApp = (
-    key: string,
-    choice: { app: string; screen: string; title: string },
-  ) => {
-    const current = latest.current;
-    update({
-      ...current,
-      panes: current.panes.map((pane) => ({
-        ...pane,
-        tabs: pane.tabs.map((tab) =>
-          tab.key === key
-            ? {
-              ...tab,
-              app: choice.app,
-              screen: choice.screen,
-              title: choice.title,
-            }
-            : tab
-        ),
-      })),
-    });
-  };
-
-  // 앱 패널은 고르지 않아도 칸에 남아 view를 숨긴 채 둔다. 닫으면 빠져 view가 폐기된다.
-  const renderKept = (tab: TabItem, shown: boolean): ReactNode | null => {
-    if (tab.kind !== "app_panel") return null;
-    if (tab.app === undefined || tab.screen === undefined) {
-      return (
-        <AppPanelPicker
-          onChoose={(choice) => chooseApp(tab.key, choice)}
-          onOpenAppSpace={onOpenApp}
-          onClose={() => removeTab(tab.key)}
-        />
-      );
-    }
-    return (
-      <AppPanelTab
-        app={tab.app}
-        screen={tab.screen}
-        shown={shown}
-        onOpenAppSpace={onOpenApp}
-        onSession={(session) => noteSession(tab.key, session)}
-      />
-    );
-  };
-
-  const terminalStarted = (
-    key: string,
-    info: { title: string | null; folderRef: string },
-  ) => {
-    const current = latest.current;
-    update({
-      ...current,
-      panes: current.panes.map((pane) => ({
-        ...pane,
-        tabs: pane.tabs.map((tab) =>
-          tab.key === key
-            ? { ...tab, title: info.title ?? tab.title, folder: info.folderRef }
-            : tab
-        ),
-      })),
-    });
-  };
-
   // 비동기 확인 뒤에는 그 사이 바뀐 배치에서 그 탭을 뺀다.
   const removeTab = (key: string) => {
     const current = latest.current;
@@ -448,44 +343,37 @@ export function Workspace(
     if (at >= 0) update(closeTab(current, at, key));
   };
 
-  // 살아 있는 터미널은 사람이 확인해야 닫는다. 취소하면 탭과 shell을 유지한다(R10).
-  // 문서 탭은 마지막 고침을 보내 편집을 끝내고, 저장이 남으면 사람이 고른다(editor#R1).
-  const close = (pane: number, key: string) => {
-    const tab = view.panes[pane]?.tabs.find((item) => item.key === key);
-    if (tab?.kind === "document_editor" && editor?.files) {
-      void editor.files.leave(key).then((leave) => {
-        if (leave) removeTab(key);
-      });
-      return;
-    }
-    if (tab?.kind !== "terminal" || !terminal) {
-      update(closeTab(view, pane, key));
-      return;
-    }
-    void closeTerminalTab(terminal, key).then((remove) => {
-      if (remove) removeTab(key);
-    });
-  };
-
-  const openDocument = (document: DocumentRow) => {
+  // focus 칸 끝에 붙이고 고른다. 그 칸에 같은 key가 있으면 고르기만 한다.
+  const openTab = (tab: TabItem) => {
     const pane = view.focusedPane;
-    const existing = view.panes[pane]!;
-    const has = existing.tabs.some((tab) => tab.key === document.id);
-    const tab: TabItem = {
-      key: document.id,
-      kind: "document_editor",
-      title: tabMeta[document.id]?.fileName ?? document.title,
-    };
     update({
       ...view,
       panes: view.panes.map((item, index) =>
         index === pane
           ? {
-            tabs: has ? item.tabs : [...item.tabs, tab],
-            selected: document.id,
+            tabs: item.tabs.some((candidate) => candidate.key === tab.key)
+              ? item.tabs
+              : [...item.tabs, tab],
+            selected: tab.key,
           }
           : item
       ),
+    });
+  };
+
+  // 그 사이 바뀐 배치의 탭 필드를 바꾼다.
+  const patchTab: TabHost["patchTab"] = (key, patch) => {
+    const current = latest.current;
+    update({
+      ...current,
+      panes: current.panes.map((pane) => ({
+        ...pane,
+        tabs: pane.tabs.map((tab) =>
+          tab.key === key
+            ? { ...tab, ...(typeof patch === "function" ? patch(tab) : patch) }
+            : tab
+        ),
+      })),
     });
   };
 
@@ -547,52 +435,6 @@ export function Workspace(
     );
   }
 
-  // 탭 종류마다 본문. 통로가 없는 종류는 null이라 칸이 종류 자리표시를 그린다.
-  const renderTab = (tab: TabItem, active: boolean): ReactNode | null => {
-    if (tab.kind === "terminal" && terminal) {
-      return (
-        <TerminalTab
-          key={tab.key}
-          tabKey={tab.key}
-          project={projectId}
-          folderRef={tab.folder ?? null}
-          active={active}
-          deps={terminal}
-          onStarted={(info) => terminalStarted(tab.key, info)}
-        />
-      );
-    }
-    if (tab.kind === "document_editor" && editor) {
-      return (
-        <DocumentView
-          key={tab.key}
-          documentId={tab.key}
-          projectId={projectId}
-          source={editor.source}
-          core={editor.core}
-          readingWidth={editor.readingWidth}
-          menu={editor.menu}
-          files={editor.files}
-          infoOpen={infoShown}
-          onToggleInfo={() => setInfo(!infoShown, infoTab)}
-          versions={editor.versions}
-          compare={compares[tab.key] ?? null}
-          onCompare={(target) => showCompare(tab.key, target)}
-          onVersionsChanged={() => setVersionsTick((value) => value + 1)}
-          onMeta={(meta) => noteMeta(tab.key, meta)}
-          onPresentation={(shown) => notePresentation(tab.key, shown)}
-          initialPosition={tab.readPosition}
-          onReadPosition={(position) => notePosition(tab.key, position)}
-          onOpenDocument={(id) => {
-            const row = loaded.documents.find((item) => item.id === id);
-            openDocument(row ?? { id, title: tabMeta[id]?.fileName ?? id });
-          }}
-        />
-      );
-    }
-    return null;
-  };
-
   const showCompare = (document: string, target: CompareTarget | null) => {
     setCompares((current) => {
       const next = { ...current };
@@ -631,6 +473,65 @@ export function Workspace(
     persist(view, { open, tab });
   };
 
+  // kind 선언이 배치와 통로를 건드리는 유일한 길이다(workspace#R14). 본문·열기·닫기 확인·열기 단추는
+  // 모두 kind의 선언에서 오고 여기서는 kind 이름으로 가르지 않는다.
+  const host: TabHost = {
+    projectId,
+    projectTitle: loaded.project?.title,
+    props,
+    appScreens: appViews?.screens !== undefined,
+    view,
+    openTab,
+    patchTab,
+    removeTab,
+    document: {
+      rows: loaded.documents,
+      infoShown,
+      toggleInfo: () => setInfo(!infoShown, infoTab),
+      fileName: (id) => tabMeta[id]?.fileName,
+      compareOf: (id) => compares[id] ?? null,
+      showCompare,
+      versionsChanged: () => setVersionsTick((value) => value + 1),
+      noteMeta,
+      notePresentation,
+      noteReadPosition: notePosition,
+    },
+    appPanel: { noteSession },
+  };
+
+  const renderTab = (tab: TabItem, active: boolean): ReactNode | null =>
+    tabKindOf(tab.kind)?.render?.(tab, active, host) ?? null;
+
+  const renderKept = (tab: TabItem, shown: boolean): ReactNode | null =>
+    tabKindOf(tab.kind)?.keep?.(tab, shown, host) ?? null;
+
+  // 확인이 필요한 kind는 사람이 확인해야 닫는다. 취소하면 탭을 유지한다(terminal#R10, editor#R1).
+  const close = (pane: number, key: string) => {
+    const tab = view.panes[pane]?.tabs.find((item) => item.key === key);
+    const confirm = tab ? tabKindOf(tab.kind)?.beforeClose?.(tab, host) : null;
+    if (!confirm) {
+      update(closeTab(view, pane, key));
+      return;
+    }
+    void confirm.then((remove) => {
+      if (remove) removeTab(key);
+    });
+  };
+
+  const openDocument = (document: DocumentRow) =>
+    openDocumentTab(host, document);
+
+  const launchers = tabKinds().flatMap((kind) =>
+    kind.launcher?.available(host)
+      ? [{
+        kind: kind.kind,
+        label: t(kind.launcher.labelKey),
+        icon: kind.icon,
+        onOpen: () => kind.launcher!.open(host),
+      }]
+      : []
+  );
+
   // 창 팔레트의 작업대 행(desktop#R30). 고르면 이 작업대 안의 대상으로만 간다.
   const palette = usePaletteEnv();
   usePaletteScope(() =>
@@ -657,7 +558,7 @@ export function Workspace(
         else if (target.kind === "context") setInfo(true, "contexts");
         else if (target.action === "launcher") onLauncher();
         else if (target.action === "lophn") onLophn();
-        else if (target.action === "terminal") openTerminal();
+        else if (target.action === "terminal") openTerminalTab(host);
         else setInfo(!infoOpen, infoTab);
       },
     })
@@ -797,8 +698,7 @@ export function Workspace(
                   ),
                 })}
               onClose={close}
-              onOpenTerminal={terminal ? openTerminal : undefined}
-              onOpenAppPanel={appViews?.screens ? openAppPanel : undefined}
+              launchers={launchers}
               onFocus={(pane) => update({ ...view, focusedPane: pane })}
               onMove={(key, toPane) => update(moveTab(view, key, toPane))}
               onRatio={(ratio) => update({ ...view, splitRatio: ratio })}

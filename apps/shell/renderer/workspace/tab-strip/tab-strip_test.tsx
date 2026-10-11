@@ -15,14 +15,13 @@ function tab(key: string, kind: TabItem["kind"] = "document_editor"): TabItem {
 
 const kinds: TabItem["kind"][] = [
   "document_editor",
-  "document_viewer",
   "terminal",
   "app_panel",
 ];
 
 const noop = () => {};
 
-Deno.test("shell/workspace#R1: 탭 줄은 네 종류를 글자로 구별하고 대상 이름과 닫기를 둔다", () => {
+Deno.test("shell/workspace#R1: 탭 줄은 세 종류를 글자로 구별하고 대상 이름과 닫기를 둔다", () => {
   const tabs = kinds.map((kind) => tab(kind, kind));
   using view = render(
     <TabStrip
@@ -38,12 +37,11 @@ Deno.test("shell/workspace#R1: 탭 줄은 네 종류를 글자로 구별하고 �
   ].map((node) => node.textContent);
   assertEquals(labels, [
     "Document editor",
-    "Document viewer",
     "Terminal",
     "App panel",
   ]);
   const closes = [...view.container.querySelectorAll("[data-close]")];
-  assertEquals(closes.length, 4);
+  assertEquals(closes.length, 3);
   // 닫기는 글자 없이 아이콘만 보이고 이름은 aria-label에 둔다.
   for (const close of closes) {
     assertEquals(close.textContent, "");

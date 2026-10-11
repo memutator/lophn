@@ -1,6 +1,19 @@
 // Search 탭(shell/workspace#R23, R27): 왼쪽에 context 고르기 · "Open context" · 그 context의 선언된
 // 검색 · Saved views, 본문에 고른 검색의 입력 form(SearchInputForm)과 결과(SearchResults).
 // 탭이 들고 저장되는 값(state)은 부른 쪽이 가진다. 구현은 ctx-I49.
+// 문구 key는 packages/design/wording/en.ts에 이미 있다. 구현은 en.ts를 고치지 않고 아래 key만 t()로 쓴다:
+//   contexts.button.search-open-context
+//   contexts.button.search-save
+//   contexts.empty.search-no-searches
+//   contexts.error.search-save-failed
+//   contexts.heading.search-saved-views
+//   contexts.heading.search-searches
+//   contexts.label.search-context
+//   contexts.label.search-view-broken
+//   contexts.label.search-view-name
+//   contexts.note.search-no-saved-views
+//   contexts.note.search-pick
+//   common.error.load-failed
 import type { ReactNode } from "react";
 
 import type { ContextsSource, SearchInputValues } from "./source.ts";

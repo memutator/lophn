@@ -1,6 +1,13 @@
 // Overview: context가 다루는 것마다 카드(이름·한 줄 뜻·개수·가진 것·예시 문서·"See all"), 카드 사이
 // 사람 말 화살표, 아래에 ContextComposition(shell/workspace#R18). 계약 말(kind·public·검색 함수)은
 // 쓰지 않는다. 구현은 ctx-I42.
+// 문구 key는 packages/design/wording/en.ts에 이미 있다. 구현은 en.ts를 고치지 않고 아래 key만 t()로 쓴다:
+//   contexts.button.overview-see-all
+//   contexts.label.overview-diagram
+//   contexts.label.overview-from
+//   contexts.label.overview-has
+//   contexts.note.overview-example
+//   common.error.load-failed
 import type { ReactNode } from "react";
 
 import type { ContextsSource } from "./source.ts";

@@ -46,7 +46,7 @@ Deno.test("shell/workspace#R30 [ctx-I41]: 진행 목록은 읽기·초안·검�
     [
       ["done", "✓", "Read 3 places (24 documents)"],
       ["now", "●", "Drafting overview and searches"],
-      ["later", "○", "Run checks"],
+      ["later", "○", "Check the draft"],
       ["later", "○", "Apply"],
     ],
   );

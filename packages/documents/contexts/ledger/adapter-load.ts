@@ -3,6 +3,7 @@
 import { ok, type Result } from "../../../base/mod.ts";
 import type { ContextValue } from "../../../contracts/documents/mod.ts";
 import type { Sql } from "../../../contracts/platform/mod.ts";
+import { currentBundleOf } from "../api/reads-common.ts";
 import type {
   BlobReference,
   BundleRow,
@@ -20,6 +21,7 @@ import {
   loadProjectBundles,
   loadProjectContexts,
 } from "./rows.ts";
+import { loadHandedOffEvents } from "./rows-events.ts";
 
 export type LoadPlan = {
   // project 행과 그 project의 context 전부(보관된 것 포함)를 읽는다.
@@ -35,10 +37,13 @@ export type LoadPlan = {
   checks?: boolean;
   views?: boolean;
   entries?: boolean;
-  // content blob을 읽을 판. 읽지 않은 판의 content는 `{}`다.
-  content?: "applied" | "active-applied" | { bundle: string };
+  // content blob을 읽을 판. 읽지 않은 판의 content는 `{}`다. in-progress는 만드는 중(drafting)인
+  // context의 지금 판(draft, 없으면 검사 중인 판, 없으면 마지막 failed 판) 하나다.
+  content?: "applied" | "active-applied" | "in-progress" | { bundle: string };
   // derived 저장소에서 가져올 것. entities를 고르면 index 갱신 실패도 같이 가져온다.
   index?: readonly ("violations" | "entities")[];
+  // 위반을 넘긴 event(ContextViolationsHandedOff)를 ledger events 표에서 state.events로 읽는다.
+  handedOff?: boolean;
 };
 
 export type Loaded = {
@@ -95,10 +100,13 @@ export function loadState(
     const stored = plan.context === undefined && plan.project !== undefined
       ? loadProjectBundles(sql, plan.project)
       : targets.flatMap((context) => loadContextBundles(sql, context.id));
+    const inProgress = plan.content === "in-progress"
+      ? inProgressBundles(state, stored)
+      : new Set<string>();
     for (const { content_ref, ...summary } of stored) {
       contentRefs.set(summary.id, content_ref);
       let content: Record<string, unknown> = {};
-      if (wantsContent(plan, state, summary.context, summary.id)) {
+      if (wantsContent(plan, state, inProgress, summary.context, summary.id)) {
         const read = deps.blobs.read(content_ref);
         if (!read.ok) return read;
         content = read.value;
@@ -123,6 +131,9 @@ export function loadState(
         state.glossary.set(entry.id, entry);
       }
     }
+    if (plan.handedOff) {
+      state.events.push(...loadHandedOffEvents(sql, context.id));
+    }
     if (plan.index?.includes("violations")) {
       state.violations.set(context.id, [...deps.index.violations(context.id)]);
     }
@@ -142,15 +153,38 @@ function targetsOf(plan: LoadPlan, state: ContextApiState): ContextValue[] {
   return target === undefined ? [] : [target];
 }
 
+// 만드는 중인 context마다 지금 판 하나의 id.
+function inProgressBundles(
+  state: ContextApiState,
+  stored: readonly {
+    id: string;
+    context: string;
+    status: string;
+    number: number | null;
+  }[],
+): Set<string> {
+  const chosen = new Set<string>();
+  for (const context of state.contexts.values()) {
+    if (context.status !== "drafting") continue;
+    const current = currentBundleOf(
+      stored.filter((bundle) => bundle.context === context.id),
+    );
+    if (current !== null) chosen.add(current.id);
+  }
+  return chosen;
+}
+
 function wantsContent(
   plan: LoadPlan,
   state: ContextApiState,
+  inProgress: ReadonlySet<string>,
   context: string,
   bundle: string,
 ): boolean {
   const want = plan.content;
   if (want === undefined) return false;
   if (typeof want === "object") return want.bundle === bundle;
+  if (want === "in-progress") return inProgress.has(bundle);
   const owner = state.contexts.get(context);
   if (owner?.applied_bundle !== bundle) return false;
   return want === "applied" || owner.status === "active";

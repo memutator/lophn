@@ -706,14 +706,14 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
     return record.ok ? ok(record.value.run.state_seq) : record;
   }
 
-  // 질문을 만든 call의 결과에서 질문 ID를 읽는다. 질문은 추정 답으로 진행하지 않으므로 run은 그
-  // 답을 기다린다(waiting-and-recovery R1).
+  // 질문 묶음을 만든 call의 결과에서 묶음 ID를 읽는다. 질문은 추정 답으로 진행하지 않으므로 run은
+  // 그 묶음의 답을 기다린다(waiting-and-recovery R1).
   function askedQuestion(tool: string, result: ToolResult): string | undefined {
     if (tool !== questionSubmitTool.name) return undefined;
     const content = result.content;
     if (content === null || typeof content !== "object") return undefined;
     const id = (content as Record<string, unknown>)["id"];
-    return typeof id === "string" && id.startsWith("qst_") ? id : undefined;
+    return typeof id === "string" && id.startsWith("qgr_") ? id : undefined;
   }
 
   // 판정이 이미 만든 approval을 읽어 같은 내용으로 WaitRun에 싣는다. 요청 생성과 waiting_on 연결은
@@ -750,20 +750,20 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
     });
   }
 
-  // tool이 이미 만든 질문을 읽어 같은 내용으로 WaitRun에 싣는다. 글은 저장된 redaction 글이고
-  // WaitRun은 같은 내용이면 그 질문을 잇는다.
+  // tool이 이미 만든 질문 묶음을 읽어 같은 내용으로 WaitRun에 싣는다. 글은 저장된 redaction 글이고
+  // WaitRun은 같은 내용이면 그 묶음을 잇는다. WaitTarget의 `question`은 묶음 ID다.
   async function questionWait(
     request: Extract<WaitTarget, { question: string }>,
   ): Promise<Result<z.input<typeof waitRunInputSchema>["request"]>> {
     const read = await readOf(machine, questionRead, {
-      question: request.question,
+      group: request.question,
     });
     if (!read.ok) return read;
     const text = await readOf(machine, questionText, {
-      question: request.question,
+      group: request.question,
     });
     if (!text.ok) return text;
-    return ok(questionWaitRequest(read.value.question, text.value));
+    return ok(questionWaitRequest(read.value.group, text.value));
   }
 
   async function finish(request: FinishRequest) {

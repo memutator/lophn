@@ -102,6 +102,7 @@ import {
   createApplyQuestionOption,
   createQuestionCommands,
   createQuestionReads,
+  deleteSessionQuestions,
   OPTION_ACTION_OWNERS,
   type OptionOwnerHandlers,
   questionBodyFields,
@@ -441,7 +442,11 @@ const schedulingReads = createSchedulingReads();
 const conversationCommands = createConversationCommands({
   acceptRun: (tx, ctx, input, compare) =>
     runCommands.accept.handle(tx, { ...ctx, actor: "machine" }, input, compare),
-  deleteSessionRecords: (tx, session) => deleteSessionRuns(tx, session),
+  // 질문 묶음은 run을 가리키므로 run 기록보다 먼저 지운다.
+  deleteSessionRecords: (tx, session) => {
+    const questions = deleteSessionQuestions(tx, session);
+    return questions.ok ? deleteSessionRuns(tx, session) : questions;
+  },
 });
 const conversationReads = createConversationReads();
 
@@ -536,7 +541,7 @@ const waitCommands = createWaitCommands({
     conversationCommands.assign.handle(tx, ctx, input, compare),
 });
 
-// agent 자격의 command(CreateQuestion 같은)는 자격에 묶인 run이 진행 중일 때만 통과한다
+// agent 자격의 command(CreateQuestionGroup 같은)는 자격에 묶인 run이 진행 중일 때만 통과한다
 // (platform/ledger#R11). 판정은 이 concern의 runs 표를 같은 Tx에서 읽는다. 없는 run은
 // unknown이고 끝난 run은 감사 보완만 통과한다. 이 port가 없으면 agent command는 막힌다.
 // platform/ledger의 callChosenOption이 대조하는 질문 정본(identity R14). 사람이 고른 option의

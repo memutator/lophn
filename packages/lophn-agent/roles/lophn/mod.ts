@@ -69,6 +69,7 @@ export {
   checkDraftSubmission,
   type DraftSubmission,
   draftSubmission,
+  type DraftSubmissionQuestion,
   intentQuestion,
   type SubmissionLike,
 } from "./question-submission.ts";

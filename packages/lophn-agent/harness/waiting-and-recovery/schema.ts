@@ -12,7 +12,7 @@ export const waitSchemaSteps: readonly SchemaStep[] = [
     sql: `
 create table run_wait_resolutions (
   run text not null references runs (id) on delete restrict,
-  request text not null check (request glob 'qst_*' or request glob 'apr_*'),
+  request text not null check (request glob 'qgr_*' or request glob 'apr_*'),
   decision_seq integer not null references events (seq),
   tool_call text references tool_calls (id) on delete restrict,
   result text not null check (result in ('resumed', 'stopped_no_answer', 'call_started', 'call_not_executed', 'ignored_finished')),
@@ -23,8 +23,8 @@ create table run_wait_resolutions (
   check ((request glob 'apr_*') = (tool_call is not null)),
   check (result != 'call_started' or request glob 'apr_*'),
   check (result != 'call_not_executed' or request glob 'apr_*'),
-  check (result != 'stopped_no_answer' or request glob 'qst_*'),
-  check (result != 'resumed' or request glob 'qst_*'),
+  check (result != 'stopped_no_answer' or request glob 'qgr_*'),
+  check (result != 'resumed' or request glob 'qgr_*'),
   check ((result = 'ignored_finished') = (resolved_seq is null))
 ) strict;
 create index run_wait_resolutions_run on run_wait_resolutions (run, decision_seq);

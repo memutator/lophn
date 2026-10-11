@@ -12,6 +12,8 @@ import {
   handoffContentSchema,
   handoffReferenceSchema,
   operatorApprovalBundleSchema,
+  QUESTION_GROUP_MAX_QUESTIONS,
+  QUESTION_GROUP_MIN_QUESTIONS,
   questionTextSchema,
   readCursorSchema,
   roleKindSchema,
@@ -101,7 +103,8 @@ const questionOption = z.strictObject({
   document_move: fixedDocumentMove.optional(),
 });
 
-export const questionSubmitInput = z.strictObject({
+// 질문 하나는 독립 결정 하나다. 묶음의 ID와 질문 ID는 모델이 정하지 않고 handler가 배정한다.
+const questionSubmitQuestion = z.strictObject({
   prompt: questionTextSchema,
   reason: questionTextSchema,
   options: z.array(questionOption),
@@ -109,10 +112,18 @@ export const questionSubmitInput = z.strictObject({
     option_key: z.string().regex(/\S/).nullable(),
     explanation: questionTextSchema,
   }).nullable(),
+});
+
+// 한 번에 질문 1~4개의 묶음을 낸다(questions#R1). 사람은 묶음 전체에 Submit 한 번으로 답한다.
+// 기한은 묶음 하나가 가진다.
+export const questionSubmitInput = z.strictObject({
+  questions: z.array(questionSubmitQuestion)
+    .min(QUESTION_GROUP_MIN_QUESTIONS)
+    .max(QUESTION_GROUP_MAX_QUESTIONS),
   expires_at: atSchema.nullable(),
 });
 
-const questionReadInput = z.strictObject({ question: idSchema("qst") });
+const questionReadInput = z.strictObject({ group: idSchema("qgr") });
 const approvalReadInput = z.strictObject({ approval: idSchema("apr") });
 const presetListInput = z.strictObject({
   kind: agentRoleSchema.optional(),
@@ -151,9 +162,9 @@ export const approvalSubmitAssignmentInput = operatorApprovalBundleSchema;
 
 export const questionSubmitTool = define(
   "question.submit",
-  "Ask the person one question that needs their intent, taste, or interpretation.",
+  "Ask the person one to four independent questions at once, each needing their intent, taste, or interpretation. A question whose option fixes an action is the only question of its group.",
   questionSubmitInput,
-  "CreateQuestion",
+  "CreateQuestionGroup",
   {
     effect: "write",
     scopeCheck: "the calling run",
@@ -163,10 +174,10 @@ export const questionSubmitTool = define(
 );
 export const questionReadDecisionTool = define(
   "question.read_decision",
-  "Read a question of this assignment and the answer, if any.",
+  "Read a question group of this assignment and the answers, if any.",
   questionReadInput,
-  "ReadQuestion",
-  { ...READ, scopeCheck: "questions of this assignment" },
+  "ReadQuestionGroup",
+  { ...READ, scopeCheck: "question groups of this assignment" },
 );
 export const approvalReadDecisionTool = define(
   "approval.read_decision",
@@ -273,7 +284,7 @@ export const AGENT_TOOLS: readonly ToolDefinition[] = [
 // handler가 소유 contract를 부르는 통로다. 실제 연결(core client)은 agent runtime 조립이
 // 넣는다. `call`은 contract 이름 하나와 그 입력 하나이고 여러 영역의 숨은 절차는 없다.
 export type AgentToolPorts = ContractCall & {
-  newId(prefix: "qst" | "run" | "msg" | "apr" | "asg" | "app"): string;
+  newId(prefix: "qgr" | "qst" | "run" | "msg" | "apr" | "asg" | "app"): string;
   // 호출 run이 이어진 사실. 질문의 session과 handoff의 보낸 역할·원래 사람 요청,
   // 초안 제출의 요청 assignment를 정한다.
   runFacts(run: string): Promise<
@@ -306,103 +317,127 @@ export function createAgentToolHandlers(
       const value = input as z.infer<typeof questionSubmitInput>;
       const facts = await ports.runFacts(credential.run);
       if (!facts.ok) return facts;
-      const id = ports.newId("qst");
-      const options = [];
-      for (const option of value.options) {
-        const {
-          term_definition: proposed,
-          app_registration: registration,
-          setting_change: setting,
-          document_move: move,
-          ...rest
-        } = option;
-        const fixes = [proposed, registration, setting, move].filter((
-          fixed,
-        ) => fixed !== undefined).length;
-        if (fixes > 1) {
-          return err({
-            code: "invalid_input",
-            message: "an option fixes one action",
-          });
-        }
-        if (setting !== undefined || move !== undefined) {
-          const run = { ports, run: credential.run };
-          const action = setting !== undefined
-            ? await settingChangeAction(run, id, setting)
-            : await documentMoveAction(run, move!);
-          if (!action.ok) return action;
-          options.push({ ...rest, action: action.value });
-          continue;
-        }
-        if (registration !== undefined) {
-          // 등록 근거 판은 선택지의 근거 하나다. 그 판이 실제 판인지는 질문 command가 확인한다.
-          const [plan, ...others] = rest.evidence;
+      // 고정 action이 있는 선택지를 가진 질문은 질문 하나짜리 묶음으로만 낸다(questions#R13).
+      // 읽기·고정 전에 먼저 거절한다. command도 같은 검사를 한다.
+      const proposesAction = value.questions.some((question) =>
+        question.options.some((option) =>
+          option.term_definition !== undefined ||
+          option.app_registration !== undefined ||
+          option.setting_change !== undefined ||
+          option.document_move !== undefined
+        )
+      );
+      if (proposesAction && value.questions.length > 1) {
+        return err({
+          code: "invalid_input",
+          message: "a question with a fixed action must be a group of one",
+        });
+      }
+      const group = ports.newId("qgr");
+      const questions = [];
+      for (const question of value.questions) {
+        const id = ports.newId("qst");
+        const options = [];
+        for (const option of question.options) {
+          const {
+            term_definition: proposed,
+            app_registration: registration,
+            setting_change: setting,
+            document_move: move,
+            ...rest
+          } = option;
+          const fixes = [proposed, registration, setting, move].filter((
+            fixed,
+          ) => fixed !== undefined).length;
+          if (fixes > 1) {
+            return err({
+              code: "invalid_input",
+              message: "an option fixes one action",
+            });
+          }
+          if (setting !== undefined || move !== undefined) {
+            const run = { ports, run: credential.run };
+            const action = setting !== undefined
+              ? await settingChangeAction(run, id, setting)
+              : await documentMoveAction(run, move!);
+            if (!action.ok) return action;
+            options.push({ ...rest, action: action.value });
+            continue;
+          }
+          if (registration !== undefined) {
+            // 등록 근거 판은 선택지의 근거 하나다. 그 판이 실제 판인지는 질문 command가 확인한다.
+            const [plan, ...others] = rest.evidence;
+            if (
+              plan === undefined || others.length > 0 || plan.section !== null
+            ) {
+              return err({
+                code: "invalid_input",
+                message:
+                  "a registration option names the plan it registers from as its one evidence",
+              });
+            }
+            options.push({
+              ...rest,
+              action: appCreateOptionAction({
+                id: ports.newId("app"),
+                ...registration,
+                planning_version: plan.version,
+              }),
+            });
+            continue;
+          }
+          if (proposed === undefined) {
+            options.push(rest);
+            continue;
+          }
+          // 이름·revision·context는 모델 입력이 아니라 읽은 후보가 고정한다.
+          const read = await ports.call(
+            termGet.name,
+            { term: proposed.term },
+            credential.run,
+          );
+          if (!read.ok) return read;
+          const term = (read.value as { term?: ReadCandidate }).term;
           if (
-            plan === undefined || others.length > 0 || plan.section !== null
+            term === undefined || term.id !== proposed.term ||
+            term.status !== "active" || term.definition !== null
           ) {
             return err({
               code: "invalid_input",
-              message:
-                "a registration option names the plan it registers from as its one evidence",
+              message: "a definition option needs an open candidate",
+            });
+          }
+          if (term.name !== proposed.name) {
+            return err({
+              code: "invalid_input",
+              message: "defining a term does not rename it",
             });
           }
           options.push({
             ...rest,
-            action: appCreateOptionAction({
-              id: ports.newId("app"),
-              ...registration,
-              planning_version: plan.version,
+            action: defineTermOptionAction({
+              term: term.id,
+              name: term.name,
+              definition: proposed.definition,
+              base_revision: term.revision,
             }),
           });
-          continue;
         }
-        if (proposed === undefined) {
-          options.push(rest);
-          continue;
-        }
-        // 이름·revision·context는 모델 입력이 아니라 읽은 후보가 고정한다.
-        const read = await ports.call(
-          termGet.name,
-          { term: proposed.term },
-          credential.run,
-        );
-        if (!read.ok) return read;
-        const term = (read.value as { term?: ReadCandidate }).term;
-        if (
-          term === undefined || term.id !== proposed.term ||
-          term.status !== "active" || term.definition !== null
-        ) {
-          return err({
-            code: "invalid_input",
-            message: "a definition option needs an open candidate",
-          });
-        }
-        if (term.name !== proposed.name) {
-          return err({
-            code: "invalid_input",
-            message: "defining a term does not rename it",
-          });
-        }
-        options.push({
-          ...rest,
-          action: defineTermOptionAction({
-            term: term.id,
-            name: term.name,
-            definition: proposed.definition,
-            base_revision: term.revision,
-          }),
+        questions.push({
+          id,
+          prompt: question.prompt,
+          reason: question.reason,
+          options,
+          recommendation: question.recommendation,
         });
       }
       const created = await ports.call(
-        "CreateQuestion",
+        "CreateQuestionGroup",
         {
-          id,
+          id: group,
           run: credential.run,
           session: facts.value.session,
-          prompt: value.prompt,
-          reason: value.reason,
-          options,
-          recommendation: value.recommendation,
+          questions,
           expires_at: value.expires_at,
         },
         credential.run,
@@ -411,7 +446,7 @@ export function createAgentToolHandlers(
           : { idempotency_key: credential.call },
       );
       if (!created.ok) return created;
-      return ok(success("question asked", created.value));
+      return ok(success("question group asked", created.value));
     },
   );
   const passes: [ToolDefinition, string][] = [

@@ -7,7 +7,7 @@ import type { SqlParams, SqlRow } from "../../../contracts/platform/mod.ts";
 export type WaitKind = "question" | "approval";
 
 export function kindOf(request: string): WaitKind {
-  return request.startsWith("qst_") ? "question" : "approval";
+  return request.startsWith("qgr_") ? "question" : "approval";
 }
 
 type Lookup = {
@@ -27,7 +27,8 @@ function text(value: unknown): string | null {
 
 export type QuestionFacts = {
   status: "pending" | "answered" | "expired" | "cancelled";
-  // 고른 선택지에 고정 action이 있는지. 자유 답과 action 없는 선택지는 false다.
+  // 고른 선택지에 고정 action이 있는지. 자유 답과 action 없는 선택지는 false다. 고정 action이
+  // 있는 질문은 질문 하나짜리 묶음이라(questions#R13) 묶음 전체의 사실이다.
   chosenHasAction: boolean;
   // action의 실제 적용 결과(questions의 `applied`).
   applied: boolean;
@@ -40,8 +41,8 @@ export type QuestionVerdict =
   | { kind: "resume"; result: "resumed"; reason: "question_answered" }
   | { kind: "stop"; result: "stopped_no_answer"; reason: "no_answer" };
 
-// 질문 답이면 같은 run 재개, 만료·미루기·취소는 답 없음 종료다(R1). 답이 아닌 것으로
-// 재개하지 않고 추정 답도 만들지 않는다.
+// 질문 묶음의 답이면 같은 run 재개, 만료·미루기·취소는 답 없음 종료다(R1). 답이 아닌 것으로
+// 재개하지 않고 추정 답도 만들지 않는다. 묶음은 한 번에 답하므로 일부만 답한 상태는 없다.
 export function questionVerdict(facts: QuestionFacts): QuestionVerdict {
   if (facts.status === "pending") return { kind: "pending" };
   if (facts.status === "answered") {
@@ -171,7 +172,7 @@ export function endOfApproval(status: ApprovalStatus): WaitEnd | null {
 
 export type WaitReason =
   | { kind: "assignment_turn"; assignment: string }
-  | { kind: "question"; question: string; expires_at: string | null }
+  | { kind: "question"; group: string; expires_at: string | null }
   | { kind: "approval"; approval: string; expires_at: string | null }
   | {
     kind: "provider_retry";
@@ -218,7 +219,7 @@ export function waitView(reason: WaitReason): WaitView {
       };
     case "question":
       return {
-        target: reason.question,
+        target: reason.group,
         reason: reason.kind,
         countdown_to: reason.expires_at,
         attempt: null,

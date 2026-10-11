@@ -27,6 +27,8 @@ export interface Route {
   readonly line: string;
   /** 화살촉 꼭짓점 세 개를 이은 points 글. */
   readonly head: string;
+  /** 관계 label을 놓을 자리(선의 가운데 또는 휜 선의 꼭대기). */
+  readonly label: Point;
 }
 
 export interface Grid {
@@ -84,6 +86,7 @@ export function routeEdge(from: Cell, to: Cell): Route {
         end.y - ARC
       } ${pair(end)}`,
       head: head(end, { x: 0, y: 1 }),
+      label: { x: a.x + NODE_WIDTH / 2, y: a.y - ARC * 0.75 },
     };
   }
   if (rowGap === 0 && columnGap > 1) {
@@ -95,6 +98,10 @@ export function routeEdge(from: Cell, to: Cell): Route {
         end.y - ARC
       } ${pair(end)}`,
       head: head(end, { x: 0, y: 1 }),
+      label: {
+        x: (start.x + end.x) / 2,
+        y: start.y - ARC * 0.75,
+      },
     };
   }
   if (columnGap === 0 && rowGap > 1) {
@@ -106,6 +113,10 @@ export function routeEdge(from: Cell, to: Cell): Route {
         end.x + ARC
       },${end.y} ${pair(end)}`,
       head: head(end, { x: -1, y: 0 }),
+      label: {
+        x: start.x + ARC * 0.75,
+        y: (start.y + end.y) / 2,
+      },
     };
   }
   const centerA = { x: a.x + NODE_WIDTH / 2, y: a.y + NODE_HEIGHT / 2 };
@@ -118,8 +129,14 @@ export function routeEdge(from: Cell, to: Cell): Route {
   );
   const start = { x: centerA.x + dx * exit, y: centerA.y + dy * exit };
   const end = { x: centerB.x - dx * exit, y: centerB.y - dy * exit };
+  const along = dx === 0 || dy === 0 ? 0.5 : 0.35;
   return {
     line: `M${pair(start)} L${pair(end)}`,
     head: head(end, { x: dx, y: dy }),
+    // 대각선 둘이 가운데에서 만나므로 라벨은 보내는 쪽에 가깝게 둔다.
+    label: {
+      x: start.x + (end.x - start.x) * along,
+      y: start.y + (end.y - start.y) * along,
+    },
   };
 }

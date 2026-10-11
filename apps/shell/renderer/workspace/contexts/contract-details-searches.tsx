@@ -17,6 +17,13 @@ export function DeclaredSearches(
         <div key={row.name} className={styles.searchRow} data-declared-search>
           <span data-search-title>{row.title}</span>
           <span className={styles.mono} data-search-name>{row.name}</span>
+          {row.inputs.length === 0
+            ? null
+            : (
+              <span className={styles.inputs} data-search-inputs>
+                {row.inputs.join(", ")}
+              </span>
+            )}
           <span data-search-examples>
             {row.pass > 0
               ? (

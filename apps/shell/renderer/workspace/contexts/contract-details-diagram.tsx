@@ -51,6 +51,15 @@ export function ContractDiagram(
                 className={edge.external ? styles.lineOuter : styles.line}
               />
               <polygon points={route.head} className={styles.arrow} />
+              <text
+                x={route.label.x}
+                y={route.label.y}
+                textAnchor="middle"
+                dominantBaseline="central"
+                className={styles.edgeLabel}
+              >
+                {edge.label}
+              </text>
             </g>
           );
         })}

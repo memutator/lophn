@@ -51,6 +51,16 @@
   fill: var(--color-text-muted);
 }
 
+/* 선 위 label은 선을 가리도록 바탕색 테두리를 두른다. */
+.edgeLabel {
+  fill: var(--color-text-secondary);
+  stroke: var(--color-surface-base);
+  stroke-width: 4px;
+  paint-order: stroke;
+  font-family: var(--font-sans);
+  font-size: var(--type-small-size);
+}
+
 .cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -151,6 +161,11 @@
   gap: var(--space-3) var(--space-6);
   padding: var(--space-3) var(--space-0);
   border-bottom: var(--border-width) solid var(--color-border-subtle);
+}
+
+.inputs {
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
 }
 
 .mono {

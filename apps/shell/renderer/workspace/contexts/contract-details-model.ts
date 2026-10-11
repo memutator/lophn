@@ -51,6 +51,8 @@ export interface GraphEdge {
   /** GraphNode.key. */
   readonly from: string;
   readonly to: string;
+  /** 관계의 label(계약 데이터). 선 위에 적는다. */
+  readonly label: string;
   /** 도착 노드가 다른 context의 type이면 true. */
   readonly external: boolean;
 }
@@ -58,6 +60,8 @@ export interface GraphEdge {
 export interface SearchRow {
   readonly title: string;
   readonly name: string;
+  /** 입력의 label(계약 데이터)을 선언 순서대로. 입력이 없으면 빈 목록. */
+  readonly inputs: readonly string[];
   readonly pass: number;
   readonly fail: number;
 }
@@ -177,7 +181,12 @@ function buildGraph(types: readonly ContractType[]): ContractModel["graph"] {
           external,
         });
       }
-      edges.push({ from: type.name, to: relation.to, external });
+      edges.push({
+        from: type.name,
+        to: relation.to,
+        label: relation.label,
+        external,
+      });
     }
   }
   return { nodes: [...nodes.values()], edges };
@@ -196,6 +205,7 @@ function searchRow(
   return {
     title: search.title,
     name: search.name,
+    inputs: search.inputs.map((input) => input.label),
     pass: indexes.length - fail,
     fail,
   };

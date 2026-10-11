@@ -82,10 +82,75 @@ export function Gallery() {
           ))}
         </div>
       </header>
-      {page === undefined
-        ? <Index missing={id} />
-        : <PageView page={page} theme={theme} />}
+      <div className={styles.body}>
+        <Toc current={page} />
+        {page === undefined
+          ? <Index missing={id} />
+          : <PageView page={page} theme={theme} />}
+      </div>
     </div>
+  );
+}
+
+/** "Launcher · empty"는 묶음 "Launcher"의 "empty"다. 가운뎃점이 없으면 제목 그대로 한 줄이다. */
+function tocGroups(
+  pages: readonly WireframePage[],
+): { name: string; pages: { page: WireframePage; label: string }[] }[] {
+  const groups: {
+    name: string;
+    pages: { page: WireframePage; label: string }[];
+  }[] = [];
+  for (const page of pages) {
+    const cut = page.title.indexOf(" · ");
+    const name = cut === -1 ? page.title : page.title.slice(0, cut);
+    const label = cut === -1 ? page.title : page.title.slice(cut + 3);
+    const last = groups.at(-1);
+    if (last !== undefined && last.name === name && cut !== -1) {
+      last.pages.push({ page, label });
+    } else groups.push({ name, pages: [{ page, label }] });
+  }
+  return groups;
+}
+
+// 왼쪽 목차. 묶음마다 page를 늘어놓고 지금 page를 표시한다.
+function Toc({ current }: { current: WireframePage | undefined }) {
+  return (
+    <nav className={styles.toc} aria-label="Pages">
+      <a
+        className={styles.tocHome}
+        href="#/"
+        aria-current={current === undefined ? "page" : undefined}
+      >
+        전체 목록
+      </a>
+      {PARTS.map((part) => (
+        <section key={part.id} className={styles.tocPart}>
+          <h2 className={styles.tocPartTitle}>{part.title}</h2>
+          {tocGroups(PAGES.filter((page) => page.part === part.id)).map((
+            group,
+          ) => (
+            <div key={group.name} className={styles.tocGroup}>
+              {group.pages.length > 1 || group.pages[0].label !== group.name
+                ? <p className={styles.tocGroupName}>{group.name}</p>
+                : null}
+              <ol className={styles.tocList}>
+                {group.pages.map(({ page, label }) => (
+                  <li key={page.id}>
+                    <a
+                      className={styles.tocLink}
+                      href={`#/${page.id}`}
+                      aria-current={page === current ? "page" : undefined}
+                    >
+                      {label}
+                    </a>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          ))}
+        </section>
+      ))}
+    </nav>
   );
 }
 

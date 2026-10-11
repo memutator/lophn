@@ -28,15 +28,108 @@
   gap: var(--space-2);
 }
 
+.body {
+  display: flex;
+  align-items: flex-start;
+}
+
+.toc {
+  position: sticky;
+  top: var(--toc-top, 57px);
+  box-sizing: border-box;
+  flex: none;
+  width: 260px;
+  max-height: calc(100vh - var(--toc-top, 57px));
+  overflow-y: auto;
+  padding: var(--space-6) var(--space-4) var(--space-12);
+  border-right: var(--border-width) solid var(--color-border-subtle);
+  background: var(--color-surface-base);
+}
+
+.tocHome,
+.tocLink {
+  display: block;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  text-decoration: none;
+}
+
+.tocHome:hover,
+.tocLink:hover {
+  background: var(--color-surface-subtle);
+  color: var(--color-text-primary);
+}
+
+.tocHome[aria-current="page"],
+.tocLink[aria-current="page"] {
+  background: var(--color-surface-subtle);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.tocPart {
+  margin-top: var(--space-6);
+}
+
+.tocPartTitle {
+  margin: var(--space-0) var(--space-0) var(--space-2);
+  padding: var(--space-0) var(--space-3);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  font-weight: var(--font-weight-semibold);
+}
+
+.tocGroup + .tocGroup {
+  margin-top: var(--space-3);
+}
+
+.tocGroupName {
+  margin: var(--space-0);
+  padding: var(--space-1) var(--space-3);
+  color: var(--color-text-tertiary, var(--color-text-secondary));
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.tocGroupName + .tocList .tocLink {
+  padding-left: var(--space-5);
+}
+
+.tocList {
+  margin: var(--space-0);
+  padding: var(--space-0);
+  list-style: none;
+}
+
 .index,
 .page {
   box-sizing: border-box;
   display: flex;
+  flex: 1;
+  min-width: 0;
   flex-direction: column;
   gap: var(--space-5);
   max-width: var(--page-dashboard-max);
   margin: var(--space-0) auto;
   padding: var(--space-8) var(--space-6) var(--space-12);
+}
+
+@media (max-width: 760px) {
+  .body {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .toc {
+    position: static;
+    width: auto;
+    max-height: none;
+    border-right: none;
+    border-bottom: var(--border-width) solid var(--color-border-subtle);
+  }
 }
 
 .part {

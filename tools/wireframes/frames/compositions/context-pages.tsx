@@ -138,7 +138,7 @@ function TypeCard(
         <h3>{name}</h3>
         {isPublic ? <Mark>public</Mark> : null}
         <span className={styles.chip}>
-          kind <Mono>{kind}</Mono>
+          kind&nbsp;<Mono>{kind}</Mono>
         </span>
         <span className={styles.muted}>{count} documents</span>
       </div>

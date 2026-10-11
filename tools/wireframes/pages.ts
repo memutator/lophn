@@ -668,7 +668,7 @@ export const DISCARDED_SCREENS: readonly string[] = [
 
 /** 버린 화면을 가리키는 이름 모양(지금 화면 part의 id·title·screen에 쓰지 않는다). */
 export const DISCARDED_NAME =
-  /\b(backup|export|documents|contexts?|focus|materials|baseline|reference|follow-changes|watch|perspective)\b/i;
+  /\b(backup|export|documents|contexts?|focus|materials|baseline|reference|follow-changes|watch)\b/i;
 
 export function pageById(id: string): WireframePage | undefined {
   return PAGES.find((page) => page.id === id);

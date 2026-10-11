@@ -2661,7 +2661,6 @@ export type PlaceholderKinds = {
   "things-to-confirm.button.keep-question": Record<never, never>;
   "things-to-confirm.button.later": Record<never, never>;
   "things-to-confirm.button.mark-read": Record<never, never>;
-  "things-to-confirm.button.open-document": Record<never, never>;
   "things-to-confirm.button.review": Record<never, never>;
   "things-to-confirm.button.review-next": Record<never, never>;
   "things-to-confirm.button.send-answer": Record<never, never>;
@@ -2700,7 +2699,6 @@ export type PlaceholderKinds = {
   "things-to-confirm.label.event-issue-opened": Record<never, never>;
   "things-to-confirm.label.event-issue-reopened": Record<never, never>;
   "things-to-confirm.label.event-other": Record<never, never>;
-  "things-to-confirm.label.event-other-document": Record<never, never>;
   "things-to-confirm.label.event-paused": Record<never, never>;
   "things-to-confirm.label.event-question": Record<never, never>;
   "things-to-confirm.label.event-task-check-failed": Record<never, never>;

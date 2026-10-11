@@ -320,7 +320,7 @@ event는 `ToolCallRequested`, `ToolCallDecided`, `ToolCallStarted`, `ToolCallFin
 | 묶음 | 이름 |
 |---|---|
 | document | `document.list`, `document.outline`, `document.search`, `document.read_version`, `document.read_section`, `document.read_range`, `document.history`, `document.diff`, `document.create`, `document.save_version` |
-| context·term | `context.list`, `context.read`, `context.items`, `context.terms`, `context.document_membership`, `context.create`, `context.rename`, `context.set_purpose`, `context.archive`, `context.add_item`, `context.update_item`, `context.remove_item`, `term.read`, `term.propose_candidate`, `term.update_candidate`, `term.remove_candidate`, `term.submit_definition_answer` |
+| context·series | 선언 검색마다 `ctx_<ctx ULID>_<검색 slug>_<hash8>`, `context.read_entity`, `series.next_name`, `context.read_contract`, `context.draft`, `context.preview`, `context.submit`, `context.violations`, `context.glossary_read`, `context.glossary_write` |
 | format·SDK | `format.list`, `format.rules`, `format.examples`, `format.validate`, `sdk.list`, `sdk.contract`, `sdk.examples` |
 | 시각·제품 안내 | `visual.show`, `visual.read`, `visual.prepare_document`, `lophn.guide`, `setting.read` |
 | project·app | `project.list`, `project.read`, `app.list`, `app.read`, `app.read_purpose`, `app.blueprint`, `app.commands`, `app.releases`, `app.health`, `app.invocations`, `app.command_metadata`, `app.call_read_command` |

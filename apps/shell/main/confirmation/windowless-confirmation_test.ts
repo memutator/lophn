@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { confirmTermDefinition } from "./term-definition.ts";
+import { confirmWithoutWindow } from "./windowless-confirmation.ts";
 import { fakeCore, id, ok } from "./kinds/kinds_fixture.ts";
 
 const QST = id("qst", 1);
@@ -52,7 +52,7 @@ function core(command: string) {
 async function confirm(command: string) {
   const registered: unknown[] = [];
   const fake = core(command);
-  const result = await confirmTermDefinition({
+  const result = await confirmWithoutWindow({
     core: fake,
     register: (request) => {
       registered.push(request);

@@ -1,10 +1,5 @@
 import { z } from "zod";
-import {
-  defineWorker,
-  idSchema,
-  seqSchema,
-  sha256Schema,
-} from "../platform/mod.ts";
+import { defineWorker, seqSchema, sha256Schema } from "../platform/mod.ts";
 import { placeRefSchema } from "./address.ts";
 import {
   documentIdSchema,
@@ -84,7 +79,6 @@ export type IndexCoverage = z.infer<typeof indexCoverageSchema>;
 // 현재 scope와 선택 판 미반영의 진실은 host 책임이다. 같은 seq에도 lagging=true를 허용한다.
 export const searchFilterFields = {
   place: placeRefSchema.optional(),
-  context: idSchema("ctx").optional(),
   formats: z.array(nonblankSchema).optional(),
 };
 export const searchQueryInputSchema = z.strictObject({

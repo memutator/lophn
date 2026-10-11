@@ -1240,7 +1240,7 @@ concerns: [shell]
 
 ### T62 settings: 세로 nav, section 분류, 가운데 column
 
-- 상태: 진행
+- 상태: 완료 (#584)
 - 등급: frontend
 - concern: shell/desktop
 - 요구: shell/desktop#R31, shell/design-system#R21(form 폭 기둥을 가운데 둔다)

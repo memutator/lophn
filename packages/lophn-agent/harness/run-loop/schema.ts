@@ -4,7 +4,8 @@ import type { SchemaStep } from "../../../contracts/platform/mod.ts";
 // assignment당 running·waiting_user는 partial unique 하나이고, 같은 출처 key는
 // 한 run이다. finished 행은 trigger가 다시 바꾸지 못하게 막아 결과를 한 번만
 // 확정한다(R18). session·message는 그 표를 소유한 concern이 생길 때까지
-// 참조 검사 없이 ID만 둔다.
+// 참조 검사 없이 ID만 둔다. run은 지우지 않는다: 끝난 session의 run만 그 session을
+// delete할 때 함께 지운다(conversation#R20).
 
 export const runSchemaSteps: readonly SchemaStep[] = [
   {
@@ -100,8 +101,9 @@ begin
 end;
 create trigger runs_no_delete
 before delete on runs
+when old.session is null or old.state != 'finished'
 begin
-  select raise(abort, 'runs are kept');
+  select raise(abort, 'only finished runs of a deleted session are removed');
 end;`,
   },
 ];

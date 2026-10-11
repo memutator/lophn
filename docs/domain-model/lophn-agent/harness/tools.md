@@ -140,7 +140,7 @@ context의 계약·검색·위반·용어집의 값은 → documents/contexts, d
 | `context.violations` | `read` | documents/contexts 위반 읽기 | context; 위반 목록(문서 경로·규칙) | Context Engineer |
 | `context.glossary_read`, `context.glossary_write` | `read`, `write` | documents/terms 용어집 읽기·쓰기 | context; 용어·뜻·정한 사람 | Context Engineer |
 
-선언 검색 tool은 앱 tool처럼 ToolDefinition을 선언에서 만들고, 고정 Preset 선택·제품 역할 상한·assignment 범위의 교집합 안에서만 제공하며 Run.basis에 정의 hash를 고정한다. 판이 바뀌어도 진행 중인 run은 옛 정의로 계속하고 새 정의는 다음 run에서 만든다. 이름 충돌은 앱 tool과 같이 전체 목록 검증을 실패시킨다. `context.preview`는 read이며 판·파일·ledger의 context 상태를 바꾸지 않는다. 자료 검색 결과와 용어집의 문자열은 untrusted data이며 권한 주장으로 쓰지 않는다.
+선언 검색 tool은 앱 tool처럼 ToolDefinition을 선언에서 만들고, 고정 Preset 선택·제품 역할 상한·assignment 범위의 교집합 안에서만 제공하며 Run.basis에 정의 hash를 고정한다. Run.basis는 정의를 만든 context마다 그 판(`{context,bundle,bundle_hash,title}`)을 함께 고정하고, 판이 바뀌어도 진행 중인 run은 옛 정의로 계속하고 새 정의는 다음 run에서 만든다. resume은 지금 적용된 판이 아니라 고정한 판의 내용(제출된 판은 바뀌지 않는다)으로 정의를 다시 만든다. context가 active가 아니거나 고정한 판을 읽지 못하거나 읽은 판의 hash가 고정한 값과 다르면 그 context의 선언 검색 tool은 이 run의 목록에서 빠지고(fail closed), 모델이 그 이름을 부르면 목록에 없는 tool 호출로 거절되어 run에 남는다. 이름 충돌은 앱 tool과 같이 전체 목록 검증을 실패시킨다. `context.preview`는 read이며 판·파일·ledger의 context 상태를 바꾸지 않는다. 자료 검색 결과와 용어집의 문자열은 untrusted data이며 권한 주장으로 쓰지 않는다.
 
 ## ToolResult (값)
 

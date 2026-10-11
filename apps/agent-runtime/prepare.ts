@@ -59,6 +59,8 @@ import type { AppToolkit } from "./app-toolkit.ts";
 import {
   contextReadToolsFor,
   type ContextToolkit,
+  type ContextToolPin,
+  pinsOf,
   projectOf,
 } from "./context-search.ts";
 import { loadContextMaterials } from "./context-overview.ts";
@@ -245,6 +247,8 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
     run: RunRecord,
     assignment: AssignmentRecord,
     pinned: { id: string; revision: number },
+    // resume: run이 시작할 때 정의를 만든 판들. 없으면 preset 선택의 지금 적용된 판으로 만든다.
+    pinnedContexts?: readonly ContextToolPin[],
   ) {
     const read = await readOf(machine, presetRead, {
       preset: pinned.id,
@@ -325,6 +329,7 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
       place,
       scope: assignment.scope,
       selections: definition.context,
+      ...(pinnedContexts === undefined ? {} : { pinned: pinnedContexts }),
     });
 
     const listed = listTools(
@@ -593,7 +598,7 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
       revision: assignment.preset_revision,
     });
     if (!found.ok) return found;
-    const { preset, listed, scope, model, place } = found.value;
+    const { preset, listed, scope, model, place, contextRead } = found.value;
 
     // run 근거는 영구 참조다. 저장한 바이트의 hash로 StartRun에 싣는다.
     const basis = await storeValue(
@@ -618,6 +623,8 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
           definitions_hash: await fingerprint(
             listed.map((tool) => [tool.name, tool.revision]),
           ),
+          // 선언 검색 정의를 만든 판이다. resume이 같은 판으로 정의를 다시 만든다(harness/tools R21).
+          contexts: contextRead.pins,
         },
         models: { judgment: model.call, organizing: model.call },
         initial_work_place: place,
@@ -700,19 +707,23 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
       id: runId,
     });
     if (!basis.ok) return basis;
-    const pinned = (basis.value.value as {
+    const recorded = basis.value.value as {
       preset?: { id?: string; revision?: number };
-    }).preset;
+      tools?: { contexts?: unknown };
+    };
+    const pinned = recorded.preset;
     if (pinned?.id === undefined || pinned.revision === undefined) {
       return err({
         code: "unavailable",
         message: "the run basis is unreadable",
       });
     }
-    const found = await material(record, assignment, {
-      id: pinned.id,
-      revision: pinned.revision,
-    });
+    const found = await material(
+      record,
+      assignment,
+      { id: pinned.id, revision: pinned.revision },
+      pinsOf(recorded.tools?.contexts),
+    );
     if (!found.ok) return found;
     const holder: { agent?: CoreCall } = {};
     const agent: CoreCall = (path, body) =>

@@ -101,6 +101,14 @@ export const runBasisAssignmentOutputSchema = z.object({
   id: idSchema("asg"),
 });
 
+// 선언 검색 정의를 만든 판이다. resume이 같은 판으로 정의를 다시 만든다.
+const toolContextPinFields = {
+  context: idSchema("ctx"),
+  bundle: idSchema("cbn"),
+  bundle_hash: sha256Schema,
+  title: z.string().min(1),
+};
+
 const toolLimitsFields = {
   bytes: positiveSafeIntegerSchema,
   lines: positiveSafeIntegerSchema,
@@ -128,6 +136,7 @@ export const runBasisSchema = z.strictObject({
   tools: z.strictObject({
     revision: positiveRevisionSchema,
     definitions_hash: sha256Schema,
+    contexts: z.array(z.strictObject(toolContextPinFields)),
   }),
   extensions: z.strictObject({
     settings_revision: positiveRevisionSchema,
@@ -153,6 +162,7 @@ export const runBasisOutputSchema = z.object({
   tools: z.object({
     revision: positiveRevisionSchema,
     definitions_hash: sha256Schema,
+    contexts: z.array(z.object(toolContextPinFields)),
   }),
   extensions: z.object({
     settings_revision: positiveRevisionSchema,

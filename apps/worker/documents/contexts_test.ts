@@ -14,6 +14,7 @@ import {
 import { sampleEnv } from "../../../packages/documents/contexts/validate/sample.ts";
 import { openIndexStore } from "../../../packages/documents/contexts/index/mod.ts";
 import { CONTEXTS_KIND, createContextsWorker } from "./contexts.ts";
+import type { ContextFileOptions } from "./contexts-files.ts";
 import { createHash } from "node:crypto";
 
 const FIXTURES = new URL(
@@ -115,7 +116,11 @@ const contract = async () =>
     await Deno.readTextFile(new URL("eval-project.contract.json", FIXTURES)),
   ) as Record<string, unknown>;
 
-function started(dataRoot: string, kind = CONTEXTS_KIND) {
+function started(
+  dataRoot: string,
+  kind = CONTEXTS_KIND,
+  files?: ContextFileOptions,
+) {
   const stdin = controlledStdin();
   const out = recordingStdout();
   const streams: ChildStreams = {
@@ -123,7 +128,10 @@ function started(dataRoot: string, kind = CONTEXTS_KIND) {
     stdout: out.writer,
     stderr: { write: (bytes) => Promise.resolve(bytes.length) },
   };
-  const session = createContextsWorker({ streams });
+  const session = createContextsWorker({
+    streams,
+    ...(files ? { files } : {}),
+  });
   const done = session.run();
   stdin.push({
     type: "hello",
@@ -339,6 +347,101 @@ Deno.test("documents/contexts#R20 [ctx-T9b]: context.check checks a snapshot and
 
     worker.stdin.close();
     await worker.done;
+  } finally {
+    await Deno.remove(home, { recursive: true });
+    await Deno.remove(project, { recursive: true });
+  }
+});
+
+Deno.test("documents/contexts#R19 [ctx-I64p]: context.preview counts the draft's entities in a snapshot, submits nothing and leaves no snapshot and no index; a snapshot over the budget is unavailable with no partial result", async () => {
+  const home = await Deno.makeTempDir({ prefix: "lophn-contexts-home-" });
+  const project = await fixtureProject();
+  try {
+    const worker = started(home);
+    await waitFor(() =>
+      worker.out.payloads().find((message) => message.type === "ready")
+    );
+    const request = {
+      context: CONTEXT,
+      draft: await contract(),
+      roots: [project],
+      external_types: sampleEnv().externalTypes,
+      app_commands: [{
+        app: "calendar",
+        command: "events.list",
+        effect: "read",
+      }],
+    };
+    const answer = await ask(worker, "p1", "context.preview", request);
+    assertEquals(answer.ok, true, JSON.stringify(answer));
+    assertEquals(
+      (answer.payload?.["types"] as { type: string; count: number }[]).map((
+        entry,
+      ) => [entry.type, entry.count]),
+      [
+        ["Experiment", 5],
+        ["Scenario", 2],
+        ["Finding", 3],
+        ["Decision", 2],
+        ["Guide", 2],
+        ["GuideHeading", 6],
+        ["Event", 0],
+      ],
+    );
+    assertEquals(answer.payload?.["findings"], []);
+    assertEquals(answer.payload?.["violation_count"], 7);
+    assertEquals((answer.payload?.["violations"] as unknown[]).length, 7);
+    // 낼 command가 없다.
+    assertEquals(Object.keys(answer.payload ?? {}).sort(), [
+      "findings",
+      "types",
+      "violation_count",
+      "violations",
+    ]);
+    assertEquals(
+      [...Deno.readDirSync(`${home}/documents/staging/context-check`)],
+      [],
+    );
+    assertEquals(
+      await Deno.stat(`${home}/derived/contexts.sqlite`).then(() => true).catch(
+        () => false,
+      ),
+      false,
+    );
+
+    // 모양이 틀린 draft는 finding만 있고 개체 수도 위반도 없다.
+    const broken = await ask(worker, "p2", "context.preview", {
+      ...request,
+      draft: { ...(request.draft as object), schema: 2 },
+    });
+    assertEquals(broken.ok, true);
+    assertEquals(broken.payload?.["types"], []);
+    assertEquals(broken.payload?.["violations"], []);
+    assertEquals(
+      (broken.payload?.["findings"] as { kind: string }[]).map((entry) =>
+        entry.kind
+      ),
+      ["contract_invalid"],
+    );
+    worker.stdin.close();
+    await worker.done;
+
+    const small = started(home, CONTEXTS_KIND, {
+      limits: { snapshotBytes: 10 },
+    });
+    await waitFor(() =>
+      small.out.payloads().find((message) => message.type === "ready")
+    );
+    const over = await ask(small, "p3", "context.preview", request);
+    assertEquals(over.ok, false);
+    assertEquals(over.error?.code, "unavailable");
+    assertEquals(over.payload, undefined);
+    assertEquals(
+      [...Deno.readDirSync(`${home}/documents/staging/context-check`)],
+      [],
+    );
+    small.stdin.close();
+    await small.done;
   } finally {
     await Deno.remove(home, { recursive: true });
     await Deno.remove(project, { recursive: true });

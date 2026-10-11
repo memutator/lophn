@@ -3,7 +3,12 @@ import type { CheckFinding } from "../../../contracts/documents/mod.ts";
 import { checkEntities } from "../checks/run.ts";
 import type { CheckEntity } from "../checks/types.ts";
 import { extractAll } from "../extract/run.ts";
-import { validateBundle } from "../validate/mod.ts";
+import type {
+  AppDataReader,
+  ExtractedEntity,
+  ProjectFiles,
+} from "../extract/types.ts";
+import { validateBundle, type ValidationEnv } from "../validate/mod.ts";
 import { exampleFindings, savedViewFindings } from "./runner-examples.ts";
 import { meaningFindings, schemaFindings } from "./runner-findings.ts";
 import { snapshotHash } from "./snapshot.ts";
@@ -41,7 +46,7 @@ export function runCheck(input: CheckInput): CheckOutcome {
   }
 }
 
-function aborted(error: unknown): CheckFinding {
+export function aborted(error: unknown): CheckFinding {
   const message = error instanceof Error ? error.message : String(error);
   return {
     kind: "aborted",
@@ -50,15 +55,39 @@ function aborted(error: unknown): CheckFinding {
   };
 }
 
-function run(input: CheckInput, hash: string): CheckOutcome {
+// 단계 (1)~(5)의 결과. 격리 검사(runCheck)와 context.preview가 같이 쓴다. entities는 추출까지 갔을 때만
+// 있다(모양·의미 검사에서 멈추면 null).
+export type StageResult = {
+  findings: CheckFinding[];
+  violations: CheckViolation[];
+  entities: ExtractedEntity[] | null;
+};
+
+export function runStages(input: {
+  bundle: unknown;
+  files: ProjectFiles;
+  appData: AppDataReader;
+  env: ValidationEnv;
+  user_saved_views: CheckInput["user_saved_views"];
+}): StageResult {
   const parsed = bundleContentSchema.safeParse(input.bundle);
   if (!parsed.success) {
-    return outcome(hash, schemaFindings(parsed.error.issues), []);
+    return {
+      findings: schemaFindings(parsed.error.issues),
+      violations: [],
+      entities: null,
+    };
   }
   const bundle = parsed.data;
 
   const issues = validateBundle(bundle, input.env);
-  if (issues.length > 0) return outcome(hash, meaningFindings(issues), []);
+  if (issues.length > 0) {
+    return {
+      findings: meaningFindings(issues),
+      violations: [],
+      entities: null,
+    };
+  }
 
   const extracted = extractAll(bundle, input.files, input.appData);
   const ruleViolations = checkEntities(
@@ -83,5 +112,10 @@ function run(input: CheckInput, hash: string): CheckOutcome {
       extracted.entities,
     ),
   ];
-  return outcome(hash, findings, violations);
+  return { findings, violations, entities: extracted.entities };
+}
+
+function run(input: CheckInput, hash: string): CheckOutcome {
+  const stages = runStages(input);
+  return outcome(hash, stages.findings, stages.violations);
 }

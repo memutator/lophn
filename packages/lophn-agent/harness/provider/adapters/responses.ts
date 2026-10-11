@@ -6,7 +6,9 @@
 // 맡는다(T15). 실제 OpenAI API는 부르지 않는다.
 
 import type { TokenUsage } from "../../../../contracts/lophn-agent/mod.ts";
+import type { JsonObject } from "../../../../contracts/platform/mod.ts";
 import type { ToolCall } from "./messages.ts";
+import { mergeRequestPatch } from "./request-patch.ts";
 import type { SseFrame } from "./stream.ts";
 
 // 요청 item. prompt-assemble이 준 Anthropic 블록을 Responses item으로 바꾼다.
@@ -99,6 +101,8 @@ export function buildRequest(input: {
   reasoning?: readonly string[];
   // T14: 상태 없이 계속 가능한지 검증 뒤의 결과다.
   stateFree?: { protocol: "openai-responses"; reasoningRequired: boolean };
+  // option 값이 싣는 조각이다(harness/model#R22). 만든 body에 깊게 합친다.
+  request_patch?: JsonObject;
 }): { body: Record<string, unknown> } {
   const paired = pairedItems(input.input);
   const body: Record<string, unknown> = {
@@ -121,7 +125,7 @@ export function buildRequest(input: {
   if (input.reasoning?.length) {
     body.reasoning = { include: ["reasoning.encrypted_content"] };
   }
-  return { body };
+  return { body: mergeRequestPatch(body, input.request_patch) };
 }
 
 // ── SSE 응답 번역 ────────���────────────────────────────────────────────────

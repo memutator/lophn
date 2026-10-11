@@ -21,14 +21,15 @@ export function snapshotCatalogEntry(
   ) ?? undefined;
 }
 
-// provider 정의 목록에 그 model 이름이 있는지다(R10). 이 snapshot이 provider
-// 정의 목록이므로 확인 실패는 없어 항상 boolean이다.
+// provider 정의 목록에 그 model 이름이 있는지다(R10). snapshot에 그 provider 정의의 model이 하나도 없으면
+// 목록을 확인할 수 없으므로 null이고, 있으면 그 목록에 이름이 있는지다.
 export function snapshotModelListed(
   providerDefinition: string,
   modelName: string,
-): boolean {
-  return entries.some((entry) =>
-    entry.provider_definition === providerDefinition &&
-    entry.model_name === modelName
+): boolean | null {
+  const known = entries.filter((entry) =>
+    entry.provider_definition === providerDefinition
   );
+  if (known.length === 0) return null;
+  return known.some((entry) => entry.model_name === modelName);
 }

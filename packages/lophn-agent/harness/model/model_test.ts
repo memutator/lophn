@@ -1,32 +1,31 @@
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { assert, assertEquals } from "@std/assert";
 import type { AuthenticatedContext } from "../../../../packages/contracts/platform/mod.ts";
-import {
-  type CatalogEntry,
-  REASONING_BUDGET_TOKENS,
-} from "../../../../packages/contracts/lophn-agent/mod.ts";
+import type { CatalogEntry } from "../../../../packages/contracts/lophn-agent/mod.ts";
 import { formatAt } from "../../../../packages/base/clock.ts";
 import {
   createLedgerHarness,
   type LedgerHarness,
 } from "../../../../apps/core/testing/ledger.ts";
-import { clampBudgetTokens, textTokenUpperBound } from "./budget.ts";
-import { nonTextTokenBound } from "./budget.ts";
+import { nonTextTokenBound, textTokenUpperBound } from "./token-bound.ts";
 import {
-  ORDERED_LEVELS,
-  reasoningArgs,
-  requestLevelWithinRun,
-} from "./reasoning.ts";
-import { resolveSelection, verificationOf, withinLimits } from "./selection.ts";
+  requestOptionsWithinRun,
+  resolveSelection,
+  verificationOf,
+  withinLimits,
+} from "./selection.ts";
 
 const NOW = Date.UTC(2026, 0, 1);
 const AT = formatAt(NOW);
 const PROVIDER = "pvd_01arz3ndektsv4rrffq69g5fav";
+const OTHER_PROVIDER = "pvd_01arz3ndektsv4rrffq69g5faw";
 
 // command는 route name을 scope operation으로 검사한다(platform/ledger executor).
 const OPERATIONS = [
   "RegisterProvider",
   "ChangeModelDefaults",
   "ReadModelDefaults",
+  "ChangeModelFavorites",
+  "ReadModelFavorites",
   "ReadProvider",
 ];
 
@@ -55,7 +54,7 @@ const agentCred: AuthenticatedContext = {
 };
 
 let idempotency = 0;
-function envelope(input: unknown, compare: unknown): {
+function envelope(command: string, input: unknown, compare: unknown): {
   command: string;
   input: unknown;
   idempotency_key: string;
@@ -64,7 +63,7 @@ function envelope(input: unknown, compare: unknown): {
 } {
   idempotency++;
   return {
-    command: "ChangeModelDefaults",
+    command,
     input,
     compare,
     idempotency_key: `k-${idempotency}`,
@@ -114,30 +113,23 @@ async function open(): Promise<LedgerHarness> {
   return value(opened);
 }
 
-function selection(overrides: Record<string, unknown> = {}) {
-  return {
-    provider: PROVIDER,
-    credentials: ["key-main"],
-    model_name: "claude-haiku-4-5",
-    reasoning_level: "provider_default",
-    options: {},
-    ...overrides,
-  };
-}
-
-// defaults의 provider FK는 providers 표의 실제 행이다. 테스트에 loopback provider를 등록한다.
-async function registerProvider(h: LedgerHarness): Promise<void> {
+// defaults·favorites의 provider FK는 providers 표의 실제 행이다. 테스트에 loopback provider를 등록한다.
+async function registerProvider(
+  h: LedgerHarness,
+  id = PROVIDER,
+  port = 8080,
+): Promise<void> {
   const registered = await h.command(userCred, {
     command: "RegisterProvider",
     input: {
-      id: PROVIDER,
-      name: "Anthropic loopback",
+      id,
+      name: `Anthropic loopback ${port}`,
       definition: ANTHROPIC_DEFINITION,
-      endpoint: "http://127.0.0.1:8080/v1",
+      endpoint: `http://127.0.0.1:${port}/v1`,
       protocol: "anthropic-messages",
     },
     compare: {},
-    idempotency_key: "k-provider",
+    idempotency_key: `k-provider-${port}`,
     prepared: [],
   });
   assert(
@@ -145,6 +137,87 @@ async function registerProvider(h: LedgerHarness): Promise<void> {
     registered.ok ? undefined : JSON.stringify(registered.error),
   );
 }
+
+// registration_test.ts의 catalog 자료(testdata/catalog-options)에 있는 anthropic model 둘이다.
+// opus는 effort(low~maximum, 기본 high)와 speed(standard·fast) 축을 가지고 sonnet은 예산 방식 effort 축 하나다.
+function choice(overrides: Record<string, unknown> = {}) {
+  return {
+    provider: PROVIDER,
+    model_name: "claude-opus-4-8",
+    option_values: { effort: "very_high", speed: "fast" },
+    ...overrides,
+  };
+}
+
+type DefaultsValue = {
+  defaults: {
+    lophn: Record<string, unknown> | null;
+    context_engineer: Record<string, unknown> | null;
+    app_engineer: Record<string, unknown> | null;
+    operator: Record<string, unknown> | null;
+    summaries: Record<string, unknown> | null;
+    settings_seq: string;
+  };
+};
+
+async function readDefaults(h: LedgerHarness): Promise<DefaultsValue> {
+  return value(
+    await h.read(
+      { resource: "agent-model-defaults", method: "read" },
+      userCred,
+      {},
+    ),
+  ) as DefaultsValue;
+}
+
+async function changeDefaults(
+  h: LedgerHarness,
+  cred: AuthenticatedContext,
+  input: unknown,
+  seq: string,
+) {
+  return await h.command(
+    cred,
+    envelope("ChangeModelDefaults", input, { settings_seq: seq }),
+  );
+}
+
+type FavoritesValue = {
+  favorites: {
+    items: { provider: string; model_name: string }[];
+    settings_seq: string;
+  };
+};
+
+async function readFavorites(h: LedgerHarness): Promise<FavoritesValue> {
+  return value(
+    await h.read(
+      { resource: "model-favorites", method: "read" },
+      userCred,
+      {},
+    ),
+  ) as FavoritesValue;
+}
+
+async function changeFavorites(
+  h: LedgerHarness,
+  items: unknown,
+  seq: string,
+  cred: AuthenticatedContext = userCred,
+) {
+  return await h.command(
+    cred,
+    envelope("ChangeModelFavorites", { items }, { settings_seq: seq }),
+  );
+}
+
+function resultOf<T>(
+  result: Awaited<ReturnType<LedgerHarness["command"]>>,
+): T {
+  return (value(result as never) as { result: T }).result;
+}
+
+// === 순수 규칙 테스트(R10, R11, R13, R14, R16, R18, R19, R20, R24) ===
 
 function entry(overrides: Partial<CatalogEntry> = {}): CatalogEntry {
   return {
@@ -156,13 +229,17 @@ function entry(overrides: Partial<CatalogEntry> = {}): CatalogEntry {
     supports_tools: true,
     input_media: ["text"],
     output_media: ["text"],
-    reasoning: {
-      mode: "named",
-      levels: ["medium"],
-      minimum_budget: null,
-      maximum_budget: null,
-      default_level: "medium",
-    },
+    options: [{
+      id: "effort",
+      label: "Effort",
+      values: [
+        { value: "low", label: "Low", wire: null },
+        { value: "medium", label: "Medium", wire: null },
+        { value: "high", label: "High", wire: null },
+      ],
+      default_value: "medium",
+      budget: null,
+    }],
     preview: null,
     deprecated: null,
     source: "models_dev",
@@ -174,204 +251,161 @@ function entry(overrides: Partial<CatalogEntry> = {}): CatalogEntry {
   };
 }
 
+function selection(overrides: Record<string, unknown> = {}) {
+  return {
+    purpose: "judgment" as const,
+    provider: PROVIDER,
+    credentials: ["key-main"],
+    model_name: "claude-haiku-4-5",
+    option_values: {},
+    needs_tools: true,
+    ...overrides,
+  };
+}
+
 const providerNames = {
   modelListed(modelName: string): boolean | null {
     return modelName === "claude-haiku-4-5" || modelName === "gpt-x";
   },
 };
 
-// 등록된 provider의 목록을 본다. 테스트용 stub은 위 providerNames다.
-
-// === 순수 규칙 테스트(R14~R18, R20 일부) ===
-
-Deno.test("lophn-agent/harness/model#R17: budget levels clamp to confirmed min and max, maximum differs from high", () => {
-  // 확인된 예산 값 그대로다.
-  assertEquals(REASONING_BUDGET_TOKENS, {
-    low: 2048,
-    medium: 8192,
-    high: 16384,
-    maximum: 32768,
-  });
-  // 넉넉한 범위는 값 그대로다.
-  assertEquals(clampBudgetTokens("low", 1024, 65536), 2048);
-  assertEquals(clampBudgetTokens("maximum", 1024, 65536), 32768);
-  // 최대는 32768이고 높음(16384)과 다르다.
-  assertEquals(clampBudgetTokens("high", 1024, 65536), 16384);
-  assert(clampBudgetTokens("high", 1024, 65536)! < 32768);
-  // 좁은 최소·최대 안으로 clamp한다(위로 올려 맞추지 않는다).
-  assertEquals(clampBudgetTokens("maximum", 4096, 16384), 16384);
-  assertEquals(clampBudgetTokens("low", 4096, 16384), 4096);
-  assertEquals(clampBudgetTokens("maximum", 1024, 4096), 4096);
-  // min/max가 확인되지 않으면(null) 제공하지 않는다.
-  assertEquals(clampBudgetTokens("low", null, 65536), null);
-  assertEquals(clampBudgetTokens("low", 1024, null), null);
-  assertEquals(clampBudgetTokens("low", null, null), null);
-  // 뒤집힌 범위도 제공하지 않는다.
-  assertEquals(clampBudgetTokens("low", 65536, 1024), null);
+Deno.test("lophn-agent/harness/model#R16 [agent-I15]: an axis left to the model takes the confirmed default and others send nothing", () => {
+  // 맡김(축 없음)은 catalog가 확인한 default_value가 있으면 그 값으로 채운다.
+  const filled = value(
+    resolveSelection(selection(), entry(), providerNames, undefined),
+  );
+  assertEquals(filled.option_values, { effort: "medium" });
+  // 고른 값은 그대로이고 기본값으로 바꾸지 않는다.
+  const chosen = value(
+    resolveSelection(
+      selection({ option_values: { effort: "high" } }),
+      entry(),
+      providerNames,
+      undefined,
+    ),
+  );
+  assertEquals(chosen.option_values, { effort: "high" });
+  // 기본값이 확인되지 않은 축은 맡김이어도 값을 만들지 않는다.
+  const unknownDefault = value(
+    resolveSelection(
+      selection(),
+      entry({
+        options: [{
+          id: "effort",
+          label: "Effort",
+          values: [{ value: "low", label: "Low", wire: null }],
+          default_value: null,
+          budget: null,
+        }],
+      }),
+      providerNames,
+      undefined,
+    ),
+  );
+  assertEquals(unknownDefault.option_values, {});
+  // option을 아직 모르는 model(null)은 맡김뿐이다.
+  const noAxes = value(
+    resolveSelection(
+      selection(),
+      entry({ options: null }),
+      providerNames,
+      undefined,
+    ),
+  );
+  assertEquals(noAxes.option_values, {});
 });
 
-Deno.test("lophn-agent/harness/model#R17: toggle mode provides only off and high", () => {
-  const base = entry({
-    reasoning: {
-      mode: "toggle",
-      levels: ["high"],
-      minimum_budget: null,
-      maximum_budget: null,
-      default_level: null,
-    },
-  });
-  assertEquals(reasoningArgs({ reasoning_level: "high" }, base), {
-    kind: "toggle",
-    on: true,
-  });
-  // off는 토글 끔이 아니라 인자 없음이다(R15 모델에 맡김 제외).
-  assertEquals(reasoningArgs({ reasoning_level: "off" }, base), {
-    kind: "none",
-  });
-  // 최소·중간·최대는 토글 방식의 수준이 아니므로 인자가 아니다.
-  assertEquals(
-    reasoningArgs({ reasoning_level: "minimal" }, base),
-    undefined,
+Deno.test("lophn-agent/harness/model#R24 [agent-I15]: an axis or value the model does not declare fails before the call", () => {
+  // 없는 값은 가까운 값으로 바꾸지 않고 거절한다.
+  code(
+    resolveSelection(
+      selection({ option_values: { effort: "maximum" } }),
+      entry(),
+      providerNames,
+      undefined,
+    ) as never,
+    "invalid_input",
   );
-  assertEquals(reasoningArgs({ reasoning_level: "medium" }, base), undefined);
-  assertEquals(reasoningArgs({ reasoning_level: "maximum" }, base), undefined);
-  assertEquals(
-    reasoningArgs({ reasoning_level: "very_high" }, base),
-    undefined,
+  // 없는 축도 거절한다.
+  code(
+    resolveSelection(
+      selection({ option_values: { speed: "fast" } }),
+      entry(),
+      providerNames,
+      undefined,
+    ) as never,
+    "invalid_input",
+  );
+  // option을 모르는 model(null)에는 어떤 값도 고를 수 없다.
+  code(
+    resolveSelection(
+      selection({ option_values: { effort: "low" } }),
+      entry({ options: null }),
+      providerNames,
+      undefined,
+    ) as never,
+    "invalid_input",
+  );
+  // catalog 밖 model(명시 한계만 있음)도 option 값을 고를 수 없다.
+  code(
+    resolveSelection(
+      selection({ model_name: "gpt-x", option_values: { effort: "low" } }),
+      undefined,
+      providerNames,
+      {
+        context_limit: 1000,
+        input_limit: 600,
+        output_limit: 400,
+        supports_tools: true,
+      },
+    ) as never,
+    "invalid_input",
   );
 });
 
-Deno.test("lophn-agent/harness/model#R16: default level and blank values are not strength; model default without confirmed level sends no reasoning arg", () => {
-  // 모델에 맡김(provider_default)에서 보정된 기본 수준이 없으면 추론 인자가 없다.
-  const delegated = entry({
-    reasoning: {
-      mode: "unknown",
-      levels: [],
-      minimum_budget: null,
-      maximum_budget: null,
-      default_level: null,
-    },
-  });
-  assertEquals(
-    reasoningArgs({ reasoning_level: "provider_default" }, delegated),
-    undefined,
+Deno.test("lophn-agent/harness/model#R18 [agent-I15]: a request cannot raise effort above the value the run started with", () => {
+  const same = value(
+    requestOptionsWithinRun({ effort: "medium" }, { effort: "medium" }),
   );
-  // 보정된 기본 수준이 있어도 unknown 모드는 인자를 보내지 않는다(R16 모델에 맡김).
-  const confirmed = entry({
-    reasoning: {
-      mode: "unknown",
-      levels: [],
-      minimum_budget: null,
-      maximum_budget: null,
-      default_level: "medium",
-    },
-  });
+  assertEquals(same, { effort: "medium" });
   assertEquals(
-    reasoningArgs({ reasoning_level: "provider_default" }, confirmed),
-    undefined,
+    value(requestOptionsWithinRun({ effort: "high" }, { effort: "low" })),
+    { effort: "low" },
   );
-  // named 모드의 목록에 없는 수준은 치환 없이 인자가 아니다(minimal→low 없음).
-  const named = entry({
-    reasoning: {
-      mode: "named",
-      levels: ["low", "medium"],
-      minimum_budget: null,
-      maximum_budget: null,
-      default_level: null,
-    },
-  });
+  // 더 높은 effort는 거절한다.
+  code(
+    requestOptionsWithinRun({ effort: "medium" }, { effort: "high" }) as never,
+    "invalid_input",
+  );
+  code(
+    requestOptionsWithinRun({ effort: "low" }, {
+      effort: "very_high",
+    }) as never,
+    "invalid_input",
+  );
+  // 이름 순서 밖의 값은 비교할 수 없어 거절한다.
+  code(
+    requestOptionsWithinRun({ effort: "medium" }, { effort: "turbo" }) as never,
+    "invalid_input",
+  );
+  // run이 effort를 맡김으로 시작했으면(고정한 값이 없으면) 고정할 것이 없다.
   assertEquals(
-    reasoningArgs({ reasoning_level: "minimal" }, named),
-    undefined,
+    value(requestOptionsWithinRun({}, { effort: "maximum" })),
+    { effort: "maximum" },
   );
+  // effort 밖 축은 순서가 없어 이 검사가 바꾸지 않는다.
   assertEquals(
-    reasoningArgs({ reasoning_level: "provider_default" }, named),
-    undefined,
+    value(
+      requestOptionsWithinRun(
+        { effort: "high", speed: "standard" },
+        { effort: "high", speed: "fast" },
+      ),
+    ),
+    { effort: "high", speed: "fast" },
   );
-  // 지원된 수준만 이름 그대로 보낸다.
-  assertEquals(reasoningArgs({ reasoning_level: "low" }, named), {
-    kind: "named",
-    level: "low",
-  });
 });
 
-Deno.test("lophn-agent/harness/model#R16: named mode sends only catalog-confirmed strength names without substitution", () => {
-  const named = entry({
-    reasoning: {
-      mode: "named",
-      levels: ["minimal", "high"],
-      minimum_budget: null,
-      maximum_budget: null,
-      default_level: null,
-    },
-  });
-  // catalog에서 확인된 이름만 보낸다.
-  assertEquals(reasoningArgs({ reasoning_level: "minimal" }, named), {
-    kind: "named",
-    level: "minimal",
-  });
-  assertEquals(reasoningArgs({ reasoning_level: "high" }, named), {
-    kind: "named",
-    level: "high",
-  });
-  // minimal→low 같은 대체가 없다.
-  assertEquals(reasoningArgs({ reasoning_level: "low" }, named), undefined);
-  assertEquals(reasoningArgs({ reasoning_level: "medium" }, named), undefined);
-  assertEquals(reasoningArgs({ reasoning_level: "maximum" }, named), undefined);
-});
-
-Deno.test("lophn-agent/harness/model#R15: seven levels and delegated stay available, off is an arg of none", () => {
-  assertEquals(ORDERED_LEVELS, [
-    "off",
-    "minimal",
-    "low",
-    "medium",
-    "high",
-    "very_high",
-    "maximum",
-  ]);
-  const named = entry({
-    reasoning: {
-      mode: "named",
-      levels: [...ORDERED_LEVELS],
-      minimum_budget: null,
-      maximum_budget: null,
-      default_level: null,
-    },
-  });
-  // off는 none 인자다(모델에 맡김이 아니다).
-  assertEquals(reasoningArgs({ reasoning_level: "off" }, named), {
-    kind: "none",
-  });
-  // 일곱 수준 각각은 이름 그대로의 인자다.
-  for (const level of ORDERED_LEVELS.slice(1)) {
-    assertEquals(reasoningArgs({ reasoning_level: level }, named), {
-      kind: "named",
-      level,
-    });
-  }
-});
-
-Deno.test("lophn-agent/harness/model#R18: run keeps the started level and rejects raising it mid-run", () => {
-  // run 수준이 없으면 고정할 것이 없다.
-  const none = requestLevelWithinRun(null, "high");
-  assertEquals(none.ok, true);
-  // started 이하 요청은 통과다.
-  assertEquals(requestLevelWithinRun("high", "medium").ok, true);
-  assertEquals(requestLevelWithinRun("high", "high").ok, true);
-  // run 중 수준 상승은 거절이다.
-  const raised = requestLevelWithinRun("medium", "high");
-  assertEquals(raised.ok, false);
-  code(raised as never, "invalid_input");
-  const maximum = requestLevelWithinRun("medium", "maximum");
-  assertEquals(maximum.ok, false);
-  code(maximum as never, "invalid_input");
-  // 순서 밖 수준은 다룰 대상이 아니다.
-  const outside = requestLevelWithinRun("medium", "provider_default");
-  assertEquals(outside.ok, false);
-});
-
-Deno.test("lophn-agent/harness/model#R14: text token bound is the UTF-8 byte count, no chars/4 guess", () => {
+Deno.test("lophn-agent/harness/model#R14 [agent-I15]: text token bound is the UTF-8 byte count, no chars/4 guess", () => {
   // ASCII 그대로 1 byte다.
   assertEquals(textTokenUpperBound("hello"), 5);
   // 한글은 UTF-8 3byte 그대로 세어 chars/4 추측이 아니다.
@@ -382,13 +416,9 @@ Deno.test("lophn-agent/harness/model#R14: text token bound is the UTF-8 byte cou
   // 큰 결과(byte 상한)도 일관된다.
   assertEquals(textTokenUpperBound("a".repeat(262144)), 262144);
   assertEquals(textTokenUpperBound("한".repeat(100000)), 300000);
-  assertStringIncludes(
-    String(textTokenUpperBound("한")),
-    "3",
-  );
 });
 
-Deno.test("lophn-agent/harness/model#R14: non-text with unknown size stops the call", () => {
+Deno.test("lophn-agent/harness/model#R14 [agent-I15]: non-text with unknown size stops the call", () => {
   // 크기 미상(이미지)은 호출 gate 거절이다.
   const unknown = nonTextTokenBound(null);
   assertEquals(unknown.ok, false);
@@ -400,7 +430,7 @@ Deno.test("lophn-agent/harness/model#R14: non-text with unknown size stops the c
   code(nonTextTokenBound(-1) as never, "invalid_input");
 });
 
-Deno.test("lophn-agent/harness/model#R11: whole request, input or reserved output over a limit stops the send", () => {
+Deno.test("lophn-agent/harness/model#R11 [agent-I15]: whole request, input or reserved output over a limit stops the send", () => {
   const limits = {
     context_limit: 1000,
     input_limit: 600,
@@ -417,24 +447,16 @@ Deno.test("lophn-agent/harness/model#R11: whole request, input or reserved outpu
   code(withinLimits(limits, 1001, 600, 400) as never, "invalid_input");
 });
 
-Deno.test("lophn-agent/harness/model#R10: verification marks unverified when the list could not be checked", () => {
+Deno.test("lophn-agent/harness/model#R10 [agent-I15]: verification marks unverified when the list could not be checked", () => {
   assertEquals(verificationOf(true), "verified");
   assertEquals(verificationOf(false), "unverified");
   // 목록을 확인하지 못했으면(null) unverified로 저장한다.
   assertEquals(verificationOf(null), "unverified");
 });
 
-Deno.test("lophn-agent/harness/model#R10: a name outside the current provider list is rejected", () => {
+Deno.test("lophn-agent/harness/model#R10 [agent-I15]: a name outside the current provider list is rejected", () => {
   const rejected = resolveSelection(
-    {
-      purpose: "judgment",
-      provider: PROVIDER,
-      credentials: ["key-main"],
-      model_name: "not-listed-model",
-      reasoning_level: "provider_default",
-      needs_tools: true,
-      options: {},
-    },
+    selection({ model_name: "not-listed-model" }),
     entry(),
     { modelListed: () => false },
     undefined,
@@ -443,64 +465,23 @@ Deno.test("lophn-agent/harness/model#R10: a name outside the current provider li
   code(rejected as never, "not_found");
 });
 
-Deno.test("lophn-agent/harness/model#R10: an unchecked list stores unverified, model_test asserts the mark", () => {
-  const unchecked = resolveSelection(
-    {
-      purpose: "judgment",
-      provider: PROVIDER,
-      credentials: ["key-main"],
-      model_name: "checked-later",
-      reasoning_level: "provider_default",
-      needs_tools: true,
-      options: {},
-    },
-    entry({ model_name: "checked-later" }),
-    { modelListed: () => null },
-    undefined,
+Deno.test("lophn-agent/harness/model#R10 [agent-I15]: an unchecked list stores unverified, model_test asserts the mark", () => {
+  const model = value(
+    resolveSelection(
+      selection({ model_name: "checked-later" }),
+      entry({ model_name: "checked-later" }),
+      { modelListed: () => null },
+      undefined,
+    ),
   );
-  const model = value(unchecked);
   // 목록 미조회면 unverified로 저장한다.
   assertEquals(model.verification, "unverified");
   assertEquals(model.basis.model_listed, "unknown");
 });
 
-Deno.test("lophn-agent/harness/model#R11: known text, tool unsupported models are rejected at selection", () => {
-  // 명시 대체 항목은 image 전용 model을 만들 수 없으므로(resolved-model media schema가
-  // text 필수) catalog에서 알려진 text·tool 미지원을 tool call 거절로 확인한다.
-  const explicitInput = resolveSelection(
-    {
-      purpose: "judgment",
-      provider: PROVIDER,
-      credentials: ["key-main"],
-      model_name: "not-listed-model",
-      reasoning_level: "provider_default",
-      needs_tools: true,
-      options: {},
-    },
-    undefined,
-    { modelListed: () => false },
-    {
-      context_limit: 1000,
-      input_limit: 600,
-      output_limit: 400,
-      supports_tools: false,
-    },
-  );
-  // 목록 밖 이름은 거절이다(R10).
-  code(explicitInput as never, "not_found");
-});
-
-Deno.test("lophn-agent/harness/model#R11: tool call unsupported models are rejected when tools are needed", () => {
+Deno.test("lophn-agent/harness/model#R11 [agent-I15]: tool call unsupported models are rejected when tools are needed", () => {
   const rejected = resolveSelection(
-    {
-      purpose: "judgment",
-      provider: PROVIDER,
-      credentials: ["key-main"],
-      model_name: "claude-haiku-4-5",
-      reasoning_level: "provider_default",
-      needs_tools: true,
-      options: {},
-    },
+    selection(),
     entry({ supports_tools: false }),
     providerNames,
     undefined,
@@ -510,18 +491,31 @@ Deno.test("lophn-agent/harness/model#R11: tool call unsupported models are rejec
   code(rejected as never, "invalid_input");
 });
 
-Deno.test("lophn-agent/harness/model#R13: an out-of-catalog model needs confirmed info or explicit limits, no arbitrary guess", () => {
+Deno.test("lophn-agent/harness/model#R11 [agent-I15]: a known text-unsupported model is rejected at selection", () => {
+  code(
+    resolveSelection(
+      selection(),
+      entry({ input_media: ["image"] }),
+      providerNames,
+      undefined,
+    ) as never,
+    "invalid_input",
+  );
+  code(
+    resolveSelection(
+      selection(),
+      entry({ output_media: ["audio"] }),
+      providerNames,
+      undefined,
+    ) as never,
+    "invalid_input",
+  );
+});
+
+Deno.test("lophn-agent/harness/model#R13 [agent-I15]: an out-of-catalog model needs confirmed info or explicit limits, no arbitrary guess", () => {
   // catalog 밖이면서 확인·명시 한계가 없으면 사용할 수 없다.
   const missing = resolveSelection(
-    {
-      purpose: "judgment",
-      provider: PROVIDER,
-      credentials: ["key-main"],
-      model_name: "unknown-model",
-      reasoning_level: "provider_default",
-      needs_tools: true,
-      options: {},
-    },
+    selection({ model_name: "unknown-model" }),
     undefined,
     { modelListed: () => null },
     undefined,
@@ -530,15 +524,7 @@ Deno.test("lophn-agent/harness/model#R13: an out-of-catalog model needs confirme
   code(missing as never, "invalid_input");
   // 사람이 명시한 양의 한계와 text·tool 지원이 있으면 쓸 수 있다.
   const explicit = resolveSelection(
-    {
-      purpose: "judgment",
-      provider: PROVIDER,
-      credentials: ["key-main"],
-      model_name: "unknown-model",
-      reasoning_level: "provider_default",
-      needs_tools: true,
-      options: {},
-    },
+    selection({ model_name: "unknown-model" }),
     undefined,
     { modelListed: () => null },
     {
@@ -551,61 +537,32 @@ Deno.test("lophn-agent/harness/model#R13: an out-of-catalog model needs confirme
   const model = value(explicit);
   assertEquals(model.context_limit, 200000);
   assertEquals(model.basis.source, "user_explicit");
+  assertEquals(model.option_values, {});
 });
 
-Deno.test("lophn-agent/harness/model#R19: the first-cut judgment call uses text input and output only", () => {
+Deno.test("lophn-agent/harness/model#R19 [agent-I15]: the first-cut judgment call uses text input and output only", () => {
   const model = value(
-    resolveSelection(
-      {
-        purpose: "judgment",
-        provider: PROVIDER,
-        credentials: ["key-main"],
-        model_name: "claude-haiku-4-5",
-        reasoning_level: "provider_default",
-        needs_tools: true,
-        options: {},
-      },
-      entry(),
-      providerNames,
-      undefined,
-    ),
+    resolveSelection(selection(), entry(), providerNames, undefined),
   );
   // 원본 첨부 매체 없이 text만 입력·출력이다. image·audio·video는 매체 계약 완성 전까지 없다.
   assertEquals(model.input_media, ["text"]);
   assertEquals(model.output_media, ["text"]);
 });
 
-Deno.test("lophn-agent/harness/model#R20: an unavailable choice leaves the reason and the fact of no further calls, organizing uses the same model", () => {
+Deno.test("lophn-agent/harness/model#R20 [agent-I15]: an unavailable choice leaves the reason and the fact of no further calls, organizing uses the same model", () => {
   // 사용 불가 판정(catalog 항목 없음 + 명시 한계 없음)에서 이유가 남는다.
   const unavailable = resolveSelection(
-    {
-      purpose: "organizing",
-      provider: PROVIDER,
-      credentials: ["key-main"],
-      model_name: "unknown-model",
-      reasoning_level: "provider_default",
-      needs_tools: true,
-      options: {},
-    },
+    selection({ purpose: "organizing", model_name: "unknown-model" }),
     undefined,
     { modelListed: () => null },
     undefined,
   );
   assertEquals(unavailable.ok, false);
   code(unavailable as never, "invalid_input");
-  // organizing 미선택은 같은 preset model로 resolve이지 실패 뒤 fallback이 아니다.
-  // 표시는 resolveSelection의 purpose와 domain-model의 선택 적용 정책이 정한다.
+  // 요약용 칸이 비어 agent model로 resolve하는 것은 구성 resolve이지 실패 뒤 fallback이 아니다.
   const organizingSameModel = value(
     resolveSelection(
-      {
-        purpose: "organizing",
-        provider: PROVIDER,
-        credentials: ["key-main"],
-        model_name: "claude-haiku-4-5",
-        reasoning_level: "provider_default",
-        needs_tools: true,
-        options: {},
-      },
+      selection({ purpose: "organizing" }),
       entry(),
       providerNames,
       undefined,
@@ -615,205 +572,451 @@ Deno.test("lophn-agent/harness/model#R20: an unavailable choice leaves the reaso
   assertEquals(organizingSameModel.model_name, "claude-haiku-4-5");
 });
 
-// === ledger 통합 테스트(R8~R9 전파, R10 저장) ===
+// === ledger 통합 테스트(R8~R10, R12, R24, R26) ===
 
-Deno.test("lophn-agent/harness/model#R9: defaults start empty and a change does not reach existing stored rows", async () => {
+Deno.test("lophn-agent/harness/model#R8 [agent-I15]: defaults start empty and each role slot changes alone", async () => {
   const h = await open();
   try {
     await registerProvider(h);
-    const before = value(
-      await h.read(
-        { resource: "agent-model-defaults", method: "read" },
-        userCred,
-        {},
-      ),
-    ) as {
-      defaults: {
-        judgment: unknown;
-        organizing: unknown;
-        settings_seq: string;
-      };
-    };
-    // 처음 값은 비어 있다(R9 처음 설치).
-    assertEquals(before.defaults.judgment, null);
-    assertEquals(before.defaults.organizing, null);
-    assertEquals(before.defaults.settings_seq, "0");
+    const before = await readDefaults(h);
+    // 처음 값은 다섯 slot 모두 비어 있다(R9 처음 설치).
+    assertEquals(before.defaults, {
+      lophn: null,
+      context_engineer: null,
+      app_engineer: null,
+      operator: null,
+      summaries: null,
+      settings_seq: "0",
+    });
 
-    // CAS: compare 세팅 seq가 0으로 처음 저장이다.
-    const first = value(
-      await h.command(
-        userCred,
-        envelope(
-          { judgment: selection(), organizing: null, settings_seq: "0" },
-          { settings_seq: "0" },
-        ),
-      ) as never as { ok: true; value: { result: { settings_seq: string } } },
+    const first = resultOf<DefaultsValue>(
+      await changeDefaults(h, userCred, { lophn: choice() }, "0"),
     );
-    // event seq가 settings_seq가 된다.
-    const firstSeq = first.result.settings_seq;
-    assert(typeof firstSeq === "string" && firstSeq !== "0");
+    // event seq가 새 settings_seq가 된다.
+    const firstSeq = first.defaults.settings_seq;
+    assert(firstSeq !== "0");
+    assertEquals(first.defaults.lophn, choice());
+    assertEquals(first.defaults.operator, null);
 
-    const after = value(
-      await h.read(
-        { resource: "agent-model-defaults", method: "read" },
+    // 다른 role을 바꿔도 lophn의 값은 그대로다.
+    const second = resultOf<DefaultsValue>(
+      await changeDefaults(
+        h,
         userCred,
-        {},
+        {
+          operator: choice({
+            model_name: "claude-sonnet-4-5",
+            option_values: { effort: "medium" },
+          }),
+          summaries: choice({ option_values: {} }),
+        },
+        firstSeq,
       ),
-    ) as never as {
-      defaults: {
-        judgment: Record<string, unknown> | null;
-        settings_seq: string;
-      };
-    };
-    assertEquals(after.defaults.settings_seq, firstSeq);
-    assert(after.defaults.judgment !== null);
-    assertEquals(after.defaults.judgment?.model_name, "claude-haiku-4-5");
+    );
+    assert(BigInt(second.defaults.settings_seq) > BigInt(firstSeq));
+    const after = await readDefaults(h);
+    assertEquals(after.defaults, second.defaults);
+    assertEquals(after.defaults.lophn, choice());
+    assertEquals(after.defaults.operator?.model_name, "claude-sonnet-4-5");
+    assertEquals(after.defaults.summaries?.option_values, {});
+    assertEquals(after.defaults.context_engineer, null);
+    assertEquals(after.defaults.app_engineer, null);
+
+    // null은 그 slot만 비운다.
+    const cleared = resultOf<DefaultsValue>(
+      await changeDefaults(
+        h,
+        userCred,
+        { lophn: null },
+        second.defaults.settings_seq,
+      ),
+    );
+    assertEquals(cleared.defaults.lophn, null);
+    assertEquals(cleared.defaults.operator, second.defaults.operator);
+    assertEquals(cleared.defaults.summaries, second.defaults.summaries);
   } finally {
     await h.close();
   }
 });
 
-Deno.test("lophn-agent/harness/model#R9: a stale settings seq is a conflict and no row changes", async () => {
+Deno.test("lophn-agent/harness/model#R8 [agent-I15]: the changed slots and the new snapshot ride the ModelDefaultsChanged event", async () => {
   const h = await open();
   try {
     await registerProvider(h);
-    value(
-      await h.command(
+    const first = resultOf<DefaultsValue>(
+      await changeDefaults(
+        h,
         userCred,
-        envelope(
-          { judgment: selection(), organizing: null, settings_seq: "0" },
-          { settings_seq: "0" },
-        ),
-      ) as never as { ok: true; value: unknown },
+        { app_engineer: choice(), summaries: null },
+        "0",
+      ),
     );
-    // agent_model_defaults에는 두 행(judgment, organizing)을 모두 남기고 settings_seq를 갱신한 뒤,
-    // 같은 seq를 쓰면 CAS conflict다(R9 기존 판을 바꾸지 않는다).
-    const stale = await h.command(
-      userCred,
-      envelope({ judgment: null, organizing: null, settings_seq: "0" }, {
-        settings_seq: "0",
-      }),
-    );
-    assertEquals(stale.ok, false);
-  } finally {
-    await h.close();
-  }
-});
-
-Deno.test("lophn-agent/harness/model#R8: only agent_model_defaults changes; the stored selection stays", async () => {
-  const h = await open();
-  try {
-    await registerProvider(h);
-    value(
-      await h.command(
-        userCred,
-        envelope(
-          { judgment: selection(), organizing: null, settings_seq: "0" },
-          { settings_seq: "0" },
-        ),
-      ) as never as { ok: true; value: unknown },
-    );
-    const rows = value(
+    const events = value(
       await h.inspect(
-        "select purpose, provider, model_name, settings_seq from agent_model_defaults",
+        "select payload from events where type = 'ModelDefaultsChanged'",
         [],
       ),
-    ) as {
-      purpose: string;
-      provider: string | null;
-      model_name: string | null;
-      settings_seq: string;
-    }[];
-    // judgment만 저장됐다. organizing은 null로 유지된다.
-    assertEquals(rows.length, 2);
-    const judgment = rows.find((r) => r.purpose === "judgment");
-    const organizing = rows.find((r) => r.purpose === "organizing");
-    assertEquals(judgment?.model_name, "claude-haiku-4-5");
-    assertEquals(organizing?.model_name, null);
-    const second = value(
-      await h.read(
-        { resource: "agent-model-defaults", method: "read" },
-        userCred,
-        {},
-      ),
-    ) as never as { defaults: Record<string, unknown> };
-    // 읽기가 저장된 judgment선택을 그대로 돌려준다.
-    const defaults = second.defaults as {
-      judgment: { model_name: string } | null;
-      organizing: unknown;
+    ) as { payload: string }[];
+    assertEquals(events.length, 1);
+    const payload = JSON.parse(events[0].payload) as {
+      slots: string[];
+      defaults: DefaultsValue["defaults"];
     };
-    assertEquals(defaults.judgment?.model_name, "claude-haiku-4-5");
-    assertEquals(defaults.organizing, null);
+    // 입력에 실은 slot만, 정해진 slot 순서로 싣는다.
+    assertEquals(payload.slots, ["app_engineer", "summaries"]);
+    assertEquals(payload.defaults.app_engineer, choice());
+    assertEquals(payload.defaults.lophn, null);
+    assertEquals(first.defaults.app_engineer, choice());
   } finally {
     await h.close();
   }
 });
 
-Deno.test("lophn-agent/harness/model#R8: a change does not rewrite preset or assignment tables", async () => {
+Deno.test("lophn-agent/harness/model#R9 [agent-I15]: a stale settings seq is a conflict and no row changes", async () => {
   const h = await open();
   try {
     await registerProvider(h);
-    value(
-      await h.command(
-        userCred,
-        envelope(
-          {
-            judgment: selection(),
-            organizing: selection({ model_name: "gpt-x" }),
-            settings_seq: "0",
-          },
-          { settings_seq: "0" },
-        ),
-      ) as never as { ok: true; value: unknown },
+    const first = resultOf<DefaultsValue>(
+      await changeDefaults(h, userCred, { lophn: choice() }, "0"),
     );
-    // preset·assignment 표는 harness에 등록된 표가 아니라 다른 concern다. defaults 변경이 남기는
-    // 표는 agent_model_defaults뿐이다. 표 목록으로 확인한다.
-    const tables = value(
-      await h.inspect(
-        "select name from sqlite_master where type = 'table'",
-        [],
-      ),
-    ) as { name: string }[];
-    const names = tables.map((t) => t.name);
-    assert(names.includes("agent_model_defaults"));
-    // agent_model_defaults에는 judgment·organizing 두 행뿐이다(R8 두 용도만).
-    assertEquals(
-      names.filter((n) => n === "agent_model_defaults").length,
-      1,
+    const stale = await changeDefaults(h, userCred, { lophn: null }, "0");
+    code(stale as never, "conflict");
+    // 거절된 변경은 아무 slot도 바꾸지 않는다.
+    const after = await readDefaults(h);
+    assertEquals(after.defaults, first.defaults);
+    // 현재 seq로는 바뀐다.
+    value(
+      await changeDefaults(
+        h,
+        userCred,
+        { lophn: null },
+        first.defaults.settings_seq,
+      ) as never,
     );
   } finally {
     await h.close();
   }
 });
 
-Deno.test("lophn-agent/harness/model#R9: only user actors change model defaults", async () => {
+Deno.test("lophn-agent/harness/model#R9 [agent-I15]: only user actors change model defaults and favorites", async () => {
   const h = await open();
   try {
     await registerProvider(h);
     // machine·agent는 user 전용 command에 쓸 수 없다.
-    const machineResult = await h.command(
-      machineCred,
-      envelope(
-        { judgment: null, organizing: null },
-        { settings_seq: "0" },
-      ),
+    code(
+      await changeDefaults(h, machineCred, { lophn: null }, "0") as never,
+      "forbidden",
     );
-    assertEquals(machineResult.ok, false);
-    const agentResult = await h.command(
-      agentCred,
-      envelope(
-        { judgment: null, organizing: null },
-        { settings_seq: "0" },
-      ),
+    code(
+      await changeDefaults(h, agentCred, { lophn: null }, "0") as never,
+      "forbidden",
     );
-    assertEquals(agentResult.ok, false);
-    // 읽기는 user·machine 모두 user·agent·machine·coding_agent actor다.
+    code(
+      await changeFavorites(h, [], "0", machineCred) as never,
+      "forbidden",
+    );
+    code(
+      await changeFavorites(h, [], "0", agentCred) as never,
+      "forbidden",
+    );
+    // 읽기는 user·machine 모두 된다.
     const read = await h.read(
       { resource: "agent-model-defaults", method: "read" },
       machineCred,
       {},
     );
     assertEquals(read.ok, true);
+    const favorites = await h.read(
+      { resource: "model-favorites", method: "read" },
+      machineCred,
+      {},
+    );
+    assertEquals(favorites.ok, true);
+  } finally {
+    await h.close();
+  }
+});
+
+Deno.test("lophn-agent/harness/model#R10 [agent-I15]: a defaults save rejects a model outside the provider list and keeps unchecked lists", async () => {
+  const h = await open();
+  try {
+    await registerProvider(h);
+    // 목록에 없는 이름은 저장 거절이고 어느 slot도 바뀌지 않는다.
+    code(
+      await changeDefaults(
+        h,
+        userCred,
+        {
+          lophn: choice(),
+          operator: choice({ model_name: "not-a-model", option_values: {} }),
+        },
+        "0",
+      ) as never,
+      "invalid_input",
+    );
+    assertEquals((await readDefaults(h)).defaults.lophn, null);
+    assertEquals((await readDefaults(h)).defaults.settings_seq, "0");
+    // 없는 provider는 not_found다.
+    code(
+      await changeDefaults(
+        h,
+        userCred,
+        { lophn: choice({ provider: OTHER_PROVIDER }) },
+        "0",
+      ) as never,
+      "not_found",
+    );
+    // 목록을 확인하지 못한 이름(null)은 저장한다. 호출 때 unverified로 다룬다.
+    const unchecked = resultOf<DefaultsValue>(
+      await changeDefaults(
+        h,
+        userCred,
+        {
+          lophn: choice({ model_name: "list-unconfirmed", option_values: {} }),
+        },
+        "0",
+      ),
+    );
+    assertEquals(unchecked.defaults.lophn?.model_name, "list-unconfirmed");
+  } finally {
+    await h.close();
+  }
+});
+
+Deno.test("lophn-agent/harness/model#R24 [agent-I15]: a defaults save rejects an option axis or value the model does not declare", async () => {
+  const h = await open();
+  try {
+    await registerProvider(h);
+    // sonnet(예산 방식)에는 speed 축이 없다.
+    code(
+      await changeDefaults(
+        h,
+        userCred,
+        {
+          lophn: choice({
+            model_name: "claude-sonnet-4-5",
+            option_values: { speed: "fast" },
+          }),
+        },
+        "0",
+      ) as never,
+      "invalid_input",
+    );
+    // opus의 effort에는 off가 없다.
+    code(
+      await changeDefaults(
+        h,
+        userCred,
+        { lophn: choice({ option_values: { effort: "off" } }) },
+        "0",
+      ) as never,
+      "invalid_input",
+    );
+    // catalog 항목이 없는 model(목록에는 있음)은 option 값 없이만 저장한다.
+    code(
+      await changeDefaults(
+        h,
+        userCred,
+        {
+          lophn: choice({
+            model_name: "listed-without-catalog",
+            option_values: { effort: "low" },
+          }),
+        },
+        "0",
+      ) as never,
+      "invalid_input",
+    );
+    assertEquals((await readDefaults(h)).defaults.settings_seq, "0");
+    const saved = resultOf<DefaultsValue>(
+      await changeDefaults(
+        h,
+        userCred,
+        {
+          lophn: choice({
+            model_name: "listed-without-catalog",
+            option_values: {},
+          }),
+        },
+        "0",
+      ),
+    );
+    assertEquals(saved.defaults.lophn?.option_values, {});
+  } finally {
+    await h.close();
+  }
+});
+
+Deno.test("lophn-agent/harness/model#R8 [agent-I15]: the defaults table holds one row per slot and nothing else about presets", async () => {
+  const h = await open();
+  try {
+    await registerProvider(h);
+    value(
+      await changeDefaults(
+        h,
+        userCred,
+        { lophn: choice(), summaries: choice({ option_values: {} }) },
+        "0",
+      ) as never,
+    );
+    const rows = value(
+      await h.inspect(
+        "select slot, provider, model_name, option_values from agent_model_defaults order by slot",
+        [],
+      ),
+    ) as {
+      slot: string;
+      provider: string | null;
+      model_name: string | null;
+      option_values: string;
+    }[];
+    // 바꾼 slot만 행이 생기고 값은 그대로 저장된다.
+    assertEquals(rows.map((row) => row.slot), ["lophn", "summaries"]);
+    assertEquals(JSON.parse(rows[0].option_values), choice().option_values);
+    assertEquals(JSON.parse(rows[1].option_values), {});
+    const tables = value(
+      await h.inspect(
+        "select name from sqlite_master where type = 'table' and name in ('agent_model_defaults', 'model_favorites')",
+        [],
+      ),
+    ) as { name: string }[];
+    assertEquals(tables.map((table) => table.name).sort(), [
+      "agent_model_defaults",
+      "model_favorites",
+    ]);
+    // 옛 slot 이름은 저장하지 못한다.
+    const old = await h.probeWrite(
+      "insert into agent_model_defaults (slot, provider, model_name, option_values, settings_seq) values ('judgment', null, null, '{}', '1')",
+      [],
+    );
+    assertEquals(old.ok, false);
+  } finally {
+    await h.close();
+  }
+});
+
+Deno.test("lophn-agent/harness/model#R26 [agent-I15]: favorites keep the order they were starred in across providers", async () => {
+  const h = await open();
+  try {
+    await registerProvider(h);
+    await registerProvider(h, OTHER_PROVIDER, 8081);
+    const empty = await readFavorites(h);
+    assertEquals(empty.favorites, { items: [], settings_seq: "0" });
+
+    const a = { provider: PROVIDER, model_name: "claude-opus-4-8" };
+    const b = { provider: OTHER_PROVIDER, model_name: "claude-sonnet-4-5" };
+    const c = { provider: PROVIDER, model_name: "claude-sonnet-4-5" };
+    const first = resultOf<FavoritesValue>(
+      await changeFavorites(h, [b, a], "0"),
+    );
+    assertEquals(first.favorites.items, [b, a]);
+    const firstSeq = first.favorites.settings_seq;
+    assert(firstSeq !== "0");
+
+    // 새로 찍은 것은 맨 끝에 붙고 provider로 다시 묶지 않는다.
+    const second = resultOf<FavoritesValue>(
+      await changeFavorites(h, [b, a, c], firstSeq),
+    );
+    assertEquals(second.favorites.items, [b, a, c]);
+    assertEquals((await readFavorites(h)).favorites, second.favorites);
+
+    // 끌어 옮긴 순서도 그대로 저장한다.
+    const moved = resultOf<FavoritesValue>(
+      await changeFavorites(h, [c, b, a], second.favorites.settings_seq),
+    );
+    assertEquals((await readFavorites(h)).favorites.items, [c, b, a]);
+
+    // 하나를 끄면 나머지 순서는 그대로다.
+    const removed = resultOf<FavoritesValue>(
+      await changeFavorites(h, [c, a], moved.favorites.settings_seq),
+    );
+    assertEquals(removed.favorites.items, [c, a]);
+    assertEquals((await readFavorites(h)).favorites.items, [c, a]);
+  } finally {
+    await h.close();
+  }
+});
+
+Deno.test("lophn-agent/harness/model#R26 [agent-I15]: a stale seq conflicts, a duplicate or unknown provider is rejected, and an emptied list still moves the seq", async () => {
+  const h = await open();
+  try {
+    await registerProvider(h);
+    const a = { provider: PROVIDER, model_name: "claude-opus-4-8" };
+    const first = resultOf<FavoritesValue>(
+      await changeFavorites(h, [a], "0"),
+    );
+    // 이전 seq는 conflict이고 목록은 그대로다.
+    code(await changeFavorites(h, [], "0") as never, "conflict");
+    assertEquals((await readFavorites(h)).favorites, first.favorites);
+    // 같은 model을 두 번 싣는 목록은 거절한다.
+    code(
+      await changeFavorites(h, [a, a], first.favorites.settings_seq) as never,
+      "invalid_input",
+    );
+    // 없는 provider는 not_found다.
+    code(
+      await changeFavorites(
+        h,
+        [{ provider: OTHER_PROVIDER, model_name: "x" }],
+        first.favorites.settings_seq,
+      ) as never,
+      "not_found",
+    );
+    // 빈 목록으로 비워도 seq는 앞으로 가서 다음 변경이 그 seq를 비교한다.
+    const emptied = resultOf<FavoritesValue>(
+      await changeFavorites(h, [], first.favorites.settings_seq),
+    );
+    assertEquals(emptied.favorites.items, []);
+    assert(
+      BigInt(emptied.favorites.settings_seq) >
+        BigInt(first.favorites.settings_seq),
+    );
+    assertEquals((await readFavorites(h)).favorites, emptied.favorites);
+    code(
+      await changeFavorites(h, [a], first.favorites.settings_seq) as never,
+      "conflict",
+    );
+    value(
+      await changeFavorites(h, [a], emptied.favorites.settings_seq) as never,
+    );
+    const events = value(
+      await h.inspect(
+        "select payload from events where type = 'ModelFavoritesChanged' order by seq",
+        [],
+      ),
+    ) as { payload: string }[];
+    assertEquals(events.length, 3);
+    assertEquals(
+      (JSON.parse(events[1].payload) as { items: unknown[] }).items,
+      [],
+    );
+  } finally {
+    await h.close();
+  }
+});
+
+Deno.test("lophn-agent/harness/model#R12 [agent-I15]: a favorite the catalog or provider list no longer has is kept and saved back unchanged", async () => {
+  const h = await open();
+  try {
+    await registerProvider(h);
+    const gone = { provider: PROVIDER, model_name: "retired-model" };
+    const live = { provider: PROVIDER, model_name: "claude-opus-4-8" };
+    // 목록에 없는 이름도 즐겨찾기로 저장한다(defaults와 달리 거절하지 않는다).
+    const first = resultOf<FavoritesValue>(
+      await changeFavorites(h, [gone, live], "0"),
+    );
+    assertEquals(first.favorites.items, [gone, live]);
+    // 선택 화면이 통째로 되돌려 저장해도 사라진 항목은 제자리에 남는다.
+    const again = resultOf<FavoritesValue>(
+      await changeFavorites(h, [gone, live], first.favorites.settings_seq),
+    );
+    assertEquals(again.favorites.items, [gone, live]);
+    assertEquals((await readFavorites(h)).favorites.items, [gone, live]);
+    // 저장된 기본값도 catalog 변화로 지우지 않는다: 읽기는 catalog를 보지 않는다.
+    value(
+      await changeDefaults(h, userCred, { lophn: choice() }, "0") as never,
+    );
+    assertEquals((await readDefaults(h)).defaults.lophn, choice());
   } finally {
     await h.close();
   }

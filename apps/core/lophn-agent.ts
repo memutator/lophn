@@ -34,8 +34,9 @@ import {
   createApprovalCommands,
 } from "../../packages/platform/approvals/mod.ts";
 import {
-  createModelDefaultsCommands,
-  createModelDefaultsReads,
+  createModelCommands,
+  createModelReads,
+  type ModelCommandDeps,
   modelSchemaSteps,
   snapshotCatalogEntry,
   snapshotModelListed,
@@ -305,15 +306,44 @@ export const runActiveSetting = runLimitSetting(
 // harness/usage). 시작·마침·보완은 machine 전용이다. preset ledger는 같은
 // wire에 더한다.
 const commands = createProviderCommands();
-const modelCommands = createModelDefaultsCommands();
+const modelCommands = createModelCommands(modelCommandDeps);
 // 수정 입력의 처음 반영은 ModelCall 시작과 같은 transaction이다(Q30).
 const usage = createUsageCommands({
   applyMessages: (tx, ctx, input, compare) =>
     conversationCommands.apply.handle(tx, ctx, input, compare),
 });
 const reads = createProviderReads();
-const modelReads = createModelDefaultsReads();
+const modelReads = createModelReads();
 const usageReads = createUsageReads();
+
+// provider 기록의 provider 정의 key다(providers 표 definition_key). 기록이 없으면 undefined로
+// fail-closed다(R6, harness/model#R10).
+function providerDefinitionKey(
+  sql: Pick<Tx["sql"], "get">,
+  provider: string,
+): string | undefined {
+  try {
+    const row = sql.get(
+      "select definition_key from providers where id = ?",
+      [provider],
+    );
+    const key = row === undefined ? undefined : row["definition_key"];
+    return typeof key === "string" && key.length > 0 ? key : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+// model 기본값 저장 검사 deps(harness/model#R10, R24). 목록과 catalog는 동봉 snapshot에서 읽는다.
+function modelCommandDeps(tx: Tx): ModelCommandDeps {
+  return {
+    definitionKey: (provider) => providerDefinitionKey(tx.sql, provider),
+    modelListed: (providerDefinition, modelName) =>
+      snapshotModelListed(providerDefinition, modelName),
+    catalogEntry: (providerDefinition, modelName) =>
+      snapshotCatalogEntry(providerDefinition, modelName),
+  };
+}
 
 // preset 구성 검증 deps(R11). MCP server 설정은 extensions의 settings registry
 // 값이므로 setting_choices 행을 펼친다(contracts#T24). tool 묶음은 T23이 정한 문서·format
@@ -349,18 +379,7 @@ function presetValidateDeps(sql: Pick<Tx["sql"], "get" | "all">) {
     roleCaps: ROLE_CAPS,
     // provider 정의 key는 provider 표 definition_key다. 기록이 없으면
     // undefined로 fail-closed다(R6).
-    definitionKey: (provider: string) => {
-      try {
-        const row = sql.get(
-          "select definition_key from providers where id = ?",
-          [provider],
-        );
-        const key = row === undefined ? undefined : row["definition_key"];
-        return typeof key === "string" && key.length > 0 ? key : undefined;
-      } catch {
-        return undefined;
-      }
-    },
+    definitionKey: (provider: string) => providerDefinitionKey(sql, provider),
     catalogEntry: (providerDefinition: string, modelName: string) =>
       snapshotCatalogEntry(providerDefinition, modelName),
     modelListed: (providerDefinition: string, modelName: string) =>
@@ -619,7 +638,8 @@ export const lophnAgentDefinitions = {
     commands.beginLogin,
     commands.completeLogin,
     commands.cancelLogin,
-    modelCommands.change,
+    modelCommands.changeDefaults,
+    modelCommands.changeFavorites,
     usage.start,
     usage.finish,
     usage.supplement,
@@ -676,6 +696,7 @@ export const lophnAgentDefinitions = {
     reads.list,
     reads.credentialList,
     modelReads.defaults,
+    modelReads.favorites,
     modelReads.catalog,
     usageReads.read,
     usageReads.list,
@@ -1087,6 +1108,7 @@ export function createReaderRegistration(): ReaderRegistration {
       reads.list,
       reads.credentialList,
       modelReads.defaults,
+      modelReads.favorites,
       modelReads.catalog,
       usageReads.read,
       usageReads.list,

@@ -96,7 +96,7 @@ export const OVERRIDABLE_FIELDS = [
   "supports_tools",
   "input_media",
   "output_media",
-  "reasoning",
+  "options",
   "preview",
   "deprecated",
   "price_basis",

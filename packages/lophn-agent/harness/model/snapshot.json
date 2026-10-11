@@ -6,15 +6,43 @@
     "input_limit": 272000,
     "output_limit": 128000,
     "supports_tools": true,
-    "input_media": ["text", "image"],
-    "output_media": ["text"],
-    "reasoning": {
-      "mode": "named",
-      "levels": ["minimal", "low", "medium", "high"],
-      "minimum_budget": null,
-      "maximum_budget": null,
-      "default_level": "medium"
-    },
+    "input_media": [
+      "text",
+      "image"
+    ],
+    "output_media": [
+      "text"
+    ],
+    "options": [
+      {
+        "id": "effort",
+        "label": "Effort",
+        "values": [
+          {
+            "value": "minimal",
+            "label": "Minimal",
+            "wire": null
+          },
+          {
+            "value": "low",
+            "label": "Low",
+            "wire": null
+          },
+          {
+            "value": "medium",
+            "label": "Medium",
+            "wire": null
+          },
+          {
+            "value": "high",
+            "label": "High",
+            "wire": null
+          }
+        ],
+        "default_value": "medium",
+        "budget": null
+      }
+    ],
     "preview": false,
     "deprecated": null,
     "source": "release_snapshot",
@@ -47,15 +75,51 @@
     "input_limit": 190000,
     "output_limit": 64000,
     "supports_tools": true,
-    "input_media": ["text", "image"],
-    "output_media": ["text"],
-    "reasoning": {
-      "mode": "budget",
-      "levels": [],
-      "minimum_budget": 1024,
-      "maximum_budget": 64000,
-      "default_level": null
-    },
+    "input_media": [
+      "text",
+      "image"
+    ],
+    "output_media": [
+      "text"
+    ],
+    "options": [
+      {
+        "id": "effort",
+        "label": "Effort",
+        "values": [
+          {
+            "value": "off",
+            "label": "Off",
+            "wire": null
+          },
+          {
+            "value": "low",
+            "label": "Low",
+            "wire": null
+          },
+          {
+            "value": "medium",
+            "label": "Medium",
+            "wire": null
+          },
+          {
+            "value": "high",
+            "label": "High",
+            "wire": null
+          },
+          {
+            "value": "maximum",
+            "label": "Max",
+            "wire": null
+          }
+        ],
+        "default_value": null,
+        "budget": {
+          "minimum": 1024,
+          "maximum": 64000
+        }
+      }
+    ],
     "preview": false,
     "deprecated": null,
     "source": "release_snapshot",
@@ -88,15 +152,13 @@
     "input_limit": null,
     "output_limit": 64000,
     "supports_tools": true,
-    "input_media": ["text"],
-    "output_media": ["text"],
-    "reasoning": {
-      "mode": "unknown",
-      "levels": [],
-      "minimum_budget": null,
-      "maximum_budget": null,
-      "default_level": null
-    },
+    "input_media": [
+      "text"
+    ],
+    "output_media": [
+      "text"
+    ],
+    "options": null,
     "preview": null,
     "deprecated": null,
     "source": "release_snapshot",
@@ -129,15 +191,32 @@
     "input_limit": 40960,
     "output_limit": 8192,
     "supports_tools": true,
-    "input_media": ["text"],
-    "output_media": ["text"],
-    "reasoning": {
-      "mode": "toggle",
-      "levels": [],
-      "minimum_budget": null,
-      "maximum_budget": null,
-      "default_level": null
-    },
+    "input_media": [
+      "text"
+    ],
+    "output_media": [
+      "text"
+    ],
+    "options": [
+      {
+        "id": "effort",
+        "label": "Effort",
+        "values": [
+          {
+            "value": "off",
+            "label": "Off",
+            "wire": null
+          },
+          {
+            "value": "high",
+            "label": "High",
+            "wire": null
+          }
+        ],
+        "default_value": null,
+        "budget": null
+      }
+    ],
     "preview": null,
     "deprecated": null,
     "source": "release_snapshot",

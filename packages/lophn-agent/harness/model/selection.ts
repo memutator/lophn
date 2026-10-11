@@ -1,20 +1,18 @@
 import {
   type CatalogEntry,
-  reasoningLevelSchema,
+  EFFORT_VALUES,
+  OPTION_AXIS_EFFORT,
   type ResolvedModel,
 } from "../../../contracts/lophn-agent/mod.ts";
-import type { JsonObject } from "../../../contracts/platform/mod.ts";
 import type { Result } from "../../../base/mod.ts";
 import { err, ok } from "../../../base/mod.ts";
-import { type ReasoningArgs, reasoningArgs } from "./reasoning.ts";
-import { nonTextTokenBound, textTokenUpperBound } from "./budget.ts";
 import { confirmedSupport } from "./model.ts";
+import { type OptionValues, resolveOptionValues } from "./options.ts";
 
-export { type ReasoningArgs, reasoningArgs };
-
-// PresetModelSelection을 catalog·provider의 현재 정보로 검증한다. 이 모듈은
-// 검사 규칙이고 저장은 Preset의 몫이다. 임의 한계(128000·8192)나 tool 지원을
-// 추측하지 않는다(R11, R13).
+// ModelChoice를 catalog·provider의 현재 정보로 검증한다. 이 모듈은 검사 규칙이고 저장은
+// 선택을 가진 쪽의 몫이다. 임의 한계(128000·8192)나 tool 지원을 추측하지 않는다(R11, R13).
+// 요청에 싣는 값(sent_model_name·request_patch·request_headers)은 호출 형식을 아는 쪽이
+// wire.ts의 translateOptions로 채운다. 여기서는 바꾸지 않은 model 이름과 빈 조각이다.
 
 export type ProviderNames = {
   // provider 목록에 그 model 이름이 있는지. 목록을 확인하지 못했으면 null이다(R10).
@@ -42,12 +40,12 @@ export type SelectionInput = {
   provider: string;
   credentials: string[];
   model_name: string;
-  reasoning_level: string;
+  // 고른 축의 값이다. 없는 축은 모델에 맡김이고 default를 채우는 일은 여기서 한다(R16).
+  option_values: OptionValues;
   needs_tools: boolean;
-  options: JsonObject;
 };
 
-// catalog 밖 model의 명시 대체 항목이다. 조절 방식을 모른다(R16).
+// catalog 밖 model의 명시 대체 항목이다. option 축을 모른다(R16).
 const EXPLICIT_ENTRY = (
   modelName: string,
   supportsTools: boolean | null,
@@ -60,13 +58,7 @@ const EXPLICIT_ENTRY = (
   supports_tools: supportsTools,
   input_media: ["text"],
   output_media: ["text"],
-  reasoning: {
-    mode: "unknown",
-    levels: [],
-    minimum_budget: null,
-    maximum_budget: null,
-    default_level: null,
-  },
+  options: null,
   preview: null,
   deprecated: null,
   source: "user",
@@ -75,15 +67,6 @@ const EXPLICIT_ENTRY = (
   received_at: null,
   price_basis: null,
 });
-
-export type SelectionError =
-  | "text_input_unsupported"
-  | "text_output_unsupported"
-  | "tools_unsupported"
-  | "named_level_unsupported"
-  | "toggle_level_unsupported"
-  | "budget_level_out_of_range"
-  | "unknown_mode";
 
 // 알려진 텍스트 입력·출력 미지원과 필요한 tool call 미지원 model은 거절한다(R11).
 // tool call은 자기 model 호출(organizing 포함)이라 필요하다. judgment·organizing 구별은 없다.
@@ -114,6 +97,22 @@ export function rejectSelection(
   return ok(undefined);
 }
 
+// 고른 option 값을 검증하고 default를 채운다. option 축은 catalog 자료만 말하므로 catalog
+// 항목이 없는 model에는 어떤 값도 고를 수 없다(R16, R24).
+function selectedOptions(
+  entry: CatalogEntry | undefined,
+  values: OptionValues,
+): Result<Record<string, string>> {
+  if (entry !== undefined) return resolveOptionValues(entry, values);
+  if (Object.keys(values).length > 0) {
+    return err({
+      code: "invalid_input",
+      message: "option을 확인할 수 없는 model에는 option 값을 고를 수 없다",
+    });
+  }
+  return ok({});
+}
+
 // selection을 catalog의 현재 정보로 검증해 ResolvedModel로 만든다. entry가 없으면
 // 사람 명시 한계가 필요하다(R13). catalog 밖이면서 명시 한계가 없으면 사용할 수
 // 없다. 첫 판은 text 입력·출력만 사용한다(R19).
@@ -131,31 +130,31 @@ export function resolveSelection(
       message: "provider 목록에 없는 model 이름이다",
     });
   }
+  const optionValues = selectedOptions(entry, selection.option_values);
+  if (!optionValues.ok) return optionValues;
   const verified = verificationOf(listed);
   const support = confirmedSupport(entry);
-  const level = reasoningLevelSchema.safeParse(selection.reasoning_level);
-  if (!level.success) {
-    return err({
-      code: "invalid_input",
-      message: "추론 수준이 수준 이름이 아니다",
-    });
-  }
+  const common = {
+    purpose: selection.purpose,
+    credentials: [...selection.credentials],
+    provider: selection.provider,
+    model_name: selection.model_name,
+    sent_model_name: selection.model_name,
+    verification: verified,
+    option_values: optionValues.value,
+    request_patch: {},
+    request_headers: {},
+    input_media: ["text" as const],
+    output_media: ["text" as const],
+  };
   let limits: ResolvedModel;
   if (support !== undefined) {
     limits = {
-      purpose: selection.purpose,
-      credentials: [...selection.credentials],
-      provider: selection.provider,
-      model_name: selection.model_name,
-      verification: verified,
-      options: selection.options,
-      reasoning_level: level.data,
+      ...common,
       context_limit: support.context_limit,
       input_limit: support.input_limit,
       output_limit: support.output_limit,
       supports_tools: support.supports_tools,
-      input_media: ["text"],
-      output_media: ["text"],
       price_basis: entry?.price_basis ?? null,
       basis: {
         source: "catalog",
@@ -174,19 +173,11 @@ export function resolveSelection(
     // catalog 밖 model은 사람이 명시한 양의 한계와 text·tool 지원이 있어야 쓸 수
     // 있다(R13). 명시 보완은 catalog 사실과 구별된다(basis.source).
     limits = {
-      purpose: selection.purpose,
-      credentials: [...selection.credentials],
-      provider: selection.provider,
-      model_name: selection.model_name,
-      verification: verified,
-      options: selection.options,
-      reasoning_level: level.data,
+      ...common,
       context_limit: explicit.context_limit,
       input_limit: explicit.input_limit,
       output_limit: explicit.output_limit,
       supports_tools: explicit.supports_tools,
-      input_media: ["text"],
-      output_media: ["text"],
       price_basis: null,
       basis: { source: "user_explicit" },
     };
@@ -204,8 +195,33 @@ export function resolveSelection(
   return gate.ok ? ok(limits) : gate;
 }
 
-// 호출 전 입력·예약 출력·전체 문맥 한계를 하나라도 넘으면 전송하지 않는다(R11).
-export { nonTextTokenBound, textTokenUpperBound };
+// run은 시작한 effort를 유지하고 개별 요청은 그보다 높은 effort를 요청하지 못한다(R18).
+// run이 effort를 고정하지 않았으면(모델에 맡김) 비교할 값이 없다. effort 밖 축은 약하고 강함을
+// 비교할 이름 순서가 없어 이 검사가 바꾸지 않는다.
+export function requestOptionsWithinRun(
+  started: OptionValues,
+  requested: OptionValues,
+): Result<Record<string, string>> {
+  const from = started[OPTION_AXIS_EFFORT];
+  const to = requested[OPTION_AXIS_EFFORT];
+  if (from !== undefined && to !== undefined) {
+    const startedRank = EFFORT_VALUES.indexOf(from as never);
+    const requestedRank = EFFORT_VALUES.indexOf(to as never);
+    if (startedRank < 0 || requestedRank < 0) {
+      return err({
+        code: "invalid_input",
+        message: "run의 effort는 정해진 이름 안에서만 다룬다",
+      });
+    }
+    if (requestedRank > startedRank) {
+      return err({
+        code: "invalid_input",
+        message: "run 중 effort를 높이지 않는다",
+      });
+    }
+  }
+  return ok({ ...requested });
+}
 
 // 같음은 통과다. 바로 아래도 통과다(R11 확인).
 export function withinLimits(

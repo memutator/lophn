@@ -73,9 +73,11 @@ export function validateModelSelection(
       provider: selection.provider,
       credentials: [...selection.credentials],
       model_name: selection.model_name,
-      reasoning_level: selection.reasoning_level,
+      // preset의 추론 수준은 effort 축의 값이다. 모델에 맡김은 값이 없는 축이다.
+      option_values: selection.reasoning_level === "provider_default"
+        ? {}
+        : { effort: selection.reasoning_level },
       needs_tools: true,
-      options: selection.options,
     },
     entry,
     providerNames,

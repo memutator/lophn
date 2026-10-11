@@ -1,6 +1,16 @@
+import { parse, stringify } from "@std/yaml";
+import type { z } from "zod";
+import { err, ok } from "../../base/mod.ts";
 import type { LophnError, Result } from "../../base/mod.ts";
+import {
+  AGENT_BODY_MAX_BYTES,
+  agentFrontmatterSchema,
+  agentSettingsSchema,
+  isBuiltinAgentName,
+} from "../../contracts/lophn-agent/mod.ts";
 import type {
   AgentDefinition,
+  AgentFrontmatter,
   AgentIssue,
   AgentPlaceKind,
   AgentRole,
@@ -29,29 +39,286 @@ export type AgentFileError = LophnError & {
   details: { issues: AgentIssue[] };
 };
 
+type FileResult<T> = Result<T, AgentFileError>;
+type Plain = Record<string, unknown>;
+
+const FENCE = "---";
+
+// core schema는 날짜·binary 같은 확장 tag를 해석하지 않아 `2020-01-01`도 문자열로 돌아온다.
+// lineWidth -1은 긴 문자열을 접지 않고, useAnchors false는 같은 값을 alias로 줄이지 않는다.
+const YAML_OPTIONS = {
+  schema: "core",
+  lineWidth: -1,
+  useAnchors: false,
+} as const;
+
+function refuse(issues: AgentIssue[]): FileResult<never> {
+  return err({
+    code: "invalid_input",
+    message: "agent file is invalid",
+    details: { issues },
+  });
+}
+
+function addIssue(
+  issues: AgentIssue[],
+  field: string,
+  code: AgentIssue["code"],
+) {
+  if (!issues.some((i) => i.field === field && i.code === code)) {
+    issues.push({ field, code });
+  }
+}
+
+function utf8Bytes(value: string): number {
+  return new TextEncoder().encode(value).length;
+}
+
+function normalizeBody(body: string): string {
+  return body.replace(/^(?:[ \t]*\r?\n)+/, "").trimEnd();
+}
+
+// ---- 읽기: 파일을 frontmatter 값과 본문으로 가른다 ----
+
+type Split = { frontmatter: Plain; body: string };
+
+function splitFile(text: string): FileResult<Split> {
+  const lines = text.split("\n");
+  const isFence = (line: string) => line.replace(/\r$/, "") === FENCE;
+  if (!isFence(lines[0])) return ok({ frontmatter: {}, body: text });
+  const close = lines.findIndex((line, i) => i > 0 && isFence(line));
+  if (close === -1) {
+    return refuse([{ field: "frontmatter", code: "malformed" }]);
+  }
+  const source = lines.slice(1, close).join("\n");
+  const body = lines.slice(close + 1).join("\n");
+  if (source.trim() === "") return ok({ frontmatter: {}, body });
+  let value: unknown;
+  try {
+    value = parse(source, YAML_OPTIONS);
+  } catch {
+    return refuse([{ field: "frontmatter", code: "malformed" }]);
+  }
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return refuse([{ field: "frontmatter", code: "malformed" }]);
+  }
+  return ok({ frontmatter: value as Plain, body });
+}
+
+// ---- 검사: 읽을 때와 쓸 때 같다 ----
+
+function pathOf(path: PropertyKey[]): string {
+  return path.map(String).join(".");
+}
+
+// zod가 알리는 이유를 R24의 code로 옮긴다. 값은 오류에 싣지 않는다.
+function schemaIssues(error: z.ZodError): AgentIssue[] {
+  const found: AgentIssue[] = [];
+  for (const issue of error.issues) {
+    const parent = pathOf(issue.path);
+    if (issue.code === "unrecognized_keys") {
+      for (const key of issue.keys) {
+        const field = parent === "" ? key : `${parent}.${key}`;
+        addIssue(found, field, "unknown_field");
+      }
+    } else if (issue.code === "invalid_key") {
+      addIssue(found, parent, "unknown_field");
+    } else if (
+      issue.code === "custom" && issue.message.startsWith("duplicate")
+    ) {
+      addIssue(found, parent, "duplicate");
+    } else {
+      addIssue(found, parent, "invalid_value");
+    }
+  }
+  return found;
+}
+
+// 역할과 자리에 따라 있을 수 없는 칸. 있으면 그 칸은 not_allowed 하나만 알린다.
+function disallowedFields(target: AgentFileTarget): string[] {
+  if (target.role !== "operator") return ["name", "contexts", "app_reads"];
+  return target.place === "project" ? ["app_reads"] : ["contexts"];
+}
+
+function checkFrontmatter(
+  raw: Plain,
+  target: AgentFileTarget,
+  issues: AgentIssue[],
+): AgentFrontmatter | undefined {
+  const parsed = agentFrontmatterSchema.safeParse(raw);
+  const blocked = disallowedFields(target).filter((f) => raw[f] !== undefined);
+  const isOperator = target.role === "operator";
+  const name = raw.name;
+  const nameMissing = isOperator &&
+    (name === undefined || (typeof name === "string" && name.trim() === ""));
+
+  if (!parsed.success) {
+    for (const issue of schemaIssues(parsed.error)) {
+      const top = issue.field.split(".")[0];
+      if (blocked.includes(top) || (nameMissing && top === "name")) continue;
+      addIssue(issues, issue.field, issue.code);
+    }
+  }
+  for (const field of blocked) addIssue(issues, field, "not_allowed");
+  if (nameMissing) {
+    addIssue(issues, "name", "required");
+  } else if (
+    isOperator && typeof name === "string" && isBuiltinAgentName(name)
+  ) {
+    addIssue(issues, "name", "reserved_name");
+  }
+  return parsed.success ? parsed.data : undefined;
+}
+
+function checkBody(
+  body: unknown,
+  required: boolean,
+  issues: AgentIssue[],
+): string | undefined {
+  if (typeof body !== "string") {
+    addIssue(issues, "body", "invalid_value");
+    return undefined;
+  }
+  const text = normalizeBody(body);
+  if (required && text.trim() === "") addIssue(issues, "body", "required");
+  if (utf8Bytes(text) > AGENT_BODY_MAX_BYTES) {
+    addIssue(issues, "body", "too_large");
+  }
+  return text;
+}
+
+function checkDefinition(
+  raw: Plain,
+  body: unknown,
+  target: AgentFileTarget,
+): FileResult<AgentDefinition> {
+  const issues: AgentIssue[] = [];
+  const frontmatter = checkFrontmatter(raw, target, issues);
+  const text = checkBody(body, target.role === "operator", issues);
+  if (issues.length > 0 || frontmatter === undefined || text === undefined) {
+    return refuse(issues);
+  }
+  return ok({ ...frontmatter, body: text });
+}
+
+function checkSettings(raw: Plain, body: string): FileResult<AgentSettings> {
+  const parsed = agentSettingsSchema.safeParse(raw);
+  const issues = parsed.success ? [] : schemaIssues(parsed.error);
+  if (body.trim() !== "") addIssue(issues, "body", "not_allowed");
+  if (issues.length > 0 || !parsed.success) return refuse(issues);
+  return ok(parsed.data);
+}
+
+// ---- 쓰기: 고정한 칸 순서로 있는 칸만 만든다 ----
+
+const EMPTY_DEFAULT_LISTS = [
+  "contexts",
+  "app_reads",
+  "skills_off",
+  "mcp_off",
+  "safe_tools",
+] as const;
+
+// 역할 순서도 고정이다(AGENT_ROLES 순서).
+const SETTINGS_ROLES = [
+  "lophn",
+  "app_engineer",
+  "context_engineer",
+  "operator",
+] as const;
+
+function pick(source: Plain, keys: readonly string[]): Plain {
+  const out: Plain = {};
+  for (const key of keys) if (source[key] !== undefined) out[key] = source[key];
+  return out;
+}
+
+function orderedModel(model: Plain): Plain {
+  const options = model.option_values as Plain;
+  const sorted: Plain = {};
+  for (const key of Object.keys(options).sort()) sorted[key] = options[key];
+  return { ...pick(model, ["provider", "model_name"]), option_values: sorted };
+}
+
+function orderedList(list: Plain[], keys: readonly string[]): Plain[] {
+  return list.map((item) => pick(item, keys));
+}
+
+function orderedFrontmatter(value: AgentFrontmatter): Plain {
+  const source = value as Plain;
+  const out: Plain = {};
+  if (source.name !== undefined) out.name = source.name;
+  if (source.profile !== undefined) {
+    out.profile = pick(source.profile as Plain, ["kind", "icon", "image"]);
+  }
+  if (source.model !== undefined) {
+    out.model = orderedModel(source.model as Plain);
+  }
+  for (const key of EMPTY_DEFAULT_LISTS) {
+    const list = source[key] as Plain[] | undefined;
+    if (list === undefined || list.length === 0) continue;
+    out[key] = key === "app_reads"
+      ? orderedList(list, ["app", "command"])
+      : key === "mcp_off" || key === "safe_tools"
+      ? orderedList(list, ["server_name", "original_tool"])
+      : list;
+  }
+  if (source.permissions !== undefined) out.permissions = source.permissions;
+  return out;
+}
+
+function frontmatterText(fields: Plain): string {
+  if (Object.keys(fields).length === 0) return "";
+  return `${FENCE}\n${stringify(fields, YAML_OPTIONS)}${FENCE}\n`;
+}
+
 export function parseAgentFile(
-  _text: string,
-  _target: AgentFileTarget,
+  text: string,
+  target: AgentFileTarget,
 ): Result<AgentDefinition, AgentFileError> {
-  throw new Error("not implemented: agent-I1");
+  const split = splitFile(text);
+  if (!split.ok) return split;
+  return checkDefinition(split.value.frontmatter, split.value.body, target);
 }
 
 export function serializeAgentFile(
-  _definition: AgentDefinition,
-  _target: AgentFileTarget,
+  definition: AgentDefinition,
+  target: AgentFileTarget,
 ): Result<string, AgentFileError> {
-  throw new Error("not implemented: agent-I1");
+  const { body, ...fields } = definition as Plain;
+  const checked = checkDefinition(fields, body, target);
+  if (!checked.ok) return checked;
+  const head = frontmatterText(orderedFrontmatter(checked.value));
+  if (checked.value.body === "") return ok(head);
+  const text = `${checked.value.body}\n`;
+  return ok(head === "" ? text : `${head}\n${text}`);
 }
 
 // `settings.md`. 본문이 없는 frontmatter만의 파일이다.
 export function parseSettingsFile(
-  _text: string,
+  text: string,
 ): Result<AgentSettings, AgentFileError> {
-  throw new Error("not implemented: agent-I1");
+  const split = splitFile(text);
+  if (!split.ok) return split;
+  return checkSettings(split.value.frontmatter, split.value.body);
 }
 
 export function serializeSettingsFile(
-  _settings: AgentSettings,
+  settings: AgentSettings,
 ): Result<string, AgentFileError> {
-  throw new Error("not implemented: agent-I1");
+  const checked = checkSettings(settings as Plain, "");
+  if (!checked.ok) return checked;
+  const fields: Plain = {};
+  const { models, permissions } = checked.value;
+  if (models !== undefined) {
+    const ordered: Plain = {};
+    for (const role of SETTINGS_ROLES) {
+      if (models[role] !== undefined) {
+        ordered[role] = orderedModel(models[role] as Plain);
+      }
+    }
+    fields.models = ordered;
+  }
+  if (permissions !== undefined) fields.permissions = permissions;
+  return ok(frontmatterText(fields));
 }

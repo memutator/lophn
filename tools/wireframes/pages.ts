@@ -10,7 +10,7 @@
 // Export panel, lophn 공간 Documents 화면, Contexts(Focus) 화면, context Materials의
 // Baseline·Reference·Follow-changes 묶음.
 
-export type PartId = "now" | "new";
+export type PartId = "design" | "now" | "new";
 
 export interface Part {
   readonly id: PartId;
@@ -19,6 +19,12 @@ export interface Part {
 }
 
 export const PARTS: readonly Part[] = [
+  {
+    id: "design",
+    title: "디자인 시스템",
+    summary:
+      "@lophn/design의 token과 component, 앱이 import하는 SDK(@lophn/ui-*)의 공개 예제를 있는 그대로 그린다. frame 없이 본문에 바로 그리고, 위쪽 Light·Dark 선택을 따른다.",
+  },
   {
     id: "now",
     title: "지금 화면",
@@ -33,10 +39,36 @@ export const PARTS: readonly Part[] = [
   },
 ];
 
+export const BADGE_DESIGN = "디자인 시스템";
 export const BADGE_NOW = "구현됨 · 진짜 화면";
 export const BADGE_NEW = "새 설계";
 
 export type ScreenId =
+  | "tokens-colors"
+  | "tokens-type"
+  | "tokens-space"
+  | "tokens-icons"
+  | "components-buttons"
+  | "components-forms"
+  | "components-navigation"
+  | "components-table"
+  | "components-menus"
+  | "components-dialogs"
+  | "components-toast"
+  | "components-states"
+  | "components-cards"
+  | "components-frames"
+  | "sdk-tokens"
+  | "sdk-layout"
+  | "sdk-table"
+  | "sdk-actions"
+  | "sdk-controls"
+  | "sdk-filters"
+  | "sdk-states"
+  | "sdk-reading"
+  | "sdk-overlays"
+  | "sdk-stats"
+  | "sdk-charts"
   | "launcher-empty"
   | "launcher-projects"
   | "launcher-start-failed"
@@ -81,6 +113,22 @@ export interface WireframePage {
   readonly screen: ScreenId;
 }
 
+function design(
+  id: string,
+  title: string,
+  description: string,
+  screen: ScreenId,
+): WireframePage {
+  return {
+    id,
+    part: "design",
+    title,
+    badges: [BADGE_DESIGN],
+    description,
+    screen,
+  };
+}
+
 function now(
   id: string,
   title: string,
@@ -108,6 +156,156 @@ function fresh(
 }
 
 export const PAGES: readonly WireframePage[] = [
+  design(
+    "tokens-colors",
+    "Tokens · colors",
+    "packages/design의 색 token 전부를 이름과 값이 있는 견본으로 보인다. 모든 견본은 light와 dark 값을 나란히 놓아 위쪽 테마 선택과 상관없이 둘이 한눈에 비교된다.",
+    "tokens-colors",
+  ),
+  design(
+    "tokens-type",
+    "Tokens · type",
+    "글자 크기·줄 높이·굵기·자간과 sans·mono 글꼴을 영어와 한국어 견본 문장으로 보인다.",
+    "tokens-type",
+  ),
+  design(
+    "tokens-space",
+    "Tokens · space & layout",
+    "간격·모서리·테두리·그림자·z-index와 페이지 틀·sidebar·dialog 같은 폭 token을 막대와 상자로 보인다. 폭은 가장 긴 1440px 기준의 비율이다.",
+    "tokens-space",
+  ),
+  design(
+    "tokens-icons",
+    "Tokens · icons",
+    "packages/design/components의 아이콘 묶음(*-icons.ts) 전부를 이름과 함께 격자로 보인다. 모두 선 1.5의 Lucide 한 벌이다.",
+    "tokens-icons",
+  ),
+  design(
+    "components-buttons",
+    "Components · buttons",
+    "Button의 variant·크기·아이콘·비활성, IconButton, Kbd, CopyButton을 실제 component로 보인다.",
+    "components-buttons",
+  ),
+  design(
+    "components-forms",
+    "Components · form controls",
+    "Field로 감싼 Input·Textarea·Select와 Checkbox·Switch를 기본·도움말·오류·비활성 상태로 보인다.",
+    "components-forms",
+  ),
+  design(
+    "components-navigation",
+    "Components · tabs, tree & list",
+    "일반 Tabs, 폴더 Tree, 이름과 메타가 있는 List를 선택된 상태와 함께 보인다.",
+    "components-navigation",
+  ),
+  design(
+    "components-table",
+    "Components · table",
+    "text·number·time·id 열이 있는 Table을 compact와 comfortable 밀도로 보이고, 값이 없는 칸의 모양도 보인다.",
+    "components-table",
+  ),
+  design(
+    "components-menus",
+    "Components · menu, popover & tooltip",
+    "Menu·Popover·Tooltip을 열어 둔 채로 보인다. 아래 상자 안에 portal로 그려 page 안에 머문다.",
+    "components-menus",
+  ),
+  design(
+    "components-dialogs",
+    "Components · dialog, sheet & palette",
+    "Dialog·Sheet·Palette를 열어 둔 채로 보인다. 각 상자가 viewport 역할을 해서 backdrop과 위치가 상자 안에 그려진다.",
+    "components-dialogs",
+  ),
+  design(
+    "components-toast",
+    "Components · toast & chip",
+    "Toast의 neutral·error와 행동 0~2개 변형, 기다리는 질문을 알리는 Chip을 시간이 가지 않는 timer로 고정해 보인다.",
+    "components-toast",
+  ),
+  design(
+    "components-states",
+    "Components · states",
+    "비었음·불러오기 실패·Skeleton·오래된 값(StaleNote)·StatusMark·DiffMark·AuthorMark 같은 상태 표시를 보인다.",
+    "components-states",
+  ),
+  design(
+    "components-cards",
+    "Components · card & stat tile",
+    "독립 객체 하나를 묶는 Card와 수치 타일(StatTile·StatRow)을 증가·감소·변화 없음·단위 있는 값으로 보인다.",
+    "components-cards",
+  ),
+  design(
+    "components-frames",
+    "Components · page frames",
+    "페이지 틀(Form·Launcher·Overview·Dashboard·ListDetail·Table·Reading)을 칸 폭 안에서 그대로 보인다. 틀 안은 이름만 적은 상자다.",
+    "components-frames",
+  ),
+  design(
+    "sdk-tokens",
+    "SDK · tokens",
+    "@lophn/tokens 예제. 앱이 token 이름과 차트 색을 가져다 쓰는 법을 보인다(예제 chart-colors).",
+    "sdk-tokens",
+  ),
+  design(
+    "sdk-layout",
+    "SDK · layout",
+    "@lophn/ui-layout 예제(orders-app). 앱 shell·sidebar·tab·grid·card와 다섯 가지 페이지 틀을 연다.",
+    "sdk-layout",
+  ),
+  design(
+    "sdk-table",
+    "SDK · table",
+    "@lophn/ui-table 예제(orders-table). 금액으로 정렬하고 25행씩 나누어 본다.",
+    "sdk-table",
+  ),
+  design(
+    "sdk-actions",
+    "SDK · actions",
+    "@lophn/ui-action 예제(order-actions). blueprint command를 버튼으로 두고 확인 표시를 선언의 confirm에 따른다. 앱 bridge가 없어 눌러도 실패 문구가 나온다.",
+    "sdk-actions",
+  ),
+  design(
+    "sdk-controls",
+    "SDK · controls",
+    "@lophn/ui-control 예제(control-sizes). sm·md·lg 높이의 Button·Input·Select를 같은 줄에 맞춘다.",
+    "sdk-controls",
+  ),
+  design(
+    "sdk-filters",
+    "SDK · filters",
+    "@lophn/ui-filter 예제(orders-filters). 기간·상태·검색으로 read command의 입력을 만든다.",
+    "sdk-filters",
+  ),
+  design(
+    "sdk-states",
+    "SDK · states",
+    "@lophn/ui-state 예제(orders-status). 읽기 결과의 loading·empty·error·freshness를 보인다. 한 화면에 네 상태를 나란히 놓았다.",
+    "sdk-states",
+  ),
+  design(
+    "sdk-reading",
+    "SDK · reading",
+    "@lophn/ui-reading 예제(weekly-report). 목차와 문서 주소가 있는 읽기 틀로 주간 보고서를 그린다.",
+    "sdk-reading",
+  ),
+  design(
+    "sdk-overlays",
+    "SDK · overlays",
+    "@lophn/ui-overlay 예제(overlays). tooltip·popover·menu·dialog·toast를 여는 단추들이다. 눌러 열어 볼 수 있다.",
+    "sdk-overlays",
+  ),
+  design(
+    "sdk-stats",
+    "SDK · stats",
+    "@lophn/ui-stat 예제(orders-summary). 이번 기간과 지난 기간 값으로 수치와 변화량을 보인다.",
+    "sdk-stats",
+  ),
+  design(
+    "sdk-charts",
+    "SDK · charts",
+    "@lophn/ui-chart 예제(sales-dashboard). 시계열·막대·누적 막대·분포·산점·node-edge 여섯 차트를 보인다.",
+    "sdk-charts",
+  ),
   now(
     "launcher-empty",
     "Launcher · empty",

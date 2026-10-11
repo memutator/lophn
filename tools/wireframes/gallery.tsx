@@ -134,8 +134,10 @@ function Toc({ current }: { current: WireframePage | undefined }) {
           <h2 className={styles.tocPartTitle}>{part.title}</h2>
           {tocGroups(PAGES.filter((page) => page.part === part.id)).map((
             group,
+            index,
           ) => (
-            <div key={group.name} className={styles.tocGroup}>
+            // 같은 이름의 묶음이 떨어져 있을 수 있어(Project · …) 이름만으로는 key가 겹친다.
+            <div key={`${index}:${group.name}`} className={styles.tocGroup}>
               {group.pages.length > 1 || group.pages[0].label !== group.name
                 ? <p className={styles.tocGroupName}>{group.name}</p>
                 : null}
@@ -218,7 +220,9 @@ function PageView({ page, theme }: { page: WireframePage; theme: Theme }) {
       <h1 className={styles.title}>{page.title}</h1>
       <Badges page={page} />
       <p className={styles.description}>{page.description}</p>
-      <Frame page={page} theme={theme} />
+      {page.part === "design"
+        ? <div className={styles.inline}>{SCREENS[page.screen]()}</div>
+        : <Frame page={page} theme={theme} />}
       <nav className={styles.nav}>
         {previous === undefined
           ? <span />
@@ -252,7 +256,9 @@ function Frame({ page, theme }: { page: WireframePage; theme: Theme }) {
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
-  const scale = Math.min(1, width / FRAME_WIDTH);
+  // 칸이 1280보다 넓으면 더 넓은 데스크톱으로 그리고, 좁으면 1280 그대로 줄여서 보인다.
+  const frameWidth = Math.max(FRAME_WIDTH, width);
+  const scale = width / frameWidth;
   // 주소에 query만 써서 같은 경로(하위 경로에 올려도 맞다)의 index.html이 frame 모양으로 뜬다.
   const source = `?frame=${encodeURIComponent(page.id)}${
     theme === "auto" ? "" : `&theme=${theme}`
@@ -269,7 +275,7 @@ function Frame({ page, theme }: { page: WireframePage; theme: Theme }) {
         title={page.title}
         src={source}
         style={{
-          width: FRAME_WIDTH,
+          width: frameWidth,
           height: FRAME_HEIGHT,
           transform: `scale(${scale})`,
         }}

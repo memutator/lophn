@@ -13,6 +13,37 @@ import {
   openProject,
 } from "../../../apps/shell/renderer/desktop/router.ts";
 import {
+  ComponentsButtons,
+  ComponentsCards,
+  ComponentsDialogs,
+  ComponentsForms,
+  ComponentsFrames,
+  ComponentsMenus,
+  ComponentsNavigation,
+  ComponentsStates,
+  ComponentsTable,
+  ComponentsToast,
+} from "./design/components-pages.tsx";
+import {
+  SdkActions,
+  SdkCharts,
+  SdkControls,
+  SdkFilters,
+  SdkLayout,
+  SdkOverlays,
+  SdkReading,
+  SdkStates,
+  SdkStats,
+  SdkTable,
+  SdkTokens,
+} from "./design/sdk-pages.tsx";
+import {
+  TokensColors,
+  TokensIcons,
+  TokensSpace,
+  TokensType,
+} from "./design/tokens-pages.tsx";
+import {
   ContextContract,
   ContextViolations,
 } from "./compositions/context-pages.tsx";
@@ -91,6 +122,31 @@ function settings(tab: SettingsTab): ReactNode {
 }
 
 export const SCREENS: Record<ScreenId, () => ReactNode> = {
+  "tokens-colors": () => <TokensColors />,
+  "tokens-type": () => <TokensType />,
+  "tokens-space": () => <TokensSpace />,
+  "tokens-icons": () => <TokensIcons />,
+  "components-buttons": () => <ComponentsButtons />,
+  "components-forms": () => <ComponentsForms />,
+  "components-navigation": () => <ComponentsNavigation />,
+  "components-table": () => <ComponentsTable />,
+  "components-menus": () => <ComponentsMenus />,
+  "components-dialogs": () => <ComponentsDialogs />,
+  "components-toast": () => <ComponentsToast />,
+  "components-states": () => <ComponentsStates />,
+  "components-cards": () => <ComponentsCards />,
+  "components-frames": () => <ComponentsFrames />,
+  "sdk-tokens": () => <SdkTokens />,
+  "sdk-layout": () => <SdkLayout />,
+  "sdk-table": () => <SdkTable />,
+  "sdk-actions": () => <SdkActions />,
+  "sdk-controls": () => <SdkControls />,
+  "sdk-filters": () => <SdkFilters />,
+  "sdk-states": () => <SdkStates />,
+  "sdk-reading": () => <SdkReading />,
+  "sdk-overlays": () => <SdkOverlays />,
+  "sdk-stats": () => <SdkStats />,
+  "sdk-charts": () => <SdkCharts />,
   "launcher-empty": () => <MockDesktop emptyLauncher />,
   "launcher-projects": () => <MockDesktop />,
   "launcher-start-failed": () => (

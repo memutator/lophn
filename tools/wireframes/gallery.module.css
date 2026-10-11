@@ -221,6 +221,22 @@
   color: var(--status-good-text);
 }
 
+.badge[data-kind="design"] {
+  border-color: var(--chart-series-6);
+  color: var(--chart-series-6);
+}
+
+/* 디자인 시스템 page는 frame 없이 본문 칸에 바로 그린다. 테마 선택을 따르는 바탕이다. */
+.inline {
+  box-sizing: border-box;
+  padding: var(--space-8);
+  border: var(--border-width) solid var(--color-border-base);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-base);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+}
+
 .badge[data-kind="new"] {
   border-color: var(--color-link);
   color: var(--color-link);

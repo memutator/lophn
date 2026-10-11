@@ -44,3 +44,20 @@ Deno.test("shell#T66: 새 설계 page 아홉 개는 모두 새 설계 badge와 �
     assert(page.title.trim() !== "", `${page.id}: title`);
   }
 });
+
+Deno.test("shell#T66: 디자인 시스템 part가 첫째이고 page마다 badge와 한국어 설명이 있다", () => {
+  assertEquals(PARTS[0].id, "design");
+  assertEquals(PAGES[0].part, "design");
+  const design = PAGES.filter((page) => page.part === "design");
+  assert(design.length >= 20);
+  // 목차는 " · " 앞 이름으로 묶는다. 묶음마다 둘 이상이거나 제목 전체가 묶음 이름이다.
+  assertEquals(
+    new Set(design.map((page) => page.title.split(" · ")[0])),
+    new Set(["Tokens", "Components", "SDK"]),
+  );
+  for (const page of design) {
+    assertEquals(page.badges, ["디자인 시스템"], page.id);
+    assert(/[가-힣]/.test(page.description), `${page.id}: 한국어 설명`);
+    assert(page.title.trim() !== "", `${page.id}: title`);
+  }
+});

@@ -1391,7 +1391,7 @@ concerns: [shell]
 
 ### T70 wireframes: agent 화면 고침
 
-- 상태: 진행 중
+- 상태: 완료 (#606)
 - 등급: frontend
 - concern: shell/desktop
 - 요구: 없음 — 개발 도구

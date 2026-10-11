@@ -1,5 +1,6 @@
-// context API 순수 handler(api/)를 platform ledger 위에 올리는 adapter의 spec이다.
-// handler는 다시 쓰지 않는다. 각 command는 이 흐름으로 감싼다.
+// context API 순수 handler(api/)를 platform ledger 위에 올리는 adapter다.
+// handler는 다시 쓰지 않는다. 각 command는 이 흐름으로 감싼다. 1은 adapter-load.ts, 3~6은
+// adapter-run.ts와 adapter-save.ts, route마다의 적재 범위는 adapter-routes.ts에 있다.
 //
 //   1. 적재. 이 command가 보는 행만 SQL에서 새 ContextApiState로 읽는다.
 //        - state.seq는 0, state.replays는 비운다. seq는 미리 읽거나 짐작하지 않는다: event는 handler가
@@ -16,7 +17,8 @@
 //      contextOf(sql, kind, id)로. 대상이 없으면 적재를 비우고 handler가 not_found를 낸다.
 //   2. actor. mapActor(ctx, deps)로 platform ctx를 ContextApiActor로 바꾼다.
 //   3. 실행. createContextApiCommands(state, handlerDeps)의 handler를 부른다.
-//        handlerDeps.now = tx.now, newId = tx.newId, hash = deps.hash,
+//        handlerDeps.now = command를 시작할 때 부른 tx.now()의 값(platform 시계는 부를 때마다 달라질 수
+//        있어 한 transaction에 시각 하나를 고정한다), newId = tx.newId, hash = deps.hash,
 //        putBlob = (value) => deps.blobs.put(tx, value) (같은 value는 한 번만 올린다),
 //        startHandOffRun = (request) => deps.startHandOffRun(tx, request),
 //        emit = (event) => tx.emit(CONTEXT_API_EVENTS에서 type으로 찾은 정의, event.subject, event.payload).
@@ -60,9 +62,10 @@
 // 위반·개체·index 갱신 실패는 deps.index가 준다.
 //
 // platform이 주지 않아 deps로 받는 것: blob 읽기·올리기, 위반 넘김 Run 만들기, Context Engineer 판별,
-// derived index. 자세한 문제는 PR 본문의 doubts를 본다.
-import type { Result } from "../../../base/mod.ts";
+// derived index.
+import { err, ok, type Result } from "../../../base/mod.ts";
 import type { StoredViolation } from "../../../contracts/documents/mod.ts";
+import { parseActor } from "../../../contracts/platform/mod.ts";
 import type {
   CommandDefinition,
   ReadDefinition,
@@ -75,6 +78,7 @@ import type {
   ContextApiActor,
   EntityRow,
 } from "../api/state.ts";
+import { COMMAND_ENTRIES, READ_ENTRIES } from "./adapter-routes.ts";
 
 // content blob을 읽고 올린다. platform/blob-store가 구현한다.
 export interface ContextBlobs {
@@ -128,22 +132,62 @@ export const CONTEXT_WORKER_OPERATIONS = [
 //              context_worker, 아니면 other).
 // route의 actors 목록에 없는 app:… 자격은 envelope가 먼저 막지만 여기서도 forbidden이다.
 export function mapActor(
-  _ctx: RequestContext,
-  _deps: Pick<ContextLedgerDeps, "isContextEngineer">,
+  ctx: RequestContext,
+  deps: Pick<ContextLedgerDeps, "isContextEngineer">,
 ): Result<ContextApiActor> {
-  throw new Error("not implemented");
+  const parts = parseActor(ctx.actor);
+  switch (parts?.kind) {
+    case "user":
+      return ok({ kind: "user", actor: ctx.actor });
+    case "coding_agent":
+      return ok({ kind: "coding_agent", actor: ctx.actor });
+    case "agent":
+      return ok({
+        kind: "agent",
+        actor: ctx.actor,
+        role: deps.isContextEngineer(parts.id) ? "context_engineer" : "other",
+      });
+    case "machine": {
+      const operations: readonly string[] = ctx.scope.operations;
+      const worker = operations.length > 0 &&
+        operations.every((operation) =>
+          (CONTEXT_WORKER_OPERATIONS as readonly string[]).includes(operation)
+        );
+      return ok({
+        kind: "machine",
+        actor: ctx.actor,
+        scope: worker ? "context_worker" : "other",
+      });
+    }
+    default:
+      return err({ code: "forbidden", message: "actor cannot use contexts" });
+  }
 }
 
 // CONTEXT_API_COMMAND_ROUTES의 route마다 CommandDefinition 하나, 위의 흐름대로.
 export function contextLedgerCommands(
-  _deps: ContextLedgerDeps,
+  deps: ContextLedgerDeps,
 ): readonly CommandDefinition[] {
-  throw new Error("not implemented");
+  return COMMAND_ENTRIES.map((entry): CommandDefinition => ({
+    route: entry.route,
+    handle(tx, ctx, input, compare) {
+      const actor = mapActor(ctx, deps);
+      return actor.ok
+        ? entry.run(deps, tx, actor.value, input, compare)
+        : actor;
+    },
+  }));
 }
 
 // CONTEXT_API_READ_ROUTES의 route마다 ReadDefinition 하나.
 export function contextLedgerReads(
-  _deps: ContextLedgerDeps,
+  deps: ContextLedgerDeps,
 ): readonly ReadDefinition[] {
-  throw new Error("not implemented");
+  return READ_ENTRIES.map((entry): ReadDefinition => ({
+    route: entry.route,
+    handle(snapshot, ctx, input) {
+      const actor = mapActor(ctx, deps);
+      return actor.ok ? entry.run(deps, snapshot, actor.value, input) : actor;
+    },
+  }));
 }

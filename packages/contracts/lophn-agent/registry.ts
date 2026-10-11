@@ -7,6 +7,8 @@ import { HANDOFF_ROUTES } from "./handoffs.ts";
 import { REVERT_EVENTS, REVERT_ROUTES } from "./reverts.ts";
 import { PRESET_EVENTS, PRESET_ROUTES } from "./presets.ts";
 import { ASSIGNMENT_EVENTS, ASSIGNMENT_ROUTES } from "./assignments.ts";
+import { AGENT_EVENTS, AGENT_ROUTES } from "./agents.ts";
+import { COMMAND_ROUTES } from "./commands.ts";
 import { MODEL_CALL_EVENTS, MODEL_CALL_ROUTES } from "./model-calls.ts";
 import { MODEL_EVENTS, MODEL_ROUTES } from "./models.ts";
 import { PROVIDER_EVENTS, PROVIDER_ROUTES } from "./providers.ts";
@@ -26,6 +28,8 @@ export const ROUTES = [
   ...REVERT_ROUTES,
   ...PRESET_ROUTES,
   ...ASSIGNMENT_ROUTES,
+  ...AGENT_ROUTES,
+  ...COMMAND_ROUTES,
   ...PROVIDER_ROUTES,
   ...MODEL_CALL_ROUTES,
   ...MODEL_ROUTES,
@@ -48,6 +52,7 @@ export const EVENTS = [
   ...REVERT_EVENTS,
   ...PRESET_EVENTS,
   ...ASSIGNMENT_EVENTS,
+  ...AGENT_EVENTS,
   ...PROVIDER_EVENTS,
   ...MODEL_EVENTS,
   ...MODEL_CALL_EVENTS,

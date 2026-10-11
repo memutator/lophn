@@ -4,7 +4,6 @@ import {
   formatGet,
   formatValidate,
   historyInputSchema,
-  outlineContext,
   outlineDocument,
   outlinePlace,
   placeRefSchema,
@@ -57,10 +56,6 @@ export const cliIndexSchema = z.discriminatedUnion("op", [
   withCommon("index", outlinePlace.input.extend({ op: z.literal("place") })),
   withCommon(
     "index",
-    outlineContext.input.extend({ op: z.literal("context") }),
-  ),
-  withCommon(
-    "index",
     outlineDocument.input.extend({ op: z.literal("document") }),
   ),
   withCommon(
@@ -72,7 +67,6 @@ export const cliIndexSchema = z.discriminatedUnion("op", [
     z.strictObject({
       op: z.literal("status"),
       place: placeRefSchema.optional(),
-      context: outlineContext.input.shape.context.optional(),
     }),
   ),
 ]);
@@ -82,7 +76,6 @@ export const cliSearchSchema = withCommon(
   searchQuery.input.pick({
     query: true,
     place: true,
-    context: true,
     cursor: true,
   }),
 );

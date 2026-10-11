@@ -26,7 +26,6 @@ import {
   type McpSessionToolName,
   readOnlyHint,
 } from "../../contracts/coding-agent/mod.ts";
-import { documentSave } from "../../contracts/documents/mod.ts";
 import type { Route } from "../../contracts/platform/mod.ts";
 import { APP_OP_ROUTES } from "../connection/mod.ts";
 
@@ -48,7 +47,6 @@ export const STATIC_TOOLS: readonly StaticTool[] = [
 ];
 
 // tool마다 op마다 소유 route 하나다. route가 없는 op는 실행 전 거절이다.
-// propose의 표 값은 변경안 문서 필드(mcp-decisions)라 Route가 아니다. resolveRoute가 저장 route로 푼다.
 // 표 값은 소유 표 그대로다. lookup은 unknown을 거쳐서만 좁힌다.
 const OWNER_ROUTES: Record<string, Record<string, unknown>> = {} as Record<
   string,
@@ -100,11 +98,7 @@ export function resolveRoute(
     return { tool, op: undefined, route: owned };
   }
   if (op === undefined) return undefined;
-  // propose의 소유 route는 변경안 문서를 저장하는 documents versions save 하나다. context·
-  // term command route는 propose에 연결하지 않는다(T17, mcp#R17).
-  const found = toolName === "lophn_context" && op === "propose"
-    ? documentSave
-    : OWNER_ROUTES[toolName]?.[op];
+  const found = OWNER_ROUTES[toolName]?.[op];
   // Route가 아닌 값은 route 자리가 없다.
   if (
     !found || typeof found !== "object" || !("kind" in found) ||

@@ -5,7 +5,6 @@
 import { APP_COMMANDS } from "./commands/app.ts";
 import { APPROVAL_COMMANDS } from "./commands/approval.ts";
 import { CONNECTION_COMMANDS } from "./commands/connection.ts";
-import { CONTEXT_COMMANDS } from "./commands/context.ts";
 import { QUESTION_COMMANDS } from "./commands/question.ts";
 import { DAEMON_COMMANDS } from "./commands/daemon.ts";
 import { DOCTOR_COMMANDS } from "./commands/doctor.ts";
@@ -33,7 +32,6 @@ export const COMMANDS: readonly CommandEntry[] = [
   ...PROJECT_COMMANDS,
   ...FORMAT_COMMANDS,
   ...SERIES_COMMANDS,
-  ...CONTEXT_COMMANDS,
   ...QUESTION_COMMANDS,
   ...APPROVAL_COMMANDS,
   ...APP_COMMANDS,

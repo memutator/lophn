@@ -1,4 +1,4 @@
-import type { Result } from "../../packages/base/mod.ts";
+import { err, ok, type Result } from "../../packages/base/mod.ts";
 import type { BundleContent } from "../../packages/contracts/documents/mod.ts";
 import type { WorkPlace } from "../../packages/contracts/lophn-agent/mod.ts";
 import {
@@ -42,6 +42,23 @@ export type ContextBundleReader = (
   bundle: string,
 ) => Promise<Result<{ bundle_hash: string; content: BundleContent }>>;
 
+// machine 자격으로 core의 `context.contract {context, bundle}`을 불러 그 판의 내용을 읽는 길이다. 읽은 판이
+// 그 context의 제출된 판이 아니거나 내용이 없으면 읽지 못한 것이다.
+export function contextBundleReader(machine: CoreCall): ContextBundleReader {
+  return async (context, bundle) => {
+    const read = await readOf(machine, contextContractRoute, {
+      context,
+      bundle,
+    });
+    if (!read.ok) return read;
+    const { bundle: id, bundle_hash, content } = read.value;
+    if (id !== bundle || bundle_hash === null || content === null) {
+      return err({ code: "not_found", message: "bundle is not readable" });
+    }
+    return ok({ bundle_hash, content });
+  };
+}
+
 export function pinOf(context: LoadedContextTool): ContextToolPin {
   return {
     context: context.id,
@@ -75,6 +92,8 @@ export function pinsOf(value: unknown): readonly ContextToolPin[] {
 export type ContextToolInput = {
   // 세션 작업 자리 또는 담당 범위의 project. 정해지지 않았으면 null이다.
   project: string | null;
+  // 담당 범위가 앱(App Engineer)이면 그 앱. `assignment_scope` 선택은 이 앱을 읽는 context들로 풀린다.
+  app?: string | null;
   selections: readonly ContextSelection[];
 };
 
@@ -108,13 +127,13 @@ const PROJECT_KINDS = new Set([
 
 async function activeContexts(
   call: CoreCall,
-  project: string,
+  filter: { project: string } | { app: string },
 ): Promise<Result<readonly string[]>> {
   const found: string[] = [];
   let cursor: string | undefined;
   for (let page = 0; page < LIST_PAGES; page++) {
     const listed = await readOf(call, contextListRoute, {
-      project,
+      ...filter,
       status: "active",
       limit: LIST_LIMIT,
       ...(cursor === undefined ? {} : { cursor }),
@@ -202,16 +221,32 @@ export function createContextToolkit(options: {
       const add = (id: string) => {
         if (!ids.includes(id)) ids.push(id);
       };
+      // 앱 선택으로 푼 context는 작업 자리 project와 상관없이 읽는다.
+      const byApp = new Set<string>();
       let resolved = false;
       let projectIds: readonly string[] = [];
+      let appIds: readonly string[] | undefined;
       for (const selection of input.selections) {
         if (selection.kind === "context" && selection.target !== null) {
           add(selection.target);
+        } else if (
+          selection.kind === "assignment_scope" && input.app != null
+        ) {
+          if (appIds === undefined) {
+            const listed = await activeContexts(machine, { app: input.app });
+            appIds = listed.ok ? listed.value : [];
+          }
+          for (const id of appIds) {
+            add(id);
+            byApp.add(id);
+          }
         } else if (PROJECT_KINDS.has(selection.kind)) {
           if (input.project === null) continue;
           if (!resolved) {
             resolved = true;
-            const listed = await activeContexts(machine, input.project);
+            const listed = await activeContexts(machine, {
+              project: input.project,
+            });
             projectIds = listed.ok ? listed.value : [];
           }
           for (const id of projectIds) add(id);
@@ -219,7 +254,10 @@ export function createContextToolkit(options: {
       }
       const loaded: LoadedContextTool[] = [];
       for (const id of ids) {
-        const context = await contextOf(id, input.project);
+        const context = await contextOf(
+          id,
+          byApp.has(id) ? null : input.project,
+        );
         if (context !== null) loaded.push(context);
       }
       return loaded;
@@ -273,6 +311,7 @@ export async function contextReadToolsFor(
     ? await kit.loadPinned(input.pinned)
     : await kit.load({
       project: projectOf(input.place, input.scope),
+      app: input.scope.kind === "app" ? input.scope.id : null,
       selections: input.selections,
     });
   const tools = await buildContextReadTools({ selected, allowed: null });

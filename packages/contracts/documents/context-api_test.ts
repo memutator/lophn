@@ -35,13 +35,16 @@ import {
   contextEntityRequestSchema,
   contextEntityRoute,
   contextGetReadSchema,
+  contextGetRoute,
   contextHandOffViolationsRoute,
   contextInputOptionsReadSchema,
   contextInputOptionsRequestSchema,
   contextInputOptionsRoute,
   contextListReadSchema,
   contextListRequestSchema,
+  contextListRoute,
   contextOverviewReadSchema,
+  contextOverviewRoute,
   contextPreviewReadSchema,
   contextPreviewRequestSchema,
   contextPreviewRoute,
@@ -49,6 +52,7 @@ import {
   contextSavedViewsReadSchema,
   contextSearchReadSchema,
   contextSearchRequestSchema,
+  contextSearchRoute,
   contextSeriesNextReadSchema,
   contextSeriesNextRequestSchema,
   contextSeriesNextRoute,
@@ -84,6 +88,7 @@ const chk = "chk_01arz3ndektsv4rrffq69g5fav";
 const viw = "viw_01arz3ndektsv4rrffq69g5fav";
 const trm = "trm_01arz3ndektsv4rrffq69g5fav";
 const prj = "prj_01arz3ndektsv4rrffq69g5fav";
+const app = "app_01arz3ndektsv4rrffq69g5fav";
 const run = "run_01arz3ndektsv4rrffq69g5fav";
 const agent = "agent:asg_01arz3ndektsv4rrffq69g5fav";
 const hash = "a".repeat(64);
@@ -1588,10 +1593,37 @@ Deno.test("documents/contexts#R15 [ctx-S26]: context.contract returns the applie
     ),
     "/v1/contexts/contract",
   );
-  assertEquals(contextContractRoute.actors, ["user", "agent"]);
+  // agent runtime의 machine 자격이 list·get·contract를 읽는다(handler가 principal로 가린다).
+  assertEquals(contextContractRoute.actors, ["user", "agent", "machine"]);
   accepts(contextContractRoute.input, { context: ctx });
   rejects(contextContractRoute.input, {});
-  rejects(contextContractRoute.input, { context: ctx, bundle: cbn });
+  rejects(contextContractRoute.input, { context: ctx, bundle: "bad" });
+  rejects(contextContractRoute.input, { context: ctx, extra: true });
+});
+
+Deno.test("documents/contexts#R15 [ctx-I56b]: context.contract takes an optional bundle id to read that submitted bundle", () => {
+  accepts(contextContractRoute.input, { context: ctx, bundle: cbn });
+  // 지정한 판을 읽은 결과도 같은 모양이다
+  accepts(contextContractReadSchema, {
+    ...meta,
+    context: ctx,
+    bundle: cbn2,
+    bundle_hash: hash,
+    content: contractContent,
+  });
+});
+
+Deno.test("documents/contexts#R1 [ctx-I56b]: context.list is filtered by exactly one of project and app", () => {
+  accepts(contextListRoute.input, { project: prj });
+  accepts(contextListRoute.input, { app, status: "active", limit: 10 });
+  rejects(contextListRoute.input, {});
+  rejects(contextListRoute.input, { project: prj, app });
+  rejects(contextListRoute.input, { app: "notes" });
+  assertEquals(contextListRoute.actors, ["user", "agent", "machine"]);
+  assertEquals(contextGetRoute.actors, ["user", "agent", "machine"]);
+  // 나머지 읽기는 machine에게 열리지 않는다
+  assertEquals(contextOverviewRoute.actors, ["user", "agent"]);
+  assertEquals(contextSearchRoute.actors, ["user", "agent"]);
 });
 
 Deno.test("documents/contexts#R19 [ctx-S26]: context.draft returns the drafting step with the current bundle and its content, or null", () => {

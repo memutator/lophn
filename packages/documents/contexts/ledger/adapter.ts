@@ -60,10 +60,10 @@
 //
 // 읽기도 같은 적재를 읽기 snapshot(`snapshot.sql`)으로 하고 state.seq = Number(snapshot.as_of_seq)다.
 // 읽기마다 적재 범위: context.entity는 (type, key) 개체와 그 관계 대상 행, context.series_next는 그 type의
-// 개체(둘 다 적용된 판의 content와 index 갱신 실패 여부), context.list는 project와 그 context·판(content 없음), context.get·bundles·
+// 개체(둘 다 적용된 판의 content와 index 갱신 실패 여부), context.list는 project(또는 app이면 context_app_data로 고른 context들)와 그 context·판(content 없음), context.get·bundles·
 // glossary.list는 대상 context의 것, context.violations는 위반(deps.index)과 위반을 넘긴 event
 // (ledger events 표의 ContextViolationsHandedOff, state.events로)다. context.saved_views(깨진 view
-// 표시)·overview·search·contract·input_options는 적용된 판의 content, context.draft는 판과 검사와
+// 표시)·overview·search·contract·input_options는 적용된 판의 content(context.contract의 bundle 지정은 그 판의 content), context.draft는 판과 검사와
 // 만드는 중인 판 하나(draft, 없으면 검사 중인 판, 없으면 마지막 failed 판)의 content,
 // context.containing은 project의 active context들의 적용된 판 content다.
 // 위반·개체·index 갱신 실패는 deps.index가 준다.
@@ -72,6 +72,7 @@
 // derived index.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { StoredViolation } from "../../../contracts/documents/mod.ts";
+import { AGENT_RUNTIME_PRINCIPAL } from "../../../contracts/lophn-agent/mod.ts";
 import { parseActor } from "../../../contracts/platform/mod.ts";
 import type {
   CommandDefinition,
@@ -150,8 +151,9 @@ export const CONTEXT_WORKER_OPERATIONS = [
 // platform ctx를 handler의 actor로 바꾼다.
 //   user -> user, coding_agent:… -> coding_agent,
 //   agent:asg_… -> agent (isContextEngineer면 context_engineer, 아니면 other),
-//   machine -> machine (scope.operations가 비어 있지 않고 모두 CONTEXT_WORKER_OPERATIONS이면
-//              context_worker, 아니면 other).
+//   machine -> machine (principal이 AGENT_RUNTIME_PRINCIPAL이면 agent_runtime: context.list·get·contract만
+//              읽는다. scope.operations가 비어 있지 않고 모두 CONTEXT_WORKER_OPERATIONS이면 context_worker,
+//              아니면 other).
 // route의 actors 목록에 없는 app:… 자격은 envelope가 먼저 막지만 여기서도 forbidden이다.
 export function mapActor(
   ctx: RequestContext,
@@ -178,7 +180,11 @@ export function mapActor(
       return ok({
         kind: "machine",
         actor: ctx.actor,
-        scope: worker ? "context_worker" : "other",
+        scope: ctx.principal === AGENT_RUNTIME_PRINCIPAL
+          ? "agent_runtime"
+          : worker
+          ? "context_worker"
+          : "other",
       });
     }
     default:

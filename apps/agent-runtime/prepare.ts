@@ -378,6 +378,8 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
       appTools,
       contextTools,
       contextRead,
+      // resume이면 prompt 자료도 tool 정의와 같은 고정한 판으로 만든다.
+      pinnedContexts,
       external,
       scope: scope.value,
       model: model.value,
@@ -452,8 +454,9 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
           place,
           scope: assignment.scope,
         }),
-      }).then((set) =>
-        set.materials.map((item) => ({
+        ...(m.pinnedContexts === undefined ? {} : { pins: m.pinnedContexts }),
+      }).then((set) => [
+        ...set.materials.map((item) => ({
           address: item.context,
           title: item.title,
           version: item.bundle_hash,
@@ -461,8 +464,18 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
           type_names: item.type_names,
           glossary: item.glossary,
           has_glossary: !item.glossary_empty,
-        }))
-      );
+        })),
+        // 고른 context를 읽지 못했으면 조용히 빼지 않고 자료 자리에 이유를 남긴다. 판이 없으니 version은 없다.
+        ...set.omitted.map((item) => ({
+          address: item.context,
+          title: item.title,
+          version: null,
+          overview: `[자료 없음] ${item.reason}. 필요하면 tool로 다시 읽는다.`,
+          type_names: [],
+          glossary: "",
+          has_glossary: false,
+        })),
+      ]);
     const context = async (): Promise<Result<RunContext>> => {
       const role = await deps.rolePrompt(assignment.role);
       if (!role.ok) return role;

@@ -18,6 +18,15 @@ export function checkReader(actor: ContextApiActor): Result<true> {
   });
 }
 
+// agent runtime의 machine 자격은 run 시작 전 재료로 context.list·get·contract만 읽는다. 그 밖의 machine과
+// coding agent는 읽지 못한다.
+export function checkRuntimeReader(actor: ContextApiActor): Result<true> {
+  if (actor.kind === "machine" && actor.scope === "agent_runtime") {
+    return ok(true);
+  }
+  return checkReader(actor);
+}
+
 export const notFound = (what: string, id: string) =>
   err({ code: "not_found" as const, message: `${what} ${id} not found` });
 

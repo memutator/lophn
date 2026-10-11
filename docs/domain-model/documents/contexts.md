@@ -447,14 +447,14 @@ Source kind마다 쓸 수 있는 FieldFrom:
 
 ## 읽기
 
-읽기는 `user`와 lophn `agent`(역할 무관)만 한다. coding agent와 `machine`에게는 통로가 없다. 결과는 모두 `as_of_seq`를 가진다.
+읽기는 `user`와 lophn `agent`(역할 무관)만 한다. coding agent와 `machine`에게는 통로가 없다. 단 하나의 예외가 있다: agent runtime의 machine 자격(`machine:agent-runtime`)은 run을 시작하기 전에 선언 검색 tool 정의와 prompt 자료를 만들 재료로 `context.list`·`context.get`·`context.contract`만 읽는다(→ lophn-agent/harness/tools). 다른 읽기, 모든 command, 다른 machine 자격은 예외가 아니다. 결과는 모두 `as_of_seq`를 가진다.
 
 | 읽기 | 입력 | 결과 | 비고 |
 |---|---|---|---|
-| `context.list` | `project, status?, cursor?, limit?` | Context 줄(적용 판 번호, 진행 중인 판) | 보관 안 된 것 먼저, 제목 순 |
+| `context.list` | `project` 또는 `app`(정확히 하나), `status?, cursor?, limit?` | Context 줄(적용 판 번호, 진행 중인 판) | 보관 안 된 것 먼저, 제목 순. `app`이면 적용된 판이 그 앱(ID)을 app-data Source로 읽는 context만(`context_app_data`); 없는 앱은 빈 목록 |
 | `context.get` | `context` | Context, 적용된 판 요약 | |
 | `context.overview` | `context` | 판 hash, type별 개체 수(계약의 type 순서), 위반 수 | |
-| `context.contract` | `context` | 적용된 판의 id·hash·content(계약, 검색, saved view 정의, 예) | 적용된 판이 없으면 셋 다 null. 보관된 context도 읽는다 |
+| `context.contract` | `context, bundle?` | 적용된 판의 id·hash·content(계약, 검색, saved view 정의, 예) | 적용된 판이 없으면 셋 다 null. 보관된 context도 읽는다. `bundle`이 있으면 적용된 판이 아니라 그 판을 읽는다: 그 context의 submit된 이후 판(checking·failed·applied·superseded)만이고, 없는 판·다른 context의 판·draft·discarded 판은 `not_found`다 |
 | `context.draft` | `context` | 만드는 중인 판의 진행 `{step, bundle, content, check}` | drafting이 아니면 null |
 | `context.search` | `context, search, inputs, cursor?, page_size?` | 행 page, 조건에 맞는 전체 행 수 `total` | 활성이고 판이 적용된 context만 |
 | `context.input_options` | `context, search, input, prefix?, limit?` | 후보 `{value, label}`[], `complete` | 같은 조건. entity·value 입력만 |
@@ -475,6 +475,7 @@ Source kind마다 쓸 수 있는 FieldFrom:
 - **series_next.** `context.series_next`는 series kind type의 `source.pattern`과 index에 있는 그 type 개체의 `path`들로 다음 이름을 계산한다(계산 규칙·빈 제안·`*`·`taken`은 → documents/series). 파일 목록을 따로 읽지 않으므로 index를 갱신한 뒤 읽으며, 읽기는 파일·ledger·index를 바꾸지 않는다. series kind가 아닌 type이나 계약에 없는 type은 `invalid_input`이다.
 - **preview.** `context.preview`는 Context Engineer가 draft를 submit하기 전에 지금 project 파일에서 무엇이 나올지 본다. `bundle`은 그 context의 `draft` 상태 판이어야 한다(없는 판이나 다른 context의 판은 `not_found`, draft가 아닌 판은 `conflict`). draft content를 격리 검사와 같은 추출·위반 감지로 지금 파일에 돌린다. 판·파일·ledger·index·violation_mark를 바꾸지 않고 event도 없다. `types`는 계약의 type 순서로 지금 파일에서 뽑은 개체 수다(app-data kind는 앱 read 명령을 부르지 않으므로 0). `findings`는 격리 검사의 (1)(2)(3)(4)(5)단계 결과이고(사람이 저장한 saved view는 부르지 않는다), (1)(2)(3)에서 멈추면 `types`는 비고 `violation_count`는 0이다. 위반은 path, kind, rule, section의 code unit 순이고 한 page는 30개며 `cursor`는 그 판(`bundle`)에 묶인다(다른 판의 cursor는 `invalid_input`). 호출마다 새로 추출하므로 page 사이에 파일이 바뀌면 보이는 위반이 달라질 수 있다. 결과를 온전히 만들지 못하면 부분 결과로 꾸미지 않고 `unavailable`이다(파일 수·바이트·시간 예산 초과, 파일을 읽을 수 없음, worker 중단).
 - **앱 하나에 묶인 agent.** App Engineer의 credential은 담당 앱 하나에 묶인다(→ lophn-agent/roles/app-engineer). 이 agent는 담당 앱을 `app-data` Source로 읽는 context(`context_app_data`의 slug가 담당 앱을 가리키는 context)의 `context.get`·`context.overview`·`context.contract`·`glossary.list`만 읽는다. `context.contract`는 overview 자료의 type 뜻·관계를 그리는 데 쓴다. `context.list`는 그 context의 줄만 남긴다. 그 밖의 읽기와 모든 command, 그 앱을 읽지 않는 context, 없는 context는 모두 같은 `not_found`다.
+- **판 지정.** `context.contract`의 `bundle`은 run이 시작할 때 고정한 판으로 정의와 자료를 다시 만들 때 쓴다. 제출된 판의 내용은 바뀌지 않으므로 적용된 판이 바뀐 뒤에도 같은 값이다.
 - Operator 수는 이 읽기들에 없다(→ lophn-agent/presets).
 
 ## event

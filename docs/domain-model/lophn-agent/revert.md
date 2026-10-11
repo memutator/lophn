@@ -4,84 +4,166 @@ concerns: [lophn-agent/revert]
 ---
 # lophn-agent/revert
 
-종료한 agent run 전체의 event를 대상으로 하는 Revert 시도·변경 묶음·복원 결과를 정의한다.
+session 안 사람 메시지마다의 Checkpoint, 문서 tool이 쓰기 직전에 남기는 RewindFile 기록, 되돌리기 시도(Revert)와 그 preview·복원 결과를 정의한다.
 
-## Revert (`rvt`)
+## Checkpoint (`msg` ID로 식별)
+
+run을 시작하는 사람 메시지 하나가 Checkpoint 하나다. 별도 ID를 만들지 않고 Message의 ID를 키로 쓴다. → lophn-agent/conversation
 
 | 필드 | 타입 | null | 제약 | 뜻 |
 |---|---|---|---|---|
-| `id` | `rvt` ID | 아니오 | PK; 최초 시도 전 고정; 결과 불변 | revert 시도 |
-| `run` | `run` ID | 아니오 | 종료한 lophn agent run; → lophn-agent/harness/run-loop | 원래 변경의 출처 |
-| `allow_partial` | boolean | 아니오 | 기본 false; true이면 남는 복원 불가 변경에 묶인 confirmation 증거 필수 | 남는 업무 변경 동의 |
-| `outcome` | `applying / applied / partial / uncertain / blocked` | 아니오 | applying에서 최종 결과로 한 번 변경; 최종 결과 불변 | 복원 진행·실제 결과 |
-| `changes` | RevertChange 배열 | 아니오 | 전체 event 및 원래 run의 성공 앱 write Invocation 포함; 완료한 단계 결과는 불변 | 결과 목록 |
-| `result_seq` | event seq | 예 | applying만 null; 최종 RevertApplied/RevertBlocked/RevertFinished FK; → platform/ledger | 결과 event |
-| `preview_hash` | sha256 | 아니오 | 사람 결정에 고정한 전체 preview·receipt 참조·실행 순서 blob | 재시작 기준 |
+| `message` | `msg` ID | 아니오 | PK; `mode=request`인 사람 메시지만; correction·agent·machine 메시지와 Fork 복사본은 checkpoint가 아니다 | 되돌아갈 지점 |
+| `session` | `ses` ID | 아니오 | 메시지의 session; → lophn-agent/conversation | 소속 |
+| `files_restorable` | boolean | 아니오 | 초기 true; false가 되면 다시 true가 되지 않음 | 문서 파일 복원 가능 여부 |
+| `files_reason` | `limit_total / limit_file / limit_count` | 예 | `files_restorable=false`일 때만 필수 | 복원 불가 이유 |
 
-시도 actor·시각은 event에서 읽는다. 앱 direct call이 있으면 applying 상태를 durable하게 기록하고 실제 호출 단계는 apps/invocations로 추적한다. run별 Commit entity나 원래 변경 목록 사본을 만들지 않는다.
+- 메시지를 접수하면서 같은 transaction에서 만든다(`ReceiveMessage`의 mode=request). 순서는 메시지의 생성 seq다.
+- correction 메시지는 checkpoint가 없다. 그 메시지로 rewind하면 "대화만"(`messages_only`)만 허용한다.
+- `files_restorable=false`: 한도(요구 R14)로 pre-image를 다 두지 못한 checkpoint. 최근 100개를 넘어 밀려난 가장 오래된 checkpoint(`limit_count`), session당 200 MB를 넘어 밀려난 가장 오래된 checkpoint(`limit_total`), 그 checkpoint 안에서 파일당 10 MB를 넘는 쓰기가 있었던 checkpoint(`limit_file`). 이 checkpoint로는 `restore_all`을 고를 수 없다. 이후 checkpoint로 하는 rewind가 같은 경로의 이 기록을 지나가면 그 경로는 건너뛴다(RewindFile 참조).
+
+## RewindFile
+
+문서 tool이 문서 파일을 쓰기 직전에 tool call마다 한 줄 남기는 기록이다. pre-image 내용은 아래 저장 정책의 session 저장소에 둔다.
+
+| 필드 | 타입 | null | 제약 | 뜻 |
+|---|---|---|---|---|
+| `tool_call` | `tcl` ID | 아니오 | PK 일부; 문서 쓰기 tool call; → lophn-agent/harness/tools | 쓴 호출 |
+| `path` | 문자열 | 아니오 | PK 일부; project 폴더 기준 상대 경로(원본 연결 없는 문서는 그 문서의 작업 사본 경로); 정규화됨 | 쓴 파일 |
+| `checkpoint` | `msg` ID | 아니오 | 그 tool call이 속한 run의 시작 메시지; → Checkpoint | 소속 checkpoint |
+| `seq` | event seq | 아니오 | 쓴 순서; → platform/ledger | 같은 경로의 순서 |
+| `before` | FileState | 아니오 | 쓰기 직전 상태; 이 call 자신의 것(앞 call의 `after`와 같은 내용이면 같은 저장물) | 쓰기 전 |
+| `after` | FileState (`blob` 없음) | 아니오 | 쓴 뒤 상태의 hash | 쓰기 후 |
+| `moved_from` | 문자열 | 예 | 이름 변경이면 옛 경로; 그때 `before`는 옛 경로의 내용이다 | 이름 변경 |
+| `reverted_by` | `rvt` ID | 예 | 이 기록을 되돌린 Revert; 설정되면 이후 판정의 사슬에서 빠진다 | 되돌려짐 |
+
+### FileState (값)
+
+| 필드 | 타입 | null | 제약 | 뜻 |
+|---|---|---|---|---|
+| `exists` | boolean | 아니오 | false이면 sha256·blob 없음(만들기 전 또는 삭제 뒤) | 파일이 있었나 |
+| `sha256` | sha256 | 예 | exists일 때 필수 | 내용 hash |
+| `blob` | session 저장소 항목 | 예 | `before`에서 exists이고 한도 안일 때만; 한도를 넘으면 null(`unrecorded`) | 저장된 pre-image |
+
+### 불변 조건
+
+- 문서 tool이 쓰기 직전에 `before`를 읽고, 쓴 직후에 `after`를 채운다. 기록 없이 쓴 파일은 없다. 기록에 실패해도 쓰기를 막지 않고 그 checkpoint를 `files_restorable=false`로 낮춘다(요구 R14).
+- `before.blob=null`이면서 `before.exists=true`인 기록은 pre-image를 못 둔 쓰기다. 이 경로의 사슬은 거기서 끊겨 이 쓰기를 지나는 복원은 그 경로를 건너뛴다(`no_pre_image`).
+- 같은 경로의 기록은 `seq` 순서로 사슬이다. 앞 기록의 `after.sha256`과 뒤 기록의 `before.sha256`이 같으면 이어진 것이다. 다르면 그 사이 사람이 고친 것이다(끊김). 이름 변경 기록은 `moved_from` 경로의 사슬 끝과 `path`의 사슬 시작을 잇는다.
+- 같은 내용(sha256)은 session 안에서 한 번만 저장한다. 총량은 서로 다른 저장물의 크기 합이다.
+- `reverted_by`가 설정된 기록은 이후 어떤 판정의 사슬에도 들지 않는다. 설정은 한 번이다.
+- 기록은 수정·삭제하지 않는다. 지우는 것은 한도 정리, session 삭제·닫힘, 되돌린 기록의 정리뿐이다.
+
+## Revert (`rvt`)
+
+rewind 한 번 또는 Undo 한 번의 시도다.
+
+| 필드 | 타입 | null | 제약 | 뜻 |
+|---|---|---|---|---|
+| `id` | `rvt` ID | 아니오 | PK; 최초 시도 전 고정; 결과 불변 | 되돌리기 시도 |
+| `session` | `ses` ID | 아니오 | 열린 session; → lophn-agent/conversation | 소속 |
+| `kind` | `rewind / undo` | 아니오 | 불변 | checkpoint 되돌리기 / 편집 카드 하나 |
+| `choice` | `restore_all / messages_only / summarize` | 예 | `kind=rewind`에 필수; undo는 null | 고른 범위 |
+| `checkpoint` | `msg` ID | 예 | `kind=rewind`에 필수; → Checkpoint | 돌아갈 메시지 |
+| `tool_call` | `tcl` ID | 예 | `kind=undo`에 필수; → RewindFile | 되돌린 편집 |
+| `boundary_seq` | seq | 예 | rewind에 필수; checkpoint 메시지의 seq; 이 메시지부터 뒤가 숨김 구간(`summarize`는 접힘 구간) | 숨김 시작 |
+| `summary_call` | `mcl` ID | 예 | `choice=summarize`에 필수; 완전 성공한 요약 call; → lophn-agent/harness/usage | 요약 근거 |
+| `outcome` | `applying / applied / partial / uncertain / blocked` | 아니오 | applying에서 최종 결과로 한 번 바뀜; 최종 결과 불변 | 복원 진행·실제 결과 |
+| `redo` | `none / available / done / closed` | 아니오 | 아래 규칙 | redo 가능 여부 |
+| `items` | RevertItem 배열 | 아니오 | 사전 검사에서 정한 목록; 완료한 단계 결과는 불변 | 복원 대상별 결과 |
+| `preview_hash` | sha256 | 아니오 | 사람 결정에 고정한 checkpoint·기록 목록·파일 현재 hash·앱 단계·실행 순서 | 재시작·재검사 기준 |
+| `result_seq` | event seq | 예 | applying만 null; → platform/ledger | 결과 event |
+
+시도 actor·시각은 event에서 읽는다. 앱 direct call이 있으면 applying 상태를 durable하게 기록하고 실제 호출은 apps/invocations로 추적한다.
 
 ### 상태
 
 | 상태 | 뜻 |
 |---|---|
-| applying | 사전 검사·사람 결정 저장 후 앱 복원 진행; 최종 결과 아님 |
-| applied | 모든 가능한 변경의 복원 확인; 남는 irreversible 영향은 명시 동의한 때만 |
-| partial | 복원 도중 실패·새 충돌로 이미 복원한 변경과 남은 변경 공존 |
-| uncertain | 전달한 앱 복원의 효과를 확인할 수 없음; 추가 충돌 동작 중단 |
-| blocked | 어떤 대상도 복원하지 않음 |
+| applying | 사전 검사·사람 결정 저장 뒤 앱 복원 진행; 최종 결과 아님 |
+| applied | 복원 대상으로 정한 것 모두 확인; 건너뛴 파일·남는 영향은 `items`에 이유와 함께 있음 |
+| partial | 앱 복원 도중 실패·새 충돌로 이미 복원한 것과 남은 것이 공존 |
+| uncertain | 전달한 앱 복원의 효과를 확인할 수 없음; 추가 앱 호출 중단 |
+| blocked | 아무것도 복원하지 않음(오래된 preview·확인 부족·앱 사전 검사 실패로 대상 없음 등) |
+
+`redo`: `none`(redo 없음 — undo, summarize, 앱 write를 되돌린 rewind, partial·uncertain, blocked), `available`(숨긴 메시지와 복원한 파일을 되돌릴 수 있음), `done`(redo함), `closed`(다음 사람 메시지 접수로 확정되어 redo 끝).
 
 | 전 | 후 | actor | 조건 | event |
 |---|---|---|---|---|
-| 없음 | applying | `user` | 전체 사전 검사·binding·CAS 통과; 앱 복원 단계 존재 | `RevertStarted` |
-| applying | applied / partial / uncertain | `machine`(사람 결정에 묶임) | 앱 결과 확인·남은 ledger CAS 재검사·실제 단계 결과 저장 | `RevertApplied / RevertFinished` |
-| 없음 | applied | `user` | 종료 run·전체 묶음·현재 CAS·복원 후 관계 검사 통과; 복원 불가 업무 변경은 없거나 allow_partial=true | `RevertApplied` |
-| 없음 | blocked | `user` | stale preview·충돌·관계 위반·부분 동의 부족·복원 준비 불충족 | `RevertBlocked` |
+| 없음 | applying | `user` | session 열림·미종료 run 없음·사전 검사·preview_hash 일치; 앱 복원 단계 존재 | `RevertStarted` |
+| applying | applied / partial / uncertain | `machine`(사람 결정에 묶임) | 앱 결과 확인 뒤 문서 파일 복원 판정·쓰기·결과 저장 | `RevertApplied / RevertFinished` |
+| 없음 | applied | `user` | 앱 단계 없음; 문서 파일 복원 판정·쓰기 완료; `messages_only`·`summarize`·undo 포함 | `RevertApplied` |
+| 없음 | blocked | `user` | stale preview·확인 부족·session 상태 불일치 | `RevertBlocked` |
+| `redo=available` | `done` | `user` | 다음 사람 메시지 전; 복원했던 파일의 지금 hash가 복원한 내용과 같은 것만 | `RevertRedone` |
+| `redo=available` | `closed` | `machine` | 같은 session의 다음 사람 메시지 접수와 같은 transaction | `RevertClosed` |
 
 ### 불변 조건
 
-- 같은 run의 applying/applied/partial/uncertain Revert는 최대 1개다. blocked 뒤 새 시도는 새 ID다. 진행·부분·불명확은 같은 ID의 저장된 단계·result query로 확인하며 원래 앱 write를 다시 수행하지 않는다. 같은 command 재전송은 저장된 현재 결과를 반환한다.
-- 사람만 요청한다. machine은 그 결정에 묶인 검사·복원 함수만 처리하고 actor는 user다. agent는 목록을 읽을 수 있지만 revert command를 내지 못한다.
-- 결과·원래 event·답·승인·호출·사용량·run 종료 결과는 수정하거나 지우지 않는다. 새 복원 event의 run은 null이다.
-- 일부 항목을 골라 복원하지 않는다. 전체 복원 가능한 변경을 계획한다. 사전 conflict 하나면 전체 blocked, 앱 호출 시작 뒤 새 conflict·실패는 실제 부분 결과이며 이미 복원한 앱 효과를 롤백했다고 주장하지 않는다.
-- applied의 모든 reversible 묶음은 restored다. blocked에는 복원 효과가 없다. partial/uncertain은 복원 확인된 묶음만 restored이고 나머지는 failure/uncertain/unchanged로 남긴다.
+- 같은 session의 applying Revert는 하나다. 새 시도는 앞선 applying이 끝난 뒤에만 한다. 같은 command 재전송은 저장된 현재 결과를 반환하고 원래 앱 write를 다시 하지 않는다.
+- 사람만 요청한다. machine은 그 결정에 묶인 검사·복원 함수만 처리하고 actor는 user다. agent는 revert command를 내지 못한다.
+- 숨김은 Message를 바꾸지 않는다. 숨김 구간은 `choice`가 `restore_all`·`messages_only`이고 outcome이 applied·partial·uncertain인 rewind의 `boundary_seq` 이후 메시지로 읽는다(`redo=done`이면 다시 보인다). 숨긴 메시지·질문 답·승인 결정·호출 결과·사용량·run 기록은 수정하거나 지우지 않는다. 숨긴 구간은 이후 model 입력에 들지 않는다(→ lophn-agent/harness/prompt-assemble).
+- 여러 rewind가 겹치면 가장 앞선 `boundary_seq`가 숨김 시작이다. 이미 숨긴 구간 안의 checkpoint는 고를 수 없다.
+- `redo=available`이 되는 것은 `kind=rewind`이고 `choice`가 `restore_all`·`messages_only`이며 앱 복원 단계가 없는 `applied`뿐이다. `restore_all`에서 파일을 복원할 때는 복원 직전 내용을 session 저장소에 따로 두어 redo의 근거로 쓰고 `closed`가 되면 지운다.
+- `choice=summarize`는 문서·앱·메시지 어느 것도 바꾸지 않는다. 뒤 구간을 요약으로 접어 model 입력에 쓰고 원문은 읽힌다. 요약이 실패하면 아무것도 바뀌지 않는다.
+- undo는 대화를 숨기지 않는다. `RevertApplied`와 함께 session에 사실 메시지("Undid edit to <경로>")를 machine이 남기고 다음 model call의 입력에 든다.
+- 결과·원래 event·답·승인·호출·사용량은 수정하거나 지우지 않는다. 새 복원 event의 run은 null이다.
 
 ## RevertPreview (값)
 
-event와 소유 concern의 복원 검사에서 만든 읽기 결과다. 정본 entity나 저장된 변경 목록이 아니다.
+Checkpoint·RewindFile·소유 concern의 복원 검사에서 만든 읽기 결과다. 정본 entity나 저장된 목록이 아니다.
 
 | 필드 | 타입 | null | 제약 | 뜻 |
 |---|---|---|---|---|
-| `run` | `run` ID | 아니오 | 종료 상태와 대상 변경 차단 확인; → lophn-agent/harness/run-loop | 원래 run |
-| `as_of_seq` | event seq | 아니오 | 동일한 읽기 snapshot의 head; → platform/ledger | 조회 기준 |
-| `groups` | RevertGroup 배열 | 아니오 | event.run=원래 run 전체와 ToolCall/Invocation으로 연결된 성공 앱 write를 빠짐없이 포함 | 전체 변경 |
-| `binding_hash` | sha256 | 아니오 | run·전체 source seq·소유 CAS·capability·의존·남는 영향의 고정 지문 | confirmation 내용 기준 |
+| `kind / choice / checkpoint / tool_call` | Revert와 같음 | | 고른 범위 | 무엇을 되돌리나 |
+| `as_of_seq` | event seq | 아니오 | 같은 읽기 snapshot의 head; → platform/ledger | 조회 기준 |
+| `restore` | RevertItem 배열 | 아니오 | 복원 대상(`class=file / app`) | 복원할 것 |
+| `skip` | RevertItem 배열 | 아니오 | 건너뛰는 것 — 사람이 고친 파일, symlink·hard link, pre-image 없음 | 건너뛰는 것 |
+| `remain` | RevertItem 배열 | 아니오 | 남는 영향 — receipt 없는 앱 write, 이미 한 외부 요청·메일, secret 사용, 질문 답·승인 결정 | 되돌려지지 않는 것 |
+| `redo` | boolean | 아니오 | redo 가능 여부 예고; 앱 복원이 있으면 false | redo 예고 |
+| `preview_hash` | sha256 | 아니오 | 위 내용과 파일 현재 hash의 고정 지문 | 결정 기준 |
 
-## RevertGroup (값)
+## RevertItem (값)
 
 | 필드 | 타입 | null | 제약 | 뜻 |
 |---|---|---|---|---|
-| `ordinal` | integer | 아니오 | 0 이상; 목록 안 unique; 정렬은 가장 작은 source seq 기준 | 묶음 번호 |
-| `owner` | concern id | 아니오 | source event의 실제 소유 concern | 판정 영역 |
-| `target` | ID | 예 | 대상 변경이면 필수; target 없는 감사 event만 null | 고정 대상 |
-| `source_seqs` | event seq 배열 | 아니오 | 비어 있지 않음; 중복 없음; 오름차순; 앱은 원래 ToolCall 완료 event를 출처로 사용 | 원래 event 묶음 |
-| `capability` | `reversible / retained / irreversible / conflict` | 아니오 | owner가 판정; retained는 감사 사실만 | 복원 분류 |
-| `reason` | 이유 코드 | 예 | retained·irreversible·conflict이면 필수; 고정 코드(contracts의 revertReasonSchema) | 분류·남는 영향 설명 |
-| `comparison` | JSON object | 예 | reversible·conflict 대상이면 소유 concern CAS 필수 | run이 남긴 판·seq와 현재 기준 |
-| `before_ref` | JSON object | 예 | reversible이면 필수; 앱은 AppRevertBinding, 그 밖 이전 값·불변 판/blob | 복원할 기준 |
-| `dependencies` | `{owner: concern id, target: ID, comparison: JSON object}` 배열 | 아니오 | 빈 배열 허용; owner가 복원 후 참조 검사 | 복원 의존 관계 |
+| `ordinal` | integer | 아니오 | Revert 안 unique; 0 이상 | 순번 |
+| `class` | `file / app / fact` | 아니오 | 문서 파일 / 앱 write / 남는 사실 | 대상 종류 |
+| `target` | 문자열 | 아니오 | file은 경로, app은 원래 ToolCall ID, fact는 사실 종류 | 대상 |
+| `source` | `tcl` ID 배열 | 아니오 | 원래 tool call; 앱은 원래 호출 | 출처 |
+| `plan` | `restore / skip / remain` | 아니오 | 사전 검사 결과 | 계획 |
+| `result` | `restored / skipped / remained / failure / uncertain / unchanged` | 아니오 | 아래 조합만 | 실제 결과 |
+| `reason` | 이유 코드 | 예 | `plan≠restore`이거나 result가 restored 아님이면 필수; 고정 코드(contracts의 revertReasonSchema) | 설명 |
+| `app_revert` | AppRevertBinding | 예 | `class=app`에 필수 | 앱 복원 근거 |
 
-- before_ref·comparison의 schema와 실제 복원 command는 owner가 정의한다. 이 concern은 역변경 종류 목록·다른 entity 필드를 정의하지 않는다.
-- 원래 run의 같은 대상에 연속한 변경은 한 묶음이다. 시작 전 값으로 돌아가며 중간 판 하나를 선택하지 않는다. 다른 run·user의 변경이 끼거나 이후 판·seq가 달라졌으면 conflict다. 값이 우연히 같아도 충돌이다.
-- 감사 event는 retained로 모두 설명한다. 업무 변경을 retained로 숨기지 않는다. 큰 이전 내용은 불변 version·blob을 참조하고 원래 변경과 같은 transaction에 소유 concern이 근거를 남긴다.
-- `reason`은 글이 아니라 고정 이유 코드다(유지하는 사실, 외부 효과, 뒤따른 변경, 원본 연결 문서, 제목 변경, 분류 안 된 event, 차단 이유 같은 코드). blob이나 hash로 저장하지 않으며 화면 문장은 shell이 코드로 wording을 고른다. 결과 event(`RevertApplied/RevertBlocked/RevertFinished`)는 변경 목록 대신 결과별 묶음 수(`results`)만 싣고 목록은 `reverts/list`가 읽는다.
-- 복원 준비 결과(문서의 이전 판을 다시 준비한 결과처럼 transaction 안에서 만들 수 없는 값)는 owner가 정의한 값으로 `RevertRun` 입력의 그 묶음 `comparison.prepared`에 싣고 `prepared_ref`가 그 정규 JSON hash다. 준비 결과는 비교 기준과 `binding_hash`에 들지 않는다. 준비가 없으면 owner가 복원 준비 불충족으로 전체를 막는다.
+| 이유 코드 | 뜻 |
+|---|---|
+| `edited_outside` | 지금 hash가 agent가 마지막으로 쓴 내용과 다름(사람이 고침); 건너뜀 |
+| `chain_broken` | 같은 경로의 기록 사이에 사람이 고친 흔적이 있음; 건너뜀 |
+| `no_pre_image` | 한도로 pre-image를 두지 못함; 건너뜀 |
+| `link_path` | symlink·hard link 경로; 건너뜀 |
+| `rename_blocked` | 이름 변경의 옛 경로에 다른 파일이 있음; 건너뜀 |
+| `created_edited` | agent가 만든 파일을 사람이 고쳐 지우지 않음; 건너뜀 |
+| `no_receipt` | 앱 write에 revert receipt가 없음; 남는 영향 |
+| `no_revert_command` | 앱이 revert command를 선언하지 않음; 남는 영향 |
+| `app_revision_changed` | 앱 현재 revision이 receipt 기준과 다름; 같은 앱의 더 앞선 단계도 부르지 않음 |
+| `external_effect` | 이미 나간 외부 요청·activation·secret 사용; 남는 영향 |
+| `already_reverted` | 이미 Undo한 기록; unchanged |
+| `answered_fact` | 질문 답·승인 결정·호출 결과·사용량; 지우지 않고 숨김 구간에 남음 |
+
+| plan | result | 조건 |
+|---|---|---|
+| restore | restored | 파일은 `before`로 교체하거나 지움, 앱은 revert command 성공 |
+| restore | failure / uncertain / unchanged | 실제 앱 결과 또는 미시작을 구별(첫 앱 복원 뒤 실패면 뒤 단계는 unchanged) |
+| skip | skipped | 이유 코드 필수; 덮어쓰지 않음 |
+| remain | remained | 이미 있는 영향; 되돌렸다고 쓰지 않음 |
+
+`items`는 시도 결과와 event 연결이며 원래 내용 복사본이 아니다.
 
 ## AppRevertBinding (값)
 
 | 필드 | 타입 | null | 제약 | 뜻 |
 |---|---|---|---|---|
 | `app / release / command` | ID / ID / 문자열 | 아니오 | 원래 ToolCall.app_command와 일치 | 원래 호출 계약 |
-| `tool_call` | `tcl` ID | 아니오 | 원래 run의 성공 write; → lophn-agent/harness/tools | 출처 |
+| `tool_call` | `tcl` ID | 아니오 | checkpoint 이후의 성공 write; → lophn-agent/harness/tools | 출처 |
 | `invocation` | `inv` ID | 아니오 | 성공 출력의 revert.invocation; → apps/invocations | 원래 업무 변경 |
 | `receipt` | 불투명 문자열 | 아니오 | 앱이 돌려준 값 그대로; model에 원문 제공 없음 | 복원 입력 근거 |
 | `expected_revision` | 앱 revision | 아니오 | 원래 성공 receipt 기준; 앱 소유 CAS | 후속 변경 검사 |
@@ -91,113 +173,89 @@ event와 소유 concern의 복원 검사에서 만든 읽기 결과다. 정본 e
 
 preview는 receipt 원문을 UI·model에 보여 주지 않고 앱·command·변경 설명·복원 가능 여부·revision만 보여 준다. 앱이 복원 사전 검사·CAS·idempotency/result query를 지원하지 않으면 이를 알리고 안전한 복원으로 분류하지 않는다. 앱 source·DB 파일 직접 쓰기가 아니라 선언된 command만 호출한다.
 
-## RevertChange (값)
-
-| 필드 | 타입 | null | 제약 | 뜻 |
-|---|---|---|---|---|
-| `ordinal` | integer | 아니오 | Revert 안 unique; 0 이상 | 결과 묶음 번호 |
-| `owner` | concern id | 아니오 | source event의 실제 소유 concern | 판정 영역 |
-| `target` | ID | 예 | 대상 없는 감사 사실만 null | 고정 대상 |
-| `source_seqs` | event seq 배열 | 아니오 | RevertGroup과 동일한 원래 event 묶음 | 변경 출처 |
-| `capability` | `reversible / retained / irreversible / conflict` | 아니오 | 최종 transaction의 owner 판정 | 복원 가능 여부 |
-| `result` | `restored / retained / irreversible / conflict / unchanged / failure / uncertain` | 아니오 | 아래 조합만 허용 | 실제 시도 결과 |
-| `reason` | 이유 코드 | 예 | result≠restored이면 필수 | 남은 변경·감사 사실·차단 설명 |
-| `restored_seqs` | event seq 배열 | 아니오 | ledger 복원은 필수; 앱 복원은 후행 Invocation event 또는 아래 invocation 참조; 그 외 빈 배열 | 실제 보상 event |
-| `app_revert` | AppRevertBinding | 예 | 앱 묶음에 필수; 성공·실패·불명을 Invocation으로 확인 | 앱 복원 결과 |
-
-| capability | outcome | result | 제약 |
-|---|---|---|---|
-| reversible | applied | restored | 소유 복원 새 event가 있음 |
-| reversible | blocked | unchanged | 복원할 수 있어도 전체 차단으로 미적용; 업무 변경임을 유지 |
-| reversible | partial / uncertain | restored / unchanged / failure / uncertain | 실제 앱 결과 및 미시작 ledger 결과를 구별 |
-| retained | applying / applied / partial / uncertain / blocked | retained | 이미 발생한 감사 사실; 복원 없음 |
-| irreversible | applied / partial / uncertain / blocked | irreversible | 실제 외부·업무 영향 남음; applied이면 allow_partial=true |
-| conflict | partial / uncertain / blocked | conflict | 해당 대상 미적용; 시작 전 blocked는 전체 미적용; 충돌 덮어쓰기 없음 |
-
-changes는 시도 결과와 event 연결이며 원래 내용 복사본이 아니다. 원래 내용은 source_seqs에서, 복원 내용은 restored_seqs에서 읽는다.
-
 ## 관계
 
 | from | 관계 | to | 다중도 | 대상이 사라지면 |
 |---|---|---|---|---|
-| Revert | 원래 run | → lophn-agent/harness/run-loop | N:1 | 감사 참조 유지; 삭제 금지 |
-| RevertChange | 원래 사실 | → platform/ledger | 1:1..N | event 삭제 금지 |
-| RevertChange | 실제 보상 | → platform/ledger | 1:0..N | event 삭제 금지 |
-| RevertChange | 복원 대상 | → owner | N:0..1 | owner가 현재 존재·보관·참조를 검사; 필요 근거 없으면 blocked |
+| Checkpoint | 메시지 | → lophn-agent/conversation의 Message | 1:1 | session을 delete하면 함께 지움 |
+| RewindFile | checkpoint | Checkpoint | N:1 | checkpoint를 지우면(한도 정리·session 삭제·닫힘) 함께 지움 |
+| RewindFile | 쓴 호출 | → lophn-agent/harness/tools의 ToolCall | 1:1 | session을 delete하면 함께 지움 |
+| Revert | session | → lophn-agent/conversation | N:1 | session을 delete하면 함께 지움 |
+| Revert | 돌아간 checkpoint / 되돌린 call | Checkpoint / RewindFile | N:0..1 | 한도 정리 뒤에도 결과 기록은 남음 |
+| RevertItem | 원래 사실·실제 보상 | → platform/ledger, apps/invocations | 1:0..N | event 삭제 금지 |
 
 ## ledger 표
 
 | 표 | 담는 것 | 키 | unique | index | 참조 |
 |---|---|---|---|---|---|
-| `reverts` | Revert 헤더 | `id` PK | partial run WHERE outcome IN ('applying','applied','partial','uncertain'); `result_seq` | `(run, result_seq)` | run FK → lophn-agent/harness/run-loop; result_seq FK → `events.seq`(platform/ledger) |
-| `revert_changes` | RevertChange의 owner·target·capability·result·reason | `(revert, ordinal)` PK | PK | `(owner, target)` | revert FK → `reverts.id`; reason은 고정 코드; target는 owner 존재 검사 |
-| `revert_change_sources` | source_seqs의 각 event 연결 | `(revert, source_seq)` PK | 같은 Revert 안 source event 하나당 한 묶음 | `(revert, ordinal, source_seq)`; `(source_seq)` | `(revert, ordinal)` FK → `revert_changes`; source_seq FK → `events.seq` |
-| `revert_change_compensations` | restored_seqs의 각 event 연결 | `(revert, ordinal, restored_seq)` PK | 같은 묶음 안 중복 없음 | `(restored_seq)` | `(revert, ordinal)` FK → `revert_changes`; restored_seq FK → `events.seq` |
+| `checkpoints` | Checkpoint | `message` PK | PK | `(session, message)`; `(session, files_restorable)` | message FK → lophn-agent/conversation의 `messages.id`; session FK |
+| `rewind_files` | RewindFile 한 줄(FileState hash·저장물 key 포함) | `(tool_call, path)` PK | PK | `(checkpoint, path, seq)`; `(path, seq)`; `(reverted_by)` | tool_call FK → lophn-agent/harness/tools; checkpoint FK → `checkpoints.message`; reverted_by FK → `reverts.id` |
+| `reverts` | Revert 헤더 | `id` PK | partial session WHERE outcome='applying'; `result_seq` | `(session, result_seq)`; `(session, redo)` | session FK; checkpoint FK; result_seq FK → `events.seq`(platform/ledger) |
+| `revert_items` | RevertItem의 class·target·plan·result·reason·AppRevertBinding | `(revert, ordinal)` PK | PK | `(class, target)` | revert FK → `reverts.id`; reason은 고정 코드 |
 
-최종 결과 행은 불변이다. `reverts`에 preview_hash 지문·state_seq를, `revert_changes`에 AppRevertBinding·단계 결과를 담는다. 단계 계획은 RevertStarted 때 만들고 checkpoint는 아직 미확정 단계의 결과만 CAS로 한 번 설정한다. applying 헤더는 최종 outcome·result_seq로 한 번 바뀐다. 최종 결과·완료 단계는 덮어쓰지 않는다. source event가 정확히 원래 run 전체와 같은지, ledger compensation event는 이 transaction의 actor=user/run=null이고 앱 compensation은 고정 receipt·사람 결정에 연결된 Invocation인지 command가 검사한다. 하나의 복원 event가 여러 원래 event를 보상할 수 있으므로 여러 묶음의 참조는 허용한다. blob 영구 참조 등록·공통 요청 결과는 → platform/blob-store, platform/ledger.
+최종 결과 행은 불변이다. `reverts`에 preview_hash를, `revert_items`에 AppRevertBinding·단계 결과를 담는다. 단계 계획은 RevertStarted 때 만들고 checkpoint는 아직 미확정 단계의 결과만 CAS로 한 번 설정한다. applying 헤더는 최종 outcome·result_seq로 한 번 바뀐다. 최종 결과·완료 단계는 덮어쓰지 않는다. `session`을 delete하면 `DeleteSession`이 같은 transaction에서 네 표의 행을 지운다. pre-image 내용은 ledger 표가 아니라 아래 session 저장소다.
+
+## 저장 (session 저장소)
+
+pre-image 내용과 redo용 복원 직전 내용은 platform/blob-store가 아니라 이 concern의 session 저장소에 둔다. blob-store의 영구 참조는 변경 기록의 근거라 session 수명에 맞춰 지울 수 없기 때문이다.
+
+- 위치: data root 아래 session 단위 디렉터리(`<H>/rewind/<session ID>/`)이며 안에서 sha256으로 주소를 매기는 파일이다. 같은 내용은 하나다.
+- 쓰기: 임시 파일에 쓰고 hash를 확인한 뒤 원자적으로 설치한다. rows 등록은 ledger transaction이고 파일 설치는 그 밖이라 공동 원자 작업이 아니다. 설치만 되고 row가 없는 저장물은 고아이며 시작 때와 주기로 쓸어낸다.
+- 한도: 기록이 있는 checkpoint 최근 100개, 파일당 10 MB, session당 서로 다른 저장물 합 200 MB. 새 쓰기가 파일당 한도를 넘으면 저장하지 않고 그 checkpoint를 `limit_file`로 낮춘다. 개수나 합을 넘으면 가장 오래된 checkpoint의 기록과 저장물을 지우고 `limit_count` / `limit_total`로 낮춘다.
+- 정리: 삭제는 (1) `reverted_by`가 설정된 기록은 그 Revert가 `redo=closed` 또는 `none`이 되면, (2) 한도 정리, (3) session 삭제·닫힘이다. archive는 지우지 않는다. 정리에 실패한 session 디렉터리는 시작 때와 주기로 다시 쓸어낸다.
+- 읽기: 사람의 rewind·Undo 준비와 redo만 읽는다. agent·model·앱에는 내용도 경로도 주지 않는다.
 
 ## command
 
-전체 preview는 인증된 읽기이며 command나 domain event를 만들지 않는다. idempotency·입력 한도·공통 오류는 → platform/ledger.
+preview는 인증된 읽기이며 command나 domain event를 만들지 않는다. idempotency·입력 한도·공통 오류는 → platform/ledger.
 
 | command | actor | 입력 | 비교 기준 | event | 거절(error code) |
 |---|---|---|---|---|---|
-| `revert_run` | `user` | id, run, allow_partial, preview binding_hash, source seq 전체 묶음·소유 CAS·준비 참조, confirmation 증거 | 종료 run·새 대상 변경 차단·진행/부분/불명확/applied revert 없음·전체 event 일치·각 owner CAS·복원 후 관계·남는 영향 동의 | `RevertStarted` 또는 `RevertApplied` + 소유 복원 event 또는 `RevertBlocked` | `forbidden`, `not_found`, `invalid_input`, `conflict`, `unavailable` |
+| `RecordRewindFile` | agent(문서 tool의 harness) | tool_call, path, before FileState, after hash, moved_from? | 실행 중인 문서 쓰기 tool call; 같은 `(tool_call,path)` 중복은 기존 결과; 한도 판정은 이 command가 한다 | 없음(감사는 ToolCall event) | `invalid_input`, `conflict`, `unavailable` |
+| `Rewind` | `user` | id, session, checkpoint, choice, preview binding_hash, 남는 영향 confirmation 증거 | session 열림·미종료 run 없음·checkpoint가 숨김 구간 밖·choice 허용(correction 메시지는 `messages_only`만, `files_restorable=false`는 `restore_all` 불가)·applying Revert 없음·preview_hash 일치 | `RevertStarted` 또는 `RevertApplied` 또는 `RevertBlocked` | `forbidden`, `not_found`, `invalid_input`, `conflict`, `unavailable` |
+| `UndoEdit` | `user` | id, session, tool_call, preview binding_hash | session 열림·진행 중 run이 같은 경로를 쓰는 중이 아님·그 call의 `reverted_by` 없음·지금 hash == 그 call의 `after`·같은 경로의 더 최근 기록 없음 | `RevertApplied` + 사실 메시지 | `forbidden`, `not_found`, `conflict`, `unavailable` |
+| `Redo` | `user` | revert, 상태 seq | `redo=available`·다음 사람 메시지 전·복원했던 파일의 지금 hash가 복원한 내용과 같은 것만 | `RevertRedone` | `forbidden`, `not_found`, `conflict` |
+| `CheckpointRevert` | machine | revert, step_key, 실제 Invocation·결과 | applying·고정 preview·단계 중복 없음; 저장한 사람 결정 근거 | 없음; 앱 사실은 → apps/invocations | `conflict`, `forbidden` |
+| `FinishRevert` | machine | revert, 전체 단계 근거 | applying·문서 파일 판정 재검사·실제 앱 결과 | `RevertApplied / RevertFinished` | `conflict`, `forbidden` |
 
-- 인증·형식·대상 없음·같은 id의 다른 입력·이미 applied인 run·공통 크기 한도 오류는 command 거절이다. 유효한 새 시도의 도메인 복원 conflict·의존 위반·부분 동의 부족은 정상 확정된 blocked 결과와 event다.
+- 인증·형식·대상 없음·같은 id의 다른 입력·공통 크기 한도 오류는 command 거절이다. 유효한 새 시도의 도메인 충돌(오래된 preview·확인 부족)은 정상 확정된 blocked 결과와 event다.
 - 오래된 preview면 고정 내용을 적용하지 않고 현재 판정의 blocked 결과를 저장한다. 사람이 본 내용을 조용히 고쳐서 적용하지 않는다. confirmation 증거 자체의 불일치는 forbidden/conflict다.
-- ledger만 있는 revert는 각 owner 복원과 최종 결과를 한 transaction으로 확정한다. 앱 단계가 있는 revert는 먼저 전체 사전 검사와 `RevertStarted`/applying을 확정한 뒤 runtime이 직접 호출한다. network를 writer transaction 안에서 기다리지 않는다. 앱 단계 전 사전 충돌이면 blocked, 시작 뒤 새 충돌은 partial/uncertain이다.
-- 파일 쓰기·앱 재시작·model call·hash 계산은 transaction 밖의 준비다. 그 작업이 없이는 복원이 성립하지 않는 변경은 준비·소유 contract 충족 없이 restored라고 기록하지 않는다.
+- 문서 파일 복원은 앱 단계가 끝난 뒤에 한다. 앱 단계가 없으면 한 번에 판정·교체하고 `RevertApplied`를 확정한다. 앱 단계가 있으면 먼저 사전 검사와 `RevertStarted`/applying을 확정하고 runtime이 앱 revert command를 부르며 network를 writer transaction 안에서 기다리지 않는다.
+- 파일 쓰기·hash 계산·pre-image 복사는 transaction 밖의 준비다. 준비가 없이는 성립하지 않는 복원을 restored로 기록하지 않는다.
+- 다음 사람 메시지를 접수하는 `ReceiveMessage`는 같은 transaction에서 `redo=available`인 Revert를 `closed`로 바꾸고 `RevertClosed`를 낸다(요구 conversation#R25).
+- 앱 호출 시작 뒤 앱의 새 충돌·실패·효과 불명은 partial/uncertain이며, 이미 복원한 앱 효과를 롤백했다고 주장하지 않는다. 이 경우 문서 파일 복원은 시작하지 않고 `unchanged`로 남긴다(앱 효과가 불명확한 채 문서만 되돌려 상태가 어긋나는 것을 막는다).
 
 ### 앱 복원 실행 경계
 
-`revert_run`은 앱 단계가 있으면 durable applying 접수 결과를 반환한다. runtime은 저장한 preview_hash와 AppRevertBinding을 읽고 `step_key`로 이미 수행한 복원 Invocation을 먼저 조회한다. 원래 write 역순으로 앱 revert command를 호출하며 사람 복원 결정·현재 앱 존재·release 계약·CAS를 검사한다. agent.commands Grant를 복원 권한으로 복사하지 않고 사용자 결정에 묶인 user actor의 앱 통로를 사용한다. 각 결과는 원래 receipt 및 revert ID에 묶어 `CheckpointRevert`로 남긴다. 이미 전달된 효과가 불명확하면 result query 외 재송신하지 않는다. 앱 단계 모두 성공 후 `FinishRevert`가 ledger owner CAS를 다시 검사하고 ledger 복원 전체 및 최종 결과를 transaction으로 확정한다. 새 conflict면 ledger는 미적용이고 이미 성공한 앱 복원은 partial이다.
+`Rewind`는 앱 단계가 있으면 durable applying 접수 결과를 반환한다. runtime은 저장한 preview_hash와 AppRevertBinding을 읽고 `step_key`로 이미 수행한 복원 Invocation을 먼저 조회한다. 원래 write 역순으로 앱 revert command를 호출하며 사람 복원 결정·현재 앱 존재·release 계약·CAS를 검사한다. agent.commands Grant를 복원 권한으로 복사하지 않고 사용자 결정에 묶인 user actor의 앱 통로를 사용한다. 각 결과는 원래 receipt 및 revert ID에 묶어 `CheckpointRevert`로 남긴다. 이미 전달된 효과가 불명확하면 result query 외 재송신하지 않는다. 앱 단계가 모두 성공하면 `FinishRevert`가 문서 파일 판정을 다시 검사하고 파일 복원과 최종 결과를 확정한다.
 
-이어 실행은 core의 `RunAppRevert`(`reverts/run_apps`, 사람 자격의 core 메모리 route)다. revert 창이 `RevertRun`의 applying 접수 뒤 이 route를 부르면 core가 위 순서를 이어 받는다: 앱 호출은 호출한 사람의 `apps/connect` 연결과 앱 direct socket(`request_key`=step_key), 단계 기록·끝내기는 core 내부 machine 자격이다(사람 token은 `CheckpointRevert`·`FinishRevert`를 직접 부르지 못한다). `CheckpointRevert.invocation`은 앱의 revert command 호출이 남긴 실제 Invocation(닿지 못했거나 응답을 잃었으면 null)이고 단계 근거의 `revert_invocation`에 남으며 원래 write의 invocation은 `invocation`에 그대로 있다. 끝내기가 owner CAS 거절로 취소되면 `groups` 없이 다시 끝내 앱 결과만 확정한다.
+이어 실행은 core의 `RunAppRevert`(사람 자격의 core 메모리 route)다. rewind 창이 `Rewind`의 applying 접수 뒤 이 route를 부르면 core가 위 순서를 이어 받는다: 앱 호출은 호출한 사람의 `apps/connect` 연결과 앱 direct socket(`request_key`=step_key), 단계 기록·끝내기는 core 내부 machine 자격이다(사람 token은 `CheckpointRevert`·`FinishRevert`를 직접 부르지 못한다). `CheckpointRevert.invocation`은 앱의 revert command 호출이 남긴 실제 Invocation(닿지 못했거나 응답을 잃었으면 null)이고 단계 근거의 `revert_invocation`에 남으며 원래 write의 invocation은 `invocation`에 그대로 있다.
 
-| command | actor | 입력 | 비교 기준 | event | 거절(error code) |
-|---|---|---|---|---|---|
-| `CheckpointRevert` | machine | revert, step_key, 실제 Invocation·결과 | applying·고정 preview·단계 중복 없음; 저장한 사람 결정 근거 | 없음; 앱 사실은 → apps/invocations | `conflict`, `forbidden` |
-| `FinishRevert` | machine | revert, 전체 단계 근거 | applying·현재 ledger owner CAS·실제 앱 결과 | `RevertApplied / RevertFinished` | `conflict`, `forbidden` |
-
-이 machine 작업은 등록한 사람 결정의 복원 동작만 수행하며 새 agent run·model 판단을 만들지 않는다. 최종 event actor=user/run=null이다. 복원 command 자체 confirm이면 원래 write approval을 재사용하지 않고 해당 owner의 새 정확한 사람 확인을 요구한다.
+이 machine 작업은 등록한 사람 결정의 복원 동작만 수행하며 새 agent run·model 판단을 만들지 않는다. 최종 event actor=user/run=null이다. 앱 revert command 자체가 confirm이면 원래 write approval을 재사용하지 않고 해당 owner의 새 정확한 사람 확인을 요구한다.
 
 ## event
 
 | event | subject | payload | 구독(concern) |
 |---|---|---|---|
-| `RevertStarted` | revert | `run`, preview_hash, 전체 앱 단계 참조 | lophn-agent/revert, shell/desktop |
-| `RevertFinished` | revert | `run`, outcome=partial/uncertain, 결과별 묶음 수(`results`) | lophn-agent/observability, shell/desktop |
-| `RevertApplied` | revert | `run`, `allow_partial`, `partial: boolean`, 결과별 묶음 수(`results`) | lophn-agent/observability, shell/desktop; 대상 owner |
-| `RevertBlocked` | revert | `run`, 결과별 묶음 수(`results`) | lophn-agent/observability, shell/desktop |
+| `RevertStarted` | revert | `session`, `kind`, `choice`, preview_hash, 전체 앱 단계 참조 | lophn-agent/revert, shell/desktop |
+| `RevertFinished` | revert | `session`, outcome=partial/uncertain, 결과별 항목 수(`results`) | lophn-agent/observability, shell/desktop |
+| `RevertApplied` | revert | `session`, `kind`, `choice`, `partial: boolean`(건너뜀·남는 영향이 있었나), 결과별 항목 수(`results`), `boundary_seq?`, `redo` | lophn-agent/observability, shell/desktop; lophn-agent/harness/prompt-assemble |
+| `RevertBlocked` | revert | `session`, 결과별 항목 수(`results`) | lophn-agent/observability, shell/desktop |
+| `RevertRedone` | revert | `session`, 다시 보인 메시지 수, 복원한 파일 수 | shell/desktop, lophn-agent/harness/prompt-assemble |
+| `RevertClosed` | revert | `session`, redo 끝난 시각 | shell/desktop |
 
-복원 event의 actor는 user, envelope run은 null이다. payload.run은 원래 run의 연결이다. `partial=true`는 irreversible 업무 변경이 남았다는 뜻이며 retained 감사 사실만 남으면 false다. 대상 복원 event는 각 owner가 소유한다.
+복원 event의 actor는 user(Closed는 machine), envelope run은 null이다. 목록 항목 사본은 싣지 않고 `rewind/list`가 읽는다.
 
 ## 정책
 
-- **전체 복원 경계.** owner의 검사·복원 한도를 넘는 전체 revert를 분할 적용하지 않는다. 원본 연결 문서의 version 복원과 파일 반영은 documents/file-tracking·documents/versions의 별도 사실이며 디스크 원본 복구를 보장하지 않는다.
-
-### 영역별 복원 판정
-
-| 대상 종류 | 판정 concern | 기본 분류·조건 |
-|---|---|---|
-| 문서 내용·metadata·자리 | → documents/versions, documents/addressing | reversible: 소유 CAS·참조 검사 통과; 내용은 이전 내용의 새 version; 파일 반영 완료와 ledger 복원은 별도 |
-| context 계약 판·용어집 | → documents/contexts, documents/terms | retained; 이 revert의 owner가 아님; 이전 판 적용은 소유 concern의 판 이력으로만 하고 복원했다고 표시하지 않음 |
-| agent run이 생성한 미claim ticket | → coding-agent/tickets | reversible: ticket 취소; claim 이후는 owner 판정 없이는 복원 불가 |
-| pending approval request | → platform/approvals | 유효한 미결정 동작 차단은 owner의 cancellation 규칙; 이미 저장된 결정은 retained |
-| assignment·agent 정의·설정 변경 | → lophn-agent/assignments, lophn-agent/agents, platform/settings | owner가 현재 범위·참조를 검사; 정의는 판이 없어 이전 내용 근거 없이는 reversible 아님 |
-| report·관측·snapshot·test result | → problems/reporting, problems/snapshots, problems/tests | retained; 관측 사실을 지우거나 problem을 닫지 않음 |
-| run·tool/model call·질문 답·승인 결정·invocation 결과 | → lophn-agent/harness/run-loop, lophn-agent/harness/tools, lophn-agent/harness/usage, lophn-agent/questions, platform/approvals, apps/invocations | retained; 과거 사실·사용량·결정은 불변 |
-| activation·secret 사용·외부 전송 등 실제 외부 효과 | → apps/releases, platform/secrets, 실제 호출 소유 concern | irreversible; 기존 효과를 취소됐다고 간주하지 않음 |
-| 성공한 undo 지원 앱 write | → apps/blueprint, apps/runtime, apps/invocations | reversible: supported=true·대응 revert command·저장 receipt·현재 revision 검사; direct call로 실제 복원 |
-| undo 미지원 앱 업무 변경·source git·외부 서비스·디스크 원본 | → apps/data, 해당 소유 concern | 직접 복원 범위 밖; 남은 영향은 irreversible로 설명 |
-| 그 밖의 원래 run event | → 그 event의 소유 concern | owner가 판정·근거를 제공; 미분류 event를 누락하거나 안전하다고 가정하지 않음 |
-
-- **run 범위.** event.run 전체에 ToolCall.run으로 고정 연결된 성공 앱 write Invocation·receipt를 더한다. Invocation 후행 기록이 아직 없으면 확인 불가로 표시하고 안전한 복원으로 가정하지 않는다. actor·시각 범위로 추정하지 않는다. completed·failed·stopped run의 확정 변경을 모두 포함한다. 기다리는 run은 먼저 stopped가 되어야 한다. → lophn-agent/harness/run-loop
-- **부분 revert.** 기본 allow_partial=false다. irreversible 업무 변경이 섞이면 blocked다. true이면 독립적으로 유효한 reversible 변경 전체만 복원하고 irreversible 영향은 남긴다. retained 감사 사실만 있는 것은 부분 복원이 아니다.
-- **분류 근거.** run의 변경은 ledger의 event(`event.run`)에서 읽고 소유 concern의 복원 판정(adapter)이 묶음·분류·복원 command 호출을 정한다. 대상의 처음 변경 뒤에 이 run이 아닌 event가 하나라도 있으면(끼었거나 뒤따랐거나) 값이 같아도 충돌이다. 어느 adapter도 맡지 않은 event는 분류하지 않은 복원 불가로 남고 목록에서 빠지지 않는다. 문서의 제목 변경은 사람 자격으로 부를 수 없는 보상 값이라 남는 변경(복원 불가)이다.
-- **충돌.** 다른 변경이 끼거나 소유 CAS가 달라진 대상 하나라도 있으면 전체 blocked다. 부분 동의는 강제 복원·자동 병합의 허락이 아니다. 이 전체 blocked는 사전 검사에 적용하며 앱 복원 시작 뒤 새 충돌은 partial로 기록한다.
-- **의존.** irreversible 변경에 의존하는 대상도 복원 후 관계가 유효해야 한다. 안전한 전체 묶음이 없으면 blocked다.
-- **새 변경.** 문서 version pointer만 과거로 옮기거나 event를 삭제하지 않는다. 복원은 소유 concern의 새 변경이다. 새 복원 event의 actor=user/run=null이며 원래 run을 다시 수행한 것으로 기록하지 않는다.
-- **후속 작업.** revert는 새 agent run을 만들지 않는다. ledger 복원·파일 반영·앱 상태 결과가 서로 다르면 각 소유 기록을 분리해 유지한다.
-
+- **session 수명.** Revert·RewindFile·pre-image는 session이 열려 있는 동안만 의미가 있다. 닫힘(assignment 회수)·delete 때 전부 지운다. archive는 session 안 일을 바꾸지 않으므로 남긴다. Fork는 확정 메시지만 복사하며 Checkpoint·RewindFile·Revert를 옮기지 않는다. 복사본의 메시지에서는 checkpoint가 생기지 않는다(`copied_from`이 있는 메시지). → lophn-agent/conversation
+- **판정 규칙 (문서 파일).** 대상 경로마다 선택한 checkpoint 이후의 `reverted_by`가 없는 RewindFile을 `seq` 순서로 모아 사슬을 확인한다. 현재 파일 hash가 마지막 기록의 `after`와 같고 사슬이 이어져 있으면 복원: 첫 기록의 `before`로 교체하고 `before.exists=false`면 지운다. 현재 파일이 없고 마지막 `after.exists=true`면 첫 `before`로 되살린다. 위가 아니면 건너뜀 이유 코드를 단다. `before.exists=false`인데 현재 hash가 다르면 지우지 않는다(`created_edited`). 이름 변경은 옛 경로에 `before`를 쓰고 새 경로를 지운다. 옛 경로에 다른 파일이 있으면 건너뜀(`rename_blocked`). symlink·hard link 경로는 모두 건너뛴다.
+- **복원 쓰기.** 사람이 시작한 동작이다. 쓰기 직전에 지금 hash가 `after`와 같은지 다시 비교하고 임시 파일 + 원자 교체로 쓴다. 문서 판·파일 추적(documents/versions·file-tracking — 사람 결정으로 삭제)은 쓰지 않는다. agent·앱에는 이 통로가 없다.
+- **복원이 남기는 것.** 복원한 RewindFile에 `reverted_by`를 설정한다. 복원은 새 기록이며 원래 tool call·메시지·답은 그대로다. 다음에 같은 경로를 agent가 쓰면 새 기록이 새 사슬을 시작한다.
+- **Undo.** `kind=undo`는 같은 기록을 `(tool_call, path)` 하나 단위로 읽는다. 지금 hash == 그 call의 `after`이고 같은 경로에 더 최근 기록이 없을 때만 한다. 복원하면 `reverted_by`가 설정되어 이후 rewind에서는 `already_reverted`(unchanged)다. Undo를 다시 되돌리는 기능은 없다.
+- **분류 근거.** 대상은 checkpoint 이후의 RewindFile(문서 파일)과 같은 session의 ToolCall에서 읽은 성공 앱 write(앱)다. Invocation 후행 기록이 아직 없으면 확인 불가로 표시하고 안전한 복원으로 가정하지 않는다. actor·시각 범위로 추정하지 않는다. 앱 write인데 `command.revert.supported`가 아니거나 receipt가 없으면 `remain`이다(→ lophn-agent/harness/tool-judgment).
+- **남는 사실.** 질문 답·승인 결정·호출 결과·사용량·report·test result·외부 전송·activation·secret 사용은 되돌리지 않는다. 숨김 구간에 남고 `fact`로 한 줄 알린다. 소유 concern의 과거 사실을 지우거나 problem을 닫지 않는다.
+- **대화 밖 상태.** rewind를 적용하면 숨김 구간에서 기다리던 질문·approval request를 취소(→ lophn-agent/questions, platform/approvals)하고, harness가 읽은 문서의 상태(읽은 hash 등)를 숨김 시작 이전 기준으로 다시 잡는다. 예약된 일은 되살리지 않는다.
+- **앱 순서.** 앱 write는 원래 호출 역순이다. 같은 앱의 한 단계가 사전 검사에서 막히면 그보다 앞선 그 앱의 단계는 부르지 않는다. 다른 앱은 독립이다. 앱을 먼저, 문서 파일을 나중에 한다.
+- **부분 revert.** 확인 화면에서 사람이 `remain`·`skip`을 확인해야 적용한다(요구 R7). `skip`은 파일마다 건너뛰고 그 밖의 대상을 막지 않는다. 앱 호출 시작 뒤 새 충돌은 partial로 기록하고 강제로 덮지 않는다.
+- **후속 작업.** rewind는 새 agent run을 만들지 않는다. 문서 파일 복원·앱 복원·대화 숨김 결과가 서로 다르면 각 소유 기록을 분리해 유지한다.

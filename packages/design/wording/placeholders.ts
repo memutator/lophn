@@ -945,6 +945,11 @@ export type PlaceholderKinds = {
     block: "string";
     message: "string";
   };
+  "conversation.button.approval-allow": Record<never, never>;
+  "conversation.button.approval-allow-once": Record<never, never>;
+  "conversation.button.approval-allow-scope": Record<never, never>;
+  "conversation.button.approval-allow-session": Record<never, never>;
+  "conversation.button.approval-deny": Record<never, never>;
   "conversation.button.check-delivery": Record<never, never>;
   "conversation.button.check-result": Record<never, never>;
   "conversation.button.close": Record<never, never>;
@@ -970,6 +975,9 @@ export type PlaceholderKinds = {
   "conversation.error.open-failed": Record<never, never>;
   "conversation.error.stop-failed": Record<never, never>;
   "conversation.error.too-long": Record<never, never>;
+  "conversation.label.approval": Record<never, never>;
+  "conversation.label.approval-esc": Record<never, never>;
+  "conversation.label.approval-preview": Record<never, never>;
   "conversation.label.author-check": Record<never, never>;
   "conversation.label.author-lophn": Record<never, never>;
   "conversation.label.author-you": Record<never, never>;

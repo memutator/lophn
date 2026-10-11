@@ -1,0 +1,68 @@
+{
+  "role_caps": {
+    "lophn": [
+      "document.list",
+      "document.outline",
+      "document.search",
+      "document.read_section",
+      "document.save_version",
+      "document.create",
+      "question.submit",
+      "app.list",
+      "app.read",
+      "ticket.create",
+      "visual.show"
+    ],
+    "context_engineer": [
+      "document.list",
+      "document.outline",
+      "document.search",
+      "document.read_section",
+      "context.read_contract",
+      "context.draft",
+      "context.preview",
+      "context.submit",
+      "question.submit"
+    ],
+    "app_engineer": [
+      "document.list",
+      "document.read_section",
+      "document.save_version",
+      "app.read",
+      "app.blueprint",
+      "problem.set_interpretation",
+      "ticket.create",
+      "ticket.make_ready",
+      "question.submit"
+    ],
+    "operator": [
+      "document.list",
+      "document.outline",
+      "document.search",
+      "document.read_section",
+      "document.save_version",
+      "context.read_entity",
+      "app.command_metadata",
+      "app.call_read_command",
+      "question.submit"
+    ]
+  },
+  "default_profiles": {
+    "lophn": { "kind": "icon", "icon": "dock" },
+    "context_engineer": { "kind": "icon", "icon": "contexts" },
+    "app_engineer": { "kind": "icon", "icon": "apps" },
+    "operator": { "kind": "icon", "icon": "roles" }
+  },
+  "skills": ["slides", "spreadsheet"],
+  "mcp": [
+    { "server_name": "web", "original_tool": "fetch" },
+    { "server_name": "web", "original_tool": "search" },
+    { "server_name": "files", "original_tool": "read" }
+  ],
+  "active_contexts": {
+    "prj_01arz3ndektsv4rrffq69g5fa1": [
+      "ctx_01arz3ndektsv4rrffq69g5fb1",
+      "ctx_01arz3ndektsv4rrffq69g5fb2"
+    ]
+  }
+}

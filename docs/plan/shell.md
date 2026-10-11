@@ -1278,7 +1278,7 @@ concerns: [shell]
 
 ### T69 wireframes: agent 부르기·대화·관리 화면
 
-- 상태: 진행 (PR 번호는 PR을 연 뒤 단다)
+- 상태: 완료 (#591)
 - 등급: frontend
 - concern: shell/desktop
 - 요구: 없음 — 개발 도구

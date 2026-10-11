@@ -9,7 +9,19 @@
 //   contexts.label.rail-shortcuts
 //   contexts.label.rail-terminal
 import type { ReactNode } from "react";
-import type { Timer } from "@lophn/design/components";
+import {
+  conversationIcons,
+  IconButton,
+  type IconProps,
+  lophnSpaceIcons,
+  paletteIcons,
+  type Timer,
+  Tooltip,
+  workspaceIcons,
+} from "@lophn/design/components";
+import { t } from "@lophn/wording";
+
+import styles from "./shortcut-rail.module.css";
 
 export const RAIL_ACTIONS = [
   "terminal",
@@ -26,6 +38,41 @@ export interface ShortcutRailProps {
   readonly timer?: Timer;
 }
 
-export function ShortcutRail(_props: ShortcutRailProps): ReactNode {
-  return null;
+// 아이콘은 design이 고른 것만 쓴다. 화면이 lucide를 직접 들이지 않는다.
+const ICONS: Readonly<Record<RailAction, IconProps["icon"]>> = {
+  terminal: workspaceIcons.terminal,
+  contexts: workspaceIcons.context,
+  saved: lophnSpaceIcons.savedView,
+  search: paletteIcons.search,
+  agent: conversationIcons.dock,
+};
+
+export function ShortcutRail({ onOpen, timer }: ShortcutRailProps): ReactNode {
+  const labels: Readonly<Record<RailAction, string>> = {
+    terminal: t("contexts.label.rail-terminal"),
+    contexts: t("contexts.label.rail-contexts"),
+    saved: t("contexts.label.rail-saved-views"),
+    search: t("contexts.label.rail-search"),
+    agent: t("contexts.label.rail-agent"),
+  };
+  return (
+    <div
+      className={styles.rail}
+      role="toolbar"
+      aria-label={t("contexts.label.rail-shortcuts")}
+    >
+      <hr className={styles.rule} />
+      {RAIL_ACTIONS.map((action) => (
+        <Tooltip key={action} content={labels[action]} timer={timer}>
+          <IconButton
+            icon={ICONS[action]}
+            label={labels[action]}
+            data-rail-action={action}
+            onClick={() =>
+              onOpen(action)}
+          />
+        </Tooltip>
+      ))}
+    </div>
+  );
 }

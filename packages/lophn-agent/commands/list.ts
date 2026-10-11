@@ -12,16 +12,44 @@ export type CommandGroup = {
   entries: readonly CommandEntry[];
 };
 
+const GROUP_ORDER = ["builtin", "role", "skill"] as const;
+
+function hasWordStartingWith(text: string, separator: RegExp, query: string) {
+  return text.split(separator).some((word) => word.startsWith(query));
+}
+
+function matches(entry: CommandEntry, query: string): boolean {
+  if (query === "") return true;
+  const name = entry.name.toLowerCase();
+  return name.startsWith(query) || hasWordStartingWith(name, /-/, query) ||
+    hasWordStartingWith(entry.description.toLowerCase(), /\s+/, query);
+}
+
 // `query`는 `/` 뒤에 사람이 지금까지 친 글자다. 빈 문자열이면 전부다.
 // 맞춤은 대소문자를 가리지 않고, 이름이 query로 시작하거나 이름의 단어(`-`로 나눔)가
 // query로 시작하거나 설명의 단어(공백으로 나눔)가 query로 시작할 때다. 묶음 안 순서는
 // registry 순서를 그대로 지킨다(R1, R2, R7).
 export function listCommands(
-  _registry: CommandRegistry,
-  _agent_name: string,
-  _query: string,
+  registry: CommandRegistry,
+  agent_name: string,
+  query: string,
 ): readonly CommandGroup[] {
-  throw new Error("not implemented: agent-I6");
+  const needle = query.toLowerCase();
+  const titles = {
+    builtin: "Commands",
+    role: agent_name,
+    skill: "Skills",
+  } as const;
+  const groups: CommandGroup[] = [];
+  for (const source of GROUP_ORDER) {
+    const entries = registry.entries.filter((entry) =>
+      entry.source === source && matches(entry, needle)
+    );
+    if (entries.length > 0) {
+      groups.push({ source, title: titles[source], entries });
+    }
+  }
+  return groups;
 }
 
 export type Submission =
@@ -36,8 +64,19 @@ export type Submission =
 
 // 제출한 입력을 registry로 푼다. registry에 없는 이름은 실행되지 않는다(R4).
 export function resolveSubmission(
-  _registry: CommandRegistry,
-  _text: string,
+  registry: CommandRegistry,
+  text: string,
 ): Submission {
-  throw new Error("not implemented: agent-I6");
+  if (!text.startsWith("/")) return { kind: "message" };
+  const body = text.slice(1);
+  const split = body.search(/\s/);
+  const name = split === -1 ? body : body.slice(0, split);
+  const argument = split === -1 ? "" : body.slice(split).trim();
+  const found = registry.entries.filter((entry) => entry.name === name);
+  if (found.length === 0) return { kind: "unknown_command", name };
+  // 이름이 겹칠 수 있는 것은 skill뿐이다(built-in·role 이름은 예약이다).
+  if (found.length > 1) {
+    return { kind: "choose_skill", name, candidates: found };
+  }
+  return { kind: "command", entry: found[0], argument };
 }

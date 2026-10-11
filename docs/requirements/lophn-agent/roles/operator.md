@@ -30,9 +30,9 @@ project 또는 app에 붙어 preset context로 읽을 자료를 고르는 assign
 - 확인: 같은 project의 Operator 둘이 서로 다른 자료를 읽고 scope 밖 자료·미승인 명령은 거절되는지 본다.
 - 의도: lophn-agent#I4, lophn-agent#I5
 
-**[R5]** Operator는 preset capability와 MCP·skill에서 제품 상한 안 동작을 선택하며 담당 자료 읽기·format 검사·기존 outputs 새 version·질문·승인한 정확한 앱 read만 수행한다.
+**[R5]** Operator는 preset capability와 MCP·skill에서 제품 상한 안 동작을 선택하며 담당 자료 읽기·format 검사·기존 outputs 새 version·담당 context의 series 다음 이름으로 이어 쓰는 새 문서·질문·승인한 정확한 앱 read만 수행한다.
 - 이유: apps/blueprint·lophn-agent/roles/operator에 따라 명령 이름만 같거나 컨텍스트에 있다는 이유로 실행시키지 않는다.
-- 확인: 선택 MCP에도 범위·effect 검사가 있고 write·confirm·external·새 문서 생성이 역할 밖이면 deny되는지 본다.
+- 확인: 선택 MCP에도 범위·effect 검사가 있고 write·confirm·external·series 다음 이름이 아닌 새 문서 생성이 역할 밖이면 deny되는지 본다.
 - 의도: lophn-agent#I4, lophn-agent#I5
 
 ### 결과 갱신과 사람 요청
@@ -76,7 +76,7 @@ project 또는 app에 붙어 preset context로 읽을 자료를 고르는 assign
 
 ## 버린 것
 - 앱 업무 단계의 판단 담당·부재 처리까지 Operator가 겸하는 계약은 반복 판단 문서 책임과 맞지 않아 제거했다.
-- run당 결과 최대 1개·시리즈 새 문서·문서 동적 이름은 lophn-agent/roles/operator에 따라 승인한 실제 문서의 필요한 새 version으로 바꿨다.
+- run당 결과 최대 1개·문서 동적 이름은 lophn-agent/roles/operator에 따라 승인한 실제 문서의 필요한 새 version으로 바꿨다. series 새 문서 금지는 풀었다: 담당 context의 series 다음 이름으로 새 파일을 쓴다(documents/series).
 - 앱 write·external과 선언 밖 쓰기를 approval request로 우회하는 경로는 금지한다. provider·model 고정 공통 설정은 preset별 선택으로 바꿨다.
 - 외부 MCP·skill 0개 상한은 I5에 맞게 없앴고 제품 금지·scope 검사는 유지한다.
 - context의 기준·참고·watch 관점과 watch 변화로 판단하는 읽기는 perspective와 watch가 없어져 뺐다. Operator는 context의 overview·용어집과 검색으로 자료를 찾는다.

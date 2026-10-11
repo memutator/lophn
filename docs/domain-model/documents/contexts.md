@@ -410,6 +410,9 @@ Source kind마다 쓸 수 있는 FieldFrom:
 | `context_bundles` | `id, context, number, parent, content, bundle_hash, status, check, created_by, revision` | PK `id` | `(context, number)` | `(context, status)` | context → `contexts.id`; content → platform/blob-store; check → `context_checks.id` |
 | `context_checks` | `id, context, bundle, status, snapshot_hash, findings, violation_count, started_at, finished_at` | PK `id` | `bundle` | `(context, status)` | bundle → `context_bundles.id`; findings의 큰 내용 → platform/blob-store |
 | `saved_views` | `id, context, name, search, inputs, origin, revision` | PK `id` | `(context, name)` | `(context)` | context → `contexts.id` |
+| `context_app_data` | `context, app` | PK `(context, app)` | | | context → `contexts.id`; app → 적용된 판의 계약이 `app-data` Source로 읽는 앱 slug(apps/registration) |
+
+`context_app_data`는 판을 적용할 때(`bundle.finish_check`의 적용, `bundle.rollback`) 같은 transaction에서 그 판의 계약으로 다시 채운다. 판 content(blob)를 열지 않고 "이 context가 어느 앱의 data를 읽는가"를 알려는 읽기 권한이 쓴다. 판이 적용되지 않은 context는 행이 없다.
 
 ### derived store 표
 
@@ -471,6 +474,7 @@ Source kind마다 쓸 수 있는 FieldFrom:
 - **entity.** `context.entity`는 적용된 판의 index에서 `(type, key)` 개체를 읽는다. `ref`와 선언한 field 전부(`fields`, 값이 없으면 `null`)를 싣고, `relations`는 type이 선언한 관계 전부를 선언 순서로 싣는다. 관계마다 `targets`는 개체의 관계 간선 순서(via 값의 순서)로 같은 context의 대상 type 개체 ref를 낸다. 대상이 index에 없으면 그 간선은 건너뛰고 간선이 없으면 `[]`다. 다른 context 대상(`context/type`)은 싣지 않는다(`[]`). 검색 행의 `key` 열과 별칭 개체가 가리키는 개체도 이 읽기로 읽는다. 개체가 없으면 `not_found`, type이 계약에 없으면 `invalid_input`, app-data kind type은 index에 개체가 없으므로 `not_found`다. 같은 `(type, key)` 개체가 둘이면(unique 규칙 위반) 추출 순서의 첫 개체다.
 - **series_next.** `context.series_next`는 series kind type의 `source.pattern`과 index에 있는 그 type 개체의 `path`들로 다음 이름을 계산한다(계산 규칙·빈 제안·`*`·`taken`은 → documents/series). 파일 목록을 따로 읽지 않으므로 index를 갱신한 뒤 읽으며, 읽기는 파일·ledger·index를 바꾸지 않는다. series kind가 아닌 type이나 계약에 없는 type은 `invalid_input`이다.
 - **preview.** `context.preview`는 Context Engineer가 draft를 submit하기 전에 지금 project 파일에서 무엇이 나올지 본다. `bundle`은 그 context의 `draft` 상태 판이어야 한다(없는 판이나 다른 context의 판은 `not_found`, draft가 아닌 판은 `conflict`). draft content를 격리 검사와 같은 추출·위반 감지로 지금 파일에 돌린다. 판·파일·ledger·index·violation_mark를 바꾸지 않고 event도 없다. `types`는 계약의 type 순서로 지금 파일에서 뽑은 개체 수다(app-data kind는 앱 read 명령을 부르지 않으므로 0). `findings`는 격리 검사의 (1)(2)(3)(4)(5)단계 결과이고(사람이 저장한 saved view는 부르지 않는다), (1)(2)(3)에서 멈추면 `types`는 비고 `violation_count`는 0이다. 위반은 path, kind, rule, section의 code unit 순이고 한 page는 30개며 `cursor`는 그 판(`bundle`)에 묶인다(다른 판의 cursor는 `invalid_input`). 호출마다 새로 추출하므로 page 사이에 파일이 바뀌면 보이는 위반이 달라질 수 있다. 결과를 온전히 만들지 못하면 부분 결과로 꾸미지 않고 `unavailable`이다(파일 수·바이트·시간 예산 초과, 파일을 읽을 수 없음, worker 중단).
+- **앱 하나에 묶인 agent.** App Engineer의 credential은 담당 앱 하나에 묶인다(→ lophn-agent/roles/app-engineer). 이 agent는 담당 앱을 `app-data` Source로 읽는 context(`context_app_data`의 slug가 담당 앱을 가리키는 context)의 `context.get`·`context.overview`·`context.contract`·`glossary.list`만 읽는다. `context.contract`는 overview 자료의 type 뜻·관계를 그리는 데 쓴다. `context.list`는 그 context의 줄만 남긴다. 그 밖의 읽기와 모든 command, 그 앱을 읽지 않는 context, 없는 context는 모두 같은 `not_found`다.
 - Operator 수는 이 읽기들에 없다(→ lophn-agent/presets).
 
 ## event

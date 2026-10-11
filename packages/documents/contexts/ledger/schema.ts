@@ -78,6 +78,17 @@ export const contextsLedgerSchemaSteps: readonly SchemaStep[] = [{
       BEGIN SELECT RAISE(ABORT, 'context identity and project are immutable'); END;
     CREATE TRIGGER contexts_no_delete BEFORE DELETE ON contexts
       BEGIN SELECT RAISE(ABORT, 'contexts are archived, not deleted'); END;
+    -- context_app_data: 적용된 판의 계약이 app-data source로 읽는 앱 slug들. 판을 적용할 때(적용·되돌리기)
+    -- 같은 transaction에서 그 판의 content로 다시 채운다. 읽기 권한(앱 하나에 묶인 agent)이 판의
+    -- content blob을 열지 않고 이 표만 본다.
+    CREATE TABLE context_app_data (
+      context TEXT NOT NULL REFERENCES contexts(id)
+        CHECK (${idCheck("context", "ctx")}),
+      app TEXT NOT NULL
+        CHECK (length(app) BETWEEN 1 AND 63 AND app GLOB '[a-z]*'
+          AND app NOT GLOB '*[^a-z0-9-]*'),
+      PRIMARY KEY (context, app)
+    ) STRICT, WITHOUT ROWID;
   `,
 }, {
   // context_bundles: 판. content는 blob이라 참조(hash, size)만 둔다. 번호 있는 판은 submit 뒤 불변이다.

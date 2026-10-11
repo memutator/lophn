@@ -4,6 +4,25 @@
 // 사람 데이터 root(~/.lophn)는 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
+import {
+  bundleFinishCheckRoute,
+  bundleSaveDraftRoute,
+  bundleSubmitRoute,
+  contextArchiveRoute,
+  contextContractRoute,
+  contextCreateRoute,
+  contextDraftRoute,
+  contextGetRoute,
+  contextListRoute,
+  contextOverviewRoute,
+  contextSearchRoute,
+  glossaryListRoute,
+  glossarySetRoute,
+} from "../../packages/contracts/documents/mod.ts";
+import { routePath } from "../../packages/contracts/platform/mod.ts";
+import { evalContent } from "../../packages/documents/contexts/api/testing.ts";
+import { openIndexStore } from "../../packages/documents/contexts/index/mod.ts";
+import { contextWorkerCredential } from "./contexts-api.ts";
 import { agentConditions, roleOperations } from "./agent-credentials.ts";
 import { saveFromPaths } from "../../packages/coding-agent/connection/mod.ts";
 import {
@@ -556,6 +575,408 @@ Deno.test("lophn-agent/roles/app-engineer#R2 lophn-agent/handoff#R6: handoff가 
     );
     assertEquals(unpinned.status, 404);
     assertEquals(unpinned.body, absentRead.body);
+  } finally {
+    await world.dispose();
+  }
+});
+
+// ---- context: 담당 앱을 app-data로 읽는 context의 overview·용어집 (roles/app-engineer#R2) ----
+
+// post가 /v1/을 붙이므로 route 경로에서 판을 뗀다.
+const pathOf = (route: { resource: string; method: string }) =>
+  routePath(route).replace(/^\/v\d+\//, "");
+
+// 앱 하나에 묶인 agent가 부를 수 있는 쓰기 operation이다(route의 actor 상한을 지나는 command).
+const BOUND_WRITES = [bundleSaveDraftRoute.name, glossarySetRoute.name];
+
+const SHA = "a".repeat(64);
+const CTX_NOTES = "ctx_01arz3ndektsv4rrffq69g5fa1";
+const CTX_LEDGER = "ctx_01arz3ndektsv4rrffq69g5fa2";
+const CTX_PLAIN = "ctx_01arz3ndektsv4rrffq69g5fa3";
+const CTX_ABSENT = "ctx_01arz3ndektsv4rrffq69g5fa9";
+const TERM = "trm_01arz3ndektsv4rrffq69g5fa1";
+
+const ROUTES = {
+  get: pathOf(contextGetRoute),
+  contract: pathOf(contextContractRoute),
+  overview: pathOf(contextOverviewRoute),
+  glossary: pathOf(glossaryListRoute),
+  list: pathOf(contextListRoute),
+  search: pathOf(contextSearchRoute),
+  draft: pathOf(contextDraftRoute),
+};
+// 앱 하나에 묶인 agent의 credential이 가질 수 있는 context operation이다. R2가 말한 읽기와 그 밖의 읽기·쓰기를
+// 모두 줘서 core가 operation이 아니라 target으로 거절하는지 본다.
+const CONTEXT_OPERATIONS = [
+  contextGetRoute.name,
+  contextContractRoute.name,
+  contextOverviewRoute.name,
+  glossaryListRoute.name,
+  contextListRoute.name,
+  contextSearchRoute.name,
+  contextDraftRoute.name,
+  contextArchiveRoute.name,
+  bundleSaveDraftRoute.name,
+  glossarySetRoute.name,
+];
+
+// 앱 slug를 가리키는 app-data type 하나가 든 계약이다(앱 slug가 없으면 파일 type뿐이다).
+function contentReading(slug: string | null): Record<string, unknown> {
+  const content = evalContent() as {
+    contract: { types: { name: string; source: { app?: string } }[] };
+  };
+  content.contract.types = content.contract.types.filter((type) =>
+    slug === null ? type.name !== "Event" : true
+  );
+  for (const type of content.contract.types) {
+    if (type.name === "Event" && slug !== null) type.source.app = slug;
+  }
+  return content as unknown as Record<string, unknown>;
+}
+
+const contextCommand = (input: unknown) => envelope(input);
+
+async function acceptContextActors(world: ScopeWorld) {
+  const tokens = {
+    bound: "B".repeat(43),
+    user: "U".repeat(43),
+    admin: "A".repeat(43),
+    engineer: "E".repeat(43),
+    worker: "W".repeat(43),
+  };
+  const login = async (context: AuthenticatedContext, token: string) => {
+    await accept(world, context, token);
+  };
+  await login({
+    principal: "user-contexts",
+    actor: "user",
+    scope: {
+      operations: [
+        contextCreateRoute.name,
+        glossarySetRoute.name,
+        contextGetRoute.name,
+      ],
+      targets: {},
+    },
+    conditions: {},
+    credential_ref: "cred-contexts-user",
+  }, tokens.user);
+  await login({
+    principal: "admin",
+    actor: "machine",
+    scope: { operations: ["ListAssignments", "AcceptRun"], targets: {} },
+    conditions: {},
+    credential_ref: "cred-contexts-admin",
+  }, tokens.admin);
+  const listed = await post(world, "assignments/list", {}, tokens.admin);
+  assertEquals(listed.status, 200, JSON.stringify(listed.body));
+  const assignments = (listed.body as {
+    assignments: { id: string; role: string; revision: number }[];
+  }).assignments;
+  const engineer = assignments.find((entry) =>
+    entry.role === "context_engineer"
+  );
+  assert(engineer !== undefined);
+  const run = "run_01arz3ndektsv4rrffq69g5fa1";
+  const accepted = await post(
+    world,
+    "runs/accept",
+    envelope({
+      id: run,
+      assignment: engineer.id,
+      session: null,
+      source: { kind: "message", message: "msg_01arz3ndektsv4rrffq69g5fa1" },
+      continued_from: null,
+      start_after: null,
+    }, { assignment_revision: engineer.revision }),
+    tokens.admin,
+  );
+  assertEquals(accepted.status, 200, JSON.stringify(accepted.body));
+  // 쓰기 시험용: 접수된 run에 묶인 앱 하나(appA) 범위 agent다. 진짜 assignment가 있어야 agent command가
+  // 끝난 run의 거절에 걸리지 않는다. 역할은 Context Engineer가 아닌 lophn assignment를 쓴다.
+  const other = assignments.find((entry) => entry.role === "lophn");
+  assert(other !== undefined);
+  const boundRun = "run_01arz3ndektsv4rrffq69g5fa2";
+  const acceptedOther = await post(
+    world,
+    "runs/accept",
+    envelope({
+      id: boundRun,
+      assignment: other.id,
+      session: null,
+      source: { kind: "message", message: "msg_01arz3ndektsv4rrffq69g5fa2" },
+      continued_from: null,
+      start_after: null,
+    }, { assignment_revision: other.revision }),
+    tokens.admin,
+  );
+  assertEquals(acceptedOther.status, 200, JSON.stringify(acceptedOther.body));
+  await login({
+    principal: `agent:${other.id}`,
+    actor: `agent:${other.id}`,
+    scope: {
+      operations: [...BOUND_WRITES],
+      targets: { assignment: other.id, run: boundRun },
+    },
+    conditions: agentConditions({
+      assignment: other.id,
+      run: boundRun,
+      process: "agent-runtime",
+      role: "app_engineer",
+      scope: { kind: "app", id: world.appA },
+    }),
+    credential_ref: "cred-contexts-bound",
+  }, tokens.bound);
+  await login({
+    principal: `agent:${engineer.id}`,
+    actor: `agent:${engineer.id}`,
+    scope: {
+      operations: ["bundle.save_draft", "bundle.submit", "context.get"],
+      targets: { assignment: engineer.id, run },
+    },
+    conditions: { assignment: engineer.id, run },
+    credential_ref: "cred-contexts-engineer",
+  }, tokens.engineer);
+  const worker = contextWorkerCredential();
+  await login({
+    principal: worker.principal,
+    actor: worker.actor,
+    scope: worker.scope,
+    conditions: worker.conditions,
+    credential_ref: "cred-contexts-worker",
+  } as AuthenticatedContext, tokens.worker);
+  return tokens;
+}
+
+type ContextTokens = Awaited<ReturnType<typeof acceptContextActors>>;
+
+// context를 만들고 계약을 적용한다. 만들기는 사람이, 초안·제출은 Context Engineer가, 검사 통과는 worker가 한다.
+async function applyContext(
+  world: ScopeWorld,
+  tokens: ContextTokens,
+  context: string,
+  title: string,
+  slug: string | null,
+  create = true,
+) {
+  if (create) {
+    const created = await post(
+      world,
+      pathOf(contextCreateRoute),
+      envelope({
+        id: context,
+        project: world.project,
+        title,
+        purpose: `${title} purpose`,
+      }),
+      tokens.user,
+    );
+    assertEquals(created.status, 200, JSON.stringify(created.body));
+  }
+  const draft = await post(
+    world,
+    pathOf(bundleSaveDraftRoute),
+    envelope({
+      context,
+      content: contentReading(slug),
+    }),
+    tokens.engineer,
+  );
+  assertEquals(draft.status, 200, JSON.stringify(draft.body));
+  const submitted = await post(
+    world,
+    pathOf(bundleSubmitRoute),
+    envelope({
+      bundle: (draft.body as { id: string }).id,
+    }),
+    tokens.engineer,
+  );
+  assertEquals(submitted.status, 200, JSON.stringify(submitted.body));
+  const body = submitted.body as { check: string; bundle_hash: string };
+  const finished = await post(
+    world,
+    pathOf(bundleFinishCheckRoute),
+    envelope({
+      check: body.check,
+      result: "passed",
+      bundle_hash: body.bundle_hash,
+      snapshot_hash: SHA,
+      findings: [],
+      violation_count: 0,
+    }),
+    tokens.worker,
+  );
+  assertEquals(finished.status, 200, JSON.stringify(finished.body));
+  // context worker가 쓰는 derived index의 갱신 상태다(overview는 index가 있어야 읽힌다).
+  await Deno.mkdir(`${world.core.dataRoot}/derived`, { recursive: true });
+  const store = openIndexStore(
+    `${world.core.dataRoot}/derived/contexts.sqlite`,
+  );
+  try {
+    store.transaction((sql) => {
+      sql.run(
+        `INSERT OR REPLACE INTO index_state (context, bundle_hash, scanned_at, result)
+         VALUES (?, ?, ?, 'complete')`,
+        [context, body.bundle_hash, "2024-01-01T00:00:00.000Z"],
+      );
+    });
+  } finally {
+    store.close();
+  }
+}
+
+Deno.test("lophn-agent/roles/app-engineer#R2 [ctx-I58b]: 실제 core에서 App Engineer는 담당 앱을 app-data로 읽는 context의 overview·용어집을 읽고 다른 context와 쓰기는 없는 대상과 같은 답이다", async () => {
+  const world = await openScopeWorld(DOCUMENT_OPERATIONS);
+  try {
+    const tokens = await acceptContextActors(world);
+    // 앱 slug는 world가 등록한 두 앱의 이름이다: appA = notes, appB = ledger.
+    await applyContext(world, tokens, CTX_NOTES, "Notes data", "notes");
+    await applyContext(world, tokens, CTX_LEDGER, "Ledger data", "ledger");
+    await applyContext(world, tokens, CTX_PLAIN, "Files only", null);
+    const set = await post(
+      world,
+      pathOf(glossarySetRoute),
+      envelope({
+        id: TERM,
+        context: CTX_NOTES,
+        term: "Note",
+        meaning: "One written note",
+      }),
+      tokens.user,
+    );
+    assertEquals(set.status, 200, JSON.stringify(set.body));
+
+    await acceptAgent(world, world.appA, {
+      operations: [...new Set([...ASSIGNED_READS, ...CONTEXT_OPERATIONS])],
+    });
+    const reads = (context: string) =>
+      [
+        [ROUTES.get, { context }],
+        [ROUTES.contract, { context }],
+        [ROUTES.overview, { context }],
+        [ROUTES.glossary, { context }],
+      ] as const;
+    // 담당 앱 notes를 읽는 context는 읽힌다.
+    for (const [path, body] of reads(CTX_NOTES)) {
+      const reply = await post(world, path, body);
+      assertEquals(reply.status, 200, `${path} ${JSON.stringify(reply.body)}`);
+    }
+    const glossary = await post(world, ROUTES.glossary, { context: CTX_NOTES });
+    assertEquals(
+      (glossary.body as { entries: { term: string }[] }).entries.map((e) =>
+        e.term
+      ),
+      ["Note"],
+    );
+    // 다른 앱을 읽는 context, 앱 data를 읽지 않는 context, 없는 context는 같은 상태와 본문이다.
+    for (const hidden of [CTX_LEDGER, CTX_PLAIN]) {
+      for (const [index, [path, body]] of reads(hidden).entries()) {
+        const missing = reads(CTX_ABSENT)[index]!;
+        const got = await post(world, path, body);
+        const same = await post(world, missing[0], missing[1]);
+        assertEquals(got.status, 404, `${path} ${JSON.stringify(got.body)}`);
+        assertEquals(got.status, same.status, path);
+        assertEquals(got.body, same.body, path);
+      }
+    }
+    // 목록은 담당 앱을 읽는 context만 보인다.
+    const listed = await post(world, ROUTES.list, { project: world.project });
+    assertEquals(listed.status, 200, JSON.stringify(listed.body));
+    assertEquals(
+      (listed.body as { contexts: { id: string }[] }).contexts.map((c) => c.id),
+      [CTX_NOTES],
+    );
+    // R2가 말하지 않은 읽기(검색·초안)와 모든 쓰기는 읽을 수 있는 context라도 없는 대상과 같은 답이다.
+    const absentSearch = await post(world, ROUTES.search, {
+      context: CTX_ABSENT,
+      search: "none",
+      inputs: {},
+    });
+    assertEquals(absentSearch.status, 404);
+    for (
+      const [path, body, token] of [
+        [
+          ROUTES.search,
+          { context: CTX_NOTES, search: "none", inputs: {} },
+          TOKEN,
+        ],
+        [ROUTES.draft, { context: CTX_NOTES }, TOKEN],
+        [
+          pathOf(bundleSaveDraftRoute),
+          contextCommand({
+            context: CTX_NOTES,
+            content: contentReading("notes"),
+          }),
+          tokens.bound,
+        ],
+        [
+          pathOf(glossarySetRoute),
+          contextCommand({
+            id: "trm_01arz3ndektsv4rrffq69g5fa2",
+            context: CTX_NOTES,
+            term: "Page",
+            meaning: "One page",
+          }),
+          tokens.bound,
+        ],
+      ] as const
+    ) {
+      const got = await post(world, path, body, token);
+      assertEquals(got.status, 404, `${path} ${JSON.stringify(got.body)}`);
+      assertEquals(got.body, absentSearch.body, path);
+    }
+    // 사람만 부르는 command는 route의 actor 상한에서 이미 막힌다(agent는 403).
+    const archived = await post(
+      world,
+      pathOf(contextArchiveRoute),
+      contextCommand({ context: CTX_NOTES }),
+    );
+    assertEquals(archived.status, 403, JSON.stringify(archived.body));
+    // 아무것도 쓰지 않았다: 용어집은 그대로다.
+    const after = await post(world, ROUTES.glossary, { context: CTX_NOTES });
+    assertEquals(
+      (after.body as { entries: unknown[] }).entries.length,
+      1,
+    );
+
+    // 앱에 묶이지 않은 lophn 역할 agent는 지금 받는 읽기를 그대로 받는다.
+    const lophn = "j".repeat(43);
+    await acceptAgent(world, world.appA, {
+      role: "lophn",
+      token: lophn,
+      operations: [...new Set([...ASSIGNED_READS, ...CONTEXT_OPERATIONS])],
+    });
+    for (const [path, body] of reads(CTX_LEDGER)) {
+      const reply = await post(world, path, body, lophn);
+      assertEquals(reply.status, 200, `${path} ${JSON.stringify(reply.body)}`);
+    }
+  } finally {
+    await world.dispose();
+  }
+});
+
+Deno.test("lophn-agent/roles/app-engineer#R2 [ctx-I58b]: 판을 새로 적용하면 읽는 앱이 바뀌어 App Engineer가 읽는 context도 바뀐다", async () => {
+  const world = await openScopeWorld(DOCUMENT_OPERATIONS);
+  try {
+    const tokens = await acceptContextActors(world);
+    await applyContext(world, tokens, CTX_NOTES, "Notes data", "notes");
+    const appB = "k".repeat(43);
+    await acceptAgent(world, world.appA, {
+      operations: [...new Set([...ASSIGNED_READS, ...CONTEXT_OPERATIONS])],
+    });
+    await acceptAgent(world, world.appB, {
+      token: appB,
+      operations: [...new Set([...ASSIGNED_READS, ...CONTEXT_OPERATIONS])],
+    });
+    const overview = (token: string) =>
+      post(world, ROUTES.overview, { context: CTX_NOTES }, token);
+    assertEquals((await overview(TOKEN)).status, 200);
+    assertEquals((await overview(appB)).status, 404);
+
+    // 같은 context의 다음 판이 다른 앱을 읽는다.
+    await applyContext(world, tokens, CTX_NOTES, "Notes data", "ledger", false);
+    assertEquals((await overview(TOKEN)).status, 404);
+    assertEquals((await overview(appB)).status, 200);
   } finally {
     await world.dispose();
   }

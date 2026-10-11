@@ -63,7 +63,10 @@ import {
   pinsOf,
   projectOf,
 } from "./context-search.ts";
-import { loadContextMaterials } from "./context-overview.ts";
+import {
+  loadContextMaterials,
+  resolveContextSelections,
+} from "./context-overview.ts";
 import { commandOf, type CoreCall, readOf } from "./core-call.ts";
 import { createCorePorts, type RunSeat } from "./core-ports.ts";
 import type { ModelBinding } from "./model-binding.ts";
@@ -439,13 +442,16 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
       bindings.set(tool.definition.name, externalBinding(tool));
     }
     // context 자료는 run을 시작할 때 한 번만 읽고 turn마다 같은 값을 쓴다(prompt-assemble R5). 선택 중
-    // `assignment_scope`·`work_place`는 아직 풀지 않는다(ctx-I58b).
+    // `assignment_scope`·`work_place`는 담당 범위와 작업 자리에서 푼다(resolveContextSelections).
     let sourcesRead: Promise<MaterialSource[]> | undefined;
     const contextSources = (): Promise<MaterialSource[]> =>
       sourcesRead ??= loadContextMaterials(agent, {
         // 선언 검색 tool과 같은 project 계산이라 prompt 자료와 tool이 같은 context를 가리킨다.
         project: projectOf(place, assignment.scope),
-        selections: definition.context,
+        selections: resolveContextSelections(definition.context, {
+          place,
+          scope: assignment.scope,
+        }),
       }).then((set) =>
         set.materials.map((item) => ({
           address: item.context,

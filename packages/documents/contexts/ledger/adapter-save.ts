@@ -8,6 +8,7 @@ import type {
   ContextApiState,
 } from "../api/state.ts";
 import type { ContextBlobs } from "./adapter.ts";
+import { appDataAppsOf, saveAppData } from "./rows-app-data.ts";
 import {
   deleteEntry,
   deleteView,
@@ -99,10 +100,38 @@ export function writeChanges(
   for (const context of changes(before.contexts, after.contexts).changed) {
     saveContext(sql, context);
   }
+  recordAppData(sql, before, after);
   const views = changes(before.views, after.views);
   for (const view of views.changed) saveView(sql, view);
   const entries = changes(before.glossary, after.glossary);
   for (const entry of entries.changed) saveEntry(sql, entry);
   for (const id of views.removed) deleteView(sql, id);
   for (const id of entries.removed) deleteEntry(sql, id);
+}
+
+// 판이 적용되면(적용·되돌리기) 그 판의 계약이 app-data source로 읽는 앱을 같은 transaction에서 다시
+// 채운다. 앱 하나에 묶인 agent의 읽기 권한이 이 표만 본다. 적용된 판이 바뀌지 않았고 content도
+// 같으면 그대로 둔다. 적용된 판이 바뀌었는데 content를 읽지 않았으면 틀린 값을 남기지 않고 던진다.
+function recordAppData(
+  sql: Sql,
+  before: Baseline,
+  after: ContextApiState,
+): void {
+  for (const context of after.contexts.values()) {
+    const applied = context.applied_bundle === null
+      ? undefined
+      : after.bundles.get(context.applied_bundle);
+    if (applied === undefined) continue;
+    const swapped = before.contexts.get(context.id)?.applied_bundle !==
+      context.applied_bundle;
+    const rewritten = before.bundles.get(applied.id)?.content !==
+      applied.content;
+    if (!swapped && !rewritten) continue;
+    const apps = appDataAppsOf(applied.content);
+    if (apps === null) {
+      if (!swapped) continue;
+      throw new Error(`applied bundle ${applied.id} content was not loaded`);
+    }
+    saveAppData(sql, context.id, apps);
+  }
 }

@@ -1,11 +1,11 @@
 import { assert, assertEquals } from "@std/assert";
 import { createHash } from "node:crypto";
-import type { Result } from "../../../base/mod.ts";
-import type { AuthenticatedContext } from "../../../contracts/platform/mod.ts";
+import type { Result } from "../../base/mod.ts";
+import type { AuthenticatedContext } from "../../contracts/platform/mod.ts";
 import {
   createLedgerHarness,
   type LedgerHarness,
-} from "../../../../apps/core/testing/ledger.ts";
+} from "../../../apps/core/testing/ledger.ts";
 
 // agents ledger 시험이 함께 쓰는 자격과 도움. 제품 코드와 mod.ts는 import하지 않는다.
 // 파일은 harness의 임시 폴더(ledger 파일이 있는 폴더 = data root)에 둔다.
@@ -44,7 +44,7 @@ export type AgentHarness = {
 export async function openAgents(): Promise<AgentHarness> {
   const opened = await createLedgerHarness({
     registrationModules: [
-      new URL("../registration_test.ts", import.meta.url),
+      new URL("./registration_test.ts", import.meta.url),
     ],
     credentials: [userCred, machineCred],
     nowMs: Date.UTC(2026, 0, 1),
@@ -136,7 +136,7 @@ export function readAgentFile(
 
 // 고정 fixture(`testdata/`)의 파일을 그대로 data root에 옮긴다.
 export function seedFixtureFiles(root: string) {
-  const data = new URL("../testdata/", import.meta.url);
+  const data = new URL("./testdata/", import.meta.url);
   const copy = (
     place: { kind: string; id: string },
     from: string,

@@ -23,7 +23,7 @@ import {
   userCred,
   value,
   writeAgentFile,
-} from "./testing/mod.ts";
+} from "./harness_test.ts";
 
 // SaveAgent·DeleteAgent·ChangePlaceAgentSettings. 실제 writer(harness)와 실제 임시 폴더를 쓴다.
 

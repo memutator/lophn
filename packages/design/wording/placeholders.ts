@@ -1437,6 +1437,7 @@ export type PlaceholderKinds = {
   "launcher.connection.failed": Record<never, never>;
   "launcher.connection.starting": Record<never, never>;
   "launcher.dialog.register-note": Record<never, never>;
+  "launcher.empty.no-apps": Record<never, never>;
   "launcher.empty.no-cards": Record<never, never>;
   "launcher.empty.no-folders": Record<never, never>;
   "launcher.empty.no-projects": Record<never, never>;
@@ -1446,8 +1447,13 @@ export type PlaceholderKinds = {
   "launcher.error.register-failed": {
     name: "string";
   };
+  "launcher.failure.sandbox-failed": Record<never, never>;
+  "launcher.failure.schema-incompatible": Record<never, never>;
+  "launcher.failure.start-failed": Record<never, never>;
   "launcher.field.purpose-help": Record<never, never>;
+  "launcher.heading.apps": Record<never, never>;
   "launcher.heading.projects": Record<never, never>;
+  "launcher.label.apps": Record<never, never>;
   "launcher.label.detail-documents": {
     count: "plural";
   };
@@ -1471,6 +1477,9 @@ export type PlaceholderKinds = {
   "launcher.label.status-tracking": Record<never, never>;
   "launcher.label.wordmark": Record<never, never>;
   "launcher.title.register": Record<never, never>;
+  "launcher.title.sandbox-failed": Record<never, never>;
+  "launcher.title.schema-incompatible": Record<never, never>;
+  "launcher.title.start-failed": Record<never, never>;
   "project-workspace.button.add-rule": Record<never, never>;
   "project-workspace.button.attach-operator": Record<never, never>;
   "project-workspace.button.see-operators": Record<never, never>;
@@ -2308,6 +2317,10 @@ export type PlaceholderKinds = {
   "settings.label.tab-update": Record<never, never>;
   "settings.label.tab-diagnostics": Record<never, never>;
   "settings.label.tab-notifications": Record<never, never>;
+  "settings.label.nav": Record<never, never>;
+  "settings.label.group-integrations": Record<never, never>;
+  "settings.label.group-preferences": Record<never, never>;
+  "settings.label.group-system": Record<never, never>;
   "settings.label.test-model": Record<never, never>;
   "settings.label.unavailable-connection": Record<never, never>;
   "settings.label.usage-none": Record<never, never>;

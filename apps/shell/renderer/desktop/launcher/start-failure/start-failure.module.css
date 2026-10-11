@@ -1,0 +1,46 @@
+/* 실패 화면: 아이콘·제목·문장·다음 행동 하나를 창 본문 가운데에 모은다. */
+.screen {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-5);
+  width: 100%;
+  max-width: var(--page-form);
+  min-height: 100%;
+  margin: var(--space-0) auto;
+  padding: var(--space-9) var(--layout-pane-padding-wide);
+  text-align: center;
+}
+
+.icon {
+  flex: none;
+  color: var(--status-critical-marker);
+}
+
+.title {
+  margin: var(--space-0);
+  color: var(--color-text-primary);
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-line);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--type-tracking-title);
+}
+
+.text {
+  margin: var(--space-0);
+  color: var(--color-text-secondary);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+}
+
+/* 안쪽 code는 펼친 상세에만 둔다. */
+.details {
+  margin: var(--space-0);
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  overflow-wrap: anywhere;
+}

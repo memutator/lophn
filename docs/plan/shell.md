@@ -1255,6 +1255,38 @@ concerns: [shell]
   - context 행은 눌러 기존 contexts 화면의 그 컨텍스트를 연다(`onContext`, 정보 패널·팔레트와 같은 통로). context 모델과 화면은 새로 만들지 않는다.
   - mock 모드(`deno task dev:mock`)의 연관 context는 contexts 화면 mock의 Focus를 가리켜 눌러 열면 그 화면이 나온다.
   - `workspace/sidebar/sidebar_test.tsx`, `workspace/workspace_test.tsx`의 shell/desktop#R28 테스트가 통과한다.
+### T63 가운데 정렬, 앱 시작 실패 문구, launcher Apps section
+
+- 상태: 완료 (#583)
+- 등급: frontend
+- concern: shell/desktop, shell/design-system, shell/wording
+- 요구: shell/desktop#R25(런처의 앱 section), R12·R20(시작·sandbox·schema 실패 화면), shell/design-system#R21(최대폭 기둥 가운데), R34(empty·error 가운데), shell/wording#R10(실패의 사람 말)
+- 자리: packages/design/components/(state.module.css, empty-state/), apps/shell/renderer/desktop/launcher/(apps-section.tsx, launcher.tsx, start-failure/), apps/shell/renderer/desktop/lophn-space/(apps, roles, things-to-confirm의 CSS), apps/shell/renderer/desktop/main.tsx, packages/design/wording/en.ts
+- 쓰는 contract: 없음(lophn 공간 apps 화면의 AppsSource를 그대로 쓴다)
+- 내놓는 contract: 없음
+- slice: desktop
+- 선행: shell#T61
+- 완료: 아래 확인이 통과한다
+  - empty·error의 아이콘·문장·행동이 내용 자리 가운데에 모인다(`state.module.css`). 틀을 거치지 않던 lophn 공간 apps·things-to-confirm 상세·roles 상세의 기둥이 칸 가운데에 놓인다. Settings(T62)와 프로젝트 작업대 탭은 건드리지 않는다.
+  - 시작 실패·sandbox 실패·schema 비호환은 wording catalog의 제목과 한 문장, design-system Button의 다시 시도를 가운데에 보인다. 안쪽 code(`app-start-failed`·`retry-start-app` 등)는 [Show details]를 연 뒤에만 보인다. 원인은 화면이 model의 안쪽 code를 `t()` 없이 그대로 그리고 `start-failure-*`가 정의 없는 class 이름이었기 때문이다. model이 wording key를 들고 화면이 `t()`로 그린다.
+  - 런처가 프로젝트 section 아래에 앱 section을 두고 보관하지 않은 앱을 카드(이름·실행 상태)로 보인다. 카드를 누르면 lophn 공간 apps 화면의 [Open]과 같은 길(`Desktop.appSpace`)로 그 앱 공간이 열린다. 앱이 없으면 비었음 상태와 [lophn] 행동 하나를 보인다. 목록·실행 상태는 `AppsSource`를 그대로 읽어 dev:mock에서도 보인다.
+  - `launcher-apps_test`, `start-failure_test`, `empty-state_test`에 위 요구 테스트.
+### T62 settings: 세로 nav, section 분류, 가운데 column
+
+- 상태: 완료 (#584)
+- 등급: frontend
+- concern: shell/desktop
+- 요구: shell/desktop#R31, shell/design-system#R21(form 폭 기둥을 가운데 둔다)
+- 자리: apps/shell/renderer/desktop/lophn-space/settings/(settings-screen.tsx, settings.module.css, general/, notifications/), packages/design/components/settings-icons.ts
+- 쓰는 contract: 없음
+- 내놓는 contract: 없음
+- slice: operations
+- 선행: shell#T31, shell#T58
+- 완료: 아래 확인이 통과한다
+  - 가로 탭 줄(Diagnose가 잘리고 scrollbar가 나오던 것)을 왼쪽 세로 nav로 바꾼다. 묶음은 Integrations(Connections·Coding agents·Tools and skills)·Preferences(General·Notifications)·System(Update lophn·Diagnose)이고 항목마다 아이콘과 이름, 고른 항목 강조. 통로가 없는 자리는 nav에 두지 않는다.
+  - 고른 자리 하나를 nav 오른쪽 자리의 가운데 column(form 폭)에 제목·section·카드(왼쪽 이름·설명, 오른쪽 조작)로 그린다. 모든 기존 조작과 동작은 그대로다. [Ask lophn]은 column 머리에 둔다.
+  - backup 자리는 nav에서 뺐다(사람 결정: backup 제거). `backup` 통로 prop과 panel 코드는 남겨 두고 제거는 후속 작업이다. e2e flow backup-and-restore는 그때까지 건너뛴다.
+  - 화면 테스트: nav 묶음·통로 없는 자리 생략·backup 없음·고른 자리 하나만 그림.
 
 ### T67 project notice를 toast로
 
@@ -1277,11 +1309,11 @@ concerns: [shell]
 
 ## 요구 덮기
 
-shell 최상위의 요구는 8개 leaf에 177개이고 모두 위 작업의 `요구:`에 들어 있다.
+shell 최상위의 요구는 8개 leaf에 178개이고 모두 위 작업의 `요구:`에 들어 있다.
 
 | concern | 요구 수 | 덮은 수 | 작업 |
 |---|---|---|---|
-| shell/desktop | 30 | 30 | T1–T3, T9, T13–T15, T19–T21, T27, T28, T30, T36, T37, T42, T47, T50, T51, T54–T57, T59, T61 |
+| shell/desktop | 31 | 31 | T1–T3, T9, T13–T15, T19–T21, T27, T28, T30, T36, T37, T42, T47, T50, T51, T54–T57, T59, T61, T62 |
 | shell/workspace | 13 | 13 | T13, T14, T25–T27, T35, T44 |
 | shell/terminal | 13 | 13 | T24, T25, T49 |
 | shell/confirmation-window | 10 | 10 | T22, T23, T29, T45 |

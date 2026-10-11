@@ -162,7 +162,14 @@ export const agentProfilesUpload = defineUpload({
   input: uploadAgentProfileInputSchema,
   output: z.object({ profile: profileImageOutputSchema }),
   actors: ["user"],
-  errors: ["invalid_input", "unauthorized", "forbidden", "not_found"],
+  // 쓰기 실패와 옛 파일을 지우지 못한 실패는 unavailable이다.
+  errors: [
+    "invalid_input",
+    "unauthorized",
+    "forbidden",
+    "not_found",
+    "unavailable",
+  ],
   max_bytes: AGENT_PROFILE_IMAGE_MAX_BYTES,
 });
 

@@ -183,6 +183,16 @@ Deno.test("lophn-agent/agents#R13: a profile image upload takes png, jpg or webp
   assertEquals(agentProfilesRead.kind, "file");
 });
 
+Deno.test("lophn-agent/agents#R13 [agent-I17]: the upload route declares unavailable for a failed write or a failed removal of the old image", () => {
+  assertEquals(agentProfilesUpload.errors, [
+    "invalid_input",
+    "unauthorized",
+    "forbidden",
+    "not_found",
+    "unavailable",
+  ]);
+});
+
 Deno.test("lophn-agent/agents#R10: place settings belong to one project or app and carry only models and permissions", () => {
   for (const target of [place, { kind: "app", id: app }]) {
     assert(

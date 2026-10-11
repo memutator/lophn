@@ -98,9 +98,9 @@ concerns: [shell/workspace]
 - 확인: 개체 카드·화살표·Composition이 모두 보이고 kind·public·검색 함수 같은 계약 말이 한 곳도 나오지 않으며 예시의 문서 이름을 누르면 그 문서 탭이 열린다.
 - 의도: shell#I1
 
-**[R19]** Violations는 계약을 어긴 문서를 줄마다 파일 이름·무엇이 어긋났는지·어긴 규칙 한 줄·[Send to Context Engineer]로 보이고 위에 [Send all to Context Engineer]를 두며, 이미 넘긴 줄은 단추 대신 "Context Engineer is on it"을 보이고 위반이 없으면 "No violations."만 보인다.
-- 이유: 위반을 알게 된 사람이 단추 하나로 고칠 사람(Context Engineer)에게 넘기고 넘겼는지 안다.
-- 확인: 위반 둘 중 하나를 넘기면 그 줄만 상태 글로 바뀌고 문서 이름은 누르면 그 문서 탭을 연다.
+**[R19]** Violations는 계약을 어긴 문서를 줄마다 파일 이름·무엇이 어긋났는지·어긴 규칙 한 줄로 보이고 위반이 없으면 "No violations."만 보이며, Context Engineer에게 넘기는 단추는 두지 않는다.
+- 이유: agent를 부르는 곳은 sidebar의 Agents 묶음(R34)과 lophn이 가진 사건을 알리는 toast뿐이다. 위반을 Context Engineer에게 넘기는 길은 계약 위반 toast의 [Ask Context Engineer](platform/notifications)와 sidebar의 Context Engineer다.
+- 확인: 위반 둘이 각자 파일 이름·어긋난 것·규칙 한 줄로 보이고 문서 이름은 누르면 그 문서 탭을 열며, Violations 어디에도 [Send to Context Engineer]·[Send all to Context Engineer] 단추가 없다.
 - 의도: shell#I1
 
 **[R20]** Glossary는 이 context의 용어와 뜻을 목록으로 보이고 사람이 뜻을 고칠 수 있게 하며, 용어집이 agent가 사람 말을 알아듣기 위한 자료임을 한 줄로 밝히고 비었을 때는 비었음 상태를 보인다.
@@ -123,7 +123,7 @@ concerns: [shell/workspace]
 - 확인: context를 바꾸면 검색 목록과 Saved views가 그 context 것으로 바뀌고 "Open context"가 그 Context 탭을 연다. 선언된 검색이 없는 context는 비었음 상태와 [Open context]만 보인다.
 - 의도: shell#I2
 
-**[R24]** Search 탭의 입력 form은 context가 선언한 검색의 입력 이름과 타입에서 그리며 고르는 입력은 타이핑으로 후보를 거르는 combobox, 여럿 고르는 입력은 선택한 것을 표시하는 chip, 범위 입력은 시작과 끝 두 칸으로 보이고, 선언이 그릴 수 없는 입력 타입을 쓰면 그 검색을 열지 않고 이유와 [Ask Context Engineer]를 보인다.
+**[R24]** Search 탭의 입력 form은 context가 선언한 검색의 입력 이름과 타입에서 그리며 고르는 입력은 타이핑으로 후보를 거르는 combobox, 여럿 고르는 입력은 선택한 것을 표시하는 chip, 범위 입력은 시작과 끝 두 칸으로 보이고, 선언이 그릴 수 없는 입력 타입을 쓰면 그 검색을 열지 않고 이유를 보인다(고치려면 sidebar의 Context Engineer를 연다 — 화면마다의 Ask 단추는 없다).
 - 이유: 필드 하나에 검색어 일치만 하는 화면은 검색 도구를 만든 의미가 없고, 검색마다 화면을 따로 코딩할 수 없다.
 - 확인: 선언만 다른 두 검색이 코드 변경 없이 각자의 입력으로 그려지고, combobox에 일부를 치면 맞는 후보만 남으며 후보에 없는 값은 고를 수 없다.
 - 의도: shell#I1
@@ -188,12 +188,12 @@ concerns: [shell/workspace]
 - 확인: Operator가 둘 있을 때 카드 넷(built-in 둘 + Operator 둘)이 각자의 avatar·이름·model·개수를 보이고 Operator가 없으면 카드는 built-in 둘뿐이며 [+ New Operator]가 보이고, [Open]은 그 agent의 editor(R38)를 같은 탭 안에 연다.
 - 의도: lophn-agent#I4, shell#I1
 
-**[R37]** Agents 탭은 카드 아래에 Instructions·Models for this project·Skills·MCP servers 구역을 이 순서로 두고 Instructions는 project 폴더의 LOPHN.md를 "Shared by every agent in <project>"와 함께 첫 줄 미리보기와 [Edit]로, Models for this project는 role 넷(lophn·Context Engineer·App Engineer·Operators)마다 고른 model·option이나 비운 칸의 Workspace 기본값(실제 값과 출처 한 줄)을, Skills와 MCP servers는 이 project에 등록한 것의 이름과 켬·끔과 [Add skill]·[Add server]를 보이며, 맨 아래에 "Agent definitions are stored in lophn, not in your project folder."를 둔다.
+**[R37]** Agents 탭은 카드 아래에 Instructions·Models for this project·Skills·MCP servers·Permissions 구역을 이 순서로 두고 Instructions는 project 폴더의 LOPHN.md를 "Shared by every agent in <project>"와 함께 첫 줄 미리보기와 [Edit]로, Models for this project는 role 넷(lophn·Context Engineer·App Engineer·Operators)마다 고른 model·option이나 비운 칸의 Workspace 기본값(실제 값과 출처 한 줄)을, Skills와 MCP servers는 이 project에 등록한 것의 이름과 켬·끔과 [Add skill]·[Add server]를, Permissions는 이 project의 권한 규칙(오래 가는 허락은 여기서만 정한다 — platform/approvals)을 보이며, 맨 아래에 "Agent definitions are stored in lophn, not in your project folder."를 둔다.
 - 이유: project 지침은 모든 role과 agent가 공유하고 model·skill·MCP는 project 단위로 정해 Workspace 기본값을 따르게 한다. LOPHN.md는 project 폴더에 있어 사람이 그대로 열어 고치고, agent 정의는 lophn data에 있다는 차이를 말해 준다.
 - 확인: Instructions 구역이 project 폴더 안 LOPHN.md의 내용을 보이고 [Edit]가 그 파일의 문서 탭을 열며, role 줄을 비우면 "Use Workspace default (<model> · <option>)"가 보이고 고르면 그 줄에 "overrides Workspace"가 붙으며, 맨 아래 문구가 항상 보인다.
 - 의도: lophn-agent#I5, shell#I1
 
-**[R38]** Operator editor는 Agents 탭 안에서 [Open]이나 [+ New Operator]로 열리며 위에서부터 Profile · Name · Instructions · Model · Contexts · Skills · MCP servers · Permissions와 [Save]·[Cancel]을 두고 What it does·Schedule·Last run·남길 문서 칸은 두지 않으며, [Save]는 확인 창 없이 바로 저장하고 [Cancel]은 목록으로 돌아간다.
+**[R38]** Operator editor는 Agents 탭 안에서 [Open]이나 [+ New Operator]로 열리며 위에서부터 Profile · Name · Instructions · Model · Contexts · Skills · MCP servers · Permissions와 [Save]·[Cancel]을 두고 What it does·Schedule·Last run·남길 문서 칸은 두지 않으며, [Save]는 확인 창 없이 바로 저장하고 [Cancel]은 목록으로 돌아가며, Operator editor 맨 아래의 [Delete Operator](휴지통 icon)는 확인을 한 번 받은 뒤 그 Operator를 지운다(열린 session은 닫히고 대화는 남는다 — lophn-agent/assignments).
 - 이유: Operator는 project context를 가지고 project 일을 하는 agent라 하는 일 요약이나 일정 칸이 필요 없고, 사람이 직접 하는 설정 저장에 확인 창을 끼우지 않는다.
 - 확인: 새 Operator를 Name·Instructions만 채워 [Save]하면 확인 창 없이 Agents 탭 목록에 카드가 생기고, editor 어디에도 What it does·Schedule·[Run now]가 없으며, [Cancel]은 고친 값을 버리고 목록으로 돌아간다.
 - 의도: lophn-agent#I4, shell#I1
@@ -235,6 +235,7 @@ concerns: [shell/workspace]
 
 ## 버린 것
 
+- Violations의 [Send to Context Engineer]·[Send all to Context Engineer]와 "Context Engineer is on it", Search 탭의 그릴 수 없는 입력 안내에 붙던 [Ask Context Engineer] — 같은 원칙(agent를 부르는 곳은 sidebar와 toast뿐)으로 지웠다(R19, R24).
 - 진입점 셋 — Context 탭의 [Ask Context Engineer](R21), Contexts 탭의 [New context](R16·R30), 탭 줄 `+`의 Agent 항목과 Context ›의 "New context…"(R15). 사람이 "지워"로 정했다: agent를 부르는 곳은 sidebar의 Agents 묶음(R34)과 lophn이 가진 사건을 알리는 toast뿐이다. 새 context는 sidebar의 Context Engineer에서 시작한다(R30).
 - 작업대 위 Operator 안내 줄("N Operators · See Operators / Attach an Operator") — Operator를 보고 만드는 길은 sidebar의 Agents 묶음(R34)과 Agents 탭의 [+ New Operator](R36)가 맡는다.
 - 접힌 rail의 "Conversation" 단추 이름과 대화 dock을 여는 길 — 탭 kind 이름과 단추 이름은 Agent이고(R33) 대화는 dock이 아니라 탭이다.

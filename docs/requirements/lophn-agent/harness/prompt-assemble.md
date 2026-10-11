@@ -119,9 +119,9 @@ concerns: [lophn-agent/harness/prompt-assemble]
 - 확인: 원문·옛 출력이 그대로 남고 새 summary가 다른 출처·구간·시각으로 확인되며 session 닫기·화면 닫기마다 필수 model call이 없고 요약 call이 Compact와 자동 압축에서만 생기는지 확인한다.
 - 의도: lophn-agent/harness#I3
 
-**[R20]** Compact summary 본문은 최대 400 token으로 완성하여 401 token이면 저장된 완성 summary로 쓰지 않고 결정 조건·부정 의미를 보존하여 다시 줄이며 문장 끝을 잘라 맞추지 않는다.
+**[R20]** Compact summary 본문은 R13의 요약 출력 상한(입력 예산 10%와 4,000 token 중 작은 값)으로 완성하여 상한 + 1 token이면 저장된 완성 summary로 쓰지 않고 결정 조건·부정 의미를 보존하여 다시 줄이며 문장 끝을 잘라 맞추지 않는다.
 - 이유: 작은 summary가 핵심 조건을 왜곡하지 않는다.
-- 확인: 400·401 경계와 부정 조건·완전 문장을 확인한다.
+- 확인: 상한과 상한+1 경계와 부정 조건·완전 문장을 확인한다.
 - 의도: lophn-agent/harness#I3
 
 **[R21]** summary는 사람 의도·결정, agent 추정, 확인 결과·앱과 문서 근거, 미정·남은 일을 구별하여 낡거나 확인 불가 근거를 표시하고 일회 선호를 영구 취향·지시로 일반화하거나 없는 승인·완료·미실행을 단정하지 않는다.

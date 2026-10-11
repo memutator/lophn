@@ -21,7 +21,7 @@ import {
   type SummaryParts,
   type SummaryRef,
 } from "./compaction.ts";
-import { COMPACT_BODY_MAX_TOKENS, COMPACT_RESHRINK_MAX } from "./summary.ts";
+import { COMPACT_RESHRINK_MAX } from "./summary.ts";
 
 // R10에서 찍는 예산이다(확인 숫자).
 const BUDGET_80K = 80000;
@@ -262,8 +262,9 @@ Deno.test("lophn-agent/harness/prompt-assemble#R17: provider 문맥 초과 응�
   assertEquals(COMPACTION_REASSEMBLY_RETRY_MAX, 1);
 });
 
-Deno.test("lophn-agent/harness/prompt-assemble#R20: Compact 본문 상한 상수다", () => {
-  assertEquals(COMPACT_BODY_MAX_TOKENS, 400);
+Deno.test("lophn-agent/harness/prompt-assemble#R20: Compact 본문 상한은 요약 출력 상한과 같다(예산 20,000 → 2,000, 50,000 → 4,000)", () => {
+  assertEquals(summaryOutputCap(20000), 2000);
+  assertEquals(summaryOutputCap(50000), 4000);
 });
 
 Deno.test("lophn-agent/harness/prompt-assemble#R19: SummaryRef는 원문 세션·구간·call·본문 hash·규칙 판을 연결한다", async () => {

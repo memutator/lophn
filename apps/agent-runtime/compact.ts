@@ -19,7 +19,6 @@ import {
   type TokenUsage,
 } from "../../packages/contracts/lophn-agent/mod.ts";
 import {
-  COMPACT_BODY_MAX_TOKENS,
   COMPACT_RESHRINK_MAX,
   compactSummaryRequest,
   inputBudget,
@@ -27,6 +26,7 @@ import {
   type SessionMessage,
   splitSummaryMaterial,
   summaryBodyTokens,
+  summaryOutputCap,
 } from "../../packages/lophn-agent/harness/prompt-assemble/mod.ts";
 import { estimatedCost } from "../../packages/lophn-agent/harness/usage/mod.ts";
 import { resolveRunAgent } from "./agent-layers.ts";
@@ -49,8 +49,11 @@ import { readSessionConversation } from "./session-history.ts";
 // model이다. 요약용 model을 따로 골랐으면 그 실패를 agent model로 바꿔 처리하지 않는다. 어떤 실패든
 // 요청만 이유와 함께 닫고 session과 원문은 그대로다.
 
-// 요약 call이 예약하는 출력 크기. 요약 본문은 400 token 안이라 이 정도면 된다.
-const RESERVED_OUTPUT = 1000;
+// 요약 call이 예약하는 출력 크기. 요약 본문 상한(summaryOutputCap)은 최대 4,000 token이라 그만큼 예약한다.
+const RESERVED_OUTPUT = 4000;
+
+// 요약 call 하나의 크기다. input은 입력 예산이고 body는 요약 본문 상한(summaryOutputCap(input))이다.
+type SummaryLimit = { input: number; body: number };
 
 export type CompactResult =
   | { kind: "idle" }
@@ -159,7 +162,7 @@ export function createCompactor(deps: CompactorDeps): Compactor {
   async function summarizeOnce(
     request: Request,
     binding: ModelBinding,
-    budget: number,
+    limit: SummaryLimit,
     attempt: { order: number },
     input: {
       previous: string | null;
@@ -167,9 +170,9 @@ export function createCompactor(deps: CompactorDeps): Compactor {
       shorten?: string;
     },
   ): Promise<{ id: string; text: string }> {
-    const prompt = compactSummaryRequest(input);
+    const prompt = compactSummaryRequest({ ...input, cap: limit.body });
     const packed = binding.pack(prompt);
-    if (measureWire(packed) > budget) throw new Failure("too_large");
+    if (measureWire(packed) > limit.input) throw new Failure("too_large");
     // 요청은 안전화한 값 하나를 저장하고 그 값을 보낸다. 안전화를 끝내지 못하면 보내지 않는다.
     const safeBody = await redactValue(deps.redact, packed.body);
     if (!safeBody.ok) throw new Failure("model_unavailable");
@@ -194,7 +197,7 @@ export function createCompactor(deps: CompactorDeps): Compactor {
         from_seq: first === undefined ? null : String(first.seq),
         through_seq: last === undefined ? null : String(last.seq),
         measured: measureWire(packed),
-        input_budget: budget,
+        input_budget: limit.input,
       },
     );
     if (!basisBlob.ok) throw new Failure("model_unavailable");
@@ -313,24 +316,24 @@ export function createCompactor(deps: CompactorDeps): Compactor {
     return { id, text: output.text };
   }
 
-  // 요약 한 걸음. 본문이 400 token을 넘으면 직전 결과를 주고 다시 줄이게 한다(최대 두 번). 잘라 맞추지 않는다.
+  // 요약 한 걸음. 본문이 상한을 넘으면 직전 결과를 주고 다시 줄이게 한다(최대 두 번). 잘라 맞추지 않는다.
   async function summarize(
     request: Request,
     binding: ModelBinding,
-    budget: number,
+    limit: SummaryLimit,
     attempt: { order: number },
     input: { previous: string | null; messages: readonly SessionMessage[] },
   ): Promise<{ id: string; text: string }> {
-    let done = await summarizeOnce(request, binding, budget, attempt, input);
+    let done = await summarizeOnce(request, binding, limit, attempt, input);
     for (let again = 0; again < COMPACT_RESHRINK_MAX; again++) {
-      if (summaryBodyTokens(done.text) <= COMPACT_BODY_MAX_TOKENS) return done;
-      done = await summarizeOnce(request, binding, budget, attempt, {
+      if (summaryBodyTokens(done.text) <= limit.body) return done;
+      done = await summarizeOnce(request, binding, limit, attempt, {
         previous: null,
         messages: [],
         shorten: done.text,
       });
     }
-    if (summaryBodyTokens(done.text) > COMPACT_BODY_MAX_TOKENS) {
+    if (summaryBodyTokens(done.text) > limit.body) {
       throw new Failure("summary_too_long");
     }
     return done;
@@ -379,8 +382,13 @@ export function createCompactor(deps: CompactorDeps): Compactor {
       Math.min(RESERVED_OUTPUT, binding.call.limits.output_limit),
     );
     if (!budget.ok) return await fail(request, "too_large");
+    const limit: SummaryLimit = {
+      input: budget.value,
+      body: summaryOutputCap(budget.value),
+    };
     // 요약 재료가 입력 예산 절반을 넘으면 순서를 지킨 chunk로 나눠 앞 chunk의 요약을 이어받는다.
-    const cap = Math.floor(budget.value / 2) - COMPACT_BODY_MAX_TOKENS;
+    // 앞 요약이 들어갈 몫(본문 상한)은 chunk에서 뺀다.
+    const cap = Math.floor(limit.input / 2) - limit.body;
     const chunks = cap <= 0
       ? null
       : splitSummaryMaterial(conversation.messages, cap);
@@ -393,7 +401,7 @@ export function createCompactor(deps: CompactorDeps): Compactor {
       let last: { id: string; text: string } | undefined;
       const counter = { order: attempt };
       for (const chunk of chunks) {
-        last = await summarize(request, binding, budget.value, counter, {
+        last = await summarize(request, binding, limit, counter, {
           previous,
           messages: chunk,
         });

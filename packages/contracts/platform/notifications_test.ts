@@ -4,6 +4,7 @@ import { eventEnvelopeSchema } from "./events.ts";
 import { routePath } from "./route.ts";
 import {
   createNotificationInputSchema,
+  NOTIFICATION_ASK_ROLES,
   NOTIFICATION_EVENTS,
   NOTIFICATION_ROUTES,
   NOTIFICATION_TRIGGERS,
@@ -69,7 +70,13 @@ Deno.test("platform/notifications#R1, platform/notifications#R2: 계기 표는 s
     ],
   );
   for (const trigger of NOTIFICATION_TRIGGERS) {
-    assertEquals(Object.keys(trigger), ["event", "owner", "condition"]);
+    assertEquals(Object.keys(trigger), [
+      "event",
+      "owner",
+      "condition",
+      "ask_agent",
+      "first_context",
+    ]);
   }
   const conditions = NOTIFICATION_TRIGGERS.map((trigger) => trigger.condition);
   assertEquals(
@@ -77,6 +84,65 @@ Deno.test("platform/notifications#R1, platform/notifications#R2: 계기 표는 s
     5,
   );
   assert(!conditions.includes("never" as never));
+  // 사람이 직접 멈춘 assignment는 계기가 아니다: AssignmentPaused는 대상 보관뿐이다.
+  assertEquals(
+    NOTIFICATION_TRIGGERS.find((trigger) =>
+      trigger.event === "AssignmentPaused"
+    )
+      ?.condition,
+    "scope_archived",
+  );
+});
+
+Deno.test("platform/notifications#R13: 계기 표의 ask_agent는 종류마다 고정이고 앱 문제 둘만 App Engineer다", () => {
+  const asks = NOTIFICATION_TRIGGERS.filter((trigger) =>
+    trigger.ask_agent !== null
+  );
+  // 계약 위반 행의 Context Engineer는 그 계기를 바꾸는 context track 뒤에 채운다.
+  assertEquals(
+    asks.map((trigger) => [trigger.event, trigger.ask_agent]),
+    [
+      ["ProblemOpened", "app_engineer"],
+      ["ReleaseActivationFailed", "app_engineer"],
+    ],
+  );
+  for (const trigger of NOTIFICATION_TRIGGERS) {
+    assert(
+      trigger.ask_agent === null ||
+        NOTIFICATION_ASK_ROLES.includes(trigger.ask_agent),
+    );
+    // agent가 없으면 첫 context도 없고, 있으면 첫 context가 있다.
+    assertEquals(trigger.first_context === null, trigger.ask_agent === null);
+  }
+  for (
+    const event of [
+      "ProblemReopened",
+      "ProblemClosed",
+      "ApprovalRequestCreated",
+      "QuestionCreated",
+      "TicketConfirmed",
+      "TicketCheckFailed",
+      "AssignmentPaused",
+    ]
+  ) {
+    const trigger = NOTIFICATION_TRIGGERS.find((item) => item.event === event);
+    assertEquals(trigger?.ask_agent, null);
+    assertEquals(trigger?.first_context, null);
+  }
+});
+
+Deno.test("platform/notifications#R14: 첫 context 참조는 앱 자리와 문제 또는 release 대상의 모양이다", () => {
+  const byEvent = Object.fromEntries(
+    NOTIFICATION_TRIGGERS.map((trigger) => [trigger.event, trigger]),
+  );
+  assertEquals(byEvent["ProblemOpened"].first_context, {
+    work_place: "app",
+    target: "problem",
+  });
+  assertEquals(byEvent["ReleaseActivationFailed"].first_context, {
+    work_place: "app",
+    target: "release",
+  });
 });
 
 Deno.test("platform/notifications#R3, platform/notifications#R4: 예시 입력이 통과한다", () => {

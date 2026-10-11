@@ -170,7 +170,6 @@ function rig(
           session: { kind: "project", id: "prj_01arz3ndektsv4rrffq69g5fav" },
           scope: { kind: "all", id: null },
         },
-        attachments: [],
         purpose: null,
         run_facts: null,
         continuation_summary: null,

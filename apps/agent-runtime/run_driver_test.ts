@@ -25,6 +25,7 @@ const ASG = "asg_01arz3ndektsv4rrffq69g5fav";
 const SELECTION: Selection = {
   run: RUN,
   assignment: ASG,
+  session: null,
   stateSeq: "3",
   reason: "priority",
 };
@@ -130,7 +131,6 @@ function loopMaterial() {
           },
           scope: { kind: "all" as const, id: null },
         },
-        attachments: [],
         purpose: null,
         run_facts: null,
         continuation_summary: null,

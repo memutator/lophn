@@ -60,7 +60,6 @@ export async function assemblePrompt(
   const place = instructionPlace(input.work);
   const resolved = await resolveInstructions(deps, {
     place,
-    attachments: input.attachments,
   });
   if (!resolved.ok) {
     return blocked("instructions_unavailable", "사람 지침을 읽지 못했다");
@@ -148,8 +147,6 @@ export async function assemblePrompt(
       layers: resolution.layers.map((layer) => ({
         kind: layer.kind,
         place: layer.place,
-        document: layer.document,
-        version: layer.version,
         source_hash: layer.source_hash,
         transmitted_hash: layer.transmitted_hash,
         status: layer.status,

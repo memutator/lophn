@@ -208,7 +208,6 @@ function rig(setup: Setup) {
       session: { kind: "project", id: PROJECT },
       scope: { kind: "all", id: null },
     },
-    attachments: [],
     purpose: null,
     run_facts: null,
     continuation_summary: null,

@@ -1,6 +1,5 @@
 import { assert, assertEquals, assertNotEquals } from "@std/assert";
 import { err, ok } from "../../../base/mod.ts";
-import type { InstructionLocation } from "../../../contracts/lophn-agent/mod.ts";
 import {
   INSTRUCTION_FILE_MAX_BYTES,
   type InstructionFile,
@@ -21,8 +20,6 @@ import {
 
 const PROJECT = "prj_01arz3ndektsv4rrffq69g5fav";
 const APP = "app_01arz3ndektsv4rrffq69g5fav";
-const GLOBAL_DOC = "doc_01arz3ndektsv4rrffq69g5fav";
-const PROJECT_DOC = "doc_01arz3ndektsv4rrffq69g5faw";
 
 const encoder = new TextEncoder();
 
@@ -33,35 +30,28 @@ function instructionSource(seed: {
   failing?: boolean;
 }) {
   const texts = { global: seed.global, project: seed.project };
-  const state = { reads: 0, versions: 1 };
-  function fileOf(document: string, text: string): InstructionFile {
+  const state = { reads: 0, edits: 0 };
+  function fileOf(text: string): InstructionFile {
     const bytes = encoder.encode(text);
     return {
-      document,
-      version: `ver_${state.versions}`,
       size_bytes: bytes.length,
       bytes: bytes.slice(0, INSTRUCTION_FILE_MAX_BYTES),
     };
   }
   const files: InstructionFiles = {
-    registered(location: InstructionLocation) {
+    read(layer) {
       state.reads++;
       if (seed.failing) {
         return Promise.resolve(
           err({ code: "unavailable", message: "/private/LOPHN.md" }),
         );
       }
-      const text = location.layer === "global" ? texts.global : texts.project;
-      const document = location.layer === "global" ? GLOBAL_DOC : PROJECT_DOC;
-      return Promise.resolve(
-        ok(text === undefined ? null : fileOf(document, text)),
-      );
-    },
-    attached() {
-      return Promise.resolve(err({ code: "not_found", message: "none" }));
-    },
-    projectOf() {
-      return Promise.resolve(ok(null));
+      const text = layer === "global"
+        ? texts.global
+        : layer === "project"
+        ? texts.project
+        : undefined;
+      return Promise.resolve(ok(text === undefined ? null : fileOf(text)));
     },
   };
   return {
@@ -69,7 +59,7 @@ function instructionSource(seed: {
     state,
     edit(layer: "global" | "project", text: string) {
       texts[layer] = text;
-      state.versions++;
+      state.edits++;
     },
   };
 }
@@ -116,7 +106,6 @@ function inputOf(overrides: Partial<PromptInput> = {}): PromptInput {
       session: { kind: "project", id: PROJECT },
       scope: { kind: "all", id: null },
     },
-    attachments: [],
     material: {
       purpose: "PURPOSE",
       run_facts: "RUN FACTS",
@@ -312,7 +301,7 @@ Deno.test("lophn-agent/harness/prompt-assemble#R1: 같은 재료·지침·자리
   assertEquals(again.input_hash, first.input_hash);
   assertEquals(again.basis_hash, first.basis_hash);
   // 매 call 지침을 다시 읽는다.
-  assertEquals(source.state.reads, 4);
+  assertEquals(source.state.reads, 6);
 
   // tool 목록·schema key 순서가 달라도 같은 prompt다.
   const shuffled = ready(
@@ -356,8 +345,8 @@ Deno.test("lophn-agent/harness/prompt-assemble#R1: 같은 재료·지침·자리
     hash(first, "user_instructions"),
   );
   assertNotEquals(
-    edited.basis.instructions.layers[0].version,
-    first.basis.instructions.layers[0].version,
+    edited.basis.instructions.layers[0].source_hash,
+    first.basis.instructions.layers[0].source_hash,
   );
   assert(edited.request.system[2].text.includes("RULE TWO"));
 });
@@ -380,8 +369,8 @@ Deno.test("lophn-agent/harness/prompt-assemble#R30: 지침은 작업 자리로 r
   assertEquals(layers.map((layer) => [layer.kind, layer.place, layer.status]), [
     ["global", null, "present"],
     ["project", PROJECT, "present"],
+    ["agent", null, "absent"],
   ]);
-  assertEquals(layers[0].document, GLOBAL_DOC);
   assert(layers[0].source_hash !== null && layers[0].transmitted_hash !== null);
   assertEquals(layers[0].bytes, "GLOBAL SECRET RULE".length);
   // basis에는 지침 본문이 없다.
@@ -403,6 +392,7 @@ Deno.test("lophn-agent/harness/prompt-assemble#R30: 지침은 작업 자리로 r
   assertEquals(app.basis.instructions.layers.map((layer) => layer.kind), [
     "global",
     "app",
+    "agent",
   ]);
 });
 

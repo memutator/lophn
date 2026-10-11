@@ -48,7 +48,6 @@ export type RunContext = {
   role: PromptInput["role"];
   tools: readonly PromptTool[];
   work: PromptInput["work"];
-  attachments: PromptInput["attachments"];
   purpose: string | null;
   run_facts: string | null;
   continuation_summary: string | null;

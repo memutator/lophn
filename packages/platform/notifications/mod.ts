@@ -5,6 +5,7 @@ export {
   notificationView,
   triggerOf,
 } from "./model.ts";
+export { notificationAsk } from "./ask-agent.ts";
 export { readNotificationRow } from "./store.ts";
 export type { NotificationRow } from "./store.ts";
 export { NOTIFICATIONS_SCHEMA_STEPS } from "./schema.ts";

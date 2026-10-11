@@ -16,7 +16,8 @@ export type AskAgent = {
 };
 
 // Ask를 고른 notification의 원래 사실이다. app은 대상이 속한 앱이다: 문제는 source
-// payload에서, release는 core가 앱 read로 구해 넣는다(이 모듈은 읽지 않는다).
+// payload에서, release는 그 release를 만든 사실(ReleasePrepared)에서 reads가 구해 넣는다
+// (이 모듈은 읽지 않는다).
 export type AskSource = {
   event: string;
   source_seq: Seq;

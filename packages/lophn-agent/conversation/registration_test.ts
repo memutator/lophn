@@ -121,8 +121,11 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
   const runCommands = createRunCommands({ hasUnappliedSteering });
   const runReads = createRunReads();
   const commands = createConversationCommands({
-    // 제품 조립과 같다. session을 지울 때 그 session의 run 기록은 run-loop가 지운다.
-    deleteSessionRecords: (tx, session) => deleteSessionRuns(tx, session),
+    // 제품 조립과 같다. session을 지울 때 그 session의 run 기록은 run-loop가 지운다. 본문 참조
+    // 지움은 platform 몫이고 core 시험(apps/core/testing)이 본다.
+    deleteSessionRecords: (tx, session) =>
+      deleteSessionRuns(tx, session, () => ok(undefined)),
+    eraseBlobRefs: () => ok(undefined),
     // 접수 실패 주입은 이 fixture 표 하나로만 켠다.
     acceptRun: (tx, ctx, input, compare) =>
       tx.sql.get("select 1 as found from fail_accept where fail = 1", []) !==

@@ -81,8 +81,19 @@ begin
 end;`,
   },
   {
+    // 사람이 요청한 session delete만 지운 session의 기록을 지운다(lophn-agent/conversation
+    // #R20, platform/ledger#R10의 예외). 지우는 쪽이 같은 transaction 안에서 표 이름을 열었다가
+    // 닫는다(erase.ts). 열려 있는 표의 delete trigger만 통과시킨다. 정리·만료는 열지 않는다.
+    id: "erase-windows",
+    sql: `
+create table erase_windows (
+  table_name text primary key
+);`,
+  },
+  {
     // blob 영구 참조(platform/blob-store#R4). 소유 변경과 같은 transaction에서만 넣고,
-    // 등록된 참조는 지우거나 바꾸지 않는다. hash 대상은 파일이므로 FK가 없다.
+    // 등록된 참조는 바꾸지 않으며 지우는 것은 session delete의 erase 창 안에서만이다.
+    // hash 대상은 파일이므로 FK가 없다.
     id: "blob-refs",
     sql: `
 create table blob_refs (
@@ -98,7 +109,17 @@ create table blob_refs (
 create index blob_refs_hash on blob_refs (hash);
 create index blob_refs_owner on blob_refs (owner_kind, owner_key);
 create index blob_refs_seq on blob_refs (registered_seq);
-${IMMUTABLE("blob_refs")}`,
+create trigger blob_refs_no_update
+before update on blob_refs
+begin
+  select raise(abort, 'immutable');
+end;
+create trigger blob_refs_no_delete
+before delete on blob_refs
+when not exists (select 1 from erase_windows where table_name = 'blob_refs')
+begin
+  select raise(abort, 'immutable');
+end;`,
   },
   {
     // 질문 option의 user 기록은 command transaction 안에서 한 번만 남긴다(identity R14).

@@ -35,6 +35,9 @@ begin
 end;
 create trigger reverts_no_delete
 before delete on reverts
+when not exists (
+  select 1 from runs where id = old.run and session is not null and state = 'finished'
+)
 begin
   select raise(abort, 'reverts are kept');
 end;
@@ -64,6 +67,10 @@ begin
 end;
 create trigger revert_changes_no_delete
 before delete on revert_changes
+when not exists (
+  select 1 from reverts v join runs r on r.id = v.run
+  where v.id = old.revert and r.session is not null and r.state = 'finished'
+)
 begin
   select raise(abort, 'revert changes are kept');
 end;
@@ -83,6 +90,10 @@ begin
 end;
 create trigger revert_change_sources_no_delete
 before delete on revert_change_sources
+when not exists (
+  select 1 from reverts v join runs r on r.id = v.run
+  where v.id = old.revert and r.session is not null and r.state = 'finished'
+)
 begin
   select raise(abort, 'revert sources are kept');
 end;
@@ -101,6 +112,10 @@ begin
 end;
 create trigger revert_change_compensations_no_delete
 before delete on revert_change_compensations
+when not exists (
+  select 1 from reverts v join runs r on r.id = v.run
+  where v.id = old.revert and r.session is not null and r.state = 'finished'
+)
 begin
   select raise(abort, 'revert compensations are kept');
 end;`,

@@ -144,7 +144,7 @@ for (const upgrade of [false, true]) {
           await sha256Hex(LEDGER_SCHEMA_STEPS[1].sql),
         );
         const master = db.prepare(
-          "select name, sql from sqlite_master where type in ('table', 'index', 'trigger') and name not like '%no_duplicate_insert' and name not like '%question_evidence%' and name not like '%blob_refs%' order by name",
+          "select name, sql from sqlite_master where type in ('table', 'index', 'trigger') and name not like '%no_duplicate_insert' and name not like '%question_evidence%' and name not like '%blob_refs%' and name not like '%erase_windows%' order by name",
         ).all();
         if (before) assertEquals(master, before.schema);
         attackDuplicates(db);
@@ -177,7 +177,7 @@ for (const upgrade of [false, true]) {
         attackDuplicates(db);
         assertEquals(
           db.prepare(
-            "select name, sql from sqlite_master where type in ('table', 'index', 'trigger') and name not like '%no_duplicate_insert' and name not like '%question_evidence%' and name not like '%blob_refs%' order by name",
+            "select name, sql from sqlite_master where type in ('table', 'index', 'trigger') and name not like '%no_duplicate_insert' and name not like '%question_evidence%' and name not like '%blob_refs%' and name not like '%erase_windows%' order by name",
           ).all(),
           master,
         );

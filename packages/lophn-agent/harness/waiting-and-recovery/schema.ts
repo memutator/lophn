@@ -35,6 +35,9 @@ begin
 end;
 create trigger run_wait_resolutions_no_delete
 before delete on run_wait_resolutions
+when not exists (
+  select 1 from runs where id = old.run and session is not null and state = 'finished'
+)
 begin
   select raise(abort, 'wait resolutions are kept');
 end;`,

@@ -12,7 +12,7 @@ export {
   type RunLoopDeps,
 } from "./commands.ts";
 export { loadRun, type RunRow } from "./model.ts";
-export { deleteSessionRuns } from "./erase.ts";
+export { deleteSessionRuns, sessionRunIds } from "./erase.ts";
 export { createRunReads } from "./reads.ts";
 export {
   type AttemptEnd,

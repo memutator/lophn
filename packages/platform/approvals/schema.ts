@@ -57,6 +57,7 @@ begin
   select raise(abort, 'approval request 내용은 생성 뒤 바꾸지 않는다');
 end;
 create trigger approval_requests_no_delete before delete on approval_requests
+when not exists (select 1 from erase_windows where table_name = 'approval_requests')
 begin
   select raise(abort, 'approval request는 지우지 않는다');
 end;
@@ -72,6 +73,7 @@ begin
   select raise(abort, 'approval 사용은 불변이다');
 end;
 create trigger approval_uses_no_delete before delete on approval_uses
+when not exists (select 1 from erase_windows where table_name = 'approval_uses')
 begin
   select raise(abort, 'approval 사용은 지우지 않는다');
 end;`,

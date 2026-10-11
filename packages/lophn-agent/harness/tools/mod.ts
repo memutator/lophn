@@ -1,5 +1,6 @@
 export { callRevision, loadToolCall, toolsSchemaSteps } from "./model.ts";
 export { createToolCommands, toolCallBodyFields } from "./commands.ts";
+export { deleteSessionToolCalls } from "./erase.ts";
 export { createToolReads } from "./reads.ts";
 export {
   BUILTIN_TOOLS,

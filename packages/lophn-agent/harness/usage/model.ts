@@ -88,6 +88,9 @@ create index model_calls_provider_model_started
 create index model_calls_retry_of on model_calls (retry_of);
 create trigger model_calls_no_delete
 before delete on model_calls
+when not exists (
+  select 1 from runs where id = old.run and session is not null and state = 'finished'
+)
 begin
   select raise(abort, 'model call records are kept');
 end;

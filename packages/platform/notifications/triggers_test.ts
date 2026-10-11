@@ -39,6 +39,7 @@ import {
   runFinished,
 } from "../../contracts/lophn-agent/mod.ts";
 import { releaseActivationFailed } from "../../contracts/apps/mod.ts";
+import { contextViolationsRecordedEvent } from "../../contracts/documents/mod.ts";
 import {
   ticketCheckFailed,
   ticketConfirmed,
@@ -719,6 +720,7 @@ function notificationEventsRead(
       ticketConfirmed,
       ticketCheckFailed,
       releaseActivationFailed,
+      contextViolationsRecordedEvent,
     ],
     [
       { event: questionCreated, handle: () => ok(true) },
@@ -727,6 +729,7 @@ function notificationEventsRead(
       { event: ticketConfirmed, handle: () => ok(true) },
       { event: ticketCheckFailed, handle: () => ok(true) },
       { event: releaseActivationFailed, handle: () => ok(true) },
+      { event: contextViolationsRecordedEvent, handle: () => ok(true) },
     ],
     () => ok(machine()),
   );
@@ -1312,4 +1315,84 @@ Deno.test("platform/notifications#R2: 공개 정책이 숨긴 event만 있는 �
     connection.close();
     await Deno.remove(dir, { recursive: true });
   }
+});
+
+// ctx-I35: context 위반 수는 직전 기록보다 늘었을 때만 계기다. 줄거나 같으면 계기 아니다.
+// 첫 기록의 before는 0이다(violation_mark의 생성 값).
+const CTX = "ctx_01arz3ndektsv4rrffq69g5fav";
+const BUNDLE_HASH = "c".repeat(64);
+
+async function violationsNotifications(
+  prefix: string,
+  counts: readonly (readonly [number, number])[],
+): Promise<string[]> {
+  const dir = await Deno.makeTempDir({ prefix });
+  const connection = await schema(dir);
+  const { reader, backend } = notificationEventsRead(`${dir}/ledger.db`);
+  try {
+    for (const [before, after] of counts) {
+      emitSource(connection, "ContextViolationsRecorded", CTX, {
+        before,
+        after,
+        bundle_hash: BUNDLE_HASH,
+      });
+    }
+    const engine = notificationsEngine({
+      backend,
+      command: engineCommand(connection),
+      machine: machine(),
+    });
+    const scanned = await engine.step();
+    assert(scanned.ok, scanned.ok ? "" : JSON.stringify(scanned.error));
+    // 계기가 아닌 event도 읽고 지나가므로 cursor는 마지막 event까지 간다.
+    assertEquals(storedCursor(connection), String(counts.length));
+    const rows = connection.sql.all(
+      `select e.payload as payload from notifications n
+       join events e on e.seq = n.source_seq order by n.source_seq`,
+      [],
+    );
+    await engine.close();
+    return rows.map((row) => String(row["payload"]));
+  } finally {
+    reader.close();
+    connection.close();
+    await Deno.remove(dir, { recursive: true });
+  }
+}
+
+Deno.test("[ctx-I35] platform/notifications#R1: 위반 수가 늘면 기록 하나마다 notification 하나다", async () => {
+  const made = await violationsNotifications("ntf-ctx-rise-", [[2, 5]]);
+  assertEquals(made.length, 1);
+  assertEquals(JSON.parse(made[0]).after, 5);
+  // 같은 context에서 연이어 늘어도 기록마다 하나씩이다(덮어쓰지 않는다).
+  assertEquals(
+    (await violationsNotifications("ntf-ctx-rise2-", [[0, 1], [1, 2]])).length,
+    2,
+  );
+});
+
+Deno.test("[ctx-I35] platform/notifications#R2: 위반 수가 줄면 notification이 없다", async () => {
+  assertEquals(
+    await violationsNotifications("ntf-ctx-fall-", [[5, 1], [1, 0]]),
+    [],
+  );
+});
+
+Deno.test("[ctx-I35] platform/notifications#R2: 위반 수가 같으면 notification이 없다", async () => {
+  assertEquals(
+    await violationsNotifications("ntf-ctx-equal-", [[3, 3]]),
+    [],
+  );
+});
+
+Deno.test("[ctx-I35] platform/notifications#R1: 첫 기록(직전 0)이 0보다 크면 notification 하나다", async () => {
+  assertEquals(
+    (await violationsNotifications("ntf-ctx-first-", [[0, 2]])).length,
+    1,
+  );
+  // 직전이 0이고 그대로 0이면 계기가 아니다.
+  assertEquals(
+    await violationsNotifications("ntf-ctx-first0-", [[0, 0]]),
+    [],
+  );
 });

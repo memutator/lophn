@@ -2639,6 +2639,8 @@ export const en = {
   "things-to-confirm.label.event-question": "A question is waiting",
   "things-to-confirm.label.event-task-check-failed": "A task's check failed",
   "things-to-confirm.label.event-task-confirmed": "A task is ready",
+  "things-to-confirm.label.event-violations-rose":
+    "A context has more violations",
   "things-to-confirm.label.expires": "Answer by {when}",
   "things-to-confirm.label.not-in-conversation": "Not in a conversation",
   "things-to-confirm.label.opens-review": "Opens a review",

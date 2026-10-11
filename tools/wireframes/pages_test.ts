@@ -2,6 +2,7 @@
 import { assert, assertEquals } from "@std/assert";
 
 import { DISCARDED_NAME, DISCARDED_SCREENS, PAGES, PARTS } from "./pages.ts";
+import { WAYS } from "./frames/compositions/ways.ts";
 
 Deno.test("shell#T66: 버린 화면은 page 목록에 없다", () => {
   const screens = new Set(PAGES.map((page) => page.screen as string));
@@ -35,9 +36,9 @@ Deno.test("shell#T66: 모든 page에 제목·badge·설명이 있고 id는 겹�
   }
 });
 
-Deno.test("shell#T66: 새 설계 page 열세 개는 모두 새 설계 badge와 한국어 설명을 갖는다", () => {
+Deno.test("shell#T66: 새 설계 page 열일곱 개는 모두 새 설계 badge와 한국어 설명을 갖는다", () => {
   const fresh = PAGES.filter((page) => page.part === "new");
-  assertEquals(fresh.length, 13);
+  assertEquals(fresh.length, 17);
   // 지금은 Domain model이 아니라 Overview다.
   assert(fresh.every((page) => !/Domain model/.test(page.title)));
   assert(fresh.some((page) => page.title === "Context tab · Overview"));
@@ -62,5 +63,31 @@ Deno.test("shell#T66: 디자인 시스템 part가 첫째이고 page마다 badge�
     assertEquals(page.badges, ["디자인 시스템"], page.id);
     assert(/[가-힣]/.test(page.description), `${page.id}: 한국어 설명`);
     assert(page.title.trim() !== "", `${page.id}: title`);
+  }
+});
+
+Deno.test("shell#T68: 새 context form·만드는 중·Context 탭 여는 길·문서 탭 page가 있고 객체 탭 page는 없다", () => {
+  const ids = PAGES.map((page) => page.id);
+  const titles = PAGES.map((page) => page.title);
+  for (
+    const title of [
+      "New context form",
+      "New context · drafting",
+      "Context tab · ways to open",
+      "Project · document tab",
+      "Project · document tab with info",
+    ]
+  ) {
+    assert(titles.includes(title), `${title}: page 없음`);
+  }
+  assert(!ids.includes("new-object"));
+  assert(!titles.some((title) => /^Object tab/.test(title)));
+});
+
+Deno.test("shell#T68: Context 탭 여는 길마다 try it이 가리키는 page가 있다", () => {
+  const ids = new Set(PAGES.map((page) => page.id));
+  assert(WAYS.length >= 8);
+  for (const way of WAYS) {
+    assert(ids.has(way.tryIt), `${way.title}: ${way.tryIt} page 없음`);
   }
 });

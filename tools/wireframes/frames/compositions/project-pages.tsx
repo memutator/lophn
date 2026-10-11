@@ -1,8 +1,18 @@
 // Part 2: project 화면 위의 새 설계. 모두 동작하는 ProjectApp 위에 고정 data로 놓는다.
 import { Toast, ToastStack } from "@lophn/design/components";
 
-import { documentTab, objectTab } from "./bodies.tsx";
-import { type PaneInit, ProjectApp } from "./project-app.tsx";
+import {
+  CHAT_TAB,
+  ENGINEER_TAB,
+  type PaneInit,
+  ProjectApp,
+} from "./project-app.tsx";
+import {
+  draftTab,
+  NEW_CONTEXT_TAB,
+  RELEASE_NOTES_DRAFT,
+} from "./context-form.tsx";
+import { documentTab, findingTab } from "./phroner-data.ts";
 import { StaticMenu, type TabSpec } from "./project-window.tsx";
 import styles from "./compose.module.css";
 
@@ -25,7 +35,12 @@ const TERMINAL: TabSpec = {
   kind: "terminal",
   title: "phroner",
 };
-const CHAT_TAB: TabSpec = { key: "chat", kind: "conversation", title: "lophn" };
+
+const CONTEXTS: TabSpec = {
+  key: "contexts",
+  kind: "contexts",
+  title: "phroner",
+};
 
 const chat: PaneInit = { tabs: [CHAT_TAB], selected: CHAT_TAB.key };
 const left = (selected: TabSpec, ...others: TabSpec[]): PaneInit => ({
@@ -108,22 +123,14 @@ export function ContextViolations() {
   return <ProjectApp panes={[left(tab, tab, SEARCH())]} />;
 }
 
-/** C4: 계약 위반 toast. */
+/** C4: 계약 위반 toast. [View]는 그 context의 Violations를 연다. */
 export function ViolationToast() {
   return (
     <ProjectApp
       sidebar={{ current: DOC_PATH }}
       panes={[left(DOC, context("overview"), SEARCH(), TERMINAL), chat]}
-    >
-      <ToastStack>
-        <Toast
-          title="eval: 2 documents don't match the contract"
-          actions={[{ id: "view", label: "View" }]}
-          onClose={() => {}}
-          timer={NO_TIMER}
-        />
-      </ToastStack>
-    </ProjectApp>
+      violationToast
+    />
   );
 }
 
@@ -157,18 +164,59 @@ export function SidebarCollapsed() {
 
 /** C9: Contexts 탭. 이 project의 context 목록. */
 export function ContextsTab() {
-  const contexts: TabSpec = {
-    key: "contexts",
-    kind: "contexts",
-    title: "phroner",
-  };
-  return <ProjectApp panes={[left(contexts, contexts)]} />;
+  return <ProjectApp panes={[left(CONTEXTS, CONTEXTS)]} />;
 }
 
-/** C10: 객체 탭. 검색 결과의 Finding을 눌러 새로 열린 "F-009 · Finding". */
-export function ObjectTab() {
-  const finding = objectTab("finding", "F-009");
-  return <ProjectApp panes={[left(finding, SEARCH(), finding)]} />;
+/** C11: 새 context form. Contexts 탭의 [New context]로 열린 "New context" 탭. */
+export function NewContextFormPage() {
+  return (
+    <ProjectApp
+      panes={[left(NEW_CONTEXT_TAB, CONTEXTS, NEW_CONTEXT_TAB)]}
+    />
+  );
+}
+
+/** C12: 만들기를 누른 뒤. 그 탭이 release-notes의 Context 탭(만드는 중)이 되고 오른쪽 칸에 Context Engineer 대화가 열린다. */
+export function NewContextDrafting() {
+  const draft = draftTab("release-notes", RELEASE_NOTES_DRAFT);
+  return (
+    <ProjectApp
+      panes={[
+        left(draft, CONTEXTS, draft),
+        { tabs: [ENGINEER_TAB], selected: ENGINEER_TAB.key },
+      ]}
+    />
+  );
+}
+
+/** C14: 문서 탭(새 모양). 본문이 탭 바로 아래부터 시작하고 조작은 탭 줄 오른쪽 끝 icon이다. 오류는 toast다. */
+export function DocumentTabPage() {
+  return (
+    <ProjectApp
+      sidebar={{ current: DOC_PATH }}
+      panes={[left(DOC, findingTab("F-009"))]}
+    >
+      <ToastStack>
+        <Toast
+          title="This action couldn't be completed. Try again."
+          tone="error"
+          onClose={() => {}}
+          timer={NO_TIMER}
+        />
+      </ToastStack>
+    </ProjectApp>
+  );
+}
+
+/** C15: 문서 탭에서 info를 열었다. 그 칸 오른쪽에 붙고 Contexts가 열려 있다. */
+export function DocumentTabInfo() {
+  return (
+    <ProjectApp
+      sidebar={{ current: DOC_PATH }}
+      panes={[left(DOC, findingTab("F-009"))]}
+      info={{ tab: DOC.key, panel: "contexts" }}
+    />
+  );
 }
 
 /** C7: 문서 정리. 문서 행의 오른쪽 클릭 메뉴와 폴더 행의 메뉴. */

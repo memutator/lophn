@@ -51,12 +51,16 @@ import {
   DeclaredSearchBoard,
   DeclaredSearchTable,
   DocumentOrganize,
+  DocumentTabInfo,
+  DocumentTabPage,
+  NewContextDrafting,
+  NewContextFormPage,
   NewTabMenu,
-  ObjectTab,
   SidebarCollapsed,
   TabKinds,
   ViolationToast,
 } from "./compositions/project-pages.tsx";
+import { ContextWays } from "./compositions/ways-page.tsx";
 import { WorkspaceWithoutProject } from "./compositions/workspace-page.tsx";
 import {
   MockDesktop,
@@ -208,5 +212,9 @@ export const SCREENS: Record<ScreenId, () => ReactNode> = {
   "new-organize": () => <DocumentOrganize />,
   "new-sidebar-collapsed": () => <SidebarCollapsed />,
   "new-contexts": () => <ContextsTab />,
-  "new-object": () => <ObjectTab />,
+  "new-context-form": () => <NewContextFormPage />,
+  "new-context-drafting": () => <NewContextDrafting />,
+  "new-ways-to-open": () => <ContextWays />,
+  "new-document-tab": () => <DocumentTabPage />,
+  "new-document-tab-info": () => <DocumentTabInfo />,
 };

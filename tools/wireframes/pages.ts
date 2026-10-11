@@ -102,7 +102,11 @@ export type ScreenId =
   | "new-organize"
   | "new-sidebar-collapsed"
   | "new-contexts"
-  | "new-object";
+  | "new-context-form"
+  | "new-context-drafting"
+  | "new-ways-to-open"
+  | "new-document-tab"
+  | "new-document-tab-info";
 
 export interface WireframePage {
   /** 주소 `#/<id>`와 frame의 `?frame=<id>`에 쓴다. */
@@ -478,8 +482,26 @@ export const PAGES: readonly WireframePage[] = [
   fresh(
     "new-contexts",
     "Contexts tab",
-    "project의 context 목록을 여는 새 탭 종류. context마다 목적, 다루는 것의 종류 수, 버전, 위반, 쓰는 Operator를 보이고 [Open]은 그 context의 탭(Overview)을 연다.",
+    "project의 context 목록을 여는 새 탭 종류. context마다 목적, 다루는 것의 종류 수, 버전, 위반, 쓰는 Operator를 보이고 [Open]은 그 context의 탭(Overview)을 열고, [New context]는 새 context form 탭을 연다.",
     "new-contexts",
+  ),
+  fresh(
+    "new-context-form",
+    "New context form",
+    "새 context는 form으로 시작한다. 이름·목적·볼 자료·찾고 싶은 것을 사람 말로 적으면 Context Engineer가 그걸로 도메인 모델과 검색을 짠다. Contexts 탭의 [New context]나 + 메뉴의 New context…로 열고, 자료는 폴더 tree에서 눌러 고른다.",
+    "new-context-form",
+  ),
+  fresh(
+    "new-context-drafting",
+    "New context · drafting",
+    "만들기를 누르면 그 탭이 새 context의 Context 탭이 되고, Context Engineer가 짜는 동안의 상태를 보인다. 막히면 오른쪽 칸 대화로 묻는다. 대화의 답 단추를 눌러 볼 수 있다.",
+    "new-context-drafting",
+  ),
+  fresh(
+    "new-ways-to-open",
+    "Context tab · ways to open",
+    "Context 탭은 sidebar, 바로 가기, 새 탭 메뉴, 검색, 문서의 info, 위반 알림, 상단 검색, 대화, 새 context form에서 연다. 길마다 try it을 누르면 그 길을 눌러 볼 수 있는 page로 간다.",
+    "new-ways-to-open",
   ),
   fresh(
     "new-context-overview",
@@ -508,7 +530,7 @@ export const PAGES: readonly WireframePage[] = [
   fresh(
     "new-search-table",
     "Search tab · table result",
-    "검색 화면은 Context Engineer가 계약에 선언한 검색으로 그려진다. 입력 칸의 종류와 결과 보기도 선언에서 나온다. 결과는 page로 나뉘고, Finding·Scenario·Experiment 칸은 링크라서 누르면 객체 탭이 열린다.",
+    "검색 화면은 Context Engineer가 계약에 선언한 검색으로 그려진다. 입력 칸의 종류와 결과 보기도 선언에서 나온다. 결과는 page로 나뉘고, Finding·Scenario·Experiment 칸은 링크라서 누르면 그 문서가 문서 탭으로 열린다.",
     "new-search-table",
   ),
   fresh(
@@ -518,10 +540,16 @@ export const PAGES: readonly WireframePage[] = [
     "new-search-board",
   ),
   fresh(
-    "new-object",
-    "Object tab · Finding",
-    "검색 결과의 Finding·Scenario·Experiment는 링크이고 누르면 객체 탭이 새로 열린다. 선언된 field를 사람 말로, 관계를 링크로, 맨 아래에 원본 문서를 보인다.",
-    "new-object",
+    "new-document-tab",
+    "Project · document tab",
+    "문서 탭은 본문이 맨 위부터 시작한다. 제목은 탭 이름으로 충분하고, 판·저장 시각·목차·context 같은 정보는 그 탭 안에서 여는 info 칸에 있다. 조작(Edit/Read, Info, …)은 탭 줄 오른쪽 끝 icon이고 오류는 toast로 알린다.",
+    "new-document-tab",
+  ),
+  fresh(
+    "new-document-tab-info",
+    "Project · document tab with info",
+    "info는 데스크탑 오른쪽 overlay가 아니라 그 탭 안에서 열려 본문이 좁아진다. 문서의 정보·목차(Outline)·판·context를 여기서 본다. 이 page는 Contexts가 열린 상태이고, 목차는 select가 아니라 들여 쓴 제목 목록이다.",
+    "new-document-tab-info",
   ),
   fresh(
     "new-workspace",

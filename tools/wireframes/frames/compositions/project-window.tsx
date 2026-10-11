@@ -2,7 +2,7 @@
 // component를 그대로 쓰고, 실제 sidebar·tab strip·menu는 source 없이 그릴 수 없거나 새 설계의
 // 항목(Saved views, Context·Search·Conversation 탭 종류, 바로 가기 rail)이 없어서 같은 CSS Module로 같은
 // 모양의 마크업을 다시 짠 look-alike다. 앱 코드는 고치지 않는다.
-import { type ReactNode, useLayoutEffect, useRef } from "react";
+import { type ReactNode, useLayoutEffect, useRef, useState } from "react";
 import {
   conversationIcons,
   Icon,
@@ -10,6 +10,7 @@ import {
   iconPixels,
   type IconProps,
   lophnSpaceIcons,
+  Menu,
   paletteIcons,
   Tooltip,
   Tree,
@@ -40,7 +41,7 @@ export type TabKind =
   | "search"
   | "terminal"
   | "conversation"
-  | "object";
+  | "new-context";
 
 const KIND_ICON: Record<TabKind, IconProps["icon"]> = {
   document: workspaceIcons.documentEditor,
@@ -49,7 +50,7 @@ const KIND_ICON: Record<TabKind, IconProps["icon"]> = {
   search: paletteIcons.search,
   terminal: workspaceIcons.terminal,
   conversation: conversationIcons.dock,
-  object: lophnSpaceIcons.series,
+  "new-context": workspaceIcons.context,
 };
 
 const KIND_LABEL: Record<TabKind, string> = {
@@ -59,26 +60,37 @@ const KIND_LABEL: Record<TabKind, string> = {
   search: "Search",
   terminal: "Terminal",
   conversation: "Conversation",
-  object: "Object",
+  "new-context": "Context",
 };
 
 export interface TabSpec {
   readonly key: string;
   readonly kind: TabKind;
   readonly title: string;
-  /** 종류 글자를 바꾼다(객체 탭은 Finding·Scenario·Experiment). */
+  /** 종류 글자를 바꾼다. */
   readonly label?: string;
-  /** Context 탭이 처음 여는 하위 탭, 객체 탭의 대상 같은 탭 하나의 설정. */
+  /** Context 탭이 여는 하위 탭, 문서 탭의 경로 같은 탭 하나의 설정. */
   readonly sub?: string;
+  /** 이미 열린 Context 탭을 다른 하위 탭으로 다시 열 때 올린다. 본문이 새로 그려진다. */
+  readonly rev?: number;
+  /** Context Engineer가 짜는 중인 context. 이 탭은 만드는 중 상태로 그려진다. */
+  readonly draft?: {
+    readonly purpose: string;
+    readonly places: number;
+    readonly documents: number;
+  };
 }
 
 /** 탭 줄. 종류는 아이콘과 글자로 구별한다(실제 TabStrip과 같은 마크업·CSS). 누르면 고르고 ×로 닫는다. */
 export function TabBar(
-  { tabs, selected, focused = true, end, onSelect, onClose }: {
+  { tabs, selected, focused = true, actions, newTab, onSelect, onClose }: {
     tabs: readonly TabSpec[];
     selected: string;
     focused?: boolean;
-    end?: ReactNode;
+    /** 고른 탭의 조작 icon(문서 탭의 Edit/Read·Info·…). 탭 줄 오른쪽 끝에 놓인다. */
+    actions?: ReactNode;
+    /** 탭 줄 끝의 새 탭 단추 자리. 없으면 누를 수 없는 + 단추다. */
+    newTab?: ReactNode;
     onSelect?: (key: string) => void;
     onClose?: (key: string) => void;
   },
@@ -142,8 +154,10 @@ export function TabBar(
         })}
       </div>
       <div className={tabStyles.end}>
-        {end}
-        <IconButton icon={lophnSpaceIcons.add} label="New tab" size="sm" />
+        {actions}
+        {newTab ?? (
+          <IconButton icon={lophnSpaceIcons.add} label="New tab" size="sm" />
+        )}
       </div>
     </div>
   );
@@ -417,47 +431,61 @@ export function StaticMenu(
   );
 }
 
-// 칸 본문 조각
+export type NewTabPick =
+  | "document"
+  | "terminal"
+  | "chat-lophn"
+  | "chat-engineer"
+  | "search"
+  | `context:${string}`
+  | "new-context";
 
-/** 문서 탭 본문. 제목은 파일 이름에서 온다. */
-export function DocumentBody(
-  { name = "exp-008-query-tools.md" }: { name?: string },
-) {
-  const title = name.replace(/\.md$/, "").replace(/-/g, " ");
+/**
+ * 탭 줄 끝의 + 메뉴. New tab에서 Context를 고르면 같은 메뉴가 context 목록(eval·harness·New context…)으로 바뀐다.
+ * 실제 Menu(Radix DropdownMenu)라 한 번에 한 단계만 보여 같은 자리에서 단계를 바꾸는 look-alike다.
+ */
+export function TabMenu({ onPick }: { onPick: (pick: NewTabPick) => void }) {
+  const [open, setOpen] = useState(false);
+  const [level, setLevel] = useState<"root" | "context">("root");
+  const stay = useRef(false);
+  const items = level === "root"
+    ? [
+      { id: "document", label: "Document" },
+      { id: "terminal", label: "Terminal" },
+      { id: "chat-lophn", label: "Conversation · lophn" },
+      { id: "chat-engineer", label: "Conversation · Context Engineer" },
+      { id: "context", label: "Context ›" },
+      { id: "search", label: "Search" },
+    ]
+    : [
+      { id: "context:eval", label: "Context · eval" },
+      { id: "context:harness", label: "Context · harness" },
+      { id: "new-context", label: "New context…" },
+    ];
   return (
-    <article className={styles.reading}>
-      <h1>{title}</h1>
-      <div className={styles.docMeta}>
-        <span>status: running</span>
-        <span>about: harness C-049</span>
-        <span>scenarios: 6</span>
-      </div>
-      <h2>## 질문</h2>
-      <p>
-        Do the query tools stop the agent from trying world actions on read-only
-        tasks, without hurting the answers?
-      </p>
-      <h2>## 기준선</h2>
-      <p>
-        The C-049 baseline run on the six scenarios, scored with the
-        query-hygiene rubric r2. Three of six runs tried a world action before
-        the change.
-      </p>
-    </article>
+    <Menu
+      open={open}
+      onOpenChange={(next) => {
+        // Context ›를 고르면 Radix가 닫으려 하지만 같은 메뉴를 다음 단계로 이어 연다.
+        if (!next && stay.current) {
+          stay.current = false;
+          return;
+        }
+        if (next) setLevel("root");
+        setOpen(next);
+      }}
+      trigger={
+        <IconButton icon={lophnSpaceIcons.add} label="New tab" size="sm" />
+      }
+      items={items}
+      onSelect={(id) => {
+        if (id === "context") {
+          stay.current = true;
+          setLevel("context");
+          return;
+        }
+        onPick(id as NewTabPick);
+      }}
+    />
   );
 }
-
-export const CHAT: readonly { who: "You" | "lophn"; text: string }[] = [
-  { who: "You", text: "Which findings are about C-049?" },
-  {
-    who: "lophn",
-    text:
-      "Three: F-009, F-010 and F-011. F-009 and F-010 are improvements, F-011 is a regression on query-recipe-gap.",
-  },
-  { who: "You", text: "Open the regression and compare it with exp-008." },
-  {
-    who: "lophn",
-    text:
-      "Opened F-011 next to exp-008-query-tools.md. The regression shows up only on scenarios that need a recipe lookup.",
-  },
-];

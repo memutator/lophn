@@ -11,7 +11,9 @@ import {
   type TreeNode,
 } from "@lophn/design/components";
 
-import { Mark, Mono } from "./project-window.tsx";
+import { Link } from "./link.tsx";
+import { experimentTab, findingTab, scenarioTab } from "./phroner-data.ts";
+import { Mark, Mono, type TabSpec } from "./project-window.tsx";
 import styles from "./compose.module.css";
 
 function Header({ tab, name }: { tab: SubTab; name: string }) {
@@ -332,6 +334,8 @@ const ENTITIES: readonly {
   count?: number;
   has?: string;
   example: string;
+  /** 예시에서 문서로 가는 링크. id를 눌러 그 문서를 연다. */
+  link?: { id: string; tab: () => TabSpec; rest: string };
   x: number;
   y: number;
 }[] = [
@@ -341,7 +345,12 @@ const ENTITIES: readonly {
     meaning: "Tests whether one change helps, on a set of scenarios.",
     count: 13,
     has: "has a status (draft, running, reported), a question, a baseline",
-    example: "e.g. exp-008 · query tools · running",
+    example: "e.g. ",
+    link: {
+      id: "exp-008",
+      tab: () => experimentTab("exp-008"),
+      rest: " · query tools · running",
+    },
     x: 0,
     y: 165,
   },
@@ -351,7 +360,12 @@ const ENTITIES: readonly {
     meaning: "One task the agent is asked to do, with stages that score it.",
     count: 34,
     has: "has tags, stages",
-    example: "e.g. query-leave-still",
+    example: "e.g. ",
+    link: {
+      id: "query-leave-still",
+      tab: () => scenarioTab("query-leave-still"),
+      rest: "",
+    },
     x: 360,
     y: 0,
   },
@@ -371,7 +385,12 @@ const ENTITIES: readonly {
     meaning: "What an experiment showed about a change.",
     count: 14,
     has: "has a kind (improvement, regression), effects on metrics",
-    example: "e.g. F-009 · world actions dropped on read-only tasks",
+    example: "e.g. ",
+    link: {
+      id: "F-009",
+      tab: () => findingTab("F-009"),
+      rest: " · world actions dropped on read-only tasks",
+    },
     x: 360,
     y: 330,
   },
@@ -410,7 +429,7 @@ function Edge(
   );
 }
 
-function DomainDiagram() {
+function DomainDiagram({ open }: { open: (tab: TabSpec) => void }) {
   return (
     <div className={styles.domain}>
       <svg width={960} height={580} viewBox="0 0 960 580" aria-hidden="true">
@@ -454,7 +473,17 @@ function DomainDiagram() {
           {entity.has === undefined
             ? null
             : <p className={styles.entityHas}>{entity.has}</p>}
-          <p className={styles.entityEg}>{entity.example}</p>
+          <p className={styles.entityEg}>
+            {entity.example}
+            {entity.link === undefined ? null : (
+              <>
+                <Link onClick={() => open(entity.link!.tab())}>
+                  {entity.link.id}
+                </Link>
+                {entity.link.rest}
+              </>
+            )}
+          </p>
           {entity.count === undefined
             ? null
             : <p className={styles.entityLink}>See all {entity.count} →</p>}
@@ -525,10 +554,10 @@ const COMPOSITION_OPEN = new Set([
   "finding",
 ]);
 
-function Overview() {
+function Overview({ open }: { open: (tab: TabSpec) => void }) {
   return (
     <>
-      <DomainDiagram />
+      <DomainDiagram open={open} />
       <section className={styles.fns}>
         <h2>Composition</h2>
         <Tree
@@ -582,7 +611,11 @@ function HarnessOverview() {
 
 /** Context 탭 본문. 하위 탭을 누르면 머리와 본문이 바뀐다. */
 export function ContextBody(
-  { name = "eval", initial = "overview" }: { name?: string; initial?: SubTab },
+  { name = "eval", initial = "overview", open }: {
+    name?: string;
+    initial?: SubTab;
+    open: (tab: TabSpec) => void;
+  },
 ) {
   const [tab, setTab] = useState<SubTab>(initial);
   const harness = name === "harness";
@@ -600,7 +633,7 @@ export function ContextBody(
           <Tab value="contract">Contract</Tab>
         </TabList>
         <TabPanel value="overview">
-          {harness ? <HarnessOverview /> : <Overview />}
+          {harness ? <HarnessOverview /> : <Overview open={open} />}
         </TabPanel>
         <TabPanel value="search">
           <p className={styles.note}>

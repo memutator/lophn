@@ -1,54 +1,30 @@
-// project 화면의 탭 본문들(대화·터미널·검색·Contexts·객체). 탭을 여는 일은 `open`으로 부른 쪽(ProjectApp)이 한다.
-import { type ReactNode, useState } from "react";
+// project 화면의 탭 본문들(터미널·검색·Contexts). 탭을 여는 일은 `open`으로 부른 쪽(ProjectApp)이 한다.
+import { useState } from "react";
 import {
   Card,
-  conversationIcons,
   Icon,
-  IconButton,
   iconPixels,
   Input,
   lophnSpaceIcons,
-  Textarea,
 } from "@lophn/design/components";
 import { Button, Field, Select } from "@lophn/ui-control";
 
 import menuStyles from "../../../../packages/design/components/menu/menu.module.css";
 import tableStyles from "../../../../packages/design/components/table/table.module.css";
-import { CHAT, Mono, type TabSpec } from "./project-window.tsx";
+import { Link } from "./link.tsx";
+import { NEW_CONTEXT_TAB } from "./context-form.tsx";
+import {
+  contextTab,
+  EXPERIMENT_NAMES,
+  experimentTab,
+  FINDINGS,
+  findingTab,
+  scenarioTab,
+} from "./phroner-data.ts";
+import type { TabSpec } from "./project-window.tsx";
 import styles from "./compose.module.css";
 
 export type Open = (tab: TabSpec) => void;
-
-/** lophn 대화 탭. */
-export function Conversation() {
-  return (
-    <div className={styles.chat}>
-      <div className={styles.turns}>
-        {CHAT.map((turn, index) => (
-          <div
-            key={index}
-            className={`${styles.turn} ${
-              turn.who === "You" ? styles.mine : ""
-            }`}
-          >
-            <span className={styles.who}>{turn.who}</span>
-            <p className={styles.said}>{turn.text}</p>
-          </div>
-        ))}
-      </div>
-      <div className={styles.composer}>
-        <Field label="Message">
-          <Textarea rows={2} placeholder="Message lophn" />
-        </Field>
-        <IconButton
-          icon={conversationIcons.send}
-          label="Send"
-          variant="secondary"
-        />
-      </div>
-    </div>
-  );
-}
 
 const PROMPT = "mina@lophn:~/work/phroner$ ";
 
@@ -58,338 +34,6 @@ export function TerminalBody() {
     <pre className={styles.terminal}>
       {`${PROMPT}ls\ndocs  eval  loop\n${PROMPT}git status --short\n M eval/experiments/exp-008-query-tools.md\n${PROMPT}`}
     </pre>
-  );
-}
-
-// 도메인 객체: 검색 결과의 Finding·Scenario·Experiment는 링크이고 누르면 객체 탭이 열린다.
-
-export interface FindingRow {
-  id: string;
-  title: string;
-  kind: "improvement" | "regression";
-  scenario: string;
-  effect: string;
-  experiment: string;
-}
-
-const row = (
-  id: string,
-  title: string,
-  kind: FindingRow["kind"],
-  scenario: string,
-  effect: string,
-  experiment: string,
-): FindingRow => ({ id, title, kind, scenario, effect, experiment });
-
-// 먼저 만진 순서. 첫 page에 F-009가 보인다.
-export const FINDINGS: readonly FindingRow[] = [
-  row(
-    "F-009",
-    "읽고 멈추는 과제에서 월드 행동 시도가 사라진다",
-    "improvement",
-    "query-leave-still",
-    "world_actions 3 → 0",
-    "exp-008",
-  ),
-  row(
-    "F-010",
-    "상자 이름을 묻는 과제에서 불필요한 열기 호출이 줄었다",
-    "improvement",
-    "query-chest-name",
-    "tool_calls 5 → 2",
-    "exp-008",
-  ),
-  row(
-    "F-011",
-    "레시피 빈틈을 묻는 과제에서 오답이 늘었다",
-    "regression",
-    "query-recipe-gap",
-    "answer_match 0.8 → 0.6",
-    "exp-008",
-  ),
-  row(
-    "F-013",
-    "길 찾기 과제의 단계 수가 줄었다",
-    "improvement",
-    "query-route-plan",
-    "steps 12 → 7",
-    "exp-011",
-  ),
-  row(
-    "F-014",
-    "상자 이름 과제의 호출이 한 번 더 줄었다",
-    "improvement",
-    "query-chest-name",
-    "tool_calls 4 → 3",
-    "exp-011",
-  ),
-  row(
-    "F-001",
-    "일정 도구가 같은 요청을 두 번 보내지 않는다",
-    "improvement",
-    "sched-basic",
-    "retries 4 → 1",
-    "exp-005",
-  ),
-  row(
-    "F-002",
-    "일정 겹침 확인에서 오답이 줄었다",
-    "improvement",
-    "sched-overlap",
-    "answer_match 0.6 → 0.9",
-    "exp-005",
-  ),
-  row(
-    "F-003",
-    "긴 일정 목록에서 응답이 느려졌다",
-    "regression",
-    "sched-long-list",
-    "latency_s 3 → 6",
-    "exp-005",
-  ),
-  row(
-    "F-004",
-    "재고 읽기에서 불필요한 쓰기 시도가 없어졌다",
-    "improvement",
-    "inv-read",
-    "world_actions 2 → 0",
-    "exp-006",
-  ),
-  row(
-    "F-005",
-    "재고 합계 계산이 정확해졌다",
-    "improvement",
-    "inv-total",
-    "answer_match 0.7 → 1.0",
-    "exp-006",
-  ),
-  row(
-    "F-006",
-    "레시피 조회 결과 캐시로 호출이 줄었다",
-    "improvement",
-    "recipe-lookup",
-    "tool_calls 6 → 3",
-    "exp-007",
-  ),
-  row(
-    "F-007",
-    "레시피 이름이 겹칠 때 엉뚱한 결과를 고른다",
-    "regression",
-    "recipe-dup",
-    "answer_match 0.9 → 0.7",
-    "exp-007",
-  ),
-  row(
-    "F-008",
-    "재료 대체 질문에서 답이 길어졌다",
-    "improvement",
-    "recipe-swap",
-    "tokens 900 → 600",
-    "exp-007",
-  ),
-  row(
-    "F-012",
-    "상자 위치 질문에서 첫 응답이 빨라졌다",
-    "improvement",
-    "query-chest-name",
-    "latency_s 5 → 3",
-    "exp-011",
-  ),
-];
-
-const EXPERIMENT_NAMES: Record<string, string> = {
-  "exp-005": "schedule tools",
-  "exp-006": "inventory read",
-  "exp-007": "recipe lookup",
-  "exp-008": "query tools",
-  "exp-011": "chest names",
-  "exp-012": "ftb quests 021 q8",
-  "exp-013": "ftb quests 2",
-  "exp-014": "route planner",
-};
-
-function Link(
-  { onClick, children }: { onClick: () => void; children: ReactNode },
-) {
-  return (
-    <a
-      className={styles.link}
-      href="#"
-      onClick={(event) => {
-        event.preventDefault();
-        onClick();
-      }}
-    >
-      {children}
-    </a>
-  );
-}
-
-/** 탭을 여는 요청. 객체 탭의 key는 대상이 같으면 같아 이미 열린 탭을 고른다. */
-export const objectTab = (
-  kind: "finding" | "scenario" | "experiment",
-  id: string,
-): TabSpec => ({
-  key: `object:${kind}:${id}`,
-  kind: "object",
-  title: id,
-  label: kind[0].toUpperCase() + kind.slice(1),
-  sub: `${kind}:${id}`,
-});
-
-export const documentTab = (path: string): TabSpec => ({
-  key: `doc:${path}`,
-  kind: "document",
-  title: path.split("/").pop() ?? path,
-  sub: path,
-});
-
-const Field2 = ({ name, children }: { name: string; children: ReactNode }) => (
-  <div className={styles.objField}>
-    <span className={styles.objName}>{name}</span>
-    <span>{children}</span>
-  </div>
-);
-
-/** 객체 탭 본문: 선언된 field를 사람 말로, 관계는 링크, 맨 아래에 원본 문서. */
-export function ObjectBody({ target, open }: { target: string; open: Open }) {
-  const [kind, id] = target.split(":") as [string, string];
-  let title = id;
-  let where = "Finding in eval";
-  let fields: ReactNode = null;
-  let relations: ReactNode = null;
-  let source = "";
-  if (kind === "finding") {
-    const finding = FINDINGS.find((item) => item.id === id) ?? FINDINGS[0];
-    title = `${finding.id} · ${finding.title}`;
-    fields = (
-      <>
-        <Field2 name="Kind">{finding.kind}</Field2>
-        <Field2 name="Effect">{finding.effect}</Field2>
-      </>
-    );
-    relations = (
-      <>
-        <Field2 name="About">
-          <Link onClick={() => {}}>C-049 (harness)</Link>
-        </Field2>
-        <Field2 name="From scenario">
-          <Link onClick={() => open(objectTab("scenario", finding.scenario))}>
-            {finding.scenario}
-          </Link>
-        </Field2>
-        <Field2 name="From experiment">
-          <Link
-            onClick={() => open(objectTab("experiment", finding.experiment))}
-          >
-            {finding.experiment}
-          </Link>
-        </Field2>
-      </>
-    );
-    source = `loop/findings/${finding.id}.md`;
-  } else if (kind === "scenario") {
-    where = "Scenario in eval";
-    const findings = FINDINGS.filter((item) => item.scenario === id);
-    fields = (
-      <>
-        <Field2 name="Tags">query · read-only</Field2>
-        <Field2 name="Stages">ask · answer · score</Field2>
-      </>
-    );
-    relations = (
-      <>
-        <Field2 name="Graded by">
-          <Link onClick={() => {}}>rubric schedule-quality</Link>
-        </Field2>
-        <Field2 name="Used by">
-          {[...new Set(findings.map((item) => item.experiment))].map(
-            (experiment) => (
-              <span key={experiment} className={styles.objLink}>
-                <Link onClick={() => open(objectTab("experiment", experiment))}>
-                  {experiment}
-                </Link>
-              </span>
-            ),
-          )}
-        </Field2>
-        <Field2 name="Findings">
-          {findings.map((item) => (
-            <span key={item.id} className={styles.objLink}>
-              <Link
-                onClick={() =>
-                  open(objectTab("finding", item.id))}
-              >
-                {item.id}
-              </Link>
-            </span>
-          ))}
-        </Field2>
-      </>
-    );
-    source = `eval/scenarios/${id}/r2.yaml`;
-  } else {
-    where = "Experiment in eval";
-    title = `${id} · ${EXPERIMENT_NAMES[id] ?? id}`;
-    const findings = FINDINGS.filter((item) => item.experiment === id);
-    fields = (
-      <>
-        <Field2 name="Status">running</Field2>
-        <Field2 name="Question">
-          Does the change help on read-only tasks?
-        </Field2>
-        <Field2 name="Baseline">The C-049 baseline run</Field2>
-      </>
-    );
-    relations = (
-      <>
-        <Field2 name="Checks">
-          <Link onClick={() => {}}>C-049 (harness)</Link>
-        </Field2>
-        <Field2 name="Runs on">
-          {[...new Set(findings.map((item) => item.scenario))].map(
-            (scenario) => (
-              <span key={scenario} className={styles.objLink}>
-                <Link onClick={() => open(objectTab("scenario", scenario))}>
-                  {scenario}
-                </Link>
-              </span>
-            ),
-          )}
-        </Field2>
-        <Field2 name="Produces">
-          {findings.map((item) => (
-            <span key={item.id} className={styles.objLink}>
-              <Link
-                onClick={() =>
-                  open(objectTab("finding", item.id))}
-              >
-                {item.id}
-              </Link>
-            </span>
-          ))}
-        </Field2>
-      </>
-    );
-    source = id === "exp-008"
-      ? "eval/experiments/exp-008-query-tools.md"
-      : `eval/experiments/${id}.md`;
-  }
-  return (
-    <article className={styles.object}>
-      <h1>{title}</h1>
-      <p className={styles.note}>{where}</p>
-      <h2 className={styles.objHead}>Fields</h2>
-      {fields}
-      <h2 className={styles.objHead}>Relations</h2>
-      {relations}
-      <p className={styles.objSource}>
-        Source: <Mono>{source}</Mono>{" "}
-        <Button size="sm" onClick={() => open(documentTab(source))}>
-          Open document
-        </Button>
-      </p>
-    </article>
   );
 }
 
@@ -436,13 +80,7 @@ export function ContextsBody({ open }: { open: Open }) {
             </ul>
             <div className={styles.actions}>
               <Button
-                onClick={() =>
-                  open({
-                    key: `context:${card.name}`,
-                    kind: "context",
-                    title: card.name,
-                    sub: "overview",
-                  })}
+                onClick={() => open(contextTab(card.name))}
               >
                 Open
               </Button>
@@ -451,7 +89,11 @@ export function ContextsBody({ open }: { open: Open }) {
         ))}
       </div>
       <div className={styles.newContext}>
-        <Button variant="primary" icon={lophnSpaceIcons.add}>
+        <Button
+          variant="primary"
+          icon={lophnSpaceIcons.add}
+          onClick={() => open(NEW_CONTEXT_TAB)}
+        >
           New context
         </Button>
         <p className={styles.note}>
@@ -624,6 +266,7 @@ export function SearchBody(
     "regression",
   ]);
   const [page, setPage] = useState(0);
+  const [context, setContext] = useState("eval");
   const rows = FINDINGS.filter((item) => kinds.includes(item.kind));
   const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   const current = Math.min(page, pages - 1);
@@ -638,9 +281,11 @@ export function SearchBody(
             value: "harness",
             label: "harness",
           }]}
-          defaultValue="eval"
+          value={context}
+          onValueChange={setContext}
         />
       </Field>
+      <Link onClick={() => open(contextTab(context))}>Open context</Link>
       <div>
         <p className={styles.groupLabel}>Searches</p>
         <ul className={styles.rows}>
@@ -700,7 +345,7 @@ export function SearchBody(
                 {column.cards.map((card) => (
                   <Card key={card.id}>
                     <Link
-                      onClick={() => open(objectTab("experiment", card.id))}
+                      onClick={() => open(experimentTab(card.id))}
                     >
                       {card.id}
                     </Link>{" "}
@@ -786,7 +431,7 @@ export function SearchBody(
                   <td className={tableStyles.text}>
                     <Link
                       onClick={() =>
-                        open(objectTab("finding", finding.id))}
+                        open(findingTab(finding.id))}
                     >
                       {finding.id} · {finding.title}
                     </Link>
@@ -797,7 +442,7 @@ export function SearchBody(
                   <td className={tableStyles.text}>
                     <Link
                       onClick={() =>
-                        open(objectTab("scenario", finding.scenario))}
+                        open(scenarioTab(finding.scenario))}
                     >
                       {finding.scenario}
                     </Link>
@@ -805,8 +450,7 @@ export function SearchBody(
                   <td className={tableStyles.text}>{finding.effect}</td>
                   <td className={tableStyles.text}>
                     <Link
-                      onClick={() =>
-                        open(objectTab("experiment", finding.experiment))}
+                      onClick={() => open(experimentTab(finding.experiment))}
                     >
                       {finding.experiment}
                     </Link>

@@ -13,6 +13,8 @@ export type CheckJobRequest = {
   bundle_hash: string;
   user_saved_views: CheckInput["user_saved_views"];
   env: CheckInput["env"];
+  // Project 폴더의 절대 경로. `snapshots`가 이것으로 파일을 복사한다. 어댑터가 따로 알면 비워도 된다.
+  roots?: readonly string[];
 };
 
 export type CheckJobDeps = {
@@ -34,7 +36,7 @@ export async function runCheckJob(
 ): Promise<Result<CheckOutcome>> {
   const parsed = bundleContentSchema.safeParse(request.bundle);
   const folders = parsed.success ? watchFolders(parsed.data.contract) : [];
-  const snapshot = deps.snapshots.create(request.check, folders);
+  const snapshot = deps.snapshots.create(request.check, folders, request.roots);
   if (!snapshot.ok) return snapshot;
   try {
     const outcome = runCheck({

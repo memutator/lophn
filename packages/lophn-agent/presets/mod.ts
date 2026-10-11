@@ -18,6 +18,7 @@ export {
   ROLE_CAPS,
 } from "./role-caps.ts";
 export {
+  type ContextStatus,
   type ResolvedSelections,
   validateDefinition,
   type ValidateDeps,
@@ -26,6 +27,7 @@ export { validateModelSelection } from "./capability.ts";
 export {
   BUILTIN_ROLES,
   type BuiltinRole,
+  CONTEXT_ENGINEER_BUNDLE,
   productPresetDefinition,
   type ProductRole,
 } from "./defaults.ts";

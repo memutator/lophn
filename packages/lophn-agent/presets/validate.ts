@@ -1,4 +1,4 @@
-import type { Result } from "../../base/mod.ts";
+import { ok, type Result } from "../../base/mod.ts";
 import type {
   CatalogEntry,
   McpServerConfig,
@@ -7,6 +7,7 @@ import type {
 } from "../../contracts/lophn-agent/mod.ts";
 import { validateModelSelection } from "./capability.ts";
 import {
+  errItem,
   expandBundles,
   type PresetItemError,
   rejectAssignmentFields,
@@ -43,7 +44,38 @@ export type ValidateDeps = {
   ) => boolean | null;
   // provider 안 존재하는 credential key 목록이다(R6).
   credentialKeys: (provider: string) => readonly string[];
+  // context 선택(kind=context)이 가리키는 context의 현재 상태다. 없는 context는
+  // undefined다. context 표는 documents/contexts의 것이라 조립(apps/core)이 읽어 넣는다.
+  // 이 조회가 없으면 context 선택은 실제 있는지 알 수 없으므로 거절한다(R11).
+  contextStatus?: (context: string) => ContextStatus | undefined;
 };
+
+export type ContextStatus = "drafting" | "active" | "archived";
+
+// kind=context 선택마다 target을 검사한다. 없는 context는 not_found, 보관한 context는
+// conflict다. 어느 선택인지 details.item(`context:<id>`)에 싣는다. all·project 같은
+// 풀이 선택은 실행 때 active context로 풀리므로 여기서 보지 않는다(R17).
+function rejectUnusableContexts(
+  selections: PresetDefinition["context"],
+  deps: Pick<ValidateDeps, "contextStatus">,
+): Result<void, PresetItemError> {
+  for (const selection of selections) {
+    if (selection.kind !== "context" || selection.target === null) continue;
+    const item = `context:${selection.target}`;
+    const status = deps.contextStatus?.(selection.target);
+    if (status === undefined) {
+      return errItem("not_found", item, "그 ID의 context가 없다");
+    }
+    if (status === "archived") {
+      return errItem(
+        "conflict",
+        item,
+        "보관한 context는 자료로 고를 수 없다",
+      );
+    }
+  }
+  return ok(undefined);
+}
 
 export type ResolvedSelections = {
   model: ResolvedModel | null;
@@ -62,6 +94,9 @@ export function validateDefinition(
     definition as unknown as Record<string, unknown>,
   );
   if (!shape.ok) return shape;
+  // context 선택은 실제 있고 보관되지 않은 context여야 한다(R11).
+  const contexts = rejectUnusableContexts(definition.context, deps);
+  if (!contexts.ok) return contexts;
   // capability 묶음을 저장 시점 개별 동작으로 펼친다(R7).
   const expanded = expandBundles(definition.capability.bundles, deps.bundles);
   if (!expanded.ok) return expanded;

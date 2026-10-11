@@ -145,6 +145,7 @@ import {
   allowNetList,
   allowRunList,
 } from "../../packages/lophn-agent/extensions/mod.ts";
+import { contextStatusOf } from "../../packages/documents/contexts/mod.ts";
 import { createMcpAuth } from "../../packages/lophn-agent/extensions/mod.ts";
 import { createMcpSecretRefSource } from "../../packages/lophn-agent/extensions/mod.ts";
 import type { HttpFetch } from "../../packages/lophn-agent/extensions/adapters/mcp-http.ts";
@@ -361,6 +362,7 @@ function presetValidateDeps(sql: Pick<Tx["sql"], "get" | "all">) {
         return undefined;
       }
     },
+    contextStatus: (context: string) => contextStatusOf(sql, context),
     catalogEntry: (providerDefinition: string, modelName: string) =>
       snapshotCatalogEntry(providerDefinition, modelName),
     modelListed: (providerDefinition: string, modelName: string) =>

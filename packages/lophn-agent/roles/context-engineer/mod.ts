@@ -3,11 +3,9 @@ export {
   EVIDENCE_LIMIT,
   type HoldRecord,
   holdWithoutAnswer,
-  interpretationQuestion,
   type ModelUse,
   type Occurrence,
   purposeOf,
-  type TermRelation,
 } from "./report.ts";
 export {
   checkDraft,

@@ -115,3 +115,26 @@ Deno.test("shell/workspace#R16 [ctx-I40]: context가 없으면 카드 없이 비
     ["New context"],
   );
 });
+
+Deno.test("shell/workspace#R16 [ctx-I39b]: 색인이나 Operator 수를 읽지 못해도 카드는 그 줄만 빼고 보인다", async () => {
+  const fake = createFakeContextsSource();
+  const source = {
+    ...fake,
+    overview: () =>
+      Promise.resolve({ ok: false as const, message: "unavailable" }),
+    operatorCount: () =>
+      Promise.resolve({ ok: false as const, message: "unavailable" }),
+  };
+  using view = tab({}, source);
+  await settle();
+  const rows = (id: string) =>
+    all(one(view.container, `[data-context-card="${id}"]`), "li").map(norm);
+  assertEquals(rows(EVAL), [
+    "Version r3, tests passed",
+    "2 violations",
+  ]);
+  assertEquals(rows(HARNESS), [
+    "Version r5, tests passed",
+    "no violations",
+  ]);
+});

@@ -3,6 +3,7 @@
 // 이 barrel에 두지 않는다. 그것들은 core 밖(writer·reader Worker)에서만 올리는
 // apps/core/contexts-ledger-deps.ts가 index/mod.ts를 직접 import한다.
 export { contextsLedgerSchemaSteps } from "./ledger/schema.ts";
+export { contextStatusOf, type ContextStatusValue } from "./ledger/status.ts";
 export {
   CONTEXT_WORKER_OPERATIONS,
   type ContextBlobs,
@@ -12,6 +13,7 @@ export {
   contextLedgerReads,
   mapActor,
 } from "./ledger/adapter.ts";
+export { contextWorkInputRead } from "./ledger/work-input.ts";
 export type { SearchExecutor } from "./api/reads.ts";
 export type { BlobReference, ContextApiActor, EntityRow } from "./api/state.ts";
 export { runSearch } from "./search/run.ts";

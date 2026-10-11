@@ -27,10 +27,23 @@ const FORMAT_TOOLS: readonly string[] = Object.freeze([
   "format.validate",
 ]);
 
-// context 개체 읽기다. 선언 검색 tool은 이름이 동적이라 이 표에 없고 preset의 context 선택이 정한다
-// (harness/tools#R21). 개체 읽기는 선택한 context 안에서만 읽힌다.
+// context 개체 읽기와 다음 이름 읽기다. 선언 검색 tool은 이름이 동적이라 이 표에 없고 preset의 context 선택이
+// 정한다(harness/tools#R21). 개체 읽기는 선택한 context 안에서만 읽힌다. 네 역할 모두 가진다(R22, R24).
 const CONTEXT_READ_TOOLS: readonly string[] = Object.freeze([
   "context.read_entity",
+  "series.next_name",
+]);
+
+// Context Engineer만의 계약·초안·미리보기·제출·위반·용어집 tool이다(harness/tools#R23). 이름은
+// `harness/tools/context-engineer-tools.ts`가 정한 값과 같다(presets는 harness를 import하지 않는다).
+export const CONTEXT_ENGINEER_ONLY_TOOLS: readonly string[] = Object.freeze([
+  "context.read_contract",
+  "context.draft",
+  "context.preview",
+  "context.submit",
+  "context.violations",
+  "context.glossary_read",
+  "context.glossary_write",
 ]);
 
 const ASK_TOOLS: readonly string[] = Object.freeze([
@@ -141,6 +154,7 @@ export const ROLE_CAPS: ReadonlyMap<string, RoleCap> = new Map<string, RoleCap>(
       "context_engineer",
       cap([
         ...COMMON_READ_TOOLS,
+        ...CONTEXT_ENGINEER_ONLY_TOOLS,
         "project.list",
         "project.read",
         "app.list",

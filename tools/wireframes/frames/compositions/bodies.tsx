@@ -12,19 +12,19 @@ import { Button, Field, Select } from "@lophn/ui-control";
 import menuStyles from "../../../../packages/design/components/menu/menu.module.css";
 import tableStyles from "../../../../packages/design/components/table/table.module.css";
 import { Link } from "./link.tsx";
-import { NEW_CONTEXT_TAB } from "./context-form.tsx";
 import {
   contextTab,
   EXPERIMENT_NAMES,
   experimentTab,
   FINDINGS,
   findingTab,
+  NEW_CONTEXT_CHAT,
   scenarioTab,
 } from "./phroner-data.ts";
 import type { TabSpec } from "./project-window.tsx";
 import styles from "./compose.module.css";
 
-export type Open = (tab: TabSpec) => void;
+export type Open = (tab: TabSpec, other?: boolean) => void;
 
 const PROMPT = "mina@lophn:~/work/phroner$ ";
 
@@ -92,7 +92,7 @@ export function ContextsBody({ open }: { open: Open }) {
         <Button
           variant="primary"
           icon={lophnSpaceIcons.add}
-          onClick={() => open(NEW_CONTEXT_TAB)}
+          onClick={() => open(NEW_CONTEXT_CHAT, true)}
         >
           New context
         </Button>

@@ -77,6 +77,14 @@ function lophnTurns(open: Open): readonly Turn[] {
   ];
 }
 
+const NEW_CONTEXT_TURNS: readonly Turn[] = [
+  {
+    who: "Context Engineer",
+    text:
+      "What should the new context help with? Tell me which folders or files to look at, and what you want to find.",
+  },
+];
+
 function engineerTurns(
   open: Open,
   answer: string | null,
@@ -136,8 +144,10 @@ function engineerTurns(
 
 /** 대화 탭. `with`가 Context Engineer면 질문과 답 단추가 나온다. */
 export function Conversation(
-  { who, open, answer = null, onAnswer = () => {} }: {
+  { who, fresh = false, open, answer = null, onAnswer = () => {} }: {
     who: "lophn" | "Context Engineer";
+    /** 새 context를 시작하는 대화. Context Engineer의 첫 질문만 있다. */
+    fresh?: boolean;
     open: Open;
     answer?: string | null;
     onAnswer?: (answer: string) => void;
@@ -145,6 +155,8 @@ export function Conversation(
 ) {
   const turns = who === "lophn"
     ? lophnTurns(open)
+    : fresh
+    ? NEW_CONTEXT_TURNS
     : engineerTurns(open, answer, onAnswer);
   return (
     <div className={styles.chat}>

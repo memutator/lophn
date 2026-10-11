@@ -36,9 +36,9 @@ Deno.test("shell#T66: 모든 page에 제목·badge·설명이 있고 id는 겹�
   }
 });
 
-Deno.test("shell#T66: 새 설계 page 열일곱 개는 모두 새 설계 badge와 한국어 설명을 갖는다", () => {
+Deno.test("shell#T66: 새 설계 page 열여섯 개는 모두 새 설계 badge와 한국어 설명을 갖는다", () => {
   const fresh = PAGES.filter((page) => page.part === "new");
-  assertEquals(fresh.length, 17);
+  assertEquals(fresh.length, 16);
   // 지금은 Domain model이 아니라 Overview다.
   assert(fresh.every((page) => !/Domain model/.test(page.title)));
   assert(fresh.some((page) => page.title === "Context tab · Overview"));
@@ -66,12 +66,11 @@ Deno.test("shell#T66: 디자인 시스템 part가 첫째이고 page마다 badge�
   }
 });
 
-Deno.test("shell#T68: 새 context form·만드는 중·Context 탭 여는 길·문서 탭 page가 있고 객체 탭 page는 없다", () => {
+Deno.test("shell#T68: 만드는 중·Context 탭 여는 길·문서 탭 page가 있고 새 context form과 객체 탭 page는 없다", () => {
   const ids = PAGES.map((page) => page.id);
   const titles = PAGES.map((page) => page.title);
   for (
     const title of [
-      "New context form",
       "New context · drafting",
       "Context tab · ways to open",
       "Project · document tab",
@@ -81,6 +80,8 @@ Deno.test("shell#T68: 새 context form·만드는 중·Context 탭 여는 길·�
     assert(titles.includes(title), `${title}: page 없음`);
   }
   assert(!ids.includes("new-object"));
+  assert(!ids.includes("new-context-form"));
+  assert(!titles.includes("New context form"));
   assert(!titles.some((title) => /^Object tab/.test(title)));
 });
 

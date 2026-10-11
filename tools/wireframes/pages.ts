@@ -102,7 +102,6 @@ export type ScreenId =
   | "new-organize"
   | "new-sidebar-collapsed"
   | "new-contexts"
-  | "new-context-form"
   | "new-context-drafting"
   | "new-ways-to-open"
   | "new-document-tab"
@@ -482,25 +481,19 @@ export const PAGES: readonly WireframePage[] = [
   fresh(
     "new-contexts",
     "Contexts tab",
-    "project의 context 목록을 여는 새 탭 종류. context마다 목적, 다루는 것의 종류 수, 버전, 위반, 쓰는 Operator를 보이고 [Open]은 그 context의 탭(Overview)을 열고, [New context]는 새 context form 탭을 연다.",
+    "project의 context 목록을 여는 새 탭 종류. context마다 목적, 다루는 것의 종류 수, 버전, 위반, 쓰는 Operator를 보이고 [Open]은 그 context의 탭(Overview)을 열고, [New context]는 다른 칸에 Context Engineer 대화를 열어 무엇을 위한 context인지 묻는 것으로 시작한다. form은 없다.",
     "new-contexts",
-  ),
-  fresh(
-    "new-context-form",
-    "New context form",
-    "새 context는 form으로 시작한다. 이름·목적·볼 자료·찾고 싶은 것을 사람 말로 적으면 Context Engineer가 그걸로 도메인 모델과 검색을 짠다. Contexts 탭의 [New context]나 + 메뉴의 New context…로 열고, 자료는 폴더 tree에서 눌러 고른다.",
-    "new-context-form",
   ),
   fresh(
     "new-context-drafting",
     "New context · drafting",
-    "만들기를 누르면 그 탭이 새 context의 Context 탭이 되고, Context Engineer가 짜는 동안의 상태를 보인다. 막히면 오른쪽 칸 대화로 묻는다. 대화의 답 단추를 눌러 볼 수 있다.",
+    "Context Engineer와 대화한 뒤 Context Engineer가 짜기 시작하면 새 context의 Context 탭이 이 모양으로 열려 진행 상태와 아직 확정 아닌 초안을 보인다. 막히면 오른쪽 칸 대화로 묻고, 대화의 답 단추를 눌러 볼 수 있다.",
     "new-context-drafting",
   ),
   fresh(
     "new-ways-to-open",
     "Context tab · ways to open",
-    "Context 탭은 sidebar, 바로 가기, 새 탭 메뉴, 검색, 문서의 info, 위반 알림, 상단 검색, 대화, 새 context form에서 연다. 길마다 try it을 누르면 그 길을 눌러 볼 수 있는 page로 간다.",
+    "Context 탭은 sidebar, 바로 가기, 새 탭 메뉴, 검색, 문서의 info, 위반 알림, 상단 검색, 대화, 새 context 대화에서 연다. 길마다 try it을 누르면 그 길을 눌러 볼 수 있는 page로 간다.",
     "new-ways-to-open",
   ),
   fresh(

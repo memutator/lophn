@@ -59,9 +59,12 @@ export const WAYS: readonly Way[] = [
     tryIt: "new-project-tabs",
   },
   {
-    title: "New context form",
-    steps: ["New context form", "[Create with Context Engineer]"],
+    title: "New context",
+    steps: [
+      "Contexts tab [New context]",
+      "Context Engineer conversation",
+    ],
     result: "release-notes · drafting",
-    tryIt: "new-context-form",
+    tryIt: "new-contexts",
   },
 ];

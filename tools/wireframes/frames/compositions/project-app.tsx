@@ -20,17 +20,13 @@ import { ContextsBody, SearchBody, TerminalBody } from "./bodies.tsx";
 import { ContextBody, type SubTab } from "./context-body.tsx";
 import { Conversation } from "./conversation.tsx";
 import { DocActions, DocumentPane, type InfoPanel } from "./documents.tsx";
-import {
-  ContextDrafting,
-  draftTab,
-  NEW_CONTEXT_TAB,
-  NewContextForm,
-} from "./context-form.tsx";
+import { ContextDrafting } from "./context-drafting.tsx";
 import {
   contextTab,
   documentTab,
   experimentTab,
   findingTab,
+  NEW_CONTEXT_CHAT,
 } from "./phroner-data.ts";
 import {
   ProjectSidebar,
@@ -84,8 +80,6 @@ function crumbsOf(tab: TabSpec | undefined): string[] {
       return ["phroner", ...(tab.sub ?? tab.title).split("/")];
     case "context":
       return ["phroner", tab.title, "Context"];
-    case "new-context":
-      return ["phroner", "Contexts", "New context"];
     case "contexts":
       return ["phroner", "Contexts"];
     case "search":
@@ -206,29 +200,6 @@ export function ProjectApp(
       );
     });
 
-  // form 탭을 새 context 탭으로 바꾼다. 그 탭이 이미 열려 있으면 form만 닫고 그 탭을 고른다.
-  const replace = (oldKey: string, tab: TabSpec) =>
-    setPanes((current) => {
-      const exists = current.some((pane) =>
-        pane.tabs.some((item) => item.key === tab.key)
-      );
-      return current.map((pane) => {
-        if (!pane.tabs.some((item) => item.key === oldKey)) {
-          return exists && pane.tabs.some((item) => item.key === tab.key)
-            ? { ...pane, selected: tab.key }
-            : pane;
-        }
-        return {
-          tabs: exists
-            ? pane.tabs.filter((item) => item.key !== oldKey)
-            : pane.tabs.map((item) => item.key === oldKey ? tab : item),
-          selected: pane.selected === oldKey || !exists
-            ? tab.key
-            : pane.selected,
-        };
-      });
-    });
-
   const close = (key: string) =>
     setPanes((current) =>
       current.map((pane) => {
@@ -270,7 +241,7 @@ export function ProjectApp(
     else if (choice === "chat-lophn") open(CHAT_TAB);
     else if (choice === "chat-engineer") open(ENGINEER_TAB);
     else if (choice === "search") open(searchTab);
-    else if (choice === "new-context") open(NEW_CONTEXT_TAB);
+    else if (choice === "new-context") open(NEW_CONTEXT_CHAT, true);
     else if (choice.startsWith("context:")) {
       open(contextTab(choice.slice("context:".length)));
     }
@@ -299,17 +270,6 @@ export function ProjectApp(
             />
           )
           : <ContextDrafting name={tab.title} draft={tab.draft} />;
-      case "new-context":
-        return (
-          <NewContextForm
-            onCreate={(name, draft) => {
-              replace(tab.key, draftTab(name, draft));
-              setAnswer(null);
-              open(ENGINEER_TAB, true);
-            }}
-            onCancel={() => close(tab.key)}
-          />
-        );
       case "contexts":
         return <ContextsBody open={open} />;
       case "search":
@@ -325,7 +285,8 @@ export function ProjectApp(
       case "conversation":
         return (
           <Conversation
-            who={tab.sub === "engineer" ? "Context Engineer" : "lophn"}
+            who={tab.sub?.startsWith("engineer") ? "Context Engineer" : "lophn"}
+            fresh={tab.sub === "engineer-new"}
             open={open}
             answer={answer}
             onAnswer={setAnswer}

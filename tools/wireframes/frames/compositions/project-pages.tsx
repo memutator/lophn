@@ -7,11 +7,7 @@ import {
   type PaneInit,
   ProjectApp,
 } from "./project-app.tsx";
-import {
-  draftTab,
-  NEW_CONTEXT_TAB,
-  RELEASE_NOTES_DRAFT,
-} from "./context-form.tsx";
+import { draftTab, RELEASE_NOTES_DRAFT } from "./context-drafting.tsx";
 import { documentTab, findingTab } from "./phroner-data.ts";
 import { StaticMenu, type TabSpec } from "./project-window.tsx";
 import styles from "./compose.module.css";
@@ -167,16 +163,7 @@ export function ContextsTab() {
   return <ProjectApp panes={[left(CONTEXTS, CONTEXTS)]} />;
 }
 
-/** C11: 새 context form. Contexts 탭의 [New context]로 열린 "New context" 탭. */
-export function NewContextFormPage() {
-  return (
-    <ProjectApp
-      panes={[left(NEW_CONTEXT_TAB, CONTEXTS, NEW_CONTEXT_TAB)]}
-    />
-  );
-}
-
-/** C12: 만들기를 누른 뒤. 그 탭이 release-notes의 Context 탭(만드는 중)이 되고 오른쪽 칸에 Context Engineer 대화가 열린다. */
+/** C12: Context Engineer와 대화한 뒤. release-notes의 Context 탭이 만드는 중으로 열리고 오른쪽 칸 대화가 막힌 곳을 묻는다. */
 export function NewContextDrafting() {
   const draft = draftTab("release-notes", RELEASE_NOTES_DRAFT);
   return (

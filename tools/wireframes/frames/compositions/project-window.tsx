@@ -40,8 +40,7 @@ export type TabKind =
   | "contexts"
   | "search"
   | "terminal"
-  | "conversation"
-  | "new-context";
+  | "conversation";
 
 const KIND_ICON: Record<TabKind, IconProps["icon"]> = {
   document: workspaceIcons.documentEditor,
@@ -50,7 +49,6 @@ const KIND_ICON: Record<TabKind, IconProps["icon"]> = {
   search: paletteIcons.search,
   terminal: workspaceIcons.terminal,
   conversation: conversationIcons.dock,
-  "new-context": workspaceIcons.context,
 };
 
 const KIND_LABEL: Record<TabKind, string> = {
@@ -60,7 +58,6 @@ const KIND_LABEL: Record<TabKind, string> = {
   search: "Search",
   terminal: "Terminal",
   conversation: "Conversation",
-  "new-context": "Context",
 };
 
 export interface TabSpec {

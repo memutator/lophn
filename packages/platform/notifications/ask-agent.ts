@@ -3,6 +3,7 @@ import type {
   NotificationFirstContext,
   Seq,
 } from "../../contracts/platform/mod.ts";
+import { triggerOf } from "./model.ts";
 
 // 계기 종류가 정한 부를 agent와 첫 context 모양이다(platform/notifications#R13).
 // 계기 표(contract)의 한 행이며 notification 내용이나 대상 문서의 내용을 읽지 않는다.
@@ -33,11 +34,26 @@ export type AskTab = {
 };
 
 // 계기 종류 → 부를 agent. 표에 없거나 agent가 없는 종류는 null(보기만)이다.
-export function askAgentOf(_event: string): AskAgent | null {
-  throw new Error("not implemented: agent-I18");
+// 표의 복사본을 돌려준다: 호출한 쪽이 값을 바꿔도 계기 표는 그대로 남는다.
+export function askAgentOf(event: string): AskAgent | null {
+  const trigger = triggerOf(event);
+  if (trigger === undefined || trigger.ask_agent === null) return null;
+  return {
+    role: trigger.ask_agent,
+    first_context: { ...trigger.first_context },
+  };
 }
 
 // 사람이 Ask를 골랐을 때 열 탭 값. agent가 없는 계기는 null이다.
-export function askTab(_source: AskSource): AskTab | null {
-  throw new Error("not implemented: agent-I18");
+export function askTab(source: AskSource): AskTab | null {
+  const agent = askAgentOf(source.event);
+  if (agent === null) return null;
+  return {
+    role: agent.role,
+    work_place: { kind: agent.first_context.work_place, id: source.app },
+    opening_context: {
+      source_seq: source.source_seq,
+      target: { kind: agent.first_context.target, id: source.subject },
+    },
+  };
 }

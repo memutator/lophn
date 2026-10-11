@@ -1,27 +1,28 @@
 ---
 type: flow
-concerns: [lophn-agent/harness/provider, lophn-agent/harness/model, lophn-agent/harness/run-loop, lophn-agent/harness/usage, platform/settings, platform/secrets, shell/confirmation-window, shell/desktop, shell/wording, lophn-agent/agents]
+concerns: [lophn-agent/harness/provider, lophn-agent/harness/model, lophn-agent/harness/run-loop, lophn-agent/harness/usage, lophn-agent/agents, platform/secrets, shell/confirmation-window, shell/desktop, shell/wording]
 ---
 # 계정 순서를 정하고 연결 문제를 해결한다
 
-같은 provider에 계정을 여러 개 연결하거나 사용량 제한·인증 오류·model 접근 불가로 agent 일이 진행되지 않을 때 시작한다. 이 흐름은 lophn-agent/harness#I1·lophn-agent#I7·platform#I4를 지킨다.
+같은 provider에 계정을 여러 개 연결하거나 사용량 제한·인증 오류·model 접근 불가로 agent 일이 진행되지 않을 때 시작한다. 계정은 provider에 속한다. agent·기본값·session은 provider와 model만 고르고 계정을 고르지 않는다. 이 흐름은 lophn-agent/harness#I1·lophn-agent#I7·platform#I4를 지킨다.
 
 ## 흐름
 
-1. 사람은 preset마다 사용할 provider 계정의 명시 순서 목록과 model을 정한다. 계정·조직·요금제는 확인한 값만 보여 주고 전역 연결 목록 순서가 모든 preset의 자동 fallback 허락이 되지는 않는다. (lophn-agent/agents#R14, lophn-agent/harness/provider#R6, lophn-agent/harness/provider#R8, lophn-agent/harness/provider#R9)
-2. lophn은 이번 run의 고정 Preset 판에 명시된 같은 provider 계정 순서에서 사용할 수 있는 credential을 선택한다. 다음 preset 적용은 다음 run부터 쓰고 현재 권한 회수는 즉시 반영한다. 선택 과정은 사람에게는 보이지 않는다. (lophn-agent/agents#R26, lophn-agent/harness/provider#R8, lophn-agent/harness/provider#R10)
+1. Settings › Providers 화면 사람은 provider 하나에 연결한 계정들의 순서를 정하고 계정마다 사용을 끌 수 있다. 계정은 사람이 붙인 이름표와 확인한 계정·조직·요금제로만 구별해 보이며 미확인 값은 추측하지 않는다. 다른 provider의 계정은 이 순서에 들어오지 않는다. (shell/desktop#R49, lophn-agent/harness/provider#R6, lophn-agent/harness/provider#R8, lophn-agent/harness/provider#R9, lophn-agent/agents#R14)
+2. lophn은 그 provider에 사람이 정한 순서에서 사용을 끄지 않은 첫 사용 가능 credential을 고른다. 종류·사용량에 따른 자동 선택과 돌려 쓰기는 없다. run은 처음 고른 credential을 유지하고, 순서나 사용 끄기의 변경은 다음 run부터 쓴다. 권한 회수는 즉시 반영한다. 선택 과정은 사람에게는 보이지 않는다. (lophn-agent/harness/provider#R4, lophn-agent/harness/provider#R8, lophn-agent/harness/provider#R10)
 3. lophn은 통신의 일시 실패·사용량 제한·인증 거절·해당 model 접근 불가를 구별한다. OAuth 갱신으로 복구할 수 있으면 정해진 갱신 경계에서 처리하며 인증 폐기와 요금제 제한을 섞지 않는다. 사람에게는 보이지 않는다. (lophn-agent/harness/provider#R17, lophn-agent/harness/provider#R18, lophn-agent/harness/provider#R19, lophn-agent/harness/provider#R20, lophn-agent/harness/provider#R21, lophn-agent/harness/provider#R22)
-4. 현재 계정이 인증 거절·사용량 대기·해당 model 사용 불가가 된 때만 고정 Preset 판에 사람이 명시한 같은 provider 순서의 다음 계정으로 이동한다. 목록 밖 계정·다른 provider·model로 자동 이동하지 않고 회복한 앞 계정으로 진행 run을 되돌리지 않는다. 사람에게는 보이지 않는다. (lophn-agent/agents#R14, lophn-agent/harness/provider#R10)
-5. settings 화면 사용할 후보가 없으면 사람은 선택한 연결이 왜 사용 불가인지와 필요한 다음 행동을 확인한다. 사용량 제한에는 확인된 리셋 시각을, 인증 폐기에는 교체·재로그인을 안내한다. 서버 리셋 시각을 모르면 내부 대기는 1시간으로 정하되 그 시각을 서버가 확인한 리셋 시각이라고 표시하지 않는다. model 문제는 해당 계정·model 조합의 문제로 남긴다. (lophn-agent/harness/provider#R18, lophn-agent/harness/provider#R21, lophn-agent/harness/provider#R22, lophn-agent/harness/provider#R24, shell/wording#R10)
+4. 현재 계정이 인증 거절·사용량 대기·해당 model 사용 불가가 된 때만 같은 provider의 사람이 정한 순서에서 다음 계정으로 이동한다. 다른 provider·model로 자동 이동하지 않고 회복한 앞 계정으로 진행 run을 되돌리지 않는다. 사람에게는 보이지 않는다. (lophn-agent/harness/provider#R10)
+5. Settings › Providers 화면 사용할 후보가 없으면 사람은 그 계정이 왜 사용 불가인지와 필요한 다음 행동을 확인한다. 사용량 제한에는 확인된 리셋 시각을, 인증 폐기에는 교체·재로그인을 안내한다. 서버 리셋 시각을 모르면 내부 대기는 1시간으로 정하되 그 시각을 서버가 확인한 리셋 시각이라고 표시하지 않는다. model 문제는 해당 계정·model 조합의 문제로 남긴다. (lophn-agent/harness/provider#R18, lophn-agent/harness/provider#R21, lophn-agent/harness/provider#R22, lophn-agent/harness/provider#R24, shell/wording#R10)
 6. confirmation-window 화면 사람은 정확한 계정을 대상으로 교체·삭제·재로그인을 명시적으로 결정하고 필요한 새 값을 보호 입력으로 넣는다. lophn은 값과 참조 교체를 안전하게 처리하고 새 사용 차단과 실제 OS 값 삭제 완료를 구별한다. 안쪽 처리와 credential 값은 agent에게 보이지 않는다. (lophn-agent/harness/provider#R6, platform/secrets#R2, platform/secrets#R4, platform/secrets#R6, platform/secrets#R7, shell/confirmation-window#R5, shell/confirmation-window#R6)
-7. settings 화면 사람은 새 순서·연결 상태·선택 model을 확인하고 원하면 별도 test 재료로 연결 확인을 명시적으로 요청한다. 연결 확인과 실제 agent 일의 결과는 별개이며 사용량·청구액이 보고되지 않았으면 모름으로 남긴다. (lophn-agent/harness/provider#R27, lophn-agent/harness/provider#R29, lophn-agent/harness/provider#R30, lophn-agent/harness/usage#R6, lophn-agent/harness/usage#R7)
+7. Settings › Providers 화면 사람은 새 순서와 계정별 연결 상태를 확인하고 원하면 별도 test 재료로 연결 확인을 명시적으로 요청한다. 연결 확인과 실제 agent 일의 결과는 별개이며 사용량·청구액이 보고되지 않았으면 모름으로 남긴다. (lophn-agent/harness/provider#R27, lophn-agent/harness/provider#R29, lophn-agent/harness/provider#R30, lophn-agent/harness/usage#R6, lophn-agent/harness/usage#R7)
 
 ## 다른 갈래
 
 - 1에서 같은 key 또는 같은 계정·조직의 OAuth를 중복 등록하려 하면 거절하고 기존 계정을 구별하여 안내한다. 같은 이메일이어도 조직이 다르면 같은 계정으로 합치지 않는다. (lophn-agent/harness/provider#R9)
+- 2에서 계정이 하나뿐이거나 순서의 계정이 모두 막혔으면 run은 멈추고 다른 provider·model로 가지 않는다. 사용을 끈 계정은 후보가 되지 않는다. (lophn-agent/harness/provider#R8, lophn-agent/harness/provider#R10)
 - 3에서 단기 통신 오류면 harness가 같은 입력으로 최초 뒤 최대 2회만 retry하고 서버 최소 재시도 시각을 지킨다. retry를 장기 제한 우회나 인증 변경으로 쓰지 않는다. 실제 시도는 각각 기록한다. (lophn-agent/harness/provider#R20, lophn-agent/harness/run-loop#R23, lophn-agent/harness/usage#R1)
 - 3에서 사람이 취소하거나 model이 내용을 거절하거나 문맥 한계를 넘었으면 credential을 막거나 다른 계정으로 같은 내용을 우회 전송하지 않는다. (lophn-agent/harness/provider#R23)
-- 5에서 model 자체가 사라지거나 사용할 수 없어도 저장한 선택을 지우거나 다른 model로 채우지 않는다. 사람은 필요할 때 다음 run에 쓸 선택을 직접 바꾼다. (lophn-agent/harness/model#R9, lophn-agent/harness/model#R12)
+- 5에서 model 자체가 사라지거나 사용할 수 없어도 저장한 선택을 지우거나 다른 model로 채우지 않는다. 사람은 필요할 때 다음 run에 쓸 선택을 Settings › Agents나 agent editor에서 직접 바꾼다. (lophn-agent/harness/model#R12)
 - 6에서 사람이 보호 화면을 닫거나 취소하면 결정으로 보내지 않는다. keychain 불가 또는 교체 실패에는 더 약한 보관 경로를 만들지 않고 이전 참조와 실제 적용 결과를 유지한다. (shell/confirmation-window#R4, platform/secrets#R6, platform/secrets#R8)
 - 6에서 provider를 끄거나 credential을 회수하면 새 호출을 막고 가능한 진행 호출에는 취소를 요청한다. 이미 전송한 요청의 결과를 취소 성공으로 꾸미지 않는다. (lophn-agent/harness/provider#R4, lophn-agent/harness/run-loop#R25)
 - 7에서 대기 중인 credential의 연결 테스트를 요청해도 제한을 우회하지 않는다. 테스트 취소·실패의 실제 사용량과 비용도 기록하며 모름을 무료로 표시하지 않는다. (lophn-agent/harness/provider#R24, lophn-agent/harness/provider#R30, lophn-agent/harness/usage#R1, lophn-agent/harness/usage#R6, lophn-agent/harness/usage#R7)
@@ -29,4 +30,4 @@ concerns: [lophn-agent/harness/provider, lophn-agent/harness/model, lophn-agent/
 
 ## 끝
 
-settings 화면에서 사람이 정한 계정 순서와 각 계정의 사용 가능 여부, 선택한 model, 아직 필요한 행동을 확인할 수 있다. 모든 후보가 막혀 있으면 해결되지 않은 상태로 남기며, 연결이 회복됐다는 사실을 중단한 agent 일의 완료로 표시하지 않는다. (lophn-agent/harness/provider#R4, lophn-agent/harness/provider#R10, lophn-agent/harness/run-loop#R18)
+Settings › Providers에서 사람이 정한 계정 순서와 각 계정의 사용 가능 여부, 아직 필요한 행동을 확인할 수 있다. 모든 후보가 막혀 있으면 해결되지 않은 상태로 남기며, 연결이 회복됐다는 사실을 중단한 agent 일의 완료로 표시하지 않는다. (lophn-agent/harness/provider#R4, lophn-agent/harness/provider#R10, lophn-agent/harness/run-loop#R18)

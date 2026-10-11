@@ -4,7 +4,7 @@
 `<concern id>#Q<n>`으로 여기에 올리고, 사람이 정해야 하는 것만 "사람이 정할
 것"에 둔다.
 
-- 모두 765건(재연결 뒤 8건 포함): 추천대로 626, 다르게 정함 31, 대체됨 69, 이미
+- 모두 774건(재연결 뒤 8건 포함): 추천대로 635, 다르게 정함 31, 대체됨 69, 이미
   정함 30, 사람이 정할 것 2
 - 사람이 정한 큰 결정은 아래 "정한 원칙"에 있다. 문서는 이 결정을 따른다.
 
@@ -155,7 +155,7 @@
 | redesign/propagate#Q2            | OS별 coding credential 보호 process-local 전달은 무엇으로 구현할까?                                                                                      | 추천대로    | 실제 loader·child generation·connection 결합을 검증; argv·일반 env·PTY 금지                                                                                                                                                  |
 | redesign/propagate#Q8            | 옛 일반 설정의 role 층과 Role ID를 새 Preset 구성으로 언제 migrate할까?                                                                                  | 추천대로    | 두 원본 금지; source 기록을 보존한 명시 migration을 실제 구현 schema 변경에서 설계                                                                                                                                           |
 
-### documents (88)
+### documents (96)
 
 | id                              | 질문                                                                                                                               | 판정      | 결정                                                                                                                              |
 | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------- |
@@ -207,6 +207,13 @@
 | documents/contexts#Q7           | watch section rename 자동 추적과 이력의 같은 대응 계산을 유지할까.                                                                 | 추천대로  | 같은 key 비교·소실                                                                                                                |
 | documents/contexts#Q8           | context 항목의 기준/참고/watch를 깊이 설정과 묶을까.                                                                               | 추천대로  | 요청별 읽기 깊이                                                                                                                  |
 | documents/contexts#Q9           | 새 saved view·series 채택이 context의 View·Series 항목 금지를 바꿀까.                                                              | 추천대로  | context target 유지                                                                                                               |
+| documents/contexts#Q10 | 새 context 모델(결정적 계약 + 선언 검색, 2026-10-11)에서 검색을 무엇으로 쓸까. 선택지: 선언형 query, QuickJS script. | 추천대로 | 첫 판은 선언형 query만(from·where·관계 따라가기·sort·group). 표현이 안 되는 것이 실제로 나오면 QuickJS script(문서 format 모듈과 같은 sandbox)를 더한다. 선언형이면 실행기가 순수 함수라 결정적이고 잘게 test된다. |
+| documents/contexts#Q11 | context 계약과 그 판을 어디 둘까. 선택지: project 폴더의 파일, lophn ledger. | 추천대로 | lophn ledger(+blob). project 폴더에 쓰지 않는다. 앱 source처럼 lophn이 갖고 사람 폴더를 어지럽히지 않는다. |
+| documents/contexts#Q12 | 계약의 field 추출에 frontmatter·YAML parser가 필요한데 documents에 없다. 무엇을 쓸까. | 추천대로 | `@std/yaml` 의존을 더하고 docs/dev/stack.md에 적는다. Markdown section은 기존 format 모듈의 section 추출을 쓴다. |
+| documents/contexts#Q13 | 용어집 모양. | 추천대로 | context마다 용어 + 뜻 + 정한 사람(사람 또는 Context Engineer). 후보·근거·판은 없다(용어집은 agent용, 문서 판 삭제). |
+| documents/contexts#Q14 | tracking·문서 판 없이 context index를 어떻게 최신으로 둘까. | 추천대로 | 계약이 가리키는 경로만 stat(mtime·size)으로 훑어 derived store에 개체를 둔다. 검색·context 열기 전에 다시 훑는다. watch 없음. outline kind는 저장하지 않고 쓸 때 파싱한다(사람 결정). |
+| documents/contexts#Q15 | 계약 위반을 사람에게 어떻게 알릴까. | 추천대로 | 새 notification trigger: 계약 위반 수가 늘면 machine이 기록하고 알린다. 옛 watch trigger는 지운다. |
+| documents/contexts#Q16 | app-data kind(앱 read command)를 언제 실제로 잇나. | 추천대로 | 첫 판은 port + fake까지 만들고, 실제 앱 read command 연결은 마지막 task로 둔다. |
 | documents/file-tracking#Q1      | agent가 원본 연결 문서를 고치는 통로를 추가할까.                                                                                   | 추천대로  | 별도 제안 문서와 사람 편집 유지                                                                                                   |
 | documents/file-tracking#Q2      | 초기 worker 2개를 요구로 유지할까 구현 조절값으로만 둘까.                                                                          | 추천대로  | 초기 2개 후 측정 조정                                                                                                             |
 | documents/file-tracking#Q3      | 안정 읽기 재시도·파일 수·바이트·시간 한도의 초기 값을 무엇으로 할까.                                                               | 추천대로  | 실측으로 정하고 한도 초과는 미확인                                                                                                |
@@ -230,6 +237,7 @@
 | documents/outline-and-search#Q6 | saved view 없음이라는 기존 outline domain model을 이번 채택에 맞춰 확장해야 한다.                                                  | 추천대로  | saved view 저장 조건                                                                                                              |
 | documents/outline-and-search#Q7 | 단순 offset cursor와 갱신 시각 정렬을 새 기준 고정 규칙에 그대로 쓸까.                                                             | 추천대로  | 기준 결합 cursor                                                                                                                  |
 | documents/outline-and-search#Q8 | saved view의 처음 지원 조건·정렬 범위를 이대로 둘까.                                                                               | 추천대로  | 현재 정의된 문서 조건만                                                                                                           |
+| documents/outline-and-search#Q9 | 목차를 색인하지 않게 되면(2026-10-11 사람 결정) 검색어 일치 검색은 무엇을 찾나. | 추천대로 | 색인(FTS5) 없이 검색할 때 project의 md 파일을 훑는다(`.gitignore`·숨은 폴더 제외). 형식 범위는 outline과 같다. |
 | documents/projects#Q1           | 여러 프로젝트의 추적 폴더 겹침 금지를 유지할까.                                                                                    | 추천대로  | 겹침 금지                                                                                                                         |
 | documents/projects#Q2           | 폴더의 label·기본 여부와 기본 추적 행의 존재 의미를 새 모델에도 유지할까.                                                          | 추천대로  | 폴더 설명과 명시적 스위치                                                                                                         |
 | documents/projects#Q3           | 프로젝트의 폴더·원본 경로 정보를 별도 export로 제공할까.                                                                           | 추천대로  | 별도 export는 후속으로 두고 지금 backup만                                                                                         |
@@ -708,7 +716,7 @@
 | redesign/propagate#Q4          | reproduction 없는 코드 수리의 ticket 준비와 보호된 사람 문제 확인을 어떻게 맞출까?                                              | 추천대로    | ticket 없는 direct repair는 금지; 보호된 사람 확인을 유지하되 ticket owner의 reproduction 조건을 별도 결정                                           |
 | redesign/propagate#Q7          | 새 앱의 [Start]는 source→project 연결을 요구하지만 source 연결은 첫 coding 작업에서 준비한다. 최초 연결을 어느 단계에서 만들까? | 추천대로    | 사람의 기존 project/source 연결이 있으면 Start; 없으면 추측 없이 준비 차단·직접 터미널 안내. sessions owner가 bootstrap 계약 확정                    |
 
-### shell (46)
+### shell (47)
 
 | id                           | 질문                                                                                                                        | 판정      | 결정                                                                                                                                                          |
 | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -757,6 +765,7 @@
 | shell/workspace#Q1           | 탭 배치·복원 상태를 ledger에 둘까 사람 UI 상태로 따로 둘까                                                                  | 추천대로  | 기존 shell/layout.json에 프로젝트별 UI 값; 정본 내용·credential·PTY runtime 없음                                                                              |
 | shell/workspace#Q2           | 현재 보기 요약의 크기와 탭 상세 page 크기를 무엇으로 할까                                                                   | 추천대로  | UTF-8 2KiB 요약·20개 탭 page; 선택 범위와 앱 화면 참조만, 상세 앱 read command                                                                                |
 | shell/workspace#Q3           | 세션 시각 블록을 shell에 어떻게 그릴까                                                                                      | 추천대로  | 선언형 SDK부터; 문서는 고정 view·앱 카드는 기존 앱 frame sandbox                                                                                              |
+| shell/workspace#Q4 | 탭 kind(Agent·Contexts·Context·Search 등)를 늘릴 때마다 열 곳 넘게 고쳐야 해 병렬로 만들 수 없다. 어떻게 늘릴까. | 추천대로 | 탭 kind 등록 구조(registry)를 먼저 만들고 kind마다 파일 하나로 붙인다. |
 | ux#Q1                        | shell/wording이 en-only 시작과 message key를 요구하지만 key 이름 규칙, ICU MessageFormat, 날짜·숫자·상대 시각의 I…          | 추천대로  | A. 다음 요구를 shell/wording에 추가한다: "**[R16]** 화면 message key는 `<screen>.<part>.<name>` 패턴을 쓰고 en 문구는 ICU MessageFo…                          |
 
 ### domain model 사이 (14)

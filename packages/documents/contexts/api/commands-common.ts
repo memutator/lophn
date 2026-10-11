@@ -2,7 +2,8 @@
 import type { Result } from "../../../base/mod.ts";
 import type { ContextApiDeps, ContextApiState } from "./state.ts";
 
-// event 하나를 내고 그 seq(문자열)를 돌려준다. revision은 이 seq다.
+// event 하나를 내고 그 seq(문자열)를 돌려준다. revision은 이 seq다. deps.emit이 있으면 그 함수가 정한
+// 실제 seq를 쓴다.
 export function emitEvent(
   state: ContextApiState,
   deps: ContextApiDeps,
@@ -13,8 +14,8 @@ export function emitEvent(
     payload: Record<string, unknown>;
   },
 ): string {
-  state.seq += 1;
-  const seq = String(state.seq);
+  const seq = deps.emit ? deps.emit(event) : String(state.seq + 1);
+  state.seq = Number(seq);
   state.events.push({ seq, at: deps.now(), ...event });
   return seq;
 }

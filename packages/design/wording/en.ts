@@ -359,6 +359,7 @@ export const en = {
   "app-space.button.add-shortcut": "Add to app menu",
   "app-space.button.app-details": "App details",
   "app-space.button.documents": "Documents",
+  "app-space.button.manage-agents": "Manage",
   "app-space.button.new-window": "Open in new window",
   "app-space.button.remove-shortcut": "Remove from app menu",
   "app-space.empty.archived":
@@ -368,6 +369,7 @@ export const en = {
   "app-space.empty.screen-not-ready": "This app's screen can't open here yet.",
   "app-space.heading.app-details": "App details",
   "app-space.heading.this-computer": "On this computer",
+  "app-space.label.agent-select": "Agent",
   "app-space.label.this-app": "this app",
   "app-space.notice.shortcut-added": "Added to your computer's app menu.",
   "app-space.notice.shortcut-failed":

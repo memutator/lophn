@@ -3,7 +3,17 @@
 // 화면 값은 lophn-agent/agents의 목록 줄에서 부르는 쪽이 만든 view 값이다. renderer는 contracts를
 // type check하지 않으므로 id는 문자열로 받는다.
 import type { ReactElement } from "react";
-import type { AvatarProfile } from "@lophn/design/components";
+import {
+  Avatar,
+  type AvatarProfile,
+  Button,
+  editorIcons,
+  Menu,
+  type MenuItem,
+} from "@lophn/design/components";
+import { t } from "@lophn/wording";
+
+import styles from "./agent-select.module.css";
 
 export type AppSpaceAgentRole =
   | "lophn"
@@ -43,6 +53,54 @@ export interface AgentSelectProps {
  * - agent 항목을 고르면 `onOpenAgent(assignment)` 한 번, Manage를 고르면 `onManage()` 한 번만 부르고 menu는 닫힌다.
  * - 놓을 자리(window controls 바로 옆)는 app bar가 정하고 이 component는 select 하나만 그린다.
  */
-export function AgentSelect(_props: AgentSelectProps): ReactElement {
-  throw new Error("not implemented: agent-I38");
+export function AgentSelect(
+  { agents, onOpenAgent, onManage }: AgentSelectProps,
+): ReactElement {
+  const items: MenuItem[] = [
+    ...visibleAgents(agents).map((agent) => ({
+      id: agent.assignment,
+      leading: <Avatar profile={agent.profile} size="sm" />,
+      label: (
+        <span className={styles.name} data-agent-name="">{agent.name}</span>
+      ),
+      textValue: agent.name,
+      data: { "data-agent": agent.assignment } as const,
+    })),
+    {
+      id: MANAGE,
+      label: t("app-space.button.manage-agents"),
+      data: { "data-agent-manage": "" },
+    },
+  ];
+  return (
+    <Menu
+      items={items}
+      onSelect={(id) => id === MANAGE ? onManage() : onOpenAgent(id)}
+      placement="beside"
+      trigger={
+        <Button
+          variant="ghost"
+          size="sm"
+          icon={editorIcons.detailsClosed}
+          data-agent-select=""
+        >
+          {t("app-space.label.agent-select")}
+        </Button>
+      }
+    />
+  );
+}
+
+// 항목 id가 assignment(`asg_…`)와 겹치지 않는 Manage의 id.
+const MANAGE = "manage";
+
+/** lophn, App Engineer, Operator들(들어온 순서). Context Engineer는 거른다. */
+function visibleAgents(agents: readonly AppSpaceAgent[]): AppSpaceAgent[] {
+  const pick = (role: AppSpaceAgentRole) =>
+    agents.filter((agent) => agent.role === role);
+  return [
+    ...pick("lophn"),
+    ...pick("app_engineer"),
+    ...pick("operator"),
+  ];
 }

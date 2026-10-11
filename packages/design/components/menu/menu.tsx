@@ -1,12 +1,19 @@
 import * as Radix from "@radix-ui/react-dropdown-menu";
-import type { ReactElement } from "react";
+import type { ReactElement, ReactNode } from "react";
 import { keepFocus } from "../return-focus.ts";
 import { type Placement, placementProps } from "../shared.ts";
 import styles from "./menu.module.css";
 
 export interface MenuItem {
   id: string;
-  label: string;
+  // 글 하나, 또는 호출자가 data 표식을 단 요소. 요소로 주면 textValue를 함께 준다.
+  label: ReactNode;
+  // 앞에 놓는 작은 그림(avatar 등). 장식이라 이름은 label이 맡는다.
+  leading?: ReactNode;
+  // 줄에 다는 `data-*` 표식. 호출자 화면이 줄을 찾는 자리다.
+  data?: Readonly<Record<`data-${string}`, string>>;
+  // 키보드 typeahead가 쓰는 글. label이 글이면 생략한다.
+  textValue?: string;
   disabled?: boolean;
 }
 
@@ -50,8 +57,11 @@ export function Menu(
               key={item.id}
               className={styles.item}
               disabled={item.disabled}
+              textValue={item.textValue}
               onSelect={() => onSelect(item.id)}
+              {...item.data}
             >
+              {item.leading}
               {item.label}
             </Radix.Item>
           ))}

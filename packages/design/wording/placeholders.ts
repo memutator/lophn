@@ -355,6 +355,7 @@ export type PlaceholderKinds = {
   "app-space.button.add-shortcut": Record<never, never>;
   "app-space.button.app-details": Record<never, never>;
   "app-space.button.documents": Record<never, never>;
+  "app-space.button.manage-agents": Record<never, never>;
   "app-space.button.new-window": Record<never, never>;
   "app-space.button.remove-shortcut": Record<never, never>;
   "app-space.empty.archived": Record<never, never>;
@@ -363,6 +364,7 @@ export type PlaceholderKinds = {
   "app-space.empty.screen-not-ready": Record<never, never>;
   "app-space.heading.app-details": Record<never, never>;
   "app-space.heading.this-computer": Record<never, never>;
+  "app-space.label.agent-select": Record<never, never>;
   "app-space.label.this-app": Record<never, never>;
   "app-space.notice.shortcut-added": Record<never, never>;
   "app-space.notice.shortcut-failed": Record<never, never>;

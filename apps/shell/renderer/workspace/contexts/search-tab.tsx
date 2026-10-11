@@ -14,8 +14,18 @@
 //   contexts.note.search-no-saved-views
 //   contexts.note.search-pick
 //   common.error.load-failed
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
+import {
+  EmptyState,
+  ErrorState,
+  lophnSpaceIcons,
+} from "@lophn/design/components";
+import { t } from "@lophn/wording";
 
+import styles from "./search-tab.module.css";
+import { SearchBody } from "./search-tab-body.tsx";
+import { useRead } from "./search-tab-read.ts";
+import { SearchSide } from "./search-tab-side.tsx";
 import type { ContextsSource, SearchInputValues } from "./source.ts";
 import type { OpenDocument } from "./shared.ts";
 
@@ -44,6 +54,102 @@ export interface SearchTabProps {
   readonly onAsk: () => void;
 }
 
-export function SearchTab(_props: SearchTabProps): ReactNode {
-  return null;
+export function SearchTab(props: SearchTabProps): ReactNode {
+  const { project, source, state, onState } = props;
+  // 검색을 다시 고르거나 보기를 열 때마다 바뀌어, 본문이 새 입력으로 처음부터 시작하게 한다.
+  const [opened, setOpened] = useState(0);
+
+  const contexts = useRead(
+    project,
+    () => source.list(project),
+  );
+  const contract = useRead(
+    state.context,
+    async () => {
+      const read = await source.contract(state.context);
+      return read.ok ? { ok: true, value: read.value?.searches ?? [] } : read;
+    },
+  );
+  const views = useRead(state.context, () => source.savedViews(state.context));
+
+  const searches = contract.slot;
+  const declared = searches.status === "loaded"
+    ? searches.value.find((search) => search.name === state.search)
+    : undefined;
+
+  function open(next: SearchTabState): void {
+    setOpened((count) => count + 1);
+    onState(next);
+  }
+
+  return (
+    <div className={styles.tab}>
+      <SearchSide
+        context={state.context}
+        search={state.search}
+        savedView={state.savedView}
+        contexts={contexts.slot}
+        searches={searches}
+        views={views.slot}
+        onReload={() => {
+          contexts.reload();
+          contract.reload();
+          views.reload();
+        }}
+        onContext={(context) =>
+          open({ context, search: null, inputs: {}, page: 0, savedView: null })}
+        onOpenContext={() => props.onOpenContext(state.context)}
+        onSearch={(name) =>
+          open({
+            context: state.context,
+            search: name,
+            inputs: {},
+            page: 0,
+            savedView: null,
+          })}
+        onView={(view) =>
+          open({
+            context: state.context,
+            search: view.search,
+            inputs: view.inputs,
+            page: 0,
+            savedView: view.id,
+          })}
+      />
+      <main className={styles.main}>
+        {searches.status === "failed" && (
+          <ErrorState
+            target={t("contexts.heading.search-searches")}
+            onRetry={contract.reload}
+          />
+        )}
+        {searches.status === "loaded" && searches.value.length === 0 && (
+          <EmptyState
+            icon={lophnSpaceIcons.search}
+            message={t("contexts.empty.search-no-searches")}
+            action={{
+              label: t("contexts.button.search-open-context"),
+              onSelect: () => props.onOpenContext(state.context),
+            }}
+          />
+        )}
+        {searches.status === "loaded" && searches.value.length > 0 &&
+          declared === undefined && (
+          <p className={styles.note}>{t("contexts.note.search-pick")}</p>
+        )}
+        {declared !== undefined && (
+          <SearchBody
+            key={`${state.context}/${declared.name}/${opened}`}
+            source={source}
+            search={declared}
+            state={state}
+            onState={onState}
+            onOpenDocument={props.onOpenDocument}
+            onAsk={props.onAsk}
+            onSaved={views.reload}
+          />
+        )}
+      </main>
+    </div>
+  );
 }

@@ -138,6 +138,10 @@ packages/platform/responsiveness/measure-load_test.ts`로 따로 돌린다.
   데이터로 모든 화면(런처·lophn 공간·settings·앱 공간·대화 도크)을 채운다. 시작 자리는
   `LOPHN_SHELL_START=settings`처럼 고른다. `dev`와 `dev:mock` 모두 shell을 띄우기 전에
   renderer bundle을 build한다.
+- `deno task wireframes`: `tools/wireframes/`의 wireframes gallery를 정적 bundle
+  (`tools/wireframes/dist/`, git이 무시)로 만든다. "지금 화면"은 mock 모드의 진짜 renderer
+  화면이고 "새 설계"는 `@lophn/design` component의 정적 구성이다. 서버 없이 올릴 수 있는
+  상대 경로 bundle이다.
 - `tools/fake-provider/`: Anthropic Messages, OpenAI Responses, Chat
   Completions의 필요한 부분을 흉내 내는 로컬 HTTP server. `fixtures/model/`의
   녹화 응답이나 script로 답한다. 테스트와 E2E는 실제 provider를 부르지 않는다.

@@ -1,0 +1,32 @@
+.window {
+  position: absolute;
+  inset: var(--space-0);
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface-floor);
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  height: var(--space-11);
+  padding: var(--space-0) var(--space-6);
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+  background: var(--color-surface-base);
+  font-weight: var(--font-weight-semibold);
+}
+
+.body {
+  flex: 1;
+  padding: var(--space-9) var(--layout-pane-padding-wide);
+}
+
+.card {
+  box-sizing: border-box;
+  max-width: var(--page-launcher);
+  margin: var(--space-0) auto;
+  padding: var(--space-9);
+  border: var(--border-width) solid var(--color-border-base);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-base);
+}

@@ -1,0 +1,216 @@
+import { useEffect, useRef, useState } from "react";
+import { Button } from "@lophn/design/components";
+
+import { pageById, PAGES, PARTS, type WireframePage } from "./pages.ts";
+import { SCREENS } from "./frames/screens.tsx";
+import styles from "./gallery.module.css";
+
+/** frame의 고정 데스크톱 크기. 좁은 창에서는 이 크기 그대로 줄여서 보인다. */
+export const FRAME_WIDTH = 1280;
+export const FRAME_HEIGHT = 800;
+
+type Theme = "auto" | "light" | "dark";
+const THEME_KEY = "lophn.wireframes.theme";
+const THEMES: readonly { value: Theme; label: string }[] = [
+  { value: "auto", label: "Auto" },
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
+];
+
+function readTheme(): Theme {
+  try {
+    const value = localStorage.getItem(THEME_KEY);
+    return value === "light" || value === "dark" ? value : "auto";
+  } catch {
+    return "auto";
+  }
+}
+
+function useTheme(): [Theme, (theme: Theme) => void] {
+  const [theme, setTheme] = useState<Theme>(readTheme);
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === "auto") delete root.dataset.theme;
+    else root.dataset.theme = theme;
+    try {
+      if (theme === "auto") localStorage.removeItem(THEME_KEY);
+      else localStorage.setItem(THEME_KEY, theme);
+    } catch {
+      // 저장하지 못해도 이번 화면은 그대로 보인다.
+    }
+  }, [theme]);
+  return [theme, setTheme];
+}
+
+/** 주소 `#/<id>`의 page id. 목록이면 null이다. */
+function useRoute(): string | null {
+  const read = () => location.hash.replace(/^#\/?/, "") || null;
+  const [id, setId] = useState(read);
+  useEffect(() => {
+    const listen = () => setId(read());
+    addEventListener("hashchange", listen);
+    return () => removeEventListener("hashchange", listen);
+  }, []);
+  return id;
+}
+
+export function Gallery() {
+  const [theme, setTheme] = useTheme();
+  const id = useRoute();
+  const page = id === null ? undefined : pageById(id);
+  useEffect(() => {
+    document.title = page === undefined
+      ? "lophn wireframes"
+      : `${page.title} · lophn wireframes`;
+    scrollTo(0, 0);
+  }, [page]);
+  return (
+    <div className={styles.shell}>
+      <header className={styles.header}>
+        <a className={styles.brand} href="#/">lophn wireframes</a>
+        <div className={styles.themes} role="group" aria-label="Theme">
+          {THEMES.map((item) => (
+            <Button
+              key={item.value}
+              size="sm"
+              variant={theme === item.value ? "primary" : "secondary"}
+              aria-pressed={theme === item.value}
+              onClick={() => setTheme(item.value)}
+            >
+              {item.label}
+            </Button>
+          ))}
+        </div>
+      </header>
+      {page === undefined
+        ? <Index missing={id} />
+        : <PageView page={page} theme={theme} />}
+    </div>
+  );
+}
+
+function Badges({ page }: { page: WireframePage }) {
+  return (
+    <ul className={styles.badges}>
+      {page.badges.map((badge, index) => (
+        <li
+          key={badge}
+          className={styles.badge}
+          data-kind={index === 0 ? page.part : "flow"}
+        >
+          {badge}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function Index({ missing }: { missing: string | null }) {
+  return (
+    <main className={styles.index}>
+      {missing === null ? null : (
+        <p className={styles.missing}>
+          “{missing}” page가 없다. 아래 목록에서 고른다.
+        </p>
+      )}
+      {PARTS.map((part) => (
+        <section key={part.id} className={styles.part}>
+          <h2 className={styles.partTitle}>{part.title}</h2>
+          <p className={styles.text}>{part.summary}</p>
+          <ol className={styles.cards}>
+            {PAGES.filter((page) => page.part === part.id).map((page) => (
+              <li key={page.id} className={styles.card}>
+                <a className={styles.cardLink} href={`#/${page.id}`}>
+                  {page.title}
+                </a>
+                <Badges page={page} />
+                <p className={styles.cardText}>{page.description}</p>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ))}
+    </main>
+  );
+}
+
+function PageView({ page, theme }: { page: WireframePage; theme: Theme }) {
+  const at = PAGES.indexOf(page);
+  const previous = PAGES[at - 1];
+  const next = PAGES[at + 1];
+  const go = (target: WireframePage) => () => {
+    location.hash = `#/${target.id}`;
+  };
+  return (
+    <main className={styles.page}>
+      <a className={styles.back} href="#/">← 목록</a>
+      <h1 className={styles.title}>{page.title}</h1>
+      <Badges page={page} />
+      <p className={styles.description}>{page.description}</p>
+      <Frame page={page} theme={theme} />
+      <nav className={styles.nav}>
+        {previous === undefined
+          ? <span />
+          : (
+            <Button variant="secondary" onClick={go(previous)}>
+              ← {previous.title}
+            </Button>
+          )}
+        {next === undefined
+          ? <span />
+          : (
+            <Button variant="secondary" onClick={go(next)}>
+              {next.title} →
+            </Button>
+          )}
+      </nav>
+    </main>
+  );
+}
+
+// 고정 크기 iframe을 칸 폭에 맞게 줄인다. 줄여도 안의 화면은 1280x800 창이다.
+function Frame({ page, theme }: { page: WireframePage; theme: Theme }) {
+  const box = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(FRAME_WIDTH);
+  useEffect(() => {
+    const element = box.current;
+    if (!element) return;
+    const measure = () => setWidth(element.clientWidth || FRAME_WIDTH);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+  const scale = Math.min(1, width / FRAME_WIDTH);
+  // 주소에 query만 써서 같은 경로(하위 경로에 올려도 맞다)의 index.html이 frame 모양으로 뜬다.
+  const source = `?frame=${encodeURIComponent(page.id)}${
+    theme === "auto" ? "" : `&theme=${theme}`
+  }`;
+  return (
+    <div
+      ref={box}
+      className={styles.frameBox}
+      style={{ height: FRAME_HEIGHT * scale }}
+    >
+      <iframe
+        key={source}
+        className={styles.frame}
+        title={page.title}
+        src={source}
+        style={{
+          width: FRAME_WIDTH,
+          height: FRAME_HEIGHT,
+          transform: `scale(${scale})`,
+        }}
+      />
+    </div>
+  );
+}
+
+/** `?frame=<id>`로 뜬 문서가 그리는 화면 하나. */
+export function FramePage({ id }: { id: string }) {
+  const page = pageById(id);
+  return page === undefined
+    ? <p>unknown page: {id}</p>
+    : SCREENS[page.screen]();
+}

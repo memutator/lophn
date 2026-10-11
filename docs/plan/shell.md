@@ -1238,6 +1238,25 @@ concerns: [shell]
   - core 끊김에서는 초안·마지막 read·터미널을 유지하고 새 파일 쓰기·결정 제출 gate를 닫으며 "최신 확인 못함"과 확인 시각을 보인다.
   - flow work-offline, install-lophn(실패 갈래) 화면에서 두 끊김 상태의 동작을 테스트한다.
 
+### T66 wireframes gallery
+
+- 상태: 진행 (#PR)
+- 등급: frontend
+- concern: shell/desktop
+- 요구: 없음 — 개발 도구
+- 자리: tools/wireframes/ (Deno workspace member `@lophn/wireframes`). 실행 `deno task wireframes`, 출력은 git이 무시하는 `tools/wireframes/dist/`
+- 쓰는 contract: 없음
+- 내놓는 contract: 없음
+- slice: desktop
+- 선행: 없음
+- 완료: 아래 확인이 통과한다
+  - `deno task wireframes`가 index.html·main.js·main.css·글꼴 두 개를 정적 bundle로 만든다. 렌더러의 `build()`(import map, CSS Modules, woff2)를 그대로 쓰고, 주소는 모두 상대 경로이며 바깥 요청이 없다. 하위 경로에 올려도 맞다.
+  - 목록은 part별로 page를 묶고, page는 제목·badge·한국어 설명·고정 1280x800 frame(칸 폭에 맞춰 줄임)·이전/다음을 갖는다. frame은 iframe이라 화면이 자기 viewport를 갖는다. light·dark는 design token을 따르고 Auto·Light·Dark로 고른다.
+  - 지금 화면(구현됨): 진짜 Desktop을 `apps/shell/renderer/desktop/dev-mock/`의 메모리 데이터로 그린다. 런처(빈 것·카드 있음·시작 실패 셋), lophn 공간(Projects·Apps·Things to confirm·Roles), Settings의 각 탭(Backup 제외), 프로젝트 작업대(문서·터미널·앱 panel), 앱 공간, 대화 도크. 터미널은 preload 통로 자리에 gallery의 가짜 통로가 PTY 없이 출력을 준다. 앱 코드는 고치지 않았다.
+  - 버린 화면은 올리지 않는다: Settings › Backup, 프로젝트 Export panel, lophn 공간 Documents·Contexts(Focus) 화면, context Materials의 Baseline·Reference·Follow-changes 묶음. 테스트 `tools/wireframes/pages_test.ts`가 page 목록에 이것이 없고 모든 page에 제목·badge·설명이 있음을 본다(맞는 shell 요구가 없어 이름이 `shell#T66`으로 시작한다).
+  - 새 설계(새 설계 badge) part와 자리표시 page 하나. page를 더하는 법은 `tools/wireframes/pages.ts` 머리 주석에 있다: 목록에 한 줄, `frames/screens.tsx`에 `@lophn/design` component와 고정 데이터만으로 짠 구성 하나.
+  - 한계: 지금 화면 part는 main이 가진 화면을 그대로 그리므로 main이 바뀌면 다시 build한다. 사이드바에는 main에 아직 있는 Documents·Focus 항목이 보일 수 있다.
+
 ## 요구 덮기
 
 shell 최상위의 요구는 8개 leaf에 177개이고 모두 위 작업의 `요구:`에 들어 있다.

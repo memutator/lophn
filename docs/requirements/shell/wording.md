@@ -72,8 +72,8 @@ UI·안내·오류의 문체와 기본/상세 정보의 말, message key 기반 
 
 ### 개념 이름
 
-**[R13]** 컨텍스트 관점은 en message key의 Baseline·Reference·Follow changes로 표시하고 model 선택은 For decisions·For summaries, agent 작업은 Agent activity·앱 작업은 App activity로 구별하며 안쪽 개념 이름은 문서·코드·별도 개발자 diagnostics에만 둔다.
-- 이유: 사람이 필요한 차이를 알되 watch·judgment model·run·invocation 같은 안쪽 개념을 배울 필요가 없게 한다.
+**[R13]** 컨텍스트 관점은 en message key의 Baseline·Reference·Follow changes로 표시하고 model 선택은 Default models·Model for summaries, agent 작업은 Agent activity·앱 작업은 App activity로 구별하며 안쪽 개념 이름은 문서·코드·별도 개발자 diagnostics에만 둔다.
+- 이유: 사람이 필요한 차이를 알되 watch·run·invocation 같은 안쪽 개념을 배울 필요가 없게 한다.
 - 확인: 관점·model·작업 화면에서 en message key 라벨을 읽어 역할과 대상을 구별하고 안쪽 개념 이름은 사용자 화면에 없다.
 - 의도: shell#I3
 

@@ -35,10 +35,10 @@ ledger의 공통 envelope, 식별·시각·오류 값, 확정 command 결과와 
 | `snp` | Snapshot | → problems/snapshots |
 | `vrf` | Verification | → problems/tests |
 | `apr` | ApprovalRequest | → platform/approvals |
+| `qgr` | QuestionGroup | → lophn-agent/questions |
 | `qst` | Question | → lophn-agent/questions |
 | `ntf` | Notification | → platform/notifications |
 | `rvt` | Revert | → lophn-agent/revert |
-| `pst` | Preset | → lophn-agent/presets |
 | `asg` | Assignment | → lophn-agent/assignments |
 | `ses` | Session | → lophn-agent/conversation |
 | `msg` | Message | → lophn-agent/conversation |

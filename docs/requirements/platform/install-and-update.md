@@ -62,7 +62,7 @@ lophn의 지원 OS·설치 패키지·첫 실행·자체 update와 사람이 찾
 - 확인: 같은 데이터 폴더로 두 번 시작해 writer 하나만 남고 다른 폴더의 독립 자료와는 구별되는지 본다.
 - 의도: platform#I5
 
-**[R11]** 첫 실행과 재시작은 단일 instance 확인·설정 검증·ledger 무결성 및 schema 점검·중단 작업 점검·처리 위치 복원·인증된 API 시작·허용된 앱 감독·주기 접수 순서를 지킨다.
+**[R11]** 첫 실행과 재시작은 단일 instance 확인·설정 검증·ledger 무결성 및 schema 점검·중단 작업 점검·처리 위치 복원·인증된 API 시작·허용된 앱 감독 순서를 지킨다.
 - 이유: 저장과 자격이 준비되기 전에 앱과 agent 작업이 시작하면 안 된다.
 - 확인: 각 앞 단계 실패 때 뒤 작업이 시작되지 않고 유효하지 않은 agent 설정만 있으면 platform/settings의 부분 사용 정책을 따르며 점검과 복구는 platform/backup-and-migration을 따르는지 본다.
 - 의도: platform#I5, platform#I7
@@ -99,4 +99,4 @@ lophn의 지원 OS·설치 패키지·첫 실행·자체 update와 사람이 찾
 - 0.3.0 이관 뒤 project 표본 200개와 tracking 시작을 고르던 onboarding은 버린다: 처음부터 만드는 첫 실행에 과거 이관 화면을 되살리지 않는다.
 - 이관 onboarding의 폭 640px와 과거 이동 목록은 버린다: 과거 이관 전용이고 화면 모양은 shell/desktop의 몫이다.
 - 과거 Linux x64만 빌드했고 macOS·Windows build·서명·공증·icon·배포 metadata가 남았다는 진행 상황은 제품 요구로 옮기지 않는다: 세 OS 지원 약속은 유지하되 미검증 배포를 완료로 표시하지 않는다.
-- 과거 앱 상태 이름과 놓친 run 자동 catch-up으로 기동하던 절차는 버린다: 현재 앱 상태와 사람·주기만의 agent 계기를 따른다.
+- 과거 앱 상태 이름과 놓친 run 자동 catch-up으로 기동하던 절차는 버린다: 현재 앱 상태와 사람이 시작하는 agent 계기만 따른다.

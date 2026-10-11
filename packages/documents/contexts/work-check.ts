@@ -1,5 +1,7 @@
-import type { Result } from "../../base/mod.ts";
-import type { CheckInput, CheckOutcome } from "./check/mod.ts";
+import { ok, type Result } from "../../base/mod.ts";
+import { bundleContentSchema } from "../../contracts/documents/mod.ts";
+import { type CheckInput, type CheckOutcome, runCheck } from "./check/mod.ts";
+import { watchFolders } from "./watch/mod.ts";
 import type { SnapshotPort, SubmitPort } from "./work-types.ts";
 
 export type CheckJobRequest = {
@@ -26,9 +28,33 @@ export type CheckJobDeps = {
 // - snapshot을 만들지 못하면 `unavailable`을 돌려주고 아무것도 제출하지 않는다(결과 불명을 통과로 꾸미지 않는다).
 // - 제출이 오류를 내면 그 오류를 그대로 돌려준다.
 // 성공하면 제출한 outcome을 돌려준다.
-export function runCheckJob(
-  _deps: CheckJobDeps,
-  _request: CheckJobRequest,
+export async function runCheckJob(
+  deps: CheckJobDeps,
+  request: CheckJobRequest,
 ): Promise<Result<CheckOutcome>> {
-  throw new Error("not implemented");
+  const parsed = bundleContentSchema.safeParse(request.bundle);
+  const folders = parsed.success ? watchFolders(parsed.data.contract) : [];
+  const snapshot = deps.snapshots.create(request.check, folders);
+  if (!snapshot.ok) return snapshot;
+  try {
+    const outcome = runCheck({
+      bundle: request.bundle,
+      files: snapshot.value.files,
+      appData: () => undefined,
+      env: request.env,
+      user_saved_views: request.user_saved_views,
+    });
+    const submitted = await deps.submit.finishCheck({
+      check: request.check,
+      result: outcome.status,
+      bundle_hash: request.bundle_hash,
+      snapshot_hash: outcome.snapshot_hash,
+      findings: outcome.findings,
+      violation_count: outcome.violation_count,
+    });
+    if (!submitted.ok) return submitted;
+    return ok(outcome);
+  } finally {
+    snapshot.value.remove();
+  }
 }

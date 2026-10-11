@@ -8,7 +8,6 @@ import {
 import {
   Icon,
   iconPixels,
-  type IconProps,
   Tooltip,
   workspaceIcons,
 } from "@lophn/design/components";
@@ -16,21 +15,13 @@ import { t } from "@lophn/wording";
 
 import {
   revealScroll,
-  TAB_KIND_LABEL,
   TAB_MAX,
   TAB_MIN,
   TAB_PINNED,
   type TabItem,
-  type TabKind,
 } from "../model.ts";
+import { tabKindLabel, tabKindOf } from "../kinds/registry.ts";
 import styles from "./tab-strip.module.css";
-
-const KIND_ICON: Record<TabKind, IconProps["icon"]> = {
-  document_editor: workspaceIcons.documentEditor,
-  document_viewer: workspaceIcons.documentViewer,
-  terminal: workspaceIcons.terminal,
-  app_panel: workspaceIcons.appPanel,
-};
 
 /** drag 중인 탭의 key를 실어 나르는 dataTransfer 종류. */
 export const TAB_DRAG_TYPE = "application/x-lophn-tab";
@@ -134,7 +125,9 @@ export function TabStrip(
       >
         {tabs.map((tab) => {
           const active = tab.key === selected;
-          const kind = t(TAB_KIND_LABEL[tab.kind]);
+          // 종류 글자와 아이콘은 kind의 선언에서 온다(workspace#R14).
+          const kind = tabKindLabel(tab.kind);
+          const icon = tabKindOf(tab.kind)?.icon;
           const tooltip = tooltips[tab.key];
           const element = (
             <div
@@ -165,11 +158,13 @@ export function TabStrip(
               }}
               onDragEnd={() => onDragTab?.(null)}
             >
-              <Icon
-                icon={KIND_ICON[tab.kind]}
-                pixels={iconPixels("small")}
-                className={styles.icon}
-              />
+              {icon === undefined ? null : (
+                <Icon
+                  icon={icon}
+                  pixels={iconPixels("small")}
+                  className={styles.icon}
+                />
+              )}
               {tab.pinned ? null : (
                 <>
                   <span className={styles.title}>{tab.title}</span>

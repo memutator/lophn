@@ -3,6 +3,7 @@ import {
   Icon,
   IconButton,
   iconPixels,
+  type IconProps,
   Tooltip,
   workspaceIcons,
 } from "@lophn/design/components";
@@ -15,10 +16,10 @@ import {
   ratioFromDrag,
   SPLIT_EQUAL,
   splitLayout,
-  TAB_KIND_LABEL,
   type TabItem,
   type WorkspaceView,
 } from "../model.ts";
+import { tabKindLabel } from "../kinds/registry.ts";
 import { startPointerDrag } from "../drag.ts";
 import { TabStrip } from "../tab-strip/tab-strip.tsx";
 import styles from "./panes.module.css";
@@ -42,8 +43,10 @@ export interface PanesProps {
   /** 정보 패널 열림과 바꾸기. 주면 마지막 칸 탭 줄 끝에 버튼을 둔다. */
   infoOpen?: boolean;
   onToggleInfo?: () => void;
-  /** 주면 마지막 칸 탭 줄 끝에 터미널 열기 버튼을 둔다(workspace#R1). */
-  onOpenTerminal?: () => void;
+  /**
+   * 마지막 칸 탭 줄 끝에 둘 열기 단추. kind마다 하나이고 순서대로 놓는다(workspace#R1, R5, R14).
+   */
+  launchers?: readonly PaneLauncher[];
   /**
    * 탭 본문을 그린다. null을 주면 기본 본문을 쓴다. active는 focus 칸의 고른
    * 탭인지다.
@@ -54,10 +57,17 @@ export interface PanesProps {
    * 고른 탭만 보인다. shown은 그 탭이 칸에서 보이는지다.
    */
   renderKept?: (tab: TabItem, shown: boolean) => ReactNode | null;
-  /** 주면 마지막 칸 탭 줄 끝에 앱 패널 열기 버튼을 둔다(workspace#R5). */
-  onOpenAppPanel?: () => void;
   /** 탭 key마다 tooltip. */
   tooltips?: Readonly<Record<string, ReactNode>>;
+}
+
+/** 탭 줄 끝의 열기 단추 하나. kind 선언의 launcher를 작업대가 풀어 넘긴다. */
+export interface PaneLauncher {
+  /** 단추의 `data-open-<kind>` 표시에 쓰는 kind 이름. */
+  readonly kind: string;
+  readonly label: string;
+  readonly icon: IconProps["icon"];
+  readonly onOpen: () => void;
 }
 
 interface Dragging {
@@ -78,8 +88,7 @@ export function Panes(
     onRatio,
     infoOpen = false,
     onToggleInfo,
-    onOpenTerminal,
-    onOpenAppPanel,
+    launchers = [],
     renderTab,
     renderKept,
     tooltips,
@@ -117,34 +126,20 @@ export function Panes(
     const pane = view.panes[index]!;
     const splitLabel = t("project-workspace.button.split-pane");
     const infoLabel = t("project-workspace.button.info-panel");
-    const terminalLabel = t("project-workspace.button.open-terminal");
-    const appPanelLabel = t("project-workspace.button.open-app-panel");
     return (
       <>
-        {onOpenAppPanel
-          ? (
-            <Tooltip content={appPanelLabel}>
-              <IconButton
-                icon={workspaceIcons.appPanel}
-                label={appPanelLabel}
-                data-open-app-panel=""
-                onClick={onOpenAppPanel}
-              />
-            </Tooltip>
-          )
-          : null}
-        {onOpenTerminal
-          ? (
-            <Tooltip content={terminalLabel}>
-              <IconButton
-                icon={workspaceIcons.terminal}
-                label={terminalLabel}
-                data-open-terminal=""
-                onClick={onOpenTerminal}
-              />
-            </Tooltip>
-          )
-          : null}
+        {launchers.map((launcher) => (
+          <Tooltip key={launcher.kind} content={launcher.label}>
+            <IconButton
+              icon={launcher.icon}
+              label={launcher.label}
+              {...{
+                [`data-open-${launcher.kind.replaceAll("_", "-")}`]: "",
+              }}
+              onClick={launcher.onOpen}
+            />
+          </Tooltip>
+        ))}
         {single
           ? (
             <Tooltip content={splitLabel}>
@@ -378,7 +373,7 @@ function PaneView(
               <div className={styles.content} data-tab-body={selected.key}>
                 <h1 className={styles.heading}>{selected.title}</h1>
                 <p className={styles.meta}>
-                  {t(TAB_KIND_LABEL[selected.kind])}
+                  {tabKindLabel(selected.kind)}
                 </p>
               </div>
             )

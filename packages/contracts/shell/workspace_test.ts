@@ -8,6 +8,7 @@ import {
   selectionSchema,
   SUMMARY_MAX_BYTES,
   summarySchema,
+  TAB_KINDS,
   TAB_PAGE_SIZE,
   VIEW_STRING_MAX_CHARS,
   viewTabSchema,
@@ -61,19 +62,12 @@ const state = {
 };
 
 Deno.test(
-  "shell/workspace#R1 shell/workspace#R9: 현재 보기는 네 탭 종류와 요청 창 참조만 받고 본문 field를 거절한다",
+  "shell/workspace#R1 shell/workspace#R9: 현재 보기는 세 탭 종류와 요청 창 참조만 받고 본문 field를 거절한다",
   () => {
     assert(currentViewStateSchema.safeParse(state).success);
     for (
       const tab of [
         editor,
-        {
-          key: "fixed",
-          kind: "document_viewer",
-          document: DOC,
-          version: VER,
-          selected: false,
-        },
         {
           key: "shell",
           kind: "terminal",
@@ -91,6 +85,16 @@ Deno.test(
     ) {
       assert(viewTabSchema.safeParse(tab).success);
     }
+    // 옛 document_viewer는 지워졌다. 모르는 종류는 받지 않는다.
+    assert(
+      !viewTabSchema.safeParse({
+        key: "fixed",
+        kind: "document_viewer",
+        document: DOC,
+        version: VER,
+        selected: false,
+      }).success,
+    );
     assert(
       !viewTabSchema.safeParse({
         ...editor,
@@ -362,3 +366,14 @@ Deno.test("apps/agent-context#R2 shell/workspace#R11: 앱 패널 탭의 view_ses
     }).success,
   );
 });
+
+Deno.test(
+  "shell/workspace#R14 [ctx-I37]: TAB_KINDS의 모든 종류는 현재 보기 탭 schema 가지 하나씩과 일치한다",
+  () => {
+    const branches = viewTabSchema.options.map((option) =>
+      option.shape.kind.value
+    );
+    assertEquals([...branches].sort(), [...TAB_KINDS].sort());
+    assertEquals(new Set(TAB_KINDS).size, TAB_KINDS.length);
+  },
+);

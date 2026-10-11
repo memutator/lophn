@@ -1,4 +1,6 @@
 import {
+  AGENT_ROLES,
+  type AgentSettings,
   MODEL_DEFAULT_SLOTS,
   type ModelChoice,
   type ModelDefaults,
@@ -53,6 +55,25 @@ export function loadDefaults(sql: Query): ModelDefaults {
     }
   }
   return defaults;
+}
+
+// agent의 Workspace 층이 쓰는 값이다(lophn-agent/agents R9): 역할 slot에 고른 선택만 남기고 비운 slot과
+// 요약용 slot은 뺀다.
+export function workspaceModels(
+  defaults: ModelDefaults,
+): NonNullable<AgentSettings["models"]> {
+  const models: NonNullable<AgentSettings["models"]> = {};
+  for (const role of AGENT_ROLES) {
+    const choice = defaults[role];
+    if (choice !== null) models[role] = choice;
+  }
+  return models;
+}
+
+export function loadWorkspaceModels(
+  sql: Query,
+): NonNullable<AgentSettings["models"]> {
+  return workspaceModels(loadDefaults(sql));
 }
 
 // 즐겨찾기의 현재 seq는 마지막 ModelFavoritesChanged event의 seq다. 목록을 비워도 앞으로 간다.

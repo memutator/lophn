@@ -1,7 +1,7 @@
 // roles/app-engineer#R16, R17, R22와 R6(ticket 부분): ticket 준비 검사(ticket.ts)와 AE의 ticket 제공
 // 목록. 순수 함수와 목록 계산만 본다. 실제 core·provider·사람 데이터 root는 부르지 않는다.
 import { assert, assertEquals } from "@std/assert";
-import { ROLE_CAPS } from "../../presets/mod.ts";
+import { ROLE_CAPS } from "../../agents/mod.ts";
 import {
   appEngineerOffers,
   appEngineerToolNames,

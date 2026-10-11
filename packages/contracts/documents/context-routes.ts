@@ -113,7 +113,8 @@ export const contextList = defineRead({
   name: "context.list",
   input: contextListInputSchema,
   output: contextListOutputSchema,
-  actors: readActors,
+  // agent runtime이 run 준비 때 자리의 active context를 읽는다(lophn-agent/agents R16).
+  actors: [...readActors, "machine"],
   errors: readErrors,
 });
 export const contextGet = defineRead({

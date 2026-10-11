@@ -4,6 +4,7 @@ import type {
   PresetDefinition,
 } from "../../contracts/lophn-agent/mod.ts";
 import { presetDefinitionOutputSchema } from "../../contracts/lophn-agent/mod.ts";
+import type { RoleCap } from "../agents/mod.ts";
 
 // Preset 판의 선택 검사 규칙. 저장은 commands.ts의 몫이다. wildcard·병합은
 // 없고(presets#R11), 이름은 바꿔 맞추지 않고 거절한다(presets#R11 확인).
@@ -89,10 +90,6 @@ export function expandBundles(
 
 // 역할 상한 밖 내장 tool은 하나라도 있으면 저장 전체를 거절한다(R11). 상한은
 // roles/common이 고정한다(T8). 규칙 목록을 이어 붙여 병합하지 않는다(R11).
-export type RoleCap = {
-  tools: readonly string[];
-};
-
 export function rejectOutsideRoleCap(
   kind: string,
   tools: readonly string[],

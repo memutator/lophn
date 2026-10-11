@@ -7,6 +7,7 @@ import {
   sha256Schema,
 } from "../platform/mod.ts";
 import { sectionKeySchema } from "../documents/mod.ts";
+import { resolvedSourcesSchema } from "./agent-values.ts";
 import { workPlaceOutputSchema, workPlaceSchema } from "./scope.ts";
 import {
   resolvedModelOutputSchema,
@@ -84,14 +85,13 @@ const pinnedRevisionFields = {
   basis_seq: seqSchema,
 };
 
-export const runBasisPresetSchema = z.strictObject({
-  ...pinnedRevisionFields,
-  id: idSchema("pst"),
-});
-export const runBasisPresetOutputSchema = z.object({
-  ...pinnedRevisionFields,
-  id: idSchema("pst"),
-});
+// 고정한 resolved agent는 hash와 칸별 출처만 기준에 두고 전체 값은 blob이다(lophn-agent/agents R25).
+const runBasisAgentFields = {
+  hash: sha256Schema,
+  sources: resolvedSourcesSchema,
+};
+export const runBasisAgentSchema = z.strictObject(runBasisAgentFields);
+export const runBasisAgentOutputSchema = z.object(runBasisAgentFields);
 export const runBasisAssignmentSchema = z.strictObject({
   ...pinnedRevisionFields,
   id: idSchema("asg"),
@@ -123,7 +123,7 @@ export const DEFAULT_RUN_LIMITS = {
 } as const;
 
 export const runBasisSchema = z.strictObject({
-  preset: runBasisPresetSchema,
+  agent: runBasisAgentSchema,
   assignment: runBasisAssignmentSchema,
   tools: z.strictObject({
     revision: positiveRevisionSchema,
@@ -131,7 +131,6 @@ export const runBasisSchema = z.strictObject({
   }),
   extensions: z.strictObject({
     settings_revision: positiveRevisionSchema,
-    preset_selection: sha256Schema,
     skill_hashes: z.array(sha256Schema),
     mcp_config_revisions: z.array(positiveRevisionSchema),
     mcp_tool_definition_hashes: z.array(sha256Schema),
@@ -148,7 +147,7 @@ export const runBasisSchema = z.strictObject({
 });
 
 export const runBasisOutputSchema = z.object({
-  preset: runBasisPresetOutputSchema,
+  agent: runBasisAgentOutputSchema,
   assignment: runBasisAssignmentOutputSchema,
   tools: z.object({
     revision: positiveRevisionSchema,
@@ -156,7 +155,6 @@ export const runBasisOutputSchema = z.object({
   }),
   extensions: z.object({
     settings_revision: positiveRevisionSchema,
-    preset_selection: sha256Schema,
     skill_hashes: z.array(sha256Schema),
     mcp_config_revisions: z.array(positiveRevisionSchema),
     mcp_tool_definition_hashes: z.array(sha256Schema),

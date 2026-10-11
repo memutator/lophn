@@ -9,14 +9,7 @@ export {
   rejectOutsideRoleCap,
   rejectUnknownMcp,
   rejectUnsafeSafeTools,
-  type RoleCap,
 } from "./model.ts";
-export {
-  APP_COMMAND_EXPOSURE,
-  type AppCommandExposure,
-  DOCUMENT_READ_TOOLS,
-  ROLE_CAPS,
-} from "./role-caps.ts";
 export {
   type ResolvedSelections,
   validateDefinition,

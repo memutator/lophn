@@ -40,6 +40,7 @@ import {
 import {
   createModelCommands,
   createModelReads,
+  loadWorkspaceModels,
   type ModelCommandDeps,
   modelSchemaSteps,
   snapshotCatalogEntry,
@@ -63,7 +64,6 @@ import {
   createPresetReads,
   instructionAttachmentsOf,
   presetSchemaSteps,
-  ROLE_CAPS,
 } from "../../packages/lophn-agent/presets/mod.ts";
 import {
   assignmentSchemaSteps,
@@ -84,6 +84,8 @@ import {
   profileImageUploadHandler,
   type ProfileReaders,
   type ProfileUploadHandler,
+  ROLE_CAPS,
+  roleCapsOf,
 } from "../../packages/lophn-agent/agents/mod.ts";
 import {
   createRunCommands,
@@ -726,9 +728,9 @@ function agentLookups(sql: Pick<Tx["sql"], "get" | "all">): AgentLookups {
     // 내놓을 때까지 빈 목록이다.
     skills: () => [],
     mcp: () => registeredMcpTools(sql),
-    // Workspace의 역할별 기본 model(agent-model-defaults)은 아직 목적별 표이고 기본 권한 설정은 없다.
-    // 역할별 표가 생기면 이 줄이 읽는다.
-    workspace: () => ({}),
+    // Workspace 층: 역할별 기본 model(agent_model_defaults의 role slot). 기본 권한 설정은 아직 없어
+    // 권한 층은 비어 있다.
+    workspace: () => ({ models: loadWorkspaceModels(sql) }),
   };
 }
 
@@ -776,7 +778,7 @@ const agentDeps: AgentDeps = {
     createOperator: () => err(AGENT_ASSIGNMENT_PENDING),
     withdraw: () => err(AGENT_ASSIGNMENT_PENDING),
   }),
-  roleCaps: (role) => ROLE_CAPS.get(role)?.tools ?? [],
+  roleCaps: roleCapsOf,
 };
 const agentCommands = createAgentCommands(agentDeps);
 const agentReads = createAgentReads(agentDeps);

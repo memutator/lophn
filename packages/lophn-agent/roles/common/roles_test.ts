@@ -6,7 +6,7 @@ import {
   DOCUMENT_READ_TOOLS,
   ROLE_CAPS,
   type RoleCap,
-} from "../../presets/mod.ts";
+} from "../../agents/mod.ts";
 
 const ROLES: readonly AgentRole[] = [
   "lophn",

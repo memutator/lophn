@@ -1,11 +1,12 @@
-import type { RoleCap } from "./model.ts";
+// 제품이 고정하는 역할별 상한 표(lophn-agent/agents R20)다. core는 platform/responsiveness#R1의
+// core import 검사가 packages/lophn-agent/roles/를 막으므로, core가 부르는 검증은 이 leaf의
+// 표를 읽는다. roles/common/mod.ts가 같은 표를 runtime에 재노출한다. 상한은 이름 목록이고
+// wildcard·병합은 없다. 확장 선택(MCP·skill)은 상한 항목이 아니라 agent 정의의 선택 항목이다.
 
-// T8이 고정하는 역할별 상한 표(정본 자리). core는 platform/responsiveness#R1의
-// core import 검사가 packages/lophn-agent/roles/를 막으므로, core가 부르는 검증
-// deps(presets#R11)는 이 leaf의 표를 읽는다(presets#R9). roles/common/mod.ts가
-// 같은 표를 runtime에 재노출한다. 상한은 이름 목록이고 wildcard·병합은 없다
-// (presets#R11). 목록 밖 내장 tool은 저장 전체 거절이다. 확장 선택(MCP·skill)은
-// 상한 항목이 아니라 preset의 선택 항목이다(R5).
+// 역할 상한 밖 내장 tool은 정의로도 넓히지 못한다(R20, R21).
+export type RoleCap = {
+  tools: readonly string[];
+};
 
 // 공통 기본 tool 묶음의 개별 동작이다(domain model presets의 common 목록). 각
 // 역할의 기본 preset은 이 목록에서 자기 범위만 고른다(R4).

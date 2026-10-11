@@ -1,10 +1,9 @@
 import { err, formatAt, ok, type Result } from "../../packages/base/mod.ts";
 import {
-  type AgentRole,
   type CallModel,
   type CatalogEntry,
   effortValueSchema,
-  modelDefaultsRead,
+  type ModelChoice,
   OPTION_AXIS_EFFORT,
   providerRead,
   type ProviderRecord,
@@ -32,11 +31,11 @@ import {
   responsesPacker,
 } from "./model-binding.ts";
 
-// role의 Workspace 기본 model 선택을 현재 provider·catalog로 검증해 run이 쓸 model 묶음으로 만든다
-// (lophn-agent/harness/model R8~R13, R16, R22~R24, harness/provider R10). 고른 option 값은 default를
+// resolved agent가 정한 model 선택을 현재 provider·catalog로 검증해 run이 쓸 model 묶음으로 만든다
+// (lophn-agent/harness/model R9~R13, R16, R22~R24, harness/provider R10). 어느 층의 선택인지는
+// agents가 정했고 여기서는 받은 선택만 본다. 고른 option 값은 default를
 // 채운 뒤 호출 형식의 표로 요청 body 조각·header·보낼 model 이름이 되고, catalog에 없는 값이면 요청을
-// 보내지 않고 실패한다. agent 정의·project·session 층은 아직 없고 Workspace 층만 쓴다. 계정은 provider의
-// 순서에서 첫 usable 계정이다. 닿는 protocol은 Anthropic Messages·OpenAI Responses·OpenAI Chat
+// 보내지 않고 실패한다. 계정은 provider의 순서에서 첫 usable 계정이다. 닿는 protocol은 Anthropic Messages·OpenAI Responses·OpenAI Chat
 // Completions다.
 // 계정 없는 loopback provider는 붙일 값이 없고, API key 계정은 core가 감독 pipe로 건네는 값을 인증
 // transport가 전송 직전에만 붙인다(platform/secrets#R5). 값을 받지 못하면 요청을 보내지 않는다. OAuth는
@@ -74,18 +73,11 @@ export function createModelResolver(deps: ModelResolverDeps) {
   const fetching = createFetchTransport(deps.fetch);
 
   return async function resolveModel(input: {
-    role: AgentRole;
+    // model call 기록의 preset 칸이 agent hash로 바뀔 때까지 기록이 쓰는 값이다.
     preset: { id: string; revision: number };
+    model: ModelChoice;
   }): Promise<Result<ModelBinding>> {
-    const defaults = await readOf(deps.machine, modelDefaultsRead, {});
-    if (!defaults.ok) return defaults;
-    const selection = defaults.value.defaults[input.role];
-    if (selection === null) {
-      return err({
-        code: "unavailable",
-        message: "no model is chosen for this role",
-      });
-    }
+    const selection = input.model;
     const read = await readOf(deps.machine, providerRead, {
       provider: selection.provider,
     });

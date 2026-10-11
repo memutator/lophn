@@ -328,7 +328,8 @@ export type ResolvedField = (typeof RESOLVED_FIELDS)[number];
 // 앱 자리의 built-in은 project가 없어 context 자료가 0개이고, 그 이유를 밝힌다(R16).
 export const CONTEXTS_EMPTY_REASONS = ["no_project"] as const;
 
-const sourcesSchema = z.strictObject(
+// 칸마다 그 값을 준 층. resolved agent와 run 기준이 같은 모양을 쓴다.
+export const resolvedSourcesSchema = z.strictObject(
   Object.fromEntries(
     RESOLVED_FIELDS.map((field) => [field, valueSourceSchema]),
   ) as Record<ResolvedField, typeof valueSourceSchema>,
@@ -351,7 +352,7 @@ const resolvedFields = {
   contexts_reason: z.enum(CONTEXTS_EMPTY_REASONS).nullable(),
   app_reads: appReadsOutputSchema,
   safe_tools: mcpToolListOutputSchema,
-  sources: sourcesSchema,
+  sources: resolvedSourcesSchema,
   hash: sha256Schema,
 };
 

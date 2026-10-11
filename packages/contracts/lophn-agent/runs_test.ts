@@ -17,7 +17,14 @@ import {
   startRunInputSchema,
 } from "./runs.ts";
 
-import { runList, runRead, runResult } from "./run-reads.ts";
+import {
+  RUN_BODY_KINDS,
+  runBody,
+  runList,
+  runRead,
+  runResult,
+} from "./run-reads.ts";
+import { RUN_BLOB_PURPOSES } from "./run-blobs.ts";
 
 const run = "run_01arz3ndektsv4rrffq69g5fav";
 const assignment = "asg_01arz3ndektsv4rrffq69g5fav";
@@ -177,6 +184,43 @@ Deno.test("lophn-agent/harness/run-loop#R6: finish event keeps started paired wi
       scope,
       principal: "agent",
     }).success,
+  );
+});
+
+Deno.test("lophn-agent/agents#R25: StartRun fixes the resolved agent blob together with its size, and ReadRunBody reads it", () => {
+  const input = {
+    run,
+    basis: hash,
+    basis_size: 10,
+    limits: DEFAULT_RUN_LIMITS,
+    scope: { role: "lophn", assignment, apps: [] },
+  };
+  assert(startRunInputSchema.safeParse(input).success);
+  assert(
+    startRunInputSchema.safeParse({ ...input, agent: hash, agent_size: 20 })
+      .success,
+  );
+  // 한쪽만 오면 영구 참조를 등록할 수 없다.
+  assert(!startRunInputSchema.safeParse({ ...input, agent: hash }).success);
+  assert(
+    !startRunInputSchema.safeParse({ ...input, agent_size: 20 }).success,
+  );
+  assert(
+    !startRunInputSchema.safeParse({
+      ...input,
+      agent: "short",
+      agent_size: 20,
+    }).success,
+  );
+  assertEquals(RUN_BLOB_PURPOSES.run_agent, "run_agent");
+  assert(RUN_BODY_KINDS.includes("run_agent"));
+  assert(runBody.input.safeParse({ kind: "run_agent", id: run }).success);
+  assert(
+    !runBody.input.safeParse({
+      kind: "run_agent",
+      id: "mcl_01arz3ndektsv4rrffq69g5fav",
+    })
+      .success,
   );
 });
 

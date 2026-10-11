@@ -17,9 +17,9 @@ import type {
   ReadSnapshot,
   RequestContext,
 } from "../../contracts/platform/mod.ts";
+import { DEFAULT_PROFILES } from "./builtin.ts";
 import {
   callableIn,
-  DEFAULT_PROFILES,
   inspectAgent,
   type Inspected,
   loadPlaceSettings,

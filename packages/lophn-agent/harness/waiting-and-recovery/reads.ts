@@ -36,6 +36,13 @@ const SOURCES = {
     owner: "run",
     field: "basis",
   },
+  // run이 고정한 resolved agent 전체 값(run-loop의 영구 참조). 표 열이 없어 참조 행이 곧 근거다.
+  run_agent: {
+    sql:
+      "select owner_key as run, hash from blob_refs where owner_kind = 'run' and field = 'agent' and owner_key = ?",
+    owner: "run",
+    field: "agent",
+  },
   model_call_output: {
     sql: "select id, run, output as hash from model_calls where id = ?",
     owner: "model_call",

@@ -48,6 +48,13 @@ export const runBodyFields: readonly BlobFieldDefinition[] = [
     retention: { kind: "permanent" },
     general_read: false,
   }),
+  // 고정한 resolved agent의 전체 값이다. 이어 하기가 이 blob을 그대로 쓴다(lophn-agent/agents R26).
+  defineBlobField({
+    owner_kind: "run",
+    field: "agent",
+    retention: { kind: "permanent" },
+    general_read: false,
+  }),
   defineBlobField({
     owner_kind: "run",
     field: "result",
@@ -440,6 +447,18 @@ export function createRunCommands(deps: RunLoopDeps = {}): {
             hash: input.basis,
             size: input.basis_size,
             purpose: RUN_BLOB_PURPOSES.run_basis,
+            seq,
+          });
+          if (!registered.ok) return registered;
+        }
+        if (input.agent !== undefined && input.agent_size !== undefined) {
+          const registered = registerPreparedBlob(tx, ctx, {
+            owner_kind: "run",
+            owner_key: row.id,
+            field: "agent",
+            hash: input.agent,
+            size: input.agent_size,
+            purpose: RUN_BLOB_PURPOSES.run_agent,
             seq,
           });
           if (!registered.ok) return registered;

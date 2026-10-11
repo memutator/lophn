@@ -4,10 +4,10 @@ import { ROUTES as DOCUMENT_ROUTES } from "../../../contracts/documents/mod.ts";
 import { ROUTES } from "../../../contracts/lophn-agent/mod.ts";
 import {
   productPresetDefinition,
-  ROLE_CAPS,
   validateDefinition,
   type ValidateDeps,
 } from "../../presets/mod.ts";
+import { ROLE_CAPS } from "../../agents/mod.ts";
 import {
   BUILTIN_TOOLS,
   createBuiltinToolHandlers,

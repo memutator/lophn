@@ -411,6 +411,9 @@ export type PlaceholderKinds = {
     author: "string";
   };
   "common.button.apply": Record<never, never>;
+  "common.button.ask-agent": {
+    agent: "string";
+  };
   "common.button.back": Record<never, never>;
   "common.button.cancel": Record<never, never>;
   "common.button.clear": Record<never, never>;

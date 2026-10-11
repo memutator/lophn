@@ -682,31 +682,13 @@ Deno.test("documents/outline-and-search#R12: context filter는 items 목록 문�
         seedStore,
       );
 
-      // context를 실제 route로 만든다. A만 items로 둔다.
-      const created = await post(core.port, "contexts/create", {
-        input: {
-          id: CONTEXT,
-          title: "기준",
-          purpose: "기준 자료 묶음",
-          items: [{
-            target: { kind: "document", document: DOC_A, section: null },
-            perspective: "basis",
-            reason: "판단의 근거 문서",
-          }],
-        },
-        idempotency_key: "ctx-create",
-        compare: {},
-        prepared: [],
-      }, token);
-      assertEquals(created.status, 200, await created.text());
-
       // snapshot은 최근 event_seq를 근원으로 둔다.
       const asOf = BigInt(seedB.event_seq) >= BigInt(seedA.event_seq)
         ? seedB.event_seq
         : seedA.event_seq;
-      const itemRows = (
-        db: DatabaseSync,
-      ): SearchHandlerDeps["contexts"] => ({
+      // 새 context 모델은 문서 항목을 두지 않는다. context filter의 근원은 주입하는 목록이라
+      // 여기서는 A만 든 목록을 준다.
+      const itemRows = (): SearchHandlerDeps["contexts"] => ({
         items: (contextId: string) => {
           if (contextId !== CONTEXT) {
             return {
@@ -717,15 +699,9 @@ Deno.test("documents/outline-and-search#R12: context filter는 items 목록 문�
               },
             };
           }
-          const found = db.prepare(
-            `SELECT document FROM context_items WHERE context = ? AND target_kind = 'document'`,
-          ).all(contextId) as { document: string }[];
           return {
             ok: true as const,
-            value: found.map((row) => ({
-              kind: "document" as const,
-              document: row.document,
-            })),
+            value: [{ kind: "document" as const, document: DOC_A }],
           };
         },
       });
@@ -734,7 +710,7 @@ Deno.test("documents/outline-and-search#R12: context filter는 items 목록 문�
       const read = openDerivedRead(derivedPath(core.dataRoot));
       assert(read.ok, read.ok ? "" : read.error.message);
       try {
-        const contexts = itemRows(ledger.db);
+        const contexts = itemRows();
         const deps: SearchHandlerDeps = {
           read: read.value,
           snapshot: ledger.snapshot,

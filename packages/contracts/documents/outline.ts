@@ -198,7 +198,6 @@ export type OutlinePage =
 export const OUTLINE_ROUTES = [
   outlineRoot,
   outlinePlace,
-  outlineContext,
   outlineDocument,
   outlineSeries,
 ] as const;

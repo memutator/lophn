@@ -62,7 +62,8 @@ export type ReasonCode =
   | "external_effect"
   | "not_reversible"
   | "within_scope_read"
-  | "reversible_write";
+  | "reversible_write"
+  | "session_granted";
 
 // 이유 문장은 고정이다. 범위 밖 대상과 없는 대상이 같은 문장이라 존재가 새지 않는다.
 const REASONS: Readonly<Record<ReasonCode, string>> = {
@@ -81,6 +82,7 @@ const REASONS: Readonly<Record<ReasonCode, string>> = {
   not_reversible: "this call cannot be reverted",
   within_scope_read: "a read inside the current scope",
   reversible_write: "a revertible write for a person's request",
+  session_granted: "a person allowed this kind of call for this session",
 };
 
 export type Judgment = {
@@ -179,6 +181,17 @@ export function judge(facts: CallFacts): Judgment {
   return result ?? verdict("deny", "target_unknown", null);
 }
 
+// session 허락 칸(R14). 판정표가 ask로 낸 호출만 allow로 낮춘다. deny(거절 억제 포함)는 이미 앞에서
+// 걸러졌고 여기서 되살리지 않으며, 호출마다 사람이 정하는 confirm 앱 command도 낮추지 않는다. 효과
+// 판정은 그대로 둬서 되돌릴 수 없는 호출이 되돌릴 수 있는 호출로 기록되지 않는다.
+export function lowerBySessionGrant(
+  facts: CallFacts,
+  judgment: Judgment,
+): Judgment {
+  if (judgment.decision !== "ask" || facts.confirm) return judgment;
+  return verdict("allow", "session_granted", judgment.effect);
+}
+
 // 같은 요청의 비교(R9, RefusalMatch). 객체 키 순서만 무시하고 array 순서·값·null·타입은
 // 그대로 비교한다. 대상은 집합이라 순서를 맞춘다. 설명·이유·역할·Session은 보지 않는다.
 export function refusalKey(
@@ -224,4 +237,32 @@ export function sameBasis(
 ): boolean {
   if (recorded === null || typeof recorded !== "object") return false;
   return canonicalize(recorded) === canonicalize(current);
+}
+
+// session 허락이 가리키는 tool이 지금도 같은 tool인지의 기준이다. 허락 때 기록한 판정 기준과 지금
+// 기준에서 tool·동작과 그 계약·정의·연결·권한 판만 본다. 대상·입력·비교 기준은 session 허락이
+// 묶지 않는 값이다(R14). 하나라도 달라지면 옛 허락으로 낮추지 않고 다시 묻는다.
+const TOOL_BASIS_KEYS = [
+  "tool",
+  "operation",
+  "definition_revision",
+  "description_hash",
+  "contract_revision",
+  "mcp_configuration_revision",
+  "assignment_revision",
+  "preset_revision",
+] as const;
+
+export function sameToolBasis(
+  recorded: unknown,
+  current: BasisSnapshot,
+): boolean {
+  if (
+    recorded === null || typeof recorded !== "object" ||
+    Array.isArray(recorded)
+  ) return false;
+  const before = recorded as Record<string, unknown>;
+  return TOOL_BASIS_KEYS.every((key) =>
+    key in before && canonicalize(before[key]) === canonicalize(current[key])
+  );
 }

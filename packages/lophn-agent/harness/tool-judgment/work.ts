@@ -1,4 +1,3 @@
-import type { z } from "zod";
 import {
   type Clock,
   err,
@@ -27,7 +26,6 @@ import {
   approvalsList,
   createApprovalRequest,
   type JsonObject,
-  routePath,
 } from "../../../contracts/platform/mod.ts";
 import {
   checkInput,
@@ -36,26 +34,24 @@ import {
   type ToolDefinition,
   unchanged,
 } from "../tools/mod.ts";
+import { type CoreCall, post } from "./core-call.ts";
 import {
   type BasisSnapshot,
   type CallFacts,
   judge,
   type Judgment,
+  lowerBySessionGrant,
   type Origin,
   refusalKey,
   type Reversibility,
   sameBasis,
   sameLineage,
 } from "./model.ts";
+import { findSessionGrant } from "./session-grant.ts";
 
 // 호출 판정과 진입 직전 재검사. command 밖의 일이고 결과는 command로 남긴다. 판정은 model.ts의
 // 판정표가 하고 여기는 사실을 읽고 기록과 approval 생성·적용을 잇는다. model의 말은 어느
 // 사실에도 들어오지 않는다(R7). core 읽기와 command는 주입한 호출로만 한다.
-
-export type CoreCall = (
-  path: string,
-  body: unknown,
-) => Promise<Result<unknown>>;
 
 // 소유 계약이 입력에서 읽은 정확한 동작. 모르거나 읽지 못하면 err이고 deny다(R2).
 export type ResolvedAction = {
@@ -123,21 +119,9 @@ type Gathered = {
   presetRevision: number | null;
   runStateSeq: string | null;
   origin: { id: string | null; run: string } | null;
+  // 이 run이 속한 session. session 허락을 찾는 범위다.
+  session: string | null;
 };
-
-async function post<O extends z.ZodType>(
-  call: CoreCall,
-  route: { resource: string; method: string; output: O },
-  body: unknown,
-): Promise<Result<z.output<O>>> {
-  const reply = await call(routePath(route), body);
-  if (!reply.ok) return reply;
-  const parsed = route.output.safeParse(reply.value);
-  if (!parsed.success) {
-    return err({ code: "unavailable", message: "unexpected core reply" });
-  }
-  return ok(parsed.data);
-}
 
 function jsonObject(value: unknown): value is JsonObject {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -338,6 +322,7 @@ async function gather(
     origin: record === undefined || origin === null
       ? null
       : { id: origin.id, run: record.id },
+    session: record?.session ?? null,
   };
 }
 
@@ -407,6 +392,26 @@ export function createToolJudgment(deps: JudgmentDeps) {
     return ok(nextSeq(request.stateSeq));
   }
 
+  // 판정표 뒤에 session 허락 칸을 적용한다. ask로 판정된 호출만 같은 session의 같은 tool·동작에 대한
+  // 허락이 있을 때 allow로 낮아진다. confirm 앱 command는 낮추지 않는다(R14).
+  async function judgeWithSessionGrant(gathered: Gathered): Promise<Judgment> {
+    const judgment = judge(gathered.facts);
+    const { resolved, basis, session } = gathered;
+    if (
+      judgment.decision !== "ask" || gathered.facts.confirm ||
+      resolved === null || resolved.confirm !== undefined ||
+      basis === null || session === null
+    ) return judgment;
+    const grant = await findSessionGrant(deps.machine, {
+      session,
+      concern: resolved.concern,
+      basis,
+    });
+    return grant === undefined
+      ? judgment
+      : lowerBySessionGrant(gathered.facts, judgment);
+  }
+
   // 설명은 이 call 하나를 가리킨다. 승인은 그 call 하나에만 쓰므로 같은 동작의 다른 call은 다른
   // approval이 필요하다.
   function reasonOf(request: CallRequest, targets: readonly string[]): string {
@@ -472,6 +477,10 @@ export function createToolJudgment(deps: JudgmentDeps) {
       },
       action,
       expires_at: formatAt(deps.clock.nowMs() + deps.approvalTtlMs),
+      // 카드가 Allow for this session을 보일 수 있는 ask는 session 있는 run의 tool call ask이고 사람이
+      // 호출마다 확인하는 앱 command(confirm)가 아닌 것이다(platform/approvals#R20).
+      session_grantable: resolved.confirm === undefined &&
+        gathered.session !== null,
     };
     const created = await post(deps.agent, createApprovalRequest, {
       input: body,
@@ -493,7 +502,7 @@ export function createToolJudgment(deps: JudgmentDeps) {
   // approval request도 만들지 않는다(R1). 쓰기·승인 필요 호출의 시작은 이 기록 뒤에만 한다.
   async function decide(request: CallRequest): Promise<Result<Decided>> {
     const gathered = await gather(deps, request);
-    let judgment = judge(gathered.facts);
+    let judgment = await judgeWithSessionGrant(gathered);
     let approval: string | null = null;
     if (judgment.decision === "ask") {
       if (gathered.resolved === null || gathered.input === null) {
@@ -592,7 +601,11 @@ export function createToolJudgment(deps: JudgmentDeps) {
       }
     }
     const gathered = await gather(deps, request);
-    const current = judge(gathered.facts);
+    // 낮춘 allow의 재검사는 session 허락이 지금도 서 있어야 allow다. 사람의 한 번 허락을 기다린
+    // 호출은 그 사이 생긴 session 허락으로 판정을 바꾸지 않는다.
+    const current = recorded.decision === "allow"
+      ? await judgeWithSessionGrant(gathered)
+      : judge(gathered.facts);
     if (current.decision === "deny") {
       return ok({ kind: "denied", reason: current.reason });
     }

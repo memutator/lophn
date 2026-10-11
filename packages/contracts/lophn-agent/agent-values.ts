@@ -386,6 +386,18 @@ export const modelSummarySchema = z.object({
 
 export const AGENT_LIST_STATES = ["enabled", "paused"] as const;
 
+const countSchema = z.number().int().nonnegative();
+
+// 카드의 "n contexts · n skills · n MCP"(shell/workspace R36). skills·mcp는 resolve 결과의 켜진 개수이고
+// contexts는 Operator가 고른 것 가운데 active인 개수다. built-in은 context 수를 보이지 않아 null이다.
+// 파일이 틀려 resolve하지 못한 행은 셋 다 셀 수 없어 null이다.
+export const agentCountsSchema = z.object({
+  contexts: countSchema.nullable(),
+  skills: countSchema.nullable(),
+  mcp: countSchema.nullable(),
+});
+export type AgentCounts = z.infer<typeof agentCountsSchema>;
+
 // 목록의 정본은 assignment다. issues가 비어 있지 않으면 파일이 틀려 그 agent만 시작하지 않는다(R24).
 export const agentListRowSchema = z.object({
   assignment: idSchema("asg"),
@@ -396,7 +408,18 @@ export const agentListRowSchema = z.object({
   model: modelSummarySchema.nullable(),
   state: z.enum(AGENT_LIST_STATES),
   issues: z.array(agentIssueSchema),
+  counts: agentCountsSchema,
 }).refine((row) => row.kind === agentKindOf(row.role), {
   message: "kind does not match role",
-});
+}).refine(
+  (row) => {
+    const { contexts, skills, mcp } = row.counts;
+    if (row.issues.length > 0) {
+      return contexts === null && skills === null && mcp === null;
+    }
+    return skills !== null && mcp !== null &&
+      (contexts === null) === (row.kind === "built_in");
+  },
+  { message: "counts do not match the issues and kind" },
+);
 export type AgentListRow = z.infer<typeof agentListRowSchema>;

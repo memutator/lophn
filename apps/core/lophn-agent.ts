@@ -27,6 +27,7 @@ import type {
   CommandDefinition,
   EventDefinition,
   EventVisibilityDefinition,
+  SqlRow,
   Tx,
 } from "../../packages/contracts/platform/mod.ts";
 import {
@@ -66,6 +67,14 @@ import {
   createAssignmentCommands,
   createAssignmentReads,
 } from "../../packages/lophn-agent/assignments/mod.ts";
+import {
+  type AgentDeps,
+  type AgentFileSystem,
+  type AgentLookups,
+  type AssignmentRef,
+  createAgentCommands,
+  createAgentReads,
+} from "../../packages/lophn-agent/agents/mod.ts";
 import {
   createRunCommands,
   createRunReads,
@@ -140,6 +149,7 @@ import {
   mcpAuthCompleteInputSchema,
   type McpServerConfig,
   mcpServersSetting,
+  type McpTool,
   skillFoldersSetting,
   TOOL_DOCUMENT_ROUTES,
 } from "../../packages/contracts/lophn-agent/mod.ts";
@@ -606,6 +616,123 @@ const operatorOutputPort = defineTxPort(OperatorOutput, (tx) => ({
     ),
 }));
 
+// agent 정의 저장소(concern lophn-agent/agents)가 다른 concern에서 읽는 값이다. 읽기는 snapshot과 Tx가
+// 같은 sql 모양이라 한 factory를 함께 쓴다. data root는 ledger 파일이 있는 폴더다.
+function agentAssignmentRef(row: SqlRow): AssignmentRef {
+  return {
+    id: String(row["id"]),
+    role: String(row["role"]) as AssignmentRef["role"],
+    scope: row["scope_kind"] === "all" ? { kind: "all" } : {
+      kind: String(row["scope_kind"]) as "project" | "app",
+      id: String(row["scope_id"]),
+    },
+    state: String(row["state"]) as AssignmentRef["state"],
+    revision: Number(row["revision"]),
+  };
+}
+
+const ASSIGNMENT_COLUMNS =
+  "id, role, scope_kind, scope_id, state, revision from assignments";
+
+// 켜진 외부 MCP server의 tool(분류에 적힌 이름)을 등록 순서로 낸다. 읽지 못하면 빈 목록이다.
+function registeredMcpTools(sql: Pick<Tx["sql"], "all">): McpTool[] {
+  try {
+    const rows = sql.all(
+      "select value from setting_choices where key = ?",
+      [mcpServersSetting.key],
+    );
+    if (rows.length === 0) return [];
+    const shaped = mcpServersSetting.value_type.safeParse(
+      JSON.parse(String(rows[0]["value"])),
+    );
+    if (!shaped.success) return [];
+    return shaped.data.filter((server) => server.enabled).flatMap((server) =>
+      Object.keys(server.classifications).map((tool) => ({
+        server_name: server.name,
+        original_tool: tool,
+      }))
+    );
+  } catch {
+    return [];
+  }
+}
+
+function agentLookups(sql: Pick<Tx["sql"], "get" | "all">): AgentLookups {
+  return {
+    placeExists: (place) =>
+      sql.get(
+        place.kind === "project"
+          ? "select 1 as found from projects where id = ?"
+          : "select 1 as found from apps where id = ?",
+        [place.id],
+      ) !== undefined,
+    assignments: (place) =>
+      sql.all(
+        `select ${ASSIGNMENT_COLUMNS} where state != 'withdrawn'
+           and (scope_kind = 'all' or (scope_kind = ? and scope_id = ?))
+         order by id`,
+        [place.kind, place.id],
+      ).map(agentAssignmentRef),
+    assignment: (id) => {
+      const row = sql.get(`select ${ASSIGNMENT_COLUMNS} where id = ?`, [id]);
+      return row === undefined ? null : agentAssignmentRef(row);
+    },
+    // context는 project에 속하지 않고 workspace 전체에 있다(documents/contexts 표에 project 열이 없다).
+    contextStatus: (id) => {
+      const row = sql.get("select status from contexts where id = ?", [id]);
+      return row === undefined
+        ? null
+        : String(row["status"]) === "active"
+        ? "active"
+        : "archived";
+    },
+    activeContexts: (place) =>
+      place.kind === "project"
+        ? sql.all(
+          "select id from contexts where status = 'active' order by id",
+          [],
+        )
+          .map((row) => String(row["id"]))
+        : [],
+    // 등록 skill은 폴더를 훑어야 알 수 있어(비동기) 동기 읽기에서 셀 수 없다. extensions가 동기 등록부를
+    // 내놓을 때까지 빈 목록이다.
+    skills: () => [],
+    mcp: () => registeredMcpTools(sql),
+    // Workspace의 역할별 기본 model(agent-model-defaults)은 아직 목적별 표이고 기본 권한 설정은 없다.
+    // 역할별 표가 생기면 이 줄이 읽는다.
+    workspace: () => ({}),
+  };
+}
+
+// Operator assignment를 만들고 거두는 길은 assignments가 preset 없는 모양으로 바뀔 때 붙는다.
+// 그 전에는 새 Operator 저장과 Operator 삭제가 unavailable로 끝나 아무것도 바꾸지 않는다.
+const AGENT_ASSIGNMENT_PENDING = {
+  code: "unavailable" as const,
+  message: "operator assignment lifecycle is not wired yet",
+};
+
+// 정의 파일의 동기 읽기·쓰기는 writer·reader Worker 안의 handler가 한다. core 프로세스의 module graph에는
+// 동기 file API를 두지 않으므로(platform/responsiveness#R1) adapter는 이 module이 올라올 때 URL로 연다.
+const NODE_AGENT_FILES = new URL(
+  "../../packages/lophn-agent/agents/adapters/node-fs.ts",
+  import.meta.url,
+).href;
+const { createNodeAgentFiles } = await import(NODE_AGENT_FILES) as {
+  createNodeAgentFiles(): AgentFileSystem;
+};
+
+const agentDeps: AgentDeps = {
+  files: createNodeAgentFiles(),
+  lookups: agentLookups,
+  assignmentWriter: () => ({
+    createOperator: () => err(AGENT_ASSIGNMENT_PENDING),
+    withdraw: () => err(AGENT_ASSIGNMENT_PENDING),
+  }),
+  roleCaps: (role) => ROLE_CAPS.get(role)?.tools ?? [],
+};
+const agentCommands = createAgentCommands(agentDeps);
+const agentReads = createAgentReads(agentDeps);
+
 export const lophnAgentDefinitions = {
   // settings registry 출처의 항목이다(platform/settings#R31). core 조립의 settings.ts가 모은다.
   settings: [
@@ -657,6 +784,9 @@ export const lophnAgentDefinitions = {
     assignmentCommands.pause,
     assignmentCommands.resume,
     assignmentCommands.withdraw,
+    agentCommands.save,
+    agentCommands.delete,
+    agentCommands.changeSettings,
     runCommands.accept,
     runCommands.start,
     runCommands.checkpoint,
@@ -714,6 +844,9 @@ export const lophnAgentDefinitions = {
     assignmentReads.read,
     assignmentReads.list,
     assignmentReads.outputs,
+    agentReads.list,
+    agentReads.read,
+    agentReads.settings,
     runReads.read,
     runReads.list,
     runReads.result,
@@ -1126,6 +1259,9 @@ export function createReaderRegistration(): ReaderRegistration {
       assignmentReads.read,
       assignmentReads.list,
       assignmentReads.outputs,
+      agentReads.list,
+      agentReads.read,
+      agentReads.settings,
       runReads.read,
       runReads.list,
       runReads.result,

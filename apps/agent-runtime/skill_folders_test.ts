@@ -36,7 +36,6 @@ Deno.test("extensions#R1: 등록 폴더의 유효한 SKILL.md만 run context ski
     const prepared = await driver.prepare({
       run: RUN,
       assignment: ASG,
-      session: null,
       stateSeq: "1",
       session: SES,
       reason: "priority",
@@ -145,7 +144,6 @@ Deno.test("extensions#R1 extensions#R4 lophn-agent/agents#R18: 제품 run은 dat
     const prepared = await driver.prepare({
       run: RUN,
       assignment: ASG,
-      session: null,
       stateSeq: "1",
       session: SES,
       reason: "priority",

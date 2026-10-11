@@ -27,7 +27,6 @@ const SELECTION: Selection = {
   assignment: ASG,
   session: null,
   stateSeq: "3",
-  session: null,
   reason: "priority",
 };
 const SCOPE = {

@@ -2,8 +2,8 @@ import { err, formatAt, ok, type Result } from "../../packages/base/mod.ts";
 import {
   type CallModel,
   type CatalogEntry,
-  type ModelChoice,
   effortValueSchema,
+  type ModelChoice,
   OPTION_AXIS_EFFORT,
   providerRead,
   type ProviderRecord,

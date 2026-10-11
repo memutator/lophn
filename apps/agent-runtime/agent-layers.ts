@@ -3,8 +3,8 @@ import { contextList } from "../../packages/contracts/documents/mod.ts";
 import {
   type AgentIssue,
   type AgentPlace,
-  agentsRead,
   type AgentSettings,
+  agentsRead,
   type McpTool,
   modelDefaultsRead,
   placeAgentSettingsRead,

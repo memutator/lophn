@@ -314,7 +314,6 @@ Deno.test("lophn-agent/agents#R7 lophn-agent/agents#R12: list returns rows and s
     state: "enabled",
     counts: { contexts: null, skills: 0, mcp: 0 },
     issues: [],
-    counts: { contexts: null, skills: 0, mcp: 0 },
   };
   assert(agentsList.output.safeParse({ ...meta, agents: [row] }).success);
   assert(

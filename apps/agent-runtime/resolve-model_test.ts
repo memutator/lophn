@@ -138,6 +138,7 @@ const REQUEST: PromptRequest = {
 
 async function fire(binding: ModelBinding) {
   const packed = binding.pack(REQUEST);
+  const body = packed.body as Record<string, unknown>;
   const result = await binding.invoke({
     callId: "mcl_01arz3ndektsv4rrffq69g5fav",
     run: null,
@@ -147,12 +148,12 @@ async function fire(binding: ModelBinding) {
     endpoint: binding.endpoint,
     inputHash: "a".repeat(64),
     contextBasisHash: "a".repeat(64),
-    body: packed.body,
+    body,
     timeoutMs: null,
     usageRevision: binding.usageRevision,
   }, new AbortController().signal);
   assert(result.ok, JSON.stringify(result));
-  return packed.body as Record<string, unknown>;
+  return body;
 }
 
 async function bind(

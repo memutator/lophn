@@ -155,8 +155,8 @@ Deno.test("lophn-agent/harness/model#R22 [agent-I15]: 세 packer 모두 request_
     },
   ];
   for (const { plain, patched, key } of packers) {
-    const base = plain(REQUEST).body;
-    const body = patched(REQUEST).body;
+    const base = plain(REQUEST).body as Record<string, unknown>;
+    const body = patched(REQUEST).body as Record<string, unknown>;
     assertEquals(body[key], { type: "adaptive" });
     assertEquals(body.extra, 1);
     assertEquals(key in base, false);

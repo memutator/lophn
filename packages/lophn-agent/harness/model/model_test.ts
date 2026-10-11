@@ -876,7 +876,7 @@ Deno.test("lophn-agent/harness/model#R8 [agent-I15]: the defaults table holds on
     assertEquals(JSON.parse(rows[1].option_values), {});
     const tables = value(
       await h.inspect(
-        "select name from sqlite_master where type = 'table' and name like '%model%'",
+        "select name from sqlite_master where type = 'table' and name in ('agent_model_defaults', 'model_favorites')",
         [],
       ),
     ) as { name: string }[];

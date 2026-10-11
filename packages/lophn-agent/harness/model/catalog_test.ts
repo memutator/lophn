@@ -19,7 +19,10 @@ import {
   type SnapshotLoader,
 } from "./work.ts";
 import { fetchCatalog, type HttpFetch } from "./adapters/models-dev.ts";
-import { snapshotCatalogEntry } from "./snapshot-catalog.ts";
+import {
+  snapshotCatalogEntry,
+  snapshotModelListed,
+} from "./snapshot-catalog.ts";
 
 const START = Date.UTC(2026, 9, 5, 0, 0, 0);
 
@@ -697,4 +700,11 @@ Deno.test("lophn-agent/harness/model#R21 [agent-I15]: the bundled snapshot decla
     snapshotCatalogEntry("openrouter", "anthropic/claude-sonnet-4-5")?.options,
     null,
   );
+});
+
+// R10: 동봉 snapshot이 아는 provider 정의는 목록 안팎을 가르고, 모르는 provider 정의는 목록을 확인할 수 없어 null이다.
+Deno.test("lophn-agent/harness/model#R10 [agent-I15]: the bundled list answers only for provider definitions it knows", () => {
+  assertEquals(snapshotModelListed("openai", "gpt-5"), true);
+  assertEquals(snapshotModelListed("openai", "gpt-0"), false);
+  assertEquals(snapshotModelListed("some-new-provider", "any-model"), null);
 });

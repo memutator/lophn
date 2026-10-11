@@ -72,7 +72,7 @@ context worker는 `apps/worker`의 kind `documents/contexts` 하나다. core가 
 
 | job | 입력 | 하는 일 | 내는 것 |
 |---|---|---|---|
-| `context.index` | context, 적용 Bundle의 contract(core가 blob을 읽어 IPC 요청에 싣는다), Project 루트 | 계약이 가리키는 경로만 stat(size·mtime)으로 훑어 바뀌었거나 새로 생긴 파일만 다시 extract하고, 사라진 파일의 개체를 지운 뒤 derived store를 한 transaction으로 갱신한다. 이어 `checks`로 위반 집합을 다시 계산한다 | scan 결과(훑은 수·바뀐 수·실패·omissions)와 위반 요약. 위반이 늘었으면 `context.record_violations`를 제출 |
+| `context.index` | context, 적용 Bundle의 contract(core가 blob을 읽어 IPC 요청에 싣는다), Project 루트 | 계약이 가리키는 경로만 stat(size·mtime)으로 훑어 바뀌었거나 새로 생긴 파일만 다시 extract하고, 사라진 파일의 개체를 지운 뒤 derived store를 한 transaction으로 갱신한다. 이어 `checks`로 위반 집합을 다시 계산한다 | scan 결과(훑은 수·바뀐 수·실패·omissions)와 위반 요약. 위반 수가 ledger의 마지막 기록(`recorded_count`, core가 요청에 싣는다)과 다르면 `context.record_violations`를 제출 |
 | `context.check` | context, 후보 Bundle(contract·선언 검색·예시), 그 context의 saved view 전부 | 계약이 가리키는 파일을 임시 snapshot 폴더로 복사해 고정하고 그 snapshot에 대해서만 `check` runner를 돌린 뒤 snapshot을 지운다 | 결정적 report(`bundle_hash, snapshot_hash`, 통과/실패와 이유, 위반 수). core에 `bundle.finish_check`를 제출 |
 
 - 권한: 등록 루트의 `--allow-read`, `~/.lophn/derived/contexts.sqlite`(와 WAL)와 `~/.lophn/documents/staging/context-check/`의 `--allow-write`만 준다. network·env·subprocess·FFI는 없고 `--no-prompt`로 시작한다. 루트 추가·해제 때 core가 새 권한으로 worker를 교체한다. 신뢰한 플랫폼 코드만 실행하며 사용자 script는 실행하지 않는다(선언형 query뿐, documents/contexts#Q10).
@@ -121,11 +121,10 @@ ContentFile은 상대 경로의 Unicode codepoint 순으로 정렬하고 `path, 
 |---|---|
 | `index_state` | context별 적용 `bundle_hash`·마지막 scan 시각·결과(`complete \| partial \| failed`)·omissions |
 | `index_files` | `(context, path)`별 size·mtime·extract에 쓴 `bundle_hash`·extract 상태(`ok \| failed`와 안전한 이유) |
-| `index_entities` | `(context, type, id)`별 path·section key(있으면)·field 값(canonical JSON)·source kind |
-| `index_relations` | `(context, from, relation, to)`의 해석된 관계와 해석하지 못한 참조 |
-| `index_violations` | `(context, rule, entity 또는 path)`별 이유. 위반 집합 |
+| `index_entities` | `(context, ord)`별 type·key(id)·path·section key(있으면)·field 값(canonical JSON)·관계 간선 `links`(JSON)·source kind. `ord`는 추출이 낸 순서다 |
+| `index_violations` | `(context, ord)`별 kind·rule·type·path·section·대상. 위반 집합이고 `ord`는 canonical 순서다 |
 
-한 scan의 결과는 한 SQLite transaction에 쓴다. 같은 파일 내용과 같은 Bundle은 같은 행을 낳고 순서는 canonical이다. SQLite FTS5를 쓰지 않는다. 선언 검색은 index 행을 읽어 순수 함수로 평가하고, 표의 SQL index는 `(context, type, id)`와 `(context, path)` 같은 조회 열에만 둔다. app-data kind의 개체는 index에 저장하지 않는다(검색할 때 port로 읽는다, 5.6).
+한 scan의 결과는 한 SQLite transaction에 쓴다. 같은 파일 내용과 같은 Bundle은 같은 행을 낳고 순서는 canonical이다. SQLite FTS5를 쓰지 않는다. 선언 검색은 index 행을 읽어 순수 함수로 평가하고, 표의 SQL index는 `(context, type, id)`와 `(context, path)` 같은 조회 열에만 둔다. `index_entities`의 기본키가 `(context, type, id)`가 아니라 `(context, ord)`인 것은 같은 type에 같은 key의 개체가 둘일 수 있어서다(unique 규칙이 그것을 위반으로 센다). 관계 간선은 별도 표 없이 개체 행의 `links`에 두므로 `index_relations` 표는 없다. 해석하지 못한 참조는 위반(`broken_link`, `relation_target_exists`)으로 센다. app-data kind의 개체는 index에 저장하지 않는다(검색할 때 port로 읽는다, 5.6).
 
 **따라잡기.** tracking도 event 구독도 없다. 검색·context 열기·Overview 개수를 읽기 전에 reader가 `context.index`를 요청해 계약 경로를 싸게 다시 훑는다. `(path, size, mtime)`이 `index_files`와 같은 파일은 건너뛴다. 같은 context에 이미 도는 scan이 있으면 그 결과를 기다리고, 직전 scan이 끝난 지 2초 안이면 새로 요청하지 않는다. 기한 2초 안에 끝나지 않으면 있던 index로 답하고 결과에 `indexed_at`과 `stale: true`를 싣는다(초기 구현값. 파일 수에 맞춰 조절한다). 적용 Bundle이 바뀌면 다음 scan은 모든 파일을 다시 extract한다. 같은 size·mtime으로 내용만 바뀐 편집은 다음 변경 때까지 index에 안 보일 수 있다. stat만 쓰는 선택의 대가이고 hash 비교로 막지 않는다(documents/contexts#Q14). 사람이 열지 않아도 위반을 알리려고 context worker가 활성 context의 계약 경로가 든 폴더만 `Deno.watchFs`로 본다. 신호는 "그 context를 다시 훑으라"는 힌트로만 쓰고(500ms 동안 합침), 변화 비교·기록·event·화면 상태는 만들지 않는다. 신호를 놓쳐도 다음 검색·열기의 훑기가 따라잡는다. 계약이 바뀌거나 context가 보관되면 감시 폴더를 다시 정한다(documents/contexts#R23, 7.7).
 
@@ -439,13 +438,13 @@ Context Engineer(agent) 또는 user: contract·선언 검색·예시 초안을 b
 ```text
 context.index(검색·열기 전, 적용 직후 첫 scan, 계약 경로 파일 변경 신호): checks → index_violations
  → 직전 기록(contexts.violation_count·violations_hash)과 비교
- → 늘었으면 context worker가 context.record_violations(context, bundle_hash, count, violations_hash, 새 위반 key 일부)
+ → 달라졌으면(늘거나 줄면) context worker가 context.record_violations(context, bundle_hash, count, violations_hash, 새 위반 key 일부)
  → core command: 현재 적용 bundle_hash·직전 기록 CAS → ContextViolationsRecorded
  → platform notification contract: 알림(누르면 그 context의 Violations)
  → 사람: Send to Context Engineer — lophn-agent가 contexts.violations read의 근거(어느 파일이 어느 규칙을 어겼는지)를 붙여 대화를 만든다
 ```
 
-같거나 줄면 기록만 갱신하고 event는 없다. idempotency key는 `(context, bundle_hash, violations_hash)`라 응답을 잃은 재제출이 event를 두 번 만들지 않는다. 위반으로 agent run을 시작하지 않는다.
+같으면 제출하지 않는다. 줄어든 경우도 마지막 기록을 맞추려고 제출하지만 notification은 늘었을 때만 만든다(documents/contexts domain model). idempotency key는 `(context, bundle_hash, violations_hash)`라 응답을 잃은 재제출이 event를 두 번 만들지 않는다. 위반으로 agent run을 시작하지 않는다.
 
 
 ## 8. 실패와 재시작

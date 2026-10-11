@@ -34,10 +34,7 @@ import {
   startRequest,
 } from "../../packages/lophn-agent/conversation/mod.ts";
 import { createRunCommands } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
-import {
-  ContextDepRefused,
-  type ContextsRuntime,
-} from "./contexts-api.ts";
+import { ContextDepRefused, type ContextsRuntime } from "./contexts-api.ts";
 import { handOffContent } from "./contexts-handoff.ts";
 
 type Reader = Pick<Sql, "get" | "all">;

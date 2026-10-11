@@ -155,15 +155,16 @@ export function ContextFrame(props: ContextFrameProps): ReactNode {
   if (item.status === "drafting") {
     return <ContextDrafting source={source} context={context} />;
   }
-  const overview = sub === "overview";
-  const version = overview
+  // 판 줄과 [Ask Context Engineer]·[History]는 Contract에서만 보인다(shell/workspace#R21).
+  const plain = sub !== "contract";
+  const version = plain
     ? null
     : versionLine(loaded, props.now ?? new Date());
   return (
     <div className={styles.frame}>
       <div className={styles.head} data-context-head="">
         <ContextTitle name={item.title} purpose={item.purpose} />
-        {overview
+        {plain
           ? (
             <p className={styles.line} data-kept-up-to-date="">
               {t("contexts.label.frame-kept-up-to-date")}

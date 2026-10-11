@@ -1240,6 +1240,7 @@ concerns: [shell]
 
 ### T65 화면 말 Focus → Context
 
+- 상태: 완료 (#587)
 - 등급: 좁은
 - concern: shell/wording
 - 요구: shell/wording#R2, R11

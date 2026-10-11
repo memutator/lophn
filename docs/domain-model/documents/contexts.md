@@ -417,7 +417,7 @@ Context, 계약·검색 묶음의 판(ContextBundle)과 격리 검사(ContextChe
 
 ## 정책
 
-- **index 갱신.** 검색을 하거나 context를 열기 전에 계약이 가리키는 경로만 `stat`(크기·수정 시각)으로 훑는다. 이전 `context_scan_stats`와 같으면 건너뛰고 다르면 그 파일만 다시 읽어 Entity를 갱신한다. watch·tracking·파일 시스템 감시자는 쓰지 않는다. 판이 바뀌면(bundle_hash 다름) 전부 다시 계산한다. 이 표를 지워도 같은 결과로 다시 만든다.
+- **index 갱신.** 검색을 하거나 context를 열기 전에 계약이 가리키는 경로만 `stat`(크기·수정 시각)으로 훑는다. 이전 `context_scan_stats`와 같으면 건너뛰고 다르면 그 파일만 다시 읽어 Entity를 갱신한다. 그 밖에 활성 context의 계약 경로 파일이 바뀐 것을 감지하면 같은 갱신을 그 context에 예약한다. 변화 자체는 기록·event가 없다. 판이 바뀌면(bundle_hash 다름) 전부 다시 계산한다. 이 표를 지워도 같은 결과로 다시 만든다.
 - **outline·app-data.** outline은 저장하거나 index에 넣지 않고 쓸 때 파싱한다. app-data는 검색할 때 명령을 부르고 결과를 저장하지 않는다. 첫 구현은 명령 호출 port와 fake까지이며 실제 앱 read 명령 연결은 마지막에 한다.
 - **추출.** frontmatter와 YAML은 `@std/yaml`로, Markdown section·제목·링크는 documents/formats의 추출을 쓴다. 읽을 수 없는 파일은 개체를 만들지 않고 `unreadable` 위반이다. 개체가 읽혔지만 규칙을 어기면 개체는 index에 두고 `rule` 위반을 남긴다.
 - **위반 감지.** index를 갱신한 뒤 규칙과 pattern을 판정한다. `path_mismatch`는 계약 pattern에서 벗어난 이름·자리, `broken_link`는 index의 링크 대상이 없을 때다. 위반은 근거 파일·section·규칙을 모두 담는다. 위반이 있어도 나머지 개체의 검색은 막지 않는다.

@@ -51,7 +51,7 @@ contextBridge.exposeInMainWorld(
       openConfirmation: createConfirmationOpener(ipcRenderer),
       // 연 확인이 확정되지 않고 끝났다는 알림. main이 연 창에만 보낸다.
       onConfirmationEnded: createConfirmationEndedSubscriber(ipcRenderer),
-      // term.define 선택지는 확인 창 없이 main이 정본을 다시 읽어 접수한다.
+      // app.create·apply_settings 선택지는 확인 창 없이 main이 정본을 다시 읽어 접수한다.
       async confirmTermDefinition(input: {
         question: string;
         option_key: string;

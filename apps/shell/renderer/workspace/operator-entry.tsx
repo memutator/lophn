@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
-import styles from "./workspace.module.css";
+import { NoticeCard } from "./notice-card.tsx";
 
 /** 이 프로젝트에 붙은 Operator 하나. 회수한 것은 세지 않는다. */
 export interface ProjectOperator {
@@ -27,13 +27,15 @@ export interface OperatorEntryProps {
   onAttach: (project: string) => void;
   /** roles 화면에서 붙은 Operator 하나를 연다. */
   onOpen: (operator: string) => void;
+  /** 안내 카드를 닫는다. 작업대가 상단 바의 안내 단추로 다시 열게 한다. */
+  onDismiss?: () => void;
 }
 
-// 작업대 본문 위 한 줄. 이 프로젝트에 반복 확인(Repeating check)을 맡긴 Operator가 몇 개인지 알려 주고
+// 작업대에 떠 있는 안내 카드(본문 자리를 쓰지 않는다). 이 프로젝트에 반복 확인(Repeating check)을 맡긴 Operator가 몇 개인지 알려 주고
 // roles 화면의 붙이기·상세로 보낸다. 붙이는 결정은 roles 화면과 보호 확인 창이 맡는다
 // (flow set-up-operator).
 export function OperatorEntry(
-  { project, source, onAttach, onOpen }: OperatorEntryProps,
+  { project, source, onAttach, onOpen, onDismiss }: OperatorEntryProps,
 ) {
   const [attached, setAttached] = useState<
     readonly ProjectOperator[] | null
@@ -51,37 +53,37 @@ export function OperatorEntry(
 
   // 읽지 못하면 붙이기만 둔다. 개수를 모르면서 없다고 말하지 않는다.
   return (
-    <div className={styles.operatorEntry} data-operator-entry={project}>
-      <p
-        className={styles.operatorText}
-        data-operator-count={attached?.length ?? ""}
-      >
-        {attached === null
-          ? null
-          : attached.length === 0
-          ? t("project-workspace.label.operators-none")
-          : t("project-workspace.label.operators", {
-            count: attached.length,
-          })}
-      </p>
-      {attached === null || attached.length === 0 ? null : (
-        <Button
-          size="sm"
-          variant="ghost"
-          data-action="see-operators"
-          onClick={() => onOpen(attached[0]!.id)}
-        >
-          {t("project-workspace.button.see-operators")}
-        </Button>
-      )}
-      <Button
-        size="sm"
-        variant="secondary"
-        data-action="attach-operator"
-        onClick={() => onAttach(project)}
-      >
-        {t("project-workspace.button.attach-operator")}
-      </Button>
-    </div>
+    <NoticeCard
+      data={{ "data-operator-entry": project }}
+      textData={{ "data-operator-count": String(attached?.length ?? "") }}
+      text={attached === null
+        ? null
+        : attached.length === 0
+        ? t("project-workspace.label.operators-none")
+        : t("project-workspace.label.operators", { count: attached.length })}
+      onDismiss={onDismiss}
+      actions={
+        <>
+          {attached === null || attached.length === 0 ? null : (
+            <Button
+              size="sm"
+              variant="ghost"
+              data-action="see-operators"
+              onClick={() => onOpen(attached[0]!.id)}
+            >
+              {t("project-workspace.button.see-operators")}
+            </Button>
+          )}
+          <Button
+            size="sm"
+            variant="secondary"
+            data-action="attach-operator"
+            onClick={() => onAttach(project)}
+          >
+            {t("project-workspace.button.attach-operator")}
+          </Button>
+        </>
+      }
+    />
   );
 }

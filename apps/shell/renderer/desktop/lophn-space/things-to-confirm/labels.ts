@@ -1,7 +1,7 @@
 // 역할·상태·notification 계기의 화면 말. 원시 enum을 화면에 내보이지 않는다(ui-ux 3절).
-import { t } from "@lophn/wording";
+import { formatRelativeTime, t } from "@lophn/wording";
 
-import type { Request, Role } from "./source.ts";
+import type { NotificationRow, Request, Role } from "./source.ts";
 
 export function roleLabel(role: Role): string {
   switch (role) {
@@ -115,4 +115,44 @@ export function eventTitle(sourceEvent: string): string {
     default:
       return t("things-to-confirm.label.event-other");
   }
+}
+
+const KNOWN_EVENTS: ReadonlySet<string> = new Set([
+  "QuestionCreated",
+  "ApprovalRequestCreated",
+  "ProblemOpened",
+  "ProblemReopened",
+  "ProblemClosed",
+  "TicketConfirmed",
+  "TicketCheckFailed",
+  "AssignmentPaused",
+  "ContextWatchedItemChanged",
+  "ReleaseActivationFailed",
+]);
+
+/**
+ * chip의 한 줄. 무슨 일인지(계기), 어디서인지(문서가 있을 때), 언제인지(발생 시각이 있을 때)를
+ * notification이 이미 가진 사실로만 말한다. 계기 표에 없는 계기에 문서도 없을 때만 일반 안내다.
+ */
+export function noticeTitle(
+  notification: NotificationRow,
+  nowMs: number,
+): string {
+  const known = KNOWN_EVENTS.has(notification.sourceEvent);
+  const hasDocument = notification.document !== undefined;
+  const parts = [
+    !known && hasDocument
+      ? t("things-to-confirm.label.event-other-document")
+      : eventTitle(notification.sourceEvent),
+  ];
+  if (known && hasDocument) {
+    parts.push(t("things-to-confirm.label.event-in-document"));
+  }
+  const when = notification.occurredAt === undefined
+    ? Number.NaN
+    : Date.parse(notification.occurredAt);
+  if (Number.isFinite(when)) {
+    parts.push(formatRelativeTime(new Date(when), new Date(nowMs)));
+  }
+  return parts.join(" · ");
 }

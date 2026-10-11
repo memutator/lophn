@@ -535,13 +535,13 @@ export const PAGES: readonly WireframePage[] = [
   fresh(
     "new-document-tab",
     "Project · document tab",
-    "문서 탭은 본문이 맨 위부터 시작한다. 제목은 탭 이름으로 충분하고, 판·저장 시각·목차·context 같은 정보는 그 탭 안에서 여는 info 칸에 있다. 탭 줄에는 탭과 +만 있고, 조작은 각 탭 맨 위의 얇은 view bar(왼쪽 project 안 경로, 오른쪽 Read/Edit 바꾸기·Info·…)에 있다. 오류는 toast로 알린다.",
+    "문서 탭은 본문이 맨 위부터 시작한다. 제목은 탭 이름으로 충분하고, 경로·목차·context 같은 정보는 그 탭 안에서 여는 info 칸에 있다. 탭 줄에는 탭과 +만 있고, 조작은 각 탭 맨 위의 얇은 view bar(왼쪽 project 안 경로, 오른쪽 Read/Edit 바꾸기·Info·…)에 있다. 오류는 toast로 알린다.",
     "new-document-tab",
   ),
   fresh(
     "new-document-tab-info",
     "Project · document tab with info",
-    "info는 데스크탑 오른쪽 overlay가 아니라 그 탭 안에서 열려 본문이 좁아진다. 문서의 정보·목차(Outline)·판·context를 여기서 본다. 이 page는 Contexts가 열린 상태이고, 목차는 select가 아니라 들여 쓴 제목 목록이다.",
+    "info는 데스크탑 오른쪽 overlay가 아니라 그 탭 안에서 열려 본문이 좁아진다. 문서의 정보·목차(Outline)·context를 여기서 본다. 이 page는 Contexts가 열린 상태이고, 목차는 select가 아니라 들여 쓴 제목 목록이다.",
     "new-document-tab-info",
   ),
   fresh(
@@ -553,7 +553,7 @@ export const PAGES: readonly WireframePage[] = [
   fresh(
     "new-organize",
     "Project · organize documents",
-    "문서 보관·이동·추적 중단·폴더 연결 해제는 Workspace가 아니라 project 화면에서 한다. sidebar의 문서 행과 폴더 행을 오른쪽 클릭해 연다.",
+    "문서 보관·이동·폴더 연결 해제는 Workspace가 아니라 project 화면에서 한다. sidebar의 문서 행과 폴더 행을 오른쪽 클릭해 연다.",
     "new-organize",
   ),
 ];

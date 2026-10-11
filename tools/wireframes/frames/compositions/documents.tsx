@@ -1,5 +1,5 @@
 // 문서 탭. 본문이 탭 바로 아래부터 시작하고(머리 블록 없음), 조작은 탭 줄 오른쪽 끝 icon이다. Info는 그 칸 오른쪽에
-// 붙어 본문을 좁힌다(Info · Outline · Versions · Contexts). 본문은 고정 data의 stand-in이고 문서마다 제목이 따로 있다.
+// 붙어 본문을 좁힌다(Info · Outline · Contexts). 본문은 고정 data의 stand-in이고 문서마다 제목이 따로 있다.
 import { type ReactNode, useRef, useState } from "react";
 import {
   editorIcons,
@@ -28,7 +28,7 @@ import styles from "./compose.module.css";
 
 type Open = (tab: TabSpec) => void;
 
-export type InfoPanel = "info" | "outline" | "versions" | "contexts";
+export type InfoPanel = "info" | "outline" | "contexts";
 
 interface Heading {
   readonly text: string;
@@ -154,12 +154,6 @@ function roleIn(path: string): string {
   return "Finding";
 }
 
-const VERSIONS = [
-  { label: "Version 3", when: "2 hours ago", who: "you" },
-  { label: "Version 2", when: "yesterday", who: "Operator" },
-  { label: "Version 1", when: "3 days ago", who: "you" },
-] as const;
-
 function InfoColumn(
   { path, outline, current, panel, onPanel, open, jump }: {
     path: string;
@@ -182,17 +176,14 @@ function InfoColumn(
         <TabList>
           <Tab value="info">Info</Tab>
           <Tab value="outline">Outline</Tab>
-          <Tab value="versions">Versions</Tab>
           <Tab value="contexts">Contexts</Tab>
         </TabList>
         <TabPanel value="info">
           <dl className={styles.facts}>
             <dt>Path</dt>
             <dd className={styles.mono}>{path}</dd>
-            <dt>Version</dt>
-            <dd>Version 3 · saved 2 hours ago</dd>
-            <dt>Tracking</dt>
-            <dd>On</dd>
+            <dt>Modified</dt>
+            <dd>2 hours ago</dd>
           </dl>
         </TabPanel>
         <TabPanel value="outline">
@@ -215,15 +206,6 @@ function InfoColumn(
                 >
                   {heading.text}
                 </Button>
-              </li>
-            ))}
-          </ul>
-        </TabPanel>
-        <TabPanel value="versions">
-          <ul className={styles.rows}>
-            {VERSIONS.map((version) => (
-              <li key={version.label}>
-                {version.label} · {version.when} · {version.who}
               </li>
             ))}
           </ul>
@@ -353,7 +335,6 @@ export function DocActions(
           { id: "rename", label: "Rename" },
           { id: "move", label: "Move…" },
           { id: "archive", label: "Archive" },
-          { id: "stop", label: "Stop tracking" },
         ]}
         onSelect={() => {}}
       />

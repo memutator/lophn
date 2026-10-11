@@ -53,16 +53,7 @@ export function TabKinds() {
     <ProjectApp
       sidebar={{ current: DOC_PATH }}
       panes={[left(DOC, context("overview"), SEARCH(), TERMINAL), chat]}
-    >
-      <ToastStack>
-        <Toast
-          title="Tracking is off for phroner"
-          actions={[{ id: "on", label: "Turn on" }]}
-          onClose={() => {}}
-          timer={NO_TIMER}
-        />
-      </ToastStack>
-    </ProjectApp>
+    />
   );
 }
 
@@ -231,7 +222,6 @@ export function DocumentOrganize() {
                 { label: "Rename" },
                 { label: "Move…" },
                 { label: "Archive" },
-                { label: "Stop tracking" },
               ]}
             />
           </div>

@@ -847,7 +847,8 @@
 /* 터미널 탭 */
 .terminal {
   box-sizing: border-box;
-  height: 100%;
+  flex: 1;
+  min-height: var(--space-0);
   margin: var(--space-0);
   padding: var(--space-6);
   background: var(--color-surface-base);
@@ -855,45 +856,6 @@
   font-family: var(--font-mono);
   font-size: var(--type-small-size);
   line-height: var(--type-body-line);
-}
-
-/* 객체 탭 */
-.object {
-  max-width: var(--page-reading-default);
-}
-
-.object h1 {
-  margin: var(--space-0);
-  font-size: var(--type-title-size);
-  line-height: var(--type-title-line);
-}
-
-.objHead {
-  margin: var(--space-8) var(--space-0) var(--space-3);
-  font-size: var(--type-body-size);
-  font-weight: var(--font-weight-semibold);
-}
-
-.objField {
-  display: grid;
-  grid-template-columns: var(--layout-container-card) 1fr;
-  gap: var(--space-4);
-  padding: var(--space-3) var(--space-0);
-  border-bottom: var(--border-width) solid var(--color-border-subtle);
-}
-
-.objName {
-  color: var(--color-text-muted);
-}
-
-.objLink + .objLink::before {
-  content: " · ";
-  color: var(--color-text-muted);
-}
-
-.objSource {
-  margin: var(--space-8) var(--space-0) var(--space-0);
-  color: var(--color-text-secondary);
 }
 
 /* Contexts 탭 */
@@ -910,4 +872,252 @@
 
 .warnText {
   color: var(--status-warning-text);
+}
+
+/* 대화의 답 단추 */
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.waiting {
+  color: var(--status-warning-text);
+  font-size: var(--type-small-size);
+}
+
+/* 만드는 중 */
+.drafting {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: var(--space-6) var(--space-0);
+  padding: var(--space-0);
+  list-style: none;
+}
+
+.stepMark {
+  display: inline-block;
+  width: var(--space-8);
+}
+
+.step_done {
+  color: var(--status-good-text);
+}
+
+.step_now {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.step_later {
+  color: var(--color-text-muted);
+}
+
+.draftRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+  margin: var(--space-4) var(--space-0);
+}
+
+.draftCard {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  opacity: 0.65;
+  border: var(--border-width) dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  padding: var(--space-4) var(--space-5);
+}
+
+.draftCard h3 {
+  margin: var(--space-0);
+  font-size: var(--type-body-size);
+}
+
+.draftArrow {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+/* 문서 탭과 info 칸 */
+.docTab {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: var(--space-0);
+}
+
+/* 탭 안 맨 위의 얇은 view bar */
+.viewBar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  box-sizing: border-box;
+  height: var(--control-md-height);
+  padding: var(--space-0) var(--space-4) var(--space-0)
+    var(--layout-pane-padding-wide);
+}
+
+.viewPath {
+  min-width: var(--space-0);
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viewActions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.docPane {
+  display: flex;
+  flex: 1;
+  min-height: var(--space-0);
+}
+
+.docMain {
+  box-sizing: border-box;
+  flex: 1 1 0;
+  min-width: var(--space-0);
+  overflow: auto;
+  padding: var(--space-6) var(--layout-pane-padding-wide);
+}
+
+.docInfo {
+  box-sizing: border-box;
+  flex: none;
+  width: calc(var(--layout-container-panel) + var(--space-10));
+  overflow: auto;
+  padding: var(--space-4) var(--space-5);
+  border-left: var(--border-width) solid var(--color-border-base);
+  background: var(--color-surface-subtle);
+}
+
+.docInfo .facts {
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-3) var(--space-5);
+  margin: var(--space-5) var(--space-0);
+  overflow-wrap: anywhere;
+}
+
+.editing {
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: var(--space-3);
+  border-radius: var(--radius-sm);
+}
+
+.inContext {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-top: var(--space-5);
+}
+
+.outlineList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-5) var(--space-0);
+  padding: var(--space-0);
+  list-style: none;
+}
+
+.outlineCurrent {
+  border-left: var(--border-focus-width) solid var(--color-focus);
+  font-weight: var(--font-weight-medium);
+}
+
+/* C13: Context 탭 여는 길 */
+.waysPage {
+  position: absolute;
+  inset: var(--space-0);
+  box-sizing: border-box;
+  overflow: auto;
+  padding: var(--space-8) var(--space-10);
+  background: var(--color-surface-base);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+}
+
+.ways {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-6);
+  margin: var(--space-0);
+  padding: var(--space-0);
+  list-style: none;
+}
+
+.way {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: var(--border-width) solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.wayTitle {
+  margin: var(--space-0);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+}
+
+.wayFlow {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.wayStep {
+  padding: var(--space-2) var(--space-4);
+  border: var(--border-width) solid var(--color-border-base);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-subtle);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.wayHop {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  white-space: nowrap;
+}
+
+.wayArrow {
+  color: var(--color-text-muted);
+}
+
+.wayResult {
+  padding: var(--space-2) var(--space-4);
+  border: var(--border-width) solid var(--status-good-marker);
+  border-radius: var(--radius-sm);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  font-weight: var(--font-weight-medium);
 }

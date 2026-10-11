@@ -1352,6 +1352,24 @@ concerns: [shell]
   - 새 설계(새 설계 badge) part의 page 열네 개: project 탭 kind 확장과 + 메뉴, 접은 sidebar의 바로 가기 rail, Contexts 탭, 객체 탭(Finding), Context 탭의 Overview(기본, 그림과 Composition 트리)·Contract(세부)·Violations, 계약 위반 toast, 선언된 검색(table 결과는 14 findings와 page 이동, 링크가 객체 탭을 연다·board 결과·combobox 타이핑). project 화면 pages는 동작한다: rail·sidebar·검색 결과 링크가 탭 줄에 탭을 열고 고르며 ×로 닫는다, project 관심사를 뺀 Lophn Workspace, project 화면의 문서 정리. `@lophn/design` component와 고정 데이터(project phroner, context eval·harness)만으로 짠 정적 구성이다. 선언된 검색의 입력 form과 결과 table은 SDK(`@lophn/ui-control`, `@lophn/ui-table`)로 그린다. 실제 TopBar·Breadcrumbs·Toast·Tree·Card·Tabs를 쓰며 sidebar·tab strip·menu는 같은 CSS Module로 다시 짠 look-alike다. page를 더하는 법은 `tools/wireframes/pages.ts` 머리 주석에 있다.
   - 한계: 지금 화면 part는 main이 가진 화면을 그대로 그리므로 main이 바뀌면 다시 build한다. 사이드바에는 main에 아직 있는 Documents·Focus 항목이 보일 수 있다.
 
+### T68 wireframes: 새 context 대화와 Context 탭 여는 길
+
+- 상태: 완료 (#589)
+- 등급: frontend
+- concern: shell/desktop
+- 요구: 없음 — 개발 도구
+- 자리: tools/wireframes/ (T66 gallery 위에 쌓는다. #588 위)
+- 쓰는 contract: 없음
+- 내놓는 contract: 없음
+- slice: desktop
+- 선행: T66
+- 완료: 아래 확인이 통과한다
+  - 새 context는 form 없이 Context Engineer 대화로 시작한다(사람 결정: form은 지금 두지 않는다). Contexts 탭의 [New context]와 + 메뉴의 New context…가 다른 칸(없으면 만든다)에 Context Engineer 대화 탭을 열고 첫 말은 "What should the new context help with? Tell me which folders or files to look at, and what you want to find."다. C12 "New context · drafting"은 그 대화 뒤 Context Engineer가 짜기 시작한 새 context의 Context 탭(진행 표시와 확정 아닌 초안)이고 오른쪽 칸 대화의 답 단추가 동작한다.
+  - Context 탭을 여는 길이 모두 ProjectApp에서 동작한다: sidebar의 context 행, 접힌 rail의 Contexts → Contexts 탭 [Open], 탭 줄 + 메뉴의 Context › 고르기, Search 탭 Context 고르기 옆 "Open context", 문서 탭 Info › Contexts의 [Open], 계약 위반 toast [View](그 context의 Violations), 상단 검색(돋보기·Ctrl+K)의 "eval" 결과, 대화 말 속 context 이름 링크. C13 "Context tab · ways to open"이 이 길과 새 context 대화 길을 한 장에 모으고 길마다 "try it"이 눌러 볼 page로 간다.
+  - 객체 탭은 없앴다(사람 결정): 검색 결과·board 카드·Overview 예시·대화의 Finding·Scenario·Experiment 링크는 그 객체의 문서를 문서 탭으로 연다(F-009 → loop/findings/F-009.md, exp-008 → eval/experiments/exp-008-query-tools.md, scenario → eval/scenarios/<id>/r1.yaml). 문서마다 제목과 짧은 stand-in 본문이 따로 있다. 이전 C10 page는 지웠다.
+  - 문서 탭을 새로 그린다(사람 피드백): 본문 위 머리 블록(제목·저장 줄·오류 줄·On this page select)을 없애 본문이 탭 바로 아래에서 시작하고, 탭 줄에는 탭과 +만 두고 Edit/Read·Info·…는 각 탭 안 맨 위의 얇은 view bar(왼쪽 project 안 경로, 오른쪽 조작; Terminal 탭도 같은 자리에 … 메뉴)에 있으며, 오류는 toast다. Info는 그 탭 안 오른쪽에 붙어 본문을 좁히고(Info · Outline · Contexts. 문서 판과 추적은 lophn에서 없앴으므로 Versions·Tracking은 없다), Outline은 select가 아니라 단계별로 들여 쓴 제목 목록이고 누르면 그 section으로 간다. C14 "Project · document tab", C15 "Project · document tab with info"(Contexts가 열린 상태).
+  - `tools/wireframes/pages_test.ts`가 새 설계 page 수와 C12~C15 존재, 새 context form page 없음, 객체 탭 page 없음, C13의 try it이 가리키는 page 존재를 본다(맞는 shell 요구가 없어 이름이 `shell#T68`로 시작한다).
+
 ## 요구 덮기
 
 shell 최상위의 요구는 8개 leaf에 180개이고 모두 위 작업의 `요구:`에 들어 있다.

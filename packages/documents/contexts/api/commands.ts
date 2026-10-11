@@ -1,7 +1,7 @@
-// context API command의 구현 자리다. 아직 구현하지 않았다(spec 단계).
-// 구현 작업: ctx-I25(bundle.submit, bundle.finish_check와 자동 적용), ctx-I26(bundle.rollback,
-// context.archive·unarchive·create), ctx-I27(view.*), ctx-I28(glossary.*),
-// ctx-I30(context.record_violations, context.hand_off_violations).
+// context API command. 묶음마다 파일 하나다: commands-lifecycle(context.create·archive·unarchive,
+// bundle.rollback), commands-bundle(bundle.save_draft·discard_draft·submit·finish_check와 자동 적용),
+// commands-views(view.*), commands-glossary(glossary.*), commands-violations(context.record_violations,
+// context.hand_off_violations). event와 재실행은 commands-common이 맡는다.
 import type { Result } from "../../../base/mod.ts";
 import type {
   bundleDiscardDraftRoute,
@@ -31,6 +31,11 @@ import type {
   ContextApiDeps,
   ContextApiState,
 } from "./state.ts";
+import { createBundleCommands } from "./commands-bundle.ts";
+import { createGlossaryCommands } from "./commands-glossary.ts";
+import { createLifecycleCommands } from "./commands-lifecycle.ts";
+import { createViewCommands } from "./commands-views.ts";
+import { createViolationCommands } from "./commands-violations.ts";
 
 // 한 번의 호출. key는 envelope의 idempotency key, compare는 CAS 기준이다.
 export type Call<R extends CommandRoute> = {
@@ -62,8 +67,14 @@ export type ContextApiCommands = {
 };
 
 export function createContextApiCommands(
-  _state: ContextApiState,
-  _deps: ContextApiDeps,
+  state: ContextApiState,
+  deps: ContextApiDeps,
 ): ContextApiCommands {
-  throw new Error("not implemented");
+  return {
+    ...createLifecycleCommands(state, deps),
+    ...createBundleCommands(state, deps),
+    ...createViewCommands(state, deps),
+    ...createGlossaryCommands(state, deps),
+    ...createViolationCommands(state, deps),
+  };
 }

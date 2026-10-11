@@ -279,3 +279,37 @@ test("shell/confirmation-window#R9: 일반 preload의 끝남 구독은 windowId�
   off();
   assert.equal(listeners.size, 0);
 });
+
+test("shell/desktop#R47, shell/confirmation-window#R1 [agent-I42]: 창 열기는 미리 고른 범위를 받고 계속 허락 같은 값은 받지 않으며 열어도 결정은 제출되지 않는다", async () => {
+  const { env, call } = wire();
+  for (const preselect of ["always", "allow_forever", "once", "", null, 1]) {
+    const bad = await call("shell:confirmation-open", 100, {
+      request: { ...INTENT, preselect },
+      parentWindow: "window-1",
+    }) as { code?: string };
+    assert.equal(bad.code, "invalid_input", String(preselect));
+  }
+  assert.equal(env.windows.length, 0);
+  for (const preselect of ["allow_once", "allow_session", "deny"]) {
+    const opened = await call("shell:confirmation-open", 100, {
+      request: { ...INTENT, preselect },
+      parentWindow: "window-1",
+    }) as { windowId?: string; code?: string };
+    assert.equal(typeof opened.windowId, "string", preselect);
+    assert.equal(env.canon.intents.at(-1)?.kind, "approval_request");
+    assert.deepEqual(env.canon.intents.at(-1), { ...INTENT, preselect });
+  }
+  // 열기만으로 허락·거절이 제출되지 않는다.
+  assert.equal(env.submitted.length, 0);
+  // 다른 종류에는 미리 고른 범위가 없다.
+  const other = await call("shell:confirmation-open", 100, {
+    request: {
+      kind: "question_option_action",
+      question: "qst_00000000000000000000000001",
+      option_key: "a",
+      preselect: "allow_once",
+    },
+    parentWindow: "window-1",
+  }) as { code?: string };
+  assert.equal(other.code, "invalid_input");
+});

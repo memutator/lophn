@@ -9,6 +9,7 @@ import {
   parent,
   REF,
 } from "./coordinator_fixture.ts";
+import { contentBasis } from "./handle.ts";
 
 test("shell/confirmation-window#R1: event만으로는 창을 열지 않고 사람이 연 요청만 연다", async () => {
   const env = fake();
@@ -240,4 +241,176 @@ test("shell/confirmation-window#R9: 기한이 지난 확인은 닫힐 때 expire
     "shell:confirmation-ended",
     { windowId: opened.value.windowId, ended: "expired" },
   ]]);
+});
+
+const GRANT_APPROVAL = "grant_approval_request";
+const REJECT_APPROVAL = "reject_approval_request";
+const THREE = {
+  approval: INTENT.approval,
+  binding_hash: "a".repeat(64),
+  created_seq: "1",
+};
+
+/** session 허락이 되는 request의 정본: session을 미리 고르면 binding 내용에 scope가 묶인다. */
+function sessionCanon(env: ReturnType<typeof fake>) {
+  const base = env.canon.value;
+  env.canon.byIntent = (intent) => ({
+    ...base,
+    content: intent.kind === "approval_request" &&
+        intent.preselect === "allow_session"
+      ? { ...THREE, scope: "session" }
+      : THREE,
+  });
+}
+
+test("platform/approvals#R19, shell/confirmation-window#R1 [agent-I42]: 창은 미리 고른 범위로 열려 handle을 그 범위의 binding 내용에 묶는다", async () => {
+  const env = fake();
+  sessionCanon(env);
+  const confirm = coordinator(env);
+  const opened = await confirm.open({
+    intent: { ...INTENT, preselect: "allow_session" },
+    parent: parent("shell-1"),
+    requestedByPerson: true,
+  });
+  assert.equal(opened.ok, true);
+  if (!opened.ok) return;
+  assert.deepEqual(env.canon.intents[0], {
+    ...INTENT,
+    preselect: "allow_session",
+  });
+  assert.deepEqual(env.handles.registered, [
+    contentBasis({ ...THREE, scope: "session" }),
+  ]);
+  // 고른 범위 그대로 허락하면 handle을 다시 만들지 않는다.
+  const granted = await confirm.submit({
+    windowId: opened.value.windowId,
+    displayId: opened.value.displayId,
+    decision: GRANT_APPROVAL,
+    commandInput: { scope: "session" },
+  });
+  assert.equal(granted.ok, true);
+  assert.equal(env.handles.issued, 1);
+  assert.equal(env.submitted.length, 1);
+  assert.equal(
+    env.submitted[0]?.contentHash,
+    contentBasis({ ...THREE, scope: "session" }),
+  );
+});
+
+test("platform/approvals#R19, shell/confirmation-window#R1 [agent-I42]: 창에서 범위를 바꿔 결정하면 그 범위에 handle을 다시 묶은 뒤에만 제출한다", async () => {
+  // once 미리 선택 -> session 허락.
+  const env = fake();
+  sessionCanon(env);
+  const confirm = coordinator(env);
+  const opened = await confirm.open({
+    intent: { ...INTENT, preselect: "allow_once" },
+    parent: parent("shell-1"),
+    requestedByPerson: true,
+  });
+  assert.equal(opened.ok, true);
+  if (!opened.ok) return;
+  assert.deepEqual(env.handles.registered, [contentBasis(THREE)]);
+  const session = await confirm.submit({
+    windowId: opened.value.windowId,
+    displayId: opened.value.displayId,
+    decision: GRANT_APPROVAL,
+    commandInput: { scope: "session" },
+  });
+  assert.equal(session.ok, true);
+  assert.deepEqual(env.handles.registered, [
+    contentBasis(THREE),
+    contentBasis({ ...THREE, scope: "session" }),
+  ]);
+  assert.equal(env.submitted.length, 1);
+  assert.equal(
+    env.submitted[0]?.contentHash,
+    contentBasis({ ...THREE, scope: "session" }),
+  );
+
+  // session 미리 선택 -> Deny는 scope 없는 binding이다.
+  const other = fake();
+  sessionCanon(other);
+  const rejecting = coordinator(other);
+  const window = await rejecting.open({
+    intent: { ...INTENT, preselect: "allow_session" },
+    parent: parent("shell-1"),
+    requestedByPerson: true,
+  });
+  assert.equal(window.ok, true);
+  if (!window.ok) return;
+  const rejected = await rejecting.submit({
+    windowId: window.value.windowId,
+    displayId: window.value.displayId,
+    decision: REJECT_APPROVAL,
+  });
+  assert.equal(rejected.ok, true);
+  assert.deepEqual(other.submitted.map((sent) => sent.decision), [
+    REJECT_APPROVAL,
+  ]);
+  assert.equal(other.submitted[0]?.contentHash, contentBasis(THREE));
+
+  // session 미리 선택 -> once 허락도 scope 없는 binding이다.
+  const third = fake();
+  sessionCanon(third);
+  const once = coordinator(third);
+  const shown = await once.open({
+    intent: { ...INTENT, preselect: "allow_session" },
+    parent: parent("shell-1"),
+    requestedByPerson: true,
+  });
+  assert.equal(shown.ok, true);
+  if (!shown.ok) return;
+  const allowed = await once.submit({
+    windowId: shown.value.windowId,
+    displayId: shown.value.displayId,
+    decision: GRANT_APPROVAL,
+  });
+  assert.equal(allowed.ok, true);
+  assert.equal(third.submitted[0]?.contentHash, contentBasis(THREE));
+});
+
+test("platform/approvals#R18, platform/approvals#R20 [agent-I42]: 계속 허락 같은 범위나 session을 쓸 수 없는 request의 session 허락은 제출하지 않는다", async () => {
+  const env = fake();
+  sessionCanon(env);
+  const confirm = coordinator(env);
+  const opened = await confirm.open({
+    intent: INTENT,
+    parent: parent("shell-1"),
+    requestedByPerson: true,
+  });
+  assert.equal(opened.ok, true);
+  if (!opened.ok) return;
+  for (const scope of ["always", "project", "", null, 1]) {
+    const result = await confirm.submit({
+      windowId: opened.value.windowId,
+      displayId: opened.value.displayId,
+      decision: GRANT_APPROVAL,
+      commandInput: { scope },
+    });
+    assert.equal(result.ok, false, String(scope));
+    if (!result.ok) assert.equal(result.error.code, "invalid_input");
+  }
+  assert.equal(env.submitted.length, 0);
+  assert.equal(env.handles.issued, 1);
+
+  // session 허락이 아닌 request는 정본이 session을 받아 주지 않는다. once로 바꿔 보내지 않는다.
+  const closed = fake();
+  const fixed = closed.canon.value;
+  closed.canon.byIntent = () => ({ ...fixed, content: THREE });
+  const plain = coordinator(closed);
+  const window = await plain.open({
+    intent: { ...INTENT, preselect: "allow_session" },
+    parent: parent("shell-1"),
+    requestedByPerson: true,
+  });
+  assert.equal(window.ok, true);
+  if (!window.ok) return;
+  const denied = await plain.submit({
+    windowId: window.value.windowId,
+    displayId: window.value.displayId,
+    decision: GRANT_APPROVAL,
+    commandInput: { scope: "session" },
+  });
+  assert.equal(denied.ok, false);
+  assert.equal(closed.submitted.length, 0);
 });

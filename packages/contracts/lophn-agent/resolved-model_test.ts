@@ -59,7 +59,7 @@ const basis = {
     snapshot_hash: hash,
     basis_seq: "2",
   },
-  tools: { revision: 3, definitions_hash: hash, contexts: [] },
+  tools: { revision: 3, definitions_hash: hash },
   extensions: {
     settings_revision: 1,
     preset_selection: hash,

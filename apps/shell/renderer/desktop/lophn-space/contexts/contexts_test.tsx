@@ -67,7 +67,7 @@ Deno.test("shell/desktop#R28: contexts 화면은 사람이 지은 Focus 이름�
   assert(row.textContent!.includes("Grocery budget"));
   assertEquals(
     find(view.container, "[data-focus-head] h1").textContent,
-    "Focus: Grocery budget",
+    "Context: Grocery budget",
   );
   assertEquals(
     find(view.container, "[data-focus-purpose]").textContent,
@@ -119,7 +119,7 @@ Deno.test("shell/wording#R13: 관점은 Baseline·Reference·Follow changes로�
   for (const label of ["Baseline", "Reference", "Follow changes"]) {
     assert(text.includes(label), label);
   }
-  for (const inner of ["basis", "watch", "perspective", "context"]) {
+  for (const inner of ["basis", "watch", "perspective"]) {
     assert(!text.toLowerCase().includes(inner), inner);
   }
 });
@@ -210,7 +210,7 @@ Deno.test("shell/desktop#R28: Focus 보관은 Focus만 치우고 문서·앱은 
   ]);
   assertEquals(
     find(view.container, "[data-focus-archived]").textContent,
-    "This focus is archived. Changes aren't followed while it's archived, and its documents and apps are unchanged.",
+    "This context is archived. Changes aren't followed while it's archived, and its documents and apps are unchanged.",
   );
   assert(view.container.querySelector("[data-archive-focus='unarchive']"));
 });
@@ -305,7 +305,7 @@ Deno.test("shell/desktop#R28: export는 JSON을 Markdown으로 그려 사람이 
   assertEquals(
     text,
     [
-      "# Focus: Grocery budget",
+      "# Context: Grocery budget",
       "",
       FOCUS.purpose,
       "",

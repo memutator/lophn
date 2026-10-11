@@ -42,7 +42,7 @@ Deno.test("shell/desktop#R28: lophn 공간 sidebar는 일곱 형제를 한 단�
   assertEquals(rows.map((row) => row.textContent), [
     "Projects",
     "Documents",
-    "Focus",
+    "Contexts",
     "Apps",
     "Things to confirm",
     "Roles",

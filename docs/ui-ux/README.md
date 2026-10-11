@@ -48,7 +48,7 @@ lophn 화면 전체에 걸치는 UI/UX 전역 규칙이다. 화면마다의 정�
 | problem | **Issue** | |
 | report | 보이지 않음(Problem으로 묶여 Issue로만 보인다) | |
 | verification(test result) | **Test result** | 이미 바이브코딩 사용자가 아는 말 |
-| context | **Focus**(사람이 지은 이름과 함께, 예: "Focus: Grocery budget") | |
+| context | **Context**(사람이 지은 이름과 함께, 예: "Context: Grocery budget") | |
 | term | **Meaning** | |
 | preset | **Preset**(예: "Preset: Grocery helper") | agent 구성 하나. 역할마다 기본 Preset이 있고 사람이 고치거나 새로 만든다. 내부 구성(prompt, capability, MCP 목록)은 펼쳐 보는 자리에만 둔다 |
 | 사람 지침(LOPHN.md) | **Instructions** | 버튼 [Instructions]로 lophn 편집기에서 연다. 파일 경로와 안쪽 version 식별자는 기본에서 숨긴다 |
@@ -97,7 +97,7 @@ shell/wording이 i18n의 지켜야 할 요구(en-only 시작, key 검사)를 정
 | 〃 패널 | **app-detail** | 한 앱의 version·access·연결·issue·task를 보고 결정한다 | app-space의 운영 패널 진입점 |
 | lophn | **projects** | 등록한 프로젝트를 찾고 정리한다 | 상단 바 고정 진입점 → lophn 공간 |
 | 〃 | **documents** | 문서를 검색하고 저장한 보기를 연다 | 〃 |
-| 〃 | **contexts** | focus와 meaning을 만들고 정한다 | 〃 |
+| 〃 | **contexts** | context와 meaning을 만들고 정한다 | 〃 |
 | 〃 | **apps** | 등록한 앱을 찾고 정리한다 | 〃 |
 | 〃 | **things-to-confirm** | 기다리는 결정과 지난 결과를 모아 본다 | 〃, notification 클릭 |
 | 〃 | **roles** | 역할이 하는 일과 만든 것을 보고 대화를 연다 | 〃 |

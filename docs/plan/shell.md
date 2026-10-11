@@ -1238,6 +1238,15 @@ concerns: [shell]
   - core 끊김에서는 초안·마지막 read·터미널을 유지하고 새 파일 쓰기·결정 제출 gate를 닫으며 "최신 확인 못함"과 확인 시각을 보인다.
   - flow work-offline, install-lophn(실패 갈래) 화면에서 두 끊김 상태의 동작을 테스트한다.
 
+### T65 화면 말 Focus → Context
+
+- 등급: 좁은
+- concern: shell/wording
+- 요구: shell/wording#R2, R11
+- 자리: packages/design/wording/en.ts, docs/ui-ux/README.md
+- slice: desktop
+- 완료: 화면 말에 context를 뜻하는 "Focus"가 남지 않는다
+
 ## 요구 덮기
 
 shell 최상위의 요구는 8개 leaf에 177개이고 모두 위 작업의 `요구:`에 들어 있다.

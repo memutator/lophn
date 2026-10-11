@@ -1,0 +1,211 @@
+/* 머리의 session popover. 검색, 그 agent의 session(Today·Earlier), Archived, New session. */
+.switcher {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  min-width: var(--chip-width);
+  max-width: var(--radix-popover-content-available-width);
+  min-height: var(--space-0);
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+  color: var(--color-text-muted);
+}
+
+.searchInput {
+  flex: 1;
+  min-width: var(--space-0);
+  padding: var(--space-2) var(--space-0);
+  border: var(--space-0);
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  outline: none;
+}
+
+.searchInput::placeholder {
+  color: var(--color-text-muted);
+}
+
+.list {
+  flex: 1;
+  min-height: var(--space-0);
+  overflow: auto;
+}
+
+.groupHead {
+  margin: var(--space-0);
+  padding: var(--space-3) var(--space-4) var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.noMatch {
+  margin: var(--space-0);
+  padding: var(--space-4);
+  color: var(--color-text-muted);
+}
+
+.row {
+  position: relative;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: var(--menu-row);
+  padding: var(--space-0) var(--space-4);
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  outline: none;
+}
+
+.row:hover,
+.row:focus-visible {
+  background: var(--floating-hover);
+}
+
+.row[aria-selected="true"] {
+  font-weight: var(--font-weight-semibold);
+}
+
+.check {
+  flex: none;
+  width: var(--space-6);
+  color: var(--color-text-secondary);
+}
+
+.dot {
+  flex: none;
+  width: var(--space-5);
+  font-size: var(--type-caption-size);
+  line-height: 1;
+  text-align: center;
+}
+
+.waiting {
+  color: var(--status-warning-marker);
+}
+
+.working {
+  color: var(--color-focus);
+}
+
+.sessionTitle {
+  flex: 1;
+  min-width: var(--space-0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.when {
+  flex: none;
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.actions {
+  display: none;
+  flex: none;
+  gap: var(--space-1);
+}
+
+.row:hover .when,
+.row:focus-within .when {
+  display: none;
+}
+
+.row:hover .actions,
+.row:focus-within .actions {
+  display: inline-flex;
+}
+
+.edit {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+}
+
+.renameInput {
+  box-sizing: border-box;
+  flex: 1;
+  min-width: var(--space-0);
+  padding: var(--space-2) var(--space-4);
+  border: var(--border-width) solid var(--color-focus);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-base);
+  color: var(--color-text-primary);
+  font: inherit;
+}
+
+.confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: var(--space-1) var(--space-0);
+  padding: var(--space-4);
+  border: var(--border-width) solid var(--status-critical-marker);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-subtle);
+}
+
+.confirmText {
+  margin: var(--space-0);
+}
+
+.confirmActions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.foot {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding: var(--space-3) var(--space-2) var(--space-1);
+  border-top: var(--border-width) solid var(--color-border-subtle);
+}
+
+.archivedToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: var(--space-0);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--type-small-size);
+  cursor: pointer;
+}
+
+.archivedToggle:hover {
+  color: var(--color-text-primary);
+}
+
+.archivedList {
+  align-self: stretch;
+  margin: var(--space-0);
+  padding: var(--space-0);
+  color: var(--color-text-muted);
+  list-style: none;
+}
+
+.archivedItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-0) var(--space-2) var(--space-0) var(--space-6);
+}

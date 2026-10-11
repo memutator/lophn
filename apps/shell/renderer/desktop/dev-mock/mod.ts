@@ -41,6 +41,7 @@ import {
   mockViews,
 } from "./app-space.ts";
 import { mockConversation, mockCore, mockRequests } from "./conversation.ts";
+import { FOCUS_GROCERY } from "./ids.ts";
 import { mockContexts, mockLophn, mockOrganize } from "./documents.ts";
 import { mockInstructions, mockLauncher } from "./launcher.ts";
 
@@ -91,6 +92,12 @@ export function devMock(
     // 어느 카드를 열어도 같은 시드 작업대다. 제목만 카드의 것을 쓴다.
     workspace: {
       ...bench.source,
+      // 연관 컨텍스트는 contexts 화면 mock에 있는 Focus를 가리켜, 눌러 열면 그 화면이 나온다.
+      contexts: () =>
+        Promise.resolve({
+          ok: true,
+          value: [{ id: FOCUS_GROCERY, title: "Grocery budget" }],
+        }),
       project: async (id) => {
         const read = await bench.source.project(id);
         const cards = await launcher.projects();

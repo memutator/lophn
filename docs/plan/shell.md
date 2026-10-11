@@ -1238,6 +1238,39 @@ concerns: [shell]
   - core 끊김에서는 초안·마지막 read·터미널을 유지하고 새 파일 쓰기·결정 제출 gate를 닫으며 "최신 확인 못함"과 확인 시각을 보인다.
   - flow work-offline, install-lophn(실패 갈래) 화면에서 두 끊김 상태의 동작을 테스트한다.
 
+### T64 project sidebar: folder·context item 선택
+
+- 상태: 완료 (#582)
+- 등급: frontend
+- concern: shell/desktop, shell/workspace
+- 요구: shell/desktop#R28
+- 자리: apps/shell/renderer/workspace/sidebar/, apps/shell/renderer/workspace/(source·core-source·workspace), apps/shell/renderer/desktop/dev-seed.ts, apps/shell/renderer/desktop/dev-mock/mod.ts
+- 쓰는 contract: 없음(documents.list·files.list·contexts.list 읽기 그대로)
+- 내놓는 contract: 없음
+- slice: workspace
+- 선행: shell#T14
+- 완료: 아래 확인이 통과한다
+  - 원인: sidebar의 folder 행과 context 행은 `onClick` 없이 누를 수 없는 `<span>`으로만 그려졌고, 작업대도 context를 여는 `onContext`를 sidebar에 잇지 않았다(문서 행만 연결됐다). 화면 오류가 아니라 처음부터 동작이 없었다. mock의 연관 context id(`ctx_design`)도 contexts 화면 mock에 없는 id였다.
+  - folder 행은 눌러 고르고 펼치고 접으며(`aria-expanded`, 고른 행 표시) 펼치면 그 폴더 안 문서가 들여 쓴 행으로 나와 눌러 탭으로 연다. 폴더에 문서가 없으면 안내 글 한 줄이다. 폴더와 문서의 소속은 `files.list`에서 얻은 `FileRow.folder`(등록 폴더 경로)로 정하고 core 통로와 dev 시드가 모두 채운다.
+  - context 행은 눌러 기존 contexts 화면의 그 컨텍스트를 연다(`onContext`, 정보 패널·팔레트와 같은 통로). context 모델과 화면은 새로 만들지 않는다.
+  - mock 모드(`deno task dev:mock`)의 연관 context는 contexts 화면 mock의 Focus를 가리켜 눌러 열면 그 화면이 나온다.
+  - `workspace/sidebar/sidebar_test.tsx`, `workspace/workspace_test.tsx`의 shell/desktop#R28 테스트가 통과한다.
+### T63 가운데 정렬, 앱 시작 실패 문구, launcher Apps section
+
+- 상태: 완료 (#583)
+- 등급: frontend
+- concern: shell/desktop, shell/design-system, shell/wording
+- 요구: shell/desktop#R25(런처의 앱 section), R12·R20(시작·sandbox·schema 실패 화면), shell/design-system#R21(최대폭 기둥 가운데), R34(empty·error 가운데), shell/wording#R10(실패의 사람 말)
+- 자리: packages/design/components/(state.module.css, empty-state/), apps/shell/renderer/desktop/launcher/(apps-section.tsx, launcher.tsx, start-failure/), apps/shell/renderer/desktop/lophn-space/(apps, roles, things-to-confirm의 CSS), apps/shell/renderer/desktop/main.tsx, packages/design/wording/en.ts
+- 쓰는 contract: 없음(lophn 공간 apps 화면의 AppsSource를 그대로 쓴다)
+- 내놓는 contract: 없음
+- slice: desktop
+- 선행: shell#T61
+- 완료: 아래 확인이 통과한다
+  - empty·error의 아이콘·문장·행동이 내용 자리 가운데에 모인다(`state.module.css`). 틀을 거치지 않던 lophn 공간 apps·things-to-confirm 상세·roles 상세의 기둥이 칸 가운데에 놓인다. Settings(T62)와 프로젝트 작업대 탭은 건드리지 않는다.
+  - 시작 실패·sandbox 실패·schema 비호환은 wording catalog의 제목과 한 문장, design-system Button의 다시 시도를 가운데에 보인다. 안쪽 code(`app-start-failed`·`retry-start-app` 등)는 [Show details]를 연 뒤에만 보인다. 원인은 화면이 model의 안쪽 code를 `t()` 없이 그대로 그리고 `start-failure-*`가 정의 없는 class 이름이었기 때문이다. model이 wording key를 들고 화면이 `t()`로 그린다.
+  - 런처가 프로젝트 section 아래에 앱 section을 두고 보관하지 않은 앱을 카드(이름·실행 상태)로 보인다. 카드를 누르면 lophn 공간 apps 화면의 [Open]과 같은 길(`Desktop.appSpace`)로 그 앱 공간이 열린다. 앱이 없으면 비었음 상태와 [lophn] 행동 하나를 보인다. 목록·실행 상태는 `AppsSource`를 그대로 읽어 dev:mock에서도 보인다.
+  - `launcher-apps_test`, `start-failure_test`, `empty-state_test`에 위 요구 테스트.
 ### T62 settings: 세로 nav, section 분류, 가운데 column
 
 - 상태: 완료 (#584)

@@ -167,6 +167,12 @@ button.item:hover .icon,
   line-height: var(--type-small-line);
 }
 
+/* 폴더 아래 문서 행과 안내 글은 폴더 이름보다 16px 들여 쓴다. */
+.item.nested,
+.empty.nested {
+  padding-left: calc(var(--space-4) + var(--space-6));
+}
+
 /* 오른쪽 경계 위 8px 잡는 영역. 잡거나 올리면 2px 선이 보인다. */
 .resizer {
   position: absolute;

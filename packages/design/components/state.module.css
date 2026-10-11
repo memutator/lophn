@@ -1,9 +1,11 @@
-/* empty·error는 내용 자리 안에서 같은 위계로 놓인다. 제목 크기나 삽화를 쓰지 않는다. */
+/* empty·error는 내용 자리 안에서 같은 위계로 놓인다. 제목 크기나 삽화를 쓰지 않는다.
+   아이콘·문장·다음 행동은 한 묶음으로 내용 자리의 가운데에 둔다. */
 .state {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--space-4);
+  text-align: center;
   padding: var(--space-6) var(--space-0);
 }
 

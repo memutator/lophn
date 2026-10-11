@@ -555,10 +555,17 @@ const runAdmissionPort = defineTxPort(runAdmission, (tx) => ({
   },
 }));
 
-// approval 거절 억제(platform/approvals#R16)가 쓰는 run 계보 판정이다. 사람 요청에서 시작한 run은
+// approval이 쓰는 run 사실이다. 거절 억제(platform/approvals#R16)의 계보 판정: 사람 요청에서 시작한 run은
 // 그 message, handoff run은 runs/read의 source.original_message다. AcceptRun이 handoff의 original_message가
 // sender chain의 시작과 같은지 검사하므로 한 번의 조회로 계보가 정해진다. 주기 회차는 계보가 없다.
+// session 허락(platform/approvals#R19)의 session은 run이 속한 session이다.
 const approvalLineagePort = defineTxPort(approvalRunLineage, (tx) => ({
+  session: (run: string) => {
+    const row = tx.sql.get("select session from runs where id = ?", [run]);
+    return row === undefined || row["session"] === null
+      ? null
+      : String(row["session"]);
+  },
   origin: (run: string) => {
     const row = tx.sql.get(
       `select source_kind, source_message, source_original_message

@@ -18,6 +18,11 @@ import {
   CONTEXT_ENGINEER_TOOL_NAMES,
   CONTEXT_ENGINEER_TOOLS,
 } from "./context-engineer-tools.ts";
+import {
+  CONTEXT_LOOKUP_SUPPORTING,
+  CONTEXT_LOOKUP_TOOL_NAME_LIST,
+  CONTEXT_LOOKUP_TOOLS,
+} from "./context-lookup-tools.ts";
 import { CONTEXT_ENTITY_TOOL } from "./context-search-tools.ts";
 import { SERIES_NEXT_TOOL, SERIES_NEXT_TOOLS } from "./series-next-tool.ts";
 import { GUIDE_TOOL_NAMES, GUIDE_TOOLS } from "./bundles/guide.ts";
@@ -81,6 +86,8 @@ export const BUILTIN_TOOLS: readonly ToolDefinition[] = [
   ...AGENT_TOOLS,
   // Context Engineer만의 계약·초안·미리보기·제출·위반·용어집 tool이다(R23). 역할 상한 이름 표가 그 역할에게만 연다.
   ...CONTEXT_ENGINEER_TOOLS,
+  // lophn만의 모든 project context 조회 tool이다(roles/lophn#R3). 역할 상한 이름 표가 그 역할에게만 연다.
+  ...CONTEXT_LOOKUP_TOOLS,
   // 모든 역할이 쓰는 다음 이름 읽기다(R24).
   ...SERIES_NEXT_TOOLS,
 ];
@@ -107,6 +114,9 @@ export const TOOL_BUNDLES: ReadonlyMap<string, readonly string[]> = new Map([
   // Context Engineer의 계약·초안·미리보기·제출·위반·용어집 일곱 동작이다(R23). 역할 상한이 그 역할에게만
   // 열어서 다른 역할의 preset이 이 묶음을 고르면 저장이 거절된다.
   ["context-engineer", Object.values(CONTEXT_ENGINEER_TOOL_NAMES)],
+  // lophn의 모든 project context 조회 셋이다(roles/lophn#R3). 역할 상한이 lophn에게만 열어서 다른 역할의 preset이
+  // 이 묶음을 고르면 저장이 거절된다.
+  ["context-lookup", CONTEXT_LOOKUP_TOOL_NAME_LIST],
 ]);
 
 // 금지 통로 이름. 내장·앱·외부 어디에도 이 이름이 있으면 목록에서 뺀다(R1).
@@ -215,6 +225,8 @@ const SUPPORTING_OPERATIONS: ReadonlyMap<string, readonly string[]> = new Map([
   // 항목을 지울 때 `glossary.remove`를 부른다(harness/tools#R23).
   ["context.contract", ["context.draft"]],
   ["glossary.set", ["glossary.remove"]],
+  // lophn의 context 조회는 project 목록과 context 목록·계약·개수·용어집을 같은 자격으로 함께 읽는다(roles/lophn#R3).
+  ...CONTEXT_LOOKUP_SUPPORTING,
 ]);
 
 // run의 agent 자격이 가져야 하는 operation 목록이다. 제공 목록의 소유 contract와 그 보조 operation의

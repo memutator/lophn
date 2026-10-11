@@ -1002,6 +1002,7 @@ Deno.test("lophn-agent/harness/tools#R6: 묶음 이름은 개별 동작으로 �
   assertEquals([...TOOL_BUNDLES.keys()].sort(), [
     "app-read",
     "context-engineer",
+    "context-lookup",
     "context-read",
     "document-read",
     "document-write",

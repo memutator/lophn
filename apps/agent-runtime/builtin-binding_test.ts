@@ -42,6 +42,9 @@ const ENGINEER_ONLY = [
   "glossary.list",
 ];
 
+// lophn의 context 조회(`context.overview`)가 같은 자격으로 함께 읽는 두 읽기다. 읽기만 하므로 lophn도 연다.
+const LOPHN_LOOKUP_READS = new Set(["context.contract", "glossary.list"]);
+
 function definitionOf(name: string) {
   const found = BUILTIN_TOOLS.find((tool) => tool.name === name);
   assert(found !== undefined, name);
@@ -56,6 +59,7 @@ Deno.test("lophn-agent/harness/tools#R23 [ctx-I57]: Context Engineer만 계약·
   for (const role of ["lophn", "app_engineer", "operator"]) {
     const operations = roleOperations(role);
     for (const contract of ENGINEER_ONLY) {
+      if (role === "lophn" && LOPHN_LOOKUP_READS.has(contract)) continue;
       assert(!operations.includes(contract), `${role} may call ${contract}`);
     }
   }

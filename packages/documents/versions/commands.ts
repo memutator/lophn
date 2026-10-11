@@ -33,7 +33,6 @@ import {
   type RequestContext,
   type Tx,
 } from "../../contracts/platform/mod.ts";
-import { InstructionAttachments } from "../../contracts/lophn-agent/mod.ts";
 import {
   createDocumentNameReservation,
   type PlaceRef,
@@ -56,7 +55,6 @@ import {
 } from "./store.ts";
 import { authorizeDocument } from "./authorization.ts";
 import { appOutputRejected, releaseClaimed } from "./app-output.ts";
-import { operatorOutputRejected } from "./operator-output.ts";
 
 // 판 원문 파일. owner_key는 `<version id>/<상대 경로>`다. 일반 읽기를 연다.
 // save가 준비 결과의 파일별 준비 참조로 같은 tx에서 등록한다(Q16).
@@ -216,30 +214,25 @@ function revertArchiveRejected(
 }
 
 // 지침 문서는 agent·coding_agent·app의 create·save·제목 변경이 forbidden이다
-// (file-tracking#R20, versions#R20). 분류는 이름·place·본문이 아니라 두 근거로만 한다:
-// 문서가 instruction_file 원본에 연결돼 있거나(등록 locator), 지금 preset 판의 지침 첨부로
-// 가리켜진 문서다. 다른 출력(Operator·앱)으로 지정돼 있어도 풀리지 않는다. 사람과 machine(좁은
-// 파일 관측)은 이 규칙의 대상이 아니다. 포트가 없거나 실패하면 쓰기를 거절한다(fail closed).
+// (file-tracking#R20, versions#R20). 분류는 이름·place·본문이 아니라 등록 locator로만 한다:
+// 문서가 instruction_file 원본에 연결돼 있거나 instruction_file 원본으로 만들려는 저장이다. 사람과
+// machine(좁은 파일 관측)은 이 규칙의 대상이 아니다.
 function instructionWriteRejected(
   ctx: RequestContext,
-  tx: Tx,
   document: Document | null,
-  documentId: string,
   source: PreparedVersion["source"],
 ): Result<never> | undefined {
   const kind = parseActor(ctx.actor)?.kind;
   if (kind !== "agent" && kind !== "coding_agent" && kind !== "app") {
     return undefined;
   }
-  const forbidden = () =>
-    rejected("forbidden", "instruction document is not written by this actor");
-  if (
-    source?.kind === "instruction_file" ||
-    document?.file_source?.kind === "instruction_file"
-  ) return forbidden();
-  const attached = tx.port(InstructionAttachments).attachments(documentId);
-  if (!attached.ok) return attached;
-  return attached.value.length > 0 ? forbidden() : undefined;
+  return source?.kind === "instruction_file" ||
+      document?.file_source?.kind === "instruction_file"
+    ? rejected(
+      "forbidden",
+      "instruction document is not written by this actor",
+    )
+    : undefined;
 }
 
 // 첫 저장이 같은 tx 안에서 가족 가입을 부르는 seam. 구현은 documents/series가 갖고
@@ -280,19 +273,11 @@ export function createVersionCommands(
         // 문서와 같은 답이다.
         const appOutput = appOutputRejected(tx, ctx, existing.value, input);
         if (appOutput !== undefined) return appOutput;
-        // Operator 자격은 자기 assignment의 기존 출력 문서에 새 판만 더한다(versions#R14).
-        const operatorOutput = operatorOutputRejected(
-          tx,
-          ctx,
-          existing.value,
-          input,
-        );
-        if (operatorOutput !== undefined) return operatorOutput;
+        // agent 자격이 어느 문서에 쓸 수 있는지는 lophn-agent의 tool 판정이 정한다(Operator는 정의의
+        // 권한과 담당 자리). documents는 지침 문서 금지와 기준 판 비교만 지킨다.
         const instruction = instructionWriteRejected(
           ctx,
-          tx,
           existing.value,
-          input.document,
           input.source,
         );
         if (instruction !== undefined) return instruction;
@@ -327,9 +312,7 @@ export function createVersionCommands(
         if (output !== undefined) return output;
         const instruction = instructionWriteRejected(
           ctx,
-          tx,
           current.value,
-          input.document,
           null,
         );
         if (instruction !== undefined) return instruction;

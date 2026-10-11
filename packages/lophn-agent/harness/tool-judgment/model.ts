@@ -23,9 +23,6 @@ export type TargetFact = {
   // 현재 run의 scope가 닿는 대상인지. 범위 밖은 승인으로 열지 않는다(R2).
   inScope: boolean;
   reversibility: Reversibility;
-  // 이 run의 assignment가 선언한 남길 문서·읽을 자료인지(R4). 선언 밖 쓰기는
-  // 승인으로 열지 않는다.
-  declared: boolean;
 };
 
 export type CallFacts = {
@@ -128,9 +125,8 @@ function callDenial(facts: CallFacts): Judgment | undefined {
 }
 
 // 대상 하나의 칸. 읽기는 allow, 책임이 유효한 되돌릴 수 있는 쓰기는 사람 요청 계보에서만
-// allow, 보장 없는 쓰기와 외부 효과는 ask다. 주기 run은 assignment가 선언한 남길 문서·읽을
-// 자료의 쓰기만 allow이고 선언 밖은 승인으로 열지 않는다(R4). 표에 없는 조합은 추측하지
-// 않고 deny다.
+// allow, 보장 없는 쓰기와 외부 효과는 ask다. 주기 run은 남길 문서 선언이 없어 쓰기를 열 근거가
+// 없으므로 승인으로도 열지 않고 deny다. 표에 없는 조합은 추측하지 않고 deny다.
 function targetJudgment(facts: CallFacts, target: TargetFact): Judgment {
   if (facts.confirm) {
     return verdict(
@@ -149,11 +145,7 @@ function targetJudgment(facts: CallFacts, target: TargetFact): Judgment {
     return verdict("ask", "not_reversible", "irreversible");
   }
   if (facts.origin === "periodic") {
-    // 선언된 문서의 새 version은 승인된 반복 책임 안이다(R4). 선언 밖은 승인으로
-    // 열지 않고 deny다.
-    return target.declared
-      ? verdict("allow", "reversible_write", "reversible_write")
-      : verdict("deny", "outside_responsibility", "reversible_write");
+    return verdict("deny", "outside_responsibility", "reversible_write");
   }
   return verdict("allow", "reversible_write", "reversible_write");
 }
@@ -167,7 +159,6 @@ export function judge(facts: CallFacts): Judgment {
     ? [{
       id: "",
       inScope: true,
-      declared: false,
       reversibility: "reversible" as const,
     }]
     : facts.targets;

@@ -53,7 +53,6 @@ export const INTERNAL_WORDS = [
   "handoff",
   "run",
   "ticket",
-  "provider",
   "grant",
 ];
 

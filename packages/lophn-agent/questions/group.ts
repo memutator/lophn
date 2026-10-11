@@ -1,11 +1,17 @@
-import type { Result } from "../../base/mod.ts";
+import { err, internalError, ok, type Result } from "../../base/mod.ts";
+import {
+  groupAgreesWithFixedActions,
+  QUESTION_GROUP_MAX_QUESTIONS,
+  QUESTION_GROUP_MIN_QUESTIONS,
+} from "../../contracts/lophn-agent/mod.ts";
 
 // 질문 묶음의 순수 검사(domain model lophn-agent/questions QuestionGroup·answer_question_group·
 // defer_question_group, requirements questions#R1·R3·R4·R6·R7·R8·R13·R15). 저장·blob·event·
 // confirmation은 command(agent-I13)가 하고 이 파일은 값만 검사한다. 오류는 공통 code다.
 
-export const GROUP_MIN_QUESTIONS = 1;
-export const GROUP_MAX_QUESTIONS = 4;
+// 묶음 크기의 정본은 contract 한 곳이다. 여기서 숫자를 다시 쓰지 않는다.
+export const GROUP_MIN_QUESTIONS = QUESTION_GROUP_MIN_QUESTIONS;
+export const GROUP_MAX_QUESTIONS = QUESTION_GROUP_MAX_QUESTIONS;
 
 // 묶음 안 질문 하나의 검사에 필요한 모양. action은 고정 action이 있는 선택지에만 있다.
 export type GroupQuestionShape = {
@@ -43,8 +49,54 @@ export type GroupAnswerInput = {
 export function validateNewGroup(
   questions: readonly GroupQuestionShape[],
 ): Result<void> {
-  void questions;
-  throw new Error("not implemented: agent-I7");
+  if (
+    questions.length < GROUP_MIN_QUESTIONS ||
+    questions.length > GROUP_MAX_QUESTIONS
+  ) {
+    return err({
+      code: "invalid_input",
+      message: "a question group has 1 to 4 questions",
+    });
+  }
+  const ids = questions.map((question) => question.id);
+  if (new Set(ids).size !== ids.length) {
+    return err({
+      code: "invalid_input",
+      message: "duplicate question id in the group",
+    });
+  }
+  for (const question of questions) {
+    const keys = question.options.map((option) => option.key);
+    if (new Set(keys).size !== keys.length) {
+      return err({
+        code: "invalid_input",
+        message: "duplicate option key in the question",
+      });
+    }
+    if (!recommendationPointsAtOption(question)) {
+      return err({
+        code: "invalid_input",
+        message: "recommendation must point at an option of the question",
+      });
+    }
+  }
+  // 고정 action 질문의 1개 규칙은 contract와 같은 검사를 쓴다(질문 수 검사는 위에서 끝났다).
+  if (!groupAgreesWithFixedActions(questions)) {
+    return err({
+      code: "invalid_input",
+      message: "a question with a fixed action must be a group of one",
+    });
+  }
+  return ok(undefined);
+}
+
+// 추천 선택지는 실제 선택지여야 한다. 선택지가 없는 질문은 추천 key도 없어야 한다.
+function recommendationPointsAtOption(question: GroupQuestionShape): boolean {
+  if (question.recommendation === null) return true;
+  const target = question.recommendation.option_key;
+  if (question.options.length === 0) return target === null;
+  return target !== null &&
+    question.options.some((option) => option.key === target);
 }
 
 // 답이나 Skip이 지금 가능한지(answer_question_group·defer_question_group의 공통 전제).
@@ -56,9 +108,20 @@ export function checkGroupOpen(
   group: Pick<GroupState, "status" | "expires_at">,
   now: string,
 ): Result<void> {
-  void group;
-  void now;
-  throw new Error("not implemented: agent-I7");
+  if (group.status !== "pending") {
+    return err({ code: "conflict", message: "question group is not pending" });
+  }
+  if (group.expires_at === null) return ok(undefined);
+  const expiresMs = Date.parse(group.expires_at);
+  const nowMs = Date.parse(now);
+  // 시각을 못 읽으면 기한을 확인할 수 없다. 열려 있다고 보지 않고 결함으로 거절한다.
+  if (Number.isNaN(expiresMs) || Number.isNaN(nowMs)) {
+    return err(internalError());
+  }
+  if (nowMs >= expiresMs) {
+    return err({ code: "conflict", message: "question group deadline passed" });
+  }
+  return ok(undefined);
 }
 
 // 묶음 Submit의 답 검사. 통과하면 묶음의 질문 순서(position)대로 정리한 답을 돌려준다.
@@ -74,9 +137,70 @@ export function collectGroupAnswers(
   group: Pick<GroupState, "questions">,
   answers: readonly GroupAnswerInput[],
 ): Result<readonly GroupAnswerInput[]> {
-  void group;
-  void answers;
-  throw new Error("not implemented: agent-I7");
+  const questions = new Map<string, GroupQuestionShape>(
+    group.questions.map((question) => [question.id, question]),
+  );
+  const byQuestion = new Map<string, GroupAnswerInput>();
+  for (const entry of answers) {
+    const question = questions.get(entry.question);
+    if (question === undefined) {
+      return err({
+        code: "invalid_input",
+        message: "answer for a question outside the group",
+      });
+    }
+    if (byQuestion.has(entry.question)) {
+      return err({
+        code: "invalid_input",
+        message: "duplicate answer for a question",
+      });
+    }
+    const verdict = checkAnswer(question, entry.answer);
+    if (!verdict.ok) return err(verdict.error);
+    byQuestion.set(entry.question, entry);
+  }
+  const ordered: GroupAnswerInput[] = [];
+  for (const question of group.questions) {
+    const entry = byQuestion.get(question.id);
+    if (entry === undefined) {
+      return err({
+        code: "invalid_input",
+        message: "every question in the group needs one answer",
+      });
+    }
+    ordered.push(entry);
+  }
+  return ok(ordered);
+}
+
+// 질문 하나의 답이 그 질문에 맞는지 본다. 추천이나 다른 답으로 채우지 않는다.
+function checkAnswer(
+  question: GroupQuestionShape,
+  answer: GroupAnswerInput["answer"],
+): Result<void> {
+  if (answer.kind === "text") {
+    if (answer.text.trim().length === 0) {
+      return err({ code: "invalid_input", message: "free answer is blank" });
+    }
+    return ok(undefined);
+  }
+  const option = question.options.find((candidate) =>
+    candidate.key === answer.option_key
+  );
+  if (option === undefined) {
+    return err({
+      code: "invalid_input",
+      message: "answer is not an option of the question",
+    });
+  }
+  // 고정 action은 사람 결정 확인을 따로 받아야 적용되므로 Submit 답으로는 받지 않는다.
+  if (option.action !== null) {
+    return err({
+      code: "forbidden",
+      message: "an option with a fixed action is confirmed separately",
+    });
+  }
+  return ok(undefined);
 }
 
 // Skip(미루기)로 묶음 전체를 답 없이 닫은 결과. 답·채택·동작 적용이 하나도 없다.
@@ -93,8 +217,18 @@ export function deferGroup(
   created_seq: string,
   now: string,
 ): Result<GroupDeferral> {
-  void group;
-  void created_seq;
-  void now;
-  throw new Error("not implemented: agent-I7");
+  const open = checkGroupOpen(group, now);
+  if (!open.ok) return err(open.error);
+  if (group.created_seq !== created_seq) {
+    return err({
+      code: "conflict",
+      message: "question group changed after it was shown",
+    });
+  }
+  const deferral: GroupDeferral = {
+    status: "cancelled",
+    closed_reason: "deferred",
+    answers: null,
+  };
+  return ok(deferral);
 }

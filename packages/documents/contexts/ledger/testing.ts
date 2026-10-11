@@ -10,6 +10,7 @@
 import { DatabaseSync } from "node:sqlite";
 import type { Result } from "../../../base/mod.ts";
 import type {
+  BlobRefRegistration,
   PortKey,
   RequestContext,
   Sql,
@@ -69,6 +70,15 @@ export function ledgerFixture(options: LedgerFixtureOptions = {}) {
   db.prepare(
     "INSERT INTO events (seq, type, subject, actor, payload, at) VALUES (?, 'Seeded', NULL, 'machine', '{}', ?)",
   ).run(head, T0);
+  // platform ledger의 blob_refs 표와 같은 열·키다(등록된 참조는 transaction과 함께 되돌아간다).
+  db.exec(
+    `CREATE TABLE blob_refs (
+       owner_kind TEXT NOT NULL, owner_key TEXT NOT NULL, field TEXT NOT NULL,
+       hash TEXT NOT NULL, size_bytes INTEGER NOT NULL, registered_seq INTEGER NOT NULL,
+       PRIMARY KEY (owner_kind, owner_key, field, hash),
+       FOREIGN KEY (registered_seq) REFERENCES events (seq)
+     )`,
+  );
 
   let clock = 0;
   const now = () => {
@@ -79,6 +89,11 @@ export function ledgerFixture(options: LedgerFixtureOptions = {}) {
   const emitted: Emitted[] = [];
   // tx.sql.run으로 나간 쓰기 문장이다(event 삽입은 빠진다). 거절한 command가 쓰지 않았는지 본다.
   const writes: string[] = [];
+  // tx.registerBlobRef로 들어온 등록 요청이다(rollback된 transaction의 것은 빠진다). 준비 증거의
+  // 주체가 요청 자격과 같은지 시험이 본다.
+  const registrations: BlobRefRegistration[] = [];
+  // true이면 준비 참조가 없는 것처럼 등록을 거절한다(호출 경계가 준비하지 않은 요청).
+  const unprepared = { value: false };
 
   const sqlOf = (active: () => void, record: boolean): Sql => ({
     run: (statement, params) => {
@@ -106,6 +121,8 @@ export function ledgerFixture(options: LedgerFixtureOptions = {}) {
     db,
     emitted,
     writes,
+    registrations,
+    unprepared,
     path: `${directory}/ledger.sqlite`,
     sql: sqlOf(() => {}, false),
     head: headSeq,
@@ -126,7 +143,11 @@ export function ledgerFixture(options: LedgerFixtureOptions = {}) {
       db.exec("BEGIN IMMEDIATE");
       // 거절된 command가 어떤 문장을 시도했는지는 writes에 남겨 둔다(시험이 본다). 시계와 ID 발급은
       // platform처럼 되돌리지 않는다.
-      const rewind = () => emitted.splice(mark);
+      const registeredMark = registrations.length;
+      const rewind = () => {
+        emitted.splice(mark);
+        registrations.splice(registeredMark);
+      };
       const tx = {
         sql: sqlOf(guard, true),
         emit(
@@ -176,8 +197,47 @@ export function ledgerFixture(options: LedgerFixtureOptions = {}) {
           guard();
           throw new Error("context ledger uses no platform port");
         },
-        registerBlobRef: () => {
-          throw new Error("unused");
+        // platform 등록처럼 참조 행을 넣는다(준비 참조의 수명·주체 판정은 platform 몫이라 여기서는 하지 않는다).
+        registerBlobRef: (reference: BlobRefRegistration) => {
+          guard();
+          if (unprepared.value) {
+            return {
+              ok: false,
+              error: {
+                code: "invalid_input",
+                message: "살아 있는 준비 참조가 없다",
+              },
+            };
+          }
+          registrations.push(reference);
+          const size = reference.source.kind === "prepared"
+            ? reference.source.blob.size_bytes
+            : 0;
+          const hash = reference.source.kind === "prepared"
+            ? reference.source.blob.hash
+            : reference.source.reference.hash;
+          db.prepare(
+            `INSERT INTO blob_refs
+               (owner_kind, owner_key, field, hash, size_bytes, registered_seq)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+          ).run(
+            reference.owner_kind,
+            reference.owner_key,
+            reference.field,
+            hash,
+            size,
+            Number(reference.registered_seq),
+          );
+          return {
+            ok: true,
+            value: {
+              owner_kind: reference.owner_kind,
+              owner_key: reference.owner_key,
+              field: reference.field,
+              hash,
+              registered_seq: reference.registered_seq,
+            },
+          };
         },
         advanceSubscriberCursor: () => {
           throw new Error("unused");

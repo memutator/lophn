@@ -9,6 +9,7 @@ import type {
   Output,
   ReadRoute,
   ReadSnapshot,
+  RequestContext,
   Sql,
   Tx,
 } from "../../../contracts/platform/mod.ts";
@@ -26,6 +27,7 @@ import type { ContextApiActor } from "../api/state.ts";
 import type { ContextLedgerDeps } from "./adapter.ts";
 import { type LoadPlan, loadState } from "./adapter-load.ts";
 import { baselineOf, blobUploads, writeChanges } from "./adapter-save.ts";
+import { contentReference, registerContextContent } from "./content-blobs.ts";
 
 export type CommandSpec<R extends CommandRoute> = {
   handler(commands: ContextApiCommands): Handler<R>;
@@ -45,6 +47,7 @@ export function runCommand<R extends CommandRoute>(
   spec: CommandSpec<R>,
   deps: ContextLedgerDeps,
   tx: Tx,
+  ctx: RequestContext,
   actor: ContextApiActor,
   input: Input<R>,
   compare: Compare<R>,
@@ -55,13 +58,19 @@ export function runCommand<R extends CommandRoute>(
   if (!loaded.ok) return loaded;
   const { state, contentRefs } = loaded.value;
   const before = baselineOf(state);
-  const uploads = blobUploads(tx, deps.blobs);
+  const uploads = blobUploads();
   const commands = createContextApiCommands(state, {
     now: () => at,
     newId: (prefix) => tx.newId(prefix),
     hash: deps.hash,
     putBlob: uploads.put,
-    startHandOffRun: (request) => deps.startHandOffRun(tx, request),
+    startHandOffRun: (request) =>
+      deps.startHandOffRun(tx, {
+        ...request,
+        // 요청 글의 blob은 근거와 같은 길로 등록한다(요청 자격이 준비한 바이트).
+        registerContent: (value) =>
+          registerContextContent(tx, ctx, contentReference(value)),
+      }),
     emit(event) {
       const definition = EVENTS.get(event.type);
       if (definition === undefined) {
@@ -73,6 +82,12 @@ export function runCommand<R extends CommandRoute>(
   // 멱등은 platform envelope가 하므로 handler의 재실행 기억은 쓰지 않는다. state.replays는 비어 있다.
   const result = spec.handler(commands)({ actor, key: "", input, compare });
   if (!result.ok) return result;
+  // handler가 가리킨 blob의 영구 참조를 소유 변경과 같은 transaction에서 등록한다. 준비되지 않았으면
+  // 실패하고 platform이 event까지 되돌린다.
+  for (const reference of uploads.references()) {
+    const registered = registerContextContent(tx, ctx, reference);
+    if (!registered.ok) return registered;
+  }
   writeChanges(tx.sql, before, state, contentRefs, uploads);
   return result;
 }

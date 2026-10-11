@@ -1,13 +1,13 @@
 // adapter의 쓰기다. 적재했을 때의 값과 handler가 남긴 값을 표마다 견주어 달라진 행만 쓴다
 // (변경 행 한도에 event 행이 든다).
 import { canonicalize } from "../../../base/mod.ts";
-import type { Sql, Tx } from "../../../contracts/platform/mod.ts";
+import type { Sql } from "../../../contracts/platform/mod.ts";
 import type {
   BlobReference,
   BundleRow,
   ContextApiState,
 } from "../api/state.ts";
-import type { ContextBlobs } from "./adapter.ts";
+import { contentReference } from "./content-blobs.ts";
 import { appDataAppsOf, saveAppData } from "./rows-app-data.ts";
 import {
   deleteEntry,
@@ -35,20 +35,22 @@ export function baselineOf(state: ContextApiState): Baseline {
   };
 }
 
-// handler가 올리는 blob을 기억한다. 같은 값은 한 번만 올리고, 새 판의 content_ref를 여기서 찾는다.
-export function blobUploads(tx: Tx, blobs: ContextBlobs) {
+// handler가 가리키는 blob을 기억한다. 같은 값은 한 참조이고, 새 판의 content_ref를 여기서 찾는다.
+// 파일은 쓰지 않는다(바이트는 호출 경계가 준비했다). 참조 등록은 handler가 끝난 뒤 adapter가 한다.
+export function blobUploads() {
   const uploaded = new Map<string, BlobReference>();
   return {
     put(value: unknown): BlobReference {
       const key = canonicalize(value);
       let reference = uploaded.get(key);
       if (reference === undefined) {
-        reference = blobs.put(tx, value);
+        reference = contentReference(value);
         uploaded.set(key, reference);
       }
       return reference;
     },
     find: (value: unknown) => uploaded.get(canonicalize(value)),
+    references: (): BlobReference[] => [...uploaded.values()],
   };
 }
 export type BlobUploads = ReturnType<typeof blobUploads>;

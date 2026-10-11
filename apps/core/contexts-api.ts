@@ -3,12 +3,16 @@
 // 등록 모양으로 묶는 자리다.
 //
 // 이 모듈은 core module graph에 들어간다(documents.ts가 import한다). 그래서 node:sqlite와 동기
-// file API를 쓰는 실제 의존(blob 파일, index 저장소)은 여기에 두지 않는다. 그 구현은
+// file API를 쓰는 실제 의존(blob 읽기, index 저장소)은 여기에 두지 않는다. 그 구현은
 // contexts-ledger-deps.ts에 있고, command를 실행하는 writer Worker와 read를 실행하는 reader Worker
 // 안에서만 동적으로 올린다(loadContextsRuntime). core 본체가 부르는 등록은 route를 registry에 올리는
 // 데만 쓰이고 handler는 실행되지 않는다.
 import { err, type ErrorCode, type Result } from "../../packages/base/mod.ts";
 import { defineBlobField } from "../../packages/contracts/platform/mod.ts";
+import {
+  CONTEXT_CONTENT_FIELD,
+  CONTEXT_CONTENT_OWNER_KIND,
+} from "../../packages/contracts/documents/mod.ts";
 import type {
   CommandDefinition,
   ReadDefinition,
@@ -24,11 +28,12 @@ import {
   contextWorkInputRead,
 } from "../../packages/documents/contexts/mod.ts";
 
-// content blob(BundleContent JSON, 위반 넘김 근거)의 영구 참조. owner_key는 blob의 hash다: 내용으로
-// 주소를 정한 값이라 같은 내용은 한 참조다. 일반 blob 읽기로는 열지 않는다(context 읽기가 연다).
+// content blob(BundleContent JSON, 위반 넘김 근거와 그 요청 글)의 영구 참조. owner_key는 blob의 hash다:
+// 내용으로 주소를 정한 값이라 같은 내용은 한 참조다. 일반 blob 읽기로는 열지 않는다(context 읽기가 연다).
+// 바이트는 core가 command 앞에서 호출자 자격으로 준비한다(contexts-blob.ts).
 export const contextContentField = defineBlobField({
-  owner_kind: "context_content",
-  field: "content",
+  owner_kind: CONTEXT_CONTENT_OWNER_KIND,
+  field: CONTEXT_CONTENT_FIELD,
   retention: { kind: "permanent" },
   general_read: false,
 });
@@ -50,9 +55,6 @@ function unattached(): ContextsRuntime {
     deps: {
       blobs: {
         read: () => err({ code: "unavailable", message: UNATTACHED }),
-        put() {
-          throw new ContextDepUnavailable(UNATTACHED);
-        },
       },
       index: {
         violations: () => [],

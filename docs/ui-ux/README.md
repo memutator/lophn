@@ -33,36 +33,43 @@ lophn 화면 전체에 걸치는 UI/UX 전역 규칙이다. 화면마다의 정�
 | ledger | 보이지 않음 | 모든 사실의 저장소. 화면에는 "저장됨"·"확인됨" 같은 결과로만 비친다 |
 | release | **Version**(예: "Version 3", "Current version") | 사람이 고르고 되돌리는 단위 |
 | invocation | 보이지 않음(기본); 펼치면 **Activity** | 앱 command·automation 한 번의 실행 기록 |
-| assignment | 보이지 않음(기본); Operator 설정 화면에서만 **Repeating check** | 역할을 어떤 범위에 붙인 것 |
-| run | 보이지 않음; 상태만 **In progress / Waiting / Stopped / Done** | |
+| assignment | 보이지 않음 | agent가 프로젝트나 앱에 놓인 실행 정체. 화면에는 agent 이름으로만 비친다 |
+| run | 보이지 않음; 상태는 session 줄의 **Working / Waiting for you** 점, 진행 chip, composer의 **Stop**으로만 비친다 | |
 | handoff | 보이지 않음 | 역할이 바뀌어도 사람에게는 같은 요청의 이어짐으로 보인다 |
 | approval request | 고정 명사 없음. 그 결정 자체를 문장으로 보인다(예: "Approve this change?") | confirmation window의 제목이 대상을 설명한다(shell/confirmation-window#R2) |
 | grant | **Access**(예: "Files this app can read") | |
 | snapshot | 보이지 않음; 문제 알리기 화면에서는 **Details we collected** | |
 | redaction | 보이지 않음; 못 모았을 때만 "Some details were left out" | |
-| provider | 실제 제품 이름(Claude, ChatGPT 등). 일반화해 말할 때는 **Connection** | |
-| judgment model / organizing model | **For decisions** / **For summaries** | shell/wording#R13 |
-| coding agent connection | **Connection** | |
+| provider | 실제 제품 이름(Claude, ChatGPT 등). 일반화해 말할 때는 **Provider**(Settings의 **Providers**, 단추 **Connect**) | 계정과 인증만 다룬다. model은 provider 화면에 없다 |
+| 기본 model | **Default models**(lophn · Context Engineer · App Engineer · Operators마다 model과 option) | Settings › Agents. 고른 model 이름과 option 값은 catalog가 준다 |
+| organizing model | **Model for summaries** | Settings › Agents의 한 칸. 판단용 model은 따로 이름 짓지 않고 agent의 model을 쓴다 |
+| model option | **Effort**, **Speed**처럼 model마다 다른 축 이름 | catalog가 정한다. 화면 코드에 model 이름과 option 값을 쓰지 않는다 |
+| 즐겨찾기 model | **Favorites**(model picker의 맨 위 묶음) | 별표 순서 그대로 |
+| coding agent connection | **Connection** | provider가 아니라 coding agent(Claude Code 등) 연결에만 쓴다 |
 | ticket | **Task** | |
 | claim | 보이지 않음 | |
 | problem | **Issue** | |
 | report | 보이지 않음(Problem으로 묶여 Issue로만 보인다) | |
 | verification(test result) | **Test result** | 이미 바이브코딩 사용자가 아는 말 |
 | context | **Context**(사람이 지은 이름과 함께, 예: "Context: Grocery budget"). 프로젝트 안에만 있고 Lophn Workspace에는 없다 | 쓰지 않는 말: Focus, Materials, Meanings. 목록 탭은 **Contexts**, 하나를 여는 탭은 **Context** |
-| context 계약 위반 | **Violations**(탭 이름에 개수, 예: "Violations (2)") | 줄마다 [Send to Context Engineer]. 계약·rule 말은 Contract 탭과 줄의 "rule:" 한 줄에만 둔다 |
+| context 계약 위반 | **Violations**(탭 이름에 개수, 예: "Violations (2)") | agent를 부르는 단추는 없다(위반 notification의 [Ask Context Engineer]가 그 길). 계약·rule 말은 Contract 탭과 줄의 "rule:" 한 줄에만 둔다 |
 | context 개요 | **Overview**(Context 탭의 기본 하위 탭) | 개체 카드·사람 말 화살표·**Composition** 트리. kind·public 같은 계약 말은 쓰지 않는다 |
 | context 계약 | **Contract**(Context 탭의 맨 뒤 하위 탭) | "Details for Context Engineer and the curious". kind·public·판 번호는 여기서만 보인다 |
 | term(용어집) | **Glossary**(Context 탭의 하위 탭) | agent가 사람 말을 알아듣는 자료. 항목은 말과 뜻으로 보이고 별도 이름을 두지 않는다 |
 | saved view | **Saved views**(Search 탭 왼쪽 목록, sidebar 행, 접힌 rail 단추). 하나는 사람이 붙인 이름으로 보인다 | 선언된 검색에 입력을 채워 이름 붙여 저장한 것. [Save as view] |
 | 선언된 검색 | **Search**(탭, Context 탭의 하위 탭) | 입력 form은 선언한 입력 이름을 그대로 쓴다. 검색어 일치는 상단 검색 |
-| 대화 탭, 접힌 rail 단추 | **Agent**(Conversation 아님) | lophn·Context Engineer·Operator와 나누는 대화를 여는 탭 종류 이름 |
-| 새 context 시작 | **[New context]** | 폼이 아니라 Context Engineer와의 Agent 탭을 연다. 만드는 동안 Context 탭은 "drafting" |
-| preset | **Preset**(예: "Preset: Grocery helper") | agent 구성 하나. 역할마다 기본 Preset이 있고 사람이 고치거나 새로 만든다. 내부 구성(prompt, capability, MCP 목록)은 펼쳐 보는 자리에만 둔다 |
-| 사람 지침(LOPHN.md) | **Instructions** | 버튼 [Instructions]로 lophn 편집기에서 연다. 파일 경로와 안쪽 version 식별자는 기본에서 숨긴다 |
-| Operator 구성 | **Operator** + 붙은 project나 app 이름 | 같은 자리에 여럿 둘 수 있다. 반복 주기는 **Repeating check** |
+| 대화 탭, 접힌 rail 단추 | **Agent**(Conversation 아님) | agent 하나와 나누는 session을 여는 탭 종류 이름 |
+| agent | 이름 그대로(lophn, Context Engineer, App Engineer, 사람이 지은 Operator 이름) | 종류는 **Built in** / **Operator**. 모아 말할 때는 **Agents**(sidebar 묶음, project 탭, Settings 자리) |
+| session(agent 대화) | **Session**(사람이 고치는 제목, 예 "Weekly report") | agent header의 제목 ▾에서 고르고 [+ New session]으로 새로 연다. 제목 검색, **Rename**·**Archive**·**Delete**, **Archived** 줄. 한 session은 agent 하나와 이야기한다 |
+| agent 정의 | 보이지 않음; 화면은 **Agents** 탭의 카드와 editor | 파일 이름·저장 자리는 숨긴다. "Agent definitions are stored in lophn" 한 줄만 보인다 |
+| profile | **Profile**(icon 또는 올린 이미지) | agent의 얼굴. 대화의 avatar와 카드에 쓴다 |
+| 승인 카드 | **Allow once** / **Allow for this session** / **Deny** | 제목이 대상을 설명한다. 오래 가는 허락은 Agents 탭의 Permissions에만 있다 |
+| 새 context 시작 | sidebar의 **Context Engineer**를 열어 **New context** 명령 | 폼이 아니라 Context Engineer와의 Agent 탭에서 시작한다. 만드는 동안 Context 탭은 "drafting" |
+| 사람 지침(LOPHN.md) | **Instructions**(파일 이름 **LOPHN.md**는 그대로 보인다) | 전역·project·agent의 지침을 나란히 보이고 [Edit]로 연다. 안쪽 version 식별자는 없다 |
+| Operator | **Operator**(사람이 지은 이름, 예 "Eval analyst") | project나 앱의 일을 하는 agent. 만들 때 Profile · Name · Instructions · Model · Contexts · Skills · MCP servers · Permissions를 정한다. 일정 작업이 아니다 |
 | coding agent 연결 | **Connection**(고른 harness 이름, 예: "Claude Code") | 감지·설치 기록·MCP·skill 위치는 숨긴다. 사람은 harness를 고르기만 한다 |
 | 시작 | **[Start]** | Task에서 coding agent를 터미널 탭에 연다. 누르는 것이 허락이라 확인 창을 따로 두지 않는다 |
-| session | 보이지 않음; 터미널 탭과 Task 상태로만 비친다 | |
+| coding agent session | 보이지 않음; 터미널 탭과 Task 상태로만 비친다 | lophn agent의 **Session**과 다르다 |
 | series | 보이지 않음(기본); Contract 탭의 자료 위치 종류로만 **series** | 따로 등록하는 화면이 없다. 반복 문서는 context 계약이 정한다 |
 
 이 표에 없는 개념을 화면에 써야 하면 docs/README.md의 말 규칙으로 안쪽 이름을 먼저 확인하고, 이 표에 줄을 더한다. 문서·코드의 말 규칙(docs/README.md#말)과 이 표는 서로 다른 목적이라 같은 말이 양쪽에 다르게 적힐 수 있다.
@@ -85,7 +92,7 @@ things-to-confirm.count         = "{count, plural, one {# thing to confirm} othe
 **무엇이 i18n 대상인가.**
 - shell이 소유한 고정 문구(버튼, 라벨, 상태, empty/error 안내)는 모두 message key 대상이다. key와 en 값의 정본은 shell의 en catalog다(→ shell/wording).
 - 앱·problem code가 선언하는 고정 문구(명령 설명, 권한 설명, problem 안내)도 같은 key·en 규칙을 따르되, 그 문구의 소유자는 shell이 아니라 해당 concern이다(problems/problem-codes#R6, lophn-agent/harness/model#R15 같은 선례). shell은 받은 문구를 그대로 쓰고 다시 합성하지 않는다(shell/wording#R9).
-- agent가 그때 생성하는 자유 글(대화 응답, Operator 보고 본문, App Engineer의 질문 문장)은 미리 정의한 key가 없다. 이 글은 "en으로 쓴다"는 언어 요구만 따르고 message catalog에는 들어가지 않는다. 틀(머리, 버튼, 상태)과 자유 글을 같은 화면에 섞어도 틀만 key 대상이다.
+- agent가 그때 생성하는 자유 글(agent의 응답, App Engineer의 질문 문장)은 미리 정의한 key가 없다. 이 글은 "en으로 쓴다"는 언어 요구만 따르고 message catalog에는 들어가지 않는다. 틀(머리, 버튼, 상태)과 자유 글을 같은 화면에 섞어도 틀만 key 대상이다.
 
 shell/wording이 i18n의 지켜야 할 요구(en-only 시작, key 검사)를 정하고, 이 절은 그 요구를 실제로 지키는 방법(key 패턴, ICU, Intl, 대상 구분)을 정한다. 둘이 다른 말을 하면 shell/wording이 정하는 "지켜야 할 것"이 우선하고 이 절의 방법을 고친다.
 
@@ -96,33 +103,32 @@ shell/wording이 i18n의 지켜야 할 요구(en-only 시작, key 검사)를 정
 | 공간 | 화면(이름) | 하는 일 한 줄 | 들어가는 길 |
 |---|---|---|---|
 | 첫 창 | **launcher** | 프로젝트·앱을 열거나 등록하고 이어서 쓴다 | 새 기본 창의 시작, `Ctrl+Shift+L` |
-| 프로젝트 | **project-workspace** | 문서·터미널·앱 패널·Agent·Contexts·Context·Search를 같은 탭 줄에 놓고 오간다. sidebar를 접으면 바로 가기 rail(Terminal · Contexts · Saved views · Search · Agent)이 된다 | launcher의 프로젝트 카드 |
+| 프로젝트 | **project-workspace** | 문서·터미널·앱 패널·Agent·Agents·Contexts·Context·Search를 같은 탭 줄에 놓고 오간다. sidebar를 접으면 바로 가기 rail(Terminal · Contexts · Saved views · Search · Agent)이 된다 | launcher의 프로젝트 카드 |
 | 〃 탭 내용 | **document** | 문서 하나를 읽거나 고치고 판 이력을 본다 | project-workspace의 문서 탭 |
 | 〃 탭 내용 | **terminal** | 프로젝트 폴더에서 명령을 실행하고, Task의 [Start]로 coding agent를 연다 | project-workspace의 터미널 탭, Task의 [Start] |
 | 〃 탭 내용 | **app-panel** | 문서 옆 탭에서 앱 화면을 쓴다 | project-workspace의 앱 패널 탭 |
-| 〃 탭 내용 | **agent** | agent와 나누는 대화 한 건을 탭으로 연다(화면은 conversation이 정한다) | 탭 줄 `+` › Agent, rail의 Agent, Context Engineer 대화로 시작하는 [New context] |
-| 〃 탭 내용 | **contexts** | 이 프로젝트의 context를 카드로 보고 열거나 [New context]로 만든다 | sidebar의 Contexts 행, rail의 Contexts |
+| 〃 탭 내용 | **agent** | agent 하나와 나누는 session을 탭으로 연다. 맨 위 agent header · 채팅 · composer로 이루어진다(shell/desktop#R37) | sidebar Agents 묶음의 agent(접으면 rail의 Agent), notification의 [Ask <agent>] |
+| 〃 탭 내용 | **agents** | 이 프로젝트의 agent(Built in · Operator)를 카드로 보고 지침 · model · skill · MCP를 고치며 Operator를 만든다 | sidebar Agents 묶음의 Manage |
+| 〃 탭 내용 | **contexts** | 이 프로젝트의 context를 카드로 보고 연다 | sidebar의 Contexts 행, rail의 Contexts |
 | 〃 탭 내용 | **context** | context 하나를 Overview · Search · Violations · Glossary · Contract 하위 탭으로 본다 | contexts의 [Open], 탭 줄 `+` › Context, 상단 검색, 문서 Info › Contexts의 [Open], 위반 toast의 [View], search의 "Open context", 대화 속 이름 링크 |
 | 〃 탭 내용 | **search** | context가 선언한 검색의 입력 form으로 찾고 표나 board로 결과를 읽는다 | rail의 Search · Saved views, 탭 줄 `+` › Search, context의 Search 하위 탭 |
-| 앱 | **app-space** | 앱 화면 전체를 쓰고 문제를 알린다 | launcher의 앱 카드, OS 바로가기 |
+| 앱 | **app-space** | 앱 화면 전체를 쓰고 문제를 알린다. 앱의 agent는 title bar의 agent select로 불러 앱 화면 옆 칸에 같은 agent 화면으로 연다 | launcher의 앱 카드, OS 바로가기 |
 | 〃 패널 | **app-detail** | 한 앱의 version·access·연결·issue·task를 보고 결정한다 | app-space의 운영 패널 진입점 |
 | lophn | **projects** | 등록한 프로젝트를 찾고 정리한다 | 상단 바 고정 진입점 → lophn 공간 |
 | 〃 | **apps** | 등록한 앱을 찾고 정리한다 | 〃 |
-| 〃 | **things-to-confirm** | 기다리는 결정과 지난 결과를 모아 본다 | 〃, notification 클릭 |
-| 〃 | **roles** | 역할이 하는 일과 만든 것을 보고 대화를 연다 | 〃 |
-| 〃 | **settings** | provider·연결·도구·알림·update·진단 같은 설정을 보고 바꾼다(왼쪽 세로 nav, 가운데 column, shell/desktop#R31) | 〃 |
-| 대화 | **conversation** | agent와 대화하며 질문에 답하고 결과를 본다 | 모든 공간의 오른쪽 도크 토글 |
-| 〃 카드 | **app-card** | 대화 안에서 앱 카드를 보고 쓴다 | conversation의 시각 블록 |
+| 〃 | **things-to-confirm** | 기다리는 결정과 지난 결과를 모아 본다 | 〃, 질문·approval notification의 [View] |
+| 〃 | **settings** | Providers(계정만) · Agents(기본 model · 지침 · skill · MCP · 권한) · coding agent 연결 · 알림 · update · 진단 같은 설정을 보고 바꾼다(왼쪽 세로 nav, 가운데 column, shell/desktop#R31, R49, R50) | 〃 |
+| agent 안 | **app-card** | agent 화면 안에서 앱 카드를 보고 쓴다 | agent 화면의 시각 블록 |
 | 전역 | **confirmation-window** | 정확한 대상과 영향을 보고 결정을 내린다 | approval·question의 action, secret 입력 |
 | 전역 | **report-problem** | 지금 화면의 이상을 글로 알린다 | app-panel/app-space의 [문제 알리기] |
 
-- **Instructions**는 화면이 아니라 진입점이다. 전역은 settings, project는 project-workspace, app은 app-detail의 [Instructions]에서 lophn 편집기(document)로 연다. **Preset**은 roles에서 고친다.
+- **Instructions**는 화면이 아니라 진입점이다. 전역은 settings › Agents, project는 agents 탭, app은 app-detail의 [Instructions]에서 lophn 편집기(document)로 연다. agent의 model · skill · MCP · 권한은 settings › Agents(전역)와 agents 탭(project)에서 고친다.
 - 모든 창은 launcher로 시작한다(shell/desktop#R24). lophn 공간(화면 이름은 Lophn Workspace)의 화면은 형제이며 분류 전·거처 같은 중간 계층을 두지 않는다(shell/desktop#R28).
 - 문서와 context는 프로젝트 하나에 속하므로 Lophn Workspace에 화면이 없고 project-workspace의 탭으로만 연다. Lophn Workspace는 칸·탭이 없는 따로인 페이지다(shell/desktop#R33). 프로젝트 화면의 대부분 화면은 탭 kind이며 kind는 등록 구조로 늘린다(shell/workspace#R14).
-- **conversation**은 독립 공간이 아니라 모든 공간에서 토글하는 도크다. 닫아도 project-workspace·app-space의 탐색은 그대로다(shell/desktop#R1).
-- **confirmation-window**는 요청한 창 위의 child modal이다. 앱 view는 숨기지 않고 입력만 막는다(shell/confirmation-window#R6). 사람의 결정은 이 화면에서만 받는다.
-- **notification**은 화면이 아니라 창 오른쪽 아래 1칸의 chip이다(shell/desktop#R10). 클릭하면 things-to-confirm으로 이어지고, 그 자체로 읽음·승인·답이 되지 않는다.
-- 프로젝트 작업대의 안내(추적 꺼짐, Operator, 읽기 실패)는 본문 위 줄이 아니라 toast와 같은 폭의 떠 있는 카드다. 본문 높이를 쓰지 않고 저절로 사라지지 않으며, 닫아도 상단 바의 [Show notices]로 다시 연다(shell/desktop#R27). 사람을 부르는 notification chip의 오른쪽 아래 한 칸과 겹치지 않게 왼쪽 아래에 둔다.
+- **agent**는 독립 공간도 도크도 아니다. project-workspace의 탭이거나 app-space 옆 칸이며, 같은 Agent component다(shell/desktop#R37). 닫아도 탐색은 그대로다. agent를 부르는 길은 sidebar Agents 묶음 · 앱 공간 agent select · notification의 [Ask]뿐이고 다른 화면에는 Ask 단추를 두지 않는다(shell/desktop#R36). Lophn Workspace에는 agent가 없다.
+- **confirmation-window**는 요청한 창 위의 child modal이다. 앱 view는 숨기지 않고 입력만 막는다(shell/confirmation-window#R6). 사람의 결정은 이 화면에서 받는다. agent 화면의 승인 카드도 요약과 범위만 보이고 결정은 이 창에서 제출한다(shell/desktop#R47).
+- **notification**은 화면이 아니라 창 오른쪽 아래 1칸의 chip이다(shell/desktop#R10). [View]는 그 계기가 가리키는 대상(질문·approval은 things-to-confirm, context 계약 위반은 Violations)으로 이어지고, lophn이 가진 사건에는 [Ask <agent>]가 더 있다(shell/desktop#R35). 단추를 누르는 것만으로 읽음·승인·답이 되지 않는다.
+- 프로젝트 작업대의 안내(추적 꺼짐, 읽기 실패)는 본문 위 줄이 아니라 toast와 같은 폭의 떠 있는 카드다. 본문 높이를 쓰지 않고 저절로 사라지지 않으며, 닫아도 상단 바의 [Show notices]로 다시 연다(shell/desktop#R27). 사람을 부르는 notification chip의 오른쪽 아래 한 칸과 겹치지 않게 왼쪽 아래에 둔다.
 - **app-panel**과 **app-card**는 app-space와 같은 앱·release 신원·격리 규칙을 쓰는 더 작은 틀이다(shell/app-frame#R33). 틀이 작다고 권한이나 확인 규칙이 줄지 않는다.
 
 ## 6. 공통 패턴

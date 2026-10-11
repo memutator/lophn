@@ -16,7 +16,7 @@ agent가 자료로 확인할 수 없는 의도·취향·결정을 정해야 할 
 4. machine은 사람이 확정한 되돌릴 수 있는 안쪽 동작의 대상·입력·비교 기준과 일회 적용 근거를 확인하고 그 내용만 사람의 결정으로 한 번 적용한다. agent에게 권한을 추가하지 않는다. 사람에게는 보이지 않는다. (lophn-agent/questions#R13, platform/identity#R14, platform/ledger#R12, platform/ledger#R13)
 5. conversation 화면 사람은 답이 접수된 사실과 동작이 실제 적용된 결과를 따로 확인한다. 전제가 바뀌었다면 답은 남지만 동작은 적용되지 않으며 달라진 대상과 이유를 확인한다. 자유 답만으로 변경하지 않고 필요한 경우 정확한 내용을 고정한 새 선택지나 직접 요청으로 다시 확인한다. (lophn-agent/questions#R10, lophn-agent/questions#R14, lophn-agent/questions#R15, lophn-agent/harness/waiting-and-recovery#R5)
 6. 답을 기다리는 일은 실제 답이 오면 같은 run에서 이어지고, 미루기·만료·취소면 답 없음의 이유를 남겨 멈춘다. 기한 없는 무응답은 계속 기다릴 뿐 기본 선택이나 승인으로 바꾸지 않는다. 이 처리 자체는 사람에게는 보이지 않는다. (lophn-agent/questions#R7, lophn-agent/questions#R8, lophn-agent/harness/waiting-and-recovery#R1)
-7. things-to-confirm 화면 사람은 세션 없는 Operator 질문과 놓친 질문도 찾고, 남은 결정 또는 지난 답·실제 적용 결과를 확인한다. notification을 보거나 읽음으로 표시해도 질문 답이 되지 않는다. (lophn-agent/questions#R2, lophn-agent/questions#R10, shell/desktop#R6, shell/desktop#R9, platform/notifications#R3, platform/notifications#R6, platform/notifications#R8)
+7. things-to-confirm 화면 사람은 세션 없는 Operator 질문과 놓친 질문도 찾고, 남은 결정 또는 지난 답·실제 적용 결과를 확인한다. notification을 보거나 읽음으로 표시해도 질문 답이 되지 않는다. (lophn-agent/questions#R2, lophn-agent/questions#R10, shell/desktop#R9, platform/notifications#R3, platform/notifications#R6, platform/notifications#R8)
 
 ## 다른 갈래
 

@@ -10,7 +10,7 @@ agent 결과가 마음에 들지 않거나 무엇을 왜 했고 얼마나 썼는
 
 ## 흐름
 
-1. conversation 화면 사람은 실제 결과 링크에서 관련 일을 연다. roles 화면 역할이 만든 결과에서도 같은 일을 찾는다. 기본으로 대상·실제 결과·필요한 다음 행동만 보고, 궁금할 때 상세를 연다. 계획 문장은 이미 만들어진 결과로 표시하지 않는다. (lophn-agent/conversation#R4, shell/desktop#R3, shell/desktop#R4, lophn-agent/observability#R20)
+1. conversation 화면 사람은 실제 결과 링크에서 관련 일을 연다. roles 화면 역할이 만든 결과에서도 같은 일을 찾는다. 기본으로 대상·실제 결과·필요한 다음 행동만 보고, 궁금할 때 상세를 연다. 계획 문장은 이미 만들어진 결과로 표시하지 않는다. (lophn-agent/conversation#R4, shell/desktop#R3, shell/desktop#R41, lophn-agent/observability#R20)
 2. conversation 화면 사람은 상세에서 당시 주체·고정 근거·판단 이유의 요약과 실제 변경을 확인한다. 도구 활동을 펼치면 대상·한 일·성공·거절·실패·미실행·결과 불명을 구별하고, 필요할 때만 도구 이름·입력·안전한 원문 결과를 더 확인한다. 내부 사고 과정은 설명으로 요구하지 않는다. (lophn-agent/observability#R2, lophn-agent/observability#R5, lophn-agent/observability#R20, lophn-agent/observability#R21, lophn-agent/observability#R22, lophn-agent/harness/tools#R11)
 3. lophn은 별도 이력 사본을 만들지 않고 원래 기록·고정 판·tool 결과를 연결해 조회한다. 본문 조회와 내보내기는 현재 redaction을 다시 거치며 secret·민감한 원문·내부 추론을 내보내지 않는다. 사람에게는 보이지 않는다. (lophn-agent/observability#R1, lophn-agent/observability#R8, lophn-agent/observability#R9, platform/redaction#R5, platform/redaction#R7, platform/redaction#R15, platform/redaction#R16)
 4. conversation 화면 사람은 필요할 때 실제 model 호출별 사용량·cache와 당시 가격으로 계산한 추정 비용을 확인한다. 실제 청구·추정·구독 포함·확인된 무료·금액 불명을 구별하며 보고되지 않은 사용량이나 금액을 0으로 보지 않는다. handoff 비용도 실제 일한 역할에 연결된다. (lophn-agent/harness/usage#R2, lophn-agent/harness/usage#R5, lophn-agent/harness/usage#R6, lophn-agent/harness/usage#R7, lophn-agent/harness/usage#R8, lophn-agent/harness/usage#R10, lophn-agent/harness/provider#R27)

@@ -1,4 +1,4 @@
-// lophn_index tool의 실행이다(T13, mcp#R8). root·place·context·document·section·search·
+// lophn_index tool의 실행이다(T13, mcp#R8). root·place·document·section·search·
 // status는 op마다 소유 읽기 route 하나로만 보낸다. 목차는 적은 양에서 본문으로 내려가는
 // 길이라 잘림·누락·반영 지연·새 판 존재를 요약에 그대로 밝힌다. 이 tool은 쓰지 않는다.
 import { MCP_CORE_ROUTES } from "../../../contracts/coding-agent/mod.ts";
@@ -17,7 +17,6 @@ export type IndexToolDeps = { client: Pick<FlowClient, "read"> };
 const OPS = [
   "root",
   "place",
-  "context",
   "document",
   "section",
   "search",
@@ -104,8 +103,6 @@ function describe(op: IndexOp, value: Record<string, unknown>): ToolOutput {
       return describeRoot(value);
     case "place":
       return describePlace(value);
-    case "context":
-      return describeContext(value);
     case "document":
     case "section":
       return describeDocument(op, value);
@@ -131,7 +128,6 @@ function describeRoot(value: Record<string, unknown>): ToolOutput {
     data: value,
     next: [
       "lophn_index place로 프로젝트·앱 자리의 문서 목차를 읽는다",
-      "lophn_index context로 context 관점의 목차를 읽는다",
     ],
   };
 }
@@ -147,28 +143,6 @@ function describePlace(value: Record<string, unknown>): ToolOutput {
     next: [
       "lophn_index document로 문서의 구역 목차를 읽는다",
       "lophn_document list로 보관 문서와 자리 없는 문서를 읽는다",
-    ],
-  };
-}
-
-function describeContext(value: Record<string, unknown>): ToolOutput {
-  const perspectives = value.perspectives as
-    | Record<"basis" | "reference" | "watch", unknown[]>
-    | undefined;
-  const part = perspectives === undefined
-    ? ""
-    : ` (기준 ${perspectives.basis.length}·참고 ${perspectives.reference.length}·watch ${perspectives.watch.length})`;
-  const title = (value.title as string | undefined) ?? "context";
-  return {
-    summary: join(
-      withContinuation(`${title}: 읽는 관점 목차${part}`, value),
-      coverageNote(value.coverage as Coverage | undefined),
-      "context는 문서의 소속이 아니라 읽는 관점이다",
-    ),
-    data: value,
-    next: [
-      "lophn_read로 항목의 고정 판 본문을 읽는다",
-      "lophn_context items로 항목의 읽을 수 있는 상태를 읽는다",
     ],
   };
 }

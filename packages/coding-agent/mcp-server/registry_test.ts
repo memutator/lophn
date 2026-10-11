@@ -123,7 +123,6 @@ Deno.test(
       ["lophn_index", [
         "root",
         "place",
-        "context",
         "document",
         "section",
         "search",

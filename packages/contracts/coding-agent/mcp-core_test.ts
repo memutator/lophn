@@ -35,7 +35,6 @@ Deno.test("coding-agent/mcp-server#R8, coding-agent/mcp-server#R9, coding-agent/
   assertEquals(index.ops, [
     "root",
     "place",
-    "context",
     "document",
     "section",
     "search",

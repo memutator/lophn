@@ -8,7 +8,6 @@ import {
   formatRefSchema,
   formatValidate,
   historyInputSchema,
-  outlineContext,
   outlineDocument,
   outlinePlace,
   outlineRoot,
@@ -39,7 +38,6 @@ const listInput = documentList.input.omit({ limit: true }).extend({
 const indexInput = z.discriminatedUnion("op", [
   outlineRoot.input.extend({ op: z.literal("root") }),
   outlinePlace.input.extend({ op: z.literal("place") }),
-  outlineContext.input.extend({ op: z.literal("context") }),
   outlineDocument.input.extend({ op: z.literal("document") }),
   outlineDocument.input.extend({ op: z.literal("section") }),
   searchQuery.input.omit({ limit: true }).extend({ op: z.literal("search") }),
@@ -125,7 +123,6 @@ export const MCP_CORE_TOOLS = [
     ops: [
       "root",
       "place",
-      "context",
       "document",
       "section",
       "search",
@@ -188,7 +185,6 @@ export const MCP_CORE_ROUTES = {
   lophn_index: {
     root: outlineRoot,
     place: outlinePlace,
-    context: outlineContext,
     document: outlineDocument,
     section: outlineDocument,
     search: searchQuery,

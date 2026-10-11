@@ -50,8 +50,7 @@ MCP가 없으면 같은 이름의 CLI command를 쓴다. CLI에서 claim은 안�
    직접 부른다. claim은 다른 권한의 허락이 아니다.
 3. 채택된 설계와 유지 제약을 읽는다. ticket의 고정 근거(문서의 고정 판)를
    `lophn_read`로, 채택 답은 ticket 본문에서 읽고, 볼 곳과 지킬 것의 상대 경로를
-   source에서 읽는다. 최신 판이나 다른 판으로 근거를 대신하지 않는다. 낯선
-   용어는 `lophn-navigate`의 순서로 context glossary를 찾는다.
+   source에서 읽는다. 최신 판이나 다른 판으로 근거를 대신하지 않는다.
 4. 설치 SDK와 재사용 재료를 찾는다. 새 code를 쓰기 전에 `lophn_sdk` op
    `catalog`(설명·API 이름 `query`)로 쓸 package를 찾고 op `show`로
    API·type·permission·peer·예제를 읽는다. 필요한 package는 op `add`로 exact

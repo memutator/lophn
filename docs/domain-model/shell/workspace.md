@@ -83,6 +83,6 @@ concerns: [shell/workspace]
 - **저장.** layout은 shell main이 소유한 `shell/layout.json` 안 프로젝트별 값이다. 0700 폴더·0600 파일 또는 동등 ACL, schema 검증·원자 교체를 쓰며 ledger 정본이 아니다.
 - **복원.** 현재 project·문서·app·context·agent·session·권한 검사를 거쳐 탭을 복원한다. Agent 탭은 저장한 agent·work_place·session 그대로 열고 Agents 탭은 목록 또는 열어 둔 editor(저장된 정의만, 입력 중이던 값은 없음)로 돌아온다. context가 없어졌거나 보관됐거나, 선언된 검색이 계약에서 사라졌으면 그 탭은 이유를 가진 자리표시가 된다. 검색 탭은 채워 둔 입력으로 검색을 다시 계산한다. 미지원 schema·손상 파일은 빈 layout과 안전 오류로 처리하고 domain 데이터는 바꾸지 않는다. 터미널은 종료된 placeholder이며 시작을 자동 실행하지 않는다.
 - **폭과 focus.** 두 칸 각각 480px를 확보하지 못하면 저장된 panes·split_ratio·탭 소속을 바꾸지 않고 focus 칸 중심의 한 칸 보기로 표시하며 넓어지면 원래 배치로 돌아간다. 탭 이동은 각 칸의 순서·선택 탭과 단일 focus를 함께 검증한다.
-- **정보 패널.** 사람의 공간별 열림·마지막 탭 선택만 저장한다. 대화가 패널을 임시 대체하거나 좁은 창에서 overlay가 되어도 저장 선택을 덮지 않고 닫힘·폭 복귀 뒤 같은 선택을 복원한다(→ shell/desktop#R2,R29, shell/design-system#R25).
+- **정보 패널.** 사람의 공간별 열림·마지막 탭 선택만 저장한다. 좁은 창에서 overlay가 되어도 저장 선택을 덮지 않고 닫힘·폭 복귀 뒤 같은 선택을 복원한다(→ shell/design-system#R25).
 - **현재 보기.** main 메모리에서만 보유하고 창·세션 요청 결합으로 신뢰 agent runtime에 넘긴다. 요약 최대 2048 UTF-8 bytes, 상세 탭 최대 20개씩, scope·redaction 뒤 반환한다. 앱 상세 context는 → apps/agent-context의 read command다.
-- **권한.** UI 참조·선택·focus는 읽기 허락이나 write 승인 근거가 아니다. 다른 창·주기 run에 마지막 사람 창을 임의 결합하지 않는다.
+- **권한.** UI 참조·선택·focus는 읽기 허락이나 write 승인 근거가 아니다. 다른 창의 run에 마지막 사람 창을 임의 결합하지 않는다.

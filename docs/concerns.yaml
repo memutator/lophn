@@ -69,10 +69,11 @@ concerns:
     - 앱 DB migration과 앱 backup -> apps/data
 
 - id: platform/settings
-  summary: lophn 설정의 층과 우선순위, 검증, 다시 읽기, 설정 변경 기록.
+  summary: lophn 설정의 층과 우선순위, 검증, 다시 읽기, 설정 변경 기록. Workspace 전역 agent 기본값(role별 model·option, Model for summaries, 즐겨찾기, 기본 권한)이 놓이는 공통 층.
   excludes:
     - provider 정의와 credential -> lophn-agent/harness/provider
-    - judgment·organizing model 선택 -> lophn-agent/harness/model
+    - model catalog와 role별 기본 model·Model for summaries의 뜻 -> lophn-agent/harness/model
+    - project·app 자리, Operator, session의 agent 설정 -> lophn-agent/agents
 
 - id: platform/diagnostics
   summary: lophn 자체의 log, crash 기록, 상태 점검. 사람이 lophn이 왜 멈췄는지 알 수 있게 한다.
@@ -288,7 +289,7 @@ concerns:
     - session과 message -> lophn-agent/conversation
 
 - id: lophn-agent/instructions
-  summary: 사람이 쓰는 lophn agent 지침 파일(LOPHN.md). 층(전역, project, app), 파일 자리, 작업 자리에 따라 어느 층을 읽나, prompt 어디에 넣나, 크기 상한, 편집과 이력.
+  summary: 사람이 쓰는 lophn agent 지침 파일(LOPHN.md). 층(전역, project, app), 파일 자리, 작업 자리에 따라 어느 층을 읽나, prompt 어디에 넣나, 크기 상한, 사람 편집(LOPHN.md는 document가 아닌 그냥 파일이라 version·이력이 없다), agent 설정 화면에서 보이는 방식.
   excludes:
     - coding agent에게 주는 앱 AGENTS.md -> coding-agent/guides
 
@@ -300,10 +301,10 @@ concerns:
   summary: 보류. Operator 주기와 회차 접수는 첫 판에 없다. 다시 할 때 agent 정의(lophn-agent/agents) 위에 새로 정한다.
 
 - id: lophn-agent/conversation
-  summary: Session과 Message. 사람의 요청, 진행 중 수정(steering), 다음 일 맡기기, 세션 이어가기.
+  summary: Session과 Message. agent 하나와 자리 하나에 고정된 session, 제목·archive·delete·목록·검색, 사람의 요청, 진행 중 수정(steering), 다음 일 맡기기, session 단위 model 선택, Fork(session 복사)와 Compact(사람이 부르는 요약).
   entities: [Session, Message]
   excludes:
-    - 이어가기 summary를 만드는 방법 -> lophn-agent/harness/prompt-assemble
+    - Compact 요약을 만드는 방법 -> lophn-agent/harness/prompt-assemble
 
 - id: lophn-agent/handoff
   summary: 역할 사이 handoff의 규칙. 허용 방향, 맡긴 내용(무엇·왜·제외·기대 산출물), 근거 고정 판, 사람 요청에서 이어진 run에서만, 거절 억제 범위.
@@ -314,7 +315,7 @@ concerns:
   summary: lophn agent를 실제로 돌리는 장치. loop, wait, provider, model, prompt 조립, tool, 판정, safety, usage.
 
 - id: lophn-agent/harness/run-loop
-  summary: Run. 접수와 시작, loop와 turn, retry, 한도, 멈춤, 끝 결과(completed / failed / stopped)와 이유, 실행 겹침 규칙, 끝난 run의 늦은 결과.
+  summary: Run. 접수와 시작, loop와 turn, retry, 한도, 멈춤, 끝 결과(completed / failed / stopped)와 이유, 실행 겹침 규칙(session 단위), 끝난 run의 늦은 결과.
   entities: [Run]
 
 - id: lophn-agent/harness/waiting-and-recovery
@@ -325,12 +326,12 @@ concerns:
   entities: [Provider]
 
 - id: lophn-agent/harness/model
-  summary: model catalog(목록, 한계, 가격의 수집과 검증), 기본 model, model 한계(입력·출력·tool 지원), 고른 model을 쓸 수 없을 때.
+  summary: model catalog(목록, 한계, 가격의 수집과 검증, model마다 option 축), role별 기본 model(lophn·Context Engineer·App Engineer·Operator)과 Model for summaries, 즐겨찾기, model 한계(입력·출력·tool 지원), 고른 model·option 값의 검증, 고른 model을 쓸 수 없을 때.
   excludes:
     - agent가 어느 provider와 model을 쓰나 -> lophn-agent/agents
 
 - id: lophn-agent/harness/prompt-assemble
-  summary: context 조립 순서(제품 지시, 역할과 preset, 사람 지침, 이력, 이번 turn의 동적 context), prompt cache, compaction, 이어가기 summary(M-19), 무엇을 넣고 무엇을 빼나.
+  summary: context 조립 순서(제품 지시, 역할과 agent 정의, 사람 지침, 이력, 이번 turn의 동적 context), prompt cache, compaction, 사람이 부르는 Compact 요약(M-19), 무엇을 넣고 무엇을 빼나.
 
 - id: lophn-agent/harness/tools
   summary: ToolCall. tool 정의와 목록, tool 하나 = 다른 contract 호출 하나, 결과 모양과 크기, 실행 전·후 기록(읽기는 뒤따라 기록).
@@ -349,8 +350,8 @@ concerns:
     - 가격표 수집 -> lophn-agent/harness/model
 
 - id: lophn-agent/questions
-  summary: Question. option과 추천, option에 붙은 action(사람이 고르면 machine이 user로 적용), 미루기, 기한, 채택(고정 판을 고르는 답), run 필수·세션 선택.
-  entities: [Question]
+  summary: Question. 질문 묶음(tool 한 번에 질문 1~4개), option과 추천, option에 붙은 action(사람이 고르면 machine이 user로 적용), Submit·Skip(미루기), 기한, 채택(고정 판을 고르는 답), 대화 안 카드, run 필수·세션 선택.
+  entities: [QuestionGroup, Question]
 
 - id: lophn-agent/revert
   summary: Revert. agent run 하나가 만든 변경 전체를 되돌리기, 영역별 되돌림 가능 여부, 부분 되돌림.
@@ -429,7 +430,7 @@ concerns:
   summary: Electron main과 화면 분리, 창, 화면 구성과 탐색, Agent 화면(project의 Agent 탭과 앱 공간이 같이 쓰는 component), Lophn Workspace settings의 Providers·Agents 자리, OS 통합(tray, OS 알림 표시), 사람 token 보관.
 
 - id: shell/workspace
-  summary: 프로젝트 화면의 탭 줄. 탭 종류(문서 편집기, 터미널, 앱 패널, Agent, Contexts, Context, Search)와 kind 등록 구조, 배치, 다시 열 때 복원, agent에게 넘기는 현재 보기 상태(열린 탭, 초점, 선택 영역), 세션의 시각 블록을 그리는 틀.
+  summary: 프로젝트 화면의 탭 줄. 탭 종류(문서 편집기, 터미널, 앱 패널, Agent, Agents, Contexts, Context, Search)와 kind 등록 구조, 배치, project sidebar의 Agents 묶음이 여는 탭과 Agents 탭(agent 카드 목록, project 설정, Operator editor), 다시 열 때 복원, agent에게 넘기는 현재 보기 상태(열린 탭, 초점, 선택 영역), 세션의 시각 블록을 그리는 틀.
 
 - id: shell/terminal
   summary: 프로젝트 폴더에서 여는 터미널 탭. 시작 폴더, 환경, 출력 보존.
@@ -438,7 +439,7 @@ concerns:
   summary: 사람의 결정을 받는 보호 화면. 무엇을 보여 주나(대상, 입력, 되돌릴 수 있나, option action), 일회 확인 handle.
 
 - id: shell/app-frame
-  summary: 앱 view를 감싸는 틀, 앱 view session 분리, 앱 화면이 깨져도 동작하는 [문제 알리기] 버튼.
+  summary: 앱 view를 감싸는 틀, 앱 view session 분리, 앱 화면이 깨져도 동작하는 [문제 알리기] 버튼, 앱 공간에서 agent를 고르는 title bar select와 앱 화면 옆 Agent 칸의 자리.
 
 - id: shell/editor
   summary: 문서 편집기. 저장, 외부 변경과의 충돌 표시.

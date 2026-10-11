@@ -641,9 +641,8 @@ export const glossaryListReadSchema = publicRead(z.object({
 
 // ---------- 읽기: preview · entity · series_next ----------
 //
-// entity·series_next는 CONTEXT_API_ROUTES에 올라 있다. preview는 route와 schema만 있고 아직 넣지 않았다:
-// context worker 의존이 있는 handler와 같이 등록한다(handler 없는 route는 응답하지 못하고 매달린다).
-// 값의 뜻은 contexts.md "읽기"의 preview·entity·series_next다.
+// 값의 뜻은 contexts.md "읽기"의 preview·entity·series_next다. preview는 파일을 읽으므로 ledger 읽기가
+// 아니라 core가 context worker에 일을 보내 답한다(apps/core/contexts-worker.ts).
 
 export const CONTEXT_PREVIEW_PAGE = 30;
 export const contextPreviewRequestSchema = z.strictObject({
@@ -1009,7 +1008,6 @@ export const glossaryListRoute = defineRead({
   errors: READ_ERRORS,
 });
 
-// preview는 handler와 같이 등록할 때까지 CONTEXT_API_ROUTES에 넣지 않는다.
 export const contextPreviewRoute = defineRead({
   resource: "contexts",
   method: "preview",
@@ -1066,6 +1064,7 @@ export const CONTEXT_API_READ_ROUTES = [
   contextViolationsRoute,
   contextBundlesRoute,
   contextSavedViewsRoute,
+  contextPreviewRoute,
   contextEntityRoute,
   contextSeriesNextRoute,
   contextContainingRoute,

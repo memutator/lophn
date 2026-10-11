@@ -1,5 +1,5 @@
 // context API 읽기. 묶음마다 파일 하나다: reads-contexts(list·get·overview·containing),
-// reads-bundle(contract·draft), reads-search(search·saved_views), reads-options(input_options),
+// reads-bundle(contract·draft), reads-preview(preview: worker 쪽 자리), reads-search(search·saved_views), reads-options(input_options),
 // reads-entity(entity·series_next), reads-lists(violations·bundles·glossary). 검색은 주입된
 // SearchExecutor가 돌리고 읽기는 입력 검사와 page 자르기를 한다.
 import type { Result } from "../../../base/mod.ts";
@@ -13,6 +13,7 @@ import type {
   contextInputOptionsRoute,
   contextListRoute,
   contextOverviewRoute,
+  contextPreviewRoute,
   contextSavedViewsRoute,
   contextSearchRoute,
   contextSeriesNextRoute,
@@ -30,6 +31,7 @@ import { createContextReads } from "./reads-contexts.ts";
 import { createEntityReads } from "./reads-entity.ts";
 import { createListReads } from "./reads-lists.ts";
 import { createOptionReads } from "./reads-options.ts";
+import { createPreviewReads } from "./reads-preview.ts";
 import { createSearchReads } from "./reads-search.ts";
 import type { ContextApiActor, ContextApiState, EntityRow } from "./state.ts";
 
@@ -62,6 +64,7 @@ export type ContextApiReads = {
   contextOverview: ReadHandler<typeof contextOverviewRoute>;
   contextContract: ReadHandler<typeof contextContractRoute>;
   contextDraft: ReadHandler<typeof contextDraftRoute>;
+  contextPreview: ReadHandler<typeof contextPreviewRoute>;
   contextSearch: ReadHandler<typeof contextSearchRoute>;
   contextInputOptions: ReadHandler<typeof contextInputOptionsRoute>;
   contextViolations: ReadHandler<typeof contextViolationsRoute>;
@@ -80,6 +83,7 @@ export function createContextApiReads(
   return {
     ...createContextReads(state),
     ...createBundleReads(state),
+    ...createPreviewReads(),
     ...createOptionReads(state),
     ...createSearchReads(state, deps),
     ...createEntityReads(state),

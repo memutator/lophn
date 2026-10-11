@@ -30,6 +30,7 @@ export interface SessionRow {
 /** 답 아래에 두는 결과. 실제로 만들거나 바꾼 문서만이다(lophn-agent/conversation#R4). */
 export type ResultLink =
   | { readonly kind: "document"; readonly document: string }
+  | { readonly kind: "context"; readonly context: string }
   | {
     readonly kind: "version";
     readonly document: string;
@@ -86,8 +87,8 @@ export interface SendInput {
 export interface ConversationSource {
   /** main이 미는 연결 상태. 끊겨도 화면은 마지막 내용을 둔다(desktop#R7). */
   watch(listener: (state: ConnectionState) => void): () => void;
-  /** 사람이 대화하는 lophn 역할의 담당. 없으면 null이다. */
-  agent(): Promise<SourceResult<Agent | null>>;
+  /** 사람이 대화하는 역할의 담당. role을 안 주면 lophn이다. 없으면 null이다. */
+  agent(role?: NonNullable<Agent["role"]>): Promise<SourceResult<Agent | null>>;
   sessions(agent: string): Promise<SourceResult<readonly SessionRow[]>>;
   messages(session: string): Promise<SourceResult<readonly MessageRow[]>>;
   runs(agent: string): Promise<SourceResult<readonly RunRow[]>>;

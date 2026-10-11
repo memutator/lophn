@@ -204,7 +204,8 @@ export function openProjectFiles(
   };
 }
 
-const CHECK_ID = /^chk_[0-9a-z]{26}$/;
+// 검사(chk_…)와 미리보기(prv_…)의 snapshot 이름.
+const CHECK_ID = /^(chk|prv)_[0-9a-z]{26}$/;
 
 // 한 check의 snapshot 폴더: `<staging>/<check>/`. 만들 때 남은 같은 이름은 지운다.
 export function createSnapshotPort(
@@ -215,7 +216,7 @@ export function createSnapshotPort(
   return {
     create(check, folders, roots = options.roots ?? []): Result<Snapshot> {
       if (!CHECK_ID.test(check)) {
-        return err({ code: "invalid_input", message: "invalid check id" });
+        return err({ code: "invalid_input", message: "invalid snapshot id" });
       }
       const directory = `${staging}/${check}`;
       const remove = () => {

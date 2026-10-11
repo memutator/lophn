@@ -86,7 +86,6 @@ const BODY_BY_KIND: Readonly<Record<string, PlainKey>> = {
   TicketConfirmed: "things-to-confirm.label.event-task-confirmed",
   TicketCheckFailed: "things-to-confirm.label.event-task-check-failed",
   AssignmentPaused: "things-to-confirm.label.event-paused",
-  ContextWatchedItemChanged: "things-to-confirm.label.event-focus-changed",
   ReleaseActivationFailed: "things-to-confirm.label.event-activation-failed",
 };
 

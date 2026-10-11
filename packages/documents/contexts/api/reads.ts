@@ -1,6 +1,6 @@
 // context API 읽기. 묶음마다 파일 하나다: reads-contexts(list·get·overview·containing),
 // reads-bundle(contract·draft), reads-search(search·saved_views), reads-options(input_options),
-// reads-lists(violations·bundles·glossary). 검색은 주입된
+// reads-entity(entity·series_next), reads-lists(violations·bundles·glossary). 검색은 주입된
 // SearchExecutor가 돌리고 읽기는 입력 검사와 page 자르기를 한다.
 import type { Result } from "../../../base/mod.ts";
 import type {
@@ -8,12 +8,14 @@ import type {
   contextContainingRoute,
   contextContractRoute,
   contextDraftRoute,
+  contextEntityRoute,
   contextGetRoute,
   contextInputOptionsRoute,
   contextListRoute,
   contextOverviewRoute,
   contextSavedViewsRoute,
   contextSearchRoute,
+  contextSeriesNextRoute,
   contextViolationsRoute,
   glossaryListRoute,
   SearchRow,
@@ -25,6 +27,7 @@ import type {
 } from "../../../contracts/platform/mod.ts";
 import { createBundleReads } from "./reads-bundle.ts";
 import { createContextReads } from "./reads-contexts.ts";
+import { createEntityReads } from "./reads-entity.ts";
 import { createListReads } from "./reads-lists.ts";
 import { createOptionReads } from "./reads-options.ts";
 import { createSearchReads } from "./reads-search.ts";
@@ -64,6 +67,8 @@ export type ContextApiReads = {
   contextViolations: ReadHandler<typeof contextViolationsRoute>;
   contextBundles: ReadHandler<typeof contextBundlesRoute>;
   contextSavedViews: ReadHandler<typeof contextSavedViewsRoute>;
+  contextEntity: ReadHandler<typeof contextEntityRoute>;
+  contextSeriesNext: ReadHandler<typeof contextSeriesNextRoute>;
   contextContaining: ReadHandler<typeof contextContainingRoute>;
   glossaryList: ReadHandler<typeof glossaryListRoute>;
 };
@@ -77,6 +82,7 @@ export function createContextApiReads(
     ...createBundleReads(state),
     ...createOptionReads(state),
     ...createSearchReads(state, deps),
+    ...createEntityReads(state),
     ...createListReads(state),
   };
 }

@@ -221,7 +221,6 @@ Deno.test("lophn-agent/roles/app-engineer#R2: 실제 core에서 담당 앱 A 문
 });
 
 const ABSENT = {
-  context: "ctx_01arz3ndektsv4rrffq69g5fb9",
   problem: "prb_01arz3ndektsv4rrffq69g5fb9",
   ticket: "tkt_01arz3ndektsv4rrffq69g5fb9",
   app: "app_01arz3ndektsv4rrffq69g5fb9",
@@ -311,9 +310,9 @@ function reportInput(app: string, n: number) {
   };
 }
 
-type Owned = { context: string; problem: string; ticket: string };
+type Owned = { problem: string; ticket: string };
 
-// 앱 하나에 context(그 앱의 읽기 command 항목)·문제·ticket을 심는다.
+// 앱 하나에 문제·ticket을 심는다.
 async function seed(
   world: ScopeWorld,
   app: string,
@@ -321,23 +320,6 @@ async function seed(
   user: string,
   machine: string,
 ): Promise<Owned> {
-  const context = `ctx_01arz3ndektsv4rrffq69g5fa${n}`;
-  const made = await post(
-    world,
-    "contexts/create",
-    envelope({
-      id: context,
-      title: `앱 ${n} 묶음`,
-      purpose: "앱의 상태를 읽을 때 쓴다",
-      items: [{
-        target: { kind: "app_command", app, command: "status" },
-        perspective: "basis",
-        reason: "상태 읽기",
-      }],
-    }),
-    user,
-  );
-  assertEquals(made.status, 200, JSON.stringify(made.body));
   const reported = await post(
     world,
     "problems/record-report",
@@ -370,7 +352,6 @@ async function seed(
   );
   assertEquals(created.status, 200, JSON.stringify(created.body));
   return {
-    context,
     problem: String((reported.body as { problem: string }).problem),
     ticket: String((created.body as { ticket: string }).ticket),
   };
@@ -381,8 +362,8 @@ function idsOf(list: unknown, key: string): string[] {
   return rows.map((row) => row.id).sort();
 }
 
-Deno.test("lophn-agent/roles/app-engineer#R2: 실제 core에서 담당 앱 A의 context·앱·문제·ticket은 읽고 B의 것은 모든 route에서 없는 대상과 같은 답이다", async () => {
-  const world = await openScopeWorld(DOCUMENT_OPERATIONS, { appItems: true });
+Deno.test("lophn-agent/roles/app-engineer#R2: 실제 core에서 담당 앱 A의 앱·문제·ticket은 읽고 B의 것은 모든 route에서 없는 대상과 같은 답이다", async () => {
+  const world = await openScopeWorld(DOCUMENT_OPERATIONS);
   try {
     const user = "f".repeat(43);
     const machine = "g".repeat(43);
@@ -390,7 +371,7 @@ Deno.test("lophn-agent/roles/app-engineer#R2: 실제 core에서 담당 앱 A의 
       principal: "user",
       actor: "user",
       scope: {
-        operations: ["context.create", "CreateTicket"],
+        operations: ["CreateTicket"],
         targets: {},
       },
       conditions: {},
@@ -405,29 +386,11 @@ Deno.test("lophn-agent/roles/app-engineer#R2: 실제 core에서 담당 앱 A의 
     }, machine);
     const a = await seed(world, world.appA, 1, user, machine);
     const b = await seed(world, world.appB, 2, user, machine);
-    // 앱 항목이 없는 context도 만들어 둔다. 담당 앱의 읽기를 갖지 않아 보이지 않는다.
-    const plainId = "ctx_01arz3ndektsv4rrffq69g5fa3";
-    const plain = await post(
-      world,
-      "contexts/create",
-      envelope({
-        id: plainId,
-        title: "앱 없는 묶음",
-        purpose: "문서만 모은다",
-        items: [],
-      }),
-      user,
-    );
-    assertEquals(plain.status, 200, JSON.stringify(plain.body));
     await acceptAgent(world, world.appA);
 
-    const status = { kind: "app_command", app: world.appA, command: "status" };
     // 담당 앱 A의 자료는 읽힌다.
     for (
       const [path, body] of [
-        ["contexts/get", { context: a.context }],
-        ["outline/context", { context: a.context }],
-        ["terms/list", { context: a.context }],
         ["apps/get", { app: world.appA }],
         ["problems/get", { problem: a.problem }],
         ["tickets/show", { ticket: a.ticket }],
@@ -436,15 +399,9 @@ Deno.test("lophn-agent/roles/app-engineer#R2: 실제 core에서 담당 앱 A의 
       const reply = await post(world, path, body);
       assertEquals(reply.status, 200, `${path} ${JSON.stringify(reply.body)}`);
     }
-    // B의 자료와 앱 항목이 없는 context는 없는 대상과 같은 상태와 본문이다.
+    // B의 자료는 없는 대상과 같은 상태와 본문이다.
     for (
       const [path, hidden, absent] of [
-        ["contexts/get", { context: b.context }, { context: ABSENT.context }],
-        ["contexts/get", { context: plainId }, { context: ABSENT.context }],
-        ["outline/context", { context: b.context }, {
-          context: ABSENT.context,
-        }],
-        ["terms/list", { context: b.context }, { context: ABSENT.context }],
         ["apps/get", { app: world.appB }, { app: ABSENT.app }],
         ["problems/get", { problem: b.problem }, { problem: ABSENT.problem }],
         ["tickets/show", { ticket: b.ticket }, { ticket: ABSENT.ticket }],
@@ -456,16 +413,7 @@ Deno.test("lophn-agent/roles/app-engineer#R2: 실제 core에서 담당 앱 A의 
       assertEquals(got.status, missing.status, path);
       assertEquals(got.body, missing.body, path);
     }
-    // 목록·역조회에는 담당 앱 것만 보인다.
-    const contexts = await post(world, "contexts/list", {});
-    assertEquals(idsOf(contexts.body, "contexts"), [a.context]);
-    const related = await post(world, "contexts/related", { target: status });
-    assertEquals(idsOf(related.body, "contexts"), [a.context]);
-    const relatedB = await post(world, "contexts/related", {
-      target: { ...status, app: world.appB },
-    });
-    assertEquals(relatedB.status, 200);
-    assertEquals(idsOf(relatedB.body, "contexts"), []);
+    // 목록에는 담당 앱 것만 보인다.
     const problems = await post(world, "problems/list", {});
     assertEquals(idsOf(problems.body, "problems"), [a.problem]);
     const tickets = await post(world, "tickets/list", {});
@@ -494,8 +442,6 @@ Deno.test("lophn-agent/roles/app-engineer#R2: 실제 core에서 담당 앱 A의 
     });
     for (
       const [path, body] of [
-        ["contexts/get", { context: b.context }],
-        ["contexts/get", { context: plainId }],
         ["apps/get", { app: world.appB }],
         ["problems/get", { problem: b.problem }],
         ["tickets/show", { ticket: b.ticket }],
@@ -504,11 +450,6 @@ Deno.test("lophn-agent/roles/app-engineer#R2: 실제 core에서 담당 앱 A의 
       const reply = await post(world, path, body, lophn);
       assertEquals(reply.status, 200, `${path} ${JSON.stringify(reply.body)}`);
     }
-    const all = await post(world, "contexts/list", {}, lophn);
-    assertEquals(
-      idsOf(all.body, "contexts"),
-      [a.context, b.context, plainId].sort(),
-    );
   } finally {
     await world.dispose();
   }

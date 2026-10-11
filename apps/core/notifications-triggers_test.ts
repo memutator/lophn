@@ -103,16 +103,6 @@ const SOURCES: Record<string, { subject: string; payload: unknown }> = {
     subject: id("tkt", 2),
     payload: { ...TICKET_BASE, failed_conditions: [0] },
   },
-  ContextWatchedItemChanged: {
-    subject: id("ctx", 1),
-    payload: {
-      target: { kind: "document", document: id("doc", 1), section: null },
-      before_version: null,
-      after_version: id("ver", 1),
-      source_seq: "1",
-      change_kind: "content_changed",
-    },
-  },
   ReleaseActivationFailed: {
     subject: id("rel", 1),
     payload: { started_seq: "1", failure: { code: "x", summary: "y" } },

@@ -86,7 +86,6 @@ Created actor는 machine, Read actor는 user다. 두 event의 envelope run은 nu
 | `TicketConfirmed` | → coding-agent/tickets | 항상 | source_seq 하나당 1개 |
 | `TicketCheckFailed` | → coding-agent/tickets | 항상 | source_seq 하나당 1개 |
 | `AssignmentPaused` | → lophn-agent/assignments | actor=machine; 원인=반복 실패 또는 대상 보관 | source_seq 하나당 1개 |
-| `ContextWatchedItemChanged` | → documents/contexts | machine이 watch 변화 또는 section 소실을 확정한 event | source_seq 하나당 1개 |
 | `ReleaseActivationFailed` | → apps/releases | 항상 | source_seq 하나당 1개 |
 
 - **표 밖 계기 금지.** 같은 문제의 추가 report·TicketCreated/Claimed/ClaimReleased/CompletionReported/Cancelled·handoff 종료·RunFinished·일반 문서 저장은 notification을 만들지 않는다.

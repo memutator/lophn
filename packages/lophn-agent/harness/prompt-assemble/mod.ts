@@ -73,7 +73,6 @@ export {
 export { assemblePrompt, type PromptDeps } from "./work.ts";
 export {
   dedupeSources,
-  historySectionKey,
   type MaterialRenderOptions,
   type MaterialSource,
   type RenderedMaterial,
@@ -82,7 +81,6 @@ export {
   SKILL_READ_HINT,
   skillHistoryResult,
   skillInstructionText,
-  sourceAddress,
 } from "./material.ts";
 export {
   buildTurnContext,

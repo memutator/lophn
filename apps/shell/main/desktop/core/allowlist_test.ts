@@ -72,17 +72,10 @@ test("documents/versions#R17: 설치 안내 읽기 worker는 통과하고 안내
   assert.equal(isAllowed("worker", "guides", "write"), false);
 });
 
-test("shell/desktop#R1: documents 화면의 검색과 saved view 열기 worker는 읽기라 통과하고 준비는 막는다", () => {
+test("shell/desktop#R1: documents 화면의 검색 worker는 읽기라 통과하고 준비는 막는다", () => {
   assert.equal(isAllowed("worker", "search", "query"), true);
-  assert.equal(isAllowed("worker", "views", "open"), true);
   assert.equal(isAllowed("worker", "search", "status"), false);
   assert.equal(isAllowed("worker", "documents", "prepare"), false);
-});
-
-test("shell/desktop#R28: contexts 화면의 Focus 목차 worker는 읽기라 통과하고 context watch는 사람 read로 간다", () => {
-  assert.equal(isAllowed("worker", "outline", "context"), true);
-  assert.equal(isAllowed("read", "contexts", "watch"), true);
-  assert.equal(isAllowed("read", "contexts", "export"), true);
 });
 
 test("shell/desktop#R28: projects 화면의 export는 고정 판 읽기라 통과하고 파일 쓰기·지우기는 main 통로로만 간다", () => {

@@ -455,6 +455,9 @@ Source kind마다 쓸 수 있는 FieldFrom:
 | `context.draft` | `context` | 만드는 중인 판의 진행 `{step, bundle, content, check}` | drafting이 아니면 null |
 | `context.search` | `context, search, inputs, cursor?, page_size?` | 행 page, 조건에 맞는 전체 행 수 `total` | 활성이고 판이 적용된 context만 |
 | `context.input_options` | `context, search, input, prefix?, limit?` | 후보 `{value, label}`[], `complete` | 같은 조건. entity·value 입력만 |
+| `context.entity` | `context, type, key` | 개체 하나 `{ref, fields, relations}`; relation마다 `{name, label, targets}` | 활성이고 판이 적용된 context만. 적용된 판의 index에서 읽는다 |
+| `context.series_next` | `context, type` | series pattern과 다음 이름 `next {key, path, from, complete, taken}` | series kind type만. 활성이고 판이 적용된 context만 |
+| `context.preview` | `context, bundle, cursor?` | type별 개체 수(계약의 type 순서), 위반 수와 위반 page, 판 단계 finding | 만드는 중인 `draft` 판만. 지금 project 파일로 추출해 보기만 한다 |
 | `context.violations` | `context, cursor?, limit?` | 위반 page. 줄마다 `handed_off` | |
 | `context.bundles` | `context, cursor?, limit?` | 판 이력과 검사 보고 | 번호 내림차순, draft가 맨 앞 |
 | `context.saved_views` | `context` | saved view와 `broken` | 이름 순 |
@@ -465,6 +468,9 @@ Source kind마다 쓸 수 있는 FieldFrom:
 - **draft.** 만드는 중인 context의 `step`은 판의 상태로 정한다. 판이 없으면 1(읽기), draft 또는 검사에 떨어진 판이 있으면 2(초안), 검사 중인 판이 있으면 3(검사)이다. 지금 판은 draft, 없으면 검사 중인 판, 없으면 번호가 가장 큰 failed 판이다. 적용되면 context가 active가 되어 `draft`가 null이다. `content`는 submit 전에는 검사되지 않은 JSON 객체다.
 - **후보.** entity 입력은 그 type의 개체 key와 title(field `title`이 있으면 그 글, 아니면 key)을 key의 code unit 순으로 낸다. value 입력은 field의 서로 다른 값(list는 항목마다)이다. enum이면 선언한 값 순서가 앞이고(행이 없는 값도 둔다) 그다음 나머지 값을 수는 크기 순, 글은 code unit 순으로 낸다. `prefix`는 값의 글이나 label이 그것으로 시작하는 후보만 남긴다(ASCII 대소문자 무시). `limit`(기본 50, 최대 200)로 자르고 잘렸으면 `complete`가 false다.
 - **handed_off.** 위반의 키 `(kind, rule, path, section)`가 이 context의 `ContextViolationsHandedOff` event에 든 적이 있으면 true다. 위반이 해소된 뒤 같은 키로 다시 생겨도 true로 남는다.
+- **entity.** `context.entity`는 적용된 판의 index에서 `(type, key)` 개체를 읽는다. `ref`와 선언한 field 전부(`fields`, 값이 없으면 `null`)를 싣고, `relations`는 type이 선언한 관계 전부를 선언 순서로 싣는다. 관계마다 `targets`는 개체의 관계 간선 순서(via 값의 순서)로 같은 context의 대상 type 개체 ref를 낸다. 대상이 index에 없으면 그 간선은 건너뛰고 간선이 없으면 `[]`다. 다른 context 대상(`context/type`)은 싣지 않는다(`[]`). 검색 행의 `key` 열과 별칭 개체가 가리키는 개체도 이 읽기로 읽는다. 개체가 없으면 `not_found`, type이 계약에 없으면 `invalid_input`, app-data kind type은 index에 개체가 없으므로 `not_found`다. 같은 `(type, key)` 개체가 둘이면(unique 규칙 위반) 추출 순서의 첫 개체다.
+- **series_next.** `context.series_next`는 series kind type의 `source.pattern`과 index에 있는 그 type 개체의 `path`들로 다음 이름을 계산한다(계산 규칙·빈 제안·`*`·`taken`은 → documents/series). 파일 목록을 따로 읽지 않으므로 index를 갱신한 뒤 읽으며, 읽기는 파일·ledger·index를 바꾸지 않는다. series kind가 아닌 type이나 계약에 없는 type은 `invalid_input`이다.
+- **preview.** `context.preview`는 Context Engineer가 draft를 submit하기 전에 지금 project 파일에서 무엇이 나올지 본다. `bundle`은 그 context의 `draft` 상태 판이어야 한다(없는 판이나 다른 context의 판은 `not_found`, draft가 아닌 판은 `conflict`). draft content를 격리 검사와 같은 추출·위반 감지로 지금 파일에 돌린다. 판·파일·ledger·index·violation_mark를 바꾸지 않고 event도 없다. `types`는 계약의 type 순서로 지금 파일에서 뽑은 개체 수다(app-data kind는 앱 read 명령을 부르지 않으므로 0). `findings`는 격리 검사의 (1)(2)(3)(4)(5)단계 결과이고(사람이 저장한 saved view는 부르지 않는다), (1)(2)(3)에서 멈추면 `types`는 비고 `violation_count`는 0이다. 위반은 path, kind, rule, section의 code unit 순이고 한 page는 30개며 `cursor`는 그 판(`bundle`)에 묶인다(다른 판의 cursor는 `invalid_input`). 호출마다 새로 추출하므로 page 사이에 파일이 바뀌면 보이는 위반이 달라질 수 있다. 결과를 온전히 만들지 못하면 부분 결과로 꾸미지 않고 `unavailable`이다(파일 수·바이트·시간 예산 초과, 파일을 읽을 수 없음, worker 중단).
 - Operator 수는 이 읽기들에 없다(→ lophn-agent/presets).
 
 ## event

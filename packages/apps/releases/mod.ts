@@ -92,7 +92,6 @@ export {
 } from "./facts.ts";
 export {
   insertRelease,
-  isActiveReadCommand,
   loadActiveBlueprint,
   loadActiveRelease,
   loadRelease,

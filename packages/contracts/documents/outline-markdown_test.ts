@@ -218,13 +218,23 @@ Deno.test("documents/outline-and-search#R5 [ctx-I60]: setext headings give level
   ].join("\n");
   const outline = ready(text);
   assertEquals(outline.title, "Doc title");
-  assertEquals(keys(outline), ["part-one"]);
-  assertEquals(node(outline, "part-one").level, 2);
-  assertEquals(node(outline, "part-one").subtree_range, {
+  assertEquals(keys(outline), ["doc-title", "doc-title/part-one"]);
+  assertEquals(node(outline, "doc-title").level, 1);
+  assertEquals(node(outline, "doc-title").subtree_range, {
+    start_line: 1,
+    end_line: 10,
+  });
+  assertEquals(node(outline, "doc-title").own_range, {
+    start_line: 3,
+    end_line: 4,
+  });
+  assertEquals(node(outline, "doc-title/part-one").level, 2);
+  assertEquals(node(outline, "doc-title/part-one").parent, "doc-title");
+  assertEquals(node(outline, "doc-title/part-one").subtree_range, {
     start_line: 5,
     end_line: 10,
   });
-  assertEquals(node(outline, "part-one").own_range, {
+  assertEquals(node(outline, "doc-title/part-one").own_range, {
     start_line: 7,
     end_line: 10,
   });
@@ -233,28 +243,40 @@ Deno.test("documents/outline-and-search#R5 [ctx-I60]: setext headings give level
 Deno.test("documents/outline-and-search#R5 [ctx-I60]: setext fixture gives the same titles and levels as the document module", async () => {
   const outline = ready(await fixture("notes-basic/setext.md"));
   assertEquals(outline.title, "setext 제목 하나");
-  assertEquals(titles(outline), ["setext 첫 제목", "다른 제목"]);
+  assertEquals(titles(outline), [
+    "setext 제목 하나",
+    "setext 첫 제목",
+    "다른 제목",
+  ]);
+  assertEquals(outline.sections.map((item) => item.level), [1, 2, 2]);
   assertEquals(
-    outline.sections.filter((item) => item.level > 0).map((item) => item.level),
-    [2, 2],
+    outline.sections.map((item) => item.subtree_range),
+    [
+      { start_line: 1, end_line: 15 },
+      { start_line: 6, end_line: 10 },
+      { start_line: 11, end_line: 15 },
+    ],
   );
-  assertEquals(
-    outline.sections.filter((item) => item.level > 0).map((item) =>
-      item.subtree_range
-    ),
-    [{ start_line: 6, end_line: 10 }, { start_line: 11, end_line: 15 }],
-  );
+  assertEquals(outline.sections.map((item) => item.parent), [
+    null,
+    "setext-제목-하나",
+    "setext-제목-하나",
+  ]);
 });
 
 Deno.test("documents/outline-and-search#R5 [ctx-I60]: front matter, backtick and tilde fences and HTML pre hide heading-like lines", async () => {
   const outline = ready(await fixture("notes-basic/fenced.md"));
   assertEquals(outline.title, "실제 제목");
-  assertEquals(titles(outline), ["코드 블록", "HTML pre", "마지막"]);
+  assertEquals(titles(outline), [
+    "실제 제목",
+    "코드 블록",
+    "HTML pre",
+    "마지막",
+  ]);
   assertEquals(
-    outline.sections.filter((item) => item.level > 0).map((item) =>
-      item.subtree_range
-    ),
+    outline.sections.map((item) => item.subtree_range),
     [
+      { start_line: 7, end_line: 38 },
       { start_line: 11, end_line: 27 },
       { start_line: 28, end_line: 36 },
       { start_line: 37, end_line: 38 },
@@ -326,52 +348,76 @@ Deno.test("documents/outline-and-search#R5 [ctx-I60]: the heading tree of the sh
       item.subtree_range.end_line,
     ]),
     [
-      ["아웃라인", null, 2, 5, 22],
-      ["아웃라인/첫-항목", "아웃라인", 3, 7, 22],
-      ["아웃라인/첫-항목/첫-항목의-하위", "아웃라인/첫-항목", 4, 11, 22],
+      ["프로젝트-노트", null, 1, 1, 54],
+      ["프로젝트-노트/아웃라인", "프로젝트-노트", 2, 5, 22],
+      ["프로젝트-노트/아웃라인/첫-항목", "프로젝트-노트/아웃라인", 3, 7, 22],
       [
-        "아웃라인/첫-항목/첫-항목의-하위/더-깊은-항목",
-        "아웃라인/첫-항목/첫-항목의-하위",
+        "프로젝트-노트/아웃라인/첫-항목/첫-항목의-하위",
+        "프로젝트-노트/아웃라인/첫-항목",
+        4,
+        11,
+        22,
+      ],
+      [
+        "프로젝트-노트/아웃라인/첫-항목/첫-항목의-하위/더-깊은-항목",
+        "프로젝트-노트/아웃라인/첫-항목/첫-항목의-하위",
         5,
         15,
         22,
       ],
       [
-        "아웃라인/첫-항목/첫-항목의-하위/더-깊은-항목/가장-깊은-항목",
-        "아웃라인/첫-항목/첫-항목의-하위/더-깊은-항목",
+        "프로젝트-노트/아웃라인/첫-항목/첫-항목의-하위/더-깊은-항목/가장-깊은-항목",
+        "프로젝트-노트/아웃라인/첫-항목/첫-항목의-하위/더-깊은-항목",
         6,
         19,
         22,
       ],
-      ["건너뛴-level", null, 2, 23, 30],
-      ["건너뛴-level/건너뛴-level의-하위", "건너뛴-level", 4, 27, 28],
-      ["건너뛴-level/건너뛴-level의-하위-2", "건너뛴-level", 4, 29, 30],
-      ["회의", null, 2, 31, 34],
-      ["a--b", null, 2, 35, 38],
-      ["section", null, 2, 39, 42],
-      ["intro", null, 2, 43, 46],
-      ["회의-2", null, 2, 47, 50],
-      ["한글-제목", null, 2, 51, 54],
+      ["프로젝트-노트/건너뛴-level", "프로젝트-노트", 2, 23, 30],
+      [
+        "프로젝트-노트/건너뛴-level/건너뛴-level의-하위",
+        "프로젝트-노트/건너뛴-level",
+        4,
+        27,
+        28,
+      ],
+      [
+        "프로젝트-노트/건너뛴-level/건너뛴-level의-하위-2",
+        "프로젝트-노트/건너뛴-level",
+        4,
+        29,
+        30,
+      ],
+      ["프로젝트-노트/회의", "프로젝트-노트", 2, 31, 34],
+      ["프로젝트-노트/a--b", "프로젝트-노트", 2, 35, 38],
+      ["프로젝트-노트/section", "프로젝트-노트", 2, 39, 42],
+      ["프로젝트-노트/intro", "프로젝트-노트", 2, 43, 46],
+      ["프로젝트-노트/회의-2", "프로젝트-노트", 2, 47, 50],
+      ["프로젝트-노트/한글-제목", "프로젝트-노트", 2, 51, 54],
     ],
   );
-  assertEquals(node(outline, "아웃라인").children_count, 1);
-  assertEquals(node(outline, "건너뛴-level").children_count, 2);
-  assertEquals(node(outline, "아웃라인").own_range, {
+  assertEquals(node(outline, "프로젝트-노트").children_count, 8);
+  assertEquals(node(outline, "프로젝트-노트").own_range, {
+    start_line: 2,
+    end_line: 4,
+  });
+  assertEquals(node(outline, "프로젝트-노트/아웃라인").children_count, 1);
+  assertEquals(node(outline, "프로젝트-노트/건너뛴-level").children_count, 2);
+  assertEquals(node(outline, "프로젝트-노트/아웃라인").own_range, {
     start_line: 6,
     end_line: 6,
   });
-  assertEquals(node(outline, "아웃라인").characters, 0);
+  assertEquals(node(outline, "프로젝트-노트/아웃라인").characters, 0);
 });
 
 Deno.test("documents/outline-and-search#R5 [ctx-I60]: explicit anchors win, symbols drop out of slugs, empty slugs become section and equal siblings get a numeric suffix", async () => {
   const outline = ready(await fixture("notes-basic/index.md"));
-  assertEquals(node(outline, "a--b").title, "A & B");
-  assertEquals(node(outline, "section").title, "!!!");
-  assertEquals(node(outline, "intro").title, "Intro");
-  assertEquals(node(outline, "intro").anchor, "intro");
-  assertEquals(node(outline, "한글-제목").anchor, null);
-  assertEquals(node(outline, "회의").title, "회의");
-  assertEquals(node(outline, "회의-2").title, "회의");
+  assertEquals(node(outline, "프로젝트-노트/a--b").title, "A & B");
+  assertEquals(node(outline, "프로젝트-노트/section").title, "!!!");
+  assertEquals(node(outline, "프로젝트-노트/intro").title, "Intro");
+  assertEquals(node(outline, "프로젝트-노트/intro").anchor, "intro");
+  assertEquals(node(outline, "프로젝트-노트/한글-제목").anchor, null);
+  assertEquals(node(outline, "프로젝트-노트/회의").title, "회의");
+  assertEquals(node(outline, "프로젝트-노트/회의-2").title, "회의");
   assertEquals(new Set(keys(outline)).size, outline.sections.length);
 });
 
@@ -398,12 +444,20 @@ Deno.test("documents/outline-and-search#R5 [ctx-I60]: a skipped level nests unde
   assertEquals(node(outline, "y").children_count, 1);
 });
 
-Deno.test("documents/outline-and-search#R5 [ctx-I60]: a sole h1 is the document title and leaves the sections, several h1 stay as sections", async () => {
+Deno.test("documents/outline-and-search#R5 [ctx-I60]: a sole h1 is a level 1 node with its children under it and is also reported as the title, several h1 stay as sibling nodes with a null title", async () => {
   const single = ready("# Only\n\n## Child\nbody");
   assertEquals(single.title, "Only");
-  assertEquals(keys(single).includes("only"), false);
-  assertEquals(node(single, "child").parent, null);
-  assertEquals(node(single, "child").level, 2);
+  assertEquals(keys(single), ["only", "only/child"]);
+  assertEquals(node(single, "only").level, 1);
+  assertEquals(node(single, "only").parent, null);
+  assertEquals(node(single, "only").children_count, 1);
+  assertEquals(node(single, "only").subtree_range, {
+    start_line: 1,
+    end_line: 4,
+  });
+  assertEquals(node(single, "only").own_range, { start_line: 2, end_line: 2 });
+  assertEquals(node(single, "only/child").parent, "only");
+  assertEquals(node(single, "only/child").level, 2);
 
   const many = ready(await fixture("notes-basic/multi-h1.md"));
   assertEquals(many.title, null);
@@ -419,22 +473,53 @@ Deno.test("documents/outline-and-search#R5 [ctx-I60]: a sole h1 is the document 
   );
 });
 
-Deno.test("documents/outline-and-search#R5 [ctx-I60]: the outline holds heading nodes only, so text before the first heading and a title h1 make no node", async () => {
+Deno.test("documents/outline-and-search#R5 [ctx-I60]: the outline holds heading nodes only, so text before the first heading makes no node", async () => {
   const index = ready(await fixture("notes-basic/index.md"));
   assertEquals(index.title, "프로젝트 노트");
-  assertEquals(index.sections[0]?.key, "아웃라인");
+  assertEquals(index.sections[0]?.key, "프로젝트-노트");
   assertEquals(index.sections[0]?.position, 0);
+  assertEquals(index.sections[0]?.subtree_range.start_line, 1);
   assertEquals(index.line_count, 54);
 
   const fenced = ready(await fixture("notes-basic/fenced.md"));
-  assertEquals(fenced.sections[0]?.key, "코드-블록");
+  assertEquals(fenced.sections[0]?.key, "실제-제목");
+  assertEquals(fenced.sections[0]?.subtree_range.start_line, 7);
 
-  for (const outline of [index, fenced, ready(SMALL)]) {
+  const small = ready(SMALL);
+  assertEquals(small.sections[0]?.subtree_range.start_line, 3);
+  for (const outline of [index, fenced, small]) {
     assert(outline.sections.length > 0);
     assert(outline.sections.every((item) => item.level >= 1));
     assertEquals(keys(outline).includes("_preamble"), false);
   }
-  assertEquals(ready(SMALL).sections[0]?.subtree_range.start_line, 3);
+});
+
+Deno.test("documents/outline-and-search#R5 [ctx-I60]: the guide fixture used by the context entity answer is one level 1 node with its sections under it", async () => {
+  const text = await Deno.readTextFile(
+    new URL(
+      "../../documents/contexts/testdata/eval-project/docs/guide-a.md",
+      import.meta.url,
+    ),
+  );
+  const outline = ready(text);
+  assertEquals(outline.title, "Guide A");
+  assertEquals(
+    outline.sections.map((item) => [
+      item.key,
+      item.title,
+      item.level,
+      item.parent,
+      item.children_count,
+      item.subtree_range.start_line,
+      item.subtree_range.end_line,
+    ]),
+    [
+      ["guide-a", "Guide A", 1, null, 2, 1, 8],
+      ["guide-a/setup", "Setup", 2, "guide-a", 1, 3, 6],
+      ["guide-a/setup/install", "Install", 3, "guide-a/setup", 0, 5, 6],
+      ["guide-a/use", "Use", 2, "guide-a", 0, 7, 8],
+    ],
+  );
 });
 
 Deno.test("documents/outline-and-search#R5 [ctx-I60]: a document without headings is ready with an empty node list and still reports its size", () => {
@@ -465,7 +550,7 @@ Deno.test("documents/outline-and-search#R2 [ctx-I60]: a BOM and CRLF line ends g
   assertEquals(ready(dirty), expected);
   assertEquals(ready(clean.replaceAll("\n", "\r")), expected);
   assertEquals(expected.title, "BOM과 CRLF");
-  assertEquals(node(expected, "하나/crlf").subtree_range, {
+  assertEquals(node(expected, "bom과-crlf/하나/crlf").subtree_range, {
     start_line: 8,
     end_line: 11,
   });
@@ -475,7 +560,7 @@ Deno.test("documents/outline-and-search#R2 [ctx-I60]: a BOM and CRLF line ends g
   assertEquals(outline.title, "BOM과 CRLF");
   assertEquals(
     keys(outline),
-    ["두-번째-제목", "두-번째-제목/crlf"],
+    ["bom과-crlf", "bom과-crlf/두-번째-제목", "bom과-crlf/두-번째-제목/crlf"],
   );
   assertEquals(
     ready(raw.replace(/^﻿/, "").replaceAll("\r\n", "\n")),
@@ -503,7 +588,12 @@ Deno.test("documents/outline-and-search#R2 [ctx-I60]: titles, keys and character
     assertEquals(item.title, item.title.normalize("NFC"));
   }
   assertEquals(file.title, file.title?.normalize("NFC"));
-  assert(file.sections.some((item) => item.key === "제목도-분해형"));
+  assertEquals(file.title, "분해형 한글".normalize("NFC"));
+  assert(
+    file.sections.some((item) =>
+      item.key === "분해형-한글/제목도-분해형".normalize("NFC")
+    ),
+  );
 });
 
 Deno.test("documents/outline-and-search#R6 [ctx-I60]: estimated tokens are ceil(codepoints / 3) and an astral character counts as one codepoint", () => {
@@ -532,13 +622,13 @@ Deno.test("documents/outline-and-search#R5 [ctx-I60]: the body hash follows the 
   const childEdited = base.replace("child body", "child changed");
   const original = ready(base);
   assert(original.sections.length > 0);
-  const kept = node(original, "kept");
-  assertEquals(node(ready(renamed), "renamed").body_hash, kept.body_hash);
-  assert(node(ready(bodyEdited), "kept").body_hash !== kept.body_hash);
-  assertEquals(node(ready(childEdited), "kept").body_hash, kept.body_hash);
+  const kept = node(original, "doc/kept");
+  assertEquals(node(ready(renamed), "doc/renamed").body_hash, kept.body_hash);
+  assert(node(ready(bodyEdited), "doc/kept").body_hash !== kept.body_hash);
+  assertEquals(node(ready(childEdited), "doc/kept").body_hash, kept.body_hash);
   assert(
-    node(ready(childEdited), "kept/child").body_hash !==
-      node(original, "kept/child").body_hash,
+    node(ready(childEdited), "doc/kept/child").body_hash !==
+      node(original, "doc/kept/child").body_hash,
   );
   assertEquals(kept.body_hash, await sha256(bodyOf(base, kept)));
   assertEquals(kept.body_hash, await sha256("\nbody line\n"));

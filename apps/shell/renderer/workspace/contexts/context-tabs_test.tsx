@@ -393,22 +393,85 @@ Deno.test("shell/workspace#R17 [ctx-I53]: 하위 탭을 고르면 그 본문이 
   }
 });
 
-Deno.test("shell/workspace#R22 [ctx-I53]: Search 하위 탭은 선언된 검색 목록을 보이고 하나를 고르면 결과를 context 안에서 보인다", async () => {
+Deno.test("shell/workspace#R22 [ctx-I53]: Search 하위 탭은 선언된 검색과 저장한 보기의 목록만 보이고 결과는 그리지 않는다", async () => {
   const { view } = mount({
     layout: layoutOf({ ...CONTEXT_TAB, sub_tab: "search" }),
   });
   using _ = view;
   await flush();
-  const picks = all(view.container, "[data-context-search] [data-declared]");
-  assertEquals(picks.map(norm), [
-    "Findings about a change",
-    "Experiments by status",
-    "Scenarios using a rubric",
-  ]);
-  click(picks[1]!);
+  assertEquals(
+    all(view.container, "[data-context-search] [data-declared]").map(norm),
+    [
+      "Findings about a change",
+      "Experiments by status",
+      "Scenarios using a rubric",
+    ],
+  );
+  assertEquals(
+    all(view.container, "[data-context-search] [data-saved-view]").map(norm),
+    ["Findings for C-049", "Running experiments"],
+  );
+  assertEquals(view.container.querySelector("[data-result-count]"), null);
+  assertEquals(view.container.querySelector("tbody"), null);
+});
+
+Deno.test("shell/workspace#R22 [ctx-I53]: 선언된 검색을 고르면 그 context의 Search 탭을 그 검색으로 열고 다시 고르면 같은 탭을 고른다", async () => {
+  const { view, saved } = mount({
+    layout: layoutOf({ ...CONTEXT_TAB, sub_tab: "search" }),
+  });
+  using _ = view;
   await flush();
-  assertEquals(tabKeys(view.container), [contextKey(EVAL)]);
-  assert(view.container.querySelector("[data-result-count]"), "no results");
+  const context = contextKey(EVAL);
+  click(
+    all(view.container, "[data-context-search] [data-declared]")[1]!,
+  );
+  await flush();
+  const searchTabs = () =>
+    tabKeys(view.container).filter((key) => key!.startsWith("search-"));
+  assertEquals(searchTabs().length, 1);
+  assertEquals(
+    one(view.container, "[data-tab][aria-selected=true]").dataset.tab,
+    searchTabs()[0],
+  );
+  // Search 탭은 그 검색을 골라 입력 form과 결과를 보인다.
+  assertEquals(norm(one(view.container, "h1")), "Experiments by status");
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  });
+  const stored = lastTabs(saved).find((tab) => tab.kind === "search")!;
+  assertEquals(stored.context, EVAL);
+  assertEquals(stored.declared_search, "experiments_by_status");
+  assertEquals(stored.saved_view, null);
+
+  // Context 탭으로 돌아가 다른 검색을 고르면 새 탭 없이 같은 Search 탭이 그 검색으로 바뀐다.
+  click(one(view.container, `[data-tab='${context}']`));
+  await flush();
+  click(
+    all(view.container, "[data-context-search] [data-declared]")[0]!,
+  );
+  await flush();
+  assertEquals(searchTabs().length, 1);
+  assertEquals(norm(one(view.container, "h1")), "Findings about a change");
+});
+
+Deno.test("shell/workspace#R22 [ctx-I53]: 저장한 보기를 고르면 그 보기를 고른 Search 탭이 열린다", async () => {
+  const { view, saved } = mount({
+    layout: layoutOf({ ...CONTEXT_TAB, sub_tab: "search" }),
+  });
+  using _ = view;
+  await flush();
+  click(all(view.container, "[data-context-search] [data-saved-view]")[0]!);
+  await flush();
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  });
+  const stored = lastTabs(saved).find((tab) => tab.kind === "search")!;
+  assertEquals(stored.saved_view, fakeId("viw", "v1"));
+  assertEquals(stored.declared_search, "findings_about_change");
+  assert(
+    one(view.container, "[data-saved-view][aria-current=true]"),
+    "the saved view is not marked as opened",
+  );
 });
 
 Deno.test("shell/workspace#R30 [ctx-I53]: 만드는 중인 context의 탭은 ContextDrafting을 보인다", async () => {

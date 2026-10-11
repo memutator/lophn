@@ -38,6 +38,29 @@ export function openSearch(host: TabHost, state: SearchTabState): void {
 }
 
 /**
+ * 고른 검색이나 저장한 보기를 그 context의 Search 탭에서 연다. 그 context의 Search 탭이 열려 있으면 새 탭
+ * 대신 그 탭을 골라 검색을 바꾸고, 없으면 새로 연다(workspace#R22).
+ */
+export function openSearchFor(host: TabHost, state: SearchTabState): void {
+  const open = host.view.panes.flatMap((pane) => pane.tabs).find((tab) =>
+    tab.kind === "search" && searchStateOf(tab)?.context === state.context
+  );
+  if (open === undefined) {
+    openSearch(host, state);
+    return;
+  }
+  host.openTab(open);
+  host.patchTab(open.key, (tab) => ({
+    title: searchTitle(host, state.context),
+    // nonce가 바뀌면 탭 본문이 새 입력으로 처음부터 시작한다.
+    fields: {
+      ...searchFields(state),
+      nonce: (typeof tab.fields?.nonce === "number" ? tab.fields.nonce : 0) + 1,
+    },
+  }));
+}
+
+/**
  * 바로 가기 rail과 `+`가 부르는 Search 탭 열기. 열려 있는 Search 탭이 있으면 그 탭을 고르고,
  * 없으면 지금 보는 Context 탭의 context로(없으면 목록의 첫 context로) 연다. context가 하나도
  * 없으면 Search 탭이 보일 대상이 없어 Contexts 탭이 대신 열린다.
@@ -133,7 +156,7 @@ export const searchKind: TabKindDef = {
     if (contexts === null || state === null) return null;
     return (
       <SearchTab
-        key={tab.key}
+        key={`${tab.key}:${tab.fields?.nonce ?? 0}`}
         project={host.projectId}
         source={contexts.source}
         state={state}
@@ -141,7 +164,8 @@ export const searchKind: TabKindDef = {
         onState={(next) =>
           host.patchTab(tab.key, (current) => ({
             title: titleOf({ ...current, fields: searchFields(next) }, host),
-            fields: searchFields(next),
+            // nonce는 그대로 둬 입력을 바꿀 때마다 본문이 다시 서지 않게 한다.
+            fields: { ...current.fields, ...searchFields(next) },
           }), { later: true })}
         onOpenContext={(context) => openContext(host, context)}
         onOpenDocument={contexts.openPath}

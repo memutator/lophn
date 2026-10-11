@@ -96,6 +96,7 @@ export const contextKind: TabKindDef = {
             fields: { ...current.fields, sub_tab: sub },
           }))}
         onOpenDocument={contexts.openPath}
+        onOpenSearch={contexts.openSearch}
         onAsk={contexts.askContextEngineer}
       />
     );

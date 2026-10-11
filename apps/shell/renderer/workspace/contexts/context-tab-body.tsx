@@ -7,9 +7,10 @@ import { ContextComposition } from "./context-composition.tsx";
 import { ContextFrame } from "./context-frame.tsx";
 import { ContextGlossary } from "./context-glossary.tsx";
 import { ContextOverview } from "./context-overview.tsx";
-import { ContextSearchPanel } from "./context-search-panel.tsx";
+import { ContextSearchList } from "./context-search-list.tsx";
 import { ContextViolations } from "./context-violations.tsx";
 import { ContractDetails } from "./contract-details.tsx";
+import type { SearchTabState } from "./search-tab.tsx";
 import type { OpenDocument, SubTab } from "./shared.ts";
 import type { ContextsSource } from "./source.ts";
 
@@ -20,12 +21,14 @@ export interface ContextTabBodyProps {
   readonly sub: SubTab;
   readonly onSub: (sub: SubTab) => void;
   readonly onOpenDocument: OpenDocument;
+  /** Search 하위 탭에서 고른 검색이나 보기를 그 Search 탭에서 연다(R22). */
+  readonly onOpenSearch: (state: SearchTabState) => void;
   /** [Ask Context Engineer]와 [History]. */
   readonly onAsk: () => void;
 }
 
 export function ContextTabBody(props: ContextTabBodyProps): ReactNode {
-  const { source, context, onSub, onOpenDocument, onAsk } = props;
+  const { source, context, onSub, onOpenDocument, onOpenSearch, onAsk } = props;
   const panel = (sub: SubTab): ReactNode => {
     switch (sub) {
       case "overview":
@@ -42,10 +45,10 @@ export function ContextTabBody(props: ContextTabBodyProps): ReactNode {
         );
       case "search":
         return (
-          <ContextSearchPanel
+          <ContextSearchList
             source={source}
             context={context}
-            onOpenDocument={onOpenDocument}
+            onOpenSearch={onOpenSearch}
             onAsk={onAsk}
           />
         );

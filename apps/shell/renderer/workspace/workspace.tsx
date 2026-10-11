@@ -58,7 +58,7 @@ import { settleContextTabs } from "./contexts/settle-tabs.ts";
 import { ViolationToast } from "./contexts/violation-toast.tsx";
 import { openContext } from "./kinds/context.tsx";
 import { openContexts } from "./kinds/contexts.tsx";
-import { openSearchShortcut } from "./kinds/search.tsx";
+import { openSearchFor, openSearchShortcut } from "./kinds/search.tsx";
 import { tabKindOf, tabKinds } from "./kinds/registry.ts";
 import { openDocument as openDocumentTab } from "./kinds/document-editor.tsx";
 import { openTerminal as openTerminalTab } from "./kinds/terminal.tsx";
@@ -550,6 +550,7 @@ export function Workspace(props: WorkspaceProps) {
     list: watch.list,
     titleOf: (id) => watch.list.find((item) => item.id === id)?.title,
     openPath,
+    openSearch: (state) => openSearchFor(host, state),
     askContextEngineer: openConversation,
     newContext: () => {
       expectDraft.current = true;

@@ -7,6 +7,7 @@ import type {
 import type { TabItem, WorkspaceView } from "../model.ts";
 import type { DocumentRow } from "../source.ts";
 import type { WorkspaceProps } from "../workspace.tsx";
+import type { SearchTabState } from "../contexts/search-tab.tsx";
 import type { ContextsSource } from "../contexts/source.ts";
 import type { ReadPosition } from "./kind.ts";
 
@@ -41,6 +42,8 @@ export interface ContextsSlice {
   readonly list: readonly { readonly id: string; readonly title: string }[];
   /** 목록에 있는 context의 이름. */
   titleOf(context: string): string | undefined;
+  /** 고른 검색이나 저장한 보기를 그 context의 Search 탭에서 연다. 열려 있으면 그 탭을 고른다(R22). */
+  openSearch(state: SearchTabState): void;
   /** 검색 결과·Overview 예시의 도메인 객체를 그 문서 탭으로 연다(workspace#R26). */
   openPath(path: string): void;
   /** Context Engineer와 말하는 대화를 연다(오늘의 대화 도크). */

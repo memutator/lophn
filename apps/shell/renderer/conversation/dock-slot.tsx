@@ -10,6 +10,7 @@ import { Dock, type Ticks } from "./dock.tsx";
 import type { DraftStore } from "./drafts.ts";
 import type { DockPlacement } from "./model.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
+import type { ContextLinks } from "./result-links.tsx";
 import type { ConversationSource, WorkPlace } from "./source.ts";
 
 /** 창마다 하나. entry가 만들어 모든 공간이 같은 대화 메모리를 쓴다. */
@@ -73,17 +74,22 @@ export interface DockSlotProps {
   workPlace: WorkPlace;
   onClose: () => void;
   onOpenResult?: (document: string, version: string | null) => void;
+  /** 대화 속 context 이름 링크가 그 context의 탭을 여는 길. */
+  contexts?: ContextLinks;
+  /** 창의 대화 통로 대신 쓸 통로. 다른 역할과 말할 때 쓴다. */
+  source?: ConversationSource;
 }
 
 /** 공간의 본문 오른쪽에 도크를 둔다. 닫혀 있으면 아무것도 그리지 않는다. */
 export function DockSlot(
-  { placement, workPlace, onClose, onOpenResult }: DockSlotProps,
+  { placement, workPlace, onClose, onOpenResult, contexts, source }:
+    DockSlotProps,
 ) {
   const deps = useConversation();
   if (deps === null || placement === "hidden") return null;
   return (
     <Dock
-      source={deps.source}
+      source={source ?? deps.source}
       drafts={deps.drafts}
       ticks={deps.ticks}
       now={deps.now}
@@ -91,6 +97,7 @@ export function DockSlot(
       workPlace={workPlace}
       onClose={onClose}
       onOpenResult={onOpenResult}
+      contexts={contexts}
       {...(deps.core === undefined ? {} : { core: deps.core })}
       {...(deps.onSettings === undefined
         ? {}

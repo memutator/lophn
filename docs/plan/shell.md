@@ -1238,13 +1238,30 @@ concerns: [shell]
   - core 끊김에서는 초안·마지막 read·터미널을 유지하고 새 파일 쓰기·결정 제출 gate를 닫으며 "최신 확인 못함"과 확인 시각을 보인다.
   - flow work-offline, install-lophn(실패 갈래) 화면에서 두 끊김 상태의 동작을 테스트한다.
 
+### T62 settings: 세로 nav, section 분류, 가운데 column
+
+- 상태: 진행
+- 등급: frontend
+- concern: shell/desktop
+- 요구: shell/desktop#R31, shell/design-system#R21(form 폭 기둥을 가운데 둔다)
+- 자리: apps/shell/renderer/desktop/lophn-space/settings/(settings-screen.tsx, settings.module.css, general/, notifications/), packages/design/components/settings-icons.ts
+- 쓰는 contract: 없음
+- 내놓는 contract: 없음
+- slice: operations
+- 선행: shell#T31, shell#T58
+- 완료: 아래 확인이 통과한다
+  - 가로 탭 줄(Diagnose가 잘리고 scrollbar가 나오던 것)을 왼쪽 세로 nav로 바꾼다. 묶음은 Integrations(Connections·Coding agents·Tools and skills)·Preferences(General·Notifications)·System(Update lophn·Diagnose)이고 항목마다 아이콘과 이름, 고른 항목 강조. 통로가 없는 자리는 nav에 두지 않는다.
+  - 고른 자리 하나를 nav 오른쪽 자리의 가운데 column(form 폭)에 제목·section·카드(왼쪽 이름·설명, 오른쪽 조작)로 그린다. 모든 기존 조작과 동작은 그대로다. [Ask lophn]은 column 머리에 둔다.
+  - backup 자리는 nav에서 뺐다(사람 결정: backup 제거). `backup` 통로 prop과 panel 코드는 남겨 두고 제거는 후속 작업이다. e2e flow backup-and-restore는 그때까지 건너뛴다.
+  - 화면 테스트: nav 묶음·통로 없는 자리 생략·backup 없음·고른 자리 하나만 그림.
+
 ## 요구 덮기
 
-shell 최상위의 요구는 8개 leaf에 177개이고 모두 위 작업의 `요구:`에 들어 있다.
+shell 최상위의 요구는 8개 leaf에 178개이고 모두 위 작업의 `요구:`에 들어 있다.
 
 | concern | 요구 수 | 덮은 수 | 작업 |
 |---|---|---|---|
-| shell/desktop | 30 | 30 | T1–T3, T9, T13–T15, T19–T21, T27, T28, T30, T36, T37, T42, T47, T50, T51, T54–T57, T59, T61 |
+| shell/desktop | 31 | 31 | T1–T3, T9, T13–T15, T19–T21, T27, T28, T30, T36, T37, T42, T47, T50, T51, T54–T57, T59, T61, T62 |
 | shell/workspace | 13 | 13 | T13, T14, T25–T27, T35, T44 |
 | shell/terminal | 13 | 13 | T24, T25, T49 |
 | shell/confirmation-window | 10 | 10 | T22, T23, T29, T45 |

@@ -101,7 +101,7 @@ shell/wording이 i18n의 지켜야 할 요구(en-only 시작, key 검사)를 정
 | 〃 | **apps** | 등록한 앱을 찾고 정리한다 | 〃 |
 | 〃 | **things-to-confirm** | 기다리는 결정과 지난 결과를 모아 본다 | 〃, notification 클릭 |
 | 〃 | **roles** | 역할이 하는 일과 만든 것을 보고 대화를 연다 | 〃 |
-| 〃 | **settings** | provider·연결·백업·진단 같은 설정을 보고 바꾼다 | 〃 |
+| 〃 | **settings** | provider·연결·도구·알림·update·진단 같은 설정을 보고 바꾼다(왼쪽 세로 nav, 가운데 column, shell/desktop#R31) | 〃 |
 | 대화 | **conversation** | agent와 대화하며 질문에 답하고 결과를 본다 | 모든 공간의 오른쪽 도크 토글 |
 | 〃 카드 | **app-card** | 대화 안에서 앱 카드를 보고 쓴다 | conversation의 시각 블록 |
 | 전역 | **confirmation-window** | 정확한 대상과 영향을 보고 결정을 내린다 | approval·question의 action, secret 입력 |

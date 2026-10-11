@@ -351,6 +351,8 @@ Source kind마다 쓸 수 있는 FieldFrom:
 - **title.** 문서 개체는 첫 H1 글, section·outline 개체는 그 heading 글이다.
 - **section field.** 개체의 범위(문서 개체는 문서 전체, section 개체는 그 section) 안에서 이름이 같은 첫 heading의 본문이다. heading 줄은 빼고 앞뒤 빈 줄을 자른다. `include_children`이 false면 다음 heading 앞까지다.
 - **path capture.** series 번호 자리 이름, folder의 `folder`, 문서가 있는 개체의 `file`(확장자 뺀 파일 이름)과 `path`.
+- **links field.** 문서 안 링크를 그 문서 폴더 기준으로 푼 Project 경로의 목록이다(존재는 보지 않는다, `https:`·`mailto:`·`#`만 있는 링크는 뺀다). `to_type`이 있으면 그 type 개체의 경로에 맞는 링크만 남기고 값은 그 개체의 key로 바꾼다(모든 개체를 계산한 뒤). 그래서 관계의 via가 될 수 있다.
+- **outline field.** `max_level`까지의 heading을 문서 순서대로 `{level, title}` 목록으로 둔다.
 - **links(관계 간선).** 관계 선언 순서대로, via 값(list면 항목 순서)마다 `{relation, target_key}` 하나. via가 `null`이면 간선이 없다. 대상이 있는지는 보지 않는다(검사 `relation_target_exists`가 본다).
 - **index.** 문서의 Markdown 링크 `[글](경로)`를 그 문서 폴더 기준으로 풀어 순서대로 개체로 삼는다. 대상 문서가 없거나 Project 밖이면 개체를 만들지 않고 `broken_link` 위반(근거 path는 index 문서, `target`은 푼 경로)이다.
 - **series.** pattern에 맞는 파일이 개체다. pattern의 폴더에서 같은 확장자인데 pattern에 맞지 않는 파일은 `path_mismatch` 위반이다.

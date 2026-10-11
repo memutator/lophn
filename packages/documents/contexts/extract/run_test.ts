@@ -162,6 +162,54 @@ Deno.test("documents/contexts#R6 [ctx-I15]: links follow relation declaration or
   ]]);
 });
 
+Deno.test("documents/contexts#R6 #R8 [ctx-I15]: a links field with to_type holds the keys of the linked entities of that type, so a relation can go through it", () => {
+  const files = inlineFiles({
+    "notes/n1.md":
+      "---\nid: N1\n---\n# Note one\n[guide](../guides/g-a.md) [gone](../guides/g-x.md) [other](../misc.md)\n",
+    "guides/g-a.md": "---\nslug: alpha\n---\n# Guide A\n",
+    "misc.md": "# Misc\n",
+  });
+  const result = extractAll(
+    bundleOf([
+      docsType(
+        "Note",
+        ["notes/*.md"],
+        [
+          field("id", { kind: "frontmatter", key: "id" }),
+          field("guides", { kind: "links", to_type: "Guide" }, "list", {
+            item_type: "string",
+          }),
+          field("all_links", { kind: "links" }, "list", {
+            item_type: "string",
+          }),
+        ],
+        [{
+          name: "reads",
+          label: "reads",
+          to: "Guide",
+          via: "guides",
+          cardinality: "many",
+        }],
+      ),
+      docsType("Guide", ["guides/*.md"], [
+        field("id", { kind: "frontmatter", key: "slug" }),
+      ]),
+    ]),
+    files,
+    noAppData(),
+  );
+  // field 읽기는 경로를 내고, run이 to_type 개체의 경로를 그 개체의 key로 바꾼다. 맞는 개체가 없는 링크는 빠진다.
+  assertEquals(result.entities[0].fields, {
+    id: "N1",
+    guides: ["alpha"],
+    all_links: ["guides/g-a.md", "guides/g-x.md", "misc.md"],
+  });
+  assertEquals(result.entities[0].links, [{
+    relation: "reads",
+    target_key: "alpha",
+  }]);
+});
+
 Deno.test("documents/contexts#R24 [ctx-I15]: an unreadable file has no entity but its siblings still do", () => {
   const files = inlineFiles({
     "x/bad.md": "---\na: [b\n---\n# Bad\n",

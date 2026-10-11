@@ -412,7 +412,7 @@ concerns:
   summary: Electron main과 화면 분리, 창, 화면 구성과 탐색, OS 통합(tray, OS 알림 표시), 사람 token 보관.
 
 - id: shell/workspace
-  summary: 프로젝트 화면의 탭 줄. 탭 종류(문서 편집기, 뷰어, 터미널, 앱 패널), 배치, 다시 열 때 복원, agent에게 넘기는 현재 보기 상태(열린 탭, 초점, 선택 영역), 세션의 시각 블록을 그리는 틀.
+  summary: 프로젝트 화면의 탭 줄. 탭 종류(문서 편집기, 터미널, 앱 패널, Agent, Contexts, Context, Search)와 kind 등록 구조, 배치, 다시 열 때 복원, agent에게 넘기는 현재 보기 상태(열린 탭, 초점, 선택 영역), 세션의 시각 블록을 그리는 틀.
 
 - id: shell/terminal
   summary: 프로젝트 폴더에서 여는 터미널 탭. 시작 폴더, 환경, 출력 보존.

@@ -145,9 +145,9 @@ Electron main과 창별 shell 화면의 분리, 창 구성·탐색·tray·OS 통
 - 확인: 관련 없는 전역 관리 크롬이 본문을 차지하지 않고, 작업대의 추적 꺼짐·Operator 안내도 본문 높이를 쓰지 않는 떠 있는 카드이며 닫아도 다시 열 수 있다.
 - 의도: shell#I1
 
-**[R28]** 프로젝트 작업대에는 프로젝트 폴더·문서·연관 컨텍스트 탐색을, lophn 공간에는 프로젝트·문서·컨텍스트·앱과 확인할 것 탐색을 배치한다.
-- 이유: 공간마다 지금 필요한 탐색만 보이게 한다.
-- 확인: documents/projects·documents/contexts의 실제 목록으로 이동하며 없어진 거처·분류 전·컨텍스트 계층은 표시하지 않는다. 프로젝트 폴더 행은 눌러 펼치고 접으며 펼치면 그 폴더 안 문서를 탭으로 열 수 있게 보이고, 컨텍스트 행은 눌러 contexts 화면의 그 컨텍스트를 연다.
+**[R28]** 프로젝트 작업대 sidebar에는 프로젝트 폴더·Contexts·Saved views 탐색을, lophn 공간(Lophn Workspace) sidebar에는 프로젝트·앱·확인할 것·역할·설정 탐색을 배치하고 문서와 Context 화면은 lophn 공간에 두지 않는다.
+- 이유: 공간마다 지금 필요한 탐색만 보이게 하고 프로젝트에 속한 일(문서, context)은 프로젝트 화면 안에서만 한다.
+- 확인: documents/projects·documents/contexts의 실제 목록으로 이동하며 없어진 거처·분류 전 계층은 표시하지 않는다. 프로젝트 폴더 행은 눌러 펼치고 접으며 펼치면 그 폴더 안 문서를 탭으로 열 수 있게 보이고, Contexts 행은 눌러 그 프로젝트의 Contexts 탭을, 그 아래 context 이름은 Context 탭을, Saved views 행은 Search 탭을 연다. lophn 공간 sidebar에 Documents·Context 항목이 없다.
 - 의도: shell#I1
 
 **[R29]** 대화 도크를 열면 정보 패널 자리를 임시 대체하고 닫으면 전의 패널 상태를 복원한다.
@@ -155,9 +155,9 @@ Electron main과 창별 shell 화면의 분리, 창 구성·탐색·tray·OS 통
 - 확인: R2의 400px 도크와 320px 정보 패널이 동시에 쌓이지 않는다.
 - 의도: shell#I5
 
-**[R30]** 명령 팔레트 결과는 작업대에서 열린 탭·문서·파일·컨텍스트·행동, lophn 공간에서 프로젝트·컨텍스트·문서·앱·행동 순으로 묶는다.
-- 이유: 화면의 치수와 조작을 일정하게 하여 본래의 일과 결정을 방해하지 않는다.
-- 확인: 삭제된 분류 전·시리즈 전용 목적지가 아닌 현재 탐색 대상으로 이동한다.
+**[R30]** 명령 팔레트 결과는 프로젝트 범위에서 열린 탭·Contexts(context 이름을 고르면 그 Context 탭을 연다)·Documents·행동, lophn 공간에서 프로젝트·앱·행동 순으로 묶는다.
+- 이유: 이름으로 context와 문서를 바로 찾고, 프로젝트에 속한 것을 lophn 공간에 섞지 않는다.
+- 확인: 프로젝트 범위에서 context 이름을 치면 Contexts 묶음에 나오고 선택하면 Context 탭이 열리며, lophn 공간 팔레트에는 context와 문서가 나오지 않는다. 삭제된 분류 전·시리즈 전용 목적지가 아닌 현재 탐색 대상으로 이동한다.
 - 의도: shell#I1
 
 **[R31]** settings 화면은 왼쪽 세로 nav에 자리를 묶음 제목 아래 아이콘과 이름으로 놓고, 고른 자리 하나를 nav 오른쪽 자리의 가운데 column(form 폭)에 section 제목과 카드(왼쪽 이름·설명, 오른쪽 조작)로 그린다. 가로 탭 줄을 쓰지 않고 backup 자리는 두지 않는다.
@@ -170,6 +170,16 @@ Electron main과 창별 shell 화면의 분리, 창 구성·탐색·tray·OS 통
 - 확인: 크롬 글자는 선택되지 않고 읽기 본문·입력·code·터미널은 선택된다.
 - 의도: shell#I1
 
+**[R33]** lophn 공간(Lophn Workspace)은 프로젝트 화면의 칸·탭 구조에 들어가지 않는 따로인 페이지로 두고 Documents와 Context 화면을 두지 않는다.
+- 이유: 문서와 context는 프로젝트 하나에 속한 일이라 프로젝트 화면에서만 다루고, lophn 공간은 프로젝트를 가로지르는 관리(프로젝트·앱·확인할 것·역할·설정)에만 쓴다.
+- 확인: lophn 공간 sidebar에 Documents·Context 항목이 없고 탭 줄과 분할이 없으며, 프로젝트 화면에서는 문서·Context·Search 탭을 연다(shell/workspace#R1).
+- 의도: shell#I1
+
+**[R34]** 키워드로 문서를 찾는 일은 상단 검색(돋보기·CommandOrControl+K)의 명령 팔레트가 맡고 별도 Documents 화면을 두지 않으며, 선언된 검색은 shell/workspace의 Search 탭이 맡는다.
+- 이유: 전체 검색 화면을 따로 만들지 않고 빠른 이름 검색과 context의 선언된 검색을 구별한다.
+- 확인: 프로젝트 범위 팔레트에서 단어를 치면 문서 이름이 나오고 Search 탭의 입력 form과 섞이지 않는다.
+- 의도: shell#I1
+
 ## 열린 질문
 
 ## 버린 것
@@ -177,3 +187,4 @@ Electron main과 창별 shell 화면의 분리, 창 구성·탐색·tray·OS 통
 - 거처·분류 전·시리즈 중심 전용 탐색과 옛 milestone별 UI 제한 — 새 설계의 프로젝트·문서·앱 중심 탐색과 현재 지원 계약으로 대체한다.
 - Electron·Deno·SQLite를 다른 기술로 바꾸기 — 기존 기술 선택을 유지하기로 정했다(R11, R17).
 - 전역 팔레트와 런처 복귀를 같은 shortcut으로 묶기 — 전역 팔레트는 CommandOrControl+Shift+K, 런처 복귀는 CommandOrControl+Shift+L로 구별하기로 정했다(R18).
+- lophn 공간의 Documents 화면과 Context(Focus) 화면 — 문서와 context는 프로젝트 안에만 있기로 했다. 전체 검색은 상단 검색 팔레트가, 저장한 보기와 반복 문서는 프로젝트 화면이 맡는다(R28, R33, R34).

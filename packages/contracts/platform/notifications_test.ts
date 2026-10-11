@@ -65,6 +65,7 @@ Deno.test("platform/notifications#R1, platform/notifications#R2: 계기 표는 s
       "TicketCheckFailed",
       "AssignmentPaused",
       "ReleaseActivationFailed",
+      "ContextViolationsRecorded",
     ],
   );
   for (const trigger of NOTIFICATION_TRIGGERS) {
@@ -281,4 +282,15 @@ Deno.test("platform/notifications#R10: 전달 실패 보고 route는 shell(user)
   ) {
     assert(!reportOsDelivery.input.safeParse(bad).success);
   }
+});
+
+Deno.test("[ctx-I35] platform/notifications#R1: context 위반 수 계기는 documents/contexts 소유이고 늘었을 때만 조건이다", () => {
+  const trigger = NOTIFICATION_TRIGGERS.find((item) =>
+    item.event === "ContextViolationsRecorded"
+  );
+  assertEquals(trigger, {
+    event: "ContextViolationsRecorded",
+    owner: "documents/contexts",
+    condition: "count_rose",
+  });
 });

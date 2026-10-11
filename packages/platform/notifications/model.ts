@@ -14,7 +14,7 @@ export type NotificationView = {
 
 // 표 밖 결정은 계기가 아니다(platform/notifications#R1, R2). 각 트리거의 조건은
 // architecture 5.10의 한 행이다: 운영 보고 문제 3가지, 항상 5가지, machine pause,
-// release activation 실패.
+// release activation 실패, context 위반 수 증가.
 export function triggerOf(event: string): NotificationTrigger | undefined {
   return NOTIFICATION_TRIGGERS.find((trigger) => trigger.event === event);
 }
@@ -66,6 +66,8 @@ function targetOf(
       };
     case "ReleaseActivationFailed":
       return { kind: "release", release: subject };
+    case "ContextViolationsRecorded":
+      return { kind: "context", context: subject };
     default:
       return null;
   }
@@ -80,6 +82,13 @@ function assignmentTriggered(payload: Payload): boolean {
       reason["kind"] === "output_archived");
 }
 
+// 위반 수가 직전 기록보다 늘었을 때만 계기다. 줄거나 같으면 소식이 아니다(첫 기록의 before는 0).
+function violationsRose(payload: Payload): boolean {
+  const { before, after } = payload;
+  return typeof before === "number" && typeof after === "number" &&
+    after > before;
+}
+
 // 계기 판정은 source payload만 본다. event의 actor는 payload에 이미 들어갔다.
 // AssignmentPaused pauseReason.kind가 machine이 아닐 때만 user다.
 export function conditionMet(
@@ -89,6 +98,9 @@ export function conditionMet(
   if (trigger.condition === "always") return true;
   if (!payloadIsObject(payload)) return false;
   if (trigger.event === "AssignmentPaused") return assignmentTriggered(payload);
+  if (trigger.event === "ContextViolationsRecorded") {
+    return violationsRose(payload);
+  }
   return true;
 }
 

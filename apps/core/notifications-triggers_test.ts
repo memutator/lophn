@@ -107,6 +107,10 @@ const SOURCES: Record<string, { subject: string; payload: unknown }> = {
     subject: id("rel", 1),
     payload: { started_seq: "1", failure: { code: "x", summary: "y" } },
   },
+  ContextViolationsRecorded: {
+    subject: id("ctx", 1),
+    payload: { before: 1, after: 3, bundle_hash: HASH },
+  },
 };
 
 // 정책을 낸 팀 module을 reader에 건넨다(events/list registry는 이 module들에서 모인다).
@@ -191,7 +195,11 @@ const EVENT_TYPES = NOTIFICATION_TRIGGERS.map((trigger) => trigger.event)
   // ApprovalRequestCreated는 platform 소유이고 platform_test.ts가 실제 생성 command로 본다.
   .filter((event) => event !== "ApprovalRequestCreated");
 
-Deno.test("platform/notifications#R1: 소유 concern 계기 event 아홉 중 platform 밖 여덟이 core에서 listable notification이 된다", async () => {
+function isHiddenFromUser(event: string): boolean {
+  return event !== "ContextViolationsRecorded";
+}
+
+Deno.test("platform/notifications#R1: 소유 concern 계기 event 열 중 platform 밖 아홉이 core에서 listable notification이 된다", async () => {
   assertEquals(Object.keys(SOURCES).sort(), [...EVENT_TYPES].sort());
   await withCore(async (harness) => {
     const user = await login(harness, "user", "user-1", [
@@ -241,6 +249,31 @@ Deno.test("platform/notifications#R2: 사람이 직접 멈춘 assignment는 같�
     const again = await listedEvents(harness, user, 1);
     assertEquals(items.map((item) => item.source_event), ["QuestionCreated"]);
     assertEquals(again.map((item) => item.source_event), ["QuestionCreated"]);
+  });
+});
+
+Deno.test("[ctx-I35] platform/notifications#R1: context 위반 수가 줄거나 같은 기록은 notification이 되지 않고 늘면 하나가 된다", async () => {
+  await withCore(async (harness) => {
+    const user = await login(harness, "user", "user-1", [
+      "notification_source.emit",
+      "ListNotifications",
+    ]);
+    const emitCounts = (before: number, after: number) =>
+      emit(harness, user, "ContextViolationsRecorded", {
+        subject: id("ctx", 1),
+        payload: { before, after, bundle_hash: HASH },
+      });
+    await emitCounts(5, 1);
+    await emitCounts(2, 2);
+    await emitCounts(0, 4);
+    const items = await listedEvents(harness, user, 1);
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    const again = await listedEvents(harness, user, 1);
+    assertEquals(
+      items.map((item) => item.source_event),
+      ["ContextViolationsRecorded"],
+    );
+    assertEquals(again.length, 1);
   });
 });
 
@@ -304,7 +337,8 @@ Deno.test("platform/notifications#R1 platform/identity#R8: agent·app·coding ag
       types: ["VerificationRecorded"],
     });
     assertEquals(absentUser.status, 200, "user");
-    for (const event of EVENT_TYPES) {
+    // context event는 documents 정책이 사람(user)에게 공개한다(Context 탭이 읽는다).
+    for (const event of EVENT_TYPES.filter(isHiddenFromUser)) {
       const present = await call(harness, "events/list", user, {
         after_seq: "0",
         types: [event],
@@ -321,7 +355,8 @@ Deno.test("platform/notifications#R1 platform/identity#R8: agent·app·coding ag
     assert(
       visible.every((event) =>
         event.type === "NotificationCreated" ||
-        event.type === "NotificationRead"
+        event.type === "NotificationRead" ||
+        event.type === "ContextViolationsRecorded"
       ),
       JSON.stringify(visible.map((event) => event.type)),
     );

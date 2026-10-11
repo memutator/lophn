@@ -39,10 +39,12 @@ export function cardRows(card: CardData): readonly CardRow[] {
       : t("contexts.label.tab-violations", { count: violations }),
     warn: violations > 0,
   });
-  rows.push({
-    key: "operators",
-    text: t("contexts.label.tab-operators", { count: operators }),
-    warn: false,
-  });
+  if (operators !== null) {
+    rows.push({
+      key: "operators",
+      text: t("contexts.label.tab-operators", { count: operators }),
+      warn: false,
+    });
+  }
   return rows;
 }

@@ -8,6 +8,7 @@ import type {
   LayoutSaveResult,
 } from "../../ipc/workspace.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
+import { coreContextsSource } from "./contexts/core-source.ts";
 import type {
   DocumentRow,
   FileRow,
@@ -169,6 +170,9 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
 
   return {
     project,
+
+    // Contexts·Context·Search 탭은 같은 core 통로로 읽고 보낸다(shell/workspace#R16~R29).
+    contextsSource: coreContextsSource(core),
 
     documents: (id) => projectDocuments(core, id),
 

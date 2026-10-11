@@ -11,6 +11,7 @@ import {
   type EventDefinition,
 } from "../../../packages/contracts/platform/mod.ts";
 import { releaseActivationFailed } from "../../../packages/contracts/apps/mod.ts";
+import { contextViolationsRecordedEvent } from "../../../packages/contracts/documents/mod.ts";
 import {
   ticketCheckFailed,
   ticketConfirmed,
@@ -34,6 +35,7 @@ const SOURCES: readonly EventDefinition[] = [
   ticketConfirmed,
   ticketCheckFailed,
   releaseActivationFailed,
+  contextViolationsRecordedEvent,
 ];
 
 const input = z.strictObject({

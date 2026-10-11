@@ -1,5 +1,6 @@
 import { assertEquals } from "@std/assert";
 
+import { eventTitle } from "./labels.ts";
 import {
   chipQueue,
   currentIndex,
@@ -191,4 +192,11 @@ Deno.test("lophn-agent/questions#R6: 공백뿐인 글은 답이 아니고 action
   assertEquals(needsReview(inner, "set"), false);
   assertEquals(needsReview(inner, "app"), false);
   assertEquals(needsReview(inner, "move"), true);
+});
+
+Deno.test("[ctx-I35] platform/notifications#R3: context 위반 수 계기는 자기 이름으로 말하고 일반 안내가 아니다", () => {
+  assertEquals(
+    eventTitle("ContextViolationsRecorded"),
+    "A context has more violations",
+  );
 });

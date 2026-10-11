@@ -2703,6 +2703,7 @@ export type PlaceholderKinds = {
   "things-to-confirm.label.event-question": Record<never, never>;
   "things-to-confirm.label.event-task-check-failed": Record<never, never>;
   "things-to-confirm.label.event-task-confirmed": Record<never, never>;
+  "things-to-confirm.label.event-violations-rose": Record<never, never>;
   "things-to-confirm.label.expires": {
     when: "string";
   };

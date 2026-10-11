@@ -35,6 +35,7 @@
   box-sizing: border-box;
   width: 100%;
   max-width: var(--page-form);
+  margin: var(--space-0) auto;
   padding: var(--space-8) var(--space-9);
 }
 

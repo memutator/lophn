@@ -1445,6 +1445,7 @@ export const en = {
   "launcher.connection.starting": "lophn is getting ready.",
   "launcher.dialog.register-note":
     "Registering doesn't track any files. You choose what to track inside the project.",
+  "launcher.empty.no-apps": "No apps yet.",
   "launcher.empty.no-cards": "Nothing to open yet.",
   "launcher.empty.no-folders": "No folder yet. You can register without one.",
   "launcher.empty.no-projects": "No projects yet.",
@@ -1454,8 +1455,16 @@ export const en = {
   "launcher.error.picker-failed": "The folder picker didn't open. Try again.",
   "launcher.error.register-failed":
     "{name} wasn't registered, so nothing was saved. Try again.",
+  "launcher.failure.sandbox-failed":
+    "Your system's security settings stopped lophn from starting. Check that lophn is allowed to open, then try again.",
+  "launcher.failure.schema-incompatible":
+    "The parts of lophn on this computer are from different versions. Update lophn, then try again.",
+  "launcher.failure.start-failed":
+    "lophn couldn't start in the background. Your projects and apps can't open until it does.",
   "launcher.field.purpose-help": "Optional. What this project is for.",
+  "launcher.heading.apps": "Apps",
   "launcher.heading.projects": "Projects",
+  "launcher.label.apps": "your apps",
   "launcher.label.detail-documents":
     "{count, plural, =0 {No documents yet} one {# document} other {# documents}}",
   "launcher.label.detail-gitignore": "Skips files listed in .gitignore",
@@ -1474,6 +1483,9 @@ export const en = {
   "launcher.label.status-tracking": "Tracking files",
   "launcher.label.wordmark": "lophn",
   "launcher.title.register": "Register project",
+  "launcher.title.sandbox-failed": "lophn is blocked by your system",
+  "launcher.title.schema-incompatible": "lophn needs an update",
+  "launcher.title.start-failed": "lophn didn't start",
   "project-workspace.button.add-rule": "Add rule",
   "project-workspace.button.attach-operator": "Attach an Operator",
   "project-workspace.button.see-operators": "See Operators",
@@ -1487,10 +1499,12 @@ export const en = {
   "project-workspace.button.open-terminal": "Open terminal",
   "project-workspace.button.preview-again": "Preview again",
   "project-workspace.button.remove-rule": "Remove rule",
+  "project-workspace.button.show-notices": "Show notices",
   "project-workspace.button.split-pane": "Open in side pane",
   "project-workspace.button.turn-on-tracking": "Turn on tracking",
   "project-workspace.empty.no-contexts": "No related contexts.",
   "project-workspace.empty.no-documents": "No documents yet.",
+  "project-workspace.empty.no-folder-documents": "No documents in this folder.",
   "project-workspace.empty.no-folders": "No project folder.",
   "project-workspace.empty.no-tabs": "Nothing open in this pane.",
   "project-workspace.error.load-failed": "Couldn't load this project.",
@@ -2299,6 +2313,10 @@ export const en = {
   "settings.label.tab-update": "Update lophn",
   "settings.label.tab-diagnostics": "Diagnose",
   "settings.label.tab-notifications": "Notifications",
+  "settings.label.nav": "Settings sections",
+  "settings.label.group-integrations": "Integrations",
+  "settings.label.group-preferences": "Preferences",
+  "settings.label.group-system": "System",
   "settings.label.test-model": "Model to test",
   "settings.label.unavailable-connection": "A connection that isn't listed",
   "settings.label.usage-none": "No use",
@@ -2569,6 +2587,8 @@ export const en = {
   "things-to-confirm.label.event-issue-opened": "An issue was reported",
   "things-to-confirm.label.event-issue-reopened": "An issue came back",
   "things-to-confirm.label.event-other": "Something needs your attention",
+  "things-to-confirm.label.event-other-document":
+    "Something in a document needs your attention",
   "things-to-confirm.label.event-paused": "A role was paused",
   "things-to-confirm.label.event-question": "A question is waiting",
   "things-to-confirm.label.event-task-check-failed": "A task's check failed",

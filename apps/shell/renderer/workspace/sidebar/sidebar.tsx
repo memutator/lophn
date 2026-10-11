@@ -1,4 +1,8 @@
-import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
+import {
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+  useState,
+} from "react";
 import {
   Icon,
   IconButton,
@@ -9,7 +13,12 @@ import {
 } from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
-import type { ContextRow, DocumentRow, ProjectView } from "../source.ts";
+import type {
+  ContextRow,
+  DocumentRow,
+  FileRow,
+  ProjectView,
+} from "../source.ts";
 import { LauncherButton } from "../launcher-button.tsx";
 import styles from "./sidebar.module.css";
 
@@ -20,6 +29,8 @@ export interface SidebarProps {
   project: ProjectView | null;
   documents: readonly DocumentRow[];
   contexts: readonly ContextRow[];
+  /** 문서로 잡힌 파일. 폴더 행을 펼치면 그 폴더 아래 문서로 보인다. */
+  files?: readonly FileRow[];
   /** focus 칸의 활성 탭. 그 문서 행을 고른 행으로 보인다. */
   current?: string | null;
   /** 런처로 돌아간다(desktop#R26). 접힘 때는 상단 바가 대신한다. */
@@ -28,6 +39,8 @@ export interface SidebarProps {
   onToggle: () => void;
   /** 문서 행을 눌러 탭을 연다. */
   onOpenDocument: (document: DocumentRow) => void;
+  /** 컨텍스트 행을 눌러 그 컨텍스트를 기존 contexts 화면에서 연다. 없으면 행은 누를 수 없다. */
+  onOpenContext?: (context: string) => void;
   /** 오른쪽 가장자리 drag로 폭을 바꾼다. 열렸을 때만 준다. */
   onResizeStart?: (event: ReactPointerEvent<HTMLElement>) => void;
 }
@@ -40,13 +53,18 @@ export function Sidebar(
     project,
     documents,
     contexts,
+    files = [],
     current = null,
     onLauncher,
     onToggle,
     onOpenDocument,
+    onOpenContext,
     onResizeStart,
   }: SidebarProps,
 ) {
+  // 고른 폴더와 펼친 폴더는 화면 상태일 뿐이라 저장하지 않는다.
+  const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   if (mode === "hidden") return null;
   const collapsed = mode === "collapsed";
   const toggleLabel = collapsed
@@ -85,16 +103,57 @@ export function Sidebar(
           collapsed={collapsed}
           empty={t("project-workspace.empty.no-folders")}
         >
-          {(project?.folders ?? []).map((folder) => (
-            <Row
-              key={folder.path}
-              data={{ "data-folder": "" }}
-              icon={workspaceIcons.folder}
-              label={folderName(folder.path)}
-              hint={folder.path}
-              collapsed={collapsed}
-            />
-          ))}
+          {(project?.folders ?? []).flatMap((folder) => {
+            const open = expanded.has(folder.path);
+            const inside = files.filter((file) => file.folder === folder.path);
+            const rows = [
+              <Row
+                key={folder.path}
+                data={{ "data-folder": "" }}
+                icon={workspaceIcons.folder}
+                label={folderName(folder.path)}
+                hint={folder.path}
+                collapsed={collapsed}
+                active={folder.path === selectedFolder}
+                expanded={collapsed ? undefined : open}
+                onClick={() => {
+                  setSelectedFolder(folder.path);
+                  setExpanded((current) => {
+                    const next = new Set(current);
+                    if (!next.delete(folder.path)) next.add(folder.path);
+                    return next;
+                  });
+                }}
+              />,
+            ];
+            if (!open || collapsed) return rows;
+            if (inside.length === 0) {
+              rows.push(
+                <li key={`${folder.path}:empty`} className={styles.li}>
+                  <p className={`${styles.empty} ${styles.nested}`}>
+                    {t("project-workspace.empty.no-folder-documents")}
+                  </p>
+                </li>,
+              );
+            }
+            for (const file of inside) {
+              rows.push(
+                <Row
+                  key={`${folder.path}:${file.document}`}
+                  data={{ "data-folder-document": file.document }}
+                  icon={workspaceIcons.document}
+                  label={file.title}
+                  hint={file.path}
+                  collapsed={collapsed}
+                  nested
+                  active={file.document === current}
+                  onClick={() =>
+                    onOpenDocument({ id: file.document, title: file.title })}
+                />,
+              );
+            }
+            return rows;
+          })}
         </Section>
         <Section
           id="documents"
@@ -123,10 +182,13 @@ export function Sidebar(
           {contexts.map((context) => (
             <Row
               key={context.id}
-              data={{ "data-context": "" }}
+              data={{ "data-context": context.id }}
               icon={workspaceIcons.context}
               label={context.title}
               collapsed={collapsed}
+              onClick={onOpenContext
+                ? () => onOpenContext(context.id)
+                : undefined}
             />
           ))}
         </Section>
@@ -179,13 +241,27 @@ interface RowProps {
   hint?: string;
   collapsed: boolean;
   active?: boolean;
+  /** 폴더 행의 펼침. 값이 있으면 aria-expanded로 알린다. */
+  expanded?: boolean;
+  /** 폴더 아래 문서 행. 안쪽으로 들여 쓴다. */
+  nested?: boolean;
   data: Record<string, string>;
   onClick?: () => void;
 }
 
 // 32px 행: 16px 아이콘, 8px 간격, 이름. 접힘 때는 아이콘만 두고 이름은 tooltip으로 보인다.
 function Row(
-  { icon, label, hint, collapsed, active = false, data, onClick }: RowProps,
+  {
+    icon,
+    label,
+    hint,
+    collapsed,
+    active = false,
+    expanded,
+    nested = false,
+    data,
+    onClick,
+  }: RowProps,
 ) {
   const inner = (
     <>
@@ -197,7 +273,9 @@ function Row(
       {collapsed ? null : <span className={styles.label}>{label}</span>}
     </>
   );
-  const className = `${styles.item} ${active ? styles.active : ""}`;
+  const className = `${styles.item} ${active ? styles.active : ""} ${
+    nested ? styles.nested : ""
+  }`;
   const row = onClick
     ? (
       <button
@@ -206,6 +284,7 @@ function Row(
         className={className}
         aria-label={collapsed ? label : undefined}
         aria-current={active ? "page" : undefined}
+        aria-expanded={expanded}
         title={hint}
         onClick={onClick}
       >

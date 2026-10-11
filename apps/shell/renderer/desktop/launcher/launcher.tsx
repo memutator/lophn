@@ -17,6 +17,7 @@ import {
   retryConnection,
   useConnection,
 } from "../connection/connection.tsx";
+import type { AppsSource } from "../lophn-space/apps/source.ts";
 import { LophnEntry, TopBar, Wordmark } from "../top-bar/top-bar.tsx";
 import type { WindowPlatform } from "../top-bar/platform.ts";
 import { useRequestOverview } from "../notification-chip/space-decisions.tsx";
@@ -27,6 +28,7 @@ import {
   startFailure,
 } from "./start-failure/model.ts";
 import { StartFailureScreen } from "./start-failure/start-failure.tsx";
+import { AppsSection } from "./apps-section.tsx";
 import { ProjectCard } from "./project-card.tsx";
 import { RegisterDialog } from "./register-dialog.tsx";
 import type { LauncherSource, ProjectCard as Card } from "./source.ts";
@@ -44,6 +46,10 @@ export interface LauncherProps {
   projects?: LauncherSource;
   /** 프로젝트 작업대로 이동한다. */
   onProject?: (project: string) => void;
+  /** 앱 카드. 없으면 앱 section을 두지 않는다. */
+  apps?: AppsSource;
+  /** 그 앱의 앱 공간으로 이동한다. */
+  onApp?: (app: string) => void;
   /** 새 프로젝트 id. 테스트가 고정한다. */
   newProjectId?: () => string;
 }
@@ -53,8 +59,9 @@ type Cards =
   | { state: "failed" }
   | { state: "ready"; cards: readonly Card[] };
 
-// 이전 lophn 런처 모양: 48px 바 아래 1040px 가운데 기둥. 준비 전·실패는 기둥 대신 연결 화면을
-// 보이고, 단절은 마지막 화면 위에 한 줄을 더한다. 카드는 실제 read 결과로만 채운다(desktop#R7, R25).
+// 이전 lophn 런처 모양: 48px 바 아래 1040px 가운데 기둥에 프로젝트 section, 그 아래 앱 section.
+// 준비 전·실패는 기둥 대신 연결 화면을 보이고, 단절은 마지막 화면 위에 한 줄을 더한다. 카드는
+// 실제 read 결과로만 채운다(desktop#R7, R25).
 export function Launcher(
   {
     source,
@@ -63,6 +70,8 @@ export function Launcher(
     platform,
     projects,
     onProject,
+    apps,
+    onApp,
     newProjectId,
   }: LauncherProps,
 ) {
@@ -78,10 +87,10 @@ export function Launcher(
   const failureScreen = isFailing
     ? (
       connection.state === "failed-start"
-        ? <StartFailureScreen failure={startFailure()} />
+        ? <StartFailureScreen failure={startFailure()} onRetry={retry} />
         : connection.state === "failed-sandbox"
-        ? <StartFailureScreen failure={sandboxFailure()} />
-        : <StartFailureScreen failure={schemaFailure()} />
+        ? <StartFailureScreen failure={sandboxFailure()} onRetry={retry} />
+        : <StartFailureScreen failure={schemaFailure()} onRetry={retry} />
     )
     : null;
 
@@ -128,6 +137,15 @@ export function Launcher(
                     />
                   </section>
                 )}
+              {apps
+                ? (
+                  <AppsSection
+                    source={apps}
+                    onApp={onApp ?? (() => {})}
+                    onLophn={onLophn}
+                  />
+                )
+                : null}
             </div>
           )}
       </main>

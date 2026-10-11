@@ -101,7 +101,7 @@ shell/wording이 i18n의 지켜야 할 요구(en-only 시작, key 검사)를 정
 | 〃 | **apps** | 등록한 앱을 찾고 정리한다 | 〃 |
 | 〃 | **things-to-confirm** | 기다리는 결정과 지난 결과를 모아 본다 | 〃, notification 클릭 |
 | 〃 | **roles** | 역할이 하는 일과 만든 것을 보고 대화를 연다 | 〃 |
-| 〃 | **settings** | provider·연결·백업·진단 같은 설정을 보고 바꾼다 | 〃 |
+| 〃 | **settings** | provider·연결·도구·알림·update·진단 같은 설정을 보고 바꾼다(왼쪽 세로 nav, 가운데 column, shell/desktop#R31) | 〃 |
 | 대화 | **conversation** | agent와 대화하며 질문에 답하고 결과를 본다 | 모든 공간의 오른쪽 도크 토글 |
 | 〃 카드 | **app-card** | 대화 안에서 앱 카드를 보고 쓴다 | conversation의 시각 블록 |
 | 전역 | **confirmation-window** | 정확한 대상과 영향을 보고 결정을 내린다 | approval·question의 action, secret 입력 |
@@ -112,6 +112,7 @@ shell/wording이 i18n의 지켜야 할 요구(en-only 시작, key 검사)를 정
 - **conversation**은 독립 공간이 아니라 모든 공간에서 토글하는 도크다. 닫아도 project-workspace·app-space의 탐색은 그대로다(shell/desktop#R1).
 - **confirmation-window**는 요청한 창 위의 child modal이다. 앱 view는 숨기지 않고 입력만 막는다(shell/confirmation-window#R6). 사람의 결정은 이 화면에서만 받는다.
 - **notification**은 화면이 아니라 창 오른쪽 아래 1칸의 chip이다(shell/desktop#R10). 클릭하면 things-to-confirm으로 이어지고, 그 자체로 읽음·승인·답이 되지 않는다.
+- 프로젝트 작업대의 안내(추적 꺼짐, Operator, 읽기 실패)는 본문 위 줄이 아니라 toast와 같은 폭의 떠 있는 카드다. 본문 높이를 쓰지 않고 저절로 사라지지 않으며, 닫아도 상단 바의 [Show notices]로 다시 연다(shell/desktop#R27). 사람을 부르는 notification chip의 오른쪽 아래 한 칸과 겹치지 않게 왼쪽 아래에 둔다.
 - **app-panel**과 **app-card**는 app-space와 같은 앱·release 신원·격리 규칙을 쓰는 더 작은 틀이다(shell/app-frame#R33). 틀이 작다고 권한이나 확인 규칙이 줄지 않는다.
 
 ## 6. 공통 패턴

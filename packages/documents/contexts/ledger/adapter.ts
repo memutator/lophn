@@ -146,6 +146,12 @@ export type ContextLedgerDeps = {
   // app-data source의 앱 slug들이 가리키는 앱 ID들이다. 앱 하나에 묶인 agent의 읽기 권한이 쓴다.
   // 등록되지 않은 slug는 빠지고, 앱 등록이 없는 조립에서는 빈 목록이다.
   appIds(slugs: readonly string[]): readonly string[];
+  // 앱 slug의 active release가 선언한 command의 효과다(검사 환경 `app_commands`). 앱이 없거나 보관됐거나
+  // active release가 없거나 그 release에 command가 없으면 undefined다. 앱 등록이 없는 조립에서도 undefined다.
+  appCommandEffect?(
+    app: string,
+    command: string,
+  ): "read" | "write" | "external" | undefined;
 };
 
 // context worker의 좁은 machine 자격이 가지는 operation이다(credential scope.operations).

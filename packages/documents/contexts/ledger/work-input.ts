@@ -17,8 +17,12 @@ import type {
 import type { ContextLedgerDeps } from "./adapter.ts";
 import { type LoadPlan, loadState } from "./adapter-load.ts";
 import { loadCheck } from "./rows.ts";
+import { appCommandsOf, externalTypesRead } from "./work-environment.ts";
 
 type Reader = Pick<Sql, "get" | "all">;
+type Deps =
+  & Pick<ContextLedgerDeps, "blobs" | "index">
+  & Partial<Pick<ContextLedgerDeps, "appCommandEffect">>;
 
 // documents/projects의 project_folders 표에서 등록 순서대로 읽는다.
 function foldersOf(sql: Reader, project: string): string[] {
@@ -30,7 +34,7 @@ function foldersOf(sql: Reader, project: string): string[] {
 
 // context.preview가 읽는 draft 판 하나. 판 하나의 content blob만 읽는다.
 function draftInput(
-  deps: Pick<ContextLedgerDeps, "blobs" | "index">,
+  deps: Deps,
   snapshot: ReadSnapshot,
   contextId: string,
   bundleId: string,
@@ -57,6 +61,8 @@ function draftInput(
   const project = sql.get("SELECT status FROM projects WHERE id = ?", [
     context.project,
   ]);
+  const external = externalTypesRead(sql, deps, context);
+  if (!external.ok) return external;
   return ok({
     context: context.id,
     roots: project?.status === "archived"
@@ -67,14 +73,15 @@ function draftInput(
     candidate: null,
     draft: { bundle: row.id, content: row.content },
     user_saved_views: [],
-    external_types: [],
+    external_types: external.value,
+    app_commands: appCommandsOf(row.content, deps.appCommandEffect),
     as_of_seq: snapshot.as_of_seq,
     next_cursor: null,
   });
 }
 
 export function contextWorkInputRead(
-  deps: Pick<ContextLedgerDeps, "blobs" | "index">,
+  deps: Deps,
 ): ReadDefinition<typeof contextWorkInputRoute> {
   return {
     route: contextWorkInputRoute,
@@ -151,6 +158,13 @@ export function contextWorkInputRead(
       const project = sql.get("SELECT status FROM projects WHERE id = ?", [
         context.project,
       ]);
+      // 검사할 판이 있을 때만 환경을 싣는다. 적용 판만 묻는 입력(index)은 쓰지 않는다.
+      let external_types: ContextWorkInput["external_types"] = [];
+      if (candidate !== null) {
+        const read = externalTypesRead(sql, deps, context);
+        if (!read.ok) return read;
+        external_types = read.value;
+      }
       return ok({
         context: context.id,
         // 보관된 project의 폴더는 읽지 않는다.
@@ -168,8 +182,10 @@ export function contextWorkInputRead(
             search: view.search,
             inputs: view.inputs,
           })),
-        // 다른 context의 public type을 쓰는 참조는 아직 해석하지 않는다.
-        external_types: [],
+        external_types,
+        app_commands: candidate === null
+          ? []
+          : appCommandsOf(candidate.content, deps.appCommandEffect),
         as_of_seq: snapshot.as_of_seq,
         next_cursor: null,
       });

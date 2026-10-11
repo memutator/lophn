@@ -20,15 +20,23 @@ import {
   fakeTimer,
   fakeWatchFs,
 } from "../../packages/documents/contexts/watch/testing.ts";
-import { sampleEnv } from "../../packages/documents/contexts/validate/sample.ts";
 import { createContextsWatch } from "./contexts-watch.ts";
 import { type Core, startCore } from "./core.ts";
+import { createLedgerRegistration as createAppsRegistration } from "./apps.ts";
 import { createLedgerRegistration } from "./documents.ts";
 import {
   createLedgerRegistration as createLophnAgentRegistration,
   lophnAgentDefinitions,
 } from "./lophn-agent.ts";
+import { seedLedger } from "./testing/app-export-fixtures.ts";
 import { closeUnlessKept } from "./testing/close-on-throw.ts";
+import {
+  CALENDAR_BLUEPRINT,
+  RUBRICS_CONTEXT,
+  RUBRICS_TITLE,
+  rubricsContract,
+  writeRubricFiles,
+} from "./contexts-testing.ts";
 
 const PROJECT = "prj_01kq12a1pha000000000000000";
 const CONTEXT = "ctx_01arz3ndektsv4rrffq69g5fav";
@@ -145,26 +153,17 @@ async function open(
       { createLedgerRegistration },
       { lophnAgentDefinitions },
       { createLedgerRegistration: createLophnAgentRegistration },
+      // 앱 등록: 검사 환경의 앱 command 효과는 앱 registry(apps·releases 표)에서 읽는다.
+      { createLedgerRegistration: createAppsRegistration },
     ],
     teamModules: [
       new URL("./documents.ts", import.meta.url).href,
       new URL("./lophn-agent.ts", import.meta.url).href,
+      new URL("./apps.ts", import.meta.url).href,
     ],
     clock: manualClock(Date.UTC(2024, 0, 1)),
     random: seededRandom(41),
     testCredentials: true,
-    // 앱 쪽이 알려 주는 앱 read 명령의 효과(fixture 계약의 app-data type이 가리키는 명령)와 다른
-    // context의 public type(fixture 관계의 `rubrics/Rubric`).
-    contextCheckEnvironment: () =>
-      Promise.resolve({
-        appCommands: [
-          { app: "calendar", command: "events.list", effect: "read" as const },
-        ],
-        externalTypes: sampleEnv().externalTypes.map((type) => ({
-          ...type,
-          fields: [...type.fields],
-        })),
-      }),
   });
   assert(started.ok, started.ok ? "" : JSON.stringify(started.error));
   await using guard = closeUnlessKept(async () => {
@@ -253,8 +252,22 @@ async function withCore(
     await Deno.makeTempDir({ prefix: "lophn-contexts-worker-project-" }),
   );
   await copyFixture(folder);
+  await writeRubricFiles(folder);
   const core = await open(home, folder);
   try {
+    // fixture 계약이 기대는 환경을 진짜 데이터로 둔다: 같은 Project의 `rubrics` context와 앱 `calendar`.
+    seedLedger(home, CALENDAR_BLUEPRINT, "b".repeat(64), 0);
+    await submit(core, rubricsContract(), "rubrics", {
+      id: RUBRICS_CONTEXT,
+      title: RUBRICS_TITLE,
+    });
+    await until("the rubrics bundle", async () => {
+      const history = await post(core, "user", "contexts/bundles", {
+        context: RUBRICS_CONTEXT,
+      });
+      const first = (history.body["bundles"] as { bundle: Json }[])[0];
+      return first?.bundle["status"] === "checking" ? undefined : first;
+    }).then((done) => assertEquals(done.bundle["status"], "applied"));
     await run(core, home, folder);
   } finally {
     await core.shutdown();
@@ -278,15 +291,20 @@ async function until<T>(
 }
 
 // 초안 저장 → 제출. worker가 검사를 끝낼 때까지 기다리지 않는다.
-async function submit(core: Core, content: Json, key: string): Promise<void> {
+async function submit(
+  core: Core,
+  content: Json,
+  key: string,
+  target = { id: CONTEXT, title: "Evaluation" },
+): Promise<void> {
   const created = await post(
     core,
     "user",
     "contexts/create",
     command({
-      id: CONTEXT,
+      id: target.id,
       project: PROJECT,
-      title: "Evaluation",
+      title: target.title,
       purpose: "Experiments and their findings",
     }, `create-${key}`),
   );
@@ -295,7 +313,7 @@ async function submit(core: Core, content: Json, key: string): Promise<void> {
     core,
     "engineer",
     "contexts/save_draft",
-    command({ context: CONTEXT, content }, `draft-${key}`),
+    command({ context: target.id, content }, `draft-${key}`),
   );
   assertEquals(draft.status, 200, JSON.stringify(draft.body));
   const submitted = await post(
@@ -381,6 +399,7 @@ function inputOf(
     candidate: null,
     user_saved_views: [],
     external_types: [],
+    app_commands: [],
     as_of_seq: "1",
     next_cursor: null,
     complete: true,

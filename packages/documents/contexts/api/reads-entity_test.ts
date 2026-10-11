@@ -5,6 +5,7 @@ import type { z } from "zod";
 import {
   contextEntityReadSchema,
   contextSeriesNextReadSchema,
+  type ContextValue,
 } from "../../../contracts/documents/mod.ts";
 import { createContextApiReads } from "./reads.ts";
 import type { EntityRow } from "./state.ts";
@@ -109,7 +110,7 @@ Deno.test("documents/contexts#R16 [ctx-I63]: context.entity lists every declared
     path: "eval/scenarios/travel.md",
     section: null,
   }]);
-  // the other context's type (rubrics/Rubric) is not read here
+  // the other context (rubrics) is not in this state, so its type cannot be reached
   assertEquals(gradedBy!.targets, []);
 });
 
@@ -434,4 +435,119 @@ Deno.test("documents/series#R10 [ctx-I63]: context.series_next uses the applied 
     errorCode(reads.contextSeriesNext(nextOf("Experiment"))),
     "not_found",
   );
+});
+
+// ---------- relations to another context (ctx-I36) ----------
+
+const RUBRICS = id("ctx", 11);
+
+function rubricsContent(visibility: "public" | "private") {
+  return {
+    schema: 1,
+    contract: {
+      types: [{
+        name: "Rubric",
+        summary: "How an experiment is graded",
+        visibility,
+        source: { kind: "docs", paths: ["eval/rubrics/*.md"] },
+        key: "id",
+        fields: [{
+          name: "id",
+          from: { kind: "path", capture: "file" },
+          value_type: "string",
+          required: false,
+          visibility,
+        }],
+        relations: [],
+        rules: [],
+      }],
+    },
+    searches: [],
+    saved_views: [],
+    examples: [],
+  };
+}
+
+function withRubrics(
+  options: {
+    visibility?: "public" | "private";
+    context?: Partial<ContextValue>;
+  } = {},
+) {
+  const world = setup();
+  const rubrics = seedActive(world.state, world.t, {
+    n: 1,
+    slot: 11,
+    context: { id: RUBRICS, title: "rubrics", ...options.context },
+    content: rubricsContent(options.visibility ?? "public"),
+  });
+  world.state.entities.set(RUBRICS, [{
+    type: "Rubric",
+    key: "schedule-quality",
+    path: "eval/rubrics/schedule-quality.md",
+    section: null,
+    fields: { id: "schedule-quality" },
+    links: [],
+  }]);
+  return { ...world, rubrics };
+}
+
+const gradedBy = (
+  world: ReturnType<typeof withRubrics>,
+  key = "001",
+) =>
+  expectOk(world.reads.contextEntity(entity("Experiment", key)))
+    .relations.find((relation) => relation.name === "graded_by")!.targets;
+
+Deno.test("documents/contexts#R14 #R16 [ctx-I36]: context.entity follows a `<title>/<Type>` relation into the other context's index and names that context in the ref", () => {
+  const world = withRubrics();
+  assertEquals(gradedBy(world), [{
+    context: RUBRICS,
+    type: "Rubric",
+    key: "schedule-quality",
+    path: "eval/rubrics/schedule-quality.md",
+    section: null,
+  }]);
+  // the ref opens the rubric in its own context
+  const opened = shaped(
+    contextEntityReadSchema,
+    expectOk(world.reads.contextEntity(
+      entity("Rubric", "schedule-quality", RUBRICS),
+    )),
+  );
+  assertEquals(opened.ref.path, "eval/rubrics/schedule-quality.md");
+  // a relation of the same context gives refs without a context
+  const runsOn =
+    expectOk(world.reads.contextEntity(entity("Experiment", "002")))
+      .relations[0]!.targets;
+  assert(runsOn.length > 0 && runsOn.every((ref) => !("context" in ref)));
+});
+
+Deno.test("documents/contexts#R14 [ctx-I36]: a relation to another context has no targets when that context is another project's, archived, or drafting, when its type is private, or when the index does not have the key", () => {
+  const cases: [string, ReturnType<typeof withRubrics>][] = [
+    [
+      "another project",
+      withRubrics({ context: { project: ids.otherProject } }),
+    ],
+    ["archived", withRubrics({ context: { status: "archived" } })],
+    ["a title that differs", withRubrics({ context: { title: "Rubrics" } })],
+    ["a private type", withRubrics({ visibility: "private" })],
+  ];
+  for (const [what, world] of cases) assertEquals(gradedBy(world), [], what);
+
+  const drafting = withRubrics();
+  drafting.state.contexts.set(RUBRICS, {
+    ...drafting.state.contexts.get(RUBRICS)!,
+    status: "drafting",
+    applied_bundle: null,
+  });
+  assertEquals(gradedBy(drafting), [], "drafting");
+
+  const missing = withRubrics();
+  missing.state.entities.set(RUBRICS, []);
+  assertEquals(gradedBy(missing), [], "no entity");
+
+  const failing = withRubrics();
+  failing.state.indexFailing.add(RUBRICS);
+  assertEquals(gradedBy(failing), [], "index not readable");
 });

@@ -535,6 +535,10 @@ export type PlaceholderKinds = {
     start: "string";
     end: "string";
   };
+  "common.label.window-close": Record<never, never>;
+  "common.label.window-maximize": Record<never, never>;
+  "common.label.window-minimize": Record<never, never>;
+  "common.label.window-restore": Record<never, never>;
   "common.notice.asks-first": Record<never, never>;
   "common.notice.core-down": Record<never, never>;
   "common.notice.waiting-confirmation": Record<never, never>;
@@ -1437,6 +1441,7 @@ export type PlaceholderKinds = {
   "launcher.connection.failed": Record<never, never>;
   "launcher.connection.starting": Record<never, never>;
   "launcher.dialog.register-note": Record<never, never>;
+  "launcher.empty.no-apps": Record<never, never>;
   "launcher.empty.no-cards": Record<never, never>;
   "launcher.empty.no-folders": Record<never, never>;
   "launcher.empty.no-projects": Record<never, never>;
@@ -1446,8 +1451,13 @@ export type PlaceholderKinds = {
   "launcher.error.register-failed": {
     name: "string";
   };
+  "launcher.failure.sandbox-failed": Record<never, never>;
+  "launcher.failure.schema-incompatible": Record<never, never>;
+  "launcher.failure.start-failed": Record<never, never>;
   "launcher.field.purpose-help": Record<never, never>;
+  "launcher.heading.apps": Record<never, never>;
   "launcher.heading.projects": Record<never, never>;
+  "launcher.label.apps": Record<never, never>;
   "launcher.label.detail-documents": {
     count: "plural";
   };
@@ -1471,6 +1481,9 @@ export type PlaceholderKinds = {
   "launcher.label.status-tracking": Record<never, never>;
   "launcher.label.wordmark": Record<never, never>;
   "launcher.title.register": Record<never, never>;
+  "launcher.title.sandbox-failed": Record<never, never>;
+  "launcher.title.schema-incompatible": Record<never, never>;
+  "launcher.title.start-failed": Record<never, never>;
   "project-workspace.button.add-rule": Record<never, never>;
   "project-workspace.button.attach-operator": Record<never, never>;
   "project-workspace.button.see-operators": Record<never, never>;
@@ -1484,10 +1497,12 @@ export type PlaceholderKinds = {
   "project-workspace.button.open-terminal": Record<never, never>;
   "project-workspace.button.preview-again": Record<never, never>;
   "project-workspace.button.remove-rule": Record<never, never>;
+  "project-workspace.button.show-notices": Record<never, never>;
   "project-workspace.button.split-pane": Record<never, never>;
   "project-workspace.button.turn-on-tracking": Record<never, never>;
   "project-workspace.empty.no-contexts": Record<never, never>;
   "project-workspace.empty.no-documents": Record<never, never>;
+  "project-workspace.empty.no-folder-documents": Record<never, never>;
   "project-workspace.empty.no-folders": Record<never, never>;
   "project-workspace.empty.no-tabs": Record<never, never>;
   "project-workspace.error.load-failed": Record<never, never>;
@@ -2306,6 +2321,10 @@ export type PlaceholderKinds = {
   "settings.label.tab-update": Record<never, never>;
   "settings.label.tab-diagnostics": Record<never, never>;
   "settings.label.tab-notifications": Record<never, never>;
+  "settings.label.nav": Record<never, never>;
+  "settings.label.group-integrations": Record<never, never>;
+  "settings.label.group-preferences": Record<never, never>;
+  "settings.label.group-system": Record<never, never>;
   "settings.label.test-model": Record<never, never>;
   "settings.label.unavailable-connection": Record<never, never>;
   "settings.label.usage-none": Record<never, never>;
@@ -2566,6 +2585,7 @@ export type PlaceholderKinds = {
   "things-to-confirm.label.event-issue-opened": Record<never, never>;
   "things-to-confirm.label.event-issue-reopened": Record<never, never>;
   "things-to-confirm.label.event-other": Record<never, never>;
+  "things-to-confirm.label.event-other-document": Record<never, never>;
   "things-to-confirm.label.event-paused": Record<never, never>;
   "things-to-confirm.label.event-question": Record<never, never>;
   "things-to-confirm.label.event-task-check-failed": Record<never, never>;

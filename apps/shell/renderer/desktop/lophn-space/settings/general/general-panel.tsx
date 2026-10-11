@@ -108,9 +108,13 @@ export function GeneralPanel({ source, onInstructions }: GeneralPanelProps) {
               <h2 className={styles.heading}>
                 {t("settings.heading.instructions")}
               </h2>
-              <p className={styles.text}>{t("settings.instructions.intro")}</p>
-              <div className={styles.actions}>
-                <InstructionsButton onOpen={onInstructions} />
+              <div className={styles.rows}>
+                <div className={styles.row}>
+                  <span className={styles.text}>
+                    {t("settings.instructions.intro")}
+                  </span>
+                  <InstructionsButton onOpen={onInstructions} />
+                </div>
               </div>
             </section>
           )}

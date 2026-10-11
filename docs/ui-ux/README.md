@@ -48,7 +48,7 @@ lophn 화면 전체에 걸치는 UI/UX 전역 규칙이다. 화면마다의 정�
 | problem | **Issue** | |
 | report | 보이지 않음(Problem으로 묶여 Issue로만 보인다) | |
 | verification(test result) | **Test result** | 이미 바이브코딩 사용자가 아는 말 |
-| context | **Focus**(사람이 지은 이름과 함께, 예: "Focus: Grocery budget") | |
+| context | **Context**(사람이 지은 이름과 함께, 예: "Context: Grocery budget") | |
 | term | **Meaning** | |
 | preset | **Preset**(예: "Preset: Grocery helper") | agent 구성 하나. 역할마다 기본 Preset이 있고 사람이 고치거나 새로 만든다. 내부 구성(prompt, capability, MCP 목록)은 펼쳐 보는 자리에만 둔다 |
 | 사람 지침(LOPHN.md) | **Instructions** | 버튼 [Instructions]로 lophn 편집기에서 연다. 파일 경로와 안쪽 version 식별자는 기본에서 숨긴다 |
@@ -97,21 +97,22 @@ shell/wording이 i18n의 지켜야 할 요구(en-only 시작, key 검사)를 정
 | 〃 패널 | **app-detail** | 한 앱의 version·access·연결·issue·task를 보고 결정한다 | app-space의 운영 패널 진입점 |
 | lophn | **projects** | 등록한 프로젝트를 찾고 정리한다 | 상단 바 고정 진입점 → lophn 공간 |
 | 〃 | **documents** | 문서를 검색하고 저장한 보기를 연다 | 〃 |
-| 〃 | **contexts** | focus와 meaning을 만들고 정한다 | 〃 |
+| 〃 | **contexts** | context와 meaning을 만들고 정한다 | 〃 |
 | 〃 | **apps** | 등록한 앱을 찾고 정리한다 | 〃 |
 | 〃 | **things-to-confirm** | 기다리는 결정과 지난 결과를 모아 본다 | 〃, notification 클릭 |
 | 〃 | **roles** | 역할이 하는 일과 만든 것을 보고 대화를 연다 | 〃 |
-| 〃 | **settings** | provider·연결·백업·진단 같은 설정을 보고 바꾼다 | 〃 |
+| 〃 | **settings** | provider·연결·도구·알림·update·진단 같은 설정을 보고 바꾼다(왼쪽 세로 nav, 가운데 column, shell/desktop#R31) | 〃 |
 | 대화 | **conversation** | agent와 대화하며 질문에 답하고 결과를 본다 | 모든 공간의 오른쪽 도크 토글 |
 | 〃 카드 | **app-card** | 대화 안에서 앱 카드를 보고 쓴다 | conversation의 시각 블록 |
 | 전역 | **confirmation-window** | 정확한 대상과 영향을 보고 결정을 내린다 | approval·question의 action, secret 입력 |
 | 전역 | **report-problem** | 지금 화면의 이상을 글로 알린다 | app-panel/app-space의 [문제 알리기] |
 
 - **Instructions**는 화면이 아니라 진입점이다. 전역은 settings, project는 project-workspace, app은 app-detail의 [Instructions]에서 lophn 편집기(document)로 연다. **Preset**은 roles에서 고친다.
-- 모든 창은 launcher로 시작한다(shell/desktop#R24). lophn 공간의 일곱 화면은 형제이며 분류 전·거처 같은 중간 계층을 두지 않는다(shell/desktop#R28).
+- 모든 창은 launcher로 시작한다(shell/desktop#R24). lophn 공간(화면 이름은 Lophn Workspace)의 일곱 화면은 형제이며 분류 전·거처 같은 중간 계층을 두지 않는다(shell/desktop#R28).
 - **conversation**은 독립 공간이 아니라 모든 공간에서 토글하는 도크다. 닫아도 project-workspace·app-space의 탐색은 그대로다(shell/desktop#R1).
 - **confirmation-window**는 요청한 창 위의 child modal이다. 앱 view는 숨기지 않고 입력만 막는다(shell/confirmation-window#R6). 사람의 결정은 이 화면에서만 받는다.
 - **notification**은 화면이 아니라 창 오른쪽 아래 1칸의 chip이다(shell/desktop#R10). 클릭하면 things-to-confirm으로 이어지고, 그 자체로 읽음·승인·답이 되지 않는다.
+- 프로젝트 작업대의 안내(추적 꺼짐, Operator, 읽기 실패)는 본문 위 줄이 아니라 toast와 같은 폭의 떠 있는 카드다. 본문 높이를 쓰지 않고 저절로 사라지지 않으며, 닫아도 상단 바의 [Show notices]로 다시 연다(shell/desktop#R27). 사람을 부르는 notification chip의 오른쪽 아래 한 칸과 겹치지 않게 왼쪽 아래에 둔다.
 - **app-panel**과 **app-card**는 app-space와 같은 앱·release 신원·격리 규칙을 쓰는 더 작은 틀이다(shell/app-frame#R33). 틀이 작다고 권한이나 확인 규칙이 줄지 않는다.
 
 ## 6. 공통 패턴

@@ -68,3 +68,16 @@ Deno.test("shell/design-system#R5: empty·error는 본문 크기 한 단계로 �
   );
   assertEquals(sizes, ["14px", "14px"]);
 });
+
+Deno.test("shell/design-system#R21: empty·error는 아이콘·문장·행동을 내용 자리 가운데에 모은다", () => {
+  using view = render(
+    <div>
+      <EmptyState icon={FolderOpen} message="No projects yet." action={add} />
+      <ErrorState target="Projects" onRetry={() => {}} />
+    </div>,
+  );
+  for (const state of view.container.querySelectorAll("[data-state]")) {
+    assertEquals(style(state).alignItems, "center");
+    assertEquals(style(state).textAlign, "center");
+  }
+});

@@ -63,7 +63,6 @@
   padding: var(--space-2);
   overflow-y: scroll;
   scrollbar-gutter: stable;
-  scrollbar-color: var(--color-border-strong) transparent;
 }
 
 .group {

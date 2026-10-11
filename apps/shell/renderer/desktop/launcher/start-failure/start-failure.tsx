@@ -1,32 +1,69 @@
 // shell#T57 start failure screen showing distinct launcher failure states.
 // Shows start, sandbox, or schema failure without normal launcher appearance.
 
-import type { ReactElement } from "react";
+import { type ReactElement, useId, useState } from "react";
+import {
+  Button,
+  connectionFailedIcon,
+  Icon,
+  iconPixels,
+  retryIcon,
+} from "@lophn/design/components";
+import { t } from "@lophn/wording";
+
 import type { StartFailure } from "./model.ts";
+import styles from "./start-failure.module.css";
 
 export interface StartFailureProps {
   failure: StartFailure;
+  /** 연결을 다시 확인한다. 세 갈래 모두 사람이 할 수 있는 행동은 다시 시도 하나다. */
+  onRetry: () => void;
 }
 
-/** 시작 실패·sandbox 실패·schema 비호환을 구별하여 보이고 다음 행동 하나를 준다. */
+/** 시작 실패·sandbox 실패·schema 비호환을 구별하여 사람 말로 보이고 다음 행동 하나를 준다. */
 export function StartFailureScreen(
-  { failure }: StartFailureProps,
+  { failure, onRetry }: StartFailureProps,
 ): ReactElement {
+  const [open, setOpen] = useState(false);
+  const detailsId = useId();
   return (
-    <div className="start-failure-container">
-      <div className="start-failure-content">
-        <div className="start-failure-kind" data-kind={failure.kind}>
-          {failure.kind === "start" && "Start Failed"}
-          {failure.kind === "sandbox" && "Sandbox Failed"}
-          {failure.kind === "schema" && "Incompatible Version"}
-        </div>
-
-        <p className="start-failure-message">{failure.message}</p>
-
-        <button type="button" className="start-failure-action">
-          {failure.nextAction}
-        </button>
-      </div>
+    <div className={styles.screen} role="alert" data-kind={failure.kind}>
+      <Icon
+        icon={connectionFailedIcon}
+        pixels={iconPixels("large")}
+        className={styles.icon}
+      />
+      <h1 className={styles.title}>{t(failure.title)}</h1>
+      <p className={styles.text}>{t(failure.text)}</p>
+      <Button
+        variant="primary"
+        icon={retryIcon}
+        data-action="retry"
+        onClick={onRetry}
+      >
+        {t("launcher.button.retry")}
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        aria-expanded={open}
+        aria-controls={detailsId}
+        data-details-toggle=""
+        onClick={() => setOpen(!open)}
+      >
+        {t(
+          open
+            ? "launcher.button.hide-details"
+            : "launcher.button.show-details",
+        )}
+      </Button>
+      {open
+        ? (
+          <p className={styles.details} id={detailsId} data-details="">
+            {failure.message} · {failure.nextAction}
+          </p>
+        )
+        : null}
     </div>
   );
 }

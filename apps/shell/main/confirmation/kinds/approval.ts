@@ -2,6 +2,8 @@
 // (이유·변경·외부 영향·되돌림 글)다. 글은 core가 redaction한 값이고 하나라도 못 읽으면 일부만
 // 보이지 않는다. 허락·거절은 일회 handle을, 대기 요청의 명시 취소는 user command를 쓴다.
 import type { LiveHandle } from "../handle.ts";
+import { CANCEL, GRANT, REJECT } from "../choice.ts";
+import type { ApprovalPreselect } from "../types.ts";
 import { readAppsView } from "./apps.ts";
 import {
   bindingOf,
@@ -15,12 +17,15 @@ import {
   text,
 } from "./core.ts";
 
-export const GRANT = "grant_approval_request";
-export const REJECT = "reject_approval_request";
-export const CANCEL = "cancel_approval_request";
+export { CANCEL, GRANT, REJECT };
 
-/** grant·reject의 binding(contracts approvals). 거절 이유는 binding에 들어가지 않는다. */
+/**
+ * grant·reject의 binding(contracts approvals). 거절 이유는 binding에 들어가지 않는다.
+ * grant는 사람이 고른 scope도 묶지만 once는 기본값이라 빠진다(빠진 칸과 기본값은 같은 뜻이다).
+ * 그래서 once 허락과 거절의 내용은 같고 session 허락만 scope를 더한다.
+ */
 const BINDING = ["approval", "created_seq", "binding_hash"] as const;
+const SESSION_BINDING = [...BINDING, "scope"] as const;
 
 /** contracts APPROVAL_TEXT_MAX_BYTES. */
 const TEXT_MAX_BYTES = 32768;
@@ -28,6 +33,7 @@ const TEXT_MAX_BYTES = 32768;
 export async function readApproval(
   core: KindCore,
   approval: string,
+  preselect?: ApprovalPreselect,
 ): Promise<Read> {
   const got = await core.internal("read", "approvals", "get", { approval });
   if (!got.ok) return readFailure(got);
@@ -42,11 +48,22 @@ export async function readApproval(
   const read = await core.internal("read", "approvals", "text", { approval });
   if (!read.ok) return readFailure(read);
   const words = record(read.value);
-  const bound = bindingOf(BINDING, {
-    approval,
-    created_seq: createdSeq,
-    binding_hash: bindingHash,
-  });
+  // session 허락은 session_grantable인 request만 갖는다(platform/approvals#R20). 아니면 session을
+  // 미리 골라도 once만 있고, 미리 고른 결정을 request가 허락하는 범위로 좁혀 view에 싣는다.
+  const sessionGrantable = request.session_grantable === true;
+  const chosen: ApprovalPreselect =
+    preselect === "allow_session" && !sessionGrantable
+      ? "allow_once"
+      : preselect ?? "allow_once";
+  const bound = bindingOf(
+    chosen === "allow_session" ? SESSION_BINDING : BINDING,
+    {
+      approval,
+      created_seq: createdSeq,
+      binding_hash: bindingHash,
+      scope: "session",
+    },
+  );
   const effect = record(request.effect);
   const view = {
     kind: "approval",
@@ -62,6 +79,8 @@ export async function readApproval(
     reversible: effect.reversible === true,
     reversibility: text(words.reversibility),
     expires_at: text(request.expires_at),
+    session_grantable: sessionGrantable,
+    preselect: chosen,
   };
   // 앱 결정(activation·grant·confirm·automation)은 같은 approval이고 표시만 apps read로 채운다.
   const apps = await readAppsView(core, action, view);
@@ -109,6 +128,8 @@ export async function submitApproval(
     createdSeq: string;
     bindingHash: string;
     commandInput: unknown;
+    /** handle을 만든 정본의 scope. 빠지면 once다. renderer가 보낸 값이 아니다. */
+    scope?: "once" | "session";
   },
 ): Promise<Sent> {
   const base = {
@@ -120,7 +141,12 @@ export async function submitApproval(
   let sent;
   if (input.decision === GRANT) {
     sent = await sendCommand(core, "approvals", "grant", {
-      input: { ...base, binding_hash: input.bindingHash },
+      input: {
+        ...base,
+        binding_hash: input.bindingHash,
+        // once는 기본값이라 싣지 않는다. 사람이 session을 골랐을 때만 그 범위가 간다.
+        ...(input.scope === "session" ? { scope: "session" } : {}),
+      },
       idempotency_key: key,
       compare,
       prepared: [],

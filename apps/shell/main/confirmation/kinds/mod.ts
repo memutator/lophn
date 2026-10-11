@@ -78,7 +78,7 @@ export function createKinds(options: KindsOptions): {
       if (core === null) return Promise.resolve(NOT_READY);
       switch (intent.kind) {
         case "approval_request":
-          return readApproval(core, intent.approval);
+          return readApproval(core, intent.approval, intent.preselect);
         case "question_option_action":
           return readOptionAction(core, intent.question, intent.option_key);
         case "owner_decision": {
@@ -125,6 +125,10 @@ export function createKinds(options: KindsOptions): {
         createdSeq: request.created_seq,
         bindingHash: request.binding_hash,
         commandInput,
+        // scope는 handle을 만든 정본의 binding 내용에서만 온다.
+        scope: record(canonical?.content).scope === "session"
+          ? "session"
+          : "once",
       });
       if (!sent.ok || decision !== GRANT) return sent;
       return await apps.apply(core, request.approval) ?? sent;

@@ -36,8 +36,11 @@ const credentialSchema = z.object({
 
 // 창을 열 때 보내는 참조. command 본문·HTML·허락 값은 받지 않는다.
 export const confirmationIntentSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("approval_request"), approval: prefixed("apr") })
-    .strict(),
+  z.object({
+    kind: z.literal("approval_request"),
+    approval: prefixed("apr"),
+    preselect: z.enum(["allow_once", "allow_session", "deny"]).optional(),
+  }).strict(),
   z.object({
     kind: z.literal("question_option_action"),
     question: prefixed("qst"),

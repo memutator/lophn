@@ -5,9 +5,17 @@
 /** base64url 32 bytes. contracts confirmationRefSchema와 같다. */
 export type ConfirmationRef = string;
 
+/** contracts shell confirmationIntentSchema의 approval preselect. 계속 허락(Always)은 없다. */
+export type ApprovalPreselect = "allow_once" | "allow_session" | "deny";
+
 /** contracts shell confirmationIntentSchema의 네 종류. */
 export type ConfirmationIntent =
-  | { kind: "approval_request"; approval: string }
+  | {
+    kind: "approval_request";
+    approval: string;
+    /** 대화 안 카드가 미리 고른 결정. 창은 이 선택을 보이게 열 뿐 결정을 제출하지 않는다. */
+    preselect?: ApprovalPreselect;
+  }
   | {
     kind: "question_option_action";
     question: string;

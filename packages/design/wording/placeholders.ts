@@ -587,7 +587,6 @@ export type PlaceholderKinds = {
   "confirmation-window.revert.possible": Record<never, never>;
   "confirmation-window.approval.no-external": Record<never, never>;
   "confirmation-window.approval.title": Record<never, never>;
-  "confirmation-window.button.allow": Record<never, never>;
   "confirmation-window.button.back": Record<never, never>;
   "confirmation-window.button.cancel-request": Record<never, never>;
   "confirmation-window.button.choose": Record<never, never>;
@@ -736,6 +735,7 @@ export type PlaceholderKinds = {
   };
   "confirmation-window.button.allow-access": Record<never, never>;
   "confirmation-window.button.allow-once": Record<never, never>;
+  "confirmation-window.button.allow-session": Record<never, never>;
   "confirmation-window.button.turn-on": Record<never, never>;
   "confirmation-window.button.use-version": Record<never, never>;
   "confirmation-window.confirm.input-note": Record<never, never>;

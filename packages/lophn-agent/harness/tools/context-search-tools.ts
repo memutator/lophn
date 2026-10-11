@@ -1,36 +1,21 @@
 // 선언 검색마다 읽기 tool 하나와 개체 하나 읽기 tool(lophn-agent/harness/tools#R21, R22)의 spec stub이다.
 // 구현은 ctx-I56이 한다. `buildAppTools`/`createAppToolHandlers`와 같은 모양으로 선언에서 정의를 만들고
 // 정의마다 handler를 묶는다. 옛 context 묶음(`bundles/context.ts`)은 ctx-R6이 지울 때까지 그대로 둔다.
-import type {
-  BundleContent,
-  EntityRef,
-} from "../../../contracts/documents/mod.ts";
+import type { BundleContent } from "../../../contracts/documents/mod.ts";
 import type { ContractCall } from "./bundles/common.ts";
+import {
+  CONTEXT_ENTITY_CONTRACT,
+  type ContextEntityRead,
+} from "./context-route-shapes.ts";
 import type { ToolDefinition } from "./registry.ts";
 import type { ToolHandler } from "./work.ts";
 
 // 선언 검색 tool이 부르는 core contract다(`context.search` 읽기 route).
 export const CONTEXT_SEARCH_CONTRACT = "context.search";
 
-// 개체 하나 읽기 tool의 이름과 contract다. 이 route는 `context-api.ts`에 아직 없다(`context.search`는
-// 선언 검색만 연다). 결과 모양은 아래 `ContextEntityRead`로 가정했고 route를 더하는 task가 이 모양에
-// 맞추거나 시험을 고친다.
+// 개체 하나 읽기 tool의 이름이다. route(`context.entity`)와 결과 모양은 `context-route-shapes.ts`에 있다.
 export const CONTEXT_ENTITY_TOOL = "context.read_entity";
-export const CONTEXT_ENTITY_CONTRACT = "context.entity";
-
-export type ContextEntityRead = {
-  context: string;
-  bundle_hash: string;
-  ref: EntityRef;
-  // field 이름 → 값. list는 배열이다.
-  fields: Record<string, unknown>;
-  relations: {
-    name: string;
-    label: string;
-    // 대상 개체. 대상이 없으면 빈 배열이다.
-    targets: EntityRef[];
-  }[];
-};
+export { CONTEXT_ENTITY_CONTRACT, type ContextEntityRead };
 
 // run을 시작할 때 읽은 적용된 판이다. 판이 바뀌어도 진행 중인 run은 이 값으로 계속하고 새 정의는
 // 다음 run부터 쓴다(R21).

@@ -35,7 +35,8 @@ import { VISUAL_TOOL_NAMES, VISUAL_TOOLS } from "./bundles/visual.ts";
 // tool 하나는 정의 하나다. 목록과 실행이 같은 schema·효과·실패 종류를 쓴다(R2).
 // 내장 이름은 `<영역>.<동작>` 점 표기다(domain model ToolDefinition).
 
-export type ToolOrigin = "builtin" | "app" | "external";
+// `context`는 적용된 context 판의 선언 검색에서 만든 정의다(app command 정의처럼 이름이 동적이다).
+export type ToolOrigin = "builtin" | "app" | "context" | "external";
 
 export type ToolDefinition = {
   name: string;
@@ -55,6 +56,8 @@ export type ToolDefinition = {
   idempotent: boolean;
   errors: readonly string[];
   origin: ToolOrigin;
+  // origin이 context인 정의가 속한 context id. 그 밖의 정의에는 없다.
+  context?: string;
 };
 
 export type ToolCatalog = {
@@ -118,6 +121,8 @@ const FORBIDDEN = new Set(FORBIDDEN_TOOL_NAMES);
 export type ToolSource = {
   builtin: readonly ToolDefinition[];
   app: readonly ToolDefinition[];
+  // 선언 검색 tool(origin context). 순서는 내장→앱→context→외부다. 생략하면 없다.
+  context?: readonly ToolDefinition[];
   external: readonly ToolDefinition[];
 };
 
@@ -126,6 +131,9 @@ export type CapabilityScope = {
   presetTools: readonly string[] | null;
   // 제품 역할 상한. null이면 상한이 없어 빈 목록이다(fail closed).
   roleTools: readonly string[] | null;
+  // preset의 context 선택이 가리키는 context id. origin이 context인 정의는 자기 context가 여기 있을 때만
+  // 목록에 든다(이름 목록 검사는 건너뛴다). 없거나 null이면 context 정의는 목록에 없다(fail closed).
+  contexts?: readonly string[] | null;
 };
 
 // 목록은 preset capability와 역할 상한의 교집합이고 순서는 내장→앱→외부다(R5).

@@ -10,6 +10,7 @@ import {
 } from "../../../contracts/documents/mod.ts";
 import {
   executeTool,
+  listTools,
   type RunCredential,
   runOperations,
   type ToolDefinition,
@@ -465,6 +466,8 @@ Deno.test("lophn-agent/harness/tools#R21 [ctx-I56]: 고른 context의 선언 검
     // 설명은 검색 제목에서 온다.
     assert(definition.description.includes(declared.title));
     assertEquals(definition.effect, "read");
+    assertEquals(definition.origin, "context");
+    assertEquals(definition.context, tool.context);
     assertEquals(definition.confirm, false);
     assertEquals(definition.idempotent, true);
     assertEquals(definition.contract, CONTEXT_SEARCH_CONTRACT);
@@ -878,4 +881,74 @@ Deno.test("lophn-agent/harness/tools#R22 [ctx-I56]: 개체 읽기 입력도 선�
     assertEquals(outcome.outcome, { kind: "failure", code: "invalid_input" });
   }
   assertEquals(box.seen, []);
+});
+
+// ---- R21: 목록에는 preset의 context 선택이 덮는 context의 tool만 든다 ----
+
+Deno.test("lophn-agent/harness/tools#R21 [ctx-I56]: listTools는 preset의 context 선택이 그 context를 덮을 때만 context 출처 tool을 목록에 둔다", async () => {
+  const tools = await buildContextReadTools(source());
+  const definitions = tools.search.map((tool) => tool.definition);
+  const fromSource = {
+    builtin: [],
+    app: [],
+    context: definitions,
+    external: [],
+  };
+  const names = (listed: readonly ToolDefinition[]) =>
+    listed.map((definition) => definition.name).sort();
+  const all = names(definitions);
+
+  // 이름 목록(preset·역할)이 비어도 선택이 덮으면 app command 정의처럼 들어온다.
+  assertEquals(
+    names(listTools(fromSource, {
+      presetTools: [],
+      roleTools: [],
+      contexts: [CTX_EXPERIMENTS, CTX_RECIPES],
+    })),
+    all,
+  );
+  // 선택이 덮지 않는 context의 tool은 빠진다.
+  const onlyRecipes = listTools(fromSource, {
+    presetTools: [],
+    roleTools: [],
+    contexts: [CTX_RECIPES],
+  });
+  assertEquals(
+    new Set(onlyRecipes.map((d) => d.context)),
+    new Set([CTX_RECIPES]),
+  );
+  assertEquals(onlyRecipes.length, 1);
+  // 선택이 비었거나 없거나 null이면 하나도 없다(fail closed).
+  for (const contexts of [[], undefined, null]) {
+    assertEquals(
+      listTools(fromSource, { presetTools: [], roleTools: [], contexts }),
+      [],
+    );
+  }
+  // 역할 상한이 없으면(null) 선택이 덮어도 목록은 비어 있다.
+  assertEquals(
+    listTools(fromSource, {
+      presetTools: [],
+      roleTools: null,
+      contexts: [CTX_EXPERIMENTS],
+    }),
+    [],
+  );
+  // 이름이 같은 context 정의는 먼저 온 것 하나만 남는다.
+  assertEquals(
+    listTools(
+      {
+        builtin: [],
+        app: [],
+        context: [...definitions, ...definitions],
+        external: [],
+      },
+      {
+        presetTools: [],
+        roleTools: [],
+        contexts: [CTX_EXPERIMENTS, CTX_RECIPES],
+      },
+    ).length,
+    definitions.length,
+  );
 });

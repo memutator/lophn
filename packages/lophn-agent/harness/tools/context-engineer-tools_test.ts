@@ -13,7 +13,7 @@ import {
   type RunCredential,
   runOperations,
   type ToolDefinition,
-} from "../../harness/tools/mod.ts";
+} from "./mod.ts";
 import { ROLE_CAPS } from "../../presets/mod.ts";
 import {
   CONTEXT_ENGINEER_TOOL_NAMES,
@@ -21,7 +21,7 @@ import {
   CONTEXT_PREVIEW_CONTRACT,
   type ContextPreviewRead,
   createContextEngineerToolHandlers,
-} from "./tools.ts";
+} from "./context-engineer-tools.ts";
 
 const ALPHA = "0123456789abcdefghjkmnpqrstvwxyz";
 function id(prefix: string, n: number): string {

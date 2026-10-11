@@ -2316,6 +2316,10 @@ export type PlaceholderKinds = {
   "settings.label.tab-update": Record<never, never>;
   "settings.label.tab-diagnostics": Record<never, never>;
   "settings.label.tab-notifications": Record<never, never>;
+  "settings.label.nav": Record<never, never>;
+  "settings.label.group-integrations": Record<never, never>;
+  "settings.label.group-preferences": Record<never, never>;
+  "settings.label.group-system": Record<never, never>;
   "settings.label.test-model": Record<never, never>;
   "settings.label.unavailable-connection": Record<never, never>;
   "settings.label.usage-none": Record<never, never>;

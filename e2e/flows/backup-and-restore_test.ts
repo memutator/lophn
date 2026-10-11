@@ -15,7 +15,6 @@ import {
   backupStamp,
   createBackup,
 } from "../../packages/platform/backup-and-migration/mod.ts";
-import { e2eEnabled } from "../harness.ts";
 import {
   type FlowShell,
   mustCall,
@@ -108,7 +107,8 @@ async function openBackupTab(flow: FlowShell): Promise<void> {
 Deno.test({
   name:
     "platform/backup-and-migration#R10 platform/backup-and-migration#R11 platform/backup-and-migration#R12 platform/backup-and-migration#R13 platform/backup-and-migration#R15 platform/backup-and-migration#R16 platform/approvals#R11 shell/wording#R10 flow backup-and-restore: backup → 묶음 확인 → 취소 → 복원 → 복원 기준 다시 읽기",
-  ignore: !e2eEnabled(),
+  // backup 탭은 settings nav에서 빠졌다(shell#T62). 이 flow는 backup 제거 작업이 지울 때까지 건너뛴다.
+  ignore: true,
   sanitizeOps: false,
   sanitizeResources: false,
   async fn(t) {

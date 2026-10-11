@@ -13,6 +13,7 @@ import {
   profileImageUploadHandler,
   type ProfileReaders,
   sniffProfileImage,
+  staleImagePaths,
 } from "./profile-asset.ts";
 
 // 이미지 바이트는 메모리 disk에 둔다. 자리와 assignment의 판정은 읽기 concern을 흉내 낸 reader가 한다
@@ -45,11 +46,11 @@ function imageOf(magic: number[], size = magic.length): Uint8Array {
 
 function memoryFiles(): {
   disk: Map<string, Uint8Array>;
-  failing: { write: boolean; remove: boolean; read: boolean };
+  failing: { write: boolean; read: boolean };
   files: ProfileImageFiles;
 } {
   const disk = new Map<string, Uint8Array>();
-  const failing = { write: false, remove: false, read: false };
+  const failing = { write: false, read: false };
   const files: ProfileImageFiles = {
     read(path) {
       if (failing.read) return Promise.reject(new Error("read failure"));
@@ -58,11 +59,6 @@ function memoryFiles(): {
     writeAtomic(path, bytes) {
       if (failing.write) return Promise.reject(new Error("write failure"));
       disk.set(path, bytes);
-      return Promise.resolve();
-    },
-    remove(path) {
-      if (failing.remove) return Promise.reject(new Error("remove failure"));
-      disk.delete(path);
       return Promise.resolve();
     },
   };
@@ -186,12 +182,12 @@ Deno.test("lophn-agent/agents#R13 [agent-I17]: a png, jpg or webp upload is stor
       profile: { kind: "image", image: `avatar.${ext}` },
     });
     assertEquals(disk.get(`${OP_FOLDER}/avatar.${ext}`), body);
-    // 같은 폴더에는 지금 올린 확장자 하나만 남는다.
-    assertEquals(
-      [...disk.keys()].filter((path) => path.startsWith(OP_FOLDER)),
-      [`${OP_FOLDER}/avatar.${ext}`],
-    );
   }
+  // 올린 파일은 옛 확장자를 지우지 않는다. 지우는 일은 저장이 맡는다.
+  assertEquals(
+    [...disk.keys()].filter((path) => path.startsWith(OP_FOLDER)).length,
+    3,
+  );
 });
 
 Deno.test("lophn-agent/agents#R13 [agent-I17]: an svg is refused whatever the declared type, and a refused upload writes nothing", async () => {
@@ -323,30 +319,18 @@ Deno.test("lophn-agent/agents#R13 [agent-I17]: a failed image write is unavailab
   assertEquals(disk.get(`${OP_FOLDER}/avatar.png`), first);
 });
 
-Deno.test("lophn-agent/agents#R13 [agent-I17]: a new format replaces the old avatar, so only the new avatar.<ext> is left in the folder", async () => {
+Deno.test("lophn-agent/agents#R13 [agent-I17]: a new format is written beside the old avatar and the old one stays until the definition is saved", async () => {
   const { disk, files } = memoryFiles();
   const handler = profileImageUploadHandler(deps(files));
-  const png = upload(imageOf(PNG_MAGIC, 32));
-  assert((await handler(CTX, png.input, png.body)).ok);
+  const png = imageOf(PNG_MAGIC, 32);
+  const first = upload(png);
+  assert((await handler(CTX, first.input, first.body)).ok);
   const jpeg = imageOf(JPEG_MAGIC, 40);
   const next = upload(jpeg, { content_type: "image/jpeg" });
   assert((await handler(CTX, next.input, next.body)).ok);
-  assertEquals(disk.has(`${OP_FOLDER}/avatar.png`), false);
-  assertEquals(disk.get(`${OP_FOLDER}/avatar.jpg`), jpeg);
-});
-
-Deno.test("lophn-agent/agents#R13 [agent-I17]: when the old avatar cannot be removed the upload is unavailable, and the new file is already whole", async () => {
-  const { disk, failing, files } = memoryFiles();
-  const handler = profileImageUploadHandler(deps(files));
-  const old = imageOf(JPEG_MAGIC, 32);
-  disk.set(`${OP_FOLDER}/avatar.jpg`, old);
-  failing.remove = true;
-  const png = imageOf(PNG_MAGIC, 40);
-  const request = upload(png);
-  const result = await handler(CTX, request.input, request.body);
-  assertEquals(result.ok, false);
-  if (!result.ok) assertEquals(result.error.code, "unavailable");
+  // 정의가 아직 png를 가리키므로 png는 지우지 않는다. 지우는 일은 SaveAgent가 맡는다.
   assertEquals(disk.get(`${OP_FOLDER}/avatar.png`), png);
+  assertEquals(disk.get(`${OP_FOLDER}/avatar.jpg`), jpeg);
 });
 
 Deno.test("lophn-agent/agents#R13 [agent-I17]: reading returns the stored image with the Content-Type of its real format, not the declared one", async () => {
@@ -396,7 +380,28 @@ Deno.test("lophn-agent/agents#R13 [agent-I17]: a stored file that is not a suppo
   if (!result.ok) assertEquals(result.error.code, "unavailable");
 });
 
-Deno.test("lophn-agent/agents#R13 [agent-I17]: the node adapter writes image bytes through a temp file, reads them back whole, removes them, and a missing image is null", async () => {
+Deno.test("lophn-agent/agents#R13 [agent-I17]: a save names the avatar its profile points to and lists the other avatar paths as stale, and an icon or no profile lists all of them", () => {
+  const folder = OP_FOLDER;
+  const all = [
+    `${folder}/avatar.png`,
+    `${folder}/avatar.jpg`,
+    `${folder}/avatar.webp`,
+  ];
+  assertEquals(
+    staleImagePaths(ROOT, PRJ, "operator", OP, {
+      kind: "image",
+      image: "avatar.jpg",
+    }),
+    [`${folder}/avatar.png`, `${folder}/avatar.webp`],
+  );
+  assertEquals(
+    staleImagePaths(ROOT, PRJ, "operator", OP, { kind: "icon", icon: "roles" }),
+    all,
+  );
+  assertEquals(staleImagePaths(ROOT, PRJ, "operator", OP, undefined), all);
+});
+
+Deno.test("lophn-agent/agents#R13 [agent-I17]: the node adapter writes image bytes through a temp file, reads them back whole, and a missing image is null", async () => {
   const dir = await Deno.makeTempDir();
   try {
     const files = createNodeProfileImageFiles();
@@ -413,9 +418,6 @@ Deno.test("lophn-agent/agents#R13 [agent-I17]: the node adapter writes image byt
       entry.name !== "avatar.png"
     );
     assertEquals(leftovers, []);
-    await files.remove(path);
-    assertEquals(await files.read(path), null);
-    await files.remove(path);
   } finally {
     await Deno.remove(dir, { recursive: true });
   }

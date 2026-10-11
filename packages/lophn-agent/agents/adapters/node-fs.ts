@@ -66,8 +66,5 @@ export function createNodeProfileImageFiles(): ProfileImageFiles {
         throw error;
       }
     },
-    async remove(path) {
-      await rm(path, { force: true });
-    },
   };
 }

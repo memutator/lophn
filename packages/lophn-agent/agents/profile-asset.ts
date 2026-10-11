@@ -7,6 +7,7 @@ import {
   type AgentRole,
   agentRoleSchema,
   agentsRead,
+  type Profile,
   profileOutputSchema,
   readAgentProfileInputSchema,
   uploadAgentProfileInputSchema,
@@ -26,11 +27,10 @@ export type ProfileImageType = keyof typeof AGENT_PROFILE_IMAGE_TYPES;
 
 const IMAGE_EXTENSIONS = Object.values(AGENT_PROFILE_IMAGE_TYPES);
 
-// 한 파일의 바이트 읽기·원자 쓰기·지우기. 없는 파일 읽기는 null이고 그 밖의 IO 실패는 던진다.
+// 한 파일의 바이트 읽기·원자 쓰기. 없는 파일 읽기는 null이고 그 밖의 IO 실패는 던진다.
 export interface ProfileImageFiles {
   read(path: string): Promise<Uint8Array | null>;
   writeAtomic(path: string, bytes: Uint8Array): Promise<void>;
-  remove(path: string): Promise<void>;
 }
 
 // 읽기 concern의 값을 읽는 길이다. 자리 밖이거나 없는 assignment는 not_found로 온다.
@@ -146,7 +146,24 @@ function imageFolder(
   return `${agentsDirectory(root, place)}/${stem}`;
 }
 
-// 새 파일을 원자적으로 쓴 뒤 다른 확장자의 옛 avatar를 지운다. 옛 파일을 지우지 못하면 unavailable이다.
+// 저장한 정의가 가리키지 않는 `avatar.*` 경로다. 정의가 이미지를 가리키면 그 파일만 남기고, icon이거나
+// profile이 없으면 이미지 파일을 모두 지운다(R13). SaveAgent가 저장 뒤에 지운다.
+export function staleImagePaths(
+  root: string,
+  place: AgentPlace,
+  role: AgentRole,
+  assignment: string,
+  profile: Profile | undefined,
+): string[] {
+  const keep = profile?.kind === "image" ? profile.image : null;
+  const folder = imageFolder(root, place, role, assignment);
+  return IMAGE_EXTENSIONS.map((ext) => `avatar.${ext}`)
+    .filter((name) => name !== keep)
+    .map((name) => `${folder}/${name}`);
+}
+
+// 새 파일을 원자적으로 쓴다. 다른 확장자의 옛 avatar는 남긴다. 정의가 가리키는 이미지를 사람이 저장하기 전에
+// 잃지 않게 하려고 지우는 일은 SaveAgent(staleImagePaths)가 맡는다.
 async function storeImage(
   deps: ProfileAssetDeps,
   target: { place: AgentPlace; role: AgentRole; assignment: string },
@@ -163,13 +180,6 @@ async function storeImage(
     await deps.files.writeAtomic(`${folder}/${name}`, image.body);
   } catch {
     return unavailable("profile image could not be written");
-  }
-  try {
-    for (const other of IMAGE_EXTENSIONS.filter((ext) => ext !== image.ext)) {
-      await deps.files.remove(`${folder}/avatar.${other}`);
-    }
-  } catch {
-    return unavailable("old profile image could not be removed");
   }
   return ok({ profile: { kind: "image", image: name } });
 }

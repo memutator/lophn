@@ -196,7 +196,9 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
       commands.delete,
       commands.changeModel,
       commands.fork,
+      commands.requestCompact,
       commands.compact,
+      commands.failCompact,
       commands.close,
       commands.receive,
       commands.record,
@@ -309,6 +311,7 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
       reads.session,
       reads.sessions,
       reads.messages,
+      reads.compactRequests,
     ],
   };
 }

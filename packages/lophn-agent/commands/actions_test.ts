@@ -37,7 +37,7 @@ function fakePorts(
     renameSession: (title) =>
       Promise.resolve(reply("rename", undefined, [title])),
     archiveSession: () => Promise.resolve(reply("archive", undefined)),
-    compactSession: () => Promise.resolve(reply("compact", undefined)),
+    requestCompact: () => Promise.resolve(reply("compact", undefined)),
     forkSession: () => Promise.resolve(reply("fork", { session: "ses_fork" })),
     sendMessage: (text) => Promise.resolve(reply("send", undefined, [text])),
   };
@@ -130,9 +130,12 @@ Deno.test("lophn-agent/commands#R8 [agent-I16]: Fork is blocked while the agent 
   assertEquals(w.calls, []);
 });
 
-Deno.test("lophn-agent/commands#R8 [agent-I16]: Compact runs at once when idle and waits for the run to end when working", async () => {
+Deno.test("lophn-agent/commands#R8 [agent-I16b]: Compact is requested at once when idle and waits for the run to end when working", async () => {
   const w = world();
-  assertEquals(await w.run("/compact"), { kind: "done", command: "compact" });
+  assertEquals(await w.run("/compact"), {
+    kind: "requested",
+    command: "compact",
+  });
   assertEquals(w.calls, [["compact"]]);
 
   // 작업 중이면 부르지 않고 줄 세운다. 같은 session에 두 번 줄 세워도 한 번만 실행한다.
@@ -147,7 +150,7 @@ Deno.test("lophn-agent/commands#R8 [agent-I16]: Compact runs at once when idle a
   assertEquals(w.calls, [["compact"]]);
   // 이번 일이 끝난 뒤 한 번 실행되고 다시 비운다.
   assertEquals(await w.queue.drain(SESSION, w.ports), [
-    { kind: "done", command: "compact" },
+    { kind: "requested", command: "compact" },
   ]);
   assertEquals(w.calls, [["compact"], ["compact"]]);
   assertEquals(await w.queue.drain(SESSION, w.ports), []);
@@ -280,7 +283,10 @@ Deno.test("lophn-agent/commands#R6 [agent-I16]: a name shared by two skills asks
 
 Deno.test("lophn-agent/commands#R5 [agent-I16]: a skill named like a built-in never runs, the built-in does", async () => {
   const w = world("lophn", [skill("compact")]);
-  assertEquals(await w.run("/compact"), { kind: "done", command: "compact" });
+  assertEquals(await w.run("/compact"), {
+    kind: "requested",
+    command: "compact",
+  });
   assertEquals(w.calls, [["compact"]]);
 });
 

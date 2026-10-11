@@ -43,6 +43,7 @@ const ERASED = [
   "runs",
   "model_calls",
   "model_call_supplements",
+  "session_compact_requests",
   "tool_calls",
   "tool_call_supplements",
   "run_wait_resolutions",
@@ -155,6 +156,21 @@ function seedSession(
      values (?, 'late', ?, ?)`,
     [calls[0]!, seq(), AT],
   );
+  // Compact의 요약 call은 run이 아니라 session을 가리킨다. 그 session의 요청과 함께 지운다.
+  const summary = id("mcl", n * 10 + 4);
+  db.sql.run(
+    `insert into model_calls (id, run, session, model_use, agent_hash, purpose, attempt_kind,
+       attempt_order, provider, model_name, protocol, call_model, input, context_basis,
+       state, state_seq, started_at, usage, cost)
+     values (?, null, ?, 'organizing', null, 'conversation_compression', 'initial', 1, ?,
+       'model', 'anthropic-messages', '{}', ?, ?, 'started', 1, ?, '{}', '{}')`,
+    [summary, session, id("pvd", 1), hex(n), hex(n), AT],
+  );
+  db.sql.run(
+    `insert into session_compact_requests (request_seq, session, state)
+     values (?, ?, 'requested')`,
+    [seq("SessionCompactRequested"), session],
+  );
   const tools = [1, 2].map((i) => id("tcl", n * 10 + i));
   for (const [i, tool] of tools.entries()) {
     db.sql.run(
@@ -225,6 +241,7 @@ function seedSession(
     ["message", id("msg", n), "body"],
     ["model_call", calls[0]!, "input"],
     ["model_call", calls[1]!, "output"],
+    ["model_call", summary, "input"],
     ["tool_call", tools[0]!, "input"],
     ["run", run1, "result"],
     ["question", group, "prompt"],
@@ -406,8 +423,9 @@ function seededPerSession(table: (typeof ERASED)[number]): number {
     sessions: 1,
     messages: 1,
     runs: 2,
-    model_calls: 3,
+    model_calls: 4,
     model_call_supplements: 1,
+    session_compact_requests: 1,
     tool_calls: 2,
     tool_call_supplements: 1,
     run_wait_resolutions: 2,

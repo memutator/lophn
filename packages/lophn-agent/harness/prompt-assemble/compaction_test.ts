@@ -21,10 +21,7 @@ import {
   type SummaryParts,
   type SummaryRef,
 } from "./compaction.ts";
-import {
-  CONTINUATION_BODY_MAX_TOKENS,
-  CONTINUATION_RESHRINK_MAX,
-} from "./summary.ts";
+import { COMPACT_BODY_MAX_TOKENS, COMPACT_RESHRINK_MAX } from "./summary.ts";
 
 // R10에서 찍는 예산이다(확인 숫자).
 const BUDGET_80K = 80000;
@@ -257,16 +254,16 @@ Deno.test("lophn-agent/harness/prompt-assemble#R17: 실패한 같은 구간 자�
   // 쌓이면 반복이다. splitChunks의 단일 짝 실패가 재요약을 부르지 않는다.
   const { singleTooLarge } = splitChunks(historyOf(1), pairEnd);
   assert(singleTooLarge);
-  // compaction 실패의 재시도 상한은 컴파일 상수다(이어가기 재축소 상한과 같은 책임).
-  assertEquals(CONTINUATION_RESHRINK_MAX, 2);
+  // compaction 실패의 재시도 상한은 컴파일 상수다(Compact 재축소 상한과 같은 책임).
+  assertEquals(COMPACT_RESHRINK_MAX, 2);
 });
 
 Deno.test("lophn-agent/harness/prompt-assemble#R17: provider 문맥 초과 응답 뒤 재조립 재시도는 최대 1회다(질문 Q12)", () => {
   assertEquals(COMPACTION_REASSEMBLY_RETRY_MAX, 1);
 });
 
-Deno.test("lophn-agent/harness/prompt-assemble#R20: 이어가기 본문 상한 상수다", () => {
-  assertEquals(CONTINUATION_BODY_MAX_TOKENS, 400);
+Deno.test("lophn-agent/harness/prompt-assemble#R20: Compact 본문 상한 상수다", () => {
+  assertEquals(COMPACT_BODY_MAX_TOKENS, 400);
 });
 
 Deno.test("lophn-agent/harness/prompt-assemble#R19: SummaryRef는 원문 세션·구간·call·본문 hash·규칙 판을 연결한다", async () => {

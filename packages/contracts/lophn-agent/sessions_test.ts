@@ -7,9 +7,11 @@ import {
   closeSession,
   closeSessionCompareSchema,
   closeSessionInputSchema,
+  COMPACT_FAILURE_REASONS,
   compactionOutputSchema,
   compactSession,
   deleteSession,
+  failSessionCompact,
   forkOriginOutputSchema,
   forkSession,
   forkSessionInputSchema,
@@ -19,10 +21,14 @@ import {
   openSessionInputSchema,
   renameSession,
   renameSessionInputSchema,
+  requestSessionCompact,
   SESSION_COMMANDS,
   SESSION_EVENTS,
   sessionArchived,
   sessionCompacted,
+  sessionCompactFailed,
+  sessionCompactRequested,
+  sessionCompactRequests,
   sessionDeleted,
   sessionForked,
   sessionList,
@@ -32,6 +38,7 @@ import {
   sessionRead,
   sessionRecordSchema,
   sessionRenamed,
+  sessionSummary,
   sessionTitleLength,
   unarchiveSession,
 } from "./sessions.ts";
@@ -62,7 +69,7 @@ const open = {
   state_seq: "1",
 };
 
-Deno.test("lophn-agent/conversation#R1: eleven session routes and nine session events", () => {
+Deno.test("lophn-agent/conversation#R1 [agent-I16b]: fifteen session routes and eleven session events", () => {
   assertEquals(SESSION_COMMANDS.map(routePath), [
     "/v1/sessions/open",
     "/v1/sessions/rename",
@@ -70,11 +77,15 @@ Deno.test("lophn-agent/conversation#R1: eleven session routes and nine session e
     "/v1/sessions/unarchive",
     "/v1/sessions/delete",
     "/v1/sessions/fork",
+    "/v1/sessions/request-compact",
     "/v1/sessions/compact",
+    "/v1/sessions/fail-compact",
     "/v1/sessions/change-model",
     "/v1/sessions/close",
     "/v1/sessions/read",
     "/v1/sessions/list",
+    "/v1/sessions/compact-requests",
+    "/v1/sessions/summary",
   ]);
   assertEquals(SESSION_EVENTS.map((event) => event.type), [
     "SessionOpened",
@@ -83,7 +94,9 @@ Deno.test("lophn-agent/conversation#R1: eleven session routes and nine session e
     "SessionUnarchived",
     "SessionDeleted",
     "SessionForked",
+    "SessionCompactRequested",
     "SessionCompacted",
+    "SessionCompactFailed",
     "SessionModelChanged",
     "SessionClosed",
   ]);
@@ -546,7 +559,7 @@ Deno.test("lophn-agent/conversation#R9: fork names a new session, a source and a
   assertEquals(forkSession.actors, ["user"]);
 });
 
-Deno.test("lophn-agent/conversation#R10: compaction is a range and a summary call reference, never summary bytes", () => {
+Deno.test("lophn-agent/conversation#R10 [agent-I16b]: compaction is a range and a summary call reference, never summary bytes", () => {
   const compaction = { through_seq: "12", summary_call: call };
   assert(compactionOutputSchema.safeParse(compaction).success);
   assert(
@@ -562,12 +575,6 @@ Deno.test("lophn-agent/conversation#R10: compaction is a range and a summary cal
   assert(
     !compactionOutputSchema.safeParse({ through_seq: "12" }).success,
   );
-  assert(compactSession.input.safeParse({ session }).success);
-  assert(
-    !compactSession.input.safeParse({ session, summary: "supplied" }).success,
-  );
-  assert(compactSession.errors.includes("unavailable"));
-  assertEquals(compactSession.actors, ["user"]);
   assert(
     sessionCompacted.payload.safeParse({
       before: null,
@@ -582,5 +589,107 @@ Deno.test("lophn-agent/conversation#R10: compaction is a range and a summary cal
   );
   assert(
     !sessionCompacted.payload.safeParse({ before: null, after: null }).success,
+  );
+});
+
+Deno.test("lophn-agent/conversation#R10 [agent-I16b]: a person requests Compact and the runtime ends it with the finished summary call", () => {
+  // 요청은 사람이 하고 session의 상태를 바꾸지 않으므로 요청 기준은 session 상태다.
+  assertEquals(requestSessionCompact.actors, ["user"]);
+  assert(requestSessionCompact.input.safeParse({ session }).success);
+  assert(
+    !requestSessionCompact.input.safeParse({ session, summary: "supplied" })
+      .success,
+  );
+  assert(
+    requestSessionCompact.compare?.safeParse({
+      state: "open",
+      state_seq: "3",
+    }).success,
+  );
+  assert(
+    !requestSessionCompact.compare?.safeParse({
+      state: "closed",
+      state_seq: "3",
+    }).success,
+  );
+  // 끝내는 쪽은 runtime(machine)이다. 어느 요청의 어느 요약 call이 어느 메시지까지 덮는지 싣는다.
+  assertEquals(compactSession.actors, ["machine"]);
+  const done = { session, summary_call: call, through_seq: "12" };
+  assert(compactSession.input.safeParse(done).success);
+  assert(!compactSession.input.safeParse({ session }).success);
+  assert(
+    !compactSession.input.safeParse({ ...done, summary: "supplied" }).success,
+  );
+  assert(
+    compactSession.compare?.safeParse({ state: "open", request_seq: "9" })
+      .success,
+  );
+  assert(compactSession.errors.includes("unavailable"));
+  assertEquals(failSessionCompact.actors, ["machine"]);
+});
+
+Deno.test("lophn-agent/conversation#R10 [agent-I16b]: a failed Compact names a safe reason and keeps the session record", () => {
+  assertEquals([...COMPACT_FAILURE_REASONS], [
+    "nothing_to_summarize",
+    "model_unavailable",
+    "model_failed",
+    "too_large",
+    "summary_too_long",
+    "session_changed",
+  ]);
+  for (const reason of COMPACT_FAILURE_REASONS) {
+    assert(failSessionCompact.input.safeParse({ session, reason }).success);
+    assert(
+      sessionCompactFailed.payload.safeParse({ request: "9", reason }).success,
+    );
+  }
+  assert(
+    !failSessionCompact.input.safeParse({ session, reason: "boom: secret" })
+      .success,
+  );
+  assert(
+    failSessionCompact.compare?.safeParse({ request_seq: "9" }).success,
+  );
+  // 요청 event는 싣는 것이 없고 subject가 session이다.
+  assert(sessionCompactRequested.payload.safeParse({}).success);
+  // 실패는 session record에 칸을 더하지 않는다.
+  assert(!("compact_failure" in sessionRecordSchema.shape));
+  assert(!("compaction_request" in sessionRecordSchema.shape));
+});
+
+Deno.test("lophn-agent/conversation#R10 [agent-I16b]: the runtime lists open requests and reads a summary text, and only the machine lists", () => {
+  assertEquals(sessionCompactRequests.actors, ["machine"]);
+  assert(sessionCompactRequests.input.safeParse({}).success);
+  const request = {
+    session,
+    assignment,
+    work_place: projectPlace,
+    request_seq: "9",
+  };
+  assert(
+    sessionCompactRequests.output.safeParse({
+      requests: [request],
+      as_of_seq: "10",
+      next_cursor: null,
+    }).success,
+  );
+  assert(
+    !sessionCompactRequests.output.safeParse({
+      requests: [{ ...request, request_seq: 9 }],
+      as_of_seq: "10",
+      next_cursor: null,
+    }).success,
+  );
+  // 요약 본문은 사람(출처 표시)·그 agent·runtime이 읽는다.
+  assertEquals(sessionSummary.actors, ["user", "agent", "machine"]);
+  assert(sessionSummary.input.safeParse({ session }).success);
+  assert(
+    sessionSummary.output.safeParse({
+      session,
+      compaction: { through_seq: "12", summary_call: call },
+      text: "summary",
+      as_of_seq: "13",
+      next_cursor: null,
+    }).success,
   );
 });

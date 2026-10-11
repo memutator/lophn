@@ -4,6 +4,7 @@ import {
   finishModelCallInputSchema,
   MODEL_CALL_EVENTS,
   MODEL_CALL_ROUTES,
+  modelCallStarted,
   startModelCallInputSchema,
   supplementModelCallInputSchema,
 } from "./model-calls.ts";
@@ -339,4 +340,73 @@ Deno.test("lophn-agent/harness/usage#R4 [agent-R12]: a call keeps its option val
   assert(!callModelSchema.safeParse({ ...model, options: {} }).success);
   const parsed = callModelOutputSchema.parse({ ...model, options: { a: "b" } });
   assert(!("options" in parsed));
+});
+
+Deno.test("lophn-agent/harness/usage#R2 [agent-I16b]: a Compact summary call belongs to a session with no run and no agent", () => {
+  const summary = {
+    ...started,
+    run: null,
+    model_use: "organizing" as const,
+    agent_hash: null,
+    purpose: "conversation_compression" as const,
+  };
+  assert(modelCallRecordSchema.safeParse(summary).success);
+  assert(
+    startModelCallInputSchema.safeParse({
+      call: summary,
+      applied_messages: [],
+      state_seq: "4",
+      timeout_ms: null,
+    }).success,
+  );
+  // 요약 call은 run 대신 session을 가리킨다. session이 없으면 어디에도 묶이지 않는다.
+  assert(
+    !modelCallRecordSchema.safeParse({ ...summary, session: null }).success,
+  );
+  // run이 없는 call은 agent를 가리키지 않고 정리(organizing) 용도다.
+  assert(
+    !modelCallRecordSchema.safeParse({ ...summary, agent_hash: hash }).success,
+  );
+  assert(
+    !modelCallRecordSchema.safeParse({ ...summary, model_use: "judgment" })
+      .success,
+  );
+  assert(
+    !modelCallRecordSchema.safeParse({ ...summary, model_use: null }).success,
+  );
+  // run 없는 판단 call은 없다. 판단과 제목 요약은 run에 묶인다.
+  assert(
+    !modelCallRecordSchema.safeParse({ ...summary, purpose: "judgment" })
+      .success,
+  );
+  assert(
+    !modelCallRecordSchema.safeParse({ ...summary, purpose: "title_summary" })
+      .success,
+  );
+  // 시험 요청은 연결 시험에만 있다.
+  assert(
+    !modelCallRecordSchema.safeParse({
+      ...summary,
+      test_request: { command_key: "test-1", test_kind: "text" as const },
+    }).success,
+  );
+  // run에 묶인 압축 call은 그대로 run과 agent를 가진다.
+  assert(
+    modelCallRecordSchema.safeParse({
+      ...started,
+      model_use: "organizing" as const,
+      purpose: "conversation_compression" as const,
+    }).success,
+  );
+  assert(
+    modelCallStarted.payload.safeParse({
+      run: null,
+      session,
+      model_use: "organizing",
+      purpose: "conversation_compression",
+      model: callModelOutputSchema.parse(model),
+      input: hash,
+      context_basis: hash,
+    }).success,
+  );
 });

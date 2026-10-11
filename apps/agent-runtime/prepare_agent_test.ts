@@ -2,6 +2,8 @@ import { assert, assertEquals } from "@std/assert";
 import {
   type AgentRole,
   agentsRead,
+  messageBody,
+  messagesList,
   modelDefaultsRead,
   placeAgentSettingsRead,
   placeExtensionSettingsRead,
@@ -9,6 +11,7 @@ import {
   resolvedAgentSchema,
   runBody,
   sessionRead,
+  sessionSummary,
 } from "../../packages/contracts/lophn-agent/mod.ts";
 import { contextList as documentContextList } from "../../packages/contracts/documents/mod.ts";
 import { routePath } from "../../packages/contracts/platform/mod.ts";
@@ -25,6 +28,8 @@ import {
   CTX1,
   CTX2,
   MODEL,
+  MSG,
+  MSGS,
   openWorld,
   OTHER_PRJ,
   PRJ,
@@ -428,4 +433,79 @@ Deno.test("lophn-agent/extensions#R32 [agent-I19b]: a run asks for the MCP serve
     operator.world.bodiesOf(routePath(placeExtensionSettingsRead)),
     [{ place: { kind: "app", id: APP } }],
   );
+});
+
+// ---- Compact [agent-I16b] ----
+
+const TALK = [
+  { id: MSGS(0), seq: "10", actor: "user", text: "COVERED ask" },
+  { id: MSGS(1), seq: "11", actor: "agent", text: "COVERED answer" },
+  { id: MSGS(2), seq: "12", actor: "user", text: "AFTER ask" },
+  { id: MSGS(3), seq: "13", actor: "agent", text: "AFTER answer" },
+  { id: MSG, seq: "14", actor: "user", text: "CURRENT", run: RUN },
+  { id: MSGS(4), seq: "15", actor: "user", text: "QUEUED NEXT", run: null },
+] as const;
+
+async function contextOf(options: WorldOptions) {
+  const { world, prepared } = await prepare({
+    workspaceModels: { lophn: MODEL() },
+    ...options,
+  });
+  assert(prepared.ok, prepared.ok ? "" : JSON.stringify(prepared.error));
+  const loop = prepared.value.loop(
+    { run: RUN, assignment: ASG, token: "token", credential_ref: "cred" },
+    { run: RUN, state_seq: "1", basis: "a".repeat(64) },
+  );
+  const first = await loop.deps.ports.context();
+  assert(first.ok, first.ok ? "" : JSON.stringify(first.error));
+  const second = await loop.deps.ports.context();
+  assert(second.ok, second.ok ? "" : JSON.stringify(second.error));
+  return { world, first: first.value, second: second.value };
+}
+
+Deno.test("lophn-agent/harness/prompt-assemble#R23 [agent-I16b]: a run in a compacted session gets the summary and only the messages after the span, up to its own request", async () => {
+  const { world, first, second } = await contextOf({
+    sessionMessages: [...TALK],
+    compaction: {
+      through_seq: "11",
+      summary_call: "mcl_01arz3ndektsv4rrffq69g5fav",
+      text: "SUMMARY TEXT",
+    },
+  });
+  assertEquals(first.session, {
+    compaction: { through_seq: 11n, text: "SUMMARY TEXT" },
+    messages: [
+      { seq: 12n, role: "user", text: "AFTER ask" },
+      { seq: 13n, role: "assistant", text: "AFTER answer" },
+    ],
+  });
+  // 덮인 구간의 원문은 읽지도 않고, 이 run의 요청과 그 뒤에 접수된 메시지는 이력이 아니다.
+  const read = world.bodiesOf(routePath(messageBody)).map((body) =>
+    (body as { message: string }).message
+  );
+  assert(!read.includes(MSGS(0)) && !read.includes(MSGS(1)));
+  assert(!read.includes(MSG) && !read.includes(MSGS(4)));
+  assertEquals(
+    world.bodiesOf(routePath(messagesList)).filter((body) =>
+      (body as { run?: string }).run === undefined
+    ),
+    [{ session: SES, after_seq: "11" }],
+  );
+  // 요약이 바뀔 수 없는 run 안에서는 call마다 다시 읽지 않는다.
+  assertEquals(second.session, first.session);
+  assertEquals(world.bodiesOf(routePath(sessionSummary)).length, 1);
+});
+
+Deno.test("lophn-agent/harness/prompt-assemble#R23 [agent-I16b]: a session that was never compacted gives every earlier message and no summary read, and a run with no session gives none", async () => {
+  const plain = await contextOf({ sessionMessages: [...TALK] });
+  assertEquals(plain.first.session.compaction, null);
+  assertEquals(
+    plain.first.session.messages.map((message) => message.text),
+    ["COVERED ask", "COVERED answer", "AFTER ask", "AFTER answer"],
+  );
+  assertEquals(plain.world.bodiesOf(routePath(sessionSummary)), []);
+
+  const none = await contextOf({ session: null, sessionMessages: [...TALK] });
+  assertEquals(none.first.session, { compaction: null, messages: [] });
+  assertEquals(none.world.bodiesOf(routePath(messagesList)), []);
 });

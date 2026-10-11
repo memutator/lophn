@@ -210,7 +210,7 @@ function promptWith(materials: string[], contextLimit: number): PromptInput {
     material: {
       purpose: null,
       run_facts: null,
-      continuation_summary: null,
+      compact_summary: null,
       materials,
       compaction_summary: null,
       history: [],

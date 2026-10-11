@@ -1564,3 +1564,71 @@ Deno.test(
     }
   },
 );
+
+Deno.test("lophn-agent/harness/usage#R2 [agent-I16b]: a Compact summary call is recorded with a session and no run, one attempt order per session", async () => {
+  const h = await open();
+  try {
+    await seedProvider(h);
+    const summary = {
+      ...started,
+      run: null,
+      model_use: "organizing" as const,
+      agent_hash: null,
+      purpose: "conversation_compression" as const,
+    };
+    await startCall(h, summary);
+    const recorded = await readCall(h, CALL);
+    assertEquals(recorded["run"], null);
+    assertEquals(recorded["session"], SESSION);
+    assertEquals(recorded["agent_hash"], null);
+    assertEquals(recorded["model_use"], "organizing");
+    assertEquals(recorded["purpose"], "conversation_compression");
+
+    // 같은 session의 같은 시도 순번을 다시 쓸 수 없다. 다음 시도는 다음 순번이다.
+    const again = await h.command(
+      machineCred,
+      envelope("StartModelCall", {
+        call: { ...summary, id: CALL2 },
+        applied_messages: [],
+        state_seq: "4",
+        timeout_ms: null,
+      }),
+    );
+    code(again, "conflict");
+    await startCall(h, { ...summary, id: CALL2, attempt_order: 2 });
+    const list = keep(
+      await h.read({ resource: "model-calls", method: "list" }, userCred, {
+        session: SESSION,
+      }),
+    ) as { calls: { id: string; run: string | null }[] };
+    assertEquals(list.calls.map((entry) => entry.id), [CALL, CALL2]);
+    assert(list.calls.every((entry) => entry.run === null));
+
+    // 끝난 요약 call은 run 있는 call과 같은 길로 완료된다.
+    keep(
+      await h.command(
+        machineCred,
+        envelope("FinishModelCall", {
+          call: CALL,
+          output: HASH,
+          outcome: {
+            kind: "complete",
+            code: null,
+            retry_at: null,
+            finish_reason: "end_turn",
+            http_status: 200,
+            provider_code: null,
+          },
+          usage,
+          cost: unknownCost,
+          duration_ms: 10,
+          first_output_ms: 5,
+          state_seq: "5",
+        }),
+      ),
+    );
+    assertEquals((await readCall(h, CALL))["state"], "finished");
+  } finally {
+    await h.close();
+  }
+});

@@ -420,3 +420,37 @@ Deno.test(
     );
   },
 );
+
+Deno.test(
+  "shell/desktop#R47, platform/approvals#R18 [agent-I42]: approval 열기는 미리 고른 범위(allow_once·allow_session·deny)를 받고 계속 허락은 받지 않는다",
+  () => {
+    for (const preselect of ["allow_once", "allow_session", "deny"]) {
+      assert(
+        confirmationOpenIntentSchema.safeParse({
+          request: { kind: "approval_request", approval: APR, preselect },
+          parentWindow: "win-1",
+        }).success,
+        preselect,
+      );
+    }
+    for (const preselect of ["always", "allow_always", "once", "", null]) {
+      assert(
+        !confirmationOpenIntentSchema.safeParse({
+          request: { kind: "approval_request", approval: APR, preselect },
+          parentWindow: "win-1",
+        }).success,
+        String(preselect),
+      );
+    }
+    // 고정된 요청(표시 request)에는 미리 고른 범위가 없다.
+    assert(
+      !confirmationRequestSchema.safeParse({
+        kind: "approval_request",
+        approval: APR,
+        created_seq: "4",
+        binding_hash: HASH,
+        preselect: "allow_once",
+      }).success,
+    );
+  },
+);

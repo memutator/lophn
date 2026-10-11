@@ -171,6 +171,114 @@ Deno.test("platform/approvals#R9, platform/approvals#R13, platform/approvals#R14
   assert(withdrawn.textContent?.includes("You cancelled this request."));
 });
 
+function scoped(
+  preselect: "allow_once" | "allow_session" | "deny",
+  sessionGrantable = true,
+): ConfirmationView {
+  return {
+    ...approval,
+    view: { ...approval.view, session_grantable: sessionGrantable, preselect },
+  };
+}
+
+Deno.test("shell/desktop#R47, platform/approvals#R19 [agent-I42]: session 허락이 되는 request는 Allow once와 Allow for this session을 고를 수 있고 미리 고른 쪽이 먼저 눈에 띈다", async () => {
+  const session = await show(fakeApi(scoped("allow_session")).api);
+  const once = button(
+    session,
+    "[data-decision=grant_approval_request][data-scope=once]",
+  );
+  const forSession = button(
+    session,
+    "[data-decision=grant_approval_request][data-scope=session]",
+  );
+  assertEquals(once.textContent, "Allow once");
+  assertEquals(forSession.textContent, "Allow for this session");
+  assertEquals(forSession.getAttribute("data-preselected"), "true");
+  assertEquals(once.getAttribute("data-preselected"), null);
+  assertEquals(
+    button(session, "[data-decision=reject_approval_request]").getAttribute(
+      "data-preselected",
+    ),
+    null,
+  );
+  // 미리 골라도 첫 focus는 설명이고 결정은 누르기 전에 제출되지 않는다.
+  assertEquals(document.activeElement?.getAttribute("data-focus"), "first");
+
+  const preOnce = await show(fakeApi(scoped("allow_once")).api);
+  assertEquals(
+    button(preOnce, "[data-scope=once]").getAttribute("data-preselected"),
+    "true",
+  );
+  assertEquals(
+    button(preOnce, "[data-scope=session]").getAttribute("data-preselected"),
+    null,
+  );
+});
+
+Deno.test("shell/desktop#R47 [agent-I42]: Deny도 미리 고를 수 있고 어느 쪽이든 누르기 전에는 제출하지 않는다", async () => {
+  const denying = fakeApi(scoped("deny"));
+  const root = await show(denying.api);
+  const reject = button(root, "[data-decision=reject_approval_request]");
+  assertEquals(reject.getAttribute("data-preselected"), "true");
+  assertEquals(
+    button(root, "[data-scope=once]").getAttribute("data-preselected"),
+    null,
+  );
+  assertEquals(
+    button(root, "[data-scope=session]").getAttribute("data-preselected"),
+    null,
+  );
+  assertEquals(denying.sent.length, 0);
+});
+
+Deno.test("platform/approvals#R19, shell/confirmation-window#R1 [agent-I42]: 고른 범위가 허락 제출에 실린다. once는 기본값이라 싣지 않고 거절에는 범위가 없다", async () => {
+  const sessionSent = fakeApi(scoped("allow_once"));
+  const forSession = await show(sessionSent.api);
+  click(button(forSession, "[data-scope=session]"));
+  await settle();
+  assertEquals(sessionSent.sent, [{
+    displayId: "dsp_1",
+    decision: "grant_approval_request",
+    input: { scope: "session" },
+  }]);
+  assert(forSession.textContent?.includes("It hasn't happened yet"));
+
+  const onceSent = fakeApi(scoped("allow_session"));
+  const once = await show(onceSent.api);
+  click(button(once, "[data-scope=once]"));
+  await settle();
+  assertEquals(onceSent.sent, [{
+    displayId: "dsp_1",
+    decision: "grant_approval_request",
+  }]);
+
+  const rejectSent = fakeApi(scoped("allow_session"));
+  const rejected = await show(rejectSent.api);
+  click(button(rejected, "[data-decision=reject_approval_request]"));
+  await settle();
+  assertEquals(rejectSent.sent, [{
+    displayId: "dsp_1",
+    decision: "reject_approval_request",
+  }]);
+});
+
+Deno.test("platform/approvals#R20, platform/approvals#R18 [agent-I42]: session 허락이 아닌 request는 once만 있고 어떤 request에도 Always가 없다", async () => {
+  for (const view of [scoped("allow_session", false), approval]) {
+    const root = await show(fakeApi(view).api);
+    assertEquals(root.querySelector("[data-scope=session]"), null);
+    const once = button(
+      root,
+      "[data-decision=grant_approval_request]",
+    );
+    assertEquals(once.textContent, "Allow once");
+    assertEquals(root.textContent?.includes("for this session"), false);
+    assertEquals(/always/i.test(root.textContent ?? ""), false);
+  }
+  const root = await show(fakeApi(scoped("allow_session")).api);
+  assertEquals(/always/i.test(root.textContent ?? ""), false);
+  assertEquals(root.querySelector("[data-scope=always]"), null);
+});
+
 const optionAction: ConfirmationView = {
   displayId: "dsp_2",
   request: {

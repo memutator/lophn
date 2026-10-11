@@ -1,4 +1,4 @@
-import type { ConfirmationRef } from "./types.ts";
+import type { ConfirmationIntent, ConfirmationRef } from "./types.ts";
 
 import { type Canonical, createCoordinator } from "./coordinator.ts";
 import type { CoreHandlePort } from "./handle.ts";
@@ -28,9 +28,19 @@ export interface Fake {
     closed: string[];
     cleared: number;
     issued: number;
+    /** 등록한 handle의 내용 기준. 등록 순서대로다. */
+    registered: string[];
   };
-  canon: { value: Canonical; fail: boolean; reads: number };
-  submitted: { ref: string; decision: string }[];
+  canon: {
+    value: Canonical;
+    fail: boolean;
+    reads: number;
+    /** 읽은 intent. */
+    intents: ConfirmationIntent[];
+    /** 있으면 intent마다 다른 정본을 돌려준다(미리 고른 범위가 binding 내용을 바꾼다). */
+    byIntent?: (intent: ConfirmationIntent) => Canonical;
+  };
+  submitted: { ref: string; decision: string; contentHash: string }[];
   clock: { now: number };
 }
 
@@ -112,8 +122,12 @@ export function fake(): Fake {
     closed,
     cleared: 0,
     issued: 0,
-    register: (request: { expires_at: string; window_id: string }) => {
+    registered: [] as string[],
+    register: (
+      request: { expires_at: string; window_id: string; content_hash: string },
+    ) => {
       handles.issued += 1;
+      handles.registered.push(request.content_hash);
       return Promise.resolve({
         ok: true as const,
         confirmation: REF,
@@ -139,6 +153,7 @@ export function fake(): Fake {
     handles,
     canon: {
       reads: 0,
+      intents: [],
       fail: false,
       value: {
         targetRef: INTENT.approval,
@@ -196,21 +211,29 @@ export function coordinator(
   return createCoordinator({
     host: env.host,
     canon: {
-      read: () => {
+      read: (intent) => {
         env.canon.reads += 1;
+        env.canon.intents.push(intent);
         if (env.canon.fail) {
           return Promise.resolve({
             ok: false,
             error: { code: "unavailable", message: "조회에 실패했다" },
           });
         }
-        return Promise.resolve({ ok: true, value: env.canon.value });
+        return Promise.resolve({
+          ok: true,
+          value: env.canon.byIntent?.(intent) ?? env.canon.value,
+        });
       },
     },
     handles: env.handles,
     submit: {
       submit: ({ handle, decision }) => {
-        env.submitted.push({ ref: handle.ref, decision });
+        env.submitted.push({
+          ref: handle.ref,
+          decision,
+          contentHash: handle.contentHash,
+        });
         return Promise.resolve({
           ok: true,
           value: { receipt: { kind: "event", seq: "1" } },

@@ -565,7 +565,6 @@ export const en = {
   "confirmation-window.approval.no-external":
     "Nothing outside lophn is affected.",
   "confirmation-window.approval.title": "Allow this action?",
-  "confirmation-window.button.allow": "Allow",
   "confirmation-window.button.back": "Back",
   "confirmation-window.button.cancel-request": "Cancel request",
   "confirmation-window.button.choose": "Choose this option",
@@ -747,6 +746,7 @@ export const en = {
     "{app} will use {command} on its own each time it starts.",
   "confirmation-window.button.allow-access": "Allow access",
   "confirmation-window.button.allow-once": "Allow once",
+  "confirmation-window.button.allow-session": "Allow for this session",
   "confirmation-window.button.turn-on": "Turn on automation",
   "confirmation-window.button.use-version": "Use this version",
   "confirmation-window.confirm.input-note":

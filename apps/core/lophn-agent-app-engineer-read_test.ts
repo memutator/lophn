@@ -1047,11 +1047,17 @@ Deno.test("documents/contexts#R19 lophn-agent/harness/tools#R21 [ctx-I56b]: 실�
     const oldBody = old.body as {
       bundle: string;
       bundle_hash: string;
-      content: { contract: { types: { source: { app?: string } }[] } };
+      content: {
+        contract: { types: { name: string; source: { app?: string } }[] };
+      };
     };
     assertEquals(oldBody.bundle, pinned.bundle);
     assertEquals(oldBody.bundle_hash, pinned.bundle_hash);
-    assertEquals(oldBody.content.contract.types[0]!.source.app, "notes");
+    assertEquals(
+      oldBody.content.contract.types.find((type) => type.name === "Event")
+        ?.source.app,
+      "notes",
+    );
 
     // 없는 판과 다른 context의 판은 없는 것과 같다.
     const missing = await post(

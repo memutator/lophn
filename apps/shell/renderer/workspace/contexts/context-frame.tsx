@@ -157,9 +157,7 @@ export function ContextFrame(props: ContextFrameProps): ReactNode {
   }
   // 판 줄과 [Ask Context Engineer]·[History]는 Contract에서만 보인다(shell/workspace#R21).
   const plain = sub !== "contract";
-  const version = plain
-    ? null
-    : versionLine(loaded, props.now ?? new Date());
+  const version = plain ? null : versionLine(loaded, props.now ?? new Date());
   return (
     <div className={styles.frame}>
       <div className={styles.head} data-context-head="">

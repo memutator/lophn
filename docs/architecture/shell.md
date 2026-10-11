@@ -67,6 +67,7 @@ main은 read·command·event·앱 direct call을 독립적인 비동기 요청�
 - `main/editor/`: 파일 쓰기 adapter·창 닫기 guard; 파일 쓰기 구현은 없음.
 - `main/workspace/`: layout 검증·원자 저장·요청 창 current-view binding·scope/redaction adapter. `main/terminal/`은 host 감독·IPC caller 검증, `terminal-host/`는 node-pty의 POSIX PTY/Windows ConPTY와 child group을 소유한다. terminal host에 플랫폼 credential을 전달하지 않는다.
 - `renderer/workspace/`, `renderer/terminal/`: 네 종류 탭·두 칸 배치·xterm.js 표시·설치 SDK 시각 블록 renderer. 앱 화면 코드는 이 renderer에 import하지 않는다.
+- `renderer/conversation/`: Agent component(agent header·session popover·채팅·composer·model picker·`/` 메뉴·질문·승인 카드). project의 Agent 탭과 앱 공간이 같은 component를 쓴다. 자기 aggregator test(`conversation_test.ts`)가 폴더의 component test를 등록한다.
 - `renderer/overlay/`: shell overlay view entry point. shell renderer와 같은 디자인 컴포넌트·token bundle로 떠 있는 UI만 그리고 업무 상태는 갖지 않는다.
 - `renderer/desktop/`, `renderer/editor/`, `renderer/app-frame/`, `renderer/confirmation/`: 화면별 코드. confirmation은 별도 entry point이며 사용자 slot·fork를 읽지 않는다. 공통 wording catalog는 `packages/design/wording/`에 둔다.
 - contract DTO와 좁은 API allowlist는 소유 contract schema에서 생성한다. 출력 bundle·generated 파일을 정본처럼 수동 편집하지 않는다.

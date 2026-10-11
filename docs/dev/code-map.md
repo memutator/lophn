@@ -110,7 +110,7 @@ fixtures/             예시 project 폴더, 예시 앱, 녹화한 model 응답
 | coding-agent/guides | packages/coding-agent/guides/ |
 | coding-agent/repair-context | packages/coding-agent/repair-context/ |
 | coding-agent/tickets | packages/coding-agent/tickets/ |
-| shell/desktop | apps/shell/main/desktop/ · apps/shell/renderer/desktop/ |
+| shell/desktop | apps/shell/main/desktop/ · apps/shell/renderer/desktop/ · apps/shell/renderer/conversation/ (Agent component — project Agent 탭과 앱 공간이 같이 씀) |
 | shell/workspace | apps/shell/main/workspace/ · apps/shell/renderer/workspace/ |
 | shell/terminal | apps/shell/main/terminal/ · apps/shell/terminal-host/ · apps/shell/renderer/terminal/ |
 | shell/confirmation-window | apps/shell/main/confirmation/ · apps/shell/renderer/confirmation/ |

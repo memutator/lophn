@@ -35,11 +35,15 @@ import {
   viewSaveRoute,
   viewUpdateRoute,
 } from "../../../contracts/documents/mod.ts";
-import type {
-  Compare,
-  Input,
-  Output,
-  ReadRoute,
+import {
+  type Compare,
+  type Input,
+  type Output,
+  type ReadRoute,
+  type RequestContext,
+  TargetAuthorization,
+  type TargetAuthorizer,
+  type Tx,
 } from "../../../contracts/platform/mod.ts";
 import type { CommandRoute } from "../../../contracts/platform/mod.ts";
 import { createContextApiCommands } from "../api/commands.ts";
@@ -48,6 +52,7 @@ import type { ContextApiState, EntityRow } from "../api/state.ts";
 import {
   actors,
   entity,
+  evalContent,
   id,
   ids,
   minimalContent,
@@ -193,6 +198,7 @@ function memoryApi(): Api & { state: ContextApiState } {
 
 type SqlApi = Api & {
   ledger: LedgerFixture;
+  deps: ContextLedgerDeps;
   blobReads: string[];
 };
 
@@ -234,6 +240,7 @@ function sqlApi(
     hash: t.hash,
     startHandOffRun: (_tx, request) => t.deps.startHandOffRun(request),
     isContextEngineer: (assignment) => assignment === id("asg", 1),
+    appIds: () => [],
   };
   Object.assign(deps, overrides({ ...deps }));
   const commands = new Map(
@@ -250,6 +257,7 @@ function sqlApi(
     );
   return {
     ledger,
+    deps,
     blobReads,
     transcript,
     command(route, who, input, compare) {
@@ -1818,4 +1826,297 @@ Deno.test("documents/contexts#R27 [ctx-I34a]: mapActor turns the platform creden
   );
   assertEquals(mapped(actors.codingAgent.actor), actors.codingAgent);
   assertEquals(mapped(`app:${id("app", 1)}`), "forbidden");
+});
+
+// ---------- 앱 하나에 묶인 agent의 읽기 (roles/app-engineer#R2) ----------
+
+const CALENDAR = id("app", 1);
+const MAIL = id("app", 2);
+const APP_IDS: Record<string, string> = { calendar: CALENDAR, mail: MAIL };
+const OTHER_CONTEXT = id("ctx", 2);
+
+// evalContent의 app-data type(Event)이 읽는 앱을 바꾸고, 앱을 더 읽는 type을 덧붙인다.
+function readingApps(...slugs: string[]): Record<string, unknown> {
+  const content = evalContent() as {
+    contract: { types: { name: string; source: { app?: string } }[] };
+  };
+  const [event] = content.contract.types.filter((type) =>
+    type.name === "Event"
+  );
+  const types = content.contract.types.filter((type) => type !== event);
+  for (const [index, slug] of slugs.entries()) {
+    const copy = structuredClone(event);
+    copy.name = index === 0 ? "Event" : `Event${index + 1}`;
+    copy.source.app = slug;
+    types.push(copy);
+  }
+  content.contract.types = types;
+  return content as unknown as Record<string, unknown>;
+}
+
+const appDataOf = (api: SqlApi, context = ids.context) =>
+  api.ledger.sql.all(
+    "SELECT app FROM context_app_data WHERE context = ? ORDER BY app",
+    [context],
+  ).map((row) => row.app);
+
+Deno.test("documents/contexts#R3 lophn-agent/roles/app-engineer#R2 [ctx-I58b]: applying and rolling back a bundle record the apps its app-data sources read", () => {
+  const api = sqlApi();
+  try {
+    createContext(api);
+    // 초안과 검사 중인 판은 아직 기록하지 않는다.
+    const draft = value(api.command(bundleSaveDraftRoute, "engineer", {
+      context: ids.context,
+      content: readingApps("calendar", "mail", "calendar"),
+    }));
+    assertEquals(appDataOf(api), []);
+    const submitted = value(
+      api.command(bundleSubmitRoute, "engineer", { bundle: draft.id }),
+    );
+    assertEquals(appDataOf(api), []);
+    value(api.command(bundleFinishCheckRoute, "worker", {
+      check: submitted.check!,
+      result: "passed",
+      bundle_hash: submitted.bundle_hash!,
+      snapshot_hash: SNAPSHOT,
+      findings: [],
+      violation_count: 0,
+    }));
+    // 적용되면 같은 transaction에서 중복 없이 code unit 순으로 채운다.
+    assertEquals(appDataOf(api), ["calendar", "mail"]);
+
+    // 다음 판이 적용되면 그 판의 계약으로 바뀐다. app-data가 없으면 비운다.
+    applyBundle(api, ids.context, readingApps("mail"));
+    assertEquals(appDataOf(api), ["mail"]);
+    const plain = applyBundle(api, ids.context, minimalContent());
+    assertEquals(appDataOf(api), []);
+
+    // 되돌리면 되돌린 판의 계약으로 돌아간다.
+    const current =
+      value(api.read(contextGetRoute, "user", { context: ids.context }))
+        .context;
+    assertEquals(current.applied_bundle, plain.bundle.id);
+    value(api.command(bundleRollbackRoute, "user", {
+      context: ids.context,
+      bundle: draft.id,
+    }, { base_revision: current.revision }));
+    assertEquals(appDataOf(api), ["calendar", "mail"]);
+  } finally {
+    api.ledger.close();
+  }
+});
+
+Deno.test("documents/contexts#R3 lophn-agent/roles/app-engineer#R2 [ctx-I58b]: a failed check and another context leave the recorded apps alone", () => {
+  const api = sqlApi();
+  try {
+    createContext(api);
+    applyBundle(api, ids.context, readingApps("calendar"));
+    createContext(api, { id: OTHER_CONTEXT, title: "Other" });
+    applyBundle(api, OTHER_CONTEXT, readingApps("mail"));
+    const draft = value(api.command(bundleSaveDraftRoute, "engineer", {
+      context: ids.context,
+      content: readingApps("mail"),
+    }));
+    const submitted = value(
+      api.command(bundleSubmitRoute, "engineer", { bundle: draft.id }),
+    );
+    value(api.command(bundleFinishCheckRoute, "worker", {
+      check: submitted.check!,
+      result: "failed",
+      bundle_hash: submitted.bundle_hash!,
+      snapshot_hash: SNAPSHOT,
+      findings: [{ kind: "contract_invalid", target: null, detail: "no" }],
+      violation_count: 0,
+    }));
+    assertEquals(appDataOf(api), ["calendar"]);
+    assertEquals(appDataOf(api, OTHER_CONTEXT), ["mail"]);
+  } finally {
+    api.ledger.close();
+  }
+});
+
+type Seen2 = { operation: string; target: unknown };
+
+// 앱 하나에 묶인 agent의 자격이다(core가 발급하는 모양: agent actor와 `conditions.app`).
+function boundContext(app: string): RequestContext {
+  return {
+    ...requestContext(actors.otherAgent.actor),
+    conditions: { app },
+  } as RequestContext;
+}
+
+// owner가 준 target을 platform의 규칙대로 판정하는 대역이다: context target은 `apps`에 담당 앱이 있을
+// 때만 열고, 아니면 없는 대상과 같은 not_found다.
+function gate(seen: Seen2[]): TargetAuthorizer {
+  return (ctx, operation, target) => {
+    seen.push({ operation, target });
+    const apps = target["apps"];
+    return Array.isArray(apps) && apps.includes(ctx.conditions.app ?? null)
+      ? ok(undefined)
+      : err({ code: "not_found", message: "target not found" });
+  };
+}
+
+function withPort<T extends object>(base: T, authorizer: TargetAuthorizer) {
+  return {
+    ...base,
+    port: ((key: { name: string }) => {
+      assertEquals(key.name, TargetAuthorization.name);
+      return authorizer;
+    }) as unknown as Tx["port"],
+  };
+}
+
+function boundWorld() {
+  const api = sqlApi({}, () => ({
+    appIds: (slugs) => slugs.flatMap((slug) => APP_IDS[slug] ?? []),
+  }));
+  createContext(api);
+  applyBundle(api, ids.context, readingApps("calendar"));
+  createContext(api, { id: OTHER_CONTEXT, title: "Other" });
+  applyBundle(api, OTHER_CONTEXT, readingApps("mail"));
+  const reads = new Map(
+    contextLedgerReads(api.deps).map((def) => [def.route.name, def]),
+  );
+  const commands = new Map(
+    contextLedgerCommands(api.deps).map((def) => [def.route.name, def]),
+  );
+  const seen: Seen2[] = [];
+  const read = (ctx: RequestContext, name: string, input: unknown) =>
+    reads.get(name)!.handle(
+      withPort(api.ledger.snapshot(), gate(seen)),
+      ctx,
+      input as never,
+    ) as Result<Record<string, unknown>>;
+  return { api, read, commands, seen };
+}
+
+Deno.test("documents/contexts#R3 lophn-agent/roles/app-engineer#R2 [ctx-I58b]: an app-bound agent reads get, contract, overview and glossary of a context reading its app, and everything else is the not-found answer", () => {
+  const world = boundWorld();
+  try {
+    const { read, seen } = world;
+    const calendar = boundContext(CALENDAR);
+    for (
+      const name of [
+        "context.get",
+        "context.contract",
+        "context.overview",
+        "glossary.list",
+      ]
+    ) {
+      const reply = read(calendar, name, { context: ids.context });
+      assert(reply.ok, `${name} ${JSON.stringify(reply)}`);
+    }
+    // owner가 준 target은 context와 그 context가 읽는 앱의 ID들이다.
+    assertEquals(seen.at(-1), {
+      operation: "glossary.list",
+      target: { context: ids.context, apps: [CALENDAR] },
+    });
+
+    // 다른 앱을 읽는 context, 앱을 읽지 않는 context, 없는 context는 같은 답이다.
+    const absent = read(calendar, "context.overview", {
+      context: id("ctx", 99),
+    });
+    assert(!absent.ok);
+    assertEquals(absent.error.code, "not_found");
+    for (const context of [OTHER_CONTEXT, id("ctx", 99)]) {
+      assertEquals(read(calendar, "context.overview", { context }), absent);
+      assertEquals(read(calendar, "glossary.list", { context }), absent);
+    }
+    // 다른 앱에 묶인 agent는 그 앱을 읽는 context만 읽는다.
+    assert(
+      read(boundContext(MAIL), "context.get", { context: OTHER_CONTEXT }).ok,
+    );
+    assertEquals(
+      read(boundContext(MAIL), "context.get", { context: ids.context }),
+      absent,
+    );
+
+    // R2가 말하지 않은 읽기는 그 앱을 읽는 context라도 없는 대상과 같은 답이다.
+    for (
+      const [name, input] of [
+        ["context.draft", { context: ids.context }],
+        ["context.bundles", { context: ids.context }],
+        ["context.violations", { context: ids.context }],
+        ["context.saved_views", { context: ids.context }],
+        ["context.search", {
+          context: ids.context,
+          search: "experiments_by_status",
+          inputs: {},
+        }],
+        ["context.containing", { project: ids.project, path: "a.md" }],
+      ] as const
+    ) {
+      assertEquals(read(calendar, name, input), absent, name);
+    }
+  } finally {
+    world.api.ledger.close();
+  }
+});
+
+Deno.test("documents/contexts#R3 lophn-agent/roles/app-engineer#R2 [ctx-I58b]: context.list of an app-bound agent keeps only the contexts reading its app", () => {
+  const world = boundWorld();
+  try {
+    const { read } = world;
+    const names = (ctx: RequestContext) => {
+      const reply = read(ctx, "context.list", { project: ids.project });
+      assert(reply.ok, JSON.stringify(reply));
+      return (reply.value["contexts"] as { id: string }[]).map((c) => c.id);
+    };
+    assertEquals(names(boundContext(CALENDAR)), [ids.context]);
+    assertEquals(names(boundContext(MAIL)), [OTHER_CONTEXT]);
+    assertEquals(names(boundContext(id("app", 3))), []);
+    // 앱에 묶이지 않은 agent는 판정을 거치지 않고(이 fixture의 port는 부르면 던진다) 모두 본다.
+    const listed = world.api.read(contextListRoute, "otherAgent", {
+      project: ids.project,
+    });
+    assert(listed.ok);
+    assertEquals(listed.value.contexts.length, 2);
+  } finally {
+    world.api.ledger.close();
+  }
+});
+
+Deno.test("documents/contexts#R3 lophn-agent/roles/app-engineer#R2 [ctx-I58b]: an app-bound agent gets the not-found answer for every context command and nothing is written", () => {
+  const world = boundWorld();
+  try {
+    const { api, commands, seen } = world;
+    const before = JSON.stringify(api.ledger.dump());
+    const events = api.ledger.emitted.length;
+    const calendar = boundContext(CALENDAR);
+    for (
+      const [name, input] of [
+        ["context.archive", { context: ids.context }],
+        ["bundle.save_draft", {
+          context: ids.context,
+          content: minimalContent(),
+        }],
+        ["glossary.set", { context: ids.context, term: "Run", meaning: "x" }],
+        ["context.create", {
+          id: id("ctx", 50),
+          project: ids.project,
+          title: "New",
+          purpose: "p",
+        }],
+      ] as const
+    ) {
+      const result = api.ledger.transaction((tx) =>
+        commands.get(name)!.handle(
+          withPort(tx, gate(seen)) as never,
+          calendar,
+          input as never,
+          {} as never,
+        ) as Result<unknown>
+      );
+      assert(!result.ok, name);
+      assertEquals(result.error, {
+        code: "not_found",
+        message: "target not found",
+      });
+    }
+    assertEquals(JSON.stringify(api.ledger.dump()), before);
+    assertEquals(api.ledger.emitted.length, events);
+  } finally {
+    world.api.ledger.close();
+  }
 });

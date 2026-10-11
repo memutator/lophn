@@ -16,3 +16,10 @@
 - 모듈 모양, 의존 방향, 오류, 이름은 [architecture.md](docs/dev/architecture.md)를 따른다. 이름과 경로에 `v2`, `milestone1`, `w07` 같은 판·단계·작업 번호를 넣지 않는다.
 - 작업은 [tasks.md](docs/dev/tasks.md)의 완료 기준을 모두 채워야 끝난다. 테스트 이름은 요구 번호로 시작한다.
 - 끝내기 전에 `deno task check`를 돌린다.
+
+## worker
+
+일을 worker(subagent)에게 맡길 때 model은 이렇게 고른다.
+
+- 보통은 `sonnet-high`를 쓴다.
+- 범위가 작고 실수할 여지가 없는 쉬운 일인데 token을 많이 써야 하면 `mimo-v2.6-flash`를 쓴다.

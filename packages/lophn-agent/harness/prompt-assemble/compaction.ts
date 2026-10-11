@@ -62,7 +62,7 @@ export const SHRINK_RESULT_CODE_POINTS = 2000;
 export const SHRINK_RESULT_HEAD = 1000;
 export const SHRINK_RESULT_TAIL = 1000;
 
-// R20·Q12의 Compact 본문 상한·재축소 횟수는 summary.ts가 둔다.
+// R20의 Compact 본문 상한은 summaryOutputCap과 같고 재축소 횟수는 summary.ts가 둔다.
 
 // R12. 텍스트를 code point 기준으로 앞·뒤를 남겨 축소한다. 원본은 바꾸지 않고 잘린
 // 위치를 문자 경계로 둔다. code point 수는 [...text].length다.

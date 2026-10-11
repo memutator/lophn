@@ -2437,6 +2437,33 @@ export const en = {
     "This changed somewhere else. The latest is shown. Try again.",
   "settings.error.window":
     "The window didn't open. Nothing changed. Try again.",
+  "settings.agents.action-failed":
+    "That didn't work. Nothing changed. Try again.",
+  "settings.agents.intro":
+    "These apply to every project unless a project or an Operator sets its own.",
+  "settings.agents.no-instructions": "No instructions yet.",
+  "settings.agents.no-options": "No options for this model.",
+  "settings.agents.no-servers": "No MCP servers yet.",
+  "settings.agents.no-skills": "No skills yet.",
+  "settings.agents.options-unknown": "Options for this model aren't known yet.",
+  "settings.button.add-skill": "Add skill",
+  "settings.button.change": "Change",
+  "settings.button.edit": "Edit",
+  "settings.heading.agents-defaults": "Default models",
+  "settings.heading.agents-instructions": "Instructions for all projects",
+  "settings.heading.agents-servers": "MCP servers (all projects)",
+  "settings.heading.agents-skills": "Skills (all projects)",
+  "settings.heading.agents-summaries": "Model for summaries",
+  "settings.label.agents-target": "your agent settings",
+  "settings.label.model-line": "{name} · {model}",
+  "settings.label.not-chosen": "Not chosen",
+  "settings.label.option-pair": "{axis}: {value}",
+  "settings.label.role-app-engineer": "App Engineer",
+  "settings.label.role-context-engineer": "Context Engineer",
+  "settings.label.role-lophn": "lophn",
+  "settings.label.role-operator": "Operators",
+  "settings.label.status-connected": "Connected",
+  "settings.label.status-needs-sign-in": "Needs sign-in",
   "settings.extensions.folder-added":
     "{name} is added. New work can use its skills.",
   "settings.extensions.folder-failed":

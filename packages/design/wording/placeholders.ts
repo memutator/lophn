@@ -2498,6 +2498,37 @@ export type PlaceholderKinds = {
   "settings.defaults.unreadable": Record<never, never>;
   "settings.error.changed": Record<never, never>;
   "settings.error.window": Record<never, never>;
+  "settings.agents.action-failed": Record<never, never>;
+  "settings.agents.intro": Record<never, never>;
+  "settings.agents.no-instructions": Record<never, never>;
+  "settings.agents.no-options": Record<never, never>;
+  "settings.agents.no-servers": Record<never, never>;
+  "settings.agents.no-skills": Record<never, never>;
+  "settings.agents.options-unknown": Record<never, never>;
+  "settings.button.add-skill": Record<never, never>;
+  "settings.button.change": Record<never, never>;
+  "settings.button.edit": Record<never, never>;
+  "settings.heading.agents-defaults": Record<never, never>;
+  "settings.heading.agents-instructions": Record<never, never>;
+  "settings.heading.agents-servers": Record<never, never>;
+  "settings.heading.agents-skills": Record<never, never>;
+  "settings.heading.agents-summaries": Record<never, never>;
+  "settings.label.agents-target": Record<never, never>;
+  "settings.label.model-line": {
+    name: "string";
+    model: "string";
+  };
+  "settings.label.not-chosen": Record<never, never>;
+  "settings.label.option-pair": {
+    axis: "string";
+    value: "string";
+  };
+  "settings.label.role-app-engineer": Record<never, never>;
+  "settings.label.role-context-engineer": Record<never, never>;
+  "settings.label.role-lophn": Record<never, never>;
+  "settings.label.role-operator": Record<never, never>;
+  "settings.label.status-connected": Record<never, never>;
+  "settings.label.status-needs-sign-in": Record<never, never>;
   "settings.extensions.folder-added": {
     name: "string";
   };

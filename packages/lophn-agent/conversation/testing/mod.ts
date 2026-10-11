@@ -37,6 +37,8 @@ export const OPERATIONS = [
   "UnarchiveSession",
   "DeleteSession",
   "ChangeSessionModel",
+  "ForkSession",
+  "CompactSession",
   "CloseSession",
   "ReceiveMessage",
   "RecordMessage",
@@ -47,9 +49,11 @@ export const OPERATIONS = [
   "ListMessages",
   "RegisterProvider",
   "StartModelCall",
+  "FinishModelCall",
   "SeedTargetFixture",
   "SeedOperatorFixture",
   "SeedAcceptFailure",
+  "SeedSummariesModel",
   "SeedUnpreparedBody",
   "CommandResult",
 ];
@@ -130,8 +134,36 @@ export function registerMessageBodyRef(
   ) {
     return err({ code: "forbidden", message: "field is not defined" });
   }
-  if (value.source.kind !== "prepared") {
-    return err({ code: "forbidden", message: "prepared blob only" });
+  if (value.source.kind === "existing") {
+    // Fork가 복사한 메시지의 본문이다: 이미 등록된 같은 blob 참조에서만 허락한다.
+    const original = value.source.reference;
+    const found = tx.sql.get(
+      `select size_bytes from blob_refs
+       where owner_kind = ? and owner_key = ? and field = ? and hash = ?`,
+      [original.owner_kind, original.owner_key, original.field, original.hash],
+    );
+    if (found === undefined) {
+      return err({ code: "forbidden", message: "no such blob reference" });
+    }
+    tx.sql.run(
+      `insert into blob_refs (owner_kind, owner_key, field, hash, size_bytes,
+         registered_seq) values (?, ?, ?, ?, ?, ?)`,
+      [
+        value.owner_kind,
+        value.owner_key,
+        value.field,
+        original.hash,
+        found["size_bytes"] ?? 0,
+        BigInt(value.registered_seq),
+      ],
+    );
+    return ok({
+      owner_kind: value.owner_kind,
+      owner_key: value.owner_key,
+      field: value.field,
+      hash: original.hash,
+      registered_seq: value.registered_seq,
+    });
   }
   const blob = value.source.blob;
   if (

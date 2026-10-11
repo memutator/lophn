@@ -13,3 +13,14 @@ export const CHECK_CONTRACTS_PROMPT =
 
 export const NEW_CONTEXT_PROMPT =
   "I want to set up a new context. Talk with me about what it should cover and what it should own, one question at a time, then draft it with me.";
+
+// 명령 뒤에 사람이 쓴 글이 있으면 빈 줄을 두고 prompt 뒤에 붙인다.
+export function withArgument(prompt: string, argument: string): string {
+  return argument === "" ? prompt : `${prompt}\n\n${argument}`;
+}
+
+// skill 명령이 사람의 메시지로 접수하는 글이다. skill 본문은 담지 않는다: agent가 이름으로 읽는다
+// (lophn-agent/extensions).
+export function skillPrompt(name: string, argument: string): string {
+  return withArgument(`Use the ${name} skill for this request.`, argument);
+}

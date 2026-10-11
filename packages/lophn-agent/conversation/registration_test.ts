@@ -20,6 +20,7 @@ import {
   runSchemaSteps,
 } from "../harness/run-loop/mod.ts";
 import { presetValidateDeps } from "../harness/run-loop/testing/mod.ts";
+import { modelSchemaSteps } from "../harness/model/mod.ts";
 import {
   conversationSchemaSteps,
   createConversationCommands,
@@ -69,6 +70,19 @@ const seedOperatorRoute = defineCommand({
     scope_id: z.string(),
   }),
   output: z.strictObject({ id: z.string() }),
+  compare: z.strictObject({}),
+  actors: ACTOR_KINDS,
+  errors: ["conflict"],
+});
+
+// Workspace의 Model for summaries 칸을 채운다. 기본값을 바꾸는 command와 provider 등록은
+// 이 시험의 관심이 아니므로 표에 바로 쓴다.
+const seedSummariesRoute = defineCommand({
+  resource: "conversation-fixture",
+  method: "seed-summaries-model",
+  name: "SeedSummariesModel",
+  input: z.strictObject({ provider: z.string(), model_name: z.string() }),
+  output: z.strictObject({ model_name: z.string() }),
   compare: z.strictObject({}),
   actors: ACTOR_KINDS,
   errors: ["conflict"],
@@ -136,6 +150,8 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
       ...presetSchemaSteps,
       ...assignmentSchemaSteps,
       ...runSchemaSteps,
+      // Compact가 Workspace의 Model for summaries(agent_model_defaults)를 읽는다.
+      ...modelSchemaSteps,
       ...conversationSchemaSteps,
       {
         id: "conversation.test.fail-accept",
@@ -175,6 +191,8 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
       commands.unarchive,
       commands.delete,
       commands.changeModel,
+      commands.fork,
+      commands.compact,
       commands.close,
       commands.receive,
       commands.record,
@@ -234,6 +252,19 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
             tx.sql.run("insert into unprepared (on_) values (1)", []);
           }
           return ok({ unprepared: set.unprepared });
+        },
+      },
+      {
+        route: seedSummariesRoute,
+        handle(tx, _ctx, input) {
+          const seeded = input as { provider: string; model_name: string };
+          tx.sql.run(
+            `insert or replace into agent_model_defaults
+               (slot, provider, model_name, option_values, settings_seq)
+             values ('summaries', ?, ?, '{}', '1')`,
+            [seeded.provider, seeded.model_name],
+          );
+          return ok({ model_name: seeded.model_name });
         },
       },
       {

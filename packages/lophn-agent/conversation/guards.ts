@@ -7,7 +7,12 @@ import type { SessionRow } from "./model.ts";
 
 // command와 read가 같이 쓰는 거절과 보이는 범위 판정.
 
-type Code = "invalid_input" | "conflict" | "not_found" | "forbidden";
+type Code =
+  | "invalid_input"
+  | "conflict"
+  | "not_found"
+  | "forbidden"
+  | "unavailable";
 
 export function reject(code: Code, message: string): Result<never> {
   return err({ code, message });

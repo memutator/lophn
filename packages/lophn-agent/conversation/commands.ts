@@ -5,7 +5,9 @@ import {
   type assignMessage,
   changeSessionModel,
   closeSession,
+  type compactSession,
   deleteSession,
+  type forkSession,
   openSession,
   type receiveMessage,
   type recordMessage,
@@ -26,6 +28,8 @@ import {
   type RequestContext,
   type Tx,
 } from "../../contracts/platform/mod.ts";
+import { createCompactCommand } from "./compact.ts";
+import { createForkCommand } from "./fork.ts";
 import { reject, requireUser, sessionNotFound } from "./guards.ts";
 import { type AcceptRun, createMessageCommands } from "./message-commands.ts";
 import {
@@ -136,6 +140,8 @@ export function createConversationCommands(deps: ConversationDeps): {
   unarchive: CommandDefinition<typeof unarchiveSession>;
   delete: CommandDefinition<typeof deleteSession>;
   changeModel: CommandDefinition<typeof changeSessionModel>;
+  fork: CommandDefinition<typeof forkSession>;
+  compact: CommandDefinition<typeof compactSession>;
   close: CommandDefinition<typeof closeSession>;
   receive: CommandDefinition<typeof receiveMessage>;
   record: CommandDefinition<typeof recordMessage>;
@@ -144,6 +150,8 @@ export function createConversationCommands(deps: ConversationDeps): {
 } {
   return {
     ...createMessageCommands(deps.acceptRun),
+    fork: createForkCommand(),
+    compact: createCompactCommand(),
     open: {
       route: openSession,
       handle(

@@ -88,6 +88,7 @@ import {
   createSchedulingReads,
   schedulingSchemaSteps,
 } from "../../packages/lophn-agent/scheduling/mod.ts";
+import { createCommandReads } from "../../packages/lophn-agent/commands/mod.ts";
 import {
   conversationSchemaSteps,
   createConversationCommands,
@@ -449,6 +450,11 @@ const conversationCommands = createConversationCommands({
   },
 });
 const conversationReads = createConversationReads();
+
+// `/` 명령 목록(concern commands). 목록은 저장하지 않고 session의 agent에서 열 때마다 계산한다.
+// skill 발견은 폴더를 훑는 비동기 일이라 동기 read에서 셀 수 없다. agentLookups.skills와 같이 extensions가
+// 동기 등록부를 내놓을 때까지 빈 목록이다.
+const commandReads = createCommandReads({ skills: () => [] });
 
 // handoff(concern handoff). SubmitHandoff는 AcceptRun의 출처 검사 wrapper라서 run-loop의
 // AcceptRun handler를 같은 Tx에서 부른다. AcceptRun은 machine 전용 기록이라 이 접수에 한해
@@ -812,6 +818,8 @@ export const lophnAgentDefinitions = {
     conversationCommands.unarchive,
     conversationCommands.delete,
     conversationCommands.changeModel,
+    conversationCommands.fork,
+    conversationCommands.compact,
     conversationCommands.close,
     conversationCommands.receive,
     conversationCommands.record,
@@ -866,6 +874,7 @@ export const lophnAgentDefinitions = {
     conversationReads.session,
     conversationReads.sessions,
     conversationReads.messages,
+    commandReads.list,
     handoffReads.status,
     handoffReads.result,
     toolReads.read,
@@ -1281,6 +1290,7 @@ export function createReaderRegistration(): ReaderRegistration {
       conversationReads.session,
       conversationReads.sessions,
       conversationReads.messages,
+      commandReads.list,
       handoffReads.status,
       handoffReads.result,
       toolReads.read,

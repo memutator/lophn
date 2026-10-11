@@ -14,7 +14,10 @@ import {
   DOCUMENT_WRITE_TOOL_NAMES,
 } from "./bundles/document.ts";
 import { FORMAT_TOOL_NAMES, FORMAT_TOOLS } from "./bundles/format.ts";
-import { CONTEXT_ENGINEER_TOOLS } from "./context-engineer-tools.ts";
+import {
+  CONTEXT_ENGINEER_TOOL_NAMES,
+  CONTEXT_ENGINEER_TOOLS,
+} from "./context-engineer-tools.ts";
 import { CONTEXT_ENTITY_TOOL } from "./context-search-tools.ts";
 import { SERIES_NEXT_TOOL, SERIES_NEXT_TOOLS } from "./series-next-tool.ts";
 import { GUIDE_TOOL_NAMES, GUIDE_TOOLS } from "./bundles/guide.ts";
@@ -101,6 +104,9 @@ export const TOOL_BUNDLES: ReadonlyMap<string, readonly string[]> = new Map([
   // 개체 읽기와 다음 이름 읽기다. 개체 읽기의 정의는 선택한 context가 있을 때 run마다 만들어지고
   // (`buildContextReadTools`) 선언 검색 tool은 이름 묶음이 아니라 preset의 context 선택이 정한다.
   ["context-read", [CONTEXT_ENTITY_TOOL, SERIES_NEXT_TOOL]],
+  // Context Engineer의 계약·초안·미리보기·제출·위반·용어집 일곱 동작이다(R23). 역할 상한이 그 역할에게만
+  // 열어서 다른 역할의 preset이 이 묶음을 고르면 저장이 거절된다.
+  ["context-engineer", Object.values(CONTEXT_ENGINEER_TOOL_NAMES)],
 ]);
 
 // 금지 통로 이름. 내장·앱·외부 어디에도 이 이름이 있으면 목록에서 뺀다(R1).

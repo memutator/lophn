@@ -36,7 +36,7 @@ const CONTEXT_READ_TOOLS: readonly string[] = Object.freeze([
 
 // Context Engineer만의 계약·초안·미리보기·제출·위반·용어집 tool이다(harness/tools#R23). 이름은
 // `harness/tools/context-engineer-tools.ts`가 정한 값과 같다(presets는 harness를 import하지 않는다).
-const CONTEXT_ENGINEER_ONLY_TOOLS: readonly string[] = Object.freeze([
+export const CONTEXT_ENGINEER_ONLY_TOOLS: readonly string[] = Object.freeze([
   "context.read_contract",
   "context.draft",
   "context.preview",

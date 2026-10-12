@@ -1,6 +1,6 @@
 // shell/desktop#Q18: 화면이 core와 같은 순수 규칙을 contracts에서 값으로 부를 수 있다. renderer의 type check
 // 설정(lib ES2023·DOM·deno.ns)에서 import가 되는지와 결과가 맞는지를 한 번씩만 본다. 규칙 자체의 test는
-// packages/contracts/lophn-agent의 model-picker·command-filter test가 본다.
+// packages/protocol/lophn-agent의 model-picker·command-filter test가 본다.
 import { assertEquals } from "@std/assert";
 import { listCommands } from "../../../../protocol/lophn-agent/command-filter.ts";
 import {

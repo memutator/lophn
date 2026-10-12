@@ -45,7 +45,7 @@ import {
 
 // 세션·메시지 ledger 테스트. 실제 등록 executor(harness)와 임시 ledger 파일을 쓰고
 // run-loop의 FinishRun이 제품 core와 같은 hasUnappliedSteering(messages 표)을 본다.
-// 재시작과 30일 유휴는 파일 ledger를 닫고 다시 여는 apps/core/testing/
+// 재시작과 30일 유휴는 파일 ledger를 닫고 다시 여는 packages/core/testing/
 // lophn-agent-conversation_test.ts의 R2 시험이 맡는다. 세션 관리(제목·archive·delete·
 // 목록·model 선택)는 sessions_test.ts가 본다. 실제 provider를 부르지 않는다.
 
@@ -398,7 +398,7 @@ Deno.test("lophn-agent/conversation#R4: speakers stay distinct and a message lin
     const doc = id("doc", 1);
     const ver = id("ver", 1);
     const body = textContent("a plan without links");
-    // agent 자격의 기록(자기 run 묶음·다른 assignment 거절)은 apps/core/testing/
+    // agent 자격의 기록(자기 run 묶음·다른 assignment 거절)은 packages/core/testing/
     // lophn-agent-conversation_test.ts가 platform의 run 판정과 함께 본다.
     const record = (
       message: string,

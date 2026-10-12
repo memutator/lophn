@@ -1,6 +1,6 @@
 // context 읽기 tool이 부르는 core read route 셋(`context.preview`, `context.entity`,
 // `context.series_next`)의 이름과 결과 모양이다. 모양의 정본은
-// `packages/contracts/documents/context-api.ts`이고 여기서는 route 이름과 tool이 읽는 몸통 type만 둔다.
+// `packages/protocol/projects/context-api.ts`이고 여기서는 route 이름과 tool이 읽는 몸통 type만 둔다.
 // 세 route 모두 읽기 effect이고 core 결과는 다른 context 읽기처럼 `as_of_seq`·`complete`·`next_cursor`를 더 가진다.
 import type {
   ContextEntityRead as ContextEntityReply,

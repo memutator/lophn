@@ -22,7 +22,7 @@ import {
 } from "../../runtime/client/mod.ts";
 
 export const REVERT_WORKER_KIND = "apps/revert";
-// core가 감독 pipe로 보내는 호출 요청의 op. apps/core/revert-caller.ts와 같은 값이다.
+// core가 감독 pipe로 보내는 호출 요청의 op. packages/core/apps/revert/caller.ts와 같은 값이다.
 export const REVERT_CALL_OP = "revert.call";
 
 const PLACEHOLDER_SCREEN = "main";

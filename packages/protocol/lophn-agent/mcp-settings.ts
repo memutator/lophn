@@ -133,7 +133,7 @@ const mcpAuthPlaceSchema = agentPlaceSchema.nullable();
 // MCP OAuth 2.1의 시작 입구다(extensions#R16, shell#T31에서 넘어온 것의 route 절반).
 // 사람이 서버 이름을 정하고 lophn이 S256 PKCE verifier·challenge와 무작위 state를 만들어
 // 사람이 OS browser에서 열 authorization 주소와 callback port를 돌려준다. verifier·state는
-// 값이므로 응답 어디에도 옮기지 않고 core의 작업 메모리(packages/lophn-agent/extensions/
+// 값이므로 응답 어디에도 옮기지 않고 core의 작업 메모리(packages/core/lophn-agent/extensions/
 // mcp-oauth.ts)에만 산다. 기다리는 시한은 5분이다. ledger queue를 거치지 않는다(작업 메모리가
 // 곧 상태다). 진행 중인 로그인을 그만두려면 `CancelMcpAuth`다.
 //

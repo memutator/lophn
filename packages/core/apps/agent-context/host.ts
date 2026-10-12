@@ -1,5 +1,5 @@
 // 앱 프로세스의 host가 SDK(@lophn/cap-schedule의 registerScreenContext·registerAnnotationTarget)에
-// 설치하는 port다. SDK는 packages/apps를 import하지 않으므로 같은 symbol과 모양으로 맞춘다
+// 설치하는 port다. SDK는 packages/core/apps를 import하지 않으므로 같은 symbol과 모양으로 맞춘다
 // (packages/sdk/cap-schedule/screen-context.ts). 민감 path와 선언은 앱 코드가 아니라 release에
 // 고정된 blueprint에서 오고, 제거·요약 규칙은 bundle의 플랫폼 진입 파일이라 앱이 바꾸지 못한다.
 // release bundle에 들어가는 플랫폼 진입 파일이라 의존성이 없다.

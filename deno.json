@@ -2,7 +2,6 @@
   "workspace": [
     "./packages/*",
     "./packages/sdk/*",
-    "./apps/*",
     "./packages/shell/renderer",
     "./tools/wireframes",
     "./packages/design/wording"

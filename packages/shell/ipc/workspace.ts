@@ -1,5 +1,5 @@
 // shell layout 저장·복원에서 renderer가 main에 요청하는 모양. 현재 보기
-// relay(packages/contracts/shell)와 달리 파일에 남는 UI 참조만 담는다.
+// relay(packages/protocol/shell)와 달리 파일에 남는 UI 참조만 담는다.
 // 이 파일은 renderer도 부른다. schema 검증은 main/workspace/schema.ts가 한다.
 
 /** renderer가 main에 보내는 layout 저장 요청. WorkspaceLayout 값 그대로다. */

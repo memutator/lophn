@@ -1,4 +1,4 @@
-// cap-schedule host port의 구조. SDK는 packages/apps를 import하지 않고,
+// cap-schedule host port의 구조. SDK는 packages/core/apps를 import하지 않고,
 // apps leaf는 packages/sdk를 import하지 않는다. 두 쪽이 같은 모양으로 맞춘다.
 // 필드가 바뀌면 packages/sdk/cap-schedule/context.ts도 같이 바꾼다.
 

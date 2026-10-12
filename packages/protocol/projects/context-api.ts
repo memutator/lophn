@@ -656,7 +656,7 @@ export const glossaryListReadSchema = publicRead(z.object({
 // ---------- 읽기: preview · entity · series_next ----------
 //
 // 값의 뜻은 contexts.md "읽기"의 preview·entity·series_next다. preview는 파일을 읽으므로 ledger 읽기가
-// 아니라 core가 context worker에 일을 보내 답한다(apps/core/contexts-worker.ts).
+// 아니라 core가 context worker에 일을 보내 답한다(packages/core/projects/contexts/connection.ts).
 
 export const CONTEXT_PREVIEW_PAGE = 30;
 export const contextPreviewRequestSchema = z.strictObject({

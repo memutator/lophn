@@ -1,5 +1,5 @@
 // coding agent connection credential의 core 조립(platform#T34, identity#R5·R15, secrets#R12).
-// 인증 경계(packages/platform/identity의 authority)에 ledger의 connection 현재 상태 읽기와 OS
+// 인증 경계(packages/core/server/identity의 authority)에 ledger의 connection 현재 상태 읽기와 OS
 // keychain을 이어 주고, 인증된 coding context를 ledger credential 기록에 남기며, 시작 때 active
 // connection 색인과 중단 고아 정리를 비치명적으로 맞춘다. keychain adapter는 호출자가 준다:
 // 제품 main만 OS adapter를 주고, 시험은 fake를 주므로 사람의 실제 keychain에 닿지 않는다.
@@ -242,7 +242,7 @@ async function note(dataRoot: string, at: string, step: string): Promise<void> {
         kind: "log",
         code: "lophn_internal",
         error_type: "coding_credential",
-        location: "apps/core/coding-credential.ts",
+        location: "packages/core/server/identity/coding-credential-assembly.ts",
         message: "Coding credential startup step did not finish.",
         step,
       }) + "\n",

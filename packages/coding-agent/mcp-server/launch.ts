@@ -33,7 +33,7 @@ export type McpLaunchInputs = {
 
 // MCP 실행 entry의 설치 resource root 기준 경로다. 설치 설정(harnesses)과 doctor
 // probe도 이 값 하나로 같은 entry를 가리킨다.
-export const MCP_ENTRY = "apps/mcp/main.ts";
+export const MCP_ENTRY = "packages/coding-agent/mcp-server/main.ts";
 
 const TOOLSETS_ENV = "LOPHN_MCP_TOOLSETS";
 

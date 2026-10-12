@@ -38,7 +38,7 @@ export type ChildEvent =
   }
   | { event: "tui_ended"; runtime_ref: string; connection: string };
 
-// 설치 launcher가 거는 deno flag 이름이다(packages/platform/install-and-update/linux-install.ts). 이 밖의
+// 설치 launcher가 거는 deno flag 이름이다(packages/base/install/linux-install.ts). 이 밖의
 // flag(`--import-map`·`--eval`·`-A`·`--no-config` 등)가 붙은 process는 설치된 코드를 그대로 돌린다고 믿을 수 없다.
 const DENO_FLAGS = new Set([
   "--cached-only",
@@ -54,7 +54,7 @@ const DENO_FLAGS = new Set([
 
 /**
  * 설치된 lophn MCP·CLI process인지 본다. 실행 파일이 `<설치 root>/deno`이고 argv가 launcher의 모양
- * (`deno run <허용 flag…> <설치 root>/platform/apps/{mcp,cli}/main.ts …`)이어야 한다. 설치 root는 helper
+ * (`deno run <허용 flag…> <설치 root>/platform/packages/coding-agent/{mcp-server,cli}/main.ts …`)이어야 한다. 설치 root는 helper
  * 경로의 폴더다.
  */
 export function isInstalledLoaderChild(
@@ -76,8 +76,9 @@ export function isInstalledLoaderChild(
     }
   }
   const entry = argv[index];
-  return entry === `${root}/platform/apps/mcp/main.ts` ||
-    entry === `${root}/platform/apps/cli/main.ts`;
+  return entry ===
+      `${root}/platform/packages/coding-agent/mcp-server/main.ts` ||
+    entry === `${root}/platform/packages/coding-agent/cli/main.ts`;
 }
 
 /** `<pid>.<시작 tick>`. 시작 tick을 읽지 못하면 pid만이다(coding-agent/connection/credential/helper.ts와 같은 값). */

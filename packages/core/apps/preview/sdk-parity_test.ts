@@ -1,6 +1,6 @@
 // preview 대역의 두 겹이 같은 규칙인지 본다. 앱 프로세스 안에서는 packages/sdk의 cap-save·cap-secret
 // client가 live가 아닌 mode에서 메모리 대역으로 답하고(broker에 나가지 않는다), broker 통로로 직접 온
-// 요청은 packages/apps/preview의 대역이 받는다. apps leaf는 packages/sdk를 import하지 않으므로 두 구현을
+// 요청은 packages/core/apps/preview의 대역이 받는다. apps leaf는 packages/sdk를 import하지 않으므로 두 구현을
 // 한곳에 합치지 못한다. 대신 같은 요청 순서에서 같은 결과를 내는지 여기서 지킨다(apps/preview#R4).
 import { assert, assertEquals } from "@std/assert";
 import {

@@ -182,7 +182,7 @@ function formatReads(): ApiReadDefinition[] {
 // network는 core loopback뿐이다: 관측 제출이 같은 process의 API에 Bearer credential로
 // 닿는다(T11). 코드(repo)와 deno 캐시 읽기는 child가 자기 entry를 올리는 데 필요하다
 // (platform/io spec과 같다). 준비 worker는 이 coordinator가 띄우는 자식이라 core가 따로
-// 선언하지 않는다(spec은 apps/worker/documents/launch.ts).
+// 선언하지 않는다(spec은 packages/core/projects/file-tracking/worker/launch.ts).
 export function workerSpecs(
   dataRoot: string,
   activeRoots: readonly string[] = [],

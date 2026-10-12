@@ -1,4 +1,4 @@
-// 앱 log 줄의 redaction 조립. packages/apps/runtime의 log buffer는 줄 redaction을
+// 앱 log 줄의 redaction 조립. packages/core/apps/runtime의 log buffer는 줄 redaction을
 // 주입받고, 알려진 secret registry와 credential pattern은 platform/redaction이 준다.
 import {
   createRedactionStream,

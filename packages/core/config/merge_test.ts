@@ -6,7 +6,7 @@ import type {
 } from "../../protocol/server/mod.ts";
 
 // harness 값 타입만 선언한다. platform ledger 모듈과 settings 모듈의 전체
-// 타입을 부르지 않기 위해서다(packages/documents/projects/ledger_test.ts 관례).
+// 타입을 부르지 않기 위해서다(packages/core/projects/registry/ledger_test.ts 관례).
 type CommandEnvelope = {
   command: string;
   input: unknown;
@@ -34,7 +34,7 @@ async function createLedgerHarness(options: {
   registrationModules: readonly URL[];
   credentials?: readonly AuthenticatedContext[];
 }): Promise<Result<LedgerHarness>> {
-  const specifier = "../../../apps/core/testing/ledger.ts";
+  const specifier = "../testing/ledger.ts";
   const harness = await import(specifier);
   return harness.createLedgerHarness(options);
 }

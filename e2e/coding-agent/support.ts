@@ -33,7 +33,7 @@ export async function codingFixture(
   await Deno.writeTextFile(
     cli,
     `#!/bin/sh\nexec ${JSON.stringify(deno)} run -A --quiet ${
-      JSON.stringify(join(ROOT, "apps/cli/main.ts"))
+      JSON.stringify(join(ROOT, "packages/coding-agent/cli/main.ts"))
     } "$@"\n`,
   );
   await Deno.chmod(cli, 0o755);

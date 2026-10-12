@@ -1,6 +1,6 @@
 // 사람이 확인해야 하는 앱 command의 approval 사용(platform#T32, flow use-app-command 4~5단계)을
 // 실제 core와 임시 LOPHN_HOME의 HTTP route로 본다. 접수 command는
-// apps의 실제 dispatchable `invocation.accept_confirm`(packages/apps/invocations/confirm.ts)이고
+// apps의 실제 dispatchable `invocation.accept_confirm`(packages/core/apps/invocations/confirm.ts)이고
 // apps의 실제 invocations 표와 event를 쓴다. 사람 데이터 root는 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import { sha256Hex } from "../../base/mod.ts";

@@ -25,29 +25,28 @@ const BLUEPRINT_CONTRACT = [
   "blueprint-value.ts",
 ];
 
-// @lophn/blueprint: 정본 검증기는 contracts/apps의 의존성 없는 파일들이다.
+// @lophn/blueprint: 정본 검증기는 protocol/apps의 의존성 없는 파일들이다.
 const BLUEPRINT: VendorRule = {
   files: Object.fromEntries(
     BLUEPRINT_CONTRACT.map((
       file,
-    ) => [`contracts/apps/${file}`, `vendor/contracts/apps/${file}`]),
+    ) => [`protocol/apps/${file}`, `vendor/protocol/apps/${file}`]),
   ),
   rewrite: {
-    "../../contracts/apps/blueprint.ts": "vendor/contracts/apps/blueprint.ts",
+    "../../protocol/apps/blueprint.ts": "vendor/protocol/apps/blueprint.ts",
   },
 };
 
 // @lophn/cap-problem: portable 보고 계약과 그 type이 쓰는 오류·Result type이다.
 const CAP_PROBLEM: VendorRule = {
   files: {
-    "contracts/problems/sdk-report.ts":
-      "vendor/contracts/problems/sdk-report.ts",
+    "protocol/problems/sdk-report.ts": "vendor/protocol/problems/sdk-report.ts",
     "base/errors.ts": "vendor/base/errors.ts",
     "base/result.ts": "vendor/base/result.ts",
   },
   rewrite: {
-    "@lophn/contracts/problems/sdk-report":
-      "vendor/contracts/problems/sdk-report.ts",
+    "@lophn/protocol/problems/sdk-report":
+      "vendor/protocol/problems/sdk-report.ts",
   },
   generated: {
     "vendor/base/mod.ts":
@@ -94,7 +93,7 @@ export const SUPPORT_PACKAGES: readonly SupportPackage[] = [
     version: SUPPORT_VERSION,
     source: "design/wording",
     // generate.ts는 앱 catalog의 placeholder 생성이 쓰므로 남긴다. repo-check.ts는 저장소
-    // 화면 검사라 contracts를 import하므로 사본에 넣지 않는다.
+    // 화면 검사라 protocol를 import하므로 사본에 넣지 않는다.
     skipNames: ["testdata", "repo-check.ts"],
     skipSuffixes: ["_test.ts"],
   },

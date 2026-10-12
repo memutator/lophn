@@ -16,7 +16,7 @@ import { createMcpAuthControl } from "./mcp-auth-control.ts";
 import { mcpServerSnapshot, registeredMcpServers } from "./mcp-snapshot.ts";
 
 // 자리 층의 MCP 서버가 core의 snapshot과 agent-runtime child의 권한에 든다(lophn-agent/extensions R32, R33).
-// 이웃 packages/lophn-agent/extensions/mcp_allow_net_test.ts처럼 권한 목록은 서버가 선언한 것만 나온다.
+// 이웃 packages/core/lophn-agent/extensions/mcp_allow_net_test.ts처럼 권한 목록은 서버가 선언한 것만 나온다.
 
 const PRJ = "prj_01arz3ndektsv4rrffq69g5fa1";
 const PRJ_TWO = "prj_01arz3ndektsv4rrffq69g5fa9";

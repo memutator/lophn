@@ -1,7 +1,7 @@
 // approval 설명 글의 core 쪽 길(platform/approvals#R1, R2, R14, R17). 호출자(agent runtime·machine·
 // app)는 blob을 준비하지 않고 글 값(이유·변경·외부 영향·되돌림, 거절·취소의 종료 이유)을 요청에 싣는다. core가
 // command 앞에서 글을 redaction해 UTF-8 bytes로 blob을 준비하고, command가 같은 transaction에서
-// 영구 참조를 등록한다. 읽기(ReadApprovalText)는 apps/core/platform.ts가 붙인다. 메시지 본문
+// 영구 참조를 등록한다. 읽기(ReadApprovalText)는 packages/core/main/daemon/platform-register.ts가 붙인다. 메시지 본문
 // (message-body.ts)·질문 글(question-text.ts)과 같은 길이다.
 import { ok, type Result } from "../../base/mod.ts";
 import { waitRun } from "../../protocol/lophn-agent/mod.ts";

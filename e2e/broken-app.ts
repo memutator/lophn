@@ -33,7 +33,7 @@ async function git(cwd: string, args: string[]): Promise<string> {
 
 /**
  * leaf testing/ 도구는 *_test.ts만 import할 수 있어(tools/check-deps.ts) 시험 파일이 넘겨 준다.
- * 시험은 `{ installedHome, removeTree }`(packages/apps/sdk/testing/mod.ts)를 그대로 넘기면 된다.
+ * 시험은 `{ installedHome, removeTree }`(packages/core/apps/packages/testing/mod.ts)를 그대로 넘기면 된다.
  */
 export interface BrokenAppTools {
   installedHome(): Promise<{ sdkRoot: string; dispose(): Promise<void> }>;

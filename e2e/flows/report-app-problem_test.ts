@@ -20,8 +20,8 @@
 // 같은 발생으로 한 번만 접수한다.
 // 이 flow가 구동하지 않는 것:
 // - 수집 실패의 이유(crash한 view의 capture_failed)는 e2e/shell/report-problem_test.ts가, 상태 못 얻음·redaction 제외·
-//   blob 저장 실패는 packages/problems/feedback/work_test.ts가 본다.
-// - 다른 창의 view_session에 대한 거절(없는 view와 같은 답)은 apps/shell/main/app-frame/feedback_test.ts가 본다. 두 번째 창의
+//   blob 저장 실패는 packages/core/problems/feedback/work_test.ts가 본다.
+// - 다른 창의 view_session에 대한 거절(없는 view와 같은 답)은 packages/shell/main/app-frame/feedback_test.ts가 본다. 두 번째 창의
 //   view_session은 shell 밖에서 알 수 없다. 두 번째 창을 닫으면 headless shell이 끝나 이 flow는 닫지 않는다.
 import { assert, assertEquals } from "@std/assert";
 
@@ -214,7 +214,7 @@ async function corePid(flow: FlowShell): Promise<number> {
   for (const pid of await descendantPids(flow.shell.pid)) {
     try {
       const cmd = await Deno.readTextFile(`/proc/${pid}/cmdline`);
-      if (cmd.includes("apps/core/main.ts")) return pid;
+      if (cmd.includes("packages/core/main/daemon/main.ts")) return pid;
     } catch { /* 이미 끝났다 */ }
   }
   throw new Error("core 프로세스를 찾지 못했다");

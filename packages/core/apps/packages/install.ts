@@ -40,7 +40,7 @@ export type InstallDeps = {
   ) => Promise<Result<unknown>>;
   // 설치 소스 경계. 제품은 packages/sdk/*를 쓴다(테스트가 주입한다).
   sourceRoot?: string;
-  // packages/ 저장소 폴더. 사본이 가져오는 contracts·design 같은 지원 소스의 기준이다.
+  // packages/ 저장소 폴더. 사본이 가져오는 protocol·design 같은 지원 소스의 기준이다.
   packagesRoot?: string;
 };
 

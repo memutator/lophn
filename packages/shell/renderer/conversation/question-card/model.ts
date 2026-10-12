@@ -1,6 +1,6 @@
 // 질문 묶음 카드가 받는 값. lophn-agent/questions의 묶음 읽기(ReadQuestionGroup)와 글 읽기
 // (ReadQuestionText)를 합친 화면 값이고, 글은 이미 읽어 문자열로 들어온다. 값의 모양은 contract
-// (packages/contracts/lophn-agent/questions.ts)를 따른다. renderer 설정으로는 contracts를 type
+// (packages/protocol/lophn-agent/questions.ts)를 따른다. renderer 설정으로는 contracts를 type
 // check하지 않으므로 화면에 필요한 칸만 같은 이름으로 적는다.
 
 export interface QuestionOptionView {

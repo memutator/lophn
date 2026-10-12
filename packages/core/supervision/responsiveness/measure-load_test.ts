@@ -1,5 +1,5 @@
 // R9 부하 측정 시나리오(docs/plan/platform.md T52). `LOPHN_MEASURE=1 deno test
-// --allow-all packages/platform/responsiveness/measure-load_test.ts`로 opt-in으로만
+// --allow-all packages/core/supervision/responsiveness/measure-load_test.ts`로 opt-in으로만
 // 돈다. R9의 부하(100,000파일 root의 scan·hash, 1GiB 묶음 복사·hash, 60초 이상
 // 지연 model 호출, 60초 이상 테스트, 10개 동시 관리 요청, 한 앱 정체)를
 // 각각·함께 걸고 같은 자료의 무부하 측정도 하며 T51 목표(measure.ts

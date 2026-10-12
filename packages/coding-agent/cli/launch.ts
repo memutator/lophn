@@ -18,7 +18,7 @@ import {
 import { SKILL_RELEASES } from "../guides/mod.ts";
 
 // 실행 entry의 설치 resource root 기준 경로다.
-export const CLI_ENTRY = "apps/cli/main.ts";
+export const CLI_ENTRY = "packages/coding-agent/cli/main.ts";
 
 // CLI가 읽는 환경 이름이다. token 이름은 없다.
 export const CLI_ENV_NAMES = [

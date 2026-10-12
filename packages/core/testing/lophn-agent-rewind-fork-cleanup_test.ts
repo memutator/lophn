@@ -29,7 +29,7 @@ import {
 
 // Fork가 숨긴 구간을 빼고 복사하고(conversation#R25), session을 delete하거나 닫으면 되돌리기 기록이
 // 같이 지워진다(lophn-agent/revert R20, conversation#R20). 실제 등록 executor(harness)와 임시
-// ledger를 쓴다. 먼저 conversation 시험 등록(packages/lophn-agent/conversation/registration_test.ts)이 revert의 command·읽기·표를 올려야 한다
+// ledger를 쓴다. 먼저 conversation 시험 등록(packages/core/lophn-agent/session/registration_test.ts)이 revert의 command·읽기·표를 올려야 한다
 // (agent-RW3b·RW3d).
 
 const RVT = id("rvt", 1);

@@ -3,7 +3,7 @@
 // 필요한 것을 core 조립에서 주입받아 모은다: ledger 읽기(snapshot), 요청 자격 재검사
 // (current), 앱 접근 판정(TargetAuthorization port), 데이터 root.
 //
-// packages/apps leaf는 packages/platform을 직접 부르지 않는다(code-map). 그래서 core
+// packages/core/apps는 core의 platform 쪽 module을 직접 부르지 않는다(code-map). 그래서 core
 // 연결과 앱 접근 판정은 deps로 들어온다(apps-control의 injection과 같다). 앱 DB 열기는
 // data worker(worker/export.ts의 openAppDatabase)만 한다(정책 "writer").
 //

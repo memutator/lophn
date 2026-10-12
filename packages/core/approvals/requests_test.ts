@@ -1,6 +1,6 @@
 // approval request 생성·조회·만료·취소(platform/approvals#R1, R2, R6, R12, R13, R14, R17).
 // 실제 ledger(임시 파일 SQLite)를 띄운다. 설명 글은 값으로 받고 command는 같은 글에서 hash를
-// 만들어 저장한다. 글의 redaction·blob 준비·읽기 round-trip은 apps/core/approval-text_test.ts가
+// 만들어 저장한다. 글의 redaction·blob 준비·읽기 round-trip은 packages/core/approvals/text-prepare_test.ts가
 // 실제 core로 본다.
 
 import { assert, assertEquals } from "@std/assert";

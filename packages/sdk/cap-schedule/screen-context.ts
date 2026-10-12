@@ -3,14 +3,14 @@
 // 앱은 blueprint에 선언한 read_command·annotation_targets[].write_command의 handler를 이 함수로
 // 등록한다. 새 예약 command나 DOM 접근 통로는 없고, 등록한 handler는 일반 command 통로(같은 서명·
 // 연결 범위·agent.commands grant)로만 불린다. 선언·민감 path·view session은 앱 코드가 아니라 host
-// port(packages/apps/agent-context/host.ts)가 release에 고정된 blueprint와 이 프로세스의 view에서
+// port(packages/core/apps/agent-context/host.ts)가 release에 고정된 blueprint와 이 프로세스의 view에서
 // 준다. 제거·요약 크기 규칙도 host가 갖고, host가 없으면 원문을 내보내지 않고 거절한다.
 //
 // 오류 안내 문장에는 화면 상태·입력 값을 넣지 않는다. 앱 provider가 던진 오류 원문도 전하지 않는다.
 import { command, currentContext } from "./handlers.ts";
 import { CommandRejection } from "./rejection.ts";
 
-// host port 모양. packages/apps/agent-context/host.ts와 같은 symbol·필드다.
+// host port 모양. packages/core/apps/agent-context/host.ts와 같은 symbol·필드다.
 const SCREEN_CONTEXT_PORT = Symbol.for("lophn.screen-context");
 
 type DeclaredContext = {

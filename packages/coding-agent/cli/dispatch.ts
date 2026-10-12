@@ -117,7 +117,7 @@ export type CliRuntime = {
   dataRoot: string | undefined;
   env: { get(name: string): string | undefined };
   home: string | undefined;
-  // 설치 묶음의 위치다. 이 entry는 `<설치 root>/platform/apps/cli/main.ts`다.
+  // 설치 묶음의 위치다. 이 entry는 `<설치 root>/platform/packages/coding-agent/cli/main.ts`다.
   installRoot: string;
   daemonUrl: string;
   // 앱 direct socket 자리의 폴더다(apps runtime과 같은 규칙). 모르면 undefined이고 설치하는 MCP에는 앱

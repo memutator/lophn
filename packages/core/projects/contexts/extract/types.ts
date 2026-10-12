@@ -22,7 +22,7 @@ export type AppDataReader = (app: string, command: string) => unknown;
 
 // ---------- 문서 ----------
 
-// md outline parser(`packages/contracts/documents/outline-markdown.ts`의
+// md outline parser(`packages/protocol/projects/outline-markdown.ts`의
 // `parseOutline`)가 body에서 찾은 제목 하나. 추출은 제목을 이 parser에서만 얻는다.
 export type Heading = {
   level: number; // 1~6

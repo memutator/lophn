@@ -1,5 +1,5 @@
 // shell#T48: 깨진 앱 격리 확인. 화면 없이(show:false·offscreen) Electron을 띄워 실제 앱 view
-// adapter·registry로 앱 view 셋을 연다(apps/shell/main/app-frame/testdata/broken-app-probe.ts):
+// adapter·registry로 앱 view 셋을 연다(packages/shell/main/app-frame/testdata/broken-app-probe.ts):
 // 깨질 view, 같은 앱의 숨긴 다른 탭, 옆 칸의 다른 앱. core 앱 통로만 가짜이고 앱 화면은 이
 // 테스트가 Unix socket에 띄운 가짜 앱이 내준다. 화면 첫 렌더 오류는 apps#T26 깨진 fixture 앱
 // (fixtures/apps/broken)의 view root 오류와 같은 모양이고, 그 앱 전체 흐름은
@@ -30,7 +30,7 @@ const repoRoot = new URL("../../", import.meta.url).pathname.replace(
   /\/$/,
   "",
 );
-const shellMain = `${repoRoot}/apps/shell/main`;
+const shellMain = `${repoRoot}/packages/shell/main`;
 const electronExecutable = `${shellMain}/node_modules/electron/dist/electron`;
 const probeSource = `${shellMain}/app-frame/testdata/broken-app-probe.ts`;
 

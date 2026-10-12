@@ -1,7 +1,7 @@
 // 질문 글의 core 쪽 길(lophn-agent/questions, plan Q38). 호출자(shell·runtime)는 blob을
 // 준비하지 않고 글 값을 요청에 싣는다. core가 command 앞에서 글을 redaction해(자유 답은
 // secret 판정까지) UTF-8 bytes로 blob을 준비하고, command가 같은 transaction에서 영구
-// 참조를 등록한다. 읽기(ReadQuestionText)는 apps/core/lophn-agent.ts가 message 읽기와
+// 참조를 등록한다. 읽기(ReadQuestionText)는 packages/core/lophn-agent/register.ts가 message 읽기와
 // 같은 환경으로 붙인다.
 import { ok, type Result } from "../../../../base/mod.ts";
 import {

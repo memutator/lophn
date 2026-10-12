@@ -5,7 +5,7 @@ import { err, ok, type Result } from "../../../../base/mod.ts";
 import { appLogsOutputSchema } from "../../../../protocol/apps/mod.ts";
 import type { AppLogSource } from "../logs.ts";
 
-// 진단 상세 수집 on/off 설정의 key다. 정의는 core 등록(apps/core/problems.ts)이 이 key로 낸다.
+// 진단 상세 수집 on/off 설정의 key다. 정의는 core 등록(packages/core/problems/register.ts)이 이 key로 낸다.
 export const DETAIL_COLLECTION_SETTING_KEY =
   "problems.diagnostics.detail_collection";
 

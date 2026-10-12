@@ -306,7 +306,7 @@ Deno.test("shell/app-frame#R24: import maps preserve each config relative base a
   mergeImports(
     imports,
     { renderer: "./renderer.ts", same: "npm:zod@4.6.5" },
-    new URL("file:///project/apps/shell/renderer/deno.json"),
+    new URL("file:///project/packages/shell/renderer/deno.json"),
   );
   mergeImports(
     imports,
@@ -316,7 +316,7 @@ Deno.test("shell/app-frame#R24: import maps preserve each config relative base a
   assertEquals(imports.root, "file:///project/root.ts");
   assertEquals(
     imports.renderer,
-    "file:///project/apps/shell/renderer/renderer.ts",
+    "file:///project/packages/shell/renderer/renderer.ts",
   );
   assertEquals(imports.package, "file:///project/packages/shared.ts");
   let threw = false;

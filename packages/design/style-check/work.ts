@@ -19,7 +19,7 @@ async function cssFiles(directory: URL): Promise<URL[]> {
 }
 
 export async function checkRepositoryStyles(root: URL): Promise<StyleIssue[]> {
-  const directories = ["apps/shell/renderer/", "packages/design/"];
+  const directories = ["packages/shell/renderer/", "packages/design/"];
   try {
     for await (const entry of Deno.readDir(new URL("packages/sdk/", root))) {
       if (entry.isDirectory && entry.name.startsWith("ui-")) {

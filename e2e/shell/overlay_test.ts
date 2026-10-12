@@ -19,8 +19,8 @@ const repoRoot = new URL("../../", import.meta.url).pathname.replace(
   "",
 );
 const electronExecutable =
-  `${repoRoot}/apps/shell/main/node_modules/electron/dist/electron`;
-const shellApp = `${repoRoot}/apps/shell/main/dist/main.cjs`;
+  `${repoRoot}/packages/shell/main/node_modules/electron/dist/electron`;
+const shellApp = `${repoRoot}/packages/shell/main/dist/main.cjs`;
 
 const TOP_BAR_HEIGHT = 48;
 

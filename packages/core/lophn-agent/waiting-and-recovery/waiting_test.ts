@@ -12,7 +12,7 @@ import {
 } from "./mod.ts";
 
 // 판정표와 보이는 기다림·retry 대기는 순수 함수다. 실제 core를 띄운 흐름(질문 답으로 재개, approval
-// 허락으로 재개, 수정, 재시작)은 apps/core/waiting-and-recovery_test.ts가 본다.
+// 허락으로 재개, 수정, 재시작)은 packages/core/lophn-agent/waiting-and-recovery/waiting-core_test.ts가 본다.
 
 Deno.test("lophn-agent/harness/waiting-and-recovery#R1 [agent-I13]: 질문 묶음의 답이면 재개, 만료·미루기·취소는 답 없음 종료, 미결정은 기다림", () => {
   const plain = { chosenHasAction: false, applied: false };

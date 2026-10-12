@@ -1,6 +1,6 @@
 // approval 허락·거절(platform/approvals#R3, R4, R5, R6, R12, R14, R15). 실제 ledger(임시 파일
 // SQLite)와 writer의 confirmation registry를 쓴다. handle은 main↔core 비공개 통로와 같은
-// 발급 경로(harness.confirmation)로 만든다. 허락 적용(apply_test.ts)과 거절 억제 계보(R16, apps/core/platform-lineage_test.ts)는 여기 없다.
+// 발급 경로(harness.confirmation)로 만든다. 허락 적용(apply_test.ts)과 거절 억제 계보(R16, packages/core/approvals/lineage_test.ts)는 여기 없다.
 
 import { assert, assertEquals } from "@std/assert";
 import { sha256Hex } from "../../base/mod.ts";

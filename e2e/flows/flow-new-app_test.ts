@@ -7,9 +7,9 @@
 // stdio 자식은 쓰지 않는다: 연결 credential 발급은 coding-agent#T36이라 시험 credential을 core에 직접 넣는다).
 // 사람 데이터 root(~/.lophn)는 열지 않는다. 띄운 core 트리는 temp home 이름으로만 정리한다.
 //
-// release.prepare를 부르는 쪽(finalizer)은 core가 쥔다(apps/core/apps-release-finalizer.ts). ticket claim을 가진
+// release.prepare를 부르는 쪽(finalizer)은 core가 쥔다(packages/core/apps/releases/finalizer.ts). ticket claim을 가진
 // coding agent의 prepare_bundle 접수가 끝났고 같은 bundle hash의 app test가 통과로 기록돼 있으면 준비를 읽을 때
-// 확정된다(apps/core/release-finalizer_test.ts가 본다). 이 flow는 같은 bundle의 app test를 아직 돌리지 않아
+// 확정된다(packages/core/apps/releases/finalizer_test.ts가 본다). 이 flow는 같은 bundle의 app test를 아직 돌리지 않아
 // new-app의 9 이후(preview 확인 → 적용 허락 → activation → acceptance check)는 남는다.
 // 이 flow가 아직 돌리지 않은 것(통로가 없는 것이 아니라 하지 않았다):
 // - 같은 bundle의 app test(RequestTest → Verification)와 preview. 둘 다 core 쪽 길은 있다.
@@ -485,7 +485,7 @@ Deno.test({
         assertEquals(releases().length, 0);
       }
       // 제품 결함으로 막혀 있다: core runner의 collector에는 test mode feedback 접수 통로가 없어
-      // (apps/worker/problems/runner-service.ts collectorFor) 화면 있는 앱의 feedback 검사가 통과하지 못하고,
+      // (packages/core/problems/tests/work/runner-service.ts collectorFor) 화면 있는 앱의 feedback 검사가 통과하지 못하고,
       // 화면 검사 host(SCREEN_TEST_HOST)도 dev에는 없다. 화면 있는 template·fixture는 모두 app test가 pass가 되지 않아
       // 아래 확정을 실제 통과 Verification으로 돌릴 수 없다. problems/tests#R7에서 넘어온 것.
       await t.step({

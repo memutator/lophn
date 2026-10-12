@@ -29,7 +29,6 @@
     "../ipc/**/*.ts"
   ],
   "exclude": [
-    "../../",
     "../ipc/**/*_test.ts",
     "desktop/core",
     "terminal/coding",

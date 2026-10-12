@@ -1,5 +1,5 @@
 // lophn-agent/harness/tool-judgment: 판정표와 비교 규칙. 순수 함수만 본다. 실제 core에서 approval을
-// 만들고 허락·거절·한 번 적용하는 흐름은 apps/core/tool-judgment_test.ts가 본다.
+// 만들고 허락·거절·한 번 적용하는 흐름은 packages/core/lophn-agent/tool-judgment/flow_test.ts가 본다.
 import { assert, assertEquals, assertNotEquals } from "@std/assert";
 import {
   type BasisSnapshot,

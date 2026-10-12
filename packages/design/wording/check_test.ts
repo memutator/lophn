@@ -87,7 +87,7 @@ Deno.test("shell/wording#R9: problems 문구 key는 저장소 검사의 알려�
   ]);
   const directory = await Deno.makeTempDir();
   try {
-    const screens = `${directory}/apps/shell/renderer/app-frame`;
+    const screens = `${directory}/packages/shell/renderer/app-frame`;
     await Deno.mkdir(screens, { recursive: true });
     await Deno.writeTextFile(
       `${screens}/issue.tsx`,

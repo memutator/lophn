@@ -192,7 +192,7 @@ import {
 import { contextStatusOf } from "../projects/contexts/mod.ts";
 import { createMcpSecretRefSource } from "./extensions/mod.ts";
 
-// 설치 묶음에 동봉된 skill 폴더다(extensions R1). runtime의 skill 발견(apps/agent-runtime/skill-folders.ts)이
+// 설치 묶음에 동봉된 skill 폴더다(extensions R1). runtime의 skill 발견(packages/core/lophn-agent/extensions/skill-folders.ts)이
 // 같은 위치를 연다. 폴더가 없으면 동봉 skill이 없는 것이라 읽기 허락도 더하지 않는다.
 const BUNDLED_SKILLS_ROOT = new URL("../../../assets/skills", import.meta.url)
   .pathname;
@@ -430,7 +430,7 @@ const conversationReads = createConversationReads();
 // handoff(concern handoff). SubmitHandoff는 AcceptRun의 출처 검사 wrapper라서 run-loop의
 // AcceptRun handler를 같은 Tx에서 부른다. AcceptRun은 machine 전용 기록이라 이 접수에 한해
 // machine 자격으로 바꿔 넘기고(command 안에서 보낸 run·방향·원래 요청을 먼저 검사한다) 바깥
-// command의 actor·event 기록은 그대로다. 내용 blob은 core가 준비한다(apps/core/handoff-body.ts).
+// command의 actor·event 기록은 그대로다. 내용 blob은 core가 준비한다(packages/core/lophn-agent/tools/handoff/body.ts).
 const handoffCommands = createHandoffCommands({
   acceptRun: (tx, ctx, input, compare) =>
     runCommands.accept.handle(tx, { ...ctx, actor: "machine" }, input, compare),
@@ -485,7 +485,7 @@ const toolReads = createToolReads();
 // 질문(concern questions). 질문은 agent가 만들고 사람이 답한다. 만료는 machine이
 // 닫는다. 고정 action이 있는 선택지의 답(AnswerQuestionAction)만 사람 확인
 // (confirmation)이 필요하다. 본문·이유·선택지 설명·자유 답·취소 이유는 값으로 받아 core가
-// blob으로 준비하고(apps/core/question-text.ts) blob 참조만 남는다.
+// blob으로 준비하고(packages/core/lophn-agent/tools/questions/text-prepare.ts) blob 참조만 남는다.
 const questionCommands = createQuestionCommands();
 const questionReads = createQuestionReads();
 
@@ -1034,12 +1034,12 @@ export const lophnAgentDefinitions = {
     mcpAuthRequestTake,
     mcpAuthRequestDone,
   ],
-  // 문서·format tool의 글 값 통로다. 서빙은 core 조립이 한다(apps/core/tool-documents.ts).
+  // 문서·format tool의 글 값 통로다. 서빙은 core 조립이 한다(packages/core/lophn-agent/tools/tool-documents.ts).
   workerRoutes: TOOL_DOCUMENT_ROUTES,
   // profile 이미지의 바이트 입구(upload)와 읽기(file)다. 바이트를 붙이는 처리기는 core 조립(core.ts)이 route 이름으로 붙인다.
   uploadRoutes: [agentProfilesUpload],
   files: [agentProfilesRead],
-  // MCP OAuth의 시작·완료·상태·취소 입구다(extensions R16, R17). handler는 core 조립(apps/core)이
+  // MCP OAuth의 시작·완료·상태·취소 입구다(extensions R16, R17). handler는 core 조립(packages/core/lophn-agent/register.ts)이
   // createMcpAuthControl(mcp-auth.ts)로 붙인다. route만 등록한다.
 };
 

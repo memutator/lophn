@@ -163,7 +163,7 @@ export async function runAppTestJob(
   }
   const root = new URL("../../../../../", import.meta.url);
   const childUrl = new URL(
-    "packages/problems/tests/harness/child.ts",
+    "packages/core/problems/tests/harness/child.ts",
     root,
   ).href;
   await Deno.writeTextFile(
@@ -277,7 +277,7 @@ export async function runAppTestJob(
     sockets: job.sockets,
     deno: job.deno,
     entrypoint: new URL(
-      "packages/apps/runtime/entrypoint/main.ts",
+      "packages/core/apps/runtime/entrypoint/main.ts",
       root,
     ).pathname,
     base_module: new URL("packages/base/mod.ts", root).href,

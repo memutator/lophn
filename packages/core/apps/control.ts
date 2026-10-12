@@ -1,6 +1,6 @@
 // core 안 apps 제어 조립. `POST /v1/apps/connect`(메모리 route)와 runtime·logs read의
 // 메인 스레드 덮기, supervisor 감독 pipe의 질의 통로, app credential 발급을 한곳에서 잇는다.
-// 업무 규칙은 packages/apps/runtime에 있고 여기는 core의 읽기·인증·감독 통로를 끼운다.
+// 업무 규칙은 packages/core/apps/runtime에 있고 여기는 core의 읽기·인증·감독 통로를 끼운다.
 import {
   canonicalize,
   type Clock,
@@ -1125,7 +1125,7 @@ export function repoRoot(): string {
 }
 
 // 앱 socket을 두는 폴더. XDG runtime 디렉터리가 있으면 거기, 없으면 사용자별 임시 폴더다
-// (packages/apps/runtime/processes/socket-dir.ts와 같은 규칙).
+// (packages/core/apps/runtime/processes/socket-dir.ts와 같은 규칙).
 export function appSocketRoot(runtimeDir?: string): string {
   const xdg = runtimeDir ?? Deno.env.get("XDG_RUNTIME_DIR");
   if (xdg !== undefined && xdg.length > 0) return `${xdg}/lophn`;

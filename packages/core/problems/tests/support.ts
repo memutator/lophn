@@ -135,7 +135,7 @@ const CONDITION_TARGET_KEYS = [
   "mode",
 ] as const;
 
-// packages/problems는 packages/platform을 import하지 않는다.
+// packages/core/problems는 core의 platform 쪽 module을 import하지 않는다.
 // 단위 테스트 Tx는 platform createTargetAuthorizer와 같은 strict 판정을 contracts 타입으로 쓴다.
 // ctx의 고정 조건 값으로 owner target을 덮어 합친 뒤, scope.targets의 모든 key가
 // 있고 같을 때만 ok다. owner target의 여분 key는 막지 않는다.

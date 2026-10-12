@@ -327,7 +327,7 @@ export function hashOf(text: string): Promise<string> {
   return sha256Hex(text);
 }
 
-// testdata 변형(packages/problems/tests/testdata/bundle-variants.json)이 봉인 bundle 사본에 거는 고침이다.
+// testdata 변형(packages/core/problems/tests/testdata/bundle-variants.json)이 봉인 bundle 사본에 거는 고침이다.
 export type BundleVariant = {
   name: string;
   requirement: string;

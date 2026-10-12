@@ -1,6 +1,6 @@
 // 실제 core를 임시 LOPHN_HOME으로 띄워 응답을 새는 측정 시나리오
 // (docs/plan/platform.md T51). `LOPHN_MEASURE=1 deno test --allow-all
-// packages/platform/responsiveness/measure-scenario_test.ts`로 opt-in으로만
+// packages/core/supervision/responsiveness/measure-scenario_test.ts`로 opt-in으로만
 // 돈다. 사람 장치에서 여러 worker가 도는 동안엔 무겁고 흔들리므로,
 // `deno task check`의 test 단계에서는 건너뛴다. 실제 ~/.lophn은 읽지도 쓰지도 않는다.
 import { assert } from "@std/assert";

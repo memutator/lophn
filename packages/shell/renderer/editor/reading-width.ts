@@ -9,7 +9,7 @@ import {
 
 import type { CoreSource } from "../desktop/connection/connection.ts";
 
-/** shell이 등록하는 설정 항목 key(apps/core/shell.ts). */
+/** shell이 등록하는 설정 항목 key(packages/core/config/shell-settings.ts). */
 export const READING_WIDTH_KEY = "shell.reading_width";
 
 // platform settings.get·settings.apply 응답에서 읽는 field. main이 schema로 검사했다.

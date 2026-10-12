@@ -81,18 +81,11 @@
       "npm:zod@4.6.5"
     ],
     "links": {
-      "jsr:@lophn/apps": {
-        "dependencies": [
-          "jsr:@luca/esbuild-deno-loader@0.11.1",
-          "npm:esbuild@0.28.2"
-        ]
-      },
       "jsr:@lophn/base": {},
       "jsr:@lophn/blueprint@1.0.0": {},
       "jsr:@lophn/cap-problem@1.0.0": {},
       "jsr:@lophn/cap-schedule@1.0.0": {},
       "jsr:@lophn/coding-agent": {},
-      "jsr:@lophn/contracts": {},
       "jsr:@lophn/design": {
         "dependencies": [
           "jsr:@luca/esbuild-deno-loader@0.11.1",
@@ -115,17 +108,8 @@
           "npm:react@19.3.0"
         ]
       },
-      "jsr:@lophn/documents": {
-        "dependencies": [
-          "npm:ignore@7.0.12",
-          "npm:parse5@8.0.1",
-          "npm:picomatch@4.0.7",
-          "npm:quickjs-emscripten@0.32.0"
-        ]
-      },
       "jsr:@lophn/format-document@1.0.0": {},
-      "jsr:@lophn/lophn-agent": {},
-      "jsr:@lophn/problems": {},
+      "jsr:@lophn/protocol": {},
       "jsr:@lophn/shell-renderer": {
         "dependencies": [
           "jsr:@luca/esbuild-deno-loader@0.11.1",
@@ -215,6 +199,16 @@
         "dependencies": [
           "npm:@types/react@19.3.0",
           "npm:lucide-react@1.51.0",
+          "npm:react@19.3.0"
+        ]
+      },
+      "jsr:@lophn/wireframes": {
+        "dependencies": [
+          "jsr:@luca/esbuild-deno-loader@0.11.1",
+          "npm:@types/react@19.3.0",
+          "npm:@xterm/xterm@6.0.0",
+          "npm:esbuild@0.28.2",
+          "npm:react-dom@19.3.0",
           "npm:react@19.3.0"
         ]
       },

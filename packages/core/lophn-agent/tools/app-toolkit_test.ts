@@ -98,7 +98,7 @@ function machineOf(world: World, release: string): CoreCall {
 }
 
 // run의 agent 자격이다. AgentAppScope(scope.agent)는 platform registry가 인증한 context에만 실려서
-// 같은 인증 context를 connector에 직접 넣는다(packages/apps/runtime/agent-connect_test.ts와 같다).
+// 같은 인증 context를 connector에 직접 넣는다(packages/core/apps/runtime/agent-connect_test.ts와 같다).
 async function agentOf(
   world: World,
   role: AgentRole,

@@ -26,7 +26,7 @@ export const nodeStreamFetch: StreamFetch = async (input, init) => {
 
 // Node 24 global WebSocket(undici)은 브라우저 확장인 headers 옵션을 받는다.
 // 두 번째 인자 객체의 headers가 upgrade 요청에 실려 core gate
-// (packages/platform/api/server.ts의 Bearer 필수)를 통과한다. token은 URL에 넣지 않는다.
+// (packages/core/server/server.ts의 Bearer 필수)를 통과한다. token은 URL에 넣지 않는다.
 export function nodeSockets(): SocketFactory {
   return {
     open(url, protocol, headers?: Record<string, string>) {

@@ -21,7 +21,7 @@ import {
 } from "./mod.ts";
 
 // 문서·format 묶음의 정의와 handler. 소유 contract(documents)는 메모리 fake로 흉내 낸다. 실제 core와
-// 실제 documents worker를 거친 확인은 apps/core/document-tools_test.ts가 한다. 이 시험은 model
+// 실제 documents worker를 거친 확인은 packages/core/lophn-agent/tools/document-tools-core_test.ts가 한다. 이 시험은 model
 // provider를 부르지 않는다.
 
 const ALPHA = "0123456789abcdefghjkmnpqrstvwxyz";

@@ -63,8 +63,11 @@ Deno.test("platform/install-and-update#R4, R5: CLI·MCP launcher는 설치된 De
   assertFalse(mcp.includes("--allow-write"));
   assertStringIncludes(mcp, '--allow-run="$ROOT/lophn-credential"');
   assertEquals(mcp.match(/--allow-run/g)?.length, 1);
-  assertStringIncludes(mcp, "apps/mcp/main.ts");
-  assertStringIncludes(cliLauncher(layout), "apps/cli/main.ts");
+  assertStringIncludes(mcp, "packages/coding-agent/mcp-server/main.ts");
+  assertStringIncludes(
+    cliLauncher(layout),
+    "packages/coding-agent/cli/main.ts",
+  );
 });
 
 // platform/install-and-update#R4, R5의 CLI 정확한 경로 권한(open-issues coding-agent/mcp-server#Q9)이다.
@@ -88,7 +91,7 @@ async function runCliLauncher(
       [
         "#!/bin/sh",
         'case "$*" in',
-        `  *apps/cli/launch.ts*) printf '%s\\n' "$@" >> "${log}.planner"; printf '%s' "$FAKE_PLAN" ;;`,
+        `  *packages/coding-agent/cli/launch-entry.ts*) printf '%s\\n' "$@" >> "${log}.planner"; printf '%s' "$FAKE_PLAN" ;;`,
         `  *) printf '%s\\n' "$@" >> "${log}.final" ;;`,
         "esac",
         "",
@@ -200,7 +203,10 @@ Deno.test("platform/install-and-update#R4, R5: CLI launcher는 정확한 경로�
   ) {
     assertFalse(argv.includes(banned), banned);
   }
-  assertEquals(argv.at(-3), "<ROOT>/platform/apps/cli/main.ts");
+  assertEquals(
+    argv.at(-3),
+    "<ROOT>/platform/packages/coding-agent/cli/main.ts",
+  );
   assertEquals(argv.slice(-2), ["document", "list"]);
 });
 
@@ -220,7 +226,11 @@ Deno.test("platform/install-and-update#R4, R5: 설치·sdk 명령은 권한 계�
     run.planner.filter((a) => a.startsWith("--allow-run")),
     ["--allow-run=<ROOT>/lophn-credential"],
   );
-  assert(run.planner.includes("<ROOT>/platform/apps/cli/launch.ts"));
+  assert(
+    run.planner.includes(
+      "<ROOT>/platform/packages/coding-agent/cli/launch-entry.ts",
+    ),
+  );
   // 최종 실행에는 계획이 낸 두 flag가 flag 그대로 더해진다. 합쳐진 값이나 새 권한은 없다.
   const extra = run.final.filter((a) => a.includes("<H>/.claude.json"));
   assertEquals(extra, plan.split("\n"));

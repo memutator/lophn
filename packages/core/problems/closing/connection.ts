@@ -22,7 +22,7 @@ import {
 } from "../../events/internal-subscription.ts";
 import type { CoreRuntime } from "../../main/daemon/runtime.ts";
 
-// worker 깨움 요청 op. apps/worker/problems/test-runner.ts와 같은 값이다.
+// worker 깨움 요청 op. packages/core/main/worker/test-runner.ts와 같은 값이다.
 export const PROBLEMS_CLOSING_FEED_PRINCIPAL = "machine:problems-closing-feed";
 export const PROBLEMS_CLOSING_OP = "problems.closing";
 

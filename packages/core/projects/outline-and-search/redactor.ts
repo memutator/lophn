@@ -3,7 +3,7 @@
 // 입력은 항상 JS 문자열(본문 조각·제목)이다. 지우는 것은 두 가지다.
 // - pattern 검출: 고정한 credential prefix·PEM 규칙(matchCredential).
 // - 알려진 secret 원문: reader Worker의 보호 메모리 registry다. 값은 core가 reader pool의
-//   등록·회수 통로로 넣고(apps/core/secret-store.ts), 이 redactor는 일치 검사만 하는
+//   등록·회수 통로로 넣고(packages/core/secrets/store.ts), 이 redactor는 일치 검사만 하는
 //   matcher를 받는다. 값 목록도 module 전역 상태도 이 파일에 없다.
 // 한 자리에서 둘이 겹치면 더 앞에서 시작하는, 같으면 더 긴 쪽을 지운다. 안전화를 끝내지
 // 못하면 null로 답해 원문이 나가지 않게 한다(fail-closed).

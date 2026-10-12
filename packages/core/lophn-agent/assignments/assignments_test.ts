@@ -7,7 +7,7 @@ import {
 } from "../../testing/ledger.ts";
 
 // assignment ledger 테스트. 실제 등록 executor(harness)와 임시 ledger 파일을 쓴다.
-// 자리 보관에 반응하는 루프는 apps/core/testing/lophn-agent-assignments-reaction_test.ts에 있다.
+// 자리 보관에 반응하는 루프는 packages/core/testing/lophn-agent-assignments-reaction_test.ts에 있다.
 
 const NOW = Date.UTC(2026, 0, 1);
 

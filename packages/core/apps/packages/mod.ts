@@ -1,5 +1,5 @@
-// apps/sdk concern의 경계다. 최상위 concern 사이는 packages/contracts로만 부르고,
-// ledger 조립은 아래 모듈을 직접 부른다(apps/core/apps.ts).
+// apps/sdk concern의 경계다. 최상위 concern 사이는 packages/protocol로만 부르고,
+// ledger 조립은 아래 모듈을 직접 부른다(packages/core/apps/register.ts).
 export { createSdkCommands } from "./commands.ts";
 export {
   PACKAGE_GUIDE_BLOB_FIELD,

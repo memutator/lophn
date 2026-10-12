@@ -18,7 +18,7 @@ import {
 } from "../lophn-agent/session/world_test.ts";
 
 // 다음 사람 메시지를 접수하면 redo가 끝난다(conversation#R25, lophn-agent/revert R16). 실제 등록
-// executor(harness)와 임시 ledger를 쓴다. 먼저 conversation 시험 등록(packages/lophn-agent/conversation/registration_test.ts)이 revert의 command·읽기·표를
+// executor(harness)와 임시 ledger를 쓴다. 먼저 conversation 시험 등록(packages/core/lophn-agent/session/registration_test.ts)이 revert의 command·읽기·표를
 // 올려야 한다(agent-RW3b·RW3d).
 
 const RVT = id("rvt", 1);

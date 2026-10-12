@@ -1,13 +1,13 @@
 // 질문이 있는 실제 core. 실제 core 테스트(real-core.ts의 startRealCore)와 headless shell
 // 확인이 별도 프로세스로 띄운다. renderer bundle에는 들어가지 않는다.
 //
-// apps/core/main.ts처럼 core를 띄우되 test credential 입구를 열어, 사람이 연 세션의 run을
+// packages/core/main/daemon/main.ts처럼 core를 띄우되 test credential 입구를 열어, 사람이 연 세션의 run을
 // machine이 시작하고 그 run의 agent가 글이 있는 질문 묶음(질문 하나)을 만든다. 그 run의 일을 다른
 // assignment가 handoff로 받아(세션 없는 run) 그 run의 agent도 질문 묶음 하나를 만든다. coding
 // agent는 세션 없는 approval request를 하나 만든다. 모두 실제 HTTP route로 보낸다. 그런 뒤에야 core가 부모
 // pipe에 쓴 hello frame을 stdout으로 넘기므로, 부모가 hello를 읽으면 질문 묶음이 이미 있다.
 //
-//   LOPHN_HOME=$(mktemp -d) deno run --allow-all apps/shell/renderer/testdata/question-core.ts
+//   LOPHN_HOME=$(mktemp -d) deno run --allow-all packages/shell/renderer/testdata/question-core.ts
 //   ... --seed-only  # 심고 바로 멈춘다(그 root로 shell을 headless로 띄울 때)
 //
 // LOPHN_HOME이 없으면 띄우지 않는다. 사람 데이터 root(~/.lophn)는 열지 않는다. 실제
@@ -93,16 +93,18 @@ if (home === undefined || home === "") {
 }
 const seedOnly = Deno.args.includes("--seed-only");
 
-const { startCore } = await load<CoreModule>("apps/core/core.ts");
-// apps/core/main.ts의 TEAMS와 같은 팀 등록이다. 같아야 이 root로 제품 core(shell이 띄우는
+const { startCore } = await load<CoreModule>(
+  "packages/core/main/daemon/core.ts",
+);
+// packages/core/main/daemon/main.ts의 TEAMS와 같은 팀 등록이다. 같아야 이 root로 제품 core(shell이 띄우는
 // core)가 schema를 그대로 받아 시작한다. 다르면 제품 core가 시작을 거절하므로 바로 드러난다.
 const TEAM_FILES = [
-  "apps/core/documents.ts",
-  "apps/core/apps.ts",
-  "apps/core/problems.ts",
-  "apps/core/coding-agent.ts",
-  "apps/core/lophn-agent.ts",
-  "apps/core/tickets.ts",
+  "packages/core/projects/register.ts",
+  "packages/core/apps/register.ts",
+  "packages/core/problems/register.ts",
+  "packages/core/server/identity/coding-connection.ts",
+  "packages/core/lophn-agent/register.ts",
+  "packages/core/apps/tickets/register.ts",
 ];
 const [documents, apps, problems, codingAgent, lophnAgent, tickets] =
   await Promise.all(TEAM_FILES.map((path) => load<TeamModule>(path)));
@@ -121,7 +123,7 @@ const teams = [
   { ticketDefinitions: tickets!.ticketDefinitions },
 ];
 const contracts = await load<PlatformContracts>(
-  "packages/contracts/platform/mod.ts",
+  "packages/protocol/server/mod.ts",
 );
 const base = await load<Base>("packages/base/mod.ts");
 

@@ -1,7 +1,7 @@
 // activation 전체를 실제 core(임시 LOPHN_HOME)·실제 apps supervisor·실제 data worker·실제 앱 자식으로 본다
 // (apps/releases#R8, R12–R16, apps/data#R4, R11). 사람 approval을 `/v1/approvals/apply`로 적용해 시작하고
 // core가 단계를 진행한다: 이전 자식 종료 확인 → backup(보호 blob) → migration → 후보 준비 확인 → commit → open.
-// 앱 bundle은 앱 템플릿(`packages/apps/sdk`)의 migration·command를 봉인한 사본이고, 앱 자식은 실제 runtime
+// 앱 bundle은 앱 템플릿(`packages/core/apps/packages`)의 migration·command를 봉인한 사본이고, 앱 자식은 실제 runtime
 // entrypoint를 쓰는 시험 자식(`runtime/testing/app-child.ts`)이다. 사람 데이터 root와 keychain은 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";

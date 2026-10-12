@@ -5,7 +5,7 @@
  * 남기는 시험 전용 team이다. 선언은 실제 `releases` 표에 채택한 release 행으로 둔다(제품의
  * `currentDeclarations` 구현이 그 행의 선언 사실을 읽는다). blueprint 검증·test 확인 없이 선언 사실만
  * 직접 넣는 것이 준비(`release.prepare`)와 다르다. grant command와 read는 제품 등록
- * (apps/core/apps.ts) 그대로 쓴다.
+ * (packages/core/apps/register.ts) 그대로 쓴다.
  *
  * ```ts
  * const opened = await createCoreHarness({

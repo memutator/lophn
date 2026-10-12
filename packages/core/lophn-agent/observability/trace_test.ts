@@ -16,7 +16,7 @@ import {
   readTrace,
 } from "./testing/mod.ts";
 
-// 조립만 본다. 실제 ledger 표와 core 등록은 apps/core/agent-trace_test.ts가 본다.
+// 조립만 본다. 실제 ledger 표와 core 등록은 packages/core/lophn-agent/observability/trace-flow_test.ts가 본다.
 
 const LOPHN = id("asg", 1);
 const ENGINEER = id("asg", 2);

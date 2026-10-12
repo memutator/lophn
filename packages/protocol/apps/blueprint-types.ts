@@ -140,7 +140,7 @@ export type SDKDependency = {
   version: string;
 };
 
-// packages/contracts/problems의 ProblemCodeDeclaration과 같은 구조다. import하지 않는다.
+// packages/protocol/problems의 ProblemCodeDeclaration과 같은 구조다. import하지 않는다.
 export type ProblemCodeDeclaration = {
   code: string;
   message_key: string;

@@ -1,5 +1,5 @@
 // documents/contexts의 새 context API를 core에 올리는 등록(command·read·ledger 표·blob field).
-// 순수 handler와 SQL adapter는 packages/documents/contexts가 하고, 여기는 그것을 platform ledger
+// 순수 handler와 SQL adapter는 packages/core/projects/contexts가 하고, 여기는 그것을 platform ledger
 // 등록 모양으로 묶는 자리다.
 //
 // 이 모듈은 core module graph에 들어간다(documents.ts가 import한다). 그래서 node:sqlite와 동기

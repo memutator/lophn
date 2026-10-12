@@ -391,7 +391,7 @@ export function createReleaseCommands(): {
     },
     // 준비 접수의 요청 때 검사다(apps/releases#R6). 앱 범위·source 연결·ticket claim을 이 transaction에서
     // 확인하고 아무것도 기록하지 않는다. 실제 준비는 supervisor 메모리 진행이고 core는 이 검사를 통과한
-    // 요청만 그쪽으로 넘긴다(apps/core/apps-control.ts의 `withReleasePreparation`). 범위 밖·없는 앱·
+    // 요청만 그쪽으로 넘긴다(packages/core/apps/control.ts의 `withReleasePreparation`). 범위 밖·없는 앱·
     // source가 없는 앱은 같은 거절이다.
     prepareBundle: {
       route: releasePrepareBundle,

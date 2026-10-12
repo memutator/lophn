@@ -3,7 +3,7 @@
 // 사람 결정)은 그 command가 쓰는 모양 그대로 심는다: closure는 contract closureSchema로 만들고
 // 문제 표와 함께 `ProblemClosed`·`ProblemReopened`·`ProblemConfirmationRecorded` event를 낸다.
 // 사람 확인 닫힘의 confirmation은 handle이 아니라 `ApplyProblemDecision@<basis_seq>` 참조다.
-// 제품 core의 실제 command 경로는 apps/core/ticket-checker_test.ts가 본다.
+// 제품 core의 실제 command 경로는 packages/core/apps/tickets/checker/connection_test.ts가 본다.
 import { assert, assertEquals } from "@std/assert";
 import { ok } from "../../../base/mod.ts";
 import { seqSchema } from "../../../protocol/server/mod.ts";

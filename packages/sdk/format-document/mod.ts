@@ -1,5 +1,5 @@
-// 내장 document format의 선언이다. 내용의 정본은 packages/documents/formats의
-// 등록이고(apps/core/documents.ts), 여기는 같은 선언을 데이터로 담아 앱이 읽게
+// 내장 document format의 선언이다. 내용의 정본은 packages/core/projects/formats의
+// 등록이고(packages/core/projects/register.ts), 여기는 같은 선언을 데이터로 담아 앱이 읽게
 // 내보내기만 한다(documents Q10). 검사 코드는 없다 — 검사는 core 밖 격리 환경에서
 // 돌는 `/v1/formats/validate`만 한다(documents/formats#R18). Module hash는
 // documents#T4의 bundle.js hash와 같다(→ documents/plan Q10).

@@ -19,7 +19,7 @@ import { nodeFetch, nodeStreamFetch } from "./node-io.ts";
 function spawnCore(home: string, repoRoot: string): ChildProcess {
   return spawn(
     "deno",
-    ["run", "--allow-all", "apps/core/main.ts", "--port=0"],
+    ["run", "--allow-all", "packages/core/main/daemon/main.ts", "--port=0"],
     {
       cwd: repoRoot,
       env: { ...process.env, LOPHN_HOME: home },

@@ -56,14 +56,14 @@ function mentions(texts: Map<string, string>, pattern: RegExp): string[] {
 Deno.test("lophn-agent/scheduling [agent-R3]: 폴더·contract·base 계산이 없고 어느 코드도 부르지 않는다", () => {
   for (
     const path of [
-      "packages/lophn-agent/scheduling",
-      "packages/contracts/lophn-agent/occurrences.ts",
-      "packages/contracts/lophn-agent/occurrences_test.ts",
+      "packages/core/lophn-agent/scheduling",
+      "packages/protocol/lophn-agent/occurrences.ts",
+      "packages/protocol/lophn-agent/occurrences_test.ts",
       "packages/base/schedule.ts",
       "packages/base/schedule_test.ts",
     ]
   ) assertEquals(exists(path), false, path);
-  const all = textsUnder("packages/", "apps/");
+  const all = textsUnder("packages/");
   assertEquals(
     mentions(
       all,
@@ -75,7 +75,13 @@ Deno.test("lophn-agent/scheduling [agent-R3]: 폴더·contract·base 계산이 �
 
 Deno.test("lophn-agent/scheduling [agent-R3]: agent-runtime에 occurrence 시계가 없다", () => {
   assertEquals(
-    mentions(textsUnder("apps/agent-runtime/"), /occurrence/i),
+    mentions(
+      textsUnder(
+        "packages/core/main/agent-runtime/",
+        "packages/core/lophn-agent/run-loop/",
+      ),
+      /occurrence/i,
+    ),
     [],
   );
 });
@@ -99,7 +105,7 @@ Deno.test("lophn-agent/scheduling [agent-R3]: runs에는 schedule 출처 열·ch
 Deno.test("lophn-agent/scheduling [agent-R3]: tool-judgment에 periodic origin이 없다", () => {
   assertEquals(
     mentions(
-      textsUnder("packages/lophn-agent/harness/tool-judgment/"),
+      textsUnder("packages/core/lophn-agent/tool-judgment/"),
       /periodic/,
     ),
     [],
@@ -117,7 +123,7 @@ Deno.test("lophn-agent/scheduling [agent-R3]: Operator 결과와 run 결과 이�
 Deno.test("lophn-agent/scheduling [agent-R3]: 알림 계기는 내는 곳이 없어진 pause 이유를 세지 않는다", () => {
   assertEquals(
     mentions(
-      textsUnder("packages/platform/notifications/"),
+      textsUnder("packages/core/notifications/"),
       /consecutive_failures|output_archived/,
     ).filter((path) => !path.endsWith("_test.ts")),
     [],

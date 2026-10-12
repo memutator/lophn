@@ -557,7 +557,7 @@ export type Core = {
     createdAt: string,
   ): Promise<Result<{ plan: RestorePlan; binding: RestoreBinding }>>;
   // 확인한 restore가 이 core를 멈췄는가. 멈췄으면 같은 data root로 다시 `startCore`해야 한다
-  // (apps/core/main.ts가 한다). 복원이 실패해도 core는 이미 멈춘 뒤라 true다.
+  // (packages/core/main/daemon/main.ts가 한다). 복원이 실패해도 core는 이미 멈춘 뒤라 true다.
   restoreStopped(): boolean;
   // 기한에 도달한 대기 approval request의 만료 확정. 같은 timer와 재시작이 부른다(platform Q25).
   sweepApprovalExpiry(): Promise<void>;
@@ -3069,7 +3069,7 @@ async function runStoppedMaintenance(input: {
   if (!outcome.success) await noteMaintenanceFailure(input.dataRoot, false);
 }
 
-// restore 프로세스 입구(apps/worker/platform/restore-entry.ts)를 띄워 정지한 data root를
+// restore 프로세스 입구(packages/core/main/worker/restore-entry.ts)를 띄워 정지한 data root를
 // 복원한다. 파일 복사·hash·검증은 core graph 밖 프로세스의 몫이다(responsiveness#R1).
 // 어떤 실패도 현재 자료를 바꾸지 않은 채 오류로 돌아온다.
 const RESTORE_TIMEOUT_MS = 10 * 60_000;
@@ -3178,7 +3178,7 @@ async function noteMaintenanceFailure(
       kind: "log",
       code: "lophn_internal",
       error_type: "maintenance_gc",
-      location: "apps/core/core.ts",
+      location: "packages/core/main/daemon/core.ts",
       message: timedOut
         ? "maintenance_gc timeout"
         : "Stopped maintenance did not run.",

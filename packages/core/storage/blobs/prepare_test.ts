@@ -365,7 +365,7 @@ Deno.test("platform/blob-store#R1: find는 같은 주체·purpose·hash의 살�
 });
 
 Deno.test("platform/blob-store#R12: I/O worker 권한(run 없음)에서 quota 관측을 부른다", async () => {
-  // 제품 launch spec(apps/core/core.ts platformIoSpec)은 allow_run을 열지 않는다.
+  // 제품 launch spec(packages/core/main/daemon/core.ts platformIoSpec)은 allow_run을 열지 않는다.
   // 이 권한 모양에서 실제 관측 경로가 NotCapable로 떨어지지 않고 undefined(관측 불가)로 끝나는지 본다.
   // 권한은 test runner가 정한다: deno task check의 test 스텝은 sys·run을 열지 않는다.
   const quota = systemQuota();

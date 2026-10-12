@@ -3957,7 +3957,7 @@ async function killCoreOf(shellPid: number): Promise<void> {
   for (const pid of await descendantPids(shellPid)) {
     try {
       const raw = await Deno.readFile(`/proc/${pid}/cmdline`);
-      if (decoder.decode(raw).includes("apps/core/main.ts")) {
+      if (decoder.decode(raw).includes("packages/core/main/daemon/main.ts")) {
         corePid = pid;
         break;
       }

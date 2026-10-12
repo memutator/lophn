@@ -4,7 +4,7 @@ import { defineTxPort, type LedgerTestRegistration } from "./ledger.ts";
 
 // 질문 등록에 platform의 run 판정 port를 더한 시험 등록. agent 자격의 command는 자격에
 // 묶인 run이 진행 중일 때만 통과한다(platform/ledger#R11). 판정은 제품 조립
-// (apps/core/lophn-agent.ts)과 같이 runs 표를 읽는다.
+// (packages/core/lophn-agent/register.ts)과 같이 runs 표를 읽는다.
 export function createLedgerTestRegistration(): LedgerTestRegistration {
   const base = createQuestionsRegistration();
   return {

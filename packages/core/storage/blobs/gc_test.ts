@@ -1,6 +1,6 @@
 // blob GC와 보존 정리 순수 규칙의 요구 테스트(platform/blob-store#R8, R9,
 // R11, R13). 참조 대조·유예기간·backup 진행 표시·종류별 상한의 판정만 본다.
-// 파일 관측과 실제 삭제의 동작 테스트는 apps/worker/platform/gc_test.ts다.
+// 파일 관측과 실제 삭제의 동작 테스트는 packages/core/storage/blobs/worker/gc_test.ts다.
 
 import { assert, assertEquals } from "@std/assert";
 import {

@@ -2,7 +2,7 @@
 // 답·허락을 기다리고 결정으로 재개하거나 끝나는 흐름을 본다. 질문과 approval은 core의 실제 command다
 // (질문 lophn-agent/questions, approval platform/approvals). model은 부르지 않고(고정 call의 입력은
 // 시험이 준다) 실제 provider와 사람 데이터 root는 열지 않는다. 판정표·보이는 기다림·retry 대기의 순수
-// 규칙은 packages/lophn-agent/harness/waiting-and-recovery/waiting_test.ts가 본다.
+// 규칙은 packages/core/lophn-agent/waiting-and-recovery/waiting_test.ts가 본다.
 import { assert, assertEquals, assertNotEquals } from "@std/assert";
 import { answerQuestionAction } from "../../../protocol/lophn-agent/mod.ts";
 import { settingsOptionAction } from "../tools/questions/mod.ts";

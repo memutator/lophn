@@ -7,7 +7,7 @@
 //
 // Electron main 쪽 R5(shell과 함께)는 이 확인에 없다.
 //
-// 실행: deno test --allow-all packages/platform/responsiveness/app-isolation_test.ts
+// 실행: deno test --allow-all packages/core/supervision/responsiveness/app-isolation_test.ts
 import { assert, assertEquals, assertFalse } from "@std/assert";
 
 import { createCoreHarness } from "../../testing/core.ts";

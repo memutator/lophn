@@ -427,7 +427,7 @@ app.whenReady().then(async () => {
 `;
 
 const ELECTRON = Deno.env.get("LOPHN_ELECTRON") ??
-  `${REPO}/apps/shell/main/node_modules/electron/dist/electron`;
+  `${REPO}/packages/shell/main/node_modules/electron/dist/electron`;
 const hasElectron = await Deno.stat(ELECTRON).then(() => true, () => false);
 
 type Measured = {

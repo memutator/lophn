@@ -1,7 +1,7 @@
 // lophn-agent/assignments#R1: AppCreated와 자리 보관·보관 해제 반응 engine. 구독자 gate가 있는 등록
 // executor(applyMigrations + runCommand)를 direct connection으로 부르고, 반응 engine은
-// reaction.ts의 실제 것을 쓴다. 제품 core 경로는 apps/core/assignment-reactions_test.ts가 본다. 구독자 gate를 만드는 direct connection이
-// platform/ledger를 직접 부르므로 apps/core/testing/에 둔다(lophn-agent-assignments_test.ts와 같다).
+// reaction.ts의 실제 것을 쓴다. 제품 core 경로는 packages/core/lophn-agent/assignments/reactions_test.ts가 본다. 구독자 gate를 만드는 direct connection이
+// platform/ledger를 직접 부르므로 packages/core/testing/에 둔다(lophn-agent-assignments_test.ts와 같다).
 import { assert, assertEquals } from "@std/assert";
 import { err, type LophnError, manualClock, ok } from "../../base/mod.ts";
 import type { AuthenticatedContext } from "../../protocol/server/mod.ts";

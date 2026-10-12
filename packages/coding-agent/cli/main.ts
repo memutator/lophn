@@ -74,8 +74,8 @@ export type CliOptions = {
   stdin?: () => Promise<string>;
 };
 
-// 설치 묶음의 위치다. 이 entry는 `<설치 root>/platform/apps/cli/main.ts`라 세 단계 위다.
-const INSTALL_ROOT = new URL("../../../", import.meta.url).pathname;
+// 설치 묶음의 위치다. 이 entry는 `<설치 root>/platform/packages/coding-agent/cli/main.ts`라 네 단계 위다.
+const INSTALL_ROOT = new URL("../../../../", import.meta.url).pathname;
 
 function readTextOrUndefined(path: string): string | undefined {
   try {

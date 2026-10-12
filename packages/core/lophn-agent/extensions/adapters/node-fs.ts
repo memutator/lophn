@@ -12,7 +12,7 @@ import type { PlaceFiles } from "../place-store.ts";
 import type { SyncSkillFiles } from "../skills-sync.ts";
 
 // 동기 파일 눈이다. 동기 file API는 core 프로세스의 module graph에 둘 수 없어(platform/responsiveness#R1)
-// 이 module은 writer·reader Worker 안에서만 URL로 연다(apps/core/lophn-agent.ts).
+// 이 module은 writer·reader Worker 안에서만 URL로 연다(packages/core/lophn-agent/register.ts).
 
 function missing(error: unknown): boolean {
   const code = (error as { code?: string }).code;

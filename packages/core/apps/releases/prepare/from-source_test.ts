@@ -83,7 +83,10 @@ Deno.test("apps/sdk#R10 apps/releases#R1: source commit의 준비는 설치 SDK 
     assertEquals(prepared.value.manifest.entrypoint, "lophn-entry.ts");
     assert(paths.includes("lophn-entry.ts"));
     const entry = await Deno.readTextFile(`${copy}/lophn-entry.ts`);
-    assert(entry.includes("/packages/apps/runtime/entrypoint/main.ts"), entry);
+    assert(
+      entry.includes("/packages/core/apps/runtime/entrypoint/main.ts"),
+      entry,
+    );
     assert(entry.includes("await run();"), entry);
     assert(map.imports["@lophn/base"].startsWith("file:///"));
     assertEquals(map.imports["@lophn/app"], "./main.ts");

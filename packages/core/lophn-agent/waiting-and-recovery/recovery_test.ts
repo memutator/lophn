@@ -34,7 +34,7 @@ import {
 
 // 중단 뒤 복구(lophn-agent/harness/waiting-and-recovery R8–R10, R12). 경계·이력 재구성·계획은 순수
 // 함수이고, 이어 가는 loop는 fake port로 본다. 실제 core를 띄워 runtime을 멈추고 다시 띄우는 흐름은
-// apps/core/run-recovery_test.ts가 본다.
+// packages/core/lophn-agent/waiting-and-recovery/run-recovery_test.ts가 본다.
 
 const RUN = "run_01arz3ndektsv4rrffq69g5fav";
 const NOW = "2026-10-07T00:10:00.000Z";

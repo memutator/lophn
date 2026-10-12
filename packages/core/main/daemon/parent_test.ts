@@ -106,7 +106,7 @@ Deno.test("shell/app-frame#R22, platform/diagnostics#R2: main의 view 수명 진
 });
 
 // Node로 띄우지 않는다. core는 Deno 권한과 Worker가 필요하고, tools/check.ts의 node 단계는
-// apps/shell/main의 npm 검사다. 부모는 별도 프로세스로 실제 main.ts를 띄운다.
+// packages/shell/main의 npm 검사다. 부모는 별도 프로세스로 실제 main.ts를 띄운다.
 Deno.test("platform/install-and-update#R12: 부모 프로세스가 hello, command, read, event, 구독까지 돈다", async () => {
   const home = await Deno.makeTempDir({ prefix: "lophn-parent-" });
   const command = new Deno.Command(Deno.execPath(), {

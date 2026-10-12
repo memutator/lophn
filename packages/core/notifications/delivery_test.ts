@@ -11,7 +11,10 @@ import type { TeamModule } from "../main/daemon/registration.ts";
 type Reply = { status: number; body: Record<string, unknown> };
 
 const QUESTION = "qgr_01arz3ndektsv4rrffq69g5fav";
-const MODULES = ["./testing/notification-sources.ts", "./lophn-agent.ts"].map(
+const MODULES = [
+  "../testing/notification-sources.ts",
+  "../lophn-agent/register.ts",
+].map(
   (path) => new URL(path, import.meta.url).href,
 );
 const USER_OPERATIONS = [

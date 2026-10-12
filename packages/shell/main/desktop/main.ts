@@ -1408,7 +1408,7 @@ if (instance.acquired) {
         icon: trayIconPath({
           packaged: app.isPackaged,
           resourcesPath: process.resourcesPath,
-          // build 결과에서 here는 apps/shell/main/dist다.
+          // build 결과에서 here는 packages/shell/main/dist다.
           desktopDir: join(here, "..", "desktop"),
         }),
         actions: {
@@ -1449,8 +1449,8 @@ if (instance.acquired) {
 function rendererDist(): string {
   // packaged는 설치 묶음의 desktop/이다.
   if (app.isPackaged) return packagedInstall(process.resourcesPath).desktop;
-  // build 결과에서 here는 apps/shell/main/dist이고 renderer dist는 형제 concern
-  // 폴더 바로 아래다: apps/shell/renderer/dist.
+  // build 결과에서 here는 packages/shell/main/dist이고 renderer dist는 형제 concern
+  // 폴더 바로 아래다: packages/shell/renderer/dist.
   return join(here, "..", "..", "renderer", "dist");
 }
 

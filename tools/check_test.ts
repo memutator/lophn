@@ -26,7 +26,7 @@ function sample(shell: Step["when"]): Step[] {
 }
 
 const absent: Step["when"] = () =>
-  Promise.resolve({ run: false, note: "건너뜀: apps/shell/main 없음" });
+  Promise.resolve({ run: false, note: "건너뜀: packages/shell/main 없음" });
 
 Deno.test("tools/check: 단계를 적은 순서로 모두 돌린다", async () => {
   const { calls, runner } = fakeRunner({});
@@ -67,7 +67,7 @@ Deno.test("tools/check: 건너뛴 단계는 실패로 세지 않고 표에 이�
   const shell = results.find((r) => r.name === "shell");
   assertEquals(ok, true);
   assertEquals(shell?.status, "건너뜀");
-  assertEquals(shell?.note, "건너뜀: apps/shell/main 없음");
+  assertEquals(shell?.note, "건너뜀: packages/shell/main 없음");
   assertEquals(calls.some((c) => c[0] === "npm"), false);
 });
 
@@ -76,7 +76,7 @@ Deno.test("tools/check: node_modules가 없으면 npm ci를 먼저 돌리고 표
     Promise.resolve({
       run: true,
       note: "npm ci를 먼저 돌림",
-      before: ["npm", "--prefix", "apps/shell/main", "ci"],
+      before: ["npm", "--prefix", "packages/shell/main", "ci"],
     });
   const { calls, runner } = fakeRunner({});
   const { results, ok } = await runSteps(sample(installed), runner);
@@ -94,10 +94,10 @@ Deno.test("tools/check: npm ci가 실패하면 shell check를 돌리지 않고 �
     Promise.resolve({
       run: true,
       note: "npm ci를 먼저 돌림",
-      before: ["npm", "--prefix", "apps/shell/main", "ci"],
+      before: ["npm", "--prefix", "packages/shell/main", "ci"],
     });
   const { calls, runner } = fakeRunner({
-    "npm --prefix apps/shell/main ci": 1,
+    "npm --prefix packages/shell/main ci": 1,
   });
   const { results, ok } = await runSteps(sample(installed), runner);
   assertEquals(ok, false);

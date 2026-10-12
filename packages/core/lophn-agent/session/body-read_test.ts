@@ -21,7 +21,7 @@ import { conversationSchemaSteps } from "./model.ts";
 import { cred, id, textContent } from "./testing/mod.ts";
 
 // ReadMessageBody의 판정과 바이트 조립. blob store 쪽(바이트를 주는 곳)만 메모리로 두고
-// ledger 표는 실제 schema로 만든다. 실제 core의 읽기는 apps/core/message-body_test.ts다.
+// ledger 표는 실제 schema로 만든다. 실제 core의 읽기는 packages/core/lophn-agent/session/message-body_test.ts다.
 
 const encoder = new TextEncoder();
 

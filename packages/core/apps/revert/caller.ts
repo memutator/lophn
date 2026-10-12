@@ -1,6 +1,6 @@
 // 앱 revert 호출 worker의 core 쪽 연결(lophn-agent/revert). 제품 core가 감독하는 상시 worker kind
 // `apps/revert`의 launch spec과, 사람의 `RunAppRevert`가 단계마다 호출을 청하는 통로다.
-// worker의 실제 호출(`apps/connect` 연결과 앱 direct socket)은 apps/worker/apps/revert.ts가 하고,
+// worker의 실제 호출(`apps/connect` 연결과 앱 direct socket)은 packages/core/apps/revert/worker/run.ts가 하고,
 // core는 호출자의 credential을 요청에 실어 보내고 worker가 돌려준 결과를 받아 판정한다.
 // worker는 자기 machine credential이 없어 호출자 주장을 대신하지 않는다.
 import { err, ok, type Result } from "../../../base/mod.ts";
@@ -12,7 +12,7 @@ import { checkLaunchSpec } from "../../supervision/security/mod.ts";
 import type { DocumentsChannel } from "../../projects/file-tracking/coordinator/serving.ts";
 
 export const REVERT_WORKER_KIND = "apps/revert";
-// worker 호출 요청 op. apps/worker/apps/revert.ts와 같은 값이다.
+// worker 호출 요청 op. packages/core/apps/revert/worker/run.ts와 같은 값이다.
 export const REVERT_CALL_OP = "revert.call";
 
 // 호출 요청 하나의 기한. 앱 invoke(앱 handler의 write)를 넉넉히 덮는다.

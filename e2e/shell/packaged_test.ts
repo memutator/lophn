@@ -13,7 +13,7 @@ import { test } from "node:test";
 
 // ESM이라 __dirname이 없다. 이 파일 자리에서 shell main을 찾는다.
 const here = path.dirname(fileURLToPath(import.meta.url));
-const mainRoot = path.resolve(here, "..", "..", "apps", "shell", "main");
+const mainRoot = path.resolve(here, "..", "..", "packages", "shell", "main");
 const stageDir = path.join(mainRoot, "build", "stage");
 const releaseDir = path.join(mainRoot, "release");
 

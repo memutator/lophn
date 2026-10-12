@@ -154,7 +154,7 @@ const appCreateOwner: OptionActionOwner = {
 
 // 선택지로 열 수 있는 owner 동작. 안쪽에서 되돌릴 수 있는 동작만이다. 권한 부여·외부 효과·
 // 복원 불가 동작은 이 목록에 없으므로 질문을 만들 때 막힌다(R12). 새 owner 동작은 이 목록에
-// 더하고 그 owner의 handler를 core 조립이 묶는다(apps/core/lophn-agent.ts).
+// 더하고 그 owner의 handler를 core 조립이 묶는다(packages/core/lophn-agent/register.ts).
 export const OPTION_ACTION_OWNERS: readonly OptionActionOwner[] = [
   documentOwner(documentMove),
   documentOwner(documentRename),

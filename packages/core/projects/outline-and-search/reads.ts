@@ -1,5 +1,5 @@
 // search 읽기 handler. route 등록은 API 작업으로 남긴다(contract SEARCH_ROUTES,
-// packages/contracts/documents/search.ts). 입력 검사와 operation scope는 dispatch가
+// packages/protocol/projects/search.ts). 입력 검사와 operation scope는 dispatch가
 // 이미 본다. 여기서는 ledger snapshot의 문서·판 metadata와 derived store의
 // search_rows·search_fts를 읽는다. 권한 밖 ID는 후보 단계에서 빼고 count·rank·page와
 // omissions도 허용 집합에서 계산한다(outline-and-search#R12, R14, R17).

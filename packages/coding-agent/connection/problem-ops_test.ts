@@ -1,6 +1,6 @@
 // 문제 op 공통 흐름 시험이다(coding-agent#T44). record_fix가 저장하지 않은 blob의 hash를 기록에 싣지
 // 않는지, test가 현재 claim 없이 runner에 닿지 않는지를 가짜 client로 본다. 실제 core 경로는
-// apps/core/coding-problem-tools_test.ts가 본다.
+// packages/core/problems/repairs/problem-tools_test.ts가 본다.
 import { assert, assertEquals } from "@std/assert";
 import { err, ok, type Result, sha256Hex } from "../../base/mod.ts";
 import type { LophnError } from "../../base/mod.ts";

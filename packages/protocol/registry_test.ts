@@ -2,7 +2,7 @@ import { assertEquals } from "@std/assert";
 import { ID_PREFIXES } from "./base/ids.ts";
 import { ALL_EVENTS, ALL_ROUTES } from "./mod.ts";
 
-const TOP_LEVEL = /^contracts\/([^/]+)/;
+const TOP_LEVEL = /^protocol\/([^/]+)/;
 
 Deno.test("contracts#T8: (resource, method)가 유일하다", () => {
   const seen = new Map<string, number>();
@@ -71,7 +71,7 @@ async function contractFiles(): Promise<string[]> {
       }
     }
   };
-  await walk("packages/contracts");
+  await walk("packages/protocol");
   return files;
 }
 

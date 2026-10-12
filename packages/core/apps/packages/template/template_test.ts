@@ -343,7 +343,7 @@ Deno.test("apps/sdk#R7 apps/sdk#R10 apps/sdk#R4: 설치한 모든 공개 SDK 사
   const present: string[] = [];
   for (const name of SDK_NAMES) {
     const exists = await Deno.stat(
-      new URL(`../../../sdk/${name}/`, import.meta.url),
+      new URL(`../../../../sdk/${name}/`, import.meta.url),
     ).then((info) => info.isDirectory, () => false);
     if (exists) present.push(`@lophn/${name}`);
   }

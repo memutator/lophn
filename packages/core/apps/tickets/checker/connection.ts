@@ -37,7 +37,7 @@ import {
 } from "./ids.ts";
 
 export const TICKET_CHECKER_KIND = "coding-agent/checker";
-// worker 깨움 요청 op. apps/worker/coding-agent/checker.ts와 같은 값이다.
+// worker 깨움 요청 op. packages/core/apps/tickets/worker/checker.ts와 같은 값이다.
 export const TICKET_CHECK_OP = "tickets.check";
 export { TICKET_CHECK_FEED_PRINCIPAL, TICKET_CHECKER_PRINCIPAL };
 

@@ -13,7 +13,7 @@ import type { DocumentsChannel } from "../../projects/file-tracking/coordinator/
 import type { CoreRuntime } from "../../main/daemon/runtime.ts";
 
 export const REPAIR_WORKER_KIND = "coding-agent/worker";
-// worker 요청 op. apps/worker/coding-agent/repair-context.ts의 REPAIR_CONTEXT_OPS와 같은 값이다.
+// worker 요청 op. packages/core/problems/repairs/worker/context.ts의 REPAIR_CONTEXT_OPS와 같은 값이다.
 const REPAIR_OP_PREFIX = "repair_context.";
 const REPAIR_REQUEST_MS = 30_000;
 
@@ -69,7 +69,7 @@ export function registerRepairReads(
   }
 }
 
-// worker 요청 op. apps/worker/coding-agent/session-summary.ts의 SESSION_SUMMARY_OP와 같은 값이다.
+// worker 요청 op. packages/core/problems/repairs/worker/session-summary.ts의 SESSION_SUMMARY_OP와 같은 값이다.
 const SESSION_SUMMARY_OP = "coding_agent_sessions.summary";
 
 // 세션 시작 summary(`/v1/coding_agent_sessions/summary`)의 handler를 같은 worker 통로로 붙인다

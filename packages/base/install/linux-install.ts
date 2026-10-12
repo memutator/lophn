@@ -130,7 +130,7 @@ const CLI_ENV =
 // 설치·감지·daemon·`sdk add --apply`가 요구하는 write·run은 정확한 경로와 파일로만 연다
 // (open-issues coding-agent/mcp-server#Q9): 쓰기는 `<H>/integrations`와 instance lock 파일, 실행은 helper·
 // 설치 Deno·`lophn-desktop`, 읽기는 PATH 폴더를 더한다. 선택한 제품 설정 파일·앱 source의 `deno.json`·
-// `deno.lock`처럼 명령 시점에야 알 수 있는 경로는 같은 argv를 읽는 권한 계획 entry(`apps/cli/launch.ts`)가
+// `deno.lock`처럼 명령 시점에야 알 수 있는 경로는 같은 argv를 읽는 권한 계획 entry(`packages/coding-agent/cli/launch-entry.ts`)가
 // 사람이 고른 target·앱에서 정확한 경로로 계산해 이 실행에만 더한다. 일반 쓰기·일반 실행·폴더 단위 쓰기는 없다.
 export function cliLauncher(layout: LinuxInstallLayout): string {
   return [
@@ -163,7 +163,7 @@ export function cliLauncher(layout: LinuxInstallLayout): string {
     '    --allow-env="$ENVNAMES" \\',
     `    --allow-net=${LOOPBACK} \\`,
     '    --allow-run="$ROOT/lophn-credential" \\',
-    '    "$ROOT/platform/apps/cli/launch.ts" "$@" 2>/dev/null) || EXTRA=""',
+    '    "$ROOT/platform/packages/coding-agent/cli/launch-entry.ts" "$@" 2>/dev/null) || EXTRA=""',
     "fi",
     "# 계획의 flag는 한 줄에 하나다. 줄 단위로만 나눈다.",
     "IFS='",
@@ -177,7 +177,7 @@ export function cliLauncher(layout: LinuxInstallLayout): string {
     `  --allow-net=${LOOPBACK} \\`,
     '  --allow-run="$ROOT/lophn-credential,$ROOT/deno,$ROOT/lophn-desktop" \\',
     "  $EXTRA \\",
-    '  "$ROOT/platform/apps/cli/main.ts" "$@"',
+    '  "$ROOT/platform/packages/coding-agent/cli/main.ts" "$@"',
     "",
   ].join("\n");
 }
@@ -192,7 +192,7 @@ export function mcpLauncher(layout: LinuxInstallLayout): string {
       "--allow-env=LOPHN_HOME,LOPHN_CONNECTION,LOPHN_DAEMON_URL,LOPHN_APP,LOPHN_MCP_TOOLSETS,LOPHN_AGENT_LABEL,DENO_DIR",
       `--allow-net=${LOOPBACK}`,
       '--allow-run="$ROOT/lophn-credential"',
-    ], "apps/mcp/main.ts"),
+    ], "packages/coding-agent/mcp-server/main.ts"),
     "",
   ].join("\n");
 }

@@ -10,7 +10,7 @@ import { runId } from "./testing/runs.ts";
 
 // run마다 agent credential을 받고 끝내는 호출 순서 테스트. 발급 경계는 platform의 것이라
 // 여기서는 그 port의 기록용 대역을 쓴다. 실제 인증 경계와 맞붙인 확인은
-// apps/core/run-credentials_test.ts에 있다.
+// packages/core/lophn-agent/run-loop/run-credentials_test.ts에 있다.
 
 const ASG = runId("asg", 1);
 const OTHER_ASG = runId("asg", 2);

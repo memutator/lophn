@@ -60,7 +60,7 @@ async function checkLayout(): Promise<void> {
       layout.chromeSandbox,
       `${layout.platform}/deno.json`,
       `${layout.platform}/deno.lock`,
-      `${layout.platform}/apps/core/main.ts`,
+      `${layout.platform}/packages/core/main/daemon/main.ts`,
       `${layout.desktop}/desktop/index.html`,
     ]
   ) {
@@ -167,7 +167,7 @@ async function runLauncher(
 // 문서 format runner의 wasm이 cache 없이 설치 묶음의 node_modules에서 찾아진다(R4).
 async function checkFormatRunnerWasm(): Promise<void> {
   const contract =
-    `${layout.platform}/packages/documents/formats/guest/contract.ts`;
+    `${layout.platform}/packages/core/projects/formats/guest/contract.ts`;
   const out = await new Deno.Command(layout.deno, {
     args: [
       "eval",

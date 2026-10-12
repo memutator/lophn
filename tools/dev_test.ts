@@ -96,8 +96,8 @@ Deno.test("deno task dev: 데이터 root는 저장소 안의 .dev-data다(저장
 Deno.test("deno task dev: shell main을 --home .dev-data 인자로 띄운다", async () => {
   const root = await Deno.makeTempDir({ prefix: "lophn-dev-" });
   try {
-    await Deno.mkdir(`${root}/apps/shell/main`, { recursive: true });
-    await Deno.writeTextFile(`${root}/apps/shell/main/package.json`, "{}");
+    await Deno.mkdir(`${root}/packages/shell/main`, { recursive: true });
+    await Deno.writeTextFile(`${root}/packages/shell/main/package.json`, "{}");
     const { ok, recorder: record } = await run("dev", root);
     assertEquals(ok, true);
     const shell = record.plans.find((p) => p.purpose === "shell");
@@ -107,7 +107,7 @@ Deno.test("deno task dev: shell main을 --home .dev-data 인자로 띄운다", a
       shell.plan.args,
       [
         "--prefix",
-        `${root}/apps/shell/main`,
+        `${root}/packages/shell/main`,
         "run",
         "dev",
         "--",
@@ -130,7 +130,7 @@ Deno.test("deno task dev: shell이 없으면 이유를 말하고 실패로 끝�
       const { ok, recorder: record } = await run("dev", root);
       assertEquals(ok, false);
       assertEquals(record.plans.length, 1); // fake provider만 띄우고 shell은 띄우지 않는다
-      assert(messages.join("\n").includes("apps/shell/main이 없다"));
+      assert(messages.join("\n").includes("packages/shell/main이 없다"));
     } finally {
       console.error = original;
     }
@@ -142,8 +142,8 @@ Deno.test("deno task dev: shell이 없으면 이유를 말하고 실패로 끝�
 Deno.test("deno task dev: fake provider를 함께 띄우고 그 주소를 core로 넘기는 env를 만든다", async () => {
   const root = await Deno.makeTempDir({ prefix: "lophn-dev-" });
   try {
-    await Deno.mkdir(`${root}/apps/shell/main`, { recursive: true });
-    await Deno.writeTextFile(`${root}/apps/shell/main/package.json`, "{}");
+    await Deno.mkdir(`${root}/packages/shell/main`, { recursive: true });
+    await Deno.writeTextFile(`${root}/packages/shell/main/package.json`, "{}");
     const { ok, recorder: record } = await run("dev", root);
     assertEquals(ok, true);
     const fake = record.plans.find((p) => p.purpose === "fake");
@@ -157,8 +157,8 @@ Deno.test("deno task dev: fake provider를 함께 띄우고 그 주소를 core�
 Deno.test("deno task dev:core: core만 같은 데이터 root로 띄운다", async () => {
   const root = await Deno.makeTempDir({ prefix: "lophn-dev-" });
   try {
-    await Deno.mkdir(`${root}/apps/core`, { recursive: true });
-    await Deno.writeTextFile(`${root}/apps/core/main.ts`, "");
+    await Deno.mkdir(`${root}/packages/core/main/daemon`, { recursive: true });
+    await Deno.writeTextFile(`${root}/packages/core/main/daemon/main.ts`, "");
     const { ok, recorder: record } = await run("dev:core", root);
     assertEquals(ok, true);
     const core = record.plans.find((p) => p.purpose === "core");
@@ -166,7 +166,7 @@ Deno.test("deno task dev:core: core만 같은 데이터 root로 띄운다", asyn
     assertEquals(core.plan.args, [
       "run",
       "--allow-all",
-      `${root}/apps/core/main.ts`,
+      `${root}/packages/core/main/daemon/main.ts`,
     ]);
     assertEquals(core.plan.env.LOPHN_HOME, `${root}/.dev-data`);
   } finally {
@@ -177,8 +177,8 @@ Deno.test("deno task dev:core: core만 같은 데이터 root로 띄운다", asyn
 Deno.test("deno task dev: fake provider를 띄우기 전에 데이터 root를 만든다", async () => {
   const root = await Deno.makeTempDir({ prefix: "lophn-dev-" });
   try {
-    await Deno.mkdir(`${root}/apps/shell/main`, { recursive: true });
-    await Deno.writeTextFile(`${root}/apps/shell/main/package.json`, "{}");
+    await Deno.mkdir(`${root}/packages/shell/main`, { recursive: true });
+    await Deno.writeTextFile(`${root}/packages/shell/main/package.json`, "{}");
     await run("dev", root);
     const stat = await Deno.stat(`${root}/.dev-data`);
     assert(stat.isDirectory);
@@ -190,8 +190,8 @@ Deno.test("deno task dev: fake provider를 띄우기 전에 데이터 root를 �
 Deno.test("deno task dev:core: LOPHN_LIVE_PROVIDER=1이면 fake provider를 띄우지 않는다", async () => {
   const root = await Deno.makeTempDir({ prefix: "lophn-dev-" });
   try {
-    await Deno.mkdir(`${root}/apps/core`, { recursive: true });
-    await Deno.writeTextFile(`${root}/apps/core/main.ts`, "");
+    await Deno.mkdir(`${root}/packages/core/main/daemon`, { recursive: true });
+    await Deno.writeTextFile(`${root}/packages/core/main/daemon/main.ts`, "");
     const record = recorder({ fakeReady: null });
     const result = await runDev("dev:core", {
       root,
@@ -229,7 +229,7 @@ Deno.test("deno task dev:core: --port=<n> 인자를 core에 흘려 보낸다(pla
   assertEquals(plan.args, [
     "run",
     "--allow-all",
-    "/repo/apps/core/main.ts",
+    "/repo/packages/core/main/daemon/main.ts",
     "--port=7431",
   ]);
   assertEquals(plan.env.LOPHN_HOME, "/repo/.dev-data");
@@ -238,7 +238,7 @@ Deno.test("deno task dev:core: --port=<n> 인자를 core에 흘려 보낸다(pla
   assertEquals(planNoPort.args, [
     "run",
     "--allow-all",
-    "/repo/apps/core/main.ts",
+    "/repo/packages/core/main/daemon/main.ts",
   ]);
 });
 
@@ -292,7 +292,7 @@ Deno.test("deno task dev: shell 계획은 --home으로 데이터 root를 받는�
     plan.args,
     [
       "--prefix",
-      "/repo/apps/shell/main",
+      "/repo/packages/shell/main",
       "run",
       "dev",
       "--",
@@ -304,8 +304,8 @@ Deno.test("deno task dev: shell 계획은 --home으로 데이터 root를 받는�
 
 async function shellRoot(): Promise<string> {
   const root = await Deno.makeTempDir({ prefix: "lophn-dev-" });
-  await Deno.mkdir(`${root}/apps/shell/main`, { recursive: true });
-  await Deno.writeTextFile(`${root}/apps/shell/main/package.json`, "{}");
+  await Deno.mkdir(`${root}/packages/shell/main`, { recursive: true });
+  await Deno.writeTextFile(`${root}/packages/shell/main/package.json`, "{}");
   return root;
 }
 
@@ -319,7 +319,7 @@ Deno.test("deno task dev: shell을 띄우기 전에 renderer를 build한다(옛 
     const build = record.plans.find((p) => p.purpose === "build")!;
     assertEquals(
       build.plan.args.at(-1),
-      `${root}/apps/shell/renderer/build.ts`,
+      `${root}/packages/shell/renderer/build.ts`,
     );
     assertEquals(build.plan, planRendererBuild(root));
   } finally {

@@ -1,5 +1,5 @@
 // context worker의 파일 쪽 adapters(docs/architecture/documents.md 2.4): Project 폴더의 파일 보기와
-// `context.check`의 임시 snapshot. 순수한 일(훑기, 검사)은 packages/documents/contexts가 하고, 여기는
+// `context.check`의 임시 snapshot. 순수한 일(훑기, 검사)은 packages/core/projects/contexts가 하고, 여기는
 // 파일을 열고 복사하는 IO만 한다.
 //
 // 경로 안전: 계약의 경로는 Project 폴더 기준 상대 경로다. 순회와 읽기에서 `.git`, 제외한 폴더(lophn

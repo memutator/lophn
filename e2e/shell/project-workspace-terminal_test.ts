@@ -19,8 +19,8 @@ import { launchShell, type PageSession, type RunningShell } from "../run.ts";
 
 const repoRoot = new URL("../../", import.meta.url).pathname.replace(/\/$/, "");
 const electronExecutable =
-  `${repoRoot}/apps/shell/main/node_modules/electron/dist/electron`;
-const shellApp = `${repoRoot}/apps/shell/main/dist/main.cjs`;
+  `${repoRoot}/packages/shell/main/node_modules/electron/dist/electron`;
+const shellApp = `${repoRoot}/packages/shell/main/dist/main.cjs`;
 
 async function runBuild(args: string[], failure: string): Promise<void> {
   const build = new Deno.Command(args[0], {
@@ -107,7 +107,7 @@ Deno.test({
   sanitizeResources: false,
   async fn() {
     await runBuild(
-      ["npm", "--prefix", `${repoRoot}/apps/shell/main`, "run", "build"],
+      ["npm", "--prefix", `${repoRoot}/packages/shell/main`, "run", "build"],
       "shell main build 실패",
     );
     await runBuild(
@@ -115,7 +115,7 @@ Deno.test({
         "deno",
         "run",
         "--allow-all",
-        `${repoRoot}/apps/shell/renderer/build.ts`,
+        `${repoRoot}/packages/shell/renderer/build.ts`,
       ],
       "shell renderer build 실패",
     );

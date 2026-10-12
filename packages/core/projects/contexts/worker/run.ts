@@ -5,7 +5,7 @@
 // - `context.check`: 계약이 가리키는 파일을 임시 snapshot으로 복사해 그 snapshot에서만 판을 검사한다.
 // - `context.preview`: 만드는 중인 판을 같은 방식의 임시 snapshot에서 돌려 보기만 한다(index·ledger를 쓰지
 //   않고 낼 command도 없다).
-// 일은 packages/documents/contexts의 work-*.ts가 하고 여기는 IPC와 IO adapters를 잇는다. worker는
+// 일은 packages/core/projects/contexts의 work-*.ts가 하고 여기는 IPC와 IO adapters를 잇는다. worker는
 // `lophn.db`를 열지 않고 core에도 닿지 않는다. 낼 command(`context.record_violations`,
 // `bundle.finish_check`)는 답에 실어 보내고 core가 좁은 machine 자격으로 낸다.
 import { err, ok, type Result, systemClock } from "../../../../base/mod.ts";
@@ -47,7 +47,7 @@ import {
 
 export const CONTEXTS_KIND = "documents/contexts";
 
-// data root 아래 worker가 쓰는 두 자리. core의 launch spec(apps/core/contexts-worker.ts)이 같은 자리만
+// data root 아래 worker가 쓰는 두 자리. core의 launch spec(packages/core/projects/contexts/connection.ts)이 같은 자리만
 // 쓰기를 허락한다.
 export function contextsPaths(dataRoot: string) {
   return {

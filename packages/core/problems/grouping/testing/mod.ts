@@ -81,7 +81,7 @@ const arrangeCommand: CommandDefinition<typeof arrange> = {
 };
 
 // coding-agent ticket 표와 lophn-agent assignment 표의 최소 모양이다. handler가 읽는 열만 같은 이름으로
-// 둔다(packages/problems는 그 표를 import하지 못한다). 제품에서는 각 owner의 schema가 만든다.
+// 둔다(packages/core/problems는 그 표를 import하지 못한다). 제품에서는 각 owner의 schema가 만든다.
 const TICKET_SCHEMA_STEP = {
   id: "problems.testing_tickets",
   sql: `

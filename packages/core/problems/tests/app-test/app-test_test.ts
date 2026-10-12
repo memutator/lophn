@@ -498,7 +498,7 @@ async function realChild(omit: boolean) {
         `--config=${root}deno.json`,
         `--allow-read=${root},${temp}`,
         `--allow-write=${scratch}`,
-        `${root}packages/problems/tests/testdata/app-test-child_test.ts`,
+        `${root}packages/core/problems/tests/testdata/app-test-child_test.ts`,
         "--",
         scratch,
       ],

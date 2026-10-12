@@ -1,5 +1,5 @@
 // 앱 프로세스 쪽 앱 쌍 통로(apps/connections#R4, apps/sdk#R40). 앱 runtime(Zod 없음)이 시작할 때
-// 설치하고 `@lophn/cap-schedule`의 connectAppCommands가 읽는다. SDK는 packages/apps를 import하지
+// 설치하고 `@lophn/cap-schedule`의 connectAppCommands가 읽는다. SDK는 packages/core/apps를 import하지
 // 않으므로 두 쪽이 같은 심볼과 같은 모양으로 맞춘다(packages/sdk/cap-schedule/connect.ts).
 // 준비 요청만 broker를 지나고, 연결 뒤 업무 요청·응답은 target direct socket으로 core·supervisor·
 // ledger queue를 거치지 않고 간다.

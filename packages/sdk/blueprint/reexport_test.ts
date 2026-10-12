@@ -107,8 +107,8 @@ Deno.test("apps/sdk#R5: SDK runtime import graph는 상대 TS뿐이고 zod·npm�
     assert(!specifier.startsWith("npm:"), specifier);
     assert(!specifier.startsWith("jsr:"), specifier);
   }
-  assert(seen.has(new URL("../../contracts/apps/blueprint.ts", root).pathname));
+  assert(seen.has(new URL("../../protocol/apps/blueprint.ts", root).pathname));
   assert(
-    seen.has(new URL("../../contracts/apps/blueprint-value.ts", root).pathname),
+    seen.has(new URL("../../protocol/apps/blueprint-value.ts", root).pathname),
   );
 });

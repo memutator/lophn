@@ -1647,7 +1647,7 @@ Deno.test("documents/contexts#R20 [ctx-T9b]: the worker may read the project fol
     [spec.allow_net, spec.allow_run, spec.allow_sys, spec.allow_env],
     [[], [], [], []],
   );
-  assert(spec.entry.endsWith("/apps/worker/documents/contexts.ts"));
+  assert(spec.entry.endsWith("/contexts/worker/run.ts"));
   // 쉼표가 든 폴더는 권한 목록에 넣을 수 없어 띄우지 않는다.
   assertEquals(
     contextsWorkerSpec({ dataRoot: "/data/lophn", roots: ["/work/a,/"] }),

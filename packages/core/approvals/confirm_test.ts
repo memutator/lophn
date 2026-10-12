@@ -1,6 +1,6 @@
 // confirm 앱 command의 approval request 규칙(platform/approvals#R8, platform#T32). 규칙 함수와
 // 실제 ledger(임시 파일 SQLite)의 생성·허락 command를 본다. 소유 접수와 한 번 사용까지의 끝에서 끝은
-// apps/core/platform-confirm_test.ts가 실제 core로 본다.
+// packages/core/approvals/confirm-flow_test.ts가 실제 core로 본다.
 import { assert, assertEquals } from "@std/assert";
 import { sha256Hex } from "../../base/mod.ts";
 import type { InvocationAcceptConfirmInput } from "../../protocol/apps/mod.ts";

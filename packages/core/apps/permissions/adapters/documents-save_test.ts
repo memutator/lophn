@@ -1,6 +1,6 @@
 // documents/versions#R14, apps/blueprint#R13: broker의 DocumentsSave port를 앱 자격의 실제 저장
 // 통로(upload → prepare → save)에 잇는 어댑터. core·documents는 fake client로 대신하고 실제
-// core와 이어 보는 시험은 apps/core/app-output_test.ts가 한다.
+// core와 이어 보는 시험은 packages/core/projects/versions/app-output-core_test.ts가 한다.
 import { assert, assertEquals } from "@std/assert";
 import { err, type LophnError, ok, type Result } from "../../../../base/mod.ts";
 import {

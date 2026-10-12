@@ -1,5 +1,5 @@
-// host port 모양. packages/apps/invocations/context.ts와 같은 필드다.
-// SDK는 packages/apps를 import하지 않는다.
+// host port 모양. packages/core/apps/invocations/context.ts와 같은 필드다.
+// SDK는 packages/core/apps를 import하지 않는다.
 
 export type InvocationContext = {
   app: string;

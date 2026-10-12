@@ -30,7 +30,7 @@ export const READY_TIMEOUT_MS = 60_000;
 export const EXIT_TIMEOUT_MS = 15_000;
 
 export interface ElectronLaunch {
-  /** Electron 실행 파일. `apps/shell/main/node_modules/electron/dist/electron`. */
+  /** Electron 실행 파일. `packages/shell/main/node_modules/electron/dist/electron`. */
   executable: string;
   /** shell main 앱 인자. build 결과의 main.cjs다. */
   app: string;

@@ -16,7 +16,7 @@ import type { ScreenHostResult } from "../../packages/core/problems/tests/app-te
 import { e2eEnabled } from "../harness.ts";
 
 const repoRoot = new URL("../../", import.meta.url).pathname.replace(/\/$/, "");
-const shellMain = `${repoRoot}/apps/shell/main`;
+const shellMain = `${repoRoot}/packages/shell/main`;
 const electron = `${shellMain}/node_modules/electron/dist/electron`;
 const bundleScreens = `${repoRoot}/fixtures/app-screens`;
 

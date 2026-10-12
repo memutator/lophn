@@ -152,7 +152,7 @@ Deno.test("coding-agent/cli#R40 coding-agent/cli#R8: CLI argv의 grant는 정확
   ) assert(CLI_ENV_NAMES.includes(name as never), name);
   assertEquals(flagValue(args, "net"), ["127.0.0.1", "[::1]"]);
   assertEquals(args.slice(-3), [
-    `${base}/install/platform/apps/cli/main.ts`,
+    `${base}/install/platform/packages/coding-agent/cli/main.ts`,
     "harness",
     "install",
   ]);
@@ -405,7 +405,6 @@ async function world(): Promise<World> {
   const copied = await new Deno.Command("cp", {
     args: [
       "-r",
-      `${REPO}/apps`,
       `${REPO}/packages`,
       `${REPO}/tools`,
       `${REPO}/deno.json`,
@@ -517,7 +516,7 @@ async function runPlanner(w: World, args: string[]): Promise<string[]> {
       `--allow-env=${CLI_ENV_NAMES.join(",")}`,
       "--allow-net=127.0.0.1,[::1]",
       `--allow-run=${inputs.credentialHelper}`,
-      `${inputs.resources}/apps/cli/launch.ts`,
+      `${inputs.resources}/packages/coding-agent/cli/launch-entry.ts`,
       ...args,
     ],
     cwd: inputs.cwd,

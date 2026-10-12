@@ -1,6 +1,6 @@
 // lophn-agent/harness/tool-judgment#R10, R11과 harness/tools#R17: 앱 command tool의 판정과 approval 흐름을
 // 실제 core(임시 LOPHN_HOME, 실제 ledger와 approval command)에서 본다. 앱 쪽은 blueprint·허락을 읽는
-// 통로의 대역이다(실제 앱 자식과의 호출은 apps/agent-runtime/app_toolkit_test.ts). 사람 데이터 root와 실제
+// 통로의 대역이다(실제 앱 자식과의 호출은 packages/core/lophn-agent/tools/app-toolkit_test.ts). 사람 데이터 root와 실제
 // provider는 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import { err, fingerprint, ok } from "../../../base/mod.ts";

@@ -33,11 +33,11 @@ const MCP_ARGV = [
   "--allow-env=LOPHN_HOME,LOPHN_CONNECTION",
   "--allow-net=127.0.0.1,[::1]",
   `--allow-run=${ROOT}/lophn-credential`,
-  `${ROOT}/platform/apps/mcp/main.ts`,
+  `${ROOT}/platform/packages/coding-agent/mcp-server/main.ts`,
 ];
 const CLI_ARGV = [
   ...MCP_ARGV.slice(0, -1),
-  `${ROOT}/platform/apps/cli/main.ts`,
+  `${ROOT}/platform/packages/coding-agent/cli/main.ts`,
   "ticket",
   "list",
 ];
@@ -169,7 +169,12 @@ test("shell/terminal#R5 platform/identity#R15: TUI의 자손이 아니거나 설
       ppid: 100,
       ticks: "702",
       exe: `${ROOT}/deno`,
-      argv: ["x", "run", "/tmp/evil.ts", `${ROOT}/platform/apps/mcp/main.ts`],
+      argv: [
+        "x",
+        "run",
+        "/tmp/evil.ts",
+        `${ROOT}/platform/packages/coding-agent/mcp-server/main.ts`,
+      ],
     },
     {
       pid: 403,
@@ -205,7 +210,10 @@ test("shell/terminal#R5 platform/identity#R15: TUI의 자손이 아니거나 설
       ppid: 100,
       ticks: "706",
       exe: `${ROOT}/deno`,
-      argv: [...MCP_ARGV.slice(0, -1), `${ROOT}/platform/apps/cli/launch.ts`],
+      argv: [
+        ...MCP_ARGV.slice(0, -1),
+        `${ROOT}/platform/packages/coding-agent/cli/launch-entry.ts`,
+      ],
     },
     { pid: 407, ppid: 100, ticks: "707" }, // exe를 읽지 못한 process
   ]);

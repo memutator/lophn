@@ -16,7 +16,7 @@ interface DenoCwd {
 export async function questionContract(): Promise<QuestionContract> {
   const root = (globalThis as unknown as DenoCwd).Deno.cwd();
   const url = new URL(
-    "packages/contracts/lophn-agent/questions.ts",
+    "packages/protocol/lophn-agent/questions.ts",
     `file://${root}/`,
   );
   return await import(url.href) as QuestionContract;

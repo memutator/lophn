@@ -38,8 +38,8 @@ type ChildSession = {
 };
 // coordinator·준비 worker 엔트리는 dynamic import로 부른다(leaf 경계). 부르는
 // 테스트는 모듈을 기다린 뒤 세션을 연다.
-const coordinatorEntry = "../../../apps/worker/documents/coordinator.ts";
-const preparationEntry = "../../../apps/worker/documents/preparation.ts";
+const coordinatorEntry = "./worker/coordinator.ts";
+const preparationEntry = "./worker/preparation.ts";
 type CoordinatorModule = {
   createCoordinator(options: Record<string, unknown>): Promise<{
     session: ChildSession;

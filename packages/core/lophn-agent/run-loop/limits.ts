@@ -20,7 +20,7 @@ export type RunLimits = z.infer<typeof runLimitsSchema>;
 // 설정이고 시작 때 run에 고정된다(runs_started_immutable). 이 파일은 시간·횟수를
 // 세는 순수 계산이다. 시계는 주입한 단조 ms다. model·tool·ledger를 직접 부르지 않는다.
 
-// 공통 설정 key. 정의(SettingDefinition) 등록은 apps/core/lophn-agent.ts가 한다.
+// 공통 설정 key. 정의(SettingDefinition) 등록은 packages/core/lophn-agent/register.ts가 한다.
 export const RUN_LIMIT_SETTING_KEYS = {
   model_attempts: "lophn-agent.run.model_attempts",
   stall_ms: "lophn-agent.run.stall_ms",

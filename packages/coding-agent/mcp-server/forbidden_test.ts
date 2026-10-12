@@ -1,6 +1,6 @@
 // coding-agent#T15: 금지 동작이 MCP discovery에 없고 직접 요청도 실행 전에 거절된다
 // (mcp-server#R30, R31). core에 닿지 않는다. daemon 쪽 거절은
-// apps/core/coding-agent-scope_test.ts가 실제 core로 본다.
+// packages/core/apps/connections/scope_test.ts가 실제 core로 본다.
 import { assert, assertEquals } from "@std/assert";
 import { contractRoutesByName } from "../connection/testing/mod.ts";
 import { forbiddenRouteNames } from "../connection/mod.ts";

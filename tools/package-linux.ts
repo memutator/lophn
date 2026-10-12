@@ -9,7 +9,7 @@
 // 묶음 배치(/opt/lophn/):
 //   lophn-desktop, chrome-sandbox(root 소유 4755), resources/  Electron(electron-builder `--linux dir`)
 //   deno                       설치된 Deno binary
-//   platform/                  apps·packages source, deno.json, deno.lock, vendor/, node_modules/
+//   platform/                  packages source, deno.json, deno.lock, vendor/, node_modules/
 //   desktop/                   빌드된 desktop 화면
 //   skills/, guides/           coding agent skill, 안내 원문
 //   sdk -> platform/packages/sdk
@@ -30,7 +30,7 @@ import {
 } from "../packages/base/install/linux-install.ts";
 
 const repo = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
-const shellMain = `${repo}/apps/shell/main`;
+const shellMain = `${repo}/packages/shell/main`;
 const layout = linuxInstallLayout();
 
 function option(name: string): string | undefined {
@@ -80,21 +80,15 @@ async function stagePlatform(pkg: string, work: string): Promise<void> {
   await run("rsync", [
     "-a",
     "--exclude=node_modules",
-    "--exclude=/apps/shell",
-    `${repo}/apps`,
-    `${platform}/`,
-  ]);
-  await run("rsync", [
-    "-a",
-    "--exclude=node_modules",
+    "--exclude=/packages/shell",
     `${repo}/packages`,
     `${platform}/`,
   ]);
-  // desktop 화면 build 전용 member(apps/shell/renderer)와 개발 도구 member(tools/*)는 묶음에 없으므로 workspace에서 뺀다.
+  // desktop 화면 build 전용 member(packages/shell/renderer)와 개발 도구 member(tools/*)는 묶음에 없으므로 workspace에서 뺀다.
   // vendor와 node_modules를 설치 안에 두어 시작이 의존성을 받지 않는다.
   const config = JSON.parse(await Deno.readTextFile(`${repo}/deno.json`));
   config.workspace = config.workspace.filter((member: string) =>
-    !member.startsWith("./apps/shell") && !member.startsWith("./tools/")
+    !member.startsWith("./packages/shell") && !member.startsWith("./tools/")
   );
   for (const key of ["tasks", "fmt", "lint", "test", "exclude"]) {
     delete config[key];
@@ -121,19 +115,19 @@ async function stagePlatform(pkg: string, work: string): Promise<void> {
 
 async function stageContent(pkg: string): Promise<void> {
   await copy(
-    `${repo}/apps/shell/renderer/dist`,
+    `${repo}/packages/shell/renderer/dist`,
     await ensure(inPkg(pkg, layout.desktop)),
   );
   // 안내 원문은 lophn-agent 소유 자리에서 복사한다.
   const guides = await ensure(inPkg(pkg, layout.guides));
   for await (
     const entry of Deno.readDir(
-      `${repo}/packages/lophn-agent/roles/lophn/guides`,
+      `${repo}/packages/core/lophn-agent/roles/lophn/guides`,
     )
   ) {
     if (entry.isFile && entry.name.endsWith(".md")) {
       await Deno.copyFile(
-        `${repo}/packages/lophn-agent/roles/lophn/guides/${entry.name}`,
+        `${repo}/packages/core/lophn-agent/roles/lophn/guides/${entry.name}`,
         `${guides}/${entry.name}`,
       );
     }
@@ -166,7 +160,7 @@ async function stageHelper(pkg: string): Promise<void> {
     ...CREDENTIAL_HELPER_COMPILE_FLAGS,
     "-o",
     inPkg(pkg, layout.credentialHelper),
-    `${repo}/packages/platform/install-and-update/credential-helper-main.ts`,
+    `${repo}/packages/core/install-and-update/credential-helper-main.ts`,
   ]);
 }
 
@@ -222,7 +216,7 @@ async function main(): Promise<void> {
   if (!Deno.args.includes("--skip-shell-build")) {
     await run("npm", ["--prefix", shellMain, "run", "build"]);
     await run("deno", ["task", "build"], {
-      cwd: `${repo}/apps/shell/renderer`,
+      cwd: `${repo}/packages/shell/renderer`,
     });
     await run(`${shellMain}/node_modules/.bin/electron-builder`, [
       "--linux",

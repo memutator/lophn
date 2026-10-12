@@ -2881,7 +2881,7 @@ Deno.test({
         },
       );
 
-      // 제품 결함(apps/core·worker 조립 몫): 진단 탭은 desktop entry에 이어졌지만 product core가
+      // 제품 결함(core/main의 daemon·worker 조립 몫): 진단 탭은 desktop entry에 이어졌지만 product core가
       // DoctorSource(`runtime.ts`의 `doctor` 입력)를 받지 않아 `diagnostics/check` read가 등록되지
       // 않는다. 그래서 탭의 [Check security]가 `failed`("The check couldn't start right now.")로 끝난다.
       // worker의 observeDoctor는 core에 연결되어 있지 않다. shell settings 안에서 고칠 수 없어 둔다.

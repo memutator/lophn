@@ -1,6 +1,6 @@
 // problems 해석 연결 시험의 harness 등록. Deno.test는 없다. grouping fixture에 agent run 판정 port와,
 // lophn-agent ToolCall 성공 안에서 LinkProblemInterpretation을 같은 Tx로 부르는 시험 command를 더한다
-// (질문 Q13). 이 파일이 apps에 있는 까닭은 platform의 run 판정 port를 packages/problems가 못 받기 때문이다.
+// (질문 Q13). 이 파일이 core testing에 있는 까닭은 platform의 run 판정 port를 packages/core/problems가 못 받기 때문이다.
 import { z } from "zod";
 import { ok } from "../../base/mod.ts";
 import {

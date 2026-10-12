@@ -273,7 +273,7 @@ export async function openPreviewWorld(
 
   const spawnReal = async (request: PreviewSpawnRequest) => {
     spawns.push(request);
-    // 이전 자식이 남긴 socket 파일은 종료 확인 뒤에 지운다(apps/app-supervisor/main.ts와 같다).
+    // 이전 자식이 남긴 socket 파일은 종료 확인 뒤에 지운다(packages/core/main/app-supervisor/main.ts와 같다).
     for (const path of Object.values(request.sockets)) {
       await Deno.remove(path).catch(() => undefined);
     }

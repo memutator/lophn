@@ -1,6 +1,6 @@
 // 고친 기록의 실제 executor 경로(문제#T14). 임시 파일 SQLite/WAL, writer Worker,
 // executor를 그대로 쓴다. ticket claim은 검사 이력의 같은 우선순위를 본는 port
-// test double로 본다(check-deps 최상위 경계에서 packages/problems는 coding-agent를
+// test double로 본다(check-deps 최상위 경계에서 packages/core/problems는 coding-agent를
 // 받지 못한다).
 import { assert, assertEquals } from "@std/assert";
 import type { Result } from "../../../base/mod.ts";

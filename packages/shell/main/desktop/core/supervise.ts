@@ -72,9 +72,16 @@ export function packagedPermissionFlags(
   ];
 }
 
-/** `deno run <flags> apps/core/main.ts`. argv·env에 credential은 없다. */
+/** `deno run <flags> packages/core/main/daemon/main.ts`. argv·env에 credential은 없다. */
 export function coreLaunch(options: LaunchOptions): CoreSpawn {
-  const entry = join(options.repoRoot, "apps", "core", "main.ts");
+  const entry = join(
+    options.repoRoot,
+    "packages",
+    "core",
+    "main",
+    "daemon",
+    "main.ts",
+  );
   const port = options.port ?? 0;
   const env: NodeJS.ProcessEnv = {
     ...process.env,

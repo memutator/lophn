@@ -13,7 +13,7 @@ import {
 } from "./mod.ts";
 
 // agent 일 tool 묶음(question·approval·assignment·run·handoff)의 정의와 handler를 본다.
-// 실제 core를 거친 handoff 계보는 apps/core/handoff_test.ts가 본다.
+// 실제 core를 거친 handoff 계보는 packages/core/lophn-agent/tools/handoff/flow_test.ts가 본다.
 
 const RUN = "run_01arz3ndektsv4rrffq69g5fav";
 const MSG = "msg_01arz3ndektsv4rrffq69g5fav";

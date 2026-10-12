@@ -1,4 +1,4 @@
-// 실제 core(apps/core/main.ts)를 temp LOPHN_HOME으로 띄우고 renderer의 CoreSource 모양으로
+// 실제 core(packages/core/main/daemon/main.ts)를 temp LOPHN_HOME으로 띄우고 renderer의 CoreSource 모양으로
 // 묶는다. main의 contract client 대신 같은 HTTP route(`POST /v1/<resource>/<method>`)를
 // 사람 token으로 부른다. 사람 데이터 root(~/.lophn)는 열지 않고, 띄운 core만 정확히 멈춘다.
 // component test는 temp bundle에서 돌아 import.meta.url이 repo를 가리키지 않으므로 repo
@@ -27,12 +27,14 @@ async function repoRoot(): Promise<string> {
   let directory = Deno.cwd();
   for (;;) {
     try {
-      await Deno.stat(`${directory}/apps/core/main.ts`);
+      await Deno.stat(`${directory}/packages/core/main/daemon/main.ts`);
       return directory;
     } catch {
       const parent = directory.replace(/\/[^/]+$/, "");
       if (parent === directory || parent === "") {
-        throw new Error("repo root(apps/core/main.ts)를 찾지 못했다");
+        throw new Error(
+          "repo root(packages/core/main/daemon/main.ts)를 찾지 못했다",
+        );
       }
       directory = parent;
     }
@@ -83,7 +85,8 @@ function readHello(stdout: ReadableStream<Uint8Array>): Promise<Hello> {
 }
 
 /** 질문 묶음 하나(질문 하나)·approval 하나를 심고 hello를 주는 core. question-seed.ts의 값이다. */
-export const QUESTION_CORE = "apps/shell/renderer/testdata/question-core.ts";
+export const QUESTION_CORE =
+  "packages/shell/renderer/testdata/question-core.ts";
 
 export async function startRealCore(
   options: { entry?: string } = {},
@@ -93,7 +96,7 @@ export async function startRealCore(
     args: [
       "run",
       "--allow-all",
-      options.entry ?? "apps/core/main.ts",
+      options.entry ?? "packages/core/main/daemon/main.ts",
       "--port=0",
     ],
     cwd: await repoRoot(),

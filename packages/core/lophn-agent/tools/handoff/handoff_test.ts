@@ -23,7 +23,7 @@ import {
 import { createHandoffReads } from "./reads.ts";
 
 // 순수 규칙과 읽기 권한을 본다. SubmitHandoff를 포함한 ledger·core 동작(접수·계보·
-// 원자 확정·재전송·거절 억제)은 실제 core로 apps/core/handoff_test.ts가 본다.
+// 원자 확정·재전송·거절 억제)은 실제 core로 packages/core/lophn-agent/tools/handoff/flow_test.ts가 본다.
 
 const DOC = "doc_01arz3ndektsv4rrffq69g5fav";
 const VER = "ver_01arz3ndektsv4rrffq69g5fav";

@@ -282,7 +282,7 @@ function checkCatalog(
 }
 
 const SOURCE_GLOBS = [
-  "apps/shell/renderer",
+  "packages/shell/renderer",
   "packages/sdk",
   "packages/design/components",
   "packages/design/reading",

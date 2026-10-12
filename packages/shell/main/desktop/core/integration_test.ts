@@ -1,4 +1,4 @@
-// shell 쪽 client가 실제 core 위에서 도는지 본다. fake가 아니라 apps/core/main.ts를
+// shell 쪽 client가 실제 core 위에서 도는지 본다. fake가 아니라 packages/core/main/daemon/main.ts를
 // Deno로 띄워 hello→read→WS 구독 event 수신까지 이어 본다. node --test로 돈다.
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -20,7 +20,7 @@ import { optInFromSettings, OS_NOTIFICATIONS_KEY } from "../os-notification.ts";
 function spawnCore(home: string, repoRoot: string): ChildProcess {
   return spawn(
     "deno",
-    ["run", "--allow-all", "apps/core/main.ts", "--port=0"],
+    ["run", "--allow-all", "packages/core/main/daemon/main.ts", "--port=0"],
     {
       cwd: repoRoot,
       env: { ...process.env, LOPHN_HOME: home },
@@ -59,7 +59,7 @@ async function firstHello(
 
 test("shell/desktop#R15: 실제 core에서 hello→read→WS 구독 event 수신까지 돌고 OS notification opt-in(R10)을 settings로 읽는다", async () => {
   const home = await mkdtemp(`${tmpdir()}/lophn-shell-core-`);
-  // test file 위치가 repo root의 apps/shell/main 아래다. core entry는 repo root 기준이다.
+  // test file 위치가 repo root의 packages/shell/main 아래다. core entry는 repo root 기준이다.
   const repoRoot = new URL("../../../../../", import.meta.url).pathname;
   const child = spawnCore(home, repoRoot);
   try {

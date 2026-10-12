@@ -1,7 +1,7 @@
 // context API(command와 읽기)가 보는 상태의 모양과 바깥에서 받는 도구다. 시험은 이 모양을 메모리에
 // 두고(testing.ts) 구현이 ledger 표에 옮겨도 같은 값이 나오는지를 본다. 값의 뜻은
 // docs/domain-model/documents/contexts.md와 terms.md가 정하고, 값의 모양은
-// packages/contracts/documents/context-api.ts가 정한다.
+// packages/protocol/projects/context-api.ts가 정한다.
 import type {
   BundleSummary,
   CheckReport,

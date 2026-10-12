@@ -1,4 +1,4 @@
-// 자식 쪽 blob 준비 client(platform Q6). 실제 pipe 시험은 apps/core/child-blob-prepare_test.ts다.
+// 자식 쪽 blob 준비 client(platform Q6). 실제 pipe 시험은 packages/core/storage/blobs/child-prepare_test.ts다.
 import { assert, assertEquals } from "@std/assert";
 import type {
   ChildMessage,

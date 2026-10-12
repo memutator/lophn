@@ -1,6 +1,6 @@
 // lophn-agent/harness/tools#R9: ticket tool은 coding-agent/tickets의 읽기·생성과 확인 필요 ticket의
 // 실행 준비 전환(make_ready)만 준다. claim·연장·보고·취소·[Start]는 정의가 없다. 소유 contract는
-// 대역이 받는다(실제 core는 apps/core/ticket-tools_test.ts). 실제 provider·사람 데이터 root는 열지
+// 대역이 받는다(실제 core는 packages/core/lophn-agent/tools/ticket-tools-core_test.ts). 실제 provider·사람 데이터 root는 열지
 // 않는다.
 import { assert, assertEquals } from "@std/assert";
 import { err, ok, type Result } from "../../../base/mod.ts";

@@ -516,7 +516,7 @@ async function runSessionOf(
 // settings 등록 파일. settingsRoutes에 붙는 registry·command·read는
 // settings.ts가 만든다.
 function settingsModule(): string {
-  return "./settings.ts";
+  return "../../config/settings.ts";
 }
 
 // worker가 확인한 backup manifest 읽기(T41). 인증은 API 입구가 이미 끝냈고

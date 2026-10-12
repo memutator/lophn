@@ -2,7 +2,7 @@
 //
 //   npm run stage [--skip-renderer-build]
 //
-// Output: apps/shell/main/build/stage/
+// Output: packages/shell/main/build/stage/
 //   bin/deno              Deno runtime (runs core daemon)
 //   bin/node-pty-prebuilt/lib/binding/*/pty.node  node-pty native module
 //   shell-main/dist/      main.cjs, preload.cjs (electron-builder에서 사용)
@@ -154,14 +154,14 @@ function stageRendererBundle(): void {
   fs.mkdirSync(dst, { recursive: true });
 
   if (!skipRendererBuild && fs.existsSync(path.join(rendererDir, "build.ts"))) {
-    log("building apps/shell/renderer (deno task build)");
+    log("building packages/shell/renderer (deno task build)");
     try {
       execFileSync("deno", ["task", "build"], {
         cwd: rendererDir,
         stdio: "inherit",
       });
     } catch {
-      log("apps/shell/renderer build failed; packaging will fail");
+      log("packages/shell/renderer build failed; packaging will fail");
       throw new Error("renderer build failed");
     }
   }
@@ -171,7 +171,7 @@ function stageRendererBundle(): void {
     copyTree(dist, dst, () => false);
     log("shell renderer staged");
   } else {
-    throw new Error("apps/shell/renderer/dist/index.html missing");
+    throw new Error("packages/shell/renderer/dist/index.html missing");
   }
 }
 

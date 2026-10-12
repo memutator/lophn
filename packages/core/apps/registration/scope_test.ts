@@ -86,7 +86,7 @@ function envelope(
 
 Deno.test("apps/registration#R3, coding-agent/connection#R5: 앱 하나 범위 connection은 자기 앱만 읽고 연결한다", async () => {
   const user = credential("user", "test:user");
-  const specifier = "../../../apps/core/testing/ledger.ts";
+  const specifier = "../../testing/ledger.ts";
   const harness = await import(specifier);
   const opened: LedgerHarness = value(
     await harness.createLedgerHarness({

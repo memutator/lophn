@@ -46,22 +46,22 @@ Deno.test("apps/sdk#R9: 사본 안 specifier는 파일 위치 기준 상대 경�
     {
       path: "x/mod.ts",
       bytes: new TextEncoder().encode(
-        'import a from "../../contracts/a.ts";\nconst s = "../../contracts/b.ts";\n',
+        'import a from "../../protocol/a.ts";\nconst s = "../../protocol/b.ts";\n',
       ),
     },
-    { "../../contracts/a.ts": "vendor/a.ts" },
+    { "../../protocol/a.ts": "vendor/a.ts" },
   );
   assertEquals(
     new TextDecoder().decode(rewritten.bytes),
-    'import a from "../vendor/a.ts";\nconst s = "../../contracts/b.ts";\n',
+    'import a from "../vendor/a.ts";\nconst s = "../../protocol/b.ts";\n',
   );
   // 소스가 아닌 파일은 바꾸지 않는다.
   const markdown = {
     path: "guide.md",
-    bytes: new TextEncoder().encode('"../../contracts/a.ts"'),
+    bytes: new TextEncoder().encode('"../../protocol/a.ts"'),
   };
   assertEquals(
-    rewriteSpecifiers(markdown, { "../../contracts/a.ts": "vendor/a.ts" }),
+    rewriteSpecifiers(markdown, { "../../protocol/a.ts": "vendor/a.ts" }),
     markdown,
   );
 });
@@ -77,17 +77,17 @@ Deno.test("apps/sdk#R9 apps/sdk#R10: blueprint와 cap-problem 사본은 packages
         const text = await Deno.readTextFile(`${copy.install_path}/${path}`);
         // 시험 파일은 사본 안에 있어도 앱이 불러오지 않는다.
         if (/_test\.tsx?$/.test(path)) continue;
-        assert(!text.includes("../../contracts/"), `${path} leaves the copy`);
+        assert(!text.includes("../../protocol/"), `${path} leaves the copy`);
         assert(
-          !text.includes("@lophn/contracts"),
+          !text.includes("@lophn/protocol"),
           `${path} needs the workspace`,
         );
       }
     }
     assert(
-      blueprint.files.includes("vendor/contracts/apps/blueprint-value.ts"),
+      blueprint.files.includes("vendor/protocol/apps/blueprint-value.ts"),
     );
-    assert(problem.files.includes("vendor/contracts/problems/sdk-report.ts"));
+    assert(problem.files.includes("vendor/protocol/problems/sdk-report.ts"));
     assert(problem.files.includes("vendor/base/mod.ts"));
     // 깊은 폴더의 중간 폴더까지 읽기 전용이다.
     for (const copy of [blueprint, problem]) {
@@ -95,7 +95,7 @@ Deno.test("apps/sdk#R9 apps/sdk#R10: blueprint와 cap-problem 사본은 packages
       assert(permissions.ok, permissions.ok ? "" : permissions.error.message);
     }
     const nested = await Deno.stat(
-      `${blueprint.install_path}/vendor/contracts`,
+      `${blueprint.install_path}/vendor/protocol`,
     );
     assertEquals((nested.mode ?? 0) & 0o222, 0);
 

@@ -2,7 +2,7 @@
 // 실제 provider는 쓰지 않는다). run과 handoff 계보는 모두 실제 command로 만든다: 사람 요청에서
 // 시작해 시작한 lophn run, 그 run의 agent 자격이 SubmitHandoff로 만든 Context Engineer run,
 // 다른 사람 요청의 run. platform/approvals#R16의 거절 억제는 handoff tool이 만든 실제 계보로
-// 확인한다(platform#T22에서 넘어온 통합 시험). 순수 규칙은 packages/lophn-agent/handoff/
+// 확인한다(platform#T22에서 넘어온 통합 시험). 순수 규칙은 packages/core/lophn-agent/tools/handoff/
 // handoff_test.ts가 본다.
 import { assert, assertEquals, assertNotEquals } from "@std/assert";
 import { createHash } from "node:crypto";

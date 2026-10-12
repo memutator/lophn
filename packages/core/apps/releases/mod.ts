@@ -1,5 +1,5 @@
-// apps/releases concern의 경계다. 최상위 concern 사이는 packages/contracts로만 부르고,
-// release worker 조립은 아래 모듈을 직접 부른다(apps/worker/apps/release.ts).
+// apps/releases concern의 경계다. 최상위 concern 사이는 packages/protocol로만 부르고,
+// release worker 조립은 아래 모듈을 직접 부른다(packages/core/apps/releases/worker/run.ts).
 export {
   type PrepareDeps,
   type PreparedRelease,
@@ -79,7 +79,7 @@ export {
   type UiBuildInput,
   type UiBuildOutput,
 } from "./ui-build/build.ts";
-// core의 ledger 쪽(동기 command·read). apps/core/apps.ts는 core module graph에 worker 코드가 들어가지
+// core의 ledger 쪽(동기 command·read). packages/core/apps/register.ts는 core module graph에 worker 코드가 들어가지
 // 않도록 이 파일들을 각각 import한다.
 export { releasesSchemaSteps } from "./schema.ts";
 export { checkPreparationClaim, createReleaseCommands } from "./commands.ts";
@@ -102,7 +102,7 @@ export {
   type StoredBlueprint,
 } from "./store.ts";
 // activation: 한 시도를 순서대로 진행·복원·이어받는 모듈과 봉인 사본에서 앱 자식 입력을 만드는 함수다.
-// 실제 supervisor·data worker·core command는 `ActivationPorts`로 끼운다(apps/app-supervisor 조립).
+// 실제 supervisor·data worker·core command는 `ActivationPorts`로 끼운다(packages/core/main/app-supervisor 조립).
 export { runActivation } from "./activation/orchestrator.ts";
 export {
   loadMigrationHistory,

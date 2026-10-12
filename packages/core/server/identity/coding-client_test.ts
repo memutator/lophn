@@ -1,5 +1,5 @@
 // coding-agent client를 실제 core에 붙이는 통합 테스트다. test credential 입구
-// (apps/core/testing)는 테스트에만 있고 제품 entry에는 없다. connection client
+// (packages/core/testing)는 테스트에만 있고 제품 entry에는 없다. connection client
 // 코드 자체는 제품 자리(packages/coding-agent/connection/)다.
 import { assert, assertEquals } from "@std/assert";
 import {

@@ -1,4 +1,4 @@
-// T10 core import 정적 검사. apps/core의 module graph(deno info --json)에서
+// T10 core import 정적 검사. packages/core/main/daemon/main.ts의 module graph(deno info --json)에서
 // platform/responsiveness#R1의 core 흐름 경계를 확인한다: node:sqlite은 ledger
 // 실행기만 쓰고, 동기 file API·압축·외부 fetch·앱/format/model 구현 import는
 // graph 어디에도 없어야 한다. 동기 file·압축·fetch는 core의 command 흐름이
@@ -35,7 +35,7 @@ type GraphDeps = {
   specifiers: string[];
 };
 
-const LEDGER_EXECUTORS = "packages/platform/ledger/";
+const LEDGER_EXECUTORS = "packages/core/storage/ledger/";
 const FILE_SCHEME = "file://";
 
 // core graph에서 허용되지 않는 specifier. 압축(node:zlib)과 외부 fetch(node:http
@@ -69,29 +69,83 @@ const EXTERNAL_FETCH = /(?<![\w.$])fetch\s*\(/;
 // lophn-agent의 ledger registration 모듈(harness/provider의 command·read·schema)도
 // core가 조립한다(architecture/lophn-agent 3.1). runtime 쪽 코드만 거르는다.
 const IMPLEMENTATION_PREFIXES = [
-  "packages/apps/entrypoint/",
-  "packages/apps/runtime/entrypoint/",
-  "packages/apps/invocations/context.ts",
-  "packages/apps/automations/clock.ts",
-  "packages/apps/agent-context/redaction.ts",
-  "packages/apps/connections/client.ts",
-  "packages/documents/formats/adapters/",
-  "packages/documents/formats/check.ts",
-  "packages/documents/formats/guest/bundle.ts",
-  "packages/documents/formats/guest.ts",
-  "packages/documents/formats/modules/",
-  "packages/documents/formats/pure/input.ts",
-  "packages/documents/formats/pure/module.ts",
-  "packages/documents/formats/pure/utf8.ts",
-  "packages/documents/formats/reads.ts",
-  "packages/documents/formats/runner/",
-  "packages/documents/formats/work.ts",
-  "packages/lophn-agent/roles/",
+  "packages/core/apps/entrypoint/",
+  "packages/core/apps/runtime/entrypoint/",
+  "packages/core/apps/invocations/context.ts",
+  "packages/core/apps/automations/clock.ts",
+  "packages/core/apps/agent-context/redaction.ts",
+  "packages/core/apps/connections/client.ts",
+  "packages/core/projects/formats/adapters/",
+  "packages/core/projects/formats/check.ts",
+  "packages/core/projects/formats/guest/bundle.ts",
+  "packages/core/projects/formats/guest.ts",
+  "packages/core/projects/formats/modules/",
+  "packages/core/projects/formats/pure/input.ts",
+  "packages/core/projects/formats/pure/module.ts",
+  "packages/core/projects/formats/pure/utf8.ts",
+  "packages/core/projects/formats/reads.ts",
+  "packages/core/projects/formats/runner/",
+  "packages/core/projects/formats/work.ts",
+  "packages/core/lophn-agent/roles/",
 ];
+
+// 자식 프로세스 입구와 그 자식만 쓰는 code. core 프로세스의 graph에 들어오면
+// 안 된다. 옛 apps/ 아래 core 밖 앱(agent-runtime·app-supervisor·worker·shell·
+// cli·mcp)이 있던 자리다.
+const CHILD_PROCESS_PREFIXES = [
+  "packages/core/main/agent-runtime/",
+  "packages/core/main/app-supervisor/",
+  "packages/core/main/worker/",
+  "packages/core/problems/tests/work/",
+  "packages/core/apps/releases/worker/",
+  "packages/core/apps/revert/worker/",
+  "packages/core/apps/tickets/worker/",
+  "packages/core/config/worker/",
+  "packages/core/diagnostics/worker/",
+  "packages/core/problems/repairs/worker/",
+  "packages/core/problems/reporting/worker/",
+  "packages/core/projects/contexts/worker/",
+  "packages/core/projects/file-tracking/worker/",
+  "packages/core/projects/formats/worker/",
+  "packages/core/projects/outline-and-search/worker/",
+  "packages/core/secrets/worker/",
+  "packages/core/storage/blobs/worker/",
+  "packages/core/apps/data/worker/run.ts",
+  "packages/shell/",
+  "packages/coding-agent/cli/",
+  "packages/coding-agent/mcp-server/main.ts",
+  "packages/core/lophn-agent/agents/layers.ts",
+  "packages/core/lophn-agent/session/answer-links.ts",
+  "packages/core/lophn-agent/tools/app-toolkit.ts",
+  "packages/core/lophn-agent/tool-judgment/builtin-binding.ts",
+  "packages/core/lophn-agent/models/catalog-refresh.ts",
+  "packages/core/lophn-agent/session/compactor.ts",
+  "packages/core/lophn-agent/prompt-assembly/context-overview.ts",
+  "packages/core/lophn-agent/tools/context-search.ts",
+  "packages/core/lophn-agent/run-loop/core-call.ts",
+  "packages/core/lophn-agent/run-loop/core-ports.ts",
+  "packages/core/lophn-agent/extensions/mcp-toolkit.ts",
+  "packages/core/lophn-agent/models/binding.ts",
+  "packages/core/lophn-agent/run-loop/prepare.ts",
+  "packages/core/lophn-agent/providers/watch.ts",
+  "packages/core/lophn-agent/run-loop/redact-link.ts",
+  "packages/core/lophn-agent/models/resolve.ts",
+  "packages/core/lophn-agent/run-loop/blobs.ts",
+  "packages/core/lophn-agent/run-loop/driver.ts",
+  "packages/core/lophn-agent/session/history.ts",
+  "packages/core/lophn-agent/extensions/skill-folders.ts",
+  "packages/core/lophn-agent/tools/toolkit.ts",
+  "packages/core/lophn-agent/waiting-and-recovery/wait-request.ts",
+  "packages/core/apps/invocations/delivery/sender.ts",
+];
+
+function isChildProcessCode(path: string): boolean {
+  return CHILD_PROCESS_PREFIXES.some((prefix) => path.startsWith(prefix));
+}
 
 function isImplementationImport(path: string): boolean {
   return IMPLEMENTATION_PREFIXES.some((prefix) => path.startsWith(prefix)) ||
-    (path.startsWith("apps/") && !path.startsWith("apps/core/"));
+    isChildProcessCode(path);
 }
 
 // 문자열·주석을 먼저 지워 token을 code로만 본다. template literal 본문도 text로
@@ -120,7 +174,7 @@ function depTarget(dep: InfoDep): string {
 
 async function runInfo(): Promise<InfoFile> {
   const command = new Deno.Command("deno", {
-    args: ["info", "--json", "apps/core/main.ts"],
+    args: ["info", "--json", "packages/core/main/daemon/main.ts"],
     cwd: REPO_ROOT,
     stdin: "null",
     stdout: "piped",
@@ -129,7 +183,7 @@ async function runInfo(): Promise<InfoFile> {
   const { code, stdout, stderr } = await command.output();
   assert(
     code === 0,
-    `deno info --json apps/core/main.ts 실패(code ${code}): ${
+    `deno info --json packages/core/main/daemon/main.ts 실패(code ${code}): ${
       new TextDecoder().decode(stderr)
     }`,
   );

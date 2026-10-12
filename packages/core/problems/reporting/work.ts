@@ -1,6 +1,6 @@
 // report collector worker. core 감독이 띄우고 보고 접수 통로는 이 모듈이
 // 조립한다(problems/reporting#R1, R2, R8, R16). credential에서 출처를 정하고,
-// 본문 주장은 따르지 않는다. 대기 한도·retry 간격은 주입받고, packages/problems는
+// 본문 주장은 따르지 않는다. 대기 한도·retry 간격은 주입받고, packages/core/problems는
 // platform을 import하지 않는다.
 import { err, ok, type Result, sha256Hex } from "../../../base/mod.ts";
 import type { RequestContext } from "../../../protocol/server/mod.ts";

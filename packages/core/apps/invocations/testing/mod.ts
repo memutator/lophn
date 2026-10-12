@@ -3,7 +3,7 @@
  *
  * 전달 목록을 막았다 여는 문, 확인이 필요한 명령까지 갖춘 blueprint, 실제 core로 가는 sender를 쓴다.
  * 앱 runtime과 잇는 부분은 다른 leaf의 fixture를 import해야 해서 `world_test.ts`에 있고,
- * core harness(apps/core/testing)도 `*_test.ts`만 import할 수 있어 시험이 띄워 넘긴다.
+ * core harness(packages/core/testing)도 `*_test.ts`만 import할 수 있어 시험이 띄워 넘긴다.
  */
 import { validateBlueprint } from "../../blueprint/mod.ts";
 import type { Blueprint } from "../../blueprint/mod.ts";
@@ -106,7 +106,7 @@ export function gatedSend(
   };
 }
 
-// core harness(apps/core/testing)의 구조만 본다. harness는 `*_test.ts`가 띄워 넘긴다.
+// core harness(packages/core/testing)의 구조만 본다. harness는 `*_test.ts`가 띄워 넘긴다.
 export type CoreLike = {
   port: number;
   credential(input: {

@@ -187,7 +187,7 @@ test("shell/desktop#R11: tray 아이콘은 packaged는 resources, 개발 실행�
     trayIconPath({
       packaged: true,
       resourcesPath: "/opt/lophn/resources",
-      desktopDir: "/repo/apps/shell/main/desktop",
+      desktopDir: "/repo/packages/shell/main/desktop",
     }),
     "/opt/lophn/resources/icon.png",
   );
@@ -195,8 +195,8 @@ test("shell/desktop#R11: tray 아이콘은 packaged는 resources, 개발 실행�
     trayIconPath({
       packaged: false,
       resourcesPath: "/opt/lophn/resources",
-      desktopDir: "/repo/apps/shell/main/desktop",
+      desktopDir: "/repo/packages/shell/main/desktop",
     }),
-    "/repo/apps/shell/main/desktop/icon.png",
+    "/repo/packages/shell/main/desktop/icon.png",
   );
 });

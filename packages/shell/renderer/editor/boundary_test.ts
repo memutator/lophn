@@ -22,14 +22,16 @@ Deno.test("shell/editor#R7: CodeMirror는 shell renderer의 editor 폴더에만 
   const places = [
     new URL("packages/sdk/", root),
     new URL("packages/design/", root),
-    new URL("packages/contracts/", root),
-    new URL("apps/shell/renderer/", root),
+    new URL("packages/protocol/", root),
+    new URL("packages/shell/renderer/", root),
   ];
   for (const place of places) {
     for (const file of await sources(place)) {
       if (file.href.startsWith(editor.href)) continue;
       // renderer import map은 editor가 쓰는 판을 고정하는 자리다.
-      if (file.href === new URL("apps/shell/renderer/deno.json", root).href) {
+      if (
+        file.href === new URL("packages/shell/renderer/deno.json", root).href
+      ) {
         continue;
       }
       const text = await Deno.readTextFile(file);

@@ -1277,7 +1277,7 @@ export async function observeViewErrorPayload(
   logs: CollectorLogs = coreLogs(client),
 ): Promise<unknown> {
   // view의 app·release·mode·bundle_hash는 core가 서명 검증한 binding에서 정해 보낸
-  // 값이다(apps/core/view-binding.ts). 페이지 주장은 그 전에 덮여 여기까지 오지 않는다.
+  // 값이다(packages/core/problems/reporting/view-binding.ts). 페이지 주장은 그 전에 덮여 여기까지 오지 않는다.
   const parsedView = observeViewErrorInputSchema.safeParse(payload);
   if (!parsedView.success) {
     throw new Error("invalid view error payload");

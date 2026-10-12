@@ -60,7 +60,7 @@ export const CONTEXT_PREVIEW_TIMEOUT_MS = 60_000;
 // 답이 오지 않은(결과 불명) check를 다시 보내는 간격. 마지막 시도가 실패하면 후보는 checking으로 남는다.
 export const CONTEXT_CHECK_RETRY_MS = [1_000, 3_000] as const;
 
-// worker가 쓰는 두 자리. 같은 경로를 worker(apps/worker/documents/contexts.ts)도 쓴다.
+// worker가 쓰는 두 자리. 같은 경로를 worker(packages/core/projects/contexts/worker/run.ts)도 쓴다.
 export function contextsIndexPath(dataRoot: string): string {
   return `${dataRoot}/derived/contexts.sqlite`;
 }

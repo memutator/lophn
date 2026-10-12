@@ -97,8 +97,8 @@ async function importMap(): Promise<Record<string, string>> {
   }
   mergeImports(
     imports,
-    await read(join(root, "apps/shell/renderer/deno.json")),
-    pathToFileURL(join(root, "apps/shell/renderer/deno.json")),
+    await read(join(root, "packages/shell/renderer/deno.json")),
+    pathToFileURL(join(root, "packages/shell/renderer/deno.json")),
   );
   await addPackage(imports, join(root, "packages/design"));
   await addPackage(imports, join(root, "packages/design/wording"));

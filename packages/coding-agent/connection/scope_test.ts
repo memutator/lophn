@@ -1,6 +1,6 @@
 // coding-agent#T15: 두 앱 fixture로 대상 앱 찾기가 scope를 넓히지 않고(connection#R11),
 // 앱 source 밖으로 이어진 경로가 운영 data·다른 앱 source로 새지 않는지(connection#R10)
-// 본다. 앱 하나 범위 문서 읽기는 apps/core/coding-agent-scope_test.ts가 실제 core로 본다.
+// 본다. 앱 하나 범위 문서 읽기는 packages/core/apps/connections/scope_test.ts가 실제 core로 본다.
 import { assert, assertEquals } from "@std/assert";
 import {
   copyFixture,

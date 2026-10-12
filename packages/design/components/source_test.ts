@@ -209,7 +209,7 @@ Deno.test("shell/design-system#R43: SDK 재료와 공개 CSS는 정한 파일에
     !importAllowed("sdk/ui-chart/line-chart.tsx", "@lophn/tokens/base.css"),
   );
   assert(!importAllowed(PUBLIC_CSS_FILE, "@lophn/tokens/custom.css"));
-  assert(!importAllowed("sdk/ui-chart/line-chart.tsx", "@lophn/contracts"));
+  assert(!importAllowed("sdk/ui-chart/line-chart.tsx", "@lophn/protocol"));
   assert(rhythmAllowed("sdk/ui-chart/chart.module.css", "margin-left", "auto"));
   assert(!rhythmAllowed("sdk/ui-chart/chart.module.css", "padding", "auto"));
 });

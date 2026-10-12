@@ -81,7 +81,7 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
   // 조립과 같이 run-loop의 AcceptRun을 같은 Tx에서 부른다.
   const conversationCommands = createConversationCommands({
     // 제품 조립과 같다. 질문 묶음은 run을 가리키므로 run 기록보다 먼저 지운다.
-    // 본문 참조 지움은 platform 몫이고 core 시험(apps/core/testing)이 본다.
+    // 본문 참조 지움은 platform 몫이고 core 시험(packages/core/testing)이 본다.
     deleteSessionRecords: (tx, session) => {
       const keepRefs = () => ok(undefined);
       const questions = deleteSessionQuestions(tx, session, keepRefs);

@@ -82,7 +82,7 @@ Deno.test("apps/runtime#R22 apps/runtime#R23: entrypoint loads without zod", asy
     imports: {
       "@lophn/base": new URL("../../../../base/mod.ts", import.meta.url).href,
       "@lophn/apps/blueprint":
-        new URL("../../../../blueprint/mod.ts", import.meta.url).href,
+        new URL("../../blueprint/mod.ts", import.meta.url).href,
     },
   };
   const mapPath = `${dir}/import-map.json`;
@@ -113,7 +113,7 @@ Deno.test("apps/runtime#R7: missing start input, blueprint, or broker exits 1", 
     imports: {
       "@lophn/base": new URL("../../../../base/mod.ts", import.meta.url).href,
       "@lophn/apps/blueprint":
-        new URL("../../../../blueprint/mod.ts", import.meta.url).href,
+        new URL("../../blueprint/mod.ts", import.meta.url).href,
     },
   };
   const cases: { env: Record<string, string>; stdin: string }[] = [

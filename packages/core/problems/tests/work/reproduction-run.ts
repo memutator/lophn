@@ -159,7 +159,7 @@ async function runSide(
     await Deno.mkdir(dir, { recursive: true, mode: 0o700 });
   }
   const childUrl = new URL(
-    "packages/problems/tests/reproduction/child.ts",
+    "packages/core/problems/tests/reproduction/child.ts",
     root,
   ).href;
   await Deno.writeTextFile(
@@ -211,7 +211,7 @@ async function runSide(
       sockets: job.sockets,
       deno: job.deno,
       entrypoint: new URL(
-        "packages/apps/runtime/entrypoint/main.ts",
+        "packages/core/apps/runtime/entrypoint/main.ts",
         root,
       ).pathname,
       base_module: new URL("packages/base/mod.ts", root).href,

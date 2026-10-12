@@ -1,7 +1,7 @@
 // 한 번 되돌린 session이 있는 실제 core. 실제 core 테스트(real-core.ts의 startRealCore)가 별도 프로세스로 띄운다.
 // renderer bundle에는 들어가지 않는다.
 //
-// apps/core/main.ts처럼 core를 띄우되 test credential 입구를 열어, 사람이 연 session에 메시지 둘을 보내 각각의 run을
+// packages/core/main/daemon/main.ts처럼 core를 띄우되 test credential 입구를 열어, 사람이 연 session에 메시지 둘을 보내 각각의 run을
 // 멈춘 뒤(model은 부르지 않는다) 둘째 메시지로 "Restore messages only" Rewind를 실제 HTTP route로 적용한다. Rewind의
 // 확인 handle은 보호 창이 발급하는 것이라 test credential 입구(core.confirmation)로 같은 binding에 발급한다. 그런 뒤에야
 // core가 부모 pipe에 쓴 hello frame을 stdout으로 넘기므로, 부모가 hello를 읽으면 되돌린 session이 이미 있다.
@@ -57,15 +57,17 @@ if (home === undefined || home === "") {
   Deno.exit(2);
 }
 
-const { startCore } = await load<CoreModule>("apps/core/core.ts");
-// apps/core/main.ts의 TEAMS와 같은 팀 등록이다.
+const { startCore } = await load<CoreModule>(
+  "packages/core/main/daemon/core.ts",
+);
+// packages/core/main/daemon/main.ts의 TEAMS와 같은 팀 등록이다.
 const TEAM_FILES = [
-  "apps/core/documents.ts",
-  "apps/core/apps.ts",
-  "apps/core/problems.ts",
-  "apps/core/coding-agent.ts",
-  "apps/core/lophn-agent.ts",
-  "apps/core/tickets.ts",
+  "packages/core/projects/register.ts",
+  "packages/core/apps/register.ts",
+  "packages/core/problems/register.ts",
+  "packages/core/server/identity/coding-connection.ts",
+  "packages/core/lophn-agent/register.ts",
+  "packages/core/apps/tickets/register.ts",
 ];
 const [documents, apps, problems, codingAgent, lophnAgent, tickets] =
   await Promise.all(TEAM_FILES.map((path) => load<TeamModule>(path)));
@@ -85,13 +87,13 @@ const teams = [
 ];
 const contracts = await load<{
   rewind: unknown;
-}>("packages/contracts/lophn-agent/mod.ts");
+}>("packages/protocol/lophn-agent/mod.ts");
 const identity = await load<{
   confirmationBinding(
     route: unknown,
     input: unknown,
   ): Promise<{ target: string; content: string } | undefined>;
-}>("packages/platform/identity/mod.ts");
+}>("packages/core/server/identity/mod.ts");
 
 // 부모 pipe. core가 쓴 frame(hello)은 다 심을 때까지 모았다가 stdout으로 넘긴다.
 const held: Uint8Array[] = [];

@@ -8636,7 +8636,7 @@ function parse(html, options) {
   return Parser.parse(html, options);
 }
 
-// packages/documents/formats/modules/document/html.ts
+// packages/core/projects/formats/modules/document/html.ts
 var HEADING = /^h([1-6])$/;
 var EXCLUDED = /* @__PURE__ */ new Set([
   "script",
@@ -8762,7 +8762,7 @@ function extractHtml(source) {
   };
 }
 
-// packages/documents/formats/modules/document/markdown.ts
+// packages/core/projects/formats/modules/document/markdown.ts
 var ATX = /^( {0,3})(#{1,6})([ \t]+(.*))?$/;
 var FENCE = /^( {0,3})(`{3,}|~{3,})(.*)$/;
 var SETEXT = /^( {0,3})(=+|-+)[ \t]*$/;
@@ -8879,7 +8879,7 @@ function scanMarkdown(text) {
   };
 }
 
-// packages/documents/formats/pure/utf8.ts
+// packages/core/projects/formats/pure/utf8.ts
 function continuation(bytes, index) {
   const byte = bytes[index];
   if (byte === void 0 || (byte & 192) !== 128) return null;
@@ -8944,7 +8944,7 @@ function decodeUtf8(bytes) {
   };
 }
 
-// packages/documents/formats/pure/input.ts
+// packages/core/projects/formats/pure/input.ts
 var SHA256 = /^[0-9a-f]{64}$/;
 var RELATIVE_PATH = /^(?!\/)(?![A-Za-z]:)[^\\\u0000-\u001f\u007f]+$/;
 function failedExtraction(input, reason) {
@@ -9061,7 +9061,7 @@ function normalizeDocumentText(input) {
   };
 }
 
-// packages/documents/formats/pure/sha256.ts
+// packages/core/projects/formats/pure/sha256.ts
 var K = [
   1116352408,
   1899447441,
@@ -9241,7 +9241,7 @@ function encode(text) {
   return bytes;
 }
 
-// packages/documents/formats/pure/module.ts
+// packages/core/projects/formats/pure/module.ts
 var CONTROL = /\p{Cc}/u;
 function linesOf(text) {
   return text.split("\n");
@@ -9482,7 +9482,7 @@ function validationFrom(input, issues, file) {
   };
 }
 
-// packages/documents/formats/guest.ts
+// packages/core/projects/formats/guest.ts
 var DOCUMENT_TYPES = /* @__PURE__ */ new Set([
   "text/markdown",
   "text/x-markdown",
@@ -9639,7 +9639,7 @@ function extractFormat(name, input) {
   return documentExtraction(input);
 }
 
-// packages/documents/formats/guest/entry.ts
+// packages/core/projects/formats/guest/entry.ts
 function dispatch(request) {
   if (request.operation === "validate") {
     return validateFormat(request.name, request.input);

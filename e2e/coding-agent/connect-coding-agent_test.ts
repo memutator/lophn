@@ -10,7 +10,7 @@
 //   `secret-tool`이 있으면 keychain이 실제로 열릴 수 있어 이 갈래 시험은 건너뛴다.
 // 통로가 없어 볼 수 없는 것: 연결 성공 갈래(3단계 credential 발급·OS keychain 보관, 4단계 설치·receipt,
 // 5단계 loading 확인)는 실제 OS keychain 저장이 필요하다. 시험은 실제 keychain을 열지 않고 제품 core에
-// 시험 전용 keychain 길을 두지 않으므로 이 E2E 범위 밖이다(그 순서는 apps/core/coding-connect-flow_test.ts가
+// 시험 전용 keychain 길을 두지 않으므로 이 E2E 범위 밖이다(그 순서는 packages/core/server/identity/coding-connect-flow_test.ts가
 // fake keychain으로 본다). 6단계 [Start]는 start-coding-agent flow 몫이다.
 import { assert, assertEquals } from "@std/assert";
 import { join } from "node:path";

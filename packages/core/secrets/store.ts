@@ -31,7 +31,7 @@ import {
   type SecretRefSource,
 } from "./mod.ts";
 
-// 제품 기본 keychain(Linux Secret Service, 그 밖은 unavailable)은 packages/platform/secrets가 낸다.
+// 제품 기본 keychain(Linux Secret Service, 그 밖은 unavailable)은 packages/core/secrets가 낸다.
 export { productKeychain };
 
 export type SecretStore = {

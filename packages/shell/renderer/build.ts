@@ -130,7 +130,7 @@ export async function build(
     );
     // 공통 UI와 SDK가 쓰는 React·Radix·Lucide·d3·wording을 같은 map에서 찾는다.
     const design = new URL(
-      "../../../packages/design/",
+      "../../design/",
       pathToFileURL(`${here}/`),
     );
     await addPackage(imports, design);

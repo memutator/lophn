@@ -30,7 +30,7 @@ import {
 import { createReadLog } from "./bundles/read-log.ts";
 
 // 시각 묶음(visual.show·visual.read·visual.prepare_document)의 정의와 handler. 소유 contract는
-// 메모리 fake로 흉내 내고 실제 core를 거친 확인은 apps/core/visual-tools_test.ts가 한다. model
+// 메모리 fake로 흉내 내고 실제 core를 거친 확인은 packages/core/lophn-agent/tools/visuals/core_test.ts가 한다. model
 // provider는 부르지 않는다.
 
 const RUN = run;

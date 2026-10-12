@@ -1,5 +1,5 @@
 // 신뢰 감독(main)의 child 등록 시험(platform#T34 후속, shell/terminal#R5, platform/identity#R15). core는 fake라
-// 실제 core·keychain·coding agent 제품은 열지 않는다(core 쪽 입구와 전달은 apps/core/coding-child-register_test.ts).
+// 실제 core·keychain·coding agent 제품은 열지 않는다(core 쪽 입구와 전달은 packages/core/server/identity/coding-child-register_test.ts).
 import assert from "node:assert/strict";
 import { test } from "node:test";
 

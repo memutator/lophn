@@ -119,12 +119,12 @@ const SOURCES: Record<string, { subject: string; payload: unknown }> = {
 // 정책을 낸 팀 module을 reader에 건넨다(events/list registry는 이 module들에서 모인다).
 // 계기를 내는 시험용 등록은 writer가 다시 import한다.
 const MODULES = [
-  "./testing/notification-sources.ts",
-  "./problems.ts",
-  "./lophn-agent.ts",
-  "./tickets.ts",
-  "./apps.ts",
-  "./documents.ts",
+  "../testing/notification-sources.ts",
+  "../problems/register.ts",
+  "../lophn-agent/register.ts",
+  "../apps/tickets/register.ts",
+  "../apps/register.ts",
+  "../projects/register.ts",
 ].map((path) => new URL(path, import.meta.url).href);
 
 async function withCore(

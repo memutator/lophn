@@ -13,7 +13,7 @@ import {
 } from "./mod.ts";
 
 // 고정 action의 검사·지문·채택 판정(순수). 실제 core 위의 적용(한 번만, 낡은 전제, 범위 밖 대상)은
-// apps/core/question-option-actions_test.ts와 apps/core/waiting-and-recovery_test.ts가 본다.
+// packages/core/lophn-agent/tools/questions/option-actions-flow_test.ts와 packages/core/lophn-agent/waiting-and-recovery/waiting-core_test.ts가 본다.
 
 const DOC = "doc_01arz3ndektsv4rrffq69g5fav";
 const OTHER_DOC = "doc_01arz3ndektsv4rrffq69g5fb0";

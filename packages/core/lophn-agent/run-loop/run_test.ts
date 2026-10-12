@@ -11,7 +11,7 @@ import {
 import { envelope as assignmentEnvelope } from "./testing/mod.ts";
 
 // run ledger 테스트. 실제 등록 executor(harness)와 임시 ledger 파일을 쓴다.
-// 재시작·kill 시험과 operator 회차는 apps/core/testing/lophn-agent-runs_test.ts에 있다.
+// 재시작·kill 시험과 operator 회차는 packages/core/testing/lophn-agent-runs_test.ts에 있다.
 
 const NOW = Date.UTC(2026, 0, 1);
 

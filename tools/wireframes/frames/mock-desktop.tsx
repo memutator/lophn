@@ -1,4 +1,4 @@
-// 진짜 Desktop 화면을 mock 데이터로 그린다. 조립은 apps/shell/renderer/desktop/entry.tsx의 mock
+// 진짜 Desktop 화면을 mock 데이터로 그린다. 조립은 packages/shell/renderer/desktop/entry.tsx의 mock
 // 갈래와 같다. entry는 import하면 바로 mount하므로 이 gallery가 같은 조립을 따로 둔다. 앱 코드는
 // 고치지 않고, preload가 없는 일반 browser에 없는 통로(터미널 PTY, overlay)만 여기서 채운다.
 import { useEffect, useMemo } from "react";

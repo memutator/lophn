@@ -1,6 +1,6 @@
 // approval 한 번 사용의 공통 gate(platform/approvals#R5, R7, R11). 실제 ledger(임시 파일 SQLite)에서
 // 시험 전용 소유 command(probe_test.ts)가 `Tx.useApproval`을 부른다. 소유 command 쪽 dispatch와
-// 기한·run·권한까지 포함한 끝에서 끝까지는 apps/core/platform-apply_test.ts가 실제 core로 본다.
+// 기한·run·권한까지 포함한 끝에서 끝까지는 packages/core/approvals/apply-flow_test.ts가 실제 core로 본다.
 // 사람 허락은 decisions_test와 같은 handle 경로로 만든다.
 
 import { assert, assertEquals } from "@std/assert";

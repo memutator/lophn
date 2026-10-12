@@ -9,7 +9,7 @@ import { envelope } from "./mod.ts";
 export { envelope };
 import type { CoreRead } from "../startup.ts";
 
-// 도우미가 쓰는 harness의 모양. 실제 harness(apps/core/testing/ledger.ts)는 *_test.ts만
+// 도우미가 쓰는 harness의 모양. 실제 harness(packages/core/testing/ledger.ts)는 *_test.ts만
 // import하므로 여기서는 이 모양만 요구한다. 여는 곳은 open_test.ts다.
 export type LedgerHarness = {
   command(

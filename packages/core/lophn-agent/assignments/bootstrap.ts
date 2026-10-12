@@ -100,7 +100,7 @@ export async function noteBootstrapFailure(
         kind: "log",
         code: "lophn_internal",
         error_type: "lophn_agent_bootstrap",
-        location: "apps/core/lophn-agent-bootstrap.ts",
+        location: "packages/core/lophn-agent/assignments/bootstrap.ts",
         message: "Builtin assignment bootstrap did not finish.",
         error_code: code,
       }) + "\n",

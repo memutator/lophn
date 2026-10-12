@@ -23,7 +23,7 @@ export type Decision = {
   before?: string[];
 };
 
-const SHELL_MAIN = "apps/shell/main";
+const SHELL_MAIN = "packages/shell/main";
 
 async function exists(path: string): Promise<boolean> {
   try {
@@ -57,7 +57,7 @@ export const steps: Step[] = [
     command: ["npm", "--prefix", SHELL_MAIN, "run", "check"],
     when: async () => {
       if (!(await exists(`${SHELL_MAIN}/package.json`))) {
-        return { run: false, note: "건너뜀: apps/shell/main 없음" };
+        return { run: false, note: "건너뜀: packages/shell/main 없음" };
       }
       if (await exists(`${SHELL_MAIN}/node_modules`)) return { run: true };
       return {

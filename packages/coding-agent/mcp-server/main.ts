@@ -421,10 +421,11 @@ export function startMcpServer(
   }));
 }
 
-// 설치 묶음의 helper다. 이 entry는 `<설치 root>/platform/apps/mcp/main.ts`라 설치 root는 세 단계 위다.
+// 설치 묶음의 helper다. 이 entry는 `<설치 root>/platform/packages/coding-agent/mcp-server/main.ts`라 설치 root는 네 단계 위다.
 // 이 경로가 `--allow-run` 하나이자 loader identity다(platform 3.1).
-const INSTALLED_HELPER = new URL("../../../lophn-credential", import.meta.url)
-  .pathname;
+const INSTALLED_HELPER =
+  new URL("../../../../lophn-credential", import.meta.url)
+    .pathname;
 
 function scrubKnown(
   known: ReturnType<typeof createKnownSecretRegistry>,

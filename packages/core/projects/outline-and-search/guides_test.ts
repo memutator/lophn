@@ -1,6 +1,6 @@
 // documents/versions#R17 (documents#T29): 설치 안내 읽기 handler. 설치 폴더는 temp dir에
 // 쓴 실제 manifest·파일이고(versions/testing), manifest reader는 제품 createGuideCatalog다.
-// 제품 format 추출은 core 시험(apps/core/documents-guides_test.ts)이 reader Worker로
+// 제품 format 추출은 core 시험(packages/core/projects/versions/guides-core_test.ts)이 reader Worker로
 // 확인한다. 여기 extractor는 heading 줄만 나누는 시험용 port 구현이다.
 import { assert, assertEquals } from "@std/assert";
 import type { RequestContext } from "../../../protocol/server/mod.ts";

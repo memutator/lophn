@@ -77,7 +77,11 @@ test("shell/desktop#R20: 개발 core는 deno run과 data root만 받고 credenti
   assert.equal(launch.command, "deno");
   assert.ok(launch.args.includes("run"));
   assert.ok(launch.args.includes("--allow-all"));
-  assert.ok(launch.args.some((arg) => arg.endsWith("apps/core/main.ts")));
+  assert.ok(
+    launch.args.some((arg) =>
+      arg.endsWith("packages/core/main/daemon/main.ts")
+    ),
+  );
   assert.ok(launch.args.includes("--port=0"));
   assert.equal(launch.env.LOPHN_HOME, "/data/root");
   assert.equal(JSON.stringify(launch).includes("token"), false);
@@ -102,7 +106,9 @@ test("shell/desktop#R20: packaged core는 bundle된 Deno와 좁힌 권한으로 
   assert.equal(launch.args.includes("--allow-ffi"), false);
   assert.ok(launch.args.includes("--port=7431"));
   assert.ok(
-    launch.args.includes("/opt/lophn/platform/apps/core/main.ts"),
+    launch.args.includes(
+      "/opt/lophn/platform/packages/core/main/daemon/main.ts",
+    ),
   );
   // 쓰기는 data root뿐, 실행은 kill·keychain 도구·설치된 Deno뿐이다.
   assert.ok(launch.args.includes("--allow-write=/home/person/.lophn"));

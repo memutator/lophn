@@ -134,7 +134,7 @@ const failAcceptRoute = defineCommand({
 });
 
 // 준비 참조가 없는 상황을 켠다. 실제 준비 만기·주체 판정은 platform의 등록기가 하고
-// 그 경로는 apps/core의 실제 core 시험이 본다. 여기서는 command가 만든 증거의 모양과
+// 그 경로는 packages/core/testing의 실제 core 시험이 본다. 여기서는 command가 만든 증거의 모양과
 // 등록 실패 때 전체가 되돌아가는 것만 본다.
 const unpreparedRoute = defineCommand({
   resource: "conversation-fixture",
@@ -178,7 +178,7 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
   const runReads = createRunReads();
   const deps: ConversationDeps = {
     // 제품 조립과 같다. session을 지울 때 그 session의 run 기록은 run-loop가 지운다. 본문 참조
-    // 지움은 platform 몫이고 core 시험(apps/core/testing)이 본다.
+    // 지움은 platform 몫이고 core 시험(packages/core/testing)이 본다.
     deleteSessionRecords: (tx, session) =>
       deleteSessionRuns(tx, session, () => ok(undefined)),
     eraseBlobRefs: () => ok(undefined),

@@ -1,6 +1,6 @@
 // shell#T52: [Report a problem] 실제 Electron 확인. 화면 없이(show:false·offscreen) Electron을 띄워
 // 실제 앱 view adapter·registry와 실제 overlay view(설치한 renderer·shell preload)에 feedback main
-// 쪽을 붙인다(apps/shell/main/app-frame/testdata/report-problem-probe.ts). core 앱 통로와 problems
+// 쪽을 붙인다(packages/shell/main/app-frame/testdata/report-problem-probe.ts). core 앱 통로와 problems
 // 접수만 가짜이고 앱 화면은 이 테스트가 Unix socket에 띄운 가짜 앱 프로세스가 내준다.
 // - shell/app-frame#R31, problems/feedback#R5: 버튼을 누르면 캡처를 먼저 요청하고 overlay에
 //   dialog를 연다. 캡처하는 동안과 dialog가 열린 뒤에도 앱 view는 창에 붙어 보인다.
@@ -21,10 +21,10 @@ const repoRoot = new URL("../../", import.meta.url).pathname.replace(
   /\/$/,
   "",
 );
-const shellMain = `${repoRoot}/apps/shell/main`;
+const shellMain = `${repoRoot}/packages/shell/main`;
 const electronExecutable = `${shellMain}/node_modules/electron/dist/electron`;
 const probeSource = `${shellMain}/app-frame/testdata/report-problem-probe.ts`;
-const rendererBuild = `${repoRoot}/apps/shell/renderer/build.ts`;
+const rendererBuild = `${repoRoot}/packages/shell/renderer/build.ts`;
 
 const APP = "app_01j9zzzzzzzzzzzzzzzzzzzzzz";
 const RELEASE = "rel_01j9zzzzzzzzzzzzzzzzzzzzz1";

@@ -1,7 +1,7 @@
 // lophn-agent/harness/tools#R8, R16, R17: 허락된 앱의 active release blueprint에서 command마다 tool 정의가
 // 자동으로 생기고(별도 MCP 등록 없음), 역할·현재 허락·AgentAppScope의 교집합만 노출되며, 앱 쪽은
 // fixture blueprint와 앱 통로 대역으로 본다. 실제 core·앱 자식 프로세스에서의 호출은
-// apps/agent-runtime/app_toolkit_test.ts가 본다.
+// packages/core/lophn-agent/tools/app-toolkit_test.ts가 본다.
 import { assert, assertEquals } from "@std/assert";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type {

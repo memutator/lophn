@@ -163,7 +163,7 @@ export interface IconLocation {
   packaged: boolean;
   /** packaged build의 `process.resourcesPath`. */
   resourcesPath: string;
-  /** 개발 실행의 `apps/shell/main/desktop`. */
+  /** 개발 실행의 `packages/shell/main/desktop`. */
   desktopDir: string;
 }
 

@@ -2,7 +2,7 @@
 // Rewind는 앱 단계가 있으면 applying으로 접수만 한다. rewind 창이 접수 뒤 `RunAppRevert`를 부르면 core가
 // 그 revert를 이어 받는다.
 //   - 실제 복원 호출(사람의 `apps/connect` 연결과 앱 direct socket으로 앱 command 보내기)은 감독 worker
-//     `apps/revert`(apps/worker/apps/revert.ts)가 한다. core는 호출자의 credential을 호출 요청에 실어 보내고
+//     `apps/revert`(packages/core/apps/revert/worker/run.ts)가 한다. core는 호출자의 credential을 호출 요청에 실어 보내고
 //     worker가 돌려준 결과를 받아 판정한다. agent.commands grant를 복원 권한으로 쓰지 않는다.
 //   - 단계 기록(`CheckpointRevert`)과 끝내기(`FinishRevert`)는 core 내부 machine 자격이다. 사람 token이
 //     이 command를 직접 부르지 못한다.

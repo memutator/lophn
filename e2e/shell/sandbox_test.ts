@@ -15,8 +15,8 @@ const repoRoot = new URL("../../", import.meta.url).pathname.replace(
   "",
 );
 const electronExecutable =
-  `${repoRoot}/apps/shell/main/node_modules/electron/dist/electron`;
-const shellApp = `${repoRoot}/apps/shell/main/dist/main.cjs`;
+  `${repoRoot}/packages/shell/main/node_modules/electron/dist/electron`;
+const shellApp = `${repoRoot}/packages/shell/main/dist/main.cjs`;
 
 function freePort(): number {
   const listener = Deno.listen({ hostname: "127.0.0.1", port: 0 });

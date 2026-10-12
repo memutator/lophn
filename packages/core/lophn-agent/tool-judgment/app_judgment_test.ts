@@ -1,7 +1,7 @@
 // lophn-agent/harness/tool-judgment#R10, R11: 앱 command의 판정은 active release blueprint의 효과·confirm·
 // 되돌리기 선언과 대응 command, 지금의 허락에서 나온다. 판정표(`judge`)에 소유 계약의 사실을 넣는 연결
 // (`createAppBinding`)을 본다. approval 생성·허락·한 번 진입의 실제 ledger 흐름은
-// apps/core/app-tool-judgment_test.ts가 본다.
+// packages/core/lophn-agent/tool-judgment/core_test.ts가 본다.
 import { assert, assertEquals } from "@std/assert";
 import { err, ok } from "../../../base/mod.ts";
 import {

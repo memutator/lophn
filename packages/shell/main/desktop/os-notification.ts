@@ -11,7 +11,7 @@ import { type PlainKey, word } from "./wording.ts";
 /** contracts/platform/notifications의 `NotificationCreated`. main tsc는 contracts를 보지 않는다. */
 export const NOTIFICATION_CREATED = "NotificationCreated";
 
-/** shell이 settings registry에 등록한 opt-in 항목(apps/core/shell.ts). 기본은 꺼짐이다. */
+/** shell이 settings registry에 등록한 opt-in 항목(packages/core/config/shell-settings.ts). 기본은 꺼짐이다. */
 export const OS_NOTIFICATIONS_KEY = "shell.os_notifications";
 
 /** event stream이 주는 envelope에서 쓰는 부분. */

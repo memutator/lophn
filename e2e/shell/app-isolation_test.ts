@@ -25,7 +25,7 @@ const repoRoot = new URL("../../", import.meta.url).pathname.replace(
   /\/$/,
   "",
 );
-const shellMain = `${repoRoot}/apps/shell/main`;
+const shellMain = `${repoRoot}/packages/shell/main`;
 const electronExecutable = `${shellMain}/node_modules/electron/dist/electron`;
 const probeSource = `${shellMain}/app-frame/testdata/app-isolation-probe.ts`;
 

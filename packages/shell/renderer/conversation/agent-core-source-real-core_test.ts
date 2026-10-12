@@ -197,7 +197,7 @@ Deno.test("lophn-agent/conversation#R1 lophn-agent/conversation#R2 lophn-agent/c
   }
 });
 
-const REWIND_CORE = "apps/shell/renderer/testdata/rewind-core.ts";
+const REWIND_CORE = "packages/shell/renderer/testdata/rewind-core.ts";
 
 async function rewoundSource(core: Awaited<ReturnType<typeof startRealCore>>) {
   const assignments = await core.source.call({

@@ -1,5 +1,5 @@
 // 앱 자식마다 broker socket을 열고 서비스 어댑터를 조립한다(apps/permissions#R19, apps/runtime#R6).
-// 업무 규칙은 packages/apps/permissions/broker에 있고 여기는 자식 연결 하나에 서비스를 달고 자식이
+// 업무 규칙은 packages/core/apps/permissions/broker에 있고 여기는 자식 연결 하나에 서비스를 달고 자식이
 // 끝나면 정리하는 연결만 한다. 신원은 자식 연결이 정한다: 서비스는 본문의 신원 주장을 쓰지 않는다.
 // 모르는 경로는 없는 경로와 같은 not_found이고, 아직 이어지지 않은 외부 통로(secret 전송·문서 저장)는
 // 경로를 없애지 않고 서비스의 검사를 지난 뒤 unavailable로 닫는다.

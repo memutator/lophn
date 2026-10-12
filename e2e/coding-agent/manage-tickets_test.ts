@@ -7,7 +7,7 @@
 // - 한 줄 사유로 취소하면 cancelled로 바뀌고 더는 취소·시작할 수 없다. 목록과 core 읽기가 같은 상태다.
 // 통로가 없어 볼 수 없는 것: claim·진행 보고·확인 결과·연결 회수는 coding credential(MCP)로만 들어온다.
 // credential은 OS keychain 저장이 필요해 이 E2E 범위 밖이다(connect-coding-agent와 같은 이유). 그 순서는
-// packages/coding-agent/tickets 시험이 fake ledger로 본다. [Start]는 start-coding-agent flow 몫이다.
+// packages/core/apps/tickets 시험이 fake ledger로 본다. [Start]는 start-coding-agent flow 몫이다.
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { join } from "node:path";

@@ -38,7 +38,7 @@ async function createLedgerHarness(options: {
   registrationModules: readonly URL[];
   credentials?: readonly AuthenticatedContext[];
 }): Promise<Result<LedgerHarness>> {
-  const specifier = "../../../apps/core/testing/ledger.ts";
+  const specifier = "../testing/ledger.ts";
   const harness = await import(specifier);
   return harness.createLedgerHarness(options);
 }

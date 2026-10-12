@@ -1,4 +1,4 @@
-// release 준비 한 번을 권한을 좁힌 별도 Deno 자식(`apps/worker/apps/release-job.ts`)으로 돌린다
+// release 준비 한 번을 권한을 좁힌 별도 Deno 자식(`packages/core/main/worker/release-job.ts`)으로 돌린다
 // (architecture/apps 2.1). supervisor는 data root를 쓰지 못하므로 쓰기는 이 자식이 그 앱의 폴더에만
 // 한다. 취소·종료는 자식을 SIGKILL하고 끝난 것을 확인한 뒤에야 돌려준다. 끊긴 준비가 남긴 staging은 지운다.
 import { err, ok, type Result } from "../../../base/mod.ts";

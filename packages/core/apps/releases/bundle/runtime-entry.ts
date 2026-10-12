@@ -15,7 +15,7 @@ export type RuntimeEntry = {
 // `packagesUrl`은 플랫폼 `packages/` 폴더의 file URL이다(끝에 `/`).
 export function runtimeEntry(packagesUrl: string): RuntimeEntry {
   const module = JSON.stringify(
-    `${packagesUrl}apps/runtime/entrypoint/main.ts`,
+    `${packagesUrl}core/apps/runtime/entrypoint/main.ts`,
   );
   const source =
     `// lophn이 만든 진입 파일이다. 앱 code는 \`@lophn/app\`(main.ts)이다.

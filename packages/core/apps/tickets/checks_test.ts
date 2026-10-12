@@ -1,6 +1,6 @@
 // ticket machine check 테스트(coding-agent/tickets#R7, R8, R18, R19, R20). fixture
 // transaction으로 조건별 판정과 record_checks의 CAS·재판정을 본다. 실제 core 경로는
-// apps/core/ticket-checker_test.ts다.
+// packages/core/apps/tickets/checker/connection_test.ts다.
 import { assert, assertEquals } from "@std/assert";
 import { createTicketCheckCommands, loadCheckWork } from "./checks.ts";
 import { judgeTicket } from "./checker/mod.ts";

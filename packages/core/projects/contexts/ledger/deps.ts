@@ -2,7 +2,7 @@
 // Context Engineer 판별, 위반 넘김 Run. command를 실행하는 writer Worker와 read를 실행하는 reader
 // Worker 안에서만 올라온다(contexts-api.ts의 loadContextsRuntime). node:sqlite와 동기 file API를
 // 쓰므로 core 본체의 module graph에 들어오면 안 된다(platform/responsiveness#R1).
-// 그래서 index 저장소는 packages/documents/contexts/mod.ts barrel이 아니라 index/mod.ts를 직접 연다.
+// 그래서 index 저장소는 packages/core/projects/contexts/mod.ts barrel이 아니라 index/mod.ts를 직접 연다.
 import { createHash } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { canonicalize, err, ok, type Result } from "../../../../base/mod.ts";
@@ -158,7 +158,7 @@ function flatten(
 }
 
 // 요청 접수는 run-loop의 AcceptRun을 같은 transaction에서 부른다. AcceptRun은 machine 전용 기록이라
-// 이 접수에 한해 machine 자격으로 바꿔 넘긴다(apps/core/lophn-agent.ts의 조립과 같다).
+// 이 접수에 한해 machine 자격으로 바꿔 넘긴다(packages/core/lophn-agent/register.ts의 조립과 같다).
 const runCommands = createRunCommands();
 const conversationDeps: StartRequestDeps = {
   acceptRun: (tx, ctx, input, compare) =>

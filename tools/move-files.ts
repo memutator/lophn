@@ -569,7 +569,7 @@ export async function planMoves(root: string, mapping: Mapping): Promise<Plan> {
       const found = resolve(parent(file), path);
       if (found === undefined) {
         note(
-          file,
+          target,
           site.line,
           "warning",
           `저장소 밖을 가리킴: ${site.specifier}`,
@@ -580,7 +580,7 @@ export async function planMoves(root: string, mapping: Mapping): Promise<Plan> {
       const place = locate(found);
       if (place.kind === "removed") {
         note(
-          file,
+          target,
           site.line,
           "error",
           `지우는 파일을 가리킴: ${site.specifier}`,
@@ -598,7 +598,7 @@ export async function planMoves(root: string, mapping: Mapping): Promise<Plan> {
       }
       if (unknown) {
         note(
-          file,
+          target,
           site.line,
           "warning",
           `추적하지 않는 대상: ${site.specifier}`,
@@ -619,13 +619,13 @@ export async function planMoves(root: string, mapping: Mapping): Promise<Plan> {
     if (!member) return;
     const old = resolveWorkspace(path, oldMembers);
     if (!old) {
-      note(file, site.line, "warning", `이미 풀리지 않는 specifier: ${path}`);
+      note(target, site.line, "warning", `이미 풀리지 않는 specifier: ${path}`);
       skip.add(`${target}\0${site.specifier}`);
       return;
     }
     const place = locate(old);
     if (place.kind === "removed") {
-      note(file, site.line, "error", `지우는 파일을 가리킴: ${path}`);
+      note(target, site.line, "error", `지우는 파일을 가리킴: ${path}`);
       skip.add(`${target}\0${site.specifier}`);
       return;
     }
@@ -638,7 +638,7 @@ export async function planMoves(root: string, mapping: Mapping): Promise<Plan> {
     if (merged || !theirs) {
       if (!theirs) {
         note(
-          file,
+          target,
           site.line,
           "warning",
           `workspace member 밖이 되어 상대 경로로 씀: ${path}`,
@@ -647,7 +647,7 @@ export async function planMoves(root: string, mapping: Mapping): Promise<Plan> {
       return relative(parent(target), place.path) + suffix;
     }
     if (!theirs.name) {
-      note(file, site.line, "error", `이름 없는 member로 옮김: ${path}`);
+      note(target, site.line, "error", `이름 없는 member로 옮김: ${path}`);
       return;
     }
     const key = path === member.name
@@ -657,7 +657,7 @@ export async function planMoves(root: string, mapping: Mapping): Promise<Plan> {
     const keys = exportKeys(theirs, place.path);
     if (!keys.length) {
       note(
-        file,
+        target,
         site.line,
         "error",
         `${theirs.name}에 ${place.path}를 내보내는 export가 없음`,

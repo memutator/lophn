@@ -156,7 +156,10 @@ export type RewindPlan = {
   preview: PreviewResult;
 };
 
-export type PlanDeps = Pick<RevertDeps, "observe" | "rootOf" | "appRevision">;
+export type PlanDeps = Pick<
+  RevertDeps,
+  "observe" | "rootOf" | "appRevision" | "answeredFacts"
+>;
 
 type Lookup = { sql: Pick<Sql, "get" | "all"> };
 
@@ -225,6 +228,7 @@ function externalFacts(
 
 function gatherRewind(
   lookup: Lookup,
+  deps: Pick<PlanDeps, "answeredFacts">,
   target: Extract<RewindTarget, { kind: "rewind" }>,
 ): Result<Gathered> {
   const message = lookup.sql.get(
@@ -266,9 +270,13 @@ function gatherRewind(
       [target.session, Number(boundary)],
     ).map(recordOf)
     : [];
-  const facts = target.choice === "summarize"
-    ? []
-    : externalFacts(lookup, target.session, boundary);
+  const facts = target.choice === "summarize" ? [] : [
+    ...externalFacts(lookup, target.session, boundary),
+    ...(deps.answeredFacts?.(lookup, {
+      session: target.session,
+      from_seq: boundary,
+    }) ?? []),
+  ];
   const appWrites = restoreAll
     ? readAppWrites(lookup, { session: target.session, after_seq: boundary })
     : [];
@@ -304,9 +312,13 @@ function gatherUndo(
   return ok({ records: own, appWrites: [], facts: [], later });
 }
 
-function gather(lookup: Lookup, target: RewindTarget): Result<Gathered> {
+function gather(
+  lookup: Lookup,
+  deps: Pick<PlanDeps, "answeredFacts">,
+  target: RewindTarget,
+): Result<Gathered> {
   return target.kind === "rewind"
-    ? gatherRewind(lookup, target)
+    ? gatherRewind(lookup, deps, target)
     : gatherUndo(lookup, target);
 }
 
@@ -329,7 +341,7 @@ export function observationOf(
   deps: Pick<PlanDeps, "rootOf">,
   target: RewindTarget,
 ): Result<{ root: string; paths: string[] }> {
-  const gathered = gather(lookup, target);
+  const gathered = gather(lookup, {}, target);
   if (!gathered.ok) return gathered;
   const paths = observedPaths(gathered.value.records);
   if (paths.length === 0) return ok({ root: "", paths });
@@ -348,7 +360,7 @@ export function observationOf(
 // 않으므로 judged가 비어 있다. 거절 규칙:
 //   checkpoint가 session에 없거나 사람 메시지가 아니면 `not_found`.
 //   correction 메시지(checkpoints 행 없음)에 restore_all이면, files_restorable=false인 checkpoint에
-//   restore_all이면 `invalid_input`. 이미 숨긴 구간 안의 checkpoint 검사는 hidden.ts(agent-RW3d)다.
+//   restore_all이면 `invalid_input`. 이미 숨긴 구간 안의 checkpoint 검사는 hidden.ts다(Rewind command와 preview 읽기가 따로 부른다).
 //   undo는 tool_call의 기록이 없으면 `not_found`. 같은 경로에 되돌려지지 않은 더 최근 기록이 있으면 skip
 //   `later_edit`, 그렇지 않고 지금 hash가 그 call의 after와 다르면 skip `edited_outside`로 읽는다(거절하지
 //   않고 preview에서 막는다).
@@ -362,7 +374,7 @@ export function planRewind(
     revert?: string;
   } = {},
 ): Result<RewindPlan> {
-  const gathered = gather(lookup, target);
+  const gathered = gather(lookup, deps, target);
   if (!gathered.ok) return gathered;
   const { records, appWrites, facts, later } = gathered.value;
   const paths = observedPaths(records);

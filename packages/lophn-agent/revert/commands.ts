@@ -31,9 +31,11 @@ import type { FileStat } from "./judge.ts";
 import {
   type PlanDeps,
   planRewind,
+  type PreviewFact,
   type RewindPlan,
   type RewindTarget,
 } from "./preview.ts";
+import { assertCheckpointVisible, hiddenRanges } from "./hidden.ts";
 import { createRecordRewindFile } from "./record.ts";
 import {
   countsOf,
@@ -47,8 +49,9 @@ import {
 } from "./settle.ts";
 
 // 되돌리기 command들(lophn-agent/revert). Rewind·UndoEdit·Redo·AmendRevertInstall은 문서 파일까지 여기서
-// 확정한다. 앱 단계가 있는 Rewind와 CheckpointRevert·FinishRevert는 app-commands.ts, 숨김 구간 검사는
-// agent-RW3d가 이어 채운다. RecordRewindFile은 record.ts다.
+// 확정한다. 앱 단계가 있는 Rewind와 CheckpointRevert·FinishRevert는 app-commands.ts다. 이미 숨긴
+// 구간의 checkpoint는 invalid_input이고(hidden.ts) summarize는 숨긴 메시지를 품은 구간을 접지 않는다.
+// RecordRewindFile은 record.ts다.
 //
 // 규칙(시험 rewind_test·rewind_effects_test가 정한다). Rewind·UndoEdit·Redo는 사람만 부른다(그 밖은
 // forbidden). 같은 id를 다시 보내면 저장된 결과를 replayed=true로 돌려주고 아무것도 다시 하지 않는다. 파일
@@ -100,6 +103,12 @@ export type RevertDeps = {
     app: string,
     lookup: { sql: Pick<Sql, "get" | "all"> },
   ): string | null;
+  // 되돌려지지 않는 질문 답·승인 결정(answered_fact)을 숨김 시작 이후에서 모은다. 질문과 approval의 표는
+  // 다른 concern의 것이라 core 조립이 읽어 준다. 없으면 이 사실을 알리지 않는다.
+  answeredFacts?(
+    lookup: { sql: Pick<Sql, "get" | "all"> },
+    input: { session: string; from_seq: string },
+  ): PreviewFact[];
   // 숨김 구간의 대화 효과. 없으면 Rewind는 unavailable이다(숨기지 못하는 rewind를 적용됐다고 하지 않는다).
   effects?: RewindEffects;
   // Undo가 session에 사실 메시지를 남긴다("Undid edit to <경로>", machine 메시지). principal은 본문
@@ -283,6 +292,22 @@ function block(
   return ok(headerOf(row, false));
 }
 
+// 접는 구간(고른 메시지부터 지금까지)에 이미 숨긴 메시지가 있으면 요약이 숨긴 내용을 품지 않으므로 접지 못한다.
+// 숨김을 풀거나(redo) 그 뒤의 메시지부터 접는다.
+function foldable(tx: Tx, session: string, checkpoint: string): Result<void> {
+  const boundary = tx.sql.get(
+    "select created_seq from messages where id = ? and session = ?",
+    [checkpoint, session],
+  );
+  if (boundary === undefined) return ok(undefined);
+  const from = Number(boundary["created_seq"]);
+  return hiddenRanges(tx, session).some((range) =>
+      Number(range.through_seq) >= from
+    )
+    ? reject("invalid_input", "the range to fold holds hidden messages")
+    : ok(undefined);
+}
+
 function boundaryOf(tx: Tx, target: RewindTarget): string | null {
   if (target.kind !== "rewind") return null;
   const found = tx.sql.get(
@@ -365,6 +390,16 @@ export function createRevertCommands(deps: RevertDeps): {
     if (!idle.ok) return idle;
     if (hasActiveRun(tx, input.session)) {
       return reject("conflict", "stop the running work before rewinding");
+    }
+    const visible = assertCheckpointVisible(
+      tx,
+      input.session,
+      input.checkpoint,
+    );
+    if (!visible.ok) return visible;
+    if (input.choice === "summarize") {
+      const folding = foldable(tx, input.session, input.checkpoint);
+      if (!folding.ok) return folding;
     }
     const effects = deps.effects;
     if (effects === undefined) {
@@ -532,8 +567,9 @@ export function createRevertCommands(deps: RevertDeps): {
     }
     const messages = Number(
       tx.sql.get(
-        "select count(*) as n from messages where session = ? and created_seq >= ?",
-        [row.session, Number(row.boundary_seq)],
+        `select count(*) as n from messages
+          where session = ? and created_seq >= ? and created_seq <= ?`,
+        [row.session, Number(row.boundary_seq), Number(row.result_seq)],
       )!["n"],
     );
     tx.sql.run("update reverts set redo = 'done' where id = ?", [row.id]);

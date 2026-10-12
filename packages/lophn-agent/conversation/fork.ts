@@ -11,6 +11,7 @@ import type {
   Input,
   Tx,
 } from "../../contracts/platform/mod.ts";
+import { hiddenRanges, inHiddenRange } from "../revert/mod.ts";
 import { reject, requireUser } from "./guards.ts";
 import {
   hasUnfinishedRun,
@@ -22,7 +23,7 @@ import {
 } from "./model.ts";
 
 // Fork(R9). 같은 agent·같은 자리의 새 session을 만들고 고른 지점까지의 확정 메시지를 복사한다.
-// 복사본은 지난 발언이라 run·mode·최초 반영이 없다. run·질문·approval request·model call은 복사하지
+// rewind가 숨긴 구간의 메시지는 복사하지 않는다. 복사본은 지난 발언이라 run·mode·최초 반영이 없다. run·질문·approval request·model call은 복사하지
 // 않으므로 새 판단이 과거의 결정이나 효과를 재사용하지 않는다.
 
 type ForkOutput = {
@@ -100,11 +101,15 @@ export function createForkCommand(): CommandDefinition<typeof forkSession> {
           "the chosen point is not a confirmed message of the session",
         );
       }
+      // rewind가 숨긴 구간은 복사하지 않는다(R25). redo를 쓰면 다시 보이는 메시지라 그때부터 복사한다.
+      const hidden = hiddenRanges(tx, source.id);
       const originals = tx.sql.all(
         `select ${MESSAGE_COLUMNS} from messages
          where session = ? and created_seq <= ? order by created_seq`,
         [source.id, through],
-      ).map(messageRowOf);
+      ).map(messageRowOf).filter((message) =>
+        !inHiddenRange(hidden, message.created_seq)
+      );
 
       const forkedFrom = { session: source.id, through_seq: input.through_seq };
       const seq = tx.emit(sessionForked, input.id, {

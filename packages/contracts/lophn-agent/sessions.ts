@@ -471,12 +471,17 @@ export const sessionCompactRequests = defineRead({
 });
 
 // Compact가 session에 이은 요약의 본문이다. 요약은 원문을 대체하지 않는 derived라 호출의 출력이
-// 정본이고, 사람 화면은 이 본문을 일반 agent 답과 구별해 보인다(conversation#R10).
+// 정본이고, 사람 화면은 이 본문을 일반 agent 답과 구별해 보인다(conversation#R10). `revert`를 주면 그
+// rewind("Summarize from here")가 접은 구간의 요약을 읽는다: compaction은 접힌 구간의 끝(result_seq)과
+// 그 요약 call이다(lophn-agent/revert R15).
 export const sessionSummary = defineRead({
   resource: "sessions",
   method: "summary",
   name: "ReadSessionSummary",
-  input: z.strictObject({ session: idSchema("ses") }),
+  input: z.strictObject({
+    session: idSchema("ses"),
+    revert: idSchema("rvt").optional(),
+  }),
   output: withReadCommon(z.object({
     session: idSchema("ses"),
     compaction: compactionOutputSchema,

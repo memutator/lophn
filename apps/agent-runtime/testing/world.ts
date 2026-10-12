@@ -17,6 +17,7 @@ import {
   placeAgentSettingsRead,
   placeExtensionSettingsRead,
   providerRead,
+  rewindList,
   runBody,
   runRead,
   sessionRead,
@@ -85,10 +86,24 @@ export type WorldOptions = {
   // session의 확정 메시지(created_seq 오름차순). actor는 user나 agent다. 이 run의 요청 메시지(MSG)와 그 뒤에
   // 접수된 메시지도 들어 있다.
   sessionMessages?: SessionMessageFixture[];
+  // session의 되돌리기 기록(rewind/list)과 접힌 구간 요약의 본문(revert ID별). 없으면 되돌린 적이 없다.
+  reverts?: RevertFixture[];
+  foldTexts?: Record<string, string>;
   // Compact가 session에 이은 요약. text는 요약 call의 출력 본문이다.
   compaction?:
     | { through_seq: string; summary_call: string; text: string }
     | null;
+};
+
+export type RevertFixture = {
+  id: string;
+  choice: "restore_all" | "messages_only" | "summarize";
+  checkpoint: string;
+  boundary_seq: string;
+  result_seq: string;
+  summary_call?: string | null;
+  outcome?: "applied" | "partial" | "uncertain" | "blocked";
+  redo?: "none" | "available" | "done" | "closed";
 };
 
 export type SessionMessageFixture = {
@@ -185,6 +200,53 @@ export function openWorld(options: WorldOptions = {}): World {
           options.sessionModel ?? null,
           options.compaction ?? null,
         ),
+        ...readMeta(),
+      });
+    }
+    if (path === routePath(rewindList)) {
+      const reverts = options.reverts ?? [];
+      return reply(rewindList.output, {
+        reverts: reverts.map((revert) => ({
+          id: revert.id,
+          session: SES,
+          kind: "rewind" as const,
+          choice: revert.choice,
+          checkpoint: revert.checkpoint,
+          tool_call: null,
+          boundary_seq: revert.boundary_seq,
+          summary_call: revert.choice === "summarize"
+            ? revert.summary_call ?? null
+            : null,
+          outcome: revert.outcome ?? "applied",
+          redo: revert.redo ??
+            (revert.choice === "summarize" ? "none" : "available"),
+          items: [],
+          preview_hash: HASH,
+          result_seq: revert.result_seq,
+        })),
+        hidden_from_seq: null,
+        ...readMeta(),
+      });
+    }
+    if (
+      path === routePath(sessionSummary) &&
+      (body as { revert?: string }).revert !== undefined
+    ) {
+      const revert = (body as { revert: string }).revert;
+      const found = (options.reverts ?? []).find((entry) =>
+        entry.id === revert
+      );
+      const text = options.foldTexts?.[revert];
+      if (found === undefined || text === undefined) {
+        return Promise.resolve(err({ code: "not_found", message: "none" }));
+      }
+      return reply(sessionSummary.output, {
+        session: SES,
+        compaction: {
+          through_seq: found.result_seq,
+          summary_call: found.summary_call ?? "mcl_01arz3ndektsv4rrffq69g5faa",
+        },
+        text,
         ...readMeta(),
       });
     }

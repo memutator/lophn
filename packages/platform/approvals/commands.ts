@@ -188,6 +188,9 @@ export function createApprovalCommands(): {
     },
     cancel: {
       route: cancelApprovalRequest,
+      // 다른 concern의 command가 같은 transaction에서 취소한다(lophn-agent/revert: rewind가 숨기는 구간에서
+      // 기다리던 request).
+      dispatchable: true,
       handle(tx, ctx, input, compare) {
         return cancelRequest(tx, ctx, input, compare);
       },

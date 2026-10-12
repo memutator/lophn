@@ -24,6 +24,7 @@ import {
 import {
   createAppEngineerAssignment,
   providerList,
+  runAppRevert,
 } from "../../packages/contracts/lophn-agent/mod.ts";
 import {
   type ApiServer,
@@ -273,6 +274,16 @@ import {
   ticketCheckerSpec,
 } from "./ticket-checker.ts";
 import {
+  APP_REVERT_CONTEXT,
+  type AppRevertCaller,
+  createAppRevert,
+} from "./app-revert.ts";
+import {
+  REVERT_WORKER_KIND,
+  revertWorkerSpec,
+  workerAppCaller,
+} from "./revert-caller.ts";
+import {
   appCredentialIssuer,
   APPS_CONTROL_CONTEXT,
   APPS_CONTROL_PRINCIPAL,
@@ -364,6 +375,9 @@ export type CoreOptions = {
   superviseIo?: boolean;
   // 테스트 harness만 true로 둔다. main.ts는 이 입구를 열지 않는다.
   testCredentials?: boolean;
+  // 앱 revert 단계의 호출자를 바꾼다(lophn-agent/revert). 없으면 호출한 사람의 apps/connect 연결과 앱 direct
+  // socket을 쓴다. 테스트가 실제 앱 프로세스를 띄우지 않고 앱의 호출 결과를 넣는 입구다.
+  appRevertCaller?: (ctx: AuthenticatedContext) => AppRevertCaller;
   // 테스트가 준비 참조를 writer 메모리에 심는 입구. 제품 기동에는 없다.
   notePrepared?: (prepared: PreparedRelayResult, nowMs: number) => void;
   // 테스트가 정지 유지보수를 대신 실행한다. 제품 기동에는 없다. 세 정지
@@ -555,6 +569,8 @@ async function open(
   const checkerChannel = createDocumentsChannel();
   // coding-agent 수리 자료 worker 요청 통로. 같은 통로 모양을 쓴다(coding-agent#T43).
   const repairChannel = createDocumentsChannel();
+  // 앱 revert 호출 worker 요청 통로. 같은 통로 모양을 쓴다(lophn-agent/revert).
+  const revertChannel = createDocumentsChannel();
   // coordinator가 파일 읽기의 창으로 보내는 byte frame의 우편함(`files.read` stream).
   const fileWindows = createFileWindows();
   const ledgerPath = `${root.path}/lophn.db`;
@@ -950,6 +966,12 @@ async function open(
     await runtime.close();
     return rewindInstallCredential;
   }
+  // 앱 revert 이어 실행(lophn-agent/revert)이 단계를 기록하고 끝내는 core 내부 자격 기록.
+  const appRevertCredential = await runtime.record(APP_REVERT_CONTEXT);
+  if (!appRevertCredential.ok) {
+    await runtime.close();
+    return appRevertCredential;
+  }
   // trace export(observability#R17)의 ledger 경로와 blob 읽기 통로다. 계기 기록이 없다.
   const traceExportSecrets: TraceExportWriterDeps = {
     ledgerPath,
@@ -1141,6 +1163,14 @@ async function open(
   // I/O worker와 coordinator가 뜬 뒤에 채워지고, 그 전에는 unavailable이다.
   // 메시지 본문 준비 통로도 I/O worker가 뜬 뒤에 채워진다. 그 전에는 unavailable이다.
   const bodyPrepare: { current?: BodyPrepare } = {};
+  // 되돌리기의 파일 일(관측·준비·설치)이 쓰는 통로다. 쓰기 앞 처리기와 앱 단계 이어 실행이 같이 쓴다.
+  const rewindFilesDeps = {
+    snapshot: <T>(read: Parameters<typeof ledgerSnapshot<T>>[1]) =>
+      ledgerSnapshot(ledgerPath, read),
+    rootOf: projectRootOf,
+    store: createRewindStore(root.path),
+    relay: () => bodyPrepare.current,
+  };
   // 보호 입력 중계도 I/O worker가 뜬 뒤에 채워진다. 그 전에는 secrets/input이 unavailable이다.
   const secretInputRelay: { current?: SecretInputRelay } = {};
   const validateWiring: {
@@ -1273,12 +1303,7 @@ async function open(
               ),
               traceExportSecrets,
             ),
-            {
-              snapshot: (read) => ledgerSnapshot(ledgerPath, read),
-              rootOf: projectRootOf,
-              store: createRewindStore(root.path),
-              relay: () => bodyPrepare.current,
-            },
+            rewindFilesDeps,
           ),
         ),
         () => appsControl.connector.sweep(),
@@ -1291,6 +1316,23 @@ async function open(
         ...runtime.memory.handlers,
         ...runtime.deliveryMemory,
         ...appsControl.memory,
+        // 확인한 revert의 앱 단계를 이어 실행한다(lophn-agent/revert). 실제 복원 호출은 감독
+        // worker(apps/revert)가 호출자의 credential으로 하고 core는 결과를 받아 판정한다.
+        [
+          `${runAppRevert.resource}/${runAppRevert.method}`,
+          createAppRevert({
+            snapshot: rewindFilesDeps.snapshot,
+            rootOf: rewindFilesDeps.rootOf,
+            store: rewindFilesDeps.store,
+            caller: options.appRevertCaller ??
+              ((_ctx, credential) =>
+                workerAppCaller({
+                  channel: revertChannel,
+                  credential,
+                })),
+            writer: () => runtime?.writer,
+          }),
+        ] as const,
         // MCP OAuth의 시작·완료·상태·취소 입구다(extensions R16, R17). handler는 등록한 http 서버의
         // oauth2 인증 방식만 잡는다. verifier·state·token은 core 안에만 산다(값은 응답·ledger·log
         // 어디에도 옮기지 않는다).
@@ -2188,6 +2230,33 @@ async function open(
     if (started.ok) {
       repairChannel.bind((payload) =>
         io.send(REPAIR_WORKER_KIND, payload).then((sent) => sent.ok)
+      );
+    }
+  }
+  // apps/revert. 확인한 revert의 앱 단계를 호출자의 credential로 실제로 부르는 상시 worker다
+  // (lophn-agent/revert). 감독이 없는 harness는 띄우지 않는다. 띄우지 못해도 core는 계속 선다:
+  // 사람의 RunAppRevert 이어 실행이 failure로 닿지 않는다(접수는 applying으로 남는다).
+  if (io) {
+    const spec = revertWorkerSpec({
+      socketRoot: appSocketRoot(appsRuntimeDir),
+    });
+    const started = await io.start(
+      spec,
+      {
+        type: "hello",
+        core_epoch: epoch,
+        process_identity: epoch,
+        kind: REVERT_WORKER_KIND,
+        task: "apps",
+        scope: { operations: [], targets: {} },
+        credential: "none",
+        api_port: server.port,
+      },
+      { onMessage: (message) => revertChannel.onMessage(message) },
+    );
+    if (started.ok) {
+      revertChannel.bind((payload) =>
+        io.send(REVERT_WORKER_KIND, payload).then((sent) => sent.ok)
       );
     }
   }

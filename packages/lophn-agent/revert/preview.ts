@@ -12,9 +12,14 @@ import {
   type JudgeRecord,
 } from "./judge.ts";
 import type { RevertDeps } from "./commands.ts";
+import {
+  type AppWriteCall,
+  classifyAppWrites,
+  readAppWrites,
+} from "./app-revert.ts";
 
 // 되돌리기 preview(RevertPreview)와 그 지문(preview_hash)이다(lophn-agent/revert R3). 앱 항목(`apps`)은
-// agent-RW3c가 app-revert.ts에서 만든다.
+// app-revert.ts가 만든다.
 
 // 되돌릴 수 없는 사실 한 줄(외부 요청, 질문 답·승인 결정 같은 남는 영향).
 export type PreviewFact = {
@@ -159,6 +164,8 @@ type Lookup = { sql: Pick<Sql, "get" | "all"> };
 // 기록에서 경로를 얻는다.
 type Gathered = {
   records: JudgeRecord[];
+  // restore_all일 때 checkpoint 이후의 성공한 앱 write(호출 순서).
+  appWrites: AppWriteCall[];
   facts: PreviewFact[];
   // undo에서 같은 경로에 되돌려지지 않은 더 최근 agent 기록이 있는 판정 경로.
   later: Set<string>;
@@ -196,22 +203,6 @@ const RECORD_COLUMNS =
   `f.tool_call as tool_call, f.path as path, f.seq as seq, f.before_exists as before_exists,
    f.before_sha256 as before_sha256, f.before_blob as before_blob, f.after_exists as after_exists,
    f.after_sha256 as after_sha256, f.moved_from as moved_from, f.reverted_by as reverted_by`;
-
-// 앱 write가 낀 구간의 rewind는 앱 단계(agent-RW3c)가 올라오기 전에는 시작하지 못한다. 앱 write를
-// 남는 영향으로 두거나 건너뛰면 되돌렸다고 읽히는 거짓 성공이 되므로 막는다.
-function hasAppWrite(
-  lookup: Lookup,
-  session: string,
-  afterSeq: string,
-): boolean {
-  return lookup.sql.get(
-    `select 1 as found from tool_calls t join runs r on r.id = t.run
-      where r.session = ? and t.app_command is not null
-        and t.effect in ('write', 'external') and t.state_seq > ?
-        and json_extract(t.outcome, '$.kind') = 'success' limit 1`,
-    [session, Number(afterSeq)],
-  ) !== undefined;
-}
 
 function externalFacts(
   lookup: Lookup,
@@ -263,12 +254,6 @@ function gatherRewind(
         "the documents of this checkpoint cannot be restored",
       );
     }
-    if (hasAppWrite(lookup, target.session, boundary)) {
-      return reject(
-        "unavailable",
-        "app writes after this checkpoint cannot be rewound yet",
-      );
-    }
   }
   const records = restoreAll
     ? lookup.sql.all(
@@ -284,7 +269,10 @@ function gatherRewind(
   const facts = target.choice === "summarize"
     ? []
     : externalFacts(lookup, target.session, boundary);
-  return ok({ records, facts, later: new Set() });
+  const appWrites = restoreAll
+    ? readAppWrites(lookup, { session: target.session, after_seq: boundary })
+    : [];
+  return ok({ records, appWrites, facts, later: new Set() });
 }
 
 function gatherUndo(
@@ -313,7 +301,7 @@ function gatherUndo(
       if (newer !== undefined) later.add(record.path);
     }
   }
-  return ok({ records: own, facts: [], later });
+  return ok({ records: own, appWrites: [], facts: [], later });
 }
 
 function gather(lookup: Lookup, target: RewindTarget): Result<Gathered> {
@@ -355,6 +343,7 @@ export function observationOf(
 // ledger 기록(rewind_files·tool_calls)을 읽어 판정하고 preview를 만든다. preview 읽기, 파일 준비,
 // Rewind·UndoEdit command가 같은 함수를 쓴다.
 //   options.observed: 주면 파일을 다시 읽지 않고 그 관측을 쓴다(command는 준비 때 본 관측으로 다시 판정한다).
+//   options.revert: 앱 단계의 step_key에 쓸 revert ID. 없으면(preview) `preview`로 둔다.
 // 파일 판정은 choice=restore_all(과 undo)일 때만 한다. messages_only·summarize는 파일을 건드리지
 // 않으므로 judged가 비어 있다. 거절 규칙:
 //   checkpoint가 session에 없거나 사람 메시지가 아니면 `not_found`.
@@ -363,16 +352,19 @@ export function observationOf(
 //   undo는 tool_call의 기록이 없으면 `not_found`. 같은 경로에 되돌려지지 않은 더 최근 기록이 있으면 skip
 //   `later_edit`, 그렇지 않고 지금 hash가 그 call의 after와 다르면 skip `edited_outside`로 읽는다(거절하지
 //   않고 preview에서 막는다).
-// 앱 write가 낀 구간의 restore_all은 앱 단계(agent-RW3c)가 올라오기 전까지 `unavailable`이다.
+// restore_all이면 checkpoint 이후의 성공한 앱 write를 원래 호출 역순의 앱 단계로 분류한다.
 export function planRewind(
   lookup: Lookup,
   deps: PlanDeps,
   target: RewindTarget,
-  options: { observed?: ReadonlyMap<string, FileStat> } = {},
+  options: {
+    observed?: ReadonlyMap<string, FileStat>;
+    revert?: string;
+  } = {},
 ): Result<RewindPlan> {
   const gathered = gather(lookup, target);
   if (!gathered.ok) return gathered;
-  const { records, facts, later } = gathered.value;
+  const { records, appWrites, facts, later } = gathered.value;
   const paths = observedPaths(records);
   let current: Map<string, FileStat>;
   if (options.observed !== undefined) {
@@ -400,7 +392,15 @@ export function planRewind(
     checkpoint: target.kind === "rewind" ? target.checkpoint : null,
     tool_call: target.kind === "undo" ? target.tool_call : null,
     judged,
-    apps: [],
+    apps: classifyAppWrites({
+      revert: options.revert ?? null,
+      calls: appWrites,
+      revisions: new Map(
+        [...new Set(appWrites.map((call) => call.command.app))].map((
+          app,
+        ) => [app, deps.appRevision(app, lookup)]),
+      ),
+    }),
     facts,
     current,
   });

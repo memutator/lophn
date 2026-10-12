@@ -18,8 +18,10 @@ import {
 } from "../../packages/contracts/platform/mod.ts";
 import { factMessageContent } from "../../packages/lophn-agent/conversation/mod.ts";
 import {
+  hasAppSteps,
   installRedo,
   installRestore,
+  latestAppRevision,
   observationOf,
   observeFilesAsync,
   type PlanDeps,
@@ -91,6 +93,71 @@ function unavailable(message: string): Result<never> {
   return err({ code: "unavailable", message });
 }
 
+// 설치가 건너뛴 경로를 사람 결정에 묶인 machine 자격으로 결과에 반영한다.
+export async function amendInstalled(
+  writer: Writer,
+  revert: string,
+  installed: readonly { path: string; result: "restored" | "skipped" }[],
+): Promise<Result<void>> {
+  const paths = installed.filter((file) => file.result === "skipped")
+    .map((file) => file.path);
+  if (paths.length === 0) return ok(undefined);
+  const amended = await writer.command(REWIND_INSTALL_CONTEXT, {
+    command: amendRevertInstall.name,
+    input: { revert, paths },
+    idempotency_key: `rewind-install:${revert}`,
+    compare: {},
+    prepared: [],
+  });
+  return amended.ok ? ok(undefined) : amended;
+}
+
+export type PreparedRewind = {
+  plan: RewindPlan;
+  files: PreparedFile[];
+  root: string;
+};
+
+// 판정을 만들고 준비한다. 판정이 거절이면 null을 돌려주고 호출자가 입력을 그대로 보내 command가 같은
+// 거절을 낸다. 앱 단계가 있는 rewind는 redo가 없고 파일은 앱 단계가 끝난 뒤 다시 준비하므로 복원 직전
+// 내용을 두지 않는다(관측만 command에 실어 preview_hash 비교에 쓴다).
+export async function prepareRewind(
+  deps: Pick<RewindFilesDeps, "snapshot" | "rootOf" | "store">,
+  target: RewindTarget,
+  keepRedo: boolean,
+): Promise<Result<PreparedRewind | null>> {
+  const planDeps = {
+    rootOf: deps.rootOf,
+    appRevision: latestAppRevision,
+  };
+  const seen = deps.snapshot((lookup) =>
+    observationOf(lookup, planDeps, target)
+  );
+  if (!seen.ok) return seen;
+  if (!seen.value.ok) return ok(null);
+  const { root, paths } = seen.value.value;
+  try {
+    const observed = await observeFilesAsync(root, paths);
+    const planned = deps.snapshot((lookup) =>
+      planRewind(lookup, planDeps, target, { observed })
+    );
+    if (!planned.ok) return planned;
+    if (!planned.value.ok) return ok(null);
+    const plan = planned.value.value;
+    const files = await prepareRestore({
+      root,
+      store: deps.store,
+      session: target.session,
+      judged: plan.judged,
+      current: plan.current,
+      keepRedo: keepRedo && !hasAppSteps(plan),
+    });
+    return ok({ plan, files, root });
+  } catch {
+    return unavailable("the files to restore could not be prepared");
+  }
+}
+
 export function withRewindFiles(
   writer: Writer,
   deps: RewindFilesDeps,
@@ -102,62 +169,6 @@ export function withRewindFiles(
       remembered.delete(remembered.keys().next().value as string);
     }
   };
-
-  // 설치가 건너뛴 경로를 사람 결정에 묶인 machine 자격으로 결과에 반영한다.
-  async function amend(
-    revert: string,
-    installed: readonly { path: string; result: "restored" | "skipped" }[],
-  ): Promise<Result<void>> {
-    const paths = installed.filter((file) => file.result === "skipped")
-      .map((file) => file.path);
-    if (paths.length === 0) return ok(undefined);
-    const amended = await writer.command(REWIND_INSTALL_CONTEXT, {
-      command: amendRevertInstall.name,
-      input: { revert, paths },
-      idempotency_key: `rewind-install:${revert}`,
-      compare: {},
-      prepared: [],
-    });
-    return amended.ok ? ok(undefined) : amended;
-  }
-
-  // 판정을 만들고 준비한다. 판정이 거절이면 입력을 그대로 보내 command가 같은 거절을 낸다.
-  async function prepare(
-    target: RewindTarget,
-    keepRedo: boolean,
-  ): Promise<
-    Result<
-      { plan: RewindPlan; files: PreparedFile[]; root: string } | null
-    >
-  > {
-    const planDeps = { rootOf: deps.rootOf, appRevision: () => null };
-    const seen = deps.snapshot((lookup) =>
-      observationOf(lookup, planDeps, target)
-    );
-    if (!seen.ok) return seen;
-    if (!seen.value.ok) return ok(null);
-    const { root, paths } = seen.value.value;
-    try {
-      const observed = await observeFilesAsync(root, paths);
-      const planned = deps.snapshot((lookup) =>
-        planRewind(lookup, planDeps, target, { observed })
-      );
-      if (!planned.ok) return planned;
-      if (!planned.value.ok) return ok(null);
-      const plan = planned.value.value;
-      const files = await prepareRestore({
-        root,
-        store: deps.store,
-        session: target.session,
-        judged: plan.judged,
-        current: plan.current,
-        keepRedo,
-      });
-      return ok({ plan, files, root });
-    } catch {
-      return unavailable("the files to restore could not be prepared");
-    }
-  }
 
   // 준비한 입력을 writer에 보낸다. 같은 key로 이미 보낸 입력이 있으면 그것을 다시 보낸다.
   async function send(
@@ -184,7 +195,7 @@ export function withRewindFiles(
     if (header.replayed || header.outcome !== "applied") return sent;
     const installed = await install();
     if (!amends) return sent;
-    const amended = await amend(header.id, installed);
+    const amended = await amendInstalled(writer, header.id, installed);
     return amended.ok ? sent : amended;
   }
 
@@ -199,7 +210,7 @@ export function withRewindFiles(
       parsed.data.files.length > 0 || remembered.has(key)
     ) return await send(ctx, envelope, envelope.input);
     const input = parsed.data;
-    const prepared = await prepare({
+    const prepared = await prepareRewind(deps, {
       kind: "rewind",
       session: input.session,
       checkpoint: input.checkpoint,
@@ -233,7 +244,7 @@ export function withRewindFiles(
       return await send(ctx, envelope, envelope.input);
     }
     const input = parsed.data;
-    const prepared = await prepare({
+    const prepared = await prepareRewind(deps, {
       kind: "undo",
       session: input.session,
       tool_call: input.tool_call,

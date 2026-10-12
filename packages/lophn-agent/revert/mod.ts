@@ -18,6 +18,17 @@ export {
   type RewindEffects,
 } from "./commands.ts";
 export { createRevertReads } from "./reads.ts";
+export { hasAppSteps } from "./app-commands.ts";
+export { latestAppRevision } from "./app-revert.ts";
+export {
+  type AppStepCall,
+  type AppStepPorts,
+  type AppStepResult,
+  type AppStepsRun,
+  runAppSteps,
+  type StoredRevert,
+  type StoredStep,
+} from "./app-steps.ts";
 export {
   observationOf,
   type PlanDeps,

@@ -4,7 +4,7 @@
 `<concern id>#Q<n>`으로 여기에 올리고, 사람이 정해야 하는 것만 "사람이 정할
 것"에 둔다.
 
-- 모두 891건(재연결 뒤 8건 포함): 추천대로 730, 다르게 정함 34, 대체됨 93, 이미
+- 모두 894건(재연결 뒤 8건 포함): 추천대로 733, 다르게 정함 34, 대체됨 93, 이미
   정함 32, 사람이 정할 것 2
 - 사람이 정한 큰 결정은 아래 "정한 원칙"에 있다. 문서는 이 결정을 따른다.
 
@@ -686,6 +686,9 @@
 | lophn-agent/revert#Q7 | pre-image 한도를 넘는 쓰기. | 추천대로 | 쓰기는 허용하고 그 checkpoint를 "파일 복원 불가"로 표시한다. |
 | lophn-agent/revert#Q8 | redo를 두나. | 추천대로 | 다음 메시지 전까지만. 앱 write를 되돌린 rewind에는 redo가 없다. |
 | lophn-agent/revert#Q9 | 앱과 문서를 어떤 순서로 되돌리나. | 추천대로 | 앱 먼저, 문서 나중. 앱 효과가 부분·불명이면 문서 복원은 시작하지 않는다. |
+| lophn-agent/revert#Q10 | 앱의 지금 revision을 platform이 어떻게 읽나. 앱 data의 revision은 앱이 소유해 읽을 통로가 없고, receipt의 `expected_revision`은 앱이 write 직후 돌려준 값이다. | 추천대로 | ledger에 남은 가장 최근 성공 write의 영수증(`expected_revision`)을 그 앱의 지금 revision으로 쓴다(agent write만 보인다). 그 뒤 사람 화면·automation이 바꾼 것은 보이지 않고, 앱이 revert command의 CAS로 거절해 failure(`app_failed`)가 된다. 앱이 지금 revision을 읽는 통로를 선언하면 그것으로 바꾼다(apps 쪽 확인 필요). |
+| lophn-agent/revert#Q11 | 앱의 revert command 자체가 confirm이면. | 추천대로 | 원래 write approval을 재사용하지 않는다. proof 없이 부르면 앱이 거절해 failure로 남는다. 새 사람 확인(approval, 접수, proof)은 rewind 확인 창(agent-RW3e)이 붙인 뒤 `RunAppRevert`가 proof를 실어 보낸다. |
+| lophn-agent/revert#Q12 | `RunAppRevert`의 입력 `files`(앱 단계 뒤에 복원할 문서 파일 준비)를 누가 채우나. | 추천대로 | core가 앱 단계가 모두 끝난 뒤 파일을 다시 관측·준비하므로 호출자(shell)가 채우지 않는다. 입력은 쓰지 않으니 contract에서 뺀다. |
 | lophn-agent/agents#Q3 | 새 Operator는 첫 저장 전에 assignment가 없어 profile 이미지를 올릴 수 없다(upload는 assignment 필수). | 추천대로 | [Upload image]는 첫 저장 뒤에 켜진다. 그 전에는 icon만 고르고 "Save first to upload an image"를 보인다. upload가 임시 자리를 받는 길은 두지 않는다. |
 | lophn-agent/agents#Q4 | Agents 탭 카드의 "n contexts · n skills · n MCP"(shell/workspace#R36)를 그릴 값이 목록 행에 없다. | 추천대로 | `AgentListRow`에 `counts`(contexts는 built-in이면 null, skills·mcp는 켜진 수, 파일이 틀린 행은 셋 다 null)를 더한다(agent-I9). |
 | lophn-agent/agents#Q5 | 값 출처의 정의 층 이름이 작업 지시(`agent`)와 domain model(`definition`)에서 다르다. | 추천대로 | contract·domain은 `definition`. 화면의 출처 문구는 shell/wording이 정한다. |

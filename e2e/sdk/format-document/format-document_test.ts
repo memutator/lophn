@@ -1,15 +1,18 @@
 // @lophn/format-document의 검사다(apps/sdk#R2, R4, apps#T29 완료 기준).
 // catalog 등록은 실제 core(temp LOPHN_HOME)를 띄워 HTTP로 본다.
 import { assert, assertEquals } from "@std/assert";
-import { createCoreHarness } from "../../core/testing/core.ts";
-import type { TeamModule } from "../../core/main/daemon/registration.ts";
-import { createLedgerRegistration as createAppsRegistration } from "../../core/apps/register.ts";
-import { createLedgerRegistration as createDocumentsRegistration } from "../../core/projects/register.ts";
-import { installPackage } from "../../core/apps/packages/install.ts";
+import { createCoreHarness } from "../../../packages/core/testing/core.ts";
+import type { TeamModule } from "../../../packages/core/main/daemon/registration.ts";
+import { createLedgerRegistration as createAppsRegistration } from "../../../packages/core/apps/register.ts";
+import { createLedgerRegistration as createDocumentsRegistration } from "../../../packages/core/projects/register.ts";
+import { installPackage } from "../../../packages/core/apps/packages/install.ts";
 import {
   BUILTIN_MODULE_HASH,
-} from "../../core/projects/formats/guest/module-hash.ts";
-import { DOCUMENT_MODULE_HASH, documentFormat } from "./mod.ts";
+} from "../../../packages/core/projects/formats/guest/module-hash.ts";
+import {
+  DOCUMENT_MODULE_HASH,
+  documentFormat,
+} from "../../../packages/sdk/format-document/mod.ts";
 
 // catalog command는 apps 팀이, format read는 documents 팀이 붙인다.
 const teams: TeamModule[] = [
@@ -60,7 +63,12 @@ API와 동작을 유지한 내부 수정이다.
 
 Deno.test("apps/sdk#R4: @lophn/format-document는 정확한 1.0.0으로 낸다", async () => {
   const config = JSON.parse(
-    await Deno.readTextFile(new URL("./deno.json", import.meta.url)),
+    await Deno.readTextFile(
+      new URL(
+        "../../../packages/sdk/format-document/deno.json",
+        import.meta.url,
+      ),
+    ),
   );
   assertEquals(config.name, "@lophn/format-document");
   assertEquals(config.version, "1.0.0");
@@ -68,7 +76,7 @@ Deno.test("apps/sdk#R4: @lophn/format-document는 정확한 1.0.0으로 낸다",
 
 Deno.test("apps/sdk#R2: Package는 kind=format 하나만 담고 선언만 내놓는다", async () => {
   const text = await Deno.readTextFile(
-    new URL("./mod.ts", import.meta.url),
+    new URL("../../../packages/sdk/format-document/mod.ts", import.meta.url),
   );
   // mod.ts는 import가 없다 — 데이터 선언뿐이고 검사 코드는 넣지 않는다.
   assertEquals(/(^|\n)import\s/.test(text), false);
@@ -97,7 +105,7 @@ Deno.test("apps/sdk#R2: Package는 catalog에 kind=format 1.0.0으로 등록된�
   const opened = await createCoreHarness({
     teams,
     teamModules: [
-      new URL("../../core/apps/register.ts", import.meta.url).href,
+      new URL("../../../packages/core/apps/register.ts", import.meta.url).href,
     ],
   });
   assert(opened.ok, opened.ok ? "" : opened.error.message);
@@ -177,7 +185,7 @@ Deno.test("apps/sdk#R4: 설치는 packages/sdk/format-document를 1.0.0으로 �
     assertEquals(installed.value.version, "1.0.0");
     assertEquals(
       [...installed.value.files].sort(),
-      ["deno.json", "format-document_test.ts", "guide.md", "mod.ts"],
+      ["deno.json", "guide.md", "mod.ts"],
     );
   } finally {
     // 사본은 0555라 그대로는 못 지운다. 권한을 복구한 뒤 지운다.

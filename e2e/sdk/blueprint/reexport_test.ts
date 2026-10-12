@@ -1,9 +1,17 @@
 import { assert, assertEquals } from "@std/assert";
-import * as contracts from "../../protocol/apps/blueprint.ts";
-import * as apps from "../../core/apps/blueprint/mod.ts";
-import { defineBlueprint } from "./define.ts";
-import { blueprint, command, screen } from "./fixture.ts";
-import { canonicalInputHash, validateBlueprint, validateInput } from "./mod.ts";
+import * as contracts from "../../../packages/protocol/apps/blueprint.ts";
+import * as apps from "../../../packages/core/apps/blueprint/mod.ts";
+import { defineBlueprint } from "../../../packages/sdk/blueprint/define.ts";
+import {
+  blueprint,
+  command,
+  screen,
+} from "../../../packages/sdk/blueprint/fixture.ts";
+import {
+  canonicalInputHash,
+  validateBlueprint,
+  validateInput,
+} from "../../../packages/sdk/blueprint/mod.ts";
 
 Deno.test("apps/sdk#R5: SDK와 apps 모듈의 validator는 contracts와 같은 함수다", () => {
   assertEquals(validateBlueprint, contracts.validateBlueprint);
@@ -78,7 +86,7 @@ Deno.test("apps/sdk#R5: 템플릿 작성형과 직접 선언은 같은 판정을
 });
 
 Deno.test("apps/sdk#R5: SDK runtime import graph는 상대 TS뿐이고 zod·npm·JSR가 없다", async () => {
-  const root = new URL(".", import.meta.url);
+  const root = new URL("../../../packages/sdk/blueprint/", import.meta.url);
   const seen = new Set<string>();
   const specifiers: string[] = [];
   async function visit(url: URL) {

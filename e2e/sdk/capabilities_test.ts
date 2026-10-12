@@ -2,7 +2,7 @@
 // 자리를 한 번에 본다. 단위 동작은 각 package의 *_test.ts가 본다. 외부 network는 쓰지 않고
 // 127.0.0.1의 local fake server만 쓴다.
 import { assert, assertEquals, assertRejects } from "@std/assert";
-import { ok, type Result } from "../base/mod.ts";
+import { ok, type Result } from "../../packages/base/mod.ts";
 import {
   type BrokerListener,
   createBrokerEndpoint,
@@ -14,7 +14,7 @@ import {
   type SecretDelivery,
   type SecretDeliveryRequest,
   serveBroker,
-} from "../core/apps/permissions/mod.ts";
+} from "../../packages/core/apps/permissions/mod.ts";
 import {
   APP,
   createAccessFixture,
@@ -24,24 +24,27 @@ import {
   RELEASE,
   requirement,
   serveLocal,
-} from "../core/apps/permissions/testing/broker.ts";
-import { CapabilityError as NetError, createNetClient } from "./cap-net/mod.ts";
+} from "../../packages/core/apps/permissions/testing/broker.ts";
+import {
+  CapabilityError as NetError,
+  createNetClient,
+} from "../../packages/sdk/cap-net/mod.ts";
 import {
   CapabilityError as SaveError,
   createSaveClient,
-} from "./cap-save/mod.ts";
+} from "../../packages/sdk/cap-save/mod.ts";
 import {
   CapabilityError as SecretError,
   createSecretClient,
-} from "./cap-secret/mod.ts";
-import type { CapHost, RuntimeMode } from "./cap-net/mod.ts";
-import * as capFs from "./cap-fs/mod.ts";
-import * as capNet from "./cap-net/mod.ts";
-import * as capStore from "./cap-store/mod.ts";
-import * as capSave from "./cap-save/mod.ts";
-import * as capSecret from "./cap-secret/mod.ts";
-import * as capProblem from "./cap-problem/mod.ts";
-import { createProblemReporter } from "./cap-problem/mod.ts";
+} from "../../packages/sdk/cap-secret/mod.ts";
+import type { CapHost, RuntimeMode } from "../../packages/sdk/cap-net/mod.ts";
+import * as capFs from "../../packages/sdk/cap-fs/mod.ts";
+import * as capNet from "../../packages/sdk/cap-net/mod.ts";
+import * as capStore from "../../packages/sdk/cap-store/mod.ts";
+import * as capSave from "../../packages/sdk/cap-save/mod.ts";
+import * as capSecret from "../../packages/sdk/cap-secret/mod.ts";
+import * as capProblem from "../../packages/sdk/cap-problem/mod.ts";
+import { createProblemReporter } from "../../packages/sdk/cap-problem/mod.ts";
 
 const INV = "inv_01h455vb4pex5v6nkc6gd5fdw1";
 const SECRET_NAME = "calendar.token";
@@ -489,7 +492,7 @@ Deno.test("apps/sdk#R32: the public API of the capability clients has no path to
     }
   }
   // 원본도 같은 경계를 지킨다: 플랫폼 파일·환경·credential을 읽지 않고 apps·core를 import하지 않는다.
-  const root = new URL("./", import.meta.url);
+  const root = new URL("../../packages/sdk/", import.meta.url);
   for (const name of Object.keys(EXPECTED_EXPORTS)) {
     for await (const entry of Deno.readDir(new URL(`${name}/`, root))) {
       if (!entry.name.endsWith(".ts") || entry.name.endsWith("_test.ts")) {
@@ -544,7 +547,7 @@ Deno.test("apps/sdk#R26: cap-problem needs no extra permission and exposes no wa
     ["status"],
   );
   const guide = await Deno.readTextFile(
-    new URL("./cap-problem/guide.md", import.meta.url),
+    new URL("../../packages/sdk/cap-problem/guide.md", import.meta.url),
   );
   const permissions = guide.split("## 요구 permission")[1].split("##")[0];
   assert(permissions.includes("없다"));
@@ -554,12 +557,14 @@ Deno.test("apps/sdk#R26: cap-problem needs no extra permission and exposes no wa
 
 Deno.test("apps/sdk#R25: loopback listening has no capability package and the guides send readers to Deno.serve", async () => {
   const names: string[] = [];
-  for await (const entry of Deno.readDir(new URL("./", import.meta.url))) {
+  for await (
+    const entry of Deno.readDir(new URL("../../packages/sdk/", import.meta.url))
+  ) {
     if (entry.isDirectory) names.push(entry.name);
   }
   assert(!names.some((name) => /listen|loopback|serve/.test(name)));
   const guide = await Deno.readTextFile(
-    new URL("./cap-net/guide.md", import.meta.url),
+    new URL("../../packages/sdk/cap-net/guide.md", import.meta.url),
   );
   assert(guide.includes("Deno.serve"));
   assert(!/@lophn\/cap-(listen|loopback|serve)/.test(guide));

@@ -1,8 +1,13 @@
 import { assert, assertEquals, assertRejects, assertThrows } from "@std/assert";
-import { CapabilityError, openStore, type RuntimeMode } from "./mod.ts";
-import { openAppDatabase } from "../../core/apps/data/worker/db.ts";
+import {
+  CapabilityError,
+  openStore,
+  type RuntimeMode,
+} from "../../../packages/sdk/cap-store/mod.ts";
+import { openAppDatabase } from "../../../packages/core/apps/data/worker/db.ts";
 
-const MOD = new URL("./mod.ts", import.meta.url).href;
+const MOD =
+  new URL("../../../packages/sdk/cap-store/mod.ts", import.meta.url).href;
 
 const STEP_1 = {
   from: 0,

@@ -4,8 +4,11 @@ import { assert, assertEquals } from "@std/assert";
 import {
   openPairWorld,
   PARENT,
-} from "../../core/apps/connections/world_test.ts";
-import { connectAppCommands, runWith } from "./mod.ts";
+} from "../../../packages/core/apps/connections/world_test.ts";
+import {
+  connectAppCommands,
+  runWith,
+} from "../../../packages/sdk/cap-schedule/mod.ts";
 
 Deno.test("apps/sdk#R40: 허락된 command만 B의 같은 handler로 호출되고 미허락 연결과 caller 위조는 거절된다", async () => {
   const world = await openPairWorld();

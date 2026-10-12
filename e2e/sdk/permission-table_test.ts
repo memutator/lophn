@@ -1,14 +1,14 @@
 // release 준비의 요구 permission 표는 각 capability package의 `checkDeclaration`과 같은 결과여야 한다
 // (apps/sdk#R22). core는 SDK 코드를 import하지 않아 표를 옮겨 썼으므로 이 시험이 두 표를 대조한다.
 import { assertEquals } from "@std/assert";
-import * as fs from "./cap-fs/mod.ts";
-import * as net from "./cap-net/mod.ts";
-import * as save from "./cap-save/mod.ts";
-import * as secret from "./cap-secret/mod.ts";
+import * as fs from "../../packages/sdk/cap-fs/mod.ts";
+import * as net from "../../packages/sdk/cap-net/mod.ts";
+import * as save from "../../packages/sdk/cap-save/mod.ts";
+import * as secret from "../../packages/sdk/cap-secret/mod.ts";
 import {
   missingSdkPermission,
   SDK_REQUIRED_PERMISSIONS,
-} from "../core/apps/releases/sdk-permissions.ts";
+} from "../../packages/core/apps/releases/sdk-permissions.ts";
 
 const PACKAGES = {
   "@lophn/cap-fs": fs,

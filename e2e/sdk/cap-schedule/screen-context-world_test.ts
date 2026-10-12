@@ -2,15 +2,15 @@
 // 프로세스로 본다(apps/agent-context#R6, apps/sdk#R39). 앱 자식은 SDK의 registerScreenContext·
 // registerAnnotationTarget을 쓰는 temp 폴더의 실제 프로세스다. 사람 데이터 root는 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
-import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
-import { grantRevoke } from "../../protocol/apps/mod.ts";
-import type { AgentAppScope } from "../../protocol/lophn-agent/mod.ts";
+import type { AuthenticatedContext } from "../../../packages/protocol/server/mod.ts";
+import { grantRevoke } from "../../../packages/protocol/apps/mod.ts";
+import type { AgentAppScope } from "../../../packages/protocol/lophn-agent/mod.ts";
 import {
   call,
   command,
   inspect,
-} from "../../core/testing/approvals-fixture.ts";
-import { confirmationFor } from "../../core/testing/confirmation-fixture.ts";
+} from "../../../packages/core/testing/approvals-fixture.ts";
+import { confirmationFor } from "../../../packages/core/testing/confirmation-fixture.ts";
 import {
   authorizationOf,
   control,
@@ -19,7 +19,7 @@ import {
   grant,
   openWorld,
   type World,
-} from "../../core/apps/runtime/world_test.ts";
+} from "../../../packages/core/apps/runtime/world_test.ts";
 
 const ASSIGNMENT = "asg_01arz3ndektsv4rrffq69g5fav";
 const RUN = "run_01arz3ndektsv4rrffq69g5fav";

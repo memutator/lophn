@@ -4,11 +4,14 @@
 import { assert, assertEquals } from "@std/assert";
 
 import { mcpServersSetting } from "../../../../../../packages/contracts/lophn-agent/mod.ts";
+import type { CoreReply } from "../../../../ipc/core-api.ts";
 import { coreSettingsSource } from "./core-source.ts";
+import type { ServerRow } from "./source.ts";
 import {
   assertCallsFitRoutes,
   fakeCore,
   HTTP_SERVER,
+  OAUTH_SERVER,
   settingsAnswers,
   settingsCore,
 } from "./testdata/fake-core.ts";
@@ -194,4 +197,185 @@ Deno.test("shell/wording#R10: 보내는 입력과 비교 기준은 contract rout
   await source.enterServerCredential("mcp-wiki");
   assert(calls.length >= 5);
   assertCallsFitRoutes(calls);
+});
+
+const AUTH_URL =
+  "https://auth.example.com/authorize?client_id=lophn-client&state=s1";
+
+Deno.test("lophn-agent/extensions#R16 [agent-I51]: OAuth server는 켜져 있고 token이 저장돼 있지 않을 때만 로그인할 수 있고 로그인에 쓸 자리·client_id·scopes를 설정에서 옮긴다", async () => {
+  const servers = [
+    OAUTH_SERVER("fresh", null),
+    OAUTH_SERVER("stored", "sec:mcp-notes"),
+    OAUTH_SERVER("lost", "sec:mcp-lost"),
+    OAUTH_SERVER("off", null, false),
+    HTTP_SERVER("plain", "none"),
+  ];
+  const { core, calls } = settingsCore(servers);
+  const view = await coreSettingsSource(core, OPTIONS).settings();
+  assert(view.ok);
+  assertEquals(
+    view.value.servers.map((row) => [row.name, row.signIn]),
+    [
+      ["fresh", {
+        place: null,
+        clientId: "lophn-client",
+        scopes: ["read", "write"],
+      }],
+      ["stored", null],
+      ["lost", {
+        place: null,
+        clientId: "lophn-client",
+        scopes: ["read", "write"],
+      }],
+      ["off", null],
+      ["plain", null],
+    ],
+  );
+  // token은 값이 아니라 이름만 묻는다.
+  const secrets = calls.find((call) => call.resource === "secrets")!;
+  assertEquals(
+    (secrets.body as { names: string[] }).names.toSorted(),
+    ["mcp-lost", "mcp-notes"],
+  );
+});
+
+function authCore(answers: {
+  begin?: () => CoreReply;
+  complete?: () => CoreReply;
+} = {}) {
+  return fakeCore({
+    ...settingsAnswers([OAUTH_SERVER("fresh", null)]),
+    "memory:agent-mcp-auth/begin": answers.begin ??
+      (() => ({ ok: true, value: { url: AUTH_URL, callback_port: 4321 } })),
+    "memory:agent-mcp-auth/complete": answers.complete ??
+      (() => ({ ok: true, value: { completed: true } })),
+  });
+}
+
+const rowOf = async (
+  source: ReturnType<typeof coreSettingsSource>,
+): Promise<ServerRow> => {
+  const view = await source.settings();
+  assert(view.ok);
+  return view.value.servers[0]!;
+};
+
+Deno.test("lophn-agent/extensions#R16 shell/app-frame#R7 [agent-I51]: 로그인을 시작하면 server 이름과 자리(전역은 null)·client_id·scopes로 BeginMcpAuth를 부르고 돌려받은 인증 주소를 OS browser로 연다", async () => {
+  const { core, calls } = authCore();
+  const opened: string[] = [];
+  const source = coreSettingsSource(core, {
+    ...OPTIONS,
+    openLink: (url) => {
+      opened.push(url);
+      return Promise.resolve({ ok: true });
+    },
+  });
+  const row = await rowOf(source);
+  const begun = await source.beginSignIn(row);
+  assertEquals(begun, { ok: true, value: { callbackPort: 4321 } });
+  const begin = calls.find((call) => call.method === "begin")!;
+  assertEquals([begin.kind, begin.resource], ["memory", "agent-mcp-auth"]);
+  assertEquals(begin.body, {
+    name: "fresh",
+    place: null,
+    client_id: "lophn-client",
+    scopes: ["read", "write"],
+  });
+  assertEquals(opened, [AUTH_URL]);
+  // 자리에 등록한 server는 그 자리를 그대로 싣는다.
+  const place = { kind: "project", id: "prj_01k6qs0000000000000000000a" };
+  await source.beginSignIn({
+    ...row,
+    signIn: { ...row.signIn!, place } as ServerRow["signIn"],
+  });
+  const second = calls.filter((call) => call.method === "begin")[1]!;
+  assertEquals((second.body as { place: unknown }).place, place);
+  assertCallsFitRoutes(calls.filter((call) => call.resource !== "settings"));
+});
+
+Deno.test("lophn-agent/extensions#R16 [agent-I51]: 로그인을 끝내면 같은 server와 자리·callback port로 CompleteMcpAuth를 부르고 거절된 반환은 실패다", async () => {
+  const replies: CoreReply[] = [
+    { ok: true, value: { completed: true } },
+    { ok: true, value: { completed: false } },
+    { ok: false, error: { code: "unavailable", message: "unavailable" } },
+  ];
+  const { core, calls } = authCore({ complete: () => replies.shift()! });
+  const source = coreSettingsSource(core, OPTIONS);
+  const row = await rowOf(source);
+  assertEquals(await source.finishSignIn(row, 4321), {
+    ok: true,
+    value: null,
+  });
+  const complete = calls.find((call) => call.method === "complete")!;
+  assertEquals([complete.kind, complete.resource], [
+    "memory",
+    "agent-mcp-auth",
+  ]);
+  assertEquals(complete.body, {
+    name: "fresh",
+    place: null,
+    callback_port: 4321,
+  });
+  assertEquals(await source.finishSignIn(row, 4321), {
+    ok: false,
+    code: "rejected",
+  });
+  assertEquals(await source.finishSignIn(row, 4321), {
+    ok: false,
+    code: "unavailable",
+  });
+  assertCallsFitRoutes(calls.filter((call) => call.resource !== "settings"));
+});
+
+Deno.test("lophn-agent/extensions#R16 shell/app-frame#R7 [agent-I51]: 시작이 거절되면 그 오류가 가고 browser를 열지 않으며, 주소를 열지 못하면 not_opened다", async () => {
+  const opened: string[] = [];
+  const open = (ok: boolean) => (url: string) => {
+    opened.push(url);
+    return Promise.resolve(
+      ok
+        ? { ok: true as const }
+        : { ok: false as const, code: "forbidden" as const },
+    );
+  };
+  const refused = authCore({
+    begin: () => ({
+      ok: false,
+      error: { code: "conflict", message: "conflict" },
+    }),
+  });
+  const source = coreSettingsSource(refused.core, {
+    ...OPTIONS,
+    openLink: open(true),
+  });
+  const row = await rowOf(source);
+  assertEquals(await source.beginSignIn(row), { ok: false, code: "conflict" });
+  assertEquals(opened, []);
+
+  const good = authCore();
+  const row2 = await rowOf(coreSettingsSource(good.core, OPTIONS));
+  for (
+    const openLink of [
+      open(false),
+      () => Promise.reject(new Error("boom")),
+      undefined,
+    ]
+  ) {
+    const failing = coreSettingsSource(good.core, { ...OPTIONS, openLink });
+    assertEquals(await failing.beginSignIn(row2), {
+      ok: false,
+      code: "not_opened",
+    });
+  }
+  // 로그인이 필요하지 않은 줄은 core를 부르지 않는다.
+  const before = good.calls.length;
+  const plain = { ...row2, signIn: null };
+  assertEquals(await source.beginSignIn(plain), {
+    ok: false,
+    code: "invalid_input",
+  });
+  assertEquals(await source.finishSignIn(plain, 1), {
+    ok: false,
+    code: "invalid_input",
+  });
+  assertEquals(good.calls.length, before);
 });

@@ -252,7 +252,6 @@ Deno.test("shell/wording#R10: 도구 server의 credential 값은 이 화면이 �
           secret: "mcp-search",
           credential: "set",
         }),
-        server("odd", { auth: "oauth2" }),
         server("flaky", {
           auth: "bearer",
           secret: "mcp-flaky",
@@ -279,11 +278,6 @@ Deno.test("shell/wording#R10: 도구 server의 credential 값은 이 화면이 �
     "Whether a credential is saved couldn't be checked.",
   );
   assertEquals(credential("local"), null);
-  assert(
-    textOf(find(view.container, "[data-server='odd']")).includes(
-      "Signing in to this server isn't available yet.",
-    ),
-  );
   // 값이 없는 server만 [Enter credential]이 있고, 눌러도 이름만 넘어가 창이 연다.
   assertEquals(
     view.container.querySelectorAll("[data-action='enter-credential']").length,
@@ -305,6 +299,169 @@ Deno.test("shell/wording#R10: 도구 server의 credential 값은 이 화면이 �
     find(view.container, "[data-notice='window-opened']").textContent,
     "Finish in the window that opened. This list updates when you come back.",
   );
+});
+
+const SIGN_IN = { place: null, clientId: "lophn-client", scopes: ["read"] };
+
+function signInServers() {
+  return [
+    server("fresh", { auth: "oauth2", signIn: SIGN_IN }),
+    server("stored", { auth: "oauth2" }),
+    server("notes", {
+      auth: "bearer",
+      secret: "mcp-notes",
+      credential: "missing",
+    }),
+    server("local", { transport: "stdio" }),
+  ];
+}
+
+const signInRow = (container: Element, name: string) =>
+  find(container, `[data-server='${name}']`);
+
+Deno.test("lophn-agent/extensions#R16 shell/desktop#R50 [agent-I51]: Tools and skills에서 [Sign in]은 로그인이 필요한 OAuth server 줄에만 있고 다음 행동을 말한다", async () => {
+  const { source } = fakeSettings({ settings: { servers: signInServers() } });
+  using view = render(<SettingsScreen source={source} />);
+  pressTab(byText(view.container, "Tools and skills"));
+  await flush();
+  const buttons = [
+    ...view.container.querySelectorAll("[data-action='sign-in']"),
+  ];
+  assertEquals(buttons.length, 1);
+  assertEquals(textOf(buttons[0]!), "Sign in");
+  assert(signInRow(view.container, "fresh").contains(buttons[0]!));
+  assert(
+    textOf(signInRow(view.container, "fresh")).includes(
+      "Sign in before new work can use this server.",
+    ),
+  );
+  // 로그인 안내는 이제 "아직 안 된다"고 말하지 않는다. 이미 로그인한 server는 아무것도 더하지 않는다.
+  assert(!textOf(view.container).includes("isn't available yet"));
+  assertEquals(
+    signInRow(view.container, "stored").querySelector("[data-credential]"),
+    null,
+  );
+  // credential을 넣는 server의 [Enter credential]은 그대로다.
+  assertEquals(
+    view.container.querySelectorAll("[data-action='enter-credential']").length,
+    1,
+  );
+});
+
+Deno.test("lophn-agent/extensions#R16 shell/app-frame#R7 [agent-I51]: [Sign in]은 그 server의 자리로 시작해 기다리는 동안 브라우저에서 마치라고 알리고 끝나면 server 목록을 다시 읽는다", async () => {
+  let release!: (result: { ok: true; value: null }) => void;
+  const finish = new Promise<{ ok: true; value: null }>((resolve) => {
+    release = resolve;
+  });
+  const { source, calls } = fakeSettings({
+    settings: { servers: signInServers() },
+    signIn: { finish },
+  });
+  using view = render(<SettingsScreen source={source} />);
+  pressTab(byText(view.container, "Tools and skills"));
+  await flush();
+  const row = signInRow(view.container, "fresh");
+  click(find(row, "[data-action='sign-in']"));
+  await flush();
+  assertEquals(
+    calls.filter((call) => String(call[0]).startsWith("sign-in")),
+    [["sign-in-begin", "fresh", null], ["sign-in-finish", "fresh", 4321]],
+  );
+  assertEquals(
+    find(row, "[data-sign-in]").textContent,
+    "Complete the sign-in in your browser.",
+  );
+  assertEquals(
+    find(row, "[data-sign-in]").getAttribute("data-sign-in"),
+    "waiting",
+  );
+  // 기다리는 중에는 같은 줄을 다시 시작하지 못한다.
+  assertEquals(
+    find(row, "[data-action='sign-in']").hasAttribute("disabled"),
+    true,
+  );
+  const reads = calls.filter((call) => call[0] === "settings").length;
+  release({ ok: true, value: null });
+  await flush();
+  assertEquals(
+    find(row, "[data-sign-in]").textContent,
+    "Signed in to fresh.",
+  );
+  assertEquals(
+    find(row, "[data-sign-in]").getAttribute("data-sign-in"),
+    "done",
+  );
+  assertEquals(row.querySelector("[data-action='sign-in']"), null);
+  assert(calls.filter((call) => call[0] === "settings").length > reads);
+});
+
+Deno.test("lophn-agent/extensions#R16 [agent-I51]: 로그인이 시작되지 않거나 끝나지 않으면 그 줄에 이유 한 줄을 보이고 다시 시도할 수 있다", async () => {
+  const cases: [
+    { beginCode?: string; finish?: { ok: false; code: string } },
+    string,
+    string,
+    string[],
+  ][] = [
+    [
+      { beginCode: "conflict" },
+      "busy",
+      "A sign-in for this server is already waiting. Finish it in your browser.",
+      ["sign-in-begin"],
+    ],
+    [
+      { beginCode: "not_opened" },
+      "not-opened",
+      "The sign-in page didn't open. Try again.",
+      ["sign-in-begin"],
+    ],
+    [
+      { beginCode: "unavailable" },
+      "failed",
+      "Couldn't sign in to fresh. Nothing changed. Try again.",
+      ["sign-in-begin"],
+    ],
+    [
+      { finish: { ok: false, code: "rejected" } },
+      "failed",
+      "Couldn't sign in to fresh. Nothing changed. Try again.",
+      ["sign-in-begin", "sign-in-finish"],
+    ],
+  ];
+  for (const [signIn, kind, text, steps] of cases) {
+    const { source, calls } = fakeSettings({
+      settings: { servers: signInServers() },
+      signIn: {
+        ...(signIn.beginCode === undefined
+          ? {}
+          : { beginCode: signIn.beginCode }),
+        ...(signIn.finish === undefined
+          ? {}
+          : { finish: Promise.resolve(signIn.finish) }),
+      },
+    });
+    using view = render(<SettingsScreen source={source} />);
+    pressTab(byText(view.container, "Tools and skills"));
+    await flush();
+    const row = signInRow(view.container, "fresh");
+    click(find(row, "[data-action='sign-in']"));
+    await flush();
+    const line = find(row, "[data-sign-in]");
+    assertEquals([line.getAttribute("data-sign-in"), line.textContent], [
+      kind,
+      text,
+    ]);
+    assertEquals(
+      calls.map((call) => call[0]).filter((name) =>
+        `${name}`.startsWith("sign-in")
+      ),
+      steps,
+    );
+    // 다시 누를 수 있다.
+    assertEquals(
+      find(row, "[data-action='sign-in']").hasAttribute("disabled"),
+      false,
+    );
+  }
 });
 
 Deno.test("shell/wording#R10: 읽지 못한 자리는 대상과 다시 시도를 보인다", async () => {

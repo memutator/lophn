@@ -3,7 +3,12 @@ import { test } from "node:test";
 
 import { ALL_ROUTES } from "../../../../../packages/contracts/mod.ts";
 
-import { isAllowed, lookupCall, READING_WORKER_ROUTES } from "./allowlist.ts";
+import {
+  isAllowed,
+  lookupCall,
+  READING_WORKER_ROUTES,
+  RENDERER_MEMORY_ROUTES,
+} from "./allowlist.ts";
 
 test("shell/desktop#R19: renderer allowlist는 contract의 read·command와 문서 읽기 worker만 담는다", () => {
   let reads = 0;
@@ -18,6 +23,13 @@ test("shell/desktop#R19: renderer allowlist는 contract의 read·command와 문�
     ) {
       // 연결 생성은 renderer가 token 검증 hash를 낼 수 없어 allowlist에 없다. 고정 연결 intent로만 만든다.
       assert.equal(allowed, false, name);
+    } else if (
+      route.kind === "memory" &&
+      RENDERER_MEMORY_ROUTES.includes(
+        `${route.kind}:${route.resource}/${route.method}`,
+      )
+    ) {
+      assert.equal(allowed, true, name);
     } else if (route.kind === "read" || route.kind === "command") {
       assert.equal(allowed, true, `${route.resource}/${route.method}`);
       if (route.kind === "read") reads += 1;
@@ -96,4 +108,23 @@ test("documents/projects#R6: 추적 미리보기 worker는 읽기라 통과하�
   assert.equal(isAllowed("command", "projects", "set_tracking"), true);
   assert.equal(isAllowed("command", "projects", "create"), true);
   assert.equal(isAllowed("worker", "files", "watch"), false);
+});
+
+test("lophn-agent/extensions#R16 [agent-I51]: renderer는 MCP 로그인의 시작·완료 memory route만 부르고 다른 memory route는 막는다", () => {
+  assert.deepEqual(
+    [...RENDERER_MEMORY_ROUTES].sort(),
+    ["memory:agent-mcp-auth/begin", "memory:agent-mcp-auth/complete"],
+  );
+  assert.equal(isAllowed("memory", "agent-mcp-auth", "begin"), true);
+  assert.equal(isAllowed("memory", "agent-mcp-auth", "complete"), true);
+  assert.equal(
+    lookupCall("memory", "agent-mcp-auth", "begin"),
+    "memory:agent-mcp-auth/begin",
+  );
+  assert.equal(isAllowed("memory", "reverts", "run_apps"), false);
+  assert.equal(
+    isAllowed("memory", "coding_agent_connections", "connect"),
+    false,
+  );
+  assert.equal(isAllowed("memory", "apps", "connect"), false);
 });

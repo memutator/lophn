@@ -163,3 +163,29 @@ export const HTTP_SERVER = (name: string, kind: string, ref?: string) => ({
     auth: { kind, ...(ref === undefined ? {} : { secret_ref: ref }) },
   },
 });
+
+/** OAuth 로그인을 쓰는 전역 server. tokenRef가 null이면 아직 로그인하지 않았다. */
+export const OAUTH_SERVER = (
+  name: string,
+  tokenRef: string | null,
+  enabled = true,
+) => ({
+  name,
+  revision: 1,
+  enabled,
+  call_timeout_ms: 60_000,
+  classifications: {},
+  transport: "http",
+  http: {
+    url: "https://tools.example.com",
+    headers: {},
+    auth: {
+      kind: "oauth2",
+      issuer: "https://auth.example.com",
+      client_id: "lophn-client",
+      client_secret_ref: null,
+      scopes: ["read", "write"],
+      token_ref: tokenRef,
+    },
+  },
+});

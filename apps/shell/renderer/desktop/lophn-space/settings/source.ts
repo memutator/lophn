@@ -100,6 +100,19 @@ export interface SettingsView {
 
 export type ServerAuth = "none" | "bearer" | "api_key" | "oauth2";
 
+/** server가 등록된 자리(project 또는 app). 전역 server는 자리가 아니므로 null로 쓴다. */
+export interface ServerPlace {
+  readonly kind: "project" | "app";
+  readonly id: string;
+}
+
+/** OAuth 로그인을 시작하는 데 필요한 것. 켜져 있고 token이 저장돼 있지 않은 server에만 있다. */
+export interface ServerSignIn {
+  readonly place: ServerPlace | null;
+  readonly clientId: string;
+  readonly scopes: readonly string[];
+}
+
 /** 등록한 MCP server 하나. credential 값은 어디에도 없다. */
 export interface ServerRow {
   readonly name: string;
@@ -109,6 +122,8 @@ export interface ServerRow {
   /** credential이 필요한 server만. 값이 들어갈 보관 이름과 저장됐는지(이름만 본다). */
   readonly secret: string | null;
   readonly credential: "set" | "missing" | "unknown" | null;
+  /** 로그인이 필요한 OAuth server만. 아니면 null이다. */
+  readonly signIn: ServerSignIn | null;
 }
 
 /** 새 MCP server. credential 값은 이 모양에 없다. */
@@ -143,4 +158,16 @@ export interface SettingsSource {
   ): Promise<SourceResult<null>>;
   /** MCP credential을 보호 창에 넣는다. secret은 ServerRow.secret이다. */
   enterServerCredential(secret: string): Promise<WindowOutcome>;
+  /**
+   * OAuth 로그인을 시작해 인증 주소를 OS browser로 연다. callback port를 돌려준다.
+   * 열지 못했으면 code는 not_opened이고 시작이 거절됐으면 core가 준 code다.
+   */
+  beginSignIn(
+    server: ServerRow,
+  ): Promise<SourceResult<{ callbackPort: number }>>;
+  /** browser에서 돌아올 때까지 기다려 로그인을 끝낸다. 거절된 반환은 code가 rejected다. */
+  finishSignIn(
+    server: ServerRow,
+    callbackPort: number,
+  ): Promise<SourceResult<null>>;
 }

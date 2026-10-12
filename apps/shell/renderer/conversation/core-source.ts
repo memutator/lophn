@@ -40,7 +40,12 @@ interface MessageValue {
     run: string | null;
     mode: "request" | "correction" | null;
     applied_at_call: string | null;
-    links: { kind: string; document?: string; version?: string }[];
+    links: {
+      kind: string;
+      document?: string;
+      version?: string;
+      context?: string;
+    }[];
   };
 }
 
@@ -128,12 +133,15 @@ function actorOf(actor: string): MessageActor {
   return "agent";
 }
 
-// 결과로 보이는 것은 문서와 판뿐이다. 질문·approval·model·tool 링크는 결과가 아니다.
+// 결과로 보이는 것은 문서·판·context뿐이다. 질문·approval·model·tool 링크는 결과가 아니다.
 function resultsOf(links: MessageValue["message"]["links"]): ResultLink[] {
   const results: ResultLink[] = [];
   for (const link of links) {
     if (link.kind === "document" && link.document) {
       results.push({ kind: "document", document: link.document });
+    }
+    if (link.kind === "context" && link.context) {
+      results.push({ kind: "context", context: link.context });
     }
     if (link.kind === "version" && link.document && link.version) {
       results.push({
@@ -161,7 +169,7 @@ export function coreConversationSource(core: CoreSource): ConversationSource {
   return {
     watch: (listener) => core.subscribe(listener),
 
-    async agent() {
+    async agent(role = "lophn") {
       const listed = await pages<
         AssignmentValue,
         Page & {
@@ -171,7 +179,7 @@ export function coreConversationSource(core: CoreSource): ConversationSource {
         core,
         "assignments",
         "list",
-        { role: "lophn" },
+        { role },
         (value) => value.assignments,
       );
       if (!listed.ok) return listed;
@@ -183,6 +191,7 @@ export function coreConversationSource(core: CoreSource): ConversationSource {
           id: usable.id,
           state: usable.state,
           revision: usable.revision,
+          ...(role === "lophn" ? {} : { role }),
         },
       };
     },

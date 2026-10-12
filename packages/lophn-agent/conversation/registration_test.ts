@@ -1,7 +1,11 @@
 import { z } from "zod";
 import { err, ok } from "../../base/mod.ts";
 import { ACTOR_KINDS, defineCommand } from "../../contracts/platform/mod.ts";
-import { registerMessageBodyRef } from "./testing/mod.ts";
+import {
+  bodyHashOf,
+  registerMessageBodyRef,
+  textContent,
+} from "./testing/mod.ts";
 import type { LedgerTestRegistration } from "../../../apps/core/testing/ledger.ts";
 import {
   assignmentSchemaSteps,
@@ -22,11 +26,16 @@ import {
   revertSchemaSteps,
 } from "../revert/mod.ts";
 import {
+  type ConversationDeps,
   conversationSchemaSteps,
   createConversationCommands,
   createConversationReads,
   hasUnappliedSteering,
+<<<<<<< HEAD
   recordFactMessage,
+=======
+  startRequest,
+>>>>>>> origin/main
 } from "./mod.ts";
 
 // 세션·메시지 ledger 테스트 등록. preset·assignment·run 표와 같은 wire에
@@ -50,6 +59,7 @@ const seedTargetRoute = defineCommand({
       "DocumentCreated",
       "DocumentSaved",
       "QuestionCreated",
+      "ContextCreated",
     ]),
     subject: z.string(),
     payload: z.record(z.string(), z.string()).default({}),
@@ -140,11 +150,36 @@ const unpreparedRoute = defineCommand({
   errors: ["conflict"],
 });
 
+// 다른 concern이 사람 한 번의 요청으로 세션·message·run을 접수하는 길(startRequest)을 command 하나로
+// 부른다. 본문 blob은 이미 다른 owner가 참조한 것으로 두는 것이 실제 호출(위반 넘기기)과 같다.
+const startRequestRoute = defineCommand({
+  resource: "conversation-fixture",
+  method: "start-request",
+  name: "StartRequestFixture",
+  input: z.strictObject({
+    role: z.literal("context_engineer"),
+    work_place: z.strictObject({
+      kind: z.enum(["global", "project", "app"]),
+      id: z.string().nullable(),
+    }),
+    text: z.string(),
+  }),
+  output: z.strictObject({
+    session: z.string(),
+    message: z.string(),
+    run: z.string(),
+  }),
+  compare: z.strictObject({}),
+  actors: ACTOR_KINDS,
+  errors: ["conflict", "invalid_input", "not_found", "unavailable"],
+});
+
 export function createLedgerTestRegistration(): LedgerTestRegistration {
   const assignmentCommands = createAssignmentCommands();
   const assignmentReads = createAssignmentReads();
   const runCommands = createRunCommands({ hasUnappliedSteering });
   const runReads = createRunReads();
+<<<<<<< HEAD
   const commands = createConversationCommands({
     // 제품 조립과 같다. session을 지울 때 그 session의 run 기록은 run-loop가 지운다. 본문 참조
     // 지움은 platform 몫이고 core 시험(apps/core/testing)이 본다.
@@ -152,6 +187,10 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
       deleteSessionRuns(tx, session, () => ok(undefined)),
     eraseBlobRefs: () => ok(undefined),
     // 접수 실패 주입은 이 fixture 표 하나로만 켠다.
+=======
+  const deps: ConversationDeps = {
+    // 제품 조립과 같다. 접수 실패 주입은 이 fixture 표 하나로만 켠다.
+>>>>>>> origin/main
     acceptRun: (tx, ctx, input, compare) =>
       tx.sql.get("select 1 as found from fail_accept where fail = 1", []) !==
           undefined
@@ -162,7 +201,8 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
           input,
           compare,
         ),
-  });
+  };
+  const commands = createConversationCommands(deps);
   const reads = createConversationReads();
   // 되돌리기 command·읽기. 대화 쪽 효과는 기록만 하는 가짜이고 파일은 건드리지 않는다(messages_only만 쓴다).
   const revertDeps = {
@@ -320,6 +360,7 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
         },
       },
       {
+<<<<<<< HEAD
         route: seedSummariesRoute,
         handle(tx, _ctx, input) {
           const seeded = input as { provider: string; model_name: string };
@@ -342,6 +383,35 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
             principal: ctx.principal,
           });
           return recorded.ok ? ok({ message: recorded.value }) : recorded;
+=======
+        route: startRequestRoute,
+        handle(tx, _ctx, input) {
+          const request = input as {
+            role: "context_engineer";
+            work_place: { kind: "global" | "project" | "app"; id: string };
+            text: string;
+          };
+          const content = textContent(request.text);
+          const hash = bodyHashOf(request.text);
+          tx.sql.run(
+            `insert into blob_refs (owner_kind, owner_key, field, hash,
+               size_bytes, registered_seq) values ('request_fixture', ?, 'content', ?, 1, 1)`,
+            [hash, hash],
+          );
+          const started = startRequest(deps, tx, {
+            role: request.role,
+            work_place: request.work_place as never,
+            content,
+            body: {
+              owner_kind: "request_fixture",
+              owner_key: hash,
+              field: "content",
+              hash,
+              registered_seq: "1",
+            },
+          });
+          return started.ok ? ok(started.value) : started;
+>>>>>>> origin/main
         },
       },
       {

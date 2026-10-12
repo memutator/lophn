@@ -189,6 +189,11 @@ import {
   type SkillSources,
   type SyncSkillFiles,
 } from "../../packages/lophn-agent/extensions/mod.ts";
+<<<<<<< HEAD
+=======
+import { contextStatusOf } from "../../packages/documents/contexts/mod.ts";
+import { createMcpAuth } from "../../packages/lophn-agent/extensions/mod.ts";
+>>>>>>> origin/main
 import { createMcpSecretRefSource } from "../../packages/lophn-agent/extensions/mod.ts";
 
 // 설치 묶음에 동봉된 skill 폴더다(extensions R1). runtime의 skill 발견(apps/agent-runtime/skill-folders.ts)이
@@ -372,6 +377,47 @@ function providerDefinitionKey(
   } catch {
     return undefined;
   }
+<<<<<<< HEAD
+=======
+  return {
+    bundles: TOOL_BUNDLES,
+    mcpServers,
+    roleCaps: ROLE_CAPS,
+    // provider 정의 key는 provider 표 definition_key다. 기록이 없으면
+    // undefined로 fail-closed다(R6).
+    definitionKey: (provider: string) => {
+      try {
+        const row = sql.get(
+          "select definition_key from providers where id = ?",
+          [provider],
+        );
+        const key = row === undefined ? undefined : row["definition_key"];
+        return typeof key === "string" && key.length > 0 ? key : undefined;
+      } catch {
+        return undefined;
+      }
+    },
+    contextStatus: (context: string) => contextStatusOf(sql, context),
+    catalogEntry: (providerDefinition: string, modelName: string) =>
+      snapshotCatalogEntry(providerDefinition, modelName),
+    modelListed: (providerDefinition: string, modelName: string) =>
+      snapshotModelListed(providerDefinition, modelName),
+    // credential은 provider_credentials 표의 현재 key 목록이다. 조회에 실패한
+    // provider는 빈 목록으로 not_found다(R6).
+    credentialKeys: (provider: string) => {
+      try {
+        return sql
+          .all(
+            "select key from provider_credentials where provider = ? order by order_index",
+            [provider],
+          )
+          .map((row) => String(row["key"]));
+      } catch {
+        return [] as const;
+      }
+    },
+  } as const;
+>>>>>>> origin/main
 }
 
 // model 기본값 저장 검사 deps(harness/model#R10, R24). 목록과 catalog는 동봉 snapshot에서 읽는다.

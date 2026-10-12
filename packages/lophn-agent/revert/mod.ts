@@ -1,4 +1,5 @@
 export { revertSchemaSteps } from "./schema.ts";
+<<<<<<< HEAD
 export { type CheckpointMessage, createCheckpoint } from "./checkpoints.ts";
 export {
   createRecordRewindFile,
@@ -6,6 +7,17 @@ export {
   type RecordedWrite,
   type RecorderPorts,
 } from "./record.ts";
+=======
+export { createRevertCommands, type RevertDeps } from "./commands.ts";
+export { createRevertReads, type RevertReadDeps } from "./reads.ts";
+export { createRevertEventVisibility } from "./visibility.ts";
+export { defaultRevertOwners } from "./owners.ts";
+export { createAuditOwners } from "./audit-owners.ts";
+export {
+  createInterpretationOwner,
+  INTERPRETATION_REVERT_OWNER,
+} from "./interpretation-owner.ts";
+>>>>>>> origin/main
 export {
   createRewindStore,
   type RewindStore,

@@ -157,7 +157,6 @@ export function mockRequests(): RequestSource {
     notifications: [
       {
         ...notification(1, "QuestionCreated", "10"),
-        document: DOC_REPORT,
         occurredAt: new Date(now - 4 * MINUTE).toISOString(),
       },
       notification(

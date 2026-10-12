@@ -12,9 +12,6 @@ import { formatRefOutputSchema } from "./versions.ts";
 import { indexCoverageSchema } from "./search.ts";
 import { validExtractionFallback } from "./read.ts";
 import {
-  candidateTermOutputSchema,
-  contextOutlineEntrySchema,
-  definedTermOutputSchema,
   placeOutlineEntrySchema,
   rootOutlineEntrySchema,
   sectionSchema,
@@ -22,7 +19,6 @@ import {
 } from "./outline-entries.ts";
 import {
   contentFileReferenceSchema,
-  CONTEXT_ESTIMATED_TOKEN_BUDGET,
   cursorInputFields,
   DOCUMENT_ESTIMATED_TOKEN_BUDGET,
   DOCUMENT_OUTLINE_DEPTH,
@@ -77,52 +73,6 @@ export const outlinePlace = defineWorker({
     ...cursorInputFields,
   }),
   output: placeOutlinePageSchema,
-  actors: readActors,
-  errors: readErrors,
-});
-export const contextOutlinePageSchema = publicPage(z.object({
-  kind: z.literal("context"),
-  basis_seq: seqSchema,
-  context: idSchema("ctx"),
-  title: z.string(),
-  purpose: nonblankSchema,
-  entries: z.array(contextOutlineEntrySchema),
-  coverage: indexCoverageSchema,
-  // 빈 관점도 사라지지 않게 세 key를 항상 보낸다.
-  perspectives: z.object({
-    basis: z.array(contextOutlineEntrySchema),
-    reference: z.array(contextOutlineEntrySchema),
-    watch: z.array(contextOutlineEntrySchema),
-  }),
-  glossary: z.array(definedTermOutputSchema),
-  candidates: z.array(candidateTermOutputSchema),
-})).refine((value) =>
-  value.perspectives.basis.every((item) => item.perspective === "basis") &&
-  value.perspectives.reference.every((item) =>
-    item.perspective === "reference"
-  ) &&
-  value.perspectives.watch.every((item) => item.perspective === "watch") &&
-  JSON.stringify(value.entries) === JSON.stringify([
-      ...value.perspectives.basis,
-      ...value.perspectives.reference,
-      ...value.perspectives.watch,
-    ]) &&
-  [...value.glossary, ...value.candidates].every((term) =>
-    term.context === value.context
-  )
-);
-export const outlineContext = defineWorker({
-  resource: "outline",
-  method: "context",
-  name: "outline.context",
-  input: z.strictObject({
-    context: idSchema("ctx"),
-    estimated_token_budget: estimatedBudgetSchema.default(
-      CONTEXT_ESTIMATED_TOKEN_BUDGET,
-    ),
-    ...cursorInputFields,
-  }),
-  output: contextOutlinePageSchema,
   actors: readActors,
   errors: readErrors,
 });
@@ -189,16 +139,14 @@ export const outlineSeries = defineRead({
 export type OutlinePage =
   | z.infer<typeof rootOutlinePageSchema>
   | z.infer<typeof placeOutlinePageSchema>
-  | z.infer<typeof contextOutlinePageSchema>
   | z.infer<typeof documentOutlinePageSchema>
   | z.infer<typeof seriesOutlinePageSchema>;
 
-// root/series는 ledger metadata만 읽는다. place/context/document는 metadata와
+// root/series는 ledger metadata만 읽는다. place/document는 metadata와
 // 비동기 extraction/cache를 worker에서 조립하여 core read queue를 막지 않는다.
 export const OUTLINE_ROUTES = [
   outlineRoot,
   outlinePlace,
-  outlineContext,
   outlineDocument,
   outlineSeries,
 ] as const;

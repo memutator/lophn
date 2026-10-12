@@ -150,19 +150,18 @@ MCP protocol 오류는 JSON parse `-32700`, request 모양 `-32600`, 없는 meth
 
 ### 5.2 MCP 전체 목록
 
-`core`가 기본이고 `app`은 `--toolsets core,app` 또는 `LOPHN_MCP_TOOLSETS=core,app`에서만 켠다. `ops`, `catalog`, `all` 별칭은 거절한다. 아래 고정 adapter tool은 15개이며 app toolset에는 5.2 뒤의 blueprint 유래 read tool도 포함한다. `op`를 표시하지 않은 tool은 단일 동작이다. 행의 op 목록이 고정 adapter의 완전한 허용 목록이며, 목록 밖 op는 없다. `?`는 선택 입력이다.
+`core`가 기본이고 `app`은 `--toolsets core,app` 또는 `LOPHN_MCP_TOOLSETS=core,app`에서만 켠다. `ops`, `catalog`, `all` 별칭은 거절한다. 아래 고정 adapter tool은 14개이며 app toolset에는 5.2 뒤의 blueprint 유래 read tool도 포함한다. `op`를 표시하지 않은 tool은 단일 동작이다. 행의 op 목록이 고정 adapter의 완전한 허용 목록이며, 목록 밖 op는 없다. `?`는 선택 입력이다.
 
 | tool / toolset | op와 입력 | data 출력 | 범위·추가 검증 |
 |---|---|---|---|
 | `lophn_session` / core | `summary` / app?, cursor? | scope, observed_seq/at, 문제·ticket 요약, 자기 claim·기한, reported 남은 조건, next_cursor, claim_rule | S; 조회만, 본문·log 없음 |
-| `lophn_index` / core | `root`, `place`, `context`, `document`, `section`, `search`, `status` / place?, context?, address?, query?, depth?, cursor? | 목차·keyword 결과·고정 version·derived 반영 지연·이어 읽기 | S; context는 실제 관점, 소속 아님. 깊이·cursor는 outline contract |
+| `lophn_index` / core | `root`, `place`, `document`, `section`, `search`, `status` / place?, address?, query?, depth?, cursor? | 목차·keyword 결과·고정 version·derived 반영 지연·이어 읽기 | S; 깊이·cursor는 outline contract |
 | `lophn_project` / core | `list`, `show`, `current` / project? | 이름·제목·목적·프로젝트 문서 수·읽을 자료 참조; current는 가장 깊은 등록 폴더의 project 참조 하나, 불일치는 빈 목록과 등록 안내 | S; 절대 경로·폴더·tracking 규칙 없음. cwd는 입력이 아니라 연결 credential의 고정 근거 |
 | `lophn_document` / core | `list`, `history`, `diff` / place? 또는 unplaced?, state?, limit?, cursor?, address?, from?, to?, section? | 목록·남은 허용 수·cursor; 고정 판 이력·줄 diff·누락 | S; list 1~500. diff 두 고정 판 필수, 의미 rename 추정 없음 |
 | `lophn_read` / core | address, version?, section?, start?, length?, cursor? | 정확한 고정 판의 부분 본문·다음 범위·새 판 존재·부재/추출 실패 | S; cursor의 고정 version을 새 최신 판으로 바꾸지 않음 |
 | `lophn_save` / core | paths(제출 root 기준 상대 경로, 첫 경로 primary), place?, slug?, title?, format?, series?, key?, base_revision?, idempotency_key | document·version·고정 주소·unchanged·format 경고·derived 지연 | S; local bytes 제출만. series면 key 필수. 명시 format 부적합은 무저장 |
 | `lophn_format` / core | `list`, `show`, `validate` / media_type?, format?, paths? | 선언·작성 안내·bytes 검사 diagnostics(severity·위치) | G; validate는 format 실행 요청, agent 검사 주장 입력 없음 |
 | `lophn_series` / core | `list`, `show`, `next` / place?, series?, key? | 규칙·정렬 인스턴스·다음 key/title 제안 또는 제안 불가 이유 | S; 계산만, 문서·series 생성 없음 |
-| `lophn_context` / core | `list`, `show`, `items`, `glossary`, `of`, `propose` / context?, address?, perspective?, depth?, change?, reason?, idempotency_key? | 관점 항목·용어·문서 참조 context; propose는 고정 변경안 문서 주소·담당 agent 안내 | S; definition 직접 변경·직접 Question 생성 없음; 폴더/untracked 항목 제안 거절 |
 | `lophn_question` / core | `list`, `show` / question?, app?, state?, cursor? | 범위 안 질문의 이유·option·고정 action·상태 | S; answer op 없음, 채택은 grant가 아님 |
 | `lophn_approval` / core | `list`, `show` / approval?, app?, state?, cursor? | exact 대상·입력·영향·기한·대기/적용 상태·결정 위치 | S; allow/reject/consume op 없음 |
 | `lophn_app` / app | `list`, `show`, `register`, `source`, `validate`, `test`, `preview_start`, `preview_stop`, `release_prepare`, `status`, `blueprint`, `invocations`, `logs`, `sync_tools`, `command`, `invocation` / app?, source?, name?, title?, purpose?, planning_version?, template_version?, bundle_hash?, timeout_ms?, problems?, ticket?, claim_seq?, command?, input?, environment?, invocation?, preview?, kind?, target?, test_hash?, check_index?, check_hash?, completion_seq?, before?, after?, basis_seq?, reports?, automation?, limit?, lines?, cursor?, base_revision?, idempotency_key? | 앱·source·검사 diagnostics·Verification/진행·preview 참조·prepared release·approval·현재 상태·invocation·log·배포별 변경 결과 | register ALL, 나머지 A. app test 기본 300,000ms를 runner에 명시. invocation 최대20, log 한 번에 1~200줄. release_prepare는 현재 ticket claim과 같은 hash 통과 근거 |
@@ -178,7 +177,7 @@ app toolset에는 현재 scope 안 앱 blueprint의 read·비confirm command마�
 
 secret 사용은 호출자 종류가 아니라 현재 앱 grant와 network host를 따르며 값은 **앱 통로**의 전송 경계가 붙인다. 외부 조회만 하는 command는 read, 조회해 앱에 저장하면 write, 앱 밖 상태를 바꾸면 external이다. 사람용 automation 수동 호출도 external·confirm 선언/실행 금지를 우회하지 않는다(→ apps/blueprint, apps/permissions, apps/automations).
 
-`readOnlyHint`는 session/index/project/document/read/series/question/approval 및 blueprint 유래 read tool에만 붙인다. validate 실행을 가진 format, propose를 가진 context, 나머지 혼합 tool에는 붙이지 않는다. discovery schema의 minified UTF-8 JSON과 배포에서 고정한 tokenizer로 고정 15개 및 현재 동적 목록의 token 수를 각각 재측정하고 결과를 배포 테스트에 둔다. 2,000 token은 목표이며 옛 측정값을 새 보장으로 재사용하지 않는다.
+`readOnlyHint`는 session/index/project/document/read/series/question/approval 및 blueprint 유래 read tool에만 붙인다. validate 실행을 가진 format, 나머지 혼합 tool에는 붙이지 않는다. discovery schema의 minified UTF-8 JSON과 배포에서 고정한 tokenizer로 고정 14개 및 현재 동적 목록의 token 수를 각각 재측정하고 결과를 배포 테스트에 둔다. 2,000 token은 목표이며 옛 측정값을 새 보장으로 재사용하지 않는다.
 
 ### 5.3 이 concern의 core RPC 목록
 
@@ -227,12 +226,11 @@ connection event는 `CodingAgentConnectionCreated`, `CodingAgentConnectionRevoke
 | `session summary` | app?, cursor?, `--hook`? | lophn_session 결과. hook mode는 아래 별도 상한 |
 | `session plan` | `plan_input`(ticket·revision·connection·harness·profile·project·folder_ref·cwd·method·shell main이 다시 읽은 `facts`·human_start_handle·operation_id) | method가 `terminal_tui`면 LaunchPlan, `own_terminal`이면 안내. process를 열지 않는다. core를 읽지 않고 저장한 감지와 지금 본 실행 파일을 쓴다. 사람 전용 |
 | `session observe` | `--hook <harness>`, stdin의 hook·plugin·extension payload(JSON 하나 또는 NDJSON) | 제품별 normalizer가 정규화한 HarnessSessionObservation NDJSON을 환경 `LOPHN_TERMINAL_OBSERVE` socket에만 쓴다. 환경이 없으면 stdin도 읽지 않고 아무것도 보내지 않는다. core·credential을 부르지 않고 stdout은 비며 exit는 0이다. 사람 전용 아님(TUI 아래 hook이 부른다) |
-| `index root|place|context|document|section|status`, `search <query>` | 대상·depth·cursor·place? | lophn_index 결과; saved view 전용 command 없음 |
+| `index root|place|document|section|status`, `search <query>` | 대상·depth·cursor·place? | lophn_index 결과; saved view 전용 command 없음 |
 | `read <address>` | version/section/start/length/cursor? | lophn_read 결과·정확한 판·이어 읽기 |
 | `document list|history|diff`, `save <files...>` | 목록 place/unplaced/state/limit; 비교 from/to; 저장 metadata | lophn_document/save 결과·주소·검사 경고·unchanged |
 | `format list|show|validate` | media-type/format/files | lophn_format 결과 |
 | `project list|show|current` | ID/cwd | 읽기는 lophn_project. 등록·보관·연결은 화면 |
-| `context list|show|items|glossary|of|propose` | context/address/perspective/depth; propose change/reason | 읽기·제안은 lophn_context. 생성·항목 추가는 화면 |
 | `series list|show|next` | place/series/key | 읽기는 lophn_series. series 생성은 화면 |
 | `question list|show|open`, `approval list|show|open` | ID/filter/cursor | 조회 또는 exact 결정 화면·대기 링크. open이 답·허락을 뜻하지 않음 |
 | `app list|show|path|register|source|validate|test|preview start|preview stop|release prepare|status|blueprint|invocations|logs|sync-tools` | 대응 MCP 입력; path는 app, preview stop은 preview 참조 | lophn_app 결과. register 전체 연결만. test 기본300초; sync-tools 파일별 결과 |
@@ -320,7 +318,7 @@ cursor는 worker가 만든 opaque base64url payload에 서버 MAC을 붙인다. 
 | test 실행 · problems | 실제 app/reproduction/test command 요청·Verification read. checker도 결과를 직접 쓰지 않음 |
 | confirmation window · shell | 연결 회수·secret 값 등록·삭제·운영 앱 시작·중지·release activation·문제 닫힘·무시·"내가 확인함"의 exact 입력 전달·링크·대기 |
 
-템플릿의 예외·feedback 연결은 **문제 보고**, **앱 화면 틀**을 쓰는 앱 code다. MCP가 앱 actor인 척 보고하지 않는다. context 제안은 고정 변경안 문서로 남긴 뒤 담당 agent가 **agent run**과 질문 소유 규칙으로 사람에게 연결한다.
+템플릿의 예외·feedback 연결은 **문제 보고**, **앱 화면 틀**을 쓰는 앱 code다. MCP가 앱 actor인 척 보고하지 않는다.
 
 ## 7. 흐름
 
@@ -471,7 +469,7 @@ worker는 `VerificationRecorded`, `ProblemClosed`, `ProblemReopened`, `ReleaseAc
 - 이전: CLI가 user token을 읽거나 환경 제품 이름으로 actor를 정했다. / 지금: coding-agent connection ID의 OS keychain의 같은 credential을 MCP·CLI가 시작 때 받으며 사람 credential은 shell main에만 둔다. / 이유: 통로 변경·label·작업 위치로 권한을 얻지 못하게 한다.
 - 이전: 인증 실패에 user token으로 coding token을 자동 재발급했다. / 지금: 회수·분실은 사람이 회수 후 새 connection을 만든다. / 이유: 회수 결정을 되살리지 않는다.
 - 이전: MCP의 broad read/write/run과 daemon command 안 source 순회·테스트가 섞였다. / 지금: narrow adapter, core 밖 담당 프로세스, 결과만 command다. / 이유: A1·A2와 source/data 경계를 지킨다.
-- 이전: 직전 사본은 다섯 tool 묶음만 적어 format·series·질문·runtime·출력 동작을 구현자가 다시 추측했다. / 지금: 고정 15개 tool의 전체 op·blueprint 유래 read tool·CLI 전체 command·자기 RPC·검사·오류·출력을 명시한다. / 이유: 현재 requirements의 capability를 빠뜨리지 않고 공통 registry로 두 통로를 맞춘다.
+- 이전: 직전 사본은 다섯 tool 묶음만 적어 format·series·질문·runtime·출력 동작을 구현자가 다시 추측했다. / 지금: 고정 14개 tool의 전체 op·blueprint 유래 read tool·CLI 전체 command·자기 RPC·검사·오류·출력을 명시한다. / 이유: 현재 requirements의 capability를 빠뜨리지 않고 공통 registry로 두 통로를 맞춘다.
 - 이전: 문제 직접 claim·24시간 claim·읽기 갱신·repair attempt/workflow·host 작업 journal·receipt가 있었다. / 지금: ticket claim60분·명시 갱신, 고친 기록·Verification·invocation을 사용한다. / 이유: 불필요한 작업 상태·ledger·권한 단계를 없앤다. 새 LocalIntegrationReceipt는 외부 config ownership의 local metadata이지 작업 receipt 부활이 아니다.
 - 이전: 수리 자료가 현재·당시 근거와 여러 크기 체계를 섞었다. / 지금: 요청 시 worker 조립·고정 basis·15절·24KiB/300줄·실제 cursor로 통일한다. / 이유: 적은 token으로 근거 전체에 닿고 없는 증거를 숨기지 않는다.
 - 이전: skill 덮어쓰기·제품별 본문 복제·앱 설정 자동 trust를 할 여지가 있었다. / 지금: hash/CAS·managed 구간·AGENTS.md 정본·네 단계 loading 검사. 사람이 Codex를 고르면 사용자 config에 receipt와 함께 설치하고 앱 TOML은 만들지 않는다. OpenClaw는 명시 읽기다. / 이유: 고른 harness에는 설치하고 사람 안내·설정·workspace는 보존한다.

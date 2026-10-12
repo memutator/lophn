@@ -4,14 +4,12 @@ import type {
   Coverage,
   PlaceRef,
   SearchConditions,
-  ViewFilter,
 } from "./source.ts";
 
 /** lophn 공간의 여섯 형제. 중간 계층이 없다(desktop#R28). */
 export const LOPHN_SCREENS = [
   "projects",
   "documents",
-  "contexts",
   "apps",
   "things-to-confirm",
   "settings",
@@ -25,7 +23,6 @@ export const DEFAULT_SCREEN: LophnScreen = "documents";
 export const EMPTY_CONDITIONS: SearchConditions = {
   query: "",
   place: null,
-  context: null,
   format: null,
   includeArchived: false,
 };
@@ -64,34 +61,8 @@ export function searchBody(
   return {
     query: conditions.query.trim(),
     ...(conditions.place === null ? {} : { place: conditions.place }),
-    ...(conditions.context === null ? {} : { context: conditions.context }),
     ...(conditions.format === null ? {} : { formats: [conditions.format] }),
     ...(cursor === undefined ? {} : { cursor }),
-  };
-}
-
-/** 지금 조건을 saved view 조건으로 옮긴다. 보관 포함이면 all이다. */
-export function viewFilterOf(conditions: SearchConditions): ViewFilter {
-  const query = conditions.query.trim();
-  return {
-    text: query === "" ? null : query,
-    context: conditions.context,
-    format: conditions.format,
-    status: conditions.includeArchived ? "all" : "active",
-  };
-}
-
-/** saved view에 저장한 조건을 검색 칸으로 되돌린다. */
-export function conditionsOfView(
-  place: PlaceRef | null,
-  filter: ViewFilter,
-): SearchConditions {
-  return {
-    query: filter.text ?? "",
-    place,
-    context: filter.context,
-    format: filter.format,
-    includeArchived: filter.status !== "active",
   };
 }
 

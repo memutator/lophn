@@ -43,8 +43,6 @@ export interface ThingsToConfirmProps {
   initialTab?: ConfirmTab;
   /** 처음 고른 요청. 링크로 열 때 쓴다. 고르기만 하고 결정 창은 열지 않는다. */
   initialSelected?: string;
-  /** notification 줄의 원래 문서. 문서 참조가 있을 때만 부른다. */
-  onOpenDocument?: (document: string) => void;
 }
 
 interface Loaded {
@@ -85,8 +83,7 @@ function periodLabel(period: PeriodFilter): string {
 // 역할·기간으로 거른다(shell/desktop#R9). 목록을 읽거나 고르는 것만으로는 아무것도 보내지
 // 않는다. 세션 없는 요청도 여기서 열어 답한다(R6).
 export function ThingsToConfirm(
-  { deps, initialTab = "waiting", initialSelected, onOpenDocument }:
-    ThingsToConfirmProps,
+  { deps, initialTab = "waiting", initialSelected }: ThingsToConfirmProps,
 ) {
   const { source, drafts, ticks = intervalTicks, now = Date.now } = deps;
   const [tab, setTab] = useState<ConfirmTab>(initialTab);
@@ -322,7 +319,6 @@ export function ThingsToConfirm(
           const occurred = notification.occurredAt === undefined
             ? null
             : occurredLabel(notification.occurredAt, at);
-          const document = notification.document;
           return (
             <li
               key={notification.id}
@@ -380,18 +376,6 @@ export function ThingsToConfirm(
                   )
                   : null}
               </button>
-              {document !== undefined && onOpenDocument !== undefined
-                ? (
-                  <button
-                    type="button"
-                    className={styles.documentLink}
-                    data-document={document}
-                    onClick={() => onOpenDocument(document)}
-                  >
-                    {t("things-to-confirm.button.open-document")}
-                  </button>
-                )
-                : null}
               {unread
                 ? (
                   <Tooltip content={t("things-to-confirm.button.mark-read")}>

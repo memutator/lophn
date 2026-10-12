@@ -41,7 +41,8 @@
       ".dev-data",
       ".claude",
       "dist",
-      "packages/documents/formats/guest/bundle.js"
+      "packages/documents/formats/guest/bundle.js",
+      "packages/documents/contexts/testdata"
     ]
   },
   "lint": {

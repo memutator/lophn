@@ -30,7 +30,6 @@ export {
   checkOptionAction,
   chosenOptionCall,
   createApplyQuestionOption,
-  defineTermOptionAction,
   findOptionOwner,
   moveOptionAction,
   OPTION_ACTION_OPERATIONS,

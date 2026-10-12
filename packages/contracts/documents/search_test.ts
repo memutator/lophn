@@ -7,7 +7,6 @@ import {
 } from "./search.ts";
 import {
   coverage,
-  ctx,
   doc,
   hash,
   meta,
@@ -18,13 +17,12 @@ import {
 } from "./read-fixtures.ts";
 import { place } from "./document-fixtures.ts";
 
-Deno.test("documents/outline-and-search#R10 R11 R12 R23 T18: keyword queries support place context format filters and reject undefined conditions", () => {
+Deno.test("documents/outline-and-search#R10 R11 R12 R23 T18: keyword queries support place format filters and reject undefined conditions", () => {
   for (const query of ["한글", "글", "%_"]) {
     assert(
       searchQuery.input.safeParse({
         query,
         place,
-        context: ctx,
         formats: ["document"],
         cursor: "opaque",
       }).success,

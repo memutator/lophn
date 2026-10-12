@@ -1,7 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { readResultSchema } from "./read.ts";
 import {
-  contextOutlinePageSchema,
   documentOutlinePageSchema,
   placeOutlinePageSchema,
 } from "./outline.ts";
@@ -13,7 +12,6 @@ import {
 import { searchResultSchema } from "./search.ts";
 import {
   coverage,
-  ctx,
   doc,
   file,
   format,
@@ -34,22 +32,8 @@ import {
 
 Deno.test("documents/outline-and-search#R14 T18: empty derived outline still requires coverage", () => {
   const place = { ...meta, kind: "place", basis_seq: "9", entries: [] };
-  const context = {
-    ...meta,
-    kind: "context",
-    basis_seq: "9",
-    context: ctx,
-    title: "Context",
-    purpose: "Review",
-    entries: [],
-    perspectives: { basis: [], reference: [], watch: [] },
-    glossary: [],
-    candidates: [],
-  };
   assert(!placeOutlinePageSchema.safeParse(place).success);
-  assert(!contextOutlinePageSchema.safeParse(context).success);
   assert(placeOutlinePageSchema.safeParse({ ...place, coverage }).success);
-  assert(contextOutlinePageSchema.safeParse({ ...context, coverage }).success);
 });
 Deno.test("documents/outline-and-search#R22 T18: nonready reads are terminal with safe failure and exact file fallback", () => {
   for (const section_status of ["missing", "unverified", "unsupported"]) {

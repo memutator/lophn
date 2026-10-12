@@ -1,5 +1,5 @@
 // notifications 계기 event를 실제 writer 경로로 내는 시험용 등록. 제품 main.ts에는 없다.
-// 소유 concern이 아직 발생 command를 내지 않은 계기(ticket·context watch·release activation,
+// 소유 concern이 아직 발생 command를 내지 않은 계기(ticket·release activation,
 // problem close·reopen)와, 발생 command가 core 조립 밖 입력을 많이 요구하는 계기를 같은
 // 길로 낸다. event 정의는 각 소유 contract의 것 그대로고, payload는 그 schema가 검사한다.
 import { z } from "zod";
@@ -11,11 +11,11 @@ import {
   type EventDefinition,
 } from "../../../packages/contracts/platform/mod.ts";
 import { releaseActivationFailed } from "../../../packages/contracts/apps/mod.ts";
+import { contextViolationsRecordedEvent } from "../../../packages/contracts/documents/mod.ts";
 import {
   ticketCheckFailed,
   ticketConfirmed,
 } from "../../../packages/contracts/coding-agent/mod.ts";
-import { contextWatchedItemChanged } from "../../../packages/contracts/documents/mod.ts";
 import {
   assignmentPaused,
   questionCreated,
@@ -34,8 +34,8 @@ const SOURCES: readonly EventDefinition[] = [
   assignmentPaused,
   ticketConfirmed,
   ticketCheckFailed,
-  contextWatchedItemChanged,
   releaseActivationFailed,
+  contextViolationsRecordedEvent,
 ];
 
 const input = z.strictObject({

@@ -57,6 +57,7 @@ export const OPERATIONS = [
   "SeedAcceptFailure",
   "SeedSummariesModel",
   "SeedUnpreparedBody",
+<<<<<<< HEAD
   "SeedFactMessage",
   "RecordRewindFile",
   "Rewind",
@@ -66,6 +67,9 @@ export const OPERATIONS = [
   "PreviewRewind",
   "ListRewindCheckpoints",
   "ListReverts",
+=======
+  "StartRequestFixture",
+>>>>>>> origin/main
   "CommandResult",
 ];
 
@@ -146,6 +150,7 @@ export function registerMessageBodyRef(
     return err({ code: "forbidden", message: "field is not defined" });
   }
   if (value.source.kind === "existing") {
+<<<<<<< HEAD
     // Fork가 복사한 메시지의 본문이다: 이미 등록된 같은 blob 참조에서만 허락한다.
     const original = value.source.reference;
     const found = tx.sql.get(
@@ -155,6 +160,17 @@ export function registerMessageBodyRef(
     );
     if (found === undefined) {
       return err({ code: "forbidden", message: "no such blob reference" });
+=======
+    // 이미 다른 owner가 참조한 blob을 가리키는 등록이다. 그 참조 행이 있어야 한다.
+    const held = value.source.reference;
+    const row = tx.sql.get(
+      `select size_bytes from blob_refs
+       where owner_kind = ? and owner_key = ? and field = ? and hash = ?`,
+      [held.owner_kind, held.owner_key, held.field, held.hash],
+    );
+    if (row === undefined) {
+      return err({ code: "forbidden", message: "no existing blob reference" });
+>>>>>>> origin/main
     }
     tx.sql.run(
       `insert into blob_refs (owner_kind, owner_key, field, hash, size_bytes,
@@ -163,8 +179,13 @@ export function registerMessageBodyRef(
         value.owner_kind,
         value.owner_key,
         value.field,
+<<<<<<< HEAD
         original.hash,
         found["size_bytes"] ?? 0,
+=======
+        held.hash,
+        row["size_bytes"] as number,
+>>>>>>> origin/main
         BigInt(value.registered_seq),
       ],
     );
@@ -172,7 +193,11 @@ export function registerMessageBodyRef(
       owner_kind: value.owner_kind,
       owner_key: value.owner_key,
       field: value.field,
+<<<<<<< HEAD
       hash: original.hash,
+=======
+      hash: held.hash,
+>>>>>>> origin/main
       registered_seq: value.registered_seq,
     });
   }

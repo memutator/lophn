@@ -91,6 +91,7 @@ export const NOTIFICATION_TRIGGERS = [
     first_context: null,
   },
   {
+<<<<<<< HEAD
     event: "ContextWatchedItemChanged",
     owner: "documents/contexts",
     condition: "machine_watch_change_or_section_loss",
@@ -98,12 +99,15 @@ export const NOTIFICATION_TRIGGERS = [
     first_context: null,
   },
   {
+=======
+>>>>>>> origin/main
     event: "ReleaseActivationFailed",
     owner: "apps/releases",
     condition: "always",
     ask_agent: "app_engineer",
     first_context: { work_place: "app", target: "release" },
   },
+<<<<<<< HEAD
 ] as const satisfies readonly {
   event: string;
   owner: string;
@@ -111,6 +115,14 @@ export const NOTIFICATION_TRIGGERS = [
   ask_agent: NotificationAskRole | null;
   first_context: NotificationFirstContext | null;
 }[];
+=======
+  {
+    event: "ContextViolationsRecorded",
+    owner: "documents/contexts",
+    condition: "count_rose",
+  },
+] as const;
+>>>>>>> origin/main
 export type NotificationTrigger = (typeof NOTIFICATION_TRIGGERS)[number];
 
 const triggerEventSchema = z.enum(
@@ -154,6 +166,7 @@ export type OsDelivery = z.infer<typeof osDeliverySchema>;
 export const notificationsGetInputSchema = z.strictObject({
   notification: idSchema("ntf"),
 });
+<<<<<<< HEAD
 // 사람 줄이 source event에서 읽는 당시 시각과 문서 참조다(platform/notifications#R3).
 // 문서 참조가 없으면 null이다. payload 자체는 없다.
 //
@@ -178,6 +191,11 @@ const notificationLineSchema = {
   occurred_at: atSchema.optional(),
   document: idSchema("doc").nullable().optional(),
   ask: notificationAskSchema.nullable().optional(),
+=======
+// 사람 줄이 source event에서 읽는 당시 시각이다(platform/notifications#R3). payload 자체는 없다.
+const notificationLineSchema = {
+  occurred_at: atSchema.optional(),
+>>>>>>> origin/main
 };
 
 export const notificationsGetOutputSchema = withReadCommon(z.object({

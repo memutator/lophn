@@ -15,7 +15,7 @@ function tab(key: string, kind: TabItem["kind"] = "document_editor"): TabItem {
 function twoPanes(ratio = 0.5, focused = 0): WorkspaceView {
   return {
     panes: [
-      { tabs: [tab("doc"), tab("view", "document_viewer")], selected: "doc" },
+      { tabs: [tab("doc"), tab("view", "app_panel")], selected: "doc" },
       { tabs: [tab("term", "terminal")], selected: "term" },
     ],
     splitRatio: ratio,

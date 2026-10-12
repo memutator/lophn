@@ -206,7 +206,7 @@ Deno.test("documents/outline-and-search#R13: startRebuild는 rebuilding flag만 
       `SELECT consumer, rebuilding FROM derived_cursors`,
       [],
     );
-    assertEquals(cursors.length, 2);
+    assertEquals(cursors.length, 1);
     for (const cursor of cursors) {
       assertEquals(Number(cursor.rebuilding), 1);
     }

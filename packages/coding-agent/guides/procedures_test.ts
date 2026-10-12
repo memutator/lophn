@@ -80,10 +80,18 @@ Deno.test("coding-agent/guides#R3: 본문이 가리키는 tool 이름과 `op …
   }
 });
 
+<<<<<<< HEAD
 Deno.test("coding-agent/guides#R6 [ctx-R7]: 탐색은 전체 목차에서 자리로 내려가 질문에 닿는 자료만 읽는다", async () => {
   const body = await bodyOf("lophn-navigate");
   inOrder(body, ["op `root`", "op `place`", "lophn_read"]);
   assertFalse(body.includes("lophn_context"));
+=======
+Deno.test("coding-agent/guides#R6: 탐색은 전체 목차에서 펼치고 context 통로를 안내하지 않는다", async () => {
+  const body = await bodyOf("lophn-navigate");
+  inOrder(body, ["op `root`", "op `place`", "lophn_read"]);
+  assertFalse(body.includes("lophn_context"));
+  assertFalse(body.includes("glossary"));
+>>>>>>> origin/main
   // 읽기뿐이다: 쓰기 tool을 쓰라고 하지 않는다.
   assertFalse(body.includes("`lophn_save`로"));
 });

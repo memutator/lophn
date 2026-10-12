@@ -4,10 +4,12 @@ import { routePath } from "../platform/route.ts";
 import { ROUTES } from "./mod.ts";
 import {
   appViewSchema,
+  CONTEXT_SUB_TABS,
   currentViewStateSchema,
   selectionSchema,
   SUMMARY_MAX_BYTES,
   summarySchema,
+  TAB_KINDS,
   TAB_PAGE_SIZE,
   VIEW_STRING_MAX_CHARS,
   viewTabSchema,
@@ -26,6 +28,7 @@ const VER = `ver_${ULID}`;
 const APP = `app_${ULID}`;
 const REL = `rel_${ULID}`;
 const SES = `ses_${ULID}`;
+const CTX = `ctx_${ULID}`;
 const AT = "2026-10-04T06:48:00.000Z";
 
 const editor = {
@@ -61,19 +64,12 @@ const state = {
 };
 
 Deno.test(
-  "shell/workspace#R1 shell/workspace#R9: 현재 보기는 네 탭 종류와 요청 창 참조만 받고 본문 field를 거절한다",
+  "shell/workspace#R1 shell/workspace#R9: 현재 보기는 세 탭 종류와 요청 창 참조만 받고 본문 field를 거절한다",
   () => {
     assert(currentViewStateSchema.safeParse(state).success);
     for (
       const tab of [
         editor,
-        {
-          key: "fixed",
-          kind: "document_viewer",
-          document: DOC,
-          version: VER,
-          selected: false,
-        },
         {
           key: "shell",
           kind: "terminal",
@@ -91,6 +87,16 @@ Deno.test(
     ) {
       assert(viewTabSchema.safeParse(tab).success);
     }
+    // 옛 document_viewer는 지워졌다. 모르는 종류는 받지 않는다.
+    assert(
+      !viewTabSchema.safeParse({
+        key: "fixed",
+        kind: "document_viewer",
+        document: DOC,
+        version: VER,
+        selected: false,
+      }).success,
+    );
     assert(
       !viewTabSchema.safeParse({
         ...editor,
@@ -362,3 +368,87 @@ Deno.test("apps/agent-context#R2 shell/workspace#R11: 앱 패널 탭의 view_ses
     }).success,
   );
 });
+
+Deno.test(
+  "shell/workspace#R14 [ctx-I37]: TAB_KINDS의 모든 종류는 현재 보기 탭 schema 가지 하나씩과 일치한다",
+  () => {
+    const branches = viewTabSchema.options.map((option) =>
+      option.shape.kind.value
+    );
+    assertEquals([...branches].sort(), [...TAB_KINDS].sort());
+    assertEquals(new Set(TAB_KINDS).size, TAB_KINDS.length);
+  },
+);
+
+Deno.test(
+  "shell/workspace#R14 [ctx-I53]: 현재 보기는 Contexts·Context·Search 탭을 context 참조·하위 탭·선언된 검색 key로만 받는다",
+  () => {
+    for (
+      const tab of [
+        { key: "contexts", kind: "contexts", selected: false },
+        {
+          key: "c",
+          kind: "context",
+          context: CTX,
+          sub_tab: "violations",
+          selected: true,
+        },
+        { key: "s", kind: "search", context: CTX, selected: false },
+        {
+          key: "s2",
+          kind: "search",
+          context: CTX,
+          declared_search: "findings_about_change",
+          selected: false,
+        },
+      ]
+    ) {
+      assert(viewTabSchema.safeParse(tab).success, JSON.stringify(tab));
+      assert(
+        workspaceReadOutputSchema.safeParse({
+          availability: "current",
+          observed_at: AT,
+          generation: 1,
+          summary: "s",
+          tab_page: [tab],
+        }).success,
+      );
+    }
+    const context = {
+      key: "c",
+      kind: "context",
+      context: CTX,
+      sub_tab: "overview",
+      selected: true,
+    };
+    // 모르는 하위 탭, 다른 id, 채운 입력·결과·본문은 받지 않는다.
+    assert(!viewTabSchema.safeParse({ ...context, sub_tab: "nope" }).success);
+    assert(!viewTabSchema.safeParse({ ...context, context: DOC }).success);
+    assert(
+      !viewTabSchema.safeParse({
+        key: "s",
+        kind: "search",
+        context: CTX,
+        selected: false,
+        inputs: { change: "C-049" },
+      }).success,
+    );
+    assert(
+      !viewTabSchema.safeParse({
+        key: "contexts",
+        kind: "contexts",
+        selected: false,
+        context: CTX,
+      }).success,
+    );
+    // Agent 탭은 다른 일이 맡는다.
+    assert(!(TAB_KINDS as readonly string[]).includes("agent"));
+    assertEquals([...CONTEXT_SUB_TABS], [
+      "overview",
+      "search",
+      "violations",
+      "glossary",
+      "contract",
+    ]);
+  },
+);

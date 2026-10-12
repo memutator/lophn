@@ -971,8 +971,9 @@ Deno.test("lophn-agent/harness/tools#R7: format tool은 저장·설치 동작을
 Deno.test("lophn-agent/harness/tools#R6: 묶음 이름은 개별 동작으로 펼쳐 고정되고 읽기 묶음에는 쓰기 동작이 없다", () => {
   assertEquals([...TOOL_BUNDLES.keys()].sort(), [
     "app-read",
+    "context-engineer",
+    "context-lookup",
     "context-read",
-    "context-write",
     "document-read",
     "document-write",
     "format",
@@ -990,7 +991,10 @@ Deno.test("lophn-agent/harness/tools#R6: 묶음 이름은 개별 동작으로 �
   assertEquals(TOOL_BUNDLES.get("format"), FORMAT_TOOL_NAMES);
   // 어느 묶음의 이름도 정의가 있고 읽기 묶음에는 쓰기 동작이 없다.
   const defined = new Map(BUILTIN_TOOLS.map((tool) => [tool.name, tool]));
-  for (const names of TOOL_BUNDLES.values()) {
+  // 개체 읽기(context-read)만 정의가 run마다 만들어진다: 선택한 context 안에서만 읽히게 하려고
+  // `buildContextReadTools`가 낸다(context-search-tools_test).
+  for (const [bundle, names] of TOOL_BUNDLES) {
+    if (bundle === "context-read") continue;
     for (const name of names) assert(defined.has(name), name);
   }
   for (const name of TOOL_BUNDLES.get("document-read")!) {

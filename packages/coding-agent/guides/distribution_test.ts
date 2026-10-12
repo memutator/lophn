@@ -226,7 +226,6 @@ Deno.test("coding-agent/guides#R14: 안내 몸통은 요구 목록 항목만 있
       "blueprint.ts`가 정본 선언",
       "machine 생성물",
       "machine이 만든 파일은",
-      "용어는",
       "SDK Package는",
       "문제 보고는",
       "실제 테스트는",

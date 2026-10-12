@@ -20,10 +20,9 @@ export const WORKSPACE_GROUPS: readonly PaletteGroup[] = [
   "actions",
 ];
 
-/** lophn 공간: 프로젝트·컨텍스트·문서·앱·행동. */
+/** lophn 공간: 프로젝트·문서·앱·행동. */
 export const LOPHN_GROUPS: readonly PaletteGroup[] = [
   "projects",
-  "contexts",
   "documents",
   "apps",
   "actions",

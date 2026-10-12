@@ -1,4 +1,3 @@
-import type { ContextTarget } from "@lophn/contracts/documents";
 import type { RunSource } from "@lophn/contracts/lophn-agent";
 
 // App Engineer의 시작 계기와 읽기 범위(roles/app-engineer R1, R2). 순수 함수다. 실제 읽기
@@ -16,10 +15,11 @@ export function mayStart(source: RunSource | { kind: string }): boolean {
 export type ReadScope = {
   // 담당 앱.
   app: string;
-  // 컨텍스트 metadata(목적·용어·항목)다. 항목이 담당 앱의 명령일 때만 읽는다.
+  // 컨텍스트의 app-data source(계약의 `app-data` 자료 위치)다. source가 담당 앱의 read command일 때만
+  // 그 컨텍스트의 overview·용어집을 읽는다.
   contexts: readonly {
     id: string;
-    items: readonly { target: ContextTarget }[];
+    app_data: readonly { app: string; command: string }[];
   }[];
   // 이번 handoff가 싣고 온 고정 근거다. 그 handoff를 받은 run 동안만 읽는다.
   handoff: readonly { run: string; document: string; version: string }[];
@@ -39,7 +39,7 @@ export type ReadRequest =
     version: string | null;
     place: { kind: "app" | "project" | "global"; id: string | null } | null;
   }
-  // 컨텍스트의 목적·용어·항목.
+  // 컨텍스트의 overview·용어집.
   | { kind: "context"; context: string }
   | { kind: "sdk_contract" };
 
@@ -68,8 +68,8 @@ export function readDecision(
       const context = scope.contexts.find((entry) =>
         entry.id === request.context
       );
-      const reads = context?.items.some((item) =>
-        item.target.kind === "app_command" && item.target.app === scope.app
+      const reads = context?.app_data.some((source) =>
+        source.app === scope.app
       );
       return reads === true ? { allowed: true, via: "context" } : DENIED;
     }

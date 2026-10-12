@@ -10,18 +10,16 @@ export * from "./sections.ts";
 export * from "./formats.ts";
 
 export * from "./outline.ts";
+export * from "./outline-markdown.ts";
 export * from "./read.ts";
 export * from "./search.ts";
 export * from "./guides.ts";
 export * from "./file-values.ts";
 export * from "./files.ts";
-export * from "./contexts.ts";
-export * from "./context-reads.ts";
-export * from "./context-routes.ts";
-export * from "./terms.ts";
-export * from "./term-routes.ts";
+export * from "./context-contract.ts";
+export * from "./context-api.ts";
+export * from "./context-work.ts";
 export * from "./series.ts";
-export * from "./views.ts";
 export * from "./uploads.ts";
 
 import { DOCUMENT_EVENTS, DOCUMENT_ROUTES } from "./documents.ts";
@@ -32,12 +30,8 @@ import { HISTORY_ROUTES } from "./history.ts";
 import { SEARCH_ROUTES } from "./search.ts";
 import { GUIDE_ROUTES } from "./guides.ts";
 import { FILE_EVENTS, FILE_ROUTES } from "./files.ts";
-import { CONTEXT_ROUTES } from "./context-routes.ts";
-import { CONTEXT_EVENTS } from "./contexts.ts";
-import { TERM_ROUTES } from "./term-routes.ts";
-import { TERM_EVENTS } from "./terms.ts";
+import { CONTEXT_API_EVENTS, CONTEXT_API_ROUTES } from "./context-api.ts";
 import { SERIES_EVENTS, SERIES_ROUTES } from "./series.ts";
-import { VIEW_EVENTS, VIEW_ROUTES } from "./views.ts";
 import { UPLOAD_ROUTES } from "./uploads.ts";
 
 export const DOCUMENT_READ_ROUTES = [
@@ -85,10 +79,8 @@ export const ROUTES = [
   ...FORMAT_ROUTES,
   ...DOCUMENT_READ_ROUTES,
   ...FILE_ROUTES,
-  ...CONTEXT_ROUTES,
-  ...TERM_ROUTES,
+  ...CONTEXT_API_ROUTES,
   ...SERIES_ROUTES,
-  ...VIEW_ROUTES,
   ...UPLOAD_ROUTES,
 ] as const;
 
@@ -100,8 +92,6 @@ export const EVENTS = [
   projectUnarchived,
   ...DOCUMENT_EVENTS,
   ...FILE_EVENTS,
-  ...CONTEXT_EVENTS,
-  ...TERM_EVENTS,
+  ...CONTEXT_API_EVENTS,
   ...SERIES_EVENTS,
-  ...VIEW_EVENTS,
 ] as const;

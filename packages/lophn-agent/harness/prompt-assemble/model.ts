@@ -1,4 +1,3 @@
-import type { ContextItem } from "../../../contracts/documents/mod.ts";
 import type {
   AgentRole,
   AssignmentScope,
@@ -87,19 +86,21 @@ export type ModelLimits = {
   output_limit: number;
 };
 
-// 실제로 넣은 자료 근거와 생략(R4, R18). 본문 없이 주소·version·관점·깊이만 남긴다.
+// 실제로 넣은 자료 근거와 생략(R4, R18). 본문 없이 context id·판 hash·깊이만 남긴다.
 export type MaterialReference = {
   address: string;
   version: string | null;
-  perspective: ContextItem["perspective"];
-  depth: "full" | "address_only";
-  sections: string[];
+  // full은 overview와 용어집, overview_only는 용어집을 뺀 것, names_only는 type 이름만 남긴 것이다(R18).
+  depth: "full" | "overview_only" | "names_only";
 };
 
+// 줄인 자료(`input_over_budget`)이거나 읽지 못해 자료 자리에 이유만 남긴 context(`level: material`,
+// `load_failed`, `detail`이 그 context의 이유)다.
 export type MaterialOmission = {
   source: string;
-  level: "reference_summary" | "basis_outline" | "selected_material";
-  reason: "input_over_budget";
+  level: "glossary" | "overview" | "material";
+  reason: "input_over_budget" | "load_failed";
+  detail?: string;
 };
 
 // 실제 포함한 화면 근거(R28). 본문은 입력 blob에 있고 여기엔 포함한 값과 수집 시각만 둔다.

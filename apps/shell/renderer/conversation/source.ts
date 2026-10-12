@@ -30,6 +30,7 @@ export interface SessionRow {
 /** 답 아래에 두는 결과. 실제로 만들거나 바꾼 문서만이다(lophn-agent/conversation#R4). */
 export type ResultLink =
   | { readonly kind: "document"; readonly document: string }
+  | { readonly kind: "context"; readonly context: string }
   | {
     readonly kind: "version";
     readonly document: string;

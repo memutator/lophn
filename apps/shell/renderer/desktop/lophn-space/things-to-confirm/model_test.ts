@@ -1,5 +1,6 @@
 import { assertEquals } from "@std/assert";
 
+import { eventTitle } from "./labels.ts";
 import {
   chipQueue,
   notificationTarget,
@@ -171,7 +172,7 @@ Deno.test("lophn-agent/questions#R6 [I45]: 공백뿐인 글은 답이 아니다"
   assertEquals(usableText("Keep it"), true);
 });
 
-Deno.test("lophn-agent/questions#R4, R13 [I45]: 보호 창을 여는 것은 질문 하나짜리 묶음에서 고른 action 선택지뿐이고 term.define·app.create·apply_settings는 열지 않는다", () => {
+Deno.test("lophn-agent/questions#R4, R13 [I45]: 보호 창을 여는 것은 질문 하나짜리 묶음에서 고른 action 선택지뿐이고 app.create·apply_settings는 열지 않는다", () => {
   const withAction = question(1, {
     questions: [groupQuestion(1, 1, {
       options: [
@@ -227,7 +228,15 @@ Deno.test("lophn-agent/questions#R4, R13 [I45]: 보호 창을 여는 것은 질�
       ],
     })],
   });
-  for (const key of ["use", "app", "set"]) {
+  // term.define은 확인 창으로 확정한다. app.create·apply_settings만 창 없이 확정한다.
+  assertEquals(
+    reviewTarget(term, [{
+      question: questionId(2, 1),
+      answer: { kind: "option", option_key: "use" },
+    }]),
+    { group: groupId(2), option_key: "use" },
+  );
+  for (const key of ["app", "set"]) {
     assertEquals(
       reviewTarget(term, [{
         question: questionId(2, 1),
@@ -237,4 +246,11 @@ Deno.test("lophn-agent/questions#R4, R13 [I45]: 보호 창을 여는 것은 질�
       key,
     );
   }
+});
+
+Deno.test("[ctx-I35] platform/notifications#R3: context 위반 수 계기는 자기 이름으로 말하고 일반 안내가 아니다", () => {
+  assertEquals(
+    eventTitle("ContextViolationsRecorded"),
+    "A context has more violations",
+  );
 });

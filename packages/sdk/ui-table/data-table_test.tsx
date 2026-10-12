@@ -5,9 +5,9 @@ import {
   isFocused,
   manualTimer,
   one,
-  press,
   pressAsync,
   render,
+  settle,
 } from "../../design/components/testing.ts";
 import type { TableColumn } from "@lophn/design/components";
 import { DataTable, type DataTableProps } from "./data-table.tsx";
@@ -122,20 +122,25 @@ Deno.test("apps/sdk#R16: 페이지 줄은 행 범위를 보이고 행이 줄면 
   assertEquals(keys(rendered.container), ["item_2"]);
 });
 
-Deno.test("apps/sdk#R16: 열 선택은 Checkbox로 열을 숨기고 Escape로 닫으면 focus가 Columns 버튼으로 돌아온다", () => {
+const columnsButton = (root: HTMLElement) =>
+  [...root.querySelectorAll("button")].find((item) =>
+    item.textContent === "Columns"
+  )!;
+
+const checkboxes =
+  () => [...document.querySelectorAll("button[role=checkbox]")];
+
+Deno.test("apps/sdk#R16: 열 선택은 Checkbox로 열을 숨기고 Escape로 닫으면 focus가 Columns 버튼으로 돌아온다", async () => {
   const chosen: (readonly string[])[] = [];
   using rendered = render(view({
     rows: items([1]),
     onVisibleColumnsChange: (ids) => chosen.push(ids),
   }));
-  const trigger = [...rendered.container.querySelectorAll("button")].find((
-    item,
-  ) => item.textContent === "Columns")!;
+  const trigger = columnsButton(rendered.container);
   click(trigger);
+  await settle();
   assertEquals(trigger.getAttribute("aria-expanded"), "true");
-  const boxes = [
-    ...rendered.container.querySelectorAll("button[role=checkbox]"),
-  ];
+  const boxes = checkboxes();
   assertEquals(boxes.length, 2);
   click(boxes[0]);
   assertEquals(chosen, [["size"]]);
@@ -146,9 +151,57 @@ Deno.test("apps/sdk#R16: 열 선택은 Checkbox로 열을 숨기고 Escape로 �
   // 마지막 남은 열은 끌 수 없다.
   assert((boxes[1] as HTMLButtonElement).disabled);
   focus(boxes[1]);
-  press(boxes[1], "Escape");
+  await pressAsync(boxes[1], "Escape");
   assertEquals(trigger.getAttribute("aria-expanded"), "false");
   assert(isFocused(trigger), "focus did not return to Columns");
+});
+
+Deno.test("apps/sdk#R16 [ctx-I54]: Columns menu floats without moving Sort by", async () => {
+  using rendered = render(view({ rows: items([1, 2]) }));
+  const toolbar = one(rendered.container, "[class*=toolbar]");
+  const sortBy = one(rendered.container, "[class*=sort]");
+  const before = {
+    toolbar: toolbar.children.length,
+    index: [...toolbar.children].indexOf(sortBy),
+    next: toolbar.nextElementSibling,
+    sortParent: sortBy.parentElement,
+  };
+  const trigger = columnsButton(rendered.container);
+  click(trigger);
+  await settle();
+  const boxes = checkboxes();
+  assertEquals(boxes.length, 2);
+  // 메뉴는 도구 줄 흐름 밖 popover 층에 그려진다.
+  assert(!rendered.container.contains(boxes[0]), "menu is inside the table");
+  assert(boxes[0].closest("[data-radix-popper-content-wrapper]"));
+  assertEquals(toolbar.children.length, before.toolbar);
+  assertEquals([...toolbar.children].indexOf(sortBy), before.index);
+  assertEquals(toolbar.nextElementSibling, before.next);
+  assertEquals(sortBy.parentElement, before.sortParent);
+  assertEquals(rendered.container.querySelector("[class*=columnList]"), null);
+});
+
+Deno.test("apps/sdk#R16 [ctx-I54]: Escape closes the Columns menu and toggled columns stay hidden", async () => {
+  using rendered = render(view({ rows: items([1]) }));
+  const trigger = columnsButton(rendered.container);
+  click(trigger);
+  await settle();
+  click(checkboxes()[0]);
+  await pressAsync(checkboxes()[1], "Escape");
+  await settle();
+  assertEquals(checkboxes().length, 0);
+  assertEquals(trigger.getAttribute("aria-expanded"), "false");
+  assertEquals(
+    [...rendered.container.querySelectorAll("th")].map((th) => th.textContent),
+    ["Size"],
+  );
+  // 다시 열면 숨긴 열은 꺼진 채로 보인다.
+  click(trigger);
+  await settle();
+  assertEquals(
+    checkboxes().map((box) => box.getAttribute("aria-checked")),
+    ["false", "true"],
+  );
 });
 
 Deno.test("apps/sdk#R16: 1000행을 넘으면 component 안 scroll 칸에서 보이는 창만 그린다", () => {
@@ -165,7 +218,7 @@ Deno.test("apps/sdk#R16: 1000행을 넘으면 component 안 scroll 칸에서 보
   );
 });
 
-Deno.test("apps/sdk#R16: controlled 정렬·페이지·열 선택은 owner가 받을 때만 표시를 바꾼다", () => {
+Deno.test("apps/sdk#R16: controlled 정렬·페이지·열 선택은 owner가 받을 때만 표시를 바꾼다", async () => {
   const changes: unknown[] = [];
   const props = {
     rows: items([3, 1, 2]),
@@ -180,12 +233,9 @@ Deno.test("apps/sdk#R16: controlled 정렬·페이지·열 선택은 owner가 �
   using rendered = render(view(props));
   click(button(rendered.container, "Sort ascending"));
   click(button(rendered.container, "Next page"));
-  click(
-    [...rendered.container.querySelectorAll("button")].find((item) =>
-      item.textContent === "Columns"
-    )!,
-  );
-  click(one(rendered.container, "button[role=checkbox]"));
+  click(columnsButton(rendered.container));
+  await settle();
+  click(checkboxes()[0]);
   assertEquals(changes, [
     { columnId: "size", direction: "descending" },
     1,
@@ -254,4 +304,67 @@ Deno.test("apps/sdk#R38: 칸과 머리의 신뢰할 수 없는 글은 HTML로 �
   assertEquals(one(rendered.container, "th").textContent, hostile);
   assertEquals(one(rendered.container, "tbody td").textContent, hostile);
   assertEquals((globalThis as { owned?: number }).owned, undefined);
+});
+
+Deno.test("apps/sdk#R16 [ctx-I54]: link column passes through DataTable, sorts as text and opens the row", () => {
+  const opened: Item[] = [];
+  const rows = [
+    { id: "b", name: "exp-010", size: 1 },
+    { id: "a", name: "exp-009", size: 2 },
+  ];
+  using rendered = render(
+    <DataTable
+      columns={[{
+        id: "name",
+        header: "Name",
+        kind: "link",
+        value: (row: Item) => row.name,
+        onOpen: (row: Item) => opened.push(row),
+      }]}
+      rows={rows}
+      rowKey={(row) => row.id}
+      now={now}
+      defaultSort={{ columnId: "name", direction: "ascending" }}
+      onRetry={() => {}}
+      empty={{
+        message: "Nothing here.",
+        action: { label: "Add", onSelect: () => {} },
+      }}
+    />,
+  );
+  const links = [...rendered.container.querySelectorAll("td button")];
+  assertEquals(links.map((item) => item.textContent), ["exp-009", "exp-010"]);
+  click(links[0]);
+  assertEquals(opened, [rows[1]]);
+});
+
+Deno.test("apps/sdk#R16 [ctx-T10c]: link column's dataAttributes reach the button through DataTable, also after a sort", () => {
+  const rows = [
+    { id: "b", name: "exp-010", size: 1 },
+    { id: "a", name: "exp-009", size: 2 },
+  ];
+  using rendered = render(
+    <DataTable
+      columns={[{
+        id: "name",
+        header: "Name",
+        kind: "link",
+        value: (row: Item) => row.name,
+        onOpen: () => {},
+        dataAttributes: { "data-open-document": "" },
+      }]}
+      rows={rows}
+      rowKey={(row) => row.id}
+      now={now}
+      defaultSort={{ columnId: "name", direction: "descending" }}
+      onRetry={() => {}}
+      empty={{
+        message: "Nothing here.",
+        action: { label: "Add", onSelect: () => {} },
+      }}
+    />,
+  );
+  const links = [...rendered.container.querySelectorAll("td button")];
+  assertEquals(links.length, 2);
+  assert(links.every((link) => link.hasAttribute("data-open-document")));
 });

@@ -1,4 +1,4 @@
-// lophn 공간의 팔레트 행. 프로젝트·컨텍스트·문서·앱·행동 순서이고(desktop#R30) 고르면
+// lophn 공간의 팔레트 행. 프로젝트·문서·앱·행동 순서이고(desktop#R30) 고르면
 // 지금 탐색 대상(프로젝트 작업대, 여섯 형제 화면, documents 화면의 읽기)으로만 간다.
 // 없어진 거처·분류 전·시리즈 전용 목적지는 만들지 않는다.
 import { t } from "@lophn/wording";
@@ -17,7 +17,6 @@ import type { PaletteScope } from "./session.ts";
 
 export type LophnTarget =
   | { readonly kind: "project"; readonly id: string }
-  | { readonly kind: "context"; readonly id: string }
   | {
     readonly kind: "document";
     readonly document: string;
@@ -66,13 +65,6 @@ export function lophnScope(input: LophnScopeInput): PaletteScope<LophnTarget> {
         label: row.title,
         icon: "project" as const,
         target: { kind: "project" as const, id: row.id },
-      })),
-      ...input.catalog.contexts.map((row) => ({
-        group: "contexts" as const,
-        key: `context:${row.id}`,
-        label: row.title,
-        icon: "context" as const,
-        target: { kind: "context" as const, id: row.id },
       })),
       ...input.catalog.apps.map((row) => ({
         group: "apps" as const,

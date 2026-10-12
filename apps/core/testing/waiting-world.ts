@@ -103,7 +103,6 @@ const MACHINE_OPERATIONS = [
   "document.move",
   "document.rename",
   "app.create",
-  "term.define",
 ];
 
 const USER_OPERATIONS = [
@@ -129,7 +128,6 @@ const USER_OPERATIONS = [
   "ApplySettings",
   "project.create",
   "context.create",
-  "term.define",
   "document.get",
   "document.list",
   "document.move",

@@ -33,7 +33,6 @@ Deno.test("shell/desktop#R28: lophn 공간 sidebar는 여섯 형제를 한 단�
   assertEquals(rows.map((row) => row.getAttribute("data-screen")), [
     "projects",
     "documents",
-    "contexts",
     "apps",
     "things-to-confirm",
     "settings",
@@ -41,7 +40,6 @@ Deno.test("shell/desktop#R28: lophn 공간 sidebar는 여섯 형제를 한 단�
   assertEquals(rows.map((row) => row.textContent), [
     "Projects",
     "Documents",
-    "Contexts",
     "Apps",
     "Things to confirm",
     "Settings",

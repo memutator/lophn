@@ -28,6 +28,7 @@ import {
   readProviderFacts,
 } from "../desktop/connection/provider-state.ts";
 import { ProviderNotice } from "../desktop/connection/connection.tsx";
+import type { ContextLinks } from "./result-links.tsx";
 import { ExternalNotice } from "./external-guide.tsx";
 import { type ExternalGuide, loadExternalGuide } from "./external-guide.ts";
 import { newId } from "../desktop/lophn-space/model.ts";
@@ -82,6 +83,8 @@ export interface DockProps {
   workPlace: WorkPlace;
   onClose: () => void;
   onOpenResult?: (document: string, version: string | null) => void;
+  /** 대화 속 context 이름 링크가 그 context의 탭을 여는 길(shell/workspace#R31). */
+  contexts?: ContextLinks;
   /** 다시 읽는 박자. 테스트가 직접 부른다. */
   ticks?: Ticks;
   now?: () => number;
@@ -155,6 +158,7 @@ export function Dock(
     workPlace,
     onClose,
     onOpenResult,
+    contexts,
     ticks = intervalTicks,
     now = Date.now,
     core,
@@ -583,6 +587,7 @@ export function Dock(
           onCheck={() => void check()}
           onResend={() => void sendAgain()}
           onOpenResult={onOpenResult}
+          contexts={contexts}
           visuals={visuals}
         />
         {readOnly
@@ -604,6 +609,9 @@ export function Dock(
                 offline={offline}
                 canCorrect={active !== null && agent.state === "enabled"}
                 canStop={active !== null}
+                hint={agent.role === "context_engineer" && shown.length === 0
+                  ? t("conversation.placeholder.new-context")
+                  : undefined}
                 onDraft={(patch) => drafts.save(current, patch)}
                 onSend={() => void send()}
                 onStop={() => void stop()}

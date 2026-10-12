@@ -1416,6 +1416,7 @@
       },
       "packages/documents": {
         "dependencies": [
+          "jsr:@std/yaml@1.3.0",
           "npm:ignore@7.0.12",
           "npm:parse5@8.0.1",
           "npm:picomatch@4.0.7",

@@ -322,6 +322,7 @@ Deno.test("lophn-agent/harness/tools#R2 [agent-I13]: question.submit tool은 호
   assertEquals(calls.length, 1);
 });
 
+<<<<<<< HEAD
 Deno.test("lophn-agent/harness/tools#R2 [agent-I13]: question.submit은 질문 1~4개 묶음만 받고 고정 action을 제안한 질문은 다른 질문과 한 묶음으로 내지 않는다", async () => {
   const calls: Call[] = [];
   const deps = {
@@ -524,6 +525,9 @@ Deno.test("documents/terms#R2 lophn-agent/questions#R13 [agent-I13]: question.su
 });
 
 Deno.test("apps/registration#R3 lophn-agent/questions#R13 [agent-I13]: question.submit은 등록 제안으로 app.create를 고정하고 근거 판 하나가 등록 근거가 되며 미리 배정한 앱 ID가 대상이다", async () => {
+=======
+Deno.test("apps/registration#R3 lophn-agent/questions#R13: question.submit은 등록 제안으로 app.create를 고정하고 근거 판 하나가 등록 근거가 되며 미리 배정한 앱 ID가 대상이다", async () => {
+>>>>>>> origin/main
   const calls: Call[] = [];
   const handlers = createAgentToolHandlers({
     ...ports([]),
@@ -597,21 +601,13 @@ Deno.test("apps/registration#R3 lophn-agent/questions#R13 [agent-I13]: question.
   });
   assertEquals(action.comparison, {});
   calls.length = 0;
-  // 근거 판이 하나가 아니거나 후보 정의와 같이 오면 질문을 만들지 않는다.
+  // 근거 판이 하나가 아니면 질문을 만들지 않는다.
   for (
     const bad of [
       { ...option, evidence: [] },
       {
         ...option,
         evidence: [ref, { ...ref, version: VER.replace("av", "aw") }],
-      },
-      {
-        ...option,
-        term_definition: {
-          term: "trm_01arz3ndektsv4rrffq69g5fav",
-          name: "x",
-          definition: "y",
-        },
       },
     ]
   ) {

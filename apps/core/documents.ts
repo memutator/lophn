@@ -1,9 +1,6 @@
 import { err, ok, type Result } from "../../packages/base/mod.ts";
 import type { DocumentRef } from "../../packages/contracts/documents/mod.ts";
 import {
-  CONTEXT_DISPATCHABLE_COMMANDS,
-  contextExport,
-  contextWatch,
   DOCUMENT_DISPATCHABLE_COMMANDS,
   documentPrepare,
   filesDelete,
@@ -15,7 +12,6 @@ import {
   outlineRoot,
   projectPreviewTracking,
   READ_ROUTES,
-  TERM_DISPATCHABLE_COMMANDS,
   UPLOAD_ROUTES,
 } from "../../packages/contracts/documents/mod.ts";
 import type {
@@ -27,7 +23,6 @@ import type {
   UploadRoute,
   WorkerRoute,
 } from "../../packages/contracts/platform/mod.ts";
-import { isActiveReadCommand } from "../../packages/apps/releases/store.ts";
 import type {
   EventRegistration,
   ReaderRegistration,
@@ -39,16 +34,10 @@ import {
   createAddressingReads,
   createDocumentChangeCommands,
 } from "../../packages/documents/addressing/mod.ts";
-import { contextsSchemaSteps } from "../../packages/documents/contexts/mod.ts";
 import {
-  createContextCommands,
-} from "../../packages/documents/contexts/mod.ts";
-import { createContextReads } from "../../packages/documents/contexts/mod.ts";
-import {
-  createTermCommands,
-  createTermReads,
-  termsSchemaSteps,
-} from "../../packages/documents/terms/mod.ts";
+  createContextsRegistration,
+  loadContextsRuntime,
+} from "./contexts-api.ts";
 import {
   fileStatusRead,
   type StatusMemory,
@@ -94,13 +83,12 @@ import {
   type ProjectReadDeps,
 } from "../../packages/documents/projects/reads.ts";
 import { projectsSchemaSteps } from "../../packages/documents/projects/schema.ts";
-import {
-  createViewCommands,
-  createViewReads,
-  savedViewsSchemaSteps,
-} from "../../packages/documents/outline-and-search/mod.ts";
 import { listDocuments } from "../../packages/documents/versions/mod.ts";
 import type { ReadSnapshot } from "../../packages/contracts/platform/mod.ts";
+
+// context API의 의존. command를 실행하는 writer Worker와 read를 실행하는 reader Worker 안에서만
+// 실제 구현이 올라온다(contexts-api.ts). core 본체는 route 등록만 쓴다.
+const contextsRuntime = await loadContextsRuntime();
 
 type LedgerRegistration = {
   schemaSteps?: readonly { id: string; sql: string }[];
@@ -151,9 +139,6 @@ function projectDocuments(
 // 없는 것이다: 추적 안 함으로 꾸미지 않고 unavailable이다.
 export type DocumentsEnvironment = {
   status?: StatusMemory;
-  // 제품 등록은 active release blueprint의 read command만 항목으로 받는다.
-  // 이 callback이 있으면 그 검사를 대신한다. 앱 항목이 필요한 시험만 준다.
-  contextAppCommand?: (app: string, command: string) => boolean;
 };
 
 const UNATTACHED_STATUS: StatusMemory = {
@@ -314,35 +299,6 @@ function outlineRootRoute(): ReadDefinition<typeof outlineRoot> {
   };
 }
 
-// context export read. 외부 출력 redaction과 glossary·section 상태 근원을 같이 쓰는 서빙은
-// reader Worker의 등록(documents-reader.ts)이 한다. 여기 handler는 route를 registry에
-// 올리는 자리이고 실행되지 않는다.
-function contextExportRoute(): ReadDefinition<typeof contextExport> {
-  return {
-    route: contextExport,
-    handle() {
-      return err({
-        code: "unavailable",
-        message: "context export는 reader Worker가 서빙한다",
-      });
-    },
-  };
-}
-
-// context watch read. 미확인 목록은 derived store에 있어 서빙은 reader Worker의 등록
-// (documents-reader.ts)이 한다. 여기 handler는 route를 registry에 올리는 자리다.
-function contextWatchRoute(): ReadDefinition<typeof contextWatch> {
-  return {
-    route: contextWatch,
-    handle() {
-      return err({
-        code: "unavailable",
-        message: "context watch는 reader Worker가 서빙한다",
-      });
-    },
-  };
-}
-
 export type DocumentsRelaunch =
   | { kind: "unchanged" }
   | { kind: "relaunch"; specs: KindLaunchSpec[] }
@@ -393,11 +349,9 @@ export async function connectDocumentsRelaunch(
 function dispatchableByContract<R extends CommandRoute>(
   definition: CommandDefinition<R>,
 ): CommandDefinition<R> {
-  const declared = [
-    ...DOCUMENT_DISPATCHABLE_COMMANDS,
-    ...CONTEXT_DISPATCHABLE_COMMANDS,
-    ...TERM_DISPATCHABLE_COMMANDS,
-  ].some((item) => item.route === (definition.route as CommandRoute));
+  const declared = [...DOCUMENT_DISPATCHABLE_COMMANDS].some((item) =>
+    item.route === (definition.route as CommandRoute)
+  );
   return declared ? { ...definition, dispatchable: true } : definition;
 }
 
@@ -411,24 +365,12 @@ export function createLedgerRegistration(
   const fileCommands = createFileCommands();
   const fileReads = createFileReads();
   const addressing = createDocumentChangeCommands();
-  // 앱 command 효과는 active release blueprint다. 시험 double이 있으면 그 검사가 대신한다.
-  const appCommand = environment?.contextAppCommand;
-  const contexts = createContextCommands({
-    appCommand: (app, command, sql) =>
-      appCommand !== undefined
-        ? appCommand(app, command)
-        : sql !== undefined && isActiveReadCommand(sql, app, command),
-  });
-  const terms = createTermCommands();
+  const contexts = createContextsRegistration(contextsRuntime);
   const series = createSeriesCommands();
-  const views = createViewCommands();
   const versionReads = createVersionReads();
   const addressReads = createAddressingReads();
-  const contextReads = createContextReads();
-  const termReads = createTermReads();
   const seriesReads = createSeriesReads();
   const seriesOutline = createSeriesOutlineRead();
-  const viewReads = createViewReads();
   const deps: ProjectReadDeps = {
     documents: projectDocuments,
   };
@@ -438,10 +380,8 @@ export function createLedgerRegistration(
       ...addressingSchemaSteps,
       ...projectsSchemaSteps,
       ...versionsSchemaSteps,
-      ...contextsSchemaSteps,
-      ...termsSchemaSteps,
+      ...contexts.schemaSteps,
       ...seriesSchemaSteps,
-      ...savedViewsSchemaSteps,
     ],
     commands: [
       commands.create,
@@ -460,18 +400,7 @@ export function createLedgerRegistration(
       // 어느 command가 그런지는 contract가 정한다(DOCUMENT_DISPATCHABLE_COMMANDS).
       dispatchableByContract(addressing.move),
       dispatchableByContract(addressing.rename),
-      contexts.create,
-      dispatchableByContract(contexts.update),
-      dispatchableByContract(contexts.setItem),
-      dispatchableByContract(contexts.removeItem),
-      dispatchableByContract(contexts.archive),
-      dispatchableByContract(contexts.unarchive),
-      contexts.recordWatchChange,
-      terms.propose,
-      terms.define,
-      dispatchableByContract(terms.update),
-      dispatchableByContract(terms.archive),
-      dispatchableByContract(terms.unarchive),
+      ...contexts.commands,
       series.create,
       series.update,
       series.setDraft,
@@ -481,9 +410,6 @@ export function createLedgerRegistration(
       series.removeInstance,
       series.archive,
       series.unarchive,
-      views.save,
-      views.update,
-      views.delete,
     ],
     reads: [
       reads.list,
@@ -495,24 +421,16 @@ export function createLedgerRegistration(
       versionReads.get,
       versionReads.history,
       addressReads.resolve,
-      contextReads.list,
-      contextReads.get,
-      contextReads.related,
-      contextExportRoute(),
-      contextWatchRoute(),
-      termReads.list,
-      termReads.get,
+      ...contexts.reads,
       seriesReads.list,
       seriesReads.get,
       seriesReads.next,
       seriesOutline,
-      viewReads.list,
-      viewReads.get,
       fileReads.list,
       outlineRootRoute(),
     ],
-    // 판 원문과 정규화 목록 blob. 일반 읽기는 원문 파일만 연다.
-    blobFields: [versionFileField, versionFilesField],
+    // 판 원문과 정규화 목록 blob. 일반 읽기는 원문 파일만 연다. context 내용 blob은 context 읽기가 연다.
+    blobFields: [versionFileField, versionFilesField, ...contexts.blobFields],
     // format read는 snapshot 없이 바로 연다. 경로는 같은 조립에서 registry로 모은다.
     apiReads: [
       ...formatReads(),
@@ -571,11 +489,9 @@ export function createEventRegistration(): EventRegistration {
 export function createReaderRegistration(): ReaderRegistration {
   const reads = createVersionReads();
   const addressReads = createAddressingReads();
-  const contextReads = createContextReads();
-  const termReads = createTermReads();
+  const contexts = createContextsRegistration(contextsRuntime);
   const seriesReads = createSeriesReads();
   const seriesOutline = createSeriesOutlineRead();
-  const viewReads = createViewReads();
   const fileReads = createFileReads();
   const deps: ProjectReadDeps = {
     documents: projectDocuments,
@@ -587,17 +503,11 @@ export function createReaderRegistration(): ReaderRegistration {
       reads.get,
       reads.history,
       addressReads.resolve,
-      contextReads.list,
-      contextReads.get,
-      contextReads.related,
-      termReads.list,
-      termReads.get,
+      ...contexts.reads,
       seriesReads.list,
       seriesReads.get,
       seriesReads.next,
       seriesOutline,
-      viewReads.list,
-      viewReads.get,
       projectReads.list,
       projectReads.get,
       projectReads.resolve,

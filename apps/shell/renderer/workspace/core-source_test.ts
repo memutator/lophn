@@ -51,27 +51,9 @@ const routes = {
       next_cursor: null,
     },
   }),
-  "contexts/list": () => ({
-    ok: true,
-    value: {
-      contexts: [
-        {
-          id: "ctx_01k6p0000000000000000000aa",
-          title: "Planning",
-          items: [{ target: { kind: "document", document: DOC_A } }],
-        },
-        {
-          id: "ctx_01k6p0000000000000000000bb",
-          title: "Elsewhere",
-          items: [{ target: { kind: "app_command", app: "app_x" } }],
-        },
-      ],
-      next_cursor: null,
-    },
-  }),
 };
 
-Deno.test("shell/desktop#R28: 작업대는 projects.get·documents.list와 그 문서를 담은 컨텍스트로 연다", async () => {
+Deno.test("shell/desktop#R28: 작업대는 projects.get·documents.list로 연다", async () => {
   const { core, calls } = routedCore(routes);
   const source = coreWorkspaceSource(core);
   assertEquals(await source.project(PROJECT), {
@@ -86,10 +68,6 @@ Deno.test("shell/desktop#R28: 작업대는 projects.get·documents.list와 그 �
     calls.find((call) => call.resource === "documents")?.body,
     { place: { kind: "project", id: PROJECT }, status: "active" },
   );
-  assertEquals(await source.contexts(PROJECT), {
-    ok: true,
-    value: [{ id: "ctx_01k6p0000000000000000000aa", title: "Planning" }],
-  });
   // 이 단위 테스트에는 layout bridge(lophnLayout)가 없다. 통로가 없으면 읽지 못함으로 답한다.
   assertEquals((await source.readLayout(PROJECT)).ok, false);
 });
@@ -157,4 +135,24 @@ Deno.test("documents/projects#R10: 상대 경로는 가장 깊은 등록 폴더�
   assertEquals(relativeToFolders("/work/b.md", folders), "b.md");
   assertEquals(relativeToFolders("/elsewhere/c.md", folders), null);
   assertEquals(relativeToFolders("/workshop/d.md", folders), null);
+});
+
+Deno.test("shell/workspace#R16 [ctx-I39b]: 작업대 통로는 Context 화면용 contextsSource를 core로 이어 둔다", async () => {
+  const { core, calls } = routedCore({
+    "contexts/list": () => ({
+      ok: true,
+      value: { contexts: [], complete: true, next_cursor: null },
+    }),
+  });
+  const source = coreWorkspaceSource(core);
+  assertEquals(await source.contextsSource?.list(PROJECT), {
+    ok: true,
+    value: [],
+  });
+  assertEquals(
+    calls.map((call) => `${call.kind}:${call.resource}/${call.method}`),
+    [
+      "read:contexts/list",
+    ],
+  );
 });

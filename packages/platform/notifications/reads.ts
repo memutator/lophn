@@ -1,8 +1,11 @@
 import { err, ok } from "../../base/mod.ts";
 import {
   atSchema,
+<<<<<<< HEAD
   idSchema,
   type NotificationAsk,
+=======
+>>>>>>> origin/main
   notificationsDisplay,
   notificationsGet,
   notificationsList,
@@ -13,6 +16,7 @@ import { notificationView } from "./model.ts";
 import { osDisplayRequest } from "./os-display.ts";
 import { notificationOf, readNotificationRow } from "./store.ts";
 
+<<<<<<< HEAD
 const documentId = idSchema("doc");
 
 type Sql = Parameters<
@@ -100,10 +104,18 @@ function lineFacts(
       )
       : null,
   };
+=======
+// 사람 줄만 본다. 다른 actor에게는 source 시각을 열지 않고 payload는 어디에도 없다.
+function lineFacts(
+  actor: string,
+  at: unknown,
+): { occurred_at?: string } {
+  if (actor !== "user") return {};
+>>>>>>> origin/main
   if (typeof at === "string" && atSchema.safeParse(at).success) {
-    facts.occurred_at = at;
+    return { occurred_at: at };
   }
-  return facts;
+  return {};
 }
 
 type GetRoute = typeof notificationsGet;
@@ -121,7 +133,11 @@ export function notificationsGetRead(): ReadDefinition<GetRoute> {
         return err({ code: "not_found", message: "notification이 없다" });
       }
       const source = snapshot.sql.get(
+<<<<<<< HEAD
         "select at, subject, payload from events where seq = ?",
+=======
+        "select at from events where seq = ?",
+>>>>>>> origin/main
         [BigInt(row.notification.source_seq)],
       );
       return ok({
@@ -131,6 +147,7 @@ export function notificationsGetRead(): ReadDefinition<GetRoute> {
           read_at: row.notification.read_at,
         },
         source_event: row.source_event,
+<<<<<<< HEAD
         ...lineFacts(ctx.actor, {
           sql: snapshot.sql,
           event: row.source_event,
@@ -138,6 +155,9 @@ export function notificationsGetRead(): ReadDefinition<GetRoute> {
           at: source?.["at"],
           payload: parsePayload(source?.["payload"]),
         }),
+=======
+        ...lineFacts(ctx.actor, source?.["at"]),
+>>>>>>> origin/main
         as_of_seq: snapshot.as_of_seq,
         next_cursor: null,
       } as never);
@@ -167,8 +187,12 @@ export function notificationsListRead(): ReadDefinition<ListRoute> {
            from notifications ${where} order by source_seq limit ?
          )
          select source.*, events.type as source_event,
+<<<<<<< HEAD
                 events.at as source_at, events.subject as source_subject,
                 events.payload as source_payload
+=======
+                events.at as source_at
+>>>>>>> origin/main
          from source join events on events.seq = cast(source.source_seq as integer)
          order by cast(source.source_seq as integer)`,
         [...params, limit],
@@ -180,6 +204,7 @@ export function notificationsListRead(): ReadDefinition<ListRoute> {
           read_at: row["read_at"] === null ? null : String(row["read_at"]),
         },
         source_event: String(row["source_event"]),
+<<<<<<< HEAD
         ...lineFacts(ctx.actor, {
           sql: snapshot.sql,
           event: String(row["source_event"]),
@@ -187,6 +212,9 @@ export function notificationsListRead(): ReadDefinition<ListRoute> {
           at: row["source_at"],
           payload: parsePayload(row["source_payload"]),
         }),
+=======
+        ...lineFacts(ctx.actor, row["source_at"]),
+>>>>>>> origin/main
       }));
       const last = rows.length
         ? String(rows[rows.length - 1]["source_seq"])

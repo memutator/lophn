@@ -81,10 +81,17 @@ Run의 출처, 시작 기준, 누적 한도와 최종 결과를 정의한다.
 |---|---|---|---|---|
 | `agent` | `{hash,sources}` | 아니오 | resolved agent의 `hash`와 칸별 값의 출처; 전체 값은 blob; → lophn-agent/agents | 고정 resolved agent |
 | `assignment` | `{id,revision,snapshot_hash,basis_seq}` | 아니오 | revision 양의 정수; → lophn-agent/assignments | 고정 assignment 판 |
+<<<<<<< HEAD
 | `tools` | `{revision,definitions_hash}` | 아니오 | → lophn-agent/harness/tools | 고정 정의 목록 |
 | `extensions` | `{settings_revision,skill_hashes,mcp_config_revisions,mcp_tool_definition_hashes}` | 아니오 | 정확한 skill·서버/tool 쌍 선택 및 사용한 판·hash 고정; 빈 목록 허용; → lophn-agent/extensions | 고정 확장 판 |
 | `models` | `{judgment,organizing}` | 아니오 | judgment는 resolved agent의 model, organizing은 Workspace의 Model for summaries를 검증한 ResolvedModel; 요약용 칸이 비면 judgment와 같은 model·provider·옵션이며 purpose만 organizing; → lophn-agent/harness/model | resolved agent에서 resolve한 호출 snapshot |
 | `initial_work_place` | WorkPlace | 아니오 | Session의 고정 자리 또는 session 없는 run의 Assignment.scope; 도중에 바뀌지 않음 | 시작 자리 |
+=======
+| `tools` | `{revision,definitions_hash,contexts}` | 아니오 | `contexts`는 선언 검색 정의를 만든 판 `{context,bundle,bundle_hash,title}`의 목록(고른 context가 없으면 빈 목록); → lophn-agent/harness/tools | 고정 정의 목록 |
+| `extensions` | `{settings_revision,preset_selection,skill_hashes,mcp_config_revisions,mcp_tool_definition_hashes}` | 아니오 | 정확한 skill·서버/tool 쌍 선택 및 사용한 판·hash 고정; 빈 목록 허용; → lophn-agent/extensions | 고정 확장 판 |
+| `models` | `{judgment,organizing}` | 아니오 | 두 값은 preset의 선택을 검증한 ResolvedModel; organizing 미선택은 judgment와 같은 model·계정·옵션이며 purpose만 organizing; → lophn-agent/harness/model | preset에서 resolve한 호출 snapshot |
+| `initial_work_place` | WorkPlace | 아니오 | Session 현재 자리 또는 Operator.scope; call마다 현재 자리는 ContextBasis에 기록 | 시작 자리 |
+>>>>>>> origin/main
 | `limits / tool_result_limits` | RunLimits / byte·line·목록 상한 | 아니오 | 시작에 고정 | 제어 값 |
 
 ## HandoffReference (값)

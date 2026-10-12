@@ -3,7 +3,6 @@ import type { Result } from "../../base/mod.ts";
 import {
   adoptionsOf,
   checkOptionAction,
-  defineTermOptionAction,
   moveOptionAction,
   OPTION_ACTION_OPERATIONS,
   OPTION_ACTION_OWNERS,
@@ -155,7 +154,6 @@ Deno.test("lophn-agent/questions#R13: 적용 자격이 가져야 하는 operatio
       "app.create",
       "document.move",
       "document.rename",
-      "term.define",
     ],
   );
   for (const owner of OPTION_ACTION_OWNERS) {
@@ -164,6 +162,7 @@ Deno.test("lophn-agent/questions#R13: 적용 자격이 가져야 하는 operatio
   }
 });
 
+<<<<<<< HEAD
 Deno.test("lophn-agent/questions#R13: 용어 정의의 고정 action은 대상·입력·비교 기준과 지문이 맞을 때만 선택지가 된다", () => {
   const CONTEXT = "ctx_01arz3ndektsv4rrffq69g5fav";
   const TERM = "trm_01arz3ndektsv4rrffq69g5fav";
@@ -256,6 +255,9 @@ function group(
   over: Partial<QuestionGroup> = {},
   answer: unknown = { kind: "option", option_key: "adopt", text_blob: null },
 ): QuestionGroup {
+=======
+function row(over: Partial<QuestionRow>): QuestionRow {
+>>>>>>> origin/main
   return {
     id: "qgr_01arz3ndektsv4rrffq69g5fav",
     run: "run_01arz3ndektsv4rrffq69g5fav",

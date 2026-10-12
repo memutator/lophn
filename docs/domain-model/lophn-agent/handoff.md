@@ -32,7 +32,12 @@ handoff의 내용 blob과 허용 방향·근거·요청 계보·거절 억제 �
 | Context Engineer | lophn |
 | Operator | 없음; 수신도 금지 |
 
+<<<<<<< HEAD
 - **사람 요청 계보.** source가 원래 사람 요청에서 이어진 Run만 발신할 수 있다. ticket·problem event 등 자료 변화에서 handoff Run을 자동 접수하지 않는다. 원래 사람 요청 Message 참조는 받는 source에도 보존한다(→ lophn-agent/conversation, lophn-agent/harness/run-loop).
+=======
+- **handoff가 아닌 것.** 사람이 다른 concern의 화면에서 누른 단추 한 번(예: context 위반 넘기기)은 보낸 Run이 없으므로 handoff가 아니다. 그 concern의 command가 받는 assignment의 새 세션과 사람 요청 Message, 그 Message 출처의 Run으로 접수하며 허용 방향·중복 방지 key·Run.source의 handoff 가지를 쓰지 않는다(→ lophn-agent/conversation, documents/contexts).
+- **사람 요청 계보.** source가 원래 사람 요청에서 이어진 Run만 발신할 수 있다. 주기·ticket·problem event에서 handoff Run을 자동 접수하지 않는다. 원래 사람 요청 Message 참조는 받는 source에도 보존한다(→ lophn-agent/conversation, lophn-agent/harness/run-loop).
+>>>>>>> origin/main
 - **내용 완전성.** HandoffContent의 필수값과 근거 고정 판이 없으면 `invalid_input`이다. 기획·설계 판에는 채택한 Question ID가 필요하며 답의 대상 판과 일치해야 한다. 최신 주소·다른 판의 채택 답은 거절한다(→ documents/addressing, lophn-agent/questions).
 - **접수 유일성.** 보낸 Run의 동일 handoff 요청은 중복 방지 키에 대해 받는 Run 하나만 만든다. 보낸 기록과 받는 Run 접수는 같은 command transaction으로 연결한다(→ lophn-agent/harness/run-loop, platform/ledger).
 - **대상 assignment.** 실제 받는 assignment가 없거나 paused이면 `unavailable`이다. 주체 없는 handoff 대기열을 만들지 않는다(→ lophn-agent/assignments).

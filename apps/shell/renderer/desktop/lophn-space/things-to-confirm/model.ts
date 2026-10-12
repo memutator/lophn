@@ -156,16 +156,15 @@ export function placeWaiting(
 
 /**
  * 확인 창 없이 질문 답의 확정으로 적용하는 고정 action command. 사람이 질문에서 그 선택지를
- * 고르는 것이 결정이다(flow new-app 3, documents/terms#R2). 그 밖 action은 확인 창을 연다.
+ * 고르는 것이 결정이다(flow new-app 3). 그 밖 action은 확인 창을 연다.
  */
 export function confirmsWithoutWindow(command: string | null | undefined) {
-  return command === "term.define" || command === "app.create" ||
-    command === "apply_settings";
+  return command === "app.create" || command === "apply_settings";
 }
 
 /**
  * 묶음에서 고른 답이 confirmation window에서만 확정하는 action 선택지이면 그 묶음과 선택지.
- * 고정 action은 질문 하나짜리 묶음에만 있다(questions#R13). term.define·app.create·apply_settings는
+ * 고정 action은 질문 하나짜리 묶음에만 있다(questions#R13). app.create·apply_settings는
  * 되돌릴 수 있는 안쪽 동작이라 확인 창 없이 확정하므로 여기에 걸리지 않는다. 자유 답은 동작으로
  * 해석하지 않는다(R15).
  */

@@ -386,6 +386,64 @@ Deno.test(
 );
 
 Deno.test(
+  "shell/desktop#R49 [agent-I48], lophn-agent/harness/provider#R6: 계정 끄고 켜기·순서 바꾸기·provider 끊기 열기는 secret_input의 change로 받고 모양이 맞지 않으면 거절한다",
+  () => {
+    const owner = "pvd_01arz3ndektsv4rrffq69g5fav";
+    const open = (request: Record<string, unknown>) =>
+      confirmationOpenIntentSchema.safeParse({
+        request: { kind: "secret_input", owner, ...request },
+        parentWindow: "win-1",
+      }).success;
+    const purpose = "provider_credential";
+    // 계정 하나를 끄고 켠다. key가 있어야 한다.
+    assert(open({ purpose, change: { key: "main", action: "enable" } }));
+    assert(open({ purpose, change: { key: "main", action: "disable" } }));
+    assert(!open({ purpose, change: { action: "disable" } }));
+    // 순서는 새 순서의 계정 key 전부다. 둘보다 적거나 겹치거나 빈 key는 순서가 아니다.
+    assert(
+      open({ purpose, change: { action: "reorder", keys: ["spare", "main"] } }),
+    );
+    assert(!open({ purpose, change: { action: "reorder", keys: ["main"] } }));
+    assert(
+      !open({ purpose, change: { action: "reorder", keys: ["main", "main"] } }),
+    );
+    assert(
+      !open({ purpose, change: { action: "reorder", keys: ["main", " "] } }),
+    );
+    assert(!open({ purpose, change: { action: "reorder" } }));
+    // 끊기는 provider(owner) 전체라 key도 목록도 싣지 않는다.
+    assert(open({ purpose, change: { action: "disconnect" } }));
+    assert(!open({ purpose, change: { action: "disconnect", key: "main" } }));
+    assert(
+      !open({ purpose, change: { action: "disconnect", keys: ["a", "b"] } }),
+    );
+    // 목록은 순서 바꾸기에만 쓴다.
+    assert(
+      !open({
+        purpose,
+        change: { key: "main", action: "disable", keys: ["a", "b"] },
+      }),
+    );
+    // 다른 목적이나 등록 정보와 함께 오지 않는다.
+    assert(!open({ purpose: "app_secret", change: { action: "disconnect" } }));
+    assert(
+      !open({
+        purpose,
+        change: { action: "disconnect" },
+        credential: {
+          key: "main",
+          kind: "api_key",
+          label: "Main key",
+          account: null,
+          organization: null,
+          plan: null,
+        },
+      }),
+    );
+  },
+);
+
+Deno.test(
   "shell/confirmation-window#R5, platform/approvals#R9: 표시는 종류별 view·상태·결정을, 결과는 접수와 실제 적용을 구별한다",
   () => {
     const display = confirmationDisplaySchema.parse({

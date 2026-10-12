@@ -394,6 +394,232 @@ test("lophn-agent/harness/provider#R6, shell/confirmation-window#R5: 계정 삭�
   assert.equal(missing.ok, false);
 });
 
+// 순서 숫자가 이어지지 않는 계정 셋. 회수된 계정(old)도 목록에 있다.
+function listedCore() {
+  return fakeCore({
+    "read:providers/read": () =>
+      ok({ provider: { id: PVD, name: "Anthropic", revision: 6 } }),
+    "read:provider-credentials/list": () =>
+      ok({
+        credentials: [
+          {
+            key: "main",
+            label: "Main key",
+            revision: 3,
+            order: 0,
+            enabled: true,
+            state: "available",
+          },
+          {
+            key: "spare",
+            label: "Spare key",
+            revision: 1,
+            order: 2,
+            enabled: false,
+            state: "available",
+          },
+          {
+            key: "old",
+            label: "Old key",
+            revision: 2,
+            order: 5,
+            enabled: true,
+            state: "revoked",
+          },
+        ],
+      }),
+    "command:provider-credentials/change": () => ok({ provider: {} }),
+  });
+}
+
+async function submitChange(
+  core: ReturnType<typeof listedCore>,
+  change: { key?: string; action: string; keys?: string[] },
+  commandInput: unknown = {},
+) {
+  const read = await readSecretInput(core, {
+    owner: PVD,
+    purpose: "provider_credential",
+    change: change as never,
+  });
+  if (!read.ok) return assert.fail(`read: ${read.error.code}`);
+  const registered: { content_hash: string; allowed_decisions: string[] }[] =
+    [];
+  const sent = await createSecretSubmitter(core, { now: () => 0 }).submit({
+    windowId: "cfw_1",
+    canonical: read.value,
+    decision: CHANGE_PROVIDER_CREDENTIALS,
+    commandInput,
+    register: (request) => {
+      registered.push(request);
+      return Promise.resolve({ ok: true, confirmation: "E".repeat(43) });
+    },
+  });
+  const command = core.calls.find((call) => call.method === "change")
+    ?.body as Record<string, unknown> | undefined;
+  return { read: read.value, sent, command, registered };
+}
+
+test("shell/desktop#R49 [agent-I48], lophn-agent/harness/provider#R8: 계정 끄기와 켜기는 그 계정 하나의 enabled만 바꾸고 순서·판은 그대로이며 값은 받지 않는다", async () => {
+  const core = listedCore();
+  const off = await submitChange(core, { key: "main", action: "disable" }, {
+    value: VALUE,
+  });
+  assert.deepEqual(off.read.allowed, [CHANGE_PROVIDER_CREDENTIALS]);
+  assert.equal(off.read.handle, "deferred");
+  assert.equal(off.read.view?.entry, "disable");
+  assert.equal(off.read.view?.name, "Main key");
+  assert.equal(off.read.view?.provider, "Anthropic");
+  assert.deepEqual(off.sent, {
+    ok: true,
+    value: { secret_ref: "Main key", stored: "stored" },
+  });
+  // 값을 받는 일이 아니다. 누가 값을 보내도 올리지 않는다.
+  assert.equal(core.calls.some((call) => call.kind === "upload"), false);
+  assert.equal(everything(core.calls).includes(VALUE), false);
+  const credentials = [{
+    key: "main",
+    revision: 3,
+    replacement: null,
+    enabled: false,
+    order: 0,
+    revoke: false,
+  }];
+  assert.deepEqual(off.command?.input, { provider: PVD, credentials });
+  assert.deepEqual(off.command?.compare, { revision: 6 });
+  assert.equal(
+    off.registered[0]!.content_hash,
+    contentBasis({ provider: PVD, credentials }),
+  );
+
+  const onCore = listedCore();
+  const on = await submitChange(onCore, { key: "spare", action: "enable" });
+  assert.equal(on.read.view?.entry, "enable");
+  assert.deepEqual(on.command?.input, {
+    provider: PVD,
+    credentials: [{
+      key: "spare",
+      revision: 1,
+      replacement: null,
+      enabled: true,
+      order: 2,
+      revoke: false,
+    }],
+  });
+});
+
+test("shell/desktop#R49 [agent-I48]: 이미 그 상태이거나 없는 계정의 끄고 켜기는 창을 열지 않는다", async () => {
+  const core = listedCore();
+  for (
+    const [key, action] of [
+      ["main", "enable"],
+      ["spare", "disable"],
+      ["gone", "disable"],
+    ] as const
+  ) {
+    const read = await readSecretInput(core, {
+      owner: PVD,
+      purpose: "provider_credential",
+      change: { key, action },
+    });
+    assert.equal(read.ok, false, `${key} ${action}`);
+  }
+});
+
+test("shell/desktop#R49 [agent-I48], lophn-agent/harness/provider#R8: 계정 순서 바꾸기는 새 순서의 계정 전부를 이미 쓰던 순서 숫자 위에 얹고 전후 순서를 창에 보인다", async () => {
+  const core = listedCore();
+  const moved = await submitChange(core, {
+    action: "reorder",
+    keys: ["spare", "old", "main"],
+  });
+  assert.equal(moved.read.view?.entry, "reorder");
+  assert.equal(moved.read.view?.name, "Anthropic");
+  assert.deepEqual(moved.read.view?.before, [
+    "Main key",
+    "Spare key",
+    "Old key",
+  ]);
+  assert.deepEqual(moved.read.view?.after, [
+    "Spare key",
+    "Old key",
+    "Main key",
+  ]);
+  assert.deepEqual(moved.sent, {
+    ok: true,
+    value: { secret_ref: "Anthropic", stored: "stored" },
+  });
+  assert.equal(core.calls.some((call) => call.kind === "upload"), false);
+  // 쓰던 숫자 0·2·5를 새 순서대로 나눈다. 회수된 계정도 순서에 든다.
+  const credentials = [
+    { key: "spare", revision: 1, replacement: null, order: 0, revoke: false },
+    { key: "old", revision: 2, replacement: null, order: 2, revoke: false },
+    { key: "main", revision: 3, replacement: null, order: 5, revoke: false },
+  ];
+  assert.deepEqual(moved.command?.input, { provider: PVD, credentials });
+  assert.deepEqual(moved.command?.compare, { revision: 6 });
+  assert.equal(
+    moved.registered[0]!.content_hash,
+    contentBasis({ provider: PVD, credentials }),
+  );
+});
+
+test("shell/desktop#R49 [agent-I48]: 순서 바꾸기는 지금 계정 전부와 정확히 같은 key 목록일 때만 열린다", async () => {
+  const core = listedCore();
+  for (
+    const keys of [
+      ["spare", "main"],
+      ["spare", "old", "main", "extra"],
+      ["spare", "old", "gone"],
+    ]
+  ) {
+    const read = await readSecretInput(core, {
+      owner: PVD,
+      purpose: "provider_credential",
+      change: { action: "reorder", keys },
+    });
+    assert.equal(read.ok, false, keys.join());
+  }
+});
+
+test("shell/desktop#R49 [agent-I48], lophn-agent/harness/provider#R4: provider 끊기는 아직 쓰는 계정을 모두 새 일에서 막고 막은 것만 돌려주며 값은 받지 않는다", async () => {
+  const core = listedCore();
+  const gone = await submitChange(core, { action: "disconnect" });
+  assert.equal(gone.read.view?.entry, "disconnect");
+  assert.equal(gone.read.view?.name, "Anthropic");
+  // 이미 회수된 계정은 막을 것이 아니다.
+  assert.deepEqual(gone.read.view?.accounts, ["Main key", "Spare key"]);
+  assert.deepEqual(gone.sent, {
+    ok: true,
+    value: { secret_ref: "Anthropic", stored: "revoked" },
+  });
+  assert.equal(core.calls.some((call) => call.kind === "upload"), false);
+  const credentials = [
+    { key: "main", revision: 3, replacement: null, order: 0, revoke: true },
+    { key: "spare", revision: 1, replacement: null, order: 2, revoke: true },
+  ];
+  assert.deepEqual(gone.command?.input, { provider: PVD, credentials });
+  assert.deepEqual(gone.command?.compare, { revision: 6 });
+  assert.equal(
+    gone.registered[0]!.content_hash,
+    contentBasis({ provider: PVD, credentials }),
+  );
+});
+
+test("shell/desktop#R49 [agent-I48]: 막을 계정이 하나도 없는 provider의 끊기는 창을 열지 않는다", async () => {
+  const core = fakeCore({
+    "read:providers/read": () =>
+      ok({ provider: { id: PVD, name: "Ollama", revision: 2 } }),
+    "read:provider-credentials/list": () => ok({ credentials: [] }),
+  });
+  const read = await readSecretInput(core, {
+    owner: PVD,
+    purpose: "provider_credential",
+    change: { action: "disconnect" },
+  });
+  assert.equal(read.ok, false);
+  assert.equal(core.calls.some((call) => call.method === "change"), false);
+});
+
 test("lophn-agent/harness/provider#R9, platform/secrets#R2: 등록 정보에 지문이 없으면 main이 넣은 값의 sha256으로 만들고 값은 어디에도 남지 않는다", async () => {
   const core = fakeCore({
     "read:providers/read": () =>

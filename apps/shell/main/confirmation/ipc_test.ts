@@ -140,6 +140,41 @@ test("lophn-agent/harness/provider#R6, shell/confirmation-window#R6: 계정 교�
   assert.notEqual(registering.code, "invalid_input");
 });
 
+test("shell/desktop#R49 [agent-I48]: 계정 끄고 켜기·순서 바꾸기·끊기 열기는 모양이 맞는 것만 창을 열고 맞지 않으면 열지 않는다", async () => {
+  const { env, call } = wire();
+  const owner = "pvd_01h455vb4pex5v6nkc6gd5fd01";
+  const open = (request: Record<string, unknown>) =>
+    call("shell:confirmation-open", 100, {
+      request: { kind: "secret_input", owner, ...request },
+      parentWindow: "window-1",
+    }) as Promise<{ code?: string }>;
+  const purpose = "provider_credential";
+  for (
+    const bad of [
+      { purpose, change: { action: "disable" } },
+      { purpose, change: { action: "reorder", keys: ["main"] } },
+      { purpose, change: { action: "reorder", keys: ["main", "main"] } },
+      { purpose, change: { action: "reorder" } },
+      { purpose, change: { action: "disconnect", key: "main" } },
+      { purpose, change: { key: "main", action: "enable", keys: ["a", "b"] } },
+      { purpose: "app_secret", change: { action: "disconnect" } },
+    ]
+  ) {
+    assert.equal((await open(bad)).code, "invalid_input");
+  }
+  assert.equal(env.windows.length, 0);
+  for (
+    const good of [
+      { purpose, change: { key: "main", action: "enable" } },
+      { purpose, change: { key: "main", action: "disable" } },
+      { purpose, change: { action: "reorder", keys: ["spare", "main"] } },
+      { purpose, change: { action: "disconnect" } },
+    ]
+  ) {
+    assert.notEqual((await open(good)).code, "invalid_input");
+  }
+});
+
 test("shell/confirmation-window#R4: 닫기는 결정이 아니고 창을 닫는다", async () => {
   const { env, call } = wire();
   await call("shell:confirmation-open", 100, {

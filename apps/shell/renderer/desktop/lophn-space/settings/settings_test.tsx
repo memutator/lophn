@@ -364,7 +364,7 @@ Deno.test("lophn-agent/extensions#R16 shell/app-frame#R7 [agent-I51]: [Sign in]ì
   click(find(row, "[data-action='sign-in']"));
   await flush();
   assertEquals(
-    calls.filter((call) => call[0].toString().startsWith("sign-in")),
+    calls.filter((call) => String(call[0]).startsWith("sign-in")),
     [["sign-in-begin", "fresh", null], ["sign-in-finish", "fresh", 4321]],
   );
   assertEquals(

@@ -2,6 +2,7 @@
 // selector의 선택 → StartRun과 agent credential 발급(감독 pipe 메시지를 core 쪽 발급이 core 기록과
 // 대조) → model call 하나(실제 HTTP로 fake provider) → tool call 하나(판정·진입·종료 기록) → 답
 // 기록 → FinishRun으로 흐르는지 본다. 실제 provider와 사람 데이터 root는 열지 않는다.
+import { AGENT_RUNTIME_PRINCIPAL } from "../../packages/contracts/lophn-agent/mod.ts";
 import { assert, assertEquals } from "@std/assert";
 import {
   createIdSource,
@@ -83,7 +84,8 @@ function context(
   ref = "none",
 ): AuthenticatedContext {
   return {
-    principal: actor,
+    // 제품 runtime의 machine 자격이다. context 읽기가 이 principal만 연다(documents/contexts).
+    principal: actor === "machine" ? AGENT_RUNTIME_PRINCIPAL : actor,
     actor,
     scope: { operations: [...operations], targets },
     conditions: targets,
@@ -367,7 +369,7 @@ Deno.test("lophn-agent/harness/run-loop#R8: 접수된 run이 selector 선택부�
       blobs: {
         async prepare(purpose, bytes) {
           const prepared = await core.prepareBlob({
-            principal: "machine",
+            principal: AGENT_RUNTIME_PRINCIPAL,
             purpose,
             bytes: new ReadableStream({
               start(controller) {

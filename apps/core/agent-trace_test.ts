@@ -1,6 +1,7 @@
 // lophn-agent/observability: 실제 core(임시 LOPHN_HOME, 실제 ledger)에서 agent turn 하나(model call 둘, tool call
 // 하나, 답 하나)를 fake provider로 돌린 뒤 trace를 읽는다. trace는 저장하지 않고 ledger의 run·event·call·message
 // 참조에서 조립된다. 실제 provider와 사람 데이터 root는 열지 않는다.
+import { AGENT_RUNTIME_PRINCIPAL } from "../../packages/contracts/lophn-agent/mod.ts";
 import { assert, assertEquals } from "@std/assert";
 import {
   createIdSource,
@@ -83,7 +84,8 @@ function context(
   ref = "none",
 ): AuthenticatedContext {
   return {
-    principal: actor,
+    // 제품 runtime의 machine 자격이다. context 읽기가 이 principal만 연다(documents/contexts).
+    principal: actor === "machine" ? AGENT_RUNTIME_PRINCIPAL : actor,
     actor,
     scope: { operations: [...operations], targets },
     conditions: targets,
@@ -367,7 +369,7 @@ Deno.test("lophn-agent/observability#R1: 실제 core에서 돌린 agent turn의 
       blobs: {
         async prepare(purpose, bytes) {
           const prepared = await core.prepareBlob({
-            principal: "machine",
+            principal: AGENT_RUNTIME_PRINCIPAL,
             purpose,
             bytes: new ReadableStream({
               start(controller) {

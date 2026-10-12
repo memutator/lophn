@@ -6,6 +6,7 @@
  * runtime의 모든 core 호출이 실패한다. 같은 core·ledger·provider 위에 새 runtime을 조립하면 재시작이다.
  * 실제 provider와 사람 데이터 root는 열지 않는다. 제품 main.ts에는 없다.
  */
+import { AGENT_RUNTIME_PRINCIPAL } from "../../../packages/contracts/lophn-agent/mod.ts";
 import { z } from "zod";
 import { assert, assertEquals } from "@std/assert";
 import {
@@ -115,7 +116,8 @@ export function context(
   ref = "none",
 ): AuthenticatedContext {
   return {
-    principal: actor,
+    // 제품 runtime의 machine 자격이다. context 읽기가 이 principal만 연다(documents/contexts).
+    principal: actor === "machine" ? AGENT_RUNTIME_PRINCIPAL : actor,
     actor,
     scope: { operations: [...operations], targets },
     conditions: targets,
@@ -519,7 +521,7 @@ export async function openRecoveryWorld(
             return err({ code: "unavailable", message: "the runtime is gone" });
           }
           const prepared = await core.prepareBlob({
-            principal: "machine",
+            principal: AGENT_RUNTIME_PRINCIPAL,
             purpose,
             bytes: new ReadableStream({
               start(controller) {

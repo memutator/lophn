@@ -14,7 +14,7 @@
 
 - 코드 자리는 [code-map.md](docs/dev/code-map.md)를 따른다. 최상위 concern 사이는 `packages/contracts`로만 부른다.
 - 모듈 모양, 의존 방향, 오류, 이름은 [architecture.md](docs/dev/architecture.md)를 따른다. 이름과 경로에 `v2`, `milestone1`, `w07` 같은 판·단계·작업 번호를 넣지 않는다.
-- 작업은 [tasks.md](docs/dev/tasks.md)의 완료 기준을 모두 채워야 끝난다. 테스트 이름은 요구 번호로 시작한다.
+- 작업은 [tasks.md](docs/dev/tasks.md)의 완료 기준을 모두 채워야 끝난다. 테스트 이름과 코드 주석에 요구 ID나 작업 번호를 넣지 않는다.
 - 끝내기 전에 `deno task check`를 돌린다.
 
 ## 호환성

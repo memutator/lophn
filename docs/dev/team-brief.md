@@ -23,7 +23,7 @@ worker의 Bash는 명령마다 cwd가 main checkout으로 돌아갈 수 있다. 
 - 작업의 `자리:` 밖은 고치지 않는다. 다른 concern의 코드·계획, intent, `docs/concerns.yaml`은 고치지 않는다.
 - contract가 바뀌어야 하거나 다른 concern이 막으면 멈추고 lead에게 짧게 말한다.
 - 구현하다가 그 concern의 requirements가 틀렸다는 것이 드러나면 같은 PR에서 고치고 계획 "## 질문"에 남긴다.
-- 테스트 이름은 요구 번호로 시작한다. 평소에는 targeted test만 돌린다. full `deno task check`는 PR 직전에 한 번만 돌린다(메모리 때문에 동시에 여러 개 돌리지 않는다).
+- 테스트 이름과 코드 주석에 요구 ID나 작업 번호를 넣지 않는다. 평소에는 targeted test만 돌린다. full `deno task check`는 PR 직전에 한 번만 돌린다(메모리 때문에 동시에 여러 개 돌리지 않는다).
 - stash는 쓰지 않는다. 의미 있는 진척마다 WIP commit을 하고 push한다. 이미 push한 branch는 rebase·force push 대신 merge로 갱신한다.
 - code-review Skill은 쓰지 않는다.
 

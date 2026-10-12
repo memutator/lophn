@@ -4,7 +4,7 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
 ---
 # 계획, 작업, 완료
 
-구현 계획과 작업 단위의 모양, 완료의 뜻, 테스트, 추적, git 흐름이다.
+구현 계획과 작업 단위의 모양, 완료의 뜻, 테스트, git 흐름이다.
 
 ## 계획 문서
 
@@ -44,7 +44,7 @@ slice 문서 안에 작업을 이 모양으로 쓴다.
 작업은 이것이 모두 맞을 때 끝난다.
 
 1. `deno task check`가 통과한다([stack.md](stack.md)).
-2. 작업의 "요구"마다 테스트가 있다(아래 추적).
+2. 작업의 "요구"마다 테스트가 있다.
 3. slice의 마지막 작업은 그 slice의 flow E2E가 돈다.
 4. 동작이 requirements와 다르면 같은 변경에서 requirements를 고쳤거나 open-issues에 질문을 올렸다.
 5. TODO를 남기지 않는다. 남길 일은 작업으로 만든다.
@@ -56,14 +56,7 @@ slice 문서 안에 작업을 이 모양으로 쓴다.
 - E2E: flow 문서 하나가 시나리오 하나다. Playwright로 shell을 띄우고 fake provider와 fixture를 쓴다.
 - model이 끼는 부분은 fake provider의 script나 녹화 응답으로 테스트한다. 실제 model의 판단 품질은 lophn-agent/evaluation이 따로 잰다.
 - 시각, id, 무작위 값은 주입해서 테스트가 매번 같게 돈다.
-
-## 추적
-
-spec 문서 대신 테스트가 요구를 가리킨다.
-
-- 테스트 이름은 요구 번호로 시작한다: `Deno.test("apps/registration#R3: 같은 이름의 앱은 거절한다", ...)`.
-- 요구 하나에 테스트가 여럿이어도 된다. 테스트 하나가 요구 여럿을 가리켜도 된다.
-- 나중에 `tools/check-docs.ts --trace`가 첫 판 범위의 요구 중 테스트가 없는 것을 보여 준다.
+- 테스트 이름은 무엇을 확인하는지 말한다. 테스트 이름과 코드 주석에 요구 ID나 작업 번호를 넣지 않는다. 예: `Deno.test("같은 이름의 앱은 거절한다", ...)`.
 
 ## git
 

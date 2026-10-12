@@ -5,6 +5,8 @@
 import { err, ok, type Result } from "../../packages/base/mod.ts";
 import {
   amendRevertInstall,
+  closeSession,
+  deleteSession,
   type PreparedFile,
   redo,
   rewind,
@@ -18,6 +20,8 @@ import {
 } from "../../packages/contracts/platform/mod.ts";
 import { factMessageContent } from "../../packages/lophn-agent/conversation/mod.ts";
 import {
+  assertCheckpointVisible,
+  eraseSessionStore,
   hasAppSteps,
   installRedo,
   installRestore,
@@ -74,6 +78,8 @@ export type RewindFilesDeps = {
   // ledger를 짧게 읽는다. 파일을 읽는 동안 열어 두지 않는다.
   snapshot<T>(read: (lookup: Lookup) => T): Result<T>;
   rootOf: PlanDeps["rootOf"];
+  // 되돌려지지 않는 질문 답·승인 결정. preview와 command가 같은 목록을 만들어야 preview_hash가 맞는다.
+  answeredFacts?: PlanDeps["answeredFacts"];
   store: RewindStore;
   // 사실 메시지 본문을 준비하는 통로. I/O worker가 뜨기 전에는 없다(unavailable).
   relay(): BodyPrepare | undefined;
@@ -93,7 +99,23 @@ function unavailable(message: string): Result<never> {
   return err({ code: "unavailable", message });
 }
 
-// 설치가 건너뛴 경로를 사람 결정에 묶인 machine 자격으로 결과에 반영한다.
+// 설치가 쓰지 못한 경로를 사람 결정에 묶인 machine 자격으로 결과에 반영한다(AmendRevertInstall). 설치 직후의
+// 정정과 시작 때 맞추기가 key로 가른다.
+export function amendInstall(
+  writer: Writer,
+  revert: string,
+  paths: readonly string[],
+  key: string,
+): Promise<Result<CommandSuccess>> {
+  return writer.command(REWIND_INSTALL_CONTEXT, {
+    command: amendRevertInstall.name,
+    input: { revert, paths: [...paths] },
+    idempotency_key: key,
+    compare: {},
+    prepared: [],
+  });
+}
+
 export async function amendInstalled(
   writer: Writer,
   revert: string,
@@ -102,13 +124,12 @@ export async function amendInstalled(
   const paths = installed.filter((file) => file.result === "skipped")
     .map((file) => file.path);
   if (paths.length === 0) return ok(undefined);
-  const amended = await writer.command(REWIND_INSTALL_CONTEXT, {
-    command: amendRevertInstall.name,
-    input: { revert, paths },
-    idempotency_key: `rewind-install:${revert}`,
-    compare: {},
-    prepared: [],
-  });
+  const amended = await amendInstall(
+    writer,
+    revert,
+    paths,
+    `rewind-install:${revert}`,
+  );
   return amended.ok ? ok(undefined) : amended;
 }
 
@@ -122,19 +143,27 @@ export type PreparedRewind = {
 // 거절을 낸다. 앱 단계가 있는 rewind는 redo가 없고 파일은 앱 단계가 끝난 뒤 다시 준비하므로 복원 직전
 // 내용을 두지 않는다(관측만 command에 실어 preview_hash 비교에 쓴다).
 export async function prepareRewind(
-  deps: Pick<RewindFilesDeps, "snapshot" | "rootOf" | "store">,
+  deps: Pick<
+    RewindFilesDeps,
+    "snapshot" | "rootOf" | "store" | "answeredFacts"
+  >,
   target: RewindTarget,
   keepRedo: boolean,
 ): Promise<Result<PreparedRewind | null>> {
   const planDeps = {
     rootOf: deps.rootOf,
     appRevision: latestAppRevision,
+    answeredFacts: deps.answeredFacts,
   };
+  // 이미 숨긴 구간의 checkpoint는 command가 거절하므로 파일을 준비하지 않는다(재전송도 같은 길이다).
   const seen = deps.snapshot((lookup) =>
-    observationOf(lookup, planDeps, target)
+    target.kind === "rewind" &&
+      !assertCheckpointVisible(lookup, target.session, target.checkpoint).ok
+      ? null
+      : observationOf(lookup, planDeps, target)
   );
   if (!seen.ok) return seen;
-  if (!seen.value.ok) return ok(null);
+  if (seen.value === null || !seen.value.ok) return ok(null);
   const { root, paths } = seen.value.value;
   try {
     const observed = await observeFilesAsync(root, paths);
@@ -356,9 +385,30 @@ export function withRewindFiles(
       }), false);
   }
 
+  // session을 지우거나 닫으면 그 session의 저장소 디렉터리를 commit 뒤에 지운다. 지우지 못해도 command의
+  // 결과는 그대로이고 시작 때와 주기의 쓸기(sweep)가 다시 쓸어낸다.
+  async function erasedAfter(
+    envelope: CommandEnvelope,
+    sent: Promise<Result<CommandSuccess>>,
+  ): Promise<Result<CommandSuccess>> {
+    const result = await sent;
+    const session = (envelope.input as { session?: unknown } | undefined)
+      ?.session;
+    if (result.ok && typeof session === "string") {
+      await eraseSessionStore(deps.store, session);
+    }
+    return result;
+  }
+
   return {
     ...writer,
     command(ctx, envelope) {
+      if (
+        envelope.command === deleteSession.name ||
+        envelope.command === closeSession.name
+      ) {
+        return erasedAfter(envelope, writer.command(ctx, envelope));
+      }
       if (parseActor(ctx.actor)?.kind === "user") {
         switch (envelope.command) {
           case rewind.name:

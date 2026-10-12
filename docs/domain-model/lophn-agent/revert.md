@@ -66,7 +66,7 @@ rewind 한 번 또는 Undo 한 번의 시도다.
 | `choice` | `restore_all / messages_only / summarize` | 예 | `kind=rewind`에 필수; undo는 null | 고른 범위 |
 | `checkpoint` | `msg` ID | 예 | `kind=rewind`에 필수; → lophn-agent/conversation의 Message(사람 request·correction 메시지; correction은 Checkpoint 행이 없고 `messages_only`만) | 돌아갈 메시지 |
 | `tool_call` | `tcl` ID | 예 | `kind=undo`에 필수; → RewindFile | 되돌린 편집 |
-| `boundary_seq` | seq | 예 | rewind에 필수; checkpoint 메시지의 seq; 이 메시지부터 뒤가 숨김 구간(`summarize`는 `boundary_seq`부터 `result_seq`까지가 접힘 구간) | 숨김 시작 |
+| `boundary_seq` | seq | 예 | rewind에 필수; checkpoint 메시지의 seq; 이 메시지부터 그 결과 event(`result_seq`)까지가 숨김 구간(`summarize`는 같은 범위가 접힘 구간) | 숨김 시작 |
 | `summary_call` | `mcl` ID | 예 | `choice=summarize`에 필수; 완전 성공한 요약 call; → lophn-agent/harness/usage | 요약 근거 |
 | `outcome` | `applying / applied / partial / uncertain / blocked` | 아니오 | applying에서 최종 결과로 한 번 바뀜; 최종 결과 불변 | 복원 진행·실제 결과 |
 | `redo` | `none / available / done / closed` | 아니오 | 아래 규칙 | redo 가능 여부 |
@@ -102,10 +102,10 @@ rewind 한 번 또는 Undo 한 번의 시도다.
 
 - 같은 session의 applying Revert는 하나다. 새 시도는 앞선 applying이 끝난 뒤에만 한다. 같은 command 재전송은 저장된 현재 결과를 반환하고 원래 앱 write를 다시 하지 않는다.
 - 사람만 요청한다. machine은 그 결정에 묶인 검사·복원 함수만 처리하고 actor는 user다. agent는 revert command를 내지 못한다.
-- 숨김은 Message를 바꾸지 않는다. 숨김 구간은 `choice`가 `restore_all`·`messages_only`이고 outcome이 applied·partial·uncertain인 rewind의 `boundary_seq` 이후 메시지로 읽는다(`redo=done`이면 다시 보인다). 숨긴 메시지·질문 답·승인 결정·호출 결과·사용량·run 기록은 수정하거나 지우지 않는다. 숨긴 구간은 이후 model 입력에 들지 않는다(→ lophn-agent/harness/prompt-assemble).
-- 여러 rewind가 겹치면 가장 앞선 `boundary_seq`가 숨김 시작이다. 이미 숨긴 구간 안의 checkpoint는 고를 수 없다.
+- 숨김은 Message를 바꾸지 않는다. 숨김 구간은 `choice`가 `restore_all`·`messages_only`이고 outcome이 applied·partial·uncertain인 rewind의 `boundary_seq`부터 `result_seq`까지의 메시지, 곧 rewind가 적용된 순간 있던 메시지로 읽는다(`redo=done`이면 다시 보인다). 그 뒤에 접수한 메시지는 숨기지 않는다: 다음 사람 메시지가 redo를 닫아도(`closed`) 대화는 거기서 이어진다. 숨긴 메시지·질문 답·승인 결정·호출 결과·사용량·run 기록은 수정하거나 지우지 않는다. 숨긴 구간은 이후 model 입력에 들지 않는다(→ lophn-agent/harness/prompt-assemble).
+- 여러 rewind의 숨김 구간이 겹치거나 이어지면 하나로 합치고 가장 앞선 `boundary_seq`가 숨김 시작이다(`rewind/list`의 `hidden_from_seq`). 겹치지 않는 구간은 따로 선다. 이미 숨긴 구간 안의 checkpoint는 고를 수 없다.
 - `redo=available`이 되는 것은 `kind=rewind`이고 `choice`가 `restore_all`·`messages_only`이며 앱 복원 단계가 없는 `applied`뿐이다. `restore_all`에서 파일을 복원할 때는 복원 직전 내용을 session 저장소에 따로 두어 redo의 근거로 쓰고 `closed`가 되면 지운다.
-- `choice=summarize`는 문서·앱·메시지 어느 것도 바꾸지 않는다. `boundary_seq`부터 `result_seq`까지의 구간을 요약으로 접어 model 입력에 쓰고 원문은 읽힌다(접힘 끝은 `result_seq`로 읽고 별도 칸을 두지 않는다). 요약이 실패하면 아무것도 바뀌지 않는다.
+- `choice=summarize`는 문서·앱·메시지 어느 것도 바꾸지 않는다. `boundary_seq`부터 `result_seq`까지의 구간을 요약으로 접어 model 입력에 쓰고 원문은 읽힌다(접힘 끝은 `result_seq`로 읽고 별도 칸을 두지 않는다). 요약이 실패하면 아무것도 바뀌지 않는다. 요약은 Compact와 같은 요약 call(Model for summaries)이다. 숨긴 메시지를 품은 요약이 입력에 들지 않게, 접는 구간에 숨긴 메시지가 있으면 접지 못하고(`invalid_input`) 접힌 구간 안에서 나중에 rewind해 숨김이 그 구간을 가르면 그 접힘은 쓰지 않는다(그 숨김을 redo하면 다시 선다).
 - undo는 대화를 숨기지 않는다. `RevertApplied`와 함께 session에 사실 메시지("Undid edit to <경로>")를 machine이 남기고 다음 model call의 입력에 든다.
 - 결과·원래 event·답·승인·호출·사용량은 수정하거나 지우지 않는다. 새 복원 event의 run은 null이다.
 
@@ -264,8 +264,8 @@ preview는 인증된 읽기이며 command나 domain event를 만들지 않는다
 - **복원이 남기는 것.** 복원한 RewindFile에 `reverted_by`를 설정한다(Redo가 풀기 전까지). 복원은 새 기록이며 원래 tool call·메시지·답은 그대로다. 다음에 같은 경로를 agent가 쓰면 새 기록이 새 사슬을 시작한다.
 - **Undo.** `kind=undo`는 같은 기록을 `(tool_call, path)` 하나 단위로 읽는다. 지금 hash == 그 call의 `after`이고 같은 경로에 더 최근 기록이 없을 때만 한다. 더 최근 agent 기록이 있으면 `later_edit`, 사람이 고쳐 hash가 다르면 `edited_outside`로 비활성 이유를 구별해 보인다. 복원하면 `reverted_by`가 설정되어 이후 rewind에서는 `already_reverted`(unchanged)다. Undo를 다시 되돌리는 기능은 없다.
 - **분류 근거.** 대상은 checkpoint 이후의 RewindFile(문서 파일)과 같은 session의 ToolCall에서 읽은 성공 앱 write(앱)다. Invocation 후행 기록이 아직 없으면 확인 불가로 표시하고 안전한 복원으로 가정하지 않는다. actor·시각 범위로 추정하지 않는다. 앱 write인데 `command.revert.supported`가 아니거나 receipt가 없으면 `remain`이다(→ lophn-agent/harness/tool-judgment).
-- **남는 사실.** 질문 답·승인 결정·호출 결과·사용량·report·test result·외부 전송·activation·secret 사용은 되돌리지 않는다. 숨김 구간에 남고 `fact`로 한 줄 알린다. 소유 concern의 과거 사실을 지우거나 problem을 닫지 않는다.
-- **대화 밖 상태.** rewind를 적용하면 숨김 구간에서 기다리던 질문·approval request를 취소(→ lophn-agent/questions, platform/approvals)하고, harness가 읽은 문서의 상태(읽은 hash 등)를 숨김 시작 이전 기준으로 다시 잡는다. 예약된 일은 되살리지 않는다.
+- **남는 사실.** 질문 답·승인 결정·호출 결과·사용량·report·test result·외부 전송·activation·secret 사용은 되돌리지 않는다. 숨김 구간에 남고 `fact`로 한 줄 알린다(숨기는 구간에서 사람이 답한 질문 묶음은 `answered_question`, 허락·거절한 approval은 `approval_decision`, 둘 다 이유 `answered_fact`). 소유 concern의 과거 사실을 지우거나 problem을 닫지 않는다.
+- **대화 밖 상태.** rewind를 적용하면 숨김 구간에서 기다리던 질문 묶음·approval request를 같은 transaction에서 취소(→ lophn-agent/questions, platform/approvals)하고(질문 묶음은 이유 글 없이 닫아야 하므로 미루기(`deferred`)와 같은 모양으로 닫는다), harness가 읽은 문서의 상태(읽은 hash 등)를 숨김 시작 이전 기준으로 다시 잡는다. 예약된 일은 되살리지 않는다.
 - **앱 순서.** 앱 write는 원래 호출 역순이다. 같은 앱의 한 단계가 사전 검사에서 막히면 그보다 앞선 그 앱의 단계는 부르지 않는다. 다른 앱은 독립이다. 앱을 먼저, 문서 파일을 나중에 한다.
 - **부분 revert.** 확인 화면에서 사람이 `remain`·`skip`을 확인해야 적용한다(요구 R7). `skip`은 파일마다 건너뛰고 그 밖의 대상을 막지 않는다. 앱 호출 시작 뒤 새 충돌은 partial로 기록하고 강제로 덮지 않는다.
 - **후속 작업.** rewind는 새 agent run을 만들지 않는다. 문서 파일 복원·앱 복원·대화 숨김 결과가 서로 다르면 각 소유 기록을 분리해 유지한다.

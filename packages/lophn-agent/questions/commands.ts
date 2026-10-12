@@ -82,7 +82,7 @@ function agentOwns(ctx: RequestContext, run: RunRef): boolean {
   return ctx.run === undefined || ctx.run === null || ctx.run === run.id;
 }
 
-type ClosedStatus = "answered" | "expired" | "cancelled";
+export type ClosedStatus = "answered" | "expired" | "cancelled";
 
 type ClosedOutput = {
   id: string;
@@ -106,9 +106,9 @@ function pastDeadline(group: QuestionGroup, now: string): boolean {
     Date.parse(now) >= Date.parse(group.expires_at);
 }
 
-function closeGroup(
+export function closeGroup(
   tx: Tx,
-  group: QuestionGroup,
+  group: Pick<QuestionGroup, "id">,
   closed: {
     status: ClosedStatus;
     seq: string;

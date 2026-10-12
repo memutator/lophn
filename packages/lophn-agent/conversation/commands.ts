@@ -411,6 +411,9 @@ export function createConversationCommands(deps: ConversationDeps): {
         if (hasUnfinishedRun(tx, session.id)) {
           return reject("conflict", "a run of the session is not finished");
         }
+        // 되돌리기 기록은 session이 열려 있는 동안만 뜻이 있다. 닫히면 지운다(revert R20).
+        const rewound = deleteSessionReverts(tx, session.id);
+        if (!rewound.ok) return rewound;
         const closedAt = tx.now();
         const seq = tx.emit(sessionClosed, session.id, {
           reason: input.reason,

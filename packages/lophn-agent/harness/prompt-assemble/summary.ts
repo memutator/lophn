@@ -146,11 +146,15 @@ export type FoldedMessages = {
   text: string;
 };
 
+export type HiddenMessages = { from_seq: bigint; through_seq: bigint };
+
 export type SessionConversation = {
   // Compact가 session에 이은 요약과 그것이 덮는 마지막 메시지의 순번. 없으면 null이다.
   compaction: { through_seq: bigint; text: string } | null;
-  // 숨김 구간의 시작 seq. 이 seq 이후(포함) 메시지는 입력에 들지 않는다. 숨긴 구간이 없으면 null이다.
-  // agent-RW3d가 채운다.
+  // 숨김 구간들. 구간 안(양끝 포함)의 메시지는 입력에 들지 않는다. 구간 뒤에 접수한 메시지는 숨기지 않는다.
+  hidden?: readonly HiddenMessages[];
+  // 숨김 구간의 시작 seq. 이 seq 이후(포함) 메시지가 모두 입력에 들지 않는다(끝이 없는 구간 하나).
+  // 숨긴 구간이 없으면 null이다.
   hidden_from?: bigint | null;
   // 접힌 구간들. 구간의 메시지는 빠지고 그 자리(순서대로)에 요약이 한 message로 들어간다.
   folds?: readonly FoldedMessages[];
@@ -158,22 +162,54 @@ export type SessionConversation = {
   messages: readonly SessionMessage[];
 };
 
+// 접힌 구간 요약이 이력에서 자기 자리에 놓일 때 붙는 머리말이다.
+const FOLD_HEADING =
+  "Summary of an earlier part of this conversation, folded by the person:";
+
+// model 입력에 드는 메시지다(오름차순 seq). Compact가 덮은 구간과 숨긴 구간의 원문은 빠지고, 접힌 구간은 첫
+// 메시지 자리에 요약 하나(사람의 말)가 들어간다. 요약 메시지의 seq는 접힌 마지막 seq다: Compact가 이
+// 요약까지 포함해 덮은 구간의 끝으로 쓴다. 접힌 구간은 숨긴 메시지를 품지 않는다(revert가 그런 접힘을 막는다).
+export function visibleMessages(
+  conversation: SessionConversation,
+): SessionMessage[] {
+  const covered = conversation.compaction?.through_seq ?? 0n;
+  const hiddenFrom = conversation.hidden_from ?? null;
+  const hidden = conversation.hidden ?? [];
+  const isHidden = (seq: bigint) =>
+    (hiddenFrom !== null && seq >= hiddenFrom) ||
+    hidden.some((range) => seq >= range.from_seq && seq <= range.through_seq);
+  const folds = conversation.folds ?? [];
+  const visible: SessionMessage[] = [];
+  const placed = new Set<FoldedMessages>();
+  for (const message of conversation.messages) {
+    if (message.seq <= covered) continue;
+    if (isHidden(message.seq)) continue;
+    const fold = folds.find((entry) =>
+      message.seq >= entry.from_seq && message.seq <= entry.through_seq
+    );
+    if (fold === undefined) {
+      visible.push(message);
+    } else if (!placed.has(fold)) {
+      placed.add(fold);
+      visible.push({
+        seq: fold.through_seq,
+        role: "user",
+        text: `${FOLD_HEADING}\n${fold.text}`,
+      });
+    }
+  }
+  return visible;
+}
+
 // 이후 call의 이력: 요약이 덮은 구간의 원문은 빠지고 요약이 그 자리를 맡으며 그 뒤 원문이 원래 순서로
-// 붙는다. 원문은 session에 그대로 있고 화면도 그대로다. 같은 쪽이 이어 말한 것은 한 message의 조각이다.
+// 붙는다. 숨긴 구간은 빠지고 접힌 구간은 요약이 그 자리를 맡는다. 원문은 session에 그대로 있고 화면도
+// 그대로다. 같은 쪽이 이어 말한 것은 한 message의 조각이다.
 export function sessionMaterial(conversation: SessionConversation): {
   compact_summary: string | null;
   history: HistoryMessage[];
 } {
-  if (
-    (conversation.hidden_from ?? null) !== null ||
-    (conversation.folds ?? []).length > 0
-  ) {
-    throw new Error("not implemented: agent-RW3d");
-  }
-  const covered = conversation.compaction?.through_seq ?? 0n;
   const history: HistoryMessage[] = [];
-  for (const message of conversation.messages) {
-    if (message.seq <= covered) continue;
+  for (const message of visibleMessages(conversation)) {
     const part = { kind: "text" as const, text: message.text };
     const last = history[history.length - 1];
     if (last !== undefined && last.role === message.role) {

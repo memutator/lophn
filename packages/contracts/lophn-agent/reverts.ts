@@ -762,8 +762,8 @@ export const rewindList = defineRead({
   input: rewindListInputSchema,
   output: withReadCommon(z.object({
     reverts: z.array(revertRecordSchema),
-    // 숨김 구간의 시작 seq(가장 앞선 boundary_seq). 숨긴 구간이 없으면 null이다. 이 seq
-    // 이후 메시지가 숨김이고, redo=done이면 다시 보인다.
+    // 숨김 구간의 시작 seq(가장 앞선 boundary_seq). 숨긴 구간이 없으면 null이다. 각 숨김 구간은 rewind의
+    // boundary_seq부터 result_seq까지이고(그 뒤에 접수한 메시지는 숨기지 않는다) redo=done이면 다시 보인다.
     hidden_from_seq: seqSchema.nullable(),
   })),
   actors: readActors,

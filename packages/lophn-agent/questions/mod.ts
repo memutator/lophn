@@ -15,6 +15,7 @@ export {
 export { questionBodyFields, questionSchemaSteps } from "./schema.ts";
 export { createQuestionCommands } from "./commands.ts";
 export { deleteSessionQuestions } from "./erase.ts";
+export { cancelGroupsFrom } from "./rewound.ts";
 export {
   checkGroupOpen,
   collectGroupAnswers,

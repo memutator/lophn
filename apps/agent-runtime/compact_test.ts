@@ -605,3 +605,95 @@ Deno.test("lophn-agent/conversation#R10 [agent-I16b]: the pump asks the compacto
   await startRunPump({ driver, compactor, signal: stop.signal, idleMs: 1 });
   assert(rounds >= 3);
 });
+
+Deno.test("lophn-agent/harness/prompt-assemble#R31 [agent-RW3d]: Compact leaves a hidden range out of the summary and ends at the last message that is shown", async () => {
+  const r = await rig({
+    script: [answer("Decided: draft the notes.")],
+    reverts: [{
+      id: "rvt_01arz3ndektsv4rrffq69g5fa1",
+      choice: "messages_only",
+      checkpoint: MSGS(2),
+      boundary_seq: "12",
+      result_seq: "15",
+    }],
+  });
+  const result = await r.compactor.next();
+  assertEquals(result.kind, "compacted");
+  const input = JSON.stringify(r.sent[0]!.body);
+  assert(input.includes(TALK[0]!.text) && input.includes(TALK[1]!.text));
+  assert(!input.includes(TALK[2]!.text) && !input.includes(TALK[3]!.text));
+  assertEquals(r.named("CompactSession")[0]!["through_seq"], "11");
+});
+
+Deno.test("lophn-agent/harness/prompt-assemble#R31 [agent-RW3d]: Compact summarizes a folded range by its summary and still ends at a message", async () => {
+  const fold = "rvt_01arz3ndektsv4rrffq69g5fa2";
+  const r = await rig({
+    script: [answer("Decided: short form.")],
+    reverts: [{
+      id: fold,
+      choice: "summarize",
+      checkpoint: MSGS(2),
+      boundary_seq: "12",
+      result_seq: "15",
+      summary_call: "mcl_01arz3ndektsv4rrffq69g5fa3",
+    }],
+    foldTexts: { [fold]: "FOLD-SUMMARY" },
+  });
+  const result = await r.compactor.next();
+  assertEquals(result.kind, "compacted");
+  const input = JSON.stringify(r.sent[0]!.body);
+  assert(input.includes(TALK[0]!.text) && input.includes("FOLD-SUMMARY"));
+  assert(!input.includes(TALK[2]!.text) && !input.includes(TALK[3]!.text));
+  // 15는 메시지가 아니라 접힘의 결과 event다. 요약이 덮는 끝은 접힌 구간의 마지막 메시지다.
+  assertEquals(r.named("CompactSession")[0]!["through_seq"], "13");
+});
+
+Deno.test("lophn-agent/revert#R15 [agent-RW3d]: Summarize from here summarizes the shown messages from the chosen one on with the Model for summaries and changes nothing in the session", async () => {
+  const summaries = MODEL(PVD2, "summary-model");
+  const r = await rig({
+    summariesModel: summaries,
+    script: [answer("Decided: short form.")],
+  });
+  const result = await r.compactor.summarizeFrom({
+    session: SES,
+    assignment: ASG,
+    from_seq: "12",
+  });
+  assertEquals(r.resolved, [summaries]);
+  const [call] = started(r);
+  assertEquals(result, {
+    kind: "summarized",
+    session: SES,
+    summary_call: String(call!["id"]),
+  });
+  assertEquals(call!["purpose"], "conversation_compression");
+  assertEquals(call!["run"], null);
+  const input = JSON.stringify(r.sent[0]!.body);
+  assert(!input.includes(TALK[0]!.text) && !input.includes(TALK[1]!.text));
+  assert(input.includes(TALK[2]!.text) && input.includes(TALK[3]!.text));
+  // 요약 call만 만든다. Compact를 끝내거나 요청을 닫지 않는다.
+  assertEquals(r.named("CompactSession"), []);
+  assertEquals(r.named("FailSessionCompact"), []);
+});
+
+Deno.test("lophn-agent/revert#R15 [agent-RW3d]: Summarize from here fails without a summary call when nothing is left to summarize or the model is unavailable", async () => {
+  const none = await rig({ script: [] });
+  assertEquals(
+    await none.compactor.summarizeFrom({
+      session: SES,
+      assignment: ASG,
+      from_seq: "99",
+    }),
+    { kind: "failed", reason: "nothing_to_summarize" },
+  );
+  const down = await rig({ script: [], unavailable: true });
+  assertEquals(
+    await down.compactor.summarizeFrom({
+      session: SES,
+      assignment: ASG,
+      from_seq: "12",
+    }),
+    { kind: "failed", reason: "model_unavailable" },
+  );
+  assertEquals(started(down), []);
+});

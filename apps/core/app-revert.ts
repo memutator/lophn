@@ -62,7 +62,7 @@ export type AppRevertCaller = (
 ) => Promise<AppStepResult>;
 
 export type AppRevertDeps =
-  & Pick<RewindFilesDeps, "snapshot" | "rootOf" | "store">
+  & Pick<RewindFilesDeps, "snapshot" | "rootOf" | "store" | "answeredFacts">
   & {
     // 호출자의 credential로 앱을 부르는 호출자를 만든다. 실제 호출은 감독 worker(apps/revert)가 한다.
     caller(

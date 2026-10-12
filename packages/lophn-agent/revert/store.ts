@@ -6,6 +6,7 @@ import {
   rename,
   rm,
   stat,
+  utimes,
   writeFile,
 } from "node:fs/promises";
 import { join } from "node:path";
@@ -30,8 +31,16 @@ export type RewindStore = {
   has(session: string, key: string): Promise<boolean>;
   // session 안 서로 다른 저장물의 크기 합(byte). 임시 파일은 세지 않는다.
   totalBytes(session: string): Promise<number>;
-  // live에 없는 저장물(고아)과 남은 임시 파일을 지운다. 지운 저장물의 key를 돌려준다.
-  sweep(session: string, live: ReadonlySet<string>): Promise<string[]>;
+  // live에 없는 저장물(고아)과 남은 임시 파일을 지운다. 지운 저장물의 key를 돌려준다. 저장물은 ledger row
+  // 등록보다 먼저 설치되므로(공동 원자 작업이 아니다) skipNewerThan(epoch ms) 뒤에 만들거나 다시 쓴 파일은
+  // 아직 row가 없는 것일 수 있어 건너뛴다.
+  sweep(
+    session: string,
+    live: ReadonlySet<string>,
+    options?: { skipNewerThan?: number },
+  ): Promise<string[]>;
+  // 저장소가 가진 session 디렉터리의 이름이다. 닫히거나 지워진 session의 남은 디렉터리를 찾는 데 쓴다.
+  sessions(): Promise<string[]>;
   // session 디렉터리 전체를 지운다. 없어도 성공이다.
   removeSession(session: string): Promise<void>;
 };
@@ -77,6 +86,9 @@ export function createRewindStore(dataRoot: string): RewindStore {
       const size = content.length;
       try {
         if ((await stat(target)).size === size) {
+          // 방금 다시 쓰이는 저장물이 쓸기에 지워지지 않게 쓴 시각을 갱신한다.
+          const now = new Date();
+          await utimes(target, now, now).catch(() => undefined);
           return { key, size, created: false };
         }
       } catch (error) {
@@ -124,10 +136,18 @@ export function createRewindStore(dataRoot: string): RewindStore {
       return total;
     },
 
-    async sweep(session, live) {
+    async sweep(session, live, options = {}) {
       const removed: string[] = [];
       for (const name of (await entries(session)).sort()) {
         const path = join(dirOf(session), name);
+        if (options.skipNewerThan !== undefined) {
+          try {
+            if ((await stat(path)).mtimeMs > options.skipNewerThan) continue;
+          } catch (error) {
+            if (missing(error)) continue;
+            throw error;
+          }
+        }
         if (name.endsWith(TEMP_SUFFIX)) {
           await rm(path, { force: true });
         } else if (KEY.test(name) && !live.has(name)) {
@@ -136,6 +156,16 @@ export function createRewindStore(dataRoot: string): RewindStore {
         }
       }
       return removed;
+    },
+
+    async sessions() {
+      try {
+        return (await readdir(join(dataRoot, "rewind")))
+          .filter((name) => SESSION.test(name)).sort();
+      } catch (error) {
+        if (missing(error)) return [];
+        throw error;
+      }
     },
 
     async removeSession(session) {

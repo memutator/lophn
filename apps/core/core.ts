@@ -6,7 +6,7 @@ import {
 import { systemClock } from "../../packages/base/clock.ts";
 import { cryptoRandom } from "../../packages/base/random.ts";
 import type { Clock, RandomSource, Result } from "../../packages/base/mod.ts";
-import { createIdSource, err, ok } from "../../packages/base/mod.ts";
+import { createIdSource, err, ok, sha256Hex } from "../../packages/base/mod.ts";
 import type {
   AuthenticatedContext,
   ChildMessage,
@@ -316,11 +316,15 @@ import {
 import { createHandoffBodyPreparer, withHandoffBody } from "./handoff-body.ts";
 import { createRewindStore } from "../../packages/lophn-agent/revert/mod.ts";
 import {
+  amendInstall,
   ledgerSnapshot,
   REWIND_INSTALL_CONTEXT,
   withRewindFiles,
 } from "./rewind-files.ts";
+import { answeredFacts } from "./rewind-facts.ts";
 import { projectRootOf } from "./rewind-root.ts";
+import { reconcileRewindInstalls } from "./rewind-recover.ts";
+import { REWIND_SWEEP_INTERVAL_MS, sweepRewind } from "./rewind-sweep.ts";
 import { toolDocumentWorkers } from "./tool-documents.ts";
 import {
   type BodyPrepare,
@@ -574,6 +578,7 @@ async function open(
   // coordinator가 파일 읽기의 창으로 보내는 byte frame의 우편함(`files.read` stream).
   const fileWindows = createFileWindows();
   const ledgerPath = `${root.path}/lophn.db`;
+  const rewindStore = createRewindStore(root.path);
   // writer·reader가 import하는 팀 module. 문서 worker route를 서빙하는 reader는 항상 붙는다.
   const modules = withPlatformModule(
     withInstructionReader(
@@ -1168,7 +1173,8 @@ async function open(
     snapshot: <T>(read: Parameters<typeof ledgerSnapshot<T>>[1]) =>
       ledgerSnapshot(ledgerPath, read),
     rootOf: projectRootOf,
-    store: createRewindStore(root.path),
+    answeredFacts,
+    store: rewindStore,
     relay: () => bodyPrepare.current,
   };
   // 보호 입력 중계도 I/O worker가 뜬 뒤에 채워진다. 그 전에는 secrets/input이 unavailable이다.
@@ -1323,6 +1329,7 @@ async function open(
           createAppRevert({
             snapshot: rewindFilesDeps.snapshot,
             rootOf: rewindFilesDeps.rootOf,
+            answeredFacts: rewindFilesDeps.answeredFacts,
             store: rewindFilesDeps.store,
             caller: options.appRevertCaller ??
               ((_ctx, credential) =>
@@ -1658,12 +1665,31 @@ async function open(
     APPROVAL_EXPIRY_SWEEP_INTERVAL_MS,
   );
   await runtime?.sweepApprovalExpiry();
+  // 설치 전에 죽어 파일이 복원되지 않은 항목을 결과에 반영한다. 한 번만 돈다.
+  await reconcileRewindInstalls({
+    snapshot: (read) => ledgerSnapshot(ledgerPath, read),
+    rootOf: projectRootOf,
+    amend: async (revert, paths) =>
+      await amendInstall(
+        runtime!.writer,
+        revert,
+        paths,
+        `rewind-recover:${revert}:${await sha256Hex(paths.join("\n"))}`,
+      ),
+  }).catch(() => 0);
+  // 되돌리기 저장소의 고아 저장물과 닫히거나 지워진 session의 디렉터리를 쓴다. 시작 때와 한 시간마다다.
+  const rewindSweep = () =>
+    sweepRewind({ ledgerPath, store: rewindStore, nowMs: clock.nowMs() })
+      .catch(() => undefined);
+  const rewindSweepTimer = setInterval(rewindSweep, REWIND_SWEEP_INTERVAL_MS);
+  await rewindSweep();
   // 재시작 점검이 unknown으로 본 접수·실행 중 invocation을 미확인으로 확정한다. 한 번만 돈다.
   await runtime?.sweepInterruptedInvocations();
   stopPrune.run = () => {
     clearInterval(timer);
     clearInterval(claimSweep);
     clearInterval(approvalSweep);
+    clearInterval(rewindSweepTimer);
     rootsWatch?.stop();
   };
   // 보호 입력의 값은 I/O worker로만 간다. 준비 증거(값 없음)는 writer가 ledger에 남긴다.

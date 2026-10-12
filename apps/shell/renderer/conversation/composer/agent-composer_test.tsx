@@ -314,3 +314,20 @@ Deno.test("shell/desktop#R44 [agent-I23]: an open picker prop shows the picker p
   assert(document.querySelector("[data-model-picker]"));
   await unmountSettled(view);
 });
+
+Deno.test("shell/desktop#R43 [agent-I33a]: the hint is the input box's placeholder while it is empty", () => {
+  using view = render(
+    <AgentComposer {...composerProps({ hint: "What should lophn do?" })} />,
+  );
+  assertEquals(
+    (one(view.container, "[data-composer-input]") as HTMLTextAreaElement)
+      .placeholder,
+    "What should lophn do?",
+  );
+  view.rerender(<AgentComposer {...composerProps({})} />);
+  assertEquals(
+    (one(view.container, "[data-composer-input]") as HTMLTextAreaElement)
+      .placeholder,
+    "",
+  );
+});

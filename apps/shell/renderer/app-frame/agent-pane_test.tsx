@@ -397,8 +397,13 @@ Deno.test("shell/app-frame#R39 [agent-I39]: Manage는 같은 칸에 Agents 탭�
 Deno.test("shell/app-frame#R39 [agent-I39]: 관리 칸에서 Operator를 열고 저장하면 앱 자리로 저장하고 목록(select)도 다시 읽는다", async () => {
   const fake = createFakeAgentsSource();
   const places: string[] = [];
+  const lists: string[] = [];
   const source: AgentsSource = {
     ...fake,
+    list(place) {
+      lists.push(place);
+      return fake.list(place);
+    },
     saveAgent(place, input) {
       places.push(place);
       return fake.saveAgent(place, input);
@@ -424,6 +429,8 @@ Deno.test("shell/app-frame#R39 [agent-I39]: 관리 칸에서 Operator를 열고 
   click(save);
   await flush();
   assertEquals(places, [BUDGET]);
+  // select가 저장 뒤에 같은 앱 자리의 목록을 다시 읽는다.
+  assertEquals(lists, [BUDGET, BUDGET]);
   assertEquals(fake.calls.length, 1);
   await unmountSettled(view);
 });

@@ -405,6 +405,36 @@ Deno.test(
 );
 
 Deno.test(
+  "shell/workspace#R14 shell/workspace#R33 [agent-I33c]: 현재 보기는 Agent 탭을 key만으로 받고 agent·자리·session이나 대화 내용은 받지 않는다",
+  () => {
+    const tab = { key: "agent-1", kind: "agent", selected: false };
+    assert((TAB_KINDS as readonly string[]).includes("agent"));
+    assert(viewTabSchema.safeParse(tab).success);
+    assert(
+      workspaceReadOutputSchema.safeParse({
+        availability: "current",
+        observed_at: AT,
+        generation: 1,
+        summary: "s",
+        tab_page: [tab],
+      }).success,
+    );
+    for (
+      const extra of [
+        { agent: "asg_01h455vb4pex5v6nkc6gd5fdw1" },
+        { session: "ses_01h455vb4pex5v6nkc6gd5fdw1" },
+        {
+          work_place: { kind: "project", id: "prj_01h455vb4pex5v6nkc6gd5fdw1" },
+        },
+        { messages: ["hello"] },
+      ]
+    ) {
+      assert(!viewTabSchema.safeParse({ ...tab, ...extra }).success);
+    }
+  },
+);
+
+Deno.test(
   "shell/workspace#R14 [ctx-I53]: 현재 보기는 Contexts·Context·Search 탭을 context 참조·하위 탭·선언된 검색 key로만 받는다",
   () => {
     for (
@@ -465,8 +495,6 @@ Deno.test(
         context: CTX,
       }).success,
     );
-    // Agent 탭은 다른 일이 맡는다.
-    assert(!(TAB_KINDS as readonly string[]).includes("agent"));
     assertEquals([...CONTEXT_SUB_TABS], [
       "overview",
       "search",

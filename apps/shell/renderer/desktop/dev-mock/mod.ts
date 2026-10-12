@@ -22,6 +22,7 @@ import type { SettingsSource } from "../lophn-space/settings/source.ts";
 import type { LophnSource } from "../lophn-space/source.ts";
 import type { RequestSource } from "../lophn-space/things-to-confirm/source.ts";
 import { contextExampleFiles, seedWorkbench } from "../dev-seed.ts";
+import { createFakeAgentsSource } from "../../workspace/agents/fake-source.ts";
 import { createFakeContextsSource } from "../../workspace/contexts/fake-source.ts";
 import {
   mockApps,
@@ -89,6 +90,8 @@ export function devMock(
       ...bench.source,
       // Contexts·Context·Search 탭은 화면 시험이 쓰는 fake를 그대로 읽는다. 만드는 중인 context도 있다.
       contextsSource: createFakeContextsSource({ drafting: true }),
+      // Agents 탭과 sidebar의 Agents 묶음도 메모리 통로를 읽는다.
+      agentsSource: createFakeAgentsSource(),
       // 검색 결과·Overview 예시가 가리키는 문서도 파일로 잡혀 탭으로 열린다.
       files: async (project) => {
         const read = await bench.source.files(project);

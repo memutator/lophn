@@ -3,6 +3,7 @@
 // 끝의 열기 단추 순서다.
 import { t } from "@lophn/wording";
 
+import { agentsKind } from "./agents.tsx";
 import { appPanelKind } from "./app-panel.tsx";
 import { contextKind } from "./context.tsx";
 import { contextsKind } from "./contexts.tsx";
@@ -18,6 +19,7 @@ export const BUILT_IN_TAB_KINDS = [
   contextsKind,
   contextKind,
   searchKind,
+  agentsKind,
 ] as const;
 
 const kinds = new Map<string, TabKindDef>();

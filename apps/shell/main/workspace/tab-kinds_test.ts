@@ -29,6 +29,7 @@ const WIRE_KINDS = [
   "contexts",
   "context",
   "search",
+  "agents",
 ];
 
 const PRJ = "prj_01h455vb4pex5v6nkc6gd5fdw1";
@@ -230,6 +231,26 @@ test("shell/workspace#R14 [ctx-I53]: Contexts·Context·Search 탭은 layout 파
   assert.equal(tabs[1]!.sub_tab, "overview");
   assert.equal(tabs[2]!.page, 2);
   assert.equal(tabs[2]!.saved_view, VIW);
+});
+
+test("shell/workspace#R14 [agent-I34]: Agents 탭은 layout 파일에서 열어 둔 agent와 함께 읽히고 맞지 않는 agent나 다른 필드는 거절된다", () => {
+  const ASG = "asg_01h455vb4pex5v6nkc6gd5fdw1";
+  const parsed = parseLayoutFile(layoutWith(
+    { kind: "agents", key: "agents" },
+    { kind: "agents", key: "agents-2", agent: ASG },
+  ));
+  assert.ok(parsed.ok);
+  if (!parsed.ok) return;
+  const tabs = parsed.layout.panes[0]!.tabs as unknown as Record<
+    string,
+    unknown
+  >[];
+  assert.equal(tabs[0]!.agent, undefined);
+  assert.equal(tabs[1]!.agent, ASG);
+  const rejected = (tab: Record<string, unknown>) =>
+    assert.equal(parseLayoutFile(layoutWith(tab)).ok, false);
+  rejected({ kind: "agents", key: "agents", agent: "asg_1" });
+  rejected({ kind: "agents", key: "agents", context: CTX });
 });
 
 test("shell/workspace#R14 [ctx-I53]: 다른 kind의 필드나 맞지 않는 값이 든 탭은 layout 검증이 거절한다", () => {

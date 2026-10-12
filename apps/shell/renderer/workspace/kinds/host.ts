@@ -9,6 +9,7 @@ import type { DocumentRow } from "../source.ts";
 import type { WorkspaceProps } from "../workspace.tsx";
 import type { SearchTabState } from "../contexts/search-tab.tsx";
 import type { ContextsSource } from "../contexts/source.ts";
+import type { AgentsSource } from "../agents/source.ts";
 import type { ReadPosition } from "./kind.ts";
 
 /** 문서 탭이 작업대와 나누는 상태. 정보 패널과 현재 보기 힌트가 같이 읽는다. */
@@ -54,6 +55,17 @@ export interface ContextsSlice {
   newContext(): void;
 }
 
+/** Agents 탭이 작업대와 나누는 것. 통로(source)가 없으면 host.agents는 null이다. */
+export interface AgentsSlice {
+  readonly source: AgentsSource;
+  /** 목록이나 정의가 바뀌었다. sidebar의 Agents 묶음이 다시 읽는다. */
+  changed(): void;
+  /** project의 LOPHN.md 편집을 연다. */
+  editInstructions(): void;
+  /** lophn 공간으로 간다(model 기본값·skill·MCP 등록이 있는 곳). */
+  openLophn(): void;
+}
+
 export interface TabHost {
   readonly projectId: string;
   readonly projectTitle: string | undefined;
@@ -77,4 +89,5 @@ export interface TabHost {
   readonly document: DocumentSlice;
   readonly appPanel: AppPanelSlice;
   readonly contexts: ContextsSlice | null;
+  readonly agents: AgentsSlice | null;
 }

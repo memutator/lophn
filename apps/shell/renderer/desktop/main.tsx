@@ -196,6 +196,13 @@ export function Desktop(
         onLauncher={launcher}
         onLophn={lophnSpace}
         onThingsToConfirm={thingsToConfirm}
+        onProjectInstructions={instructions
+          ? () =>
+            setRoute(openInstructions({
+              layer: "project",
+              place: route.project!,
+            }))
+          : undefined}
         editor={editor}
         terminal={terminal}
         tracking={tracking}

@@ -50,7 +50,7 @@ import type {
   EditorDeps,
 } from "../editor/document-view.tsx";
 import { layoutHint, type TabPresentation } from "./view-hint.ts";
-import type { ContextsSlice, TabHost } from "./kinds/host.ts";
+import type { AgentsSlice, ContextsSlice, TabHost } from "./kinds/host.ts";
 import type { RailAction } from "./contexts/shortcut-rail.tsx";
 import {
   contextEngineerSource,
@@ -60,8 +60,10 @@ import { useContextWatch } from "./contexts/context-watch.ts";
 import { contextStamp } from "./contexts/use-context-read.ts";
 import { DocumentContexts } from "./contexts/document-contexts.tsx";
 import { settleContextTabs } from "./contexts/settle-tabs.ts";
+import { useSidebarAgents } from "./agents/sidebar-agents.ts";
 import { ViolationToast } from "./contexts/violation-toast.tsx";
 import { openContext } from "./kinds/context.tsx";
+import { openAgents } from "./kinds/agents.tsx";
 import { openContexts } from "./kinds/contexts.tsx";
 import { openSearchFor, openSearchShortcut } from "./kinds/search.tsx";
 import { tabKindOf, tabKinds } from "./kinds/registry.ts";
@@ -102,6 +104,8 @@ export interface WorkspaceProps {
   onLophn: () => void;
   /** 이 프로젝트의 결정 대기를 things-to-confirm에서 연다. */
   onThingsToConfirm?: () => void;
+  /** project의 LOPHN.md 편집을 연다(Agents 탭의 Instructions [Edit]). 없으면 그 단추는 아무것도 하지 않는다. */
+  onProjectInstructions?: () => void;
   /** 문서 탭의 읽기·편집 통로. 없으면 문서 탭은 자리표시다. */
   editor?: EditorDeps;
   /** 터미널 탭 통로. 없으면 터미널 열기 버튼을 두지 않는다. */
@@ -146,6 +150,7 @@ export function Workspace(props: WorkspaceProps) {
     onLauncher,
     onLophn,
     onThingsToConfirm,
+    onProjectInstructions,
     terminal,
     editor,
     tracking,
@@ -153,6 +158,9 @@ export function Workspace(props: WorkspaceProps) {
   } = props;
   // Contexts·Context·Search 탭의 통로. 없으면 그 탭과 여는 길을 두지 않는다.
   const contextsSource = source.contextsSource;
+  // Agents 탭과 sidebar의 Agents 묶음의 통로. 없으면 그 탭과 여는 길을 두지 않는다.
+  const agentsSource = source.agentsSource;
+  const sidebarAgents = useSidebarAgents(agentsSource, projectId);
   // 앱 패널 view와 본문을 덮는 패널(정보 패널·대화 도크 overlay)이 같이 보는 목록.
   const covers = useMemo(createViewCovers, []);
   const appViews = useAppViews();
@@ -585,6 +593,13 @@ export function Workspace(props: WorkspaceProps) {
     },
   };
 
+  const agents: AgentsSlice | null = agentsSource === undefined ? null : {
+    source: agentsSource,
+    changed: sidebarAgents.reload,
+    editInstructions: () => onProjectInstructions?.(),
+    openLophn: onLophn,
+  };
+
   // kind 선언이 배치와 통로를 건드리는 유일한 길이다(workspace#R14). 본문·열기·닫기 확인·열기 단추는
   // 모두 kind의 선언에서 오고 여기서는 kind 이름으로 가르지 않는다.
   const host: TabHost = {
@@ -610,6 +625,7 @@ export function Workspace(props: WorkspaceProps) {
     },
     appPanel: { noteSession },
     contexts,
+    agents,
   };
   leaveDraft.current = (context, title) =>
     openContext(host, context, "overview", title);
@@ -712,6 +728,12 @@ export function Workspace(props: WorkspaceProps) {
           onOpenContexts={contexts === null
             ? undefined
             : () => openContexts(host)}
+          agents={agents === null ? undefined : {
+            agents: sidebarAgents.agents,
+            // 줄을 누르면 그 agent의 새 Agent 탭이 열린다(R34). Agent 탭은 agent-I33a가 잇는다.
+            onOpenAgent: () => {},
+            onManage: () => openAgents(host),
+          }}
           onRail={onRail}
           onResizeStart={(event) => {
             const start = sidebar.chosenWidth;

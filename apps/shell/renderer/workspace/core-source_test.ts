@@ -1,4 +1,4 @@
-import { assertEquals } from "@std/assert";
+import { assert, assertEquals } from "@std/assert";
 
 import type { CoreCall } from "../../ipc/core.ts";
 import type { CoreReply } from "../../ipc/core-api.ts";
@@ -154,5 +154,30 @@ Deno.test("shell/workspace#R16 [ctx-I39b]: 작업대 통로는 Context 화면용
     [
       "read:contexts/list",
     ],
+  );
+});
+
+Deno.test("shell/workspace#R36 [agent-I34]: 작업대 통로는 Agents 탭용 agentsSource를 core로 이어 둔다", async () => {
+  const { core, calls } = routedCore({
+    "agents/list": () => ({ ok: true, value: { agents: [] } }),
+    "place-agent-settings/read": () => ({
+      ok: true,
+      value: {
+        place: { kind: "project", id: PROJECT },
+        settings: {},
+        hash: null,
+        effective_models: {},
+      },
+    }),
+  });
+  const source = coreWorkspaceSource(core);
+  const overview = await source.agentsSource?.overview(PROJECT);
+  assert(overview?.ok, JSON.stringify(overview));
+  assertEquals(overview.value.agents, []);
+  assertEquals(
+    calls.slice(0, 2).map((call) =>
+      `${call.kind}:${call.resource}/${call.method}`
+    ),
+    ["read:agents/list", "read:place-agent-settings/read"],
   );
 });

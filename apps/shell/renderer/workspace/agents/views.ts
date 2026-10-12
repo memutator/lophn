@@ -1,6 +1,11 @@
 // Agents 탭과 Operator editor가 함께 쓰는 화면 값(shell/workspace#R36~R44). 값의 정본은 lophn-agent/agents
 // contract(AgentListRow·ReadAgent·ReadPlaceAgentSettings)이고, 여기는 화면이 contract만으로 만들 수 없는 것
 // (model 표시 이름, 이미지 주소, 켬·끔 줄)만 더한다. renderer는 contracts를 type으로만 쓴다.
+import type {
+  AgentPermissions,
+  Profile,
+  ValueSource,
+} from "../../../../../packages/contracts/lophn-agent/agent-values.ts";
 import type { ModelChoice } from "../../../../../packages/contracts/lophn-agent/models.ts";
 
 /**
@@ -31,4 +36,19 @@ export interface PermissionRow {
   readonly tool: string;
   readonly label: string;
   readonly on: boolean;
+}
+
+/** 값과 그 값이 어느 층에서 왔는지(ReadAgent.effective의 칸). */
+export interface Sourced<T> {
+  readonly value: T;
+  readonly source: ValueSource;
+}
+
+/** ReadAgent의 effective 중 editor가 쓰는 칸. 정의에 칸이 없을 때 보일 상속 값이다. */
+export interface AgentEffective {
+  readonly name: Sourced<string>;
+  readonly profile: Sourced<Profile>;
+  /** 어느 층에도 model이 없으면 null이다. */
+  readonly model: Sourced<ModelChoice> | null;
+  readonly permissions: Sourced<AgentPermissions>;
 }

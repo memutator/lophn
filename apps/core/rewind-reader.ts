@@ -8,6 +8,7 @@ import {
 } from "../../packages/lophn-agent/revert/mod.ts";
 import { observeFiles } from "../../packages/lophn-agent/revert/prepare.ts";
 import type { ReaderRegistration } from "../../packages/platform/ledger/mod.ts";
+import { answeredFacts } from "./rewind-facts.ts";
 import { projectRootOf } from "./rewind-root.ts";
 
 export function createReaderRegistration(): ReaderRegistration {
@@ -15,6 +16,7 @@ export function createReaderRegistration(): ReaderRegistration {
     observe: observeFiles,
     rootOf: projectRootOf,
     appRevision: latestAppRevision,
+    answeredFacts,
   });
   return {
     reads: [reads.preview, reads.checkpoints, reads.list],

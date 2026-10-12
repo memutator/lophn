@@ -28,6 +28,7 @@ export {
   COMPACT_RESHRINK_MAX,
   compactSummaryRequest,
   type FoldedMessages,
+  type HiddenMessages,
   latestCompactSummary,
   type SessionConversation,
   sessionMaterial,
@@ -36,6 +37,7 @@ export {
   SUMMARY_PART_KEYS,
   summaryBodyHash,
   summaryBodyTokens,
+  visibleMessages,
 } from "./summary.ts";
 export {
   anthropicSystem,

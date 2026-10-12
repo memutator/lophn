@@ -25,7 +25,7 @@ import {
   type RequestContext,
   type Tx,
 } from "../../contracts/platform/mod.ts";
-import { createCheckpoint } from "../revert/mod.ts";
+import { closeAvailableRedo, createCheckpoint } from "../revert/mod.ts";
 import { checkVisualContent } from "../visuals/mod.ts";
 import {
   reject,
@@ -343,6 +343,9 @@ export function receiveWith(
     copied_from: null,
   });
   if (!checkpoint.ok) return checkpoint;
+  // 새 사람 메시지가 접수되면 앞 rewind의 redo는 확정(closed)된다.
+  const closed = closeAvailableRedo(tx, session.id);
+  if (!closed.ok) return closed;
   // 제목은 첫 사람 request를 접수하는 같은 transaction에서 정한다(R18). 상태 seq는
   // 바꾸지 않는다: 바로 이어 보낸 다음 입력이 낡은 seq로 충돌하지 않게 한다.
   const title = titleOnReceive({

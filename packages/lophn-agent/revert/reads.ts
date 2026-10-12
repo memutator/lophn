@@ -9,12 +9,17 @@ import {
   rewindPreview,
 } from "../../contracts/lophn-agent/mod.ts";
 import type { ReadDefinition, Sql } from "../../contracts/platform/mod.ts";
+import {
+  assertCheckpointVisible,
+  hiddenFromSeq,
+  hiddenRanges,
+  inHiddenRange,
+} from "./hidden.ts";
 import { type PlanDeps, planRewind } from "./preview.ts";
 
 // 되돌리기 읽기(lophn-agent/revert). preview는 저장된 목록이 아니라 지금의 기록과 파일 상태로 다시
 // 만든 현재 판이고 command나 event를 만들지 않는다. 읽는 쪽은 사람과 machine뿐이다(agent·앱에는 내용도
-// 경로도 주지 않는다). 숨김 구간(hidden_from_seq, checkpoint의 hidden)은 agent-RW3d가 채운다: 그 전에는
-// 숨긴 구간을 만드는 Rewind가 없다.
+// 경로도 주지 않는다). 숨김 구간은 reverts 행에서 읽는다(hidden.ts).
 
 const PAGE = 50;
 
@@ -55,6 +60,14 @@ export function createRevertReads(deps: PlanDeps): {
     preview: {
       route: rewindPreview,
       handle(snapshot, _ctx, input) {
+        if (input.kind === "rewind") {
+          const visible = assertCheckpointVisible(
+            snapshot,
+            input.session,
+            input.checkpoint,
+          );
+          if (!visible.ok) return visible;
+        }
         const planned = planRewind(snapshot, deps, input);
         if (!planned.ok) return planned;
         const { target, preview } = planned.value;
@@ -81,6 +94,7 @@ export function createRevertReads(deps: PlanDeps): {
         }
         const after = cursorAfter(input.cursor);
         if (!after.ok) return after;
+        const hidden = hiddenRanges(snapshot, input.session);
         const rows = snapshot.sql.all(
           `select c.message as message, c.session as session,
                   c.files_restorable as files_restorable, c.files_reason as files_reason,
@@ -101,7 +115,7 @@ export function createRevertReads(deps: PlanDeps): {
               ? null
               : String(row["files_reason"]) as Checkpoint["files_reason"],
             created_seq: String(row["created_seq"]),
-            hidden: false,
+            hidden: inHiddenRange(hidden, String(row["order_seq"])),
           })),
           as_of_seq: snapshot.as_of_seq,
           next_cursor: rows.length > PAGE && last !== undefined
@@ -145,7 +159,7 @@ export function createRevertReads(deps: PlanDeps): {
             preview_hash: String(row["preview_hash"]),
             result_seq: text(row["result_seq"]),
           })),
-          hidden_from_seq: null,
+          hidden_from_seq: hiddenFromSeq(snapshot, input.session),
           as_of_seq: snapshot.as_of_seq,
           next_cursor: rows.length > PAGE && last !== undefined
             ? cursorOf(Number(last["position"]))

@@ -10,6 +10,7 @@ export {
   type ConversationDeps,
   createConversationCommands,
 } from "./commands.ts";
+export { isFinishedSummaryCall } from "./compact.ts";
 export { createConversationReads } from "./reads.ts";
 export { factMessageContent, recordFactMessage } from "./message-commands.ts";
 export {

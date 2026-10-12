@@ -138,6 +138,8 @@ import {
   latestAppRevision,
   revertSchemaSteps,
 } from "../../packages/lophn-agent/revert/mod.ts";
+import { createRewindEffects } from "./rewind-effects.ts";
+import { answeredFacts } from "./rewind-facts.ts";
 import { projectRootOf } from "./rewind-root.ts";
 import {
   createToolCommands,
@@ -456,13 +458,16 @@ const handoffReads = createHandoffReads({
 // session 되돌리기(concern revert). 쓰기 직전 기록(RecordRewindFile), Rewind·UndoEdit·Redo, 설치 정정
 // (AmendRevertInstall)을 올린다. checkpoint는 ReceiveMessage가, 기록 지움은 DeleteSession이 같은 Tx에서 한다.
 // 파일 관측·준비·설치는 ledger transaction 밖의 일이라 command는 받은 준비로 판정만 한다. 그 흐름은 writer
-// queue 앞 처리기(rewind-files.ts)가 잇는다. 숨긴 구간의 대화 효과(RewindEffects)는 아직 조립하지 않아서
-// Rewind는 unavailable이다: 숨기지 못하는 rewind를 적용됐다고 하지 않는다. 앱 단계가 있는 Rewind는 applying
-// 접수까지만 command가 하고, 이어 실행(RunAppRevert, app-revert.ts)이 CheckpointRevert·FinishRevert를 낸다.
+// queue 앞 처리기(rewind-files.ts)가 잇는다. 숨긴 구간의 대화 효과(질문·approval 취소, 읽은 상태)는
+// rewind-effects.ts가 조립하고 질문 답·승인 결정은 rewind-facts.ts가 남는 사실로 알린다. 앱 단계가 있는
+// Rewind는 applying 접수까지만 command가 하고, 이어 실행(RunAppRevert, app-revert.ts)이 CheckpointRevert·
+// FinishRevert를 낸다.
 const revertDeps = {
   rootOf: projectRootOf,
   appRevision: latestAppRevision,
   recordFact: recordFactMessage,
+  answeredFacts,
+  effects: createRewindEffects(),
 };
 const revertCommands = createRevertCommands(revertDeps);
 // 읽기는 파일을 읽는 preview 때문에 reader Worker의 별도 등록(rewind-reader.ts)이 서빙한다. 여기 정의는

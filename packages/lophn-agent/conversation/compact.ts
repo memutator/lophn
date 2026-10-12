@@ -62,7 +62,7 @@ type SummaryCall = {
 // 이 session에 묶인 요약 call로 끝까지 성공한(완전 출력이 있는) 것이다. 시작·실패·취소·부분 출력 call과
 // 판단 용도 call, run 안의 압축 call, 다른 session의 call은 Compact의 요약이 아니다.
 function summaryCall(
-  tx: Tx,
+  tx: { sql: Pick<Tx["sql"], "get"> },
   session: string,
   call: string,
 ): SummaryCall | undefined {
@@ -87,7 +87,10 @@ function summaryCall(
 
 // 요약은 Workspace의 Model for summaries로 만든다. 그 칸이 비어 있으면 session agent의 model을
 // 쓰므로 어느 model이든 받는다(harness/model#R8).
-function usesSummariesModel(tx: Tx, call: SummaryCall): boolean {
+function usesSummariesModel(
+  tx: { sql: Pick<Tx["sql"], "get"> },
+  call: SummaryCall,
+): boolean {
   const slot = tx.sql.get(
     "select provider, model_name from agent_model_defaults where slot = 'summaries'",
     [],
@@ -95,6 +98,17 @@ function usesSummariesModel(tx: Tx, call: SummaryCall): boolean {
   if (slot === undefined || slot["provider"] === null) return true;
   return slot["provider"] === call.provider &&
     slot["model_name"] === call.model_name;
+}
+
+// rewind의 "Summarize from here"도 Compact와 같은 요약 call을 쓴다(revert R15). 이 session에 묶여 끝까지
+// 성공하고 Model for summaries로 만든 call인가.
+export function isFinishedSummaryCall(
+  lookup: { sql: Pick<Tx["sql"], "get"> },
+  session: string,
+  call: string,
+): boolean {
+  const found = summaryCall(lookup, session, call);
+  return found !== undefined && usesSummariesModel(lookup, found);
 }
 
 function closeRequest(

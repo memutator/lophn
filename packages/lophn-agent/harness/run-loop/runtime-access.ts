@@ -45,6 +45,7 @@ import {
   recordToolRequest,
   recoverRun,
   resolveRunWait,
+  rewindList,
   runBody,
   runList,
   runRead,
@@ -96,6 +97,8 @@ export const RUNTIME_MACHINE_ROUTES = [
   // 사람이 요청한 Compact를 끝낸다: 열린 요청을 읽고, 앞 구간의 요약 본문을 읽고, 요약 call을 잇거나 요청을 닫는다.
   sessionCompactRequests,
   sessionSummary,
+  // 숨기거나 접은 구간은 이후 call의 입력에 들지 않는다: 되돌리기 기록에서 그 구간을 읽는다(prompt-assemble#R31).
+  rewindList,
   compactSession,
   failSessionCompact,
   settingsGet,

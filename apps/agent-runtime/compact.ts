@@ -27,6 +27,7 @@ import {
   splitSummaryMaterial,
   summaryBodyTokens,
   summaryOutputCap,
+  visibleMessages,
 } from "../../packages/lophn-agent/harness/prompt-assemble/mod.ts";
 import { estimatedCost } from "../../packages/lophn-agent/harness/usage/mod.ts";
 import { resolveRunAgent } from "./agent-layers.ts";
@@ -70,9 +71,24 @@ export type CompactResult =
     reason: CompactFailureReason;
   };
 
+export type RangeSummary =
+  | { kind: "idle" }
+  | { kind: "summarized"; session: string; summary_call: string }
+  | { kind: "failed"; reason: CompactFailureReason };
+
 export type Compactor = {
   // 가장 오래된 열린 요청 하나를 끝낸다. 없으면 idle이다.
   next(): Promise<CompactResult>;
+};
+
+export type RangeSummarizer = {
+  // "Summarize from here"의 요약 call이다. 고른 seq부터의 보이는 대화를 요약해 call을 돌려줄 뿐
+  // session을 바꾸지 않는다.
+  summarizeFrom(input: {
+    session: string;
+    assignment: string;
+    from_seq: string;
+  }): Promise<RangeSummary>;
 };
 
 export type CompactorDeps = {
@@ -119,7 +135,9 @@ class Failure extends Error {
   }
 }
 
-export function createCompactor(deps: CompactorDeps): Compactor {
+export function createCompactor(
+  deps: CompactorDeps,
+): Compactor & RangeSummarizer {
   const { machine, clock, ids } = deps;
 
   // 요약 model. 따로 고른 Model for summaries가 먼저이고 비면 그 session agent의 model이다(구성 resolve다).
@@ -355,46 +373,46 @@ export function createCompactor(deps: CompactorDeps): Compactor {
     };
   }
 
-  async function work(request: Request): Promise<CompactResult> {
-    const read = await readSessionConversation(machine, {
-      session: request.session,
-      request: null,
+  // 재료를 Model for summaries로 요약하는 model call을 한다. 재료가 입력 예산 절반을 넘으면 순서를 지킨
+  // chunk로 나눠 앞 chunk의 요약을 이어받는다. Compact와 rewind의 "Summarize from here"가 같이 쓴다.
+  async function summarizeMaterial(
+    request: Request,
+    material: readonly SessionMessage[],
+    earlier: string | null,
+  ): Promise<
+    | { kind: "ok"; id: string }
+    | { kind: "failed"; reason: CompactFailureReason }
+    | { kind: "idle" }
+  > {
+    const failed = (reason: CompactFailureReason) => ({
+      kind: "failed" as const,
+      reason,
     });
-    // 읽지 못한 것은 요약할 수 없는 session이 아니라 지금 닿지 못한 core다. 요청은 열려 있고 다음에 다시 본다.
-    if (!read.ok) return { kind: "idle" };
-    const conversation = read.value;
-    if (conversation.messages.length === 0) {
-      return await fail(request, "nothing_to_summarize");
-    }
     const choice = await summaryChoice(request);
-    if (choice === null) return await fail(request, "model_unavailable");
+    if (choice === null) return failed("model_unavailable");
     const resolved = await deps.resolveModel({
       model: choice,
       purpose: "organizing",
     });
-    if (!resolved.ok) return await fail(request, "model_unavailable");
+    if (!resolved.ok) return failed("model_unavailable");
     const binding = resolved.value;
     const budget = inputBudget(
       binding.call.limits,
       Math.min(RESERVED_OUTPUT, binding.call.limits.output_limit),
     );
-    if (!budget.ok) return await fail(request, "too_large");
+    if (!budget.ok) return failed("too_large");
     const limit: SummaryLimit = {
       input: budget.value,
       body: summaryOutputCap(budget.value),
     };
-    // 요약 재료가 입력 예산 절반을 넘으면 순서를 지킨 chunk로 나눠 앞 chunk의 요약을 이어받는다.
     // 앞 요약이 들어갈 몫(본문 상한)은 chunk에서 뺀다.
     const cap = Math.floor(limit.input / 2) - limit.body;
-    const chunks = cap <= 0
-      ? null
-      : splitSummaryMaterial(conversation.messages, cap);
-    if (chunks === null) return await fail(request, "too_large");
+    const chunks = cap <= 0 ? null : splitSummaryMaterial(material, cap);
+    if (chunks === null) return failed("too_large");
     const attempt = await nextAttempt(request.session);
     if (attempt === null) return { kind: "idle" };
-
     try {
-      let previous = conversation.compaction?.text ?? null;
+      let previous = earlier;
       let last: { id: string; text: string } | undefined;
       const counter = { order: attempt };
       for (const chunk of chunks) {
@@ -404,30 +422,90 @@ export function createCompactor(deps: CompactorDeps): Compactor {
         });
         previous = last.text;
       }
-      const through = conversation.messages[conversation.messages.length - 1]!;
-      const ended = await commandOf(
-        machine,
-        compactSession,
-        {
-          session: request.session,
-          summary_call: last!.id,
-          through_seq: String(through.seq),
-        },
-        { state: "open", request_seq: request.request_seq },
-        `${request.session}:compact:${request.request_seq}`,
-      );
-      // 요약하는 사이 run이 시작됐거나 session이 바뀌어 core가 끝내기를 거절하면 이 요약은 쓰지 않는다.
-      if (!ended.ok) return await fail(request, "session_changed");
-      return {
-        kind: "compacted",
-        session: request.session,
-        request: request.request_seq,
-        summary_call: last!.id,
-      };
+      return { kind: "ok", id: last!.id };
     } catch (error) {
-      if (error instanceof Failure) return await fail(request, error.reason);
+      if (error instanceof Failure) return failed(error.reason);
       throw error;
     }
+  }
+
+  async function work(request: Request): Promise<CompactResult> {
+    const read = await readSessionConversation(machine, {
+      session: request.session,
+      request: null,
+    });
+    // 읽지 못한 것은 요약할 수 없는 session이 아니라 지금 닿지 못한 core다. 요청은 열려 있고 다음에 다시 본다.
+    if (!read.ok) return { kind: "idle" };
+    const conversation = read.value;
+    // 숨긴 구간은 요약에 들지 않고 접힌 구간은 그 요약이 자리를 맡는다(prompt-assemble#R31).
+    const material = visibleMessages(conversation);
+    if (material.length === 0) {
+      return await fail(request, "nothing_to_summarize");
+    }
+    const summary = await summarizeMaterial(
+      request,
+      material,
+      conversation.compaction?.text ?? null,
+    );
+    if (summary.kind === "idle") return summary;
+    if (summary.kind === "failed") return await fail(request, summary.reason);
+    // 요약이 덮는 끝은 확정 메시지여야 한다. 마지막이 접힌 구간 요약이면 그 구간의 마지막 메시지다.
+    const lastSeq = material[material.length - 1]!.seq;
+    const through = conversation.messages.filter((message) =>
+      message.seq <= lastSeq
+    ).at(-1)!;
+    const ended = await commandOf(
+      machine,
+      compactSession,
+      {
+        session: request.session,
+        summary_call: summary.id,
+        through_seq: String(through.seq),
+      },
+      { state: "open", request_seq: request.request_seq },
+      `${request.session}:compact:${request.request_seq}`,
+    );
+    // 요약하는 사이 run이 시작됐거나 session이 바뀌어 core가 끝내기를 거절하면 이 요약은 쓰지 않는다.
+    if (!ended.ok) return await fail(request, "session_changed");
+    return {
+      kind: "compacted",
+      session: request.session,
+      request: request.request_seq,
+      summary_call: summary.id,
+    };
+  }
+
+  // rewind의 "Summarize from here"(lophn-agent/revert R15). 고른 메시지부터 지금까지 보이는 대화를 Compact와
+  // 같은 요약 call(Model for summaries)로 요약하고 그 call을 돌려준다. session은 아무것도 바뀌지 않고, 요약을
+  // 접는 일(Rewind의 summary_call)은 사람이 확정한다. 실패해도 session과 원문은 그대로다.
+  async function summarizeFrom(input: {
+    session: string;
+    assignment: string;
+    from_seq: string;
+  }): Promise<RangeSummary> {
+    const read = await readSessionConversation(machine, {
+      session: input.session,
+      request: null,
+    });
+    if (!read.ok) return { kind: "idle" };
+    const material = visibleMessages(read.value).filter((message) =>
+      message.seq >= BigInt(input.from_seq)
+    );
+    if (material.length === 0) {
+      return { kind: "failed", reason: "nothing_to_summarize" };
+    }
+    const summary = await summarizeMaterial(
+      {
+        session: input.session,
+        assignment: input.assignment,
+        request_seq: input.from_seq,
+      },
+      material,
+      null,
+    );
+    return summary.kind === "ok"
+      ? { kind: "summarized", session: input.session, summary_call: summary.id }
+      : summary;
   }
 
   return {
@@ -438,5 +516,6 @@ export function createCompactor(deps: CompactorDeps): Compactor {
       if (first === undefined) return { kind: "idle" };
       return await work(first);
     },
+    summarizeFrom,
   };
 }

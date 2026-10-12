@@ -11,7 +11,26 @@ export {
   type RewindStore,
   type StoredBlob,
 } from "./store.ts";
-export { deleteSessionReverts } from "./erase.ts";
+export { deleteSessionReverts, eraseSessionStore } from "./erase.ts";
+export { sweepRewindStore } from "./sweep.ts";
+export {
+  findUninstalled,
+  type UninstalledCandidate,
+  uninstalledCandidates,
+} from "./recover.ts";
+export { closeAvailableRedo } from "./redo-close.ts";
+export {
+  assertCheckpointVisible,
+  type FoldedRange,
+  foldedRanges,
+  foldsOf,
+  hiddenFromSeq,
+  type HiddenRange,
+  hiddenRanges,
+  hiddenRangesOf,
+  inHiddenRange,
+  type RevertRow,
+} from "./hidden.ts";
 export {
   createRevertCommands,
   type RevertDeps,
@@ -33,6 +52,7 @@ export {
   observationOf,
   type PlanDeps,
   planRewind,
+  type PreviewFact,
   type RewindPlan,
   type RewindTarget,
 } from "./preview.ts";

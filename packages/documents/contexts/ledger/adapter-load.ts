@@ -8,6 +8,7 @@ import {
 } from "../../../contracts/documents/mod.ts";
 import type { Sql } from "../../../contracts/platform/mod.ts";
 import { currentBundleOf } from "../api/reads-common.ts";
+import { declaredRuleMessage } from "../api/violation-message.ts";
 import type {
   BlobReference,
   BundleRow,
@@ -171,7 +172,20 @@ export function loadState(
       state.events.push(...loadHandedOffEvents(sql, context.id));
     }
     if (plan.index?.includes("violations")) {
-      state.violations.set(context.id, [...deps.index.violations(context.id)]);
+      // index가 낸 문구는 규칙 이름으로 만든 것이다. 적용된 판이 읽혔고 규칙이 message를 가지면 그 message로 바꾼다.
+      const applied = context.applied_bundle === null
+        ? undefined
+        : state.bundles.get(context.applied_bundle);
+      state.violations.set(
+        context.id,
+        deps.index.violations(context.id).map((violation) => ({
+          ...violation,
+          message: violation.kind === "rule"
+            ? declaredRuleMessage(applied?.content.contract, violation.rule) ??
+              violation.message
+            : violation.message,
+        })),
+      );
     }
     if (plan.index?.includes("entities")) {
       state.entities.set(context.id, [...deps.index.entities(context.id)]);

@@ -64,15 +64,15 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 // `Type.rule id`가 가리키는 규칙을 적용된 판의 계약에서 찾는다. 없으면 null이다.
-function currentRule(
+export function ruleDefinitionOf(
   contract: unknown,
-  violation: StoredViolation,
+  rule: string | null,
 ): RuleDefinition | null {
-  if (violation.rule === null) return null;
+  if (rule === null) return null;
   if (!isRecord(contract) || !Array.isArray(contract.types)) return null;
-  const dot = violation.rule.indexOf(".");
-  const typeName = violation.rule.slice(0, dot);
-  const ruleId = violation.rule.slice(dot + 1);
+  const dot = rule.indexOf(".");
+  const typeName = rule.slice(0, dot);
+  const ruleId = rule.slice(dot + 1);
   for (const type of contract.types) {
     if (!isRecord(type) || type.name !== typeName) continue;
     if (!Array.isArray(type.rules)) return null;
@@ -131,7 +131,7 @@ export function evidenceOf(
       section: violation.section,
       target: violation.target,
       message: violation.message,
-      rule_definition: currentRule(contract, violation),
+      rule_definition: ruleDefinitionOf(contract, violation.rule),
     })),
   };
 }

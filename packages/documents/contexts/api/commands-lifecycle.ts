@@ -1,8 +1,11 @@
 // context API command: context.create·archive·unarchive와 bundle.rollback.
 import { err, ok } from "../../../base/mod.ts";
-import type { ContextValue } from "../../../contracts/documents/mod.ts";
+import type {
+  BundleContent,
+  ContextValue,
+} from "../../../contracts/documents/mod.ts";
+import { reflectSavedViews } from "./commands-bundle-views.ts";
 import { emitEvent, withReplay } from "./commands-common.ts";
-import { reflectSavedViews } from "./commands-lifecycle-views.ts";
 import type { ContextApiCommands } from "./commands.ts";
 import type {
   ContextApiActor,
@@ -178,8 +181,8 @@ export function createLifecycleCommands(
           state,
           deps,
           context.id,
-          applied.content,
           call.actor.actor,
+          (applied.content.saved_views ?? []) as BundleContent["saved_views"],
         );
         const { content: _content, ...summary } = applied;
         return ok({ context: next, bundle: summary });

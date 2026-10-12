@@ -383,6 +383,26 @@ export const searchFollowSchema = z.strictObject({
 });
 export type SearchFollow = z.infer<typeof searchFollowSchema>;
 
+// follow 한 칸이 닿는 type의 참조: 같은 계약은 `Type`, 다른 context는 `context/Type`.
+// `from`은 출발 type의 참조다. forward는 출발 type이 선언한 relation의 `to`이고, reverse는 그
+// relation을 `from`으로 선언한 첫 type이다. 풀 수 없으면(없는 relation, 외부 type에서의 forward) undefined다.
+export function followedTypeRef(
+  types: readonly ContractType[],
+  from: string,
+  follow: Pick<SearchFollow, "relation" | "direction">,
+): string | undefined {
+  if (follow.direction === "forward") {
+    return types.find((type) => type.name === from)?.relations.find(
+      (relation) => relation.name === follow.relation,
+    )?.to;
+  }
+  return types.find((type) =>
+    type.relations.some((relation) =>
+      relation.name === follow.relation && relation.to === from
+    )
+  )?.name;
+}
+
 export const searchQuerySchema = z.strictObject({
   from: contractTypeNameSchema,
   where: conditionSchema.nullable().default(null),

@@ -907,6 +907,62 @@ Deno.test("documents/contexts#R4 [ctx-I31]: context.containing leaves out archiv
   );
 });
 
+Deno.test("documents/contexts#R23 [ctx-T10b]: context.containing counts a path covered through from_type, follows a chain of from_type and ignores a cycle", () => {
+  const { state, reads, t } = setup();
+  const content = evalContent() as {
+    contract: { types: Record<string, unknown>[] };
+  };
+  const heading = (name: string, from_type: string) => ({
+    name,
+    summary: "A heading inside a document",
+    visibility: "private",
+    source: {
+      kind: "outline",
+      from_type,
+      format: "markdown",
+      min_level: 1,
+      max_level: 3,
+    },
+    key: "title",
+    fields: [{
+      name: "title",
+      from: { kind: "title" },
+      value_type: "string",
+      required: false,
+      visibility: "private",
+    }],
+    relations: [],
+    rules: [],
+  });
+  content.contract.types.push(
+    heading("ScenarioHeading", "Scenario"),
+    heading("ScenarioSubheading", "ScenarioHeading"),
+    heading("LoopA", "LoopB"),
+    heading("LoopB", "LoopA"),
+  );
+  seedActive(state, t, {
+    slot: 31,
+    context: { id: id("ctx", 31), title: "Eval" },
+    content,
+  });
+  const typesOf = (path: string) =>
+    expectOk(
+      reads.contextContaining({
+        actor: user,
+        input: { project: ids.project, path },
+      }),
+    ).contexts.flatMap((item) => item.types);
+  // docs 문서를 따라가는 outline과 그 outline을 따라가는 outline도 덮는다
+  assertEquals(typesOf("eval/scenarios/schedule-basic.md"), [
+    "Scenario",
+    "ScenarioHeading",
+    "ScenarioSubheading",
+  ]);
+  // index 개체의 문서는 계약만으로 알 수 없어 index 문서 자신만 덮는다
+  assertEquals(typesOf("docs/README.md"), ["Guide"]);
+  assertEquals(typesOf("docs/other.md"), []);
+});
+
 // ---------- glossary.list ----------
 
 Deno.test("documents/terms#R10 [ctx-I31]: glossary.list reads every entry of one context in lowercase byte order of the term then id", () => {

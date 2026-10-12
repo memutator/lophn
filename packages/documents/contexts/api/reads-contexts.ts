@@ -154,8 +154,9 @@ export function createContextReads(state: ContextApiState): Handlers {
       if (applied === null) continue;
       const content = parseContent(applied);
       if (!content.ok) return content;
-      const types = content.value.contract.types
-        .filter((type) => sourceCovers(type.source, input.path))
+      const declared = content.value.contract.types;
+      const types = declared
+        .filter((type) => sourceCovers(type.source, input.path, declared))
         .map((type) => type.name);
       if (types.length > 0) {
         found.push({ context: context.id, title: context.title, types });

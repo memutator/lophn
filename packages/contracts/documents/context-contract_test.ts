@@ -5,6 +5,7 @@ import {
   contractSourceSchema,
   contractTypeSchema,
   declaredSearchSchema,
+  followedTypeRef,
   resultViewSchema,
   splitExternalRef,
 } from "./context-contract.ts";
@@ -386,4 +387,30 @@ Deno.test("documents/contexts#R14 [ctx-I36]: a reference to another context is `
   ) {
     assertEquals(splitExternalRef(not), undefined, not);
   }
+});
+
+Deno.test("documents/contexts#R14 [ctx-T10b]: followedTypeRef gives the type a follow reaches, forward through the relation and reverse through its declaring type", () => {
+  const relation = experiment.relations[0];
+  const types = [
+    contractTypeSchema.parse(experiment),
+    contractTypeSchema.parse({
+      ...experiment,
+      name: "Other",
+      relations: [{ ...relation, name: "cites", to: "rubrics/Rubric" }],
+    }),
+  ];
+  const forward = { relation: relation.name, direction: "forward" } as const;
+  const reverse = { relation: relation.name, direction: "reverse" } as const;
+  assertEquals(followedTypeRef(types, "Experiment", forward), relation.to);
+  assertEquals(followedTypeRef(types, "Other", forward), undefined);
+  // 외부 type으로 가는 relation의 reverse는 그 외부 참조에서 시작한다
+  assertEquals(
+    followedTypeRef(types, "rubrics/Rubric", {
+      relation: "cites",
+      direction: "reverse",
+    }),
+    "Other",
+  );
+  assertEquals(followedTypeRef(types, "Missing", reverse), undefined);
+  assertEquals(followedTypeRef(types, "Missing", forward), undefined);
 });

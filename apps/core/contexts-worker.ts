@@ -568,6 +568,7 @@ export function createContextsDispatcher(
       ...input,
       as_of_seq: read.value.as_of_seq,
       outcome: parsed.data,
+      contract: draft.content.contract,
     });
   }
 

@@ -226,9 +226,9 @@ Electron main과 창별 shell 화면의 분리, 창 구성·탐색·tray·OS 통
 
 ### Lophn Workspace settings
 
-**[R49]** Settings의 Providers는 provider의 계정과 인증만 다뤄 연결된 provider(이름·로그인 방법·[Disconnect], 펼치면 그 provider의 계정 목록 — 위아래로 쓰는 순서를 바꾸고 계정마다 사용을 끄고 켠다)와 Add a provider 목록([+ Connect])을 보이고, Connect dialog는 로그인 방법을 고르게 하거나 OpenAI 호환 custom provider(ID, Display name, Base URL, API key 선택)를 등록하게 하며 model은 여기서 고르지 않는다.
-- 이유: provider는 계정이고 model 선택은 agent의 일이다.
-- 확인: Providers에 model 선택 칸이 없고, 연결된 provider를 펼치면 계정 순서를 바꾸고 계정 사용을 끌 수 있으며(바꾼 순서는 다음 run부터), Connect dialog는 방법 고르기와 custom form 둘을 보이고, 연결 방법·계정 순서·끄기의 규칙은 lophn-agent/harness/provider(R6·R8·R10)를 따른다.
+**[R49]** Settings의 Providers는 provider의 연결과 인증만 다뤄 연결된 provider(이름·로그인 방법·[Disconnect]이고, 사용량 대기나 사용 불가일 때만 그 상태와 다음 행동 한 줄을 덧붙인다)와 Add a provider 목록([+ Connect])을 보이고, Connect dialog는 로그인 방법을 고르게 하거나 OpenAI 호환 custom provider(ID, Display name, Base URL, API key 선택)를 등록하게 하며 model은 여기서 고르지 않고, 펼치는 계정 목록·순서·계정별 끄고 켜기·연결 테스트는 없고 [Disconnect]는 확인 창을 거쳐 그 provider와 credential을 지운다.
+- 이유: provider 하나에 연결 하나이고 model 선택은 agent의 일이다. 다시 로그인하거나 key를 바꾸는 길은 Disconnect 뒤 Connect 하나뿐이다.
+- 확인: Providers에 model 선택 칸이 없고 연결된 provider 행에 계정 목록·순서·끄기·테스트 단추가 없으며, [Disconnect]가 확인 창을 거쳐서야 provider를 지우고, 지운 provider는 Add a provider 목록에 다시 나타나 Connect할 수 있고, Connect dialog는 방법 고르기와 custom form 둘을 보이고 Add a provider 목록에 Ollama·LM Studio·llama.cpp 같은 내장 로컬 항목이 없으며, 연결 방법과 규칙은 lophn-agent/harness/provider(R6·R8·R31)를 따른다.
 - 의도: shell#I1, lophn-agent#I5
 
 **[R50]** Settings의 Agents는 모든 project에 적용되는 기본값을 Default models(lophn·Context Engineer·App Engineer·Operators 넷의 model과 option)·Model for summaries·모든 project의 LOPHN.md(미리보기와 [Edit])·전역 skill([Add skill])·MCP servers([Add server])·기본 권한 순으로 보이고, General에는 Models와 Instructions 칸을 두지 않는다.
@@ -248,5 +248,6 @@ Electron main과 창별 shell 화면의 분리, 창 구성·탐색·tray·OS 통
 - Roles 화면의 역할 목록·상세 공유 열과 하는 일 묶음(옛 R4, R5) — Roles 화면을 지웠다(shell/desktop#Q4). 목록과 설정은 project의 Agents 탭과 Operator editor(shell/workspace), 진행·멈춤은 진행 chip과 Stop(R42), 만든 문서는 편집 카드(R3, R41), 검토는 tool 줄 펼침과 보기 Everything, 사용량은 ⋯ 메뉴 Usage(R38), Undo는 편집 카드(R41)로 간다. trace export는 지웠다.
 - composer 위 질문·approval 칸(옛 R6) — 질문은 대화 안 카드(R46), 승인은 composer 위 카드(R47)가 맡고, 세션 없는 요청은 확인할 것이 맡는다(R9).
 - 화면마다의 Ask 단추(Settings의 [Ask lophn], Contexts의 Ask, Context 탭의 [Ask Context Engineer], Contexts 탭의 [New context], 탭 줄 `+` 메뉴의 Agent 항목, Violations의 [Send to Context Engineer])와 Lophn Workspace의 agent — agent를 부르는 길은 R36의 셋뿐이다(shell/app-frame#Q3). 새 context는 sidebar의 Context Engineer에서 연 Agent 화면에서 시작한다.
-- provider 화면에서 model 고르기와 General의 Models(For decisions·For summaries)·Instructions 칸 — provider는 계정만(R49), model은 agent 정의와 composer(R44), 기본값은 Settings › Agents(R50)로 옮겼다.
+- provider 화면에서 model 고르기와 General의 Models(For decisions·For summaries)·Instructions 칸 — provider는 연결만(R49), model은 agent 정의와 composer(R44), 기본값은 Settings › Agents(R50)로 옮겼다.
 - 작업대의 Operator 안내 줄 — project sidebar의 Agents 묶음이 Operator를 보인다(R28).
+- Providers 화면의 계정 목록·계정 순서·계정별 끄고 켜기·연결 테스트·내장 로컬 provider 항목 — provider 하나에 credential 하나로 하고 내장 로컬 기능을 지웠다(R49, lophn-agent/harness/provider#R8). 로컬 서버는 custom provider로 연결한다.

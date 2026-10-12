@@ -20,7 +20,7 @@ concerns: [platform/install-and-update, platform/responsiveness, platform/backup
 
 ## 다른 갈래
 
-- 연결 실패가 아니라 credential 사용 불가나 model 사용 불가이면 그 실패를 구별한다. 같은 provider 안의 사람이 정한 credential 순서 외에는 자동으로 다른 provider·model을 선택하지 않는다. 필요한 설정 준비는 별도의 설정 flow로 이어 간다. (lophn-agent/harness/provider#R10, lophn-agent/harness/provider#R19, lophn-agent/harness/provider#R24)
+- 연결 실패가 아니라 credential 사용 불가나 model 사용 불가이면 그 실패를 구별한다. 같은 provider의 다른 credential(provider에는 하나뿐이다)이나 다른 provider·model을 자동으로 선택하지 않는다. 필요한 설정 준비는 별도의 설정 flow로 이어 간다. (lophn-agent/harness/provider#R10, lophn-agent/harness/provider#R19, lophn-agent/harness/provider#R24)
 - 앱의 쓰기 요청 뒤 연결이 끊기면 app-space 화면 결과 모름을 표시한다. timeout이나 중단을 외부 효과 없음으로 바꾸지 않으며, 사람에게 재시도를 권하기 전에 원래 결과를 확인한다. (apps/runtime#R12, apps/invocations#R11, apps/invocations#R12)
 - 사람이 run을 멈췄으면 연결 회복이나 재시작만으로 다시 돌리지 않는다. 비사용자 중단만 저장된 경계에서 현재 권한·credential·한도를 다시 검사해 복구한다. 사람에게는 보이지 않는다. (lophn-agent/harness/run-loop#R17, lophn-agent/harness/waiting-and-recovery#R9)
 - 앱 중단·절전 중 놓친 automation 회차는 몰아서 실행하지 않는다. 돌아온 뒤 가까운 미래 간격부터 이어 가며, 결과 미확인도 재실행의 근거로 삼지 않는다. 사람에게는 보이지 않는다. (apps/automations#R7, apps/automations#R11)

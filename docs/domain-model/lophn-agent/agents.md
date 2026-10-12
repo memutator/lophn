@@ -59,7 +59,7 @@ built-in은 `name`·`contexts`·`app_reads`를 쓰지 않는다. 이름은 제�
 | `model_name` | string | 아니오 | nonempty; catalog와 사용 가능 검사 → lophn-agent/harness/model | model |
 | `option_values` | map(축 id → 값) | 아니오 | 기본 `{}`; 그 model이 가진 축과 값만 → lophn-agent/harness/model | effort 같은 option 값 |
 
-ModelChoice는 통째로 고른다. 층마다 option을 따로 합치지 않고 가장 높은 층의 ModelChoice 하나를 쓴다. credential 값·가격·한계는 넣지 않는다. 계정 선택과 이동은 → lophn-agent/harness/provider다.
+ModelChoice는 통째로 고른다. 층마다 option을 따로 합치지 않고 가장 높은 층의 ModelChoice 하나를 쓴다. credential 값·가격·한계는 넣지 않는다. credential은 provider에 하나라 고르지 않는다 → lophn-agent/harness/provider.
 
 ## AppRead (값)
 

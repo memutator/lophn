@@ -5,7 +5,8 @@
 // - tool 줄 [data-tool-line=<id>] 안의 머리 button(aria-expanded)과 하위 줄 [data-tool-sub]
 // - 편집 카드 [data-edit-card=<id>] 안의 요약 [data-edit-summary]와 버튼 Open·Undo
 // - 회색 줄 [data-worked-for]
-// - 되돌린 편집 카드: 요약이 "Undid the edit to <경로>", 단추 Open과 (canRedo일 때만) Redo
+// - 되돌린 편집 카드: 요약이 "Undid the edit to <경로>", 단추 Open뿐이다(Undo를 다시 되돌리는 기능은 없다)
+// - Undo를 누를 수 없는 카드: 단추가 비활성이고 이유 [data-undo-reason]가 보인다(lophn-agent/revert#R19)
 // - 보기 상세 select [data-view-detail-select] 안의 button(값 이름)과 열리면 [role=listbox]의 항목
 // - 진행 chip: aria-label "Tasks"인 button, popover 안의 줄 [data-task=<id>][data-state=done|now|later]
 import { assert, assertEquals } from "@std/assert";
@@ -75,9 +76,8 @@ Deno.test("shell/desktop#R41 [agent-I27]: 편집 카드는 Edited <경로> +n �
       edit={REPORT_EDIT}
       onOpen={(edit) => opened.push(edit)}
       onUndo={(edit) => undone.push(edit)}
-      onRedo={() => {}}
       undone={false}
-      canRedo={false}
+      undo={{ can: true }}
     />,
   );
   const card = one(view.container, `[data-edit-card="${REPORT_EDIT.id}"]`);
@@ -137,37 +137,72 @@ Deno.test("shell/desktop#R42 [agent-I27]: 할 일이 없으면 진행 chip을 �
   assert(text(view.container) === "");
 });
 
-Deno.test("shell/desktop#R41 [agent-I27]: Undo를 누른 뒤의 카드는 Undid the edit to <경로>이고 Undo가 없으며 redo가 가능할 때만 Redo가 있다", () => {
+Deno.test("shell/desktop#R41 lophn-agent/revert#R19 [agent-RW3e]: Undo를 누른 뒤의 카드는 Undid the edit to <경로>이고 Open뿐이다(Undo를 다시 되돌리는 Redo는 없다)", () => {
   const opened: EditView[] = [];
-  const redone: EditView[] = [];
-  const card = (canRedo: boolean) => (
+  using view = render(
     <EditCard
       edit={REPORT_EDIT}
       undone
-      canRedo={canRedo}
+      undo={{ can: false, reason: "already_reverted" }}
       onOpen={(edit) => opened.push(edit)}
       onUndo={() => {}}
-      onRedo={(edit) => redone.push(edit)}
-    />
+    />,
   );
-  using view = render(card(true));
-  const root = () =>
-    one(view.container, `[data-edit-card="${REPORT_EDIT.id}"]`);
+  const root = one(view.container, `[data-edit-card="${REPORT_EDIT.id}"]`);
   assertEquals(
-    text(one(root(), "[data-edit-summary]")),
+    text(one(root, "[data-edit-summary]")),
     "Undid the edit to docs/reports/2026-w40.md",
   );
-  assertEquals([...root().querySelectorAll("button")].map(text), [
-    "Open",
-    "Redo",
-  ]);
-  click(root().querySelectorAll("button")[1]);
-  assertEquals(redone, [REPORT_EDIT]);
-  // 다음 메시지를 보내 redo가 사라지면 Redo 단추도 없다.
-  view.rerender(card(false));
-  assertEquals([...root().querySelectorAll("button")].map(text), ["Open"]);
-  click(root().querySelectorAll("button")[0]);
+  assertEquals([...root.querySelectorAll("button")].map(text), ["Open"]);
+  assertEquals(root.querySelector("[data-undo-reason]"), null);
+  click(root.querySelectorAll("button")[0]);
   assertEquals(opened, [REPORT_EDIT]);
+});
+
+Deno.test("lophn-agent/revert#R19 [agent-RW3e]: 지금 파일이 그 call이 쓴 내용과 다르거나 더 나중 편집이 있으면 Undo는 비활성이고 이유가 보이며 눌러도 부르지 않는다", () => {
+  const cases: [Parameters<typeof EditCard>[0]["undo"], string][] = [
+    [
+      { can: false, reason: "edited_outside" },
+      "This file changed after lophn wrote it, so it is left as it is.",
+    ],
+    [
+      { can: false, reason: "later_edit" },
+      "A later edit changed the same file, so only that one can be undone first.",
+    ],
+    [
+      { can: false, reason: "no_pre_image" },
+      "The earlier content of this file wasn't kept.",
+    ],
+    [
+      { can: false, reason: "unknown" },
+      "lophn can't undo this edit.",
+    ],
+  ];
+  for (const [undo, reason] of cases) {
+    const undone: EditView[] = [];
+    using view = render(
+      <EditCard
+        edit={REPORT_EDIT}
+        undone={false}
+        undo={undo}
+        onOpen={() => {}}
+        onUndo={(edit) => undone.push(edit)}
+      />,
+    );
+    const card = one(view.container, `[data-edit-card="${REPORT_EDIT.id}"]`);
+    const button = [...card.querySelectorAll("button")].find((item) =>
+      text(item) === "Undo"
+    ) as HTMLButtonElement;
+    assert(button.disabled);
+    assertEquals(text(one(card, "[data-undo-reason]")), reason);
+    // 이유는 단추에 이어져 있어 보조 기술이 함께 읽는다.
+    assertEquals(
+      button.getAttribute("aria-describedby"),
+      one(card, "[data-undo-reason]").id,
+    );
+    click(button);
+    assertEquals(undone, []);
+  }
 });
 
 Deno.test("shell/desktop#R42 [agent-I27]: 보기 상세 select는 Compact로 시작하고 Messages·Compact·Everything을 이 순서로 보이며 고른 값을 부른다", async () => {
@@ -199,10 +234,9 @@ Deno.test("shell/desktop#R42 [agent-I27]: 보기 상세를 바꿔도 편집 카�
     <EditCard
       edit={REPORT_EDIT}
       undone={false}
-      canRedo={false}
+      undo={{ can: true }}
       onOpen={() => {}}
       onUndo={() => {}}
-      onRedo={() => {}}
     />
   );
   using view = render(<div />);

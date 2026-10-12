@@ -10,10 +10,13 @@ import {
   checkpointSchema,
   fileStateSchema,
   finishRevertInputSchema,
+  finishRewindSummary,
+  readRewindSummary,
   recordRewindFile,
   recordRewindFileInputSchema,
   recordRewindFileOutputSchema,
   redo,
+  requestRewindSummary,
   REVERT_EVENTS,
   REVERT_REASON_CODES,
   REVERT_ROUTES,
@@ -33,7 +36,9 @@ import {
   rewindPreview,
   rewindPreviewInputSchema,
   rewindPreviewOutputSchema,
+  rewindSummaryStateSchema,
   runAppRevert,
+  takeRewindSummaryRequest,
   undoEdit,
   undoEditInputSchema,
 } from "./reverts.ts";
@@ -89,6 +94,10 @@ Deno.test("lophn-agent/revert#R1 [agent-RW2]: rewind routes and the seven named 
     "/v1/rewind/checkpoint",
     "/v1/rewind/finish",
     "/v1/rewind/amend-install",
+    "/v1/rewind/summary-request",
+    "/v1/rewind/summary-state",
+    "/v1/rewind/summary-take",
+    "/v1/rewind/summary-done",
     "/v1/rewind/preview",
     "/v1/rewind/checkpoints",
     "/v1/rewind/list",
@@ -924,6 +933,69 @@ Deno.test("lophn-agent/revert#R17 [agent-RW2]: AmendRevertInstall is a machine c
       session: ses,
       amended: 0,
       results: counts,
+    }).success,
+  );
+});
+
+Deno.test("lophn-agent/revert#R15 [agent-RW3e]: Summarize from here is asked by a person, summarized by the runtime, and the finished call is what the person then confirms", () => {
+  // Compact와 같은 모양이다: 사람이 요청하고 runtime(machine)이 요약 call을 하며 끝낸 call을 돌려준다.
+  assertEquals(requestRewindSummary.kind, "memory");
+  assertEquals(requestRewindSummary.actors, ["user"]);
+  assertEquals(readRewindSummary.actors, ["user"]);
+  assertEquals(takeRewindSummaryRequest.actors, ["machine"]);
+  assertEquals(finishRewindSummary.actors, ["machine"]);
+  assert(
+    requestRewindSummary.input.safeParse({ session: ses, checkpoint: msg })
+      .success,
+  );
+  assert(!requestRewindSummary.input.safeParse({ session: ses }).success);
+  assert(
+    !requestRewindSummary.input.safeParse({
+      session: ses,
+      checkpoint: msg,
+      choice: "summarize",
+    }).success,
+  );
+  const states = [
+    { state: "waiting" },
+    { state: "summarized", summary_call: mcl },
+    { state: "failed", reason: "nothing_to_summarize" },
+  ];
+  for (const state of states) {
+    assert(rewindSummaryStateSchema.safeParse(state).success);
+  }
+  // 끝난 요약은 call을 싣고 실패는 이유를 싣는다. 둘을 섞지 않는다.
+  assert(
+    !rewindSummaryStateSchema.safeParse({ state: "summarized" }).success,
+  );
+  assert(
+    !rewindSummaryStateSchema.safeParse({ state: "failed", reason: "nope" })
+      .success,
+  );
+  const request = {
+    id: "sum-1",
+    session: ses,
+    assignment: `asg_${suffix}`,
+    from_seq: "21",
+  };
+  assert(takeRewindSummaryRequest.output.safeParse({ request }).success);
+  assert(takeRewindSummaryRequest.output.safeParse({ request: null }).success);
+  assert(
+    finishRewindSummary.input.safeParse({
+      id: "sum-1",
+      result: { kind: "summarized", summary_call: mcl },
+    }).success,
+  );
+  assert(
+    finishRewindSummary.input.safeParse({
+      id: "sum-1",
+      result: { kind: "failed", reason: "model_unavailable" },
+    }).success,
+  );
+  assert(
+    !finishRewindSummary.input.safeParse({
+      id: "sum-1",
+      result: { kind: "summarized" },
     }).success,
   );
 });

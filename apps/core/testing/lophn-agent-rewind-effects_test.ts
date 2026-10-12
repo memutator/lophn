@@ -1,6 +1,8 @@
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { rewind } from "../../../packages/contracts/lophn-agent/mod.ts";
+import { ALL_ROUTES } from "../../../packages/contracts/mod.ts";
+import { userOperations } from "../parent.ts";
 import { answeredFacts } from "../rewind-facts.ts";
 import { call, codeOf, command } from "./approvals-fixture.ts";
 import { binding, id, tool } from "./tool-judgment-world.ts";
@@ -28,23 +30,22 @@ import {
 const REWIND_TOKEN = "r".repeat(43);
 
 // 되돌리기를 하는 사람의 자격이다. 시험 world의 사람 자격(principal user)을 덮어쓰지 않게 principal을 따로 둔다.
-async function rewinder(world: WaitingWorld): Promise<void> {
+// operations를 주지 않으면 이 시험이 쓰는 operation만 가진 좁은 자격이다.
+async function rewinder(
+  world: WaitingWorld,
+  operations: readonly string[] = [
+    "PreviewRewind",
+    "Rewind",
+    "ListReverts",
+    "ListRewindCheckpoints",
+    // rewind가 같은 transaction에서 approval을 취소한다(tx.call은 바깥 자격의 scope를 본다).
+    "cancel_approval_request",
+  ],
+): Promise<void> {
   await acceptCredential(
     world.core,
     {
-      ...context(
-        "user",
-        [
-          "PreviewRewind",
-          "Rewind",
-          "ListReverts",
-          "ListRewindCheckpoints",
-          // rewind가 같은 transaction에서 approval을 취소한다(tx.call은 바깥 자격의 scope를 본다).
-          "cancel_approval_request",
-        ],
-        {},
-        "rewind",
-      ),
+      ...context("user", [...operations], {}, "rewind"),
       principal: "user-rewind",
     },
     REWIND_TOKEN,
@@ -213,6 +214,48 @@ Deno.test("lophn-agent/revert#R15 [agent-RW3d]: an approval request that waited 
       ),
       1,
     );
+  } finally {
+    await world.dispose();
+  }
+});
+
+Deno.test("lophn-agent/revert#R15 [agent-RW3e]: the credential the shell really gets (every operation a person may call) is enough for a rewind to cancel an approval that waited in the hidden range", async () => {
+  // core가 shell main에 주는 사람 자격의 operation은 route의 actor 상한에서 계산한다(parent.ts userOperations).
+  const operations = userOperations(ALL_ROUTES);
+  for (
+    const name of ["Rewind", "UndoEdit", "Redo", "cancel_approval_request"]
+  ) {
+    assert(operations.includes(name), name);
+  }
+  // machine 전용 입구는 사람 자격에 없다.
+  for (
+    const name of ["CheckpointRevert", "FinishRevert", "AmendRevertInstall"]
+  ) {
+    assert(!operations.includes(name), name);
+  }
+  const world = await openWaitingWorld();
+  try {
+    await rewinder(world, operations);
+    const note = {
+      definition: tool("note.record"),
+      binding: binding([{ id: TARGET, reversibility: "irreversible" }]),
+    };
+    const judgment = judgmentFor(world, world.lophn, [note]);
+    const request = await requestTool(
+      world,
+      world.lophn,
+      note.definition,
+      { note: "n1" },
+    );
+    const decided = await judgment.decide(request);
+    assert(decided.ok, decided.ok ? "" : JSON.stringify(decided.error));
+    const approval = decided.value.decision.approval;
+    assert(approval !== null);
+    await stop(world, world.lophn);
+
+    const rewound = await rewindTo(world, world.lophn, "messages_only");
+    assertEquals(rewound.status, 200, JSON.stringify(rewound.body));
+    assertEquals(status(world, "approval_requests", approval), "cancelled");
   } finally {
     await world.dispose();
   }

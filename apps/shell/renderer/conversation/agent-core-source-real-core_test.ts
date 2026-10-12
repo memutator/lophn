@@ -7,6 +7,14 @@ import { assert, assertEquals } from "@std/assert";
 import { newId } from "../desktop/lophn-space/model.ts";
 import { coreLauncherSource } from "../desktop/launcher/core-source.ts";
 import { startRealCore } from "../testdata/real-core.ts";
+import {
+  REWIND_FIRST,
+  REWIND_FIRST_TEXT,
+  REWIND_PROJECT,
+  REWIND_REVERT,
+  REWIND_SECOND,
+  REWIND_SESSION,
+} from "../testdata/rewind-seed.ts";
 import { coreAgentViewSourceFactory } from "./agent-core-source.ts";
 
 Deno.test("lophn-agent/conversation#R1 lophn-agent/conversation#R2 lophn-agent/conversation#R18 shell/desktop#R38 [agent-I33b]: 실제 core: session을 열고 글을 보내면 thread에 내 메시지가 보이고 본문을 다시 읽으며, rename·archive·unarchive·fork가 목록에 반영된다", async () => {
@@ -186,5 +194,141 @@ Deno.test("lophn-agent/conversation#R1 lophn-agent/conversation#R2 lophn-agent/c
   } finally {
     await core.stop();
     await Deno.remove(folder, { recursive: true });
+  }
+});
+
+const REWIND_CORE = "apps/shell/renderer/testdata/rewind-core.ts";
+
+async function rewoundSource(core: Awaited<ReturnType<typeof startRealCore>>) {
+  const assignments = await core.source.call({
+    kind: "read",
+    resource: "assignments",
+    method: "list",
+    body: { role: "lophn" },
+  });
+  assert(assignments.ok, core.log());
+  const lophn = (assignments.value as { assignments: { id: string }[] })
+    .assignments[0]!.id;
+  return coreAgentViewSourceFactory(core.source)({
+    assignment: lophn,
+    place: { kind: "project", id: REWIND_PROJECT },
+  });
+}
+
+Deno.test("lophn-agent/revert#R16 lophn-agent/conversation#R25 [agent-RW3e]: 실제 core: Restore messages only로 되돌린 session은 둘째 메시지부터 한 줄로 접혀 Redo를 보이고 menu에는 숨기지 않은 메시지만 있으며, 다음 메시지를 보내면 redo가 닫혀 Redo가 사라지고 접힌 줄은 그대로 남는다", async () => {
+  const core = await startRealCore({ entry: REWIND_CORE });
+  try {
+    const source = await rewoundSource(core);
+    const before = await source.thread(REWIND_SESSION);
+    assert(before.ok, JSON.stringify(before) + core.log());
+    assertEquals(
+      before.value.entries.map((entry) => entry.kind),
+      ["message", "run-end", "hidden"],
+    );
+    const hidden = before.value.entries[2]!;
+    assert(hidden.kind === "hidden");
+    assertEquals(hidden.revert, REWIND_REVERT);
+    assertEquals(hidden.checkpoint, REWIND_SECOND);
+    assertEquals(hidden.choice, "messages_only");
+    assertEquals(hidden.redo, true);
+    assertEquals(
+      hidden.entries.filter((entry) => entry.kind === "message").map((entry) =>
+        entry.id
+      ),
+      [REWIND_SECOND],
+    );
+    // 숨기지 않은 첫 메시지만 시점으로 고를 수 있다.
+    const menu = await source.rewindMenu(REWIND_SESSION);
+    assert(menu.ok, JSON.stringify(menu));
+    assertEquals(menu.value, {
+      running: false,
+      points: [{ message: REWIND_FIRST, blocked: {} }],
+    });
+    // 첫 메시지로 요약 preview를 읽을 수 있다(바뀌는 것 없이).
+    const preview = await source.rewindPreview(
+      REWIND_SESSION,
+      REWIND_FIRST,
+      "messages_only",
+    );
+    assert(preview.ok, JSON.stringify(preview));
+    assertEquals(preview.value.restore, []);
+    assertEquals(preview.value.redo, true);
+    // 숨긴 메시지를 시점으로 고른 preview는 거절된다.
+    const refused = await source.rewindPreview(
+      REWIND_SESSION,
+      REWIND_SECOND,
+      "messages_only",
+    );
+    assertEquals(refused.ok, false);
+
+    // 다음 사람 메시지를 보내면 같은 transaction에서 redo가 닫힌다.
+    const next = newId("msg");
+    const sent = await source.send({
+      session: REWIND_SESSION,
+      id: next,
+      key: `messages-receive-${next}`,
+      text: "Write it again, shorter.",
+      mode: "request",
+      run: null,
+    });
+    assert(sent.ok, JSON.stringify(sent) + core.log());
+    const after = await source.thread(REWIND_SESSION);
+    assert(after.ok);
+    const folded = after.value.entries.find((entry) => entry.kind === "hidden");
+    assert(folded?.kind === "hidden", "the hidden range stays folded");
+    assertEquals(folded.redo, false);
+    // 숨김은 되돌린 순간 있던 메시지까지라 새 메시지는 숨기지 않는다.
+    assertEquals(
+      after.value.entries.some((entry) =>
+        entry.kind === "message" && entry.id === next
+      ),
+      true,
+    );
+    // 닫힌 redo는 다시 열리지 않는다.
+    assertEquals(await source.redoRewind(REWIND_SESSION, REWIND_REVERT), {
+      ok: false,
+      code: "conflict",
+    });
+  } catch (error) {
+    throw new Error(`${(error as Error).message}\n--- core ---\n${core.log()}`);
+  } finally {
+    await core.stop();
+  }
+});
+
+Deno.test("lophn-agent/revert#R16 [agent-RW3e]: 실제 core: 다음 메시지 전에 Redo하면 숨긴 줄이 풀려 메시지가 다시 보이고 두 번째 Redo는 거절된다", async () => {
+  const core = await startRealCore({ entry: REWIND_CORE });
+  try {
+    const source = await rewoundSource(core);
+    assertEquals(await source.redoRewind(REWIND_SESSION, REWIND_REVERT), {
+      ok: true,
+      value: undefined,
+    });
+    const after = await source.thread(REWIND_SESSION);
+    assert(after.ok, JSON.stringify(after));
+    assertEquals(
+      after.value.entries.filter((entry) => entry.kind === "message").map((
+        entry,
+      ) => entry.id),
+      [REWIND_FIRST, REWIND_SECOND],
+    );
+    assertEquals(
+      after.value.entries.some((entry) => entry.kind === "hidden"),
+      false,
+    );
+    assertEquals(await source.redoRewind(REWIND_SESSION, REWIND_REVERT), {
+      ok: false,
+      code: "conflict",
+    });
+    // 되돌리기 전의 입력 원문도 그대로 읽힌다.
+    const body = await source.body(REWIND_FIRST);
+    assertEquals(body, {
+      ok: true,
+      value: [{ kind: "text", text: REWIND_FIRST_TEXT }],
+    });
+  } catch (error) {
+    throw new Error(`${(error as Error).message}\n--- core ---\n${core.log()}`);
+  } finally {
+    await core.stop();
   }
 });

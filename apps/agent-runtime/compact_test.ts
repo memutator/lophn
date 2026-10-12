@@ -13,10 +13,12 @@ import {
   compactSession,
   failSessionCompact,
   finishModelCall,
+  finishRewindSummary,
   modelCallList,
   type ModelChoice,
   sessionCompactRequests,
   startModelCall,
+  takeRewindSummaryRequest,
 } from "../../packages/contracts/lophn-agent/mod.ts";
 import { routePath } from "../../packages/contracts/platform/mod.ts";
 import type { ModelCallOutput } from "../../packages/lophn-agent/harness/provider/work.ts";
@@ -132,6 +134,8 @@ function rig(
     script: ModelCallOutput[];
     limits?: CallModel["limits"];
     requests?: "none" | "one";
+    // "Summarize from here" 요청. 있으면 core가 이 요청 하나를 한 번 내준다.
+    summaryRequest?: { from_seq: string } | "down";
     unavailable?: boolean;
     redact?: (text: string) => string | null;
     // CompactSession이 거절하는 이유. 없으면 받아들인다.
@@ -148,6 +152,7 @@ function rig(
   const commands: { name: string; input: Record<string, unknown> }[] = [];
   const calls = new Map<string, Record<string, unknown>>();
   const script = [...options.script];
+  let taken = false;
 
   const machine: CoreCall = (path, body) => {
     if (path === routePath(sessionCompactRequests)) {
@@ -161,6 +166,24 @@ function rig(
         as_of_seq: "30",
         next_cursor: null,
       });
+    }
+    if (path === routePath(takeRewindSummaryRequest)) {
+      const given = options.summaryRequest;
+      if (given === "down") {
+        return Promise.resolve(err({ code: "unavailable", message: "down" }));
+      }
+      const request = given === undefined || taken ? null : {
+        id: "sum-1",
+        session: SES,
+        assignment: ASG,
+        from_seq: given.from_seq,
+      };
+      taken = true;
+      return reply(takeRewindSummaryRequest.output, { request });
+    }
+    if (path === routePath(finishRewindSummary)) {
+      commands.push({ name: "FinishRewindSummary", input: body as never });
+      return reply(finishRewindSummary.output, { accepted: true });
     }
     if (path === routePath(modelCallList)) {
       return reply(modelCallList.output, {
@@ -598,6 +621,7 @@ Deno.test("lophn-agent/conversation#R10 [agent-I16b]: the pump asks the compacto
       if (rounds >= 3) stop.abort();
       return Promise.resolve({ kind: "idle" });
     },
+    nextRange: () => Promise.resolve({ kind: "idle" }),
   };
   const driver = {
     startNext: () => Promise.resolve({ kind: "idle" as const }),
@@ -696,4 +720,81 @@ Deno.test("lophn-agent/revert#R15 [agent-RW3d]: Summarize from here fails withou
     { kind: "failed", reason: "model_unavailable" },
   );
   assertEquals(started(down), []);
+});
+
+Deno.test("lophn-agent/revert#R15 [agent-RW3e]: with no Summarize request the runtime asks core and calls no model", async () => {
+  const r = await rig({ script: [] });
+  assertEquals(await r.compactor.nextRange(), { kind: "idle" });
+  assertEquals(r.resolved, []);
+  assertEquals(r.commands, []);
+});
+
+Deno.test("lophn-agent/revert#R15 [agent-RW3e]: a taken Summarize request is summarized from its seq on and the finished call is handed back, without ending a Compact request or changing the session", async () => {
+  const r = await rig({
+    script: [answer("Decided: short form.")],
+    summaryRequest: { from_seq: "12" },
+  });
+  const result = await r.compactor.nextRange();
+  const [call] = started(r);
+  assertEquals(result, {
+    kind: "summarized",
+    session: SES,
+    summary_call: String(call!["id"]),
+  });
+  assertEquals(r.named("FinishRewindSummary"), [{
+    id: "sum-1",
+    result: { kind: "summarized", summary_call: String(call!["id"]) },
+  }]);
+  const input = JSON.stringify(r.sent[0]!.body);
+  assert(!input.includes(TALK[0]!.text) && !input.includes(TALK[1]!.text));
+  assert(input.includes(TALK[2]!.text) && input.includes(TALK[3]!.text));
+  assertEquals(r.named("CompactSession"), []);
+  assertEquals(r.named("FailSessionCompact"), []);
+  // 한 요청은 한 번만 가져온다.
+  assertEquals(await r.compactor.nextRange(), { kind: "idle" });
+});
+
+Deno.test("lophn-agent/revert#R15 [agent-RW3e]: a Summarize request that cannot be summarized is closed with its reason and no summary call is handed back", async () => {
+  const none = await rig({ script: [], summaryRequest: { from_seq: "99" } });
+  assertEquals(await none.compactor.nextRange(), {
+    kind: "failed",
+    reason: "nothing_to_summarize",
+  });
+  assertEquals(none.named("FinishRewindSummary"), [{
+    id: "sum-1",
+    result: { kind: "failed", reason: "nothing_to_summarize" },
+  }]);
+  const down = await rig({
+    script: [],
+    unavailable: true,
+    summaryRequest: { from_seq: "12" },
+  });
+  assertEquals((await down.compactor.nextRange()).kind, "failed");
+  assertEquals(down.named("FinishRewindSummary"), [{
+    id: "sum-1",
+    result: { kind: "failed", reason: "model_unavailable" },
+  }]);
+});
+
+Deno.test("lophn-agent/revert#R15 [agent-RW3e]: when core cannot be reached the runtime stays idle and the pump asks again next round", async () => {
+  const r = await rig({ script: [], summaryRequest: "down" });
+  assertEquals(await r.compactor.nextRange(), { kind: "idle" });
+  assertEquals(r.commands, []);
+
+  const stop = new AbortController();
+  let rounds = 0;
+  const compactor: Compactor = {
+    next: () => Promise.resolve({ kind: "idle" }),
+    nextRange() {
+      rounds++;
+      if (rounds === 1) return Promise.reject(new Error("one bad round"));
+      if (rounds >= 3) stop.abort();
+      return Promise.resolve({ kind: "idle" });
+    },
+  };
+  const driver = {
+    startNext: () => Promise.resolve({ kind: "idle" as const }),
+  } as unknown as RunDriver;
+  await startRunPump({ driver, compactor, signal: stop.signal, idleMs: 1 });
+  assert(rounds >= 3);
 });

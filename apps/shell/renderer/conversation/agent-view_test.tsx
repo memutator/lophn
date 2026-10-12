@@ -25,6 +25,7 @@ import {
   SESSION_EARLIER,
   SESSION_WEEK,
   sessionId,
+  workingReport,
 } from "./testdata/fake-agent-source.ts";
 import {
   all,
@@ -41,6 +42,7 @@ import {
 } from "./testdata/agent-view-harness.tsx";
 import { VIOLATIONS_CHIP } from "./testdata/agent-composer.ts";
 import { DraftStore } from "./drafts.ts";
+import type { ThreadEntry } from "./agent-source.ts";
 
 function weekFake() {
   const fake = fakeAgentSource({ sessions: [SESSION_WEEK, SESSION_EARLIER] });
@@ -167,7 +169,7 @@ Deno.test("shell/desktop#R40 shell/desktop#R41 [agent-I33a]: the thread shows my
   await unmountSettled(view.view);
 });
 
-Deno.test("shell/desktop#R41 [agent-I33a]: the edit card's Open opens the document and Undo and Redo are signals to the source", async () => {
+Deno.test("shell/desktop#R41 lophn-agent/revert#R19 [agent-RW3e]: the edit card's Open opens the document and Undo goes to the source with the session and the card, and an undone card has only Open", async () => {
   const fake = weekFake();
   const view = await mount({ fake, session: SESSION_WEEK.id });
   const card = find(view.view.container, "[data-edit-card]");
@@ -175,13 +177,21 @@ Deno.test("shell/desktop#R41 [agent-I33a]: the edit card's Open opens the docume
   assertEquals(view.host.results, [["doc_01h455vb4pex5v6nkc6gd5f001", null]]);
   click(buttonNamed(card, "Undo"));
   await flush();
-  assertEquals(fake.calls.undone, ["edit-1"]);
-  // the undone card offers Redo while it can still be redone.
+  assertEquals(fake.calls.undone, [
+    { session: SESSION_WEEK.id, edit: "edit-1" },
+  ]);
+  // the source says the edit was undone: the card says so and offers nothing more than Open.
   const thread = fake.state.threads[SESSION_WEEK.id]!;
   fake.state.threads[SESSION_WEEK.id] = {
     ...thread,
     entries: thread.entries.map((entry) =>
-      entry.kind === "edit" ? { ...entry, undone: true, canRedo: true } : entry
+      entry.kind === "edit"
+        ? {
+          ...entry,
+          undone: true,
+          undo: { can: false, reason: "already_reverted" },
+        }
+        : entry
     ),
   };
   await tick(view);
@@ -189,9 +199,31 @@ Deno.test("shell/desktop#R41 [agent-I33a]: the edit card's Open opens the docume
   assert(
     text(find(undone, "[data-edit-summary]")).startsWith("Undid the edit to"),
   );
-  click(buttonNamed(undone, "Redo"));
+  assertEquals(all(undone, "button").map(text), ["Open"]);
+  await unmountSettled(view.view);
+});
+
+Deno.test("lophn-agent/revert#R19 [agent-RW3e]: an edit that cannot be undone shows why on a disabled Undo", async () => {
+  const fake = weekFake();
+  const thread = fake.state.threads[SESSION_WEEK.id]!;
+  fake.state.threads[SESSION_WEEK.id] = {
+    ...thread,
+    entries: thread.entries.map((entry) =>
+      entry.kind === "edit"
+        ? { ...entry, undo: { can: false, reason: "later_edit" } }
+        : entry
+    ),
+  };
+  const view = await mount({ fake, session: SESSION_WEEK.id });
+  const card = find(view.view.container, "[data-edit-card]");
+  assert((buttonNamed(card, "Undo") as HTMLButtonElement).disabled);
+  assertEquals(
+    text(find(card, "[data-undo-reason]")),
+    "A later edit changed the same file, so only that one can be undone first.",
+  );
+  click(buttonNamed(card, "Undo"));
   await flush();
-  assertEquals(fake.calls.redone, ["edit-1"]);
+  assertEquals(fake.calls.undone, []);
   await unmountSettled(view.view);
 });
 
@@ -354,13 +386,35 @@ Deno.test("shell/desktop#R38 lophn-agent/conversation#R9 [agent-I33a]: Fork in t
   await unmountSettled(view.view);
 });
 
-Deno.test("shell/desktop#R48 [agent-I33a]: Rewind to here and Fork from here on my message go to the source with that message, and a closed session has neither", async () => {
+Deno.test("shell/desktop#R48 lophn-agent/revert#R15 [agent-RW3e]: Rewind to here opens the menu on that message and Rewind… in the header opens it on a chosen one; Fork from here still goes straight to the source, and a closed session has neither", async () => {
   const fake = weekFake();
   const view = await mount({ fake, session: SESSION_WEEK.id });
   const mine = find(view.view.container, `[data-message="${messageId(1)}"]`);
   click(buttonNamed(mine, "Rewind to here"));
   await flush();
-  assertEquals(fake.calls.rewinds, [[SESSION_WEEK.id, messageId(1)]]);
+  // the button opens a menu; it does not rewind by itself.
+  const dialog = find(document.body, "[role=dialog]");
+  assertEquals(fake.calls.rewinds, []);
+  assertEquals(dialog.querySelector("select"), null);
+  const choice = [...dialog.querySelectorAll<HTMLElement>("[role=radio]")]
+    .find((radio) => text(radio).startsWith("Restore messages only"))!;
+  click(choice);
+  await flush();
+  assertEquals(fake.calls.previews, [{
+    session: SESSION_WEEK.id,
+    message: messageId(1),
+    choice: "messages_only",
+  }]);
+  click(find(dialog, "[data-rewind-primary]"));
+  await flush();
+  assertEquals(fake.calls.rewinds, [{
+    session: SESSION_WEEK.id,
+    message: messageId(1),
+    choice: "messages_only",
+  }]);
+  // the menu closed once the confirmation window was asked for.
+  assertEquals(document.body.querySelector("[role=dialog]"), null);
+
   click(buttonNamed(mine, "Fork from here"));
   await flush();
   assertEquals(fake.calls.forked[0]!.through, messageId(1));
@@ -369,7 +423,11 @@ Deno.test("shell/desktop#R48 [agent-I33a]: Rewind to here and Fork from here on 
   await openMore(view.view.container);
   await pickMore(2);
   await flush();
-  assertEquals(fake.calls.rewinds[1], [SESSION_WEEK.id, null]);
+  const header = find(document.body, "[role=dialog]");
+  assertEquals(find(header, "select").tagName, "SELECT");
+  click(find(header, "[data-rewind-cancel]"));
+  await flush();
+  assertEquals(fake.calls.rewinds.length, 1);
 
   fake.state.sessions = [{ ...SESSION_WEEK, closed: true }, SESSION_EARLIER];
   await tick(view);
@@ -717,4 +775,131 @@ Deno.test("shell/desktop#R40 [agent-I33a]: a message from another actor than the
   assertEquals(fact.dataset.actor, "machine");
   assert(text(fact).includes("Checked: the report links 3 documents."));
   await unmountSettled(view.view);
+});
+
+Deno.test("lophn-agent/revert#R15 [agent-RW3e]: while work is going on the menu tells the person to stop it first and applies nothing", async () => {
+  const fake = fakeAgentSource({ sessions: [SESSION_WEEK] });
+  fake.state.threads[SESSION_WEEK.id] = workingReport(fake);
+  const view = await mount({ fake, session: SESSION_WEEK.id });
+  const mine = find(view.view.container, `[data-message="${messageId(1)}"]`);
+  click(buttonNamed(mine, "Rewind to here"));
+  await flush();
+  const dialog = find(document.body, "[role=dialog]");
+  assertEquals(
+    text(find(dialog, "[data-rewind-running]")),
+    "Stop the work in progress first, then rewind.",
+  );
+  assert(
+    (find(dialog, "[data-rewind-primary]") as HTMLButtonElement).disabled,
+  );
+  assertEquals(fake.calls.rewinds, []);
+  await unmountSettled(view.view);
+});
+
+function hiddenThread(fake: ReturnType<typeof weekFake>, redo = true) {
+  const before = say(fake, 1, "user", "Write the report.");
+  const hiddenAsk = say(fake, 3, "user", "Use the short form.");
+  const hiddenAnswer = say(fake, 4, "agent", "Done, short form.");
+  const hidden: ThreadEntry = {
+    kind: "hidden",
+    id: "hidden-rvt_01k6q000000000000000000001",
+    at: at(-3),
+    revert: "rvt_01k6q000000000000000000001",
+    checkpoint: messageId(3),
+    choice: "restore_all",
+    count: 2,
+    restored: 1,
+    left: [],
+    redo,
+    entries: [hiddenAsk, hiddenAnswer],
+  };
+  fake.state.threads[SESSION_WEEK.id] = {
+    entries: [before, hidden],
+    run: null,
+    tasks: [],
+    approval: null,
+  };
+}
+
+Deno.test("lophn-agent/revert#R16 [agent-RW3e]: the hidden range is one folded line; opening it shows the hidden messages read-only with no Rewind or Fork, and their bodies are read only then", async () => {
+  const fake = weekFake();
+  hiddenThread(fake);
+  const view = await mount({ fake, session: SESSION_WEEK.id });
+  const root = view.view.container;
+  const row = find(root, "[data-hidden-range]");
+  assertEquals(
+    text(find(row, "[data-hidden-label]")),
+    "Rewound here · 2 messages hidden",
+  );
+  assertEquals(root.querySelector(`[data-message="${messageId(3)}"]`), null);
+  click(buttonNamed(row, "Show"));
+  await flush();
+  const shown = find(root, `[data-message="${messageId(3)}"]`);
+  assertEquals(text(shown).includes("Use the short form."), true);
+  // a hidden message cannot be chosen again.
+  assertEquals(shown.querySelectorAll("button").length, 0);
+  assertEquals(
+    all(root, "button").filter((button) =>
+      button.getAttribute("aria-label") === "Rewind to here"
+    ).length,
+    1,
+  );
+  await unmountSettled(view.view);
+});
+
+Deno.test("lophn-agent/revert#R16 [agent-RW3e]: Redo on the hidden range goes to the source with the session and that rewind, and is gone once it cannot be redone", async () => {
+  const fake = weekFake();
+  hiddenThread(fake);
+  const view = await mount({ fake, session: SESSION_WEEK.id });
+  const row = find(view.view.container, "[data-hidden-range]");
+  click(buttonNamed(row, "Redo"));
+  await flush();
+  assertEquals(fake.calls.redone, [{
+    session: SESSION_WEEK.id,
+    revert: "rvt_01k6q000000000000000000001",
+  }]);
+  hiddenThread(fake, false);
+  await tick(view);
+  assertEquals(
+    all(find(view.view.container, "[data-hidden-range]"), "button").map(text),
+    ["Show"],
+  );
+  await unmountSettled(view.view);
+});
+
+Deno.test("lophn-agent/revert#R16 [agent-RW3e]: a rewind that appears while the view is open puts the chosen message back in the input; one that was already there and a draft already being written are left alone", async () => {
+  const fake = weekFake();
+  const view = await mount({ fake, session: SESSION_WEEK.id });
+  assertEquals(composerInput(view.view.container).value, "");
+  hiddenThread(fake);
+  await tick(view);
+  assertEquals(
+    composerInput(view.view.container).value,
+    "Use the short form.",
+  );
+
+  // the same rewind seen again does not overwrite what the person wrote since.
+  write(composerInput(view.view.container), "Something else");
+  await tick(view);
+  assertEquals(composerInput(view.view.container).value, "Something else");
+  await unmountSettled(view.view);
+
+  // a view opened on a thread that already has the hidden range does not fill the input.
+  const again = weekFake();
+  hiddenThread(again);
+  const opened = await mount({ fake: again, session: SESSION_WEEK.id });
+  assertEquals(composerInput(opened.view.container).value, "");
+  await unmountSettled(opened.view);
+
+  // a draft being written is not replaced.
+  const typed = weekFake();
+  const draftView = await mount({ fake: typed, session: SESSION_WEEK.id });
+  write(composerInput(draftView.view.container), "Half a sentence");
+  hiddenThread(typed);
+  await tick(draftView);
+  assertEquals(
+    composerInput(draftView.view.container).value,
+    "Half a sentence",
+  );
+  await unmountSettled(draftView.view);
 });

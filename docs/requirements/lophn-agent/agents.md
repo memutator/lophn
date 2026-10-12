@@ -135,7 +135,7 @@ agent 정의와 설정 층을 맡는다. built-in(lophn·Context Engineer·App E
 
 **[R24]** 정의를 저장하거나 읽을 때 칸의 형식·필수 값·이름·지침 본문·context와 앱 command와 skill·MCP 참조·model·권한 상한·profile 형식을 전체 검사하고 하나라도 잘못이면 어느 칸이 왜 틀렸는지 항목별로 알리며 저장은 전체를 거절하고 읽기는 그 agent를 시작하지 않는다.
 - 이유: 부분적으로 유효한 agent가 남지 않게 하고, 파일을 직접 고쳐 틀려도 다른 agent는 영향받지 않게 한다.
-- 확인: 유효한 지침과 없는 context를 함께 저장하면 아무것도 바뀌지 않고 context 칸이 지목되며, 깨진 파일의 agent만 시작되지 않고 목록에서 이유가 보이는지 본다.
+- 확인: 유효한 지침과 없는 context나 보관한 context를 함께 저장하면 아무것도 바뀌지 않고 그 context 항목이 지목되며, 저장한 뒤 보관한 context는 정의에 남고 다음 run부터 자료에서만 빠지며, 깨진 파일의 agent만 시작되지 않고 목록에서 이유가 보이는지 본다.
 - 의도: lophn-agent#I5, lophn-agent#I6
 
 ### resolved agent

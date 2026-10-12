@@ -39,8 +39,9 @@ export type AgentLookups = {
   contextStatus(id: string): "drafting" | "active" | "archived" | null;
   // context가 속한 project. 없으면 null. context는 project 안에만 있다.
   contextProject(id: string): string | null;
-  // 자리 project의 active context. project가 아니면 빈 목록.
-  activeContexts(place: AgentPlace): string[];
+  // 이 자리의 agent가 읽을 active context다. project 자리는 그 project의 active context 전부이고, App Engineer가
+  // 앱 자리에 있으면 그 앱을 app-data source로 읽는 active context 전부다. 그 밖의 앱 자리는 빈 목록이다.
+  activeContexts(place: AgentPlace, role: AgentRole): string[];
   // 이 자리의 agent가 쓸 수 있는 skill 이름과 MCP tool이다. 전역 층에 자리 층(그 자리에서 여는 agent에만 보인다,
   // extensions R32)을 더한 것이고 발견·등록 순서다.
   skills(place: AgentPlace): string[];

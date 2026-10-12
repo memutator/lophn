@@ -25,9 +25,9 @@ concerns: [documents/contexts]
 - 확인: context를 만들고 계약 판을 적용한 뒤에도 project 폴더의 파일 목록과 내용이 그대로이다.
 - 의도: documents#I1, documents#I6
 
-**[R4]** 사람은 context를 보관하고 해제할 수 있으며 보관한 context는 검색·위반 알림·preset 선택 후보에서 빠지고 계약과 판은 남는다.
+**[R4]** 사람은 context를 보관하고 해제할 수 있으며 보관한 context는 검색·위반 알림에서 빠지고 agent 정의(Operator `contexts`)에 새로 고를 수 없으며 계약과 판은 남는다.
 - 이유: 쓰지 않는 context를 지우지 않고 화면과 알림에서 치운다.
-- 확인: context를 보관하면 검색 목록과 preset 후보에서 사라지고 알림이 멎으며 해제하면 이전 계약 그대로 돌아오고 project 파일은 변하지 않는다.
+- 확인: context를 보관하면 검색 목록에서 사라지고 알림이 멎으며 Operator 정의에 새로 고르려 하면 거절되며 해제하면 이전 계약 그대로 돌아오고 project 파일은 변하지 않는다.
 - 의도: documents#I6
 
 ### 계약
@@ -150,9 +150,9 @@ concerns: [documents/contexts]
 - 확인: 용어집을 바꿔도 계약 판·검색 결과·위반이 변하지 않는다; 용어의 모양과 규칙은 documents/terms를 따른다.
 - 의도: documents#I6
 
-**[R27]** context는 Operator 등 lophn agent가 preset에서 고르는 읽기 자료이며 Operator의 담당 범위를 만들지 않고 coding agent는 context에 접근하지 않는다.
+**[R27]** context는 Operator 등 lophn agent가 정의(Operator `contexts`)에서 고르는 읽기 자료이며 Operator의 담당 범위를 만들지 않고 coding agent는 context에 접근하지 않는다.
 - 이유: 자료와 일을 맡긴 대상을 분리하고, 앱을 만들고 고치는 coding agent는 context와 상관없다.
-- 확인: 같은 project의 Operator 둘이 다른 context를 고르고 context를 보관해도 assignment 대상이 바뀌지 않으며, coding agent의 tool과 CLI에는 context 통로가 없다; 구성은 lophn-agent/presets와 lophn-agent/assignments를 따른다.
+- 확인: 같은 project의 Operator 둘이 다른 context를 고르고 context를 보관해도 assignment 대상이 바뀌지 않으며, coding agent의 tool과 CLI에는 context 통로가 없다; 구성은 lophn-agent/agents와 lophn-agent/assignments를 따른다.
 - 의도: documents#I6
 
 **[R28]** 계약, 선언된 검색, 용어집과 saved view의 초안은 전체에 하나인 Context Engineer가 쓰고 고치며 적용은 R20·R21의 검사 경로로만 한다.

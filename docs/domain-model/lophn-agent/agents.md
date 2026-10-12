@@ -31,7 +31,7 @@ built-in 파일은 그 자리에서 사람이 바꾼 칸이 있을 때만 있고
 | `name` | string | 아니오 | Operator에만 있음; trim 뒤 1자 이상; 같은 자리 Operator 사이 name_key(대소문자·앞뒤 공백 무시) unique; `lophn`·`Context Engineer`·`App Engineer` 불가 | 사람이 고르는 이름 |
 | `profile` | Profile | 예 | null이면 기본 icon | avatar |
 | `model` | ModelChoice | 예 | null이면 아래 층 | 이 agent의 model과 option |
-| `contexts` | `ctx` ID 배열 | 아니오 | project Operator에만 있음; 기본 `[]`(0개 허용); 중복 없음; 존재하고 그 project의 context(만드는 중·보관한 context도 고를 수 있다; 다른 project의 context나 없는 context는 `missing_reference`) | 읽을 context |
+| `contexts` | `ctx` ID 배열 | 아니오 | project Operator에만 있음; 기본 `[]`(0개 허용); 중복 없음; 존재하고 그 project의 context(만드는 중인 context는 고를 수 있다; 다른 project의 context나 없는 context는 `missing_reference`, 보관한 context는 `archived_reference`로 저장을 거절하며 `contexts.N`을 지목한다) | 읽을 context |
 | `app_reads` | AppRead 배열 | 아니오 | 앱 Operator에만 있음; 기본 `[]`; `(app, command)` unique | 읽을 앱 command |
 | `skills_off` | string 배열 | 아니오 | 기본 `[]`; 끈 skill 이름; 중복 없음 | 끈 skill |
 | `mcp_off` | `{server_name, original_tool?}` 배열 | 아니오 | 기본 `[]`; `original_tool` 생략은 그 서버 전체 | 끈 MCP |
@@ -258,7 +258,7 @@ Operator의 자리는 project 또는 앱 하나이고 context는 자료 선택�
 | from | 관계 | to | 다중도 | 대상이 사라지면 |
 |---|---|---|---|---|
 | AgentDefinition | 실행 정체 | Assignment → lophn-agent/assignments | Operator 1:1(파일 이름 = ID); built-in은 역할·자리별 override가 전역 assignment 하나를 따름 | assignment 없는 Operator 파일은 agent가 아님 |
-| Operator 정의 | 읽을 context | Context → documents/contexts | N:M, 0개 허용 | 보관·삭제된 context는 읽기에서 빠지고 정의에 표시; 정의는 유지 |
+| Operator 정의 | 읽을 context | Context → documents/contexts | N:M, 0개 허용 | 저장 때 보관한 context는 거절(`archived_reference`); 저장한 뒤 보관·삭제된 context는 정의를 그대로 두고 실행 때만 자료에서 뺌 |
 | 앱 Operator 정의 | 읽을 앱 command | App → apps/registration | N:M | 앱 보관·command 사라짐·허락 회수면 호출 차단; 정의는 유지 |
 | AgentDefinition | 고른 skill·MCP | → lophn-agent/extensions | N:M(끈 것만 저장) | 사라진 항목은 표시; 정의는 유지 |
 | ResolvedAgent | 시작 기준 | Run → lophn-agent/harness/run-loop | 1:N | 과거 run의 값은 blob으로 유지 |
@@ -307,4 +307,4 @@ Operator의 자리는 project 또는 앱 하나이고 context는 자료 선택�
 - 파일에는 바꾼 칸만 있다. 비운 칸과 빈 기본 목록(`contexts`, `app_reads`, `skills_off`, `mcp_off`, `safe_tools`)은 쓰지 않고, 칸이 하나도 없으면 frontmatter 없이 본문만 쓴다. 쓰는 칸 순서는 고정이다(표의 순서). 같은 값은 항상 같은 글이다.
 - 본문은 앞쪽 빈 줄과 뒤쪽 공백을 뺀 글이고, 쓸 때 끝에 줄바꿈 하나를 붙인다. 크기는 지침 파일 상한(32768 UTF-8 bytes)을 따른다(→ lophn-agent/instructions).
 - `settings.md`는 본문이 없고 칸은 `models`와 `permissions`뿐이다.
-- 읽을 때와 쓸 때 같은 전체 검사를 하고, 틀린 칸마다 `field`(점 경로)와 이유 code(`malformed`, `unknown_field`, `invalid_value`, `required`, `not_allowed`, `reserved_name`, `duplicate`, `too_large`, `missing_reference`, `over_cap`)를 알린다.
+- 읽을 때와 쓸 때 같은 전체 검사를 하고, 틀린 칸마다 `field`(점 경로)와 이유 code(`malformed`, `unknown_field`, `invalid_value`, `required`, `not_allowed`, `reserved_name`, `duplicate`, `too_large`, `missing_reference`, `archived_reference`, `over_cap`)를 알린다.

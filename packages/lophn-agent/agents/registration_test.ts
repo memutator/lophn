@@ -51,6 +51,9 @@ export const CTX = {
   one: "ctx_01arz3ndektsv4rrffq69g5fb1",
   two: "ctx_01arz3ndektsv4rrffq69g5fb2",
   archived: "ctx_01arz3ndektsv4rrffq69g5fb3",
+  drafting: "ctx_01arz3ndektsv4rrffq69g5fb4",
+  // 다른 project의 active context.
+  foreign: "ctx_01arz3ndektsv4rrffq69g5fb7",
 };
 
 // 본문에 이 글이 있으면 쓰기와 지우기가 실패한다. 임시 파일이나 rename이 실패한 디스크를 갈음한다.
@@ -123,13 +126,20 @@ function lookups(sql: Sql): AgentLookups {
       return row === undefined ? null : refOf(row);
     },
     contextStatus: (id) =>
-      id === CTX.one || id === CTX.two
+      id === CTX.one || id === CTX.two || id === CTX.foreign
         ? "active"
         : id === CTX.archived
         ? "archived"
+        : id === CTX.drafting
+        ? "drafting"
         : null,
     contextProject: (id) =>
-      id === CTX.one || id === CTX.two || id === CTX.archived ? PRJ : null,
+      id === CTX.foreign
+        ? OTHER_PRJ
+        : id === CTX.one || id === CTX.two || id === CTX.archived ||
+            id === CTX.drafting
+        ? PRJ
+        : null,
     activeContexts: (place) =>
       place.kind === "project" ? [CTX.one, CTX.two] : [],
     skills: () => ENV.skills,

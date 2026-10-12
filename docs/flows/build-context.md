@@ -32,9 +32,9 @@ concerns: [documents/contexts, documents/terms, documents/outline-and-search, lo
 - 7에서 선언이 그릴 수 없는 입력 타입을 쓰면 그 검색은 열리지 않고 이유가 나온다. 고치려면 sidebar의 Context Engineer를 연다. 개체로 읽을 수 없는 파일이 있어도 나머지 개체의 검색은 그대로 된다. (shell/workspace#R24, documents/contexts#R24)
 - 10에서 위반이 이미 있던 것이면 새 notification을 만들지 않는다. 새로 늘어난 위반만 알린다. 알림을 놓쳤으면 사람이 Contexts 탭의 위반 수나 Violations에서 직접 본다. (documents/contexts#R25, platform/notifications#R4, shell/workspace#R16)
 - 12에서 새 판이 마음에 들지 않으면 사람이 Contract의 [History]에서 이전 판으로 되돌린다. 계약의 판일 뿐 project 파일은 바뀌지 않는다. (documents/contexts#R21, documents/contexts#R22, shell/workspace#R21)
-- context를 보관하면 검색·위반 알림·Operator preset의 선택 후보에서 빠지고 계약과 판, 용어집은 남는다. 해제하면 이전 계약 그대로 돌아온다. (documents/contexts#R4, documents/terms#R9)
+- context를 보관하면 검색·위반 알림에서 빠지고 Operator 정의(`contexts`)에 새로 고를 수 없으며 계약과 판, 용어집은 남는다. 해제하면 이전 계약 그대로 돌아온다. (documents/contexts#R4, documents/terms#R9)
 - Context 탭을 여는 길은 하나가 아니다. 사이드바의 Contexts 행, 접힌 바로 가기 rail의 Contexts, 탭 줄 `+`의 Context, Search 탭의 "Open context", 문서 Info의 Contexts, 위반 toast, 상단 검색(Ctrl+K)의 context 이름, Agent 탭 대화 속 context 이름 링크, 1의 drafting 탭이 모두 같은 Context 탭을 연다. (shell/workspace#R15, shell/workspace#R28, shell/workspace#R31, shell/workspace#R32, shell/desktop#R34)
-- Operator나 다른 lophn agent는 preset에서 이 context를 읽을 자료로 고른다. context가 Operator의 담당 범위를 만들지는 않고 coding agent는 context에 접근하지 않는다. (documents/contexts#R27, coding-agent/mcp-server#R38)
+- Operator는 정의(`contexts`)에서 이 context를 읽을 자료로 고르고, 다른 lophn agent는 자리의 active context 전부를 읽는다. context가 Operator의 담당 범위를 만들지는 않고 coding agent는 context에 접근하지 않는다. (documents/contexts#R27, coding-agent/mcp-server#R38)
 - 연결이 끊기면 Context 탭과 Search 탭은 마지막 화면과 확인 못한 시각을 유지하고, 작성하던 답과 입력은 보존한다. 재연결 뒤 현재 판과 위반을 다시 읽는다. (shell/desktop#R7, shell/desktop#R8, shell/workspace#R6)
 
 ## 끝

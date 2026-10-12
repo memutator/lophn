@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
-import { APP, ASG, OTHER_PRJ, PRJ } from "./registration_test.ts";
+import { APP, ASG, CTX, OTHER_PRJ, PRJ } from "./registration_test.ts";
 import {
   type AgentHarness,
   failure,
@@ -237,6 +237,29 @@ Deno.test("lophn-agent/agents#R24 [agent-I9]: a wrong file lists its reasons and
       reviewer.issues.map((issue) => `${issue.field}:${issue.code}`).sort(),
       ["body:required", "color:unknown_field", "name:reserved_name"],
     );
+  });
+});
+
+Deno.test("lophn-agent/agents#R24 [agent-I54]: a context archived after the save leaves the definition as it is and only drops out of the count", async () => {
+  await withAgents(async (ctx) => {
+    // 저장 때는 고를 수 있던 context가 그 뒤 보관됐다: 정의는 그대로 읽히고 이유도 없다.
+    writeAgentFile(
+      ctx.root,
+      PROJECT,
+      `${ASG.scribe}.md`,
+      `---\nname: Scribe\ncontexts:\n  - ${CTX.one}\n  - ${CTX.archived}\n---\n\nWrite.\n`,
+    );
+    const scribe = (await list(ctx, PROJECT)).find((row) =>
+      row.assignment === ASG.scribe
+    )!;
+    assertEquals(scribe.issues, []);
+    assertEquals(scribe.counts.contexts, 1);
+    const read = value(await readAgent(ctx, PROJECT, ASG.scribe)) as {
+      definition: { contexts: string[] };
+      issues: unknown[];
+    };
+    assertEquals(read.definition.contexts, [CTX.one, CTX.archived]);
+    assertEquals(read.issues, []);
   });
 });
 

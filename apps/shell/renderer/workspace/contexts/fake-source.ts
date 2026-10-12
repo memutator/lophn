@@ -1083,8 +1083,8 @@ export function createFakeContextsSource(
         ok((options.containing ?? CONTAINING)[path] ?? []),
       );
     },
-    operatorCount: (context) =>
-      Promise.resolve(ok(context === EVAL ? 1 : context === HARNESS ? 2 : 0)),
+    operatorCounts: () =>
+      Promise.resolve(ok(new Map([[EVAL, 1], [HARNESS, 2]]))),
 
     saveView(request): Promise<CommandResult<SavedViewValue>> {
       calls.push({ command: "saveView", request });

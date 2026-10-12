@@ -1,4 +1,4 @@
-import { assertEquals } from "@std/assert";
+import { assert, assertEquals } from "@std/assert";
 
 import type { CoreCall } from "../../../ipc/core.ts";
 import type { CoreReply } from "../../../ipc/core-api.ts";
@@ -306,7 +306,7 @@ Deno.test("documents/contexts#R21 [ctx-I39b]: rollback은 context의 지금 revi
   });
 });
 
-Deno.test("documents/contexts#R27 [ctx-I39b]: Operator 수는 그 project의 Operator 중 정의 contexts에 이 context를 고른 것만 센다", async () => {
+Deno.test("documents/contexts#R27 [ctx-I54]: Operator 수는 그 project의 Operator를 한 번씩만 읽어 context별로 센다", async () => {
   const row = (assignment: string, kind: string) => ({ assignment, kind });
   const definitions: Record<string, readonly string[] | undefined> = {
     asg_a: [CTX, "ctx_other"],
@@ -315,8 +315,6 @@ Deno.test("documents/contexts#R27 [ctx-I39b]: Operator 수는 그 project의 Ope
     asg_d: [CTX],
   };
   const { core, calls } = routedCore({
-    "read:contexts/get": () =>
-      ok({ context: { ...CONTEXT, id: CTX, project: PROJECT }, ...META }),
     "read:agents/list": () =>
       ok({
         agents: [
@@ -336,13 +334,14 @@ Deno.test("documents/contexts#R27 [ctx-I39b]: Operator 수는 그 project의 Ope
         ...META,
       }),
   });
-  assertEquals(await coreContextsSource(core).operatorCount(CTX), {
-    ok: true,
-    value: 2,
-  });
+  const counted = await coreContextsSource(core).operatorCounts(PROJECT);
+  assert(counted.ok);
+  assertEquals(
+    [...counted.value.entries()].sort(),
+    [[CTX, 2], ["ctx_other", 2]],
+  );
   const place = { kind: "project", id: PROJECT };
   assertEquals(calls.map((call) => call.body), [
-    { context: CTX },
     { place },
     { place, assignment: "asg_a" },
     { place, assignment: "asg_b" },

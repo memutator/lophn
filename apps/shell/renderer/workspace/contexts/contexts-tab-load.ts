@@ -22,8 +22,11 @@ export async function loadCards(
 ): Promise<readonly CardData[] | null> {
   const list = await source.list(project);
   if (!list.ok) return null;
+  // Operator는 project마다 한 번만 읽고 context별 수로 센다.
+  if (list.value.length === 0) return [];
+  const operators = await source.operatorCounts(project);
   const cards = await Promise.all(
-    list.value.map((item) => loadCard(source, item)),
+    list.value.map((item) => loadCard(source, item, operators)),
   );
   return cards.includes(null) ? null : cards as CardData[];
 }
@@ -31,11 +34,11 @@ export async function loadCards(
 async function loadCard(
   source: ContextsSource,
   item: ContextListItem,
+  operators: Awaited<ReturnType<ContextsSource["operatorCounts"]>>,
 ): Promise<CardData | null> {
-  const [overview, bundles, operators] = await Promise.all([
+  const [overview, bundles] = await Promise.all([
     source.overview(item.id),
     source.bundles(item.id),
-    source.operatorCount(item.id),
   ]);
   if (!bundles.ok) return null;
   const applied = bundles.value.find((entry) =>
@@ -52,6 +55,6 @@ async function loadCard(
       : status === "failed"
       ? "failed"
       : "passed",
-    operators: operators.ok ? operators.value : null,
+    operators: operators.ok ? operators.value.get(item.id) ?? 0 : null,
   };
 }

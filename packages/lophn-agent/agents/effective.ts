@@ -96,7 +96,7 @@ export function effectiveAgent(
       const active = new Set(environment.active_contexts);
       contexts = (definition?.contexts ?? []).filter((id) => active.has(id));
     }
-  } else if (place.kind === "project") {
+  } else if (place.kind === "project" || role === "app_engineer") {
     contexts = [...environment.active_contexts];
   }
 

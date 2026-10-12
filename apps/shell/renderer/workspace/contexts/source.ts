@@ -177,8 +177,10 @@ export interface ContextsSource {
     project: string,
     path: string,
   ): Promise<ReadResult<readonly ContainingContext[]>>;
-  /** 이 context를 쓰는 Operator 수. */
-  operatorCount(context: string): Promise<ReadResult<number>>;
+  /** 이 project의 Operator가 정의 `contexts`에 고른 context별 수. 한 번도 고르지 않은 context는 없다. */
+  operatorCounts(
+    project: string,
+  ): Promise<ReadResult<ReadonlyMap<string, number>>>;
 
   // ---------- 사람이 보내는 명령 ----------
   saveView(request: SaveViewRequest): Promise<CommandResult<SavedViewValue>>;

@@ -23,7 +23,6 @@ const EXPIRES_AT = new Date(CLOCK.nowMs() + 30_000).toISOString();
 
 const FACTS: RefreshFacts = {
   provider: "pvd_openai",
-  key: "login-1",
   token_endpoint: "https://auth.openai.com/api/accounts/oauth/token",
   client_id: "client-issued-1",
   resource: "https://api.openai.com/v1",
@@ -138,7 +137,7 @@ function portOf(options: {
       if (!result.ok) return result;
       return result;
     },
-    async save(_provider, _key, next) {
+    async save(_provider, next) {
       record.saveCalls.push({
         bundle: next.bundle,
         expires_at: next.expires_at,

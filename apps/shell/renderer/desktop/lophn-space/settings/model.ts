@@ -2,22 +2,16 @@
 // 지어내지 않는다(shell/wording#R10). 화면 컴포넌트와 테스트가 같이 쓴다.
 import { formatDate, t } from "@lophn/wording";
 
-import type {
-  AccountRow,
-  ApplyAt,
-  AuthWay,
-  ServerAuth,
-  SettingRow,
-} from "./source.ts";
+import type { ApplyAt, AuthWay, ServerAuth, SettingRow } from "./source.ts";
 
-/** 계정은 사람이 정한 순서다. 같은 연결 안에서 앞 계정이 먼저 쓰인다. */
-export function sortAccounts(rows: readonly AccountRow[]): AccountRow[] {
-  return [...rows].sort((a, b) => a.order - b.order);
-}
-
-/** 연결이 알려 준 방식만, 정해진 순서(로그인, key, 로컬)로. */
-export function waysOf(ways: readonly AuthWay[]): AuthWay[] {
-  const order: AuthWay[] = ["oauth", "api_key", "none"];
+/**
+ * 내장 정의가 알려 준 연결 방법만, 정해진 순서(로그인, key)로. 인증 없음은 내장 정의에 없고 직접 만든
+ * custom provider의 loopback에만 있어 고르는 방법이 아니다(lophn-agent/harness/provider#R5).
+ */
+export function waysOf(
+  ways: readonly AuthWay[],
+): Exclude<AuthWay, "none">[] {
+  const order: Exclude<AuthWay, "none">[] = ["oauth", "api_key"];
   return order.filter((way) => ways.includes(way));
 }
 

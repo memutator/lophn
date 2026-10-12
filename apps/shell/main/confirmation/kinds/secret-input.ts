@@ -3,10 +3,8 @@
 // (2) 그 증거가 들어간 소유 command 입력의 binding으로 이 창의 handle을 만들고(증거를 받은
 // 뒤에만 만들 수 있다), (3) 소유 command를 보내고, (4) 창에는 안전 이름과 저장 결과만 돌려준다.
 // 값은 log·오류·IPC 결과 어디에도 넣지 않는다.
-import { createHash } from "node:crypto";
-
-import type { Canonical, DeferredPort } from "../coordinator.ts";
-import type { ProviderCredentialFields } from "../types.ts";
+import type { DeferredPort } from "../coordinator.ts";
+import type { ProviderConnectFields } from "../types.ts";
 import {
   bindingOf,
   failed,
@@ -18,8 +16,11 @@ import {
 } from "./core.ts";
 
 export const SET_SECRET = "SetSecret";
-export const REGISTER_PROVIDER_CREDENTIAL = "RegisterProviderCredential";
-export const CHANGE_PROVIDER_CREDENTIALS = "ChangeProviderCredentials";
+// provider 연결(Connect): 보호 입력의 값을 준비 증거로 바꿔 provider와 credential 하나를 함께 등록한다.
+// 이 command는 확인 handle을 요구하지 않는다: 사람이 보호 창에 직접 넣은 값이 곧 그 결정이다.
+export const REGISTER_PROVIDER = "RegisterProvider";
+// provider 끊기(Disconnect): provider와 credential(secret)을 함께 지우므로 확인 창의 handle을 거친다.
+export const DISCONNECT_PROVIDER = "DisconnectProvider";
 // OAuth 로그인 완료(lophn-agent#T16). oauth credential의 값은 secret store에 가지
 // 않고 login-complete 교환의 submission으로만 간다(R11: 값은 보호 제출이지 보관이
 // 아니다).
@@ -65,86 +66,57 @@ async function readAppSecret(core: KindCore, name: string): Promise<Read> {
   };
 }
 
-/** provider credential 등록(contracts#T29). 값 아닌 등록 정보는 intent가 싣는다. */
-async function readProviderCredential(
-  core: KindCore,
-  provider: string,
-  credential: ProviderCredentialFields | undefined,
+/**
+ * provider 연결(Connect). provider는 아직 없다: 값 아닌 등록 정보는 intent가 싣고 제출 때 받은 값의
+ * 준비 증거와 함께 RegisterProvider로 등록한다. OAuth는 시작한 login handle로 CompleteProviderLogin을
+ * 부른다.
+ */
+function readProviderConnect(
+  owner: string,
+  connect: ProviderConnectFields,
 ): Promise<Read> {
-  if (credential === undefined) {
-    return failed("invalid_input", "등록 정보가 없다");
-  }
-  const got = await core.internal("read", "providers", "read", { provider });
-  if (!got.ok) return readFailure(got);
-  const found = record(record(got.value).provider);
-  const revision = found.revision;
-  if (typeof revision !== "number") {
-    return failed("not_found", "연결을 찾지 못했다");
-  }
-  return {
+  const oauth = connect.kind === "oauth";
+  return Promise.resolve({
     ok: true,
     value: {
-      targetRef: provider,
-      content: {
-        purpose: "provider_credential",
-        owner: provider,
-        revision,
-        credential,
-      },
-      allowed: [REGISTER_PROVIDER_CREDENTIAL],
+      targetRef: owner,
+      content: { purpose: "provider_credential", owner, connect },
+      allowed: [oauth ? COMPLETE_PROVIDER_LOGIN : REGISTER_PROVIDER],
       expiresAt: null,
       secondConfirm: false,
       handle: "deferred",
       request: {
         kind: "secret_input",
-        owner: provider,
+        owner,
         purpose: "provider_credential",
       },
       view: {
         kind: "secret",
         purpose: "provider_credential",
-        name: credential.label,
-        provider: typeof found.name === "string" ? found.name : null,
+        name: connect.name,
+        provider: connect.name,
         configured: false,
         // OAuth code·최종 주소 붙여넣기도 같은 보호 입력이다.
-        entry: credential.kind === "oauth" ? "code" : "key",
+        entry: oauth ? "code" : "key",
       },
     },
-  };
+  });
 }
 
 /**
- * 등록한 계정 하나의 교체·삭제(contracts ChangeProviderCredentials). 표시 정본은
- * `/v1/provider-credentials/list`의 그 계정이고 비교 기준은 `providers/read`의 판이다. 교체는
- * 새 값을 보호 입력으로 받고, 삭제는 그 계정을 새 일에서 막을 뿐 값을 받지 않는다.
+ * provider 끊기(contracts DisconnectProvider). 표시 정본과 비교 기준은 `providers/read`의 그
+ * provider다. 값을 받지 않고 그 판의 provider와 credential만 지운다.
  */
-async function readProviderCredentialChange(
+async function readProviderDisconnect(
   core: KindCore,
   provider: string,
-  change: { key: string; action: "replace" | "revoke" },
 ): Promise<Read> {
   const got = await core.internal("read", "providers", "read", { provider });
   if (!got.ok) return readFailure(got);
   const found = record(record(got.value).provider);
   const revision = found.revision;
-  if (typeof revision !== "number") {
+  if (typeof revision !== "number" || typeof found.name !== "string") {
     return failed("not_found", "연결을 찾지 못했다");
-  }
-  const listed = await core.internal("read", "provider-credentials", "list", {
-    provider,
-  });
-  if (!listed.ok) return readFailure(listed);
-  const credentials = record(listed.value).credentials;
-  const current = record(
-    (Array.isArray(credentials) ? credentials : []).map(record).find((item) =>
-      item.key === change.key
-    ),
-  );
-  if (
-    typeof current.revision !== "number" || typeof current.order !== "number" ||
-    typeof current.label !== "string"
-  ) {
-    return failed("not_found", "계정을 찾지 못했다");
   }
   return {
     ok: true,
@@ -154,15 +126,10 @@ async function readProviderCredentialChange(
         purpose: "provider_credential",
         owner: provider,
         revision,
-        change: {
-          key: change.key,
-          action: change.action,
-          revision: current.revision,
-          order: current.order,
-          label: current.label,
-        },
+        disconnect: true,
+        name: found.name,
       },
-      allowed: [CHANGE_PROVIDER_CREDENTIALS],
+      allowed: [DISCONNECT_PROVIDER],
       expiresAt: null,
       secondConfirm: false,
       handle: "deferred",
@@ -174,10 +141,10 @@ async function readProviderCredentialChange(
       view: {
         kind: "secret",
         purpose: "provider_credential",
-        name: current.label,
-        provider: typeof found.name === "string" ? found.name : null,
-        configured: false,
-        entry: change.action === "replace" ? "replace" : "revoke",
+        name: found.name,
+        provider: found.name,
+        configured: true,
+        entry: "disconnect",
       },
     },
   };
@@ -188,17 +155,21 @@ export function readSecretInput(
   intent: {
     owner: string;
     purpose: string;
-    credential?: ProviderCredentialFields;
-    change?: { key: string; action: "replace" | "revoke" };
+    connect?: ProviderConnectFields;
+    disconnect?: true;
   },
 ): Promise<Read> {
   if (intent.purpose === "app_secret") {
     return readAppSecret(core, intent.owner);
   }
   if (intent.purpose === "provider_credential") {
-    return intent.change === undefined
-      ? readProviderCredential(core, intent.owner, intent.credential)
-      : readProviderCredentialChange(core, intent.owner, intent.change);
+    if (intent.connect !== undefined) {
+      return readProviderConnect(intent.owner, intent.connect);
+    }
+    if (intent.disconnect === true) {
+      return readProviderDisconnect(core, intent.owner);
+    }
+    return Promise.resolve(failed("invalid_input", "연결 정보가 없다"));
   }
   return Promise.resolve(failed("not_found", "이 입력을 받을 곳이 없다"));
 }
@@ -226,6 +197,20 @@ function safeError(code: string): { code: string; message: string } {
   };
 }
 
+/** 제출이 부를 소유 command 하나. confirm은 확인 handle을 거치는 command인지다. */
+interface Built {
+  decision: string;
+  resource: string;
+  method: string;
+  binding: readonly string[];
+  input: Record<string, unknown>;
+  compare: Record<string, unknown>;
+  idempotencyKey: string;
+  safeName: string;
+  stored: "stored" | "revoked";
+  confirm: boolean;
+}
+
 export function createSecretSubmitter(
   core: KindCore,
   clock: { now(): number },
@@ -233,19 +218,35 @@ export function createSecretSubmitter(
   return {
     async submit({ canonical, decision, commandInput, register }) {
       const content = record(canonical.content);
-      const purpose = String(content.purpose);
-      const owner = String(content.owner);
       if (!canonical.allowed.includes(decision)) {
         return { ok: false, error: safeError("forbidden") };
       }
-      // OAuth 로그인은 값을 secret store에 보관하지 않는다. 값은 login-complete
-      // 교환의 submission으로만 간다(lophn-agent#T16, R11).
-      if (isOAuthLogin(content)) {
+      let built: Built;
+      if (content.disconnect === true) {
+        // 끊기는 받을 값이 없다. 증거 없이 그 판의 provider와 credential을 지운다.
+        built = disconnectCommandOf(content);
+      } else if (isOAuthLogin(content)) {
+        // OAuth 로그인은 값을 secret store에 보관하지 않는다. 값은 login-complete
+        // 교환의 submission으로만 간다(lophn-agent#T16, R11).
         const raw = record(commandInput).value;
         if (typeof raw !== "string" || raw.trim().length === 0) {
           return { ok: false, error: safeError("invalid_input") };
         }
-        const built = loginCommandOf(canonical, raw);
+        built = loginCommandOf(content, raw);
+      } else {
+        const stored = await storeValue(
+          core,
+          String(content.purpose),
+          String(content.owner),
+          record(commandInput).value,
+        );
+        if (!stored.ok) return stored;
+        built = content.purpose === "provider_credential"
+          ? connectCommandOf(content, stored.evidence)
+          : setSecretCommandOf(content, stored.evidence);
+      }
+      let confirmation: string | undefined;
+      if (built.confirm) {
         const bound = bindingOf(built.binding, built.input);
         const handle = await register({
           target_ref: bound.target,
@@ -254,79 +255,16 @@ export function createSecretSubmitter(
           expires_at: new Date(clock.now() + HANDLE_TTL_MS).toISOString(),
         });
         if (!handle.ok) return { ok: false, error: safeError("conflict") };
-        const sent = await sendCommand(core, built.resource, built.method, {
-          input: built.input,
-          idempotency_key: `confirmation:${handle.confirmation}`,
-          compare: built.compare,
-          prepared: [],
-          confirmation: handle.confirmation,
-        });
-        if (!sent.ok) {
-          return {
-            ok: false,
-            error: safeError(sent.unknown ? "unavailable" : sent.error.code),
-          };
-        }
-        return {
-          ok: true,
-          value: { secret_ref: built.safeName, stored: "stored" as const },
-        };
+        confirmation = handle.confirmation;
       }
-      // 삭제는 받을 값이 없다. 증거 없이 계정 상태만 바꾼다.
-      let evidence: Record<string, string> | null = null;
-      let fingerprint: string | null = null;
-      if (!isRevoke(content)) {
-        const raw = record(commandInput).value;
-        if (typeof raw !== "string" || raw.length === 0) {
-          return { ok: false, error: safeError("invalid_input") };
-        }
-        const bytes = new TextEncoder().encode(raw);
-        // 같은 key를 두 번 등록하지 않게 하는 지문은 값에서만 만들 수 있다. 값은 남지 않는다.
-        fingerprint = createHash("sha256").update(bytes).digest("hex");
-        try {
-          if (bytes.length > SECRET_INPUT_MAX_BYTES) {
-            return { ok: false, error: safeError("invalid_input") };
-          }
-          let uploaded;
-          try {
-            uploaded = await core.upload(
-              "secrets",
-              "input",
-              { purpose, owner, bytes: bytes.length },
-              bytes,
-            );
-          } catch {
-            return { ok: false, error: safeError("unavailable") };
-          }
-          if (!uploaded.ok) {
-            return { ok: false, error: safeError(uploaded.error.code) };
-          }
-          evidence = evidenceOf(uploaded.value);
-        } finally {
-          bytes.fill(0);
-        }
-        if (
-          evidence === null || evidence.purpose !== purpose ||
-          evidence.owner !== owner
-        ) {
-          return { ok: false, error: safeError("internal") };
-        }
-      }
-      const built = commandOf(canonical, evidence, fingerprint);
-      const bound = bindingOf(built.binding, built.input);
-      const handle = await register({
-        target_ref: bound.target,
-        content_hash: bound.hash,
-        allowed_decisions: [built.decision],
-        expires_at: new Date(clock.now() + HANDLE_TTL_MS).toISOString(),
-      });
-      if (!handle.ok) return { ok: false, error: safeError("conflict") };
       const sent = await sendCommand(core, built.resource, built.method, {
         input: built.input,
-        idempotency_key: `confirmation:${handle.confirmation}`,
+        idempotency_key: built.idempotencyKey === ""
+          ? `confirmation:${confirmation}`
+          : built.idempotencyKey,
         compare: built.compare,
         prepared: [],
-        confirmation: handle.confirmation,
+        ...(confirmation === undefined ? {} : { confirmation }),
       });
       if (!sent.ok) {
         return {
@@ -342,32 +280,68 @@ export function createSecretSubmitter(
   };
 }
 
-/** 계정 삭제인지. 삭제는 값도 증거도 없다. */
-function isRevoke(content: Record<string, unknown>): boolean {
-  return record(content.change).action === "revoke";
+/**
+ * 보호 입력의 값을 `/v1/secrets/input`으로 올려 값 없는 준비 증거를 받는다. 값은 이 함수의 byte 배열과
+ * upload 본문에만 있고 끝나면 0으로 덮는다.
+ */
+async function storeValue(
+  core: KindCore,
+  purpose: string,
+  owner: string,
+  raw: unknown,
+): Promise<
+  { ok: true; evidence: Record<string, string> } | {
+    ok: false;
+    error: { code: string; message: string };
+  }
+> {
+  if (typeof raw !== "string" || raw.length === 0) {
+    return { ok: false, error: safeError("invalid_input") };
+  }
+  const bytes = new TextEncoder().encode(raw);
+  let evidence: Record<string, string> | null;
+  try {
+    if (bytes.length > SECRET_INPUT_MAX_BYTES) {
+      return { ok: false, error: safeError("invalid_input") };
+    }
+    let uploaded;
+    try {
+      uploaded = await core.upload(
+        "secrets",
+        "input",
+        { purpose, owner, bytes: bytes.length },
+        bytes,
+      );
+    } catch {
+      return { ok: false, error: safeError("unavailable") };
+    }
+    if (!uploaded.ok) {
+      return { ok: false, error: safeError(uploaded.error.code) };
+    }
+    evidence = evidenceOf(uploaded.value);
+  } finally {
+    bytes.fill(0);
+  }
+  if (
+    evidence === null || evidence.purpose !== purpose ||
+    evidence.owner !== owner
+  ) {
+    return { ok: false, error: safeError("internal") };
+  }
+  return { ok: true, evidence };
 }
 
 /** OAuth 로그인 완료인지. 값은 secret store에 가지 않는다(lophn-agent#T16, R11). */
 function isOAuthLogin(content: Record<string, unknown>): boolean {
-  const credential = record(content.credential);
-  return content.change === undefined && credential.kind === "oauth";
+  return record(content.connect).kind === "oauth";
 }
 
 /** OAuth 로그인 완료 command다. submission은 사람이 붙여넣은 코드·최종 주소다. */
 function loginCommandOf(
-  canonical: Canonical,
+  content: Record<string, unknown>,
   submission: string,
-): {
-  decision: string;
-  resource: string;
-  method: string;
-  binding: readonly string[];
-  input: Record<string, unknown>;
-  compare: Record<string, unknown>;
-  safeName: string;
-} {
-  const content = record(canonical.content);
-  const credential = record(content.credential);
+): Built {
+  const connect = record(content.connect);
   return {
     decision: COMPLETE_PROVIDER_LOGIN,
     resource: "providers",
@@ -375,76 +349,68 @@ function loginCommandOf(
     binding: ["provider", "login", "submission"],
     input: {
       provider: content.owner,
-      login: credential.key,
+      login: connect.login,
       submission,
     },
     compare: {},
-    safeName: String(credential.label),
+    idempotencyKey: "",
+    safeName: String(connect.name),
+    stored: "stored",
+    confirm: true,
   };
 }
 
-function commandOf(
-  canonical: Canonical,
-  evidence: Record<string, string> | null,
-  fingerprint: string | null,
-): {
-  decision: string;
-  resource: string;
-  method: string;
-  binding: readonly string[];
-  input: Record<string, unknown>;
-  compare: Record<string, unknown>;
-  safeName: string;
-  stored: "stored" | "revoked";
-} {
-  const content = record(canonical.content);
-  if (content.purpose === "provider_credential" && content.change) {
-    // 교체는 그 계정에 새 값의 증거를 넣고, 삭제는 그 계정을 새 일에서 막는다. 순서·사용 여부는
-    // 그대로다. 비교 기준은 연결의 판이고 계정의 판은 입력이 싣는다.
-    const change = record(content.change);
-    return {
-      decision: CHANGE_PROVIDER_CREDENTIALS,
-      resource: "provider-credentials",
-      method: "change",
-      binding: ["provider", "credentials"],
-      input: {
-        provider: content.owner,
-        credentials: [{
-          key: change.key,
-          revision: change.revision,
-          replacement: change.action === "replace" ? evidence : null,
-          order: change.order,
-          revoke: change.action === "revoke",
-        }],
-      },
-      compare: { revision: content.revision },
-      safeName: String(change.label),
-      stored: change.action === "revoke" ? "revoked" : "stored",
-    };
-  }
-  if (content.purpose === "provider_credential") {
-    const credential = record(content.credential);
-    return {
-      decision: REGISTER_PROVIDER_CREDENTIAL,
-      resource: "provider-credentials",
-      method: "register",
-      binding: ["provider", "key", "preparation"],
-      input: {
-        provider: content.owner,
-        key: credential.key,
-        kind: credential.kind,
-        label: credential.label,
-        preparation: evidence,
-        account: credential.account ?? null,
-        organization: credential.organization ?? null,
-        plan: credential.plan ?? null,
-        dedup_fingerprint: credential.dedup_fingerprint ?? fingerprint,
-      },
-      compare: { revision: content.revision },
-      safeName: String(credential.label),
-      stored: "stored",
-    };
-  }
+/**
+ * provider 연결(Connect) command다. 받은 값의 준비 증거로 provider와 credential 하나를 함께 등록한다.
+ * 확인 handle을 거치지 않는다: 사람이 보호 창에 직접 넣은 값이 곧 결정이다. 같은 증거로 다시 보내도
+ * 같은 요청이다.
+ */
+function connectCommandOf(
+  content: Record<string, unknown>,
+  evidence: Record<string, string>,
+): Built {
+  const connect = record(content.connect);
+  return {
+    decision: REGISTER_PROVIDER,
+    resource: "providers",
+    method: "register",
+    binding: [],
+    input: {
+      id: content.owner,
+      name: connect.name,
+      definition: connect.definition,
+      endpoint: connect.endpoint,
+      protocol: connect.protocol,
+      credential: { kind: connect.kind, preparation: evidence },
+    },
+    compare: {},
+    idempotencyKey: `connect:${evidence.preparation}`,
+    safeName: String(connect.name),
+    stored: "stored",
+    confirm: false,
+  };
+}
+
+/** provider 끊기(Disconnect) command다. 비교 기준은 창을 연 때 읽은 provider의 판이다. */
+function disconnectCommandOf(content: Record<string, unknown>): Built {
+  return {
+    decision: DISCONNECT_PROVIDER,
+    resource: "providers",
+    method: "disconnect",
+    binding: ["provider"],
+    input: { provider: content.owner },
+    compare: { revision: content.revision },
+    idempotencyKey: "",
+    safeName: String(content.name),
+    stored: "revoked",
+    confirm: true,
+  };
+}
+
+function setSecretCommandOf(
+  content: Record<string, unknown>,
+  evidence: Record<string, string>,
+): Built {
   return {
     decision: SET_SECRET,
     resource: "secrets",
@@ -452,7 +418,9 @@ function commandOf(
     binding: ["name", "preparation"],
     input: { name: content.owner, preparation: evidence },
     compare: { sealed_ref: null, revision: null },
+    idempotencyKey: "",
     safeName: String(content.owner),
     stored: "stored",
+    confirm: true,
   };
 }

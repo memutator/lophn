@@ -93,7 +93,6 @@ export function buildTotals(
       session: null,
       role: null,
       model: null,
-      credential_key: null,
       from_at: fromAt.toISOString(),
       through_at: throughAt.toISOString(),
       currency: null,

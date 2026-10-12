@@ -31,7 +31,7 @@ const price = {
 };
 const model = {
   purpose: "judgment",
-  credentials: ["primary"],
+  credential_revision: 3,
   provider: `pvd_${suffix}`,
   model_name: "model",
   verification: "unverified",
@@ -141,7 +141,8 @@ Deno.test("lophn-agent/harness/run-loop#R7: RunBasis pins full resolved models a
   assert(runBasisSchema.safeParse(basis).success);
   for (
     const value of [
-      { ...model, credentials: ["primary", "primary"] },
+      { ...model, credentials: ["primary"] },
+      { ...model, credential_revision: 0 },
       { ...model, model_name: " " },
       { ...model, context_limit: 0 },
       { ...model, input_limit: 1.5 },
@@ -160,7 +161,7 @@ Deno.test("lophn-agent/harness/run-loop#R7: RunBasis pins full resolved models a
   assert(
     resolvedModelSchema.safeParse({
       ...model,
-      credentials: [],
+      credential_revision: null,
       price_basis: null,
     }).success,
   );

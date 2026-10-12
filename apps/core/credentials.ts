@@ -3,7 +3,6 @@ import type { AuthenticatedContext } from "../../packages/contracts/platform/mod
 import { authenticatedContextSchema } from "../../packages/contracts/platform/mod.ts";
 import type { LedgerConnection } from "../../packages/platform/ledger/mod.ts";
 import { APPS_CONTROL_PRINCIPAL } from "./apps-control.ts";
-import { CONNECTION_TEST_PRINCIPAL } from "./provider-connection-test.ts";
 import { INVOCATION_RECOVERY_PRINCIPAL } from "../../packages/apps/invocations/restart.ts";
 import { DOCUMENTS_FEED_PRINCIPAL } from "./documents-events.ts";
 import { TICKET_CHECK_FEED_PRINCIPAL } from "./ticket-checker-ids.ts";
@@ -96,7 +95,6 @@ const FIXED_CREDENTIALS = new Set([
   PROBLEMS_WORK_FEED_PRINCIPAL,
   PROBLEMS_CLOSING_FEED_PRINCIPAL,
   NOTIFICATIONS_PRINCIPAL,
-  CONNECTION_TEST_PRINCIPAL,
   ASSIGNMENT_REACTIONS_PRINCIPAL,
 ]);
 

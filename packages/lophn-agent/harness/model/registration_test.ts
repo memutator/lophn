@@ -54,6 +54,7 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
     schemaSteps: [...providerSchemaSteps, ...modelSchemaSteps],
     commands: [
       providerCommands.register,
+      providerCommands.disconnect,
       modelCommands.changeDefaults,
       modelCommands.changeFavorites,
     ],

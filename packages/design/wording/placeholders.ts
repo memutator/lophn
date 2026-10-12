@@ -593,6 +593,7 @@ export type PlaceholderKinds = {
   "confirmation-window.button.close": Record<never, never>;
   "confirmation-window.button.reject": Record<never, never>;
   "confirmation-window.button.save": Record<never, never>;
+  "confirmation-window.button.disconnect": Record<never, never>;
   "confirmation-window.button.remove": Record<never, never>;
   "confirmation-window.button.replace": Record<never, never>;
   "confirmation-window.button.undo": Record<never, never>;
@@ -694,6 +695,12 @@ export type PlaceholderKinds = {
     name: "string";
   };
   "confirmation-window.secret-code.title": Record<never, never>;
+  "confirmation-window.secret-disconnect.effect": Record<never, never>;
+  "confirmation-window.secret-disconnect.revert": Record<never, never>;
+  "confirmation-window.secret-disconnect.subject": Record<never, never>;
+  "confirmation-window.secret-disconnect.title": {
+    name: "string";
+  };
   "confirmation-window.secret-key.title": {
     name: "string";
   };
@@ -2728,6 +2735,9 @@ export type PlaceholderKinds = {
   };
   "settings.title.custom-provider": Record<never, never>;
   "settings.label.custom-provider-hint": Record<never, never>;
+  "settings.status.plan-access": Record<never, never>;
+  "settings.status.sign-in-problem": Record<never, never>;
+  "settings.status.usage-limit": Record<never, never>;
   "settings.notice.provider-lead": Record<never, never>;
   "settings.notice.next-run": Record<never, never>;
   "settings.notice.none-connected": Record<never, never>;
@@ -2759,6 +2769,7 @@ export type PlaceholderKinds = {
   "settings.label.method-local-hint": Record<never, never>;
   "settings.notice.method-unverified": Record<never, never>;
   "settings.error.connect-failed": Record<never, never>;
+  "settings.notice.custom-key-required": Record<never, never>;
   "settings.notice.custom-lead": Record<never, never>;
   "settings.label.custom-id": Record<never, never>;
   "settings.label.custom-name": Record<never, never>;

@@ -2,6 +2,7 @@ import { assert, assertEquals } from "@std/assert";
 import type { AuthenticatedContext } from "../../../../packages/contracts/platform/mod.ts";
 import type { CatalogEntry } from "../../../../packages/contracts/lophn-agent/mod.ts";
 import { formatAt } from "../../../../packages/base/clock.ts";
+import { canonicalize, sha256Hex } from "../../../../packages/base/mod.ts";
 import {
   createLedgerHarness,
   type LedgerHarness,
@@ -23,6 +24,7 @@ const OTHER_PROVIDER = "pvd_01arz3ndektsv4rrffq69g5faw";
 // command는 route name을 scope operation으로 검사한다(platform/ledger executor).
 const OPERATIONS = [
   "RegisterProvider",
+  "DisconnectProvider",
   "ChangeModelDefaults",
   "ReadModelDefaults",
   "ChangeModelFavorites",
@@ -93,11 +95,12 @@ function code(
   }
 }
 
+// 인증 없는 연결은 custom provider의 loopback에만 있다. 정의 key는 사람이 정한 이름이다.
 const ANTHROPIC_DEFINITION = {
   key: "anthropic",
   display_name: "Anthropic",
   protocols: ["anthropic-messages"],
-  auth_kinds: ["api_key"],
+  auth_kinds: ["none"],
   models_endpoint: null,
   oauth: null,
   revision: "2026-01-01",
@@ -128,6 +131,7 @@ async function registerProvider(
       definition: ANTHROPIC_DEFINITION,
       endpoint: `http://127.0.0.1:${port}/v1`,
       protocol: "anthropic-messages",
+      credential: { kind: "none", preparation: null },
     },
     compare: {},
     idempotency_key: `k-provider-${port}`,
@@ -256,7 +260,7 @@ function selection(overrides: Record<string, unknown> = {}) {
   return {
     purpose: "judgment" as const,
     provider: PROVIDER,
-    credentials: ["key-main"],
+    credential_revision: 1,
     model_name: "claude-haiku-4-5",
     option_values: {},
     needs_tools: true,
@@ -571,6 +575,70 @@ Deno.test("lophn-agent/harness/model#R20 [agent-I15]: an unavailable choice leav
   );
   assertEquals(organizingSameModel.purpose, "organizing");
   assertEquals(organizingSameModel.model_name, "claude-haiku-4-5");
+});
+
+Deno.test("lophn-agent/harness/provider#R28 lophn-agent/harness/model#R9: Disconnect가 provider를 지워도 고른 기본 model과 즐겨찾기는 남고 그 provider로 새로 저장하지는 못한다", async () => {
+  const h = await open();
+  try {
+    await registerProvider(h);
+    const saved = resultOf<DefaultsValue>(
+      await changeDefaults(h, userCred, { lophn: choice() }, "0"),
+    );
+    const starred = value(
+      await changeFavorites(
+        h,
+        [{ provider: PROVIDER, model_name: "claude-opus-4-8" }],
+        "0",
+      ),
+    );
+    assert(starred !== undefined);
+    const provider = value(
+      await h.read({ resource: "providers", method: "read" }, userCred, {
+        provider: PROVIDER,
+      }),
+    ) as { provider: { revision: number } };
+    const issued = await h.confirmation({
+      action: "issue",
+      request: {
+        type: "confirmation_handle_register",
+        window_id: "win-1",
+        target_ref: PROVIDER,
+        content_hash: await sha256Hex(canonicalize({ provider: PROVIDER })),
+        allowed_decisions: ["DisconnectProvider"],
+        expires_at: new Date(NOW + 600_000).toISOString(),
+      },
+    });
+    assert(issued.ok, issued.ok ? undefined : JSON.stringify(issued.error));
+    value(
+      await h.command(userCred, {
+        ...envelope(
+          "DisconnectProvider",
+          { provider: PROVIDER },
+          { revision: provider.provider.revision },
+        ),
+        confirmation: (issued.value as { confirmation: string }).confirmation,
+      } as never),
+    );
+    // 고른 선택은 그대로다. 그 provider를 고른 agent가 시작하지 않는 일은 resolve가 막는다.
+    const after = await readDefaults(h);
+    assertEquals(after.defaults.lophn, choice());
+    assertEquals(
+      (await readFavorites(h)).favorites.items.map((item) => item.provider),
+      [PROVIDER],
+    );
+    // 없는 provider로 새로 저장하지는 못한다.
+    code(
+      await changeDefaults(
+        h,
+        userCred,
+        { operator: choice() },
+        saved.defaults.settings_seq,
+      ),
+      "not_found",
+    );
+  } finally {
+    await h.close();
+  }
 });
 
 // === ledger 통합 테스트(R8~R10, R12, R24, R26) ===

@@ -44,7 +44,6 @@ const model = {
   provider: `pvd_${suffix}`,
   name: "gpt",
   protocol: "openai-responses" as const,
-  credential_key: "personal",
   credential_revision: 1,
   option_values: { requested: {}, applied: {} },
   limits: {
@@ -76,11 +75,9 @@ const started = {
   model_use: "judgment" as const,
   agent_hash: hash,
   purpose: "judgment" as const,
-  test_request: null,
   attempt_kind: "initial" as const,
   attempt_order: 1,
   retry_of: null,
-  credential_change_of: null,
   model,
   input: hash,
   context_basis: hash,
@@ -122,7 +119,6 @@ Deno.test("lophn-agent/harness/usage#R1: a started call has no result and an unk
       call: started,
       applied_messages: [`msg_${suffix}`],
       state_seq: "4",
-      timeout_ms: null,
     }).success,
   );
   assert(
@@ -133,7 +129,6 @@ Deno.test("lophn-agent/harness/usage#R1: a started call has no result and an unk
       },
       applied_messages: [],
       state_seq: "4",
-      timeout_ms: null,
     }).success,
   );
 });
@@ -251,28 +246,32 @@ Deno.test("lophn-agent/harness/usage#R9: a supplement adds a late fact without a
   );
 });
 
-Deno.test("lophn-agent/harness/usage#R2: a connection test has no run and the fixed timeout", () => {
+Deno.test("lophn-agent/harness/usage#R2: a call attaches to a run and an agent, and a connection test is not a kind of call", () => {
   const test = {
     ...started,
     run: null,
     session: null,
     model_use: null,
     agent_hash: null,
-    purpose: "connection_test" as const,
-    test_request: { command_key: "test-1", test_kind: "tool_call" as const },
   };
-  assert(modelCallRecordSchema.safeParse(test).success);
+  assert(!modelCallRecordSchema.safeParse(test).success);
   assert(
-    startModelCallInputSchema.safeParse({
-      call: test,
-      applied_messages: [],
-      state_seq: "4",
-      timeout_ms: 30_000,
+    !modelCallRecordSchema.safeParse({
+      ...started,
+      purpose: "connection_test",
     }).success,
   );
   assert(
     !startModelCallInputSchema.safeParse({
       call: { ...started, secret: "raw" },
+      applied_messages: [],
+      state_seq: "4",
+    }).success,
+  );
+  // 명시 연결 test가 쓰던 고정 timeout 칸은 없다.
+  assert(
+    !startModelCallInputSchema.safeParse({
+      call: started,
       applied_messages: [],
       state_seq: "4",
       timeout_ms: null,
@@ -285,32 +284,18 @@ Deno.test("lophn-agent/harness/model#R7: a call reuses the resolved price basis"
   assert(!priceBasisSchema.safeParse({ ...price, currency: "KRW" }).success);
 });
 
-Deno.test("lophn-agent/harness/usage#R2 [agent-I10b]: a run call names the agent hash and a connection test has none", () => {
+Deno.test("lophn-agent/harness/usage#R2 [agent-I10b]: a run call names the agent hash", () => {
   const start = (call: unknown) =>
     startModelCallInputSchema.safeParse({
       call,
       applied_messages: [],
       state_seq: "4",
-      timeout_ms: null,
     }).success;
   assert(start(started));
   assert(!start({ ...started, agent_hash: null }));
   assert(!start({ ...started, agent_hash: "not-a-hash" }));
   // 옛 preset ref 칸은 기록에 없다.
   assert(!start({ ...started, preset: { id: `pst_${suffix}`, revision: 1 } }));
-  const test = {
-    ...started,
-    run: null,
-    session: null,
-    model_use: null,
-    agent_hash: null,
-    purpose: "connection_test" as const,
-    test_request: { command_key: "test-1", test_kind: "text" as const },
-  };
-  assert(modelCallRecordSchema.safeParse(test).success);
-  assert(
-    !modelCallRecordSchema.safeParse({ ...test, agent_hash: hash }).success,
-  );
 });
 
 Deno.test("lophn-agent/harness/usage#R4 [agent-I10b]: a call keeps the requested and the applied option values", () => {
@@ -356,7 +341,6 @@ Deno.test("lophn-agent/harness/usage#R2 [agent-I16b]: a Compact summary call bel
       call: summary,
       applied_messages: [],
       state_seq: "4",
-      timeout_ms: null,
     }).success,
   );
   // 요약 call은 run 대신 session을 가리킨다. session이 없으면 어디에도 묶이지 않는다.
@@ -382,13 +366,6 @@ Deno.test("lophn-agent/harness/usage#R2 [agent-I16b]: a Compact summary call bel
   assert(
     !modelCallRecordSchema.safeParse({ ...summary, purpose: "title_summary" })
       .success,
-  );
-  // 시험 요청은 연결 시험에만 있다.
-  assert(
-    !modelCallRecordSchema.safeParse({
-      ...summary,
-      test_request: { command_key: "test-1", test_kind: "text" as const },
-    }).success,
   );
   // run에 묶인 압축 call은 그대로 run과 agent를 가진다.
   assert(

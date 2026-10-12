@@ -66,7 +66,6 @@ function bindingFor(
       provider: choice.provider,
       name: choice.model_name,
       protocol: "openai-responses",
-      credential_key: null,
       credential_revision: null,
       option_values: { requested: {}, applied: {} },
       limits,

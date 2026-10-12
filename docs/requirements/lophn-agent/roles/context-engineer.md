@@ -100,9 +100,9 @@ project 문서 위의 context(결정적 계약과 선언한 검색)의 경계를
 
 ### model 선택
 
-**[R20]** 경계·계약·검색·용어 해석은 judgment 용도, 이미 정한 보고의 제목·요약은 organizing 용도로 분리하고 judgment는 resolved agent의 model·계정, organizing은 Workspace의 Model for summaries(비면 agent model)를 쓴다.
+**[R20]** 경계·계약·검색·용어 해석은 judgment 용도, 이미 정한 보고의 제목·요약은 organizing 용도로 분리하고 judgment는 resolved agent의 model·provider, organizing은 Workspace의 Model for summaries(비면 agent model)를 쓴다.
 - 이유: 경계나 용어 뜻을 단순 정리 호출로 만들지 않는다.
-- 확인: 본문과 정리의 용도가 기록되고 judgment 호출이 run에 고정된 agent의 provider·model·계정으로 가고 제목·요약 호출이 Model for summaries(비면 같은 model)로 가는지 본다.
+- 확인: 본문과 정리의 용도가 기록되고 judgment 호출이 run에 고정된 agent의 provider·model·provider으로 가고 제목·요약 호출이 Model for summaries(비면 같은 model)로 가는지 본다.
 - 의도: lophn-agent#I5
 
 ### prompt의 관점·기대 결과

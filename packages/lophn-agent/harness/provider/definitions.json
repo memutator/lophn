@@ -93,32 +93,5 @@
     "models_endpoint": "https://generativelanguage.googleapis.com/v1beta/openai/models",
     "oauth": null,
     "revision": "2026-10"
-  },
-  {
-    "key": "ollama",
-    "display_name": "Ollama",
-    "protocols": ["openai-chat-completions"],
-    "auth_kinds": ["none"],
-    "models_endpoint": null,
-    "oauth": null,
-    "revision": "2026-10"
-  },
-  {
-    "key": "lm-studio",
-    "display_name": "LM Studio",
-    "protocols": ["openai-chat-completions"],
-    "auth_kinds": ["none"],
-    "models_endpoint": null,
-    "oauth": null,
-    "revision": "2026-10"
-  },
-  {
-    "key": "llama-cpp",
-    "display_name": "llama.cpp",
-    "protocols": ["openai-chat-completions"],
-    "auth_kinds": ["none"],
-    "models_endpoint": null,
-    "oauth": null,
-    "revision": "2026-10"
   }
 ]

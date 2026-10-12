@@ -38,7 +38,7 @@ const PROVIDERS = {
   },
 } as const;
 
-function providerRecord(id: keyof typeof PROVIDERS, enabled = true) {
+function providerRecord(id: keyof typeof PROVIDERS) {
   const known = PROVIDERS[id];
   return {
     id,
@@ -54,9 +54,18 @@ function providerRecord(id: keyof typeof PROVIDERS, enabled = true) {
     },
     endpoint: "http://127.0.0.1:9/v1",
     protocol: known.protocol,
-    enabled,
-    credentials: [],
-    last_check: null,
+    credential: {
+      kind: "none",
+      secret_ref: null,
+      revision: 1,
+      state: "available",
+      unavailable_reason: null,
+      until: null,
+      expires_at: null,
+      logged_in_at: null,
+      refreshed_at: null,
+      model_blocks: [],
+    },
     revision: 1,
   };
 }
@@ -71,6 +80,7 @@ function choice(
 
 type World = {
   model: ModelChoice;
+  // false인 provider는 Disconnect해 연결이 없다.
   providers?: Partial<Record<keyof typeof PROVIDERS, boolean>>;
   catalog?: readonly CatalogEntry[];
 };
@@ -92,11 +102,11 @@ function setup(world: World) {
   const machine = (path: string, body: unknown): Promise<Result<unknown>> => {
     if (path === routePath(providerRead)) {
       const id = (body as { provider: keyof typeof PROVIDERS }).provider;
-      if (!(id in PROVIDERS)) {
+      if (!(id in PROVIDERS) || world.providers?.[id] === false) {
         return Promise.resolve(err({ code: "not_found", message: "no" }));
       }
       return Promise.resolve(ok({
-        provider: providerRecord(id, world.providers?.[id] ?? true),
+        provider: providerRecord(id),
         as_of_seq: "3",
         next_cursor: null,
       }));
@@ -287,7 +297,7 @@ Deno.test("lophn-agent/harness/model#R24 [agent-I15]: a stored value the catalog
   assertEquals(sent.length, 0);
 });
 
-Deno.test("lophn-agent/harness/model#R9 [agent-I15]: a model without catalog facts or a turned-off provider does not start", async () => {
+Deno.test("lophn-agent/harness/model#R9 [agent-I15]: a model without catalog facts or a disconnected provider does not start", async () => {
   // catalog에 없는 model은 확인된 한계가 없어 쓸 수 없다(R13).
   const missing = await fails({
     model: choice(OPENAI, "gpt-9"),

@@ -180,6 +180,7 @@ Deno.test("lophn-agent/observability#R1: 실제 core에서 돌린 agent turn의 
         },
         endpoint: provider.url,
         protocol: "anthropic-messages",
+        credential: { kind: "none", preparation: null },
       }),
     );
     assertEquals(registered.status, 200, JSON.stringify(registered.body));
@@ -329,7 +330,6 @@ Deno.test("lophn-agent/observability#R1: 실제 core에서 돌린 agent turn의 
       provider: PVD,
       name: "fixture-model",
       protocol: "anthropic-messages",
-      credential_key: null,
       credential_revision: null,
       option_values: { requested: {}, applied: {} },
       limits: {

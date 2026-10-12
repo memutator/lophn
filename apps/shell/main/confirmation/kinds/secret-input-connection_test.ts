@@ -32,7 +32,7 @@ const CONNECT = {
   name: "Anthropic",
   definition: DEFINITION,
   endpoint: "https://api.anthropic.com/v1",
-  protocol: "anthropic-messages",
+  protocol: "anthropic-messages" as const,
   kind: "api_key" as const,
 };
 
@@ -149,8 +149,10 @@ test("lophn-agent/harness/provider#R6, shell/confirmation-window#R5: Disconnectë
   assert.equal(read.value.handle, "deferred");
   assert.equal(read.value.view?.entry, "disconnect");
   assert.equal(read.value.view?.name, "Anthropic");
-  const registered: { content_hash: string; allowed_decisions: string[] }[] =
-    [];
+  const registered: {
+    content_hash: string;
+    allowed_decisions: readonly string[];
+  }[] = [];
   const sent = await createSecretSubmitter(core, { now: () => 0 }).submit({
     windowId: "cfw_1",
     canonical: read.value,

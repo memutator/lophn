@@ -491,7 +491,6 @@ export async function modelAsks(
       provider: id("pvd", 1),
       name: "fixture-model",
       protocol,
-      credential_key: "key-a",
       credential_revision: 1,
       option_values: { requested: {}, applied: {} },
       limits: {

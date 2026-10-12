@@ -39,7 +39,8 @@ export function verificationOf(
 export type SelectionInput = {
   purpose: "judgment" | "organizing";
   provider: string;
-  credentials: string[];
+  // run 시작에 고정한 provider의 credential 판. 인증 없음(loopback)만 null이다.
+  credential_revision: number | null;
   model_name: string;
   // 고른 축의 값이다. 없는 축은 모델에 맡김이고 default를 채우는 일은 여기서 한다(R16).
   option_values: OptionValues;
@@ -137,7 +138,7 @@ export function resolveSelection(
   const support = confirmedSupport(entry);
   const common = {
     purpose: selection.purpose,
-    credentials: [...selection.credentials],
+    credential_revision: selection.credential_revision,
     provider: selection.provider,
     model_name: selection.model_name,
     sent_model_name: selection.model_name,

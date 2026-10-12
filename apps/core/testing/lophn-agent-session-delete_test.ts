@@ -128,12 +128,12 @@ function seedSession(
   }
   const calls = [1, 2, 3].map((i) => id("mcl", n * 10 + i));
   for (const [i, call] of calls.entries()) {
-    const kind = ["initial", "retry", "credential_change"][i]!;
+    const kind = ["initial", "retry", "retry"][i]!;
     db.sql.run(
       `insert into model_calls (id, run, session, model_use, agent_hash, purpose, attempt_kind,
-         attempt_order, retry_of, credential_change_of, provider, model_name, protocol,
+         attempt_order, retry_of, provider, model_name, protocol,
          call_model, input, context_basis, state, state_seq, started_at, usage, cost)
-       values (?, ?, ?, 'judgment', ?, 'judgment', ?, ?, ?, ?, ?, 'model',
+       values (?, ?, ?, 'judgment', ?, 'judgment', ?, ?, ?, ?, 'model',
          'anthropic-messages', '{}', ?, ?, 'started', 1, ?, '{}', '{}')`,
       [
         call,
@@ -142,8 +142,7 @@ function seedSession(
         hex(n),
         kind,
         i + 1,
-        kind === "retry" ? calls[0]! : null,
-        kind === "credential_change" ? calls[1]! : null,
+        i === 0 ? null : calls[i - 1]!,
         id("pvd", 1),
         hex(n),
         hex(n),

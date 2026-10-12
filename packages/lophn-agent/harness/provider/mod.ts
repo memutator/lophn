@@ -51,9 +51,4 @@ export {
   type RefreshFacts,
   unauthorizedRetry,
 } from "./refresh.ts";
-export {
-  type ConnectionTestDeps,
-  type ConnectionTestPort,
-  type InvokeModelCall,
-  runConnectionTest,
-} from "./work.ts";
+export type { InvokeModelCall } from "./work.ts";

@@ -13,7 +13,7 @@ import {
   callCostOutputSchema,
   callModelOutputSchema,
   initialCallCostSchema,
-  MODEL_CALL_TEST_TIMEOUT_MS,
+  MODEL_PURPOSES,
   modelCallRecordSchema,
   modelOutcomeOutputSchema,
   modelOutcomeSchema,
@@ -53,15 +53,12 @@ export const startModelCallInputSchema = z.strictObject({
     context_basis: blobSizeSchema,
   }).optional(),
   state_seq: seqSchema,
-  timeout_ms: z.literal(MODEL_CALL_TEST_TIMEOUT_MS).nullable(),
 }).refine(
   (value) =>
     value.call.state === "started" && value.call.output === null &&
     value.call.outcome === null && value.call.finished_at === null &&
-    initialCallCostSchema.safeParse(value.call.cost).success &&
-    (value.call.purpose === "connection_test") ===
-      (value.timeout_ms === MODEL_CALL_TEST_TIMEOUT_MS),
-  { message: "a started call has no result and a test has the fixed timeout" },
+    initialCallCostSchema.safeParse(value.call.cost).success,
+  { message: "a started call has no result and an unknown cost" },
 );
 export const modelCallCompareSchema = z.strictObject({ state_seq: seqSchema });
 
@@ -159,12 +156,7 @@ export const modelCallStarted = defineEvent("ModelCallStarted", {
     run: idSchema("run").nullable(),
     session: idSchema("ses").nullable(),
     model_use: z.enum(["judgment", "organizing"]).nullable(),
-    purpose: z.enum([
-      "judgment",
-      "title_summary",
-      "conversation_compression",
-      "connection_test",
-    ]),
+    purpose: z.enum(MODEL_PURPOSES),
     model: callModelOutputSchema,
     input: sha256Schema,
     context_basis: sha256Schema,

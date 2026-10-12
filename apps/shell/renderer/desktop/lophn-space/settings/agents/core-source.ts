@@ -216,7 +216,7 @@ export function coreAgentsSettingsSource(
           SLOTS.map((slot) => [slot, choiceOf(defaults.value.defaults[slot])]),
         ) as AgentsSettingsView["defaults"],
         settingsSeq: defaults.value.defaults.settings_seq,
-        providers: providers.value.filter((row) => row.enabled).map((row) => ({
+        providers: providers.value.map((row) => ({
           id: row.id,
           name: row.name,
           definition: row.definition.key,

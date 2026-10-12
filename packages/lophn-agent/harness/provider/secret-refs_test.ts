@@ -4,9 +4,9 @@
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import {
-  changeProviderCredentials,
+  disconnectProvider,
   refreshProviderCredential,
-  registerProviderCredential,
+  registerProvider,
 } from "../../../contracts/lophn-agent/mod.ts";
 import {
   createProviderSecretRefSource,
@@ -18,33 +18,32 @@ import {
 function database(): DatabaseSync {
   const db = new DatabaseSync(":memory:");
   for (const step of providerSchemaSteps) db.exec(step.sql);
-  db.prepare(
-    `insert into providers (id, name, definition_key, definition, endpoint, protocol, enabled, revision)
-     values ('pvd_a', 'A', 'anthropic', '{}', 'https://example.test', 'anthropic-messages', 1, 1)`,
-  ).run();
   return db;
 }
 
-function credential(
+// provider당 credential이 하나다.
+function connect(
   db: DatabaseSync,
-  key: string,
-  order: number,
+  provider: string,
   kind: "api_key" | "none",
   ref: string | null,
   state: "available" | "revoked" = "available",
 ) {
   db.prepare(
+    `insert into providers (id, name, definition_key, definition, endpoint, protocol, revision)
+     values (?, 'A', 'anthropic', '{}', 'https://example.test', 'anthropic-messages', 1)`,
+  ).run(provider);
+  db.prepare(
     `insert into provider_credentials
-      (provider, key, kind, label, secret_name, secret_sealed_ref, secret_revision,
-       revision, order_index, enabled, state, unavailable_reason)
-     values ('pvd_a', ?, ?, 'label', ?, ?, ?, 1, ?, 1, ?, ?)`,
+      (provider, kind, secret_name, secret_sealed_ref, secret_revision,
+       revision, state, unavailable_reason)
+     values (?, ?, ?, ?, ?, 1, ?, ?)`,
   ).run(
-    key,
+    provider,
     kind,
     ref === null ? null : "provider.a",
     ref,
     ref === null ? null : 1,
-    order,
     state,
     state === "available" ? null : "authentication",
   );
@@ -55,32 +54,38 @@ const sqlOf = (db: DatabaseSync) => ({
     db.prepare(text).all(...params) as Record<string, string>[],
 });
 
-Deno.test("platform/secrets#R1: provider credential의 secret 참조를 이름과 함께 읽고 참조 없는 credential은 건너뛴다", () => {
+Deno.test("platform/secrets#R1: provider credential의 secret 참조를 provider ID와 함께 읽고 참조 없는 credential은 건너뛴다", () => {
   const db = database();
-  credential(db, "main", 0, "api_key", "seal-main");
-  credential(db, "local", 1, "none", null);
+  connect(db, "pvd_a", "api_key", "seal-main");
+  connect(db, "pvd_b", "none", null);
   // 회수한 credential도 참조가 남아 있는 동안은 알려진 값이다: 로컬 회수는 외부 key 폐기가
   // 아니라서 값이 출력에 나오면 안 된다.
-  credential(db, "old", 2, "api_key", "seal-old", "revoked");
+  connect(db, "pvd_c", "api_key", "seal-old", "revoked");
   const source = createProviderSecretRefSource();
   const read = source.read(sqlOf(db) as never);
   assert(read.ok);
   assertEquals(read.value, [
-    { name: "pvd_a/main", sealedRef: "seal-main" },
-    { name: "pvd_a/old", sealedRef: "seal-old" },
+    { name: "pvd_a", sealedRef: "seal-main" },
+    { name: "pvd_c", sealedRef: "seal-old" },
   ]);
   assertEquals(source.owner, PROVIDER_SECRET_OWNER);
+  // Disconnect로 지운 provider의 참조는 더는 읽히지 않는다.
+  db.exec("delete from provider_credentials where provider = 'pvd_a'");
+  db.exec("delete from providers where id = 'pvd_a'");
+  const after = source.read(sqlOf(db) as never);
+  assert(after.ok);
+  assertEquals(after.value, [{ name: "pvd_c", sealedRef: "seal-old" }]);
   db.close();
 });
 
-Deno.test("platform/secrets#R1: 참조를 만들거나 바꾸는 provider command가 다시 맞추는 계기다", () => {
+Deno.test("platform/secrets#R1: 참조를 만들거나 바꾸거나 지우는 provider command가 다시 맞추는 계기다", () => {
   const source = createProviderSecretRefSource();
   assertEquals(
     [...source.commands].sort(),
     [
-      changeProviderCredentials.name,
+      disconnectProvider.name,
       refreshProviderCredential.name,
-      registerProviderCredential.name,
+      registerProvider.name,
     ].sort(),
   );
 });

@@ -151,7 +151,6 @@ Deno.test("lophn-agent/harness/usage#R10: a usage total marks missing records in
       session: null,
       role: "lophn",
       model: null,
-      credential_key: null,
       from_at: from,
       through_at: through,
       currency: "USD",

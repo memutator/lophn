@@ -207,7 +207,7 @@ export type FailureInput = {
   cancelled?: boolean;
   // 지금 시각(ms). 429 경계와 reset default에 쓴다.
   nowMs: number;
-  // 429 경계(ms). 연결 test 상한과 같은 30_000이 안이다.
+  // 429 경계(ms). 기본은 30_000이고 이 안이면 일시 실패다(R20).
   temporary_ms?: number;
 };
 

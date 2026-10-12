@@ -1,7 +1,5 @@
 import { canonicalize, err, ok, type Result } from "../../../base/mod.ts";
 import {
-  type ProviderCredential,
-  providerCredentialList,
   providerList,
   providerRead,
   type ProviderRecord,
@@ -18,12 +16,6 @@ function notFound(): Result<never> {
 // provider는 읽힌 자체를 화면 값으로 준다. credential 값은 열에 없고 참조만 있다.
 function publicProvider(record: ProviderRecord): ProviderRecord {
   return record;
-}
-
-function publicCredential(
-  credential: ProviderCredential,
-): ProviderCredential {
-  return credential;
 }
 
 function cursorAfter(cursor: string | undefined): Result<string | null> {
@@ -52,7 +44,6 @@ function cursorOf(afterId: string): string {
 export function createProviderReads(): {
   read: ReadDefinition<typeof providerRead>;
   list: ReadDefinition<typeof providerList>;
-  credentialList: ReadDefinition<typeof providerCredentialList>;
 } {
   return {
     read: {
@@ -89,19 +80,6 @@ export function createProviderReads(): {
           next_cursor: next < loaded.value.length
             ? cursorOf(page[page.length - 1]!.id)
             : null,
-        });
-      },
-    },
-    credentialList: {
-      route: providerCredentialList,
-      handle(snapshot, _ctx, input) {
-        const loaded = loadProvider(snapshot.sql, input.provider);
-        if (!loaded.ok) return loaded;
-        if (loaded.value === null) return notFound();
-        return ok({
-          credentials: loaded.value.credentials.map(publicCredential),
-          as_of_seq: snapshot.as_of_seq,
-          next_cursor: null,
         });
       },
     },

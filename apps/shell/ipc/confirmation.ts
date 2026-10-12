@@ -24,15 +24,22 @@ function prefixed(prefix: string) {
   return z.string().regex(ID).refine((value) => value.startsWith(`${prefix}_`));
 }
 
-const credentialSchema = z.object({
-  key: z.string().regex(NONBLANK),
+// provider 연결(Connect)의 값 아닌 등록 정보. provider는 아직 없고 정의는 core의 RegisterProvider가
+// 다시 검사하므로 여기서는 모양만 본다. OAuth는 시작한 login handle을 싣는다.
+const connectSchema = z.object({
+  name: z.string().regex(NONBLANK),
+  definition: z.record(z.string(), z.unknown()),
+  endpoint: z.string().min(1),
+  protocol: z.enum([
+    "anthropic-messages",
+    "openai-responses",
+    "openai-chat-completions",
+  ]),
   kind: z.enum(["api_key", "oauth"]),
-  label: z.string().regex(NONBLANK),
-  account: z.string().regex(NONBLANK).nullable(),
-  organization: z.string().regex(NONBLANK).nullable(),
-  plan: z.string().regex(NONBLANK).nullable(),
-  dedup_fingerprint: z.string().regex(/^[0-9a-f]{64}$/).optional(),
-}).strict();
+  login: z.string().regex(NONBLANK).optional(),
+}).strict().refine((value) =>
+  (value.kind === "oauth") === (value.login !== undefined)
+);
 
 // 창을 열 때 보내는 참조. command 본문·HTML·허락 값은 받지 않는다.
 export const confirmationIntentSchema = z.discriminatedUnion("kind", [
@@ -62,16 +69,13 @@ export const confirmationIntentSchema = z.discriminatedUnion("kind", [
     kind: z.literal("secret_input"),
     owner: z.string().min(1),
     purpose: z.string().min(1),
-    credential: credentialSchema.optional(),
-    change: z.object({
-      key: z.string().regex(NONBLANK),
-      action: z.enum(["replace", "revoke"]),
-    }).strict().optional(),
+    connect: connectSchema.optional(),
+    disconnect: z.literal(true).optional(),
   }).strict().refine(
     (value) =>
-      (value.credential === undefined && value.change === undefined) ||
+      (value.connect === undefined && value.disconnect === undefined) ||
       (value.purpose === "provider_credential" &&
-        (value.credential === undefined || value.change === undefined)),
+        (value.connect === undefined || value.disconnect === undefined)),
   ),
 ]);
 

@@ -21,16 +21,13 @@ function modelCall(run: string, session: string, id: string) {
     model_use: "judgment",
     agent_hash: "ab".repeat(32),
     purpose: "judgment",
-    test_request: null,
     attempt_kind: "initial",
     attempt_order: 1,
     retry_of: null,
-    credential_change_of: null,
     model: {
       provider: PVD,
       name: "fixture-model",
       protocol: "anthropic-messages",
-      credential_key: null,
       credential_revision: null,
       options: {},
       option_values: { requested: {}, applied: {} },
@@ -109,6 +106,7 @@ Deno.test("lophn-agent/harness/run-loop#R10: 수정 입력의 처음 반영은 M
         },
         endpoint: "http://127.0.0.1:9",
         protocol: "anthropic-messages",
+        credential: { kind: "none", preparation: null },
       }),
     );
     assertEquals(registered.status, 200, JSON.stringify(registered.body));
@@ -151,7 +149,6 @@ Deno.test("lophn-agent/harness/run-loop#R10: 수정 입력의 처음 반영은 M
           call: modelCall(seat.run, seat.session, id),
           applied_messages: applied,
           state_seq: "1",
-          timeout_ms: null,
         }, { compare: { state_seq: "1" } }),
       );
     const unapplied =
@@ -220,6 +217,7 @@ Deno.test("platform/blob-store#R4: 준비하지 않은 hash는 영구 참조가 
         },
         endpoint: "http://127.0.0.1:9",
         protocol: "anthropic-messages",
+        credential: { kind: "none", preparation: null },
       }),
     );
     assertEquals(registered.status, 200, JSON.stringify(registered.body));
@@ -238,7 +236,6 @@ Deno.test("platform/blob-store#R4: 준비하지 않은 hash는 영구 참조가 
         // 이 hash를 준비한 적이 없다.
         blob_sizes: { input: 10, context_basis: 10 },
         state_seq: "1",
-        timeout_ms: null,
       }, { compare: { state_seq: "1" } }),
     );
     assert(started.status !== 200, JSON.stringify(started.body));

@@ -6,11 +6,12 @@ import {
 
 import { find, flush } from "../../testdata/dom.ts";
 import { buttonText } from "../testdata/field.ts";
-import { provider } from "../../testdata/fake-settings.ts";
+import { provider } from "../testdata/fake-settings.ts";
 import { ProviderList } from "./provider-list.tsx";
 import {
   ANTHROPIC,
   CONNECTED,
+  definition,
   fakeProviders,
   type FakeProvidersOptions,
   OPENAI,
@@ -175,35 +176,23 @@ Deno.test("shell/desktop#R49: 창을 열지 못하면 아무것도 바뀌지 않
   );
 });
 
-Deno.test("shell/desktop#R49, shell/desktop#R7: 창에서 돌아오면 목록을 다시 읽고 Disconnect한 provider는 사라져 Add a provider에서 다시 연결할 수 있다", async () => {
-  let connected = [...CONNECTED];
-  let available = [
-    { key: "openrouter", name: "OpenRouter" },
-  ];
-  const fake = fakeProviders();
-  const source = {
-    ...fake.source,
-    connected: () => Promise.resolve({ ok: true as const, value: connected }),
-    available: () =>
-      Promise.resolve({
-        ok: true as const,
-        value: available.map((row) => ({
-          ...row,
-          hint: null,
-          ways: ["api_key" as const],
-          signIn: null,
-          custom: false,
-        })),
-      }),
-  };
-  const view = render(<ProviderList source={source} />);
+Deno.test("shell/desktop#R49, shell/desktop#R7: 창에서 돌아와 다시 읽으면 Disconnect한 provider는 사라져 Add a provider에서 다시 연결할 수 있다", async () => {
+  const before = fakeProviders({
+    available: [definition("openrouter", "OpenRouter")],
+  });
+  const after = fakeProviders({
+    connected: CONNECTED.filter((row) => row.id !== XAI),
+    available: [
+      definition("openrouter", "OpenRouter"),
+      definition("xai", "xAI"),
+    ],
+  });
+  const view = render(<ProviderList source={before.source} />);
   using _ = view;
   await flush();
   assertEquals(rows(view.container, "data-provider"), [ANTHROPIC, OPENAI, XAI]);
-  // 확인 창에서 xAI를 끊었다.
-  connected = connected.filter((row) => row.id !== XAI);
-  available = [...available, { key: "xai", name: "xAI" }];
-  globalThis.dispatchEvent(new Event("focus"));
+  // 확인 창에서 xAI를 끊은 뒤 목록이 다시 읽힌다.
+  view.rerender(<ProviderList source={after.source} />);
   await flush();
   assertEquals(rows(view.container, "data-provider"), [ANTHROPIC, OPENAI]);
   assertEquals(rows(view.container, "data-available"), ["openrouter", "xai"]);

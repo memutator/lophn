@@ -40,7 +40,7 @@ lophn 화면 전체에 걸치는 UI/UX 전역 규칙이다. 화면마다의 정�
 | grant | **Access**(예: "Files this app can read") | |
 | snapshot | 보이지 않음; 문제 알리기 화면에서는 **Details we collected** | |
 | redaction | 보이지 않음; 못 모았을 때만 "Some details were left out" | |
-| provider | 실제 제품 이름(Claude, ChatGPT 등). 일반화해 말할 때는 **Provider**(Settings의 **Providers**, 단추 **Connect**) | 계정과 인증만 다룬다. model은 provider 화면에 없다 |
+| provider | 실제 제품 이름(Claude, ChatGPT 등). 일반화해 말할 때는 **Provider**(Settings의 **Providers**, 단추 **Connect**) | 연결과 인증만 다룬다. model은 provider 화면에 없다 |
 | 기본 model | **Default models**(lophn · Context Engineer · App Engineer · Operators마다 model과 option) | Settings › Agents. 고른 model 이름과 option 값은 catalog가 준다 |
 | organizing model | **Model for summaries** | Settings › Agents의 한 칸. 판단용 model은 따로 이름 짓지 않고 agent의 model을 쓴다 |
 | model option | **Effort**, **Speed**처럼 model마다 다른 축 이름 | catalog가 정한다. 화면 코드에 model 이름과 option 값을 쓰지 않는다 |
@@ -117,7 +117,7 @@ shell/wording이 i18n의 지켜야 할 요구(en-only 시작, key 검사)를 정
 | lophn | **projects** | 등록한 프로젝트를 찾고 정리한다 | 상단 바 고정 진입점 → lophn 공간 |
 | 〃 | **apps** | 등록한 앱을 찾고 정리한다 | 〃 |
 | 〃 | **things-to-confirm** | 기다리는 결정과 지난 결과를 모아 본다 | 〃, 질문·approval notification의 [View] |
-| 〃 | **settings** | Providers(계정만) · Agents(기본 model · 지침 · skill · MCP · 권한) · coding agent 연결 · 알림 · update · 진단 같은 설정을 보고 바꾼다(왼쪽 세로 nav, 가운데 column, shell/desktop#R31, R49, R50) | 〃 |
+| 〃 | **settings** | Providers(연결만) · Agents(기본 model · 지침 · skill · MCP · 권한) · coding agent 연결 · 알림 · update · 진단 같은 설정을 보고 바꾼다(왼쪽 세로 nav, 가운데 column, shell/desktop#R31, R49, R50) | 〃 |
 | agent 안 | **app-card** | agent 화면 안에서 앱 카드를 보고 쓴다 | agent 화면의 시각 블록 |
 | 전역 | **confirmation-window** | 정확한 대상과 영향을 보고 결정을 내린다 | approval·question의 action, secret 입력 |
 | 전역 | **report-problem** | 지금 화면의 이상을 글로 알린다 | app-panel/app-space의 [문제 알리기] |

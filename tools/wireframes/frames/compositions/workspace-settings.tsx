@@ -52,7 +52,6 @@ const CONNECTED: readonly { name: string; how: string }[] = [
 const AVAILABLE: readonly { name: string; hint: string }[] = [
   { name: "Google", hint: "Gemini models" },
   { name: "OpenRouter", hint: "Models from many providers" },
-  { name: "Ollama (local)", hint: "Models on this computer" },
   { name: "Custom provider", hint: "Any OpenAI-compatible endpoint" },
 ];
 
@@ -68,8 +67,6 @@ function Methods({ provider }: { provider: string }) {
       { name: "Sign in with Claude", hint: "Opens your browser" },
       { name: "API key", hint: "Paste a key" },
     ]
-    : provider.startsWith("Ollama")
-    ? [{ name: "Local server", hint: "http://localhost:11434" }]
     : [{ name: "API key", hint: "Paste a key" }];
   return (
     <>
@@ -162,7 +159,7 @@ function ProviderRow(
   );
 }
 
-/** A9: Settings › Providers. 계정과 인증만이고 model은 여기서 고르지 않는다. */
+/** A9: Settings › Providers. 연결과 인증만이고 model은 여기서 고르지 않는다. */
 export function ProvidersPane(
   { onConnect }: { onConnect: (provider: string) => void },
 ) {
@@ -170,8 +167,8 @@ export function ProvidersPane(
     <div className={a.setPage}>
       <h1 className={styles.searchTitle}>Providers</h1>
       <p className={a.setLead}>
-        A provider is an account and how you sign in to it. You choose models
-        per agent and per session, not here.
+        A provider is a service you connect with one key or sign-in. You choose
+        models per agent and per session, not here.
       </p>
       <section>
         <h2 className={a.setSectionTitle}>Connected</h2>

@@ -332,7 +332,7 @@ Deno.test("lophn-agent/harness/model#R13: a run basis reuses the resolved model 
   assertEquals(runBasisModelSchema, resolvedModelSchema);
   const resolved = {
     purpose: "judgment",
-    credentials: [],
+    credential_revision: null,
     provider,
     model_name: "grok-4",
     sent_model_name: "grok-4-fast",

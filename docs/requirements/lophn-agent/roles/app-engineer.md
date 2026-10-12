@@ -109,7 +109,7 @@ concerns: [lophn-agent/roles/app-engineer]
 - 확인: 한 앱 영향만 남기고 전체 순서 판단은 lophn-agent/roles/lophn으로 안내하는지 본다.
 - 의도: lophn-agent#I2
 
-**[R20]** 인터뷰 해석·설계·가설·ticket·release 의미·handoff 판단은 judgment, 이미 정한 제목·요약은 organizing 용도이며 judgment는 resolved agent의 model·계정, organizing은 Workspace의 Model for summaries(비면 agent model)를 쓴다.
+**[R20]** 인터뷰 해석·설계·가설·ticket·release 의미·handoff 판단은 judgment, 이미 정한 제목·요약은 organizing 용도이며 judgment는 resolved agent의 model·provider, organizing은 Workspace의 Model for summaries(비면 agent model)를 쓴다.
 - 이유: 본문 판단을 organizing 작업에 숨기지 않는다.
 - 확인: ticket 범위 선택과 제목 정리의 용도가 구별되고 색인 파생은 documents/outline-and-search의 책임인지 본다.
 - 의도: lophn-agent#I5

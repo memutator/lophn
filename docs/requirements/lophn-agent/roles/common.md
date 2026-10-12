@@ -47,7 +47,7 @@ lophn, App Engineer, Context Engineer, Operator에 공통인 금지, 문서 저�
 - 확인: 읽은 뒤 사람이 고친 문서의 저장이 충돌하고 역할 정의에 별도 저장 형식 사본이 없는지 본다.
 - 의도: lophn-agent#I1
 
-**[R8]** 새 선택·해석·요구·가설·acceptance check와 본문 작성은 judgment 용도, 이미 정한 내용의 제목·요약은 organizing 용도로 분리하고 judgment는 resolved agent의 model·계정, organizing은 Workspace의 Model for summaries(비면 agent model)를 쓴다.
+**[R8]** 새 선택·해석·요구·가설·acceptance check와 본문 작성은 judgment 용도, 이미 정한 내용의 제목·요약은 organizing 용도로 분리하고 judgment는 resolved agent의 model·provider, organizing은 Workspace의 Model for summaries(비면 agent model)를 쓴다.
 - 이유: lophn-agent/harness/model에 따라 내용 판단과 표현 정리를 분리한다.
 - 확인: 판단과 정리가 다른 용도 기록을 가지며 Model for summaries가 비어 있으면 같은 agent model을 쓰되 새 판단을 만들지 않는지 본다.
 - 의도: lophn-agent#I5

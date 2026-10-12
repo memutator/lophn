@@ -389,14 +389,14 @@ Deno.test("platform/secrets#R2, shell/confirmation-window#R6: secret 입력은 �
   const code = fakeApi({
     ...secret,
     view: { ...secret.view, entry: "code", name: "ChatGPT" },
-    decisions: ["RegisterProviderCredential"],
+    decisions: ["CompleteProviderLogin"],
   });
   const pasted = await show(code.api);
   assertEquals(pasted.querySelector("h1")?.textContent, "Finish signing in?");
   assert(pasted.textContent?.includes("Code or final address"));
 });
 
-const account: ConfirmationView = {
+const connection: ConfirmationView = {
   ...secret,
   displayId: "dsp_5",
   request: {
@@ -407,63 +407,47 @@ const account: ConfirmationView = {
   view: {
     kind: "secret",
     purpose: "provider_credential",
-    name: "Work key",
+    name: "Claude",
     provider: "Claude",
-    configured: false,
-    entry: "replace",
+    configured: true,
+    entry: "disconnect",
   },
-  decisions: ["ChangeProviderCredentials"],
+  decisions: ["DisconnectProvider"],
 };
 
-Deno.test("lophn-agent/harness/provider#R6, platform/secrets#R2: 계정 교체는 새 key를 보호 입력칸으로만 받고 삭제는 입력칸 없이 그 계정을 새 일에서 막는다", async () => {
-  const value = "sk-new-key-correct-horse-9";
-  const replaced = fakeApi(account, {
+Deno.test("lophn-agent/harness/provider#R6, shell/confirmation-window#R5: provider 끊기는 입력칸 없이 확인만 받고 provider와 그 key·로그인을 지운다고 말한다", async () => {
+  const { api, sent } = fakeApi(connection, {
     outcome: "decided",
-    secret_ref: "Work key",
-    stored: "stored",
+    secret_ref: "Claude",
+    stored: "revoked",
   });
-  const root = await show(replaced.api);
-  assertEquals(
-    root.querySelector("h1")?.textContent,
-    "Replace the key for Work key?",
-  );
-  const input = button(root, "[data-secret=input]") as HTMLInputElement;
-  assertEquals(input.type, "password");
-  assert(root.textContent?.includes("New key"));
-  const replace = button(root, "[data-decision=ChangeProviderCredentials]");
-  assertEquals(replace.textContent, "Replace");
-  assertEquals((replace as HTMLButtonElement).disabled, true);
-  type(input, value);
-  click(button(root, "[data-decision=ChangeProviderCredentials]"));
-  await settle();
-  assertEquals(replaced.sent, [{
-    displayId: "dsp_5",
-    decision: "ChangeProviderCredentials",
-    input: { value },
-  }]);
-  assert(root.textContent?.includes("Work key is saved."));
-  assertEquals(root.innerHTML.includes(value), false);
-
-  const removed = fakeApi(
-    { ...account, view: { ...account.view, entry: "revoke" } },
-    { outcome: "decided", secret_ref: "Work key", stored: "revoked" },
-  );
-  const gone = await show(removed.api);
-  assertEquals(gone.querySelector("h1")?.textContent, "Remove Work key?");
-  assertEquals(gone.querySelector("input"), null);
-  const remove = button(gone, "[data-decision=ChangeProviderCredentials]");
-  assertEquals(remove.textContent, "Remove");
-  assertEquals((remove as HTMLButtonElement).disabled, false);
-  click(remove);
+  const root = await show(api);
+  assertEquals(root.querySelector("h1")?.textContent, "Disconnect Claude?");
+  assertEquals(root.querySelector("input"), null);
+  assert(root.textContent?.includes("deletes the saved key or sign-in"));
+  const disconnect = button(root, "[data-decision=DisconnectProvider]");
+  assertEquals(disconnect.textContent, "Disconnect");
+  assertEquals((disconnect as HTMLButtonElement).disabled, false);
+  click(disconnect);
   await settle();
   // 보낼 값이 없다. 결정 이름만 간다.
-  assertEquals(removed.sent, [{
-    displayId: "dsp_5",
-    decision: "ChangeProviderCredentials",
-  }]);
-  // 막은 것만 말한다. 값을 지웠다고 하지 않는다.
-  assert(gone.textContent?.includes("Work key won't be used for new work."));
-  assertEquals(gone.textContent?.includes("deleted"), false);
+  assertEquals(sent, [{ displayId: "dsp_5", decision: "DisconnectProvider" }]);
+});
+
+Deno.test("platform/secrets#R2, shell/confirmation-window#R6: 연결의 key와 로그인 code는 보호 입력칸으로만 받고 교체·삭제 모양은 없다", async () => {
+  const key = fakeApi({
+    ...connection,
+    view: { ...connection.view, entry: "key", configured: false },
+    decisions: ["RegisterProvider"],
+  });
+  const root = await show(key.api);
+  assertEquals(root.querySelector("h1")?.textContent, "Add the key Claude?");
+  const input = button(root, "[data-secret=input]") as HTMLInputElement;
+  assertEquals(input.type, "password");
+  // 옛 계정 교체·삭제 말은 이 창에 없다.
+  for (const gone of ["Replace", "New key", "Remove"]) {
+    assertEquals(root.textContent?.includes(gone), false, gone);
+  }
 });
 
 Deno.test("shell/confirmation-window#R5: 대상이 바뀌거나 만료되면 옛 결정 버튼 없이 이유와 최신 내용 열기만 남는다", async () => {

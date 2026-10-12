@@ -54,7 +54,7 @@ project 또는 app에 붙어 정의(lophn-agent/agents)가 고른 context·앱 r
 
 **[R9]** 해석·판단·본문은 resolved agent의 model, 제목·이미 있는 내용의 요약은 Workspace의 Model for summaries를 쓰며 그 칸이 비면 같은 agent model을 쓰고 실제 provider 계정·model은 run에 고정한다.
 - 이유: 사람이 고른 구성으로 반복 판단과 정리를 수행한다.
-- 확인: Operator 둘의 서로 다른 model·계정이 실제 호출에 반영되고, model을 바꾼 적 없는 Operator만 Workspace의 Operator 기본값을 따라가는지 본다.
+- 확인: Operator 둘의 서로 다른 model·provider이 실제 호출에 반영되고, model을 바꾼 적 없는 Operator만 Workspace의 Operator 기본값을 따라가는지 본다.
 - 의도: lophn-agent#I5
 
 **[R10]** Operator의 run 실패와 질문 대기는 lophn-agent/harness/run-loop와 lophn-agent/harness/waiting-and-recovery를, 멈춘 assignment와 거둔 assignment의 입력 처리는 lophn-agent/assignments를 따르며 실패를 무시하고 계속하는 선택이나 handoff 송수신은 없다.

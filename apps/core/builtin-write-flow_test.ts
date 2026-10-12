@@ -202,6 +202,7 @@ async function openWorld(options: Options) {
     // 등록은 기록일 뿐이다. run의 model 호출 주소는 runtime 조립(resolveModel)이 정한다.
     endpoint: "http://127.0.0.1:9",
     protocol: "anthropic-messages",
+    credential: { kind: "none", preparation: null },
   });
   assertEquals(registered.status, 200, JSON.stringify(registered.body));
   // lophn이 쓸 model은 Workspace의 role slot이 정한다(catalog에 있는 이름이어야 한다).
@@ -295,7 +296,6 @@ async function openWorld(options: Options) {
     provider: PVD,
     name: "fixture-model",
     protocol: "anthropic-messages",
-    credential_key: null,
     credential_revision: null,
     option_values: { requested: {}, applied: {} },
     limits: {

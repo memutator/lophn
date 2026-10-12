@@ -571,6 +571,7 @@ export const en = {
   "confirmation-window.button.close": "Close",
   "confirmation-window.button.reject": "Reject",
   "confirmation-window.button.save": "Save",
+  "confirmation-window.button.disconnect": "Disconnect",
   "confirmation-window.button.remove": "Remove",
   "confirmation-window.button.replace": "Replace",
   "confirmation-window.button.undo": "Undo changes",
@@ -710,6 +711,13 @@ export const en = {
     "Whether this can be undone isn't known.",
   "confirmation-window.secret-app.title": "Save a value for {name}?",
   "confirmation-window.secret-code.title": "Finish signing in?",
+  "confirmation-window.secret-disconnect.effect":
+    "lophn deletes the saved key or sign-in for this provider. Agents that use it can't start until you connect it again.",
+  "confirmation-window.secret-disconnect.revert":
+    "You can connect the provider again later.",
+  "confirmation-window.secret-disconnect.subject":
+    "This provider is connected with one key or sign-in. Nothing needs to be typed to disconnect it.",
+  "confirmation-window.secret-disconnect.title": "Disconnect {name}?",
   "confirmation-window.secret-key.title": "Add the key {name}?",
   "confirmation-window.secret-replace.effect":
     "lophn uses the new key for this account from now on.",
@@ -2658,8 +2666,14 @@ export const en = {
   "settings.title.connect-provider": "Connect {name}",
   "settings.title.custom-provider": "Custom provider",
   "settings.label.custom-provider-hint": "Any OpenAI-compatible endpoint",
+  "settings.status.plan-access":
+    "Your plan doesn't allow this. Check that your plan includes it.",
+  "settings.status.sign-in-problem":
+    "There's a sign-in problem. Disconnect, then connect again.",
+  "settings.status.usage-limit":
+    "Usage limit reached. Wait for the limit to reset.",
   "settings.notice.provider-lead":
-    "A provider is an account and how you sign in to it. You choose models per agent and per session, not here.",
+    "A provider is a service you connect with one key or sign-in. You choose models per agent and per session, not here.",
   "settings.notice.next-run": "Changes apply to new work.",
   "settings.notice.none-connected": "No providers are connected yet.",
   "settings.error.reorder": "Couldn't change the order. Try again.",
@@ -2679,6 +2693,8 @@ export const en = {
   "settings.notice.method-unverified": "Not confirmed to work with lophn yet.",
   "settings.error.connect-failed":
     "Couldn't connect. Nothing changed. Try again.",
+  "settings.notice.custom-key-required":
+    "A web address needs an API key. Check the box below.",
   "settings.notice.custom-lead": "Set up an OpenAI-compatible provider.",
   "settings.label.custom-id": "Provider ID",
   "settings.label.custom-name": "Display name",

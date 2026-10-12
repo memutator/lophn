@@ -867,13 +867,9 @@ export const lophnAgentDefinitions = {
   ],
   commands: [
     commands.register,
-    commands.change,
-    commands.registerCredential,
-    commands.changeCredentials,
+    commands.disconnect,
     commands.refreshCredential,
     commands.recordAvailability,
-    commands.recordCheck,
-    commands.test,
     commands.beginLogin,
     commands.completeLogin,
     commands.cancelLogin,
@@ -937,7 +933,6 @@ export const lophnAgentDefinitions = {
   reads: [
     reads.read,
     reads.list,
-    reads.credentialList,
     modelReads.defaults,
     modelReads.favorites,
     modelReads.catalog,
@@ -1368,7 +1363,6 @@ export function createReaderRegistration(): ReaderRegistration {
     reads: [
       reads.read,
       reads.list,
-      reads.credentialList,
       modelReads.defaults,
       modelReads.favorites,
       modelReads.catalog,

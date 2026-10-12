@@ -15,11 +15,8 @@
 //   contexts.note.search-pick
 //   common.error.load-failed
 import { type ReactNode, useState } from "react";
-import {
-  EmptyState,
-  ErrorState,
-  lophnSpaceIcons,
-} from "@lophn/design/components";
+import { EmptyState, ErrorState } from "@lophn/design/components";
+import { lophnSpaceIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import styles from "./search-tab.module.css";

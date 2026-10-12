@@ -29,19 +29,21 @@ import {
   type AvatarProfile,
   Button,
   Checkbox,
-  conversationIcons,
   Dialog,
   Field,
   Icon,
   IconButton,
   iconPixels,
   Input,
-  lophnSpaceIcons,
   Menu,
   Switch,
   Textarea,
-  workspaceIcons,
 } from "@lophn/design/components";
+import {
+  conversationIcons,
+  lophnSpaceIcons,
+  workspaceIcons,
+} from "../../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import type {

@@ -1,13 +1,12 @@
 import type { KeyboardEvent } from "react";
 import {
   Button,
-  editorIcons,
   Icon,
   IconButton,
   iconPixels,
-  lophnSpaceIcons,
   Menu,
 } from "@lophn/design/components";
+import { editorIcons, lophnSpaceIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import type {

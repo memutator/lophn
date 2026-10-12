@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { act } from "react";
-import { workspaceIcons } from "@lophn/design/components";
+import { workspaceIcons } from "../../icons/mod.ts";
 import { click, render } from "../../../../design/components/testing.ts";
 
 import { TAB_KINDS } from "../../../../protocol/shell/workspace.ts";

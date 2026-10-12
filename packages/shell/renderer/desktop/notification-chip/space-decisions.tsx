@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import {
-  connectionFailedIcon,
-  Icon,
-  iconPixels,
-} from "@lophn/design/components";
+import { Icon, iconPixels } from "@lophn/design/components";
+import { connectionFailedIcon } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import type { ConnectionState } from "../connection/connection.ts";

@@ -3,7 +3,8 @@
 // 그 view를 먼저 캡처한 뒤 overlay에 dialog를 연다. 버튼은 shell renderer에 있어 앱 view가 crash·
 // 무한 loop여도 동작한다. renderer는 view_session만 보내고 앱·release·화면은 main이 정한다.
 import { useState } from "react";
-import { appSpaceIcons, Button } from "@lophn/design/components";
+import { Button } from "@lophn/design/components";
+import { appSpaceIcons } from "../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import type { LophnShellFeedbackBegin } from "../../ipc/feedback.ts";

@@ -10,11 +10,11 @@ import {
   Checkbox,
   type Clipboard,
   CopyButton,
+  Dialog,
   Field,
   systemClipboard,
   Textarea,
-} from "@lophn/ui-control";
-import { Dialog } from "@lophn/ui-overlay";
+} from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
 import {

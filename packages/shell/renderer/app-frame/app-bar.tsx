@@ -3,12 +3,8 @@
 // 이 공간의 lophn 크롬은 그 앱의 결정 대기와 lophn 장애 안내만이다(desktop#R27, `decisions`).
 // 바는 shell 크롬이라 앱 view bounds에 들어가지 않는다.
 import type { ReactNode } from "react";
-import {
-  appSpaceIcons,
-  IconButton,
-  StatusMark,
-  Tooltip,
-} from "@lophn/design/components";
+import { IconButton, StatusMark, Tooltip } from "@lophn/design/components";
+import { appSpaceIcons } from "../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import { TopBar } from "../desktop/top-bar/top-bar.tsx";

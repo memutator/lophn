@@ -1,26 +1,25 @@
 import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 // lophn 화면이 공용 UI SDK의 첫 소비자다(apps/sdk#R21). 앱이 쓰는 것과 같은 overlay·조작을 그린다.
-import { Button, type IconProps } from "@lophn/ui-control";
 import {
+  Button,
   type Clock,
   Dialog,
+  type IconProps,
   Menu,
   Palette,
   Popover,
   PopoverRow,
+  Sheet,
+  systemClock,
+  systemTimer,
   type Timer,
   Toast,
   type ToastAction,
   ToastStack,
   Tooltip,
-} from "@lophn/ui-overlay";
-import {
-  paletteIcons,
-  Sheet,
-  systemClock,
-  systemTimer,
 } from "@lophn/design/components";
+import { paletteIcons } from "../../icons/mod.ts";
 import type { LophnOverlayFeedback } from "../../../ipc/feedback.ts";
 import type { OverlaySurface, PaletteIcon } from "../../../ipc/overlay.ts";
 import { FeedbackDialog } from "../feedback/feedback-dialog.tsx";

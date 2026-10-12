@@ -1,12 +1,9 @@
 import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
-import {
-  type EmptyAction,
-  EmptyState,
-  ErrorState,
-  Loading,
-  type Timer,
-} from "@lophn/design/components";
+import { type EmptyAction, EmptyState } from "../empty-state/empty-state.tsx";
+import { ErrorState } from "../error-state/error-state.tsx";
+import { Loading } from "../skeleton/skeleton.tsx";
+import { type Timer } from "../shared.ts";
 
 export interface EmptySpec {
   // 비어 있는 이유 한 문장과 다음 행동 하나(shell/design-system#R34).

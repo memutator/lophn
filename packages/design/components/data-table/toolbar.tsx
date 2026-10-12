@@ -6,17 +6,15 @@ import {
   Columns3,
 } from "lucide-react";
 import { t } from "@lophn/wording";
-import {
-  Button,
-  Checkbox,
-  Field,
-  IconButton,
-  Popover,
-  Select,
-  type TableColumn,
-} from "@lophn/design/components";
+import { Button } from "../button/button.tsx";
+import { Checkbox } from "../checkbox/checkbox.tsx";
+import { Field } from "../field/field.tsx";
+import { IconButton } from "../icon-button/icon-button.tsx";
+import { Popover } from "../popover/popover.tsx";
+import { Select } from "../select/select.tsx";
+import { type TableColumn } from "../table/table.tsx";
 import type { PageSlice, SortDirection, SortState } from "./model.ts";
-import styles from "./ui-table.module.css";
+import styles from "./data-table.module.css";
 
 // 열 id는 caller 문자열이라 빈 값이나 원래 순서 값과 겹치지 않도록 접두사를 붙인다.
 const ORIGINAL = "original";

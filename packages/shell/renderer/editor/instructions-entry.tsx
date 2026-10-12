@@ -7,7 +7,6 @@
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import {
   Button,
-  editorIcons,
   ErrorState,
   IconButton,
   Kbd,
@@ -15,6 +14,7 @@ import {
   Skeleton,
   Tooltip,
 } from "@lophn/design/components";
+import { editorIcons } from "../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import type { EditorReply } from "../../ipc/editor.ts";

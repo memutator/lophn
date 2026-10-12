@@ -1,5 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
-import { Palette, workspaceIcons } from "@lophn/design/components";
+import { Palette } from "@lophn/design/components";
+import { workspaceIcons } from "../../icons/mod.ts";
 import {
   click,
   one,

@@ -2,7 +2,8 @@
 // composer 위의 승인 카드, 진행, composer를 부품 그대로 묶는다. core와는 AgentViewSource로만 말하고
 // 탭을 열고 닫는 일, 문서와 설정으로 가는 일은 host가 한다.
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { IconButton, retryIcon } from "@lophn/design/components";
+import { IconButton } from "@lophn/design/components";
+import { retryIcon } from "../icons/mod.ts";
 import { formatRelativeTime, t } from "@lophn/wording";
 
 import { newId } from "../desktop/lophn-space/model.ts";

@@ -4,7 +4,8 @@
 // agents · Tools and skills · Notifications · Update · Diagnose. backup 자리는 nav에서 뺐다(backup
 // 제거는 후속 작업). secret 값은 이 화면이 받지 않고 보호 창이 받는다.
 import { useMemo, useRef, useState } from "react";
-import { Icon, iconPixels, settingsIcons } from "@lophn/design/components";
+import { Icon, iconPixels } from "@lophn/design/components";
+import { settingsIcons } from "../../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import { AgentsPanel } from "./agents/agents-panel.tsx";

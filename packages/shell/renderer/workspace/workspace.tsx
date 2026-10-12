@@ -5,8 +5,8 @@ import {
   type Timer,
   Tooltip,
   useObservedSize,
-  workspaceIcons,
 } from "@lophn/design/components";
+import { workspaceIcons } from "../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import { LophnEntry, TopBar } from "../desktop/top-bar/top-bar.tsx";

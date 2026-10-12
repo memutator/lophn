@@ -6,9 +6,9 @@ import {
   Icon,
   IconButton,
   iconPixels,
-  lophnSpaceIcons,
   Tooltip,
 } from "@lophn/design/components";
+import { lophnSpaceIcons } from "../../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import { placeTitle } from "../model.ts";

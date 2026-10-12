@@ -2,7 +2,8 @@
 // agent 관리 화면(project의 Agents 탭과 같은 AgentsPage)을 둔다. 칸은 둘 중 하나만 보이고 닫을 수 있으며, 창이 넓으면
 // 앱 화면 옆 열이고 좁으면 앱 화면을 덮는다. 덮는 동안에도 앱 view는 숨지 않고 칸이 덮지 않는 영역으로 준다.
 import { type ReactElement, useMemo, useRef } from "react";
-import { IconButton, Tooltip, workspaceIcons } from "@lophn/design/components";
+import { IconButton, Tooltip } from "@lophn/design/components";
+import { workspaceIcons } from "../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import type { AgentViewSourceFactory } from "../conversation/agent-source.ts";

@@ -10,14 +10,13 @@ import {
 } from "react";
 import {
   Avatar,
-  editorIcons,
   Icon,
   IconButton,
   iconPixels,
-  lophnSpaceIcons,
   Menu,
   Popover,
 } from "@lophn/design/components";
+import { editorIcons, lophnSpaceIcons } from "../../icons/mod.ts";
 import { type MessageKey, t } from "@lophn/wording";
 
 import styles from "./agent-header.module.css";

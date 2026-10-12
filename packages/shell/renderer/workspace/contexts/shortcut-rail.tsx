@@ -10,15 +10,17 @@
 //   contexts.label.rail-terminal
 import type { ReactNode } from "react";
 import {
-  conversationIcons,
   IconButton,
   type IconProps,
-  lophnSpaceIcons,
-  paletteIcons,
   type Timer,
   Tooltip,
-  workspaceIcons,
 } from "@lophn/design/components";
+import {
+  conversationIcons,
+  lophnSpaceIcons,
+  paletteIcons,
+  workspaceIcons,
+} from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import styles from "./shortcut-rail.module.css";

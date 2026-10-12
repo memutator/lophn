@@ -5,13 +5,8 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  Button,
-  confirmIcons,
-  Icon,
-  iconPixels,
-  Kbd,
-} from "@lophn/design/components";
+import { Button, Icon, iconPixels, Kbd } from "@lophn/design/components";
+import { confirmIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import {

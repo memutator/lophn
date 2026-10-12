@@ -3,13 +3,8 @@
 // (contracts/lophn-agent의 model-picker)이 계산해 props로 주고, 이 component는 받은 순서대로 그린다.
 // renderer는 contracts·design·sdk만 import하므로 그 모듈을 부르는 연결은 core source 쪽 몫이다.
 import type { KeyboardEvent, ReactNode } from "react";
-import {
-  Button,
-  conversationIcons,
-  Icon,
-  iconPixels,
-  Popover,
-} from "@lophn/design/components";
+import { Button, Icon, iconPixels, Popover } from "@lophn/design/components";
+import { conversationIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import styles from "./model-picker.module.css";

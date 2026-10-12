@@ -5,7 +5,6 @@
 // 보인다. 복원은 비교 화면에서 고른다(R14: 비교를 거치지 않는 되돌리기 버튼을 두지 않는다).
 import { useEffect, useState } from "react";
 import {
-  editorIcons,
   ErrorState,
   Field,
   IconButton,
@@ -13,6 +12,7 @@ import {
   Skeleton,
   Tooltip,
 } from "@lophn/design/components";
+import { editorIcons } from "../../icons/mod.ts";
 import { formatDateTooltip, formatRelativeTime, t } from "@lophn/wording";
 
 import type {

@@ -1,7 +1,8 @@
 // 선언된 검색 입력 form의 combobox(shell/workspace#R24). 쓰면 이름에 든 후보만 남기고, 후보에 없는
 // 글은 고를 수 없다. 고른 값은 후보의 value로 알리고, 칸을 비우면 빈 글자("")로 알려 값을 지운다.
 import { useId, useState } from "react";
-import { Icon, iconPixels, lophnSpaceIcons } from "@lophn/design/components";
+import { Icon, iconPixels } from "@lophn/design/components";
+import { lophnSpaceIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import type { OptionValue, PickOption } from "./source.ts";

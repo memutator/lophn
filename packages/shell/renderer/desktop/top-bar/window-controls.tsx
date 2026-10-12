@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { t } from "@lophn/wording";
+import { IconButton } from "@lophn/design/components";
 import {
-  IconButton,
   windowCloseIcon,
   windowMaximizeIcon,
   windowMinimizeIcon,
   windowRestoreIcon,
-} from "@lophn/design/components";
+} from "../../icons/mod.ts";
 
 import type {
   WindowControlsApi,

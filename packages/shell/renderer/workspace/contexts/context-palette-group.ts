@@ -4,7 +4,8 @@
 //   contexts.label.palette-detail
 //   common.heading.palette-contexts
 // 묶음 이름은 common.heading.palette-contexts다.
-import { type PaletteItem, workspaceIcons } from "@lophn/design/components";
+import { type PaletteItem } from "@lophn/design/components";
+import { workspaceIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import type { ContextListItem } from "./source.ts";

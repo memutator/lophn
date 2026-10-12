@@ -2,15 +2,17 @@
 // 붙어 본문을 좁힌다(Info · Outline · Contexts). 본문은 고정 data의 stand-in이고 문서마다 제목이 따로 있다.
 import { type ReactNode, useRef, useState } from "react";
 import {
-  editorIcons,
   IconButton,
   Menu,
   Tab,
   TabList,
   TabPanel,
   Tabs,
-  workspaceIcons,
 } from "@lophn/design/components";
+import {
+  editorIcons,
+  workspaceIcons,
+} from "../../../../packages/shell/renderer/icons/mod.ts";
 import { Button } from "@lophn/ui-control";
 
 import { Link } from "./link.tsx";

@@ -24,9 +24,9 @@ import {
   EmptyState,
   ErrorState,
   Loading,
-  lophnSpaceIcons,
   Skeleton,
 } from "@lophn/design/components";
+import { lophnSpaceIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import styles from "./contexts-tab.module.css";

@@ -2,11 +2,10 @@ import {
   Icon,
   IconButton,
   iconPixels,
-  retryIcon,
   StatusMark,
   Tooltip,
-  workspaceIcons,
 } from "@lophn/design/components";
+import { retryIcon, workspaceIcons } from "../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import {

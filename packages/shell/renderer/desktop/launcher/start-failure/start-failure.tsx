@@ -2,13 +2,8 @@
 // Shows start, sandbox, or schema failure without normal launcher appearance.
 
 import { type ReactElement, useId, useState } from "react";
-import {
-  Button,
-  connectionFailedIcon,
-  Icon,
-  iconPixels,
-  retryIcon,
-} from "@lophn/design/components";
+import { Button, Icon, iconPixels } from "@lophn/design/components";
+import { connectionFailedIcon, retryIcon } from "../../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import type { StartFailure } from "./model.ts";

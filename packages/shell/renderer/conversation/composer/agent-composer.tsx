@@ -10,14 +10,13 @@ import {
 } from "react";
 import {
   Button,
-  conversationIcons,
   Field,
   Icon,
   IconButton,
   iconPixels,
   Select,
-  workspaceIcons,
 } from "@lophn/design/components";
+import { conversationIcons, workspaceIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import type { SendMode } from "../delivery-state.ts";

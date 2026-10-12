@@ -1,5 +1,6 @@
 import type { ReactElement } from "react";
-import { confirmIcons, Icon, iconPixels } from "@lophn/design/components";
+import { Icon, iconPixels } from "@lophn/design/components";
+import { confirmIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import type {

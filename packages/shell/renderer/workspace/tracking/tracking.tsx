@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import {
-  Button,
-  launcherIcons,
-  workspaceIcons,
-} from "@lophn/design/components";
+import { Button } from "@lophn/design/components";
+import { launcherIcons, workspaceIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import type { TrackingProject, TrackingSource } from "./source.ts";

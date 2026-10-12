@@ -3,7 +3,8 @@
 // (shell#T33)로, 그 밖은 읽기 화면으로 연다. 이름은 문서 read로 따로 읽고, 읽지 못하면 열 수 없는
 // 문서로 두며 다른 문서나 최신 판으로 바꾸지 않는다.
 import { useEffect, useState } from "react";
-import { conversationIcons, Icon, iconPixels } from "@lophn/design/components";
+import { Icon, iconPixels } from "@lophn/design/components";
+import { conversationIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import styles from "./visuals.module.css";

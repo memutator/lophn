@@ -68,7 +68,7 @@ export function rhythmAllowed(
   if (RHYTHM.test(part)) return true;
   if (SECTION.test(part)) return SECTION_USE.has(`${file} ${prop}`);
   if (PANE.test(part)) return PANE_USE.has(`${file} ${prop}`);
-  return part === "auto" && file === "sdk/ui-chart/chart.module.css" &&
+  return part === "auto" && file === "components/chart/chart.module.css" &&
     prop === "margin-left";
 }
 
@@ -86,7 +86,7 @@ const SHADOWS = new Map([
   ["components/dialog/dialog.module.css", DIALOG_SHADOW],
   ["components/sheet/sheet.module.css", DIALOG_SHADOW],
   ["components/palette/palette.module.css", DIALOG_SHADOW],
-  ["sdk/ui-chart/chart.module.css", POPOVER_SHADOW],
+  ["components/chart/chart.module.css", POPOVER_SHADOW],
 ]);
 
 Deno.test("shell/design-system#R6: 컴포넌트 CSS에 그라데이션·glass·그림자·대문자·장식 움직임이 없다", async () => {
@@ -109,7 +109,7 @@ Deno.test("shell/design-system#R6: 컴포넌트 CSS에 그라데이션·glass·�
       }
       if (decl.prop === "box-shadow") {
         assertEquals(decl.value, SHADOWS.get(name), where);
-        if (name === "sdk/ui-chart/chart.module.css") {
+        if (name === "components/chart/chart.module.css") {
           assertEquals(decl.parent?.type, "rule", where);
           assertEquals(
             (decl.parent as postcss.Rule).selector,
@@ -183,11 +183,11 @@ const PUBLIC_CSS = new Set([
 const PUBLIC_CSS_FILE = "sdk/ui-chart/examples/sales-dashboard.tsx";
 // d3는 SVG를 조작하지 않고 정한 계산 모듈에서만 scale·path를 만든다.
 const D3_IMPORTS = new Map([
-  ["sdk/ui-chart/geometry.ts", ["d3-scale"]],
-  ["sdk/ui-chart/bins.ts", ["d3-scale"]],
-  ["sdk/ui-chart/bar-plot.tsx", ["d3-scale"]],
-  ["sdk/ui-chart/line-chart.tsx", ["d3-scale", "d3-shape"]],
-  ["sdk/ui-chart/graph-layout.ts", ["d3-shape"]],
+  ["components/chart/geometry.ts", ["d3-scale"]],
+  ["components/chart/bins.ts", ["d3-scale"]],
+  ["components/chart/bar-plot.tsx", ["d3-scale"]],
+  ["components/chart/line-chart.tsx", ["d3-scale", "d3-shape"]],
+  ["components/chart/graph-layout.ts", ["d3-shape"]],
 ]);
 
 function importAllowed(file: string, specifier: string): boolean {
@@ -198,20 +198,24 @@ function importAllowed(file: string, specifier: string): boolean {
 }
 
 Deno.test("shell/design-system#R43: SDK 재료와 공개 CSS는 정한 파일에서만 허용한다", () => {
-  assert(importAllowed("sdk/ui-chart/geometry.ts", "d3-scale"));
-  assert(importAllowed("sdk/ui-chart/line-chart.tsx", "d3-shape"));
-  assert(importAllowed("sdk/ui-chart/chart-frame.tsx", "@lophn/ui-table"));
+  assert(importAllowed("components/chart/geometry.ts", "d3-scale"));
+  assert(importAllowed("components/chart/line-chart.tsx", "d3-shape"));
+  assert(importAllowed("sdk/ui-chart/mod.ts", "@lophn/design/components"));
   assert(importAllowed(PUBLIC_CSS_FILE, "@lophn/tokens/tokens.css"));
   assert(!importAllowed("components/button/button.tsx", "@lophn/ui-chart"));
-  assert(!importAllowed("sdk/ui-table/data-table.tsx", "d3-scale"));
-  assert(!importAllowed("sdk/ui-chart/geometry.ts", "d3-selection"));
+  assert(!importAllowed("components/data-table/data-table.tsx", "d3-scale"));
+  assert(!importAllowed("components/chart/geometry.ts", "d3-selection"));
   assert(
-    !importAllowed("sdk/ui-chart/line-chart.tsx", "@lophn/tokens/base.css"),
+    !importAllowed("components/chart/line-chart.tsx", "@lophn/tokens/base.css"),
   );
   assert(!importAllowed(PUBLIC_CSS_FILE, "@lophn/tokens/custom.css"));
-  assert(!importAllowed("sdk/ui-chart/line-chart.tsx", "@lophn/protocol"));
-  assert(rhythmAllowed("sdk/ui-chart/chart.module.css", "margin-left", "auto"));
-  assert(!rhythmAllowed("sdk/ui-chart/chart.module.css", "padding", "auto"));
+  assert(!importAllowed("components/chart/line-chart.tsx", "@lophn/protocol"));
+  assert(
+    rhythmAllowed("components/chart/chart.module.css", "margin-left", "auto"),
+  );
+  assert(
+    !rhythmAllowed("components/chart/chart.module.css", "padding", "auto"),
+  );
 });
 
 // Markdown parser는 편집기와 같은 Lezer Markdown 하나이고, 읽기 model 한 파일만 부른다.

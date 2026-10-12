@@ -5,12 +5,8 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  Icon,
-  iconPixels,
-  Tooltip,
-  workspaceIcons,
-} from "@lophn/design/components";
+import { Icon, iconPixels, Tooltip } from "@lophn/design/components";
+import { workspaceIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import {

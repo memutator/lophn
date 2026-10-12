@@ -5,10 +5,9 @@ import type { ReactElement, ReactNode } from "react";
 import {
   Avatar,
   type AvatarProfile,
-  conversationIcons,
-  editorIcons,
   IconButton,
 } from "@lophn/design/components";
+import { conversationIcons, editorIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import styles from "./turns.module.css";

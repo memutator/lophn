@@ -5,10 +5,10 @@ import {
   Field,
   IconButton,
   Input,
-  launcherIcons,
   Textarea,
   Tooltip,
 } from "@lophn/design/components";
+import { launcherIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import { newId } from "../lophn-space/model.ts";

@@ -54,9 +54,9 @@ export function unsafeText(text: string): boolean {
 /** 블록을 그리는 SDK 갈래. 이 목록 밖의 종류는 그리지 않는다. 앱 카드는 shell#T44가 맡는다. */
 export const VISUAL_REGISTRY = Object.freeze(
   {
-    table: "@lophn/ui-table",
-    chart: "@lophn/ui-chart",
-    diagram: "@lophn/ui-chart",
+    table: "DataTable",
+    chart: "BarChart·LineChart·ScatterChart",
+    diagram: "GraphDiagram",
   } as const,
 );
 

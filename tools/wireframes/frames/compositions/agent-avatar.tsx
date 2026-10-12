@@ -1,14 +1,14 @@
 // agent profile 그림. icon 하나를 둥근 바탕에 얹거나, 사용자가 올린 이미지(여기서는 둥근 사진 자리)를 보인다.
 // 같은 그림이 sidebar, 탭 머리(agent header), 메시지, Agents 탭 카드, 편집 form에 나온다.
+import { Icon } from "@lophn/design/components";
 import {
   appSpaceIcons,
   conversationIcons,
   editorIcons,
-  Icon,
   lophnSpaceIcons,
   paletteIcons,
   workspaceIcons,
-} from "@lophn/design/components";
+} from "../../../../packages/shell/renderer/icons/mod.ts";
 
 import {
   type AgentProfile,

@@ -1,5 +1,5 @@
 // terminal 탭 kind. 시작 폴더 참조만 남기고 PTY는 복원하지 않는다(shell/workspace#R1, R7, R10).
-import { workspaceIcons } from "@lophn/design/components";
+import { workspaceIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import { closeTerminalTab } from "../../terminal/deps.ts";

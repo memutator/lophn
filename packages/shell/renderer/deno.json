@@ -6,6 +6,7 @@
     "react-dom": "npm:react-dom@19.3.0",
     "react-dom/client": "npm:react-dom@19.3.0/client",
     "@types/react": "npm:@types/react@19.3.0",
+    "lucide-react": "npm:lucide-react@1.51.0",
     "esbuild": "npm:esbuild@0.28.2",
     "@luca/esbuild-deno-loader": "jsr:@luca/esbuild-deno-loader@0.11.1",
     "happy-dom": "npm:happy-dom@20.14.5",

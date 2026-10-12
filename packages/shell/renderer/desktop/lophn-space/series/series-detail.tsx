@@ -1,17 +1,15 @@
 import { type FormEvent, useEffect, useState } from "react";
 import {
   Button,
-  editorIcons,
   ErrorState,
   Field,
   IconButton,
   Input,
-  lophnSpaceIcons,
   OverviewFrame,
-  retryIcon,
   Select,
   Tooltip,
 } from "@lophn/design/components";
+import { editorIcons, lophnSpaceIcons, retryIcon } from "../../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import { documentNameForKey, isLatest, placeTitle } from "../model.ts";

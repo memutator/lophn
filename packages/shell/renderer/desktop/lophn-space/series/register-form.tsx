@@ -1,6 +1,11 @@
 import { type FormEvent, useState } from "react";
-import { Button, Field, Input, Select } from "@lophn/ui-control";
-import { FormFrame } from "@lophn/ui-layout";
+import {
+  Button,
+  Field,
+  FormFrame,
+  Input,
+  Select,
+} from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
 import {

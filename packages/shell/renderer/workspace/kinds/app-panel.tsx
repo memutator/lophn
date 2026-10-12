@@ -1,5 +1,5 @@
 // app_panel 탭 kind. 앱이 선언한 panel 화면 하나를 탭에 연다(shell/workspace#R5, R7, R11).
-import { workspaceIcons } from "@lophn/design/components";
+import { workspaceIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import { AppPanelPicker, AppPanelTab } from "../app-panel-tab.tsx";

@@ -1,11 +1,8 @@
 // Agent 화면 대화 줄 안의 본문(shell/desktop#R40). 확정 메시지 본문을 읽은 결과를 글과 시각 블록으로
 // 보이고, 사람 말 아래에 접수 표시와 전달 상태의 다음 행동을 둔다.
 import type { ReactElement, ReactNode } from "react";
-import {
-  conversationIcons,
-  IconButton,
-  Tooltip,
-} from "@lophn/design/components";
+import { IconButton, Tooltip } from "@lophn/design/components";
+import { conversationIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import {

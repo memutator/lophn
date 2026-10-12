@@ -1,11 +1,6 @@
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
-import {
-  editorIcons,
-  Field,
-  IconButton,
-  Input,
-  Tooltip,
-} from "@lophn/design/components";
+import { Field, IconButton, Input, Tooltip } from "@lophn/design/components";
+import { editorIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import styles from "./find-bar.module.css";

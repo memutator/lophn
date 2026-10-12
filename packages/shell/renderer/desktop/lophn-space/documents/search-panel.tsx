@@ -8,11 +8,11 @@ import {
   IconButton,
   iconPixels,
   Input,
-  lophnSpaceIcons,
   Select,
   type SelectOption,
   Tooltip,
 } from "@lophn/design/components";
+import { lophnSpaceIcons } from "../../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import {

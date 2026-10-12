@@ -2,7 +2,7 @@
 // 바꾸지 않는다(shell/workspace#R33). layout에는 agent·자리·session 참조만 저장하고 다시 열 때 그대로 복원한다
 // (R6, R7). 여는 길(sidebar 줄·rail·Ask·[New context])은 모두 openAgent 하나를 부른다. 탭 줄 `+`에는
 // 열기 항목을 두지 않는다(R15).
-import { conversationIcons } from "@lophn/design/components";
+import { conversationIcons } from "../../icons/mod.ts";
 
 import type { AgentViewHost } from "../../conversation/agent-view.tsx";
 import type { ContextChipView } from "../../conversation/composer/agent-composer.tsx";

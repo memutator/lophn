@@ -9,12 +9,14 @@ import { LauncherButton } from "../../../../packages/shell/renderer/workspace/la
 import {
   IconButton,
   Palette,
-  paletteIcons,
   type PaletteItem,
   Toast,
   ToastStack,
-  workspaceIcons,
 } from "@lophn/design/components";
+import {
+  paletteIcons,
+  workspaceIcons,
+} from "../../../../packages/shell/renderer/icons/mod.ts";
 
 import { AgentsBody, OperatorEditor } from "./agents-tab.tsx";
 import {

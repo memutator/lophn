@@ -11,11 +11,11 @@ import {
 import {
   IconButton,
   Kbd,
-  paletteIcons,
   systemTimer,
   type Timer,
   Tooltip,
 } from "@lophn/design/components";
+import { paletteIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import type { OverlayApi } from "../../../ipc/overlay.ts";

@@ -5,10 +5,10 @@ import type { ReactElement } from "react";
 import {
   Avatar,
   type AvatarProfile,
-  conversationIcons,
   IconButton,
   Tooltip,
 } from "@lophn/design/components";
+import { conversationIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import styles from "./agents-section.module.css";

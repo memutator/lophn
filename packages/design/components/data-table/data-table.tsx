@@ -1,11 +1,7 @@
 import { useMemo } from "react";
 import { Rows3 } from "lucide-react";
-import {
-  Skeleton,
-  Table,
-  type TableColumn,
-  type TableProps,
-} from "@lophn/design/components";
+import { Skeleton } from "../skeleton/skeleton.tsx";
+import { Table, type TableColumn, type TableProps } from "../table/table.tsx";
 import { useControllable } from "./controllable.ts";
 import { DataState, type DataStateProps } from "./data-state.tsx";
 import {
@@ -20,7 +16,7 @@ import {
   visibleColumns,
 } from "./model.ts";
 import { ColumnPicker, Pager, SortControl } from "./toolbar.tsx";
-import styles from "./ui-table.module.css";
+import styles from "./data-table.module.css";
 
 export interface DataTableProps<Row>
   extends Omit<TableProps<Row>, "columns" | "rows">, DataStateProps {

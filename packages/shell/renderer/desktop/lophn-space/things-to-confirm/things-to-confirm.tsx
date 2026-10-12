@@ -1,19 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  confirmIcons,
   Field,
   Icon,
   IconButton,
   iconPixels,
   List,
   ListItem,
-  retryIcon,
   Select,
   Tab,
   TabList,
   Tabs,
   Tooltip,
 } from "@lophn/design/components";
+import { confirmIcons, retryIcon } from "../../../icons/mod.ts";
 import { formatRelativeTime, t } from "@lophn/wording";
 
 import type { ConnectionState } from "../../connection/connection.ts";

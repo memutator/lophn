@@ -7,12 +7,12 @@
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import {
   Button,
-  editorIcons,
   IconButton,
   Kbd,
   ReadingFrame,
   Tooltip,
 } from "@lophn/design/components";
+import { editorIcons } from "../../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import { editShortcut } from "../../../editor/document-head.tsx";

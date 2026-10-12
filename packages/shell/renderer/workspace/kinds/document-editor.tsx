@@ -1,5 +1,5 @@
 // document_editor 탭 kind. 문서 하나를 편집기로 읽고 고친다(shell/workspace#R1, R6, R7, R9).
-import { workspaceIcons } from "@lophn/design/components";
+import { workspaceIcons } from "../../icons/mod.ts";
 
 import { DocumentView } from "../../editor/document-view.tsx";
 import type { DocumentRow } from "../source.ts";

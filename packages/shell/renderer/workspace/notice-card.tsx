@@ -4,8 +4,8 @@ import {
   IconButton,
   iconPixels,
   type IconProps,
-  workspaceIcons,
 } from "@lophn/design/components";
+import { workspaceIcons } from "../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import styles from "./notice-card.module.css";

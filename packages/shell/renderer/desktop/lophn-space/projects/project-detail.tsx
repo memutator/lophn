@@ -6,10 +6,10 @@ import {
   IconButton,
   Input,
   OverviewFrame,
-  retryIcon,
   Textarea,
   Tooltip,
 } from "@lophn/design/components";
+import { retryIcon } from "../../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import { validName } from "../organize/model.ts";

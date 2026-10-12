@@ -7,7 +7,8 @@
 // 달라"는 요청을 대화 입력으로 보내고, agent가 visual.prepare_document와 문서 tool로 준비·저장한다.
 // 고정 문서 링크는 그 요청에 답한 메시지의 결과 링크에서 온다.
 import { Component, type ReactNode, useMemo, useRef, useState } from "react";
-import { Button, conversationIcons } from "@lophn/design/components";
+import { Button } from "@lophn/design/components";
+import { conversationIcons } from "../../icons/mod.ts";
 import { formatDate, t } from "@lophn/wording";
 
 import { AppCardBlock } from "./app-card-block.tsx";

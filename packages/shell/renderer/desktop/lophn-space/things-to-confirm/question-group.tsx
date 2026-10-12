@@ -1,11 +1,6 @@
 import { useEffect, useState } from "react";
-import {
-  confirmIcons,
-  Field,
-  IconButton,
-  Textarea,
-  Tooltip,
-} from "@lophn/design/components";
+import { Field, IconButton, Textarea, Tooltip } from "@lophn/design/components";
+import { confirmIcons } from "../../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import { AnsweredSummary } from "../../../conversation/question-card/answered-summary.tsx";

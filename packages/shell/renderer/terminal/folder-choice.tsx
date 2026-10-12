@@ -5,8 +5,8 @@ import {
   List,
   ListItem,
   Tooltip,
-  workspaceIcons,
 } from "@lophn/design/components";
+import { workspaceIcons } from "../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import type { TerminalFolderChoice } from "../../ipc/terminal.ts";

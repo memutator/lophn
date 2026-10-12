@@ -1,7 +1,6 @@
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { t } from "@lophn/wording";
 import {
-  appSpaceIcons,
   EmptyState,
   ErrorState,
   Icon,
@@ -9,6 +8,7 @@ import {
   Skeleton,
   StatusMark,
 } from "@lophn/design/components";
+import { appSpaceIcons } from "../../icons/mod.ts";
 
 import {
   appStatus,

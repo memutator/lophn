@@ -1,4 +1,5 @@
-import { editorIcons, Icon, iconPixels } from "@lophn/design/components";
+import { Icon, iconPixels } from "@lophn/design/components";
+import { editorIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import { type EditorProblem, sortProblems } from "./problems.ts";

@@ -7,16 +7,13 @@ import {
   useEffect,
   useState,
 } from "react";
+import { Button, Icon, IconButton, iconPixels } from "@lophn/design/components";
 import {
-  Button,
   editorIcons,
-  Icon,
-  IconButton,
-  iconPixels,
   launcherIcons,
   lophnSpaceIcons,
   paletteIcons,
-} from "@lophn/design/components";
+} from "../../icons/mod.ts";
 import { type MessageKey, t } from "@lophn/wording";
 
 import type { SessionGroup, SessionLine } from "./agent-header.tsx";

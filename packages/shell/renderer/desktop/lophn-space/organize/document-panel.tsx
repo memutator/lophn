@@ -5,12 +5,11 @@ import {
   Field,
   IconButton,
   Input,
-  lophnSpaceIcons,
   OverviewFrame,
-  retryIcon,
   Select,
   Tooltip,
 } from "@lophn/design/components";
+import { lophnSpaceIcons, retryIcon } from "../../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import { placeOf, placeTitle, placeValue } from "../model.ts";

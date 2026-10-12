@@ -2,10 +2,10 @@ import { useEffect, useState } from "react";
 import {
   ErrorState,
   IconButton,
-  lophnSpaceIcons,
   ReadingFrame,
   Tooltip,
 } from "@lophn/design/components";
+import { lophnSpaceIcons } from "../../../icons/mod.ts";
 import { Markdown, Toc } from "@lophn/design/reading";
 import { formatRelativeTime, t } from "@lophn/wording";
 

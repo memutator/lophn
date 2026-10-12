@@ -1,6 +1,6 @@
 // search 탭 kind. context 하나의 선언된 검색을 채운 입력으로 연다(shell/workspace#R23, R27). 입력은
 // 사람이 채운 조건일 뿐이라 현재 보기에는 선언된 검색의 key만 보내고 복원하면 검색을 다시 계산한다.
-import { paletteIcons } from "@lophn/design/components";
+import { paletteIcons } from "../../icons/mod.ts";
 
 import { SearchTab } from "../contexts/search-tab.tsx";
 import { searchTabTitle } from "../contexts/settle-tabs.ts";

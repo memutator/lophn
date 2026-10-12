@@ -1,6 +1,6 @@
 // context 탭 kind. context 하나와 그 하위 탭을 연다(shell/workspace#R17). 여는 길은 모두
 // openContext 하나를 부른다(R31).
-import { workspaceIcons } from "@lophn/design/components";
+import { workspaceIcons } from "../../icons/mod.ts";
 
 import { ContextTabBody } from "../contexts/context-tab-body.tsx";
 import type { SubTab } from "../contexts/shared.ts";

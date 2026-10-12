@@ -8,8 +8,8 @@ import {
   pressAsync,
   render,
   settle,
-} from "../../design/components/testing.ts";
-import type { TableColumn } from "@lophn/design/components";
+} from "../testing.ts";
+import type { TableColumn } from "../table/table.tsx";
 import { DataTable, type DataTableProps } from "./data-table.tsx";
 import type { SortState } from "./model.ts";
 

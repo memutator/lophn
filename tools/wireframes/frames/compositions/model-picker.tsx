@@ -7,10 +7,10 @@ import {
   Field,
   Icon,
   iconPixels,
-  paletteIcons,
   Popover,
   Select,
 } from "@lophn/design/components";
+import { paletteIcons } from "../../../../packages/shell/renderer/icons/mod.ts";
 
 import menuStyles from "../../../../packages/design/components/menu/menu.module.css";
 import {

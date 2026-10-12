@@ -118,7 +118,7 @@ export interface ErrorTarget {
 }
 
 /**
- * SDK 루트 오류 경계(@lophn/ui-state AppErrorBoundary)가 main world에서 보내는 DOM event.
+ * SDK 루트 오류 경계(ui-state AppErrorBoundary)가 main world에서 보내는 DOM event.
  * `detail`은 `{name, message}`다. watchMainWorldErrors 안에는 같은 글자를 직접 쓴다(직렬화돼 돈다).
  */
 export const RENDER_ERROR_EVENT = "lophn:render-error";

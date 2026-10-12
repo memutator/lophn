@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { t } from "@lophn/wording";
-import { IconButton, lophnEntryIcon, Tooltip } from "@lophn/design/components";
+import { IconButton, Tooltip } from "@lophn/design/components";
+import { lophnEntryIcon } from "../../icons/mod.ts";
 
 import { currentPlatform, type WindowPlatform } from "./platform.ts";
 import styles from "./top-bar.module.css";

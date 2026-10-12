@@ -7,7 +7,6 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   Button,
   DiffMark,
-  editorIcons,
   ErrorState,
   Icon,
   IconButton,
@@ -16,6 +15,7 @@ import {
   Skeleton,
   useObservedSize,
 } from "@lophn/design/components";
+import { editorIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import type { RestoreReport } from "../../../ipc/editor.ts";

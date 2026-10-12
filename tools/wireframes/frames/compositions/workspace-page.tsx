@@ -8,8 +8,10 @@ import {
   Icon,
   IconButton,
   iconPixels,
-  workspaceIcons,
 } from "@lophn/design/components";
+import {
+  workspaceIcons,
+} from "../../../../packages/shell/renderer/icons/mod.ts";
 
 import { TopBar } from "../../../../packages/shell/renderer/desktop/top-bar/top-bar.tsx";
 import { LauncherButton } from "../../../../packages/shell/renderer/workspace/launcher-button.tsx";

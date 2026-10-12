@@ -2,14 +2,8 @@
 // 다음 행동 하나만 두고, 디스크 저장·기록·version·형식 검사의 단계별 사실과 안 시각은 상세에서
 // 펼친다. legacy SaveStatus의 모양(경고·실패만 아이콘, 행동은 글자 버튼)을 옮겼다.
 import { useEffect, useRef, useState } from "react";
-import {
-  Button,
-  connectionStaleIcon,
-  editorIcons,
-  Icon,
-  IconButton,
-  iconPixels,
-} from "@lophn/design/components";
+import { Button, Icon, IconButton, iconPixels } from "@lophn/design/components";
+import { connectionStaleIcon, editorIcons } from "../icons/mod.ts";
 import { formatRelativeTime, t } from "@lophn/wording";
 
 import type { ConnectionState } from "../desktop/connection/connection.ts";

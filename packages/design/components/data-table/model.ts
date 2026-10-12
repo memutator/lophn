@@ -1,6 +1,6 @@
 // 표의 순수 규칙: 정렬, 페이지, 보이는 열. React·DOM을 모른다.
 
-// @lophn/design의 TableColumn과 같은 모양. 컴포넌트 module(CSS)을 끌어오지 않으려고 필요한 만큼만 적는다.
+// design table의 TableColumn과 같은 모양. 컴포넌트 module(CSS)을 끌어오지 않으려고 필요한 만큼만 적는다.
 export type ColumnKind = "text" | "number" | "time" | "link" | "id";
 
 export interface ColumnShape<Row> {

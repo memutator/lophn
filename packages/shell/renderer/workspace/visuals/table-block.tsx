@@ -1,6 +1,6 @@
-// 표 블록. 설치된 @lophn/ui-table의 DataTable로 그린다(shell/workspace#R12). 칸 값은 문자열·숫자로만
+// 표 블록. design의 DataTable로 그린다(shell/workspace#R12). 칸 값은 문자열·숫자로만
 // 넘기고 Table이 text node로 그린다. null은 결측이라 빈 칸으로 두고 0으로 바꾸지 않는다.
-import { DataTable, type TableColumn } from "@lophn/ui-table";
+import { DataTable, type TableColumn } from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
 import type { Cell, TableContent } from "./registry.ts";

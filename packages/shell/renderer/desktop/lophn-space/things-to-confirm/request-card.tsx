@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import {
-  confirmIcons,
   Icon,
   IconButton,
   iconPixels,
   StatusMark,
   Tooltip,
 } from "@lophn/design/components";
+import { confirmIcons } from "../../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import { type CardProblem, ProblemLine } from "./card-problem.tsx";

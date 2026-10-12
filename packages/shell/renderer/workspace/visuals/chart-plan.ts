@@ -1,12 +1,12 @@
-// 차트 블록의 point 목록을 SDK(@lophn/ui-chart)의 선언형 입력으로 옮기는 순수 규칙
-// (shell/workspace#R12). 막대는 범주 축, 선은 시간 축, 산점은 숫자 축으로 그린다. SDK가 그릴 수 없는
+// 차트 블록의 point 목록을 design chart의 선언형 입력으로 옮기는 순수 규칙
+// (shell/workspace#R12). 막대는 범주 축, 선은 시간 축, 산점은 숫자 축으로 그린다. chart가 그릴 수 없는
 // 조합(범주·숫자 축의 선, 시간 축의 산점, 한 계열의 같은 x)은 값을 바꾸거나 버리지 않고 표로 보인다.
 // null은 결측이며 0으로 바꾸지 않는다.
 import { formatDate, formatNumber } from "@lophn/wording";
 
 import type { ChartContent } from "./registry.ts";
 
-/** @lophn/ui-chart의 Series와 같은 모양. 이 파일은 CSS를 싣는 SDK module을 들이지 않는다. */
+/** design chart의 Series와 같은 모양. 이 파일은 CSS를 싣는 design module을 들이지 않는다. */
 export interface Series {
   readonly key: string;
   readonly label: string;

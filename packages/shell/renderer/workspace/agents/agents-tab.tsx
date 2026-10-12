@@ -17,9 +17,9 @@ import {
   type AvatarProfile,
   Button,
   Card,
-  lophnSpaceIcons,
   Switch,
 } from "@lophn/design/components";
+import { lophnSpaceIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 import type { MessageKey } from "@lophn/wording";
 

@@ -3,9 +3,9 @@ import {
   Icon,
   IconButton,
   iconPixels,
-  launcherIcons,
   Tooltip,
 } from "@lophn/design/components";
+import { launcherIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import { WaitingPill } from "../notification-chip/space-decisions.tsx";

@@ -7,10 +7,10 @@ import {
   Avatar,
   type AvatarProfile,
   Button,
-  editorIcons,
   Menu,
   type MenuItem,
 } from "@lophn/design/components";
+import { editorIcons } from "../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import styles from "./agent-select.module.css";

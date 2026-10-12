@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { act } from "react";
-import { one, press, style } from "../../design/components/testing.ts";
+import { one, press, style } from "../testing.ts";
 import { BarChart } from "./bar-chart.tsx";
 import { DistributionChart } from "./distribution-chart.tsx";
 import { sized, state } from "./testing.tsx";

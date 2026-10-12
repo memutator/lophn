@@ -1,5 +1,5 @@
 // 데스크톱 shell 크롬(상단 바·런처·연결 화면)이 쓰는 Lucide 아이콘. 화면이 lucide를 직접 들이지 않도록
-// design이 고른다(shell/design-system#R43).
+// 이 묶음이 고른다(shell/design-system#R43).
 import {
   CircleX,
   CloudOff,

@@ -1,11 +1,6 @@
 import type { ReactNode, Ref } from "react";
-import {
-  editorIcons,
-  IconButton,
-  Kbd,
-  Tooltip,
-  workspaceIcons,
-} from "@lophn/design/components";
+import { IconButton, Kbd, Tooltip } from "@lophn/design/components";
+import { editorIcons, workspaceIcons } from "../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import { currentPlatform } from "../desktop/top-bar/platform.ts";

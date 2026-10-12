@@ -4,11 +4,10 @@ import {
   EmptyState,
   ErrorState,
   IconButton,
-  launcherEmptyIcon,
-  launcherIcons,
   Skeleton,
   Tooltip,
 } from "@lophn/design/components";
+import { launcherEmptyIcon, launcherIcons } from "../../icons/mod.ts";
 
 import type { CoreSource } from "../connection/connection.ts";
 import {

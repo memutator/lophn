@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { conversationIcons, Icon, iconPixels } from "@lophn/design/components";
+import { Icon, iconPixels } from "@lophn/design/components";
+import { conversationIcons } from "../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import type { AgentViewSource, ResultLink } from "./agent-source.ts";

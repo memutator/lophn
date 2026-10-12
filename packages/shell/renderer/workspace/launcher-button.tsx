@@ -1,4 +1,5 @@
-import { IconButton, Tooltip, workspaceIcons } from "@lophn/design/components";
+import { IconButton, Tooltip } from "@lophn/design/components";
+import { workspaceIcons } from "../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 export interface LauncherButtonProps {

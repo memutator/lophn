@@ -102,7 +102,7 @@ Deno.test("shell/workspace#R12: 표·막대·선·산점 차트와 도표를 설
     ),
     ["table", "chart", "chart", "chart", "diagram"],
   );
-  // 표는 ui-table, 차트·도표는 ui-chart의 SVG다.
+  // 표는 DataTable, 차트·도표는 design chart의 SVG다.
   const table = one(root, "[data-visual-key='orders'] table");
   assert(table.textContent!.includes("Harbor Books"));
   assert(table.textContent!.includes("Yes"));

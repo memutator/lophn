@@ -2,12 +2,8 @@
 // 하나만 보인다. 충돌 막대는 해결까지 남고 해결 화면으로 가는 행동 하나를 둔다. 디스크 재읽기
 // 안내만 3초 뒤 사라진다.
 import { useEffect } from "react";
-import {
-  Button,
-  editorIcons,
-  Icon,
-  iconPixels,
-} from "@lophn/design/components";
+import { Button, Icon, iconPixels } from "@lophn/design/components";
+import { editorIcons } from "../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import { type NoticeKind, RELOADED_NOTICE_MS } from "./save-state.ts";

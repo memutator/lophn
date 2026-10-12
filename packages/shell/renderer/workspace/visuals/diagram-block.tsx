@@ -1,6 +1,6 @@
-// 도표 블록. 설치된 @lophn/ui-chart의 GraphDiagram으로 그린다(shell/workspace#R12). 좌표·SVG·Mermaid
+// 도표 블록. design의 GraphDiagram으로 그린다(shell/workspace#R12). 좌표·SVG·Mermaid
 // 코드는 받지 않고 배치는 SDK가 정한다. node 설명은 도표 아래 목록의 글로 보인다.
-import { GraphDiagram } from "@lophn/ui-chart";
+import { GraphDiagram } from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
 import type { DiagramContent } from "./registry.ts";

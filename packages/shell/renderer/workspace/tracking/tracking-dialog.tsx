@@ -8,10 +8,10 @@ import {
   IconButton,
   iconPixels,
   Input,
-  launcherIcons,
   Select,
   Tooltip,
 } from "@lophn/design/components";
+import { launcherIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import {

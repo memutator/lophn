@@ -330,7 +330,11 @@ Deno.test("shell/workspace#R6 shell/desktop#R37 [agent-I33c]: 첫 말을 보내 
   });
   using _ = view;
   await flush();
-  assertEquals(lastTabs(saved).length, 0);
+  // 아직 말하지 않았으니 저장된 탭에는 session이 없다.
+  assertEquals(
+    lastTabs(saved).filter((tab) => "session" in tab),
+    [],
+  );
   await sendFirst(view.container, "Summarize the findings");
   const fake = fixture.fake(LOPHN_ID);
   assertEquals(fake.calls.opened.length, 1);
@@ -593,7 +597,8 @@ Deno.test("shell/workspace#R30 [agent-I33c]: Context 탭의 [Ask Context Enginee
       kind: "context",
       key: `context:${EVAL}`,
       context: EVAL,
-      sub_tab: "overview",
+      // [Ask Context Engineer]는 Contract 하위 탭에 있다(R21).
+      sub_tab: "contract",
     }),
   });
   using _ = view;
@@ -631,7 +636,6 @@ Deno.test("shell/workspace#R31 shell/workspace#R33 [agent-I33c]: view의 결과 
   click(one(view.container, "[data-result-context]"));
   await flush();
   assert(tabKeys(view.container).includes(`context:${EVAL}`));
-  click(one(view.container, "[data-agent-view]"));
   click(one(view.container, "[data-tab='agent-1']"));
   await flush();
   click(one(view.container, "[data-result]"));

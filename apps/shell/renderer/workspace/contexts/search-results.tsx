@@ -8,13 +8,7 @@
 //   contexts.label.results-count
 //   contexts.label.results-pager
 //   contexts.label.results-range
-import {
-  Fragment,
-  type ReactNode,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-} from "react";
+import { Fragment, type ReactNode, useMemo } from "react";
 import { Button, Card } from "@lophn/design/components";
 import { DataTable, type TableColumn } from "@lophn/ui-table";
 import { t } from "@lophn/wording";
@@ -50,7 +44,7 @@ export interface SearchResultsProps {
   readonly onOpenDocument: OpenDocument;
 }
 
-const OPEN_MARK = "data-open-document";
+const OPEN_MARK = "data-open-document" as const;
 
 export function SearchResults(props: SearchResultsProps): ReactNode {
   const { search, rows, page, pageSize, total, onPage, onOpenDocument } = props;
@@ -118,6 +112,7 @@ function Table(
         return {
           ...base,
           kind: "link",
+          dataAttributes: { [OPEN_MARK]: "" },
           value: (row) => valueOf(row, column.path),
           onOpen: (row) => {
             const path = documentPath(row, column);
@@ -127,47 +122,22 @@ function Table(
       }),
     [columns, onOpenDocument],
   );
-  const frame = useRef<HTMLDivElement>(null);
-  useMarkedLinks(frame);
   return (
-    <div ref={frame}>
-      <DataTable
-        columns={tableColumns}
-        rows={rows}
-        rowKey={(row) => rowKey(row)}
-        now={now}
-        onRetry={onBack}
-        empty={{
-          message: t("contexts.empty.results-none"),
-          action: {
-            label: t("contexts.button.results-prev"),
-            onSelect: onBack,
-          },
-        }}
-      />
-    </div>
+    <DataTable
+      columns={tableColumns}
+      rows={rows}
+      rowKey={(row) => rowKey(row)}
+      now={now}
+      onRetry={onBack}
+      empty={{
+        message: t("contexts.empty.results-none"),
+        action: {
+          label: t("contexts.button.results-prev"),
+          onSelect: onBack,
+        },
+      }}
+    />
   );
-}
-
-// 표의 링크 칸 단추에 data-open-document를 달아 board의 링크와 같은 표시로 찾게 한다.
-// Columns로 열을 다시 켜거나 정렬이 바뀌어 새 칸이 생겨도 따라 단다.
-function useMarkedLinks(frame: { readonly current: HTMLElement | null }) {
-  useLayoutEffect(() => {
-    const root = frame.current;
-    if (root === null) return;
-    const mark = () => {
-      for (
-        const link of root.querySelectorAll<HTMLElement>(
-          "td[data-kind=link] > button:not([data-open-document])",
-        )
-      ) link.setAttribute(OPEN_MARK, "");
-    };
-    mark();
-    if (typeof MutationObserver === "undefined") return;
-    const observer = new MutationObserver(mark);
-    observer.observe(root, { childList: true, subtree: true });
-    return () => observer.disconnect();
-  });
 }
 
 function Board(

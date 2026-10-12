@@ -20,12 +20,12 @@ export function withInput(
   return isUnset(value) ? rest : { ...rest, [name]: value };
 }
 
-/** 꼭 채워야 하는 입력이 비어 있으면 결과를 읽지 않는다. */
-export function missingRequired(
+/** 꼭 채워야 하는데 비어 있는 입력. 있으면 결과를 읽지 않는다. */
+export function missingInputs(
   search: DeclaredSearch,
   inputs: SearchInputValues,
-): boolean {
-  return search.inputs.some((input) =>
+): DeclaredSearch["inputs"] {
+  return search.inputs.filter((input) =>
     input.required && isUnset(inputs[input.name])
   );
 }

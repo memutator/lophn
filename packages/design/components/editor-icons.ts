@@ -13,7 +13,6 @@ import {
   FoldVertical,
   GitCompare,
   GitCompareArrows,
-  Library,
   type LucideIcon,
   PencilLine,
   Replace,
@@ -46,7 +45,7 @@ export const editorIcons = {
   reloaded: RotateCw,
   detailsOpen: ChevronUp,
   detailsClosed: ChevronDown,
-  // 정보 패널의 버전·컨텍스트와 버전 비교(shell/editor#R6, R13, R14).
+  // 정보 패널의 버전과 버전 비교(shell/editor#R6, R13, R14).
   compare: GitCompare,
   compareNewest: GitCompareArrows,
   compareBack: ArrowLeft,
@@ -56,5 +55,4 @@ export const editorIcons = {
   compareChangesOnly: FoldVertical,
   compareAllLines: UnfoldVertical,
   restore: RotateCcw,
-  context: Library,
 } as const satisfies Record<string, LucideIcon>;

@@ -1,7 +1,6 @@
 import {
   AppWindow,
   Bell,
-  BookOpen,
   Columns2,
   FileText,
   Folder,
@@ -25,7 +24,6 @@ export const workspaceIcons = {
   splitPane: Columns2,
   infoPanel: PanelRight,
   documentEditor: FileText,
-  documentViewer: BookOpen,
   terminal: SquareTerminal,
   appPanel: AppWindow,
   notices: Bell,

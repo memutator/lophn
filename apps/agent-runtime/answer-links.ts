@@ -19,7 +19,7 @@ const CONTEXT_FIELD: Readonly<Record<string, string>> = {
   "context.read_contract": "context",
 };
 
-export async function savedDocumentLinks(
+export async function resultLinks(
   machine: CoreCall,
   run: string,
 ): Promise<Result<MessageLink[]>> {

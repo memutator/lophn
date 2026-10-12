@@ -18,7 +18,15 @@ import {
   PROJECT,
 } from "./fake-source.ts";
 import { SearchTab, type SearchTabState } from "./search-tab.tsx";
-import { all, buttonNamed, fieldLabeled, norm, typeInto } from "./testing.tsx";
+import type { ContextsSource } from "./source.ts";
+import {
+  all,
+  buttonNamed,
+  fieldLabeled,
+  norm,
+  settleReads,
+  typeInto,
+} from "./testing.tsx";
 
 const FIRST_VIEW = fakeId("viw", "v1");
 
@@ -190,7 +198,8 @@ Deno.test("shell/workspace#R27 [ctx-I49]: Saved views에서 고르면 저장한 
 Deno.test("shell/workspace#R25 [ctx-I49]: 입력을 바꾸면 1 page로 돌아가고 [Search]가 바뀐 입력의 결과를 보인다", async () => {
   const { view, spy } = tab({ ...START, page: 1 });
   using _ = view;
-  await settle();
+  // page 1은 앞 page의 cursor를 따라 두 번 읽으므로 읽기가 act 틈에서 끝난다.
+  await settleReads();
   assertEquals(norm(one(view.container, "[data-range]")), "6–10 of 14");
   click(
     buttonNamed(one(view.container, '[data-input="kind"]'), "✓ regression")!,
@@ -200,6 +209,7 @@ Deno.test("shell/workspace#R25 [ctx-I49]: 입력을 바꾸면 1 page로 돌아�
     inputs: { kind: ["improvement"] },
     page: 0,
   });
+  await settle();
   click(buttonNamed(view.container, "Search")!);
   await settle();
   assertEquals(norm(one(view.container, "[data-result-count]")), "11 findings");
@@ -249,4 +259,69 @@ Deno.test("shell/workspace#R26 [ctx-I49]: 결과의 개체 링크는 문서 경�
   const links = all(one(view.container, "tbody tr"), "[data-open-document]");
   click(links[2]!);
   assertEquals(spy.documents, [experimentPath("exp-008")]);
+});
+
+function requiredSource() {
+  const base = createFakeContextsSource();
+  const source: ContextsSource = {
+    ...base,
+    contract: async (context) => {
+      const read = await base.contract(context);
+      if (!read.ok || read.value.content === null) return read;
+      const searches = read.value.content.searches.map((search) => ({
+        ...search,
+        inputs: search.inputs.map((input) =>
+          input.name === "kind" ? { ...input, required: true } : input
+        ),
+      }));
+      return {
+        ok: true as const,
+        value: {
+          ...read.value,
+          content: { ...read.value.content, searches },
+        },
+      };
+    },
+  };
+  return source;
+}
+
+Deno.test("shell/workspace#R24 [ctx-T10c]: 꼭 채워야 하는 입력이 비면 그 입력 이름을 담은 안내 글이 보이고 결과는 읽지 않는다", async () => {
+  const source = requiredSource();
+  const view = render(
+    <SearchTab
+      project={PROJECT}
+      source={source}
+      state={{ ...START, inputs: {}, page: 0 }}
+      onState={() => {}}
+      onOpenContext={() => {}}
+      onOpenDocument={() => {}}
+      onAsk={() => {}}
+    />,
+  );
+  using _ = view;
+  await settleReads();
+  assertEquals(
+    norm(one(view.container, "[data-input-required]")),
+    "Fill in Kind to see results.",
+  );
+  assertEquals(all(view.container, "[data-result-count]").length, 0);
+});
+
+Deno.test("shell/workspace#R24 [ctx-T10c]: 꼭 채워야 하는 입력이 차 있으면 안내 글 없이 결과가 보인다", async () => {
+  const view = render(
+    <SearchTab
+      project={PROJECT}
+      source={requiredSource()}
+      state={START}
+      onState={() => {}}
+      onOpenContext={() => {}}
+      onOpenDocument={() => {}}
+      onAsk={() => {}}
+    />,
+  );
+  using _ = view;
+  await settleReads();
+  assertEquals(all(view.container, "[data-input-required]").length, 0);
+  assertEquals(all(view.container, "[data-result-count]").length, 1);
 });

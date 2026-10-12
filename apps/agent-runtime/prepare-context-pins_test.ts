@@ -554,6 +554,7 @@ function sourcesOf(context: { sources: readonly unknown[] }) {
     address: string;
     version: string;
     overview: string;
+    unavailable?: string;
   }[];
 }
 
@@ -623,6 +624,8 @@ Deno.test("lophn-agent/harness/tools#R21 [ctx-I56b]: 고정한 판이 아직 적
   ]);
   assert(sourcesOf(gone)[0].overview.includes("[자료 없음]"));
   assert(sourcesOf(gone)[0].overview.includes("not_found"));
+  // [ctx-T10d] 같은 이유가 prompt-assemble의 구조화 생략(load_failed)이 되도록 source에 실린다.
+  assert(sourcesOf(gone)[0].unavailable?.includes("not_found"));
 
   // core가 읽어 준 판의 hash가 고정한 값과 다르면 같다.
   world.state.history.set(BUNDLE_1, {

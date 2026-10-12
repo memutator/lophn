@@ -12,6 +12,7 @@ import {
   type CellFormat,
   IdCell,
   LinkCell,
+  type LinkDataAttributes,
   NumberCell,
   TextCell,
   TimeCell,
@@ -42,6 +43,8 @@ export type TableColumn<Row> =
     kind: "link";
     value: (row: Row) => string | undefined;
     onOpen: (row: Row) => void;
+    // 단추에 달 data 속성. 호출자가 DOM을 뒤져 달지 않아도 링크를 같은 표시로 찾게 한다.
+    dataAttributes?: LinkDataAttributes;
   }
   // 내부 ID. diagnostics가 아니면 열 자체를 그리지 않는다.
   | ColumnBase & { kind: "id"; value: (row: Row) => string };
@@ -109,6 +112,7 @@ function cell<Row>(
           key={column.id}
           value={column.value(row)}
           onOpen={() => column.onOpen(row)}
+          dataAttributes={column.dataAttributes}
         />
       );
     case "id":

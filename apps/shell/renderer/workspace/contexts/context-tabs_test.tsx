@@ -45,7 +45,7 @@ import {
 import { SUB_TABS } from "./shared.ts";
 import { settleContextTabs } from "./settle-tabs.ts";
 import type { ContextsSource } from "./source.ts";
-import { all, buttonNamed, norm } from "./testing.tsx";
+import { all, buttonNamed, norm, settleReads } from "./testing.tsx";
 
 const EXPERIMENT_DOC = "doc_experiment008";
 const NOTES_DOC = "doc_notes";
@@ -141,13 +141,7 @@ function mount(options: Options = {}) {
   return { view: render(wrapped), saved };
 }
 
-async function flush(): Promise<void> {
-  for (let round = 0; round < 6; round += 1) {
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    });
-  }
-}
+const flush = settleReads;
 
 const tabKeys = (root: ParentNode) =>
   all(root, "[data-tab]").map((tab) => tab.dataset.tab);

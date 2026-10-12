@@ -72,7 +72,7 @@ Deno.test("shell/workspace#R20 [ctx-I45]: 뜻을 고치면 바뀐 field만 base_
   const row = () =>
     one(view.container, `[data-term][data-entry="${SCENARIO}"]`);
   click(buttonNamed(row(), "Edit")!);
-  const meaning = fieldLabeled(row(), "Meaning") as HTMLInputElement;
+  const meaning = fieldLabeled(row(), "Meaning") as HTMLTextAreaElement;
   assertEquals(meaning.value, "One task the agent is asked to do.");
   typeInto(meaning, "One task given to the agent.");
   click(buttonNamed(row(), "Save")!);
@@ -138,14 +138,16 @@ Deno.test("shell/workspace#R20 [ctx-I45]: [Delete]는 항목을 base_revision과
 Deno.test("shell/workspace#R20 [ctx-I45]: 명령이 실패하면 줄을 그대로 두고 이유를 alert로 보인다", async () => {
   const source: ContextsSource = {
     ...createFakeContextsSource(),
-    glossaryRemove: () =>
-      Promise.resolve({ ok: false, message: "changed elsewhere" }),
+    glossaryRemove: () => Promise.resolve({ ok: false, message: "conflict" }),
   };
   using view = glossary(EVAL, source);
   await settle();
   click(buttonNamed(all(view.container, "[data-term]")[0]!, "Delete")!);
   await settle();
-  assertEquals(norm(one(view.container, "[role=alert]")), "changed elsewhere");
+  assertEquals(
+    norm(one(view.container, "[role=alert]")),
+    "It changed somewhere else since you opened it. Reload and try again.",
+  );
   assertEquals(all(view.container, "[data-term]").length, 3);
 });
 
@@ -155,4 +157,49 @@ Deno.test("shell/workspace#R20 [ctx-I45]: 용어가 없으면 비었음 상태�
   one(view.container, "[data-state=empty]");
   assertEquals(all(view.container, "[data-term]").length, 0);
   assert(buttonNamed(view.container, "Add term"));
+});
+
+Deno.test("shell/workspace#R20 [ctx-T10c]: 용어의 뜻은 여러 줄 textarea로 고치고 용어는 한 줄 input이다", async () => {
+  using view = glossary();
+  await settle();
+  click(buttonNamed(view.container, "Add term")!);
+  assertEquals(fieldLabeled(view.container, "Meaning").tagName, "TEXTAREA");
+  assertEquals(fieldLabeled(view.container, "Term").tagName, "INPUT");
+  const source = createFakeContextsSource();
+  using edit = glossary(EVAL, source);
+  await settle();
+  const row = () =>
+    one(edit.container, `[data-term][data-entry="${SCENARIO}"]`);
+  click(buttonNamed(row(), "Edit")!);
+  typeInto(fieldLabeled(row(), "Meaning"), "Line one.\nLine two.");
+  click(buttonNamed(row(), "Save")!);
+  await settle();
+  assertEquals(source.calls, [{
+    command: "glossarySet",
+    request: { entry: SCENARIO, meaning: "Line one.\nLine two." },
+    compare: { base_revision: "51" },
+  }]);
+});
+
+Deno.test("shell/workspace#R20 [ctx-T10c]: 실패 이유는 core code가 아니라 wording으로 보이고 모르는 code는 internal 글로 보인다", async () => {
+  const reasons: Record<string, string> = {
+    conflict:
+      "It changed somewhere else since you opened it. Reload and try again.",
+    unavailable: "Context isn't responding right now. Try again in a moment.",
+    not_found: "It no longer exists.",
+    "weird-code": "Something went wrong on our side.",
+  };
+  for (const [code, text] of Object.entries(reasons)) {
+    const source: ContextsSource = {
+      ...createFakeContextsSource(),
+      glossaryRemove: () => Promise.resolve({ ok: false, message: code }),
+    };
+    using view = glossary(EVAL, source);
+    await settle();
+    click(buttonNamed(all(view.container, "[data-term]")[0]!, "Delete")!);
+    await settle();
+    const alert = norm(one(view.container, "[role=alert]"));
+    assertEquals(alert, text);
+    assert(!alert.includes(code), `${code} leaked into the alert`);
+  }
 });

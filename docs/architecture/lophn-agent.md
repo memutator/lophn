@@ -115,7 +115,7 @@ handoff는 Run.source, tool 판정은 ToolCall, safety 실패수는 확정 call,
 | derived | `~/.lophn/derived/lophn-agent/catalog.json`, `catalog-state.json`, `summaries/`, `usage.sqlite` | runtime 소유. catalog는 release snapshot/마지막 정상본, summary는 완성 ModelCall·원문 구간, 집계는 ledger call로 재생성한다. 삭제해도 사실은 남는다 |
 | skill | 개인 `~/.lophn/skills/`, 등록 절대 root, 설치 bundle의 `assets/skills/` | 사람 또는 배포가 준비한 읽기 전용 자료. 경로는 prompt에 넣지 않는다. runtime은 자동 작성·설치하지 않는다 |
 | 내장 자산 | 설치 bundle의 `assets/roles/`, `assets/model-catalog.json` | release의 고정 자료. agent 정의·설정은 app data 파일, 실행 정체는 ledger와 구별한다 |
-| OS keychain | platform secret 참조에 묶인 provider API key·OAuth 접근/갱신 token, MCP auth·명시 server env의 secret | 값은 platform secret 전송 부착 경계에서만 사용. ledger에는 참조·revision·만료·확인된 계정·중복 검사 fingerprint만 |
+| OS keychain | platform secret 참조에 묶인 provider API key·OAuth 접근/갱신 token, MCP auth·명시 server env의 secret | 값은 platform secret 전송 부착 경계에서만 사용. ledger에는 참조·revision·만료만 |
 | runtime 메모리 | stream 조각, AbortController, 타이머, OAuth state/PKCE verifier, credential single-flight, MCP 파이프·connection, 필수 opaque 추론 상태 | 정본 아님. opaque 상태는 같은 run/provider/model에만 쓰고 종료·메모리 유실 때 폐기한다 |
 | eval | 개발 runner의 독립 임시 workspace·DB | 운영 derived나 ledger를 eval용으로 복제하지 않는다 |
 
@@ -248,11 +248,11 @@ handoff는 Run.source, tool 판정은 ToolCall, safety 실패수는 확정 call,
 
 ### 5.2 model 호출
 
-runtime 내부 interface는 `invokeModelCall(input, signal)`이다. 입력은 run 또는 Compact 요약/사람 연결 test 근거, model_use·purpose, resolved agent(요약은 Workspace의 Model for summaries)에서 resolve한 ResolvedModel·provider(연결 test는 model_use=null 및 명시 선택의 CallModel 기준), 보호한 prompt/context_basis hash, 출력 예약량, retry/credential 이동 관계다. 출력은 ModelCall ID, complete/partial/failed/cancelled/uncertain, 순서·대응을 보존한 text/tool requests, 종료 이유, 보고 usage·cost·안전한 오류 코드다. stream fragment는 화면용 임시 전달일 뿐 tool 요청이 아니다.
+runtime 내부 interface는 `invokeModelCall(input, signal)`이다. 입력은 run 또는 Compact 요약 근거, model_use·purpose, resolved agent(요약은 Workspace의 Model for summaries)에서 resolve한 ResolvedModel·provider, 보호한 prompt/context_basis hash, 출력 예약량, retry 관계다. 출력은 ModelCall ID, complete/partial/failed/cancelled/uncertain, 순서·대응을 보존한 text/tool requests, 종료 이유, 보고 usage·cost·안전한 오류 코드다. stream fragment는 화면용 임시 전달일 뿐 tool 요청이 아니다.
 
 | command/read | POST 경로 | 실제 입력·결과 |
 |---|---|---|
-| StartModelCall | `/v1/model-calls/start` | input/context_basis blob·실제 model/credential 판·attempt 관계·반영 messages; commit 뒤만 전송 |
+| StartModelCall | `/v1/model-calls/start` | input/context_basis blob·실제 model과 provider credential 판·retry 관계·반영 messages; Disconnect한 provider는 unavailable; commit 뒤만 전송 |
 | FinishModelCall | `/v1/model-calls/finish` | output blob·complete/partial 표시·usage/cost/측정; 최초 사실 불변 |
 | SupplementModelCall | `/v1/model-calls/supplement` | 늦은 usage/결과·보완 key; 이전 사실 append |
 | model call read/list | `/v1/model-calls/read`, `/v1/model-calls/list` | call ID 또는 run/session·cursor; 실제 시도별 기록 |
@@ -265,7 +265,7 @@ runtime 내부 interface는 `invokeModelCall(input, signal)`이다. 입력은 ru
 | RefreshProviderCredential | `/v1/provider-credentials/refresh-result` | machine·이전 credential revision·보관된 새 참조/expiry 또는 안전한 불가 상태 |
 | RecordProviderAvailability | `/v1/provider-credentials/record-availability` | credential revision·model?·until·안전한 이유 |
 | provider read/list | `/v1/providers/read`, `/v1/providers/list` | 안전한 목적지·protocol·credential 상태(available/usage_wait/rejected/revoked)·model block; 값 없음 |
-| OAuth begin/complete/cancel | `/v1/providers/login-begin`, `/v1/providers/login-complete`, `/v1/providers/login-cancel` | user만·provider·transient login handle·코드/최종 URL; core는 runtime 제어 작업으로 전달, 입력 저장/echo 없음 |
+| OAuth begin/complete/cancel | `/v1/providers/login-begin`, `/v1/providers/login-complete`, `/v1/providers/login-cancel` | user만·만들 provider의 ID와 내장 정의 key(provider는 Connect 전에 없다)·transient login handle·코드/최종 URL; core는 runtime 제어 작업으로 전달, 입력 저장/echo 없음 |
 
 내놓는 event는 `ProviderRegistered`, `ProviderChanged`, `ProviderDisconnected`, `ModelDefaultsChanged`, `ModelFavoritesChanged`, `ModelCallStarted`, `ModelCallFinished`, `ModelCallSupplemented`다. OAuth의 transient handle·PKCE·device code는 새 ledger entity가 아니다.
 
@@ -296,7 +296,7 @@ API key 대상은 Anthropic·OpenAI·xAI·OpenRouter·Groq·DeepSeek·Google Gem
 
 provider에는 credential이 하나라 호출 계정을 고르는 규칙이 없다(model 선택은 credential을 고르지 않는다 → lophn-agent/harness/provider). rejected·usage_wait·model 불가면 run은 멈추고 다른 provider/model로 이동하지 않는다. 요약용 model이 다른 provider이면 그 provider의 credential로 따로 호출한다. 실제 판은 ModelCall에 남긴다.
 
-429 retry 시각이 30초 이내로 확인되면 temporary, 그보다 크거나 미상·소진·잔액/지출 한도는 credential usage_wait다. reset까지, reset 미상이면 1시간 유지하고 그 전에 test도 하지 않는다. model 없음/폐기/계정 model 제한은 credential/model 쌍만 막는다. temporary의 같은 입력 retry는 loop가 최초 뒤 최대 2회, 서버 시각 또는 2초·4초로 통제한다. 거절·context·cancel·원인 불명을 다른 계정으로 우회하지 않는다.
+429 retry 시각이 30초 이내로 확인되면 temporary, 그보다 크거나 미상·소진·잔액/지출 한도는 credential usage_wait다. reset까지, reset 미상이면 1시간 유지하고 그 전에 새 call을 보내지 않는다. model 없음/폐기/credential의 model 접근 제한은 credential/model 쌍만 막는다. temporary의 같은 입력 retry는 loop가 최초 뒤 최대 2회, 서버 시각 또는 2초·4초로 통제한다. 거절·context·cancel·원인 불명을 다른 provider·model로 우회하지 않는다.
 
 adapter의 `auth-transport.ts`만 **secret 전송 부착**을 machine credential으로 부른다. secret 참조·고정 목적지·용도·revision을 검증한 뒤 transport callback 메모리에서만 인증 header/token을 붙이고 버린다. run loop·prompt·ToolCall·ModelCall blob에는 값이 없다. refresh 결과 저장도 이 contract의 짝을 사용한다. keychain 불가를 평문 파일/환경 변수로 대체하지 않는다.
 
@@ -349,7 +349,7 @@ confirm=false인 read는 현재 scope·stop을 검증한 실제 contract로 즉�
 
 model은 층(기본값 < Workspace < 자리 < agent 정의 < session)에서 ModelChoice(provider·model 이름·option 값)를 통째로 가장 높은 층 하나만 고르며 credential은 고르지 않는다(provider에 하나). 최초 Workspace 기본값은 모두 null이다. 새 판단·본문은 judgment(resolved agent의 model), 이미 정한 제목·요약·압축은 organizing 용도로 기록하며 organizing은 Workspace의 요약용 model(`summaries`)을 쓰고 비면 같은 agent model을 쓴다. 다른 model이나 provider로 자동 fallback하지 않으며 합계·schema 검사는 model 호출 0회다. 기본값 변경은 진행 중 run과 이미 고정한 값을 바꾸지 않는다.
 
-catalog identity는 `(provider_definition, model_name)`이다. release models.dev snapshot → 정상 새 catalog → 좁은 lophn patch → user 명시 보완 순으로 적용한다. provider/model/price 정보는 한 공개 fetch를 공유하고 24시간·ETag conditional GET·명시 refresh를 쓴다. 개인 자료·credential·선택 계정을 보내지 않는다. 깨진 자료·빈 목록·잘못된 알려진 한계/가격은 전체 갱신 거절, 마지막 정상본 유지다. 모르는 token 한계·tool 지원을 추측하지 않고 선택한 provider/model을 catalog 누락 때문에 바꾸지 않는다.
+catalog identity는 `(provider_definition, model_name)`이다. release models.dev snapshot → 정상 새 catalog → 좁은 lophn patch → user 명시 보완 순으로 적용한다. provider/model/price 정보는 한 공개 fetch를 공유하고 24시간·ETag conditional GET·명시 refresh를 쓴다. 개인 자료·credential·선택을 보내지 않는다. 깨진 자료·빈 목록·잘못된 알려진 한계/가격은 전체 갱신 거절, 마지막 정상본 유지다. 모르는 token 한계·tool 지원을 추측하지 않고 선택한 provider/model을 catalog 누락 때문에 바꾸지 않는다.
 
 prompt는 다음 다섯 층을 고정한다. 같은 revision·지침 판·자리·자료·구간이면 byte-identical 직렬화다. ContextBasis에 층별 hash·출처·version·구간·생략·크기·cache 경계를 남긴다.
 
@@ -396,7 +396,7 @@ MCP manager는 `(assignment, server)` connection 하나를 유지하여 연속 r
 
 ### 5.6 trace·usage·eval·revert
 
-trace는 Run/Message/ModelCall/ToolCall/event의 참조 view이며 중복 원문 trace entity가 아니다. 실제 model 시도·tool 판정·승인·실패는 sampling 없이 남긴다. handoff의 송신·수신 run 연결을 따로 보이고 비용은 실제 수신 call에 귀속한다. run 밖 Compact 요약·명시 connection test에 가짜 run을 만들지 않는다. 명시 test는 connection_test purpose·model_use/run/session null·user command_key와 text/tool_call 종류를 기록하며 ProviderCheck.calls로 연결한다. 현재 provider·credential·선택 model을 검증한 뒤 한 시도 30초 상한을 적용하며 test tool로 앱 업무를 실행하지 않는다. stream fragment는 durable trace가 아니다.
+trace는 Run/Message/ModelCall/ToolCall/event의 참조 view이며 중복 원문 trace entity가 아니다. 실제 model 시도·tool 판정·승인·실패는 sampling 없이 남긴다. handoff의 송신·수신 run 연결을 따로 보이고 비용은 실제 수신 call에 귀속한다. run 밖 Compact 요약에 가짜 run을 만들지 않는다. 명시 연결 test는 없다(사람 결정 2026-10-12): 첫 call의 실패는 provider 오류 분류가 알린다. stream fragment는 durable trace가 아니다.
 
 usage는 reported input/output/cache-read/cache-write/reasoning을 구별하고 포함 관계가 확인될 때만 겹친 수를 뺀다. 미보고는 null이고 0/추정으로 채우지 않는다. cost는 reported/estimated/subscription/free/unknown이다. estimated는 당시 price snapshot·보고 usage·십진수 계산·통화·context 구간/cache TTL을 보존한다. reasoning-in-output 이중 과금 없음, 필요 가격/usage 없음은 unknown, 다른 통화 자동 합산/환산 없음, 과거 비용 덮기 없음이다. late usage·청구·명시 재계산은 supplement로 추가한다. 금액 cost gate는 없다.
 
@@ -504,7 +504,7 @@ model 응답 중 correction이 오면 응답은 보존하되 옛 응답의 미�
 ```
 [shell] 사람 login-begin → [core control] runtime OAuth 작업 전달
    → [runtime] 검증된 client/endpoint·state/PKCE 또는 device poll
-   → [platform secret] token 보관 → [core command] credential 참조 등록
+   → [platform secret] token 보관 → [core command] RegisterProvider(provider와 credential 참조를 함께; API key는 보호 입력의 증거로 같은 command)
    → [shell] 사람이 Workspace 기본·자리·agent 정의·session 중 한 층에서 provider/model 선택 → [core command] ChangeModelDefaults / ChangePlaceAgentSettings / SaveAgent / ChangeSessionModel
    → [runtime call] 그 provider의 credential 하나 사용
    → 만료 임박: single-flight 잠금·secret 재조회·refresh(15초)·보관·CAS
@@ -514,7 +514,7 @@ model 응답 중 correction이 오면 응답은 보존하되 옛 응답의 미�
        rejected/usage_wait/model 불가 → availability 기록, run 멈춤(configuration_unavailable/model_error), 다른 provider/model로 이동 없음
 ```
 
-설정 조회는 model 호출이 없다. OAuth 회수와 usage_wait는 재시작으로 풀리지 않는다.
+설정 조회는 model 호출이 없다. OAuth 회수와 usage_wait는 재시작으로 풀리지 않는다. Disconnect는 확인 창을 거쳐 DisconnectProvider가 provider와 credential 참조를 함께 지우고, core가 알려진 값을 회수하며, 그 provider를 고른 agent는 다시 Connect하기 전까지 시작하지 않는다.
 
 ### 7.5 skill·MCP 준비 → 선택 tool 실행
 

@@ -64,10 +64,10 @@ Deno.test("platform/secrets#R1 platform/redaction#R1: 다른 concern의 참조 s
     const first = await put(keychain, OWNER_VALUE);
     const second = await put(keychain, OTHER_VALUE);
     // owner의 ledger 표는 이 concern 밖이라 시험은 가변 목록으로 대신한다.
-    let refs = [{ name: "pvd_a/main", sealedRef: first }];
+    let refs = [{ name: "pvd_a", sealedRef: first }];
     const source: SecretRefSource = {
       owner: "lophn-agent/harness/provider",
-      commands: ["RegisterProviderCredential"],
+      commands: ["RegisterProvider"],
       read: () => ok([...refs]),
     };
     const calls: Calls = { registered: [], revoked: [], ready: [] };
@@ -86,7 +86,7 @@ Deno.test("platform/secrets#R1 platform/redaction#R1: 다른 concern의 참조 s
     );
 
     // 교체: 새 값이 알려지고 옛 값이 회수된다.
-    refs = [{ name: "pvd_a/main", sealedRef: second }];
+    refs = [{ name: "pvd_a", sealedRef: second }];
     assert((await store.sync()).ok);
     assertEquals(calls.registered, [OWNER_VALUE, OTHER_VALUE]);
     assertEquals(calls.revoked, [OWNER_VALUE]);
@@ -96,11 +96,11 @@ Deno.test("platform/secrets#R1 platform/redaction#R1: 다른 concern의 참조 s
     // 같은 값을 쥔 다른 이름이 있으면 하나가 사라져도 값은 남는다.
     const spare = await put(keychain, OTHER_VALUE);
     refs = [
-      { name: "pvd_a/main", sealedRef: second },
-      { name: "pvd_a/spare", sealedRef: spare },
+      { name: "pvd_a", sealedRef: second },
+      { name: "pvd_b", sealedRef: spare },
     ];
     assert((await store.sync()).ok);
-    refs = [{ name: "pvd_a/spare", sealedRef: spare }];
+    refs = [{ name: "pvd_b", sealedRef: spare }];
     assert((await store.sync()).ok);
     assert(store.known.match(OTHER_VALUE) !== undefined);
     // 모두 사라지면 회수된다.
@@ -122,7 +122,7 @@ Deno.test("platform/secrets#R8: 값을 읽지 못하면 matcher가 준비되지 
     const source: SecretRefSource = {
       owner: "lophn-agent/harness/provider",
       commands: [],
-      read: () => ok([{ name: "pvd_a/main", sealedRef: ref }]),
+      read: () => ok([{ name: "pvd_a", sealedRef: ref }]),
     };
     keychain.setStatus("unavailable");
     const calls: Calls = { registered: [], revoked: [], ready: [] };
@@ -158,7 +158,7 @@ Deno.test("platform/secrets#R1: owner의 참조를 바꾸는 command가 확정�
     },
     [{
       owner: "lophn-agent/harness/provider",
-      commands: ["RegisterProviderCredential"],
+      commands: ["RegisterProvider"],
       read: () => ok([]),
     }],
   );
@@ -176,7 +176,7 @@ Deno.test("platform/secrets#R1: owner의 참조를 바꾸는 command가 확정�
     compare: {},
     prepared: [],
   });
-  await writer.command(ctx, envelope("RegisterProviderCredential") as never);
+  await writer.command(ctx, envelope("RegisterProvider") as never);
   await writer.command(ctx, envelope("SetSecret") as never);
   assertEquals(syncs, 2);
   await writer.command(ctx, envelope("ListThings") as never);

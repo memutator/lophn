@@ -89,13 +89,10 @@ export const priceBasisOutputSchema = z.object({
   rates: z.array(priceRateOutputSchema).min(1),
 }).refine(disjointRates, { message: "overlapping context price intervals" });
 
-const credentialsSchema = z.array(nonblankSchema).refine(
-  (values) => new Set(values).size === values.length,
-  { message: "duplicate credential key" },
-);
 const resolvedModelFields = {
   purpose: z.enum(["judgment", "organizing"]),
-  credentials: credentialsSchema,
+  // run 시작에 고정한 provider의 credential 판. 인증 없음(custom provider의 loopback)만 null이다.
+  credential_revision: positiveIntegerSchema.nullable(),
   provider: idSchema("pvd"),
   model_name: nonblankSchema,
   sent_model_name: nonblankSchema,

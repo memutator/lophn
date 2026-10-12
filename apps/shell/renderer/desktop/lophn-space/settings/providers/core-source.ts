@@ -1,12 +1,12 @@
 // ProviderSettingsSource를 main의 core 통로로 만든다(shell/desktop#R49). 응답은 main의 contract
-// client가 route output schema로 이미 검사했다. 아래 모양은 그 schema(providers·provider-credentials)
-// 에서 이 화면이 읽는 field만 옮긴 것이다. secret 값은 이 파일을 지나지 않는다: key·로그인 응답은
-// 보호 창이 받고 여기서는 창 열기만 한다(platform/secrets#R2).
+// client가 route output schema로 이미 검사했다. 아래 모양은 그 schema(providers)에서 이 화면이 읽는
+// field만 옮긴 것이다. secret 값은 이 파일을 지나지 않는다: key·로그인 응답은 보호 창이 받고 여기서는
+// 창 열기만 한다(platform/secrets#R2).
 //
-// core route는 있지만 renderer가 혼자 부를 수 없는 일(연결 끊기, 계정 사용 끄고 켜기, 계정 순서
-// 바꾸기)은 사람 확인 창이 있어야 한다(provider-credentials/change는 confirmation: required). 그 창의
-// 요청 종류가 생기기 전까지 이 통로는 core를 부르지 않고 unavailable로 답하고, 화면이 그 일만 못 했다고
-// 알린다.
+// provider 하나에는 연결(credential) 하나라 Connect는 provider와 credential을 함께 받는
+// RegisterProvider 하나다. key로 연결하는 일은 이 통로가 core를 부르지 않고 등록 정보를 실은 보호 창을
+// 열면 그 창이 값을 받아 RegisterProvider를 부른다. 끊기도 확인 창을 열 뿐이다: 결정은 그 창에서만
+// 받는다(lophn-agent/harness/provider#R6).
 import { t } from "@lophn/wording";
 
 import type { OpenExternalApi } from "../../../../../ipc/open-external.ts";
@@ -23,8 +23,9 @@ import {
 } from "../core-call.ts";
 import { waysOf } from "../model.ts";
 import type {
-  AccountRow,
   AuthWay,
+  CredentialReason,
+  CredentialState,
   CustomProviderInput,
   ProviderDefinitionRow,
   ProviderRow,
@@ -33,29 +34,9 @@ import type {
   WindowOutcome,
 } from "./settings-source.ts";
 
-interface CredentialValue {
-  key: string;
-  kind: AuthWay;
-  label: string;
-  enabled: boolean;
-  order: number;
-  account: string | null;
-  organization: string | null;
-  plan: string | null;
-  state: AccountRow["state"];
-  unavailable_reason: AccountRow["reason"];
-  until: string | null;
-  model_blocks: {
-    model_name: string;
-    reason: AccountRow["modelBlocks"][number]["reason"];
-    until: string | null;
-  }[];
-}
-
 export interface ProviderValue {
   id: string;
   name: string;
-  enabled: boolean;
   endpoint: string;
   revision: number;
   definition: {
@@ -63,16 +44,14 @@ export interface ProviderValue {
     auth_kinds: AuthWay[];
     oauth: { verified_for_lophn: boolean } | null;
   };
-  credentials: CredentialValue[];
-  last_check: {
-    at: string;
-    result: "success" | "failure";
-    test_kind: "text" | "tool_call";
-    model_name: string;
-  } | null;
+  credential: {
+    kind: AuthWay;
+    state: CredentialState;
+    unavailable_reason: CredentialReason | null;
+  };
 }
 
-/** `providers/definitions`가 주는 내장 정의. 등록 command에 그대로 실으므로 원본을 쥔다. */
+/** `providers/definitions`가 주는 내장 정의. 연결 창이 그대로 싣기 때문에 원본을 쥔다. */
 interface BuiltinDefinition {
   key: string;
   display_name: string;
@@ -98,54 +77,14 @@ const PRODUCTS: Readonly<Record<string, string>> = {
   supergrok: "SuperGrok",
 };
 
-function loopback(endpoint: string): boolean {
-  try {
-    const host = new URL(endpoint).hostname;
-    return host === "127.0.0.1" || host === "[::1]" || host === "localhost";
-  } catch {
-    return false;
-  }
-}
-
-function accountOf(value: CredentialValue): AccountRow {
-  return {
-    key: value.key,
-    label: value.label,
-    way: value.kind,
-    enabled: value.enabled,
-    order: value.order,
-    account: value.account,
-    organization: value.organization,
-    plan: value.plan,
-    state: value.state,
-    reason: value.unavailable_reason,
-    until: value.until,
-    modelBlocks: value.model_blocks.map((block) => ({
-      model: block.model_name,
-      reason: block.reason,
-      until: block.until,
-    })),
-  };
-}
-
 function providerOf(value: ProviderValue): ProviderRow {
   return {
     id: value.id,
     name: value.name,
-    enabled: value.enabled,
     definition: value.definition.key,
-    ways: waysOf(value.definition.auth_kinds),
-    signIn: value.definition.oauth === null
-      ? null
-      : { verified: value.definition.oauth.verified_for_lophn },
-    local: loopback(value.endpoint),
-    accounts: value.credentials.map(accountOf),
-    lastCheck: value.last_check === null ? null : {
-      at: value.last_check.at,
-      result: value.last_check.result,
-      kind: value.last_check.test_kind,
-      model: value.last_check.model_name,
-    },
+    way: value.credential.kind,
+    state: value.credential.state,
+    reason: value.credential.unavailable_reason,
     revision: value.revision,
   };
 }
@@ -199,9 +138,9 @@ export interface ProviderDeps {
   openWindow: OpenSecretWindow | undefined;
   openLink: OpenExternalApi["openExternal"] | undefined;
   now: () => number;
-  /** 새 계정 key·command key를 만든다. 테스트가 고정한다. */
+  /** command key를 만든다. 테스트가 고정한다. */
   random: () => string;
-  /** 연결을 등록할 때 쓰는 새 provider id. */
+  /** 연결할 새 provider id. */
   providerId: () => string;
 }
 
@@ -218,8 +157,18 @@ export function coreProviderSettingsSource(
   const now = deps.now ?? Date.now;
   const random = deps.random ?? (() => crypto.randomUUID().slice(0, 8));
   const providerId = deps.providerId ?? (() => newProviderId(now()));
-  /** 이 창에서 등록한 정의 key → provider id. 같은 정의를 두 번 등록하지 않는다. */
-  const registered = new Map<string, string>();
+  /**
+   * 정의 key → provider id. 끊은 provider를 다시 연결하면 같은 ID로 연결해, 그 provider를 고른 agent가
+   * 다시 쓸 수 있게 한다(provider 도메인 Disconnect). 이 창이 본 연결과 연결하려 만든 ID를 쥔다.
+   */
+  const ids = new Map<string, string>();
+  function idFor(definition: string): string {
+    const known = ids.get(definition);
+    if (known !== undefined) return known;
+    const fresh = providerId();
+    ids.set(definition, fresh);
+    return fresh;
+  }
 
   function listDefinitions(): Promise<
     SourceResult<{ definitions: BuiltinDefinition[] }>
@@ -227,72 +176,55 @@ export function coreProviderSettingsSource(
     return call(core, "read", "providers", "definitions", {});
   }
 
-  const keyIntent = (
-    provider: string,
-    label: string,
-    kind: "api_key" | "oauth",
-  ): SecretIntent => ({
-    kind: "secret_input",
-    owner: provider,
-    purpose: "provider_credential",
-    credential: {
-      key: `${kind === "api_key" ? "key" : "login"}-${random()}`,
-      kind,
-      label,
-      account: null,
-      organization: null,
-      plan: null,
+  /** 연결 창이 RegisterProvider에 그대로 실을 등록 정보. 값은 이 안에 없다. */
+  function connectIntent(
+    owner: string,
+    connect: {
+      name: string;
+      definition: unknown;
+      endpoint: string;
+      protocol: string;
+      kind: "api_key" | "oauth";
+      login?: string;
     },
-  });
-
-  /**
-   * 내장 정의로 연결을 등록한다(사람 command `RegisterProvider`). key 값은 여기를 지나지 않고 이어서
-   * 여는 보호 창이 받는다. 주소를 알 수 없는 정의(로컬)는 등록하지 않는다.
-   */
-  async function register(
-    key: string,
-  ): Promise<SourceResult<{ id: string; definition: BuiltinDefinition }>> {
-    const read = await listDefinitions();
-    if (!read.ok) return read;
-    const definition = read.value.definitions.find((entry) =>
-      entry.key === key
-    );
-    if (definition === undefined) return UNAVAILABLE;
-    const known = registered.get(key);
-    if (known !== undefined) {
-      return { ok: true, value: { id: known, definition } };
-    }
-    const endpoint = baseOf(definition.models_endpoint);
-    const protocol = definition.protocols[0];
-    if (endpoint === null || protocol === undefined) return UNAVAILABLE;
-    const id = providerId();
-    const sent = await command(core, "providers", "register", {
-      input: {
-        id,
-        name: definition.display_name,
-        definition,
-        endpoint,
-        protocol,
-      },
-      key: `provider-register-${random()}`,
-    });
-    if (!sent.ok) return sent;
-    registered.set(key, id);
-    return { ok: true, value: { id, definition } };
+  ): SecretIntent {
+    return {
+      kind: "secret_input",
+      owner,
+      purpose: "provider_credential",
+      connect,
+    };
   }
 
-  async function signIn(
-    key: string,
-  ): Promise<WindowOutcome> {
-    const target = await register(key);
-    if (!target.ok) return target;
-    const { id, definition } = target.value;
+  /** 내장 정의의 연결 창 등록 정보. 주소를 알 수 없는 정의는 연결하지 않는다. */
+  function builtinConnect(
+    definition: BuiltinDefinition,
+    kind: "api_key" | "oauth",
+    login?: string,
+  ): SecretIntent | null {
+    const endpoint = baseOf(definition.models_endpoint);
+    const protocol = definition.protocols[0];
+    if (endpoint === null || protocol === undefined) return null;
+    return connectIntent(idFor(definition.key), {
+      name: definition.display_name,
+      definition,
+      endpoint,
+      protocol,
+      kind,
+      ...(login === undefined ? {} : { login }),
+    });
+  }
+
+  async function signIn(definition: BuiltinDefinition): Promise<WindowOutcome> {
+    if (builtinConnect(definition, "api_key") === null) return UNAVAILABLE;
+    const id = idFor(definition.key);
+    // provider는 아직 없다. 만들 provider의 ID와 내장 정의 key로 로그인을 시작한다.
     const begun = await command<{
       login: string;
       flow: "device_code" | "device_code_then_pkce_paste_url";
       sign_in?: { url: string; user_code: string | null };
     }>(core, "providers", "login-begin", {
-      input: { provider: id },
+      input: { provider: id, definition: definition.key },
       key: `login-begin-${random()}`,
     });
     if (!begun.ok) return begun;
@@ -314,18 +246,19 @@ export function coreProviderSettingsSource(
       return UNAVAILABLE;
     }
     // 최종 주소를 붙여 넣어 끝내는 방식만 응답을 받는 보호 창이 더 필요하다.
-    return begun.value.flow === "device_code_then_pkce_paste_url"
-      ? openProtected(
-        openWindow,
-        keyIntent(id, definition.display_name, "oauth"),
-      )
-      : { ok: true, value: null };
+    if (begun.value.flow !== "device_code_then_pkce_paste_url") {
+      return { ok: true, value: null };
+    }
+    const intent = builtinConnect(definition, "oauth", begun.value.login);
+    return intent === null ? UNAVAILABLE : openProtected(openWindow, intent);
   }
 
   return {
     async connected() {
       const read = await listProviders(core);
-      return read.ok ? { ok: true, value: read.value.map(providerOf) } : read;
+      if (!read.ok) return read;
+      for (const value of read.value) ids.set(value.definition.key, value.id);
+      return { ok: true, value: read.value.map(providerOf) };
     },
 
     async available() {
@@ -349,54 +282,69 @@ export function coreProviderSettingsSource(
       return { ok: true, value: rows };
     },
 
-    // 확인 창의 요청 종류가 없다(모듈 머리말). core를 부르지 않는다.
-    disconnect: () => Promise.resolve(UNAVAILABLE),
-    setAccountEnabled: () => Promise.resolve(UNAVAILABLE),
-    reorderAccounts: () => Promise.resolve(UNAVAILABLE),
+    // 끊기는 core를 부르지 않는다. 그 provider의 Disconnect 확인 창만 연다.
+    disconnect(provider) {
+      return openProtected(openWindow, {
+        kind: "secret_input",
+        owner: provider,
+        purpose: "provider_credential",
+        disconnect: true,
+      });
+    },
 
     async connect(definition, way) {
-      if (way === "oauth") return await signIn(definition);
-      const target = await register(definition);
-      if (!target.ok) return target;
-      return way === "api_key"
-        ? openProtected(
-          openWindow,
-          keyIntent(
-            target.value.id,
-            target.value.definition.display_name,
-            "api_key",
-          ),
-        )
-        : { ok: true, value: null };
+      const read = await listDefinitions();
+      if (!read.ok) return read;
+      const found = read.value.definitions.find((entry) =>
+        entry.key === definition
+      );
+      if (found === undefined) return UNAVAILABLE;
+      if (way === "oauth") return await signIn(found);
+      const intent = builtinConnect(found, "api_key");
+      return intent === null ? UNAVAILABLE : openProtected(openWindow, intent);
     },
 
     async registerCustom(input: CustomProviderInput) {
       const base = input.baseUrl.replace(/\/+$/, "");
       const remote = base.startsWith("https://");
-      const id = providerId();
+      // 웹 주소는 key가 있어야 한다. 인증 없음은 이 컴퓨터의 주소에만 있다(provider#R5).
+      if (remote && !input.withKey) {
+        return { ok: false, code: "invalid_input" };
+      }
+      const definition = {
+        key: input.id,
+        display_name: input.name,
+        protocols: ["openai-chat-completions"],
+        auth_kinds: [input.withKey ? "api_key" : "none"],
+        models_endpoint: remote ? `${base}/models` : null,
+        oauth: null,
+        revision: "1",
+      };
+      const id = idFor(input.id);
+      if (input.withKey) {
+        return openProtected(
+          openWindow,
+          connectIntent(id, {
+            name: input.name,
+            definition,
+            endpoint: base,
+            protocol: "openai-chat-completions",
+            kind: "api_key",
+          }),
+        );
+      }
       const sent = await command(core, "providers", "register", {
         input: {
           id,
           name: input.name,
-          definition: {
-            key: input.id,
-            display_name: input.name,
-            protocols: ["openai-chat-completions"],
-            // 이 컴퓨터의 http 주소를 key 없이 쓰면 인증이 없다. 그 밖은 key를 받을 수 있어야 한다.
-            auth_kinds: input.withKey || remote ? ["api_key"] : ["none"],
-            models_endpoint: remote ? `${base}/models` : null,
-            oauth: null,
-            revision: "1",
-          },
+          definition,
           endpoint: base,
           protocol: "openai-chat-completions",
+          credential: { kind: "none", preparation: null },
         },
         key: `provider-register-${random()}`,
       });
-      if (!sent.ok) return sent;
-      return input.withKey
-        ? openProtected(openWindow, keyIntent(id, input.name, "api_key"))
-        : { ok: true, value: null };
+      return sent.ok ? { ok: true, value: null } : sent;
     },
   };
 }

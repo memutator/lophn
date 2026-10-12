@@ -29,7 +29,8 @@ export interface ConnectDialogProps {
 
 // Connect dialog(shell/desktop#R49). 내장 정의는 "Connect <이름>" 제목 아래 그 정의가 지원하는 로그인
 // 방법을 고르게 하고(model 단계는 없다), custom 정의는 "Custom provider" 제목의 form(Provider ID,
-// Display name, Base URL, "Add an API key (optional)")과 [Cancel] [Connect]를 보인다.
+// Display name, Base URL, "Add an API key (optional)")과 [Cancel] [Connect]를 보인다. 인증 없음은 고르는
+// 방법이 아니다: 직접 만든 provider의 이 컴퓨터 주소에 key를 더하지 않으면 그것이다(provider#R5).
 // API key 값은 이 form이 받지 않는다. 고르면 보호 창이 열린다(platform/secrets#R2).
 export function ConnectDialog(props: ConnectDialogProps): ReactNode {
   // 정의가 바뀌면 입력과 오류를 새로 시작하도록 key를 정의로 둔다.
@@ -56,7 +57,7 @@ function MethodDialog(
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  async function choose(way: AuthWay): Promise<void> {
+  async function choose(way: Exclude<AuthWay, "none">): Promise<void> {
     if (busy) return;
     setBusy(true);
     setFailed(false);
@@ -112,7 +113,7 @@ function MethodDialog(
 function MethodButton(
   { definition, way, busy, onChoose }: {
     definition: ProviderDefinitionRow;
-    way: AuthWay;
+    way: Exclude<AuthWay, "none">;
     busy: boolean;
     onChoose: () => void;
   },
@@ -135,7 +136,10 @@ function MethodButton(
   );
 }
 
-function methodName(definition: ProviderDefinitionRow, way: AuthWay): string {
+function methodName(
+  definition: ProviderDefinitionRow,
+  way: Exclude<AuthWay, "none">,
+): string {
   switch (way) {
     case "oauth":
       return t("settings.label.method-sign-in", {
@@ -143,19 +147,15 @@ function methodName(definition: ProviderDefinitionRow, way: AuthWay): string {
       });
     case "api_key":
       return t("settings.label.way-api-key");
-    case "none":
-      return t("settings.label.method-local");
   }
 }
 
-function methodHint(way: AuthWay): string {
+function methodHint(way: Exclude<AuthWay, "none">): string {
   switch (way) {
     case "oauth":
       return t("settings.label.method-opens-browser");
     case "api_key":
       return t("settings.label.method-paste-key");
-    case "none":
-      return t("settings.label.method-local-hint");
   }
 }
 
@@ -174,6 +174,11 @@ function baseUrlOk(value: string): boolean {
   return url.protocol === "http:" && LOCAL_HOSTS.has(url.hostname);
 }
 
+/** 웹 주소는 key 없이 연결할 수 없다. 인증 없음은 이 컴퓨터의 주소에만 있다(provider#R5). */
+function needsKey(value: string): boolean {
+  return value.trim().startsWith("https://");
+}
+
 function CustomDialog(
   { source, onClose, onConnected }: Props,
 ): ReactNode {
@@ -187,7 +192,8 @@ function CustomDialog(
   const idOk = ID_SHAPE.test(id);
   const nameOk = name.trim() !== "";
   const urlOk = baseUrlOk(baseUrl);
-  const valid = idOk && nameOk && urlOk;
+  const keyMissing = urlOk && needsKey(baseUrl) && !withKey;
+  const valid = idOk && nameOk && urlOk && !keyMissing;
 
   async function connect(): Promise<void> {
     if (!valid || busy) return;
@@ -273,6 +279,13 @@ function CustomDialog(
           checked={withKey}
           onCheckedChange={setWithKey}
         />
+        {keyMissing
+          ? (
+            <p className={styles.keyNote} data-notice="key-required">
+              {t("settings.notice.custom-key-required")}
+            </p>
+          )
+          : null}
         {withKey
           ? (
             <p className={styles.keyNote}>

@@ -378,6 +378,7 @@ async function runScenario(scenario: Scenario): Promise<void> {
         },
         endpoint: provider.url,
         protocol: "anthropic-messages",
+        credential: { kind: "none", preparation: null },
       }),
     );
     assertEquals(registered.status, 200, JSON.stringify(registered.body));
@@ -565,7 +566,6 @@ async function runScenario(scenario: Scenario): Promise<void> {
       provider: PVD,
       name: "fixture-model",
       protocol: "anthropic-messages",
-      credential_key: null,
       credential_revision: null,
       option_values: { requested: {}, applied: {} },
       limits: {

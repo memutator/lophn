@@ -34,10 +34,10 @@ async function open(): Promise<World> {
   });
   assert(stored.ok);
   db.prepare(
-    "INSERT INTO providers (id, name, definition_key, definition, endpoint, protocol, enabled, revision) VALUES ('pvd_a', 'a', 'openai', '{}', ?, 'openai-responses', 1, 1)",
+    "INSERT INTO providers (id, name, definition_key, definition, endpoint, protocol, revision) VALUES ('pvd_a', 'a', 'openai', '{}', ?, 'openai-responses', 1)",
   ).run(ENDPOINT);
   db.prepare(
-    "INSERT INTO provider_credentials (provider, key, kind, label, secret_name, secret_sealed_ref, secret_revision, revision, order_index, enabled, state) VALUES ('pvd_a', 'main', 'api_key', 'main', 'pvd_a/main', ?, 1, 1, 0, 1, 'available')",
+    "INSERT INTO provider_credentials (provider, kind, secret_name, secret_sealed_ref, secret_revision, revision, state) VALUES ('pvd_a', 'api_key', 'pvd_a/main', ?, 1, 1, 'available')",
   ).run(stored.value);
   return {
     home,
@@ -106,7 +106,7 @@ Deno.test("platform/secrets#R5: 현재 참조·판·목적지가 맞으면 값�
   }
 });
 
-Deno.test("platform/secrets#R5: 바뀐 판·옛 참조는 conflict이고 다른 목적지·꺼진 provider·회수한 credential은 forbidden이다", async () => {
+Deno.test("platform/secrets#R5: 바뀐 판·옛 참조·Disconnect한 provider는 conflict이고 다른 목적지·회수한 credential은 forbidden이다", async () => {
   const world = await open();
   try {
     const sut = secrets(world);
@@ -136,17 +136,19 @@ Deno.test("platform/secrets#R5: 바뀐 판·옛 참조는 conflict이고 다른 
       "forbidden",
     );
 
-    world.db.exec("UPDATE providers SET enabled = 0");
-    assertEquals(
-      errorOf(await sut.answer(request(world), () => true)),
-      "forbidden",
-    );
     world.db.exec(
-      "UPDATE providers SET enabled = 1; UPDATE provider_credentials SET state = 'revoked', unavailable_reason = 'refresh_revoked'",
+      "UPDATE provider_credentials SET state = 'revoked', unavailable_reason = 'refresh_revoked'",
     );
     assertEquals(
       errorOf(await sut.answer(request(world), () => true)),
       "forbidden",
+    );
+
+    // Disconnect로 provider와 credential이 지워지면 옛 참조는 현재가 아니다.
+    world.db.exec("DELETE FROM provider_credentials; DELETE FROM providers");
+    assertEquals(
+      errorOf(await sut.answer(request(world), () => true)),
+      "conflict",
     );
   } finally {
     await close(world);

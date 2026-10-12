@@ -5,16 +5,12 @@ import {
   secretNameSchema,
   secretOpaqueRefSchema,
   secretRevisionSchema,
-  sha256Schema,
 } from "../platform/mod.ts";
 
 const nonblankSchema = z.string().refine((value) => value.trim().length > 0, {
   message: "expected nonblank text",
 });
 const positiveIntegerSchema = z.number().int().positive().max(
-  Number.MAX_SAFE_INTEGER,
-);
-const nonnegativeIntegerSchema = z.number().int().nonnegative().max(
   Number.MAX_SAFE_INTEGER,
 );
 
@@ -153,37 +149,6 @@ export const PROVIDER_FAILURES = [
 ] as const;
 export const providerFailureSchema = z.enum(PROVIDER_FAILURES);
 
-const checkFields = {
-  at: atSchema,
-  credential_key: nonblankSchema,
-  credential_revision: positiveIntegerSchema,
-  model_name: nonblankSchema,
-  test_kind: z.enum(["text", "tool_call"]),
-  command_key: nonblankSchema,
-  calls: z.array(idSchema("mcl")),
-  result: z.enum(["success", "failure"]),
-  code: providerFailureSchema.nullable(),
-};
-
-function checkShape(value: {
-  calls: readonly string[];
-  result: "success" | "failure";
-  code: string | null;
-}): boolean {
-  return unique(value.calls) &&
-    (value.result === "failure") === (value.code !== null);
-}
-
-export const providerCheckSchema = z.strictObject(checkFields).refine(
-  checkShape,
-  { message: "provider check result and failure code do not agree" },
-);
-export const providerCheckOutputSchema = z.object(checkFields).refine(
-  checkShape,
-  { message: "provider check result and failure code do not agree" },
-);
-export type ProviderCheck = z.infer<typeof providerCheckSchema>;
-
 export const MODEL_BLOCK_REASONS = [
   "not_found",
   "retired",
@@ -213,17 +178,9 @@ export const UNAVAILABLE_REASONS = [
 ] as const;
 
 const credentialFields = {
-  key: nonblankSchema,
   kind: providerAuthKindSchema,
-  label: nonblankSchema,
   secret_ref: providerSecretRefSchema.nullable(),
   revision: positiveIntegerSchema,
-  order: nonnegativeIntegerSchema,
-  enabled: z.boolean(),
-  account: nonblankSchema.nullable(),
-  organization: nonblankSchema.nullable(),
-  plan: nonblankSchema.nullable(),
-  dedup_fingerprint: sha256Schema.nullable(),
   state: z.enum(CREDENTIAL_STATES),
   unavailable_reason: z.enum(UNAVAILABLE_REASONS).nullable(),
   until: atSchema.nullable(),
@@ -275,9 +232,8 @@ const providerFields = {
   definition: providerDefinitionSchema,
   endpoint: z.string(),
   protocol: providerProtocolSchema,
-  enabled: z.boolean(),
-  credentials: z.array(providerCredentialSchema),
-  last_check: providerCheckSchema.nullable(),
+  // provider에는 credential이 정확히 하나다. 계정 목록·순서·켜기 상태는 없다(provider#R8).
+  credential: providerCredentialSchema,
   revision: positiveIntegerSchema,
 };
 
@@ -285,35 +241,24 @@ function providerShape(value: {
   definition: ProviderDefinition;
   endpoint: string;
   protocol: (typeof PROVIDER_PROTOCOLS)[number];
-  credentials: readonly ProviderCredential[];
+  credential: ProviderCredential;
 }): boolean {
-  const keys = value.credentials.map((credential) => credential.key);
-  const orders = value.credentials.map((credential) =>
-    String(credential.order)
-  );
-  const fingerprints = value.credentials.flatMap((credential) =>
-    credential.dedup_fingerprint === null ? [] : [credential.dedup_fingerprint]
-  );
   const remote = isHttpsUrl(value.endpoint);
   return value.definition.protocols.includes(value.protocol) &&
     (remote || loopback(value.endpoint)) &&
-    (remote
-      ? value.credentials.every((credential) => credential.kind !== "none")
-      : true) &&
-    unique(keys) && unique(orders) && unique(fingerprints);
+    value.definition.auth_kinds.includes(value.credential.kind) &&
+    (!remote || value.credential.kind !== "none");
 }
 
 export const providerRecordSchema = z.object({
   ...providerFields,
   definition: providerDefinitionOutputSchema,
-  credentials: z.array(providerCredentialOutputSchema),
-  last_check: providerCheckOutputSchema.nullable(),
+  credential: providerCredentialOutputSchema,
 }).refine(providerShape, {
-  message: "provider endpoint, protocol and credentials do not agree",
+  message: "provider endpoint, protocol and credential do not agree",
 });
 export type ProviderRecord = z.infer<typeof providerRecordSchema>;
 
-export const CONNECTION_TEST_TIMEOUT_MS = 30_000;
 export const OAUTH_REFRESH_LEAD_MS = 60_000;
 export const OAUTH_REFRESH_TIMEOUT_MS = 15_000;
 export const USAGE_WAIT_DEFAULT_MS = 3_600_000;

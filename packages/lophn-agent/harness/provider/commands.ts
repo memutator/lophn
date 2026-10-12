@@ -1,25 +1,17 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
-  providerChanged,
-  type ProviderCheck,
-  providerChecked,
-  type ProviderCredential,
-  type ProviderDefinition,
-  type ProviderRecord,
-  providerRegistered,
-} from "../../../contracts/lophn-agent/mod.ts";
-import {
-  changeProvider,
-  changeProviderCredentials,
-  connectionTest,
+  disconnectProvider,
   loginBegin,
   loginCancel,
   loginComplete,
+  providerChanged,
+  type ProviderCredential,
+  providerDisconnected,
+  type ProviderRecord,
+  providerRegistered,
   recordProviderAvailability,
-  recordProviderCheck,
   refreshProviderCredential,
   registerProvider,
-  registerProviderCredential,
 } from "../../../contracts/lophn-agent/mod.ts";
 import {
   type CommandDefinition,
@@ -32,16 +24,13 @@ import {
   assertCredential,
   assertDefinition,
   assertRecord,
-  modelBlocksFromRow,
   nextCredentialState,
   providerFromRow,
 } from "./model.ts";
 
 // 등록 순서: 입력 검사 → CAS 비교 → 쓰기 → event. 짧은 transaction 하나.
-
-function invalid(message: string): Result<never> {
-  return err({ code: "invalid_input", message });
-}
+// provider에는 credential이 하나다. 계정 목록·순서·끄기는 없고, 바꾸거나 다시 로그인하려면
+// Disconnect 뒤 Connect한다(provider#R8).
 
 function notFound(): Result<never> {
   return err({ code: "not_found", message: "provider not found" });
@@ -51,17 +40,17 @@ function conflict(message: string): Result<never> {
   return err({ code: "conflict", message });
 }
 
-// credential 등록·교체·삭제·순서 변경은 사람만 결정한다(provider#R6).
+// Connect와 Disconnect는 사람만 결정한다(provider#R6).
 function requireUser(ctx: RequestContext): Result<void> {
   return parseActor(ctx.actor)?.kind === "user" ? ok(undefined) : err({
     code: "forbidden",
-    message: "provider changes are user only",
+    message: "provider connections are user only",
   });
 }
 
 function requireProvider(tx: Tx, id: string): Result<ProviderRecord> {
   const row = tx.sql.get(
-    "select id, name, definition_key, definition, endpoint, protocol, enabled, last_check, revision from providers where id = ?",
+    "select id, name, definition_key, definition, endpoint, protocol, revision from providers where id = ?",
     [id],
   );
   if (row === undefined) return notFound();
@@ -81,87 +70,64 @@ function checkRevision(
   return ok(undefined);
 }
 
-function definitionKeyOf(definition: ProviderDefinition): string {
-  return definition.key;
-}
-
 // tx.emit은 seq 문자열을 준다. revision은 양의 정수라 여기서 옮긴다.
-function revisionFromSeq(tx: Tx, seq: string): Result<number> {
+function revisionFromSeq(seq: string): Result<number> {
   const parsed = Number(seq);
   if (!Number.isSafeInteger(parsed) || parsed <= 0) {
-    void tx;
     return err({ code: "internal", message: "invalid event seq" });
   }
   return ok(parsed);
 }
 
-function storeCredential(
+// secret 이름은 provider별 하나다. credential이 아니라 provider를 가리킨다.
+function secretNameForProvider(provider: string): string {
+  return `provider.${provider.replace(/^pvd_/, "")}`;
+}
+
+function insertCredential(
   tx: Tx,
   providerId: string,
   value: ProviderCredential,
 ): void {
-  const existing = tx.sql.get(
-    "select key from provider_credentials where provider = ? and key = ?",
-    [providerId, value.key],
+  tx.sql.run(
+    `insert into provider_credentials
+      (provider, kind, secret_name, secret_sealed_ref, secret_revision, revision,
+       state, unavailable_reason, until, expires_at, logged_in_at, refreshed_at)
+     values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      providerId,
+      value.kind,
+      value.secret_ref?.name ?? null,
+      value.secret_ref?.sealed_ref ?? null,
+      value.secret_ref?.revision ?? null,
+      value.revision,
+      value.state,
+      value.unavailable_reason,
+      value.until,
+      value.expires_at,
+      value.logged_in_at,
+      value.refreshed_at,
+    ],
   );
-  const secretName = value.secret_ref?.name ?? null;
-  const secretSealedRef = value.secret_ref?.sealed_ref ?? null;
-  const secretRevision = value.secret_ref?.revision ?? null;
-  if (existing === undefined) {
-    tx.sql.run(
-      `insert into provider_credentials
-        (provider, key, kind, label, secret_name, secret_sealed_ref, secret_revision,
-         revision, order_index, enabled, account, organization, plan,
-         dedup_fingerprint, dedup_product, state, unavailable_reason, until,
-         expires_at, logged_in_at, refreshed_at)
-       values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        providerId,
-        value.key,
-        value.kind,
-        value.label,
-        secretName,
-        secretSealedRef,
-        secretRevision,
-        value.revision,
-        value.order,
-        value.enabled ? 1 : 0,
-        value.account,
-        value.organization,
-        value.plan,
-        value.dedup_fingerprint,
-        value.dedup_fingerprint === null ? null : value.dedup_fingerprint,
-        value.state,
-        value.unavailable_reason,
-        value.until,
-        value.expires_at,
-        value.logged_in_at,
-        value.refreshed_at,
-      ],
-    );
-    return;
-  }
-  // identity(provider·key·kind)는 SET에 넣지 않는다. trigger가 같은 값도 막는다.
+}
+
+// identity(provider·kind)는 SET에 넣지 않는다. trigger가 같은 값도 막는다.
+function updateCredential(
+  tx: Tx,
+  providerId: string,
+  value: ProviderCredential,
+): void {
   tx.sql.run(
     `update provider_credentials set
-       label = ?, secret_name = ?, secret_sealed_ref = ?, secret_revision = ?,
-       revision = ?, order_index = ?, enabled = ?, account = ?, organization = ?, plan = ?,
-       dedup_fingerprint = ?, dedup_product = ?, state = ?, unavailable_reason = ?, until = ?,
-       expires_at = ?, logged_in_at = ?, refreshed_at = ?
-     where provider = ? and key = ?`,
+       secret_name = ?, secret_sealed_ref = ?, secret_revision = ?, revision = ?,
+       state = ?, unavailable_reason = ?, until = ?, expires_at = ?,
+       logged_in_at = ?, refreshed_at = ?
+     where provider = ?`,
     [
-      value.label,
-      secretName,
-      secretSealedRef,
-      secretRevision,
+      value.secret_ref?.name ?? null,
+      value.secret_ref?.sealed_ref ?? null,
+      value.secret_ref?.revision ?? null,
       value.revision,
-      value.order,
-      value.enabled ? 1 : 0,
-      value.account,
-      value.organization,
-      value.plan,
-      value.dedup_fingerprint,
-      value.dedup_fingerprint === null ? null : value.dedup_fingerprint,
       value.state,
       value.unavailable_reason,
       value.until,
@@ -169,56 +135,39 @@ function storeCredential(
       value.logged_in_at,
       value.refreshed_at,
       providerId,
-      value.key,
     ],
   );
 }
 
-function refreshModelBlocks(
+// model block은 바꿀 때 통째로 교체한다.
+function replaceModelBlocks(
   tx: Tx,
   providerId: string,
-  credentialKey: string,
   blocks: ProviderCredential["model_blocks"],
 ): void {
   tx.sql.run(
-    "delete from provider_credential_model_blocks where provider = ? and credential_key = ?",
-    [providerId, credentialKey],
+    "delete from provider_credential_model_blocks where provider = ?",
+    [providerId],
   );
   for (const block of blocks) {
     tx.sql.run(
       `insert into provider_credential_model_blocks
-        (provider, credential_key, model_name, reason, until)
-       values (?, ?, ?, ?, ?)`,
-      [providerId, credentialKey, block.model_name, block.reason, block.until],
+        (provider, model_name, reason, until) values (?, ?, ?, ?)`,
+      [providerId, block.model_name, block.reason, block.until],
     );
   }
 }
 
 export function createProviderCommands(): {
   register: CommandDefinition<typeof registerProvider>;
-  change: CommandDefinition<typeof changeProvider>;
-  registerCredential: CommandDefinition<typeof registerProviderCredential>;
-  changeCredentials: CommandDefinition<typeof changeProviderCredentials>;
+  disconnect: CommandDefinition<typeof disconnectProvider>;
   refreshCredential: CommandDefinition<typeof refreshProviderCredential>;
   recordAvailability: CommandDefinition<typeof recordProviderAvailability>;
-  recordCheck: CommandDefinition<typeof recordProviderCheck>;
-  test: CommandDefinition<typeof connectionTest>;
   beginLogin: CommandDefinition<typeof loginBegin>;
   completeLogin: CommandDefinition<typeof loginComplete>;
   cancelLogin: CommandDefinition<typeof loginCancel>;
 } {
   return {
-    // 실제 실행은 ledger transaction 밖의 writer 처리기가 한다(apps/core,
-    // withConnectionTest). 이 등록은 경로를 route registry에 열어 두는 자리다.
-    test: {
-      route: connectionTest,
-      handle() {
-        return err({
-          code: "unavailable",
-          message: "connection test runs outside the ledger writer",
-        });
-      },
-    },
     // OAuth 로그인(provider#R12–R16)은 writer queue 앞의 처리기가 실제로 돌린다
     // (withProviderLogin). 이 등록은 경로를 route registry에 열어 두는 자리다.
     beginLogin: {
@@ -248,276 +197,101 @@ export function createProviderCommands(): {
         });
       },
     },
+    // Connect: provider와 그 credential 하나를 함께 둔다.
     register: {
       route: registerProvider,
-      handle(tx, _ctx, input) {
+      handle(tx, ctx, input) {
+        const person = requireUser(ctx);
+        if (!person.ok) return person;
         const definition = assertDefinition(input.definition);
         if (!definition.ok) return definition;
         const existing = tx.sql.get(
           "select id from providers where id = ?",
           [input.id],
         );
+        // 이미 연결된 provider에는 두 번째 credential을 등록하지 못한다. 바꾸려면 Disconnect 뒤 Connect한다.
         if (existing !== undefined) {
           return conflict("provider id already exists");
         }
+        const kind = input.credential.kind;
         // 같은 endpoint는 새 provider다. 진행 run의 이동은 없다(domain model).
         const seq = tx.emit(providerRegistered, input.id, {
           name: input.name,
           endpoint: input.endpoint,
           protocol: input.protocol,
-          definition_revision: input.definition.revision,
+          definition_revision: definition.value.revision,
+          auth_kind: kind,
         });
-        const revision = revisionFromSeq(tx, seq);
+        const revision = revisionFromSeq(seq);
         if (!revision.ok) return revision;
+        const credential = assertCredential({
+          kind,
+          secret_ref: input.credential.preparation === null ? null : {
+            name: secretNameForProvider(input.id),
+            sealed_ref: input.credential.preparation.sealed_ref,
+            revision: 1,
+          },
+          revision: 1,
+          state: "available",
+          unavailable_reason: null,
+          until: null,
+          expires_at: null,
+          logged_in_at: kind === "oauth" ? tx.now() : null,
+          refreshed_at: null,
+          model_blocks: [],
+        });
+        if (!credential.ok) return credential;
         const record = assertRecord({
           id: input.id,
           name: input.name,
           definition: definition.value,
           endpoint: input.endpoint,
           protocol: input.protocol,
-          enabled: true,
-          credentials: [],
-          last_check: null,
+          credential: credential.value,
           revision: revision.value,
         });
         if (!record.ok) return record;
         tx.sql.run(
           `insert into providers
-            (id, name, definition_key, definition, endpoint, protocol, enabled, last_check, revision)
-           values (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            (id, name, definition_key, definition, endpoint, protocol, revision)
+           values (?, ?, ?, ?, ?, ?, ?)`,
           [
             input.id,
             input.name,
-            definitionKeyOf(definition.value),
+            definition.value.key,
             JSON.stringify(definition.value),
             input.endpoint,
             input.protocol,
-            1,
-            null,
             revision.value,
           ],
         );
+        insertCredential(tx, input.id, credential.value);
         return ok({ provider: record.value });
       },
     },
-    change: {
-      route: changeProvider,
-      handle(tx, _ctx, input, compare) {
-        const current = requireProvider(tx, input.provider);
-        if (!current.ok) return current;
-        const same = checkRevision(current.value, compare);
-        if (!same.ok) return same;
-        const name = input.name ?? current.value.name;
-        const enabled = input.enabled ?? current.value.enabled;
-        const seq = tx.emit(providerChanged, input.provider, {
-          revision: compare.revision + 1,
-          credential_key: null,
-          credential_revision: null,
-          state: null,
-        });
-        const revision = revisionFromSeq(tx, seq);
-        if (!revision.ok) return revision;
-        const record = assertRecord({
-          ...current.value,
-          name,
-          enabled,
-          revision: revision.value,
-        });
-        if (!record.ok) return record;
-        tx.sql.run(
-          "update providers set name = ?, enabled = ?, revision = ? where id = ? and revision = ?",
-          [
-            name,
-            enabled ? 1 : 0,
-            revision.value,
-            input.provider,
-            compare.revision,
-          ],
-        );
-        return ok({ provider: record.value });
-      },
-    },
-    registerCredential: {
-      route: registerProviderCredential,
-      handle(
-        tx,
-        ctx,
-        input: Input<typeof registerProviderCredential>,
-        compare,
-      ) {
+    // Disconnect: 확인 창을 거쳐 provider와 credential(secret 참조)을 함께 지운다. 확인 창의 증거는
+    // route의 confirmation 선언을 executor가 검사한다.
+    disconnect: {
+      route: disconnectProvider,
+      handle(tx, ctx, input, compare) {
         const person = requireUser(ctx);
         if (!person.ok) return person;
         const current = requireProvider(tx, input.provider);
         if (!current.ok) return current;
         const same = checkRevision(current.value, compare);
         if (!same.ok) return same;
-        const duplicateKey = current.value.credentials.find((credential) =>
-          credential.key === input.key
-        );
-        if (duplicateKey !== undefined) {
-          return conflict("credential key already exists");
-        }
-        // 중복 검사는 같은 provider 안에서 fingerprint로 한다(provider#R9).
-        const duplicateFingerprint = current.value.credentials.find((
-          credential,
-        ) =>
-          credential.dedup_fingerprint !== null &&
-          credential.dedup_fingerprint === input.dedup_fingerprint
-        );
-        if (duplicateFingerprint !== undefined) {
-          return conflict("credential already registered");
-        }
-        // 확인되지 않은 계정 정보는 추측하지 않는다. 들어온 값만 남긴다.
-        const order = current.value.credentials.length;
-        const seq = tx.emit(providerChanged, input.provider, {
-          revision: compare.revision + 1,
-          credential_key: input.key,
-          credential_revision: 1,
-          state: "available",
+        tx.emit(providerDisconnected, input.provider, {
+          definition_key: current.value.definition.key,
         });
-        const revision = revisionFromSeq(tx, seq);
-        if (!revision.ok) return revision;
-        const credential = assertCredential({
-          key: input.key,
-          kind: input.kind,
-          label: input.label,
-          secret_ref: {
-            name: secretNameForProvider(input.provider),
-            sealed_ref: input.preparation.sealed_ref,
-            revision: 1,
-          },
-          revision: 1,
-          order,
-          enabled: true,
-          account: input.account,
-          organization: input.organization,
-          plan: input.plan,
-          dedup_fingerprint: input.dedup_fingerprint,
-          state: "available",
-          unavailable_reason: null,
-          until: null,
-          expires_at: null,
-          logged_in_at: null,
-          refreshed_at: null,
-          model_blocks: [],
-        });
-        if (!credential.ok) return credential;
-        storeCredential(tx, input.provider, credential.value);
         tx.sql.run(
-          "update providers set revision = ? where id = ? and revision = ?",
-          [revision.value, input.provider, compare.revision],
+          "delete from provider_credential_model_blocks where provider = ?",
+          [input.provider],
         );
-        return ok({ provider: { ...current.value, revision: revision.value } });
-      },
-    },
-    changeCredentials: {
-      route: changeProviderCredentials,
-      handle(tx, ctx, input: Input<typeof changeProviderCredentials>, compare) {
-        const person = requireUser(ctx);
-        if (!person.ok) return person;
-        const current = requireProvider(tx, input.provider);
-        if (!current.ok) return current;
-        const same = checkRevision(current.value, compare);
-        if (!same.ok) return same;
-        let working = current.value;
-        for (const change of input.credentials) {
-          const existing = working.credentials.find((credential) =>
-            credential.key === change.key
-          );
-          if (existing === undefined) return notFound();
-          if (existing.revision !== change.revision) {
-            return conflict("credential revision changed");
-          }
-        }
-        // 회수·교체·순서와 enabled를 한 handler에서 옮긴다. 순서는 전체 unique다.
-        const orders = new Set(input.credentials.map((c) => c.order));
-        if (orders.size !== input.credentials.length) {
-          return invalid("duplicate order");
-        }
-        for (const change of input.credentials) {
-          const existing = working.credentials.find((credential) =>
-            credential.key === change.key
-          )!;
-          let next: ProviderCredential;
-          if (change.revoke) {
-            const state = nextCredentialState(existing.state, "revoked");
-            if (!state.ok) return state;
-            next = {
-              ...existing,
-              state: state.value,
-              unavailable_reason: "authentication",
-              revision: existing.revision + 1,
-            };
-          } else if (change.replacement !== null) {
-            next = {
-              ...existing,
-              secret_ref: {
-                name: existing.secret_ref?.name ?? secretNameForProvider(
-                  input.provider,
-                ),
-                sealed_ref: change.replacement.sealed_ref,
-                revision: (existing.secret_ref?.revision ?? 0) + 1,
-              },
-              revision: existing.revision + 1,
-              state: "available",
-              unavailable_reason: null,
-              until: null,
-            };
-          } else {
-            next = {
-              ...existing,
-              enabled: change.enabled ?? existing.enabled,
-              order: change.order,
-            };
-          }
-          const checked = assertCredential(next);
-          if (!checked.ok) return checked;
-          working = {
-            ...working,
-            credentials: working.credentials.map((credential) =>
-              credential.key === change.key ? checked.value : credential
-            ),
-          };
-        }
-        // 남은 credential의 순서도 유니크를 유지해야 한다.
-        const untouchedOrders = working.credentials
-          .filter((credential) =>
-            !input.credentials.some((change) => change.key === credential.key)
-          )
-          .map((credential) => credential.order);
-        const changedOrders = input.credentials.map((c) => c.order);
-        const allOrders = [...untouchedOrders, ...changedOrders];
-        if (new Set(allOrders).size !== allOrders.length) {
-          return invalid("order overlaps an untouched credential");
-        }
-        const seq = tx.emit(providerChanged, input.provider, {
-          revision: compare.revision + 1,
-          credential_key: input.credentials[0]!.key,
-          credential_revision: null,
-          state: null,
-        });
-        const revision = revisionFromSeq(tx, seq);
-        if (!revision.ok) return revision;
-        for (const change of input.credentials) {
-          const next = working.credentials.find((credential) =>
-            credential.key === change.key
-          )!;
-          storeCredential(tx, input.provider, next);
-        }
-        tx.sql.run(
-          "update providers set revision = ? where id = ? and revision = ?",
-          [revision.value, input.provider, compare.revision],
-        );
-        const updated = { ...current.value, revision: revision.value };
-        for (const change of input.credentials) {
-          const found = working.credentials.find((c) => c.key === change.key);
-          if (found) {
-            updated.credentials = updated.credentials.map((c) =>
-              c.key === found.key ? found : c
-            );
-          }
-        }
-        return ok({ provider: updated });
+        tx.sql.run("delete from provider_credentials where provider = ?", [
+          input.provider,
+        ]);
+        tx.sql.run("delete from providers where id = ?", [input.provider]);
+        return ok({ provider: input.provider });
       },
     },
     refreshCredential: {
@@ -532,21 +306,14 @@ export function createProviderCommands(): {
         if (!current.ok) return current;
         const same = checkRevision(current.value, compare);
         if (!same.ok) return same;
-        const existing = current.value.credentials.find((credential) =>
-          credential.key === input.key
-        );
-        if (existing === undefined) return notFound();
-        if (existing.revision !== compare.revision) {
-          return conflict("credential revision changed");
-        }
+        const existing = current.value.credential;
         let next: ProviderCredential;
         if (input.preparation !== null && input.expires_at !== null) {
           next = {
             ...existing,
             secret_ref: {
-              name: existing.secret_ref?.name ?? secretNameForProvider(
-                input.provider,
-              ),
+              name: existing.secret_ref?.name ??
+                secretNameForProvider(input.provider),
               sealed_ref: input.preparation.sealed_ref,
               revision: (existing.secret_ref?.revision ?? 0) + 1,
             },
@@ -560,7 +327,12 @@ export function createProviderCommands(): {
         } else {
           // 갱신 실패는 안전한 불가 상태만 남긴다. 원문은 어디에도 없다.
           const reason = input.unavailable_reason;
-          if (reason === null) return invalid("refresh result is empty");
+          if (reason === null) {
+            return err({
+              code: "invalid_input",
+              message: "refresh result is empty",
+            });
+          }
           next = {
             ...existing,
             revision: existing.revision + 1,
@@ -572,13 +344,12 @@ export function createProviderCommands(): {
         if (!checked.ok) return checked;
         const seq = tx.emit(providerChanged, input.provider, {
           revision: compare.revision + 1,
-          credential_key: input.key,
           credential_revision: next.revision,
           state: next.state,
         });
-        const revision = revisionFromSeq(tx, seq);
+        const revision = revisionFromSeq(seq);
         if (!revision.ok) return revision;
-        storeCredential(tx, input.provider, checked.value);
+        updateCredential(tx, input.provider, checked.value);
         tx.sql.run(
           "update providers set revision = ? where id = ? and revision = ?",
           [revision.value, input.provider, compare.revision],
@@ -587,9 +358,7 @@ export function createProviderCommands(): {
           provider: {
             ...current.value,
             revision: revision.value,
-            credentials: current.value.credentials.map((c) =>
-              c.key === checked.value.key ? checked.value : c
-            ),
+            credential: checked.value,
           },
         });
       },
@@ -606,49 +375,36 @@ export function createProviderCommands(): {
         if (!current.ok) return current;
         const same = checkRevision(current.value, compare);
         if (!same.ok) return same;
-        const existing = current.value.credentials.find((credential) =>
-          credential.key === input.key
-        );
-        if (existing === undefined) return notFound();
+        const existing = current.value.credential;
         const state = nextCredentialState(existing.state, input.state);
         if (!state.ok) return state;
-        let next: ProviderCredential = {
+        // model 전용 제한은 그 model 하나의 block만 바꾸고 다른 model의 상태는 건드리지 않는다(provider#R22).
+        const blocks = input.model_block === null ? existing.model_blocks : [
+          ...existing.model_blocks.filter((block) =>
+            block.model_name !== input.model_block!.model_name
+          ),
+          input.model_block,
+        ];
+        const checked = assertCredential({
           ...existing,
           state: state.value,
           unavailable_reason: input.unavailable_reason,
           until: input.until,
           revision: existing.revision + 1,
-        };
-        if (input.model_block !== null) {
-          const blocks = [
-            ...modelBlocksFromRow(tx.sql, input.provider, input.key)
-              .filter((block) =>
-                block.model_name !== input.model_block!.model_name
-              ),
-            input.model_block,
-          ];
-          refreshModelBlocks(tx, input.provider, input.key, blocks);
-          next = { ...next, model_blocks: blocks };
-        } else if (input.model_block === null && input.state === "available") {
-          // 회복은 해당 model block만 지운다. 다른 model block은 남는다(provider#R22).
-          refreshModelBlocks(
-            tx,
-            input.provider,
-            input.key,
-            existing.model_blocks,
-          );
-        }
-        const checked = assertCredential(next);
+          model_blocks: blocks,
+        });
         if (!checked.ok) return checked;
         const seq = tx.emit(providerChanged, input.provider, {
           revision: compare.revision + 1,
-          credential_key: input.key,
-          credential_revision: next.revision,
-          state: next.state,
+          credential_revision: checked.value.revision,
+          state: checked.value.state,
         });
-        const revision = revisionFromSeq(tx, seq);
+        const revision = revisionFromSeq(seq);
         if (!revision.ok) return revision;
-        storeCredential(tx, input.provider, checked.value);
+        updateCredential(tx, input.provider, checked.value);
+        if (input.model_block !== null) {
+          replaceModelBlocks(tx, input.provider, checked.value.model_blocks);
+        }
         tx.sql.run(
           "update providers set revision = ? where id = ? and revision = ?",
           [revision.value, input.provider, compare.revision],
@@ -657,60 +413,10 @@ export function createProviderCommands(): {
           provider: {
             ...current.value,
             revision: revision.value,
-            credentials: current.value.credentials.map((c) =>
-              c.key === checked.value.key
-                ? withBlocks(checked.value, input.provider, tx)
-                : c
-            ),
-          },
-        });
-      },
-    },
-    recordCheck: {
-      route: recordProviderCheck,
-      handle(tx, _ctx, input: Input<typeof recordProviderCheck>, compare) {
-        const current = requireProvider(tx, input.provider);
-        if (!current.ok) return current;
-        const same = checkRevision(current.value, compare);
-        if (!same.ok) return same;
-        // 명시적 test만 last_check를 갱신한다(domain model). 설정 조회는 갱신하지 않는다.
-        const check: ProviderCheck = input.check;
-        const seq = tx.emit(providerChecked, input.provider, check);
-        const revision = revisionFromSeq(tx, seq);
-        if (!revision.ok) return revision;
-        tx.sql.run(
-          "update providers set last_check = ?, revision = ? where id = ? and revision = ?",
-          [
-            JSON.stringify(check),
-            revision.value,
-            input.provider,
-            compare.revision,
-          ],
-        );
-        return ok({
-          provider: {
-            ...current.value,
-            last_check: check,
-            revision: revision.value,
+            credential: checked.value,
           },
         });
       },
     },
   };
-}
-
-function withBlocks(
-  credential: ProviderCredential,
-  providerId: string,
-  tx: Tx,
-): ProviderCredential {
-  return {
-    ...credential,
-    model_blocks: modelBlocksFromRow(tx.sql, providerId, credential.key),
-  };
-}
-
-// secret 이름은 provider별 하나다. key가 아니라 provider를 가리킨다.
-function secretNameForProvider(provider: string): string {
-  return `provider.${provider.replace(/^pvd_/, "")}`;
 }

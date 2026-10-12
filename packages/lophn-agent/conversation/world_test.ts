@@ -398,6 +398,7 @@ export async function seedProvider(h: LedgerHarness) {
         },
         endpoint: "http://127.0.0.1:8080/v1",
         protocol: "openai-responses",
+        credential: { kind: "none", preparation: null },
       }),
     ),
   );
@@ -425,16 +426,13 @@ export function startCall(
     model_use: summary ? "organizing" : "judgment",
     agent_hash: bound ? null : "ab".repeat(32),
     purpose: summary ? "conversation_compression" : "judgment",
-    test_request: null,
     attempt_kind: "initial",
     attempt_order: attempt,
     retry_of: null,
-    credential_change_of: null,
     model: {
       provider: PVDR,
       name: use.model_name ?? "gpt",
       protocol: "openai-responses",
-      credential_key: null,
       credential_revision: null,
       options: {},
       option_values: { requested: {}, applied: {} },
@@ -481,7 +479,6 @@ export function startCall(
       call: started,
       applied_messages: [],
       state_seq: "4",
-      timeout_ms: null,
     }, { state_seq: "4" }),
   );
 }

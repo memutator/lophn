@@ -4,18 +4,15 @@ import { test } from "node:test";
 import { createCoordinator } from "../coordinator.ts";
 import { fake, parent } from "../coordinator_fixture.ts";
 import { contentBasis } from "../handle.ts";
-import { fakeCore, id, ok } from "./kinds_fixture.ts";
+import { fakeCore, ok } from "./kinds_fixture.ts";
 import { createKinds } from "./mod.ts";
 import {
-  CHANGE_PROVIDER_CREDENTIALS,
   createSecretSubmitter,
   readSecretInput,
-  REGISTER_PROVIDER_CREDENTIAL,
   SET_SECRET,
 } from "./secret-input.ts";
 
 const VALUE = "correct-horse-battery-staple-9";
-const PVD = id("pvd", 1);
 
 const EVIDENCE = {
   preparation: "prep-1",
@@ -45,9 +42,6 @@ function secretCore(
         : ok({ ...EVIDENCE, extra: "dropped" }),
     "command:secrets/set": () =>
       ok({ name: "weather.key", configured: true, revision: 1 }),
-    "read:providers/read": () =>
-      ok({ provider: { id: PVD, name: "Anthropic", revision: 4 } }),
-    "command:provider-credentials/register": () => ok({ provider: {} }),
   });
 }
 
@@ -146,78 +140,6 @@ test("platform/secrets#R2: 저장하지 못해도 값은 오류·결과에 없�
   assert.equal(configured.ok && configured.value.allowed.length, 0);
 });
 
-test("lophn-agent/harness/provider#R1, platform/secrets#R2: provider credential은 같은 입력으로 증거를 받아 RegisterProviderCredential을 부른다", async () => {
-  const core = fakeCore({
-    "read:providers/read": () =>
-      ok({ provider: { id: PVD, name: "Anthropic", revision: 4 } }),
-    "upload:secrets/input": () =>
-      ok({
-        preparation: "prep-2",
-        sealed_ref: "sealed-2",
-        purpose: "provider_credential",
-        owner: PVD,
-      }),
-    "command:provider-credentials/register": () => ok({ provider: {} }),
-  });
-  const credential = {
-    key: "main",
-    kind: "api_key" as const,
-    label: "Main key",
-    account: null,
-    organization: null,
-    plan: null,
-    dedup_fingerprint: "d".repeat(64),
-  };
-  const read = await readSecretInput(core, {
-    owner: PVD,
-    purpose: "provider_credential",
-    credential,
-  });
-  if (!read.ok) return assert.fail("read");
-  assert.deepEqual(read.value.allowed, [REGISTER_PROVIDER_CREDENTIAL]);
-  assert.equal(read.value.view?.entry, "key");
-  const registered: { content_hash: string }[] = [];
-  const sent = await createSecretSubmitter(core, { now: () => 0 }).submit({
-    windowId: "cfw_1",
-    canonical: read.value,
-    decision: REGISTER_PROVIDER_CREDENTIAL,
-    commandInput: { value: VALUE },
-    register: (request) => {
-      registered.push(request);
-      return Promise.resolve({ ok: true, confirmation: "P".repeat(43) });
-    },
-  });
-  assert.deepEqual(sent, {
-    ok: true,
-    value: { secret_ref: "Main key", stored: "stored" },
-  });
-  const preparation = {
-    preparation: "prep-2",
-    sealed_ref: "sealed-2",
-    purpose: "provider_credential",
-    owner: PVD,
-  };
-  const register = core.calls.find((call) => call.method === "register")!
-    .body as Record<string, unknown>;
-  assert.deepEqual(register.input, {
-    provider: PVD,
-    key: "main",
-    kind: "api_key",
-    label: "Main key",
-    preparation,
-    account: null,
-    organization: null,
-    plan: null,
-    dedup_fingerprint: "d".repeat(64),
-  });
-  assert.deepEqual(register.compare, { revision: 4 });
-  assert.equal(
-    registered[0]!.content_hash,
-    contentBasis({ provider: PVD, key: "main", preparation }),
-  );
-  assert.equal(everything(core.calls.slice(2)).includes(VALUE), false);
-});
-
 test("shell/confirmation-window#R9, platform/secrets#R2: secret 창은 열 때 handle을 만들지 않고 제출 한 번에 하나만 만들며 두 번 보내지 않는다", async () => {
   const env = fake();
   const core = secretCore();
@@ -277,232 +199,4 @@ test("shell/confirmation-window#R9, platform/secrets#R2: secret 창은 열 때 h
   );
   // renderer로 나간 표시에도 값이 없다.
   assert.equal(everything(env.windows[0]?.sent).includes(VALUE), false);
-});
-
-function accountCore() {
-  return fakeCore({
-    "read:providers/read": () =>
-      ok({ provider: { id: PVD, name: "Anthropic", revision: 6 } }),
-    "read:provider-credentials/list": () =>
-      ok({
-        credentials: [
-          { key: "main", label: "Main key", revision: 3, order: 0 },
-          { key: "spare", label: "Spare key", revision: 1, order: 1 },
-        ],
-      }),
-    "upload:secrets/input": () =>
-      ok({
-        preparation: "prep-3",
-        sealed_ref: "sealed-3",
-        purpose: "provider_credential",
-        owner: PVD,
-      }),
-    "command:provider-credentials/change": () => ok({ provider: {} }),
-  });
-}
-
-test("lophn-agent/harness/provider#R6, platform/secrets#R2: 계정 교체는 새 값의 증거를 그 계정에만 넣어 ChangeProviderCredentials로 보낸다", async () => {
-  const core = accountCore();
-  const read = await readSecretInput(core, {
-    owner: PVD,
-    purpose: "provider_credential",
-    change: { key: "main", action: "replace" },
-  });
-  if (!read.ok) return assert.fail("read");
-  assert.deepEqual(read.value.allowed, [CHANGE_PROVIDER_CREDENTIALS]);
-  assert.equal(read.value.handle, "deferred");
-  assert.equal(read.value.view?.entry, "replace");
-  assert.equal(read.value.view?.name, "Main key");
-  const registered: { content_hash: string }[] = [];
-  const sent = await createSecretSubmitter(core, { now: () => 0 }).submit({
-    windowId: "cfw_1",
-    canonical: read.value,
-    decision: CHANGE_PROVIDER_CREDENTIALS,
-    commandInput: { value: VALUE },
-    register: (request) => {
-      registered.push(request);
-      return Promise.resolve({ ok: true, confirmation: "C".repeat(43) });
-    },
-  });
-  assert.deepEqual(sent, {
-    ok: true,
-    value: { secret_ref: "Main key", stored: "stored" },
-  });
-  const preparation = {
-    preparation: "prep-3",
-    sealed_ref: "sealed-3",
-    purpose: "provider_credential",
-    owner: PVD,
-  };
-  const change = core.calls.find((call) => call.method === "change")!
-    .body as Record<string, unknown>;
-  const credentials = [{
-    key: "main",
-    revision: 3,
-    replacement: preparation,
-    order: 0,
-    revoke: false,
-  }];
-  assert.deepEqual(change.input, { provider: PVD, credentials });
-  assert.deepEqual(change.compare, { revision: 6 });
-  assert.equal(
-    registered[0]!.content_hash,
-    contentBasis({ provider: PVD, credentials }),
-  );
-  assert.equal(everything(core.calls.slice(2)).includes(VALUE), false);
-});
-
-test("lophn-agent/harness/provider#R6, shell/confirmation-window#R5: 계정 삭제는 값을 받지 않고 그 계정을 새 일에서 막으며 막은 것만 돌려준다", async () => {
-  const core = accountCore();
-  const read = await readSecretInput(core, {
-    owner: PVD,
-    purpose: "provider_credential",
-    change: { key: "spare", action: "revoke" },
-  });
-  if (!read.ok) return assert.fail("read");
-  assert.equal(read.value.view?.entry, "revoke");
-  const sent = await createSecretSubmitter(core, { now: () => 0 }).submit({
-    windowId: "cfw_1",
-    canonical: read.value,
-    decision: CHANGE_PROVIDER_CREDENTIALS,
-    commandInput: {},
-    register: () => Promise.resolve({ ok: true, confirmation: "R".repeat(43) }),
-  });
-  assert.deepEqual(sent, {
-    ok: true,
-    value: { secret_ref: "Spare key", stored: "revoked" },
-  });
-  assert.equal(core.calls.some((call) => call.kind === "upload"), false);
-  const change = core.calls.find((call) => call.method === "change")!
-    .body as Record<string, unknown>;
-  assert.deepEqual(change.input, {
-    provider: PVD,
-    credentials: [{
-      key: "spare",
-      revision: 1,
-      replacement: null,
-      order: 1,
-      revoke: true,
-    }],
-  });
-  // 없는 계정은 열지 않는다.
-  const missing = await readSecretInput(core, {
-    owner: PVD,
-    purpose: "provider_credential",
-    change: { key: "gone", action: "revoke" },
-  });
-  assert.equal(missing.ok, false);
-});
-
-test("lophn-agent/harness/provider#R9, platform/secrets#R2: 등록 정보에 지문이 없으면 main이 넣은 값의 sha256으로 만들고 값은 어디에도 남지 않는다", async () => {
-  const core = fakeCore({
-    "read:providers/read": () =>
-      ok({ provider: { id: PVD, name: "Anthropic", revision: 4 } }),
-    "upload:secrets/input": () =>
-      ok({
-        preparation: "prep-4",
-        sealed_ref: "sealed-4",
-        purpose: "provider_credential",
-        owner: PVD,
-      }),
-    "command:provider-credentials/register": () => ok({ provider: {} }),
-  });
-  const read = await readSecretInput(core, {
-    owner: PVD,
-    purpose: "provider_credential",
-    credential: {
-      key: "key-1",
-      kind: "api_key",
-      label: "Work key",
-      account: null,
-      organization: null,
-      plan: null,
-    },
-  });
-  if (!read.ok) return assert.fail("read");
-  const sent = await createSecretSubmitter(core, { now: () => 0 }).submit({
-    windowId: "cfw_1",
-    canonical: read.value,
-    decision: REGISTER_PROVIDER_CREDENTIAL,
-    commandInput: { value: VALUE },
-    register: () => Promise.resolve({ ok: true, confirmation: "F".repeat(43) }),
-  });
-  assert.equal(sent.ok, true);
-  const register = core.calls.find((call) => call.method === "register")!
-    .body as { input: { dedup_fingerprint: string } };
-  assert.match(register.input.dedup_fingerprint, /^[0-9a-f]{64}$/);
-  assert.equal(
-    register.input.dedup_fingerprint,
-    (await import("node:crypto")).createHash("sha256").update(VALUE).digest(
-      "hex",
-    ),
-  );
-  assert.equal(everything(core.calls.slice(1)).includes(VALUE), false);
-});
-
-test("lophn-agent/harness/provider#R11, lophn-agent#T16: OAuth 로그인 값은 secret store에 가지 않고 CompleteProviderLogin의 submission으로만 간다", async () => {
-  const core = fakeCore({
-    "read:providers/read": () =>
-      ok({ provider: { id: PVD, name: "OpenAI", revision: 5 } }),
-    "upload:secrets/input": () =>
-      ok({
-        preparation: "prep-9",
-        sealed_ref: "sealed-9",
-        purpose: "provider_credential",
-        owner: PVD,
-      }),
-    "command:providers/login-complete": () => ok({ provider: {} }),
-    "command:provider-credentials/register": () => ok({ provider: {} }),
-  });
-  const read = await readSecretInput(core, {
-    owner: PVD,
-    purpose: "provider_credential",
-    credential: {
-      key: "login-abc12345",
-      kind: "oauth",
-      label: "ChatGPT login",
-      account: null,
-      organization: null,
-      plan: null,
-    },
-  });
-  if (!read.ok) return assert.fail("read");
-  assert.deepEqual(read.value.allowed, [REGISTER_PROVIDER_CREDENTIAL]);
-  assert.equal(read.value.view?.entry, "code");
-  const registered: { content_hash: string }[] = [];
-  const pasted =
-    "https://auth.example.test/callback?code=the-code&state=state-1";
-  const sent = await createSecretSubmitter(core, { now: () => 0 }).submit({
-    windowId: "cfw_1",
-    canonical: read.value,
-    decision: REGISTER_PROVIDER_CREDENTIAL,
-    commandInput: { value: pasted },
-    register: (request) => {
-      registered.push(request);
-      return Promise.resolve({ ok: true, confirmation: "L".repeat(43) });
-    },
-  });
-  assert.deepEqual(sent, {
-    ok: true,
-    value: { secret_ref: "ChatGPT login", stored: "stored" },
-  });
-  // OAuth 값은 upload(증거)로 가지 않는다.
-  assert.equal(core.calls.some((call) => call.kind === "upload"), false);
-  const complete = core.calls.find((call) => call.method === "login-complete")!
-    .body as Record<string, unknown>;
-  const input = complete.input as Record<string, string>;
-  assert.deepEqual(input, {
-    provider: PVD,
-    login: "login-abc12345",
-    submission: pasted,
-  });
-  // 값은 소유 command의 submission binding으로만 간다(handle 등록·결과에는 없다).
-  const others = core.calls.filter((
-    call,
-  ) =>
-    !(call.kind === "command" && call.method === "login-complete") &&
-    call.kind !== "upload"
-  );
-  assert.equal(everything(others).includes("the-code"), false);
-  assert.equal(registered.length, 1);
 });

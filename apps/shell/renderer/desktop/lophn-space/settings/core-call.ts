@@ -40,18 +40,19 @@ export type SecretIntent = {
   readonly kind: "secret_input";
   readonly owner: string;
   readonly purpose: string;
-  readonly credential?: {
-    readonly key: string;
+  /** provider 연결(Connect)의 값 아닌 등록 정보. owner는 만들 provider의 ID다. */
+  readonly connect?: {
+    readonly name: string;
+    /** 내장 정의 또는 직접 만든 정의. core의 RegisterProvider가 다시 검사한다. */
+    readonly definition: unknown;
+    readonly endpoint: string;
+    readonly protocol: string;
     readonly kind: "api_key" | "oauth";
-    readonly label: string;
-    readonly account: null;
-    readonly organization: null;
-    readonly plan: null;
+    /** OAuth만. 시작한 login handle이다. */
+    readonly login?: string;
   };
-  readonly change?: {
-    readonly key: string;
-    readonly action: "replace" | "revoke";
-  };
+  /** provider 끊기(Disconnect). owner는 끊을 provider의 ID다. */
+  readonly disconnect?: true;
 };
 
 /** preload의 보호 창 열기. 없는 창에서는 undefined다. */

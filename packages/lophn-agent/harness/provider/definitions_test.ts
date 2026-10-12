@@ -21,7 +21,7 @@ const API_KEYS = [
 
 Deno.test("lophn-agent/harness/provider#R1: 내장 정의는 지원 대상 전체를 담고 schema로 검증된다", () => {
   const definitions = builtinProviderDefinitions();
-  assertEquals(definitions.length, 10);
+  assertEquals(definitions.length, 7);
   for (const definition of definitions) {
     assert(providerDefinitionSchema.safeParse(definition).success);
   }
@@ -33,14 +33,11 @@ Deno.test("lophn-agent/harness/provider#R1: 내장 정의는 지원 대상 전�
     "groq",
     "deepseek",
     "google-gemini",
-    "ollama",
-    "lm-studio",
-    "llama-cpp",
   ]);
   assertEquals(
     definitions.map((definition) => definition.revision),
     Array
-      .from({ length: 10 }, () => "2026-10"),
+      .from({ length: 7 }, () => "2026-10"),
   );
 });
 
@@ -63,11 +60,13 @@ Deno.test("lophn-agent/harness/provider#R1: R1 첫 판의 인증 방식과 OAuth
   assertEquals(xai.auth_kinds, ["api_key", "oauth"]);
   assertEquals(xai.oauth!.product, "supergrok");
   assertEquals(xai.oauth!.verified_for_lophn, false);
-  // 로컬 연결은 인증 없음이고 model 목록 조회 목적지가 없다(R1, R5).
+  // 내장 정의에는 로컬 서버도 인증 없음도 없다. 로컬은 custom provider의 loopback으로만 연결한다(R1, R5).
   for (const key of ["ollama", "lm-studio", "llama-cpp"]) {
-    assert(byKey.has(key));
-    assertEquals(byKey.get(key)!.auth_kinds, ["none"]);
-    assertEquals(byKey.get(key)!.models_endpoint, null);
+    assert(!byKey.has(key), key);
+    assertEquals(builtinProviderDefinition(key).ok, false, key);
+  }
+  for (const definition of definitions) {
+    assert(!definition.auth_kinds.includes("none"), definition.key);
   }
 });
 
@@ -98,7 +97,7 @@ Deno.test("lophn-agent/harness/provider#R2: read handler는 ledger 없이 정의
   assertEquals(handler.route, providerDefinitions);
   const answered = await handler.handle({} as never, {});
   assert(answered.ok, answered.ok ? undefined : answered.error.code);
-  assertEquals(answered.value.definitions.length, 10);
+  assertEquals(answered.value.definitions.length, 7);
 });
 
 Deno.test("lophn-agent/harness/provider#R2: 모르는 내장 정의 key는 invalid_input이다", () => {

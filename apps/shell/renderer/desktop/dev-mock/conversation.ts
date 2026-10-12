@@ -31,16 +31,11 @@ const MINUTE = 60 * 1000;
 const PROVIDERS = [{
   id: "pvd_01h455vb4pex5v6nkc6gd5fd01",
   name: "Claude",
-  enabled: true,
-  credentials: [
-    { key: "main", state: "available" },
-    { key: "backup", state: "available" },
-  ],
+  credential: { state: "available" },
 }, {
   id: "pvd_01h455vb4pex5v6nkc6gd5fd02",
   name: "ChatGPT",
-  enabled: true,
-  credentials: [{ key: "personal", state: "available" }],
+  credential: { state: "available" },
 }];
 
 /** 항상 ready인 core 통로. provider 목록만 읽히고 나머지 호출은 unavailable이다. */

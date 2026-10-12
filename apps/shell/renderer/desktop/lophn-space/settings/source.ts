@@ -1,7 +1,7 @@
 // settings 화면의 일반 설정·skill 폴더·도구 server가 읽고 쓰는 통로. 화면은 이 interface만 보고 core
 // route 이름은 core-source.ts만 안다. 모양은 contracts(settings·secrets)에서 이 화면이 쓰는 field만
 // 옮긴 것이다. Providers와 Agents 자리는 각자의 통로(providers/settings-source.ts,
-// agents/settings-source.ts)를 쓴다. 이 파일의 provider 연결·계정 모양은 Providers 통로가 같이 쓴다.
+// agents/settings-source.ts)를 쓴다. 이 파일의 provider 연결 모양은 Providers 통로가 같이 쓴다.
 // secret 값은 이 통로에 없다. credential은 보호 창이 받고 이 통로는 그 창을 여는 일만 한다
 // (platform/secrets#R2).
 import type { SourceResult } from "../source.ts";
@@ -11,59 +11,32 @@ export type { SourceResult };
 /** contract가 알려 준 인증 방식. 화면은 이 안에 있는 것만 보인다. */
 export type AuthWay = "api_key" | "oauth" | "none";
 
-export type AccountState = "available" | "rejected" | "usage_wait" | "revoked";
-export type AccountReason =
+/** 연결(credential 하나)의 사용 가능 상태. */
+export type CredentialState =
+  | "available"
+  | "rejected"
+  | "usage_wait"
+  | "revoked";
+export type CredentialReason =
   | "authentication"
   | "quota"
   | "plan_access"
   | "refresh_revoked";
 
-export interface ModelBlock {
-  readonly model: string;
-  readonly reason: "not_found" | "retired" | "account_model_access";
-  readonly until: string | null;
-}
-
-/** 같은 연결에 붙은 계정 하나. 계정·조직·요금제는 확인한 값만 있고 모르면 null이다. */
-export interface AccountRow {
-  readonly key: string;
-  readonly label: string;
-  readonly way: AuthWay;
-  readonly enabled: boolean;
-  /** 같은 연결 안의 순서. 작은 것이 먼저다. */
-  readonly order: number;
-  readonly account: string | null;
-  readonly organization: string | null;
-  readonly plan: string | null;
-  readonly state: AccountState;
-  readonly reason: AccountReason | null;
-  /** 사용량 한도가 풀리는 시각. 서버가 알려 준 시각인지 lophn이 정한 대기인지는 값에 없다. */
-  readonly until: string | null;
-  readonly modelBlocks: readonly ModelBlock[];
-}
-
-export interface ConnectionCheck {
-  readonly at: string;
-  readonly result: "success" | "failure";
-  readonly kind: "text" | "tool_call";
-  readonly model: string;
-}
-
-/** 연결 하나(Claude, ChatGPT 같은 제품 또는 로컬 model). */
+/**
+ * 연결된 provider 하나. provider에는 연결(credential)이 하나라 계정 목록이나 순서는 없다.
+ * 행은 이름·로그인 방법·불가 상태만 말하고 secret 참조는 싣지 않는다.
+ */
 export interface ProviderRow {
   /** provider id. */
   readonly id: string;
   readonly name: string;
-  readonly enabled: boolean;
   /** 정의 key. */
   readonly definition: string;
-  readonly ways: readonly AuthWay[];
-  /** 공식 로그인이 있는 연결만. verified는 lophn 이름으로 허용된 것이 확인됐다는 뜻이다. */
-  readonly signIn: { readonly verified: boolean } | null;
-  /** 이 컴퓨터 안에서 도는 연결. */
-  readonly local: boolean;
-  readonly accounts: readonly AccountRow[];
-  readonly lastCheck: ConnectionCheck | null;
+  /** 이 연결의 로그인 방법. */
+  readonly way: AuthWay;
+  readonly state: CredentialState;
+  readonly reason: CredentialReason | null;
   /** 보호 입력이 비교하는 기준. 화면은 보내지 않는다. */
   readonly revision: number;
 }

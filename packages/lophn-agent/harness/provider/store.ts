@@ -9,23 +9,20 @@ function invalidStored(): Result<never> {
   return err({ code: "internal", message: "invalid stored provider" });
 }
 
+const COLUMNS =
+  "id, name, definition_key, definition, endpoint, protocol, revision";
+
 export function loadProvider(
   sql: Query,
   id: string,
 ): Result<ProviderRecord | null> {
-  const row = sql.get(
-    "select id, name, definition_key, definition, endpoint, protocol, enabled, last_check, revision from providers where id = ?",
-    [id],
-  );
+  const row = sql.get(`select ${COLUMNS} from providers where id = ?`, [id]);
   if (row === undefined) return ok(null);
   return providerFromRow(sql, row);
 }
 
 export function listProviders(sql: Query): Result<ProviderRecord[]> {
-  const rows = sql.all(
-    "select id, name, definition_key, definition, endpoint, protocol, enabled, last_check, revision from providers order by id",
-    [],
-  );
+  const rows = sql.all(`select ${COLUMNS} from providers order by id`, []);
   const providers: ProviderRecord[] = [];
   for (const row of rows) {
     const loaded = providerFromRow(sql, row);

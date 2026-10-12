@@ -122,8 +122,8 @@ Workspace(사람 전역)의 즐겨찾기다. `{items: [{provider, model_name}], 
 
 | 표 | 담는 것 | 키 | unique | index | 참조 |
 |---|---|---|---|---|---|
-| `agent_model_defaults` | role별 기본 선택 또는 null과 설정 seq | PK `slot` | PK; `lophn / context_engineer / app_engineer / operator / summaries` 다섯 값만 | 없음 | provider FK; option 값은 설정 snapshot; 삭제 RESTRICT |
-| `model_favorites` | 즐겨찾기 한 줄 | PK `(provider, model_name)` | `rank`(0 이상 정수, 빈틈 없는 순서) | `rank` | provider FK; 삭제 RESTRICT |
+| `agent_model_defaults` | role별 기본 선택 또는 null과 설정 seq | PK `slot` | PK; `lophn / context_engineer / app_engineer / operator / summaries` 다섯 값만 | 없음 | provider는 FK가 아니다(Disconnect가 provider를 지워도 고른 선택은 남고 다시 Connect하기 전까지 그 agent는 시작하지 않는다); option 값은 설정 snapshot; 삭제 RESTRICT |
+| `model_favorites` | 즐겨찾기 한 줄 | PK `(provider, model_name)` | `rank`(0 이상 정수, 빈틈 없는 순서) | `rank` | provider는 FK가 아니다(저장할 때 provider가 있는지 command가 본다); 삭제 RESTRICT |
 
 CatalogEntry·CatalogState는 ledger 밖 derived store다. 당시 가격·한계는 Run.basis·ModelCall에 고정하며 catalog 삭제로 과거를 바꾸지 않는다. 설정 공통 층은 → platform/settings.
 

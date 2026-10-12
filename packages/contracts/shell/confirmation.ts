@@ -3,6 +3,10 @@ import { ERROR_CODES, type ErrorCode } from "../../base/mod.ts";
 import { errorBodySchema } from "../platform/errors.ts";
 import { ID_PREFIXES, type IdPrefix, idSchema } from "../platform/ids.ts";
 import { decisionNameSchema } from "../platform/confirmation-handle.ts";
+import {
+  providerDefinitionSchema,
+  providerProtocolSchema,
+} from "../lophn-agent/provider-values.ts";
 import { seqSchema, sha256Schema } from "../platform/values.ts";
 
 // shell 크롬의 외부 링크는 확인 없이 OS 브라우저로 연다(D21). 종류에 없다.
@@ -47,22 +51,17 @@ const fixedInputSchema = z.discriminatedUnion("kind", [
 
 const jsonObjectSchema = z.record(z.string(), z.json());
 
-// provider credential 입력(contracts#T29)의 값 아닌 등록 정보. 값과 준비 증거는 main이 붙인다.
-const providerCredentialFieldsSchema = z.strictObject({
-  key: z.string().regex(/\S/),
+// provider 연결(Connect)의 값 아닌 등록 정보. provider는 아직 없고 보호 창이 받은 값의 준비 증거와 함께
+// RegisterProvider로 등록한다. OAuth는 시작한 login handle을 싣는다(login-complete가 받는다).
+const providerConnectFieldsSchema = z.strictObject({
+  name: z.string().regex(/\S/),
+  definition: providerDefinitionSchema,
+  endpoint: z.string().min(1),
+  protocol: providerProtocolSchema,
   kind: z.enum(["api_key", "oauth"]),
-  label: z.string().regex(/\S/),
-  account: z.string().regex(/\S/).nullable(),
-  organization: z.string().regex(/\S/).nullable(),
-  plan: z.string().regex(/\S/).nullable(),
-  // 열 때는 값이 없어 만들 수 없다. 없으면 main이 사람이 넣은 값에서 만든다(같은 key 중복 거절).
-  dedup_fingerprint: sha256Schema.optional(),
-});
-
-// 등록한 계정 하나의 교체(새 값 입력)·삭제(그 계정을 새 일에서 막는다). key는 계정 key다.
-const providerCredentialChangeSchema = z.strictObject({
-  key: z.string().regex(/\S/),
-  action: z.enum(["replace", "revoke"]),
+  login: z.string().regex(/\S/).optional(),
+}).refine((value) => (value.kind === "oauth") === (value.login !== undefined), {
+  message: "only an OAuth connection carries its login handle",
 });
 
 // preload가 창을 열 때 보내는 참조. command 본문·HTML·허락값은 받지 않는다.
@@ -99,17 +98,18 @@ const confirmationIntentSchema = z.discriminatedUnion("kind", [
     kind: z.literal("secret_input"),
     owner: z.string().min(1),
     purpose: z.string().min(1),
-    credential: providerCredentialFieldsSchema.optional(),
-    // 이미 등록한 계정의 교체·삭제(ChangeProviderCredentials). 등록 정보와 함께 오지 않는다.
-    change: providerCredentialChangeSchema.optional(),
+    // provider 연결(Connect). owner는 만들 provider의 ID다.
+    connect: providerConnectFieldsSchema.optional(),
+    // provider 끊기(DisconnectProvider). owner는 끊을 provider의 ID다.
+    disconnect: z.literal(true).optional(),
   }).refine(
     (value) =>
-      (value.credential === undefined && value.change === undefined) ||
+      (value.connect === undefined && value.disconnect === undefined) ||
       (value.purpose === "provider_credential" &&
-        (value.credential === undefined || value.change === undefined)),
+        (value.connect === undefined || value.disconnect === undefined)),
     {
       message:
-        "credential fields or a change belong to a provider credential input",
+        "a connect or a disconnect belongs to a provider credential input",
     },
   ),
 ]);

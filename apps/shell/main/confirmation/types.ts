@@ -39,22 +39,25 @@ export type ConfirmationIntent =
     kind: "secret_input";
     owner: string;
     purpose: string;
-    /** provider credential의 값 아닌 등록 정보. */
-    credential?: ProviderCredentialFields;
-    /** 이미 등록한 계정 하나의 교체·삭제. */
-    change?: { key: string; action: "replace" | "revoke" };
+    /** provider 연결(Connect)의 값 아닌 등록 정보. owner는 만들 provider의 ID다. */
+    connect?: ProviderConnectFields;
+    /** provider 끊기(Disconnect). owner는 끊을 provider의 ID다. */
+    disconnect?: true;
   };
 
-/** contracts shell providerCredentialFieldsSchema. */
-export interface ProviderCredentialFields {
-  readonly key: string;
+/** contracts shell providerConnectFieldsSchema. */
+export interface ProviderConnectFields {
+  readonly name: string;
+  /** 내장 정의 또는 직접 만든 정의. core의 RegisterProvider가 다시 검사한다. */
+  readonly definition: Record<string, unknown>;
+  readonly endpoint: string;
+  readonly protocol:
+    | "anthropic-messages"
+    | "openai-responses"
+    | "openai-chat-completions";
   readonly kind: "api_key" | "oauth";
-  readonly label: string;
-  readonly account: string | null;
-  readonly organization: string | null;
-  readonly plan: string | null;
-  /** 없으면 main이 제출 때 넣은 값에서 만든다. */
-  readonly dedup_fingerprint?: string;
+  /** OAuth만. 시작한 login handle이다. */
+  readonly login?: string;
 }
 
 /**

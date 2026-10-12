@@ -9,10 +9,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { manualClock, ok, seededRandom } from "../../packages/base/mod.ts";
-import {
-  changeProviderCredentials,
-  registerProviderCredential,
-} from "../../packages/contracts/lophn-agent/mod.ts";
+import { disconnectProvider } from "../../packages/contracts/lophn-agent/mod.ts";
 import {
   FrameDecoder,
   removeSecret,
@@ -63,8 +60,7 @@ const OPERATIONS = [
   "ReceiveMessage",
   "ReadMessageBody",
   "RegisterProvider",
-  "RegisterProviderCredential",
-  "ChangeProviderCredentials",
+  "DisconnectProvider",
   "project.create",
 ];
 
@@ -223,8 +219,7 @@ async function handleFor(
   route:
     | typeof setSecret
     | typeof removeSecret
-    | typeof registerProviderCredential
-    | typeof changeProviderCredentials,
+    | typeof disconnectProvider,
   input: unknown,
 ): Promise<string> {
   const binding = await confirmationBinding(route, input);
@@ -680,28 +675,12 @@ Deno.test("platform/secrets#R2: 선언한 크기와 다른 body는 keychain에 �
 
 // provider credential(lophn-agent 소유 ledger 표)의 값도 같은 보호 입력으로 넣고 같은 registry에
 // 등록·회수된다. 참조를 확정하는 command는 provider의 command이고 core는 그 owner의 참조를 읽는다.
-Deno.test("platform/secrets#R1 platform/redaction#R1: provider credential의 값도 알려진 값으로 등록되고 교체하면 옛 값이 회수된다", async () => {
+// provider에는 credential이 하나라 값을 바꾸려면 Disconnect 뒤 다시 Connect한다.
+Deno.test("platform/secrets#R1 platform/redaction#R1: provider credential의 값도 Connect로 알려진 값이 되고 Disconnect하면 회수된다", async () => {
   const opened = await open();
   try {
     const version = await seed(opened);
     const provider = id("pvd", 1);
-    const registered = await post(opened.core, "providers/register", {
-      input: {
-        id: provider,
-        name: "Anthropic",
-        definition: ANTHROPIC,
-        endpoint: "https://api.anthropic.com",
-        protocol: "anthropic-messages",
-      },
-      idempotency_key: "provider-1",
-      compare: {},
-      prepared: [],
-    });
-    const created = await registered.json() as {
-      provider: { revision: number };
-    };
-    assertEquals(registered.status, 200, JSON.stringify(created));
-
     const prepare = async (value: string) => {
       const response = await inputValue(
         opened.core,
@@ -714,33 +693,26 @@ Deno.test("platform/secrets#R1 platform/redaction#R1: provider credential의 값
       assertEquals(response.status, 200, JSON.stringify(evidence));
       return evidence;
     };
-    const first = await prepare(FIRST);
-    const registerInput = {
-      provider,
-      key: "main",
-      kind: "api_key",
-      label: "main key",
-      preparation: first,
-      account: null,
-      organization: null,
-      plan: null,
-      dedup_fingerprint: "a".repeat(64),
+    const connect = async (value: string, key: string) => {
+      const response = await post(opened.core, "providers/register", {
+        input: {
+          id: provider,
+          name: "Anthropic",
+          definition: ANTHROPIC,
+          endpoint: "https://api.anthropic.com",
+          protocol: "anthropic-messages",
+          credential: { kind: "api_key", preparation: await prepare(value) },
+        },
+        idempotency_key: key,
+        compare: {},
+        prepared: [],
+      });
+      const body = await response.json() as { provider: { revision: number } };
+      assertEquals(response.status, 200, JSON.stringify(body));
+      return body.provider.revision;
     };
-    const added = await post(opened.core, "provider-credentials/register", {
-      input: registerInput,
-      idempotency_key: "credential-1",
-      compare: { revision: created.provider.revision },
-      prepared: [],
-      confirmation: await handleFor(
-        opened.core,
-        registerProviderCredential,
-        registerInput,
-      ),
-    });
-    const addedBody = await added.json() as {
-      provider: { revision: number };
-    };
-    assertEquals(added.status, 200, JSON.stringify(addedBody));
+
+    const revision = await connect(FIRST, "connect-1");
     const masked = await readText(opened.core, version);
     assert(
       !masked?.includes(FIRST),
@@ -748,32 +720,23 @@ Deno.test("platform/secrets#R1 platform/redaction#R1: provider credential의 값
     );
     assert(masked?.includes(SECOND));
 
-    // 교체: 새 값이 알려지고 옛 값은 회수된다.
-    const second = await prepare(SECOND);
-    const changeInput = {
-      provider,
-      credentials: [{
-        key: "main",
-        revision: 1,
-        replacement: second,
-        order: 0,
-        revoke: false,
-      }],
-    };
-    const changed = await post(opened.core, "provider-credentials/change", {
-      input: changeInput,
-      idempotency_key: "credential-2",
-      compare: { revision: addedBody.provider.revision },
+    // Disconnect: 확인 창을 거쳐 provider와 credential을 지우고 옛 값을 회수한다.
+    const input = { provider };
+    const disconnected = await post(opened.core, "providers/disconnect", {
+      input,
+      idempotency_key: "disconnect-1",
+      compare: { revision },
       prepared: [],
-      confirmation: await handleFor(
-        opened.core,
-        changeProviderCredentials,
-        changeInput,
-      ),
+      confirmation: await handleFor(opened.core, disconnectProvider, input),
     });
-    assertEquals(changed.status, 200, await changed.clone().text());
+    assertEquals(disconnected.status, 200, await disconnected.clone().text());
+    const revoked = await readText(opened.core, version);
+    assert(revoked?.includes(FIRST), "Disconnect한 옛 값이 계속 가려진다");
+
+    // 같은 ID로 다시 Connect하면 새 값이 알려진다.
+    await connect(SECOND, "connect-2");
     const replaced = await readText(opened.core, version);
-    assert(replaced?.includes(FIRST), "교체된 옛 값이 계속 가려진다");
+    assert(replaced?.includes(FIRST), "옛 값이 다시 가려진다");
     assert(!replaced?.includes(SECOND), "새 값이 가려지지 않았다");
   } finally {
     await close(opened);

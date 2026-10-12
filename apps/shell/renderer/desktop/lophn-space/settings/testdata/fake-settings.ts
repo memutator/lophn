@@ -1,7 +1,6 @@
 // settings 화면 테스트의 가짜 통로. core를 부르지 않고 부른 것을 모두 기록한다. secret 값은 이
 // 통로에 없다: 보호 창 열기는 이름만 기록한다.
 import type {
-  AccountRow,
   ProviderRow,
   ServerRow,
   SettingRow,
@@ -9,28 +8,6 @@ import type {
   SettingsView,
   SourceResult,
 } from "../source.ts";
-
-export function account(
-  key: string,
-  label: string,
-  options: Partial<Omit<AccountRow, "key" | "label">> = {},
-): AccountRow {
-  return {
-    key,
-    label,
-    way: "api_key",
-    enabled: true,
-    order: 0,
-    account: null,
-    organization: null,
-    plan: null,
-    state: "available",
-    reason: null,
-    until: null,
-    modelBlocks: [],
-    ...options,
-  };
-}
 
 export function provider(
   id: string,
@@ -40,13 +17,10 @@ export function provider(
   return {
     id,
     name,
-    enabled: true,
     definition: `${name.toLowerCase()}-def`,
-    ways: ["api_key"],
-    signIn: null,
-    local: false,
-    accounts: [],
-    lastCheck: null,
+    way: "api_key",
+    state: "available",
+    reason: null,
     revision: 4,
     ...options,
   };

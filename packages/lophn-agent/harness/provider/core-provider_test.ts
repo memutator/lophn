@@ -7,16 +7,22 @@ import { lophnAgentDefinitions } from "../../../../apps/core/lophn-agent.ts";
 
 const OPERATIONS = [
   "RegisterProvider",
-  "ChangeProvider",
-  "RegisterProviderCredential",
-  "ChangeProviderCredentials",
+  "DisconnectProvider",
   "RefreshProviderCredential",
   "RecordProviderAvailability",
-  "RecordProviderCheck",
   "ReadProvider",
   "ListProviders",
-  "ListProviderCredentials",
 ];
+
+const LOCAL_DEFINITION = {
+  key: "my-local",
+  display_name: "My local",
+  protocols: ["openai-chat-completions"],
+  auth_kinds: ["none"],
+  models_endpoint: null,
+  oauth: null,
+  revision: "2026-01-01",
+};
 
 const ANTHROPIC_DEFINITION = {
   key: "anthropic",
@@ -85,16 +91,33 @@ Deno.test("T3-integration: core API rejects unauthenticated, invalid input and u
     const invalidBody = await invalid.json() as { error?: { code?: string } };
     assertEquals(invalidBody.error?.code, "invalid_input");
 
-    // 등록되지 않은 provider에 대한 change는 404 not_found다.
-    const missing = await post(harness.port, token, "providers", "change", {
-      input: { provider: "pvd_01arz3ndektsv4rrffq69g5fav", enabled: false },
-      idempotency_key: "k-2",
-      compare: { revision: 1 },
-      prepared: [],
+    // 연결되지 않은 provider의 read는 404 not_found다.
+    const missing = await post(harness.port, token, "providers", "read", {
+      provider: "pvd_01arz3ndektsv4rrffq69g5fav",
     });
     assertEquals(missing.status, 404);
     const missingBody = await missing.json() as { error?: { code?: string } };
     assertEquals(missingBody.error?.code, "not_found");
+
+    // 계정 목록·변경·연결 test route는 core에 없다.
+    for (
+      const [resource, method] of [
+        ["providers", "change"],
+        ["providers", "test"],
+        ["providers", "record-check"],
+        ["provider-credentials", "register"],
+        ["provider-credentials", "change"],
+        ["provider-credentials", "list"],
+      ]
+    ) {
+      const gone = await post(harness.port, token, resource, method, {
+        input: {},
+        idempotency_key: "k-gone",
+        compare: {},
+        prepared: [],
+      });
+      assertEquals(gone.status, 404, `${resource}/${method}`);
+    }
   } finally {
     await harness.close();
   }
@@ -125,7 +148,7 @@ Deno.test("T3-integration: registered loopback provider serves read, rejects age
     });
     assert(agent.ok);
 
-    // loopback HTTP·인증 없음 정의를 등록한다(R5).
+    // custom provider의 loopback HTTP·인증 없음 연결을 등록한다(R5, R31).
     const registered = await post(
       harness.port,
       user.value.token,
@@ -134,18 +157,11 @@ Deno.test("T3-integration: registered loopback provider serves read, rejects age
       {
         input: {
           id: "pvd_01arz3ndektsv4rrffq69g5fav",
-          name: "Ollama loopback",
-          definition: {
-            key: "ollama",
-            display_name: "Ollama",
-            protocols: ["openai-chat-completions"],
-            auth_kinds: ["none"],
-            models_endpoint: null,
-            oauth: null,
-            revision: "2026-01-01",
-          },
+          name: "My local",
+          definition: LOCAL_DEFINITION,
           endpoint: "http://127.0.0.1:11434/v1",
           protocol: "openai-chat-completions",
+          credential: { kind: "none", preparation: null },
         },
         idempotency_key: "k-1",
         compare: {},
@@ -173,9 +189,9 @@ Deno.test("T3-integration: registered loopback provider serves read, rejects age
     const readBody = await read.json() as {
       provider?: { name?: string };
     };
-    assertEquals(readBody.provider?.name, "Ollama loopback");
+    assertEquals(readBody.provider?.name, "My local");
 
-    // user는 두 번 등록할 수 없다(같은 id는 conflict다).
+    // 이미 연결된 provider에는 두 번째 연결을 더하지 못한다(같은 id는 conflict다).
     const duplicate = await post(
       harness.port,
       user.value.token,
@@ -185,17 +201,10 @@ Deno.test("T3-integration: registered loopback provider serves read, rejects age
         input: {
           id: "pvd_01arz3ndektsv4rrffq69g5fav",
           name: "again",
-          definition: {
-            key: "ollama",
-            display_name: "Ollama",
-            protocols: ["openai-chat-completions"],
-            auth_kinds: ["none"],
-            models_endpoint: null,
-            oauth: null,
-            revision: "2026-01-01",
-          },
+          definition: LOCAL_DEFINITION,
           endpoint: "http://127.0.0.1:11434/v1",
           protocol: "openai-chat-completions",
+          credential: { kind: "none", preparation: null },
         },
         idempotency_key: "k-2",
         compare: {},
@@ -221,6 +230,15 @@ Deno.test("T3-integration: registered loopback provider serves read, rejects age
           definition: ANTHROPIC_DEFINITION,
           endpoint: "http://127.0.0.1:8080/v1",
           protocol: "anthropic-messages",
+          credential: {
+            kind: "api_key",
+            preparation: {
+              preparation: "prep-1",
+              sealed_ref: "seal-1",
+              purpose: "provider_credential",
+              owner: "pvd_01arz3ndektsv4rrffq69g5fbv",
+            },
+          },
         },
         idempotency_key: "k-3",
         compare: {},

@@ -125,8 +125,7 @@ Deno.test("flow work-offline, shell/desktop#R7: provider 끊김은 대화에만 
           usable: false,
           providers: [{
             name: "ChatGPT",
-            enabled: true,
-            accounts: [{ key: "main", state: "rejected" }],
+            state: "rejected",
           }],
         }}
         onSettings={() => {}}
@@ -172,8 +171,7 @@ Deno.test("flow work-offline, shell/desktop#R7: provider를 아직 못 읽었으
         value: {
           providers: [{
             name: "Claude",
-            enabled: true,
-            credentials: [{ key: "main", state: "available" }],
+            credential: { state: "available" },
           }],
           next_cursor: null,
         },
@@ -200,8 +198,7 @@ Deno.test("flow work-offline, shell/desktop#R7: 도크는 실제 core 통로에�
         value: {
           providers: [{
             name: "ChatGPT",
-            enabled: true,
-            credentials: [{ key: "main", state: "rejected" }],
+            credential: { state: "rejected" },
           }],
           next_cursor: null,
         },

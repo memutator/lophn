@@ -104,7 +104,7 @@ concerns: [lophn-agent/roles/lophn]
 - 확인: 실제 근거를 따라갈 수 있고 자료 없는 수치를 만들어 넣거나 해석을 6줄 이상 쓰지 않는지 본다.
 - 의도: lophn-agent#I1, lophn-agent#I7
 
-**[R19]** 기획·재사용·자리 선택·운영 해석·사용 안내·사람 답은 judgment, 이미 있는 제목·요약은 organizing 용도이며 judgment는 resolved agent의 model·계정으로 run에 고정하고 organizing은 Workspace의 Model for summaries를 쓴다.
+**[R19]** 기획·재사용·자리 선택·운영 해석·사용 안내·사람 답은 judgment, 이미 있는 제목·요약은 organizing 용도이며 judgment는 resolved agent의 model·provider으로 run에 고정하고 organizing은 Workspace의 Model for summaries를 쓴다.
 - 이유: 역할의 선택과 표현 작업을 구별한다.
 - 확인: 재사용 선택과 제목 호출의 용도가 구별되고 judgment 호출은 run에 고정된 agent model을 쓰고 Model for summaries가 비어 있으면 제목 호출도 같은 model인지 본다.
 - 의도: lophn-agent#I5

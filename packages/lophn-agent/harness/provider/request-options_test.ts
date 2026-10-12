@@ -120,12 +120,11 @@ function modelInput(): ModelCallInput {
     callId: "mcl_01arz3ndektsv4rrffq69g5fav",
     run: null,
     session: null,
-    purpose: "connection_test",
+    purpose: "judgment",
     model: {
       provider: "pvd_01arz3ndektsv4rrffq69g5fav",
       name: "fixture-model",
       protocol: "anthropic-messages",
-      credential_key: "key-a",
       credential_revision: 1,
       option_values: { requested: {}, applied: {} },
       limits: {

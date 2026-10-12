@@ -61,9 +61,18 @@ function providerRecord(id: string, name: string, key: string, over = {}) {
     },
     endpoint: "https://api.example.com/v1",
     protocol: "openai-chat-completions",
-    enabled: true,
-    credentials: [],
-    last_check: null,
+    credential: {
+      kind: "api_key",
+      secret_ref: { name: "provider.x", sealed_ref: "sealed", revision: 1 },
+      revision: 1,
+      state: "available",
+      unavailable_reason: null,
+      until: null,
+      expires_at: null,
+      logged_in_at: null,
+      refreshed_at: null,
+      model_blocks: [],
+    },
     revision: 3,
     ...over,
   };
@@ -190,9 +199,6 @@ function agentsAnswers(servers: unknown[] = [], folders: string[] = []) {
         providers: [
           providerRecord(ANTHROPIC, "Anthropic", "anthropic"),
           providerRecord(OPENAI, "OpenAI", "openai"),
-          providerRecord("pvd_01h455vb4pex5v6nkc6gd5fd13", "xAI", "xai", {
-            enabled: false,
-          }),
         ],
         next_cursor: null,
       }),
@@ -228,7 +234,7 @@ Deno.test("shell/desktop#R50 [agent-I46]: Agents 화면 값은 기본값 칸 다
   });
   assertEquals(view.defaults.operator, null);
   assertEquals(view.defaults.context_engineer, null);
-  // 끈 provider의 model은 고르지 못하게 연결 목록에서 뺀다.
+  // 연결된 provider가 고를 수 있는 provider 목록이다.
   assertEquals(view.providers, [
     { id: ANTHROPIC, name: "Anthropic", definition: "anthropic" },
     { id: OPENAI, name: "OpenAI", definition: "openai" },

@@ -49,7 +49,7 @@ Run의 출처, 시작 기준, 누적 한도와 최종 결과를 정의한다.
 
 - session 하나의 `running / waiting_user` run은 최대 하나다. session 없는 run(handoff 수신)은 assignment 하나에 최대 하나이고 session이 있는 run과는 따로 센다. 같은 assignment의 다른 session은 동시에 돌 수 있다. 한 session의 사람 요청은 여러 `accepted` run으로 접수할 수 있다.
 - 같은 session(session 없는 run은 같은 assignment) 안 시작 순서는 `RunAccepted` seq다. session마다 시작 가능한 맨 앞 후보를 모아 사람 응답 대기·사람 한 번짜리 일(handoff로 받은 일과 다시 맡긴 일) 우선순위와 각 우선순위 FIFO를 적용하며 상위 8개 연속 시작 뒤 가장 오래 기다린 시작 가능한 하위 후보에 다음 자리를 준다. 막힌 session은 무관한 후보를 막지 않는다.
-- `basis`는 당시 값의 사본이다. 실제 model·계정은 `agent`가 가리키는 resolved agent에서 resolve한다. 현재 멈춤·credential 회수·scope 축소는 다음 call 전에 검사한다.
+- `basis`는 당시 값의 사본이다. 실제 model·provider는 `agent`가 가리키는 resolved agent에서 resolve한다. 현재 멈춤·provider Disconnect·credential 회수·scope 축소는 다음 call 전에 검사한다.
 - run 전체의 transaction, 대상 임대, 독립 Turn·입력 queue·실패 entity는 없다. turn은 완전한 ModelCall 응답과 그 응답의 ToolCall 관계로 읽는다.
 - 정상 종료와 enabled assignment의 correction 접수는 같은 writer에서 순서를 확정한다. paused assignment의 session은 새 입력을 거절하므로 새 Run을 접수하지 않는다. → lophn-agent/conversation. 미반영 correction이 있으면 정상 종료를 거절한다.
 - correction 뒤 이전 응답의 미시작 tool은 미실행으로 닫는다. 이미 시작한 call의 결과는 기록한다.
@@ -83,7 +83,7 @@ Run의 출처, 시작 기준, 누적 한도와 최종 결과를 정의한다.
 | `assignment` | `{id,revision,snapshot_hash,basis_seq}` | 아니오 | revision 양의 정수; → lophn-agent/assignments | 고정 assignment 판 |
 | `tools` | `{revision,definitions_hash}` | 아니오 | → lophn-agent/harness/tools | 고정 정의 목록 |
 | `extensions` | `{settings_revision,skill_hashes,mcp_config_revisions,mcp_tool_definition_hashes}` | 아니오 | 정확한 skill·서버/tool 쌍 선택 및 사용한 판·hash 고정; 빈 목록 허용; → lophn-agent/extensions | 고정 확장 판 |
-| `models` | `{judgment,organizing}` | 아니오 | judgment는 resolved agent의 model, organizing은 Workspace의 Model for summaries를 검증한 ResolvedModel; 요약용 칸이 비면 judgment와 같은 model·계정·옵션이며 purpose만 organizing; → lophn-agent/harness/model | resolved agent에서 resolve한 호출 snapshot |
+| `models` | `{judgment,organizing}` | 아니오 | judgment는 resolved agent의 model, organizing은 Workspace의 Model for summaries를 검증한 ResolvedModel; 요약용 칸이 비면 judgment와 같은 model·provider·옵션이며 purpose만 organizing; → lophn-agent/harness/model | resolved agent에서 resolve한 호출 snapshot |
 | `initial_work_place` | WorkPlace | 아니오 | Session의 고정 자리 또는 session 없는 run의 Assignment.scope; 도중에 바뀌지 않음 | 시작 자리 |
 | `limits / tool_result_limits` | RunLimits / byte·line·목록 상한 | 아니오 | 시작에 고정 | 제어 값 |
 

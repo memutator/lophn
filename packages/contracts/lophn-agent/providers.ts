@@ -7,29 +7,23 @@ import {
   withReadCommon,
 } from "../platform/mod.ts";
 import {
-  changeProviderCredentialsInputSchema,
-  changeProviderInputSchema,
-  connectionTestInputSchema,
-  connectionTestOutputSchema,
+  disconnectProviderInputSchema,
   loginBeginInputSchema,
   loginBeginOutputSchema,
   loginCancelInputSchema,
   loginCompleteInputSchema,
+  loginCompleteOutputSchema,
   providerChangedPayloadSchema,
-  providerCheckedPayloadSchema,
-  providerCredentialListInputSchema,
+  providerDisconnectedPayloadSchema,
   providerListInputSchema,
   providerReadInputSchema,
   providerRegisteredPayloadSchema,
   providerRevisionCompareSchema,
   recordProviderAvailabilityInputSchema,
-  recordProviderCheckInputSchema,
   refreshProviderCredentialInputSchema,
-  registerProviderCredentialInputSchema,
   registerProviderInputSchema,
 } from "./provider-inputs.ts";
 import {
-  providerCredentialOutputSchema,
   providerDefinitionOutputSchema,
   providerRecordSchema,
 } from "./provider-values.ts";
@@ -68,12 +62,13 @@ export const registerProvider = defineCommand({
   errors: [...userErrors],
 });
 
-export const changeProvider = defineCommand({
+// Disconnect는 provider와 credential(secret)을 함께 지우므로 사람이 확인 창을 거쳐 결정한다(provider#R6).
+export const disconnectProvider = defineCommand({
   resource: "providers",
-  method: "change",
-  name: "ChangeProvider",
-  input: changeProviderInputSchema,
-  output: providerOutput,
+  method: "disconnect",
+  name: "DisconnectProvider",
+  input: disconnectProviderInputSchema,
+  output: z.object({ provider: idSchema("pvd") }),
   compare: providerRevisionCompareSchema,
   actors: ["user"],
   errors: [
@@ -82,43 +77,12 @@ export const changeProvider = defineCommand({
     "forbidden",
     "conflict",
     "not_found",
+    "unavailable",
   ],
-});
-
-export const registerProviderCredential = defineCommand({
-  resource: "provider-credentials",
-  method: "register",
-  name: "RegisterProviderCredential",
-  input: registerProviderCredentialInputSchema,
-  output: providerOutput,
-  compare: providerRevisionCompareSchema,
-  actors: ["user"],
-  errors: [...userErrors, "not_found"],
   confirmation: "required",
   confirmation_kind: "secret_input",
-  binding: ["provider", "key", "preparation"],
+  binding: ["provider"],
   display_read: "/v1/providers/read",
-});
-
-export const changeProviderCredentials = defineCommand({
-  resource: "provider-credentials",
-  method: "change",
-  name: "ChangeProviderCredentials",
-  input: changeProviderCredentialsInputSchema,
-  output: providerOutput,
-  compare: providerRevisionCompareSchema,
-  actors: ["user"],
-  errors: [
-    "invalid_input",
-    "unauthorized",
-    "forbidden",
-    "conflict",
-    "not_found",
-  ],
-  confirmation: "required",
-  confirmation_kind: "secret_input",
-  binding: ["provider", "credentials"],
-  display_read: "/v1/provider-credentials/list",
 });
 
 export const refreshProviderCredential = defineCommand({
@@ -143,23 +107,6 @@ export const recordProviderAvailability = defineCommand({
   errors: [...machineErrors, "not_found"],
 });
 
-export const recordProviderCheck = defineCommand({
-  resource: "providers",
-  method: "record-check",
-  name: "RecordProviderCheck",
-  input: recordProviderCheckInputSchema,
-  output: providerOutput,
-  compare: providerRevisionCompareSchema,
-  actors: ["user", "machine"],
-  errors: [
-    "invalid_input",
-    "unauthorized",
-    "forbidden",
-    "conflict",
-    "not_found",
-  ],
-});
-
 export const providerRead = defineRead({
   resource: "providers",
   method: "read",
@@ -178,18 +125,6 @@ export const providerList = defineRead({
   output: withReadCommon(
     z.object({ providers: z.array(providerRecordSchema) }),
   ),
-  actors: readActors,
-  errors: [...readErrors],
-});
-
-export const providerCredentialList = defineRead({
-  resource: "provider-credentials",
-  method: "list",
-  name: "ListProviderCredentials",
-  input: providerCredentialListInputSchema,
-  output: withReadCommon(z.object({
-    credentials: z.array(providerCredentialOutputSchema),
-  })),
   actors: readActors,
   errors: [...readErrors],
 });
@@ -220,7 +155,7 @@ export const loginComplete = defineCommand({
   method: "login-complete",
   name: "CompleteProviderLogin",
   input: loginCompleteInputSchema,
-  output: providerOutput,
+  output: loginCompleteOutputSchema,
   actors: ["user"],
   errors: [...userErrors, "not_found"],
   confirmation: "required",
@@ -239,16 +174,6 @@ export const loginCancel = defineCommand({
   errors: ["invalid_input", "unauthorized", "forbidden", "not_found"],
 });
 
-export const connectionTest = defineCommand({
-  resource: "providers",
-  method: "test",
-  name: "TestProviderConnection",
-  input: connectionTestInputSchema,
-  output: connectionTestOutputSchema,
-  actors: ["user"],
-  errors: [...userErrors, "not_found"],
-});
-
 const providerSubject = idSchema("pvd");
 
 export const providerRegistered = defineEvent("ProviderRegistered", {
@@ -259,31 +184,26 @@ export const providerChanged = defineEvent("ProviderChanged", {
   subject: providerSubject,
   payload: providerChangedPayloadSchema,
 });
-export const providerChecked = defineEvent("ProviderChecked", {
+export const providerDisconnected = defineEvent("ProviderDisconnected", {
   subject: providerSubject,
-  payload: providerCheckedPayloadSchema,
+  payload: providerDisconnectedPayloadSchema,
 });
 
 export const PROVIDER_ROUTES = [
   registerProvider,
-  changeProvider,
-  recordProviderCheck,
+  disconnectProvider,
   providerRead,
   providerList,
   providerDefinitions,
   loginBegin,
   loginComplete,
   loginCancel,
-  connectionTest,
-  registerProviderCredential,
-  changeProviderCredentials,
   refreshProviderCredential,
   recordProviderAvailability,
-  providerCredentialList,
 ] as const;
 
 export const PROVIDER_EVENTS = [
   providerRegistered,
   providerChanged,
-  providerChecked,
+  providerDisconnected,
 ] as const;

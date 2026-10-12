@@ -13,13 +13,10 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
     schemaSteps: providerSchemaSteps,
     commands: [
       commands.register,
-      commands.change,
-      commands.registerCredential,
-      commands.changeCredentials,
+      commands.disconnect,
       commands.refreshCredential,
       commands.recordAvailability,
-      commands.recordCheck,
     ],
-    reads: [reads.read, reads.list, reads.credentialList],
+    reads: [reads.read, reads.list],
   };
 }

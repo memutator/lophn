@@ -390,8 +390,8 @@ export const PAGES: readonly WireframePage[] = [
   now(
     "settings-connections",
     "Settings · Connections",
-    ["connect-provider", "manage-provider-accounts"],
-    "Settings의 Connections 탭. provider와 계정 목록, 연결 상태와 다음 행동. key는 이 화면이 받지 않고 보호 창이 받는다.",
+    ["connect-provider", "manage-provider-connection"],
+    "Settings의 Connections 탭. 연결된 provider와 연결 상태·다음 행동. key는 이 화면이 받지 않고 보호 창이 받는다.",
     "settings-connections",
   ),
   now(

@@ -2,19 +2,15 @@ import { type ReactNode, useCallback, useEffect, useState } from "react";
 import {
   Button,
   ErrorState,
-  IconButton,
   Loading,
   lophnSpaceIcons,
   Skeleton,
-  Switch,
 } from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
-import { sortAccounts, wayLabel, waysOf } from "../model.ts";
+import { wayLabel } from "../model.ts";
 import { ConnectDialog } from "./connect-dialog.tsx";
 import type {
-  AccountRow,
-  AuthWay,
   ProviderDefinitionRow,
   ProviderRow,
   ProviderSettingsSource,
@@ -30,15 +26,13 @@ type Loaded<Row> =
   | { readonly state: "failed" }
   | { readonly state: "ready"; readonly rows: readonly Row[] };
 
-/** provider 줄 밑의 한 줄 안내. 다음 run부터 적용된다는 말과 바꾸지 못했다는 말. */
-type Note = "next-run" | "reorder-failed" | "enabled-failed";
-
 type Window = "window-opened" | "window-failed" | null;
 
-// Settings › Providers(shell/desktop#R49). provider는 계정과 인증만 다룬다: model 고르기·기본값
-// 칸이 없다. 위는 연결된 provider(이름, 로그인 방법, [Disconnect]; 펼치면 계정 목록과 위아래 순서·
-// 사용 끄기)이고 아래는 Add a provider 목록(줄마다 [+ Connect])이다. [+ Connect]는 Connect dialog를
-// 연다(connect-dialog.tsx). 옛 Connections 카드는 이 화면으로 바뀌어 없다.
+// Settings › Providers(shell/desktop#R49). provider는 연결과 인증만 다룬다: model 고르기·기본값
+// 칸이 없다. 위는 연결된 provider(이름, 로그인 방법, [Disconnect]; 사용량 대기나 사용 불가일 때만 그
+// 상태와 다음 행동 한 줄)이고 아래는 Add a provider 목록(줄마다 [+ Connect])이다. provider 하나에는
+// 연결 하나라 계정 목록·순서·끄기·연결 테스트는 없다. [+ Connect]는 Connect dialog를 연다
+// (connect-dialog.tsx).
 export function ProviderList({ source }: ProviderListProps): ReactNode {
   const [connected, setConnected] = useState<Loaded<ProviderRow>>({
     state: "loading",
@@ -46,8 +40,6 @@ export function ProviderList({ source }: ProviderListProps): ReactNode {
   const [available, setAvailable] = useState<Loaded<ProviderDefinitionRow>>({
     state: "loading",
   });
-  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
-  const [notes, setNotes] = useState<Readonly<Record<string, Note>>>({});
   const [window, setWindow] = useState<Window>(null);
   const [target, setTarget] = useState<ProviderDefinitionRow | null>(null);
 
@@ -84,52 +76,9 @@ export function ProviderList({ source }: ProviderListProps): ReactNode {
     return () => globalThis.removeEventListener?.("focus", reload);
   }, [reload]);
 
-  function setNote(provider: string, note: Note): void {
-    setNotes((previous) => ({ ...previous, [provider]: note }));
-  }
-
-  function toggle(provider: string): void {
-    setExpanded((previous) => {
-      const next = new Set(previous);
-      if (!next.delete(provider)) next.add(provider);
-      return next;
-    });
-  }
-
   async function disconnect(provider: string): Promise<void> {
     const opened = await source.disconnect(provider);
     setWindow(opened.ok ? "window-opened" : "window-failed");
-  }
-
-  async function reorder(
-    row: ProviderRow,
-    from: number,
-    to: number,
-  ): Promise<void> {
-    const keys = sortAccounts(row.accounts).map((account) => account.key);
-    const [moved] = keys.splice(from, 1);
-    keys.splice(to, 0, moved!);
-    const result = await source.reorderAccounts(row.id, keys);
-    if (!result.ok) {
-      setNote(row.id, "reorder-failed");
-      return;
-    }
-    setNote(row.id, "next-run");
-    await loadConnected();
-  }
-
-  async function setEnabled(
-    row: ProviderRow,
-    account: AccountRow,
-    enabled: boolean,
-  ): Promise<void> {
-    const result = await source.setAccountEnabled(row.id, account.key, enabled);
-    if (!result.ok) {
-      setNote(row.id, "enabled-failed");
-      return;
-    }
-    setNote(row.id, "next-run");
-    await loadConnected();
   }
 
   return (
@@ -168,13 +117,7 @@ export function ProviderList({ source }: ProviderListProps): ReactNode {
                       <ConnectedItem
                         key={row.id}
                         row={row}
-                        open={expanded.has(row.id)}
-                        note={notes[row.id] ?? null}
-                        onToggle={() => toggle(row.id)}
                         onDisconnect={() => void disconnect(row.id)}
-                        onMove={(from, to) => void reorder(row, from, to)}
-                        onEnabled={(account, enabled) =>
-                          void setEnabled(row, account, enabled)}
                       />
                     ))}
                   </ul>
@@ -260,141 +203,53 @@ export function ProviderList({ source }: ProviderListProps): ReactNode {
 }
 
 function ConnectedItem(
-  { row, open, note, onToggle, onDisconnect, onMove, onEnabled }: {
-    row: ProviderRow;
-    open: boolean;
-    note: Note | null;
-    onToggle: () => void;
-    onDisconnect: () => void;
-    onMove: (from: number, to: number) => void;
-    onEnabled: (account: AccountRow, enabled: boolean) => void;
-  },
+  { row, onDisconnect }: { row: ProviderRow; onDisconnect: () => void },
 ): ReactNode {
-  const accounts = sortAccounts(row.accounts);
+  const status = statusOf(row);
   return (
     <li className={styles.item} data-provider={row.id}>
       <div className={styles.row}>
         <span className={styles.identity}>
-          <IconButton
-            icon={open ? lophnSpaceIcons.collapse : lophnSpaceIcons.expand}
-            label={t("settings.label.accounts-for", { name: row.name })}
-            size="sm"
-            data-action="expand"
-            aria-expanded={open}
-            onClick={onToggle}
-          />
           <span className={styles.name} data-provider-name="">{row.name}</span>
           <span className={styles.methods} data-login-methods="">
-            {loginMethods(row)}
+            {loginMethod(row)}
           </span>
         </span>
         <Button size="sm" data-action="disconnect" onClick={onDisconnect}>
           {t("settings.button.disconnect")}
         </Button>
       </div>
-      {open
-        ? (
-          accounts.length === 0
-            ? (
-              <p className={styles.empty} data-accounts="none">
-                {t("settings.accounts.none")}
-              </p>
-            )
-            : (
-              <ul className={styles.accounts} data-accounts="">
-                {accounts.map((account, index) => (
-                  <li
-                    key={account.key}
-                    className={styles.account}
-                    data-account={account.key}
-                  >
-                    <span className={styles.accountText}>
-                      <span
-                        className={styles.accountName}
-                        data-account-label=""
-                      >
-                        {account.label}
-                      </span>
-                      <span className={styles.hint}>
-                        {accountWay(account)}
-                      </span>
-                    </span>
-                    <span className={styles.accountControls}>
-                      <IconButton
-                        icon={lophnSpaceIcons.previous}
-                        label={t("settings.label.move-account-up", {
-                          name: account.label,
-                        })}
-                        size="sm"
-                        disabled={index === 0}
-                        onClick={() => onMove(index, index - 1)}
-                      />
-                      <IconButton
-                        icon={lophnSpaceIcons.next}
-                        label={t("settings.label.move-account-down", {
-                          name: account.label,
-                        })}
-                        size="sm"
-                        disabled={index === accounts.length - 1}
-                        onClick={() => onMove(index, index + 1)}
-                      />
-                      <Switch
-                        label={t("settings.label.use-account", {
-                          name: account.label,
-                        })}
-                        size="sm"
-                        checked={account.enabled}
-                        onCheckedChange={(enabled) =>
-                          onEnabled(account, enabled)}
-                      />
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )
-        )
-        : null}
-      {note === "next-run"
-        ? (
-          <p className={styles.note} data-note="next-run">
-            {t("settings.notice.next-run")}
-          </p>
-        )
-        : null}
-      {note === "reorder-failed" || note === "enabled-failed"
-        ? (
-          <p className={styles.notice} role="status" data-notice={note}>
-            {note === "reorder-failed"
-              ? t("settings.error.reorder")
-              : t("settings.error.account-enabled")}
-          </p>
-        )
-        : null}
+      {status === null
+        ? null
+        : <p className={styles.note} data-status={status.kind}>{status.text}
+        </p>}
     </li>
   );
 }
 
-/** 계정이 쓰는 로그인 방법을 정해진 순서로 "·"로 잇는다. 로그인한 계정은 확인한 요금제를 붙인다. */
-function loginMethods(row: ProviderRow): string {
-  const live = row.accounts.filter((account) => account.state !== "revoked");
-  const ways: readonly AuthWay[] = live.length === 0
-    ? row.ways
-    : live.map((account) => account.way);
-  const plan = live.find((account) => account.way === "oauth")?.plan ?? null;
-  return waysOf(ways).map((way) => {
-    if (way === "oauth") {
-      return plan === null
-        ? t("settings.label.login-signed-in")
-        : t("settings.label.login-signed-in-plan", { plan });
-    }
-    return wayLabel(way);
-  }).join(" · ");
+/** 이 연결의 로그인 방법. 로그인한 연결은 "Signed in"이다. */
+function loginMethod(row: ProviderRow): string {
+  return row.way === "oauth"
+    ? t("settings.label.login-signed-in")
+    : wayLabel(row.way);
 }
 
-function accountWay(account: AccountRow): string {
-  return account.way === "oauth"
-    ? account.plan === null
-      ? t("settings.label.login-signed-in")
-      : t("settings.label.login-signed-in-plan", { plan: account.plan })
-    : wayLabel(account.way);
+/**
+ * 쓸 수 없을 때만 그 상태와 다음 행동 한 줄을 말한다. 사용량 대기는 기다리라고, 요금제 제한은 요금제를
+ * 확인하라고, 인증 문제는 Disconnect 뒤 다시 Connect하라고 한다(lophn-agent/harness/provider#R18, R21).
+ */
+function statusOf(
+  row: ProviderRow,
+): { kind: string; text: string } | null {
+  if (row.state === "available") return null;
+  if (row.state === "usage_wait") {
+    return { kind: "usage-limit", text: t("settings.status.usage-limit") };
+  }
+  if (row.reason === "plan_access") {
+    return { kind: "plan-access", text: t("settings.status.plan-access") };
+  }
+  return {
+    kind: "sign-in-problem",
+    text: t("settings.status.sign-in-problem"),
+  };
 }

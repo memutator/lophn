@@ -800,6 +800,7 @@ async function seedUnlistedProvider(h: LedgerHarness) {
         },
         endpoint: "http://127.0.0.1:8081/v1",
         protocol: "openai-responses",
+        credential: { kind: "none", preparation: null },
       }),
     ),
   );

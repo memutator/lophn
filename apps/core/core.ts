@@ -457,10 +457,6 @@ export type CoreOptions = {
   // 테스트가 context worker를 띄우지 않을 때만 끈다(worker의 결과를 손으로 내는 시험). 제품 기동은 항상
   // 띄운다.
   contextWorker?: boolean;
-  // `context.check`의 계약 검사가 쓰는, core가 스스로 모르는 환경(앱 read 명령의 효과, 다른 context의
-  // public type)을 알려 주는 입구다. 없으면 알려 줄 것이 없는 것이라 앱 데이터 type이나 다른 context
-  // 참조가 든 판은 검사를 통과하지 못한다.
-  contextCheckEnvironment?: ContextsDispatchDeps["environment"];
   // 테스트가 worker route serving을 붙이는 입구(T8·T13 통합). 제품 기동에는 없다.
   workers?: ReadonlyMap<string, WorkerRouteTarget>;
   // 앱 supervisor(앱 프로세스 감독)를 띄운다. 제품 기동만 true다. runtimeDir은 앱 socket을 두는
@@ -2042,9 +2038,6 @@ async function open(
             ? runtime!.writer.command(ctx.value as never, envelope)
             : Promise.resolve(ctx);
         },
-        ...(options.contextCheckEnvironment
-          ? { environment: options.contextCheckEnvironment }
-          : {}),
         nowMs: () => performance.now(),
         log: (message) => console.error(`context worker: ${message}`),
       });

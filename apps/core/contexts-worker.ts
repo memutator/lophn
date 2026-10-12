@@ -17,7 +17,6 @@ import { err, ok, type Result } from "../../packages/base/mod.ts";
 import {
   bundleSubmitRoute,
   CONTEXT_WORK_OPS,
-  type ContextCheckRequest,
   contextCheckResponseSchema,
   contextEntityRoute,
   contextGetRoute,
@@ -250,11 +249,6 @@ export function createContextsProcess(
 
 // ── 일 보내기 ─────────────────────────────────────────────────────────
 
-export type ContextCheckEnvironment = {
-  appCommands: ContextCheckRequest["app_commands"];
-  externalTypes: ContextCheckRequest["external_types"];
-};
-
 export type ContextsDispatchDeps = {
   process: ContextsProcess;
   // reader Worker의 내부 read `context.work_input`
@@ -265,10 +259,6 @@ export type ContextsDispatchDeps = {
   >;
   // 좁은 machine 자격으로 command를 낸다.
   command(envelope: CommandEnvelope): Promise<Result<unknown>>;
-  // 검사 환경 중 core가 모르는 것: 앱 쪽이 알려 주는 앱 read 명령의 효과, 다른 context가 내놓는 public
-  // type(그 참조 형식은 아직 정해지지 않았다). 없으면 알려 줄 것이 없는 것이라 앱 데이터 type이나 다른
-  // context 참조가 든 판은 검사를 통과하지 못한다.
-  environment?(): Promise<ContextCheckEnvironment>;
   // scan을 위해 읽은 입력을 알린다. 변화 감시(contexts-watch.ts)가 감시 폴더를 이 입력에 맞춘다.
   observed?(input: ContextWorkInput): void;
   // 활성 context와 아직 도는 검사의 목록(`context.work_list`). `recover`가 읽는다.
@@ -437,8 +427,6 @@ export function createContextsDispatcher(
     if (!(await deps.process.ensure(read.value.roots))) {
       return err({ code: "unavailable", message: "context worker is down" });
     }
-    const environment = await deps.environment?.() ??
-      { appCommands: [], externalTypes: [] };
     const answered = await deps.process.request(
       CONTEXT_WORK_OPS.check,
       {
@@ -448,11 +436,9 @@ export function createContextsDispatcher(
         bundle_hash: candidate.bundle_hash,
         roots: read.value.roots,
         user_saved_views: read.value.user_saved_views,
-        external_types: [
-          ...read.value.external_types,
-          ...environment.externalTypes,
-        ],
-        app_commands: environment.appCommands,
+        // 다른 context의 type과 앱 command 효과는 context.work_input이 ledger에서 읽어 싣는다.
+        external_types: read.value.external_types,
+        app_commands: read.value.app_commands,
       },
       CONTEXT_CHECK_TIMEOUT_MS,
     );
@@ -555,19 +541,15 @@ export function createContextsDispatcher(
     if (!(await deps.process.ensure(read.value.roots))) {
       return err({ code: "unavailable", message: "context worker is down" });
     }
-    const environment = await deps.environment?.() ??
-      { appCommands: [], externalTypes: [] };
     const answered = await deps.process.request(
       CONTEXT_WORK_OPS.preview,
       {
         context: input.context,
         draft: draft.content,
         roots: read.value.roots,
-        external_types: [
-          ...read.value.external_types,
-          ...environment.externalTypes,
-        ],
-        app_commands: environment.appCommands,
+        // 다른 context의 type과 앱 command 효과는 context.work_input이 ledger에서 읽어 싣는다.
+        external_types: read.value.external_types,
+        app_commands: read.value.app_commands,
       },
       CONTEXT_PREVIEW_TIMEOUT_MS,
     );

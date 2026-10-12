@@ -57,6 +57,7 @@ import {
   startContextEngineerSession,
 } from "./contexts/context-engineer-conversation.ts";
 import { useContextWatch } from "./contexts/context-watch.ts";
+import { contextStamp } from "./contexts/use-context-read.ts";
 import { DocumentContexts } from "./contexts/document-contexts.tsx";
 import { settleContextTabs } from "./contexts/settle-tabs.ts";
 import { ViolationToast } from "./contexts/violation-toast.tsx";
@@ -582,6 +583,10 @@ export function Workspace(props: WorkspaceProps) {
     source: contextsSource,
     list: watch.list,
     titleOf: (id) => watch.list.find((item) => item.id === id)?.title,
+    stampOf: (id) => {
+      const item = watch.list.find((entry) => entry.id === id);
+      return item === undefined ? undefined : contextStamp(item);
+    },
     openPath,
     openSearch: (state) => openSearchFor(host, state),
     askContextEngineer: () => void openEngineer(false),

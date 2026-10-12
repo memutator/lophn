@@ -109,7 +109,7 @@ Context, 계약·검색 묶음의 판(ContextBundle)과 격리 검사(ContextChe
 ### 불변 조건
 
 - 계약은 정적 데이터다. 시간·난수·model 호출·외부 입출력을 쓰는 항목이 없다. 같은 파일 상태에서 개체·field·관계·위반이 같다.
-- 관계의 `to`와 참조 type은 같은 Contract 안에 있거나 다른 Context의 public type이어야 한다(Type.visibility 참조).
+- 관계의 `to`와 참조 type은 같은 Contract 안에 있거나 같은 Project의 다른 Context의 public type이어야 한다(Type.visibility 참조, 참조 형태와 해석은 Relation의 "다른 context의 type 참조").
 - 다른 Project의 경로는 어떤 필드에도 쓸 수 없다.
 
 ## Type (값)
@@ -144,6 +144,7 @@ Context, 계약·검색 묶음의 판(ContextBundle)과 격리 검사(ContextChe
 - `series`의 다음 이름 계산은 → documents/series가 정의한다. 이 파일은 pattern과 순서만 쓴다.
 - `outline`은 저장하거나 index에 넣지 않는다. 쓸 때마다 문서 editor와 같은 parser(→ documents/formats, documents/outline-and-search)로 읽는다.
 - `app-data`의 입력·결과는 계약과 index에 저장하지 않는다. 검색할 때 명령을 불러 얻는다.
+- `app-data`의 `app`·`command`는 앱의 command 선언을 가리킨다. 검사는 아래 "앱 command 효과"대로 앱 등록에서 읽은 선언과 맞는지만 보고 앱을 부르지 않는다.
 
 ## Field (값)
 
@@ -190,10 +191,25 @@ Source kind마다 쓸 수 있는 FieldFrom:
 |---|---|---|---|---|
 | `name` | string | 아니오 | Type 안 유일 | 관계 이름(about, scenarios) |
 | `label` | string | 아니오 | 공백만 있는 문자열 금지 | 사람이 읽는 말("runs on") |
-| `to` | string | 아니오 | Type 이름 또는 `context/type` 외부 참조(public만) | 대상 type |
+| `to` | string | 아니오 | Type 이름, 또는 다른 context의 public type `<context 제목>/<Type 이름>` | 대상 type |
 | `via` | string | 아니오 | 이 Type의 field 이름; 그 field의 값(`list`면 항목들)이 대상의 key | 연결 field |
 | `cardinality` | `one \| optional \| many` | 아니오 | | 다중도 |
 | `visibility` | `public \| private` | 아니오 | | 다른 context가 따라갈 수 있는지 |
+
+### 다른 context의 type 참조
+
+- **형태.** `<context 제목>/<Type 이름>`이다(fixture의 `rubrics/Rubric`). 마지막 `/` 앞이 대상 Context의 `title`이고 뒤가 그 Context 계약의 Type 이름이다. 제목은 대소문자와 공백까지 그대로 비교하며 `/`가 든 제목도 마지막 `/`로 나눠 쓸 수 있다. Context에는 따로 이름(slug)이 없고, 제목은 생성 뒤 바뀌지 않으므로(바꾸는 command가 없다) 참조가 제목 때문에 깨지지 않는다. Context ID는 계약에 쓰지 않는다. 같은 Contract의 Type은 `/` 없이 이름만 쓴다.
+- **해석.** 같은 Project 안에서만 찾는다. 다른 Project의 Context는 가리킬 수 없고, 자기 자신(`title`이 같은 Context)도 가리킬 수 없다. 대상은 `status`가 `active`이고 `applied_bundle`이 있는 Context의 적용된 판이다. 제목이 없거나, drafting·archived라서 적용된 판이 쓰이지 않거나, 그 판에 그 Type이 없으면 모두 알 수 없는 대상이다. 해석은 쓰는 때마다 그때의 적용된 판으로 한다(참조를 ID로 굳히지 않는다).
+- **public이 내놓는 것.** 다른 Context에는 `visibility`가 public인 Type과 그 Type의 key field 이름, 그리고 field마다 이름·`visibility`·`value_type`만 보인다. source·rules·examples·searches와 private인 Type은 대상이 될 수 없고, Type이 public이어도 private field는 검색 path에서 읽을 수 없다. 다른 Context의 Type에서 그 Type의 관계를 따라가는 follow는 아직 없다.
+- **검사가 보는 것.** 격리 검사가 대상 Context·Type이 있는지(없으면 `contract_invalid` finding, detail `relation_target_unknown`), Type이 public인지와 검색이 읽는 field가 public인지(아니면 `private_reference` finding, detail `relation_target_private`·`search_path_private`), `via`·다중도가 맞는지를 본다. 입력은 core가 검사 요청에 싣는 같은 Project의 다른 active Context들의 적용된 판에서 뽑은 Type 목록(제목·Type 이름·visibility·key·field)뿐이다. worker는 다른 Context의 개체나 파일을 읽지 않는다. 그래서 다른 Context 대상 key가 실제로 있는지는 위반(`relation_target_exists`)으로 세지 않는다(필요해지면 core가 대상 Context의 key 집합을 검사 요청에 싣는다).
+- **개체 읽기.** 관계 간선은 같은 Context의 관계와 같이 `via` 값이 대상의 key다. `context.entity`는 위 해석대로 대상 Context를 찾아 그 Context의 index에서 `(Type, key)` 개체를 읽어 `targets`에 싣고, 대상 ref에 `context`(대상 Context ID)를 더한다. 대상이 해석되지 않거나 public이 아니거나 index에 없으면 그 간선은 건너뛴다. 대상 Context의 index는 따로 갱신하지 않고 그 Context가 마지막으로 훑은 상태를 읽는다(감시와 그 Context 자신의 읽기가 갱신한다).
+
+### 앱 command 효과
+
+`app-data` Source가 가리키는 `(app, command)`의 효과는 앱 등록에서 읽는다. `app`은 App slug이고, 효과는 그 앱이 `active`이고 active release가 있을 때 그 release의 blueprint가 선언한 command(`commands[].key`, `effect` ∈ `read | write | external`)다(→ apps/blueprint, `app.blueprint` 읽기와 같은 선언). core가 검사 요청을 만들 때 계약이 가리키는 `(app, command)` 쌍마다 이 선언을 찾아 `{app, command, effect}`로 요청에 싣는다. worker는 앱을 부르지 않는다.
+
+- 검사는 `effect`가 `read`인지 본다. 앱 등록이 없거나 보관된 앱이거나 active release가 없거나 그 release에 그 command가 없으면 알 수 없는 command이고(`contract_invalid` finding, detail `app_command_unknown`), `write`·`external`이면 `app_command_not_read`다.
+- command 선언에는 결과 schema가 없다. 그래서 검사는 `result_path`와 field의 `item` key path가 결과 모양과 맞는지 보지 않는다. 그 모양은 검색할 때 부른 결과로 정해지고 어긋나면 개체가 `null` field로 읽힌다.
 
 ## CheckRule (값)
 
@@ -400,7 +416,7 @@ Source kind마다 쓸 수 있는 FieldFrom:
 | Context | 용어집 | Term → documents/terms | 1:N | Context 보관은 Term을 바꾸지 않음 |
 | Context | 쓰는 preset | Preset → lophn-agent/presets | N:N | 보관은 preset 후보에서만 뺌 |
 | Type | 개체 위치 | project 파일 · App read 명령 → apps/blueprint | N:N | 파일이 없으면 개체가 없다; 규칙이 요구하면 위반 |
-| Type | 참조 | 다른 Context의 public Type | N:N | 참조 대상이 private으로 바뀌면 다음 검사에서 실패 |
+| Type | 참조 | 같은 Project의 다른 Context의 public Type(`<제목>/<Type>`) | N:N | 참조 대상이 private으로 바뀌거나 없어지면 다음 검사에서 실패; 읽을 때는 그 간선을 건너뜀 |
 
 ## ledger 표
 
@@ -471,7 +487,7 @@ Source kind마다 쓸 수 있는 FieldFrom:
 - **draft.** 만드는 중인 context의 `step`은 판의 상태로 정한다. 판이 없으면 1(읽기), draft 또는 검사에 떨어진 판이 있으면 2(초안), 검사 중인 판이 있으면 3(검사)이다. 지금 판은 draft, 없으면 검사 중인 판, 없으면 번호가 가장 큰 failed 판이다. 적용되면 context가 active가 되어 `draft`가 null이다. `content`는 submit 전에는 검사되지 않은 JSON 객체다.
 - **후보.** entity 입력은 그 type의 개체 key와 title(field `title`이 있으면 그 글, 아니면 key)을 key의 code unit 순으로 낸다. value 입력은 field의 서로 다른 값(list는 항목마다)이다. enum이면 선언한 값 순서가 앞이고(행이 없는 값도 둔다) 그다음 나머지 값을 수는 크기 순, 글은 code unit 순으로 낸다. `prefix`는 값의 글이나 label이 그것으로 시작하는 후보만 남긴다(ASCII 대소문자 무시). `limit`(기본 50, 최대 200)로 자르고 잘렸으면 `complete`가 false다.
 - **handed_off.** 위반의 키 `(kind, rule, path, section)`가 이 context의 `ContextViolationsHandedOff` event에 든 적이 있으면 true다. 위반이 해소된 뒤 같은 키로 다시 생겨도 true로 남는다.
-- **entity.** `context.entity`는 적용된 판의 index에서 `(type, key)` 개체를 읽는다. `ref`와 선언한 field 전부(`fields`, 값이 없으면 `null`)를 싣고, `relations`는 type이 선언한 관계 전부를 선언 순서로 싣는다. 관계마다 `targets`는 개체의 관계 간선 순서(via 값의 순서)로 같은 context의 대상 type 개체 ref를 낸다. 대상이 index에 없으면 그 간선은 건너뛰고 간선이 없으면 `[]`다. 다른 context 대상(`context/type`)은 싣지 않는다(`[]`). 검색 행의 `key` 열과 별칭 개체가 가리키는 개체도 이 읽기로 읽는다. 개체가 없으면 `not_found`, type이 계약에 없으면 `invalid_input`, app-data kind type은 index에 개체가 없으므로 `not_found`다. 같은 `(type, key)` 개체가 둘이면(unique 규칙 위반) 추출 순서의 첫 개체다.
+- **entity.** `context.entity`는 적용된 판의 index에서 `(type, key)` 개체를 읽는다. `ref`와 선언한 field 전부(`fields`, 값이 없으면 `null`)를 싣고, `relations`는 type이 선언한 관계 전부를 선언 순서로 싣는다. 관계마다 `targets`는 개체의 관계 간선 순서(via 값의 순서)로 대상 type 개체 ref를 낸다. 대상이 index에 없으면 그 간선은 건너뛰고 간선이 없으면 `[]`다. 다른 context 대상(`<제목>/<Type>`)은 위 "다른 context의 type 참조"대로 해석해 대상 Context의 index에서 읽고, 그 ref에는 대상 Context ID `context`가 있다(같은 context의 대상 ref에는 `context`가 없다). 해석되지 않거나 index에 없는 대상은 건너뛴다. 검색 행의 `key` 열과 별칭 개체가 가리키는 개체도 이 읽기로 읽는다. 개체가 없으면 `not_found`, type이 계약에 없으면 `invalid_input`, app-data kind type은 index에 개체가 없으므로 `not_found`다. 같은 `(type, key)` 개체가 둘이면(unique 규칙 위반) 추출 순서의 첫 개체다.
 - **series_next.** `context.series_next`는 series kind type의 `source.pattern`과 index에 있는 그 type 개체의 `path`들로 다음 이름을 계산한다(계산 규칙·빈 제안·`*`·`taken`은 → documents/series). 파일 목록을 따로 읽지 않으므로 index를 갱신한 뒤 읽으며, 읽기는 파일·ledger·index를 바꾸지 않는다. series kind가 아닌 type이나 계약에 없는 type은 `invalid_input`이다.
 - **preview.** `context.preview`는 Context Engineer가 draft를 submit하기 전에 지금 project 파일에서 무엇이 나올지 본다. `bundle`은 그 context의 `draft` 상태 판이어야 한다(없는 판이나 다른 context의 판은 `not_found`, draft가 아닌 판은 `conflict`). draft content를 격리 검사와 같은 추출·위반 감지로 지금 파일에 돌린다. 판·파일·ledger·index·violation_mark를 바꾸지 않고 event도 없다. `types`는 계약의 type 순서로 지금 파일에서 뽑은 개체 수다(app-data kind는 앱 read 명령을 부르지 않으므로 0). `findings`는 격리 검사의 (1)(2)(3)(4)(5)단계 결과이고(사람이 저장한 saved view는 부르지 않는다), (1)(2)(3)에서 멈추면 `types`는 비고 `violation_count`는 0이다. 위반은 path, kind, rule, section의 code unit 순이고 한 page는 30개며 `cursor`는 그 판(`bundle`)에 묶인다(다른 판의 cursor는 `invalid_input`). 호출마다 새로 추출하므로 page 사이에 파일이 바뀌면 보이는 위반이 달라질 수 있다. 결과를 온전히 만들지 못하면 부분 결과로 꾸미지 않고 `unavailable`이다(파일 수·바이트·시간 예산 초과, 파일을 읽을 수 없음, worker 중단).
 - **앱 하나에 묶인 agent.** App Engineer의 credential은 담당 앱 하나에 묶인다(→ lophn-agent/roles/app-engineer). 이 agent는 담당 앱을 `app-data` Source로 읽는 context(`context_app_data`의 slug가 담당 앱을 가리키는 context)의 `context.get`·`context.overview`·`context.contract`·`glossary.list`만 읽는다. `context.contract`는 overview 자료의 type 뜻·관계를 그리는 데 쓴다. `context.list`는 그 context의 줄만 남긴다. 그 밖의 읽기와 모든 command, 그 앱을 읽지 않는 context, 없는 context는 모두 같은 `not_found`다.
@@ -505,10 +521,10 @@ Source kind마다 쓸 수 있는 FieldFrom:
 - **위반 감지.** index를 갱신한 뒤 규칙과 pattern을 판정한다. `path_mismatch`는 계약 pattern에서 벗어난 이름·자리, `broken_link`는 index의 링크 대상이 없을 때다. 위반은 근거 파일·section·규칙을 모두 담는다. 위반이 있어도 나머지 개체의 검색은 막지 않는다.
 - **위반 수 기록.** 위반 수가 `Context.violation_mark`와 다르면 `context.record_violations`로 기록한다. 늘었을 때(after > before)만 platform/notifications가 notification을 만든다. 줄거나 같으면 notification이 없다. 보관된 Context의 위반은 기록하지 않는다.
 - **위반 넘기기.** `context.hand_off_violations`는 사람의 요청에서 이어진 Context Engineer의 Run 하나를 만든다. 근거(파일 경로·section·규칙·현재 규칙 정의)는 서버가 붙이고 사람이 설명을 쓰지 않는다. 같은 위반 집합의 중복 요청은 idempotency key로 하나다. 새 Run 출처나 handoff는 아니다: agent의 handoff가 아니라 사람 한 번의 요청이므로, 이 command가 같은 transaction에서 그 context의 project를 작업 자리로 하는 enabled Context Engineer의 새 세션을 열고, 근거를 글로 옮긴 사용자 `request` Message를 두고, 그 Message 출처(`message`)의 Run 하나를 접수한다. `ContextViolationsHandedOff`의 `run`은 이 Run이다. 근거 blob은 Context 쪽의 영구 참조(`ContextViolationsHandedOff`의 `evidence`)이고, 근거를 글로 옮긴 요청 글은 따로 blob 하나로 Context의 영구 참조에 등록한 뒤 Message 본문이 그 blob을 나눠 쓴다. 두 blob의 바이트는 호출 경계(core)가 command 앞에서 요청 자격으로 준비하고, command는 같은 transaction에서 참조만 등록한다. enabled Context Engineer assignment가 없으면(없거나 paused) `unavailable`이고 세션·Message·Run·event를 남기지 않는다(→ lophn-agent/conversation, lophn-agent/harness/run-loop).
-- **격리 검사.** submit한 판의 내용을 쓰기 불가 프로세스에서 임시 snapshot에 대해 실행한다. 순서는 (1) 스키마·계약 유효성(type·관계·field·규칙 참조, 다른 Project 경로 거절), (2) 다른 context 참조가 public인 것만인지, (3) 모든 개체 계산과 위반 수 집계, (4) 예(examples)가 모두 맞는지, (5) 모든 SavedView와 판의 saved view 정의가 호출되는지다. (1)(2)(4)(5) 중 하나라도 실패하면 failed다. (3)의 위반 수는 실패 사유가 아니라 기록이다. 검사 프로세스가 중단되면 `aborted` finding으로 failed다. 시간 예산은 spec에서 정한다.
+- **격리 검사.** submit한 판의 내용을 쓰기 불가 프로세스에서 임시 snapshot에 대해 실행한다. 순서는 (1) 스키마·계약 유효성(type·관계·field·규칙 참조, 다른 Project 경로 거절), (2) 다른 context 참조가 public인 것만인지(core가 검사 요청에 싣는 같은 Project의 다른 active context의 적용된 type 목록으로 본다. 앱 command 효과도 같은 요청에 실린 앱 선언으로 본다), (3) 모든 개체 계산과 위반 수 집계, (4) 예(examples)가 모두 맞는지, (5) 모든 SavedView와 판의 saved view 정의가 호출되는지다. (1)(2)(4)(5) 중 하나라도 실패하면 failed다. (3)의 위반 수는 실패 사유가 아니라 기록이다. 검사 프로세스가 중단되면 `aborted` finding으로 failed다. 시간 예산은 spec에서 정한다.
 - **자동 적용.** 통과하면 사람 승인 없이 같은 transaction에서 applied가 된다. 이전 applied는 superseded가 된다. 앱 release의 approval·activation 경로를 쓰지 않는다. 읽기만 하며 바깥 효과가 없기 때문이다.
 - **되돌리기.** 사람이 superseded 판을 고르면 그 판을 다시 applied로 한다. 다시 검사하지 않으며 현재 파일과 어긋나는 위반은 다음 갱신에서 센다.
-- **public/private 검사.** 다른 Context의 `context/type`을 가리킬 때 그 type·field·relation이 지금 applied 판에서 public이어야 한다. 검사 시점의 applied 판으로 확인한다. 참조된 context의 판이 바뀌어 참조가 깨지면 그 context의 다음 검사에서 실패로 알리고 자동으로 고치지 않는다.
+- **public/private 검사.** 다른 Context의 `context/type`을 가리킬 때 그 type·field·relation이 지금 applied 판에서 public이어야 한다. 검사 시점의 applied 판으로 확인한다. 참조 대상은 같은 Project의 active context뿐이다. 참조된 context의 판이 바뀌어 참조가 깨지면 그 context의 다음 검사에서 실패로 알리고 자동으로 고치지 않는다.
 - **권한.** Context Engineer의 `agent`는 draft를 쓰고 submit만 한다. 적용된 판을 직접 고치거나 되돌리지 못한다. 되돌리기·보관은 `user`만 한다. coding agent에게는 context command·읽기 통로가 없다.
 - **저장.** 계약 내용은 content blob에, 참조·상태는 ledger 표에 둔다. project 폴더에는 아무것도 쓰지 않는다.
 - **근거.** 위반·검색 결과·용어집 근거는 Project 기준 상대 경로와 section(heading)만 담는다. 문서 판이나 `doc@ver` 주소를 담지 않는다.

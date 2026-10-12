@@ -101,3 +101,31 @@ Deno.test("documents/contexts#R13 [ctx-I3]: relation_target_exists names a relat
     [],
   );
 });
+
+Deno.test("documents/contexts#R14 [ctx-I36]: another context is found by its title as written, and the last slash splits the title from the type", () => {
+  const env = sampleEnv();
+  const named = (context: string) => ({
+    context,
+    name: "Rubric",
+    visibility: "public" as const,
+    key: "id",
+    fields: [],
+  });
+  const withTitles = {
+    ...env,
+    externalTypes: [named("Eval rubrics"), named("a/b")],
+  };
+  const graded = (to: string) =>
+    sortIssues(
+      checkRelations(
+        changed((b) => b.contract.types[0].relations[1].to = to),
+        withTitles,
+      ),
+    );
+  assertEquals(graded("Eval rubrics/Rubric"), []);
+  assertEquals(graded("a/b/Rubric"), []);
+  // titles are compared as written: case and spaces count
+  assertEquals(graded("eval rubrics/Rubric"), [
+    at("relation_target_unknown", ...REL(0, 1, "to")),
+  ]);
+});

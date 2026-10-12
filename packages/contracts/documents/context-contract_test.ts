@@ -6,6 +6,7 @@ import {
   contractTypeSchema,
   declaredSearchSchema,
   resultViewSchema,
+  splitExternalRef,
 } from "./context-contract.ts";
 
 const field = (name: string, from: unknown, extra: object = {}) => ({
@@ -356,4 +357,33 @@ Deno.test("documents/contexts#R18 #R19 [ctx-S10]: a bundle holds the contract, s
       .success,
   );
   assert(!bundleContentSchema.safeParse({ ...bundle, extra: true }).success);
+});
+
+Deno.test("documents/contexts#R14 [ctx-I36]: a reference to another context is `<title>/<Type>` split at the last slash, and a bare Type name is not one", () => {
+  assertEquals(splitExternalRef("rubrics/Rubric"), {
+    context: "rubrics",
+    type: "Rubric",
+  });
+  // the title is compared as written: spaces, capitals and slashes belong to it
+  assertEquals(splitExternalRef("Eval notes/Finding"), {
+    context: "Eval notes",
+    type: "Finding",
+  });
+  assertEquals(splitExternalRef("a/b/Finding"), {
+    context: "a/b",
+    type: "Finding",
+  });
+  for (
+    const not of [
+      "Rubric",
+      "rubrics/rubric",
+      "rubrics/",
+      "/Rubric",
+      "  /Rubric",
+      "rubrics/Rubric/",
+      "eval.scenario",
+    ]
+  ) {
+    assertEquals(splitExternalRef(not), undefined, not);
+  }
 });

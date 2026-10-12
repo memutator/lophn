@@ -1,8 +1,9 @@
 // 검색 한 개의 이름 풀이: 시작 type과 follow 별칭이 어느 type의 field를 보여 주는지.
-import type {
-  BundleContent,
-  Condition,
-  ContractType,
+import {
+  type BundleContent,
+  type Condition,
+  type ContractType,
+  splitExternalRef,
 } from "../../../contracts/documents/mod.ts";
 import type { ContractIssue, ExternalType, ValidationEnv } from "./types.ts";
 
@@ -33,10 +34,12 @@ function ownTarget(
 }
 
 function externalTarget(env: ValidationEnv, ref: string): Target {
-  const [context, name] = ref.split("/");
-  const type = env.externalTypes.find((t) =>
-    t.context === context && t.name === name
-  );
+  const parts = splitExternalRef(ref);
+  const type = parts === undefined
+    ? undefined
+    : env.externalTypes.find((t) =>
+      t.context === parts.context && t.name === parts.type
+    );
   // 없는 type과 private type은 relations 검사가 알린다.
   if (type === undefined || type.visibility !== "public") {
     return { kind: "unresolved" };

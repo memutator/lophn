@@ -42,6 +42,8 @@ export interface ContextsSlice {
   readonly list: readonly { readonly id: string; readonly title: string }[];
   /** 목록에 있는 context의 이름. */
   titleOf(context: string): string | undefined;
+  /** context 목록 한 줄이 바뀌면 달라지는 표. 열린 Context 탭이 다시 읽을 때를 안다. 목록에 없으면 undefined. */
+  stampOf(context: string): string | undefined;
   /** 고른 검색이나 저장한 보기를 그 context의 Search 탭에서 연다. 열려 있으면 그 탭을 고른다(R22). */
   openSearch(state: SearchTabState): void;
   /** 검색 결과·Overview 예시의 도메인 객체를 그 문서 탭으로 연다(workspace#R26). */

@@ -1,7 +1,7 @@
 // 만드는 중(drafting) context의 탭 본문: "Context Engineer is drafting · step n of 4", 단계 목록,
 // 흐린 초안 개체(shell/workspace#R30). 하위 탭은 같은 다섯 개이고 첫 판이 적용되기 전에는
 // Overview 밖이 안내 글만 보인다. 구현은 ctx-I41.
-import { Fragment, type ReactNode, useEffect, useState } from "react";
+import { Fragment, type ReactNode, useState } from "react";
 import {
   ErrorState,
   Skeleton,
@@ -16,23 +16,21 @@ import { draftSketch } from "./context-drafting-model.ts";
 import { ContextTitle } from "./context-frame-title.tsx";
 import { SUB_TABS, type SubTab } from "./shared.ts";
 import type { ContextDetail, ContextsSource, DraftProgress } from "./source.ts";
+import { useContextRead } from "./use-context-read.ts";
 import styles from "./context-drafting.module.css";
 
 export interface ContextDraftingProps {
   readonly source: ContextsSource;
   /** context ID. */
   readonly context: string;
+  /** 작업대 watch가 알리는 이 context의 읽을 거리 표. 바뀌면 화면을 둔 채 다시 읽는다. */
+  readonly stamp?: string;
 }
 
 interface Loaded {
   readonly detail: ContextDetail;
   readonly progress: DraftProgress;
 }
-
-type Read =
-  | { readonly state: "loading" }
-  | { readonly state: "failed" }
-  | { readonly state: "ready"; readonly value: Loaded };
 
 function subLabel(sub: SubTab): string {
   switch (sub) {
@@ -157,38 +155,29 @@ function DraftOverview({ progress }: { progress: DraftProgress }): ReactNode {
 }
 
 export function ContextDrafting(
-  { source, context }: ContextDraftingProps,
+  { source, context, stamp }: ContextDraftingProps,
 ): ReactNode {
-  const [read, setRead] = useState<Read>({ state: "loading" });
-  const [attempt, setAttempt] = useState(0);
+  const { read, reload } = useContextRead(
+    async (): Promise<Loaded | null> => {
+      const [detail, progress] = await Promise.all([
+        source.get(context),
+        source.draft(context),
+      ]);
+      return detail.ok && progress.ok && progress.value.draft !== null
+        ? { detail: detail.value, progress: progress.value.draft }
+        : null;
+    },
+    [source, context],
+    stamp,
+  );
   const [tab, setTab] = useState<SubTab>("overview");
-  useEffect(() => {
-    let live = true;
-    setRead({ state: "loading" });
-    void Promise.all([source.get(context), source.draft(context)]).then(
-      ([detail, progress]) => {
-        if (!live) return;
-        setRead(
-          detail.ok && progress.ok && progress.value.draft !== null
-            ? {
-              state: "ready",
-              value: { detail: detail.value, progress: progress.value.draft },
-            }
-            : { state: "failed" },
-        );
-      },
-    );
-    return () => {
-      live = false;
-    };
-  }, [source, context, attempt]);
 
   if (read.state === "loading") return <Skeleton lines={3} />;
   if (read.state === "failed") {
     return (
       <ErrorState
         target={t("contexts.label.frame-chip")}
-        onRetry={() => setAttempt((count) => count + 1)}
+        onRetry={reload}
       />
     );
   }

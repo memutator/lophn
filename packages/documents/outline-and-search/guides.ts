@@ -10,12 +10,12 @@ import type {
   ContentFile,
   FormatRef,
   GuideReference,
-} from "../../contracts/documents/mod.ts";
+} from "../../protocol/projects/mod.ts";
 import {
   DOCUMENT_OUTLINE_DEPTH,
   READ_CODEPOINT_BUDGET,
-} from "../../contracts/documents/mod.ts";
-import type { RequestContext } from "../../contracts/platform/mod.ts";
+} from "../../protocol/projects/mod.ts";
+import type { RequestContext } from "../../protocol/platform/mod.ts";
 import {
   decodeOutlineCursor,
   encodeOutlineCursor,

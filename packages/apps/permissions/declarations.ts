@@ -3,11 +3,11 @@ import {
   definePort,
   type ReadSnapshot,
   type Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import type {
   GrantPermissionRequirement,
   GrantPermissionScope,
-} from "../../contracts/apps/mod.ts";
+} from "../../protocol/apps/mod.ts";
 
 // grant가 기대는 현재 release의 선언이다. releases(apps/releases)가 고정 blueprint에서
 // 만들어 port로 내놓는다. permissions는 blueprint 내용을 읽거나 해석하지 않는다.

@@ -5,7 +5,7 @@
 import { sha256Hex } from "../../../base/mod.ts";
 import type { Digest } from "./receipt.ts";
 import { treeDigest } from "./tree.ts";
-import type { ResourceInstallResult } from "../../../contracts/coding-agent/mod.ts";
+import type { ResourceInstallResult } from "../../../protocol/coding-agent/mod.ts";
 import {
   type ApplyResult,
   type FilePort,

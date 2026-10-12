@@ -6,7 +6,7 @@ import {
   CONTEXT_PAGE_DEFAULT,
   CONTEXT_PAGE_MAX,
   type ContextValue,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 import type { BundleRow, ContextApiActor, ContextApiState } from "./state.ts";
 
 // 읽기는 user와 lophn agent(역할 무관)만 한다. coding agent와 machine에게는 통로가 없다.

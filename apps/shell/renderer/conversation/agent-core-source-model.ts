@@ -2,7 +2,7 @@
 // 정렬·거르기·값 맞춤은 contracts의 model-picker 규칙이 하고(workspace/agents/model-picker-data.ts가
 // 그 결과를 picker props로 옮긴다), 여기는 core에서 읽은 자료를 그 규칙에 먹이고 고른 값을 session에만
 // 저장하는 연결이다. model 이름과 option 값은 모두 catalog가 준다.
-import type { CatalogEntry } from "../../../../packages/contracts/lophn-agent/models.ts";
+import type { CatalogEntry } from "../../../../packages/protocol/lophn-agent/models.ts";
 import {
   type PickerBinding,
   pickerProps,

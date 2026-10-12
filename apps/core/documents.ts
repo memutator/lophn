@@ -1,5 +1,5 @@
 import { err, ok, type Result } from "../../packages/base/mod.ts";
-import type { DocumentRef } from "../../packages/contracts/documents/mod.ts";
+import type { DocumentRef } from "../../packages/protocol/projects/mod.ts";
 import {
   DOCUMENT_DISPATCHABLE_COMMANDS,
   documentPrepare,
@@ -13,7 +13,7 @@ import {
   projectPreviewTracking,
   READ_ROUTES,
   UPLOAD_ROUTES,
-} from "../../packages/contracts/documents/mod.ts";
+} from "../../packages/protocol/projects/mod.ts";
 import type {
   ApiReadDefinition,
   CommandDefinition,
@@ -22,13 +22,13 @@ import type {
   ReadDefinition,
   UploadRoute,
   WorkerRoute,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import type {
   EventRegistration,
   ReaderRegistration,
 } from "../../packages/platform/ledger/mod.ts";
 import { createDocumentsEventRegistration } from "./documents-events.ts";
-import type { KindLaunchSpec } from "../../packages/contracts/platform/mod.ts";
+import type { KindLaunchSpec } from "../../packages/protocol/platform/mod.ts";
 import { addressingSchemaSteps } from "../../packages/documents/addressing/mod.ts";
 import {
   createAddressingReads,
@@ -56,7 +56,7 @@ import {
   formatGet,
   formatGetInputSchema,
   formatList,
-} from "../../packages/contracts/documents/mod.ts";
+} from "../../packages/protocol/projects/mod.ts";
 import { SERVED_ROUTES } from "./documents-served.ts";
 import { createProjectCommands } from "../../packages/documents/projects/commands.ts";
 import {
@@ -84,7 +84,7 @@ import {
 } from "../../packages/documents/projects/reads.ts";
 import { projectsSchemaSteps } from "../../packages/documents/projects/schema.ts";
 import { listDocuments } from "../../packages/documents/versions/mod.ts";
-import type { ReadSnapshot } from "../../packages/contracts/platform/mod.ts";
+import type { ReadSnapshot } from "../../packages/protocol/platform/mod.ts";
 
 // context API의 의존. command를 실행하는 writer Worker와 read를 실행하는 reader Worker 안에서만
 // 실제 구현이 올라온다(contexts-api.ts). core 본체는 route 등록만 쓴다.

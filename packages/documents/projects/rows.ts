@@ -7,8 +7,8 @@ import {
   type TrackingPattern,
   trackingPatternSchema,
   trackingRuleSetSchema,
-} from "../../contracts/documents/mod.ts";
-import type { SqlRow } from "../../contracts/platform/mod.ts";
+} from "../../protocol/projects/mod.ts";
+import type { SqlRow } from "../../protocol/platform/mod.ts";
 import { validateFolderRoots } from "./model.ts";
 
 function invalidStored(): Result<never> {

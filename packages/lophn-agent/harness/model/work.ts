@@ -4,7 +4,7 @@ import {
   catalogEntryOutputSchema,
   type CatalogState,
   modelCatalogRead,
-} from "../../../contracts/lophn-agent/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
 import type { Result } from "../../../base/mod.ts";
 import { err, ok } from "../../../base/mod.ts";
 import type {
@@ -13,8 +13,8 @@ import type {
   ReadDefinition,
   ReadSnapshot,
   RequestContext,
-} from "../../../contracts/platform/mod.ts";
-import { parseActor } from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/platform/mod.ts";
+import { parseActor } from "../../../protocol/platform/mod.ts";
 import {
   type CatalogLayers,
   type EntryIdentity,

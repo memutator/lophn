@@ -1,7 +1,7 @@
 // context.preview의 순수 부분: 만드는 중인 판(draft)을 지금 project 파일에 돌려 보기만 한다.
 // 규칙의 뜻은 docs/domain-model/documents/contexts.md "읽기"의 preview, job은
 // docs/architecture/documents.md 2.4의 `context.preview`다.
-import type { CheckFinding } from "../../../contracts/documents/mod.ts";
+import type { CheckFinding } from "../../../protocol/projects/mod.ts";
 import type { CheckInput, CheckViolation } from "../check/mod.ts";
 
 // 격리 검사와 같은 입력에서 판(bundle)을 draft content로 바꾸고 사람이 저장한 saved view를 뺀 것이다.

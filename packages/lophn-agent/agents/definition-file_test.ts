@@ -3,7 +3,7 @@ import type {
   AgentDefinition,
   AgentIssue,
   AgentSettings,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import {
   type AgentFileTarget,
   parseAgentFile,

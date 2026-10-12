@@ -7,7 +7,7 @@ import { sha256Hex } from "../../../packages/base/mod.ts";
 import {
   decodeDataJobOutput,
   encodeDataJobInput,
-} from "../../../packages/contracts/apps/mod.ts";
+} from "../../../packages/protocol/apps/mod.ts";
 import { dataChangesOf } from "../../../packages/apps/releases/activation/desired.ts";
 import { runDataJobLine } from "./data.ts";
 

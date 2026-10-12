@@ -15,7 +15,7 @@ import {
   harnessSessionObservationSchema,
   type ObserveEnvelope,
   observeEnvelopeSchema,
-} from "../../../packages/contracts/coding-agent/mod.ts";
+} from "../../../packages/protocol/coding-agent/mod.ts";
 
 /** observe 줄 한 개의 상한이다(coding-agent#T39). */
 export const OBSERVE_LINE_LIMIT_BYTES = 64 * 1024;

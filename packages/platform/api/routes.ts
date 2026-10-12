@@ -9,7 +9,7 @@ import {
   ROUTES,
   type UploadRoute,
   type WorkerRoute,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 
 // route registry: resource/method → kind, schema, handler, actor 상한, 한도.
 // 경로는 v + major, resource, method의 정확히 세 구간이다(platform/api#R2, R6).

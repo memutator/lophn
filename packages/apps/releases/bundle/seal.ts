@@ -2,12 +2,12 @@
 // 사본은 `apps/<app ID>/bundles/<bundle hash>/`의 파일 0444·디렉터리 0555다.
 // 그 안의 정규 `blueprint.json`과 source map 자리는 problems test runner가 쓴다.
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type { BundleManifest } from "../../../contracts/apps/mod.ts";
+import type { BundleManifest } from "../../../protocol/apps/mod.ts";
 import {
   appIdSchema,
   relativePathSchema,
-} from "../../../contracts/documents/mod.ts";
-import { sha256Schema } from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/projects/mod.ts";
+import { sha256Schema } from "../../../protocol/platform/mod.ts";
 
 export type SealFailure = {
   code: "unavailable" | "invalid_input";

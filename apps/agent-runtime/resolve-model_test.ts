@@ -4,10 +4,10 @@ import type {
   AgentRole,
   CatalogEntry,
   ModelChoice,
-} from "../../packages/contracts/lophn-agent/mod.ts";
-import { providerRead } from "../../packages/contracts/lophn-agent/mod.ts";
-import { routePath } from "../../packages/contracts/platform/mod.ts";
-import { CATALOG_OPTIONS } from "../../packages/contracts/lophn-agent/testing/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
+import { providerRead } from "../../packages/protocol/lophn-agent/mod.ts";
+import { routePath } from "../../packages/protocol/platform/mod.ts";
+import { CATALOG_OPTIONS } from "../../packages/protocol/lophn-agent/testing/mod.ts";
 import type { PromptRequest } from "../../packages/lophn-agent/harness/prompt-assemble/mod.ts";
 import type { ModelBinding } from "./model-binding.ts";
 import { createModelResolver } from "./resolve-model.ts";

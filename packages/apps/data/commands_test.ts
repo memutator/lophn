@@ -1,7 +1,7 @@
 // 앱 데이터 결과 기록. command는 참조·결과만 저장하고 DB를 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
-import type { DataResult } from "../../contracts/apps/mod.ts";
-import type { RequestContext, Tx } from "../../contracts/platform/mod.ts";
+import type { DataResult } from "../../protocol/apps/mod.ts";
+import type { RequestContext, Tx } from "../../protocol/platform/mod.ts";
 import {
   boundaryFact,
   createDataCommands,

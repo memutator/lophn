@@ -3,7 +3,7 @@ import {
   TEST_OBSERVATION_FRAME_MAX_BYTES,
   type TestObservationFrame,
   testObservationFrameSchema,
-} from "../../../contracts/problems/mod.ts";
+} from "../../../protocol/problems/mod.ts";
 import { RUNNER_LIMITS } from "./limits.ts";
 
 const BAD = "관측 frame을 받지 않는다";

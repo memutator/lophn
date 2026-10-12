@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { EXTERNAL_URL_MAX_CHARS } from "../../../../packages/contracts/shell/app-bridge-types.ts";
+import { EXTERNAL_URL_MAX_CHARS } from "../../../../packages/protocol/shell/app-bridge-types.ts";
 import {
   checkExternalUrl,
   createExternalLinks,

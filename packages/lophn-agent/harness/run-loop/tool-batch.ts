@@ -1,4 +1,4 @@
-import type { ToolResult } from "../../../contracts/lophn-agent/mod.ts";
+import type { ToolResult } from "../../../protocol/lophn-agent/mod.ts";
 import type {
   ToolAttempt,
   ToolCallRequest,

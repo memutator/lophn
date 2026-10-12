@@ -1,5 +1,5 @@
 // field 하나를 읽어 YAML 값을 value_type에 맞춘다. from의 kind마다 읽는 모듈이 다르다.
-import type { ContractField } from "../../../contracts/documents/mod.ts";
+import type { ContractField } from "../../../protocol/projects/mod.ts";
 import {
   coerceFieldValue,
   frontmatterField,

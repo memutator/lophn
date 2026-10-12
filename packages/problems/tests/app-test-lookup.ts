@@ -1,6 +1,6 @@
 import { err, ok, type Result } from "../../base/mod.ts";
-import type { Sql } from "../../contracts/platform/mod.ts";
-import type { AppTestVerificationFact } from "../../contracts/problems/mod.ts";
+import type { Sql } from "../../protocol/platform/mod.ts";
+import type { AppTestVerificationFact } from "../../protocol/problems/mod.ts";
 
 // release 준비가 같은 transaction에서 Verification의 사실만 읽는 조회다(apps/releases#R5).
 // 쓰기는 test runner의 RecordVerification뿐이다. 표가 없으면 unavailable이다.

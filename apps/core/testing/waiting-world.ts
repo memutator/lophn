@@ -17,8 +17,8 @@ import {
 import type {
   ApprovalRequest,
   AuthenticatedContext,
-} from "../../../packages/contracts/platform/mod.ts";
-import { answerQuestionAction } from "../../../packages/contracts/lophn-agent/mod.ts";
+} from "../../../packages/protocol/platform/mod.ts";
+import { answerQuestionAction } from "../../../packages/protocol/lophn-agent/mod.ts";
 import {
   createToolJudgment,
   type JudgmentDeps,

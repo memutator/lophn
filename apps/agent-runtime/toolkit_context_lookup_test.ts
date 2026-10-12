@@ -4,9 +4,9 @@
 // 함수로 만든다. core는 fake다.
 import { assert, assertEquals } from "@std/assert";
 import { err, ok } from "../../packages/base/mod.ts";
-import { ALL_ROUTES } from "../../packages/contracts/mod.ts";
-import { bundleContentSchema } from "../../packages/contracts/documents/mod.ts";
-import { routePath } from "../../packages/contracts/platform/mod.ts";
+import { ALL_ROUTES } from "../../packages/protocol/mod.ts";
+import { bundleContentSchema } from "../../packages/protocol/projects/mod.ts";
+import { routePath } from "../../packages/protocol/platform/mod.ts";
 import {
   CONTEXT_LOOKUP_TOOL_NAMES,
   CONTEXT_LOOKUP_TOOLS,

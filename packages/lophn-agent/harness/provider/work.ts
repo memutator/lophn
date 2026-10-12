@@ -8,7 +8,7 @@ import type {
   CallModel,
   ModelOutcome,
   TokenUsage,
-} from "../../../contracts/lophn-agent/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
 import type { FailureVerdict } from "./failures.ts";
 import type { ToolCall } from "./adapters/messages.ts";
 import type { SseOver } from "./adapters/stream.ts";

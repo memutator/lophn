@@ -8,7 +8,7 @@ import type {
   DocumentDeclaration,
   PermissionRequirement,
   ScreenDeclaration,
-} from "../../contracts/apps/blueprint.ts";
+} from "../../protocol/apps/blueprint.ts";
 
 export const APP = "app_01aryz6s41s4z4k7p41s4z4k7p";
 export const OTHER = "app_01bryz6s41s4z4k7p41s4z4k7p";

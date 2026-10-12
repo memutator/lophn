@@ -3,7 +3,7 @@
 // 담당 앱 문서는 읽고 다른 앱 문서는 없는 문서와 같은 답인지 본다. 모델 provider는 부르지 않고
 // 사람 데이터 root(~/.lophn)는 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
-import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
 import {
   bundleFinishCheckRoute,
   bundleSaveDraftRoute,
@@ -18,9 +18,9 @@ import {
   contextSearchRoute,
   glossaryListRoute,
   glossarySetRoute,
-} from "../../packages/contracts/documents/mod.ts";
-import { AGENT_RUNTIME_PRINCIPAL } from "../../packages/contracts/lophn-agent/mod.ts";
-import { routePath } from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/projects/mod.ts";
+import { AGENT_RUNTIME_PRINCIPAL } from "../../packages/protocol/lophn-agent/mod.ts";
+import { routePath } from "../../packages/protocol/platform/mod.ts";
 import { operationCeiling } from "../../packages/platform/identity/mod.ts";
 import { agentRuntimePolicies } from "./agent-runtime.ts";
 import { evalContent } from "../../packages/documents/contexts/api/testing.ts";

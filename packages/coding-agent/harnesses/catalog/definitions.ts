@@ -5,7 +5,7 @@
 // 정의는 제품별 파일(claude·codex·opencode·gemini는 T30, hermes·pi·openclaw는
 // T31)이 갖고 이 파일은 그 모음과 export만 둔다.
 import type { HarnessDefinition } from "../model.ts";
-import type { HarnessId } from "../../../contracts/coding-agent/mod.ts";
+import type { HarnessId } from "../../../protocol/coding-agent/mod.ts";
 import { claude } from "./claude.ts";
 import { codex } from "./codex.ts";
 import { gemini } from "./gemini.ts";

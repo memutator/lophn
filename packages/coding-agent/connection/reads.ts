@@ -3,12 +3,12 @@ import {
   type Connection,
   connectionList,
   connectionShow,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 import {
   parseActor,
   type ReadDefinition,
   type RequestContext,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { nextConnectionCursor, pageAfter } from "./cursor.ts";
 import { publicConnection } from "./rows.ts";
 import { listConnections, loadConnection } from "./store.ts";

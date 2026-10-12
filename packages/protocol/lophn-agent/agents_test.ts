@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { ERROR_CODES } from "../../base/mod.ts";
-import { contextListRoute } from "../documents/mod.ts";
+import { contextListRoute } from "../projects/mod.ts";
 import { routePath } from "../platform/mod.ts";
 import { agentIssuesDetailsSchema } from "./agent-values.ts";
 import {

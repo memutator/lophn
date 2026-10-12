@@ -3,7 +3,7 @@ import { manualClock } from "../../base/mod.ts";
 import {
   APPROVAL_BLOB_OWNER_KIND,
   type Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { applyMigrations } from "../backup-and-migration/mod.ts";
 import { LEDGER_SCHEMA_STEPS, openConnection } from "../ledger/mod.ts";
 import { APPROVAL_SCHEMA_STEPS, eraseApprovalRequests } from "./mod.ts";

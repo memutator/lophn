@@ -3,7 +3,7 @@ import {
   AGENT_ROLES,
   type AgentRole,
   commandEntrySchema,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import {
   buildRegistry,
   builtinCommands,

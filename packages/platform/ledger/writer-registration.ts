@@ -4,7 +4,7 @@ import type {
   BlobRefRegistration,
   CommandDefinition,
   PermanentBlobReference,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import type { ConfirmationBridge } from "../identity/mod.ts";
 import type { SubscriberGate } from "./subscriber-registration.ts";
 import type { TxPortRegistration } from "./tx-ports.ts";

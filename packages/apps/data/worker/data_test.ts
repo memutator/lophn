@@ -5,8 +5,8 @@ import { sha256Hex } from "../../../base/mod.ts";
 import {
   decodeDataJobOutput,
   encodeDataJobInput,
-} from "../../../contracts/apps/mod.ts";
-import type { DataChange } from "../../../contracts/apps/mod.ts";
+} from "../../../protocol/apps/mod.ts";
+import type { DataChange } from "../../../protocol/apps/mod.ts";
 import { migrationFlags } from "../../permissions/mod.ts";
 import { appBackupNames, createAppBackup, retainAppBackups } from "./backup.ts";
 import { copyDatabaseFile, databaseHash, openAppDatabase } from "./db.ts";

@@ -23,15 +23,15 @@ import {
   selectedDocumentInputSchema,
   slugSchema,
   versionIdSchema,
-} from "../../../../contracts/documents/mod.ts";
+} from "../../../../protocol/projects/mod.ts";
 import {
   saveToolDocument,
   toolFormatSchema,
   type ToolResult,
   toolTextMediaTypeSchema,
   toolTextSchema,
-} from "../../../../contracts/lophn-agent/mod.ts";
-import { archiveStateSchema } from "../../../../contracts/platform/mod.ts";
+} from "../../../../protocol/lophn-agent/mod.ts";
+import { archiveStateSchema } from "../../../../protocol/platform/mod.ts";
 import { limitText, PAGE_SIZE } from "../result.ts";
 import { createReadLog, type ReadLog } from "./read-log.ts";
 import type { ToolDefinition } from "../registry.ts";

@@ -2,7 +2,7 @@
 // 같은 요약·data·다음 조회를 낸다(cli#R1, mcp#R13). 고정 주소·판·unchanged·검사 경고를
 // 그대로 담고 본문은 담지 않는다.
 import type { LophnError } from "../../base/mod.ts";
-import { formatAddress } from "../../contracts/documents/mod.ts";
+import { formatAddress } from "../../protocol/projects/mod.ts";
 import type { SaveOutcome } from "./document-save.ts";
 
 export type SaveReport = { summary: string; data: unknown; next: string[] };

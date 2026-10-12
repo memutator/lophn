@@ -5,11 +5,11 @@
 // 않는다.
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
-import { mcpServersSetting } from "../../packages/contracts/lophn-agent/mod.ts";
+import { mcpServersSetting } from "../../packages/protocol/lophn-agent/mod.ts";
 import {
   type AuthenticatedContext,
   setSecret,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import { confirmationBinding } from "../../packages/platform/identity/mod.ts";
 import {
   createFakeKeychain,
@@ -21,7 +21,7 @@ import {
   type SpawnRequest,
 } from "../../packages/platform/responsiveness/mod.ts";
 import { startFakeProvider } from "../../tools/fake-provider/mod.ts";
-import { SOCKET_HOST } from "../../packages/contracts/apps/mod.ts";
+import { SOCKET_HOST } from "../../packages/protocol/apps/mod.ts";
 import { RUNTIME_MACHINE_OPERATIONS } from "../agent-runtime/core-http.ts";
 import { AGENT_RUNTIME_KIND } from "./agent-runtime.ts";
 import { type Core, startCore } from "./core.ts";

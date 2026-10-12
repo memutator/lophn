@@ -9,7 +9,7 @@ import type {
   ApprovalAction,
   ApprovalRequest,
   AuthenticatedContext,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import { type Core, startCore } from "./core.ts";
 import { lophnAgentDefinitions } from "./lophn-agent.ts";
 import {

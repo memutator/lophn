@@ -2,7 +2,7 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import type {
   CatalogEntry,
   OptionValues,
-} from "../../../contracts/lophn-agent/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
 
 // option 축 규칙이다(harness/model#R15-R16, R21, R24-R25). 어떤 model에 어떤 축과 값이 있는지는
 // catalog 자료(CatalogEntry.options)만 말하고 이 모듈은 그 목록을 코드에 적지 않는다.

@@ -6,7 +6,7 @@ import type {
   ContextEntityRead as ContextEntityReply,
   ContextPreviewRead as ContextPreviewReply,
   ContextSeriesNextRead as SeriesNextReply,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 
 // tool이 쓰는 결과 몸통이다. core 읽기가 모두 싣는 `as_of_seq`와 `omitted`는 tool이 읽지 않으므로 뺀다.
 // page 읽기(preview)만 `complete`·`next_cursor`를 남긴다.

@@ -7,9 +7,9 @@ import {
   toolCallRead,
   type VisualBlock,
   visualKeySchema,
-} from "../../../../contracts/lophn-agent/mod.ts";
-import { appBlueprint } from "../../../../contracts/apps/mod.ts";
-import { idSchema } from "../../../../contracts/platform/mod.ts";
+} from "../../../../protocol/lophn-agent/mod.ts";
+import { appBlueprint } from "../../../../protocol/apps/mod.ts";
+import { idSchema } from "../../../../protocol/platform/mod.ts";
 import {
   blocksOf,
   checkCardScreen,

@@ -8,7 +8,7 @@
 import { createHash } from "node:crypto";
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, ok, seededRandom } from "../../packages/base/mod.ts";
-import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
 import { createCoreClient } from "../../packages/coding-agent/connection/client/core.ts";
 import {
   saveFromPaths,

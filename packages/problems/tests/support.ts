@@ -9,8 +9,8 @@ import type {
   SqlRow,
   TargetAuthorizer,
   Tx,
-} from "../../contracts/platform/mod.ts";
-import { TargetAuthorization } from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
+import { TargetAuthorization } from "../../protocol/platform/mod.ts";
 import { TEST_SCHEMA_STEPS } from "./schema.ts";
 
 type Memory = { rows: Map<string, SqlRow[]> };

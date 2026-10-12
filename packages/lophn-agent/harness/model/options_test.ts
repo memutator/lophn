@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
-import type { CatalogEntry } from "../../../contracts/lophn-agent/mod.ts";
-import { catalogEntry } from "../../../contracts/lophn-agent/testing/mod.ts";
+import type { CatalogEntry } from "../../../protocol/lophn-agent/mod.ts";
+import { catalogEntry } from "../../../protocol/lophn-agent/testing/mod.ts";
 import { resolveOptionValues, validateOptionValues } from "./options.ts";
 
 const sonnet = catalogEntry("anthropic", "claude-sonnet-4-5");

@@ -1,5 +1,5 @@
-import type { CallModel } from "../../packages/contracts/lophn-agent/mod.ts";
-import type { JsonObject } from "../../packages/contracts/platform/mod.ts";
+import type { CallModel } from "../../packages/protocol/lophn-agent/mod.ts";
+import type { JsonObject } from "../../packages/protocol/platform/mod.ts";
 import {
   anthropicSystem,
   anthropicTools,

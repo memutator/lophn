@@ -2,7 +2,7 @@
 // 정한다. 답이 없는 route는 not_found다.
 import { assert } from "@std/assert";
 
-import { ALL_ROUTES } from "../../../../../../../packages/contracts/mod.ts";
+import { ALL_ROUTES } from "../../../../../../../packages/protocol/mod.ts";
 import type { CoreCall } from "../../../../../ipc/core.ts";
 import type { CoreReply } from "../../../../../ipc/core-api.ts";
 import type { CoreSource } from "../../../connection/connection.ts";

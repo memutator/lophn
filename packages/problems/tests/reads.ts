@@ -3,8 +3,8 @@ import type {
   ReadDefinition,
   ReadSnapshot,
   RequestContext,
-} from "../../contracts/platform/mod.ts";
-import { TargetAuthorization } from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
+import { TargetAuthorization } from "../../protocol/platform/mod.ts";
 import {
   getTestRequest,
   getVerification,
@@ -13,8 +13,8 @@ import {
   type Verification,
   verificationRecorded,
   verificationSchema,
-} from "../../contracts/problems/mod.ts";
-import type { EventVisibilityDefinition } from "../../contracts/platform/mod.ts";
+} from "../../protocol/problems/mod.ts";
+import type { EventVisibilityDefinition } from "../../protocol/platform/mod.ts";
 import {
   canListVerifications,
   canReadOwnRequest,

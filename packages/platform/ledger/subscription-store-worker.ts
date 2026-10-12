@@ -3,7 +3,7 @@ import { err, ok } from "../../base/mod.ts";
 import {
   derivedProvenanceSchema,
   seqSchema,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { READER_BUSY_TIMEOUT_MS } from "./reads.ts";
 
 const self = globalThis as unknown as {

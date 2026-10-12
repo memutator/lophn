@@ -82,7 +82,7 @@ Deno.test("shell/desktop#R1: 다음 이름 규칙은 숫자 자리 하나와 4�
 
 Deno.test("documents/series#R2: 새 멤버 문서 이름은 contracts의 key→이름 규칙과 같다", async () => {
   const url = new URL(
-    "../../../../../packages/contracts/documents/series-values.ts",
+    "../../../../../packages/protocol/projects/series-values.ts",
     import.meta.url,
   );
   const contract = await import(url.href) as {

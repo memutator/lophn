@@ -5,7 +5,7 @@ import {
   problemCodeDeclarationsSchema,
   RESERVED_PROBLEM_CODES,
   type ReservedProblemCode,
-} from "../../contracts/problems/mod.ts";
+} from "../../protocol/problems/mod.ts";
 
 // 거절은 선언 원문·stack·검증기 문장을 그대로 노출하지 않는다(platform/api#R4).
 const INVALID_DECLARATIONS = "problem code 선언이 올바르지 않다";

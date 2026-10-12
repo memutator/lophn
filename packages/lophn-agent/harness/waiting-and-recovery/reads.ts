@@ -5,11 +5,11 @@ import {
   runBodyInputSchema,
   runBodyView,
   runBodyViewInputSchema,
-} from "../../../contracts/lophn-agent/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
 import {
   type ApiReadDefinition,
   parseActor,
-} from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/platform/mod.ts";
 import {
   type MessageBodyEnvironment,
   readBodyBytes,

@@ -8,7 +8,7 @@ import {
   contextOverviewRoute,
   type Contract,
   glossaryListRoute,
-} from "../../packages/contracts/documents/mod.ts";
+} from "../../packages/protocol/projects/mod.ts";
 import type { CoreCall } from "./core-call.ts";
 import { readOf } from "./core-call.ts";
 import type { ContextToolPin } from "./context-search.ts";

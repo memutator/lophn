@@ -5,9 +5,9 @@
 // omissions도 허용 집합에서 계산한다(outline-and-search#R12, R14, R17).
 // read는 derived writer 연결이 아니라 openDerivedRead의 query_only 연결이다.
 import { err, ok, type Result } from "../../base/mod.ts";
-import type { LineRange } from "../../contracts/documents/mod.ts";
-import type { SearchResult } from "../../contracts/documents/mod.ts";
-import type { RequestContext } from "../../contracts/platform/mod.ts";
+import type { LineRange } from "../../protocol/projects/mod.ts";
+import type { SearchResult } from "../../protocol/projects/mod.ts";
+import type { RequestContext } from "../../protocol/platform/mod.ts";
 import type { DerivedRead } from "./adapters/store.ts";
 import { candidateDocuments } from "./candidates.ts";
 import {
@@ -525,12 +525,12 @@ export function excerptOf(text: string): string {
 // 상태)로 조립한다. 목록에 본문을 싣지 않는다(R1). 목록의 본문 자리는
 // 발췌와 요약뿐이다(R3). count·순서·길이도 허용 집합에서 계산한다.
 // scope 밖 대상은 존재를 새지 않는다. 없는 대상과 같은 응답이다.
-import type { At } from "../../contracts/platform/mod.ts";
+import type { At } from "../../protocol/platform/mod.ts";
 import type {
   ContentFileReference,
   FormatRef,
   Section,
-} from "../../contracts/documents/mod.ts";
+} from "../../protocol/projects/mod.ts";
 import {
   decodeOutlineCursor,
   encodeOutlineCursor,
@@ -541,7 +541,7 @@ import {
   DOCUMENT_OUTLINE_DEPTH,
   EXCERPT_CODEPOINT_LIMIT,
   READ_CODEPOINT_BUDGET,
-} from "../../contracts/documents/mod.ts";
+} from "../../protocol/projects/mod.ts";
 
 export type OutlineRootInput = {
   estimated_token_budget?: number;

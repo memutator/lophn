@@ -6,7 +6,7 @@ import type {
   EventDefinition,
   EventVisibilityDefinition,
   RequestContext,
-} from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/platform/mod.ts";
 import { createListEventsRead } from "../events.ts";
 import type { EventBatch, EventScan } from "../events.ts";
 

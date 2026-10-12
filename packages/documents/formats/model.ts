@@ -2,16 +2,16 @@ import { canonicalize } from "../../base/mod.ts";
 import type {
   ContentFile,
   FormatDeclaration,
-} from "../../contracts/documents/mod.ts";
+} from "../../protocol/projects/mod.ts";
 import {
   DATA_MEDIA_TYPE,
   DOCUMENT_MEDIA_TYPES,
   IMAGE_MEDIA_TYPE,
   PDF_MEDIA_TYPE,
-} from "../../contracts/documents/mod.ts";
+} from "../../protocol/projects/mod.ts";
 import { sha256Bytes } from "./pure/sha256.ts";
 import { BUILTIN_MODULE_HASH } from "./guest/module-hash.ts";
-import type { BUILTIN_FORMAT_NAMES } from "../../contracts/documents/mod.ts";
+import type { BUILTIN_FORMAT_NAMES } from "../../protocol/projects/mod.ts";
 
 const DOCUMENT_TYPES = new Set<string>(DOCUMENT_MEDIA_TYPES);
 

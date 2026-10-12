@@ -5,7 +5,7 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   packageNameSchema,
   packageVersionNameSchema,
-} from "../../../contracts/apps/mod.ts";
+} from "../../../protocol/apps/mod.ts";
 
 export type ImportMapFailure = {
   code: "invalid_input";

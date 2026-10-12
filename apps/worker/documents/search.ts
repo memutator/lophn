@@ -8,11 +8,11 @@ import type { LophnError } from "../../../packages/base/mod.ts";
 import {
   BUILTIN_FORMAT_NAMES,
   type BuiltinFormatName,
-} from "../../../packages/contracts/documents/mod.ts";
+} from "../../../packages/protocol/projects/mod.ts";
 import type {
   WorkerRequest,
   WorkerResponse,
-} from "../../../packages/contracts/platform/mod.ts";
+} from "../../../packages/protocol/platform/mod.ts";
 import type { FormatCall } from "../../../packages/documents/formats/reads.ts";
 import {
   derivedPath,

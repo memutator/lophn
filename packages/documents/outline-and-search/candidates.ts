@@ -1,7 +1,7 @@
 // search 후보 집합. 권한 밖 ID는 후보 단계에서 빠지고, 보관 문서는 현재 ledger
 // 상태로 빠진다(R17). 없는 대상과 같은 응답을 위해 존재를 새지 않는다.
-import { TargetAuthorization } from "../../contracts/platform/mod.ts";
-import type { RequestContext } from "../../contracts/platform/mod.ts";
+import { TargetAuthorization } from "../../protocol/platform/mod.ts";
+import type { RequestContext } from "../../protocol/platform/mod.ts";
 import type { PortLookup, SearchFilters, SearchSnapshot } from "./types.ts";
 
 export function candidateDocuments(

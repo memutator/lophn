@@ -5,7 +5,7 @@ import {
   appBrokerSocketPath,
   appDirectSocketPath,
   SOCKET_PATH_MAX_BYTES,
-} from "../../../contracts/apps/mod.ts";
+} from "../../../protocol/apps/mod.ts";
 
 export type SocketDirError = { code: "invalid_input"; message: string };
 

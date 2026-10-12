@@ -2,13 +2,13 @@
 // mark_notification_read는 읽음 표시만 남긴다(R5, R6). 둘 다 본문·결정을 만들지 않는다.
 
 import { err, ok } from "../../base/mod.ts";
-import type { RequestContext, Tx } from "../../contracts/platform/mod.ts";
+import type { RequestContext, Tx } from "../../protocol/platform/mod.ts";
 import {
   createNotification,
   markNotificationRead,
   notificationCreated,
   notificationRead,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { defineSyncCommand } from "../ledger/mod.ts";
 import { conditionMet, notificationView, triggerOf } from "./model.ts";
 import { insertNotification, markRead, readNotificationRow } from "./store.ts";

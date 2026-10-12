@@ -5,8 +5,8 @@ import type {
   SecretStoreRefreshInput,
   SecretValue,
   Tx,
-} from "../../contracts/platform/mod.ts";
-import { defineCommand } from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
+import { defineCommand } from "../../protocol/platform/mod.ts";
 import { z } from "zod";
 import { defineSyncCommand } from "../ledger/mod.ts";
 import { createFakeKeychain } from "./adapters/fake-keychain.ts";

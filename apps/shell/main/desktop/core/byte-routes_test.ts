@@ -11,7 +11,7 @@ import { type ChildProcess, spawn } from "node:child_process";
 import {
   FrameDecoder,
   mainHelloSchema,
-} from "../../../../../packages/contracts/platform/mod.ts";
+} from "../../../../../packages/protocol/platform/mod.ts";
 
 import { openSession } from "./client.ts";
 import { nodeFetch, nodeStreamFetch } from "./node-io.ts";

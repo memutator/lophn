@@ -1,5 +1,5 @@
 import { err, ok, type Result } from "../../base/mod.ts";
-import type { RequestContext } from "../../contracts/platform/mod.ts";
+import type { RequestContext } from "../../protocol/platform/mod.ts";
 import { exactResult } from "./event-visibility.ts";
 
 export type SubscriberBinding = {

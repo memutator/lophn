@@ -10,7 +10,7 @@ import {
   sha256Schema,
   withReadCommon,
 } from "../platform/mod.ts";
-import { relativePathSchema } from "../documents/values.ts";
+import { relativePathSchema } from "../projects/values.ts";
 import {
   appIdSchema,
   approvalIdSchema,

@@ -1,7 +1,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { err, manualClock, ok, type Result } from "../../../base/mod.ts";
-import type { ModelOutcome } from "../../../contracts/lophn-agent/mod.ts";
-import type { WorkspaceReadOutput } from "../../../contracts/shell/mod.ts";
+import type { ModelOutcome } from "../../../protocol/lophn-agent/mod.ts";
+import type { WorkspaceReadOutput } from "../../../protocol/shell/mod.ts";
 import {
   anthropicSystem,
   anthropicTools,

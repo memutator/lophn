@@ -5,7 +5,7 @@ import {
   type SectionExtractionResult,
   sectionExtractionResultSchema,
   sectionsFitResult,
-} from "../../contracts/documents/mod.ts";
+} from "../../protocol/projects/mod.ts";
 import { GUEST_OUTPUT_MAX_BYTES } from "./guest/contract.ts";
 import type { GuestExtraction, GuestValidation } from "./pure/input.ts";
 

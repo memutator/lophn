@@ -2,8 +2,8 @@
 // RecordReport로 문제를 만들고 문제 read를 읽는다. 표를 직접 만들지 않는다.
 import { assert, assertEquals, assertNotEquals } from "@std/assert";
 import type { Result } from "../../base/mod.ts";
-import type { AuthenticatedContext } from "../../contracts/platform/mod.ts";
-import { RESERVED_PROBLEM_CODES } from "../../contracts/problems/mod.ts";
+import type { AuthenticatedContext } from "../../protocol/platform/mod.ts";
+import { RESERVED_PROBLEM_CODES } from "../../protocol/problems/mod.ts";
 import {
   createLedgerHarness,
   type LedgerHarness,

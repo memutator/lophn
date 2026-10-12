@@ -5,7 +5,7 @@
 // event는 깨우는 신호다. 구독이 (다시) 열릴 때와 event가 올 때 cursor부터 따라잡고, 실패하면
 // 그 위치에서 멈춘 채 대기 뒤 같은 cursor부터 다시 읽는다. 전달 실패로 버리지 않는다(R4, R11).
 import type { Result } from "../../packages/base/mod.ts";
-import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
 import { notificationsEngine } from "../../packages/platform/notifications/mod.ts";
 import { openConnection } from "../../packages/platform/ledger/mod.ts";
 import {

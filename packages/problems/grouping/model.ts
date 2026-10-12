@@ -1,12 +1,9 @@
-import type { GroupKey } from "../../contracts/problems/mod.ts";
+import type { GroupKey } from "../../protocol/problems/mod.ts";
 import type { LophnError, Result } from "../../base/mod.ts";
 import { canonicalize, err, ok } from "../../base/mod.ts";
-import { groupKeySchema } from "../../contracts/problems/mod.ts";
-import {
-  problemObserved,
-  problemOpened,
-} from "../../contracts/problems/mod.ts";
-import type { Tx } from "../../contracts/platform/mod.ts";
+import { groupKeySchema } from "../../protocol/problems/mod.ts";
+import { problemObserved, problemOpened } from "../../protocol/problems/mod.ts";
+import type { Tx } from "../../protocol/platform/mod.ts";
 import { findProblem, type ProblemRow } from "../reporting/mod.ts";
 
 const INVALID_KEY = "grouping 값이 올바르지 않다";

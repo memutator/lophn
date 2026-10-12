@@ -8,7 +8,7 @@ import {
   seededRandom,
   sha256Hex,
 } from "../../packages/base/mod.ts";
-import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
 import {
   createCoreClient,
 } from "../../packages/coding-agent/connection/client/core.ts";
@@ -147,7 +147,7 @@ Deno.test("coding-agent/mcp-server#R13: 선언한 hash나 크기와 다른 바�
     const file = submitted.value[0];
     const core = client(opened);
     const { documentUpload } = await import(
-      "../../packages/contracts/documents/mod.ts"
+      "../../packages/protocol/projects/mod.ts"
     );
     // 읽은 뒤 파일이 바뀐 것과 같다: hash는 옛 바이트, body는 새 바이트(같은 길이).
     const changed = await core.upload(

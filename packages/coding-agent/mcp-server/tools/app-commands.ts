@@ -10,16 +10,16 @@ import {
   type Result,
   sha256Hex,
 } from "../../../base/mod.ts";
-import { appBlueprint, appList } from "../../../contracts/apps/mod.ts";
+import { appBlueprint, appList } from "../../../protocol/apps/mod.ts";
 import type {
   CommandDeclaration,
   InputSchema,
-} from "../../../contracts/apps/mod.ts";
+} from "../../../protocol/apps/mod.ts";
 import {
   APP_TOOL_NAME_PREFIX,
   appCommandToolInputSchema,
   appToolName,
-} from "../../../contracts/coding-agent/mod.ts";
+} from "../../../protocol/coding-agent/mod.ts";
 import {
   type AppOpDeps,
   runAppOp,

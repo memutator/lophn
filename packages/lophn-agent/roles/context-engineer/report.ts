@@ -1,7 +1,7 @@
 import type {
   HandoffContent,
   HandoffReference,
-} from "@lophn/contracts/lophn-agent";
+} from "@lophn/protocol/lophn-agent";
 
 // Context Engineer 역할의 충돌 handoff·보류·model 용도(roles/context-engineer R10, R12, R20).
 // 순수 함수다: IO·시계·model 호출이 없다. 읽기·검색·contract 호출은 harness/tools

@@ -8,15 +8,15 @@ import {
   RUN_BLOB_PURPOSES,
   startModelCall,
   supplementModelCall,
-} from "../../../contracts/lophn-agent/mod.ts";
-import { parseActor } from "../../../contracts/platform/mod.ts";
-import type { Input, RequestContext } from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
+import { parseActor } from "../../../protocol/platform/mod.ts";
+import type { Input, RequestContext } from "../../../protocol/platform/mod.ts";
 import type {
   BlobFieldDefinition,
   CommandDefinition,
   Tx,
-} from "../../../contracts/platform/mod.ts";
-import { defineBlobField } from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/platform/mod.ts";
+import { defineBlobField } from "../../../protocol/platform/mod.ts";
 import { assertCall, callFromRow, type CallRow } from "./model.ts";
 
 // 등록 순서: 입력 검사 → CAS 비교 → 쓰기 → event. 짧은 transaction 하나.

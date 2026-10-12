@@ -5,7 +5,7 @@
 // 상태에 값이 남지 않는다.
 
 import type { Result } from "../../base/mod.ts";
-import { definePort, type PortKey } from "../../contracts/platform/mod.ts";
+import { definePort, type PortKey } from "../../protocol/platform/mod.ts";
 
 export type KnownSecretMatch = {
   match(text: string): { index: number; length: number } | undefined;

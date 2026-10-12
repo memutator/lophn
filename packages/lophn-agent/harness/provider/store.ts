@@ -1,6 +1,6 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type { ProviderRecord } from "../../../contracts/lophn-agent/mod.ts";
-import type { Sql } from "../../../contracts/platform/mod.ts";
+import type { ProviderRecord } from "../../../protocol/lophn-agent/mod.ts";
+import type { Sql } from "../../../protocol/platform/mod.ts";
 import { providerFromRow } from "./model.ts";
 
 type Query = Pick<Sql, "get" | "all">;

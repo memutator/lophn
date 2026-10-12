@@ -1,9 +1,9 @@
 import {
   modelDefaultsRead,
   modelFavoritesRead,
-} from "../../../contracts/lophn-agent/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
 import { ok } from "../../../base/mod.ts";
-import type { ReadDefinition } from "../../../contracts/platform/mod.ts";
+import type { ReadDefinition } from "../../../protocol/platform/mod.ts";
 import { loadDefaults, loadFavorites } from "./store.ts";
 import { createCatalogRead } from "./work.ts";
 

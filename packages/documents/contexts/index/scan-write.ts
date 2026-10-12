@@ -1,5 +1,5 @@
 // scan이 개체·위반·파일 행을 통째로 바꾸는 쓰기. 한 transaction 안에서 부른다.
-import type { Sql } from "../../../contracts/platform/mod.ts";
+import type { Sql } from "../../../protocol/platform/mod.ts";
 import type { CheckViolation } from "../check/types.ts";
 import type { IndexedEntity, IndexedFile, IndexState } from "./types.ts";
 

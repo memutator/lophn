@@ -6,7 +6,7 @@
 import { err, ok, type Result } from "../../../packages/base/mod.ts";
 import {
   BLOB_UNREFERENCED_GRACE_MS,
-} from "../../../packages/contracts/platform/mod.ts";
+} from "../../../packages/protocol/platform/mod.ts";
 import {
   backupPendingFolders,
   BLOB_CAPACITY_MAX_BYTES,

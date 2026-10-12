@@ -9,13 +9,13 @@ import {
   documentHistory,
   documentList,
   type Version,
-} from "../../contracts/documents/mod.ts";
+} from "../../protocol/projects/mod.ts";
 import {
   parseActor,
   type ReadDefinition,
   type ReadSnapshot,
   type RequestContext,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { authorizeDocument } from "./authorization.ts";
 import {
   assembleVersion,

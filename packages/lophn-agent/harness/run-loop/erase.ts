@@ -1,5 +1,5 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type { Tx } from "../../../contracts/platform/mod.ts";
+import type { Tx } from "../../../protocol/platform/mod.ts";
 
 // 본문 참조를 지우는 platform 함수다. core가 넘긴다(concern 사이는 contracts만 거친다).
 type EraseBlobRefs = (

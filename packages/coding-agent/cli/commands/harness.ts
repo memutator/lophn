@@ -5,7 +5,7 @@
 // 제품은 고치지 않는다(R6, cli#R40). 감지·설치 명령은 core ledger command가
 // 아니므로 표에 route가 없다(architecture, coding-agent/harnesses 배치표).
 // screen 재진입·빈 결과·timeout에 자동 재감지·설치가 없다(R2 확인).
-import type { HarnessId } from "../../../contracts/coding-agent/mod.ts";
+import type { HarnessId } from "../../../protocol/coding-agent/mod.ts";
 import {
   cliHarnessDetectSchema,
   cliHarnessInspectSchema,
@@ -15,7 +15,7 @@ import {
   cliHarnessRefreshSchema,
   cliHarnessRemoveSchema,
   cliHarnessUpdateSchema,
-} from "../../../contracts/coding-agent/mod.ts";
+} from "../../../protocol/coding-agent/mod.ts";
 import type { CommandEntry } from "./types.ts";
 
 export const HARNESS_COMMANDS: readonly CommandEntry[] = [

@@ -4,7 +4,7 @@ import {
   assignmentRead,
   providerList,
   runRead,
-} from "../../packages/contracts/lophn-agent/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
 import type {
   AuthenticatedContext,
   ChildMessage,
@@ -13,12 +13,12 @@ import type {
   ParentMessage,
   ReadRoute,
   RequestContext,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import {
   eventsList,
   routePath,
   settingsGet,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import {
   BUILTIN_TOOLS,
   runOperations,
@@ -51,7 +51,7 @@ import {
   agentRuntimeLaunchSpec,
   readBundledSkillRoots,
 } from "./lophn-agent.ts";
-import type { McpServerConfig } from "../../packages/contracts/lophn-agent/mod.ts";
+import type { McpServerConfig } from "../../packages/protocol/lophn-agent/mod.ts";
 import {
   allowNetList,
   allowRunList,

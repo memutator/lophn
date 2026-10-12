@@ -12,7 +12,7 @@ import {
   revertRedone,
   rewind,
   undoEdit,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import {
   type CommandDefinition,
   type Input,
@@ -21,7 +21,7 @@ import {
   type RequestContext,
   type Sql,
   type Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   createAppStepCommands,
   hasAppSteps,

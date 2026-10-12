@@ -29,7 +29,7 @@ async function contract(): Promise<
   { visualBlockSchema: Schema; visualBlockInputSchema: Schema }
 > {
   const url = new URL(
-    "../../../../../packages/contracts/lophn-agent/visuals.ts",
+    "../../../../../packages/protocol/lophn-agent/visuals.ts",
     import.meta.url,
   );
   return await import(url.href);

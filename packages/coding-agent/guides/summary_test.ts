@@ -7,15 +7,15 @@ import {
   CLAIM_RULE,
   type SummaryReadClient,
 } from "./mod.ts";
-import type { Route } from "../../contracts/platform/mod.ts";
+import type { Route } from "../../protocol/platform/mod.ts";
 import {
   codingAgentSessionSummary,
   connectionShow,
   ticketChecks,
   ticketList,
   ticketShow,
-} from "../../contracts/coding-agent/mod.ts";
-import { getProblem, listProblems } from "../../contracts/problems/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
+import { getProblem, listProblems } from "../../protocol/problems/mod.ts";
 
 const CAC = "cac_01h455vb4pex5v6nkc6gd5fdw1";
 const APP = "app_01h455vb4pex5v6nkc6gd5fdw1";

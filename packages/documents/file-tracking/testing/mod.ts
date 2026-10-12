@@ -1,6 +1,6 @@
 // leaf unit fixture. 실제 core·worker 증거는 아니다. 이 leaf의 mod.ts가 내놓지 않는다.
 import { err, ok } from "../../../base/mod.ts";
-import type { ContentFile } from "../../../contracts/documents/mod.ts";
+import type { ContentFile } from "../../../protocol/projects/mod.ts";
 import { resolveTarget } from "../file-ops.ts";
 import {
   deleteFile,

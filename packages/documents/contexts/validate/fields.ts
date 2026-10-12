@@ -4,7 +4,7 @@ import type {
   CheckRule,
   ContractField,
   ContractType,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 import { fromAllowed, pathCaptures } from "./fields-from.ts";
 import type {
   ContractCheck,

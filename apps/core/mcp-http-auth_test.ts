@@ -5,8 +5,8 @@
 // 시험이 연 localhost fake server다.
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
-import { mcpServersSetting } from "../../packages/contracts/lophn-agent/mod.ts";
-import type { ParentMessage } from "../../packages/contracts/platform/mod.ts";
+import { mcpServersSetting } from "../../packages/protocol/lophn-agent/mod.ts";
+import type { ParentMessage } from "../../packages/protocol/platform/mod.ts";
 import {
   createMcpConnections,
   createMcpSecretRefSource,

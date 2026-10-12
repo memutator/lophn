@@ -4,11 +4,11 @@
 // 데이터는 fixtures 사본(temp)이고 사람 데이터 root는 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, ok, seededRandom } from "../../base/mod.ts";
-import { ERROR_HTTP_STATUS } from "../../contracts/platform/mod.ts";
+import { ERROR_HTTP_STATUS } from "../../protocol/platform/mod.ts";
 import {
   ROUTES as DOCUMENT_ROUTES,
   type TrackingPreview,
-} from "../../contracts/documents/mod.ts";
+} from "../../protocol/projects/mod.ts";
 import {
   type CredentialIssue,
   CredentialRegistry,

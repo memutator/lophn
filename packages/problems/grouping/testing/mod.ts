@@ -11,21 +11,21 @@ import {
   ticketCompletionReported,
   ticketConfirmed,
   ticketCreated,
-} from "../../../contracts/coding-agent/mod.ts";
+} from "../../../protocol/coding-agent/mod.ts";
 import {
   type AuthenticatedContext,
   type CommandDefinition,
   defineCommand,
-} from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/platform/mod.ts";
 import {
   type ProblemTestFact,
   ProblemTestPort,
   ProblemWordingPort,
   ProblemWorkPort,
   type RepairTicketFact,
-} from "../../../contracts/problems/mod.ts";
-import type { RecordReportInput } from "../../../contracts/problems/mod.ts";
-import type { Sql } from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/problems/mod.ts";
+import type { RecordReportInput } from "../../../protocol/problems/mod.ts";
+import type { Sql } from "../../../protocol/platform/mod.ts";
 import {
   getReportRead,
   getSnapshotRead,

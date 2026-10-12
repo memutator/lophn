@@ -1,6 +1,6 @@
 import { assert, assertEquals, assertFalse } from "@std/assert";
 import { err } from "../../base/mod.ts";
-import type { BlobRefRegistration, Tx } from "../../contracts/platform/mod.ts";
+import type { BlobRefRegistration, Tx } from "../../protocol/platform/mod.ts";
 import { appendActualSideStart } from "./commands.ts";
 import { handleRecordVerification } from "./record.ts";
 import { fileLedger } from "./testing/mod.ts";

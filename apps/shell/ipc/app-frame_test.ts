@@ -3,7 +3,7 @@ import { assertEquals } from "@std/assert";
 import {
   APP_FRAME_IPC,
   APP_FRAME_PUSH,
-} from "../../../packages/contracts/shell/app-frame.ts";
+} from "../../../packages/protocol/shell/app-frame.ts";
 import {
   appFrameViewStateSchema,
   appViewOpenSchema,

@@ -4,7 +4,7 @@ import { err, ok, type Result } from "../../base/mod.ts";
 import {
   TargetAuthorization,
   type TargetAuthorizer,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { openDerived, openDerivedRead, rebuildPath } from "./adapters/store.ts";
 import {
   createOutlineHandlers,
@@ -1207,7 +1207,7 @@ Deno.test("documents/outline-and-search#R9: place outline cursor는 다음 page�
 
 Deno.test("documents/outline-and-search#R5: 깊은 문서의 목차도 숨긴 자식 수가 직접 자식 수를 넘지 않아 계약 출력을 지킨다", async () => {
   const { documentOutlinePageSchema } = await import(
-    "../../contracts/documents/mod.ts"
+    "../../protocol/projects/mod.ts"
   );
   // h2 아웃라인 > h3 > (h4, h5)와 h2 회의 > h4(level을 건너뛴 제목)다. depth 2 밖은 숨는다.
   const section = (

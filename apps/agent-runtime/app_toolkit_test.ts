@@ -7,15 +7,15 @@ import {
   appBlueprint,
   type AppBlueprintCommand,
   grantsList,
-} from "../../packages/contracts/apps/mod.ts";
+} from "../../packages/protocol/apps/mod.ts";
 import type {
   AgentAppScope,
   AgentRole,
-} from "../../packages/contracts/lophn-agent/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
 import {
   type AuthenticatedContext,
   routePath,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import { computeAgentAppScope } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
 import { executeTool } from "../../packages/lophn-agent/harness/tools/mod.ts";
 import { call as httpCall } from "../core/testing/approvals-fixture.ts";

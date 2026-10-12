@@ -72,16 +72,16 @@
 // platform이 주지 않아 deps로 받는 것: blob 읽기, 위반 넘김 Run 만들기, Context Engineer 판별,
 // derived index.
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type { StoredViolation } from "../../../contracts/documents/mod.ts";
-import { AGENT_RUNTIME_PRINCIPAL } from "../../../contracts/lophn-agent/mod.ts";
-import { parseActor } from "../../../contracts/platform/mod.ts";
+import type { StoredViolation } from "../../../protocol/projects/mod.ts";
+import { AGENT_RUNTIME_PRINCIPAL } from "../../../protocol/lophn-agent/mod.ts";
+import { parseActor } from "../../../protocol/platform/mod.ts";
 import type {
   CommandDefinition,
   PermanentBlobReference,
   ReadDefinition,
   RequestContext,
   Tx,
-} from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/platform/mod.ts";
 import type { SearchExecutor } from "../api/reads.ts";
 import type {
   BlobReference,

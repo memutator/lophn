@@ -3,7 +3,7 @@ function unique<T>(values: readonly T[]): boolean {
 }
 
 import { z } from "zod";
-import { versionIdSchema } from "../documents/values.ts";
+import { versionIdSchema } from "../projects/values.ts";
 import {
   atSchema,
   errorBodySchema,

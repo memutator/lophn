@@ -7,7 +7,7 @@
 import {
   type IntegrationTarget,
   LOPHN_TERMINAL_OBSERVE,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 import {
   DETECTION_FALLBACK_DIRS,
   type RootInputs,

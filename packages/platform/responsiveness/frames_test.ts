@@ -2,7 +2,7 @@ import { assert, assertEquals, assertRejects } from "@std/assert";
 import {
   FrameDecoder,
   STREAM_CHUNK_MAX_BYTES,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   createFrameWriter,
   WRITE_BACKLOG_MAX_BYTES,

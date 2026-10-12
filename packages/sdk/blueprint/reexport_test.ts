@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
-import * as contracts from "../../contracts/apps/blueprint.ts";
+import * as contracts from "../../protocol/apps/blueprint.ts";
 import * as apps from "../../apps/blueprint/mod.ts";
 import { defineBlueprint } from "./define.ts";
 import { blueprint, command, screen } from "./fixture.ts";

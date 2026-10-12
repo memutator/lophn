@@ -4,7 +4,7 @@ import {
   AUTOMATION_CONCURRENCY_LIMIT,
   AUTOMATION_TIMEOUT_MS,
   type GrantPermissionScope,
-} from "../../../contracts/apps/mod.ts";
+} from "../../../protocol/apps/mod.ts";
 
 import type { AutomationDeclarationFact } from "../declarations.ts";
 import { createAutomationBroker } from "./automations.ts";

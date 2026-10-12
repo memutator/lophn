@@ -3,7 +3,7 @@ import type {
   ContextSourceKind,
   ContractSource,
   FieldFrom,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 
 type FromKind = FieldFrom["kind"];
 

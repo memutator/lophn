@@ -8,7 +8,7 @@ import type {
   DataResult,
   ReadyAttestation,
   Release,
-} from "../../../contracts/apps/mod.ts";
+} from "../../../protocol/apps/mod.ts";
 
 // 한 activation 시도의 고정 입력이다. ReleaseActivationStarted가 확정한 값만 담는다.
 export type Attempt = {

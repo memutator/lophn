@@ -8,11 +8,11 @@ import {
   type InvocationRecordFinishedInput,
   invocationRecordStarted,
   invocationStarted,
-} from "../../contracts/apps/mod.ts";
+} from "../../protocol/apps/mod.ts";
 import type {
   CommandDefinition,
   RequestContext,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   applyDenied,
   applyFinished,

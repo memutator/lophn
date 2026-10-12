@@ -10,7 +10,7 @@
 // 호출자(core serving이나 app 폴더 안에서 도는 조립)가 준비해 넘긴다. DB 사본은
 // 이 모듈이 앱 폴더 안에서 만들고 확인한다.
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type { BundleManifest, Release } from "../../../contracts/apps/mod.ts";
+import type { BundleManifest, Release } from "../../../protocol/apps/mod.ts";
 import { bundleCopyPath, readSdkCopies } from "../../releases/mod.ts";
 import { openAppDatabase } from "./db.ts";
 import { verifyDatabase } from "./integrity.ts";

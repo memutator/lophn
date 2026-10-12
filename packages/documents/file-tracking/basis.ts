@@ -3,7 +3,7 @@
 // snapshot에서 읽어 이미 있는 core→coordinator 요청 envelope로 보내고, 규칙이나 연결이
 // 바뀌면 같은 통로로 다시 보낸다. 새 HTTP route나 credential 정책은 없다.
 import { err, ok, type Result } from "../../base/mod.ts";
-import type { TrackingPattern } from "../../contracts/documents/mod.ts";
+import type { TrackingPattern } from "../../protocol/projects/mod.ts";
 import {
   type ObservationInstructionBasis,
   parseInstructionBasis,

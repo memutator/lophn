@@ -3,7 +3,7 @@
 // 보낸 뒤 응답을 잃은 것(결과 불명)을 구별한다. 닿는 socket은 실행 권한이 정한 정확한 경로뿐이다:
 // Deno는 unix socket 연결에 그 경로의 net·read·write 허락을 요구하므로 MCP 실행 argv가 앱 direct socket의
 // 정확한 경로만 허락하고, 권한이 없거나 허용 목록 밖 endpoint는 연결하지 않고 NotSent다.
-import { SOCKET_HOST } from "../../contracts/apps/mod.ts";
+import { SOCKET_HOST } from "../../protocol/apps/mod.ts";
 import { type AppDirectTransport, NotSent } from "./app-direct.ts";
 
 export function unixAppDirectTransport(

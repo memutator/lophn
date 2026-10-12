@@ -1,4 +1,4 @@
-import type { RunSource } from "@lophn/contracts/lophn-agent";
+import type { RunSource } from "@lophn/protocol/lophn-agent";
 
 // App Engineer의 시작 계기와 읽기 범위(roles/app-engineer R1, R2). 순수 함수다. 실제 읽기
 // 집행은 core의 documents·앱 읽기 통로가 하고, 이 모듈은 어떤 요청이 범위 안인지의 계약을

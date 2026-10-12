@@ -12,7 +12,7 @@ import {
   type ReadDefinition,
   type RequestContext,
   type Sql,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import type { BlobAuthorizer } from "./refs.ts";
 import {
   fieldDefined,

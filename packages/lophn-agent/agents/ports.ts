@@ -4,8 +4,8 @@ import type {
   AgentRole,
   AgentSettings,
   McpTool,
-} from "../../contracts/lophn-agent/mod.ts";
-import type { Tx } from "../../contracts/platform/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
+import type { Tx } from "../../protocol/platform/mod.ts";
 
 // agents가 바깥에서 받는 것들이다. 파일 IO와 다른 concern의 값은 모두 여기서 받아 시험이 바꿔 끼운다.
 // 읽기(snapshot)와 쓰기(Tx)가 같은 `lookups`를 쓰도록 sql만 받는 factory로 둔다.

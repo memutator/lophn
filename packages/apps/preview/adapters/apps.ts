@@ -2,7 +2,7 @@
 // 가짜 connection을 만들지 않는다. 대상 앱이 있든 없든 같은 거절이라 존재를 새지 않는다. 시도한
 // 대상과 command는 메모리에 남겨 preview 확인에서 볼 수 있다.
 import type { Result } from "../../../base/mod.ts";
-import { brokerAppsConnectInputSchema } from "../../../contracts/apps/mod.ts";
+import { brokerAppsConnectInputSchema } from "../../../protocol/apps/mod.ts";
 import type { BrokerChild } from "../../permissions/mod.ts";
 import { invalid, refuse } from "./refusal.ts";
 

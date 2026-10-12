@@ -5,7 +5,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { call, command } from "../../../apps/core/testing/approvals-fixture.ts";
 import { createCoreHarness } from "../../../apps/core/testing/core.ts";
-import { appAutomations } from "../../contracts/apps/mod.ts";
+import { appAutomations } from "../../protocol/apps/mod.ts";
 import {
   blueprint,
   command as releaseCommand,

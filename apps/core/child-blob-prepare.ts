@@ -13,11 +13,11 @@ import {
   type ChildMessage,
   type Frame,
   type ParentMessage,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import {
   AGENT_RUNTIME_PRINCIPAL,
   RUN_BLOB_PURPOSES,
-} from "../../packages/contracts/lophn-agent/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
 import type { BlobPrepareCall } from "./core.ts";
 import type { BufferGauge, PreparedRelayResult } from "./blob-prepare.ts";
 import { problemsReportDefinitions } from "./problems.ts";

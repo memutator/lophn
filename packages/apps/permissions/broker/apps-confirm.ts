@@ -8,7 +8,7 @@ import {
   brokerAppsConfirmPollOutputSchema,
   brokerAppsConfirmRequestInputSchema,
   brokerAppsConfirmRequestOutputSchema,
-} from "../../../contracts/apps/mod.ts";
+} from "../../../protocol/apps/mod.ts";
 import type { z } from "zod";
 import { invalid } from "./access.ts";
 import type { BrokerChild } from "./invocations.ts";

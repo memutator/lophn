@@ -2,7 +2,7 @@ import { err, ok, type Result } from "../../base/mod.ts";
 import {
   INSTRUCTION_PREVIEW_MAX_BYTES,
   type InstructionPreview,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import type { InstructionFile } from "./model.ts";
 
 // 사람 화면의 LOPHN.md 미리보기(lophn-agent/instructions R9). 파일 앞 INSTRUCTION_PREVIEW_MAX_BYTES까지만 본문으로

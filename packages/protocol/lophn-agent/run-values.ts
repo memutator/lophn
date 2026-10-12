@@ -6,7 +6,7 @@ import {
   seqSchema,
   sha256Schema,
 } from "../platform/mod.ts";
-import { sectionKeySchema } from "../documents/mod.ts";
+import { sectionKeySchema } from "../projects/mod.ts";
 import { resolvedSourcesSchema } from "./agent-values.ts";
 import { workPlaceOutputSchema, workPlaceSchema } from "./scope.ts";
 import {

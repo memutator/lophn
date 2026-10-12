@@ -3,7 +3,7 @@
 // 이어지는 document.prepare·document.save가 같은 주체로 준비 참조를 쓴다. purpose는
 // 문서 원본 파일(document_file)로 고정이고 호출자가 고르지 않는다.
 import { err, type Result } from "../../packages/base/mod.ts";
-import { documentUpload } from "../../packages/contracts/documents/mod.ts";
+import { documentUpload } from "../../packages/protocol/projects/mod.ts";
 import type { UploadHandler } from "../../packages/platform/api/mod.ts";
 import type { BlobPrepareCall } from "./core.ts";
 import type { PreparedRelayResult } from "./blob-prepare.ts";

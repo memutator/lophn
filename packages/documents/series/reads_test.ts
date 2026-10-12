@@ -3,7 +3,7 @@
 
 import { assert, assertEquals } from "@std/assert";
 import { err } from "../../base/mod.ts";
-import { outlineSeries } from "../../contracts/documents/mod.ts";
+import { outlineSeries } from "../../protocol/projects/mod.ts";
 import { createSeriesOutlineRead } from "../outline-and-search/mod.ts";
 import { createSeriesCommands } from "./commands.ts";
 import { createSeriesReads } from "./reads.ts";

@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
-import type { TestObservationFrame } from "../../../contracts/problems/mod.ts";
+import type { TestObservationFrame } from "../../../protocol/problems/mod.ts";
 import { acceptFrame, emptySides } from "../work/ipc.ts";
 import { createEmitter } from "../harness/emit.ts";
 import { observeFailurePath, runPlatformChecks } from "../harness/checks.ts";

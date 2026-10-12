@@ -14,11 +14,11 @@ import {
   type Route,
   type RpcFetch,
   type WorkerRequest,
-} from "../../../packages/contracts/platform/mod.ts";
+} from "../../../packages/protocol/platform/mod.ts";
 import {
   RepairContextBundleInputSchema,
   RepairContextSummaryInputSchema,
-} from "../../../packages/contracts/coding-agent/mod.ts";
+} from "../../../packages/protocol/coding-agent/mod.ts";
 import {
   assembleRepairContext,
   createRepairCursor,

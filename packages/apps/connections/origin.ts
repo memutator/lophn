@@ -9,7 +9,7 @@ import { err, ok, type Result } from "../../base/mod.ts";
 import {
   appCallDepthAllowed,
   type AppCallOrigin,
-} from "../../contracts/apps/mod.ts";
+} from "../../protocol/apps/mod.ts";
 
 export type OriginSource = {
   app: string;

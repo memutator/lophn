@@ -1,5 +1,5 @@
 import { assert, assertEquals, assertFalse } from "@std/assert";
-import { testMethodInputSchema } from "../../contracts/problems/mod.ts";
+import { testMethodInputSchema } from "../../protocol/problems/mod.ts";
 import {
   canonicalRequest,
   canReadVerification,

@@ -15,7 +15,7 @@ import {
   recordMessage,
   serializeMessageContent,
   textMessageContentInputSchema,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import {
   type CommandDefinition,
   type Compare,
@@ -24,7 +24,7 @@ import {
   type PermanentBlobReference,
   type RequestContext,
   type Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { closeAvailableRedo, createCheckpoint } from "../revert/mod.ts";
 import { checkVisualContent } from "../visuals/mod.ts";
 import {

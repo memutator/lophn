@@ -2,7 +2,7 @@
 // temp dir이고 사람의 실제 home은 읽지 않는다. home root는 engine에 주입한다.
 import { assert, assertEquals } from "@std/assert";
 import { sha256Hex } from "../../../base/mod.ts";
-import type { IntegrationTarget } from "../../../contracts/coding-agent/mod.ts";
+import type { IntegrationTarget } from "../../../protocol/coding-agent/mod.ts";
 import { catalogOf } from "../catalog/definitions.ts";
 import {
   type FilePort,

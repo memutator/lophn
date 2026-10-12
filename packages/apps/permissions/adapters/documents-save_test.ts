@@ -8,8 +8,8 @@ import {
   documentPrepare,
   documentSave,
   documentUpload,
-} from "../../../contracts/documents/mod.ts";
-import type { Route } from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/projects/mod.ts";
+import type { Route } from "../../../protocol/platform/mod.ts";
 import {
   appDocumentId,
   type AppOutputFile,

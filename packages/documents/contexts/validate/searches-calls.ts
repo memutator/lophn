@@ -1,5 +1,5 @@
 // 이름으로 검색을 부르는 곳(예, saved view)의 검사: 부르는 검색과 넘기는 입력이 선언과 맞는지.
-import type { BundleContent } from "../../../contracts/documents/mod.ts";
+import type { BundleContent } from "../../../protocol/projects/mod.ts";
 import type { ContractIssue } from "./types.ts";
 
 type Search = BundleContent["searches"][number];

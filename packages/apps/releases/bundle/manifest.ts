@@ -4,7 +4,7 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   type BundleManifest,
   bundleManifestSchema,
-} from "../../../contracts/apps/mod.ts";
+} from "../../../protocol/apps/mod.ts";
 
 export type ManifestFailure = {
   code: "invalid_input";

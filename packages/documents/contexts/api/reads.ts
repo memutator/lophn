@@ -20,12 +20,12 @@ import type {
   contextViolationsRoute,
   glossaryListRoute,
   SearchRow,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 import type {
   Input,
   Output,
   ReadRoute,
-} from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/platform/mod.ts";
 import { createBundleReads } from "./reads-bundle.ts";
 import { createContextReads } from "./reads-contexts.ts";
 import { createEntityReads } from "./reads-entity.ts";

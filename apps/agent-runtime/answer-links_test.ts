@@ -3,8 +3,8 @@ import { ok } from "../../packages/base/mod.ts";
 import {
   runBody,
   toolCallList,
-} from "../../packages/contracts/lophn-agent/mod.ts";
-import { routePath } from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
+import { routePath } from "../../packages/protocol/platform/mod.ts";
 import { resultLinks } from "./answer-links.ts";
 import type { CoreCall } from "./core-call.ts";
 

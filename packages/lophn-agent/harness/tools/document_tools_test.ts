@@ -1,7 +1,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { err, ok, type Result } from "../../../base/mod.ts";
-import { ROUTES as DOCUMENT_ROUTES } from "../../../contracts/documents/mod.ts";
-import { ROUTES } from "../../../contracts/lophn-agent/mod.ts";
+import { ROUTES as DOCUMENT_ROUTES } from "../../../protocol/projects/mod.ts";
+import { ROUTES } from "../../../protocol/lophn-agent/mod.ts";
 import { ROLE_CAPS } from "../../agents/mod.ts";
 import {
   BUILTIN_TOOLS,

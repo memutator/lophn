@@ -1,4 +1,4 @@
-import type { ConnectionScope } from "../../contracts/coding-agent/mod.ts";
+import type { ConnectionScope } from "../../protocol/coding-agent/mod.ts";
 
 // 앱 scope가 허용하는 concern. 목록·검색·절·첨부·추가 근거에도 같은 범위다.
 export const APP_SCOPE_CONCERNS = [

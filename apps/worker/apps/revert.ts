@@ -8,7 +8,7 @@ import { err, ok, type Result } from "../../../packages/base/mod.ts";
 import type {
   ParentMessage,
   WorkerRequest,
-} from "../../../packages/contracts/platform/mod.ts";
+} from "../../../packages/protocol/platform/mod.ts";
 import {
   type ChildSession,
   type ChildStreams,
@@ -16,7 +16,7 @@ import {
 } from "../../../packages/platform/responsiveness/mod.ts";
 import {
   type AppRevertBinding,
-} from "../../../packages/contracts/lophn-agent/mod.ts";
+} from "../../../packages/protocol/lophn-agent/mod.ts";
 import {
   type CoreCall,
   createRuntimeClient,

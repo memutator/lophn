@@ -11,13 +11,13 @@ import {
   projectUnarchived,
   projectUpdate,
   projectUpdated,
-} from "../../contracts/documents/mod.ts";
+} from "../../protocol/projects/mod.ts";
 import {
   type CommandDefinition,
   parseActor,
   type RequestContext,
   type Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { createPlaceNameReservation } from "../addressing/mod.ts";
 import {
   insertProject,

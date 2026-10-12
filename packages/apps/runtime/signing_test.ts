@@ -2,7 +2,7 @@ import { assert, assertEquals } from "@std/assert";
 import {
   signedConfirmProofSchema,
   signedConnectionSchema,
-} from "../../contracts/apps/mod.ts";
+} from "../../protocol/apps/mod.ts";
 import { createCoreSigner } from "./signing.ts";
 import { canonicalPayload, decodeVerifyKey } from "./entrypoint/signature.ts";
 import { verifyConnection } from "./entrypoint/verify.ts";

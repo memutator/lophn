@@ -5,8 +5,8 @@
 import type {
   AgentFailure,
   AgentResult,
-} from "../../contracts/coding-agent/mod.ts";
-import { CLI_EXITS, cliExit } from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
+import { CLI_EXITS, cliExit } from "../../protocol/coding-agent/mod.ts";
 
 export type OutputWriter = {
   result(result: AgentResult): Promise<void>;

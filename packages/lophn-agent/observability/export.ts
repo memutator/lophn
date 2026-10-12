@@ -1,9 +1,9 @@
-import type { RunTrace } from "../../contracts/lophn-agent/mod.ts";
-import { TRACE_EXPORT_FORMAT_VERSION } from "../../contracts/lophn-agent/mod.ts";
+import type { RunTrace } from "../../protocol/lophn-agent/mod.ts";
+import { TRACE_EXPORT_FORMAT_VERSION } from "../../protocol/lophn-agent/mod.ts";
 import type {
   RedactionInput,
   RedactionResult,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 
 // export 파일의 형식과 내용 판정(observability#R10, R14, R16, R17). trace 자체는 원본
 // 참조 묶음이므로 그대로 한 줄에 내보내도 사본이 아니다. 선택한 본문만 redaction 뒤

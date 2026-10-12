@@ -4,7 +4,7 @@
 import type {
   SessionPlanFacts,
   SessionPlanInput,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 
 export function firstPromptOf(
   ticket: SessionPlanInput["ticket"],

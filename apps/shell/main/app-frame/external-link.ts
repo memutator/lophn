@@ -3,7 +3,7 @@
 // 탐색은 자기 scheme만 통과한다, network-policy.ts). 기록에는 origin·path만 남기고 query·
 // fragment(OAuth state·비밀)는 어디에도 쓰지 않는다. shell 크롬의 링크 경로와 caller를 섞지 않는다
 // (R7): 이 모듈은 앱 view의 `app:open-external`만 받는다.
-import { EXTERNAL_URL_MAX_CHARS } from "../../../../packages/contracts/shell/app-bridge-types.ts";
+import { EXTERNAL_URL_MAX_CHARS } from "../../../../packages/protocol/shell/app-bridge-types.ts";
 import type { CallOutcome } from "./app-call.ts";
 import type { BoundView } from "./registry.ts";
 

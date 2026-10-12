@@ -1,5 +1,5 @@
 import { err, ok, type Result } from "../../base/mod.ts";
-import type { AppCardReference } from "../../contracts/lophn-agent/mod.ts";
+import type { AppCardReference } from "../../protocol/lophn-agent/mod.ts";
 
 // 앱 카드 참조의 owner 검사(lophn-agent/visuals#R4). 카드는 apps/blueprint에서
 // 카드 크기를 지원한 화면만 참조한다. 임의 화면·card 크기를 선언하지 않은 화면은

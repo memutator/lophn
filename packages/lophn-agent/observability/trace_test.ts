@@ -3,7 +3,7 @@ import type { DatabaseSync } from "node:sqlite";
 import {
   agentTraceReadOutputSchema,
   type RunTrace,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import {
   addEvent,
   addMessage,

@@ -1,6 +1,6 @@
 import { err, ok } from "../../base/mod.ts";
 import { createIdSource, manualClock, seededRandom } from "../../base/mod.ts";
-import type { AuthenticatedContext } from "../../contracts/platform/mod.ts";
+import type { AuthenticatedContext } from "../../protocol/platform/mod.ts";
 import { defineSyncCommand } from "./handler.ts";
 import { noteCreated, recordNote } from "./test-commands.ts";
 import { serveWriter } from "./writer-loop.ts";

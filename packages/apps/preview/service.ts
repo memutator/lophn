@@ -11,8 +11,8 @@ import type {
   previewsStartOutputSchema,
   previewsStopInputSchema,
   previewsStopOutputSchema,
-} from "../../contracts/apps/mod.ts";
-import type { AuthenticatedContext } from "../../contracts/platform/mod.ts";
+} from "../../protocol/apps/mod.ts";
+import type { AuthenticatedContext } from "../../protocol/platform/mod.ts";
 import type { z } from "zod";
 import type { FlagSet } from "../permissions/mod.ts";
 import type { PreviewArea } from "./area.ts";

@@ -6,7 +6,7 @@ import {
   place,
   project,
   version,
-} from "../documents/document-fixtures.ts";
+} from "../projects/document-fixtures.ts";
 import { connectionIdSchema } from "./connections.ts";
 import {
   CLI_CORE_COMMANDS,

@@ -4,7 +4,7 @@ import {
   TEST_OBSERVATION_SIDE_MAX_BYTES,
   type TestObservationFrame,
   testObservationFrameSchema,
-} from "../../../contracts/problems/mod.ts";
+} from "../../../protocol/problems/mod.ts";
 
 export type FrameInput = Omit<TestObservationFrame, "side" | "test_hash">;
 

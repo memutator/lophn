@@ -3,7 +3,7 @@ import {
   handoffAllowed,
   handoffContentSchema,
   handoffReferenceSchema,
-} from "@lophn/contracts/lophn-agent";
+} from "@lophn/protocol/lophn-agent";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   BUILTIN_TOOLS,

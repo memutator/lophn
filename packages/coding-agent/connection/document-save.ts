@@ -19,8 +19,8 @@ import {
   type PlaceRef,
   seriesAddInstance,
   seriesGet,
-} from "../../contracts/documents/mod.ts";
-import type { CommandRoute, Route } from "../../contracts/platform/mod.ts";
+} from "../../protocol/projects/mod.ts";
+import type { CommandRoute, Route } from "../../protocol/platform/mod.ts";
 import {
   type PrepareBytes,
   type SubmissionScope,

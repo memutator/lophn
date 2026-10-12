@@ -7,7 +7,7 @@ import { assert, assertEquals, assertFalse } from "@std/assert";
 import { manualClock, ok, seededRandom } from "../../packages/base/mod.ts";
 import { createConnectionSecretRefSource } from "../../packages/coding-agent/mod.ts";
 import { connectionSchemaSteps } from "../../packages/coding-agent/mod.ts";
-import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
 import type { KnownSecretChannel } from "../../packages/platform/ledger/mod.ts";
 import {
   codingCredentialRef,

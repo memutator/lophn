@@ -15,7 +15,7 @@ import {
 import {
   MESSAGE_CONTENT_MAX_BYTES,
   visualBlockSchema,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import {
   checkVisualContent,
   prepareVisualDocument,

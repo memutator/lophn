@@ -4,8 +4,8 @@
 // core는 호출자의 credential을 요청에 실어 보내고 worker가 돌려준 결과를 받아 판정한다.
 // worker는 자기 machine credential이 없어 호출자 주장을 대신하지 않는다.
 import { err, ok, type Result } from "../../packages/base/mod.ts";
-import { type AppRevertBinding } from "../../packages/contracts/lophn-agent/mod.ts";
-import type { KindLaunchSpec } from "../../packages/contracts/platform/mod.ts";
+import { type AppRevertBinding } from "../../packages/protocol/lophn-agent/mod.ts";
+import type { KindLaunchSpec } from "../../packages/protocol/platform/mod.ts";
 import type { AppStepResult } from "../../packages/lophn-agent/revert/mod.ts";
 import { allSlotSockets } from "../../packages/apps/runtime/processes/mod.ts";
 import { checkLaunchSpec } from "../../packages/platform/security/mod.ts";

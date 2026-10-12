@@ -27,7 +27,7 @@ import {
   serveTestAppSocket,
   type TestAppInvoke,
 } from "../../../packages/problems/tests/adapters/test-app-socket.ts";
-import type { ScreenTestInput } from "../../../packages/contracts/shell/mod.ts";
+import type { ScreenTestInput } from "../../../packages/protocol/shell/mod.ts";
 import type { SpawnPort } from "../../../packages/problems/tests/work/mod.ts";
 
 export const TEST_RUNNER_KIND = "problems/test-runner";

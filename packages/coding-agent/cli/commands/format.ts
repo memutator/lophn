@@ -4,12 +4,12 @@ import {
   cliFormatListSchema,
   cliFormatShowSchema,
   cliFormatValidateSchema,
-} from "../../../contracts/coding-agent/mod.ts";
+} from "../../../protocol/coding-agent/mod.ts";
 import {
   formatGet,
   formatList,
   formatValidate,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 import type { CommandEntry } from "./types.ts";
 
 export const FORMAT_COMMANDS: readonly CommandEntry[] = [

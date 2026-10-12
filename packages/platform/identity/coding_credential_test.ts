@@ -14,7 +14,7 @@ import {
   type ConnectionId,
   type ConnectionScope,
   LOPHN_CONNECTION,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 import {
   codingCredentialRef,
   createCodingCredentialKeychain,

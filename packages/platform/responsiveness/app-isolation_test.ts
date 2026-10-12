@@ -14,7 +14,7 @@ import { createCoreHarness } from "../../../apps/core/testing/core.ts";
 import {
   createRpcClient,
   platformHealth,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { systemClock } from "../../base/mod.ts";
 import { runScenario } from "./measure-run.ts";
 import { MEASURE_GOALS, type RequestSample } from "./measure.ts";

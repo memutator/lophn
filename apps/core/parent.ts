@@ -3,11 +3,11 @@ import type {
   Diagnostic,
   Frame,
   Route,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import {
   coreToMainMessageSchema,
   mainToCoreMessageSchema,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import type {
   RestoreOutcome,
   RestorePlan,

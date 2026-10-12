@@ -4,7 +4,7 @@
 // machine이라면 외부 claim·보고·결과가 한 번도 없을 때만 성공한다(R22).
 // 취소 직후 옛 claim의 갱신·보고는 claim 행 삭제와 state 전이로 거절된다(R23).
 import { err, ok, type Result } from "../../base/mod.ts";
-import { appRegistrationLookup } from "../../contracts/apps/mod.ts";
+import { appRegistrationLookup } from "../../protocol/apps/mod.ts";
 import {
   ticketCancel,
   type TicketCancelInput,
@@ -12,12 +12,12 @@ import {
   ticketCompletionReported,
   ticketReportCompletion,
   type TicketReportCompletionInput,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 import type {
   CommandDefinition,
   RequestContext,
   Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   connectionOf,
   inScope,

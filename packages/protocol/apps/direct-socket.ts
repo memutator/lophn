@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { jsonValueSchema } from "../platform/mod.ts";
-import { revisionSchema } from "../documents/values.ts";
+import { revisionSchema } from "../projects/values.ts";
 import { readyAttestationSchema } from "./runtime.ts";
 import {
   appScreenRequestSchema,

@@ -7,7 +7,7 @@ import {
   type ApiReadDefinition,
   backupsGet,
   backupsList,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import {
   findBackup,
   listBackups,

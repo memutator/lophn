@@ -3,8 +3,8 @@ import type {
   ReadSnapshot,
   RequestContext,
   Subject,
-} from "../../packages/contracts/platform/mod.ts";
-import { authenticatedContextSchema } from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
+import { authenticatedContextSchema } from "../../packages/protocol/platform/mod.ts";
 import {
   commandResultRead,
   createListEventsRead,

@@ -4,7 +4,7 @@ import {
   CATALOG_REFRESH_INTERVAL_MS,
   type CatalogEntry,
   type CatalogState,
-} from "../../../contracts/lophn-agent/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
 import {
   applyUserPatch,
   entryKey,

@@ -1,6 +1,6 @@
-import { TEST_EXECUTION_LIMITS } from "../../../contracts/problems/mod.ts";
-import { TEST_OBSERVATION_FRAME_MAX_BYTES } from "../../../contracts/problems/mod.ts";
-import { TEST_OBSERVATION_SIDE_MAX_BYTES } from "../../../contracts/problems/mod.ts";
+import { TEST_EXECUTION_LIMITS } from "../../../protocol/problems/mod.ts";
+import { TEST_OBSERVATION_FRAME_MAX_BYTES } from "../../../protocol/problems/mod.ts";
+import { TEST_OBSERVATION_SIDE_MAX_BYTES } from "../../../protocol/problems/mod.ts";
 
 // problems/tests#R19, R20. 요청이 이 상한을 넓히지 못한다.
 export const RUNNER_LIMITS = {

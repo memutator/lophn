@@ -10,7 +10,7 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   OAUTH_REFRESH_LEAD_MS,
   OAUTH_REFRESH_TIMEOUT_MS,
-} from "../../../contracts/lophn-agent/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
 
 // 만료 60초 전부터 갱신한다(R17). 이 시각(만료 - lead)에 도달하면 갱신 대상이다.
 export function refreshDueAt(

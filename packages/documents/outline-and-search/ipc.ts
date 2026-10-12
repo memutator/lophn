@@ -4,7 +4,7 @@
 // 통로). coordinator가 유일한 derived writer라서 결과·FTS·cursor는 coordinator가 쓴다.
 // consumer가 받는 event 한 건. 이 파일이 정의한다(core graph가 이 파일을 import하므로 derived
 // store 어댑터에 닿는 파일을 import하지 않는다).
-import { FORMAT_CHECK_CONTENT_MAX_BYTES } from "../../contracts/documents/mod.ts";
+import { FORMAT_CHECK_CONTENT_MAX_BYTES } from "../../protocol/projects/mod.ts";
 
 export type ConsumerEvent = {
   seq: string;

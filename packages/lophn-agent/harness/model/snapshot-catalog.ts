@@ -1,4 +1,4 @@
-import type { CatalogEntry } from "../../../contracts/lophn-agent/mod.ts";
+import type { CatalogEntry } from "../../../protocol/lophn-agent/mod.ts";
 import { parseEntries } from "./mod.ts";
 import snapshotJson from "./snapshot.json" with { type: "json" };
 

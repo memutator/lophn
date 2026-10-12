@@ -3,7 +3,7 @@ import type {
   McpServerConfig,
   McpTool,
   SkillSummary,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import {
   parsePlaceMcpFile,
   type PlaceFiles,

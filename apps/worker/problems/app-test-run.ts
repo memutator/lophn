@@ -12,7 +12,7 @@ import {
   systemClock,
 } from "../../../packages/base/mod.ts";
 import type { Blueprint } from "../../../packages/apps/blueprint/mod.ts";
-import type { ProblemCodeDeclaration } from "../../../packages/contracts/problems/mod.ts";
+import type { ProblemCodeDeclaration } from "../../../packages/protocol/problems/mod.ts";
 import {
   type AppTestInput,
   type AppTestJudgment,

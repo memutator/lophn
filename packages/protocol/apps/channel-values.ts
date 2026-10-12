@@ -6,7 +6,7 @@ import {
   jsonValueSchema,
   sha256Schema,
 } from "../platform/mod.ts";
-import { appIdSchema } from "../documents/values.ts";
+import { appIdSchema } from "../projects/values.ts";
 import { releaseIdSchema } from "./apps.ts";
 
 // architecture/apps 5.1의 로컬 socket 경로. core API가 아니다.

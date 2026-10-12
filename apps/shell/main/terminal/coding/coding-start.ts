@@ -26,9 +26,9 @@ import {
   ticketIdSchema,
   ticketScreenDetailOutputSchema,
   unknownObservation,
-} from "../../../../../packages/contracts/coding-agent/mod.ts";
-import { projectIdSchema } from "../../../../../packages/contracts/documents/values.ts";
-import { seqSchema } from "../../../../../packages/contracts/platform/mod.ts";
+} from "../../../../../packages/protocol/coding-agent/mod.ts";
+import { projectIdSchema } from "../../../../../packages/protocol/projects/values.ts";
+import { seqSchema } from "../../../../../packages/protocol/platform/mod.ts";
 import { z } from "zod";
 
 import type { TerminalReply, TerminalRuntime } from "../../../ipc/terminal.ts";

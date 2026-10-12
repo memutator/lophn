@@ -1,4 +1,4 @@
-import type { SchemaStep } from "../../contracts/platform/mod.ts";
+import type { SchemaStep } from "../../protocol/platform/mod.ts";
 
 // 선택 원본은 ledger 하나다(R2). setting_choices는 현재 선택만 담는다.
 // setting_revisions는 불변 판이며 UPDATE·DELETE가 금지된다(domain model).

@@ -8,7 +8,7 @@ import {
   type PortKey,
   type RequestContext,
   type Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   appendActualSideStart,
   appendRequestObservation,

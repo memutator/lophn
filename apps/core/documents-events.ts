@@ -23,14 +23,14 @@ import {
   projectTrackingChanged,
   projectUnarchived,
   projectUpdated,
-} from "../../packages/contracts/documents/mod.ts";
+} from "../../packages/protocol/projects/mod.ts";
 import type {
   EventDefinition,
   EventEnvelopeFor,
   EventVisibilityDefinition,
   ReadSnapshot,
   RequestContext,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import { createProjectEventVisibility } from "../../packages/documents/projects/mod.ts";
 import type { EventRegistration } from "../../packages/platform/ledger/mod.ts";
 import { isAssignmentReactions, isNotifications } from "./platform.ts";

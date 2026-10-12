@@ -2,7 +2,7 @@ import {
   type CheckRule,
   type ContractType,
   splitExternalRef,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 import type {
   CheckEntity,
   CheckFieldValue,

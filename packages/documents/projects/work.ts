@@ -3,8 +3,8 @@ import type {
   Folder,
   TrackingPreview,
   TrackingRuleSet,
-} from "../../contracts/documents/mod.ts";
-import { relativePathSchema } from "../../contracts/documents/mod.ts";
+} from "../../protocol/projects/mod.ts";
+import { relativePathSchema } from "../../protocol/projects/mod.ts";
 import { LOPHN_DATA_DIR } from "./rules.ts";
 import { decideTracking, type GitignoreRule } from "./rules.ts";
 import { symlinkEscapesRoot } from "./rules.ts";

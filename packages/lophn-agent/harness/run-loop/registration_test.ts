@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ok } from "../../../base/mod.ts";
-import { ACTOR_KINDS, defineCommand } from "../../../contracts/platform/mod.ts";
+import { ACTOR_KINDS, defineCommand } from "../../../protocol/platform/mod.ts";
 import type { LedgerTestRegistration } from "../../../../apps/core/testing/ledger.ts";
 import {
   assignmentSchemaSteps,

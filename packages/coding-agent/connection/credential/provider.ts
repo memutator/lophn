@@ -9,7 +9,7 @@ import {
   CREDENTIAL_DELIVERY_FAILURES,
   type CredentialDeliveryFailure,
   LOPHN_CONNECTION,
-} from "../../../contracts/coding-agent/mod.ts";
+} from "../../../protocol/coding-agent/mod.ts";
 
 export { LOPHN_CONNECTION };
 

@@ -1,6 +1,6 @@
 // command와 읽기 하나를 ledger 위에서 돌리는 흐름이다(adapter.ts 머리말의 1, 3~6).
 import type { Result } from "../../../base/mod.ts";
-import { CONTEXT_API_EVENTS } from "../../../contracts/documents/mod.ts";
+import { CONTEXT_API_EVENTS } from "../../../protocol/projects/mod.ts";
 import type {
   CommandRoute,
   Compare,
@@ -12,7 +12,7 @@ import type {
   RequestContext,
   Sql,
   Tx,
-} from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/platform/mod.ts";
 import {
   type ContextApiCommands,
   createContextApiCommands,

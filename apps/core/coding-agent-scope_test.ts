@@ -17,8 +17,8 @@ import {
   saveFromPaths,
 } from "../../packages/coding-agent/connection/mod.ts";
 import { toolEntries } from "../../packages/coding-agent/mcp-server/mod.ts";
-import { ALL_ROUTES } from "../../packages/contracts/mod.ts";
-import type { Route } from "../../packages/contracts/platform/mod.ts";
+import { ALL_ROUTES } from "../../packages/protocol/mod.ts";
+import type { Route } from "../../packages/protocol/platform/mod.ts";
 import {
   DOCUMENT_OPERATIONS,
   openScopeWorld,

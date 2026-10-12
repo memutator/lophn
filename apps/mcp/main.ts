@@ -10,7 +10,7 @@ import {
   LOPHN_CONNECTION,
   parseToolsets,
   type Toolset,
-} from "../../packages/contracts/coding-agent/mod.ts";
+} from "../../packages/protocol/coding-agent/mod.ts";
 import { connectionFromRef } from "../../packages/coding-agent/connection/client/core.ts";
 import type { CredentialProvider } from "../../packages/coding-agent/connection/credential/provider.ts";
 import {
@@ -25,7 +25,7 @@ import { createCoreClient } from "../../packages/coding-agent/connection/client/
 import {
   REDACTION_REPLACEMENT,
   type RpcFetch,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import {
   discoverDaemonAddress,
   LOPHN_DAEMON_URL,

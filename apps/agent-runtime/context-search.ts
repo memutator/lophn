@@ -1,9 +1,9 @@
 import { err, ok, type Result } from "../../packages/base/mod.ts";
-import type { BundleContent } from "../../packages/contracts/documents/mod.ts";
+import type { BundleContent } from "../../packages/protocol/projects/mod.ts";
 import {
   contextContractRoute,
   contextGetRoute,
-} from "../../packages/contracts/documents/mod.ts";
+} from "../../packages/protocol/projects/mod.ts";
 import {
   buildContextReadTools,
   type ContextReadTools,

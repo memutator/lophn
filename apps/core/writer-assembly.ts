@@ -12,8 +12,8 @@ import {
 import type {
   AuthenticatedContext,
   CommandDefinition,
-} from "../../packages/contracts/platform/mod.ts";
-import { authenticatedContextSchema } from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
+import { authenticatedContextSchema } from "../../packages/protocol/platform/mod.ts";
 import {
   confirmationBridge,
   ConfirmationRegistry,
@@ -30,7 +30,7 @@ import {
   type BlobFieldDefinition,
   type RequestContext,
   type Tx,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import {
   createBlobRegistrar,
   createPreparationRegistry,

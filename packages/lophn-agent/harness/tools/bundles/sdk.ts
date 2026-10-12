@@ -6,9 +6,9 @@ import {
   packagesUsage,
   packagesVersions,
   packageVersionNameSchema,
-} from "../../../../contracts/apps/mod.ts";
-import { readCursorSchema } from "../../../../contracts/documents/mod.ts";
-import type { ToolResult } from "../../../../contracts/lophn-agent/mod.ts";
+} from "../../../../protocol/apps/mod.ts";
+import { readCursorSchema } from "../../../../protocol/projects/mod.ts";
+import type { ToolResult } from "../../../../protocol/lophn-agent/mod.ts";
 import { fitJson, PAGE_SIZE } from "../result.ts";
 import type { ToolDefinition } from "../registry.ts";
 import type { ToolHandler } from "../work.ts";

@@ -5,12 +5,12 @@ import {
   runList,
   runRead,
   type RunRecord,
-} from "../../../contracts/lophn-agent/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
 import {
   eventsList,
   type ReadRoute,
   routePath,
-} from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/platform/mod.ts";
 import { predecessorAllows } from "./model.ts";
 import type { CoreRead } from "./startup.ts";
 

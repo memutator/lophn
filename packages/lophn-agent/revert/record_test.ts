@@ -4,8 +4,8 @@ import {
   type recordRewindFile,
   REWIND_MAX_CHECKPOINTS,
   REWIND_MAX_FILE_BYTES,
-} from "../../contracts/lophn-agent/mod.ts";
-import type { Input, Output } from "../../contracts/platform/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
+import type { Input, Output } from "../../protocol/platform/mod.ts";
 import { createRecordRewindFile, recordBeforeWrite } from "./record.ts";
 import {
   agentCtx,

@@ -3,8 +3,8 @@
 // 하나씩 보낸다. 통로가 하나라도 끊기면 통과로 꾸미지 않고 unavailable이다.
 import { assert, assertEquals } from "@std/assert";
 import { err, ok } from "../../packages/base/mod.ts";
-import { FORMAT_CHECK_CONTENT_MAX_BYTES } from "../../packages/contracts/documents/mod.ts";
-import { BLOB_READ_MAX_BYTES } from "../../packages/contracts/platform/mod.ts";
+import { FORMAT_CHECK_CONTENT_MAX_BYTES } from "../../packages/protocol/projects/mod.ts";
+import { BLOB_READ_MAX_BYTES } from "../../packages/protocol/platform/mod.ts";
 import { DOCUMENT_OPS } from "../../packages/documents/file-tracking/mod.ts";
 import { createValidatePort, type ValidateDeps } from "./documents-validate.ts";
 

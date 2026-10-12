@@ -1,6 +1,6 @@
 import type { Clock, Result } from "../../base/mod.ts";
 import { err, ok, sha256Hex } from "../../base/mod.ts";
-import type { SchemaStep, Sql } from "../../contracts/platform/mod.ts";
+import type { SchemaStep, Sql } from "../../protocol/platform/mod.ts";
 import { type LedgerConnection, openConnection } from "../ledger/mod.ts";
 import { createRecoveryCopy, recoveryStamp } from "./recovery.ts";
 import { type MigrationVerification, verifyMigrated } from "./verification.ts";

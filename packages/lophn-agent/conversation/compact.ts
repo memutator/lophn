@@ -6,12 +6,12 @@ import {
   sessionCompacted,
   sessionCompactFailed,
   sessionCompactRequested,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import type {
   CommandDefinition,
   Input,
   Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   reject,
   requireMachine,

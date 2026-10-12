@@ -4,8 +4,8 @@ import { z } from "zod";
 import {
   ticketConditionSchema,
   ticketIdSchema,
-} from "../../../contracts/coding-agent/mod.ts";
-import { defineRead, idSchema } from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/coding-agent/mod.ts";
+import { defineRead, idSchema } from "../../../protocol/platform/mod.ts";
 
 export const CHECK_WORK_PAGE = 50;
 

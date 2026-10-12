@@ -5,7 +5,7 @@
 // MCP server·실제 OAuth server에 닿지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, seededRandom } from "../../base/mod.ts";
-import { mcpServersSetting } from "../../contracts/lophn-agent/mod.ts";
+import { mcpServersSetting } from "../../protocol/lophn-agent/mod.ts";
 import type { HttpFetch } from "./adapters/mcp-http.ts";
 import {
   authHeaders,

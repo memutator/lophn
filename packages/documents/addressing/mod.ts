@@ -28,4 +28,4 @@ export {
   type PlaceName,
   type PlaceNameReservation,
   placeNameReservation,
-} from "../../contracts/documents/mod.ts";
+} from "../../protocol/projects/mod.ts";

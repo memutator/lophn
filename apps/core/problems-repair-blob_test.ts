@@ -13,7 +13,7 @@ import {
   sha256Hex,
 } from "../../packages/base/mod.ts";
 import { objectPathFor } from "../../packages/platform/blob-store/mod.ts";
-import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
 import { createLedgerRegistration as createAppsRegistration } from "./apps.ts";
 import { codingAgentConnectionDefinitions } from "./coding-agent.ts";
 import {

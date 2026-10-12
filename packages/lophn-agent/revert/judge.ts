@@ -1,7 +1,7 @@
 import type {
   FileState,
   RevertReason,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 
 // 문서 파일 복원 판정(lophn-agent/revert "판정 규칙"). 기록(RewindFile)과 파일의 지금 상태만 받는 순수
 // 함수다.

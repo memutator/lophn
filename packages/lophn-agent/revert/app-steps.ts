@@ -2,7 +2,7 @@ import { err, ok, type Result } from "../../base/mod.ts";
 import type {
   AppRevertBinding,
   PreparedFile,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 
 // 앱 되돌림 단계를 실제로 부르는 쪽(machine runtime)의 순서 규칙이다(lophn-agent/revert R10·R11).
 // Rewind가 applying으로 저장한 revert의 앱 단계를 원래 호출 역순으로 앱의 선언된 revert command에

@@ -10,7 +10,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, sep } from "node:path";
-import type { PreparedFile } from "../../contracts/lophn-agent/mod.ts";
+import type { PreparedFile } from "../../protocol/lophn-agent/mod.ts";
 import type { FileStat, JudgedFile } from "./judge.ts";
 import type { RewindStore } from "./store.ts";
 

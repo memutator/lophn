@@ -6,7 +6,7 @@ import {
   ok,
   seededRandom,
 } from "../../base/mod.ts";
-import type { SecretPreparation, Tx } from "../../contracts/platform/mod.ts";
+import type { SecretPreparation, Tx } from "../../protocol/platform/mod.ts";
 import { applyMigrations } from "../backup-and-migration/mod.ts";
 import { LEDGER_SCHEMA_STEPS, openLedger } from "../ledger/mod.ts";
 import { createKnownSecretRegistry } from "../redaction/mod.ts";

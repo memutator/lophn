@@ -7,12 +7,12 @@ import {
   releasesCompare,
   releasesGet,
   releasesList,
-} from "../../contracts/apps/mod.ts";
+} from "../../protocol/apps/mod.ts";
 import type {
   ReadDefinition,
   ReadSnapshot,
   RequestContext,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { appAccessDenied, authorizeApp, loadApp } from "../registration/mod.ts";
 import { compareReleases } from "./compare.ts";
 import { loadRelease, loadReleases, loadStoredBlueprint } from "./store.ts";

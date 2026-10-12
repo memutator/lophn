@@ -4,8 +4,8 @@ import { ok, type Result } from "../../base/mod.ts";
 import {
   DOCUMENT_DISPATCHABLE_COMMANDS,
   type PlaceRef,
-} from "../../contracts/documents/mod.ts";
-import type { Sql } from "../../contracts/platform/mod.ts";
+} from "../../protocol/projects/mod.ts";
+import type { Sql } from "../../protocol/platform/mod.ts";
 import {
   createDocumentNameReservation,
   createPlaceNameReservation,

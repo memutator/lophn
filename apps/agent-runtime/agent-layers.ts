@@ -1,5 +1,5 @@
 import { err, ok, type Result } from "../../packages/base/mod.ts";
-import { contextListRoute } from "../../packages/contracts/documents/mod.ts";
+import { contextListRoute } from "../../packages/protocol/projects/mod.ts";
 import {
   type AgentIssue,
   type AgentPlace,
@@ -14,7 +14,7 @@ import {
   runRead,
   sessionRead,
   type SessionRecord,
-} from "../../packages/contracts/lophn-agent/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
 import {
   productEnvironment,
   resolveAgent,

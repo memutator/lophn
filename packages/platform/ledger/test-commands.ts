@@ -4,7 +4,7 @@ import {
   defineCommand,
   defineEvent,
   type Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { defineSyncCommand } from "./handler.ts";
 
 export const noteCreated = defineEvent("NoteCreated", {

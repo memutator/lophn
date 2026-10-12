@@ -22,22 +22,22 @@ import {
   releaseSchema,
   releaseStartActivation,
   releaseSuperseded,
-} from "../../contracts/apps/mod.ts";
+} from "../../protocol/apps/mod.ts";
 import { canonicalJson, validateBlueprint } from "../blueprint/mod.ts";
 import { missingSdkPermission } from "./sdk-permissions.ts";
 import {
   type ConnectionId,
   TicketClaimCheck,
   type TicketId,
-} from "../../contracts/coding-agent/mod.ts";
-import { AppTestVerificationLookupPort } from "../../contracts/problems/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
+import { AppTestVerificationLookupPort } from "../../protocol/problems/mod.ts";
 import {
   type CommandDefinition,
   parseActor,
   type PortKey,
   type RequestContext,
   type Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 
 import {
   appAccessDenied,

@@ -8,7 +8,7 @@ import type {
   FrozenTest,
   TestResult,
   Verification,
-} from "../../contracts/problems/mod.ts";
+} from "../../protocol/problems/mod.ts";
 import { requiredBlobs } from "./blobs.ts";
 import { canonicalHash, canonicalJson } from "./canonical.ts";
 import {

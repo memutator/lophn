@@ -1,5 +1,5 @@
-import type { PlaceRef } from "@lophn/contracts/documents";
-import type { QuestionOption } from "@lophn/contracts/lophn-agent";
+import type { PlaceRef } from "@lophn/protocol/projects";
+import type { QuestionOption } from "@lophn/protocol/lophn-agent";
 import { moveOptionAction } from "../../questions/mod.ts";
 
 // lophn의 문서 자리 추천(roles/lophn#R14, R15). 순수 함수다: IO·시계·model 호출이 없다.

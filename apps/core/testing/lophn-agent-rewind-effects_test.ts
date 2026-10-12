@@ -1,7 +1,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
-import { rewind } from "../../../packages/contracts/lophn-agent/mod.ts";
-import { ALL_ROUTES } from "../../../packages/contracts/mod.ts";
+import { rewind } from "../../../packages/protocol/lophn-agent/mod.ts";
+import { ALL_ROUTES } from "../../../packages/protocol/mod.ts";
 import { userOperations } from "../parent.ts";
 import { answeredFacts } from "../rewind-facts.ts";
 import { call, codeOf, command } from "./approvals-fixture.ts";

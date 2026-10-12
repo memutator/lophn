@@ -13,18 +13,15 @@ import {
   toolCallRequested,
   toolCallStarted,
   toolCallSupplemented,
-} from "../../../contracts/lophn-agent/mod.ts";
-import {
-  defineBlobField,
-  parseActor,
-} from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
+import { defineBlobField, parseActor } from "../../../protocol/platform/mod.ts";
 import type {
   BlobFieldDefinition,
   CommandDefinition,
   Input,
   RequestContext,
   Tx,
-} from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/platform/mod.ts";
 import { callColumns, callFromRow, type CallRow } from "./model.ts";
 
 // 등록 순서: 입력 검사 → CAS 비교 → 쓰기 → event. 짧은 transaction 하나.

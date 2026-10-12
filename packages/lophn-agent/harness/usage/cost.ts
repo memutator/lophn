@@ -2,7 +2,7 @@ import type {
   PriceBasis,
   PriceRate,
   TokenUsage,
-} from "../../../contracts/lophn-agent/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
 
 // 비용은 float 없이 십진수 문자열로만 계산·저장한다(plan 완료: 십진수 문자열로
 // 입력·계산·저장, float 변환 없음). 요율은 1000000 token당 금액이다(Q18).

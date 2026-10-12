@@ -5,7 +5,7 @@ import {
   type Result,
   sha256Hex,
 } from "../../../../base/mod.ts";
-import type { ToolResult } from "../../../../contracts/lophn-agent/mod.ts";
+import type { ToolResult } from "../../../../protocol/lophn-agent/mod.ts";
 import { limitJson } from "../result.ts";
 import type { ToolDefinition } from "../registry.ts";
 import type { RunCredential } from "../work.ts";

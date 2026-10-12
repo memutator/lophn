@@ -4,7 +4,7 @@
 // 바이트는 upload route로 가고, 준비·저장·series 가입은 실제 route를 지난다.
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
-import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
 import { createCoreClient } from "../../packages/coding-agent/connection/client/core.ts";
 import {
   saveFromPaths,
@@ -204,7 +204,7 @@ Deno.test("coding-agent/mcp-server#R13 #R15: 자리 없는 저장은 실제 core
     const document = first.value.saved.document;
     // 고정 주소로 다시 읽으면 두 파일과 primary가 그대로다.
     const got = await client.read(
-      (await import("../../packages/contracts/documents/mod.ts")).documentGet,
+      (await import("../../packages/protocol/projects/mod.ts")).documentGet,
       { document, version: first.value.saved.version },
     );
     assert(got.ok, got.ok ? "" : JSON.stringify(got.error));
@@ -265,7 +265,7 @@ Deno.test("coding-agent/mcp-server#R14: 명시 format 부적합은 실제 검사
     await Deno.writeTextFile(`${opened.work}/data.csv`, "a,b\n1,2\n");
     const { client, deps } = agent(opened);
     const formats = await client.read(
-      (await import("../../packages/contracts/documents/mod.ts")).formatList,
+      (await import("../../packages/protocol/projects/mod.ts")).formatList,
       {},
     );
     assert(formats.ok);

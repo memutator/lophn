@@ -4,7 +4,7 @@ import * as operator from "./roles/operator/mod.ts";
 import {
   RUN_OUTCOME_REASONS,
   runSourceSchema,
-} from "../contracts/lophn-agent/mod.ts";
+} from "../protocol/lophn-agent/mod.ts";
 
 // lophn-agent/scheduling [agent-R3]: 주기(scheduling)는 보류다. 요구 문서만 남고 폴더·contract·
 // occurrence 시계·runs의 schedule 출처 열·periodic origin·no_change·알림 계기가 코드에서 없어졌다.

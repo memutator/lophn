@@ -4,7 +4,7 @@ import { err, ok, type Result } from "../../base/mod.ts";
 import type {
   SettingDefinition,
   SettingsValidationError,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { containsCredentialSecret, defaultsRevisionText } from "./model.ts";
 
 const MESSAGE_KEY_FIELDS = [

@@ -1,6 +1,6 @@
 import { type LophnError, ok, type Result } from "../../base/mod.ts";
-import type { Tx } from "../../contracts/platform/mod.ts";
-import type { SnapshotInput } from "../../contracts/problems/mod.ts";
+import type { Tx } from "../../protocol/platform/mod.ts";
+import type { SnapshotInput } from "../../protocol/problems/mod.ts";
 
 const SNAP_COLS = `id, captured_at,
   invocation, invocation_binding, invocation_record_missing_reason, invocation_missing_reason,

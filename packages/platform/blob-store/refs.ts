@@ -10,7 +10,7 @@ import {
   type PermanentBlobReference,
   type PreparedBlob,
   type RequestContext,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 
 export type BlobAuthorizer = (
   ctx: RequestContext,

@@ -14,7 +14,7 @@ import {
   approvalTextBytes,
   type RequestContext,
   type Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 
 export type TextBlob = {
   hash: string;

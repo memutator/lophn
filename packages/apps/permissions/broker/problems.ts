@@ -6,7 +6,7 @@ import {
   brokerProblemObserveInputSchema,
   brokerProblemReportInputSchema,
   type brokerProblemReportOutputSchema,
-} from "../../../contracts/apps/mod.ts";
+} from "../../../protocol/apps/mod.ts";
 import type { z } from "zod";
 import { type BrokerAccess, currentAccess, invalid } from "./access.ts";
 import type { BrokerChild } from "./invocations.ts";

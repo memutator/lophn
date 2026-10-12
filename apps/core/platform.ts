@@ -7,7 +7,7 @@
 // 사람 결정(허락·거절)의 confirmation handle은 route 선언(`confirmation: "required"`)과 writer
 // 실행기가 강제한다. 여기서는 그 command를 등록할 뿐 handle 검사를 우회하지 않는다.
 import { err, ok, type Result } from "../../packages/base/mod.ts";
-import { ASSIGNMENT_SUBSCRIBER } from "../../packages/contracts/lophn-agent/mod.ts";
+import { ASSIGNMENT_SUBSCRIBER } from "../../packages/protocol/lophn-agent/mod.ts";
 import { ASSIGNMENT_REACTION_OPERATIONS } from "../../packages/lophn-agent/assignments/reaction.ts";
 import {
   approvalRequestCreated,
@@ -17,7 +17,7 @@ import {
   notificationCreated,
   notificationRead,
   type RequestContext,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import {
   APPROVAL_BLOB_FIELDS,
   APPROVAL_SCHEMA_STEPS,

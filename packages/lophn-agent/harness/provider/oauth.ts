@@ -12,8 +12,8 @@ import type { RandomSource } from "../../../base/mod.ts";
 import type {
   OAuthDefinition,
   ProviderDefinition,
-} from "../../../contracts/lophn-agent/mod.ts";
-import { OAUTH_REFRESH_LEAD_MS } from "../../../contracts/lophn-agent/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
+import { OAUTH_REFRESH_LEAD_MS } from "../../../protocol/lophn-agent/mod.ts";
 import {
   type OAuthCallback,
   oauthHttp,

@@ -7,7 +7,7 @@ import {
   SOCKET_HOST,
   SOCKET_PATH_MAX_BYTES,
   TRACE_NAME_MAX_CHARS,
-} from "@lophn/contracts/apps";
+} from "@lophn/protocol/apps";
 import {
   CONFIRM_MARKER_LIMIT as LOCAL_MARKERS,
   DIRECT_SOCKET_PATHS as LOCAL_PATHS,

@@ -15,7 +15,7 @@ import {
   routePath,
   type SchemaStep,
   type Tx,
-} from "../../../packages/contracts/platform/mod.ts";
+} from "../../../packages/protocol/platform/mod.ts";
 import {
   confirmationBridge,
   ConfirmationRegistry,

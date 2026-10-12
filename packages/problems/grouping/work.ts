@@ -18,7 +18,7 @@ import {
   ticketCompletionReported,
   ticketConfirmed,
   ticketCreated,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 
 export const WORK_SUBSCRIBER = "problems.work";
 

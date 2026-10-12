@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { AUTOMATION_CONCURRENCY_LIMIT } from "../../contracts/apps/mod.ts";
+import { AUTOMATION_CONCURRENCY_LIMIT } from "../../protocol/apps/mod.ts";
 import { createAutomationPermits } from "./permits.ts";
 
 const holder = (key: string, nonce = "nonce-1") => ({

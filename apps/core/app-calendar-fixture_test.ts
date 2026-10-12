@@ -4,7 +4,7 @@
 // root는 열지 않고 temp lophn home과 local fake만 쓴다.
 import { assert, assertEquals } from "@std/assert";
 import { ok, sha256Hex } from "../../packages/base/mod.ts";
-import { appList } from "../../packages/contracts/apps/mod.ts";
+import { appList } from "../../packages/protocol/apps/mod.ts";
 import { createAutomationPermits } from "../../packages/apps/automations/permits.ts";
 import {
   type Blueprint,

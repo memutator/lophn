@@ -12,7 +12,7 @@ import {
   runStarted,
   startRun,
   stopRun,
-} from "../../../contracts/lophn-agent/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
 import {
   type BlobFieldDefinition,
   type CommandDefinition,
@@ -21,7 +21,7 @@ import {
   parseActor,
   type RequestContext,
   type Tx,
-} from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/platform/mod.ts";
 import {
   effectiveRunLimits,
   RUN_LIMIT_SETTING_KEYS,

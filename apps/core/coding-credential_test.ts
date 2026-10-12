@@ -11,11 +11,11 @@ import {
   seededRandom,
   sha256Hex,
 } from "../../packages/base/mod.ts";
-import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
 import {
   type CodingAgentConnectionAuthPort,
   type CodingAgentConnectionAuthResult,
-} from "../../packages/contracts/coding-agent/mod.ts";
+} from "../../packages/protocol/coding-agent/mod.ts";
 import {
   createCodingCredentialAuthority,
   CredentialRegistry,

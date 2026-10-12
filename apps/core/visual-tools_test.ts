@@ -16,9 +16,9 @@ import {
 import {
   ROUTES,
   serializeMessageContent,
-} from "../../packages/contracts/lophn-agent/mod.ts";
-import { tableBlock } from "../../packages/contracts/lophn-agent/message-fixtures.ts";
-import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
+import { tableBlock } from "../../packages/protocol/lophn-agent/message-fixtures.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
 import {
   BUILTIN_TOOLS,
   createBuiltinToolHandlers,

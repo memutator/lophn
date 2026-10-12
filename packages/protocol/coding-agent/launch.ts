@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { absolutePathSchema, projectIdSchema } from "../documents/values.ts";
+import { absolutePathSchema, projectIdSchema } from "../projects/values.ts";
 import { idSchema } from "../platform/ids.ts";
 import { atSchema, seqSchema } from "../platform/values.ts";
 import {

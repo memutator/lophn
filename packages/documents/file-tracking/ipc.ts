@@ -1,11 +1,11 @@
 // 준비 worker로 가는 요청 배분. codec은 contracts/platform supervision 하나고,
 // 여기는 그 위에 request envelope(architecture 2.1: request_id, operation, input_ref,
 // basis)과 1MiB 이하 byte chunk를 싣는 일만 한다. 새 codec을 만들지 않는다.
-import { FORMAT_CHECK_CONTENT_MAX_BYTES } from "../../contracts/documents/mod.ts";
+import { FORMAT_CHECK_CONTENT_MAX_BYTES } from "../../protocol/projects/mod.ts";
 import {
   type Frame,
   STREAM_CHUNK_MAX_BYTES,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 // architecture 2.1의 stdio frame 요청 본문. op별 입력·출력 schema는
 // 소유 contracts가 worker_response 경계에서 다시 검사한다.
 export type RequestPayload = {

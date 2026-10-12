@@ -11,7 +11,7 @@ import {
   type RedactionInput,
   type RedactionOmission,
   type RedactionResult,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { matchCredential, patternRevision } from "./patterns.ts";
 import type { KnownSecretRegistry } from "./registry.ts";
 import { selectSafeFields } from "./fields.ts";

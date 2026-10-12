@@ -30,16 +30,16 @@ import {
   type ToolResult,
   waitRun,
   waitRunInputSchema,
-} from "../../packages/contracts/lophn-agent/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
 import {
   approvalsGet,
   approvalsText,
   routePath,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import {
   type WorkspaceReadOutput,
   workspaceReadOutputSchema,
-} from "../../packages/contracts/shell/mod.ts";
+} from "../../packages/protocol/shell/mod.ts";
 import { estimatedCost } from "../../packages/lophn-agent/harness/usage/mod.ts";
 import {
   type CallRequest,

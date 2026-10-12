@@ -2,11 +2,11 @@ import { err, ok, type Result } from "../../base/mod.ts";
 import {
   packageRegisterVersion,
   packageVersionRegistered,
-} from "../../contracts/apps/mod.ts";
+} from "../../protocol/apps/mod.ts";
 import type {
   CommandDefinition,
   RequestContext,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   PACKAGE_GUIDE_BLOB_FIELD_NAME,
   PACKAGE_GUIDE_BLOB_OWNER_KIND,

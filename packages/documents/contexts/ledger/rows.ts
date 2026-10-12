@@ -22,8 +22,8 @@ import {
   glossaryEntrySchema,
   type SavedViewValue,
   savedViewValueSchema,
-} from "../../../contracts/documents/mod.ts";
-import type { Sql, SqlParam, SqlRow } from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/projects/mod.ts";
+import type { Sql, SqlParam, SqlRow } from "../../../protocol/platform/mod.ts";
 import type { BlobReference } from "../api/state.ts";
 
 type Reader = Pick<Sql, "get" | "all">;

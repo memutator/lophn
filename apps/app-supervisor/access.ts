@@ -8,7 +8,7 @@ import {
   type Grant,
   GRANT_LIST_MAX_COUNT,
   grantsList,
-} from "../../packages/contracts/apps/mod.ts";
+} from "../../packages/protocol/apps/mod.ts";
 import {
   type AccessState,
   type BrokerAccess,

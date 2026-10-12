@@ -10,7 +10,7 @@ import type {
   McpServerConfig,
   ToolEffect,
   ToolResult,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import { limitJson } from "../../lophn-agent/harness/tools/mod.ts";
 import type {
   RunCredential,

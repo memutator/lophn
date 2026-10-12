@@ -3,7 +3,7 @@ import { ok, type Result } from "../../packages/base/mod.ts";
 import {
   encodeFrame,
   FrameDecoder,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import { redact, startAgentRuntime } from "./main.ts";
 
 const HELLO = {

@@ -3,7 +3,7 @@
 // 만들지 않음을 본다. 사람의 실제 keychain·data root는 열지 않는다(fake keychain, temp LOPHN_HOME).
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
-import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
 import { createFakeKeychain } from "../../packages/platform/secrets/mod.ts";
 import { codingAgentConnectionDefinitions } from "./coding-agent.ts";
 import { createLedgerRegistration as createAppsRegistration } from "./apps.ts";

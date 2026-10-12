@@ -9,7 +9,7 @@ import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 
 import { sha256Hex } from "../../packages/base/mod.ts";
-import { mainHelloSchema } from "../../packages/contracts/platform/mod.ts";
+import { mainHelloSchema } from "../../packages/protocol/platform/mod.ts";
 import { readFrames } from "../../packages/platform/responsiveness/mod.ts";
 import { bundleCopyPath } from "../../packages/apps/releases/mod.ts";
 import { removeTree } from "../../packages/apps/sdk/testing/mod.ts";

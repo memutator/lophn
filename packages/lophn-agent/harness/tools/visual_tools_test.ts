@@ -13,7 +13,7 @@ import {
   tcl,
   ver,
 } from "../../visuals/testing/mod.ts";
-import { ROUTES } from "../../../contracts/lophn-agent/mod.ts";
+import { ROUTES } from "../../../protocol/lophn-agent/mod.ts";
 import { ROLE_CAPS } from "../../agents/mod.ts";
 import {
   BUILTIN_TOOLS,

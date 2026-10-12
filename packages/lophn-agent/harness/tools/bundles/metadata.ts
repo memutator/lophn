@@ -1,18 +1,14 @@
 import { z } from "zod";
 import { ok } from "../../../../base/mod.ts";
-import {
-  appGet,
-  appIdSchema,
-  appList,
-} from "../../../../contracts/apps/mod.ts";
+import { appGet, appIdSchema, appList } from "../../../../protocol/apps/mod.ts";
 import {
   projectGet,
   projectIdSchema,
   projectList,
   readCursorSchema,
-} from "../../../../contracts/documents/mod.ts";
-import type { ToolResult } from "../../../../contracts/lophn-agent/mod.ts";
-import { archiveStateSchema } from "../../../../contracts/platform/mod.ts";
+} from "../../../../protocol/projects/mod.ts";
+import type { ToolResult } from "../../../../protocol/lophn-agent/mod.ts";
+import { archiveStateSchema } from "../../../../protocol/platform/mod.ts";
 import { fitJson, PAGE_SIZE } from "../result.ts";
 import type { ToolDefinition } from "../registry.ts";
 import type { ToolHandler } from "../work.ts";

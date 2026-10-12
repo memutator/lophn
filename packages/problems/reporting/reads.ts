@@ -11,14 +11,14 @@ import type {
   Output,
   ReadSnapshot,
   RequestContext,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import type { z } from "zod";
 import {
   getReport,
   getSnapshot,
   listReports,
   type snapshotItemSchema,
-} from "../../contracts/problems/mod.ts";
+} from "../../protocol/problems/mod.ts";
 
 type SnapshotItem = z.infer<typeof snapshotItemSchema>;
 

@@ -4,7 +4,7 @@ import type {
   App,
   RuntimeObservation,
   RuntimeState,
-} from "../../contracts/apps/mod.ts";
+} from "../../protocol/apps/mod.ts";
 
 const REL = "rel_01h455vb4pex5v6nkc6gd5fdw1";
 const REL2 = "rel_01h455vb4pex5v6nkc6gd5fdw2";

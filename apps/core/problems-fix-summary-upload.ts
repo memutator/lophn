@@ -4,7 +4,7 @@
 // 만들지 않는다). purpose와 상한은 problems/repairs가 등록한 값(`fix_summary`)이고 호출자가
 // 고르지 않는다.
 import { err, type Result } from "../../packages/base/mod.ts";
-import { problemsUploadFixSummary } from "../../packages/contracts/problems/mod.ts";
+import { problemsUploadFixSummary } from "../../packages/protocol/problems/mod.ts";
 import { FIX_BLOB_PURPOSES } from "../../packages/problems/repairs/mod.ts";
 import type { UploadHandler } from "../../packages/platform/api/mod.ts";
 import type { BlobPrepareCall } from "./core.ts";

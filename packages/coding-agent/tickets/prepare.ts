@@ -10,8 +10,8 @@ import {
   sourceRelativePathSchema,
   ticketCreateInputSchema,
   ticketReferenceInputSchema,
-} from "../../contracts/coding-agent/mod.ts";
-import { idSchema, sha256Schema } from "../../contracts/platform/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
+import { idSchema, sha256Schema } from "../../protocol/platform/mod.ts";
 
 export const REPAIR_PREPARE_SOURCE = {
   name: "coding-agent.tickets.RepairPrepareSource",

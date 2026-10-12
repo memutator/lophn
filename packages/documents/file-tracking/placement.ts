@@ -17,8 +17,8 @@ import type {
   Slug,
   TrackingPreview,
   TrackingRuleSet,
-} from "../../contracts/documents/mod.ts";
-import { parseActor } from "../../contracts/platform/mod.ts";
+} from "../../protocol/projects/mod.ts";
+import { parseActor } from "../../protocol/platform/mod.ts";
 import {
   decideTracking,
   deepestRegisteredRoot,

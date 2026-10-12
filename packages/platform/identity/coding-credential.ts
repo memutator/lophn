@@ -24,7 +24,7 @@ import {
   credentialDeliveryRequestSchema,
   credentialDeliveryResponseSchema,
   LOPHN_CONNECTION,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 import { constantTimeDigestEqual } from "./registry.ts";
 import type {
   ExternalCredential,

@@ -1,4 +1,4 @@
-import type { Contract } from "../../../contracts/documents/mod.ts";
+import type { Contract } from "../../../protocol/projects/mod.ts";
 import { applyRule } from "./run-rules.ts";
 import type { CheckEntity, ExternalKeys, RuleViolation } from "./types.ts";
 

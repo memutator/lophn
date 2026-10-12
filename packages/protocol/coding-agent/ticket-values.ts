@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { addressSchema } from "../documents/address.ts";
+import { addressSchema } from "../projects/address.ts";
 import { idSchema } from "../platform/ids.ts";
 import { atSchema, seqSchema, sha256Schema } from "../platform/values.ts";
 

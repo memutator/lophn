@@ -1,7 +1,7 @@
 import type {
   AgentPlace,
   McpServerConfig,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import { parsePlaceMcpFile, PLACE_MCP_FILE } from "./place-store.ts";
 
 // 모든 자리의 MCP 서버 모음(concern lophn-agent/extensions R32, R33). agent-runtime child의 Deno 권한

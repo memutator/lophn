@@ -6,16 +6,16 @@ import {
   ok,
   type Result,
 } from "../../base/mod.ts";
-import { appCreate } from "../../contracts/apps/mod.ts";
+import { appCreate } from "../../protocol/apps/mod.ts";
 import {
   documentMove,
   documentRename,
   type PlaceRef,
-} from "../../contracts/documents/mod.ts";
+} from "../../protocol/projects/mod.ts";
 import {
   applyQuestionOption,
   type OptionAction,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import {
   applySettings,
   type ChosenOptionCall,
@@ -26,7 +26,7 @@ import {
   parseActor,
   type SettingMutation,
   type Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { chosenActionOf, loadGroupOfQuestion } from "./model.ts";
 import { protectedSetting } from "./protected-settings.ts";
 

@@ -7,9 +7,9 @@ import type { LophnError } from "../../../base/mod.ts";
 import {
   type ConnectionId,
   connectionIdSchema,
-} from "../../../contracts/coding-agent/mod.ts";
-import { effectUnknownSchema } from "../../../contracts/coding-agent/mod.ts";
-import type { EffectUnknown } from "../../../contracts/coding-agent/mod.ts";
+} from "../../../protocol/coding-agent/mod.ts";
+import { effectUnknownSchema } from "../../../protocol/coding-agent/mod.ts";
+import type { EffectUnknown } from "../../../protocol/coding-agent/mod.ts";
 import {
   commandsResult,
   createRpcClient,
@@ -18,12 +18,12 @@ import {
   routePath,
   type RpcFetch,
   UPLOAD_INPUT_HEADER,
-} from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/platform/mod.ts";
 import type {
   CommandRoute,
   Route,
   UploadRoute,
-} from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/platform/mod.ts";
 import type { CredentialProvider } from "../credential/provider.ts";
 import { UNREADABLE_MESSAGE } from "../unreadable.ts";
 

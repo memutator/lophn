@@ -2,7 +2,7 @@
 import type {
   DeclaredSearch,
   SearchInput,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 import type { InputValues, SearchError } from "./types.ts";
 
 type Resolved =

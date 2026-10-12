@@ -11,7 +11,7 @@ import {
   type ChildMessage,
   type KindLaunchSpec,
   type ParentMessage,
-} from "../../../packages/contracts/platform/mod.ts";
+} from "../../../packages/protocol/platform/mod.ts";
 import {
   type ChildCallbacks,
   createSupervisor,

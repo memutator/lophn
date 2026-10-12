@@ -2,7 +2,7 @@ import { err, ok, type Result } from "../../base/mod.ts";
 import {
   type KindLaunchSpec,
   kindLaunchSpecSchema,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 
 // spec은 각 팀의 모듈이 선언하고 supervisor가 여기서 거절한다.
 // schema가 통과시킨 뒤에도 권한 범위를 넓히는 모양은 실행 전에 막는다.

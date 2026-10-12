@@ -1,5 +1,5 @@
 import { type Clock, err, ok, type Result } from "../../base/mod.ts";
-import type { BundleContent } from "../../contracts/documents/mod.ts";
+import type { BundleContent } from "../../protocol/projects/mod.ts";
 import {
   type IndexFiles,
   type IndexStore,

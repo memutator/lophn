@@ -23,7 +23,7 @@ import {
   type Writer,
 } from "../../packages/platform/ledger/mod.ts";
 import { createKnownSecretRegistry } from "../../packages/platform/redaction/mod.ts";
-import type { SecretPurpose } from "../../packages/contracts/platform/mod.ts";
+import type { SecretPurpose } from "../../packages/protocol/platform/mod.ts";
 import {
   type KeychainAdapter,
   productKeychain,

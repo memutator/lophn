@@ -19,20 +19,20 @@ import type {
   RequestContext,
   WorkerRequest,
   WorkerResponse,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import type { WorkerRouteTarget } from "../../packages/platform/responsiveness/mod.ts";
 import {
   DOCUMENT_OPS,
   type StatusMemory,
   type StatusObservation,
 } from "../../packages/documents/file-tracking/mod.ts";
-import { BLOB_READ_MAX_BYTES } from "../../packages/contracts/platform/mod.ts";
+import { BLOB_READ_MAX_BYTES } from "../../packages/protocol/platform/mod.ts";
 import {
   DOCUMENT_UPLOAD_MAX_BYTES,
   documentFile,
   searchQuery,
   searchStatus,
-} from "../../packages/contracts/documents/mod.ts";
+} from "../../packages/protocol/projects/mod.ts";
 import type { FileStreamHandler } from "../../packages/platform/api/mod.ts";
 import {
   DIRECT_ANSWER_ROUTE,

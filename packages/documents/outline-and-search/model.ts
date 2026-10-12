@@ -1,6 +1,6 @@
 import { canonicalize, err, ok, type Result } from "../../base/mod.ts";
-import type { RequestContext } from "../../contracts/platform/mod.ts";
-import type { LineRange } from "../../contracts/documents/mod.ts";
+import type { RequestContext } from "../../protocol/platform/mod.ts";
+import type { LineRange } from "../../protocol/projects/mod.ts";
 import { z } from "zod";
 
 // FTS5 trigram 규약과 짧은 query의 escaped LIKE를 한 근원으로 둔다.

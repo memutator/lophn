@@ -2,14 +2,14 @@ import { err, ok, type Result } from "../../base/mod.ts";
 import {
   handoffResult,
   handoffStatus,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import {
   parseActor,
   type ReadDefinition,
   type RequestContext,
   type SqlParams,
   type SqlRow,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   type HandoffRun,
   loadAssignmentRef,

@@ -4,7 +4,7 @@ import {
   definePort,
   type PortKey,
   type Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { deps, fileLedger, note, user } from "./command-harness.ts";
 import { defineSyncCommand } from "./handler.ts";
 import { recordNote } from "./test-commands.ts";

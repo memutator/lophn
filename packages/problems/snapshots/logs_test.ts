@@ -8,7 +8,7 @@ import {
   logEvidenceInputSchema,
   type ObservedExceptionInput,
   snapshotInputSchema,
-} from "../../contracts/problems/mod.ts";
+} from "../../protocol/problems/mod.ts";
 import { TEST_BLOB_FIELDS } from "../tests/mod.ts";
 import { reportBlobField } from "./blobs.ts";
 import { collectLogEvidence, type LogCollectionDeps } from "./logs.ts";

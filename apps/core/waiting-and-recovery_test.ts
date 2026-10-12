@@ -4,7 +4,7 @@
 // 시험이 준다) 실제 provider와 사람 데이터 root는 열지 않는다. 판정표·보이는 기다림·retry 대기의 순수
 // 규칙은 packages/lophn-agent/harness/waiting-and-recovery/waiting_test.ts가 본다.
 import { assert, assertEquals, assertNotEquals } from "@std/assert";
-import { answerQuestionAction } from "../../packages/contracts/lophn-agent/mod.ts";
+import { answerQuestionAction } from "../../packages/protocol/lophn-agent/mod.ts";
 import { settingsOptionAction } from "../../packages/lophn-agent/questions/mod.ts";
 import {
   actionOf,

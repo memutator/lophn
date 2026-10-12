@@ -12,7 +12,7 @@ export interface MessageContract {
 
 export async function messageContract(): Promise<MessageContract> {
   const url = new URL(
-    "../../../../../packages/contracts/lophn-agent/message-content.ts",
+    "../../../../../packages/protocol/lophn-agent/message-content.ts",
     import.meta.url,
   );
   return await import(url.href) as MessageContract;

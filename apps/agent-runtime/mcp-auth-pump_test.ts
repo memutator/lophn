@@ -2,7 +2,7 @@
 // 돌려준다. core는 가짜 CoreCall이고 발급자는 가짜 fetch다. 사람의 실제 발급자·core에 닿지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import { err, ok } from "../../packages/base/mod.ts";
-import type { McpAuthRequest } from "../../packages/contracts/lophn-agent/mod.ts";
+import type { McpAuthRequest } from "../../packages/protocol/lophn-agent/mod.ts";
 import type { CoreCall } from "./core-call.ts";
 import {
   MCP_AUTH_FETCH_TIMEOUT_MS,

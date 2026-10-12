@@ -7,8 +7,8 @@ import {
 import {
   assignmentRead,
   runRead,
-} from "../../packages/contracts/lophn-agent/mod.ts";
-import { routePath } from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
+import { routePath } from "../../packages/protocol/platform/mod.ts";
 import {
   createBuiltinToolHandlers,
   createContextLookupToolHandlers,

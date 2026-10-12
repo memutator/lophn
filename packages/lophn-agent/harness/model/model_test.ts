@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
-import type { AuthenticatedContext } from "../../../../packages/contracts/platform/mod.ts";
-import type { CatalogEntry } from "../../../../packages/contracts/lophn-agent/mod.ts";
+import type { AuthenticatedContext } from "../../../protocol/platform/mod.ts";
+import type { CatalogEntry } from "../../../protocol/lophn-agent/mod.ts";
 import { formatAt } from "../../../../packages/base/clock.ts";
 import { canonicalize, sha256Hex } from "../../../../packages/base/mod.ts";
 import {

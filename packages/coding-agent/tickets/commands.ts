@@ -5,7 +5,7 @@
 // (contracts#T41, problems/tests canonical 선례).
 import { createHash } from "node:crypto";
 import { canonicalize, err, ok, type Result } from "../../base/mod.ts";
-import { appRegistrationLookup } from "../../contracts/apps/mod.ts";
+import { appRegistrationLookup } from "../../protocol/apps/mod.ts";
 import {
   type AcceptanceCheck,
   ticketCreate,
@@ -14,12 +14,12 @@ import {
   ticketMadeReady,
   ticketMakeReady,
   type TicketMakeReadyInput,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 import type {
   CommandDefinition,
   RequestContext,
   Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   adoptionMatches,
   conditionInputsValid,

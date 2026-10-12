@@ -1,5 +1,5 @@
 import { assert, assertEquals, assertRejects } from "@std/assert";
-import { encodeFrame, type Frame } from "../../contracts/platform/mod.ts";
+import { encodeFrame, type Frame } from "../../protocol/platform/mod.ts";
 import { type ByteReader, type ByteWriter, readFrames } from "./frames.ts";
 import { type ChildStreams, startChild } from "./child.ts";
 

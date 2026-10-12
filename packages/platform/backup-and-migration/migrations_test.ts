@@ -1,7 +1,7 @@
 import { assert, assertEquals, assertThrows } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { manualClock, sha256Hex } from "../../base/mod.ts";
-import type { SchemaStep } from "../../contracts/platform/mod.ts";
+import type { SchemaStep } from "../../protocol/platform/mod.ts";
 import { applyMigrations, recoveryName } from "./mod.ts";
 
 const START = Date.parse("2026-01-01T00:00:00.000Z");

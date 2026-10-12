@@ -7,7 +7,7 @@ import { ok } from "../../../packages/base/mod.ts";
 import {
   BLOB_UNAVAILABLE_REASONS,
   BLOB_UNREFERENCED_GRACE_MS,
-} from "../../../packages/contracts/platform/mod.ts";
+} from "../../../packages/protocol/platform/mod.ts";
 import {
   unavailableAnswer,
 } from "../../../packages/platform/blob-store/mod.ts";

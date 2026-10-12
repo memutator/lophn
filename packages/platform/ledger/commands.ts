@@ -4,7 +4,7 @@ import {
   type CommandDefinition,
   type RequestContext,
   type Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { defineSyncCommand } from "./handler.ts";
 import { runAdmission } from "./run-admission.ts";
 

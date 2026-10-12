@@ -7,7 +7,7 @@ import { assert, assertEquals } from "@std/assert";
 import {
   mcpServersSetting,
   skillsOffSetting,
-} from "../../../../../../../packages/contracts/lophn-agent/mod.ts";
+} from "../../../../../../../packages/protocol/lophn-agent/mod.ts";
 import {
   assertCallsFitRoutes,
   authStateAnswer,

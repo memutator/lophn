@@ -8,7 +8,7 @@
 // 순환 참조: contexts.applied_bundle → context_bundles → contexts, context_bundles.check →
 // context_checks → context_bundles. 순환하는 두 열은 DEFERRABLE INITIALLY DEFERRED라서
 // 한 transaction 안에서 어떤 순서로 쓰든 commit 때 맞으면 된다.
-import type { SchemaStep } from "../../../contracts/platform/mod.ts";
+import type { SchemaStep } from "../../../protocol/platform/mod.ts";
 
 // GLOB은 문자 클래스 하나마다 패턴 길이를 세므로 긴 패턴은 거절된다. 접두사·길이·ULID 문자 집합을
 // 나누어 검사한다. 첫 글자는 시각 48bit의 상위 bit라 0~7이다(contracts/platform/ids.ts).

@@ -10,9 +10,9 @@ import {
   questionTextSchema,
   readCursorSchema,
   roleKindSchema,
-} from "../../../../contracts/lophn-agent/mod.ts";
-import { appCreateInputSchema } from "../../../../contracts/apps/mod.ts";
-import { atSchema, idSchema } from "../../../../contracts/platform/mod.ts";
+} from "../../../../protocol/lophn-agent/mod.ts";
+import { appCreateInputSchema } from "../../../../protocol/apps/mod.ts";
+import { atSchema, idSchema } from "../../../../protocol/platform/mod.ts";
 import { handoffBodyHash } from "../../../handoff/mod.ts";
 import { appCreateOptionAction } from "../../../questions/mod.ts";
 import {

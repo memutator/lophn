@@ -4,7 +4,7 @@
 // 바꾼 뒤(assignments/change-preset), 접수된 run이 external MCP tool을 통해
 // 가짜 stdio MCP child를 부르는지 본다. 사람의 실제 registry·실제 MCP server·실제 model
 // provider에 닿지 않는다.
-import { AGENT_RUNTIME_PRINCIPAL } from "../../packages/contracts/lophn-agent/mod.ts";
+import { AGENT_RUNTIME_PRINCIPAL } from "../../packages/protocol/lophn-agent/mod.ts";
 import { assert, assertEquals } from "@std/assert";
 import {
   createIdSource,
@@ -13,11 +13,11 @@ import {
   ok,
   seededRandom,
 } from "../../packages/base/mod.ts";
-import type { CallModel } from "../../packages/contracts/lophn-agent/mod.ts";
+import type { CallModel } from "../../packages/protocol/lophn-agent/mod.ts";
 import type {
   AuthenticatedContext,
   ChildMessage,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import {
   createAuthTransport,
   type SecretAttachLike,
@@ -47,7 +47,7 @@ import {
   mcpToolDefinitionHash,
   type McpToolEntry,
 } from "../../packages/lophn-agent/extensions/mod.ts";
-import { mcpServersSetting } from "../../packages/contracts/lophn-agent/mod.ts";
+import { mcpServersSetting } from "../../packages/protocol/lophn-agent/mod.ts";
 import { createRunDriver } from "../agent-runtime/run-driver.ts";
 import { createAgentCredentialLink } from "./agent-credentials.ts";
 import { startCore } from "./core.ts";

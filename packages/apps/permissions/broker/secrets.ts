@@ -6,8 +6,8 @@ import { ok, type Result } from "../../../base/mod.ts";
 import {
   brokerSecretUseInputSchema,
   type brokerSecretUseOutputSchema,
-} from "../../../contracts/apps/mod.ts";
-import type { SecretDestination } from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/apps/mod.ts";
+import type { SecretDestination } from "../../../protocol/platform/mod.ts";
 import type { z } from "zod";
 import type { EffectiveScope } from "../effective.ts";
 import {

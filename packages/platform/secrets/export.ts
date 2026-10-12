@@ -10,7 +10,7 @@ import type {
   SecretPreparation,
   SecretPrepareInput,
   SecretValue,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import type { KnownSecretRegistry } from "../redaction/mod.ts";
 import type { KeychainAdapter } from "./adapters/keychain.ts";
 import {

@@ -6,14 +6,14 @@ import {
   QUESTION_GROUP_MAX_QUESTIONS,
   type questionList,
   type QuestionOption,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import {
   type Output,
   type SettingMutation,
   settingMutationSchema,
   type SqlParams,
   type SqlRow,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import type { GroupState, GroupStatus } from "./group.ts";
 import type { StoredGroupContent } from "./text-blobs.ts";
 

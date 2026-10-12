@@ -3,12 +3,12 @@
 import { assert, assertEquals } from "@std/assert";
 import { createCoreHarness } from "../../../apps/core/testing/core.ts";
 import { createLedgerRegistration } from "../../../apps/core/apps.ts";
-import { FrameDecoder } from "../../contracts/platform/mod.ts";
+import { FrameDecoder } from "../../protocol/platform/mod.ts";
 import {
   INVOCATION_DELIVERY_BACKOFF_MAX_MS,
   INVOCATION_DELIVERY_MAX_BYTES,
   INVOCATION_DELIVERY_MAX_MESSAGES,
-} from "../../contracts/apps/mod.ts";
+} from "../../protocol/apps/mod.ts";
 import { deliveryBackoffMs } from "./delivery/backoff.ts";
 import {
   createDeliveryQueue,

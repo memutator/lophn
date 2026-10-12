@@ -3,7 +3,7 @@
 // 확인한다. 어긋남은 호출을 막지 않고 violations에 모은다(source가 오류로 삼켜 가리지 않게). test 끝에서
 // `verify()`로 한 번에 단언한다.
 import { z } from "zod";
-import { ALL_ROUTES } from "../../../../packages/contracts/mod.ts";
+import { ALL_ROUTES } from "../../../../packages/protocol/mod.ts";
 import type { CoreCall } from "../../ipc/core.ts";
 import type { CoreReply } from "../../ipc/core-api.ts";
 import type {

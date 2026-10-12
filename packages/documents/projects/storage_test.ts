@@ -1,7 +1,7 @@
 import { assert, assertEquals, assertThrows } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { ok } from "../../base/mod.ts";
-import type { Project } from "../../contracts/documents/mod.ts";
+import type { Project } from "../../protocol/projects/mod.ts";
 import { insertProject, loadProject } from "./store.ts";
 import { projectFromRows } from "./rows.ts";
 import { ids, projectFixture } from "./testing-fixture.ts";

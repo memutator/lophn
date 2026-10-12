@@ -7,8 +7,8 @@ import type {
   ContextValue,
   GlossaryEntry,
   SavedViewValue,
-} from "../../../contracts/documents/mod.ts";
-import type { Tx } from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/projects/mod.ts";
+import type { Tx } from "../../../protocol/platform/mod.ts";
 import { id, ids, T0 } from "../api/testing.ts";
 import {
   contextOf,

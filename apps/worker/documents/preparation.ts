@@ -5,11 +5,11 @@ import { type LophnError } from "../../../packages/base/mod.ts";
 import {
   projectPreviewTracking,
   projectPreviewTrackingInputSchema,
-} from "../../../packages/contracts/documents/mod.ts";
+} from "../../../packages/protocol/projects/mod.ts";
 import {
   type WorkerRequest,
   type WorkerResponse,
-} from "../../../packages/contracts/platform/mod.ts";
+} from "../../../packages/protocol/platform/mod.ts";
 import {
   type ChildSession,
   type ChildStreams,
@@ -26,7 +26,7 @@ import {
   readStably,
   scanRoot,
 } from "../../../packages/documents/file-tracking/mod.ts";
-import type { TrackingPattern } from "../../../packages/contracts/documents/mod.ts";
+import type { TrackingPattern } from "../../../packages/protocol/projects/mod.ts";
 import { PREPARATION_OPS } from "../../../packages/documents/file-tracking/ipc.ts";
 import { type ByteInbox, createByteInbox } from "./byte-inbox.ts";
 import {

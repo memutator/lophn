@@ -6,7 +6,7 @@ import {
   defineEvent,
   definePort,
   type Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   commands,
   deps,

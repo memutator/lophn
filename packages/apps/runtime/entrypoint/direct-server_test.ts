@@ -4,7 +4,7 @@ import {
   appConnectionSchema,
   commandInvokeInputSchema,
   controlOpenInputSchema,
-} from "@lophn/contracts/apps";
+} from "@lophn/protocol/apps";
 import { startRuntime } from "./startup.ts";
 import { startDirectServer } from "./direct-server.ts";
 import {

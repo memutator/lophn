@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type { GrantRevokeInput } from "../../../contracts/apps/mod.ts";
+import type { GrantRevokeInput } from "../../../protocol/apps/mod.ts";
 import {
   type AppProcesses,
   createGrantApplier,

@@ -5,7 +5,7 @@ import {
   type KindLaunchSpec,
   questionOption,
   type ReadDefinition,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import {
   defineTxPort,
   type EventRegistration,
@@ -31,7 +31,7 @@ import {
   runStarted,
   takeRewindSummaryRequest,
   withdrawAssignment,
-} from "../../packages/contracts/lophn-agent/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
 import { notificationsOnlyVisibility } from "./platform.ts";
 import type {
   CommandDefinition,
@@ -39,7 +39,7 @@ import type {
   EventVisibilityDefinition,
   SqlRow,
   Tx,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import {
   approvalRunLineage,
   createApprovalCommands,
@@ -162,7 +162,7 @@ import {
 import {
   appDirectSocketPaths,
   SOCKET_HOST,
-} from "../../packages/contracts/apps/mod.ts";
+} from "../../packages/protocol/apps/mod.ts";
 import {
   type AgentPlace,
   type AgentRole,
@@ -178,7 +178,7 @@ import {
   skillFoldersSetting,
   skillsOffSetting,
   TOOL_DOCUMENT_ROUTES,
-} from "../../packages/contracts/lophn-agent/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
 import {
   allowNetList,
   allowRunList,

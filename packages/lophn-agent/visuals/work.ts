@@ -2,7 +2,7 @@ import { err, ok, type Result } from "../../base/mod.ts";
 import {
   TOOL_TEXT_MAX_BYTES,
   type VisualBlock,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 
 // 문서로 남기기의 준비(lophn-agent/visuals#R6, R7). 확정 메시지에서 고른 블록의 고정 명세·설명·출처와
 // 그 순간의 데이터를 실행 코드 없는 HTML 글로 만든다. 글만 만든다: blob 준비·hash 계산·문서 저장은

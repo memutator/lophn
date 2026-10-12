@@ -17,7 +17,7 @@ import {
   appViewClosed,
   releaseCancelPreparation,
   releasePreparation,
-} from "../../packages/contracts/apps/mod.ts";
+} from "../../packages/protocol/apps/mod.ts";
 import { createInvocationsCommands } from "../../packages/apps/invocations/commands.ts";
 import { createConfirmCommands } from "../../packages/apps/invocations/confirm.ts";
 import { createInvocationsReads } from "../../packages/apps/invocations/reads.ts";
@@ -46,11 +46,11 @@ import { checkTicketClaim } from "../../packages/coding-agent/tickets/claims.ts"
 import {
   TicketClaimCheck,
   type TicketClaimChecker,
-} from "../../packages/contracts/coding-agent/mod.ts";
+} from "../../packages/protocol/coding-agent/mod.ts";
 import {
   AppTestVerificationLookupPort,
   ProblemWordingPort,
-} from "../../packages/contracts/problems/mod.ts";
+} from "../../packages/protocol/problems/mod.ts";
 import { findAppTestVerification } from "../../packages/problems/tests/app-test-lookup.ts";
 import { createRuntimeCommands } from "../../packages/apps/runtime/commands.ts";
 import { createRuntimeReads } from "../../packages/apps/runtime/reads.ts";
@@ -67,7 +67,7 @@ import { createDataRecordStore } from "../../packages/apps/data/store.ts";
 import {
   type PlaceNameReservation,
   placeNameReservation,
-} from "../../packages/contracts/documents/mod.ts";
+} from "../../packages/protocol/projects/mod.ts";
 import { createPlaceNameReservation } from "../../packages/documents/addressing/mod.ts";
 import {
   appArchived,
@@ -77,14 +77,14 @@ import {
   releaseActivated,
   releaseActivationFailed,
   releaseSuperseded,
-} from "../../packages/contracts/apps/mod.ts";
-import { SecretAllowance } from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/apps/mod.ts";
+import { SecretAllowance } from "../../packages/protocol/platform/mod.ts";
 import type {
   EventRegistration,
   ReaderRegistration,
   TxPortRegistration,
 } from "../../packages/platform/ledger/mod.ts";
-import type { WorkerRoute } from "../../packages/contracts/platform/mod.ts";
+import type { WorkerRoute } from "../../packages/protocol/platform/mod.ts";
 import { ticketCheckFeedVisibility } from "./ticket-checker.ts";
 import { visibleToProblemsClosing } from "./problems-closing.ts";
 import {

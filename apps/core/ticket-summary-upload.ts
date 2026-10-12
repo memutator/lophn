@@ -4,7 +4,7 @@
 // 만들지 않는다). purpose와 상한은 ticket concern이 등록한 값(`ticketDefinitions.blobPurposes`)이고
 // 호출자가 고르지 않는다.
 import { err, type Result } from "../../packages/base/mod.ts";
-import { ticketUploadSummary } from "../../packages/contracts/coding-agent/mod.ts";
+import { ticketUploadSummary } from "../../packages/protocol/coding-agent/mod.ts";
 import type { UploadHandler } from "../../packages/platform/api/mod.ts";
 import type { BlobPrepareCall } from "./core.ts";
 import type { PreparedRelayResult } from "./blob-prepare.ts";

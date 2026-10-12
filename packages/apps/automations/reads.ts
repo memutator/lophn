@@ -10,8 +10,8 @@ import {
   type AutomationView,
   type RuntimeObservation,
   type RuntimeReason,
-} from "../../contracts/apps/mod.ts";
-import type { ReadDefinition, Sql } from "../../contracts/platform/mod.ts";
+} from "../../protocol/apps/mod.ts";
+import type { ReadDefinition, Sql } from "../../protocol/platform/mod.ts";
 import { authorizeApp, loadApp } from "../registration/mod.ts";
 import {
   type AppDeclarations,

@@ -4,8 +4,8 @@
 // keychain은 fake이고 발급자는 이 시험이 연 localhost server다. 사람의 실제 keychain·browser에 닿지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
-import { mcpServersSetting } from "../../packages/contracts/lophn-agent/mod.ts";
-import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
+import { mcpServersSetting } from "../../packages/protocol/lophn-agent/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
 import {
   MCP_SECRET_OWNER,
   mcpTokenRef,

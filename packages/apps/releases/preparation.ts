@@ -3,7 +3,7 @@
 // 요청은 `unknown`이며 성공으로 다시 쓰지 않는다. 준비 한 번의 실제 일(commit 추출·build·봉인)은
 // `PreparationRunner`가 하고 취소는 그 실행의 signal과 종료 확인으로 한다.
 import { err, ok, type Result } from "../../base/mod.ts";
-import type { BundleManifest } from "../../contracts/apps/mod.ts";
+import type { BundleManifest } from "../../protocol/apps/mod.ts";
 
 export type PreparationStatus =
   | "preparing"

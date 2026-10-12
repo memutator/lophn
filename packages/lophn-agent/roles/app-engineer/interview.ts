@@ -2,8 +2,8 @@ import type {
   HandoffContent,
   HandoffReference,
   QuestionOption,
-} from "@lophn/contracts/lophn-agent";
-import { handoffAllowed } from "@lophn/contracts/lophn-agent";
+} from "@lophn/protocol/lophn-agent";
+import { handoffAllowed } from "@lophn/protocol/lophn-agent";
 import { err, ok, type Result } from "../../../base/mod.ts";
 
 // App Engineer 인터뷰 규칙(roles/app-engineer R4, R7, R8). 순수 함수다: IO·시계·model

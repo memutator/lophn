@@ -12,7 +12,7 @@ import {
   glossarySetRequestSchema,
   type glossarySetRoute,
   optionalBaseRevisionSchema,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 import type { Call, ContextApiCommands } from "./commands.ts";
 import { withReplay } from "./commands-common.ts";
 import {

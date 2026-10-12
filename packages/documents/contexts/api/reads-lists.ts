@@ -1,6 +1,6 @@
 // context API 읽기: context.violations·bundles·glossary.list.
 import { ok } from "../../../base/mod.ts";
-import type { ViolationKey } from "../../../contracts/documents/mod.ts";
+import type { ViolationKey } from "../../../protocol/projects/mod.ts";
 import type { ContextApiReads } from "./reads.ts";
 import {
   checkReader,

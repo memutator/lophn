@@ -5,7 +5,7 @@ import {
   defineRead,
   type ReadSnapshot,
   withReadCommon,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { KNOWN_SECRETS } from "./known-secrets.ts";
 import {
   executeRead,
@@ -18,7 +18,7 @@ import {
   readerStorage,
 } from "./reader-connection.ts";
 import { DatabaseSync } from "node:sqlite";
-import type { RequestContext } from "../../contracts/platform/mod.ts";
+import type { RequestContext } from "../../protocol/platform/mod.ts";
 
 export function storageRegression(ctx: RequestContext): Result<unknown>[] {
   const results: Result<unknown>[] = [];

@@ -26,9 +26,9 @@ import {
   MCP_PROBLEM_ROUTES,
   problemHandlerSchema,
   problemTicketSourceSchema,
-} from "../../../contracts/coding-agent/mod.ts";
-import { recordProblemFixToolInputSchema } from "../../../contracts/problems/mod.ts";
-import { idSchema } from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/coding-agent/mod.ts";
+import { recordProblemFixToolInputSchema } from "../../../protocol/problems/mod.ts";
+import { idSchema } from "../../../protocol/platform/mod.ts";
 import {
   openProblemAttachment,
   type ProblemOp,

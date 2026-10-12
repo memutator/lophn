@@ -7,12 +7,12 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   sessionRead,
   toolCallList,
-} from "../../../contracts/lophn-agent/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
 import {
   approvalsList,
   eventsList,
   routePath,
-} from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/platform/mod.ts";
 import {
   type BasisSnapshot,
   type CoreCall,

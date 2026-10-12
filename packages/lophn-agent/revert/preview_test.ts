@@ -1,6 +1,6 @@
 import { assert, assertEquals, assertNotEquals } from "@std/assert";
-import { rewindPreviewOutputSchema } from "../../contracts/lophn-agent/mod.ts";
-import type { PreviewItem } from "../../contracts/lophn-agent/mod.ts";
+import { rewindPreviewOutputSchema } from "../../protocol/lophn-agent/mod.ts";
+import type { PreviewItem } from "../../protocol/lophn-agent/mod.ts";
 import type { FileStat, JudgedFile } from "./judge.ts";
 import { assemblePreview, type PreviewInput } from "./preview.ts";
 import { APP, INV, MSG, REL, sha256, TCL } from "./testing/mod.ts";

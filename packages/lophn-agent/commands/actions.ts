@@ -2,7 +2,7 @@ import type { LophnError, Result } from "../../base/mod.ts";
 import type {
   BUILTIN_COMMAND_IDS,
   CommandEntry,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import { resolveSubmission } from "./list.ts";
 import type { CommandRegistry } from "./registry.ts";
 import { skillPrompt, withArgument } from "./role-prompts.ts";

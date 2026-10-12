@@ -7,7 +7,7 @@ import {
   billingRouteOf,
   credentialUsable,
 } from "./credentials.ts";
-import type { ProviderCredential } from "../../../contracts/lophn-agent/mod.ts";
+import type { ProviderCredential } from "../../../protocol/lophn-agent/mod.ts";
 import { failureVerdict } from "./failures.ts";
 import * as credentials from "./credentials.ts";
 const NOW = Date.UTC(2026, 0, 1);

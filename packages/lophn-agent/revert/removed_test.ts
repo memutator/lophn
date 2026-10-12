@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import {
   REVERT_EVENTS,
   REVERT_ROUTES,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 
 // 옛 "run 되돌리기"가 없어졌음을 본다(agent-RW3a의 첫 일). owner 기반 판정·run 단위 revert는 새
 // 설계에 맞지 않아 고치지 않고 지운다(AGENTS.md 호환성).

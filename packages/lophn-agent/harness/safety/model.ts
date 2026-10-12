@@ -1,5 +1,5 @@
 import { canonicalize, sha256Hex } from "../../../base/mod.ts";
-import type { ToolOutcome } from "../../../contracts/lophn-agent/mod.ts";
+import type { ToolOutcome } from "../../../protocol/lophn-agent/mod.ts";
 
 // 같은 요청 비교(domain-model lophn-agent/harness/safety RepeatedFailure).
 // tool·대상·입력이 같은 경우만 같다. canonical JSON은 객체 key 순서만 무시하고

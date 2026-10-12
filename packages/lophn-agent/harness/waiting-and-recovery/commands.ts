@@ -11,8 +11,8 @@ import {
   runResumed,
   runWaited,
   waitRun,
-} from "../../../contracts/lophn-agent/mod.ts";
-import type { createApprovalRequest } from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
+import type { createApprovalRequest } from "../../../protocol/platform/mod.ts";
 import {
   type CommandDefinition,
   type Input,
@@ -20,7 +20,7 @@ import {
   parseActor,
   type RequestContext,
   type Tx,
-} from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/platform/mod.ts";
 import { loadMessage } from "../../conversation/mod.ts";
 import {
   appliedOf,

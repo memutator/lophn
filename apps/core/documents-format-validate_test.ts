@@ -6,11 +6,11 @@ import { err, ok } from "../../packages/base/mod.ts";
 import {
   formatValidate,
   formatValidationPageSchema,
-} from "../../packages/contracts/documents/mod.ts";
+} from "../../packages/protocol/projects/mod.ts";
 import type {
   WorkerRequest,
   WorkerResponse,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import { filesHash } from "../../packages/documents/versions/mod.ts";
 import { canonicalFilesHash } from "../../packages/coding-agent/connection/mod.ts";
 import { formatValidateRoute } from "./documents-format-validate.ts";

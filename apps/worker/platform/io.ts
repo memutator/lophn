@@ -44,7 +44,7 @@ import {
   SETTINGS_EXPORT_OP,
   SETTINGS_IMPORT_OP,
   STREAM_CHUNK_MAX_BYTES,
-} from "../../../packages/contracts/platform/mod.ts";
+} from "../../../packages/protocol/platform/mod.ts";
 import {
   createSecretWork,
   productKeychain,

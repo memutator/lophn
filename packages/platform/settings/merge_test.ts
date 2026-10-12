@@ -3,7 +3,7 @@ import type { Result } from "../../base/mod.ts";
 import type {
   AuthenticatedContext,
   SqlRow,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 
 // harness 값 타입만 선언한다. platform ledger 모듈과 settings 모듈의 전체
 // 타입을 부르지 않기 위해서다(packages/documents/projects/ledger_test.ts 관례).

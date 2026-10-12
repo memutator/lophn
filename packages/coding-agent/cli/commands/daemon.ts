@@ -11,8 +11,8 @@ import {
   cliDaemonStatusSchema,
   cliDaemonStopSchema,
   HUMAN_ONLY_NAMES,
-} from "../../../contracts/coding-agent/mod.ts";
-import { QUIT_FLAG, TRAY_FLAG } from "../../../contracts/shell/mod.ts";
+} from "../../../protocol/coding-agent/mod.ts";
+import { QUIT_FLAG, TRAY_FLAG } from "../../../protocol/shell/mod.ts";
 import { err, type LophnError, ok, type Result } from "../../../base/mod.ts";
 import type { CommandEntry } from "./types.ts";
 

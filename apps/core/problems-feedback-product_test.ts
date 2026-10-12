@@ -4,7 +4,7 @@
 // octet-stream body. view 오류의 binding은 그 core의 signer가 서명한 연결이다.
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
-import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
 import {
   APP_A,
   AT,

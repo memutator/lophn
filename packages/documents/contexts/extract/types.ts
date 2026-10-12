@@ -5,7 +5,7 @@ import type {
   ContractSource,
   ContractType,
   FieldFrom,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 
 // ---------- 입력 ----------
 

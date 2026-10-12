@@ -3,7 +3,7 @@ import {
   type BundledGuide,
   bundledGuideSchema,
   type ContentFile,
-} from "@lophn/contracts/documents";
+} from "@lophn/protocol/projects";
 import { GUIDE_MEDIA_TYPE, GUIDE_SOURCES } from "./guides/catalog.ts";
 import type { GuideSource } from "./guides/catalog.ts";
 import { prepareGuideText, requireLophnVersion } from "./model.ts";

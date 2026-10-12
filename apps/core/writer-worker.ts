@@ -1,5 +1,5 @@
 import { err, internalError, type Result } from "../../packages/base/mod.ts";
-import type { CommandDefinition } from "../../packages/contracts/platform/mod.ts";
+import type { CommandDefinition } from "../../packages/protocol/platform/mod.ts";
 import {
   executeCommand,
   readOwnResult,
@@ -101,7 +101,7 @@ async function handle(
 ): Promise<void> {
   if (data.op === "confirmation") {
     const { confirmationHandleRegisterSchema } = await import(
-      "../../packages/contracts/platform/mod.ts"
+      "../../packages/protocol/platform/mod.ts"
     );
     const registry = registration.confirmationRegistry;
     if (data.action === "clear") {
@@ -188,7 +188,7 @@ async function handle(
   if (data.op === "record-credential") {
     const { recordCredential } = await import("./credentials.ts");
     const { authenticatedContextSchema } = await import(
-      "../../packages/contracts/platform/mod.ts"
+      "../../packages/protocol/platform/mod.ts"
     );
     const parsed = authenticatedContextSchema.safeParse(data.context);
     const recorded = parsed.success

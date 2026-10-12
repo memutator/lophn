@@ -19,8 +19,8 @@ import {
   sessionCompactRequests,
   startModelCall,
   takeRewindSummaryRequest,
-} from "../../packages/contracts/lophn-agent/mod.ts";
-import { routePath } from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
+import { routePath } from "../../packages/protocol/platform/mod.ts";
 import type { ModelCallOutput } from "../../packages/lophn-agent/harness/provider/work.ts";
 import { summaryOutputCap } from "../../packages/lophn-agent/harness/prompt-assemble/mod.ts";
 import { type Compactor, createCompactor } from "./compact.ts";

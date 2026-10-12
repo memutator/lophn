@@ -11,7 +11,7 @@ import {
   type RunCredential,
 } from "../../harness/tools/mod.ts";
 import { createAgentToolHandlers } from "../../harness/tools/mod.ts";
-import { HANDOFF_DIRECTIONS } from "@lophn/contracts/lophn-agent";
+import { HANDOFF_DIRECTIONS } from "@lophn/protocol/lophn-agent";
 import {
   checkDraftSubmission,
   checkPlan,

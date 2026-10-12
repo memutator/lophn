@@ -5,8 +5,8 @@
 // item의 run 메모리 재전송도 여기다. 오류 코드의 HTTP·본문 분류는 failures.ts가
 // 맡는다(T15). 실제 OpenAI API는 부르지 않는다.
 
-import type { TokenUsage } from "../../../../contracts/lophn-agent/mod.ts";
-import type { JsonObject } from "../../../../contracts/platform/mod.ts";
+import type { TokenUsage } from "../../../../protocol/lophn-agent/mod.ts";
+import type { JsonObject } from "../../../../protocol/platform/mod.ts";
 import type { ToolCall } from "./messages.ts";
 import { mergeRequestPatch } from "./request-patch.ts";
 import type { SseFrame } from "./stream.ts";

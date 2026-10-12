@@ -11,11 +11,11 @@ import {
 import {
   assignmentList,
   createBuiltinAssignment,
-} from "../../packages/contracts/lophn-agent/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
 import type {
   AuthenticatedContext,
   ReadRoute,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import type { Writer } from "../../packages/platform/ledger/mod.ts";
 
 export const BOOTSTRAP_PRINCIPAL = "machine:lophn-agent-bootstrap";

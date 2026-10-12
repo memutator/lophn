@@ -3,7 +3,7 @@ import type {
   AgentRole,
   AssignmentScope,
   WorkPlace,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 
 // 사람 지침(LOPHN.md)의 층·작업 자리·상한을 고르는 순수 규칙이다. LOPHN.md는 document·판을 쓰지 않는
 // 그냥 파일이라 읽을 때마다 파일에서 읽는다. 파일 읽기와 hash는 work.ts, 파일을 여는 쪽은 core다

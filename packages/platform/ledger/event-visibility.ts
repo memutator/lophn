@@ -11,7 +11,7 @@ import {
   type ReadSnapshot,
   type RequestContext,
   type Subject,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { validateOutput } from "./output.ts";
 
 export type EventReadGate = (

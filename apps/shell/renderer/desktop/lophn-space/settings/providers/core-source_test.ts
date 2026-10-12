@@ -6,8 +6,8 @@ import { assert, assertEquals } from "@std/assert";
 import {
   providerDefinitions,
   registerProvider,
-} from "../../../../../../../packages/contracts/lophn-agent/mod.ts";
-import { confirmationOpenIntentSchema } from "../../../../../../../packages/contracts/shell/confirmation.ts";
+} from "../../../../../../../packages/protocol/lophn-agent/mod.ts";
+import { confirmationOpenIntentSchema } from "../../../../../../../packages/protocol/shell/confirmation.ts";
 import {
   assertCallsFitRoutes,
   fail,

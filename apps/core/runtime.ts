@@ -9,8 +9,8 @@ import type {
   AuthenticatedContext,
   RequestContext,
   Route,
-} from "../../packages/contracts/platform/mod.ts";
-import { authenticatedContextSchema } from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
+import { authenticatedContextSchema } from "../../packages/protocol/platform/mod.ts";
 import type {
   MemoryHandler,
   ReadHandler,
@@ -48,7 +48,7 @@ import type {
   BlobReadInput,
   PreparedBlob,
   SecretPreparation,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import {
   finishBlobRead,
   planBlobRead,
@@ -61,11 +61,8 @@ import {
   authorize,
   CONDITION_TARGET_KEYS,
 } from "../../packages/platform/identity/mod.ts";
-import { packagesGuideBody } from "../../packages/contracts/apps/mod.ts";
-import {
-  getReport,
-  reportBody,
-} from "../../packages/contracts/problems/mod.ts";
+import { packagesGuideBody } from "../../packages/protocol/apps/mod.ts";
+import { getReport, reportBody } from "../../packages/protocol/problems/mod.ts";
 import {
   PACKAGE_GUIDE_BLOB_FIELD_NAME,
   PACKAGE_GUIDE_BLOB_OWNER_KIND,

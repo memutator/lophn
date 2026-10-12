@@ -2,7 +2,7 @@ import { assert, assertEquals, assertFalse } from "@std/assert";
 import type {
   FileOperationResult,
   FileTarget,
-} from "../../contracts/documents/mod.ts";
+} from "../../protocol/projects/mod.ts";
 import { projectsSchemaSteps } from "../projects/mod.ts";
 import { ids, userContext, versionFixture } from "../versions/testing/mod.ts";
 import { createFileCommands } from "./commands.ts";

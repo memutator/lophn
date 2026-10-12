@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
-import type { TestObservationFrame } from "../../../contracts/problems/mod.ts";
+import type { TestObservationFrame } from "../../../protocol/problems/mod.ts";
 import { canonicalHash } from "../canonical.ts";
 import {
   ADJACENT_FRAME,

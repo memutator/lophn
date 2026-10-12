@@ -5,12 +5,12 @@ import type {
   Input,
   RequestContext,
   Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import type {
   GroupKey,
   ReportBlobInput,
   SnapshotInput,
-} from "../../contracts/problems/mod.ts";
+} from "../../protocol/problems/mod.ts";
 import {
   problemObserved,
   problemOpened,
@@ -18,9 +18,9 @@ import {
   recordReport,
   reportRecorded,
   snapshotRecorded,
-} from "../../contracts/problems/mod.ts";
+} from "../../protocol/problems/mod.ts";
 import { insertSnapshot } from "../snapshots/mod.ts";
-import type { Output } from "../../contracts/platform/mod.ts";
+import type { Output } from "../../protocol/platform/mod.ts";
 import {
   findProblem,
   findReport,

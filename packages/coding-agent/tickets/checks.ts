@@ -10,12 +10,12 @@ import {
   type TicketCondition,
   ticketConfirmed,
   ticketRecordChecks,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 import type {
   CommandDefinition,
   ReadDefinition,
   Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { revisionAgrees } from "./claims.ts";
 import { nextCursor, pageAfter } from "./cursor.ts";
 import {

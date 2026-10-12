@@ -8,11 +8,11 @@ import {
   ok,
   type Result,
 } from "../../packages/base/mod.ts";
-import { documentPrepare } from "../../packages/contracts/documents/mod.ts";
+import { documentPrepare } from "../../packages/protocol/projects/mod.ts";
 import type {
   WorkerRequest,
   WorkerResponse,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import type { WorkerRouteHandle } from "../../packages/platform/responsiveness/mod.ts";
 import {
   type BlobSink,
@@ -24,7 +24,7 @@ import {
   type PrepareFilesPort,
 } from "../../packages/documents/versions/work.ts";
 import { canonicalFilesJson } from "../../packages/documents/versions/model.ts";
-import type { ContentFile } from "../../packages/contracts/documents/mod.ts";
+import type { ContentFile } from "../../packages/protocol/projects/mod.ts";
 
 // canonical JSON을 고정 크기 chunk로 끊는다. 한 chunk가 목록 전체가 되지 않게
 // 상한을 둔다. 작은 목록도 최소 한 번은 끊긴 stream으로 흐른다.

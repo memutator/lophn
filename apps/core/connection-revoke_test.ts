@@ -13,7 +13,7 @@ import { err, ok, type Result } from "../../packages/base/mod.ts";
 import { createCoreClient } from "../../packages/coding-agent/connection/client/core.ts";
 import { createTicketTool } from "../../packages/coding-agent/mcp-server/tools/ticket.ts";
 import { resolveRoute } from "../../packages/coding-agent/mcp-server/registry.ts";
-import { connectionRevoke } from "../../packages/contracts/coding-agent/mod.ts";
+import { connectionRevoke } from "../../packages/protocol/coding-agent/mod.ts";
 import { confirmationBinding } from "../../packages/platform/identity/mod.ts";
 import {
   codingCredentialRef,

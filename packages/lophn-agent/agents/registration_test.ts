@@ -4,8 +4,8 @@ import type {
   AgentRole,
   AgentSettings,
   McpTool,
-} from "../../contracts/lophn-agent/mod.ts";
-import type { Tx } from "../../contracts/platform/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
+import type { Tx } from "../../protocol/platform/mod.ts";
 import { createNodeAgentFiles } from "./adapters/node-fs.ts";
 import {
   type AgentFileSystem,

@@ -3,7 +3,7 @@ import {
   type AuthenticatedContext,
   EVENT_SUBSCRIBE_SUBPROTOCOL,
   parseClientEventFrame,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   createEventSession,
   type EventBackend,

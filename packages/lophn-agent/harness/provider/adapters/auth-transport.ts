@@ -7,7 +7,7 @@ import { err, ok, type Result } from "../../../../base/mod.ts";
 import type {
   SecretSendInput,
   SecretUse,
-} from "../../../../contracts/platform/mod.ts";
+} from "../../../../protocol/platform/mod.ts";
 
 export type SecretAttachLike = {
   send(

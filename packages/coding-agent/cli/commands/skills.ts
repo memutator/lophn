@@ -7,7 +7,7 @@ import {
   cliSkillsInstallSchema,
   cliSkillsListSchema,
   type IntegrationTarget,
-} from "../../../contracts/coding-agent/mod.ts";
+} from "../../../protocol/coding-agent/mod.ts";
 import type { Distribution, SkillsInstallOutcome } from "../../guides/mod.ts";
 import type { CommandOutput } from "./connection.ts";
 import type { CommandEntry } from "./types.ts";

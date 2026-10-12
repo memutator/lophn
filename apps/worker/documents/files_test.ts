@@ -1,7 +1,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { err, ok, type Result } from "../../../packages/base/mod.ts";
 import type { LophnError } from "../../../packages/base/mod.ts";
-import type { FileOperationResult } from "../../../packages/contracts/documents/mod.ts";
+import type { FileOperationResult } from "../../../packages/protocol/projects/mod.ts";
 import {
   createStatusRecorder,
   DOCUMENT_OPS,

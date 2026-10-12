@@ -4,7 +4,7 @@
 // 알고리즘 실패는 공통 오류 코드 그대로 돌려주고 경로·본문은 응답에 넣지 않는다.
 import { err, ok, type Result } from "../../../packages/base/mod.ts";
 import type { LophnError } from "../../../packages/base/mod.ts";
-import type { WorkerRequest } from "../../../packages/contracts/platform/mod.ts";
+import type { WorkerRequest } from "../../../packages/protocol/platform/mod.ts";
 import { denoFileOps } from "../../../packages/documents/file-tracking/adapters/file-ops.ts";
 import {
   createFileSerializer,

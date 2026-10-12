@@ -3,7 +3,7 @@ import type {
   Contract,
   ResultView,
   SearchQuery,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 import { compareValues, declaredValues } from "./board-lanes.ts";
 import { refAt, refOf, valueAt } from "./row.ts";
 import type { BoardLane, BoardResult, ResultRow, Row } from "./types.ts";

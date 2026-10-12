@@ -9,7 +9,7 @@ import {
   bundleManifestSchema,
   type DataChange,
   dataChangeSchema,
-} from "../../../contracts/apps/mod.ts";
+} from "../../../protocol/apps/mod.ts";
 import { validateBlueprint } from "../../blueprint/mod.ts";
 import {
   appFlags,

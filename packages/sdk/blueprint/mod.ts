@@ -25,10 +25,10 @@ export type {
   SDKDependency,
   ValidationError,
   ValidationResult,
-} from "../../contracts/apps/blueprint.ts";
+} from "../../protocol/apps/blueprint.ts";
 export {
   canonicalInputHash,
   validateBlueprint,
   validateInput,
-} from "../../contracts/apps/blueprint.ts";
+} from "../../protocol/apps/blueprint.ts";
 export { defineAgentContext, defineBlueprint } from "./define.ts";

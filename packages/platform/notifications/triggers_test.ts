@@ -19,7 +19,7 @@ import {
   type ApprovalEffectInput,
   type AuthenticatedContext,
   type RequestContext,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { applyMigrations } from "../backup-and-migration/mod.ts";
 import {
   APPROVAL_SCHEMA_STEPS,
@@ -37,14 +37,14 @@ import { openEventsBackend } from "../ledger/testing/mod.ts";
 import {
   questionCreated,
   runFinished,
-} from "../../contracts/lophn-agent/mod.ts";
-import { releaseActivationFailed } from "../../contracts/apps/mod.ts";
-import { contextViolationsRecordedEvent } from "../../contracts/documents/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
+import { releaseActivationFailed } from "../../protocol/apps/mod.ts";
+import { contextViolationsRecordedEvent } from "../../protocol/projects/mod.ts";
 import {
   ticketCheckFailed,
   ticketConfirmed,
-} from "../../contracts/coding-agent/mod.ts";
-import { problemOpened } from "../../contracts/problems/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
+import { problemOpened } from "../../protocol/problems/mod.ts";
 import {
   createNotificationCommand,
   NOTIFICATION_SUBSCRIBER,

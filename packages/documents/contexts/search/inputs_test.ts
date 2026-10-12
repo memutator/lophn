@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { declaredSearchSchema } from "../../../contracts/documents/mod.ts";
+import { declaredSearchSchema } from "../../../protocol/projects/mod.ts";
 import { resolveInputs } from "./inputs.ts";
 import { fixtureBundle } from "./testing.ts";
 import type { SearchErrorCode } from "./types.ts";

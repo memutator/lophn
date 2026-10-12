@@ -1,7 +1,7 @@
 // T13: test command와 ticket 조건 연결. 임시 파일 SQLite/WAL ledger probe로
 // ticket 없는 test command 접수부터 TicketTestLink가 붙은 결과까지 실제 표에서 본다.
 import { assert, assertEquals } from "@std/assert";
-import { ticketTestLinkInputSchema } from "../../contracts/problems/mod.ts";
+import { ticketTestLinkInputSchema } from "../../protocol/problems/mod.ts";
 import type { Result } from "../../base/mod.ts";
 import {
   appendActualSideStart,

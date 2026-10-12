@@ -1,7 +1,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { err, ok } from "../../base/mod.ts";
-import type { AuthenticatedContext } from "../../contracts/platform/mod.ts";
-import type { AgentAppScope } from "../../contracts/lophn-agent/mod.ts";
+import type { AuthenticatedContext } from "../../protocol/platform/mod.ts";
+import type { AgentAppScope } from "../../protocol/lophn-agent/mod.ts";
 import {
   type AgentCredentialScope,
   authorize,

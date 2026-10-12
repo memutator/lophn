@@ -1,9 +1,9 @@
 import { assert, assertEquals } from "@std/assert";
-import type { AgentPlace } from "../../contracts/lophn-agent/mod.ts";
+import type { AgentPlace } from "../../protocol/lophn-agent/mod.ts";
 import type {
   ReadSnapshot,
   RequestContext,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { createAgentReads } from "./mod.ts";
 import type { AgentDeps, AgentLookups } from "./ports.ts";
 

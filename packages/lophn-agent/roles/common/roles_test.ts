@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
-import type { AgentRole } from "@lophn/contracts/lophn-agent";
+import type { AgentRole } from "@lophn/protocol/lophn-agent";
 import {
   APP_COMMAND_EXPOSURE,
   type AppCommandExposure,

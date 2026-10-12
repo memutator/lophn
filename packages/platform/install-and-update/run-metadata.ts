@@ -2,7 +2,7 @@ import { err, ok, type Result } from "../../base/mod.ts";
 import {
   type RunMetadata,
   runMetadataSchema,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 
 // H/run의 인증 없는 위치 metadata. port·epoch·시작 시각만 있고 credential은 없다.
 const NAME = "location.json";

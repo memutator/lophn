@@ -5,8 +5,8 @@ import { ok, type Result } from "../../../base/mod.ts";
 import {
   type AppRegistration,
   appRegistrationLookup,
-} from "../../../contracts/apps/mod.ts";
-import type { ContentFile } from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/apps/mod.ts";
+import type { ContentFile } from "../../../protocol/projects/mod.ts";
 import {
   type PortKey,
   type PreparedBlob,
@@ -15,7 +15,7 @@ import {
   TargetAuthorization,
   type TargetAuthorizer,
   type Tx,
-} from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/platform/mod.ts";
 import { addressingSchemaSteps } from "../../addressing/mod.ts";
 import { versionsSchemaSteps } from "../mod.ts";
 

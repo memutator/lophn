@@ -1,9 +1,9 @@
 import { err, ok, type Result } from "../../base/mod.ts";
-import type { Sql } from "../../contracts/platform/mod.ts";
+import type { Sql } from "../../protocol/platform/mod.ts";
 import type {
   ProblemTestFact,
   ProblemTestRecord,
-} from "../../contracts/problems/mod.ts";
+} from "../../protocol/problems/mod.ts";
 import type { TestConnection } from "./model.ts";
 import { loadRecords } from "./records.ts";
 

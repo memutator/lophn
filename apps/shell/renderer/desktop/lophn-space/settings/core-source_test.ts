@@ -3,7 +3,7 @@
 // (providers/core-source, agents/core-source)가 맡는다.
 import { assert, assertEquals } from "@std/assert";
 
-import { mcpServersSetting } from "../../../../../../packages/contracts/lophn-agent/mod.ts";
+import { mcpServersSetting } from "../../../../../../packages/protocol/lophn-agent/mod.ts";
 import type { CoreReply } from "../../../../ipc/core-api.ts";
 import { coreSettingsSource } from "./core-source.ts";
 import type { ServerRow, ServerSignIn } from "./source.ts";

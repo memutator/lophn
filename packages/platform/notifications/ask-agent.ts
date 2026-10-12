@@ -1,11 +1,11 @@
-import { BUILTIN_AGENT_NAMES } from "../../contracts/lophn-agent/mod.ts";
+import { BUILTIN_AGENT_NAMES } from "../../protocol/lophn-agent/mod.ts";
 import {
   type NotificationAsk,
   type NotificationAskRole,
   notificationAskSchema,
   type NotificationFirstContext,
   type Seq,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { triggerOf } from "./model.ts";
 
 // 계기 종류가 정한 부를 agent와 첫 context 모양이다(platform/notifications#R13).

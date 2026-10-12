@@ -4,7 +4,7 @@ import type {
   FrozenTest,
   ProblemCodeDeclaration,
   TestObservationFrame,
-} from "../../../contracts/problems/mod.ts";
+} from "../../../protocol/problems/mod.ts";
 import { acceptFrame, emptySides } from "../work/ipc.ts";
 import { canonicalHash, canonicalJson } from "../canonical.ts";
 import { handleRecordVerification } from "../record.ts";

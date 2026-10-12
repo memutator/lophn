@@ -7,7 +7,7 @@ import type {
   viewDeleteRoute,
   viewSaveRoute,
   viewUpdateRoute,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 import type { Call, ContextApiCommands } from "./commands.ts";
 import { emitEvent, withReplay } from "./commands-common.ts";
 import {

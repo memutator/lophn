@@ -3,11 +3,8 @@ import {
   type ToolCall,
   toolCallList,
   toolCallRead,
-} from "../../../contracts/lophn-agent/mod.ts";
-import type {
-  ReadDefinition,
-  SqlRow,
-} from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
+import type { ReadDefinition, SqlRow } from "../../../protocol/platform/mod.ts";
 import { callColumns, callFromRow, type CallRow } from "./model.ts";
 
 // read·list는 pool read다. handler는 동기 Result를 돌려준다.

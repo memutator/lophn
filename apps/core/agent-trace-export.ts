@@ -7,7 +7,7 @@ import { err, ok, type Result } from "../../packages/base/mod.ts";
 import {
   agentTraceExport,
   agentTraceExportInputSchema,
-} from "../../packages/contracts/lophn-agent/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
 import {
   type KnownSecretMatch,
   openConnection,
@@ -22,7 +22,7 @@ import {
 import type {
   RedactionInput,
   RedactionResult,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import { createProductRedactor } from "./documents-redactor.ts";
 
 export type TraceExportWriterDeps = {

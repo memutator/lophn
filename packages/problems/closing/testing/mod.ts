@@ -10,7 +10,7 @@ import {
   type CommandDefinition,
   defineCommand,
   type Tx,
-} from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/platform/mod.ts";
 import {
   applyProblemDecisionCommand,
   closeProblemVerifiedCommand,

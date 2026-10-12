@@ -9,7 +9,7 @@ import {
   connectionSigningBytes,
   type SignedConfirmProof,
   type SignedConnection,
-} from "../../contracts/apps/mod.ts";
+} from "../../protocol/apps/mod.ts";
 
 export type CoreSigner = {
   // 앱 시작 입력의 verify_key. raw 32byte의 base64url이다.

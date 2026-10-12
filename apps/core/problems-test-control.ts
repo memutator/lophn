@@ -16,7 +16,7 @@ import {
   reportProblem,
   stageTestEvidence,
   startTestSide,
-} from "../../packages/contracts/problems/mod.ts";
+} from "../../packages/protocol/problems/mod.ts";
 import type { OperationPolicy } from "../../packages/platform/identity/mod.ts";
 import type { CredentialIssue } from "../../packages/platform/identity/mod.ts";
 import { openConnection } from "../../packages/platform/ledger/mod.ts";

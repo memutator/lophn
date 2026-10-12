@@ -7,13 +7,13 @@ import {
   disconnectProvider,
   refreshProviderCredential,
   registerProvider,
-} from "../../../contracts/lophn-agent/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
 import type {
   SecretDestination,
   SecretRefSource,
   SecretUse,
   Sql,
-} from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/platform/mod.ts";
 
 export const PROVIDER_SECRET_OWNER = "lophn-agent/harness/provider";
 

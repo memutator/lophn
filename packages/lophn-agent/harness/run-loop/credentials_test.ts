@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type { AgentAppScope } from "../../../contracts/lophn-agent/mod.ts";
+import type { AgentAppScope } from "../../../protocol/lophn-agent/mod.ts";
 import {
   type AgentCredentialIssuer,
   beginRun,

@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import type { Grant, GrantPermissionScope } from "../../contracts/apps/mod.ts";
+import type { Grant, GrantPermissionScope } from "../../protocol/apps/mod.ts";
 import { effectiveScope } from "../permissions/mod.ts";
 import { pairScope, resolveCall } from "./resolve.ts";
 

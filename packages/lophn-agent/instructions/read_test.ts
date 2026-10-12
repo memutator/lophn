@@ -3,7 +3,7 @@ import { err, ok, type Result } from "../../base/mod.ts";
 import {
   INSTRUCTION_READ_MAX_BASE64,
   instructionRead,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import {
   decodeInstructionFile,
   encodeInstructionFile,

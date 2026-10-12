@@ -1,7 +1,7 @@
 import { assertEquals } from "@std/assert";
 import { createHash } from "node:crypto";
 import { envelope } from "../harness/run-loop/testing/mod.ts";
-import { serializeMessageContent } from "../../contracts/lophn-agent/mod.ts";
+import { serializeMessageContent } from "../../protocol/lophn-agent/mod.ts";
 import {
   code,
   count,

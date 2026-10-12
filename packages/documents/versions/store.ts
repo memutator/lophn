@@ -13,8 +13,8 @@ import {
   versionSchema,
   type VersionSource,
   versionSourceSchema,
-} from "../../contracts/documents/mod.ts";
-import type { Sql, SqlRow, Tx } from "../../contracts/platform/mod.ts";
+} from "../../protocol/projects/mod.ts";
+import type { Sql, SqlRow, Tx } from "../../protocol/platform/mod.ts";
 
 export type VersionRow = {
   id: string;

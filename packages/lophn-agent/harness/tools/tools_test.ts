@@ -2,8 +2,8 @@ import { assert, assertEquals } from "@std/assert";
 import { z } from "zod";
 import type { Result } from "../../../base/mod.ts";
 import { ok } from "../../../base/mod.ts";
-import type { AuthenticatedContext } from "../../../contracts/platform/mod.ts";
-import type { ToolResult } from "../../../contracts/lophn-agent/mod.ts";
+import type { AuthenticatedContext } from "../../../protocol/platform/mod.ts";
+import type { ToolResult } from "../../../protocol/lophn-agent/mod.ts";
 import {
   BUILTIN_TOOLS,
   checkInput,

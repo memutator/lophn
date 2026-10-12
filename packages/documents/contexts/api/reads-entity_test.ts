@@ -6,7 +6,7 @@ import {
   contextEntityReadSchema,
   contextSeriesNextReadSchema,
   type ContextValue,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 import { createContextApiReads } from "./reads.ts";
 import type { EntityRow } from "./state.ts";
 import {

@@ -3,7 +3,7 @@ import { assert, assertEquals, assertNotEquals } from "@std/assert";
 import {
   TICKET_READINESS,
   TICKET_STATES,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 import {
   type Closure,
   CLOSURE_REASONS,
@@ -11,7 +11,7 @@ import {
   type ProblemTestFact,
   type RepairTicketFact,
   WORK_STATES,
-} from "../../contracts/problems/mod.ts";
+} from "../../protocol/problems/mod.ts";
 import { type DetailFacts, projectProblemDetail } from "./detail.ts";
 
 const REL = "rel_01arz3ndektsv4rrffq69g5fav";

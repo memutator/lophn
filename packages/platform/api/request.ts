@@ -15,7 +15,7 @@ import {
   RPC_JSON_MAX_BYTES,
   RPC_JSON_MAX_DEPTH,
   RPC_JSON_MAX_ITEMS,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import type { CredentialRegistry } from "../identity/mod.ts";
 
 // body를 읽기 전의 고정 한도(platform/security#R8, architecture/platform 2.3).

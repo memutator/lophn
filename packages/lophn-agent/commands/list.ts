@@ -1,4 +1,4 @@
-import type { CommandEntry } from "../../contracts/lophn-agent/mod.ts";
+import type { CommandEntry } from "../../protocol/lophn-agent/mod.ts";
 import type { CommandRegistry } from "./registry.ts";
 
 // 제출 해석(concern lophn-agent/commands). registry 하나에서 메뉴·자동완성·이름 검사가 모두

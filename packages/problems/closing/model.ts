@@ -3,9 +3,9 @@
 // reproduction 종류 pass Verification 하나뿐이다. app test·test command·agent의 통과
 // 주장은 후보로 읽지 않는다.
 import { err, ok, type Result } from "../../base/mod.ts";
-import type { Seq } from "../../contracts/platform/mod.ts";
-import type { Verification } from "../../contracts/problems/mod.ts";
-import type { Closure } from "../../contracts/problems/mod.ts";
+import type { Seq } from "../../protocol/platform/mod.ts";
+import type { Verification } from "../../protocol/problems/mod.ts";
+import type { Closure } from "../../protocol/problems/mod.ts";
 
 // 닫힘이 참조하는 근거다. reproduction pass만 verified 근거다(closing#R3).
 export type ClosureEvidence = {

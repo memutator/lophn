@@ -6,7 +6,7 @@ import {
   orderMembers,
   suggestNextKey,
 } from "./model.ts";
-import type { SeriesInstance } from "../../contracts/documents/mod.ts";
+import type { SeriesInstance } from "../../protocol/projects/mod.ts";
 
 function instance(
   document: string,

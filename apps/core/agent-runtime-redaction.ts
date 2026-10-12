@@ -2,7 +2,7 @@ import {
   REDACT_SPANS_MAX,
   redactRequestSchema,
   type RedactResponse,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import type { KnownSecretMatch } from "../../packages/platform/ledger/mod.ts";
 import { matchCredential } from "../../packages/platform/redaction/mod.ts";
 

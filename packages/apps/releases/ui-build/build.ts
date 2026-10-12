@@ -2,7 +2,7 @@
 // 고정 UI Package가 제공한 exact 목록으로 준비 단계에만 build한다. 운영 프로세스는
 // build나 의존 다운로드 없이 그 결과만 사용한다. external source map도 bundle에 넣는다.
 import { err, ok, type Result } from "../../../base/mod.ts";
-import { relativePathSchema } from "../../../contracts/documents/mod.ts";
+import { relativePathSchema } from "../../../protocol/projects/mod.ts";
 
 export type UiBuildFailure = {
   code: "invalid_input" | "unavailable";

@@ -8,7 +8,7 @@ import {
   ok,
   type Result,
 } from "../../../base/mod.ts";
-import { bundleContentSchema } from "../../../contracts/documents/mod.ts";
+import { bundleContentSchema } from "../../../protocol/projects/mod.ts";
 import { resolveInputs } from "../search/inputs.ts";
 import type { ContextApiState } from "./state.ts";
 

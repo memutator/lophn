@@ -9,7 +9,7 @@ import {
   invocationRecordDeniedInputSchema,
   invocationRecordFinishedInputSchema,
   invocationRecordStartedInputSchema,
-} from "../../../contracts/apps/mod.ts";
+} from "../../../protocol/apps/mod.ts";
 
 // 전달 목록에서 쓰는 모양만 본다. 목록 구현(apps/invocations/delivery)은 supervisor 쪽이 넘긴다.
 export type BrokerQueue = {

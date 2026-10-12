@@ -10,7 +10,7 @@ import {
   createStreamDecoder,
   LOG_PENDING_LINE_MAX_BYTES,
 } from "./observations/stream-decoder.ts";
-import { LOG_LINE_MAX_LENGTH } from "../../contracts/apps/mod.ts";
+import { LOG_LINE_MAX_LENGTH } from "../../protocol/apps/mod.ts";
 
 const SECRET = "sk-live-0123456789abcdef";
 

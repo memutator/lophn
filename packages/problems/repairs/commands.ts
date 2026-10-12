@@ -1,6 +1,6 @@
 import { err, ok, type Result } from "../../base/mod.ts";
 import type { LophnError } from "../../base/mod.ts";
-import { TicketClaimCheck } from "../../contracts/coding-agent/mod.ts";
+import { TicketClaimCheck } from "../../protocol/coding-agent/mod.ts";
 import {
   type CommandDefinition,
   type Input,
@@ -9,11 +9,11 @@ import {
   type PortKey,
   type RequestContext,
   type Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   problemFixRecorded,
   recordProblemFix,
-} from "../../contracts/problems/mod.ts";
+} from "../../protocol/problems/mod.ts";
 import { NOT_FOUND } from "../reporting/mod.ts";
 import { latestEventSeq, staleSeq } from "./model.ts";
 

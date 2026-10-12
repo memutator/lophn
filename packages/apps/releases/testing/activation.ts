@@ -9,7 +9,7 @@ import type {
   DataResult,
   ReadyAttestation,
   Release,
-} from "../../../contracts/apps/mod.ts";
+} from "../../../protocol/apps/mod.ts";
 import type {
   ActivationPorts,
   ActivationProblem,

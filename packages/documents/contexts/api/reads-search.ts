@@ -4,7 +4,7 @@ import { canonicalize, err, ok } from "../../../base/mod.ts";
 import {
   SEARCH_PAGE_SIZE_DEFAULT,
   SEARCH_PAGE_SIZE_MAX,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 import { resolveInputs } from "../search/inputs.ts";
 import type { ContextApiReadDeps, ContextApiReads } from "./reads.ts";
 import {

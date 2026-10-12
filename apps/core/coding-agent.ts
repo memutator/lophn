@@ -20,7 +20,7 @@ import {
   harnessProfileSetting,
   REPAIR_CONTEXT_ROUTES,
   SESSION_ROUTES,
-} from "../../packages/contracts/coding-agent/mod.ts";
+} from "../../packages/protocol/coding-agent/mod.ts";
 import type { ReaderRegistration } from "../../packages/platform/ledger/mod.ts";
 
 // owner definitions만 내보낸다. App 존재 lookup(apps)과 확인 창 소비는 core 조립이 준다.

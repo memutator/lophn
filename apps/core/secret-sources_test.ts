@@ -12,7 +12,7 @@ import {
   SECRET_SCHEMA_STEPS,
   type SecretRefSource,
 } from "../../packages/platform/secrets/mod.ts";
-import { receiveMessage } from "../../packages/contracts/lophn-agent/mod.ts";
+import { receiveMessage } from "../../packages/protocol/lophn-agent/mod.ts";
 import { openSecretStore, withSecretSync } from "./secret-store.ts";
 import { createMessageBodyPreparer } from "./message-body.ts";
 

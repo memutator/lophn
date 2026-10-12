@@ -19,7 +19,7 @@
 import { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
 import { ok } from "../../../base/mod.ts";
-import type { App } from "../../../contracts/apps/mod.ts";
+import type { App } from "../../../protocol/apps/mod.ts";
 import {
   type CommandDefinition,
   defineCommand,
@@ -27,7 +27,7 @@ import {
   type RequestContext,
   TargetAuthorization,
   type Tx,
-} from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/platform/mod.ts";
 import { appsSchemaSteps } from "../../registration/mod.ts";
 
 export const adoptRelease = defineCommand({

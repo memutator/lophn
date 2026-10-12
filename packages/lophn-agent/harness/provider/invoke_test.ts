@@ -3,7 +3,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { startFakeProvider } from "../../../../tools/fake-provider/mod.ts";
 import type { Script, Step } from "../../../../tools/fake-provider/types.ts";
-import type { SecretSendInput } from "../../../contracts/platform/mod.ts";
+import type { SecretSendInput } from "../../../protocol/platform/mod.ts";
 import {
   createAuthTransport,
   type SecretAttachLike,

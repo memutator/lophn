@@ -6,12 +6,12 @@ import {
   messageBody,
   messageBodyInputSchema,
   messageContentSchema,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import {
   type ApiReadDefinition,
   BLOB_READ_MAX_BYTES,
   type Sql,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { sessionVisible } from "./guards.ts";
 import { loadMessage, loadSession } from "./model.ts";
 

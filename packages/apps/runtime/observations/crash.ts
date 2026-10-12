@@ -6,7 +6,7 @@ import type { IdSource } from "../../../base/mod.ts";
 import {
   exceptionObservationInputSchema,
   type ObservedExceptionInput,
-} from "../../../contracts/problems/mod.ts";
+} from "../../../protocol/problems/mod.ts";
 
 export const CRASH_EVIDENCE = [
   "unexpected_exit",

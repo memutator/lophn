@@ -10,7 +10,7 @@ import {
   type Sql,
   TargetAuthorization,
   type Tx,
-} from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/platform/mod.ts";
 import type { ContextLedgerDeps } from "./adapter.ts";
 import { loadAppData } from "./rows-app-data.ts";
 

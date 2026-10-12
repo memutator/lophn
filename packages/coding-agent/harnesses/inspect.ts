@@ -8,7 +8,7 @@ import {
   type ComponentObservation,
   type HarnessIntegrationObservation,
   harnessIntegrationObservationSchema,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 import { fragmentDigest, type Store } from "./integration/apply.ts";
 import type { PlannedResource } from "./integration/plan.ts";
 import type { OwnedResource } from "./integration/receipt.ts";

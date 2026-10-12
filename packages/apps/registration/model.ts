@@ -1,18 +1,18 @@
 import { err, ERROR_CODES, type Result } from "../../base/mod.ts";
-import type { App } from "../../contracts/apps/mod.ts";
+import type { App } from "../../protocol/apps/mod.ts";
 import {
   type AuthorizationTarget,
   type EventEnvelopeFor,
   type RequestContext,
   TargetAuthorization,
   type TargetAuthorizer,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import type {
   appArchived,
   appCreated,
   appSourceConnected,
   appUnarchived,
-} from "../../contracts/apps/mod.ts";
+} from "../../protocol/apps/mod.ts";
 
 export type AppEvent =
   | EventEnvelopeFor<typeof appCreated>

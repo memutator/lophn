@@ -2,7 +2,7 @@
 // 남기며 응답은 주입한 값(기본: 상태 200, 빈 본문)이다. loopback은 선언했어도 받지 않는다:
 // preview에는 실제 loopback 듣기·플랫폼 port 접근이 없다.
 import { ok, type Result } from "../../../base/mod.ts";
-import { brokerNetFetchInputSchema } from "../../../contracts/apps/mod.ts";
+import { brokerNetFetchInputSchema } from "../../../protocol/apps/mod.ts";
 import {
   isLoopbackHost,
   type NetFetchOutput,

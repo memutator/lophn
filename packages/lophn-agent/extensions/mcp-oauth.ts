@@ -2,7 +2,7 @@ import { err, ok, type RandomSource, type Result } from "../../base/mod.ts";
 import type {
   McpAuthFailure,
   McpAuthStateName,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import type { HttpFetch } from "./adapters/mcp-http.ts";
 import {
   type AuthDeadline,

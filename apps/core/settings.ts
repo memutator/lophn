@@ -15,7 +15,7 @@ import {
 import type {
   SchemaStep,
   SettingDefinition,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import type { ReaderRegistration } from "../../packages/platform/ledger/mod.ts";
 import { codingAgentConnectionDefinitions } from "./coding-agent.ts";
 import { lophnAgentDefinitions } from "./lophn-agent.ts";

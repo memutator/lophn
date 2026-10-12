@@ -10,8 +10,8 @@ import { err, ok, type Result } from "../../packages/base/mod.ts";
 import {
   formatChecksContent,
   formatValidationResultSchema,
-} from "../../packages/contracts/documents/mod.ts";
-import { BLOB_READ_MAX_BYTES } from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/projects/mod.ts";
+import { BLOB_READ_MAX_BYTES } from "../../packages/protocol/platform/mod.ts";
 import {
   DOCUMENT_OPS,
   VALIDATE_INPUT_MAX_BYTES,

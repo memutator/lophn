@@ -1,7 +1,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { err, ok, type Result } from "../../base/mod.ts";
-import type { RequestContext } from "../../contracts/platform/mod.ts";
+import type { RequestContext } from "../../protocol/platform/mod.ts";
 import {
   commands,
   deps,

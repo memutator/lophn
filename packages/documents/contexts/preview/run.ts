@@ -1,7 +1,7 @@
 // context.preview의 순수 함수: 만드는 중인 판(draft)을 지금 파일에 돌려 보기만 한다.
 // 격리 검사(check/runner.ts)와 같은 단계(runStages)를 쓰되 (1) 개체 수를 type별로 세고 (2) 사람이 저장한
 // saved view를 부르지 않으며 (3) 결과를 어디에도 쓰지 않는다. 판·index·ledger를 만지는 port를 받지 않는다.
-import type { BundleContent } from "../../../contracts/documents/mod.ts";
+import type { BundleContent } from "../../../protocol/projects/mod.ts";
 import { aborted, runStages } from "../check/mod.ts";
 import type { PreviewInput, PreviewOutcome } from "./types.ts";
 

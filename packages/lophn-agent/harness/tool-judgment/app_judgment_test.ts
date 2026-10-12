@@ -7,7 +7,7 @@ import { err, ok } from "../../../base/mod.ts";
 import {
   type AppBlueprintCommand,
   canonicalInputHash,
-} from "../../../contracts/apps/mod.ts";
+} from "../../../protocol/apps/mod.ts";
 import { computeAgentAppScope } from "../run-loop/mod.ts";
 import {
   type AppBlueprintView,

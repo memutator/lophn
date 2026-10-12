@@ -3,12 +3,12 @@ import {
   runList,
   runRead,
   runResult,
-} from "../../../contracts/lophn-agent/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
 import {
   parseActor,
   type ReadDefinition,
   type RequestContext,
-} from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/platform/mod.ts";
 import { loadRun, recordOf, rowOf, RUN_COLUMNS, type RunRow } from "./model.ts";
 
 // read는 pool read다. handler는 동기 Result를 돌려준다. agent 자격은 자기

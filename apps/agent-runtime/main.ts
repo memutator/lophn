@@ -4,7 +4,7 @@ import {
   createRpcClient,
   type ReadRoute,
   routePath,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import {
   type ChildSession,
   startChild,

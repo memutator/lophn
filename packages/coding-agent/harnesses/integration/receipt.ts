@@ -2,7 +2,7 @@
 // receipt는 lophn이 쓴 resource의 소유 증거이고, journal은 파일은 썼는데
 // receipt 저장이 실패한 자리의 복구 근거다. 둘 다 token·설정 원문·transcript를
 // 담지 않는다(R12). ledger 정본이 아니라 local metadata다(domain-model).
-import type { IntegrationTarget } from "../../../contracts/coding-agent/mod.ts";
+import type { IntegrationTarget } from "../../../protocol/coding-agent/mod.ts";
 
 // sha256 hex다. contracts의 sha256Schema와 같은 64자리 소문자다.
 export type Digest = string;

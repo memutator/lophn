@@ -8,7 +8,7 @@ import {
   saveFromPaths,
   uploadPrepareBytes,
 } from "../../packages/coding-agent/connection/mod.ts";
-import { answerQuestionAction } from "../../packages/contracts/lophn-agent/mod.ts";
+import { answerQuestionAction } from "../../packages/protocol/lophn-agent/mod.ts";
 import { moveOptionAction } from "../../packages/lophn-agent/questions/mod.ts";
 import { call, command, count, inspect } from "./testing/approvals-fixture.ts";
 import {

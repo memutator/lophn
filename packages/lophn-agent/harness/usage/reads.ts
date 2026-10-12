@@ -6,15 +6,12 @@ import {
   modelCallRead,
   type ModelCallRecord,
   type TokenUsage,
-} from "../../../contracts/lophn-agent/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
 import {
   type UsageTotal,
   usageTotalSchema,
-} from "../../../contracts/lophn-agent/mod.ts";
-import type {
-  ReadDefinition,
-  SqlRow,
-} from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
+import type { ReadDefinition, SqlRow } from "../../../protocol/platform/mod.ts";
 import { callFromRow, type CallRow } from "./model.ts";
 
 // read·list는 pool read다. handler는 동기 Result를 돌려주며 setReadBigInts가

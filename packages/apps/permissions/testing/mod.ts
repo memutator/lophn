@@ -21,7 +21,7 @@ import {
   releaseActivated,
   releaseActivationFailed,
   releaseActivationStarted,
-} from "../../../contracts/apps/mod.ts";
+} from "../../../protocol/apps/mod.ts";
 import {
   type CommandDefinition,
   defineCommand,
@@ -29,7 +29,7 @@ import {
   type SchemaStep,
   TargetAuthorization,
   type Tx,
-} from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/platform/mod.ts";
 import { appsSchemaSteps } from "../../registration/mod.ts";
 import {
   type CurrentDeclarations,

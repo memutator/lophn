@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
-import type { McpTool } from "../../packages/contracts/lophn-agent/mod.ts";
+import type { McpTool } from "../../packages/protocol/lophn-agent/mod.ts";
 import { resolveRunAgent } from "./agent-layers.ts";
 import { ASG, MODEL, openWorld, RUN, SES } from "./testing/world.ts";
 

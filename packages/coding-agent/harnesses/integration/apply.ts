@@ -5,7 +5,7 @@ import { fingerprint, sha256Hex } from "../../../base/mod.ts";
 import type {
   ReceiptOutcome,
   ResourceInstallResult,
-} from "../../../contracts/coding-agent/mod.ts";
+} from "../../../protocol/coding-agent/mod.ts";
 import * as json from "../adapters/json.ts";
 import * as region from "../adapters/region.ts";
 import * as toml from "../adapters/toml.ts";

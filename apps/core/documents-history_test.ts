@@ -8,7 +8,7 @@ import { createHash } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, ok, seededRandom } from "../../packages/base/mod.ts";
-import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
 import {
   diffPageSchema,
   documentPrepare,
@@ -16,7 +16,7 @@ import {
   documentUpload,
   FORMAT_CHECK_CONTENT_MAX_BYTES,
   sectionHistoryPageSchema,
-} from "../../packages/contracts/documents/mod.ts";
+} from "../../packages/protocol/projects/mod.ts";
 import { createCoreClient } from "../../packages/coding-agent/connection/client/core.ts";
 import {
   saveFromPaths,

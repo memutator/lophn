@@ -1,6 +1,6 @@
 // context API 읽기: context.contract·draft. 화면이 적용된 판의 내용과 만드는 중인 판의 진행을 읽는다.
 import { ok } from "../../../base/mod.ts";
-import type { BundleSummary } from "../../../contracts/documents/mod.ts";
+import type { BundleSummary } from "../../../protocol/projects/mod.ts";
 import type { ContextApiReads } from "./reads.ts";
 import {
   appliedBundleOf,

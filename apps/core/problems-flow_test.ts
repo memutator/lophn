@@ -7,9 +7,9 @@
 import { assert, assertEquals, assertFalse } from "@std/assert";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
 import { canonicalize } from "../../packages/base/mod.ts";
-import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
-import type { RecordReportInput } from "../../packages/contracts/problems/mod.ts";
-import { ROUTES as PROBLEM_ROUTES } from "../../packages/contracts/problems/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
+import type { RecordReportInput } from "../../packages/protocol/problems/mod.ts";
+import { ROUTES as PROBLEM_ROUTES } from "../../packages/protocol/problems/mod.ts";
 import { startCore } from "./core.ts";
 import {
   createLedgerRegistration as createProblemsRegistration,

@@ -3,7 +3,7 @@ import type {
   Grant,
   GrantPermissionKind,
   GrantPermissionScope,
-} from "../../contracts/apps/mod.ts";
+} from "../../protocol/apps/mod.ts";
 import type { AppDeclarations } from "./declarations.ts";
 
 // 실행 범위 = 현재 release 요구 ∩ 현재 active grant(apps/permissions#R2).

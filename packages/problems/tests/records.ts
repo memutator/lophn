@@ -1,5 +1,5 @@
 import { err, ok, type Result } from "../../base/mod.ts";
-import type { Sql, Tx } from "../../contracts/platform/mod.ts";
+import type { Sql, Tx } from "../../protocol/platform/mod.ts";
 import type {
   RequestPhase,
   RequestRecord,

@@ -7,11 +7,11 @@ import {
   type Grant,
   type GrantPermissionScope,
   grantRevoke,
-} from "../../contracts/apps/mod.ts";
+} from "../../protocol/apps/mod.ts";
 import type {
   ApprovalAction,
   AuthenticatedContext,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   actionOf,
   call,

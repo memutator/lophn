@@ -6,8 +6,8 @@ import { manualClock } from "../../packages/base/mod.ts";
 import {
   mcpServersSetting,
   placeExtensionSettingsRead,
-} from "../../packages/contracts/lophn-agent/mod.ts";
-import { routePath } from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
+import { routePath } from "../../packages/protocol/platform/mod.ts";
 import {
   checkMcpConfig,
   type McpConnectionsDeps,

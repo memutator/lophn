@@ -2,13 +2,13 @@
 // createLedgerHarness + temp dir SQLite. 사실 기록은 model_calls 표의 값만 본다.
 import { assert, assertEquals } from "@std/assert";
 import type { Result } from "../../../../packages/base/mod.ts";
-import type { AuthenticatedContext } from "../../../../packages/contracts/platform/mod.ts";
+import type { AuthenticatedContext } from "../../../protocol/platform/mod.ts";
 import {
   createLedgerHarness,
   type LedgerHarness,
 } from "../../../../apps/core/testing/ledger.ts";
 import { callFromRow } from "./model.ts";
-import type { ModelCallRecord } from "../../../../packages/contracts/lophn-agent/mod.ts";
+import type { ModelCallRecord } from "../../../protocol/lophn-agent/mod.ts";
 import { buildTotals } from "./work.ts";
 
 const NOW = Date.UTC(2026, 0, 1);

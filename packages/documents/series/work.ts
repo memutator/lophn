@@ -5,7 +5,7 @@ import { z } from "zod";
 import {
   type NextSuggestion,
   nextSuggestion,
-} from "../../contracts/documents/mod.ts";
+} from "../../protocol/projects/mod.ts";
 
 // host가 준 가족 상태의 payload 모양. NextRule은 규칙 문자열 그대로다.
 const seriesNextPayloadSchema = z.strictObject({

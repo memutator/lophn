@@ -2,7 +2,7 @@ import { err, internalError, type Result } from "../../base/mod.ts";
 import type {
   AuthenticatedContext,
   CommandDefinition,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   type CommandExecutorDeps,
   type CredentialCheck,

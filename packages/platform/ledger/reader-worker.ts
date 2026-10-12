@@ -3,7 +3,7 @@ import { collectEventRegistrations } from "./event-visibility.ts";
 import type {
   ReadDefinition,
   RequestContext,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { createKnownSecretRegistry } from "../redaction/mod.ts";
 import { KNOWN_SECRETS } from "./known-secrets.ts";
 import { openReaderConnection } from "./reader-connection.ts";

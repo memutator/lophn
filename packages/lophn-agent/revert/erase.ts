@@ -1,5 +1,5 @@
 import { ok, type Result } from "../../base/mod.ts";
-import type { Tx } from "../../contracts/platform/mod.ts";
+import type { Tx } from "../../protocol/platform/mod.ts";
 import type { RewindStore } from "./store.ts";
 
 // session을 delete하거나 닫을 때 그 session의 되돌리기 기록을 지운다(lophn-agent/revert R20,

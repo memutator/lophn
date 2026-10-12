@@ -4,7 +4,7 @@
 // (core graph 밖). 사람 데이터 root는 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, ok, seededRandom } from "../../packages/base/mod.ts";
-import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
 import {
   derivedPath,
   type DerivedStore,

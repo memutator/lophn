@@ -11,7 +11,7 @@ import {
   RPC_JSON_MAX_BYTES,
   RPC_JSON_MAX_DEPTH,
   RPC_JSON_MAX_ITEMS,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import type { EventBackend } from "../ledger/mod.ts";
 import { call, listen } from "./harness_test.ts";
 import { defaultPort, JSON_MAX_BYTES, RouteRegistry } from "./mod.ts";

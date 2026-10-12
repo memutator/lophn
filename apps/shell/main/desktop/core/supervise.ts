@@ -11,7 +11,7 @@ import {
   mainToCoreMessageSchema,
   restorePlanRequestSchema,
   restoreRequestSchema,
-} from "../../../../../packages/contracts/platform/mod.ts";
+} from "../../../../../packages/protocol/platform/mod.ts";
 
 /** 창 닫기와 무관한 core 종료 요청. tray의 명시 중지와 OS 종료가 이 값을 쓴다. */
 export const STOP_GRACE_MS = 5_000;

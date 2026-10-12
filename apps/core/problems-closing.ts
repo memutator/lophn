@@ -10,7 +10,7 @@ import {
   eventsList,
   type EventVisibilityDefinition,
   type RequestContext,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import {
   openConnection,
   type SubscriberBinding,

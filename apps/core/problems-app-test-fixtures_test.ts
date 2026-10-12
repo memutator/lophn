@@ -8,7 +8,7 @@
 // SCREEN_TEST_HOST_MAIN(shell build의 main.cjs). 없으면 화면 검사는 pass가 아니고(R7) 화면 없는 검사만 판정한다.
 import { assert, assertEquals } from "@std/assert";
 import type { Result } from "../../packages/base/mod.ts";
-import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
 import { screenErrorBoundaries } from "../../packages/problems/tests/adapters/screen-host.ts";
 import {
   canonicalRequest,

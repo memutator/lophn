@@ -5,7 +5,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { sha256Hex } from "../../../base/mod.ts";
-import type { Release } from "../../../contracts/apps/mod.ts";
+import type { Release } from "../../../protocol/apps/mod.ts";
 import type { Blueprint } from "../../blueprint/mod.ts";
 import { canonicalJson } from "../../blueprint/mod.ts";
 import { bundleCopyPath, sealBundle } from "../../releases/mod.ts";

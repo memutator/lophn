@@ -1,4 +1,4 @@
-import type { SchemaStep } from "../../contracts/platform/mod.ts";
+import type { SchemaStep } from "../../protocol/platform/mod.ts";
 
 // derived store 8개 표(docs/domain-model/documents/outline-and-search.md).
 // ledger 밖 derived data다. ledger의 ver·doc·event는 논리 참조고 물리 FK는 없다.

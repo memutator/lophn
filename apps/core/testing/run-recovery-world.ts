@@ -6,7 +6,7 @@
  * runtime의 모든 core 호출이 실패한다. 같은 core·ledger·provider 위에 새 runtime을 조립하면 재시작이다.
  * 실제 provider와 사람 데이터 root는 열지 않는다. 제품 main.ts에는 없다.
  */
-import { AGENT_RUNTIME_PRINCIPAL } from "../../../packages/contracts/lophn-agent/mod.ts";
+import { AGENT_RUNTIME_PRINCIPAL } from "../../../packages/protocol/lophn-agent/mod.ts";
 import { z } from "zod";
 import { assert, assertEquals } from "@std/assert";
 import {
@@ -17,11 +17,11 @@ import {
   ok,
   seededRandom,
 } from "../../../packages/base/mod.ts";
-import type { CallModel } from "../../../packages/contracts/lophn-agent/mod.ts";
+import type { CallModel } from "../../../packages/protocol/lophn-agent/mod.ts";
 import type {
   AuthenticatedContext,
   ChildMessage,
-} from "../../../packages/contracts/platform/mod.ts";
+} from "../../../packages/protocol/platform/mod.ts";
 import {
   createAuthTransport,
   type SecretAttachLike,

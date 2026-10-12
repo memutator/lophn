@@ -4,7 +4,7 @@ import {
   type AgentPlace,
   BUILTIN_AGENT_NAMES,
   profileSchema,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import {
   APP_COMMAND_EXPOSURE,
   BUILTIN_AGENTS,

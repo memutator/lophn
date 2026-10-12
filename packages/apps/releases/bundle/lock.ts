@@ -2,7 +2,7 @@
 // `lophn-sdk:<name>@<version>/<경로>`는 bundle 안 설치 사본 `./sdk/<이름>/<version>/<경로>`로 바뀌고,
 // npm·jsr는 정확한 pin만 남는다. 범위 version과 원격 import는 잠그지 못하고 거절이다.
 import { err, ok, type Result } from "../../../base/mod.ts";
-import { packageNameSchema } from "../../../contracts/apps/mod.ts";
+import { packageNameSchema } from "../../../protocol/apps/mod.ts";
 
 export type LockFailure = {
   code: "invalid_input";

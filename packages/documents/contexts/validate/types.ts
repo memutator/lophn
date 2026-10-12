@@ -3,7 +3,7 @@
 import type {
   BundleContent,
   ContractVisibility,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 
 export const CONTRACT_ISSUE_CODES = [
   // sources

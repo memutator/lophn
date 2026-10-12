@@ -4,7 +4,7 @@
 // fake가 같은 ledger 표에서 답한다.
 import { assert, assertEquals } from "@std/assert";
 import type { Result } from "../../base/mod.ts";
-import type { AuthenticatedContext } from "../../contracts/platform/mod.ts";
+import type { AuthenticatedContext } from "../../protocol/platform/mod.ts";
 import {
   createLedgerHarness,
   type LedgerHarness,

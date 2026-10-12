@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
-import { defineBlobField } from "../../contracts/platform/mod.ts";
+import { defineBlobField } from "../../protocol/platform/mod.ts";
 import {
   capacityFields,
   type Protection,

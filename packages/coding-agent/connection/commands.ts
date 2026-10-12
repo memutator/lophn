@@ -1,5 +1,5 @@
 import { err, ok, type Result } from "../../base/mod.ts";
-import { appRegistrationLookup } from "../../contracts/apps/mod.ts";
+import { appRegistrationLookup } from "../../protocol/apps/mod.ts";
 import {
   codingAgentConnectionCreated,
   codingAgentConnectionRevoked,
@@ -7,7 +7,7 @@ import {
   connectionCreate,
   connectionPrincipal,
   connectionRevoke,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 import {
   type CommandDefinition,
   type ConfirmationRef,
@@ -15,7 +15,7 @@ import {
   parseActor,
   type RequestContext,
   type Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { assertConnection, nextState, scopeColumns } from "./model.ts";
 import { insertConnection, loadConnection, markRevoked } from "./store.ts";
 

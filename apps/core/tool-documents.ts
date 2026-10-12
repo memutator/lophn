@@ -8,18 +8,18 @@ import { err, ok, type Result, sha256Hex } from "../../packages/base/mod.ts";
 import {
   documentSave,
   saveResultSchema,
-} from "../../packages/contracts/documents/mod.ts";
+} from "../../packages/protocol/projects/mod.ts";
 import {
   saveToolDocument,
   TOOL_TEXT_MAX_BYTES,
   TOOL_TEXT_PATHS,
   validateToolText,
-} from "../../packages/contracts/lophn-agent/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
 import type {
   JsonObject,
   WorkerRequest,
   WorkerResponse,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import type { WorkerRouteTarget } from "../../packages/platform/responsiveness/mod.ts";
 import type { KnownSecretMatch } from "../../packages/platform/ledger/mod.ts";
 import type { ValidatePort } from "../../packages/documents/versions/work.ts";

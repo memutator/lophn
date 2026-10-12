@@ -10,7 +10,7 @@ import {
 import {
   BACKUP_LEDGER_PATH,
   type BackupManifest,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   BACKUP_DIR_NAME,
   BACKUP_PENDING_NAME,

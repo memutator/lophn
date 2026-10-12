@@ -7,7 +7,7 @@ import { ok, type Result } from "../../base/mod.ts";
 import type {
   PreparedVersion,
   TrackingPreview,
-} from "../../contracts/documents/mod.ts";
+} from "../../protocol/projects/mod.ts";
 import { suggestName } from "../addressing/mod.ts";
 import { createDocumentChangeCommands } from "../addressing/mod.ts";
 import {

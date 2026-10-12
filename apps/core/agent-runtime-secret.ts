@@ -6,7 +6,7 @@ import {
   type SecretUse,
   type SecretValue,
   type Sql,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import { lookupMcpSecretUse } from "../../packages/lophn-agent/extensions/mod.ts";
 import { lookupProviderSecretUse } from "../../packages/lophn-agent/harness/provider/mod.ts";
 import {

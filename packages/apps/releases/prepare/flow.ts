@@ -5,7 +5,7 @@ import { err, ok, type Result, sha256Hex } from "../../../base/mod.ts";
 import {
   type BundleManifest,
   RELEASE_PREPARATION_LIMIT_MS,
-} from "../../../contracts/apps/mod.ts";
+} from "../../../protocol/apps/mod.ts";
 import {
   extractBlueprint,
   type ExtractSpawner,

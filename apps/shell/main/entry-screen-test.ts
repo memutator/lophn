@@ -25,7 +25,7 @@ import {
   screenTestInputSchema,
   screenTestLine,
   screenTestObservationSchema,
-} from "../../../packages/contracts/shell/screen-test.ts";
+} from "../../../packages/protocol/shell/screen-test.ts";
 import {
   SCREEN_TEST_BLOCKED_CHANNEL,
   SCREEN_TEST_PROBE_CHANNEL,

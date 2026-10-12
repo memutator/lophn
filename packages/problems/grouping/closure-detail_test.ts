@@ -8,7 +8,7 @@ import {
   type Result,
   sha256Hex,
 } from "../../base/mod.ts";
-import type { AuthenticatedContext } from "../../contracts/platform/mod.ts";
+import type { AuthenticatedContext } from "../../protocol/platform/mod.ts";
 import {
   createLedgerHarness,
   type LedgerHarness,

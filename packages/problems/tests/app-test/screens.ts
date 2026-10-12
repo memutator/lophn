@@ -7,8 +7,8 @@ import type { Result } from "../../../base/mod.ts";
 import type {
   AcceptedReport,
   ObserveExceptionInput,
-} from "../../../contracts/problems/mod.ts";
-import type { ScreenTestObservation } from "../../../contracts/shell/mod.ts";
+} from "../../../protocol/problems/mod.ts";
+import type { ScreenTestObservation } from "../../../protocol/shell/mod.ts";
 import {
   type ReceivedReport,
   type ViewDriver,

@@ -10,7 +10,7 @@ import {
   type FeedbackView,
   type SelectedProblem,
 } from "../mod.ts";
-import type { SubmitFeedbackInput } from "../../../contracts/problems/mod.ts";
+import type { SubmitFeedbackInput } from "../../../protocol/problems/mod.ts";
 
 export const APP_A = "app_01arz3ndektsv4rrffq69g5fav";
 export const APP_B = "app_01arz3ndektsv4rrffq69g5faw";

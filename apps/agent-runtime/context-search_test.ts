@@ -9,8 +9,8 @@ import {
   contextGetRoute,
   contextListRoute,
   contextSearchRoute,
-} from "../../packages/contracts/documents/mod.ts";
-import { routePath } from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/projects/mod.ts";
+import { routePath } from "../../packages/protocol/platform/mod.ts";
 import {
   CONTEXT_ENTITY_TOOL,
   executeTool,

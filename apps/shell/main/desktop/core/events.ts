@@ -8,7 +8,7 @@ import {
   eventsList,
   nextFromSeq,
   parseEventFrame,
-} from "../../../../../packages/contracts/platform/mod.ts";
+} from "../../../../../packages/protocol/platform/mod.ts";
 
 import type { CoreSession } from "./client.ts";
 

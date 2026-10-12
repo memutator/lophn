@@ -17,8 +17,8 @@ import {
   type Result,
   sha256Hex,
 } from "../../packages/base/mod.ts";
-import type { ObservedExceptionInput } from "../../packages/contracts/problems/mod.ts";
-import { exceptionObservationInputSchema } from "../../packages/contracts/problems/mod.ts";
+import type { ObservedExceptionInput } from "../../packages/protocol/problems/mod.ts";
+import { exceptionObservationInputSchema } from "../../packages/protocol/problems/mod.ts";
 import { prepareFromSource } from "../../packages/apps/releases/prepare/from-source.ts";
 import { verifySealedPermissions } from "../../packages/apps/releases/mod.ts";
 import type {

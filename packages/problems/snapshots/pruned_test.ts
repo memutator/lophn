@@ -9,13 +9,13 @@ import type {
   Sql,
   SqlRow,
   Tx,
-} from "../../contracts/platform/mod.ts";
-import { TargetAuthorization } from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
+import { TargetAuthorization } from "../../protocol/platform/mod.ts";
 import {
   closureSchema,
   getSnapshotOutputSchema,
   snapshotInputSchema,
-} from "../../contracts/problems/mod.ts";
+} from "../../protocol/problems/mod.ts";
 import { listProblemFixesRead } from "../repairs/mod.ts";
 import { REPORTS_SCHEMA_STEPS } from "../reporting/mod.ts";
 import { snapshotLogsEnvironment } from "../../../apps/core/problems-logs.ts";

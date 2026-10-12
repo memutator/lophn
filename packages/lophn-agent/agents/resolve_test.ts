@@ -11,7 +11,7 @@ import {
   type Profile,
   RESOLVED_FIELDS,
   resolvedAgentSchema,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import {
   permissionIssues,
   resolveAgent,

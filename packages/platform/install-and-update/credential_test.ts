@@ -5,7 +5,7 @@ import {
   CREDENTIAL_DELIVERY_TIMEOUT_MS,
   CREDENTIAL_HELPER,
   credentialDeliveryRequestSchema,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 import type { CodingCredentialAuthority } from "../identity/mod.ts";
 import { serveCredentialSocket } from "./credential-channel.ts";
 import {

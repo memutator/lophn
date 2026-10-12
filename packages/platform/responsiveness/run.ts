@@ -2,7 +2,7 @@ import {
   type ChildMessage,
   childMessageSchema,
   type Frame,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { launchArgv } from "../security/mod.ts";
 import {
   armTimer,

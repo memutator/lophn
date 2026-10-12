@@ -3,7 +3,7 @@ import { err, ok } from "../../../base/mod.ts";
 import {
   bundleContentSchema,
   type BundleSummary,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 import type { ContextApiCommands } from "./commands.ts";
 import { emitEvent, withReplay } from "./commands-common.ts";
 import { reflectSavedViews } from "./commands-bundle-views.ts";

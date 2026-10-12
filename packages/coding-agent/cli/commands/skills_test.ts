@@ -1,7 +1,7 @@
 // `lophn skills list|install` 실행 시험이다(cli#R10). 배포 원본과 설치 engine은 fake이고 파일은 쓰지 않는다.
 import { assert, assertEquals, assertFalse } from "@std/assert";
 import { ok } from "../../../base/mod.ts";
-import type { IntegrationTarget } from "../../../contracts/coding-agent/mod.ts";
+import type { IntegrationTarget } from "../../../protocol/coding-agent/mod.ts";
 import type { SkillsInstallOutcome } from "../../guides/mod.ts";
 import { runSkillsInstall, runSkillsList, SKILLS_COMMANDS } from "./skills.ts";
 

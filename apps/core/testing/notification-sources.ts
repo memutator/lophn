@@ -9,25 +9,25 @@ import {
   type CommandDefinition,
   defineCommand,
   type EventDefinition,
-} from "../../../packages/contracts/platform/mod.ts";
-import { releaseActivationFailed } from "../../../packages/contracts/apps/mod.ts";
+} from "../../../packages/protocol/platform/mod.ts";
+import { releaseActivationFailed } from "../../../packages/protocol/apps/mod.ts";
 import {
   contextCreatedEvent,
   contextViolationsRecordedEvent,
-} from "../../../packages/contracts/documents/mod.ts";
+} from "../../../packages/protocol/projects/mod.ts";
 import {
   ticketCheckFailed,
   ticketConfirmed,
-} from "../../../packages/contracts/coding-agent/mod.ts";
+} from "../../../packages/protocol/coding-agent/mod.ts";
 import {
   assignmentPaused,
   questionCreated,
-} from "../../../packages/contracts/lophn-agent/mod.ts";
+} from "../../../packages/protocol/lophn-agent/mod.ts";
 import {
   problemClosed,
   problemOpened,
   problemReopened,
-} from "../../../packages/contracts/problems/mod.ts";
+} from "../../../packages/protocol/problems/mod.ts";
 
 const SOURCES: readonly EventDefinition[] = [
   problemOpened,

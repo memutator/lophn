@@ -6,11 +6,11 @@ import { ok } from "../../../packages/base/mod.ts";
 import {
   type CommandDefinition,
   defineCommand,
-} from "../../../packages/contracts/platform/mod.ts";
+} from "../../../packages/protocol/platform/mod.ts";
 import {
   interpretationLinkInputSchema,
   linkProblemInterpretation,
-} from "../../../packages/contracts/problems/mod.ts";
+} from "../../../packages/protocol/problems/mod.ts";
 import { runAdmission } from "../../../packages/platform/ledger/mod.ts";
 import { createLedgerTestRegistration as grouping } from "../../../packages/problems/grouping/testing/mod.ts";
 import { defineTxPort } from "./ledger.ts";

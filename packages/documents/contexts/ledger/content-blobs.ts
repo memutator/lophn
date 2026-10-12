@@ -8,12 +8,12 @@ import {
   CONTEXT_CONTENT_OWNER_KIND,
   CONTEXT_CONTENT_PURPOSE,
   contextContentBytes,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 import type {
   PermanentBlobReference,
   RequestContext,
   Tx,
-} from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/platform/mod.ts";
 import type { BlobReference } from "../api/state.ts";
 
 // 값의 참조. 파일을 쓰지 않는다.

@@ -1,7 +1,7 @@
 // index 시험이 함께 쓰는 fake. 제품 코드는 import하지 않는다.
 import { manualClock } from "../../../base/mod.ts";
-import type { BundleContent } from "../../../contracts/documents/mod.ts";
-import type { Sql } from "../../../contracts/platform/mod.ts";
+import type { BundleContent } from "../../../protocol/projects/mod.ts";
+import type { Sql } from "../../../protocol/platform/mod.ts";
 import { loadContract, loadFixture } from "../extract/testing.ts";
 import type { ProjectFiles } from "../extract/types.ts";
 import type { IndexStore } from "./store.ts";

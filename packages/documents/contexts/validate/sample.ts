@@ -2,7 +2,7 @@
 import {
   type BundleContent,
   bundleContentSchema,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 import type { ValidationEnv } from "./types.ts";
 
 const text = (name: string, from: unknown) => ({

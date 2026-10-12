@@ -9,7 +9,7 @@ import type {
   SettingChoice,
   SettingDefinition,
   SettingsValidationError,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 
 // secret 원문 판정은 platform/redaction의 credential 규칙 하나를 쓴다.
 export function containsCredentialSecret(text: string): boolean {

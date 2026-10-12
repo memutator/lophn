@@ -14,11 +14,11 @@ import type {
   SqlParam,
   SqlRow,
   Tx,
-} from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/platform/mod.ts";
 import type {
   CommandRoute,
   ReadRoute,
-} from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/platform/mod.ts";
 import type { RevertDeps } from "../commands.ts";
 import type { FileStat } from "../judge.ts";
 import { revertSchemaSteps } from "../schema.ts";

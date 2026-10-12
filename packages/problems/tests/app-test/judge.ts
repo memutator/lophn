@@ -1,7 +1,7 @@
 import type {
   TestObservationFrame,
   TestResult,
-} from "../../../contracts/problems/mod.ts";
+} from "../../../protocol/problems/mod.ts";
 import { canonicalHash } from "../canonical.ts";
 import {
   isFailurePathName,

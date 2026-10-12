@@ -1,5 +1,5 @@
 import { err, ok, type Result } from "../../base/mod.ts";
-import type { Sql } from "../../contracts/platform/mod.ts";
+import type { Sql } from "../../protocol/platform/mod.ts";
 
 // 숨김 구간과 접힘 구간(lophn-agent/revert "Revert 불변 조건", conversation#R25). Message는 바꾸지 않고
 // reverts 행에서 읽는다.

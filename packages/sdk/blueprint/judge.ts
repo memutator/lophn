@@ -7,7 +7,7 @@ import type {
   Blueprint,
   BlueprintOptions,
   ValidationError,
-} from "../../contracts/apps/blueprint.ts";
+} from "../../protocol/apps/blueprint.ts";
 import { defineBlueprint } from "./define.ts";
 import { validateBlueprint } from "./mod.ts";
 

@@ -1,6 +1,6 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { ok } from "../../../base/mod.ts";
-import type { ViewTab } from "../../../contracts/shell/mod.ts";
+import type { ViewTab } from "../../../protocol/shell/mod.ts";
 import { DATA_END_MARKER, DATA_START_MARKER } from "../safety/mod.ts";
 import {
   anthropicSystem,

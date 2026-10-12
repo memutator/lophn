@@ -3,7 +3,7 @@ import type {
   Contract,
   SearchFollow,
   SearchQuery,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 import type { InputValues, Row, SearchEntity } from "./types.ts";
 import { evaluate } from "./where.ts";
 

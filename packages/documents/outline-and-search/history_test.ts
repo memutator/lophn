@@ -6,7 +6,7 @@ import { err, ok, sha256Hex } from "../../base/mod.ts";
 import {
   diffPageSchema,
   sectionHistoryPageSchema,
-} from "../../contracts/documents/mod.ts";
+} from "../../protocol/projects/mod.ts";
 import { BUILTIN_MODULE_HASH } from "../formats/mod.ts";
 import { createVersionCommands, filesHash } from "../versions/mod.ts";
 import { keep, userContext, versionFixture } from "../versions/testing/mod.ts";

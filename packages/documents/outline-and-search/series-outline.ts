@@ -8,14 +8,14 @@ import {
   outlineSeries,
   type Series,
   type seriesOutlinePageSchema,
-} from "../../contracts/documents/mod.ts";
+} from "../../protocol/projects/mod.ts";
 import {
   parseActor,
   type ReadDefinition,
   type ReadSnapshot,
   type RequestContext,
   TargetAuthorization,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   decodeOutlineCursor,
   encodeOutlineCursor,

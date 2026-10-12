@@ -2,7 +2,7 @@
 // ALL_ROUTES·ALL_EVENTS에 있는 것·없는 것을 최상위·절마다 보인다.
 // 빠짐이 있으면 exit 1이다(관문, contracts#T46).
 
-import { ALL_EVENTS, ALL_ROUTES } from "@lophn/contracts";
+import { ALL_EVENTS, ALL_ROUTES } from "@lophn/protocol";
 
 const ROOT = new URL("..", import.meta.url);
 const ARCHITECTURE = new URL("docs/architecture/", ROOT);

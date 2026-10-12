@@ -1,18 +1,18 @@
 // collector work(queues, retry, invalid report diagnostic)의 테스트.
 // 이름은 요구 번호로 시작한다(dev/tasks.md).
 import { assert, assertEquals, assertFalse } from "@std/assert";
-import type { RequestContext } from "../../contracts/platform/mod.ts";
-import type { RecordReportInput } from "../../contracts/problems/mod.ts";
+import type { RequestContext } from "../../protocol/platform/mod.ts";
+import type { RecordReportInput } from "../../protocol/problems/mod.ts";
 import {
   isRetryableReportError,
   problemCodeSchema,
   reportProblemInputSchema,
   RESERVED_PROBLEM_CODES,
-} from "../../contracts/problems/mod.ts";
+} from "../../protocol/problems/mod.ts";
 import {
   preparedReport,
   reportingId as id,
-} from "../../contracts/problems/testing/mod.ts";
+} from "../../protocol/problems/testing/mod.ts";
 import { err, ok } from "../../base/mod.ts";
 import {
   appFromCredential,

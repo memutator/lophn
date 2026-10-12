@@ -2,7 +2,7 @@ import type {
   AgentRole,
   AssignmentScope,
   WorkPlace,
-} from "../../../contracts/lophn-agent/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
 import type {
   InstructionLayerKind,
   InstructionStatus,

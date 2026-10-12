@@ -2,7 +2,7 @@
 // 발급자·URL에 묶인다. 값은 보관 모양 어디에도 새지 않고 참조만 밖으로 나간다. 사람의 실제 keychain에 닿지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import type { Result } from "../../base/mod.ts";
-import { mcpAuthSchema } from "../../contracts/lophn-agent/mod.ts";
+import { mcpAuthSchema } from "../../protocol/lophn-agent/mod.ts";
 import {
   createMcpOAuthVault,
   type McpGrant,

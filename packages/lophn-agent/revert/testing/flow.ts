@@ -12,9 +12,9 @@ import type {
   AppRevertBinding,
   rewind,
   RewindChoice,
-} from "../../../contracts/lophn-agent/mod.ts";
-import type { Output } from "../../../contracts/platform/mod.ts";
-import type { PreparedFile } from "../../../contracts/lophn-agent/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
+import type { Output } from "../../../protocol/platform/mod.ts";
+import type { PreparedFile } from "../../../protocol/lophn-agent/mod.ts";
 import { type AppStepCall, runAppSteps } from "../app-steps.ts";
 import { createRevertCommands } from "../commands.ts";
 import {

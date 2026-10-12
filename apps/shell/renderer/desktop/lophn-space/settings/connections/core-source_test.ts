@@ -7,7 +7,7 @@ import {
   connectionList,
   connectionRevoke,
   connectionScopeSchema,
-} from "../../../../../../../packages/contracts/coding-agent/mod.ts";
+} from "../../../../../../../packages/protocol/coding-agent/mod.ts";
 import {
   type CodingApi,
   type CodingReply,

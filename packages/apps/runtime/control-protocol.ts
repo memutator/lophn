@@ -3,7 +3,7 @@
 // 여기는 op 이름과 payload 모양만 정한다. core는 앱 코드를 import하지 않고 supervisor와
 // 이 모양으로만 말한다.
 import { z } from "zod";
-import { bundleManifestSchema } from "../../contracts/apps/mod.ts";
+import { bundleManifestSchema } from "../../protocol/apps/mod.ts";
 import { LIMIT_KEYS } from "../permissions/mod.ts";
 
 export const SUPERVISOR_OPS = {

@@ -3,7 +3,7 @@
 import { createHash } from "node:crypto";
 import type { Blueprint } from "../blueprint/mod.ts";
 import { canonicalJson, validateInput } from "../blueprint/mod.ts";
-import type { GrantPermissionRequirement } from "../../contracts/apps/mod.ts";
+import type { GrantPermissionRequirement } from "../../protocol/apps/mod.ts";
 import type {
   AppDeclarations,
   AutomationDeclarationFact,

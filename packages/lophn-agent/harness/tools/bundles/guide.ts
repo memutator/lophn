@@ -4,12 +4,12 @@ import {
   guideList,
   guideRead,
   readCursorSchema,
-} from "../../../../contracts/documents/mod.ts";
-import type { ToolResult } from "../../../../contracts/lophn-agent/mod.ts";
+} from "../../../../protocol/projects/mod.ts";
+import type { ToolResult } from "../../../../protocol/lophn-agent/mod.ts";
 import {
   settingsDefinitions,
   settingsGet,
-} from "../../../../contracts/platform/mod.ts";
+} from "../../../../protocol/platform/mod.ts";
 import { protectedSetting } from "../../../questions/mod.ts";
 import { fitJson } from "../result.ts";
 import type { ToolDefinition } from "../registry.ts";

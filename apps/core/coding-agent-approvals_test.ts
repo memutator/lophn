@@ -19,7 +19,7 @@ import {
   type ApprovalAction,
   approvalBinding,
   type AuthenticatedContext,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import { createLedgerHarness, type LedgerHarness } from "./testing/ledger.ts";
 
 const CAC = "cac_01arz3ndektsv4rrffq69g5fav";

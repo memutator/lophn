@@ -4,14 +4,14 @@ import {
   type ContextValue,
   evidenceOf,
   type StoredViolation,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 import type { ContextApiState } from "./state.ts";
 
 export {
   chooseViolations,
   keyOfViolation,
   sameViolationKey,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 
 export function buildEvidence(
   state: ContextApiState,

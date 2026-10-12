@@ -5,7 +5,7 @@ import type { Clock } from "../../packages/base/mod.ts";
 import {
   type Diagnostic,
   encodeFrame,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import {
   type CoreRecord,
   createInvocationBroker,

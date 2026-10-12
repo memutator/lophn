@@ -1,5 +1,5 @@
-import { bundleContentSchema } from "../../../contracts/documents/mod.ts";
-import type { CheckFinding } from "../../../contracts/documents/mod.ts";
+import { bundleContentSchema } from "../../../protocol/projects/mod.ts";
+import type { CheckFinding } from "../../../protocol/projects/mod.ts";
 import { checkEntities } from "../checks/run.ts";
 import type { CheckEntity } from "../checks/types.ts";
 import { extractAll } from "../extract/run.ts";

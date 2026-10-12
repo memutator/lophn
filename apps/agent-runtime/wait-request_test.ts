@@ -3,7 +3,7 @@ import {
   createQuestionGroupInputSchema,
   type questionRead,
   type questionText,
-} from "../../packages/contracts/lophn-agent/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
 import { settingsOptionAction } from "../../packages/lophn-agent/questions/mod.ts";
 import type { z } from "zod";
 import { questionWaitRequest } from "./wait-request.ts";

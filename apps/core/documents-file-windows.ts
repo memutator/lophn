@@ -3,7 +3,7 @@
 // 응답 전에 그 channel로 바이트를 보내고(같은 pipe의 순서), 응답이 오면 가져간다. 열려 있지
 // 않은 channel의 frame은 버린다(blob 준비 channel과 섞이지 않는다). 한 창의 상한을 넘는
 // 바이트는 받지 않아 core 메모리는 열린 창 몇 개를 넘지 않는다.
-import type { Frame } from "../../packages/contracts/platform/mod.ts";
+import type { Frame } from "../../packages/protocol/platform/mod.ts";
 import { FILE_WINDOW_MAX_BYTES } from "../../packages/documents/file-tracking/file-ipc.ts";
 
 // coordinator→core의 blob 준비 channel(coordinator가 1부터 센다)과 겹치지 않는 영역에서 센다.

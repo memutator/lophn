@@ -1,4 +1,4 @@
-import type { ModelOutcome } from "../../../contracts/lophn-agent/mod.ts";
+import type { ModelOutcome } from "../../../protocol/lophn-agent/mod.ts";
 
 // retry 규칙(requirements lophn-agent/harness/run-loop R23, R24). 순수 계산이다. 시계·대기·무작위는
 // 호출자가 주입한다. 모든 retry는 새 시도 하나이고 SDK의 숨은 retry는 없다.

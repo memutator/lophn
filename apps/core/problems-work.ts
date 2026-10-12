@@ -10,12 +10,12 @@ import {
   eventsList,
   type EventVisibilityDefinition,
   type RequestContext,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import {
   closeProblemVerified,
   getProblem,
   reconcileProblemWork,
-} from "../../packages/contracts/problems/mod.ts";
+} from "../../packages/protocol/problems/mod.ts";
 import {
   openConnection,
   type SubscriberBinding,

@@ -2,8 +2,8 @@
 // 보내고 exact 대상·입력·영향·기한과 상태를 그대로 돌려준다. 이 tool은 command route를
 // 부르지 않는다: 허락·거절·사용은 사람 confirmation window와 소유 concern의 몫이고
 // coding 통로는 결정하지도 소비하지도 않는다. 대기 중인 요청에는 결정 화면 링크만 붙는다.
-import { MCP_DECISION_ROUTES } from "../../../contracts/coding-agent/mod.ts";
-import type { Route } from "../../../contracts/platform/mod.ts";
+import { MCP_DECISION_ROUTES } from "../../../protocol/coding-agent/mod.ts";
+import type { Route } from "../../../protocol/platform/mod.ts";
 import {
   type ApprovalRequest,
   approvalStateText,

@@ -3,7 +3,7 @@ import {
   REDACTION_REPLACEMENT,
   REDACTION_SAMPLE_MAX_BYTES,
   REDACTION_SAMPLE_MAX_CHARS,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { createKnownSecretRegistry } from "./registry.ts";
 import { redactSample, samplePathsAllowed } from "./samples.ts";
 

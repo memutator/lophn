@@ -3,8 +3,8 @@
 // 실행하지 않는다. FrozenTest의 모든 hash는 이 함수가 내는 blob의 sha256이고, Verification이 영구 등록하는
 // blob(hash→bytes)도 여기서 같이 낸다: 저장하지 않은 blob의 hash를 적지 않는다.
 import { createHash } from "node:crypto";
-import type { Blueprint } from "../../../contracts/apps/mod.ts";
-import type { FrozenTest } from "../../../contracts/problems/mod.ts";
+import type { Blueprint } from "../../../protocol/apps/mod.ts";
+import type { FrozenTest } from "../../../protocol/problems/mod.ts";
 import { canonicalHash, canonicalJson } from "../canonical.ts";
 import type { HarnessFailurePath } from "../harness/mod.ts";
 import { sdkDependenciesHash } from "./generate.ts";

@@ -3,9 +3,9 @@
 // tracking 규칙·폴더별 문서 수는 내지 않는다(documents/projects#R9): core가 이미 agent
 // 투영으로 걷어 내지만 이 tool도 허용한 필드만 골라 내서 어떤 응답이 와도 새지 않는다.
 // current는 호출자의 경로를 받지 않는다. core가 연결 credential의 고정 근거로 푼다.
-import { MCP_CORE_ROUTES } from "../../../contracts/coding-agent/mod.ts";
-import { outlineRoot } from "../../../contracts/documents/mod.ts";
-import type { Route } from "../../../contracts/platform/mod.ts";
+import { MCP_CORE_ROUTES } from "../../../protocol/coding-agent/mod.ts";
+import { outlineRoot } from "../../../protocol/projects/mod.ts";
+import type { Route } from "../../../protocol/platform/mod.ts";
 import type { FlowClient } from "../../connection/mod.ts";
 import {
   failureOutput,

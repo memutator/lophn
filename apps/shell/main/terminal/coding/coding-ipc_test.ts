@@ -21,7 +21,7 @@ import {
   type CodingConnection,
   detectionSchema,
 } from "../../desktop/coding-connection.ts";
-import { harnessDetectionSchema } from "../../../../../packages/contracts/coding-agent/mod.ts";
+import { harnessDetectionSchema } from "../../../../../packages/protocol/coding-agent/mod.ts";
 import {
   codingSessions,
   createCodingIpc,

@@ -6,8 +6,8 @@ import {
   BLOB_PREPARE_MAX_BYTES,
   type PreparedBlob,
   preparedBlobSchema,
-} from "../../contracts/platform/mod.ts";
-import { BLOB_PREPARE_CHUNK_MAX_BYTES } from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
+import { BLOB_PREPARE_CHUNK_MAX_BYTES } from "../../protocol/platform/mod.ts";
 
 export const BLOB_STORE_TMP_DIR = "blobs/tmp";
 // 완성 blob은 hash 앞 2자 폴더 아래 나머지 62자 파일로 둔다(domain-model "경로").

@@ -1,5 +1,5 @@
 // 선언 검색 실행기의 입력·출력. 규칙은 docs/domain-model/documents/contexts.md "실행 규칙"이다.
-import type { BundleContent } from "../../../contracts/documents/mod.ts";
+import type { BundleContent } from "../../../protocol/projects/mod.ts";
 
 // 추출 결과의 개체와 같은 모양이다(extract/를 import하지 않으려고 따로 적는다).
 export type SearchEntity = {

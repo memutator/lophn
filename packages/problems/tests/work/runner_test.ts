@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
-import { TEST_EXECUTION_LIMITS } from "../../../contracts/problems/mod.ts";
+import { TEST_EXECUTION_LIMITS } from "../../../protocol/problems/mod.ts";
 import type { MemoryLimitPort } from "./spawn.ts";
 import { admitQueue, recoverLostRunner } from "./recovery.ts";
 import { acceptFrame, emptySides, sideVerdict } from "./ipc.ts";

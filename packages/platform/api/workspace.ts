@@ -2,12 +2,12 @@ import { err, type Result } from "../../base/mod.ts";
 import type {
   AuthenticatedContext,
   Route,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   WORKSPACE_ROUTES,
   type WorkspaceReadOutput,
   workspaceReadOutputSchema,
-} from "../../contracts/shell/mod.ts";
+} from "../../protocol/shell/mod.ts";
 import {
   createRedactionEngine,
   type KnownSecretRegistry,

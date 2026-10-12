@@ -6,9 +6,9 @@
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, ok, seededRandom } from "../../packages/base/mod.ts";
 import type { Result } from "../../packages/base/mod.ts";
-import { ROUTES as DOCUMENT_ROUTES } from "../../packages/contracts/documents/mod.ts";
-import { ROUTES as AGENT_ROUTES } from "../../packages/contracts/lophn-agent/mod.ts";
-import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
+import { ROUTES as DOCUMENT_ROUTES } from "../../packages/protocol/projects/mod.ts";
+import { ROUTES as AGENT_ROUTES } from "../../packages/protocol/lophn-agent/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
 import { createCoreClient } from "../../packages/coding-agent/connection/client/core.ts";
 import {
   saveFromPaths,

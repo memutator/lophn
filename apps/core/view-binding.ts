@@ -4,12 +4,12 @@
 // app·release·mode·bundle_hash만 worker에 넘기고 페이지·본문 주장은 버린다. 위조·만료·형식 오류는
 // 없는 route와 같은 not_found로 거절한다.
 import { err, type LophnError, type Result } from "../../packages/base/mod.ts";
-import { signedConnectionSchema } from "../../packages/contracts/apps/mod.ts";
-import { observeViewError } from "../../packages/contracts/problems/mod.ts";
+import { signedConnectionSchema } from "../../packages/protocol/apps/mod.ts";
+import { observeViewError } from "../../packages/protocol/problems/mod.ts";
 import type {
   WorkerRequest,
   WorkerResponse,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import type { CoreSigner } from "../../packages/apps/runtime/signing.ts";
 import type { WorkerRouteTarget } from "../../packages/platform/responsiveness/mod.ts";
 

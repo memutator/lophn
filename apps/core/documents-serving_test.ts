@@ -6,7 +6,7 @@ import type {
   ChildMessage,
   RequestContext,
   WorkerRequest,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import { createDocumentsChannel, servedWorkers } from "./documents-serving.ts";
 
 type Sent = { request_id: string; op: string };

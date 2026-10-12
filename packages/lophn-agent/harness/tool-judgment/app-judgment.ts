@@ -11,8 +11,8 @@ import {
 import {
   canonicalInputHash,
   invocationAcceptConfirm,
-} from "../../../contracts/apps/mod.ts";
-import type { InputSchema } from "../../../contracts/apps/mod.ts";
+} from "../../../protocol/apps/mod.ts";
+import type { InputSchema } from "../../../protocol/apps/mod.ts";
 import type { CallRef, ResolvedAction, ToolBinding } from "./work.ts";
 
 // 앱 command의 판정 근거(tool-judgment R10, R11). 판정표(`judge`)는 효과·confirm·되돌림만 보고 이 파일은

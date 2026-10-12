@@ -1,4 +1,4 @@
-import type { ToolResult } from "../../../contracts/lophn-agent/mod.ts";
+import type { ToolResult } from "../../../protocol/lophn-agent/mod.ts";
 
 // 결과 상한(R13, R14). 목록·검색은 한 번에 20개. 텍스트는 UTF-8 24 KiB와 300줄
 // 중 먼저 닿는 곳에서 자른다. 문서는 앞, log는 뒤를 남기고 JSON·Unicode를 깨지

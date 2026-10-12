@@ -4,7 +4,7 @@
 // 영구 참조를 등록한다. 읽기(ReadApprovalText)는 apps/core/platform.ts가 붙인다. 메시지 본문
 // (message-body.ts)·질문 글(question-text.ts)과 같은 길이다.
 import { ok, type Result } from "../../packages/base/mod.ts";
-import { waitRun } from "../../packages/contracts/lophn-agent/mod.ts";
+import { waitRun } from "../../packages/protocol/lophn-agent/mod.ts";
 import {
   APPROVAL_TEXT_PURPOSE,
   approvalTextBytes,
@@ -12,8 +12,8 @@ import {
   cancelApprovalRequest,
   createApprovalRequest,
   rejectApprovalRequest,
-} from "../../packages/contracts/platform/mod.ts";
-import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
 import {
   type CommandEnvelope,
   type Writer,

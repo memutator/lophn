@@ -3,14 +3,14 @@ import { ok, type Result } from "../../../../base/mod.ts";
 import {
   documentGet,
   documentRead,
-} from "../../../../contracts/documents/mod.ts";
+} from "../../../../protocol/projects/mod.ts";
 import {
   getProblem,
   interpretationLinkInputSchema,
   linkProblemInterpretation,
   linkProblemInterpretationInputSchema,
-} from "../../../../contracts/problems/mod.ts";
-import type { ToolResult } from "../../../../contracts/lophn-agent/mod.ts";
+} from "../../../../protocol/problems/mod.ts";
+import type { ToolResult } from "../../../../protocol/lophn-agent/mod.ts";
 import { fitJson } from "../result.ts";
 import type { ToolDefinition } from "../registry.ts";
 import type { RunCredential, ToolHandler } from "../work.ts";

@@ -2,7 +2,7 @@
 // -> 새 범위로 재시작. 종료를 확인하지 못하면 새 자식을 띄우지 않고 회수도 완료로 표시하지 않는다.
 // 이미 한 업무 쓰기나 외부 전송을 취소하지 않는다. 막는 것은 앞으로의 접근뿐이다.
 import { type LophnError, ok, type Result } from "../../../base/mod.ts";
-import type { Grant, GrantRevokeInput } from "../../../contracts/apps/mod.ts";
+import type { Grant, GrantRevokeInput } from "../../../protocol/apps/mod.ts";
 
 export type StopResult =
   // OS가 자식 종료를 확인했다. 이미 멈춰 있었다면 processNonce는 null이다.

@@ -1,6 +1,6 @@
 import { spawn as spawnNode } from "node:child_process";
 import { err, ok, type Result } from "../../base/mod.ts";
-import type { MemoryLimitMode } from "../../contracts/platform/mod.ts";
+import type { MemoryLimitMode } from "../../protocol/platform/mod.ts";
 
 // problems/tests#R20. 전체 process 메모리 상한. Deno heap 상한과 별개다.
 export const PROCESS_MEMORY_LIMIT_BYTES = 536_870_912;

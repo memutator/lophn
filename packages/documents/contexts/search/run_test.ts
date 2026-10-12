@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { bundleContentSchema } from "../../../contracts/documents/mod.ts";
+import { bundleContentSchema } from "../../../protocol/projects/mod.ts";
 import { runSearch } from "./run.ts";
 import { fixtureBundle, fixtureEntities } from "./testing.ts";
 import type { EntityRef, SearchResult } from "./types.ts";

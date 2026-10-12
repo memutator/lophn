@@ -8,13 +8,13 @@ import type {
   ApprovalEffectInput,
   AuthenticatedContext,
   SqlRow,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   approvalBinding,
   type ApprovalRequest,
   grantApprovalRequest,
   rejectApprovalRequest,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { confirmationBinding } from "../identity/mod.ts";
 import { effectText, REASON_TEXT } from "./testing/mod.ts";
 

@@ -15,7 +15,7 @@ import {
   revisionSchema,
   slugSchema,
   versionIdSchema,
-} from "../documents/values.ts";
+} from "../projects/values.ts";
 
 export const releaseIdSchema = idSchema("rel");
 

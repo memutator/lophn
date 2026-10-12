@@ -6,7 +6,7 @@ import { err, ok } from "../../packages/base/mod.ts";
 import {
   CREDENTIAL_DELIVERY_FAILURES,
   harnessSessionObservationSchema,
-} from "../../packages/contracts/coding-agent/mod.ts";
+} from "../../packages/protocol/coding-agent/mod.ts";
 import { cliMain, type CliOptions } from "./main.ts";
 import {
   planSelection,

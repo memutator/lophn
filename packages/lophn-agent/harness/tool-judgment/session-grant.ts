@@ -2,12 +2,12 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   sessionRead,
   toolCallList,
-} from "../../../contracts/lophn-agent/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
 import {
   type ApprovalRequest,
   approvalsList,
   eventsList,
-} from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/platform/mod.ts";
 import { type CoreCall, post } from "./core-call.ts";
 import { type BasisSnapshot, sameToolBasis } from "./model.ts";
 

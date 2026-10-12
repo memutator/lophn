@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import type { AppRevertBinding } from "../../../packages/contracts/lophn-agent/mod.ts";
+import type { AppRevertBinding } from "../../../packages/protocol/lophn-agent/mod.ts";
 import {
   NotSent,
   ResultLost,

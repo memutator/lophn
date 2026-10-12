@@ -5,14 +5,14 @@ import {
   MESSAGE_BODY_OWNER_KIND,
   type MessageLink,
   type SessionRecord,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import {
   type BlobFieldDefinition,
   defineBlobField,
   type SchemaStep,
   type SqlParams,
   type SqlRow,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 
 // 본문 blob은 영구 보존이다(R2). 일반 blob.read로는 열지 않는다: 읽는 쪽 범위(사람,
 // 그 assignment의 agent, machine)는 ReadMessageBody가 판정한다.

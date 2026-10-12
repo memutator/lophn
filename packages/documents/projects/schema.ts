@@ -1,4 +1,4 @@
-import type { SchemaStep } from "../../contracts/platform/mod.ts";
+import type { SchemaStep } from "../../protocol/platform/mod.ts";
 
 // position은 0부터 연속이다. 행 교체는 Project 구성 변경 transaction 안에서만 한다.
 export const projectsSchemaSteps: readonly SchemaStep[] = [{

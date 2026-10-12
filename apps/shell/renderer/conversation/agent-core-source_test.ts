@@ -2,7 +2,7 @@
 // fake의 응답이 실제 core가 낼 모양인지 검사한다. 실제 core 위의 흐름은 agent-core-source-real-core_test가 본다.
 import { assert, assertEquals } from "@std/assert";
 
-import { tableBlock } from "../../../../packages/contracts/lophn-agent/message-fixtures.ts";
+import { tableBlock } from "../../../../packages/protocol/lophn-agent/message-fixtures.ts";
 import type { ThreadView } from "./agent-source.ts";
 import {
   type AgentCoreDeps,

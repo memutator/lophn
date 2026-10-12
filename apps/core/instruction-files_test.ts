@@ -16,12 +16,12 @@ import {
   INSTRUCTION_PREVIEW_MAX_BYTES,
   instructionPreview,
   instructionRead,
-} from "../../packages/contracts/lophn-agent/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
 import type {
   ReadSnapshot,
   RequestContext,
-} from "../../packages/contracts/platform/mod.ts";
-import { routePath } from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
+import { routePath } from "../../packages/protocol/platform/mod.ts";
 import {
   INSTRUCTION_FILE_MAX_BYTES,
   instructionFilesOverCore,

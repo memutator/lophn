@@ -25,13 +25,13 @@ import {
   seriesUpdate,
   seriesUpdated,
   seriesUpdateInstance,
-} from "../../contracts/documents/mod.ts";
+} from "../../protocol/projects/mod.ts";
 import {
   type CommandDefinition,
   parseActor,
   type RequestContext,
   type Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { actingApp, isAppPlace } from "../addressing/mod.ts";
 import { loadDocument, loadLatestVersion } from "../versions/mod.ts";
 import { draftKeyConflicts } from "./model.ts";

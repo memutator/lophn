@@ -19,7 +19,7 @@ import {
   type CredentialDeliveryFailure,
   credentialDeliveryRequestSchema,
   credentialDeliveryResponseSchema,
-} from "../../../contracts/coding-agent/mod.ts";
+} from "../../../protocol/coding-agent/mod.ts";
 import type { ConnectionCredential, CredentialProvider } from "./provider.ts";
 
 // helper를 실행한 결과다. 정상 종료가 아니면 exitCode가 null이거나 0이 아니다.

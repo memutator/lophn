@@ -12,7 +12,7 @@ import {
   AUTOMATION_TIMEOUT_MS,
   brokerAutomationReleaseInputSchema,
   brokerAutomationTryAcquireInputSchema,
-} from "../../../contracts/apps/mod.ts";
+} from "../../../protocol/apps/mod.ts";
 import {
   type BrokerAccess,
   currentAccess,

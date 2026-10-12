@@ -1,4 +1,4 @@
-import type { SchemaStep } from "../../contracts/platform/mod.ts";
+import type { SchemaStep } from "../../protocol/platform/mod.ts";
 
 // domain-model apps/sdk의 ledger 표. release 참조는 releases 표의 위치가 다른
 // 조립이므로 물리 FK를 두지 않고, bundle_hash·guide_hash의 실제 byte는 blob이다.

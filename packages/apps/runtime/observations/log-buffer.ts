@@ -6,7 +6,7 @@ import {
   type AppLogState,
   LOG_LINE_MAX_COUNT,
   LOG_LINE_MAX_LENGTH,
-} from "../../../contracts/apps/mod.ts";
+} from "../../../protocol/apps/mod.ts";
 import {
   type ByteSource,
   createStreamDecoder,

@@ -4,7 +4,7 @@ import type { ErrorCode } from "../../../base/mod.ts";
 import type {
   ToolOutcome,
   ToolResult,
-} from "../../../contracts/lophn-agent/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
 import { checkInput, unchanged } from "./schema.ts";
 import { findTool, type ToolDefinition } from "./registry.ts";
 

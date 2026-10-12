@@ -1,7 +1,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { createIdSource, cryptoRandom, manualClock } from "../../base/mod.ts";
-import type { ObservedExceptionInput } from "../../contracts/problems/mod.ts";
-import { exceptionObservationInputSchema } from "../../contracts/problems/mod.ts";
+import type { ObservedExceptionInput } from "../../protocol/problems/mod.ts";
+import { exceptionObservationInputSchema } from "../../protocol/problems/mod.ts";
 import {
   CRASH_EVIDENCE,
   type CrashEvent,

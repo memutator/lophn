@@ -11,7 +11,7 @@ import {
   render,
 } from "../../../../../packages/design/components/testing.ts";
 
-import { TAB_KINDS } from "../../../../../packages/contracts/shell/workspace.ts";
+import { TAB_KINDS } from "../../../../../packages/protocol/shell/workspace.ts";
 import { toStoredLayout, viewFromStored } from "../layout-map.ts";
 import type { WorkspaceSource } from "../source.ts";
 import { tabKindLabel, tabKindOf } from "../kinds/registry.ts";

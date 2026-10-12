@@ -17,11 +17,11 @@ import {
   searchQuery,
   searchStatus,
   storedDocumentFileInputSchema,
-} from "../../packages/contracts/documents/mod.ts";
+} from "../../packages/protocol/projects/mod.ts";
 import type {
   ReadRoute,
   WorkerRoute,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 
 // 제품 core가 서빙하는 문서 worker route. `documents/prepare`는 다른 길(준비 조립)이다.
 export const SERVED_ROUTES: readonly WorkerRoute[] = [

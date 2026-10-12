@@ -5,7 +5,7 @@ import {
   catalogEntrySchema,
   type CatalogState,
   catalogStateSchema,
-} from "../../../contracts/lophn-agent/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
 import { err, formatAt, ok, type Result } from "../../../base/mod.ts";
 
 export { CATALOG_REFRESH_INTERVAL_MS };

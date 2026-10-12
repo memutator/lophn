@@ -1,6 +1,6 @@
 import { err, ok } from "../../base/mod.ts";
 import { createIdSource, manualClock, seededRandom } from "../../base/mod.ts";
-import { definePort } from "../../contracts/platform/mod.ts";
+import { definePort } from "../../protocol/platform/mod.ts";
 import { defineSyncCommand } from "./handler.ts";
 import { noteCreated, recordNote } from "./test-commands.ts";
 import { defineTxPort } from "./tx-ports.ts";

@@ -10,7 +10,7 @@ import {
   type SettingsExportOutput,
   type SettingsImportInput,
   type SettingsImportOutput,
-} from "../../../packages/contracts/platform/mod.ts";
+} from "../../../packages/protocol/platform/mod.ts";
 import type { ErrorCode } from "../../../packages/base/mod.ts";
 import {
   exportSettingsTOML,

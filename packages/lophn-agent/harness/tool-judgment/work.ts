@@ -15,9 +15,9 @@ import {
   runRead,
   startToolCall,
   type ToolDecision,
-} from "../../../contracts/lophn-agent/mod.ts";
-import type { InvocationAcceptConfirmInput } from "../../../contracts/apps/mod.ts";
-import { documentGet } from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
+import type { InvocationAcceptConfirmInput } from "../../../protocol/apps/mod.ts";
+import { documentGet } from "../../../protocol/projects/mod.ts";
 import {
   applyApprovedAction,
   type ApprovalAction,
@@ -27,7 +27,7 @@ import {
   approvalsList,
   createApprovalRequest,
   type JsonObject,
-} from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/platform/mod.ts";
 import {
   checkInput,
   findTool,

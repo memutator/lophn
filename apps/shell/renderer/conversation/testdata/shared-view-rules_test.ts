@@ -2,13 +2,13 @@
 // 설정(lib ES2023·DOM·deno.ns)에서 import가 되는지와 결과가 맞는지를 한 번씩만 본다. 규칙 자체의 test는
 // packages/contracts/lophn-agent의 model-picker·command-filter test가 본다.
 import { assertEquals } from "@std/assert";
-import { listCommands } from "../../../../../packages/contracts/lophn-agent/command-filter.ts";
+import { listCommands } from "../../../../../packages/protocol/lophn-agent/command-filter.ts";
 import {
   fitOptionValues,
   orderPicker,
   toggleFavorite,
-} from "../../../../../packages/contracts/lophn-agent/model-picker.ts";
-import { catalogEntry } from "../../../../../packages/contracts/lophn-agent/testing/mod.ts";
+} from "../../../../../packages/protocol/lophn-agent/model-picker.ts";
+import { catalogEntry } from "../../../../../packages/protocol/lophn-agent/testing/mod.ts";
 
 Deno.test("shell/desktop#Q18: the renderer calls the picker rules from contracts", () => {
   const sonnet = { provider: "anthropic", model_name: "claude-sonnet-4-5" };

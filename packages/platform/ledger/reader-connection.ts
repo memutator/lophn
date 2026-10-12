@@ -1,6 +1,6 @@
 import { DatabaseSync } from "node:sqlite";
 import { err, ok, type Result } from "../../base/mod.ts";
-import type { ReadSnapshot } from "../../contracts/platform/mod.ts";
+import type { ReadSnapshot } from "../../protocol/platform/mod.ts";
 import { createSql, isStorageUnavailable } from "./sqlite.ts";
 import {
   READ_MAX_ROWS,

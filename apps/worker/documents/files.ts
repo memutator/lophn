@@ -8,8 +8,8 @@ import type { LophnError } from "../../../packages/base/mod.ts";
 import type {
   FileOperationResult,
   FileTarget,
-} from "../../../packages/contracts/documents/mod.ts";
-import { fileOperationResultSchema } from "../../../packages/contracts/documents/mod.ts";
+} from "../../../packages/protocol/projects/mod.ts";
+import { fileOperationResultSchema } from "../../../packages/protocol/projects/mod.ts";
 import {
   type ContentRef,
   coreFileDeleteSchema,

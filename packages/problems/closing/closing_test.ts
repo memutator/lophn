@@ -4,7 +4,7 @@
 import { assert, assertEquals, assertFalse } from "@std/assert";
 import { err, ok, type Result } from "../../base/mod.ts";
 import type { LophnError } from "../../base/mod.ts";
-import type { Verification } from "../../contracts/problems/mod.ts";
+import type { Verification } from "../../protocol/problems/mod.ts";
 import { verifiedCandidate, verifiedClosure } from "./model.ts";
 import {
   CLOSING_EVENT_TYPES,

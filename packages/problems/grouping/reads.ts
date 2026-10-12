@@ -4,7 +4,7 @@ import type {
   Output,
   ReadSnapshot,
   RequestContext,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   type ProblemTestFact,
   ProblemTestPort,
@@ -13,7 +13,7 @@ import {
   ProblemWordingPort,
   ProblemWorkPort,
   type RepairTicketFact,
-} from "../../contracts/problems/mod.ts";
+} from "../../protocol/problems/mod.ts";
 import {
   closureSchema,
   getProblem,
@@ -23,7 +23,7 @@ import {
   PROBLEM_LIST_LIMIT,
   problemSchema,
   type ProblemSummary,
-} from "../../contracts/problems/mod.ts";
+} from "../../protocol/problems/mod.ts";
 import { type DecisionFacts, projectProblemDetail } from "./detail.ts";
 import { problemTestHistory } from "../tests/mod.ts";
 import { offersFixedConfirmation } from "../closing/mod.ts";

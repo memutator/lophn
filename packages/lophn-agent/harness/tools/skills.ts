@@ -6,7 +6,7 @@ import {
   type SkillReadResult,
 } from "../../extensions/mod.ts";
 import type { SkillFilesPort } from "../../extensions/mod.ts";
-import type { ToolResult } from "../../../contracts/lophn-agent/mod.ts";
+import type { ToolResult } from "../../../protocol/lophn-agent/mod.ts";
 import type { RunCredential } from "./work.ts";
 import type { ToolDefinition } from "./registry.ts";
 

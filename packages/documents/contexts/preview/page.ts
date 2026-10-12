@@ -5,7 +5,7 @@ import {
   CONTEXT_PREVIEW_PAGE,
   type ContextPreviewRead,
   type ContextPreviewWorkResponse,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 import { violationMessage } from "../api/violation-message.ts";
 import { compareKey, type Key, pageByKey } from "../api/reads-common.ts";
 

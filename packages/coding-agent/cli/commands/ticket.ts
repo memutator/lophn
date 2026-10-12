@@ -24,7 +24,7 @@ import {
   ticketRenewClaim,
   ticketReportCompletion,
   ticketShow,
-} from "../../../contracts/coding-agent/mod.ts";
+} from "../../../protocol/coding-agent/mod.ts";
 import {
   reportInputOf,
   reportTicket,

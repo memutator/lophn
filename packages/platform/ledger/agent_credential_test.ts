@@ -7,7 +7,7 @@ import {
   defineCommand,
   defineEvent,
   type Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   createLedgerHarness,
   defineTxPort,

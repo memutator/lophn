@@ -21,7 +21,7 @@ import { createCoreHarness } from "../../../apps/core/testing/core.ts";
 import {
   createRpcClient,
   platformHealth,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { createBlobStoreWork, createFakeQuota } from "../blob-store/mod.ts";
 import { createLedgerHarness } from "../../../apps/core/testing/ledger.ts";
 import { type TargetSamples } from "./measure-report.ts";

@@ -14,7 +14,7 @@ import {
   type HarnessEnvironment,
   type HarnessId,
   type HarnessVersion,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 import {
   type HarnessDefinition,
   PROBE_OUTCOMES,

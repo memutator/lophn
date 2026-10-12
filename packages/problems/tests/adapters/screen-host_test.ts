@@ -1,5 +1,5 @@
 import { assertEquals, assertFalse } from "@std/assert";
-import type { ScreenTestInput } from "../../../contracts/shell/mod.ts";
+import type { ScreenTestInput } from "../../../protocol/shell/mod.ts";
 import {
   runScreenHost,
   SCREEN_OBSERVATION_MAX_BYTES,

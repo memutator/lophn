@@ -15,7 +15,7 @@ import {
   LOPHN_TERMINAL_OBSERVE,
   type ObserveEnvelope,
   unknownObservation,
-} from "../../../packages/contracts/coding-agent/mod.ts";
+} from "../../../packages/protocol/coding-agent/mod.ts";
 import type { CodingHost, CodingLaunch as BaseLaunch } from "./coding-types.ts";
 import {
   type ChildEvent,

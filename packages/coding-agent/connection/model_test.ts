@@ -3,7 +3,7 @@ import {
   connectionPrincipal,
   connectionSchema,
   connectionScopeSchema,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 import { nextState, principalFor, scopeColumns } from "./model.ts";
 import { APP, CAC } from "./sqlite.ts";
 

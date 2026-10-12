@@ -2,7 +2,7 @@
 // 원값·길이·일부·keychain 내부 경로는 오류와 log에 넣지 않는다.
 
 import { err, type Result } from "../../../base/mod.ts";
-import type { SecretPurpose } from "../../../contracts/platform/mod.ts";
+import type { SecretPurpose } from "../../../protocol/platform/mod.ts";
 
 export type KeychainItem = {
   name: string;

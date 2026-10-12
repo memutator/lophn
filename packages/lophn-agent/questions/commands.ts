@@ -11,14 +11,14 @@ import {
   questionCancelled,
   questionCreated,
   questionExpired,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import {
   type CommandDefinition,
   type Input,
   parseActor,
   type RequestContext,
   type Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   checkGroupOpen,
   collectGroupAnswers,

@@ -23,7 +23,7 @@ import {
   type PreparedVersion,
   type SaveResult,
   type Version,
-} from "../../contracts/documents/mod.ts";
+} from "../../protocol/projects/mod.ts";
 import {
   type BlobRefRegistration,
   type CommandDefinition,
@@ -32,7 +32,7 @@ import {
   type PreparedBlob,
   type RequestContext,
   type Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   createDocumentNameReservation,
   type PlaceRef,

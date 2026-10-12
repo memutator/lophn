@@ -2,7 +2,7 @@
 // 읽기마다 결과의 모양(contract schema)과 순서를 작은 메모리 상태 위에서 본다.
 import { assert, assertEquals, assertNotEquals } from "@std/assert";
 import type { z } from "zod";
-import type { SearchRow } from "../../../contracts/documents/mod.ts";
+import type { SearchRow } from "../../../protocol/projects/mod.ts";
 import {
   contextBundlesReadSchema,
   contextContainingReadSchema,
@@ -16,7 +16,7 @@ import {
   contextSearchReadSchema,
   contextViolationsReadSchema,
   glossaryListReadSchema,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 import { createContextApiCommands } from "./commands.ts";
 import {
   type ContextApiReadDeps,

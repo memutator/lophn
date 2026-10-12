@@ -9,7 +9,7 @@ import type {
   Project,
   Slug,
   TrackingPreview,
-} from "../../contracts/documents/mod.ts";
+} from "../../protocol/projects/mod.ts";
 import { denoFileOps } from "./adapters/file-ops.ts";
 import { createFileSerializer, type FileOps } from "./file-ops.ts";
 import { localPlacementFiles } from "./testing/mod.ts";

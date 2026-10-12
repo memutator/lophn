@@ -1,4 +1,4 @@
-import type { SchemaStep } from "../../../contracts/platform/mod.ts";
+import type { SchemaStep } from "../../../protocol/platform/mod.ts";
 
 // domain-model lophn-agent/harness/run-loop의 `runs` 표. assignment 뒤에 만든다.
 // running·waiting_user는 session마다 하나, session 없는 run은 assignment마다 하나로

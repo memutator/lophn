@@ -2,7 +2,7 @@ import { err, ok, type Result } from "../../base/mod.ts";
 import {
   absolutePathSchema,
   type Folder,
-} from "../../contracts/documents/mod.ts";
+} from "../../protocol/projects/mod.ts";
 
 // absolutePathSchema는 모양만 검사한다. OS realpath·alias·symlink의 진실은
 // command 밖 trusted host/worker가 canonical root를 준비할 책임이다.

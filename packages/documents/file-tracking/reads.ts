@@ -2,14 +2,14 @@
 // project 파일과 원본 없는 문서의 working copy)를 ledger에서 계산하고, working copy 근거는
 // core가 쓰기·읽기 전에 요청 자격으로 확인한다. 디스크는 읽지 않는다.
 import { err, ok, type Result } from "../../base/mod.ts";
-import { filesList, type FileTarget } from "../../contracts/documents/mod.ts";
+import { filesList, type FileTarget } from "../../protocol/projects/mod.ts";
 import {
   parseActor,
   type ReadDefinition,
   type ReadSnapshot,
   type RequestContext,
   type Sql,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   authorizeDocument,
   loadDocument,

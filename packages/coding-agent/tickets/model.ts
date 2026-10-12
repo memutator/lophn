@@ -4,11 +4,11 @@ import {
   acceptanceCheckInputSchema,
   type TicketKind,
   type TicketReadiness,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 import {
   parseActor,
   type RequestContext,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 
 // ticket.create actor는 user·lophn·담당 App Engineer agent다. coding_agent·
 // app·machine은 생성하지 않는다(R5).

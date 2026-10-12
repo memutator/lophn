@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import type { ToolEffect } from "../../../contracts/lophn-agent/mod.ts";
+import type { ToolEffect } from "../../../protocol/lophn-agent/mod.ts";
 import { AGENT_TOOLS } from "./bundles/agent.ts";
 import {
   APP_READ_TOOL_NAMES,

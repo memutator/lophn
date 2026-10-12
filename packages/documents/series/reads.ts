@@ -8,14 +8,14 @@ import {
   seriesGet,
   seriesList,
   seriesNext as seriesNextRead,
-} from "../../contracts/documents/mod.ts";
+} from "../../protocol/projects/mod.ts";
 import {
   parseActor,
   type ReadDefinition,
   type ReadSnapshot,
   type RequestContext,
   TargetAuthorization,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { seriesNext } from "./work.ts";
 import {
   listAllSeries,

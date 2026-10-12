@@ -18,8 +18,8 @@ import {
   contextHandOffViolationsRoute,
   evidenceOf,
   type StoredViolation,
-} from "../../packages/contracts/documents/mod.ts";
-import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/projects/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
 import type {
   CommandEnvelope,
   Writer,

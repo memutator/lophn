@@ -7,7 +7,7 @@ import {
   type ContextValue,
   type EntityRef,
   splitExternalRef,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 import { nextName, parsePattern } from "../series/next.ts";
 import type { ContextApiReads } from "./reads.ts";
 import {

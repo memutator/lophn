@@ -13,7 +13,7 @@ import {
   type AuthenticatedContext,
   type OsDelivery,
   reportOsDelivery,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import type {
   MemoryHandler,
   ReadHandler,

@@ -3,7 +3,7 @@
 // (`appFlags` + supervisor가 더하는 socket flag)으로 뜬다. 서명 key는 시험이 만든 Ed25519 key이고
 // core·keychain·네트워크·사람 데이터 root는 열지 않는다.
 import { manualClock, systemClock } from "../../base/mod.ts";
-import type { AppConnection } from "../../contracts/apps/mod.ts";
+import type { AppConnection } from "../../protocol/apps/mod.ts";
 import { appFlags, type FlagSet, socketFlags } from "../permissions/mod.ts";
 import {
   appArgv,

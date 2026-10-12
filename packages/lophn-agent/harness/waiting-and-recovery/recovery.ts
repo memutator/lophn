@@ -2,7 +2,7 @@ import type {
   RECOVERY_BOUNDARIES,
   RunElapsed,
   ToolResult,
-} from "../../../contracts/lophn-agent/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
 import {
   type HistoryMessage,
   SUMMARY_RULE_VERSION,

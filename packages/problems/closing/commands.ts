@@ -12,7 +12,7 @@ import {
   parseActor,
   type RequestContext,
   type Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   applyProblemDecision,
   closeProblemVerified,
@@ -21,7 +21,7 @@ import {
   problemConfirmationRecorded,
   problemReopened,
   type UserProblemDecision,
-} from "../../contracts/problems/mod.ts";
+} from "../../protocol/problems/mod.ts";
 import { NOT_FOUND } from "../reporting/mod.ts";
 
 const notFound = (): Result<never, LophnError> =>

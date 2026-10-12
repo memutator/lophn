@@ -4,19 +4,19 @@ import {
   appAutomations,
   type AutomationView,
   type RuntimeObservation,
-} from "../../contracts/apps/mod.ts";
+} from "../../protocol/apps/mod.ts";
 import {
   type ReadSnapshot,
   type RequestContext,
   TargetAuthorization,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   AUTOMATION_REASONS,
   createAutomationReads,
   withAutomationObservation,
 } from "./reads.ts";
 import type { DatabaseSync } from "node:sqlite";
-import type { App } from "../../contracts/apps/mod.ts";
+import type { App } from "../../protocol/apps/mod.ts";
 import { invocationsSchemaSteps } from "../invocations/testing/mod.ts";
 import {
   createGrantSnapshot,

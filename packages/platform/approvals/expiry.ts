@@ -8,7 +8,7 @@ import { ok } from "../../base/mod.ts";
 import {
   defineRead,
   type ReadDefinition,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { deadlineReached } from "./model.ts";
 
 // 한 번의 정리가 다루는 후보 수. 응답 행 한도 안에 두고 나머지는 다음 정리가 이어 만료한다.

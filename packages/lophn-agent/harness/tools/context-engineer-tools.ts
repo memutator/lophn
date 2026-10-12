@@ -17,8 +17,8 @@ import {
   glossaryTermSchema,
   readCursorSchema,
   revisionSchema,
-} from "../../../contracts/documents/mod.ts";
-import type { ToolResult } from "../../../contracts/lophn-agent/mod.ts";
+} from "../../../protocol/projects/mod.ts";
+import type { ToolResult } from "../../../protocol/lophn-agent/mod.ts";
 import {
   type ContractCall,
   defineBuiltin,

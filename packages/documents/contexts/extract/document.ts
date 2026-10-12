@@ -1,7 +1,7 @@
 // 파일 하나를 ParsedDocument로 읽는다. 제목은 md outline parser가 찾고,
 // frontmatter와 YAML 파일은 `@std/yaml`(core schema)로 읽는다.
 import { parse as parseYaml } from "@std/yaml";
-import { parseOutline } from "../../../contracts/documents/mod.ts";
+import { parseOutline } from "../../../protocol/projects/mod.ts";
 import type {
   DocumentReader,
   Heading,

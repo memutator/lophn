@@ -15,7 +15,7 @@ import {
   saveFromPaths,
   uploadPrepareBytes,
 } from "../../packages/coding-agent/connection/mod.ts";
-import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
 import { codingExternalCredential } from "../../packages/platform/identity/mod.ts";
 import {
   codingCredentialRef,

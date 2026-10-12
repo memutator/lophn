@@ -1,5 +1,5 @@
 import { ok, type Result } from "../../base/mod.ts";
-import { bundleContentSchema } from "../../contracts/documents/mod.ts";
+import { bundleContentSchema } from "../../protocol/projects/mod.ts";
 import { type CheckInput, type CheckOutcome, runCheck } from "./check/mod.ts";
 import { watchFolders } from "./watch/mod.ts";
 import type { SnapshotPort, SubmitPort } from "./work-types.ts";

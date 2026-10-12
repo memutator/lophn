@@ -3,12 +3,12 @@
 // 바이트가 같을 때만 core가 준비를 끝낸다. 준비 주체는 요청 credential이라 이어지는
 // document.prepare·document.save가 같은 주체로 참조를 쓴다.
 import { err, type LophnError, ok, type Result } from "../../base/mod.ts";
-import { documentUpload } from "../../contracts/documents/mod.ts";
+import { documentUpload } from "../../protocol/projects/mod.ts";
 import {
   type PreparedBlob,
   preparedBlobSchema,
   type UploadRoute,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import type { PrepareBytes } from "./submission.ts";
 
 // core client 중 이 통로가 쓰는 호출이다. client/core.ts는 core module graph 밖에 둔다.

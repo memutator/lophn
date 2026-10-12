@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { searchQuerySchema } from "../../../contracts/documents/mod.ts";
+import { searchQuerySchema } from "../../../protocol/projects/mod.ts";
 import { expandFollows } from "./relations.ts";
 import { brief, fixtureBundle, fixtureEntities } from "./testing.ts";
 

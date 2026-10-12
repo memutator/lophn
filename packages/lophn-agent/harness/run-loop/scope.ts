@@ -3,7 +3,7 @@ import {
   type AgentAppScope,
   agentAppScopeSchema,
   type AgentRole,
-} from "../../../contracts/lophn-agent/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
 
 // StartRun이 agent credential에 싣는 AgentAppScope 계산(requirements
 // lophn-agent/roles/common R11). 역할이 닿을 수 있는 앱 command의 상한이다.

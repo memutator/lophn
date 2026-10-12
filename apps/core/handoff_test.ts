@@ -16,7 +16,7 @@ import {
   type ApprovalRequest,
   type AuthenticatedContext,
   REDACTION_REPLACEMENT,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import {
   handoffBodyHash,
   handoffContentBytes,
@@ -29,7 +29,7 @@ import {
   executeTool,
   listTools,
 } from "../../packages/lophn-agent/harness/tools/mod.ts";
-import { ROUTES } from "../../packages/contracts/lophn-agent/mod.ts";
+import { ROUTES } from "../../packages/protocol/lophn-agent/mod.ts";
 import { type Core, startCore } from "./core.ts";
 import { lophnAgentDefinitions } from "./lophn-agent.ts";
 import {

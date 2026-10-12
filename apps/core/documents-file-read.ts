@@ -17,7 +17,7 @@ import {
 import {
   filesRead,
   type FileTarget,
-} from "../../packages/contracts/documents/mod.ts";
+} from "../../packages/protocol/projects/mod.ts";
 import {
   DOCUMENT_OPS,
   type WorkingCopyCheck,
@@ -26,7 +26,7 @@ import {
   FILE_WINDOW_MAX_BYTES,
   fileIdentitySchema,
 } from "../../packages/documents/file-tracking/file-ipc.ts";
-import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
 import type { FileStreamHandler } from "../../packages/platform/api/mod.ts";
 import type { FileWindows } from "./documents-file-windows.ts";
 import { STORED_FILE_MAX_BYTES } from "./documents-serving.ts";

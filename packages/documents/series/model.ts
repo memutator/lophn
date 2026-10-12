@@ -1,17 +1,17 @@
 // Series 정렬과 다음 key 계산의 순수 계산. locale과 표시 direction에 독립적인
 // key 자연 순과 format_field order_value 비교다. 저장·예약은 하지 않는다.
-import { compareSeriesKeys } from "../../contracts/documents/mod.ts";
+import { compareSeriesKeys } from "../../protocol/projects/mod.ts";
 import type {
   SeriesDraft,
   SeriesInstance,
   SeriesOrder,
-} from "../../contracts/documents/mod.ts";
+} from "../../protocol/projects/mod.ts";
 
 export {
   compareSeriesKeys,
   documentNameForKey,
   suggestNextKey,
-} from "../../contracts/documents/mod.ts";
+} from "../../protocol/projects/mod.ts";
 
 // 같은 타입의 format_field order_value를 비교한다. number는 수로, string은
 // locale 무관 codepoint로 비교한다.

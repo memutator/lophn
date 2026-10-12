@@ -1,6 +1,6 @@
 // 앱 direct socket으로 가는 Unix socket HTTP. 가상 host lophn.invalid만 쓰고(apps/runtime#R8)
 // 연결을 열지 못한 것(보내지 않았다)과 보낸 뒤 응답을 못 받은 것(결과 모름)을 구별한다.
-import { SOCKET_HOST } from "../../../contracts/apps/mod.ts";
+import { SOCKET_HOST } from "../../../protocol/apps/mod.ts";
 
 export type DirectRequest = {
   method: "GET" | "POST";

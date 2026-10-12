@@ -6,7 +6,7 @@ import { manualClock, seededRandom } from "../../base/mod.ts";
 import type {
   ApprovalRequest,
   AuthenticatedContext,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { type Core, startCore } from "../../../apps/core/core.ts";
 import { createLedgerRegistration } from "../../../apps/core/apps.ts";
 import {

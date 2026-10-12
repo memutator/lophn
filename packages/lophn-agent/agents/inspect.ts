@@ -5,7 +5,7 @@ import {
   type AgentPlace,
   agentPlaceAllowsRole,
   type AgentSettings,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import { DEFAULT_PROFILES } from "./builtin.ts";
 import { parseAgentFile, parseSettingsFile } from "./definition-file.ts";
 import { type Effective, effectiveAgent } from "./effective.ts";

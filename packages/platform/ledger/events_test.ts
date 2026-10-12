@@ -5,7 +5,7 @@ import {
   eventsList,
   type EventVisibilityDefinition,
   type ReadSnapshot,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   commands,
   deps,

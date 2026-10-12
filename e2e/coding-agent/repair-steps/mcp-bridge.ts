@@ -3,8 +3,8 @@
 // 파일·실제 keychain·실제 model은 쓰지 않는다. token은 테스트가 메모리로 넘긴다.
 import { ok } from "../../../packages/base/mod.ts";
 import { createCoreClient } from "../../../packages/coding-agent/connection/client/core.ts";
-import { mcpToolResult } from "../../../packages/contracts/coding-agent/mod.ts";
-import { connectionIdSchema } from "../../../packages/contracts/coding-agent/mod.ts";
+import { mcpToolResult } from "../../../packages/protocol/coding-agent/mod.ts";
+import { connectionIdSchema } from "../../../packages/protocol/coding-agent/mod.ts";
 import {
   findTool,
   resolveRoute,

@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { ok, sha256Hex } from "../../base/mod.ts";
-import type { PackageRegisterVersionInput } from "../../contracts/apps/mod.ts";
+import type { PackageRegisterVersionInput } from "../../protocol/apps/mod.ts";
 import { installPackage } from "./install.ts";
 import { parseLophnSdkSpecifier } from "./model.ts";
 // SDK 설치(apps/sdk#R4, R9, R13). 설치가 packages/sdk/<name>을 패키지마다 자기

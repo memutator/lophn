@@ -6,7 +6,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { err, ok, type Result } from "../../packages/base/mod.ts";
-import { answerQuestionAction } from "../../packages/contracts/lophn-agent/mod.ts";
+import { answerQuestionAction } from "../../packages/protocol/lophn-agent/mod.ts";
 import {
   createWaitResolver,
   type WaitStep,

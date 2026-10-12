@@ -3,7 +3,7 @@
 // 보호 backup 확정 → migration → 새 앱 준비 확인(probe) → complete_activation commit → 업무 통로 open이다.
 // 앞 단계가 확인되지 않으면 뒤 단계를 시작하지 않고, commit 전 실패는 복원·fail_activation·이전 release
 // 재준비로 닫는다(recovery.ts). 응답을 잃었을 수 있는 core 호출 뒤에는 ledger를 다시 읽어 이어받는다.
-import type { Release } from "../../../contracts/apps/mod.ts";
+import type { Release } from "../../../protocol/apps/mod.ts";
 import {
   type ActivationOutcome,
   type ActivationPorts,

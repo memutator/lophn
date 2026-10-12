@@ -1,6 +1,6 @@
 import { err, ok, type Result } from "../../base/mod.ts";
-import { sessionSummary } from "../../contracts/lophn-agent/mod.ts";
-import type { ApiReadDefinition, Sql } from "../../contracts/platform/mod.ts";
+import { sessionSummary } from "../../protocol/lophn-agent/mod.ts";
+import type { ApiReadDefinition, Sql } from "../../protocol/platform/mod.ts";
 import { type MessageBodyEnvironment, readBodyBytes } from "./body-read.ts";
 import { sessionVisible } from "./guards.ts";
 import { loadSession } from "./model.ts";

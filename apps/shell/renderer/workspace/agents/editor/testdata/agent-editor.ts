@@ -3,7 +3,7 @@
 import type {
   AgentDefinition,
   ValueSource,
-} from "../../../../../../../packages/contracts/lophn-agent/agent-values.ts";
+} from "../../../../../../../packages/protocol/lophn-agent/agent-values.ts";
 import {
   pickerProps,
   SONNET,

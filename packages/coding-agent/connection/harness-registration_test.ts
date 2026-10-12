@@ -1,16 +1,16 @@
 import { z } from "zod";
 import { ok, type Result } from "../../base/mod.ts";
-import { appRegistrationLookup } from "../../contracts/apps/mod.ts";
+import { appRegistrationLookup } from "../../protocol/apps/mod.ts";
 import {
   connectionRevokeInputSchema,
   connectionRevokeOutputSchema,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 import {
   confirmationRefSchema,
   defineCommand,
   type RequestContext,
   type Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   connectionAuthFromTx,
   connectionAuthPort,

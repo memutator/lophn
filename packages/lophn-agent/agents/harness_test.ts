@@ -1,7 +1,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { createHash } from "node:crypto";
 import type { Result } from "../../base/mod.ts";
-import type { AuthenticatedContext } from "../../contracts/platform/mod.ts";
+import type { AuthenticatedContext } from "../../protocol/platform/mod.ts";
 import {
   createLedgerHarness,
   type LedgerHarness,

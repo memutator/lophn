@@ -2,18 +2,18 @@
 // 가는 command만 쓰는지, main IPC 입력이 contracts의 값 모양과 맞는지를 가짜 core 위에서 본다.
 import { assert, assertEquals } from "@std/assert";
 
-import { ALL_ROUTES } from "../../../../../../packages/contracts/mod.ts";
+import { ALL_ROUTES } from "../../../../../../packages/protocol/mod.ts";
 import {
   commandRequestSchema,
   type Route,
-} from "../../../../../../packages/contracts/platform/mod.ts";
+} from "../../../../../../packages/protocol/platform/mod.ts";
 import {
   connectionIdSchema,
   harnessIdSchema,
   ticketIdSchema,
-} from "../../../../../../packages/contracts/coding-agent/mod.ts";
-import { projectIdSchema } from "../../../../../../packages/contracts/documents/values.ts";
-import { seqSchema } from "../../../../../../packages/contracts/platform/mod.ts";
+} from "../../../../../../packages/protocol/coding-agent/mod.ts";
+import { projectIdSchema } from "../../../../../../packages/protocol/projects/values.ts";
+import { seqSchema } from "../../../../../../packages/protocol/platform/mod.ts";
 import type { CodingApi, CodingReply } from "../../../../ipc/coding.ts";
 import type { CoreCall } from "../../../../ipc/core.ts";
 import type { CoreReply } from "../../../../ipc/core-api.ts";

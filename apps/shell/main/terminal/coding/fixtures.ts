@@ -12,7 +12,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import type { CodingAgentLaunchPlan } from "../../../../../packages/contracts/coding-agent/mod.ts";
+import type { CodingAgentLaunchPlan } from "../../../../../packages/protocol/coding-agent/mod.ts";
 import { posixGroup } from "../../../terminal-host/child-group.ts";
 import type { PtyAdapter, PtyHandle } from "../../../terminal-host/pty.ts";
 

@@ -5,8 +5,8 @@ import {
   packagesList,
   packagesUsage,
   packagesVersions,
-} from "../../contracts/apps/mod.ts";
-import type { ReadDefinition } from "../../contracts/platform/mod.ts";
+} from "../../protocol/apps/mod.ts";
+import type { ReadDefinition } from "../../protocol/platform/mod.ts";
 import { byCatalogOrder, personalRegistrationRejected } from "./model.ts";
 import {
   loadAllPackageRows,

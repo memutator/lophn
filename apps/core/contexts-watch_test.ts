@@ -13,8 +13,8 @@ import {
   bundleContentSchema,
   type ContextWorkInput,
   type ContextWorkList,
-} from "../../packages/contracts/documents/mod.ts";
-import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/projects/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
 import {
   contractOf,
   fakeTimer,

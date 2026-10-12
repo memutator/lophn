@@ -12,12 +12,12 @@ import {
   rewind,
   serializeMessageContent,
   undoEdit,
-} from "../../packages/contracts/lophn-agent/mod.ts";
-import { MESSAGE_CONTENT_PURPOSE } from "../../packages/contracts/lophn-agent/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
+import { MESSAGE_CONTENT_PURPOSE } from "../../packages/protocol/lophn-agent/mod.ts";
 import {
   type AuthenticatedContext,
   parseActor,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import { factMessageContent } from "../../packages/lophn-agent/conversation/mod.ts";
 import {
   assertCheckpointVisible,

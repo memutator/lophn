@@ -12,7 +12,7 @@ import {
   seededRandom,
   sha256Hex,
 } from "../../../packages/base/mod.ts";
-import type { AuthenticatedContext } from "../../../packages/contracts/platform/mod.ts";
+import type { AuthenticatedContext } from "../../../packages/protocol/platform/mod.ts";
 import { settingsOptionAction } from "../../../packages/lophn-agent/questions/mod.ts";
 import { type Core, startCore } from "../core.ts";
 import {

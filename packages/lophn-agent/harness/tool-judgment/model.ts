@@ -1,9 +1,9 @@
 import { canonicalize } from "../../../base/mod.ts";
-import type { JsonObject } from "../../../contracts/platform/mod.ts";
+import type { JsonObject } from "../../../protocol/platform/mod.ts";
 import type {
   ToolDecision,
   ToolEffect,
-} from "../../../contracts/lophn-agent/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
 
 // 판정표(domain model lophn-agent/harness/tool-judgment 정책). 순수 함수만 둔다. 저장·
 // 질문·approval 생성은 work.ts가 한다. 입력은 소유 계약과 현재 ledger에서 읽은 사실이고

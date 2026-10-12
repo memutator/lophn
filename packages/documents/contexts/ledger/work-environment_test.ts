@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { bundleContentSchema } from "../../../contracts/documents/mod.ts";
+import { bundleContentSchema } from "../../../protocol/projects/mod.ts";
 import { changed, sampleBundle } from "../validate/sample.ts";
 import { appCommandsOf, externalTypesOf } from "./work-environment.ts";
 

@@ -5,7 +5,7 @@ import {
   frozenTestSchema,
   type TestResult,
   type Verification,
-} from "../../contracts/problems/mod.ts";
+} from "../../protocol/problems/mod.ts";
 import type {
   PreparedResultEvidence,
   StoredSideStart,

@@ -15,9 +15,9 @@ import {
 import {
   MCP_APP_ROUTES,
   type McpAppToolName,
-} from "../../../contracts/coding-agent/mod.ts";
-import type { Route } from "../../../contracts/platform/mod.ts";
-import { commandsResult } from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/coding-agent/mod.ts";
+import type { Route } from "../../../protocol/platform/mod.ts";
+import { commandsResult } from "../../../protocol/platform/mod.ts";
 
 // tools/call의 실행 결과다. server가 mcpToolResult로 두 표현을 만든다(R5).
 export type TicketToolResult = {

@@ -4,7 +4,7 @@
 // 통로 대역으로 본다.
 import { assert, assertEquals } from "@std/assert";
 import { err, ok } from "../../../base/mod.ts";
-import type { AppBlueprintCommand } from "../../../contracts/apps/mod.ts";
+import type { AppBlueprintCommand } from "../../../protocol/apps/mod.ts";
 import { computeAgentAppScope } from "../run-loop/mod.ts";
 import { buildTurnContext } from "../prompt-assemble/mod.ts";
 import {

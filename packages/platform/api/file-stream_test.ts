@@ -3,7 +3,7 @@
 // 끊고, 멈춘 소비자가 입장 자리를 붙잡지 못하게 한다.
 import { assert, assertEquals, assertRejects } from "@std/assert";
 import { err, manualClock, ok, seededRandom } from "../../base/mod.ts";
-import { documentFile } from "../../contracts/documents/mod.ts";
+import { documentFile } from "../../protocol/projects/mod.ts";
 import {
   type CredentialIssue,
   CredentialRegistry,

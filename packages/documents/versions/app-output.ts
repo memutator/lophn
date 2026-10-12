@@ -2,12 +2,9 @@
 // 문서를 만들고 새 판을 더한다. 어느 (앱 자리, 출력 이름)이 선언된 출력인지는 broker가 선언과
 // grant로 이미 확인했고(apps/permissions#R13), 여기서는 요청 자격의 app id와 문서 자리만 본다.
 import { err, type Result } from "../../base/mod.ts";
-import { appRegistrationLookup } from "../../contracts/apps/mod.ts";
-import type {
-  Document,
-  PreparedVersion,
-} from "../../contracts/documents/mod.ts";
-import type { RequestContext, Tx } from "../../contracts/platform/mod.ts";
+import { appRegistrationLookup } from "../../protocol/apps/mod.ts";
+import type { Document, PreparedVersion } from "../../protocol/projects/mod.ts";
+import type { RequestContext, Tx } from "../../protocol/platform/mod.ts";
 import { actingApp, isAppPlace } from "../addressing/mod.ts";
 
 function rejected(code: string, message: string): Result<never> {

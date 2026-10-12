@@ -1,8 +1,8 @@
 import { assert, assertEquals } from "@std/assert";
 import { err, ok, type Result } from "../../packages/base/mod.ts";
-import { providerRead } from "../../packages/contracts/lophn-agent/mod.ts";
-import { routePath } from "../../packages/contracts/platform/mod.ts";
-import { CATALOG_OPTIONS } from "../../packages/contracts/lophn-agent/testing/mod.ts";
+import { providerRead } from "../../packages/protocol/lophn-agent/mod.ts";
+import { routePath } from "../../packages/protocol/platform/mod.ts";
+import { CATALOG_OPTIONS } from "../../packages/protocol/lophn-agent/testing/mod.ts";
 import { createModelResolver } from "./resolve-model.ts";
 
 // lophn-agent/harness/provider#R4, R8, R28: provider에는 credential이 하나다. 연결이 없거나(Disconnect 포함)

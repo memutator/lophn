@@ -2,12 +2,12 @@ import {
   definePort,
   type PortKey,
   type RequestContext,
-} from "../../contracts/platform/mod.ts";
-import type { Input } from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
+import type { Input } from "../../protocol/platform/mod.ts";
 import type {
   recordVerification,
   requestTest,
-} from "../../contracts/problems/mod.ts";
+} from "../../protocol/problems/mod.ts";
 import type { PreparedAdmission, PreparedResultEvidence } from "./model.ts";
 
 // 현재 Tx를 capture하는 static map은 쓰지 않는다. entry가 tx.port로 넣는다.

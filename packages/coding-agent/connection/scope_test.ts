@@ -6,7 +6,7 @@ import {
   copyFixture,
   removeFixtureCopy,
 } from "../../../fixtures/projects/scenarios.ts";
-import type { ConnectionScope } from "../../contracts/coding-agent/mod.ts";
+import type { ConnectionScope } from "../../protocol/coding-agent/mod.ts";
 import {
   resolveTargetApp,
   type TargetAppInputs,

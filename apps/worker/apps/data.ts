@@ -2,7 +2,7 @@
 // (architecture/apps 2.1). 한 앱 DB(`<data 영역>/app.sqlite`)에 단독 접근한다. migration 자식만
 // network·secret·외부 파일·subprocess 권한이 없다. kind와 root는 환경으로만 받고 credential은 받지 않는다.
 import { err, ok, type Result } from "../../../packages/base/mod.ts";
-import { decodeDataJobInput } from "../../../packages/contracts/apps/mod.ts";
+import { decodeDataJobInput } from "../../../packages/protocol/apps/mod.ts";
 import { runDataJob } from "../../../packages/apps/data/worker/job.ts";
 import {
   type MigrationScript,

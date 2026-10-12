@@ -5,7 +5,7 @@ import type {
   PermanentBlobReference,
   RequestContext,
   Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { LEDGER_SCHEMA_STEPS } from "./schema.ts";
 import { type LedgerConnection, openConnection } from "./sqlite.ts";
 import type { SubscriberGate } from "./subscriber-registration.ts";

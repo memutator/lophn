@@ -9,7 +9,7 @@ import {
   runOperations,
 } from "../../harness/tools/mod.ts";
 import { APP_COMMAND_EXPOSURE, ROLE_CAPS } from "../../agents/mod.ts";
-import { handoffAllowed, runSourceSchema } from "@lophn/contracts/lophn-agent";
+import { handoffAllowed, runSourceSchema } from "@lophn/protocol/lophn-agent";
 import { type OperatorRunOutcome, type OutcomePoint, update } from "./mod.ts";
 import { operatorOffers, operatorTools } from "./mod.ts";
 

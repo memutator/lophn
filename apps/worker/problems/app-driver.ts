@@ -48,8 +48,8 @@ import {
   REDACTION_CANARY,
   type RunnerDriver,
 } from "../../../packages/problems/tests/harness/mod.ts";
-import { reportProblemInputSchema } from "../../../packages/contracts/problems/mod.ts";
-import type { ReportProblemIngress } from "../../../packages/contracts/problems/mod.ts";
+import { reportProblemInputSchema } from "../../../packages/protocol/problems/mod.ts";
+import type { ReportProblemIngress } from "../../../packages/protocol/problems/mod.ts";
 import {
   createKnownSecretRegistry,
   createRedactionEngine,

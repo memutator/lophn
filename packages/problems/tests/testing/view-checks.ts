@@ -11,7 +11,7 @@ import {
   observeExceptionInputSchema,
   type ProblemCodeDeclaration,
   type TestObservationFrame,
-} from "../../../contracts/problems/mod.ts";
+} from "../../../protocol/problems/mod.ts";
 import {
   type AppTestInput,
   generateAppTestChecks,

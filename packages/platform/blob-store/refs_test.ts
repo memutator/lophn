@@ -10,7 +10,7 @@ import {
   type RequestContext,
   type Sql,
   type SqlRow,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { createPreparationRegistry } from "./registry.ts";
 import { registerBlobRef } from "./register.ts";
 

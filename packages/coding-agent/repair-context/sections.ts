@@ -6,7 +6,7 @@ import {
   type RepairEvidenceSource as EvidenceSource,
   SECTION_KINDS,
   SECTION_LIMITS,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 import { Draft } from "./draft.ts";
 import {
   type BlobText,

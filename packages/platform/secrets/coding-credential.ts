@@ -7,8 +7,8 @@ import { err, ok, type Result } from "../../base/mod.ts";
 import {
   CREDENTIAL_DELIVERY_TIMEOUT_MS,
   type CredentialDeliveryFailure,
-} from "../../contracts/coding-agent/mod.ts";
-import { connectionIdSchema } from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
+import { connectionIdSchema } from "../../protocol/coding-agent/mod.ts";
 import type { KeychainAdapter } from "./adapters/keychain.ts";
 
 export const CODING_CREDENTIAL_PURPOSE = "coding_connection_credential";

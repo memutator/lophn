@@ -21,14 +21,14 @@ import {
   outlineRoot,
   searchQuery,
   searchStatus,
-} from "../../packages/contracts/documents/mod.ts";
+} from "../../packages/protocol/projects/mod.ts";
 import type {
   ReadDefinition,
   ReadRoute,
   ReadSnapshot,
   RequestContext,
   WorkerRoute,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import {
   KNOWN_SECRETS,
   type ReaderRegistration,

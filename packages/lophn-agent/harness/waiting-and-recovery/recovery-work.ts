@@ -15,8 +15,8 @@ import {
   stopRun,
   toolCallList,
   type ToolResult,
-} from "../../../contracts/lophn-agent/mod.ts";
-import { eventsList, routePath } from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
+import { eventsList, routePath } from "../../../protocol/platform/mod.ts";
 import type { CoreCall } from "../tool-judgment/mod.ts";
 import { callRevision } from "../tools/mod.ts";
 import {

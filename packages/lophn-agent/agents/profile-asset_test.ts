@@ -3,8 +3,8 @@ import type {
   AgentPlace,
   AgentRole,
   Profile,
-} from "../../contracts/lophn-agent/mod.ts";
-import type { AuthenticatedContext } from "../../contracts/platform/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
+import type { AuthenticatedContext } from "../../protocol/platform/mod.ts";
 import { createNodeProfileImageFiles } from "./adapters/node-fs.ts";
 import {
   type ProfileAssetDeps,

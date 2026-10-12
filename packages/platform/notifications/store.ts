@@ -1,4 +1,4 @@
-import type { Sql, Tx } from "../../contracts/platform/mod.ts";
+import type { Sql, Tx } from "../../protocol/platform/mod.ts";
 
 // notifications 행과 source event의 관계. handler와 read가 같은 모양으로 본다.
 export type NotificationRow = {

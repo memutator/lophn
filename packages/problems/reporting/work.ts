@@ -3,17 +3,17 @@
 // 본문 주장은 따르지 않는다. 대기 한도·retry 간격은 주입받고, packages/problems는
 // platform을 import하지 않는다.
 import { err, ok, type Result, sha256Hex } from "../../../packages/base/mod.ts";
-import type { RequestContext } from "../../../packages/contracts/platform/mod.ts";
+import type { RequestContext } from "../../protocol/platform/mod.ts";
 import type {
   RecordReportInput,
   ReportAcceptance,
   ReportCompletion,
   ReportTransportError,
-} from "../../../packages/contracts/problems/mod.ts";
+} from "../../protocol/problems/mod.ts";
 import {
   isRetryableReportError,
   reportContentHashInputSchema,
-} from "../../../packages/contracts/problems/mod.ts";
+} from "../../protocol/problems/mod.ts";
 
 // collector 기본 한도(contracts/sdk-report REPORTING_LIMITS의 collector 값과 같다).
 // 등록값으로 주입받는다.

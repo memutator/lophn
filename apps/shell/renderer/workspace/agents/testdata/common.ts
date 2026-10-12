@@ -1,6 +1,6 @@
 // Agents 탭과 Operator editor test가 함께 쓰는 입력. project phroner와 model 선택, 출처, 이름 풀이 fake다.
-import type { ValueSource } from "../../../../../../packages/contracts/lophn-agent/agent-values.ts";
-import type { ModelChoice } from "../../../../../../packages/contracts/lophn-agent/models.ts";
+import type { ValueSource } from "../../../../../../packages/protocol/lophn-agent/agent-values.ts";
+import type { ModelChoice } from "../../../../../../packages/protocol/lophn-agent/models.ts";
 import { ANTHROPIC } from "../../../conversation/testdata/model-picker.ts";
 import type { ImageSrc, ModelLabel } from "../views.ts";
 

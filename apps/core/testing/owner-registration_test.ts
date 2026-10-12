@@ -11,7 +11,7 @@ import {
   TargetAuthorization,
   type Tx,
   withReadCommon,
-} from "../../../packages/contracts/platform/mod.ts";
+} from "../../../packages/protocol/platform/mod.ts";
 import { CONDITION_TARGET_KEYS } from "../../../packages/platform/identity/mod.ts";
 import { runAdmission } from "../../../packages/platform/ledger/mod.ts";
 import {

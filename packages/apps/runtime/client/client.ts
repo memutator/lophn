@@ -17,11 +17,11 @@ import {
   type CommandStatusOutput,
   commandStatusOutputSchema,
   DIRECT_SOCKET_PATHS,
-} from "../../../contracts/apps/mod.ts";
+} from "../../../protocol/apps/mod.ts";
 import {
   errorBodySchema,
   errorCodeForStatus,
-} from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/platform/mod.ts";
 import {
   type DirectTransport,
   NotSent,

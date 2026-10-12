@@ -4,12 +4,12 @@
 // apps의 실제 invocations 표와 event를 쓴다. 사람 데이터 root는 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import { sha256Hex } from "../../packages/base/mod.ts";
-import type { InvocationAcceptConfirmInput } from "../../packages/contracts/apps/mod.ts";
+import type { InvocationAcceptConfirmInput } from "../../packages/protocol/apps/mod.ts";
 import type {
   ApprovalAction,
   ApprovalRequest,
   AuthenticatedContext,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import { confirmAction } from "../../packages/platform/approvals/mod.ts";
 import { createLedgerRegistration as createAppsRegistration } from "./apps.ts";
 import {

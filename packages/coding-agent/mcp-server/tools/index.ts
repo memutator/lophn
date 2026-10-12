@@ -1,8 +1,8 @@
 // lophn_index tool의 실행이다(T13, mcp#R8). root·place·document·section·search·
 // status는 op마다 소유 읽기 route 하나로만 보낸다. 목차는 적은 양에서 본문으로 내려가는
 // 길이라 잘림·누락·반영 지연·새 판 존재를 요약에 그대로 밝힌다. 이 tool은 쓰지 않는다.
-import { MCP_CORE_ROUTES } from "../../../contracts/coding-agent/mod.ts";
-import type { Route } from "../../../contracts/platform/mod.ts";
+import { MCP_CORE_ROUTES } from "../../../protocol/coding-agent/mod.ts";
+import type { Route } from "../../../protocol/platform/mod.ts";
 import type { FlowClient } from "../../connection/mod.ts";
 import {
   continuation,

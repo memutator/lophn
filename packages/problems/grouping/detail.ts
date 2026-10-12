@@ -1,4 +1,4 @@
-import type { Closure } from "../../contracts/problems/mod.ts";
+import type { Closure } from "../../protocol/problems/mod.ts";
 import type {
   ProblemDetail,
   ProblemTestFact,
@@ -7,7 +7,7 @@ import type {
   RepairTicketFact,
   TestState,
   TestSummaryState,
-} from "../../contracts/problems/mod.ts";
+} from "../../protocol/problems/mod.ts";
 
 // 사용자용 문제 상세 projection(grouping#R12, closing#R13, tests#R5). 읽은 사실에서 사람이 아는
 // en 문구만 만든다. 모르는 사실(undefined)은 성공이나 없음이 아니라 "모름"으로 보인다(P11).

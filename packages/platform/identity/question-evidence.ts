@@ -4,11 +4,8 @@ import {
   type QuestionActionEvidence,
   questionActionEvidenceSchema,
   questionOptionSchema,
-} from "../../contracts/lophn-agent/mod.ts";
-import type {
-  AuthenticatedContext,
-  Sql,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
+import type { AuthenticatedContext, Sql } from "../../protocol/platform/mod.ts";
 
 // 정본 질문에서 사람이 실제로 고른 option. lophn-agent의 question option action read가 채운다.
 // platform은 질문 상태를 직접 읽지 않고 이 값만 검증한다.

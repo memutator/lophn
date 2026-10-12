@@ -8,7 +8,7 @@ import { err, ok, type Result, sha256Hex } from "../../base/mod.ts";
 import {
   packageNameSchema,
   type PackageRegisterVersionInput,
-} from "../../contracts/apps/mod.ts";
+} from "../../protocol/apps/mod.ts";
 import { isWithheldPackageName } from "./model.ts";
 import {
   keepSupportFile,

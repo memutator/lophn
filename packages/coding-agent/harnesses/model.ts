@@ -6,7 +6,7 @@ import type {
   HarnessId,
   HarnessProbeResult,
   HarnessVersion,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 
 // 배포 catalog와 adapter code의 release 참조다. 관측·설치·실행 해석이 이
 // revision을 기준으로 묶인다(domain-model harnesses).

@@ -8,8 +8,8 @@ import {
   type CommandDefinition,
   defineCommand,
   idSchema,
-} from "../../contracts/platform/mod.ts";
-import { approvalRequestCreated } from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
+import { approvalRequestCreated } from "../../protocol/platform/mod.ts";
 
 export const seedApprovalRequest = defineCommand({
   resource: "approvals",

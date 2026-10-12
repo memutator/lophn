@@ -2,7 +2,7 @@ import { sha256Hex } from "../../../base/mod.ts";
 import type {
   ViewTab,
   WorkspaceReadOutput,
-} from "../../../contracts/shell/mod.ts";
+} from "../../../protocol/shell/mod.ts";
 import { wireData } from "../safety/mod.ts";
 import type { TurnContextBasis } from "./model.ts";
 

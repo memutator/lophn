@@ -3,13 +3,13 @@
 // 돌려주는 연결만 한다. model 이름과 option 이름·값은 모두 catalog가 주고 화면 코드에는 없다.
 import { t } from "@lophn/wording";
 
-import type { ModelChoice } from "../../../../../packages/contracts/lophn-agent/models.ts";
+import type { ModelChoice } from "../../../../../packages/protocol/lophn-agent/models.ts";
 import {
   fitOptionValues,
   optionAxesOf,
   orderPicker,
   toggleFavorite,
-} from "../../../../../packages/contracts/lophn-agent/model-picker.ts";
+} from "../../../../../packages/protocol/lophn-agent/model-picker.ts";
 import type {
   ModelPickerProps,
   PickerAxisView,

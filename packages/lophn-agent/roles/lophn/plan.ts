@@ -1,4 +1,4 @@
-import type { PlaceRef } from "@lophn/contracts/documents";
+import type { PlaceRef } from "@lophn/protocol/projects";
 
 // lophn의 프로젝트 기획 문서 검사(roles/lophn#R7, R8). 순수 함수다. 기획은 기존
 // 프로젝트 목적 안에 두기 → 기존 context의 경계 넓히기 → 새 프로젝트 순서로

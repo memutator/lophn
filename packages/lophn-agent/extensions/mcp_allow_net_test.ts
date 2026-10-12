@@ -1,7 +1,7 @@
 // lophn-agent/extensions: runtime child의 `--allow-net` 중 MCP 몫이다(architecture §2.3). 사람이
 // enabled로 등록한 HTTP server의 정확한 host:port만 나오고 stdio·꺼진 server·일반 net은 없다.
 import { assert, assertEquals } from "@std/assert";
-import { mcpServersSetting } from "../../contracts/lophn-agent/mod.ts";
+import { mcpServersSetting } from "../../protocol/lophn-agent/mod.ts";
 import { allowNetList } from "./mod.ts";
 import { httpEndpointReason } from "./mcp-config.ts";
 import { endpointReason } from "./adapters/mcp-http.ts";

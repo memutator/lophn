@@ -4,7 +4,7 @@
 // 127.0.0.1 실제 listener다. 실제 ChatGPT·xAI·사람 keychain은 닿지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, seededRandom } from "../../../../packages/base/mod.ts";
-import { oauthDefinitionSchema } from "../../../../packages/contracts/lophn-agent/mod.ts";
+import { oauthDefinitionSchema } from "../../../protocol/lophn-agent/mod.ts";
 import {
   createProviderOAuth,
   OAUTH_APP_NAME,

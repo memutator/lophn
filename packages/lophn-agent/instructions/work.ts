@@ -1,5 +1,5 @@
 import { ok, type Result, sha256Hex } from "../../base/mod.ts";
-import type { WorkPlace } from "../../contracts/lophn-agent/mod.ts";
+import type { WorkPlace } from "../../protocol/lophn-agent/mod.ts";
 import {
   inspectInstruction,
   type InstructionFile,

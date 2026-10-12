@@ -7,7 +7,7 @@ import {
   appConnectOutputSchema,
   brokerAppsConfirmPollOutputSchema,
   brokerAppsConfirmRequestOutputSchema,
-} from "../../packages/contracts/apps/mod.ts";
+} from "../../packages/protocol/apps/mod.ts";
 import type {
   AppPairConfirmer,
   AppPairPreparer,

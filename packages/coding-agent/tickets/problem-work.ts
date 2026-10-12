@@ -1,6 +1,6 @@
 import { err, ok, type Result } from "../../base/mod.ts";
-import type { Sql } from "../../contracts/platform/mod.ts";
-import type { RepairTicketFact } from "../../contracts/problems/mod.ts";
+import type { Sql } from "../../protocol/platform/mod.ts";
+import type { RepairTicketFact } from "../../protocol/problems/mod.ts";
 
 // 문제 상세가 읽는 지금 수리 ticket의 사실이다(problems/grouping#R12, problems#T22). core 조립이
 // `ProblemWorkPort`로 reader에 등록한다. 문제에 걸린 끝나지 않은 repair ticket은

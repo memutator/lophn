@@ -17,13 +17,13 @@ import {
   documentUpload,
   type FormatRef,
   slugSchema,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 import {
   type CommandRoute,
   preparedBlobSchema,
   type Route,
   type UploadRoute,
-} from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/platform/mod.ts";
 import type {
   DocumentSaveOutput,
   DocumentsSave,

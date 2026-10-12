@@ -9,7 +9,7 @@ import { createCoreClient } from "../../packages/coding-agent/connection/client/
 import { createProblemTool } from "../../packages/coding-agent/mcp-server/tools/problem.ts";
 import { createTicketTool } from "../../packages/coding-agent/mcp-server/tools/ticket.ts";
 import { resolveRoute } from "../../packages/coding-agent/mcp-server/registry.ts";
-import { MCP_PROBLEM_TOOLS } from "../../packages/contracts/coding-agent/mod.ts";
+import { MCP_PROBLEM_TOOLS } from "../../packages/protocol/coding-agent/mod.ts";
 import { objectPathFor } from "../../packages/platform/blob-store/mod.ts";
 import {
   codingCredentialRef,

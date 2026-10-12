@@ -6,7 +6,7 @@
 // 아직 core가 서빙하지 않는 route(preview·release 준비)는 성공으로 꾸미지 않고 실패로 읽힌다.
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
-import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
 import { createCoreClient } from "../../packages/coding-agent/connection/client/core.ts";
 import { createHandler } from "../../packages/coding-agent/mcp-server/server.ts";
 import { resolveRoute } from "../../packages/coding-agent/mcp-server/registry.ts";

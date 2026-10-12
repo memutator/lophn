@@ -8,7 +8,7 @@ import {
   SECRET_EXCHANGE_FORMAT,
   type SecretPurpose,
   secretPurposeSchema,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { argon2id } from "hash-wasm";
 
 export type SecretExchangeItem = {

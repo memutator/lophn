@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
-import type { ScreenTestObservation } from "../../../contracts/shell/mod.ts";
+import type { ScreenTestObservation } from "../../../protocol/shell/mod.ts";
 import {
   fakeCollector,
   judgeWithScreens,

@@ -25,12 +25,12 @@ import {
   projectPreviewTracking,
   type SaveResult,
   saveResultSchema,
-} from "../../packages/contracts/documents/mod.ts";
+} from "../../packages/protocol/projects/mod.ts";
 import {
   BLOB_READ_MAX_BYTES,
   type WorkerRequest,
   type WorkerResponse,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import type { WorkerRouteTarget } from "../../packages/platform/responsiveness/mod.ts";
 import {
   DOCUMENT_OPS,

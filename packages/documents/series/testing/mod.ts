@@ -7,9 +7,9 @@ import type {
   SqlRow,
   TargetAuthorizer,
   Tx,
-} from "../../../contracts/platform/mod.ts";
-import { TargetAuthorization } from "../../../contracts/platform/mod.ts";
-import { appRegistrationLookup } from "../../../contracts/apps/mod.ts";
+} from "../../../protocol/platform/mod.ts";
+import { TargetAuthorization } from "../../../protocol/platform/mod.ts";
+import { appRegistrationLookup } from "../../../protocol/apps/mod.ts";
 import { addressingSchemaSteps } from "../../addressing/mod.ts";
 import { versionsSchemaSteps } from "../../versions/mod.ts";
 import { seriesSchemaSteps } from "../mod.ts";

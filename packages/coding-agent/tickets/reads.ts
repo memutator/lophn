@@ -18,7 +18,7 @@ import {
   type TicketScreenSummary,
   ticketShow,
   type TicketState,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 import {
   defineRead,
   parseActor,
@@ -26,7 +26,7 @@ import {
   type ReadSnapshot,
   type RequestContext,
   TargetAuthorization,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { nextCursor, pageAfter } from "./cursor.ts";
 import { checkTicketClaim, expiredClaims } from "./claims.ts";
 import {

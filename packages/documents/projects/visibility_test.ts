@@ -1,7 +1,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { err, ok, type Result } from "../../base/mod.ts";
 import type { ProjectEvent } from "./authorization.ts";
-import type { TargetAuthorizer } from "../../contracts/platform/mod.ts";
+import type { TargetAuthorizer } from "../../protocol/platform/mod.ts";
 import { createProjectCommands } from "./commands.ts";
 import { createProjectEventVisibility } from "./visibility.ts";
 import { ids, keep, projectFixture, userContext } from "./testing-fixture.ts";

@@ -17,7 +17,7 @@ import type {
 
 Deno.test("problems/reporting#R13: SDK subpath resolves to the portable policy entry", () => {
   assertEquals(
-    import.meta.resolve("@lophn/contracts/problems/sdk-report"),
+    import.meta.resolve("@lophn/protocol/problems/sdk-report"),
     new URL("./sdk-report.ts", import.meta.url).href,
   );
 });

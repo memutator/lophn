@@ -1,10 +1,10 @@
 import { err, ok, type Result } from "../../base/mod.ts";
 import { sha256Hex } from "../../base/mod.ts";
-import type { McpServerConfig } from "../../contracts/lophn-agent/mod.ts";
+import type { McpServerConfig } from "../../protocol/lophn-agent/mod.ts";
 import type {
   SecretDestination,
   SecretSendInput,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { authHeaders } from "./mcp-auth.ts";
 import type { StdioSpawn, StdioSpawnInput } from "./adapters/mcp-stdio.ts";
 import {

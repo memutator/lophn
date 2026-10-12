@@ -1,13 +1,13 @@
 import { DatabaseSync } from "node:sqlite";
 import { err, ok, type Result } from "../../base/mod.ts";
-import { appRegistrationLookup } from "../../contracts/apps/mod.ts";
+import { appRegistrationLookup } from "../../protocol/apps/mod.ts";
 import type {
   ReadSnapshot,
   RequestContext,
   Sql,
   SqlRow,
   Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { connectionSchemaSteps } from "./schema.ts";
 
 export const APP = "app_01arz3ndektsv4rrffq69g5fav";

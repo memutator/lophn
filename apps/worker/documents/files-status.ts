@@ -5,7 +5,7 @@ import type { LophnError } from "../../../packages/base/mod.ts";
 import type {
   FileStatus,
   FileTarget,
-} from "../../../packages/contracts/documents/mod.ts";
+} from "../../../packages/protocol/projects/mod.ts";
 import {
   coreFileReadSchema,
   coreFileWatchSchema,

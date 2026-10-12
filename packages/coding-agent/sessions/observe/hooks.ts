@@ -3,7 +3,7 @@
 // 표에 없는 event는 상태 evidence가 아니라 null이다. Stop·AfterAgent는 turn 끝이라 ready이고 ended가 아니다.
 // ended는 SessionEnd뿐이며 `clear`는 같은 process의 session 교체라 ended가 아니다.
 import { cwdOf, type Evidence, type Normalizer, textOf } from "./model.ts";
-import type { SessionState } from "../../../contracts/coding-agent/mod.ts";
+import type { SessionState } from "../../../protocol/coding-agent/mod.ts";
 
 type Table = Readonly<Record<string, SessionState>>;
 

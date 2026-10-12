@@ -5,7 +5,7 @@ import {
   type ModelBlock,
   type ProviderCredential,
   USAGE_WAIT_DEFAULT_MS,
-} from "../../../contracts/lophn-agent/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
 import type { FailureVerdict } from "./failures.ts";
 
 // ---- R27 과금 경로 ----

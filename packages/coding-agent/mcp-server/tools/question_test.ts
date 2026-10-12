@@ -2,7 +2,7 @@
 // 구별하며 대기 중인 질문에만 결정 화면 링크를 붙인다. 답·허락·취소 op가 없고 command를
 // 부르지 않는다. 실패는 server 응답의 isError까지 닿는다. core에 닿지 않는다.
 import { assert, assertEquals } from "@std/assert";
-import { MCP_DECISION_TOOLS } from "../../../contracts/coding-agent/mod.ts";
+import { MCP_DECISION_TOOLS } from "../../../protocol/coding-agent/mod.ts";
 import { fail, scriptedFlow } from "../../connection/testing/mod.ts";
 import { createHandler } from "../server.ts";
 import { resolveRoute } from "../registry.ts";

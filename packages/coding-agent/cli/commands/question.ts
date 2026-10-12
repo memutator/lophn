@@ -7,11 +7,11 @@ import {
   cliQuestionListSchema,
   cliQuestionOpenSchema,
   cliQuestionShowSchema,
-} from "../../../contracts/coding-agent/mod.ts";
+} from "../../../protocol/coding-agent/mod.ts";
 import {
   questionList,
   questionRead,
-} from "../../../contracts/lophn-agent/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
 import {
   type FlowClient,
   type QuestionRecord,

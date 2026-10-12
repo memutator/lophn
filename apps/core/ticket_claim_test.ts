@@ -3,7 +3,7 @@
 // machine credential이 만료 claim을 expire_claim으로 정리하는지 본다.
 import { assert, assertEquals } from "@std/assert";
 import type { Result } from "../../packages/base/mod.ts";
-import { connectionRevoke } from "../../packages/contracts/coding-agent/mod.ts";
+import { connectionRevoke } from "../../packages/protocol/coding-agent/mod.ts";
 import { confirmationBinding } from "../../packages/platform/identity/mod.ts";
 import { startCore } from "./core.ts";
 import { createCoreHarness } from "./testing/core.ts";

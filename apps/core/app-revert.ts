@@ -17,8 +17,8 @@ import {
   checkpointRevert,
   finishRevert,
   type runAppRevert,
-} from "../../packages/contracts/lophn-agent/mod.ts";
-import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
 import {
   type AppStepPorts,
   type AppStepResult,

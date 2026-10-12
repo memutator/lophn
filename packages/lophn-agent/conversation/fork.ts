@@ -5,12 +5,12 @@ import {
   MESSAGE_BODY_OWNER_KIND,
   messageRecorded,
   sessionForked,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import type {
   CommandDefinition,
   Input,
   Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { hiddenRanges, inHiddenRange } from "../revert/mod.ts";
 import { reject, requireUser } from "./guards.ts";
 import {

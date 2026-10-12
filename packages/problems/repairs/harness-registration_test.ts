@@ -4,12 +4,12 @@
 // 검사 이력(coding-agent/tickets)의 같은 우선순위를 본는 test double port를 건다.
 import { z } from "zod";
 import { err, ok, type Result } from "../../base/mod.ts";
-import { TicketClaimCheck } from "../../contracts/coding-agent/mod.ts";
+import { TicketClaimCheck } from "../../protocol/coding-agent/mod.ts";
 import {
   type CommandDefinition,
   defineCommand,
   type Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { recordProblemFixCommand } from "./commands.ts";
 import { listProblemFixesRead } from "./reads.ts";
 

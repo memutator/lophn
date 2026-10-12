@@ -6,14 +6,14 @@ import type {
   projectCreated,
   projectUnarchived,
   projectUpdated,
-} from "../../contracts/documents/mod.ts";
+} from "../../protocol/projects/mod.ts";
 import {
   type AuthorizationTarget,
   type EventEnvelopeFor,
   type RequestContext,
   TargetAuthorization,
   type TargetAuthorizer,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 
 export type ProjectCandidate = Omit<Project, "revision">;
 export type ProjectEvent =

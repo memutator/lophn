@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, ok, type Result, sha256Hex } from "../../base/mod.ts";
-import type { AuthenticatedContext } from "../../contracts/platform/mod.ts";
+import type { AuthenticatedContext } from "../../protocol/platform/mod.ts";
 import type { ObservationWire, PreviewLaunch } from "../runtime/mod.ts";
 import {
   createFsPreviewArea,

@@ -11,7 +11,7 @@ import {
   releaseRecordBackup,
   releaseRecordDataChange,
   releaseRecordDataRestore,
-} from "../../contracts/apps/mod.ts";
+} from "../../protocol/apps/mod.ts";
 import {
   BACKUP_BLOB_FIELD_NAME,
   BACKUP_BLOB_OWNER_KIND,
@@ -22,7 +22,7 @@ import type {
   CommandDefinition,
   RequestContext,
   Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 
 export type DataRecord = {
   kind: "backup" | "change" | "restore";

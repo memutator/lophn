@@ -8,17 +8,17 @@
 // 안에서만 동적으로 올린다(loadContextsRuntime). core 본체가 부르는 등록은 route를 registry에 올리는
 // 데만 쓰이고 handler는 실행되지 않는다.
 import { err, type ErrorCode, type Result } from "../../packages/base/mod.ts";
-import { defineBlobField } from "../../packages/contracts/platform/mod.ts";
+import { defineBlobField } from "../../packages/protocol/platform/mod.ts";
 import {
   CONTEXT_CONTENT_FIELD,
   CONTEXT_CONTENT_OWNER_KIND,
-} from "../../packages/contracts/documents/mod.ts";
+} from "../../packages/protocol/projects/mod.ts";
 import type {
   CommandDefinition,
   ReadDefinition,
   SchemaStep,
   Sql,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import {
   CONTEXT_WORKER_OPERATIONS,
   contextLedgerCommands,

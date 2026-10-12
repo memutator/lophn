@@ -7,7 +7,7 @@ import {
   ok,
   seededRandom,
 } from "../../../packages/base/mod.ts";
-import type { AuthenticatedContext } from "../../../packages/contracts/platform/mod.ts";
+import type { AuthenticatedContext } from "../../../packages/protocol/platform/mod.ts";
 import { SETTINGS_SCHEMA_STEPS } from "../../../packages/platform/settings/mod.ts";
 import { applyMigrations } from "../../../packages/platform/backup-and-migration/mod.ts";
 import {

@@ -3,7 +3,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { z } from "zod";
 import { ok } from "../../base/mod.ts";
-import { defineEvent } from "../../contracts/platform/mod.ts";
+import { defineEvent } from "../../protocol/platform/mod.ts";
 import { collectEventRegistrations } from "./event-visibility.ts";
 
 const noteCreated = defineEvent("NoteCreated", {

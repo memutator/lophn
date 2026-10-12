@@ -3,7 +3,7 @@
 // 전체 SHA-256이다. line·column·오류 message·업무 값·절대 path·SDK·runtime
 // frame을 빼고 사람이 읽을 원래 위치는 ErrorEvidence에 남긴다. 앱 frame 0개는
 // 지문 대신 원래 Report ID를 discriminator로 쓴다(grouping#R3).
-import type { GroupKey } from "../../contracts/problems/mod.ts";
+import type { GroupKey } from "../../protocol/problems/mod.ts";
 import { canonicalize, sha256Hex } from "../../base/mod.ts";
 
 const FINGERPRINT_FRAMES = 3;

@@ -5,7 +5,7 @@ import { ok, type Result } from "../../../base/mod.ts";
 import {
   brokerNetFetchInputSchema,
   type brokerNetFetchOutputSchema,
-} from "../../../contracts/apps/mod.ts";
+} from "../../../protocol/apps/mod.ts";
 import type { z } from "zod";
 import {
   type AccessState,

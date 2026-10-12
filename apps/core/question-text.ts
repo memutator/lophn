@@ -12,12 +12,12 @@ import {
   questionTextBytes,
   questionTextSchema,
   waitRun,
-} from "../../packages/contracts/lophn-agent/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
 import type {
   AuthenticatedContext,
   RedactionInput,
   RedactionResult,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import {
   type CommandEnvelope,
   type Writer,

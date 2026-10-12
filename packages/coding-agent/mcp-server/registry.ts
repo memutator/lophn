@@ -2,7 +2,7 @@
 // 권한 목록이며 목록 밖 op는 없다. R2대로 op마다 소유 route 하나로만 routing하고
 // 임의 core API를 부르는 passthrough는 없다.
 import { z } from "zod";
-import type { Toolset } from "../../contracts/coding-agent/mod.ts";
+import type { Toolset } from "../../protocol/coding-agent/mod.ts";
 import {
   MCP_APP_ROUTES,
   MCP_APP_TOOLS,
@@ -25,8 +25,8 @@ import {
   mcpSessionTool,
   type McpSessionToolName,
   readOnlyHint,
-} from "../../contracts/coding-agent/mod.ts";
-import type { Route } from "../../contracts/platform/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
+import type { Route } from "../../protocol/platform/mod.ts";
 import { APP_OP_ROUTES } from "../connection/mod.ts";
 
 type StaticTool = {

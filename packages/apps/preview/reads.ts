@@ -8,8 +8,8 @@ import {
   previewsStartInputSchema,
   previewsStop,
   previewsStopInputSchema,
-} from "../../contracts/apps/mod.ts";
-import type { ApiReadDefinition } from "../../contracts/platform/mod.ts";
+} from "../../protocol/apps/mod.ts";
+import type { ApiReadDefinition } from "../../protocol/platform/mod.ts";
 import type { PreviewService } from "./service.ts";
 
 const INVALID = err({

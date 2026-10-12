@@ -6,8 +6,8 @@ import {
   agentResultSchema,
   type McpToolResult,
   mcpToolResult,
-} from "../../contracts/coding-agent/mod.ts";
-import { effectUnknownSchema } from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
+import { effectUnknownSchema } from "../../protocol/coding-agent/mod.ts";
 import type { LophnError } from "../../base/mod.ts";
 
 // 성공 domain 결과를 두 표현으로 내보낸다. summary는 본문을 담지 않는다.

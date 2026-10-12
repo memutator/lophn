@@ -5,8 +5,8 @@ import { DatabaseSync } from "node:sqlite";
 import { assert, assertEquals, assertFalse } from "@std/assert";
 import { err, manualClock, ok, seededRandom } from "../../packages/base/mod.ts";
 import type { Result } from "../../packages/base/mod.ts";
-import { connectionRevoke } from "../../packages/contracts/coding-agent/mod.ts";
-import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
+import { connectionRevoke } from "../../packages/protocol/coding-agent/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
 import { confirmationBinding } from "../../packages/platform/identity/mod.ts";
 import {
   codingCredentialRef,

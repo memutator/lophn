@@ -1,6 +1,6 @@
 // allowlist의 이름을 contract route 원본으로 되돌린다. schema 검사는 이 원본으로 한다.
-import { ALL_ROUTES } from "../../../../../packages/contracts/mod.ts";
-import type { Route } from "../../../../../packages/contracts/platform/mod.ts";
+import { ALL_ROUTES } from "../../../../../packages/protocol/mod.ts";
+import type { Route } from "../../../../../packages/protocol/platform/mod.ts";
 
 const BY_NAME = new Map<string, Route>();
 for (const route of ALL_ROUTES) {

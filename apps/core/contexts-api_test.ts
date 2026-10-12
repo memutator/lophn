@@ -4,7 +4,7 @@
 // 용어집이 그 결과를 돌려주는 흐름을 HTTP로 본다. 옛 route는 등록에서 빠져 404다.
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
-import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
 import {
   openIndexStore,
   scanContext,

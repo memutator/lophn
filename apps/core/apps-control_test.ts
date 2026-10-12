@@ -2,7 +2,7 @@
 // app credential. 실제 registry와 실제 launch spec 검사를 쓴다.
 import { assert, assertEquals } from "@std/assert";
 import { err, manualClock, ok } from "../../packages/base/mod.ts";
-import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
 import { CredentialRegistry } from "../../packages/platform/identity/mod.ts";
 import { operationCeiling } from "../../packages/platform/identity/model.ts";
 import {

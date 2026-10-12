@@ -10,12 +10,12 @@ import {
   approvalsList,
   eventsList,
   routePath,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import {
   runRead,
   sessionRead,
   type ToolDecision,
-} from "../../packages/contracts/lophn-agent/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
 import type { CoreCall } from "../../packages/lophn-agent/harness/tool-judgment/mod.ts";
 import { setAssignmentState } from "./testing/assignment-state.ts";
 import { codeOf, decide as humanDecide } from "./testing/approvals-fixture.ts";

@@ -8,7 +8,7 @@ import type {
   Document,
   Project,
   Slug,
-} from "../../packages/contracts/documents/mod.ts";
+} from "../../packages/protocol/projects/mod.ts";
 import {
   placeDocumentFile,
   type PlacementDeps,

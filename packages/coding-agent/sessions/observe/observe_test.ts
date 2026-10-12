@@ -10,7 +10,7 @@ import {
   observationAt,
   type SessionState,
   unknownObservation,
-} from "../../../contracts/coding-agent/mod.ts";
+} from "../../../protocol/coding-agent/mod.ts";
 import { HARNESS_CATALOG } from "../../harnesses/mod.ts";
 import {
   observationFromPayload,

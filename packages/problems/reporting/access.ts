@@ -4,7 +4,7 @@ import {
   type ReadSnapshot,
   type RequestContext,
   TargetAuthorization,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 
 // 존재를 새지 않는 문구다. 범위 밖과 없는 대상은 같은 말로 답한다(platform/identity#R8).
 export const NOT_FOUND = "대상을 찾을 수 없다";

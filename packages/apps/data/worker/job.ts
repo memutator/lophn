@@ -7,8 +7,8 @@ import {
   type DataJobInput,
   decodeDataJobInput,
   encodeDataJobOutput,
-} from "../../../contracts/apps/mod.ts";
-import type { DataResult } from "../../../contracts/apps/mod.ts";
+} from "../../../protocol/apps/mod.ts";
+import type { DataResult } from "../../../protocol/apps/mod.ts";
 import { migrationFlags } from "../../permissions/mod.ts";
 import { createAppBackup } from "./backup.ts";
 import { databaseHash, openAppDatabase } from "./db.ts";

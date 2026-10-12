@@ -9,13 +9,13 @@ import {
   modelDefaultsChanged,
   type ModelDefaultSlot,
   modelFavoritesChanged,
-} from "../../../contracts/lophn-agent/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
 import {
   type CommandDefinition,
   parseActor,
   type RequestContext,
   type Tx,
-} from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/platform/mod.ts";
 import { validateOptionValues } from "./options.ts";
 import { loadDefaults, loadFavorites } from "./store.ts";
 

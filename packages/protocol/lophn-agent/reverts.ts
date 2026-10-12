@@ -11,7 +11,7 @@ import {
   withReadCommon,
 } from "../platform/mod.ts";
 import { defineDecision } from "../platform/confirmation-handle.ts";
-import { relativePathSchema } from "../documents/mod.ts";
+import { relativePathSchema } from "../projects/mod.ts";
 import { readCursorSchema } from "./run-values.ts";
 import { compactFailureReasonSchema } from "./sessions.ts";
 

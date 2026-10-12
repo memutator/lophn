@@ -8,11 +8,11 @@ import {
   type Invocation,
   invocationsList,
   validateInput,
-} from "../../../contracts/apps/mod.ts";
+} from "../../../protocol/apps/mod.ts";
 import type {
   AgentAppScope,
   ToolResult,
-} from "../../../contracts/lophn-agent/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
 import { COMMON_ERRORS, type ContractCall } from "./bundles/common.ts";
 import { limitJson } from "./result.ts";
 import type { ToolDefinition } from "./registry.ts";

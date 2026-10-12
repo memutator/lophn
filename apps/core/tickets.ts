@@ -20,7 +20,7 @@ import {
   ticketConfirmed,
   ticketCreated,
   ticketUploadSummary,
-} from "../../packages/contracts/coding-agent/mod.ts";
+} from "../../packages/protocol/coding-agent/mod.ts";
 import type {
   EventRegistration,
   ReaderRegistration,

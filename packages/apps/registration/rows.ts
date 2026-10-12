@@ -1,5 +1,5 @@
 import { err, ok, type Result } from "../../base/mod.ts";
-import { type App, appSchema } from "../../contracts/apps/mod.ts";
+import { type App, appSchema } from "../../protocol/apps/mod.ts";
 
 function invalidStored(): Result<never> {
   return err({ code: "internal", message: "invalid stored app" });

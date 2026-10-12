@@ -1,6 +1,6 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type { TestMethod } from "../../../contracts/problems/mod.ts";
-import { testMethodInputSchema } from "../../../contracts/problems/mod.ts";
+import type { TestMethod } from "../../../protocol/problems/mod.ts";
+import { testMethodInputSchema } from "../../../protocol/problems/mod.ts";
 import { FIXED_DENO_FLAGS, RUNNER_LIMITS, SAFE_ENV_NAMES } from "./limits.ts";
 
 const REJECT = "테스트 실행 방법을 거절했다";

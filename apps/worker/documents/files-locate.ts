@@ -2,7 +2,7 @@
 // 범위 밖·없는 project·허용하지 않는 종류는 모두 같은 invalid_input이다(존재를 새지 않는다).
 import { err, ok, type Result } from "../../../packages/base/mod.ts";
 import type { LophnError } from "../../../packages/base/mod.ts";
-import type { FileTarget } from "../../../packages/contracts/documents/mod.ts";
+import type { FileTarget } from "../../../packages/protocol/projects/mod.ts";
 import type { FileOps } from "../../../packages/documents/file-tracking/file-ops.ts";
 import type { FileLocation } from "../../../packages/documents/file-tracking/file-ipc.ts";
 import {

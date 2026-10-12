@@ -3,7 +3,7 @@ import type {
   HealthObservation,
   WorkerRequest,
   WorkerResponse,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { valueWithin } from "./deadline.ts";
 
 // route 등록값: timeout·응답 상한은 route마다 등록값이다(plan platform#T12).

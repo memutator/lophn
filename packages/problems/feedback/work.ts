@@ -11,7 +11,7 @@ import {
   recordReportInputSchema,
   type SnapshotInput,
   type SubmitFeedbackInput,
-} from "../../contracts/problems/mod.ts";
+} from "../../protocol/problems/mod.ts";
 import { contentHashOf } from "../reporting/mod.ts";
 import {
   type AppLogSource,

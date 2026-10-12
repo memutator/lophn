@@ -9,7 +9,7 @@ import {
   placeAgentSettingsChange,
   placeAgentSettingsChanged,
   type Profile,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import type {
   CommandDefinition,
   Compare,
@@ -17,7 +17,7 @@ import type {
   Output,
   RequestContext,
   Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { serializeSettingsFile } from "./definition-file.ts";
 import { callableIn, openPlaceView, type PlaceView } from "./inspect.ts";
 import type { AgentDeps } from "./ports.ts";

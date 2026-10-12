@@ -3,7 +3,7 @@
 // documents의 `/v1/documents/get`·`history`와 `/v1/outline/document`(ver 지정)를 읽는 쪽이
 // reader를 주입한다. 이 단계는 문서를 바꾸지 않고 문제 표도 읽지 않는다.
 import { err, ok, type Result } from "../../base/mod.ts";
-import type { InterpretationLink } from "../../contracts/problems/mod.ts";
+import type { InterpretationLink } from "../../protocol/problems/mod.ts";
 
 // outline의 section_status 중 연결을 허용하는 값은 found뿐이다. missing·unsupported·unverified는
 // 연결할 절이 아니다.

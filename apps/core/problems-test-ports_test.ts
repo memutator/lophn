@@ -1,6 +1,6 @@
 import { assertEquals } from "@std/assert";
-import type { Tx } from "../../packages/contracts/platform/mod.ts";
-import type { TicketClaimCheckResult } from "../../packages/contracts/coding-agent/mod.ts";
+import type { Tx } from "../../packages/protocol/platform/mod.ts";
+import type { TicketClaimCheckResult } from "../../packages/protocol/coding-agent/mod.ts";
 import { reproductionClaimRejection } from "./problems-test-ports.ts";
 
 const APP = "app_01arz3ndektsv4rrffq69g5fav";

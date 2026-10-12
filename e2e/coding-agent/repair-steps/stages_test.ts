@@ -18,7 +18,7 @@ import {
   REPAIR_CONTEXT_LINES,
   REPAIR_CONTEXT_SUMMARY_MAX_CHARS,
   SECTION_KINDS,
-} from "../../../packages/contracts/coding-agent/mod.ts";
+} from "../../../packages/protocol/coding-agent/mod.ts";
 import { confirmationBinding } from "../../../packages/platform/identity/mod.ts";
 import {
   codingCredentialRef,

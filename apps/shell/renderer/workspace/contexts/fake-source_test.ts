@@ -10,8 +10,8 @@ import {
   savedViewListItemSchema,
   searchRowSchema,
   violationItemSchema,
-} from "../../../../../packages/contracts/documents/context-api.ts";
-import { bundleContentSchema } from "../../../../../packages/contracts/documents/context-contract.ts";
+} from "../../../../../packages/protocol/projects/context-api.ts";
+import { bundleContentSchema } from "../../../../../packages/protocol/projects/context-contract.ts";
 import {
   createFakeContextsSource,
   EVAL,

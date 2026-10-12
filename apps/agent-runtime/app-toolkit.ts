@@ -10,21 +10,21 @@ import {
   invocationAcceptConfirmInputSchema,
   invocationsList,
   type SignedConfirmProof,
-} from "../../packages/contracts/apps/mod.ts";
+} from "../../packages/protocol/apps/mod.ts";
 import {
   type AgentAppScope,
   toolCallRead,
-} from "../../packages/contracts/lophn-agent/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
 import {
   applyApprovedAction,
   type ApprovalAction,
   approvalsGet,
   routePath,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import {
   workspaceRead,
   workspaceReadOutputSchema,
-} from "../../packages/contracts/shell/mod.ts";
+} from "../../packages/protocol/shell/mod.ts";
 import {
   createRuntimeClient,
   type DirectTransport,

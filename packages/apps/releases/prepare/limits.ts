@@ -5,7 +5,7 @@ import {
   RELEASE_FILE_MAX_COUNT,
   RELEASE_PREPARATION_LIMIT_MS,
   RELEASE_SOURCE_MAX_BYTES,
-} from "../../../contracts/apps/mod.ts";
+} from "../../../protocol/apps/mod.ts";
 import { err, ok, type Result } from "../../../base/mod.ts";
 
 export {

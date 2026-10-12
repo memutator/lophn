@@ -4,7 +4,7 @@ import { err, ok } from "../../base/mod.ts";
 import {
   agentTraceExportOutputSchema,
   type RunTrace,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import type { ExportRedactor } from "./export.ts";
 import { truncateForExport } from "./export.ts";
 import {

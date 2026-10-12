@@ -3,8 +3,8 @@ import type {
   ModelOutcome,
   RunElapsed,
   ToolResult,
-} from "../../../contracts/lophn-agent/mod.ts";
-import type { WorkspaceReadOutput } from "../../../contracts/shell/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
+import type { WorkspaceReadOutput } from "../../../protocol/shell/mod.ts";
 import type { InstructionDeps } from "../../instructions/mod.ts";
 import type { SkillEntry } from "../../extensions/mod.ts";
 import type {

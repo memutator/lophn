@@ -3,7 +3,7 @@ import {
   BUILTIN_AGENT_NAMES,
   type McpTool,
   type Profile,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import type { ResolveEnvironment } from "./resolve.ts";
 import { ROLE_CAPS } from "./role-caps.ts";
 

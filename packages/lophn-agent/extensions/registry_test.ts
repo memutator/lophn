@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
-import type { McpServerConfig } from "../../contracts/lophn-agent/mod.ts";
+import type { McpServerConfig } from "../../protocol/lophn-agent/mod.ts";
 import {
   createNodePlaceFiles,
   createNodeSkillFiles,

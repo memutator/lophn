@@ -2,9 +2,9 @@
 // 프로세스로 본다(apps/agent-context#R6, apps/sdk#R39). 앱 자식은 SDK의 registerScreenContext·
 // registerAnnotationTarget을 쓰는 temp 폴더의 실제 프로세스다. 사람 데이터 root는 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
-import type { AuthenticatedContext } from "../../contracts/platform/mod.ts";
-import { grantRevoke } from "../../contracts/apps/mod.ts";
-import type { AgentAppScope } from "../../contracts/lophn-agent/mod.ts";
+import type { AuthenticatedContext } from "../../protocol/platform/mod.ts";
+import { grantRevoke } from "../../protocol/apps/mod.ts";
+import type { AgentAppScope } from "../../protocol/lophn-agent/mod.ts";
 import {
   call,
   command,

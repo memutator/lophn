@@ -2,7 +2,7 @@ import { assertEquals } from "@std/assert";
 import {
   resultViewSchema,
   searchQuerySchema,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 import { toBoard } from "./board.ts";
 import { fixtureBundle, fixtureEntities, rowOf } from "./testing.ts";
 import type { EntityRef } from "./types.ts";

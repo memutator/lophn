@@ -18,7 +18,7 @@ import type {
   FormatDiagnostic,
   FormatRef,
   PreparedVersion,
-} from "../../contracts/documents/mod.ts";
+} from "../../protocol/projects/mod.ts";
 import {
   BUILTIN_MODULE_HASH,
   CHECK_SKIPPED_CODE,

@@ -1,8 +1,8 @@
 import { err, ok, type Result } from "../../base/mod.ts";
-import { type Release, releaseSchema } from "../../contracts/apps/mod.ts";
-import type { ProblemWordingFact } from "../../contracts/problems/mod.ts";
+import { type Release, releaseSchema } from "../../protocol/apps/mod.ts";
+import type { ProblemWordingFact } from "../../protocol/problems/mod.ts";
 import type { Blueprint } from "../blueprint/mod.ts";
-import type { Sql, SqlRow, Tx } from "../../contracts/platform/mod.ts";
+import type { Sql, SqlRow, Tx } from "../../protocol/platform/mod.ts";
 import type {
   AppDeclarations,
   CurrentDeclarations,

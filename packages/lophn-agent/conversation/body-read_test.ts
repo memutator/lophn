@@ -5,12 +5,12 @@ import {
   BLOB_READ_MAX_BYTES,
   type RequestContext,
   type Sql,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   MESSAGE_BODY_FIELD,
   MESSAGE_BODY_OWNER_KIND,
   serializeMessageContent,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import {
   bodyContentOf,
   type MessageBodyEnvironment,

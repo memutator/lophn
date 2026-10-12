@@ -1,10 +1,10 @@
-import { routePath } from "../../packages/contracts/platform/mod.ts";
+import { routePath } from "../../packages/protocol/platform/mod.ts";
 import {
   MCP_AUTH_REQUEST_BODY_MAX,
   type McpAuthRequest,
   mcpAuthRequestDone,
   mcpAuthRequestTake,
-} from "../../packages/contracts/lophn-agent/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
 import { type CoreCall, readOf } from "./core-call.ts";
 
 // MCP OAuth 발급자(token endpoint) 호출을 core 대신 보낸다(concern lophn-agent/extensions, requirements #R16, #R17).

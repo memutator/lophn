@@ -3,7 +3,7 @@
 // (domain-model/documents/versions "정할 것", architecture/documents 96행).
 
 import { sha256Hex } from "../../base/mod.ts";
-import type { ContentFile, FormatRef } from "../../contracts/documents/mod.ts";
+import type { ContentFile, FormatRef } from "../../protocol/projects/mod.ts";
 
 const FILE_FIELDS = [
   "blob_hash",

@@ -11,7 +11,7 @@ import {
   formatValidationPageSchema,
   saveResultSchema,
   versionIdSchema,
-} from "../documents/mod.ts";
+} from "../projects/mod.ts";
 
 // 문서·format tool의 글 값 통로(lophn-agent/harness/tools#R6, R7). tool은 본문을 글(UTF-8)로
 // 싣고 hash·blob을 만들지 않는다. core가 요청 자격으로 글을 redaction해 UTF-8 bytes로 blob을

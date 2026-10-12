@@ -3,7 +3,7 @@ import {
   type AgentRole,
   type CommandGroup,
   listCommands,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import {
   buildRegistry,
   type CommandRegistry,

@@ -3,7 +3,7 @@ import type {
   BundleContent,
   CheckFinding,
   ContractExample,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 import type { ExtractedEntity } from "../extract/types.ts";
 import { runSearch } from "../search/run.ts";
 import type { ResultRow, SearchError } from "../search/types.ts";

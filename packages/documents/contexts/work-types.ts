@@ -6,7 +6,7 @@ import type { z } from "zod";
 import type {
   bundleFinishCheckRequestSchema,
   violationsRecordRequestSchema,
-} from "../../contracts/documents/mod.ts";
+} from "../../protocol/projects/mod.ts";
 import type { ProjectFiles } from "./extract/types.ts";
 import type { WatchFolder } from "./watch/mod.ts";
 

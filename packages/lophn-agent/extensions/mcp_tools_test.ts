@@ -6,7 +6,7 @@ import {
   canonicalExternalToolSchema,
   mcpServersSetting,
   mcpToolClassificationSchema,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import {
   assignExternalToolNames,
   baseExternalToolName,

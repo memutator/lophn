@@ -9,7 +9,7 @@ import {
   encodeFrame,
   type MainHello,
   mainHelloSchema,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import {
   backupStamp,
   createBackup,

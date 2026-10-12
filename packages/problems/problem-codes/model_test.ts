@@ -1,6 +1,6 @@
 import { assert, assertEquals, assertFalse } from "@std/assert";
-import { RESERVED_PROBLEM_CODES } from "../../contracts/problems/mod.ts";
-import type { ProblemCodeDeclaration } from "../../contracts/problems/mod.ts";
+import { RESERVED_PROBLEM_CODES } from "../../protocol/problems/mod.ts";
+import type { ProblemCodeDeclaration } from "../../protocol/problems/mod.ts";
 import * as problemCodes from "./mod.ts";
 import {
   checkProblemCodeDeclarations,

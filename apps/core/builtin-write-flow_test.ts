@@ -3,7 +3,7 @@
 // 실행되는지 본다. run은 selector → StartRun → agent credential → model call(fake provider의 실제
 // HTTP) → tool 판정 → 진입 → 종료 기록의 실제 길(`createRunPreparer`·`createRunDriver`)이고 실행기를
 // 직접 부르지 않는다. 실제 provider와 사람 데이터 root는 열지 않는다.
-import { AGENT_RUNTIME_PRINCIPAL } from "../../packages/contracts/lophn-agent/mod.ts";
+import { AGENT_RUNTIME_PRINCIPAL } from "../../packages/protocol/lophn-agent/mod.ts";
 import { assert, assertEquals } from "@std/assert";
 import {
   createIdSource,
@@ -12,11 +12,11 @@ import {
   ok,
   seededRandom,
 } from "../../packages/base/mod.ts";
-import type { CallModel } from "../../packages/contracts/lophn-agent/mod.ts";
+import type { CallModel } from "../../packages/protocol/lophn-agent/mod.ts";
 import type {
   AuthenticatedContext,
   ChildMessage,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import {
   createAuthTransport,
   type SecretAttachLike,

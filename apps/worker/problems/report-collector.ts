@@ -13,18 +13,18 @@ import { sha256Hex } from "../../../packages/base/mod.ts";
 import type {
   Frame,
   WorkerRequest,
-} from "../../../packages/contracts/platform/mod.ts";
+} from "../../../packages/protocol/platform/mod.ts";
 import {
   observeViewErrorInputSchema,
   REPORT_RETRY_DELAYS_MS,
   reportProblemInputSchema,
   submitFeedbackInputSchema,
-} from "../../../packages/contracts/problems/mod.ts";
+} from "../../../packages/protocol/problems/mod.ts";
 import type {
   RecordReportInput,
   ReportAcceptance,
   ReportProblemIngress,
-} from "../../../packages/contracts/problems/mod.ts";
+} from "../../../packages/protocol/problems/mod.ts";
 import {
   type ChildSession,
   type ChildStreams,
@@ -63,8 +63,8 @@ import {
   exceptionObservationInputSchema,
   REPORTING_LIMITS,
   snapshotInputSchema,
-} from "../../../packages/contracts/problems/mod.ts";
-import type { ReportBlobInput } from "../../../packages/contracts/problems/mod.ts";
+} from "../../../packages/protocol/problems/mod.ts";
+import type { ReportBlobInput } from "../../../packages/protocol/problems/mod.ts";
 
 // registerBlobs의 원주체 검사는 report.principal과 source.blob.principal이
 // 같은지 본다. 준비는 항상 principal "collector"로 등록된다.

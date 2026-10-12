@@ -3,7 +3,7 @@
 import { err, ok, type Result } from "../../packages/base/mod.ts";
 import { findCommand } from "../../packages/coding-agent/cli/mod.ts";
 import type { ParsedArgs } from "../../packages/coding-agent/cli/parser.ts";
-import type { AgentFailure } from "../../packages/contracts/coding-agent/mod.ts";
+import type { AgentFailure } from "../../packages/protocol/coding-agent/mod.ts";
 
 function safeJson(text: string): Result<unknown, AgentFailure> {
   try {

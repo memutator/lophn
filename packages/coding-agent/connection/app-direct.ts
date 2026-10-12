@@ -9,11 +9,11 @@ import {
   type CommandInvokeOutput,
   commandInvokeOutputSchema,
   DIRECT_SOCKET_PATHS,
-} from "../../contracts/apps/mod.ts";
+} from "../../protocol/apps/mod.ts";
 import {
   errorBodySchema,
   errorCodeForStatus,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import type { FlowClient } from "./document-save.ts";
 
 export const APP_ENVIRONMENTS = ["preview", "live"] as const;

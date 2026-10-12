@@ -1,10 +1,10 @@
 import { err, ok, type Result } from "../../base/mod.ts";
-import { questionList, questionRead } from "../../contracts/lophn-agent/mod.ts";
+import { questionList, questionRead } from "../../protocol/lophn-agent/mod.ts";
 import {
   parseActor,
   type ReadDefinition,
   type RequestContext,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   appliedOf,
   GROUP_COLUMNS,

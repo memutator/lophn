@@ -3,7 +3,7 @@ import {
   type HealthObservation,
   helloSchema,
   type ParentMessage,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { checkLaunchSpec } from "../security/mod.ts";
 import { settledWithin, valueWithin } from "./deadline.ts";
 import { ADAPTER_MS } from "./group.ts";

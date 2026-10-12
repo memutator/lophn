@@ -13,7 +13,7 @@ import {
   type Slug,
   type TrackingPreview,
   trackingPreviewSchema,
-} from "../../packages/contracts/documents/mod.ts";
+} from "../../packages/protocol/projects/mod.ts";
 import type {
   CommandEnvelope,
   Writer,

@@ -85,7 +85,7 @@ import { nodeInvoke } from "../app-frame/app-invoke.ts";
 import {
   canonicalInputHash,
   validateInput,
-} from "../../../../packages/contracts/apps/blueprint.ts";
+} from "../../../../packages/protocol/apps/blueprint.ts";
 import { registerAppIpc, removeAppIpc } from "../app-frame/app-ipc.ts";
 import { createExternalLinks } from "../app-frame/external-link.ts";
 import { createViewErrors, reportIdOf } from "../app-frame/view-error.ts";

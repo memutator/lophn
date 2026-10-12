@@ -1,10 +1,10 @@
 import { hashCanonical } from "./canonical.ts";
 import { err, ok, type Result } from "../../base/mod.ts";
-import type { RequestContext } from "../../contracts/platform/mod.ts";
-import type { TargetAuthorizer } from "../../contracts/platform/mod.ts";
-import { atSchema, sha256Schema } from "../../contracts/platform/mod.ts";
-import type { Input } from "../../contracts/platform/mod.ts";
-import type { requestTest } from "../../contracts/problems/mod.ts";
+import type { RequestContext } from "../../protocol/platform/mod.ts";
+import type { TargetAuthorizer } from "../../protocol/platform/mod.ts";
+import { atSchema, sha256Schema } from "../../protocol/platform/mod.ts";
+import type { Input } from "../../protocol/platform/mod.ts";
+import type { requestTest } from "../../protocol/problems/mod.ts";
 import {
   canonicalRequest,
   checkTestAuthority,

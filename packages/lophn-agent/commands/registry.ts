@@ -3,7 +3,7 @@ import {
   BUILTIN_COMMAND_IDS,
   type CommandEntry,
   type CommandNotice,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import {
   CHECK_CONTRACTS_PROMPT,
   NEW_APP_PROMPT,

@@ -9,7 +9,7 @@ import type {
   GlossaryEntry,
   SavedViewValue,
   StoredViolation,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 
 // 요청한 쪽. 실제 자격은 platform/identity가 정하고 여기서는 command가 가르는 구분만 둔다.
 // actor는 ledger에 남는 문자열이다(`user`, `agent:asg_…`, `machine`, `coding_agent:cac_…`).

@@ -1,13 +1,13 @@
 import { err, ok, type Result } from "../../packages/base/mod.ts";
 import type {
   McpServerConfig,
-} from "../../packages/contracts/lophn-agent/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
 import {
   type AgentPlace,
   mcpServersSetting,
   placeExtensionSettingsRead,
-} from "../../packages/contracts/lophn-agent/mod.ts";
-import { settingsGet } from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
+import { settingsGet } from "../../packages/protocol/platform/mod.ts";
 import type { ToolDefinition } from "../../packages/lophn-agent/harness/tools/mod.ts";
 import {
   checkMcpConfig,

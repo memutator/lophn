@@ -2,8 +2,8 @@ import type {
   EffectiveSetting,
   SettingApplyAt,
   SettingDefinitionOutput,
-} from "@lophn/contracts/platform";
-import type { QuestionOption } from "@lophn/contracts/lophn-agent";
+} from "@lophn/protocol/platform";
+import type { QuestionOption } from "@lophn/protocol/lophn-agent";
 import { canonicalize } from "@lophn/base";
 import { protectedSetting, settingsOptionAction } from "../../questions/mod.ts";
 import { oneLine } from "./place-recommendation.ts";

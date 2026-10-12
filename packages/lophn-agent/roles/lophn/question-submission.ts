@@ -2,8 +2,8 @@ import type {
   CreateQuestionGroupInput,
   OptionAction,
   QuestionOption,
-} from "@lophn/contracts/lophn-agent";
-import { questionOptionSchema } from "@lophn/contracts/lophn-agent";
+} from "@lophn/protocol/lophn-agent";
+import { questionOptionSchema } from "@lophn/protocol/lophn-agent";
 import { validateNewGroup } from "../../questions/mod.ts";
 
 // lophn이 만든 질문 draft를 `question.submit` tool 값으로 실는 길(roles/lophn#R5,

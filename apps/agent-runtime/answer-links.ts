@@ -4,7 +4,7 @@ import {
   messageLinkSchema,
   runBody,
   toolCallList,
-} from "../../packages/contracts/lophn-agent/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
 import { type CoreCall, readOf } from "./core-call.ts";
 
 // 답 메시지의 결과 링크(lophn-agent/conversation#R4)다. 이 run이 실제로 저장한 문서 판과 다룬 context만 싣는다.

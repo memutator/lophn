@@ -1,12 +1,12 @@
 import {
   QUESTION_BLOB_FIELDS,
   QUESTION_BLOB_OWNER_KIND,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import {
   type BlobFieldDefinition,
   defineBlobField,
   type SchemaStep,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 
 // domain-model lophn-agent/questions의 `question_groups`·`questions` 표. 묶음은 상태·기한·
 // 종료를 갖고 질문은 묶음 안의 값(본문 hash·선택지·추천·답)을 갖는다.

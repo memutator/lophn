@@ -1,8 +1,8 @@
-import type { Blueprint } from "../../../contracts/apps/mod.ts";
+import type { Blueprint } from "../../../protocol/apps/mod.ts";
 import type {
   FrozenTest,
   ProblemCodeDeclaration,
-} from "../../../contracts/problems/mod.ts";
+} from "../../../protocol/problems/mod.ts";
 import {
   checkProblemCodeDeclarations,
   type MeaningChange,

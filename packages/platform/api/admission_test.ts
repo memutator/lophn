@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, ok, seededRandom } from "../../base/mod.ts";
-import { ERROR_HTTP_STATUS } from "../../contracts/platform/mod.ts";
+import { ERROR_HTTP_STATUS } from "../../protocol/platform/mod.ts";
 import type { CommandEnvelope, Writer } from "../ledger/mod.ts";
 import { type Admission, createAdmission } from "../responsiveness/mod.ts";
 import { CredentialRegistry } from "../identity/mod.ts";

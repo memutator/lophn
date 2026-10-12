@@ -7,7 +7,7 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   bundleContentSchema,
   type EntityRef,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 import {
   executeTool,
   listTools,

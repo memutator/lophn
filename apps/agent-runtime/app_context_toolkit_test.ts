@@ -7,9 +7,9 @@ import {
   appBlueprint,
   type AppBlueprintCommand,
   grantsList,
-} from "../../packages/contracts/apps/mod.ts";
-import { workspaceRead } from "../../packages/contracts/shell/mod.ts";
-import { routePath } from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/apps/mod.ts";
+import { workspaceRead } from "../../packages/protocol/shell/mod.ts";
+import { routePath } from "../../packages/protocol/platform/mod.ts";
 import { computeAgentAppScope } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
 import {
   appAnnotateTool,

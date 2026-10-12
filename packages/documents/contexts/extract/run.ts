@@ -1,7 +1,7 @@
 import type {
   BundleContent,
   ContractType,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 import { readDocumentFrom } from "./document.ts";
 import { appDataKind } from "./app-data.ts";
 import { docsKind } from "./docs.ts";

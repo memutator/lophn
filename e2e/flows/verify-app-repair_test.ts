@@ -18,7 +18,7 @@ import { fileURLToPath } from "node:url";
 import { assert, assertEquals, assertNotEquals } from "@std/assert";
 
 import { err, ok, type Result, sha256Hex } from "../../packages/base/mod.ts";
-import type { FrozenTest } from "../../packages/contracts/problems/mod.ts";
+import type { FrozenTest } from "../../packages/protocol/problems/mod.ts";
 import { declarationsOfBlueprint } from "../../packages/apps/releases/mod.ts";
 import { migrateAppDatabase } from "../../packages/apps/data/worker/migrate.ts";
 import { prepareFromSource } from "../../packages/apps/releases/prepare/from-source.ts";
@@ -37,7 +37,7 @@ import {
   deriveAppTest,
   reproductionFrozen,
 } from "../../packages/problems/tests/mod.ts";
-import { SECTION_KINDS } from "../../packages/contracts/coding-agent/mod.ts";
+import { SECTION_KINDS } from "../../packages/protocol/coding-agent/mod.ts";
 import { objectPathFor } from "../../packages/platform/blob-store/model.ts";
 import {
   codingCredentialRef,

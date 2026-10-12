@@ -13,12 +13,12 @@ import type {
   AgentIssue,
   AgentListRow,
   ValueSource,
-} from "../../../../../packages/contracts/lophn-agent/agent-values.ts";
+} from "../../../../../packages/protocol/lophn-agent/agent-values.ts";
 import type {
   CatalogEntry,
   ModelChoice,
-} from "../../../../../packages/contracts/lophn-agent/models.ts";
-import type { AgentRole } from "../../../../../packages/contracts/lophn-agent/scope.ts";
+} from "../../../../../packages/protocol/lophn-agent/models.ts";
+import type { AgentRole } from "../../../../../packages/protocol/lophn-agent/scope.ts";
 import type { InstructionsApi } from "../../../ipc/instructions.ts";
 import type { CoreSource } from "../../desktop/connection/connection.ts";
 import type { ReadResult } from "../source.ts";

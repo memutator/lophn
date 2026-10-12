@@ -4,7 +4,7 @@ import {
   type DiagnosticRecord,
   DIAGNOSTICS_WRITE_MAX_PENDING_BYTES,
   diagnosticsWriteInputSchema,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 
 export const LOG_LEVEL: LogLevel = "info";
 export type DiagnosticCatalog = {

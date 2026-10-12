@@ -11,7 +11,7 @@ import { assert, assertEquals } from "@std/assert";
 import { spawn } from "node:child_process";
 import type { Readable, Writable } from "node:stream";
 
-import { screenTestObservationSchema } from "../../packages/contracts/shell/screen-test.ts";
+import { screenTestObservationSchema } from "../../packages/protocol/shell/screen-test.ts";
 import {
   descendantPids,
   e2eEnabled,

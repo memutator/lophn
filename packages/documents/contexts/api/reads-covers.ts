@@ -2,7 +2,7 @@
 import type {
   ContractSource,
   ContractType,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 import { matcherFor } from "../extract/docs-paths.ts";
 import { listMembers, parsePattern } from "../series/next.ts";
 

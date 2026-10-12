@@ -4,13 +4,13 @@ import {
   defaultHarnessSetting,
   harnessEnabledSetting,
   harnessProfileSetting,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 import {
   type CommandDefinition,
   defineCommand,
   type SettingDefinition,
   type Tx,
-} from "../../../packages/contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   createSettingsCommands,
   SettingRegistry,

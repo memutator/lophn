@@ -1,7 +1,7 @@
 // context 변화 감지의 모양. 규칙의 뜻은 docs/architecture/documents.md 3.2 "따라잡기"와
 // documents/contexts#R23이다. 신호는 "그 context를 다시 훑으라"는 힌트일 뿐이고 변화 기록·
 // event·화면 상태를 만들지 않는다.
-import type { Contract } from "../../../contracts/documents/mod.ts";
+import type { Contract } from "../../../protocol/projects/mod.ts";
 
 // Project 루트 기준 폴더("" = 루트). recursive가 아니면 그 폴더 바로 아래 파일만 가리킨다.
 export type WatchFolder = {

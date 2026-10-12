@@ -4,7 +4,7 @@
 import type {
   HarnessId,
   HarnessSessionObservation,
-} from "../../../contracts/coding-agent/mod.ts";
+} from "../../../protocol/coding-agent/mod.ts";
 import { normalizeClaude, normalizeCodex, normalizeGemini } from "./hooks.ts";
 import {
   type Evidence,

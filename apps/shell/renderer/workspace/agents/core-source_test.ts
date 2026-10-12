@@ -6,8 +6,8 @@ import type {
   AgentIssue,
   AgentListRow,
   ValueSource,
-} from "../../../../../packages/contracts/lophn-agent/agent-values.ts";
-import type { CatalogEntry } from "../../../../../packages/contracts/lophn-agent/models.ts";
+} from "../../../../../packages/protocol/lophn-agent/agent-values.ts";
+import type { CatalogEntry } from "../../../../../packages/protocol/lophn-agent/models.ts";
 import type { AgentEffective } from "./views.ts";
 import type { CoreCall } from "../../../ipc/core.ts";
 import type { CoreReply } from "../../../ipc/core-api.ts";

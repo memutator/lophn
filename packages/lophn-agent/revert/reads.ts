@@ -7,8 +7,8 @@ import {
   rewindCheckpoints,
   rewindList,
   rewindPreview,
-} from "../../contracts/lophn-agent/mod.ts";
-import type { ReadDefinition, Sql } from "../../contracts/platform/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
+import type { ReadDefinition, Sql } from "../../protocol/platform/mod.ts";
 import {
   assertCheckpointVisible,
   hiddenFromSeq,

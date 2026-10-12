@@ -16,7 +16,7 @@ import {
   HUMAN_ONLY_NAMES,
   type IntegrationTarget,
   LOPHN_CONNECTION,
-} from "../../packages/contracts/coding-agent/mod.ts";
+} from "../../packages/protocol/coding-agent/mod.ts";
 import {
   connectionFromRef,
   type CoreClient,
@@ -106,9 +106,9 @@ import {
   daemonStop,
   readRunMetadata,
 } from "../../packages/platform/install-and-update/mod.ts";
-import { appDirectSocketPaths } from "../../packages/contracts/apps/mod.ts";
-import { documentSectionHistory } from "../../packages/contracts/documents/mod.ts";
-import type { Route } from "../../packages/contracts/platform/mod.ts";
+import { appDirectSocketPaths } from "../../packages/protocol/apps/mod.ts";
+import { documentSectionHistory } from "../../packages/protocol/projects/mod.ts";
+import type { Route } from "../../packages/protocol/platform/mod.ts";
 import type { CredentialProvider } from "../../packages/coding-agent/connection/credential/provider.ts";
 
 // 공통 option(출력·연결·daemon·CAS·key·입력 source)은 route 입력이 아니다.

@@ -1,7 +1,7 @@
 // documents/file-tracking#R5: core 비동기 dispatch는 요청을 큐에 넣고 바로 돌아온다.
 // writer·API 처리 흐름은 documents worker의 응답을 기다리지 않는다.
 import { assert, assertEquals } from "@std/assert";
-import type { Frame } from "../../packages/contracts/platform/mod.ts";
+import type { Frame } from "../../packages/protocol/platform/mod.ts";
 import { createDocumentsDispatch } from "./documents-dispatch.ts";
 
 const request = (id: string) => ({

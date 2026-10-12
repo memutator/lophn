@@ -4,7 +4,7 @@ import { ok } from "../../../base/mod.ts";
 import {
   type ContractType,
   INPUT_OPTIONS_DEFAULT,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 import type { ContextApiReads } from "./reads.ts";
 import {
   checkReader,

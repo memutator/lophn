@@ -3,8 +3,8 @@ import type {
   BlobRefRegistration,
   RequestContext,
   Tx,
-} from "../../contracts/platform/mod.ts";
-import type { Verification } from "../../contracts/problems/mod.ts";
+} from "../../protocol/platform/mod.ts";
+import type { Verification } from "../../protocol/problems/mod.ts";
 import {
   canonicalRequest,
   type PreparedResultEvidence,

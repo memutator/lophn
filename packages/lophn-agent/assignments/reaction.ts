@@ -17,13 +17,13 @@ import {
   type Result,
   sha256Hex,
 } from "../../base/mod.ts";
-import type { AuthenticatedContext } from "../../contracts/platform/mod.ts";
+import type { AuthenticatedContext } from "../../protocol/platform/mod.ts";
 import {
   EVENT_BATCH_LIMITS,
   type EventEnvelope,
   reactionKeySchema,
-} from "../../contracts/platform/mod.ts";
-import { ASSIGNMENT_SUBSCRIBER } from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/platform/mod.ts";
+import { ASSIGNMENT_SUBSCRIBER } from "../../protocol/lophn-agent/mod.ts";
 
 export type AssignmentEngineCommand = (
   ctx: AuthenticatedContext,

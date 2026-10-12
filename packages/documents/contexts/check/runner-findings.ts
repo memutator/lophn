@@ -1,5 +1,5 @@
 // 모양·의미 검사 결과를 CheckFinding으로 옮긴다. 규칙은 types.ts의 "finding"이다.
-import type { CheckFinding } from "../../../contracts/documents/mod.ts";
+import type { CheckFinding } from "../../../protocol/projects/mod.ts";
 import type { ContractIssue } from "../validate/mod.ts";
 
 const PRIVATE_CODES: readonly string[] = [

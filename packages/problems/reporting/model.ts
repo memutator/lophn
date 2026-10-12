@@ -1,7 +1,7 @@
 import { err, type Result } from "../../base/mod.ts";
 import type { LophnError } from "../../base/mod.ts";
-import { REPORTING_LIMITS } from "../../contracts/problems/mod.ts";
-import type { Tx } from "../../contracts/platform/mod.ts";
+import { REPORTING_LIMITS } from "../../protocol/problems/mod.ts";
+import type { Tx } from "../../protocol/platform/mod.ts";
 
 // 접수 공통 값: 재전송 비교(R9)와 접수 창(R12).
 const CONFLICT = "같은 Report ID의 원주체나 내용이 다르다";

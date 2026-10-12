@@ -5,12 +5,12 @@ import {
   documentIdSchema,
   placeRefSchema,
   slugSchema,
-} from "../../../../contracts/documents/mod.ts";
-import type { OptionAction } from "../../../../contracts/lophn-agent/mod.ts";
+} from "../../../../protocol/projects/mod.ts";
+import type { OptionAction } from "../../../../protocol/lophn-agent/mod.ts";
 import {
   settingsDefinitions,
   settingsGet,
-} from "../../../../contracts/platform/mod.ts";
+} from "../../../../protocol/platform/mod.ts";
 import {
   moveOptionAction,
   protectedSetting,

@@ -5,7 +5,7 @@ import type {
   CredentialScope,
   RequestContext,
   TargetAuthorizer,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   type ExecutionEvidence,
   type FrozenTest,
@@ -14,7 +14,7 @@ import {
   type TestRequest,
   type Verification,
   verificationInputSchema,
-} from "../../contracts/problems/mod.ts";
+} from "../../protocol/problems/mod.ts";
 
 // platform writer는 scope.operations에 route.name을 넣는다. 동의어를 만들지 않는다.
 export const RECORD_VERIFICATION = "RecordVerification";

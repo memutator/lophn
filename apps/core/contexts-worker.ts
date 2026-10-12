@@ -32,13 +32,13 @@ import {
   contextViolationsRoute,
   type ContextWorkInput,
   type ContextWorkList,
-} from "../../packages/contracts/documents/mod.ts";
-import { parseActor } from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/projects/mod.ts";
+import { parseActor } from "../../packages/protocol/platform/mod.ts";
 import type {
   ChildMessage,
   KindLaunchSpec,
   ParentMessage,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import type {
   CommandEnvelope,
   Writer,

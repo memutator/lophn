@@ -6,7 +6,7 @@ import { assert, assertEquals } from "@std/assert";
 import { createHash } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
-import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
 import { createCoreClient } from "../../packages/coding-agent/connection/client/core.ts";
 import {
   type AppOutputFile,
@@ -363,7 +363,7 @@ Deno.test("documents/versions#R14: 앱은 다른 앱 place의 문서에 판을 �
     });
     const bytes = new TextEncoder().encode("# 가로채기\n");
     const uploaded = await client.upload(
-      (await import("../../packages/contracts/documents/mod.ts"))
+      (await import("../../packages/protocol/projects/mod.ts"))
         .documentUpload,
       {
         blob_hash: createHash("sha256").update(bytes).digest("hex"),
@@ -373,7 +373,7 @@ Deno.test("documents/versions#R14: 앱은 다른 앱 place의 문서에 판을 �
     );
     assert(uploaded.ok, uploaded.ok ? "" : JSON.stringify(uploaded.error));
     const { documentPrepare, documentSave } = await import(
-      "../../packages/contracts/documents/mod.ts"
+      "../../packages/protocol/projects/mod.ts"
     );
     const attempt = async (document: string, key: string) => {
       const prepared = await client.read(documentPrepare, {

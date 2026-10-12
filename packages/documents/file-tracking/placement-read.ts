@@ -8,13 +8,13 @@ import type {
   PlaceRef,
   Project,
   Slug,
-} from "../../contracts/documents/mod.ts";
+} from "../../protocol/projects/mod.ts";
 import {
   parseActor,
   type ReadSnapshot,
   type RequestContext,
   type Sql,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   createDocumentNameReservation,
   SLUG_MAX_LENGTH,

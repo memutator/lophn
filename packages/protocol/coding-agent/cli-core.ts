@@ -13,14 +13,14 @@ import {
   seriesGet,
   seriesList,
   seriesNext,
-} from "../documents/mod.ts";
-import { documentDiff } from "../documents/history.ts";
-import { documentReadInputSchema } from "../documents/read.ts";
+} from "../projects/mod.ts";
+import { documentDiff } from "../projects/history.ts";
+import { documentReadInputSchema } from "../projects/read.ts";
 import {
   absolutePathSchema,
   sectionKeySchema,
   versionIdSchema,
-} from "../documents/values.ts";
+} from "../projects/values.ts";
 import { idempotencyKeySchema } from "../platform/envelope.ts";
 import { connectionIdSchema } from "./connections.ts";
 import { cliSaveFields } from "./mcp-core.ts";

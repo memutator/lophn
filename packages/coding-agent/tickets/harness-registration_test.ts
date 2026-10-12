@@ -5,15 +5,15 @@
 // rollback이므로 seeding은 seed command만 남는다).
 import { z } from "zod";
 import { err, ok, type Result } from "../../base/mod.ts";
-import { appRegistrationLookup } from "../../contracts/apps/mod.ts";
-import type { CodingAgentConnectionAuthResult } from "../../contracts/coding-agent/mod.ts";
+import { appRegistrationLookup } from "../../protocol/apps/mod.ts";
+import type { CodingAgentConnectionAuthResult } from "../../protocol/coding-agent/mod.ts";
 import { connectionAuthSyncPort } from "../connection/mod.ts";
 import {
   type CommandDefinition,
   defineCommand,
   type RequestContext,
   type Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { createTicketClaimCommands } from "./claims.ts";
 import {
   createTicketCommands,

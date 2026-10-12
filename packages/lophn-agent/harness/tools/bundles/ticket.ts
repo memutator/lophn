@@ -10,9 +10,9 @@ import {
   ticketShow,
   ticketShowInputSchema,
   ticketStateSchema,
-} from "../../../../contracts/coding-agent/mod.ts";
-import { readCursorSchema } from "../../../../contracts/documents/mod.ts";
-import type { ToolResult } from "../../../../contracts/lophn-agent/mod.ts";
+} from "../../../../protocol/coding-agent/mod.ts";
+import { readCursorSchema } from "../../../../protocol/projects/mod.ts";
+import type { ToolResult } from "../../../../protocol/lophn-agent/mod.ts";
 import { fitJson, PAGE_SIZE } from "../result.ts";
 import type { ToolDefinition } from "../registry.ts";
 import type { RunCredential, ToolHandler } from "../work.ts";

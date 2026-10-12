@@ -9,7 +9,7 @@ import type {
   GlossaryEntry,
   SavedViewValue,
   StoredViolation,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 import type {
   BlobReference,
   BundleRow,

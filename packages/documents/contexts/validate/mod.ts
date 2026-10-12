@@ -1,4 +1,4 @@
-import type { BundleContent } from "../../../contracts/documents/mod.ts";
+import type { BundleContent } from "../../../protocol/projects/mod.ts";
 import { checkFields } from "./fields.ts";
 import { checkRelations } from "./relations.ts";
 import { checkSearches } from "./searches.ts";

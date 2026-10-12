@@ -2,7 +2,7 @@ import type { Result } from "../../../base/mod.ts";
 import type {
   ViewTab,
   WorkspaceReadOutput,
-} from "../../../contracts/shell/mod.ts";
+} from "../../../protocol/shell/mod.ts";
 import {
   assemblePrompt,
   type AssembleResult,

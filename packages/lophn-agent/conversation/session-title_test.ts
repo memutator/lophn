@@ -4,7 +4,7 @@ import {
   SESSION_AUTO_TITLE_MAX,
   SESSION_RENAME_TITLE_MAX,
   sessionTitleLength,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import {
   autoSessionTitle,
   renameSessionTitle,

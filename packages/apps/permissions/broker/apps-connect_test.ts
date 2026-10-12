@@ -2,7 +2,7 @@
 // 연결이 정하고 본문의 caller·source·actor 주장은 받지 않는다. 준비 서비스는 포트 대역이다.
 import { assert, assertEquals } from "@std/assert";
 import { err, ok } from "../../../base/mod.ts";
-import type { AppConnectOutput } from "../../../contracts/apps/mod.ts";
+import type { AppConnectOutput } from "../../../protocol/apps/mod.ts";
 import {
   type AppPairPreparer,
   type AppsConnectRequest,

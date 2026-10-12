@@ -13,7 +13,7 @@ import type {
   CommandChange,
   DataChange,
   ReleaseComparison,
-} from "../../contracts/apps/mod.ts";
+} from "../../protocol/apps/mod.ts";
 import { permissionLabel } from "./facts.ts";
 
 export type ComparedRelease = {

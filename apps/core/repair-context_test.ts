@@ -4,8 +4,8 @@
 // keychain·데이터 root는 열지 않는다(fake keychain, temp home).
 import { assert, assertEquals, assertFalse } from "@std/assert";
 import { err, ok, type Result } from "../../packages/base/mod.ts";
-import { RepairContextSchema } from "../../packages/contracts/coding-agent/mod.ts";
-import type { WorkerRequest } from "../../packages/contracts/platform/mod.ts";
+import { RepairContextSchema } from "../../packages/protocol/coding-agent/mod.ts";
+import type { WorkerRequest } from "../../packages/protocol/platform/mod.ts";
 import {
   createKnownSecretRegistry,
 } from "../../packages/platform/redaction/mod.ts";

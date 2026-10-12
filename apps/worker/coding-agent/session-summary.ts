@@ -3,13 +3,13 @@
 // 범위 밖 자료를 대신 읽지 못하고, 읽기를 바꾸는 호출도 없다. core의 `/v1/coding_agent_sessions/summary`
 // route가 요청을 이 worker로 넘긴다.
 import { type Result } from "../../../packages/base/mod.ts";
-import { CodingAgentSessionSummaryInputSchema } from "../../../packages/contracts/coding-agent/mod.ts";
+import { CodingAgentSessionSummaryInputSchema } from "../../../packages/protocol/coding-agent/mod.ts";
 import {
   createRpcClient,
   type Route,
   type RpcFetch,
   type WorkerRequest,
-} from "../../../packages/contracts/platform/mod.ts";
+} from "../../../packages/protocol/platform/mod.ts";
 import { assembleSessionSummary } from "../../../packages/coding-agent/guides/mod.ts";
 import { RepairContextRejection } from "./repair-context.ts";
 

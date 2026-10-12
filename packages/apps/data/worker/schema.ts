@@ -3,7 +3,7 @@
 // 공개한 migration은 새 파일로만 추가하며 내용을 고치지 않는다.
 
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type { DataChange } from "../../../contracts/apps/mod.ts";
+import type { DataChange } from "../../../protocol/apps/mod.ts";
 
 // 앱 DB가 자기 상태를 보관하는 표. schema 번호와 마지막 migration 결과만 담는다.
 export const APP_SCHEMA_TABLE = "lophn_data_schema";

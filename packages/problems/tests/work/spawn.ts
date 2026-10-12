@@ -1,5 +1,5 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type { MemoryLimitMode } from "../../../contracts/platform/mod.ts";
+import type { MemoryLimitMode } from "../../../protocol/platform/mod.ts";
 import { childLaunch } from "./broker.ts";
 import { groupLeader } from "./group.ts";
 import { RUNNER_LIMITS } from "./limits.ts";

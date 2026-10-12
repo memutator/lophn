@@ -20,7 +20,7 @@ import {
   type Profile,
   type ResolvedAgent,
   type ValueSource,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 
 // 설정 층을 합쳐 run마다 고정하는 resolved agent를 만든다(agent-I2). 읽은 값만 받는 순수 함수라 파일도
 // 시각도 만지지 않는다: 정의 파일은 호출하는 쪽이 읽어 파싱해 넘기고, 같은 입력이면 같은 값과 hash가 나온다.

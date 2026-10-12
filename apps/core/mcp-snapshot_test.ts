@@ -3,7 +3,7 @@ import { ok } from "../../packages/base/mod.ts";
 import {
   type McpServerConfig,
   mcpServersSetting,
-} from "../../packages/contracts/lophn-agent/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
 import {
   createMcpOAuthVault,
   PLACE_MCP_FILE,

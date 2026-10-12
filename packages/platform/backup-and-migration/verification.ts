@@ -1,5 +1,5 @@
 import { err, ok, type Result } from "../../base/mod.ts";
-import type { Sql } from "../../contracts/platform/mod.ts";
+import type { Sql } from "../../protocol/platform/mod.ts";
 
 // R5 완료 검사. FK 위반이 없고 무결성이 통과하며 불변 보호 trigger가 남아 있다.
 // 표는 어떤 schema가 있는지 migration이 모르므로 검사에 넣는다. step이 부른 표의

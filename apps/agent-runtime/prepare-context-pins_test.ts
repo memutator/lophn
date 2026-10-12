@@ -18,18 +18,15 @@ import {
   contextListRoute,
   contextOverviewRoute,
   glossaryListRoute,
-} from "../../packages/contracts/documents/mod.ts";
+} from "../../packages/protocol/projects/mod.ts";
 import {
   modelCallList,
   recoverRun,
   runBody,
   runRead,
   toolCallList,
-} from "../../packages/contracts/lophn-agent/mod.ts";
-import {
-  eventsList,
-  routePath,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
+import { eventsList, routePath } from "../../packages/protocol/platform/mod.ts";
 import type { CoreCall } from "./core-call.ts";
 import {
   type ContextBundleReader,

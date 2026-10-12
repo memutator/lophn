@@ -5,7 +5,7 @@ import {
   releasePrepare,
   releasePrepareBundle,
   releasesGet,
-} from "../../contracts/apps/mod.ts";
+} from "../../protocol/apps/mod.ts";
 import { createReleaseCommands } from "./commands.ts";
 import { createReleaseReads } from "./reads.ts";
 import {

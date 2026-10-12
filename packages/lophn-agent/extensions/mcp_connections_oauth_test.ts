@@ -3,7 +3,7 @@
 // 서버는 가짜 fetch이고 부착은 시험용 port다. 사람의 실제 keychain·MCP server에 닿지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import { err } from "../../base/mod.ts";
-import { mcpServersSetting } from "../../contracts/lophn-agent/mod.ts";
+import { mcpServersSetting } from "../../protocol/lophn-agent/mod.ts";
 import {
   createMcpConnections,
   type HttpFetch,

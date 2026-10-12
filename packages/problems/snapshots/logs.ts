@@ -3,12 +3,12 @@
 // 최근 줄만 받는다. 이 모듈은 그 줄을 다시 redaction하고(fail-closed), 크기 상한 안에서
 // blob으로 준비해 순수 값(LogEvidence)이나 공백 아닌 이유 하나를 낸다.
 import type { Result } from "../../base/mod.ts";
-import type { AppLogState } from "../../contracts/apps/mod.ts";
+import type { AppLogState } from "../../protocol/apps/mod.ts";
 import {
   type LogEvidence,
   type MissingReason,
   REPORTING_LIMITS,
-} from "../../contracts/problems/mod.ts";
+} from "../../protocol/problems/mod.ts";
 import {
   bytesStream,
   type PreparedSnapshotBlob,

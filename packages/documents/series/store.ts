@@ -5,14 +5,14 @@ import type {
   Series,
   SeriesDraft,
   SeriesInstance,
-} from "../../contracts/documents/mod.ts";
+} from "../../protocol/projects/mod.ts";
 import {
   seriesDraftSchema,
   seriesInstanceSchema,
   seriesOrderSchema,
   seriesSchema,
-} from "../../contracts/documents/mod.ts";
-import type { Sql, SqlRow, Tx } from "../../contracts/platform/mod.ts";
+} from "../../protocol/projects/mod.ts";
+import type { Sql, SqlRow, Tx } from "../../protocol/platform/mod.ts";
 import { canonicalize } from "../../base/mod.ts";
 function text(row: SqlRow, column: string): string | undefined {
   const value = row[column];

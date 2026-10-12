@@ -2,7 +2,7 @@ import { err, ok, type Result } from "../../base/mod.ts";
 import {
   agentTraceRead,
   type RunTrace,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import {
   type Input,
   parseActor,
@@ -11,7 +11,7 @@ import {
   type SqlParam,
   type SqlParams,
   type SqlRow,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   assembleTrace,
   type EventFacts,

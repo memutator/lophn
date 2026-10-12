@@ -1,6 +1,6 @@
 import { err, ok, type Result } from "../../base/mod.ts";
-import type { Connection } from "../../contracts/coding-agent/mod.ts";
-import type { Sql, Tx } from "../../contracts/platform/mod.ts";
+import type { Connection } from "../../protocol/coding-agent/mod.ts";
+import type { Sql, Tx } from "../../protocol/platform/mod.ts";
 import { connectionFromRow } from "./rows.ts";
 
 type Query = Pick<Sql, "get" | "all">;

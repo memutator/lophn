@@ -47,11 +47,11 @@ import {
   releaseRecordDataChange,
   releaseRecordDataRestore,
   releasesGet,
-} from "../../packages/contracts/apps/mod.ts";
+} from "../../packages/protocol/apps/mod.ts";
 import {
   observeException,
   reportProblem,
-} from "../../packages/contracts/problems/mod.ts";
+} from "../../packages/protocol/problems/mod.ts";
 import {
   applyApprovedAction,
   approvalsGet,
@@ -59,7 +59,7 @@ import {
   createApprovalRequest,
   type KindLaunchSpec,
   type RequestContext,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import type {
   MemoryHandler,
   ReadHandler,

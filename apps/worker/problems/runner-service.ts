@@ -11,13 +11,13 @@ import type {
   ChildMessage,
   ParentMessage,
   WorkerRequest,
-} from "../../../packages/contracts/platform/mod.ts";
+} from "../../../packages/protocol/platform/mod.ts";
 import {
   type AcceptedReport,
   type ExecutionEvidence,
   type FrozenTest,
   frozenTestSchema,
-} from "../../../packages/contracts/problems/mod.ts";
+} from "../../../packages/protocol/problems/mod.ts";
 import { objectPathFor } from "../../../packages/platform/blob-store/mod.ts";
 import {
   type ChildSession,

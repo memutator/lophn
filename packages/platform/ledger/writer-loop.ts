@@ -1,5 +1,5 @@
 import { err, internalError } from "../../base/mod.ts";
-import type { CommandDefinition } from "../../contracts/platform/mod.ts";
+import type { CommandDefinition } from "../../protocol/platform/mod.ts";
 import { executeCommand, readOwnResult } from "./executor.ts";
 import { openConnection } from "./sqlite.ts";
 import type { WriterRegistration } from "./writer-registration.ts";

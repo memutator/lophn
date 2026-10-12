@@ -10,7 +10,7 @@ import {
   bundledGuideSchema,
   type ContentFile,
   type GuideReference,
-} from "../../contracts/documents/mod.ts";
+} from "../../protocol/projects/mod.ts";
 import { z } from "zod";
 
 // 안내 폴더 안의 manifest 상대 경로.

@@ -6,8 +6,8 @@ import {
   ok,
   systemClock,
 } from "../../packages/base/mod.ts";
-import { ALL_ROUTES } from "../../packages/contracts/mod.ts";
-import { instructionRead } from "../../packages/contracts/lophn-agent/mod.ts";
+import { ALL_ROUTES } from "../../packages/protocol/mod.ts";
+import { instructionRead } from "../../packages/protocol/lophn-agent/mod.ts";
 import { instructionFilesOverCore } from "../../packages/lophn-agent/instructions/mod.ts";
 import { abortableWait } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
 import { spawnStdioMcp } from "../../packages/lophn-agent/extensions/mod.ts";

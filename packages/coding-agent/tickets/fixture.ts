@@ -3,8 +3,8 @@
 // lophn-agent#T24) port로 대체 주입한다.
 import { DatabaseSync } from "node:sqlite";
 import { err, ok, type Result } from "../../base/mod.ts";
-import { appRegistrationLookup } from "../../contracts/apps/mod.ts";
-import type { CodingAgentConnectionAuthResult } from "../../contracts/coding-agent/mod.ts";
+import { appRegistrationLookup } from "../../protocol/apps/mod.ts";
+import type { CodingAgentConnectionAuthResult } from "../../protocol/coding-agent/mod.ts";
 import { connectionAuthSyncPort } from "../connection/mod.ts";
 import type {
   ReadSnapshot,
@@ -12,7 +12,7 @@ import type {
   Sql,
   SqlRow,
   Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { PROBLEM_STATUSES_PORT, QUESTION_ADOPTIONS_PORT } from "./commands.ts";
 import { ticketSchemaSteps } from "./schema.ts";
 

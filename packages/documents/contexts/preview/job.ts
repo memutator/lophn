@@ -3,7 +3,7 @@
 // 순서는 snapshot 만들기 → previewDraft → snapshot 지우기이며, 어느 길로 끝나도 snapshot은 지운다.
 // snapshot을 만들지 못하면(파일 수·바이트 예산 초과, 읽을 수 없음) `unavailable`이고 부분 결과는 없다.
 import { ok, type Result } from "../../../base/mod.ts";
-import { bundleContentSchema } from "../../../contracts/documents/mod.ts";
+import { bundleContentSchema } from "../../../protocol/projects/mod.ts";
 import { watchFolders } from "../watch/mod.ts";
 import type { SnapshotPort } from "../work-types.ts";
 import { previewDraft } from "./run.ts";

@@ -19,7 +19,7 @@ import {
   startModelCall,
   takeRewindSummaryRequest,
   type TokenUsage,
-} from "../../packages/contracts/lophn-agent/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
 import {
   COMPACT_RESHRINK_MAX,
   compactSummaryRequest,

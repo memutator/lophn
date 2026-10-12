@@ -1,5 +1,5 @@
 // 행 순서와 table page.
-import type { SearchQuery } from "../../../contracts/documents/mod.ts";
+import type { SearchQuery } from "../../../protocol/projects/mod.ts";
 import { valueAt } from "./row.ts";
 import type { Row, SearchError } from "./types.ts";
 

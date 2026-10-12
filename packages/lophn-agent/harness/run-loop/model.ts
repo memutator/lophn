@@ -3,8 +3,8 @@ import {
   DEFAULT_RUN_LIMITS,
   type RunRecord,
   type RunSource,
-} from "../../../contracts/lophn-agent/mod.ts";
-import type { SqlParams, SqlRow } from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
+import type { SqlParams, SqlRow } from "../../../protocol/platform/mod.ts";
 
 // row를 화면 값으로 바꾸는 도움. 상태 전이 규칙은 domain-model
 // lophn-agent/harness/run-loop의 표 그대로다. 순수 함수와 읽기 조회만 있다.

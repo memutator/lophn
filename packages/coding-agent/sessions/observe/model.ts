@@ -8,7 +8,7 @@ import {
   type HarnessSessionObservation,
   providerSessionMetadataSchema,
   type SessionState,
-} from "../../../contracts/coding-agent/mod.ts";
+} from "../../../protocol/coding-agent/mod.ts";
 import {
   ADAPTER_REVISION,
   CATALOG_REVISION,

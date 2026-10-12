@@ -5,7 +5,7 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import type {
   HarnessId,
   IntegrationTarget,
-} from "../../../contracts/coding-agent/mod.ts";
+} from "../../../protocol/coding-agent/mod.ts";
 import type { HarnessDefinition } from "../model.ts";
 
 // 설치할 조각의 종류다. 제품 adapter(T30·T31)가 내용을 채운다.

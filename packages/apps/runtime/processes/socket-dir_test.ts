@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
-import { SOCKET_PATH_MAX_BYTES } from "../../../contracts/apps/mod.ts";
+import { SOCKET_PATH_MAX_BYTES } from "../../../protocol/apps/mod.ts";
 import {
   allSlotSockets,
   createSocketDirectory,

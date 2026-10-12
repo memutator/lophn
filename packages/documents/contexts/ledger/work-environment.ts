@@ -7,8 +7,8 @@ import {
   type BundleContent,
   bundleContentSchema,
   type ContextWorkInput,
-} from "../../../contracts/documents/mod.ts";
-import type { Sql } from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/projects/mod.ts";
+import type { Sql } from "../../../protocol/platform/mod.ts";
 import type { ContextLedgerDeps } from "./adapter.ts";
 import { loadBundle, loadProjectContexts } from "./rows.ts";
 

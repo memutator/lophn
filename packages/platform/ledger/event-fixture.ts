@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ok } from "../../base/mod.ts";
-import { defineEvent } from "../../contracts/platform/mod.ts";
+import { defineEvent } from "../../protocol/platform/mod.ts";
 import { user } from "./command-harness.ts";
 import { createEventVisibilityRegistry } from "./event-visibility.ts";
 import { createListEventsRead } from "./events.ts";

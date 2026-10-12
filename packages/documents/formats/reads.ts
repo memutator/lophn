@@ -6,7 +6,7 @@ import {
   type BuiltinFormatName,
   type FormatDeclaration,
   formatGetInputSchema,
-} from "../../contracts/documents/mod.ts";
+} from "../../protocol/projects/mod.ts";
 import { checkExtraction, checkValidation } from "./check.ts";
 import { moduleFrom } from "./module-store.ts";
 import { findModule, type StoredModule } from "./modules.ts";

@@ -1,4 +1,4 @@
-import type { RunRecord } from "../../../contracts/lophn-agent/mod.ts";
+import type { RunRecord } from "../../../protocol/lophn-agent/mod.ts";
 
 // 사람에게 보이는 run 상태(requirements lophn-agent/harness/run-loop R19). 모양과
 // 위치는 shell이 정한다. 여기는 실제 사실만 낸다: 상태 넷, 현재 행동 한 줄, 경과

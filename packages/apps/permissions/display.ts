@@ -6,7 +6,7 @@ import {
   type GrantDisplay as ContractGrantDisplay,
   type GrantRequirementDisplay,
   type GrantWarningKey,
-} from "../../contracts/apps/mod.ts";
+} from "../../protocol/apps/mod.ts";
 import { LIMIT_KEYS } from "./flags.ts";
 import type { ResolvedRequirement } from "./model.ts";
 

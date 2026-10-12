@@ -6,12 +6,12 @@
 import { createHash } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { canonicalize, err, ok, type Result } from "../../packages/base/mod.ts";
-import type { Sql, SqlRow } from "../../packages/contracts/platform/mod.ts";
+import type { Sql, SqlRow } from "../../packages/protocol/platform/mod.ts";
 import {
   type BundleContent,
   bundleContentSchema,
   type StoredViolation,
-} from "../../packages/contracts/documents/mod.ts";
+} from "../../packages/protocol/projects/mod.ts";
 import { objectPathFor } from "../../packages/platform/blob-store/mod.ts";
 import {
   type ContextBlobs,

@@ -7,7 +7,7 @@ import { test } from "node:test";
 import {
   LOPHN_TERMINAL_OBSERVE,
   observeEnvelopeSchema,
-} from "../../../../../packages/contracts/coding-agent/mod.ts";
+} from "../../../../../packages/protocol/coding-agent/mod.ts";
 import {
   createCodingHost,
   type HostEvent,

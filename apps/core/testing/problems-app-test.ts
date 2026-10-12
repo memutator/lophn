@@ -14,7 +14,7 @@ import {
   type HarnessFailurePath,
   sdkDependenciesHash,
 } from "../../../packages/problems/tests/mod.ts";
-import type { FrozenTest } from "../../../packages/contracts/problems/mod.ts";
+import type { FrozenTest } from "../../../packages/protocol/problems/mod.ts";
 import { canonicalHash } from "../../../packages/problems/tests/canonical.ts";
 import { runnerSockets, testRunnerSpec } from "../problems-runner.ts";
 import type {

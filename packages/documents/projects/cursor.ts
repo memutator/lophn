@@ -3,8 +3,8 @@ import { canonicalize, err, ok, type Result } from "../../base/mod.ts";
 import {
   documentRefOutputSchema,
   type Project,
-} from "../../contracts/documents/mod.ts";
-import type { RequestContext } from "../../contracts/platform/mod.ts";
+} from "../../protocol/projects/mod.ts";
+import type { RequestContext } from "../../protocol/platform/mod.ts";
 
 const basisSchema = z.strictObject({
   seq: z.string(),

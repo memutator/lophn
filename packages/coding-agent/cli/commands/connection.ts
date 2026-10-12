@@ -19,7 +19,7 @@ import {
   connectionShow,
   decisionLink,
   type IntegrationTarget,
-} from "../../../contracts/coding-agent/mod.ts";
+} from "../../../protocol/coding-agent/mod.ts";
 import type { InstallOutcome } from "../../harnesses/mod.ts";
 import type { DoctorReport } from "./doctor.ts";
 import type { CommandEntry } from "./types.ts";

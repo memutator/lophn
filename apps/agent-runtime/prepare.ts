@@ -20,11 +20,11 @@ import {
   sessionRead,
   startRun,
   type WorkPlace,
-} from "../../packages/contracts/lophn-agent/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
 import {
   createApprovalRequest,
   settingsGet,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import type { InstructionDeps } from "../../packages/lophn-agent/instructions/mod.ts";
 import type { SkillEntry } from "../../packages/lophn-agent/extensions/mod.ts";
 import { ROLE_CAPS } from "../../packages/lophn-agent/agents/mod.ts";

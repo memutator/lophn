@@ -15,8 +15,8 @@ import {
   appUnavailable,
   type RuntimeObservation,
   type RuntimeState,
-} from "../../contracts/apps/mod.ts";
-import type { CommandDefinition, Tx } from "../../contracts/platform/mod.ts";
+} from "../../protocol/apps/mod.ts";
+import type { CommandDefinition, Tx } from "../../protocol/platform/mod.ts";
 import {
   type AppAccessTarget,
   authorizeApp,

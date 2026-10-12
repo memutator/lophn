@@ -9,7 +9,7 @@ import type {
   FileObservationBasis,
   FileSource,
   FileTarget,
-} from "../../../packages/contracts/documents/mod.ts";
+} from "../../../packages/protocol/projects/mod.ts";
 import {
   isUtf8,
   type ObservationBasisCheck,

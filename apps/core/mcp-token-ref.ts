@@ -4,12 +4,12 @@ import {
   type McpServerConfig,
   mcpServersSetting,
   placeExtensionSettingsChange,
-} from "../../packages/contracts/lophn-agent/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
 import {
   applySettings,
   type ReadRoute,
   settingsGet,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import {
   fileHash,
   parsePlaceMcpFile,

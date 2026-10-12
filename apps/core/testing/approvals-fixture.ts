@@ -11,7 +11,7 @@ import {
   grantApprovalRequest,
   type JsonObject,
   rejectApprovalRequest,
-} from "../../../packages/contracts/platform/mod.ts";
+} from "../../../packages/protocol/platform/mod.ts";
 import { confirmationBinding } from "../../../packages/platform/identity/mod.ts";
 
 export type Reply = { status: number; body: Record<string, unknown> };

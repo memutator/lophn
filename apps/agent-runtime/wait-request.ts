@@ -3,7 +3,7 @@ import type {
   questionRead,
   questionText,
   waitRunInputSchema,
-} from "../../packages/contracts/lophn-agent/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
 
 // 질문 tool이 이미 만든 질문 묶음을 WaitRun의 요청으로 되돌린다(lophn-agent/harness/waiting-and-recovery
 // R1). 글은 저장된 redaction 글이고, 같은 내용이면 WaitRun이 그 묶음을 이어 대기에 연결한다.

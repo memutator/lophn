@@ -2,7 +2,7 @@
 // fetch는 주입받는다: core graph의 EXTERNAL_FETCH tripwire가 bare fetch(를
 // 금지하므로 property 접근으로만 부른다. node:http는 graph 어디에도 없다.
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type { WorkerRequest } from "../../../contracts/platform/mod.ts";
+import type { WorkerRequest } from "../../../protocol/platform/mod.ts";
 import type { LophnError } from "../../../base/mod.ts";
 
 // loopback HTTP/1.1 JSON call의 좁은 모양. fetch는 주입받는다.

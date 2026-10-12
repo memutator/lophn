@@ -3,7 +3,7 @@ import { withReadCommon } from "../platform/envelope.ts";
 import { idSchema } from "../platform/ids.ts";
 import { defineRead } from "../platform/route.ts";
 import { atSchema, seqSchema } from "../platform/values.ts";
-import { projectIdSchema } from "../documents/values.ts";
+import { projectIdSchema } from "../projects/values.ts";
 import {
   type ConnectionId,
   connectionIdSchema,

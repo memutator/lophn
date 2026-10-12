@@ -1,6 +1,6 @@
 import { ok, type Result } from "../../base/mod.ts";
-import type { AppRegistration } from "../../contracts/apps/mod.ts";
-import type { SqlRow, Tx } from "../../contracts/platform/mod.ts";
+import type { AppRegistration } from "../../protocol/apps/mod.ts";
+import type { SqlRow, Tx } from "../../protocol/platform/mod.ts";
 import { appFromRow } from "./rows.ts";
 
 // documents가 자리 해석에서 부르는 존재·status·slug 조회. runtime 상태는 없다.

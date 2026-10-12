@@ -21,7 +21,7 @@ import {
   type WorkerRequest,
   type WorkerResponse,
   type WorkerRoute,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import type { CommandEnvelope, Writer } from "../ledger/mod.ts";
 import type { CredentialRegistry } from "../identity/mod.ts";
 import {

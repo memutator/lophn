@@ -6,7 +6,7 @@ import { err, ok } from "../../packages/base/mod.ts";
 import type {
   EventEnvelope,
   RequestContext,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import type {
   EventBackend,
   EventSession,

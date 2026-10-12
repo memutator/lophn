@@ -1,7 +1,7 @@
 // glossary command가 같이 쓰는 규칙이다: 용어 비교, 쓸 수 있는 actor, 항목 수, event 내기, 거절 모양.
 // 검사 순서와 상태 바꾸기는 commands-glossary.ts가 맡는다.
 import { err, type ErrorCode, type Result } from "../../../base/mod.ts";
-import type { GlossaryEntry } from "../../../contracts/documents/mod.ts";
+import type { GlossaryEntry } from "../../../protocol/projects/mod.ts";
 import { emitEvent } from "./commands-common.ts";
 import type {
   ContextApiActor,

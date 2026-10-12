@@ -5,7 +5,7 @@ import {
   type ContractType,
   followedTypeRef,
   splitExternalRef,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 import type { ContractIssue, ExternalType, ValidationEnv } from "./types.ts";
 
 type Path = (string | number)[];

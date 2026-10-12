@@ -2,7 +2,7 @@
 import type {
   Contract,
   ContractSource,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 import { bundleOf, fieldOf, typeWith } from "../extract/testing.ts";
 import type {
   FsEventLike,

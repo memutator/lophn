@@ -16,16 +16,16 @@ import type {
   ReadRoute,
   RequestContext,
   WorkerRequest,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import {
   createApprovalRequest,
   ROUTES,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import {
   createAppEngineerAssignment,
   providerList,
   runAppRevert,
-} from "../../packages/contracts/lophn-agent/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
 import {
   type ApiServer,
   RouteRegistry,
@@ -100,8 +100,8 @@ import {
   connectionEndConnection,
   connectionRegisterChild,
   ticketUploadSummary,
-} from "../../packages/contracts/coding-agent/mod.ts";
-import { problemsUploadFixSummary } from "../../packages/contracts/problems/mod.ts";
+} from "../../packages/protocol/coding-agent/mod.ts";
+import { problemsUploadFixSummary } from "../../packages/protocol/problems/mod.ts";
 import { CONNECTION_SECRET_OWNER } from "../../packages/coding-agent/mod.ts";
 import {
   type CodingCredentials,
@@ -119,7 +119,7 @@ import {
   secretInputHandler,
   type SecretInputRelay,
 } from "./secret-input.ts";
-import { secretInput } from "../../packages/contracts/platform/mod.ts";
+import { secretInput } from "../../packages/protocol/platform/mod.ts";
 import {
   type BlobPrepareRelay,
   type BufferGauge,
@@ -131,7 +131,7 @@ import {
   createPreparationRegistry,
   retentionRules,
 } from "../../packages/platform/blob-store/mod.ts";
-import type { BlobFieldDefinition } from "../../packages/contracts/platform/mod.ts";
+import type { BlobFieldDefinition } from "../../packages/protocol/platform/mod.ts";
 import {
   type ChildBlobPrepare,
   createChildBlobPrepare,
@@ -155,7 +155,7 @@ import {
   documentPrepare,
   documentUpload,
   filesRead,
-} from "../../packages/contracts/documents/mod.ts";
+} from "../../packages/protocol/projects/mod.ts";
 import type { VersionRow } from "../../packages/documents/versions/store.ts";
 import { connectDocumentsRelaunch, workerSpecs } from "./documents.ts";
 import { fileReadStreams } from "./documents-file-read.ts";
@@ -235,7 +235,7 @@ import {
   contextWorkListReadSchema,
   contextWorkListRoute,
   projectTrackingRoots,
-} from "../../packages/contracts/documents/mod.ts";
+} from "../../packages/protocol/projects/mod.ts";
 import {
   greet,
   type ParentPipe,
@@ -243,7 +243,7 @@ import {
   watchParent,
   writeParent,
 } from "./parent.ts";
-import { observeTestRequest } from "../../packages/contracts/problems/mod.ts";
+import { observeTestRequest } from "../../packages/protocol/problems/mod.ts";
 import { snapshotLogsEnvironment } from "./problems-logs.ts";
 import {
   registerRepairReads,
@@ -371,8 +371,8 @@ import {
   agentProfilesRead,
   agentProfilesUpload,
   skillFoldersSetting,
-} from "../../packages/contracts/lophn-agent/mod.ts";
-import { settingsGet } from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
+import { settingsGet } from "../../packages/protocol/platform/mod.ts";
 
 // approval 만료 정리 간격. ticket claim 정리와 같은 60초다(platform Q25).
 const APPROVAL_EXPIRY_SWEEP_INTERVAL_MS = 60_000;

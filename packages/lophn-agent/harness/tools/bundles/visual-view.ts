@@ -2,7 +2,7 @@ import { err, ok, type Result } from "../../../../base/mod.ts";
 import type {
   ToolResult,
   VisualBlock,
-} from "../../../../contracts/lophn-agent/mod.ts";
+} from "../../../../protocol/lophn-agent/mod.ts";
 import { readStoredBlock, type StoredBlock } from "../../../visuals/mod.ts";
 import { fitJson } from "../result.ts";
 import { bodyOf, continuation, wrap } from "./paging.ts";

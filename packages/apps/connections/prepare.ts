@@ -6,7 +6,7 @@ import { type Clock, err, ok, type Result } from "../../base/mod.ts";
 import {
   type AppConnection,
   appConnectionSchema,
-} from "../../contracts/apps/mod.ts";
+} from "../../protocol/apps/mod.ts";
 import type {
   ConnectFacts,
   CoreSigner,

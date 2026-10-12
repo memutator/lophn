@@ -7,13 +7,13 @@ import {
   type ContextWorkInput,
   contextWorkInputRoute,
   contextWorkListRoute,
-} from "../../../contracts/documents/mod.ts";
-import { parseActor } from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/projects/mod.ts";
+import { parseActor } from "../../../protocol/platform/mod.ts";
 import type {
   ReadDefinition,
   ReadSnapshot,
   Sql,
-} from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/platform/mod.ts";
 import type { ContextLedgerDeps } from "./adapter.ts";
 import { type LoadPlan, loadState } from "./adapter-load.ts";
 import { loadCheck } from "./rows.ts";

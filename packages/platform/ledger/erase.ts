@@ -1,4 +1,4 @@
-import type { Sql } from "../../contracts/platform/mod.ts";
+import type { Sql } from "../../protocol/platform/mod.ts";
 
 // 사람이 요청한 session delete가 지운 session의 기록을 지울 때만 delete trigger를 통과시킨다
 // (lophn-agent/conversation#R20). 표 이름을 연 채 transaction이 끝나지 않게 finally에서 닫는다.

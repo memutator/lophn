@@ -3,8 +3,8 @@ import {
   type AgentPlace,
   skillFoldersSetting,
   skillsOffSetting,
-} from "../../packages/contracts/lophn-agent/mod.ts";
-import { settingsGet } from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
+import { settingsGet } from "../../packages/protocol/platform/mod.ts";
 import {
   discoverSkills,
   SKILL_BODY_MAX_BYTES,

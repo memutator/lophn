@@ -6,13 +6,13 @@ import {
   cliDocumentHistorySchema,
   cliDocumentListSchema,
   cliReadSchema,
-} from "../../../contracts/coding-agent/mod.ts";
+} from "../../../protocol/coding-agent/mod.ts";
 import {
   documentDiff,
   documentHistory,
   documentList,
   documentRead,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 import type { CommandEntry } from "./types.ts";
 
 export const READ_COMMANDS: readonly CommandEntry[] = [

@@ -25,12 +25,12 @@ import {
 } from "../../packages/coding-agent/connection/client/core.ts";
 import { createHelperCredentialProvider } from "../../packages/coding-agent/connection/credential/helper.ts";
 import type { CredentialProvider } from "../../packages/coding-agent/connection/credential/provider.ts";
-import { appGet } from "../../packages/contracts/apps/mod.ts";
+import { appGet } from "../../packages/protocol/apps/mod.ts";
 import {
   type AgentFailure,
   LOPHN_CONNECTION,
-} from "../../packages/contracts/coding-agent/mod.ts";
-import type { RpcFetch } from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/coding-agent/mod.ts";
+import type { RpcFetch } from "../../packages/protocol/platform/mod.ts";
 import type { Result } from "../../packages/base/mod.ts";
 import { ambientEnv } from "./dispatch.ts";
 import { candidateOf, commandNameOf, inputOf } from "./invocation.ts";

@@ -2,7 +2,7 @@
 // origin으로 생성, 정의에 없는 기존 view는 그대로). 적용과 같은 transaction이므로 호출한 쪽이 상태를
 // 바꾸기 전에 쓰지 않고, 여기서는 event와 view 상태만 바꾼다.
 import { canonicalize } from "../../../base/mod.ts";
-import type { BundleContent } from "../../../contracts/documents/mod.ts";
+import type { BundleContent } from "../../../protocol/projects/mod.ts";
 import { emitEvent } from "./commands-common.ts";
 import type { ContextApiDeps, ContextApiState } from "./state.ts";
 

@@ -3,7 +3,7 @@
 // 서명된 proof를 받는다. 신원은 자식 연결이 정하고 입력 지문은 대상의 고정 blueprint로 계산한다.
 // proof는 approval이 적용돼 접수가 확정된 뒤에만 나오므로 approval은 한 번만 쓰인다.
 import { err, type IdSource, ok, type Result } from "../../base/mod.ts";
-import type { InvocationAcceptConfirmInput } from "../../contracts/apps/mod.ts";
+import type { InvocationAcceptConfirmInput } from "../../protocol/apps/mod.ts";
 import {
   type ConfirmAcceptances,
   type ConfirmProof,

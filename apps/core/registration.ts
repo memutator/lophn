@@ -11,7 +11,7 @@ import type {
   SchemaStep,
   UploadRoute,
   WorkerRoute,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import type { TxPortRegistration } from "../../packages/platform/ledger/mod.ts";
 import type { SecretRefSource } from "../../packages/platform/secrets/mod.ts";
 

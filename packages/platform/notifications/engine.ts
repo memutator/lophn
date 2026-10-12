@@ -3,8 +3,8 @@
 // model 호출은 하지 않는다(R8). 전달 실패로 버리지 않고 그 위치에서 멈춘다.
 
 import { err, nextFromSeq, ok, type Result } from "../../base/mod.ts";
-import type { AuthenticatedContext } from "../../contracts/platform/mod.ts";
-import { EVENT_BATCH_LIMITS } from "../../contracts/platform/mod.ts";
+import type { AuthenticatedContext } from "../../protocol/platform/mod.ts";
+import { EVENT_BATCH_LIMITS } from "../../protocol/platform/mod.ts";
 import { reactionIdempotencyKey } from "../ledger/mod.ts";
 import type { EventBackend } from "../ledger/mod.ts";
 import { NOTIFICATION_SUBSCRIBER } from "./commands.ts";

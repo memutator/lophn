@@ -1,5 +1,5 @@
 import picomatch from "picomatch";
-import type { Contract } from "../../../contracts/documents/mod.ts";
+import type { Contract } from "../../../protocol/projects/mod.ts";
 import type { WatchFolder } from "./types.ts";
 
 const isGlob = (segment: string) => picomatch.scan(segment).isGlob;

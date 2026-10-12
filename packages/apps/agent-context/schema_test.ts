@@ -5,7 +5,7 @@ import {
   appScreenContextSchema,
   screenContextReadInputSchema,
   SUMMARY_MAX_BYTES as CONTRACT_SUMMARY_MAX_BYTES,
-} from "../../contracts/apps/mod.ts";
+} from "../../protocol/apps/mod.ts";
 import {
   isPointer,
   parseReadInput,

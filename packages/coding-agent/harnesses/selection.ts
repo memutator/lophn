@@ -9,7 +9,7 @@ import {
   type HarnessId,
   type HarnessSuggestion,
   harnessSuggestionSchema,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 
 // 제품 하나의 관측이다. runnable은 실행 파일을 찾고 version을 확인했다는 사실이다(존재만으로
 // 실행 가능이라 하지 않는다, R3). connected는 이 컴퓨터에서 연결 설치를 확인했다는 사실이다.

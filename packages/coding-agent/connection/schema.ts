@@ -1,4 +1,4 @@
-import type { SchemaStep } from "../../contracts/platform/mod.ts";
+import type { SchemaStep } from "../../protocol/platform/mod.ts";
 
 // domain-model coding-agent/connection의 표. token 원문 열은 없다.
 // principal·scope 짝은 CHECK로 강제하고 command도 같은 규칙을 다시 검사한다.

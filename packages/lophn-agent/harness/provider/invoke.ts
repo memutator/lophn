@@ -8,7 +8,7 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import type {
   ModelOutcome,
   TokenUsage,
-} from "../../../contracts/lophn-agent/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
 import type { AuthTransport } from "./adapters/auth-transport.ts";
 import { joinEndpoint, verifyStateFree } from "./adapters/compat.ts";
 import {

@@ -3,7 +3,7 @@ import {
   type Contract,
   followedTypeRef,
   type SearchQuery,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 
 // board_by path가 가리키는 enum field의 선언 값. enum이 아니거나 풀 수 없으면 undefined.
 export function declaredValues(

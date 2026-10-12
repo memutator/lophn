@@ -7,8 +7,8 @@ import { manualClock, seededRandom } from "../../packages/base/mod.ts";
 import {
   FILE_DELETE_DECISION,
   filesDelete,
-} from "../../packages/contracts/documents/mod.ts";
-import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/projects/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
 import { confirmationBinding } from "../../packages/platform/identity/mod.ts";
 import { type Core, startCore } from "./core.ts";
 import { createLedgerRegistration } from "./documents.ts";

@@ -11,8 +11,8 @@ import type { Result } from "../../packages/base/mod.ts";
 import {
   type ConnectionId,
   connectionIdSchema,
-} from "../../packages/contracts/coding-agent/mod.ts";
-import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/coding-agent/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
 import {
   connectAndInstall,
   type ConnectFlowPorts,

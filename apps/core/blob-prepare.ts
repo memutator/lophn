@@ -18,7 +18,7 @@ import {
   type ChildMessage,
   type Frame,
   STREAM_CHUNK_MAX_BYTES,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import {
   type PreparationRegistry,
 } from "../../packages/platform/blob-store/mod.ts";

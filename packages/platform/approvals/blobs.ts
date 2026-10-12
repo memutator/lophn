@@ -4,7 +4,7 @@
 import {
   APPROVAL_BLOB_OWNER_KIND,
   defineBlobField,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 
 const owner = APPROVAL_BLOB_OWNER_KIND;
 

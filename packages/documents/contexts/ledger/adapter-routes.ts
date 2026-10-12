@@ -31,7 +31,7 @@ import {
   viewDeleteRoute,
   viewSaveRoute,
   viewUpdateRoute,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 import type {
   CommandRoute,
   Compare,
@@ -41,7 +41,7 @@ import type {
   ReadSnapshot,
   RequestContext,
   Tx,
-} from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/platform/mod.ts";
 import type { ContextApiActor } from "../api/state.ts";
 import type { ContextLedgerDeps } from "./adapter.ts";
 import {

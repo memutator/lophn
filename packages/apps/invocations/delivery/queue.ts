@@ -8,7 +8,7 @@ import type { Clock } from "../../../base/mod.ts";
 import {
   INVOCATION_DELIVERY_MAX_BYTES,
   INVOCATION_DELIVERY_MAX_MESSAGES,
-} from "../../../contracts/apps/mod.ts";
+} from "../../../protocol/apps/mod.ts";
 import { deliveryKey, type RecordedFact } from "../recording.ts";
 import { deliveryBackoffMs, retryable } from "./backoff.ts";
 

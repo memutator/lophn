@@ -7,7 +7,7 @@ import {
   agentFrontmatterSchema,
   agentSettingsSchema,
   isBuiltinAgentName,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import type {
   AgentDefinition,
   AgentFrontmatter,
@@ -15,7 +15,7 @@ import type {
   AgentPlaceKind,
   AgentRole,
   AgentSettings,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 
 // 정의 파일과 자리 설정 파일의 Markdown 읽기·쓰기다(agent-I1). 순수 함수이고 파일 IO도 hash도 없다.
 //

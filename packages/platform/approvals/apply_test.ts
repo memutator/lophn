@@ -4,7 +4,7 @@
 // 사람 허락은 decisions_test와 같은 handle 경로로 만든다.
 
 import { assert, assertEquals } from "@std/assert";
-import type { ApprovalAction } from "../../contracts/platform/mod.ts";
+import type { ApprovalAction } from "../../protocol/platform/mod.ts";
 import {
   action,
   APPROVAL,

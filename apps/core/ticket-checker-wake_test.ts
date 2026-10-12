@@ -2,7 +2,7 @@
 // ProblemClosed·ProblemReopened는 problems owner의 정책을 거쳐 checker 구독자에게도 열리고,
 // 기존 공개(notifications)는 그대로이며 다른 자격은 계속 못 본다.
 import { assert, assertEquals } from "@std/assert";
-import type { RequestContext } from "../../packages/contracts/platform/mod.ts";
+import type { RequestContext } from "../../packages/protocol/platform/mod.ts";
 import { createEventRegistration } from "./problems.ts";
 import { NOTIFICATIONS_CONTEXT } from "./platform.ts";
 import {

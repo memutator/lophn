@@ -7,7 +7,7 @@ import { type Clock, err, ok, type Result } from "../../base/mod.ts";
 import {
   OS_DELIVERY_FAILURE_REASONS,
   type OsDeliveryFailureReason,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { redactScreen } from "../redaction/mod.ts";
 import type { NotificationView } from "./model.ts";
 

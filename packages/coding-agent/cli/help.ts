@@ -7,8 +7,8 @@ import {
   CLI_SETUP_NAMES,
   CONFIRMATION_NAMES,
   HUMAN_ONLY_NAMES,
-} from "../../contracts/coding-agent/mod.ts";
-import type { AgentResult } from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
+import type { AgentResult } from "../../protocol/coding-agent/mod.ts";
 
 // command 등록 한 자리. 목적·입력·출력·읽기와 변경·권한·다음 조회를 묶는다.
 export type CommandHelp = {

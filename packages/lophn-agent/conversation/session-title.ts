@@ -2,7 +2,7 @@ import { err, ok, type Result } from "../../base/mod.ts";
 import {
   SESSION_AUTO_TITLE_MAX,
   sessionTitleSchema,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 
 // session 제목 만들기(domain model lophn-agent/conversation Session.title, requirements
 // conversation#R18). 순수 함수이며 저장·redaction·event는 command가 한다.

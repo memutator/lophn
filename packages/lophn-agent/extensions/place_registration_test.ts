@@ -1,6 +1,6 @@
 import type { LedgerTestRegistration } from "../../../apps/core/testing/ledger.ts";
-import type { McpServerConfig } from "../../contracts/lophn-agent/mod.ts";
-import type { Tx } from "../../contracts/platform/mod.ts";
+import type { McpServerConfig } from "../../protocol/lophn-agent/mod.ts";
+import type { Tx } from "../../protocol/platform/mod.ts";
 import {
   createNodePlaceFiles,
   createNodeSkillFiles,

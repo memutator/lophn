@@ -1,7 +1,7 @@
 // lophn-agent/extensions#R13 #R15: 제품 runtime의 MCP 연결 눈(`mcpConnectionsDeps`)이 HTTP server에
 // 닿는다. 실제 외부 service 없이 이 시험이 연 localhost fake Streamable HTTP MCP server만 쓴다.
 import { assert, assertEquals } from "@std/assert";
-import { mcpServersSetting } from "../../packages/contracts/lophn-agent/mod.ts";
+import { mcpServersSetting } from "../../packages/protocol/lophn-agent/mod.ts";
 import { createMcpConnections } from "../../packages/lophn-agent/extensions/mod.ts";
 import { mcpConnectionsDeps } from "./product-driver.ts";
 

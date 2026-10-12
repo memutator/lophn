@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { searchQuerySchema } from "../../../contracts/documents/mod.ts";
+import { searchQuerySchema } from "../../../protocol/projects/mod.ts";
 import { paginate, sortRows } from "./sort-page.ts";
 import { brief, fixtureEntities, rowOf } from "./testing.ts";
 

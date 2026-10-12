@@ -6,7 +6,7 @@ import {
   projectIdSchema,
   sectionKeySchema,
   versionIdSchema,
-} from "../documents/values.ts";
+} from "../projects/values.ts";
 import { idSchema } from "../platform/ids.ts";
 import { defineMemory } from "../platform/route.ts";
 import { atSchema } from "../platform/values.ts";

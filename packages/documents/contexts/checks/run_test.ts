@@ -3,7 +3,7 @@ import {
   bundleContentSchema,
   type Contract,
   contractSchema,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 import { checkEntities } from "./run.ts";
 import type {
   CheckEntity,

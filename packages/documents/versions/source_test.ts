@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { err, ok } from "../../base/mod.ts";
-import type { FileSource } from "../../contracts/documents/mod.ts";
+import type { FileSource } from "../../protocol/projects/mod.ts";
 import { createFileCommands } from "../file-tracking/mod.ts";
 import { createProjectCommands, projectsSchemaSteps } from "../projects/mod.ts";
 import { createSourceCommands } from "./source.ts";

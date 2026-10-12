@@ -3,7 +3,7 @@
 // 실제 model provider에 닿지 않는다. 파일은 temp dir만 쓴다.
 import { assert, assertEquals } from "@std/assert";
 import { err, manualClock } from "../../base/mod.ts";
-import { mcpServersSetting } from "../../contracts/lophn-agent/mod.ts";
+import { mcpServersSetting } from "../../protocol/lophn-agent/mod.ts";
 import {
   allowRunList,
   checkMcpConfig,

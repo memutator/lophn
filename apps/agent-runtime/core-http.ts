@@ -2,7 +2,7 @@ import { err, ok, type Result } from "../../packages/base/mod.ts";
 import {
   RUNTIME_MACHINE_ROUTES,
 } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
-import { API_MAJOR, routePath } from "../../packages/contracts/platform/mod.ts";
+import { API_MAJOR, routePath } from "../../packages/protocol/platform/mod.ts";
 import type { CoreCall } from "./core-call.ts";
 
 export {

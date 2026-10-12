@@ -5,7 +5,7 @@ import type {
   RuntimeObservation,
   RuntimeReason,
   RuntimeState,
-} from "../../contracts/apps/mod.ts";
+} from "../../protocol/apps/mod.ts";
 
 // 허용됐고 채택한 release가 있는데 지금 살아 있다는 관측이 없을 때의 근거다.
 // 과거 event나 열린 problem으로 생존을 추정하지 않는다(R13).

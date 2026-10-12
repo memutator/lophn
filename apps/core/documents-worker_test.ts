@@ -3,7 +3,7 @@
 // 데이터 root는 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
-import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
 import { createCoreClient, productFetch } from "../worker/documents/submit.ts";
 import { CHILD_BLOB_POLICIES } from "./child-blob-prepare.ts";
 import { type Core, startCore } from "./core.ts";

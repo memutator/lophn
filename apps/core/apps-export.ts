@@ -7,7 +7,7 @@ import { err, ok, type Result } from "../../packages/base/mod.ts";
 import {
   type RequestContext,
   TargetAuthorization,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import {
   createExportTarget,
   type ExportJob,

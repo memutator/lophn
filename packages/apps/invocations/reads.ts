@@ -5,12 +5,12 @@ import {
   INVOCATION_STATUSES,
   invocationsGet,
   invocationsList,
-} from "../../contracts/apps/mod.ts";
+} from "../../protocol/apps/mod.ts";
 import type {
   ReadDefinition,
   ReadSnapshot,
   RequestContext,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { appAccessDenied, authorizeAppId } from "../registration/mod.ts";
 import { loadInvocation, loadInvocations } from "./store.ts";
 

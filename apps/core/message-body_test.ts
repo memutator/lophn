@@ -12,13 +12,13 @@ import {
 import {
   BLOB_PREPARATION_TTL_MS,
   BLOB_UNREFERENCED_GRACE_MS,
-} from "../../packages/contracts/platform/mod.ts";
-import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
 import {
   MESSAGE_TEXT_CONTENT_MAX_BYTES,
   serializeMessageContent,
-} from "../../packages/contracts/lophn-agent/mod.ts";
-import { tableBlock } from "../../packages/contracts/lophn-agent/message-fixtures.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
+import { tableBlock } from "../../packages/protocol/lophn-agent/message-fixtures.ts";
 import { id } from "../../packages/lophn-agent/conversation/testing/mod.ts";
 import { type Core, startCore } from "./core.ts";
 import { createLedgerRegistration as documentsRegistration } from "./documents.ts";

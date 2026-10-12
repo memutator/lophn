@@ -4,7 +4,7 @@ import {
   type EventVisibilityDefinition,
   type RequestContext,
   type Subject,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { commands, deps, fileLedger, note, user } from "./command-harness.ts";
 import { fixtureEvent } from "./event-fixture.ts";
 import { createEventVisibilityRegistry } from "./event-visibility.ts";

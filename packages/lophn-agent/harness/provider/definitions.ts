@@ -2,9 +2,9 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   type ProviderDefinition,
   providerDefinitions,
-} from "../../../contracts/lophn-agent/mod.ts";
-import type { ApiReadDefinition } from "../../../contracts/platform/mod.ts";
-import { providerDefinitionSchema } from "../../../contracts/lophn-agent/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
+import type { ApiReadDefinition } from "../../../protocol/platform/mod.ts";
+import { providerDefinitionSchema } from "../../../protocol/lophn-agent/mod.ts";
 
 // lophn이 알아두는 연결 가능 provider의 내장 정의(provider#R1). ledger row가
 // 아니라 product catalog 값이라 module 동봉 JSON으로 둔다. core graph의 동기

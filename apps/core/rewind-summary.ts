@@ -5,7 +5,7 @@ import {
   requestRewindSummary,
   type RewindSummaryState,
   takeRewindSummaryRequest,
-} from "../../packages/contracts/lophn-agent/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
 import type { MemoryHandler } from "../../packages/platform/api/mod.ts";
 import { assertCheckpointVisible } from "../../packages/lophn-agent/revert/mod.ts";
 import type { RewindFilesDeps } from "./rewind-files.ts";

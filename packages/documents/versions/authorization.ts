@@ -2,13 +2,13 @@
 // port가 없거나 판정이 Result가 아니면 fail-closed다.
 
 import { err, ERROR_CODES, ok, type Result } from "../../base/mod.ts";
-import type { Document } from "../../contracts/documents/mod.ts";
+import type { Document } from "../../protocol/projects/mod.ts";
 import {
   type AuthorizationTarget,
   type RequestContext,
   TargetAuthorization,
   type TargetAuthorizer,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { actingApp, isAppPlace } from "../addressing/mod.ts";
 
 export type DocumentAccessTarget =

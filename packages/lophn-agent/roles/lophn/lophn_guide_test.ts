@@ -4,7 +4,7 @@ import {
   effectiveSettingSchema,
   type SettingDefinitionOutput,
   settingDefinitionSchema,
-} from "@lophn/contracts/platform";
+} from "@lophn/protocol/platform";
 import {
   CONTEXT_LOOKUP_TOOL_NAMES,
   CONTEXT_LOOKUP_TOOLS,

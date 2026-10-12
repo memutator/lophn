@@ -1,8 +1,8 @@
 import { err, ok } from "../../base/mod.ts";
 import { createIdSource, manualClock, seededRandom } from "../../base/mod.ts";
-import { definePort } from "../../contracts/platform/mod.ts";
+import { definePort } from "../../protocol/platform/mod.ts";
 import { defineTxPort } from "./tx-ports.ts";
-import type { AuthenticatedContext } from "../../contracts/platform/mod.ts";
+import type { AuthenticatedContext } from "../../protocol/platform/mod.ts";
 import { advanceSubscriberCursorCommand } from "./commands.ts";
 import { createSubscriberGate } from "./subscriber-registration.ts";
 import {

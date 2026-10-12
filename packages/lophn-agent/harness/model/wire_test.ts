@@ -1,7 +1,7 @@
 import { assert, assertEquals } from "@std/assert";
-import type { CatalogEntry } from "../../../contracts/lophn-agent/mod.ts";
+import type { CatalogEntry } from "../../../protocol/lophn-agent/mod.ts";
 import { translateOptions, type WireProtocol } from "./wire.ts";
-import { catalogEntry } from "../../../contracts/lophn-agent/testing/mod.ts";
+import { catalogEntry } from "../../../protocol/lophn-agent/testing/mod.ts";
 
 const sonnet = catalogEntry("anthropic", "claude-sonnet-4-5");
 const opus = catalogEntry("anthropic", "claude-opus-4-8");

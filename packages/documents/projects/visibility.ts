@@ -4,13 +4,13 @@ import {
   projectCreated,
   projectUnarchived,
   projectUpdated,
-} from "../../contracts/documents/mod.ts";
+} from "../../protocol/projects/mod.ts";
 import {
   type EventVisibilityDefinition,
   parseActor,
   type ReadSnapshot,
   type RequestContext,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   authorizeProject,
   denied,

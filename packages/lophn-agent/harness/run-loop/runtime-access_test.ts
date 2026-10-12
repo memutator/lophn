@@ -5,7 +5,7 @@ import {
   contextListRoute,
   contextOverviewRoute,
   glossaryListRoute,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 import { roleOperations } from "./runtime-access.ts";
 
 const ROLES = ["lophn", "app_engineer", "context_engineer", "operator"];

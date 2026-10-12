@@ -4,9 +4,9 @@ import type {
   Input,
   RequestContext,
   Tx,
-} from "../../contracts/platform/mod.ts";
-import { TargetAuthorization } from "../../contracts/platform/mod.ts";
-import { requestTest } from "../../contracts/problems/mod.ts";
+} from "../../protocol/platform/mod.ts";
+import { TargetAuthorization } from "../../protocol/platform/mod.ts";
+import { requestTest } from "../../protocol/problems/mod.ts";
 import {
   connectionOf,
   type PreparedAdmission,

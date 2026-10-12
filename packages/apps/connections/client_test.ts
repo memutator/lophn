@@ -1,7 +1,7 @@
 // 앱 프로세스 쪽 통로(apps/connections#R4, apps/sdk#R40). 준비 요청만 broker로 가고 SDK는 이
 // 통로를 통해서만 다른 앱에 닿는다. import만으로는 통로가 없고 앱 runtime이 시작할 때 설치한다.
 import { assertEquals } from "@std/assert";
-import { BROKER_SOCKET_PATHS, SOCKET_HOST } from "../../contracts/apps/mod.ts";
+import { BROKER_SOCKET_PATHS, SOCKET_HOST } from "../../protocol/apps/mod.ts";
 import {
   APP_CONFIRM_POLL_PATH,
   APP_CONFIRM_REQUEST_PATH,

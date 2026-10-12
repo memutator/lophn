@@ -9,7 +9,7 @@ import {
   recoveryName,
   recoveryStamp,
 } from "../../packages/platform/backup-and-migration/mod.ts";
-import type { SchemaStep } from "../../packages/contracts/platform/mod.ts";
+import type { SchemaStep } from "../../packages/protocol/platform/mod.ts";
 import { CREDENTIAL_SCHEMA } from "./credentials.ts";
 
 const START = Date.parse("2026-01-01T00:00:00.000Z");

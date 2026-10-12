@@ -4,14 +4,14 @@
 // blob 준비로 넘기고, 준비·저장은 MCP `lophn_save`와 같은 통로를 쓴다.
 import type { z } from "zod";
 import { err, type LophnError, ok, type Result } from "../../../base/mod.ts";
-import { cliSaveSchema } from "../../../contracts/coding-agent/mod.ts";
+import { cliSaveSchema } from "../../../protocol/coding-agent/mod.ts";
 import {
   documentList,
   documentPrepare,
   documentSave,
   seriesAddInstance,
   seriesGet,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 import {
   describeSave,
   type PathSaveDeps,

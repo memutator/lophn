@@ -1,7 +1,7 @@
 // context index(derived store)의 모양. 표의 뜻은 docs/architecture/documents.md 3.2,
 // 훑기 규칙은 documents/contexts#R23이다.
 import type { Clock } from "../../../base/mod.ts";
-import type { BundleContent } from "../../../contracts/documents/mod.ts";
+import type { BundleContent } from "../../../protocol/projects/mod.ts";
 import type { ExtractedEntity, ProjectFiles } from "../extract/types.ts";
 
 export type FileStat = {

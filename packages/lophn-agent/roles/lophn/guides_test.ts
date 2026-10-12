@@ -3,13 +3,13 @@ import { sha256Hex } from "@lophn/base";
 import {
   bundledGuideSchema,
   guideReferenceSchema,
-} from "@lophn/contracts/documents";
+} from "@lophn/protocol/projects";
 import {
   type EffectiveSetting,
   effectiveSettingSchema,
   type SettingDefinitionOutput,
   settingDefinitionSchema,
-} from "@lophn/contracts/platform";
+} from "@lophn/protocol/platform";
 import { GUIDE_SOURCES, guideSource } from "./guides/catalog.ts";
 import { markdownSections, prepareGuideText } from "./model.ts";
 import { explainSetting } from "./settings-explanation.ts";

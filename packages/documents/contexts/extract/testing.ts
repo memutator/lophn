@@ -5,7 +5,7 @@ import {
   type ContractField,
   type ContractSource,
   type ContractType,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 import { readDocumentFrom } from "./document.ts";
 import type {
   AppDataReader,

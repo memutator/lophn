@@ -11,8 +11,8 @@ import {
   type CallOrigin,
   type ChannelMode,
   type Grant,
-} from "../../contracts/apps/mod.ts";
-import type { AuthenticatedContext } from "../../contracts/platform/mod.ts";
+} from "../../protocol/apps/mod.ts";
+import type { AuthenticatedContext } from "../../protocol/platform/mod.ts";
 import { effectiveScope } from "../permissions/mod.ts";
 import type { CoreSigner } from "./signing.ts";
 

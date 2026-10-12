@@ -1,6 +1,6 @@
 import { err, ok, type Result } from "../../packages/base/mod.ts";
-import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
-import { authenticatedContextSchema } from "../../packages/contracts/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
+import { authenticatedContextSchema } from "../../packages/protocol/platform/mod.ts";
 import type { CredentialRegistry } from "../../packages/platform/identity/mod.ts";
 import { openConnection } from "../../packages/platform/ledger/mod.ts";
 

@@ -15,10 +15,10 @@ import {
   type HarnessId,
   LOPHN_TERMINAL_OBSERVE,
   type SessionPlanInput,
-} from "../../../contracts/coding-agent/mod.ts";
+} from "../../../protocol/coding-agent/mod.ts";
 import { runSummaryHookBounded } from "../../guides/mod.ts";
 import { launchPlanOf, observeStream } from "../../sessions/mod.ts";
-import type { Route } from "../../../contracts/platform/mod.ts";
+import type { Route } from "../../../protocol/platform/mod.ts";
 import { UNREADABLE_MESSAGE } from "../../connection/mod.ts";
 import type { CommandOutput } from "./connection.ts";
 import type { CommandEntry } from "./types.ts";

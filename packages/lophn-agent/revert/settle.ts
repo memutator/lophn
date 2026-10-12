@@ -3,8 +3,8 @@ import type {
   PreviewItem,
   RevertItem,
   RevertResultCounts,
-} from "../../contracts/lophn-agent/mod.ts";
-import type { Tx } from "../../contracts/platform/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
+import type { Tx } from "../../protocol/platform/mod.ts";
 import type { FileStat, JudgedFile } from "./judge.ts";
 import type { RewindPlan } from "./preview.ts";
 import { restorable } from "./restore.ts";

@@ -17,7 +17,7 @@ import {
   releasesCompare,
   releasesGet,
   releasesList,
-} from "../../contracts/apps/mod.ts";
+} from "../../protocol/apps/mod.ts";
 import {
   blueprint,
   command as declared,

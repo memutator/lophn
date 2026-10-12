@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { err, ok, type Result } from "../../base/mod.ts";
-import type { TargetAuthorizer } from "../../contracts/platform/mod.ts";
+import type { TargetAuthorizer } from "../../protocol/platform/mod.ts";
 import { createProjectCommands } from "./commands.ts";
 import { ids, keep, projectFixture, userContext } from "./testing-fixture.ts";
 const input = {
@@ -23,7 +23,7 @@ function seed(fixture: ReturnType<typeof projectFixture>) {
     ),
   );
 }
-import type { DocumentRef } from "../../contracts/documents/mod.ts";
+import type { DocumentRef } from "../../protocol/projects/mod.ts";
 import { createProjectReads, type ProjectReadDeps } from "./reads.ts";
 const documents: DocumentRef[] = [
   { document: ids.doc, version: ids.version, section: null },

@@ -4,9 +4,9 @@ import {
   FEEDBACK_IPC,
   FEEDBACK_LIMITS as CONTRACT_LIMITS,
   FEEDBACK_PUSH,
-} from "../../../packages/contracts/shell/feedback.ts";
-import { RESERVED_PROBLEM_CODES } from "../../../packages/contracts/problems/problem-codes.ts";
-import { submitFeedbackInputSchema } from "../../../packages/contracts/problems/feedback.ts";
+} from "../../../packages/protocol/shell/feedback.ts";
+import { RESERVED_PROBLEM_CODES } from "../../../packages/protocol/problems/problem-codes.ts";
+import { submitFeedbackInputSchema } from "../../../packages/protocol/problems/feedback.ts";
 import { createFeedback } from "../main/app-frame/feedback.ts";
 import { ContentsRegistry } from "../main/desktop/ipc-guard.ts";
 import {

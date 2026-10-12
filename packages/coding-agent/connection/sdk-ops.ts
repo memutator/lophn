@@ -20,7 +20,7 @@ import {
   packagesGuideBody,
   packagesList,
   packagesVersions,
-} from "../../contracts/apps/mod.ts";
+} from "../../protocol/apps/mod.ts";
 import type { FlowClient } from "./document-save.ts";
 
 // SDK op의 공통 op table이다(T21 app-ops의 패턴, mcp#R22·R23, cli#R30).

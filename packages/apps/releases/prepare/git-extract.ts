@@ -3,7 +3,7 @@
 // git 관리 정보·개발 credential·agent 도구·임시 설정은 bundle에 넣지 않는다.
 // git 권한은 source 경계의 read뿐이다(architecture/apps 2.1). argv 배열만 쓰고 shell은 쓰지 않는다.
 import { err, ok, type Result } from "../../../base/mod.ts";
-import { releaseExcludes } from "../../../contracts/coding-agent/mod.ts";
+import { releaseExcludes } from "../../../protocol/coding-agent/mod.ts";
 
 export type ExtractedFile = {
   path: string;

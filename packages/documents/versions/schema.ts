@@ -1,4 +1,4 @@
-import type { SchemaStep } from "../../contracts/platform/mod.ts";
+import type { SchemaStep } from "../../protocol/platform/mod.ts";
 
 // GLOB은 문자 클래스 하나마다 패턴 길이를 세므로 긴 패턴은 거절된다.
 // 접두사·정확한 길이를 여기서 고정하고 문자 집합은 행을 읽는 쪽에서 schema로 다시 검사한다.

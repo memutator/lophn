@@ -22,10 +22,10 @@ import {
   seriesKeySchema,
   seriesList,
   seriesNext,
-} from "../documents/mod.ts";
-import { documentDiff } from "../documents/history.ts";
-import { documentRead, documentReadInputSchema } from "../documents/read.ts";
-import { versionIdSchema } from "../documents/values.ts";
+} from "../projects/mod.ts";
+import { documentDiff } from "../projects/history.ts";
+import { documentRead, documentReadInputSchema } from "../projects/read.ts";
+import { versionIdSchema } from "../projects/values.ts";
 import { idempotencyKeySchema } from "../platform/envelope.ts";
 import { readOnlyHint, type ScopeMark, type Toolset } from "./output.ts";
 

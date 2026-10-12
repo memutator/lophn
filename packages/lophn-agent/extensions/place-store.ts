@@ -5,8 +5,8 @@ import {
   type AgentPlace,
   type McpServerConfig,
   mcpServerConfigSchema,
-} from "../../contracts/lophn-agent/mod.ts";
-import type { Tx } from "../../contracts/platform/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
+import type { Tx } from "../../protocol/platform/mod.ts";
 
 // 자리(project·app) 층의 저장 위치와 파일 모양(concern lophn-agent/extensions, domain model
 // PlaceExtensionSettings, open-issues extensions#Q8). 자리 폴더 `<data root>/{projects,apps}/<id>/`는 agent 정의와

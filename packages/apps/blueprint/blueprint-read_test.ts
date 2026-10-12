@@ -1,7 +1,7 @@
 // `/v1/apps/blueprint` read(apps/blueprint#R2, R3). active release에 고정한 blueprint를 command·화면·
 // automation의 설명으로 읽고, 설명·구조 검증·실제 test 통과를 서로 다른 필드로 낸다.
 import { assert, assertEquals } from "@std/assert";
-import { appBlueprint, releasePrepare } from "../../contracts/apps/mod.ts";
+import { appBlueprint, releasePrepare } from "../../protocol/apps/mod.ts";
 import type { Blueprint } from "./mod.ts";
 import { createReleaseCommands, loadActiveBlueprint } from "../releases/mod.ts";
 import {

@@ -5,7 +5,7 @@ import {
   sha256Schema,
   withReadCommon,
 } from "../platform/mod.ts";
-import { appIdSchema } from "../documents/values.ts";
+import { appIdSchema } from "../projects/values.ts";
 import { appInputSchema, releaseIdSchema } from "./apps.ts";
 import { permissionRequirementSchema } from "./permissions.ts";
 

@@ -1,6 +1,6 @@
 import { err, ok, type Result, sha256Hex } from "../../../packages/base/mod.ts";
-import { contextListRoute } from "../../../packages/contracts/documents/mod.ts";
-import { grantsList } from "../../../packages/contracts/apps/mod.ts";
+import { contextListRoute } from "../../../packages/protocol/projects/mod.ts";
+import { grantsList } from "../../../packages/protocol/apps/mod.ts";
 import {
   type AgentDefinition,
   type AgentIssue,
@@ -23,11 +23,11 @@ import {
   sessionRead,
   sessionSummary,
   skillFoldersSetting,
-} from "../../../packages/contracts/lophn-agent/mod.ts";
+} from "../../../packages/protocol/lophn-agent/mod.ts";
 import {
   routePath,
   settingsGet,
-} from "../../../packages/contracts/platform/mod.ts";
+} from "../../../packages/protocol/platform/mod.ts";
 import { RUN_LIMIT_SETTING_KEYS } from "../../../packages/lophn-agent/harness/run-loop/mod.ts";
 import type { CatalogRefresherHandle } from "../catalog.ts";
 import type { CoreCall } from "../core-call.ts";

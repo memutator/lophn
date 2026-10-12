@@ -1,5 +1,5 @@
 import { err, ok, type Result } from "../../base/mod.ts";
-import type { McpServerConfig } from "../../contracts/lophn-agent/mod.ts";
+import type { McpServerConfig } from "../../protocol/lophn-agent/mod.ts";
 
 // 바깥 MCP 연결 설정 검사(concern lophn-agent/extensions, requirements
 // lophn-agent/extensions#R12, R15). 계약 schema(mcpServerConfigSchema)가 이미

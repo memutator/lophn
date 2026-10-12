@@ -8,7 +8,7 @@ import { ok, type Result } from "../../../base/mod.ts";
 import type {
   Grant,
   GrantPermissionScope,
-} from "../../../contracts/apps/mod.ts";
+} from "../../../protocol/apps/mod.ts";
 import type { AppDeclarations } from "../declarations.ts";
 import { effectiveScope } from "../effective.ts";
 import type { AccessState, BrokerAccess } from "../broker/access.ts";

@@ -1,4 +1,4 @@
-import { REPORTING_LIMITS } from "@lophn/contracts/problems/sdk-report";
+import { REPORTING_LIMITS } from "@lophn/protocol/problems/sdk-report";
 import type {
   ExceptionObservationError,
   ExceptionObservationInput,
@@ -7,7 +7,7 @@ import type {
   ObservationInvocationEvidence,
   ObservationMissingReason,
   ReportCompletion,
-} from "@lophn/contracts/problems/sdk-report";
+} from "@lophn/protocol/problems/sdk-report";
 import { deliver, freezeDeep, queueRejection, utf8Length } from "./deliver.ts";
 
 const REPORT_PREFIX = "rpt";

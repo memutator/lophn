@@ -7,7 +7,7 @@ import {
   type HarnessDetection,
   harnessDetectionSchema,
   type HarnessEnvironment,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 import { HARNESS_CATALOG } from "./catalog/definitions.ts";
 import type { FilePort } from "./integration/apply.ts";
 import {

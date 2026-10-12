@@ -3,7 +3,7 @@
 // 대역은 packages/sdk/cap-secret의 createSecretStandIn이고, 앱 프로세스는 live가 아닌 mode에서 그것을
 // 쓴다. 이 대역은 broker 통로로 직접 온 요청을 같은 규칙으로 받는 server 쪽이다.
 import { ok } from "../../../base/mod.ts";
-import { brokerSecretUseInputSchema } from "../../../contracts/apps/mod.ts";
+import { brokerSecretUseInputSchema } from "../../../protocol/apps/mod.ts";
 import type { SecretUseService } from "../../permissions/mod.ts";
 import type { PreviewScope } from "../model.ts";
 import { invalid, refuse, standInOnly } from "./refusal.ts";

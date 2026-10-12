@@ -3,8 +3,8 @@ import {
   messageBody,
   rewindList,
   sessionSummary,
-} from "../../packages/contracts/lophn-agent/mod.ts";
-import { routePath } from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
+import { routePath } from "../../packages/protocol/platform/mod.ts";
 import { sessionMaterial } from "../../packages/lophn-agent/harness/prompt-assemble/mod.ts";
 import { readSessionConversation } from "./session-history.ts";
 import { err } from "../../packages/base/mod.ts";

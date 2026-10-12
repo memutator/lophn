@@ -5,15 +5,15 @@ import {
   formatGet,
   formatList,
   readCursorSchema,
-} from "../../../../contracts/documents/mod.ts";
+} from "../../../../protocol/projects/mod.ts";
 import {
   toolFormatSchema,
   type ToolResult,
   toolTextMediaTypeSchema,
   toolTextSchema,
   validateToolText,
-} from "../../../../contracts/lophn-agent/mod.ts";
-import { sha256Schema } from "../../../../contracts/platform/mod.ts";
+} from "../../../../protocol/lophn-agent/mod.ts";
+import { sha256Schema } from "../../../../protocol/platform/mod.ts";
 import { fitJson } from "../result.ts";
 import type { ToolDefinition } from "../registry.ts";
 import type { RunCredential, ToolHandler } from "../work.ts";

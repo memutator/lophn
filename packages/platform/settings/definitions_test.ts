@@ -2,7 +2,7 @@ import { assert, assertEquals } from "@std/assert";
 import { err, ok } from "../../base/mod.ts";
 import { settingsDefinitionsRead, settingsGetRead } from "./reads.ts";
 import { SettingRegistry, validateDefinition } from "./registry.ts";
-import type { SettingDefinition } from "../../contracts/platform/mod.ts";
+import type { SettingDefinition } from "../../protocol/platform/mod.ts";
 
 const width: SettingDefinition = {
   key: "shell.reading_width",

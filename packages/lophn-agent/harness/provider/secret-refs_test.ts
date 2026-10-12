@@ -7,7 +7,7 @@ import {
   disconnectProvider,
   refreshProviderCredential,
   registerProvider,
-} from "../../../contracts/lophn-agent/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
 import {
   createProviderSecretRefSource,
   PROVIDER_SECRET_OWNER,

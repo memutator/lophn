@@ -10,7 +10,7 @@ import {
   permanentBlobReferenceSchema,
   type RequestContext,
   type Sql,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import type { PreparationRegistry } from "./registry.ts";
 import { claimedHash, fieldDefined } from "./refs.ts";
 

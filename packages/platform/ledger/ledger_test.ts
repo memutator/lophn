@@ -9,7 +9,7 @@ import {
   ok,
   seededRandom,
 } from "../../base/mod.ts";
-import { defineEvent } from "../../contracts/platform/mod.ts";
+import { defineEvent } from "../../protocol/platform/mod.ts";
 import { LEDGER_SCHEMA_STEPS, openLedger } from "./mod.ts";
 import { applyMigrations } from "../backup-and-migration/mod.ts";
 

@@ -6,7 +6,7 @@ import {
   sha256Schema,
 } from "../platform/mod.ts";
 import { approvalActionSchema } from "../platform/mod.ts";
-import { sectionKeySchema } from "../documents/mod.ts";
+import { sectionKeySchema } from "../projects/mod.ts";
 import { questionTextSchema } from "./question-text.ts";
 
 const nonblankSchema = z.string().refine((value) => value.trim().length > 0, {

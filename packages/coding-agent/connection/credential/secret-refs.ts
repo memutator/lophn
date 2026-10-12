@@ -9,8 +9,8 @@ import {
   connectionCreate,
   connectionIdSchema,
   connectionRevoke,
-} from "../../../contracts/coding-agent/mod.ts";
-import type { SecretRefSource } from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/coding-agent/mod.ts";
+import type { SecretRefSource } from "../../../protocol/platform/mod.ts";
 
 export const CONNECTION_SECRET_OWNER = "coding-agent/connection";
 

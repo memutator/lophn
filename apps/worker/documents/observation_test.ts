@@ -6,7 +6,7 @@ import { err, ok } from "../../../packages/base/mod.ts";
 import {
   documentPrepareInputSchema,
   preparedVersionSchema,
-} from "../../../packages/contracts/documents/mod.ts";
+} from "../../../packages/protocol/projects/mod.ts";
 import {
   createStatusRecorder,
   type ObservationSubmit,

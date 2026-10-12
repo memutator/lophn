@@ -5,7 +5,7 @@ import {
   encodeFrame,
   type Frame,
   FrameDecoder,
-} from "../../../packages/contracts/platform/mod.ts";
+} from "../../../packages/protocol/platform/mod.ts";
 import {
   type ByteReader,
   type ByteWriter,
@@ -20,7 +20,7 @@ import {
   observeExceptionPayload,
 } from "./report-collector.ts";
 import { ok } from "../../../packages/base/mod.ts";
-import { recordReportInputSchema } from "../../../packages/contracts/problems/mod.ts";
+import { recordReportInputSchema } from "../../../packages/protocol/problems/mod.ts";
 import type { AppLogQuery } from "../../../packages/problems/snapshots/mod.ts";
 import { reportCollectorSpec } from "../../core/problems-runner.ts";
 import { createCollectorQueue } from "../../../packages/problems/reporting/mod.ts";

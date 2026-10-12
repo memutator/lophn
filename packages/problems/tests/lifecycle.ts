@@ -8,14 +8,14 @@ import type {
   RequestContext,
   Sql,
   Tx,
-} from "../../contracts/platform/mod.ts";
-import { TargetAuthorization } from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
+import { TargetAuthorization } from "../../protocol/platform/mod.ts";
 import {
   observeTestRequest,
   type requestTest,
   stageTestEvidence,
   startTestSide,
-} from "../../contracts/problems/mod.ts";
+} from "../../protocol/problems/mod.ts";
 import { canonicalJson, hashCanonical } from "./canonical.ts";
 import { appendActualSideStart, appendRequestObservation } from "./commands.ts";
 import {

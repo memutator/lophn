@@ -8,8 +8,8 @@ import { manualClock, ok, seededRandom } from "../../packages/base/mod.ts";
 import {
   removeSecret,
   setSecret,
-} from "../../packages/contracts/platform/mod.ts";
-import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
 import {
   derivedPath,
   type DerivedStore,

@@ -11,7 +11,7 @@ import {
   HOOK_MAX_LINES,
   HOOK_MAX_PROBLEMS,
   HOOK_TOTAL_TIMEOUT_MS,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 
 // 쪽을 이어 읽는 상한이다. coding agent 대상 문제가 첫 쪽 뒤에 있을 수 있어 몇 쪽까지만 본다.
 const HOOK_MAX_PAGES = 4;

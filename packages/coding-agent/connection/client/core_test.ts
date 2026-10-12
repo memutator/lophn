@@ -6,7 +6,7 @@ import {
   defineUpload,
   type RpcFetch,
   UPLOAD_INPUT_HEADER,
-} from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/platform/mod.ts";
 import {
   createCoreClient,
   UNREADABLE_MESSAGE,

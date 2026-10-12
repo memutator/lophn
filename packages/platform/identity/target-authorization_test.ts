@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { type Result } from "../../base/mod.ts";
-import type { AuthenticatedContext } from "../../contracts/platform/mod.ts";
+import type { AuthenticatedContext } from "../../protocol/platform/mod.ts";
 import { authorize, authorizeConditions } from "./mod.ts";
 
 function code(result: Result<unknown>): string {

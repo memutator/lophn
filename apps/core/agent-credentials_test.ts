@@ -3,8 +3,8 @@
 // 믿지 않고 core 기록과 대조한다. 실제 provider와 사람 데이터 root는 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
-import type { AgentAppScope } from "../../packages/contracts/lophn-agent/mod.ts";
-import type { ChildMessage } from "../../packages/contracts/platform/mod.ts";
+import type { AgentAppScope } from "../../packages/protocol/lophn-agent/mod.ts";
+import type { ChildMessage } from "../../packages/protocol/platform/mod.ts";
 import { CredentialRegistry } from "../../packages/platform/identity/mod.ts";
 import {
   createAgentCredentialLink,

@@ -14,7 +14,7 @@ import {
 import {
   CONTEXT_SUB_TABS,
   TAB_KINDS,
-} from "../../../../../packages/contracts/shell/workspace.ts";
+} from "../../../../../packages/protocol/shell/workspace.ts";
 import type { EditorDeps } from "../../editor/document-view.tsx";
 import { readingWidthStore } from "../../editor/reading-width.ts";
 import { TerminalStore } from "../../terminal/store.ts";

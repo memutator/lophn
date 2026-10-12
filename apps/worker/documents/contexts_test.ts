@@ -6,7 +6,7 @@ import {
   encodeFrame,
   type Frame,
   FrameDecoder,
-} from "../../../packages/contracts/platform/mod.ts";
+} from "../../../packages/protocol/platform/mod.ts";
 import {
   type ByteReader,
   type ChildStreams,

@@ -3,7 +3,7 @@
 // 포트 대역이다.
 import { assertEquals } from "@std/assert";
 import { err, ok } from "../../../base/mod.ts";
-import { APPS_CONFIRM_POLL_WAIT_MAX_MS } from "../../../contracts/apps/mod.ts";
+import { APPS_CONFIRM_POLL_WAIT_MAX_MS } from "../../../protocol/apps/mod.ts";
 import {
   type AppPairConfirmer,
   createAppsConfirmService,

@@ -9,7 +9,7 @@ import {
   FrameDecoder,
   SECRET_INPUT_MAX_BYTES,
   SECRET_PREPARE_OP,
-} from "../../../packages/contracts/platform/mod.ts";
+} from "../../../packages/protocol/platform/mod.ts";
 import {
   createFakeKeychain,
   createSecretWork,

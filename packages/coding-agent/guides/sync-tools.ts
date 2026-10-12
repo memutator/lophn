@@ -16,7 +16,7 @@ import type {
   IntegrationTarget,
   ReceiptOutcome,
   ResourceInstallResult,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 import type { RootInputs } from "../harnesses/mod.ts";
 import { installSelected } from "../harnesses/mod.ts";
 import type { ManagedFilesPort } from "./managed-files.ts";

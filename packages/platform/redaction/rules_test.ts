@@ -4,7 +4,7 @@ import {
   REDACTION_REPLACEMENT,
   type RedactionInput,
   redactionResultSchema,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { createRedactionEngine } from "./mod.ts";
 import { patternRevision } from "./patterns.ts";
 import { createKnownSecretRegistry } from "./registry.ts";

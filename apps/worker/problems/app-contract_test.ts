@@ -9,8 +9,8 @@ import {
   type DataChange,
   decodeDataJobOutput,
   encodeDataJobInput,
-} from "../../../packages/contracts/apps/mod.ts";
-import type { TestObservationFrame } from "../../../packages/contracts/problems/mod.ts";
+} from "../../../packages/protocol/apps/mod.ts";
+import type { TestObservationFrame } from "../../../packages/protocol/problems/mod.ts";
 import { createAppBackup } from "../../../packages/apps/data/worker/backup.ts";
 import { openAppDatabase } from "../../../packages/apps/data/worker/db.ts";
 import { runDataJob } from "../../../packages/apps/data/worker/job.ts";

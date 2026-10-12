@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { err } from "../../base/mod.ts";
-import { documentExport } from "../../contracts/documents/mod.ts";
+import { documentExport } from "../../protocol/projects/mod.ts";
 import { createVersionCommands } from "./commands.ts";
 import { createVersionReads, exportDocument, storedFile } from "./reads.ts";
 import {

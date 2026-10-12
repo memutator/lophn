@@ -6,7 +6,7 @@ import {
   notificationsGet,
   notificationsList,
   type ReadDefinition,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { notificationAsk } from "./ask-agent.ts";
 import { notificationView } from "./model.ts";
 import { osDisplayRequest } from "./os-display.ts";

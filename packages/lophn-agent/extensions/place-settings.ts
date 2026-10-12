@@ -5,7 +5,7 @@ import {
   placeExtensionSettingsChange,
   placeExtensionSettingsChanged,
   placeExtensionSettingsRead,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import type {
   CommandDefinition,
   Compare,
@@ -15,7 +15,7 @@ import type {
   ReadSnapshot,
   RequestContext,
   Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { checkMcpConfig } from "./mcp-config.ts";
 import {
   dataRootOf,

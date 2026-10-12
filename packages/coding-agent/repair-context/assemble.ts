@@ -10,8 +10,8 @@ import {
   RepairContextSchema,
   type RepairContextSection,
   type RepairEvidenceSource,
-} from "../../contracts/coding-agent/mod.ts";
-import type { ProblemSummary } from "../../contracts/problems/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
+import type { ProblemSummary } from "../../protocol/problems/mod.ts";
 import {
   type OccurrenceFacts,
   type ProblemFacts,

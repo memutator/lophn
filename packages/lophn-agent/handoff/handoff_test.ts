@@ -4,12 +4,12 @@ import {
   HANDOFF_DIRECTIONS,
   handoffResult,
   handoffStatus,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import type {
   RequestContext,
   SqlParams,
   SqlRow,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   adoptionOf,
   checkReferences,

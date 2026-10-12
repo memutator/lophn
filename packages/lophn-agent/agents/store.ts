@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { err, ok, type Result } from "../../base/mod.ts";
-import type { AgentPlace, AgentRole } from "../../contracts/lophn-agent/mod.ts";
+import type { AgentPlace, AgentRole } from "../../protocol/lophn-agent/mod.ts";
 import type { AgentFileSystem, ReadSql } from "./ports.ts";
 
 // 정의 파일과 자리 설정 파일을 app data의 자리별 `agents/` 폴더에서 읽고 쓰는 저장소다(R3).

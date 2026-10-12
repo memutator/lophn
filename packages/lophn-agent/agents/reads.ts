@@ -9,14 +9,14 @@ import {
   BUILTIN_AGENT_NAMES,
   placeAgentSettingsRead,
   type ValueSource,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import type {
   Input,
   Output,
   ReadDefinition,
   ReadSnapshot,
   RequestContext,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { DEFAULT_PROFILES } from "./builtin.ts";
 import {
   callableIn,

@@ -9,7 +9,7 @@ import {
   BUILTIN_FORMAT_NAMES,
   type BuiltinFormatName,
   formatChecksContent,
-} from "../../../packages/contracts/documents/mod.ts";
+} from "../../../packages/protocol/projects/mod.ts";
 import type { ValidateFilesRequest } from "../../../packages/documents/file-tracking/mod.ts";
 import type { FormatCall } from "../../../packages/documents/formats/reads.ts";
 import { type ByteInbox } from "./byte-inbox.ts";

@@ -4,7 +4,7 @@
 // 끝난다. 임시 메모리 registry만 쓰고 데이터 root는 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, ok, seededRandom } from "../../packages/base/mod.ts";
-import type { AgentAppScope } from "../../packages/contracts/lophn-agent/mod.ts";
+import type { AgentAppScope } from "../../packages/protocol/lophn-agent/mod.ts";
 import { CredentialRegistry } from "../../packages/platform/identity/mod.ts";
 import { createRunCredentials } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
 

@@ -4,11 +4,11 @@
 // 남는다. 이 파일은 위치와 작은 metadata의 모양만 정한다(순수).
 import { z } from "zod";
 import { err, ok, type Result } from "../../base/mod.ts";
-import { sha256Schema } from "../../contracts/platform/mod.ts";
+import { sha256Schema } from "../../protocol/platform/mod.ts";
 import {
   documentIdSchema,
   versionIdSchema,
-} from "../../contracts/documents/mod.ts";
+} from "../../protocol/projects/mod.ts";
 
 export const WORKING_COPY_CONTENT = "content";
 export const WORKING_COPY_META = "meta.json";

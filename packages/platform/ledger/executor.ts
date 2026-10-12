@@ -15,7 +15,7 @@ import {
   type RequestContext,
   type Sql,
   type Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { authorizeConditions } from "../identity/mod.ts";
 import {
   confirmationBinding,

@@ -5,7 +5,7 @@ import { err, ok, type Result } from "../../base/mod.ts";
 import {
   trackingGlobSchema,
   type TrackingRuleSet,
-} from "../../contracts/documents/mod.ts";
+} from "../../protocol/projects/mod.ts";
 import { matchTrackingPatterns } from "./rules.ts";
 
 // glob 특수 문자는 문자 클래스 하나로 쓴다. glob schema가 backslash를 막아 `\*`를 쓸 수 없다.

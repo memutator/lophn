@@ -4,8 +4,8 @@
 // 오류 코드의 HTTP·본문 분류는 나중 작업이 failures.ts로 맡는다(provider#R19-R24).
 
 import { err, ok, type Result } from "../../../../base/mod.ts";
-import type { TokenUsage } from "../../../../contracts/lophn-agent/mod.ts";
-import type { JsonObject } from "../../../../contracts/platform/mod.ts";
+import type { TokenUsage } from "../../../../protocol/lophn-agent/mod.ts";
+import type { JsonObject } from "../../../../protocol/platform/mod.ts";
 import { mergeRequestPatch } from "./request-patch.ts";
 import type { SseFrame } from "./stream.ts";
 

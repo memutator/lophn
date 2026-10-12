@@ -5,7 +5,7 @@ import { err, ok } from "../../../base/mod.ts";
 import type {
   ConnectionId,
   IntegrationTarget,
-} from "../../../contracts/coding-agent/mod.ts";
+} from "../../../protocol/coding-agent/mod.ts";
 import type { InstallOutcome } from "../../harnesses/mod.ts";
 import {
   connectAndInstall,

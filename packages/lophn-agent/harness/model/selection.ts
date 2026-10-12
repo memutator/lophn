@@ -4,7 +4,7 @@ import {
   OPTION_AXIS_EFFORT,
   type OptionValues,
   type ResolvedModel,
-} from "../../../contracts/lophn-agent/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
 import type { Result } from "../../../base/mod.ts";
 import { err, ok } from "../../../base/mod.ts";
 import { confirmedSupport } from "./model.ts";

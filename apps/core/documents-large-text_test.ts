@@ -12,11 +12,11 @@ import {
   DOCUMENT_UPLOAD_MAX_BYTES,
   FORMAT_CHECK_CONTENT_MAX_BYTES,
   formatList,
-} from "../../packages/contracts/documents/mod.ts";
+} from "../../packages/protocol/projects/mod.ts";
 import {
   type AuthenticatedContext,
   UPLOAD_INPUT_HEADER,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import { createCoreClient } from "../../packages/coding-agent/connection/client/core.ts";
 import {
   saveFromPaths,

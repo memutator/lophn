@@ -7,7 +7,7 @@ import type {
   McpTool,
   Profile,
   ResolvedAgent,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import { effectiveAgent, resolveAgent, type ResolveInput } from "./mod.ts";
 
 // 읽기는 동기라 async인 resolveAgent를 부르지 못한다. effectiveAgent가 같은 층 합치기를 동기로

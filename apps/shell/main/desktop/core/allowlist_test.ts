@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { ALL_ROUTES } from "../../../../../packages/contracts/mod.ts";
+import { ALL_ROUTES } from "../../../../../packages/protocol/mod.ts";
 
 import {
   isAllowed,

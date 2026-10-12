@@ -1,7 +1,7 @@
 import {
   type MessageLink,
   visualBlockSchema,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import type { CheckedContent } from "./model.ts";
 
 export type VisualBlockInput = Extract<

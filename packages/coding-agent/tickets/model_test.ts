@@ -3,7 +3,7 @@
 // command 결과를 함께 본다.
 import { assert, assertEquals, assertThrows } from "@std/assert";
 import { ok } from "../../base/mod.ts";
-import { ticketCreateInputSchema } from "../../contracts/coding-agent/mod.ts";
+import { ticketCreateInputSchema } from "../../protocol/coding-agent/mod.ts";
 import { createTicketCommands } from "./commands.ts";
 import {
   adoptionMatches,

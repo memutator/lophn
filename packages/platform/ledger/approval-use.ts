@@ -16,7 +16,7 @@ import {
   type ApprovalUse,
   approvalUseSchema,
   type Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { runAdmission } from "./run-admission.ts";
 
 export type UsableApproval = {

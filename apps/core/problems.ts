@@ -23,7 +23,7 @@ import {
 import type {
   EventDefinition,
   EventVisibilityDefinition,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import type {
   EventRegistration,
   ReaderRegistration,
@@ -33,7 +33,7 @@ import { z } from "zod";
 import {
   defineBlobPurpose,
   defineSetting,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import {
   getReportRead,
   getSnapshotRead,
@@ -53,7 +53,7 @@ import {
   ProblemTestPort,
   ProblemWordingPort,
   ProblemWorkPort,
-} from "../../packages/contracts/problems/mod.ts";
+} from "../../packages/protocol/problems/mod.ts";
 import { problemWorkLookup } from "../../packages/coding-agent/mod.ts";
 import { releaseWording } from "../../packages/apps/releases/store.ts";
 import { REPORTS_SCHEMA_STEPS } from "../../packages/problems/reporting/mod.ts";
@@ -69,8 +69,8 @@ import { recordReportCommand } from "../../packages/problems/reporting/commands.
 import {
   REPORT_BLOB_PURPOSES,
   reportBody,
-} from "../../packages/contracts/problems/mod.ts";
-import type { KindLaunchSpec } from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/problems/mod.ts";
+import type { KindLaunchSpec } from "../../packages/protocol/platform/mod.ts";
 import {
   observeException,
   observeViewError,
@@ -87,7 +87,7 @@ import {
   reportProblem,
   submitFeedback,
   verificationRecorded,
-} from "../../packages/contracts/problems/mod.ts";
+} from "../../packages/protocol/problems/mod.ts";
 import { notificationsOnlyVisibility } from "./platform.ts";
 import {
   isTicketCheckFeed,

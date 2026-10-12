@@ -15,7 +15,7 @@ import {
   type CoreHarness,
   createCoreHarness,
 } from "../../../apps/core/testing/core.ts";
-import { appConnectOutputSchema } from "../../contracts/apps/mod.ts";
+import { appConnectOutputSchema } from "../../protocol/apps/mod.ts";
 import type {
   ProcessObservation,
   ProcessQuery,

@@ -5,7 +5,7 @@
 import type {
   MissingReason,
   ScreenEvidence,
-} from "../../contracts/problems/mod.ts";
+} from "../../protocol/problems/mod.ts";
 import {
   bytesStream,
   type PreparedSnapshotBlob,

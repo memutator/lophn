@@ -6,7 +6,7 @@ import type {
   RepairEvidenceRead,
   RepairEvidenceSource as EvidenceSource,
   SectionKind,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 import { fitLines } from "./text.ts";
 
 type Reasons = {

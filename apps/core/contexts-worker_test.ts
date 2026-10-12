@@ -15,7 +15,7 @@ import {
 import type {
   ContextWorkInput,
   ContextWorkList,
-} from "../../packages/contracts/documents/mod.ts";
+} from "../../packages/protocol/projects/mod.ts";
 import type {
   CommandEnvelope,
   Writer,
@@ -30,7 +30,7 @@ import {
   createContextsHost,
   createContextsProcess,
 } from "./contexts-worker.ts";
-import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
 import { type Core, startCore } from "./core.ts";
 import { createLedgerRegistration as createAppsRegistration } from "./apps.ts";
 import { createLedgerRegistration } from "./documents.ts";

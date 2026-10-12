@@ -3,7 +3,7 @@
 // 검사만 한다.
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
-import type { RequestContext } from "../../contracts/platform/mod.ts";
+import type { RequestContext } from "../../protocol/platform/mod.ts";
 import { createReaderPool, type ReaderPool } from "./reader-pool.ts";
 import { fixtureRead } from "./read-fixture.ts";
 

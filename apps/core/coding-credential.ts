@@ -23,10 +23,10 @@ import {
   connectionIdSchema,
   connectionRegisterChildInputSchema,
   connectionRevoke,
-} from "../../packages/contracts/coding-agent/mod.ts";
+} from "../../packages/protocol/coding-agent/mod.ts";
 import type {
   AuthenticatedContext,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import type { MemoryHandler } from "../../packages/platform/api/mod.ts";
 import type { Writer } from "../../packages/platform/ledger/mod.ts";
 import {

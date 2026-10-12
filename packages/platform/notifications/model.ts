@@ -1,7 +1,7 @@
 import {
   NOTIFICATION_TRIGGERS,
   type NotificationTrigger,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { redactScreen } from "../redaction/mod.ts";
 import type { NotificationRow } from "./store.ts";
 

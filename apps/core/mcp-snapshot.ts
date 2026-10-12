@@ -3,7 +3,7 @@ import {
   type AgentPlace,
   type McpServerConfig,
   mcpServersSetting,
-} from "../../packages/contracts/lophn-agent/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
 import {
   collectPlaceMcpEntries,
   mergeMcpServers,

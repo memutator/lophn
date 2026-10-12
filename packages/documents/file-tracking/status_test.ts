@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { err, ok } from "../../base/mod.ts";
-import type { FileTarget } from "../../contracts/documents/mod.ts";
+import type { FileTarget } from "../../protocol/projects/mod.ts";
 import {
   createStatusRecorder,
   fileStatusRead,

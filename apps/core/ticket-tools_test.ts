@@ -5,7 +5,7 @@
 // provider는 부르지 않고(tool 호출은 실행기를 직접 부른다) 사람 데이터 root는 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import { ok, type Result } from "../../packages/base/mod.ts";
-import { ALL_ROUTES } from "../../packages/contracts/mod.ts";
+import { ALL_ROUTES } from "../../packages/protocol/mod.ts";
 import {
   createBuiltinToolHandlers,
   executeTool,

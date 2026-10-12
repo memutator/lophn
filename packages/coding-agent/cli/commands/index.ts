@@ -4,14 +4,14 @@
 import {
   cliIndexSchema,
   cliSearchSchema,
-} from "../../../contracts/coding-agent/mod.ts";
+} from "../../../protocol/coding-agent/mod.ts";
 import {
   outlineDocument,
   outlinePlace,
   outlineRoot,
   searchQuery,
   searchStatus,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 import type { CommandEntry } from "./types.ts";
 
 export const INDEX_COMMANDS: readonly CommandEntry[] = [

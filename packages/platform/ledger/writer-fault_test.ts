@@ -1,7 +1,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { z } from "zod";
 import { ok } from "../../base/mod.ts";
-import { defineCommand, definePort } from "../../contracts/platform/mod.ts";
+import { defineCommand, definePort } from "../../protocol/platform/mod.ts";
 import {
   commands,
   deps,

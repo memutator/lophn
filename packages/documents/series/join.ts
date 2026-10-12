@@ -4,13 +4,13 @@
 // 가입 검사가 거절하면 저장도 같은 tx와 함께 거절이다.
 
 import { ok, type Result } from "../../base/mod.ts";
-import type { Document } from "../../contracts/documents/mod.ts";
+import type { Document } from "../../protocol/projects/mod.ts";
 import {
   parseActor,
   type RequestContext,
   TargetAuthorization,
   type Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { actingApp, isAppPlace } from "../addressing/mod.ts";
 import { applyJoin, checkJoin } from "./commands.ts";
 import { loadSeries, updateSeries } from "./store.ts";

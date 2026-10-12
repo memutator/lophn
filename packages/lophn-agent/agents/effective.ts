@@ -9,7 +9,7 @@ import {
   type ModelChoice,
   type Profile,
   type ValueSource,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import type { ResolveInput } from "./resolve.ts";
 
 // 읽기용 동기 합치기. ListAgents·ReadAgent는 reader의 동기 handler라 async인 resolveAgent를 기다릴 수 없어,

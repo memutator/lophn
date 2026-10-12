@@ -2,7 +2,7 @@
 // `problems/report-collector`로 문제 보고 worker route를 넘기는 target과, collector가 core에
 // 제출할 때 쓰는 machine credential의 operation 목록이다.
 import { ok } from "../../packages/base/mod.ts";
-import { appLogs, invocationsGet } from "../../packages/contracts/apps/mod.ts";
+import { appLogs, invocationsGet } from "../../packages/protocol/apps/mod.ts";
 import {
   getProblem,
   observeException,
@@ -11,12 +11,12 @@ import {
   REPORTING_LIMITS,
   reportProblem,
   submitFeedback,
-} from "../../packages/contracts/problems/mod.ts";
-import { settingsGet } from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/problems/mod.ts";
+import { settingsGet } from "../../packages/protocol/platform/mod.ts";
 import type {
   HealthObservation,
   WorkerRequest,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import type { OperationPolicy } from "../../packages/platform/identity/mod.ts";
 import type { WorkerRouteTarget } from "../../packages/platform/responsiveness/mod.ts";
 import type { DocumentsChannel } from "./documents-serving.ts";

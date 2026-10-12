@@ -5,7 +5,7 @@ import {
   type CommandDefinition,
   defineCommand,
   defineEvent,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { deps, fileLedger, looseFixtureCase, user } from "./command-harness.ts";
 import { defineSyncCommand } from "./handler.ts";
 import type { LedgerConnection } from "./sqlite.ts";

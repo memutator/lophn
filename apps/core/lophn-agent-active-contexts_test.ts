@@ -7,7 +7,7 @@ import { assertEquals } from "@std/assert";
 import type {
   SqlParams,
   SqlRow,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import { agentLookups } from "./lophn-agent.ts";
 
 const P1 = "prj_01arz3ndektsv4rrffq69g5fa1";

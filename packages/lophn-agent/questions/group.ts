@@ -3,7 +3,7 @@ import {
   groupAgreesWithFixedActions,
   QUESTION_GROUP_MAX_QUESTIONS,
   QUESTION_GROUP_MIN_QUESTIONS,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 
 // 질문 묶음의 순수 검사(domain model lophn-agent/questions QuestionGroup·answer_question_group·
 // defer_question_group, requirements questions#R1·R3·R4·R6·R7·R8·R13·R15). 저장·blob·event·

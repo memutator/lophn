@@ -5,7 +5,7 @@ import {
   ERROR_HTTP_STATUS,
   EVENT_SUBSCRIBE_PATH,
   RPC_JSON_MAX_BYTES,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import type { CredentialRegistry } from "../identity/mod.ts";
 import type { ConfirmationBridge, RouteConfirmation } from "../identity/mod.ts";
 import type {

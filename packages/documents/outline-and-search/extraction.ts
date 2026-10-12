@@ -3,7 +3,7 @@
 // 재생성·재파생은 ledger에 아무것도 쓰지 않는다. model·agent run을 시작하지 않는다.
 import { ok, type Result } from "../../base/mod.ts";
 import { z } from "zod";
-import type { SchemaStep } from "../../contracts/platform/mod.ts";
+import type { SchemaStep } from "../../protocol/platform/mod.ts";
 import {
   DERIVED_SEARCH_DB,
   type DerivedStore,

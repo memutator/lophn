@@ -3,11 +3,8 @@ import { ok, type Result } from "../../base/mod.ts";
 import type {
   AuthenticatedContext,
   HealthObservation,
-} from "../../contracts/platform/mod.ts";
-import {
-  platformHealth,
-  platformStatus,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
+import { platformHealth, platformStatus } from "../../protocol/platform/mod.ts";
 import type { ReadHandler } from "../api/mod.ts";
 
 // 구성 요소 하나의 현재 관측. 불가이면 안전한 이유를 함께 둔다(diagnostics R8).

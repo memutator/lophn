@@ -8,7 +8,7 @@ import {
   ok,
   systemClock,
 } from "../../base/mod.ts";
-import type { Grant } from "../../contracts/apps/mod.ts";
+import type { Grant } from "../../protocol/apps/mod.ts";
 import {
   type BrokerEndpoint,
   createAppsConfirmService,

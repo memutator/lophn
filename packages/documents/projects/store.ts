@@ -3,8 +3,8 @@ import type {
   Folder,
   Project,
   TrackingPattern,
-} from "../../contracts/documents/mod.ts";
-import type { Sql, SqlRow, Tx } from "../../contracts/platform/mod.ts";
+} from "../../protocol/projects/mod.ts";
+import type { Sql, SqlRow, Tx } from "../../protocol/platform/mod.ts";
 import { projectFromRows } from "./rows.ts";
 
 type Query = Pick<Sql, "get" | "all">;

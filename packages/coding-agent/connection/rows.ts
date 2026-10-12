@@ -2,8 +2,8 @@ import { err, ok, type Result } from "../../base/mod.ts";
 import {
   type Connection,
   connectionSchema,
-} from "../../contracts/coding-agent/mod.ts";
-import type { SqlRow } from "../../contracts/platform/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
+import type { SqlRow } from "../../protocol/platform/mod.ts";
 
 function invalidStored(): Result<never> {
   return err({ code: "internal", message: "invalid stored connection" });

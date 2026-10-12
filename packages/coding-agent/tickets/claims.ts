@@ -4,7 +4,7 @@
 // PK(ticket) unique가 하나만 남긴다. 한 connection의 여러 ticket claim은 막지 않는다.
 // 기한은 claim·명시 갱신 시각부터 정확히 3,600,000ms다(expiry.ts).
 import { err, ok, type Result } from "../../base/mod.ts";
-import { appRegistrationLookup } from "../../contracts/apps/mod.ts";
+import { appRegistrationLookup } from "../../protocol/apps/mod.ts";
 import {
   type CodingAgentConnectionAuthResult,
   ticketClaim,
@@ -14,13 +14,13 @@ import {
   ticketExpireClaim,
   ticketReleaseClaim,
   ticketRenewClaim,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 import { connectionAuthSyncPort } from "../connection/mod.ts";
 import type {
   CommandDefinition,
   RequestContext,
   Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 
 type TicketClaimInput = { ticket: string; base_revision: string };
 type TicketSeqInput = TicketClaimInput & { claim_seq: string };

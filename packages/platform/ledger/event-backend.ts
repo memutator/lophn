@@ -2,7 +2,7 @@ import { err, ok, type Result } from "../../base/mod.ts";
 import {
   eventsList,
   type RequestContext,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import type { ReaderPool } from "./reader-pool.ts";
 import type { EventBackend } from "./subscribe.ts";
 import { validateOutput } from "./output.ts";

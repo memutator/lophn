@@ -16,11 +16,11 @@ import {
   type ApprovalAction,
   approvalBinding,
   type Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   type InvocationAcceptConfirmInput,
   invocationAcceptConfirmInputSchema,
-} from "../../contracts/apps/mod.ts";
+} from "../../protocol/apps/mod.ts";
 
 export const CONFIRM_CONCERN = "apps/invocations";
 // 소유 command route 이름 그대로다(contracts/apps/invocations.ts).

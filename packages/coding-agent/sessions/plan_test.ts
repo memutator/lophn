@@ -8,7 +8,7 @@ import {
   type SessionPlanInput,
   sessionPlanInputSchema,
   sessionStartInputSchema,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 import { PROMPT_ADAPTERS, type PromptAdapter } from "./model.ts";
 import { launchPlanOf, type PlanContext } from "./mod.ts";
 

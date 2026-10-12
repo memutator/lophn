@@ -1,12 +1,12 @@
 // outline·search 읽기가 같이 쓰는 작은 읽기 도우미. 범위 검사, 선택 판의 format,
 // index coverage다. 읽기 handler 모듈들이 서로 import하지 않게 여기 둔다.
 import { ok, type Result } from "../../base/mod.ts";
-import type { SearchResult } from "../../contracts/documents/mod.ts";
+import type { SearchResult } from "../../protocol/projects/mod.ts";
 import {
   type AuthorizationTarget,
   type RequestContext,
   TargetAuthorization,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import type { DerivedRead } from "./adapters/store.ts";
 import {
   bodyChunk,

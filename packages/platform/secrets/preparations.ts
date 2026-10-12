@@ -7,7 +7,7 @@ import {
   type SecretPreparation,
   secretPreparationSchema,
   type Sql,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 
 export function recordSecretPreparation(
   sql: Pick<Sql, "run">,

@@ -1,8 +1,8 @@
 // activation의 ledger 쪽 공통 규칙(apps/releases#R8, R12, R13, R16). start·complete·fail command와
 // record_* 시도 확인이 같은 판정을 쓴다. 동기 함수만 있고 파일·process를 열지 않는다.
 import { canonicalize, err, ok, type Result } from "../../../base/mod.ts";
-import type { Activation, Release } from "../../../contracts/apps/mod.ts";
-import type { Sql, Tx } from "../../../contracts/platform/mod.ts";
+import type { Activation, Release } from "../../../protocol/apps/mod.ts";
+import type { Sql, Tx } from "../../../protocol/platform/mod.ts";
 import { migrationPath } from "../../data/mod.ts";
 import { loadActiveRelease } from "../store.ts";
 

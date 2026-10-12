@@ -1,4 +1,4 @@
-import { REDACTION_REPLACEMENT } from "../../contracts/platform/mod.ts";
+import { REDACTION_REPLACEMENT } from "../../protocol/platform/mod.ts";
 
 // 구조로 식별하는 인증 값(platform/redaction#R3). 원문 일치와 무관하게 지운다.
 

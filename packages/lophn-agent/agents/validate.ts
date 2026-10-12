@@ -6,7 +6,7 @@ import {
   agentPlaceAllowsRole,
   type AgentRole,
   type AgentSettings,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import { parseAgentFile, serializeAgentFile } from "./definition-file.ts";
 import { callableIn, issuesOfError, type PlaceView } from "./inspect.ts";
 import { permissionIssues } from "./resolve.ts";

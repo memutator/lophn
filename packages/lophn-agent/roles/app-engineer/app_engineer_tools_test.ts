@@ -7,8 +7,8 @@ import { err, type LophnError, ok, type Result } from "../../../base/mod.ts";
 import type {
   AppBlueprintCommand,
   Invocation,
-} from "../../../contracts/apps/mod.ts";
-import type { AgentRole } from "../../../contracts/lophn-agent/mod.ts";
+} from "../../../protocol/apps/mod.ts";
+import type { AgentRole } from "../../../protocol/lophn-agent/mod.ts";
 import { computeAgentAppScope } from "../../harness/run-loop/mod.ts";
 import {
   type AppBlueprintView,

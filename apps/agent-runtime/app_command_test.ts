@@ -2,7 +2,7 @@
 // command를 싣는다. runtime이 만드는 값(appCommandOf)이 RecordToolRequest의 계약 모양이고, 되돌리기를
 // 선언하지 않은 command는 revert_command를 싣지 않는다(그 호출은 revert가 되돌릴 수 없는 사실로 남는다).
 import { assert, assertEquals } from "@std/assert";
-import { recordToolRequestInputSchema } from "../../packages/contracts/lophn-agent/mod.ts";
+import { recordToolRequestInputSchema } from "../../packages/protocol/lophn-agent/mod.ts";
 import type { AppTool } from "../../packages/lophn-agent/harness/tools/mod.ts";
 import { appCommandOf } from "./prepare.ts";
 

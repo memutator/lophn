@@ -1,4 +1,4 @@
-import type { SchemaStep } from "../../contracts/platform/mod.ts";
+import type { SchemaStep } from "../../protocol/platform/mod.ts";
 
 // owner 표와 foreign key로 묶으면 보관·place 해제가 예약 수명을 바꿀 수 있다.
 export const addressingSchemaSteps: readonly SchemaStep[] = [{

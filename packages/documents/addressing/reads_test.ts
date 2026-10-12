@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { err, ok, type Result } from "../../base/mod.ts";
-import type { Address } from "../../contracts/documents/mod.ts";
+import type { Address } from "../../protocol/projects/mod.ts";
 import { createAddressingReads } from "./reads.ts";
 import { ids, userContext, versionFixture } from "../versions/testing/mod.ts";
 

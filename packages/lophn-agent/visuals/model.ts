@@ -5,7 +5,7 @@ import {
   MESSAGE_VISUAL_MAX_BYTES,
   MESSAGE_VISUAL_MAX_COUNT,
   visualBlockInputSchema,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 
 // 시각 블록의 owner 검사(lophn-agent/visuals#R1–R3, R5). contract schema는 모양과 상한을 한꺼번에
 // 검사해 어느 상한을 넘었는지 말하지 못하고, 임의 문자열에 lexical 검사를 하지 않는다(그 일은 owner

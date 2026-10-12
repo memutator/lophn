@@ -1,5 +1,5 @@
 import { err, ok, type Result } from "../../base/mod.ts";
-import { confirmationRefSchema } from "../../contracts/platform/mod.ts";
+import { confirmationRefSchema } from "../../protocol/platform/mod.ts";
 import {
   type ConfirmationBridge,
   type RouteConfirmation,

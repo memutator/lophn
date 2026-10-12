@@ -3,12 +3,12 @@ import {
   type AgentRole,
   commandsList,
   commandsListOutputSchema,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import type {
   ReadSnapshot,
   RequestContext,
   SqlRow,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { createCommandReads } from "./reads.ts";
 import type { RegistrySkill } from "./registry.ts";
 

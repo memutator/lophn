@@ -8,7 +8,7 @@ import {
   type Slug,
   SLUG_MAX_LENGTH,
   slugSchema,
-} from "../../contracts/documents/mod.ts";
+} from "../../protocol/projects/mod.ts";
 
 export {
   type Address,
@@ -22,7 +22,7 @@ export {
   type Slug,
   SLUG_MAX_LENGTH,
   slugSchema,
-} from "../../contracts/documents/mod.ts";
+} from "../../protocol/projects/mod.ts";
 
 export function checkName(value: unknown): Result<Slug> {
   const parsed = slugSchema.safeParse(value);

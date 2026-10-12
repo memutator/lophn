@@ -10,8 +10,8 @@ import {
   FORMAT_CHECK_CONTENT_MAX_BYTES,
   formatCheckLimitMessage,
   formatChecksContent,
-} from "../../packages/contracts/documents/mod.ts";
-import type { RequestContext } from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/projects/mod.ts";
+import type { RequestContext } from "../../packages/protocol/platform/mod.ts";
 import {
   extractionTargetOf,
   SEARCH_CONSUMED_EVENTS,

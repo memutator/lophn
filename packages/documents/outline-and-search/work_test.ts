@@ -1,7 +1,7 @@
 import { assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { ok } from "../../base/mod.ts";
-import type { SchemaStep } from "../../contracts/platform/mod.ts";
+import type { SchemaStep } from "../../protocol/platform/mod.ts";
 import {
   escapeLike,
   ftsMatchQuery,

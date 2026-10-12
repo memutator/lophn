@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
-import type { ReadSnapshot } from "../../contracts/platform/mod.ts";
+import type { ReadSnapshot } from "../../protocol/platform/mod.ts";
 import { commandResultRead } from "./command-results.ts";
 import {
   deps,

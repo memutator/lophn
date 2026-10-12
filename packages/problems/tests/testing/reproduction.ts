@@ -1,5 +1,5 @@
 import { assert } from "@std/assert";
-import type { Verification } from "../../../contracts/problems/mod.ts";
+import type { Verification } from "../../../protocol/problems/mod.ts";
 import { canonicalHash, canonicalJson, hashCanonical } from "../canonical.ts";
 import { canonicalRequest, type PreparedResultEvidence } from "../model.ts";
 import { fileLedger } from "./mod.ts";

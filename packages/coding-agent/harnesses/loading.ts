@@ -12,7 +12,7 @@ import type {
   LoadingCheck,
   LoadingResult,
   LoadingStage,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 import * as json from "./adapters/json.ts";
 import { BEGIN_MARKER, END_MARKER } from "./adapters/region.ts";
 import * as toml from "./adapters/toml.ts";

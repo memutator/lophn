@@ -3,7 +3,7 @@ import type {
   InvocationRecordDeniedInput,
   InvocationRecordFinishedInput,
   InvocationRecordStartedInput,
-} from "../../contracts/apps/mod.ts";
+} from "../../protocol/apps/mod.ts";
 import {
   applyDenied,
   applyFinished,

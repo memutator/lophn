@@ -10,11 +10,11 @@ import {
   mcpAuthState,
   mcpAuthStateInputSchema,
   type McpServerConfig,
-} from "../../packages/contracts/lophn-agent/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
 import type {
   SecretDestination,
   SecretUse,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import {
   type AuthDeadline,
   type CallbackListener,

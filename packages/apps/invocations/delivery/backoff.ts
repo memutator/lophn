@@ -3,7 +3,7 @@
 import {
   INVOCATION_DELIVERY_BACKOFF_MAX_MS,
   INVOCATION_DELIVERY_BACKOFF_MS,
-} from "../../../contracts/apps/mod.ts";
+} from "../../../protocol/apps/mod.ts";
 
 // attempt는 지금까지 실패한 전송 횟수(1부터)다.
 export function deliveryBackoffMs(attempt: number): number {

@@ -25,7 +25,7 @@ import {
   cliAppSyncToolsSchema,
   cliAppTestSchema,
   cliAppValidateSchema,
-} from "../../../contracts/coding-agent/mod.ts";
+} from "../../../protocol/coding-agent/mod.ts";
 import {
   APP_OP_ROUTES,
   type AppHumanOnly,

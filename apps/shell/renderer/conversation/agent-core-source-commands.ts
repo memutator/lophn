@@ -1,7 +1,7 @@
 // composer의 `/` 명령(lophn-agent/commands). 목록은 그 session의 agent 기준 registry를 core에서 읽어 묶음과
 // 거르기 규칙(contracts의 command-filter)에 먹인 것이다. registry는 session이 있어야 계산된다.
-import type { CommandEntry } from "../../../../packages/contracts/lophn-agent/commands.ts";
-import { listCommands } from "../../../../packages/contracts/lophn-agent/command-filter.ts";
+import type { CommandEntry } from "../../../../packages/protocol/lophn-agent/commands.ts";
+import { listCommands } from "../../../../packages/protocol/lophn-agent/command-filter.ts";
 import type { SlashGroupView } from "./slash-menu/types.ts";
 import type { SourceResult } from "./agent-source.ts";
 import type { AgentEnv } from "./agent-core-source-env.ts";

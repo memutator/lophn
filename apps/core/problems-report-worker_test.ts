@@ -6,8 +6,8 @@
 
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
-import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
-import { reportProblem } from "../../packages/contracts/problems/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
+import { reportProblem } from "../../packages/protocol/problems/mod.ts";
 import { startCore } from "./core.ts";
 import { problemsReportDefinitions } from "./problems.ts";
 

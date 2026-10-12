@@ -1,12 +1,12 @@
 // feedback의 순수 규칙(problems/feedback#R1, R3, R4, R7, R8, R9, R14;
 // problems/grouping#R6). IO가 없다: redaction·blob 준비·읽기는 work.ts가 주입받는다.
 import { err, ok, type Result } from "../../base/mod.ts";
-import { idSchema } from "../../contracts/platform/mod.ts";
+import { idSchema } from "../../protocol/platform/mod.ts";
 import {
   feedbackTextSchema,
   type GroupKey,
   REPORTING_LIMITS,
-} from "../../contracts/problems/mod.ts";
+} from "../../protocol/problems/mod.ts";
 
 export const FEEDBACK_LIMITS = {
   text_scalars: REPORTING_LIMITS.feedback_text_scalars,

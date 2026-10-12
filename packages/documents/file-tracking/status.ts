@@ -1,12 +1,12 @@
 // `/v1/files/status` read(file-tracking#R9). FileStatus는 ledger 열이 아니다.
 // 조회 때 coordinator가 쥔 마지막 관측으로 계산한다. 관측이 없으면 추적 안 함이다.
 import { ok, type Result } from "../../base/mod.ts";
-import type { FileStatus, FileTarget } from "../../contracts/documents/mod.ts";
-import { filesStatus } from "../../contracts/documents/mod.ts";
+import type { FileStatus, FileTarget } from "../../protocol/projects/mod.ts";
+import { filesStatus } from "../../protocol/projects/mod.ts";
 import type {
   ApiReadDefinition,
   RequestContext,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { fileStatusOf, type StatusInput } from "./observation.ts";
 
 // coordinator 메모리의 마지막 관측. 없는 경로는 추적 밖이다.

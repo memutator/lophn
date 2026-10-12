@@ -7,11 +7,11 @@ import {
   appScreenContextSchema,
   type InputSchema,
   validateInput,
-} from "../../../../contracts/apps/mod.ts";
+} from "../../../../protocol/apps/mod.ts";
 import type {
   AgentAppScope,
   ToolResult,
-} from "../../../../contracts/lophn-agent/mod.ts";
+} from "../../../../protocol/lophn-agent/mod.ts";
 import {
   APP_TOOL_CONTRACT,
   type AppBlueprintView,

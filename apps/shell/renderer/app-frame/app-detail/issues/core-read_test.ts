@@ -6,7 +6,7 @@ import {
   getProblemOutputSchema,
   getProblemUserOutputSchema,
   userProblemReadOf,
-} from "../../../../../../packages/contracts/problems/mod.ts";
+} from "../../../../../../packages/protocol/problems/mod.ts";
 import { issueViewOf } from "./core-read.ts";
 
 const PRB = "prb_01h455vb4pex5v6nkc6gd5fd01";

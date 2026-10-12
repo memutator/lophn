@@ -13,14 +13,14 @@ import {
   revisionSchema,
   type Slug,
   slugSchema,
-} from "../../contracts/documents/mod.ts";
+} from "../../protocol/projects/mod.ts";
 import {
   type CommandDefinition,
   parseActor,
   type RequestContext,
   type Seq,
   type Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   authorizeDocument,
   loadDocument,

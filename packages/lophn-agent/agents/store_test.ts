@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { sha256Hex } from "../../base/mod.ts";
-import type { AgentPlace } from "../../contracts/lophn-agent/mod.ts";
+import type { AgentPlace } from "../../protocol/lophn-agent/mod.ts";
 import { createNodeAgentFiles } from "./adapters/node-fs.ts";
 import {
   agentFileName,

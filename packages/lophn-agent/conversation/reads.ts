@@ -4,8 +4,8 @@ import {
   sessionCompactRequests,
   sessionList,
   sessionRead,
-} from "../../contracts/lophn-agent/mod.ts";
-import type { ReadDefinition } from "../../contracts/platform/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
+import type { ReadDefinition } from "../../protocol/platform/mod.ts";
 import { sessionVisible, visibleAssignment } from "./guards.ts";
 import {
   loadSession,

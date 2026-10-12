@@ -12,7 +12,7 @@ import {
   type ReadDefinition,
   type ReadSnapshot,
   type RequestContext,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 
 const REQUEST_COLUMNS =
   `id, requester, run, reason_blob, effect, action, expires_at,

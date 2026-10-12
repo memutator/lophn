@@ -4,7 +4,7 @@
  * 고르고 machine이 적용하는 단계를 부른다. model·실제 provider·사람 데이터 root는 열지 않는다.
  */
 import { assertEquals } from "@std/assert";
-import { answerQuestionAction } from "../../../packages/contracts/lophn-agent/mod.ts";
+import { answerQuestionAction } from "../../../packages/protocol/lophn-agent/mod.ts";
 import { appCreateOptionAction } from "../../../packages/lophn-agent/questions/mod.ts";
 import { call, command, count, inspect } from "./approvals-fixture.ts";
 import { id } from "./tool-judgment-world.ts";

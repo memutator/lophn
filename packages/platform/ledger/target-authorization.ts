@@ -5,7 +5,7 @@ import {
   type RequestContext,
   TargetAuthorization,
   type TargetAuthorizer,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   authorize,
   CONDITION_TARGET_KEYS,

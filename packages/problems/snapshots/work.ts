@@ -3,12 +3,12 @@
 // redaction → stack blob 준비 → source map 위치 찾기 → 지문 key까지를
 // bounded memory에서 끝내고 permanent content는 hash뿐이다.
 import { err, ok, type Result } from "../../base/mod.ts";
-import type { ObservedExceptionInput } from "../../contracts/problems/mod.ts";
+import type { ObservedExceptionInput } from "../../protocol/problems/mod.ts";
 import type {
   GroupKey,
   SnapshotInput,
   SourceFrame,
-} from "../../contracts/problems/mod.ts";
+} from "../../protocol/problems/mod.ts";
 import { exceptionGroupKey, type FingerprintFrame } from "../grouping/mod.ts";
 import { type AppLogSource, collectLogEvidence } from "./logs.ts";
 import {

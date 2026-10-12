@@ -2,7 +2,7 @@
 // (architecture/apps 2.1). 한 앱의 데이터 영역만 쓸 수 있고 network·secret·환경·subprocess 권한이 없다.
 // supervisor와 core는 앱 DB를 열지 않는다: 이 자식이 종료 확인 뒤의 DB를 단독으로 연다(apps/data#R1).
 import { err, ok, type Result } from "../../packages/base/mod.ts";
-import { decodeDataJobInput } from "../../packages/contracts/apps/mod.ts";
+import { decodeDataJobInput } from "../../packages/protocol/apps/mod.ts";
 
 const JOB = new URL("../worker/apps/data-job.ts", import.meta.url).pathname;
 const REPO = new URL("../..", import.meta.url).pathname.replace(/\/$/, "");

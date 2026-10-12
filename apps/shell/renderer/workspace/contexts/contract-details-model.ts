@@ -6,7 +6,7 @@ import type {
   ContractSource,
   ContractType,
   DeclaredSearch,
-} from "../../../../../packages/contracts/documents/context-contract.ts";
+} from "../../../../../packages/protocol/projects/context-contract.ts";
 import type { BundleEntry, ContextOverview } from "./source.ts";
 
 export interface FieldLine {

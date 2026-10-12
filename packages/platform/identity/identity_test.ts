@@ -4,7 +4,7 @@ import {
   type AuthenticatedContext,
   type CredentialScope,
   identityCurrent,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   authorize,
   constantTimeDigestEqual,

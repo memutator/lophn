@@ -2,7 +2,7 @@
 // 프로세스가 앱 자식마다 같은 인스턴스를 쓴다. 대기열이 없다. 즉시 받지 못하면 그 회차는 건너뛴다.
 // permit은 실제 handler 종료(앱의 release 요청)나 자식 종료 확인 때만 돌려받는다. timeout이나 취소
 // 요청으로 풀지 않는다.
-import { AUTOMATION_CONCURRENCY_LIMIT } from "../../contracts/apps/mod.ts";
+import { AUTOMATION_CONCURRENCY_LIMIT } from "../../protocol/apps/mod.ts";
 
 export type PermitHolder = {
   // 자식 프로세스 구분값(process nonce).

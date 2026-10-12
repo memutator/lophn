@@ -8,7 +8,7 @@ import {
   type DiagnosticsWriteOutput,
   diagnosticsWriteRequestSchema,
   type WorkerRequest,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import type { SafeLog } from "./log.ts";
 
 // The owner supplies current authority, never a principal/process/scope submitted in payload.

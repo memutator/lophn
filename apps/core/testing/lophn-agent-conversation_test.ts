@@ -10,7 +10,7 @@ import {
 import type {
   AuthenticatedContext,
   BlobRefRegistration,
-} from "../../../packages/contracts/platform/mod.ts";
+} from "../../../packages/protocol/platform/mod.ts";
 import { eraseBlobRefs } from "../../../packages/platform/blob-store/mod.ts";
 import { applyMigrations } from "../../../packages/platform/backup-and-migration/mod.ts";
 import {
@@ -44,7 +44,7 @@ import {
   textContent,
 } from "../../../packages/lophn-agent/conversation/testing/mod.ts";
 import { envelope } from "../../../packages/lophn-agent/harness/run-loop/testing/mod.ts";
-import { tableBlock } from "../../../packages/contracts/lophn-agent/message-fixtures.ts";
+import { tableBlock } from "../../../packages/protocol/lophn-agent/message-fixtures.ts";
 import { createLedgerHarness, type LedgerHarness } from "./ledger.ts";
 
 // 세션·메시지의 파일 ledger와 platform 판정이 끼는 시험. 명령마다 새 connection으로

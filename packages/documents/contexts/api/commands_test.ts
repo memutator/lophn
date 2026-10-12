@@ -26,7 +26,7 @@ import type { ContextApiActor } from "./state.ts";
 import type {
   CheckFinding,
   StoredViolation,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 
 function setup() {
   const state = newState();

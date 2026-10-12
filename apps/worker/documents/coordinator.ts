@@ -7,11 +7,11 @@ import type {
   ParentMessage,
   WorkerRequest,
   WorkerResponse,
-} from "../../../packages/contracts/platform/mod.ts";
+} from "../../../packages/protocol/platform/mod.ts";
 import {
   processKindSchema,
   workerRequestEnvelopeSchema,
-} from "../../../packages/contracts/platform/mod.ts";
+} from "../../../packages/protocol/platform/mod.ts";
 import {
   type ChildSession,
   type ChildStreams,
@@ -47,7 +47,7 @@ import {
   fileOperationResultSchema,
   projectPreviewTracking,
   projectPreviewTrackingInputSchema,
-} from "../../../packages/contracts/documents/mod.ts";
+} from "../../../packages/protocol/projects/mod.ts";
 import { err, ok, type Result } from "../../../packages/base/mod.ts";
 import type { LophnError } from "../../../packages/base/mod.ts";
 import type { CoreClient } from "./submit.ts";

@@ -2,7 +2,7 @@
 // IO가 없다. blob 본문·시각·id는 인자로 받는다.
 
 import { err, ok, type Result } from "../../base/mod.ts";
-import type { Actor } from "../../contracts/platform/mod.ts";
+import type { Actor } from "../../protocol/platform/mod.ts";
 import {
   type ApprovalAction,
   approvalActionSchema,
@@ -11,7 +11,7 @@ import {
   type ApprovalGrantScope,
   type ApprovalStatus,
   approvalStatusSchema,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { CONFIRM_COMMAND, CONFIRM_CONCERN } from "./confirm.ts";
 
 // 종료 상태는 불변이다. 다시 열기·결정 수정은 없다(domain model 불변 조건).

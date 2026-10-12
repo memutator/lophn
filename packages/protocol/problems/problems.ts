@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { sectionKeySchema } from "../documents/values.ts";
+import { sectionKeySchema } from "../projects/values.ts";
 import {
   defineCommand,
   defineEvent,

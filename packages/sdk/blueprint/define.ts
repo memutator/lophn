@@ -9,7 +9,7 @@ import {
   type CommandDeclaration,
   type ScreenDeclaration,
   validateBlueprint,
-} from "../../contracts/apps/blueprint.ts";
+} from "../../protocol/apps/blueprint.ts";
 
 function reject(message: string): never {
   throw new TypeError(message);

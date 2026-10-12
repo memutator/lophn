@@ -4,7 +4,7 @@
 
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { sha256Hex } from "../../../base/mod.ts";
-import type { DataChange, DataResult } from "../../../contracts/apps/mod.ts";
+import type { DataChange, DataResult } from "../../../protocol/apps/mod.ts";
 import { openAppDatabase } from "./db.ts";
 import { migrationPath } from "./schema.ts";
 import { restoreAppBackup } from "./restore.ts";

@@ -14,7 +14,7 @@ import type { BoundView } from "./registry.ts";
 // 앱 runtime과 같은 contracts 정본으로 검사한다. shell tsc는 contracts 원본을 보지 않으므로
 // 문자열 URL로 읽는다.
 const contractRules = await import(
-  new URL("../../../../packages/contracts/apps/blueprint.ts", import.meta.url)
+  new URL("../../../../packages/protocol/apps/blueprint.ts", import.meta.url)
     .href
 ) as {
   validateInput: InputRules["validate"];

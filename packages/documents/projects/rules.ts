@@ -1,7 +1,7 @@
 import ignore from "ignore";
 import picomatch from "picomatch";
 import { err, ok, type Result } from "../../base/mod.ts";
-import type { TrackingPattern } from "../../contracts/documents/mod.ts";
+import type { TrackingPattern } from "../../protocol/projects/mod.ts";
 import { type CanonicalRoot, rootRelation } from "./model.ts";
 
 // 등록 root 안의 lophn data 폴더. install의 ~/.lophn과 같은 이름이다.

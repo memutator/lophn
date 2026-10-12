@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { z } from "zod";
-import { SETTINGS_EXCHANGE_FORMAT_VERSION } from "../../contracts/platform/mod.ts";
+import { SETTINGS_EXCHANGE_FORMAT_VERSION } from "../../protocol/platform/mod.ts";
 import { exportSettingsTOML, parseSettingsTOML } from "./toml.ts";
 
 function failure<T>(

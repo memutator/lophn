@@ -1,5 +1,5 @@
-import type { PreviewItem } from "../../contracts/lophn-agent/mod.ts";
-import type { Sql } from "../../contracts/platform/mod.ts";
+import type { PreviewItem } from "../../protocol/lophn-agent/mod.ts";
+import type { Sql } from "../../protocol/platform/mod.ts";
 
 // 앱 write의 되돌림 분류(lophn-agent/revert R9·R10·R18). checkpoint 이후 같은 session의 성공한 앱
 // write를 apps/blueprint의 선언(revert command)과 apps/invocations의 receipt로 판정한다. 근거가

@@ -3,7 +3,7 @@ import type {
   EffectiveSetting,
   SettingApplyAt,
   SettingDefinitionOutput,
-} from "@lophn/contracts/platform";
+} from "@lophn/protocol/platform";
 
 export type SettingExplanationInput = {
   definition: SettingDefinitionOutput;

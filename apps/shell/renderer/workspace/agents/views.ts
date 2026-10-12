@@ -5,8 +5,8 @@ import type {
   AgentPermissions,
   Profile,
   ValueSource,
-} from "../../../../../packages/contracts/lophn-agent/agent-values.ts";
-import type { ModelChoice } from "../../../../../packages/contracts/lophn-agent/models.ts";
+} from "../../../../../packages/protocol/lophn-agent/agent-values.ts";
+import type { ModelChoice } from "../../../../../packages/protocol/lophn-agent/models.ts";
 
 /**
  * model 선택을 사람이 읽는 글로 바꾼다("Sonnet 5.5 · Medium"). model 이름과 option 표시 이름은 catalog가

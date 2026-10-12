@@ -6,7 +6,7 @@ import type { z } from "zod";
 import type {
   BundleContent,
   DeclaredSearch,
-} from "../../../../../packages/contracts/documents/context-contract.ts";
+} from "../../../../../packages/protocol/projects/context-contract.ts";
 import type {
   bundleRollbackResultSchema,
   BundleSummary,
@@ -35,8 +35,8 @@ import type {
   ViolationKey,
   violationsHandOffRequestSchema,
   violationsHandOffResultSchema,
-} from "../../../../../packages/contracts/documents/context-api.ts";
-import type { searchInputValuesSchema } from "../../../../../packages/contracts/documents/context-contract.ts";
+} from "../../../../../packages/protocol/projects/context-api.ts";
+import type { searchInputValuesSchema } from "../../../../../packages/protocol/projects/context-contract.ts";
 import type { ReadResult } from "../source.ts";
 
 export type { ReadResult };

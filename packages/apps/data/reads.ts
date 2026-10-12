@@ -17,15 +17,15 @@ import {
   ok,
   type Result,
 } from "../../base/mod.ts";
-import { appExport } from "../../contracts/apps/mod.ts";
-import type { BundleManifest, Release } from "../../contracts/apps/mod.ts";
+import { appExport } from "../../protocol/apps/mod.ts";
+import type { BundleManifest, Release } from "../../protocol/apps/mod.ts";
 import type {
   HealthObservation,
   ReadSnapshot,
   RequestContext,
   WorkerRequest,
   WorkerResponse,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { canonicalJson } from "../blueprint/mod.ts";
 import { appAccessDenied, authorizeApp, loadApp } from "../registration/mod.ts";
 import {

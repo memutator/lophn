@@ -12,9 +12,9 @@ import {
   runBody,
   sessionRead,
   sessionSummary,
-} from "../../packages/contracts/lophn-agent/mod.ts";
-import { contextListRoute as documentContextList } from "../../packages/contracts/documents/mod.ts";
-import { routePath } from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
+import { contextListRoute as documentContextList } from "../../packages/protocol/projects/mod.ts";
+import { routePath } from "../../packages/protocol/platform/mod.ts";
 import {
   productEnvironment,
   resolveAgent,

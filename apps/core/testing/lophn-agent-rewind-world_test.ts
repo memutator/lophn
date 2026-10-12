@@ -1,6 +1,6 @@
 import { assert } from "@std/assert";
 import type { Result } from "../../../packages/base/mod.ts";
-import { redo, rewind } from "../../../packages/contracts/lophn-agent/mod.ts";
+import { redo, rewind } from "../../../packages/protocol/lophn-agent/mod.ts";
 import type { LedgerHarness } from "./ledger.ts";
 import { confirmationBinding } from "../../../packages/platform/identity/mod.ts";
 import {

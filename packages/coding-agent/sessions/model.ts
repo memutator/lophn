@@ -1,6 +1,6 @@
 // sessions의 순수 값이다(coding-agent/sessions, T38). IO가 없고 시각·파일·감지는 인자로 받는다
 // (architecture). 시작 방식, 제품별 첫 prompt 전달 adapter, TUI 환경 값을 정의한다(sessions#R1, R5).
-import type { HarnessId } from "../../contracts/coding-agent/mod.ts";
+import type { HarnessId } from "../../protocol/coding-agent/mod.ts";
 
 // 시작은 ticket·harness·방식 하나다. 방식은 사람이 자기 터미널에서 직접 시작하는 안내와 lophn의 project
 // 터미널 탭 TUI 둘뿐이다(R1). headless·자동 시작은 방식으로 받지 않는다.

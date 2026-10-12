@@ -24,14 +24,14 @@ import {
   problemsUploadFixSummary,
   recordProblemFix,
   userProblemReadOf,
-} from "../../contracts/problems/mod.ts";
+} from "../../protocol/problems/mod.ts";
 import {
   repairContextBundle,
   repairContextMore,
   repairContextSummary,
   ticketShow,
-} from "../../contracts/coding-agent/mod.ts";
-import type { Route } from "../../contracts/platform/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
+import type { Route } from "../../protocol/platform/mod.ts";
 import { type AppOpDeps, runAppOp } from "./app-ops.ts";
 import type { TicketOpClient } from "./ticket-ops.ts";
 import { UNREADABLE_MESSAGE } from "./unreadable.ts";

@@ -6,7 +6,7 @@ import type { Result } from "../../../base/mod.ts";
 import {
   brokerDocumentSaveInputSchema,
   type brokerDocumentSaveOutputSchema,
-} from "../../../contracts/apps/mod.ts";
+} from "../../../protocol/apps/mod.ts";
 import type { z } from "zod";
 import {
   type BrokerAccess,

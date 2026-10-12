@@ -2,7 +2,7 @@
 // 같은지 본다. 시각은 두 쪽의 시계가 달라 "<at>"으로 바꿔 견주고, 시각 자체는 따로 시험한다.
 import { assert, assertEquals } from "@std/assert";
 import { z } from "zod";
-import { AGENT_RUNTIME_PRINCIPAL } from "../../../contracts/lophn-agent/mod.ts";
+import { AGENT_RUNTIME_PRINCIPAL } from "../../../protocol/lophn-agent/mod.ts";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   bundleDiscardDraftRoute,
@@ -36,7 +36,7 @@ import {
   viewDeleteRoute,
   viewSaveRoute,
   viewUpdateRoute,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 import {
   type Compare,
   type Input,
@@ -46,8 +46,8 @@ import {
   TargetAuthorization,
   type TargetAuthorizer,
   type Tx,
-} from "../../../contracts/platform/mod.ts";
-import type { CommandRoute } from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/platform/mod.ts";
+import type { CommandRoute } from "../../../protocol/platform/mod.ts";
 import { createContextApiCommands } from "../api/commands.ts";
 import { createContextApiReads } from "../api/reads.ts";
 import type { ContextApiState, EntityRow } from "../api/state.ts";

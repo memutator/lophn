@@ -19,13 +19,13 @@ import type {
   viewDeleteRoute,
   viewSaveRoute,
   viewUpdateRoute,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 import type {
   CommandRoute,
   Compare,
   Input,
   Output,
-} from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/platform/mod.ts";
 import type {
   ContextApiActor,
   ContextApiDeps,

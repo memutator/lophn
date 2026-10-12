@@ -1,4 +1,4 @@
-import type { SchemaStep } from "../../../contracts/platform/mod.ts";
+import type { SchemaStep } from "../../../protocol/platform/mod.ts";
 
 // domain-model lophn-agent/harness/waiting-and-recovery의 `run_wait_resolutions` 표.
 // 결정 하나는 한 번만 반영된다: `(run, request, decision_seq)`가 키이고 `(request,

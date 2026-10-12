@@ -6,11 +6,11 @@ import type {
   ReadDefinition,
   ReadSnapshot,
   RequestContext,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   fixRecordSchema,
   listProblemFixes,
-} from "../../contracts/problems/mod.ts";
+} from "../../protocol/problems/mod.ts";
 import {
   NOT_FOUND,
   parseSeqCursor,

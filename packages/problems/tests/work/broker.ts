@@ -2,8 +2,8 @@
 // (architecture/problems 2.2). 자식은 core·collector 주소와 credential을 받지
 // 않는다. 자식 메시지로 live 전환이나 결과 기록을 요청할 수 없다.
 import { err, ok, type Result } from "../../../base/mod.ts";
-import { reportProblemInputSchema } from "../../../contracts/problems/mod.ts";
-import type { ReportProblemIngress } from "../../../contracts/problems/mod.ts";
+import { reportProblemInputSchema } from "../../../protocol/problems/mod.ts";
+import type { ReportProblemIngress } from "../../../protocol/problems/mod.ts";
 
 const REJECT = "자식 보고를 받지 않는다";
 

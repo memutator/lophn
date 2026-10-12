@@ -6,12 +6,12 @@ import {
   cliProjectCurrentSchema,
   cliProjectListSchema,
   cliProjectShowSchema,
-} from "../../../contracts/coding-agent/mod.ts";
+} from "../../../protocol/coding-agent/mod.ts";
 import {
   projectGet,
   projectList,
   projectResolveCwd,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 import type { CommandEntry } from "./types.ts";
 
 export const PROJECT_COMMANDS: readonly CommandEntry[] = [

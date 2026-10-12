@@ -2,7 +2,7 @@
 // `lophnApp.openExternal`만 열고, 다른 앱·shell API·token·임의 method·경로·파일 통로는 없다
 // (shell/app-frame#R13, R15). 앱·release·actor는 보내지 않는다: main이 sender view에서 정한다.
 // transport와 Electron event는 closure 안에 남는다.
-import type { LophnApp } from "../../../packages/contracts/shell/app-bridge-types.ts";
+import type { LophnApp } from "../../../packages/protocol/shell/app-bridge-types.ts";
 import {
   APP_CALL_CHANNEL,
   APP_OPEN_EXTERNAL_CHANNEL,

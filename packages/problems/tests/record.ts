@@ -5,12 +5,12 @@ import type {
   Input,
   RequestContext,
   Tx,
-} from "../../contracts/platform/mod.ts";
-import { TargetAuthorization } from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
+import { TargetAuthorization } from "../../protocol/platform/mod.ts";
 import {
   recordVerification,
   verificationRecorded,
-} from "../../contracts/problems/mod.ts";
+} from "../../protocol/problems/mod.ts";
 import { registerVerificationBlobs, requiredBlobs } from "./blobs.ts";
 import { judgeRecordable } from "./judge.ts";
 import {

@@ -1,12 +1,12 @@
 import { err, ok, type Result } from "../../base/mod.ts";
-import type { RunTrace } from "../../contracts/lophn-agent/mod.ts";
-import { agentTraceExport } from "../../contracts/lophn-agent/mod.ts";
+import type { RunTrace } from "../../protocol/lophn-agent/mod.ts";
+import { agentTraceExport } from "../../protocol/lophn-agent/mod.ts";
 import type {
   CommandDefinition,
   Input,
   Output,
   Sql,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { mergeTraces } from "./model.ts";
 import { loadRun, type Lookup, traceOfCall, traceOfRun } from "./reads.ts";
 import {

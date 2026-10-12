@@ -10,8 +10,8 @@ import {
   DEFAULT_RUN_LIMITS,
   type RunElapsed,
   runLimitsSchema,
-} from "../../../contracts/lophn-agent/mod.ts";
-import type { EffectiveSetting } from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
+import type { EffectiveSetting } from "../../../protocol/platform/mod.ts";
 import type { z } from "zod";
 
 export type RunLimits = z.infer<typeof runLimitsSchema>;

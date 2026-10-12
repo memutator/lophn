@@ -1,7 +1,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { err, ok, type Result, sha256Hex } from "../../base/mod.ts";
-import type { RequestContext, Sql } from "../../contracts/platform/mod.ts";
+import type { RequestContext, Sql } from "../../protocol/platform/mod.ts";
 import { revertSchemaSteps } from "../revert/mod.ts";
 import type { MessageBodyEnvironment } from "./body-read.ts";
 import { conversationSchemaSteps } from "./model.ts";

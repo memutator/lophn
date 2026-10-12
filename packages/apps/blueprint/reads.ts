@@ -7,12 +7,12 @@ import {
   appBlueprint,
   type AppBlueprintCommand,
   type Release,
-} from "../../contracts/apps/mod.ts";
+} from "../../protocol/apps/mod.ts";
 import type { Blueprint } from "./mod.ts";
 import type {
   ReadDefinition,
   ReadSnapshot,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { appAccessDenied, authorizeApp, loadApp } from "../registration/mod.ts";
 import { descriptionGaps } from "./describe.ts";
 

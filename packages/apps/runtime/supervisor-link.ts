@@ -6,7 +6,7 @@ import { err, ok, type Result } from "../../base/mod.ts";
 import type {
   RuntimeObservation,
   RuntimeReason,
-} from "../../contracts/apps/mod.ts";
+} from "../../protocol/apps/mod.ts";
 import type {
   ProcessObservation,
   ProcessQuery,

@@ -5,9 +5,9 @@
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
-import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
 import { openIndexStore } from "../../packages/documents/contexts/index/mod.ts";
-import { contextContentBytes } from "../../packages/contracts/documents/mod.ts";
+import { contextContentBytes } from "../../packages/protocol/projects/mod.ts";
 import { objectPathFor } from "../../packages/platform/blob-store/mod.ts";
 import { minimalContent } from "../../packages/documents/contexts/api/testing.ts";
 import { type Core, startCore } from "./core.ts";

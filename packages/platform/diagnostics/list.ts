@@ -2,8 +2,8 @@ import { ok, type Result } from "../../base/mod.ts";
 import type {
   AuthenticatedContext,
   DiagnosticRecord,
-} from "../../contracts/platform/mod.ts";
-import { diagnosticsList } from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
+import { diagnosticsList } from "../../protocol/platform/mod.ts";
 import type { ReadHandler } from "../api/mod.ts";
 
 export type DiagnosticQuery = {

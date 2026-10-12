@@ -1,4 +1,4 @@
-import type { RunTrace } from "../../contracts/lophn-agent/mod.ts";
+import type { RunTrace } from "../../protocol/lophn-agent/mod.ts";
 
 // trace는 저장하지 않는다. 조회 때 읽은 원본 사실(run·event·ModelCall·ToolCall·message 참조)에서
 // 순수하게 조립한다. IO와 SQL은 reads.ts가 한다. 본문·오류 원문·추론은 입력에 없고 따라서

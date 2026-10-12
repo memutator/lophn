@@ -5,8 +5,8 @@ import {
   bundleContentSchema,
   type ContextValue,
   splitExternalRef,
-} from "../../../contracts/documents/mod.ts";
-import type { Sql } from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/projects/mod.ts";
+import type { Sql } from "../../../protocol/platform/mod.ts";
 import { currentBundleOf } from "../api/reads-common.ts";
 import { declaredRuleMessage } from "../api/violation-message.ts";
 import type {

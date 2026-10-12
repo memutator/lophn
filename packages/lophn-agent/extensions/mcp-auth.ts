@@ -1,6 +1,6 @@
 import { err, ok, type Result } from "../../base/mod.ts";
 import { cryptoRandom, type RandomSource } from "../../base/mod.ts";
-import type { McpAuthFailure } from "../../contracts/lophn-agent/mod.ts";
+import type { McpAuthFailure } from "../../protocol/lophn-agent/mod.ts";
 import type { HttpFetch } from "./adapters/mcp-http.ts";
 import { httpRequest } from "./adapters/mcp-http.ts";
 

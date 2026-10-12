@@ -1,5 +1,5 @@
 import { err, ok, type Result } from "../../base/mod.ts";
-import type { InstructionReadFile } from "../../contracts/lophn-agent/mod.ts";
+import type { InstructionReadFile } from "../../protocol/lophn-agent/mod.ts";
 import type {
   InstructionFile,
   InstructionFiles,

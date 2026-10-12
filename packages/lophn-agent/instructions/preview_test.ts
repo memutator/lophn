@@ -2,7 +2,7 @@ import { assert, assertEquals } from "@std/assert";
 import {
   INSTRUCTION_PREVIEW_MAX_BYTES,
   instructionPreviewSchema,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import {
   INSTRUCTION_FILE_MAX_BYTES,
   type InstructionFile,

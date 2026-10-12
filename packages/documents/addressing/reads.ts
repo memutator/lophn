@@ -8,12 +8,12 @@ import {
   documentResolve,
   type PlaceRef,
   resolvedAddressSchema,
-} from "../../contracts/documents/mod.ts";
+} from "../../protocol/projects/mod.ts";
 import type {
   ReadDefinition,
   ReadSnapshot,
   RequestContext,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { z } from "zod";
 import {
   authorizeDocument,

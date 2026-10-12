@@ -4,7 +4,7 @@ import {
   type TokenUsage,
   type UsageTotal,
   usageTotalSchema,
-} from "../../../contracts/lophn-agent/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
 import type { Result } from "../../../base/mod.ts";
 import { ok } from "../../../base/mod.ts";
 import { decimalSum } from "./reads.ts";

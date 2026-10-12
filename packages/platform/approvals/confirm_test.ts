@@ -3,11 +3,11 @@
 // apps/core/platform-confirm_test.ts가 실제 core로 본다.
 import { assert, assertEquals } from "@std/assert";
 import { sha256Hex } from "../../base/mod.ts";
-import type { InvocationAcceptConfirmInput } from "../../contracts/apps/mod.ts";
+import type { InvocationAcceptConfirmInput } from "../../protocol/apps/mod.ts";
 import type {
   ApprovalAction,
   ApprovalRequest,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   checkConfirmAction,
   CONFIRM_COMMAND,

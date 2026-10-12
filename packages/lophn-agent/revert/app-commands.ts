@@ -9,7 +9,7 @@ import {
   type RevertItem,
   revertStarted,
   type rewind,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import {
   type CommandDefinition,
   type Input,
@@ -17,7 +17,7 @@ import {
   parseActor,
   type RequestContext,
   type Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import type { RevertDeps } from "./commands.ts";
 import { planRewind, type RewindPlan } from "./preview.ts";
 import { restorable } from "./restore.ts";

@@ -13,7 +13,7 @@ import {
   type HarnessIntegrationObservation,
   type IntegrationTarget,
   type LoadingResult,
-} from "../../../contracts/coding-agent/mod.ts";
+} from "../../../protocol/coding-agent/mod.ts";
 import {
   catalogOf,
   environmentSupported,

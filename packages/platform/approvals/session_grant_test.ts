@@ -5,11 +5,11 @@
 
 import { assert, assertEquals } from "@std/assert";
 import { sha256Hex } from "../../base/mod.ts";
-import type { InvocationAcceptConfirmInput } from "../../contracts/apps/mod.ts";
+import type { InvocationAcceptConfirmInput } from "../../protocol/apps/mod.ts";
 import {
   type ApprovalRequest,
   grantApprovalRequest,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { confirmationBinding } from "../identity/mod.ts";
 import { confirmAction } from "./confirm.ts";
 import {

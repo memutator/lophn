@@ -27,13 +27,13 @@ import {
   releaseRecordDataChange,
   releaseRecordDataRestore,
   releasesGet,
-} from "../../packages/contracts/apps/mod.ts";
-import { decodeDataJobOutput } from "../../packages/contracts/apps/mod.ts";
+} from "../../packages/protocol/apps/mod.ts";
+import { decodeDataJobOutput } from "../../packages/protocol/apps/mod.ts";
 import type {
   PreparedBlob,
   RequestContext,
   Sql,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import { type BlobPrepareCall } from "./core.ts";
 import type { PreparedRelayResult } from "./blob-prepare.ts";
 import { openConnection } from "../../packages/platform/ledger/mod.ts";

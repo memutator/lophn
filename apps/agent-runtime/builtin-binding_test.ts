@@ -2,14 +2,14 @@
 // 다음 이름 읽기 tool을 runtime이 agent 자격의 core route에 잇는 연결이다. core는 fake다.
 import { assert, assertEquals } from "@std/assert";
 import { err, ok, type Result } from "../../packages/base/mod.ts";
-import { ALL_ROUTES } from "../../packages/contracts/mod.ts";
+import { ALL_ROUTES } from "../../packages/protocol/mod.ts";
 import {
   contextCreateRoute,
   contextDraftRoute,
   contextPreviewRoute,
   contextSeriesNextRoute,
-} from "../../packages/contracts/documents/mod.ts";
-import { routePath } from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/projects/mod.ts";
+import { routePath } from "../../packages/protocol/platform/mod.ts";
 import { roleOperations } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
 import {
   BUILTIN_TOOLS,

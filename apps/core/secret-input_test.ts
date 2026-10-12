@@ -9,13 +9,13 @@
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { manualClock, ok, seededRandom } from "../../packages/base/mod.ts";
-import { disconnectProvider } from "../../packages/contracts/lophn-agent/mod.ts";
+import { disconnectProvider } from "../../packages/protocol/lophn-agent/mod.ts";
 import {
   FrameDecoder,
   removeSecret,
   setSecret,
-} from "../../packages/contracts/platform/mod.ts";
-import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
 import {
   derivedPath,
   type DerivedStore,

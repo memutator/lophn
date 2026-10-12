@@ -1,8 +1,8 @@
 import { assert, assertEquals, assertThrows } from "@std/assert";
 import type { Result } from "../../base/mod.ts";
-import type { RequestContext } from "../../contracts/platform/mod.ts";
+import type { RequestContext } from "../../protocol/platform/mod.ts";
 import { createProjectCommands } from "./mod.ts";
-import type { TrackingPreview } from "../../contracts/documents/mod.ts";
+import type { TrackingPreview } from "../../protocol/projects/mod.ts";
 import { ids, projectFixture, userContext } from "./testing-fixture.ts";
 
 const commands = createProjectCommands();

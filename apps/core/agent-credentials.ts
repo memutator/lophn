@@ -5,7 +5,7 @@ import {
   assignmentRead,
   runRead,
   runStarted,
-} from "../../packages/contracts/lophn-agent/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
 import {
   agentCredentialEndSchema,
   agentCredentialRequestSchema,
@@ -13,7 +13,7 @@ import {
   type ChildMessage,
   eventsList,
   routePath,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import { roleOperations } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
 export { roleOperations };
 import type { AgentCredentialIssuer } from "../../packages/lophn-agent/harness/run-loop/mod.ts";

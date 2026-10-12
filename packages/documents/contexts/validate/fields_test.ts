@@ -2,7 +2,7 @@ import { assertEquals } from "@std/assert";
 import { checkFields } from "./fields.ts";
 import { changed, sampleBundle, sampleEnv } from "./sample.ts";
 import { type ContractIssue, sortIssues } from "./types.ts";
-import type { BundleContent } from "../../../contracts/documents/mod.ts";
+import type { BundleContent } from "../../../protocol/projects/mod.ts";
 
 const issues = (bundle: BundleContent): ContractIssue[] =>
   sortIssues(checkFields(bundle, sampleEnv()));

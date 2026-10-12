@@ -3,7 +3,7 @@ import { err, ok, sha256Hex } from "../../base/mod.ts";
 import type {
   AssignmentScope,
   WorkPlace,
-} from "../../contracts/lophn-agent/mod.ts";
+} from "../../protocol/lophn-agent/mod.ts";
 import {
   INSTRUCTION_FILE_MAX_BYTES,
   INSTRUCTION_TOTAL_MAX_BYTES,

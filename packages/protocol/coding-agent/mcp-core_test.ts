@@ -8,7 +8,7 @@ import {
   place,
   project,
   version,
-} from "../documents/document-fixtures.ts";
+} from "../projects/document-fixtures.ts";
 import {
   MCP_CORE_TOOLS,
   mcpCoreTool,

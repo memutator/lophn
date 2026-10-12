@@ -8,7 +8,7 @@ import { err, ok, type Result } from "../../base/mod.ts";
 import type {
   IntegrationTarget,
   ResourceInstallResult,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 import { buildResources } from "./builder.ts";
 import { catalogOf } from "./catalog/definitions.ts";
 import { environmentSupported } from "./detection.ts";

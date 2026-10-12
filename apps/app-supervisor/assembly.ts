@@ -61,8 +61,8 @@ import {
   type PreviewLauncher,
   type PreviewScope,
 } from "../../packages/apps/preview/mod.ts";
-import { DIRECT_SOCKET_PATHS } from "../../packages/contracts/apps/mod.ts";
-import { diagnosticSchema } from "../../packages/contracts/platform/mod.ts";
+import { DIRECT_SOCKET_PATHS } from "../../packages/protocol/apps/mod.ts";
+import { diagnosticSchema } from "../../packages/protocol/platform/mod.ts";
 import { createKnownSecretRegistry } from "../../packages/platform/redaction/mod.ts";
 import {
   type BrokerChild,
@@ -75,7 +75,7 @@ import {
   type AutomationPermits,
   createAutomationPermits,
 } from "../../packages/apps/automations/permits.ts";
-import { reportAcceptanceSchema } from "../../packages/contracts/problems/mod.ts";
+import { reportAcceptanceSchema } from "../../packages/protocol/problems/mod.ts";
 import { createCoreAppCallTargets, createCoreBrokerAccess } from "./access.ts";
 import {
   previewScopeFromBundle,

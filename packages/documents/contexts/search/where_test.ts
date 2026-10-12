@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
-import type { Condition } from "../../../contracts/documents/mod.ts";
+import type { Condition } from "../../../protocol/projects/mod.ts";
 import { fixtureEntities, rowOf } from "./testing.ts";
 import type { Row } from "./types.ts";
 import { evaluate } from "./where.ts";

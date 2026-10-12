@@ -6,8 +6,8 @@ import { manualClock, ok, seededRandom } from "../../packages/base/mod.ts";
 import {
   type WorkerRequest,
   type WorkerResponse,
-} from "../../packages/contracts/platform/mod.ts";
-import { DOCUMENT_ROUTES } from "../../packages/contracts/documents/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
+import { DOCUMENT_ROUTES } from "../../packages/protocol/projects/mod.ts";
 import {
   type CredentialIssue,
   CredentialRegistry,

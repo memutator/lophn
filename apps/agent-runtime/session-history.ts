@@ -5,7 +5,7 @@ import {
   rewindList,
   sessionRead,
   sessionSummary,
-} from "../../packages/contracts/lophn-agent/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
 import type {
   SessionConversation,
   SessionMessage,

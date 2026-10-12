@@ -14,7 +14,7 @@ import {
   contextListRoute,
   contextOverviewRoute,
   glossaryListRoute,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 import { EXTERNAL_TOOL_CONTRACT } from "../../extensions/mod.ts";
 import {
   agentsRead,
@@ -61,7 +61,7 @@ import {
   toolCallList,
   toolCallRead,
   waitRun,
-} from "../../../contracts/lophn-agent/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
 import {
   appAgentConfirmProof,
   appBlueprint,
@@ -69,7 +69,7 @@ import {
   grantsList,
   invocationAcceptConfirm,
   invocationsList,
-} from "../../../contracts/apps/mod.ts";
+} from "../../../protocol/apps/mod.ts";
 import {
   applyApprovedAction,
   approvalsGet,
@@ -79,7 +79,7 @@ import {
   createApprovalRequest,
   eventsList,
   settingsGet,
-} from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/platform/mod.ts";
 
 // agent runtime이 core loopback을 부르는 길이다. machine 자격은 아래 route만 열고 목록에 없는 경로는
 // 요청하지 않는다. run의 agent 자격은 core가 그 credential의 scope로 막으므로 경로를 고르지 않는다.

@@ -2,7 +2,7 @@
 // T29). receipt와 journal은 `~/.lophn/integrations/` 아래 local metadata다
 // (domain-model). home root는 인자로 받는다. 고정 HOME을 읽지 않는다.
 // 쓰기는 같은 폴더 temp·fsync·rename이다(R9). symlink는 따라가지 않는다(R7).
-import type { IntegrationTarget } from "../../../contracts/coding-agent/mod.ts";
+import type { IntegrationTarget } from "../../../protocol/coding-agent/mod.ts";
 import type { FilePort, Store } from "./apply.ts";
 import type { Journal, Receipt } from "./receipt.ts";
 

@@ -2,7 +2,7 @@
 // 그 worker가 주입한 port만 부른다. 동기 file API는 쓰지 않는다.
 import { ok, type Result } from "../../base/mod.ts";
 import { decideTracking, type GitignoreRule } from "../projects/mod.ts";
-import type { TrackingPattern } from "../../contracts/documents/mod.ts";
+import type { TrackingPattern } from "../../protocol/projects/mod.ts";
 import { CANDIDATE_LIMIT, QUIET_MS, STABLE_READ_RETRIES } from "./model.ts";
 import {
   dropCandidate,

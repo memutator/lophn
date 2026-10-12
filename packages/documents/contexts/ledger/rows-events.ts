@@ -1,5 +1,5 @@
 // ledger events 표(platform)에서 읽기가 쓰는 event를 읽는다. context 표가 아니라 읽기 전용이다.
-import type { Sql } from "../../../contracts/platform/mod.ts";
+import type { Sql } from "../../../protocol/platform/mod.ts";
 import type { EmittedEvent } from "../api/state.ts";
 
 type Reader = Pick<Sql, "get" | "all">;

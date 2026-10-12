@@ -5,9 +5,9 @@ import { assert, assertEquals } from "@std/assert";
 import {
   exceptionObservationInputSchema,
   snapshotInputSchema,
-} from "../../contracts/problems/mod.ts";
+} from "../../protocol/problems/mod.ts";
 import { assembleException } from "./work.ts";
-import type { ObservedExceptionInput } from "../../contracts/problems/mod.ts";
+import type { ObservedExceptionInput } from "../../protocol/problems/mod.ts";
 import { preparedFolder, realPrepare } from "./testing/mod.ts";
 
 const APP = "app_01arz3ndektsv4rrffq69g5fav";

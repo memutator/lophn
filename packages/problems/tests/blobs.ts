@@ -5,8 +5,8 @@ import {
   defineBlobPurpose,
   idSchema,
   type Tx,
-} from "../../contracts/platform/mod.ts";
-import type { Verification } from "../../contracts/problems/mod.ts";
+} from "../../protocol/platform/mod.ts";
+import type { Verification } from "../../protocol/problems/mod.ts";
 import type { PreparedResultEvidence } from "./model.ts";
 
 const CONFLICT = "같은 요청의 내용이 다르다";

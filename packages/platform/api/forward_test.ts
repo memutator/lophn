@@ -7,11 +7,11 @@ import {
   ERROR_HTTP_STATUS,
   type WorkerRequest,
   type WorkerResponse,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   filesDelete,
   ROUTES as DOCUMENT_ROUTES,
-} from "../../contracts/documents/mod.ts";
+} from "../../protocol/projects/mod.ts";
 import {
   confirmationBinding,
   type ConfirmationBridge,

@@ -1,6 +1,6 @@
 // documents/formats#R4, R5: 대표 파일이 검사 한도를 넘을 때의 검사 결과.
 import { assert, assertEquals } from "@std/assert";
-import { FORMAT_CHECK_CONTENT_MAX_BYTES } from "../../contracts/documents/mod.ts";
+import { FORMAT_CHECK_CONTENT_MAX_BYTES } from "../../protocol/projects/mod.ts";
 import { BUILTIN_MODULE_HASH } from "./guest/module-hash.ts";
 import { CHECK_SKIPPED_CODE, overLimitOutcome } from "./check-limit.ts";
 

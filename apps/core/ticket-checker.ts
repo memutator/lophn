@@ -7,23 +7,23 @@ import { ticketCheckWork } from "../../packages/coding-agent/mod.ts";
 import {
   ticketCompletionReported,
   ticketRecordChecks,
-} from "../../packages/contracts/coding-agent/mod.ts";
+} from "../../packages/protocol/coding-agent/mod.ts";
 import {
   releaseActivated,
   releaseSuperseded,
-} from "../../packages/contracts/apps/mod.ts";
+} from "../../packages/protocol/apps/mod.ts";
 import {
   problemClosed,
   problemConfirmationRecorded,
   problemReopened,
   verificationRecorded,
-} from "../../packages/contracts/problems/mod.ts";
+} from "../../packages/protocol/problems/mod.ts";
 import type {
   EventDefinition,
   EventVisibilityDefinition,
   KindLaunchSpec,
   RequestContext,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import type { OperationPolicy } from "../../packages/platform/identity/mod.ts";
 import { checkLaunchSpec } from "../../packages/platform/security/mod.ts";
 import {

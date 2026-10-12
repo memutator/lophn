@@ -2,7 +2,7 @@ import { assert, assertEquals, assertFalse } from "@std/assert";
 import type {
   ReadSnapshot,
   RequestContext,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import { createIdSource, manualClock, seededRandom } from "../../base/mod.ts";
 import {
   readTestRequest,
@@ -10,7 +10,7 @@ import {
   readVerificationList,
   verificationRecordedVisibility,
 } from "./reads.ts";
-import { TargetAuthorization } from "../../contracts/platform/mod.ts";
+import { TargetAuthorization } from "../../protocol/platform/mod.ts";
 import { ctx, memorySql, strictTargetAuthorizer } from "./support.ts";
 import { VERIFICATION_PAGE_CAP } from "./model.ts";
 import { canonicalJson } from "./canonical.ts";

@@ -1,11 +1,11 @@
 import { err, ok, type Result } from "../../base/mod.ts";
-import { globalSkillsRead } from "../../contracts/lophn-agent/mod.ts";
+import { globalSkillsRead } from "../../protocol/lophn-agent/mod.ts";
 import type {
   Output,
   ReadDefinition,
   ReadSnapshot,
   RequestContext,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import type { ReadSql } from "./place-store.ts";
 import {
   listSkillsSync,

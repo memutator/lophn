@@ -1,4 +1,4 @@
-import type { Assignment } from "../../contracts/lophn-agent/mod.ts";
+import type { Assignment } from "../../protocol/lophn-agent/mod.ts";
 
 // row를 화면 값으로 바꾸는 도움. entity와 상태 전이 규칙은 domain-model
 // lophn-agent/assignments의 표·상태 그대로다. 순수 함수만 있고 IO는 없다.

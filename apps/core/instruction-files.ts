@@ -12,11 +12,11 @@ import {
   instructionPreview,
   instructionRead,
   type WorkPlace,
-} from "../../packages/contracts/lophn-agent/mod.ts";
+} from "../../packages/protocol/lophn-agent/mod.ts";
 import type {
   ReadDefinition,
   ReadSnapshot,
-} from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/platform/mod.ts";
 import type { ReaderRegistration } from "../../packages/platform/ledger/mod.ts";
 import {
   agentFileName,

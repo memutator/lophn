@@ -2,14 +2,14 @@
 // core에 닿지 않고 답한다(R1). tools/call은 registry의 route로만 dispatch한다.
 // protocol 오류는 JSON parse -32700, request -32600, method -32601, tool·params
 // -32602다. 알려진 tool의 실행·scope·입력 실패는 isError true다(R7).
-import type { Toolset } from "../../contracts/coding-agent/mod.ts";
+import type { Toolset } from "../../protocol/coding-agent/mod.ts";
 import {
   agentResultSchema,
   mcpToolResult,
   parseToolsets,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 import type { LophnError, Result } from "../../base/mod.ts";
-import { appCommandToolInputSchema } from "../../contracts/coding-agent/mod.ts";
+import { appCommandToolInputSchema } from "../../protocol/coding-agent/mod.ts";
 import {
   findTool,
   resolveRoute,

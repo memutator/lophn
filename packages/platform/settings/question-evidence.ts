@@ -4,7 +4,7 @@
 // events 표준본을 SQL로 읽는다(읽는 몫은 이 파일의 eventsOptionSource다).
 
 import { err, ok, type Result } from "../../base/mod.ts";
-import type { SettingMutation, SqlRow } from "../../contracts/platform/mod.ts";
+import type { SettingMutation, SqlRow } from "../../protocol/platform/mod.ts";
 
 // 사람이 고른 고정 option action의 뜻(settings 모양). platform은 질문 상태를
 // 직접 읽지 않고 이 값만 검증한다.

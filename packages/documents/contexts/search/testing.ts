@@ -2,7 +2,7 @@
 import {
   type BundleContent,
   bundleContentSchema,
-} from "../../../contracts/documents/mod.ts";
+} from "../../../protocol/projects/mod.ts";
 import type { Row, SearchEntity } from "./types.ts";
 
 const testdata = new URL("../testdata/", import.meta.url);

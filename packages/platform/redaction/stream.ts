@@ -1,4 +1,4 @@
-import { REDACTION_REPLACEMENT } from "../../contracts/platform/mod.ts";
+import { REDACTION_REPLACEMENT } from "../../protocol/platform/mod.ts";
 import { matchCredential, MIN_CREDENTIAL_LENGTH } from "./patterns.ts";
 import type { KnownSecretRegistry } from "./registry.ts";
 

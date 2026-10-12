@@ -1,7 +1,7 @@
 // core 비동기 dispatch. documents worker로 넘기는 일은 core의 writer·API 처리
 // 흐름을 붙잡지 않는다(architecture/documents 2.1). 요청은 큐에 넣고 바로 돌아오며,
 // 결과는 호출자가 준 콜백으로 나중에 도착한다. 동시 제출은 고정 한도까지다.
-import type { Frame } from "../../packages/contracts/platform/mod.ts";
+import type { Frame } from "../../packages/protocol/platform/mod.ts";
 import {
   type RequestPayload,
   sendPreparationRequest,

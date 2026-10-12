@@ -6,7 +6,7 @@ import { err, type LophnError, ok, type Result } from "../../../base/mod.ts";
 import type {
   HarnessId,
   IntegrationTarget,
-} from "../../../contracts/coding-agent/mod.ts";
+} from "../../../protocol/coding-agent/mod.ts";
 import {
   catalogOf,
   type DetectOutcome,

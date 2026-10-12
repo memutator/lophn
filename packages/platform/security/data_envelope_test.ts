@@ -1,5 +1,5 @@
 import { assert, assertEquals, assertThrows } from "@std/assert";
-import type { DataEnvelope } from "../../contracts/platform/mod.ts";
+import type { DataEnvelope } from "../../protocol/platform/mod.ts";
 import {
   DATA_END_MARKER,
   DATA_START_MARKER,

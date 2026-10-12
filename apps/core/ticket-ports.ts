@@ -4,7 +4,7 @@ import {
   QUESTION_ADOPTIONS_PORT,
 } from "../../packages/coding-agent/tickets/commands.ts";
 import { adoptionOf } from "../../packages/lophn-agent/handoff/mod.ts";
-import type { Tx } from "../../packages/contracts/platform/mod.ts";
+import type { Tx } from "../../packages/protocol/platform/mod.ts";
 import {
   defineTxPort,
   type TxPortRegistration,

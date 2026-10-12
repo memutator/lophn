@@ -7,7 +7,7 @@ import {
   type AppConnectOutput,
   brokerAppsConnectInputSchema,
   brokerAppsConnectOutputSchema,
-} from "../../../contracts/apps/mod.ts";
+} from "../../../protocol/apps/mod.ts";
 import { invalid } from "./access.ts";
 import type { BrokerChild } from "./invocations.ts";
 

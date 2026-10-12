@@ -7,7 +7,7 @@ import type {
   Output,
   RequestContext,
   Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 
 // handler는 동기 함수다. Promise를 돌려주는 함수는 이 타입에 안 들어간다(platform/ledger#R4).
 // 파일·socket·process handle은 인자로 없고, Tx만 받는다.

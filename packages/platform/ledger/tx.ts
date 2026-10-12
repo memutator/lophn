@@ -20,7 +20,7 @@ import {
   subjectSchema,
   TargetAuthorization,
   type Tx,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import type { z } from "zod";
 import {
   isSqlRejected,

@@ -15,7 +15,7 @@ import {
   unmountSettled,
 } from "../../../../../packages/design/components/testing.ts";
 
-import { TAB_KINDS } from "../../../../../packages/contracts/shell/workspace.ts";
+import { TAB_KINDS } from "../../../../../packages/protocol/shell/workspace.ts";
 import {
   say,
   SESSION_WEEK,

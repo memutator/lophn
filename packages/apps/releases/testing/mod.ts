@@ -15,7 +15,7 @@ import {
   releasesCompare,
   releasesGet,
   releasesList,
-} from "../../../contracts/apps/mod.ts";
+} from "../../../protocol/apps/mod.ts";
 import {
   type Blueprint,
   canonicalJson,
@@ -25,8 +25,8 @@ import {
 import {
   type AppTestVerificationFact,
   AppTestVerificationLookupPort,
-} from "../../../contracts/problems/mod.ts";
-import { TicketClaimCheck } from "../../../contracts/coding-agent/mod.ts";
+} from "../../../protocol/problems/mod.ts";
+import { TicketClaimCheck } from "../../../protocol/coding-agent/mod.ts";
 import {
   type CommandDefinition,
   defineCommand,
@@ -36,7 +36,7 @@ import {
   type Sql,
   TargetAuthorization,
   type Tx,
-} from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/platform/mod.ts";
 import { appsSchemaSteps } from "../../registration/mod.ts";
 import { manifestBytes } from "../bundle/manifest.ts";
 import { releasesSchemaSteps } from "../schema.ts";

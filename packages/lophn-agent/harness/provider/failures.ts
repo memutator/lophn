@@ -4,9 +4,9 @@
 // 안전하지 않으면 unknown이다. 인증 실패로 추측하지 않는다(provider#R19). 오류
 // 본문 원문은 여기에도 어디에도 남지 않는다.
 
-import { USAGE_WAIT_DEFAULT_MS } from "../../../contracts/lophn-agent/mod.ts";
-import type { ModelOutcome } from "../../../contracts/lophn-agent/mod.ts";
-import type { PROVIDER_FAILURES } from "../../../contracts/lophn-agent/mod.ts";
+import { USAGE_WAIT_DEFAULT_MS } from "../../../protocol/lophn-agent/mod.ts";
+import type { ModelOutcome } from "../../../protocol/lophn-agent/mod.ts";
+import type { PROVIDER_FAILURES } from "../../../protocol/lophn-agent/mod.ts";
 
 type ProviderFailure = (typeof PROVIDER_FAILURES)[number];
 

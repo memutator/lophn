@@ -13,8 +13,8 @@ import { err, ok, type Result, sha256Hex } from "../../packages/base/mod.ts";
 import {
   connectionRevoke,
   TICKET_SUMMARY_MAX_BYTES,
-} from "../../packages/contracts/coding-agent/mod.ts";
-import { UPLOAD_INPUT_HEADER } from "../../packages/contracts/platform/mod.ts";
+} from "../../packages/protocol/coding-agent/mod.ts";
+import { UPLOAD_INPUT_HEADER } from "../../packages/protocol/platform/mod.ts";
 import { confirmationBinding } from "../../packages/platform/identity/mod.ts";
 import {
   codingCredentialRef,
@@ -26,7 +26,7 @@ import {
   type World,
 } from "../../packages/apps/runtime/world_test.ts";
 import { codingAgentConnectionDefinitions } from "./coding-agent.ts";
-import { ALL_ROUTES } from "../../packages/contracts/mod.ts";
+import { ALL_ROUTES } from "../../packages/protocol/mod.ts";
 import { appsOperationPolicies } from "./apps-control.ts";
 import { codingAgentOperationPolicies } from "./coding-operations.ts";
 import { ticketDefinitions } from "./tickets.ts";

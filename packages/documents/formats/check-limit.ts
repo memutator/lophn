@@ -9,7 +9,7 @@ import {
   formatChecksContent,
   type FormatDiagnostic,
   type FormatRef,
-} from "../../contracts/documents/mod.ts";
+} from "../../protocol/projects/mod.ts";
 
 export const CHECK_SKIPPED_CODE = "check_skipped";
 

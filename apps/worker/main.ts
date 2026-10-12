@@ -18,7 +18,6 @@ import {
   CODING_AGENT_WORKER_KIND,
   runCodingAgentWorker,
 } from "./coding-agent/repair-context.ts";
-import { REVERT_WORKER_KIND, runRevertWorker } from "./apps/revert.ts";
 
 const WORKER_ENTRIES: Readonly<
   Record<string, (root: string) => Promise<void>>
@@ -42,7 +41,6 @@ const WORKER_ENTRIES: Readonly<
   "apps/data": runDataWorker,
   [TICKET_CHECKER_KIND]: runCheckerWorker,
   [CODING_AGENT_WORKER_KIND]: runCodingAgentWorker,
-  [REVERT_WORKER_KIND]: runRevertWorker,
 };
 
 export async function runWorker(kind: string, root: string): Promise<void> {

@@ -20,6 +20,8 @@ import {
   hasUnappliedSteering,
 } from "../conversation/mod.ts";
 import { registerMessageBodyRef } from "../conversation/testing/mod.ts";
+import { toolsSchemaSteps } from "../harness/tools/mod.ts";
+import { revertSchemaSteps } from "../revert/mod.ts";
 import { registerQuestionTextRef } from "./testing/mod.ts";
 import {
   createQuestionCommands,
@@ -110,6 +112,8 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
       ...assignmentSchemaSteps,
       ...runSchemaSteps,
       ...conversationSchemaSteps,
+      ...toolsSchemaSteps,
+      ...revertSchemaSteps,
       ...questionSchemaSteps,
       {
         id: "questions.test.setting-choices",

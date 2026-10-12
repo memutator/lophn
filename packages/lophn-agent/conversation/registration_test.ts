@@ -15,6 +15,8 @@ import {
   runSchemaSteps,
 } from "../harness/run-loop/mod.ts";
 import { modelSchemaSteps } from "../harness/model/mod.ts";
+import { toolsSchemaSteps } from "../harness/tools/mod.ts";
+import { revertSchemaSteps } from "../revert/mod.ts";
 import {
   conversationSchemaSteps,
   createConversationCommands,
@@ -161,6 +163,9 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
       // Compact가 Workspace의 Model for summaries(agent_model_defaults)를 읽는다.
       ...modelSchemaSteps,
       ...conversationSchemaSteps,
+      // ReceiveMessage가 같은 transaction에서 checkpoint를 만든다. 되돌리기 표가 tool call을 가리킨다.
+      ...toolsSchemaSteps,
+      ...revertSchemaSteps,
       {
         id: "conversation.test.fail-accept",
         sql: "create table fail_accept (fail integer not null)",

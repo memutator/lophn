@@ -21,7 +21,6 @@ import {
   instructionRead,
   questionCreated,
   runAccepted,
-  runAppRevert,
   runFinished,
   runStarted,
   withdrawAssignment,
@@ -131,11 +130,7 @@ import {
   traceExportCommand,
 } from "../../packages/lophn-agent/observability/mod.ts";
 import {
-  createRevertCommands,
-  createRevertEventVisibility,
-  createRevertReads,
-  defaultRevertOwners,
-  deleteSessionReverts,
+  createRecordRewindFile,
   revertSchemaSteps,
 } from "../../packages/lophn-agent/revert/mod.ts";
 import {
@@ -395,13 +390,12 @@ const runReads = createRunReads();
 
 // DeleteSession이 같은 Tx에서 지우는 그 세션의 run 기록이다(conversation#R20). run을 가리키는 표마다
 // 소유 concern이 지움을 내고 여기에 가리키는 쪽부터 놓는다: approval request, 기다림 결과(tool call을
-// 가리킨다), 되돌리기, 질문 묶음, tool call, model 호출, 마지막으로 run. 본문 참조는 소유 행보다
+// 가리킨다), 질문 묶음, tool call, model 호출, 마지막으로 run. 본문 참조는 소유 행보다
 // 먼저 지워야 소유 ID를 찾는다. 문서·release·앱 변경은 이 목록에 없어 그대로 남는다.
 function deleteSessionRecords(tx: Tx, session: string): Result<void> {
   const steps: (() => Result<void>)[] = [
     () => eraseApprovalRequests(tx, sessionRunIds(tx, session)),
     () => deleteSessionWaitResolutions(tx, session),
-    () => deleteSessionReverts(tx, session),
     () => deleteSessionQuestions(tx, session, eraseBlobRefs),
     () => deleteSessionToolCalls(tx, session, eraseBlobRefs),
     () => deleteSessionModelCalls(tx, session, eraseBlobRefs),
@@ -452,15 +446,9 @@ const handoffReads = createHandoffReads({
   },
 });
 
-// run revert(concern revert). 종료한 run의 event 전체를 owner별로 분류해 복원 가능한 변경을
-// 소유 concern의 새 변경으로 되돌린다. 문서 복원은 documents가 dispatchable로 선언한
-// `document.archive`·`document.restore`를 같은 Tx에서 부르고(`tx.call`), 과거 사실은 모두
-// 유지한다. 요청은 사람만 하고 확인 handle이 필요하다. 앱 되돌림 단계(lophn-agent#T48)는
-// run이 applying으로 저장한 revert에 대해 machine이 단계를 CheckpointRevert로 기록하고
-// 전체가 끝났으면 FinishRevert로 끝낸다. 실제 앱 호출은 runtime이 direct call로 한다.
-const revertOwners = defaultRevertOwners();
-const revertCommands = createRevertCommands({ owners: revertOwners });
-const revertReads = createRevertReads({ owners: revertOwners });
+// session 되돌리기(concern revert). 지금 조립하는 것은 문서 tool이 쓰기 직전에 남기는 기록
+// RecordRewindFile뿐이다. checkpoint는 ReceiveMessage가, 기록 지움은 DeleteSession이 같은 Tx에서 한다.
+const recordRewindFile = createRecordRewindFile();
 
 // run·session·독립 호출의 trace 조회와 export(concern observability). trace는 저장하지 않고
 // 조회 때 run·event·ModelCall·ToolCall·message 참조에서 조립한다. 쓰는 표가 없어 command·schema
@@ -943,10 +931,8 @@ export const lophnAgentDefinitions = {
     waitCommands.resolve,
     waitCommands.correct,
     waitCommands.recover,
-    revertCommands.run,
+    recordRewindFile,
     traceExportCommand,
-    revertCommands.checkpoint,
-    revertCommands.finish,
   ],
   reads: [
     reads.read,
@@ -979,8 +965,6 @@ export const lophnAgentDefinitions = {
     toolReads.list,
     questionReads.read,
     questionReads.list,
-    revertReads.preview,
-    revertReads.list,
     traceReads.read,
     instructionReadRoute(),
     instructionPreviewRoute(),
@@ -1001,8 +985,7 @@ export const lophnAgentDefinitions = {
     questionOptionPort,
   ],
   workers: [],
-  // 확인한 revert의 앱 단계를 이어 실행하는 core 메모리 route다. handler는 core 조립이 붙인다(T48).
-  memoryRoutes: [runAppRevert, mcpAuthBegin, mcpAuthComplete],
+  memoryRoutes: [mcpAuthBegin, mcpAuthComplete],
   // 문서·format tool의 글 값 통로다. 서빙은 core 조립이 한다(apps/core/tool-documents.ts).
   workerRoutes: TOOL_DOCUMENT_ROUTES,
   // profile 이미지의 바이트 입구(upload)와 읽기(file)다. 바이트를 붙이는 처리기는 core 조립(core.ts)이 route 이름으로 붙인다.
@@ -1357,8 +1340,7 @@ export function createLedgerRegistration(
 }
 
 // question·assignment 계기 event의 공개 정책(platform/notifications#R1)은 notifications
-// 구독자에게만 연다. revert event는 사람과 그 run의 assignment agent에게 연다(revert/visibility.ts).
-// 다른 lophn-agent event는 정책이 없어 계속 숨김이다.
+// 구독자에게만 연다. 다른 lophn-agent event는 정책이 없어 계속 숨김이다.
 export function createEventRegistration(): EventRegistration {
   return {
     visibility: [
@@ -1369,7 +1351,6 @@ export function createEventRegistration(): EventRegistration {
       machineOnlyVisibility(runAccepted),
       machineOnlyVisibility(runStarted),
       machineOnlyVisibility(runFinished),
-      ...createRevertEventVisibility(),
     ],
   };
 }
@@ -1414,8 +1395,6 @@ export function createReaderRegistration(): ReaderRegistration {
       toolReads.list,
       questionReads.read,
       questionReads.list,
-      revertReads.preview,
-      revertReads.list,
       traceReads.read,
     ],
     ports: new Map(),

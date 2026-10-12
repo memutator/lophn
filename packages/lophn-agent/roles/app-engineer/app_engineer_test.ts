@@ -375,11 +375,11 @@ Deno.test("lophn-agent/roles/app-engineer#R4: 앱 목적과 SDK는 lophn의 기�
   assertEquals(interviewBasis({ plan: null, humanWords: " " }).origin, "none");
 });
 
-Deno.test("lophn-agent/roles/app-engineer#R4: 앱 통합·공용 SDK는 lophn에, 용어 후보는 Context Engineer에 고정 근거와 함께 handoff한다", () => {
+Deno.test("lophn-agent/roles/app-engineer#R4: 앱 통합·공용 SDK는 lophn에, 용어집 초안은 Context Engineer에 고정 근거와 함께 handoff한다", () => {
   assertEquals(decisionOwner("shared_sdk"), "lophn");
   assertEquals(decisionOwner("app_integration"), "lophn");
-  assertEquals(decisionOwner("term_draft"), "context_engineer");
-  assertEquals(decisionOwner("term_correspondence"), "context_engineer");
+  assertEquals(decisionOwner("glossary_draft"), "context_engineer");
+  assertEquals(decisionOwner("context_boundary"), "context_engineer");
   assertEquals(decisionOwner("domain_model"), "app_engineer");
   const evidence = [{
     document: STORY,
@@ -389,7 +389,7 @@ Deno.test("lophn-agent/roles/app-engineer#R4: 앱 통합·공용 SDK는 lophn에
   }];
   for (
     const [topic, to] of [["shared_sdk", "lophn"], [
-      "term_draft",
+      "glossary_draft",
       "context_engineer",
     ]] as const
   ) {
@@ -1170,4 +1170,10 @@ Deno.test("lophn-agent/roles/app-engineer#R20: 실제 provider·model·계정은
     ),
     false,
   );
+});
+
+Deno.test("lophn-agent/roles/app-engineer#R4 [ctx-T10d]: 옛 term 후보 topic은 Context Engineer의 결정이 아니고 per-context 용어집 초안만 그렇다", () => {
+  assertEquals(decisionOwner("term_draft"), "app_engineer");
+  assertEquals(decisionOwner("term_correspondence"), "app_engineer");
+  assertEquals(decisionOwner("glossary_draft"), "context_engineer");
 });

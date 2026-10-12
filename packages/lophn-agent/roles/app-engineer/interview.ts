@@ -54,15 +54,15 @@ export function interviewBasis(input: {
   };
 }
 
-// 결정의 주인이다(R4). 앱 통합·공용 SDK 판단은 lophn, 용어 초안·기준 항목 적용 후보와
-// 컨텍스트 간 용어 대응은 Context Engineer, 나머지 앱 설계는 App Engineer다.
+// 결정의 주인이다(R4). 앱 통합·공용 SDK 판단은 lophn, 용어집 초안과 context 경계 설계는
+// Context Engineer, 나머지 앱 설계는 App Engineer다.
 export type DecisionOwner = "lophn" | "context_engineer" | "app_engineer";
 
 const LOPHN_TOPICS = ["app_integration", "shared_sdk", "sdk_reuse_order"];
 const CONTEXT_TOPICS = [
-  "term_draft",
+  "glossary_draft",
+  "context_boundary",
   "criteria_application",
-  "term_correspondence",
 ];
 
 export function decisionOwner(topic: string): DecisionOwner {
@@ -71,7 +71,7 @@ export function decisionOwner(topic: string): DecisionOwner {
   return "app_engineer";
 }
 
-// 다른 역할이 맡은 결정을 handoff로 넘기는 초안이다(R4). SDK 재사용 변경과 용어 후보에는
+// 다른 역할이 맡은 결정을 handoff로 넘기는 초안이다(R4). SDK 재사용 변경과 용어집 초안에는
 // 고정 근거를 붙이고, 방향은 lophn-agent/handoff의 허용 방향을 따른다. 담당 밖이 아니면
 // 넘기지 않는다.
 export function routeDecision(input: {

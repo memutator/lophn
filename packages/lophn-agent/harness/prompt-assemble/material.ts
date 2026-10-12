@@ -26,6 +26,9 @@ export type MaterialSource = {
   // 용어집 글. 항목이 없으면 `용어집: 없음` 같은 글이고 `has_glossary`가 거짓이라 줄일 것이 없다.
   glossary: string;
   has_glossary: boolean;
+  // 고른 context인데 읽지 못했을 때 그 이유. 있으면 overview는 이 이유를 알리는 자리표시 글이고
+  // omissions에 `load_failed`로 남으며 줄이지 않는다.
+  unavailable?: string;
 };
 
 export type MaterialRenderOptions = {
@@ -83,8 +86,20 @@ async function renderOne(
   return { text: `${head}\n${wired.wrapped}`, reference };
 }
 
+// 읽지 못한 context의 생략 기록. 예산 때문에 줄인 기록보다 앞에 둔다.
+function unavailableOf(sources: readonly MaterialSource[]): MaterialOmission[] {
+  return sources.flatMap((source) =>
+    source.unavailable === undefined ? [] : [{
+      source: source.address,
+      level: "material" as const,
+      reason: "load_failed" as const,
+      detail: source.unavailable,
+    }]
+  );
+}
+
 function noticeOf(omissions: readonly MaterialOmission[]): string | null {
-  if (omissions.length === 0) return null;
+  if (!omissions.some((o) => o.reason === "input_over_budget")) return null;
   const count = (level: MaterialOmission["level"]) =>
     omissions.filter((o) => o.level === level).length;
   return `[자료 생략] 입력 예산 때문에 context 용어집 ${
@@ -118,7 +133,7 @@ export function renderMaterial(
   options: MaterialRenderOptions,
 ): Promise<RenderedMaterial> {
   const kept = dedupeSources(sources);
-  return renderWith(kept, kept.map(() => "full"), [], options);
+  return renderWith(kept, kept.map(() => "full"), unavailableOf(kept), options);
 }
 
 // `blocked: input_over_budget`을 받은 쪽이 부른다. 용어집을 뒤 context부터 한 개씩 줄이고, 그래도 안 맞으면
@@ -131,13 +146,15 @@ export async function shrinkMaterial(
 ): Promise<RenderedMaterial & { fits: boolean }> {
   const kept = dedupeSources(sources);
   const depths: Depth[] = kept.map(() => "full");
-  const omissions: MaterialOmission[] = [];
+  const omissions: MaterialOmission[] = unavailableOf(kept);
   let rendered = await renderWith(kept, depths, omissions, options);
   if (await fits(rendered)) return { ...rendered, fits: true };
   for (const level of ["glossary", "overview"] as const) {
     for (let i = kept.length - 1; i >= 0; i--) {
       // 줄일 용어집이 없는 context는 이 단계에서 달라지는 것이 없다.
       if (level === "glossary" && !kept[i].has_glossary) continue;
+      // 읽지 못한 context의 overview는 이유뿐이라 줄이면 이유가 사라진다.
+      if (kept[i].unavailable !== undefined) continue;
       depths[i] = level === "glossary" ? "overview_only" : "names_only";
       omissions.push({
         source: kept[i].address,

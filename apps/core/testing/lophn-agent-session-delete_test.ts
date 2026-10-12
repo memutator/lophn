@@ -49,10 +49,10 @@ const ERASED = [
   "run_wait_resolutions",
   "question_groups",
   "questions",
+  "checkpoints",
+  "rewind_files",
   "reverts",
-  "revert_changes",
-  "revert_change_sources",
-  "revert_change_compensations",
+  "revert_items",
   "approval_requests",
   "approval_uses",
 ] as const;
@@ -207,25 +207,32 @@ function seedSession(
      values (?, ?, 1, ?, ?, '[]')`,
     [id("qst", n), group, hex(n), hex(n + 1)],
   );
+  // 되돌리기 기록: 사람 메시지의 checkpoint, 그 run의 문서 쓰기 기록, 그것을 되돌린 rewind와 항목.
+  // 문서 version event는 documents가 소유한 사실이라 session을 지워도 남는다.
+  const message = id("msg", n);
+  db.sql.run("insert into checkpoints (message, session) values (?, ?)", [
+    message,
+    session,
+  ]);
+  db.sql.run(
+    `insert into rewind_files (tool_call, path, checkpoint, seq, before_exists, before_sha256,
+       before_blob, before_size, after_exists, after_sha256)
+     values (?, ?, ?, 1, 1, ?, ?, 3, 1, ?)`,
+    [tools[0]!, key("path"), message, hex(n), hex(n), hex(n + 1)],
+  );
   const revert = id("rvt", n);
   db.sql.run(
-    `insert into reverts (id, run, allow_partial, outcome, preview_hash, created_seq,
-       state_seq, result_seq) values (?, ?, 0, 'applied', ?, ?, ?, ?)`,
-    [revert, run1, hex(n), seq(), seq(), seq()],
+    `insert into reverts (id, session, kind, choice, checkpoint, boundary_seq, outcome, redo,
+       preview_hash, result_seq) values (?, ?, 'rewind', 'restore_all', ?, 1, 'applied', 'none', ?, ?)`,
+    [revert, session, message, hex(n), seq("RevertApplied")],
   );
   db.sql.run(
-    `insert into revert_changes (revert, ordinal, owner, target, capability, result)
-     values (?, 0, 'documents', ?, 'reversible', 'restored')`,
-    [revert, key("target")],
+    `insert into revert_items (revert, ordinal, class, target, source, plan, result)
+     values (?, 0, 'file', ?, ?, 'restore', 'restored')`,
+    [revert, key("path"), JSON.stringify([tools[0]!])],
   );
-  db.sql.run(
-    "insert into revert_change_sources (revert, ordinal, source_seq) values (?, 0, ?)",
-    [revert, seq("DocumentVersionSaved")],
-  );
-  db.sql.run(
-    "insert into revert_change_compensations (revert, ordinal, restored_seq) values (?, 0, ?)",
-    [revert, seq("DocumentVersionRestored")],
-  );
+  seq("DocumentVersionSaved");
+  seq("DocumentVersionRestored");
   db.sql.run(
     `insert into approval_requests (id, requester, run, reason_blob, effect, action,
        action_binding_hash, session_grantable, status, grant_scope, created_seq, closed_seq)
@@ -431,10 +438,10 @@ function seededPerSession(table: (typeof ERASED)[number]): number {
     run_wait_resolutions: 2,
     question_groups: 1,
     questions: 1,
+    checkpoints: 1,
+    rewind_files: 1,
     reverts: 1,
-    revert_changes: 1,
-    revert_change_sources: 1,
-    revert_change_compensations: 1,
+    revert_items: 1,
     approval_requests: 1,
     approval_uses: 1,
   };
@@ -461,10 +468,6 @@ Deno.test("lophn-agent/conversation#R20 [agent-I12b]: records of an unfinished r
       "model_calls",
       "tool_calls",
       "run_wait_resolutions",
-      "reverts",
-      "revert_changes",
-      "revert_change_sources",
-      "revert_change_compensations",
       "approval_uses",
       "approval_requests",
       "blob_refs",

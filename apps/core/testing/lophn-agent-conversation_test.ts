@@ -28,6 +28,8 @@ import {
   runSchemaSteps,
 } from "../../../packages/lophn-agent/harness/run-loop/mod.ts";
 import {} from "../../../packages/lophn-agent/harness/run-loop/testing/mod.ts";
+import { toolsSchemaSteps } from "../../../packages/lophn-agent/harness/tools/mod.ts";
+import { revertSchemaSteps } from "../../../packages/lophn-agent/revert/mod.ts";
 import { providerSchemaSteps } from "../../../packages/lophn-agent/harness/provider/mod.ts";
 import { usageSchemaSteps } from "../../../packages/lophn-agent/harness/usage/mod.ts";
 import {
@@ -70,6 +72,8 @@ async function fileLedger() {
       ...assignmentSchemaSteps,
       ...runSchemaSteps,
       ...conversationSchemaSteps,
+      ...toolsSchemaSteps,
+      ...revertSchemaSteps,
     ],
     { clock },
   );

@@ -23,7 +23,6 @@ import { GrantKind } from "./kinds/grant/grant.tsx";
 import { OptionActionKind } from "./kinds/option-action/option-action.tsx";
 import { ReleaseActivationKind } from "./kinds/release-activation/release-activation.tsx";
 import { ProblemDecisionKind } from "./kinds/problem-decision/problem-decision.tsx";
-import { RevertKind } from "./kinds/revert/revert.tsx";
 import { SecretInputKind } from "./kinds/secret-input/secret-input.tsx";
 import type { KindProps } from "./kinds/exact.tsx";
 import layout from "./layout/layout.module.css";
@@ -61,20 +60,6 @@ export function outcomeText(
     return t("confirmation-window.result.saved", {
       name: result.secret_ref ?? "",
     });
-  }
-  if (kind === "revert") {
-    switch (result.result) {
-      case "applied":
-        return t("confirmation-window.result.undone");
-      case "partial":
-        return t("confirmation-window.result.partly-undone");
-      case "blocked":
-        return t("confirmation-window.result.not-undone");
-      case "uncertain":
-        return t("confirmation-window.result.undo-unknown");
-      default:
-        return t("confirmation-window.result.undoing");
-    }
   }
   if (kind === "connection_revoke") {
     return t("confirmation-window.result.connection-revoked");
@@ -291,8 +276,6 @@ export function ConfirmationScreen({ api, theme }: ScreenProps) {
     ? <AutomationKind {...props} />
     : kind === "option_action"
     ? <OptionActionKind {...props} />
-    : kind === "revert"
-    ? <RevertKind {...props} />
     : kind === "connection_revoke"
     ? <ConnectionRevokeKind {...props} />
     : kind === "problem_decision"

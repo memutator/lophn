@@ -33,6 +33,7 @@ import {
 } from "../../contracts/platform/mod.ts";
 import { createCompactCommands } from "./compact.ts";
 import { createForkCommand } from "./fork.ts";
+import { deleteSessionReverts } from "../revert/mod.ts";
 import { reject, requireUser, sessionNotFound } from "./guards.ts";
 import { type AcceptRun, createMessageCommands } from "./message-commands.ts";
 import {
@@ -323,6 +324,9 @@ export function createConversationCommands(deps: ConversationDeps): {
             .map((row) => String(row["id"])),
         );
         if (!bodies.ok) return bodies;
+        // checkpoint와 되돌리기 기록이 메시지를 가리키므로 메시지보다 먼저 지운다.
+        const rewound = deleteSessionReverts(tx, session.id);
+        if (!rewound.ok) return rewound;
         tx.sql.run("delete from messages where session = ?", [session.id]);
         const erased = deps.deleteSessionRecords(tx, session.id);
         if (!erased.ok) return erased;

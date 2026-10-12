@@ -27,6 +27,7 @@ export {
   clampSummaryText,
   COMPACT_RESHRINK_MAX,
   compactSummaryRequest,
+  type FoldedMessages,
   latestCompactSummary,
   type SessionConversation,
   sessionMaterial,

@@ -24,6 +24,7 @@ import {
   type RequestContext,
   type Tx,
 } from "../../contracts/platform/mod.ts";
+import { createCheckpoint } from "../revert/mod.ts";
 import { checkVisualContent } from "../visuals/mod.ts";
 import {
   reject,
@@ -278,6 +279,15 @@ export function createMessageCommands(accept: AcceptRun): {
         }, seq);
         const registered = registerBody(tx, input.id, seq, body);
         if (!registered.ok) return registered;
+        // 사람 request는 되돌아갈 지점(Checkpoint)이다. 같은 transaction에서 만든다.
+        const checkpoint = createCheckpoint(tx, {
+          id: input.id,
+          session: session.id,
+          actor: ctx.actor,
+          mode: input.mode,
+          copied_from: null,
+        });
+        if (!checkpoint.ok) return checkpoint;
         // 제목은 첫 사람 request를 접수하는 같은 transaction에서 정한다(R18). 상태 seq는
         // 바꾸지 않는다: 바로 이어 보낸 다음 입력이 낡은 seq로 충돌하지 않게 한다.
         const title = titleOnReceive({

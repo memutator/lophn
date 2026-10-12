@@ -12,7 +12,24 @@ import {
   sendCommand,
   type Sent,
 } from "./core.ts";
-import { newRevertId } from "./revert.ts";
+
+const ALPHABET = "0123456789abcdefghjkmnpqrstvwxyz";
+
+/** `apr_` + ULID(26자, Crockford base32 소문자). 창 하나가 같은 id로 결합한다. */
+function newApprovalId(
+  now: number,
+  random: (bytes: Uint8Array) => Uint8Array,
+): string {
+  let time = "";
+  let rest = Math.max(0, Math.floor(now));
+  for (let index = 0; index < 10; index++) {
+    time = ALPHABET[rest % 32] + time;
+    rest = Math.floor(rest / 32);
+  }
+  let tail = "";
+  for (const byte of random(new Uint8Array(16))) tail += ALPHABET[byte % 32];
+  return `apr_${time}${tail}`;
+}
 
 type Intent = Extract<ConfirmationIntent, { kind: "owner_decision" }>;
 type Fixed = { approval: string; action: Record<string, unknown> };
@@ -29,7 +46,7 @@ export function appDecisions(
     const missing = () => failed("not_found", "이 결정을 찾지 못했다");
     const first = targets[0];
     if (first === undefined) return missing();
-    const approval = newRevertId(now(), random).replace("rvt_", "apr_");
+    const approval = newApprovalId(now(), random);
     let concern = "apps/permissions";
     let command = "grant.create";
     let actionTargets: string[];

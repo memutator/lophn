@@ -107,6 +107,7 @@ export function SettingsScreen(
   const [picked, setPicked] = useState<SectionId | null>(
     coding && initialConnection ? "coding" : null,
   );
+  // Agents의 [Add server]는 server form을 가진 Tools and skills 자리로 옮긴다(form을 두 벌 두지 않는다).
   // Agents의 [Edit]은 전역 지침 편집기를 여는 shell 통로로 간다. 통로가 바뀌어도 Agents를 다시 읽지 않는다.
   const instructions = useRef(onInstructions);
   instructions.current = onInstructions;
@@ -114,6 +115,10 @@ export function SettingsScreen(
     () =>
       agents === undefined ? undefined : {
         ...agents,
+        addServer: () => {
+          setPicked("extensions");
+          return Promise.resolve({ ok: true, value: null });
+        },
         openInstructions: () => {
           const open = instructions.current;
           if (open === undefined) {

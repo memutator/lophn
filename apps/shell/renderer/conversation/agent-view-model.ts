@@ -4,10 +4,7 @@ import type { SaveRecord } from "./drafts.ts";
 import type { Outgoing } from "./delivery-state.ts";
 import type { ThreadEntry, ThreadMessage, ThreadView } from "./agent-source.ts";
 import type { ViewDetail } from "./activity/model.ts";
-import type {
-  SlashEntryView,
-  SlashGroupView,
-} from "./slash-menu/slash-menu.tsx";
+import type { SlashEntryView, SlashGroupView } from "./slash-menu/types.ts";
 
 /** 아직 만들지 않은 새 session의 입력 메모리 key. 같은 창의 다른 agent와 섞이지 않는다. */
 export function newSessionKey(assignment: string): string {

@@ -10,7 +10,6 @@ import {
 } from "react";
 import {
   Avatar,
-  type AvatarProfile,
   editorIcons,
   Icon,
   IconButton,
@@ -23,35 +22,15 @@ import { type MessageKey, t } from "@lophn/wording";
 
 import styles from "./agent-header.module.css";
 import { SessionPopover } from "./session-popover.tsx";
+import type { HeaderAgent, SessionLine } from "./types.ts";
 
-export type SessionStatus = "waiting" | "working" | "idle";
-export type SessionGroup = "today" | "earlier";
-
-/** popover의 session 한 줄. */
-export interface SessionLine {
-  /** `ses_…` */
-  readonly id: string;
-  /** 이 session이 속한 agent(assignment, `asg_…`). 머리의 agent와 다르면 목록에 보이지 않는다. */
-  readonly assignment: string;
-  /** 비어 있지 않은 제목. 제목 없는 새 session의 말은 부르는 쪽이 정한다. */
-  readonly title: string;
-  /** ● Waiting for you(waiting), ◐ Working(working), 점 없음(idle). */
-  readonly status: SessionStatus;
-  /** 마지막 활동 시각(ISO). 줄에는 `now` 기준 상대 시각으로 보인다. */
-  readonly activeAt: string;
-  /** Today·Earlier 묶음. 부르는 쪽이 사용자 달력으로 가른다(component는 시간대를 다루지 않는다). */
-  readonly group: SessionGroup;
-  /** archive한 session. 기본 목록이 아니라 Archived (n) 아래에 있다. */
-  readonly archived: boolean;
-}
-
-export interface HeaderAgent {
-  /** `asg_…` */
-  readonly assignment: string;
-  /** 머리에 보이는 agent 이름(고정 글자가 아니다). */
-  readonly name: string;
-  readonly profile: AvatarProfile;
-}
+export type {
+  AgentProfile,
+  HeaderAgent,
+  SessionGroup,
+  SessionLine,
+  SessionStatus,
+} from "./types.ts";
 
 export interface AgentHeaderProps {
   agent: HeaderAgent;

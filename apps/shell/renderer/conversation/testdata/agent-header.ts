@@ -1,6 +1,6 @@
 // Agent 화면 머리·session popover test의 fake. 값은 lophn-agent/sessions의 모양을 따른다.
 // 시각·id는 고정이다.
-import type { HeaderAgent, SessionLine } from "../header/agent-header.tsx";
+import type { HeaderAgent, SessionLine } from "../header/types.ts";
 
 export const HEADER_NOW = new Date("2026-10-06T09:00:00Z");
 

@@ -7,7 +7,7 @@ import type {
   PickerModelRow,
   PickerNoticeView,
   PickerProviderGroup,
-} from "../model-picker/model-picker.tsx";
+} from "../model-picker/types.ts";
 
 export const ANTHROPIC = "pvd_01arz3ndektsv4rrffq69g5fa1";
 export const OPENAI = "pvd_01arz3ndektsv4rrffq69g5fa2";

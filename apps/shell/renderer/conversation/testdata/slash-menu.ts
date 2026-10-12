@@ -4,7 +4,7 @@ import type {
   SlashEntryView,
   SlashGroupView,
   SlashMenuProps,
-} from "../slash-menu/slash-menu.tsx";
+} from "../slash-menu/types.ts";
 
 function builtin(
   name: string,

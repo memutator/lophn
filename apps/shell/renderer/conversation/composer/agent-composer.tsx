@@ -46,6 +46,8 @@ export interface AgentComposerProps {
   tooLong: boolean;
   /** 연결이 끊겨 지금은 보낼 수 없다. 글은 그대로 쓸 수 있다. */
   offline: boolean;
+  /** 글이 비어 있을 때 입력칸에 보이는 안내. */
+  hint?: string;
   /** 입력칸 위 context chip. 비어 있으면 줄이 없다. */
   contexts: readonly ContextChipView[];
   /** 가운데 단추. model 이름과 option 값은 picker props가 준다. */
@@ -153,6 +155,7 @@ export function AgentComposer(props: AgentComposerProps): ReactNode {
             rows={2}
             aria-label={t("conversation.label.composer-message")}
             value={draft.text}
+            placeholder={props.hint}
             readOnly={locked}
             data-composer-input=""
             onChange={(event) =>

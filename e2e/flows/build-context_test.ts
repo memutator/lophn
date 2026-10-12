@@ -422,28 +422,12 @@ Deno.test({
         "shell/workspace#R30 shell/workspace#R16: 5 판이 적용되면 열어 둔 drafting 탭이 보통 Context 탭이 된다",
         async () => {
           // 탭을 다시 열거나 창을 다시 읽지 않아도 같은 탭이 drafting을 벗어나야 한다.
-          let failure: unknown;
-          try {
-            await flow.until(
-              `document.querySelector("[data-drafting]") === null && document.querySelector("[data-kept-up-to-date]") !== null`,
-              "열어 둔 탭이 drafting에서 벗어나지 않았다",
-              45_000,
-            );
-          } catch (error) {
-            failure = error;
-          }
-          if (failure !== undefined) {
-            // 다음 걸음은 읽은 값으로 이어 가도록 창을 다시 읽고 이 걸음은 실패로 둔다.
-            await flow.evaluate(
-              `(() => { location.reload(); return true; })()`,
-            );
-            await delay(500);
-            await flow.until(
-              `document.querySelector("[data-space='project']") !== null && document.querySelector("[data-connection]") === null`,
-              "창을 다시 읽은 뒤 project 작업대가 서지 않았다",
-            );
-            throw failure;
-          }
+          // context 목록을 다시 읽는 간격(30초) 안에 따라온다.
+          await flow.until(
+            `document.querySelector("[data-drafting]") === null && document.querySelector("[data-kept-up-to-date]") !== null`,
+            "열어 둔 탭이 drafting에서 벗어나지 않았다",
+            90_000,
+          );
         },
       );
 

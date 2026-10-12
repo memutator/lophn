@@ -1,6 +1,6 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 
-// Operator 회차의 결과 판정(roles/operator R6, R7, R8). 순수 함수다: IO·시계·model
+// Operator run 하나의 결과 판정(roles/operator R6, R7, R8). 순수 함수다: IO·시계·model
 // 호출이 없다. 실제 읽기·저장은 harness/tools 묶음의 tool과 documents/versions가
 // 하고, 이 모듈은 모델이 남긴 결과를 사실·판단·불확실함으로 구분해 무엇이 새
 // version이 되는지의 계약만 정한다.
@@ -22,8 +22,8 @@ export type EvidenceAddress = {
   section: string | null;
 };
 
-// 회차 결과다(R6 표). kind가 하나인 결과 하나다. 선언된 남길 문서만 쓴다.
-export type OccurrenceOutcome =
+// Operator run 하나의 결과다(R6 표). kind가 하나인 결과 하나다. 선언된 남길 문서만 쓴다.
+export type OperatorRunOutcome =
   // 갱신 조건을 충족해 남길 내용이다(R6 표 갱신 결과). 승인된 update_condition에
   // 맞을 때만 새 Version이다.
   | {
@@ -61,7 +61,7 @@ export function update(
     declared_items: string[];
     update_condition: string;
   },
-): Result<Extract<OccurrenceOutcome, { kind: "update" }>> {
+): Result<Extract<OperatorRunOutcome, { kind: "update" }>> {
   if (output.update_condition.trim() === "") {
     return err({ code: "invalid_input", message: "update condition is blank" });
   }

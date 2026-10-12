@@ -128,6 +128,8 @@ export const mcpServersSetting = defineSetting({
   value_type: z.array(mcpServerConfigSchema).max(32),
 });
 
+const mcpAuthPlaceSchema = agentPlaceSchema.nullable();
+
 // MCP OAuth 2.1의 시작 입구다(extensions#R16, shell#T31에서 넘어온 것의 route 절반).
 // 사람이 서버 이름을 정하고 lophn이 S256 PKCE verifier·challenge와 무작위 state를 만들어
 // 사람이 OS browser에서 열 authorization 주소와 callback port를 돌려준다. verifier·state는
@@ -135,9 +137,15 @@ export const mcpServersSetting = defineSetting({
 // extensions/mcp-auth.ts)의 작업 메모리에만 산다. credential 값 보관은 보호 창의
 // `SetSecret`(이름 `mcp-<server>`)이 하고 설정은 `sec:mcp-<server>`를 가리킨다.
 // ledger queue를 거치지 않는다(작업 메모리가 곧 상태다).
+//
+// 서버는 이름만으로 하나가 정해지지 않는다: 서로 다른 자리가 같은 이름의 서버를 따로 둘 수 있다
+// (extensions R33). 그래서 시작·완료 입력은 서버가 등록된 자리를 함께 받는다.
 export const mcpAuthBeginInputSchema = z.strictObject({
   // 등록한 서버 이름이다. 계약 serverFields의 nameSchema(extensions R12)다.
   name: z.string().regex(/^[A-Za-z0-9_-]{1,32}$/),
+  // 서버가 등록된 자리다. 전역(Workspace) 서버는 자리가 아니므로 null이다(이웃 route는 전역을 다른
+  // 설정이 맡아 자리만 받지만, 이 입구는 전역 서버의 로그인도 열어야 해서 null을 둔다).
+  place: mcpAuthPlaceSchema,
   // 사람이 등록한 client_id다(R16: 동적 등록을 지원하지 않는 서버도 이 하나로 진행한다).
   client_id: z.string().min(1).max(200),
   scopes: z.array(z.string().min(1).max(128)).max(32),
@@ -172,6 +180,8 @@ export const mcpAuthBegin = defineMemory({
 // `/v1/agent-mcp-auth/state` read로만 보인다: token·verifier·state 값은 응답 어디에도 없다.
 export const mcpAuthCompleteInputSchema = z.strictObject({
   name: z.string().regex(/^[A-Za-z0-9_-]{1,32}$/),
+  // 시작이 받은 자리와 같다: 서버가 등록된 자리이고 전역 서버는 null이다.
+  place: mcpAuthPlaceSchema,
   // 사람 credential의 loopback callback port다.
   callback_port: z.number().int().positive(),
 });

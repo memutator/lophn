@@ -48,8 +48,10 @@ export {
   type PlaceExtensionLookups,
 } from "./place-settings.ts";
 export {
+  collectPlaceMcpEntries,
   collectPlaceMcpServers,
   mergeMcpServers,
+  type PlaceMcpEntry,
   type PlaceServerSource,
 } from "./place-servers.ts";
 export {

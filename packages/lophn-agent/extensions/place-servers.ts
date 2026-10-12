@@ -1,4 +1,7 @@
-import type { McpServerConfig } from "../../contracts/lophn-agent/mod.ts";
+import type {
+  AgentPlace,
+  McpServerConfig,
+} from "../../contracts/lophn-agent/mod.ts";
 import { parsePlaceMcpFile, PLACE_MCP_FILE } from "./place-store.ts";
 
 // 모든 자리의 MCP 서버 모음(concern lophn-agent/extensions R32, R33). agent-runtime child의 Deno 권한
@@ -14,13 +17,26 @@ export type PlaceServerSource = {
 
 const PLACE_ID = /^(prj|app)_[0-9a-z]+$/;
 
+// 서버와 그 서버가 등록된 자리다. 같은 이름의 서버가 서로 다른 자리에 있어도 따로 남는다.
+export type PlaceMcpEntry = { place: AgentPlace; server: McpServerConfig };
+
 // `<root>/projects/*`와 `<root>/apps/*`의 `mcp-servers.json`이 가진 서버를 자리 id 순으로 모은다. 틀린 파일이나
 // 읽지 못한 파일은 그 자리 서버만 빠진다(R12). 자리 id 모양이 아닌 폴더는 자리가 아니다.
 export async function collectPlaceMcpServers(
   root: string,
   source: PlaceServerSource,
 ): Promise<McpServerConfig[]> {
-  const found: McpServerConfig[] = [];
+  return (await collectPlaceMcpEntries(root, source)).map((entry) =>
+    entry.server
+  );
+}
+
+// collectPlaceMcpServers와 같되 서버마다 등록된 자리를 붙인다. OAuth 시작이 자리로 서버를 고른다(R16).
+export async function collectPlaceMcpEntries(
+  root: string,
+  source: PlaceServerSource,
+): Promise<PlaceMcpEntry[]> {
+  const found: PlaceMcpEntry[] = [];
   for (const area of ["projects", "apps"] as const) {
     let ids: readonly string[] | null;
     try {
@@ -35,7 +51,14 @@ export async function collectPlaceMcpServers(
         );
         if (text === null) continue;
         const parsed = parsePlaceMcpFile(text);
-        if (parsed.ok) found.push(...parsed.value.mcp_servers);
+        if (!parsed.ok) continue;
+        const place = {
+          kind: area === "projects" ? "project" : "app",
+          id,
+        } as AgentPlace;
+        for (const server of parsed.value.mcp_servers) {
+          found.push({ place, server });
+        }
       } catch {
         // 읽지 못한 자리는 서버가 없는 것으로 닫는다.
       }

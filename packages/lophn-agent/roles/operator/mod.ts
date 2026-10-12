@@ -5,7 +5,7 @@ export {
 } from "./tool-selection.ts";
 export {
   type EvidenceAddress,
-  type OccurrenceOutcome,
+  type OperatorRunOutcome,
   type OutcomePoint,
   update,
 } from "./result.ts";

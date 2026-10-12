@@ -3,7 +3,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { createMcpSecretRefSource, MCP_SECRET_OWNER } from "./mod.ts";
 
-type Rows = Record<string, unknown>[];
+type Rows = Record<string, string | number | null>[];
 
 // 설정 행과 secrets 표만 흉내 내는 읽기 눈이다.
 function sqlOf(options: { setting?: unknown; secrets?: Rows }) {

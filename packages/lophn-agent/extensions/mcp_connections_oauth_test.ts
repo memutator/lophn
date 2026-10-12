@@ -132,6 +132,11 @@ Deno.test("lophn-agent/extensions#R16 #R17 [agent-I52]: an OAuth server gets the
     );
     assert(connected.ok, connected.ok ? "" : connected.error.message);
     assertEquals(connected.value.state, "connected");
+    assertEquals(mcp.seen[0]!.authorization, "Bearer token-one");
+    // 값이 바뀌면(갱신) 다음 요청이 새 값을 붙인다. 연결을 다시 열 필요가 없다.
+    const listed = await connections.toolList("asg-1", "notes");
+    assert(listed.ok);
+    assertEquals(mcp.seen.at(-1)!.authorization, "Bearer token-two");
     // 요청마다 부착을 청하고 참조는 설정이 가리키는 token 참조, 목적지는 서버 URL의 origin이다.
     assert(secrets.asked.length >= 2);
     for (const asked of secrets.asked) {
@@ -141,11 +146,6 @@ Deno.test("lophn-agent/extensions#R16 #R17 [agent-I52]: an OAuth server gets the
         origin: "https://mcp.example.test",
       });
     }
-    assertEquals(mcp.seen[0]!.authorization, "Bearer token-one");
-    // 값이 바뀌면(갱신) 다음 요청이 새 값을 붙인다. 연결을 다시 열 필요가 없다.
-    const listed = await connections.toolList("asg-1", "notes");
-    assert(listed.ok);
-    assertEquals(mcp.seen.at(-1)!.authorization, "Bearer token-two");
     // 값은 연결 상태 어디에도 없다.
     assert(!JSON.stringify(connections.views()).includes("token-"));
   } finally {

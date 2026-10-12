@@ -606,12 +606,12 @@ Deno.test("lophn-agent/extensions#R16 [agent-I52]: 잘못된 state와 거절된 
     })).ok,
   );
   const { fetch } = fetchOf(() => tokenResponse({ access_token: "x" }));
-  const rejected = await auth.complete({
+  const mismatched = await auth.complete({
     fetch,
     signal: new AbortController().signal,
   });
-  assert(!rejected.ok);
-  assertEquals(rejected.error.code, "invalid_input");
+  assert(!mismatched.ok);
+  assertEquals(mismatched.error.code, "invalid_input");
   assertEquals(auth.state(), { kind: "failed", reason: "state_mismatch" });
 
   let state = "";

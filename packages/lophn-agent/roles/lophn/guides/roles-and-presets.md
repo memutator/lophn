@@ -1,9 +1,9 @@
 # Roles and Presets
 
 A Preset is one saved agent setup: the role, the instructions you attached, the
-contexts it may read, the skills and MCP tools you selected, and the connection and
-model. There is a product Preset for each role. You can change that Preset, copy
-it, or make a new one. You cannot use a Preset to widen a limit the product
+contexts it may read, the skills and MCP tools you selected, and the connection
+and model. There is a product Preset for each role. You can change that Preset,
+copy it, or make a new one. You cannot use a Preset to widen a limit the product
 fixed for that role. Copying copies the setup only. It does not copy access,
 saved secrets, or history.
 
@@ -14,9 +14,8 @@ helps you plan a project or an app from material you already have, recommends
 where a document belongs, explains how to use lophn, and summarizes how the
 product is operating. It does not design an app in detail, interpret a cause, or
 write the app. A request to change code becomes a Task. App detail that needs an
-engineer continues with App Engineer.
-A request to create a context or change what one covers continues with Context
-Engineer.
+engineer continues with App Engineer. A request to create a context or change
+what one covers continues with Context Engineer.
 
 App Engineer is one per app. It is the role for that app's detailed design and
 implementation planning. It does not take over planning that belongs outside the
@@ -36,8 +35,8 @@ of the Preset.
 
 ## What is fixed, and when it changes
 
-A Preset stores the role, its name, its prompt, the tools it may use, the contexts
-it may read, the exact skills, the exact MCP server and tool pairs, the
+A Preset stores the role, its name, its prompt, the tools it may use, the
+contexts it may read, the exact skills, the exact MCP server and tool pairs, the
 connection accounts and model, and any Instructions attached to it. It does not
 store a secret or a price list. Skills and MCP tools are chosen by exact name
 from what you have registered. A new tool that appears later is not added to an

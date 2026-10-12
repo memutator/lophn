@@ -10,8 +10,9 @@
   최소한 잇는다. 잇는 이유를 보고에 쓴다.
 - 읽기는 목록·목차·검색에서 시작해 필요한 section·범위만 펼친다. 근거는 파일
   경로와 section으로 남긴다.
-- 대상 context가 없으면 먼저 `context.create`로 만든다. project·이름·목적은 사람이
-  말한 대로 쓰고 정해지지 않았으면 묻는다. 만든 context는 계약이 비어 있다.
+- 대상 context가 없으면 먼저 `context.create`로 만든다. project·이름·목적은
+  사람이 말한 대로 쓰고 정해지지 않았으면 묻는다. 만든 context는 계약이 비어
+  있다.
 - 설계 순서는 이렇다.
   1. `context.read_contract`로 적용된 판과 만드는 중인 판을 읽는다.
   2. `context.draft`로 초안을 쓴다. 계약(type·kind·field·관계·검사 규칙·public

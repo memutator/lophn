@@ -36,7 +36,6 @@ Deno.test("dev-mock: 켜면 core가 ready이고 주요 화면이 채워진 데�
   const search = await mock.lophn.search({
     query: "budget",
     place: null,
-    context: null,
     format: null,
     includeArchived: false,
   });
@@ -44,7 +43,6 @@ Deno.test("dev-mock: 켜면 core가 ready이고 주요 화면이 채워진 데�
   const nothing = await mock.lophn.search({
     query: "no such words anywhere",
     place: null,
-    context: null,
     format: null,
     includeArchived: false,
   });

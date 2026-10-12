@@ -302,7 +302,7 @@ if (import.meta.main) {
   const missing = missingItems(docs);
   if (missing.length > 0) {
     console.error(
-      `contract 빠짐 ${missing.length}개. 각 architecture 5장의 경로·event가 contracts에 있어야 한다:`,
+      `contract 빠짐 ${missing.length}개. 각 architecture 5장의 경로·event가 protocol에 있어야 한다:`,
     );
     for (const item of missing) {
       console.error(

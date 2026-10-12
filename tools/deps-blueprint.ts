@@ -1,18 +1,18 @@
 import { computedImports, readImports } from "./deps-imports.ts";
 import { directory, inside, normalize } from "./deps-workspace.ts";
 
-export const BLUEPRINT_ENTRY = "packages/contracts/apps/blueprint.ts";
-export const BLUEPRINT_WRAPPER = "packages/apps/blueprint/mod.ts";
+export const BLUEPRINT_ENTRY = "packages/protocol/apps/blueprint.ts";
+export const BLUEPRINT_WRAPPER = "packages/core/apps/blueprint/mod.ts";
 const SDK = "packages/sdk/blueprint";
 const CONTRACT_FILES = new Set([
   BLUEPRINT_ENTRY,
-  "packages/contracts/apps/blueprint-types.ts",
-  "packages/contracts/apps/blueprint-json.ts",
-  "packages/contracts/apps/blueprint-schema.ts",
-  "packages/contracts/apps/blueprint-scope.ts",
-  "packages/contracts/apps/blueprint-commands.ts",
-  "packages/contracts/apps/blueprint-uses.ts",
-  "packages/contracts/apps/blueprint-value.ts",
+  "packages/protocol/apps/blueprint-types.ts",
+  "packages/protocol/apps/blueprint-json.ts",
+  "packages/protocol/apps/blueprint-schema.ts",
+  "packages/protocol/apps/blueprint-scope.ts",
+  "packages/protocol/apps/blueprint-commands.ts",
+  "packages/protocol/apps/blueprint-uses.ts",
+  "packages/protocol/apps/blueprint-value.ts",
 ]);
 
 type Report = (
@@ -22,22 +22,9 @@ type Report = (
   message: string,
 ) => void;
 
-const PURE_CONTRACT = "packages/contracts/apps/blueprint-scope.ts";
-const PERMISSIONS = "packages/apps/permissions/";
-
-// Zod-bearing mod.ts 대신 정본 하나만 공개 wrapper에 허용한다.
-// permissions는 host 판정 정본(blueprint-scope)만 직접 쓴다. Zod mod.ts는 아니다.
-const EXTRACT_CHILD = "packages/apps/blueprint/extract-child.ts";
-const EXTRACT_CHILD_FILES = new Set([
-  "packages/contracts/apps/blueprint-json.ts",
-  "packages/contracts/apps/blueprint-value.ts",
-]);
-
-export function blueprintEntryImport(file: string, target: string): boolean {
-  if (file === BLUEPRINT_WRAPPER && target === BLUEPRINT_ENTRY) return true;
-  if (file === EXTRACT_CHILD && EXTRACT_CHILD_FILES.has(target)) return true;
-  return file.startsWith(PERMISSIONS) && target === PURE_CONTRACT;
-}
+// 공개 wrapper는 정본 하나만 직접 import한다. Zod가 든 mod.ts는 아니다.
+const wrapperImport = (file: string, target: string) =>
+  file === BLUEPRINT_WRAPPER && target === BLUEPRINT_ENTRY;
 
 export function checkBlueprintGraph(
   sources: Map<string, string>,
@@ -71,7 +58,7 @@ export function checkBlueprintGraph(
           ? CONTRACT_FILES.has(target)
           : inside(file, SDK)
           ? target === BLUEPRINT_ENTRY || inside(target, SDK)
-          : blueprintEntryImport(file, target));
+          : wrapperImport(file, target));
       if (!allowed) {
         add(
           file,

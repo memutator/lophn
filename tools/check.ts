@@ -1,4 +1,4 @@
-// docs/dev/stack.md의 check 단계. 의존 규칙 검사는 contracts#T2가 이 배열에 더한다.
+// docs/dev/stack.md의 check 단계. 의존 규칙 검사(deps)는 lint 다음 단계다.
 // 실행: deno task check
 
 export type Runner = (command: string[]) => Promise<number>;
@@ -41,7 +41,7 @@ export const steps: Step[] = [
     name: "deps",
     command: ["deno", "run", "--allow-read", "tools/check-deps.ts"],
   },
-  // architecture 5장의 경로·event가 contracts에 있는지 센다. 빠짐이 있으면 실패다(contracts#T46).
+  // architecture 5장의 경로·event가 protocol에 있는지 센다. 빠짐이 있으면 실패다.
   {
     name: "coverage",
     command: ["deno", "run", "--allow-read", "tools/contract-coverage.ts"],

@@ -1,10 +1,9 @@
 // 실행: deno run --allow-read tools/check-deps.ts [root]
-import { blueprintEntryImport, checkBlueprintGraph } from "./deps-blueprint.ts";
+import { checkBlueprintGraph } from "./deps-blueprint.ts";
 import { readImports } from "./deps-imports.ts";
 import {
   directory,
   inside,
-  type Member,
   normalize,
   readMembers,
   resolveWorkspace,
@@ -17,14 +16,22 @@ export type Violation = {
   message: string;
 };
 const EXCLUDED = new Set(["node_modules", ".claude", ".dev-data", "dist"]);
-const TOPS = new Set([
-  "platform",
-  "documents",
-  "apps",
-  "problems",
-  "lophn-agent",
-  "coding-agent",
-]);
+
+// package가 import해도 되는 다른 package. 자기 package 안은 늘 된다.
+const PACKAGE_DEPENDENCIES: Record<string, string[]> = {
+  base: [],
+  protocol: ["base"],
+  core: ["protocol", "base"],
+  "coding-agent": ["protocol", "base"],
+  design: [],
+  sdk: ["protocol", "design"],
+  shell: ["protocol", "base", "design"],
+};
+// shell main의 terminal host만 coding-agent를 더 쓸 수 있다.
+const TERMINAL_HOST = [
+  "packages/shell/terminal-host",
+  "packages/shell/main/terminal",
+];
 
 async function walk(
   root: string,
@@ -52,34 +59,8 @@ function numberedName(segment: string): boolean {
     /^(?:new|old|legacy)-/i.test(name) || /-next$/i.test(name);
 }
 
-function leaf(
-  file: string,
-  members: Member[],
-  files: Set<string>,
-): string | undefined {
-  const [packages, top, first] = file.split("/");
-  if (
-    packages !== "packages" || !TOPS.has(top) || !first ||
-    !file.includes("/", `packages/${top}/`.length)
-  ) return;
-  const member =
-    members.filter((member) =>
-      member.directory.startsWith(`packages/${top}/`) &&
-      inside(file, member.directory)
-    ).sort((a, b) => b.directory.length - a.directory.length)[0];
-  if (member) return member.directory;
-  // workspace member가 최상위 package이면 mod.ts가 leaf의 경계를 정한다.
-  let parent = directory(file);
-  let boundary: string | undefined;
-  while (parent.startsWith(`packages/${top}/`)) {
-    if (files.has(`${parent}/mod.ts`)) boundary = parent;
-    parent = directory(parent);
-  }
-  return boundary ?? `packages/${top}/${first}`;
-}
-
-function contractTop(file: string): string | undefined {
-  if (!file.startsWith("packages/contracts/")) return;
+function protocolTop(file: string): string | undefined {
+  if (!file.startsWith("packages/protocol/")) return;
   const parts = file.split("/");
   return parts.length > 3 ? parts[2] : undefined;
 }
@@ -107,7 +88,6 @@ function cyclicEdges(edges: Edge[]): Edge[] {
 export async function checkRepo(root: string): Promise<Violation[]> {
   root = normalize(root.startsWith("/") ? root : `${Deno.cwd()}/${root}`);
   const { files, paths } = await walk(root);
-  const allFiles = new Set(files);
   const members = await readMembers(root, files);
   const violations: Violation[] = [];
   const edges: Edge[] = [];
@@ -123,9 +103,11 @@ export async function checkRepo(root: string): Promise<Violation[]> {
     }
   }
   for (const file of files) {
-    const base = inside(file, "packages/base");
-    const contracts = inside(file, "packages/contracts");
-    if ((base || contracts) && file.endsWith("/deno.json")) {
+    const own = file.split("/")[0] === "packages"
+      ? file.split("/")[1]
+      : undefined;
+    const portable = own === "base" || own === "protocol";
+    if (portable && file.endsWith("/deno.json")) {
       const text = await Deno.readTextFile(`${root}/${file}`);
       const config = JSON.parse(text);
       if (config.compilerOptions?.erasableSyntaxOnly !== true) {
@@ -141,7 +123,6 @@ export async function checkRepo(root: string): Promise<Violation[]> {
     }
     if (!/\.tsx?$/.test(file)) continue;
     const test = file.endsWith("_test.ts");
-    const sourceLeaf = leaf(file, members, allFiles);
     const source = await Deno.readTextFile(`${root}/${file}`);
     sources.set(file, source);
     for (const { specifier, line } of readImports(source)) {
@@ -157,7 +138,6 @@ export async function checkRepo(root: string): Promise<Violation[]> {
         : specifier.startsWith("@lophn/")
         ? resolveWorkspace(specifier, members)
         : undefined;
-      const stdAssert = test && specifier === "@std/assert";
       if (specifier.startsWith("@lophn/") && !target) {
         add(
           file,
@@ -166,9 +146,7 @@ export async function checkRepo(root: string): Promise<Violation[]> {
           `workspace exports로 해석할 수 없음: ${specifier}`,
         );
       }
-      if (
-        (base || contracts) && /^(?:npm:|jsr:|node:|https?:)/.test(specifier)
-      ) {
+      if (portable && /^(?:npm:|jsr:|node:|https?:)/.test(specifier)) {
         add(
           file,
           line,
@@ -176,117 +154,50 @@ export async function checkRepo(root: string): Promise<Violation[]> {
           `이식할 수 없는 specifier: ${specifier}`,
         );
       }
+      // base와 protocol이 repo 밖에서 가져오는 것은 protocol의 zod와 test의 @std/assert뿐이다.
       if (
-        base && !(relative && target && inside(target, "packages/base")) &&
-        !stdAssert
+        portable && !relative && !specifier.startsWith("@lophn/") &&
+        !(test && specifier === "@std/assert") &&
+        !(own === "protocol" && specifier === "zod")
       ) {
         add(
           file,
           line,
-          "base",
-          `base는 자기 안 상대 경로만 import: ${specifier}`,
+          "external",
+          `${own}는 허용된 외부 specifier만 import: ${specifier}`,
         );
       }
-      if (contracts && !stdAssert && specifier !== "zod") {
-        const allowed = target && (
-          (relative && inside(target, "packages/contracts")) ||
-          ((relative || specifier === "@lophn/base") &&
-            inside(target, "packages/base"))
-        );
-        if (!allowed) {
-          add(
-            file,
-            line,
-            "contracts",
-            `contracts는 contracts·base·zod만 import: ${specifier}`,
-          );
-        }
-      }
-      const from = contractTop(file);
-      const to = target ? contractTop(target) : undefined;
+      const from = protocolTop(file);
+      const to = target ? protocolTop(target) : undefined;
       if (from && to && from !== to) edges.push({ from, to, file, line });
-      if (sourceLeaf && target?.startsWith("packages/")) {
-        const top = file.split("/")[1];
-        const targetTop = target.split("/")[1];
-        if (targetTop === "contracts") {
-          if (
-            !/^packages\/contracts\/[^/]+\/mod\.ts$/.test(target) &&
-            // *_test.ts는 다른 leaf의 contract testing/mod.ts(fixture)도 import할 수 있다.
-            !(test &&
-              /^packages\/contracts\/[^/]+\/testing\/mod\.ts$/.test(target)) &&
-            !blueprintEntryImport(file, target)
-          ) {
-            add(
-              file,
-              line,
-              "leaf-contract",
-              `다른 최상위 contract는 mod.ts로 import: ${specifier}`,
-            );
-          }
-        } else if (targetTop !== "base") {
-          if (targetTop !== top) {
-            add(
-              file,
-              line,
-              "top-level",
-              `다른 최상위 package 직접 import 금지: ${specifier}`,
-            );
-          } else {
-            const targetLeaf = leaf(target, members, allFiles);
-            // *_test.ts는 다른 leaf의 testing/mod.ts(테스트 전용 fixture)도 import할 수 있다.
-            const fixture = test && targetLeaf !== undefined &&
-              target === `${targetLeaf}/testing/mod.ts`;
-            const extractFile = file ===
-                "packages/apps/releases/prepare/flow.ts" &&
-              target === "packages/apps/blueprint/extract.ts";
-            if (
-              !extractFile &&
-              targetLeaf !== sourceLeaf && !fixture &&
-              (!targetLeaf || target !== `${targetLeaf}/mod.ts`)
-            ) {
-              add(
-                file,
-                line,
-                "leaf",
-                `다른 leaf는 mod.ts로 import: ${specifier}`,
-              );
-            }
-          }
-        }
-      }
+      const targetPackage = target?.startsWith("packages/")
+        ? target.split("/")[1]
+        : undefined;
       if (
-        inside(file, "apps/shell") && target?.startsWith("packages/") &&
-        !["contracts", "design", "sdk"].includes(target.split("/")[1])
+        own && own in PACKAGE_DEPENDENCIES && targetPackage &&
+        targetPackage !== own &&
+        !PACKAGE_DEPENDENCIES[own].includes(targetPackage) &&
+        !(targetPackage === "coding-agent" && own === "shell" &&
+          TERMINAL_HOST.some((place) => inside(file, place)))
       ) {
         add(
           file,
           line,
-          "shell",
-          `shell은 contracts·design·sdk만 import: ${specifier}`,
+          "package",
+          targetPackage === "core"
+            ? `core를 import하는 것은 core뿐: ${specifier}`
+            : `package 의존 금지 ${own} → ${targetPackage}: ${specifier}`,
         );
       }
-      // leaf의 testing/ fixture는 제품 코드가 import하지 않는다(core module graph에 테스트 SQLite가 들어가지 않게).
-      if (
-        !test && target && /^packages\/[^/]+\/.+\/testing\//.test(target) &&
-        directory(target) !== directory(file) &&
-        !inside(file, directory(target))
-      ) {
+      // testing/ 안은 *_test.ts와 같은 testing/ 안 파일만 import한다(제품 module graph에 test 도구가 들어가지 않게).
+      const testing = target &&
+        /^packages\/[^/]+\/(?:.+\/)?testing\//.exec(target)?.[0];
+      if (testing && !test && !inside(file, testing.slice(0, -1))) {
         add(
           file,
           line,
           "testing",
-          `leaf의 testing/은 *_test.ts에서만 import: ${specifier}`,
-        );
-      }
-      if (
-        !test && !inside(file, "apps/core/testing") && target &&
-        inside(target, "apps/core/testing")
-      ) {
-        add(
-          file,
-          line,
-          "testing",
-          `apps/core/testing은 *_test.ts에서만 import: ${specifier}`,
+          `testing/은 *_test.ts와 testing/ 안에서만 import: ${specifier}`,
         );
       }
     }
@@ -296,8 +207,8 @@ export async function checkRepo(root: string): Promise<Violation[]> {
     add(
       edge.file,
       edge.line,
-      "contracts-cycle",
-      `contracts 최상위 사이 순환: ${edge.from} → ${edge.to}`,
+      "protocol-cycle",
+      `protocol 최상위 사이 순환: ${edge.from} → ${edge.to}`,
     );
   }
   return violations.sort((a, b) =>

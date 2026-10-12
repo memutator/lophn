@@ -1,4 +1,4 @@
-import { err, ok, type Result } from "../../base/mod.ts";
+import { err, ok, type Result } from "../mod.ts";
 
 // 같은 H에는 플랫폼 instance 하나만 둔다(install-and-update R10).
 // tryLock은 이미 잠긴 파일을 기다리지 않고 바로 false다.

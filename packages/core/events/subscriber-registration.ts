@@ -1,6 +1,6 @@
-import { err, ok, type Result } from "../../../base/mod.ts";
-import type { RequestContext } from "../../../protocol/platform/mod.ts";
-import { exactResult } from "./event-visibility.ts";
+import { err, ok, type Result } from "../../base/mod.ts";
+import type { RequestContext } from "../../protocol/platform/mod.ts";
+import { exactResult } from "./visibility.ts";
 
 export type SubscriberBinding = {
   name: string;

@@ -33,7 +33,7 @@ import {
   openConnection,
   runCommand,
 } from "../storage/ledger/mod.ts";
-import { openEventsBackend } from "../storage/ledger/testing/mod.ts";
+import { openEventsBackend } from "../events/testing/mod.ts";
 import {
   questionCreated,
   runFinished,

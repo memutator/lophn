@@ -17,7 +17,7 @@ export {
   acquireInstanceLock,
   INSTANCE_LOCK_NAME,
   type InstanceLock,
-} from "./instance-lock.ts";
+} from "../../base/install/instance-lock.ts";
 export {
   readRunMetadata,
   removeRunMetadata,
@@ -49,4 +49,4 @@ export {
   linuxInstallLayout,
   mcpLauncher,
   postinstScript,
-} from "./linux-install.ts";
+} from "../../base/install/linux-install.ts";

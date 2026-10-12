@@ -6,7 +6,7 @@ import type {
   PermanentBlobReference,
 } from "../../../protocol/platform/mod.ts";
 import type { ConfirmationBridge } from "../../server/identity/mod.ts";
-import type { SubscriberGate } from "./subscriber-registration.ts";
+import type { SubscriberGate } from "../../events/subscriber-registration.ts";
 import type { TxPortRegistration } from "./tx-ports.ts";
 import type { TxCall } from "./tx.ts";
 

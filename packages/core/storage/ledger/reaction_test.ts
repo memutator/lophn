@@ -9,7 +9,7 @@ import {
   createSubscriberGate,
   type SubscriberBinding,
   type SubscriberGate,
-} from "./subscriber-registration.ts";
+} from "../../events/subscriber-registration.ts";
 import { noteCreated, recordNote } from "./test-commands.ts";
 import type { TxDeps } from "./tx.ts";
 import { openWriter, runCommand } from "./writer.ts";

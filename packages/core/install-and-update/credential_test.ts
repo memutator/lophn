@@ -18,7 +18,7 @@ import {
   CREDENTIAL_HELPER_COMPILE_FLAGS,
   credentialLoaderIdentity,
   linuxInstallLayout,
-} from "./linux-install.ts";
+} from "../../base/install/linux-install.ts";
 
 const HELPER_ENTRY = new URL("./credential-helper-main.ts", import.meta.url)
   .pathname;

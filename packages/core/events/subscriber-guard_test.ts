@@ -1,14 +1,20 @@
 import { assert, assertEquals } from "@std/assert";
-import { err, ok } from "../../../base/mod.ts";
-import { deps, fileLedger, machine, note, user } from "./command-harness.ts";
-import { advanceSubscriberCursorCommand } from "./commands.ts";
-import { defineSyncCommand } from "./handler.ts";
+import { err, ok } from "../../base/mod.ts";
+import {
+  deps,
+  fileLedger,
+  machine,
+  note,
+  user,
+} from "../storage/ledger/command-harness.ts";
+import { advanceSubscriberCursorCommand } from "../storage/ledger/commands.ts";
+import { defineSyncCommand } from "../storage/ledger/handler.ts";
 import {
   createSubscriberGate,
   type SubscriberGate,
 } from "./subscriber-registration.ts";
-import { noteCreated, recordNote } from "./test-commands.ts";
-import { runCommand } from "./writer.ts";
+import { noteCreated, recordNote } from "../storage/ledger/test-commands.ts";
+import { runCommand } from "../storage/ledger/writer.ts";
 
 Deno.test("platform/ledger#R15 platform/api#R7: gate 결과 inspection 거절을 삼켜도 domain·event·결과는 rollback하고 owner 원문은 숨긴다", async () => {
   const dir = await Deno.makeTempDir({ prefix: "subscriber-guard-" });

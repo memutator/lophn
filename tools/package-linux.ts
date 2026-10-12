@@ -27,7 +27,7 @@ import {
   mcpLauncher,
   postinstScript,
   SANDBOX_MODE,
-} from "../packages/core/install-and-update/linux-install.ts";
+} from "../packages/base/install/linux-install.ts";
 
 const repo = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
 const shellMain = `${repo}/apps/shell/main`;

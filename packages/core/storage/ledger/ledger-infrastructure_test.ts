@@ -15,7 +15,7 @@ import {
 } from "../../../protocol/platform/mod.ts";
 import { applyMigrations } from "../migration/mod.ts";
 import { LEDGER_SCHEMA_STEPS, openLedger } from "./mod.ts";
-import { createSubscriberGate } from "./subscriber-registration.ts";
+import { createSubscriberGate } from "../../events/subscriber-registration.ts";
 
 function deps() {
   const clock = manualClock(Date.parse("2026-01-01T00:00:00.000Z"));

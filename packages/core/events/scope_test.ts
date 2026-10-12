@@ -1,17 +1,23 @@
 import { assert, assertEquals } from "@std/assert";
-import { err, ok } from "../../../base/mod.ts";
+import { err, ok } from "../../base/mod.ts";
 import {
   type EventVisibilityDefinition,
   type RequestContext,
   type Subject,
-} from "../../../protocol/platform/mod.ts";
-import { commands, deps, fileLedger, note, user } from "./command-harness.ts";
-import { fixtureEvent } from "./event-fixture.ts";
-import { createEventVisibilityRegistry } from "./event-visibility.ts";
-import { createListEventsRead, scanEvents } from "./events.ts";
-import { openReaderConnection } from "./reader-connection.ts";
-import { executeRead } from "./reads.ts";
-import { runCommand } from "./writer.ts";
+} from "../../protocol/platform/mod.ts";
+import {
+  commands,
+  deps,
+  fileLedger,
+  note,
+  user,
+} from "../storage/ledger/command-harness.ts";
+import { fixtureEvent } from "./fixture.ts";
+import { createEventVisibilityRegistry } from "./visibility.ts";
+import { createListEventsRead, scanEvents } from "./list.ts";
+import { openReaderConnection } from "../storage/ledger/reader-connection.ts";
+import { executeRead } from "../storage/ledger/reads.ts";
+import { runCommand } from "../storage/ledger/writer.ts";
 
 async function ledger() {
   const dir = await Deno.makeTempDir({ prefix: "scope-" });

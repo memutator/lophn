@@ -9,7 +9,7 @@ import { defineSyncCommand } from "./handler.ts";
 import { noteCreated, recordNote } from "./test-commands.ts";
 import { serveWriter } from "./writer-loop.ts";
 import { createWriterRegistration } from "./writer-registration.ts";
-import { createSubscriberGate } from "./subscriber-registration.ts";
+import { createSubscriberGate } from "../../events/subscriber-registration.ts";
 
 const clock = manualClock(Date.parse("2026-01-01T00:00:00.000Z"));
 

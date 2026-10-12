@@ -8,7 +8,7 @@ import type {
 } from "../../../protocol/platform/mod.ts";
 import { LEDGER_SCHEMA_STEPS } from "./schema.ts";
 import { type LedgerConnection, openConnection } from "./sqlite.ts";
-import type { SubscriberGate } from "./subscriber-registration.ts";
+import type { SubscriberGate } from "../../events/subscriber-registration.ts";
 import type { TxPortRegistration } from "./tx-ports.ts";
 import { runTransaction, type TxCall, type TxDeps } from "./tx.ts";
 
@@ -51,39 +51,39 @@ export {
   type KnownSecretMatch,
 } from "./known-secrets.ts";
 export type { ReaderRegistration, ReaderRegistrationModule } from "./reads.ts";
-export { createListEventsRead, scanEvents } from "./events.ts";
-export type { EventBatch, EventScan } from "./events.ts";
-export { createReaderEventBackend } from "./event-backend.ts";
+export { createListEventsRead, scanEvents } from "../../events/list.ts";
+export type { EventBatch, EventScan } from "../../events/list.ts";
+export { createReaderEventBackend } from "../../events/backend.ts";
 export {
   collectEventRegistrations,
   createEventVisibilityRegistry,
   currentEventContext,
-} from "./event-visibility.ts";
+} from "../../events/visibility.ts";
 export type {
   EventReadGate,
   EventRegistration,
   EventVisibilityRegistry,
   SubjectScopeGate,
-} from "./event-visibility.ts";
+} from "../../events/visibility.ts";
 export {
   createEventDispatcher,
   createEventSession,
   resolveSubscriptionStart,
-} from "./subscribe.ts";
+} from "../../events/subscribe.ts";
 export type {
   EventBackend,
   EventSession,
   EventSink,
   SubscribeStart,
-} from "./subscribe.ts";
-export { createSubscriptionStore } from "./subscription-store.ts";
-export type { SubscriptionStore } from "./subscription-store.ts";
+} from "../../events/subscribe.ts";
+export { createSubscriptionStore } from "../../events/subscription-store.ts";
+export type { SubscriptionStore } from "../../events/subscription-store.ts";
 export { reactionIdempotencyKey } from "./reaction.ts";
-export { createSubscriberGate } from "./subscriber-registration.ts";
+export { createSubscriberGate } from "../../events/subscriber-registration.ts";
 export type {
   SubscriberBinding,
   SubscriberGate,
-} from "./subscriber-registration.ts";
+} from "../../events/subscriber-registration.ts";
 
 export type LedgerDeps = {
   clock: Clock;

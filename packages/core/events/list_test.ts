@@ -1,11 +1,11 @@
 import { assert, assertEquals } from "@std/assert";
 import { z } from "zod";
-import { err, ok } from "../../../base/mod.ts";
+import { err, ok } from "../../base/mod.ts";
 import {
   eventsList,
   type EventVisibilityDefinition,
   type ReadSnapshot,
-} from "../../../protocol/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   commands,
   deps,
@@ -13,14 +13,14 @@ import {
   note,
   NOW,
   user,
-} from "./command-harness.ts";
-import { fixtureEvent } from "./event-fixture.ts";
-import { createEventVisibilityRegistry } from "./event-visibility.ts";
-import { createListEventsRead, scanEvents } from "./events.ts";
-import { createReaderPool } from "./reader-pool.ts";
-import { openReaderConnection } from "./reader-connection.ts";
-import { executeRead } from "./reads.ts";
-import { runCommand } from "./writer.ts";
+} from "../storage/ledger/command-harness.ts";
+import { fixtureEvent } from "./fixture.ts";
+import { createEventVisibilityRegistry } from "./visibility.ts";
+import { createListEventsRead, scanEvents } from "./list.ts";
+import { createReaderPool } from "../storage/ledger/reader-pool.ts";
+import { openReaderConnection } from "../storage/ledger/reader-connection.ts";
+import { executeRead } from "../storage/ledger/reads.ts";
+import { runCommand } from "../storage/ledger/writer.ts";
 
 async function ledger() {
   const dir = await Deno.makeTempDir({ prefix: "events-" });
@@ -40,7 +40,7 @@ function registry(
 Deno.test("platform/ledger#R15 platform/api#R5: WAL reader는 commit만 보고 seq gaps·2^53 너머와 hidden scan을 보존한다", async () => {
   const { dir, path, connection } = await ledger();
   const pool = await createReaderPool(path, [
-    new URL("./event-fixture.ts", import.meta.url),
+    new URL("./fixture.ts", import.meta.url),
   ]);
   assert(pool.ok);
   try {

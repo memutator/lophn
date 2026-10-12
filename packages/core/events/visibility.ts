@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { err, ok, type Result } from "../../../base/mod.ts";
+import { err, ok, type Result } from "../../base/mod.ts";
 import {
   authenticatedContextSchema,
   errorBodySchema,
@@ -11,8 +11,8 @@ import {
   type ReadSnapshot,
   type RequestContext,
   type Subject,
-} from "../../../protocol/platform/mod.ts";
-import { validateOutput } from "./output.ts";
+} from "../../protocol/platform/mod.ts";
+import { validateOutput } from "../storage/ledger/output.ts";
 
 export type EventReadGate = (
   snapshot: ReadSnapshot,

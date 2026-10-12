@@ -2,9 +2,9 @@
 // 정책이 없거나 같은 type이 둘이면 숨기거나 거절한다(fail-closed).
 import { assert, assertEquals } from "@std/assert";
 import { z } from "zod";
-import { ok } from "../../../base/mod.ts";
-import { defineEvent } from "../../../protocol/platform/mod.ts";
-import { collectEventRegistrations } from "./event-visibility.ts";
+import { ok } from "../../base/mod.ts";
+import { defineEvent } from "../../protocol/platform/mod.ts";
+import { collectEventRegistrations } from "./visibility.ts";
 
 const noteCreated = defineEvent("NoteCreated", {
   subject: z.string(),

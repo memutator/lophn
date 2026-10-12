@@ -31,7 +31,7 @@ import {
 import {
   authorizeSubscriberCursor,
   type SubscriberGate,
-} from "./subscriber-registration.ts";
+} from "../../events/subscriber-registration.ts";
 import { targetAuthorizationPort } from "./target-authorization.ts";
 import { useApproval as useApprovalRecord } from "./approval-use.ts";
 import type { CommandDispatch } from "./dispatch.ts";

@@ -1,7 +1,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
-import { err, ok, type Result } from "../../../base/mod.ts";
-import type { RequestContext } from "../../../protocol/platform/mod.ts";
+import { err, ok, type Result } from "../../base/mod.ts";
+import type { RequestContext } from "../../protocol/platform/mod.ts";
 import {
   commands,
   deps,
@@ -9,10 +9,10 @@ import {
   note,
   NOW,
   user,
-} from "./command-harness.ts";
-import { createReaderEventBackend } from "./event-backend.ts";
-import type { EventBatch } from "./events.ts";
-import { createReaderPool } from "./reader-pool.ts";
+} from "../storage/ledger/command-harness.ts";
+import { createReaderEventBackend } from "./backend.ts";
+import type { EventBatch } from "./list.ts";
+import { createReaderPool } from "../storage/ledger/reader-pool.ts";
 import {
   createEventDispatcher,
   createEventSession,
@@ -22,7 +22,7 @@ import {
 import { createSubscriptionStore } from "./subscription-store.ts";
 
 const LEDGER_ID = "ldg_00000000000000000000000000000001";
-import { runCommand } from "./writer.ts";
+import { runCommand } from "../storage/ledger/writer.ts";
 
 const start = {
   type: "subscribe" as const,
@@ -60,7 +60,7 @@ Deno.test("platform/ledger#R15: injected periodic catch-up는 유실 wake 뒤 ac
   const dir = await Deno.makeTempDir({ prefix: "subscribe-" });
   const { path, connection } = await fileLedger(dir);
   const pool = await createReaderPool(path, [
-    new URL("./event-fixture.ts", import.meta.url),
+    new URL("./fixture.ts", import.meta.url),
   ]);
   assert(pool.ok);
   let tick = () => {};

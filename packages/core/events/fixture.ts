@@ -1,10 +1,10 @@
 import { z } from "zod";
-import { ok } from "../../../base/mod.ts";
-import { defineEvent } from "../../../protocol/platform/mod.ts";
-import { user } from "./command-harness.ts";
-import { createEventVisibilityRegistry } from "./event-visibility.ts";
-import { createListEventsRead } from "./events.ts";
-import type { ReaderRegistration } from "./reads.ts";
+import { ok } from "../../base/mod.ts";
+import { defineEvent } from "../../protocol/platform/mod.ts";
+import { user } from "../storage/ledger/command-harness.ts";
+import { createEventVisibilityRegistry } from "./visibility.ts";
+import { createListEventsRead } from "./list.ts";
+import type { ReaderRegistration } from "../storage/ledger/reads.ts";
 
 export const fixtureEvent = defineEvent("NoteCreated", {
   subject: z.string(),

@@ -1,4 +1,4 @@
-import { canonicalize, err, ok, type Result } from "../../../base/mod.ts";
+import { canonicalize, err, ok, type Result } from "../../base/mod.ts";
 import {
   type AckFrame,
   authenticatedContextSchema,
@@ -11,9 +11,9 @@ import {
   seqSchema,
   type SubscribeFrame,
   subscribeFrameSchema,
-} from "../../../protocol/platform/mod.ts";
-import { type EventBatch, type EventScan, frameBytes } from "./events.ts";
-import { validateOutput } from "./output.ts";
+} from "../../protocol/platform/mod.ts";
+import { type EventBatch, type EventScan, frameBytes } from "./list.ts";
+import { validateOutput } from "../storage/ledger/output.ts";
 import type { SubscriptionStore } from "./subscription-store.ts";
 
 export type EventBackend = {

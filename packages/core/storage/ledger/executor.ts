@@ -37,7 +37,7 @@ import { isStorageUnavailable, type LedgerConnection } from "./sqlite.ts";
 import { createCommandDispatch } from "./dispatch.ts";
 import { admitAgentRun, runDisposition } from "./commands.ts";
 import { runTransaction, type TxDeps } from "./tx.ts";
-import { authorizeSubscriberCursor } from "./subscriber-registration.ts";
+import { authorizeSubscriberCursor } from "../../events/subscriber-registration.ts";
 import {
   actorKind,
   authorityTarget,

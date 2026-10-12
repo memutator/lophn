@@ -1,11 +1,11 @@
-import { err, ok, type Result } from "../../../base/mod.ts";
+import { err, ok, type Result } from "../../base/mod.ts";
 import {
   eventsList,
   type RequestContext,
-} from "../../../protocol/platform/mod.ts";
-import type { ReaderPool } from "./reader-pool.ts";
+} from "../../protocol/platform/mod.ts";
+import type { ReaderPool } from "../storage/ledger/reader-pool.ts";
 import type { EventBackend } from "./subscribe.ts";
-import { validateOutput } from "./output.ts";
+import { validateOutput } from "../storage/ledger/output.ts";
 
 // event read는 registered ListEvents를 통해 reader Worker에서 실행한다.
 export function createReaderEventBackend(

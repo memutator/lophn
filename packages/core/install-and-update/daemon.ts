@@ -1,7 +1,7 @@
 import { err, ok, type Result } from "../../base/mod.ts";
 import { type InstanceState } from "../../protocol/platform/mod.ts";
 import { QUIT_FLAG, TRAY_FLAG } from "../../protocol/shell/mod.ts";
-import { INSTANCE_LOCK_NAME } from "./instance-lock.ts";
+import { INSTANCE_LOCK_NAME } from "../../base/install/instance-lock.ts";
 import { readRunMetadata } from "./run-metadata.ts";
 
 // daemon 시작·중지·상태·log의 위치 방법. 실제 process 띄우기는 각 OS의 launcher가

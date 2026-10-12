@@ -1,4 +1,4 @@
-import { err, ok, type Result } from "../../../base/mod.ts";
+import { err, ok, type Result } from "../../base/mod.ts";
 import {
   EVENT_BATCH_LIMITS,
   type EventEnvelope,
@@ -9,7 +9,7 @@ import {
   type ReadSnapshot,
   type RequestContext,
   type Subject,
-} from "../../../protocol/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   currentEventContext,
   type EventReadGate,
@@ -17,8 +17,8 @@ import {
   type EventVisibilityRegistry,
   exactResult,
   type SubjectScopeGate,
-} from "./event-visibility.ts";
-import { validateOutput } from "./output.ts";
+} from "./visibility.ts";
+import { validateOutput } from "../storage/ledger/output.ts";
 
 export type EventBatch = {
   events: EventEnvelope[];

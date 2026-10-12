@@ -12,7 +12,7 @@ import type { ReaderConnection } from "./reader-connection.ts";
 import type {
   EventRegistration,
   EventVisibilityRegistry,
-} from "./event-visibility.ts";
+} from "../../events/visibility.ts";
 import { createTargetAuthorizer } from "./target-authorization.ts";
 import { validateOutput } from "./output.ts";
 

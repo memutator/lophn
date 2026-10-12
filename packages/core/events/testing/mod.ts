@@ -1,21 +1,21 @@
 // ledger event read의 테스트 전용 통로. ledger.db reader 연결의 ListEvents를
 // EventBackend 모양으로 갚는다. node:sqlite은 platform/ledger 안 코드만 두고,
 // 이 모듈은 *_test.ts만 import한다.
-import { err, ok, type Result } from "../../../../base/mod.ts";
+import { err, ok, type Result } from "../../../base/mod.ts";
 import type {
   EventDefinition,
   EventVisibilityDefinition,
   RequestContext,
-} from "../../../../protocol/platform/mod.ts";
-import { createListEventsRead } from "../events.ts";
-import type { EventBatch, EventScan } from "../events.ts";
+} from "../../../protocol/platform/mod.ts";
+import { createListEventsRead } from "../list.ts";
+import type { EventBatch, EventScan } from "../list.ts";
 
 export type { EventBatch, EventScan };
-import type { EventVisibilityRegistry } from "../event-visibility.ts";
-import { createEventVisibilityRegistry } from "../event-visibility.ts";
-import { openReaderConnection } from "../reader-connection.ts";
-import type { ReaderConnection } from "../reader-connection.ts";
-import { executeRead } from "../reads.ts";
+import type { EventVisibilityRegistry } from "../visibility.ts";
+import { createEventVisibilityRegistry } from "../visibility.ts";
+import { openReaderConnection } from "../../storage/ledger/reader-connection.ts";
+import type { ReaderConnection } from "../../storage/ledger/reader-connection.ts";
+import { executeRead } from "../../storage/ledger/reads.ts";
 
 export type EventsBackendFixture = {
   reader: ReaderConnection;

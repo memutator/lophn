@@ -1,5 +1,5 @@
 import { err } from "../../../base/mod.ts";
-import { collectEventRegistrations } from "./event-visibility.ts";
+import { collectEventRegistrations } from "../../events/visibility.ts";
 import type {
   ReadDefinition,
   RequestContext,

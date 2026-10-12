@@ -15,7 +15,7 @@ import { applyMigrations } from "../migration/mod.ts";
 import { advanceSubscriberCursorCommand } from "./commands.ts";
 import { LEDGER_SCHEMA_STEPS } from "./schema.ts";
 import { openConnection } from "./sqlite.ts";
-import { createSubscriberGate } from "./subscriber-registration.ts";
+import { createSubscriberGate } from "../../events/subscriber-registration.ts";
 import { recordNoteCommand } from "./test-commands.ts";
 import type { TxDeps } from "./tx.ts";
 

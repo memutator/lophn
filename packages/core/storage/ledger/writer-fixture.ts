@@ -8,7 +8,7 @@ import { definePort } from "../../../protocol/platform/mod.ts";
 import { defineTxPort } from "./tx-ports.ts";
 import type { AuthenticatedContext } from "../../../protocol/platform/mod.ts";
 import { advanceSubscriberCursorCommand } from "./commands.ts";
-import { createSubscriberGate } from "./subscriber-registration.ts";
+import { createSubscriberGate } from "../../events/subscriber-registration.ts";
 import {
   recordLooseNoteCommand,
   recordNoteCommand,

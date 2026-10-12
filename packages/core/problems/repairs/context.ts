@@ -22,7 +22,7 @@ export function repairWorkerSpec(): KindLaunchSpec | undefined {
   const spec: KindLaunchSpec = {
     kind: REPAIR_WORKER_KIND,
     entry: new URL(
-      "../../../../apps/worker/coding-agent/repair-context.ts",
+      "./worker/context.ts",
       import.meta.url,
     )
       .pathname,

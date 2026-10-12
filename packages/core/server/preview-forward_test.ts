@@ -19,7 +19,7 @@ import {
   type WorkerRouteLimits,
   type WorkerRouteTarget as ResponsivenessTarget,
 } from "../supervision/responsiveness/mod.ts";
-import { acceptPreparation } from "../../../apps/worker/documents/preparation.ts";
+import { acceptPreparation } from "../projects/file-tracking/worker/preparation.ts";
 import {
   addGitDir,
   addLophnDataDir,

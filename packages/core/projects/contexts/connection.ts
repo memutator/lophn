@@ -94,9 +94,8 @@ export function contextsWorkerSpec(input: {
   const staging = contextsStagingPath(input.dataRoot);
   const spec: KindLaunchSpec = {
     kind: CONTEXTS_WORKER_KIND,
-    entry:
-      new URL("../../../../apps/worker/documents/contexts.ts", import.meta.url)
-        .pathname,
+    entry: new URL("./worker/run.ts", import.meta.url)
+      .pathname,
     allow_read: [
       ...new Set([
         ...input.roots.filter((root) => root !== input.dataRoot),

@@ -3029,7 +3029,7 @@ async function runStoppedMaintenance(input: {
     return;
   }
   const entry = new URL(
-    "../../../../apps/worker/platform/maintenance-entry.ts",
+    "../worker/maintenance-entry.ts",
     import.meta.url,
   )
     .pathname;
@@ -3098,7 +3098,7 @@ async function runStoppedRestore(input: {
   const stamp = backupStamp(input.nowIso);
   if (!stamp.ok) return stamp;
   const entry = new URL(
-    "../../../../apps/worker/platform/restore-entry.ts",
+    "../worker/restore-entry.ts",
     import.meta.url,
   )
     .pathname;

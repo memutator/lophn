@@ -59,7 +59,7 @@ export function testRunnerSpec(input: {
   }
   const work = `${input.dataRoot}/work/problems/tests`;
   const entry = new URL(
-    "../../../../apps/worker/problems/test-runner.ts",
+    "../../main/worker/test-runner.ts",
     import.meta.url,
   ).pathname;
   const rootConfig = new URL("../../../../deno.json", import.meta.url).pathname;
@@ -113,7 +113,7 @@ export function reportCollectorSpec(input: {
     return undefined;
   }
   const entry = new URL(
-    "../../../../apps/worker/problems/report-collector.ts",
+    "../reporting/worker/collector.ts",
     import.meta.url,
   ).pathname;
   // architecture 2.2: --allow-read는 읽기 전용 준비 폴더뿐이다. bundle 사본은

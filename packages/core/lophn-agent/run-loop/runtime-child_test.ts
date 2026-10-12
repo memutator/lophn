@@ -19,7 +19,7 @@ import {
 } from "../../supervision/responsiveness/mod.ts";
 import { startFakeProvider } from "../../../../tools/fake-provider/mod.ts";
 import { SOCKET_HOST } from "../../../protocol/apps/mod.ts";
-import { RUNTIME_MACHINE_OPERATIONS } from "../../../../apps/agent-runtime/core-http.ts";
+import { RUNTIME_MACHINE_OPERATIONS } from "../../main/agent-runtime/core-http.ts";
 import { AGENT_RUNTIME_KIND } from "./runtime.ts";
 import { type Core, startCore } from "../../main/daemon/core.ts";
 import { createLedgerRegistration as documentsRegistration } from "../../projects/register.ts";
@@ -422,7 +422,7 @@ Deno.test("lophn-agent/harness/run-loop#R8: runtime child의 argv에는 -A가 �
       );
       assertEquals(
         args[args.length - 1],
-        new URL("../../../../apps/agent-runtime/main.ts", import.meta.url)
+        new URL("../../main/agent-runtime/main.ts", import.meta.url)
           .pathname,
       );
       // 환경은 이름을 정한 것만 간다.

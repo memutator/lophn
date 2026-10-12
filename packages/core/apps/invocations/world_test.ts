@@ -9,7 +9,7 @@ import type { Blueprint } from "../blueprint/mod.ts";
 import {
   createSupervisorDelivery,
   type SupervisorDelivery,
-} from "../../../../apps/app-supervisor/delivery.ts";
+} from "./delivery/sender.ts";
 import type { BrokerChild } from "../permissions/mod.ts";
 import type { CoreSigner } from "../runtime/mod.ts";
 import {

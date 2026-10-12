@@ -4,10 +4,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, seededRandom } from "../../../../base/mod.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
-import {
-  createCoreClient,
-  productFetch,
-} from "../../../../../apps/worker/documents/submit.ts";
+import { createCoreClient, productFetch } from "../worker/submit.ts";
 import { CHILD_BLOB_POLICIES } from "../../../storage/blobs/child-prepare.ts";
 import { type Core, startCore } from "../../../main/daemon/core.ts";
 import type { TeamModule } from "../../../main/daemon/registration.ts";

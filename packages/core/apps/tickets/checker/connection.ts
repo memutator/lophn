@@ -63,7 +63,7 @@ export function ticketCheckerSpec(input: {
 }): KindLaunchSpec | undefined {
   if (!input.dataRoot.startsWith("/")) return undefined;
   const entry = new URL(
-    "../../../../../apps/worker/coding-agent/checker.ts",
+    "../worker/checker.ts",
     import.meta.url,
   )
     .pathname;

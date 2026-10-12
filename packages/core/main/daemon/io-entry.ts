@@ -1,4 +1,4 @@
-import { runPlatformIo } from "../../../../apps/worker/platform/io.ts";
+import { runPlatformIo } from "../worker/io.ts";
 
 // supervisor가 넘긴 stdio로 platform/io child를 연다. kind와 root는 환경으로만 받는다.
 const root = Deno.env.get("LOPHN_HOME");

@@ -12,8 +12,8 @@ import {
   type SpawnRequest,
   startChild,
 } from "../supervision/responsiveness/mod.ts";
-import { createPlatformIo } from "../../../apps/worker/platform/io.ts";
-import type { SecretPipe } from "../../../apps/worker/platform/secrets.ts";
+import { createPlatformIo } from "../main/worker/io.ts";
+import type { SecretPipe } from "../secrets/worker/pipe.ts";
 
 type Queue = ByteReader & { push(bytes: Uint8Array): void; end(): void };
 

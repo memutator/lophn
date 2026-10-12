@@ -7,7 +7,7 @@
  */
 import { validateBlueprint } from "../../blueprint/mod.ts";
 import type { Blueprint } from "../../blueprint/mod.ts";
-import { createCoreSender } from "../../../../../apps/app-supervisor/delivery.ts";
+import { createCoreSender } from "../delivery/sender.ts";
 import type { DeliveryMessage, DeliveryOutcome } from "../mod.ts";
 
 // 다른 leaf의 read 시험이 같은 invocations 표(실제 schema)를 만들 때 쓴다.

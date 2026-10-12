@@ -231,8 +231,7 @@ export function agentRuntimeLaunchSpec(input: {
   const sockets = appDirectSocketPaths(input.socketRoot);
   return {
     kind: "lophn-agent/runtime",
-    entry:
-      new URL("../../../apps/agent-runtime/main.ts", import.meta.url).pathname,
+    entry: new URL("../main/agent-runtime/main.ts", import.meta.url).pathname,
     // 개인 skill 보관소(<dataRoot>/skills)는 dataRoot 안이고, 동봉 skill 폴더는 설치 묶음의 assets/skills다.
     allow_read: [
       input.dataRoot,

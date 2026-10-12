@@ -26,15 +26,15 @@ import { createFetchTransport } from "../providers/adapters/transport.ts";
 import { createInvokeModelCall } from "../providers/invoke.ts";
 import { createRunCredentials, createRunSelector } from "../run-loop/mod.ts";
 import { startFakeProvider } from "../../../../tools/fake-provider/mod.ts";
-import { createCredentialLink } from "../../../../apps/agent-runtime/credential-link.ts";
+import { createCredentialLink } from "../../main/agent-runtime/credential-link.ts";
 import {
   agentCall,
   machineCall,
   RUNTIME_MACHINE_ROUTES,
-} from "../../../../apps/agent-runtime/core-http.ts";
-import { anthropicPacker } from "../../../../apps/agent-runtime/model-binding.ts";
-import { createRunPreparer } from "../../../../apps/agent-runtime/prepare.ts";
-import { createMcpToolkit } from "../../../../apps/agent-runtime/mcp-toolkit.ts";
+} from "../../main/agent-runtime/core-http.ts";
+import { anthropicPacker } from "../models/binding.ts";
+import { createRunPreparer } from "../run-loop/prepare.ts";
+import { createMcpToolkit } from "./mcp-toolkit.ts";
 import {
   type McpConnectionsDeps,
   spawnStdioMcp,
@@ -42,7 +42,7 @@ import {
 } from "./mod.ts";
 import { mcpToolDefinitionHash, type McpToolEntry } from "./mod.ts";
 import { mcpServersSetting } from "../../../protocol/lophn-agent/mod.ts";
-import { createRunDriver } from "../../../../apps/agent-runtime/run-driver.ts";
+import { createRunDriver } from "../run-loop/driver.ts";
 import { createAgentCredentialLink } from "../run-loop/agent-credentials.ts";
 import { startCore } from "../../main/daemon/core.ts";
 import { createLedgerRegistration as documentsRegistration } from "../../projects/register.ts";

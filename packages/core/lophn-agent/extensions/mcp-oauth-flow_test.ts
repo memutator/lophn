@@ -26,8 +26,8 @@ import {
   randomSealedRef,
   SECRET_SCHEMA_STEPS,
 } from "../../secrets/mod.ts";
-import { mcpConnectionsDeps } from "../../../../apps/agent-runtime/product-driver.ts";
-import { createSecretLink } from "../../../../apps/agent-runtime/secret-link.ts";
+import { mcpConnectionsDeps } from "../../main/agent-runtime/product-driver.ts";
+import { createSecretLink } from "../../main/agent-runtime/secret-link.ts";
 import { createAgentRuntimeSecrets } from "../run-loop/runtime-secret.ts";
 import {
   createMcpAuthControl,

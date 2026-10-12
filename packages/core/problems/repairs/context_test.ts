@@ -13,12 +13,12 @@ import {
   type FakeKeychain,
 } from "../../secrets/mod.ts";
 import { openWorld, type World } from "../../apps/runtime/world_test.ts";
-import { createRedactLink } from "../../../../apps/agent-runtime/redact-link.ts";
+import { createRedactLink } from "../../lophn-agent/run-loop/redact-link.ts";
 import {
   acceptRepairContext,
   REPAIR_CONTEXT_OPS,
   RepairContextRejection,
-} from "../../../../apps/worker/coding-agent/repair-context.ts";
+} from "./worker/context.ts";
 import { answerRedactRequest } from "../../lophn-agent/run-loop/runtime-redaction.ts";
 import { codingAgentConnectionDefinitions } from "../../server/identity/coding-connection.ts";
 import {

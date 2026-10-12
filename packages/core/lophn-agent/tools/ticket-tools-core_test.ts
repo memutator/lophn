@@ -13,8 +13,8 @@ import {
   runOperations,
   TICKET_TOOLS,
 } from "./mod.ts";
-import { agentCall } from "../../../../apps/agent-runtime/core-http.ts";
-import { createContractCall } from "../../../../apps/agent-runtime/toolkit.ts";
+import { agentCall } from "../../main/agent-runtime/core-http.ts";
+import { createContractCall } from "./toolkit.ts";
 import { codingAgentConnectionDefinitions } from "../../server/identity/coding-connection.ts";
 import { createLedgerRegistration as createAppsRegistration } from "../../apps/register.ts";
 import { createLedgerRegistration as createDocumentsRegistration } from "../../projects/register.ts";

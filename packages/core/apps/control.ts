@@ -1148,8 +1148,7 @@ export function appSupervisorSpec(input: {
   const sockets = appSocketRoot(input.runtimeDir);
   return {
     kind: APPS_SUPERVISOR_KIND,
-    entry:
-      new URL("../../../apps/app-supervisor/main.ts", import.meta.url).pathname,
+    entry: new URL("../main/app-supervisor/main.ts", import.meta.url).pathname,
     allow_read: [input.dataRoot, repoRoot(), denoDir(), sockets, "/proc"],
     allow_write: [sockets],
     // core loopback과 앱 socket 자리의 정확한 경로다. Deno net 허락은 unix 경로의 폴더 prefix를

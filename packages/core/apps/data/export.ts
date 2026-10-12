@@ -34,9 +34,8 @@ async function runExportProcess(
   dataRoot: string,
   job: ExportJob,
 ): Promise<Result<void>> {
-  const entry =
-    new URL("../../../../apps/worker/apps/export-entry.ts", import.meta.url)
-      .pathname;
+  const entry = new URL("../../main/worker/export-entry.ts", import.meta.url)
+    .pathname;
   try {
     const child = new Deno.Command(Deno.execPath(), {
       args: [

@@ -32,7 +32,7 @@ import { runnerSockets, testRunnerSpec } from "../problems/tests/runner.ts";
 import type {
   ReproductionJob,
   ReproductionJobResult,
-} from "../../../apps/worker/problems/reproduction-run.ts";
+} from "../problems/tests/work/reproduction-run.ts";
 import { type CommandEnvelope, createLedgerHarness } from "./ledger.ts";
 import {
   type MadeFixture,

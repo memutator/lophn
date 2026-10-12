@@ -44,19 +44,19 @@ import {
   type Script,
   startFakeProvider,
 } from "../../../tools/fake-provider/mod.ts";
-import { createCredentialLink } from "../../../apps/agent-runtime/credential-link.ts";
+import { createCredentialLink } from "../main/agent-runtime/credential-link.ts";
 import {
   agentCall,
   machineCall,
   RUNTIME_MACHINE_ROUTES,
-} from "../../../apps/agent-runtime/core-http.ts";
-import type { CoreCall } from "../../../apps/agent-runtime/core-call.ts";
-import { anthropicPacker } from "../../../apps/agent-runtime/model-binding.ts";
-import { createRunPreparer } from "../../../apps/agent-runtime/prepare.ts";
+} from "../main/agent-runtime/core-http.ts";
+import type { CoreCall } from "../lophn-agent/run-loop/core-call.ts";
+import { anthropicPacker } from "../lophn-agent/models/binding.ts";
+import { createRunPreparer } from "../lophn-agent/run-loop/prepare.ts";
 import {
   createRunDriver,
   type RunDriver,
-} from "../../../apps/agent-runtime/run-driver.ts";
+} from "../lophn-agent/run-loop/driver.ts";
 import { createAgentCredentialLink } from "../lophn-agent/run-loop/agent-credentials.ts";
 import { createLedgerRegistration as documentsRegistration } from "../projects/register.ts";
 import { type Core, startCore } from "../main/daemon/core.ts";

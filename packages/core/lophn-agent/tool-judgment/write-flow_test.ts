@@ -29,16 +29,16 @@ import {
   startFakeProvider,
   type Step,
 } from "../../../../tools/fake-provider/mod.ts";
-import { createCredentialLink } from "../../../../apps/agent-runtime/credential-link.ts";
+import { createCredentialLink } from "../../main/agent-runtime/credential-link.ts";
 import {
   agentCall,
   machineCall,
   RUNTIME_MACHINE_ROUTES,
-} from "../../../../apps/agent-runtime/core-http.ts";
-import { anthropicPacker } from "../../../../apps/agent-runtime/model-binding.ts";
-import { productToolkit } from "../../../../apps/agent-runtime/product-driver.ts";
-import { createRunPreparer } from "../../../../apps/agent-runtime/prepare.ts";
-import { createRunDriver } from "../../../../apps/agent-runtime/run-driver.ts";
+} from "../../main/agent-runtime/core-http.ts";
+import { anthropicPacker } from "../models/binding.ts";
+import { productToolkit } from "../../main/agent-runtime/product-driver.ts";
+import { createRunPreparer } from "../run-loop/prepare.ts";
+import { createRunDriver } from "../run-loop/driver.ts";
 import { createAgentCredentialLink } from "../run-loop/agent-credentials.ts";
 import { createLedgerRegistration as createAppsRegistration } from "../../apps/register.ts";
 import { codingAgentConnectionDefinitions } from "../../server/identity/coding-connection.ts";

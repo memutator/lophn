@@ -194,7 +194,7 @@ export function workerSpecs(
     {
       kind: "documents/worker",
       entry: new URL(
-        "../../../apps/worker/documents/entry.ts",
+        "../main/worker/coordinator-entry.ts",
         import.meta.url,
       ).pathname,
       allow_read: [...reads, ...code],

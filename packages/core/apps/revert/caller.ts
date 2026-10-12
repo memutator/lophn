@@ -25,7 +25,7 @@ export function revertWorkerSpec(
 ): KindLaunchSpec {
   const spec: KindLaunchSpec = {
     kind: REVERT_WORKER_KIND,
-    entry: new URL("../../../../apps/worker/apps/revert.ts", import.meta.url)
+    entry: new URL("./worker/run.ts", import.meta.url)
       .pathname,
     allow_read: [],
     allow_write: [],

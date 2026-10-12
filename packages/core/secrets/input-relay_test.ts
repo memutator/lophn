@@ -29,7 +29,7 @@ import {
   type FakeKeychain,
 } from "./mod.ts";
 import { id } from "../lophn-agent/session/testing/mod.ts";
-import { createSecretPipe } from "../../../apps/worker/platform/secrets.ts";
+import { createSecretPipe } from "./worker/pipe.ts";
 import { type Core, startCore } from "../main/daemon/core.ts";
 import { createLedgerRegistration } from "../projects/register.ts";
 import {

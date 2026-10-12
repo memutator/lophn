@@ -19,10 +19,7 @@ import {
 import { listProblemFixesRead } from "../repairs/mod.ts";
 import { REPORTS_SCHEMA_STEPS } from "../reporting/mod.ts";
 import { snapshotLogsEnvironment } from "./logs-read.ts";
-import {
-  type GcDeps,
-  trimCapacity,
-} from "../../../../apps/worker/platform/gc.ts";
+import { type GcDeps, trimCapacity } from "../../storage/blobs/worker/gc.ts";
 import {
   insertSnapshot,
   PRUNED_ABSENCE_REASON,

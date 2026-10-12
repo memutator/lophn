@@ -14,8 +14,8 @@ import {
 import { routePath } from "../../../protocol/server/mod.ts";
 import { evalContent } from "../../projects/contexts/api/testing.ts";
 import { openIndexStore } from "../../projects/contexts/index/mod.ts";
-import { agentCall } from "../../../../apps/agent-runtime/core-http.ts";
-import { loadContextMaterials } from "../../../../apps/agent-runtime/context-overview.ts";
+import { agentCall } from "../../main/agent-runtime/core-http.ts";
+import { loadContextMaterials } from "./context-overview.ts";
 import { contextWorkerCredential } from "../../projects/contexts/register.ts";
 import {
   agentConditions,

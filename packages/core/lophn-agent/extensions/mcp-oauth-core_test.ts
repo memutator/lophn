@@ -8,8 +8,8 @@ import { mcpServersSetting } from "../../../protocol/lophn-agent/mod.ts";
 import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
 import { MCP_SECRET_OWNER, mcpTokenRef } from "./mod.ts";
 import { createFakeKeychain } from "../../secrets/mod.ts";
-import { machineCall } from "../../../../apps/agent-runtime/core-http.ts";
-import { startMcpAuthPump } from "../../../../apps/agent-runtime/mcp-auth-pump.ts";
+import { machineCall } from "../../main/agent-runtime/core-http.ts";
+import { startMcpAuthPump } from "../../main/agent-runtime/mcp-auth-pump.ts";
 import { type Core, startCore } from "../../main/daemon/core.ts";
 import { createLedgerRegistration as documentsRegistration } from "../../projects/register.ts";
 import {

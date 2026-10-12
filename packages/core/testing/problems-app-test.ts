@@ -17,7 +17,7 @@ import { runnerSockets, testRunnerSpec } from "../problems/tests/runner.ts";
 import type {
   AppTestJob,
   AppTestJobResult,
-} from "../../../apps/worker/problems/app-test-run.ts";
+} from "../problems/tests/work/app-test-run.ts";
 
 const APP = "app_01arz3ndektsv4rrffq69g5fav";
 

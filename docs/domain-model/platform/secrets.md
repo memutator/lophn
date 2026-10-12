@@ -97,6 +97,7 @@ provider·외부 MCP credential 참조·판은 각각 → lophn-agent/harness/pr
 - **사용.** 실제 전송 직전에 플랫폼 경계가 인증을 붙이는 방식을 쓴다. 앱 사용자 코드에 원값을 주는 일반 API는 첫 지원 범위에서 열지 않는다. redirect에 인증을 자동 전달하지 않는다. 앱 사용 허락은 현재 grant이며 caller 종류나 secret 사용 자체로 호출별 approval을 추가하지 않는다. → platform/secrets#R10
 - **인증 갱신.** 신뢰 provider·외부 MCP 전송 adapter의 process/task·소유 key·목적지·용도·현재 참조/revision을 확인한 뒤 보호 keychain 준비를 한다. 값 없는 SecretPreparation과 이전 CAS만 credential 소유 command에 제출한다. 실패는 이전 참조 유지·고아 정리이며 agent·tool·앱 코드가 이 원값 경로를 호출하지 못한다. → platform/secrets#R11, lophn-agent/harness/provider, lophn-agent/extensions
 - **이전.** 사람이 보호 입력에서 명시 선택한 항목만 일반 backup과 분리해 암호 보호 export/import한다. 보호 adapter 안에서만 keychain 값을 암호화·복호화하고 새 keychain 준비·참조 CAS를 거친다. 잘못된 암호·변조·잠김·중단은 기존 참조를 바꾸지 않는다. 평문 중간 파일·agent·일반 API 결과는 없으며 구체 format과 암호 parameter는 → platform architecture의 secret contract다. → platform/secrets#R9
+- **provider credential 정리.** Disconnect 같이 소유 concern이 참조를 지우면 ledger 확정 뒤에 core가 그 owner의 OS 값을 지운다. 삭제가 실패하거나 확정과 삭제 사이에 끊기면 따로 보관할 기록 없이 시작 때와 주기로 쓸어 낸다: keychain의 provider credential 항목 가운데 ledger가 가리키지 않는 것이 대상이다. 보호 입력을 마치고 참조가 확정되기 전의 값과 구별할 수 없으므로 주기 쓸기는 두 번 연속 본 항목만 지우고, core가 막 뜰 때는 보호 입력이 아직 없어 바로 지운다. keychain이 잠기거나 목록을 낼 수 없으면 지우지 않고 다음에 다시 한다.
 - **변경.** 변경·삭제·grant 회수 뒤 새 사용은 차단하고 이전 값을 사용한 앱 프로세스는 종료 확인 뒤 새로 시작한다. 외부 요청은 로컬 삭제로 취소되지 않는다.
 - **keychain 불가.** 잠기거나 없는 환경에서는 secret 필요 기능만 `unavailable`이다. 평문 파일·ledger·blob·설정·환경 변수 fallback은 없다. secret 없는 로컬 기능은 계속된다.
 - **오류.** 안전한 이름·용도·완료 여부만 남긴다. 입력 값·인증 header·keychain 내부 경로는 오류에 없다.

@@ -19,6 +19,7 @@ import {
   createOperatorAssignment,
   instructionPreview,
   instructionRead,
+  providerDisconnected,
   questionCreated,
   REVERT_EVENTS,
   runAccepted,
@@ -1117,6 +1118,8 @@ export function createEventRegistration(): EventRegistration {
       // 되돌리기 결과는 session을 보는 사람(shell)과 machine(observability·prompt 조립)이 읽는다. agent는
       // 읽지 않는다: Undo는 사실 메시지로, 숨김 구간은 입력 조립으로 전해지고 event 자체는 필요 없다.
       ...REVERT_EVENTS.map((event) => userAndMachineVisibility(event)),
+      // Disconnect한 provider로 진행 중인 run의 호출을 멈추려고 runtime이 따라 읽는다(provider#R4).
+      machineOnlyVisibility(providerDisconnected),
     ],
   };
 }

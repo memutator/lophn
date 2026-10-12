@@ -520,7 +520,7 @@ model 응답 중 correction이 오면 응답은 보존하되 옛 응답의 미�
        rejected/usage_wait/model 불가 → availability 기록, run 멈춤(configuration_unavailable/model_error), 다른 provider/model로 이동 없음
 ```
 
-설정 조회는 model 호출이 없다. OAuth 회수와 usage_wait는 재시작으로 풀리지 않는다. Disconnect는 확인 창을 거쳐 DisconnectProvider가 provider와 credential 참조를 함께 지우고, core가 알려진 값을 회수하며, 그 provider를 고른 agent는 다시 Connect하기 전까지 시작하지 않는다.
+설정 조회는 model 호출이 없다. OAuth 회수와 usage_wait는 재시작으로 풀리지 않는다. Disconnect는 확인 창을 거쳐 DisconnectProvider가 provider와 credential 참조를 함께 지우고, core가 알려진 값을 회수한 뒤 OS keychain의 값을 지우며(못 지운 값은 시작 때와 주기 쓸기가 다시 지운다), agent runtime이 machine 자격으로 `ProviderDisconnected`를 따라 읽어 그 provider로 진행 중인 run의 호출을 취소하고, 그 provider를 고른 agent는 다시 Connect하기 전까지 시작하지 않는다.
 
 ### 7.5 skill·MCP 준비 → 선택 tool 실행
 

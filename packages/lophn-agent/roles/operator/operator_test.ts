@@ -10,7 +10,7 @@ import {
 } from "../../harness/tools/mod.ts";
 import { APP_COMMAND_EXPOSURE, ROLE_CAPS } from "../../agents/mod.ts";
 import { handoffAllowed, runSourceSchema } from "@lophn/contracts/lophn-agent";
-import { type OccurrenceOutcome, type OutcomePoint, update } from "./mod.ts";
+import { type OperatorRunOutcome, type OutcomePoint, update } from "./mod.ts";
 import { operatorOffers, operatorTools } from "./mod.ts";
 
 // roles/operator의 시작 계기·범위·tool 선택·결과 판정 규칙(R1–R10)을 본다. 순수
@@ -30,7 +30,7 @@ const CALL = id("tcl", 1);
 // --- R1: 주기 또는 그 assignment 사람 요청으로만 일한다 ----------------------------
 
 Deno.test("lophn-agent/roles/operator#R1: 사람 요청만 Operator를 시작하고 다른 계기는 run 출처가 아니다", () => {
-  // 사람 요청은 run 출처 schema 그대로다(R1). 주기 회차는 보류라 출처가 아니다.
+  // 사람 요청은 run 출처 schema 그대로다(R1). 주기 실행은 보류라 출처가 아니다.
   assertEquals(
     runSourceSchema.safeParse({
       kind: "schedule",
@@ -309,7 +309,7 @@ Deno.test("lophn-agent/roles/operator#R6: 갱신 결과는 사실·판단·불�
 
 Deno.test("lophn-agent/roles/operator#R6: 부분 결과는 실제 저장된 문서와 실패 내용을 나눠 남긴다", () => {
   // 부분 결과는 일부 저장을 전체 성공이나 전체 취소로 표시하지 않는다(R6 표).
-  const partial: OccurrenceOutcome = {
+  const partial: OperatorRunOutcome = {
     kind: "partial",
     points: point(),
     evidence,
@@ -324,7 +324,7 @@ Deno.test("lophn-agent/roles/operator#R6: 부분 결과는 실제 저장된 문�
 Deno.test("lophn-agent/roles/operator#R8: 사람 대화의 오래 남길 답은 승인한 문서의 새 version으로만 남고 정의·범위·주기·tool 변경으로 이어지지 않는다", () => {
   // 지속할 사람 답은 승인된 판단 항목에 필요한 답·결과 해석이고(R8 표) 선언한
   // 기존 문서 새 Version에만 저장한다.
-  const held: OccurrenceOutcome = {
+  const held: OperatorRunOutcome = {
     kind: "person_answer",
     points: point(),
     evidence: evidence.slice(0, 1),
@@ -383,8 +383,8 @@ Deno.test("lophn-agent/roles/operator#R9: Operator 상한은 model 이름을 고
 
 // --- R7: 승인한 기존 문서의 새 version -----------------------------------------------
 
-Deno.test("lophn-agent/roles/operator#R7 [agent-R10]: 문서 새 version tool은 회차마다 승인을 다시 묻지 않고 정의의 권한에 있을 때만 제공되며 출력 선언 같은 별도 제한은 없다", () => {
-  // save_version은 builtin definition 그대로다: 회차마다 approval을 다시 묻는 confirm이 없다(R7).
+Deno.test("lophn-agent/roles/operator#R7 [agent-R10]: 문서 새 version tool은 run마다 승인을 다시 묻지 않고 정의의 권한에 있을 때만 제공되며 출력 선언 같은 별도 제한은 없다", () => {
+  // save_version은 builtin definition 그대로다: run마다 approval을 다시 묻는 confirm이 없다(R7).
   // 쓸 수 있는 자리는 담당 자리이고 쓰기마다의 판정은 tool-judgment가 한다.
   const defined = BUILTIN_TOOLS.find((tool) =>
     tool.name === "document.save_version"
@@ -433,7 +433,7 @@ Deno.test("lophn-agent/roles/operator#R7 [agent-R10]: 문서 새 version tool은
   }
 });
 
-// --- R10: 반복 실패와 대기 중 회차 ----------------------------------------------
+// --- R10: 반복 실패와 대기 중 run ----------------------------------------------
 
 Deno.test("lophn-agent/roles/operator#R10: Operator에게는 실패를 무시하는 선택이나 handoff 송수신 tool이 없다", () => {
   const cap = ROLE_CAPS.get("operator");

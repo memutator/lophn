@@ -3,6 +3,7 @@ import type { McpServerConfig } from "../../contracts/lophn-agent/mod.ts";
 import {
   allowNetList,
   allowRunList,
+  collectPlaceMcpEntries,
   collectPlaceMcpServers,
   mergeMcpServers,
   PLACE_MCP_FILE,
@@ -149,5 +150,31 @@ Deno.test("lophn-agent/extensions#R14 lophn-agent/extensions#R15 [agent-I19b]: t
       "/opt/scoped/bin/server",
     ]);
     assertEquals(allowNetList(servers), ["mcp.example.test:8443"]);
+  });
+});
+
+Deno.test("lophn-agent/extensions#R16 [agent-I50]: each collected server keeps the place it came from, so the same name in two places stays two servers", async () => {
+  await withRoot(async (root) => {
+    writePlace(root, `projects/${PRJ}`, [stdio("scoped", "/opt/one")]);
+    writePlace(root, `projects/${PRJ_TWO}`, [stdio("scoped", "/opt/two")]);
+    writePlace(root, `apps/${APP}`, [stdio("scoped", "/opt/app")]);
+    const found = await collectPlaceMcpEntries(root, source);
+    assertEquals(
+      found.map((entry) => [
+        entry.place,
+        entry.server.transport === "stdio"
+          ? entry.server.stdio.executable
+          : "",
+      ]),
+      [
+        [{ kind: "project", id: PRJ }, "/opt/one"],
+        [{ kind: "project", id: PRJ_TWO }, "/opt/two"],
+        [{ kind: "app", id: APP }, "/opt/app"],
+      ],
+    );
+    assertEquals(
+      (await collectPlaceMcpServers(root, source)).length,
+      found.length,
+    );
   });
 });

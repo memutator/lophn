@@ -226,8 +226,8 @@ Deno.test("lophn-agent/assignments#R14 [agent-R12]: pause and resume are the mac
   assertEquals(resumeAssignment.actors, ["machine"]);
   assert(pauseReasonSchema.safeParse(archived(app)).success);
   assert(pauseReasonSchema.safeParse(archived(prj)).success);
-  // 옛 근거(사람·연속 실패·output 보관)와 run·target 없는 모양은 없다.
-  for (const kind of ["user", "consecutive_failures", "output_archived"]) {
+  // scope_archived 밖의 kind와 run·target 없는 모양은 없다.
+  for (const kind of ["user", "other"]) {
     assert(!pauseReasonSchema.safeParse({ ...archived(app), kind }).success);
   }
   assert(

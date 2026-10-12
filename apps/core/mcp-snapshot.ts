@@ -1,10 +1,11 @@
 import { ok, type Result } from "../../packages/base/mod.ts";
 import {
+  type AgentPlace,
   type McpServerConfig,
   mcpServersSetting,
 } from "../../packages/contracts/lophn-agent/mod.ts";
 import {
-  collectPlaceMcpServers,
+  collectPlaceMcpEntries,
   mergeMcpServers,
   type PlaceServerSource,
 } from "../../packages/lophn-agent/extensions/mod.ts";
@@ -64,16 +65,41 @@ export type McpSnapshotDeps = {
   places?: PlaceServerSource;
 };
 
+// 서버와 그 서버가 등록된 자리다. 전역(Workspace) 서버는 자리가 null이다.
+export type RegisteredMcpServer = {
+  place: AgentPlace | null;
+  server: McpServerConfig;
+};
+
+// 전역 서버가 먼저고 자리 서버가 자리 id 순으로 따른다. 전역과 이름이 같은 자리 서버는 쓰지 않으므로 빠진다(R33).
+// 서로 다른 자리의 같은 이름은 둘 다 남고 `place`로 가른다: OAuth 시작이 입력의 자리로 서버를 고른다(R16).
+export async function registeredMcpServers(
+  ledgerPath: string,
+  deps: McpSnapshotDeps = {},
+): Promise<Result<RegisteredMcpServer[]>> {
+  const global = deps.global?.() ?? globalMcpServers(ledgerPath);
+  if (!global.ok) return global;
+  const root = ledgerPath.slice(0, ledgerPath.lastIndexOf("/"));
+  const places = await collectPlaceMcpEntries(
+    root,
+    deps.places ?? denoPlaceSource,
+  );
+  // 겹침 규칙(R33)은 mergeMcpServers 하나다: 살아남은 서버만 자리와 함께 남긴다.
+  const kept = new Set(mergeMcpServers(
+    global.value,
+    places.map((entry) => entry.server),
+  ));
+  return ok([
+    ...global.value.map((server) => ({ place: null, server })),
+    ...places.filter((entry) => kept.has(entry.server)),
+  ]);
+}
+
 export async function mcpServerSnapshot(
   ledgerPath: string,
   deps: McpSnapshotDeps = {},
 ): Promise<Result<McpServerConfig[]>> {
-  const global = deps.global?.() ?? globalMcpServers(ledgerPath);
-  if (!global.ok) return global;
-  const root = ledgerPath.slice(0, ledgerPath.lastIndexOf("/"));
-  const places = await collectPlaceMcpServers(
-    root,
-    deps.places ?? denoPlaceSource,
-  );
-  return ok(mergeMcpServers(global.value, places));
+  const registered = await registeredMcpServers(ledgerPath, deps);
+  if (!registered.ok) return registered;
+  return ok(registered.value.map((entry) => entry.server));
 }

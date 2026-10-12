@@ -329,7 +329,7 @@ import {
   withQuestionText,
 } from "./question-text.ts";
 import { assemble, type TeamModule } from "./registration.ts";
-import { mcpServerSnapshot } from "./mcp-snapshot.ts";
+import { mcpServerSnapshot, registeredMcpServers } from "./mcp-snapshot.ts";
 import { type CoreRuntime, openRuntime } from "./runtime.ts";
 import { appExportWorkers } from "./apps-export.ts";
 import { ticketClaimSweepIntervalMs } from "./tickets.ts";
@@ -988,7 +988,7 @@ async function open(
   const mcpAuthControl = createMcpAuthControl({
     fetch: undefined,
     openListener: openMcpCallbackListener,
-    snapshot: () => mcpServerSnapshot(ledgerPath),
+    registered: () => registeredMcpServers(ledgerPath),
     nowMs: () => clock.nowMs(),
   });
   // OAuth 로그인(provider#R12–R16, D31)의 writer queue 앞 처리기 재료다. 활성 gate는

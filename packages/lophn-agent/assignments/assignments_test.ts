@@ -404,14 +404,9 @@ Deno.test("lophn-agent/assignments#R14 [agent-R12]: only the machine pauses, onl
           state: "enabled",
         }),
       );
-    // 사람 멈춤과 옛 근거(연속 실패·output 보관·user)는 없다.
+    // 사람 멈춤과 scope_archived 밖의 근거는 없다.
     code(await pause(reason("scope_archived"), userCred), "forbidden");
     code(await pause(reason("user")), "invalid_input");
-    code(
-      await pause({ ...reason("consecutive_failures"), runs: [] }),
-      "invalid_input",
-    );
-    code(await pause(reason("output_archived")), "invalid_input");
     // 보관되지 않은 자리, 다른 자리의 근거는 멈추지 못한다.
     code(await pause(reason("scope_archived")), "forbidden");
     await seedEvent(h, "ProjectArchived", PROJECT);

@@ -27,6 +27,7 @@ import {
   withdrawAssignment,
 } from "../../packages/contracts/lophn-agent/mod.ts";
 import { notificationsOnlyVisibility } from "./platform.ts";
+import type { RegisteredMcpServer } from "./mcp-snapshot.ts";
 import type {
   CommandDefinition,
   EventDefinition,
@@ -1037,9 +1038,10 @@ export type McpAuthControlDeps = {
       import("../../packages/lophn-agent/extensions/mod.ts").CallbackListener
     >
   >;
-  // 등록한 MCP server 설정의 snapshot 읽기다. 제품 main은 ledger 경로를 주고,
-  // 시험이 기록을 끼운다. 설정이 없는 등록은 not_found다(architecture 관례).
-  snapshot?: () => Promise<Result<McpServerConfig[]>>;
+  // 등록한 MCP server와 등록된 자리의 읽기다(전역 서버는 자리가 null). 제품 core는 ledger 경로와
+  // 자리 폴더를 읽고, 시험이 기록을 끼운다. 같은 이름의 서버가 여러 자리에 있을 수 있어
+  // 서버는 이름과 자리로 고른다. 없는 등록은 not_found다(architecture 관례).
+  registered?: () => Promise<Result<RegisteredMcpServer[]>>;
   nowMs(): number;
 };
 
@@ -1059,26 +1061,42 @@ export function createMcpAuthControl(
     import("../../packages/lophn-agent/extensions/mod.ts").CallbackListener
   >();
 
-  function authOf(name: string) {
-    const found = auths.get(name);
+  function samePlace(left: AgentPlace | null, right: AgentPlace | null) {
+    return left === null || right === null
+      ? left === right
+      : left.kind === right.kind && left.id === right.id;
+  }
+
+  // 작업 메모리의 열쇠다: 같은 이름의 서버가 다른 자리에 있어도 시작 상태가 섞이지 않는다.
+  function keyOf(place: AgentPlace | null, name: string): string {
+    return place === null
+      ? `global/${name}`
+      : `${place.kind}/${place.id}/${name}`;
+  }
+
+  function authOf(key: string) {
+    const found = auths.get(key);
     if (found !== undefined) return found;
     const made = createMcpAuth({ nowMs: deps.nowMs });
-    auths.set(name, made);
+    auths.set(key, made);
     return made;
   }
 
   async function registeredServerOf(
+    place: AgentPlace | null,
     name: string,
   ): Promise<Result<McpServerConfig>> {
-    const loaded = await (deps.snapshot?.() ?? Promise.resolve(
-      ok([] as McpServerConfig[]),
+    const loaded = await (deps.registered?.() ?? Promise.resolve(
+      ok([] as RegisteredMcpServer[]),
     ));
     if (!loaded.ok) return loaded;
-    const found = loaded.value.find((server) => server.name === name);
+    const found = loaded.value.find((entry) =>
+      entry.server.name === name && samePlace(entry.place, place)
+    );
     if (found === undefined) {
       return err({ code: "not_found", message: "등록한 서버가 아니다" });
     }
-    return ok(found);
+    return ok(found.server);
   }
 
   const begin: McpAuthMemoryHandler = async (_ctx, input) => {
@@ -1089,10 +1107,11 @@ export function createMcpAuthControl(
         message: "서버 이름이 올바르지 않다",
       });
     }
-    const name = parsed.data.name;
-    // 등록한 서버 설정이다(shell#T31에서 넘어온 규칙): 등록 밖 서버 이름은
+    const { name, place } = parsed.data;
+    const key = keyOf(place, name);
+    // 등록한 서버 설정이다(shell#T31에서 넘어온 규칙): 그 자리에 등록 밖인 서버 이름은
     // not_found다(architecture 관례의 not_found, extensions R11의 골자).
-    const config = await registeredServerOf(name);
+    const config = await registeredServerOf(place, name);
     if (!config.ok) return config;
     if (config.value.transport !== "http") {
       return err({
@@ -1111,8 +1130,8 @@ export function createMcpAuthControl(
     // loopback callback). 실제 loopback listener는 port에서 만든다.
     const listener = await deps.openListener();
     if (!listener.ok) return listener;
-    opened.set(name, listener.value);
-    const begun = await authOf(name).begin({
+    opened.set(key, listener.value);
+    const begun = await authOf(key).begin({
       authorizationEndpoint: `${httpAuth.issuer}/authorize`,
       tokenEndpoint: `${httpAuth.issuer}/token`,
       clientId: httpAuth.client_id,
@@ -1134,14 +1153,14 @@ export function createMcpAuthControl(
         message: "서버 이름이 올바르지 않다",
       });
     }
-    const name = parsed.data.name;
-    const config = await registeredServerOf(name);
+    const { name, place } = parsed.data;
+    const config = await registeredServerOf(place, name);
     if (!config.ok) return config;
     const fetch = deps.fetch;
     if (fetch === undefined) {
       return err({ code: "unavailable", message: "token 교환 눈이 없다" });
     }
-    const done = await authOf(name).complete({
+    const done = await authOf(keyOf(place, name)).complete({
       fetch,
       signal: new AbortController().signal,
     });

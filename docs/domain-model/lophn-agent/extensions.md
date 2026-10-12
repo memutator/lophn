@@ -54,6 +54,8 @@ ExtensionSettings는 공급·발견·서버 설정이며 agent별 선택 map이 
 | command | actor | 입력 | 검사 | event | 오류 |
 |---|---|---|---|---|---|
 | `ChangePlaceExtensionSettings` | user | 자리, `mcp_servers` 새 목록 전체 | 파일 hash CAS(없는 파일은 null); 서버 이름이 자기 안에서도 전역과도 겹치지 않음; 서버 설정 검사(R12); 서버 `revision`은 바뀐 설정에 맞춰 올림 | `PlaceExtensionSettingsChanged`(자리, 전·후 파일 hash) | `invalid_input`, `conflict`, `not_found`, `forbidden` |
+| `BeginMcpAuth` | user | 서버 `name`, 서버가 등록된 자리(전역 서버는 null), `client_id`, `scopes` | 그 자리의 그 이름 서버가 등록되어 있고 `http`+`oauth2`임; 같은 이름이 다른 자리에 있어도 입력의 자리 서버만 고름; 전역과 이름이 겹쳐 쓰지 않는 자리 서버는 없는 서버 | 없음(작업 메모리가 상태다) | `invalid_input`, `not_found`, `conflict`, `unavailable`, `forbidden` |
+| `CompleteMcpAuth` | user | 서버 `name`, 서버가 등록된 자리(전역은 null), loopback `callback_port` | 시작과 같은 자리·이름의 서버로 state 검사 후 token 교환 | 없음 | `invalid_input`, `not_found`, `conflict`, `unavailable`, `forbidden` |
 
 읽기: `ReadPlaceExtensionSettings(자리)`는 그 자리 서버 목록과 파일 hash, 그리고 그 자리에서 발견하는 skill(이름·설명·`source_kind`)과 가려진 skill, 제외한 꾸러미를 돌려준다. 화면과 run 준비(machine)가 읽는다.
 

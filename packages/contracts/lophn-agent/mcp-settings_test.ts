@@ -6,6 +6,10 @@ import {
   EXTENSION_EVENTS,
   EXTENSION_ROUTES,
   extensionSettingsSchema,
+  mcpAuthBegin,
+  mcpAuthBeginInputSchema,
+  mcpAuthComplete,
+  mcpAuthCompleteInputSchema,
   mcpAuthSchema,
   mcpServerConfigSchema,
   mcpServersSetting,
@@ -308,6 +312,49 @@ Deno.test("lophn-agent/extensions#R32 [agent-I19b]: the read answers the servers
     !output.safeParse({
       ...base,
       settings: { revision: 0, mcp_servers: [] },
+    }).success,
+  );
+});
+
+Deno.test("lophn-agent/extensions#R16 [agent-I50]: OAuth begin and complete name the place the server is registered in, or null for a global server", () => {
+  assertEquals(mcpAuthBegin.name, "BeginMcpAuth");
+  assertEquals(mcpAuthComplete.name, "CompleteMcpAuth");
+  const begin = (place: unknown) =>
+    mcpAuthBeginInputSchema.safeParse({
+      name: "notes",
+      client_id: "lophn",
+      scopes: [],
+      place,
+    }).success;
+  const complete = (place: unknown) =>
+    mcpAuthCompleteInputSchema.safeParse({
+      name: "notes",
+      callback_port: 4321,
+      place,
+    }).success;
+  for (const accept of [begin, complete]) {
+    assert(accept(projectPlace));
+    assert(accept(appPlace));
+    // 전역(Workspace) 서버는 자리 없이 null이다.
+    assert(accept(null));
+    // 자리 칸은 빠질 수 없고 project·app 밖의 모양이나 맞지 않는 id는 거절이다.
+    assert(!accept(undefined));
+    assert(!accept({ kind: "workspace" }));
+    assert(!accept({ kind: "project", id: asg }));
+    assert(!accept({ kind: "app", id: prj }));
+  }
+  // 자리 없는 옛 입력 모양은 받지 않는다.
+  assert(
+    !mcpAuthBeginInputSchema.safeParse({
+      name: "notes",
+      client_id: "lophn",
+      scopes: [],
+    }).success,
+  );
+  assert(
+    !mcpAuthCompleteInputSchema.safeParse({
+      name: "notes",
+      callback_port: 4321,
     }).success,
   );
 });

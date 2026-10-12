@@ -1,5 +1,18 @@
-type Token = { value: string; string?: boolean; line: number };
+type Token = {
+  value: string;
+  string?: boolean;
+  line: number;
+  start: number;
+  end: number;
+};
 export type ImportSpecifier = { specifier: string; line: number };
+// start·end는 따옴표까지 포함한 문자열의 자리다.
+export type SpecifierSite = {
+  specifier: string;
+  line: number;
+  start: number;
+  end: number;
+};
 
 // 문자열·주석 안의 import를 코드로 보지 않도록 먼저 token으로 나눈다.
 function tokens(source: string): Token[] {
@@ -74,10 +87,19 @@ function tokens(source: string): Token[] {
         }
       } else if (char === "'" || char === '"') {
         const startLine = line;
-        result.push({ value: quoted(char), string: true, line: startLine });
+        const start = index;
+        const value = quoted(char);
+        result.push({
+          value,
+          string: true,
+          line: startLine,
+          start,
+          end: index,
+        });
       } else if (char === "`") {
+        const start = index;
         advance();
-        result.push({ value: "`", line });
+        result.push({ value: "`", line, start, end: index });
         while (index < source.length && source[index] !== "`") {
           if (source[index] === "\\") {
             advance();
@@ -88,13 +110,15 @@ function tokens(source: string): Token[] {
             code(true);
           } else advance();
         }
+        const close = index;
         if (source[index] === "`") advance();
-        result.push({ value: "`", line });
+        result.push({ value: "`", line, start: close, end: index });
       } else if (
         char === "/" &&
         (!result.length ||
           /^(?:[=(:,;!{\[?]|return|throw|=>)$/.test(result.at(-1)!.value))
       ) {
+        const start = index;
         advance();
         let inClass = false;
         while (index < source.length) {
@@ -105,12 +129,17 @@ function tokens(source: string): Token[] {
           else if (part === "/" && !inClass) break;
         }
         while (/[a-z]/i.test(source[index] ?? "")) advance();
-        result.push({ value: "/regex/", line });
+        result.push({ value: "/regex/", line, start, end: index });
       } else if (/[\w$]/.test(char)) {
         const start = index;
         const startLine = line;
         while (index < source.length && /[\w$]/.test(source[index])) advance();
-        result.push({ value: source.slice(start, index), line: startLine });
+        result.push({
+          value: source.slice(start, index),
+          line: startLine,
+          start,
+          end: index,
+        });
       } else {
         if (templateExpression && char === "}" && braces === 0) {
           advance();
@@ -118,7 +147,9 @@ function tokens(source: string): Token[] {
         }
         if (char === "{") braces++;
         if (char === "}") braces--;
-        result.push({ value: advance(), line });
+        const start = index;
+        const value = advance();
+        result.push({ value, line, start, end: index });
       }
     }
   }
@@ -142,9 +173,8 @@ export function computedImports(source: string): number[] {
   });
 }
 
-export function readImports(source: string): ImportSpecifier[] {
-  const list = tokens(source);
-  const imports: ImportSpecifier[] = [];
+function importSites(list: Token[]): { token: Token; line: number }[] {
+  const imports: { token: Token; line: number }[] = [];
   for (let index = 0; index < list.length; index++) {
     const token = list[index];
     if (token.string || !["import", "export"].includes(token.value)) continue;
@@ -180,9 +210,54 @@ export function readImports(source: string): ImportSpecifier[] {
         ) break;
       }
     }
-    if (specifier) {
-      imports.push({ specifier: specifier.value, line: token.line });
-    }
+    if (specifier) imports.push({ token: specifier, line: token.line });
   }
   return imports;
+}
+
+export function readImports(source: string): ImportSpecifier[] {
+  return importSites(tokens(source)).map(({ token, line }) => ({
+    specifier: token.value,
+    line,
+  }));
+}
+
+const site = (token: Token, line: number): SpecifierSite => ({
+  specifier: token.value,
+  line,
+  start: token.start,
+  end: token.end,
+});
+
+// 옮기기 도구가 고칠 자리다. import·export from·import()에 더해
+// new URL("…", import.meta.url)과 import.meta.resolve("…")의 문자열을 낸다.
+export function readSpecifierSites(source: string): SpecifierSite[] {
+  const list = tokens(source);
+  const sites = importSites(list).map(({ token, line }) => site(token, line));
+  const word = (index: number, value: string) =>
+    !list[index]?.string && list[index]?.value === value;
+  const meta = (index: number, last: string) =>
+    word(index, "import") && word(index + 1, ".") && word(index + 2, "meta") &&
+    word(index + 3, ".") && word(index + 4, last);
+  for (let index = 0; index < list.length; index++) {
+    if (
+      word(index, "new") && word(index + 1, "URL") && word(index + 2, "(") &&
+      list[index + 3]?.string && word(index + 4, ",") && meta(index + 5, "url")
+    ) {
+      sites.push(site(list[index + 3], list[index + 3].line));
+    } else if (
+      meta(index, "resolve") && word(index + 5, "(") &&
+      list[index + 6]?.string && word(index + 7, ")")
+    ) {
+      sites.push(site(list[index + 6], list[index + 6].line));
+    }
+  }
+  return sites.sort((a, b) => a.start - b.start);
+}
+
+// 모든 문자열 literal의 자리다. 옮긴 경로를 문자열로 쓰는 곳을 찾는 데 쓴다.
+export function readStringSites(source: string): SpecifierSite[] {
+  return tokens(source).filter((token) => token.string).map((token) =>
+    site(token, token.line)
+  );
 }

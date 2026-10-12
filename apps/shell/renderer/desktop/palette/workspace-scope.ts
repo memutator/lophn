@@ -1,13 +1,15 @@
 // 프로젝트 작업대의 팔레트 행. 열린 탭·문서·파일·컨텍스트·행동 순서이고(desktop#R30)
-// 고르면 작업대 안의 대상(탭 고르기, 문서 탭 열기, 정보 패널 컨텍스트, 행동)으로만 간다.
+// 고르면 작업대 안의 대상(탭 고르기, 문서 탭 열기, Context 탭 열기, 행동)으로만 간다(workspace#R31).
 import { t } from "@lophn/wording";
 
-import { TAB_KIND_LABEL, type WorkspaceView } from "../../workspace/model.ts";
-import type {
-  ContextRow,
-  DocumentRow,
-  FileRow,
-} from "../../workspace/source.ts";
+import {
+  CONTEXT_PALETTE_PREFIX,
+  contextPaletteItems,
+} from "../../workspace/contexts/context-palette-group.ts";
+import type { ContextListItem } from "../../workspace/contexts/source.ts";
+import { tabKindLabel, tabKindOf } from "../../workspace/kinds/registry.ts";
+import type { WorkspaceView } from "../../workspace/model.ts";
+import type { DocumentRow, FileRow } from "../../workspace/source.ts";
 import type { WindowPlatform } from "../top-bar/platform.ts";
 import { windowShortcutLabel } from "./labels.ts";
 import {
@@ -29,7 +31,8 @@ export interface WorkspaceScopeInput {
   readonly view: WorkspaceView;
   readonly documents: readonly DocumentRow[];
   readonly files: readonly FileRow[];
-  readonly contexts: readonly ContextRow[];
+  /** 이 프로젝트의 context. 고르면 그 Context 탭이 열린다. */
+  readonly contexts: readonly ContextListItem[];
   /** 터미널 통로가 있을 때만 터미널 열기 행이 있다. */
   readonly terminal: boolean;
   readonly platform: WindowPlatform;
@@ -42,7 +45,7 @@ function tabs(view: WorkspaceView): PaletteEntry<WorkspaceTarget>[] {
   const split = view.panes.length > 1;
   return view.panes.flatMap((pane, index) =>
     pane.tabs.map((tab) => {
-      const kind = t(TAB_KIND_LABEL[tab.kind]);
+      const kind = tabKindLabel(tab.kind);
       const side = index === 0
         ? t("common.label.palette-left-pane")
         : t("common.label.palette-right-pane");
@@ -53,7 +56,7 @@ function tabs(view: WorkspaceView): PaletteEntry<WorkspaceTarget>[] {
         detail: split
           ? t("common.label.palette-tab-detail", { kind, pane: side })
           : kind,
-        icon: tab.kind === "terminal" ? "terminal" as const : "tab" as const,
+        icon: tabKindOf(tab.kind)?.paletteIcon ?? "tab" as const,
         target: { kind: "tab" as const, pane: index, key: tab.key },
       };
     })
@@ -125,12 +128,17 @@ export function workspaceScope(
           document: { id: file.document, title: file.title },
         },
       })),
-      ...input.contexts.map((row) => ({
+      // 항목의 이름·보조 글·id는 Contexts 묶음(contextPaletteItems)이 정한 그대로다.
+      ...contextPaletteItems(input.contexts).map((item) => ({
         group: "contexts" as const,
-        key: `context:${row.id}`,
-        label: row.title,
+        key: item.id,
+        label: item.label,
+        ...(item.detail ? { detail: item.detail } : {}),
         icon: "context" as const,
-        target: { kind: "context" as const, id: row.id },
+        target: {
+          kind: "context" as const,
+          id: item.id.slice(CONTEXT_PALETTE_PREFIX.length),
+        },
       })),
       ...actions(input),
     ],

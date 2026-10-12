@@ -14,7 +14,7 @@ export type NotificationView = {
 
 // 표 밖 결정은 계기가 아니다(platform/notifications#R1, R2). 각 트리거의 조건은
 // architecture 5.10의 한 행이다: 운영 보고 문제 3가지, 항상 5가지, machine pause,
-// machine watch 변화, release activation 실패.
+// release activation 실패, context 위반 수 증가.
 export function triggerOf(event: string): NotificationTrigger | undefined {
   return NOTIFICATION_TRIGGERS.find((trigger) => trigger.event === event);
 }
@@ -64,14 +64,10 @@ function targetOf(
         assignment: subject,
         target: record["target"] ?? null,
       };
-    case "ContextWatchedItemChanged":
-      return {
-        kind: "context",
-        context: subject,
-        target: record["target"] ?? null,
-      };
     case "ReleaseActivationFailed":
       return { kind: "release", release: subject };
+    case "ContextViolationsRecorded":
+      return { kind: "context", context: subject };
     default:
       return null;
   }
@@ -86,11 +82,11 @@ function assignmentTriggered(payload: Payload): boolean {
       reason["kind"] === "output_archived");
 }
 
-// machine watch 확정 변화·절 소실만 계기다(R1). unchanged·unverified는 소식이 아니다.
-function contextTriggered(payload: Payload): boolean {
-  const change = payload["change_kind"];
-  return change === "content_changed" || change === "section_added" ||
-    change === "section_missing";
+// 위반 수가 직전 기록보다 늘었을 때만 계기다. 줄거나 같으면 소식이 아니다(첫 기록의 before는 0).
+function violationsRose(payload: Payload): boolean {
+  const { before, after } = payload;
+  return typeof before === "number" && typeof after === "number" &&
+    after > before;
 }
 
 // 계기 판정은 source payload만 본다. event의 actor는 payload에 이미 들어갔다.
@@ -102,8 +98,8 @@ export function conditionMet(
   if (trigger.condition === "always") return true;
   if (!payloadIsObject(payload)) return false;
   if (trigger.event === "AssignmentPaused") return assignmentTriggered(payload);
-  if (trigger.event === "ContextWatchedItemChanged") {
-    return contextTriggered(payload);
+  if (trigger.event === "ContextViolationsRecorded") {
+    return violationsRose(payload);
   }
   return true;
 }

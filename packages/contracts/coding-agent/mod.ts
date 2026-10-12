@@ -240,11 +240,6 @@ export {
   cliApprovalListSchema,
   cliApprovalOpenSchema,
   cliApprovalShowSchema,
-  cliContextGlossarySchema,
-  cliContextItemsSchema,
-  cliContextListSchema,
-  cliContextOfSchema,
-  cliContextShowSchema,
   type CliDecisionName,
   cliQuestionListSchema,
   cliQuestionOpenSchema,
@@ -305,7 +300,6 @@ export {
   type McpSessionToolName,
 } from "./mcp-session.ts";
 export {
-  contextProposeFields,
   decisionLink,
   MCP_DECISION_ROUTES,
   MCP_DECISION_TOOLS,

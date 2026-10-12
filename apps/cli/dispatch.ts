@@ -36,7 +36,6 @@ import {
 } from "../../packages/coding-agent/cli/commands/connection.ts";
 import { runApp } from "../../packages/coding-agent/cli/commands/app.ts";
 import { runApprovalOpen } from "../../packages/coding-agent/cli/commands/approval.ts";
-import { runContextPropose } from "../../packages/coding-agent/cli/commands/context.ts";
 import {
   type DaemonLogFiles,
   type DaemonPort,
@@ -562,13 +561,6 @@ export async function runCliCommand(
       { client, scope, prepareBytes: uploadPrepareBytes(client) },
     );
     return saved.ok ? ok(saved.value) : saved;
-  }
-  if (name === "context propose") {
-    const proposed = await runContextPropose(
-      input as Parameters<typeof runContextPropose>[0],
-      { client, prepareBytes: uploadPrepareBytes(client) },
-    );
-    return proposed.ok ? ok(proposed.value) : proposed;
   }
   if (name === "question open") {
     const opened = await runQuestionOpen(input as { question: string }, {

@@ -11,7 +11,7 @@ import type { Catalog, LophnSource } from "./lophn-space/source.ts";
 import { useGlobalPalette, usePaletteEnv } from "./palette/host.tsx";
 import { lophnScope, type LophnTarget } from "./palette/lophn-scope.ts";
 
-const EMPTY_CATALOG: Catalog = { projects: [], apps: [], contexts: [] };
+const EMPTY_CATALOG: Catalog = { projects: [], apps: [] };
 
 export interface DesktopIntentsProps {
   intents: IntentApi;

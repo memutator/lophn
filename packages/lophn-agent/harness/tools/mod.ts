@@ -24,15 +24,6 @@ export {
   type DocumentToolPorts,
 } from "./bundles/document.ts";
 export {
-  CONTEXT_READ_TOOL_NAMES,
-  CONTEXT_TOOL_REVISION,
-  CONTEXT_TOOLS,
-  CONTEXT_WRITE_TOOL_NAMES,
-  type ContextToolPorts,
-  createContextToolHandlers,
-  TERM_EVIDENCE_MAX,
-} from "./bundles/context.ts";
-export {
   APP_READ_TOOL_NAMES,
   APP_READ_TOOLS,
   APP_TOOL_REVISION,
@@ -131,6 +122,42 @@ export {
   VISUAL_TOOLS,
   type VisualToolPorts,
 } from "./bundles/visual.ts";
+export {
+  buildContextReadTools,
+  CONTEXT_ENTITY_CONTRACT,
+  CONTEXT_ENTITY_TOOL,
+  CONTEXT_SEARCH_CONTRACT,
+  CONTEXT_TOOL_PREFIX,
+  type ContextEntityRead,
+  contextReadDefinitions,
+  type ContextReadTools,
+  type ContextSearchTool,
+  type ContextSearchToolSource,
+  type ContextToolContext,
+  createContextReadToolHandlers,
+} from "./context-search-tools.ts";
+export {
+  CONTEXT_ENGINEER_TOOL_NAMES,
+  CONTEXT_ENGINEER_TOOLS,
+  CONTEXT_PREVIEW_CONTRACT,
+  type ContextPreviewRead,
+  createContextEngineerToolHandlers,
+} from "./context-engineer-tools.ts";
+export {
+  CONTEXT_LOOKUP_TOOL_NAME_LIST,
+  CONTEXT_LOOKUP_TOOL_NAMES,
+  CONTEXT_LOOKUP_TOOLS,
+  type ContextOverviewInput,
+  createContextLookupToolHandlers,
+  type RenderContextOverview,
+} from "./context-lookup-tools.ts";
+export {
+  createSeriesNextToolHandlers,
+  SERIES_NEXT_CONTRACT,
+  SERIES_NEXT_TOOL,
+  SERIES_NEXT_TOOLS,
+  type SeriesNextRead,
+} from "./series-next-tool.ts";
 export { createBuiltinToolHandlers } from "./bundles/handlers.ts";
 export {
   AGENT_TOOL_REVISION,

@@ -119,7 +119,6 @@ function sourceOf(options: {
           : { ok: true, value: options.diff },
       ),
     sectionHistory: () => Promise.resolve({ ok: false, code: "unavailable" }),
-    contexts: () => Promise.resolve({ ok: true, value: [] }),
     restore: (_document, version, base) => {
       restored.push(version);
       bases.push(base);

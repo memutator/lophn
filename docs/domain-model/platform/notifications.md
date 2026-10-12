@@ -86,8 +86,8 @@ Created actor는 machine, Read actor는 user다. 두 event의 envelope run은 nu
 | `TicketConfirmed` | → coding-agent/tickets | 항상 | source_seq 하나당 1개 |
 | `TicketCheckFailed` | → coding-agent/tickets | 항상 | source_seq 하나당 1개 |
 | `AssignmentPaused` | → lophn-agent/assignments | actor=machine; 원인=반복 실패 또는 대상 보관 | source_seq 하나당 1개 |
-| `ContextWatchedItemChanged` | → documents/contexts | machine이 watch 변화 또는 section 소실을 확정한 event | source_seq 하나당 1개 |
 | `ReleaseActivationFailed` | → apps/releases | 항상 | source_seq 하나당 1개 |
+| `ContextViolationsRecorded` | → documents/contexts | payload의 `after`가 `before`(그 context의 직전 기록 수; 첫 기록은 0)보다 큼 | source_seq 하나당 1개; 대상=그 context(Context 탭의 위반을 연다); 문구=계기 이름. 줄거나 같으면 없음; 위반별·이력 notification 없음 |
 
 - **표 밖 계기 금지.** 같은 문제의 추가 report·TicketCreated/Claimed/ClaimReleased/CompletionReported/Cancelled·handoff 종료·RunFinished·일반 문서 저장은 notification을 만들지 않는다.
 - **agent 비기동.** 생성·배달·읽음은 새 agent run이나 닫힌 세션 재개의 계기가 아니다. 기존 질문·approval 대기 해제는 해당 concern의 결정 event로만 처리한다.

@@ -22,7 +22,7 @@ export interface LophnSidebarProps {
   onOpen: (screen: LophnScreen) => void;
 }
 
-// lophn 공간 sidebar. 일곱 형제만 한 단으로 두고 분류 전·거처 같은 중간 계층이 없다(desktop#R28).
+// lophn 공간 sidebar. 여섯 형제만 한 단으로 두고 분류 전·거처 같은 중간 계층이 없다(desktop#R28).
 export function LophnSidebar(
   { mode, width, current, onLauncher, onToggle, onOpen }: LophnSidebarProps,
 ) {

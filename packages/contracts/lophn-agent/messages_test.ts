@@ -44,6 +44,8 @@ import {
   ver,
 } from "./message-fixtures.ts";
 
+const ctx = apr.replace("apr_", "ctx_");
+
 const paused = {
   id: msg,
   session: ses,
@@ -175,12 +177,42 @@ Deno.test("lophn-agent/conversation#R7: assignment compare keeps one unapplied r
   );
 });
 
+Deno.test("lophn-agent/conversation#R4 [ctx-I58j]: a context link names one context and nothing else", () => {
+  const record = (links: unknown[]) =>
+    recordMessageInputSchema.safeParse({
+      id: msg,
+      session: ses,
+      run,
+      content,
+      links,
+    }).success;
+  assert(record([{ kind: "context", context: ctx }]));
+  assert(!record([{ kind: "context", context: doc }]));
+  assert(!record([{ kind: "context" }]));
+  assert(!record([{ kind: "context", context: ctx, project: "prj" }]));
+  // 읽는 쪽(저장된 message)은 모르는 필드를 막지 않지만 kind와 context ID는 확인한다.
+  const stored = (links: unknown[]) =>
+    messageSchema.safeParse({
+      id: msg,
+      session: ses,
+      actor: `agent:${asg}`,
+      body,
+      run,
+      mode: null,
+      applied_at_call: null,
+      links,
+    }).success;
+  assert(stored([{ kind: "context", context: ctx }]));
+  assert(!stored([{ kind: "context", context: doc }]));
+});
+
 Deno.test("lophn-agent/conversation#R4: links are real targets and a plan is not a created link", () => {
   const links = [
     { kind: "document", document: doc },
     { kind: "version", document: doc, version: ver },
     { kind: "question", question: qst },
     { kind: "approval_request", approval_request: apr },
+    { kind: "context", context: ctx },
     { kind: "model_call", call: mcl },
     { kind: "tool_call", call: tcl },
   ];

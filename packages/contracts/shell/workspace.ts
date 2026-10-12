@@ -26,9 +26,20 @@ export const VIEW_AVAILABILITY = [
 
 export const TAB_KINDS = [
   "document_editor",
-  "document_viewer",
   "terminal",
   "app_panel",
+  "contexts",
+  "context",
+  "search",
+] as const;
+
+// Context 탭의 하위 탭. 순서가 화면 순서다(shell/workspace#R17).
+export const CONTEXT_SUB_TABS = [
+  "overview",
+  "search",
+  "violations",
+  "glossary",
+  "contract",
 ] as const;
 
 export const APP_VIEW_MODES = ["live", "preview"] as const;
@@ -44,6 +55,7 @@ const lineSchema = z.number().int().min(1).max(Number.MAX_SAFE_INTEGER);
 export const windowRefSchema = z.string().regex(WINDOW_REF);
 
 const sessionIdSchema = idSchema("ses");
+const contextIdSchema = idSchema("ctx");
 const releaseIdSchema = idSchema("rel");
 
 function utf8Bytes(value: string): number {
@@ -69,12 +81,6 @@ export const viewTabSchema = z.discriminatedUnion("kind", [
   }),
   z.strictObject({
     ...tabBase,
-    kind: z.literal("document_viewer"),
-    document: documentIdSchema,
-    version: versionIdSchema,
-  }),
-  z.strictObject({
-    ...tabBase,
     kind: z.literal("terminal"),
     project_folder: viewString,
   }),
@@ -86,6 +92,20 @@ export const viewTabSchema = z.discriminatedUnion("kind", [
     // 그 패널 view의 불투명 session 식별자다. agent가 앱의 화면 context를 읽고 쓸 때 가리키는 view이며
     // 허락이 아니다. 패널 view가 아직 서지 않았으면 없다(apps/agent-context).
     view_session: viewString.optional(),
+  }),
+  z.strictObject({ ...tabBase, kind: z.literal("contexts") }),
+  z.strictObject({
+    ...tabBase,
+    kind: z.literal("context"),
+    context: contextIdSchema,
+    sub_tab: z.enum(CONTEXT_SUB_TABS),
+  }),
+  z.strictObject({
+    ...tabBase,
+    kind: z.literal("search"),
+    context: contextIdSchema,
+    // 선언된 검색의 key만 둔다. 채운 입력과 결과 줄은 넣지 않는다.
+    declared_search: viewString.optional(),
   }),
 ]);
 
@@ -102,12 +122,6 @@ const viewTabOutputSchema = z.discriminatedUnion("kind", [
   }),
   z.object({
     ...tabBase,
-    kind: z.literal("document_viewer"),
-    document: documentIdSchema,
-    version: versionIdSchema,
-  }),
-  z.object({
-    ...tabBase,
     kind: z.literal("terminal"),
     project_folder: viewString,
   }),
@@ -117,6 +131,19 @@ const viewTabOutputSchema = z.discriminatedUnion("kind", [
     app: appIdSchema,
     surface: viewString,
     view_session: viewString.optional(),
+  }),
+  z.object({ ...tabBase, kind: z.literal("contexts") }),
+  z.object({
+    ...tabBase,
+    kind: z.literal("context"),
+    context: contextIdSchema,
+    sub_tab: z.enum(CONTEXT_SUB_TABS),
+  }),
+  z.object({
+    ...tabBase,
+    kind: z.literal("search"),
+    context: contextIdSchema,
+    declared_search: viewString.optional(),
   }),
 ]);
 

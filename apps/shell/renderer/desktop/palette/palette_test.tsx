@@ -20,6 +20,10 @@ import { openLophn, openProject } from "../router.ts";
 import { fakeSource } from "../lophn-space/testdata/fake-source.ts";
 import { find, flush } from "../lophn-space/testdata/dom.ts";
 import type { WorkspaceSource } from "../../workspace/source.ts";
+import {
+  createFakeContextsSource,
+  EVAL,
+} from "../../workspace/contexts/fake-source.ts";
 import { shortcutLabel } from "./labels.ts";
 import {
   arrange,
@@ -140,8 +144,7 @@ const workspaceSource: WorkspaceSource = {
       ok: true,
       value: [{ id: "doc_1", title: "notes" }, { id: "doc_2", title: "plan" }],
     }),
-  contexts: () =>
-    Promise.resolve({ ok: true, value: [{ id: "ctx_1", title: "design" }] }),
+  contextsSource: createFakeContextsSource(),
   files: () =>
     Promise.resolve({
       ok: true,
@@ -154,7 +157,7 @@ const workspaceSource: WorkspaceSource = {
       layout: {
         panes: [
           {
-            tabs: [{ key: "doc_1", kind: "document_viewer", title: "notes" }],
+            tabs: [{ key: "doc_1", kind: "document_editor", title: "notes" }],
             selected_tab: "doc_1",
           },
           {
@@ -202,7 +205,7 @@ Deno.test("shell/desktop#R30: 작업대 팔레트는 열린 탭·문서·파일�
     ["notes", "document"],
     ["plan", "document"],
     ["plan.md", "file"],
-    ["design", "context"],
+    ["eval", "context"],
   ]);
   const launcher = open.model.choices.find((choice) =>
     choice.label === "Back to launcher"
@@ -243,16 +246,45 @@ Deno.test("shell/desktop#R30: 작업대 팔레트의 결과는 작업대 안의 
   );
   assert(tabs.some((text) => text?.includes("plan")), `tabs: ${tabs}`);
   await win.press("palette");
-  await win.choose("design");
+  await win.choose("eval");
   assertEquals(
-    find(view.container, "[data-info-tab='contexts']").getAttribute(
+    find(view.container, `[data-tab='context:${EVAL}']`).getAttribute(
       "aria-selected",
     ),
     "true",
   );
 });
 
-Deno.test("shell/desktop#R30: lophn 공간 팔레트는 프로젝트·컨텍스트·문서·앱·행동 순서이고 문서는 검색으로 찾는다", async () => {
+Deno.test("shell/workspace#R31 [ctx-I53]: 일곱째 길 — 상단 검색의 Contexts 묶음은 context 이름을 보이고 고르면 그 Context 탭을 연다", async () => {
+  const win = fakeWindow();
+  using view = render(
+    <Desktop
+      source={core}
+      initial={openProject("prj_1")}
+      workspace={workspaceSource}
+      windowWidth={1600}
+      palette={win.deps}
+    />,
+  );
+  await flush();
+  await win.press("palette");
+  const contexts = win.model().choices.filter((choice) =>
+    choice.group === "Contexts"
+  );
+  assertEquals(contexts.map((choice) => [choice.label, choice.detail]), [
+    ["eval", "Context"],
+    ["harness", "Context"],
+  ]);
+  await win.choose("harness");
+  const tab = view.container.querySelector("[data-tab^='context:']");
+  assert(tab, "no Context tab opened");
+  assertEquals(tab.getAttribute("aria-selected"), "true");
+  assertEquals(tab.textContent?.startsWith("harness"), true);
+  // 옛 정보 패널의 컨텍스트 탭으로 가지 않는다.
+  assertEquals(view.container.querySelector("[data-info-panel]"), null);
+});
+
+Deno.test("shell/desktop#R30: lophn 공간 팔레트는 프로젝트·문서·앱·행동 순서이고 문서는 검색으로 찾는다", async () => {
   const win = fakeWindow();
   const { source, of } = fakeSource({
     search: () => ({
@@ -298,10 +330,10 @@ Deno.test("shell/desktop#R30: lophn 공간 팔레트는 프로젝트·컨텍스�
   const first = win.opened[0]!.model;
   assertEquals(first.label, "Search lophn");
   // 검색어 전에는 문서 행이 없다. 문서는 documents 검색이 찾는다.
-  assertEquals(groups(first), ["Projects", "Contexts", "Apps", "Actions"]);
+  assertEquals(groups(first), ["Projects", "Apps", "Actions"]);
   await win.type("rel");
   const searched = win.model();
-  assertEquals(groups(searched), ["Contexts", "Documents"]);
+  assertEquals(groups(searched), ["Documents"]);
   const documents = searched.choices.filter((choice) =>
     choice.group === "Documents"
   );
@@ -320,7 +352,7 @@ Deno.test("shell/desktop#R30: lophn 공간 팔레트는 프로젝트·컨텍스�
   assert(view.container.querySelector("[data-reader='doc_9']"));
 });
 
-Deno.test("shell/desktop#R30: lophn 공간 팔레트의 컨텍스트·앱·행동은 지금 형제 화면으로 가고 거처·분류 전·시리즈 목적지가 없다", async () => {
+Deno.test("shell/desktop#R30: lophn 공간 팔레트의 앱·행동은 지금 형제 화면으로 가고 거처·분류 전·시리즈 목적지가 없다", async () => {
   const win = fakeWindow();
   const { source } = fakeSource();
   using view = render(
@@ -341,9 +373,6 @@ Deno.test("shell/desktop#R30: lophn 공간 팔레트의 컨텍스트·앱·행�
     find(view.container, "[data-space='lophn']").getAttribute(
       "data-current-screen",
     );
-  await win.choose("Release");
-  assertEquals(space(), "contexts");
-  await win.press("palette");
   await win.choose("Groceries");
   assertEquals(space(), "apps");
   await win.press("palette");

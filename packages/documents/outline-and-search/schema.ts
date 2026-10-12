@@ -1,6 +1,6 @@
 import type { SchemaStep } from "../../contracts/platform/mod.ts";
 
-// derived store 9개 표(docs/domain-model/documents/outline-and-search.md).
+// derived store 8개 표(docs/domain-model/documents/outline-and-search.md).
 // ledger 밖 derived data다. ledger의 ver·doc·event는 논리 참조고 물리 FK는 없다.
 // coordinator가 유일한 writer이고 read는 별도 연결이다(query_only).
 //
@@ -102,23 +102,11 @@ export const outlineAndSearchSchemaSteps: readonly SchemaStep[] = [
     );
 
     CREATE TABLE derived_cursors (
-      consumer TEXT PRIMARY KEY NOT NULL CHECK (consumer IN ('search', 'watch')),
+      consumer TEXT PRIMARY KEY NOT NULL CHECK (consumer IN ('search')),
       processed_seq TEXT NOT NULL,
       rebuilding INTEGER NOT NULL CHECK (rebuilding IN (0, 1)),
       rebuild_basis_seq TEXT
     );
-
-    CREATE TABLE watch_unverified (
-      context TEXT NOT NULL,
-      target_key TEXT NOT NULL,
-      source_seq TEXT NOT NULL,
-      context_revision TEXT NOT NULL,
-      before_version TEXT,
-      after_version TEXT NOT NULL,
-      reason TEXT NOT NULL,
-      PRIMARY KEY (context, target_key, after_version)
-    );
-    CREATE INDEX watch_unverified_source ON watch_unverified(source_seq);
   `,
   },
   {
@@ -126,14 +114,5 @@ export const outlineAndSearchSchemaSteps: readonly SchemaStep[] = [
     // failed의 failure_reason과 CHECK가 묶여 있어 따로 둔다.
     id: "documents.outline-and-search.unverified-reason",
     sql: `ALTER TABLE derived_versions ADD COLUMN unverified_reason TEXT;`,
-  },
-  {
-    // watch 미확인은 대상을 문서와 section으로도 남긴다. target_key의 구분자(NUL)는 SQLite에서
-    // 읽을 때 잘리므로 다시 확인할 때는 이 열을 읽는다(documents#T24).
-    id: "documents.outline-and-search.watch-target",
-    sql: `
-      ALTER TABLE watch_unverified ADD COLUMN document TEXT NOT NULL DEFAULT '';
-      ALTER TABLE watch_unverified ADD COLUMN section TEXT;
-    `,
   },
 ];

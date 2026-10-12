@@ -7,8 +7,6 @@
 import { createHash } from "node:crypto";
 import { err, ok, type Result } from "../../packages/base/mod.ts";
 import {
-  contextExport,
-  contextWatch,
   documentDiff,
   documentExport,
   documentRead,
@@ -18,13 +16,11 @@ import {
   guideList,
   guideOutline,
   guideRead,
-  outlineContext,
   outlineDocument,
   outlinePlace,
   outlineRoot,
   searchQuery,
   searchStatus,
-  viewOpen,
 } from "../../packages/contracts/documents/mod.ts";
 import type {
   ReadDefinition,
@@ -51,28 +47,8 @@ import {
   createOutlineHandlers,
   createSearchHandlers,
 } from "../../packages/documents/outline-and-search/reads.ts";
-import type { TermEvidence } from "../../packages/contracts/documents/mod.ts";
-import type {
-  ContextItemSource,
-  SearchSnapshot,
-} from "../../packages/documents/outline-and-search/types.ts";
+import type { SearchSnapshot } from "../../packages/documents/outline-and-search/types.ts";
 import { createHistoryHandlers } from "../../packages/documents/outline-and-search/history-reads.ts";
-import { createViewOpenHandler } from "../../packages/documents/outline-and-search/saved-views-open.ts";
-import {
-  listItems,
-  loadContextRow,
-} from "../../packages/documents/contexts/store.ts";
-import {
-  loadConfigEvents,
-  pendingWatches,
-} from "../../packages/documents/contexts/work.ts";
-import {
-  createContextOutlineSource,
-  createContextReads,
-} from "../../packages/documents/contexts/reads.ts";
-import { sectionStatusOf } from "../../packages/documents/outline-and-search/context-outline.ts";
-import { listWatchUnverified } from "../../packages/documents/outline-and-search/watch.ts";
-import { createTermGlossarySource } from "../../packages/documents/terms/mod.ts";
 import {
   createGuideHandlers,
   type GuideExtractor,
@@ -102,8 +78,6 @@ import {
   SEARCH_VERSION_ROUTE,
   servedKey,
   STORED_FILE_ROUTE,
-  TERM_OCCURRENCE_ROUTE,
-  WATCH_INPUT_ROUTE,
   WORKING_COPY_ROUTE,
 } from "./documents-served.ts";
 import { workingCopyCheck } from "../../packages/documents/file-tracking/reads.ts";
@@ -121,15 +95,6 @@ import {
   loadVersion,
 } from "../../packages/documents/versions/store.ts";
 import { instructionRegistrations } from "../../packages/documents/file-tracking/instruction.ts";
-import { loadTerm } from "../../packages/documents/terms/store.ts";
-import {
-  checkTermOccurrence,
-  createDerivedEvidenceSource,
-} from "../../packages/documents/terms/mod.ts";
-import {
-  termProposeInputSchema,
-  termUpdateInputSchema,
-} from "../../packages/contracts/documents/mod.ts";
 import {
   createProductRedactor,
   type DocumentRedactor,
@@ -175,29 +140,6 @@ function derivedRead(root: string): Result<DerivedRead> {
   return opened;
 }
 
-// context filter의 근원. ledger snapshot의 contexts·context_items다.
-// 없는 context는 not_found라 후보를 전부 비운다(documents/contexts, R12).
-function contextItems(snapshot: ReadSnapshot): ContextItemSource {
-  return {
-    items(contextId) {
-      const row = loadContextRow(snapshot.sql as never, contextId);
-      if (!row.ok) return row;
-      if (row.value === null) {
-        return err({ code: "not_found", message: "context not found" });
-      }
-      const items = listItems(snapshot.sql as never, contextId);
-      if (!items.ok) return items;
-      return ok(
-        items.value.flatMap((item) =>
-          item.target.kind === "document"
-            ? [{ kind: "document" as const, document: item.target.document }]
-            : []
-        ),
-      );
-    },
-  };
-}
-
 // 이 요청의 redactor. 알려진 secret 값은 reader Worker의 registry가 쥐고 있고 handler는
 // 일치 검사만 받는다. port가 없으면(reader Worker가 아닌 곳) 던져서 fail-closed다.
 function redactorFor(snapshot: ReadSnapshot): DocumentRedactor {
@@ -209,7 +151,6 @@ type Prepared = {
   redactor: DocumentRedactor;
   search: SearchSnapshot;
   read: DerivedRead;
-  contexts: ContextItemSource;
 };
 
 function prepared(snapshot: ReadSnapshot): Result<Prepared> {
@@ -224,7 +165,6 @@ function prepared(snapshot: ReadSnapshot): Result<Prepared> {
       sql: snapshot.sql as unknown as SearchSnapshot["sql"],
     },
     read: read.value,
-    contexts: contextItems(snapshot),
     redactor: redactorFor(snapshot),
   });
 }
@@ -356,9 +296,6 @@ function outline(ready: Prepared) {
     read: ready.read,
     snapshot: ready.search,
     ports: ready.snapshot,
-    contexts: ready.contexts,
-    contextOutline: createContextOutlineSource(ready.snapshot.sql as never),
-    termGlossary: createTermGlossarySource(ready.snapshot.sql as never),
     redactor: ready.redactor,
   });
 }
@@ -371,137 +308,6 @@ function history(ready: Prepared) {
     ports: ready.snapshot,
     redactor: ready.redactor,
   });
-}
-
-// context export. 공개 read route(`/v1/contexts/export`)를 reader Worker가 서빙한다.
-// 외부 출력이라 제품 redactor를 붙이고(없으면 내보내지 않는다), glossary는 같은 ledger
-// snapshot의 terms에서, section 상태는 derived store에서 읽는다. derived가 아직 없으면
-// section 항목은 unverified다(전체 문서 항목은 derived를 읽지 않는다).
-function contextExportRead(): ReadDefinition {
-  return {
-    route: contextExport,
-    handle(snapshot, ctx, input) {
-      const root = dataRootOf(snapshot);
-      const derived = root.ok ? derivedRead(root.value) : root;
-      const glossary = createTermGlossarySource(snapshot.sql as never);
-      const reads = createContextReads({
-        redactor: redactorFor(snapshot),
-        glossary(contextId) {
-          const loaded = glossary.get(contextId, Number.MAX_SAFE_INTEGER);
-          return loaded.ok ? ok(loaded.value.definitions) : loaded;
-        },
-        ...(derived.ok
-          ? {
-            sectionStatus: (
-              document: string,
-              version: string,
-              section: string,
-            ) =>
-              sectionStatusOf(
-                { read: derived.value },
-                document,
-                version,
-                section,
-              ),
-          }
-          : {}),
-      });
-      return reads.export.handle(snapshot, ctx, input as never);
-    },
-  };
-}
-
-// context watch 결과(`/v1/contexts/watch`). 확인된 변화는 ledger snapshot에서, 미확인은 derived
-// store의 `watch_unverified`에서 읽는다. derived가 아직 없으면 미확인을 읽지 못한 것이라
-// unavailable이다(빈 미확인으로 꾸미지 않는다).
-function contextWatchRead(): ReadDefinition {
-  return {
-    route: contextWatch,
-    handle(snapshot, ctx, input) {
-      const root = dataRootOf(snapshot);
-      const derived = root.ok ? derivedRead(root.value) : root;
-      const reads = createContextReads(
-        derived.ok
-          ? {
-            unverified: (contextId) =>
-              ok(
-                listWatchUnverified(derived.value).filter((row) =>
-                  row.context === contextId
-                ),
-              ),
-          }
-          : {},
-      );
-      return reads.watch.handle(snapshot, ctx, input as never);
-    },
-  };
-}
-
-const UNREADABLE_EVIDENCE = {
-  code: "invalid_input" as const,
-  message: "evidence cannot be read in the fixed version",
-};
-
-// 후보·근거 변경 command 앞의 출현 확인. 입력이 command 계약에 맞지 않으면 여기서 판단하지
-// 않고 command가 자기 오류로 거절하게 둔다. 근거를 바꾸지 않는 update도 지나간다.
-function termOccurrence(
-  snapshot: ReadSnapshot,
-  ctx: RequestContext,
-  command: "term.propose" | "term.update",
-  body: unknown,
-): Result<unknown> {
-  let name: string | undefined;
-  let evidence: readonly TermEvidence[] | undefined;
-  if (command === "term.propose") {
-    const parsed = termProposeInputSchema.safeParse(body);
-    if (!parsed.success) return ok({ checked: false, next_cursor: null });
-    name = parsed.data.name;
-    evidence = parsed.data.evidence;
-  } else {
-    const parsed = termUpdateInputSchema.safeParse(body);
-    if (!parsed.success || parsed.data.evidence === undefined) {
-      return ok({ checked: false, next_cursor: null });
-    }
-    evidence = parsed.data.evidence;
-    name = parsed.data.name;
-    if (name === undefined) {
-      const term = loadTerm(snapshot.sql as never, parsed.data.term);
-      if (!term.ok) return term;
-      // 없는 용어는 command가 자기 오류로 거절한다.
-      if (term.value === null) return ok({ checked: false, next_cursor: null });
-      name = term.value.name;
-    }
-  }
-  for (const item of evidence) {
-    const version = loadVersion(snapshot.sql as never, item.version);
-    if (!version.ok) return version;
-    if (version.value === null || version.value.document !== item.document) {
-      return err(UNREADABLE_EVIDENCE);
-    }
-    const document = loadDocument(snapshot.sql as never, item.document);
-    if (!document.ok) return document;
-    if (document.value === null) return err(UNREADABLE_EVIDENCE);
-    const access = authorizeDocument(snapshot.port, ctx, command, {
-      kind: "document",
-      document: document.value,
-    });
-    if (!access.ok) {
-      return access.error.code === "unavailable"
-        ? access
-        : err(UNREADABLE_EVIDENCE);
-    }
-  }
-  const root = dataRootOf(snapshot);
-  if (!root.ok) return root;
-  const read = derivedRead(root.value);
-  if (!read.ok) return read;
-  const checked = checkTermOccurrence(
-    createDerivedEvidenceSource(read.value.sql),
-    name,
-    evidence,
-  );
-  if (!checked.ok) return checked;
-  return ok({ checked: true, next_cursor: null });
 }
 
 // 읽기 handler 하나를 돌리는 함수. 공개 worker route와 직접 추출이 같은 함수를 쓴다.
@@ -703,15 +509,9 @@ export function createReaderRegistration(): ReaderRegistration {
   return {
     reads: [
       root,
-      contextExportRead(),
-      contextWatchRead(),
       worker(
         outlinePlace,
         (ready, ctx, input) => outline(ready).place(ctx, input as never),
-      ),
-      worker(
-        outlineContext,
-        (ready, ctx, input) => outline(ready).context(ctx, input as never),
       ),
       worker(outlineDocument, runOutlineDocument),
       worker(documentRead, runDocumentRead),
@@ -730,23 +530,13 @@ export function createReaderRegistration(): ReaderRegistration {
           read: ready.read,
           snapshot: ready.search,
           ports: ready.snapshot,
-          contexts: ready.contexts,
         }).query(ctx, input as never)),
       worker(searchStatus, (ready, ctx, input) =>
         createSearchHandlers({
           read: ready.read,
           snapshot: ready.search,
           ports: ready.snapshot,
-          contexts: ready.contexts,
         }).status(ctx, input as never)),
-      worker(viewOpen, (ready, ctx, input) =>
-        createViewOpenHandler({
-          read: ready.read,
-          snapshot: ready.search,
-          ports: ready.snapshot,
-          contexts: ready.contexts,
-          nowMs: () => Date.now(),
-        }).open(ctx, input as never)),
       guide(
         guideList,
         (handlers, ctx, input) => handlers.list(ctx, input as never),
@@ -949,84 +739,6 @@ export function createReaderRegistration(): ReaderRegistration {
             },
             next_cursor: null,
           });
-        },
-      },
-      // context watch consumer가 저장 event 하나를 확인하는 근거(documents#T24). 저장 판과 직전
-      // 판의 hash, source_seq 당시 watch였고 그 뒤 바뀌지 않은 문서 항목이다. core만 부른다.
-      {
-        route: WATCH_INPUT_ROUTE,
-        handle(snapshot, _ctx, input) {
-          const request = input as {
-            document: string;
-            version: string;
-            previous_version: string | null;
-            source_seq: string;
-          };
-          const versionInfo = (id: string) => {
-            const row = loadVersion(snapshot.sql as never, id);
-            if (!row.ok) return row;
-            if (row.value === null || row.value.document !== request.document) {
-              return ok(null);
-            }
-            return ok({
-              version: id,
-              content_hash: row.value.content_hash,
-              module_hash: row.value.format.module_hash,
-            });
-          };
-          const after = versionInfo(request.version);
-          if (!after.ok) return after;
-          if (after.value === null) {
-            return ok({
-              before: null,
-              after: null,
-              targets: [],
-              next_cursor: null,
-            });
-          }
-          let before = null;
-          if (request.previous_version !== null) {
-            const previous = versionInfo(request.previous_version);
-            if (!previous.ok) return previous;
-            // 판은 지워지지 않는다. 직전 판이 없으면 비교할 수 없다.
-            if (previous.value === null) {
-              return err({
-                code: "internal",
-                message: "the previous version is missing",
-              });
-            }
-            before = previous.value;
-          }
-          const events = loadConfigEvents(snapshot.sql);
-          if (!events.ok) return events;
-          const pending = pendingWatches(
-            events.value,
-            request.document,
-            request.source_seq,
-          );
-          if (!pending.ok) return pending;
-          return ok({
-            before,
-            next_cursor: null,
-            after: after.value,
-            targets: pending.value.map((watch) => ({
-              context: watch.context,
-              context_revision: watch.context_revision,
-              section: watch.target.section,
-            })),
-          });
-        },
-      },
-      // route 앞단의 용어 출현 확인(질문 Q8). 요청 자격이 읽을 수 있는 고정 판의 section 또는
-      // 줄 범위만 읽는다. 권한 밖·없는 판은 읽을 수 없는 근거와 같은 거절이다(존재를 새지 않는다).
-      {
-        route: TERM_OCCURRENCE_ROUTE,
-        handle(snapshot, ctx, input) {
-          const { command, input: body } = input as {
-            command: "term.propose" | "term.update";
-            input: unknown;
-          };
-          return termOccurrence(snapshot, ctx, command, body);
         },
       },
       // export는 derived를 읽지 않는다. ledger snapshot과 redactor만 쓴다.

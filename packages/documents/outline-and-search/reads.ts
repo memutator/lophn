@@ -29,21 +29,8 @@ import {
   sectionStatusOf,
   selectBodyLines,
 } from "./outline-support.ts";
-import {
-  buildContextOutline,
-  type ContextOutlineInput,
-  type ContextOutlinePage,
-  contextRootSummaries,
-} from "./context-outline.ts";
 import { OMISSION_UNVERIFIED, type SearchCoverage } from "./work.ts";
-import type {
-  ContextItemSource,
-  ContextOutlineSource,
-  PortLookup,
-  SearchFilters,
-  SearchSnapshot,
-  TermGlossarySource,
-} from "./types.ts";
+import type { PortLookup, SearchFilters, SearchSnapshot } from "./types.ts";
 
 export type { SearchFilters, SearchSnapshot };
 export type { PortLookup } from "./types.ts";
@@ -62,8 +49,6 @@ export type SearchHandlerDeps = {
   read: DerivedRead;
   snapshot: SearchSnapshot;
   ports: PortLookup;
-  // context filter의 근원. documents/contexts read contract의 items 목록을 주입한다.
-  contexts?: ContextItemSource;
 };
 
 export type SearchHandlers = {
@@ -120,7 +105,6 @@ export function createSearchHandlers(deps: SearchHandlerDeps): SearchHandlers {
         deps.ports,
         input,
         undefined,
-        deps.contexts,
       );
       const coverage = coverageOfLike(
         deps.read,
@@ -198,7 +182,6 @@ export function createSearchHandlers(deps: SearchHandlerDeps): SearchHandlers {
         deps.ports,
         input,
         input.documents,
-        deps.contexts,
       );
       const coverage = coverageOfLike(
         deps.read,
@@ -609,12 +592,6 @@ export type OutlineHandlerDeps = {
   read: DerivedRead;
   snapshot: SearchSnapshot;
   ports: PortLookup;
-  contexts?: ContextItemSource;
-  // context 목차(root의 context 요약, `/v1/outline/context`)의 근원. 없으면 root에
-  // context가 없고 context 목차는 unavailable이다.
-  contextOutline?: ContextOutlineSource;
-  // context 목차의 glossary(정의·후보) 근원. 없으면 목차의 glossary·candidates는 비어 있다.
-  termGlossary?: TermGlossarySource;
   // 선택 판이 derived에 없을 때 직접 추출하는 근원. 없으면 미완료로 답한다.
   extract?: DirectExtraction;
   // 출력 redaction. 이 grep은 없음 % Escape를 건너 뛴다.
@@ -631,10 +608,6 @@ export type OutlineHandlers = {
     ctx: RequestContext,
     input: OutlinePlaceInput,
   ): Result<OutlinePlacePage>;
-  context(
-    ctx: RequestContext,
-    input: ContextOutlineInput,
-  ): Result<ContextOutlinePage>;
   document(
     ctx: RequestContext,
     input: OutlineDocumentInput,
@@ -658,15 +631,6 @@ export type OutlineRootEntry =
     purpose: string;
     activity_seq: string;
     document_count: number;
-  }
-  | {
-    kind: "context";
-    id: string;
-    title: string;
-    purpose: string;
-    activity_seq: string;
-    basis_count: number;
-    reference_app_count: number;
   }
   | { kind: "unplaced"; document_count: number };
 
@@ -778,10 +742,8 @@ function extractedStatus(
   };
 }
 
-// root 활동 순 목록. project·app·context 자리를 마지막 활동 seq가 큰 순서로(동점은
-// kind·ID 순) 두고 자리 없는 문서 묶음을 마지막에 둔다. context는 목적·기준 항목 수·
-// 참조 앱 수·활동만 싣는다. 문제·질문·approval 대기는 소유 concern의 읽기를 가리키므로
-// 여기서 세지 않는다. 권한 밖 자리·context는 없는 것과 같다.
+// root 활동 순 목록. project·app 자리를 마지막 활동 seq가 큰 순서로(동점은
+// kind·ID 순) 두고 자리 없는 문서 묶음을 마지막에 둔다. 권한 밖 자리는 없는 것과 같다.
 function buildRootEntries(
   deps: OutlineHandlerDeps,
   ctx: RequestContext,
@@ -820,9 +782,6 @@ function buildRootEntries(
       activity_seq: String(row["revision"] ?? "0"),
       document_count: placeDocumentCount(deps, "app", id),
     });
-  }
-  for (const summary of contextRootSummaries(deps, ctx)) {
-    placed.push({ kind: "context", ...summary });
   }
   placed.sort(compareActivity);
   // 자리 없는 문서는 자리 target이 없다. 자리·문서로 범위가 좁은 credential은 이 묶음의 건수도
@@ -1535,9 +1494,6 @@ export function createOutlineHandlers(
         }, cursorState.value.offset + entries.length),
         complete,
       });
-    },
-    context(ctx, input) {
-      return buildContextOutline(deps, ctx, input);
     },
     document(ctx, input) {
       const reference = input.reference;

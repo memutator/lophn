@@ -37,33 +37,16 @@ type Spec = {
 
 const text = (value: unknown): string => typeof value === "string" ? value : "";
 
+// 읽은 revision이 있으면 비교 기준이다. 새로 만들 때는 없다.
+const revisionOf = (input: Input): JsonObject =>
+  input["base_revision"] === undefined
+    ? {}
+    : { base_revision: text(input["base_revision"]) };
+
 const place = (input: Input): { kind: string; id: string } | null =>
   input["place"] === null || input["place"] === undefined
     ? null
     : input["place"] as { kind: string; id: string };
-
-const baseRevision = (input: Input): JsonObject => ({
-  base_revision: text(input["base_revision"]),
-});
-
-const contextWrite = (changes: string): Spec => ({
-  concern: "documents/contexts",
-  targets: (input) => [text(input["context"])],
-  comparison: baseRevision,
-  changes: () => changes,
-  verify: {
-    contract: "context.get",
-    input: (input) => ({ context: input["context"] }),
-  },
-});
-
-const termWrite = (changes: string): Spec => ({
-  concern: "documents/terms",
-  targets: (input) => [text(input["term"])],
-  comparison: baseRevision,
-  changes: () => changes,
-  verify: { contract: "term.get", input: (input) => ({ term: input["term"] }) },
-});
 
 const SPECS: ReadonlyMap<string, Spec> = new Map<string, Spec>([
   ["document.create", {
@@ -92,33 +75,6 @@ const SPECS: ReadonlyMap<string, Spec> = new Map<string, Spec>([
       input: (input) => ({ document: input["document"] }),
     },
   }],
-  ["context.create", {
-    concern: "documents/contexts",
-    targets: (_input, run) => [run.run],
-    changes: (input) => `creates a context titled ${text(input["title"])}`,
-  }],
-  ["context.rename", contextWrite("renames the context")],
-  ["context.set_purpose", contextWrite("changes the purpose of the context")],
-  ["context.archive", contextWrite("archives the context")],
-  ["context.add_item", contextWrite("adds an item to the context")],
-  ["context.update_item", contextWrite("changes an item of the context")],
-  ["context.remove_item", contextWrite("removes an item from the context")],
-  ["term.propose_candidate", {
-    concern: "documents/terms",
-    targets: (input) => [text(input["context"])],
-    changes: (input) => `proposes the term candidate ${text(input["name"])}`,
-    verify: {
-      contract: "context.get",
-      input: (input) => ({ context: input["context"] }),
-    },
-  }],
-  ["term.update_candidate", termWrite("changes a term candidate")],
-  ["term.remove_candidate", termWrite("removes a term candidate")],
-  ["term.submit_definition_answer", {
-    concern: "lophn-agent/questions",
-    targets: (input) => [text(input["question"])],
-    changes: () => "applies the definition a person chose in the question",
-  }],
   ["ticket.create", {
     concern: "coding-agent/tickets",
     targets: (input) => [text(input["app"])],
@@ -146,6 +102,47 @@ const SPECS: ReadonlyMap<string, Spec> = new Map<string, Spec>([
     verify: {
       contract: "GetProblem",
       input: (input) => ({ problem: input["problem"] }),
+    },
+  }],
+  // Context Engineer의 쓰기다(harness/tools#R23). context 생성은 project가, 초안은 context가, 제출은 만든 판이,
+  // 용어집 항목은 항목(새 항목은 context)이 대상이다. 판과 항목 id만으로는 대상 읽기가 없어 소유 contract가
+  // 실행 때 자격으로 막는다.
+  ["context.create", {
+    concern: "documents/contexts",
+    targets: (input) => [text(input["project"])],
+    changes: (input) => `creates a context titled ${text(input["title"])}`,
+  }],
+  ["context.draft", {
+    concern: "documents/contexts",
+    targets: (input) => [text(input["context"])],
+    comparison: revisionOf,
+    changes: () => "writes the draft bundle of a context",
+    verify: {
+      contract: "context.draft",
+      input: (input) => ({ context: input["context"] }),
+    },
+  }],
+  ["context.submit", {
+    concern: "documents/contexts",
+    targets: (input) => [text(input["bundle"])],
+    changes: () => "submits a draft bundle to be checked and applied",
+  }],
+  ["context.glossary_write", {
+    concern: "documents/terms",
+    targets: (input) => [text(input["entry"] ?? input["context"])],
+    comparison: revisionOf,
+    changes: (input) =>
+      input["entry"] === undefined
+        ? "adds a glossary entry to a context"
+        : input["remove"] === true
+        ? "removes a glossary entry"
+        : "changes a glossary entry",
+    verify: {
+      contract: "glossary.list",
+      input: (input) =>
+        input["context"] === undefined
+          ? undefined
+          : { context: input["context"] },
     },
   }],
   ["visual.show", {

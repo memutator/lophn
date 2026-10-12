@@ -12,6 +12,10 @@ import {
   presetSchemaSteps,
   ROLE_CAPS,
 } from "./mod.ts";
+import {
+  CONTEXT_ENGINEER_ONLY_TOOLS,
+  CONTEXT_LOOKUP_ONLY_TOOLS,
+} from "./role-caps.ts";
 import type { ValidateDeps } from "./validate.ts";
 
 // preset ledger 테스트 등록. provider 표와 같은 wire에 preset 명령·읽기를 붙인다.
@@ -19,13 +23,27 @@ import type { ValidateDeps } from "./validate.ts";
 // 검증 deps는 테스트 값 대체다(R10, R13). catalog 대체는 T4 파생 파일 read 자리로
 // reader worker 등록 경로다(plan/lophn-agent Q28).
 
+export const TEST_CONTEXTS: ReadonlyMap<
+  string,
+  "drafting" | "active" | "archived"
+> = new Map([
+  ["ctx_01arz3ndektsv4rrffq69g5fa1", "active"],
+  ["ctx_01arz3ndektsv4rrffq69g5fa2", "drafting"],
+  ["ctx_01arz3ndektsv4rrffq69g5fa3", "archived"],
+]);
+
 export function presetValidateDeps(
   overrides?: Partial<ValidateDeps>,
 ): ValidateDeps {
   return {
+    // 시험용 context 상태 표다. documents/contexts 표 대신 고정 ID로 세 상태를 낸다.
+    contextStatus: (context: string) => TEST_CONTEXTS.get(context),
     bundles: new Map([
       ["read-only", [...DOCUMENT_READ_TOOLS.slice(0, 2)]],
-      ["write-tools", ["context.add_item", "context.remove_item"]],
+      // Context Engineer 기본 preset이 고르는 묶음이다(harness/tools의 `TOOL_BUNDLES`와 같은 값).
+      ["context-engineer", [...CONTEXT_ENGINEER_ONLY_TOOLS]],
+      // lophn 기본 preset이 고르는 묶음이다.
+      ["context-lookup", [...CONTEXT_LOOKUP_ONLY_TOOLS]],
     ]),
     mcpServers: new Map<string, McpServerConfig>([
       [

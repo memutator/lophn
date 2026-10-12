@@ -4,7 +4,7 @@
 `<concern id>#Q<n>`으로 여기에 올리고, 사람이 정해야 하는 것만 "사람이 정할
 것"에 둔다.
 
-- 모두 799건(재연결 뒤 8건 포함): 추천대로 635, 다르게 정함 32, 대체됨 93, 이미
+- 모두 801건(재연결 뒤 8건 포함): 추천대로 637, 다르게 정함 32, 대체됨 93, 이미
   정함 30, 사람이 정할 것 2
 - 사람이 정한 큰 결정은 아래 "정한 원칙"에 있다. 문서는 이 결정을 따른다.
 
@@ -155,7 +155,7 @@
 | redesign/propagate#Q2            | OS별 coding credential 보호 process-local 전달은 무엇으로 구현할까?                                                                                      | 추천대로    | 실제 loader·child generation·connection 결합을 검증; argv·일반 env·PTY 금지                                                                                                                                                  |
 | redesign/propagate#Q8            | 옛 일반 설정의 role 층과 Role ID를 새 Preset 구성으로 언제 migrate할까?                                                                                  | 추천대로    | 두 원본 금지; source 기록을 보존한 명시 migration을 실제 구현 schema 변경에서 설계                                                                                                                                           |
 
-### documents (110)
+### documents (111)
 
 | id                              | 질문                                                                                                                               | 판정      | 결정                                                                                                                              |
 | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------- |
@@ -221,6 +221,7 @@
 | documents/contexts#Q21 | tracking·watch 없이 아무도 context를 열지 않을 때 위반을 어떻게 찾나. | 다르게 정함 | 사람 결정(2026-10-12): "그 용도로만 최소한으로 남기거나 새로 만들면 된다, 이전에는 너무 과했다". 활성 context의 계약 경로 폴더만 파일 변경을 감지해 그 context를 다시 훑고 검사한다. 변화 비교·기록·event·화면 상태·agent 표시는 없다(R23). lead 초안이던 5분 주기 훑기는 버렸다. |
 | documents/contexts#Q22 | 옛 derived/documents.sqlite와 summary_cache를 남기나. | 추천대로 | 없앤다. 자리 목록의 발췌는 파일 앞 글에서 그때 읽는다. |
 | documents/contexts#Q23 | 위반을 Context Engineer에게 넘기는 길. | 추천대로 | 사람 요청에서 이어지는 Context Engineer Run으로 만든다. run-loop의 handoff 방향 표에 그 갈래를 spec 때 더한다. |
+| documents/contexts#Q24 | 다른 Context의 개체를 가리키는 관계의 대상 key가 없을 때 `relation_target_exists` 위반으로 셀까. 지금은 세지 않는다. 격리 검사 worker가 다른 Context의 개체를 받지 않기 때문이다. | 추천대로(리드가 정했고 사람이 다시 볼 수 있다) | 지금은 세지 않는다(domain model의 "검사가 보는 것"과 같다). 실제로 필요한 사례가 나오면 core가 대상 Context의 key 집합을 검사 요청에 실어 보내고 worker가 그 집합과 비교한다. |
 | documents/file-tracking#Q1      | agent가 원본 연결 문서를 고치는 통로를 추가할까.                                                                                   | 추천대로  | 별도 제안 문서와 사람 편집 유지                                                                                                   |
 | documents/file-tracking#Q2      | 초기 worker 2개를 요구로 유지할까 구현 조절값으로만 둘까.                                                                          | 추천대로  | 초기 2개 후 측정 조정                                                                                                             |
 | documents/file-tracking#Q3      | 안정 읽기 재시도·파일 수·바이트·시간 한도의 초기 값을 무엇으로 할까.                                                               | 추천대로  | 실측으로 정하고 한도 초과는 미확인                                                                                                |
@@ -485,6 +486,7 @@
 | lophn-agent/harness/prompt-assemble#Q7 | context overview의 type별 개수는 파일에 따라 바뀌어 "같은 묶음 hash면 같은 byte"와 부딪힌다. | 추천대로 | 개수는 run 시작 때 고정한다. 같은 묶음 hash·같은 시작 개수면 같은 byte다(R5). |
 | lophn-agent/harness/prompt-assemble#Q8 | 초기 context 자료가 넘칠 때 무엇부터 줄이나. | 추천대로 | 용어집 → overview 순(R18). |
 | lophn-agent/presets#Q1 | project 없는 전역 session에서 context 선택 `all`은 무엇을 고르나. | 추천대로 | context 자료 0개와 그 이유를 싣는다(R17). |
+| lophn-agent/presets#Q2 | presets R17은 `all`·`project` context 선택을 run의 project의 active context들로 풀어 prompt 자료를 project 안에 두는데, lophn-agent/roles/lophn R3은 lophn이 모든 project·앱의 context 목적과 overview·용어집을 읽으라 하고 R14의 자리 추천은 문서 경로를 Source가 덮는 context를 알아야 한다. 둘이 부딪힌다. | 추천대로(리드가 정했고 사람이 다시 볼 수 있다) | R17은 그대로 둔다: prompt 자료는 project 범위다. 대신 lophn 역할 상한에만 읽기 tool 셋을 더한다: `context.list`(모든 project의 active context의 id·이름·목적·project, core `context.list`가 project를 요구해 `project.list`로 project를 모아 project마다 읽는다), `context.overview`(context 하나의 목적과 prompt 자료와 같은 overview·용어집 글), `context.containing`(core `context.containing`: 문서 경로를 Source가 덮는 context). 기본 preset은 이 셋을 `context-lookup` 묶음으로 고른다(lophn-agent/harness/tools, lophn-agent/presets). 모든 project를 한 번에 주는 core 읽기가 생기면 `context.list`가 project마다 읽는 부분을 그것으로 바꾼다. |
 | lophn-agent/harness/provider#Q1             | Claude OAuth가 lophn 식별과 프로필·추론 권한으로 실제 tool call을 받는가?                                                                 | 추천대로    | 검증 전 비활성, 미허용이면 API key 안내                                                                                                                               |
 | lophn-agent/harness/provider#Q2             | ChatGPT·xAI 제3자 OAuth client 발급과 공식 허용 범위는 무엇인가?                                                                          | 추천대로    | 전용 발급 우선, 허용 범위 확인 전 비활성                                                                                                                              |
 | lophn-agent/harness/provider#Q3             | SuperGrok 표준·Heavy 중 어느 요금제가 OAuth 추론을 받는가?                                                                                | 추천대로    | 표준·Heavy 각각 검증하고 X Premium+와 구별                                                                                                                            |
@@ -641,7 +643,7 @@
 | redesign/lophn-agent#Q98                    | OAuth 제품별 lophn 사용 허용·실제 호출 검증 결과와 공식 endpoint·client 식별 값. 미검증 정의는 활성화하지 않는다.                         | 추천대로    | 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정                                                                                                              |
 | redesign/lophn-agent#Q99                    | 첫 판의 지원 API key·loopback 연결·검증된 OAuth 조합. keychain 없는 환경 정책은 → platform/secrets.                                       | 추천대로    | 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정                                                                                                              |
 
-### coding-agent (87)
+### coding-agent (88)
 
 | id                             | 질문                                                                                                                            | 판정        | 결정                                                                                                                                                 |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -696,6 +698,7 @@
 | coding-agent/mcp-server#Q7     | runtime의 앱 간 연결 목록 읽기를 첫 판 MCP에 포함할까.                                                                          | 추천대로    | coding-agent/cli#Q3와 함께 첫 판 보류                                                                                                                |
 | coding-agent/mcp-server#Q8     | blueprint 앱 command를 coding agent에게도 생성 tool로 내보일까                                                                  | 추천대로    | 기존 runtime read 범위를 유지하여 명시 앱 toolset에서 read만 먼저; preview 기본·scope·redaction 동일                                                 |
 | coding-agent/mcp-server#Q10 | 작업 요약 tool(옛 lophn_session)을 앱 toolset에 남기나. | 추천대로 | 남긴다. 연결 범위 안의 열린 문제·ticket·claim만 읽는다(R39). |
+| coding-agent/mcp-server#Q11 | mcp-server R3은 coding agent tool이 앱 toolset 하나뿐이라 하고 core toolset(탐색·문서·project·format·series·context·질문 읽기)과 `core`·`ops`·`catalog`·`all` 이름을 두지 않는다고 적었다(ctx-s9). 그런데 docs/architecture/coding-agent.md 5.2·2.2는 아직 `core`가 기본이고 `--toolsets core,app`로 app을 켠다고 적고, 코드(`packages/contracts/coding-agent/output.ts`의 `TOOLSETS = ["core", "app"]`, `parseToolsets` 기본값 `["core"]`, `apps/cli/dispatch.ts`·`packages/coding-agent/mcp-server/tools/{index,project,document,read,save,format,series,question,approval}.ts`)도 둘 다 갖고 있다. 어느 쪽이 맞나. | 추천대로(리드가 정했고 사람이 다시 볼 수 있다) | 해결하지 않고 기록만 한다. context 다시 쓰기 작업의 범위 밖이고 코드가 아직 core toolset을 지우지 않았으므로 답이 분명하지 않다. 추천: requirements R3이 맞다. core toolset 코드와 계약 상수·launcher의 `--toolsets` 인자·architecture 5.2의 core 행을 한 task로 지우고 architecture를 R3에 맞춘다. |
 | coding-agent/repair-context#Q1 | 현재 앱 sample hook을 추가 근거로 채택할까.                                                                                     | 추천대로    | 첫 판은 보존된 immutable snapshot만                                                                                                                  |
 | coding-agent/repair-context#Q2 | 옛 화면 64 KiB 상한과 새 24 KiB 상한 중 무엇을 적용할까.                                                                        | 추천대로    | 24 KiB 페이지와 cursor                                                                                                                               |
 | coding-agent/repair-context#Q3 | 절별 줄 상한과 새 domain model의 자수·개수 상한을 어떻게 합칠까.                                                                | 추천대로    | 기본 묶음에 두 상한을 함께 적용하고 추가 읽기는 별도 페이지 상한                                                                                     |

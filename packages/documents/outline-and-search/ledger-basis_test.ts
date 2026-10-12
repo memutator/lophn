@@ -47,14 +47,8 @@ function seed(store: DerivedStore, token: string) {
     );
     tx.sql.run(
       `INSERT INTO derived_cursors (consumer, processed_seq, rebuilding, rebuild_basis_seq)
-       VALUES ('search', '9', 0, NULL), ('watch', '9', 0, NULL)`,
+       VALUES ('search', '9', 0, NULL)`,
       [],
-    );
-    tx.sql.run(
-      `INSERT INTO watch_unverified
-         (context, target_key, source_seq, context_revision, before_version, after_version, reason)
-       VALUES ('ctx', 'k', '9', 'r', NULL, ?, 'why')`,
-      [`ver_${token}`],
     );
     return { ok: true as const, value: undefined };
   });
@@ -72,7 +66,6 @@ function counts(store: DerivedStore): Record<string, number> {
       "search_rows",
       "summary_cache",
       "derived_cursors",
-      "watch_unverified",
     ]
   ) {
     out[table] = Number(
@@ -104,7 +97,7 @@ Deno.test("platform/backup-and-migration#R14: 같은 ledger 식별이면 derived
     assert(again.ok);
     assertEquals(again.value.rebuilt, false);
     assertEquals(counts(store)["search_rows"], 1);
-    assertEquals(counts(store)["derived_cursors"], 2);
+    assertEquals(counts(store)["derived_cursors"], 1);
   } finally {
     store.close();
     Deno.removeSync(directory, { recursive: true });

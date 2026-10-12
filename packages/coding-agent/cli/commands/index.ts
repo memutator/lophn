@@ -6,7 +6,6 @@ import {
   cliSearchSchema,
 } from "../../../contracts/coding-agent/mod.ts";
 import {
-  outlineContext,
   outlineDocument,
   outlinePlace,
   outlineRoot,
@@ -23,7 +22,6 @@ export const INDEX_COMMANDS: readonly CommandEntry[] = [
     opRoutes: {
       root: outlineRoot,
       place: outlinePlace,
-      context: outlineContext,
       document: outlineDocument,
       section: outlineDocument,
       status: searchStatus,

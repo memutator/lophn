@@ -35,7 +35,11 @@ import type {
 import type { Supervisor } from "../../packages/platform/responsiveness/mod.ts";
 import { answerRedactRequest } from "./agent-runtime-redaction.ts";
 import type { AgentRuntimeSecrets } from "./agent-runtime-secret.ts";
-import { createAgentCredentialLink } from "./agent-credentials.ts";
+import {
+  createAgentCredentialLink,
+  roleOperations,
+} from "./agent-credentials.ts";
+import { ROLE_CAPS } from "../../packages/lophn-agent/presets/mod.ts";
 import {
   type ChildBlobPrepare,
   createChildBlobPrepare,
@@ -74,13 +78,18 @@ type RouteLike = { name: string; kind: string };
 // 제품 registry의 발급 상한. machine은 command 정책에만 닿으므로 runtime의 machine route는 모두
 // command 정책으로 올리고, agent는 내장 tool이 쓰는 contract를 route의 종류 그대로 올린다.
 // external_mcp_call은 route 이름이 없는 T37의 소유 contract라 command 정책으로 두고, ask가 쓰는
-// approval request 생성(create_approval_request)을 같이 올린다(T37).
+// approval request 생성(create_approval_request)을 같이 올린다(T37). 역할 상한(roleOperations)이 닿는
+// operation은 모든 역할의 합집합으로 올려 상한과 발급 policy가 어긋나지 않게 한다.
 export function agentRuntimePolicies(
   routes: readonly RouteLike[],
 ): OperationPolicy[] {
   const kinds = new Map(routes.map((route) => [route.name, route.kind]));
   const agent = [
-    ...new Set([...runOperations(BUILTIN_TOOLS), ...EXTERNAL_TOOL_OPERATIONS]),
+    ...new Set([
+      ...runOperations(BUILTIN_TOOLS),
+      ...EXTERNAL_TOOL_OPERATIONS,
+      ...[...ROLE_CAPS.keys()].flatMap((role) => roleOperations(role)),
+    ]),
   ];
   return [
     ...RUNTIME_MACHINE_OPERATIONS.map((name): OperationPolicy => ({

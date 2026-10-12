@@ -12,13 +12,11 @@ import {
   guideList,
   guideOutline,
   guideRead,
-  outlineContext,
   outlineDocument,
   outlinePlace,
   searchQuery,
   searchStatus,
   storedDocumentFileInputSchema,
-  viewOpen,
 } from "../../packages/contracts/documents/mod.ts";
 import type {
   ReadRoute,
@@ -28,14 +26,12 @@ import type {
 // 제품 core가 서빙하는 문서 worker route. `documents/prepare`는 다른 길(준비 조립)이다.
 export const SERVED_ROUTES: readonly WorkerRoute[] = [
   outlinePlace,
-  outlineContext,
   outlineDocument,
   documentRead,
   documentSectionHistory,
   documentDiff,
   searchQuery,
   searchStatus,
-  viewOpen,
   documentExport,
   guideList,
   guideGet,
@@ -218,42 +214,6 @@ export const SEARCH_VERSION_ROUTE: ReadRoute = {
   method: "search_version",
   name: "document.search_version",
   input: z.strictObject({ version: z.string().min(1) }),
-  output: z.looseObject({}),
-  actors: ["machine"],
-  errors: ["invalid_input", "unavailable", "internal"],
-};
-
-// route 앞단의 용어 출현 확인(documents/terms, 질문 Q8). command 앞에서 고정 판의 section
-// 또는 줄 범위를 derived store로 읽어 이름이 실제로 나오는지 본다. 공개 route가 아니라 core가
-// command를 writer에 보내기 전에 부르는 내부 read다. 출현이 아니면 invalid_input이다.
-export const TERM_OCCURRENCE_ROUTE: ReadRoute = {
-  kind: "read",
-  resource: "documents-worker",
-  method: "term_occurrence",
-  name: "term.occurrence",
-  input: z.strictObject({
-    command: z.enum(["term.propose", "term.update"]),
-    input: z.unknown(),
-  }),
-  output: z.looseObject({}),
-  actors: ["user", "agent", "app", "coding_agent", "machine"],
-  errors: ["invalid_input", "not_found", "unavailable", "internal"],
-};
-
-// context watch consumer가 저장 event 하나를 확인하려고 묻는 근거(documents#T24). 저장 판과
-// 직전 판의 내용·module hash와, source_seq 당시 watch였고 그 뒤 바뀌지 않은 문서 항목이다.
-// 공개 route가 아니라 core가 소유자로 읽는 내부 read다. 판이 없으면 after가 null이다.
-export const WATCH_INPUT_ROUTE: ReadRoute = {
-  kind: "read",
-  resource: "documents-worker",
-  method: "watch_input",
-  name: "document.watch_input",
-  input: z.strictObject({
-    document: z.string().min(1),
-    version: z.string().min(1),
-    previous_version: z.string().min(1).nullable(),
-    source_seq: z.string().regex(/^(0|[1-9]\d*)$/),
-  }),
   output: z.looseObject({}),
   actors: ["machine"],
   errors: ["invalid_input", "unavailable", "internal"],

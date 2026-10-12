@@ -82,7 +82,7 @@ test("shell/workspace#R11: 앱 탭의 현재 보기는 요청 창 패널 view의
   const assembled = assembleCurrentView({
     hint: hint("a1"),
     registry: { isLive: (ref) => ref === "win-1", ...context },
-    scope: { project: () => true, document: () => true, app: () => true },
+    scope: { project: () => true, allows: () => true },
     observed_at: AT,
   });
   assert.equal(assembled.ok, true);
@@ -103,7 +103,7 @@ test("shell/workspace#R11: 앱 탭의 현재 보기는 요청 창 패널 view의
   const preview = assembleCurrentView({
     hint: hint("b1"),
     registry: { isLive: () => true, ...context },
-    scope: { project: () => true, document: () => true, app: () => true },
+    scope: { project: () => true, allows: () => true },
     observed_at: AT,
   });
   assert.equal(preview.ok, true);
@@ -135,7 +135,7 @@ test("apps/agent-context#R2 shell/workspace#R11: 앱 패널 탭은 이 창의 �
         focused_pane: 0,
       },
       registry: { isLive: () => true, ...context },
-      scope: { project: () => true, document: () => true, app: () => true },
+      scope: { project: () => true, allows: () => true },
       observed_at: AT,
     });
     assert.equal(assembled.ok, true);

@@ -20,20 +20,40 @@ export const DOCUMENT_READ_TOOLS: readonly string[] = Object.freeze([
   "document.diff",
 ]);
 
-const CONTEXT_TERM_READ_TOOLS: readonly string[] = Object.freeze([
-  "context.list",
-  "context.read",
-  "context.items",
-  "context.terms",
-  "context.document_membership",
-  "term.read",
-]);
-
 const FORMAT_TOOLS: readonly string[] = Object.freeze([
   "format.list",
   "format.rules",
   "format.examples",
   "format.validate",
+]);
+
+// context 개체 읽기와 다음 이름 읽기다. 선언 검색 tool은 이름이 동적이라 이 표에 없고 preset의 context 선택이
+// 정한다(harness/tools#R21). 개체 읽기는 선택한 context 안에서만 읽힌다. 네 역할 모두 가진다(R22, R24).
+const CONTEXT_READ_TOOLS: readonly string[] = Object.freeze([
+  "context.read_entity",
+  "series.next_name",
+]);
+
+// Context Engineer만의 context 생성·계약·초안·미리보기·제출·위반·용어집 tool이다(harness/tools#R23). 이름은
+// `harness/tools/context-engineer-tools.ts`가 정한 값과 같다(presets는 harness를 import하지 않는다).
+export const CONTEXT_ENGINEER_ONLY_TOOLS: readonly string[] = Object.freeze([
+  "context.create",
+  "context.read_contract",
+  "context.draft",
+  "context.preview",
+  "context.submit",
+  "context.violations",
+  "context.glossary_read",
+  "context.glossary_write",
+]);
+
+// lophn만의 모든 project context 조회 tool이다(roles/lophn#R3). prompt 자료는 project 안에 머물고(presets#R17)
+// 이 셋이 모든 project의 context 목록·overview·용어집과 문서 경로를 덮는 context를 읽는다. 이름은
+// `harness/tools/context-lookup-tools.ts`가 정한 값과 같다.
+export const CONTEXT_LOOKUP_ONLY_TOOLS: readonly string[] = Object.freeze([
+  "context.list",
+  "context.overview",
+  "context.containing",
 ]);
 
 const ASK_TOOLS: readonly string[] = Object.freeze([
@@ -46,7 +66,7 @@ const ASK_TOOLS: readonly string[] = Object.freeze([
 // 추가 동작을 더한 교집합이다.
 const COMMON_READ_TOOLS: readonly string[] = Object.freeze([
   ...DOCUMENT_READ_TOOLS,
-  ...CONTEXT_TERM_READ_TOOLS,
+  ...CONTEXT_READ_TOOLS,
   ...FORMAT_TOOLS,
   ...ASK_TOOLS,
 ]);
@@ -57,7 +77,7 @@ function cap(tools: readonly string[]): RoleCap {
 
 // 역할 상한 표다(presets#R9). lophn은 전체 범위 조회·coding 요청·제품 안내·run
 // 결과 저장을, App Engineer는 담당 앱 하나의 설계 참조·해석 연결·ticket 생성을,
-// Context Engineer는 전체 context·term 관리와 앱 metadata 조회·승인 초안을,
+// Context Engineer는 앱 metadata 조회·승인 초안을,
 // Operator는 승인된 앱 read command와 승인한 남길 문서만 상한에 둔다(R11).
 export const ROLE_CAPS: ReadonlyMap<string, RoleCap> = new Map<string, RoleCap>(
   [
@@ -65,6 +85,7 @@ export const ROLE_CAPS: ReadonlyMap<string, RoleCap> = new Map<string, RoleCap>(
       "lophn",
       cap([
         ...COMMON_READ_TOOLS,
+        ...CONTEXT_LOOKUP_ONLY_TOOLS,
         "project.list",
         "project.read",
         "app.list",
@@ -144,22 +165,12 @@ export const ROLE_CAPS: ReadonlyMap<string, RoleCap> = new Map<string, RoleCap>(
       "context_engineer",
       cap([
         ...COMMON_READ_TOOLS,
+        ...CONTEXT_ENGINEER_ONLY_TOOLS,
         "project.list",
         "project.read",
         "app.list",
         "app.read_purpose",
         "app.commands",
-        "context.create",
-        "context.rename",
-        "context.set_purpose",
-        "context.archive",
-        "context.add_item",
-        "context.update_item",
-        "context.remove_item",
-        "term.propose_candidate",
-        "term.update_candidate",
-        "term.remove_candidate",
-        "term.submit_definition_answer",
         "document.create",
         "document.save_version",
         "preset.list",
@@ -187,10 +198,7 @@ export const ROLE_CAPS: ReadonlyMap<string, RoleCap> = new Map<string, RoleCap>(
         "document.read_range",
         "document.history",
         "document.diff",
-        "context.read",
-        "context.items",
-        "context.terms",
-        "term.read",
+        ...CONTEXT_READ_TOOLS,
         "format.list",
         "format.rules",
         "format.examples",

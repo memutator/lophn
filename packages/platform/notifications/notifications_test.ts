@@ -241,7 +241,7 @@ Deno.test("platform/notifications#R1: 사람이 직접 멈춘 assignment는 계�
   );
 });
 
-Deno.test("platform/notifications#R1: 사람이 직접 멈춘 assignment와 unchanged watch는 notification을 만들지 않는다", async () => {
+Deno.test("platform/notifications#R1: 사람이 직접 멈춘 assignment는 notification을 만들지 않는다", async () => {
   const dir = await Deno.makeTempDir({ prefix: "ntf-skip-" });
   const connection = await schema(dir);
   try {
@@ -345,12 +345,10 @@ Deno.test("platform/notifications#R3: 제목·대상은 source 사실에서 만�
   }
 });
 
-Deno.test("platform/notifications#R3: 사람 줄은 source event의 시각과 문서 참조만 받고 없으면 링크가 없다", async () => {
+Deno.test("platform/notifications#R3: 사람 줄은 source event의 시각만 받고 다른 actor에게는 열지 않는다", async () => {
   const dir = await Deno.makeTempDir({ prefix: "ntf-line-" });
   const connection = await schema(dir);
-  const doc = "doc_01arz3ndektsv4rrffq69g5fav";
-  const watchedAt = "2026-10-04T03:04:05.006Z";
-  const bareAt = "2026-10-04T04:05:06.007Z";
+  const approvedAt = "2026-10-04T03:04:05.006Z";
   try {
     emitSource(
       connection,
@@ -360,29 +358,10 @@ Deno.test("platform/notifications#R3: 사람 줄은 source event의 시각과 �
     );
     emitSource(
       connection,
-      "ContextWatchedItemChanged",
-      "ctx_01arz3ndektsv4rrffq69g5fav",
-      {
-        target: { kind: "document", document: doc, section: "terms" },
-        before_version: null,
-        after_version: "ver_01arz3ndektsv4rrffq69g5fav",
-        source_seq: "1",
-        change_kind: "content_changed",
-      },
-      watchedAt,
-    );
-    emitSource(
-      connection,
-      "ContextWatchedItemChanged",
-      "ctx_01arz3ndektsv4rrffq69g5fav",
-      {
-        target: { kind: "document", document: "glossary", section: null },
-        before_version: null,
-        after_version: "ver_01arz3ndektsv4rrffq69g5fav",
-        source_seq: "2",
-        change_kind: "content_changed",
-      },
-      bareAt,
+      "ApprovalRequestCreated",
+      "apr_01arz3ndektsv4rrffq69g5fav",
+      {},
+      approvedAt,
     );
     const sources = connection.sql.all(
       "select cast(seq as text) as seq, type from events order by seq",
@@ -415,15 +394,10 @@ Deno.test("platform/notifications#R3: 사람 줄은 source event의 시각과 �
     const rows = parsed.data.notifications;
     assertEquals(rows.map((row) => row.source_event), [
       "QuestionCreated",
-      "ContextWatchedItemChanged",
-      "ContextWatchedItemChanged",
+      "ApprovalRequestCreated",
     ]);
     assertEquals(rows[0]?.occurred_at, NOW_TEXT);
-    assertEquals(rows[0]?.document, null);
-    assertEquals(rows[1]?.occurred_at, watchedAt);
-    assertEquals(rows[1]?.document, doc);
-    assertEquals(rows[2]?.occurred_at, bareAt);
-    assertEquals(rows[2]?.document, null);
+    assertEquals(rows[1]?.occurred_at, approvedAt);
     for (const row of rows) {
       assertEquals("payload" in row, false);
       assertEquals("source_payload" in row, false);
@@ -434,27 +408,24 @@ Deno.test("platform/notifications#R3: 사람 줄은 source event의 시각과 �
     assert(hiddenParsed.success);
     for (const row of hiddenParsed.data.notifications) {
       assertEquals(row.occurred_at, undefined);
-      assertEquals(row.document, undefined);
       assertEquals("payload" in row, false);
     }
     const get = notificationsGetRead();
-    const watched = rows[1]?.notification.id;
-    assert(watched);
-    const got = get.handle(snapshot, user(), { notification: watched });
+    const second = rows[1]?.notification.id;
+    assert(second);
+    const got = get.handle(snapshot, user(), { notification: second });
     assert(got.ok, got.ok ? "" : JSON.stringify(got.error));
     const gotParsed = get.route.output.safeParse(got.value);
     assert(gotParsed.success);
-    assertEquals(gotParsed.data.occurred_at, watchedAt);
-    assertEquals(gotParsed.data.document, doc);
+    assertEquals(gotParsed.data.occurred_at, approvedAt);
     assertEquals("payload" in gotParsed.data, false);
     const machineGot = get.handle(snapshot, machine(), {
-      notification: watched,
+      notification: second,
     });
     assert(machineGot.ok);
     const machineParsed = get.route.output.safeParse(machineGot.value);
     assert(machineParsed.success);
     assertEquals(machineParsed.data.occurred_at, undefined);
-    assertEquals(machineParsed.data.document, undefined);
   } finally {
     connection.close();
     await Deno.remove(dir, { recursive: true });

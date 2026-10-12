@@ -13,7 +13,7 @@ import {
 import { deliveryAction } from "../delivery-state.ts";
 import type { BodyState } from "../drafts.ts";
 import { atBottom, type DeliveryLabel, type ListItem } from "../model.ts";
-import { ResultLinks } from "../result-links.tsx";
+import { type ContextLinks, ResultLinks } from "../result-links.tsx";
 import type { ConversationSource } from "../source.ts";
 import styles from "./message-list.module.css";
 
@@ -30,6 +30,8 @@ export interface MessageListProps {
   onCheck: () => void;
   onResend: () => void;
   onOpenResult?: (document: string, version: string | null) => void;
+  /** 대화 속 context 이름 링크. */
+  contexts?: ContextLinks;
   /** 시각 블록 틀이 쓰는 문서 읽기·열기와 문서로 남기기. */
   visuals: VisualHost;
 }
@@ -114,6 +116,7 @@ export function MessageList(
     onCheck,
     onResend,
     onOpenResult,
+    contexts,
     visuals,
   }: MessageListProps,
 ) {
@@ -193,6 +196,7 @@ export function MessageList(
               onCheck={onCheck}
               onResend={onResend}
               onOpenResult={onOpenResult}
+              contexts={contexts}
               visuals={visuals}
             />
           ))}
@@ -225,6 +229,7 @@ interface RowProps {
   onCheck: () => void;
   onResend: () => void;
   onOpenResult?: (document: string, version: string | null) => void;
+  contexts?: ContextLinks;
   visuals: VisualHost;
 }
 
@@ -237,6 +242,7 @@ function Row(
     onCheck,
     onResend,
     onOpenResult,
+    contexts,
     visuals,
   }: RowProps,
 ) {
@@ -350,6 +356,7 @@ function Row(
         links={message.results}
         source={source}
         onOpen={onOpenResult}
+        contexts={contexts}
       />
     </div>
   );

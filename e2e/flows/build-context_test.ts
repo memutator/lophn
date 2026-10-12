@@ -1,4105 +1,654 @@
-// flow build-context: 실제 headless shell·core·documents worker를 임시 LOPHN_HOME으로 연다.
-// 1은 아래 테스트가 contexts 화면과 Context Engineer 대화로 본다. 2는 그 다음 테스트가
-// 목차·검색·section·본문 범위와 blueprint 읽기 command 조회를 본다. 3은 그 다음 테스트가
-// 기준·참고·watch 제안과 사람 화면의 항목·읽기 가능 여부를 본다. 4는 마지막 테스트가
-// 정할 수 없는 경계만 묻고, 사람이 정한 목적·범위만 구성과 보고로 남기는지 본다.
-// 이 테스트는 기존 사람 command로 준비한 context에서 5의 화면·고정 section 읽기, 6~7의 실제 파일 관측·
-// watch·notification·전후 판 읽기, section 소실과 항목 제거·보관 갈래를 확인한다.
-// 마지막 테스트는 5의 agent 입력·권한 검사다. 초기 입력은 관점별 목차이고 본문은 요청한 section만이다.
-// 8은 마지막 테스트다. contexts 화면에는 revert 진입이 없어 roles 화면의 끝난 일 검토에서 연다(그 테스트 머리 주석).
-// 미확인·단절·범위 갈래는 T27의 남은 E2E다.
-import { DatabaseSync } from "node:sqlite";
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+// documents slice flow E2E: build-context(docs/flows/build-context.md). 실제 shell(headless)·core
+// (제품 runtime child)·context worker를 임시 LOPHN_HOME으로 띄우고 model은 이 시험의 loopback
+// 응답 server가 낸다. 실제 ~/.lophn과 실제 provider는 쓰지 않는다.
+// 사람 조작은 화면(rail·탭·[New context]·대화 칸·[Search]·toast [View]·[Send to Context Engineer])으로
+// 하고, 프로젝트 등록과 추적 켜기 같은 화면이 아직 없는 준비만 사람 command(core 통로)로 한다.
+// - 1·3: Contexts 탭의 [New context]가 Context Engineer 대화를 열고, 사람이 첫 메시지를 쓴다.
+//   context가 생기면 drafting 상태의 Context 탭이 남는다.
+// - 3·4·5: scripted Context Engineer가 context.create · context.draft(fixture 계약) ·
+//   context.preview · context.submit을 낸다. 격리 검사를 통과한 판은 사람 승인 없이 자동 적용되어
+//   탭이 drafting을 벗어난다.
+// - 7: Context 탭의 Search에서 선언된 검색을 고르면 Search 탭이 열리고 결과가 나온다.
+// - 9·10·11: 사람 파일을 고쳐 규칙 위반이 늘면 notification과 toast가 오고, [View]는 Violations를
+//   연다. 줄을 [Send to Context Engineer]로 넘기면 근거를 담은 Context Engineer run이 시작된다.
+import { assert, assertEquals } from "@std/assert";
 
-import { sha256Hex } from "../../packages/base/mod.ts";
 import { buildReply } from "../../tools/fake-provider/semantic.ts";
 import type { SemanticReply } from "../../tools/fake-provider/types.ts";
-import {
-  copyFixture,
-  editExternally,
-} from "../../fixtures/projects/scenarios.ts";
-import { e2eEnabled, READY_TIMEOUT_MS } from "../harness.ts";
+import { e2eEnabled } from "../harness.ts";
 import {
   commandBody,
   delay,
-  documentTitled,
   type FlowShell,
-  listDocuments,
   mustCall,
   openFlowShell,
+  PROJECT,
   registerTrackedProject,
   removeHome,
   untilDocuments,
-  untilSearch,
 } from "../flow-support.ts";
 
-const CONTEXT = "ctx_01arz3ndektsv4rrffq69g5fav";
+const PROVIDER = "pvd_01arz3ndektsv4rrffq69g5fav";
+const MODEL = "claude-sonnet-4-5";
 
-async function openFocus(flow: FlowShell): Promise<void> {
-  await flow.click('[data-screen="contexts"]');
-  await flow.until(
-    `document.querySelector('[data-focus="${CONTEXT}"]') !== null`,
-    "Focus 목록이 오지 않았다",
-  );
-  await flow.click(`[data-focus="${CONTEXT}"]`);
-  await flow.until(
-    `document.querySelector('[data-focus-head="${CONTEXT}"]') !== null`,
-    "Focus 상세가 오지 않았다",
-  );
-}
+const INPUT = "[data-composer-input]";
+const SEND = "[data-send]";
+const DOCK = "[data-dock]";
 
-async function watch(flow: FlowShell) {
-  return await mustCall(flow, {
-    kind: "read",
-    resource: "contexts",
-    method: "watch",
-    body: { context: CONTEXT },
-  }) as unknown as {
-    changes: {
-      target: { document: string; section: string | null };
-      change_kind: string;
-      before_version: string | null;
-      after_version: string;
-      source_seq: string;
-    }[];
-    unverified: unknown[];
+const TITLE = "Experiment evaluation";
+const PURPOSE = "Find experiments, scenarios and findings under eval and loop.";
+const FIRST_MESSAGE =
+  "Help me find experiments and their findings. Look at eval/experiments, eval/scenarios and loop/findings. I want to see experiments by status and the findings of one experiment.";
+const REPORT = "The draft r1 is submitted.";
+const HANDED = "These files need fixing, not the contract.";
+
+const EDITED = "eval/experiments/exp-002-sight.md";
+
+const EVAL_PROJECT = new URL(
+  "../../packages/documents/contexts/testdata/eval-project/",
+  import.meta.url,
+);
+const CONTRACT = new URL(
+  "../fixtures/build-context.contract.json",
+  import.meta.url,
+);
+
+type Step = (body: string) => SemanticReply | Promise<SemanticReply>;
+
+/** 요청마다 다음 step 함수로 Anthropic messages 응답을 낸다. 요청 본문은 남긴다. */
+function startDynamicProvider(steps: Step[]) {
+  const bodies: string[] = [];
+  const server = Deno.serve(
+    { hostname: "127.0.0.1", port: 0, onListen: () => {} },
+    async (request) => {
+      const text = await request.text();
+      const path = new URL(request.url).pathname;
+      if (request.method !== "POST" || !path.endsWith("/messages")) {
+        return Response.json({ error: "unexpected" }, { status: 500 });
+      }
+      const step = steps[bodies.length];
+      bodies.push(text);
+      if (step === undefined) {
+        return Response.json({ error: "exhausted" }, { status: 500 });
+      }
+      const built = buildReply("messages", await step(text));
+      return new Response(built.body ?? "", {
+        status: built.status,
+        headers: built.headers,
+      });
+    },
+  );
+  return {
+    url: `http://127.0.0.1:${server.addr.port}`,
+    calls: () => bodies.length,
+    body: (index: number) => bodies[index] ?? "",
+    close: () => server.shutdown(),
   };
 }
-
-async function untilChange(
-  flow: FlowShell,
-  document: string,
-  version: string,
-  kind: string,
-) {
-  const deadline = Date.now() + READY_TIMEOUT_MS;
-  for (;;) {
-    const page = await watch(flow);
-    const change = page.changes.find((row) =>
-      row.target.document === document && row.after_version !== version &&
-      row.change_kind === kind
-    );
-    if (change) return { page, change };
-    assert(Date.now() < deadline, `watch 변화가 없다: ${JSON.stringify(page)}`);
-    await delay(250);
-  }
-}
-
-Deno.test({
-  name:
-    "documents/contexts#R4 documents/contexts#R10 platform/notifications#R3 flow build-context: 관점·고정 section → 파일 변화·notification → 전후 판·소실·보관",
-  ignore: !e2eEnabled(),
-  sanitizeOps: false,
-  sanitizeResources: false,
-  async fn(t) {
-    const folder = await Deno.realPath(await copyFixture("korean-search"));
-    const flow = await openFlowShell({ start: "lophn" });
-    try {
-      await registerTrackedProject(flow, { folder });
-      await untilDocuments(flow, ["glossary", "migration"], "문서 관측 대기");
-      await untilSearch(
-        flow,
-        "용어",
-        (page) => page.results.length > 0,
-        "목차 반영 대기",
-      );
-      const glossary = await documentTitled(flow, "glossary");
-      const migration = await documentTitled(flow, "migration");
-      const outline = await mustCall(flow, {
-        kind: "worker",
-        resource: "outline",
-        method: "document",
-        body: {
-          reference: {
-            document: glossary.id,
-            version: glossary.latest_version,
-            section: null,
-          },
-        },
-      });
-      const section = (outline.entries as { key: string; title: string }[])
-        .find((row) => row.title === "용어")?.key;
-      assert(section, `용어 section이 없다: ${JSON.stringify(outline)}`);
-      const target = { kind: "document", document: glossary.id, section };
-      // agent 단계를 흉내 내지 않는다. documents#contexts R5의 사람 직접 구성은 fixture 준비다.
-      await mustCall(flow, {
-        kind: "command",
-        resource: "contexts",
-        method: "create",
-        body: commandBody({
-          id: CONTEXT,
-          title: "Reading terms",
-          purpose: "자료에서 쓰는 말의 변화를 확인한다.",
-          items: [
-            {
-              target: {
-                kind: "document",
-                document: glossary.id,
-                section: null,
-              },
-              perspective: "basis",
-              reason: "말을 정하는 기준",
-            },
-            {
-              target: {
-                kind: "document",
-                document: migration.id,
-                section: null,
-              },
-              perspective: "reference",
-              reason: "사용하는 배경",
-            },
-            { target, perspective: "watch", reason: "뜻의 변화만 확인" },
-          ],
-        }),
-      });
-
-      await t.step(
-        "documents/contexts#R1 documents/contexts#R4: 5 목적·관점·이유를 확인하고 고른 고정 section만 읽는다",
-        async () => {
-          await openFocus(flow);
-          assertEquals(
-            await flow.text("[data-focus-purpose]"),
-            "자료에서 쓰는 말의 변화를 확인한다.",
-          );
-          for (const perspective of ["basis", "reference", "watch"]) {
-            assertEquals(
-              await flow.count(
-                `[data-perspective="${perspective}"] [data-item]`,
-              ),
-              1,
-            );
-          }
-          assertEquals(await flow.count("[data-item-reason]"), 0);
-          await flow.click('[data-item="watch"] > button');
-          assertEquals(
-            await flow.text('[data-item="watch"] [data-item-reason]'),
-            "뜻의 변화만 확인",
-          );
-          await flow.click('[data-item="watch"] [data-open-item]');
-          await flow.until(
-            `document.querySelector("[data-body]")?.textContent.includes("뜻이 고정된 말")`,
-            "section 본문 대기",
-          );
-          assertEquals(
-            (await flow.text("[data-body]"))!.includes("한 정본을 가지는"),
-            false,
-          );
-        },
-      );
-
-      let afterVersion = "";
-      await t.step(
-        "documents/contexts#R10 documents/contexts#R12 platform/notifications#R3: 6 파일 변화는 전후 고정 판과 같은 key로 한 번 기록하고 notification을 만든다",
-        async () => {
-          await editExternally(
-            folder,
-            "glossary.md",
-            "# 용어집\n\n## 문서\n\n문서 하나가 한 정본을 가지는 대상이다.\n\n## 용어\n\n용어는 사람이 정한 새로운 뜻이다.\n",
-          );
-          const { page, change } = await untilChange(
-            flow,
-            glossary.id,
-            glossary.latest_version,
-            "content_changed",
-          );
-          afterVersion = change.after_version;
-          assertEquals(change.target.section, section);
-          assertEquals(change.before_version, glossary.latest_version);
-          assertEquals(
-            page.changes.filter((row) =>
-              row.after_version === afterVersion &&
-              row.target.section === section
-            ).length,
-            1,
-          );
-          const deadline = Date.now() + READY_TIMEOUT_MS;
-          for (;;) {
-            const notifications = await mustCall(flow, {
-              kind: "read",
-              resource: "notifications",
-              method: "list",
-              body: {},
-            });
-            const rows = notifications.notifications as {
-              source_event: string;
-            }[];
-            if (
-              rows.some((row) =>
-                row.source_event === "ContextWatchedItemChanged"
-              )
-            ) break;
-            assert(
-              Date.now() < deadline,
-              `watch notification이 없다: ${JSON.stringify(notifications)}`,
-            );
-            await delay(250);
-          }
-        },
-      );
-
-      await t.step(
-        "documents/outline-and-search#R21 documents/contexts#R10: 7 화면에서 watch 근거를 열어 전후의 같은 부분을 읽는다",
-        async () => {
-          await openFocus(flow);
-          await flow.click('[data-item="watch"] > button');
-          await flow.until(
-            `document.querySelector('[data-watch-change="content_changed"]') !== null`,
-            "확인된 변화 화면 대기",
-          );
-          await flow.click("[data-open-before]");
-          await flow.until(
-            `document.querySelector("[data-body]")?.textContent.includes("뜻이 고정된 말")`,
-            "이전 고정 판 대기",
-          );
-          assertEquals(
-            (await flow.text("[data-body]"))!.includes("새로운 뜻"),
-            false,
-          );
-          await openFocus(flow);
-          await flow.click('[data-item="watch"] > button');
-          await flow.click("[data-open-after]");
-          await flow.until(
-            `document.querySelector("[data-body]")?.textContent.includes("새로운 뜻")`,
-            "이후 고정 판 대기",
-          );
-          assertEquals(
-            (await flow.text("[data-body]"))!.includes("한 정본을 가지는"),
-            false,
-          );
-        },
-      );
-
-      await t.step(
-        "documents/contexts#R9: section 소실은 옛 key를 유지하고 유사 본문으로 바꾸지 않는다",
-        async () => {
-          await editExternally(
-            folder,
-            "glossary.md",
-            "# 용어집\n\n## 문서\n\n문서 하나가 한 정본을 가지는 대상이다.\n\n## 새말\n\n용어는 사람이 정한 새로운 뜻이다.\n",
-          );
-          const { change } = await untilChange(
-            flow,
-            glossary.id,
-            afterVersion,
-            "section_missing",
-          );
-          assertEquals(change.target.section, section);
-          await openFocus(flow);
-          await flow.click('[data-item="watch"] > button');
-          await flow.until(
-            `document.querySelector("[data-watch-missing]") !== null`,
-            "section 소실 안내 대기",
-          );
-          const got = await mustCall(flow, {
-            kind: "read",
-            resource: "contexts",
-            method: "get",
-            body: { context: CONTEXT },
-          });
-          assertEquals(
-            (got.context as { items: { target: unknown }[] }).items[2].target,
-            target,
-          );
-          assertStringIncludes(
-            (await flow.text('[data-item="watch"]'))!,
-            section,
-          );
-        },
-      );
-
-      await t.step(
-        "documents/contexts#R7: 항목 제거·보관은 원자료·용어를 바꾸지 않고 watch를 멈춘다",
-        async () => {
-          const current = await documentTitled(flow, "glossary");
-          await mustCall(flow, {
-            kind: "command",
-            resource: "terms",
-            method: "define",
-            body: commandBody({
-              id: "trm_01arz3ndektsv4rrffq69g5fav",
-              context: CONTEXT,
-              name: "용어",
-              definition: "사람이 정한 말",
-            }),
-          });
-          const got = await mustCall(flow, {
-            kind: "read",
-            resource: "contexts",
-            method: "get",
-            body: { context: CONTEXT },
-          });
-          await mustCall(flow, {
-            kind: "command",
-            resource: "contexts",
-            method: "remove_item",
-            body: commandBody({
-              context: CONTEXT,
-              target: {
-                kind: "document",
-                document: migration.id,
-                section: null,
-              },
-            }, {
-              base_revision: (got.context as { revision: string }).revision,
-            }),
-          });
-          await flow.click('[data-screen="documents"]');
-          await openFocus(flow);
-          assertEquals(await flow.count('[data-item="reference"]'), 0);
-          await flow.click('[data-archive-focus="archive"]');
-          await flow.until(
-            `document.querySelector("[data-focus-archived]") !== null`,
-            "Focus 보관 대기",
-          );
-          assertEquals(
-            (await documentTitled(flow, "glossary")).latest_version,
-            current.latest_version,
-          );
-          assertEquals(
-            (await documentTitled(flow, "migration")).latest_version,
-            migration.latest_version,
-          );
-          const term = await mustCall(flow, {
-            kind: "read",
-            resource: "terms",
-            method: "get",
-            body: { term: "trm_01arz3ndektsv4rrffq69g5fav" },
-          });
-          assertEquals(
-            (term.term as { definition: string }).definition,
-            "사람이 정한 말",
-          );
-          const before = (await watch(flow)).changes;
-          await editExternally(
-            folder,
-            "glossary.md",
-            "# 용어집\n\n## 용어\n\n보관 중 새 내용이다.\n",
-          );
-          await untilSearch(
-            flow,
-            "보관 중 새 내용",
-            (page) => page.results.some((row) => row.document === glossary.id),
-            "보관 중 새 판 index 대기",
-          );
-          assertEquals((await watch(flow)).changes, before);
-        },
-      );
-    } finally {
-      await flow.close();
-      await removeHome(flow.home);
-      await Deno.remove(folder, { recursive: true });
-    }
-  },
-});
-
-// 1: contexts 화면에서 함께 볼 목적을 말하고, 기존 context의 목적을 고치려 한다.
-// 목적·경계는 roles 화면의 Context Engineer 대화에서 정한다. contexts의 Ask는 lophn 도크만
-// 열므로 그 역할의 context.create를 부르지 않는다. model은 fake provider script다.
-// 작업 대상은 대화가 아니라 context와 자료다. 도크를 닫아도 context와 문서 화면이 남고,
-// 문서 판은 바뀌지 않는다. 항목 선정은 2~3이라 여기서 넣지 않는다.
-const PROVIDER = "pvd_01arz3ndektsv4rrffq69g5fb1";
-const MODEL = "claude-sonnet-4-5";
-const TITLE = "Reading terms";
-const PURPOSE = "자료에서 쓰는 말의 변화를 확인한다. 색인은 넣지 않는다.";
-const EDITED = "같은 자료에서 말의 쓰임만 본다. 색인은 넣지 않는다.";
-const ASK = `함께 볼 목적을 정한다. ${PURPOSE}`;
-const REVISE = `기존 context의 목적을 고친다. ${EDITED}`;
-const EMBEDDED = "[data-dock='embedded']";
-const INPUT = `${EMBEDDED} [data-composer-input]`;
-const SEND = `${EMBEDDED} [data-send]`;
 
 function toolCall(id: string, name: string, args: unknown): SemanticReply {
   return {
     text: "",
     toolCalls: [{ id, name, arguments: JSON.stringify(args) }],
-    usage: { input: 24, output: 8 },
+    usage: { input: 30, output: 9 },
     stop: "tool_calls",
   };
 }
 
-function said(purpose: string): SemanticReply {
-  return {
-    text: purpose,
-    usage: { input: 16, output: 6 },
-    stop: "end",
-  };
-}
-
-/** 요청 본문의 마지막 tool 결과 JSON. 자료 표식 안에 있다. */
-function lastToolJson(body: string): Record<string, unknown> {
-  const request = JSON.parse(body) as { messages?: { content?: unknown }[] };
-  const blocks = (request.messages ?? []).flatMap((message) =>
-    Array.isArray(message.content) ? message.content : []
-  );
-  const result = blocks.findLast((block) =>
-    typeof block === "object" && block !== null &&
-    (block as { type?: string }).type === "tool_result"
-  ) as { content?: unknown } | undefined;
-  assert(result !== undefined, `tool 결과가 없다: ${body.slice(-400)}`);
-  const raw = typeof result.content === "string"
-    ? result.content
-    : Array.isArray(result.content)
-    ? (result.content as { text?: string }[]).map((part) => part.text ?? "")
-      .join("")
-    : "";
-  const start = raw.indexOf('{"status"');
-  const end = raw.lastIndexOf("}");
-  assert(
-    start >= 0 && end > start,
-    `tool 결과 JSON이 없다: ${raw.slice(0, 400)}`,
-  );
-  return JSON.parse(raw.slice(start, end + 1)) as Record<string, unknown>;
-}
-
-function contextRef(body: string): { id: string; revision: string } {
-  const json = lastToolJson(body);
-  const content = json["content"] as Record<string, unknown> | undefined;
-  const context = content?.["context"] as Record<string, unknown> | undefined;
-  const id = context?.["id"];
-  const revision = context?.["revision"];
-  assert(
-    typeof id === "string" && typeof revision === "string",
-    `context 참조가 없다: ${JSON.stringify(json).slice(0, 500)}`,
-  );
-  return { id, revision };
-}
-
-type Fixture = {
-  url: string;
-  calls: () => number;
-  body: (index: number) => string;
-  close: () => Promise<void>;
-};
-
-/** context id·revision은 tool 결과에만 있으므로 script는 요청을 보고 다음 답을 정한다. */
-function startScript(): Fixture {
-  const bodies: string[] = [];
-  const made = { id: "", revision: "" };
-  const server = Deno.serve(
-    { hostname: "127.0.0.1", port: 0, onListen: () => {} },
-    async (request) => {
-      const text = await request.text();
-      const path = new URL(request.url).pathname;
-      if (request.method !== "POST" || !path.endsWith("/messages")) {
-        return Response.json({ error: "unexpected" }, { status: 500 });
-      }
-      const index = bodies.length;
-      bodies.push(text);
-      let reply: SemanticReply;
-      try {
-        if (index === 0) {
-          reply = toolCall("toolu_create", "context.create", {
-            title: TITLE,
-            purpose: PURPOSE,
-          });
-        } else if (index === 1) {
-          made.id = contextRef(text).id;
-          reply = said(PURPOSE);
-        } else if (index === 2) {
-          reply = toolCall("toolu_read", "context.read", {
-            context: made.id,
-          });
-        } else if (index === 3) {
-          made.revision = contextRef(text).revision;
-          reply = toolCall("toolu_purpose", "context.set_purpose", {
-            context: made.id,
-            purpose: EDITED,
-            base_revision: made.revision,
-          });
-        } else if (index === 4) {
-          reply = said(EDITED);
-        } else {
-          return Response.json({ error: "exhausted" }, { status: 500 });
-        }
-      } catch (error) {
-        return Response.json({ error: String(error) }, { status: 500 });
-      }
-      const built = buildReply("messages", reply);
-      return new Response(built.body ?? "", {
-        status: built.status,
-        headers: built.headers,
-      });
-    },
-  );
-  return {
-    url: `http://127.0.0.1:${server.addr.port}`,
-    calls: () => bodies.length,
-    body: (index) => bodies[index] ?? "",
-    close: () => server.shutdown(),
-  };
-}
-
-async function untilCalls(provider: Fixture, count: number, what: string) {
-  const deadline = Date.now() + 180_000;
-  for (;;) {
-    if (provider.calls() >= count) return;
-    assert(
-      Date.now() < deadline,
-      `${what}: call ${provider.calls()} ${
-        provider.body(provider.calls() - 1).slice(-500)
-      }`,
-    );
-    await delay(250);
-  }
-}
-
-async function untilEngineerDone(
-  flow: FlowShell,
-  provider: Fixture,
-  what: string,
-) {
-  try {
-    await flow.until(
-      `document.querySelector("${EMBEDDED} [data-work-status]")?.getAttribute("data-work-status") === "done"`,
-      what,
-      180_000,
-    );
-  } catch (error) {
-    const dock = String(
-      await flow.evaluate(
-        `document.querySelector(${
-          JSON.stringify(EMBEDDED)
-        })?.innerText ?? null`,
-      ),
-    ).slice(0, 600);
-    throw new Error(
-      `${
-        (error as Error).message
-      } | calls=${provider.calls()} dock=${dock} last=${
-        provider.body(provider.calls() - 1).slice(-400)
-      }`,
-    );
-  }
-}
-
-async function openEngineer(flow: FlowShell): Promise<void> {
-  await flow.click('[data-screen="roles"]');
-  await flow.until(
-    `[...document.querySelectorAll("[data-role]")].some((el) => el.textContent?.includes("Context Engineer"))`,
-    "Context Engineer 담당이 없다",
-  );
-  const marked = await flow.evaluate(`(() => {
-    const row = [...document.querySelectorAll("[data-role]")].find((el) =>
-      el.textContent?.includes("Context Engineer")
-    );
-    if (!row) return false;
-    row.setAttribute("data-flow-ce", "");
-    return true;
-  })()`);
-  assertEquals(marked, true, "Context Engineer 행을 표시하지 못했다");
-  await flow.click("[data-flow-ce]");
-  await flow.until(
-    `document.querySelector("[data-role-detail]") !== null`,
-    "역할 상세가 없다",
-  );
-  await flow.mouseClickText("[role=tab]", "Conversation");
-  await flow.until(
-    `document.querySelector("${EMBEDDED} [data-new-session]") !== null`,
-    "Context Engineer 대화가 서지 않았다",
-  );
-  if (await flow.count(INPUT) === 0) {
-    await flow.click(`${EMBEDDED} [data-new-session]`);
-  }
-  await flow.until(
-    `document.querySelector(${JSON.stringify(INPUT)}) !== null`,
-    "입력칸이 없다",
-  );
-}
-
-async function sendToEngineer(flow: FlowShell, text: string): Promise<void> {
-  await openEngineer(flow);
-  await flow.type(INPUT, text);
-  await flow.click(SEND);
-}
-
-async function shownPurpose(flow: FlowShell): Promise<string> {
-  await flow.click('[data-screen="documents"]');
-  await flow.click('[data-screen="contexts"]');
-  await flow.until(
-    `document.querySelector("[data-focus]") !== null`,
-    "Focus 목록이 없다",
-  );
-  await flow.click("[data-focus]");
-  await flow.until(
-    `document.querySelector("[data-focus-purpose]") !== null`,
-    "Focus 상세가 없다",
-  );
-  return (await flow.text("[data-focus-purpose]")) ?? "";
-}
-
-Deno.test({
-  name:
-    "documents/contexts#R1 documents/contexts#R5 lophn-agent/roles/context-engineer#R1 shell/desktop#R1 flow build-context: 목적을 말하고 경계를 정하면 context에 남고 대화를 닫아도 자료가 남는다",
-  ignore: !e2eEnabled(),
-  sanitizeOps: false,
-  sanitizeResources: false,
-  async fn() {
-    const folder = await Deno.realPath(await copyFixture("korean-search"));
-    const provider = startScript();
-    let flow: FlowShell | undefined;
-    try {
-      flow = await openFlowShell({ start: "lophn" });
-      await mustCall(flow, {
-        kind: "command",
-        resource: "providers",
-        method: "register",
-        body: commandBody({
-          id: PROVIDER,
-          name: "fixture",
-          definition: {
-            key: "anthropic",
-            display_name: "Anthropic",
-            protocols: ["anthropic-messages"],
-            auth_kinds: ["none"],
-            models_endpoint: null,
-            oauth: null,
-            revision: "2026-01-01",
-          },
-          endpoint: provider.url,
-          protocol: "anthropic-messages",
-        }),
-      });
-      const defaults = await mustCall(flow, {
-        kind: "read",
-        resource: "agent-model-defaults",
-        method: "read",
-        body: {},
-      });
-      const seq = (defaults.defaults as { settings_seq: string }).settings_seq;
-      await mustCall(flow, {
-        kind: "command",
-        resource: "agent-model-defaults",
-        method: "change",
-        body: commandBody(
-          {
-            judgment: {
-              provider: PROVIDER,
-              credentials: [],
-              model_name: MODEL,
-              reasoning_level: "provider_default",
-              options: {},
-            },
-            organizing: null,
-            settings_seq: seq,
-          },
-          { settings_seq: seq },
-        ),
-      });
-      await registerTrackedProject(flow, { folder });
-      await untilDocuments(flow, ["glossary", "migration"], "문서 관측 대기");
-      const glossary = await documentTitled(flow, "glossary");
-      const migration = await documentTitled(flow, "migration");
-
-      await flow.click('[data-screen="contexts"]');
-      await flow.until(
-        `document.querySelector("[data-focus-list]")?.textContent.includes("No focus yet")`,
-        "빈 contexts 화면이 없다",
-      );
-
-      await sendToEngineer(flow, ASK);
-      await untilCalls(provider, 2, "목적 생성");
-      await untilEngineerDone(flow, provider, "목적 생성이 끝나지 않았다");
-      assertStringIncludes(
-        (await flow.text(EMBEDDED)) ?? "",
-        PURPOSE,
-      );
-      assertEquals(await shownPurpose(flow), PURPOSE);
-
-      await sendToEngineer(flow, REVISE);
-      await untilCalls(provider, 5, "목적 수정");
-      await untilEngineerDone(flow, provider, "목적 수정이 끝나지 않았다");
-      assertStringIncludes(
-        (await flow.text(EMBEDDED)) ?? "",
-        EDITED,
-      );
-      assertEquals(await shownPurpose(flow), EDITED);
-      const listed = await mustCall(flow, {
-        kind: "read",
-        resource: "contexts",
-        method: "list",
-        body: {},
-      });
-      const rows = listed.contexts as {
-        purpose: string;
-        items: unknown[];
-      }[];
-      assertEquals(
-        rows.filter((row) => row.purpose === EDITED).length,
-        1,
-      );
-      assertEquals(rows.find((row) => row.purpose === EDITED)?.items.length, 0);
-      assertEquals(
-        (await documentTitled(flow, "glossary")).latest_version,
-        glossary.latest_version,
-      );
-      assertEquals(
-        (await documentTitled(flow, "migration")).latest_version,
-        migration.latest_version,
-      );
-
-      await flow.click("[data-ask-focus]");
-      await flow.until(
-        `document.querySelector("[data-close-dock]") !== null`,
-        "대화 도크가 열리지 않았다",
-      );
-      await flow.click("[data-close-dock]");
-      await flow.until(
-        `document.querySelector("[data-close-dock]") === null`,
-        "대화 도크가 닫히지 않았다",
-      );
-      assertEquals(await flow.text("[data-focus-purpose]"), EDITED);
-      await flow.click('[data-screen="documents"]');
-      await flow.until(
-        `document.querySelector("[data-screen-body='documents']") !== null`,
-        "문서 화면이 없다",
-      );
-      assertEquals(await shownPurpose(flow), EDITED);
-    } finally {
-      await flow?.close();
-      await provider.close();
-      if (flow !== undefined) await removeHome(flow.home);
-      await Deno.remove(folder, { recursive: true });
-    }
-  },
+const text = (value: string): SemanticReply => ({
+  text: value,
+  usage: { input: 40, output: 12 },
+  stop: "end",
 });
 
-// 2: Context Engineer가 목차·검색으로 이번 목적의 section과 그 본문 범위만 읽는다.
-// 앱 자료 후보는 blueprint의 command 이름·설명·입력·효과를 app.commands로 조회하고,
-// 앱 command는 실행하지 않는다. 앱은 실행을 켜지 않은 release 행이라 자식이 뜨지 않는다.
-// 검색은 대화 화면에 나오지 않는다. model은 fake provider script다.
-const NOTES_APP = "app_01arz3ndektsv4rrffq69g5fb2";
-const NOTES_RELEASE = "rel_01arz3ndektsv4rrffq69g5fb2";
-const NOTES_VERIFICATION = "vrf_01arz3ndektsv4rrffq69g5fb2";
-const OTHER_BODY = "한 정본을 가지는";
-const SECTION_BODY = "뜻이 고정된 말";
-const LOOKUP =
-  "이번 목적에 필요한 용어 section만 읽어 달라. 앱은 읽기 command 계약만 본다.";
-const LOOKUP_REPLY = "용어 section만 읽었다.";
-const NOTES_BLUEPRINT = {
-  name: "Notes",
-  description: "Reads notes for one purpose.",
-  screens: [],
-  commands: [
-    {
-      key: "list_notes",
-      label: "List notes",
-      description: "Read the note titles for this purpose.",
-      effect: "read",
-      confirm: false,
-      input: {
-        type: "object",
-        description: "How many notes to list.",
-        properties: {
-          limit: {
-            type: "integer",
-            description: "Maximum number of notes.",
-          },
-        },
-        additionalProperties: false,
+/** 앞 tool 결과가 body에 담은 마지막 id. context 생성·초안 결과에서 id를 이어 받는다. */
+function lastId(body: string, prefix: string): string {
+  const found = body.match(new RegExp(`${prefix}_[0-9a-hjkmnp-tv-z]{26}`, "g"));
+  assert(found !== null, `${prefix} id가 요청에 없다`);
+  return found[found.length - 1]!;
+}
+
+async function copyProject(from: URL, to: string): Promise<void> {
+  for await (const entry of Deno.readDir(from)) {
+    const source = new URL(entry.name + (entry.isDirectory ? "/" : ""), from);
+    const target = `${to}/${entry.name}`;
+    if (entry.isDirectory) {
+      await Deno.mkdir(target, { recursive: true });
+      await copyProject(source, target);
+    } else {
+      await Deno.copyFile(source, target);
+    }
+  }
+}
+
+async function setDefaults(flow: FlowShell, endpoint: string): Promise<void> {
+  await mustCall(flow, {
+    kind: "command",
+    resource: "providers",
+    method: "register",
+    body: commandBody({
+      id: PROVIDER,
+      name: "fixture",
+      definition: {
+        key: "anthropic",
+        display_name: "Anthropic",
+        protocols: ["anthropic-messages"],
+        auth_kinds: ["none"],
+        models_endpoint: null,
+        oauth: null,
+        revision: "2026-01-01",
       },
-      revert: { supported: false },
-    },
-    {
-      key: "save_note",
-      label: "Save note",
-      description: "Write a note outside this purpose.",
-      effect: "write",
-      confirm: false,
-      input: null,
-      revert: { supported: false },
-    },
-  ],
-  automatic_tasks: [],
-  permissions: [],
-  problem_codes: [],
-  documents: [],
-  agent_context: [],
-  app_connections: [],
-  sdk_dependencies: [],
-};
-
-function seedNotesApp(
-  home: string,
-  blueprintJson: string,
-  blueprintHash: string,
-): void {
-  const db = new DatabaseSync(`${home}/lophn.db`);
-  try {
-    db.exec("PRAGMA busy_timeout = 8000");
-    db.prepare(
-      `INSERT INTO apps (id, slug, name, description, planning_version, source_path, active_release, run_enabled, revision, status)
-       VALUES (?, 'notes', 'Notes', 'Reads notes for one purpose.', NULL, NULL, ?, 0, '1', 'active')`,
-    ).run(NOTES_APP, NOTES_RELEASE);
-    db.prepare(
-      `INSERT INTO releases (id, app, number, code_commit, bundle_hash, blueprint_hash, data_schema, data_changes, ticket_source, created_by, created_at, status, activation, failure, blueprint, declarations)
-       VALUES (?, ?, 1, ?, ?, ?, 0, '[]', NULL, 'machine', '2026-10-01T00:00:00.000Z', 'active', NULL, NULL, ?, ?)`,
-    ).run(
-      NOTES_RELEASE,
-      NOTES_APP,
-      "a".repeat(40),
-      "b".repeat(64),
-      blueprintHash,
-      blueprintJson,
-      JSON.stringify({
-        permissions: [],
-        app_connections: [],
-        commands: ["list_notes", "save_note"],
-        automations: [],
-        problem_codes: [],
-        documents: [],
-      }),
-    );
-    db.prepare(
-      "INSERT INTO release_tests (release, verification) VALUES (?, ?)",
-    ).run(NOTES_RELEASE, NOTES_VERIFICATION);
-  } finally {
-    db.close();
-  }
-}
-
-type LookupFixture = Fixture & {
-  failure: () => string;
-  document: () => string;
-  version: () => string;
-  done: () => boolean;
-  /** tool 결과가 들어 있는 요청 번호. 검색이 index 따라잡기 중이면 번호가 밀린다. */
-  result: (step: "outline" | "section" | "range" | "commands") => number;
-  callsNamed: () => readonly string[];
-};
-
-function toolContent(body: string): Record<string, unknown> {
-  const json = lastToolJson(body);
-  assertEquals(
-    json["status"],
-    "success",
-    `tool 실패: ${JSON.stringify(json).slice(0, 500)}`,
-  );
-  const content = json["content"];
-  assert(
-    content !== null && typeof content === "object",
-    `tool 본문이 없다: ${JSON.stringify(json).slice(0, 400)}`,
-  );
-  return content as Record<string, unknown>;
-}
-
-function offeredTools(body: string): string[] {
-  const request = JSON.parse(body) as { tools?: { name?: string }[] };
-  return (request.tools ?? []).map((tool) => String(tool.name ?? ""));
-}
-
-type LookupPhase =
-  | "search"
-  | "list"
-  | "outline"
-  | "section"
-  | "range"
-  | "apps"
-  | "commands"
-  | "done";
-
-type FixedDoc = { document: string; version: string };
-
-/** 검색·목차·section·범위·앱 command 조회. id는 tool 결과에만 있다.
- * 대화가 ledger를 앞으로 밀면 검색은 lagging으로 빈 결과를 준다. 그때는 같은 검색을
- * 몇 번만 다시 하고, 그래도 비면 document.list와 목차로 용어 section을 찾는다. */
-function startLookupScript(): LookupFixture {
-  const bodies: string[] = [];
-  const named: string[] = [];
-  const queue: FixedDoc[] = [];
-  const found = {
-    document: "",
-    version: "",
-    failure: "",
-    phase: "search" as LookupPhase,
-    searches: 0,
-  };
-  const at = { outline: -1, section: -1, range: -1, commands: -1 };
-  const search = (): SemanticReply => {
-    found.searches += 1;
-    named.push("document.search");
-    return toolCall(`toolu_search_${found.searches}`, "document.search", {
-      query: "용어",
-    });
-  };
-  const outlineNext = (): SemanticReply => {
-    const next = queue.shift();
-    assert(next !== undefined, "용어 section이 있는 문서가 없다");
-    found.document = next.document;
-    found.version = next.version;
-    found.phase = "outline";
-    named.push("document.outline");
-    return toolCall(`toolu_outline_${named.length}`, "document.outline", {
-      reference: {
-        document: next.document,
-        version: next.version,
-        section: null,
-      },
-    });
-  };
-  const server = Deno.serve(
-    { hostname: "127.0.0.1", port: 0, onListen: () => {} },
-    async (request) => {
-      const text = await request.text();
-      const path = new URL(request.url).pathname;
-      if (request.method !== "POST" || !path.endsWith("/messages")) {
-        return Response.json({ error: "unexpected" }, { status: 500 });
-      }
-      const index = bodies.length;
-      bodies.push(text);
-      let reply: SemanticReply;
-      try {
-        if (found.phase === "search" && index === 0) {
-          reply = search();
-        } else if (found.phase === "search") {
-          const content = toolContent(text);
-          const coverage = content["coverage"] as {
-            lagging?: boolean;
-            rebuilding?: boolean;
-          } | undefined;
-          const waiting = coverage?.lagging === true ||
-            coverage?.rebuilding === true;
-          const results = (content["results"] ?? []) as {
-            document?: string;
-            version?: string;
-            title?: string;
-            snippet?: string;
-          }[];
-          const hit = results.find((row) =>
-            `${row.title ?? ""} ${row.snippet ?? ""}`.includes("용어")
-          );
-          if (hit?.document !== undefined && hit.version !== undefined) {
-            queue.push({ document: hit.document, version: hit.version });
-            reply = outlineNext();
-          } else if (waiting && found.searches < 3) {
-            await delay(1000);
-            reply = search();
-          } else {
-            found.phase = "list";
-            named.push("document.list");
-            reply = toolCall("toolu_list", "document.list", {});
-          }
-        } else if (found.phase === "list") {
-          const documents = toolContent(text)["documents"] as Record<
-            string,
-            unknown
-          >[];
-          assert(
-            Array.isArray(documents),
-            JSON.stringify(toolContent(text)).slice(0, 500),
-          );
-          for (const row of documents) {
-            const nested = row["document"];
-            const doc = nested !== null && typeof nested === "object"
-              ? nested as Record<string, unknown>
-              : row;
-            const id = doc["id"] ?? doc["document"];
-            const latest = doc["latest_version"] ?? row["latest_version"];
-            const version = typeof latest === "string"
-              ? latest
-              : (latest as { id?: string } | null)?.id;
-            if (typeof id === "string" && typeof version === "string") {
-              queue.push({ document: id, version });
-            }
-          }
-          assert(queue.length > 0, JSON.stringify(documents).slice(0, 500));
-          reply = outlineNext();
-        } else if (found.phase === "outline") {
-          const entries = toolContent(text)["entries"] as {
-            key?: string;
-            title?: string;
-          }[];
-          const section = entries.find((row) => row.title === "용어")?.key;
-          if (typeof section !== "string") {
-            reply = outlineNext();
-          } else {
-            at.outline = index;
-            found.phase = "section";
-            named.push("document.read_section");
-            reply = toolCall("toolu_section", "document.read_section", {
-              reference: {
-                document: found.document,
-                version: found.version,
-                section: null,
-              },
-              section,
-            });
-          }
-        } else if (found.phase === "section") {
-          at.section = index;
-          const ranges = toolContent(text)["ranges"] as {
-            start_line?: number;
-            end_line?: number;
-          }[];
-          const range = ranges[0];
-          assert(
-            typeof range?.start_line === "number" &&
-              typeof range.end_line === "number",
-            JSON.stringify(ranges),
-          );
-          found.phase = "range";
-          named.push("document.read_range");
-          reply = toolCall("toolu_range", "document.read_range", {
-            reference: {
-              document: found.document,
-              version: found.version,
-              section: null,
-            },
-            ranges: [{
-              start_line: range.start_line,
-              end_line: range.end_line,
-            }],
-          });
-        } else if (found.phase === "range") {
-          at.range = index;
-          toolContent(text);
-          found.phase = "apps";
-          named.push("app.list");
-          reply = toolCall("toolu_apps", "app.list", {});
-        } else if (found.phase === "apps") {
-          const apps = toolContent(text)["apps"] as {
-            id?: string;
-            slug?: string;
-          }[];
-          const notes = apps.find((row) => row.slug === "notes");
-          assert(notes?.id === NOTES_APP, JSON.stringify(apps).slice(0, 500));
-          found.phase = "commands";
-          named.push("app.commands");
-          reply = toolCall("toolu_commands", "app.commands", { app: notes.id });
-        } else if (found.phase === "commands") {
-          at.commands = index;
-          const commands = toolContent(text)["commands"] as {
-            key?: string;
-            effect?: string;
-          }[];
-          assert(
-            commands.some((row) =>
-              row.key === "list_notes" && row.effect === "read"
-            ),
-            JSON.stringify(commands).slice(0, 500),
-          );
-          found.phase = "done";
-          reply = said(LOOKUP_REPLY);
-        } else {
-          return Response.json({ error: "exhausted" }, { status: 500 });
-        }
-      } catch (error) {
-        found.failure = `call ${index}: ${
-          error instanceof Error ? error.message : String(error)
-        }`;
-        return Response.json({ error: found.failure }, { status: 500 });
-      }
-      const built = buildReply("messages", reply);
-      return new Response(built.body ?? "", {
-        status: built.status,
-        headers: built.headers,
-      });
-    },
-  );
-  return {
-    url: `http://127.0.0.1:${server.addr.port}`,
-    calls: () => bodies.length,
-    body: (index) => bodies[index] ?? "",
-    close: () => server.shutdown(),
-    failure: () => found.failure,
-    document: () => found.document,
-    version: () => found.version,
-    done: () => found.phase === "done",
-    result: (step) => at[step],
-    callsNamed: () => named,
-  };
-}
-
-async function untilLookup(provider: LookupFixture) {
-  const deadline = Date.now() + 180_000;
-  for (;;) {
-    assert(provider.failure() === "", provider.failure());
-    if (provider.done()) return;
-    assert(
-      Date.now() < deadline,
-      `조회 call ${provider.calls()} ${
-        provider.body(provider.calls() - 1).slice(-500)
-      }`,
-    );
-    await delay(250);
-  }
-}
-
-Deno.test({
-  name:
-    "lophn-agent/roles/context-engineer#R2 lophn-agent/roles/context-engineer#R3 lophn-agent/roles/context-engineer#R4 lophn-agent/roles/common#R1 lophn-agent/roles/common#R3 lophn-agent/roles/common#R11 apps/blueprint#R4 apps/blueprint#R20 flow build-context: 목차·검색에서 필요한 section과 본문 범위만 읽고 앱 읽기 command 계약만 조회한다",
-  ignore: !e2eEnabled(),
-  sanitizeOps: false,
-  sanitizeResources: false,
-  async fn() {
-    const home = await Deno.makeTempDir({ prefix: "lophn-e2e-context-read-" });
-    await Deno.chmod(home, 0o700);
-    const bootstrap = await openFlowShell({ home });
-    await bootstrap.close();
-    const blueprintJson = JSON.stringify(NOTES_BLUEPRINT);
-    seedNotesApp(home, blueprintJson, await sha256Hex(blueprintJson));
-    const folder = await Deno.realPath(await copyFixture("korean-search"));
-    const provider = startLookupScript();
-    let flow: FlowShell | undefined;
-    try {
-      flow = await openFlowShell({ home, start: "lophn" });
-      await mustCall(flow, {
-        kind: "command",
-        resource: "providers",
-        method: "register",
-        body: commandBody({
-          id: PROVIDER,
-          name: "fixture",
-          definition: {
-            key: "anthropic",
-            display_name: "Anthropic",
-            protocols: ["anthropic-messages"],
-            auth_kinds: ["none"],
-            models_endpoint: null,
-            oauth: null,
-            revision: "2026-01-01",
-          },
-          endpoint: provider.url,
-          protocol: "anthropic-messages",
-        }),
-      });
-      const defaults = await mustCall(flow, {
-        kind: "read",
-        resource: "agent-model-defaults",
-        method: "read",
-        body: {},
-      });
-      const seq = (defaults.defaults as { settings_seq: string }).settings_seq;
-      await mustCall(flow, {
-        kind: "command",
-        resource: "agent-model-defaults",
-        method: "change",
-        body: commandBody(
-          {
-            judgment: {
-              provider: PROVIDER,
-              credentials: [],
-              model_name: MODEL,
-              reasoning_level: "provider_default",
-              options: {},
-            },
-            organizing: null,
-            settings_seq: seq,
-          },
-          { settings_seq: seq },
-        ),
-      });
-      await registerTrackedProject(flow, { folder });
-      await untilDocuments(flow, ["glossary", "migration"], "문서 관측 대기");
-      await untilSearch(
-        flow,
-        "용어",
-        (page) => page.results.length > 0,
-        "목차 반영 대기",
-      );
-      const glossary = await documentTitled(flow, "glossary");
-      const migration = await documentTitled(flow, "migration");
-
-      await sendToEngineer(flow, LOOKUP);
-      await untilLookup(provider);
-      await untilEngineerDone(flow, provider, "자료 조회가 끝나지 않았다");
-      const named = provider.callsNamed();
-      assert(named[0] === "document.search", named.join(","));
-      assert(
-        named.every((name, index) =>
-          index <= named.lastIndexOf("document.search")
-            ? name === "document.search"
-            : true
-        ),
-        named.join(","),
-      );
-      const afterSearch = named.slice(named.lastIndexOf("document.search") + 1);
-      assertEquals(afterSearch.slice(-4), [
-        "document.read_section",
-        "document.read_range",
-        "app.list",
-        "app.commands",
-      ]);
-      assert(
-        afterSearch.slice(0, -4).every((name) =>
-          name === "document.list" || name === "document.outline"
-        ),
-        afterSearch.join(","),
-      );
-      assert(
-        afterSearch.includes("document.outline"),
-        afterSearch.join(","),
-      );
-      assertEquals(provider.document(), glossary.id);
-      assertEquals(provider.version(), glossary.latest_version);
-
-      const tools = offeredTools(provider.body(0));
-      for (
-        const name of [
-          "document.search",
-          "document.outline",
-          "document.read_section",
-          "document.read_range",
-          "app.commands",
-        ]
-      ) {
-        assert(tools.includes(name), `${name}이 제공 목록에 없다`);
-      }
-      for (const name of tools) {
-        assert(
-          !/web|browser|shell|http|fetch/i.test(name),
-          `범위 밖 tool: ${name}`,
-        );
-        assert(name !== "list_notes" && name !== "save_note", name);
-      }
-
-      const outline = JSON.stringify(
-        toolContent(provider.body(provider.result("outline"))),
-      );
-      assertStringIncludes(outline, "용어");
-      assertEquals(outline.includes(OTHER_BODY), false);
-      assertEquals(outline.includes(SECTION_BODY), false);
-      assertEquals(outline.includes(folder), false);
-      const section = toolContent(provider.body(provider.result("section")));
-      assertEquals(section["version"], glossary.latest_version);
-      assertStringIncludes(String(section["text"]), SECTION_BODY);
-      assertEquals(String(section["text"]).includes(OTHER_BODY), false);
-      const range = toolContent(provider.body(provider.result("range")));
-      assertEquals(range["version"], glossary.latest_version);
-      assertStringIncludes(String(range["text"]), SECTION_BODY);
-      assertEquals(String(range["text"]).includes(OTHER_BODY), false);
-      const commands = toolContent(
-        provider.body(provider.result("commands")),
-      )["commands"] as {
-        key: string;
-        description: string;
-        effect: string;
-        input: { type?: string } | null;
-      }[];
-      const readCommand = commands.find((row) => row.key === "list_notes");
-      assert(readCommand !== undefined, JSON.stringify(commands));
-      assertEquals(readCommand.effect, "read");
-      assertEquals(
-        readCommand.description,
-        "Read the note titles for this purpose.",
-      );
-      assertEquals(readCommand.input?.type, "object");
-      const commandJson = JSON.stringify(commands);
-      assertEquals(commandJson.includes("source_path"), false);
-      assertEquals(commandJson.includes(folder), false);
-      for (let bodyIndex = 1; bodyIndex < provider.calls(); bodyIndex += 1) {
-        assertEquals(provider.body(bodyIndex).includes(folder), false);
-      }
-
-      const shown = (await flow.text(EMBEDDED)) ?? "";
-      assertStringIncludes(shown, LOOKUP_REPLY);
-      assertEquals(shown.includes(OTHER_BODY), false);
-      assertEquals(shown.includes("document.search"), false);
-      assertEquals(shown.includes("document.outline"), false);
-      assertEquals(shown.includes("list_notes"), false);
-      await flow.click('[data-screen="documents"]');
-      await flow.until(
-        `document.querySelector("[data-search-input]") !== null`,
-        "문서 검색칸이 없다",
-      );
-      assertEquals(
-        await flow.evaluate(
-          `document.querySelector("[data-search-input]").value`,
-        ),
-        "",
-      );
-      assertEquals(await flow.count("[data-hits] [data-hit]"), 0);
-
-      assertEquals(
-        (await documentTitled(flow, "glossary")).latest_version,
-        glossary.latest_version,
-      );
-      assertEquals(
-        (await documentTitled(flow, "migration")).latest_version,
-        migration.latest_version,
-      );
-      const invocations = await mustCall(flow, {
-        kind: "read",
-        resource: "invocations",
-        method: "list",
-        body: { app: NOTES_APP },
-      });
-      assertEquals(invocations.invocations, []);
-    } finally {
-      await flow?.close();
-      await provider.close();
-      await removeHome(home);
-      await Deno.remove(folder, { recursive: true });
-    }
-  },
-});
-
-// 3: conversation에서 Context Engineer가 책임 근거는 기준, 배경 자료는 참고,
-// 변화만 따라갈 자료는 watch로 제안한다. 같은 문서 section도 context마다 관점과 이유가 다르다.
-// 사람은 목적·지금 필요한 항목·읽을 수 있는지를 먼저 보고, 선택 이유·읽은 고정 근거·부족한 자료는
-// 펼쳐 본다. 설계 보고는 요청 범위 문서에 목적·범위·용어·경계로 남고, 읽은 고정 판과 부족한 자료,
-// 저장의 접수·판 확정·파일 반영을 섞지 않는다. model은 fake provider script다.
-const TITLE_A = "Reading terms";
-const TITLE_B = "Background terms";
-const PURPOSE_A = "자료에서 쓰는 말의 책임 근거와 변화를 나눈다.";
-const PURPOSE_B = "같은 용어 자료를 배경으로만 본다.";
-const BASIS_REASON = "목적에 대한 책임 근거";
-const GAP_REASON = "아직 읽을 수 없는 배경";
-const WATCH_REASON = "변화만 따라갈 자료";
-const REF_REASON = "다른 목적에서는 배경 자료";
-const MISSING_SECTION = "없는-절";
-const UNDECIDED_TERM = "색인";
-const REPORT_TITLE = "컨텍스트 설계 보고";
-const REPORT_TERM_LIMIT = 30;
-const PROPOSE =
-  "함께 볼 자료의 관점을 정해 달라. 책임 근거, 배경, 변화만 따라갈 자료를 나누고 설계 보고를 남겨 달라.";
-const PROPOSAL =
-  "책임 근거는 기준, 배경 자료는 참고, 변화만 따라갈 자료는 watch로 둔다. 용어 section은 읽은 고정 판의 근거다. 없는 section과 읽지 않은 판은 부족한 자료이고 확인된 근거가 아니다. 보고 저장은 접수와 판 확정이고 파일 반영은 아니다.";
-const GAP_NOTICE =
-  "This section isn't in the latest version. Pick the part to use again.";
-
-type ProposalPhase =
-  | "search"
-  | "list"
-  | "outline"
-  | "section"
-  | "docs"
-  | "create-a"
-  | "create-b"
-  | "save"
-  | "done";
-
-type ListedDoc = { id: string; title: string; version: string };
-
-type ScopeLine = {
-  target: {
-    kind: "document";
-    document: string;
-    section: string | null;
-  };
-  perspective: "basis" | "reference" | "watch";
-  reason: string;
-};
-
-type DesignReport = {
-  context: string;
-  purpose: string;
-  scope: ScopeLine[];
-  terms: { confirmed: string[]; undecided: string[] };
-  boundaries: string[];
-};
-
-type ProposalFixture = LookupFixture & {
-  migration: () => string;
-  migrationVersion: () => string;
-  section: () => string;
-  contextA: () => string;
-  contextB: () => string;
-  /** document.create 결과가 들어 있는 요청 번호. */
-  saved: () => number;
-};
-
-function listedDocs(content: Record<string, unknown>): ListedDoc[] {
-  const rows = content["documents"];
-  assert(Array.isArray(rows), JSON.stringify(content).slice(0, 800));
-  const out: ListedDoc[] = [];
-  for (const row of rows) {
-    if (row === null || typeof row !== "object") continue;
-    const record = row as Record<string, unknown>;
-    const nested = record["document"];
-    const doc = nested !== null && typeof nested === "object"
-      ? nested as Record<string, unknown>
-      : record;
-    const id = doc["id"] ?? doc["document"];
-    const title = doc["title"];
-    const latest = record["latest_version"] ?? doc["latest_version"];
-    const version = typeof latest === "string"
-      ? latest
-      : latest !== null && typeof latest === "object"
-      ? (latest as { id?: string }).id
-      : undefined;
-    if (
-      typeof id === "string" && typeof title === "string" &&
-      typeof version === "string"
-    ) {
-      out.push({ id, title, version });
-    }
-  }
-  return out;
-}
-
-function createdContext(
-  content: Record<string, unknown>,
-): { id: string } {
-  const context = content["context"];
-  const id = context !== null && typeof context === "object"
-    ? (context as { id?: unknown }).id
-    : undefined;
-  assert(typeof id === "string", JSON.stringify(content).slice(0, 500));
-  return { id };
-}
-
-function docTarget(
-  document: string,
-  section: string | null,
-): ScopeLine["target"] {
-  return { kind: "document", document, section };
-}
-
-function designReport(
-  context: string,
-  purpose: string,
-  scope: ScopeLine[],
-  boundaries: string[],
-): DesignReport {
-  return {
-    context,
-    purpose,
-    scope,
-    terms: { confirmed: [], undecided: [UNDECIDED_TERM] },
-    boundaries,
-  };
-}
-
-/** 검색·목차로 용어 section만 읽고, 두 context에 관점을 다르게 넣은 뒤 설계 보고를 저장한다.
- * migration 본문은 읽지 않는다. 저장 근거에 그 판을 실어도 결과는 읽지 않음으로 남는다. */
-function startProposalScript(): ProposalFixture {
-  const bodies: string[] = [];
-  const named: string[] = [];
-  const queue: FixedDoc[] = [];
-  const found = {
-    document: "",
-    version: "",
-    section: "",
-    migration: "",
-    migrationVersion: "",
-    contextA: "",
-    contextB: "",
-    failure: "",
-    phase: "search" as ProposalPhase,
-    searches: 0,
-  };
-  const at = { outline: -1, section: -1, range: -1, commands: -1, save: -1 };
-  const search = (): SemanticReply => {
-    found.searches += 1;
-    named.push("document.search");
-    return toolCall(`toolu_search_${found.searches}`, "document.search", {
-      query: "용어",
-    });
-  };
-  const outlineNext = (): SemanticReply => {
-    const next = queue.shift();
-    assert(next !== undefined, "용어 section이 있는 문서가 없다");
-    found.document = next.document;
-    found.version = next.version;
-    found.phase = "outline";
-    named.push("document.outline");
-    return toolCall(`toolu_outline_${named.length}`, "document.outline", {
-      reference: {
-        document: next.document,
-        version: next.version,
-        section: null,
-      },
-    });
-  };
-  const server = Deno.serve(
-    { hostname: "127.0.0.1", port: 0, onListen: () => {} },
-    async (request) => {
-      const text = await request.text();
-      const path = new URL(request.url).pathname;
-      if (request.method !== "POST" || !path.endsWith("/messages")) {
-        return Response.json({ error: "unexpected" }, { status: 500 });
-      }
-      const index = bodies.length;
-      bodies.push(text);
-      let reply: SemanticReply;
-      try {
-        if (found.phase === "search" && index === 0) {
-          reply = search();
-        } else if (found.phase === "search") {
-          const content = toolContent(text);
-          const coverage = content["coverage"] as {
-            lagging?: boolean;
-            rebuilding?: boolean;
-          } | undefined;
-          const waiting = coverage?.lagging === true ||
-            coverage?.rebuilding === true;
-          const results = (content["results"] ?? []) as {
-            document?: string;
-            version?: string;
-            title?: string;
-            snippet?: string;
-          }[];
-          const hit = results.find((row) =>
-            `${row.title ?? ""} ${row.snippet ?? ""}`.includes("용어")
-          );
-          if (hit?.document !== undefined && hit.version !== undefined) {
-            queue.push({ document: hit.document, version: hit.version });
-            reply = outlineNext();
-          } else if (waiting && found.searches < 3) {
-            await delay(1000);
-            reply = search();
-          } else {
-            found.phase = "list";
-            named.push("document.list");
-            reply = toolCall("toolu_list", "document.list", {});
-          }
-        } else if (found.phase === "list") {
-          for (const row of listedDocs(toolContent(text))) {
-            queue.push({ document: row.id, version: row.version });
-          }
-          assert(queue.length > 0, "문서 목록이 비었다");
-          reply = outlineNext();
-        } else if (found.phase === "outline") {
-          const entries = toolContent(text)["entries"] as {
-            key?: string;
-            title?: string;
-          }[];
-          const section = entries.find((row) => row.title === "용어")?.key;
-          if (typeof section !== "string") {
-            reply = outlineNext();
-          } else {
-            at.outline = index;
-            found.section = section;
-            found.phase = "section";
-            named.push("document.read_section");
-            reply = toolCall("toolu_section", "document.read_section", {
-              reference: {
-                document: found.document,
-                version: found.version,
-                section: null,
-              },
-              section,
-            });
-          }
-        } else if (found.phase === "section") {
-          at.section = index;
-          const content = toolContent(text);
-          const readText = String(content["text"] ?? "");
-          assert(
-            readText.includes(SECTION_BODY),
-            `읽은 section이 용어 본문이 아니다: ${readText.slice(0, 200)}`,
-          );
-          assertEquals(readText.includes(OTHER_BODY), false);
-          const version = content["version"];
-          assert(
-            typeof version === "string",
-            JSON.stringify(content).slice(0, 300),
-          );
-          found.version = version;
-          found.phase = "docs";
-          named.push("document.list");
-          reply = toolCall("toolu_docs", "document.list", {});
-        } else if (found.phase === "docs") {
-          const docs = listedDocs(toolContent(text));
-          const migration = docs.find((row) => row.title === "migration");
-          assert(migration !== undefined, JSON.stringify(docs));
-          assert(
-            migration.id !== found.document,
-            "migration이 용어 문서와 같다",
-          );
-          found.migration = migration.id;
-          found.migrationVersion = migration.version;
-          assert(found.section !== MISSING_SECTION, found.section);
-          const basis = docTarget(found.document, found.section);
-          const gap = docTarget(found.document, MISSING_SECTION);
-          const watch = docTarget(found.migration, null);
-          found.phase = "create-a";
-          named.push("context.create");
-          reply = toolCall("toolu_context_a", "context.create", {
-            title: TITLE_A,
-            purpose: PURPOSE_A,
-            items: [
-              { target: basis, perspective: "basis", reason: BASIS_REASON },
-              { target: gap, perspective: "reference", reason: GAP_REASON },
-              { target: watch, perspective: "watch", reason: WATCH_REASON },
-            ],
-          });
-        } else if (found.phase === "create-a") {
-          found.contextA = createdContext(toolContent(text)).id;
-          const basis = docTarget(found.document, found.section);
-          found.phase = "create-b";
-          named.push("context.create");
-          reply = toolCall("toolu_context_b", "context.create", {
-            title: TITLE_B,
-            purpose: PURPOSE_B,
-            items: [
-              {
-                target: basis,
-                perspective: "reference",
-                reason: REF_REASON,
-              },
-            ],
-          });
-        } else if (found.phase === "create-b") {
-          found.contextB = createdContext(toolContent(text)).id;
-          assert(found.contextA !== found.contextB, "두 context id가 같다");
-          const basis = docTarget(found.document, found.section);
-          const gap = docTarget(found.document, MISSING_SECTION);
-          const watch = docTarget(found.migration, null);
-          const reports = [
-            designReport(found.contextA, PURPOSE_A, [
-              { target: basis, perspective: "basis", reason: BASIS_REASON },
-              { target: gap, perspective: "reference", reason: GAP_REASON },
-              { target: watch, perspective: "watch", reason: WATCH_REASON },
-            ], ["앱 command 실행과 원본 이동은 맡지 않는다"]),
-            designReport(found.contextB, PURPOSE_B, [
-              { target: basis, perspective: "reference", reason: REF_REASON },
-            ], ["이 목적에서는 책임 근거와 watch를 맡지 않는다"]),
-          ];
-          found.phase = "save";
-          named.push("document.create");
-          reply = toolCall("toolu_report", "document.create", {
-            title: REPORT_TITLE,
-            place: null,
-            name: null,
-            text: JSON.stringify({ reports }),
-            media_type: "text/markdown",
-            evidence: {
-              relied_on: [
-                { document: found.document, version: found.version },
-                {
-                  document: found.migration,
-                  version: found.migrationVersion,
-                },
-              ],
-              missing: [MISSING_SECTION],
-            },
-          });
-        } else if (found.phase === "save") {
-          at.save = index;
-          const saved = toolContent(text);
-          assertEquals(saved["accepted"], true);
-          assertEquals(saved["version_confirmed"], true);
-          assertEquals(saved["file_reflection"], "not_applicable");
-          const evidence = saved["evidence"] as {
-            all_read?: boolean;
-            read?: { document?: string; version?: string }[];
-            not_read?: { document?: string }[];
-            missing?: string[];
-          };
-          assertEquals(evidence.all_read, false);
-          assert(
-            evidence.read?.some((row) =>
-              row.document === found.document && row.version === found.version
-            ),
-            JSON.stringify(evidence),
-          );
-          assert(
-            evidence.not_read?.some((row) => row.document === found.migration),
-            JSON.stringify(evidence),
-          );
-          assertEquals(evidence.missing, [MISSING_SECTION]);
-          found.phase = "done";
-          reply = said(PROPOSAL);
-        } else {
-          return Response.json({ error: "exhausted" }, { status: 500 });
-        }
-      } catch (error) {
-        found.failure = `call ${index}: ${
-          error instanceof Error ? error.message : String(error)
-        }`;
-        return Response.json({ error: found.failure }, { status: 500 });
-      }
-      const built = buildReply("messages", reply);
-      return new Response(built.body ?? "", {
-        status: built.status,
-        headers: built.headers,
-      });
-    },
-  );
-  return {
-    url: `http://127.0.0.1:${server.addr.port}`,
-    calls: () => bodies.length,
-    body: (index) => bodies[index] ?? "",
-    close: () => server.shutdown(),
-    failure: () => found.failure,
-    document: () => found.document,
-    version: () => found.version,
-    done: () => found.phase === "done",
-    result: (step) => at[step],
-    callsNamed: () => named,
-    migration: () => found.migration,
-    migrationVersion: () => found.migrationVersion,
-    section: () => found.section,
-    contextA: () => found.contextA,
-    contextB: () => found.contextB,
-    saved: () => at.save,
-  };
-}
-
-async function openFocusId(flow: FlowShell, id: string): Promise<void> {
-  await flow.click('[data-screen="contexts"]');
-  await flow.until(
-    `document.querySelector('[data-focus="${id}"]') !== null`,
-    "Focus 목록이 없다",
-  );
-  await flow.click(`[data-focus="${id}"]`);
-  await flow.until(
-    `document.querySelector('[data-focus-head="${id}"]') !== null`,
-    "Focus 상세가 없다",
-  );
-}
-
-async function markRow(
-  flow: FlowShell,
-  perspective: string,
-  includes: string,
-): Promise<void> {
-  const selector = `[data-perspective="${perspective}"] [data-item]`;
-  const marked = await flow.evaluate(`(() => {
-    for (const old of document.querySelectorAll("[data-flow-row]")) {
-      old.removeAttribute("data-flow-row");
-    }
-    const row = [...document.querySelectorAll(${JSON.stringify(selector)})]
-      .find((el) =>
-        (el.querySelector("button")?.textContent ?? "").includes(${
-    JSON.stringify(includes)
-  })
-      );
-    if (!row) return false;
-    row.setAttribute("data-flow-row", "");
-    return true;
-  })()`);
-  assertEquals(marked, true, `항목이 없다: ${perspective} ${includes}`);
-}
-
-type OutlineEntry = {
-  perspective: string;
-  reason: string;
-  title: string;
-  readable: boolean;
-  version: string | null;
-  section_status: string | null;
-  target: { kind: string; document?: string; section?: string | null };
-};
-
-function outlineOf(page: Record<string, unknown>): {
-  purpose: string;
-  entries: OutlineEntry[];
-  perspectives: Record<"basis" | "reference" | "watch", OutlineEntry[]>;
-  glossary: { name?: string; definition?: string | null }[];
-  candidates: { name?: string; definition?: string | null }[];
-} {
-  const perspectives = page["perspectives"] as Record<
-    "basis" | "reference" | "watch",
-    OutlineEntry[]
-  >;
-  return {
-    purpose: String(page["purpose"] ?? ""),
-    entries: page["entries"] as OutlineEntry[],
-    perspectives,
-    glossary: page["glossary"] as { name?: string }[],
-    candidates: page["candidates"] as { name?: string }[],
-  };
-}
-
-Deno.test({
-  name:
-    "lophn-agent/roles/context-engineer#R6 lophn-agent/roles/context-engineer#R7 lophn-agent/roles/common#R10 documents/contexts#R1 documents/outline-and-search#R4 flow build-context 3: 기준·참고·watch를 제안하고 사람은 항목과 읽기 가능 여부를 먼저 본다",
-  ignore: !e2eEnabled(),
-  sanitizeOps: false,
-  sanitizeResources: false,
-  async fn() {
-    const folder = await Deno.realPath(await copyFixture("korean-search"));
-    const provider = startProposalScript();
-    let flow: FlowShell | undefined;
-    try {
-      flow = await openFlowShell({ start: "lophn" });
-      await mustCall(flow, {
-        kind: "command",
-        resource: "providers",
-        method: "register",
-        body: commandBody({
-          id: PROVIDER,
-          name: "fixture",
-          definition: {
-            key: "anthropic",
-            display_name: "Anthropic",
-            protocols: ["anthropic-messages"],
-            auth_kinds: ["none"],
-            models_endpoint: null,
-            oauth: null,
-            revision: "2026-01-01",
-          },
-          endpoint: provider.url,
-          protocol: "anthropic-messages",
-        }),
-      });
-      const defaults = await mustCall(flow, {
-        kind: "read",
-        resource: "agent-model-defaults",
-        method: "read",
-        body: {},
-      });
-      const seq = (defaults.defaults as { settings_seq: string }).settings_seq;
-      await mustCall(flow, {
-        kind: "command",
-        resource: "agent-model-defaults",
-        method: "change",
-        body: commandBody(
-          {
-            judgment: {
-              provider: PROVIDER,
-              credentials: [],
-              model_name: MODEL,
-              reasoning_level: "provider_default",
-              options: {},
-            },
-            organizing: null,
-            settings_seq: seq,
-          },
-          { settings_seq: seq },
-        ),
-      });
-      await registerTrackedProject(flow, { folder });
-      await untilDocuments(flow, ["glossary", "migration"], "문서 관측 대기");
-      await untilSearch(
-        flow,
-        "용어",
-        (page) => page.results.length > 0,
-        "목차 반영 대기",
-      );
-      const glossary = await documentTitled(flow, "glossary");
-      const migration = await documentTitled(flow, "migration");
-
-      await sendToEngineer(flow, PROPOSE);
-      await untilLookup(provider);
-      await untilEngineerDone(flow, provider, "관점 제안이 끝나지 않았다");
-
-      const named = provider.callsNamed();
-      const readAt = named.lastIndexOf("document.read_section");
-      assert(readAt > 0, named.join(","));
-      assertEquals(named[0], "document.search");
-      assert(
-        named.slice(0, readAt).every((name) =>
-          name === "document.search" || name === "document.list" ||
-          name === "document.outline"
-        ),
-        named.join(","),
-      );
-      assert(
-        named.slice(0, readAt).includes("document.outline"),
-        named.join(","),
-      );
-      assertEquals(named.slice(readAt), [
-        "document.read_section",
-        "document.list",
-        "context.create",
-        "context.create",
-        "document.create",
-      ]);
-      assertEquals(provider.document(), glossary.id);
-      assertEquals(provider.version(), glossary.latest_version);
-      assertEquals(provider.migration(), migration.id);
-      assertEquals(provider.migrationVersion(), migration.latest_version);
-      const tools = offeredTools(provider.body(0));
-      assert(tools.includes("context.create"), tools.join(","));
-      assert(tools.includes("document.create"), tools.join(","));
-      assertEquals(tools.includes("term.define"), false);
-
-      const sectionRead = toolContent(
-        provider.body(provider.result("section")),
-      );
-      assertEquals(sectionRead["version"], glossary.latest_version);
-      assertStringIncludes(String(sectionRead["text"]), SECTION_BODY);
-      assertEquals(String(sectionRead["text"]).includes(OTHER_BODY), false);
-      const saved = toolContent(provider.body(provider.saved()));
-      assertEquals(saved["accepted"], true);
-      assertEquals(saved["version_confirmed"], true);
-      assertEquals(saved["file_reflection"], "not_applicable");
-      const evidence = saved["evidence"] as {
-        all_read: boolean;
-        read: { document: string; version: string }[];
-        not_read: { document: string }[];
-        missing: string[];
-      };
-      assertEquals(evidence.all_read, false);
-      assertEquals(
-        evidence.read.map((row) => ({
-          document: row.document,
-          version: row.version,
-        })),
-        [{
-          document: glossary.id,
-          version: glossary.latest_version,
-        }],
-      );
-      assertEquals(
-        evidence.not_read.map((row) => row.document),
-        [migration.id],
-      );
-      assertEquals(evidence.missing, [MISSING_SECTION]);
-
-      const shown = (await flow.text(EMBEDDED)) ?? "";
-      assertStringIncludes(shown, PROPOSAL);
-      assertStringIncludes(shown, "기준");
-      assertStringIncludes(shown, "참고");
-      assertStringIncludes(shown, "watch");
-      assertEquals(shown.includes(OTHER_BODY), false);
-      assertEquals(shown.includes("데이터베이스마이그레이션계획서"), false);
-      assertEquals(shown.includes("document.search"), false);
-      assertEquals(shown.includes("document.create"), false);
-      assertEquals(shown.includes("context.create"), false);
-      assertEquals(shown.includes(folder), false);
-
-      const contextA = provider.contextA();
-      const contextB = provider.contextB();
-      const section = provider.section();
-      const storedA = await mustCall(flow, {
-        kind: "read",
-        resource: "contexts",
-        method: "get",
-        body: { context: contextA },
-      });
-      const storedB = await mustCall(flow, {
-        kind: "read",
-        resource: "contexts",
-        method: "get",
-        body: { context: contextB },
-      });
-      const itemsA = (storedA.context as {
-        purpose: string;
-        items: {
-          perspective: string;
-          reason: string;
-          target: { document: string; section: string | null };
-        }[];
-      }).items;
-      const itemsB = (storedB.context as {
-        purpose: string;
-        items: {
-          perspective: string;
-          reason: string;
-          target: { document: string; section: string | null };
-        }[];
-      }).items;
-      assertEquals(
-        (storedA.context as { purpose: string }).purpose,
-        PURPOSE_A,
-      );
-      assertEquals(
-        (storedB.context as { purpose: string }).purpose,
-        PURPOSE_B,
-      );
-      const basisItem = itemsA.find((item) => item.target.section === section);
-      const otherItem = itemsB.find((item) => item.target.section === section);
-      assert(basisItem !== undefined && otherItem !== undefined);
-      assertEquals(basisItem.target.document, glossary.id);
-      assertEquals(otherItem.target.document, glossary.id);
-      assertEquals(basisItem.perspective, "basis");
-      assertEquals(otherItem.perspective, "reference");
-      assertEquals(basisItem.reason, BASIS_REASON);
-      assertEquals(otherItem.reason, REF_REASON);
-      assert(basisItem.reason !== otherItem.reason);
-
-      const pageA = outlineOf(
-        await mustCall(flow, {
-          kind: "worker",
-          resource: "outline",
-          method: "context",
-          body: { context: contextA },
-        }),
-      );
-      const pageB = outlineOf(
-        await mustCall(flow, {
-          kind: "worker",
-          resource: "outline",
-          method: "context",
-          body: { context: contextB },
-        }),
-      );
-      assertEquals(pageA.purpose, PURPOSE_A);
-      assertEquals(
-        pageA.entries.map((entry) => entry.perspective),
-        ["basis", "reference", "watch"],
-      );
-      assertEquals(pageA.perspectives.basis.length, 1);
-      assertEquals(pageA.perspectives.reference.length, 1);
-      assertEquals(pageA.perspectives.watch.length, 1);
-      const basisEntry = pageA.perspectives.basis[0];
-      const gapEntry = pageA.perspectives.reference[0];
-      const watchEntry = pageA.perspectives.watch[0];
-      assertEquals(basisEntry.readable, true);
-      assertEquals(basisEntry.version, glossary.latest_version);
-      assertEquals(basisEntry.section_status, "found");
-      assertEquals(basisEntry.target.section, section);
-      assertEquals(basisEntry.reason, BASIS_REASON);
-      assertEquals(gapEntry.readable, false);
-      assertEquals(gapEntry.section_status, "missing");
-      assertEquals(gapEntry.target.section, MISSING_SECTION);
-      assertEquals(gapEntry.reason, GAP_REASON);
-      assertEquals(watchEntry.readable, true);
-      assertEquals(watchEntry.version, migration.latest_version);
-      assertEquals(watchEntry.section_status, "whole");
-      assertEquals(watchEntry.target.document, migration.id);
-      assertEquals(watchEntry.target.section, null);
-      assertEquals(watchEntry.reason, WATCH_REASON);
-      assertEquals(pageB.perspectives.basis, []);
-      assertEquals(pageB.perspectives.watch, []);
-      assertEquals(pageB.perspectives.reference.length, 1);
-      assertEquals(
-        pageB.perspectives.reference[0].target.document,
-        glossary.id,
-      );
-      assertEquals(pageB.perspectives.reference[0].target.section, section);
-      assertEquals(pageB.perspectives.reference[0].perspective, "reference");
-      assertEquals(pageB.perspectives.reference[0].reason, REF_REASON);
-      assertEquals(
-        pageB.perspectives.reference[0].version,
-        glossary.latest_version,
-      );
-      assertEquals(pageA.glossary, []);
-      assertEquals(pageA.candidates, []);
-      assertEquals(pageB.glossary, []);
-      assertEquals(pageB.candidates, []);
-      for (const name of pageA.candidates.map((term) => term.name)) {
-        assertEquals(
-          pageA.glossary.some((term) => term.name === name),
-          false,
-          name,
-        );
-      }
-
-      const reportDoc = await documentTitled(flow, REPORT_TITLE);
-      assertEquals(reportDoc.name, null);
-      const reportRead = await mustCall(flow, {
-        kind: "worker",
-        resource: "documents",
-        method: "read",
-        body: {
-          reference: {
-            document: reportDoc.id,
-            version: reportDoc.latest_version,
-            section: null,
-          },
-        },
-      });
-      assertEquals(reportRead["version"], saved["version"]);
-      const reports = (JSON.parse(String(reportRead["text"])) as {
-        reports: DesignReport[];
-      }).reports;
-      assertEquals(reports.length, 2);
-      for (const report of reports) {
-        assert(report.purpose.trim().length > 0);
-        assert(report.scope.length > 0);
-        assert(report.boundaries.length > 0);
-        assert(report.terms.confirmed.length <= REPORT_TERM_LIMIT);
-        for (const name of report.terms.undecided) {
-          assertEquals(report.terms.confirmed.includes(name), false, name);
-        }
-        for (const line of report.scope) {
-          assertEquals(line.reason.includes("\n"), false);
-          assert(line.reason.trim().length > 0);
-          assertEquals(line.target.kind, "document");
-        }
-      }
-      assertEquals(reports[0].context, contextA);
-      assertEquals(reports[0].purpose, PURPOSE_A);
-      assertEquals(
-        reports[0].scope.map((line) => line.perspective),
-        ["basis", "reference", "watch"],
-      );
-      assertEquals(reports[0].terms.confirmed, []);
-      assertEquals(reports[0].terms.undecided, [UNDECIDED_TERM]);
-      assertEquals(reports[1].context, contextB);
-      assertEquals(reports[1].scope[0].perspective, "reference");
-      assertEquals(reports[1].scope[0].target.section, section);
-      assertEquals(reports[1].scope[0].reason, REF_REASON);
-
-      await openFocusId(flow, contextA);
-      assertEquals(await flow.text("[data-focus-purpose]"), PURPOSE_A);
-      assertEquals(
-        JSON.parse(String(
-          await flow.evaluate(
-            `JSON.stringify([...document.querySelectorAll("[data-perspective]")].map((el) => el.getAttribute("data-perspective")))`,
-          ),
-        )),
-        ["basis", "reference", "watch"],
-      );
-      assertEquals(
-        JSON.parse(String(
-          await flow.evaluate(
-            `JSON.stringify([...document.querySelectorAll("[data-perspective] h2")].map((el) => el.textContent))`,
-          ),
-        )),
-        ["Baseline1", "Reference1", "Follow changes1"],
-      );
-      const materials = (await flow.text("[data-materials]")) ?? "";
-      assertStringIncludes(materials, "glossary");
-      assertStringIncludes(materials, "migration");
-      assertStringIncludes(materials, "What's missing");
-      assertEquals(materials.includes(BASIS_REASON), false);
-      assertEquals(materials.includes(GAP_REASON), false);
-      assertEquals(materials.includes(WATCH_REASON), false);
-      assertEquals(materials.includes(GAP_NOTICE), false);
-      assertEquals(materials.includes("Nothing here yet."), false);
-      assertEquals(await flow.count("[data-item-reason]"), 0);
-      assertEquals(await flow.count("[data-item-gaps]"), 0);
-      assertEquals(await flow.count("[data-item-body]"), 0);
-
-      await markRow(flow, "reference", MISSING_SECTION);
-      assertEquals(
-        await flow.text("[data-flow-row] [data-item-state]"),
-        "What's missing",
-      );
-      assertEquals(
-        await flow.evaluate(
-          `document.querySelector("[data-flow-row] [data-item-state]")?.getAttribute("data-item-state")`,
-        ),
-        "gaps",
-      );
-      await flow.click("[data-flow-row] > button");
-      assertEquals(
-        await flow.text("[data-flow-row] [data-gap]"),
-        GAP_NOTICE,
-      );
-      assertEquals(
-        await flow.evaluate(
-          `document.querySelector("[data-flow-row] [data-gap]")?.getAttribute("data-gap")`,
-        ),
-        "section-missing",
-      );
-      assertEquals(await flow.count("[data-flow-row] [data-open-item]"), 0);
-
-      await markRow(flow, "watch", "migration");
-      assertEquals(
-        await flow.evaluate(
-          `document.querySelector("[data-flow-row] [data-item-state]")?.getAttribute("data-item-state")`,
-        ),
-        "quiet",
-      );
-      await flow.click("[data-flow-row] > button");
-      assertEquals(
-        await flow.text("[data-flow-row] [data-item-reason]"),
-        WATCH_REASON,
-      );
-
-      await markRow(flow, "basis", section);
-      assertEquals(await flow.count("[data-flow-row] [data-item-state]"), 0);
-      await flow.click("[data-flow-row] > button");
-      assertEquals(
-        await flow.text("[data-flow-row] [data-item-reason]"),
-        BASIS_REASON,
-      );
-      assertEquals(await flow.count("[data-flow-row] [data-open-item]"), 1);
-
-      await openFocusId(flow, contextB);
-      assertEquals(await flow.text("[data-focus-purpose]"), PURPOSE_B);
-      assertEquals(
-        await flow.text('[data-perspective="basis"] p'),
-        "Nothing here yet.",
-      );
-      assertEquals(
-        await flow.text('[data-perspective="watch"] p'),
-        "Nothing here yet.",
-      );
-      const referenceText =
-        (await flow.text('[data-perspective="reference"]')) ?? "";
-      assertStringIncludes(referenceText, "glossary");
-      assertStringIncludes(referenceText, section);
-      assertEquals(referenceText.includes(BASIS_REASON), false);
-      assertEquals(referenceText.includes("What's missing"), false);
-      await markRow(flow, "reference", section);
-      await flow.click("[data-flow-row] > button");
-      assertEquals(
-        await flow.text("[data-flow-row] [data-item-reason]"),
-        REF_REASON,
-      );
-
-      await openFocusId(flow, contextA);
-      await markRow(flow, "basis", section);
-      await flow.click("[data-flow-row] > button");
-      await flow.click("[data-flow-row] [data-open-item]");
-      const reader = `[data-reader="${glossary.id}"] [data-body]`;
-      await flow.until(
-        `document.querySelector(${
-          JSON.stringify(reader)
-        })?.textContent.includes(${JSON.stringify(SECTION_BODY)})`,
-        "읽은 고정 section이 없다",
-      );
-      const body = (await flow.text(reader)) ?? "";
-      assertStringIncludes(body, SECTION_BODY);
-      assertEquals(body.includes(OTHER_BODY), false);
-      assertEquals(body.includes("데이터베이스마이그레이션계획서"), false);
-
-      assertEquals(
-        (await documentTitled(flow, "glossary")).latest_version,
-        glossary.latest_version,
-      );
-      assertEquals(
-        (await documentTitled(flow, "migration")).latest_version,
-        migration.latest_version,
-      );
-    } finally {
-      await flow?.close();
-      await provider.close();
-      if (flow !== undefined) await removeHome(flow.home);
-      await Deno.remove(folder, { recursive: true });
-    }
-  },
-});
-
-// 4: 기존 요청과 자료만으로 목적의 경계(색인을 넣을지)를 정할 수 없으면 그 결정만 묻는다.
-// 문서에 있는 사실은 다시 묻지 않고, 선택지의 고정 action은 없다. 자유 답과 그 글을 그대로 보낸
-// 메시지는 context·문서 이동이 아니다. 사람이 목적과 범위를 직접 말하면 Context Engineer가
-// 허용된 구성 변경(생성·항목 추가)과 설계 보고를 남긴다. 보고 쓰기에 질문을 다시 열지 않는다.
-const OPEN_ASK =
-  "자료를 함께 보고 싶다. 목적은 말의 변화만 볼지 색인까지 넣을지 아직 정하지 못했다. 문서에 적힌 사실은 다시 묻지 말고, 정할 수 없는 경계만 물어 달라.";
-const OPEN_MARKER = "아직 정하지 못했다";
-const FREE_TEXT = "색인을 기준으로 넣고 glossary 문서를 다른 자리로 옮겨 달라";
-const FREE_MARKER = "다른 자리로 옮겨 달라";
-const DIRECT_ASK =
-  "목적은 자료에서 쓰는 말의 변화만 확인하는 것이다. 범위는 glossary의 용어 section만 기준이다. 색인은 넣지 않는다. 이 구성과 설계 보고를 남겨 달라.";
-const DIRECT_MARKER = "이 구성과 설계 보고를 남겨 달라";
-const QUESTION_PROMPT = "이 목적의 경계에 색인을 넣을까요?";
-const QUESTION_REASON =
-  "요청과 읽은 자료만으로는 색인을 경계 안에 둘지 정할 수 없다. 용어 section 본문은 이미 확인한 사실이라 다시 묻지 않는다.";
-const EXCLUDE_KEY = "exclude";
-const INCLUDE_KEY = "include";
-const EXCLUDE_LABEL = "색인은 넣지 않는다";
-const INCLUDE_LABEL = "색인도 범위에 넣는다";
-const EXCLUDE_DESCRIPTION =
-  "목적은 말의 변화만 본다. 색인 section은 항목으로 넣지 않는다.";
-const INCLUDE_DESCRIPTION = "목적은 색인까지 함께 본다. 색인을 범위에 더한다.";
-const RECOMMEND_WHY = "요청이 말의 변화를 먼저 말했다.";
-const ASK_REPLY = "색인을 경계에 넣을지만 물어 두었다. 추천은 적용하지 않았다.";
-const HOLD_REPLY =
-  "자유 답은 구성 변경으로 해석하지 않는다. 목적과 범위를 직접 정해 주면 그때 남긴다.";
-const PURPOSE_DECIDED = "자료에서 쓰는 말의 변화만 확인하는 것이다.";
-const DECIDED_TITLE = "Reading terms";
-const DECIDED_REASON = "사람이 정한 범위의 기준";
-const BOUNDARY_INDEX = "색인은 넣지 않는다";
-const BOUNDARY_FREE = "자유 답은 구성 변경으로 쓰지 않는다";
-const BOUNDARY_MOVE = "문서 이동은 맡지 않는다";
-const RECORDED =
-  "사람이 정한 목적과 범위로 context를 바꾸고 설계 보고를 남겼다. 자유 답은 변경으로 쓰지 않았다.";
-const DECISION_REPORT = "경계 결정 보고";
-
-type DecisionPhase =
-  | "search"
-  | "list"
-  | "outline"
-  | "section"
-  | "ask-result"
-  | "asked"
-  | "freed"
-  | "reread"
-  | "create"
-  | "add"
-  | "save"
-  | "done";
-
-type DecisionFixture = Fixture & {
-  failure: () => string;
-  phase: () => DecisionPhase;
-  callsNamed: () => readonly string[];
-  context: () => string;
-  section: () => string;
-  saved: () => number;
-};
-
-function latestIntent(body: string): "open" | "free" | "decide" | "none" {
-  const marks = [
-    ["decide", body.lastIndexOf(DIRECT_MARKER)],
-    ["free", body.lastIndexOf(FREE_MARKER)],
-    ["open", body.lastIndexOf(OPEN_MARKER)],
-  ] as const;
-  let best: "open" | "free" | "decide" | "none" = "none";
-  let at = -1;
-  for (const [name, index] of marks) {
-    if (index > at) {
-      at = index;
-      best = name;
-    }
-  }
-  return best;
-}
-
-function createdRevision(content: Record<string, unknown>): string {
-  const context = content["context"];
-  const revision = context !== null && typeof context === "object"
-    ? (context as { revision?: unknown }).revision
-    : undefined;
-  assert(typeof revision === "string", JSON.stringify(content).slice(0, 500));
-  return revision;
-}
-
-/** 자료를 읽어 경계 하나만 묻고, 자유 답에는 쓰지 않으며, 직접 말한 목적·범위만 남긴다. */
-function startDecisionScript(): DecisionFixture {
-  const bodies: string[] = [];
-  const named: string[] = [];
-  const queue: FixedDoc[] = [];
-  const found = {
-    document: "",
-    version: "",
-    section: "",
-    context: "",
-    revision: "",
-    failure: "",
-    phase: "search" as DecisionPhase,
-    searches: 0,
-  };
-  const at = { save: -1 };
-  const search = (): SemanticReply => {
-    found.searches += 1;
-    named.push("document.search");
-    return toolCall(
-      `toolu_decide_search_${found.searches}`,
-      "document.search",
+      endpoint,
+      protocol: "anthropic-messages",
+    }),
+  });
+  const defaults = await mustCall(flow, {
+    kind: "read",
+    resource: "agent-model-defaults",
+    method: "read",
+    body: {},
+  });
+  const seq = (defaults.defaults as { settings_seq: string }).settings_seq;
+  await mustCall(flow, {
+    kind: "command",
+    resource: "agent-model-defaults",
+    method: "change",
+    body: commandBody(
       {
-        query: "용어",
-      },
-    );
-  };
-  const outlineNext = (): SemanticReply => {
-    const next = queue.shift();
-    assert(next !== undefined, "용어 section이 있는 문서가 없다");
-    found.document = next.document;
-    found.version = next.version;
-    found.phase = "outline";
-    named.push("document.outline");
-    return toolCall(
-      `toolu_decide_outline_${named.length}`,
-      "document.outline",
-      {
-        reference: {
-          document: next.document,
-          version: next.version,
-          section: null,
+        judgment: {
+          provider: PROVIDER,
+          credentials: [],
+          model_name: MODEL,
+          reasoning_level: "provider_default",
+          options: {},
         },
+        organizing: null,
+        settings_seq: seq,
       },
-    );
-  };
-  const readSection = (): SemanticReply => {
-    named.push("document.read_section");
-    return toolCall("toolu_decide_section", "document.read_section", {
-      reference: {
-        document: found.document,
-        version: found.version,
-        section: null,
-      },
-      section: found.section,
-    });
-  };
-  const ask = (): SemanticReply => {
-    const evidence = [{
-      document: found.document,
-      version: found.version,
-      section: found.section,
-    }];
-    named.push("question.submit");
-    found.phase = "ask-result";
-    return toolCall("toolu_decide_ask", "question.submit", {
-      prompt: QUESTION_PROMPT,
-      reason: QUESTION_REASON,
-      options: [
-        {
-          key: EXCLUDE_KEY,
-          label: EXCLUDE_LABEL,
-          description: EXCLUDE_DESCRIPTION,
-          evidence,
-          adoption: null,
-          action: null,
-        },
-        {
-          key: INCLUDE_KEY,
-          label: INCLUDE_LABEL,
-          description: INCLUDE_DESCRIPTION,
-          evidence,
-          adoption: null,
-          action: null,
-        },
-      ],
-      recommendation: {
-        option_key: EXCLUDE_KEY,
-        explanation: RECOMMEND_WHY,
-      },
-      expires_at: null,
-    });
-  };
-  const hold = (): SemanticReply => {
-    found.phase = "freed";
-    return said(HOLD_REPLY);
-  };
-  const server = Deno.serve(
-    { hostname: "127.0.0.1", port: 0, onListen: () => {} },
-    async (request) => {
-      const text = await request.text();
-      const path = new URL(request.url).pathname;
-      if (request.method !== "POST" || !path.endsWith("/messages")) {
-        return Response.json({ error: "unexpected" }, { status: 500 });
-      }
-      const index = bodies.length;
-      bodies.push(text);
-      let reply: SemanticReply;
-      try {
-        if (found.phase === "search" && index === 0) {
-          reply = search();
-        } else if (found.phase === "search") {
-          const content = toolContent(text);
-          const coverage = content["coverage"] as {
-            lagging?: boolean;
-            rebuilding?: boolean;
-          } | undefined;
-          const waiting = coverage?.lagging === true ||
-            coverage?.rebuilding === true;
-          const results = (content["results"] ?? []) as {
-            document?: string;
-            version?: string;
-            title?: string;
-            snippet?: string;
-          }[];
-          const hit = results.find((row) =>
-            `${row.title ?? ""} ${row.snippet ?? ""}`.includes("용어")
-          );
-          if (hit?.document !== undefined && hit.version !== undefined) {
-            queue.push({ document: hit.document, version: hit.version });
-            reply = outlineNext();
-          } else if (waiting && found.searches < 3) {
-            await delay(1000);
-            reply = search();
-          } else {
-            found.phase = "list";
-            named.push("document.list");
-            reply = toolCall("toolu_decide_list", "document.list", {});
-          }
-        } else if (found.phase === "list") {
-          for (const row of listedDocs(toolContent(text))) {
-            queue.push({ document: row.id, version: row.version });
-          }
-          assert(queue.length > 0, "문서 목록이 비었다");
-          reply = outlineNext();
-        } else if (found.phase === "outline") {
-          const entries = toolContent(text)["entries"] as {
-            key?: string;
-            title?: string;
-          }[];
-          const section = entries.find((row) => row.title === "용어")?.key;
-          if (typeof section !== "string") {
-            reply = outlineNext();
-          } else {
-            found.section = section;
-            found.phase = "section";
-            reply = readSection();
-          }
-        } else if (found.phase === "section") {
-          const content = toolContent(text);
-          const readText = String(content["text"] ?? "");
-          assert(
-            readText.includes(SECTION_BODY),
-            `읽은 section이 용어 본문이 아니다: ${readText.slice(0, 200)}`,
-          );
-          assertEquals(readText.includes(OTHER_BODY), false);
-          const version = content["version"];
-          assert(
-            typeof version === "string",
-            JSON.stringify(content).slice(0, 300),
-          );
-          found.version = version;
-          reply = ask();
-        } else if (found.phase === "ask-result") {
-          toolContent(text);
-          found.phase = "asked";
-          reply = said(ASK_REPLY);
-        } else if (found.phase === "asked" || found.phase === "freed") {
-          const intent = latestIntent(text);
-          if (intent === "free") {
-            reply = hold();
-          } else if (intent === "decide") {
-            found.phase = "reread";
-            reply = readSection();
-          } else {
-            throw new Error(`예상 밖 요청이다: ${intent}`);
-          }
-        } else if (found.phase === "reread") {
-          const content = toolContent(text);
-          assert(
-            String(content["text"] ?? "").includes(SECTION_BODY),
-            "다시 읽은 section이 용어 본문이 아니다",
-          );
-          const version = content["version"];
-          assert(
-            typeof version === "string",
-            JSON.stringify(content).slice(0, 300),
-          );
-          found.version = version;
-          found.phase = "create";
-          named.push("context.create");
-          reply = toolCall("toolu_decide_create", "context.create", {
-            title: DECIDED_TITLE,
-            purpose: PURPOSE_DECIDED,
-          });
-        } else if (found.phase === "create") {
-          const content = toolContent(text);
-          found.context = createdContext(content).id;
-          found.revision = createdRevision(content);
-          found.phase = "add";
-          named.push("context.add_item");
-          reply = toolCall("toolu_decide_add", "context.add_item", {
-            context: found.context,
-            base_revision: found.revision,
-            item: {
-              target: docTarget(found.document, found.section),
-              perspective: "basis",
-              reason: DECIDED_REASON,
-            },
-          });
-        } else if (found.phase === "add") {
-          const added = toolContent(text);
-          assertEquals(added["accepted"], true);
-          assertEquals(added["confirmed"], true);
-          found.phase = "save";
-          named.push("document.create");
-          reply = toolCall("toolu_decide_report", "document.create", {
-            title: DECISION_REPORT,
-            place: null,
-            name: null,
-            text: JSON.stringify({
-              reports: [
-                designReport(found.context, PURPOSE_DECIDED, [{
-                  target: docTarget(found.document, found.section),
-                  perspective: "basis",
-                  reason: DECIDED_REASON,
-                }], [BOUNDARY_INDEX, BOUNDARY_FREE, BOUNDARY_MOVE]),
-              ],
-            }),
-            media_type: "text/markdown",
-            evidence: {
-              relied_on: [{
-                document: found.document,
-                version: found.version,
-              }],
-              missing: [],
-            },
-          });
-        } else if (found.phase === "save") {
-          at.save = index;
-          const saved = toolContent(text);
-          assertEquals(saved["accepted"], true);
-          assertEquals(saved["version_confirmed"], true);
-          assertEquals(saved["file_reflection"], "not_applicable");
-          const evidence = saved["evidence"] as { all_read?: boolean };
-          assertEquals(evidence.all_read, true);
-          found.phase = "done";
-          reply = said(RECORDED);
-        } else {
-          return Response.json({ error: "exhausted" }, { status: 500 });
-        }
-      } catch (error) {
-        found.failure = `call ${index}: ${
-          error instanceof Error ? error.message : String(error)
-        }`;
-        return Response.json({ error: found.failure }, { status: 500 });
-      }
-      const built = buildReply("messages", reply);
-      return new Response(built.body ?? "", {
-        status: built.status,
-        headers: built.headers,
-      });
-    },
-  );
-  return {
-    url: `http://127.0.0.1:${server.addr.port}`,
-    calls: () => bodies.length,
-    body: (index) => bodies[index] ?? "",
-    close: () => server.shutdown(),
-    failure: () => found.failure,
-    phase: () => found.phase,
-    callsNamed: () => named,
-    context: () => found.context,
-    section: () => found.section,
-    saved: () => at.save,
-  };
+      { settings_seq: seq },
+    ),
+  });
 }
 
-async function untilDecision(
-  provider: DecisionFixture,
-  phase: DecisionPhase,
-  what: string,
-) {
-  const deadline = Date.now() + 180_000;
-  for (;;) {
-    assert(provider.failure() === "", provider.failure());
-    if (provider.phase() === phase) return;
-    assert(
-      Date.now() < deadline,
-      `${what}: phase ${provider.phase()} call ${provider.calls()} ${
-        provider.body(provider.calls() - 1).slice(-500)
-      }`,
-    );
-    await delay(250);
-  }
-}
-
-type AskedQuestion = {
+type ContextRow = {
   id: string;
+  title: string;
   status: string;
-  answer: { kind?: string } | null;
-  applied: boolean;
-  options: {
-    key: string;
-    action: unknown;
-    evidence: { document: string; version: string; section: string | null }[];
-  }[];
-  recommendation: { option_key: string | null } | null;
+  applied_bundle: string | null;
+  violation_mark: number;
 };
 
-function questionsOf(flow: FlowShell): Promise<AskedQuestion[]> {
-  return mustCall(flow, {
-    kind: "read",
-    resource: "questions",
-    method: "list",
-    body: {},
-  }).then((listed) => listed.questions as AskedQuestion[]);
-}
+type RunRow = { id: string; state: string; outcome: { kind: string } | null };
 
-function contextCount(flow: FlowShell): Promise<number> {
-  return mustCall(flow, {
-    kind: "read",
-    resource: "contexts",
-    method: "list",
-    body: {},
-  }).then((listed) => (listed.contexts as unknown[]).length);
-}
+type Violation = { path: string; message: string; rule: string | null };
 
-function documentPlace(flow: FlowShell, document: string): Promise<unknown> {
-  return mustCall(flow, {
-    kind: "read",
-    resource: "documents",
-    method: "get",
-    body: { document },
-  }).then((read) => (read.document as { place: unknown }).place);
-}
+type Notified = { source_event: string };
+
+const clickTexted = (selector: string, label: string) =>
+  `(() => {
+    const el = [...document.querySelectorAll(${JSON.stringify(selector)})]
+      .find((item) => item.textContent?.trim() === ${JSON.stringify(label)});
+    if (!el) return false;
+    el.click();
+    return true;
+  })()`;
 
 Deno.test({
   name:
-    "lophn-agent/roles/context-engineer#R5 lophn-agent/roles/context-engineer#R10 documents/contexts#R5 lophn-agent/questions#R1 lophn-agent/questions#R15 flow build-context 4: 정할 수 없는 경계만 묻고 사람이 정한 목적·범위만 남기며 자유 답은 변경으로 쓰지 않는다",
+    "documents/contexts#R1 documents/contexts#R20 documents/contexts#R21 documents/contexts#R25 lophn-agent/roles/context-engineer#R5 shell/workspace#R30 flow build-context: Contexts 탭의 [New context]로 Context Engineer와 context를 만들면 검사를 통과한 판이 자동 적용되고, 검색이 되며, 파일이 계약을 어기면 알림을 받아 Context Engineer에게 넘긴다",
   ignore: !e2eEnabled(),
   sanitizeOps: false,
   sanitizeResources: false,
   async fn(t) {
-    const folder = await Deno.realPath(await copyFixture("korean-search"));
-    const provider = startDecisionScript();
-    let flow: FlowShell | undefined;
+    const content = JSON.parse(await Deno.readTextFile(CONTRACT));
+    const folder = await Deno.makeTempDir({ prefix: "lophn-e2e-eval-" });
+    await copyProject(EVAL_PROJECT, folder);
+
+    // 첫 flow shell은 프로젝트 등록과 추적 켜기만 하고 닫는다. 같은 home을 project 시작으로 다시 연다.
+    const setup = await openFlowShell();
+    const home = setup.home;
     try {
-      flow = await openFlowShell({ start: "lophn" });
-      const shell = flow;
-      await mustCall(shell, {
-        kind: "command",
-        resource: "providers",
-        method: "register",
-        body: commandBody({
-          id: PROVIDER,
-          name: "fixture",
-          definition: {
-            key: "anthropic",
-            display_name: "Anthropic",
-            protocols: ["anthropic-messages"],
-            auth_kinds: ["none"],
-            models_endpoint: null,
-            oauth: null,
-            revision: "2026-01-01",
-          },
-          endpoint: provider.url,
-          protocol: "anthropic-messages",
-        }),
+      await registerTrackedProject(setup, {
+        folder,
+        name: "eval",
+        title: "Eval",
       });
-      const defaults = await mustCall(shell, {
-        kind: "read",
-        resource: "agent-model-defaults",
-        method: "read",
-        body: {},
-      });
-      const seq = (defaults.defaults as { settings_seq: string }).settings_seq;
-      await mustCall(shell, {
-        kind: "command",
-        resource: "agent-model-defaults",
-        method: "change",
-        body: commandBody(
-          {
-            judgment: {
-              provider: PROVIDER,
-              credentials: [],
-              model_name: MODEL,
-              reasoning_level: "provider_default",
-              options: {},
-            },
-            organizing: null,
-            settings_seq: seq,
-          },
-          { settings_seq: seq },
-        ),
-      });
-      await registerTrackedProject(shell, { folder });
-      await untilDocuments(shell, ["glossary", "migration"], "문서 관측 대기");
-      await untilSearch(
-        shell,
-        "용어",
-        (page) => page.results.length > 0,
-        "목차 반영 대기",
-      );
-      const glossary = await documentTitled(shell, "glossary");
-      const migration = await documentTitled(shell, "migration");
-      const placeBefore = await documentPlace(shell, glossary.id);
-      assertEquals(await contextCount(shell), 0);
-
-      await t.step(
-        "lophn-agent/questions#R1 lophn-agent/roles/context-engineer#R10: 자료로 정할 수 없는 경계만 근거와 함께 묻고 추천은 적용하지 않는다",
-        async () => {
-          await sendToEngineer(shell, OPEN_ASK);
-          // 질문을 낸 run은 답을 기다린다. model은 답으로 이어진 뒤에 다시 불린다.
-          await untilDecision(provider, "ask-result", "경계 질문");
-          const askBy = Date.now() + 60_000;
-          while ((await questionsOf(shell)).length === 0) {
-            assert(Date.now() < askBy, "경계 질문이 만들어지지 않았다");
-            await delay(250);
-          }
-          const named = provider.callsNamed();
-          const askedAt = named.indexOf("question.submit");
-          assert(askedAt > 0, named.join(","));
-          assertEquals(named[0], "document.search");
-          assert(
-            named.slice(0, askedAt).every((name) =>
-              name === "document.search" || name === "document.list" ||
-              name === "document.outline" || name === "document.read_section"
-            ),
-            named.join(","),
-          );
-          assert(named.includes("document.outline"), named.join(","));
-          assert(named.includes("document.read_section"), named.join(","));
-          assertEquals(
-            named.filter((name) => name === "question.submit").length,
-            1,
-          );
-          assertEquals(named.includes("context.create"), false);
-          assertEquals(named.includes("document.create"), false);
-          const tools = offeredTools(provider.body(0));
-          assert(tools.includes("question.submit"), tools.join(","));
-          assert(tools.includes("context.create"), tools.join(","));
-          assert(tools.includes("context.add_item"), tools.join(","));
-          assert(tools.includes("document.create"), tools.join(","));
-          assertEquals(tools.includes("term.define"), false);
-          const shown = (await shell.text(EMBEDDED)) ?? "";
-          assertEquals(shown.includes(SECTION_BODY), false);
-          assertEquals(shown.includes("document.search"), false);
-          await shell.until(
-            `document.querySelector(${
-              JSON.stringify(`${EMBEDDED} [data-question-text='ready']`)
-            })?.textContent === ${JSON.stringify(QUESTION_PROMPT)}`,
-            "경계 질문이 칸에 서지 않았다",
-            120_000,
-          );
-          assertEquals(
-            await shell.text(`${EMBEDDED} [data-question-reason]`),
-            QUESTION_REASON,
-          );
-          assertEquals(
-            await shell.text(
-              `${EMBEDDED} [data-option='${EXCLUDE_KEY}'] [data-option-description]`,
-            ),
-            EXCLUDE_DESCRIPTION,
-          );
-          assertEquals(
-            await shell.text(
-              `${EMBEDDED} [data-option='${INCLUDE_KEY}'] [data-option-description]`,
-            ),
-            INCLUDE_DESCRIPTION,
-          );
-          assertEquals(await shell.count(`${EMBEDDED} [data-recommended]`), 1);
-          assertStringIncludes(
-            (await shell.text(`${EMBEDDED} [data-recommendation]`)) ?? "",
-            RECOMMEND_WHY,
-          );
-          const questions = await questionsOf(shell);
-          assertEquals(questions.length, 1);
-          const question = questions[0];
-          assert(question !== undefined);
-          assertEquals(question.status, "pending");
-          assertEquals(question.answer, null);
-          assertEquals(question.applied, false);
-          assertEquals(
-            question.options.map((option) => option.key),
-            [EXCLUDE_KEY, INCLUDE_KEY],
-          );
-          for (const option of question.options) {
-            assertEquals(option.action, null);
-            assertEquals(option.evidence, [{
-              document: glossary.id,
-              version: glossary.latest_version,
-              section: provider.section(),
-            }]);
-          }
-          assertEquals(question.recommendation?.option_key, EXCLUDE_KEY);
-          const text = await mustCall(shell, {
-            kind: "read",
-            resource: "questions",
-            method: "text",
-            body: { question: question.id },
-          });
-          assertEquals(text["prompt"], QUESTION_PROMPT);
-          assertEquals(text["reason"], QUESTION_REASON);
-          assertEquals(String(text["prompt"]).includes(SECTION_BODY), false);
-          assertEquals(text["answer_text"], null);
-          assertEquals(text["recommendation"], {
-            option_key: EXCLUDE_KEY,
-            explanation: RECOMMEND_WHY,
-          });
-          assertEquals(await contextCount(shell), 0);
-          assertEquals(await documentPlace(shell, glossary.id), placeBefore);
-          assertEquals(
-            (await documentTitled(shell, "glossary")).latest_version,
-            glossary.latest_version,
-          );
-          assertEquals(
-            (await documentTitled(shell, "migration")).latest_version,
-            migration.latest_version,
-          );
-        },
-      );
-
-      await t.step(
-        "lophn-agent/questions#R15 lophn-agent/roles/context-engineer#R10: 자유 답과 그 글의 메시지는 정확한 변경이 아니고 관련 구성은 보류다",
-        async () => {
-          const own = `${EMBEDDED} [data-own-answer]`;
-          const sendAnswer = `${EMBEDDED} [data-send-answer]`;
-          await shell.type(own, FREE_TEXT);
-          await shell.until(
-            `(() => { const button = document.querySelector(${
-              JSON.stringify(sendAnswer)
-            }); return button !== null && button.disabled === false; })()`,
-            "자유 답을 보낼 수 없다",
-          );
-          await shell.click(sendAnswer);
-          // 질문을 기다리는 run이 있으므로 자유 답은 해당 질문의 답으로 접수된다.
-          const answerBy = Date.now() + 30_000;
-          while ((await questionsOf(shell))[0]?.status !== "answered") {
-            assert(Date.now() < answerBy, "자유 답이 접수되지 않았다");
-            await delay(250);
-          }
-          await sendToEngineer(shell, FREE_TEXT);
-          await untilDecision(provider, "freed", "자유 답 보류");
-          await shell.until(
-            `document.querySelector(${
-              JSON.stringify(EMBEDDED)
-            })?.innerText.includes(${JSON.stringify(HOLD_REPLY)})`,
-            "자유 답을 거절하는 말이 없다",
-            180_000,
-          );
-          const named = provider.callsNamed();
-          assertEquals(named.includes("context.create"), false);
-          assertEquals(named.includes("context.add_item"), false);
-          assertEquals(named.includes("document.create"), false);
-          assertEquals(
-            named.filter((name) => name === "question.submit").length,
-            1,
-          );
-          const questions = await questionsOf(shell);
-          assertEquals(questions.length, 1);
-          const question = questions[0];
-          assert(question !== undefined);
-          if (question.status === "answered") {
-            assertEquals(question.answer?.kind, "text");
-            assertEquals(question.applied, false);
-          } else {
-            assertEquals(question.status, "pending");
-            assertEquals(question.answer, null);
-          }
-          assertEquals(await contextCount(shell), 0);
-          assertEquals(await documentPlace(shell, glossary.id), placeBefore);
-          assertEquals(
-            (await documentTitled(shell, "glossary")).latest_version,
-            glossary.latest_version,
-          );
-          assertEquals(
-            (await documentTitled(shell, "migration")).latest_version,
-            migration.latest_version,
-          );
-        },
-      );
-
-      await t.step(
-        "lophn-agent/roles/context-engineer#R5 documents/contexts#R5 lophn-agent/questions#R15: 사람이 정한 목적·범위만 개별 구성 변경과 설계 보고로 남긴다",
-        async () => {
-          await sendToEngineer(shell, DIRECT_ASK);
-          await untilDecision(provider, "done", "구성 기록");
-          await shell.until(
-            `document.querySelector(${
-              JSON.stringify(EMBEDDED)
-            })?.innerText.includes(${JSON.stringify(RECORDED)})`,
-            "구성 기록이 대화에 없다",
-            180_000,
-          );
-          const named = provider.callsNamed();
-          assertEquals(
-            named.filter((name) => name === "context.create").length,
-            1,
-          );
-          assertEquals(
-            named.filter((name) => name === "context.add_item").length,
-            1,
-          );
-          assertEquals(
-            named.filter((name) => name === "document.create").length,
-            1,
-          );
-          assertEquals(
-            named.filter((name) => name === "question.submit").length,
-            1,
-          );
-          assertEquals(named.includes("term.define"), false);
-          const saved = toolContent(provider.body(provider.saved()));
-          assertEquals(saved["accepted"], true);
-          assertEquals(saved["file_reflection"], "not_applicable");
-          const evidence = saved["evidence"] as {
-            all_read: boolean;
-            read: { document: string; version: string }[];
-          };
-          assertEquals(evidence.all_read, true);
-          assertEquals(evidence.read, [{
-            document: glossary.id,
-            version: glossary.latest_version,
-          }]);
-          const approvals = await mustCall(shell, {
-            kind: "read",
-            resource: "approvals",
-            method: "list",
-            body: {},
-          });
-          assertEquals(approvals["requests"], []);
-          const questions = await questionsOf(shell);
-          assertEquals(questions.length, 1);
-          assertEquals(questions[0]?.applied, false);
-          const context = provider.context();
-          const section = provider.section();
-          const stored = await mustCall(shell, {
-            kind: "read",
-            resource: "contexts",
-            method: "get",
-            body: { context },
-          });
-          const record = stored.context as {
-            purpose: string;
-            items: {
-              perspective: string;
-              reason: string;
-              target: {
-                kind: string;
-                document: string;
-                section: string | null;
-              };
-            }[];
-          };
-          assertEquals(record.purpose, PURPOSE_DECIDED);
-          assertEquals(record.items.length, 1);
-          assertEquals(record.items[0]?.perspective, "basis");
-          assertEquals(record.items[0]?.reason, DECIDED_REASON);
-          assertEquals(record.items[0]?.target, {
-            kind: "document",
-            document: glossary.id,
-            section,
-          });
-          const reportDoc = await documentTitled(shell, DECISION_REPORT);
-          assertEquals(reportDoc.name, null);
-          const reportRead = await mustCall(shell, {
-            kind: "worker",
-            resource: "documents",
-            method: "read",
-            body: {
-              reference: {
-                document: reportDoc.id,
-                version: reportDoc.latest_version,
-                section: null,
-              },
-            },
-          });
-          const reports = (JSON.parse(String(reportRead["text"])) as {
-            reports: DesignReport[];
-          }).reports;
-          assertEquals(reports.length, 1);
-          const report = reports[0];
-          assert(report !== undefined);
-          assertEquals(report.context, context);
-          assertEquals(report.purpose, PURPOSE_DECIDED);
-          assertEquals(report.scope, [{
-            target: {
-              kind: "document",
-              document: glossary.id,
-              section,
-            },
-            perspective: "basis",
-            reason: DECIDED_REASON,
-          }]);
-          assertEquals(report.terms.confirmed, []);
-          assertEquals(report.terms.undecided, [UNDECIDED_TERM]);
-          assertEquals(report.terms.confirmed.includes(UNDECIDED_TERM), false);
-          assertEquals(report.boundaries, [
-            BOUNDARY_INDEX,
-            BOUNDARY_FREE,
-            BOUNDARY_MOVE,
-          ]);
-          await openFocusId(shell, context);
-          assertEquals(
-            await shell.text("[data-focus-purpose]"),
-            PURPOSE_DECIDED,
-          );
-          assertEquals(
-            await shell.count('[data-perspective="basis"] [data-item]'),
-            1,
-          );
-          assertEquals(
-            await shell.count('[data-perspective="reference"] [data-item]'),
-            0,
-          );
-          assertEquals(
-            await shell.count('[data-perspective="watch"] [data-item]'),
-            0,
-          );
-          await markRow(shell, "basis", section);
-          await shell.click("[data-flow-row] > button");
-          assertEquals(
-            await shell.text("[data-flow-row] [data-item-reason]"),
-            DECIDED_REASON,
-          );
-          assertEquals(await documentPlace(shell, glossary.id), placeBefore);
-          assertEquals(
-            (await documentTitled(shell, "glossary")).latest_version,
-            glossary.latest_version,
-          );
-          assertEquals(
-            (await documentTitled(shell, "migration")).latest_version,
-            migration.latest_version,
-          );
-        },
+      await untilDocuments(
+        setup,
+        ["exp-001-plan", "F-003"],
+        "추적한 파일이 문서가 되지 않았다",
       );
     } finally {
-      await flow?.close();
-      await provider.close();
-      if (flow !== undefined) await removeHome(flow.home);
-      await Deno.remove(folder, { recursive: true });
+      await setup.close();
     }
-  },
-});
 
-// 5: 사람이 고른 context를 preset이 가리키면 초기 model 입력은 관점별 목차·주소다.
-// 본문은 요청한 section의 tool 결과에만 있다. context 이름과 연결된 앱 command는
-// 읽기·실행 범위를 넓히지 않는다. 범위 밖 읽기와 앱 command는 거절된 결과로 남는다.
-const FOCUS = "ctx_01arz3ndektsv4rrffq69g5fb3";
-const FOCUS_PRESET = "pst_01arz3ndektsv4rrffq69g5fb3";
-const TASKS_APP = "app_01arz3ndektsv4rrffq69g5fb4";
-const TASKS_RELEASE = "rel_01arz3ndektsv4rrffq69g5fb4";
-const TASKS_VERIFICATION = "vrf_01arz3ndektsv4rrffq69g5fb4";
-const MISSING_DOCUMENT = "doc_01arz3ndektsv4rrffq69g5fb9";
-const FOCUS_PURPOSE = "자료에서 쓰는 말의 변화를 확인한다.";
-const FOCUS_ASK = "고른 context의 목차를 보고 용어 section만 읽어 달라.";
-const FOCUS_REPLY = "요청한 section만 읽었다.";
-const TASKS_BLUEPRINT = {
-  name: "Tasks",
-  description: "Reads tasks for one purpose.",
-  screens: [],
-  commands: [
-    {
-      key: "list_tasks",
-      label: "List tasks",
-      description: "Read the task titles for this purpose.",
-      effect: "read",
-      confirm: false,
-      input: null,
-      revert: { supported: false },
-    },
-    {
-      key: "save_task",
-      label: "Save task",
-      description: "Write a task outside this purpose.",
-      effect: "write",
-      confirm: false,
-      input: null,
-      revert: { supported: false },
-    },
-  ],
-  automatic_tasks: [],
-  permissions: [],
-  problem_codes: [],
-  documents: [],
-  agent_context: [],
-  app_connections: [],
-  sdk_dependencies: [],
-};
-
-function seedTasksApp(
-  home: string,
-  blueprintJson: string,
-  blueprintHash: string,
-): void {
-  const db = new DatabaseSync(`${home}/lophn.db`);
-  try {
-    db.exec("PRAGMA busy_timeout = 8000");
-    db.prepare(
-      `INSERT INTO apps (id, slug, name, description, planning_version, source_path, active_release, run_enabled, revision, status)
-       VALUES (?, 'tasks', 'Tasks', 'Reads tasks for one purpose.', NULL, NULL, ?, 0, '1', 'active')`,
-    ).run(TASKS_APP, TASKS_RELEASE);
-    db.prepare(
-      `INSERT INTO releases (id, app, number, code_commit, bundle_hash, blueprint_hash, data_schema, data_changes, ticket_source, created_by, created_at, status, activation, failure, blueprint, declarations)
-       VALUES (?, ?, 1, ?, ?, ?, 0, '[]', NULL, 'machine', '2026-10-01T00:00:00.000Z', 'active', NULL, NULL, ?, ?)`,
-    ).run(
-      TASKS_RELEASE,
-      TASKS_APP,
-      "c".repeat(40),
-      "d".repeat(64),
-      blueprintHash,
-      blueprintJson,
-      JSON.stringify({
-        permissions: [],
-        app_connections: [],
-        commands: ["list_tasks", "save_task"],
-        automations: [],
-        problem_codes: [],
-        documents: [],
-      }),
-    );
-    db.prepare(
-      "INSERT INTO release_tests (release, verification) VALUES (?, ?)",
-    ).run(TASKS_RELEASE, TASKS_VERIFICATION);
-  } finally {
-    db.close();
-  }
-}
-
-function materialBlock(body: string, perspective: string): string {
-  const marker = `[자료 ${perspective}]`;
-  const start = body.indexOf(marker);
-  assert(start >= 0, `${perspective} 자료가 없다`);
-  const next = body.indexOf("[자료 ", start + marker.length);
-  return body.slice(start, next === -1 ? undefined : next);
-}
-
-function startScopeScript(plan: {
-  document: string;
-  version: string;
-  section: string;
-}): Fixture {
-  const bodies: string[] = [];
-  const server = Deno.serve(
-    { hostname: "127.0.0.1", port: 0, onListen: () => {} },
-    async (request) => {
-      const text = await request.text();
-      const path = new URL(request.url).pathname;
-      if (request.method !== "POST" || !path.endsWith("/messages")) {
-        return Response.json({ error: "unexpected" }, { status: 500 });
-      }
-      const index = bodies.length;
-      bodies.push(text);
-      let reply: SemanticReply;
-      if (index === 0) {
-        reply = toolCall("toolu_focus_section", "document.read_section", {
-          reference: {
-            document: plan.document,
-            version: plan.version,
-            section: null,
-          },
-          section: plan.section,
+    let ctx = "";
+    const steps: Step[] = [
+      // 1: 사람이 말한 것으로 context를 만든다.
+      () =>
+        toolCall("toolu_create", "context.create", {
+          project: PROJECT,
+          title: TITLE,
+          purpose: PURPOSE,
+        }),
+      // 2: 초안을 쓴다. 만드는 중 탭을 사람이 볼 수 있도록 잠깐 둔다.
+      async (body) => {
+        ctx = lastId(body, "ctx");
+        await delay(8_000);
+        return toolCall("toolu_draft", "context.draft", {
+          context: ctx,
+          content,
         });
-      } else if (index === 1) {
-        reply = toolCall("toolu_focus_notes", "list_notes", {});
-      } else if (index === 2) {
-        reply = toolCall("toolu_focus_tasks", "list_tasks", {});
-      } else if (index === 3) {
-        reply = toolCall("toolu_focus_missing", "document.read_section", {
-          reference: {
-            document: MISSING_DOCUMENT,
-            version: plan.version,
-            section: null,
-          },
-          section: plan.section,
-        });
-      } else if (index === 4) {
-        reply = said(FOCUS_REPLY);
-      } else {
-        return Response.json({ error: "exhausted" }, { status: 500 });
-      }
-      const built = buildReply("messages", reply);
-      return new Response(built.body ?? "", {
-        status: built.status,
-        headers: built.headers,
-      });
-    },
-  );
-  return {
-    url: `http://127.0.0.1:${server.addr.port}`,
-    calls: () => bodies.length,
-    body: (index) => bodies[index] ?? "",
-    close: () => server.shutdown(),
-  };
-}
-
-Deno.test({
-  name:
-    "documents/contexts#R2 documents/contexts#R4 platform/identity#R8 platform/identity#R9 apps/permissions#R28 apps/runtime#R32 lophn-agent/harness/prompt-assemble#R4 flow build-context 5: agent 입력·권한 검사",
-  ignore: !e2eEnabled(),
-  sanitizeOps: false,
-  sanitizeResources: false,
-  async fn() {
-    const home = await Deno.makeTempDir({ prefix: "lophn-e2e-context-scope-" });
-    await Deno.chmod(home, 0o700);
-    const bootstrap = await openFlowShell({ home });
-    await bootstrap.close();
-    const notesJson = JSON.stringify(NOTES_BLUEPRINT);
-    seedNotesApp(home, notesJson, await sha256Hex(notesJson));
-    const tasksJson = JSON.stringify(TASKS_BLUEPRINT);
-    seedTasksApp(home, tasksJson, await sha256Hex(tasksJson));
-    const folder = await Deno.realPath(await copyFixture("korean-search"));
-    let flow: FlowShell | undefined;
-    let provider: Fixture | undefined;
+      },
+      // 3: 지금 project 파일로 미리 본다.
+      (body) =>
+        toolCall("toolu_preview", "context.preview", {
+          context: ctx,
+          bundle: lastId(body, "cbn"),
+        }),
+      // 4: 제출한다.
+      (body) =>
+        toolCall("toolu_submit", "context.submit", {
+          bundle: lastId(body, "cbn"),
+        }),
+      () => text(REPORT),
+      // 위반을 넘긴 두 번째 요청: 위반을 읽고 파일 쪽 문제로 보고한다.
+      () =>
+        toolCall("toolu_violations", "context.violations", { context: ctx }),
+      () => text(HANDED),
+    ];
+    const provider = startDynamicProvider(steps);
+    const flow = await openFlowShell({ home, start: `project:${PROJECT}` });
     try {
-      flow = await openFlowShell({ home, start: "lophn" });
-      await registerTrackedProject(flow, { folder });
-      await untilDocuments(flow, ["glossary", "migration"], "문서 관측 대기");
-      await untilSearch(
-        flow,
-        "용어",
-        (page) => page.results.length > 0,
-        "목차 반영 대기",
+      await flow.until(
+        `document.querySelector("[data-space]")?.getAttribute("data-space") === "project"`,
+        "project 작업대가 서지 않았다",
       );
-      const glossary = await documentTitled(flow, "glossary");
-      const migration = await documentTitled(flow, "migration");
-      const outline = await mustCall(flow, {
-        kind: "worker",
-        resource: "outline",
-        method: "document",
-        body: {
-          reference: {
-            document: glossary.id,
-            version: glossary.latest_version,
-            section: null,
-          },
-        },
-      });
-      const entries = outline.entries as {
-        key: string;
-        title: string;
-        parent: string | null;
-      }[];
-      const section = entries.find((row) => row.title === "용어")?.key;
-      assert(section, `용어 section이 없다: ${JSON.stringify(entries)}`);
-      assert(
-        entries.some((row) => row.parent === null && row.key === section),
-        JSON.stringify(entries),
-      );
-      const created = await mustCall(flow, {
-        kind: "command",
-        resource: "contexts",
-        method: "create",
-        body: commandBody({
-          id: FOCUS,
-          title: "list_notes",
-          purpose: FOCUS_PURPOSE,
-          items: [
-            {
-              target: {
-                kind: "document",
-                document: glossary.id,
-                section: null,
-              },
-              perspective: "basis",
-              reason: "말을 정하는 기준",
-            },
-            {
-              target: {
-                kind: "document",
-                document: migration.id,
-                section: null,
-              },
-              perspective: "reference",
-              reason: "사용하는 배경",
-            },
-            {
-              target: {
-                kind: "app_command",
-                app: NOTES_APP,
-                command: "list_notes",
-              },
-              perspective: "reference",
-              reason: "읽기 command 주소",
-            },
-            {
-              target: {
-                kind: "app_command",
-                app: TASKS_APP,
-                command: "list_tasks",
-              },
-              perspective: "reference",
-              reason: "다른 앱의 읽기 command 주소",
-            },
-            {
-              target: { kind: "document", document: glossary.id, section },
-              perspective: "watch",
-              reason: "뜻의 변화만 확인",
-            },
-          ],
-        }),
-      });
-      const revision = created.revision;
-      assert(typeof revision === "string", JSON.stringify(created));
-      const writeCommand = await flow.call({
-        kind: "command",
-        resource: "contexts",
-        method: "set_item",
-        body: commandBody({
-          context: FOCUS,
-          item: {
-            target: {
-              kind: "app_command",
-              app: NOTES_APP,
-              command: "save_note",
-            },
-            perspective: "reference",
-            reason: "쓰면 안 되는 명령",
-          },
-        }, { base_revision: revision }),
-      });
-      assertEquals(writeCommand.ok, false);
-      assertEquals(
-        writeCommand.error?.message,
-        "context item needs a read app command",
-      );
-      const missingDocument = await flow.call({
-        kind: "command",
-        resource: "contexts",
-        method: "set_item",
-        body: commandBody({
-          context: FOCUS,
-          item: {
-            target: {
-              kind: "document",
-              document: MISSING_DOCUMENT,
-              section: null,
-            },
-            perspective: "reference",
-            reason: "저장되지 않은 문서",
-          },
-        }, { base_revision: revision }),
-      });
-      assertEquals(missingDocument.ok, false);
-      assertEquals(
-        missingDocument.error?.message,
-        "context item needs a stored document",
-      );
-      const folderItem = await flow.call({
-        kind: "command",
-        resource: "contexts",
-        method: "set_item",
-        body: commandBody({
-          context: FOCUS,
-          item: {
-            target: { kind: "document", document: folder, section: null },
-            perspective: "reference",
-            reason: "프로젝트 폴더",
-          },
-        }, { base_revision: revision }),
-      });
-      assertEquals(folderItem.ok, false);
-      assertEquals(folderItem.error?.code, "invalid_input");
-      const stored = await mustCall(flow, {
-        kind: "read",
-        resource: "contexts",
-        method: "get",
-        body: { context: FOCUS },
-      });
-      const items = (stored.context as {
-        items: { target: { command?: string; document?: string } }[];
-      }).items;
-      assertEquals(items.length, 5);
-      assertEquals(
-        items.some((item) => item.target.command === "save_note"),
-        false,
-      );
-      assertEquals(
-        items.some((item) => item.target.document === MISSING_DOCUMENT),
-        false,
-      );
+      await setDefaults(flow, provider.url);
 
-      const assignments = await mustCall(flow, {
-        kind: "read",
-        resource: "assignments",
-        method: "list",
-        body: { role: "context_engineer" },
-      });
-      const engineer = (assignments.assignments as {
-        id: string;
-        revision: number;
-        preset: string;
-        preset_revision: number;
-      }[])[0];
-      assert(engineer !== undefined, JSON.stringify(assignments));
-      const preset = await mustCall(flow, {
-        kind: "read",
-        resource: "presets",
-        method: "read",
-        body: {
-          preset: engineer.preset,
-          revision: engineer.preset_revision,
-        },
-      });
-      const definition =
-        (preset.preset as { definition: Record<string, unknown> }).definition;
-      await mustCall(flow, {
-        kind: "command",
-        resource: "presets",
-        method: "create",
-        body: commandBody({
-          id: FOCUS_PRESET,
-          definition: {
-            ...definition,
-            name: "Focus materials",
-            origin: "user",
-            context: [{ kind: "context", target: FOCUS, section: null }],
-          },
-          copied_from: {
-            preset: engineer.preset,
-            revision: engineer.preset_revision,
-          },
-        }),
-      });
-      await mustCall(flow, {
-        kind: "command",
-        resource: "assignments",
-        method: "change-preset",
-        body: commandBody({
-          assignment: engineer.id,
-          preset: FOCUS_PRESET,
-          preset_revision: 1,
-        }, { revision: engineer.revision, role: "context_engineer" }),
-      });
-
-      provider = startScopeScript({
-        document: glossary.id,
-        version: glossary.latest_version,
-        section,
-      });
-      await mustCall(flow, {
-        kind: "command",
-        resource: "providers",
-        method: "register",
-        body: commandBody({
-          id: PROVIDER,
-          name: "fixture",
-          definition: {
-            key: "anthropic",
-            display_name: "Anthropic",
-            protocols: ["anthropic-messages"],
-            auth_kinds: ["none"],
-            models_endpoint: null,
-            oauth: null,
-            revision: "2026-01-01",
-          },
-          endpoint: provider.url,
-          protocol: "anthropic-messages",
-        }),
-      });
-      const defaults = await mustCall(flow, {
-        kind: "read",
-        resource: "agent-model-defaults",
-        method: "read",
-        body: {},
-      });
-      const seq = (defaults.defaults as { settings_seq: string }).settings_seq;
-      await mustCall(flow, {
-        kind: "command",
-        resource: "agent-model-defaults",
-        method: "change",
-        body: commandBody(
-          {
-            judgment: {
-              provider: PROVIDER,
-              credentials: [],
-              model_name: MODEL,
-              reasoning_level: "provider_default",
-              options: {},
-            },
-            organizing: null,
-            settings_seq: seq,
-          },
-          { settings_seq: seq },
-        ),
-      });
-
-      await sendToEngineer(flow, FOCUS_ASK);
-      await untilCalls(provider, 5, "권한 검사");
-      await untilEngineerDone(flow, provider, "권한 검사가 끝나지 않았다");
-
-      const initial = provider.body(0);
-      const basis = materialBlock(initial, "basis");
-      assertStringIncludes(basis, `document ${glossary.id}`);
-      assertStringIncludes(basis, `version ${glossary.latest_version}`);
-      assertStringIncludes(basis, "제목: glossary");
-      assertStringIncludes(basis, "outline:");
-      assertStringIncludes(basis, "- 용어 용어");
-      assertEquals(basis.includes(SECTION_BODY), false);
-      assertEquals(basis.includes(OTHER_BODY), false);
-      const reference = materialBlock(initial, "reference");
-      assertStringIncludes(reference, `document ${migration.id}`);
-      assertStringIncludes(reference, `version ${migration.latest_version}`);
-      assertEquals(reference.includes("outline:"), false);
-      assertEquals(
-        reference.includes("데이터베이스마이그레이션계획서"),
-        false,
-      );
-      const watchBlock = materialBlock(initial, "watch");
-      assertStringIncludes(watchBlock, glossary.id);
-      assertStringIncludes(watchBlock, section);
-      assertStringIncludes(watchBlock, "미변경");
-      assertEquals(watchBlock.includes("summary:"), false);
-      assertEquals(watchBlock.includes(SECTION_BODY), false);
-      assertStringIncludes(initial, `app_command ${NOTES_APP} list_notes`);
-      assertStringIncludes(initial, `app_command ${TASKS_APP} list_tasks`);
-      assertEquals(initial.includes("save_note"), false);
-      assertEquals(initial.includes("save_task"), false);
-      assertEquals(initial.includes(MISSING_DOCUMENT), false);
-      assertEquals(initial.includes(folder), false);
-      assertEquals(initial.includes(SECTION_BODY), false);
-      assertEquals(initial.includes(OTHER_BODY), false);
-      for (const name of offeredTools(initial)) {
-        assert(name !== "list_notes" && name !== "save_note", name);
-        assert(name !== "list_tasks" && name !== "save_task", name);
-        assert(!name.startsWith("app_"), name);
-      }
-
-      const sectionRead = toolContent(provider.body(1));
-      assertEquals(sectionRead["version"], glossary.latest_version);
-      assertStringIncludes(String(sectionRead["text"]), SECTION_BODY);
-      assertEquals(String(sectionRead["text"]).includes(OTHER_BODY), false);
-      const notesDenied = lastToolJson(provider.body(2));
-      assertEquals(notesDenied["status"], "failure");
-      assertEquals(notesDenied["summary"], "tool is not available");
-      const tasksDenied = lastToolJson(provider.body(3));
-      assertEquals(tasksDenied["status"], "failure");
-      assertEquals(tasksDenied["summary"], "tool is not available");
-      const missingRead = lastToolJson(provider.body(4));
-      assertEquals(missingRead["status"], "failure");
-      assertEquals(missingRead["summary"], "tool target is not available");
-      for (let index = 1; index < provider.calls(); index += 1) {
-        const body = provider.body(index);
-        assertEquals(body.includes(OTHER_BODY), false);
-        assertEquals(body.includes(folder), false);
-        assertEquals(body.includes("save_note"), false);
-      }
-
-      for (const app of [NOTES_APP, TASKS_APP]) {
-        const invocations = await mustCall(flow, {
+      const contexts = async (): Promise<ContextRow[]> =>
+        (await mustCall(flow, {
           kind: "read",
-          resource: "invocations",
+          resource: "contexts",
           method: "list",
-          body: { app },
+          body: { project: PROJECT },
+        })).contexts as ContextRow[];
+      const violations = async (): Promise<Violation[]> =>
+        (await mustCall(flow, {
+          kind: "read",
+          resource: "contexts",
+          method: "violations",
+          body: { context: ctx },
+        })).violations as Violation[];
+      const notices = async (): Promise<Notified[]> =>
+        (await mustCall(flow, {
+          kind: "read",
+          resource: "notifications",
+          method: "list",
+          body: {},
+        })).notifications as Notified[];
+      const dockText = async () =>
+        String(
+          await flow.evaluate(
+            `document.querySelector(${
+              JSON.stringify(DOCK)
+            })?.innerText ?? null`,
+          ),
+        ).slice(0, 600);
+      const engineerRuns = async (): Promise<RunRow[]> => {
+        const assignments = await mustCall(flow, {
+          kind: "read",
+          resource: "assignments",
+          method: "list",
+          body: {},
         });
-        assertEquals(invocations.invocations, []);
-      }
-      const dock = (await flow.text(EMBEDDED)) ?? "";
-      assertStringIncludes(dock, FOCUS_REPLY);
-      assertEquals(dock.includes(SECTION_BODY), false);
-      assertEquals(dock.includes("list_notes"), false);
-      assertEquals(dock.includes("document.read_section"), false);
-      assertEquals(dock.includes("[자료 basis]"), false);
-      await openFocusId(flow, FOCUS);
-      const screen = (await flow.text("[data-focus-detail]")) ??
-        (await flow.text("[data-screen-body='contexts']")) ?? "";
-      assertEquals(await flow.text("[data-focus-purpose]"), FOCUS_PURPOSE);
-      assertEquals(screen.includes(SECTION_BODY), false);
-      assertEquals(screen.includes("[자료 basis]"), false);
-      assertEquals(screen.includes("tool is not available"), false);
-      assertEquals(screen.includes(folder), false);
-    } finally {
-      await flow?.close();
-      await provider?.close();
-      await removeHome(home);
-      await Deno.remove(folder, { recursive: true });
-    }
-  },
-});
-
-// 8: Context Engineer가 끝낸 일(context 생성·항목 추가·설계 보고 문서)을 되돌린다.
-// 결함: shell#T36의 contexts 화면에는 revert 진입이 없다(Focus 상세에 되돌리기 단추가 없다). 진입은
-// roles 화면 역할의 끝난 일 검토 [되돌리기]뿐이라 그 진입으로 확인 창을 열고, 결과는 contexts 화면의
-// Focus(보관됨)와 reverts/list로 본다. 진입이 contexts 화면에 생기면 openRevert만 바꾼다.
-// 검사는 사람에게 보이지 않는다: reverts/preview가 지금의 event와 현재 판으로 만든 묶음을 먼저 읽고
-// (복원 가능: context·보고 문서, 유지: 대화 메시지의 감사 사실), 확인 창은 같은 묶음을 보인다.
-// 결정 전에는 아무것도 바뀌지 않는다. 불가·충돌 묶음과 후속 변경 갈래는 이 테스트가 만들지 않는다.
-const REVERT_CE = "context_engineer";
-
-type PreviewGroup = {
-  ordinal: number;
-  owner: string;
-  target: string | null;
-  capability: string;
-  reason: string | null;
-};
-
-Deno.test({
-  name:
-    "lophn-agent/revert#R1 lophn-agent/revert#R2 lophn-agent/revert#R3 lophn-agent/revert#R5 lophn-agent/revert#R6 lophn-agent/revert#R7 lophn-agent/revert#R9 shell/confirmation-window#R4 shell/confirmation-window#R5 flow build-context 8: 끝난 Context Engineer 일의 revert는 확인 창에서 결정하면 안전한 변경만 새 변경으로 복원하고 판단을 다시 시작하거나 기록을 지우지 않는다",
-  ignore: !e2eEnabled(),
-  sanitizeOps: false,
-  sanitizeResources: false,
-  async fn(t) {
-    const folder = await Deno.realPath(await copyFixture("korean-search"));
-    const provider = startDecisionScript();
-    let flow: FlowShell | undefined;
-    try {
-      flow = await openFlowShell({ start: "lophn" });
-      const shell = flow;
-      await mustCall(shell, {
-        kind: "command",
-        resource: "providers",
-        method: "register",
-        body: commandBody({
-          id: PROVIDER,
-          name: "fixture",
-          definition: {
-            key: "anthropic",
-            display_name: "Anthropic",
-            protocols: ["anthropic-messages"],
-            auth_kinds: ["none"],
-            models_endpoint: null,
-            oauth: null,
-            revision: "2026-01-01",
-          },
-          endpoint: provider.url,
-          protocol: "anthropic-messages",
-        }),
-      });
-      const defaults = await mustCall(shell, {
-        kind: "read",
-        resource: "agent-model-defaults",
-        method: "read",
-        body: {},
-      });
-      const seq = (defaults.defaults as { settings_seq: string }).settings_seq;
-      await mustCall(shell, {
-        kind: "command",
-        resource: "agent-model-defaults",
-        method: "change",
-        body: commandBody(
-          {
-            judgment: {
-              provider: PROVIDER,
-              credentials: [],
-              model_name: MODEL,
-              reasoning_level: "provider_default",
-              options: {},
-            },
-            organizing: null,
-            settings_seq: seq,
-          },
-          { settings_seq: seq },
-        ),
-      });
-      await registerTrackedProject(shell, { folder });
-      await untilDocuments(shell, ["glossary", "migration"], "문서 관측 대기");
-      await untilSearch(
-        shell,
-        "용어",
-        (page) => page.results.length > 0,
-        "목차 반영 대기",
-      );
-      const glossary = await documentTitled(shell, "glossary");
-      const migration = await documentTitled(shell, "migration");
-      const assignments = await mustCall(shell, {
-        kind: "read",
-        resource: "assignments",
-        method: "list",
-        body: {},
-      });
-      const engineer = (assignments.assignments as {
-        id: string;
-        role: string;
-      }[]).find((entry) => entry.role === REVERT_CE);
-      assert(engineer !== undefined, "Context Engineer assignment가 없다");
-      type RunRow = {
-        id: string;
-        state: string;
-        outcome: { kind: string } | null;
-      };
-      const runsOf = async (): Promise<RunRow[]> =>
-        (await mustCall(shell, {
+        const agent = (assignments.assignments as {
+          id: string;
+          role: string;
+        }[]).find((entry) => entry.role === "context_engineer");
+        assert(agent !== undefined, "context_engineer assignment가 없다");
+        return (await mustCall(flow, {
           kind: "read",
           resource: "runs",
           method: "list",
-          body: { assignment: engineer.id },
+          body: { assignment: agent.id },
         })).runs as RunRow[];
-      const previewOf = async (run: string): Promise<PreviewGroup[]> =>
-        (await mustCall(shell, {
-          kind: "read",
-          resource: "reverts",
-          method: "preview",
-          body: { run },
-        })).groups as PreviewGroup[];
-      type RevertRow = {
-        id: string;
-        run: string;
-        outcome: string;
-        changes: {
-          owner: string;
-          capability: string;
-          result: string;
-          source_seqs: string[];
-          restored_seqs: string[];
-        }[];
       };
-      const revertsOf = async (run: string): Promise<RevertRow[]> =>
-        (await mustCall(shell, {
-          kind: "read",
-          resource: "reverts",
-          method: "list",
-          body: { run },
-        })).reverts as RevertRow[];
-
-      let run = "";
-      let context = "";
-      let before: PreviewGroup[] = [];
-
-      // 되돌리기 진입: roles 화면 Context Engineer 역할의 끝난 일 검토에서 [되돌리기]를 누른다.
-      const openRevert = async () => {
-        if (await shell.count(`[data-review='${run}']`) === 0) {
-          await shell.click('[data-screen="roles"]');
-          await shell.until(
-            `[...document.querySelectorAll("[data-role]")].some((el) => el.textContent?.includes("Context Engineer"))`,
-            "Context Engineer 담당이 없다",
-          );
-          const marked = await shell.evaluate(`(() => {
-            const row = [...document.querySelectorAll("[data-role]")].find((el) =>
-              el.textContent?.includes("Context Engineer")
+      const untilRuns = async (count: number) => {
+        const deadline = Date.now() + 180_000;
+        for (;;) {
+          const rows = await engineerRuns();
+          if (
+            rows.length === count &&
+            rows.every((row) => row.outcome !== null)
+          ) return rows;
+          if (Date.now() > deadline) {
+            throw new Error(
+              `run이 끝나지 않았다 | runs=${
+                JSON.stringify(rows)
+              } calls=${provider.calls()} dock=${
+                JSON.stringify(await dockText())
+              }`,
             );
-            if (!row) return false;
-            row.setAttribute("data-flow-ce", "");
-            return true;
-          })()`);
-          assertEquals(marked, true);
-          await shell.click("[data-flow-ce]");
-          await shell.mouseClickText("[role=tab]", "Work");
-          await shell.until(
-            `document.querySelector("[data-work='${run}'] [data-action='review']") !== null`,
-            "역할의 일 목록에 그 run이 없다",
-          );
-          await shell.click(`[data-work='${run}'] [data-action='review']`);
-          await shell.until(
-            `document.querySelector("[data-review='${run}'] [data-review-basic]") !== null`,
-            "검토가 서지 않았다",
-          );
+          }
+          await delay(250);
         }
-        await shell.click("[data-action='undo']");
-        await shell.until(
-          `document.querySelector("[data-undo='opened']") !== null || document.querySelector("[data-undo='failed']") !== null`,
-          "되돌리기 결과가 서지 않았다",
-        );
-        assertEquals(await shell.count("[data-undo='opened']"), 1);
       };
 
       await t.step(
-        "lophn-agent/revert#R1: 정할 수 없는 경계를 묻고 사람이 정한 구성·설계 보고를 남긴 일이 끝나야 revert 대상이 된다",
+        "shell/workspace#R16 shell/workspace#R30 documents/contexts#R1 shell/desktop#R33: 1 Contexts 탭의 [New context]는 폼 없이 Context Engineer 대화를 열고 사람이 첫 메시지를 쓴다",
         async () => {
-          await sendToEngineer(shell, OPEN_ASK);
-          // 질문을 낸 run은 답을 기다린다. 사람이 자기 말로 답하면 run이 이어져 끝난다.
-          await untilDecision(provider, "ask-result", "경계 질문");
-          const own = `${EMBEDDED} [data-own-answer]`;
-          const sendAnswer = `${EMBEDDED} [data-send-answer]`;
-          await shell.until(
-            `document.querySelector(${JSON.stringify(own)}) !== null`,
-            "질문 칸이 서지 않았다",
-            120_000,
+          // 접힌 sidebar에서는 바로 가기 rail이, 펼쳐진 sidebar에서는 Contexts 행이 같은 탭을 연다.
+          await flow.until(
+            `document.querySelector("[data-rail-action='contexts']") !== null || document.querySelector("[data-contexts-row]") !== null`,
+            "Contexts로 가는 길이 없다",
           );
-          await shell.type(own, FREE_TEXT);
-          await shell.until(
-            `(() => { const button = document.querySelector(${
-              JSON.stringify(sendAnswer)
-            }); return button !== null && button.disabled === false; })()`,
-            "자유 답을 보낼 수 없다",
+          await flow.click(
+            await flow.count("[data-rail-action='contexts']") > 0
+              ? "[data-rail-action='contexts']"
+              : "[data-contexts-row]",
           );
-          await shell.click(sendAnswer);
-          await untilDecision(provider, "asked", "질문 답 뒤 이어짐");
-          await untilEngineerDone(shell, provider, "경계 질문이 끝나지 않았다");
-          await sendToEngineer(shell, DIRECT_ASK);
-          await untilDecision(provider, "done", "구성 기록");
-          await shell.until(
-            `document.querySelector(${
-              JSON.stringify(EMBEDDED)
-            })?.innerText.includes(${JSON.stringify(RECORDED)})`,
-            "구성 기록이 대화에 없다",
-            180_000,
+          await flow.until(
+            `[...document.querySelectorAll("button")].some((b) => b.textContent?.trim() === "New context")`,
+            "Contexts 탭에 [New context]가 없다",
           );
-          context = provider.context();
-          const deadline = Date.now() + 60_000;
+          assertEquals(await flow.count("[data-context-card]"), 0);
+          assertEquals(
+            await flow.evaluate(clickTexted("button", "New context")),
+            true,
+          );
+          await flow.until(
+            `document.querySelector(${JSON.stringify(DOCK)}) !== null`,
+            "Context Engineer 대화가 열리지 않았다",
+          );
+          await flow.until(
+            `document.querySelector(${JSON.stringify(INPUT)}) !== null`,
+            "대화 입력칸이 서지 않았다",
+          );
+          // 폼은 열리지 않는다: 이름·목적을 받는 입력은 대화 칸 하나뿐이다.
+          assertEquals(await flow.count("form input[type='text']"), 0);
+          await flow.type(INPUT, FIRST_MESSAGE);
+          await flow.click(SEND);
+        },
+      );
+
+      await t.step(
+        "documents/contexts#R5 documents/contexts#R6 shell/workspace#R30: 3 context가 생기면 drafting 상태의 Context 탭이 남는다",
+        async () => {
+          await flow.until(
+            `document.querySelector("[data-drafting]")?.textContent?.includes("Context Engineer is drafting") === true`,
+            "drafting 탭이 서지 않았다",
+            90_000,
+          );
+          const head = await flow.text("[data-context-head]");
+          assert(head?.includes(TITLE) === true, `머리에 이름이 없다: ${head}`);
+          assertEquals((await contexts()).map((row) => row.status), [
+            "drafting",
+          ]);
+        },
+      );
+
+      await t.step(
+        "documents/contexts#R20 documents/contexts#R21 documents/contexts#R22 shell/workspace#R16: 4·5 제출한 판은 격리 검사를 통과하면 사람 승인 없이 적용되고 Contexts 탭의 카드에 판과 위반 수가 나온다",
+        async () => {
+          const deadline = Date.now() + 120_000;
+          let row: ContextRow | undefined;
           for (;;) {
-            const rows = await runsOf();
-            if (
-              rows.length >= 2 && rows.every((row) => row.state === "finished")
-            ) {
+            row = (await contexts())[0];
+            if (row?.status === "active") break;
+            assert(
+              Date.now() < deadline,
+              `판이 적용되지 않았다 | ${
+                JSON.stringify(row)
+              } calls=${provider.calls()} dock=${await dockText()}`,
+            );
+            await delay(500);
+          }
+          assert(row.applied_bundle !== null, "적용된 판이 없다");
+          await untilRuns(1);
+          // 4개 호출(create·draft·preview·submit) 뒤 보고 한 번으로 끝난다. 확인 창은 없다.
+          assertEquals(provider.calls(), 5);
+          assertEquals(await flow.count("[data-confirmation]"), 0);
+          // 검사에서 센 위반은 적용을 막지 않고 남는다.
+          const found = await violations();
+          assert(
+            found.length >= 4,
+            `snapshot의 위반이 남지 않았다: ${found.length}`,
+          );
+        },
+      );
+
+      await t.step(
+        "shell/workspace#R30 shell/workspace#R16: 5 판이 적용되면 열어 둔 drafting 탭이 보통 Context 탭이 된다",
+        async () => {
+          // 탭을 다시 열거나 창을 다시 읽지 않아도 같은 탭이 drafting을 벗어나야 한다.
+          // context 목록을 다시 읽는 간격(30초) 안에 따라온다.
+          await flow.until(
+            `document.querySelector("[data-drafting]") === null && document.querySelector("[data-kept-up-to-date]") !== null`,
+            "열어 둔 탭이 drafting에서 벗어나지 않았다",
+            90_000,
+          );
+        },
+      );
+
+      await t.step(
+        "shell/workspace#R16 documents/contexts#R21: 5 Contexts 탭의 카드에 이름·목적이 나온다",
+        async () => {
+          await flow.click(
+            await flow.count("[data-rail-action='contexts']") > 0
+              ? "[data-rail-action='contexts']"
+              : "[data-contexts-row]",
+          );
+          await flow.until(
+            `document.querySelector("[data-context-card='${ctx}']") !== null`,
+            "Contexts 탭에 카드가 서지 않았다",
+            60_000,
+          );
+          const card = await flow.text(`[data-context-card='${ctx}']`);
+          assert(card?.includes(TITLE) === true, `카드에 이름이 없다: ${card}`);
+          assert(
+            card?.includes(PURPOSE) === true,
+            `카드에 목적이 없다: ${card}`,
+          );
+        },
+      );
+
+      await t.step(
+        "shell/workspace#R17 shell/workspace#R18: 6 [Open]으로 연 Context 탭은 drafting을 벗어나 Overview와 하위 탭을 보인다",
+        async () => {
+          assertEquals(
+            await flow.evaluate(
+              `(() => { const card = document.querySelector("[data-context-card='${ctx}']"); const open = [...card.querySelectorAll("button")].find((b) => b.textContent?.trim() === "Open"); if (!open) return false; open.click(); return true; })()`,
+            ),
+            true,
+          );
+          await flow.until(
+            `document.querySelector("[data-kept-up-to-date]") !== null`,
+            "applied Context 탭이 서지 않았다",
+          );
+          assertEquals(await flow.count("[data-drafting]"), 0);
+          await flow.until(
+            `document.querySelector("[data-type-card], [data-entity]") !== null`,
+            "Overview에 개체 카드가 없다",
+          );
+        },
+      );
+
+      await t.step(
+        "shell/workspace#R22 shell/workspace#R23 shell/workspace#R24 documents/contexts#R16: 7 Search 하위 탭에서 선언된 검색을 고르면 Search 탭이 열리고 결과가 선언대로 나온다",
+        async () => {
+          await flow.mouseClickText("[role='tab']", "Search");
+          try {
+            await flow.until(
+              `document.querySelector("[data-context-search] [data-declared='experiments_by_status']") !== null`,
+              "Search 하위 탭에 선언된 검색이 없다",
+              20_000,
+            );
+          } catch (error) {
+            throw new Error(
+              `${(error as Error).message} | tabs=${await flow.evaluate(
+                `JSON.stringify([...document.querySelectorAll("[role=tab]")].map((e) => e.textContent + ":" + e.getAttribute("aria-selected")))`,
+              )} | body=${await flow.evaluate(
+                `(document.querySelector("main")?.innerText ?? document.body.innerText).slice(0, 700)`,
+              )}`,
+            );
+          }
+          await flow.click(
+            "[data-context-search] [data-declared='experiments_by_status']",
+          );
+          await flow.until(
+            `document.querySelector("[data-result-count]") !== null`,
+            "Search 탭에 결과가 나오지 않았다",
+          );
+          const count = await flow.text("[data-result-count]");
+          assert(/^\d+ /.test(count ?? ""), `결과 개수 글: ${count}`);
+          assert(
+            await flow.count("[data-board-column]") > 0,
+            "board 열이 없다",
+          );
+          assert(
+            await flow.count("[data-board-card]") > 0,
+            "board 카드가 없다",
+          );
+        },
+      );
+
+      await t.step(
+        "shell/workspace#R27 documents/contexts#R18: 8 선언에 든 saved view를 고르면 그 입력을 채운 Search 탭에서 결과를 다시 계산한다",
+        async () => {
+          await flow.until(
+            `document.querySelector("[data-saved-views] [data-saved-view]") !== null`,
+            "Saved views에 보기가 없다",
+          );
+          const all = await flow.count("[data-board-card]");
+          await flow.click("[data-saved-views] [data-saved-view]");
+          await flow.until(
+            `document.querySelectorAll("[data-board-card]").length > 0 && document.querySelectorAll("[data-board-card]").length < ${all}`,
+            "saved view의 입력으로 결과가 좁혀지지 않았다",
+          );
+        },
+      );
+
+      const before = (await violations()).length;
+      const noticesBefore = (await notices()).filter((item) =>
+        item.source_event === "ContextViolationsRecorded"
+      ).length;
+
+      await t.step(
+        "documents/contexts#R23 documents/contexts#R24 documents/contexts#R25 platform/notifications#R1 shell/workspace#R29: 9·10 파일을 고쳐 계약을 어기면 위반이 늘고 notification과 toast가 온다",
+        async () => {
+          const path = `${folder}/${EDITED}`;
+          const source = await Deno.readTextFile(path);
+          assert(source.includes("status: running"), "고칠 줄이 없다");
+          await Deno.writeTextFile(
+            path,
+            source.replace("status: running", "status: stuck"),
+          );
+          const deadline = Date.now() + 120_000;
+          for (;;) {
+            const rose = (await violations()).length > before;
+            const noticed = (await notices()).filter((item) =>
+              item.source_event === "ContextViolationsRecorded"
+            ).length > noticesBefore;
+            if (rose && noticed) {
               break;
             }
             assert(
               Date.now() < deadline,
-              `일이 끝나지 않았다: ${JSON.stringify(rows)}`,
+              `위반이나 notification이 늘지 않았다 | violations=${
+                (await violations()).length
+              }/${before} notices=${(await notices()).length}`,
             );
-            await delay(250);
+            await delay(500);
           }
-          // 구성을 남긴 일을 찾는다: context owner 묶음이 있는 run.
-          for (const row of await runsOf()) {
-            const groups = await previewOf(row.id);
-            if (groups.some((group) => group.owner === "documents/contexts")) {
-              run = row.id;
-              before = groups;
-            }
-          }
-          assert(run !== "", "context 변경을 가진 일이 없다");
+          // 화면 toast는 context 목록을 다시 읽을 때 나온다.
+          await flow.until(
+            `document.querySelector("[data-violation-toasts]")?.textContent?.includes("don't match the contract") === true`,
+            "위반 toast가 나오지 않았다",
+            120_000,
+          );
+          const toast = await flow.text("[data-violation-toasts]");
+          assert(
+            toast?.includes(TITLE) === true,
+            `toast에 context 이름이 없다: ${toast}`,
+          );
         },
       );
 
       await t.step(
-        "lophn-agent/revert#R2 lophn-agent/revert#R3 lophn-agent/revert#R9: 확정 변경 전체를 현재 판으로 검사해 복원 가능 묶음과 유지·불가·충돌 묶음을 이유와 함께 나눈다",
-        () => {
-          const reversible = before.filter((group) =>
-            group.capability === "reversible"
-          );
-          assertEquals(
-            reversible.map((group) => group.owner).sort(),
-            ["documents/contexts", "documents/versions"],
-            JSON.stringify(before),
-          );
-          // 대화 메시지는 감사 사실이라 복원하지 않고 남는다(남을 영향).
-          const retained = before.filter((group) =>
-            group.capability === "retained"
-          );
-          assertEquals(
-            retained.map((group) => [group.owner, group.reason]),
-            [["lophn-agent/conversation", "audit_fact"]],
-            JSON.stringify(before),
-          );
-          // 복원할 수 없거나 유지되는 묶음은 이유 코드를 단다. 이유 없는 묶음이 목록에서 빠지지도 않는다.
-          for (const group of before) {
-            if (group.capability !== "reversible") {
-              assert(group.reason !== null, JSON.stringify(group));
-            }
-          }
-        },
-      );
-
-      await t.step(
-        "shell/confirmation-window#R4 shell/confirmation-window#R5 lophn-agent/revert#R7: 되돌리기는 확인 창이 묶음을 먼저 보이고 닫기는 결정이 아니며 사람이 결정하기 전에는 아무것도 바뀌지 않는다",
+        "shell/workspace#R29 shell/workspace#R19 documents/contexts#R24: 10·11 toast의 [View]는 Violations를 열고 줄마다 파일·어긋난 것·규칙을 보인다",
         async () => {
-          const callsBefore = provider.calls();
-          await openRevert();
-          let page: Awaited<ReturnType<FlowShell["shell"]["connect"]>> | null =
-            null;
-          const deadline = Date.now() + 30_000;
-          while (page === null) {
-            try {
-              page = await shell.shell.connect("lophn-shell://confirmation/");
-            } catch (error) {
-              assert(Date.now() < deadline, `확인 창이 없다: ${error}`);
-              await delay(250);
-            }
-          }
-          const confirmation = page;
-          const pageUntil = async (expression: string, what: string) => {
-            const limit = Date.now() + 30_000;
-            let last: unknown;
-            while (Date.now() < limit) {
-              try {
-                last = await confirmation.evaluate(expression);
-              } catch (error) {
-                last = String(error);
-              }
-              if (last) return last;
-              await delay(200);
-            }
-            throw new Error(`${what}: ${JSON.stringify(last)}`);
-          };
-          await pageUntil(
-            `document.querySelector("[data-groups='revert'] [data-capability]") !== null`,
-            "확인 창에 되돌릴 묶음이 없다",
-          );
-          const shown = JSON.parse(String(
-            await confirmation.evaluate(
-              `JSON.stringify([...document.querySelectorAll("[data-groups='revert'] [data-capability]")].map((el) => [el.getAttribute("data-capability"), el.getAttribute("data-included")]))`,
+          // 알림만으로 agent의 run이 늘지 않는다.
+          assertEquals((await engineerRuns()).length, 1);
+          assertEquals(provider.calls(), 5);
+          assertEquals(
+            await flow.evaluate(
+              clickTexted("[data-violation-toasts] button", "View"),
             ),
-          )) as [string, string][];
-          // 확인 창의 묶음 수와 복원 가능 수는 방금 읽은 검사와 같다.
-          assertEquals(shown.length, before.length, JSON.stringify(shown));
-          assertEquals(
-            shown.filter(([capability]) => capability === "reversible").length,
-            before.filter((group) => group.capability === "reversible").length,
-          );
-          // 닫기(취소)는 적용 결정이 아니다. 아무 revert도 시작하지 않고 다시 열 수 있다.
-          await confirmation.evaluate(
-            `document.querySelector("[data-action='cancel']").click()`,
-          );
-          await delay(1500);
-          assertEquals(await revertsOf(run), []);
-          assertEquals(
-            (await mustCall(shell, {
-              kind: "read",
-              resource: "contexts",
-              method: "get",
-              body: { context },
-            })).context !== undefined,
             true,
           );
-          assertEquals(provider.calls(), callsBefore);
+          await flow.until(
+            `document.querySelector("[data-violation]") !== null`,
+            "Violations 하위 탭이 열리지 않았다",
+          );
+          const row = `[data-violation][data-path='${EDITED}']`;
+          await flow.until(
+            `document.querySelector(${JSON.stringify(row)}) !== null`,
+            "고친 파일의 위반 줄이 없다",
+          );
+          const line = await flow.text(row);
+          assert(
+            line?.includes("exp-002-sight.md") === true,
+            `파일 이름: ${line}`,
+          );
+          assert(
+            await flow.count(`${row} [data-violation-message]`) === 1,
+            "어긋난 것 글이 없다",
+          );
+          assert(
+            (await flow.text(`${row} [data-violation-rule]`))?.includes(
+              "status-known",
+            ) === true,
+            "어긴 규칙 글이 없다",
+          );
         },
       );
 
       await t.step(
-        "lophn-agent/revert#R5 lophn-agent/revert#R6: 다시 열어 명시적으로 결정하면 안전한 복원 가능 변경만 새 변경으로 복원되고 같은 revert는 한 번만 적용된다",
+        "documents/contexts#R25 lophn-agent/roles/context-engineer#R11 shell/workspace#R19: 11·12 [Send to Context Engineer]로 넘기면 근거를 담은 Context Engineer run이 시작되고 줄은 'on it'으로 바뀐다",
         async () => {
-          await openRevert();
-          let page: Awaited<ReturnType<FlowShell["shell"]["connect"]>> | null =
-            null;
-          const deadline = Date.now() + 30_000;
-          while (page === null) {
-            try {
-              // connect는 urlPart별로 연결을 캐시하므로 닫힌 첫 창의 연결을 다시 받지 않게 다른 urlPart로 잇는다.
-              page = await shell.shell.connect("lophn-shell://confirmation");
-            } catch (error) {
-              assert(Date.now() < deadline, `확인 창이 없다: ${error}`);
-              await delay(250);
-            }
-          }
-          const confirmation = page;
-          const limit = Date.now() + 30_000;
-          while (
-            await confirmation.evaluate(
-              `document.querySelector("[data-decision='RevertRun']") !== null`,
-            ) !== true
-          ) {
-            assert(Date.now() < limit, "결정 단추가 서지 않았다");
-            await delay(200);
-          }
-          // 결정하면 창이 닫혀 evaluate가 돌아오지 못하므로 click은 다음 turn에 맡기고 먼저 돌려준다.
-          await confirmation.evaluate(
-            `(() => { const button = document.querySelector("[data-decision='RevertRun']"); setTimeout(() => button.click(), 0); return true; })()`,
-          );
-          // 남는 영향이 섞이면 두 번째 확인 단계가 선다. 사람이 그 영향을 확인해야 나머지가 복원된다.
-          await delay(500);
-          try {
-            if (
-              await confirmation.evaluate(
-                `document.querySelector("[data-decision='RevertRun'][data-step='second']") !== null`,
-              ) === true
-            ) {
-              await confirmation.evaluate(
-                `(() => { const button = document.querySelector("[data-decision='RevertRun'][data-step='second']"); setTimeout(() => button.click(), 0); return true; })()`,
-              );
-            }
-          } catch { /* 결정 뒤 창이 이미 닫혔다 */ }
-          const until = Date.now() + 60_000;
-          let rows = await revertsOf(run);
-          while (!(rows.length > 0 && rows[0]!.outcome !== "applying")) {
-            assert(
-              Date.now() < until,
-              `revert가 끝나지 않았다: ${JSON.stringify(rows)}`,
-            );
-            await delay(250);
-            rows = await revertsOf(run);
-          }
-          assertEquals(rows.length, 1, JSON.stringify(rows));
-          assert(
-            ["applied", "partial"].includes(rows[0]!.outcome),
-            JSON.stringify(rows),
-          );
-          const restored = rows[0]!.changes.filter((change) =>
-            change.result === "restored"
-          );
+          const row = `[data-violation][data-path='${EDITED}']`;
           assertEquals(
-            restored.length,
-            before.filter((group) => group.capability === "reversible").length,
-            JSON.stringify(rows),
+            await flow.evaluate(
+              `(() => { const button = [...document.querySelectorAll(${
+                JSON.stringify(row)
+              } + " button")].find((b) => b.textContent?.trim() === "Send to Context Engineer"); if (!button) return false; button.click(); return true; })()`,
+            ),
+            true,
           );
-          // 복원은 원래 event를 지우지 않고 새 event로 남는다: 원본 seq와 복원 seq가 다르다.
-          for (const change of restored) {
-            assert(change.source_seqs.length > 0, JSON.stringify(change));
-            assert(change.restored_seqs.length > 0, JSON.stringify(change));
-            for (const seq of change.restored_seqs) {
-              assertEquals(change.source_seqs.includes(seq), false);
-            }
-          }
-          // 남는 영향은 복원됐다고 세지 않는다: 대화 메시지는 유지로 남고 복원 event가 없다.
-          const stays = rows[0]!.changes.filter((change) =>
-            change.capability === "retained"
+          await flow.until(
+            `document.querySelector(${
+              JSON.stringify(row + " [data-violation-status]")
+            })?.textContent?.includes("Context Engineer is on it") === true`,
+            "줄이 'Context Engineer is on it'으로 바뀌지 않았다",
           );
-          assertEquals(
-            stays.map((change) => [change.owner, change.result]),
-            [["lophn-agent/conversation", "retained"]],
-          );
-          assertEquals(stays[0]!.restored_seqs, []);
-          // 복원되지 않은 변경은 복원됐다고 세지 않는다.
-          for (const change of rows[0]!.changes) {
-            if (change.result !== "restored") {
-              assert(
-                change.capability !== "reversible",
-                JSON.stringify(change),
-              );
-            }
-          }
-        },
-      );
-
-      await t.step(
-        "lophn-agent/revert#R5 documents/contexts#R7: 복원은 context와 만든 문서를 보관할 뿐 삭제하지 않고 원자료는 그대로이며 원래 판단은 다시 시작하지 않는다",
-        async () => {
-          const stored = await mustCall(shell, {
-            kind: "read",
-            resource: "contexts",
-            method: "get",
-            body: { context },
-          });
-          assertEquals(
-            (stored.context as { status?: string }).status,
-            "archived",
-            JSON.stringify(stored.context),
-          );
-          const archived = await listDocuments(shell, "archived");
-          assert(
-            archived.some((row) => row.title === DECISION_REPORT),
-            "설계 보고 문서가 보관되지 않았다",
-          );
-          assertEquals(
-            (await documentTitled(shell, "glossary")).latest_version,
-            glossary.latest_version,
-          );
-          assertEquals(
-            (await documentTitled(shell, "migration")).latest_version,
-            migration.latest_version,
-          );
-          // 원래 일과 질문은 그대로 읽히고 model은 다시 불리지 않았다.
-          const rows = await runsOf();
+          const rows = await untilRuns(2);
           assertEquals(rows.length, 2);
+          assertEquals(provider.calls(), 7);
+          // 근거(파일 경로·규칙)가 자동으로 붙는다. 사람이 설명을 쓰지 않았다.
+          const request = provider.body(5);
           assert(
-            rows.every((row) => row.outcome?.kind === "completed"),
-            JSON.stringify(rows),
+            request.includes("Look at the contract violations of context"),
+            "넘긴 요청 글이 model 요청에 없다",
           );
-          assertEquals((await questionsOf(shell)).length, 1);
-          assertEquals(provider.failure(), "");
-          // contexts 화면은 같은 Focus를 보관됨으로 남겨 두고 사라지게 하지 않는다.
-          await shell.click('[data-screen="documents"]');
-          await shell.click('[data-screen="contexts"]');
-          await shell.until(
-            `document.querySelector("[data-focus-list]") !== null`,
-            "Focus 목록이 없다",
-          );
-          await shell.click('[data-focus-list] [role="checkbox"]');
-          await shell.until(
-            `document.querySelector('[data-focus="${context}"]') !== null`,
-            "보관된 Focus가 목록에 없다",
-          );
-          await shell.click(`[data-focus="${context}"]`);
-          await shell.until(
-            `document.querySelector("[data-focus-archived]") !== null`,
-            "Focus 보관 표시가 없다",
-          );
+          assert(request.includes(EDITED), "넘긴 요청에 파일 경로가 없다");
+          assert(request.includes("status-known"), "넘긴 요청에 규칙이 없다");
         },
       );
     } finally {
-      await flow?.close();
+      await flow.close();
+      await removeHome(home);
       await provider.close();
-      if (flow !== undefined) await removeHome(flow.home);
       await Deno.remove(folder, { recursive: true });
     }
   },

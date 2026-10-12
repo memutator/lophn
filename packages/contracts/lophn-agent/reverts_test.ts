@@ -2,6 +2,8 @@ import { assert, assertEquals } from "@std/assert";
 import { ERROR_CODES } from "../../base/mod.ts";
 import { routePath } from "../platform/mod.ts";
 import {
+  amendRevertInstall,
+  amendRevertInstallInputSchema,
   appStepResultSchema,
   checkpointEntrySchema,
   checkpointRevertInputSchema,
@@ -15,6 +17,7 @@ import {
   REVERT_EVENTS,
   REVERT_REASON_CODES,
   REVERT_ROUTES,
+  revertAmended,
   revertApplied,
   revertBlocked,
   revertClosed,
@@ -76,7 +79,7 @@ const fileRestore = {
   app_revert: null,
 };
 
-Deno.test("lophn-agent/revert#R1 [agent-RW2]: rewind routes and the six named events", () => {
+Deno.test("lophn-agent/revert#R1 [agent-RW2]: rewind routes and the seven named events", () => {
   assertEquals(REVERT_ROUTES.map(routePath), [
     "/v1/rewind/run-apps",
     "/v1/rewind/apply",
@@ -85,6 +88,7 @@ Deno.test("lophn-agent/revert#R1 [agent-RW2]: rewind routes and the six named ev
     "/v1/rewind/record-file",
     "/v1/rewind/checkpoint",
     "/v1/rewind/finish",
+    "/v1/rewind/amend-install",
     "/v1/rewind/preview",
     "/v1/rewind/checkpoints",
     "/v1/rewind/list",
@@ -96,6 +100,7 @@ Deno.test("lophn-agent/revert#R1 [agent-RW2]: rewind routes and the six named ev
     "RevertBlocked",
     "RevertRedone",
     "RevertClosed",
+    "RevertAmended",
   ]);
   assert(
     REVERT_ROUTES.every((route) =>
@@ -222,6 +227,7 @@ Deno.test("lophn-agent/revert#R12 [agent-RW2]: a checkpoint is a message and fil
       { files_restorable: false, files_reason: null },
       { files_restorable: true, files_reason: "limit_count" },
       { files_restorable: false, files_reason: "limit_none" },
+      { files_restorable: true, files_reason: "record_failed" },
     ]
   ) {
     assert(
@@ -350,9 +356,9 @@ Deno.test("lophn-agent/revert#R14 [agent-RW2]: an over-limit write still succeed
   );
 });
 
-Deno.test("lophn-agent/revert#R3 [agent-RW2]: reasons are the twelve fixed codes and each fits its item class", () => {
-  assertEquals(REVERT_REASON_CODES.length, 12);
-  assertEquals(new Set(REVERT_REASON_CODES).size, 12);
+Deno.test("lophn-agent/revert#R3 [agent-RW2]: reasons are the seventeen fixed codes and each fits its item class", () => {
+  assertEquals(REVERT_REASON_CODES.length, 17);
+  assertEquals(new Set(REVERT_REASON_CODES).size, 17);
   const skipped = (reason: string | null, cls = "file", extra = {}) =>
     revertItemSchema.safeParse({
       ...fileRestore,
@@ -435,9 +441,40 @@ Deno.test("lophn-agent/revert#R11 [agent-RW2]: a failed or uncertain app step ke
     target: tcl,
     app_revert: binding,
   };
-  for (const result of ["failure", "uncertain", "unchanged"]) {
-    assert(revertItemSchema.safeParse({ ...app, result }).success);
+  // result가 restored가 아니면 이유가 있고 앱 단계의 이유는 결과와 짝이다.
+  const reasons = {
+    failure: "app_failed",
+    uncertain: "app_uncertain",
+    unchanged: "app_not_started",
+  } as const;
+  for (const [result, reason] of Object.entries(reasons)) {
+    assert(revertItemSchema.safeParse({ ...app, result, reason }).success);
+    // 시작 전(unchanged)은 applying 중에만 이유가 없을 수 있다(record 시험).
+    if (result !== "unchanged") {
+      assert(
+        !revertItemSchema.safeParse({ ...app, result, reason: null }).success,
+      );
+    }
+    assert(
+      !revertItemSchema.safeParse({ ...app, result, reason: "app_not_settled" })
+        .success,
+    );
   }
+  // 문서 파일은 앱 단계가 시작하지 않아 못 한 일이 app_not_settled다.
+  const file = { ...fileRestore, result: "unchanged" };
+  assert(
+    revertItemSchema.safeParse({ ...file, reason: "app_not_settled" }).success,
+  );
+  assert(
+    !revertItemSchema.safeParse({ ...file, reason: "app_not_started" }).success,
+  );
+  assert(
+    !revertItemSchema.safeParse({
+      ...file,
+      result: "failure",
+      reason: "app_failed",
+    }).success,
+  );
   assertEquals(appStepResultSchema.options, [
     "restored",
     "failure",
@@ -762,4 +799,131 @@ Deno.test("lophn-agent/revert#R16 [agent-RW2]: started, redone and closed events
     assert(event.subject.safeParse(rvt).success);
     assert(!event.subject.safeParse(ses).success);
   }
+});
+
+Deno.test("lophn-agent/revert#R17 [agent-RW2]: a restore step is skipped only after install, only for a file, and only as edited_outside", () => {
+  const skippedInstall = (over: Record<string, unknown>) =>
+    revertItemSchema.safeParse({
+      ...fileRestore,
+      result: "skipped",
+      reason: "edited_outside",
+      ...over,
+    }).success;
+  assert(skippedInstall({}));
+  assert(!skippedInstall({ reason: "chain_broken" }));
+  assert(!skippedInstall({ reason: null }));
+  assert(
+    !skippedInstall({
+      class: "app",
+      target: tcl,
+      app_revert: binding,
+    }),
+  );
+});
+
+Deno.test("lophn-agent/revert#R19 [agent-RW2]: a later agent edit has its own reason apart from a person's edit", () => {
+  const skip = (reason: string) =>
+    revertItemSchema.safeParse({
+      ...fileRestore,
+      plan: "skip",
+      result: "skipped",
+      reason,
+    }).success;
+  assert(skip("later_edit"));
+  assert(skip("edited_outside"));
+  assert(
+    !revertItemSchema.safeParse({
+      ...fileRestore,
+      class: "app",
+      target: tcl,
+      app_revert: binding,
+      plan: "skip",
+      result: "skipped",
+      reason: "later_edit",
+    }).success,
+  );
+});
+
+Deno.test("lophn-agent/revert#R14 [agent-RW2]: a failed record lowers the checkpoint with its own reason, not a limit", () => {
+  assert(
+    checkpointSchema.safeParse({
+      message: msg,
+      session: ses,
+      files_restorable: false,
+      files_reason: "record_failed",
+    }).success,
+  );
+  assert(
+    recordRewindFileOutputSchema.safeParse({
+      tool_call: tcl,
+      path: "notes/a.md",
+      checkpoint: msg,
+      recorded: false,
+      files_restorable: false,
+      files_reason: "record_failed",
+      replayed: false,
+    }).success,
+  );
+});
+
+Deno.test("lophn-agent/revert#R3 [agent-RW2]: a blocked revert has no items, and an unfinished restore item has a reason once the revert is final", () => {
+  const blocked = { ...record, outcome: "blocked", redo: "none" };
+  assert(!revertRecordSchema.safeParse(blocked).success);
+  assert(revertRecordSchema.safeParse({ ...blocked, items: [] }).success);
+  const pending = { ...fileRestore, result: "unchanged" };
+  // applying: 아직 시작 전이라 이유가 없다. 끝난 뒤에는 이유가 있다.
+  assert(
+    revertRecordSchema.safeParse({
+      ...record,
+      outcome: "applying",
+      redo: "none",
+      result_seq: null,
+      items: [pending],
+    }).success,
+  );
+  assert(
+    !revertRecordSchema.safeParse({
+      ...record,
+      outcome: "partial",
+      redo: "none",
+      items: [pending],
+    }).success,
+  );
+  assert(
+    revertRecordSchema.safeParse({
+      ...record,
+      outcome: "partial",
+      redo: "none",
+      items: [{ ...pending, reason: "app_not_settled" }],
+    }).success,
+  );
+});
+
+Deno.test("lophn-agent/revert#R17 [agent-RW2]: AmendRevertInstall is a machine command naming the paths install skipped, and RevertAmended carries the counts", () => {
+  assertEquals(amendRevertInstall.actors, ["machine"]);
+  assert(
+    amendRevertInstallInputSchema.safeParse({
+      revert: rvt,
+      paths: ["notes/a.md"],
+    }).success,
+  );
+  for (const paths of [[], ["a.md", "a.md"], ["../x.md"]]) {
+    assert(
+      !amendRevertInstallInputSchema.safeParse({ revert: rvt, paths }).success,
+    );
+  }
+  assert(
+    revertAmended.payload.safeParse({
+      session: ses,
+      amended: 1,
+      results: counts,
+    }).success,
+  );
+  assert(
+    !revertAmended.payload.safeParse({
+      session: ses,
+      amended: 0,
+      results: counts,
+    }).success,
+  );
 });

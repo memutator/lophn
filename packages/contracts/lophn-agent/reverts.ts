@@ -55,10 +55,12 @@ export const CHECKPOINT_FILES_REASONS = [
   "limit_total",
   "limit_file",
   "limit_count",
+  // 저장소나 기록이 실패해 pre-image를 두지 못했다(한도와 다른 이유).
+  "record_failed",
 ] as const;
 export const checkpointFilesReasonSchema = z.enum(CHECKPOINT_FILES_REASONS);
 
-// 이유는 글이 아니라 고정 코드다. 화면 문장은 이 코드로 wording을 고른다(문서 표 12개).
+// 이유는 글이 아니라 고정 코드다. 화면 문장은 이 코드로 wording을 고른다(문서 표 17개).
 export const REVERT_REASON_CODES = [
   "edited_outside",
   "chain_broken",
@@ -72,6 +74,11 @@ export const REVERT_REASON_CODES = [
   "external_effect",
   "already_reverted",
   "answered_fact",
+  "app_failed",
+  "app_uncertain",
+  "app_not_started",
+  "app_not_settled",
+  "later_edit",
 ] as const;
 export const revertReasonSchema = z.enum(REVERT_REASON_CODES);
 export type RevertReason = z.infer<typeof revertReasonSchema>;
@@ -84,12 +91,17 @@ const FILE_REASONS: readonly RevertReason[] = [
   "rename_blocked",
   "created_edited",
   "already_reverted",
+  "later_edit",
+  "app_not_settled",
 ];
 const APP_REASONS: readonly RevertReason[] = [
   "no_receipt",
   "no_revert_command",
   "app_revision_changed",
   "external_effect",
+  "app_failed",
+  "app_uncertain",
+  "app_not_started",
 ];
 const FACT_REASONS: readonly RevertReason[] = [
   "external_effect",
@@ -276,18 +288,36 @@ type ResultShape = ItemShape & {
   result: z.infer<typeof revertResultSchema>;
 };
 
-// plan별로 허용하는 result 조합(문서 표). 이미 Undo한 파일(already_reverted)만 skip이면서
-// 아무것도 하지 않은 unchanged로 남는다. 복원 계획의 failure·uncertain·unchanged에 붙일
-// 이유 코드는 문서 표에 아직 없어서(open-issues) 이유가 없어도 된다.
+// plan별로 허용하는 result 조합과 그 이유(문서 표). result가 restored가 아니면 이유가 있다.
+//   restore: restored(이유 없음) / failure(app_failed) / uncertain(app_uncertain) /
+//     unchanged(앱: app_not_started, 파일: app_not_settled; applying 중에는 아직 시작 전이라 이유 없음) /
+//     skipped(파일, edited_outside: 확정 뒤 설치가 hash 불일치로 건너뜀. AmendRevertInstall)
+//   skip: skipped, 또는 이미 Undo한 파일(already_reverted)이면 unchanged
+//   remain: remained
+function restoreResultOk(value: ResultShape): boolean {
+  if (!classOk(value)) return false;
+  const app = value.class === "app";
+  switch (value.result) {
+    case "restored":
+      return value.reason === null;
+    case "failure":
+      return app && value.reason === "app_failed";
+    case "uncertain":
+      return app && value.reason === "app_uncertain";
+    case "unchanged":
+      return value.reason === null ||
+        value.reason === (app ? "app_not_started" : "app_not_settled");
+    case "skipped":
+      return !app && value.reason === "edited_outside";
+    case "remained":
+      return false;
+  }
+}
+
 function itemResultOk(value: ResultShape): boolean {
   switch (value.plan) {
     case "restore":
-      if (value.result === "skipped" || value.result === "remained") {
-        return false;
-      }
-      return value.result === "restored"
-        ? value.reason === null && classOk(value)
-        : classOk(value);
+      return restoreResultOk(value);
     case "skip":
       return (value.result === "skipped" ||
         (value.result === "unchanged" &&
@@ -355,6 +385,15 @@ export const revertRecordSchema = z.object({
   }
   const ordinals = new Set(value.items.map((item) => item.ordinal));
   if (ordinals.size !== value.items.length) return false;
+  // blocked는 아무것도 하지 않아 항목이 없다. applying이 아니면 시작 전 항목(unchanged)은 이유가 있다.
+  if (value.outcome === "blocked" && value.items.length > 0) return false;
+  if (
+    value.outcome !== "applying" &&
+    value.items.some((item) =>
+      item.plan === "restore" && item.result === "unchanged" &&
+      item.reason === null
+    )
+  ) return false;
   // redo는 앱 복원 단계가 없는 applied rewind(restore_all·messages_only)만 가진다.
   const redoable = rewound && value.choice !== "summarize" &&
     value.outcome === "applied" && !hasAppRestore(value.items);
@@ -579,6 +618,27 @@ export const finishRevert = defineCommand({
   errors: ["conflict", "forbidden"],
 });
 
+// 확정된 revert의 설치가 쓰기 직전 hash 재비교에서 건너뛴 경로를 결과에 반영한다. outcome은
+// applied 그대로이고, 그 항목은 plan=restore, result=skipped, reason=edited_outside가 된다.
+// 그 경로의 기록은 되돌려짐 표시(reverted_by)를 풀고 redo 근거에서도 빠진다. 항목마다 한 번만 고친다.
+export const amendRevertInstallInputSchema = z.strictObject({
+  revert: idSchema("rvt"),
+  paths: z.array(relativePathSchema).min(1).refine(
+    (paths) => new Set(paths).size === paths.length,
+    { message: "duplicate path" },
+  ),
+});
+
+export const amendRevertInstall = defineCommand({
+  resource: "rewind",
+  method: "amend-install",
+  name: "AmendRevertInstall",
+  input: amendRevertInstallInputSchema,
+  output: revertHeaderOutput,
+  actors: ["machine"],
+  errors: ["conflict", "forbidden", "not_found"],
+});
+
 // 사람이 확인해 applying으로 접수된 revert의 앱 단계를 core가 이어 실행한다. 호출한 사람의
 // 자격으로 앱의 revert command를 직접 부르고, 단계 기록과 끝내기는 core 내부 machine 자격이
 // 한다. 사람 결정은 Rewind의 확인 handle이 이미 받았고 이 route는 applying인 revert만 이어
@@ -773,6 +833,16 @@ export const revertClosed = defineEvent("RevertClosed", {
   }),
 });
 
+export const revertAmended = defineEvent("RevertAmended", {
+  subject: revertSubject,
+  payload: z.object({
+    session: idSchema("ses"),
+    // 설치가 건너뛰어 skipped로 고친 파일 수와 고친 뒤 결과별 항목 수.
+    amended: z.number().int().positive(),
+    results: revertResultCountsSchema,
+  }),
+});
+
 export const REVERT_ROUTES = [
   runAppRevert,
   rewind,
@@ -781,6 +851,7 @@ export const REVERT_ROUTES = [
   recordRewindFile,
   checkpointRevert,
   finishRevert,
+  amendRevertInstall,
   rewindPreview,
   rewindCheckpoints,
   rewindList,
@@ -793,4 +864,5 @@ export const REVERT_EVENTS = [
   revertBlocked,
   revertRedone,
   revertClosed,
+  revertAmended,
 ] as const;

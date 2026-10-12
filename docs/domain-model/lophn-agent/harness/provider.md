@@ -153,7 +153,7 @@ rejected·revoked는 Disconnect 뒤 Connect로만 벗어난다. 같은 credentia
 - **미검증 provider.** OAuth 제품별 lophn 사용 허용·endpoint·client 식별·실제 호출 contract가 검증되지 않은 정의는 활성화하지 않는다.
 
 - **credential 하나.** 호출 계정을 고르는 규칙은 없다. 호출은 이 provider의 credential 하나로 나가며 agent 정의·기본값·session override는 provider만 고른다. usable하지 않으면(rejected·usage_wait·revoked, model block) 그 call은 막히고 run은 멈춘다. 같은 provider의 다른 credential이나 다른 provider·model로 자동 이동하지 않는다. 실제 판은 ModelCall에 남긴다. 무인증은 custom provider의 loopback만 가능하다.
-- **Disconnect.** 확인 창(→ shell/confirmation-window)을 거쳐 provider와 credential(secret)을 함께 지운다. 새 call은 즉시 막히고 가능한 진행 호출에는 취소를 요청한다. 같은 ID로 다시 Connect할 수 있고 그때 그 provider를 고른 agent는 다시 쓸 수 있다.
+- **Disconnect.** 확인 창(→ shell/confirmation-window)을 거쳐 provider와 credential(secret)을 함께 지운다. 새 call은 즉시 막히고 가능한 진행 호출에는 취소를 요청한다: agent runtime이 machine 자격으로 `ProviderDisconnected`를 따라 읽어 그 provider로 진행 중인 run의 호출을 멈추고, 그 run은 설정을 쓸 수 없음(`configuration_unavailable`)으로 끝난다(다른 provider·model로 옮기지 않는다). secret은 ledger 확정 뒤에 OS keychain에서 지우고, 지우지 못한 값은 core가 뜰 때와 주기로 ledger가 가리키지 않는 provider credential 항목을 쓸어 다시 지운다(→ platform/secrets). 같은 ID로 다시 Connect할 수 있고 그때는 새 secret만 쓰며 그 provider를 고른 agent는 다시 쓸 수 있다.
 - **OAuth 갱신.** 만료 60000ms 전부터 credential별 단일 갱신, 최대 15000ms. secret 재조회·새 token 안전 보관 뒤 사용하며 새 refresh token 없으면 이전 것을 유지한다. OAuth 401은 갱신 한 번·동일 요청 재전송 한 번만; 실제 재전송은 별도 ModelCall이며 run 한도에 센다.
 - **device code.** 서버 interval·expiry 우선; interval 없으면 5000ms. xAI slow_down마다 5000ms 증가. ChatGPT 최대 900000ms, xAI expiry 없으면 최대 300000ms. 거절·만료·user 취소 즉시 중단한다. code·PKCE verifier·state 원문은 ledger에 저장하지 않는다.
 - **사용량 대기.** 확인된 reset까지, 모르면 3600000ms. 그 전 call과 test call은 금지다. plan 접근 제한은 인증 폐기와 구별한다.

@@ -29,6 +29,8 @@ export type PreparedRun = {
     credential: AgentRunCredential,
     started: StartRunResult,
   ): {
+    // 이 run이 호출하는 provider. Disconnect를 알릴 때 회수할 run을 고른다.
+    provider: string;
     deps: LoopDeps;
     input: RunInput;
     // 사람의 결정을 기다리는 run의 결정 반영(기다림 해소기). 고정 call의 실제 입력은 이 process가
@@ -51,6 +53,7 @@ export type PreparedResume = {
       | {
         kind: "resumed";
         credential: AgentRunCredential;
+        provider: string;
         deps: LoopDeps;
         input: RunInput;
         settle(): Promise<Result<unknown>>;
@@ -102,8 +105,10 @@ export type RunDriver = {
   // 사람 멈춤·assignment 멈춤이 접수됐다. 새 진입을 막고 진행 호출에 중단을 요청한다.
   stop(run: string, reason: StopReason): void;
   stopAssignment(assignment: string, reason: StopReason): void;
-  // provider를 껐다. 모든 진행 run의 새 model 진입을 막는다.
-  revokeProvider(): void;
+  // provider를 Disconnect했다는 알림이다. 그 provider로 진행 중인 run 가운데 지금 연결을 더 쓸 수 없는 것의
+  // 새 model 진입을 막고 진행 중인 호출에 취소를 요청한다. 알림이 늦게 처리돼 같은 ID로 다시 Connect한 뒤 시작한
+  // run은 지금 연결에 묶여 있어 그대로 둔다. 다른 provider의 run은 건드리지 않는다.
+  revokeProvider(provider: string): Promise<void>;
   revokeServer(server: string): void;
   // 감독이 끊겼다. 새 진입을 막고 진행 호출을 취소하며 들고 있는 credential을 모두 끝낸다.
   endAll(): void;
@@ -116,7 +121,12 @@ export function createRunDriver(deps: DriveDeps): RunDriver {
   const waiting = new Map<string, () => Promise<Result<unknown>>>();
   const active = new Map<
     string,
-    { assignment: string; handle: RunLoopHandle }
+    {
+      assignment: string;
+      provider: string;
+      available(): Promise<boolean>;
+      handle: RunLoopHandle;
+    }
   >();
 
   async function resumeRun(run: string): Promise<RecoverReport> {
@@ -155,9 +165,15 @@ export function createRunDriver(deps: DriveDeps): RunDriver {
     if (recovered.value.kind === "ended") {
       return { run, result: recovered.value.outcome.kind };
     }
-    const { credential, deps: loopDeps, input, settle } = recovered.value;
+    const { credential, provider, deps: loopDeps, input, settle } =
+      recovered.value;
     const handle = startRunLoop(loopDeps, input);
-    active.set(run, { assignment: prepared.value.assignment, handle });
+    active.set(run, {
+      assignment: prepared.value.assignment,
+      provider,
+      available: () => loopDeps.ports.model.available(),
+      handle,
+    });
     const done = handle.done.then((end) => {
       if (end.kind === "waiting") waiting.set(run, settle);
       return end;
@@ -196,12 +212,17 @@ export function createRunDriver(deps: DriveDeps): RunDriver {
         if (begun.started) await deps.closeUnusable(selection);
         return { kind: "not_started", run: selection.run };
       }
-      const { deps: loopDeps, input, settle } = run.loop(
+      const { provider, deps: loopDeps, input, settle } = run.loop(
         begun.value.credential,
         begun.value.started,
       );
       const handle = startRunLoop(loopDeps, input);
-      active.set(selection.run, { assignment: selection.assignment, handle });
+      active.set(selection.run, {
+        assignment: selection.assignment,
+        provider,
+        available: () => loopDeps.ports.model.available(),
+        handle,
+      });
       const done = handle.done.then((end) => {
         if (end.kind === "waiting" && settle !== undefined) {
           waiting.set(selection.run, settle);
@@ -223,8 +244,10 @@ export function createRunDriver(deps: DriveDeps): RunDriver {
       }
       deps.credentials.endAssignment(assignment);
     },
-    revokeProvider() {
-      for (const entry of active.values()) {
+    async revokeProvider(provider) {
+      for (const entry of [...active.values()]) {
+        if (entry.provider !== provider) continue;
+        if (await entry.available()) continue;
         entry.handle.revoke({ provider: true });
       }
     },

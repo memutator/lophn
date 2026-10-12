@@ -720,6 +720,7 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
           deps.agentCall(credential.token),
         );
         return {
+          provider: found.value.model.call.provider,
           settle: () => built.resolver.settle(selection.run),
           deps: built.loopDeps,
           input: {
@@ -819,6 +820,7 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
         return ok({
           kind: "resumed" as const,
           credential: held!,
+          provider: found.value.model.call.provider,
           deps: built.loopDeps,
           settle: () => built.resolver.settle(runId),
           input: {

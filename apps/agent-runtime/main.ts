@@ -36,6 +36,7 @@ import { roleOperations } from "../../packages/lophn-agent/harness/run-loop/mod.
 export { redact };
 import type { Compactor } from "./compact.ts";
 import { productDriver, startRunPump } from "./product-driver.ts";
+import { createProviderWatch } from "./provider-watch.ts";
 import {
   createRunDriver,
   type DriveDeps,
@@ -262,6 +263,11 @@ export async function startAgentRuntime(input: {
     if (input.pump === true) {
       pumping = startRunPump({
         driver,
+        providerWatch: createProviderWatch({
+          read: selectorRead!,
+          cursor: startup!.eventCursor,
+          revokeProvider: (provider) => driver!.revokeProvider(provider),
+        }),
         ...(driverDeps.liveRuns === undefined
           ? {}
           : { liveRuns: driverDeps.liveRuns }),

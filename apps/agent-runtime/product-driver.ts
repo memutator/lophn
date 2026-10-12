@@ -19,6 +19,7 @@ import { type CoreCall, readOf } from "./core-call.ts";
 import { type Compactor, createCompactor } from "./compact.ts";
 import { createModelResolver } from "./resolve-model.ts";
 import { PRODUCT_INSTRUCTIONS, rolePrompt } from "./role-prompts.ts";
+import type { ProviderWatch } from "./provider-watch.ts";
 import type { RunDriver } from "./run-driver.ts";
 import type { DriveDeps } from "./run-driver.ts";
 import { createAppToolkit } from "./app-toolkit.ts";
@@ -169,6 +170,8 @@ export function startRunPump(options: {
   liveRuns?: DriveDeps["liveRuns"];
   // 사람이 요청한 Compact의 요약을 한 번에 하나씩 끝낸다. run을 시작하는 길과 따로 돈다.
   compactor?: Compactor;
+  // Disconnect한 provider로 진행 중인 run을 멈추게 하는 알림을 매 주기 훑는다.
+  providerWatch?: Pick<ProviderWatch, "poll">;
   signal: AbortSignal;
   idleMs?: number;
   waitingMs?: number;
@@ -179,6 +182,11 @@ export function startRunPump(options: {
     let lastWaiting = 0;
     while (!options.signal.aborted) {
       let started = false;
+      try {
+        await options.providerWatch?.poll();
+      } catch {
+        // 알림을 읽지 못해도 pump는 계속 돈다. 위치를 옮기지 않았으므로 다음 주기에 같은 알림을 다시 본다.
+      }
       try {
         const next = await options.driver.startNext();
         started = next.kind === "started" || next.kind === "not_started";

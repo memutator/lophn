@@ -3,13 +3,13 @@
 import { t } from "@lophn/wording";
 
 const REASONS = {
-  invalid_input: "contexts.error.reason.invalid_input",
-  unauthorized: "contexts.error.reason.unauthorized",
-  forbidden: "contexts.error.reason.forbidden",
-  not_found: "contexts.error.reason.not_found",
-  conflict: "contexts.error.reason.conflict",
-  unavailable: "contexts.error.reason.unavailable",
-  internal: "contexts.error.reason.internal",
+  invalid_input: "contexts.error.reason-invalid-input",
+  unauthorized: "contexts.error.reason-unauthorized",
+  forbidden: "contexts.error.reason-forbidden",
+  not_found: "contexts.error.reason-not-found",
+  conflict: "contexts.error.reason-conflict",
+  unavailable: "contexts.error.reason-unavailable",
+  internal: "contexts.error.reason-internal",
 } as const;
 
 export function errorReason(code: string): string {

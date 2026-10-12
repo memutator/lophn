@@ -901,15 +901,15 @@ export const en = {
   "contexts.empty.violations-none": "No violations.",
   "contexts.error.glossary-failed":
     "That didn't go through. The glossary is unchanged.",
-  "contexts.error.reason.conflict":
+  "contexts.error.reason-conflict":
     "It changed somewhere else since you opened it. Reload and try again.",
-  "contexts.error.reason.forbidden": "You aren't allowed to do that here.",
-  "contexts.error.reason.internal": "Something went wrong on our side.",
-  "contexts.error.reason.invalid_input":
+  "contexts.error.reason-forbidden": "You aren't allowed to do that here.",
+  "contexts.error.reason-internal": "Something went wrong on our side.",
+  "contexts.error.reason-invalid-input":
     "Those values can't be used. Check them and try again.",
-  "contexts.error.reason.not_found": "It no longer exists.",
-  "contexts.error.reason.unauthorized": "Sign in again to continue.",
-  "contexts.error.reason.unavailable":
+  "contexts.error.reason-not-found": "It no longer exists.",
+  "contexts.error.reason-unauthorized": "Sign in again to continue.",
+  "contexts.error.reason-unavailable":
     "Context isn't responding right now. Try again in a moment.",
   "contexts.error.search-save-failed": "Couldn't save the view. Try again.",
   "contexts.error.violations-send-failed":

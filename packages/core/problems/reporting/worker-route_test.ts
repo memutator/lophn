@@ -1,7 +1,7 @@
 // 시작된 core와 문제 worker route(/v1/problems/report) 사이 접수 통로의 테스트
 // (problems/reporting#R1, R2; plan problems T3). 문 contract registry·인증·scope·
 // 입력 형식 뒤 collector seam에 닿는지 시작된 core에서 본다. harness의 fileLedger나
-// 직접 insert는 쓰지 않는다. collector 경계 자체는 apps/worker/problems의 테스트가
+// 직접 insert는 쓰지 않는다. collector 경계 자체는 problems/reporting/worker의 테스트가
 // 흔든다.
 
 import { assert, assertEquals } from "@std/assert";

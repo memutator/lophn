@@ -1,4 +1,4 @@
-// apps/agent-runtime MCP 등록 통로 테스트다(lophn-agent#T37, Q16). 가짜 stdio
+// agent-runtime MCP 등록 통로 테스트다(lophn-agent#T37, Q16). 가짜 stdio
 // child와 가짜 settings read로 본다. 사람의 실제 registry·실제 MCP server·
 // 실제 model provider에 닿지 않는다. 파일은 temp dir만 쓴다.
 import { assert, assertEquals } from "@std/assert";

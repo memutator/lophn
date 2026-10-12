@@ -23,7 +23,7 @@ import {
   openLedger,
 } from "./testing/mod.ts";
 
-// export의 형식·절단·실패만 본다. 실제 core route 등록은 apps/core 시험이 본다.
+// export의 형식·절단·실패만 본다. 실제 core route 등록은 core 통합 test가 본다.
 
 const LOPHN = id("asg", 1);
 const RUN = id("run", 1);

@@ -205,7 +205,7 @@ export async function resolveSubmission(
 
 // documents/versions의 content_hash와 같은 규칙이다: 고정 필드 JSON을 path 순으로,
 // 키는 codepoint 순으로 공백 없이 만든 UTF-8의 SHA-256. 문서 저장 준비가 낸 hash와
-// 같은 값이어야 해서 apps/core 통합 테스트가 두 정의를 맞대 본다.
+// 같은 값이어야 해서 core의 projects/file-tracking/routes/format-validate_test.ts가 두 정의를 맞대 본다.
 const FILE_FIELDS = [
   "blob_hash",
   "bytes",

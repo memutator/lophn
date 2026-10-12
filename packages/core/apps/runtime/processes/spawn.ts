@@ -1,6 +1,6 @@
 // 운영 앱 자식의 기동 모양. Deno flag는 apps/permissions가 계산한 그대로 쓴다.
 // token·secret은 argv와 환경에 넣지 않고 시작 JSON 한 줄을 stdin으로만 보낸다.
-// 실제 OS spawn은 apps/app-supervisor entry가 조립한다. 이 모듈은 그 입력을 만든다.
+// 실제 OS spawn은 core/main/app-supervisor entry가 조립한다. 이 모듈은 그 입력을 만든다.
 import type { FlagSet } from "../../permissions/mod.ts";
 
 export type AppEnvironment = {

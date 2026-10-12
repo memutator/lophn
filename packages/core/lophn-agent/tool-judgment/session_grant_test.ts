@@ -1,7 +1,7 @@
 // lophn-agent/harness/tool-judgment#R13, R14: session 허락이 ask를 allow로 낮추는 근거 찾기. core의
 // 읽기(session·approval·tool call·event)는 주입한 호출이라 시험은 같은 route 이름으로 답하는 가짜 core를
 // 쓴다. 실제 ledger에서 approval을 만들고 허락해 두 번째 호출이 새 request 없이 시작하는 흐름은
-// apps/core 시험이 본다. 판정표 자체(낮추는 규칙)는 judgment_test.ts가 본다.
+// core 통합 test가 본다. 판정표 자체(낮추는 규칙)는 judgment_test.ts가 본다.
 import { assertEquals } from "@std/assert";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {

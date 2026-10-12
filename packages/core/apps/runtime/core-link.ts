@@ -1,4 +1,4 @@
-// supervisor가 core를 부르는 자리. 구현은 apps/app-supervisor entry가 조립한다.
+// supervisor가 core를 부르는 자리. 구현은 core/main/app-supervisor entry가 조립한다.
 // 여기 모듈은 그 모양만 정한다.
 import type { Result } from "../../../base/mod.ts";
 

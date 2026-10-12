@@ -774,3 +774,192 @@ Deno.test("platform/secrets#R8 lophn-agent/conversation#R2: keychain이 잠긴 �
     await Deno.remove(opened.home, { recursive: true });
   }
 });
+
+// ---- provider Disconnect와 OS keychain [agent-I53] ----
+
+// 보호 입력 → RegisterProvider까지 사람이 하는 Connect.
+async function connectValue(
+  opened: Opened,
+  provider: string,
+  value: string,
+  key: string,
+): Promise<{ ref: string; revision: number }> {
+  const response = await inputValue(
+    opened.core,
+    provider,
+    value,
+    undefined,
+    "provider_credential",
+  );
+  const evidence = await response.json() as Preparation;
+  assertEquals(response.status, 200, JSON.stringify(evidence));
+  const registered = await post(opened.core, "providers/register", {
+    input: {
+      id: provider,
+      name: "Anthropic",
+      definition: ANTHROPIC,
+      endpoint: "https://api.anthropic.com",
+      protocol: "anthropic-messages",
+      credential: { kind: "api_key", preparation: evidence },
+    },
+    idempotency_key: key,
+    compare: {},
+    prepared: [],
+  });
+  const body = await registered.json() as { provider: { revision: number } };
+  assertEquals(registered.status, 200, JSON.stringify(body));
+  return { ref: evidence.sealed_ref, revision: body.provider.revision };
+}
+
+// 확인 창을 거친 Disconnect.
+async function disconnectValue(
+  opened: Opened,
+  provider: string,
+  revision: number,
+  key: string,
+): Promise<void> {
+  const input = { provider };
+  const response = await post(opened.core, "providers/disconnect", {
+    input,
+    idempotency_key: key,
+    compare: { revision },
+    prepared: [],
+    confirmation: await handleFor(opened.core, disconnectProvider, input),
+  });
+  assertEquals(response.status, 200, await response.clone().text());
+}
+
+function storedValues(keychain: FakeKeychain): string[] {
+  return [...keychain.stored.values()].map((bytes) =>
+    new TextDecoder().decode(bytes)
+  ).sort();
+}
+
+Deno.test("lophn-agent/harness/provider#R6 platform/secrets#R7 [agent-I53]: Disconnect하면 응답 전에 그 provider의 secret이 OS keychain에서 지워지고 다른 provider의 secret은 남는다", async () => {
+  const opened = await open();
+  try {
+    const first = await connectValue(opened, id("pvd", 1), FIRST, "connect-1");
+    const second = await connectValue(
+      opened,
+      id("pvd", 2),
+      SECOND,
+      "connect-2",
+    );
+    assertEquals(storedValues(opened.keychain), [FIRST, SECOND].sort());
+
+    await disconnectValue(opened, id("pvd", 1), first.revision, "disconnect-1");
+
+    assertEquals(opened.keychain.stored.has(first.ref), false);
+    assert(opened.keychain.stored.has(second.ref));
+    assertEquals(storedValues(opened.keychain), [SECOND]);
+  } finally {
+    await close(opened);
+  }
+});
+
+Deno.test("lophn-agent/harness/provider#R6 platform/secrets#R6 [agent-I53]: keychain 삭제가 실패해도 Disconnect는 확정이고 다음에 core가 뜰 때 남은 secret을 쓸어 지운다", async () => {
+  const opened = await open();
+  let core: Core | undefined;
+  try {
+    const first = await connectValue(opened, id("pvd", 1), FIRST, "connect-1");
+    const other = await connectValue(opened, id("pvd", 2), SECOND, "connect-2");
+
+    // ledger는 확정이지만 OS 삭제는 확인되지 않는다. 이 사실을 지운 것으로 꾸미지 않는다(R7).
+    opened.keychain.holdRemovals(true);
+    await disconnectValue(opened, id("pvd", 1), first.revision, "disconnect-1");
+    assert(opened.keychain.stored.has(first.ref), "삭제 실패가 숨겨졌다");
+
+    // keychain이 풀린 뒤 core가 다시 뜨면 ledger가 가리키지 않는 provider 값을 쓸어 지운다.
+    opened.keychain.holdRemovals(false);
+    opened.keychain.confirmRemovals();
+    await opened.core.shutdown();
+    core = (await boot(opened.home, opened.keychain, true)).core;
+    assertEquals(opened.keychain.stored.has(first.ref), false);
+    // ledger가 가리키는 값과 provider 밖의 값은 건드리지 않는다.
+    assert(opened.keychain.stored.has(other.ref));
+  } finally {
+    opened.store.close();
+    await core?.shutdown();
+    await Deno.remove(opened.home, { recursive: true });
+  }
+});
+
+Deno.test("lophn-agent/harness/provider#R8 [agent-I53]: Disconnect 뒤 같은 ID로 다시 Connect하면 새 secret만 keychain에 있고 옛 secret은 없다", async () => {
+  const opened = await open();
+  try {
+    const provider = id("pvd", 1);
+    const first = await connectValue(opened, provider, FIRST, "connect-1");
+    await disconnectValue(opened, provider, first.revision, "disconnect-1");
+    assertEquals(storedValues(opened.keychain), []);
+
+    const second = await connectValue(opened, provider, SECOND, "connect-2");
+    assertEquals(opened.keychain.stored.has(first.ref), false);
+    assertEquals(storedValues(opened.keychain), [SECOND]);
+    assert(opened.keychain.stored.has(second.ref));
+    assert(first.ref !== second.ref);
+  } finally {
+    await close(opened);
+  }
+});
+
+// agent runtime(machine 자격)만 ProviderDisconnected를 따라 읽어 진행 run을 회수한다. 사람·agent·app은
+// 이 event를 보지 못한다(run 접수·시작·끝남과 같은 공개 범위).
+Deno.test("lophn-agent/harness/provider#R4 [agent-I53]: ProviderDisconnected event는 machine 자격만 읽고 사람 자격에는 보이지 않는다", async () => {
+  const opened = await open();
+  try {
+    const machineToken = "m".repeat(43);
+    const userToken = "u".repeat(43);
+    const credentials: [AuthenticatedContext, string][] = [
+      [{
+        principal: "machine:agent-runtime",
+        actor: "machine",
+        scope: { operations: ["ListEvents"], targets: {} },
+        conditions: {},
+        credential_ref: "cred-machine-events",
+      }, machineToken],
+      [{
+        principal: "user-2",
+        actor: "user",
+        scope: { operations: ["ListEvents"], targets: {} },
+        conditions: {},
+        credential_ref: "cred-user-events",
+      }, userToken],
+    ];
+    for (const [context, token] of credentials) {
+      assert((await opened.core.acceptTestCredential?.(context, token))?.ok);
+      assert((await opened.core.record(context)).ok);
+    }
+    const provider = id("pvd", 1);
+    const first = await connectValue(opened, provider, FIRST, "connect-1");
+    await disconnectValue(opened, provider, first.revision, "disconnect-1");
+
+    const list = async (token: string) => {
+      const response = await fetch(
+        `http://127.0.0.1:${opened.core.port}/v1/events/list`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            after_seq: "0",
+            types: ["ProviderDisconnected"],
+          }),
+        },
+      );
+      const body = await response.json() as {
+        events: { type: string; subject: string }[];
+      };
+      assertEquals(response.status, 200, JSON.stringify(body));
+      return body.events;
+    };
+    assertEquals(
+      (await list(machineToken)).map((event) => [event.type, event.subject]),
+      [["ProviderDisconnected", provider]],
+    );
+    assertEquals(await list(userToken), []);
+  } finally {
+    await close(opened);
+  }
+});

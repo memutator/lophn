@@ -8,6 +8,7 @@ import type { KnownSecretChannel } from "../../packages/platform/ledger/mod.ts";
 import {
   createFakeKeychain,
   type FakeKeychain,
+  type KeychainAdapter,
   SECRET_SCHEMA_STEPS,
   type SecretRefSource,
 } from "../../packages/platform/secrets/mod.ts";
@@ -275,4 +276,183 @@ Deno.test("lophn-agent/conversation#R2 platform/redaction#R1: 메시지 본문�
     content: { parts: { text: string }[] };
   }).content.parts[0]!.text;
   assertEquals(keptText, `값 ${OWNER_VALUE} *`);
+});
+
+// ---- 참조가 사라진 secret의 OS 삭제 [agent-I53] ----
+
+const PROVIDER_OWNER = "lophn-agent/harness/provider";
+const RECLAIM = {
+  purpose: "provider_credential" as const,
+  owners: [PROVIDER_OWNER],
+};
+
+async function putAs(
+  keychain: FakeKeychain,
+  value: string,
+  purpose: "provider_credential" | "app_secret",
+): Promise<string> {
+  const stored = await keychain.store({
+    name: "x",
+    purpose,
+    owner: "x",
+    value: new TextEncoder().encode(value),
+  });
+  assert(stored.ok);
+  return stored.value;
+}
+
+Deno.test("platform/secrets#R7 [agent-I53]: 회수 대상 owner의 참조가 사라지면 그 secret을 OS keychain에서 지우고 다른 owner의 secret은 남긴다", async () => {
+  const { path, home } = ledger();
+  try {
+    const keychain = createFakeKeychain();
+    const mine = await put(keychain, OWNER_VALUE);
+    const theirs = await put(keychain, OTHER_VALUE);
+    let mineRefs = [{ name: "pvd_a", sealedRef: mine }];
+    let theirRefs = [{ name: "srv_a", sealedRef: theirs }];
+    const store = openSecretStore({
+      ledgerPath: path,
+      channel: channel({ registered: [], revoked: [], ready: [] }),
+      keychain: () => keychain,
+      sources: [
+        { owner: PROVIDER_OWNER, commands: [], read: () => ok(mineRefs) },
+        {
+          owner: "lophn-agent/extensions",
+          commands: [],
+          read: () => ok(theirRefs),
+        },
+      ],
+      reclaim: RECLAIM,
+    });
+    assert((await store.sync()).ok);
+    assert(keychain.stored.has(mine) && keychain.stored.has(theirs));
+
+    mineRefs = [];
+    theirRefs = [];
+    assert((await store.sync()).ok);
+    assertEquals(keychain.stored.has(mine), false);
+    assert(keychain.stored.has(theirs), "회수 대상이 아닌 owner의 값을 지웠다");
+    store.stop();
+  } finally {
+    Deno.removeSync(home, { recursive: true });
+  }
+});
+
+Deno.test("platform/secrets#R6 R7 [agent-I53]: OS 삭제가 실패해도 값은 이미 회수돼 registry는 준비된 채이고 남은 secret은 나중 쓸기가 지운다", async () => {
+  const { path, home } = ledger();
+  try {
+    const keychain = createFakeKeychain();
+    const ref = await put(keychain, OWNER_VALUE);
+    let refs = [{ name: "pvd_a", sealedRef: ref }];
+    const calls: Calls = { registered: [], revoked: [], ready: [] };
+    const store = openSecretStore({
+      ledgerPath: path,
+      channel: channel(calls),
+      keychain: () => keychain,
+      sources: [{ owner: PROVIDER_OWNER, commands: [], read: () => ok(refs) }],
+      reclaim: RECLAIM,
+    });
+    assert((await store.sync()).ok);
+
+    keychain.holdRemovals(true);
+    refs = [];
+    assert((await store.sync()).ok);
+    // 새 사용은 막혔고 알려진 값은 회수됐다. 지우지 못한 값은 keychain에 남아 있다.
+    assertEquals(calls.revoked, [OWNER_VALUE]);
+    assertEquals(store.known.ready, true);
+    assert(keychain.stored.has(ref));
+
+    // 삭제가 풀린 뒤의 쓸기가 지운다. 아직 막혀 있으면 실패를 돌려주고 남긴다.
+    assert(!(await store.sweep({ immediate: true })).ok);
+    assert(keychain.stored.has(ref));
+    keychain.holdRemovals(false);
+    keychain.confirmRemovals();
+    assert((await store.sweep({ immediate: true })).ok);
+    assertEquals(keychain.stored.has(ref), false);
+    store.stop();
+  } finally {
+    Deno.removeSync(home, { recursive: true });
+  }
+});
+
+Deno.test("platform/secrets#R6 [agent-I53]: 쓸기는 ledger가 가리키지 않는 그 용도의 항목만 지우고 두 번 연속 본 것만 지운다", async () => {
+  const { path, home } = ledger();
+  try {
+    const keychain = createFakeKeychain();
+    const kept = await put(keychain, OWNER_VALUE);
+    const orphan = await put(keychain, OTHER_VALUE);
+    const appSecret = await putAs(keychain, "app-secret-value-1", "app_secret");
+    let refs = [{ name: "pvd_a", sealedRef: kept }];
+    const store = openSecretStore({
+      ledgerPath: path,
+      channel: channel({ registered: [], revoked: [], ready: [] }),
+      keychain: () => keychain,
+      sources: [{ owner: PROVIDER_OWNER, commands: [], read: () => ok(refs) }],
+      reclaim: RECLAIM,
+    });
+
+    // 처음 본 고아는 표시만 한다. 보호 입력을 마치고 RegisterProvider가 확정되기 전의 값일 수 있다.
+    assert((await store.sweep()).ok);
+    assert(keychain.stored.has(orphan));
+    assert((await store.sweep()).ok);
+    assertEquals(keychain.stored.has(orphan), false);
+    assert(keychain.stored.has(kept), "ledger가 가리키는 값을 지웠다");
+    assert(keychain.stored.has(appSecret), "다른 용도의 값을 지웠다");
+
+    // 표시된 뒤 ledger가 가리키게 된 항목은 지우지 않고, 다시 가리키지 않게 돼도 처음부터 센다.
+    const late = await put(keychain, "late-connect-value-5");
+    assert((await store.sweep()).ok);
+    refs = [...refs, { name: "pvd_b", sealedRef: late }];
+    assert((await store.sweep()).ok);
+    assert(keychain.stored.has(late));
+    refs = [refs[0]!];
+    assert((await store.sweep()).ok);
+    assert(keychain.stored.has(late));
+    assert((await store.sweep()).ok);
+    assertEquals(keychain.stored.has(late), false);
+
+    // core가 막 뜰 때는 보호 입력이 아직 없으므로 바로 지운다.
+    const stale = await put(keychain, "stale-value-from-crash-3");
+    assert((await store.sweep({ immediate: true })).ok);
+    assertEquals(keychain.stored.has(stale), false);
+    assert(keychain.stored.has(kept));
+    store.stop();
+  } finally {
+    Deno.removeSync(home, { recursive: true });
+  }
+});
+
+Deno.test("platform/secrets#R8 [agent-I53]: keychain이 잠기거나 목록을 낼 수 없으면 쓸기는 아무것도 지우지 않고 실패를 돌려준다", async () => {
+  const { path, home } = ledger();
+  try {
+    const keychain = createFakeKeychain();
+    const orphan = await put(keychain, OTHER_VALUE);
+    const store = openSecretStore({
+      ledgerPath: path,
+      channel: channel({ registered: [], revoked: [], ready: [] }),
+      keychain: () => keychain,
+      sources: [{ owner: PROVIDER_OWNER, commands: [], read: () => ok([]) }],
+      reclaim: RECLAIM,
+    });
+    keychain.setStatus("unavailable");
+    assert(!(await store.sweep({ immediate: true })).ok);
+    keychain.setStatus("available");
+    assert(keychain.stored.has(orphan));
+
+    // 목록 기능이 없는 adapter에서도 지우지 않는다.
+    const { listRefs: _listRefs, ...rest } = keychain;
+    const listless: KeychainAdapter = rest;
+    const blind = openSecretStore({
+      ledgerPath: path,
+      channel: channel({ registered: [], revoked: [], ready: [] }),
+      keychain: () => listless,
+      sources: [{ owner: PROVIDER_OWNER, commands: [], read: () => ok([]) }],
+      reclaim: RECLAIM,
+    });
+    assert(!(await blind.sweep({ immediate: true })).ok);
+    assert(keychain.stored.has(orphan));
+    store.stop();
+    blind.stop();
+  } finally {
+    Deno.removeSync(home, { recursive: true });
+  }
 });

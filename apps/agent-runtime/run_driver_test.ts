@@ -29,6 +29,11 @@ const SELECTION: Selection = {
   stateSeq: "3",
   reason: "priority",
 };
+// 두 run이 서로 다른 provider를 쓰는 시험의 재료다.
+const PROVIDER_A = "pvd_01arz3ndektsv4rrffq69g5fav";
+const PROVIDER_B = "pvd_01arz3ndektsv4rrffq69g5fb0";
+const RUN_B = "run_01arz3ndektsv4rrffq69g5fb0";
+const ASG_B = "asg_01arz3ndektsv4rrffq69g5fb0";
 const SCOPE = {
   role: "lophn" as const,
   assignment: ASG,
@@ -113,7 +118,7 @@ Deno.test("lophn-agent/harness/run-loop#R15: core가 답하지 않으면 발급 
 });
 
 // 완료하는 가장 작은 loop 재료. 실제 provider·core를 부르지 않는다.
-function loopMaterial() {
+function loopMaterial(provider = PROVIDER_A, run = RUN) {
   const clock = manualClock(Date.parse("2026-10-06T00:00:00.000Z"));
   const ports: RunPorts = {
     stop: () => Promise.resolve({ stopped: false }),
@@ -194,9 +199,10 @@ function loopMaterial() {
     ports,
   };
   return {
+    provider,
     deps,
     input: {
-      run: RUN,
+      run,
       session: null,
       limits: { model_attempts: 30, stall_ms: 300_000, active_ms: 1_800_000 },
       elapsed: { active_ms: 0, stall_ms: 0, checkpoint_at: null },
@@ -458,4 +464,150 @@ Deno.test("lophn-agent/harness/run-loop#R8: 내장 tool handler의 소유 contra
   assert(!missing.ok);
   assertEquals(missing.error.code, "not_found");
   assertEquals(sent.length, 2);
+});
+
+// ---- provider Disconnect와 진행 중인 run [agent-I53] ----
+
+const CANCELLED = {
+  id: "mcl_01arz3ndektsv4rrffq69g5fav",
+  outcome: {
+    kind: "cancelled" as const,
+    code: null,
+    retry_at: null,
+    finish_reason: null,
+    http_status: null,
+    provider_code: null,
+  },
+  text: "",
+  toolCalls: [],
+};
+
+// model call이 풀어 주거나 중단 신호를 받을 때까지 도는 run. 신호를 받았는지와 call 수, FinishRun
+// 요청을 남긴다. `connected`가 false면 provider가 Disconnect된 것이다.
+function liveRun(provider: string, run: string, release: Promise<void>) {
+  const material = loopMaterial(provider, run);
+  const state = { aborted: false, calls: 0, connected: true };
+  const finishes: Parameters<RunPorts["finish"]>[0][] = [];
+  const complete = material.deps.ports.model.call;
+  material.deps.ports.model.available = () => Promise.resolve(state.connected);
+  material.deps.ports.model.call = (request, signal) => {
+    state.calls += 1;
+    return new Promise((resolve) => {
+      signal.addEventListener("abort", () => {
+        state.aborted = true;
+        resolve(ok(CANCELLED));
+      }, { once: true });
+      void release.then(() => resolve(complete(request, signal)));
+    });
+  };
+  material.deps.ports.finish = (request) => {
+    finishes.push(request);
+    return Promise.resolve(ok({ finished: true as const }));
+  };
+  return { material, state, finishes };
+}
+
+async function until(done: () => boolean): Promise<void> {
+  for (let tick = 0; tick < 200 && !done(); tick++) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  assert(done(), "조건이 채워지지 않았다");
+}
+
+function driverOfRuns(
+  core: ReturnType<typeof fakeCore>,
+  runs: Map<string, ReturnType<typeof loopMaterial>>,
+) {
+  const queue = [
+    { ...SELECTION },
+    { ...SELECTION, run: RUN_B, assignment: ASG_B },
+  ];
+  return createRunDriver({
+    selector: { next: () => Promise.resolve(ok(queue.shift() ?? null)) },
+    credentials: core.credentials,
+    prepare: (selection) =>
+      Promise.resolve(ok({
+        begin: {
+          run: selection.run,
+          assignment: selection.assignment,
+          stateSeq: "3",
+          basis: "a".repeat(64),
+          limits: {
+            model_attempts: 30,
+            stall_ms: 300_000,
+            active_ms: 1_800_000,
+          },
+          scope: { ...SCOPE, assignment: selection.assignment },
+        },
+        startRun: () =>
+          Promise.resolve(
+            ok({ run: selection.run, state_seq: "4", basis: "a".repeat(64) }),
+          ),
+        loop: () => runs.get(selection.run)!,
+      })),
+    closeUnusable: () => Promise.resolve(),
+  });
+}
+
+Deno.test("lophn-agent/harness/provider#R4 lophn-agent/harness/run-loop#R25 [agent-I53]: Disconnect를 알리면 그 provider로 진행 중인 run의 call을 멈추고 이유를 남기며 다른 provider의 run은 그대로 둔다", async () => {
+  const core = fakeCore();
+  const release = Promise.withResolvers<void>();
+  const a = liveRun(PROVIDER_A, RUN, release.promise);
+  const b = liveRun(PROVIDER_B, RUN_B, release.promise);
+  const driver = driverOfRuns(
+    core,
+    new Map([[RUN, a.material], [RUN_B, b.material]]),
+  );
+  const startedA = await driver.startNext();
+  const startedB = await driver.startNext();
+  assert(startedA.kind === "started" && startedB.kind === "started");
+  await until(() => a.state.calls === 1 && b.state.calls === 1);
+
+  a.state.connected = false;
+  await driver.revokeProvider(PROVIDER_A);
+
+  // 진행 중인 call이 중단 신호를 받고 run은 설정을 쓸 수 없다는 이유로 끝난다. 다른 provider·model로
+  // 옮겨 가지 않아 call은 처음 하나뿐이다(provider#R10).
+  assertEquals(await startedA.done, {
+    kind: "finished",
+    outcome: { kind: "failed", reason: "configuration_unavailable" },
+  });
+  assert(a.state.aborted);
+  assertEquals(a.state.calls, 1);
+  assertEquals(a.finishes.map((request) => request.outcome), [
+    { kind: "failed", reason: "configuration_unavailable" },
+  ]);
+  assertEquals(core.credentials.live(), [RUN_B]);
+
+  // 다른 provider의 run은 중단되지 않고 계속 돌다가 제 결과로 끝난다.
+  assertEquals(b.state.aborted, false);
+  assertEquals(driver.active, 1);
+  release.resolve();
+  const endB = await startedB.done;
+  assertEquals(endB.kind, "finished");
+  assertEquals(b.finishes.map((request) => request.outcome), [
+    { kind: "completed", reason: "answer_completed" },
+  ]);
+  assertEquals(core.credentials.live(), []);
+});
+
+Deno.test("lophn-agent/harness/provider#R4 [agent-I53]: 같은 ID로 다시 Connect한 뒤 시작한 run은 옛 Disconnect 알림에 회수되지 않는다", async () => {
+  const core = fakeCore();
+  const release = Promise.withResolvers<void>();
+  // 이 run의 provider는 지금 연결돼 있다(available). 옛 Disconnect event가 늦게 처리돼도 그대로다.
+  const fresh = liveRun(PROVIDER_A, RUN, release.promise);
+  const driver = driverOfRuns(core, new Map([[RUN, fresh.material]]));
+  const started = await driver.startNext();
+  assert(started.kind === "started");
+  await until(() => fresh.state.calls === 1);
+
+  await driver.revokeProvider(PROVIDER_A);
+  await driver.revokeProvider("pvd_01arz3ndektsv4rrffq69g5fb1");
+  assertEquals(fresh.state.aborted, false);
+  assertEquals(driver.active, 1);
+  release.resolve();
+  assertEquals((await started.done).kind, "finished");
+  assertEquals(fresh.finishes.map((request) => request.outcome), [
+    { kind: "completed", reason: "answer_completed" },
+  ]);
 });

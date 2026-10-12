@@ -198,6 +198,7 @@ Deno.test("lophn-agent/conversation#R4 [ctx-I58j]: a context link names one cont
       mode: null,
       applied_at_call: null,
       links,
+      copied_from: null,
     }).success;
   assert(stored([{ kind: "context", context: ctx }]));
   assert(!stored([{ kind: "context", context: doc }]));

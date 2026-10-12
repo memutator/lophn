@@ -11,7 +11,6 @@ import {
   ASG_CE,
   ASG_LOPHN,
   ASG_OP,
-  assignmentOf,
   code,
   count,
   DONE,
@@ -1341,11 +1340,10 @@ Deno.test("lophn-agent/conversation#R1 #R3 [ctx-I58h]: a request started for a p
     // 세션은 Context Engineer의 새 세션이고 작업 자리는 넘겨받은 자리다.
     const session = (await sql(
       h,
-      "select assignment, role, work_place_kind, work_place_id, state from sessions where id = ?",
+      "select assignment, work_place_kind, work_place_id, state from sessions where id = ?",
       [started.session],
     ))[0]!;
     assertEquals(String(session["assignment"]), ASG_CE);
-    assertEquals(String(session["role"]), "context_engineer");
     assertEquals(String(session["work_place_kind"]), "project");
     assertEquals(String(session["work_place_id"]), PROJECT);
     assertEquals(String(session["state"]), "open");
@@ -1406,16 +1404,7 @@ Deno.test("lophn-agent/conversation#R14 [ctx-I58h]: with no enabled assignment f
   const h = await open();
   try {
     await seed(h);
-    const current = await assignmentOf(h, ASG_CE);
-    value(
-      await h.command(
-        userCred,
-        envelope("PauseAssignment", {
-          assignment: ASG_CE,
-          reason: { kind: "user", detail: "pause", runs: [], target: null },
-        }, { revision: current.revision, state: "enabled" }),
-      ),
-    );
+    await setAssignmentState(h, ASG_CE, "paused");
     code(
       await startRequestOf(h, "Look at these violations.", PLACES.project),
       "unavailable",
@@ -1424,15 +1413,7 @@ Deno.test("lophn-agent/conversation#R14 [ctx-I58h]: with no enabled assignment f
     assertEquals(await count(h, "messages"), 0);
     assertEquals(await count(h, "runs"), 0);
     // 작업 자리가 실제 project가 아니면 세션을 열 때 거절되어 아무것도 남지 않는다.
-    value(
-      await h.command(
-        userCred,
-        envelope("ResumeAssignment", { assignment: ASG_CE }, {
-          revision: (await assignmentOf(h, ASG_CE)).revision,
-          state: "paused",
-        }),
-      ),
-    );
+    await setAssignmentState(h, ASG_CE, "enabled");
     code(
       await startRequestOf(h, "Look.", { kind: "project", id: id("prj", 9) }),
       "not_found",

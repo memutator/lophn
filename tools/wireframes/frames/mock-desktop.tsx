@@ -4,28 +4,28 @@
 import { useEffect, useMemo } from "react";
 import { t } from "@lophn/wording";
 
-import { Desktop } from "../../../apps/shell/renderer/desktop/main.tsx";
+import { Desktop } from "../../../packages/shell/renderer/desktop/main.tsx";
 import {
   type DevMock,
   devMock,
-} from "../../../apps/shell/renderer/desktop/dev-mock/mod.ts";
+} from "../../../packages/shell/renderer/desktop/dev-mock/mod.ts";
 import {
   PROJECT_GROCERY,
-} from "../../../apps/shell/renderer/desktop/dev-mock/ids.ts";
-import type { CoreSource } from "../../../apps/shell/renderer/desktop/connection/connection.ts";
+} from "../../../packages/shell/renderer/desktop/dev-mock/ids.ts";
+import type { CoreSource } from "../../../packages/shell/renderer/desktop/connection/connection.ts";
 import {
   LAUNCHER,
   type Route,
-} from "../../../apps/shell/renderer/desktop/router.ts";
-import { AppViewsProvider } from "../../../apps/shell/renderer/app-frame/app-views.tsx";
-import { ConversationProvider } from "../../../apps/shell/renderer/conversation/window-deps.tsx";
-import { DraftStore } from "../../../apps/shell/renderer/conversation/drafts.ts";
+} from "../../../packages/shell/renderer/desktop/router.ts";
+import { AppViewsProvider } from "../../../packages/shell/renderer/app-frame/app-views.tsx";
+import { ConversationProvider } from "../../../packages/shell/renderer/conversation/window-deps.tsx";
+import { DraftStore } from "../../../packages/shell/renderer/conversation/drafts.ts";
 import {
   RequestDrafts,
   RequestsProvider,
-} from "../../../apps/shell/renderer/desktop/lophn-space/things-to-confirm/context.tsx";
-import { TerminalStore } from "../../../apps/shell/renderer/terminal/store.ts";
-import { createXtermView } from "../../../apps/shell/renderer/terminal/xterm-view.ts";
+} from "../../../packages/shell/renderer/desktop/lophn-space/things-to-confirm/context.tsx";
+import { TerminalStore } from "../../../packages/shell/renderer/terminal/store.ts";
+import { createXtermView } from "../../../packages/shell/renderer/terminal/xterm-view.ts";
 import { fakeTerminal } from "./fake-terminal.ts";
 // 터미널 탭이 쓰는 xterm 기본 배치.
 import "@xterm/xterm/css/xterm.css";

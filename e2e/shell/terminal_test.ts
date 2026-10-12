@@ -5,16 +5,16 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { createHost } from "../../apps/shell/terminal-host/main.ts";
+import { createHost } from "../../packages/shell/terminal-host/main.ts";
 import type {
   PtyHandle,
   PtySpawnOptions,
-} from "../../apps/shell/terminal-host/pty.ts";
+} from "../../packages/shell/terminal-host/pty.ts";
 import {
   createSupervisor,
   type HostProcess,
-} from "../../apps/shell/main/terminal/supervisor.ts";
-import type { TerminalRuntime } from "../../apps/shell/ipc/terminal.ts";
+} from "../../packages/shell/main/terminal/supervisor.ts";
+import type { TerminalRuntime } from "../../packages/shell/ipc/terminal.ts";
 
 test("shell/terminal#R5: secret 모양 출력은 host 메모리 밖에 진단으로 나가지 않는다", async () => {
   const logs: string[] = [];

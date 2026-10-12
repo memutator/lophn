@@ -1,0 +1,7 @@
+{
+  "imports": {
+    "zod": "npm:zod@4.6.5",
+    "electron": "npm:electron@44.5.1",
+    "@lophn/base": "../../../../base/mod.ts"
+  }
+}

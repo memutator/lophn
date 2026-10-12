@@ -3,7 +3,7 @@
 import { assertEquals, assertRejects, assertThrows } from "@std/assert";
 
 import { sha256Hex } from "../../../base/mod.ts";
-import { canonicalize as shellCanonicalize } from "../../../../apps/shell/main/confirmation/canonical.ts";
+import { canonicalize as shellCanonicalize } from "../../../shell/main/confirmation/canonical.ts";
 import { confirmationBinding } from "./confirmation-binding.ts";
 
 const fixtures: {

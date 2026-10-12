@@ -18,7 +18,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { mergeImports } from "../../apps/shell/renderer/build.ts";
+import { mergeImports } from "../../packages/shell/renderer/build.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "../..");

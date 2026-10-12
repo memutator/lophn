@@ -6,7 +6,7 @@
 // 모든 실행은 이 도구가 만든 임시 HOME·LOPHN_HOME을 쓴다. `--root`에 `dpkg-deb -x`로 푼 임시
 // 폴더를 줄 수도 있다: 그때 root 소유·4755와 실제 sandbox 항목은 통과가 아니라 "미확인"이고,
 // 미확인이 하나라도 있으면 Linux 배포를 사용 가능으로 표시하지 않는다(R1).
-import { spawnCore } from "../apps/shell/main/desktop/core/supervise.ts";
+import { spawnCore } from "../packages/shell/main/desktop/core/supervise.ts";
 import {
   checkRunningSandbox,
   checkSandboxFile,

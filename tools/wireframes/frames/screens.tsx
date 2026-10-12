@@ -3,15 +3,15 @@
 import type { ReactNode } from "react";
 
 import type { ScreenId } from "../pages.ts";
-import type { CoreSource } from "../../../apps/shell/renderer/desktop/connection/connection.ts";
+import type { CoreSource } from "../../../packages/shell/renderer/desktop/connection/connection.ts";
 import {
   APP_BUDGET,
-} from "../../../apps/shell/renderer/desktop/dev-mock/ids.ts";
+} from "../../../packages/shell/renderer/desktop/dev-mock/ids.ts";
 import {
   openApp,
   openLophn,
   openProject,
-} from "../../../apps/shell/renderer/desktop/router.ts";
+} from "../../../packages/shell/renderer/desktop/router.ts";
 import {
   ComponentsButtons,
   ComponentsCards,

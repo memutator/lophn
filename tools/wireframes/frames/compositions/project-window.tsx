@@ -18,10 +18,10 @@ import {
   workspaceIcons,
 } from "@lophn/design/components";
 
-import { LauncherButton } from "../../../../apps/shell/renderer/workspace/launcher-button.tsx";
-import { TAB_MIN } from "../../../../apps/shell/renderer/workspace/model.ts";
-import tabStyles from "../../../../apps/shell/renderer/workspace/tab-strip/tab-strip.module.css";
-import sideStyles from "../../../../apps/shell/renderer/workspace/sidebar/sidebar.module.css";
+import { LauncherButton } from "../../../../packages/shell/renderer/workspace/launcher-button.tsx";
+import { TAB_MIN } from "../../../../packages/shell/renderer/workspace/model.ts";
+import tabStyles from "../../../../packages/shell/renderer/workspace/tab-strip/tab-strip.module.css";
+import sideStyles from "../../../../packages/shell/renderer/workspace/sidebar/sidebar.module.css";
 import menuStyles from "../../../../packages/design/components/menu/menu.module.css";
 import { Avatar } from "./agent-avatar.tsx";
 import { AGENT_ROWS, type ChatInit } from "./agents-data.ts";

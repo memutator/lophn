@@ -11,14 +11,14 @@ import {
   workspaceIcons,
 } from "@lophn/design/components";
 
-import { TopBar } from "../../../../apps/shell/renderer/desktop/top-bar/top-bar.tsx";
-import { LauncherButton } from "../../../../apps/shell/renderer/workspace/launcher-button.tsx";
-import type { LophnScreen } from "../../../../apps/shell/renderer/desktop/lophn-space/model.ts";
+import { TopBar } from "../../../../packages/shell/renderer/desktop/top-bar/top-bar.tsx";
+import { LauncherButton } from "../../../../packages/shell/renderer/workspace/launcher-button.tsx";
+import type { LophnScreen } from "../../../../packages/shell/renderer/desktop/lophn-space/model.ts";
 import {
   screenIcon,
   screenLabel,
-} from "../../../../apps/shell/renderer/desktop/lophn-space/screens.ts";
-import sideStyles from "../../../../apps/shell/renderer/desktop/lophn-space/sidebar/sidebar.module.css";
+} from "../../../../packages/shell/renderer/desktop/lophn-space/screens.ts";
+import sideStyles from "../../../../packages/shell/renderer/desktop/lophn-space/sidebar/sidebar.module.css";
 import { Mono } from "./project-window.tsx";
 import {
   ConnectDialog,

@@ -54,7 +54,7 @@ import {
 import { RECOVERY_STAMP } from "../../packages/core/storage/migration/mod.ts";
 import { SECRET_SCHEMA_STEPS } from "../../packages/core/secrets/mod.ts";
 import { SETTINGS_SCHEMA_STEPS } from "../../packages/core/config/mod.ts";
-import { coreLaunch } from "../../apps/shell/main/desktop/core/supervise.ts";
+import { coreLaunch } from "../../packages/shell/main/desktop/core/supervise.ts";
 import type { Script } from "../../tools/fake-provider/mod.ts";
 import type { ToolLookup } from "../../packages/core/lophn-agent/waiting-and-recovery/mod.ts";
 import { decide as humanDecide } from "../../apps/core/testing/approvals-fixture.ts";

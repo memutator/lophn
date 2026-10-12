@@ -36,6 +36,8 @@ export interface AppBarProps {
   report?: ReactNode;
   /** 팔레트·대화 도크 토글. */
   tools?: ReactNode;
+  /** agent select. window controls 바로 옆, 곧 바 오른쪽의 맨 끝에 둔다(R37). */
+  agentSelect?: ReactNode;
 }
 
 function BarButton(
@@ -72,6 +74,7 @@ export function AppBar(
     decisions,
     report,
     tools,
+    agentSelect,
   }: AppBarProps,
 ) {
   return (
@@ -120,6 +123,7 @@ export function AppBar(
             data="app-details"
           />
           {tools}
+          {agentSelect}
         </span>
       }
     />

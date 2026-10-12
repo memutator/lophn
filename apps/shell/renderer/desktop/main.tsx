@@ -40,6 +40,7 @@ import type { AppDetailSource } from "../app-frame/app-detail/source.ts";
 import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
 import type { LophnAppWindowsApi } from "../../ipc/app-window.ts";
 import type { LophnShellFeedbackBegin } from "../../ipc/feedback.ts";
+import type { AgentViewSourceFactory } from "../conversation/agent-source.ts";
 
 export interface DesktopProps {
   source: CoreSource;
@@ -88,6 +89,8 @@ export interface DesktopProps {
   tasks?: TasksSource;
   /** 앱 공간 Issues 탭 통로. 없으면 Issues 탭은 아직 없다고 보인다. */
   issues?: IssuesSource;
+  /** Agent 화면이 agent 하나의 통로를 얻는 함수. 앱 공간의 agent 칸이 쓴다. 없으면 칸은 준비 안 됨이다. */
+  agentViewSource?: AgentViewSourceFactory;
 }
 
 // 새 기본 창의 첫 화면. 공간 이동은 이 상태가 기억한다.
@@ -117,6 +120,7 @@ export function Desktop(
     coding,
     tasks,
     issues,
+    agentViewSource,
   }: DesktopProps,
 ) {
   const [route, setRoute] = useState<Route>(initial);
@@ -239,6 +243,9 @@ export function Desktop(
         taskTarget={route.taskTarget}
         issues={issues}
         issueProblem={route.issueProblem}
+        agents={workspace?.agentsSource}
+        agentViewSource={agentViewSource}
+        onSettings={() => visit(openLophn("settings"))}
         onInstructions={instructions
           ? () =>
             setRoute(openInstructions({ layer: "app", place: route.app! }))

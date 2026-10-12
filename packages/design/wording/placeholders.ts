@@ -358,10 +358,12 @@ export type PlaceholderKinds = {
   "app-space.button.manage-agents": Record<never, never>;
   "app-space.button.new-window": Record<never, never>;
   "app-space.button.remove-shortcut": Record<never, never>;
+  "app-space.empty.agent-not-ready": Record<never, never>;
   "app-space.empty.archived": Record<never, never>;
   "app-space.empty.no-version": Record<never, never>;
   "app-space.empty.not-found": Record<never, never>;
   "app-space.empty.screen-not-ready": Record<never, never>;
+  "app-space.heading.agents": Record<never, never>;
   "app-space.heading.app-details": Record<never, never>;
   "app-space.heading.this-computer": Record<never, never>;
   "app-space.label.agent-select": Record<never, never>;

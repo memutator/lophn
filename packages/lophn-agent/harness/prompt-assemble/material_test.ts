@@ -6,6 +6,7 @@ import {
   anthropicSystem,
   anthropicTools,
   assemblePrompt,
+  type MaterialOmission,
   type MaterialSource,
   type PromptDeps,
   type PromptInput,
@@ -307,4 +308,48 @@ Deno.test("lophn-agent/harness/prompt-assemble#R18: 자료를 모두 type 이름
   const blocked = await assemblePrompt(deps, promptWith([], 150));
   assert(blocked.status === "blocked");
   assertEquals(blocked.reason, "mandatory_input_overflow");
+});
+
+Deno.test("lophn-agent/harness/prompt-assemble#R18 [ctx-T10d]: 읽지 못한 context는 자리표시 자료와 함께 load_failed 생략으로 남고 줄이기에서도 이유가 남는다", async () => {
+  const failed = source({
+    address: CTX_B,
+    title: "Gone",
+    version: null,
+    overview:
+      "[자료 없음] 계약을 읽지 못했다(not_found). 필요하면 tool로 다시 읽는다.",
+    type_names: [],
+    glossary: "",
+    has_glossary: false,
+    unavailable: "계약을 읽지 못했다(not_found)",
+  });
+  const expected: MaterialOmission[] = [{
+    source: CTX_B,
+    level: "material",
+    reason: "load_failed",
+    detail: "계약을 읽지 못했다(not_found)",
+  }];
+  const initial = await renderMaterial([source({}), failed], {
+    collected_at: AT,
+  });
+  assertEquals(initial.omissions, expected);
+  // 예산 안내 줄은 줄인 것이 없으면 붙지 않는다.
+  assert(!joined(initial).includes("[자료 생략]"));
+  assertStringIncludes(joined(initial), "[자료 없음]");
+
+  const shrunk = await shrinkMaterial(
+    [source({}), failed],
+    { collected_at: AT },
+    () => Promise.resolve(false),
+  );
+  assertEquals(shrunk.omissions[0], expected[0]);
+  // 읽지 못한 context의 이유는 overview를 줄여도 사라지지 않는다.
+  assertEquals(
+    shrunk.omissions.filter((o) => o.source === CTX_B).length,
+    1,
+  );
+  assertStringIncludes(joined(shrunk), "[자료 없음]");
+  assertEquals(
+    shrunk.references.find((r) => r.address === CTX_B)?.depth,
+    "full",
+  );
 });

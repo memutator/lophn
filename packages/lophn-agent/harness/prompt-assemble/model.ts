@@ -93,10 +93,13 @@ export type MaterialReference = {
   depth: "full" | "overview_only" | "names_only";
 };
 
+// 줄인 자료(`input_over_budget`)이거나 읽지 못해 자료 자리에 이유만 남긴 context(`level: material`,
+// `load_failed`, `detail`이 그 context의 이유)다.
 export type MaterialOmission = {
   source: string;
-  level: "glossary" | "overview";
-  reason: "input_over_budget";
+  level: "glossary" | "overview" | "material";
+  reason: "input_over_budget" | "load_failed";
+  detail?: string;
 };
 
 // 실제 포함한 화면 근거(R28). 본문은 입력 blob에 있고 여기엔 포함한 값과 수집 시각만 둔다.

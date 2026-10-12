@@ -83,6 +83,20 @@ const N = CONTEXT_ENGINEER_TOOL_NAMES;
 // ---- 입력 ----
 
 const contextOnly = z.strictObject({ context: ctxIdSchema });
+// 계약·초안은 24 KiB를 넘으면 한 번에 못 읽으므로 한쪽 판이나 content의 한 가지(계약·검색·saved view·예시)만
+// 골라 나눠 읽는다. 둘 다 없으면 적용된 판과 초안 전체다.
+const CONTRACT_PARTS = ["applied", "draft"] as const;
+const CONTRACT_SECTIONS = [
+  "contract",
+  "searches",
+  "saved_views",
+  "examples",
+] as const;
+const readContractInput = z.strictObject({
+  context: ctxIdSchema,
+  part: z.enum(CONTRACT_PARTS).optional(),
+  section: z.enum(CONTRACT_SECTIONS).optional(),
+});
 // 새 context의 id는 최초 ToolCall ID에서 정해지므로 입력에 없다.
 const createInput = contextCreateRequestSchema.omit({ id: true });
 const previewInput = z.strictObject({
@@ -233,9 +247,23 @@ export const CONTEXT_ENGINEER_TOOLS: readonly ToolDefinition[] = [
     N.readContract,
     "Read a context: the applied contract (types, searches, saved views, examples, bundle id and hash) and the " +
       "bundle being made (draft, being checked, or the last failed one) with its check report and the revision " +
-      "to give back when you overwrite it. This changes nothing",
-    contextOnly,
-    objectSchema({ context: CONTEXT_PROP }, ["context"]),
+      "to give back when you overwrite it. This changes nothing. When it is too large to return in full the content " +
+      "is null and complete is false: read it piece by piece with part (applied or draft) and section " +
+      "(contract, searches, saved_views, or examples)",
+    readContractInput,
+    objectSchema({
+      context: CONTEXT_PROP,
+      part: {
+        type: "string",
+        enum: [...CONTRACT_PARTS],
+        description: "read only the applied contract or only the draft",
+      },
+      section: {
+        type: "string",
+        enum: [...CONTRACT_SECTIONS],
+        description: "read only this part of the content",
+      },
+    }, ["context"]),
     CONTRACT.contract,
     "read",
   ),
@@ -454,28 +482,60 @@ async function write(
   return ok(done(sent.value));
 }
 
-// 계약·초안 읽기다. 적용된 판과 만드는 중인 판을 같은 자격으로 한 결과에 싣는다.
+// 계약·초안 읽기다. 적용된 판과 만드는 중인 판을 같은 자격으로 한 결과에 싣는다. `part`는 한쪽만 읽고(읽지
+// 않는 쪽은 core도 부르지 않는다), `section`은 각 판의 content에서 그 가지만 싣는다.
+function onlySection(
+  version: Json | null,
+  section: string | undefined,
+): Json | null {
+  const content = version?.["content"];
+  if (
+    section === undefined || version === null || content === null ||
+    typeof content !== "object"
+  ) return version;
+  return {
+    ...version,
+    content: { [section]: (content as Json)[section] ?? null },
+  };
+}
+
 function readContractHandler(ports: ContractCall): ToolHandler {
   return async (input, credential) => {
-    const { context } = input as { context: string };
-    const applied = await ports.call(
-      CONTRACT.contract,
-      { context },
-      credential.run,
+    const { context, part, section } = input as {
+      context: string;
+      part?: (typeof CONTRACT_PARTS)[number];
+      section?: (typeof CONTRACT_SECTIONS)[number];
+    };
+    const result: Json = { context };
+    if (part !== "draft") {
+      const applied = await ports.call(
+        CONTRACT.contract,
+        { context },
+        credential.run,
+      );
+      if (!applied.ok) return applied;
+      const { context: _contract, ...appliedRest } = bodyWithout(
+        applied.value,
+      ) as Json;
+      result["applied"] = onlySection(appliedRest, section);
+    }
+    if (part !== "applied") {
+      const draft = await ports.call(
+        CONTRACT.draft,
+        { context },
+        credential.run,
+      );
+      if (!draft.ok) return draft;
+      const making = bodyWithout(draft.value) as Json;
+      result["draft"] = onlySection(
+        (making["draft"] ?? null) as Json | null,
+        section,
+      );
+    }
+    if (section !== undefined) result["section"] = section;
+    return ok(
+      pageResult("applied contract and draft read", result, [], {}, null),
     );
-    if (!applied.ok) return applied;
-    const draft = await ports.call(CONTRACT.draft, { context }, credential.run);
-    if (!draft.ok) return draft;
-    const contract = bodyWithout(applied.value) as Json;
-    const making = bodyWithout(draft.value) as Json;
-    const { context: _contract, ...appliedRest } = contract;
-    return ok(pageResult(
-      "applied contract and draft read",
-      { context, applied: appliedRest, draft: making["draft"] ?? null },
-      [],
-      {},
-      null,
-    ));
   };
 }
 

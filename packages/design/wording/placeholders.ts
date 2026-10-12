@@ -1105,6 +1105,9 @@ export type PlaceholderKinds = {
     block: "string";
     message: "string";
   };
+  "conversation.body.skill-command-request": {
+    skill: "string";
+  };
   "conversation.button.approval-allow": Record<never, never>;
   "conversation.button.approval-allow-once": Record<never, never>;
   "conversation.button.approval-allow-scope": Record<never, never>;
@@ -1215,6 +1218,9 @@ export type PlaceholderKinds = {
   "conversation.label.more-results": {
     count: "plural";
   };
+  "conversation.label.permission-summary": {
+    count: "plural";
+  };
   "conversation.label.question-answered": {
     count: "plural";
     answers: "string";
@@ -1301,6 +1307,13 @@ export type PlaceholderKinds = {
     x: "string";
   };
   "conversation.label.visual-document-unavailable": Record<never, never>;
+  "conversation.label.tool-read-documents": {
+    count: "plural";
+  };
+  "conversation.label.tool-used": {
+    count: "plural";
+    tool: "string";
+  };
   "conversation.label.visual-no": Record<never, never>;
   "conversation.label.visual-observed": {
     at: "string";

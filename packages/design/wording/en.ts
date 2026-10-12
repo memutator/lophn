@@ -1096,6 +1096,7 @@ export const en = {
   "conversation.empty.visual-no-data": "This visual has no data.",
   "conversation.error.load-failed":
     "Couldn't load this conversation. Try again.",
+  "conversation.error.action-failed": "That didn't work. Try again.",
   "conversation.error.message-body": "Couldn't load this message.",
   "conversation.error.open-failed":
     "Couldn't start a new conversation. Try again.",
@@ -1132,6 +1133,7 @@ export const en = {
   "conversation.label.favorites": "Favorites",
   "conversation.label.group-earlier": "Earlier",
   "conversation.label.model-list": "Models",
+  "conversation.label.model-unknown": "Model",
   "conversation.label.more-actions": "More",
   "conversation.label.more-results":
     "{count, plural, one {+# more} other {+# more}}",
@@ -1163,6 +1165,7 @@ export const en = {
   "conversation.label.session": "Conversation {number, number}",
   "conversation.label.session-ended": "Conversation {number, number}, ended",
   "conversation.label.session-list": "{agent} sessions",
+  "conversation.label.session-untitled": "New session",
   "conversation.label.sessions": "Conversations",
   "conversation.label.since-now": "now",
   "conversation.label.slash-blocked": "Not while {agent} is working",
@@ -1217,6 +1220,8 @@ export const en = {
   "conversation.notice.not-sent":
     "This message wasn't sent. It's still in the box, so you can send it again.",
   "conversation.notice.offline": "You can send once lophn is connected again.",
+  "conversation.notice.agent-paused":
+    "This agent is paused. You can read the conversation, but it takes no new messages.",
   "conversation.notice.provider-lost":
     "The agent can't reach its account right now. Your work stays open, and you can check the account in Settings.",
   "conversation.notice.paused":
@@ -1250,7 +1255,10 @@ export const en = {
     "This visual's data doesn't match what can be shown.",
   "conversation.placeholder.new-context":
     "Say what this context should cover. The Context Engineer will ask for whatever else it needs.",
+  "conversation.placeholder.ask":
+    "Ask {agent}… Type / for commands and skills.",
   "conversation.title.dock": "Conversation",
+  "conversation.title.new-session": "New session",
   "document.button.back-to-editing": "Back to editing",
   "document.button.check-again": "Check again",
   "document.button.check-task": "Check task",

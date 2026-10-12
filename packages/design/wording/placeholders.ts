@@ -1160,6 +1160,7 @@ export type PlaceholderKinds = {
   "conversation.empty.no-session": Record<never, never>;
   "conversation.empty.visual-no-data": Record<never, never>;
   "conversation.error.load-failed": Record<never, never>;
+  "conversation.error.action-failed": Record<never, never>;
   "conversation.error.message-body": Record<never, never>;
   "conversation.error.open-failed": Record<never, never>;
   "conversation.error.stop-failed": Record<never, never>;
@@ -1207,6 +1208,7 @@ export type PlaceholderKinds = {
   "conversation.label.favorites": Record<never, never>;
   "conversation.label.group-earlier": Record<never, never>;
   "conversation.label.model-list": Record<never, never>;
+  "conversation.label.model-unknown": Record<never, never>;
   "conversation.label.more-actions": Record<never, never>;
   "conversation.label.more-results": {
     count: "plural";
@@ -1266,6 +1268,7 @@ export type PlaceholderKinds = {
   "conversation.label.session-list": {
     agent: "string";
   };
+  "conversation.label.session-untitled": Record<never, never>;
   "conversation.label.sessions": Record<never, never>;
   "conversation.label.since-now": Record<never, never>;
   "conversation.label.slash-blocked": {
@@ -1340,6 +1343,7 @@ export type PlaceholderKinds = {
   "conversation.notice.not-found": Record<never, never>;
   "conversation.notice.not-sent": Record<never, never>;
   "conversation.notice.offline": Record<never, never>;
+  "conversation.notice.agent-paused": Record<never, never>;
   "conversation.notice.provider-lost": Record<never, never>;
   "conversation.notice.paused": Record<never, never>;
   "conversation.notice.session-no-match": Record<never, never>;
@@ -1363,7 +1367,11 @@ export type PlaceholderKinds = {
   "conversation.notice.visual-unavailable-markup": Record<never, never>;
   "conversation.notice.visual-unavailable-shape": Record<never, never>;
   "conversation.placeholder.new-context": Record<never, never>;
+  "conversation.placeholder.ask": {
+    agent: "string";
+  };
   "conversation.title.dock": Record<never, never>;
+  "conversation.title.new-session": Record<never, never>;
   "document.button.back-to-editing": Record<never, never>;
   "document.button.check-again": Record<never, never>;
   "document.button.check-task": Record<never, never>;

@@ -1,0 +1,79 @@
+/* 확정 메시지 본문과 사람 말 아래의 접수 표시. legacy ui-reading 본문 글꼴을 따른다. */
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.text {
+  margin: var(--space-0);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.unreadable,
+.loading {
+  margin: var(--space-0);
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  font-style: italic;
+}
+
+.mine {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* 확정 전 말은 점선 윤곽으로 임시임을 보인다. 확정 메시지가 오면 이 줄이 바뀐다. */
+.mine[data-provisional] {
+  outline: var(--border-width) dashed var(--color-border-strong);
+  outline-offset: var(--space-2);
+  border-radius: var(--radius-sm);
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.tag {
+  padding: var(--space-0) var(--space-3);
+  border: var(--border-width) solid var(--color-border-base);
+  border-radius: var(--radius-full);
+  color: var(--color-text-secondary);
+}
+
+.notice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  color: var(--color-text-secondary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+/* lophn이 확인한 사실은 agent 쪽 열 안의 왼쪽 선 달린 줄이다. */
+.fact {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-5);
+  border-left: var(--tab-indicator) solid var(--color-border-strong);
+  color: var(--color-text-secondary);
+}
+
+.author {
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  font-weight: var(--font-weight-medium);
+}

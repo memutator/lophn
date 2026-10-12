@@ -1,0 +1,27 @@
+/* 대화 줄의 scroll 틀. 읽는 폭은 부르는 쪽이 정한다. */
+.frame {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: var(--space-0);
+}
+
+.list {
+  box-sizing: border-box;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-6);
+  min-height: var(--space-0);
+  padding: var(--space-6);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.jump {
+  position: absolute;
+  right: var(--space-6);
+  bottom: var(--space-4);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-popover);
+}

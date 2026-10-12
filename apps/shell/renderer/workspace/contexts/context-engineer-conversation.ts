@@ -23,9 +23,13 @@ const lastOpened = new WeakMap<
 async function isEmptyOpen(
   source: ConversationSource,
   agent: string,
+  project: string,
   session: string,
 ): Promise<boolean> {
-  const sessions = await source.sessions(agent);
+  const sessions = await source.sessions(agent, {
+    kind: "project",
+    id: project,
+  });
   if (!sessions.ok) return false;
   const row = sessions.value.find((item) => item.id === session);
   if (row === undefined || row.state !== "open") return false;
@@ -57,7 +61,7 @@ export async function startContextEngineerSession(
   const earlier = pending === undefined ? undefined : await pending;
   if (
     earlier !== undefined && earlier !== null &&
-    await isEmptyOpen(source, agent.value.id, earlier)
+    await isEmptyOpen(source, agent.value.id, project, earlier)
   ) {
     drafts.select(earlier);
     return true;

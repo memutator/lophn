@@ -881,10 +881,6 @@ export const en = {
   "contexts.view.baseline": "Baseline",
   "contexts.view.follow-changes": "Follow changes",
   "contexts.view.reference": "Reference",
-<<<<<<< HEAD
-  "conversation.body.delete-session":
-    'Delete "{title}"? This can\'t be undone.',
-=======
   // context 화면(shell/workspace#R16~R33): 화면 하나가 쓰는 key는 이름 앞 구간이 그 화면이다.
   "contexts.button.document-open": "Open",
   "contexts.button.frame-ask": "Ask Context Engineer",
@@ -1042,7 +1038,8 @@ export const en = {
   "contexts.title.tab-screen": "Contexts in {project}",
   "contexts.title.toast-violations":
     "{title}: {count, plural, one {# document doesn't match the contract} other {# documents don't match the contract}}",
->>>>>>> origin/main
+  "conversation.body.delete-session":
+    'Delete "{title}"? This can\'t be undone.',
   "conversation.body.save-visual-request":
     "Save the visual “{title}” (block {block} in message {message}) as a document.",
   "conversation.button.approval-allow": "Allow",
@@ -1677,7 +1674,6 @@ export const en = {
   "project-workspace.button.show-notices": "Show notices",
   "project-workspace.button.split-pane": "Open in side pane",
   "project-workspace.button.turn-on-tracking": "Turn on tracking",
-<<<<<<< HEAD
   "project-workspace.button.add-server": "Add server",
   "project-workspace.button.add-skill": "Add skill",
   "project-workspace.button.edit-instructions": "Edit",
@@ -1735,8 +1731,6 @@ export const en = {
   "project-workspace.notice.agent-editor-save-first":
     "Save first to upload an image.",
   "project-workspace.empty.no-contexts": "No related contexts.",
-=======
->>>>>>> origin/main
   "project-workspace.empty.no-documents": "No documents yet.",
   "project-workspace.empty.no-folder-documents": "No documents in this folder.",
   "project-workspace.empty.no-folders": "No project folder.",
@@ -1746,11 +1740,8 @@ export const en = {
   "project-workspace.empty.no-permission-rules": "No permission rules yet.",
   "project-workspace.empty.no-skills": "No skills registered yet.",
   "project-workspace.error.load-failed": "Couldn't load this project.",
-<<<<<<< HEAD
   "project-workspace.heading.agents": "Agents",
   "project-workspace.heading.contexts": "Contexts",
-=======
->>>>>>> origin/main
   "project-workspace.heading.documents": "Documents",
   "project-workspace.heading.folders": "Folders",
   "project-workspace.heading.left-out": "Left out",

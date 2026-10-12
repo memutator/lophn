@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useState } from "react";
 
 import type { CoreSource } from "./connection/connection.ts";
 import { useConnection } from "./connection/connection.tsx";
@@ -185,11 +185,6 @@ export function Desktop(
   // 작업대를 열어 읽는다.
   const connection = useConnection(source);
   const live = connection.state === "ready" || connection.state === "stale";
-  // core 연결이 (다시) 준비된 횟수. roles 화면이 재연결 뒤 현재 기록을 다시 읽는다.
-  const [ready, setReady] = useState(0);
-  useEffect(() => {
-    if (connection.state === "ready") setReady((value) => value + 1);
-  }, [connection.state]);
   let space: ReactNode;
   if (route.space === "project" && route.project && workspace && live) {
     space = (
@@ -262,7 +257,6 @@ export function Desktop(
         screen={route.screen}
         initialRead={route.read}
         initialRequest={route.request}
-        connected={ready}
         windowWidth={windowWidth}
         {...(editor?.files ? { sessions: editor.files } : {})}
         onLauncher={launcher}

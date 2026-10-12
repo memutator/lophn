@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { ERROR_CODES } from "../../base/mod.ts";
-import { contextList } from "../documents/mod.ts";
+import { contextListRoute } from "../documents/mod.ts";
 import { routePath } from "../platform/mod.ts";
 import { agentIssuesDetailsSchema } from "./agent-values.ts";
 import {
@@ -344,7 +344,7 @@ Deno.test("lophn-agent/agents#R7 lophn-agent/agents#R12: list returns rows and s
 
 Deno.test("lophn-agent/agents#R16: run preparation reads the place's active contexts as machine, and every agent read is open to it", () => {
   // built-in agent의 context는 실행 때 자리 project의 active 전부로 풀리므로 준비하는 machine이 목록을 읽는다.
-  assert(contextList.actors.includes("machine"));
+  assert(contextListRoute.actors.includes("machine"));
   // 정의 파일, 자리 설정, Workspace 기본 model도 같은 길로 읽는다.
   for (const route of [agentsRead, placeAgentSettingsRead]) {
     assert(route.actors.includes("machine"));

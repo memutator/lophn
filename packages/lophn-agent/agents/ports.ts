@@ -35,8 +35,10 @@ export type AgentLookups = {
   assignments(place: AgentPlace): AssignmentRef[];
   // 거둔 것도 돌려준다. 없으면 null.
   assignment(id: string): AssignmentRef | null;
-  // 보관한 context도 실제 context다. 없으면 null.
-  contextStatus(id: string): "active" | "archived" | null;
+  // 만드는 중(drafting)인 context와 보관한 context도 실제 context다. 없으면 null.
+  contextStatus(id: string): "drafting" | "active" | "archived" | null;
+  // context가 속한 project. 없으면 null. context는 project 안에만 있다.
+  contextProject(id: string): string | null;
   // 자리 project의 active context. project가 아니면 빈 목록.
   activeContexts(place: AgentPlace): string[];
   // 이 자리의 agent가 쓸 수 있는 skill 이름과 MCP tool이다. 전역 층에 자리 층(그 자리에서 여는 agent에만 보인다,

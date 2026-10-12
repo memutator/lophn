@@ -218,11 +218,12 @@ Deno.test("lophn-agent/conversation#R16 [ctx-I58i]: 실제 core에서 Context En
         workPlace: { kind: "project", id: project },
       });
       assert(opened.ok, opened.ok ? "" : opened.code);
-      const sessions = await source.sessions(engineer.value.id);
+      const place = { kind: "project" as const, id: project };
+      const sessions = await source.sessions(engineer.value.id, place);
       assert(sessions.ok);
       assertEquals(sessions.value.map((item) => item.id), [opened.value.id]);
       // 다른 역할의 세션 목록에는 보이지 않는다.
-      const other = await source.sessions(lophn.value.id);
+      const other = await source.sessions(lophn.value.id, place);
       assert(other.ok);
       assertEquals(other.value, []);
     } finally {

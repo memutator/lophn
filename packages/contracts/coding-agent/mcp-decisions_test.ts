@@ -8,11 +8,8 @@ import {
   mcpDecisionTool,
 } from "./mcp-decisions.ts";
 
-<<<<<<< HEAD
 const CTX = "ctx_01arz3ndektsv4rrffq69g5fav";
 
-=======
->>>>>>> origin/main
 const tool = (name: string) => {
   const found = mcpDecisionTool(name);
   if (!found) throw new Error(name);
@@ -32,7 +29,6 @@ const branchFields = (input: unknown, op: string) => {
   return Object.keys(branch.shape).filter((field) => field !== "op").sort();
 };
 
-<<<<<<< HEAD
 Deno.test("coding-agent/mcp-server#R38 [ctx-R7]: 결정 tool은 질문과 approval의 list·show뿐이다", () => {
   assertEquals(MCP_DECISION_TOOLS.map((item) => item.name), [
     "lophn_question",
@@ -42,8 +38,6 @@ Deno.test("coding-agent/mcp-server#R38 [ctx-R7]: 결정 tool은 질문과 approv
   assertEquals(tool("lophn_approval").ops, ["list", "show"]);
 });
 
-=======
->>>>>>> origin/main
 Deno.test("coding-agent/mcp-server#R18: 질문과 approval은 list·show만 있고 답·허락·거절·사용 op가 없다", () => {
   const question = tool("lophn_question");
   assertEquals(question.ops, ["list", "show"]);
@@ -169,17 +163,8 @@ Deno.test("coding-agent/mcp-server#R18: op 입력은 owner route 입력을 그�
       false,
     );
   }
-<<<<<<< HEAD
   assertEquals(
     tool("lophn_question").input.safeParse({ op: "show", group: CTX })
-=======
-  // 틀린 ID 접두사는 owner route가 거절하므로 tool도 거절한다.
-  assertEquals(
-    tool("lophn_question").input.safeParse({
-      op: "show",
-      question: "ctx_01arz3ndektsv4rrffq69g5fav",
-    })
->>>>>>> origin/main
       .success,
     false,
   );
@@ -193,11 +178,7 @@ Deno.test("coding-agent/mcp-server#R18: op 입력은 owner route 입력을 그�
   );
 });
 
-<<<<<<< HEAD
 Deno.test("coding-agent/mcp-server#R18: 읽기 op는 platform·lophn-agent read route와 같은 출력 schema를 쓴다", () => {
-=======
-Deno.test("coding-agent/mcp-server#R18: 읽기 op는 documents·lophn-agent·platform read route와 같은 출력 schema를 쓴다", () => {
->>>>>>> origin/main
   assertEquals(
     MCP_DECISION_ROUTES.lophn_question.show.output,
     questionRead.output,

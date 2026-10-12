@@ -20,7 +20,7 @@ import a from "./agents.module.css";
 const ICONS = {
   dock: conversationIcons.dock,
   roles: lophnSpaceIcons.roles,
-  contexts: lophnSpaceIcons.contexts,
+  contexts: workspaceIcons.context,
   documents: lophnSpaceIcons.documents,
   apps: appSpaceIcons.app,
   search: paletteIcons.search,

@@ -17,12 +17,9 @@ export {
   messageBodyRead,
   readBodyBytes,
 } from "./body-read.ts";
-<<<<<<< HEAD
 export { sessionSummaryRead } from "./summary-read.ts";
-=======
 export {
   type StartedRequest,
   startRequest,
   type StartRequestInput,
 } from "./request.ts";
->>>>>>> origin/main

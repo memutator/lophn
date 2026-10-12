@@ -27,8 +27,6 @@ import type {
 const PAGE_LIMIT = 20;
 /** context 읽기의 page 크기 상한(CONTEXT_PAGE_MAX). */
 const PAGE_SIZE = 100;
-/** Operator 수를 셀 때 훑는 preset page 상한. */
-const PRESET_PAGE_LIMIT = 20;
 
 interface Page {
   readonly next_cursor: string | null;
@@ -107,37 +105,31 @@ export function coreContextsSource(core: CoreSource): ContextsSource {
     return { ok: true, value: { items: all, next: cursor ?? null } };
   };
 
+  // 이 context를 정의 `contexts`에 고른 Operator의 수다(lophn-agent/agents). context는 project 안에만 있고
+  // Operator의 정의도 그 project 자리의 파일이라, 그 project의 Operator를 읽어 센다.
   const countOperators = async (
     context: string,
   ): Promise<ReadResult<number>> => {
+    const found = await read<{ context: { project: string } }>(
+      "contexts",
+      "get",
+      { context },
+    );
+    if (!found.ok) return found;
+    const place = { kind: "project", id: found.value.context.project };
+    const listed = await read<
+      { agents: readonly { assignment: string; kind: string }[] }
+    >("agents", "list", { place });
+    if (!listed.ok) return listed;
     let count = 0;
-    let cursor: string | undefined;
-    for (let index = 0; index < PRESET_PAGE_LIMIT; index += 1) {
-      const result = await read<
-        Page & {
-          presets: readonly {
-            definition: {
-              context: readonly { kind: string; target: string | null }[];
-            };
-          }[];
-        }
-      >(
-        "presets",
-        "list",
-        cursor === undefined
-          ? { kind: "operator" }
-          : { kind: "operator", cursor },
-      );
-      if (!result.ok) return result;
-      // Operator가 이 context를 이름으로 고른 preset만 센다(lophn-agent/presets의 context 선택).
-      count += result.value.presets.filter((preset) =>
-        preset.definition.context.some((selection) =>
-          selection.kind === "context" && selection.target === context
-        )
-      ).length;
-      cursor = result.value.next_cursor ?? undefined;
-      if (cursor === undefined) {
-        break;
+    for (const row of listed.value.agents) {
+      if (row.kind !== "operator") continue;
+      const agent = await read<
+        { definition: { contexts?: readonly string[] } | null }
+      >("agents", "read", { place, assignment: row.assignment });
+      if (!agent.ok) return agent;
+      if (agent.value.definition?.contexts?.includes(context) === true) {
+        count += 1;
       }
     }
     return { ok: true, value: count };

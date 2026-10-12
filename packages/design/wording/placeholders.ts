@@ -870,10 +870,6 @@ export type PlaceholderKinds = {
   "contexts.view.baseline": Record<never, never>;
   "contexts.view.follow-changes": Record<never, never>;
   "contexts.view.reference": Record<never, never>;
-<<<<<<< HEAD
-  "conversation.body.delete-session": {
-    title: "string";
-=======
   "contexts.button.document-open": Record<never, never>;
   "contexts.button.frame-ask": Record<never, never>;
   "contexts.button.frame-history": Record<never, never>;
@@ -1098,7 +1094,9 @@ export type PlaceholderKinds = {
   "contexts.title.toast-violations": {
     title: "string";
     count: "plural";
->>>>>>> origin/main
+  };
+  "conversation.body.delete-session": {
+    title: "string";
   };
   "conversation.body.save-visual-request": {
     title: "string";
@@ -1788,7 +1786,6 @@ export type PlaceholderKinds = {
   "project-workspace.button.show-notices": Record<never, never>;
   "project-workspace.button.split-pane": Record<never, never>;
   "project-workspace.button.turn-on-tracking": Record<never, never>;
-<<<<<<< HEAD
   "project-workspace.button.add-server": Record<never, never>;
   "project-workspace.button.add-skill": Record<never, never>;
   "project-workspace.button.edit-instructions": Record<never, never>;
@@ -1844,8 +1841,6 @@ export type PlaceholderKinds = {
   "project-workspace.notice.agent-editor-wider-help": Record<never, never>;
   "project-workspace.notice.agent-editor-save-first": Record<never, never>;
   "project-workspace.empty.no-contexts": Record<never, never>;
-=======
->>>>>>> origin/main
   "project-workspace.empty.no-documents": Record<never, never>;
   "project-workspace.empty.no-folder-documents": Record<never, never>;
   "project-workspace.empty.no-folders": Record<never, never>;
@@ -1855,11 +1850,8 @@ export type PlaceholderKinds = {
   "project-workspace.empty.no-permission-rules": Record<never, never>;
   "project-workspace.empty.no-skills": Record<never, never>;
   "project-workspace.error.load-failed": Record<never, never>;
-<<<<<<< HEAD
   "project-workspace.heading.agents": Record<never, never>;
   "project-workspace.heading.contexts": Record<never, never>;
-=======
->>>>>>> origin/main
   "project-workspace.heading.documents": Record<never, never>;
   "project-workspace.heading.folders": Record<never, never>;
   "project-workspace.heading.left-out": Record<never, never>;

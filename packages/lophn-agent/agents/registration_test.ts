@@ -128,6 +128,8 @@ function lookups(sql: Sql): AgentLookups {
         : id === CTX.archived
         ? "archived"
         : null,
+    contextProject: (id) =>
+      id === CTX.one || id === CTX.two || id === CTX.archived ? PRJ : null,
     activeContexts: (place) =>
       place.kind === "project" ? [CTX.one, CTX.two] : [],
     skills: () => ENV.skills,

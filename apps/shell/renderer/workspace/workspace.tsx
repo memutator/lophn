@@ -149,7 +149,6 @@ export function Workspace(props: WorkspaceProps) {
     terminal,
     editor,
     tracking,
-    onOpenApp,
     timer,
   } = props;
   // Contexts·Context·Search 탭의 통로. 없으면 그 탭과 여는 길을 두지 않는다.

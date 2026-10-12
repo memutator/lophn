@@ -12,17 +12,7 @@ import {
   roleKindSchema,
 } from "../../../../contracts/lophn-agent/mod.ts";
 import { appCreateInputSchema } from "../../../../contracts/apps/mod.ts";
-<<<<<<< HEAD
-import { termGet } from "../../../../contracts/documents/mod.ts";
 import { atSchema, idSchema } from "../../../../contracts/platform/mod.ts";
-=======
-import {
-  type ApprovalAction,
-  approvalBindingHash,
-  atSchema,
-  idSchema,
-} from "../../../../contracts/platform/mod.ts";
->>>>>>> origin/main
 import { handoffBodyHash } from "../../../handoff/mod.ts";
 import { appCreateOptionAction } from "../../../questions/mod.ts";
 import {
@@ -251,12 +241,10 @@ export function createAgentToolHandlers(
       const value = input as z.infer<typeof questionSubmitInput>;
       const facts = await ports.runFacts(credential.run);
       if (!facts.ok) return facts;
-<<<<<<< HEAD
       // 고정 action이 있는 선택지를 가진 질문은 질문 하나짜리 묶음으로만 낸다(questions#R13).
       // 읽기·고정 전에 먼저 거절한다. command도 같은 검사를 한다.
       const proposesAction = value.questions.some((question) =>
         question.options.some((option) =>
-          option.term_definition !== undefined ||
           option.app_registration !== undefined ||
           option.setting_change !== undefined ||
           option.document_move !== undefined
@@ -275,13 +263,12 @@ export function createAgentToolHandlers(
         const options = [];
         for (const option of question.options) {
           const {
-            term_definition: proposed,
             app_registration: registration,
             setting_change: setting,
             document_move: move,
             ...rest
           } = option;
-          const fixes = [proposed, registration, setting, move].filter((
+          const fixes = [registration, setting, move].filter((
             fixed,
           ) => fixed !== undefined).length;
           if (fixes > 1) {
@@ -321,76 +308,8 @@ export function createAgentToolHandlers(
             });
             continue;
           }
-          if (proposed === undefined) {
-            options.push(rest);
-            continue;
-          }
-          // 이름·revision·context는 모델 입력이 아니라 읽은 후보가 고정한다.
-          const read = await ports.call(
-            termGet.name,
-            { term: proposed.term },
-            credential.run,
-          );
-          if (!read.ok) return read;
-          const term = (read.value as { term?: ReadCandidate }).term;
-=======
-      const id = ports.newId("qst");
-      const options = [];
-      for (const option of value.options) {
-        const {
-          app_registration: registration,
-          setting_change: setting,
-          document_move: move,
-          ...rest
-        } = option;
-        const fixes = [registration, setting, move].filter((
-          fixed,
-        ) => fixed !== undefined).length;
-        if (fixes > 1) {
-          return err({
-            code: "invalid_input",
-            message: "an option fixes one action",
-          });
+          options.push(rest);
         }
-        if (setting !== undefined || move !== undefined) {
-          const run = { ports, run: credential.run };
-          const action = setting !== undefined
-            ? await settingChangeAction(run, id, setting)
-            : await documentMoveAction(run, move!);
-          if (!action.ok) return action;
-          options.push({ ...rest, action: action.value });
-          continue;
-        }
-        if (registration !== undefined) {
-          // 등록 근거 판은 선택지의 근거 하나다. 그 판이 실제 판인지는 질문 command가 확인한다.
-          const [plan, ...others] = rest.evidence;
->>>>>>> origin/main
-          if (
-            term === undefined || term.id !== proposed.term ||
-            term.status !== "active" || term.definition !== null
-          ) {
-            return err({
-              code: "invalid_input",
-              message: "a definition option needs an open candidate",
-            });
-          }
-          if (term.name !== proposed.name) {
-            return err({
-              code: "invalid_input",
-              message: "defining a term does not rename it",
-            });
-          }
-          options.push({
-            ...rest,
-            action: defineTermOptionAction({
-              term: term.id,
-              name: term.name,
-              definition: proposed.definition,
-              base_revision: term.revision,
-            }),
-          });
-        }
-<<<<<<< HEAD
         questions.push({
           id,
           prompt: question.prompt,
@@ -398,9 +317,6 @@ export function createAgentToolHandlers(
           options,
           recommendation: question.recommendation,
         });
-=======
-        options.push(rest);
->>>>>>> origin/main
       }
       const created = await ports.call(
         "CreateQuestionGroup",

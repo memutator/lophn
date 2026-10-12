@@ -4,7 +4,7 @@
 // 네트워크·model은 부르지 않는다. 이름 계산 자체는 documents/series가 맡으므로 fake는 정해진 답을 준다.
 import { assert, assertEquals } from "@std/assert";
 import { err, ok, type Result } from "../../../base/mod.ts";
-import { ROLE_CAPS } from "../../presets/mod.ts";
+import { ROLE_CAPS } from "../../agents/mod.ts";
 import {
   BUILTIN_TOOLS,
   executeTool,

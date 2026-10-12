@@ -15,7 +15,7 @@ import {
   runOperations,
   type ToolDefinition,
 } from "./mod.ts";
-import { ROLE_CAPS } from "../../presets/mod.ts";
+import { ROLE_CAPS } from "../../agents/mod.ts";
 import {
   CONTEXT_ENGINEER_TOOL_NAMES,
   CONTEXT_ENGINEER_TOOLS,

@@ -576,8 +576,8 @@ export function coreRequestSource(
       // main이 정본을 다시 읽어 접수한다. 그 밖 action은 화면이 [Review]로 보호 창을 연다.
       const windowless = windowlessChoice(group, answers);
       if (windowless !== null) {
-          return await confirmWithoutWindow(windowless.group, windowless.option);
-        }
+        return await confirmWithoutWindow(windowless.group, windowless.option);
+      }
       const tag = await keyTag(JSON.stringify(answers));
       return command(core, "questions", "answer", {
         input: {

@@ -59,7 +59,6 @@ import {
   toolCallRead,
   waitRun,
 } from "../../../contracts/lophn-agent/mod.ts";
-import { contextList } from "../../../contracts/documents/mod.ts";
 import {
   appAgentConfirmProof,
   appBlueprint,
@@ -100,8 +99,6 @@ export const RUNTIME_MACHINE_ROUTES = [
   compactSession,
   failSessionCompact,
   settingsGet,
-  // run 준비가 resolved agent의 층(정의 파일, 자리 설정, 자리의 active context)을 읽는다.
-  contextList,
   // 사람 지침(LOPHN.md) 확정 판. 매 model call 직전에 다시 읽는다(instructions R5, R8).
   instructionRead,
   startRun,
@@ -134,18 +131,14 @@ export const RUNTIME_MACHINE_ROUTES = [
   questionText,
   cancelQuestionGroup,
   applyQuestionOption,
-<<<<<<< HEAD
   // MCP OAuth 발급자 호출을 core 대신 보낸다(extensions R16, R17): core에는 외부 fetch가 없다.
   mcpAuthRequestTake,
   mcpAuthRequestDone,
-=======
-  processAssignmentOccurrence,
-  // 선언 검색 tool의 정의 재료다. 고른 context의 적용된 판(계약·검색)을 run을 시작하기 전에 읽는다
-  // (lophn-agent/harness/tools#R21).
+  // run 준비가 resolved agent의 층(자리의 active context)과 선언 검색 tool의 정의 재료(고른 context의 적용된 판:
+  // 계약·검색)를 run을 시작하기 전에 읽는다(lophn-agent/harness/tools#R21).
   contextListRoute,
   contextGetRoute,
   contextContractRoute,
->>>>>>> origin/main
   // 앱 command tool의 정의 재료(선언·허락)와 결과 조회(invocation 기록)를 읽는다.
   appBlueprint,
   grantsList,

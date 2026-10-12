@@ -1,5 +1,5 @@
 import { err, ok, type Result, sha256Hex } from "../../../packages/base/mod.ts";
-import { contextList } from "../../../packages/contracts/documents/mod.ts";
+import { contextListRoute } from "../../../packages/contracts/documents/mod.ts";
 import { grantsList } from "../../../packages/contracts/apps/mod.ts";
 import {
   type AgentDefinition,
@@ -319,15 +319,20 @@ export function openWorld(options: WorldOptions = {}): World {
         ...readMeta(),
       });
     }
-    if (path === routePath(contextList)) {
-      return reply(contextList.output, {
-        contexts: (options.activeContexts ?? []).map((id) => ({
+    if (path === routePath(contextListRoute)) {
+      return reply(contextListRoute.output, {
+        contexts: (options.activeContexts ?? []).map((id, index) => ({
           id,
-          title: "context",
+          project: PRJ,
+          title: `context ${index + 1}`,
           purpose: "why",
-          items: [],
-          revision: "1",
           status: "active",
+          applied_bundle: `cbn_${SUFFIX}`,
+          applied_number: 1,
+          draft_bundle: null,
+          checking_bundle: null,
+          violation_mark: 0,
+          revision: "1",
         })),
         complete: true,
         ...readMeta(),

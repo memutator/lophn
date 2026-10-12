@@ -18,20 +18,18 @@ export type Notification = z.infer<typeof notificationSchema>;
 //
 // ask_agent는 계기 종류마다 고정된 role이거나 null(보기만)이다. 내용을 읽어 정하지 않는다.
 // first_context는 Ask가 연 Agent 탭에 첫 context로 붙는 참조의 모양이다: work_place는 탭을
-// 여는 자리(앱), target은 opening_context가 가리키는 대상 종류다. ask_agent가 null이면 null이다.
-//
-// 계약 위반 행(ContextWatchedItemChanged)의 ask_agent(Context Engineer)와 첫 context는
-// 그 계기를 계약 위반 기록으로 바꾸는 context track을 합친 뒤 채운다.
+// 여는 자리(앱 또는 project), target은 opening_context가 가리키는 대상 종류다. ask_agent가
+// null이면 null이다. 계약 위반 계기(ContextViolationsRecorded)는 Context Engineer를 project
+// 자리에서 부르고 위반된 context를 첫 context로 붙인다.
 export const NOTIFICATION_ASK_ROLES = [
   "app_engineer",
   "context_engineer",
 ] as const;
 export type NotificationAskRole = (typeof NOTIFICATION_ASK_ROLES)[number];
 
-export type NotificationFirstContext = {
-  readonly work_place: "app";
-  readonly target: "problem" | "release";
-};
+export type NotificationFirstContext =
+  | { readonly work_place: "app"; readonly target: "problem" | "release" }
+  | { readonly work_place: "project"; readonly target: "context" };
 
 export const NOTIFICATION_TRIGGERS = [
   {
@@ -91,23 +89,19 @@ export const NOTIFICATION_TRIGGERS = [
     first_context: null,
   },
   {
-<<<<<<< HEAD
-    event: "ContextWatchedItemChanged",
-    owner: "documents/contexts",
-    condition: "machine_watch_change_or_section_loss",
-    ask_agent: null,
-    first_context: null,
-  },
-  {
-=======
->>>>>>> origin/main
     event: "ReleaseActivationFailed",
     owner: "apps/releases",
     condition: "always",
     ask_agent: "app_engineer",
     first_context: { work_place: "app", target: "release" },
   },
-<<<<<<< HEAD
+  {
+    event: "ContextViolationsRecorded",
+    owner: "documents/contexts",
+    condition: "count_rose",
+    ask_agent: "context_engineer",
+    first_context: { work_place: "project", target: "context" },
+  },
 ] as const satisfies readonly {
   event: string;
   owner: string;
@@ -115,14 +109,6 @@ export const NOTIFICATION_TRIGGERS = [
   ask_agent: NotificationAskRole | null;
   first_context: NotificationFirstContext | null;
 }[];
-=======
-  {
-    event: "ContextViolationsRecorded",
-    owner: "documents/contexts",
-    condition: "count_rose",
-  },
-] as const;
->>>>>>> origin/main
 export type NotificationTrigger = (typeof NOTIFICATION_TRIGGERS)[number];
 
 const triggerEventSchema = z.enum(
@@ -166,36 +152,44 @@ export type OsDelivery = z.infer<typeof osDeliverySchema>;
 export const notificationsGetInputSchema = z.strictObject({
   notification: idSchema("ntf"),
 });
-<<<<<<< HEAD
-// 사람 줄이 source event에서 읽는 당시 시각과 문서 참조다(platform/notifications#R3).
-// 문서 참조가 없으면 null이다. payload 자체는 없다.
+// 사람 줄이 source event에서 읽는 당시 시각이다(platform/notifications#R3). payload 자체는 없다.
 //
 // ask는 [Ask <agent 이름>]이 쓰는 값이다(platform/notifications#R13, R14). core가 계기 표와
 // source 사실로 계산해 싣고 화면은 받은 값만 그린다. 부를 agent가 없는 계기는 null이다.
 // first_context는 Ask가 연 Agent 탭에 첫 context로 붙는 참조뿐이다: 앱 자리와 문제 또는
-// release 대상의 id. notification 본문 복사본·run·message는 실을 자리가 없다.
+// release 대상의 id, 또는 project 자리와 위반된 context의 id. notification 본문 복사본·
+// run·message는 실을 자리가 없다.
 export const notificationAskSchema = z.strictObject({
   role: z.enum(NOTIFICATION_ASK_ROLES),
   agent_name: z.string().min(1),
-  first_context: z.strictObject({
-    work_place: z.strictObject({ kind: z.literal("app"), id: idSchema("app") }),
-    target: z.discriminatedUnion("kind", [
-      z.strictObject({ kind: z.literal("problem"), id: idSchema("prb") }),
-      z.strictObject({ kind: z.literal("release"), id: idSchema("rel") }),
-    ]),
-  }),
+  first_context: z.union([
+    z.strictObject({
+      work_place: z.strictObject({
+        kind: z.literal("app"),
+        id: idSchema("app"),
+      }),
+      target: z.discriminatedUnion("kind", [
+        z.strictObject({ kind: z.literal("problem"), id: idSchema("prb") }),
+        z.strictObject({ kind: z.literal("release"), id: idSchema("rel") }),
+      ]),
+    }),
+    z.strictObject({
+      work_place: z.strictObject({
+        kind: z.literal("project"),
+        id: idSchema("prj"),
+      }),
+      target: z.strictObject({
+        kind: z.literal("context"),
+        id: idSchema("ctx"),
+      }),
+    }),
+  ]),
 });
 export type NotificationAsk = z.infer<typeof notificationAskSchema>;
 
 const notificationLineSchema = {
   occurred_at: atSchema.optional(),
-  document: idSchema("doc").nullable().optional(),
   ask: notificationAskSchema.nullable().optional(),
-=======
-// 사람 줄이 source event에서 읽는 당시 시각이다(platform/notifications#R3). payload 자체는 없다.
-const notificationLineSchema = {
-  occurred_at: atSchema.optional(),
->>>>>>> origin/main
 };
 
 export const notificationsGetOutputSchema = withReadCommon(z.object({

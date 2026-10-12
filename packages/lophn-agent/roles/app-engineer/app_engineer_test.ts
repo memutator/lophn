@@ -1076,56 +1076,9 @@ Deno.test("lophn-agent/roles/app-engineer#R20: 인터뷰 해석·설계·가설�
   // ticket 범위 선택은 본문 판단이라 제목 정리와 구별된다.
   assert(purposeOf("ticket_scope") !== purposeOf("ticket_title"));
 });
-<<<<<<< HEAD
-=======
-
-Deno.test("lophn-agent/roles/app-engineer#R20: 실제 provider·model·계정은 preset 선택의 두 용도로 정해지고 역할 상한은 model 이름을 고정하지 않는다", () => {
-  const deps: ValidateDeps = {
-    bundles: TOOL_BUNDLES,
-    mcpServers: new Map(),
-    roleCaps: ROLE_CAPS,
-    definitionKey: (provider) =>
-      provider === id("pvd", 1) ? "anthropic" : undefined,
-    modelListed: (_definition, name) => name === "claude-haiku-4-5",
-    credentialKeys: (provider) => provider === id("pvd", 1) ? ["key-main"] : [],
-    catalogEntry: (_definition, name) =>
-      name === "claude-haiku-4-5" ? catalogEntry() : undefined,
-  };
-  const selection = {
-    provider: id("pvd", 1),
-    credentials: ["key-main"],
-    model_name: "claude-haiku-4-5",
-    reasoning_level: "medium" as const,
-    options: {},
-  };
-  const both = validateDefinition({
-    ...productPresetDefinition("app_engineer", HASH),
-    model: selection,
-    organizing_model: { ...selection, reasoning_level: "low" as const },
-  }, deps);
-  assert(both.ok, JSON.stringify(both));
-  assertEquals(both.value.model!.purpose, "judgment");
-  assertEquals(both.value.organizing_model!.purpose, "organizing");
-  // 확인되지 않은 model은 저장을 거절한다.
-  const unverified = validateDefinition({
-    ...productPresetDefinition("app_engineer", HASH),
-    model: selection,
-    organizing_model: null,
-  }, { ...deps, catalogEntry: () => undefined });
-  assert(!unverified.ok);
-  const cap = ROLE_CAPS.get("app_engineer")!;
-  assertEquals(
-    cap.tools.some((tool) =>
-      tool.startsWith("model.") || tool.startsWith("provider.") ||
-      tool.includes("claude") || tool.includes("gpt")
-    ),
-    false,
-  );
-});
 
 Deno.test("lophn-agent/roles/app-engineer#R4 [ctx-T10d]: 옛 term 후보 topic은 Context Engineer의 결정이 아니고 per-context 용어집 초안만 그렇다", () => {
   assertEquals(decisionOwner("term_draft"), "app_engineer");
   assertEquals(decisionOwner("term_correspondence"), "app_engineer");
   assertEquals(decisionOwner("glossary_draft"), "context_engineer");
 });
->>>>>>> origin/main

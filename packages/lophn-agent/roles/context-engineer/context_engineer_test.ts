@@ -1,12 +1,4 @@
 import { assert, assertEquals } from "@std/assert";
-<<<<<<< HEAD
-import {
-  contextItemSchema,
-  contextPerspectiveSchema,
-} from "@lophn/contracts/documents";
-=======
-import type { CatalogEntry } from "@lophn/contracts/lophn-agent";
->>>>>>> origin/main
 import {
   handoffAllowed,
   handoffContentSchema,
@@ -24,36 +16,8 @@ import {
   runOperations,
   type ToolDefinition,
 } from "../../harness/tools/mod.ts";
-<<<<<<< HEAD
-import { ROLE_CAPS } from "../../agents/mod.ts";
-import {
-  CANDIDATE_DOCUMENT_MIN,
-  CANDIDATE_EVIDENCE_LIMIT,
-  candidateEvidence,
-  candidateTerms,
-  checkReport,
-  choosePerspective,
-  conflictHandoff,
-  type DesignReport,
-  designReport,
-  holdWithoutAnswer,
-  interpretationQuestion,
-  PERSPECTIVES,
-  purposeOf,
-  REPORT_TERM_LIMIT,
-  scopeLine,
-} from "./mod.ts";
-=======
-import {
-  APP_COMMAND_EXPOSURE,
-  CONTEXT_ENGINEER_BUNDLE,
-  productPresetDefinition,
-  ROLE_CAPS,
-  validateDefinition,
-  type ValidateDeps,
-} from "../../presets/mod.ts";
+import { APP_COMMAND_EXPOSURE, ROLE_CAPS } from "../../agents/mod.ts";
 import { conflictHandoff, holdWithoutAnswer, purposeOf } from "./mod.ts";
->>>>>>> origin/main
 
 // roles/context-engineer의 충돌 handoff·보류·model 용도(순수 규칙)와 역할 tool 선택,
 // 기본 preset의 묶음, prompt가 부르는 tool, 문서 읽기 흐름을 본다. 실제 provider·사람 데이터 root는 열지 않는다. assignment 적용은
@@ -224,70 +188,6 @@ Deno.test("lophn-agent/roles/context-engineer#R5 [ctx-I58d]: 코드·shell·파�
       .success,
     true,
   );
-});
-
-function validateDeps(): ValidateDeps {
-  return {
-    bundles: TOOL_BUNDLES,
-    mcpServers: new Map(),
-    roleCaps: ROLE_CAPS,
-    definitionKey: () => undefined,
-    catalogEntry: () => undefined,
-    modelListed: () => null,
-    credentialKeys: () => [],
-  };
-}
-
-Deno.test("lophn-agent/roles/context-engineer#R15 [ctx-I58d]: 기본 preset은 context-engineer 묶음을 고르고 펼친 목록이 역할 상한과 같다", () => {
-  const preset = productPresetDefinition("context_engineer", HASH);
-  assertEquals(preset.capability.bundles, [
-    { name: CONTEXT_ENGINEER_BUNDLE, revision: 1 },
-  ]);
-  assertEquals(
-    TOOL_BUNDLES.get(CONTEXT_ENGINEER_BUNDLE),
-    CONTEXT_ENGINEER_TOOLS_ALL,
-  );
-  // 묶음에 든 동작은 직접 고른 목록에 다시 들지 않는다.
-  const direct = preset.capability.tools.map((tool) => tool.tool);
-  for (const name of CONTEXT_ENGINEER_TOOLS_ALL) {
-    assert(!direct.includes(name), name);
-  }
-  // 묶음 + 직접 고른 동작이 역할 상한과 정확히 같다.
-  const cap = ROLE_CAPS.get("context_engineer")!;
-  assertEquals(
-    [...TOOL_BUNDLES.get(CONTEXT_ENGINEER_BUNDLE)!, ...direct].sort(),
-    [...cap.tools].sort(),
-  );
-  // 저장 검사를 통과하고 context는 전체를 읽는다(presets 기본 preset 표).
-  const checked = validateDefinition(preset, validateDeps());
-  assert(checked.ok, JSON.stringify(checked));
-  assertEquals(preset.context, [{ kind: "all", target: null, section: null }]);
-  // 이 preset으로 이 run이 제공하는 목록에 여덟 tool이 모두 든다.
-  const presetTools = [
-    ...TOOL_BUNDLES.get(CONTEXT_ENGINEER_BUNDLE)!,
-    ...direct,
-  ];
-  const listed = listTools(
-    { builtin: BUILTIN_TOOLS, app: [], external: [] },
-    { presetTools, roleTools: cap.tools },
-  ).map((tool) => tool.name);
-  for (const name of CONTEXT_ENGINEER_TOOLS_ALL) {
-    assert(listed.includes(name), name);
-  }
-});
-
-Deno.test("lophn-agent/roles/context-engineer#R15 [ctx-I58d]: 다른 역할의 preset이 context-engineer 묶음을 고르면 저장이 거절된다", () => {
-  for (const kind of ["lophn", "app_engineer"] as const) {
-    const preset = productPresetDefinition(kind, HASH);
-    const result = validateDefinition({
-      ...preset,
-      capability: {
-        bundles: [{ name: CONTEXT_ENGINEER_BUNDLE, revision: 1 }],
-        tools: [],
-      },
-    }, validateDeps());
-    assertEquals(result.ok, false, kind);
-  }
 });
 
 Deno.test("lophn-agent/roles/context-engineer#R8 [ctx-I58d]: prompt는 여덟 tool을 만들기·초안·미리보기·제출 순서로 이름 붙이고 없는 tool이나 옛 개념을 쓰지 않는다", () => {
@@ -499,7 +399,7 @@ function rig(world: ReturnType<typeof readWorld>) {
   );
   const handlers = createBuiltinToolHandlers({
     call: world.call,
-    newId: () => id("qst", 9),
+    newId: () => id("qgr", 9),
     runFacts: () =>
       Promise.resolve(ok({
         session: null,
@@ -647,28 +547,16 @@ Deno.test("lophn-agent/roles/context-engineer#R12 [ctx-I58d]: 같은 말 다른 
 
 // --- 보류(R10) --------------------------------------------------------
 
-<<<<<<< HEAD
-Deno.test("lophn-agent/roles/context-engineer#R10: 답이 없으면 변경을 보류하고 정의로 적용하지 않는다", () => {
-  const hold = holdWithoutAnswer("ledger", id("qgr", 3), [
-    "term.propose_candidate",
-    "candidate merge",
-=======
 Deno.test("lophn-agent/roles/context-engineer#R10 [ctx-I58d]: 답이 없으면 변경을 보류하고 정의로 적용하지 않는다", () => {
-  const hold = holdWithoutAnswer("ledger", id("qst", 3), [
+  const hold = holdWithoutAnswer("ledger", id("qgr", 3), [
     "contract submit",
     "glossary merge",
->>>>>>> origin/main
   ]);
   assertEquals(hold, {
     name: "ledger",
     reason: "no_answer",
-<<<<<<< HEAD
     group: id("qgr", 3),
-    held_changes: ["term.propose_candidate", "candidate merge"],
-=======
-    question: id("qst", 3),
     held_changes: ["contract submit", "glossary merge"],
->>>>>>> origin/main
   });
 });
 
@@ -698,56 +586,15 @@ Deno.test("lophn-agent/roles/context-engineer#R10 [ctx-I58d]: 필요한 결정�
       .length,
     1,
   );
-<<<<<<< HEAD
   // 답이 없으면 이 질문 묶음의 참조로 보류한다(R10).
   const hold = holdWithoutAnswer("ledger", id("qgr", 9), [
-    "term.propose_candidate",
-=======
-  // 답이 없으면 이 질문의 참조로 보류한다(R10).
-  const hold = holdWithoutAnswer("ledger", id("qst", 9), [
     "contract submit",
->>>>>>> origin/main
   ]);
   assertEquals(hold.group, id("qgr", 9));
   assertEquals(hold.reason, "no_answer");
 });
 
 // --- judgment·organizing 용도(R20) --------------------------------------------------------
-
-<<<<<<< HEAD
-Deno.test("lophn-agent/roles/context-engineer#R14: 판단의 본문은 judgment, 정해진 보고 제목·요약은 organizing이다", () => {
-  // 목적·경계·관점·term 해석의 본문은 judgment 용도다(R14).
-  assertEquals(purposeOf("design_body"), "judgment");
-  assertEquals(purposeOf("term_interpretation"), "judgment");
-  // 이미 정한 보고 제목·요약은 organizing 용도다(R14).
-=======
-function catalogEntryFixture(over: Partial<CatalogEntry> = {}): CatalogEntry {
-  return {
-    provider_definition: "anthropic",
-    model_name: "claude-haiku-4-5",
-    context_limit: 200_000,
-    input_limit: 190_000,
-    output_limit: 8_000,
-    supports_tools: true,
-    input_media: ["text"],
-    output_media: ["text"],
-    reasoning: {
-      mode: "named",
-      levels: ["low", "medium", "high"],
-      minimum_budget: null,
-      maximum_budget: null,
-      default_level: "medium",
-    },
-    preview: false,
-    deprecated: false,
-    source: "release_snapshot",
-    source_revision: "2026-10",
-    checked_at: "2026-10-07T00:00:00.000Z",
-    received_at: "2026-10-07T00:00:00.000Z",
-    price_basis: null,
-    ...over,
-  };
-}
 
 Deno.test("lophn-agent/roles/context-engineer#R20 [ctx-I58d]: 판단의 본문은 judgment, 정해진 보고 제목·요약은 organizing이다", () => {
   // 목적·경계·관점·term 해석의 본문은 judgment 용도다(R20).
@@ -763,177 +610,8 @@ Deno.test("lophn-agent/roles/context-engineer#R20 [ctx-I58d]: 판단의 본문�
     assertEquals(purposeOf(call), "judgment", call);
   }
   // 이미 정한 보고 제목·요약은 organizing 용도다(R20).
->>>>>>> origin/main
   assertEquals(purposeOf("report_title"), "organizing");
   assertEquals(purposeOf("report_summary"), "organizing");
-});
-
-<<<<<<< HEAD
-// --- 설계 보고와 근거 자리(R1) --------------------------------------------------------
-
-Deno.test("lophn-agent/roles/context-engineer#R1: 설계 요청이 이유·고정 근거·책임 경계가 있는 구성을 남긴다", () => {
-  const line = scopeLine(
-    { kind: "document", document: DOC_A, section: "usage" },
-    "basis",
-    "\n컨텍스트 목적의\n 책임 근거다  ",
-  );
-  assert(line !== undefined);
-  const evidence = candidateEvidence([
-    occurrence(DOC_A, VER_A),
-    occurrence(DOC_B, VER_B),
-    occurrence(DOC_C, VER_C),
-  ]);
-  const report = designReport({
-    context: id("ctx", 21),
-    purpose: "지침 문서의 용어를 다듬는다",
-    scope: [line],
-    confirmed: ["ledger"],
-    undecided: ["arrange"],
-    boundaries: ["원본 문서를 고치지 않는다", "앱 command를 실행하지 않는다"],
-  });
-  // 이유는 한 줄이고 근거는 고정 참조다(R1, R3).
-  assertEquals(report.scope[0]!.reason, "컨텍스트 목적의 책임 근거다");
-  assertEquals(evidence, [
-    { document: DOC_A, version: VER_A, section: "usage" },
-    { document: DOC_B, version: VER_B, section: "usage" },
-    { document: DOC_C, version: VER_C, section: "usage" },
-  ]);
-  assertEquals(report.terms.confirmed, ["ledger"]);
-  assertEquals(report.terms.undecided, ["arrange"]);
-  assertEquals(report.boundaries, [
-    "원본 문서를 고치지 않는다",
-    "앱 command를 실행하지 않는다",
-  ]);
-  assertEquals(checkReport(report), { ok: true, problems: [] });
-});
-
-Deno.test("lophn-agent/roles/context-engineer#R1: 목적·관점·이유를 가진 컨텍스트를 생성하고 항목의 근거가 남는다", async () => {
-  const world = readWorld();
-  const { run } = rig(world);
-  const created = await run("context.create", {
-    title: "지침 용어 정리",
-    purpose: "지침 문서의 용어를 다듬는다",
-    items: [{
-      target: { kind: "document", document: DOC_A, section: "usage" },
-      perspective: "basis",
-      reason: "책임 근거다",
-    }],
-  });
-  assertEquals(kind(created), "success");
-  // 생성의 목적·항목·관점·이유는 소유 contract로 그대로 넘어갔다(R1, R6).
-  const createCall = world.calls.find((call) =>
-    call.contract === "context.create"
-  );
-  assert(createCall !== undefined);
-  const body = createCall.input as {
-    purpose: string;
-    items: { perspective: string; reason: string }[];
-  };
-  assertEquals(body.purpose, "지침 문서의 용어를 다듬는다");
-  assertEquals(body.items[0]!.perspective, "basis");
-  assertEquals(body.items[0]!.reason, "책임 근거다");
-});
-
-Deno.test("lophn-agent/roles/context-engineer#R1: 책임 밖 요청은 보고의 경계로 안내되고 해당 변경 tool은 없다", () => {
-  const cap = ROLE_CAPS.get("context_engineer")!;
-  // 안내는 보고의 경계(맡지 않는 일)로 남는다(R2).
-  const report = designReport({
-    context: id("ctx", 22),
-    purpose: "정리한다",
-    scope: [],
-    confirmed: ["ledger"],
-    undecided: [],
-    boundaries: [
-      "문서 이동·이름 변경·삭제는 documents 사람 경로로 안내한다",
-      "앱 기획과 코드는 lophn·App Engineer의 몫이다",
-    ],
-  });
-  assertEquals(report.boundaries.length, 2);
-  assertEquals(checkReport(report).ok, true);
-  // 그 요청의 변경 tool은 목록 어디에도 없다(R1).
-  for (
-    const absent of ["document.move", "document.rename", "document.delete"]
-  ) {
-    assert(!cap.tools.includes(absent), absent);
-  }
-=======
-Deno.test("lophn-agent/roles/context-engineer#R20 [ctx-I58d]: 실제 model 선택은 preset의 두 용도로 검증된다", () => {
-  const deps: ValidateDeps = {
-    bundles: TOOL_BUNDLES,
-    mcpServers: new Map(),
-    roleCaps: ROLE_CAPS,
-    definitionKey: (provider) =>
-      provider === id("pvd", 1) ? "anthropic" : undefined,
-    modelListed: (_definition, modelName) => modelName === "claude-haiku-4-5",
-    credentialKeys: (provider) => provider === id("pvd", 1) ? ["key-main"] : [],
-    catalogEntry: (_definition, modelName) =>
-      modelName === "claude-haiku-4-5" ? catalogEntryFixture() : undefined,
-  };
-  const selection = {
-    provider: id("pvd", 1),
-    credentials: ["key-main"],
-    model_name: "claude-haiku-4-5",
-    reasoning_level: "medium" as const,
-    options: {},
-  };
-  const judgment = validateDefinition({
-    ...productPresetDefinition("context_engineer", HASH),
-    model: selection,
-    organizing_model: null,
-  }, deps);
-  assert(judgment.ok, JSON.stringify(judgment));
-  assertEquals(judgment.value.model!.purpose, "judgment");
-  assertEquals(judgment.value.organizing_model, null);
-  const both = validateDefinition({
-    ...productPresetDefinition("context_engineer", HASH),
-    model: selection,
-    organizing_model: { ...selection, reasoning_level: "low" as const },
-  }, deps);
-  assert(both.ok, JSON.stringify(both));
-  assertEquals(both.value.model!.purpose, "judgment");
-  assertEquals(both.value.organizing_model!.purpose, "organizing");
-  // 두 용도는 서로 다른 선택으로 분리된다(R20).
-  assertEquals(both.value.model!.reasoning_level, "medium");
-  assertEquals(both.value.organizing_model!.reasoning_level, "low");
-});
-
-Deno.test("lophn-agent/roles/context-engineer#R20 [ctx-I58d]: 확인되지 않은 model은 저장을 거절하고 역할 상한은 model 호출 tool을 두지 않는다", () => {
-  // 확인된 항목이 없으면 사용할 수 없다(R20의 preset 경로).
-  const deps: ValidateDeps = {
-    bundles: TOOL_BUNDLES,
-    mcpServers: new Map(),
-    roleCaps: ROLE_CAPS,
-    definitionKey: () => "anthropic",
-    modelListed: () => true,
-    credentialKeys: () => ["key-main"],
-    catalogEntry: () => undefined,
-  };
-  const result = validateDefinition({
-    ...productPresetDefinition("context_engineer", HASH),
-    model: {
-      provider: id("pvd", 1),
-      credentials: ["key-main"],
-      model_name: "claude-haiku-4-5",
-      reasoning_level: "medium",
-      options: {},
-    },
-    organizing_model: null,
-  }, deps);
-  assert(!result.ok);
-  assertEquals(result.error.code, "invalid_input");
-  // 실제 model·계정은 preset 선택의 몫이다. 역할 상한은 model 호출 tool을 두지 않는다(R20).
-  const cap = ROLE_CAPS.get("context_engineer")!;
-  assertEquals(
-    cap.tools.some((tool) =>
-      tool.startsWith("model.") || tool.startsWith("provider.")
-    ),
-    false,
-  );
-  // 역할 상한도 model 이름을 고정하지 않는다(R20).
-  assertEquals(
-    cap.tools.some((tool) => tool.includes("claude") || tool.includes("gpt")),
-    false,
-  );
 });
 
 Deno.test("lophn-agent/roles/context-engineer#R8 [ctx-I58f]: prompt는 대상 context가 없으면 context.create로 먼저 만들라고 하고 만드는 tool이 없다는 옛 글은 없다", () => {
@@ -945,5 +623,4 @@ Deno.test("lophn-agent/roles/context-engineer#R8 [ctx-I58f]: prompt는 대상 co
   // 만드는 일은 역할 상한에 있는 write 동작이다.
   const listed = new Map(listedForRole().map((tool) => [tool.name, tool]));
   assertEquals(listed.get("context.create")?.effect, "write");
->>>>>>> origin/main
 });

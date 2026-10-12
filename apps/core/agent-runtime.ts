@@ -39,7 +39,7 @@ import {
   createAgentCredentialLink,
   roleOperations,
 } from "./agent-credentials.ts";
-import { ROLE_CAPS } from "../../packages/lophn-agent/presets/mod.ts";
+import { ROLE_CAPS } from "../../packages/lophn-agent/agents/mod.ts";
 import {
   type ChildBlobPrepare,
   createChildBlobPrepare,

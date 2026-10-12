@@ -1,10 +1,8 @@
 import { err, ok, type Result } from "../../packages/base/mod.ts";
 import type { BundleContent } from "../../packages/contracts/documents/mod.ts";
-import type { WorkPlace } from "../../packages/contracts/lophn-agent/mod.ts";
 import {
   contextContractRoute,
   contextGetRoute,
-  contextListRoute,
 } from "../../packages/contracts/documents/mod.ts";
 import {
   buildContextReadTools,
@@ -17,11 +15,9 @@ import type { ContractCall } from "../../packages/lophn-agent/harness/tools/bund
 import { type CoreCall, readOf } from "./core-call.ts";
 
 // 선언 검색 tool과 개체 읽기 tool의 재료 읽기와 handler 연결이다(lophn-agent/harness/tools R21, R22).
-// preset의 context 선택이 가리키는 context들의 적용된 판(`context.contract`)을 run을 시작하기 전에 한 번
+// resolved agent의 context(`ResolvedAgent.contexts`)들의 적용된 판(`context.contract`)을 run을 시작하기 전에 한 번
 // 읽어 정의를 만들고(Run.basis의 정의 hash가 이 정의를 고정한다) 호출은 run의 agent 자격으로 core의
 // `context.search`·`context.entity`를 부른다.
-
-export type ContextSelection = { kind: string; target: string | null };
 
 // run이 정의를 만든 판의 고정이다. Run.basis의 `tools.contexts`에 실리고 resume은 이 판으로 정의를 다시 만든다
 // (lophn-agent/harness/tools R21: 판이 바뀌어도 진행 중인 run은 옛 정의로 계속한다).
@@ -90,11 +86,9 @@ export function pinsOf(value: unknown): readonly ContextToolPin[] {
 }
 
 export type ContextToolInput = {
-  // 세션 작업 자리 또는 담당 범위의 project. 정해지지 않았으면 null이다.
-  project: string | null;
-  // 담당 범위가 앱(App Engineer)이면 그 앱. `assignment_scope` 선택은 이 앱을 읽는 context들로 풀린다.
-  app?: string | null;
-  selections: readonly ContextSelection[];
+  // resolved agent가 읽을 context들이다(`ResolvedAgent.contexts`). Operator는 정의가 고른 것, built-in은 자리의
+  // active 전부, App Engineer는 앱 자리에서 그 앱을 읽는 context다. 어느 context인지는 agent 층이 정한다.
+  contexts: readonly string[];
 };
 
 export type ContextToolkit = {
@@ -113,41 +107,6 @@ export type ContextToolkit = {
   ): ReadonlyMap<string, ToolHandler>;
 };
 
-const LIST_PAGES = 10;
-const LIST_LIMIT = 100;
-
-// `all`·`work_place`·`assignment_scope`·`project`는 그 project의 active context들로 풀리고 `context`는 그
-// context 하나다. app·document·sdk 선택은 context가 아니다.
-const PROJECT_KINDS = new Set([
-  "all",
-  "work_place",
-  "assignment_scope",
-  "project",
-]);
-
-async function activeContexts(
-  call: CoreCall,
-  filter: { project: string } | { app: string },
-): Promise<Result<readonly string[]>> {
-  const found: string[] = [];
-  let cursor: string | undefined;
-  for (let page = 0; page < LIST_PAGES; page++) {
-    const listed = await readOf(call, contextListRoute, {
-      ...filter,
-      status: "active",
-      limit: LIST_LIMIT,
-      ...(cursor === undefined ? {} : { cursor }),
-    });
-    if (!listed.ok) return listed;
-    for (const entry of listed.value.contexts) {
-      if (entry.status === "active") found.push(entry.id);
-    }
-    if (listed.value.next_cursor === null) break;
-    cursor = listed.value.next_cursor;
-  }
-  return { ok: true, value: found };
-}
-
 export function createContextToolkit(options: {
   // 정의 재료를 읽는 자격. run의 agent credential은 StartRun 뒤에야 있으므로 machine 자격이다.
   machine: CoreCall;
@@ -158,14 +117,9 @@ export function createContextToolkit(options: {
 }): ContextToolkit {
   const { machine } = options;
 
-  async function contextOf(
-    id: string,
-    project: string | null,
-  ): Promise<LoadedContextTool | null> {
+  async function contextOf(id: string): Promise<LoadedContextTool | null> {
     const got = await readOf(machine, contextGetRoute, { context: id });
     if (!got.ok || got.value.context.status !== "active") return null;
-    // 담당 project 밖의 context는 선택이어도 읽지 않는다.
-    if (project !== null && got.value.context.project !== project) return null;
     const contract = await readOf(machine, contextContractRoute, {
       context: id,
     });
@@ -217,47 +171,9 @@ export function createContextToolkit(options: {
 
   return {
     async load(input) {
-      const ids: string[] = [];
-      const add = (id: string) => {
-        if (!ids.includes(id)) ids.push(id);
-      };
-      // 앱 선택으로 푼 context는 작업 자리 project와 상관없이 읽는다.
-      const byApp = new Set<string>();
-      let resolved = false;
-      let projectIds: readonly string[] = [];
-      let appIds: readonly string[] | undefined;
-      for (const selection of input.selections) {
-        if (selection.kind === "context" && selection.target !== null) {
-          add(selection.target);
-        } else if (
-          selection.kind === "assignment_scope" && input.app != null
-        ) {
-          if (appIds === undefined) {
-            const listed = await activeContexts(machine, { app: input.app });
-            appIds = listed.ok ? listed.value : [];
-          }
-          for (const id of appIds) {
-            add(id);
-            byApp.add(id);
-          }
-        } else if (PROJECT_KINDS.has(selection.kind)) {
-          if (input.project === null) continue;
-          if (!resolved) {
-            resolved = true;
-            const listed = await activeContexts(machine, {
-              project: input.project,
-            });
-            projectIds = listed.ok ? listed.value : [];
-          }
-          for (const id of projectIds) add(id);
-        }
-      }
       const loaded: LoadedContextTool[] = [];
-      for (const id of ids) {
-        const context = await contextOf(
-          id,
-          byApp.has(id) ? null : input.project,
-        );
+      for (const id of new Set(input.contexts)) {
+        const context = await contextOf(id);
         if (context !== null) loaded.push(context);
       }
       return loaded;
@@ -278,29 +194,13 @@ export function createContextToolkit(options: {
   };
 }
 
-// context 자료의 project다. 세션 작업 자리가 project이면 그것이고 아니면 담당 범위가 project일 때 그것이다.
-// 담당 범위가 다른 project이면 작업 자리가 담당 범위를 넓히지 못하므로 정해지지 않은 것과 같다.
-export function projectOf(
-  place: WorkPlace,
-  scope: { kind: string; id: string | null },
-): string | null {
-  const assigned = scope.kind === "project" ? scope.id : null;
-  if (place.kind === "project") {
-    return assigned === null || assigned === place.id ? place.id : null;
-  }
-  return assigned;
-}
-
-// 이 run이 제공할 선언 검색 tool과 개체 읽기 tool이다. `pinned`가 있으면(resume) 선택이 아니라 run이 시작할 때
-// 고정한 판으로 만든다. 정의를 만든 판은 `pins`로 돌려주고 Run.basis가 싣는다. 역할 상한은 개체 읽기 이름이 정하고(역할 상한
-// 표·preset 선택) 여기서는 preset의 context 선택이 가리키는 context만 정의가 된다. 도구 묶음이 없으면
-// 하나도 없다.
+// 이 run이 제공할 선언 검색 tool과 개체 읽기 tool이다. `pinned`가 있으면(resume) resolved agent의 context가 아니라
+// run이 시작할 때 고정한 판으로 만든다. 정의를 만든 판은 `pins`로 돌려주고 Run.basis가 싣는다. 역할 상한은 개체 읽기
+// 이름이 정하고(역할 상한 표) 여기서는 resolved agent의 context만 정의가 된다. 도구 묶음이 없으면 하나도 없다.
 export async function contextReadToolsFor(
   kit: ContextToolkit | undefined,
   input: {
-    place: WorkPlace;
-    scope: { kind: string; id: string | null };
-    selections: readonly ContextSelection[];
+    contexts: readonly string[];
     pinned?: readonly ContextToolPin[];
   },
 ): Promise<ContextReadTools & { pins: readonly ContextToolPin[] }> {
@@ -309,11 +209,7 @@ export async function contextReadToolsFor(
   }
   const selected = input.pinned !== undefined
     ? await kit.loadPinned(input.pinned)
-    : await kit.load({
-      project: projectOf(input.place, input.scope),
-      app: input.scope.kind === "app" ? input.scope.id : null,
-      selections: input.selections,
-    });
+    : await kit.load({ contexts: input.contexts });
   const tools = await buildContextReadTools({ selected, allowed: null });
   return {
     ...tools,

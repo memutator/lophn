@@ -1,10 +1,10 @@
-// context 자료(lophn-agent/harness/prompt-assemble#R4, R5, presets#R17)다. 선택한 context마다 overview(type·뜻·
-// 개수, type 사이 관계)와 용어집을 core 읽기로 모아 prompt 자료 글로 만든다. 선택 중 `assignment_scope`·
-// `work_place`는 `resolveContextSelections`가 풀어서 `all`·`project`로 넘긴다(ctx-I58b).
+// context 자료(lophn-agent/harness/prompt-assemble#R4, R5)다. resolved agent의 context(`ResolvedAgent.contexts`)마다
+// overview(type·뜻·개수, type 사이 관계)와 용어집을 core 읽기로 모아 prompt 자료 글로 만든다. 어느 context인지는
+// agent 층이 정한다: Operator는 정의가 고른 것, built-in은 자리 project의 active 전부, App Engineer는 앱 자리에서
+// 그 앱을 읽는 context다(lophn-agent/agents).
 import {
   contextContractRoute,
   contextGetRoute,
-  contextListRoute,
   contextOverviewRoute,
   type Contract,
   glossaryListRoute,
@@ -100,48 +100,9 @@ export type ContextMaterial = {
   glossary_empty: boolean;
 };
 
-export type ContextMaterialSelection = { kind: string; target: string | null };
-
-// preset의 context 선택 중 `work_place`·`assignment_scope`를 loadContextMaterials가 읽는 선택으로 푼다
-// (presets: `work_place`는 세션 작업 자리, `assignment_scope`는 담당 범위에서 resolve한다).
-// - `work_place`: 작업 자리가 project면 그 project, 아니면 자료가 없다.
-// - `assignment_scope`: 담당 범위가 project면 그 project다. 담당 범위가 앱(App Engineer)이면 작업 자리와
-//   상관없이 그 앱을 app-data source로 읽는 active context들(`app_readers`)이다(`context.list`의 app
-//   거르기, roles/app-engineer#R2). preset 자신의 `app` 선택은 context가 아니다. 그 밖의 담당 범위는 작업 자리의 project 안에서 `all`로 읽는다.
-// 다른 선택은 그대로 둔다.
-export function resolveContextSelections(
-  selections: readonly ContextMaterialSelection[],
-  input: {
-    place: { kind: string; id: string | null };
-    scope: { kind: string; id: string | null };
-  },
-): ContextMaterialSelection[] {
-  const resolved: ContextMaterialSelection[] = [];
-  for (const selection of selections) {
-    if (selection.kind === "work_place") {
-      if (input.place.kind === "project" && input.place.id !== null) {
-        resolved.push({ kind: "project", target: input.place.id });
-      }
-    } else if (selection.kind === "assignment_scope") {
-      resolved.push(
-        input.scope.kind === "project" && input.scope.id !== null
-          ? { kind: "project", target: input.scope.id }
-          : input.scope.kind === "app" && input.scope.id !== null
-          ? { kind: "app_readers", target: input.scope.id }
-          : { kind: "all", target: null },
-      );
-    } else {
-      resolved.push(selection);
-    }
-  }
-  return resolved;
-}
-
 export type ContextMaterialSet = {
-  // 중복 없이, 선택 순서 다음 `context.list` 순서(제목, id)로.
+  // 중복 없이, resolved agent의 context 순서로.
   materials: readonly ContextMaterial[];
-  // 자료가 0개인 이유(project가 정해지지 않음). 자료가 있으면 null이다.
-  reason: string | null;
   // 고른 context인데 읽지 못해 자료에 싣지 못한 것과 그 이유. 보관·초안 context와 적용된 판이 없는 context는
   // 읽지 못한 것이 아니라서 들지 않는다.
   omitted: readonly ContextMaterialOmission[];
@@ -153,9 +114,6 @@ export type ContextMaterialOmission = {
   title: string;
   reason: string;
 };
-
-const NO_PROJECT_REASON =
-  "project가 정해지지 않아 context 자료를 싣지 않았다. project를 정하면 다음 run부터 싣는다.";
 
 // 한 context의 자료를 읽는다. active가 아니거나 적용된 판이 없으면 null이다(조용히 뺀다). 읽지 못한 것은
 // `omission`으로 이유를 돌려준다.
@@ -231,70 +189,24 @@ async function loadOne(
   };
 }
 
-// project 또는 app의 active context id들. `context.list` 순서(제목, id)다.
-async function activeContexts(
-  agent: CoreCall,
-  filter: { project: string } | { app: string },
-): Promise<string[]> {
-  const found: string[] = [];
-  let cursor: string | undefined;
-  for (;;) {
-    const page = await readOf(agent, contextListRoute, {
-      ...filter,
-      status: "active",
-      ...(cursor === undefined ? {} : { cursor }),
-    });
-    if (!page.ok) return found;
-    for (const item of page.value.contexts) {
-      if (item.status === "active") found.push(item.id);
-    }
-    if (page.value.next_cursor === null) return found;
-    cursor = page.value.next_cursor;
-  }
-}
-
-// run을 시작할 때 한 번 읽는다. `all`·`project` 선택은 그 project의 active context들로 풀리고
-// (`context` 선택은 그 context 하나, `app_readers` 선택은 그 앱을 읽는 active context들) 보관·초안 context, 읽을 수
-// 없는 context, 적용된 판이 없는 context는 조용히 뺀다. 읽기만 한다(`context.list|get|contract|overview`,
-// `glossary.list`). `pins`가 있으면(resume) 그 context는 고정한 판의 계약으로 만든다.
+// run을 시작할 때 한 번 읽는다. 보관·초안 context, 읽을 수 없는 context, 적용된 판이 없는 context는 조용히
+// 뺀다. 읽기만 한다(`context.get|contract|overview`, `glossary.list`). `pins`가 있으면(resume) 그 context는 고정한
+// 판의 계약으로 만든다.
 export async function loadContextMaterials(
   agent: CoreCall,
   input: {
-    // 세션 작업 자리 또는 담당 범위의 project. 정해지지 않았으면 null이다.
-    project: string | null;
-    selections: readonly ContextMaterialSelection[];
+    // resolved agent가 읽을 context들이다.
+    contexts: readonly string[];
     pins?: readonly ContextToolPin[];
   },
 ): Promise<ContextMaterialSet> {
-  const wanted: string[] = [];
-  let missingProject = false;
-  for (const selection of input.selections) {
-    if (selection.kind === "context" && selection.target !== null) {
-      wanted.push(selection.target);
-    } else if (selection.kind === "project" && selection.target !== null) {
-      wanted.push(
-        ...await activeContexts(agent, { project: selection.target }),
-      );
-    } else if (selection.kind === "app_readers" && selection.target !== null) {
-      wanted.push(...await activeContexts(agent, { app: selection.target }));
-    } else if (selection.kind === "all") {
-      if (input.project === null) missingProject = true;
-      else {
-        wanted.push(...await activeContexts(agent, { project: input.project }));
-      }
-    }
-  }
   const pinned = new Map(input.pins?.map((pin) => [pin.context, pin]));
   const materials: ContextMaterial[] = [];
   const omitted: ContextMaterialOmission[] = [];
-  for (const context of new Set(wanted)) {
+  for (const context of new Set(input.contexts)) {
     const loaded = await loadOne(agent, context, pinned.get(context));
     if (loaded.kind === "material") materials.push(loaded.material);
     else if (loaded.kind === "omitted") omitted.push(loaded.omission);
   }
-  return {
-    materials,
-    omitted,
-    reason: materials.length === 0 && missingProject ? NO_PROJECT_REASON : null,
-  };
+  return { materials, omitted };
 }

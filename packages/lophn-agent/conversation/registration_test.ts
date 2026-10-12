@@ -31,11 +31,8 @@ import {
   createConversationCommands,
   createConversationReads,
   hasUnappliedSteering,
-<<<<<<< HEAD
   recordFactMessage,
-=======
   startRequest,
->>>>>>> origin/main
 } from "./mod.ts";
 
 // 세션·메시지 ledger 테스트 등록. preset·assignment·run 표와 같은 wire에
@@ -179,18 +176,13 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
   const assignmentReads = createAssignmentReads();
   const runCommands = createRunCommands({ hasUnappliedSteering });
   const runReads = createRunReads();
-<<<<<<< HEAD
-  const commands = createConversationCommands({
+  const deps: ConversationDeps = {
     // 제품 조립과 같다. session을 지울 때 그 session의 run 기록은 run-loop가 지운다. 본문 참조
     // 지움은 platform 몫이고 core 시험(apps/core/testing)이 본다.
     deleteSessionRecords: (tx, session) =>
       deleteSessionRuns(tx, session, () => ok(undefined)),
     eraseBlobRefs: () => ok(undefined),
     // 접수 실패 주입은 이 fixture 표 하나로만 켠다.
-=======
-  const deps: ConversationDeps = {
-    // 제품 조립과 같다. 접수 실패 주입은 이 fixture 표 하나로만 켠다.
->>>>>>> origin/main
     acceptRun: (tx, ctx, input, compare) =>
       tx.sql.get("select 1 as found from fail_accept where fail = 1", []) !==
           undefined
@@ -360,7 +352,6 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
         },
       },
       {
-<<<<<<< HEAD
         route: seedSummariesRoute,
         handle(tx, _ctx, input) {
           const seeded = input as { provider: string; model_name: string };
@@ -383,7 +374,9 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
             principal: ctx.principal,
           });
           return recorded.ok ? ok({ message: recorded.value }) : recorded;
-=======
+        },
+      },
+      {
         route: startRequestRoute,
         handle(tx, _ctx, input) {
           const request = input as {
@@ -411,7 +404,6 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
             },
           });
           return started.ok ? ok(started.value) : started;
->>>>>>> origin/main
         },
       },
       {

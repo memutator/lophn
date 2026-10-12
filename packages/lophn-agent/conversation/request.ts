@@ -12,8 +12,8 @@ import type {
 import {
   type ConversationDeps,
   createConversationCommands,
-  receiveWith,
 } from "./commands.ts";
+import { receiveWith } from "./message-commands.ts";
 
 // 사람이 다른 concern의 화면에서 누른 단추 한 번(예: 위반 넘기기)을, 그 역할 assignment의 새
 // 세션과 사람 요청 message, 담당 run 하나로 접수한다. 세션 개설·message 저장·run 접수가 부른 쪽의
@@ -74,13 +74,12 @@ export function startRequest(
   const opened = commands.open.handle(tx, REQUESTER, {
     id: session,
     assignment: receiver.id,
-    role: input.role,
     work_place: input.work_place,
-    continued_from: null,
+    opening_context: null,
   }, { assignment_revision: receiver.revision, assignment_state: "enabled" });
   if (!opened.ok) return opened;
   const message = tx.newId("msg");
-  const received = receiveWith(deps, tx, REQUESTER, {
+  const received = receiveWith(deps.acceptRun, tx, REQUESTER, {
     id: message,
     session,
     content: input.content,

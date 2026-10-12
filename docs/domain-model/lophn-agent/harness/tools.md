@@ -127,7 +127,6 @@ slug는 ASCII 영문·숫자·밑줄만, 최대 20자이며 원래 command 이�
 
 ### 앱 tool 생성·호출 정책
 
-<<<<<<< HEAD
 - blueprint command의 이름·설명·input schema·effect·confirm·되돌리기 contract로 ToolDefinition을 생성한다. MCP 설정·stdio 자식은 만들지 않는다. resolved agent의 권한 선택·제품 역할 상한·현재 앱 허락·assignment 교집합만 제공한다. → lophn-agent/roles/common.
 - `blueprint.agent_context`의 `read_command`와 `annotation_targets[].write_command`는 예약 tool 이름 없이 앱의 command key를 참조한다. context read는 `ScreenContextReadInput {screen,view_session,detail}`, 결과는 `AppScreenContext {app,release,screen,view_session,revision,summary,data?,redacted}`다. annotation write는 `AnnotationWriteInput {screen,view_session,expected_revision,target,text}`다. 이 값의 정본 schema는 → apps/agent-context이며 harness는 원래 command binding에 연결한다.
 - context 상세 read와 annotation write는 선언된 원래 앱 command의 binding을 사용한다. 별도 generic DOM·주석 script tool은 없다. 화면·자리·비교 기준은 → apps/agent-context가 검사한다.
@@ -144,48 +143,6 @@ slug는 ASCII 영문·숫자·밑줄만, 최대 20자이며 원래 command 이�
 | `visual.prepare_document` | `read` | lophn-agent/visuals prepare | message ID·선택 key·문서 기준; VisualDocumentPreparation; 실제 저장 없음 |
 | `lophn.guide` | `read` | 동봉 제품 안내 read | 기능 이름·절; 현재 제품 판·안내·한계 |
 | `setting.read` | `read` | platform/settings 공개 설정 read | 등록 key; schema·current value·선택 출처·revision·적용 시점; secret 없음 |
-=======
-- blueprint command의 이름·설명·input schema·effect·confirm·되돌리기 contract로
-  ToolDefinition을 생성한다. MCP 설정·stdio 자식은 만들지 않는다. 고정 Preset
-  capability 선택·제품 역할 상한·현재 앱 허락·assignment 교집합만 제공한다. →
-  lophn-agent/roles/common.
-- `blueprint.agent_context`의 `read_command`와
-  `annotation_targets[].write_command`는 예약 tool 이름 없이 앱의 command key를
-  참조한다. context read는
-  `ScreenContextReadInput {screen,view_session,detail}`, 결과는
-  `AppScreenContext {app,release,screen,view_session,revision,summary,data?,redacted}`다.
-  annotation write는
-  `AnnotationWriteInput {screen,view_session,expected_revision,target,text}`다.
-  이 값의 정본 schema는 → apps/agent-context이며 harness는 원래 command
-  binding에 연결한다.
-- context 상세 read와 annotation write는 선언된 원래 앱 command의 binding을
-  사용한다. 별도 generic DOM·주석 script tool은 없다. 화면·자리·비교 기준은 →
-  apps/agent-context가 검사한다.
-- 실행 직전 current active release·blueprint
-  hash·허락·effect·confirm·command.revert.supported와 revert.command를 다시
-  검사한다. 달라졌으면 `conflict`/`forbidden`으로 미실행하며 다음 run에서 새
-  정의를 생성한다. old approval을 이식하지 않는다.
-- write의 `command.revert.supported=true`이면 성공 응답의
-  `{result,revert:{invocation,receipt,expected_revision}}`를 ToolCall.output에
-  보존한다. receipt는 앱이 보관한 이전 상태를 가리키는 불투명 문자열이며 raw
-  상태·secret은 아니다. receipt는 model에 원문을 전달하지 않는 opaque 복원
-  근거다. 앱의 revert command는 run revert 경로에서만 쓰며 일반 tool 목록에 복원
-  권한을 보태지 않는다.
-- 호출은 → apps/runtime의 direct call이다. read는 후행 기록, confirm 또는
-  write/external은 선행 ToolCall 기록과 필요한 approval 뒤 direct call하며 앱
-  Invocation·업무 DB 결과와 ToolCall은 분산 transaction이 아니다. 응답 유실은
-  owner 결과 조회 또는 uncertain이고 idempotency 없이는 retry하지 않는다.
-
-### 시각·안내 tool 계약
-
-| tool                      | effect  | 소유 contract 한 번                      | 입력·출력                                                                                     |
-| ------------------------- | ------- | ---------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `visual.show`             | `write` | lophn-agent/conversation `RecordMessage` | 현재 run의 세션·MessageContent; 검증 후 message ID·블록 key 반환; 세션 없는 주기는 제공 안 함 |
-| `visual.read`             | `read`  | lophn-agent/conversation message read    | 허용 message ID·block key; 저장 명세와 설명·출처; 일반 결과 상한과 이어 읽기 적용             |
-| `visual.prepare_document` | `read`  | lophn-agent/visuals prepare              | message ID·선택 key·문서 기준; VisualDocumentPreparation; 실제 저장 없음                      |
-| `lophn.guide`             | `read`  | 동봉 제품 안내 read                      | 기능 이름·절; 현재 제품 판·안내·한계                                                          |
-| `setting.read`            | `read`  | platform/settings 공개 설정 read         | 등록 key; schema·current value·선택 출처·revision·적용 시점; secret 없음                      |
->>>>>>> origin/main
 
 `visual.show`는 세션 출력 기록이며 업무 변경이 아니다. 메시지를 run revert에서
 지우지 않고 내용 정정은 새 메시지로 남긴다. 저장 명세와 준비 결과는 →
@@ -197,24 +154,9 @@ agent에게 settings write 권한을 주지 않는다.
 context의 계약·검색·위반·용어집의 값은 → documents/contexts, documents/terms가
 정본이고 이 문서는 tool 정의의 모양만 정한다.
 
-<<<<<<< HEAD
-| tool | effect | 소유 contract 한 번 | 입력·출력 | 제공 역할 |
-|---|---|---|---|---|
-| 선언 검색 tool(검색마다 하나) | `read` | documents/contexts 적용된 판의 검색 실행 | 선언한 입력 schema; 결과는 개체 요약 목록(최대 20개)·이어 읽기; 이름은 `ctx_<ctx ULID>_<검색 slug>_<hash8>` | resolved agent의 context의 검색만; 모든 역할 |
-| `context.read_entity` | `read` | documents/contexts 개체 읽기 | context·type·개체 id; field·관계·원문 위치(파일 경로·section 범위) | 모든 역할 |
-| `series.next_name` | `read` | documents/series 다음 이름 계산 | context·series kind의 type; 다음 문서 이름; 문서·context 상태는 바뀌지 않음 | 모든 역할 |
-| `context.read_contract` | `read` | documents/contexts 계약·초안 읽기 | context; 적용된 판과 초안 | Context Engineer |
-| `context.draft` | `write` | documents/contexts 초안 쓰기 | 계약·검색·예시·saved view 초안; 초안 기준(CAS) | Context Engineer |
-| `context.preview` | `read` | documents/contexts 지금 파일로 추출·위반 확인 | 초안 기준; 개체 수·위반 목록·예시 결과; 적용하지 않음 | Context Engineer |
-| `context.submit` | `write` | documents/contexts 판 제출 | 초안 기준; 판 hash·check 결과·위반; 통과한 판의 적용은 documents/contexts | Context Engineer |
-| `context.violations` | `read` | documents/contexts 위반 읽기 | context; 위반 목록(문서 경로·규칙) | Context Engineer |
-| `context.glossary_read`, `context.glossary_write` | `read`, `write` | documents/terms 용어집 읽기·쓰기 | context; 용어·뜻·정한 사람 | Context Engineer |
-
-선언 검색 tool은 앱 tool처럼 ToolDefinition을 선언에서 만들고, resolved agent의 선택·제품 역할 상한·assignment 범위의 교집합 안에서만 제공하며 Run.basis에 정의 hash를 고정한다. 판이 바뀌어도 진행 중인 run은 옛 정의로 계속하고 새 정의는 다음 run에서 만든다. 이름 충돌은 앱 tool과 같이 전체 목록 검증을 실패시킨다. `context.preview`는 read이며 판·파일·ledger의 context 상태를 바꾸지 않는다. 자료 검색 결과와 용어집의 문자열은 untrusted data이며 권한 주장으로 쓰지 않는다.
-=======
 | tool                                              | effect          | 소유 contract 한 번                                      | 입력·출력                                                                                                                                                                                                                                                | 제공 역할                                 |
 | ------------------------------------------------- | --------------- | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
-| 선언 검색 tool(검색마다 하나)                     | `read`          | documents/contexts 적용된 판의 검색 실행                 | 선언한 입력 schema; 결과는 개체 요약 목록(최대 20개)·이어 읽기; 이름은 `ctx_<ctx ULID>_<검색 slug>_<hash8>`                                                                                                                                              | preset이 고른 context의 검색만; 모든 역할 |
+| 선언 검색 tool(검색마다 하나)                     | `read`          | documents/contexts 적용된 판의 검색 실행                 | 선언한 입력 schema; 결과는 개체 요약 목록(최대 20개)·이어 읽기; 이름은 `ctx_<ctx ULID>_<검색 slug>_<hash8>`                                                                                                                                              | resolved agent의 context의 검색만; 모든 역할 |
 | `context.read_entity`                             | `read`          | documents/contexts 개체 읽기                             | context·type·개체 id; field·관계·원문 위치(파일 경로·section 범위)                                                                                                                                                                                       | 모든 역할                                 |
 | `series.next_name`                                | `read`          | documents/series 다음 이름 계산                          | context·series kind의 type; 다음 문서 이름; 문서·context 상태는 바뀌지 않음                                                                                                                                                                              | 모든 역할                                 |
 | `context.list`                                    | `read`          | documents/contexts 목록 읽기(모든 project)               | project(선택); active context의 id·이름·목적·project(최대 20개)·이어 읽기; project가 없으면 읽을 수 있는 모든 project를 `project.list`로 모아 project마다 `context.list`를 읽는다                                                                        | lophn                                     |
@@ -229,13 +171,13 @@ context의 계약·검색·위반·용어집의 값은 → documents/contexts, d
 | `context.glossary_read`, `context.glossary_write` | `read`, `write` | documents/terms 용어집 읽기·쓰기                         | context; 용어·뜻·정한 사람                                                                                                                                                                                                                               | Context Engineer                          |
 
 `context.list`·`context.overview`·`context.containing`은 prompt 자료의 project
-범위(→ lophn-agent/presets 컨텍스트 선택)와 따로 lophn에게만 모든 project의
+범위(→ lophn-agent/agents의 context 선택)와 따로 lophn에게만 모든 project의
 context를 읽게 한다. 개체·검색 결과·문서 본문은 읽지 못하고 그것은 선택한
 context의 검색·개체 tool이 맡는다. `context.containing`의 결과는 문서 자리
 추천이 문서를 덮는 context로 세는 값이다(→ lophn-agent/roles/lophn). 결과는 다른
 읽기 tool과 같은 상한(목록 20개, 글 24576 UTF-8 bytes)을 따른다.
 
-선언 검색 tool은 앱 tool처럼 ToolDefinition을 선언에서 만들고, 고정 Preset
+선언 검색 tool은 앱 tool처럼 ToolDefinition을 선언에서 만들고, resolved agent의
 선택·제품 역할 상한·assignment 범위의 교집합 안에서만 제공하며 Run.basis에 정의
 hash를 고정한다. Run.basis는 정의를 만든 context마다 그
 판(`{context,bundle,bundle_hash,title}`)을 함께 고정하고, 판이 바뀌어도 진행
@@ -255,7 +197,6 @@ context가 active가 아니거나 고정한 판을 읽지 못하거나 읽은 �
 충돌은 앱 tool과 같이 전체 목록 검증을 실패시킨다. `context.preview`는 read이며
 판·파일·ledger의 context 상태를 바꾸지 않는다. 자료 검색 결과와 용어집의
 문자열은 untrusted data이며 권한 주장으로 쓰지 않는다.
->>>>>>> origin/main
 
 ## ToolResult (값)
 
@@ -298,26 +239,8 @@ context가 active가 아니거나 고정한 판을 읽지 못하거나 읽은 �
 
 ## 정책
 
-<<<<<<< HEAD
 - **비텍스트 크기.** 이미지·PDF 등 ToolResult의 크기를 안전하게 검사할 contract가 없으면 model input에 포함하지 않는다.
 
 - **결과 상한.** 성공·실패 텍스트는 UTF-8 24576 byte와 300줄 중 먼저 닿는 상한. 목록·검색은 최대 20개 요약. document·목록은 앞부분, log는 최신 부분을 남기며 원래 크기·범위·생략·이어 읽기 참조를 제공한다.
 - **tool 제공.** 고정 resolved agent의 권한과 MCP·skill 선택을 제품 역할 상한·현재 scope·허락으로 좁힌 목록만 제공한다. 기계 선택은 → lophn-agent/agents, 책임은 → lophn-agent/roles/common 및 각 역할 concern. 임의 shell·웹 검색·웹 읽기·브라우저·임의 파일·코드·subagent·coding agent 시작 tool은 없다.
 - **공통 오류.** `invalid_input / unauthorized / forbidden / not_found / conflict / unavailable`를 사용한다. 범위 밖 대상 이름·존재는 오류에 노출하지 않는다. waiting_user는 실패가 아니다.
-=======
-- **비텍스트 크기.** 이미지·PDF 등 ToolResult의 크기를 안전하게 검사할
-  contract가 없으면 model input에 포함하지 않는다.
->>>>>>> origin/main
-
-- **결과 상한.** 성공·실패 텍스트는 UTF-8 24576 byte와 300줄 중 먼저 닿는 상한.
-  목록·검색은 최대 20개 요약. document·목록은 앞부분, log는 최신 부분을 남기며
-  원래 크기·범위·생략·이어 읽기 참조를 제공한다.
-- **tool 제공.** 고정 Preset 판의 capability와 MCP·skill 선택을 제품 역할
-  상한·현재 scope·허락으로 좁힌 목록만 제공한다. 기계 선택은 →
-  lophn-agent/presets, 책임은 → lophn-agent/roles/common 및 각 역할 concern.
-  임의 shell·웹 검색·웹 읽기·브라우저·임의 파일·코드·subagent·coding agent 시작
-  tool은 없다.
-- **공통 오류.**
-  `invalid_input / unauthorized / forbidden / not_found / conflict / unavailable`를
-  사용한다. 범위 밖 대상 이름·존재는 오류에 노출하지 않는다. waiting_user는
-  실패가 아니다.

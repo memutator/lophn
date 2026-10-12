@@ -12,10 +12,7 @@ const withCommon = <T extends z.ZodRawShape>(
   input: z.ZodObject<T>,
 ) => input.extend({ command: z.literal(command), ...common });
 
-<<<<<<< HEAD
 // CLI도 MCP가 고른 op 목록 밖의 command를 만들지 않는다. 위치 인자가 없고 선택값만 있다.
-=======
->>>>>>> origin/main
 export const CLI_DECISION_NAMES = [
   "question list",
   "question show",

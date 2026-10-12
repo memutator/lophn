@@ -102,12 +102,8 @@ null은 agent 기본값을 따른다. 이 값은 Run 시작 때 resolve해 RunBa
 | `run` | `run` ID | 예 | 있으면 같은 세션·assignment; Fork로 복사한 메시지는 null; → lophn-agent/harness/run-loop | 담당 또는 답을 만든 run |
 | `mode` | `request / correction` | 예 | 접수한 user 입력에 필수; agent·machine 발언과 Fork 복사본에는 null | 새 일 / steering |
 | `applied_at_call` | `mcl` ID | 예 | 최초 한 번만 설정; 같은 담당 run; → lophn-agent/harness/usage | 이 입력을 처음 포함한 call |
-<<<<<<< HEAD
-| `links` | 대상 참조 배열 | 아니오 | 기본 `[]`; 실제 존재하는 대상만; 계획은 생성 링크가 아님 | 문서·version·질문·approval request·call 연결 |
-| `copied_from` | `msg` ID | 예 | Fork 복사본에만; 불변; FK 아님 | 복사한 원래 메시지 |
-=======
 | `links` | 대상 참조 배열 | 아니오 | 기본 `[]`; 실제 존재하는 대상만; 계획은 생성 링크가 아님 | 문서·version·context·질문·approval request·call 연결 |
->>>>>>> origin/main
+| `copied_from` | `msg` ID | 예 | Fork 복사본에만; 불변; FK 아님 | 복사한 원래 메시지 |
 
 ### 상태
 

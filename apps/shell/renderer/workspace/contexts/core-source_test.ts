@@ -306,40 +306,47 @@ Deno.test("documents/contexts#R21 [ctx-I39b]: rollback은 context의 지금 revi
   });
 });
 
-Deno.test("documents/contexts#R27 [ctx-I39b]: Operator 수는 Operator preset 중 이 context를 고른 것만 센다", async () => {
-  const preset = (
-    context: readonly { kind: string; target: string | null }[],
-  ) => ({ id: "pst", definition: { context } });
-  let page = 0;
+Deno.test("documents/contexts#R27 [ctx-I39b]: Operator 수는 그 project의 Operator 중 정의 contexts에 이 context를 고른 것만 센다", async () => {
+  const row = (assignment: string, kind: string) => ({ assignment, kind });
+  const definitions: Record<string, readonly string[] | undefined> = {
+    asg_a: [CTX, "ctx_other"],
+    asg_b: ["ctx_other"],
+    asg_c: undefined,
+    asg_d: [CTX],
+  };
   const { core, calls } = routedCore({
-    "read:presets/list": () =>
-      ok(
-        page++ === 0
-          ? {
-            presets: [
-              preset([{ kind: "context", target: CTX }]),
-              preset([{ kind: "context", target: "ctx_other" }]),
-            ],
-            ...META,
-            next_cursor: "c1",
-          }
-          : {
-            presets: [
-              preset([{ kind: "all", target: null }, {
-                kind: "context",
-                target: CTX,
-              }]),
-            ],
-            ...META,
-          },
-      ),
+    "read:contexts/get": () =>
+      ok({ context: { ...CONTEXT, id: CTX, project: PROJECT }, ...META }),
+    "read:agents/list": () =>
+      ok({
+        agents: [
+          row("asg_a", "operator"),
+          row("asg_b", "operator"),
+          row("asg_c", "operator"),
+          row("asg_d", "operator"),
+          row("asg_e", "built_in"),
+        ],
+        ...META,
+      }),
+    "read:agents/read": (body) =>
+      ok({
+        definition: {
+          contexts: definitions[String(body["assignment"])],
+        },
+        ...META,
+      }),
   });
   assertEquals(await coreContextsSource(core).operatorCount(CTX), {
     ok: true,
     value: 2,
   });
+  const place = { kind: "project", id: PROJECT };
   assertEquals(calls.map((call) => call.body), [
-    { kind: "operator" },
-    { kind: "operator", cursor: "c1" },
+    { context: CTX },
+    { place },
+    { place, assignment: "asg_a" },
+    { place, assignment: "asg_b" },
+    { place, assignment: "asg_c" },
+    { place, assignment: "asg_d" },
   ]);
 });

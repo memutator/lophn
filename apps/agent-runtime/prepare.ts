@@ -45,7 +45,10 @@ import {
   recoverRunFromLedger,
   type ToolLookup,
 } from "../../packages/lophn-agent/harness/waiting-and-recovery/mod.ts";
-import type { SessionConversation } from "../../packages/lophn-agent/harness/prompt-assemble/mod.ts";
+import type {
+  MaterialSource,
+  SessionConversation,
+} from "../../packages/lophn-agent/harness/prompt-assemble/mod.ts";
 import type { ToolBinding } from "../../packages/lophn-agent/harness/tool-judgment/mod.ts";
 import {
   BUILTIN_TOOLS,
@@ -57,8 +60,15 @@ import {
 import type { AppTool } from "../../packages/lophn-agent/harness/tools/mod.ts";
 import type { AppToolkit } from "./app-toolkit.ts";
 import {
+  contextReadToolsFor,
+  type ContextToolkit,
+  type ContextToolPin,
+  pinsOf,
+} from "./context-search.ts";
+import { loadContextMaterials } from "./context-overview.ts";
+import {
   type CannotStart,
-  pinnedRunAgent,
+  pinnedRun,
   placeOfRun,
   resolveRunAgent,
 } from "./agent-layers.ts";
@@ -258,12 +268,14 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
   }
   type LoadedMcp = Awaited<ReturnType<typeof loadMcp>>;
 
-  // run과 assignment, 이번 run의 resolved agent로 tool·scope·model을 모은다.
+  // run과 assignment, 이번 run의 resolved agent로 tool·scope·model을 모은다. `pinnedContexts`는 resume에서
+  // run이 시작할 때 선언 검색 정의를 만든 판들이다. 없으면 resolved agent의 context의 지금 적용된 판으로 만든다.
   async function material(
     run: RunRecord,
     assignment: AssignmentRecord,
     agent: ResolvedAgent,
     mcp: LoadedMcp,
+    pinnedContexts?: readonly ContextToolPin[],
   ) {
     // 역할 상한 ∩ 자리·정의의 권한(resolved agent의 tools)이 이번 run이 제공하는 tool 목록이다. 외부 MCP
     // tool은 상한 항목이 아니라 agent 정의의 선택 항목이라(agents R18) 정의 이름을 양쪽 이름 목록에
@@ -320,19 +332,10 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
       }
     }
 
-    // 선언 검색 tool과 개체 읽기 tool은 preset이 고른 context의 적용된 판에서 만든다(R21, R22). 판은
-    // 시작 전에 한 번 읽고 정의 hash가 Run.basis에 고정된다.
-    let place: WorkPlace = placeOf(assignment.scope);
-    if (run.session !== null) {
-      const session = await readOf(machine, sessionRead, {
-        session: run.session,
-      });
-      if (session.ok) place = session.value.session.work_place as WorkPlace;
-    }
+    // 선언 검색 tool과 개체 읽기 tool은 resolved agent의 context의 적용된 판에서 만든다(harness/tools R21, R22).
+    // 판은 시작 전에 한 번 읽고 정의 hash가 Run.basis에 고정된다.
     const contextRead = await contextReadToolsFor(deps.toolkit.contexts, {
-      place,
-      scope: assignment.scope,
-      selections: definition.context,
+      contexts: agent.contexts,
       ...(pinnedContexts === undefined ? {} : { pinned: pinnedContexts }),
     });
 
@@ -443,6 +446,35 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
     for (const tool of external) {
       bindings.set(tool.definition.name, externalBinding(tool));
     }
+    // context 자료는 run을 시작할 때 한 번만 읽고 turn마다 같은 값을 쓴다(prompt-assemble R5). resume이면
+    // tool 정의와 같은 고정한 판으로 만든다.
+    let sourcesRead: Promise<MaterialSource[]> | undefined;
+    const contextSources = (): Promise<MaterialSource[]> =>
+      sourcesRead ??= loadContextMaterials(agent, {
+        contexts: resolved.contexts,
+        ...(m.pinnedContexts === undefined ? {} : { pins: m.pinnedContexts }),
+      }).then((set) => [
+        ...set.materials.map((item) => ({
+          address: item.context,
+          title: item.title,
+          version: item.bundle_hash,
+          overview: item.overview,
+          type_names: item.type_names,
+          glossary: item.glossary,
+          has_glossary: !item.glossary_empty,
+        })),
+        // 고른 context를 읽지 못했으면 조용히 빼지 않고 자료 자리에 이유를 남긴다. 판이 없으니 version은 없다.
+        ...set.omitted.map((item) => ({
+          address: item.context,
+          title: item.title,
+          version: null,
+          overview: `[자료 없음] ${item.reason}. 필요하면 tool로 다시 읽는다.`,
+          type_names: [],
+          glossary: "",
+          has_glossary: false,
+          unavailable: item.reason,
+        })),
+      ]);
     // session의 이전 대화는 run마다 한 번 읽는다. 일하는 run이 있는 session은 Compact하지 않으므로 run 안에서
     // 바뀌지 않는다.
     let conversation: SessionConversation | undefined;
@@ -474,10 +506,7 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
         purpose: null,
         run_facts: null,
         session: conversation,
-        sources: await contextMaterials(
-          agent,
-          resolved.contexts.map((target) => ({ kind: "context", target })),
-        ),
+        sources: await contextSources(),
         // 발견한 skill 중 agent가 끄지 않은 이름만 prompt에 오른다(extensions R4, agents R18).
         skills: ((await deps.skills?.(place)) ?? []).map((entry) => ({
           ...entry,
@@ -664,7 +693,7 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
       mcp ?? await loadMcp(assignment.id, { place: agent.place }),
     );
     if (!found.ok) return found;
-    const { listed, scope, model, place } = found.value;
+    const { listed, scope, model, place, contextRead } = found.value;
 
     // 전체 값은 blob이고 run 기준에는 hash와 칸별 출처만 둔다(agents R25). 기준과 agent blob은 둘 다
     // 영구 참조라 저장한 바이트의 hash로 StartRun에 싣는다.
@@ -778,17 +807,19 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
     });
     if (!assigned.ok) return assigned;
     const assignment = assigned.value.assignment;
-    const pinned = await pinnedRunAgent(machine, runId, record.assignment);
+    const pinned = await pinnedRun(machine, runId, record.assignment);
     if (!pinned.ok) return pinned;
     // 이어 하기는 고정한 agent가 켠 서버만 연결한다(R18).
     const found = await material(
       record,
       assignment,
-      pinned.value,
+      pinned.value.agent,
       await loadMcp(assignment.id, {
-        place: pinned.value.place,
-        only: new Set(pinned.value.mcp.map((tool) => tool.server_name)),
+        place: pinned.value.agent.place,
+        only: new Set(pinned.value.agent.mcp.map((tool) => tool.server_name)),
       }),
+      // 선언 검색 정의를 만든 판도 run 기준이 고정한 값이다. 지금 적용된 판이 아니라 이 판으로 다시 만든다.
+      pinsOf(pinned.value.contexts),
     );
     if (!found.ok) return found;
     const holder: { agent?: CoreCall } = {};

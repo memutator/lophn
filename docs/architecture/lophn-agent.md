@@ -92,16 +92,9 @@ Deno `--allow-run`은 **자식 executable 자체의 OS 파일·네트워크 권�
 
 | core 모듈 (`packages/lophn-agent/` 아래) | 소유 표 | 함께 확정하는 경계 |
 |---|---|---|
-<<<<<<< HEAD
 | `agents/` | 없음(정의·자리 설정은 app data 파일) | 새 Operator 저장은 assignment 생성 뒤 파일 쓰기이고 파일 쓰기가 실패하면 그 assignment를 거둔다 |
 | `assignments/` | `assignments` | role·scope·상태·`revision`(CAS); 담당 project·앱 보관에 따른 pause·재개 |
-| `conversation/` | `sessions`, `messages` | 사람 메시지와 담당 run 접수; model 시작과 message 반영 |
-=======
-| `presets/` | `presets`, `preset_revisions` | 사람이 저장한 preset 판; Operator assignment는 검토 판을 참조해 별도 승인 적용 |
-| `assignments/` | `assignments`, `assignment_revisions`, `assignment_outputs`, `assignment_read_apps`, `assignment_read_commands` | outputs 독점·승인 사용·preset 판; 실제 시작한 실패 3회 pause |
-| `scheduling/` | `assignment_schedule_occurrences` | 회차·last_due_at·accepted run 또는 skip |
 | `conversation/` | `sessions`, `messages` | 사람 메시지와 담당 run 접수; model 시작과 message 반영; 다른 concern의 사람 단추 한 번(context 위반 넘기기)을 새 세션·사람 요청·run으로 접수하는 `startRequest`(같은 transaction 안에서만 호출) |
->>>>>>> origin/main
 | `harness/run-loop/` | `runs` | 진행 하나, 고정 basis, 정상 종료와 correction 순서 |
 | `harness/waiting-and-recovery/` | `run_wait_resolutions` | 요청 생성·waiting 연결; `(run,request,decision_seq)` 한 번 반영 |
 | `harness/provider/` | `providers`, `provider_credentials`, `provider_credential_model_blocks` | provider당 credential 하나의 secret 참조 판·대기 시각·model별 제한 |

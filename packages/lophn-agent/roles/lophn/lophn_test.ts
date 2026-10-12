@@ -9,7 +9,6 @@ import {
   executeTool,
   listTools,
   type RunCredential,
-  TOOL_BUNDLES,
 } from "../../harness/tools/mod.ts";
 import { createAgentToolHandlers } from "../../harness/tools/mod.ts";
 import { HANDOFF_DIRECTIONS } from "@lophn/contracts/lophn-agent";
@@ -903,28 +902,13 @@ Deno.test("lophn-agent/roles/lophn#R3 [ctx-I58g]: the prompt tells when to use t
   }
   // prompt 자료는 고른 context에 머물고 조회 tool은 개체·검색 결과를 읽지 못한다고 말한다.
   assert(prompt.includes("다른 project의 context는 조회 tool로"));
-  // 기본 preset은 이 셋을 묶음 하나로 고르고 나머지 상한 동작은 하나씩 고른다.
-  const preset = productPresetDefinition("lophn", "sha256:prompt");
-  assertEquals(preset.capability.bundles, [
-    { name: "context-lookup", revision: 1 },
-  ]);
-  const single = preset.capability.tools.map((entry) => entry.tool);
-  for (const tool of TOOL_BUNDLES.get("context-lookup")!) {
-    assertEquals(single.includes(tool), false, tool);
-  }
-  assertEquals(
-    [...single, ...TOOL_BUNDLES.get("context-lookup")!].sort(),
-    [...lophn.tools].sort(),
-  );
-  // 다른 역할의 기본 preset은 이 묶음을 고르지 않는다.
-  for (const role of ["app_engineer", "context_engineer"] as const) {
-    const other = productPresetDefinition(role, "sha256:prompt");
-    assertEquals(
-      other.capability.bundles.map((bundle) => bundle.name).includes(
-        "context-lookup",
-      ),
-      false,
-      role,
-    );
+  // 이 셋은 역할 상한이 lophn에게만 연다. 다른 역할의 상한에는 없다.
+  for (const role of ["app_engineer", "context_engineer", "operator"]) {
+    const cap = ROLE_CAPS.get(role)!;
+    for (
+      const tool of ["context.list", "context.overview", "context.containing"]
+    ) {
+      assertEquals(cap.tools.includes(tool), false, `${role} ${tool}`);
+    }
   }
 });

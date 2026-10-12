@@ -62,8 +62,6 @@ export interface LophnSpaceProps {
   initialRequest?: string;
   /** 창의 편집 session 묶음. documents 화면의 series 새 멤버 쓰기가 쓴다. */
   sessions?: EditorSessions;
-  /** core 연결이 (다시) 준비될 때마다 오른다. roles가 현재 기록을 다시 읽는다. */
-  connected?: number;
   /** apps 화면 통로. 없으면 apps는 준비 전 안내다. */
   apps?: AppsSource;
   /** 그 앱의 앱 공간으로 간다. apps 화면의 열기와 팔레트의 앱 행이 쓴다. */
@@ -95,7 +93,6 @@ export function LophnSpace(
     initialRead,
     initialRequest,
     sessions,
-    connected = 0,
     apps,
     onApp,
     settings,

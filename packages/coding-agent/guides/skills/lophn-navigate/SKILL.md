@@ -43,11 +43,7 @@ MCP tool 이름이다. MCP가 없으면 같은 이름의 CLI command(`lophn inde
 
 - 사람 원본 파일을 직접 열거나 경로를 추측해 읽지 않는다. lophn이 준 주소로만
   읽는다.
-<<<<<<< HEAD
-- 프로젝트 등록은 바꾸지 않는다. 사람이 정한다.
-=======
 - 프로젝트 등록은 바꾸지 않는다. 바꾸고 싶으면 사람에게 알린다.
->>>>>>> origin/main
 - 목록·요약·질문(`lophn_question`)·approval(`lophn_approval`)을 읽었다고 일을
   시작하지 않는다. ticket 목록이 보여도 사람이 그 ticket을 지정하기 전에는
   claim하지 않는다.

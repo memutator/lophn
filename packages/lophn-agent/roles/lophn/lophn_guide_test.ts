@@ -218,26 +218,6 @@ Deno.test("lophn-agent/roles/lophn#R15 [ctx-I58c]: the thresholds are four disti
   assert(!one.recommendation.explanation.includes("different days"));
 });
 
-<<<<<<< HEAD
-=======
-Deno.test("lophn-agent/roles/lophn#R15: the lophn preset and assignment carry no schedule, so dates and views start no run", () => {
-  const preset = productPresetDefinition("lophn", "a".repeat(64));
-  const words = ["schedule", "occurrence", "cron", "every_ms", "interval"];
-  const keys = [
-    ...Object.keys(preset),
-    ...Object.keys(createBuiltinAssignmentInputSchema.shape),
-  ];
-  for (const word of words) {
-    assert(!keys.some((key) => key.includes(word)), word);
-  }
-  // 추천은 순수 함수다. 같은 입력은 같은 결과이고 시계를 읽지 않는다.
-  const targets = [target(0, {
-    activity: { viewed_days_30d: 9, backrefs: 9 },
-  })];
-  assertEquals(recommendPlaces(targets), recommendPlaces(targets));
-});
-
->>>>>>> origin/main
 const GUIDES: GuideText[] = [
   {
     title: "Settings",

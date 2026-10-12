@@ -12,7 +12,7 @@ import {
   type JsonObject,
   rejectApprovalRequest,
 } from "../../../packages/protocol/platform/mod.ts";
-import { confirmationBinding } from "../../../packages/platform/identity/mod.ts";
+import { confirmationBinding } from "../../../packages/core/server/identity/mod.ts";
 
 export type Reply = { status: number; body: Record<string, unknown> };
 

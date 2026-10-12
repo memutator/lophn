@@ -2,7 +2,7 @@ import {
   type UpdateNotice,
   updateNotice,
   type UpdatePackage,
-} from "../../packages/platform/install-and-update/mod.ts";
+} from "../../packages/core/install-and-update/mod.ts";
 import { systemClock } from "../../packages/base/clock.ts";
 import { cryptoRandom } from "../../packages/base/random.ts";
 import type { Clock, RandomSource, Result } from "../../packages/base/mod.ts";
@@ -31,8 +31,8 @@ import {
   RouteRegistry,
   startApiServer,
   WORKSPACE_MEMORY_ROUTES,
-} from "../../packages/platform/api/mod.ts";
-import type { WorkerRouteTarget } from "../../packages/platform/responsiveness/mod.ts";
+} from "../../packages/core/server/mod.ts";
+import type { WorkerRouteTarget } from "../../packages/core/supervision/responsiveness/mod.ts";
 import {
   AGENT_RUNTIME_KIND,
   AGENT_RUNTIME_TASK,
@@ -57,13 +57,13 @@ import {
   restoreBinding,
   type RestoreOutcome,
   type RestorePlan,
-} from "../../packages/platform/backup-and-migration/mod.ts";
-import { backupStamp } from "../../packages/platform/backup-and-migration/mod.ts";
-import { type StatusSource } from "../../packages/platform/diagnostics/mod.ts";
+} from "../../packages/core/storage/migration/mod.ts";
+import { backupStamp } from "../../packages/core/storage/migration/mod.ts";
+import { type StatusSource } from "../../packages/core/diagnostics/mod.ts";
 import {
   CredentialRegistry,
   type OperationPolicy,
-} from "../../packages/platform/identity/mod.ts";
+} from "../../packages/core/server/identity/mod.ts";
 import {
   acquireInstanceLock,
   type DataRoot,
@@ -71,24 +71,24 @@ import {
   removeRunMetadata,
   resolveDataRoot,
   writeRunMetadata,
-} from "../../packages/platform/install-and-update/mod.ts";
+} from "../../packages/core/install-and-update/mod.ts";
 import {
   type KnownSecretMatch,
   LEDGER_SCHEMA_STEPS,
-} from "../../packages/platform/ledger/mod.ts";
+} from "../../packages/core/storage/ledger/mod.ts";
 import {
   createSupervisor,
   type Spawned,
   type SpawnRequest,
-} from "../../packages/platform/responsiveness/mod.ts";
-import { SETTINGS_SCHEMA_STEPS } from "../../packages/platform/settings/mod.ts";
+} from "../../packages/core/supervision/responsiveness/mod.ts";
+import { SETTINGS_SCHEMA_STEPS } from "../../packages/core/config/mod.ts";
 import {
   type KeychainAdapter,
   randomSealedRef,
   SECRET_SCHEMA_STEPS,
   SECRET_TOOL_PATHS,
-} from "../../packages/platform/secrets/mod.ts";
-import { createMcpOAuthVault } from "../../packages/lophn-agent/extensions/mod.ts";
+} from "../../packages/core/secrets/mod.ts";
+import { createMcpOAuthVault } from "../../packages/core/lophn-agent/extensions/mod.ts";
 import { createMcpAuthRequests } from "./mcp-auth-requests.ts";
 import {
   createRewindSummaries,
@@ -130,7 +130,7 @@ import {
 import {
   createPreparationRegistry,
   retentionRules,
-} from "../../packages/platform/blob-store/mod.ts";
+} from "../../packages/core/storage/blobs/mod.ts";
 import type { BlobFieldDefinition } from "../../packages/protocol/platform/mod.ts";
 import {
   type ChildBlobPrepare,
@@ -156,7 +156,7 @@ import {
   documentUpload,
   filesRead,
 } from "../../packages/protocol/projects/mod.ts";
-import type { VersionRow } from "../../packages/documents/versions/store.ts";
+import type { VersionRow } from "../../packages/core/projects/versions/store.ts";
 import { connectDocumentsRelaunch, workerSpecs } from "./documents.ts";
 import { fileReadStreams } from "./documents-file-read.ts";
 import { createFileWindows } from "./documents-file-windows.ts";
@@ -199,7 +199,7 @@ import {
 } from "./contexts-watch.ts";
 import { DOCUMENTS_FEED_CONTEXT } from "./documents-events.ts";
 import { startDocumentsFeed } from "./documents-feed.ts";
-import type { PlacementRead } from "../../packages/documents/file-tracking/placement-read.ts";
+import type { PlacementRead } from "../../packages/core/projects/file-tracking/placement-read.ts";
 import {
   createPlacementReservations,
   withPlacementReservation,
@@ -217,18 +217,18 @@ import {
   NOTIFICATIONS_CONTEXT,
   withPlatform,
 } from "./platform.ts";
-import { observeApprovals } from "../../packages/platform/approvals/mod.ts";
+import { observeApprovals } from "../../packages/core/approvals/mod.ts";
 import {
   INVOCATION_RECOVERY_CONTEXT,
   observeInvocations,
-} from "../../packages/apps/invocations/restart.ts";
-import { createCopyPreviewBundles } from "../../packages/apps/releases/activation/desired.ts";
-import { observeReleaseActivations } from "../../packages/apps/releases/activation/recovery.ts";
+} from "../../packages/core/apps/invocations/restart.ts";
+import { createCopyPreviewBundles } from "../../packages/core/apps/releases/activation/desired.ts";
+import { observeReleaseActivations } from "../../packages/core/apps/releases/activation/recovery.ts";
 import { eventOperations } from "./event-operations.ts";
 import type { InternalSubscription } from "./internal-subscription.ts";
 import { createStreamer, createValidatePort } from "./documents-validate.ts";
-import type { ValidatePort } from "../../packages/documents/versions/work.ts";
-import { DOCUMENT_OPS } from "../../packages/documents/file-tracking/mod.ts";
+import type { ValidatePort } from "../../packages/core/projects/versions/work.ts";
+import { DOCUMENT_OPS } from "../../packages/core/projects/file-tracking/mod.ts";
 import {
   contextWorkInputReadSchema,
   contextWorkInputRoute,
@@ -319,12 +319,12 @@ import {
   withReleasePreparation,
 } from "./apps-control.ts";
 import { createConfirmAdapters } from "./apps-confirm.ts";
-import type { ProcessSource } from "../../packages/apps/runtime/connect.ts";
-import type { DesiredApp } from "../../packages/apps/runtime/supervisor/mod.ts";
+import type { ProcessSource } from "../../packages/core/apps/runtime/connect.ts";
+import type { DesiredApp } from "../../packages/core/apps/runtime/supervisor/mod.ts";
 import type {
   PreviewBundles,
   PreviewReleases,
-} from "../../packages/apps/preview/service.ts";
+} from "../../packages/core/apps/preview/service.ts";
 import { createProductRedactor } from "./documents-redactor.ts";
 import {
   BOOTSTRAP_RETRY_MS,
@@ -336,7 +336,7 @@ import {
   withApprovalText,
 } from "./approval-text.ts";
 import { createHandoffBodyPreparer, withHandoffBody } from "./handoff-body.ts";
-import { createRewindStore } from "../../packages/lophn-agent/revert/mod.ts";
+import { createRewindStore } from "../../packages/core/lophn-agent/session/rewind/mod.ts";
 import {
   amendInstall,
   ledgerSnapshot,

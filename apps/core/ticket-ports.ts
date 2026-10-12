@@ -2,13 +2,13 @@ import { err, ok, type Result } from "../../packages/base/mod.ts";
 import {
   PROBLEM_STATUSES_PORT,
   QUESTION_ADOPTIONS_PORT,
-} from "../../packages/coding-agent/tickets/commands.ts";
-import { adoptionOf } from "../../packages/lophn-agent/handoff/mod.ts";
+} from "../../packages/core/apps/tickets/commands.ts";
+import { adoptionOf } from "../../packages/core/lophn-agent/tools/handoff/mod.ts";
 import type { Tx } from "../../packages/protocol/platform/mod.ts";
 import {
   defineTxPort,
   type TxPortRegistration,
-} from "../../packages/platform/ledger/mod.ts";
+} from "../../packages/core/storage/ledger/mod.ts";
 
 // ticket 생성·실행 준비 전환이 같은 transaction에서 묻는 두 읽기 port의 제품 구현이다
 // (coding-agent/tickets#R3, R4). 질문 채택 답은 lophn-agent의 질문 표(answered 질문이 고른

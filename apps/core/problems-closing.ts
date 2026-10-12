@@ -14,11 +14,11 @@ import {
 import {
   openConnection,
   type SubscriberBinding,
-} from "../../packages/platform/ledger/mod.ts";
+} from "../../packages/core/storage/ledger/mod.ts";
 import {
   CLOSING_EVENT_TYPES,
   CLOSING_SUBSCRIBER,
-} from "../../packages/problems/closing/mod.ts";
+} from "../../packages/core/problems/closing/mod.ts";
 import {
   type InternalSubscription,
   openInternalSubscription,

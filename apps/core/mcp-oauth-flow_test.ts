@@ -19,13 +19,13 @@ import {
   mcpTokenRef,
   PLACE_MCP_FILE,
   serializePlaceMcpFile,
-} from "../../packages/lophn-agent/extensions/mod.ts";
-import { SETTINGS_SCHEMA_STEPS } from "../../packages/platform/settings/mod.ts";
+} from "../../packages/core/lophn-agent/extensions/mod.ts";
+import { SETTINGS_SCHEMA_STEPS } from "../../packages/core/config/mod.ts";
 import {
   createFakeKeychain,
   randomSealedRef,
   SECRET_SCHEMA_STEPS,
-} from "../../packages/platform/secrets/mod.ts";
+} from "../../packages/core/secrets/mod.ts";
 import { mcpConnectionsDeps } from "../agent-runtime/product-driver.ts";
 import { createSecretLink } from "../agent-runtime/secret-link.ts";
 import { createAgentRuntimeSecrets } from "./agent-runtime-secret.ts";

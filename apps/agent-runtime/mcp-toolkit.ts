@@ -8,7 +8,7 @@ import {
   placeExtensionSettingsRead,
 } from "../../packages/protocol/lophn-agent/mod.ts";
 import { settingsGet } from "../../packages/protocol/platform/mod.ts";
-import type { ToolDefinition } from "../../packages/lophn-agent/harness/tools/mod.ts";
+import type { ToolDefinition } from "../../packages/core/lophn-agent/tools/mod.ts";
 import {
   checkMcpConfig,
   createMcpConnections,
@@ -17,7 +17,7 @@ import {
   type McpSelection,
   type McpToolCall,
   type McpToolEntry,
-} from "../../packages/lophn-agent/extensions/mod.ts";
+} from "../../packages/core/lophn-agent/extensions/mod.ts";
 import { type CoreCall, readOf } from "./core-call.ts";
 import type { McpSourceOptions, McpToolkit } from "./prepare.ts";
 

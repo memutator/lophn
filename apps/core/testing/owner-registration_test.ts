@@ -12,8 +12,8 @@ import {
   type Tx,
   withReadCommon,
 } from "../../../packages/protocol/platform/mod.ts";
-import { CONDITION_TARGET_KEYS } from "../../../packages/platform/identity/mod.ts";
-import { runAdmission } from "../../../packages/platform/ledger/mod.ts";
+import { CONDITION_TARGET_KEYS } from "../../../packages/core/server/identity/mod.ts";
+import { runAdmission } from "../../../packages/core/storage/ledger/mod.ts";
 import {
   defineTxPort,
   type LedgerTestEnvironment,

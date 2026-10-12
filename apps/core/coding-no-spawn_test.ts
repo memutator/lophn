@@ -4,7 +4,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
 import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
-import { createFakeKeychain } from "../../packages/platform/secrets/mod.ts";
+import { createFakeKeychain } from "../../packages/core/secrets/mod.ts";
 import { codingAgentConnectionDefinitions } from "./coding-agent.ts";
 import { createLedgerRegistration as createAppsRegistration } from "./apps.ts";
 import { createLedgerRegistration as createDocumentsRegistration } from "./documents.ts";

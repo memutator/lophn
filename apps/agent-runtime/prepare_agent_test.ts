@@ -19,8 +19,8 @@ import {
   productEnvironment,
   resolveAgent,
   roleCapsOf,
-} from "../../packages/lophn-agent/agents/mod.ts";
-import type { RunCredentials } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
+} from "../../packages/core/lophn-agent/agents/mod.ts";
+import type { RunCredentials } from "../../packages/core/lophn-agent/run-loop/mod.ts";
 import { productDriver } from "./product-driver.ts";
 import {
   APP,

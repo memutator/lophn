@@ -8,20 +8,20 @@ import { sha256Hex } from "../../packages/base/mod.ts";
 import {
   dataChangesOf,
   readBundleCopy,
-} from "../../packages/apps/releases/activation/desired.ts";
-import { bundleCopyPath } from "../../packages/apps/releases/bundle/seal.ts";
+} from "../../packages/core/apps/releases/activation/desired.ts";
+import { bundleCopyPath } from "../../packages/core/apps/releases/bundle/seal.ts";
 import {
   prepare,
   start,
   statusOf,
   type World,
-} from "../../packages/apps/releases/activation/world_test.ts";
-import { createRuntimeClient } from "../../packages/apps/runtime/client/mod.ts";
-import { readTemplateDirectory } from "../../packages/apps/sdk/mod.ts";
+} from "../../packages/core/apps/releases/activation/world_test.ts";
+import { createRuntimeClient } from "../../packages/core/apps/runtime/client/mod.ts";
+import { readTemplateDirectory } from "../../packages/core/apps/packages/mod.ts";
 import {
   installedHome,
   removeTree,
-} from "../../packages/apps/sdk/testing/mod.ts";
+} from "../../packages/core/apps/packages/testing/mod.ts";
 import { call, command } from "./testing/approvals-fixture.ts";
 import { createCoreHarness } from "./testing/core.ts";
 
@@ -49,7 +49,7 @@ async function open(): Promise<Opened> {
   const documents = await import("./documents.ts");
   const apps = await import("./apps.ts");
   const fixtures = await import(
-    "../../packages/apps/releases/testing/mod.ts"
+    "../../packages/core/apps/releases/testing/mod.ts"
   );
   const runtimeDir = await Deno.makeTempDir({ prefix: "lop-entry-" });
   const opened = await createCoreHarness({
@@ -65,7 +65,7 @@ async function open(): Promise<Opened> {
       new URL("./documents.ts", import.meta.url).href,
       new URL("./apps.ts", import.meta.url).href,
       new URL(
-        "../../packages/apps/releases/testing/mod.ts",
+        "../../packages/core/apps/releases/testing/mod.ts",
         import.meta.url,
       ).href,
     ],

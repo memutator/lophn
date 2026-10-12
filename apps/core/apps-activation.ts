@@ -36,8 +36,8 @@ import type {
 } from "../../packages/protocol/platform/mod.ts";
 import { type BlobPrepareCall } from "./core.ts";
 import type { PreparedRelayResult } from "./blob-prepare.ts";
-import { openConnection } from "../../packages/platform/ledger/mod.ts";
-import { loadApps } from "../../packages/apps/registration/mod.ts";
+import { openConnection } from "../../packages/core/storage/ledger/mod.ts";
+import { loadApps } from "../../packages/core/apps/registration/mod.ts";
 import {
   credentialRoots,
   effectiveScope,
@@ -46,23 +46,23 @@ import {
   realPathResolver,
   type ResolvedRequirement,
   resolveRequirement,
-} from "../../packages/apps/permissions/mod.ts";
-import { loadStoredBlueprint } from "../../packages/apps/releases/store.ts";
+} from "../../packages/core/apps/permissions/mod.ts";
+import { loadStoredBlueprint } from "../../packages/core/apps/releases/store.ts";
 import {
   bundleFlags,
   desiredFromBundle,
   readBundleCopy,
-} from "../../packages/apps/releases/activation/desired.ts";
-import { runActivation } from "../../packages/apps/releases/activation/orchestrator.ts";
-import { recoverActivation } from "../../packages/apps/releases/activation/recovery.ts";
+} from "../../packages/core/apps/releases/activation/desired.ts";
+import { runActivation } from "../../packages/core/apps/releases/activation/orchestrator.ts";
+import { recoverActivation } from "../../packages/core/apps/releases/activation/recovery.ts";
 import type {
   ActivationPorts,
   Attempt,
-} from "../../packages/apps/releases/activation/steps.ts";
-import { BACKUP_BLOB_PURPOSE } from "../../packages/apps/data/blobs.ts";
-import type { ConnectFacts } from "../../packages/apps/runtime/connect.ts";
-import type { SupervisorClient } from "../../packages/apps/runtime/supervisor-link.ts";
-import type { DesiredApp } from "../../packages/apps/runtime/supervisor/mod.ts";
+} from "../../packages/core/apps/releases/activation/steps.ts";
+import { BACKUP_BLOB_PURPOSE } from "../../packages/core/apps/data/blobs.ts";
+import type { ConnectFacts } from "../../packages/core/apps/runtime/connect.ts";
+import type { SupervisorClient } from "../../packages/core/apps/runtime/supervisor-link.ts";
+import type { DesiredApp } from "../../packages/core/apps/runtime/supervisor/mod.ts";
 
 type Envelope = {
   command: string;

@@ -10,7 +10,7 @@ import {
   type GuideFixtureGuide,
   type GuideInstallFixture,
   guideInstallFixture,
-} from "../../packages/documents/versions/testing/mod.ts";
+} from "../../packages/core/projects/versions/testing/mod.ts";
 import { type Core, startCore } from "./core.ts";
 import type { TeamModule } from "./registration.ts";
 import { createLedgerRegistration } from "./documents.ts";

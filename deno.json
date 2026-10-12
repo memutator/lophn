@@ -41,8 +41,8 @@
       ".dev-data",
       ".claude",
       "dist",
-      "packages/documents/formats/guest/bundle.js",
-      "packages/documents/contexts/testdata"
+      "packages/core/projects/formats/guest/bundle.js",
+      "packages/core/projects/contexts/testdata"
     ]
   },
   "lint": {
@@ -56,7 +56,7 @@
       ".dev-data",
       ".claude",
       "dist",
-      "packages/documents/formats/guest/bundle.js"
+      "packages/core/projects/formats/guest/bundle.js"
     ],
     "rules": {
       "exclude": [

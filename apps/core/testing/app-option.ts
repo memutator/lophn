@@ -5,7 +5,7 @@
  */
 import { assertEquals } from "@std/assert";
 import { answerQuestionAction } from "../../../packages/protocol/lophn-agent/mod.ts";
-import { appCreateOptionAction } from "../../../packages/lophn-agent/questions/mod.ts";
+import { appCreateOptionAction } from "../../../packages/core/lophn-agent/tools/questions/mod.ts";
 import { call, command, count, inspect } from "./approvals-fixture.ts";
 import { id } from "./tool-judgment-world.ts";
 import {

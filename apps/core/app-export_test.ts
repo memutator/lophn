@@ -5,7 +5,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
 import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
-import { removeTree } from "../../packages/apps/sdk/testing/mod.ts";
+import { removeTree } from "../../packages/core/apps/packages/testing/mod.ts";
 import { startCore } from "./core.ts";
 import type { TeamModule } from "./registration.ts";
 import { createLedgerRegistration } from "./apps.ts";

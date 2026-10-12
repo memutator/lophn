@@ -4,18 +4,18 @@
 // ~/.config/lophn)는 열지 않고 temp lophn home만 쓴다.
 import { assert } from "@std/assert";
 import { sha256Hex } from "../../../packages/base/mod.ts";
-import { prepareFromSource } from "../../../packages/apps/releases/prepare/from-source.ts";
+import { prepareFromSource } from "../../../packages/core/apps/releases/prepare/from-source.ts";
 import {
   devImportMap,
   readTemplateDirectory,
-} from "../../../packages/apps/sdk/mod.ts";
-import { launchArgv } from "../../../packages/platform/security/mod.ts";
+} from "../../../packages/core/apps/packages/mod.ts";
+import { launchArgv } from "../../../packages/core/supervision/security/mod.ts";
 import {
   type HarnessFailurePath,
   sdkDependenciesHash,
-} from "../../../packages/problems/tests/mod.ts";
+} from "../../../packages/core/problems/tests/mod.ts";
 import type { FrozenTest } from "../../../packages/protocol/problems/mod.ts";
-import { canonicalHash } from "../../../packages/problems/tests/canonical.ts";
+import { canonicalHash } from "../../../packages/core/problems/tests/canonical.ts";
 import { runnerSockets, testRunnerSpec } from "../problems-runner.ts";
 import type {
   AppTestJob,

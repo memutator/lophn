@@ -2,10 +2,10 @@
 // 요청 앞에 byte chunk frame으로 오고, coordinator가 format runner로 검사한다.
 import { assert, assertEquals } from "@std/assert";
 import { err, ok } from "../../../packages/base/mod.ts";
-import { VALIDATE_INPUT_MAX_BYTES } from "../../../packages/documents/file-tracking/mod.ts";
-import type { FormatCall } from "../../../packages/documents/formats/reads.ts";
-import { createFormatHandlers } from "../../../packages/documents/formats/reads.ts";
-import { BUILTIN_MODULE_HASH } from "../../../packages/documents/formats/guest/module-hash.ts";
+import { VALIDATE_INPUT_MAX_BYTES } from "../../../packages/core/projects/file-tracking/mod.ts";
+import type { FormatCall } from "../../../packages/core/projects/formats/reads.ts";
+import { createFormatHandlers } from "../../../packages/core/projects/formats/reads.ts";
+import { BUILTIN_MODULE_HASH } from "../../../packages/core/projects/formats/guest/module-hash.ts";
 import { createByteInbox, validateFiles } from "./validation.ts";
 
 const encoder = new TextEncoder();

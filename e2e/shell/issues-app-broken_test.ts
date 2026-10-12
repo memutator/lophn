@@ -8,7 +8,7 @@ import { assert, assertEquals } from "@std/assert";
 import {
   installedHome,
   removeTree,
-} from "../../packages/apps/sdk/testing/mod.ts";
+} from "../../packages/core/apps/packages/testing/mod.ts";
 import { APP } from "../broken-app.ts";
 import { mustCall } from "../flow-support.ts";
 import { e2eEnabled } from "../harness.ts";

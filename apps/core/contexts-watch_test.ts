@@ -19,7 +19,7 @@ import {
   contractOf,
   fakeTimer,
   fakeWatchFs,
-} from "../../packages/documents/contexts/watch/testing.ts";
+} from "../../packages/core/projects/contexts/watch/testing.ts";
 import { createContextsWatch } from "./contexts-watch.ts";
 import { type Core, startCore } from "./core.ts";
 import { createLedgerRegistration as createAppsRegistration } from "./apps.ts";
@@ -41,7 +41,7 @@ import {
 const PROJECT = "prj_01kq12a1pha000000000000000";
 const CONTEXT = "ctx_01arz3ndektsv4rrffq69g5fav";
 const FIXTURES = new URL(
-  "../../packages/documents/contexts/testdata/",
+  "../../packages/core/projects/contexts/testdata/",
   import.meta.url,
 );
 

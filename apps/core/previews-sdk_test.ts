@@ -17,7 +17,7 @@ import {
 import {
   createPreviewDocumentsService,
   createPreviewSecretService,
-} from "../../packages/apps/preview/mod.ts";
+} from "../../packages/core/apps/preview/mod.ts";
 
 const APP = "app_01arz3ndektsv4rrffq69g5fav";
 const RELEASE = "rel_01arz3ndektsv4rrffq69g5fav";

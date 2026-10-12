@@ -4,7 +4,7 @@ import {
   type questionRead,
   type questionText,
 } from "../../packages/protocol/lophn-agent/mod.ts";
-import { settingsOptionAction } from "../../packages/lophn-agent/questions/mod.ts";
+import { settingsOptionAction } from "../../packages/core/lophn-agent/tools/questions/mod.ts";
 import type { z } from "zod";
 import { questionWaitRequest } from "./wait-request.ts";
 

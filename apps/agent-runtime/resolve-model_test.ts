@@ -8,7 +8,7 @@ import type {
 import { providerRead } from "../../packages/protocol/lophn-agent/mod.ts";
 import { routePath } from "../../packages/protocol/platform/mod.ts";
 import { CATALOG_OPTIONS } from "../../packages/protocol/lophn-agent/testing/mod.ts";
-import type { PromptRequest } from "../../packages/lophn-agent/harness/prompt-assemble/mod.ts";
+import type { PromptRequest } from "../../packages/core/lophn-agent/prompt-assembly/mod.ts";
 import type { ModelBinding } from "./model-binding.ts";
 import { createModelResolver } from "./resolve-model.ts";
 

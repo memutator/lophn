@@ -1,11 +1,11 @@
 import { err, ok, type Result } from "../../packages/base/mod.ts";
 import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
 import { authenticatedContextSchema } from "../../packages/protocol/platform/mod.ts";
-import type { LedgerConnection } from "../../packages/platform/ledger/mod.ts";
+import type { LedgerConnection } from "../../packages/core/storage/ledger/mod.ts";
 import { APPS_CONTROL_PRINCIPAL } from "./apps-control.ts";
 import { APP_REVERT_PRINCIPAL } from "./app-revert.ts";
 import { REWIND_INSTALL_PRINCIPAL } from "./rewind-files.ts";
-import { INVOCATION_RECOVERY_PRINCIPAL } from "../../packages/apps/invocations/restart.ts";
+import { INVOCATION_RECOVERY_PRINCIPAL } from "../../packages/core/apps/invocations/restart.ts";
 import { DOCUMENTS_FEED_PRINCIPAL } from "./documents-events.ts";
 import { TICKET_CHECK_FEED_PRINCIPAL } from "./ticket-checker-ids.ts";
 import { PROBLEMS_WORK_FEED_PRINCIPAL } from "./problems-work-ids.ts";

@@ -20,13 +20,13 @@ import {
   type ChildSession,
   type ChildStreams,
   startChild,
-} from "../../../packages/platform/responsiveness/mod.ts";
+} from "../../../packages/core/supervision/responsiveness/mod.ts";
 import {
   type CheckerClient,
   checkReported,
   type CheckSweep,
   type RecordChecksCall,
-} from "../../../packages/coding-agent/tickets/checker/mod.ts";
+} from "../../../packages/core/apps/tickets/checker/mod.ts";
 
 export const TICKET_CHECKER_KIND = "coding-agent/checker";
 // core가 감독 pipe로 보내는 깨움 요청의 op. 본문은 쓰지 않는다: 상태는 정본에서 다시 읽는다.

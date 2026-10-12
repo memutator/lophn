@@ -2,7 +2,7 @@
 // copy·staging의 read와 파일 작업에 필요한 경로의 write뿐이고 network·env·subprocess·FFI는
 // 없다. coordinator가 자기 근거(등록 root)로 만든다. core의 workerSpecs가 선언한 같은 kind의
 // spec과 같은 entry·한도를 쓴다.
-import { checkLaunchSpec } from "../../../packages/platform/security/mod.ts";
+import { checkLaunchSpec } from "../../../packages/core/supervision/security/mod.ts";
 import type { KindLaunchSpec } from "../../../packages/protocol/platform/mod.ts";
 import { PREPARATION_KIND } from "./pool.ts";
 

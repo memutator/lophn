@@ -15,7 +15,7 @@ import type { ErrorCode } from "../../../packages/base/mod.ts";
 import {
   exportSettingsTOML,
   parseSettingsTOML,
-} from "../../../packages/platform/settings/mod.ts";
+} from "../../../packages/core/config/mod.ts";
 
 export type SettingsPipeRequest = {
   request_id: string;

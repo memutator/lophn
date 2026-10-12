@@ -9,7 +9,7 @@ import {
   type ObserveInstructionDeps,
   type ObserveRoot,
   rootSignature,
-} from "../../../packages/documents/file-tracking/mod.ts";
+} from "../../../packages/core/projects/file-tracking/mod.ts";
 import type { BasisStore } from "./basis.ts";
 
 export type RootObservers = {

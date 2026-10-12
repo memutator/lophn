@@ -6,13 +6,13 @@
 // 데이터), 폴더 밖을 가리키는 symlink를 뺀다. symlink 폴더는 따라가지 않는다(순환을 막는다).
 // 같은 상대 경로가 여러 Project 폴더에 있으면 앞 폴더의 파일이 이긴다.
 import { err, ok, type Result } from "../../../packages/base/mod.ts";
-import type { IndexFiles } from "../../../packages/documents/contexts/index/mod.ts";
-import type { ProjectFiles } from "../../../packages/documents/contexts/extract/types.ts";
-import type { WatchFolder } from "../../../packages/documents/contexts/watch/mod.ts";
+import type { IndexFiles } from "../../../packages/core/projects/contexts/index/mod.ts";
+import type { ProjectFiles } from "../../../packages/core/projects/contexts/extract/types.ts";
+import type { WatchFolder } from "../../../packages/core/projects/contexts/watch/mod.ts";
 import type {
   Snapshot,
   SnapshotPort,
-} from "../../../packages/documents/contexts/work-types.ts";
+} from "../../../packages/core/projects/contexts/work-types.ts";
 
 // 예산(구현 조절값). 넘으면 일부만 훑지 않고 일을 `unavailable`로 끝낸다.
 export const CONTEXT_FILE_LIMITS: {

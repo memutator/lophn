@@ -8,7 +8,7 @@ import {
 import type {
   AuthDeadline,
   HttpFetch,
-} from "../../packages/lophn-agent/extensions/mod.ts";
+} from "../../packages/core/lophn-agent/extensions/mod.ts";
 
 // MCP OAuth 발급자(token endpoint) 호출의 대기열이다(concern lophn-agent/extensions, requirements #R16, #R17).
 // core module graph에는 외부 fetch를 두지 않는다(platform/responsiveness#R1). 발급자에 닿는 network는 agent

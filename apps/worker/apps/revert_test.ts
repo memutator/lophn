@@ -3,7 +3,7 @@ import type { AppRevertBinding } from "../../../packages/protocol/lophn-agent/mo
 import {
   NotSent,
   ResultLost,
-} from "../../../packages/apps/runtime/client/mod.ts";
+} from "../../../packages/core/apps/runtime/client/mod.ts";
 import { acceptRevertCall } from "./revert.ts";
 
 // 앱 revert 호출 worker(lophn-agent/revert R10·R11). 요청이 싣는 사람 자격의 apps/connect 연결로

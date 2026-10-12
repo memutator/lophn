@@ -11,12 +11,12 @@ import {
   settingsDefinitionsRead,
   settingsGetRead,
   settingsHistoryRead,
-} from "../../packages/platform/settings/mod.ts";
+} from "../../packages/core/config/mod.ts";
 import type {
   SchemaStep,
   SettingDefinition,
 } from "../../packages/protocol/platform/mod.ts";
-import type { ReaderRegistration } from "../../packages/platform/ledger/mod.ts";
+import type { ReaderRegistration } from "../../packages/core/storage/ledger/mod.ts";
 import { codingAgentConnectionDefinitions } from "./coding-agent.ts";
 import { lophnAgentDefinitions } from "./lophn-agent.ts";
 import { problemsDefinitions } from "./problems.ts";

@@ -12,12 +12,12 @@ import {
   type AppTool,
   buildAppTools,
   revertCounterpart,
-} from "../../packages/lophn-agent/harness/tools/mod.ts";
+} from "../../packages/core/lophn-agent/tools/mod.ts";
 import {
   type AppJudgmentPorts,
   createAppBinding,
-} from "../../packages/lophn-agent/harness/tool-judgment/mod.ts";
-import { computeAgentAppScope } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
+} from "../../packages/core/lophn-agent/tool-judgment/mod.ts";
+import { computeAgentAppScope } from "../../packages/core/lophn-agent/run-loop/mod.ts";
 import { codeOf, decide as humanDecide } from "./testing/approvals-fixture.ts";
 import {
   APPROVALS,

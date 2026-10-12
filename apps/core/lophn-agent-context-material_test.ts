@@ -12,8 +12,8 @@ import {
   glossarySetRoute,
 } from "../../packages/protocol/projects/mod.ts";
 import { routePath } from "../../packages/protocol/platform/mod.ts";
-import { evalContent } from "../../packages/documents/contexts/api/testing.ts";
-import { openIndexStore } from "../../packages/documents/contexts/index/mod.ts";
+import { evalContent } from "../../packages/core/projects/contexts/api/testing.ts";
+import { openIndexStore } from "../../packages/core/projects/contexts/index/mod.ts";
 import { agentCall } from "../agent-runtime/core-http.ts";
 import { loadContextMaterials } from "../agent-runtime/context-overview.ts";
 import { contextWorkerCredential } from "./contexts-api.ts";

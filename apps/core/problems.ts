@@ -13,13 +13,13 @@ import {
   TEST_BLOB_PURPOSES,
   TEST_SCHEMA_STEPS,
   verificationRecordedVisibility,
-} from "../../packages/problems/tests/mod.ts";
+} from "../../packages/core/problems/tests/mod.ts";
 import {
   FIX_BLOB_FIELDS,
   FIX_BLOB_PURPOSES,
   listProblemFixesRead,
   recordProblemFixCommand,
-} from "../../packages/problems/repairs/mod.ts";
+} from "../../packages/core/problems/repairs/mod.ts";
 import type {
   EventDefinition,
   EventVisibilityDefinition,
@@ -28,7 +28,7 @@ import type {
   EventRegistration,
   ReaderRegistration,
   TxPortRegistration,
-} from "../../packages/platform/ledger/mod.ts";
+} from "../../packages/core/storage/ledger/mod.ts";
 import { z } from "zod";
 import {
   defineBlobPurpose,
@@ -38,34 +38,34 @@ import {
   getReportRead,
   getSnapshotRead,
   listReportsRead,
-} from "../../packages/problems/reporting/reads.ts";
+} from "../../packages/core/problems/reporting/reads.ts";
 import {
   getProblemRead,
   linkProblemInterpretationCommand,
   listProblemsRead,
   reconcileProblemWorkCommand,
-} from "../../packages/problems/grouping/mod.ts";
+} from "../../packages/core/problems/grouping/mod.ts";
 import {
   applyProblemDecisionCommand,
   closeProblemVerifiedCommand,
-} from "../../packages/problems/closing/mod.ts";
+} from "../../packages/core/problems/closing/mod.ts";
 import {
   ProblemTestPort,
   ProblemWordingPort,
   ProblemWorkPort,
 } from "../../packages/protocol/problems/mod.ts";
 import { problemWorkLookup } from "../../packages/coding-agent/mod.ts";
-import { releaseWording } from "../../packages/apps/releases/store.ts";
-import { REPORTS_SCHEMA_STEPS } from "../../packages/problems/reporting/mod.ts";
+import { releaseWording } from "../../packages/core/apps/releases/store.ts";
+import { REPORTS_SCHEMA_STEPS } from "../../packages/core/problems/reporting/mod.ts";
 import {
   DETAIL_COLLECTION_SETTING_KEY,
   reportBlobField,
   type SnapshotLogsEnvironment,
   snapshotLogsRead,
   SNAPSHOTS_SCHEMA_STEPS,
-} from "../../packages/problems/snapshots/mod.ts";
+} from "../../packages/core/problems/snapshots/mod.ts";
 import { snapshotViewApiRead } from "./problems-logs.ts";
-import { recordReportCommand } from "../../packages/problems/reporting/commands.ts";
+import { recordReportCommand } from "../../packages/core/problems/reporting/commands.ts";
 import {
   REPORT_BLOB_PURPOSES,
   reportBody,

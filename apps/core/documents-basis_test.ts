@@ -5,7 +5,7 @@ import { assert, assertEquals } from "@std/assert";
 import { err, ok, type Result } from "../../packages/base/mod.ts";
 import {
   parseObservationChunk,
-} from "../../packages/documents/file-tracking/mod.ts";
+} from "../../packages/core/projects/file-tracking/mod.ts";
 import {
   type BasisRead,
   readObservationBasis,

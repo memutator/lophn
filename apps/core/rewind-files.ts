@@ -18,7 +18,7 @@ import {
   type AuthenticatedContext,
   parseActor,
 } from "../../packages/protocol/platform/mod.ts";
-import { factMessageContent } from "../../packages/lophn-agent/conversation/mod.ts";
+import { factMessageContent } from "../../packages/core/lophn-agent/session/mod.ts";
 import {
   assertCheckpointVisible,
   eraseSessionStore,
@@ -34,13 +34,13 @@ import {
   type RewindPlan,
   type RewindStore,
   type RewindTarget,
-} from "../../packages/lophn-agent/revert/mod.ts";
+} from "../../packages/core/lophn-agent/session/rewind/mod.ts";
 import {
   type CommandEnvelope,
   type CommandSuccess,
   openConnection,
   type Writer,
-} from "../../packages/platform/ledger/mod.ts";
+} from "../../packages/core/storage/ledger/mod.ts";
 import { type BodyPrepare, prepareBytes } from "./message-body.ts";
 
 // 설치가 건너뛴 경로를 결과에 반영하는 core 내부 machine 자격이다. token이 없어 HTTP로는 이 principal이 될 수

@@ -19,17 +19,17 @@ import {
   builtinProviderDefinition,
   createProviderOAuth,
   type OAuthBegin,
-} from "../../packages/lophn-agent/harness/provider/mod.ts";
+} from "../../packages/core/lophn-agent/providers/mod.ts";
 import type {
   OAuthListener,
-} from "../../packages/lophn-agent/harness/provider/mod.ts";
+} from "../../packages/core/lophn-agent/providers/mod.ts";
 import {
   openCallbackListener,
-} from "../../packages/lophn-agent/harness/provider/mod.ts";
+} from "../../packages/core/lophn-agent/providers/mod.ts";
 import type {
   CommandSuccess,
   Writer,
-} from "../../packages/platform/ledger/mod.ts";
+} from "../../packages/core/storage/ledger/mod.ts";
 
 export const PROVIDER_LOGIN_LIVE_ENV = "LOPHN_LIVE_PROVIDER";
 

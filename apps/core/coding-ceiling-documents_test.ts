@@ -16,11 +16,11 @@ import {
   uploadPrepareBytes,
 } from "../../packages/coding-agent/connection/mod.ts";
 import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
-import { codingExternalCredential } from "../../packages/platform/identity/mod.ts";
+import { codingExternalCredential } from "../../packages/core/server/identity/mod.ts";
 import {
   codingCredentialRef,
   createFakeKeychain,
-} from "../../packages/platform/secrets/mod.ts";
+} from "../../packages/core/secrets/mod.ts";
 import { createLedgerRegistration as createAppsRegistration } from "./apps.ts";
 import { codingAgentConnectionDefinitions } from "./coding-agent.ts";
 import { lophnAgentDefinitions } from "./lophn-agent.ts";

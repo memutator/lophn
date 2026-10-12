@@ -13,17 +13,17 @@ import type {
   WorkerRequest,
   WorkerResponse,
 } from "../../packages/protocol/platform/mod.ts";
-import type { WorkerRouteHandle } from "../../packages/platform/responsiveness/mod.ts";
+import type { WorkerRouteHandle } from "../../packages/core/supervision/responsiveness/mod.ts";
 import {
   type BlobSink,
   prepareFromStream,
-} from "../../packages/documents/file-tracking/stream.ts";
+} from "../../packages/core/projects/file-tracking/stream.ts";
 import {
   createPrepareAssembly,
   type PrepareDeps,
   type PrepareFilesPort,
-} from "../../packages/documents/versions/work.ts";
-import { canonicalFilesJson } from "../../packages/documents/versions/model.ts";
+} from "../../packages/core/projects/versions/work.ts";
+import { canonicalFilesJson } from "../../packages/core/projects/versions/model.ts";
 import type { ContentFile } from "../../packages/protocol/projects/mod.ts";
 
 // canonical JSON을 고정 크기 chunk로 끊는다. 한 chunk가 목록 전체가 되지 않게

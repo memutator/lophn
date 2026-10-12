@@ -23,8 +23,8 @@ import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.
 import type {
   CommandEnvelope,
   Writer,
-} from "../../packages/platform/ledger/mod.ts";
-import type { ReadHandler } from "../../packages/platform/api/mod.ts";
+} from "../../packages/core/storage/ledger/mod.ts";
+import type { ReadHandler } from "../../packages/core/server/mod.ts";
 import { handOffContent } from "./contexts-handoff.ts";
 import { type BodyPrepare, prepareBytes, rejected } from "./message-body.ts";
 

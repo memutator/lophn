@@ -11,39 +11,39 @@ import type {
   AuthenticatedContext,
   BlobRefRegistration,
 } from "../../../packages/protocol/platform/mod.ts";
-import { eraseBlobRefs } from "../../../packages/platform/blob-store/mod.ts";
-import { applyMigrations } from "../../../packages/platform/backup-and-migration/mod.ts";
+import { eraseBlobRefs } from "../../../packages/core/storage/blobs/mod.ts";
+import { applyMigrations } from "../../../packages/core/storage/migration/mod.ts";
 import {
   LEDGER_SCHEMA_STEPS,
   openConnection,
   runCommand,
-} from "../../../packages/platform/ledger/mod.ts";
+} from "../../../packages/core/storage/ledger/mod.ts";
 import {
   assignmentSchemaSteps,
   createAssignmentCommands,
-} from "../../../packages/lophn-agent/assignments/mod.ts";
+} from "../../../packages/core/lophn-agent/assignments/mod.ts";
 import {
   createRunCommands,
   deleteSessionRuns,
   runSchemaSteps,
-} from "../../../packages/lophn-agent/harness/run-loop/mod.ts";
-import {} from "../../../packages/lophn-agent/harness/run-loop/testing/mod.ts";
-import { toolsSchemaSteps } from "../../../packages/lophn-agent/harness/tools/mod.ts";
-import { revertSchemaSteps } from "../../../packages/lophn-agent/revert/mod.ts";
-import { providerSchemaSteps } from "../../../packages/lophn-agent/harness/provider/mod.ts";
-import { usageSchemaSteps } from "../../../packages/lophn-agent/harness/usage/mod.ts";
+} from "../../../packages/core/lophn-agent/run-loop/mod.ts";
+import {} from "../../../packages/core/lophn-agent/run-loop/testing/mod.ts";
+import { toolsSchemaSteps } from "../../../packages/core/lophn-agent/tools/mod.ts";
+import { revertSchemaSteps } from "../../../packages/core/lophn-agent/session/rewind/mod.ts";
+import { providerSchemaSteps } from "../../../packages/core/lophn-agent/providers/mod.ts";
+import { usageSchemaSteps } from "../../../packages/core/lophn-agent/usage/mod.ts";
 import {
   conversationSchemaSteps,
   createConversationCommands,
   hasUnappliedSteering,
-} from "../../../packages/lophn-agent/conversation/mod.ts";
+} from "../../../packages/core/lophn-agent/session/mod.ts";
 import {
   agentRun,
   cred,
   id,
   textContent,
-} from "../../../packages/lophn-agent/conversation/testing/mod.ts";
-import { envelope } from "../../../packages/lophn-agent/harness/run-loop/testing/mod.ts";
+} from "../../../packages/core/lophn-agent/session/testing/mod.ts";
+import { envelope } from "../../../packages/core/lophn-agent/run-loop/testing/mod.ts";
 import { tableBlock } from "../../../packages/protocol/lophn-agent/message-fixtures.ts";
 import { createLedgerHarness, type LedgerHarness } from "./ledger.ts";
 
@@ -299,11 +299,11 @@ async function openAgentHarness(): Promise<LedgerHarness> {
   const opened = await createLedgerHarness({
     registrationModules: [
       new URL(
-        "../../../packages/lophn-agent/harness/provider/registration_test.ts",
+        "../../../packages/core/lophn-agent/providers/registration_test.ts",
         import.meta.url,
       ),
       new URL(
-        "../../../packages/lophn-agent/harness/usage/registration_test.ts",
+        "../../../packages/core/lophn-agent/usage/registration_test.ts",
         import.meta.url,
       ),
       new URL(

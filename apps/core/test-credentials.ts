@@ -1,8 +1,8 @@
 import { err, ok, type Result } from "../../packages/base/mod.ts";
 import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
 import { authenticatedContextSchema } from "../../packages/protocol/platform/mod.ts";
-import type { CredentialRegistry } from "../../packages/platform/identity/mod.ts";
-import { openConnection } from "../../packages/platform/ledger/mod.ts";
+import type { CredentialRegistry } from "../../packages/core/server/identity/mod.ts";
+import { openConnection } from "../../packages/core/storage/ledger/mod.ts";
 
 // 테스트 harness만 쓴다. 제품 registry 앞에 서서 다섯 actor bearer를 ledger 기록과 맞춘다.
 export function testCredentialFront(

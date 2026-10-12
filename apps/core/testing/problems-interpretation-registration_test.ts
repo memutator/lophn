@@ -11,8 +11,8 @@ import {
   interpretationLinkInputSchema,
   linkProblemInterpretation,
 } from "../../../packages/protocol/problems/mod.ts";
-import { runAdmission } from "../../../packages/platform/ledger/mod.ts";
-import { createLedgerTestRegistration as grouping } from "../../../packages/problems/grouping/testing/mod.ts";
+import { runAdmission } from "../../../packages/core/storage/ledger/mod.ts";
+import { createLedgerTestRegistration as grouping } from "../../../packages/core/problems/grouping/testing/mod.ts";
 import { defineTxPort } from "./ledger.ts";
 
 // ToolCall 성공 기록이다. 같은 transaction에서 해석 연결이 거절되면 이 행도 남지 않아야 한다.

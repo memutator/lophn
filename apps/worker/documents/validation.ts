@@ -10,8 +10,8 @@ import {
   type BuiltinFormatName,
   formatChecksContent,
 } from "../../../packages/protocol/projects/mod.ts";
-import type { ValidateFilesRequest } from "../../../packages/documents/file-tracking/mod.ts";
-import type { FormatCall } from "../../../packages/documents/formats/reads.ts";
+import type { ValidateFilesRequest } from "../../../packages/core/projects/file-tracking/mod.ts";
+import type { FormatCall } from "../../../packages/core/projects/formats/reads.ts";
 import { type ByteInbox } from "./byte-inbox.ts";
 
 export { type ByteInbox, createByteInbox } from "./byte-inbox.ts";

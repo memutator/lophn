@@ -23,14 +23,14 @@ import {
   createToolJudgment,
   type JudgmentDeps,
   type ToolBinding,
-} from "../../../packages/lophn-agent/harness/tool-judgment/mod.ts";
-import type { ToolDefinition } from "../../../packages/lophn-agent/harness/tools/mod.ts";
+} from "../../../packages/core/lophn-agent/tool-judgment/mod.ts";
+import type { ToolDefinition } from "../../../packages/core/lophn-agent/tools/mod.ts";
 import {
   createWaitResolver,
   type WaitWorkDeps,
-} from "../../../packages/lophn-agent/harness/waiting-and-recovery/mod.ts";
-import type { CallRequest } from "../../../packages/lophn-agent/harness/tool-judgment/mod.ts";
-import { confirmationBinding } from "../../../packages/platform/identity/mod.ts";
+} from "../../../packages/core/lophn-agent/waiting-and-recovery/mod.ts";
+import type { CallRequest } from "../../../packages/core/lophn-agent/tool-judgment/mod.ts";
+import { confirmationBinding } from "../../../packages/core/server/identity/mod.ts";
 import { type Core, startCore } from "../core.ts";
 import {
   createLedgerRegistration,

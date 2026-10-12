@@ -2,9 +2,9 @@
 // 경계)와 SDK의 화면 context 등록(registerScreenContext·registerAnnotationTarget)을 그대로 쓴다.
 // blueprint는 entry 옆의 blueprint.json이다. view session의 상태는 이 앱이 갖는다.
 import { createIdSource, systemClock } from "@lophn/base";
-import { validateBlueprint } from "../../../apps/blueprint/mod.ts";
-import { startDirectServer } from "../../../apps/runtime/entrypoint/direct-server.ts";
-import { startRuntime } from "../../../apps/runtime/entrypoint/startup.ts";
+import { validateBlueprint } from "../../../core/apps/blueprint/mod.ts";
+import { startDirectServer } from "../../../core/apps/runtime/entrypoint/direct-server.ts";
+import { startRuntime } from "../../../core/apps/runtime/entrypoint/startup.ts";
 import { registerAnnotationTarget, registerScreenContext } from "../mod.ts";
 
 const decoder = new TextDecoder();

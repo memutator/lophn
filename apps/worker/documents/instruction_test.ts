@@ -12,7 +12,7 @@ import {
   createStatusRecorder,
   type ObservationInstructionBasis,
   type ObservationSubmit,
-} from "../../../packages/documents/file-tracking/mod.ts";
+} from "../../../packages/core/projects/file-tracking/mod.ts";
 import {
   createInstructionSubmit,
   instructionBasisFromStore,
@@ -23,7 +23,7 @@ import {
 } from "./observation.ts";
 import { acceptFileOp } from "./file-requests.ts";
 import { createByteInbox } from "./byte-inbox.ts";
-import { PREPARATION_OPS } from "../../../packages/documents/file-tracking/mod.ts";
+import { PREPARATION_OPS } from "../../../packages/core/projects/file-tracking/mod.ts";
 import { createBasisStore } from "./basis.ts";
 import { createLocator } from "./files-locate.ts";
 import { createRootObservers } from "./observers.ts";

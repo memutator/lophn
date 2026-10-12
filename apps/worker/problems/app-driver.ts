@@ -15,45 +15,45 @@ import {
   sha256Hex,
   systemClock,
 } from "../../../packages/base/mod.ts";
-import { createCrashObserver } from "../../../packages/apps/runtime/observations/crash.ts";
-import type { Blueprint } from "../../../packages/apps/blueprint/mod.ts";
-import type { ResolvedRequirement } from "../../../packages/apps/permissions/model.ts";
+import { createCrashObserver } from "../../../packages/core/apps/runtime/observations/crash.ts";
+import type { Blueprint } from "../../../packages/core/apps/blueprint/mod.ts";
+import type { ResolvedRequirement } from "../../../packages/core/apps/permissions/model.ts";
 import {
   appFlags,
   type BrokerChild,
   createBrokerEndpoint,
   isLoopbackHost,
-} from "../../../packages/apps/permissions/mod.ts";
+} from "../../../packages/core/apps/permissions/mod.ts";
 import {
   createPreviewBrokerServices,
   createPreviewExternalService,
   createPreviewSecretService,
   previewScopeOf,
-} from "../../../packages/apps/preview/mod.ts";
+} from "../../../packages/core/apps/preview/mod.ts";
 import {
   appArgv,
   appEnv,
   createCoreSigner,
-} from "../../../packages/apps/runtime/mod.ts";
-import { unixDirectTransport } from "../../../packages/apps/runtime/client/unix-http.ts";
+} from "../../../packages/core/apps/runtime/mod.ts";
+import { unixDirectTransport } from "../../../packages/core/apps/runtime/client/unix-http.ts";
 import {
   migrateAppDatabase,
   type MigrationScript,
-} from "../../../packages/apps/data/worker/migrate.ts";
-import { createAppBackup } from "../../../packages/apps/data/worker/backup.ts";
-import { openAppDatabase } from "../../../packages/apps/data/worker/db.ts";
+} from "../../../packages/core/apps/data/worker/migrate.ts";
+import { createAppBackup } from "../../../packages/core/apps/data/worker/backup.ts";
+import { openAppDatabase } from "../../../packages/core/apps/data/worker/db.ts";
 import {
   type HarnessPlan,
   type ReceivedReport,
   REDACTION_CANARY,
   type RunnerDriver,
-} from "../../../packages/problems/tests/harness/mod.ts";
+} from "../../../packages/core/problems/tests/harness/mod.ts";
 import { reportProblemInputSchema } from "../../../packages/protocol/problems/mod.ts";
 import type { ReportProblemIngress } from "../../../packages/protocol/problems/mod.ts";
 import {
   createKnownSecretRegistry,
   createRedactionEngine,
-} from "../../../packages/platform/redaction/mod.ts";
+} from "../../../packages/base/redaction/mod.ts";
 
 const APP_ID = "app_01arz3ndektsv4rrffq69g5fav";
 const STAND_IN_HOST = "loopback.stand-in.test";

@@ -4,7 +4,7 @@
 import { assert, assertEquals } from "@std/assert";
 import type { Result } from "../../packages/base/mod.ts";
 import { connectionRevoke } from "../../packages/protocol/coding-agent/mod.ts";
-import { confirmationBinding } from "../../packages/platform/identity/mod.ts";
+import { confirmationBinding } from "../../packages/core/server/identity/mod.ts";
 import { startCore } from "./core.ts";
 import { createCoreHarness } from "./testing/core.ts";
 import { codingAgentConnectionDefinitions } from "./coding-agent.ts";

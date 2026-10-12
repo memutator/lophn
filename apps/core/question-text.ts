@@ -21,12 +21,12 @@ import type {
 import {
   type CommandEnvelope,
   type Writer,
-} from "../../packages/platform/ledger/mod.ts";
+} from "../../packages/core/storage/ledger/mod.ts";
 import {
   createKnownSecretRegistry,
   createRedactionEngine,
-} from "../../packages/platform/redaction/mod.ts";
-import { screenAnswerText } from "../../packages/lophn-agent/questions/mod.ts";
+} from "../../packages/base/redaction/mod.ts";
+import { screenAnswerText } from "../../packages/core/lophn-agent/tools/questions/mod.ts";
 import { createProductRedactor } from "./documents-redactor.ts";
 import { prepareBytes, rejected } from "./message-body.ts";
 import type { BodyPrepare } from "./message-body.ts";

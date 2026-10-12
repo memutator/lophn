@@ -4,7 +4,7 @@ import {
   type CatalogWorkInput,
   createCatalogRefresher,
   type FilesLike,
-} from "../../packages/lophn-agent/harness/model/mod.ts";
+} from "../../packages/core/lophn-agent/models/mod.ts";
 
 export type CatalogRefresherHandle = CatalogRefresher;
 
@@ -39,10 +39,10 @@ export function startCatalogRefresher(
 // 읽지 못한다(architecture §3.2).
 async function snapshotFromBundle() {
   const { parseEntries } = await import(
-    "../../packages/lophn-agent/harness/model/mod.ts"
+    "../../packages/core/lophn-agent/models/mod.ts"
   );
   const bundled = await import(
-    "../../packages/lophn-agent/harness/model/snapshot.json",
+    "../../packages/core/lophn-agent/models/snapshot.json",
     { with: { type: "json" } }
   );
   const entries = parseEntries(JSON.stringify(bundled.default));

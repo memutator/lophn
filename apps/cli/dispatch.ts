@@ -105,7 +105,7 @@ import {
   daemonStatus,
   daemonStop,
   readRunMetadata,
-} from "../../packages/platform/install-and-update/mod.ts";
+} from "../../packages/core/install-and-update/mod.ts";
 import { appDirectSocketPaths } from "../../packages/protocol/apps/mod.ts";
 import { documentSectionHistory } from "../../packages/protocol/projects/mod.ts";
 import type { Route } from "../../packages/protocol/platform/mod.ts";

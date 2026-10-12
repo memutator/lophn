@@ -18,9 +18,9 @@ import {
   runOperations,
   SERIES_NEXT_TOOL,
   TOOL_BUNDLES,
-} from "../../packages/lophn-agent/harness/tools/mod.ts";
-import { roleOperations } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
-import { ROLE_CAPS } from "../../packages/lophn-agent/agents/mod.ts";
+} from "../../packages/core/lophn-agent/tools/mod.ts";
+import { roleOperations } from "../../packages/core/lophn-agent/run-loop/mod.ts";
+import { ROLE_CAPS } from "../../packages/core/lophn-agent/agents/mod.ts";
 import type { CoreCall } from "./core-call.ts";
 import {
   contextReadToolsFor,

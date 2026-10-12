@@ -4,7 +4,7 @@
 // 문서 원본 파일(document_file)로 고정이고 호출자가 고르지 않는다.
 import { err, type Result } from "../../packages/base/mod.ts";
 import { documentUpload } from "../../packages/protocol/projects/mod.ts";
-import type { UploadHandler } from "../../packages/platform/api/mod.ts";
+import type { UploadHandler } from "../../packages/core/server/mod.ts";
 import type { BlobPrepareCall } from "./core.ts";
 import type { PreparedRelayResult } from "./blob-prepare.ts";
 

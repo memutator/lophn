@@ -6,7 +6,7 @@
 import {
   restoreFromBackup,
   type RestoreStopped,
-} from "../../../packages/platform/backup-and-migration/mod.ts";
+} from "../../../packages/core/storage/migration/mod.ts";
 
 type Request = {
   ledger: string;

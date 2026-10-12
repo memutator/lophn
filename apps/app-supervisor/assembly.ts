@@ -17,8 +17,8 @@ import {
   type Supervisor,
   type SupervisorDeps,
   type SupervisorEvent,
-} from "../../packages/apps/runtime/supervisor/mod.ts";
-import type { CoreLink } from "../../packages/apps/runtime/core-link.ts";
+} from "../../packages/core/apps/runtime/supervisor/mod.ts";
+import type { CoreLink } from "../../packages/core/apps/runtime/core-link.ts";
 import {
   activationAppInputSchema,
   blockInputSchema,
@@ -35,46 +35,46 @@ import {
   restartInputSchema,
   SUPERVISOR_OPS,
   viewClosedInputSchema,
-} from "../../packages/apps/runtime/control-protocol.ts";
-import type { PreparationService } from "../../packages/apps/releases/preparation.ts";
+} from "../../packages/core/apps/runtime/control-protocol.ts";
+import type { PreparationService } from "../../packages/core/apps/releases/preparation.ts";
 import type { DataJobRunner } from "./data-runner.ts";
 import {
   createLogBuffer,
   type LogBuffer,
-} from "../../packages/apps/runtime/observations/log-buffer.ts";
+} from "../../packages/core/apps/runtime/observations/log-buffer.ts";
 import {
   createMemoryObserver,
   type MemoryObserver,
   type RssReader,
-} from "../../packages/apps/runtime/observations/memory.ts";
+} from "../../packages/core/apps/runtime/observations/memory.ts";
 import {
   type CrashEvent,
   createCrashObserver,
-} from "../../packages/apps/runtime/observations/crash.ts";
-import type { ByteSource } from "../../packages/apps/runtime/observations/stream-decoder.ts";
+} from "../../packages/core/apps/runtime/observations/crash.ts";
+import type { ByteSource } from "../../packages/core/apps/runtime/observations/stream-decoder.ts";
 import type {
   AppEnvironment,
   AppLaunch,
-} from "../../packages/apps/runtime/processes/mod.ts";
+} from "../../packages/core/apps/runtime/processes/mod.ts";
 import {
   createPreviewLauncher,
   type PreviewLauncher,
   type PreviewScope,
-} from "../../packages/apps/preview/mod.ts";
+} from "../../packages/core/apps/preview/mod.ts";
 import { DIRECT_SOCKET_PATHS } from "../../packages/protocol/apps/mod.ts";
 import { diagnosticSchema } from "../../packages/protocol/platform/mod.ts";
-import { createKnownSecretRegistry } from "../../packages/platform/redaction/mod.ts";
+import { createKnownSecretRegistry } from "../../packages/base/redaction/mod.ts";
 import {
   type BrokerChild,
   type InvocationBroker,
   pairSocketFlags,
   type ProblemsReport,
   socketFlags,
-} from "../../packages/apps/permissions/mod.ts";
+} from "../../packages/core/apps/permissions/mod.ts";
 import {
   type AutomationPermits,
   createAutomationPermits,
-} from "../../packages/apps/automations/permits.ts";
+} from "../../packages/core/apps/automations/permits.ts";
 import { reportAcceptanceSchema } from "../../packages/protocol/problems/mod.ts";
 import { createCoreAppCallTargets, createCoreBrokerAccess } from "./access.ts";
 import {

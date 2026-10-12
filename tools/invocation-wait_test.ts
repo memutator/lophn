@@ -6,8 +6,8 @@
 // (invoke.ts "void submit" fire-and-forget). 부하 도중의 실측은
 // packages/platform/responsiveness/measure-load_test.ts의 opt-in(R9)이 맡는다.
 import { assert } from "@std/assert";
-import { handleInvoke } from "../packages/apps/runtime/entrypoint/invoke.ts";
-import { startRuntime } from "../packages/apps/runtime/entrypoint/startup.ts";
+import { handleInvoke } from "../packages/core/apps/runtime/entrypoint/invoke.ts";
+import { startRuntime } from "../packages/core/apps/runtime/entrypoint/startup.ts";
 import {
   blueprint,
   clockAt,
@@ -16,8 +16,8 @@ import {
   REL,
   shaKey,
   startLine,
-} from "../packages/apps/runtime/entrypoint/testing.ts";
-import type { AppConnection } from "../packages/apps/runtime/entrypoint/wire.ts";
+} from "../packages/core/apps/runtime/entrypoint/testing.ts";
+import type { AppConnection } from "../packages/core/apps/runtime/entrypoint/wire.ts";
 
 Deno.test({
   name:

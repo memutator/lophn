@@ -25,20 +25,20 @@ import type {
 import {
   createAuthTransport,
   type SecretAttachLike,
-} from "../../../packages/lophn-agent/harness/provider/adapters/auth-transport.ts";
-import { createFetchTransport } from "../../../packages/lophn-agent/harness/provider/adapters/transport.ts";
-import { createInvokeModelCall } from "../../../packages/lophn-agent/harness/provider/invoke.ts";
+} from "../../../packages/core/lophn-agent/providers/adapters/auth-transport.ts";
+import { createFetchTransport } from "../../../packages/core/lophn-agent/providers/adapters/transport.ts";
+import { createInvokeModelCall } from "../../../packages/core/lophn-agent/providers/invoke.ts";
 import {
   createRunCredentials,
   createRunSelector,
-} from "../../../packages/lophn-agent/harness/run-loop/mod.ts";
+} from "../../../packages/core/lophn-agent/run-loop/mod.ts";
 import {
   BUILTIN_TOOLS,
   type ToolDefinition,
   type ToolHandler,
-} from "../../../packages/lophn-agent/harness/tools/mod.ts";
-import type { ToolBinding } from "../../../packages/lophn-agent/harness/tool-judgment/mod.ts";
-import type { ToolLookup } from "../../../packages/lophn-agent/harness/waiting-and-recovery/mod.ts";
+} from "../../../packages/core/lophn-agent/tools/mod.ts";
+import type { ToolBinding } from "../../../packages/core/lophn-agent/tool-judgment/mod.ts";
+import type { ToolLookup } from "../../../packages/core/lophn-agent/waiting-and-recovery/mod.ts";
 import {
   type FakeProvider,
   type Script,

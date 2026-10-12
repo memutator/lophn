@@ -15,7 +15,7 @@ import {
   staleTemporary,
   trimTargets,
   unreferencedGracePassed,
-} from "../../../packages/platform/blob-store/mod.ts";
+} from "../../../packages/core/storage/blobs/mod.ts";
 
 // GC 관측(R10: 실제 삭제 없음). 미참조 수와 삭제 자격 수만 센다.
 export type GcObservation = {

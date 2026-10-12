@@ -12,7 +12,7 @@ import {
   bundleContentSchema,
   type StoredViolation,
 } from "../../packages/protocol/projects/mod.ts";
-import { objectPathFor } from "../../packages/platform/blob-store/mod.ts";
+import { objectPathFor } from "../../packages/core/storage/blobs/mod.ts";
 import {
   type ContextBlobs,
   type ContextIndexPort,
@@ -21,20 +21,20 @@ import {
   type SearchEntity,
   type SearchExecutor,
   violationMessage,
-} from "../../packages/documents/contexts/mod.ts";
+} from "../../packages/core/projects/contexts/mod.ts";
 import {
   readEntities,
   readEntitiesOfType,
   readEntityWithLinks,
   readIndexState,
   readViolations,
-} from "../../packages/documents/contexts/index/mod.ts";
+} from "../../packages/core/projects/contexts/index/mod.ts";
 import {
   startRequest,
   type StartRequestDeps,
-} from "../../packages/lophn-agent/conversation/mod.ts";
-import { createRunCommands } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
-import { loadActiveBlueprint } from "../../packages/apps/releases/store.ts";
+} from "../../packages/core/lophn-agent/session/mod.ts";
+import { createRunCommands } from "../../packages/core/lophn-agent/run-loop/mod.ts";
+import { loadActiveBlueprint } from "../../packages/core/apps/releases/store.ts";
 import { ContextDepRefused, type ContextsRuntime } from "./contexts-api.ts";
 import { handOffContent } from "./contexts-handoff.ts";
 

@@ -11,7 +11,7 @@ import {
   sha256Hex,
   systemClock,
 } from "../../../packages/base/mod.ts";
-import type { Blueprint } from "../../../packages/apps/blueprint/mod.ts";
+import type { Blueprint } from "../../../packages/core/apps/blueprint/mod.ts";
 import type { ProblemCodeDeclaration } from "../../../packages/protocol/problems/mod.ts";
 import {
   type AppTestInput,
@@ -20,10 +20,10 @@ import {
   type HarnessFailurePath,
   sdkDependenciesHash,
   serveRpc,
-} from "../../../packages/problems/tests/mod.ts";
-import type { ScreenReportSink } from "../../../packages/problems/tests/app-test/mod.ts";
-import type { ViewDriver } from "../../../packages/problems/tests/harness/mod.ts";
-import { canonicalHash } from "../../../packages/problems/tests/canonical.ts";
+} from "../../../packages/core/problems/tests/mod.ts";
+import type { ScreenReportSink } from "../../../packages/core/problems/tests/app-test/mod.ts";
+import type { ViewDriver } from "../../../packages/core/problems/tests/harness/mod.ts";
+import { canonicalHash } from "../../../packages/core/problems/tests/canonical.ts";
 import {
   createRealAppDriver,
   type RealDriver,

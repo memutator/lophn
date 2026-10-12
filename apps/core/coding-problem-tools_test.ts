@@ -10,16 +10,16 @@ import { createProblemTool } from "../../packages/coding-agent/mcp-server/tools/
 import { createTicketTool } from "../../packages/coding-agent/mcp-server/tools/ticket.ts";
 import { resolveRoute } from "../../packages/coding-agent/mcp-server/registry.ts";
 import { MCP_PROBLEM_TOOLS } from "../../packages/protocol/coding-agent/mod.ts";
-import { objectPathFor } from "../../packages/platform/blob-store/mod.ts";
+import { objectPathFor } from "../../packages/core/storage/blobs/mod.ts";
 import {
   codingCredentialRef,
   createFakeKeychain,
   type FakeKeychain,
-} from "../../packages/platform/secrets/mod.ts";
+} from "../../packages/core/secrets/mod.ts";
 import {
   openWorld,
   type World,
-} from "../../packages/apps/runtime/world_test.ts";
+} from "../../packages/core/apps/runtime/world_test.ts";
 import { cliMain } from "../cli/main.ts";
 import { codingAgentConnectionDefinitions } from "./coding-agent.ts";
 import {

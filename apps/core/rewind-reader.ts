@@ -5,9 +5,9 @@
 import {
   createRevertReads,
   latestAppRevision,
-} from "../../packages/lophn-agent/revert/mod.ts";
-import { observeFiles } from "../../packages/lophn-agent/revert/prepare.ts";
-import type { ReaderRegistration } from "../../packages/platform/ledger/mod.ts";
+} from "../../packages/core/lophn-agent/session/rewind/mod.ts";
+import { observeFiles } from "../../packages/core/lophn-agent/session/rewind/prepare.ts";
+import type { ReaderRegistration } from "../../packages/core/storage/ledger/mod.ts";
 import { answeredFacts } from "./rewind-facts.ts";
 import { projectRootOf } from "./rewind-root.ts";
 

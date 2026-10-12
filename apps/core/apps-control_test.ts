@@ -3,12 +3,12 @@
 import { assert, assertEquals } from "@std/assert";
 import { err, manualClock, ok } from "../../packages/base/mod.ts";
 import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
-import { CredentialRegistry } from "../../packages/platform/identity/mod.ts";
-import { operationCeiling } from "../../packages/platform/identity/model.ts";
+import { CredentialRegistry } from "../../packages/core/server/identity/mod.ts";
+import { operationCeiling } from "../../packages/core/server/identity/model.ts";
 import {
   checkLaunchSpec,
   launchArgv,
-} from "../../packages/platform/security/mod.ts";
+} from "../../packages/core/supervision/security/mod.ts";
 import {
   appCredentialIssuer,
   appsOperationPolicies,

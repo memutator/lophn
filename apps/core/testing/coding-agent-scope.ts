@@ -5,15 +5,15 @@
 import { createHash } from "node:crypto";
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, ok, seededRandom } from "../../../packages/base/mod.ts";
-import { extractFormat } from "../../../packages/documents/formats/guest.ts";
+import { extractFormat } from "../../../packages/core/projects/formats/guest.ts";
 import {
   derivedPath,
   type DerivedStore,
   openDerived,
-} from "../../../packages/documents/outline-and-search/adapters/store.ts";
-import { recordExtraction } from "../../../packages/documents/outline-and-search/extraction.ts";
+} from "../../../packages/core/projects/outline-and-search/adapters/store.ts";
+import { recordExtraction } from "../../../packages/core/projects/outline-and-search/extraction.ts";
 import type { AuthenticatedContext } from "../../../packages/protocol/platform/mod.ts";
-import { codingExternalCredential } from "../../../packages/platform/identity/mod.ts";
+import { codingExternalCredential } from "../../../packages/core/server/identity/mod.ts";
 import { createCoreClient } from "../../../packages/coding-agent/connection/client/core.ts";
 import {
   type PathSaveDeps,

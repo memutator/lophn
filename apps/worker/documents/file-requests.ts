@@ -5,17 +5,17 @@
 import { err, ok, type Result } from "../../../packages/base/mod.ts";
 import type { LophnError } from "../../../packages/base/mod.ts";
 import type { WorkerRequest } from "../../../packages/protocol/platform/mod.ts";
-import { denoFileOps } from "../../../packages/documents/file-tracking/adapters/file-ops.ts";
+import { denoFileOps } from "../../../packages/core/projects/file-tracking/adapters/file-ops.ts";
 import {
   createFileSerializer,
   type FileFailure,
-} from "../../../packages/documents/file-tracking/file-ops.ts";
+} from "../../../packages/core/projects/file-tracking/file-ops.ts";
 import {
   deleteFile,
   type FileDeps,
   type FileDone,
   renameFile,
-} from "../../../packages/documents/file-tracking/files.ts";
+} from "../../../packages/core/projects/file-tracking/files.ts";
 import {
   INSTRUCTION_READ_MAX_BYTES,
   prepConfirmSchema,
@@ -25,16 +25,16 @@ import {
   prepRenameSchema,
   prepWindowSchema,
   prepWriteSchema,
-} from "../../../packages/documents/file-tracking/file-ipc.ts";
-import { PREPARATION_OPS } from "../../../packages/documents/file-tracking/ipc.ts";
-import { instructionReadPort } from "../../../packages/documents/file-tracking/fs.ts";
-import { readStably } from "../../../packages/documents/file-tracking/work.ts";
+} from "../../../packages/core/projects/file-tracking/file-ipc.ts";
+import { PREPARATION_OPS } from "../../../packages/core/projects/file-tracking/ipc.ts";
+import { instructionReadPort } from "../../../packages/core/projects/file-tracking/fs.ts";
+import { readStably } from "../../../packages/core/projects/file-tracking/work.ts";
 import {
   confirmCopy,
   readLocation,
   readWindow,
   writeLocation,
-} from "../../../packages/documents/file-tracking/prepared-files.ts";
+} from "../../../packages/core/projects/file-tracking/prepared-files.ts";
 import type { ByteInbox } from "./byte-inbox.ts";
 
 const WRITE_CHUNK = 64 * 1024;

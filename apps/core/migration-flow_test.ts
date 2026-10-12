@@ -4,11 +4,11 @@
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { manualClock } from "../../packages/base/mod.ts";
-import { applyMigrations } from "../../packages/platform/backup-and-migration/mod.ts";
+import { applyMigrations } from "../../packages/core/storage/migration/mod.ts";
 import {
   recoveryName,
   recoveryStamp,
-} from "../../packages/platform/backup-and-migration/mod.ts";
+} from "../../packages/core/storage/migration/mod.ts";
 import type { SchemaStep } from "../../packages/protocol/platform/mod.ts";
 import { CREDENTIAL_SCHEMA } from "./credentials.ts";
 

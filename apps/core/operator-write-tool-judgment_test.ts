@@ -6,7 +6,7 @@ import { assert, assertEquals } from "@std/assert";
 import { err, ok } from "../../packages/base/mod.ts";
 import { routePath } from "../../packages/protocol/platform/mod.ts";
 import { documentGet } from "../../packages/protocol/projects/mod.ts";
-import type { CoreCall } from "../../packages/lophn-agent/harness/tool-judgment/mod.ts";
+import type { CoreCall } from "../../packages/core/lophn-agent/tool-judgment/mod.ts";
 import {
   APPROVALS,
   binding,

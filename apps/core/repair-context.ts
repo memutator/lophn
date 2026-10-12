@@ -8,7 +8,7 @@ import {
   REPAIR_CONTEXT_ROUTES,
 } from "../../packages/protocol/coding-agent/mod.ts";
 import type { KindLaunchSpec } from "../../packages/protocol/platform/mod.ts";
-import { checkLaunchSpec } from "../../packages/platform/security/mod.ts";
+import { checkLaunchSpec } from "../../packages/core/supervision/security/mod.ts";
 import type { DocumentsChannel } from "./documents-serving.ts";
 import type { CoreRuntime } from "./runtime.ts";
 

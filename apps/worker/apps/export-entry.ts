@@ -2,8 +2,8 @@
 // 판정을 끝낸 뒤에만 띄운다. 앱 DB를 여는 일(backup·무결성 확인)과 export 묶음 쓰기는
 // core graph 밖인 이 프로세스의 몫이다(responsiveness#R1). 입력은 stdin JSON 한 개, 결과는
 // stdout 마지막 줄 JSON 하나다. 읽기·쓰기는 LOPHN_HOME(데이터 root) 안에만 허용된다.
-import { prepareAppExport } from "../../../packages/apps/data/worker/export.ts";
-import type { ExportJob } from "../../../packages/apps/data/reads.ts";
+import { prepareAppExport } from "../../../packages/core/apps/data/worker/export.ts";
+import type { ExportJob } from "../../../packages/core/apps/data/reads.ts";
 
 function reply(message: unknown): never {
   Deno.stdout.writeSync(

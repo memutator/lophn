@@ -1,6 +1,6 @@
 // test runner control. core 감독이 하나를 띄우고, 실제 test 자식은 요청마다
 // 이 모듈이 띄운다(problems/tests#R13–R21). credential은 argv에 넣지 않는다.
-import { applyMemoryLimit } from "../../../packages/platform/security/mod.ts";
+import { applyMemoryLimit } from "../../../packages/core/supervision/security/mod.ts";
 import {
   brokerReport,
   type MemoryLimitPort,
@@ -10,7 +10,7 @@ import {
   type RunRequest,
   type RunVerdict,
   type StartAttemptCommit,
-} from "../../../packages/problems/tests/work/mod.ts";
+} from "../../../packages/core/problems/tests/work/mod.ts";
 import { err, ok, type Result } from "../../../packages/base/mod.ts";
 import {
   type AppTestInput,
@@ -18,17 +18,17 @@ import {
   judgeAppTest,
   openViewDriver,
   type ScreenReportSink,
-} from "../../../packages/problems/tests/app-test/mod.ts";
+} from "../../../packages/core/problems/tests/app-test/mod.ts";
 import {
   runScreenHost,
   screenErrorBoundaries,
-} from "../../../packages/problems/tests/adapters/screen-host.ts";
+} from "../../../packages/core/problems/tests/adapters/screen-host.ts";
 import {
   serveTestAppSocket,
   type TestAppInvoke,
-} from "../../../packages/problems/tests/adapters/test-app-socket.ts";
+} from "../../../packages/core/problems/tests/adapters/test-app-socket.ts";
 import type { ScreenTestInput } from "../../../packages/protocol/shell/mod.ts";
-import type { SpawnPort } from "../../../packages/problems/tests/work/mod.ts";
+import type { SpawnPort } from "../../../packages/core/problems/tests/work/mod.ts";
 
 export const TEST_RUNNER_KIND = "problems/test-runner";
 

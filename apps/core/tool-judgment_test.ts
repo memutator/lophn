@@ -16,7 +16,7 @@ import {
   sessionRead,
   type ToolDecision,
 } from "../../packages/protocol/lophn-agent/mod.ts";
-import type { CoreCall } from "../../packages/lophn-agent/harness/tool-judgment/mod.ts";
+import type { CoreCall } from "../../packages/core/lophn-agent/tool-judgment/mod.ts";
 import { setAssignmentState } from "./testing/assignment-state.ts";
 import { codeOf, decide as humanDecide } from "./testing/approvals-fixture.ts";
 import {

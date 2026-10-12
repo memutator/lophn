@@ -5,9 +5,9 @@
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
-import { checkRestart } from "../../packages/platform/backup-and-migration/mod.ts";
+import { checkRestart } from "../../packages/core/storage/migration/mod.ts";
 import { mainHelloSchema } from "../../packages/protocol/platform/mod.ts";
-import { readFrames } from "../../packages/platform/responsiveness/mod.ts";
+import { readFrames } from "../../packages/core/supervision/responsiveness/mod.ts";
 import { type Core, startCore } from "./core.ts";
 
 const CLOCK = manualClock(Date.parse("2026-10-04T00:00:00.000Z"));

@@ -8,7 +8,7 @@ import {
   decodeDataJobOutput,
   encodeDataJobInput,
 } from "../../../packages/protocol/apps/mod.ts";
-import { dataChangesOf } from "../../../packages/apps/releases/activation/desired.ts";
+import { dataChangesOf } from "../../../packages/core/apps/releases/activation/desired.ts";
 import { runDataJobLine } from "./data.ts";
 
 const APP = "app_01h455vb4pex5v6nkc6gd5fdw1";
@@ -19,7 +19,7 @@ const BUNDLE_HASH = "b".repeat(64);
 async function template(): Promise<string> {
   return await Deno.readTextFile(
     new URL(
-      "../../../packages/apps/sdk/template/app/migrations/0-1.sql.tmpl",
+      "../../../packages/core/apps/packages/template/app/migrations/0-1.sql.tmpl",
       import.meta.url,
     ),
   );

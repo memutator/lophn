@@ -13,12 +13,12 @@ import {
 import {
   objectPathFor,
   tmpDirFor,
-} from "../../packages/platform/blob-store/mod.ts";
+} from "../../packages/core/storage/blobs/mod.ts";
 import {
   type ByteReader,
   createFrameWriter,
   readFrames,
-} from "../../packages/platform/responsiveness/frames.ts";
+} from "../../packages/core/supervision/responsiveness/frames.ts";
 import { sha256Hex } from "../../packages/base/mod.ts";
 import {
   BLOB_RELAY_BUFFER_MAX_BYTES,

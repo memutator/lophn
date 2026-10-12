@@ -11,12 +11,12 @@ import {
 import {
   createExportTarget,
   type ExportJob,
-} from "../../packages/apps/data/reads.ts";
+} from "../../packages/core/apps/data/reads.ts";
 import {
   createTargetAuthorizer,
   openConnection,
-} from "../../packages/platform/ledger/mod.ts";
-import type { WorkerRouteTarget } from "../../packages/platform/responsiveness/mod.ts";
+} from "../../packages/core/storage/ledger/mod.ts";
+import type { WorkerRouteTarget } from "../../packages/core/supervision/responsiveness/mod.ts";
 import { denoDir, repoRoot } from "./apps-control.ts";
 
 const EXPORT_TIMEOUT_MS = 10 * 60_000;

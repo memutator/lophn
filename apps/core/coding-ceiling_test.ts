@@ -15,16 +15,16 @@ import {
   TICKET_SUMMARY_MAX_BYTES,
 } from "../../packages/protocol/coding-agent/mod.ts";
 import { UPLOAD_INPUT_HEADER } from "../../packages/protocol/platform/mod.ts";
-import { confirmationBinding } from "../../packages/platform/identity/mod.ts";
+import { confirmationBinding } from "../../packages/core/server/identity/mod.ts";
 import {
   codingCredentialRef,
   createFakeKeychain,
   type FakeKeychain,
-} from "../../packages/platform/secrets/mod.ts";
+} from "../../packages/core/secrets/mod.ts";
 import {
   openWorld,
   type World,
-} from "../../packages/apps/runtime/world_test.ts";
+} from "../../packages/core/apps/runtime/world_test.ts";
 import { codingAgentConnectionDefinitions } from "./coding-agent.ts";
 import { ALL_ROUTES } from "../../packages/protocol/mod.ts";
 import { appsOperationPolicies } from "./apps-control.ts";

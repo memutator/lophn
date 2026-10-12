@@ -1,7 +1,7 @@
 // machine credential로 core의 record_* command를 부른다.
 // record_*는 관측 사실이라 compare(base_revision)가 없다.
 import type { Result } from "../../packages/base/mod.ts";
-import type { RuntimeRecord } from "../../packages/apps/runtime/core-link.ts";
+import type { RuntimeRecord } from "../../packages/core/apps/runtime/core-link.ts";
 
 export type RecordResponse = { status: number; body: unknown };
 

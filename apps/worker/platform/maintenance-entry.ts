@@ -4,8 +4,8 @@
 // 지우지 않는다(fail-closed). 파일 작업은 core graph 밖인 이 프로세스의 몫이다.
 
 import { err, ok, type Result } from "../../../packages/base/mod.ts";
-import { openReaderConnection } from "../../../packages/platform/ledger/reader-connection.ts";
-import type { RetentionRule } from "../../../packages/platform/blob-store/mod.ts";
+import { openReaderConnection } from "../../../packages/core/storage/ledger/reader-connection.ts";
+import type { RetentionRule } from "../../../packages/core/storage/blobs/mod.ts";
 import { runMaintenanceGc, type StoppedConditions } from "./maintenance.ts";
 
 type Request = {

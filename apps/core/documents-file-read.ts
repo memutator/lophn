@@ -21,13 +21,13 @@ import {
 import {
   DOCUMENT_OPS,
   type WorkingCopyCheck,
-} from "../../packages/documents/file-tracking/mod.ts";
+} from "../../packages/core/projects/file-tracking/mod.ts";
 import {
   FILE_WINDOW_MAX_BYTES,
   fileIdentitySchema,
-} from "../../packages/documents/file-tracking/file-ipc.ts";
+} from "../../packages/core/projects/file-tracking/file-ipc.ts";
 import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
-import type { FileStreamHandler } from "../../packages/platform/api/mod.ts";
+import type { FileStreamHandler } from "../../packages/core/server/mod.ts";
 import type { FileWindows } from "./documents-file-windows.ts";
 import { STORED_FILE_MAX_BYTES } from "./documents-serving.ts";
 import { z } from "zod";

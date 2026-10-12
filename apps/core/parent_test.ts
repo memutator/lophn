@@ -3,7 +3,7 @@ import {
   encodeFrame,
   mainHelloSchema,
 } from "../../packages/protocol/platform/mod.ts";
-import { readFrames } from "../../packages/platform/responsiveness/mod.ts";
+import { readFrames } from "../../packages/core/supervision/responsiveness/mod.ts";
 import {
   type ParentPipe,
   type ShellViewLifetime,

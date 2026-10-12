@@ -29,7 +29,7 @@ import { sha256Hex } from "../../packages/base/mod.ts";
 import {
   installedHome,
   removeTree,
-} from "../../packages/apps/sdk/testing/mod.ts";
+} from "../../packages/core/apps/packages/testing/mod.ts";
 import {
   descendantPids,
   e2eEnabled,

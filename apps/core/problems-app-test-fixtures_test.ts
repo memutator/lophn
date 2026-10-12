@@ -9,16 +9,16 @@
 import { assert, assertEquals } from "@std/assert";
 import type { Result } from "../../packages/base/mod.ts";
 import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
-import { screenErrorBoundaries } from "../../packages/problems/tests/adapters/screen-host.ts";
+import { screenErrorBoundaries } from "../../packages/core/problems/tests/adapters/screen-host.ts";
 import {
   canonicalRequest,
   type HarnessFailurePath,
-} from "../../packages/problems/tests/mod.ts";
+} from "../../packages/core/problems/tests/mod.ts";
 import {
   canonicalHash,
   canonicalJson,
   hashCanonical,
-} from "../../packages/problems/tests/canonical.ts";
+} from "../../packages/core/problems/tests/canonical.ts";
 import {
   APP,
   blob,
@@ -28,10 +28,10 @@ import {
   runner,
   verification,
   VRF,
-} from "../../packages/problems/tests/fixtures.ts";
-import { FAILING_BLOB_FIELD } from "../../packages/problems/tests/harness-registration_test.ts";
+} from "../../packages/core/problems/tests/fixtures.ts";
+import { FAILING_BLOB_FIELD } from "../../packages/core/problems/tests/harness-registration_test.ts";
 import { type CommandEnvelope, createLedgerHarness } from "./testing/ledger.ts";
-import { installedHome } from "../../packages/apps/sdk/testing/mod.ts";
+import { installedHome } from "../../packages/core/apps/packages/testing/mod.ts";
 import {
   type BundleVariant,
   type FixtureName,
@@ -46,7 +46,7 @@ import {
 
 void FAILING_BLOB_FIELD;
 const registration = new URL(
-  "../../packages/problems/tests/harness-registration_test.ts",
+  "../../packages/core/problems/tests/harness-registration_test.ts",
   import.meta.url,
 );
 const HOST = Deno.env.get("SCREEN_TEST_HOST");
@@ -58,7 +58,7 @@ const VIEW_CHECKS = ["feedback", "view_exception"];
 const VARIANTS = JSON.parse(
   await Deno.readTextFile(
     new URL(
-      "../../packages/problems/tests/testdata/bundle-variants.json",
+      "../../packages/core/problems/tests/testdata/bundle-variants.json",
       import.meta.url,
     ),
   ),

@@ -26,7 +26,7 @@ import {
   INSTRUCTION_FILE_MAX_BYTES,
   instructionFilesOverCore,
   resolveInstructions,
-} from "../../packages/lophn-agent/instructions/mod.ts";
+} from "../../packages/core/lophn-agent/instructions/mod.ts";
 import { createProductRedactor } from "./documents-redactor.ts";
 import { createLedgerRegistration } from "./documents.ts";
 import {

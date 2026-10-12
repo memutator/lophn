@@ -2,7 +2,7 @@
 // 사람 파일 쓰기 내용(coordinator, 준비 worker)이 함께 쓴다.
 import { err, ok, type Result } from "../../../packages/base/mod.ts";
 import type { Frame } from "../../../packages/protocol/platform/mod.ts";
-import { VALIDATE_INPUT_MAX_BYTES } from "../../../packages/documents/file-tracking/mod.ts";
+import { VALIDATE_INPUT_MAX_BYTES } from "../../../packages/core/projects/file-tracking/mod.ts";
 
 // 요청 앞에 도착한 바이트를 channel별로 모은다. 요청이 가져가면 비운다. 요청이 오지 않은
 // channel(중간에 끊긴 core)이 쌓이지 않도록 오래된 channel부터 버린다.

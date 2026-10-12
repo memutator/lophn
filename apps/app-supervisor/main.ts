@@ -7,13 +7,13 @@ import {
   createSocketDirectory,
   slotSockets,
   SOCKET_SLOTS,
-} from "../../packages/apps/runtime/processes/mod.ts";
-import { procRssReader } from "../../packages/apps/runtime/observations/memory.ts";
-import { attachControlLink } from "../../packages/apps/runtime/supervisor/mod.ts";
+} from "../../packages/core/apps/runtime/processes/mod.ts";
+import { procRssReader } from "../../packages/core/apps/runtime/observations/memory.ts";
+import { attachControlLink } from "../../packages/core/apps/runtime/supervisor/mod.ts";
 import { assembleSupervisor } from "./assembly.ts";
 import { spawnApp } from "./spawn.ts";
 import { createCoreSender, createSupervisorDelivery } from "./delivery.ts";
-import { createPreparationService } from "../../packages/apps/releases/preparation.ts";
+import { createPreparationService } from "../../packages/core/apps/releases/preparation.ts";
 import { createChildPreparationRunner } from "./release-runner.ts";
 import { createChildDataRunner } from "./data-runner.ts";
 

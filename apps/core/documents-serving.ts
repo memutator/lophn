@@ -20,12 +20,12 @@ import type {
   WorkerRequest,
   WorkerResponse,
 } from "../../packages/protocol/platform/mod.ts";
-import type { WorkerRouteTarget } from "../../packages/platform/responsiveness/mod.ts";
+import type { WorkerRouteTarget } from "../../packages/core/supervision/responsiveness/mod.ts";
 import {
   DOCUMENT_OPS,
   type StatusMemory,
   type StatusObservation,
-} from "../../packages/documents/file-tracking/mod.ts";
+} from "../../packages/core/projects/file-tracking/mod.ts";
 import { BLOB_READ_MAX_BYTES } from "../../packages/protocol/platform/mod.ts";
 import {
   DOCUMENT_UPLOAD_MAX_BYTES,
@@ -33,7 +33,7 @@ import {
   searchQuery,
   searchStatus,
 } from "../../packages/protocol/projects/mod.ts";
-import type { FileStreamHandler } from "../../packages/platform/api/mod.ts";
+import type { FileStreamHandler } from "../../packages/core/server/mod.ts";
 import {
   DIRECT_ANSWER_ROUTE,
   DIRECT_EXTRACT_ROUTES,

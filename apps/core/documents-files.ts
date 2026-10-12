@@ -31,21 +31,21 @@ import {
   type WorkerRequest,
   type WorkerResponse,
 } from "../../packages/protocol/platform/mod.ts";
-import type { WorkerRouteTarget } from "../../packages/platform/responsiveness/mod.ts";
+import type { WorkerRouteTarget } from "../../packages/core/supervision/responsiveness/mod.ts";
 import {
   DOCUMENT_OPS,
   placeDocumentFile,
   removeDocumentFile,
   type WorkingCopyCheck,
-} from "../../packages/documents/file-tracking/mod.ts";
+} from "../../packages/core/projects/file-tracking/mod.ts";
 import type {
   PlacementRead,
   PlacementReadInput,
-} from "../../packages/documents/file-tracking/placement-read.ts";
-import type { CommandEnvelope } from "../../packages/platform/ledger/mod.ts";
+} from "../../packages/core/projects/file-tracking/placement-read.ts";
+import type { CommandEnvelope } from "../../packages/core/storage/ledger/mod.ts";
 import { createPlacementDeps } from "./documents-placement.ts";
-import type { WorkingCopyBasis } from "../../packages/documents/file-tracking/file-ipc.ts";
-import { existingFileSource } from "../../packages/documents/versions/mod.ts";
+import type { WorkingCopyBasis } from "../../packages/core/projects/file-tracking/file-ipc.ts";
+import { existingFileSource } from "../../packages/core/projects/versions/mod.ts";
 
 type FileWriteRequestContent = FileWriteRequest["content"];
 

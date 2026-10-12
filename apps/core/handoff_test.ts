@@ -20,7 +20,7 @@ import {
 import {
   handoffBodyHash,
   handoffContentBytes,
-} from "../../packages/lophn-agent/handoff/mod.ts";
+} from "../../packages/core/lophn-agent/tools/handoff/mod.ts";
 import {
   AGENT_TOOLS,
   type AgentToolPorts,
@@ -28,7 +28,7 @@ import {
   createAgentToolHandlers,
   executeTool,
   listTools,
-} from "../../packages/lophn-agent/harness/tools/mod.ts";
+} from "../../packages/core/lophn-agent/tools/mod.ts";
 import { ROUTES } from "../../packages/protocol/lophn-agent/mod.ts";
 import { type Core, startCore } from "./core.ts";
 import { lophnAgentDefinitions } from "./lophn-agent.ts";

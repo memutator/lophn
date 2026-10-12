@@ -30,7 +30,7 @@ import type {
   SecretRefresh,
   SecretTransfer,
   SecretWork,
-} from "../../../packages/platform/secrets/mod.ts";
+} from "../../../packages/core/secrets/mod.ts";
 
 export type SecretPipeRequest = {
   request_id: string;

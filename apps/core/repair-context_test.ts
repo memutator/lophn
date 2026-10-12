@@ -8,16 +8,16 @@ import { RepairContextSchema } from "../../packages/protocol/coding-agent/mod.ts
 import type { WorkerRequest } from "../../packages/protocol/platform/mod.ts";
 import {
   createKnownSecretRegistry,
-} from "../../packages/platform/redaction/mod.ts";
+} from "../../packages/base/redaction/mod.ts";
 import {
   codingCredentialRef,
   createFakeKeychain,
   type FakeKeychain,
-} from "../../packages/platform/secrets/mod.ts";
+} from "../../packages/core/secrets/mod.ts";
 import {
   openWorld,
   type World,
-} from "../../packages/apps/runtime/world_test.ts";
+} from "../../packages/core/apps/runtime/world_test.ts";
 import { createRedactLink } from "../agent-runtime/redact-link.ts";
 import {
   acceptRepairContext,

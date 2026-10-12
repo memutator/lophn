@@ -4,7 +4,7 @@ import {
   type PlanDeps,
   type UninstalledCandidate,
   uninstalledCandidates,
-} from "../../packages/lophn-agent/revert/mod.ts";
+} from "../../packages/core/lophn-agent/session/rewind/mod.ts";
 import type { RewindFilesDeps } from "./rewind-files.ts";
 
 // 시작 때 맞추기(lophn-agent/revert "복원 쓰기"). Rewind·Undo가 ledger에 확정된 뒤 설치 전에 process가 죽으면

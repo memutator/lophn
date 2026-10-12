@@ -32,41 +32,41 @@ import type {
 import {
   KNOWN_SECRETS,
   type ReaderRegistration,
-} from "../../packages/platform/ledger/mod.ts";
+} from "../../packages/core/storage/ledger/mod.ts";
 import {
   derivedPath,
   type DerivedRead,
   openDerivedRead,
   openTransientDerived,
-} from "../../packages/documents/outline-and-search/adapters/store.ts";
+} from "../../packages/core/projects/outline-and-search/adapters/store.ts";
 import {
   type ExtractionRecord,
   writeExtraction,
-} from "../../packages/documents/outline-and-search/extraction.ts";
+} from "../../packages/core/projects/outline-and-search/extraction.ts";
 import {
   createOutlineHandlers,
   createSearchHandlers,
-} from "../../packages/documents/outline-and-search/reads.ts";
-import type { SearchSnapshot } from "../../packages/documents/outline-and-search/types.ts";
-import { createHistoryHandlers } from "../../packages/documents/outline-and-search/history-reads.ts";
+} from "../../packages/core/projects/outline-and-search/reads.ts";
+import type { SearchSnapshot } from "../../packages/core/projects/outline-and-search/types.ts";
+import { createHistoryHandlers } from "../../packages/core/projects/outline-and-search/history-reads.ts";
 import {
   createGuideHandlers,
   type GuideExtractor,
   type GuideHandlers,
-} from "../../packages/documents/outline-and-search/guides.ts";
+} from "../../packages/core/projects/outline-and-search/guides.ts";
 import {
   BUILTIN_MODULE_HASH,
   formatForMediaType,
-} from "../../packages/documents/formats/mod.ts";
-import { extractFormat } from "../../packages/documents/formats/guest.ts";
+} from "../../packages/core/projects/formats/mod.ts";
+import { extractFormat } from "../../packages/core/projects/formats/guest.ts";
 import {
   createGuideCatalog,
   type GuideFiles,
-} from "../../packages/documents/versions/guides.ts";
+} from "../../packages/core/projects/versions/guides.ts";
 import {
   exportDocument,
   storedFile,
-} from "../../packages/documents/versions/reads.ts";
+} from "../../packages/core/projects/versions/reads.ts";
 import {
   DIRECT_ANSWER_ROUTE,
   DIRECT_PLAN_ROUTE,
@@ -80,21 +80,21 @@ import {
   STORED_FILE_ROUTE,
   WORKING_COPY_ROUTE,
 } from "./documents-served.ts";
-import { workingCopyCheck } from "../../packages/documents/file-tracking/reads.ts";
+import { workingCopyCheck } from "../../packages/core/projects/file-tracking/reads.ts";
 import {
   placementRead,
   type PlacementReadInput,
-} from "../../packages/documents/file-tracking/placement-read.ts";
-import { loadProjects } from "../../packages/documents/projects/store.ts";
-import { authorizeDocument } from "../../packages/documents/versions/authorization.ts";
+} from "../../packages/core/projects/file-tracking/placement-read.ts";
+import { loadProjects } from "../../packages/core/projects/registry/store.ts";
+import { authorizeDocument } from "../../packages/core/projects/versions/authorization.ts";
 import {
   loadDocument,
   loadFiles,
   loadInstructionDocuments,
   loadLinkedDocuments,
   loadVersion,
-} from "../../packages/documents/versions/store.ts";
-import { instructionRegistrations } from "../../packages/documents/file-tracking/instruction.ts";
+} from "../../packages/core/projects/versions/store.ts";
+import { instructionRegistrations } from "../../packages/core/projects/file-tracking/instruction.ts";
 import {
   createProductRedactor,
   type DocumentRedactor,

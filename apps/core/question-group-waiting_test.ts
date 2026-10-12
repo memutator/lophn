@@ -10,9 +10,9 @@ import { answerQuestionAction } from "../../packages/protocol/lophn-agent/mod.ts
 import {
   createWaitResolver,
   type WaitStep,
-} from "../../packages/lophn-agent/harness/waiting-and-recovery/mod.ts";
-import { settingsOptionAction } from "../../packages/lophn-agent/questions/mod.ts";
-import { confirmationBinding } from "../../packages/platform/identity/mod.ts";
+} from "../../packages/core/lophn-agent/waiting-and-recovery/mod.ts";
+import { settingsOptionAction } from "../../packages/core/lophn-agent/tools/questions/mod.ts";
+import { confirmationBinding } from "../../packages/core/server/identity/mod.ts";
 import {
   command,
   created,

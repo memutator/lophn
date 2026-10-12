@@ -12,8 +12,8 @@ import type {
 import {
   placeDocumentFile,
   type PlacementDeps,
-} from "../../packages/documents/file-tracking/mod.ts";
-import type { Writer } from "../../packages/platform/ledger/mod.ts";
+} from "../../packages/core/projects/file-tracking/mod.ts";
+import type { Writer } from "../../packages/core/storage/ledger/mod.ts";
 import {
   createPlacementReservations,
   withPlacementReservation,

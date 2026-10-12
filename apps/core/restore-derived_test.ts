@@ -17,7 +17,7 @@ import {
   planRestore,
   RESTORE_DECISION,
   restoreBinding,
-} from "../../packages/platform/backup-and-migration/mod.ts";
+} from "../../packages/core/storage/migration/mod.ts";
 import { type Core, startCore } from "./core.ts";
 import type { TeamModule } from "./registration.ts";
 import { createLedgerRegistration } from "./documents.ts";

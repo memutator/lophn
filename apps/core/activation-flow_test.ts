@@ -9,20 +9,20 @@ import { sha256Hex } from "../../packages/base/mod.ts";
 import {
   canonicalJson,
   validateBlueprint,
-} from "../../packages/apps/blueprint/mod.ts";
-import { manifestBytes } from "../../packages/apps/releases/bundle/manifest.ts";
+} from "../../packages/core/apps/blueprint/mod.ts";
+import { manifestBytes } from "../../packages/core/apps/releases/bundle/manifest.ts";
 import {
   bundleCopyPath,
   sealBundle,
-} from "../../packages/apps/releases/bundle/seal.ts";
+} from "../../packages/core/apps/releases/bundle/seal.ts";
 import {
   dataChangesOf,
   readBundleCopy,
-} from "../../packages/apps/releases/activation/desired.ts";
+} from "../../packages/core/apps/releases/activation/desired.ts";
 import {
   blueprint,
   command as declared,
-} from "../../packages/apps/releases/testing/mod.ts";
+} from "../../packages/core/apps/releases/testing/mod.ts";
 import {
   events,
   prepare,
@@ -31,8 +31,8 @@ import {
   startedSeq,
   statusOf,
   type World,
-} from "../../packages/apps/releases/activation/world_test.ts";
-import { builtinFiles } from "../../packages/apps/sdk/testing/mod.ts";
+} from "../../packages/core/apps/releases/activation/world_test.ts";
+import { builtinFiles } from "../../packages/core/apps/packages/testing/mod.ts";
 import {
   actionOf,
   call,
@@ -41,12 +41,12 @@ import {
   decide,
   inspect,
 } from "./testing/approvals-fixture.ts";
-import { createRuntimeClient } from "../../packages/apps/runtime/client/mod.ts";
+import { createRuntimeClient } from "../../packages/core/apps/runtime/client/mod.ts";
 import { createCoreHarness } from "./testing/core.ts";
 
 const encoder = new TextEncoder();
 const CHILD = new URL(
-  "../../packages/apps/runtime/testing/app-child.ts",
+  "../../packages/core/apps/runtime/testing/app-child.ts",
   import.meta.url,
 ).href;
 
@@ -56,7 +56,7 @@ async function open(): Promise<Opened> {
   const documents = await import("./documents.ts");
   const apps = await import("./apps.ts");
   const fixtures = await import(
-    "../../packages/apps/releases/testing/mod.ts"
+    "../../packages/core/apps/releases/testing/mod.ts"
   );
   const runtimeDir = await Deno.makeTempDir({ prefix: "lop-act-" });
   const opened = await createCoreHarness({
@@ -72,7 +72,7 @@ async function open(): Promise<Opened> {
       new URL("./documents.ts", import.meta.url).href,
       new URL("./apps.ts", import.meta.url).href,
       new URL(
-        "../../packages/apps/releases/testing/mod.ts",
+        "../../packages/core/apps/releases/testing/mod.ts",
         import.meta.url,
       ).href,
     ],
@@ -179,7 +179,7 @@ async function sealed(
           "@lophn/base": new URL("../../packages/base/mod.ts", import.meta.url)
             .href,
           "@lophn/apps/blueprint": new URL(
-            "../../packages/apps/blueprint/mod.ts",
+            "../../packages/core/apps/blueprint/mod.ts",
             import.meta.url,
           ).href,
         },

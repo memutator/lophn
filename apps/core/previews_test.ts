@@ -3,15 +3,15 @@
 // 끼운다(release 준비·activation 조립이 낼 자리의 대역).
 import { assert, assertEquals } from "@std/assert";
 import { ok } from "../../packages/base/mod.ts";
-import { appFlags } from "../../packages/apps/permissions/mod.ts";
+import { appFlags } from "../../packages/core/apps/permissions/mod.ts";
 import {
   COMMANDS,
   openWorld,
   SCREENS,
   type World,
-} from "../../packages/apps/runtime/world_test.ts";
-import { writeFixtureBundle } from "../../packages/apps/runtime/testing/mod.ts";
-import type { PreviewBundles } from "../../packages/apps/preview/mod.ts";
+} from "../../packages/core/apps/runtime/world_test.ts";
+import { writeFixtureBundle } from "../../packages/core/apps/runtime/testing/mod.ts";
+import type { PreviewBundles } from "../../packages/core/apps/preview/mod.ts";
 import { call, count, inspect } from "./testing/approvals-fixture.ts";
 
 async function until<T>(

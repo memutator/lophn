@@ -3,8 +3,8 @@ import type { JsonObject } from "../../packages/protocol/platform/mod.ts";
 import type {
   ResolvedAction,
   ToolBinding,
-} from "../../packages/lophn-agent/harness/tool-judgment/mod.ts";
-import type { ToolDefinition } from "../../packages/lophn-agent/harness/tools/mod.ts";
+} from "../../packages/core/lophn-agent/tool-judgment/mod.ts";
+import type { ToolDefinition } from "../../packages/core/lophn-agent/tools/mod.ts";
 
 // 내장 쓰기 tool의 소유 계약 연결이다(lophn-agent/harness/tool-judgment R2, R3, R6). 호출 입력에서
 // 정확한 대상을 읽고, 대상이 이 run의 자격으로 보이는지 소유 contract의 읽기로 확인한 뒤에만

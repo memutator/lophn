@@ -11,7 +11,7 @@ import {
   backupPendingFolders,
   isSha256Hash,
   type RetentionRule,
-} from "../../../packages/platform/blob-store/mod.ts";
+} from "../../../packages/core/storage/blobs/mod.ts";
 import {
   collectGarbage,
   type GcDeps,
@@ -21,13 +21,13 @@ import {
 import { listBackupPending, listInstalledBlobs } from "./io.ts";
 import {
   parsePurposeRecord,
-} from "../../../packages/platform/blob-store/mod.ts";
+} from "../../../packages/core/storage/blobs/mod.ts";
 import {
   parseUnreferencedRecord,
   unreferencedPathFor,
-} from "../../../packages/platform/blob-store/mod.ts";
-import { BLOB_STORE_TMP_DIR } from "../../../packages/platform/blob-store/mod.ts";
-import { objectPathFor } from "../../../packages/platform/blob-store/mod.ts";
+} from "../../../packages/core/storage/blobs/mod.ts";
+import { BLOB_STORE_TMP_DIR } from "../../../packages/core/storage/blobs/mod.ts";
+import { objectPathFor } from "../../../packages/core/storage/blobs/mod.ts";
 
 // 정지 조건 관측값. 부르는 쪽(core 종료 조립)이 실제 관측으로 채운다.
 export type StoppedConditions = {

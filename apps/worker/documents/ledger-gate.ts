@@ -6,8 +6,8 @@
 // 요청은 unavailable이다: 옛 cursor로 받지 않는다.
 import { err, ok, type Result } from "../../../packages/base/mod.ts";
 import type { LophnError } from "../../../packages/base/mod.ts";
-import type { DerivedStore } from "../../../packages/documents/outline-and-search/adapters/store.ts";
-import { reconcileLedgerBasis } from "../../../packages/documents/outline-and-search/ledger-basis.ts";
+import type { DerivedStore } from "../../../packages/core/projects/outline-and-search/adapters/store.ts";
+import { reconcileLedgerBasis } from "../../../packages/core/projects/outline-and-search/ledger-basis.ts";
 
 export type LedgerGate = {
   // store가 현재 ledger에 맞춰졌으면 ok. 기한 안에 맞추지 못하면 unavailable이다.

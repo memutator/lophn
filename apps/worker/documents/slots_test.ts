@@ -1,7 +1,7 @@
 // documents/file-tracking#R5: crash한 준비 slot은 새 프로세스로 다시 채운다.
 // 재시작은 한도와 backoff 뒤고, 한도를 넘긴 slot은 다시 띄우지 않는다.
 import { assert, assertEquals, assertRejects } from "@std/assert";
-import type { ChildSession } from "../../../packages/platform/responsiveness/mod.ts";
+import type { ChildSession } from "../../../packages/core/supervision/responsiveness/mod.ts";
 import { supervisePreparationSlots } from "./slots.ts";
 
 function session(id: string): ChildSession {

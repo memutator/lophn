@@ -7,13 +7,13 @@ import {
   seededRandom,
   sha256Hex,
 } from "../../packages/base/mod.ts";
-import { appsSchemaSteps } from "../../packages/apps/registration/mod.ts";
-import { versionsSchemaSteps } from "../../packages/documents/versions/mod.ts";
-import { applyMigrations } from "../../packages/platform/backup-and-migration/mod.ts";
-import { LEDGER_SCHEMA_STEPS } from "../../packages/platform/ledger/mod.ts";
-import { SETTINGS_SCHEMA_STEPS } from "../../packages/platform/settings/mod.ts";
-import { SECRET_SCHEMA_STEPS } from "../../packages/platform/secrets/mod.ts";
-import { readUpdatePackage } from "../../packages/platform/install-and-update/mod.ts";
+import { appsSchemaSteps } from "../../packages/core/apps/registration/mod.ts";
+import { versionsSchemaSteps } from "../../packages/core/projects/versions/mod.ts";
+import { applyMigrations } from "../../packages/core/storage/migration/mod.ts";
+import { LEDGER_SCHEMA_STEPS } from "../../packages/core/storage/ledger/mod.ts";
+import { SETTINGS_SCHEMA_STEPS } from "../../packages/core/config/mod.ts";
+import { SECRET_SCHEMA_STEPS } from "../../packages/core/secrets/mod.ts";
+import { readUpdatePackage } from "../../packages/core/install-and-update/mod.ts";
 import { CREDENTIAL_SCHEMA } from "./credentials.ts";
 import { type Core, startCore } from "./core.ts";
 import { assemble } from "./registration.ts";

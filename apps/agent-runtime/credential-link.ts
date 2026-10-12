@@ -3,7 +3,7 @@ import type {
   ChildMessage,
   ParentMessage,
 } from "../../packages/protocol/platform/mod.ts";
-import type { AgentCredentialIssuer } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
+import type { AgentCredentialIssuer } from "../../packages/core/lophn-agent/run-loop/mod.ts";
 
 // run마다 받는 agent credential의 감독 pipe 연결(lophn-agent/harness/run-loop). 발급은 core의
 // 인증 경계가 하고 runtime은 StartRun이 확정된 run에 대해 요청만 보낸다. token은 이 응답으로만

@@ -1,7 +1,7 @@
 // 준비 worker slot 감독. crash한 slot은 같은 이름의 새 프로세스로 채운다
 // (architecture/documents 2.1). 재시작은 한도(3)와 backoff(1·2·4초) 뒤다.
 // 한도를 넘긴 slot은 다시 띄우지 않는다. 시각과 sleep은 주입받는다.
-import type { ChildSession } from "../../../packages/platform/responsiveness/mod.ts";
+import type { ChildSession } from "../../../packages/core/supervision/responsiveness/mod.ts";
 
 // platform 감독의 재기동과 같은 고정 값이다. 설정으로 늘리지 않는다.
 export const RESTART_DELAYS_MS = [1_000, 2_000, 4_000];

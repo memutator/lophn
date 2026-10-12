@@ -13,7 +13,7 @@ import type {
   AppPairPreparer,
   BrokerChild,
   InvocationBroker,
-} from "../../packages/apps/permissions/mod.ts";
+} from "../../packages/core/apps/permissions/mod.ts";
 import type { CorePost } from "./access.ts";
 
 type Reply = { status: number; body: unknown };

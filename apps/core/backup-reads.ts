@@ -11,8 +11,8 @@ import {
 import {
   findBackup,
   listBackups,
-} from "../../packages/platform/backup-and-migration/mod.ts";
-import { openConnection } from "../../packages/platform/ledger/mod.ts";
+} from "../../packages/core/storage/migration/mod.ts";
+import { openConnection } from "../../packages/core/storage/ledger/mod.ts";
 
 export interface BackupReadEnvironment {
   /** 데이터 root(LOPHN_HOME). */

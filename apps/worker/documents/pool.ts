@@ -16,8 +16,8 @@ import {
   type ChildCallbacks,
   createSupervisor,
   type Supervisor,
-} from "../../../packages/platform/responsiveness/mod.ts";
-import { createFileSerializer } from "../../../packages/documents/file-tracking/file-ops.ts";
+} from "../../../packages/core/supervision/responsiveness/mod.ts";
+import { createFileSerializer } from "../../../packages/core/projects/file-tracking/file-ops.ts";
 import { systemClock } from "../../../packages/base/mod.ts";
 import { type ByteInbox, createByteInbox } from "./byte-inbox.ts";
 

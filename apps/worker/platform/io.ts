@@ -3,18 +3,18 @@ import {
   type ChildStreams,
   createIoScheduler,
   startChild,
-} from "../../../packages/platform/responsiveness/mod.ts";
+} from "../../../packages/core/supervision/responsiveness/mod.ts";
 import {
   createDiagnosticIngress,
   createLogFiles,
   createSafeLog,
   type DiagnosticAuthority,
   type DiagnosticCatalog,
-} from "../../../packages/platform/diagnostics/mod.ts";
+} from "../../../packages/core/diagnostics/mod.ts";
 import {
   createBlobStoreWork,
   systemQuota,
-} from "../../../packages/platform/blob-store/mod.ts";
+} from "../../../packages/core/storage/blobs/mod.ts";
 import { observeBlobGc } from "./gc.ts";
 import { readUnreferencedRecords } from "./maintenance.ts";
 import {
@@ -22,7 +22,7 @@ import {
   backupDue,
   backupStamp,
   createBackup,
-} from "../../../packages/platform/backup-and-migration/mod.ts";
+} from "../../../packages/core/storage/migration/mod.ts";
 import {
   type Clock,
   type ErrorCode,
@@ -49,7 +49,7 @@ import {
   createSecretWork,
   productKeychain,
   SECRET_TOOL_PATHS,
-} from "../../../packages/platform/secrets/mod.ts";
+} from "../../../packages/core/secrets/mod.ts";
 import {
   createSecretPipe,
   type SecretPipe,

@@ -10,16 +10,16 @@ import {
   type AuthenticatedContext,
   setSecret,
 } from "../../packages/protocol/platform/mod.ts";
-import { confirmationBinding } from "../../packages/platform/identity/mod.ts";
+import { confirmationBinding } from "../../packages/core/server/identity/mod.ts";
 import {
   createFakeKeychain,
   type FakeKeychain,
-} from "../../packages/platform/secrets/mod.ts";
+} from "../../packages/core/secrets/mod.ts";
 import {
   type Spawned,
   spawnProcess,
   type SpawnRequest,
-} from "../../packages/platform/responsiveness/mod.ts";
+} from "../../packages/core/supervision/responsiveness/mod.ts";
 import { startFakeProvider } from "../../tools/fake-provider/mod.ts";
 import { SOCKET_HOST } from "../../packages/protocol/apps/mod.ts";
 import { RUNTIME_MACHINE_OPERATIONS } from "../agent-runtime/core-http.ts";

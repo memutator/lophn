@@ -9,11 +9,11 @@ import { err, manualClock, ok, seededRandom } from "../../packages/base/mod.ts";
 import {
   BUILTIN_MODULE_HASH,
   moduleHash,
-} from "../../packages/documents/formats/guest/module-hash.ts";
+} from "../../packages/core/projects/formats/guest/module-hash.ts";
 import {
   type ModuleBytes,
   moduleFrom,
-} from "../../packages/documents/formats/module-store.ts";
+} from "../../packages/core/projects/formats/module-store.ts";
 import type { TeamModule } from "./registration.ts";
 import { startCore } from "./core.ts";
 import { createCoreRegistration } from "./testing/module-registration.ts";
@@ -21,7 +21,7 @@ import { createCoreRegistration } from "./testing/module-registration.ts";
 async function bundleBytes(): Promise<Uint8Array> {
   const bundle = await Deno.readTextFile(
     new URL(
-      "../../packages/documents/formats/guest/bundle.js",
+      "../../packages/core/projects/formats/guest/bundle.js",
       import.meta.url,
     ),
   );

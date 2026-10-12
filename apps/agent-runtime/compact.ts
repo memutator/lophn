@@ -30,8 +30,8 @@ import {
   summaryBodyTokens,
   summaryOutputCap,
   visibleMessages,
-} from "../../packages/lophn-agent/harness/prompt-assemble/mod.ts";
-import { estimatedCost } from "../../packages/lophn-agent/harness/usage/mod.ts";
+} from "../../packages/core/lophn-agent/prompt-assembly/mod.ts";
+import { estimatedCost } from "../../packages/core/lophn-agent/usage/mod.ts";
 import { resolveRunAgent } from "./agent-layers.ts";
 import { commandOf, type CoreCall, readOf } from "./core-call.ts";
 import type { ModelBinding } from "./model-binding.ts";

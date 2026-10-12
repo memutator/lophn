@@ -19,46 +19,46 @@ import {
 } from "../../packages/base/mod.ts";
 import type { ObservedExceptionInput } from "../../packages/protocol/problems/mod.ts";
 import { exceptionObservationInputSchema } from "../../packages/protocol/problems/mod.ts";
-import { prepareFromSource } from "../../packages/apps/releases/prepare/from-source.ts";
-import { verifySealedPermissions } from "../../packages/apps/releases/mod.ts";
+import { prepareFromSource } from "../../packages/core/apps/releases/prepare/from-source.ts";
+import { verifySealedPermissions } from "../../packages/core/apps/releases/mod.ts";
 import type {
   CoreLink,
   RuntimeRecord,
-} from "../../packages/apps/runtime/core-link.ts";
+} from "../../packages/core/apps/runtime/core-link.ts";
 import {
   CRASH_EVIDENCE,
   type CrashEvent,
   createCrashObserver,
-} from "../../packages/apps/runtime/observations/crash.ts";
-import { createSupervisor } from "../../packages/apps/runtime/supervisor/supervisor.ts";
+} from "../../packages/core/apps/runtime/observations/crash.ts";
+import { createSupervisor } from "../../packages/core/apps/runtime/supervisor/supervisor.ts";
 import type {
   AppChild,
   DesiredApp,
   ProbeResult,
-} from "../../packages/apps/runtime/supervisor/supervisor.ts";
+} from "../../packages/core/apps/runtime/supervisor/supervisor.ts";
 import {
   migrateAppDatabase,
   type MigrationScript,
-} from "../../packages/apps/data/worker/migrate.ts";
-import { createAppBackup } from "../../packages/apps/data/worker/backup.ts";
-import { openAppDatabase } from "../../packages/apps/data/worker/db.ts";
-import { verifyDatabase } from "../../packages/apps/data/worker/integrity.ts";
+} from "../../packages/core/apps/data/worker/migrate.ts";
+import { createAppBackup } from "../../packages/core/apps/data/worker/backup.ts";
+import { openAppDatabase } from "../../packages/core/apps/data/worker/db.ts";
+import { verifyDatabase } from "../../packages/core/apps/data/worker/integrity.ts";
 import {
   generateAppTestChecks,
   loadSources,
   scanCodeUsage,
   sdkDependenciesHash,
-} from "../../packages/problems/tests/mod.ts";
+} from "../../packages/core/problems/tests/mod.ts";
 import {
   devImportMap,
   readTemplateDirectory,
-} from "../../packages/apps/sdk/mod.ts";
+} from "../../packages/core/apps/packages/mod.ts";
 import {
   APP_TEST_ARGS,
   deno,
   installedHome,
   removeTree,
-} from "../../packages/apps/sdk/testing/mod.ts";
+} from "../../packages/core/apps/packages/testing/mod.ts";
 
 const APP = "app_01arz3ndektsv4rrffq69g5fav";
 const IMPORT_MAP = "--import-map=.lophn/import-map.json";

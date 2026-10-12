@@ -29,12 +29,12 @@ import {
   type ChildSession,
   type ChildStreams,
   startChild,
-} from "../../../packages/platform/responsiveness/mod.ts";
+} from "../../../packages/core/supervision/responsiveness/mod.ts";
 import {
   createKnownSecretRegistry,
   createRedactionEngine,
   type RedactionEngine,
-} from "../../../packages/platform/redaction/mod.ts";
+} from "../../../packages/base/redaction/mod.ts";
 import {
   COLLECTOR_CAPS,
   contentHashOf,
@@ -42,23 +42,23 @@ import {
   deliverReport,
   freezeDeep,
   invalidReportDiagnostic,
-} from "../../../packages/problems/reporting/mod.ts";
+} from "../../../packages/core/problems/reporting/mod.ts";
 import {
   type CoreClientOptions,
   postRecordReport,
-} from "../../../packages/problems/reporting/adapters/core-client.ts";
+} from "../../../packages/core/problems/reporting/adapters/core-client.ts";
 import {
   assembleFeedback,
   coreProblemLookup,
   type FeedbackCaller,
-} from "../../../packages/problems/feedback/mod.ts";
+} from "../../../packages/core/problems/feedback/mod.ts";
 import {
   type AppLogSource,
   assembleException,
   collectLogEvidence,
   coreLogSource,
   readDetailCollection,
-} from "../../../packages/problems/snapshots/mod.ts";
+} from "../../../packages/core/problems/snapshots/mod.ts";
 import {
   exceptionObservationInputSchema,
   REPORTING_LIMITS,

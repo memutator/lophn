@@ -1,7 +1,7 @@
 import {
   type RewindStore,
   sweepRewindStore,
-} from "../../packages/lophn-agent/revert/mod.ts";
+} from "../../packages/core/lophn-agent/session/rewind/mod.ts";
 import { ledgerSnapshot } from "./rewind-files.ts";
 
 // session 저장소 쓸기의 core 조립이다(lophn-agent/revert "저장"). 시작 때와 이 간격마다 row가 없는 고아 저장물과

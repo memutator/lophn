@@ -5,7 +5,7 @@
 // 규칙은 packages/lophn-agent/harness/waiting-and-recovery/waiting_test.ts가 본다.
 import { assert, assertEquals, assertNotEquals } from "@std/assert";
 import { answerQuestionAction } from "../../packages/protocol/lophn-agent/mod.ts";
-import { settingsOptionAction } from "../../packages/lophn-agent/questions/mod.ts";
+import { settingsOptionAction } from "../../packages/core/lophn-agent/tools/questions/mod.ts";
 import {
   actionOf,
   call,

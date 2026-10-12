@@ -2,7 +2,7 @@
 // 닿는다. 실제 외부 service 없이 이 시험이 연 localhost fake Streamable HTTP MCP server만 쓴다.
 import { assert, assertEquals } from "@std/assert";
 import { mcpServersSetting } from "../../packages/protocol/lophn-agent/mod.ts";
-import { createMcpConnections } from "../../packages/lophn-agent/extensions/mod.ts";
+import { createMcpConnections } from "../../packages/core/lophn-agent/extensions/mod.ts";
 import { mcpConnectionsDeps } from "./product-driver.ts";
 
 Deno.test("lophn-agent/extensions#R13 lophn-agent/extensions#R15: 제품 runtime의 MCP 연결 눈은 등록한 localhost HTTP server에 연결해 도구 목록을 읽는다", async () => {

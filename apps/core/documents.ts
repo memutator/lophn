@@ -26,14 +26,14 @@ import type {
 import type {
   EventRegistration,
   ReaderRegistration,
-} from "../../packages/platform/ledger/mod.ts";
+} from "../../packages/core/storage/ledger/mod.ts";
 import { createDocumentsEventRegistration } from "./documents-events.ts";
 import type { KindLaunchSpec } from "../../packages/protocol/platform/mod.ts";
-import { addressingSchemaSteps } from "../../packages/documents/addressing/mod.ts";
+import { addressingSchemaSteps } from "../../packages/core/projects/addressing/mod.ts";
 import {
   createAddressingReads,
   createDocumentChangeCommands,
-} from "../../packages/documents/addressing/mod.ts";
+} from "../../packages/core/projects/addressing/mod.ts";
 import {
   createContextsRegistration,
   loadContextsRuntime,
@@ -41,49 +41,49 @@ import {
 import {
   fileStatusRead,
   type StatusMemory,
-} from "../../packages/documents/file-tracking/status.ts";
+} from "../../packages/core/projects/file-tracking/status.ts";
 import {
   createFileCommands,
   createFileReads,
-} from "../../packages/documents/file-tracking/mod.ts";
-import { runnerWasmPath } from "../../packages/documents/formats/guest/contract.ts";
-import { BUILTIN_MODULE_HASH } from "../../packages/documents/formats/guest/module-hash.ts";
+} from "../../packages/core/projects/file-tracking/mod.ts";
+import { runnerWasmPath } from "../../packages/core/projects/formats/guest/contract.ts";
+import { BUILTIN_MODULE_HASH } from "../../packages/core/projects/formats/guest/module-hash.ts";
 import {
   formatDeclaration,
   formatDeclarations,
-} from "../../packages/documents/formats/model.ts";
+} from "../../packages/core/projects/formats/model.ts";
 import {
   formatGet,
   formatGetInputSchema,
   formatList,
 } from "../../packages/protocol/projects/mod.ts";
 import { SERVED_ROUTES } from "./documents-served.ts";
-import { createProjectCommands } from "../../packages/documents/projects/commands.ts";
+import { createProjectCommands } from "../../packages/core/projects/registry/commands.ts";
 import {
   createSourceCommands,
   createVersionCommands,
-} from "../../packages/documents/versions/mod.ts";
-import { createVersionReads } from "../../packages/documents/versions/mod.ts";
-import { versionsSchemaSteps } from "../../packages/documents/versions/mod.ts";
+} from "../../packages/core/projects/versions/mod.ts";
+import { createVersionReads } from "../../packages/core/projects/versions/mod.ts";
+import { versionsSchemaSteps } from "../../packages/core/projects/versions/mod.ts";
 import {
   versionFileField,
   versionFilesField,
-} from "../../packages/documents/versions/mod.ts";
+} from "../../packages/core/projects/versions/mod.ts";
 import {
   createSeriesCommands,
   joinSeriesOnSave,
-} from "../../packages/documents/series/mod.ts";
-import { seriesSchemaSteps } from "../../packages/documents/series/mod.ts";
-import { createSeriesReads } from "../../packages/documents/series/mod.ts";
+} from "../../packages/core/projects/series/mod.ts";
+import { seriesSchemaSteps } from "../../packages/core/projects/series/mod.ts";
+import { createSeriesReads } from "../../packages/core/projects/series/mod.ts";
 import {
   createSeriesOutlineRead,
-} from "../../packages/documents/outline-and-search/series-outline.ts";
+} from "../../packages/core/projects/outline-and-search/series-outline.ts";
 import {
   createProjectReads,
   type ProjectReadDeps,
-} from "../../packages/documents/projects/reads.ts";
-import { projectsSchemaSteps } from "../../packages/documents/projects/schema.ts";
-import { listDocuments } from "../../packages/documents/versions/mod.ts";
+} from "../../packages/core/projects/registry/reads.ts";
+import { projectsSchemaSteps } from "../../packages/core/projects/registry/schema.ts";
+import { listDocuments } from "../../packages/core/projects/versions/mod.ts";
 import type { ReadSnapshot } from "../../packages/protocol/platform/mod.ts";
 
 // context API의 의존. command를 실행하는 writer Worker와 read를 실행하는 reader Worker 안에서만
@@ -260,7 +260,7 @@ function codeReads(): string[] {
 // 호출 입력과 module 바이트를 IPC로 받으므로 나머지 권한은 주지 않는다.
 function formatRunnerSpec(): KindLaunchSpec | undefined {
   const entry = new URL(
-    "../../packages/documents/formats/runner/main.ts",
+    "../../packages/core/projects/formats/runner/main.ts",
     import.meta.url,
   ).pathname;
   let wasm: string | undefined;

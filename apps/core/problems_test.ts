@@ -20,11 +20,11 @@ import {
   requester,
   runner,
   verification,
-} from "../../packages/problems/tests/fixtures.ts";
-import { FAILING_BLOB_FIELD } from "../../packages/problems/tests/harness-registration_test.ts";
+} from "../../packages/core/problems/tests/fixtures.ts";
+import { FAILING_BLOB_FIELD } from "../../packages/core/problems/tests/harness-registration_test.ts";
 
 const registration = new URL(
-  "../../packages/problems/tests/harness-registration_test.ts",
+  "../../packages/core/problems/tests/harness-registration_test.ts",
   import.meta.url,
 );
 const nowMs = Date.parse("2026-10-04T00:00:00.000Z");

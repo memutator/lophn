@@ -1,0 +1,31 @@
+export {
+  type Address,
+  addressSchema,
+  checkName,
+  type DocumentName,
+  documentNameSchema,
+  type DocumentRef,
+  documentRefSchema,
+  formatAddress,
+  parseAddress,
+  type PlaceRef,
+  placeRefSchema,
+  type Slug,
+  SLUG_MAX_LENGTH,
+  slugSchema,
+  suggestName,
+} from "./model.ts";
+export {
+  createDocumentChangeCommands,
+  createDocumentNameReservation,
+  createPlaceNameReservation,
+  type DocumentNameReservation,
+} from "./commands.ts";
+export { actingApp, isAppPlace } from "./app-place.ts";
+export { addressingSchemaSteps } from "./schema.ts";
+export { createAddressingReads } from "./reads.ts";
+export {
+  type PlaceName,
+  type PlaceNameReservation,
+  placeNameReservation,
+} from "../../../protocol/projects/mod.ts";

@@ -22,31 +22,31 @@ import {
 import {
   BUILTIN_TOOLS,
   runOperations,
-} from "../../packages/lophn-agent/harness/tools/mod.ts";
+} from "../../packages/core/lophn-agent/tools/mod.ts";
 import {
   type AgentCredentialIssuer,
   EXTERNAL_TOOL_OPERATIONS,
   RUNTIME_MACHINE_OPERATIONS,
-} from "../../packages/lophn-agent/harness/run-loop/mod.ts";
+} from "../../packages/core/lophn-agent/run-loop/mod.ts";
 import type {
   CredentialRegistry,
   OperationPolicy,
-} from "../../packages/platform/identity/mod.ts";
-import type { Supervisor } from "../../packages/platform/responsiveness/mod.ts";
+} from "../../packages/core/server/identity/mod.ts";
+import type { Supervisor } from "../../packages/core/supervision/responsiveness/mod.ts";
 import { answerRedactRequest } from "./agent-runtime-redaction.ts";
 import type { AgentRuntimeSecrets } from "./agent-runtime-secret.ts";
 import {
   createAgentCredentialLink,
   roleOperations,
 } from "./agent-credentials.ts";
-import { ROLE_CAPS } from "../../packages/lophn-agent/agents/mod.ts";
+import { ROLE_CAPS } from "../../packages/core/lophn-agent/agents/mod.ts";
 import {
   type ChildBlobPrepare,
   createChildBlobPrepare,
 } from "./child-blob-prepare.ts";
 import type { BlobPrepareCall } from "./core.ts";
 import type { BufferGauge, PreparedRelayResult } from "./blob-prepare.ts";
-import type { KnownSecretMatch } from "../../packages/platform/ledger/mod.ts";
+import type { KnownSecretMatch } from "../../packages/core/storage/ledger/mod.ts";
 import {
   agentRuntimeLaunchSpec,
   readBundledSkillRoots,
@@ -55,7 +55,7 @@ import type { McpServerConfig } from "../../packages/protocol/lophn-agent/mod.ts
 import {
   allowNetList,
   allowRunList,
-} from "../../packages/lophn-agent/extensions/mod.ts";
+} from "../../packages/core/lophn-agent/extensions/mod.ts";
 
 // 제품 core가 agent runtime child를 띄우고 감독하는 자리(lophn-agent/harness/run-loop). child는
 // 상시 신뢰 process이고 core 안의 인증 경계(CredentialRegistry)가 두 가지 자격을 발급한다.

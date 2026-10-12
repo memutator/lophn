@@ -2,7 +2,7 @@
 // 질문 read 소유 구현(lophn-agent#T24)이 없어, 채택된 답 하나를 여기 둔다.
 // 제품 등록(tickets.ts)은 이 port를 올리지 않는다.
 import { ok } from "../../packages/base/mod.ts";
-import { QUESTION_ADOPTIONS_PORT } from "../../packages/coding-agent/tickets/commands.ts";
+import { QUESTION_ADOPTIONS_PORT } from "../../packages/core/apps/tickets/commands.ts";
 
 const QUESTION = "qst_01arz3ndektsv4rrffq69g5fav";
 const DOC = "doc_01arz3ndektsv4rrffq69g5fav";

@@ -29,14 +29,14 @@ import { type ChildProcess, spawn } from "node:child_process";
 import { DatabaseSync } from "node:sqlite";
 
 import { err, ok, type Result, sha256Hex } from "../../packages/base/mod.ts";
-import { canonicalJson } from "../../packages/apps/blueprint/mod.ts";
-import type { Blueprint } from "../../packages/apps/blueprint/mod.ts";
+import { canonicalJson } from "../../packages/core/apps/blueprint/mod.ts";
+import type { Blueprint } from "../../packages/core/apps/blueprint/mod.ts";
 import {
   bundleCopyPath,
   sealBundle,
-} from "../../packages/apps/releases/mod.ts";
-import { installPackage } from "../../packages/apps/sdk/mod.ts";
-import { removeTree } from "../../packages/apps/sdk/testing/mod.ts";
+} from "../../packages/core/apps/releases/mod.ts";
+import { installPackage } from "../../packages/core/apps/packages/mod.ts";
+import { removeTree } from "../../packages/core/apps/packages/testing/mod.ts";
 import { createLedgerRegistration as createAppsRegistration } from "../../apps/core/apps.ts";
 import { type Core, startCore } from "../../apps/core/core.ts";
 import {
@@ -51,12 +51,12 @@ import {
   mainHelloSchema,
   mainToCoreMessageSchema,
 } from "../../packages/protocol/platform/mod.ts";
-import { RECOVERY_STAMP } from "../../packages/platform/backup-and-migration/mod.ts";
-import { SECRET_SCHEMA_STEPS } from "../../packages/platform/secrets/mod.ts";
-import { SETTINGS_SCHEMA_STEPS } from "../../packages/platform/settings/mod.ts";
+import { RECOVERY_STAMP } from "../../packages/core/storage/migration/mod.ts";
+import { SECRET_SCHEMA_STEPS } from "../../packages/core/secrets/mod.ts";
+import { SETTINGS_SCHEMA_STEPS } from "../../packages/core/config/mod.ts";
 import { coreLaunch } from "../../apps/shell/main/desktop/core/supervise.ts";
 import type { Script } from "../../tools/fake-provider/mod.ts";
-import type { ToolLookup } from "../../packages/lophn-agent/harness/waiting-and-recovery/mod.ts";
+import type { ToolLookup } from "../../packages/core/lophn-agent/waiting-and-recovery/mod.ts";
 import { decide as humanDecide } from "../../apps/core/testing/approvals-fixture.ts";
 import {
   count,

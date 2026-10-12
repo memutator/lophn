@@ -4,7 +4,7 @@
 // provider는 fake provider이고 실제 provider와 사람 데이터 root는 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import type { Script } from "../../tools/fake-provider/mod.ts";
-import type { ToolLookup } from "../../packages/lophn-agent/harness/waiting-and-recovery/mod.ts";
+import type { ToolLookup } from "../../packages/core/lophn-agent/waiting-and-recovery/mod.ts";
 import { setAssignmentState } from "./testing/assignment-state.ts";
 import { decide as humanDecide } from "./testing/approvals-fixture.ts";
 import {

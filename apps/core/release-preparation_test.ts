@@ -6,12 +6,12 @@ import { assert, assertEquals } from "@std/assert";
 import {
   openWorld,
   type World,
-} from "../../packages/apps/runtime/world_test.ts";
+} from "../../packages/core/apps/runtime/world_test.ts";
 import {
   installedHome,
   removeTree,
   scaffoldInto,
-} from "../../packages/apps/sdk/testing/mod.ts";
+} from "../../packages/core/apps/packages/testing/mod.ts";
 import { call, command } from "./testing/approvals-fixture.ts";
 
 async function git(cwd: string, args: string[]): Promise<string> {

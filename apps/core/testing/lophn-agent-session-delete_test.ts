@@ -11,17 +11,17 @@ import type {
   AuthenticatedContext,
   Sql,
 } from "../../../packages/protocol/platform/mod.ts";
-import { applyMigrations } from "../../../packages/platform/backup-and-migration/mod.ts";
+import { applyMigrations } from "../../../packages/core/storage/migration/mod.ts";
 import {
   LEDGER_SCHEMA_STEPS,
   openConnection,
   runCommand,
-} from "../../../packages/platform/ledger/mod.ts";
-import { APPROVAL_SCHEMA_STEPS } from "../../../packages/platform/approvals/mod.ts";
+} from "../../../packages/core/storage/ledger/mod.ts";
+import { APPROVAL_SCHEMA_STEPS } from "../../../packages/core/approvals/mod.ts";
 import {
   cred,
   id,
-} from "../../../packages/lophn-agent/conversation/testing/mod.ts";
+} from "../../../packages/core/lophn-agent/session/testing/mod.ts";
 import { lophnAgentDefinitions } from "../lophn-agent.ts";
 
 // DeleteSession이 그 session의 run을 가리키는 다른 concern의 기록까지 지우는지 본다

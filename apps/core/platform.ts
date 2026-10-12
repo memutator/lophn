@@ -8,7 +8,7 @@
 // 실행기가 강제한다. 여기서는 그 command를 등록할 뿐 handle 검사를 우회하지 않는다.
 import { err, ok, type Result } from "../../packages/base/mod.ts";
 import { ASSIGNMENT_SUBSCRIBER } from "../../packages/protocol/lophn-agent/mod.ts";
-import { ASSIGNMENT_REACTION_OPERATIONS } from "../../packages/lophn-agent/assignments/reaction.ts";
+import { ASSIGNMENT_REACTION_OPERATIONS } from "../../packages/core/lophn-agent/assignments/reaction.ts";
 import {
   approvalRequestCreated,
   type CommandRoute,
@@ -28,7 +28,7 @@ import {
   type ApprovalTextEnvironment,
   createApplyCommand,
   createApprovalCommands,
-} from "../../packages/platform/approvals/mod.ts";
+} from "../../packages/core/approvals/mod.ts";
 import {
   NOTIFICATION_COMMANDS,
   NOTIFICATION_SUBSCRIBER,
@@ -36,13 +36,13 @@ import {
   notificationsDisplayRead,
   notificationsGetRead,
   notificationsListRead,
-} from "../../packages/platform/notifications/mod.ts";
-import { secretsListRead } from "../../packages/platform/secrets/mod.ts";
+} from "../../packages/core/notifications/mod.ts";
+import { secretsListRead } from "../../packages/core/secrets/mod.ts";
 import type {
   EventRegistration,
   ReaderRegistration,
   SubscriberBinding,
-} from "../../packages/platform/ledger/mod.ts";
+} from "../../packages/core/storage/ledger/mod.ts";
 import type { Assembled } from "./registration.ts";
 import { type BackupReadEnvironment, backupReads } from "./backup-reads.ts";
 

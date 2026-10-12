@@ -11,7 +11,7 @@ import type {
   WorkerRequest,
   WorkerResponse,
 } from "../../packages/protocol/platform/mod.ts";
-import { DOCUMENT_OPS } from "../../packages/documents/file-tracking/mod.ts";
+import { DOCUMENT_OPS } from "../../packages/core/projects/file-tracking/mod.ts";
 import { type FilesRouteDeps, fileWorkers } from "./documents-files.ts";
 
 const DOC = "doc_01kq12a1pha000000000000000";

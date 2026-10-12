@@ -14,7 +14,7 @@ import {
   createFakeKeychain,
   createSecretWork,
   type FakeKeychain,
-} from "../../../packages/platform/secrets/mod.ts";
+} from "../../../packages/core/secrets/mod.ts";
 import { inProcessIo } from "../../core/testing/in-process-io.ts";
 import { createSecretPipe } from "./secrets.ts";
 

@@ -8,7 +8,7 @@ import * as secret from "./cap-secret/mod.ts";
 import {
   missingSdkPermission,
   SDK_REQUIRED_PERMISSIONS,
-} from "../apps/releases/sdk-permissions.ts";
+} from "../core/apps/releases/sdk-permissions.ts";
 
 const PACKAGES = {
   "@lophn/cap-fs": fs,

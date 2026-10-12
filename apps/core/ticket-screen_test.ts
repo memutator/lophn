@@ -8,7 +8,7 @@ import { err, ok, type Result } from "../../packages/base/mod.ts";
 import {
   codingCredentialRef,
   createFakeKeychain,
-} from "../../packages/platform/secrets/mod.ts";
+} from "../../packages/core/secrets/mod.ts";
 import { createCoreHarness } from "./testing/core.ts";
 import { codingAgentConnectionDefinitions } from "./coding-agent.ts";
 import { createLedgerRegistration as createAppsRegistration } from "./apps.ts";

@@ -8,8 +8,8 @@ import {
   collectPlaceMcpEntries,
   mergeMcpServers,
   type PlaceServerSource,
-} from "../../packages/lophn-agent/extensions/mod.ts";
-import { openConnection } from "../../packages/platform/ledger/mod.ts";
+} from "../../packages/core/lophn-agent/extensions/mod.ts";
+import { openConnection } from "../../packages/core/storage/ledger/mod.ts";
 
 // 등록한 MCP server의 snapshot 재료다(extensions R11, R32). 전역 설정 위에 모든 자리의 `mcp-servers.json`을
 // 더한다. agent-runtime child의 `--allow-run`·`--allow-net`과 MCP OAuth begin의 서버 조회가 같은 snapshot을

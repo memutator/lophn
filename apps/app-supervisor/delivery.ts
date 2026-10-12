@@ -10,7 +10,7 @@ import {
   type CoreRecord,
   createInvocationBroker,
   type InvocationBroker,
-} from "../../packages/apps/permissions/broker/invocations.ts";
+} from "../../packages/core/apps/permissions/broker/invocations.ts";
 import {
   createDeliveryQueue,
   type DeliveryLimits,
@@ -18,8 +18,8 @@ import {
   type DeliveryOutcome,
   type DeliveryQueue,
   type LossReport,
-} from "../../packages/apps/invocations/delivery/queue.ts";
-import { deliveryKey } from "../../packages/apps/invocations/mod.ts";
+} from "../../packages/core/apps/invocations/delivery/queue.ts";
+import { deliveryKey } from "../../packages/core/apps/invocations/mod.ts";
 
 // core 응답을 전달 결과로 읽는다. 닿지 않거나 5xx면 unavailable이고 그 밖의 거절은 core가 말한 code다.
 function outcomeOf(status: number, body: unknown): DeliveryOutcome {

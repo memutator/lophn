@@ -9,7 +9,7 @@ import {
 import {
   resolveSelection,
   translateOptions,
-} from "../../packages/lophn-agent/harness/model/mod.ts";
+} from "../../packages/core/lophn-agent/models/mod.ts";
 import {
   type AuthKind,
   type AuthTransport,
@@ -20,7 +20,7 @@ import {
   providerSecretDestination,
   type SecretAttachLike,
   withRequestHeaders,
-} from "../../packages/lophn-agent/harness/provider/mod.ts";
+} from "../../packages/core/lophn-agent/providers/mod.ts";
 import { type CoreCall, readOf } from "./core-call.ts";
 import {
   anthropicPacker,

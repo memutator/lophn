@@ -20,16 +20,16 @@ import { createDocumentTool } from "../../packages/coding-agent/mcp-server/tools
 import { createIndexTool } from "../../packages/coding-agent/mcp-server/tools/index.ts";
 import { createProjectTool } from "../../packages/coding-agent/mcp-server/tools/project.ts";
 import { createReadTool } from "../../packages/coding-agent/mcp-server/tools/read.ts";
-import { extractFormat } from "../../packages/documents/formats/guest.ts";
+import { extractFormat } from "../../packages/core/projects/formats/guest.ts";
 import {
   derivedPath,
   type DerivedStore,
   openDerived,
-} from "../../packages/documents/outline-and-search/adapters/store.ts";
+} from "../../packages/core/projects/outline-and-search/adapters/store.ts";
 import {
   type ExtractionRecord,
   recordExtraction,
-} from "../../packages/documents/outline-and-search/extraction.ts";
+} from "../../packages/core/projects/outline-and-search/extraction.ts";
 import { type Core, startCore } from "./core.ts";
 import type { TeamModule } from "./registration.ts";
 import { createLedgerRegistration } from "./documents.ts";

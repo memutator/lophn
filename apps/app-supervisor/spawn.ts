@@ -2,13 +2,13 @@
 import {
   type Spawned,
   spawnProcess,
-} from "../../packages/platform/responsiveness/process.ts";
+} from "../../packages/core/supervision/responsiveness/process.ts";
 import {
   appArgv,
   appEnv,
   type AppLaunch,
   flagsAccepted,
-} from "../../packages/apps/runtime/processes/mod.ts";
+} from "../../packages/core/apps/runtime/processes/mod.ts";
 
 export async function spawnApp(launch: AppLaunch): Promise<Spawned> {
   if (!flagsAccepted(launch.flags)) {

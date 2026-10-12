@@ -19,8 +19,8 @@ import type {
 import type {
   CommandEnvelope,
   Writer,
-} from "../../packages/platform/ledger/mod.ts";
-import type { ReadHandler } from "../../packages/platform/api/mod.ts";
+} from "../../packages/core/storage/ledger/mod.ts";
+import type { ReadHandler } from "../../packages/core/server/mod.ts";
 import {
   CONTEXT_INDEX_DEADLINE_MS,
   CONTEXT_INDEX_FRESH_MS,
@@ -52,7 +52,7 @@ import {
 const PROJECT = "prj_01kq12a1pha000000000000000";
 const CONTEXT = "ctx_01arz3ndektsv4rrffq69g5fav";
 const FIXTURES = new URL(
-  "../../packages/documents/contexts/testdata/",
+  "../../packages/core/projects/contexts/testdata/",
   import.meta.url,
 );
 

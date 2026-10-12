@@ -17,8 +17,8 @@ import type {
   HealthObservation,
   WorkerRequest,
 } from "../../packages/protocol/platform/mod.ts";
-import type { OperationPolicy } from "../../packages/platform/identity/mod.ts";
-import type { WorkerRouteTarget } from "../../packages/platform/responsiveness/mod.ts";
+import type { OperationPolicy } from "../../packages/core/server/identity/mod.ts";
+import type { WorkerRouteTarget } from "../../packages/core/supervision/responsiveness/mod.ts";
 import type { DocumentsChannel } from "./documents-serving.ts";
 
 // collector가 core loopback에 낼 수 있는 operation. 보고 제출, 자기 credential의 앱 log 읽기,

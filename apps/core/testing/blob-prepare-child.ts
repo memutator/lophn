@@ -1,6 +1,6 @@
 // 시험용 신뢰 자식. 실제 process·실제 감독 pipe에서 session.prepareBlob을 부른다.
 // worker_request의 payload가 시나리오를 정한다. 제품 코드는 이 파일을 import하지 않는다.
-import { startChild } from "../../../packages/platform/responsiveness/mod.ts";
+import { startChild } from "../../../packages/core/supervision/responsiveness/mod.ts";
 
 export type Scenario = {
   purpose: string;

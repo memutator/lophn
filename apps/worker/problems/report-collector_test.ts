@@ -9,8 +9,8 @@ import {
 import {
   type ByteReader,
   type ByteWriter,
-} from "../../../packages/platform/responsiveness/frames.ts";
-import { type ChildStreams } from "../../../packages/platform/responsiveness/mod.ts";
+} from "../../../packages/core/supervision/responsiveness/frames.ts";
+import { type ChildStreams } from "../../../packages/core/supervision/responsiveness/mod.ts";
 import {
   acceptReportProblem,
   COLLECTOR_KIND,
@@ -21,14 +21,14 @@ import {
 } from "./report-collector.ts";
 import { ok } from "../../../packages/base/mod.ts";
 import { recordReportInputSchema } from "../../../packages/protocol/problems/mod.ts";
-import type { AppLogQuery } from "../../../packages/problems/snapshots/mod.ts";
+import type { AppLogQuery } from "../../../packages/core/problems/snapshots/mod.ts";
 import { reportCollectorSpec } from "../../core/problems-runner.ts";
-import { createCollectorQueue } from "../../../packages/problems/reporting/mod.ts";
+import { createCollectorQueue } from "../../../packages/core/problems/reporting/mod.ts";
 import {
   createKnownSecretRegistry,
   createRedactionEngine,
-} from "../../../packages/platform/redaction/mod.ts";
-import type { CoreClientOptions } from "../../../packages/problems/reporting/adapters/core-client.ts";
+} from "../../../packages/base/redaction/mod.ts";
+import type { CoreClientOptions } from "../../../packages/core/problems/reporting/adapters/core-client.ts";
 
 const hello = {
   type: "hello" as const,
@@ -262,7 +262,7 @@ type PrepareCall = { purpose: string; sizeBytes: number; text: string };
 function fakeSession(
   calls: PrepareCall[] = [],
   fail = false,
-): import("../../../packages/platform/responsiveness/mod.ts").ChildSession {
+): import("../../../packages/core/supervision/responsiveness/mod.ts").ChildSession {
   const noop = () => Promise.resolve();
   return {
     send: noop,

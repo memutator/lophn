@@ -11,7 +11,7 @@ import {
   type SkillDiscovery,
   type SkillEntry,
   type SkillFilesPort,
-} from "../../packages/lophn-agent/extensions/mod.ts";
+} from "../../packages/core/lophn-agent/extensions/mod.ts";
 import { type CoreCall, readOf } from "./core-call.ts";
 
 // 제품 runtime의 skill 발견이다(extensions R1, R10, R32). 출처는 그 agent 자리의 skill 폴더

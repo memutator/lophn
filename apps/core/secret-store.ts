@@ -21,15 +21,15 @@ import {
   type KnownSecretMatch,
   openConnection,
   type Writer,
-} from "../../packages/platform/ledger/mod.ts";
-import { createKnownSecretRegistry } from "../../packages/platform/redaction/mod.ts";
+} from "../../packages/core/storage/ledger/mod.ts";
+import { createKnownSecretRegistry } from "../../packages/base/redaction/mod.ts";
 import type { SecretPurpose } from "../../packages/protocol/platform/mod.ts";
 import {
   type KeychainAdapter,
   productKeychain,
   readSecretRefs,
   type SecretRefSource,
-} from "../../packages/platform/secrets/mod.ts";
+} from "../../packages/core/secrets/mod.ts";
 
 // 제품 기본 keychain(Linux Secret Service, 그 밖은 unavailable)은 packages/platform/secrets가 낸다.
 export { productKeychain };

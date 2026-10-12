@@ -35,18 +35,18 @@ import {
   NOW,
   targetOf,
 } from "../../packages/coding-agent/harnesses/testing/mod.ts";
-import { serveCredentialSocket } from "../../packages/platform/install-and-update/mod.ts";
+import { serveCredentialSocket } from "../../packages/core/install-and-update/mod.ts";
 import {
   codingCredentialRef,
   createFakeKeychain,
-} from "../../packages/platform/secrets/mod.ts";
+} from "../../packages/core/secrets/mod.ts";
 import { codingAgentConnectionDefinitions } from "./coding-agent.ts";
 import { type Core, startCore } from "./core.ts";
 import { closeUnlessKept } from "./testing/close-on-throw.ts";
 
 const decoder = new TextDecoder();
 const HELPER_MAIN = new URL(
-  "../../packages/platform/install-and-update/credential-helper-main.ts",
+  "../../packages/core/install-and-update/credential-helper-main.ts",
   import.meta.url,
 ).pathname;
 

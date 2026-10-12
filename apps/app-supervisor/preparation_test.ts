@@ -6,11 +6,11 @@ import { err, ok } from "../../packages/base/mod.ts";
 import {
   createPreparationService,
   type PreparationOutcome,
-} from "../../packages/apps/releases/preparation.ts";
+} from "../../packages/core/apps/releases/preparation.ts";
 import {
   releasePreparationOutputSchema,
   SUPERVISOR_OPS,
-} from "../../packages/apps/runtime/control-protocol.ts";
+} from "../../packages/core/apps/runtime/control-protocol.ts";
 import { assembleSupervisor, type SupervisorIo } from "./assembly.ts";
 
 const APP = "app_01aryz6s41s4z4k7p41s4z4k7p";

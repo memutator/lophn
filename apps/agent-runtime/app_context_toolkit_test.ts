@@ -10,12 +10,12 @@ import {
 } from "../../packages/protocol/apps/mod.ts";
 import { workspaceRead } from "../../packages/protocol/shell/mod.ts";
 import { routePath } from "../../packages/protocol/platform/mod.ts";
-import { computeAgentAppScope } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
+import { computeAgentAppScope } from "../../packages/core/lophn-agent/run-loop/mod.ts";
 import {
   appAnnotateTool,
   appScreenContextTool,
-} from "../../packages/lophn-agent/harness/tools/mod.ts";
-import type { DirectRequest } from "../../packages/apps/runtime/client/mod.ts";
+} from "../../packages/core/lophn-agent/tools/mod.ts";
+import type { DirectRequest } from "../../packages/core/apps/runtime/client/mod.ts";
 import { createAppToolkit } from "./app-toolkit.ts";
 import type { CoreCall } from "./core-call.ts";
 

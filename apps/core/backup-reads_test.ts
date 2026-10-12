@@ -5,10 +5,10 @@ import {
   applyMigrations,
   backupStamp,
   createBackup,
-} from "../../packages/platform/backup-and-migration/mod.ts";
+} from "../../packages/core/storage/migration/mod.ts";
 import { manualClock } from "../../packages/base/mod.ts";
-import { LEDGER_SCHEMA_STEPS } from "../../packages/platform/ledger/mod.ts";
-import { SETTINGS_SCHEMA_STEPS } from "../../packages/platform/settings/mod.ts";
+import { LEDGER_SCHEMA_STEPS } from "../../packages/core/storage/ledger/mod.ts";
+import { SETTINGS_SCHEMA_STEPS } from "../../packages/core/config/mod.ts";
 import { backupReads } from "./backup-reads.ts";
 
 const AT = "2026-10-09T01:02:03.000Z";

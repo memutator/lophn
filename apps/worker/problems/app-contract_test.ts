@@ -11,23 +11,23 @@ import {
   encodeDataJobInput,
 } from "../../../packages/protocol/apps/mod.ts";
 import type { TestObservationFrame } from "../../../packages/protocol/problems/mod.ts";
-import { createAppBackup } from "../../../packages/apps/data/worker/backup.ts";
-import { openAppDatabase } from "../../../packages/apps/data/worker/db.ts";
-import { runDataJob } from "../../../packages/apps/data/worker/job.ts";
+import { createAppBackup } from "../../../packages/core/apps/data/worker/backup.ts";
+import { openAppDatabase } from "../../../packages/core/apps/data/worker/db.ts";
+import { runDataJob } from "../../../packages/core/apps/data/worker/job.ts";
 import {
   migrateAppDatabase,
   type MigrationScript,
-} from "../../../packages/apps/data/worker/migrate.ts";
+} from "../../../packages/core/apps/data/worker/migrate.ts";
 import {
   createPreviewBrokerServices,
   previewScopeOf,
-} from "../../../packages/apps/preview/mod.ts";
+} from "../../../packages/core/apps/preview/mod.ts";
 import {
   type AppTestInput,
   generateAppTestChecks,
   judgeAppTest,
   sdkDependenciesHash,
-} from "../../../packages/problems/tests/app-test/mod.ts";
+} from "../../../packages/core/problems/tests/app-test/mod.ts";
 import {
   type AdapterEffects,
   type AppDriver,
@@ -36,12 +36,12 @@ import {
   type MigrationScenario,
   observeFailurePath,
   runPlatformChecks,
-} from "../../../packages/problems/tests/harness/mod.ts";
-import { fixtureDriver } from "../../../packages/problems/tests/testing/app-driver.ts";
+} from "../../../packages/core/problems/tests/harness/mod.ts";
+import { fixtureDriver } from "../../../packages/core/problems/tests/testing/app-driver.ts";
 import {
   acceptFrame,
   emptySides,
-} from "../../../packages/problems/tests/work/ipc.ts";
+} from "../../../packages/core/problems/tests/work/ipc.ts";
 
 const APP = "app_01h455vb4pex5v6nkc6gd5fdw1";
 const RELEASE = "rel_01h455vb4pex5v6nkc6gd5fdw1";

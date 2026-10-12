@@ -3,16 +3,16 @@ import type { CommandDefinition } from "../../packages/protocol/platform/mod.ts"
 import {
   executeCommand,
   readOwnResult,
-} from "../../packages/platform/ledger/executor.ts";
+} from "../../packages/core/storage/ledger/executor.ts";
 import {
   type LedgerConnection,
   openConnection,
-} from "../../packages/platform/ledger/sqlite.ts";
+} from "../../packages/core/storage/ledger/sqlite.ts";
 import type {
   WriterRequest,
   WriterResponse,
-} from "../../packages/platform/ledger/writer-message.ts";
-import { recordSecretPreparation } from "../../packages/platform/secrets/mod.ts";
+} from "../../packages/core/storage/ledger/writer-message.ts";
+import { recordSecretPreparation } from "../../packages/core/secrets/mod.ts";
 import { assembleWriter } from "./writer-assembly.ts";
 
 type WorkerSelf = {

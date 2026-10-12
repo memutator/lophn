@@ -19,13 +19,13 @@ import type {
 import {
   createAuthTransport,
   type SecretAttachLike,
-} from "../../packages/lophn-agent/harness/provider/adapters/auth-transport.ts";
-import { createFetchTransport } from "../../packages/lophn-agent/harness/provider/adapters/transport.ts";
-import { createInvokeModelCall } from "../../packages/lophn-agent/harness/provider/invoke.ts";
+} from "../../packages/core/lophn-agent/providers/adapters/auth-transport.ts";
+import { createFetchTransport } from "../../packages/core/lophn-agent/providers/adapters/transport.ts";
+import { createInvokeModelCall } from "../../packages/core/lophn-agent/providers/invoke.ts";
 import {
   createRunCredentials,
   createRunSelector,
-} from "../../packages/lophn-agent/harness/run-loop/mod.ts";
+} from "../../packages/core/lophn-agent/run-loop/mod.ts";
 import { startFakeProvider } from "../../tools/fake-provider/mod.ts";
 import { createCredentialLink } from "../agent-runtime/credential-link.ts";
 import {

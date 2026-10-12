@@ -11,23 +11,23 @@ import {
 import type {
   AuthenticatedContext,
 } from "../../../packages/protocol/platform/mod.ts";
-import { applyMigrations } from "../../../packages/platform/backup-and-migration/mod.ts";
+import { applyMigrations } from "../../../packages/core/storage/migration/mod.ts";
 import {
   createSubscriberGate,
   LEDGER_SCHEMA_STEPS,
   openConnection,
   runCommand,
-} from "../../../packages/platform/ledger/mod.ts";
-import { APPROVAL_SCHEMA_STEPS } from "../../../packages/platform/approvals/mod.ts";
+} from "../../../packages/core/storage/ledger/mod.ts";
+import { APPROVAL_SCHEMA_STEPS } from "../../../packages/core/approvals/mod.ts";
 import {
   NOTIFICATION_COMMANDS,
   NOTIFICATION_SUBSCRIBER,
   NOTIFICATIONS_SCHEMA_STEPS,
-} from "../../../packages/platform/notifications/mod.ts";
+} from "../../../packages/core/notifications/mod.ts";
 import {
   assignmentSchemaSteps,
   createAssignmentCommands,
-} from "../../../packages/lophn-agent/assignments/mod.ts";
+} from "../../../packages/core/lophn-agent/assignments/mod.ts";
 
 // assignment ledger integration 테스트. harness 밖의 direct connection으로
 // 등록 executor(applyMigrations + runCommand)와 실제 notification 생성을

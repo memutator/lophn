@@ -8,7 +8,7 @@ import {
   type Candidate,
   PREPARATION_OPS,
   type PrepareSlot,
-} from "../../../packages/documents/file-tracking/mod.ts";
+} from "../../../packages/core/projects/file-tracking/mod.ts";
 import type { PreparationPool } from "./pool.ts";
 
 // 후보 하나의 안정 읽기 결과. worker가 hash와 같은 읽기 stream에서 크기를 낸다.

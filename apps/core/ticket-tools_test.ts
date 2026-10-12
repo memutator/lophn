@@ -12,7 +12,7 @@ import {
   type ExecutionOutcome,
   runOperations,
   TICKET_TOOLS,
-} from "../../packages/lophn-agent/harness/tools/mod.ts";
+} from "../../packages/core/lophn-agent/tools/mod.ts";
 import { agentCall } from "../agent-runtime/core-http.ts";
 import { createContractCall } from "../agent-runtime/toolkit.ts";
 import { codingAgentConnectionDefinitions } from "./coding-agent.ts";

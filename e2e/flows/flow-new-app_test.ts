@@ -24,12 +24,12 @@ import { createHandler } from "../../packages/coding-agent/mcp-server/server.ts"
 import { resolveRoute } from "../../packages/coding-agent/mcp-server/registry.ts";
 import { createAppTool } from "../../packages/coding-agent/mcp-server/tools/app.ts";
 import { DatabaseSync } from "node:sqlite";
-import { deriveAppTest } from "../../packages/problems/tests/mod.ts";
+import { deriveAppTest } from "../../packages/core/problems/tests/mod.ts";
 import {
   installedHome,
   removeTree,
   scaffoldInto,
-} from "../../packages/apps/sdk/testing/mod.ts";
+} from "../../packages/core/apps/packages/testing/mod.ts";
 import { madeFixture } from "../../apps/core/testing/problems-app-test.ts";
 import { codingAgentConnectionDefinitions } from "../../apps/core/coding-agent.ts";
 import { ticketDefinitions } from "../../apps/core/tickets.ts";

@@ -10,8 +10,8 @@ import {
   type ContextToolContext,
   createContextReadToolHandlers,
   type ToolHandler,
-} from "../../packages/lophn-agent/harness/tools/mod.ts";
-import type { ContractCall } from "../../packages/lophn-agent/harness/tools/bundles/common.ts";
+} from "../../packages/core/lophn-agent/tools/mod.ts";
+import type { ContractCall } from "../../packages/core/lophn-agent/tools/bundles/common.ts";
 import { type CoreCall, readOf } from "./core-call.ts";
 
 // 선언 검색 tool과 개체 읽기 tool의 재료 읽기와 handler 연결이다(lophn-agent/harness/tools R21, R22).

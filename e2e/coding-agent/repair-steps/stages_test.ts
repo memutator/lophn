@@ -19,16 +19,16 @@ import {
   REPAIR_CONTEXT_SUMMARY_MAX_CHARS,
   SECTION_KINDS,
 } from "../../../packages/protocol/coding-agent/mod.ts";
-import { confirmationBinding } from "../../../packages/platform/identity/mod.ts";
+import { confirmationBinding } from "../../../packages/core/server/identity/mod.ts";
 import {
   codingCredentialRef,
   createFakeKeychain,
   type FakeKeychain,
-} from "../../../packages/platform/secrets/mod.ts";
+} from "../../../packages/core/secrets/mod.ts";
 import {
   openWorld,
   type World,
-} from "../../../packages/apps/runtime/world_test.ts";
+} from "../../../packages/core/apps/runtime/world_test.ts";
 import { codingAgentConnectionDefinitions } from "../../../apps/core/coding-agent.ts";
 import {
   problemsReportDefinitions,

@@ -24,8 +24,8 @@ import type {
   KindLaunchSpec,
   RequestContext,
 } from "../../packages/protocol/platform/mod.ts";
-import type { OperationPolicy } from "../../packages/platform/identity/mod.ts";
-import { checkLaunchSpec } from "../../packages/platform/security/mod.ts";
+import type { OperationPolicy } from "../../packages/core/server/identity/mod.ts";
+import { checkLaunchSpec } from "../../packages/core/supervision/security/mod.ts";
 import {
   type InternalSubscription,
   openInternalSubscription,

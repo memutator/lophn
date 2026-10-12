@@ -18,7 +18,7 @@ import {
   judge,
   type RequestSample,
   summarize,
-} from "../../packages/platform/responsiveness/mod.ts";
+} from "../../packages/core/supervision/responsiveness/mod.ts";
 import {
   descendantPids,
   e2eEnabled,

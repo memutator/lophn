@@ -2,7 +2,7 @@
 // 중계가 바이트를 모으지 않고 worker의 credit 안에서만 흘려보내는지 따진다.
 import { assert, assertEquals } from "@std/assert";
 import { ok } from "../../packages/base/mod.ts";
-import { createPreparationRegistry } from "../../packages/platform/blob-store/mod.ts";
+import { createPreparationRegistry } from "../../packages/core/storage/blobs/mod.ts";
 import {
   BLOB_RELAY_BUFFER_MAX_BYTES,
   BLOB_RELAY_MIN_FRAME_BYTES,

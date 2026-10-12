@@ -1,6 +1,6 @@
 import { assert } from "@std/assert";
-import { ROLE_CAPS } from "../../packages/lophn-agent/agents/mod.ts";
-import { roleOperations } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
+import { ROLE_CAPS } from "../../packages/core/lophn-agent/agents/mod.ts";
+import { roleOperations } from "../../packages/core/lophn-agent/run-loop/mod.ts";
 import { agentRuntimePolicies } from "./agent-runtime.ts";
 
 Deno.test("lophn-agent/harness/run-loop#R15 [ctx-I55c]: 모든 역할의 operation 상한은 agent runtime의 agent 발급 policy 안에 있다", () => {

@@ -7,7 +7,7 @@ import { type CoreHarness, createCoreHarness } from "./testing/core.ts";
 import {
   resolveRunLimits,
   RUN_LIMIT_SETTING_KEYS,
-} from "../../packages/lophn-agent/harness/run-loop/mod.ts";
+} from "../../packages/core/lophn-agent/run-loop/mod.ts";
 import { DEFAULT_RUN_LIMITS } from "../../packages/protocol/lophn-agent/mod.ts";
 import type { EffectiveSetting } from "../../packages/protocol/platform/mod.ts";
 

@@ -28,7 +28,7 @@ import {
 import {
   createRuntimeClient,
   type DirectTransport,
-} from "../../packages/apps/runtime/client/mod.ts";
+} from "../../packages/core/apps/runtime/client/mod.ts";
 import {
   type AppContextJudgmentPorts,
   type AppJudgmentPorts,
@@ -36,7 +36,7 @@ import {
   createAppBinding,
   createScreenContextBinding,
   type ToolBinding,
-} from "../../packages/lophn-agent/harness/tool-judgment/mod.ts";
+} from "../../packages/core/lophn-agent/tool-judgment/mod.ts";
 import {
   appAnnotateTool,
   type AppBlueprintView,
@@ -53,12 +53,12 @@ import {
   revertCounterpart,
   type ToolDefinition,
   type ToolHandler,
-} from "../../packages/lophn-agent/harness/tools/mod.ts";
+} from "../../packages/core/lophn-agent/tools/mod.ts";
 import {
   createAppToolLookups,
   type ToolLookup,
-} from "../../packages/lophn-agent/harness/waiting-and-recovery/mod.ts";
-import type { AppOffer } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
+} from "../../packages/core/lophn-agent/waiting-and-recovery/mod.ts";
+import type { AppOffer } from "../../packages/core/lophn-agent/run-loop/mod.ts";
 import { commandOf, type CoreCall, readOf } from "./core-call.ts";
 
 // agent runtime의 앱 command 연결(lophn-agent/harness/tools R8, R16, R17). 이 run이 부를 수 있는 앱

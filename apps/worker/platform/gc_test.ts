@@ -8,9 +8,7 @@ import {
   BLOB_UNAVAILABLE_REASONS,
   BLOB_UNREFERENCED_GRACE_MS,
 } from "../../../packages/protocol/platform/mod.ts";
-import {
-  unavailableAnswer,
-} from "../../../packages/platform/blob-store/mod.ts";
+import { unavailableAnswer } from "../../../packages/core/storage/blobs/mod.ts";
 import {
   clearTemporary,
   collectGarbage,

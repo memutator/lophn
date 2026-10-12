@@ -12,13 +12,13 @@ import {
   type KnownSecretMatch,
   openConnection,
   type Writer,
-} from "../../packages/platform/ledger/mod.ts";
+} from "../../packages/core/storage/ledger/mod.ts";
 import {
   createTraceExport,
   type ExportBodySource,
   type ExportRedactor,
   type TraceExportDeps,
-} from "../../packages/lophn-agent/observability/work.ts";
+} from "../../packages/core/lophn-agent/observability/work.ts";
 import type {
   RedactionInput,
   RedactionResult,

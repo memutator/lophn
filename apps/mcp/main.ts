@@ -20,7 +20,7 @@ import {
 import {
   createKnownSecretRegistry,
   createRedactionStream,
-} from "../../packages/platform/redaction/mod.ts";
+} from "../../packages/base/redaction/mod.ts";
 import { createCoreClient } from "../../packages/coding-agent/connection/client/core.ts";
 import {
   REDACTION_REPLACEMENT,

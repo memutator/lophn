@@ -8,16 +8,16 @@ import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.
 import {
   openIndexStore,
   scanContext,
-} from "../../packages/documents/contexts/index/mod.ts";
+} from "../../packages/core/projects/contexts/index/mod.ts";
 import {
   evalContent,
   minimalContent,
-} from "../../packages/documents/contexts/api/testing.ts";
+} from "../../packages/core/projects/contexts/api/testing.ts";
 import {
   fixtureBundle,
   memoryFiles,
   scanInput,
-} from "../../packages/documents/contexts/index/testing.ts";
+} from "../../packages/core/projects/contexts/index/testing.ts";
 import { type Core, startCore } from "./core.ts";
 import { contextWorkerCredential } from "./contexts-api.ts";
 import { createLedgerRegistration } from "./documents.ts";

@@ -10,13 +10,13 @@ import type { ParentMessage } from "../../packages/protocol/platform/mod.ts";
 import {
   createMcpConnections,
   createMcpSecretRefSource,
-} from "../../packages/lophn-agent/extensions/mod.ts";
-import { SETTINGS_SCHEMA_STEPS } from "../../packages/platform/settings/mod.ts";
+} from "../../packages/core/lophn-agent/extensions/mod.ts";
+import { SETTINGS_SCHEMA_STEPS } from "../../packages/core/config/mod.ts";
 import {
   createFakeKeychain,
   type FakeKeychain,
   SECRET_SCHEMA_STEPS,
-} from "../../packages/platform/secrets/mod.ts";
+} from "../../packages/core/secrets/mod.ts";
 import { ok } from "../../packages/base/mod.ts";
 import { createSecretLink } from "../agent-runtime/secret-link.ts";
 import { mcpConnectionsDeps } from "../agent-runtime/product-driver.ts";

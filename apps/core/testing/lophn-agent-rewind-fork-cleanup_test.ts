@@ -1,6 +1,6 @@
 import { assertEquals } from "@std/assert";
-import { envelope } from "../../../packages/lophn-agent/harness/run-loop/testing/mod.ts";
-import { id } from "../../../packages/lophn-agent/conversation/testing/mod.ts";
+import { envelope } from "../../../packages/core/lophn-agent/run-loop/testing/mod.ts";
+import { id } from "../../../packages/core/lophn-agent/session/testing/mod.ts";
 import {
   redoRewind,
   rewindMessagesOnly,
@@ -25,7 +25,7 @@ import {
   sql,
   userCred,
   value,
-} from "../../../packages/lophn-agent/conversation/world_test.ts";
+} from "../../../packages/core/lophn-agent/session/world_test.ts";
 
 // Fork가 숨긴 구간을 빼고 복사하고(conversation#R25), session을 delete하거나 닫으면 되돌리기 기록이
 // 같이 지워진다(lophn-agent/revert R20, conversation#R20). 실제 등록 executor(harness)와 임시

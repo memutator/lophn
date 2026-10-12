@@ -10,7 +10,7 @@ import type {
   ApprovalRequest,
   AuthenticatedContext,
 } from "../../packages/protocol/platform/mod.ts";
-import { confirmAction } from "../../packages/platform/approvals/mod.ts";
+import { confirmAction } from "../../packages/core/approvals/mod.ts";
 import { createLedgerRegistration as createAppsRegistration } from "./apps.ts";
 import {
   call,

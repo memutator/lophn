@@ -63,52 +63,52 @@ import {
 import type {
   MemoryHandler,
   ReadHandler,
-} from "../../packages/platform/api/mod.ts";
+} from "../../packages/core/server/mod.ts";
 import {
   type AppCredentialIssuer,
   createAppCredentialIssuer,
   type CredentialRegistry,
   type OperationPolicy,
-} from "../../packages/platform/identity/mod.ts";
+} from "../../packages/core/server/identity/mod.ts";
 import {
   createTargetAuthorizer,
   openConnection,
-} from "../../packages/platform/ledger/mod.ts";
-import { existingAcceptance } from "../../packages/apps/invocations/confirm.ts";
-import { loadApp } from "../../packages/apps/registration/mod.ts";
-import type { Writer } from "../../packages/platform/ledger/mod.ts";
+} from "../../packages/core/storage/ledger/mod.ts";
+import { existingAcceptance } from "../../packages/core/apps/invocations/confirm.ts";
+import { loadApp } from "../../packages/core/apps/registration/mod.ts";
+import type { Writer } from "../../packages/core/storage/ledger/mod.ts";
 import {
   loadRelease,
   loadStoredBlueprint,
   releaseDeclarations,
-} from "../../packages/apps/releases/store.ts";
-import { canonicalInputHash } from "../../packages/apps/blueprint/mod.ts";
-import { activationInProgress } from "../../packages/apps/permissions/mod.ts";
+} from "../../packages/core/apps/releases/store.ts";
+import { canonicalInputHash } from "../../packages/core/apps/blueprint/mod.ts";
+import { activationInProgress } from "../../packages/core/apps/permissions/mod.ts";
 import {
   createPairPreparer,
   type PairFacts,
   type PairPreparer,
-} from "../../packages/apps/connections/prepare.ts";
+} from "../../packages/core/apps/connections/prepare.ts";
 import {
   type ConfirmApprovals,
   type ConfirmTargets,
   createPairConfirmer,
   type PairConfirmer,
-} from "../../packages/apps/connections/confirm-request.ts";
-import type { ConfirmAcceptances } from "../../packages/apps/connections/confirm.ts";
-import { withAutomationObservation } from "../../packages/apps/automations/reads.ts";
+} from "../../packages/core/apps/connections/confirm-request.ts";
+import type { ConfirmAcceptances } from "../../packages/core/apps/connections/confirm.ts";
+import { withAutomationObservation } from "../../packages/core/apps/automations/reads.ts";
 import {
   type AppConnector,
   type ConnectFacts,
   createAppConnector,
   type ProcessSource,
-} from "../../packages/apps/runtime/connect.ts";
-import type { DesiredApp } from "../../packages/apps/runtime/supervisor/mod.ts";
+} from "../../packages/core/apps/runtime/connect.ts";
+import type { DesiredApp } from "../../packages/core/apps/runtime/supervisor/mod.ts";
 import {
   type CoreSigner,
   createCoreSigner,
-} from "../../packages/apps/runtime/signing.ts";
-import { allSlotSockets } from "../../packages/apps/runtime/processes/mod.ts";
+} from "../../packages/core/apps/runtime/signing.ts";
+import { allSlotSockets } from "../../packages/core/apps/runtime/processes/mod.ts";
 import {
   createSupervisorChannel,
   createSupervisorClient,
@@ -116,12 +116,12 @@ import {
   runtimeObservationOf,
   type SupervisorChannel,
   type SupervisorClient,
-} from "../../packages/apps/runtime/supervisor-link.ts";
+} from "../../packages/core/apps/runtime/supervisor-link.ts";
 import {
   type RuntimeSources,
   withRuntimeLogs,
   withRuntimeObservation,
-} from "../../packages/apps/runtime/reads.ts";
+} from "../../packages/core/apps/runtime/reads.ts";
 import {
   type ActivationDriver,
   createActivationDriver,
@@ -132,14 +132,14 @@ import {
 } from "./apps-release-finalizer.ts";
 import type { BlobPrepareCall } from "./core.ts";
 import type { PreparedRelayResult } from "./blob-prepare.ts";
-import { createFsPreviewArea } from "../../packages/apps/preview/area.ts";
-import { createPreviewReads } from "../../packages/apps/preview/reads.ts";
+import { createFsPreviewArea } from "../../packages/core/apps/preview/area.ts";
+import { createPreviewReads } from "../../packages/core/apps/preview/reads.ts";
 import {
   createPreviewService,
   type PreviewBundles,
   type PreviewReleases,
   type PreviewService,
-} from "../../packages/apps/preview/service.ts";
+} from "../../packages/core/apps/preview/service.ts";
 
 export const APPS_SUPERVISOR_KIND = "apps/supervisor";
 export const APPS_CONTROL_PRINCIPAL = "machine:apps-control";

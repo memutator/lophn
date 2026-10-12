@@ -13,11 +13,11 @@ import {
   codingCredentialRef,
   createFakeKeychain,
   type FakeKeychain,
-} from "../../packages/platform/secrets/mod.ts";
+} from "../../packages/core/secrets/mod.ts";
 import {
   openWorld,
   type World,
-} from "../../packages/apps/runtime/world_test.ts";
+} from "../../packages/core/apps/runtime/world_test.ts";
 import { cliMain } from "../cli/main.ts";
 import { codingAgentConnectionDefinitions } from "./coding-agent.ts";
 import { ticketDefinitions } from "./tickets.ts";

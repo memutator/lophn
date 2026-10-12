@@ -14,7 +14,7 @@ import {
   fileHash,
   parsePlaceMcpFile,
   placeMcpPathOf,
-} from "../../packages/lophn-agent/extensions/mod.ts";
+} from "../../packages/core/lophn-agent/extensions/mod.ts";
 import type { McpAuthTarget } from "./mcp-auth.ts";
 
 // 로그인이 끝난 서버의 설정에 token 참조(`token_ref`)를 쓰거나 지운다(extensions#R16, R17). 참조는 값이 아니라

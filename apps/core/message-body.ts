@@ -27,10 +27,10 @@ import {
   type CommandEnvelope,
   openConnection,
   type Writer,
-} from "../../packages/platform/ledger/mod.ts";
-import type { MessageBodyEnvironment } from "../../packages/lophn-agent/conversation/mod.ts";
-import { checkVisualContent } from "../../packages/lophn-agent/visuals/mod.ts";
-import type { KnownSecretMatch } from "../../packages/platform/ledger/mod.ts";
+} from "../../packages/core/storage/ledger/mod.ts";
+import type { MessageBodyEnvironment } from "../../packages/core/lophn-agent/session/mod.ts";
+import { checkVisualContent } from "../../packages/core/lophn-agent/tools/visuals/mod.ts";
+import type { KnownSecretMatch } from "../../packages/core/storage/ledger/mod.ts";
 import {
   createProductRedactor,
   type DocumentRedactor,

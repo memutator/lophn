@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { readRecordState, recordInput } from "./record.ts";
-import type { RuntimeRecord } from "../../packages/apps/runtime/core-link.ts";
+import type { RuntimeRecord } from "../../packages/core/apps/runtime/core-link.ts";
 
 const STARTED: RuntimeRecord = {
   method: "record_started",

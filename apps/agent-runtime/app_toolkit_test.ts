@@ -16,16 +16,16 @@ import {
   type AuthenticatedContext,
   routePath,
 } from "../../packages/protocol/platform/mod.ts";
-import { computeAgentAppScope } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
-import { executeTool } from "../../packages/lophn-agent/harness/tools/mod.ts";
+import { computeAgentAppScope } from "../../packages/core/lophn-agent/run-loop/mod.ts";
+import { executeTool } from "../../packages/core/lophn-agent/tools/mod.ts";
 import { call as httpCall } from "../core/testing/approvals-fixture.ts";
 import {
   declare,
   grant,
   openWorld,
   type World,
-} from "../../packages/apps/runtime/world_test.ts";
-import { fixtureBlueprint } from "../../packages/apps/runtime/testing/app-process.ts";
+} from "../../packages/core/apps/runtime/world_test.ts";
+import { fixtureBlueprint } from "../../packages/core/apps/runtime/testing/app-process.ts";
 import { createAppToolkit } from "./app-toolkit.ts";
 import type { CoreCall } from "./core-call.ts";
 

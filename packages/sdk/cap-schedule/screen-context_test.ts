@@ -2,7 +2,7 @@
 // command 경계(서명 연결 검사·입력 검사·handler 호출·오류 응답)에 SDK 등록 handler를 올려 본다.
 // 실제 core의 grant·agent connection은 screen-context-world_test.ts가 본다.
 import { assert, assertEquals, assertThrows } from "@std/assert";
-import { validateBlueprint } from "../../apps/blueprint/mod.ts";
+import { validateBlueprint } from "../../core/apps/blueprint/mod.ts";
 import {
   APP,
   connection,
@@ -10,10 +10,13 @@ import {
   REL,
   shaKey,
   startRuntime,
-} from "../../apps/runtime/testing/mod.ts";
-import { clockAt, startLine } from "../../apps/runtime/entrypoint/testing.ts";
-import { handleControl } from "../../apps/runtime/entrypoint/control.ts";
-import { handleScreen } from "../../apps/runtime/entrypoint/screens.ts";
+} from "../../core/apps/runtime/testing/mod.ts";
+import {
+  clockAt,
+  startLine,
+} from "../../core/apps/runtime/entrypoint/testing.ts";
+import { handleControl } from "../../core/apps/runtime/entrypoint/control.ts";
+import { handleScreen } from "../../core/apps/runtime/entrypoint/screens.ts";
 import {
   CommandRejection,
   registerAnnotationTarget,

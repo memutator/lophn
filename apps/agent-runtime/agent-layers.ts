@@ -18,8 +18,8 @@ import {
 import {
   productEnvironment,
   resolveAgent,
-} from "../../packages/lophn-agent/agents/mod.ts";
-import { workspaceModels } from "../../packages/lophn-agent/harness/model/mod.ts";
+} from "../../packages/core/lophn-agent/agents/mod.ts";
+import { workspaceModels } from "../../packages/core/lophn-agent/models/mod.ts";
 import { type CoreCall, readOf } from "./core-call.ts";
 
 // run을 준비할 때 resolved agent를 만드는 길이다(lophn-agent/agents R25~R27). 층은 core의 읽기 route로

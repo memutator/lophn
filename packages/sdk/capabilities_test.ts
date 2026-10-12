@@ -14,7 +14,7 @@ import {
   type SecretDelivery,
   type SecretDeliveryRequest,
   serveBroker,
-} from "../apps/permissions/mod.ts";
+} from "../core/apps/permissions/mod.ts";
 import {
   APP,
   createAccessFixture,
@@ -24,7 +24,7 @@ import {
   RELEASE,
   requirement,
   serveLocal,
-} from "../apps/permissions/testing/broker.ts";
+} from "../core/apps/permissions/testing/broker.ts";
 import { CapabilityError as NetError, createNetClient } from "./cap-net/mod.ts";
 import {
   CapabilityError as SaveError,

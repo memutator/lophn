@@ -150,10 +150,10 @@ Deno.test("documents/file-tracking#R3: 실제 core는 tracking 규칙 변경 eve
     "../../packages/base/mod.ts"
   );
   const { previewTracking } = await import(
-    "../../packages/documents/projects/work.ts"
+    "../../packages/core/projects/registry/work.ts"
   );
   const { directoryScanner } = await import(
-    "../../packages/documents/projects/scan.ts"
+    "../../packages/core/projects/registry/scan.ts"
   );
   const home = await Deno.makeTempDir({ prefix: "lophn-docs-roots-" });
   const folder = await Deno.realPath(

@@ -3,7 +3,7 @@ import type { Result } from "../../../packages/base/mod.ts";
 import {
   createKnownSecretRegistry,
   createRedactionEngine,
-} from "../../../packages/platform/redaction/mod.ts";
+} from "../../../packages/base/redaction/mod.ts";
 import type {
   AuthenticatedContext,
   RedactionInput,
@@ -12,7 +12,7 @@ import type {
   SqlParam,
   SqlRow,
 } from "../../../packages/protocol/platform/mod.ts";
-import { textContent } from "../../../packages/lophn-agent/conversation/testing/mod.ts";
+import { textContent } from "../../../packages/core/lophn-agent/session/testing/mod.ts";
 import { createLedgerHarness, type LedgerHarness } from "./ledger.ts";
 import {
   agentRun,
@@ -21,12 +21,12 @@ import {
   id,
   optionOf,
   sha256Text,
-} from "../../../packages/lophn-agent/questions/testing/mod.ts";
+} from "../../../packages/core/lophn-agent/tools/questions/testing/mod.ts";
 import {
   screenAnswerText,
   SECURE_INPUT_GUIDANCE,
   settingsOptionAction,
-} from "../../../packages/lophn-agent/questions/mod.ts";
+} from "../../../packages/core/lophn-agent/tools/questions/mod.ts";
 
 // 질문 묶음 ledger 테스트(lophn-agent/questions). 실제 등록 executor(harness)와 임시 ledger
 // 파일을 쓰고 시계는 등록(lophn-agent-questions-registration_test.ts)이 쥔다. agent 자격의
@@ -101,11 +101,11 @@ async function open(): Promise<LedgerHarness> {
   const opened = await createLedgerHarness({
     registrationModules: [
       new URL(
-        "../../../packages/lophn-agent/harness/provider/registration_test.ts",
+        "../../../packages/core/lophn-agent/providers/registration_test.ts",
         import.meta.url,
       ),
       new URL(
-        "../../../packages/lophn-agent/harness/usage/registration_test.ts",
+        "../../../packages/core/lophn-agent/usage/registration_test.ts",
         import.meta.url,
       ),
       new URL(
@@ -113,7 +113,7 @@ async function open(): Promise<LedgerHarness> {
         import.meta.url,
       ),
       new URL(
-        "../../../packages/platform/settings/harness-fixture_test.ts",
+        "../../../packages/core/config/harness-fixture_test.ts",
         import.meta.url,
       ),
     ],

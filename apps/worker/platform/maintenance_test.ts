@@ -8,7 +8,7 @@ import { BLOB_UNREFERENCED_GRACE_MS } from "../../../packages/protocol/platform/
 import {
   assignmentOf,
   purposesPathFor,
-} from "../../../packages/platform/blob-store/mod.ts";
+} from "../../../packages/core/storage/blobs/mod.ts";
 import { listBackupPending, listInstalledBlobs } from "./io.ts";
 import {
   fullyStopped,

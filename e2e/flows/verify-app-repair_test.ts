@@ -19,10 +19,10 @@ import { assert, assertEquals, assertNotEquals } from "@std/assert";
 
 import { err, ok, type Result, sha256Hex } from "../../packages/base/mod.ts";
 import type { FrozenTest } from "../../packages/protocol/problems/mod.ts";
-import { declarationsOfBlueprint } from "../../packages/apps/releases/mod.ts";
-import { migrateAppDatabase } from "../../packages/apps/data/worker/migrate.ts";
-import { prepareFromSource } from "../../packages/apps/releases/prepare/from-source.ts";
-import { installedHome } from "../../packages/apps/sdk/testing/mod.ts";
+import { declarationsOfBlueprint } from "../../packages/core/apps/releases/mod.ts";
+import { migrateAppDatabase } from "../../packages/core/apps/data/worker/migrate.ts";
+import { prepareFromSource } from "../../packages/core/apps/releases/prepare/from-source.ts";
+import { installedHome } from "../../packages/core/apps/packages/testing/mod.ts";
 import {
   type MadeFixture,
   madeFixture,
@@ -31,19 +31,19 @@ import { BROKEN_SCENARIO } from "../../apps/core/testing/problems-reproduction.t
 import {
   canonicalHash,
   canonicalJson,
-} from "../../packages/problems/tests/canonical.ts";
+} from "../../packages/core/problems/tests/canonical.ts";
 import {
   APP_TEST_TIMEOUT_MS,
   deriveAppTest,
   reproductionFrozen,
-} from "../../packages/problems/tests/mod.ts";
+} from "../../packages/core/problems/tests/mod.ts";
 import { SECTION_KINDS } from "../../packages/protocol/coding-agent/mod.ts";
-import { objectPathFor } from "../../packages/platform/blob-store/model.ts";
+import { objectPathFor } from "../../packages/core/storage/blobs/model.ts";
 import {
   codingCredentialRef,
   createFakeKeychain,
   type FakeKeychain,
-} from "../../packages/platform/secrets/mod.ts";
+} from "../../packages/core/secrets/mod.ts";
 import {
   type CoreHarness,
   createCoreHarness,

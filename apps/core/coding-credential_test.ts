@@ -20,12 +20,12 @@ import {
   createCodingCredentialAuthority,
   CredentialRegistry,
   serveCredentialDelivery,
-} from "../../packages/platform/identity/mod.ts";
+} from "../../packages/core/server/identity/mod.ts";
 import {
   codingCredentialRef,
   createCodingCredentialKeychain,
   createFakeKeychain,
-} from "../../packages/platform/secrets/mod.ts";
+} from "../../packages/core/secrets/mod.ts";
 import {
   type CommandEnvelope,
   createLedgerHarness,

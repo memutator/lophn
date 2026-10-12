@@ -15,7 +15,7 @@
 //   sdk -> platform/packages/sdk
 //   lophn-credential           OS keychain 전달 helper(compile binary)
 // /usr/bin/{lophn-desktop,lophn,lophn-mcp} launcher, 데스크톱 항목, 아이콘.
-import { checkStagedLock } from "../packages/platform/install-and-update/lock-check.ts";
+import { checkStagedLock } from "../packages/core/install-and-update/lock-check.ts";
 import {
   cliLauncher,
   CREDENTIAL_HELPER_COMPILE_FLAGS,
@@ -27,7 +27,7 @@ import {
   mcpLauncher,
   postinstScript,
   SANDBOX_MODE,
-} from "../packages/platform/install-and-update/linux-install.ts";
+} from "../packages/core/install-and-update/linux-install.ts";
 
 const repo = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
 const shellMain = `${repo}/apps/shell/main`;

@@ -14,15 +14,15 @@ import {
   createApprovalRequest,
   type RequestContext,
 } from "../../packages/protocol/platform/mod.ts";
-import { confirmAction } from "../../packages/platform/approvals/mod.ts";
-import { openConnection } from "../../packages/platform/ledger/mod.ts";
-import { existingAcceptance } from "../../packages/apps/invocations/confirm.ts";
+import { confirmAction } from "../../packages/core/approvals/mod.ts";
+import { openConnection } from "../../packages/core/storage/ledger/mod.ts";
+import { existingAcceptance } from "../../packages/core/apps/invocations/confirm.ts";
 import type {
   ApprovalState,
   ConfirmApprovals,
-} from "../../packages/apps/connections/confirm-request.ts";
-import type { ConfirmAcceptances } from "../../packages/apps/connections/confirm.ts";
-import type { PairSource } from "../../packages/apps/connections/prepare.ts";
+} from "../../packages/core/apps/connections/confirm-request.ts";
+import type { ConfirmAcceptances } from "../../packages/core/apps/connections/confirm.ts";
+import type { PairSource } from "../../packages/core/apps/connections/prepare.ts";
 
 // 사람이 결정을 기다려 주는 기한이다. 지나면 approval은 만료다.
 export const CONFIRM_APPROVAL_TTL_MS = 10 * 60_000;

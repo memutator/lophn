@@ -11,14 +11,14 @@ import {
   coreFileWatchSchema,
   coreFileWindowSchema,
   type FileReadReply,
-} from "../../../packages/documents/file-tracking/file-ipc.ts";
-import { PREPARATION_OPS } from "../../../packages/documents/file-tracking/ipc.ts";
+} from "../../../packages/core/projects/file-tracking/file-ipc.ts";
+import { PREPARATION_OPS } from "../../../packages/core/projects/file-tracking/ipc.ts";
 import {
   fileStatusView,
   type StatusObservation,
   type StatusRecorder,
-} from "../../../packages/documents/file-tracking/status.ts";
-import { parseWorkingCopyMeta } from "../../../packages/documents/file-tracking/working-copy.ts";
+} from "../../../packages/core/projects/file-tracking/status.ts";
+import { parseWorkingCopyMeta } from "../../../packages/core/projects/file-tracking/working-copy.ts";
 import { type Locator, notAvailable } from "./files-locate.ts";
 import type { PreparationPool } from "./pool.ts";
 

@@ -11,14 +11,14 @@ import { routePath } from "../../packages/protocol/platform/mod.ts";
 import {
   checkMcpConfig,
   type McpConnectionsDeps,
-} from "../../packages/lophn-agent/extensions/mod.ts";
-import { spawnStdioMcp } from "../../packages/lophn-agent/extensions/mod.ts";
-import type { StdioSpawnInput } from "../../packages/lophn-agent/extensions/mod.ts";
+} from "../../packages/core/lophn-agent/extensions/mod.ts";
+import { spawnStdioMcp } from "../../packages/core/lophn-agent/extensions/mod.ts";
+import type { StdioSpawnInput } from "../../packages/core/lophn-agent/extensions/mod.ts";
 import { ok, type Result } from "../../packages/base/mod.ts";
 import { createMcpToolkit } from "./mcp-toolkit.ts";
 import type { CoreCall } from "./core-call.ts";
 import type { McpToolkit } from "./prepare.ts";
-import type { ToolDefinition } from "../../packages/lophn-agent/harness/tools/mod.ts";
+import type { ToolDefinition } from "../../packages/core/lophn-agent/tools/mod.ts";
 
 const clock = manualClock(0);
 

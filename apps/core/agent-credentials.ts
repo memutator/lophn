@@ -14,9 +14,9 @@ import {
   eventsList,
   routePath,
 } from "../../packages/protocol/platform/mod.ts";
-import { roleOperations } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
+import { roleOperations } from "../../packages/core/lophn-agent/run-loop/mod.ts";
 export { roleOperations };
-import type { AgentCredentialIssuer } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
+import type { AgentCredentialIssuer } from "../../packages/core/lophn-agent/run-loop/mod.ts";
 
 // agent runtime 감독 pipe의 agent credential 발급(lophn-agent/harness/run-loop). child가 보낸
 // 요청은 신뢰하지 않는다. run이 있고 진행 중이며 요청한 assignment의 것인지, 요청한 scope가

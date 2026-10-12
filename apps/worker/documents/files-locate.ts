@@ -3,12 +3,12 @@
 import { err, ok, type Result } from "../../../packages/base/mod.ts";
 import type { LophnError } from "../../../packages/base/mod.ts";
 import type { FileTarget } from "../../../packages/protocol/projects/mod.ts";
-import type { FileOps } from "../../../packages/documents/file-tracking/file-ops.ts";
-import type { FileLocation } from "../../../packages/documents/file-tracking/file-ipc.ts";
+import type { FileOps } from "../../../packages/core/projects/file-tracking/file-ops.ts";
+import type { FileLocation } from "../../../packages/core/projects/file-tracking/file-ipc.ts";
 import {
   type WorkingCopyLocation,
   workingCopyLocation,
-} from "../../../packages/documents/file-tracking/working-copy.ts";
+} from "../../../packages/core/projects/file-tracking/working-copy.ts";
 import type { BasisStore } from "./basis.ts";
 
 export function notAvailable(): Result<never, LophnError> {

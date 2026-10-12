@@ -9,7 +9,7 @@ import {
 import type {
   SessionConversation,
   SessionMessage,
-} from "../../packages/lophn-agent/harness/prompt-assemble/mod.ts";
+} from "../../packages/core/lophn-agent/prompt-assembly/mod.ts";
 import {
   type FoldedRange,
   foldsOf,
@@ -17,7 +17,7 @@ import {
   hiddenRangesOf,
   inHiddenRange,
   type RevertRow,
-} from "../../packages/lophn-agent/revert/mod.ts";
+} from "../../packages/core/lophn-agent/session/rewind/mod.ts";
 import { type CoreCall, readOf } from "./core-call.ts";
 
 // 새 run의 prompt가 쓰는 session의 이전 대화다(lophn-agent/harness/prompt-assemble R3, R23, R31). Compact한

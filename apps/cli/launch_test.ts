@@ -19,7 +19,7 @@ import { DETECTION_FALLBACK_DIRS } from "../../packages/coding-agent/harnesses/m
 import {
   cliLauncher,
   linuxInstallLayout,
-} from "../../packages/platform/install-and-update/mod.ts";
+} from "../../packages/core/install-and-update/mod.ts";
 import { planCliPermissions } from "./launch.ts";
 
 const CAC = "cac_01h455vb4pex5v6nkc6gd5fdw1";

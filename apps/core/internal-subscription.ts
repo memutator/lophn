@@ -16,7 +16,7 @@ import {
   createEventSession,
   type EventBackend,
   type EventSession,
-} from "../../packages/platform/ledger/mod.ts";
+} from "../../packages/core/storage/ledger/mod.ts";
 
 export type InternalSubscriptionDeps = {
   // ledger credential 기록에 있는 core 내부 machine 자격. principal과 credential_ref가 같다.

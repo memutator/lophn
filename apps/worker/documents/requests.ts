@@ -14,7 +14,7 @@ import {
   parseValidateFilesRequest,
   type StatusRecorder,
   type ValidateFilesRequest,
-} from "../../../packages/documents/file-tracking/mod.ts";
+} from "../../../packages/core/projects/file-tracking/mod.ts";
 import { ok, type Result } from "../../../packages/base/mod.ts";
 import type { LophnError } from "../../../packages/base/mod.ts";
 import type { BasisStore } from "./basis.ts";

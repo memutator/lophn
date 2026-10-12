@@ -15,9 +15,9 @@ import { BLOB_READ_MAX_BYTES } from "../../packages/protocol/platform/mod.ts";
 import {
   DOCUMENT_OPS,
   VALIDATE_INPUT_MAX_BYTES,
-} from "../../packages/documents/file-tracking/mod.ts";
-import { overLimitOutcome } from "../../packages/documents/formats/mod.ts";
-import type { ValidatePort } from "../../packages/documents/versions/work.ts";
+} from "../../packages/core/projects/file-tracking/mod.ts";
+import { overLimitOutcome } from "../../packages/core/projects/formats/mod.ts";
+import type { ValidatePort } from "../../packages/core/projects/versions/work.ts";
 
 export type ValidateDeps = {
   // I/O worker가 설치한 blob의 구간.

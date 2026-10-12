@@ -10,14 +10,14 @@ import {
   contextSeriesNextRoute,
 } from "../../packages/protocol/projects/mod.ts";
 import { routePath } from "../../packages/protocol/platform/mod.ts";
-import { roleOperations } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
+import { roleOperations } from "../../packages/core/lophn-agent/run-loop/mod.ts";
 import {
   BUILTIN_TOOLS,
   CONTEXT_ENGINEER_TOOL_NAMES,
   executeTool,
   runOperations,
   SERIES_NEXT_TOOL,
-} from "../../packages/lophn-agent/harness/tools/mod.ts";
+} from "../../packages/core/lophn-agent/tools/mod.ts";
 import { builtinBinding } from "./builtin-binding.ts";
 import type { CoreCall } from "./core-call.ts";
 import { createBuiltinToolkit } from "./toolkit.ts";

@@ -7,7 +7,7 @@ import type {
   ObservationRootBasis,
   ObserveDeps,
   ObserveRoot,
-} from "../../../packages/documents/file-tracking/mod.ts";
+} from "../../../packages/core/projects/file-tracking/mod.ts";
 import { ok } from "../../../packages/base/mod.ts";
 import { createBasisStore } from "./basis.ts";
 import { createRootObservers } from "./observers.ts";

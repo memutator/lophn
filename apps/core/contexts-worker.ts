@@ -42,14 +42,14 @@ import type {
 import type {
   CommandEnvelope,
   Writer,
-} from "../../packages/platform/ledger/mod.ts";
-import type { ReadHandler } from "../../packages/platform/api/mod.ts";
+} from "../../packages/core/storage/ledger/mod.ts";
+import type { ReadHandler } from "../../packages/core/server/mod.ts";
 import type {
   ChildCallbacks,
   StartResult,
-} from "../../packages/platform/responsiveness/mod.ts";
-import { pagePreview } from "../../packages/documents/contexts/mod.ts";
-import { checkLaunchSpec } from "../../packages/platform/security/mod.ts";
+} from "../../packages/core/supervision/responsiveness/mod.ts";
+import { pagePreview } from "../../packages/core/projects/contexts/mod.ts";
+import { checkLaunchSpec } from "../../packages/core/supervision/security/mod.ts";
 
 export const CONTEXTS_WORKER_KIND = "documents/contexts";
 

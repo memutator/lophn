@@ -9,8 +9,8 @@ import {
   type Frame,
   FrameDecoder,
 } from "../../../packages/protocol/platform/mod.ts";
-import type { Candidate } from "../../../packages/documents/file-tracking/mod.ts";
-import { createSupervisor } from "../../../packages/platform/responsiveness/mod.ts";
+import type { Candidate } from "../../../packages/core/projects/file-tracking/mod.ts";
+import { createSupervisor } from "../../../packages/core/supervision/responsiveness/mod.ts";
 import { createBatchDispatch } from "./batch.ts";
 import { createCoordinator } from "./coordinator.ts";
 import { preparationSpec } from "./launch.ts";

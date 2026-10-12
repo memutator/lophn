@@ -21,7 +21,7 @@ import {
   REPAIR_CONTEXT_ROUTES,
   SESSION_ROUTES,
 } from "../../packages/protocol/coding-agent/mod.ts";
-import type { ReaderRegistration } from "../../packages/platform/ledger/mod.ts";
+import type { ReaderRegistration } from "../../packages/core/storage/ledger/mod.ts";
 
 // owner definitions만 내보낸다. App 존재 lookup(apps)과 확인 창 소비는 core 조립이 준다.
 // 인증은 매 요청 auth port로 principal의 state·scope·digest를 읽는다.

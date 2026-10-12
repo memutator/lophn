@@ -17,8 +17,8 @@ import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.
 import {
   type CommandEnvelope,
   type Writer,
-} from "../../packages/platform/ledger/mod.ts";
-import type { KnownSecretMatch } from "../../packages/platform/ledger/mod.ts";
+} from "../../packages/core/storage/ledger/mod.ts";
+import type { KnownSecretMatch } from "../../packages/core/storage/ledger/mod.ts";
 import { createProductRedactor } from "./documents-redactor.ts";
 import { prepareBytes, rejected } from "./message-body.ts";
 import type { BodyPrepare } from "./message-body.ts";

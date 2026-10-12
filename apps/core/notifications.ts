@@ -6,8 +6,8 @@
 // 그 위치에서 멈춘 채 대기 뒤 같은 cursor부터 다시 읽는다. 전달 실패로 버리지 않는다(R4, R11).
 import type { Result } from "../../packages/base/mod.ts";
 import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
-import { notificationsEngine } from "../../packages/platform/notifications/mod.ts";
-import { openConnection } from "../../packages/platform/ledger/mod.ts";
+import { notificationsEngine } from "../../packages/core/notifications/mod.ts";
+import { openConnection } from "../../packages/core/storage/ledger/mod.ts";
 import {
   type InternalSubscription,
   openInternalSubscription,

@@ -1,5 +1,5 @@
-import { runAdmission } from "../../../packages/platform/ledger/mod.ts";
-import { createLedgerTestRegistration as createQuestionsRegistration } from "../../../packages/lophn-agent/questions/registration_test.ts";
+import { runAdmission } from "../../../packages/core/storage/ledger/mod.ts";
+import { createLedgerTestRegistration as createQuestionsRegistration } from "../../../packages/core/lophn-agent/tools/questions/registration_test.ts";
 import { defineTxPort, type LedgerTestRegistration } from "./ledger.ts";
 
 // 질문 등록에 platform의 run 판정 port를 더한 시험 등록. agent 자격의 command는 자격에

@@ -1,8 +1,8 @@
 import { assert, assertEquals, assertRejects, assertThrows } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { command, currentContext, runWith, traceName } from "./mod.ts";
-import { readSchedulePort } from "../../apps/invocations/mod.ts";
-import { ensureSchedulePort } from "../../apps/runtime/entrypoint/schedule.ts";
+import { readSchedulePort } from "../../core/apps/invocations/mod.ts";
+import { ensureSchedulePort } from "../../core/apps/runtime/entrypoint/schedule.ts";
 
 const context = {
   app: "app_01h455vb4pex5v6nkc6gd5fdw1",

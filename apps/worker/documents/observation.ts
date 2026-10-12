@@ -19,8 +19,8 @@ import {
   type StableOutcome,
   type StatusObservation,
   type StatusRecorder,
-} from "../../../packages/documents/file-tracking/mod.ts";
-import { PREPARATION_OPS } from "../../../packages/documents/file-tracking/ipc.ts";
+} from "../../../packages/core/projects/file-tracking/mod.ts";
+import { PREPARATION_OPS } from "../../../packages/core/projects/file-tracking/ipc.ts";
 import type { BasisStore } from "./basis.ts";
 import type { PreparationPool } from "./pool.ts";
 import type { CoreClient } from "./submit.ts";

@@ -12,7 +12,7 @@ import type { requestTest } from "../../packages/protocol/problems/mod.ts";
 import {
   defineTxPort,
   type TxPortRegistration,
-} from "../../packages/platform/ledger/mod.ts";
+} from "../../packages/core/storage/ledger/mod.ts";
 import {
   type PreparedAdmission,
   productAdmission,
@@ -20,8 +20,8 @@ import {
   TEST_RUNNER_PRINCIPAL,
   testAdmissionPort,
   testEvidencePort,
-} from "../../packages/problems/tests/mod.ts";
-import { lookupAppRegistration } from "../../packages/apps/registration/mod.ts";
+} from "../../packages/core/problems/tests/mod.ts";
+import { lookupAppRegistration } from "../../packages/core/apps/registration/mod.ts";
 
 type Row = Record<string, unknown> | undefined;
 

@@ -11,7 +11,7 @@ import type {
   WorkerRequest,
   WorkerResponse,
 } from "../../packages/protocol/platform/mod.ts";
-import { filesHash } from "../../packages/documents/versions/mod.ts";
+import { filesHash } from "../../packages/core/projects/versions/mod.ts";
 import { canonicalFilesHash } from "../../packages/coding-agent/connection/mod.ts";
 import { formatValidateRoute } from "./documents-format-validate.ts";
 

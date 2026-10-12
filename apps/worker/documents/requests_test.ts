@@ -4,7 +4,7 @@ import {
   createStatusRecorder,
   DOCUMENT_OPS,
   VALIDATE_INPUT_MAX_BYTES,
-} from "../../../packages/documents/file-tracking/mod.ts";
+} from "../../../packages/core/projects/file-tracking/mod.ts";
 import { createRequestHandler, type RequestDeps } from "./requests.ts";
 import { createBasisStore } from "./basis.ts";
 import { err, ok } from "../../../packages/base/mod.ts";

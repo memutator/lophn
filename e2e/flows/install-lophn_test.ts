@@ -11,7 +11,7 @@
 // 이미 만든 .deb를 쓰려면 `LOPHN_E2E_DEB=<파일>`을 준다(없으면 tools/package-linux.ts로 임시 폴더에 만든다).
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 
-import { checkSandboxFile } from "../../packages/platform/install-and-update/mod.ts";
+import { checkSandboxFile } from "../../packages/core/install-and-update/mod.ts";
 import { displayAvailable } from "../harness.ts";
 
 const repoRoot = new URL("../../", import.meta.url).pathname.replace(/\/$/, "");

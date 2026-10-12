@@ -8,21 +8,21 @@ import {
   seededRandom,
 } from "../../../packages/base/mod.ts";
 import type { AuthenticatedContext } from "../../../packages/protocol/platform/mod.ts";
-import { SETTINGS_SCHEMA_STEPS } from "../../../packages/platform/settings/mod.ts";
-import { applyMigrations } from "../../../packages/platform/backup-and-migration/mod.ts";
+import { SETTINGS_SCHEMA_STEPS } from "../../../packages/core/config/mod.ts";
+import { applyMigrations } from "../../../packages/core/storage/migration/mod.ts";
 import {
   LEDGER_SCHEMA_STEPS,
   openConnection,
   runCommand,
-} from "../../../packages/platform/ledger/mod.ts";
+} from "../../../packages/core/storage/ledger/mod.ts";
 import {
   assignmentSchemaSteps,
   createAssignmentCommands,
-} from "../../../packages/lophn-agent/assignments/mod.ts";
+} from "../../../packages/core/lophn-agent/assignments/mod.ts";
 import {
   createRunCommands,
   runSchemaSteps,
-} from "../../../packages/lophn-agent/harness/run-loop/mod.ts";
+} from "../../../packages/core/lophn-agent/run-loop/mod.ts";
 
 // run ledger 통합 테스트. 명령마다 새 connection으로 실행하고 commit 직후 닫아
 // (kill과 같다) 다시 연 파일에서 저장된 사실을 관측한다. harness로는 닫고 다시

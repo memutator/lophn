@@ -36,7 +36,7 @@ import { REDACTION_REPLACEMENT } from "../../packages/protocol/platform/mod.ts";
 import {
   createKnownSecretRegistry,
   createRedactionStream,
-} from "../../packages/platform/redaction/mod.ts";
+} from "../../packages/base/redaction/mod.ts";
 import { candidateOf, commandNameOf, inputOf } from "./invocation.ts";
 import {
   actorOf,

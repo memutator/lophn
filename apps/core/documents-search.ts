@@ -17,8 +17,8 @@ import {
   SEARCH_CONSUMED_EVENTS,
   SEARCH_OPS,
   type SearchExtractionRequest,
-} from "../../packages/documents/outline-and-search/mod.ts";
-import type { EventBackend } from "../../packages/platform/ledger/mod.ts";
+} from "../../packages/core/projects/outline-and-search/mod.ts";
+import type { EventBackend } from "../../packages/core/storage/ledger/mod.ts";
 import type { Streamer } from "./documents-validate.ts";
 
 // 저장 판의 추출 입력. ledger 판 행과 파일 목록이다.

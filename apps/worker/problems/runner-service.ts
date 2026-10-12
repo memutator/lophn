@@ -18,26 +18,26 @@ import {
   type FrozenTest,
   frozenTestSchema,
 } from "../../../packages/protocol/problems/mod.ts";
-import { objectPathFor } from "../../../packages/platform/blob-store/mod.ts";
+import { objectPathFor } from "../../../packages/core/storage/blobs/mod.ts";
 import {
   type ChildSession,
   type ChildStreams,
   startChild,
-} from "../../../packages/platform/responsiveness/mod.ts";
+} from "../../../packages/core/supervision/responsiveness/mod.ts";
 import {
   createWorkPorts,
   type WorkClientOptions,
-} from "../../../packages/problems/grouping/adapters/core-client.ts";
+} from "../../../packages/core/problems/grouping/adapters/core-client.ts";
 import {
   reactWork,
   type WorkReactionPorts,
-} from "../../../packages/problems/grouping/work.ts";
+} from "../../../packages/core/problems/grouping/work.ts";
 import {
   type ClosingClientOptions,
   type ClosingReactionPorts,
   createClosingPorts,
-} from "../../../packages/problems/closing/adapters/core-client.ts";
-import { reactClosing } from "../../../packages/problems/closing/work.ts";
+} from "../../../packages/core/problems/closing/adapters/core-client.ts";
+import { reactClosing } from "../../../packages/core/problems/closing/work.ts";
 import {
   blobPurpose,
   buildRecord,
@@ -51,9 +51,9 @@ import {
   TEST_RUNNER_PRINCIPAL,
   type TestConnection,
   verificationIdFor,
-} from "../../../packages/problems/tests/mod.ts";
+} from "../../../packages/core/problems/tests/mod.ts";
 import { sha256Hex } from "../../../packages/base/mod.ts";
-import { canonicalHash } from "../../../packages/problems/tests/canonical.ts";
+import { canonicalHash } from "../../../packages/core/problems/tests/canonical.ts";
 import {
   PROBLEMS_CLOSING_OP,
   PROBLEMS_WORK_OP,

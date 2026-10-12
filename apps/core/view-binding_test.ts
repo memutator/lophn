@@ -12,9 +12,9 @@ import type {
   WorkerResponse,
 } from "../../packages/protocol/platform/mod.ts";
 import { manualClock, ok, seededRandom } from "../../packages/base/mod.ts";
-import { createCoreSigner } from "../../packages/apps/runtime/signing.ts";
-import { launchArgv } from "../../packages/platform/security/mod.ts";
-import type { WorkerRouteTarget } from "../../packages/platform/responsiveness/mod.ts";
+import { createCoreSigner } from "../../packages/core/apps/runtime/signing.ts";
+import { launchArgv } from "../../packages/core/supervision/security/mod.ts";
+import type { WorkerRouteTarget } from "../../packages/core/supervision/responsiveness/mod.ts";
 import { COLLECTOR_KIND, reportCollectorSpec } from "./problems-runner.ts";
 import { startCore } from "./core.ts";
 import { problemsReportDefinitions } from "./problems.ts";

@@ -9,7 +9,7 @@ import {
   commandResultRead,
   createListEventsRead,
   type ReaderRegistration,
-} from "../../packages/platform/ledger/mod.ts";
+} from "../../packages/core/storage/ledger/mod.ts";
 
 // reader Worker가 이 모듈을 먼저 import한다. 팀 read는 core가 API read로 붙인다.
 // event 조회는 ledger의 credential 기록으로 제출 context를 다시 검증한다.

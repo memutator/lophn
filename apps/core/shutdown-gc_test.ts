@@ -10,7 +10,7 @@ import { manualClock, seededRandom } from "../../packages/base/mod.ts";
 import { BLOB_UNREFERENCED_GRACE_MS } from "../../packages/protocol/platform/mod.ts";
 import { startCore } from "./core.ts";
 import { createCoreRegistration } from "./testing/blob-registration.ts";
-import { acquireInstanceLock } from "../../packages/platform/install-and-update/mod.ts";
+import { acquireInstanceLock } from "../../packages/core/install-and-update/mod.ts";
 
 const BODY = new TextEncoder().encode("blob body");
 const NOW = Date.UTC(2024, 0, 1);

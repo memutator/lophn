@@ -8,7 +8,7 @@ import {
 import {
   type ChildSession,
   startChild,
-} from "../../packages/platform/responsiveness/mod.ts";
+} from "../../packages/core/supervision/responsiveness/mod.ts";
 import {
   type CoreRead,
   createRunCredentials,
@@ -18,7 +18,7 @@ import {
   SELECTOR_READ_ROUTES,
   startRuntime,
   type Startup,
-} from "../../packages/lophn-agent/harness/run-loop/mod.ts";
+} from "../../packages/core/lophn-agent/run-loop/mod.ts";
 import {
   type CatalogRefresherHandle,
   startCatalogRefresher,
@@ -30,9 +30,9 @@ import { createCredentialLink } from "./credential-link.ts";
 import { createRedactLink, type Redactor } from "./redact-link.ts";
 import { createSecretLink } from "./secret-link.ts";
 import { startMcpAuthPump } from "./mcp-auth-pump.ts";
-import type { SecretAttachLike } from "../../packages/lophn-agent/harness/provider/mod.ts";
+import type { SecretAttachLike } from "../../packages/core/lophn-agent/providers/mod.ts";
 import { redact } from "./redact.ts";
-import { roleOperations } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
+import { roleOperations } from "../../packages/core/lophn-agent/run-loop/mod.ts";
 export { redact };
 import type { Compactor } from "./compact.ts";
 import { productDriver, startRunPump } from "./product-driver.ts";

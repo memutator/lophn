@@ -4,14 +4,14 @@
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { ok } from "../../packages/base/mod.ts";
-import type { KnownSecretChannel } from "../../packages/platform/ledger/mod.ts";
+import type { KnownSecretChannel } from "../../packages/core/storage/ledger/mod.ts";
 import {
   createFakeKeychain,
   type FakeKeychain,
   type KeychainAdapter,
   SECRET_SCHEMA_STEPS,
   type SecretRefSource,
-} from "../../packages/platform/secrets/mod.ts";
+} from "../../packages/core/secrets/mod.ts";
 import { receiveMessage } from "../../packages/protocol/lophn-agent/mod.ts";
 import { openSecretStore, withSecretSync } from "./secret-store.ts";
 import { createMessageBodyPreparer } from "./message-body.ts";

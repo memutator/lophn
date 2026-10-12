@@ -6,9 +6,9 @@
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
-import { prepareFromSource } from "../../packages/apps/releases/prepare/from-source.ts";
-import { installedHome } from "../../packages/apps/sdk/testing/mod.ts";
-import { deriveAppTest } from "../../packages/problems/tests/mod.ts";
+import { prepareFromSource } from "../../packages/core/apps/releases/prepare/from-source.ts";
+import { installedHome } from "../../packages/core/apps/packages/testing/mod.ts";
+import { deriveAppTest } from "../../packages/core/problems/tests/mod.ts";
 import { createLedgerRegistration as createAppsRegistration } from "./apps.ts";
 import { createLedgerRegistration as createDocumentsRegistration } from "./documents.ts";
 import { lophnAgentDefinitions } from "./lophn-agent.ts";

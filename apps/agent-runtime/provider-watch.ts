@@ -1,6 +1,6 @@
 import { err, ok, type Result } from "../../packages/base/mod.ts";
 import { eventsList } from "../../packages/protocol/platform/mod.ts";
-import type { CoreRead } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
+import type { CoreRead } from "../../packages/core/lophn-agent/run-loop/mod.ts";
 
 // Disconnect한 provider로 진행 중인 run을 멈추게 하는 눈이다(lophn-agent/harness/provider#R4, R6).
 // core의 ProviderDisconnected event를 cursor 뒤로 읽어 provider마다 회수를 알린다. runtime은 ledger를 읽기만

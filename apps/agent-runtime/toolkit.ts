@@ -13,7 +13,7 @@ import {
   createBuiltinToolHandlers,
   createContextLookupToolHandlers,
   type ToolHandler,
-} from "../../packages/lophn-agent/harness/tools/mod.ts";
+} from "../../packages/core/lophn-agent/tools/mod.ts";
 import { type CoreCall, readOf } from "./core-call.ts";
 import { builtinBinding } from "./builtin-binding.ts";
 import { renderContextMaterial } from "./context-overview.ts";

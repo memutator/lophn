@@ -6,11 +6,11 @@ import {
   type ChildSession,
   type ChildStreams,
   startChild,
-} from "../../../packages/platform/responsiveness/mod.ts";
+} from "../../../packages/core/supervision/responsiveness/mod.ts";
 import {
   prepareRelease,
   type PrepareReleaseInput,
-} from "../../../packages/apps/releases/mod.ts";
+} from "../../../packages/core/apps/releases/mod.ts";
 
 export const RELEASE_WORKER_KIND = "apps/release";
 

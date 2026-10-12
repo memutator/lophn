@@ -14,11 +14,11 @@ import { authenticatedContextSchema } from "../../packages/protocol/platform/mod
 import type {
   MemoryHandler,
   ReadHandler,
-} from "../../packages/platform/api/mod.ts";
+} from "../../packages/core/server/mod.ts";
 import {
   createWorkspaceRelay,
   type WorkspaceRelay,
-} from "../../packages/platform/api/mod.ts";
+} from "../../packages/core/server/mod.ts";
 import {
   type DiagnosticListSource,
   diagnosticsCheckRead,
@@ -26,7 +26,7 @@ import {
   type DoctorSource,
   platformStatusReads,
   type StatusSource,
-} from "../../packages/platform/diagnostics/mod.ts";
+} from "../../packages/core/diagnostics/mod.ts";
 import {
   createEventDispatcher,
   createReaderEventBackend,
@@ -38,11 +38,11 @@ import {
   type ReaderPool,
   type SubscriptionStore,
   type Writer,
-} from "../../packages/platform/ledger/mod.ts";
+} from "../../packages/core/storage/ledger/mod.ts";
 import type {
   WriterRequest,
   WriterResponse,
-} from "../../packages/platform/ledger/writer-message.ts";
+} from "../../packages/core/storage/ledger/writer-message.ts";
 import type {
   BlobFieldDefinition,
   BlobReadInput,
@@ -52,33 +52,33 @@ import type {
 import {
   finishBlobRead,
   planBlobRead,
-} from "../../packages/platform/blob-store/mod.ts";
+} from "../../packages/core/storage/blobs/mod.ts";
 import {
   findBackup,
   listBackups,
-} from "../../packages/platform/backup-and-migration/mod.ts";
+} from "../../packages/core/storage/migration/mod.ts";
 import {
   authorize,
   CONDITION_TARGET_KEYS,
-} from "../../packages/platform/identity/mod.ts";
+} from "../../packages/core/server/identity/mod.ts";
 import { packagesGuideBody } from "../../packages/protocol/apps/mod.ts";
 import { getReport, reportBody } from "../../packages/protocol/problems/mod.ts";
 import {
   PACKAGE_GUIDE_BLOB_FIELD_NAME,
   PACKAGE_GUIDE_BLOB_OWNER_KIND,
   packageGuideOwnerKey,
-} from "../../packages/apps/sdk/blobs.ts";
+} from "../../packages/core/apps/packages/blobs.ts";
 import {
   interruptedFinish,
   INVOCATION_RECOVERY_CONTEXT,
-} from "../../packages/apps/invocations/restart.ts";
+} from "../../packages/core/apps/invocations/restart.ts";
 import { createNotificationDelivery } from "./notification-delivery.ts";
 import { createProductRedactor } from "./documents-redactor.ts";
 import { APPROVAL_EXPIRY_CONTEXT } from "./platform.ts";
 import type { Assembled } from "./registration.ts";
-import { PROVIDER_SECRET_OWNER } from "../../packages/lophn-agent/harness/provider/mod.ts";
+import { PROVIDER_SECRET_OWNER } from "../../packages/core/lophn-agent/providers/mod.ts";
 import { openSecretStore, withSecretSync } from "./secret-store.ts";
-import type { KeychainAdapter } from "../../packages/platform/secrets/mod.ts";
+import type { KeychainAdapter } from "../../packages/core/secrets/mod.ts";
 
 export type CoreRuntime = {
   writer: Writer;

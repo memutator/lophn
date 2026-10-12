@@ -14,7 +14,7 @@ import type {
   KindLaunchSpec,
 } from "../../packages/protocol/platform/mod.ts";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
-import { launchArgv } from "../../packages/platform/security/mod.ts";
+import { launchArgv } from "../../packages/core/supervision/security/mod.ts";
 import { COLLECTOR_KIND, reportCollectorSpec } from "./problems-runner.ts";
 import { startCore } from "./core.ts";
 import { problemsReportDefinitions } from "./problems.ts";

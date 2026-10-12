@@ -45,7 +45,7 @@ const HANDED = "These files need fixing, not the contract.";
 const EDITED = "eval/experiments/exp-002-sight.md";
 
 const EVAL_PROJECT = new URL(
-  "../../packages/documents/contexts/testdata/eval-project/",
+  "../../packages/core/projects/contexts/testdata/eval-project/",
   import.meta.url,
 );
 const CONTRACT = new URL(

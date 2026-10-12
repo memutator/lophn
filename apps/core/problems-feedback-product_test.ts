@@ -13,7 +13,7 @@ import {
   rpt,
   sha256,
   view,
-} from "../../packages/problems/feedback/testing/mod.ts";
+} from "../../packages/core/problems/feedback/testing/mod.ts";
 import { startCore } from "./core.ts";
 import { problemsReportDefinitions } from "./problems.ts";
 

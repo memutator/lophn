@@ -4,7 +4,7 @@ import { assert, assertEquals } from "@std/assert";
 import type {
   ObservationBasisChunk,
   ObservationLinkBasis,
-} from "../../../packages/documents/file-tracking/mod.ts";
+} from "../../../packages/core/projects/file-tracking/mod.ts";
 import { createBasisStore } from "./basis.ts";
 
 const PROJECT = "prj_01arz3ndektsv4rrffq69g5fav";

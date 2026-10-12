@@ -1,12 +1,12 @@
 // release 준비를 권한 좁은 별도 Deno 자식으로 돌리는 runner(apps/releases#R1, R19). 실제 git source,
 // 실제 설치 SDK 사본, 실제 자식 프로세스를 쓴다. 사람 데이터 root는 열지 않고 temp lophn home만 쓴다.
 import { assert, assertEquals } from "@std/assert";
-import { createPreparationService } from "../../packages/apps/releases/preparation.ts";
+import { createPreparationService } from "../../packages/core/apps/releases/preparation.ts";
 import {
   installedHome,
   removeTree,
   scaffoldInto,
-} from "../../packages/apps/sdk/testing/mod.ts";
+} from "../../packages/core/apps/packages/testing/mod.ts";
 import { createChildPreparationRunner } from "./release-runner.ts";
 
 const APP = "app_01aryz6s41s4z4k7p41s4z4k7p";

@@ -7,12 +7,12 @@ import { assert, assertEquals } from "@std/assert";
 import {
   openWorld,
   type World,
-} from "../../packages/apps/runtime/world_test.ts";
+} from "../../packages/core/apps/runtime/world_test.ts";
 import {
   installedHome,
   removeTree,
   scaffoldInto,
-} from "../../packages/apps/sdk/testing/mod.ts";
+} from "../../packages/core/apps/packages/testing/mod.ts";
 import { createLedgerRegistration as createProblemsRegistration } from "./problems.ts";
 import { codingAgentConnectionDefinitions } from "./coding-agent.ts";
 import { problemsTestDefinitions } from "./problems.ts";

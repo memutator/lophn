@@ -7,15 +7,15 @@ import type {
 import {
   anthropicSystem,
   anthropicTools,
-} from "../../packages/lophn-agent/harness/prompt-assemble/mod.ts";
+} from "../../packages/core/lophn-agent/prompt-assembly/mod.ts";
 import {
   createRunCredentials,
   type LoopDeps,
   type RunPorts,
   type Selection,
-} from "../../packages/lophn-agent/harness/run-loop/mod.ts";
+} from "../../packages/core/lophn-agent/run-loop/mod.ts";
 import { createCredentialLink } from "./credential-link.ts";
-import { OPTION_ACTION_OPERATIONS } from "../../packages/lophn-agent/questions/mod.ts";
+import { OPTION_ACTION_OPERATIONS } from "../../packages/core/lophn-agent/tools/questions/mod.ts";
 import { RUNTIME_MACHINE_OPERATIONS } from "./core-http.ts";
 import { createRunDriver } from "./run-driver.ts";
 import { createContractCall } from "./toolkit.ts";

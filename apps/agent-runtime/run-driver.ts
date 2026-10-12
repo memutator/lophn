@@ -1,5 +1,5 @@
 import { ok, type Result } from "../../packages/base/mod.ts";
-import type { RecoveryOutcome } from "../../packages/lophn-agent/harness/waiting-and-recovery/mod.ts";
+import type { RecoveryOutcome } from "../../packages/core/lophn-agent/waiting-and-recovery/mod.ts";
 import {
   type AgentRunCredential,
   beginRun,
@@ -14,7 +14,7 @@ import {
   startRunLoop,
   type StartRunResult,
   type StopReason,
-} from "../../packages/lophn-agent/harness/run-loop/mod.ts";
+} from "../../packages/core/lophn-agent/run-loop/mod.ts";
 
 // 고른 run을 시작하고 loop를 돌리는 연결(lophn-agent/harness/run-loop). selector가 고른 run을
 // StartRun으로 확정한 뒤 `agent:<asg>` credential을 받아 loop에 넘기고, run이 끝나거나 멈추거나

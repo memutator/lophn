@@ -19,14 +19,14 @@ import {
 import {
   confirmationBridge,
   ConfirmationRegistry,
-} from "../../../packages/platform/identity/mod.ts";
+} from "../../../packages/core/server/identity/mod.ts";
 import {
   LEDGER_COMMANDS,
   LEDGER_SCHEMA_STEPS,
   type TxPortRegistration,
   type WriterRegistration,
-} from "../../../packages/platform/ledger/mod.ts";
-import { readKey } from "../../../packages/platform/ledger/reads.ts";
+} from "../../../packages/core/storage/ledger/mod.ts";
+import { readKey } from "../../../packages/core/storage/ledger/reads.ts";
 import type {
   LedgerTestRegistration,
   LedgerTestRegistrationModule,

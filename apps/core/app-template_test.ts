@@ -6,24 +6,24 @@ import { sha256Hex } from "../../packages/base/mod.ts";
 import {
   prepareRelease,
   verifySealedPermissions,
-} from "../../packages/apps/releases/mod.ts";
+} from "../../packages/core/apps/releases/mod.ts";
 import {
   bundleScreenFiles,
   screenContentType,
-} from "../../packages/apps/runtime/entrypoint/screen-files.ts";
+} from "../../packages/core/apps/runtime/entrypoint/screen-files.ts";
 import {
   generateAppTestChecks,
   loadSources,
   scanCodeUsage,
   sdkDependenciesHash,
-} from "../../packages/problems/tests/mod.ts";
+} from "../../packages/core/problems/tests/mod.ts";
 import {
   APP_TEST_ARGS,
   deno,
   installedHome,
   removeTree,
   scaffoldInto,
-} from "../../packages/apps/sdk/testing/mod.ts";
+} from "../../packages/core/apps/packages/testing/mod.ts";
 
 const APP = "app_01aryz6s41s4z4k7p41s4z4k7p";
 const IMPORT_MAP = "--import-map=.lophn/import-map.json";

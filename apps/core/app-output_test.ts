@@ -12,8 +12,8 @@ import {
   type AppOutputFile,
   createAppDocumentsSave,
   type DocumentsSave,
-} from "../../packages/apps/permissions/mod.ts";
-import { BUILTIN_MODULE_HASH } from "../../packages/documents/formats/guest/module-hash.ts";
+} from "../../packages/core/apps/permissions/mod.ts";
+import { BUILTIN_MODULE_HASH } from "../../packages/core/projects/formats/guest/module-hash.ts";
 import { type Core, startCore } from "./core.ts";
 import type { TeamModule } from "./registration.ts";
 import { createLedgerRegistration as createDocumentsRegistration } from "./documents.ts";

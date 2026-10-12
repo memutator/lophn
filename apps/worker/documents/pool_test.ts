@@ -6,7 +6,7 @@ import type {
 import type {
   ChildCallbacks,
   Supervisor,
-} from "../../../packages/platform/responsiveness/mod.ts";
+} from "../../../packages/core/supervision/responsiveness/mod.ts";
 import { createPreparationPool, PREPARATION_KIND } from "./pool.ts";
 
 function spec(name: string): KindLaunchSpec {
@@ -106,7 +106,7 @@ function fakeSupervisors(behavior: Behavior = {}) {
       },
     };
     return supervisor as unknown as Supervisor;
-  }) as unknown as typeof import("../../../packages/platform/responsiveness/mod.ts").createSupervisor;
+  }) as unknown as typeof import("../../../packages/core/supervision/responsiveness/mod.ts").createSupervisor;
   return {
     create,
     supervisors,

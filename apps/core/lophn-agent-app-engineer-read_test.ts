@@ -21,10 +21,10 @@ import {
 } from "../../packages/protocol/projects/mod.ts";
 import { AGENT_RUNTIME_PRINCIPAL } from "../../packages/protocol/lophn-agent/mod.ts";
 import { routePath } from "../../packages/protocol/platform/mod.ts";
-import { operationCeiling } from "../../packages/platform/identity/mod.ts";
+import { operationCeiling } from "../../packages/core/server/identity/mod.ts";
 import { agentRuntimePolicies } from "./agent-runtime.ts";
-import { evalContent } from "../../packages/documents/contexts/api/testing.ts";
-import { openIndexStore } from "../../packages/documents/contexts/index/mod.ts";
+import { evalContent } from "../../packages/core/projects/contexts/api/testing.ts";
+import { openIndexStore } from "../../packages/core/projects/contexts/index/mod.ts";
 import { contextWorkerCredential } from "./contexts-api.ts";
 import { agentConditions, roleOperations } from "./agent-credentials.ts";
 import { saveFromPaths } from "../../packages/coding-agent/connection/mod.ts";

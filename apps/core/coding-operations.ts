@@ -1,4 +1,4 @@
-import type { OperationPolicy } from "../../packages/platform/identity/mod.ts";
+import type { OperationPolicy } from "../../packages/core/server/identity/mod.ts";
 
 // 어떤 coding agent 통로도 approval 결정·grant 변경·secret 값·운영 backup·원본 임의 파일 접근·
 // machine test result 작성을 제공하지 않는다(docs/architecture/coding-agent.md §1, §4 approval은

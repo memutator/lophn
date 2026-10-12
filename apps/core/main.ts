@@ -17,7 +17,7 @@ import { productKeychain } from "./secret-store.ts";
 import {
   credentialLoaderIdentity,
   serveCredentialSocket,
-} from "../../packages/platform/install-and-update/mod.ts";
+} from "../../packages/core/install-and-update/mod.ts";
 
 // 최상위 팀마다 등록 파일 하나. main은 이 목록만 부른다.
 const TEAMS = [

@@ -5,10 +5,10 @@ import { createCoreHarness } from "../../../apps/core/testing/core.ts";
 import type { TeamModule } from "../../../apps/core/registration.ts";
 import { createLedgerRegistration as createAppsRegistration } from "../../../apps/core/apps.ts";
 import { createLedgerRegistration as createDocumentsRegistration } from "../../../apps/core/documents.ts";
-import { installPackage } from "../../apps/sdk/install.ts";
+import { installPackage } from "../../core/apps/packages/install.ts";
 import {
   BUILTIN_MODULE_HASH,
-} from "../../../packages/documents/formats/guest/module-hash.ts";
+} from "../../core/projects/formats/guest/module-hash.ts";
 import { DOCUMENT_MODULE_HASH, documentFormat } from "./mod.ts";
 
 // catalog command는 apps 팀이, format read는 documents 팀이 붙인다.

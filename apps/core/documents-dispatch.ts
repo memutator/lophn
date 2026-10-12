@@ -6,7 +6,7 @@ import {
   type RequestPayload,
   sendPreparationRequest,
   SUBMIT_CONCURRENCY,
-} from "../../packages/documents/file-tracking/mod.ts";
+} from "../../packages/core/projects/file-tracking/mod.ts";
 
 export type DispatchRequest = {
   request_id: string;

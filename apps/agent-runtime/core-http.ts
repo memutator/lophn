@@ -1,14 +1,14 @@
 import { err, ok, type Result } from "../../packages/base/mod.ts";
 import {
   RUNTIME_MACHINE_ROUTES,
-} from "../../packages/lophn-agent/harness/run-loop/mod.ts";
+} from "../../packages/core/lophn-agent/run-loop/mod.ts";
 import { API_MAJOR, routePath } from "../../packages/protocol/platform/mod.ts";
 import type { CoreCall } from "./core-call.ts";
 
 export {
   RUNTIME_MACHINE_OPERATIONS,
   RUNTIME_MACHINE_ROUTES,
-} from "../../packages/lophn-agent/harness/run-loop/mod.ts";
+} from "../../packages/core/lophn-agent/run-loop/mod.ts";
 
 const MACHINE_PATHS: ReadonlySet<string> = new Set(
   RUNTIME_MACHINE_ROUTES.map((route) => routePath(route)),

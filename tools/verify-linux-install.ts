@@ -13,7 +13,7 @@ import {
   credentialSocketPath,
   linuxInstallLayout,
   linuxProcReader,
-} from "../packages/platform/install-and-update/mod.ts";
+} from "../packages/core/install-and-update/mod.ts";
 
 type Verdict = "pass" | "fail" | "unverified";
 const results: { name: string; verdict: Verdict; note: string }[] = [];

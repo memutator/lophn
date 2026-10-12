@@ -27,7 +27,7 @@ import {
   contextsLedgerSchemaSteps,
   contextWorkInputRead,
   contextWorkListRead,
-} from "../../packages/documents/contexts/mod.ts";
+} from "../../packages/core/projects/contexts/mod.ts";
 
 // content blob(BundleContent JSON, 위반 넘김 근거와 그 요청 글)의 영구 참조. owner_key는 blob의 hash다:
 // 내용으로 주소를 정한 값이라 같은 내용은 한 참조다. 일반 blob 읽기로는 열지 않는다(context 읽기가 연다).

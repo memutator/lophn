@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { validateDefinition } from "../../packages/platform/settings/mod.ts";
+import { validateDefinition } from "../../packages/core/config/mod.ts";
 import { tokens } from "../../packages/design/tokens.ts";
 
 import { osNotificationsSetting, readingWidthSetting } from "./shell.ts";

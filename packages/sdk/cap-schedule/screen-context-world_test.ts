@@ -19,7 +19,7 @@ import {
   grant,
   openWorld,
   type World,
-} from "../../apps/runtime/world_test.ts";
+} from "../../core/apps/runtime/world_test.ts";
 
 const ASSIGNMENT = "asg_01arz3ndektsv4rrffq69g5fav";
 const RUN = "run_01arz3ndektsv4rrffq69g5fav";

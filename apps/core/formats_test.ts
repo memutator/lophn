@@ -4,7 +4,7 @@ import { assert, assertEquals } from "@std/assert";
 import { type CoreHarness, createCoreHarness } from "./testing/core.ts";
 import type { TeamModule } from "./registration.ts";
 import { createLedgerRegistration } from "./documents.ts";
-import { BUILTIN_MODULE_HASH } from "../../packages/documents/formats/guest/module-hash.ts";
+import { BUILTIN_MODULE_HASH } from "../../packages/core/projects/formats/guest/module-hash.ts";
 
 const teams: TeamModule[] = [{ createLedgerRegistration }];
 

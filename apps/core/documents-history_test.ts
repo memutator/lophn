@@ -22,16 +22,16 @@ import {
   saveFromPaths,
   uploadPrepareBytes,
 } from "../../packages/coding-agent/connection/mod.ts";
-import { extractFormat } from "../../packages/documents/formats/guest.ts";
+import { extractFormat } from "../../packages/core/projects/formats/guest.ts";
 import {
   derivedPath,
   type DerivedStore,
   openDerived,
-} from "../../packages/documents/outline-and-search/adapters/store.ts";
+} from "../../packages/core/projects/outline-and-search/adapters/store.ts";
 import {
   type ExtractionRecord,
   recordExtraction,
-} from "../../packages/documents/outline-and-search/extraction.ts";
+} from "../../packages/core/projects/outline-and-search/extraction.ts";
 import { type Core, startCore } from "./core.ts";
 import type { TeamModule } from "./registration.ts";
 import { createLedgerRegistration } from "./documents.ts";

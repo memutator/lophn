@@ -6,7 +6,7 @@ import {
   createStatusRecorder,
   DOCUMENT_OPS,
   PREPARATION_OPS,
-} from "../../../packages/documents/file-tracking/mod.ts";
+} from "../../../packages/core/projects/file-tracking/mod.ts";
 import { createByteInbox } from "./byte-inbox.ts";
 import { createFileHandlers, type FilesDeps, recordKeyOf } from "./files.ts";
 import type { PoolRequest } from "./pool.ts";

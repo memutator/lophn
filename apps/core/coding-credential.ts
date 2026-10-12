@@ -27,19 +27,19 @@ import {
 import type {
   AuthenticatedContext,
 } from "../../packages/protocol/platform/mod.ts";
-import type { MemoryHandler } from "../../packages/platform/api/mod.ts";
-import type { Writer } from "../../packages/platform/ledger/mod.ts";
+import type { MemoryHandler } from "../../packages/core/server/mod.ts";
+import type { Writer } from "../../packages/core/storage/ledger/mod.ts";
 import {
   type CodingCredentialAuthority,
   codingExternalCredential,
   createCodingCredentialAuthority,
   type CredentialRegistry,
-} from "../../packages/platform/identity/mod.ts";
-import { openConnection } from "../../packages/platform/ledger/mod.ts";
+} from "../../packages/core/server/identity/mod.ts";
+import { openConnection } from "../../packages/core/storage/ledger/mod.ts";
 import {
   createCodingCredentialKeychain,
   type KeychainAdapter,
-} from "../../packages/platform/secrets/mod.ts";
+} from "../../packages/core/secrets/mod.ts";
 
 const CODING_REF_PREFIX = "coding:";
 

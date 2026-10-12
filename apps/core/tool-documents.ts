@@ -20,9 +20,9 @@ import type {
   WorkerRequest,
   WorkerResponse,
 } from "../../packages/protocol/platform/mod.ts";
-import type { WorkerRouteTarget } from "../../packages/platform/responsiveness/mod.ts";
-import type { KnownSecretMatch } from "../../packages/platform/ledger/mod.ts";
-import type { ValidatePort } from "../../packages/documents/versions/work.ts";
+import type { WorkerRouteTarget } from "../../packages/core/supervision/responsiveness/mod.ts";
+import type { KnownSecretMatch } from "../../packages/core/storage/ledger/mod.ts";
+import type { ValidatePort } from "../../packages/core/projects/versions/work.ts";
 import type { BlobPrepareCall } from "./core.ts";
 import type { PreparedRelayResult } from "./blob-prepare.ts";
 import { createProductRedactor } from "./documents-redactor.ts";

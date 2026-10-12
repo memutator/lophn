@@ -5,7 +5,7 @@ import { assert, assertEquals } from "@std/assert";
 import { err, ok } from "../../packages/base/mod.ts";
 import { FORMAT_CHECK_CONTENT_MAX_BYTES } from "../../packages/protocol/projects/mod.ts";
 import { BLOB_READ_MAX_BYTES } from "../../packages/protocol/platform/mod.ts";
-import { DOCUMENT_OPS } from "../../packages/documents/file-tracking/mod.ts";
+import { DOCUMENT_OPS } from "../../packages/core/projects/file-tracking/mod.ts";
 import { createValidatePort, type ValidateDeps } from "./documents-validate.ts";
 
 const HASH = "ab".repeat(32);

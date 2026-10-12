@@ -7,7 +7,7 @@ import {
   humanEdit,
   itemsOf,
   openEnv,
-} from "../../packages/lophn-agent/revert/testing/flow.ts";
+} from "../../packages/core/lophn-agent/session/rewind/testing/flow.ts";
 import {
   machineCtx,
   MSG,
@@ -15,7 +15,7 @@ import {
   RVT,
   TCL,
   writeProjectFile,
-} from "../../packages/lophn-agent/revert/testing/mod.ts";
+} from "../../packages/core/lophn-agent/session/rewind/testing/mod.ts";
 import { reconcileRewindInstalls } from "./rewind-recover.ts";
 
 // 시작 때 맞추기(lophn-agent/revert R17; agent-RW3d). command가 확정된 뒤 설치 전에 process가 죽어 ledger는

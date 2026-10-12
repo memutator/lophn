@@ -3,7 +3,7 @@
 import {
   createRedactionStream,
   type KnownSecretRegistry,
-} from "../../packages/platform/redaction/mod.ts";
+} from "../../packages/base/redaction/mod.ts";
 
 export function lineRedactor(
   registry: KnownSecretRegistry,

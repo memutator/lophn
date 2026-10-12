@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
-import { createLogBuffer } from "../../packages/apps/runtime/observations/log-buffer.ts";
-import { createKnownSecretRegistry } from "../../packages/platform/redaction/mod.ts";
+import { createLogBuffer } from "../../packages/core/apps/runtime/observations/log-buffer.ts";
+import { createKnownSecretRegistry } from "../../packages/base/redaction/mod.ts";
 import { lineRedactor } from "./log-redact.ts";
 
 const SECRET = "known-secret-value-4f9a2c7d";

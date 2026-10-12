@@ -13,7 +13,7 @@ import {
   type ChildSession,
   type ChildStreams,
   startChild,
-} from "../../../packages/platform/responsiveness/mod.ts";
+} from "../../../packages/core/supervision/responsiveness/mod.ts";
 import {
   type AppRevertBinding,
 } from "../../../packages/protocol/lophn-agent/mod.ts";
@@ -21,7 +21,7 @@ import {
   type CoreCall,
   createRuntimeClient,
   type DirectTransport,
-} from "../../../packages/apps/runtime/client/mod.ts";
+} from "../../../packages/core/apps/runtime/client/mod.ts";
 
 export const REVERT_WORKER_KIND = "apps/revert";
 // core가 감독 pipe로 보내는 호출 요청의 op. apps/core/revert-caller.ts와 같은 값이다.

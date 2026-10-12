@@ -1,5 +1,5 @@
 import type { Sql } from "../../packages/protocol/platform/mod.ts";
-import type { PreviewFact } from "../../packages/lophn-agent/revert/mod.ts";
+import type { PreviewFact } from "../../packages/core/lophn-agent/session/rewind/mod.ts";
 
 // rewind로 되돌려지지 않는 질문 답과 승인 결정이다(lophn-agent/revert "남는 사실", `answered_fact`). 숨기는
 // 구간에서 사람이 답한 질문 묶음과 허락·거절한 approval request가 있으면 한 줄씩 알린다. 질문과 approval의

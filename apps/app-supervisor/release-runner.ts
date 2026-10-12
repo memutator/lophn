@@ -7,11 +7,11 @@ import type {
   PreparationJob,
   PreparationOutcome,
   PreparationRunner,
-} from "../../packages/apps/releases/preparation.ts";
+} from "../../packages/core/apps/releases/preparation.ts";
 import {
   buildEnvironment,
   esbuildBinaries,
-} from "../../packages/apps/releases/ui-build/binaries.ts";
+} from "../../packages/core/apps/releases/ui-build/binaries.ts";
 import { RELEASE_PREPARATION_LIMIT_MS } from "../../packages/protocol/apps/mod.ts";
 
 const JOB = new URL("../worker/apps/release-job.ts", import.meta.url).pathname;

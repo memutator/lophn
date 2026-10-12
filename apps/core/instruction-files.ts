@@ -17,21 +17,21 @@ import type {
   ReadDefinition,
   ReadSnapshot,
 } from "../../packages/protocol/platform/mod.ts";
-import type { ReaderRegistration } from "../../packages/platform/ledger/mod.ts";
+import type { ReaderRegistration } from "../../packages/core/storage/ledger/mod.ts";
 import {
   agentFileName,
   createAgentStore,
   parseAgentFile,
-} from "../../packages/lophn-agent/agents/mod.ts";
-import { dataRootOf } from "../../packages/lophn-agent/agents/store.ts";
-import { createNodeAgentFiles } from "../../packages/lophn-agent/agents/adapters/node-fs.ts";
+} from "../../packages/core/lophn-agent/agents/mod.ts";
+import { dataRootOf } from "../../packages/core/lophn-agent/agents/store.ts";
+import { createNodeAgentFiles } from "../../packages/core/lophn-agent/agents/adapters/node-fs.ts";
 import {
   encodeInstructionFile,
   INSTRUCTION_FILE_MAX_BYTES,
   type InstructionFile,
   type InstructionLayerKind,
   previewInstruction,
-} from "../../packages/lophn-agent/instructions/mod.ts";
+} from "../../packages/core/lophn-agent/instructions/mod.ts";
 
 const FILE_NAME = "LOPHN.md";
 

@@ -12,7 +12,7 @@ import {
   sha256Hex,
   systemClock,
 } from "../../../packages/base/mod.ts";
-import type { Blueprint } from "../../../packages/apps/blueprint/mod.ts";
+import type { Blueprint } from "../../../packages/core/apps/blueprint/mod.ts";
 import {
   generateAppTestChecks,
   judgeReproduction,
@@ -24,7 +24,7 @@ import {
   sdkDependenciesHash,
   serveRpc,
   type SideRun,
-} from "../../../packages/problems/tests/mod.ts";
+} from "../../../packages/core/problems/tests/mod.ts";
 import { createRealAppDriver, type RealDriverInput } from "./app-driver.ts";
 import { acceptRun, platformMemory } from "./runner-core.ts";
 

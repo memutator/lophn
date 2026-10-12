@@ -9,7 +9,7 @@ import {
   filesDelete,
 } from "../../packages/protocol/projects/mod.ts";
 import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
-import { confirmationBinding } from "../../packages/platform/identity/mod.ts";
+import { confirmationBinding } from "../../packages/core/server/identity/mod.ts";
 import { type Core, startCore } from "./core.ts";
 import { createLedgerRegistration } from "./documents.ts";
 

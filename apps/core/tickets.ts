@@ -24,7 +24,7 @@ import {
 import type {
   EventRegistration,
   ReaderRegistration,
-} from "../../packages/platform/ledger/mod.ts";
+} from "../../packages/core/storage/ledger/mod.ts";
 import { notificationsOnlyVisibility } from "./platform.ts";
 import { ticketCheckFeedVisibility } from "./ticket-checker.ts";
 import {

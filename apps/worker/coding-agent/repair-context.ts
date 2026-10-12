@@ -32,7 +32,7 @@ import {
   type ChildSession,
   type ChildStreams,
   startChild,
-} from "../../../packages/platform/responsiveness/mod.ts";
+} from "../../../packages/core/supervision/responsiveness/mod.ts";
 import { createRedactLink } from "../../agent-runtime/redact-link.ts";
 import { acceptSessionSummary, SESSION_SUMMARY_OP } from "./session-summary.ts";
 

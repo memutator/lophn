@@ -12,18 +12,18 @@ import {
   type CredentialIssue,
   CredentialRegistry,
   type OperationPolicy,
-} from "../../packages/platform/identity/mod.ts";
+} from "../../packages/core/server/identity/mod.ts";
 import {
   type WorkerRouteHandle,
   type WorkerRouteTarget as ResponsivenessTarget,
-} from "../../packages/platform/responsiveness/mod.ts";
-import { startApiServer } from "../../packages/platform/api/mod.ts";
-import { RouteRegistry } from "../../packages/platform/api/routes.ts";
-import { call, value } from "../../packages/platform/api/harness_test.ts";
+} from "../../packages/core/supervision/responsiveness/mod.ts";
+import { startApiServer } from "../../packages/core/server/mod.ts";
+import { RouteRegistry } from "../../packages/core/server/routes.ts";
+import { call, value } from "../../packages/core/server/harness_test.ts";
 import {
   createPrepareAssembly,
   type PrepareDeps,
-} from "../../packages/documents/versions/work.ts";
+} from "../../packages/core/projects/versions/work.ts";
 
 const AT = "2026-10-04T00:00:00.000Z";
 const BUILTIN_MODULE_HASH =

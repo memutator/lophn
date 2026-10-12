@@ -4,8 +4,8 @@
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
 import type { EventEnvelope } from "../../packages/protocol/platform/mod.ts";
-import { directoryScanner } from "../../packages/documents/projects/scan.ts";
-import { previewTracking } from "../../packages/documents/projects/work.ts";
+import { directoryScanner } from "../../packages/core/projects/registry/scan.ts";
+import { previewTracking } from "../../packages/core/projects/registry/work.ts";
 import { type Core, startCore } from "./core.ts";
 import { createLedgerRegistration } from "./documents.ts";
 import { DOCUMENTS_FEED_PRINCIPAL } from "./documents-events.ts";

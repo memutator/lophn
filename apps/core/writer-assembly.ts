@@ -17,7 +17,7 @@ import { authenticatedContextSchema } from "../../packages/protocol/platform/mod
 import {
   confirmationBridge,
   ConfirmationRegistry,
-} from "../../packages/platform/identity/mod.ts";
+} from "../../packages/core/server/identity/mod.ts";
 import {
   createSubscriberGate,
   LEDGER_COMMANDS,
@@ -25,7 +25,7 @@ import {
   type SubscriberBinding,
   type TxPortRegistration,
   type WriterRegistration,
-} from "../../packages/platform/ledger/mod.ts";
+} from "../../packages/core/storage/ledger/mod.ts";
 import {
   type BlobFieldDefinition,
   type RequestContext,
@@ -35,10 +35,10 @@ import {
   createBlobRegistrar,
   createPreparationRegistry,
   type PreparationRegistry,
-} from "../../packages/platform/blob-store/mod.ts";
+} from "../../packages/core/storage/blobs/mod.ts";
 import { bindQuestionOptionOwners } from "./lophn-agent.ts";
 import { bindApprovalOwners } from "./platform.ts";
-import { SECRET_COMMANDS } from "../../packages/platform/secrets/mod.ts";
+import { SECRET_COMMANDS } from "../../packages/core/secrets/mod.ts";
 import type { TeamModule } from "./registration.ts";
 
 export type WriterBoot = {

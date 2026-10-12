@@ -11,7 +11,7 @@ import {
   type EventRegistration,
   type ReaderRegistration,
   runAdmission,
-} from "../../packages/platform/ledger/mod.ts";
+} from "../../packages/core/storage/ledger/mod.ts";
 import {
   agentProfilesRead,
   agentProfilesUpload,
@@ -44,8 +44,8 @@ import {
   approvalRunLineage,
   createApprovalCommands,
   eraseApprovalRequests,
-} from "../../packages/platform/approvals/mod.ts";
-import { eraseBlobRefs } from "../../packages/platform/blob-store/mod.ts";
+} from "../../packages/core/approvals/mod.ts";
+import { eraseBlobRefs } from "../../packages/core/storage/blobs/mod.ts";
 import {
   createModelCommands,
   createModelReads,
@@ -54,26 +54,26 @@ import {
   modelSchemaSteps,
   snapshotCatalogEntry,
   snapshotModelListed,
-} from "../../packages/lophn-agent/harness/model/mod.ts";
+} from "../../packages/core/lophn-agent/models/mod.ts";
 import {
   createProviderCommands,
   createProviderDefinitionsRead,
   createProviderReads,
   createProviderSecretRefSource,
   providerSchemaSteps,
-} from "../../packages/lophn-agent/harness/provider/mod.ts";
+} from "../../packages/core/lophn-agent/providers/mod.ts";
 import {
   createUsageCommands,
   createUsageReads,
   deleteSessionModelCalls,
   modelCallBodyFields,
   usageSchemaSteps,
-} from "../../packages/lophn-agent/harness/usage/mod.ts";
+} from "../../packages/core/lophn-agent/usage/mod.ts";
 import {
   assignmentSchemaSteps,
   createAssignmentCommands,
   createAssignmentReads,
-} from "../../packages/lophn-agent/assignments/mod.ts";
+} from "../../packages/core/lophn-agent/assignments/mod.ts";
 import {
   type AgentDeps,
   agentFileName,
@@ -93,7 +93,7 @@ import {
   type ProfileReaders,
   type ProfileUploadHandler,
   roleCapsOf,
-} from "../../packages/lophn-agent/agents/mod.ts";
+} from "../../packages/core/lophn-agent/agents/mod.ts";
 import {
   createRunCommands,
   createRunReads,
@@ -102,8 +102,8 @@ import {
   runBodyFields,
   runSchemaSteps,
   sessionRunIds,
-} from "../../packages/lophn-agent/harness/run-loop/mod.ts";
-import { createCommandReads } from "../../packages/lophn-agent/commands/mod.ts";
+} from "../../packages/core/lophn-agent/run-loop/mod.ts";
+import { createCommandReads } from "../../packages/core/lophn-agent/commands/mod.ts";
 import {
   conversationSchemaSteps,
   createConversationCommands,
@@ -114,7 +114,7 @@ import {
   messageBodyRead,
   recordFactMessage,
   sessionSummaryRead,
-} from "../../packages/lophn-agent/conversation/mod.ts";
+} from "../../packages/core/lophn-agent/session/mod.ts";
 import {
   chosenOptionCall,
   createApplyQuestionOption,
@@ -126,22 +126,22 @@ import {
   questionBodyFields,
   questionSchemaSteps,
   questionTextRead,
-} from "../../packages/lophn-agent/questions/mod.ts";
+} from "../../packages/core/lophn-agent/tools/questions/mod.ts";
 import {
   createHandoffCommands,
   createHandoffReads,
   handoffBodyFields,
-} from "../../packages/lophn-agent/handoff/mod.ts";
+} from "../../packages/core/lophn-agent/tools/handoff/mod.ts";
 import {
   createTraceReads,
   traceExportCommand,
-} from "../../packages/lophn-agent/observability/mod.ts";
+} from "../../packages/core/lophn-agent/observability/mod.ts";
 import {
   createRevertCommands,
   createRevertReads,
   latestAppRevision,
   revertSchemaSteps,
-} from "../../packages/lophn-agent/revert/mod.ts";
+} from "../../packages/core/lophn-agent/session/rewind/mod.ts";
 import { createRewindEffects } from "./rewind-effects.ts";
 import { answeredFacts } from "./rewind-facts.ts";
 import { projectRootOf } from "./rewind-root.ts";
@@ -151,14 +151,14 @@ import {
   deleteSessionToolCalls,
   toolCallBodyFields,
   toolsSchemaSteps,
-} from "../../packages/lophn-agent/harness/tools/mod.ts";
+} from "../../packages/core/lophn-agent/tools/mod.ts";
 import {
   createWaitCommands,
   deleteSessionWaitResolutions,
   runBodyRead,
   runBodyViewRead,
   waitSchemaSteps,
-} from "../../packages/lophn-agent/harness/waiting-and-recovery/mod.ts";
+} from "../../packages/core/lophn-agent/waiting-and-recovery/mod.ts";
 import {
   appDirectSocketPaths,
   SOCKET_HOST,
@@ -194,9 +194,9 @@ import {
   type PlaceFiles,
   type SkillSources,
   type SyncSkillFiles,
-} from "../../packages/lophn-agent/extensions/mod.ts";
-import { contextStatusOf } from "../../packages/documents/contexts/mod.ts";
-import { createMcpSecretRefSource } from "../../packages/lophn-agent/extensions/mod.ts";
+} from "../../packages/core/lophn-agent/extensions/mod.ts";
+import { contextStatusOf } from "../../packages/core/projects/contexts/mod.ts";
+import { createMcpSecretRefSource } from "../../packages/core/lophn-agent/extensions/mod.ts";
 
 // 설치 묶음에 동봉된 skill 폴더다(extensions R1). runtime의 skill 발견(apps/agent-runtime/skill-folders.ts)이
 // 같은 위치를 연다. 폴더가 없으면 동봉 skill이 없는 것이라 읽기 허락도 더하지 않는다.
@@ -653,7 +653,7 @@ function globalSkillSources(
 // 동기 file 읽기는 writer·reader Worker 안의 handler가 한다. core 프로세스의 module graph에는 동기 file API를
 // 두지 않으므로(platform/responsiveness#R1) adapter는 이 module이 올라올 때 URL로 연다.
 const NODE_EXTENSION_FILES = new URL(
-  "../../packages/lophn-agent/extensions/adapters/node-fs.ts",
+  "../../packages/core/lophn-agent/extensions/adapters/node-fs.ts",
   import.meta.url,
 ).href;
 const { createNodePlaceFiles, createNodeSkillFiles } = await import(
@@ -758,7 +758,7 @@ export function agentLookups(
 // 정의 파일의 동기 읽기·쓰기는 writer·reader Worker 안의 handler가 한다. core 프로세스의 module graph에는
 // 동기 file API를 두지 않으므로(platform/responsiveness#R1) adapter는 이 module이 올라올 때 URL로 연다.
 const NODE_AGENT_FILES = new URL(
-  "../../packages/lophn-agent/agents/adapters/node-fs.ts",
+  "../../packages/core/lophn-agent/agents/adapters/node-fs.ts",
   import.meta.url,
 ).href;
 const { createNodeAgentFiles, createNodeProfileImageFiles } = await import(

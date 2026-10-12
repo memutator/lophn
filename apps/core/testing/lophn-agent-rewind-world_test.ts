@@ -2,13 +2,13 @@ import { assert } from "@std/assert";
 import type { Result } from "../../../packages/base/mod.ts";
 import { redo, rewind } from "../../../packages/protocol/lophn-agent/mod.ts";
 import type { LedgerHarness } from "./ledger.ts";
-import { confirmationBinding } from "../../../packages/platform/identity/mod.ts";
+import { confirmationBinding } from "../../../packages/core/server/identity/mod.ts";
 import {
   NOW,
   sql,
   userCred,
   value,
-} from "../../../packages/lophn-agent/conversation/world_test.ts";
+} from "../../../packages/core/lophn-agent/session/world_test.ts";
 
 // conversation 시험이 실제 Rewind·Redo를 한 번 쓰는 도우미다(lophn-agent/revert). 앱 단계도 문서
 // 파일도 없는 messages_only라 파일 준비가 필요 없다. 이 도우미를 쓰는 시험은 conversation 시험

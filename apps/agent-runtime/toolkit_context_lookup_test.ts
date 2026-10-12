@@ -12,8 +12,8 @@ import {
   CONTEXT_LOOKUP_TOOLS,
   executeTool,
   runOperations,
-} from "../../packages/lophn-agent/harness/tools/mod.ts";
-import { roleOperations } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
+} from "../../packages/core/lophn-agent/tools/mod.ts";
+import { roleOperations } from "../../packages/core/lophn-agent/run-loop/mod.ts";
 import type { CoreCall } from "./core-call.ts";
 import { renderContextMaterial } from "./context-overview.ts";
 import { createBuiltinToolkit } from "./toolkit.ts";

@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { err, ok } from "../../../packages/base/mod.ts";
-import { applyMemoryLimit } from "../../../packages/platform/security/mod.ts";
+import { applyMemoryLimit } from "../../../packages/core/supervision/security/mod.ts";
 import {
   acceptRun,
   forwardChildReport,

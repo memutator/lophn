@@ -40,12 +40,12 @@ import {
   type WorkspaceReadOutput,
   workspaceReadOutputSchema,
 } from "../../packages/protocol/shell/mod.ts";
-import { estimatedCost } from "../../packages/lophn-agent/harness/usage/mod.ts";
+import { estimatedCost } from "../../packages/core/lophn-agent/usage/mod.ts";
 import {
   type CallRequest,
   createToolJudgment,
   type ToolBinding,
-} from "../../packages/lophn-agent/harness/tool-judgment/mod.ts";
+} from "../../packages/core/lophn-agent/tool-judgment/mod.ts";
 import {
   callRevision,
   executeTool,
@@ -53,7 +53,7 @@ import {
   type RunCredential,
   type ToolDefinition,
   type ToolHandler,
-} from "../../packages/lophn-agent/harness/tools/mod.ts";
+} from "../../packages/core/lophn-agent/tools/mod.ts";
 import type {
   FinishRequest,
   ModelAttempt,
@@ -66,8 +66,8 @@ import type {
   ToolDone,
   ToolInfo,
   WaitTarget,
-} from "../../packages/lophn-agent/harness/run-loop/mod.ts";
-import { parseToolArgs } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
+} from "../../packages/core/lophn-agent/run-loop/mod.ts";
+import { parseToolArgs } from "../../packages/core/lophn-agent/run-loop/mod.ts";
 import { resultLinks } from "./answer-links.ts";
 import { commandOf, type CoreCall, readOf } from "./core-call.ts";
 import { questionWaitRequest } from "./wait-request.ts";

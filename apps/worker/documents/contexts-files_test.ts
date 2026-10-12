@@ -1,7 +1,7 @@
 // documents/contexts#R20·R23 [ctx-T9b]: context worker의 파일 adapters. 임시 폴더에서 Project 파일 보기와
 // check snapshot을 시험한다.
 import { assert, assertEquals, assertThrows } from "@std/assert";
-import { snapshotHash } from "../../../packages/documents/contexts/check/mod.ts";
+import { snapshotHash } from "../../../packages/core/projects/contexts/check/mod.ts";
 import {
   cleanSnapshots,
   createSnapshotPort,

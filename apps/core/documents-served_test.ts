@@ -9,9 +9,9 @@ import {
   derivedPath,
   type DerivedStore,
   openDerived,
-} from "../../packages/documents/outline-and-search/adapters/store.ts";
-import { BUILTIN_MODULE_HASH } from "../../packages/documents/formats/mod.ts";
-import { recordExtraction } from "../../packages/documents/outline-and-search/extraction.ts";
+} from "../../packages/core/projects/outline-and-search/adapters/store.ts";
+import { BUILTIN_MODULE_HASH } from "../../packages/core/projects/formats/mod.ts";
+import { recordExtraction } from "../../packages/core/projects/outline-and-search/extraction.ts";
 import { type Core, startCore } from "./core.ts";
 import type { TeamModule } from "./registration.ts";
 import { createLedgerRegistration } from "./documents.ts";

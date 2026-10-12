@@ -8,11 +8,11 @@ import {
   createMcpOAuthVault,
   PLACE_MCP_FILE,
   serializePlaceMcpFile,
-} from "../../packages/lophn-agent/extensions/mod.ts";
+} from "../../packages/core/lophn-agent/extensions/mod.ts";
 import {
   createFakeKeychain,
   randomSealedRef,
-} from "../../packages/platform/secrets/mod.ts";
+} from "../../packages/core/secrets/mod.ts";
 import { startAgentRuntimeChild } from "./agent-runtime.ts";
 import { agentRuntimeLaunchSpec } from "./lophn-agent.ts";
 import { createMcpAuthControl } from "./mcp-auth.ts";

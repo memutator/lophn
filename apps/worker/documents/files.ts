@@ -17,15 +17,15 @@ import {
   coreFileWriteSchema,
   coreWorkingCopyConfirmSchema,
   type WorkingCopyBasis,
-} from "../../../packages/documents/file-tracking/file-ipc.ts";
-import type { FileDone } from "../../../packages/documents/file-tracking/files.ts";
-import { PREPARATION_OPS } from "../../../packages/documents/file-tracking/ipc.ts";
-import type { FileOps } from "../../../packages/documents/file-tracking/file-ops.ts";
-import type { StatusRecorder } from "../../../packages/documents/file-tracking/status.ts";
+} from "../../../packages/core/projects/file-tracking/file-ipc.ts";
+import type { FileDone } from "../../../packages/core/projects/file-tracking/files.ts";
+import { PREPARATION_OPS } from "../../../packages/core/projects/file-tracking/ipc.ts";
+import type { FileOps } from "../../../packages/core/projects/file-tracking/file-ops.ts";
+import type { StatusRecorder } from "../../../packages/core/projects/file-tracking/status.ts";
 import {
   encodeWorkingCopyMeta,
   workingCopyLocation,
-} from "../../../packages/documents/file-tracking/working-copy.ts";
+} from "../../../packages/core/projects/file-tracking/working-copy.ts";
 import type { BasisStore } from "./basis.ts";
 import type { ByteInbox } from "./byte-inbox.ts";
 import { createLocator, notAvailable } from "./files-locate.ts";

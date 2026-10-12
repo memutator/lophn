@@ -10,7 +10,7 @@ import { createCoreClient } from "../../packages/coding-agent/connection/client/
 import { createQuestionTool } from "../../packages/coding-agent/mcp-server/tools/question.ts";
 import { createHandler } from "../../packages/coding-agent/mcp-server/server.ts";
 import { resolveRoute } from "../../packages/coding-agent/mcp-server/registry.ts";
-import { sha256Text } from "../../packages/lophn-agent/questions/testing/mod.ts";
+import { sha256Text } from "../../packages/core/lophn-agent/tools/questions/testing/mod.ts";
 import { type Core, startCore } from "./core.ts";
 import { lophnAgentDefinitions } from "./lophn-agent.ts";
 import { closeUnlessKept } from "./testing/close-on-throw.ts";

@@ -7,8 +7,8 @@
 // 실제 ~/.lophn은 읽지도 쓰지도 않는다. 화면은 사람 화면에 띄우지 않는다(headless).
 import { assert, assertEquals } from "@std/assert";
 
-import { directoryScanner } from "../packages/documents/projects/scan.ts";
-import { previewTracking } from "../packages/documents/projects/work.ts";
+import { directoryScanner } from "../packages/core/projects/registry/scan.ts";
+import { previewTracking } from "../packages/core/projects/registry/work.ts";
 import { READY_TIMEOUT_MS } from "./harness.ts";
 import { launchShell, type RunningShell } from "./run.ts";
 

@@ -24,7 +24,7 @@ import {
   type McpOAuthServer,
   type McpOAuthVault,
   mcpTokenRef,
-} from "../../packages/lophn-agent/extensions/mod.ts";
+} from "../../packages/core/lophn-agent/extensions/mod.ts";
 import type { RegisteredMcpServer } from "./mcp-snapshot.ts";
 
 // MCP OAuth 2.1의 시작·완료·상태·취소 memory route와 연결 때의 token 부착 대조다(concern

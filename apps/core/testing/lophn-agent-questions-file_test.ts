@@ -12,33 +12,33 @@ import type {
   BlobRefRegistration,
   SettingMutation,
 } from "../../../packages/protocol/platform/mod.ts";
-import { applyMigrations } from "../../../packages/platform/backup-and-migration/mod.ts";
+import { applyMigrations } from "../../../packages/core/storage/migration/mod.ts";
 import {
   defineTxPort,
   LEDGER_SCHEMA_STEPS,
   openConnection,
   runAdmission,
   runCommand,
-} from "../../../packages/platform/ledger/mod.ts";
+} from "../../../packages/core/storage/ledger/mod.ts";
 import {
   confirmationBridge,
   ConfirmationRegistry,
-} from "../../../packages/platform/identity/mod.ts";
+} from "../../../packages/core/server/identity/mod.ts";
 import {
   assignmentSchemaSteps,
   createAssignmentCommands,
-} from "../../../packages/lophn-agent/assignments/mod.ts";
+} from "../../../packages/core/lophn-agent/assignments/mod.ts";
 import {
   createRunCommands,
   runSchemaSteps,
-} from "../../../packages/lophn-agent/harness/run-loop/mod.ts";
-import {} from "../../../packages/lophn-agent/harness/run-loop/testing/mod.ts";
+} from "../../../packages/core/lophn-agent/run-loop/mod.ts";
+import {} from "../../../packages/core/lophn-agent/run-loop/testing/mod.ts";
 import {
   createQuestionCommands,
   createQuestionReads,
   questionSchemaSteps,
   settingsOptionAction,
-} from "../../../packages/lophn-agent/questions/mod.ts";
+} from "../../../packages/core/lophn-agent/tools/questions/mod.ts";
 import {
   agentRun,
   cred,
@@ -47,7 +47,7 @@ import {
   id,
   optionOf,
   questionOf,
-} from "../../../packages/lophn-agent/questions/testing/mod.ts";
+} from "../../../packages/core/lophn-agent/tools/questions/testing/mod.ts";
 
 // 질문의 파일 ledger 시험. 명령마다 새 connection으로 실행하고 commit 직후 닫아(kill과
 // 같다) 다시 연 파일에서 저장된 사실을 읽는다. 사람 확인(confirmation) handle은 core

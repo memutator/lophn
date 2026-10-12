@@ -1,19 +1,19 @@
 import { DatabaseSync } from "node:sqlite";
 import { err, ok, type Result } from "../../../packages/base/mod.ts";
-import { applyMigrations } from "../../../packages/platform/backup-and-migration/migrations.ts";
-import { authorizeConditions } from "../../../packages/platform/identity/mod.ts";
-import { authorityTarget } from "../../../packages/platform/ledger/command-outcome.ts";
-import { openReaderConnection } from "../../../packages/platform/ledger/reader-connection.ts";
+import { applyMigrations } from "../../../packages/core/storage/migration/migrations.ts";
+import { authorizeConditions } from "../../../packages/core/server/identity/mod.ts";
+import { authorityTarget } from "../../../packages/core/storage/ledger/command-outcome.ts";
+import { openReaderConnection } from "../../../packages/core/storage/ledger/reader-connection.ts";
 import {
   executeRead,
   readKey,
-} from "../../../packages/platform/ledger/reads.ts";
-import { openConnection } from "../../../packages/platform/ledger/mod.ts";
+} from "../../../packages/core/storage/ledger/reads.ts";
+import { openConnection } from "../../../packages/core/storage/ledger/mod.ts";
 import {
   serveWriter,
   type WorkerSelf,
-} from "../../../packages/platform/ledger/writer-loop.ts";
-import type { WriterResponse } from "../../../packages/platform/ledger/writer-message.ts";
+} from "../../../packages/core/storage/ledger/writer-loop.ts";
+import type { WriterResponse } from "../../../packages/core/storage/ledger/writer-message.ts";
 import { confirmationHandleRegisterSchema } from "../../../packages/protocol/platform/mod.ts";
 import { assemble } from "./ledger-registration.ts";
 import type { TestBoot, TestRequest } from "./ledger-types.ts";

@@ -6,8 +6,8 @@ import {
   type RewindSummaryState,
   takeRewindSummaryRequest,
 } from "../../packages/protocol/lophn-agent/mod.ts";
-import type { MemoryHandler } from "../../packages/platform/api/mod.ts";
-import { assertCheckpointVisible } from "../../packages/lophn-agent/revert/mod.ts";
+import type { MemoryHandler } from "../../packages/core/server/mod.ts";
+import { assertCheckpointVisible } from "../../packages/core/lophn-agent/session/rewind/mod.ts";
 import type { RewindFilesDeps } from "./rewind-files.ts";
 
 // "Summarize from here"의 요약 요청 대기열(lophn-agent/revert R15). Compact와 같은 모양이다: 사람이 요청하면

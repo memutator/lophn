@@ -3,7 +3,7 @@
  * handle 발급 준비. 사람이 confirmation window에서 본 내용으로 handle을 내는 것과 같다.
  * 제품 main.ts에는 없다. 사람 데이터 root는 열지 않는다.
  */
-import { confirmationBinding } from "../../../packages/platform/identity/mod.ts";
+import { confirmationBinding } from "../../../packages/core/server/identity/mod.ts";
 import type { Server } from "./approvals-fixture.ts";
 
 export async function confirmationFor(

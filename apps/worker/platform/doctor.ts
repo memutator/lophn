@@ -7,7 +7,7 @@ import type {
   DoctorObservation,
   GrantRiskObservation,
   SdkHashObservation,
-} from "../../../packages/platform/diagnostics/mod.ts";
+} from "../../../packages/core/diagnostics/mod.ts";
 
 const HASH = /^[0-9a-f]{64}$/;
 const NAME = /^[A-Za-z0-9._@/-]{1,200}$/;

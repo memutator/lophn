@@ -25,9 +25,9 @@ import {
   createApprovalRequest,
   settingsGet,
 } from "../../packages/protocol/platform/mod.ts";
-import type { InstructionDeps } from "../../packages/lophn-agent/instructions/mod.ts";
-import type { SkillEntry } from "../../packages/lophn-agent/extensions/mod.ts";
-import { ROLE_CAPS } from "../../packages/lophn-agent/agents/mod.ts";
+import type { InstructionDeps } from "../../packages/core/lophn-agent/instructions/mod.ts";
+import type { SkillEntry } from "../../packages/core/lophn-agent/extensions/mod.ts";
+import { ROLE_CAPS } from "../../packages/core/lophn-agent/agents/mod.ts";
 import {
   abortableWait,
   type AgentRunCredential,
@@ -39,25 +39,25 @@ import {
   type RunContext,
   type RunCredentials,
   type Selection,
-} from "../../packages/lophn-agent/harness/run-loop/mod.ts";
+} from "../../packages/core/lophn-agent/run-loop/mod.ts";
 import {
   createWaitResolver,
   recoverRunFromLedger,
   type ToolLookup,
-} from "../../packages/lophn-agent/harness/waiting-and-recovery/mod.ts";
+} from "../../packages/core/lophn-agent/waiting-and-recovery/mod.ts";
 import type {
   MaterialSource,
   SessionConversation,
-} from "../../packages/lophn-agent/harness/prompt-assemble/mod.ts";
-import type { ToolBinding } from "../../packages/lophn-agent/harness/tool-judgment/mod.ts";
+} from "../../packages/core/lophn-agent/prompt-assembly/mod.ts";
+import type { ToolBinding } from "../../packages/core/lophn-agent/tool-judgment/mod.ts";
 import {
   BUILTIN_TOOLS,
   listTools,
   runOperations,
   type ToolDefinition,
   type ToolHandler,
-} from "../../packages/lophn-agent/harness/tools/mod.ts";
-import type { AppTool } from "../../packages/lophn-agent/harness/tools/mod.ts";
+} from "../../packages/core/lophn-agent/tools/mod.ts";
+import type { AppTool } from "../../packages/core/lophn-agent/tools/mod.ts";
 import type { AppToolkit } from "./app-toolkit.ts";
 import {
   contextReadToolsFor,
@@ -86,7 +86,7 @@ import {
   type McpSelection,
   type McpToolCall,
   type McpToolsSource,
-} from "../../packages/lophn-agent/extensions/mod.ts";
+} from "../../packages/core/lophn-agent/extensions/mod.ts";
 
 // 선택한 run을 시작하기 전의 재료를 core 기록에서 모은다(lophn-agent/harness/run-loop). assignment와
 // 이번 run의 resolved agent(층을 합친 값, lophn-agent/agents), 역할 상한과 resolved agent가 받은 tool

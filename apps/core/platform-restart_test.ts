@@ -7,8 +7,8 @@ import type {
   ApprovalRequest,
   AuthenticatedContext,
 } from "../../packages/protocol/platform/mod.ts";
-import { observeApprovals } from "../../packages/platform/approvals/mod.ts";
-import { checkRestart } from "../../packages/platform/backup-and-migration/mod.ts";
+import { observeApprovals } from "../../packages/core/approvals/mod.ts";
+import { checkRestart } from "../../packages/core/storage/migration/mod.ts";
 import { type Core, startCore } from "./core.ts";
 import {
   actionOf,

@@ -7,17 +7,17 @@ import {
   type SecretValue,
   type Sql,
 } from "../../packages/protocol/platform/mod.ts";
-import { lookupMcpSecretUse } from "../../packages/lophn-agent/extensions/mod.ts";
-import { lookupProviderSecretUse } from "../../packages/lophn-agent/harness/provider/mod.ts";
+import { lookupMcpSecretUse } from "../../packages/core/lophn-agent/extensions/mod.ts";
+import { lookupProviderSecretUse } from "../../packages/core/lophn-agent/providers/mod.ts";
 import {
   type KnownSecretMatch,
   openConnection,
-} from "../../packages/platform/ledger/mod.ts";
+} from "../../packages/core/storage/ledger/mod.ts";
 import {
   createSecretAttach,
   type KeychainAdapter,
   SECRET_SEND,
-} from "../../packages/platform/secrets/mod.ts";
+} from "../../packages/core/secrets/mod.ts";
 import type { McpTokenUse } from "./mcp-auth.ts";
 
 // agent runtime의 secret 전송 부착 요청(감독 pipe `secret_send_request`)을 core가 답한다

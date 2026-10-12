@@ -5,8 +5,8 @@
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
-import { previewTracking } from "../../packages/documents/projects/work.ts";
-import { directoryScanner } from "../../packages/documents/projects/scan.ts";
+import { previewTracking } from "../../packages/core/projects/registry/work.ts";
+import { directoryScanner } from "../../packages/core/projects/registry/scan.ts";
 import { type Core, startCore } from "./core.ts";
 import { createLedgerRegistration } from "./documents.ts";
 import { closeUnlessKept } from "./testing/close-on-throw.ts";

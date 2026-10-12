@@ -4,7 +4,7 @@
 // 돌린 뒤, 판정을 core ledger의 RecordVerification으로 남겨 읽는다. 사람 데이터 root(~/.lophn,
 // ~/.config/lophn)는 열지 않고 temp lophn home만 쓴다.
 import { assert, assertEquals, assertNotEquals } from "@std/assert";
-import { installedHome } from "../../packages/apps/sdk/testing/mod.ts";
+import { installedHome } from "../../packages/core/apps/packages/testing/mod.ts";
 import {
   type MadeFixture,
   madeFixture,

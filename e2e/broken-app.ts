@@ -5,12 +5,12 @@
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 
-import { prepareFromSource } from "../packages/apps/releases/prepare/from-source.ts";
-import { declarationsOfBlueprint } from "../packages/apps/releases/mod.ts";
+import { prepareFromSource } from "../packages/core/apps/releases/prepare/from-source.ts";
+import { declarationsOfBlueprint } from "../packages/core/apps/releases/mod.ts";
 import {
   devImportMap,
   readTemplateDirectory,
-} from "../packages/apps/sdk/mod.ts";
+} from "../packages/core/apps/packages/mod.ts";
 import { delay, type FlowShell } from "./flow-support.ts";
 
 export const APP = "app_01h455vb4pex5v6nkc6gd5fdw1";

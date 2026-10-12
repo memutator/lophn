@@ -13,15 +13,15 @@ import {
 import {
   createTargetAuthorizer,
   openConnection,
-} from "../../packages/platform/ledger/mod.ts";
-import { getSnapshotRead } from "../../packages/problems/reporting/reads.ts";
+} from "../../packages/core/storage/ledger/mod.ts";
+import { getSnapshotRead } from "../../packages/core/problems/reporting/reads.ts";
 import {
   applyPrunedSnapshotAbsence,
   logsRowOf,
   type PrunedAttachments,
   snapshotBlobStatus,
   type SnapshotLogsEnvironment,
-} from "../../packages/problems/snapshots/mod.ts";
+} from "../../packages/core/problems/snapshots/mod.ts";
 export type BlobBytesRead = (
   hash: string,
   offset: number,

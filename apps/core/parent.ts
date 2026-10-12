@@ -11,12 +11,12 @@ import {
 import type {
   RestoreOutcome,
   RestorePlan,
-} from "../../packages/platform/backup-and-migration/mod.ts";
-import type { CredentialRegistry } from "../../packages/platform/identity/mod.ts";
+} from "../../packages/core/storage/migration/mod.ts";
+import type { CredentialRegistry } from "../../packages/core/server/identity/mod.ts";
 import {
   createFrameWriter,
   readFrames,
-} from "../../packages/platform/responsiveness/mod.ts";
+} from "../../packages/core/supervision/responsiveness/mod.ts";
 import type { CoreRuntime } from "./runtime.ts";
 
 // Electron main이 물려 준 stdin/stdout. 창 닫기는 이 pipe로 오지 않는다.

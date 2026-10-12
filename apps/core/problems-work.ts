@@ -19,12 +19,12 @@ import {
 import {
   openConnection,
   type SubscriberBinding,
-} from "../../packages/platform/ledger/mod.ts";
-import type { OperationPolicy } from "../../packages/platform/identity/mod.ts";
+} from "../../packages/core/storage/ledger/mod.ts";
+import type { OperationPolicy } from "../../packages/core/server/identity/mod.ts";
 import {
   WORK_EVENT_TYPES,
   WORK_SUBSCRIBER,
-} from "../../packages/problems/grouping/mod.ts";
+} from "../../packages/core/problems/grouping/mod.ts";
 import {
   type InternalSubscription,
   openInternalSubscription,

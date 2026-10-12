@@ -3,8 +3,8 @@ import {
   redactRequestSchema,
   type RedactResponse,
 } from "../../packages/protocol/platform/mod.ts";
-import type { KnownSecretMatch } from "../../packages/platform/ledger/mod.ts";
-import { matchCredential } from "../../packages/platform/redaction/mod.ts";
+import type { KnownSecretMatch } from "../../packages/core/storage/ledger/mod.ts";
+import { matchCredential } from "../../packages/base/redaction/mod.ts";
 
 // agent runtime의 안전화 요청(감독 pipe `redact_request`)을 core가 답한다(lophn-agent/harness/run-loop).
 // 지울 자리는 제품 redactor(`createProductRedactor`)와 같은 규칙이다: 고정한 credential 검출 규칙과 core

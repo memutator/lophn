@@ -5,47 +5,47 @@
 import { assert, assertEquals } from "@std/assert";
 import { ok, sha256Hex } from "../../packages/base/mod.ts";
 import { appList } from "../../packages/protocol/apps/mod.ts";
-import { createAutomationPermits } from "../../packages/apps/automations/permits.ts";
+import { createAutomationPermits } from "../../packages/core/apps/automations/permits.ts";
 import {
   type Blueprint,
   validateBlueprint,
-} from "../../packages/apps/blueprint/mod.ts";
-import { createAutomationBroker } from "../../packages/apps/permissions/broker/automations.ts";
-import { createNetFetchService } from "../../packages/apps/permissions/broker/net-fetch.ts";
+} from "../../packages/core/apps/blueprint/mod.ts";
+import { createAutomationBroker } from "../../packages/core/apps/permissions/broker/automations.ts";
+import { createNetFetchService } from "../../packages/core/apps/permissions/broker/net-fetch.ts";
 import {
   createSecretUseService,
   type SecretDeliveryRequest,
-} from "../../packages/apps/permissions/broker/secrets.ts";
+} from "../../packages/core/apps/permissions/broker/secrets.ts";
 import {
   APP,
   child,
   createAccessFixture,
   RELEASE,
   withChild,
-} from "../../packages/apps/permissions/testing/broker.ts";
-import { effectiveScope } from "../../packages/apps/permissions/mod.ts";
-import { prepareFromSource } from "../../packages/apps/releases/prepare/from-source.ts";
+} from "../../packages/core/apps/permissions/testing/broker.ts";
+import { effectiveScope } from "../../packages/core/apps/permissions/mod.ts";
+import { prepareFromSource } from "../../packages/core/apps/releases/prepare/from-source.ts";
 import {
   declarationsOfBlueprint,
   verifySealedPermissions,
-} from "../../packages/apps/releases/mod.ts";
+} from "../../packages/core/apps/releases/mod.ts";
 import { createAppCommandTools } from "../../packages/coding-agent/mcp-server/tools/app-commands.ts";
 import {
   generateAppTestChecks,
   loadSources,
   scanCodeUsage,
   sdkDependenciesHash,
-} from "../../packages/problems/tests/mod.ts";
+} from "../../packages/core/problems/tests/mod.ts";
 import {
   devImportMap,
   readTemplateDirectory,
-} from "../../packages/apps/sdk/mod.ts";
+} from "../../packages/core/apps/packages/mod.ts";
 import {
   APP_TEST_ARGS,
   deno,
   installedHome,
   removeTree,
-} from "../../packages/apps/sdk/testing/mod.ts";
+} from "../../packages/core/apps/packages/testing/mod.ts";
 import {
   FAKE_EXTERNAL_HOST,
   FAKE_EXTERNAL_PORT,

@@ -32,20 +32,20 @@ import type {
 import {
   type IndexStore,
   openIndexStore,
-} from "../../../packages/documents/contexts/index/mod.ts";
-import { runPreviewJob } from "../../../packages/documents/contexts/preview/mod.ts";
-import type { ValidationEnv } from "../../../packages/documents/contexts/validate/mod.ts";
-import { createContextJobs } from "../../../packages/documents/contexts/work-jobs.ts";
+} from "../../../packages/core/projects/contexts/index/mod.ts";
+import { runPreviewJob } from "../../../packages/core/projects/contexts/preview/mod.ts";
+import type { ValidationEnv } from "../../../packages/core/projects/contexts/validate/mod.ts";
+import { createContextJobs } from "../../../packages/core/projects/contexts/work-jobs.ts";
 import type {
   FinishCheckInput,
   RecordViolationsInput,
   SubmitPort,
-} from "../../../packages/documents/contexts/work-types.ts";
+} from "../../../packages/core/projects/contexts/work-types.ts";
 import {
   type ChildSession,
   type ChildStreams,
   startChild,
-} from "../../../packages/platform/responsiveness/mod.ts";
+} from "../../../packages/core/supervision/responsiveness/mod.ts";
 import {
   cleanSnapshots,
   type ContextFileOptions,

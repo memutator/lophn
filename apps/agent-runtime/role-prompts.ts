@@ -1,14 +1,14 @@
 import { err, ok, type Result } from "../../packages/base/mod.ts";
-import appEngineer from "../../packages/lophn-agent/roles/app-engineer/prompt.md" with {
+import appEngineer from "../../packages/core/lophn-agent/roles/app-engineer/prompt.md" with {
   type: "text",
 };
-import contextEngineer from "../../packages/lophn-agent/roles/context-engineer/prompt.md" with {
+import contextEngineer from "../../packages/core/lophn-agent/roles/context-engineer/prompt.md" with {
   type: "text",
 };
-import lophn from "../../packages/lophn-agent/roles/lophn/prompt.md" with {
+import lophn from "../../packages/core/lophn-agent/roles/lophn/prompt.md" with {
   type: "text",
 };
-import operator from "../../packages/lophn-agent/roles/operator/prompt.md" with {
+import operator from "../../packages/core/lophn-agent/roles/operator/prompt.md" with {
   type: "text",
 };
 

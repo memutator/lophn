@@ -12,8 +12,8 @@ import type {
   WorkerRequest,
   WorkerResponse,
 } from "../../packages/protocol/platform/mod.ts";
-import type { WorkerRouteHandle } from "../../packages/platform/responsiveness/mod.ts";
-import type { ValidatePort } from "../../packages/documents/versions/work.ts";
+import type { WorkerRouteHandle } from "../../packages/core/supervision/responsiveness/mod.ts";
+import type { ValidatePort } from "../../packages/core/projects/versions/work.ts";
 
 // 한 응답에 싣는 진단 수다. 더 있으면 cursor로 이어 읽는다. cursor는 진단 위치다.
 export const FORMAT_VALIDATE_PAGE = 100;

@@ -14,8 +14,8 @@ import {
   backupStamp,
   createBackup,
   RESTORE_DECISION,
-} from "../../packages/platform/backup-and-migration/mod.ts";
-import { readFrames } from "../../packages/platform/responsiveness/mod.ts";
+} from "../../packages/core/storage/migration/mod.ts";
+import { readFrames } from "../../packages/core/supervision/responsiveness/mod.ts";
 
 type Json = Record<string, unknown>;
 

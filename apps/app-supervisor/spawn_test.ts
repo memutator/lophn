@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
-import type { FlagSet } from "../../packages/apps/permissions/mod.ts";
+import type { FlagSet } from "../../packages/core/apps/permissions/mod.ts";
 import { spawnApp } from "./spawn.ts";
 
 const deno = Deno.execPath();

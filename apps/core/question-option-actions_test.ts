@@ -9,7 +9,7 @@ import {
   uploadPrepareBytes,
 } from "../../packages/coding-agent/connection/mod.ts";
 import { answerQuestionAction } from "../../packages/protocol/lophn-agent/mod.ts";
-import { moveOptionAction } from "../../packages/lophn-agent/questions/mod.ts";
+import { moveOptionAction } from "../../packages/core/lophn-agent/tools/questions/mod.ts";
 import { call, command, count, inspect } from "./testing/approvals-fixture.ts";
 import {
   acceptCredential,

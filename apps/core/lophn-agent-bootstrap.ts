@@ -16,7 +16,7 @@ import type {
   AuthenticatedContext,
   ReadRoute,
 } from "../../packages/protocol/platform/mod.ts";
-import type { Writer } from "../../packages/platform/ledger/mod.ts";
+import type { Writer } from "../../packages/core/storage/ledger/mod.ts";
 
 export const BOOTSTRAP_PRINCIPAL = "machine:lophn-agent-bootstrap";
 // 준비하지 못했을 때 core가 한 번 다시 시도하기까지의 대기.

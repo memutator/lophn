@@ -13,7 +13,7 @@ import {
   type AccessState,
   type BrokerAccess,
   effectiveScope,
-} from "../../packages/apps/permissions/mod.ts";
+} from "../../packages/core/apps/permissions/mod.ts";
 
 export type CorePost = (
   path: string,

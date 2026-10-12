@@ -26,15 +26,15 @@ import {
 import type { PreparedBlob } from "../../../packages/protocol/platform/mod.ts";
 import { type Core, startCore } from "../core.ts";
 import type { AppsControl } from "../apps-control.ts";
-import type { ProcessSource } from "../../../packages/apps/runtime/connect.ts";
-import type { DesiredApp } from "../../../packages/apps/runtime/supervisor/mod.ts";
+import type { ProcessSource } from "../../../packages/core/apps/runtime/connect.ts";
+import type { DesiredApp } from "../../../packages/core/apps/runtime/supervisor/mod.ts";
 import type {
   PreviewBundles,
   PreviewReleases,
-} from "../../../packages/apps/preview/service.ts";
+} from "../../../packages/core/apps/preview/service.ts";
 import type { TeamModule } from "../registration.ts";
 import type { CodingCredentials } from "../coding-credential.ts";
-import type { KeychainAdapter } from "../../../packages/platform/secrets/mod.ts";
+import type { KeychainAdapter } from "../../../packages/core/secrets/mod.ts";
 
 export type CoreHarnessCredential = {
   actor: ActorKind;

@@ -1,8 +1,8 @@
 import { ok } from "../../packages/base/mod.ts";
 import { cancelApprovalRequest } from "../../packages/protocol/platform/mod.ts";
-import { isFinishedSummaryCall } from "../../packages/lophn-agent/conversation/mod.ts";
-import { cancelGroupsFrom } from "../../packages/lophn-agent/questions/mod.ts";
-import type { RewindEffects } from "../../packages/lophn-agent/revert/mod.ts";
+import { isFinishedSummaryCall } from "../../packages/core/lophn-agent/session/mod.ts";
+import { cancelGroupsFrom } from "../../packages/core/lophn-agent/tools/questions/mod.ts";
+import type { RewindEffects } from "../../packages/core/lophn-agent/session/rewind/mod.ts";
 
 // rewind가 대화 밖에 미치는 효과의 조립이다(lophn-agent/revert "대화 밖 상태", R15). 질문(lophn-agent)과
 // approval(platform)을 한 transaction에서 만지므로 두 concern을 잇는 core가 맡는다.

@@ -13,25 +13,25 @@ import type {
   WorkerRequest,
   WorkerResponse,
 } from "../../../packages/protocol/platform/mod.ts";
-import type { FormatCall } from "../../../packages/documents/formats/reads.ts";
+import type { FormatCall } from "../../../packages/core/projects/formats/reads.ts";
 import {
   derivedPath,
   type DerivedStore,
   openDerived,
-} from "../../../packages/documents/outline-and-search/adapters/store.ts";
+} from "../../../packages/core/projects/outline-and-search/adapters/store.ts";
 import {
   advanceSearchCursor,
   applySearchStep,
   searchCursorOf,
-} from "../../../packages/documents/outline-and-search/consumer.ts";
-import type { ExtractionRecord } from "../../../packages/documents/outline-and-search/extraction.ts";
+} from "../../../packages/core/projects/outline-and-search/consumer.ts";
+import type { ExtractionRecord } from "../../../packages/core/projects/outline-and-search/extraction.ts";
 import {
   parseSearchAdvance,
   parseSearchApply,
   parseSearchLedger,
   SEARCH_OPS,
   type SearchExtractionRequest,
-} from "../../../packages/documents/outline-and-search/mod.ts";
+} from "../../../packages/core/projects/outline-and-search/mod.ts";
 import type { LedgerGate } from "./ledger-gate.ts";
 import type { ByteInbox } from "./validation.ts";
 

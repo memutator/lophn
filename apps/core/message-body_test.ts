@@ -19,7 +19,7 @@ import {
   serializeMessageContent,
 } from "../../packages/protocol/lophn-agent/mod.ts";
 import { tableBlock } from "../../packages/protocol/lophn-agent/message-fixtures.ts";
-import { id } from "../../packages/lophn-agent/conversation/testing/mod.ts";
+import { id } from "../../packages/core/lophn-agent/session/testing/mod.ts";
 import { type Core, startCore } from "./core.ts";
 import { createLedgerRegistration as documentsRegistration } from "./documents.ts";
 import {

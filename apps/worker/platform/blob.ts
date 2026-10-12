@@ -14,7 +14,7 @@ import {
 import {
   type BlobStoreWork,
   purposesPathFor,
-} from "../../../packages/platform/blob-store/mod.ts";
+} from "../../../packages/core/storage/blobs/mod.ts";
 
 export type BlobPipeRequest = {
   request_id: string;

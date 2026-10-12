@@ -10,15 +10,15 @@ import {
 import {
   type ByteReader,
   type ChildStreams,
-} from "../../../packages/platform/responsiveness/mod.ts";
-import { sampleEnv } from "../../../packages/documents/contexts/validate/sample.ts";
-import { openIndexStore } from "../../../packages/documents/contexts/index/mod.ts";
+} from "../../../packages/core/supervision/responsiveness/mod.ts";
+import { sampleEnv } from "../../../packages/core/projects/contexts/validate/sample.ts";
+import { openIndexStore } from "../../../packages/core/projects/contexts/index/mod.ts";
 import { CONTEXTS_KIND, createContextsWorker } from "./contexts.ts";
 import type { ContextFileOptions } from "./contexts-files.ts";
 import { createHash } from "node:crypto";
 
 const FIXTURES = new URL(
-  "../../../packages/documents/contexts/testdata/",
+  "../../../packages/core/projects/contexts/testdata/",
   import.meta.url,
 );
 const CONTEXT = "ctx_00000000000000000000000001";

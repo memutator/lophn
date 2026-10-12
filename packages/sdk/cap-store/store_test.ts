@@ -1,6 +1,6 @@
 import { assert, assertEquals, assertRejects, assertThrows } from "@std/assert";
 import { CapabilityError, openStore, type RuntimeMode } from "./mod.ts";
-import { openAppDatabase } from "../../apps/data/worker/db.ts";
+import { openAppDatabase } from "../../core/apps/data/worker/db.ts";
 
 const MOD = new URL("./mod.ts", import.meta.url).href;
 

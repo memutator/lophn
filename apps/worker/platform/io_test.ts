@@ -8,19 +8,19 @@ import {
 import {
   applyMigrations,
   BACKUP_MANIFEST_NAME,
-} from "../../../packages/platform/backup-and-migration/mod.ts";
+} from "../../../packages/core/storage/migration/mod.ts";
 import { manualClock, sha256Hex } from "../../../packages/base/mod.ts";
 import {
   objectPathFor,
   tmpDirFor,
-} from "../../../packages/platform/blob-store/mod.ts";
-import { LEDGER_SCHEMA_STEPS } from "../../../packages/platform/ledger/mod.ts";
-import { SETTINGS_SCHEMA_STEPS } from "../../../packages/platform/settings/mod.ts";
+} from "../../../packages/core/storage/blobs/mod.ts";
+import { LEDGER_SCHEMA_STEPS } from "../../../packages/core/storage/ledger/mod.ts";
+import { SETTINGS_SCHEMA_STEPS } from "../../../packages/core/config/mod.ts";
 import {
   type ChildSession,
   READ_AHEAD_MAX_BYTES,
   READ_AHEAD_MAX_FRAMES,
-} from "../../../packages/platform/responsiveness/mod.ts";
+} from "../../../packages/core/supervision/responsiveness/mod.ts";
 import type { SettingsPipe } from "./settings.ts";
 import {
   BLOB_PREPARE_WORKER_BUDGET,
@@ -304,7 +304,7 @@ Deno.test(
       assertEquals(entries2.length, 2);
       // 만들기가 실제로 통과했다(R12 확인): 완료 manifest가 생겼다.
       const listed = (await import(
-        "../../../packages/platform/backup-and-migration/mod.ts"
+        "../../../packages/core/storage/migration/mod.ts"
       )).listBackups;
       const backups = (await listed(root)).backups.filter((item) =>
         item.complete

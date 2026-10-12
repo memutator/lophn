@@ -5,8 +5,8 @@
 // 고르지 않는다.
 import { err, type Result } from "../../packages/base/mod.ts";
 import { problemsUploadFixSummary } from "../../packages/protocol/problems/mod.ts";
-import { FIX_BLOB_PURPOSES } from "../../packages/problems/repairs/mod.ts";
-import type { UploadHandler } from "../../packages/platform/api/mod.ts";
+import { FIX_BLOB_PURPOSES } from "../../packages/core/problems/repairs/mod.ts";
+import type { UploadHandler } from "../../packages/core/server/mod.ts";
 import type { BlobPrepareCall } from "./core.ts";
 import type { PreparedRelayResult } from "./blob-prepare.ts";
 import { exactBytes } from "./documents-upload.ts";

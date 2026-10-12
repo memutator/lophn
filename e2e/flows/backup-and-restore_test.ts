@@ -14,7 +14,7 @@ import { DatabaseSync } from "node:sqlite";
 import {
   backupStamp,
   createBackup,
-} from "../../packages/platform/backup-and-migration/mod.ts";
+} from "../../packages/core/storage/migration/mod.ts";
 import {
   type FlowShell,
   mustCall,

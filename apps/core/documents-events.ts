@@ -31,8 +31,8 @@ import type {
   ReadSnapshot,
   RequestContext,
 } from "../../packages/protocol/platform/mod.ts";
-import { createProjectEventVisibility } from "../../packages/documents/projects/mod.ts";
-import type { EventRegistration } from "../../packages/platform/ledger/mod.ts";
+import { createProjectEventVisibility } from "../../packages/core/projects/registry/mod.ts";
+import type { EventRegistration } from "../../packages/core/storage/ledger/mod.ts";
 import { isAssignmentReactions, isNotifications } from "./platform.ts";
 import { CONTEXT_WORKER_PRINCIPAL } from "./contexts-api.ts";
 

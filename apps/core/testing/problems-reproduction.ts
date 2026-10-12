@@ -6,18 +6,18 @@ import { assert } from "@std/assert";
 import { sha256Hex } from "../../../packages/base/mod.ts";
 import type { Result } from "../../../packages/base/mod.ts";
 import type { AuthenticatedContext } from "../../../packages/protocol/platform/mod.ts";
-import { launchArgv } from "../../../packages/platform/security/mod.ts";
+import { launchArgv } from "../../../packages/core/supervision/security/mod.ts";
 import type { FrozenTest } from "../../../packages/protocol/problems/mod.ts";
 import {
   canonicalRequest,
   reproductionFrozen,
   type ReproductionScenario,
-} from "../../../packages/problems/tests/mod.ts";
+} from "../../../packages/core/problems/tests/mod.ts";
 import {
   canonicalHash,
   canonicalJson,
   hashCanonical,
-} from "../../../packages/problems/tests/canonical.ts";
+} from "../../../packages/core/problems/tests/canonical.ts";
 import {
   APP,
   blob,
@@ -27,7 +27,7 @@ import {
   runner,
   verification,
   VRF,
-} from "../../../packages/problems/tests/fixtures.ts";
+} from "../../../packages/core/problems/tests/fixtures.ts";
 import { runnerSockets, testRunnerSpec } from "../problems-runner.ts";
 import type {
   ReproductionJob,
@@ -316,7 +316,7 @@ export async function recordReproductionThroughCore(
     return done.value;
   };
   const registration = new URL(
-    "../../../packages/problems/tests/harness-registration_test.ts",
+    "../../../packages/core/problems/tests/harness-registration_test.ts",
     import.meta.url,
   );
   const h = value(

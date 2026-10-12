@@ -497,7 +497,7 @@ Deno.test("documents/outline-and-search#R5 [ctx-I60]: the outline holds heading 
 Deno.test("documents/outline-and-search#R5 [ctx-I60]: the guide fixture used by the context entity answer is one level 1 node with its sections under it", async () => {
   const text = await Deno.readTextFile(
     new URL(
-      "../../documents/contexts/testdata/eval-project/docs/guide-a.md",
+      "../../core/projects/contexts/testdata/eval-project/docs/guide-a.md",
       import.meta.url,
     ),
   );

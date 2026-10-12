@@ -17,16 +17,16 @@ import {
 import type {
   CommandEnvelope,
   Writer,
-} from "../../packages/platform/ledger/mod.ts";
-import type { FileDone } from "../../packages/documents/file-tracking/files.ts";
+} from "../../packages/core/storage/ledger/mod.ts";
+import type { FileDone } from "../../packages/core/projects/file-tracking/files.ts";
 import type {
   PlacementDeps,
   PlacementFileDone,
-} from "../../packages/documents/file-tracking/placement.ts";
+} from "../../packages/core/projects/file-tracking/placement.ts";
 import type {
   PlacementRead,
   PlacementReadInput,
-} from "../../packages/documents/file-tracking/placement-read.ts";
+} from "../../packages/core/projects/file-tracking/placement-read.ts";
 
 // ── 경로 예약 ──────────────────────────────────────────────────────────
 

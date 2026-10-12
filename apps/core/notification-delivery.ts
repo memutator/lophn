@@ -17,8 +17,8 @@ import {
 import type {
   MemoryHandler,
   ReadHandler,
-} from "../../packages/platform/api/mod.ts";
-import { createOsDeliveryObservations } from "../../packages/platform/notifications/mod.ts";
+} from "../../packages/core/server/mod.ts";
+import { createOsDeliveryObservations } from "../../packages/core/notifications/mod.ts";
 import { osNotificationsSetting } from "./shell.ts";
 
 type ReadRouteName = { resource: string; method: string };

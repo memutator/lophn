@@ -9,8 +9,8 @@ import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.
 import {
   MCP_SECRET_OWNER,
   mcpTokenRef,
-} from "../../packages/lophn-agent/extensions/mod.ts";
-import { createFakeKeychain } from "../../packages/platform/secrets/mod.ts";
+} from "../../packages/core/lophn-agent/extensions/mod.ts";
+import { createFakeKeychain } from "../../packages/core/secrets/mod.ts";
 import { machineCall } from "../agent-runtime/core-http.ts";
 import { startMcpAuthPump } from "../agent-runtime/mcp-auth-pump.ts";
 import { type Core, startCore } from "./core.ts";

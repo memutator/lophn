@@ -5,8 +5,8 @@
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, ok, seededRandom } from "../../packages/base/mod.ts";
 import type { AgentAppScope } from "../../packages/protocol/lophn-agent/mod.ts";
-import { CredentialRegistry } from "../../packages/platform/identity/mod.ts";
-import { createRunCredentials } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
+import { CredentialRegistry } from "../../packages/core/server/identity/mod.ts";
+import { createRunCredentials } from "../../packages/core/lophn-agent/run-loop/mod.ts";
 
 const ASG = "asg_01arz3ndektsv4rrffq69g5fav";
 const OTHER_ASG = "asg_01arz3ndektsv4rrffq69g5faw";

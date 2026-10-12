@@ -3,11 +3,11 @@
 // network·secret·외부 파일·subprocess 권한이 없다. kind와 root는 환경으로만 받고 credential은 받지 않는다.
 import { err, ok, type Result } from "../../../packages/base/mod.ts";
 import { decodeDataJobInput } from "../../../packages/protocol/apps/mod.ts";
-import { runDataJob } from "../../../packages/apps/data/worker/job.ts";
+import { runDataJob } from "../../../packages/core/apps/data/worker/job.ts";
 import {
   type MigrationScript,
   scriptFromBundle,
-} from "../../../packages/apps/data/worker/migrate.ts";
+} from "../../../packages/core/apps/data/worker/migrate.ts";
 
 export const DATA_WORKER_KIND = "apps/data";
 

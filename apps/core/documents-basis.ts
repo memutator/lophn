@@ -7,7 +7,7 @@ import {
   chunkObservationBasis,
   type ObservationBasisPayload,
   parseObservationBasis,
-} from "../../packages/documents/file-tracking/mod.ts";
+} from "../../packages/core/projects/file-tracking/mod.ts";
 
 // 근거를 읽는 한 걸음. roots는 한 번에, links는 경로 page로 온다.
 export type BasisRead = (

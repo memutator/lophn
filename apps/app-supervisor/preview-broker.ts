@@ -10,12 +10,12 @@ import {
   createProblemReportService,
   type InvocationBroker,
   type ProblemsReport,
-} from "../../packages/apps/permissions/mod.ts";
+} from "../../packages/core/apps/permissions/mod.ts";
 import {
   createPreviewBrokerServices,
   type PreviewScope,
   previewScopeOf,
-} from "../../packages/apps/preview/mod.ts";
+} from "../../packages/core/apps/preview/mod.ts";
 
 // 선언을 읽지 못하면 아무 외부도 허락하지 않는다(대역도 선언 안에서만 받는다).
 const CLOSED_SCOPE: PreviewScope = { secrets: [], net: [], documents: [] };

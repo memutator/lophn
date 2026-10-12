@@ -10,8 +10,8 @@ import type {
   WorkerRequest,
   WorkerResponse,
 } from "../../packages/protocol/platform/mod.ts";
-import type { CoreSigner } from "../../packages/apps/runtime/signing.ts";
-import type { WorkerRouteTarget } from "../../packages/platform/responsiveness/mod.ts";
+import type { CoreSigner } from "../../packages/core/apps/runtime/signing.ts";
+import type { WorkerRouteTarget } from "../../packages/core/supervision/responsiveness/mod.ts";
 
 export const VIEW_ERROR_KEY =
   `${observeViewError.resource}/${observeViewError.method}`;

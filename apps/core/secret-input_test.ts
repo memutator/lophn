@@ -20,15 +20,15 @@ import {
   derivedPath,
   type DerivedStore,
   openDerived,
-} from "../../packages/documents/outline-and-search/adapters/store.ts";
-import { recordExtraction } from "../../packages/documents/outline-and-search/extraction.ts";
-import { confirmationBinding } from "../../packages/platform/identity/mod.ts";
+} from "../../packages/core/projects/outline-and-search/adapters/store.ts";
+import { recordExtraction } from "../../packages/core/projects/outline-and-search/extraction.ts";
+import { confirmationBinding } from "../../packages/core/server/identity/mod.ts";
 import {
   createFakeKeychain,
   createSecretWork,
   type FakeKeychain,
-} from "../../packages/platform/secrets/mod.ts";
-import { id } from "../../packages/lophn-agent/conversation/testing/mod.ts";
+} from "../../packages/core/secrets/mod.ts";
+import { id } from "../../packages/core/lophn-agent/session/testing/mod.ts";
 import { createSecretPipe } from "../worker/platform/secrets.ts";
 import { type Core, startCore } from "./core.ts";
 import { createLedgerRegistration } from "./documents.ts";

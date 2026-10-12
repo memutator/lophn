@@ -10,9 +10,9 @@ import { DatabaseSync } from "node:sqlite";
 
 import { sha256Hex } from "../../packages/base/mod.ts";
 import { mainHelloSchema } from "../../packages/protocol/platform/mod.ts";
-import { readFrames } from "../../packages/platform/responsiveness/mod.ts";
-import { bundleCopyPath } from "../../packages/apps/releases/mod.ts";
-import { removeTree } from "../../packages/apps/sdk/testing/mod.ts";
+import { readFrames } from "../../packages/core/supervision/responsiveness/mod.ts";
+import { bundleCopyPath } from "../../packages/core/apps/releases/mod.ts";
+import { removeTree } from "../../packages/core/apps/packages/testing/mod.ts";
 import {
   APP,
   RELEASE_ID,

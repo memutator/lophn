@@ -21,7 +21,7 @@ import {
   listTools,
   type RunCredential,
   runOperations,
-} from "../../packages/lophn-agent/harness/tools/mod.ts";
+} from "../../packages/core/lophn-agent/tools/mod.ts";
 import { type Core, startCore } from "./core.ts";
 import { lophnAgentDefinitions } from "./lophn-agent.ts";
 import { createLedgerRegistration as documentsRegistration } from "./documents.ts";

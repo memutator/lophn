@@ -1,7 +1,10 @@
 // SDK client가 실제 broker endpoint, 실제 연결 준비·core 서명, 실제 앱 자식 프로세스와 이어질 때
 // (apps/sdk#R40). 앱 사실은 시험이 쥔 메모리 출처이고 앱 자식은 temp 폴더의 실제 프로세스다.
 import { assert, assertEquals } from "@std/assert";
-import { openPairWorld, PARENT } from "../../apps/connections/world_test.ts";
+import {
+  openPairWorld,
+  PARENT,
+} from "../../core/apps/connections/world_test.ts";
 import { connectAppCommands, runWith } from "./mod.ts";
 
 Deno.test("apps/sdk#R40: 허락된 command만 B의 같은 handler로 호출되고 미허락 연결과 caller 위조는 거절된다", async () => {

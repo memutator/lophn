@@ -3,11 +3,11 @@
 // keychain은 fake다(사람의 실제 keychain에 닿지 않는다).
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
-import { providerSchemaSteps } from "../../packages/lophn-agent/harness/provider/mod.ts";
+import { providerSchemaSteps } from "../../packages/core/lophn-agent/providers/mod.ts";
 import {
   createFakeKeychain,
   type FakeKeychain,
-} from "../../packages/platform/secrets/mod.ts";
+} from "../../packages/core/secrets/mod.ts";
 import { createAgentRuntimeSecrets } from "./agent-runtime-secret.ts";
 
 const VALUE = "violet-harbor-credential-5d8e2f41-lantern";

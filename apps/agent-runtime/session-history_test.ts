@@ -5,7 +5,7 @@ import {
   sessionSummary,
 } from "../../packages/protocol/lophn-agent/mod.ts";
 import { routePath } from "../../packages/protocol/platform/mod.ts";
-import { sessionMaterial } from "../../packages/lophn-agent/harness/prompt-assemble/mod.ts";
+import { sessionMaterial } from "../../packages/core/lophn-agent/prompt-assembly/mod.ts";
 import { readSessionConversation } from "./session-history.ts";
 import { err } from "../../packages/base/mod.ts";
 import {

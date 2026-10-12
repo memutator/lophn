@@ -4,7 +4,7 @@ import {
   createAppCommands,
   createAppsReads,
   lookupAppRegistration,
-} from "../../packages/apps/registration/mod.ts";
+} from "../../packages/core/apps/registration/mod.ts";
 import {
   appAgentConfirmProof,
   appConnect,
@@ -18,31 +18,31 @@ import {
   releaseCancelPreparation,
   releasePreparation,
 } from "../../packages/protocol/apps/mod.ts";
-import { createInvocationsCommands } from "../../packages/apps/invocations/commands.ts";
-import { createConfirmCommands } from "../../packages/apps/invocations/confirm.ts";
-import { createInvocationsReads } from "../../packages/apps/invocations/reads.ts";
-import { invocationsSchemaSteps } from "../../packages/apps/invocations/schema.ts";
+import { createInvocationsCommands } from "../../packages/core/apps/invocations/commands.ts";
+import { createConfirmCommands } from "../../packages/core/apps/invocations/confirm.ts";
+import { createInvocationsReads } from "../../packages/core/apps/invocations/reads.ts";
+import { invocationsSchemaSteps } from "../../packages/core/apps/invocations/schema.ts";
 import {
   createGrantCommands,
   createGrantsReads,
   createSecretAllowance,
   currentDeclarations,
   permissionsSchemaSteps,
-} from "../../packages/apps/permissions/mod.ts";
-import { createAutomationReads } from "../../packages/apps/automations/reads.ts";
-import { createBlueprintReads } from "../../packages/apps/blueprint/reads.ts";
+} from "../../packages/core/apps/permissions/mod.ts";
+import { createAutomationReads } from "../../packages/core/apps/automations/reads.ts";
+import { createBlueprintReads } from "../../packages/core/apps/blueprint/reads.ts";
 import {
   activationAttemptGate,
   createReleaseCommands,
-} from "../../packages/apps/releases/commands.ts";
-import { createReleaseReads } from "../../packages/apps/releases/reads.ts";
-import { releasesSchemaSteps } from "../../packages/apps/releases/schema.ts";
+} from "../../packages/core/apps/releases/commands.ts";
+import { createReleaseReads } from "../../packages/core/apps/releases/reads.ts";
+import { releasesSchemaSteps } from "../../packages/core/apps/releases/schema.ts";
 import {
   loadActiveBlueprint,
   releaseDeclarations,
   releaseWording,
-} from "../../packages/apps/releases/store.ts";
-import { checkTicketClaim } from "../../packages/coding-agent/tickets/claims.ts";
+} from "../../packages/core/apps/releases/store.ts";
+import { checkTicketClaim } from "../../packages/core/apps/tickets/claims.ts";
 import {
   TicketClaimCheck,
   type TicketClaimChecker,
@@ -51,24 +51,24 @@ import {
   AppTestVerificationLookupPort,
   ProblemWordingPort,
 } from "../../packages/protocol/problems/mod.ts";
-import { findAppTestVerification } from "../../packages/problems/tests/app-test-lookup.ts";
-import { createRuntimeCommands } from "../../packages/apps/runtime/commands.ts";
-import { createRuntimeReads } from "../../packages/apps/runtime/reads.ts";
-import { PACKAGE_GUIDE_BLOB_FIELD } from "../../packages/apps/sdk/blobs.ts";
-import { createSdkCommands } from "../../packages/apps/sdk/commands.ts";
-import { createSdkReads } from "../../packages/apps/sdk/reads.ts";
-import { sdkSchemaSteps } from "../../packages/apps/sdk/schema.ts";
-import { createPreviewReads } from "../../packages/apps/preview/reads.ts";
-import { unattachedPreviewService } from "../../packages/apps/preview/service.ts";
-import { createDataCommands } from "../../packages/apps/data/commands.ts";
-import { dataSchemaSteps } from "../../packages/apps/data/schema.ts";
-import { BACKUP_BLOB_FIELD } from "../../packages/apps/data/blobs.ts";
-import { createDataRecordStore } from "../../packages/apps/data/store.ts";
+import { findAppTestVerification } from "../../packages/core/problems/tests/app-test-lookup.ts";
+import { createRuntimeCommands } from "../../packages/core/apps/runtime/commands.ts";
+import { createRuntimeReads } from "../../packages/core/apps/runtime/reads.ts";
+import { PACKAGE_GUIDE_BLOB_FIELD } from "../../packages/core/apps/packages/blobs.ts";
+import { createSdkCommands } from "../../packages/core/apps/packages/commands.ts";
+import { createSdkReads } from "../../packages/core/apps/packages/reads.ts";
+import { sdkSchemaSteps } from "../../packages/core/apps/packages/schema.ts";
+import { createPreviewReads } from "../../packages/core/apps/preview/reads.ts";
+import { unattachedPreviewService } from "../../packages/core/apps/preview/service.ts";
+import { createDataCommands } from "../../packages/core/apps/data/commands.ts";
+import { dataSchemaSteps } from "../../packages/core/apps/data/schema.ts";
+import { BACKUP_BLOB_FIELD } from "../../packages/core/apps/data/blobs.ts";
+import { createDataRecordStore } from "../../packages/core/apps/data/store.ts";
 import {
   type PlaceNameReservation,
   placeNameReservation,
 } from "../../packages/protocol/projects/mod.ts";
-import { createPlaceNameReservation } from "../../packages/documents/addressing/mod.ts";
+import { createPlaceNameReservation } from "../../packages/core/projects/addressing/mod.ts";
 import {
   appArchived,
   appCreated,
@@ -83,7 +83,7 @@ import type {
   EventRegistration,
   ReaderRegistration,
   TxPortRegistration,
-} from "../../packages/platform/ledger/mod.ts";
+} from "../../packages/core/storage/ledger/mod.ts";
 import type { WorkerRoute } from "../../packages/protocol/platform/mod.ts";
 import { ticketCheckFeedVisibility } from "./ticket-checker.ts";
 import { visibleToProblemsClosing } from "./problems-closing.ts";

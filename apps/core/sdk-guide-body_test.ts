@@ -8,7 +8,7 @@ import {
   seededRandom,
   sha256Hex,
 } from "../../packages/base/mod.ts";
-import { operationCeiling } from "../../packages/platform/identity/mod.ts";
+import { operationCeiling } from "../../packages/core/server/identity/mod.ts";
 import { startCore } from "./core.ts";
 import { createLedgerRegistration } from "./apps.ts";
 import { appsOperationPolicies } from "./apps-control.ts";

@@ -4,10 +4,10 @@
 import { assert, assertEquals } from "@std/assert";
 import { err } from "../../../packages/base/mod.ts";
 import type { WorkerRequest } from "../../../packages/protocol/platform/mod.ts";
-import { BUILTIN_MODULE_HASH } from "../../../packages/documents/formats/guest/module-hash.ts";
-import { createFormatHandlers } from "../../../packages/documents/formats/reads.ts";
-import { SEARCH_OPS } from "../../../packages/documents/outline-and-search/mod.ts";
-import { searchCursorOf } from "../../../packages/documents/outline-and-search/consumer.ts";
+import { BUILTIN_MODULE_HASH } from "../../../packages/core/projects/formats/guest/module-hash.ts";
+import { createFormatHandlers } from "../../../packages/core/projects/formats/reads.ts";
+import { SEARCH_OPS } from "../../../packages/core/projects/outline-and-search/mod.ts";
+import { searchCursorOf } from "../../../packages/core/projects/outline-and-search/consumer.ts";
 import {
   createSearchServing,
   EXTRACTION_ATTEMPTS,

@@ -24,8 +24,8 @@ import {
 } from "../../packages/coding-agent/connection/mod.ts";
 import { createFormatTool } from "../../packages/coding-agent/mcp-server/tools/format.ts";
 import { resolveRoute } from "../../packages/coding-agent/mcp-server/registry.ts";
-import { previewTracking } from "../../packages/documents/projects/work.ts";
-import { directoryScanner } from "../../packages/documents/projects/scan.ts";
+import { previewTracking } from "../../packages/core/projects/registry/work.ts";
+import { directoryScanner } from "../../packages/core/projects/registry/scan.ts";
 import { type Core, startCore } from "./core.ts";
 import type { TeamModule } from "./registration.ts";
 import { createLedgerRegistration } from "./documents.ts";

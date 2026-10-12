@@ -3,19 +3,19 @@
 // 규칙을 새로 정하지 않는다: connection은 supervisor가 보고한 관측 그대로 서명한다.
 import { assert, assertEquals } from "@std/assert";
 import { createIdSource, systemClock } from "../../packages/base/mod.ts";
-import { createCoreSigner } from "../../packages/apps/runtime/signing.ts";
-import { unixDirectTransport } from "../../packages/apps/runtime/client/mod.ts";
-import { procRssReader } from "../../packages/apps/runtime/observations/memory.ts";
-import { slotSockets } from "../../packages/apps/runtime/processes/mod.ts";
-import type { DesiredApp } from "../../packages/apps/runtime/supervisor/mod.ts";
-import { appFlags } from "../../packages/apps/permissions/mod.ts";
+import { createCoreSigner } from "../../packages/core/apps/runtime/signing.ts";
+import { unixDirectTransport } from "../../packages/core/apps/runtime/client/mod.ts";
+import { procRssReader } from "../../packages/core/apps/runtime/observations/memory.ts";
+import { slotSockets } from "../../packages/core/apps/runtime/processes/mod.ts";
+import type { DesiredApp } from "../../packages/core/apps/runtime/supervisor/mod.ts";
+import { appFlags } from "../../packages/core/apps/permissions/mod.ts";
 import {
   COMMANDS,
   FIXTURE_APP,
   FIXTURE_RELEASE,
   SCREENS,
   writeFixtureBundle,
-} from "../../packages/apps/runtime/testing/app-process.ts";
+} from "../../packages/core/apps/runtime/testing/app-process.ts";
 import {
   assembleSupervisor,
   type Assembly,

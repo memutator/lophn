@@ -8,10 +8,10 @@ import {
 } from "../../packages/base/mod.ts";
 import { ALL_ROUTES } from "../../packages/protocol/mod.ts";
 import { instructionRead } from "../../packages/protocol/lophn-agent/mod.ts";
-import { instructionFilesOverCore } from "../../packages/lophn-agent/instructions/mod.ts";
-import { abortableWait } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
-import { spawnStdioMcp } from "../../packages/lophn-agent/extensions/mod.ts";
-import type { McpConnectionsDeps } from "../../packages/lophn-agent/extensions/mod.ts";
+import { instructionFilesOverCore } from "../../packages/core/lophn-agent/instructions/mod.ts";
+import { abortableWait } from "../../packages/core/lophn-agent/run-loop/mod.ts";
+import { spawnStdioMcp } from "../../packages/core/lophn-agent/extensions/mod.ts";
+import type { McpConnectionsDeps } from "../../packages/core/lophn-agent/extensions/mod.ts";
 import type { CoreCalls } from "./main.ts";
 import { createMcpToolkit } from "./mcp-toolkit.ts";
 import { createRunPreparer, type Toolkit } from "./prepare.ts";

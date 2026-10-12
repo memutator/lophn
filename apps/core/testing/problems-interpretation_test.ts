@@ -9,7 +9,7 @@ import {
   APP_B,
   COLLECTOR,
   reportInput,
-} from "../../../packages/problems/grouping/testing/mod.ts";
+} from "../../../packages/core/problems/grouping/testing/mod.ts";
 import { createLedgerHarness, type LedgerHarness } from "./ledger.ts";
 
 const registration = new URL(

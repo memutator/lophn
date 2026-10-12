@@ -3,7 +3,7 @@ import type {
   ChildMessage,
   ParentMessage,
 } from "../../packages/protocol/platform/mod.ts";
-import type { SecretAttachLike } from "../../packages/lophn-agent/harness/provider/mod.ts";
+import type { SecretAttachLike } from "../../packages/core/lophn-agent/providers/mod.ts";
 
 // provider 호출의 credential은 core가 감독 pipe로 한 번 건네는 값이다(lophn-agent/harness/provider#R7,
 // platform/secrets#R5). 값은 core의 보호 메모리와 OS keychain에만 있고 runtime이 요청하면 core가 현재

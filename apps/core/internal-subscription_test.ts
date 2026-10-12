@@ -10,7 +10,7 @@ import type {
 import type {
   EventBackend,
   EventSession,
-} from "../../packages/platform/ledger/mod.ts";
+} from "../../packages/core/storage/ledger/mod.ts";
 import { openInternalSubscription } from "./internal-subscription.ts";
 
 const CONTEXT: RequestContext = {

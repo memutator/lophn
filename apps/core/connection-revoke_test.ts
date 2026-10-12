@@ -14,18 +14,18 @@ import { createCoreClient } from "../../packages/coding-agent/connection/client/
 import { createTicketTool } from "../../packages/coding-agent/mcp-server/tools/ticket.ts";
 import { resolveRoute } from "../../packages/coding-agent/mcp-server/registry.ts";
 import { connectionRevoke } from "../../packages/protocol/coding-agent/mod.ts";
-import { confirmationBinding } from "../../packages/platform/identity/mod.ts";
+import { confirmationBinding } from "../../packages/core/server/identity/mod.ts";
 import {
   codingCredentialRef,
   createFakeKeychain,
   type FakeKeychain,
-} from "../../packages/platform/secrets/mod.ts";
+} from "../../packages/core/secrets/mod.ts";
 import {
   authorizationOf,
   direct,
   openWorld,
   type World,
-} from "../../packages/apps/runtime/world_test.ts";
+} from "../../packages/core/apps/runtime/world_test.ts";
 import { call } from "./testing/approvals-fixture.ts";
 import { cliMain } from "../cli/main.ts";
 import { codingAgentConnectionDefinitions } from "./coding-agent.ts";

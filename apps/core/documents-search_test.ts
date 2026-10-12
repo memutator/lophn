@@ -21,23 +21,23 @@ import { SEARCH_ROUTES } from "../../packages/protocol/projects/mod.ts";
 import {
   type WorkerRouteHandle,
   type WorkerRouteTarget,
-} from "../../packages/platform/responsiveness/mod.ts";
-import { createTargetAuthorizer } from "../../packages/platform/ledger/mod.ts";
+} from "../../packages/core/supervision/responsiveness/mod.ts";
+import { createTargetAuthorizer } from "../../packages/core/storage/ledger/mod.ts";
 import {
   createSearchHandlers,
   type SearchHandlerDeps,
   type SearchHandlers,
-} from "../../packages/documents/outline-and-search/reads.ts";
+} from "../../packages/core/projects/outline-and-search/reads.ts";
 import {
   type ExtractionRecord,
   recordExtraction,
-} from "../../packages/documents/outline-and-search/extraction.ts";
+} from "../../packages/core/projects/outline-and-search/extraction.ts";
 import {
   derivedPath,
   type DerivedStore,
   openDerived,
   openDerivedRead,
-} from "../../packages/documents/outline-and-search/adapters/store.ts";
+} from "../../packages/core/projects/outline-and-search/adapters/store.ts";
 import { type Core, startCore } from "./core.ts";
 import type { TeamModule } from "./registration.ts";
 import { createLedgerRegistration } from "./documents.ts";

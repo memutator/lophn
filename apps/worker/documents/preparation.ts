@@ -14,20 +14,20 @@ import {
   type ChildSession,
   type ChildStreams,
   startChild,
-} from "../../../packages/platform/responsiveness/mod.ts";
-import { previewTracking } from "../../../packages/documents/projects/work.ts";
-import { directoryScanner } from "../../../packages/documents/projects/scan.ts";
-import { seriesNext } from "../../../packages/documents/series/mod.ts";
+} from "../../../packages/core/supervision/responsiveness/mod.ts";
+import { previewTracking } from "../../../packages/core/projects/registry/work.ts";
+import { directoryScanner } from "../../../packages/core/projects/registry/scan.ts";
+import { seriesNext } from "../../../packages/core/projects/series/mod.ts";
 import {
   fileReadPort,
   fileScanPort,
-} from "../../../packages/documents/file-tracking/fs.ts";
+} from "../../../packages/core/projects/file-tracking/fs.ts";
 import {
   readStably,
   scanRoot,
-} from "../../../packages/documents/file-tracking/mod.ts";
+} from "../../../packages/core/projects/file-tracking/mod.ts";
 import type { TrackingPattern } from "../../../packages/protocol/projects/mod.ts";
-import { PREPARATION_OPS } from "../../../packages/documents/file-tracking/ipc.ts";
+import { PREPARATION_OPS } from "../../../packages/core/projects/file-tracking/ipc.ts";
 import { type ByteInbox, createByteInbox } from "./byte-inbox.ts";
 import {
   acceptFileOp,

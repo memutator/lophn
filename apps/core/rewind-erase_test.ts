@@ -7,9 +7,12 @@ import type {
   CommandEnvelope,
   CommandSuccess,
   Writer,
-} from "../../packages/platform/ledger/mod.ts";
-import { openEnv } from "../../packages/lophn-agent/revert/testing/flow.ts";
-import { SES, userCtx } from "../../packages/lophn-agent/revert/testing/mod.ts";
+} from "../../packages/core/storage/ledger/mod.ts";
+import { openEnv } from "../../packages/core/lophn-agent/session/rewind/testing/flow.ts";
+import {
+  SES,
+  userCtx,
+} from "../../packages/core/lophn-agent/session/rewind/testing/mod.ts";
 import { withRewindFiles } from "./rewind-files.ts";
 
 // session을 지우거나 닫으면 그 session의 저장소 디렉터리도 commit 뒤에 지운다(lophn-agent/revert R20,

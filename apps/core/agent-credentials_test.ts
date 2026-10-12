@@ -5,7 +5,7 @@ import { assert, assertEquals } from "@std/assert";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
 import type { AgentAppScope } from "../../packages/protocol/lophn-agent/mod.ts";
 import type { ChildMessage } from "../../packages/protocol/platform/mod.ts";
-import { CredentialRegistry } from "../../packages/platform/identity/mod.ts";
+import { CredentialRegistry } from "../../packages/core/server/identity/mod.ts";
 import {
   createAgentCredentialLink,
   roleOperations,

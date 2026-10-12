@@ -17,9 +17,9 @@ import {
   stageTestEvidence,
   startTestSide,
 } from "../../packages/protocol/problems/mod.ts";
-import type { OperationPolicy } from "../../packages/platform/identity/mod.ts";
-import type { CredentialIssue } from "../../packages/platform/identity/mod.ts";
-import { openConnection } from "../../packages/platform/ledger/mod.ts";
+import type { OperationPolicy } from "../../packages/core/server/identity/mod.ts";
+import type { CredentialIssue } from "../../packages/core/server/identity/mod.ts";
+import { openConnection } from "../../packages/core/storage/ledger/mod.ts";
 import {
   listOpenTestRequests,
   OBSERVE_TEST_REQUEST,
@@ -28,7 +28,7 @@ import {
   TEST_BLOB_PURPOSES,
   TEST_RECOVERY_PRINCIPAL,
   TEST_RUNNER_PRINCIPAL,
-} from "../../packages/problems/tests/mod.ts";
+} from "../../packages/core/problems/tests/mod.ts";
 import type { ChildBlobPolicy } from "./child-blob-prepare.ts";
 import type { DocumentsChannel } from "./documents-serving.ts";
 import { TEST_RUNNER_KIND } from "./problems-runner.ts";

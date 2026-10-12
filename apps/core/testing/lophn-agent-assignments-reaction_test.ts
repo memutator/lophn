@@ -11,22 +11,22 @@ import {
 } from "../../../packages/base/mod.ts";
 import type { AuthenticatedContext } from "../../../packages/protocol/platform/mod.ts";
 import { ASSIGNMENT_SUBSCRIBER } from "../../../packages/protocol/lophn-agent/mod.ts";
-import { applyMigrations } from "../../../packages/platform/backup-and-migration/mod.ts";
+import { applyMigrations } from "../../../packages/core/storage/migration/mod.ts";
 import {
   createSubscriberGate,
   LEDGER_SCHEMA_STEPS,
   openConnection,
   runCommand,
-} from "../../../packages/platform/ledger/mod.ts";
-import { advanceSubscriberCursorCommand } from "../../../packages/platform/ledger/commands.ts";
+} from "../../../packages/core/storage/ledger/mod.ts";
+import { advanceSubscriberCursorCommand } from "../../../packages/core/storage/ledger/commands.ts";
 import {
   assignmentSchemaSteps,
   createAssignmentCommands,
-} from "../../../packages/lophn-agent/assignments/mod.ts";
+} from "../../../packages/core/lophn-agent/assignments/mod.ts";
 import {
   ASSIGNMENT_REACTION_OPERATIONS,
   assignmentEngine,
-} from "../../../packages/lophn-agent/assignments/reaction.ts";
+} from "../../../packages/core/lophn-agent/assignments/reaction.ts";
 
 const NOW = Date.UTC(2026, 0, 1);
 const NOW_TEXT = "2026-01-01T00:00:00.000Z";

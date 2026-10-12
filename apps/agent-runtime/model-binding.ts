@@ -6,11 +6,11 @@ import {
   type PromptMessage,
   type PromptRequest,
   type WirePacker,
-} from "../../packages/lophn-agent/harness/prompt-assemble/mod.ts";
-import { buildRequest as buildChat } from "../../packages/lophn-agent/harness/provider/adapters/chat-completions.ts";
-import { buildRequest as buildMessages } from "../../packages/lophn-agent/harness/provider/adapters/messages.ts";
-import { buildRequest as buildResponses } from "../../packages/lophn-agent/harness/provider/adapters/responses.ts";
-import type { InvokeModelCall } from "../../packages/lophn-agent/harness/provider/work.ts";
+} from "../../packages/core/lophn-agent/prompt-assembly/mod.ts";
+import { buildRequest as buildChat } from "../../packages/core/lophn-agent/providers/adapters/chat-completions.ts";
+import { buildRequest as buildMessages } from "../../packages/core/lophn-agent/providers/adapters/messages.ts";
+import { buildRequest as buildResponses } from "../../packages/core/lophn-agent/providers/adapters/responses.ts";
+import type { InvokeModelCall } from "../../packages/core/lophn-agent/providers/work.ts";
 
 // 선택한 provider adapter와 고정한 model 선택을 loop가 쓰는 한 묶음으로 만든다. 선택·검증(catalog,
 // credential)은 앞 단계가 끝낸 CallModel이다. 이 묶음은 요청 번역(pack)과 호출(invoke)만 안다.

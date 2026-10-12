@@ -16,8 +16,8 @@ import {
   type ChildSession,
   type ChildStreams,
   startChild,
-} from "../../../packages/platform/responsiveness/mod.ts";
-import { createStatusRecorder } from "../../../packages/documents/file-tracking/mod.ts";
+} from "../../../packages/core/supervision/responsiveness/mod.ts";
+import { createStatusRecorder } from "../../../packages/core/projects/file-tracking/mod.ts";
 import { createRequestHandler } from "./requests.ts";
 import {
   basisFromStore,
@@ -34,7 +34,7 @@ import {
 } from "./observation.ts";
 import { createBasisStore } from "./basis.ts";
 import { createByteInbox, validateFiles } from "./validation.ts";
-import { createFormatHandlers } from "../../../packages/documents/formats/reads.ts";
+import { createFormatHandlers } from "../../../packages/core/projects/formats/reads.ts";
 import { createLedgerGate } from "./ledger-gate.ts";
 import { createSearchServing, openSearchStore } from "./search.ts";
 import { createRootObservers } from "./observers.ts";
@@ -42,7 +42,7 @@ import { createPreparationPool } from "./pool.ts";
 import { createBatchDispatch } from "./batch.ts";
 import { preparationSpec, previewSpec } from "./launch.ts";
 import { createFileHandlers, recordKeyOf } from "./files.ts";
-import { denoFileOps } from "../../../packages/documents/file-tracking/adapters/file-ops.ts";
+import { denoFileOps } from "../../../packages/core/projects/file-tracking/adapters/file-ops.ts";
 import {
   fileOperationResultSchema,
   projectPreviewTracking,
@@ -61,7 +61,7 @@ import {
   fileReadPort,
   fileScanPort,
   fileWatchPort,
-} from "../../../packages/documents/file-tracking/fs.ts";
+} from "../../../packages/core/projects/file-tracking/fs.ts";
 import { createCoreClient, productFetch } from "./submit.ts";
 import { type SlotSupervisor, supervisePreparationSlots } from "./slots.ts";
 import {
@@ -77,7 +77,7 @@ import {
   pickSlot,
   PREPARATION_SLOTS,
   type PrepareSlot,
-} from "../../../packages/documents/file-tracking/mod.ts";
+} from "../../../packages/core/projects/file-tracking/mod.ts";
 
 export type CoordinatorOptions = {
   root: string;

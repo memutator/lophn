@@ -6,12 +6,12 @@ import { assert, assertEquals, assertFalse } from "@std/assert";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
 import { createHelperCredentialProvider } from "../../packages/coding-agent/connection/credential/helper.ts";
 import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
-import { serveCredentialSocket } from "../../packages/platform/install-and-update/mod.ts";
+import { serveCredentialSocket } from "../../packages/core/install-and-update/mod.ts";
 import {
   codingCredentialRef,
   createFakeKeychain,
   type FakeKeychain,
-} from "../../packages/platform/secrets/mod.ts";
+} from "../../packages/core/secrets/mod.ts";
 import { codingAgentConnectionDefinitions } from "./coding-agent.ts";
 import { withRevocationSweep } from "./coding-credential.ts";
 import { type Core, startCore } from "./core.ts";
@@ -19,7 +19,7 @@ import { closeUnlessKept } from "./testing/close-on-throw.ts";
 
 const decoder = new TextDecoder();
 const HELPER_MAIN = new URL(
-  "../../packages/platform/install-and-update/credential-helper-main.ts",
+  "../../packages/core/install-and-update/credential-helper-main.ts",
   import.meta.url,
 ).pathname;
 

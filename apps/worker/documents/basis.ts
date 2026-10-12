@@ -8,7 +8,7 @@ import type {
   ObservationInstructionBasis,
   ObservationLinkBasis,
   ObservationRootBasis,
-} from "../../../packages/documents/file-tracking/mod.ts";
+} from "../../../packages/core/projects/file-tracking/mod.ts";
 
 export type BasisStore = {
   // 조각 하나를 받는다. 마지막 조각이면 반영하고 committed=true다.

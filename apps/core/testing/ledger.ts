@@ -35,12 +35,12 @@ import type {
 export {
   defineTxPort,
   type TxPortRegistration,
-} from "../../../packages/platform/ledger/mod.ts";
+} from "../../../packages/core/storage/ledger/mod.ts";
 export type {
   CommandEnvelope,
   CommandSuccess,
   StoredCommandResult,
-} from "../../../packages/platform/ledger/mod.ts";
+} from "../../../packages/core/storage/ledger/mod.ts";
 export type {
   LedgerHarness,
   LedgerHarnessOptions,

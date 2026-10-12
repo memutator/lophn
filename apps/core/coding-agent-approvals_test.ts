@@ -55,7 +55,7 @@ async function open(): Promise<LedgerHarness> {
   const opened = await createLedgerHarness({
     registrationModules: [
       new URL(
-        "../../packages/platform/approvals/harness_test.ts",
+        "../../packages/core/approvals/harness_test.ts",
         import.meta.url,
       ),
     ],

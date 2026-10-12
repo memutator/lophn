@@ -17,7 +17,7 @@ import type {
   RunMarkedCommand,
   StoredCommandResult,
   TxPortRegistration,
-} from "../../../packages/platform/ledger/mod.ts";
+} from "../../../packages/core/storage/ledger/mod.ts";
 
 export type LedgerTestEnvironment = {
   currentCredential(credentialRef: string): Result<AuthenticatedContext>;

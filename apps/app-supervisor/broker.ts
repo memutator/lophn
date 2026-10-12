@@ -28,8 +28,8 @@ import {
   type RedactionGate,
   type SecretDelivery,
   serveBroker,
-} from "../../packages/apps/permissions/mod.ts";
-import type { AutomationPermits } from "../../packages/apps/automations/permits.ts";
+} from "../../packages/core/apps/permissions/mod.ts";
+import type { AutomationPermits } from "../../packages/core/apps/automations/permits.ts";
 
 export type BrokerAdapters = {
   access: BrokerAccess;

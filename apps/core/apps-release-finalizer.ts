@@ -9,10 +9,10 @@ import { parseActor } from "../../packages/protocol/platform/mod.ts";
 import {
   dataChangesOf,
   readBundleCopy,
-} from "../../packages/apps/releases/activation/desired.ts";
-import { openConnection } from "../../packages/platform/ledger/mod.ts";
-import { findPassedAppTest } from "../../packages/problems/tests/app-test-lookup.ts";
-import type { PreparationSnapshot } from "../../packages/apps/releases/preparation.ts";
+} from "../../packages/core/apps/releases/activation/desired.ts";
+import { openConnection } from "../../packages/core/storage/ledger/mod.ts";
+import { findPassedAppTest } from "../../packages/core/problems/tests/app-test-lookup.ts";
+import type { PreparationSnapshot } from "../../packages/core/apps/releases/preparation.ts";
 
 // release 확정에 쓰는 operation 이름이다. core 내부 machine 자격의 scope가 이것을 담는다.
 export const FINALIZER_OPERATIONS = [releasePrepare.name];

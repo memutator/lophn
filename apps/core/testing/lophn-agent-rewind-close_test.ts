@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
-import { id } from "../../../packages/lophn-agent/conversation/testing/mod.ts";
+import { id } from "../../../packages/core/lophn-agent/session/testing/mod.ts";
 import {
   redoOf,
   redoRewind,
@@ -15,7 +15,7 @@ import {
   setAssignmentState,
   SOURCE_SECOND,
   value,
-} from "../../../packages/lophn-agent/conversation/world_test.ts";
+} from "../../../packages/core/lophn-agent/session/world_test.ts";
 
 // 다음 사람 메시지를 접수하면 redo가 끝난다(conversation#R25, lophn-agent/revert R16). 실제 등록
 // executor(harness)와 임시 ledger를 쓴다. 먼저 conversation 시험 등록(packages/lophn-agent/conversation/registration_test.ts)이 revert의 command·읽기·표를

@@ -5,7 +5,7 @@ import {
   SECRET_EXPORT_OP,
   SECRET_IMPORT_OP,
 } from "../../../packages/protocol/platform/mod.ts";
-import { createKnownSecretRegistry } from "../../../packages/platform/redaction/mod.ts";
+import { createKnownSecretRegistry } from "../../../packages/base/redaction/mod.ts";
 import {
   createFakeKeychain,
   createLinuxSecretServiceAdapter,
@@ -13,9 +13,9 @@ import {
   type PreparationStore,
   randomSealedRef,
   secretToolRunner,
-} from "../../../packages/platform/secrets/mod.ts";
+} from "../../../packages/core/secrets/mod.ts";
 import { createSecretPipe } from "./secrets.ts";
-import { createSecretTransfer } from "../../../packages/platform/secrets/mod.ts";
+import { createSecretTransfer } from "../../../packages/core/secrets/mod.ts";
 
 function store(): PreparationStore {
   return {

@@ -12,7 +12,7 @@ import {
   seededRandom,
   sha256Hex,
 } from "../../packages/base/mod.ts";
-import { objectPathFor } from "../../packages/platform/blob-store/mod.ts";
+import { objectPathFor } from "../../packages/core/storage/blobs/mod.ts";
 import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
 import { createLedgerRegistration as createAppsRegistration } from "./apps.ts";
 import { codingAgentConnectionDefinitions } from "./coding-agent.ts";

@@ -25,7 +25,7 @@ import {
   startFsWatch,
   type Timer,
   type WatchFs,
-} from "../../packages/documents/contexts/watch/mod.ts";
+} from "../../packages/core/projects/contexts/watch/mod.ts";
 
 export type ContextsWatchDeps = {
   // 활성 context 전체와 그 폴더·적용 판 hash(`context.work_list`). 읽지 못하면 err다.

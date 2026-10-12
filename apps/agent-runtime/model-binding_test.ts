@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import type { PromptRequest } from "../../packages/lophn-agent/harness/prompt-assemble/mod.ts";
+import type { PromptRequest } from "../../packages/core/lophn-agent/prompt-assembly/mod.ts";
 import {
   anthropicPacker,
   chatPacker,

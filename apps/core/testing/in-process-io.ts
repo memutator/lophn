@@ -11,7 +11,7 @@ import {
   type Spawned,
   type SpawnRequest,
   startChild,
-} from "../../../packages/platform/responsiveness/mod.ts";
+} from "../../../packages/core/supervision/responsiveness/mod.ts";
 import { createPlatformIo } from "../../worker/platform/io.ts";
 import type { SecretPipe } from "../../worker/platform/secrets.ts";
 

@@ -26,6 +26,15 @@ import {
 } from "./testdata/fake-source.ts";
 import type { MessageRow, ResultLink } from "./source.ts";
 import {
+  RequestDrafts,
+  RequestsProvider,
+} from "../desktop/lophn-space/things-to-confirm/context.tsx";
+import {
+  approval,
+  fakeRequests,
+  manualTicks as requestTicks,
+} from "../desktop/lophn-space/things-to-confirm/testdata/fake-source.ts";
+import {
   type ResizeSource,
   ResizeSourceProvider,
 } from "@lophn/design/components";
@@ -944,4 +953,27 @@ Deno.test("shell/desktop#R8: 본문 상한을 넘는 글은 보내지 않고 이
   click(find(view.container, "[data-send]"));
   await flush();
   assertEquals(fake.state.sent.length, 1);
+});
+
+Deno.test("shell/desktop#R46 [I45]: 도크는 composer 위에 질문·승인 칸을 그리지 않고 요청이 기다려도 대화만 보인다", async () => {
+  const requests = fakeRequests({ requests: [approval(1)] });
+  const fake = fakeSource();
+  using view = render(
+    <RequestsProvider
+      deps={{
+        source: requests.source,
+        drafts: new RequestDrafts(),
+        ticks: requestTicks().ticks,
+        now: () => NOW,
+      }}
+    >
+      {dockOf(fake)}
+    </RequestsProvider>,
+  );
+  await flush();
+  assert(view.container.querySelector("[data-composer-input]"));
+  assertEquals(view.container.querySelector("[data-question-strip]"), null);
+  assertEquals(view.container.querySelector("[data-request-id]"), null);
+  // 도크는 요청을 읽지 않는다.
+  assertEquals(requests.state.reads, 0);
 });

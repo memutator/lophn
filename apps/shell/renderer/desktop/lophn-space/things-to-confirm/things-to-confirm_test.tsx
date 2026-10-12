@@ -16,6 +16,8 @@ import {
   approval,
   approvalId,
   fakeRequests,
+  groupId,
+  groupQuestion,
   manualTicks,
   notification,
   question,
@@ -76,6 +78,25 @@ function titles(root: ParentNode): string[] {
     .map((item) => item.querySelector("span")?.textContent ?? "");
 }
 
+function button(root: ParentNode, label: string): HTMLButtonElement {
+  const found = [...root.querySelectorAll("button")].find((item) =>
+    item.textContent === label
+  );
+  if (!found) throw new Error(`no button ${label}`);
+  return found as HTMLButtonElement;
+}
+
+function write(textarea: HTMLElement, value: string): void {
+  act(() => {
+    const setter = Object.getOwnPropertyDescriptor(
+      HTMLTextAreaElement.prototype,
+      "value",
+    )!.set!;
+    setter.call(textarea, value);
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+
 function nothingSent(fake: ReturnType<typeof fakeRequests>): void {
   assertEquals(fake.state.answered, []);
   assertEquals(fake.state.deferred, []);
@@ -111,7 +132,7 @@ Deno.test("shell/desktop#R28: lophn 공간의 things-to-confirm 형제는 이 �
   assertEquals(view.container.querySelector("[data-not-ready]"), null);
 });
 
-Deno.test("shell/desktop#R9: 기다리는 것은 종류별 개수와 다음 행동, 지난 일은 최신순 링크이고 읽는 것만으로 아무것도 보내지 않는다", async () => {
+Deno.test("shell/desktop#R9 [I45]: 기다리는 것은 종류별 개수와 다음 행동, 지난 일은 최신순 링크이고 읽는 것만으로 아무것도 보내지 않는다", async () => {
   const fake = fakeRequests({
     requests: [
       question(1),
@@ -120,7 +141,9 @@ Deno.test("shell/desktop#R9: 기다리는 것은 종류별 개수와 다음 행�
       question(4, {
         status: "answered",
         closedSeq: "41",
-        answer: { kind: "option", option: "keep" },
+        questions: [
+          groupQuestion(4, 1, { answer: { kind: "option", option: "keep" } }),
+        ],
       }),
       approval(5, { status: "rejected", closedSeq: "90" }),
       question(6, {
@@ -159,7 +182,7 @@ Deno.test("shell/desktop#R9: 기다리는 것은 종류별 개수와 다음 행�
   assertEquals(
     find(view.container, "[data-detail-column] [data-request-id]")
       .getAttribute("data-request-id"),
-    questionId(3),
+    groupId(3),
   );
   pressTab(view.container, "Past");
   await flush();
@@ -184,31 +207,43 @@ Deno.test("shell/desktop#R9: 기다리는 것은 종류별 개수와 다음 행�
   );
   await flush();
   assertEquals(
-    find(view.container, "[data-detail-column] [data-answer]").textContent,
-    "You chose Keep both files.",
+    find(view.container, "[data-detail-column] [data-answered-summary]")
+      .textContent,
+    "Answered 1 question: Keep both files",
   );
   nothingSent(fake);
 });
 
-Deno.test("lophn-agent/questions#R10: 지난 질문은 본문과 받은 자유 답·취소 이유를 core가 둔 글로 다시 보인다", async () => {
+Deno.test("lophn-agent/questions#R10 [I45]: 지난 묶음은 질문 본문과 받은 자유 답·취소 이유를 core가 둔 글로 다시 보인다", async () => {
   const answered = question(1, {
     status: "answered",
     closedSeq: "50",
-    answer: { kind: "text" },
+    questions: [
+      groupQuestion(1, 1, { answer: { kind: "text" } }),
+      groupQuestion(1, 2, { answer: { kind: "option", option: "merge" } }),
+    ],
   });
   const cancelled = question(2, {
     status: "cancelled",
     closedReason: "cancelled",
     closedSeq: "40",
   });
+  const base = questionText(answered);
   const fake = fakeRequests({
     requests: [answered, cancelled],
     texts: {
-      [questionId(1)]: questionText(answered, {
-        prompt: "What should the summary cover?",
-        answer: "Only this week's numbers.",
-      }),
-      [questionId(2)]: questionText(cancelled, {
+      [groupId(1)]: {
+        ...base,
+        questions: [
+          {
+            ...base.questions[0]!,
+            prompt: "What should the summary cover?",
+            answer: "Only this week's numbers.",
+          },
+          base.questions[1]!,
+        ],
+      },
+      [groupId(2)]: questionText(cancelled, {
         closedReason: "Not needed anymore.",
       }),
     },
@@ -223,22 +258,26 @@ Deno.test("lophn-agent/questions#R10: 지난 질문은 본문과 받은 자유 �
   await flush();
   const detail = find(view.container, "[data-detail-column]");
   assertEquals(
-    find(detail, "[data-question-text]").textContent,
-    "What should the summary cover?",
+    [...detail.querySelectorAll("[data-question-text]")].map((item) =>
+      item.textContent
+    ),
+    ["What should the summary cover?", "Question 2?"],
   );
   assertEquals(
-    find(detail, "[data-answer]").textContent,
-    "You wrote your own answer.",
+    find(detail, "[data-answered-summary]").textContent,
+    "Answered 2 questions: Only this week's numbers. · Merge them",
   );
-  assertEquals(
-    find(detail, "[data-answer-text]").textContent,
-    "Only this week's numbers.",
-  );
+  // 닫힌 묶음에는 고르는 카드가 없다.
+  assertEquals(detail.querySelector("[data-question-card]"), null);
   click(rows()[1]!);
   await flush();
+  const closed = find(view.container, "[data-detail-column]");
   assertEquals(
-    find(view.container, "[data-detail-column] [data-closed-reason]")
-      .textContent,
+    find(closed, "[data-answered-summary]").textContent,
+    "Cancelled",
+  );
+  assertEquals(
+    find(closed, "[data-closed-reason]").textContent,
     "Not needed anymore.",
   );
   nothingSent(fake);
@@ -275,31 +314,326 @@ Deno.test("shell/desktop#R9: 역할·기간 filter는 목록만 거르고 맞는
   nothingSent(fake);
 });
 
-Deno.test("shell/desktop#R6: 세션 없는 요청도 things-to-confirm에서 열어 답한다", async () => {
-  const fake = fakeRequests({
-    requests: [question(1, { session: null, role: "operator" })],
-  });
-  using view = render(screen(fake));
+/** 세션 없는 묶음이 있는 화면에서 첫 줄을 열어 둔다. */
+async function openGroup(fake: ReturnType<typeof fakeRequests>) {
+  const view = render(screen(fake));
   await flush();
   const row = view.container.querySelector(
     "[data-tab-panel] ul:not([data-counts]) li",
   ) as HTMLElement;
-  assert(row.textContent?.includes("Not in a conversation"));
   click(find(row, "button"));
   await flush();
+  return { view, detail: find(view.container, "[data-detail-column]") };
+}
+
+Deno.test("lophn-agent/questions#R2, R4 [I45]: 세션 없는 run의 묶음은 things-to-confirm에서 열어 선택만으로는 보내지 않고 Submit이 모든 답을 한 번에 보낸다", async () => {
+  const fake = fakeRequests({
+    requests: [
+      question(1, {
+        role: "operator",
+        questions: [
+          groupQuestion(1, 1),
+          groupQuestion(1, 2, {
+            options: [
+              { key: "yes", label: "Yes", action: false },
+              { key: "no", label: "No", action: false },
+            ],
+            recommended: null,
+          }),
+        ],
+      }),
+    ],
+  });
+  using view = render(screen(fake));
+  await flush();
+  const item = view.container.querySelector(
+    "[data-tab-panel] ul:not([data-counts]) li",
+  ) as HTMLElement;
+  assert(item.textContent?.includes("Not in a conversation"));
+  assertEquals(
+    view.container.querySelector("[data-detail-column] [data-question-card]"),
+    null,
+  );
+  click(find(item, "button"));
+  await flush();
   const detail = find(view.container, "[data-detail-column]");
-  click(find(detail, "[data-option=keep]"));
+  // 묶음 카드는 대화 안 카드와 같은 component다: 머리에 묻는 agent와 질문 수, 질문마다 선택지.
+  assert(
+    find(detail, "[data-question-card] header").textContent?.startsWith(
+      "Operator is asking 2 questions",
+    ),
+  );
+  assertEquals(detail.querySelectorAll("[role=radiogroup]").length, 2);
+  assertEquals(
+    find(detail, `[data-request-id='${groupId(1)}']`).getAttribute(
+      "data-status",
+    ),
+    "pending",
+  );
+  // 글은 core가 둔 글을 읽어 그린다.
+  assertEquals(fake.state.textReads.includes(groupId(1)), true);
+  assert(detail.textContent?.includes("Which copy of the notes should stay?"));
+  assert(detail.textContent?.includes("About: Keep both files"));
+  // 선택만으로는 아무것도 보내지 않고 모든 질문에 답하기 전에는 Submit이 막혀 있다.
+  click(
+    find(detail, `[data-question='${questionId(1, 1)}'] [data-option=keep]`),
+  );
   await flush();
   assertEquals(fake.state.answered, []);
-  click(find(detail, "[data-send-answer]"));
+  assertEquals(button(detail, "Submit").disabled, true);
+  click(find(detail, `[data-question='${questionId(1, 2)}'] [data-option=no]`));
+  await flush();
+  assertEquals(fake.state.answered, []);
+  assertEquals(button(detail, "Submit").disabled, false);
+  click(button(detail, "Submit"));
   await flush();
   assertEquals(fake.state.answered, [{
-    question: questionId(1),
-    answer: { kind: "option", option: "keep" },
+    group: groupId(1),
+    answers: [
+      {
+        question: questionId(1, 1),
+        answer: { kind: "option", option_key: "keep" },
+      },
+      {
+        question: questionId(1, 2),
+        answer: { kind: "option", option_key: "no" },
+      },
+    ],
+  }]);
+  assertEquals(fake.state.deferred, []);
+  assertEquals(fake.state.cancelled, []);
+  // 접수된 뒤 현재 기록을 다시 읽어 접힌 요약으로 남고 카드는 닫힌다.
+  assertEquals(
+    find(view.container, "[data-detail-column] [data-answered-summary]")
+      .textContent,
+    "Answered 2 questions: Keep both files · No",
+  );
+  assertEquals(
+    view.container.querySelector("[data-detail-column] [data-question-card]"),
+    null,
+  );
+});
+
+Deno.test("lophn-agent/questions#R3, R4 [I45]: 선택지 대신 자유 답을 쓰면 글을 값으로 보내고 비어 있으면 Submit이 막혀 있다", async () => {
+  const fake = fakeRequests({ requests: [question(1)] });
+  const { view, detail } = await openGroup(fake);
+  using _view = view;
+  click(find(detail, "[data-option-other]"));
+  await flush();
+  assertEquals(button(detail, "Submit").disabled, true);
+  const input = find(detail, "[data-option-other] input") as HTMLInputElement;
+  act(() => {
+    const setter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )!.set!;
+    setter.call(input, "Only this week's numbers.");
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await flush();
+  click(button(detail, "Submit"));
+  await flush();
+  assertEquals(fake.state.answered, [{
+    group: groupId(1),
+    answers: [{
+      question: questionId(1, 1),
+      answer: { kind: "text", text: "Only this week's numbers." },
+    }],
   }]);
 });
 
-Deno.test("platform/notifications#R5, R6: 읽음과 읽지 않음을 구별하고 명시한 읽음 표시만 읽음이며 답·승인이 아니다", async () => {
+Deno.test("lophn-agent/questions#R6, R8 [I45]: Skip은 묶음 전체를 답 없이 미루고 답을 보내지 않는다", async () => {
+  const fake = fakeRequests({ requests: [question(1)] });
+  const { view, detail } = await openGroup(fake);
+  using _view = view;
+  click(find(detail, "[data-option=keep]"));
+  await flush();
+  click(button(detail, "Skip"));
+  await flush();
+  assertEquals(fake.state.deferred, [groupId(1)]);
+  assertEquals(fake.state.answered, []);
+  assertEquals(fake.state.cancelled, []);
+  assertEquals(
+    find(view.container, "[data-detail-column] [data-answered-summary]")
+      .textContent,
+    "Skipped",
+  );
+});
+
+Deno.test("lophn-agent/questions#R6, R8 [I45]: 취소는 이유를 받아 따로 보내고 이유가 비면 보내지 않는다", async () => {
+  const fake = fakeRequests({ requests: [question(1)] });
+  const { view, detail } = await openGroup(fake);
+  using _view = view;
+  click(find(detail, "[data-cancel-question]"));
+  await flush();
+  const confirm = find(detail, "[data-confirm-cancel]") as HTMLButtonElement;
+  assertEquals(confirm.disabled, true);
+  write(find(detail, "[data-cancel-reason]"), "   ");
+  await flush();
+  assertEquals(confirm.disabled, true);
+  write(find(detail, "[data-cancel-reason]"), "No longer needed.");
+  await flush();
+  assertEquals(confirm.disabled, false);
+  click(confirm);
+  await flush();
+  assertEquals(fake.state.cancelled, [{
+    group: groupId(1),
+    reason: "No longer needed.",
+  }]);
+  assertEquals(fake.state.answered, []);
+  assertEquals(fake.state.deferred, []);
+  const closed = find(view.container, "[data-detail-column]");
+  assertEquals(
+    find(closed, "[data-answered-summary]").textContent,
+    "Cancelled",
+  );
+  assertEquals(
+    find(closed, "[data-closed-reason]").textContent,
+    "No longer needed.",
+  );
+});
+
+Deno.test("lophn-agent/questions#R4 [I45]: 고정 action이 있는 선택지의 Submit은 답을 보내지 않고 confirmation window만 연다", async () => {
+  const fake = fakeRequests({
+    requests: [
+      question(1, {
+        questions: [
+          groupQuestion(1, 1, {
+            options: [
+              {
+                key: "move",
+                label: "Move it",
+                action: true,
+                command: "document.move",
+              },
+              { key: "stay", label: "Leave it", action: false },
+            ],
+            recommended: null,
+          }),
+        ],
+      }),
+    ],
+  });
+  const { view, detail } = await openGroup(fake);
+  using _view = view;
+  click(find(detail, "[data-option=move]"));
+  await flush();
+  assertEquals(fake.state.reviewed, []);
+  click(button(detail, "Submit"));
+  await flush();
+  assertEquals(fake.state.reviewed, [{
+    kind: "question_option_action",
+    question: questionId(1, 1),
+    option_key: "move",
+  }]);
+  assertEquals(fake.state.answered, []);
+  // 같은 묶음의 action 없는 선택지는 일반 답으로 간다.
+  click(find(detail, "[data-option=stay]"));
+  await flush();
+  click(button(detail, "Submit"));
+  await flush();
+  assertEquals(fake.state.answered.length, 1);
+  assertEquals(fake.state.reviewed.length, 1);
+});
+
+Deno.test("lophn-agent/questions#R4 [I45]: 보호 창을 열 수 없으면 그렇다고 말하고 다른 길로 답을 보내지 않는다", async () => {
+  const fake = fakeRequests({
+    reviewOpens: false,
+    requests: [
+      question(1, {
+        questions: [
+          groupQuestion(1, 1, {
+            options: [{
+              key: "move",
+              label: "Move it",
+              action: true,
+              command: "document.move",
+            }],
+            recommended: null,
+          }),
+        ],
+      }),
+    ],
+  });
+  const { view, detail } = await openGroup(fake);
+  using _view = view;
+  click(find(detail, "[data-option=move]"));
+  await flush();
+  click(button(detail, "Submit"));
+  await flush();
+  assertEquals(
+    find(detail, "[data-problem]").getAttribute("data-problem"),
+    "review-unavailable",
+  );
+  assertEquals(fake.state.answered, []);
+});
+
+Deno.test("lophn-agent/questions#R9 [I45]: 이미 닫혔거나 바뀐 묶음의 답은 새 결정으로 보이지 않고 최신 기록으로 맞춘다", async () => {
+  const fake = fakeRequests({
+    requests: [question(1)],
+    replies: [{ ok: false, code: "conflict" }],
+  });
+  const { view, detail } = await openGroup(fake);
+  using _view = view;
+  const reads = fake.state.reads;
+  click(find(detail, "[data-option=keep]"));
+  await flush();
+  click(button(detail, "Submit"));
+  await flush();
+  assertEquals(
+    find(view.container, "[data-detail-column] [data-problem]").textContent,
+    "This changed since you opened it. Showing the latest.",
+  );
+  assert(fake.state.reads > reads);
+});
+
+Deno.test("lophn-agent/questions#R4 [I45]: 묶음 글을 읽지 못하면 그렇다고 말하고 카드를 그리지 않는다", async () => {
+  const fake = fakeRequests({
+    requests: [question(1)],
+    texts: { [groupId(1)]: null },
+  });
+  const { view, detail } = await openGroup(fake);
+  using _view = view;
+  assertEquals(
+    find(detail, "[data-question-text=failed]").textContent,
+    "Couldn't load this question's text.",
+  );
+  assertEquals(detail.querySelector("[data-question-card]"), null);
+  nothingSent(fake);
+});
+
+Deno.test("lophn-agent/questions#R4, R7 [I45]: 기한이 있는 묶음은 카드에 남은 시간을 보인다", async () => {
+  const fake = fakeRequests({
+    requests: [
+      question(1, { expiresAt: new Date(NOW + 2 * HOUR).toISOString() }),
+    ],
+  });
+  const { view, detail } = await openGroup(fake);
+  using _view = view;
+  assertEquals(
+    find(detail, "[data-question-expiry]").textContent,
+    "Expires in 2h 0m",
+  );
+});
+
+Deno.test("shell/desktop#R7 [I45]: 연결이 끊기면 묶음의 Submit과 Skip을 막고 고르는 것은 그대로 된다", async () => {
+  const fake = fakeRequests({ requests: [question(1)] });
+  const { view, detail } = await openGroup(fake);
+  using _view = view;
+  fake.push({ state: "stale", confirmedAt: 1 });
+  await flush();
+  click(find(detail, "[data-option=keep]"));
+  await flush();
+  assertEquals(button(detail, "Submit").disabled, true);
+  assertEquals(button(detail, "Skip").disabled, true);
+  assertEquals(
+    find(detail, "[data-option=keep]").getAttribute("aria-checked"),
+    "true",
+  );
+  nothingSent(fake);
+});
+
+Deno.test("platform/notifications#R5, R6 [I45]: 읽음과 읽지 않음을 구별하고 명시한 읽음 표시만 읽음이며 답·승인이 아니다", async () => {
   const fake = fakeRequests({
     requests: [question(1)],
     notifications: [
@@ -326,7 +660,7 @@ Deno.test("platform/notifications#R5, R6: 읽음과 읽지 않음을 구별하�
   assertEquals(
     find(view.container, "[data-detail-column] [data-request-id]")
       .getAttribute("data-request-id"),
-    questionId(1),
+    groupId(1),
   );
   nothingSent(fake);
   const mark = find(rows[2] as HTMLElement, "[data-mark-read]");

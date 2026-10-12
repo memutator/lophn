@@ -1782,6 +1782,41 @@ Deno.test("documents/contexts#R25 [ctx-S26]: handed_off survives in the ledger e
   }
 });
 
+Deno.test("documents/contexts#R25 [ctx-T10b]: context.violations gives a rule violation the message of the applied contract's rule and leaves other messages as the index gave them", () => {
+  const sql = sqlApi();
+  try {
+    createContext(sql);
+    applyBundle(sql, ids.context);
+    sql.seedViolations(ids.context, [
+      violation({
+        path: "docs/a.md",
+        message: "Experiment.status-required is violated",
+      }),
+      violation({
+        path: "docs/b.md",
+        rule: "Experiment.not-declared",
+        message: "Experiment.not-declared is violated",
+      }),
+      violation({
+        path: "docs/c.md",
+        kind: "unreadable",
+        rule: null,
+        message: "docs/c.md cannot be read",
+      }),
+    ]);
+    const messages = value(
+      sql.read(contextViolationsRoute, "user", { context: ids.context }),
+    ).violations.map((item) => [item.path, item.message]);
+    assertEquals(messages, [
+      ["docs/a.md", "Every experiment says its status"],
+      ["docs/b.md", "Experiment.not-declared is violated"],
+      ["docs/c.md", "docs/c.md cannot be read"],
+    ]);
+  } finally {
+    sql.ledger.close();
+  }
+});
+
 Deno.test("documents/contexts#R3 [ctx-I34a]: the adapter keeps no idempotency state, so a repeated create is judged again", () => {
   const sql = sqlApi();
   try {

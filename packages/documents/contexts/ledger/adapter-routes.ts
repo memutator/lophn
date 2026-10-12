@@ -313,6 +313,9 @@ export const READ_ENTRIES: readonly ReadEntry[] = [
     (r) => r.contextViolations,
     (_sql, input) => ({
       context: input.context,
+      // 적용된 판의 계약이 위반 문구(규칙의 message)를 정한다.
+      bundles: true,
+      content: "applied",
       index: ["violations"],
       handedOff: true,
     }),

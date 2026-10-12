@@ -1,7 +1,8 @@
 // board lane의 순서: board_by가 enum field면 선언 순서, 아니면 값의 code unit 순.
-import type {
-  Contract,
-  SearchQuery,
+import {
+  type Contract,
+  followedTypeRef,
+  type SearchQuery,
 } from "../../../contracts/documents/mod.ts";
 
 // board_by path가 가리키는 enum field의 선언 값. enum이 아니거나 풀 수 없으면 undefined.
@@ -33,26 +34,12 @@ function aliasType(
     const from = follow.from === undefined
       ? query.from
       : types.get(follow.from);
-    types.set(follow.as, followTarget(contract, from, follow));
+    const to = from === undefined
+      ? undefined
+      : followedTypeRef(contract.types, from, follow);
+    types.set(follow.as, to?.includes("/") ? undefined : to);
   }
   return types.get(alias);
-}
-
-function followTarget(
-  contract: Contract,
-  from: string | undefined,
-  follow: SearchQuery["follow"][number],
-): string | undefined {
-  if (from === undefined) return undefined;
-  if (follow.direction === "forward") {
-    const to = contract.types.find((t) => t.name === from)?.relations.find((
-      r,
-    ) => r.name === follow.relation)?.to;
-    return to === undefined || to.includes("/") ? undefined : to;
-  }
-  return contract.types.find((t) =>
-    t.relations.some((r) => r.name === follow.relation && r.to === from)
-  )?.name;
 }
 
 export function compareValues(a: unknown, b: unknown): number {

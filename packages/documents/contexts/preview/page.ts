@@ -26,6 +26,8 @@ export function pagePreview(input: {
   cursor?: string;
   as_of_seq: string;
   outcome: ContextPreviewWorkResponse;
+  // 미리 보는 draft의 계약. rule 위반의 문구가 규칙의 message를 쓰도록 건넨다.
+  contract?: unknown;
 }): Result<ContextPreviewRead> {
   const { outcome } = input;
   // 정렬은 worker가 path, kind, rule, section으로 정했다. 같은 값끼리의 순서까지 정해 keyset을 안정하게 한다.
@@ -56,7 +58,7 @@ export function pagePreview(input: {
         section: violation.section,
         type: violation.type,
         target: violation.target,
-        message: violationMessage(violation),
+        message: violationMessage(violation, input.contract),
       })),
       findings: outcome.findings,
       as_of_seq: input.as_of_seq,

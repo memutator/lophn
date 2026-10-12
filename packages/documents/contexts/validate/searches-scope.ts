@@ -3,6 +3,7 @@ import {
   type BundleContent,
   type Condition,
   type ContractType,
+  followedTypeRef,
   splitExternalRef,
 } from "../../../contracts/documents/mod.ts";
 import type { ContractIssue, ExternalType, ValidationEnv } from "./types.ts";
@@ -47,13 +48,6 @@ function externalTarget(env: ValidationEnv, ref: string): Target {
   return { kind: "external", ref, type };
 }
 
-// 관계를 따라가 닿는 type을 가리키는 이름: 같은 계약은 `Type`, 다른 context는 `context/Type`.
-function refOf(target: Target): string | undefined {
-  if (target.kind === "own") return target.type.name;
-  if (target.kind === "external") return target.ref;
-  return undefined;
-}
-
 function resolveFollow(
   bundle: BundleContent,
   env: ValidationEnv,
@@ -63,30 +57,18 @@ function resolveFollow(
   if (from.kind === "unresolved") {
     return { target: from, relationKnown: true };
   }
-  if (follow.direction === "forward") {
-    if (from.kind === "external") {
-      return { target: { kind: "unresolved" }, relationKnown: false };
-    }
-    const relation = from.type.relations.find((r) =>
-      r.name === follow.relation
-    );
-    if (relation === undefined) {
-      return { target: { kind: "unresolved" }, relationKnown: false };
-    }
-    return {
-      target: relation.to.includes("/")
-        ? externalTarget(env, relation.to)
-        : ownTarget(bundle, relation.to),
-      relationKnown: true,
-    };
+  // 같은 계약은 `Type`, 다른 context는 `context/Type`으로 가리킨다.
+  const fromRef = from.kind === "own" ? from.type.name : from.ref;
+  const ref = followedTypeRef(bundle.contract.types, fromRef, follow);
+  if (ref === undefined) {
+    return { target: { kind: "unresolved" }, relationKnown: false };
   }
-  const to = refOf(from);
-  for (const type of bundle.contract.types) {
-    if (type.relations.some((r) => r.name === follow.relation && r.to === to)) {
-      return { target: { kind: "own", type }, relationKnown: true };
-    }
-  }
-  return { target: { kind: "unresolved" }, relationKnown: false };
+  return {
+    target: ref.includes("/")
+      ? externalTarget(env, ref)
+      : ownTarget(bundle, ref),
+    relationKnown: true,
+  };
 }
 
 // follow를 차례로 풀어 별칭 표를 만든다. 별칭은 앞선 follow의 것만 출발점이 된다.

@@ -19,7 +19,7 @@ concerns: [lophn-agent]
 
 ### 2.1 배치와 수명
 
-core가 **agent runtime Deno 프로세스 하나**를 띄우고 감독한다. run selector, 비동기 loop, provider adapter, OAuth coordinator, prompt assembler, tool executor, skill reader, MCP connection manager를 같은 프로세스의 모듈로 둔다. 역할·run마다 별도 프로세스를 만들지 않는다. 외부 stdio MCP만 `(assignment, server 설정)`마다 등록 executable의 자식 프로세스 하나가 생긴다. HTTP MCP에는 로컬 자식이 없다.
+core가 **agent runtime Deno 프로세스 하나**를 띄우고 감독한다. run selector, 비동기 loop, provider adapter, OAuth coordinator(provider 로그인; MCP OAuth는 core가 조정하고 runtime은 발급자 호출만 대신 보낸다, 5.5), prompt assembler, tool executor, skill reader, MCP connection manager를 같은 프로세스의 모듈로 둔다. 역할·run마다 별도 프로세스를 만들지 않는다. 외부 stdio MCP만 `(assignment, server 설정)`마다 등록 executable의 자식 프로세스 하나가 생긴다. HTTP MCP에는 로컬 자식이 없다.
 
 ```
  shell ── 사람 요청·설정·결정 ──> core API / command / read / event
@@ -115,8 +115,9 @@ handoff는 Run.source, tool 판정은 ToolCall, safety 실패수는 확정 call,
 | derived | `~/.lophn/derived/lophn-agent/catalog.json`, `catalog-state.json`, `summaries/`, `usage.sqlite` | runtime 소유. catalog는 release snapshot/마지막 정상본, summary는 완성 ModelCall·원문 구간, 집계는 ledger call로 재생성한다. 삭제해도 사실은 남는다 |
 | skill | 개인 `~/.lophn/skills/`, 등록 절대 root, 설치 bundle의 `assets/skills/` | 사람 또는 배포가 준비한 읽기 전용 자료. 경로는 prompt에 넣지 않는다. runtime은 자동 작성·설치하지 않는다 |
 | 내장 자산 | 설치 bundle의 `assets/roles/`, `assets/model-catalog.json` | release의 고정 자료. agent 정의·설정은 app data 파일, 실행 정체는 ledger와 구별한다 |
-| OS keychain | platform secret 참조에 묶인 provider API key·OAuth 접근/갱신 token, MCP auth·명시 server env의 secret | 값은 platform secret 전송 부착 경계에서만 사용. ledger에는 참조·revision·만료만 |
-| runtime 메모리 | stream 조각, AbortController, 타이머, OAuth state/PKCE verifier, credential single-flight, MCP 파이프·connection, 필수 opaque 추론 상태 | 정본 아님. opaque 상태는 같은 run/provider/model에만 쓰고 종료·메모리 유실 때 폐기한다 |
+| OS keychain | platform secret 참조에 묶인 provider API key·OAuth 접근/갱신 token, MCP auth·명시 server env의 secret, MCP OAuth 접근/갱신 token(서버마다 token 항목 둘과 고정 참조 meta 하나: 현재 벌·만료·발급자·서버 URL·client_id) | 값은 platform secret 전송 부착 경계에서만 사용. ledger에는 참조·revision·만료만 |
+| runtime 메모리 | stream 조각, AbortController, 타이머, provider OAuth state/PKCE verifier, credential single-flight, MCP 파이프·connection, MCP OAuth 발급자 요청 하나의 본문(보내는 동안만), 필수 opaque 추론 상태 | 정본 아님. opaque 상태는 같은 run/provider/model에만 쓰고 종료·메모리 유실 때 폐기한다 |
+| core 메모리 | MCP OAuth 로그인 시도(PKCE verifier·state·loopback listener·시작 시각), 마지막 실패 이유, 발급자 요청 대기열, 서버별 갱신 single-flight | 정본 아님. core를 다시 띄우면 사라지고 로그인 상태는 keychain과 설정에서 다시 읽는다 |
 | eval | 개발 runner의 독립 임시 workspace·DB | 운영 derived나 ledger를 eval용으로 복제하지 않는다 |
 
 앱 DB·source·사람 원본은 저장·직접 읽기 대상이 아니다. 원본 복구 blob은 잘라 저장하지 않는다. 큰 자료는 용량 상한을 넘으면 오래된 것부터 정리하고 변경 기록·결정·확정 결과는 영구 보존한다. 실제 삭제는 platform 소유 contract를 따른다. backup·export 기능은 없다.
@@ -190,6 +191,10 @@ handoff는 Run.source, tool 판정은 ToolCall, safety 실패수는 확정 call,
 | UploadAgentProfileImage | `/v1/agent-profiles/upload` | user·assignment·이미지(png·jpg·webp, 1 MB 이하, svg 불가); 저장 때 `profile`로 연결 |
 | ChangePlaceAgentSettings | `/v1/place-agent-settings/change` | user·자리·그 자리 파일의 새 내용(역할별 model·권한)·파일 hash CAS; 권한은 Workspace 기본의 부분집합. Workspace 층은 이 route가 아니다 |
 | ChangePlaceExtensionSettings | `/v1/place-extension-settings/change` | user·자리·그 자리 MCP 서버 목록 전체·파일 hash CAS; 전역 서버와 이름이 겹치면 거절. 자리 폴더의 `mcp-servers.json` 한 파일이다 |
+| BeginMcpAuth / CompleteMcpAuth | `/v1/agent-mcp-auth/begin`, `/v1/agent-mcp-auth/complete` | user·memory route(ledger queue를 거치지 않음)·서버 이름과 자리(전역은 null)·client_id·scopes / 돌아온 loopback port. core가 verifier·state를 작업 메모리에 쥐고 browser 주소와 callback port를 돌려준다. complete는 사람이 돌아오기를 최대 5분 기다려 token을 교환·keychain에 보관하고 서버 설정의 `token_ref`를 쓴다(전역은 settings 변경, 자리는 그 자리 파일). 응답에 verifier·state·token 값 없음 |
+| CancelMcpAuth | `/v1/agent-mcp-auth/cancel` | user·memory route·서버 이름과 자리; 기다리는 로그인을 그만두고 listener를 닫는다. 보관한 token은 그대로 |
+| MCP auth state read | `/v1/agent-mcp-auth/state` | user·memory route·서버(이름+자리) 목록; 서버마다 `none / in_progress / signed_in / failed`와 실패 이유 코드. 진행 중인 시도·마지막 실패·keychain의 token이 지금 설정과 맞는지에서 읽고 값은 없다 |
+| Take/FinishMcpAuthRequest | `/v1/agent-mcp-auth/request-take`, `/v1/agent-mcp-auth/request-done` | machine(runtime)만·memory route. core에는 외부 fetch가 없어 token endpoint 호출(교환·갱신)을 대기열에 놓고 runtime이 가져가 `--allow-net`이 허락한 발급자로 보낸 뒤 응답을 돌려준다. 기한 8초, 늦은 답은 거절 |
 | CreateBuiltinAssignment | `/v1/assignments/create-builtin` | role(lophn 또는 context_engineer); 역할마다 거두지 않은 assignment 하나 |
 | CreateAppEngineerAssignment | `/v1/assignments/create-app-engineer` | AppCreated seq·app; 앱별 중복 없음; core 반응 구독자(`lophn-agent-assignments`)가 AppCreated마다 부르고 처리 cursor를 같은 transaction에 올림 |
 | PauseAssignment | `/v1/assignments/pause` | machine·revision·`scope_archived` 근거; 같은 구독자가 AppArchived(와 project 보관)마다 그 자리의 enabled assignment에 부르고 cursor를 같은 transaction에 올림 |
@@ -392,6 +397,7 @@ MCP manager는 `(assignment, server)` connection 하나를 유지하여 연속 r
 - effect는 원래 tool마다 사람이 read/write/external로 분류하고 다중 동작은 가장 넓게, 되돌림을 모르는 미분류는 external이다. MCP readOnly/destructive/idempotent/open-world hints는 참고 data이며 권한·reversibility 보장이 아니다. owner contract로 scope/effect를 확인할 수 없으면 deny, 유효 scope에서 되돌림을 모르는 외부 MCP tool은 external로 보고 ask다. 사람이 agent 정의에서 그 tool을 안전하다고 표시하면 묻지 않는다. 표시는 제품이 고정한 역할 상한과 confirm=true를 넓히지 못한다. ticket 취소는 묻지 않는다.
 - 서버 reverse sampling·elicitation·roots는 unsupported, server prompts/resources 자동 주입 없음. server가 요청했다고 model call·질문·local root 제공을 만들지 않는다.
 - HTTP는 HTTPS, loopback만 HTTP, TLS verification bypass 없음. 다른 host redirect에는 auth를 보내지 않는다. auth는 none/bearer/API-key/OAuth2.1 Authorization Code+S256 PKCE다. MCP OAuth만 browser+loopback callback이며 dynamic registration 미지원은 사람 등록 client를 쓴다. URL·issuer·account 변경은 옛 secret 재사용 금지, refresh single-flight다.
+- MCP OAuth는 core가 조정하고 runtime이 network를 맡는다. **조정(core)**: `BeginMcpAuth`가 verifier·state·loopback listener를 core 작업 메모리에 두고 서버(자리+이름)마다 한 번에 하나만 진행한다. `CompleteMcpAuth`가 최대 5분 기다려 state를 검사하고 token을 교환한다. 사람이 `CancelMcpAuth`로 그만두거나 시한이 지나면 listener를 닫고 시도를 지운다. 받은 접근·갱신 token은 OS keychain(서버마다 token 항목 둘과 고정 참조 meta)에 보관하고 서버 설정의 `token_ref`(`sec:mcp-oauth:<자리>:<이름>`)를 쓴다: 전역 서버는 ApplySettings, 자리 서버는 ChangePlaceExtensionSettings이고 서버 판이 올라 옛 연결이 새 설정으로 다시 열린다. 설정을 쓰지 못하면 보관한 token을 지운다. 상태(`ReadMcpAuthState`)는 진행 중인 시도·마지막 실패·keychain의 token이 지금 설정(발급자·URL·client_id·`token_ref`)과 맞는지에서 읽는다. **network(runtime)**: core module graph에는 외부 fetch가 없어서(platform/responsiveness#R1) token endpoint 호출은 core의 대기열에 놓이고 runtime의 pump가 machine 입구로 가져가 child의 `--allow-net`(등록 OAuth 서버의 발급자 host:port)이 허락한 곳으로만 보낸다(기한 8초). **연결**: runtime의 MCP connection은 `token_ref`를 요청마다 secret 전송 부착으로 청하고, core는 그 참조를 가리키는 켜진 서버의 자리 참조와 같고 서버 URL origin이 청한 목적지와 같을 때만 값을 준다. 만료가 가까우면(60초 전부터) 서버마다 한 번에 하나만 갱신한다. 발급자가 갱신을 거절하면 token을 지우고 인증 실패(재인증 필요)로, 발급자에 닿지 못하면 연결 실패로 구별한다. `token_ref`가 null이면 요청을 보내지 않는다. OAuth token은 platform의 `secrets` 표가 아니라 코딩 credential처럼 고정 위치 keychain 항목이다(`SetSecret`이 보호 입력의 app_secret만 받기 때문. open-issues extensions#Q12).
 - assignment 사용 종료·server detach·daemon shutdown은 새 call 차단 → 진행 call MCP cancel → connection close, stdio 5초 grace 뒤 kill이다. 실제 효과를 취소했다고 추정하지 않는다. waiting_user는 진행 call을 보유하지 않지만 assignment의 유휴 MCP connection은 다음 run 재사용을 위해 유지할 수 있다.
 
 ### 5.6 trace·usage·eval·revert

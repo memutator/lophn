@@ -4,7 +4,13 @@
 // 이 화면이 읽는 field만 옮긴 것이다. credential 값은 어디에도 없고 보관 이름과 저장 여부만 있다.
 import type { CoreSource } from "../../connection/connection.ts";
 import { call, command } from "./core-call.ts";
-import type { ApplyAt, ServerAuth, SourceResult } from "./source.ts";
+import type {
+  ApplyAt,
+  ServerAuth,
+  ServerSignInReason,
+  ServerSignInState,
+  SourceResult,
+} from "./source.ts";
 
 export const SKILL_FOLDERS = "lophn-agent.extensions.skill_folders";
 export const MCP_SERVERS = "lophn-agent.extensions.mcp_servers";
@@ -28,7 +34,6 @@ export interface McpServerValue {
     auth: {
       kind: ServerAuth;
       secret_ref?: string;
-      token_ref?: string | null;
       client_id?: string;
       scopes?: string[];
     };
@@ -76,9 +81,43 @@ export function secretOf(server: McpServerValue): string | null {
   return nameOf(server.http?.auth.secret_ref);
 }
 
-/** 로그인 방식(OAuth)이 저장한 token의 보관 이름. 아직 로그인하지 않았으면 null이다. */
-export function tokenOf(server: McpServerValue): string | null {
-  return nameOf(server.http?.auth.token_ref);
+/** core가 읽어 준 로그인 상태 하나. 이름으로 찾는다. */
+export interface AuthStateValue {
+  readonly state: Exclude<ServerSignInState, "unknown">;
+  readonly reason: ServerSignInReason | null;
+}
+
+/** 로그인이 필요한 방식(OAuth)으로 켜져 있는 server. 로그인 상태를 묻는 대상이다. */
+export function signsIn(server: McpServerValue): boolean {
+  return server.enabled && server.http?.auth.kind === "oauth2";
+}
+
+/**
+ * 켜진 OAuth server의 로그인 상태를 이름과 자리(이 목록은 전역 server뿐이라 null)로 한 번에 묻는다. 끝난
+ * 세션의 기억이 아니라 core가 지금 쥔 상태(진행 중·보관한 token이 설정과 맞는지·마지막 실패)다. OAuth server가
+ * 없으면 묻지 않고, 읽지 못하면 null이다. token 값도 token 이름도 묻지 않는다.
+ */
+export async function authStates(
+  core: CoreSource,
+  servers: readonly McpServerValue[],
+): Promise<Map<string, AuthStateValue> | null> {
+  const asked = servers.filter(signsIn);
+  if (asked.length === 0) return new Map();
+  const read = await call<{
+    servers: {
+      name: string;
+      state: AuthStateValue["state"];
+      reason: ServerSignInReason | null;
+    }[];
+  }>(core, "memory", "agent-mcp-auth", "state", {
+    servers: asked.map((server) => ({ name: server.name, place: null })),
+  });
+  if (!read.ok) return null;
+  return new Map(
+    read.value.servers.map((
+      entry,
+    ) => [entry.name, { state: entry.state, reason: entry.reason }]),
+  );
 }
 
 /** 이름별 credential 저장 여부. 읽지 못하면 null이다. 값은 읽지 않는다. */

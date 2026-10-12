@@ -54,26 +54,52 @@ function noticeText(notice: Notice): string {
   }
 }
 
-/** 로그인 한 번의 진행. 줄마다 하나이고 이름으로 찾는다. */
-type SignInState =
-  | "waiting"
-  | "done"
-  | "busy"
-  | "not-opened"
-  | "failed";
+/**
+ * 로그인을 시작하지 못한 이유 한 줄. 줄마다 하나이고 이름으로 찾는다. 로그인이 돌고 있는지, 끝났는지, 왜
+ * 실패했는지는 여기가 아니라 core가 읽어 준 상태가 말한다. starting은 시작 요청을 보낸 뒤 답이 오기 전이다.
+ */
+type SignInState = "starting" | "busy" | "not-opened" | "failed";
 
-function signInText(state: SignInState, name: string): string {
+function signInText(state: SignInState, name: string): string | null {
   switch (state) {
-    case "waiting":
-      return t("settings.sign-in.waiting");
-    case "done":
-      return t("settings.server.sign-in-done", { name });
+    case "starting":
+      return null;
     case "busy":
       return t("settings.server.sign-in-busy");
     case "not-opened":
       return t("settings.server.sign-in-not-opened");
     case "failed":
       return t("settings.server.sign-in-failed", { name });
+  }
+}
+
+/** core가 읽어 준 로그인 상태의 한 줄. 상태를 읽지 못한 줄은 아는 척하지 않는다. */
+function loginText(signIn: NonNullable<ServerRow["signIn"]>): string | null {
+  switch (signIn.state) {
+    case "none":
+      return t("settings.server.sign-in-needed");
+    case "in_progress":
+      return t("settings.sign-in.waiting");
+    case "signed_in":
+      return t("settings.server.signed-in");
+    case "unknown":
+      return null;
+    case "failed":
+      switch (signIn.reason) {
+        case "callback_timeout":
+          return t("settings.server.sign-in-reason-callback-timeout");
+        case "state_mismatch":
+          return t("settings.server.sign-in-reason-state-mismatch");
+        case "exchange_failed":
+        case null:
+          return t("settings.server.sign-in-reason-exchange-failed");
+        case "refresh_rejected":
+          return t("settings.server.sign-in-reason-refresh-rejected");
+        case "expired":
+          return t("settings.server.sign-in-reason-expired");
+        case "store_failed":
+          return t("settings.server.sign-in-reason-store-failed");
+      }
   }
 }
 
@@ -86,9 +112,7 @@ function credentialText(server: ServerRow): string | null {
     case "unknown":
       return t("settings.server.credential-unknown");
     case null:
-      return server.signIn === null
-        ? null
-        : t("settings.server.sign-in-needed");
+      return null;
   }
 }
 
@@ -167,11 +191,15 @@ export function ExtensionsPanel({ source }: { source: SettingsSource }) {
     setNotice({ kind: opened.ok ? "window-opened" : "window-failed" });
   }
 
-  // 인증 주소를 browser로 열고 사람이 돌아올 때까지 기다린다. 끝나면 목록을 다시 읽는다.
+  // 인증 주소를 browser로 열고 사람이 돌아올 때까지 기다린다. 줄의 상태는 core가 읽어 준 값이라 시작한 직후와
+  // 끝난 뒤에 목록을 다시 읽어 그린다(끝났다는 기억을 화면이 쥐지 않는다).
   async function signIn(server: ServerRow): Promise<void> {
-    const mark = (state: SignInState) =>
-      setSignIns((current) => ({ ...current, [server.name]: state }));
-    mark("waiting");
+    const mark = (state: SignInState | null) =>
+      setSignIns((current) => {
+        const { [server.name]: _gone, ...rest } = current;
+        return state === null ? rest : { ...rest, [server.name]: state };
+      });
+    mark("starting");
     const begun = await source.beginSignIn(server);
     if (!begun.ok) {
       mark(
@@ -181,11 +209,19 @@ export function ExtensionsPanel({ source }: { source: SettingsSource }) {
           ? "not-opened"
           : "failed",
       );
+      load();
       return;
     }
-    const done = await source.finishSignIn(server, begun.value.callbackPort);
-    mark(done.ok ? "done" : "failed");
-    if (done.ok) load();
+    mark(null);
+    load();
+    await source.finishSignIn(server, begun.value.callbackPort);
+    load();
+  }
+
+  // 기다리는 로그인을 그만둔다. 기다리던 요청은 충돌로 끝나고 줄은 core가 읽어 준 none으로 돌아온다.
+  async function cancelSignIn(server: ServerRow): Promise<void> {
+    await source.cancelSignIn(server);
+    load();
   }
 
   return (
@@ -295,15 +331,29 @@ export function ExtensionsPanel({ source }: { source: SettingsSource }) {
                           server.enabled ? null : t("settings.label.off"),
                         ].filter((part) => part !== null).join(" · ")}
                       </span>
-                      {signIns[server.name] === undefined ? null : (
-                        <span
-                          className={styles.text}
-                          role="status"
-                          data-sign-in={signIns[server.name]}
-                        >
-                          {signInText(signIns[server.name]!, server.name)}
-                        </span>
-                      )}
+                      {signIns[server.name] === undefined ||
+                          signIns[server.name] === "starting"
+                        ? null
+                        : (
+                          <span
+                            className={styles.text}
+                            role="status"
+                            data-sign-in={signIns[server.name]}
+                          >
+                            {signInText(signIns[server.name]!, server.name)}
+                          </span>
+                        )}
+                      {server.signIn === null ||
+                          loginText(server.signIn) === null
+                        ? null
+                        : (
+                          <span
+                            className={styles.text}
+                            data-sign-in-state={server.signIn.state}
+                          >
+                            {loginText(server.signIn)}
+                          </span>
+                        )}
                       {credentialText(server) === null ? null : (
                         <span
                           className={styles.text}
@@ -313,12 +363,25 @@ export function ExtensionsPanel({ source }: { source: SettingsSource }) {
                         </span>
                       )}
                     </span>
-                    {server.signIn !== null && signIns[server.name] !== "done"
+                    {server.signIn !== null &&
+                        server.signIn.state === "in_progress"
+                      ? (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          data-action="cancel-sign-in"
+                          onClick={() => void cancelSignIn(server)}
+                        >
+                          {t("settings.button.cancel-sign-in")}
+                        </Button>
+                      )
+                      : server.signIn !== null &&
+                          server.signIn.state !== "signed_in"
                       ? (
                         <Button
                           size="sm"
                           data-action="sign-in"
-                          disabled={signIns[server.name] === "waiting"}
+                          disabled={signIns[server.name] === "starting"}
                           onClick={() => void signIn(server)}
                         >
                           {t("settings.button.server-sign-in")}

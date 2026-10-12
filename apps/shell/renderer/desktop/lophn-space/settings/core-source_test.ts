@@ -6,9 +6,11 @@ import { assert, assertEquals } from "@std/assert";
 import { mcpServersSetting } from "../../../../../../packages/contracts/lophn-agent/mod.ts";
 import type { CoreReply } from "../../../../ipc/core-api.ts";
 import { coreSettingsSource } from "./core-source.ts";
-import type { ServerRow } from "./source.ts";
+import type { ServerRow, ServerSignIn } from "./source.ts";
 import {
   assertCallsFitRoutes,
+  authStateAnswer,
+  fail,
   fakeCore,
   HTTP_SERVER,
   OAUTH_SERVER,
@@ -202,49 +204,94 @@ Deno.test("shell/wording#R10: 보내는 입력과 비교 기준은 contract rout
 const AUTH_URL =
   "https://auth.example.com/authorize?client_id=lophn-client&state=s1";
 
-Deno.test("lophn-agent/extensions#R16 [agent-I51]: OAuth server는 켜져 있고 token이 저장돼 있지 않을 때만 로그인할 수 있고 로그인에 쓸 자리·client_id·scopes를 설정에서 옮긴다", async () => {
+Deno.test("lophn-agent/extensions#R16 #R17 [agent-I52]: 켜진 OAuth server마다 core의 로그인 상태를 읽어 줄에 싣고, 상태는 끝난 세션이 아니라 core가 답한 값이며 token 이름은 묻지 않는다", async () => {
   const servers = [
     OAUTH_SERVER("fresh", null),
-    OAUTH_SERVER("stored", "sec:mcp-notes"),
-    OAUTH_SERVER("lost", "sec:mcp-lost"),
+    OAUTH_SERVER("stored", "sec:mcp-oauth:global:stored"),
+    OAUTH_SERVER("lost", "sec:mcp-oauth:global:lost"),
+    OAUTH_SERVER("waiting", null),
     OAUTH_SERVER("off", null, false),
     HTTP_SERVER("plain", "none"),
   ];
-  const { core, calls } = settingsCore(servers);
+  const { core, calls } = fakeCore({
+    ...settingsAnswers(servers),
+    "memory:agent-mcp-auth/state": authStateAnswer({
+      stored: { state: "signed_in" },
+      lost: { state: "failed", reason: "refresh_rejected" },
+      waiting: { state: "in_progress" },
+    }),
+  });
   const view = await coreSettingsSource(core, OPTIONS).settings();
   assert(view.ok);
+  const scopes = ["read", "write"];
+  const sign = (
+    state: ServerSignIn["state"],
+    reason: ServerSignIn["reason"] = null,
+  ): ServerSignIn => ({
+    place: null,
+    clientId: "lophn-client",
+    scopes,
+    state,
+    reason,
+  });
   assertEquals(
     view.value.servers.map((row) => [row.name, row.signIn]),
     [
-      ["fresh", {
-        place: null,
-        clientId: "lophn-client",
-        scopes: ["read", "write"],
-      }],
-      ["stored", null],
-      ["lost", {
-        place: null,
-        clientId: "lophn-client",
-        scopes: ["read", "write"],
-      }],
+      ["fresh", sign("none")],
+      ["stored", sign("signed_in")],
+      ["lost", sign("failed", "refresh_rejected")],
+      ["waiting", sign("in_progress")],
       ["off", null],
       ["plain", null],
     ],
   );
-  // token은 값이 아니라 이름만 묻는다.
-  const secrets = calls.find((call) => call.resource === "secrets")!;
-  assertEquals(
-    (secrets.body as { names: string[] }).names.toSorted(),
-    ["mcp-lost", "mcp-notes"],
-  );
+  // 켜진 OAuth server만 이름과 자리(전역은 null)로 한 번에 묻는다. token 값도 이름도 묻지 않는다.
+  const states = calls.filter((call) => call.method === "state");
+  assertEquals(states.length, 1);
+  assertEquals([states[0]!.kind, states[0]!.resource], [
+    "memory",
+    "agent-mcp-auth",
+  ]);
+  assertEquals(states[0]!.body, {
+    servers: ["fresh", "stored", "lost", "waiting"].map((name) => ({
+      name,
+      place: null,
+    })),
+  });
+  assertEquals(calls.find((call) => call.resource === "secrets"), undefined);
+  assertCallsFitRoutes(calls.filter((call) => call.method === "state"));
+});
+
+Deno.test("lophn-agent/extensions#R16 [agent-I52]: 로그인 상태를 읽지 못해도 설정 화면은 뜨고 그 줄은 상태를 모르는 채 로그인을 시작할 수 있다", async () => {
+  const { core } = fakeCore({
+    ...settingsAnswers([
+      OAUTH_SERVER("fresh", null),
+      HTTP_SERVER("plain", "none"),
+    ]),
+    "memory:agent-mcp-auth/state": () => fail("unavailable"),
+  });
+  const view = await coreSettingsSource(core, OPTIONS).settings();
+  assert(view.ok);
+  assertEquals(view.value.servers[0]!.signIn, {
+    place: null,
+    clientId: "lophn-client",
+    scopes: ["read", "write"],
+    state: "unknown",
+    reason: null,
+  });
+  assertEquals(view.value.servers[1]!.signIn, null);
 });
 
 function authCore(answers: {
   begin?: () => CoreReply;
   complete?: () => CoreReply;
+  cancel?: () => CoreReply;
 } = {}) {
   return fakeCore({
     ...settingsAnswers([OAUTH_SERVER("fresh", null)]),
+    "memory:agent-mcp-auth/state": authStateAnswer({}),
+    "memory:agent-mcp-auth/cancel": answers.cancel ??
+      (() => ({ ok: true, value: { cancelled: true } })),
     "memory:agent-mcp-auth/begin": answers.begin ??
       (() => ({ ok: true, value: { url: AUTH_URL, callback_port: 4321 } })),
     "memory:agent-mcp-auth/complete": answers.complete ??
@@ -351,8 +398,15 @@ Deno.test("lophn-agent/extensions#R16 shell/app-frame#R7 [agent-I51]: 시작이 
   assertEquals(await source.beginSignIn(row), { ok: false, code: "conflict" });
   assertEquals(opened, []);
 
+  // 시작이 거절되면 취소할 것이 없다.
+  assertEquals(
+    refused.calls.filter((call) => call.method === "cancel").length,
+    0,
+  );
+
   const good = authCore();
   const row2 = await rowOf(coreSettingsSource(good.core, OPTIONS));
+  let cancels = 0;
   for (
     const openLink of [
       open(false),
@@ -365,6 +419,11 @@ Deno.test("lophn-agent/extensions#R16 shell/app-frame#R7 [agent-I51]: 시작이 
       ok: false,
       code: "not_opened",
     });
+    // 주소를 열지 못한 로그인은 core에 기다리는 채로 남지 않는다: 바로 그만둔다.
+    cancels += 1;
+    const sent = good.calls.filter((call) => call.method === "cancel");
+    assertEquals(sent.length, cancels);
+    assertEquals(sent.at(-1)!.body, { name: "fresh", place: null });
   }
   // 로그인이 필요하지 않은 줄은 core를 부르지 않는다.
   const before = good.calls.length;
@@ -378,4 +437,41 @@ Deno.test("lophn-agent/extensions#R16 shell/app-frame#R7 [agent-I51]: 시작이 
     code: "invalid_input",
   });
   assertEquals(good.calls.length, before);
+});
+
+Deno.test("lophn-agent/extensions#R16 [agent-I52]: 기다리는 로그인을 그만두면 같은 server와 자리로 CancelMcpAuth를 부르고 로그인이 필요하지 않은 줄은 core를 부르지 않는다", async () => {
+  const { core, calls } = authCore();
+  const source = coreSettingsSource(core, OPTIONS);
+  const row = await rowOf(source);
+  assertEquals(await source.cancelSignIn(row), { ok: true, value: null });
+  const cancel = calls.find((call) => call.method === "cancel")!;
+  assertEquals([cancel.kind, cancel.resource], ["memory", "agent-mcp-auth"]);
+  assertEquals(cancel.body, { name: "fresh", place: null });
+  // 자리에 등록한 server는 그 자리를 싣는다.
+  const place = { kind: "project", id: "prj_01k6qs0000000000000000000a" };
+  await source.cancelSignIn({
+    ...row,
+    signIn: { ...row.signIn!, place } as ServerRow["signIn"],
+  });
+  assertEquals(
+    (calls.filter((call) => call.method === "cancel")[1]!.body as {
+      place: unknown;
+    }).place,
+    place,
+  );
+  assertCallsFitRoutes(calls.filter((call) => call.method === "cancel"));
+  // 실패는 그 오류 code가 간다.
+  const refused = authCore({ cancel: () => fail("forbidden") });
+  const second = coreSettingsSource(refused.core, OPTIONS);
+  assertEquals(await second.cancelSignIn(await rowOf(second)), {
+    ok: false,
+    code: "forbidden",
+  });
+  // 로그인이 필요하지 않은 줄은 core를 부르지 않는다.
+  const before = calls.length;
+  assertEquals(await source.cancelSignIn({ ...row, signIn: null }), {
+    ok: false,
+    code: "invalid_input",
+  });
+  assertEquals(calls.length, before);
 });

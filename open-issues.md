@@ -4,7 +4,7 @@
 `<concern id>#Q<n>`으로 여기에 올리고, 사람이 정해야 하는 것만 "사람이 정할
 것"에 둔다.
 
-- 모두 887건(재연결 뒤 8건 포함): 추천대로 726, 다르게 정함 34, 대체됨 93, 이미
+- 모두 891건(재연결 뒤 8건 포함): 추천대로 730, 다르게 정함 34, 대체됨 93, 이미
   정함 32, 사람이 정할 것 2
 - 사람이 정한 큰 결정은 아래 "정한 원칙"에 있다. 문서는 이 결정을 따른다.
 
@@ -711,6 +711,10 @@
 | platform/notifications#Q6 | `ContextWatchedItemChanged`의 `ask_agent`가 null이라 계약 위반 → Context Engineer를 단언할 수 없다. | 추천대로 | CTX track과 합칠 때 그 행에 `context_engineer`와 계약 종류 첫 context를 채운다(W3). |
 | lophn-agent/extensions#Q9 | agent-runtime child의 `--allow-run`·`--allow-net`이 모든 자리 MCP 서버를 합친 목록이다. | 추천대로 | child가 하나라 합친다. 어느 자리에서 쓸지는 run 준비가 자리별로 고르고, 서버가 선언한 실행 파일·host:port만 더하며 와일드카드는 없다. |
 | lophn-agent/extensions#Q10 | 다른 자리에 같은 이름 MCP 서버가 있으면 OAuth begin이 어느 서버인지 모른다(입력에 자리가 없다). | 추천대로 | begin 입력에 자리(place)를 더한다(후속 작은 task). 그 전까지는 자리 id 순 첫 서버. |
+| lophn-agent/extensions#Q11 | MCP OAuth 로그인에서 사람이 browser에서 돌아오기를 얼마나 기다리나. 요구가 시한을 정하지 않는다. | 추천대로 | 5분(`MCP_AUTH_WAIT_MS`). 계정을 고르고 허락하는 데 충분하고, 닫힌 browser가 작업 메모리를 오래 잡지 않는다. 시한이 지나면 `callback_timeout`으로 실패하고 다시 시작할 수 있다. 사람은 `CancelMcpAuth`로 그 전에 그만둘 수 있다. |
+| lophn-agent/extensions#Q12 | MCP OAuth token을 platform `secrets` 표(SetSecret)에 둘까. SetSecret은 보호 입력의 app_secret만 받고 확인이 필요해 core 안에서 쓸 수 없다. | 추천대로 | 코딩 credential처럼 고정 위치 OS keychain 항목으로 둔다(서버마다 token 항목 둘과 meta 하나). 설정의 `token_ref`는 `sec:mcp-oauth:<자리>:<이름>`으로 이 보관을 가리킨다. platform에 machine이 쓰는 secret 보관 command가 생기면 그쪽으로 옮긴다(platform 소유자 검토). |
+| lophn-agent/extensions#Q13 | MCP OAuth 발급자 호출을 어느 프로세스가 보내나. core module graph에는 외부 fetch가 없고(platform/responsiveness#R1), 제품 core의 `--allow-net`은 loopback뿐이다. | 추천대로 | agent runtime이 보낸다(architecture: runtime `--allow-net`에 등록 OAuth 서버의 발급자). core가 요청을 대기열에 놓고 runtime의 pump가 machine route 둘(`TakeMcpAuthRequest`·`FinishMcpAuthRequest`)로 가져가 대신 보낸다. 갱신 token과 새 token이 loopback으로 runtime을 지나는 것은 받아들인다. |
+| lophn-agent/extensions#Q14 | MCP OAuth의 authorization·token endpoint를 어떻게 알아내나. | 추천대로 | 지금은 발급자 주소 뒤에 `/authorize`·`/token`을 붙이는 관례다(등록 정보에 endpoint가 없다). RFC 8414 발견은 그 관례로 안 되는 실제 서버를 만나면 더한다. client secret(`client_secret_ref`)도 같은 때 더한다(지금은 공개 client + PKCE). |
 | shell/design-system#Q7 | Avatar icon id 집합의 정본과 모르는 id의 대체 icon. | 추천대로 | design system이 icon 집합의 정본을 갖고, 모르는 id는 기본 agent icon으로 그린다(이니셜 아님). contract는 id 모양만 본다. |
 
 ### coding-agent (87)

@@ -16,13 +16,15 @@ import {
 } from "./core-call.ts";
 import {
   applySetting,
+  authStates,
+  type AuthStateValue,
   type EffectiveValue,
   MCP_SERVERS,
   type McpServerValue,
   secretOf,
   secretStates,
+  signsIn,
   SKILL_FOLDERS,
-  tokenOf,
 } from "./extension-settings.ts";
 import type {
   NewServer,
@@ -32,6 +34,7 @@ import type {
   SettingRow,
   SettingsSource,
   SettingsView,
+  SourceResult,
 } from "./source.ts";
 
 interface DefinitionValue {
@@ -63,6 +66,19 @@ export function coreSettingsSource(
 
   const apply = (view: SettingsView, key: string, value: unknown) =>
     applySetting(core, view, key, value, random);
+
+  // 기다리는 로그인을 그만둔다(CancelMcpAuth). 로그인이 필요하지 않은 줄은 core를 부르지 않는다.
+  const cancel = async (server: ServerRow): Promise<SourceResult<null>> => {
+    if (server.signIn === null) return INVALID;
+    const cancelled = await call<{ cancelled: boolean }>(
+      core,
+      "memory",
+      "agent-mcp-auth",
+      "cancel",
+      { name: server.name, place: server.signIn.place },
+    );
+    return cancelled.ok ? { ok: true, value: null } : cancelled;
+  };
 
   return {
     watch: (listener) => core.subscribe(listener),
@@ -100,17 +116,19 @@ export function coreSettingsSource(
       const serverValues = Array.isArray(servers?.value)
         ? servers.value as McpServerValue[]
         : [];
+      // bearer·API key의 credential 저장 여부는 이름만 묻는다. OAuth의 로그인 상태는 core가 읽어 준 값이다.
       const states = await secretStates(
         core,
         serverValues.flatMap((server) =>
-          [secretOf(server), tokenOf(server)].filter((name) => name !== null)
+          [secretOf(server)].filter((name) => name !== null)
         ),
       );
+      const logins = await authStates(core, serverValues);
       const serverRows: ServerRow[] = serverValues.map((server) => {
         const auth: ServerAuth = server.http?.auth.kind ?? "none";
         const secret = secretOf(server);
         return {
-          signIn: signInOf(server, states),
+          signIn: signInOf(server, logins),
           name: server.name,
           transport: server.transport,
           enabled: server.enabled,
@@ -219,10 +237,15 @@ export function coreSettingsSource(
           opened = false;
         }
       }
-      return opened
-        ? { ok: true, value: { callbackPort: begun.value.callback_port } }
-        : { ok: false, code: "not_opened" };
+      if (opened) {
+        return { ok: true, value: { callbackPort: begun.value.callback_port } };
+      }
+      // 주소를 열지 못한 로그인이 core에 기다리는 채로 남으면 다시 시작할 때 충돌이다. 바로 그만둔다.
+      await cancel(server);
+      return { ok: false, code: "not_opened" };
     },
+
+    cancelSignIn: (server) => cancel(server),
 
     async finishSignIn(server, callbackPort) {
       if (server.signIn === null) return INVALID;
@@ -248,21 +271,22 @@ export function coreSettingsSource(
 const INVALID = { ok: false, code: "invalid_input" } as const;
 
 /**
- * 로그인이 필요한 server만 로그인 정보를 갖는다: 켜진 http OAuth server이고 token 이름이 없거나 그 이름의
- * token이 저장돼 있지 않은 것. 이 목록은 전역 server뿐이라 자리는 null이다.
+ * 켜진 OAuth server는 로그인 정보를 갖는다: 시작에 쓸 client_id·scopes와 core가 읽어 준 로그인 상태. 이 목록은
+ * 전역 server뿐이라 자리는 null이다. 상태를 읽지 못했으면 unknown이다.
  */
 function signInOf(
   server: McpServerValue,
-  states: ReadonlyMap<string, "set" | "missing"> | null,
+  logins: ReadonlyMap<string, AuthStateValue> | null,
 ): ServerSignIn | null {
   const auth = server.http?.auth;
-  if (!server.enabled || auth?.kind !== "oauth2") return null;
-  const token = tokenOf(server);
-  if (token !== null && states?.get(token) !== "missing") return null;
+  if (!signsIn(server) || auth?.kind !== "oauth2") return null;
+  const found = logins?.get(server.name);
   return {
     place: null,
     clientId: auth.client_id ?? "",
     scopes: auth.scopes ?? [],
+    state: found?.state ?? "unknown",
+    reason: found?.reason ?? null,
   };
 }
 

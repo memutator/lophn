@@ -2619,13 +2619,25 @@ export const en = {
     "The full path of the program to start on this computer.",
   "settings.server.sign-in-busy":
     "A sign-in for this server is already waiting. Finish it in your browser.",
-  "settings.server.sign-in-done": "Signed in to {name}.",
   "settings.server.sign-in-failed":
     "Couldn't sign in to {name}. Nothing changed. Try again.",
   "settings.server.sign-in-needed":
     "Sign in before new work can use this server.",
+  "settings.server.sign-in-reason-callback-timeout":
+    "The sign-in wasn't finished in time. Try again.",
+  "settings.server.sign-in-reason-exchange-failed":
+    "The service didn't accept the sign-in. Try again.",
+  "settings.server.sign-in-reason-expired":
+    "This sign-in expired. Sign in again.",
+  "settings.server.sign-in-reason-refresh-rejected":
+    "The service ended this sign-in. Sign in again.",
+  "settings.server.sign-in-reason-state-mismatch":
+    "The sign-in page sent back something unexpected, so it was rejected. Try again.",
+  "settings.server.sign-in-reason-store-failed":
+    "The sign-in couldn't be saved on this computer. Try again.",
   "settings.server.sign-in-not-opened":
     "The sign-in page didn't open. Try again.",
+  "settings.server.signed-in": "Signed in.",
   "settings.sign-in.absent":
     "Signing in with {name} isn't available in this version yet.",
   "settings.sign-in.code": "Enter this code on the page: {code}.",

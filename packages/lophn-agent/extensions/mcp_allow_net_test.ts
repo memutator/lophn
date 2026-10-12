@@ -67,3 +67,33 @@ Deno.test("lophn-agent/extensions#R13: allow-net의 IPv6 loopback은 Deno가 받
     "[::1]:8123",
   ]);
 });
+
+Deno.test("lophn-agent/extensions#R16 #R17 [agent-I52]: allow-net에는 켜진 OAuth server의 발급자 host:port도 있고 꺼진 server·다른 인증 방식의 것은 없다", () => {
+  const oauth = (name: string, issuer: string, enabled = true) => ({
+    ...server(name, "https://mcp.example.test/rpc", enabled),
+    http: {
+      url: "https://mcp.example.test/rpc",
+      headers: {},
+      auth: {
+        kind: "oauth2",
+        issuer,
+        client_id: "lophn",
+        client_secret_ref: null,
+        scopes: [],
+        token_ref: null,
+      },
+    },
+  });
+  const servers = mcpServersSetting.value_type.parse([
+    oauth("one", "https://issuer.example.test"),
+    oauth("two", "https://auth.example.test:8443"),
+    oauth("off", "https://off-issuer.example.test", false),
+    server("plain", "https://plain.example.test/rpc"),
+  ]);
+  assertEquals(allowNetList(servers), [
+    "auth.example.test:8443",
+    "issuer.example.test:443",
+    "mcp.example.test:443",
+    "plain.example.test:443",
+  ]);
+});

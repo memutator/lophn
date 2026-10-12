@@ -1,5 +1,6 @@
 import { err, ok, type Result } from "../../base/mod.ts";
 import { cryptoRandom, type RandomSource } from "../../base/mod.ts";
+import type { McpAuthFailure } from "../../contracts/lophn-agent/mod.ts";
 import type { HttpFetch } from "./adapters/mcp-http.ts";
 import { httpRequest } from "./adapters/mcp-http.ts";
 
@@ -454,37 +455,42 @@ export async function registerClient(
   });
 }
 
-// 같은 연결의 갱신은 하나다(R17). 두 번째 부름은 첫 번째 응답을 같이 기다린다.
-export class SingleFlight<Void> {
-  private running: Promise<Void> | null = null;
+// 사람이 browser에서 돌아오기를 기다리는 시한이다(R16). 요구가 시한을 정하지 않아 추천값 5분으로 둔다:
+// 로그인 페이지에서 계정을 고르고 허락하는 데 충분하고, 닫힌 browser가 작업 메모리를 오래 잡지 않는다.
+export const MCP_AUTH_WAIT_MS = 5 * 60_000;
 
-  run(next: () => Promise<Void>): Promise<Void> {
-    if (this.running !== null) return this.running;
-    const started = next().finally(() => {
-      this.running = null;
-    });
-    this.running = started;
-    return started;
-  }
-}
+// 기다림 시한 timer다. 신호가 중단되면 "aborted"로 일찍 돌아온다(mcp-connections의 DeadlineFn과 같은 모양).
+export type AuthDeadline = (
+  ms: number,
+  signal: AbortSignal,
+) => Promise<"elapsed" | "aborted">;
 
-// 같은 연결의 인증 상태다(R17). 만료 토큰은 같은 연결에서 하나만 갱신한다(R17).
-// 실패는 재인증 필요다(R17).
+// 로그인 session의 상태다. 값(verifier·state·token)은 어디에도 없다. 끝나면 session은 값을 쥐지 않고
+// not_started로 돌아간다(받은 token은 부르는 쪽이 keychain에 보관한다, R17).
 export type AuthState =
   | { kind: "not_started" }
   | { kind: "in_progress" }
-  | { kind: "authorized"; access_token: string; expires_at: number | null }
-  | { kind: "reauth_needed"; reason: string };
+  | { kind: "failed"; reason: McpAuthFailure };
 
-// 같은 연결의 OAuth 인증 관리다(R16, R17). 만료 토큰은 같은 연결에서 하나만
-// 갱신한다(single-flight, R17). 실패는 재인증 필요다(R17).
+// token 교환이 끝난 결과다. 보관은 부르는 쪽이 한다.
+export type TokenGrant = {
+  access_token: string;
+  refresh_token: string | null;
+  expires_at_ms: number | null;
+  token_endpoint: string;
+  client_id: string;
+};
+
+// 같은 연결의 OAuth 로그인 session이다(R16): 시작 → 사람이 돌아옴 → state 검사 → token 교환. 하나만 진행하고
+// 취소하거나 시한이 지나면 listener를 닫는다. 갱신은 보관한 grant로 하므로 여기 없다(R17, mcp-oauth.ts).
 export function createMcpAuth(options: {
   nowMs(): number;
   random?: RandomSource;
+  waitMs?: number;
+  deadline?: AuthDeadline;
 }): {
   state(): AuthState;
-  // 사람이 시작한 OAuth다(R16). callback listener는 port로 시작했고 loopback
-  // port다(R16). 값을 저장하는 곳은 이 모듈 밖의 secret namespace다.
+  // 사람이 시작한 OAuth다(R16). callback listener는 port로 시작했고 loopback port다(R16).
   begin(input: {
     authorizationEndpoint: string;
     tokenEndpoint: string;
@@ -492,45 +498,55 @@ export function createMcpAuth(options: {
     scopes: readonly string[];
     listener: CallbackListener;
   }): Promise<Result<{ url: URL; verifier: string; state: string }>>;
-  // 사람이 돌아온 callback을 받아 token 교환을 마친다(R16). 같은 연결에서
-  // 하나만 진행하고, 실패는 재인증 필요다(R17).
+  // 사람이 돌아온 callback을 받아 token 교환을 마친다(R16). 기다리는 동안 취소나 시한으로 끝난다.
   complete(input: {
     fetch: HttpFetch;
     signal: AbortSignal;
-  }): Promise<Result<void>>;
-  // 갱신이다(R17). 만료 토큰은 같은 연결에서 하나만 갱신하고 실패는
-  // 재인증 필요다(R17).
-  refresh(input: {
-    fetch: HttpFetch;
-    signal: AbortSignal;
-  }): Promise<Result<void>>;
+  }): Promise<Result<TokenGrant>>;
+  // 기다리는 로그인을 그만둔다. 진행 중인 것이 없으면 false다.
+  cancel(): Promise<boolean>;
 } {
   let state: AuthState = { kind: "not_started" };
-  const single = new SingleFlight<Result<void>>();
-  let session: {
+  type Session = {
     verifier: string;
     tokenEndpoint: string;
     clientId: string;
     stateValue: string;
     listener: CallbackListener;
     startedAt: number;
-  } | null = null;
-  let current: {
-    accessToken: string;
-    refreshToken: string | null;
-    expiresAt: number | null;
-    // token 교환·갱신의 endpoint와 client다(R16). complete이 끝나도 살아 있어야
-    // 같은 연결의 refresh가 같은 endpoint·client를 쓴다(R17).
-    tokenEndpoint: string;
-    clientId: string;
-  } | null = null;
+    // 기다림을 끝내는 신호다. 취소와 시한 둘 다 이 신호로 간다.
+    stop: AbortController;
+    cancelled: boolean;
+    timedOut: boolean;
+  };
+  let session: Session | null = null;
   const random = options.random ?? cryptoRandom;
+  const waitMs = options.waitMs ?? MCP_AUTH_WAIT_MS;
+
+  // 시한이 지난 session은 실패로 닫는다. complete를 부르지 않은 채 남은 로그인도 다시 시작을 막지 않는다.
+  function expire(): void {
+    if (session === null) return;
+    if (options.nowMs() - session.startedAt <= waitMs) return;
+    timeout(session);
+  }
+
+  function timeout(held: Session): void {
+    held.timedOut = true;
+    held.stop.abort();
+    void held.listener.close();
+    if (session === held) {
+      session = null;
+      state = { kind: "failed", reason: "callback_timeout" };
+    }
+  }
 
   return {
     state() {
+      expire();
       return state;
     },
     async begin(input) {
+      expire();
       if (state.kind === "in_progress") {
         return err({
           code: "conflict",
@@ -567,6 +583,13 @@ export function createMcpAuth(options: {
         challenge,
       });
       if (!url.ok) return url;
+      // 위의 await 동안 다른 시작이 끼어들었을 수 있다.
+      if (session !== null) {
+        return err({
+          code: "conflict",
+          message: "OAuth 시작이 이미 진행 중이다",
+        });
+      }
       state = { kind: "in_progress" };
       session = {
         verifier,
@@ -575,26 +598,58 @@ export function createMcpAuth(options: {
         stateValue,
         listener: input.listener,
         startedAt: options.nowMs(),
+        stop: new AbortController(),
+        cancelled: false,
+        timedOut: false,
       };
       return ok({ url: url.value, verifier, state: stateValue });
     },
     async complete(input) {
-      if (session === null) {
+      expire();
+      const held = session;
+      if (held === null) {
         return err({
           code: "conflict",
           message: "OAuth 시작이 아닌 상태다",
         });
       }
-      const held = session;
-      const received = await held.listener.receive(input.signal);
+      const ended = new AbortController();
+      const merged = AbortSignal.any([input.signal, held.stop.signal]);
+      if (options.deadline !== undefined) {
+        const remaining = Math.max(
+          0,
+          waitMs - (options.nowMs() - held.startedAt),
+        );
+        void options.deadline(remaining, ended.signal).then((how) => {
+          if (how === "elapsed" && session === held) timeout(held);
+        });
+      }
+      let received;
+      try {
+        received = await held.listener.receive(merged);
+      } finally {
+        ended.abort();
+      }
+      const cancelled = (): Result<never> =>
+        err({ code: "conflict", message: "로그인이 취소됐다" });
+      if (held.cancelled) return cancelled();
       if (!received.ok) {
-        state = { kind: "reauth_needed", reason: received.error.message };
+        if (session === held) {
+          session = null;
+          state = { kind: "failed", reason: "callback_timeout" };
+          await held.listener.close();
+        }
         return received;
+      }
+      // 시한이 지난 뒤에 도착한 반환은 받지 않는다.
+      if (held.timedOut || session !== held) {
+        return err({ code: "unavailable", message: "기다림 시한이 지났다" });
       }
       // state 검증이다(R16: 잘못된 반환 검증 값은 거절이다).
       if (received.value.state !== held.stateValue) {
+        session = null;
+        state = { kind: "failed", reason: "state_mismatch" };
         await held.listener.close();
-        state = { kind: "reauth_needed", reason: "state가 다르다" };
         return err({ code: "invalid_input", message: "state가 다르다" });
       }
       const exchanged = await exchangeToken(
@@ -607,79 +662,36 @@ export function createMcpAuth(options: {
           clientSecret: null,
         },
         input.fetch,
-        input.signal,
+        merged,
       );
       await held.listener.close();
-      session = null;
+      if (held.cancelled) return cancelled();
+      if (session === held) session = null;
       if (!exchanged.ok) {
-        state = { kind: "reauth_needed", reason: exchanged.error.message };
+        state = { kind: "failed", reason: "exchange_failed" };
         return exchanged;
       }
-      current = {
-        accessToken: exchanged.value.access_token,
-        refreshToken: exchanged.value.refresh_token,
-        expiresAt: exchanged.value.expires_in === null
+      state = { kind: "not_started" };
+      return ok({
+        access_token: exchanged.value.access_token,
+        refresh_token: exchanged.value.refresh_token,
+        expires_at_ms: exchanged.value.expires_in === null
           ? null
           : options.nowMs() + exchanged.value.expires_in * 1000,
-        tokenEndpoint: held.tokenEndpoint,
-        clientId: held.clientId,
-      };
-      state = {
-        kind: "authorized",
-        access_token: current.accessToken,
-        expires_at: current.expiresAt,
-      };
-      return ok(undefined);
-    },
-    async refresh(input) {
-      if (current === null) {
-        return err({
-          code: "conflict",
-          message: "권한을 얻은 상태가 아니다",
-        });
-      }
-      const held: { nonEmpty: string | null } = {
-        nonEmpty: current.refreshToken,
-      };
-      if (held.nonEmpty === null) {
-        state = { kind: "reauth_needed", reason: "refresh token이 없다" };
-        return err({ code: "forbidden", message: "재인증이 필요하다" });
-      }
-      const token: string = held.nonEmpty;
-      const tokenEndpoint = current.tokenEndpoint;
-      const clientId = current.clientId;
-      return await single.run(async () => {
-        const exchanged = await refreshToken(
-          {
-            tokenEndpoint,
-            refreshToken: token,
-            clientId,
-            clientSecret: null,
-          },
-          input.fetch,
-          input.signal,
-        );
-        if (!exchanged.ok) {
-          state = { kind: "reauth_needed", reason: exchanged.error.message };
-          return exchanged;
-        }
-        current = {
-          accessToken: exchanged.value.access_token,
-          refreshToken: exchanged.value.refresh_token ??
-            held.nonEmpty,
-          expiresAt: exchanged.value.expires_in === null
-            ? null
-            : options.nowMs() + exchanged.value.expires_in * 1000,
-          tokenEndpoint,
-          clientId,
-        };
-        state = {
-          kind: "authorized",
-          access_token: current.accessToken,
-          expires_at: current.expiresAt,
-        };
-        return ok(undefined);
+        token_endpoint: held.tokenEndpoint,
+        client_id: held.clientId,
       });
+    },
+    async cancel() {
+      expire();
+      const held = session;
+      if (held === null) return false;
+      held.cancelled = true;
+      held.stop.abort();
+      session = null;
+      state = { kind: "not_started" };
+      await held.listener.close();
+      return true;
     },
   };
 }

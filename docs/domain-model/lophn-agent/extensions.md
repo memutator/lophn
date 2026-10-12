@@ -54,8 +54,11 @@ ExtensionSettings는 공급·발견·서버 설정이며 agent별 선택 map이 
 | command | actor | 입력 | 검사 | event | 오류 |
 |---|---|---|---|---|---|
 | `ChangePlaceExtensionSettings` | user | 자리, `mcp_servers` 새 목록 전체 | 파일 hash CAS(없는 파일은 null); 서버 이름이 자기 안에서도 전역과도 겹치지 않음; 서버 설정 검사(R12); 서버 `revision`은 바뀐 설정에 맞춰 올림 | `PlaceExtensionSettingsChanged`(자리, 전·후 파일 hash) | `invalid_input`, `conflict`, `not_found`, `forbidden` |
-| `BeginMcpAuth` | user | 서버 `name`, 서버가 등록된 자리(전역 서버는 null), `client_id`, `scopes` | 그 자리의 그 이름 서버가 등록되어 있고 `http`+`oauth2`임; 같은 이름이 다른 자리에 있어도 입력의 자리 서버만 고름; 전역과 이름이 겹쳐 쓰지 않는 자리 서버는 없는 서버 | 없음(작업 메모리가 상태다) | `invalid_input`, `not_found`, `conflict`, `unavailable`, `forbidden` |
-| `CompleteMcpAuth` | user | 서버 `name`, 서버가 등록된 자리(전역은 null), loopback `callback_port` | 시작과 같은 자리·이름의 서버로 state 검사 후 token 교환 | 없음 | `invalid_input`, `not_found`, `conflict`, `unavailable`, `forbidden` |
+| `BeginMcpAuth` | user | 서버 `name`, 서버가 등록된 자리(전역 서버는 null), `client_id`(등록한 것과 같아야 함), `scopes` | 그 자리의 그 이름 서버가 등록되어 있고 `http`+`oauth2`임; 같은 이름이 다른 자리에 있어도 입력의 자리 서버만 고름; 전역과 이름이 겹쳐 쓰지 않는 자리 서버는 없는 서버; 이미 기다리는 로그인이 있으면 거절 | 없음(작업 메모리가 상태다) | `invalid_input`, `not_found`, `conflict`, `unavailable`, `forbidden` |
+| `CompleteMcpAuth` | user | 서버 `name`, 서버가 등록된 자리(전역은 null), loopback `callback_port` | 시작과 같은 자리·이름의 서버로 사람이 돌아오기를 기다림(시한 안); state 검사 후 token 교환; token은 OS keychain에 보관하고 설정의 `token_ref`를 씀. 설정을 쓰지 못하면 보관한 token을 도로 지움 | 전역 서버는 settings 변경, 자리 서버는 `PlaceExtensionSettingsChanged` | `invalid_input`, `not_found`, `conflict`, `unavailable`, `forbidden` |
+| `CancelMcpAuth` | user | 서버 `name`, 서버가 등록된 자리(전역은 null) | 설정에 서버가 없어도 기다리는 로그인은 그만둘 수 있음; 기다리는 것이 없으면 아무것도 바꾸지 않음(`cancelled`=false); 보관한 token은 건드리지 않음 | 없음 | `invalid_input`, `unavailable`, `forbidden` |
+| `ReadMcpAuthState` | user | 서버(이름+자리, 전역은 null) 목록 | 없음. 서버마다 `none / in_progress / signed_in / failed`와 실패 이유 코드만 돌려줌. 등록하지 않은 서버나 OAuth가 아닌 서버는 `none` | 없음 | `invalid_input`, `unavailable`, `forbidden` |
+| `TakeMcpAuthRequest`·`FinishMcpAuthRequest` | machine | 가져가기: 없음. 답하기: 요청 id와 발급자의 응답(닿지 못했으면 null) | agent runtime만 부름. core에는 외부 fetch가 없어 token endpoint 호출을 대기열에 놓고 runtime이 대신 보냄(기한 8초, 지나면 실패, 늦은 답은 받지 않음) | 없음 | `invalid_input`, `unavailable`, `forbidden` |
 
 읽기: `ReadPlaceExtensionSettings(자리)`는 그 자리 서버 목록과 파일 hash, 그리고 그 자리에서 발견하는 skill(이름·설명·`source_kind`)과 가려진 skill, 제외한 꾸러미를 돌려준다. 화면과 run 준비(machine)가 읽는다.
 
@@ -139,7 +142,7 @@ platform 설정에 들어가는 값이며 독립 domain entity·접두사는 없
 | `issuer / client_id` | HTTPS URL / 문자열 | 조건부 | oauth2에 필수; 발급자·대상 묶음 | OAuth client |
 | `client_secret_ref` | 불투명 참조 | 예 | 필요한 confidential client만 | client secret |
 | `scopes` | 문자열 배열 | 조건부 | oauth2; 기본 `[]` | 권한 |
-| `token_ref` | 불투명 참조 | 예 | OAuth 로그인 성공 후만; 값 없음 | token 묶음 |
+| `token_ref` | 불투명 참조 | 예 | OAuth 로그인 성공 후만; 값 없음. 이름은 `sec:mcp-oauth:<자리>:<서버 이름>`(자리는 전역이면 `global`, 아니면 project·app id)으로 서버에서 정해져 platform의 `secrets` 표가 아니라 OS keychain의 token 보관을 가리킴. 다른 자리의 참조를 손으로 맞춰도 그 서버의 token은 얻지 못함 | token 묶음 |
 
 ## McpToolClassification (값)
 
@@ -185,6 +188,9 @@ platform 설정에 들어가는 값이며 독립 domain entity·접두사는 없
 - **MCP 설정 소유.** 등록·삭제·enabled·목적지·분류는 user만 결정한다. 같은 이름의 서버는 전역과 자리 사이에서도 겹치면 등록을 거절한다. project·skill·역할 요청·server 응답·다른 harness의 설정 보관소에서 설정을 자동 수입하지 않는다. 누락·상충·잘못된 설정은 해당 서버만 제외한다. 설정 command·event·ledger 표는 → platform/settings; 새 extension ledger는 없다.
 - **MCP 환경.** stdio는 필요한 `PATH`, `HOME`, `TEMP`, `LC_ALL` 및 해당 서버 env만 받는다. 앱 secret·다른 server secret·provider credential은 전달하지 않는다.
 - **HTTP 인증.** secret은 인증을 붙이는 경계에서만 사용한다. TLS 검증 해제 없음; redirect에는 인증 헤더 제거. OAuth는 Authorization Code+S256 PKCE·브라우저·loopback 반환이며 발급자·대상에 묶고 credential별 동시 갱신은 하나다.
+- **OAuth 로그인.** 서버(자리+이름)마다 로그인 시도는 하나다. 시작이 verifier·state를 만들어 core 작업 메모리에만 두고, 사람이 browser에서 돌아오기를 5분(`MCP_AUTH_WAIT_MS`)까지 기다린다. 시한이 지나거나 사람이 `CancelMcpAuth`로 그만두면 listener를 닫고 시도를 지워 다시 시작할 수 있다(시한은 요구가 정하지 않아 추천값, open-issues extensions#Q11). 교환한 접근·갱신 token은 각자 OS keychain 항목이고 서버마다 meta 항목(고정 참조)이 현재 벌, 만료 시각, 묶음(발급자·서버 URL·client_id)을 가진다. 값이 바뀌면 항목의 참조도 바뀌어 secret store가 새 값을 읽고 옛 값을 회수한다.
+- **OAuth 상태.** `none`=token이 없거나, 설정이 그 token을 가리키지 않거나, 묶음(발급자·URL·client_id)이 지금 설정과 달라 옛 token을 쓰지 않음(R17). `in_progress`=기다리는 중. `failed`=마지막 시도나 갱신이 실패했고 이유가 코드다: `callback_timeout`, `state_mismatch`, `exchange_failed`, `refresh_rejected`(발급자가 갱신을 거절, 재인증 필요), `expired`(만료됐고 갱신 token이 없음), `store_failed`(token을 keychain에 보관하지 못함). 새로 시작하면 실패 이유가 지워진다. `signed_in`=설정이 가리키는 쓸 수 있는 token이 있음. 상태는 끝난 세션의 기억이 아니라 진행 중인 시도, 마지막 실패, keychain과 설정에서 읽은 값이라 core를 다시 띄워도 같다.
+- **OAuth 연결.** 연결은 설정의 `token_ref`를 요청마다 secret 전송 부착으로 청한다. `token_ref`가 null이면 요청을 보내지 않고 `failed_auth`다(로그인 전 도구 호출 막힘, R16). core는 그 참조를 가리키는 켜진 서버의 자리 참조와 같고 서버 URL origin이 청한 목적지와 같을 때만 값을 건넨다. 접근 token 만료가 가까우면(60초 전부터) 같은 서버에서 한 번에 하나만 갱신하고(R17) 새 값을 건넨다. 발급자가 갱신을 거절하면 token을 지우고 `failed_auth`(재인증 필요)이며, 발급자에 닿지 못한 것은 연결 실패이고 token은 그대로다. 갱신 token은 core와 발급자 호출을 대신 보내는 runtime 밖으로 나가지 않는다.
 - **연결 상한.** 연결 30000ms, 모든 tool list page 합산 30000ms, call 기본 60000ms. 끊김 재연결은 1000·2000·4000ms 뒤 최대 3회; 소진 뒤 user 재연결·설정 변경까지 대기. auth 거절 자동 재연결 없음. 이미 전달한 call은 재전송하지 않는다.
 - **수명.** assignment 사용 종료·서버 제거·disabled·선택 회수·데몬 종료는 해당 (assignment, server) 새 call 즉시 금지, 진행 call 취소 요청 뒤 연결 종료. stdio 정상 종료 5000ms 뒤 남으면 강제 종료. 실제 효과는 취소 성공으로 추정하지 않는다.
 - **목록.** MCP 판 협상 및 전체 page 수신·중복 이름·반복 cursor·schema 검증이 모두 끝난 뒤만 제공한다. 변경 통지·재연결에서 전체 재조회. 되돌림을 모르는 새 tool은 external로 보고 묻는다. 사람이 agent 정의에서 그 tool을 안전하다고 표시(`mcp_tools_safe`)하면 묻지 않는다. MCP hint·설명으로 분류하거나 allow로 추정하지 않는다. 이름·설명·input·MCP 행동 hints 변경은 옛 분류를 무효화하고 없어진 tool은 즉시 call 금지다.

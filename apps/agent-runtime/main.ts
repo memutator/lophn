@@ -29,6 +29,7 @@ import type { BlobPort } from "./run-blobs.ts";
 import { createCredentialLink } from "./credential-link.ts";
 import { createRedactLink, type Redactor } from "./redact-link.ts";
 import { createSecretLink } from "./secret-link.ts";
+import { startMcpAuthPump } from "./mcp-auth-pump.ts";
 import type { SecretAttachLike } from "../../packages/lophn-agent/harness/provider/mod.ts";
 import { redact } from "./redact.ts";
 import { roleOperations } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
@@ -243,6 +244,15 @@ export async function startAgentRuntime(input: {
   // 이미 끝나 있어 대상이 아니다. 복구를 못 해도 기동은 막지 않고 그 run은 이어지지 않은 채 남는다.
   let recovered: RecoverReport[] = [];
   let pumping: Promise<void> = Promise.resolve();
+  // MCP OAuth 발급자 호출은 core에 외부 fetch가 없어서 이 프로세스가 대신 보낸다(extensions R16, R17).
+  // 제품 기동만 돌린다. 허락한 발급자(`--allow-net`) 밖은 Deno 권한이 막는다.
+  const authPumping = input.pump === true
+    ? startMcpAuthPump({
+      call: calls!.machine,
+      fetch: input.fetch ?? fetch,
+      signal: pumpStop.signal,
+    })
+    : Promise.resolve();
   if (input.driver !== undefined) {
     const { compactor, ...driverDeps } = input.driver(calls!);
     driver = createRunDriver({ selector, credentials, ...driverDeps });
@@ -275,6 +285,7 @@ export async function startAgentRuntime(input: {
       pumpStop.abort();
       await running;
       await pumping;
+      await authPumping;
     },
   };
   return ok(runtime);

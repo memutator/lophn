@@ -2681,14 +2681,18 @@ export type PlaceholderKinds = {
   "settings.server.name-help": Record<never, never>;
   "settings.server.program-help": Record<never, never>;
   "settings.server.sign-in-busy": Record<never, never>;
-  "settings.server.sign-in-done": {
-    name: "string";
-  };
   "settings.server.sign-in-failed": {
     name: "string";
   };
   "settings.server.sign-in-needed": Record<never, never>;
+  "settings.server.sign-in-reason-callback-timeout": Record<never, never>;
+  "settings.server.sign-in-reason-exchange-failed": Record<never, never>;
+  "settings.server.sign-in-reason-expired": Record<never, never>;
+  "settings.server.sign-in-reason-refresh-rejected": Record<never, never>;
+  "settings.server.sign-in-reason-state-mismatch": Record<never, never>;
+  "settings.server.sign-in-reason-store-failed": Record<never, never>;
   "settings.server.sign-in-not-opened": Record<never, never>;
+  "settings.server.signed-in": Record<never, never>;
   "settings.sign-in.absent": {
     name: "string";
   };

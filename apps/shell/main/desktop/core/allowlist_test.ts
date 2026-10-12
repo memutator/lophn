@@ -110,13 +110,19 @@ test("documents/projects#R6: 추적 미리보기 worker는 읽기라 통과하�
   assert.equal(isAllowed("worker", "files", "watch"), false);
 });
 
-test("lophn-agent/extensions#R16 [agent-I51]: renderer는 MCP 로그인의 시작·완료 memory route만 부르고 다른 memory route는 막는다", () => {
+test("lophn-agent/extensions#R16 #R17 [agent-I52]: renderer는 MCP 로그인의 시작·완료·상태 읽기·취소 memory route만 부르고 다른 memory route는 막는다", () => {
   assert.deepEqual(
     [...RENDERER_MEMORY_ROUTES].sort(),
-    ["memory:agent-mcp-auth/begin", "memory:agent-mcp-auth/complete"],
+    [
+      "memory:agent-mcp-auth/begin",
+      "memory:agent-mcp-auth/cancel",
+      "memory:agent-mcp-auth/complete",
+      "memory:agent-mcp-auth/state",
+    ],
   );
-  assert.equal(isAllowed("memory", "agent-mcp-auth", "begin"), true);
-  assert.equal(isAllowed("memory", "agent-mcp-auth", "complete"), true);
+  for (const method of ["begin", "complete", "state", "cancel"]) {
+    assert.equal(isAllowed("memory", "agent-mcp-auth", method), true, method);
+  }
   assert.equal(
     lookupCall("memory", "agent-mcp-auth", "begin"),
     "memory:agent-mcp-auth/begin",

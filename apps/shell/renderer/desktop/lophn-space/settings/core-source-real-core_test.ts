@@ -8,6 +8,15 @@ import { coreSettingsSource } from "./core-source.ts";
 import { applySetting, MCP_SERVERS } from "./extension-settings.ts";
 import { OAUTH_SERVER } from "./testdata/fake-core.ts";
 
+async function rowOf(
+  source: ReturnType<typeof coreSettingsSource>,
+  name: string,
+) {
+  const view = await source.settings();
+  assert(view.ok, JSON.stringify(view));
+  return view.value.servers.find((entry) => entry.name === name)!;
+}
+
 Deno.test("lophn-agent/extensions#R16 shell/desktop#R50 [agent-I51]: 실제 core에서 로그인이 필요한 전역 OAuth server의 로그인을 시작하면 인증 주소를 OS browser로 연다", async () => {
   const core = await startRealCore();
   try {
@@ -37,6 +46,8 @@ Deno.test("lophn-agent/extensions#R16 shell/desktop#R50 [agent-I51]: 실제 core
       place: null,
       clientId: "lophn-client",
       scopes: ["read", "write"],
+      state: "none",
+      reason: null,
     });
     const begun = await source.beginSignIn(row);
     assert(begun.ok, JSON.stringify(begun));
@@ -54,6 +65,16 @@ Deno.test("lophn-agent/extensions#R16 shell/desktop#R50 [agent-I51]: 실제 core
       ),
       true,
     );
+    // 시작한 로그인은 core가 in_progress로 말하고, 그만두면 none으로 돌아와 다시 시작할 수 있다.
+    const waiting = await rowOf(source, "notes");
+    assertEquals(waiting.signIn?.state, "in_progress");
+    const cancelled = await source.cancelSignIn(waiting);
+    assert(cancelled.ok, JSON.stringify(cancelled));
+    assertEquals((await rowOf(source, "notes")).signIn?.state, "none");
+    const again = await source.beginSignIn(waiting);
+    assert(again.ok, JSON.stringify(again));
+    assertEquals(opened.length, 2);
+    assertEquals((await rowOf(source, "notes")).signIn?.state, "in_progress");
   } catch (error) {
     throw new Error(
       `${(error as Error).message}\n--- core ---\n${core.log()}`,

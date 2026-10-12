@@ -15,13 +15,14 @@ import { windowFolderPicker } from "../../../launcher/core-source.ts";
 import { call, command } from "../core-call.ts";
 import {
   applySetting,
+  authStates,
+  type AuthStateValue,
   MCP_SERVERS,
   type McpServerValue,
   readExtensionSettings,
   secretOf,
   secretStates,
   SKILL_FOLDERS,
-  tokenOf,
 } from "../extension-settings.ts";
 import { listProviders } from "../providers/core-source.ts";
 import type {
@@ -126,20 +127,20 @@ function detailOf(server: McpServerValue): string {
 }
 
 /**
- * 연결 상태. 끈 server는 off, credential이 필요한데 없는 것으로 확인된 server는 needs-sign-in이다.
- * 그 밖은 쓸 수 있다고 본다(실제 연결 시도 결과를 읽는 route는 없다).
+ * 연결 상태. 끈 server는 off다. OAuth server는 core가 signed_in이라고 읽어 준 것만 쓸 수 있고(상태를 읽지 못했으면
+ * 로그인했다고 말하지 않는다), credential이 필요한데 없는 것으로 확인된 server는 needs-sign-in이다. 그 밖은 쓸 수
+ * 있다고 본다(실제 연결 시도 결과를 읽는 route는 없다).
  */
 function statusOf(
   server: McpServerValue,
   states: ReadonlyMap<string, "set" | "missing"> | null,
+  logins: ReadonlyMap<string, AuthStateValue> | null,
 ): ServerStatus {
   if (!server.enabled) return "off";
-  const kind = server.http?.auth.kind;
-  if (kind === "oauth2") {
-    const token = tokenOf(server);
-    return token === null || states?.get(token) === "missing"
-      ? "needs-sign-in"
-      : "connected";
+  if (server.http?.auth.kind === "oauth2") {
+    return logins?.get(server.name)?.state === "signed_in"
+      ? "connected"
+      : "needs-sign-in";
   }
   const secret = secretOf(server);
   return secret !== null && states?.get(secret) === "missing"
@@ -202,14 +203,15 @@ export function coreAgentsSettingsSource(
       const states = await secretStates(
         core,
         serverValues.flatMap((server) =>
-          [secretOf(server), tokenOf(server)].filter((name) => name !== null)
+          [secretOf(server)].filter((name) => name !== null)
         ),
       );
+      const logins = await authStates(core, serverValues);
       const servers: ServerRow[] = serverValues.map((server) => ({
         name: server.name,
         detail: detailOf(server),
         enabled: server.enabled,
-        status: statusOf(server, states),
+        status: statusOf(server, states, logins),
       }));
       const view: AgentsSettingsView = {
         defaults: Object.fromEntries(

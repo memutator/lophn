@@ -31,6 +31,7 @@ export {
 } from "./global-skills.ts";
 export {
   dataRootOf,
+  fileHash,
   parsePlaceMcpFile,
   PLACE_MCP_FILE,
   PLACE_SKILLS_DIR,
@@ -150,6 +151,24 @@ export {
   MCP_SECRET_OWNER,
 } from "./secret-refs.ts";
 export {
+  createMcpOAuth,
+  type McpAuthReport,
+  type McpOAuth,
+  type McpOAuthServer,
+  REFRESH_SKEW_MS,
+} from "./mcp-oauth.ts";
+export {
+  createMcpOAuthVault,
+  type McpAuthKey,
+  mcpAuthKeyId,
+  type McpGrant,
+  type McpGrantBinding,
+  type McpOAuthVault,
+  mcpTokenRef,
+  type McpVaultKeychain,
+} from "./mcp-oauth-vault.ts";
+export {
+  type AuthDeadline,
   authHeaders,
   authorizationUrl,
   type AuthState,
@@ -161,6 +180,7 @@ export {
   type CredentialBinding,
   exchangeToken,
   type HttpAuth,
+  MCP_AUTH_WAIT_MS,
   type OAuthBinding,
   type OAuthStartInput,
   pkceChallengeS256,
@@ -168,4 +188,5 @@ export {
   type Registration,
   type TokenExchangeInput,
   type TokenExchangeOutcome,
+  type TokenGrant,
 } from "./mcp-auth.ts";

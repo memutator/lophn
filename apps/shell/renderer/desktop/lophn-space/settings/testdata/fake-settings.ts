@@ -54,10 +54,15 @@ export interface FakeSettingsOptions {
   pickedFolder?: string | null;
   /** 설정 바꾸기 결과 code. 없으면 성공이다. */
   applyCode?: string;
-  /** OAuth 로그인. begin이 실패하는 code, 끝나기를 기다리는 약속(없으면 바로 끝난다). */
+  /**
+   * OAuth 로그인. begin이 실패하는 code, 끝나기를 기다리는 약속(없으면 바로 끝난다).
+   * 가짜는 core의 로그인 상태를 흉내 낸다: 시작하면 in_progress, 끝나면 signed_in, 그만두면 none이다.
+   * stateStaysAfterFinish면 끝나도 상태가 none이다(core가 로그인하지 않았다고 말하는 경우).
+   */
   signIn?: {
     beginCode?: string;
     finish?: Promise<SourceResult<null>>;
+    stateStaysAfterFinish?: boolean;
   };
 }
 
@@ -74,6 +79,20 @@ export function fakeSettings(options: FakeSettingsOptions = {}) {
   };
   const failed = <T>(code: string): Promise<SourceResult<T>> =>
     Promise.resolve({ ok: false, code });
+  // core가 쥔 로그인 상태다. 화면은 이것을 settings()로만 읽는다.
+  const states = new Map<
+    string,
+    Pick<NonNullable<ServerRow["signIn"]>, "state" | "reason">
+  >();
+  for (const row of view.servers) {
+    if (row.signIn !== null) {
+      states.set(row.name, {
+        state: row.signIn.state,
+        reason: row.signIn.reason,
+      });
+    }
+  }
+  let cancelWait: (result: SourceResult<null>) => void = () => {};
   const opened = (call: unknown[]) => {
     calls.push(call);
     return Promise.resolve(
@@ -89,9 +108,18 @@ export function fakeSettings(options: FakeSettingsOptions = {}) {
     },
     settings() {
       calls.push(["settings"]);
-      return options.settingsFail
-        ? failed("unavailable")
-        : Promise.resolve({ ok: true, value: view });
+      return options.settingsFail ? failed("unavailable") : Promise.resolve({
+        ok: true,
+        value: {
+          ...view,
+          servers: view.servers.map((row) =>
+            row.signIn === null ? row : {
+              ...row,
+              signIn: { ...row.signIn, ...states.get(row.name)! },
+            }
+          ),
+        },
+      });
     },
     addSkillFolder(current) {
       calls.push(["add-folder", current.revision]);
@@ -111,14 +139,36 @@ export function fakeSettings(options: FakeSettingsOptions = {}) {
     enterServerCredential: (secret) => opened(["server-credential", secret]),
     beginSignIn(row) {
       calls.push(["sign-in-begin", row.name, row.signIn?.place ?? null]);
-      return options.signIn?.beginCode
-        ? failed(options.signIn.beginCode)
-        : Promise.resolve({ ok: true, value: { callbackPort: 4321 } });
+      if (options.signIn?.beginCode) return failed(options.signIn.beginCode);
+      states.set(row.name, { state: "in_progress", reason: null });
+      return Promise.resolve({ ok: true, value: { callbackPort: 4321 } });
     },
-    finishSignIn(row, callbackPort) {
+    async finishSignIn(row, callbackPort) {
       calls.push(["sign-in-finish", row.name, callbackPort]);
-      return options.signIn?.finish ??
-        Promise.resolve({ ok: true, value: null });
+      const cancelled = new Promise<SourceResult<null>>((resolve) => {
+        cancelWait = resolve;
+      });
+      const result = await Promise.race([
+        options.signIn?.finish ??
+          Promise.resolve({ ok: true as const, value: null }),
+        cancelled,
+      ]);
+      if (states.get(row.name)?.state === "none") return result;
+      if (result.ok) {
+        states.set(row.name, {
+          state: options.signIn?.stateStaysAfterFinish ? "none" : "signed_in",
+          reason: null,
+        });
+      } else {
+        states.set(row.name, { state: "failed", reason: "exchange_failed" });
+      }
+      return result;
+    },
+    cancelSignIn(row) {
+      calls.push(["sign-in-cancel", row.name, row.signIn?.place ?? null]);
+      states.set(row.name, { state: "none", reason: null });
+      cancelWait({ ok: false, code: "conflict" });
+      return Promise.resolve({ ok: true, value: null });
     },
   };
   return { source, calls };

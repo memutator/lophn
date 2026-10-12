@@ -87,7 +87,6 @@ function mount(options: Options = {}) {
     },
     contextsSource: options.contexts ?? createFakeContextsSource(),
     agentsSource: createFakeAgentsSource(),
-    ...(fixture === false ? {} : { agentViewSource: fixture.factory }),
   };
   const view = render(
     <Workspace
@@ -98,6 +97,7 @@ function mount(options: Options = {}) {
       onLauncher={() => {}}
       onLophn={options.onLophn ?? (() => {})}
       timer={options.timer}
+      {...(fixture === false ? {} : { agentViewSource: fixture.factory })}
     />,
   );
   return { view, saved, fixture };

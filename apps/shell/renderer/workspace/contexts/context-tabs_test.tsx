@@ -180,8 +180,6 @@ Deno.test("shell/workspace#R14 [ctx-I53]: registry에 Contexts·Context·Search 
     assert(names.includes(kind), `${kind} is not registered`);
     assert((TAB_KINDS as readonly string[]).includes(kind));
   }
-  // Agent 탭은 다른 일이 맡는다.
-  assertEquals(names.includes("agent"), false);
   assertEquals(tabKindLabel("contexts"), "Contexts");
   assertEquals(tabKindLabel("context"), "Context");
   assertEquals(tabKindLabel("search"), "Search");

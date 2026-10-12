@@ -1,7 +1,6 @@
 // 작업대가 읽는 통로. documents#T7(projects get)·documents#T6(문서 목록)·
 // documents/contexts(활성 context 목록)의 read 결과와 T13 layout 저장·복원만 담는다.
 // core를 직접 부르지 않고 화면이 주입한 통로만 쓴다.
-import type { AgentViewSourceFactory } from "../conversation/agent-source.ts";
 import type { AgentsSource } from "./agents/source.ts";
 import type { ContextsSource } from "./contexts/source.ts";
 
@@ -50,12 +49,6 @@ export interface WorkspaceSource {
    * 않는다. coreWorkspaceSource가 core 통로를 넣고 mock 모드는 fake를 넣는다.
    */
   readonly agentsSource?: AgentsSource;
-  /**
-   * Agent 탭이 agent 하나의 통로(AgentViewSource)를 얻는 함수(shell/workspace#R33, shell/desktop#R37).
-   * 없으면 Agent 탭은 열지 않고, 저장된 Agent 탭은 준비되지 않았다는 안내만 보인다. core 구현은
-   * agent-core-source.ts의 factory를 entry가 여기에 넘긴다.
-   */
-  readonly agentViewSource?: AgentViewSourceFactory;
   /** 팔레트 파일 묶음. 문서로 잡힌 파일만 탭으로 열 수 있다. */
   files(project: string): Promise<ReadResult<readonly FileRow[]>>;
   readLayout(project: string): Promise<LayoutRead>;

@@ -175,6 +175,11 @@ concerns: [lophn-agent/harness/prompt-assemble]
 - 확인: 같은 run에서 파일 편집 뒤 새 내용을 읽고 탭만 이동한 경우 지침·작업 자리는 같으며 지침 읽기 실패나 한계 초과는 호출을 막는지 본다.
 - 의도: lophn-agent#I8
 
+**[R31]** rewind로 숨긴 구간(lophn-agent/revert)의 메시지는 이후 call의 model 입력에서 빼고, 접은(summarize) 구간은 원문 대신 그 자리에 요약을 쓰며, 원문은 session에 그대로 있고 redo로 숨김이 풀리면 다시 입력에 든다.
+- 이유: 되돌린 대화가 이후 판단에 새어 들지 않게 하고, 접은 구간은 요약으로 이어서 맥락을 잃지 않게 한다.
+- 확인: rewind 뒤 다음 call의 입력에 숨긴 메시지가 없고, summarize 뒤에는 접은 구간 대신 요약이 원래 자리에 있으며, redo 뒤에는 숨겼던 메시지가 다시 입력에 드는지 본다.
+- 의도: lophn-agent#I7
+
 ## 버린 것
 
 - subagent 문맥은 공통·자기 역할·부모가 명시한 일·허용 자료만 새로 조립하고 부모 대화·세션 summary·압축 summary는 상속하지 않는다. — 유지 결정의 subagent 제외: 네 역할 모두 subagent 없음; 역할 handoff의 이력 비복사는 별도 handoff 규칙.

@@ -102,7 +102,7 @@ Deno `--allow-run`은 **자식 executable 자체의 OS 파일·네트워크 권�
 | `harness/tools/` | `tool_calls` | complete 응답의 request key; ledger 업무 변경과 call 성공 |
 | `harness/usage/` | `model_calls`, `model_call_supplements` | 실제 전송 시도마다 시작·완료; 늦은 사실은 append |
 | `questions/` | `question_groups`, `questions` | 묶음의 상태·기한·종료, 정확한 선택지·답·option action 연결 |
-| `revert/` | `reverts`, `revert_changes`, `revert_change_sources`, `revert_change_compensations` | 전체 run·성공 앱 Invocation receipt 검사; applying checkpoint·앱 direct compensation·새 ledger 복원·결과 |
+| `revert/` | `checkpoints`, `rewind_files`, `reverts`, `revert_items`; session 저장소 `<H>/rewind/<session>/` | 사람 메시지(request) checkpoint; 문서 tool의 쓰기 직전 pre-image 기록과 한도; 문서 파일 복원 판정·설치(hash 재비교, 원자 교체); checkpoint 이후 성공 앱 write의 receipt 역순 direct revert(applying checkpoint·결과); 숨김·접힘 구간; Undo·Redo |
 
 handoff는 Run.source, tool 판정은 ToolCall, safety 실패수는 확정 call, trace는 event/call 참조다. 이들을 위한 별도 표는 없다. extensions 설정 값은 platform settings contract가 저장하며 이 concern에 extension ledger를 추가하지 않는다.
 
@@ -149,7 +149,7 @@ handoff는 Run.source, tool 판정은 ToolCall, safety 실패수는 확정 call,
 | lophn-agent/harness/safety | runtime | `harness/safety` | 확정 ToolCall·출처 근거 | redaction, agent run |
 | lophn-agent/harness/usage | runtime·core | `harness/usage` | model_calls·supplements·derived 합계 | model 호출, command, blob |
 | lophn-agent/questions | core·runtime | `questions` | question_groups·questions·답/action blob | agent run, command, confirmation window |
-| lophn-agent/revert | core·runtime | `revert` | reverts·변경/source/compensation | command, read, blob |
+| lophn-agent/revert | core·runtime | `revert` | checkpoints·rewind_files·reverts·revert_items | command, read, session 저장소 |
 | lophn-agent/extensions | runtime·MCP 자식 | `extensions/*` | platform settings 값·skill·derived 진단 | secret 전송 부착, model 호출의 tool 경계 |
 | lophn-agent/observability | runtime·core read | `observability/*` | event/call 참조·derived trace/export | read, redaction, blob |
 | lophn-agent/evaluation | 개발 runner | `evaluation/*` | versioned fixture·독립 workspace/DB | 가짜 agent run·model 호출 contract |
@@ -221,8 +221,11 @@ handoff는 Run.source, tool 판정은 ToolCall, safety 실패수는 확정 call,
 | cancel_question_group | `/v1/questions/cancel` | 허용 actor·group·created_seq·취소 이유 코드와 글 |
 | expire_question_group | `/v1/questions/expire` | machine·group·실제 기한 도달 |
 | apply_question_option | `/v1/questions/apply-option` | machine·answered_seq·option_key·고정 action; 등록 owner 함수만 dispatch |
-| CheckpointRevert / FinishRevert | `/v1/reverts/checkpoint`, `/v1/reverts/finish` | 저장된 사람 복원 결정·app step_key·실제 Invocation 결과; applying 단계 및 최종 CAS |
-| revert_run | `/v1/reverts/apply` | user·종료 run 전체 preview binding·source seq·owner CAS·준비 참조·부분 동의? |
+| Rewind | `/v1/rewind/apply` | user·session·checkpoint 메시지·choice(restore_all / messages_only / summarize)·accept_remaining(건너뜀·남는 영향을 확인함)·preview_hash·summary_call?(summarize)·files(준비한 파일 관측·redo 복사); 확인 handle 필수; 앱 단계가 없으면 applied 또는 blocked, 있으면 applying 접수 |
+| UndoEdit / Redo | `/v1/rewind/undo`, `/v1/rewind/redo` | user·tool_call 또는 revert·preview_hash 또는 result_seq·files; 확인 창 없음; UndoEdit는 사실 메시지를 같은 transaction에서 남기고 Redo는 redo=available일 때만 |
+| RecordRewindFile | `/v1/rewind/record-file` | agent(문서 tool의 harness)·tool_call·path·before FileState·before_size_bytes·after·moved_from?; 한도(checkpoint 100·파일 10 MB·session 200 MB) 판정은 이 command가 하고 넘으면 쓰기를 막지 않고 checkpoint를 낮춤 |
+| CheckpointRevert / FinishRevert / AmendRevertInstall | `/v1/rewind/checkpoint`, `/v1/rewind/finish`, `/v1/rewind/amend-install` | machine(사람 결정에 묶임)·revert·step_key·실제 Invocation 결과 / 전체 step_key·files / 설치가 건너뛴 경로; applying 단계 및 최종 CAS |
+| RunAppRevert | `/v1/rewind/run-apps` | user·revert·files; core 메모리 route. 호출한 사람의 앱 통로로 revert command를 원래 호출 역순으로 부르고 단계 기록과 끝내기는 core 내부 machine이 한다 |
 | run read/list/result | `/v1/runs/read`, `/v1/runs/list`, `/v1/runs/result` | run 또는 assignment/state·cursor; 현재 상태·확정 결과/변경 참조 |
 | run body | `/v1/runs/body` | machine·종류(run basis·model 응답·tool 결과)와 ID; blob hash를 확인한 저장 값. 복구가 이력을 다시 만드는 읽기다 |
 | run body view | `/v1/runs/body-view` | user·종류(run basis·tool 입력·tool 결과)와 ID; 저장된 값을 지금의 redaction으로 한 번 더 거친 것. 64KiB를 넘으면 JSON 글의 앞부분과 `truncated`. model 응답은 열지 않는다. 사람 화면의 도구 활동 자세히와 근거 읽기다 |
@@ -236,10 +239,10 @@ handoff는 Run.source, tool 판정은 ToolCall, safety 실패수는 확정 call,
 | question read/list | `/v1/questions/read`, `/v1/questions/list` | 묶음 ID 또는 run/session/assignment·cursor; 실제 결정·action 적용 상태 |
 | question text | `/v1/questions/text` | 묶음 ID; user·machine·coding_agent·그 assignment의 agent만, 그 밖은 없는 묶음과 같은 not_found; 묶음 안 질문의 본문·이유·선택지 설명·추천 이유 글과 자유 답·취소 이유 글(coding_agent에는 사람 글 없음), blob 하나라도 읽을 수 없으면 unavailable |
 | handoff submit/status/result | `/v1/handoffs/submit`, `/v1/handoffs/status`, `/v1/handoffs/result` | 고정 packet 또는 sender/dedup/수신 run; submit은 AcceptRun의 출처 검사 wrapper |
-| revert preview/list | `/v1/reverts/preview`, `/v1/reverts/list` | 종료 run·현재 snapshot; 전체 owner 묶음·binding 또는 과거 결과 |
+| rewind preview/checkpoints/list | `/v1/rewind/preview`, `/v1/rewind/checkpoints`, `/v1/rewind/list` | user·machine만; preview는 rewind(session·checkpoint·choice) 또는 undo(session·tool_call)의 지금 판정(restore·skip·remain·redo 예고·preview_hash); checkpoints는 checkpoint 목록·파일 복원 가능 여부·숨김 여부; list는 revert 기록과 항목·`hidden_from_seq` |
 | trace/usage read | `/v1/agent-traces/read`, `/v1/agent-usage/read` | scope 안 run/session/역할/기간·cursor; call 참조·통화별 합계·모름/누락 |
 
-내놓는 event는 `AgentSaved`, `AgentDeleted`, `PlaceAgentSettingsChanged`, `PlaceExtensionSettingsChanged`, `AssignmentCreated`, `AssignmentPaused`, `AssignmentResumed`, `AssignmentWithdrawn`, `SessionOpened`, `SessionRenamed`, `SessionArchived`, `SessionUnarchived`, `SessionDeleted`, `SessionForked`, `SessionCompactRequested`, `SessionCompacted`, `SessionCompactFailed`, `SessionModelChanged`, `SessionClosed`, `MessageReceived`, `MessageRecorded`, `MessageApplied`, `MessageAssigned`, `RunAccepted`, `RunStarted`, `RunWaited`, `RunResumed`, `RunRecovered`, `RunFinished`, `QuestionCreated`, `QuestionAnswered`, `QuestionExpired`, `QuestionCancelled`, `RevertStarted`, `RevertApplied`, `RevertBlocked`, `RevertFinished`다. checkpoint·명시 계속 선택처럼 별도 event가 없는 command는 공통 command 결과에 근거가 남는다. question option의 업무 event는 action owner가 소유한다.
+내놓는 event는 `AgentSaved`, `AgentDeleted`, `PlaceAgentSettingsChanged`, `PlaceExtensionSettingsChanged`, `AssignmentCreated`, `AssignmentPaused`, `AssignmentResumed`, `AssignmentWithdrawn`, `SessionOpened`, `SessionRenamed`, `SessionArchived`, `SessionUnarchived`, `SessionDeleted`, `SessionForked`, `SessionCompactRequested`, `SessionCompacted`, `SessionCompactFailed`, `SessionModelChanged`, `SessionClosed`, `MessageReceived`, `MessageRecorded`, `MessageApplied`, `MessageAssigned`, `RunAccepted`, `RunStarted`, `RunWaited`, `RunResumed`, `RunRecovered`, `RunFinished`, `QuestionCreated`, `QuestionAnswered`, `QuestionExpired`, `QuestionCancelled`, `RevertStarted`, `RevertApplied`, `RevertFinished`, `RevertBlocked`, `RevertRedone`, `RevertClosed`, `RevertAmended`다. checkpoint·명시 계속 선택처럼 별도 event가 없는 command는 공통 command 결과에 근거가 남는다. question option의 업무 event는 action owner가 소유한다.
 
 **보장**은 durable 접수, session당(session 없는 run은 assignment당) 진행/대기 하나, 원래 출처 중복 방지, 현재 scope 축소·멈춤 재검사, 같은 결정 한 번 반영, terminal run 재개 금지다. 시작 때 resolved agent(`Run.basis.agent`의 hash·출처)/assignment/tool/extensions/model/한도를 고정하고, LOPHN.md 층과 agent instructions는 call마다 현재 확정 판을 고정하며 정의를 고친 값은 다음 run부터다. 세션의 작업 자리는 열 때 정해 바뀌지 않는다. `completed` 정상 종료는 complete tool 없는 답·확정 call·미반영 correction 없음과 함께 확정한다. **보장하지 않는 것**은 즉시 시작, 판단 정답, 여러 tool 전체의 원자적 성공, app/file 최종 반영, 문제 해결, 외부 효과 revert다.
 
@@ -406,7 +409,7 @@ export는 로컬 NDJSON v1 파일만 제공한다. 사람의 명시 범위·로�
 
 eval은 제품 프로세스가 아니라 개발 runner다. versioned fixture·새 isolated DB/workspace·fake provider/clock/contract를 쓰며 운영 자료·credential·외부 MCP를 넣지 않는다. 실제 model은 사람 명시 요청만. regression 3 trials·capability 5 trials, 실제 output/state/금지 변경을 검사하며 exact tool order·성공 문장을 정답으로 삼지 않는다. 최근 세 capability suite 모두 5/5면 사람 promotion 후보일 뿐 자동 승격 없다. 별도 content judge는 readability/evidence fidelity만, calibration 30개 중 24개·10 suites 뒤 5개 review·2개 이상 불일치면 무효다. 제품 eval ledger/UI/schedule을 추가하지 않는다.
 
-revert preview는 종료 run의 `event.run` 전체와 ToolCall.run으로 연결한 성공 앱 write Invocation·receipt를 owner별로 읽는다. runtime에서 blob/file 준비가 필요한 일만 밖에서 준비하고 core의 revert_run은 owner CAS·전체 source seq·복원 후 관계를 한 짧은 transaction으로 사전 검사한다. 사전 conflict 하나면 전부 blocked, 기본 partial false, irreversible 업무 영향이 남는 partial은 사람의 정확한 동의가 필요하다. 가능한 변경 전체를 새 owner event로 복원하고 actor=user/run=null이다. 원래 fact·approval·usage·run 결과를 지우지 않는다. 앱은 `command.revert.supported=true`의 저장 receipt로 대응 revert command를 직접 부른 결과만 복원으로 인정한다. 앱 DB 직접 쓰기·undo 미지원 앱 변경·외부 효과·source·디스크 원본은 복구했다고 보장하지 않는다. agent tool에는 revert 적용이 없다. 앱 복원이 있는 경우 `revert_run`은 전체 사전 검사 뒤 durable applying/RevertStarted를 접수하고 runtime이 원래 호출 역순으로 receipt·step_key를 direct call한다. apps Invocation 결과 조회로 중복을 막고 CheckpointRevert에 단계를 저장한다. 앱 단계 성공 뒤 FinishRevert가 ledger CAS를 다시 검사하여 내부 복원과 결과를 확정한다. 네트워크와 ledger를 하나의 transaction으로 보장하지 않는다. 시작 후 새 충돌·실패는 partial, 전달 후 확인 불가는 uncertain이며 이미 복원한 효과를 blocked·전체 미실행으로 덮지 않는다.
+rewind는 session 안에서 사람 메시지(checkpoint)로 돌아가는 기능이고 session이 열려 있는 동안만 있다. 문서 tool이 파일을 쓰기 직전에 그 파일의 이전 내용(pre-image)과 쓴 뒤 hash를 tool call마다 RewindFile로 남기고(`RecordRewindFile`, 이름 변경은 옛 경로와 새 경로, 같은 내용은 session 저장소에 한 번), 한도(checkpoint 100개·파일 10 MB·session 200 MB)를 넘으면 쓰기를 막지 않고 그 checkpoint를 파일 복원 불가로 낮춘다. 복원은 경로마다 지금 hash가 agent가 마지막으로 쓴 내용과 같을 때만 하고(사람이 고친 파일·사슬이 끊긴 파일·pre-image 없음·symlink·hard link·이름 변경의 옛 경로 점유는 건너뛰고 이유 코드로 알림), 쓰기는 사람이 시작한 동작으로 lophn이 쓰기 직전에 hash를 다시 비교하고 원자 교체한다. 문서 판·파일 추적은 쓰지 않는다. core는 관측 → 판정 → 준비(pre-image 확인·redo 복사) → command → 설치 순서로 잇는다. command(`Rewind`·`UndoEdit`)는 파일을 쓰지 않고 준비 때 본 관측으로 ledger 기록을 다시 판정해 preview_hash가 같고 남는 영향을 사람이 확인했을 때만 확정한다(아니면 blocked). 설치가 hash 불일치로 건너뛴 경로는 machine `AmendRevertInstall`이 그 항목을 skipped로 한 번 고치고 outcome은 applied 그대로다. 앱 data는 checkpoint 이후 같은 session의 성공한 앱 write 중 `command.revert.supported=true`의 저장 receipt가 있는 것만 복원으로 인정하고, 앱의 선언된 revert command를 원래 호출 역순으로 직접 부른다. 앱을 먼저, 문서 파일을 나중에 한다. 같은 앱의 가장 나중 write만 지금 revision과 receipt의 expected_revision(그 write 직후의 앱 revision)을 비교하고, 맞지 않으면 그 단계와 같은 앱의 더 앞선 단계를 부르지 않는다. 앞선 단계는 호출 때 앱 CAS가 검사한다. 앱 단계가 있으면 `Rewind`는 durable applying/RevertStarted를 접수하고 runtime(`RunAppRevert`)이 receipt·step_key를 direct call하며 apps Invocation 결과 조회로 중복을 막고 `CheckpointRevert`에 단계를 저장한다. 앱 단계가 모두 성공하면 `FinishRevert`가 문서 파일을 다시 판정해 복원하고 결과를 확정한다. 네트워크와 ledger를 하나의 transaction으로 보장하지 않는다. 시작 뒤 새 충돌·실패는 partial, 전달 뒤 확인 불가는 uncertain이며 이때 문서 파일 복원은 시작하지 않고 이미 복원한 앱 효과를 blocked·전체 미실행으로 덮지 않는다. restore_all·messages_only는 고른 메시지부터 뒤의 메시지를 지우지 않고 숨긴 구간으로 둔다(가장 앞선 boundary_seq가 시작). 숨긴 구간은 이후 model 입력에서 빠지고 Fork도 복사하지 않으며, 그 구간에서 기다리던 질문·approval은 취소하고 harness가 읽은 문서의 상태는 숨김 시작 이전 기준으로 다시 잡는다. summarize는 문서·앱·메시지를 바꾸지 않고 뒤 구간(boundary_seq부터 result_seq까지)을 완전 성공한 요약 call의 요약으로 접어 model 입력에 쓴다. 앱 단계가 없는 applied rewind만 `redo=available`이고 다음 사람 메시지를 접수하는 `ReceiveMessage`가 같은 transaction에서 closed로 바꾼다. Undo는 편집 카드 하나(tool call 하나의 파일 하나)를 같은 기록으로 되돌리고 대화는 숨기지 않으며 "Undid edit to <경로>"를 machine 메시지로 남긴다. session을 delete하거나 닫으면 네 표의 행과 session 저장소를 지우고 archive는 남기며 Fork는 옮기지 않는다. 사람만 요청하고 agent tool에는 rewind·Undo·Redo가 없다. 원래 fact·approval·질문 답·usage·run 결과를 지우지 않고 앱 DB 직접 쓰기·undo 미지원 앱 변경·외부 효과·source·session 밖 변경은 복구했다고 보장하지 않는다. 복원 event의 actor는 user(RevertClosed는 machine), run은 null이다.
 
 ## 6. 쓰는 contract
 
@@ -420,7 +423,7 @@ revert preview는 종료 run의 `event.run` 전체와 ToolCall.run으로 연결�
 | secret·secret 전송 부착 — platform | adapter/MCP transport의 고정 목적지·용도 인증 부착, OAuth 결과 보관. loop/prompt/trace에 secret 반환 없음 |
 | redaction — platform | 메시지·자료·tool/model 입출력 저장/전송 전. 실패면 원문 없는 이유로 중단 |
 | approval — platform | 정확한 ask·한 번 사용. 생성/wait 및 사용/효과 접수와 원자 결합 |
-| confirmation window — shell | 실제 질문 답·approval·option action·revert 확인. runtime은 결정 UI나 사람 token 없음 |
+| confirmation window — shell | 실제 질문 답·approval·option action·rewind 확인. runtime은 결정 UI나 사람 token 없음 |
 | 파일 준비 결과·format 실행·outline·search 읽기 — documents | 고정 version·구간·최신 여부·생략·이어 읽기, 문서 저장 준비·검사. 원본 직접 열지 않음 |
 | 앱 통로 — apps | 역할별 허락된 command를 active blueprint로 자동 tool 생성하여 앱 프로세스로 직접 호출. agent 사용 허락·context·주석 contract·invocation은 apps 소유 |
 | workspace — shell | turn별 허용 탭·초점 snapshot을 읽고 상세 문서·앱 데이터는 해당 소유 contract로 읽는다 |

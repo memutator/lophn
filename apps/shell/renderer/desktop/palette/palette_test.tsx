@@ -347,8 +347,8 @@ Deno.test("shell/desktop#R30: lophn 공간 팔레트의 컨텍스트·앱·행�
   await win.choose("Groceries");
   assertEquals(space(), "apps");
   await win.press("palette");
-  await win.choose("Go to Roles");
-  assertEquals(space(), "roles");
+  await win.choose("Go to Settings");
+  assertEquals(space(), "settings");
   await win.press("palette");
   await win.choose("Back to launcher");
   assert(!view.container.querySelector("[data-space='lophn']"));

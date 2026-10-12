@@ -17,7 +17,6 @@ import type { LauncherSource } from "../launcher/source.ts";
 import type { AppsSource } from "../lophn-space/apps/source.ts";
 import type { ContextsSource } from "../lophn-space/contexts/source.ts";
 import type { OrganizeSource } from "../lophn-space/organize/source.ts";
-import type { RolesSource } from "../lophn-space/roles/source.ts";
 import type { SettingsPanels } from "../lophn-space/settings/settings-screen.tsx";
 import type { CodingConnectionsSource } from "../lophn-space/settings/connections/source.ts";
 import type { SettingsSource } from "../lophn-space/settings/source.ts";
@@ -27,7 +26,6 @@ import { seedWorkbench } from "../dev-seed.ts";
 import {
   mockApps,
   mockCoding,
-  mockRoles,
   mockSettings,
   mockSettingsPanels,
 } from "./admin.ts";
@@ -55,7 +53,6 @@ export interface DevMock {
   readonly contexts: ContextsSource;
   readonly organize: OrganizeSource;
   readonly apps: AppsSource;
-  readonly roles: RolesSource;
   readonly settings: SettingsSource;
   readonly settingsPanels: SettingsPanels;
   readonly coding: CodingConnectionsSource;
@@ -114,7 +111,6 @@ export function devMock(
     contexts: mockContexts(),
     organize: mockOrganize(),
     apps: mockApps(),
-    roles: mockRoles(),
     settings: mockSettings(),
     settingsPanels: mockSettingsPanels(),
     coding: mockCoding(),

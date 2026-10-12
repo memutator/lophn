@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useObservedSize } from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
@@ -37,8 +37,6 @@ import { ContextsScreen } from "./contexts/contexts-screen.tsx";
 import type { ContextsSource } from "./contexts/source.ts";
 import { AppsScreen } from "./apps/apps-screen.tsx";
 import type { AppsSource } from "./apps/source.ts";
-import { RolesScreen } from "./roles/roles-screen.tsx";
-import type { RolesSource } from "./roles/source.ts";
 import {
   type SettingsPanels,
   SettingsScreen,
@@ -76,12 +74,6 @@ export interface LophnSpaceProps {
   apps?: AppsSource;
   /** 그 앱의 앱 공간으로 간다. apps 화면의 열기와 팔레트의 앱 행이 쓴다. */
   onApp?: (app: string) => void;
-  /** roles 화면 통로. 없으면 roles는 준비 전 안내다. */
-  roles?: RolesSource;
-  /** roles 화면에서 처음 열 역할. */
-  initialRole?: string;
-  /** roles 화면에서 이 곳에 Operator를 붙이는 화면으로 연다. */
-  initialAttach?: { readonly kind: "project" | "app"; readonly id: string };
   /** settings 화면 통로. 없으면 settings는 준비 전 안내다. */
   settings?: SettingsSource;
   /** 전역 [Instructions] 편집기로 간다. settings 화면의 단추가 쓴다. */
@@ -96,7 +88,7 @@ export interface LophnSpaceProps {
 
 const EMPTY_CATALOG: Catalog = { projects: [], apps: [], contexts: [] };
 
-// lophn 공간. 왼쪽 sidebar의 일곱 형제 중 하나를 본문에 연다. 대화는 이 화면에 기대지 않는다.
+// lophn 공간. 왼쪽 sidebar의 여섯 형제 중 하나를 본문에 연다. 대화는 이 화면에 기대지 않는다.
 export function LophnSpace(
   {
     source,
@@ -114,9 +106,6 @@ export function LophnSpace(
     connected = 0,
     apps,
     onApp,
-    roles,
-    initialRole,
-    initialAttach,
     settings,
     onInstructions,
     coding,
@@ -177,8 +166,6 @@ export function LophnSpace(
   };
 
   const [catalog, setCatalog] = useState<Catalog>(EMPTY_CATALOG);
-  // roles 화면이 담당 범위의 이름을 읽는 통로. source가 같으면 같은 함수다.
-  const catalogOf = useCallback(() => source.catalog(), [source]);
   // 질문·approval 통로. 없으면(통로 없는 테스트) things-to-confirm은 준비 전 안내다.
   const requests = useRequests();
 
@@ -305,26 +292,6 @@ export function LophnSpace(
             )
             : current === "apps" && apps && onApp
             ? <AppsScreen source={apps} onOpen={onApp} />
-            : current === "roles" && roles
-            ? (
-              <RolesScreen
-                source={roles}
-                catalog={catalogOf}
-                initialRole={initialRole}
-                initialAttach={initialAttach}
-                connected={connected}
-                now={now}
-                onRead={(document, version) => {
-                  setCurrent("documents");
-                  setReading((last) => ({
-                    target: { document, version, section: null },
-                    count: (last?.count ?? 0) + 1,
-                  }));
-                }}
-                onConfirm={() => setCurrent("things-to-confirm")}
-                onApp={onApp}
-              />
-            )
             : current === "settings" && settings
             ? (
               <SettingsScreen

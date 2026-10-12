@@ -23,11 +23,7 @@ import type {
 } from "../../conversation/source.ts";
 import type { RequestSource } from "../lophn-space/things-to-confirm/source.ts";
 import type { ConnectionState, CoreSource } from "../connection/connection.ts";
-import {
-  DOC_NOTES,
-  DOC_REPORT,
-} from "../lophn-space/roles/testdata/fake-roles.ts";
-import { PROJECT_GROCERY } from "./ids.ts";
+import { DOC_NOTES, DOC_REPORT, PROJECT_GROCERY } from "./ids.ts";
 
 const MINUTE = 60 * 1000;
 

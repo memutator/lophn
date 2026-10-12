@@ -17,14 +17,13 @@ import {
   viewFilterOf,
 } from "./model.ts";
 
-Deno.test("shell/desktop#R28: lophn 공간은 projects, documents, contexts, apps, things-to-confirm, roles, settings 일곱 형제만 둔다", () => {
+Deno.test("shell/desktop#R28: lophn 공간은 projects, documents, contexts, apps, things-to-confirm, settings 여섯 형제만 둔다", () => {
   assertEquals([...LOPHN_SCREENS], [
     "projects",
     "documents",
     "contexts",
     "apps",
     "things-to-confirm",
-    "roles",
     "settings",
   ]);
 });

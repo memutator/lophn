@@ -55,7 +55,6 @@ import { closeTerminalTab, type TerminalDeps } from "../terminal/deps.ts";
 import { TerminalTab } from "../terminal/terminal-tab.tsx";
 import { TrackingStrip } from "./tracking/tracking.tsx";
 import type { TrackingSource } from "./tracking/source.ts";
-import { OperatorEntry, type OperatorEntrySource } from "./operator-entry.tsx";
 import { NoticeCard } from "./notice-card.tsx";
 import {
   DockSlot,
@@ -96,12 +95,6 @@ export interface WorkspaceProps {
   terminal?: TerminalDeps;
   /** 파일 추적 켜기 통로. 없으면 추적 안내 줄을 두지 않는다. */
   tracking?: TrackingSource;
-  /** 이 프로젝트에 붙은 Operator를 읽는 통로. 없으면 Operator 안내 줄을 두지 않는다. */
-  operators?: OperatorEntrySource;
-  /** roles 화면에서 이 프로젝트에 Operator를 붙이는 화면을 연다. */
-  onAttachOperator?: (project: string) => void;
-  /** roles 화면에서 붙은 Operator 하나를 연다. */
-  onOpenOperator?: (operator: string) => void;
   /** 앱 공간으로 연다. 없으면 패널을 못 여는 앱에는 안내 글만 둔다. */
   onOpenApp?: (app: string) => void;
 }
@@ -147,9 +140,6 @@ export function Workspace(
     terminal,
     editor,
     tracking,
-    operators,
-    onAttachOperator,
-    onOpenOperator,
     onOpenApp,
   }: WorkspaceProps,
 ) {
@@ -164,12 +154,10 @@ export function Workspace(
   });
   const [userChoseWidth, setUserChoseWidth] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
-  // 떠 있는 안내(추적 꺼짐·Operator·읽기 실패)를 닫은 상태. 상단 바의 안내 단추가 다시 연다.
+  // 떠 있는 안내(추적 꺼짐·읽기 실패)를 닫은 상태. 상단 바의 안내 단추가 다시 연다.
   const [noticesHidden, setNoticesHidden] = useState(false);
   const hideNotices = () => setNoticesHidden(true);
-  const hasNotices = loaded.failed || tracking !== undefined ||
-    (operators !== undefined && onAttachOperator !== undefined &&
-      onOpenOperator !== undefined);
+  const hasNotices = loaded.failed || tracking !== undefined;
   const [infoTab, setInfoTab] = useState<InfoTab>("info");
   // 대화 도크. 정보 패널 자리를 임시로 쓰고 닫으면 정보 패널이 돌아온다(desktop#R2, R29).
   const conversation = useConversation();
@@ -765,17 +753,6 @@ export function Workspace(
                         project={projectId}
                         source={tracking}
                         onTracking={() => void refreshDocuments()}
-                        onDismiss={hideNotices}
-                      />
-                    )
-                    : null}
-                  {operators && onAttachOperator && onOpenOperator
-                    ? (
-                      <OperatorEntry
-                        project={projectId}
-                        source={operators}
-                        onAttach={onAttachOperator}
-                        onOpen={onOpenOperator}
                         onDismiss={hideNotices}
                       />
                     )

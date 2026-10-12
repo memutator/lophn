@@ -300,6 +300,13 @@ import {
   withApprovalText,
 } from "./approval-text.ts";
 import { createHandoffBodyPreparer, withHandoffBody } from "./handoff-body.ts";
+import { createRewindStore } from "../../packages/lophn-agent/revert/mod.ts";
+import {
+  ledgerSnapshot,
+  REWIND_INSTALL_CONTEXT,
+  withRewindFiles,
+} from "./rewind-files.ts";
+import { projectRootOf } from "./rewind-root.ts";
 import { toolDocumentWorkers } from "./tool-documents.ts";
 import {
   type BodyPrepare,
@@ -552,7 +559,9 @@ async function open(
   const ledgerPath = `${root.path}/lophn.db`;
   // writer·reader가 import하는 팀 module. 문서 worker route를 서빙하는 reader는 항상 붙는다.
   const modules = withPlatformModule(
-    withInstructionReader(withDocumentsReader(options.teamModules ?? [])),
+    withInstructionReader(
+      withRewindReader(withDocumentsReader(options.teamModules ?? [])),
+    ),
   );
   const eventNames = await eventOperations(modules);
   // approvals·notifications는 contract ROUTES가 route를 고정하므로 team 조립 뒤에 한 번만 더한다.
@@ -923,6 +932,13 @@ async function open(
     await runtime.close();
     return appsControlCredential;
   }
+  // 되돌리기 설치가 건너뛴 경로를 결과에 반영하는 core 내부 machine 자격 기록. 기록이 없으면 writer가
+  // AmendRevertInstall을 거절해 복원하지 못한 파일이 복원됐다고 남으므로 기동을 여기서 멈춘다.
+  const rewindInstallCredential = await runtime.record(REWIND_INSTALL_CONTEXT);
+  if (!rewindInstallCredential.ok) {
+    await runtime.close();
+    return rewindInstallCredential;
+  }
   // trace export(observability#R17)의 ledger 경로와 blob 읽기 통로다. 계기 기록이 없다.
   const traceExportSecrets: TraceExportWriterDeps = {
     ledgerPath,
@@ -1192,47 +1208,55 @@ async function open(
       // 기다린다. login 세션은 처리기 메모리에만 있다.
       writer: withRevocationSweep(
         withProviderLogin(
-          withTraceExport(
-            withReleasePreparation(
-              withPlacementReservation(
-                withTermOccurrence(
-                  withApprovalText(
-                    withQuestionText(
-                      withHandoffBody(
-                        withMessageBody(
-                          runtime.writer,
-                          createMessageBodyPreparer({
+          withRewindFiles(
+            withTraceExport(
+              withReleasePreparation(
+                withPlacementReservation(
+                  withTermOccurrence(
+                    withApprovalText(
+                      withQuestionText(
+                        withHandoffBody(
+                          withMessageBody(
+                            runtime.writer,
+                            createMessageBodyPreparer({
+                              relay: () => bodyPrepare.current,
+                              // 알려진 secret 값도 pattern과 함께 가린다. 값을 다 모르는 동안은 막는다.
+                              known: () => runtime?.knownSecrets,
+                            }),
+                          ),
+                          createHandoffBodyPreparer({
                             relay: () => bodyPrepare.current,
-                            // 알려진 secret 값도 pattern과 함께 가린다. 값을 다 모르는 동안은 막는다.
                             known: () => runtime?.knownSecrets,
                           }),
                         ),
-                        createHandoffBodyPreparer({
+                        createQuestionTextPreparer({
                           relay: () => bodyPrepare.current,
-                          known: () => runtime?.knownSecrets,
                         }),
                       ),
-                      createQuestionTextPreparer({
+                      createApprovalTextPreparer({
                         relay: () => bodyPrepare.current,
+                        known: () => runtime?.knownSecrets,
                       }),
                     ),
-                    createApprovalTextPreparer({
-                      relay: () => bodyPrepare.current,
-                      known: () => runtime?.knownSecrets,
-                    }),
+                    (ctx, command, input) =>
+                      runtime!.readers.read(TERM_OCCURRENCE_ROUTE, ctx, {
+                        command,
+                        input,
+                      }),
                   ),
-                  (ctx, command, input) =>
-                    runtime!.readers.read(TERM_OCCURRENCE_ROUTE, ctx, {
-                      command,
-                      input,
-                    }),
+                  placementReservations,
                 ),
-                placementReservations,
+                appsControl.commands,
+                appsControl.grantChange,
               ),
-              appsControl.commands,
-              appsControl.grantChange,
+              traceExportSecrets,
             ),
-            traceExportSecrets,
+            {
+              snapshot: (read) => ledgerSnapshot(ledgerPath, read),
+              rootOf: projectRootOf,
+              store: createRewindStore(root.path),
+              relay: () => bodyPrepare.current,
+            },
           ),
         ),
         () => appsControl.connector.sweep(),
@@ -2917,6 +2941,13 @@ function withDocumentsReader(modules: readonly string[]): string[] {
 
 // LOPHN.md와 agent 정의 본문을 파일에서 읽는 ReadInstructionFile의 reader 등록도 항상 붙는다
 // (instruction-files.ts). 동기 file API는 reader Worker 안에서만 쓰므로 core가 정적으로 import하지 않는다.
+// session 되돌리기 읽기(rewind-reader.ts)의 reader 등록도 항상 붙는다. preview가 지금의 파일을 동기로 읽으므로
+// 동기 file API는 reader Worker 안에서만 쓰고 core가 정적으로 import하지 않는다.
+function withRewindReader(modules: readonly string[]): string[] {
+  const reader = new URL("./rewind-reader.ts", import.meta.url).href;
+  return modules.includes(reader) ? [...modules] : [...modules, reader];
+}
+
 function withInstructionReader(modules: readonly string[]): string[] {
   const reader = new URL("./instruction-files.ts", import.meta.url).href;
   return modules.includes(reader) ? [...modules] : [...modules, reader];

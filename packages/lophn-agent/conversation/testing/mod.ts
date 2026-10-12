@@ -57,6 +57,15 @@ export const OPERATIONS = [
   "SeedAcceptFailure",
   "SeedSummariesModel",
   "SeedUnpreparedBody",
+  "SeedFactMessage",
+  "RecordRewindFile",
+  "Rewind",
+  "UndoEdit",
+  "Redo",
+  "AmendRevertInstall",
+  "PreviewRewind",
+  "ListRewindCheckpoints",
+  "ListReverts",
   "CommandResult",
 ];
 

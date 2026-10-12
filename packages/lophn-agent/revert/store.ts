@@ -103,7 +103,7 @@ export function createRewindStore(dataRoot: string): RewindStore {
       if (sha256(content) !== key) {
         throw new Error("stored content does not match its key");
       }
-      return content;
+      return new Uint8Array(content);
     },
 
     async has(session, key) {

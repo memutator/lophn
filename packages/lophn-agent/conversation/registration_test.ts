@@ -16,12 +16,17 @@ import {
 } from "../harness/run-loop/mod.ts";
 import { modelSchemaSteps } from "../harness/model/mod.ts";
 import { toolsSchemaSteps } from "../harness/tools/mod.ts";
-import { revertSchemaSteps } from "../revert/mod.ts";
+import {
+  createRevertCommands,
+  createRevertReads,
+  revertSchemaSteps,
+} from "../revert/mod.ts";
 import {
   conversationSchemaSteps,
   createConversationCommands,
   createConversationReads,
   hasUnappliedSteering,
+  recordFactMessage,
 } from "./mod.ts";
 
 // 세션·메시지 ledger 테스트 등록. preset·assignment·run 표와 같은 wire에
@@ -98,6 +103,18 @@ const seedSummariesRoute = defineCommand({
   errors: ["conflict"],
 });
 
+// 다른 command가 같은 transaction에서 부르는 사실 메시지 기록(recordFactMessage)을 그대로 부른다.
+const seedFactRoute = defineCommand({
+  resource: "conversation-fixture",
+  method: "seed-fact",
+  name: "SeedFactMessage",
+  input: z.strictObject({ session: z.string(), text: z.string() }),
+  output: z.strictObject({ message: z.string() }),
+  compare: z.strictObject({}),
+  actors: ACTOR_KINDS,
+  errors: ["conflict", "forbidden", "not_found", "invalid_input"],
+});
+
 const failAcceptRoute = defineCommand({
   resource: "conversation-fixture",
   method: "fail-accept",
@@ -147,6 +164,21 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
         ),
   });
   const reads = createConversationReads();
+  // 되돌리기 command·읽기. 대화 쪽 효과는 기록만 하는 가짜이고 파일은 건드리지 않는다(messages_only만 쓴다).
+  const revertDeps = {
+    rootOf: () => {
+      throw new Error("the conversation world has no project folder");
+    },
+    appRevision: () => null,
+    effects: {
+      summaryOk: () => false,
+      cancelWaiting: () => ok({ questions: 0, approvals: 0 }),
+      resetReadState: () => ok(undefined),
+    },
+    recordFact: recordFactMessage,
+  };
+  const revertCommands = createRevertCommands(revertDeps);
+  const revertReads = createRevertReads(revertDeps);
   return {
     registerBlobRef: (tx, ctx, reference) =>
       registerMessageBodyRef(
@@ -209,6 +241,11 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
       commands.record,
       commands.apply,
       commands.assign,
+      revertCommands.record,
+      revertCommands.rewind,
+      revertCommands.undo,
+      revertCommands.redo,
+      revertCommands.amend,
     ],
     testCommands: [
       {
@@ -296,6 +333,18 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
         },
       },
       {
+        route: seedFactRoute,
+        handle(tx, ctx, input) {
+          const seeded = input as { session: string; text: string };
+          const recorded = recordFactMessage(tx, {
+            session: seeded.session,
+            text: seeded.text,
+            principal: ctx.principal,
+          });
+          return recorded.ok ? ok({ message: recorded.value }) : recorded;
+        },
+      },
+      {
         route: failAcceptRoute,
         handle(tx, _ctx, input) {
           const set = input as { fail: boolean };
@@ -317,6 +366,9 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
       reads.sessions,
       reads.messages,
       reads.compactRequests,
+      revertReads.preview,
+      revertReads.checkpoints,
+      revertReads.list,
     ],
   };
 }

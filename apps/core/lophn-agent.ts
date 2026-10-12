@@ -20,6 +20,7 @@ import {
   instructionPreview,
   instructionRead,
   questionCreated,
+  REVERT_EVENTS,
   runAccepted,
   runFinished,
   runStarted,
@@ -106,6 +107,7 @@ import {
   type MessageBodyEnvironment,
   messageBodyFields,
   messageBodyRead,
+  recordFactMessage,
   sessionSummaryRead,
 } from "../../packages/lophn-agent/conversation/mod.ts";
 import {
@@ -130,9 +132,11 @@ import {
   traceExportCommand,
 } from "../../packages/lophn-agent/observability/mod.ts";
 import {
-  createRecordRewindFile,
+  createRevertCommands,
+  createRevertReads,
   revertSchemaSteps,
 } from "../../packages/lophn-agent/revert/mod.ts";
+import { projectRootOf } from "./rewind-root.ts";
 import {
   createToolCommands,
   createToolReads,
@@ -446,9 +450,21 @@ const handoffReads = createHandoffReads({
   },
 });
 
-// session 되돌리기(concern revert). 지금 조립하는 것은 문서 tool이 쓰기 직전에 남기는 기록
-// RecordRewindFile뿐이다. checkpoint는 ReceiveMessage가, 기록 지움은 DeleteSession이 같은 Tx에서 한다.
-const recordRewindFile = createRecordRewindFile();
+// session 되돌리기(concern revert). 쓰기 직전 기록(RecordRewindFile), Rewind·UndoEdit·Redo, 설치 정정
+// (AmendRevertInstall)을 올린다. checkpoint는 ReceiveMessage가, 기록 지움은 DeleteSession이 같은 Tx에서 한다.
+// 파일 관측·준비·설치는 ledger transaction 밖의 일이라 command는 받은 준비로 판정만 한다. 그 흐름은 writer
+// queue 앞 처리기(rewind-files.ts)가 잇는다. 숨긴 구간의 대화 효과(RewindEffects)는 아직 조립하지 않아서
+// Rewind는 unavailable이다: 숨기지 못하는 rewind를 적용됐다고 하지 않는다. 앱 단계(CheckpointRevert·
+// FinishRevert)도 아직 올리지 않는다.
+const revertDeps = {
+  rootOf: projectRootOf,
+  appRevision: () => null,
+  recordFact: recordFactMessage,
+};
+const revertCommands = createRevertCommands(revertDeps);
+// 읽기는 파일을 읽는 preview 때문에 reader Worker의 별도 등록(rewind-reader.ts)이 서빙한다. 여기 정의는
+// core의 route 등록이고 core에서는 실행되지 않는다.
+const revertReads = createRevertReads(revertDeps);
 
 // run·session·독립 호출의 trace 조회와 export(concern observability). trace는 저장하지 않고
 // 조회 때 run·event·ModelCall·ToolCall·message 참조에서 조립한다. 쓰는 표가 없어 command·schema
@@ -927,7 +943,11 @@ export const lophnAgentDefinitions = {
     waitCommands.resolve,
     waitCommands.correct,
     waitCommands.recover,
-    recordRewindFile,
+    revertCommands.record,
+    revertCommands.rewind,
+    revertCommands.undo,
+    revertCommands.redo,
+    revertCommands.amend,
     traceExportCommand,
   ],
   reads: [
@@ -961,6 +981,9 @@ export const lophnAgentDefinitions = {
     questionReads.read,
     questionReads.list,
     traceReads.read,
+    revertReads.preview,
+    revertReads.checkpoints,
+    revertReads.list,
     instructionReadRoute(),
     instructionPreviewRoute(),
   ],
@@ -1346,7 +1369,20 @@ export function createEventRegistration(): EventRegistration {
       machineOnlyVisibility(runAccepted),
       machineOnlyVisibility(runStarted),
       machineOnlyVisibility(runFinished),
+      // 되돌리기 결과는 session을 보는 사람(shell)과 machine(observability·prompt 조립)이 읽는다. agent는
+      // 읽지 않는다: Undo는 사실 메시지로, 숨김 구간은 입력 조립으로 전해지고 event 자체는 필요 없다.
+      ...REVERT_EVENTS.map((event) => userAndMachineVisibility(event)),
     ],
+  };
+}
+
+function userAndMachineVisibility<D extends EventDefinition>(
+  event: D,
+): EventVisibilityDefinition<D> {
+  return {
+    event,
+    handle: (_snapshot, ctx) =>
+      ok(ctx.actor === "user" || ctx.actor === "machine"),
   };
 }
 

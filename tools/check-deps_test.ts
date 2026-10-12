@@ -260,6 +260,13 @@ test("protocol 순환 거절: 세 최상위", {
     'const load = () => import("../server/mod.ts");',
 }, ["protocol-cycle", "protocol-cycle", "protocol-cycle"]);
 
+test("protocol 순환은 제품 코드로만 센다", {
+  "packages/protocol/deno.json": { ...portable, name: "@lophn/protocol" },
+  "packages/protocol/apps/mod.ts": 'import "../events/mod.ts";',
+  "packages/protocol/events/mod.ts": "",
+  "packages/protocol/events/apps_test.ts": 'import "../apps/mod.ts";',
+}, []);
+
 // workspace 해석
 test("workspace 통과: glob·하위 exports·긴 member 이름·wildcard export", {
   "deno.json": {

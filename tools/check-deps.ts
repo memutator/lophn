@@ -173,7 +173,10 @@ export async function checkRepo(root: string): Promise<Violation[]> {
       }
       const from = protocolTop(file);
       const to = target ? protocolTop(target) : undefined;
-      if (from && to && from !== to) edges.push({ from, to, file, line });
+      // 순환은 제품 코드의 import로만 센다. test가 두 module을 같이 쓰는 것은 실행 순환이 아니다.
+      if (from && to && from !== to && !testCode) {
+        edges.push({ from, to, file, line });
+      }
       const targetPackage = target?.startsWith("packages/")
         ? target.split("/")[1]
         : undefined;

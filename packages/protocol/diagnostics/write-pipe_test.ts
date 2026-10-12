@@ -10,8 +10,8 @@ import {
   diagnosticsWriteResponseSchema,
 } from "./write.ts";
 import { PIPE_OPS } from "../storage/pipe-ops.ts";
-import { ROUTES } from "../server/registry.ts";
-import { routePath } from "../server/route.ts";
+import { ROUTES } from "../registry.ts";
+import { routePath } from "../base/route.ts";
 import {
   CONTROL_MAX_BYTES,
   encodeFrame,

@@ -1,6 +1,6 @@
 import { ERROR_CODES, type ErrorCode } from "../../base/mod.ts";
 import { z } from "zod";
-import { API_MAJOR } from "../base/limits.ts";
+import { API_MAJOR } from "./limits.ts";
 
 export const ACTOR_KINDS = [
   "user",

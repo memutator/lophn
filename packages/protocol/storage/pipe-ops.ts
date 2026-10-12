@@ -4,7 +4,7 @@ import {
   blobPurposeDefinitionSchema,
   preparedBlobSchema,
 } from "./blob.ts";
-import { defineWorker } from "../server/route.ts";
+import { defineWorker } from "../base/route.ts";
 import { redactionCheck } from "../base/redaction.ts";
 import {
   type Frame,

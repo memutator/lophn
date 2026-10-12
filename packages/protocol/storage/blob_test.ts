@@ -18,7 +18,7 @@ import {
   permanentBlobReferenceSchema,
   preparedBlobSchema,
 } from "./blob.ts";
-import { routePath } from "../server/route.ts";
+import { routePath } from "../base/route.ts";
 
 const hash = "a".repeat(64);
 const version = "ver_01arz3ndektsv4rrffq69g5fav";

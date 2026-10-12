@@ -1,9 +1,9 @@
 import { z } from "zod";
-import { idempotencyKeySchema, withReadCommon } from "../server/envelope.ts";
+import { idempotencyKeySchema, withReadCommon } from "../base/envelope.ts";
 import { defineEvent } from "../events/events.ts";
 import { idSchema } from "../base/ids.ts";
 import { blobRefRegistrationSchema } from "../storage/blob.ts";
-import { defineCommand, defineRead } from "../server/route.ts";
+import { defineCommand, defineRead } from "../base/route.ts";
 import { memoryLimitModeSchema } from "../supervision/supervision.ts";
 import { atSchema, seqSchema, sha256Schema } from "../base/values.ts";
 import { problemCodeSchema } from "./problem-codes.ts";

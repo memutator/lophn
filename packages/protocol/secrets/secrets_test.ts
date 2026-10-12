@@ -1,9 +1,9 @@
 import { assert, assertEquals } from "@std/assert";
 import { ERROR_CODES } from "../../base/mod.ts";
-import { commandRequestSchema } from "../server/envelope.ts";
+import { commandRequestSchema } from "../base/envelope.ts";
 import { eventEnvelopeSchema } from "../events/events.ts";
-import { routePath } from "../server/route.ts";
-import { EVENTS, ROUTES } from "../server/registry.ts";
+import { routePath } from "../base/route.ts";
+import { EVENTS, ROUTES } from "../registry.ts";
 import {
   listSecretsInputSchema,
   listSecretsOutputSchema,

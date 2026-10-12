@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ERROR_CODES, type Result } from "../../base/mod.ts";
-import { withReadCommon } from "../server/envelope.ts";
+import { withReadCommon } from "../base/envelope.ts";
 import { defineEvent } from "../events/events.ts";
 import { authenticatedContextSchema } from "../server/identity.ts";
 import type { Sql } from "../server/registration.ts";
@@ -9,7 +9,7 @@ import {
   defineRead,
   defineUpload,
   defineWorker,
-} from "../server/route.ts";
+} from "../base/route.ts";
 
 export const SECRET_PURPOSES = [
   "app_secret",

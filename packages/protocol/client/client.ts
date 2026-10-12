@@ -7,11 +7,8 @@ import {
 } from "../../base/mod.ts";
 import type { z } from "zod";
 import { errorBodySchema, errorCodeForStatus } from "../base/errors.ts";
-import {
-  type CommandRequest,
-  commandRequestSchema,
-} from "../server/envelope.ts";
-import { type CommandRoute, type Route, routePath } from "../server/route.ts";
+import { type CommandRequest, commandRequestSchema } from "../base/envelope.ts";
+import { type CommandRoute, type Route, routePath } from "../base/route.ts";
 
 export type FileBody = { bytes: Uint8Array; contentType: string | null };
 

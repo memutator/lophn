@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
-import { commandRequestSchema } from "../server/envelope.ts";
-import { routePath } from "../server/route.ts";
+import { commandRequestSchema } from "../base/envelope.ts";
+import { routePath } from "../base/route.ts";
 import { APP, AT, HASH, PRB, TKT } from "./ticket-fixtures.ts";
 import {
   EVIDENCE_KINDS,

@@ -1,9 +1,9 @@
 import { assert, assertEquals, assertThrows } from "@std/assert";
 import { z } from "zod";
 import { ERROR_CODES } from "../../base/mod.ts";
-import { commandRequestSchema } from "../server/envelope.ts";
+import { commandRequestSchema } from "../base/envelope.ts";
 import { eventEnvelopeSchema } from "../events/events.ts";
-import { routePath } from "../server/route.ts";
+import { routePath } from "../base/route.ts";
 import {
   applySettings,
   applySettingsInputSchema,

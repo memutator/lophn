@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { fingerprint } from "../../base/mod.ts";
 import { actorSchema } from "../base/actor.ts";
-import { withReadCommon } from "../server/envelope.ts";
+import { withReadCommon } from "../base/envelope.ts";
 import { defineEvent } from "../events/events.ts";
 import { idSchema } from "../base/ids.ts";
 import { jsonObjectSchema } from "../base/json-values.ts";
-import { defineCommand, defineRead } from "../server/route.ts";
+import { defineCommand, defineRead } from "../base/route.ts";
 import { atSchema, seqSchema, sha256Schema } from "../base/values.ts";
 
 // concern id는 최상위 또는 최상위/leaf다(domain-model platform/approvals).

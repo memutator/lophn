@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ACTOR_KINDS, type ActorKind } from "../server/route.ts";
+import { ACTOR_KINDS, type ActorKind } from "./route.ts";
 import { idSchema } from "./ids.ts";
 
 // actor 문자열의 모양만 정한다. 인증은 platform/identity의 몫이다.

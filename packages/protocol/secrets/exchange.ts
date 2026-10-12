@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { Result } from "../../base/mod.ts";
 import type { AuthenticatedContext } from "../server/identity.ts";
 import { definePort, type PortKey } from "../base/ports.ts";
-import { defineWorker } from "../server/route.ts";
+import { defineWorker } from "../base/route.ts";
 import {
   secretAdapterContextSchema,
   type SecretDestination,

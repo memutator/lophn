@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { withReadCommon } from "../server/envelope.ts";
+import { withReadCommon } from "../base/envelope.ts";
 import { defineEvent } from "../events/events.ts";
 import { idSchema } from "../base/ids.ts";
-import { defineCommand, defineRead } from "../server/route.ts";
+import { defineCommand, defineRead } from "../base/route.ts";
 import { seqSchema } from "../base/values.ts";
 import {
   acceptanceCheckInputSchema,

@@ -8,7 +8,7 @@ import {
   backupsGet,
   backupsList,
 } from "./backups.ts";
-import { routePath } from "../server/route.ts";
+import { routePath } from "../base/route.ts";
 
 const at = "2026-10-04T00:00:00.000Z";
 const hash = "ab".padEnd(64, "c");

@@ -1,7 +1,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { canonicalize, ERROR_CODES, fingerprint } from "../../base/mod.ts";
 import { eventEnvelopeSchema } from "../events/events.ts";
-import { routePath } from "../server/route.ts";
+import { routePath } from "../base/route.ts";
 import {
   APPROVAL_EVENTS,
   APPROVAL_ROUTES,

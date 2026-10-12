@@ -5,7 +5,7 @@ function unique<T>(values: readonly T[]): boolean {
   return new Set(values).size === values.length;
 }
 
-import { defineMemory } from "../server/route.ts";
+import { defineMemory } from "../base/route.ts";
 import {
   actorSchema,
   APP_CALL_DEPTH_LIMIT,

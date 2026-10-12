@@ -1,10 +1,10 @@
 import { z } from "zod";
 import { ERROR_CODES } from "../../base/mod.ts";
 import { defineDecision } from "../server/confirmation-handle.ts";
-import { withReadCommon } from "../server/envelope.ts";
+import { withReadCommon } from "../base/envelope.ts";
 import { defineEvent } from "../events/events.ts";
 import { idSchema } from "../base/ids.ts";
-import { defineCommand, defineMemory, defineRead } from "../server/route.ts";
+import { defineCommand, defineMemory, defineRead } from "../base/route.ts";
 import { seqSchema, sha256Schema } from "../base/values.ts";
 
 export const connectionIdSchema = idSchema("cac");

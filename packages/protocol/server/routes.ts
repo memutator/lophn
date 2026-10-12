@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { actorSchema } from "../base/actor.ts";
-import { idempotencyKeySchema, withReadCommon } from "./envelope.ts";
+import { idempotencyKeySchema, withReadCommon } from "../base/envelope.ts";
 import {
   credentialConditionsSchema,
   credentialScopeSchema,
 } from "./identity.ts";
-import { ACTOR_KINDS, defineRead } from "./route.ts";
+import { ACTOR_KINDS, defineRead } from "../base/route.ts";
 import { atSchema, seqSchema, sha256Schema } from "../base/values.ts";
 
 export const healthObservationSchema = z.object({

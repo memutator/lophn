@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { withReadCommon } from "../server/envelope.ts";
+import { withReadCommon } from "../base/envelope.ts";
 import { defineEvent, eventTypeSchema } from "../events/events.ts";
 import { idSchema } from "../base/ids.ts";
-import { defineCommand, defineMemory, defineRead } from "../server/route.ts";
+import { defineCommand, defineMemory, defineRead } from "../base/route.ts";
 import { atSchema, seqSchema } from "../base/values.ts";
 
 export const notificationSchema = z.object({

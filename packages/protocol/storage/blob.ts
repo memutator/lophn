@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
-import { defineRead } from "../server/route.ts";
+import { defineRead } from "../base/route.ts";
 import { seqSchema, sha256Schema } from "../base/values.ts";
 
 export const BLOB_PREPARE_MAX_BYTES = 1024 * 1024 * 1024;

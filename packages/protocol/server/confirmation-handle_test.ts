@@ -10,13 +10,13 @@ import {
   confirmationRefSchema,
   defineDecision,
 } from "./confirmation-handle.ts";
-import { commandRequestSchema } from "./envelope.ts";
+import { commandRequestSchema } from "../base/envelope.ts";
 import {
   defineCommand,
   defineFile,
   defineRead,
   defineWorker,
-} from "./route.ts";
+} from "../base/route.ts";
 
 const REF = "A".repeat(43);
 const HASH = "ab".repeat(32);

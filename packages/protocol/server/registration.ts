@@ -9,7 +9,7 @@ import type {
 import type { EventDefinition, EventEnvelopeFor } from "../events/events.ts";
 import type { IdPrefix } from "../base/ids.ts";
 import type { PortKey } from "../base/ports.ts";
-import type { CommandRoute, ReadRoute } from "./route.ts";
+import type { CommandRoute, ReadRoute } from "../base/route.ts";
 
 export type SqlParam = null | number | bigint | string | Uint8Array;
 export type SqlParams = readonly SqlParam[];

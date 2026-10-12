@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { withReadCommon } from "../server/envelope.ts";
-import { ACTOR_KINDS, defineRead } from "../server/route.ts";
+import { withReadCommon } from "../base/envelope.ts";
+import { ACTOR_KINDS, defineRead } from "../base/route.ts";
 import { redactionResultSchema } from "../base/redaction.ts";
 import { atSchema } from "../base/values.ts";
 

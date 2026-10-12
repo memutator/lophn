@@ -6,7 +6,7 @@ import {
   diagnosticsCheck,
   diagnosticsList,
 } from "./diagnostics.ts";
-import { routePath } from "../server/route.ts";
+import { routePath } from "../base/route.ts";
 
 const at = "2026-10-04T00:00:00.000Z";
 const meta = { as_of_seq: "9", next_cursor: null };

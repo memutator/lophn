@@ -13,7 +13,7 @@ import {
   type Tx,
 } from "../server/mod.ts";
 import { eventEnvelopeSchema } from "../events/events.ts";
-import { routePath } from "../server/route.ts";
+import { routePath } from "../base/route.ts";
 import {
   appArchive,
   appArchived,

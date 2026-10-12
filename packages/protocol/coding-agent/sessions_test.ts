@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
-import { commandRequestSchema } from "../server/envelope.ts";
-import { routePath } from "../server/route.ts";
+import { commandRequestSchema } from "../base/envelope.ts";
+import { routePath } from "../base/route.ts";
 import { type At, atSchema } from "../base/values.ts";
 import { connectionPrincipal } from "./connections.ts";
 import {

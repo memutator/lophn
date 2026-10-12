@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineCommand, defineRead } from "../server/route.ts";
+import { defineCommand, defineRead } from "../base/route.ts";
 import { ID_PREFIXES, type IdPrefix, idSchema } from "../base/ids.ts";
 import { atSchema, seqSchema } from "../base/values.ts";
 import { actorSchema } from "../base/actor.ts";
@@ -7,7 +7,7 @@ import {
   EVENT_BATCH_MAX_BYTES,
   EVENT_BATCH_MAX_COUNT,
 } from "../base/limits.ts";
-import { withReadCommon } from "../server/envelope.ts";
+import { withReadCommon } from "../base/envelope.ts";
 
 // 소유 concern이 등록하는 `<Entity><과거형 동사>` 이름(domain-model platform/ledger).
 const EVENT_TYPE = /^[A-Z][A-Za-z0-9]*$/;

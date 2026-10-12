@@ -26,7 +26,7 @@ export {
   readMetaSchema,
   type ReadOutput,
   withReadCommon,
-} from "./envelope.ts";
+} from "../base/envelope.ts";
 export {
   ERROR_HTTP_STATUS,
   type ErrorBody,
@@ -74,7 +74,7 @@ export {
   UPLOAD_INPUT_HEADER,
   type UploadRoute,
   type WorkerRoute,
-} from "./route.ts";
+} from "../base/route.ts";
 export {
   ARCHIVE_STATES,
   type ArchiveState,
@@ -189,7 +189,7 @@ export {
   platformHealth,
   platformStatus,
 } from "./routes.ts";
-export { EVENTS, ROUTES } from "./registry.ts";
+export { EVENTS, ROUTES } from "../registry.ts";
 export {
   agentCredentialEndSchema,
   type AgentCredentialRequest,

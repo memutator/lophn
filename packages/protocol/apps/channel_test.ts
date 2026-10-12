@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { canonicalize } from "@lophn/base";
-import { routePath } from "../server/route.ts";
+import { routePath } from "../base/route.ts";
 import {
   appCallDepthAllowed,
   appCallOriginSchema,

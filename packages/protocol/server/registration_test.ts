@@ -6,7 +6,7 @@ import type {
   BlobRefRegistration,
   PermanentBlobReference,
 } from "../storage/blob.ts";
-import type { CommandRequest } from "./envelope.ts";
+import type { CommandRequest } from "../base/envelope.ts";
 import { definePort } from "../base/ports.ts";
 import type {
   CommandDefinition,
@@ -16,7 +16,7 @@ import type {
   Sql,
   Tx,
 } from "./registration.ts";
-import { defineCommand, defineRead } from "./route.ts";
+import { defineCommand, defineRead } from "../base/route.ts";
 
 const route = defineCommand({
   resource: "documents",

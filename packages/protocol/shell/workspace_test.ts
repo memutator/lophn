@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { ERROR_CODES } from "../../base/mod.ts";
-import { routePath } from "../server/route.ts";
+import { routePath } from "../base/route.ts";
 import { ROUTES } from "./mod.ts";
 import {
   appViewSchema,

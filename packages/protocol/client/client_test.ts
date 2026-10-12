@@ -6,7 +6,7 @@ import {
   defineFile,
   defineMemory,
   defineRead,
-} from "../server/route.ts";
+} from "../base/route.ts";
 
 const command = defineCommand({
   resource: "documents",

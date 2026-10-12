@@ -1,7 +1,7 @@
 import { assert, assertEquals, assertThrows } from "@std/assert";
 import { z } from "zod";
 import { nextFromSeq } from "../../base/mod.ts";
-import { commandRequestSchema, readCommonSchema } from "../server/envelope.ts";
+import { commandRequestSchema, readCommonSchema } from "../base/envelope.ts";
 import {
   advanceSubscriberCursor,
   advanceSubscriberCursorCompareSchema,
@@ -11,7 +11,7 @@ import {
   eventsList,
   reactionKeySchema,
 } from "./events.ts";
-import { routePath } from "../server/route.ts";
+import { routePath } from "../base/route.ts";
 
 const DOC = "doc_01h455vb4pex5v6nkc6gd5fdw1";
 const RUN = "run_01h455vb4pex5v6nkc6gd5fdw1";

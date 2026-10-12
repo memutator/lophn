@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { withReadCommon } from "../server/envelope.ts";
-import { ACTOR_KINDS, type ActorKind, defineRead } from "../server/route.ts";
+import { withReadCommon } from "../base/envelope.ts";
+import { ACTOR_KINDS, type ActorKind, defineRead } from "../base/route.ts";
 import { atSchema, seqSchema, sha256Schema } from "../base/values.ts";
 
 // backup은 coding agent가 읽지 못한다(coding-agent/mcp-server#R30).

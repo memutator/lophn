@@ -14,7 +14,7 @@ import {
   type RedactionSource,
 } from "../../base/redaction/mod.ts";
 import { definePort } from "./ports.ts";
-import { defineWorker } from "../server/route.ts";
+import { defineWorker } from "./route.ts";
 import { sha256Schema } from "./values.ts";
 
 // 한도·모양의 정의는 base/redaction에 있다. 아래 schema는 그 모양을 검사한다.

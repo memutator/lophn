@@ -2,11 +2,11 @@ import { z } from "zod";
 import {
   IDEMPOTENCY_KEY_MAX_BYTES,
   IDEMPOTENCY_KEY_MIN_BYTES,
-} from "../base/limits.ts";
-import { runIdSchema } from "../base/ids.ts";
-import { seqSchema } from "../base/values.ts";
+} from "./limits.ts";
+import { runIdSchema } from "./ids.ts";
+import { seqSchema } from "./values.ts";
 import type { CommandRoute, ReadRoute } from "./route.ts";
-import { confirmationRefSchema } from "./confirmation-handle.ts";
+import { confirmationRefSchema } from "../server/confirmation-handle.ts";
 
 const encoder = new TextEncoder();
 
